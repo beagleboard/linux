@@ -55,30 +55,34 @@ static struct of_device_id w1_gpio_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, w1_gpio_dt_ids);
 
-static int w1_gpio_probe_dt(struct platform_device *pdev)
+static struct w1_gpio_platform_data *
+w1_gpio_probe_dt(struct platform_device *pdev)
 {
-	struct w1_gpio_platform_data *pdata = pdev->dev.platform_data;
+	struct w1_gpio_platform_data *pdata;
 	struct device_node *np = pdev->dev.of_node;
+
+	if (!np)
+		return ERR_PTR(-ENOENT);
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	if (of_get_property(np, "linux,open-drain", NULL))
 		pdata->is_open_drain = 1;
 
 	pdata->pin = of_get_gpio(np, 0);
 	pdata->ext_pullup_enable_pin = of_get_gpio(np, 1);
-	pdev->dev.platform_data = pdata;
 
-	return 0;
+	return pdata;
 }
 
 #else
 
-static inline int w1_gpio_probe_dt(struct platform_device *pdev)
+static inline struct w1_gpio_platform_data *
+w1_gpio_probe_dt(struct platform_device *pdev)
 {
-	return -ENOSYS;
+	return NULL;
 }
 
 #endif
@@ -94,19 +98,17 @@ static int w1_gpio_probe(struct platform_device *pdev)
 	if (IS_ERR(pinctrl))
 		dev_warn(&pdev->dev, "unable to select pin group\n");
 
-	if (of_have_populated_dt()) {
-		err = w1_gpio_probe_dt(pdev);
-		if (err < 0) {
-			dev_err(&pdev->dev, "Failed to parse DT\n");
-			return err;
-		}
-	}
-
-	pdata = pdev->dev.platform_data;
+	pdata = dev_get_platdata(&pdev->dev);
+	if (!pdata)
+		pdata = w1_gpio_probe_dt(pdev);
 
 	if (!pdata) {
 		dev_err(&pdev->dev, "No configuration data\n");
 		return -ENXIO;
+	} else if (IS_ERR(pdata)) {
+		err = PTR_ERR(pdata);
+		dev_err(&pdev->dev, "Failed to parse DT\n");
+		return err;
 	}
 
 	master = kzalloc(sizeof(struct w1_bus_master), GFP_KERNEL);
@@ -172,7 +174,7 @@ static int w1_gpio_probe(struct platform_device *pdev)
 static int w1_gpio_remove(struct platform_device *pdev)
 {
 	struct w1_bus_master *master = platform_get_drvdata(pdev);
-	struct w1_gpio_platform_data *pdata = pdev->dev.platform_data;
+	const struct w1_gpio_platform_data *pdata = master->data;
 
 	if (pdata->enable_external_pullup)
 		pdata->enable_external_pullup(0);
@@ -190,7 +192,9 @@ static int w1_gpio_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int w1_gpio_suspend(struct device *dev)
 {
-	const struct w1_gpio_platform_data *pdata = dev_get_platdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct w1_bus_master *master = platform_get_drvdata(pdev);
+	const struct w1_gpio_platform_data *pdata = master->data;
 
 	if (pdata->enable_external_pullup)
 		pdata->enable_external_pullup(0);
@@ -200,7 +204,9 @@ static int w1_gpio_suspend(struct device *dev)
 
 static int w1_gpio_resume(struct device *dev)
 {
-	const struct w1_gpio_platform_data *pdata = dev_get_platdata(dev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct w1_bus_master *master = platform_get_drvdata(pdev);
+	const struct w1_gpio_platform_data *pdata = master->data;
 
 	if (pdata->enable_external_pullup)
 		pdata->enable_external_pullup(1);
