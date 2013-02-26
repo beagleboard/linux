@@ -527,6 +527,7 @@ static bool beaglebone_spi1_free = 1;
 static bool beaglebone_w1gpio_free = 1;
 static bool beaglebone_skip_mmc0_init = 0;
 static bool beaglebone_wl12xx = 0;
+static bool beaglebone_wl1273 = 0;
 
 #define GP_EVM_REV_IS_1_0		0x1
 #define GP_EVM_REV_IS_1_0A		0x1
@@ -1865,6 +1866,13 @@ struct wl12xx_platform_data beaglebone_wlan_data = {
 	.board_ref_clock  = WL12XX_REFCLOCK_38_XTAL, /* 38.4Mhz */
 };
 
+struct wl12xx_platform_data beaglebone_wlan5_data = {
+	.wlan_enable_gpio = BEAGLEBONE_WLAN_PMENA_GPIO,
+	.bt_enable_gpio   = BEAGLEBONE_BT_PMENA_GPIO,
+	.irq = OMAP_GPIO_IRQ(BEAGLEBONE_WLAN_IRQ_GPIO),
+	.board_ref_clock  = WL12XX_REFCLOCK_26, 
+};
+
 #define AM335XEVM_WLAN_PMENA_GPIO	GPIO_TO_PIN(1, 30)
 #define AM335XEVM_WLAN_IRQ_GPIO		GPIO_TO_PIN(3, 17)
 
@@ -2956,6 +2964,50 @@ out:
 	return;
 }
 
+static void beaglebone_wl1273_init(int evm_id, int profile)
+{
+	struct device *dev;
+	struct omap_mmc_platform_data *pdata;
+	int ret;
+
+	if (wl12xx_set_platform_data(&beaglebone_wlan5_data))
+	{
+	    pr_err("%s: wl12xx error setting platform data\n", __FUNCTION__);
+	}
+
+	/* Problem: this device is not available until after hsmmc_init() is called */
+	dev = am335x_mmc[1].dev;
+	if (!dev) {
+	    	pr_err("%s: wl12xx MMC initalization failed\n", __FUNCTION__);
+		goto out;
+	}
+
+	pdata = dev->platform_data;
+	if (!pdata) {
+	    	pr_err("%s: wl12xx MMC platform data not set\n", __FUNCTION__);
+		goto out;
+	}
+
+	ret = gpio_request_one(beaglebone_wlan_data.wlan_enable_gpio,
+	    GPIOF_OUT_INIT_LOW, "wlan_en");
+	if (ret) 
+	{
+	    pr_err("%s: Error requesting WLAN enable\n", __FUNCTION__);
+	    goto out;
+	}
+
+	/* configure pin mux for GPIO, BT UART */
+	setup_pin_mux(beaglebone_wl12xx_pin_mux);
+
+	/* turn on bluetooth */
+	wl12xx_bluetooth_enable(&beaglebone_wlan_data);
+
+	/* install callback to control WLAN_EN  */
+	pdata->slots[0].set_power = beaglebone_wl12xx_set_power;
+out:
+	return;
+}
+
 static const char* cape_pins[] = {
 /*
   From SRM RevA5.0.1:
@@ -3529,7 +3581,7 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 #define CLKOUT2DIV_1    (0)
 #define CLKOUT2ENV      (1 << 7)
 
-	if (!strncmp("BB-BONE-WIFI-01", cape_config.partnumber, 15)) {
+	if (!strncmp("BB-BONE-WIFI-0", cape_config.partnumber, 14)) {
 
 		struct clk *ck_32;
 		void __iomem *base;
@@ -3554,7 +3606,12 @@ static void beaglebone_cape_setup(struct memory_accessor *mem_acc, void *context
 			clk_enable(ck_32);
 
 			mmc1_wl12xx_init(DEV_ON_BASEBOARD, PROFILE_NONE);
-			beaglebone_wl12xx = 1;
+
+			if (!strncmp("BB-BONE-WIFI-03", cape_config.partnumber, 15) || !strncmp("BB-BONE-WIFI-04", cape_config.partnumber, 15)) {
+				beaglebone_wl1273 = 1;
+			} else {
+				beaglebone_wl12xx = 1;
+			}
 		}
 	}
 
@@ -3594,6 +3651,9 @@ out2:
 		}
 		if(beaglebone_wl12xx == 1) {
 			beaglebone_wl12xx_init(DEV_ON_BASEBOARD, PROFILE_NONE);
+		}
+		if(beaglebone_wl1273 == 1) {
+			beaglebone_wl1273_init(DEV_ON_BASEBOARD, PROFILE_NONE);
 		}
 	}
 }
