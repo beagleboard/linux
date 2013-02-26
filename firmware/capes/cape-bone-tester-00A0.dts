@@ -1,0 +1,417 @@
+/*
+ * Copyright (C) 2013 CircuitCo
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-TESTER";
+	version = "00A0";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			bone_tester_none_gpio_pins: pinmux_bone_tester_none_gpio_pins {
+				pinctrl-single,pins = <
+					/* nothing */
+				>;
+			};
+			bone_tester_input_gpio_pins: pinmux_bone_tester_input_gpio_pins {
+				pinctrl-single,pins = <
+					/* P8 connector on the bone */
+					/* P3 - P46 pins, B_A3-B_A46, INPUT | PULLDIS | MODE7 */
+					0x018 0x2f /*  3 GPIO1_6    gpmc_ad6.gpio1[6]      */
+					0x01C 0x2f /*  4 GPIO1_7    gpmc_ad7.gpio1[7]      */
+					0x008 0x2f /*  5 GPIO1_2    gpmc_ad2.gpio1[2]      */
+					0x00C 0x2f /*  6 GPIO1_3    gpmc_ad3.gpio1[3]      */
+					0x090 0x2f /*  7 TIMER4     gpmc_advn_ale.gpio2[2] */
+					0x094 0x2f /*  8 TIMER7     gpmc_oen_ren.gpio2[3]  */
+					0x09C 0x2f /*  9 TIMER5     gpmc_ben0_cle.gpio2[5] */
+					0x098 0x2f /* 10 TIMER6     gpmc_wen.gpio2[4]      */
+					0x034 0x2f /* 11 GPIO1_13   gpmc_ad13.gpio1[13]    */
+					0x030 0x2f /* 12 GPIO1_12   gpmc_ad12.gpio1[12]    */
+					0x024 0x2f /* 13 EHRPWM2B   gpmc_ad9 .gpio0[23]    */
+					0x028 0x2f /* 14 GPIO0_26   gpmc_ad10.gpio0[26]    */
+					0x03C 0x2f /* 15 GPIO1_15   gpmc_ad15.gpio1[15]    */
+					0x038 0x2f /* 16 GPIO1_14   gpmc_ad14.gpio1[14]    */
+					0x02C 0x2f /* 17 GPIO0_27   gpmc_ad11.gpio0[27]    */
+					0x08C 0x2f /* 18 GPIO2_1    gpmc_clk .gpio2[1]     */
+					0x020 0x2f /* 19 EHRPWM2A   gpmc_ad8 .gpio0[22]    */
+					0x084 0x2f /* 20 GPIO1_31   gpmc_csn2.gpio1[31]    */
+					0x080 0x2f /* 21 GPIO1_30   gpmc_csn1.gpio1[30]    */
+					0x014 0x2f /* 22 GPIO1_5    gpmc_ad5 .gpio1[5]     */
+					0x010 0x2f /* 23 GPIO1_4    gpmc_ad4 .gpio1[4]     */
+					0x004 0x2f /* 24 GPIO1_1    gpmc_ad1 .gpio1[1]     */
+					0x000 0x2f /* 25 GPIO1_0    gpmc_ad0 .gpio1[0]     */
+					0x07C 0x2f /* 26 GPIO1_29   gpmc_csn0.gpio1[29]    */
+					0x0E0 0x2f /* 27 GPIO2_22   lcd_vsync.gpio2[22]    */
+					0x0E8 0x2f /* 28 GPIO2_24   lcd_pclk .gpio2[24]    */
+					0x0E4 0x2f /* 29 GPIO2_23   lcd_hsync.gpio2[23]    */
+					0x0EC 0x2f /* 30 GPIO2_25   lcd_ac_bias_en.gpio2[25] */
+					0x0D8 0x2f /* 31 UART5_CTSN lcd_data14.gpio0[10]   */
+					0x0DC 0x2f /* 32 UART5_RTSN lcd_data15.gpio0[11]   */
+					0x0D4 0x2f /* 33 UART4_RTSN lcd_data13.gpio0[9]    */
+					0x0CC 0x2f /* 34 UART3_RTSN lcd_data11.gpio2[17]   */
+					0x0D0 0x2f /* 35 UART4_CTSN lcd_data12.gpio0[8]    */
+					0x0C8 0x2f /* 36 UART3_CTSN lcd_data10.gpio2[16]   */
+					0x0C0 0x2f /* 37 UART5_TXD  lcd_data8.gpio2[14]    */
+					0x0C4 0x2f /* 38 UART5_RXD  lcd_data9.gpio2[15]    */
+					0x0B8 0x2f /* 39 GPIO2_12   lcd_data6.gpio2[12]    */
+					0x0BC 0x2f /* 40 GPIO2_13   lcd_data7.gpio2[13]    */
+					0x0B0 0x2f /* 41 GPIO2_10   lcd_data4.gpio2[10]    */
+					0x0B4 0x2f /* 42 GPIO2_11   lcd_data5.gpio2[11]    */
+					0x0A8 0x2f /* 43 GPIO2_8    lcd_data2.gpio2[8]     */
+					0x0AC 0x2f /* 44 GPIO2_9    lcd_data3.gpio2[9]     */
+					0x0A0 0x2f /* 45 GPIO2_6    lcd_data0.gpio2[6]     */
+					0x0A4 0x2f /* 46 GPIO2_7    lcd_data1.gpio2[7]     */
+
+					/* P9 connector on the bone */
+					/* B_B0-B_B19, INPUT | PULLDIS | MODE7 */
+					0x070 0x2f /* 11 UART4_RXD  gpmc_wait0.gpio0[30]   */
+					0x078 0x2f /* 12 GPIO1_28   gpmc_be1n.gpio1[28]    */
+					0x074 0x2f /* 13 UART4_TXD  gpmc_wpn.gpio0[31]     */
+					0x048 0x2f /* 14 EHRPWM1A   gpmc_a2.gpio1[18]      */
+					0x040 0x2f /* 15 GPIO1_16   gpmc_a0.gpio1[16]      */
+					0x04C 0x2f /* 16 EHRPWM1B   gpmc_a3.gpio1[19]      */
+
+					/* err, those two are used for I2C2 on the beaglebone */
+					/* you should boot with I2C2 disabled on the tester */
+					0x17C 0x2f /* 19 I2C2_SCL   uart1_rtsn.gpio0[13]   */
+					0x178 0x2f /* 20 I2C2_SDA   uart1_ctsn.gpio0[12]   */
+
+					0x154 0x2f /* 21 UART2_TXD  spi0_d0.gpio0[3]       */
+					0x150 0x2f /* 22 UART2_RXD  spi0_sclk.gpio0[2]     */
+					0x044 0x2f /* 23 GPIO1_17   gpmc_a1.gpio1[17]      */
+					0x184 0x2f /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
+					0x1AC 0x2f /* 25 GPIO3_21   mcasp0_ahclkx.gpio3[21]*/
+					0x180 0x2f /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
+					0x1A4 0x2f /* 27 GPIO3_19   mcasp0_fsr.gpio3[19]   */
+					0x19C 0x2f /* 28 SPI1_CS0   mcasp0_ahclkr.gpio3[17]*/
+					0x198 0x2f /* 30 SPI1_D1    mcasp0_axr0.gpio3[16]  */
+					0x190 0x2f /* 31 SPI1_SCLK  mcasp0_aclkx.gpio3[14] */
+					0x1B4 0x2f /* 41 CLKOUT2    xdma_event_intr1.gpio0[20]*/
+					0x164 0x2f /* 42 GPIO0_7    eCAP0_in_PWM0_out.gpio0[7]*/
+				>;
+			};
+
+			bone_tester_output_gpio_pins: pinmux_bone_tester_output_gpio_pins {
+				pinctrl-single,pins = <
+					/* P8 connector on the bone */
+					/* P3 - P46 pins, B_A3-B_A46, OUTPUT | MODE7 */
+					0x018 0x07 /*  3 GPIO1_6    gpmc_ad6.gpio1[6]      */
+					0x01C 0x07 /*  4 GPIO1_7    gpmc_ad7.gpio1[7]      */
+					0x008 0x07 /*  5 GPIO1_2    gpmc_ad2.gpio1[2]      */
+					0x00C 0x07 /*  6 GPIO1_3    gpmc_ad3.gpio1[3]      */
+					0x090 0x07 /*  7 TIMER4     gpmc_advn_ale.gpio2[2] */
+					0x094 0x07 /*  8 TIMER7     gpmc_oen_ren.gpio2[3]  */
+					0x09C 0x07 /*  9 TIMER5     gpmc_ben0_cle.gpio2[5] */
+					0x098 0x07 /* 10 TIMER6     gpmc_wen.gpio2[4]      */
+					0x034 0x07 /* 11 GPIO1_13   gpmc_ad13.gpio1[13]    */
+					0x030 0x07 /* 12 GPIO1_12   gpmc_ad12.gpio1[12]    */
+					0x024 0x07 /* 13 EHRPWM2B   gpmc_ad9 .gpio0[23]    */
+					0x028 0x07 /* 14 GPIO0_26   gpmc_ad10.gpio0[26]    */
+					0x03C 0x07 /* 15 GPIO1_15   gpmc_ad15.gpio1[15]    */
+					0x038 0x07 /* 16 GPIO1_14   gpmc_ad14.gpio1[14]    */
+					0x02C 0x07 /* 17 GPIO0_27   gpmc_ad11.gpio0[27]    */
+					0x08C 0x07 /* 18 GPIO2_1    gpmc_clk .gpio2[1]     */
+					0x020 0x07 /* 19 EHRPWM2A   gpmc_ad8 .gpio0[22]    */
+					0x084 0x07 /* 20 GPIO1_31   gpmc_csn2.gpio1[31]    */
+					0x080 0x07 /* 21 GPIO1_30   gpmc_csn1.gpio1[30]    */
+					0x014 0x07 /* 22 GPIO1_5    gpmc_ad5 .gpio1[5]     */
+					0x010 0x07 /* 23 GPIO1_4    gpmc_ad4 .gpio1[4]     */
+					0x004 0x07 /* 24 GPIO1_1    gpmc_ad1 .gpio1[1]     */
+					0x000 0x07 /* 25 GPIO1_0    gpmc_ad0 .gpio1[0]     */
+					0x07C 0x07 /* 26 GPIO1_29   gpmc_csn0.gpio1[29]    */
+					0x0E0 0x07 /* 27 GPIO2_22   lcd_vsync.gpio2[22]    */
+					0x0E8 0x07 /* 28 GPIO2_24   lcd_pclk .gpio2[24]    */
+					0x0E4 0x07 /* 29 GPIO2_23   lcd_hsync.gpio2[23]    */
+					0x0EC 0x07 /* 30 GPIO2_25   lcd_ac_bias_en.gpio2[25] */
+					0x0D8 0x07 /* 31 UART5_CTSN lcd_data14.gpio0[10]   */
+					0x0DC 0x07 /* 32 UART5_RTSN lcd_data15.gpio0[11]   */
+					0x0D4 0x07 /* 33 UART4_RTSN lcd_data13.gpio0[9]    */
+					0x0CC 0x07 /* 34 UART3_RTSN lcd_data11.gpio2[17]   */
+					0x0D0 0x07 /* 35 UART4_CTSN lcd_data12.gpio0[8]    */
+					0x0C8 0x07 /* 36 UART3_CTSN lcd_data10.gpio2[16]   */
+					0x0C0 0x07 /* 37 UART5_TXD  lcd_data8.gpio2[14]    */
+					0x0C4 0x07 /* 38 UART5_RXD  lcd_data9.gpio2[15]    */
+					0x0B8 0x07 /* 39 GPIO2_12   lcd_data6.gpio2[12]    */
+					0x0BC 0x07 /* 40 GPIO2_13   lcd_data7.gpio2[13]    */
+					0x0B0 0x07 /* 41 GPIO2_10   lcd_data4.gpio2[10]    */
+					0x0B4 0x07 /* 42 GPIO2_11   lcd_data5.gpio2[11]    */
+					0x0A8 0x07 /* 43 GPIO2_8    lcd_data2.gpio2[8]     */
+					0x0AC 0x07 /* 44 GPIO2_9    lcd_data3.gpio2[9]     */
+					0x0A0 0x07 /* 45 GPIO2_6    lcd_data0.gpio2[6]     */
+					0x0A4 0x07 /* 46 GPIO2_7    lcd_data1.gpio2[7]     */
+
+					/* P9 connector on the bone */
+					/* B_B0-B_B19, INPUT | PULLDIS | MODE7 */
+					0x070 0x07 /* 11 UART4_RXD  gpmc_wait0.gpio0[30]   */
+					0x078 0x07 /* 12 GPIO1_28   gpmc_be1n.gpio1[28]    */
+					0x074 0x07 /* 13 UART4_TXD  gpmc_wpn.gpio0[31]     */
+					0x048 0x07 /* 14 EHRPWM1A   gpmc_a2.gpio1[18]      */
+					0x040 0x07 /* 15 GPIO1_16   gpmc_a0.gpio1[16]      */
+					0x04C 0x07 /* 16 EHRPWM1B   gpmc_a3.gpio1[19]      */
+
+					/* err, those two are used for I2C2 on the beaglebone */
+					/* you should boot with I2C2 disabled on the tester */
+					0x17C 0x07 /* 19 I2C2_SCL   uart1_rtsn.gpio0[13]   */
+					0x178 0x07 /* 20 I2C2_SDA   uart1_ctsn.gpio0[12]   */
+
+					0x154 0x07 /* 21 UART2_TXD  spi0_d0.gpio0[3]       */
+					0x150 0x07 /* 22 UART2_RXD  spi0_sclk.gpio0[2]     */
+					0x044 0x07 /* 23 GPIO1_17   gpmc_a1.gpio1[17]      */
+					0x184 0x07 /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
+					0x1AC 0x07 /* 25 GPIO3_21   mcasp0_ahclkx.gpio3[21]*/
+					0x180 0x07 /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
+					0x1A4 0x07 /* 27 GPIO3_19   mcasp0_fsr.gpio3[19]   */
+					0x19C 0x07 /* 28 SPI1_CS0   mcasp0_ahclkr.gpio3[17]*/
+					0x198 0x07 /* 30 SPI1_D1    mcasp0_axr0.gpio3[16]  */
+					0x190 0x07 /* 31 SPI1_SCLK  mcasp0_aclkx.gpio3[14] */
+					0x1B4 0x07 /* 41 CLKOUT2    xdma_event_intr1.gpio0[20]*/
+					0x164 0x07 /* 42 GPIO0_7    eCAP0_in_PWM0_out.gpio0[7]*/
+				>;
+			};
+
+			bone_tester_i2c1_pins: pinmux_bone_tester_i2c1_pins {
+				pinctrl-single,pins = <
+					0x158 0x72	/* spi0_d1.i2c1_sda, SLEWCTRL_SLOW | INPUT_PULLUP | MODE2 */
+					0x15c 0x72	/* spi0_cs0.i2c1_scl, SLEWCTRL_SLOW | INPUT_PULLUP | MODE2 */
+				>;
+			};
+
+			bone_tester_jhd629_pins: pinmux_bone_tester_jhd629_pins {
+				pinctrl-single,pins = <
+					0x194 0x37 	/* mcasp0_fsx.gpio3_15, OMAP_MUX_MODE7 | INPUT_PULLUP */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&bone_tester_i2c1_pins>;
+			status = "okay";
+			clock-frequency = <100000>;
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c1>;
+		__overlay__ {
+			/* needed to avoid gripping by DTC */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* pca9457 */
+			pca9457_mux {
+				compatible = "nxp,pca9547";
+				status = "okay";
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x70>;
+
+				bus@0 {	/* LCD/KEY */
+					compatible = "nxp,pca954x-bus";
+					status = "okay";
+					nxp,pca95x-class = <0x0>;
+					reg = <0x0>;
+					nxp,deselect-on-exit;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					jhd629@31 {
+						compatible = "jhd,jhd629";
+						status = "okay";
+						reg = <0x31>;
+
+						pinctrl-names = "default";
+						pinctrl-0 = <&bone_tester_jhd629_pins>;
+
+						rows = <4>;
+						columns = <20>;
+						keymap = "123A456B789C*0#D";
+						poll-period = <250>;	/* poll every 250ms */
+						// gpios = <&gpio4 15 0>;	/* keypad interrupt */
+					};
+				};
+
+				bus@1 {	/* LATCH */
+					compatible = "nxp,pca954x-bus";
+					status = "okay";
+					nxp,pca95x-class = <0x0>;
+					reg = <0x1>;
+					nxp,deselect-on-exit;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					tester_latch: latch@38 {
+						/*
+						 * TESTING_LED
+						 * FAILED_LED
+						 * ATTN_LED
+						 * RDY_LED
+						 * DC_RELAY
+						 * PWRBUT_RELAY
+						 * RESET_RELAY
+						 */
+						compatible = "nxp,pcf8574";
+						status = "okay";
+						reg = <0x38>;
+						gpio-controller;
+						#gpio-cells = <2>;
+
+					};
+				};
+
+				bus@2 {	/* SOLENOIDS */
+					compatible = "nxp,pca954x-bus";
+					status = "okay";
+					nxp,pca95x-class = <0x0>;
+					reg = <0x2>;
+					nxp,deselect-on-exit;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					grove@f {
+						compatible = "grove";
+						status = "okay";
+						reg = <0x0f>;
+					};
+				};
+
+				bus@3 {	/* RTC */
+					compatible = "nxp,pca954x-bus";
+					status = "okay";
+					nxp,pca95x-class = <0x0>;
+					reg = <0x3>;
+					nxp,deselect-on-exit;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					rtc@68 {
+						compatible = "dallas,ds1307";
+						status = "okay";
+						reg = <0x68>;
+					};
+				};
+
+				bus@4 {	/* INA219 */
+					compatible = "nxp,pca954x-bus";
+					status = "okay";
+					nxp,pca95x-class = <0x0>;
+					reg = <0x4>;
+					nxp,deselect-on-exit;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					ina@40 {
+						compatible = "ti,ina219";
+						status = "okay";
+						reg = <0x40>;
+					};
+				};
+
+				bus@5 {	/* BUFFERS */
+					compatible = "nxp,pca954x-bus";
+					status = "okay";
+					nxp,pca95x-class = <0x0>;
+					reg = <0x5>;
+					nxp,deselect-on-exit;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					tester_buffers: latch@39 {
+						/*
+						 * TxD_BUFFER
+						 * RxD_BUFFER
+						 * OE_BUFFER
+						 * DIR_BUFFER
+						 * CTRL_EEPROM_WP
+						 */
+						compatible = "nxp,pcf8574";
+						status = "okay";
+						reg = <0x39>;
+						gpio-controller;
+						#gpio-cells = <2>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&ocp>;
+		__overlay__ {
+
+			gpio-leds-tester {
+				compatible = "gpio-leds";
+
+				/* note we don't use tester:<color>:<function> */
+				led0 {
+					label = "TESTING_LED";
+					gpios = <&tester_latch 0 0>;
+					linux,default-trigger = "none";
+					default-state = "off";
+				};
+
+				led1 {
+					label = "FAILED_LED";
+					gpios = <&tester_latch 1 0>;
+					linux,default-trigger = "none";
+					default-state = "off";
+				};
+
+				led2 {
+					label = "PASS_LED";
+					gpios = <&tester_latch 2 0>;
+					linux,default-trigger = "none";
+					default-state = "off";
+				};
+
+				led3 {
+					label = "ATTN_LED";
+					gpios = <&tester_latch 3 0>;
+					linux,default-trigger = "none";
+					default-state = "off";
+				};
+
+				led4 {
+					label = "RDY_LED";
+					gpios = <&tester_latch 4 0>;
+					linux,default-trigger = "none";
+					default-state = "off";
+				};
+			};
+		};
+
+	};
+
+	fragment@4 {
+		target = <&ocp>;
+		__overlay__ {
+
+			tester_pinmux_helper {
+				compatible = "bone-pinmux-helper";
+				status = "okay";
+
+				pinctrl-names = /* "default", */ "input", "output";
+				// pinctrl-0 = <&bone_tester_none_gpio_pins>;
+				pinctrl-0 = <&bone_tester_input_gpio_pins>;
+				pinctrl-1 = <&bone_tester_output_gpio_pins>;
+			};
+		};
+
+	};
+};
