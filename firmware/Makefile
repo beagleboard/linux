@@ -162,6 +162,9 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-bone-weather-00A0.dtbo
 # the HDMI virtual cape on the beaglebone-black
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-boneblack-hdmi-00A0.dtbo
 
+# the Tester cape (tester-side)
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-bone-tester-00A0.dtbo
+
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 # Directories which we _might_ need to create, so we have a rule for them.
