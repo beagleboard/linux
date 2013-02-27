@@ -154,6 +154,7 @@ static int bone_slot_fill_override(struct bone_cape_slot *slot,
 static struct bone_cape_slot *bone_capemgr_add_slot(
 		struct bone_capemgr_info *info, struct device_node *node,
 		const char *part_number, const char *version);
+static int bone_capemgr_remove_slot(struct bone_cape_slot *slot);
 static int bone_capemgr_load(struct bone_cape_slot *slot);
 static int bone_capemgr_unload(struct bone_cape_slot *slot);
 
@@ -991,14 +992,23 @@ static ssize_t slots_store(struct device *dev, struct device_attribute *attr,
 			if (slotno == slot->slotno)
 				break;
 		}
+
+		/* found? */
+		if (slot == NULL) {
+			mutex_unlock(&info->slots_list_mutex);
+			return -ENODEV;
+		}
+
+		ret = bone_capemgr_remove_slot(slot);
 		mutex_unlock(&info->slots_list_mutex);
 
-		if (slot == NULL)
-			return -ENODEV;
+		if (ret == 0)
+			dev_info(&pdev->dev, "Removed slot #%d\n", slotno);
+		else
+			dev_err(&pdev->dev, "Failed to remove slot #%d\n",
+					slotno);
 
-		bone_capemgr_unload(slot);
-
-		return strlen(buf);
+		return ret == 0 ? strlen(buf) : ret;
 	}
 
 	part_number = kstrdup(buf, GFP_KERNEL);
@@ -1290,6 +1300,35 @@ static int bone_capemgr_unload(struct bone_cape_slot *slot)
 
 	return 0;
 
+}
+
+/* slots_list_mutex must be taken */
+static int bone_capemgr_remove_slot(struct bone_cape_slot *slot)
+{
+	struct bone_capemgr_info *info = slot->info;
+	struct device *dev = &info->pdev->dev;
+	int ret;
+
+	if (slot == NULL)
+		return 0;
+
+	/* unload just in case */
+	ret = bone_capemgr_unload(slot);
+	if (ret != 0) {
+		dev_err(dev, "Unable to unload slot #%d\n", slot->slotno);
+		return ret;
+	}
+
+	/* if probed OK, remove the sysfs nodes */
+	if (slot->probed && !slot->probe_failed)
+		bone_cape_slot_sysfs_unregister(slot);
+
+	/* remove it from the list */
+	list_del(&slot->node);
+
+	devm_kfree(dev, slot);
+
+	return 0;
 }
 
 static int bone_slot_fill_override(struct bone_cape_slot *slot,
@@ -1755,19 +1794,8 @@ static int bone_capemgr_remove(struct platform_device *pdev)
 	int ret;
 
 	mutex_lock(&info->slots_list_mutex);
-	list_for_each_entry_safe(slot, slotn, &info->slot_list, node) {
-
-		/* unload just in case */
-		bone_capemgr_unload(slot);
-
-		/* if probed OK, remove the sysfs nodes */
-		if (slot->probed && !slot->probe_failed)
-			bone_cape_slot_sysfs_unregister(slot);
-
-		/* remove it from the list */
-		list_del(&slot->node);
-
-	}
+	list_for_each_entry_safe(slot, slotn, &info->slot_list, node)
+		bone_capemgr_remove_slot(slot);
 	mutex_unlock(&info->slots_list_mutex);
 
 	bone_capemgr_info_sysfs_unregister(info);
