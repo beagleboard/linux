@@ -1355,6 +1355,7 @@ int of_attach_node(struct device_node *np)
 	np->allnext = of_allnodes;
 	np->parent->child = np;
 	of_allnodes = np;
+	of_node_clear_flag(np, OF_DETACHED);
 	write_unlock_irqrestore(&devtree_lock, flags);
 
 	of_add_proc_dt_entry(np);
