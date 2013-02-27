@@ -23,6 +23,7 @@
 #include <linux/spinlock.h>
 #include <linux/topology.h>
 #include <linux/notifier.h>
+#include <linux/i2c.h>
 
 #include <asm/byteorder.h>
 #include <asm/errno.h>
@@ -697,7 +698,9 @@ struct of_overlay_log_entry {
  * @node:	list_head for the device list
  * @np:		device node pointer to the device node affected
  * @pdev:	pointer to the platform device affected
+ * @client:	pointer to the I2C client device affected
  * @state:	new device state
+ * @prevstate:	previous device state
  *
  * When the overlay results in a device node's state to change this
  * fact is recorded in a list of device entries. After the overlay
@@ -708,6 +711,8 @@ struct of_overlay_device_entry {
 	struct list_head node;
 	struct device_node *np;
 	struct platform_device *pdev;
+	struct i2c_client *client;
+	int prevstate;
 	int state;
 };
 
