@@ -990,15 +990,12 @@ static ssize_t slots_store(struct device *dev, struct device_attribute *attr,
 		mutex_lock(&info->slots_list_mutex);
 		list_for_each_entry(slot, &info->slot_list, node) {
 			if (slotno == slot->slotno)
-				break;
+				goto found;
 		}
 
-		/* found? */
-		if (slot == NULL) {
-			mutex_unlock(&info->slots_list_mutex);
-			return -ENODEV;
-		}
-
+		mutex_unlock(&info->slots_list_mutex);
+		return -ENODEV;
+found:
 		ret = bone_capemgr_remove_slot(slot);
 		mutex_unlock(&info->slots_list_mutex);
 
