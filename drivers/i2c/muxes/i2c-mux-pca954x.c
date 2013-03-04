@@ -41,8 +41,11 @@
 #include <linux/device.h>
 #include <linux/i2c.h>
 #include <linux/i2c-mux.h>
+#include <linux/of.h>
+#include <linux/of_i2c.h>
 
 #include <linux/i2c/pca954x.h>
+
 
 #define PCA954X_MAX_NCHANS 8
 
@@ -62,6 +65,10 @@ struct pca954x {
 	struct i2c_adapter *virt_adaps[PCA954X_MAX_NCHANS];
 
 	u8 last_chan;		/* last register value */
+#ifdef CONFIG_OF
+	struct pca954x_platform_data of_pdata;
+	struct pca954x_platform_mode of_modes[8];	/* maximum is 8 */
+#endif
 };
 
 struct chip_desc {
@@ -116,6 +123,89 @@ static const struct i2c_device_id pca954x_id[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, pca954x_id);
+
+/* cast the type enum to a ptr */
+#define PCA_TYPE_2_PTR(x)	((const void *)(unsigned long)(x))
+/* cast the ptr back to an enum */
+#define PCA_PTR_2_TYPE(x)	((enum pca_type)(unsigned long)(x))
+
+static const struct of_device_id pca954x_of_match[] = {
+	{ .compatible = "nxp,pca9540", PCA_TYPE_2_PTR(pca_9540), },
+	{ .compatible = "nxp,pca9542", PCA_TYPE_2_PTR(pca_9542), },
+	{ .compatible = "nxp,pca9543", PCA_TYPE_2_PTR(pca_9543), },
+	{ .compatible = "nxp,pca9544", PCA_TYPE_2_PTR(pca_9544), },
+	{ .compatible = "nxp,pca9545", PCA_TYPE_2_PTR(pca_9545), },
+	{ .compatible = "nxp,pca9546", PCA_TYPE_2_PTR(pca_9546), },
+	{ .compatible = "nxp,pca9547", PCA_TYPE_2_PTR(pca_9547), },
+	{ .compatible = "nxp,pca9548", PCA_TYPE_2_PTR(pca_9548), },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, pca954x_of_match);
+
+#ifdef CONFIG_OF
+static int pca954x_get_ofdata(struct i2c_client *client,
+		struct pca954x_platform_data *pdata, struct pca954x *data)
+{
+	struct device_node *node = client->dev.of_node;
+	const struct of_device_id *id_match;
+	struct device_node *anode;
+	int num, busses_no, busses_max, ret;
+	u32 val;
+
+	if (!node)
+		return -ENODEV;
+
+	/* match the compatible device */
+	id_match = of_match_node(pca954x_of_match, node);
+	if (id_match == NULL) {
+		dev_err(&client->dev, "No pca954x compatible node!\n");
+		return -ENODEV;
+	}
+	data->type = PCA_PTR_2_TYPE(id_match->data);
+	busses_max = chips[data->type].nchans;
+
+	/* for each child node which is compatible to us */
+	busses_no = 0;
+	for_each_available_child_of_node(node, anode) {
+		if (!of_device_is_compatible(anode, "nxp,pca954x-bus"))
+			continue;
+		ret = of_property_read_u32(anode, "reg", &val);
+		if (ret != 0)
+			continue;
+		busses_no++;
+	}
+
+	if (busses_no == 0) {
+		dev_err(&client->dev, "No busses found!\n");
+		return -ENODEV;
+	}
+
+	/* ok, fill in everything now */
+	num = 0;
+	for_each_available_child_of_node(node, anode) {
+		if (!of_device_is_compatible(anode, "nxp,pca954x-bus"))
+			continue;
+		ret = of_property_read_u32(anode, "reg", &val);
+		if (ret != 0)
+			continue;
+		pdata->modes[num].adap_id = 0;	/* get adapter id */
+		pdata->modes[num].class = 0;	/* classs always 0 */
+		pdata->modes[num].deselect_on_exit =
+			of_property_read_bool(anode, "nxp,deselect-on-exit");
+		num++;
+	}
+	pdata->num_modes = num;
+
+	return 0;
+}
+#else
+static int pca954x_get_ofdata(struct i2c_client *client,
+		struct pca954x_platform_data *pdata, struct pca954x *data)
+{
+	return -ENODEV;	/* no of data (should never be called) */
+}
+#endif /* CONFIG_OF */
+
 
 /* Write to mux register. Don't use i2c_transfer()/i2c_smbus_xfer()
    for this as they will try to lock adapter a second time */
@@ -210,7 +300,20 @@ static int pca954x_probe(struct i2c_client *client,
 		goto exit_free;
 	}
 
-	data->type = id->driver_data;
+	/* platform device case; substitute platform data */
+	if (pdata == NULL) {
+		/* point to the filled in pdata */
+		pdata = &data->of_pdata;
+		pdata->modes = data->of_modes;
+		ret = pca954x_get_ofdata(client, pdata, data);
+		if (ret != 0) {
+			dev_err(&client->dev,
+				"Failed to get OF data\n");
+			goto exit_free;
+		}
+	} else
+		data->type = id->driver_data;
+
 	data->last_chan = 0;		   /* force the first selection */
 
 	/* Now create an adapter for each channel */
