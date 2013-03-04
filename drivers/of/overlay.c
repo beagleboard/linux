@@ -424,18 +424,25 @@ static int of_overlay_device_entry_change(struct of_overlay_info *ovinfo,
 				de->pdev = pdev;
 
 		} else {
-			pr_debug("%s: creating new i2c_client device "
-					"new_node='%s' %p\n",
-					__func__, de->np->full_name, de->np);
 
-			client = of_i2c_register_device(adap, de->np);
+			client = of_find_i2c_device_by_node(de->np);
+			if (client != NULL) {
+				/* bus already created the device; do nothing */
+				put_device(&client->dev);
+			} else {
+				pr_debug("%s: creating new i2c_client device "
+						"new_node='%s' %p\n",
+						__func__, de->np->full_name, de->np);
 
-			if (client == NULL) {
-				pr_warn("%s: Failed to create i2c client device "
-						"for '%s'\n",
-						__func__, de->np->full_name);
-			} else
-				de->client = client;
+				client = of_i2c_register_device(adap, de->np);
+
+				if (client == NULL) {
+					pr_warn("%s: Failed to create i2c client device "
+							"for '%s'\n",
+							__func__, de->np->full_name);
+				} else
+					de->client = client;
+			}
 		}
 
 	} else {
