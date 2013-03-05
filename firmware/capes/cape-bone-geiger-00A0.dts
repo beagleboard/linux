@@ -30,7 +30,7 @@
 				pinctrl-single,pins = <
 					0x48 0x06       /* gpmc_a2.ehrpwm1a, OMAP_MUX_MODE6 | AM33XX_PIN_OUTPUT */
 					/* 0x19c 0x34 */	/* mcasp0_ahclkr.eCAP2_in_PWM2_out, OMAP_MUX_MODE4 | INPUT_PULLUP */
-					0x19c 0x37 	/* mcasp0_ahclkr.gpio3_17, OMAP_MUX_MODE4 | INPUT_PULLUP */
+					0x19c 0x37 	/* mcasp0_ahclkr.gpio3_17, OMAP_MUX_MODE7 | INPUT_PULLUP */
 				>;
 			};
 		};
