@@ -164,6 +164,16 @@ config BFIN_JTAG_COMM_CONSOLE
 	bool "Console on Blackfin JTAG"
 	depends on BFIN_JTAG_COMM=y
 
+config JHD629_I2C
+	bool "JHD629 I2C support"
+	depends on I2C && OF
+	select SERIAL_CORE
+	default n
+	help
+	  This selects support for a pseudo TTY on I2Ced JHD629
+
+	  Say Y here if you want to support this.
+
 config SERIAL_NONSTANDARD
 	bool "Non-standard serial port support"
 	depends on HAS_IOMEM
