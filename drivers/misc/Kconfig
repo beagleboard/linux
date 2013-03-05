@@ -528,6 +528,12 @@ config SRAM
 	  the genalloc API. It is supposed to be used for small on-chip SRAM
 	  areas found on many SoCs.
 
+config GROVE_I2C
+	tristate "Support Grove I2C Motor Driver"
+	depends on OF && I2C
+	help
+	  Say Y here to support a minimal Grove I2C Motor Driver
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
