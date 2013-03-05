@@ -223,4 +223,7 @@
 /* ARC (Synopsys) on-chip UART */
 #define PORT_ARC       101
 
+/* JHD629 pseudo port */
+#define PORT_JHD629    102
+
 #endif /* _UAPILINUX_SERIAL_CORE_H */
