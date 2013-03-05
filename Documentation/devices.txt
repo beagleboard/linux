@@ -2810,6 +2810,10 @@ Your cooperation is appreciated.
 		 211 = /dev/ttyMAX2		MAX3100 serial port 2
 		 212 = /dev/ttyMAX3		MAX3100 serial port 3
 
+		 220 = /dev/ttyJHD0		JHD629 pseudo serial port 0
+		 221 = /dev/ttyJHD1		JHD629 pseudo serial port 1
+		   ..
+
 205 char	Low-density serial ports (alternate device)
 		  0 = /dev/culu0		Callout device for ttyLU0
 		  1 = /dev/culu1		Callout device for ttyLU1
