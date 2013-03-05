@@ -29,3 +29,6 @@ obj-$(CONFIG_SYNCLINK)		+= synclink.o
 obj-$(CONFIG_PPC_EPAPR_HV_BYTECHAN) += ehv_bytechan.o
 
 obj-y += ipwireless/
+
+# JHD pseudo TTY
+obj-$(CONFIG_JHD629_I2C)	+= jhd629-i2c.o
