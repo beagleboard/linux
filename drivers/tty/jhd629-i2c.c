@@ -516,6 +516,8 @@ static void jhd629_stop_rx(struct uart_port *port)
 
 	mutex_lock(&s->lock);
 
+	/* clear keypad buffer */
+	jhd629_send_block(s, "\x1b\x14", 2);
 	if (s->poll_timer_running) {
 		del_timer_sync(&s->poll_timer);
 		s->poll_timer_running = 0;
@@ -583,6 +585,9 @@ static int jhd629_startup(struct uart_port *port)
 	struct jhd629_port *s = container_of(port, struct jhd629_port, port);
 
 	mutex_lock(&s->lock);
+
+	/* clear keypad buffer */
+	jhd629_send_block(s, "\x1b\x14", 2);
 
 	if (s->keypad_irq < 0 && !s->poll_timer_running) {
 		s->poll_timer.expires = jiffies +
