@@ -71,6 +71,20 @@
 	};
 
 	fragment@1 {
+		target = <&epwmss1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&ehrpwm1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@3 {
 		target = <&ocp>;
 
 		__overlay__ {
@@ -220,6 +234,7 @@
 				interrupts = <36>;
 				ti,hwmods = "lcdc";
 				ti,power-gpio = <&gpio2 31 0x0>;
+				ti,allow-non-reduced-blanking-modes;
 			};
 
 		};
