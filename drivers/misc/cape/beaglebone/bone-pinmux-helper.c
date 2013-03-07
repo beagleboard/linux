@@ -26,6 +26,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
+#include <linux/slab.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/consumer.h>
@@ -49,7 +50,6 @@ static ssize_t pinmux_helper_show_state(struct device *dev,
 	struct platform_device *pdev = to_platform_device(dev);
 	struct pinmux_helper_data *data = platform_get_drvdata(pdev);
 	const char *name;
-	int len;
 
 	name = data->selected_state_name;
 	if (name == NULL || strlen(name) == 0)
@@ -68,7 +68,7 @@ static ssize_t pinmux_helper_store_state(struct device *dev,
 	int err;
 
 	/* duplicate (as a null terminated string) */
-	state_name = devm_kzalloc(dev, count + 1, GFP_KERNEL);
+	state_name = kmalloc(count + 1, GFP_KERNEL);
 	if (state_name == NULL)
 		return -ENOMEM;
 	memcpy(state_name, buf, count);
@@ -92,7 +92,7 @@ static ssize_t pinmux_helper_store_state(struct device *dev,
 	}
 
 	if (err == 0) {
-		devm_kfree(dev, data->selected_state_name);
+		kfree(data->selected_state_name);
 		data->selected_state_name = state_name;
 	}
 
@@ -125,7 +125,7 @@ static int bone_pinmux_helper_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto err_no_mem;
 	}
-	state_name = devm_kzalloc(dev, strlen(PINCTRL_STATE_DEFAULT) + 1,
+	state_name = kmalloc(strlen(PINCTRL_STATE_DEFAULT) + 1,
 			GFP_KERNEL);
 	if (state_name == NULL) {
 		dev_err(dev, "Failed to allocate state name\n");
@@ -181,6 +181,7 @@ static int bone_pinmux_helper_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	sysfs_remove_group(&dev->kobj, &pinmux_helper_attr_group);
+	kfree(data->selected_state_name);
 	devm_pinctrl_put(data->pinctrl);
 	devm_kfree(dev, data);
 
