@@ -27,14 +27,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&userleds_pins>;
 
-		spi1_pins_s0: spi1_pins_s0 {
-			pinctrl-single,pins = <
-				0x190 0x33	/* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
-				0x194 0x33	/* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
-				0x198 0x13	/* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
-				0x19c 0x13	/* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
-			>;
-		};
 		userled_pins: pinmux_userled_pins {
 			pinctrl-single,pins = <
 				0x54 0x7	/* gpmc_a5.gpio1_21, OUTPUT | MODE7 */
