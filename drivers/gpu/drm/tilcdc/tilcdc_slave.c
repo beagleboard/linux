@@ -167,7 +167,8 @@ static int slave_connector_mode_valid(struct drm_connector *connector,
 	struct tilcdc_drm_private *priv = connector->dev->dev_private;
 	int ret;
 
-	ret = tilcdc_crtc_mode_valid(priv->crtc, mode);
+	ret = tilcdc_crtc_mode_valid(priv->crtc, mode,
+			priv->allow_non_rblank ? 0 : 1);
 	if (ret != MODE_OK)
 		return ret;
 
