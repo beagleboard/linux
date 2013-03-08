@@ -241,7 +241,7 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 	uint32_t reg, hbp, hfp, hsw, vbp, vfp, vsw;
 	int ret;
 
-	ret = tilcdc_crtc_mode_valid(crtc, mode);
+	ret = tilcdc_crtc_mode_valid(crtc, mode, 0);
 	if (WARN_ON(ret))
 		return ret;
 
@@ -422,7 +422,8 @@ int tilcdc_crtc_max_width(struct drm_crtc *crtc)
 	return max_width;
 }
 
-int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode)
+int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
+		int rb_check)
 {
 	struct tilcdc_drm_private *priv = crtc->dev->dev_private;
 	unsigned int bandwidth;
@@ -443,7 +444,7 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode)
 	if (bandwidth > priv->max_bandwidth)
 		return MODE_BAD;
 
-	if (priv->allow_non_rblank == 0) {
+	if (rb_check) {
 		/* we only support reduced blanking modes */
 		rb = (mode->htotal - mode->hdisplay == 160) &&
 		       (mode->hsync_end - mode->hdisplay == 80) &&
