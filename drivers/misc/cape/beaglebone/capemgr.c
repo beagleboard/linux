@@ -568,6 +568,10 @@ static int bone_is_compatible_override(struct device_node *node,
 	if (of_multi_prop_cmp(prop, compatible_name) == 0)
 		return 1;
 
+	/* forced override? */
+	if (of_multi_prop_cmp(prop, "force") == 0)
+		return 1;
+
 	/* final try, check if it's specified in the kernel command line */
 	if (extra_override == NULL)
 		return 0;
