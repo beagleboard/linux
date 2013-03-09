@@ -71,7 +71,7 @@
 
 
 	fragment@3 {
-		target = <&spi0>;
+		target = <&spi1>;
 
 		__overlay__ {
 			#address-cells = <1>;
