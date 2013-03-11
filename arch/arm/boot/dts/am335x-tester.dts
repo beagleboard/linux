@@ -177,6 +177,15 @@
 				part-number = "BB-BONE-NIXIE";
 			};
 
+			/* geiger cape version A0 without an EEPROM */
+			slot@8 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-Tester";
+				version = "00A0";
+				part-number = "BB-BONE-TESTER";
+			};
+
 		};
 
 		/* mapping between board names and dtb objects */
@@ -253,6 +262,16 @@
 					dtbo = "cape-bone-nixie-00A0.dtbo";
 				};
 			};
+
+			/* tester */
+			cape@7 {
+				part-number = "BB-BONE-TESTER";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-tester-00A0.dtbo";
+				};
+			};
+
 		};
 	};
 };
