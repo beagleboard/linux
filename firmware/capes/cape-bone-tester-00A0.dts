@@ -18,9 +18,12 @@
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
-			bone_tester_none_gpio_pins: pinmux_bone_tester_none_gpio_pins {
+			/* default state has all gpios released and mode set to uart1 */
+			bone_tester_default_gpio_pins: pinmux_bone_tester_default_gpio_pins {
 				pinctrl-single,pins = <
-					/* nothing */
+					/* the uart pins */
+					0x184 0x20 /* 24 UART1_TXD  uart1_txd  OUTPUT  */
+					0x180 0x20 /* 26 UART1_RXD  uart1_rxd  INPUT  */
 				>;
 			};
 			bone_tester_input_gpio_pins: pinmux_bone_tester_input_gpio_pins {
@@ -89,15 +92,17 @@
 					0x154 0x2f /* 21 UART2_TXD  spi0_d0.gpio0[3]       */
 					0x150 0x2f /* 22 UART2_RXD  spi0_sclk.gpio0[2]     */
 					0x044 0x2f /* 23 GPIO1_17   gpmc_a1.gpio1[17]      */
-					0x184 0x2f /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
 					0x1AC 0x2f /* 25 GPIO3_21   mcasp0_ahclkx.gpio3[21]*/
-					0x180 0x2f /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
 					0x1A4 0x2f /* 27 GPIO3_19   mcasp0_fsr.gpio3[19]   */
 					0x19C 0x2f /* 28 SPI1_CS0   mcasp0_ahclkr.gpio3[17]*/
 					0x198 0x2f /* 30 SPI1_D1    mcasp0_axr0.gpio3[16]  */
 					0x190 0x2f /* 31 SPI1_SCLK  mcasp0_aclkx.gpio3[14] */
 					0x1B4 0x2f /* 41 CLKOUT2    xdma_event_intr1.gpio0[20]*/
 					0x164 0x2f /* 42 GPIO0_7    eCAP0_in_PWM0_out.gpio0[7]*/
+
+					/* the UART pins */
+					0x184 0x2f /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
+					0x180 0x2f /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
 				>;
 			};
 
@@ -167,15 +172,17 @@
 					0x154 0x07 /* 21 UART2_TXD  spi0_d0.gpio0[3]       */
 					0x150 0x07 /* 22 UART2_RXD  spi0_sclk.gpio0[2]     */
 					0x044 0x07 /* 23 GPIO1_17   gpmc_a1.gpio1[17]      */
-					0x184 0x07 /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
 					0x1AC 0x07 /* 25 GPIO3_21   mcasp0_ahclkx.gpio3[21]*/
-					0x180 0x07 /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
 					0x1A4 0x07 /* 27 GPIO3_19   mcasp0_fsr.gpio3[19]   */
 					0x19C 0x07 /* 28 SPI1_CS0   mcasp0_ahclkr.gpio3[17]*/
 					0x198 0x07 /* 30 SPI1_D1    mcasp0_axr0.gpio3[16]  */
 					0x190 0x07 /* 31 SPI1_SCLK  mcasp0_aclkx.gpio3[14] */
 					0x1B4 0x07 /* 41 CLKOUT2    xdma_event_intr1.gpio0[20]*/
 					0x164 0x07 /* 42 GPIO0_7    eCAP0_in_PWM0_out.gpio0[7]*/
+
+					/* the uart pins */
+					0x184 0x07 /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
+					0x180 0x07 /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
 				>;
 			};
 
@@ -406,13 +413,22 @@
 				compatible = "bone-pinmux-helper";
 				status = "okay";
 
-				pinctrl-names = /* "default", */ "input", "output";
-				// pinctrl-0 = <&bone_tester_none_gpio_pins>;
-				pinctrl-0 = <&bone_tester_input_gpio_pins>;
-				pinctrl-1 = <&bone_tester_output_gpio_pins>;
+				pinctrl-names = "default", "input", "output";
+				pinctrl-0 = <&bone_tester_default_gpio_pins>;
+				pinctrl-1 = <&bone_tester_input_gpio_pins>;
+				pinctrl-2 = <&bone_tester_output_gpio_pins>;
 			};
 		};
 
 	};
+
+	fragment@5 {
+		target = <&uart2>;	/* really uart1 */
+		__overlay__ {
+			/* please note that the pinconfig is done by the pinmux helper */
+			status = "okay";
+		};
+	};
+
 };
 
