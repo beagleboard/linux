@@ -198,6 +198,17 @@
 					0x194 0x37 	/* mcasp0_fsx.gpio3_15, OMAP_MUX_MODE7 | INPUT_PULLUP */
 				>;
 			};
+
+			bone_default_drvvbus_pins: pinmux_bone_default_drvvbus_pins {
+				pinctrl-single,pins = <
+					0x234 0x20 /* USB1_DRVVBUS musb  */
+				>;
+			};
+			bone_gpio_drvvbus_pins: pinmux_bone_gpio_drvvbus_pins {
+				pinctrl-single,pins = <
+					0x234 0x07 /* USB1_DRVVBUS.gpio3_13  OUTPUT  */
+				>;
+			};
 		};
 	};
 
@@ -417,6 +428,15 @@
 				pinctrl-0 = <&bone_tester_default_gpio_pins>;
 				pinctrl-1 = <&bone_tester_input_gpio_pins>;
 				pinctrl-2 = <&bone_tester_output_gpio_pins>;
+			};
+
+			drvvbus_pinmux_helper {
+				compatible = "bone-pinmux-helper";
+				status = "okay";
+
+				pinctrl-names = "default", "gpio";
+				pinctrl-0 = <&bone_default_drvvbus_pins>;
+				pinctrl-1 = <&bone_gpio_drvvbus_pins>;
 			};
 		};
 
