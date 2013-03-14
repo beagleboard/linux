@@ -1543,6 +1543,14 @@ static int gpmc_probe_dt(struct platform_device *pdev)
 		}
 	}
 
+	for_each_node_by_name(child, "ethernet") {
+		ret = gpmc_probe_generic_child(pdev, child);
+		if (ret < 0) {
+			of_node_put(child);
+			return ret;
+		}
+	}
+
 	return 0;
 }
 #else
