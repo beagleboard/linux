@@ -363,6 +363,7 @@ static int mrf24j40_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
 		goto err;
 	if (ret == 0) {
 		ret = -ETIMEDOUT;
+		dev_warn(printdev(devrec), "Timeout waiting for TX interrupt\n");
 		goto err;
 	}
 
