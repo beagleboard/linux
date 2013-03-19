@@ -3,6 +3,7 @@
 #
 
 obj-$(CONFIG_BEAGLEBONE_PINMUX_HELPER)	+= bone-pinmux-helper.o
+obj-$(CONFIG_BEAGLEBONE_IIO_HELPER)	+= bone-iio-helper.o
 
 obj-$(CONFIG_CAPE_BEAGLEBONE)		+= capemgr.o
 obj-$(CONFIG_CAPE_BEAGLEBONE_GEIGER)	+= cape-bone-geiger.o
