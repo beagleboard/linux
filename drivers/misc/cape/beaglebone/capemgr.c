@@ -47,6 +47,7 @@
 /* extra command line overrides */
 static char *extra_override = NULL;
 module_param(extra_override, charp, 0444);
+MODULE_PARM_DESC(extra_override, "Comma delimited list of PART-NUMBER[:REV] overrides");
 
 struct bone_capemgr_info;
 
