@@ -1,0 +1,42 @@
+/*
+* Copyright (C) 2013 Matt Ranostay <mranostay@gmail.com>
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+/dts-v1/;
+/plugin/;
+
+/*
+ * Pin assignments
+ *
+ * Module     Connector
+ * SCL     -> P9.19
+ * SDA     <- P9.20
+ * SQW     <- NC
+ *
+ */
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	part-number = "BB-BONE-RTC-01";
+	version = "00A0";
+
+
+	fragment@0 {
+		target = <&i2c2>;
+
+		__overlay__ {
+			/* shut up DTC warnings */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* DS1307 RTC module */
+			rtc@68 {
+				compatible = "dallas,ds1307";
+				reg = <0x68>;
+			};
+		};
+	};
+};
