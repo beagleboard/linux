@@ -9,6 +9,13 @@ config BEAGLEBONE_PINMUX_HELPER
 	help
 	  Say Y here to include support for the pinmux helper
 
+config BEAGLEBONE_IIO_HELPER
+	tristate "Beaglebone AM335x TSCADC Helper"
+	depends on ARCH_OMAP2PLUS && OF && MFD_TI_AM335X_TSCADC
+	default n
+	help
+	  Say Y here to include support for the IIO helper
+
 config CAPE_BEAGLEBONE
 	tristate "Beaglebone cape support"
 	depends on ARCH_OMAP2PLUS && OF && I2C
