@@ -168,7 +168,7 @@
 				part-number = "BB-BONE-NIXIE";
 			};
 
-			/* adafruit prototype cape */
+			/* adafruit 1.8" TFT prototype cape */
 			slot@8 {
 				ti,cape-override;
 				compatible = "kernel-command-line", "runtime";
@@ -176,6 +176,16 @@
 				version = "00A0";
 				manufacturer = "Adafruit";
 				part-number = "BB-BONE-TFT-01";
+			};
+
+			/* adafruit RTC DS1307 prototype cape */
+			slot@9 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-RTC";
+				version = "00A0";
+				manufacturer = "Adafruit";
+				part-number = "BB-BONE-RTC-01";
 			};
 
 		};
@@ -263,6 +273,13 @@
 				};
 			};
 
+			cape@8 {
+				part-number = "BB-BONE-RTC-01";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-adafruit-rtc-00A0.dtbo";
+				};
+			};
 		};
 	};
 };
