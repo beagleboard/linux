@@ -107,4 +107,7 @@ Example of the override syntax when used on a bone compatible foo board.
 	};
 
 };
-	
+
+Example of the same override syntax when used from the kernel command-line:
+
+	capemgr.extra_override=FOO-hardcoded:00A0,FOO-another-hardcoded:00A0
