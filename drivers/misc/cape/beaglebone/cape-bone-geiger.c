@@ -75,6 +75,9 @@ static const struct of_device_id bonegeiger_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, bonegeiger_of_match);
 
+
+#define	DEFAULT_VSENSE_SCALE	37325		/* 373.25 */
+
 static int bonegeiger_start(struct platform_device *pdev)
 {
 	struct bone_geiger_info *info = platform_get_drvdata(pdev);
@@ -377,8 +380,15 @@ static int bonegeiger_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_read_u32(pnode, "vsense-scale", &info->vsense_scale) != 0) {
-		info->vsense_scale = 37325;	/* 373.25 */
+		info->vsense_scale = DEFAULT_VSENSE_SCALE;
 		dev_warn(&pdev->dev, "Could not read vsense-scale property; "
+				"using default %u\n",
+					info->vsense_scale);
+	}
+
+	if (info->vsense_scale == 0) {
+		info->vsense_scale = DEFAULT_VSENSE_SCALE;
+		dev_warn(&pdev->dev, "Invalid vsense-scale property; "
 				"using default %u\n",
 					info->vsense_scale);
 	}
