@@ -144,6 +144,7 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-bone-dvi-00A0.dtbo \
 	cape-bone-dvi-00A1.dtbo \
 	cape-bone-dvi-00A2.dtbo \
+	cape-bone-hexy-00A0.dtbo \
 	cape-bone-lcd3-00A0.dtbo \
 	cape-bone-lcd3-00A2.dtbo \
 	BB-BONE-LCD7-01-00A2.dtbo \
