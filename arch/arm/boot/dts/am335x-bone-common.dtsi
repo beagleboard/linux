@@ -188,6 +188,14 @@
 				part-number = "BB-BONE-RTC-01";
 			};
 
+			slot@10 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-Hexy";
+				version = "00A0";
+				manufacturer = "Koen Kooi";
+				part-number = "BB-BONE-HEXY-01";
+			};
 		};
 
 		/* mapping between board names and dtb objects */
@@ -278,6 +286,14 @@
 				version@00A0 {
 					version = "00A0";
 					dtbo = "cape-bone-adafruit-rtc-00A0.dtbo";
+				};
+			};
+
+			cape@9 {
+				part-number = "BB-BONE-HEXY-01";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-hexy-00A0.dtbo";
 				};
 			};
 		};
