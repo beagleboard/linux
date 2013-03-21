@@ -34,6 +34,13 @@
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_fb_cma_helper.h>
 
+/* Defaulting to pixel clock defined on AM335x */
+#define TILCDC_DEFAULT_MAX_PIXELCLOCK  126000
+/* Defaulting to max width as defined on AM335x */
+#define TILCDC_DEFAULT_MAX_WIDTH  1366
+/* This may need some tweaking, but want to allow at least 1280x1024@60 */
+#define TILCDC_DEFAULT_MAX_BANDWIDTH  (1366*1024*60)
+
 struct tilcdc_drm_private {
 	void __iomem *mmio;
 
@@ -43,6 +50,13 @@ struct tilcdc_drm_private {
 
 	/* don't attempt resolutions w/ higher W * H * Hz: */
 	uint32_t max_bandwidth;
+	/* Pixel Clock will be restricted to some value as defined in the device datasheet */
+	/* measured in KHz */
+	uint32_t max_pixelclock;
+	/* Max allowable width is limited on a per device basis */
+	/* measured in pixels */
+	uint32_t max_width;
+
 	int allow_non_rblank;	/* ATM we don't support non reduced blank modes */
 
 	/* register contents saved across suspend/resume: */
