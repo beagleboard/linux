@@ -65,6 +65,7 @@
 				interrupt-parent = <&intc>;
 				interrupts = <36>;
 				ti,hwmods = "lcdc";
+				ti,allow-non-reduced-blanking-modes;
 			};
 
 		};
