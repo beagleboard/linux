@@ -427,10 +427,13 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 {
 	struct tilcdc_drm_private *priv = crtc->dev->dev_private;
 	unsigned int bandwidth;
+
 	int rb;
 
-	if (mode->hdisplay > tilcdc_crtc_max_width(crtc))
+	/* check to see if the width is within the range that the LCD Controller physically supports */
+	if (mode->hdisplay > tilcdc_crtc_max_width(crtc)) {
 		return MODE_VIRTUAL_X;
+	}
 
 	/* width must be multiple of 16 */
 	if (mode->hdisplay & 0xf)
@@ -439,10 +442,31 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	if (mode->vdisplay > 2048)
 		return MODE_VIRTUAL_Y;
 
+
+	DBG("Processing mode %dx%d@%d with pixel clock %d",
+	       mode->hdisplay, mode->vdisplay, drm_mode_vrefresh(mode), mode->clock);
+
+	/* some devices have a maximum allowed pixel clock */
+	/* configured from the DT */
+	if(mode->clock > priv->max_pixelclock) {
+	  DBG("Rejecting mode, pixel clock too high");
+	  return MODE_BAD;
+	}
+
+	/* some devices further limit the max horizontal resolution */
+	/* configured from the DT */
+	if(mode->hdisplay > priv->max_width) {
+	  return MODE_BAD;
+	}
+
 	/* filter out modes that would require too much memory bandwidth: */
+	/* configured from the DT */
 	bandwidth = mode->hdisplay * mode->vdisplay * drm_mode_vrefresh(mode);
-	if (bandwidth > priv->max_bandwidth)
-		return MODE_BAD;
+	if (bandwidth > priv->max_bandwidth) {
+	  DBG("Rejecting mode, exceeds defined bandwidth limit");
+	  return MODE_BAD;
+	}
+
 
 	if (rb_check) {
 		/* we only support reduced blanking modes */
@@ -450,8 +474,10 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 		       (mode->hsync_end - mode->hdisplay == 80) &&
 		       (mode->hsync_end - mode->hsync_start == 32) &&
 		       (mode->vsync_start - mode->vdisplay == 3);
-		if (!rb)
+		if (!rb) {
+			DBG("Throwing away because we only support reduced blanking");
 			return MODE_BAD;
+		}
 	}
 
 	return MODE_OK;
