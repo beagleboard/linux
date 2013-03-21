@@ -236,10 +236,26 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 #endif
 
 	if (of_property_read_u32(node, "ti,max-bandwidth", &priv->max_bandwidth))
-		priv->max_bandwidth = 1280 * 1024 * 60;
+		priv->max_bandwidth = TILCDC_DEFAULT_MAX_BANDWIDTH;
+
+	DBG("Maximum Bandwidth Value %d", priv->max_bandwidth);
+
+	if (of_property_read_u32(node, "ti,max-width", &priv->max_width))
+		priv->max_width = TILCDC_DEFAULT_MAX_WIDTH;
+
+	DBG("Maximum Horizontal Pixel Width Value %dpixels", priv->max_width);
+
+	if (of_property_read_u32(node, "ti,max-pixelclock", &priv->max_pixelclock))
+		priv->max_pixelclock = TILCDC_DEFAULT_MAX_PIXELCLOCK;
+
+	DBG("Maximum Pixel Clock Value %dKHz", priv->max_pixelclock);
+
 
 	priv->allow_non_rblank = of_property_read_bool(node,
 			"ti,allow-non-reduced-blanking-modes");
+
+
+	DBG("Allowing Standard Monitor Modes: %s", priv->allow_non_rblank?"true":"false");
 
 	pm_runtime_enable(dev->dev);
 
