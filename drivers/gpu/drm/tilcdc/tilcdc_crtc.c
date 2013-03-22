@@ -449,13 +449,14 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	/* some devices have a maximum allowed pixel clock */
 	/* configured from the DT */
 	if(mode->clock > priv->max_pixelclock) {
-	  DBG("Rejecting mode, pixel clock too high");
+	  DBG("Pruning mode, pixel clock too high");
 	  return MODE_BAD;
 	}
 
 	/* some devices further limit the max horizontal resolution */
 	/* configured from the DT */
 	if(mode->hdisplay > priv->max_width) {
+	  DBG("Pruning mode, above max width of %d supported by device", priv->max_width);
 	  return MODE_BAD;
 	}
 
@@ -463,7 +464,7 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	/* configured from the DT */
 	bandwidth = mode->hdisplay * mode->vdisplay * drm_mode_vrefresh(mode);
 	if (bandwidth > priv->max_bandwidth) {
-	  DBG("Rejecting mode, exceeds defined bandwidth limit");
+	  DBG("Pruning mode, exceeds defined bandwidth limit");
 	  return MODE_BAD;
 	}
 
@@ -475,7 +476,7 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 		       (mode->hsync_end - mode->hsync_start == 32) &&
 		       (mode->vsync_start - mode->vdisplay == 3);
 		if (!rb) {
-			DBG("Throwing away because we only support reduced blanking");
+			DBG("Pruning mode, only support reduced blanking modes");
 			return MODE_BAD;
 		}
 	}
