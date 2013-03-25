@@ -86,8 +86,8 @@
 
 					/* err, those two are used for I2C2 on the beaglebone */
 					/* you should boot with I2C2 disabled on the tester */
-					0x17C 0x2f /* 19 I2C2_SCL   uart1_rtsn.gpio0[13]   */
-					0x178 0x2f /* 20 I2C2_SDA   uart1_ctsn.gpio0[12]   */
+					// 0x17C 0x2f /* 19 I2C2_SCL   uart1_rtsn.gpio0[13]   */
+					// 0x178 0x2f /* 20 I2C2_SDA   uart1_ctsn.gpio0[12]   */
 
 					0x154 0x2f /* 21 UART2_TXD  spi0_d0.gpio0[3]       */
 					0x150 0x2f /* 22 UART2_RXD  spi0_sclk.gpio0[2]     */
@@ -166,8 +166,8 @@
 
 					/* err, those two are used for I2C2 on the beaglebone */
 					/* you should boot with I2C2 disabled on the tester */
-					0x17C 0x07 /* 19 I2C2_SCL   uart1_rtsn.gpio0[13]   */
-					0x178 0x07 /* 20 I2C2_SDA   uart1_ctsn.gpio0[12]   */
+					// 0x17C 0x07 /* 19 I2C2_SCL   uart1_rtsn.gpio0[13]   */
+					// 0x178 0x07 /* 20 I2C2_SDA   uart1_ctsn.gpio0[12]   */
 
 					0x154 0x07 /* 21 UART2_TXD  spi0_d0.gpio0[3]       */
 					0x150 0x07 /* 22 UART2_RXD  spi0_sclk.gpio0[2]     */
