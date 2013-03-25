@@ -22,7 +22,7 @@
 			emmc2_pins: pinmux_emmc2_pins {
 				pinctrl-single,pins = <
 					0x80 0x32	/* gpmc_csn1.mmc1_clk, INPUT_PULLUP | MODE2 */
-					0x84 0x32	/* gpmc_csn1.mmc1_cmd, INPUT_PULLUP | MODE2 */
+					0x84 0x32	/* gpmc_csn2.mmc1_cmd, INPUT_PULLUP | MODE2 */
 					0x00 0x31	/* gpmc_ad0.mmc1_dat0, INPUT_PULLUP | MODE1 */
 					0x04 0x31	/* gpmc_ad1.mmc1_dat1, INPUT_PULLUP | MODE1 */
 					0x08 0x31	/* gpmc_ad2.mmc1_dat2, INPUT_PULLUP | MODE1 */
