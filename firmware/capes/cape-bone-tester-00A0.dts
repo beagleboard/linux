@@ -101,8 +101,8 @@
 					0x164 0x2f /* 42 GPIO0_7    eCAP0_in_PWM0_out.gpio0[7]*/
 
 					/* the UART pins */
-					0x184 0x2f /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
-					0x180 0x2f /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
+					// 0x184 0x2f /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
+					// 0x180 0x2f /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
 				>;
 			};
 
@@ -181,8 +181,8 @@
 					0x164 0x07 /* 42 GPIO0_7    eCAP0_in_PWM0_out.gpio0[7]*/
 
 					/* the uart pins */
-					0x184 0x07 /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
-					0x180 0x07 /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
+					// 0x184 0x07 /* 24 UART1_TXD  uart1_txd.gpio0[15]    */
+					// 0x180 0x07 /* 26 UART1_RXD  uart1_rxd.gpio0[14]    */
 				>;
 			};
 
