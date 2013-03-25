@@ -54,26 +54,26 @@
 					0x004 0x2f /* 24 GPIO1_1    gpmc_ad1 .gpio1[1]     */
 					0x000 0x2f /* 25 GPIO1_0    gpmc_ad0 .gpio1[0]     */
 					0x07C 0x2f /* 26 GPIO1_29   gpmc_csn0.gpio1[29]    */
-					0x0E0 0x2f /* 27 GPIO2_22   lcd_vsync.gpio2[22]    */
-					0x0E8 0x2f /* 28 GPIO2_24   lcd_pclk .gpio2[24]    */
-					0x0E4 0x2f /* 29 GPIO2_23   lcd_hsync.gpio2[23]    */
-					0x0EC 0x2f /* 30 GPIO2_25   lcd_ac_bias_en.gpio2[25] */
-					0x0D8 0x2f /* 31 UART5_CTSN lcd_data14.gpio0[10]   */
-					0x0DC 0x2f /* 32 UART5_RTSN lcd_data15.gpio0[11]   */
-					0x0D4 0x2f /* 33 UART4_RTSN lcd_data13.gpio0[9]    */
-					0x0CC 0x2f /* 34 UART3_RTSN lcd_data11.gpio2[17]   */
-					0x0D0 0x2f /* 35 UART4_CTSN lcd_data12.gpio0[8]    */
-					0x0C8 0x2f /* 36 UART3_CTSN lcd_data10.gpio2[16]   */
-					0x0C0 0x2f /* 37 UART5_TXD  lcd_data8.gpio2[14]    */
-					0x0C4 0x2f /* 38 UART5_RXD  lcd_data9.gpio2[15]    */
-					0x0B8 0x2f /* 39 GPIO2_12   lcd_data6.gpio2[12]    */
-					0x0BC 0x2f /* 40 GPIO2_13   lcd_data7.gpio2[13]    */
-					0x0B0 0x2f /* 41 GPIO2_10   lcd_data4.gpio2[10]    */
-					0x0B4 0x2f /* 42 GPIO2_11   lcd_data5.gpio2[11]    */
-					0x0A8 0x2f /* 43 GPIO2_8    lcd_data2.gpio2[8]     */
-					0x0AC 0x2f /* 44 GPIO2_9    lcd_data3.gpio2[9]     */
-					0x0A0 0x2f /* 45 GPIO2_6    lcd_data0.gpio2[6]     */
-					0x0A4 0x2f /* 46 GPIO2_7    lcd_data1.gpio2[7]     */
+					// 0x0E0 0x2f /* 27 GPIO2_22   lcd_vsync.gpio2[22]    */
+					// 0x0E8 0x2f /* 28 GPIO2_24   lcd_pclk .gpio2[24]    */
+					// 0x0E4 0x2f /* 29 GPIO2_23   lcd_hsync.gpio2[23]    */
+					// 0x0EC 0x2f /* 30 GPIO2_25   lcd_ac_bias_en.gpio2[25] */
+					// 0x0D8 0x2f /* 31 UART5_CTSN lcd_data14.gpio0[10]   */
+					// 0x0DC 0x2f /* 32 UART5_RTSN lcd_data15.gpio0[11]   */
+					// 0x0D4 0x2f /* 33 UART4_RTSN lcd_data13.gpio0[9]    */
+					// 0x0CC 0x2f /* 34 UART3_RTSN lcd_data11.gpio2[17]   */
+					// 0x0D0 0x2f /* 35 UART4_CTSN lcd_data12.gpio0[8]    */
+					// 0x0C8 0x2f /* 36 UART3_CTSN lcd_data10.gpio2[16]   */
+					// 0x0C0 0x2f /* 37 UART5_TXD  lcd_data8.gpio2[14]    */
+					// 0x0C4 0x2f /* 38 UART5_RXD  lcd_data9.gpio2[15]    */
+					// 0x0B8 0x2f /* 39 GPIO2_12   lcd_data6.gpio2[12]    */
+					// 0x0BC 0x2f /* 40 GPIO2_13   lcd_data7.gpio2[13]    */
+					// 0x0B0 0x2f /* 41 GPIO2_10   lcd_data4.gpio2[10]    */
+					// 0x0B4 0x2f /* 42 GPIO2_11   lcd_data5.gpio2[11]    */
+					// 0x0A8 0x2f /* 43 GPIO2_8    lcd_data2.gpio2[8]     */
+					// 0x0AC 0x2f /* 44 GPIO2_9    lcd_data3.gpio2[9]     */
+					// 0x0A0 0x2f /* 45 GPIO2_6    lcd_data0.gpio2[6]     */
+					// 0x0A4 0x2f /* 46 GPIO2_7    lcd_data1.gpio2[7]     */
 
 					/* P9 connector on the bone */
 					/* B_B0-B_B19, INPUT | PULLDIS | MODE7 */
@@ -134,26 +134,26 @@
 					0x004 0x07 /* 24 GPIO1_1    gpmc_ad1 .gpio1[1]     */
 					0x000 0x07 /* 25 GPIO1_0    gpmc_ad0 .gpio1[0]     */
 					0x07C 0x07 /* 26 GPIO1_29   gpmc_csn0.gpio1[29]    */
-					0x0E0 0x07 /* 27 GPIO2_22   lcd_vsync.gpio2[22]    */
-					0x0E8 0x07 /* 28 GPIO2_24   lcd_pclk .gpio2[24]    */
-					0x0E4 0x07 /* 29 GPIO2_23   lcd_hsync.gpio2[23]    */
-					0x0EC 0x07 /* 30 GPIO2_25   lcd_ac_bias_en.gpio2[25] */
-					0x0D8 0x07 /* 31 UART5_CTSN lcd_data14.gpio0[10]   */
-					0x0DC 0x07 /* 32 UART5_RTSN lcd_data15.gpio0[11]   */
-					0x0D4 0x07 /* 33 UART4_RTSN lcd_data13.gpio0[9]    */
-					0x0CC 0x07 /* 34 UART3_RTSN lcd_data11.gpio2[17]   */
-					0x0D0 0x07 /* 35 UART4_CTSN lcd_data12.gpio0[8]    */
-					0x0C8 0x07 /* 36 UART3_CTSN lcd_data10.gpio2[16]   */
-					0x0C0 0x07 /* 37 UART5_TXD  lcd_data8.gpio2[14]    */
-					0x0C4 0x07 /* 38 UART5_RXD  lcd_data9.gpio2[15]    */
-					0x0B8 0x07 /* 39 GPIO2_12   lcd_data6.gpio2[12]    */
-					0x0BC 0x07 /* 40 GPIO2_13   lcd_data7.gpio2[13]    */
-					0x0B0 0x07 /* 41 GPIO2_10   lcd_data4.gpio2[10]    */
-					0x0B4 0x07 /* 42 GPIO2_11   lcd_data5.gpio2[11]    */
-					0x0A8 0x07 /* 43 GPIO2_8    lcd_data2.gpio2[8]     */
-					0x0AC 0x07 /* 44 GPIO2_9    lcd_data3.gpio2[9]     */
-					0x0A0 0x07 /* 45 GPIO2_6    lcd_data0.gpio2[6]     */
-					0x0A4 0x07 /* 46 GPIO2_7    lcd_data1.gpio2[7]     */
+					// 0x0E0 0x07 /* 27 GPIO2_22   lcd_vsync.gpio2[22]    */
+					// 0x0E8 0x07 /* 28 GPIO2_24   lcd_pclk .gpio2[24]    */
+					// 0x0E4 0x07 /* 29 GPIO2_23   lcd_hsync.gpio2[23]    */
+					// 0x0EC 0x07 /* 30 GPIO2_25   lcd_ac_bias_en.gpio2[25] */
+					// 0x0D8 0x07 /* 31 UART5_CTSN lcd_data14.gpio0[10]   */
+					// 0x0DC 0x07 /* 32 UART5_RTSN lcd_data15.gpio0[11]   */
+					// 0x0D4 0x07 /* 33 UART4_RTSN lcd_data13.gpio0[9]    */
+					// 0x0CC 0x07 /* 34 UART3_RTSN lcd_data11.gpio2[17]   */
+					// 0x0D0 0x07 /* 35 UART4_CTSN lcd_data12.gpio0[8]    */
+					// 0x0C8 0x07 /* 36 UART3_CTSN lcd_data10.gpio2[16]   */
+					// 0x0C0 0x07 /* 37 UART5_TXD  lcd_data8.gpio2[14]    */
+					// 0x0C4 0x07 /* 38 UART5_RXD  lcd_data9.gpio2[15]    */
+					// 0x0B8 0x07 /* 39 GPIO2_12   lcd_data6.gpio2[12]    */
+					// 0x0BC 0x07 /* 40 GPIO2_13   lcd_data7.gpio2[13]    */
+					// 0x0B0 0x07 /* 41 GPIO2_10   lcd_data4.gpio2[10]    */
+					// 0x0B4 0x07 /* 42 GPIO2_11   lcd_data5.gpio2[11]    */
+					// 0x0A8 0x07 /* 43 GPIO2_8    lcd_data2.gpio2[8]     */
+					// 0x0AC 0x07 /* 44 GPIO2_9    lcd_data3.gpio2[9]     */
+					// 0x0A0 0x07 /* 45 GPIO2_6    lcd_data0.gpio2[6]     */
+					// 0x0A4 0x07 /* 46 GPIO2_7    lcd_data1.gpio2[7]     */
 
 					/* P9 connector on the bone */
 					/* B_B0-B_B19, INPUT | PULLDIS | MODE7 */
