@@ -289,31 +289,38 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 	reg = tilcdc_read(dev, LCDC_RASTER_TIMING_2_REG) & ~0x000fff00;
 	reg |= LCDC_AC_BIAS_FREQUENCY(info->ac_bias) |
 		LCDC_AC_BIAS_TRANSITIONS_PER_INT(info->ac_bias_intrpt);
+
+	/* subtract one from hfp, hbp, hsw because the hardware uses a value of 0 as 1 */
 	if (priv->rev == 2) {
-		reg |= (hfp & 0x300) >> 8;
-		reg |= (hbp & 0x300) >> 4;
-		reg |= (hsw & 0x3c0) << 21;
+	    reg |= ((hfp-1) & 0x300) >> 8;
+	    reg |= ((hbp-1) & 0x300) >> 4;
+	    reg |= ((hsw-1) & 0x3c0) << 21;
 	}
 	tilcdc_write(dev, LCDC_RASTER_TIMING_2_REG, reg);
 
+	/* subtract one from hfp, hbp, hsw because the hardware uses a value of 0 as 1 */
+	/* weirdly on BeagleBone Black) the hbp is still wrong when analyzed on hdmi timing tool */
+	/* all other values come out correct - need to look into why this is happening */
+	/* might be something that is happening after the LCD output in the hdmi encoder */
 	reg = (((mode->hdisplay >> 4) - 1) << 4) |
-		((hbp & 0xff) << 24) |
-		((hfp & 0xff) << 16) |
-		((hsw & 0x3f) << 10);
+	    (((hbp-1) & 0xff) << 24) |
+	    (((hfp-1) & 0xff) << 16) |
+	    (((hsw-1) & 0x3f) << 10);
 	if (priv->rev == 2)
-		reg |= (((mode->hdisplay >> 4) - 1) & 0x40) >> 3;
+	    reg |= (((mode->hdisplay >> 4) - 1) & 0x40) >> 3;
 	tilcdc_write(dev, LCDC_RASTER_TIMING_0_REG, reg);
 
+	/* only the vertical sync width maps 0 as 1 so only subtract 1 from vsw */
 	reg = ((mode->vdisplay - 1) & 0x3ff) |
-		((vbp & 0xff) << 24) |
-		((vfp & 0xff) << 16) |
-		((vsw & 0x3f) << 10);
+	    ((vbp & 0xff) << 24) |
+	    ((vfp & 0xff) << 16) |
+	    (((vsw-1) & 0x3f) << 10);
 	tilcdc_write(dev, LCDC_RASTER_TIMING_1_REG, reg);
 
 	/* Configure display type: */
 	reg = tilcdc_read(dev, LCDC_RASTER_CTRL_REG) &
-		~(LCDC_TFT_MODE | LCDC_MONO_8BIT_MODE | LCDC_MONOCHROME_MODE |
-			LCDC_V2_TFT_24BPP_MODE | LCDC_V2_TFT_24BPP_UNPACK | 0x000ff000);
+	    ~(LCDC_TFT_MODE | LCDC_MONO_8BIT_MODE | LCDC_MONOCHROME_MODE |
+	      LCDC_V2_TFT_24BPP_MODE | LCDC_V2_TFT_24BPP_UNPACK | 0x000ff000);
 	reg |= LCDC_TFT_MODE; /* no monochrome/passive support */
 	if (info->tft_alt_mode)
 		reg |= LCDC_TFT_ALT_ENABLE;
@@ -325,7 +332,7 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 		case 16:
 			break;
 		case 32:
-			reg |= LCDC_V2_TFT_24BPP_UNPACK;
+		        reg |= LCDC_V2_TFT_24BPP_UNPACK;
 			/* fallthrough */
 		case 24:
 			reg |= LCDC_V2_TFT_24BPP_MODE;
@@ -427,6 +434,7 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 {
 	struct tilcdc_drm_private *priv = crtc->dev->dev_private;
 	unsigned int bandwidth;
+	uint32_t hbp, hfp, hsw, vbp, vfp, vsw;
 
 	int rb;
 
@@ -445,6 +453,44 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 
 	DBG("Processing mode %dx%d@%d with pixel clock %d",
 	       mode->hdisplay, mode->vdisplay, drm_mode_vrefresh(mode), mode->clock);
+
+
+	hbp = mode->htotal - mode->hsync_end;
+	hfp = mode->hsync_start - mode->hdisplay;
+	hsw = mode->hsync_end - mode->hsync_start;
+	vbp = mode->vtotal - mode->vsync_end;
+	vfp = mode->vsync_start - mode->vdisplay;
+	vsw = mode->vsync_end - mode->vsync_start;
+
+	if(hbp & ~0x3ff) {
+	  DBG("Pruning mode : Horizontal Back Porch out of range\n");
+	  return MODE_BAD;
+	}
+
+	if(hfp & ~0x3ff) {
+	  DBG("Pruning mode : Horizontal Front Porch out of range\n");
+	  return MODE_BAD;
+	}
+
+	if(hsw & ~0x3ff) {
+	  DBG("Pruning mode : Horizontal Sync Width out of range\n");
+	  return MODE_BAD;
+	}
+
+	if(vbp & ~0xff) {
+	  DBG("Pruning mode : Vertical Back Porch out of range\n");
+	  return MODE_BAD;
+	}
+
+	if(vfp & ~0xff) {
+	  DBG("Pruning mode : Vertical Front Porch out of range\n");
+	  return MODE_BAD;
+	}
+
+	if(vsw & ~0x3f) {
+	  DBG("Pruning mode : Vertical Sync Width out of range\n");
+	  return MODE_BAD;
+	}
 
 	/* some devices have a maximum allowed pixel clock */
 	/* configured from the DT */
@@ -467,7 +513,6 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	  DBG("Pruning mode, exceeds defined bandwidth limit");
 	  return MODE_BAD;
 	}
-
 
 	if (rb_check) {
 		/* we only support reduced blanking modes */
