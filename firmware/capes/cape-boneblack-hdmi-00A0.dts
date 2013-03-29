@@ -41,6 +41,11 @@
 					0xec 0x00       /* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 				>;
 			};
+			nxp_hdmi_bonelt_off_pins: nxp_hdmi_bonelt_off_pins {
+				pinctrl-single,pins = <
+					0x1b0 0x03      /* xdma_event_intr0, OMAP_MUX_MODE3 | AM33XX_PIN_OUTPUT */
+				>;
+			};
 		};
 	};
 
@@ -55,8 +60,9 @@
 			hdmi {
 				compatible = "tilcdc,slave";
 				i2c = <&i2c0>;
-				pinctrl-names = "default";
+				pinctrl-names = "default", "off";
 				pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
+				pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 			};
 
 			fb {
