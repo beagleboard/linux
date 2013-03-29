@@ -23,19 +23,22 @@
 				pinctrl-single,pins = <
 					/* Pinmux comes from TRM section
 					   9.3.1: CONTROL_MODULE Regusters. */
-					//0x44 0x2f /* gpmc_a1.gpio1_17 INPUT,no-pull,mode7 */
-					//0x1A4 0x2f /* mcasp0_fsr.gpio3_19 INPUT,no-pull,mode7 */
-					//0x00 0x2f /* gpmc_ad0.gpio1_0 */
 
-					//so use GPIO1_13 (rst), GPIO1_14 (wake), then SPI1_CS0 (CS), and GPIO1_29 (INT)
+					/* so use GPIO1_13 (rst), GPIO1_14 (wake), then SPI1_CS0 (CS), and GPIO1_29 (INT) */
 					0x34 0x37 /* gpmc_ad13.gpio1_13 input, pull up, mode 7 */
 					0x38 0x2f /* gpmc_ad14.gpio1_14 input, no pull, mode 7 */
-					//0x13c 0x2f /* gpmc_ad15.gpio1_15 input, no pull, mode 7 */
 					0x7c 0x2f /* gpmc_csn0.gpio1_29 input, no pull, mode 7 */
 				>;
 			};
+			bone_mrf24j40_spi1_pins: pinmux_bone_mrf24j40_spi1_pins {
+				pinctrl-single,pins = <
+					0x190 0x33	/* mcasp0_aclkx.spi1_sclk, RX_ENABLED | PULLUP | MODE3 */
+	 				0x194 0x33	/* mcasp0_fsx.spi1_d0, RX_ENABLED | PULLUP | MODE3 */
+					0x198 0x33	/* mcasp0_axr0.spi1_d1, RX_ENABLED | PULLUP | MODE3 */
+					0x19c 0x33	/* mcasp0_ahclkr.spi1_cs0, RX_ENABLED | PULLUP | MODE3 */
+				>;
+			};
 		};
-
 	};
 
 
@@ -49,7 +52,7 @@
 
 			status = "okay";
 			pinctrl-names = "default";
-			pinctrl-0 = <&spi1_pins_s0>;
+			pinctrl-0 = <&bone_mrf24j40_spi1_pins>;
 
 			mrf24j40@0 {
 				compatible = "mrf24j40ma";
@@ -61,14 +64,6 @@
 
 				interrupt-parent = <&gpio2>;
 				interrupts = <29>;
-
-				// also working feb 9
-				//interrupt-parent = <&gpio2>;
-				//interrupts = <0>;
-
-				//working configuration
-				//interrupt-parent = <&gpio2>;
-				//interrupts = <17>;
 
 				//mrf24j40-wake = <&gpio4 19>;
 				//mrf24j40-reset = <gpio21 0>;
