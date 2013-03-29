@@ -26,6 +26,8 @@
 struct slave_module {
 	struct tilcdc_module base;
 	struct i2c_adapter *i2c;
+	struct pinctrl *pinctrl;
+	char *selected_state_name;
 };
 #define to_slave_module(x) container_of(x, struct slave_module, base)
 
@@ -291,14 +293,83 @@ static const struct tilcdc_module_ops slave_module_ops = {
 
 static struct of_device_id slave_of_match[];
 
+static ssize_t pinmux_show_state(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct slave_module *slave_mod = platform_get_drvdata(pdev);
+	const char *name;
+
+	name = slave_mod->selected_state_name;
+	if (name == NULL || strlen(name) == 0)
+		name = "none";
+	return sprintf(buf, "%s\n", name);
+}
+
+static ssize_t pinmux_store_state(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct slave_module *slave_mod = platform_get_drvdata(pdev);
+	struct pinctrl_state *state;
+	char *state_name;
+	char *s;
+	int err;
+
+	/* duplicate (as a null terminated string) */
+	state_name = kmalloc(count + 1, GFP_KERNEL);
+	if (state_name == NULL)
+		return -ENOMEM;
+	memcpy(state_name, buf, count);
+	state_name[count] = '\0';
+
+	/* and chop off newline */
+	s = strchr(state_name, '\n');
+	if (s != NULL)
+		*s = '\0';
+
+	/* try to select default state at first (if it exists) */
+	state = pinctrl_lookup_state(slave_mod->pinctrl, state_name);
+	if (!IS_ERR(state)) {
+		err = pinctrl_select_state(slave_mod->pinctrl, state);
+		if (err != 0)
+			dev_err(dev, "Failed to select state %s\n",
+					state_name);
+	} else {
+		dev_err(dev, "Failed to find state %s\n", state_name);
+		err = PTR_RET(state);
+	}
+
+	if (err == 0) {
+		kfree(slave_mod->selected_state_name);
+		slave_mod->selected_state_name = state_name;
+	}
+
+	return err ? err : count;
+}
+
+static DEVICE_ATTR(pinmux_state, S_IWUSR | S_IRUGO,
+		   pinmux_show_state, pinmux_store_state);
+
+static struct attribute *pinmux_attributes[] = {
+	&dev_attr_pinmux_state.attr,
+	NULL
+};
+
+static const struct attribute_group pinmux_attr_group = {
+	.attrs = pinmux_attributes,
+};
+
 static int slave_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
 	struct device_node *i2c_node;
 	struct slave_module *slave_mod;
 	struct tilcdc_module *mod;
-	struct pinctrl *pinctrl;
+	struct pinctrl_state *state;
 	uint32_t i2c_phandle;
+	char *state_name;
 	int ret = -EINVAL;
 
 	/* bail out early if no DT data: */
@@ -311,13 +382,48 @@ static int slave_probe(struct platform_device *pdev)
 	if (!slave_mod)
 		return -ENOMEM;
 
+	platform_set_drvdata(pdev, slave_mod);
+
 	mod = &slave_mod->base;
 
 	tilcdc_module_init(mod, "slave", &slave_module_ops);
 
-	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
-	if (IS_ERR(pinctrl))
-		dev_warn(&pdev->dev, "pins are not configured\n");
+	state_name = kmalloc(strlen(PINCTRL_STATE_DEFAULT) + 1,
+			GFP_KERNEL);
+	if (state_name == NULL) {
+		dev_err(dev, "Failed to allocate state name\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
+	slave_mod->selected_state_name = state_name;
+	strcpy(slave_mod->selected_state_name, PINCTRL_STATE_DEFAULT);
+
+	slave_mod->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(slave_mod->pinctrl)) {
+		dev_err(dev, "Failed to get pinctrl\n");
+		ret = PTR_RET(slave_mod->pinctrl);
+		goto fail;
+	}
+
+	/* try to select default state at first (if it exists) */
+	state = pinctrl_lookup_state(slave_mod->pinctrl,
+			slave_mod->selected_state_name);
+	if (!IS_ERR(state)) {
+		ret = pinctrl_select_state(slave_mod->pinctrl, state);
+		if (ret != 0) {
+			dev_err(dev, "Failed to select default state\n");
+			goto fail;
+		}
+	} else {
+		slave_mod->selected_state_name = '\0';
+	}
+
+	/* Register sysfs hooks */
+	ret = sysfs_create_group(&dev->kobj, &pinmux_attr_group);
+	if (ret) {
+		dev_err(dev, "Failed to create sysfs group\n");
+		goto fail;
+	}
 
 	if (of_property_read_u32(node, "i2c", &i2c_phandle)) {
 		dev_err(&pdev->dev, "could not get i2c bus phandle\n");
