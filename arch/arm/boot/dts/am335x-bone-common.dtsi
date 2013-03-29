@@ -196,6 +196,15 @@
 				manufacturer = "Koen Kooi";
 				part-number = "BB-BONE-HEXY-01";
 			};
+			/* MRF24J40 Cape Override */
+			slot@11 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-MRF24J40";
+				version = "00A0";
+				manufacturer = "Signal 11 Software";
+				part-number = "BB-BONE-MRF24J40";
+			};
 		};
 
 		/* mapping between board names and dtb objects */
@@ -272,7 +281,6 @@
 					dtbo = "cape-bone-nixie-00A0.dtbo";
 				};
 			};
-
 			cape@7 {
 				part-number = "BB-BONE-TFT-01";
 				version@00A0 {
@@ -294,6 +302,14 @@
 				version@00A0 {
 					version = "00A0";
 					dtbo = "cape-bone-hexy-00A0.dtbo";
+				};
+			};
+			/* mrf24j40 cape */
+			cape@10 {
+				part-number = "BB-BONE-MRF24J40";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-mrf24j40-00A0.dtbo";
 				};
 			};
 		};
