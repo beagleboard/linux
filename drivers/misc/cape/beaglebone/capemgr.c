@@ -47,7 +47,14 @@
 /* extra command line overrides */
 static char *extra_override = NULL;
 module_param(extra_override, charp, 0444);
-MODULE_PARM_DESC(extra_override, "Comma delimited list of PART-NUMBER[:REV] overrides");
+MODULE_PARM_DESC(extra_override,
+		"Comma delimited list of PART-NUMBER[:REV] overrides");
+
+/* disabled capes */
+static char *disable_partno = NULL;
+module_param(disable_partno, charp, 0444);
+MODULE_PARM_DESC(disable_partno,
+		"Comma delimited list of PART-NUMBER[:REV] of disabled capes");
 
 struct bone_capemgr_info;
 
@@ -547,16 +554,64 @@ slot_fail_check:
 	return 0;
 }
 
+/* return 0 if not matched,, 1 if matched */
+static int bone_match_cape(const char *match,
+		const char *part_number, const char *version)
+{
+	char *tmp_part_number, *tmp_version;
+	char *buf, *s, *e, *sn;
+	int found;
+
+	if (match == NULL || part_number == NULL)
+		return 0;
+
+	/* copy the argument to work on it */
+	buf = kstrdup(match, GFP_KERNEL);
+
+	/* no memory, too bad... */
+	if (buf == NULL)
+		return 0;
+
+	found = 0;
+	s = buf;
+	e = s + strlen(s);
+	while (s < e) {
+		/* find comma separator */
+		sn = strchr(s, ',');
+		if (sn != NULL)
+			*sn++ = '\0';
+		else
+			sn = e;
+		tmp_part_number = s;
+		tmp_version = strchr(tmp_part_number, ':');
+		if (tmp_version != NULL)
+			*tmp_version++ = '\0';
+		s = sn;
+
+		/* the part names must match */
+		if (strcmp(tmp_part_number, part_number) != 0)
+			continue;
+
+		/* if there's no version, match any */
+		if (version == NULL || tmp_version == NULL ||
+			strcmp(version, tmp_version) == 0) {
+			found = 1;
+			break;
+		}
+	}
+
+	kfree(buf);
+
+	return found;
+}
+
 /* check an override slot node if it's compatible */
 static int bone_is_compatible_override(struct device_node *node,
 		const char *compatible_name)
 {
 	struct property *prop;
-	char *buf, *s, *e, *sn;
 	const char *part_number;
 	const char *version;
-	char *tmp_part_number, *tmp_version;
-	int found;
 
 	/* check if the slot is compatible with the board */
 	prop = of_find_property(node, "compatible", NULL);
@@ -590,50 +645,8 @@ static int bone_is_compatible_override(struct device_node *node,
 	if (of_property_read_string(node, "version", &version) != 0)
 		version = NULL;
 
-	/* copy the argument to work on it */
-	buf = kstrdup(extra_override, GFP_KERNEL);
-
-	/* no memory, too bad... */
-	if (buf == NULL)
-		return 0;
-
-	found = 0;
-	s = buf;
-	e = s + strlen(s);
-	while (s < e) {
-		/* find comma separator */
-		sn = strchr(s, ',');
-		if (sn != NULL)
-			*sn++ = '\0';
-		else
-			sn = e;
-		tmp_part_number = s;
-		tmp_version = strchr(tmp_part_number, ':');
-		if (tmp_version != NULL)
-			*tmp_version++ = '\0';
-		s = sn;
-
-		/* the part names must match */
-		if (strcmp(tmp_part_number, part_number) != 0)
-			continue;
-
-		pr_info("override: part-number='%s' version='%s' "
-				"tmp_version='%s'\n",
-				part_number,
-				version ? version : "N/A",
-				tmp_version ? tmp_version : "N/A");
-
-		/* if there's no version, match any */
-		if (version == NULL || tmp_version == NULL ||
-			strcmp(version, tmp_version) == 0) {
-			found = 1;
-			break;
-		}
-	}
-
-	kfree(buf);
-
-	return found;
+	/* match on the extra override */
+	return bone_match_cape(extra_override, part_number, version);
 }
 
 static int bone_is_compatible_runtime_override(struct device_node *node,
@@ -1044,6 +1057,15 @@ found:
 			if (!bone_is_compatible_runtime_override(node,
 						part_number, version))
 				continue;
+
+			/* if matches the disabled ones skip */
+			if (bone_match_cape(disable_partno,
+						part_number, NULL)) {
+				dev_info(&pdev->dev,
+					"Skipping disabled cape with "
+						"part# %s\n", part_number);
+				continue;
+			}
 
 			slot = bone_capemgr_add_slot(info, node,
 					part_number, version);
@@ -1522,6 +1544,7 @@ bone_capemgr_add_slot(struct bone_capemgr_info *info, struct device_node *node,
 				slotno);
 		/* but all is fine */
 	} else {
+
 		dev_info(dev, "slot #%d: '%s'\n",
 				slotno, slot->text_id);
 
@@ -1701,6 +1724,15 @@ bone_capemgr_probe(struct platform_device *pdev)
 						&part_number) != 0)
 				continue;
 
+			/* if matches the disabled ones skip */
+			if (bone_match_cape(disable_partno,
+						part_number, NULL)) {
+				dev_info(&pdev->dev,
+					"Skipping disabled cape with "
+						"part# %s\n", part_number);
+				continue;
+			}
+
 			len = sizeof(*capemap) + strlen(part_number) + 1;
 			capemap = devm_kzalloc(&pdev->dev, len, GFP_KERNEL);
 			if (capemap == NULL) {
@@ -1741,6 +1773,7 @@ bone_capemgr_probe(struct platform_device *pdev)
 				ret = PTR_ERR(slot);
 				goto err_exit;
 			}
+			/* note that slot may be NULL (means it was disabled) */
 		}
 		of_node_put(slots_node);
 	}
@@ -1760,6 +1793,16 @@ bone_capemgr_probe(struct platform_device *pdev)
 	/* now load each (take lock to be sure */
 	mutex_lock(&info->slots_list_mutex);
 	list_for_each_entry(slot, &info->slot_list, node) {
+
+		/* if matches the disabled ones skip */
+		if (bone_match_cape(disable_partno,
+					slot->part_number, NULL)) {
+			dev_info(&pdev->dev,
+				"Skipping loading of disabled cape with "
+					"part# %s\n", slot->part_number);
+			continue;
+		}
+
 		if (!slot->probe_failed && !slot->loaded) {
 			slot->loading = 1;
 			slot->loader_thread = kthread_run(bone_capemgr_loader,
