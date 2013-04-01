@@ -32,8 +32,12 @@
 	regulator-always-on;
 };
 
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
 &mmc2 {
-	vmmc-supply = <&ldo3_reg>;
+	vmmc-supply = <&vmmcsd_fixed>;
 	bus-width = <8>;
 	ti,non-removable;
 	status = "okay";
