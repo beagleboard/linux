@@ -4,10 +4,27 @@
 #include <linux/err.h>
 #include <linux/of.h>
 
+#define MAX_PWMS 1024
+
 struct pwm_device;
 struct seq_file;
 
 #if IS_ENABLED(CONFIG_PWM) || IS_ENABLED(CONFIG_HAVE_PWM)
+
+/*
+ * "valid" PWM numbers are nonnegative and may be passed to
+ * setup routines like pwm_get().  only some valid numbers
+ * can successfully be requested and used.
+ *
+ * Invalid PWM numbers are useful for indicating no-such-PWM in
+ * platform data and other tables.
+ */
+
+static inline bool pwm_is_valid(int number)
+{
+	return number >= 0 && number < MAX_PWMS;
+}
+
 /*
  * pwm_request - request a PWM device
  */
@@ -75,7 +92,8 @@ enum pwm_polarity {
 
 enum {
 	PWMF_REQUESTED = 1 << 0,
-	PWMF_ENABLED = 1 << 1,
+	PWMF_ENABLED = 1 << 1, /* set running via /sys/class/pwm/pwmX/run */
+	PWMF_EXPORT = 1 << 2, /* exported via /sys/class/pwm/export */
 };
 
 struct pwm_device {
@@ -87,6 +105,10 @@ struct pwm_device {
 	void			*chip_data;
 
 	unsigned int		period; /* in nanoseconds */
+#ifdef CONFIG_PWM_SYSFS
+	unsigned int		duty; /* in nanoseconds */
+	enum pwm_polarity	polarity;
+#endif
 };
 
 static inline void pwm_set_period(struct pwm_device *pwm, unsigned int period)
@@ -159,6 +181,9 @@ struct pwm_chip {
 	struct pwm_device *	(*of_xlate)(struct pwm_chip *pc,
 					    const struct of_phandle_args *args);
 	unsigned int		of_pwm_n_cells;
+#ifdef CONFIG_PWM_SYSFS
+	unsigned		exported:1;
+#endif
 };
 
 #if IS_ENABLED(CONFIG_PWM)
