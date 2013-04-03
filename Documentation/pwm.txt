@@ -45,6 +45,52 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns);
 
 To start/stop toggling the PWM output use pwm_enable()/pwm_disable().
 
+Using PWMs with the sysfs interface
+-----------------------------------
+
+You have to enable CONFIG_PWM_SYSFS in your kernel configuration to use
+the sysfs interface. It is exposed at /sys/class/pwm/. If there are pwm
+drivers loaded and these drivers successfully probed a chip, this chip
+is exported as pwmchipX . Note that a single driver can probe multiple chips.
+Inside the directory you can read these properties:
+
+base - This is the linux global start where the chips pwm channels get
+exposed.
+
+npwm - This is the number of pwm channels this chip supports.
+
+If you want to start using a pwm channel with sysfs first you have to
+export it. If you are finished with it and want to free the pwm for other
+uses, you can unexport it:
+
+export - Write the global pwm channel number to this file to start using
+the channel with sysfs.
+
+unexport - Write the global pwm channel number of the channel you are finshed
+with to this file to make the channel available for other uses.
+
+Once a pwm is exported a pwmX (X ranging from 0 to MAX_PWMS) directory appears
+with the following read/write properties inside to control the pwm:
+
+duty_ns - Write the number of nanoseconds the active portion of the pwm period
+should last to this file. This can not be longer than the period_ns.
+
+period_ns - Write the length of the pwm period in nanoseconds to this file.
+This includes the active and inactive portion of the pwm period and can not
+be smaller than duty_ns.
+
+polarity - The normal behaviour is to put out a high for the active portion of
+the pwm period. Write a 1 to this file to inverse the signal and output a low
+on the active portion. Write a 0 to switch back to the normal behaviour. The
+polarity can only be changed if the pwm is not running. This file is only
+visible if the underlying driver/device supports changing the polarity.
+
+run - Write a 1 to this file to start the pwm signal generation, write a 0 to
+stop it. Set your desired period_ns, duty_ns and polarity before starting the
+pwm.
+
+It is recommend to set the period_ns at first and duty_ns after that.
+
 Implementing a PWM driver
 -------------------------
 
