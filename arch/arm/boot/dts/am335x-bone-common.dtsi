@@ -221,6 +221,14 @@
 					version = "00A1", "01";
 					dtbo = "cape-bone-dvi-00A1.dtbo";
 				};
+				version@00A2 {
+					version = "00A2", "A2";
+					dtbo = "cape-bone-dvi-00A2.dtbo";
+				};
+				version@00A3 {
+					version = "00A3";
+					dtbo = "cape-bone-dvi-00A2.dtbo";
+				};
 			};
 
 			/* beaglebone black emmc on board */
