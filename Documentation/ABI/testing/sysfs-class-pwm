@@ -1,0 +1,36 @@
+What:		/sys/class/pwm/
+Date:		March 2013
+KernelVersion:	3.11
+Contact:	Lars Poeschel <poeschel@lemonage.de>
+Description:
+
+  The sysfs interface for PWM is selectable as a Kconfig option.
+  If a driver successfully probed a pwm chip, it appears at
+  /sys/class/pwm/pwmchipN/ where N is the number of it's first PWM channel. A
+  single driver may probe multiple chips. PWMs are identified as they are
+  inside the kernel, using integers in the range 0..MAX_PWMS. To use an
+  individual PWM, you have to explicitly export it by writing it's kernel
+  global number into the /sys/class/pwm/export file. Write it's number to
+  /sys/class/pwm/unexport to make the pwm available for other uses.
+  After a PWM channel is exported, it is available under
+  /sys/class/pwm/pwmN/. Under this directory you can set the parameters for
+  this PWM channel and at least let it start running.
+  See below for the parameters.
+  It is recommended to set the period_ns at first and the duty_ns after that.
+
+  See Documentation/pwm.txt for more information.
+
+Directory structure:
+
+	/sys/class/pwm
+		/export ... asks the kernel to export a PWM to userspace
+		/unexport ... to return a PWM to the kernel
+		/pwmN ... for each exported PWM #N
+			/duty_ns ... r/w, length of duty portion
+			/period_ns ... r/w, length of the pwm period
+			/polarity ... r/w, normal(0) or inverse(1) polarity
+					only created if driver supports it
+			/run ... r/w, write 1 to start and 0 to stop the pwm
+		/pwmchipN ... for each pwmchip; #N is its first PWM
+			/base ... (r/o) same as N
+			/ngpio ... (r/o) number of PWM; numbered N .. MAX_PWMS
