@@ -13,7 +13,7 @@
 
 	/* identification */
 	part-number = "BB-BONE-DVID-01";
-	version = "00A2", "A2";
+	version = "00A3", "00A2", "A2";
 
 	fragment@0 {
 		target = <&am33xx_pinmux>;
