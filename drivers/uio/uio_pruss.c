@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
+#include <linux/of_gpio.h>
 #include <linux/uio_driver.h>
 #include <linux/platform_data/uio_pruss.h>
 #include <linux/io.h>
@@ -132,6 +133,10 @@ static int pruss_probe(struct platform_device *dev)
 	struct uio_pruss_pdata *pdata = dev->dev.platform_data;
 	struct pinctrl *pinctrl;
 
+	int count;
+	struct device_node *child;
+	const char *pin_name;
+
 	gdev = kzalloc(sizeof(struct uio_pruss_dev), GFP_KERNEL);
 	if (!gdev)
 		return -ENOMEM;
@@ -175,6 +180,41 @@ static int pruss_probe(struct platform_device *dev)
 	if (IS_ERR(pinctrl))
 		dev_warn(&dev->dev,
 			"pins are not configured from the driver\n");
+	else{
+		count = of_get_child_count(dev->dev.of_node);
+		if (!count){
+			dev_info(&dev->dev, "No children\n");
+			return -ENODEV;
+		}
+		// Run through all children. They have lables for easy reference.
+		for_each_child_of_node(dev->dev.of_node, child){
+			enum of_gpio_flags flags;
+			unsigned gpio;
+
+			count = of_gpio_count(child);
+
+			ret = of_property_count_strings(child, "pin-names");
+			if (ret < 0) {
+				dev_err(&dev->dev, "Failed to get pin-names\n");
+				continue;
+			}
+			if(count != ret){
+				dev_err(&dev->dev, "The number of gpios (%d) does not match"\
+					" the number of pin names (%d)\n", count, ret);
+				continue;
+			}
+
+			dev_dbg(&dev->dev, "Child has %u gpios\n", count);
+			for(cnt=0; cnt<count; cnt++){
+				ret = of_property_read_string_index(child,
+					"pin-names", cnt, &pin_name);
+				if (ret != 0)
+					dev_err(&dev->dev, "Error on pin-name #%d\n", cnt);
+				gpio = of_get_gpio_flags(child, cnt, &flags);
+				ret = devm_gpio_request_one(&dev->dev, gpio, flags, pin_name);
+			}
+		}
+	}
 
 	regs_prussio = platform_get_resource(dev, IORESOURCE_MEM, 0);
 	if (!regs_prussio) {
