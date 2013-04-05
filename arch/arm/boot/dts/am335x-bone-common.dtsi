@@ -320,6 +320,14 @@
 					dtbo = "cape-bone-mrf24j40-00A0.dtbo";
 				};
 			};
+			/* expansion test */
+			cape@11 {
+				part-number = "BB-BONE-EXPTEST";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-exptest-00A0.dtbo";
+				};
+			};
 		};
 	};
 
