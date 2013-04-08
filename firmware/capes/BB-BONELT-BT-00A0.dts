@@ -21,7 +21,7 @@
 
 			bone_bt_cape_key_pins: pinmux_bone_bt_cape_key_pins {
 				pinctrl-single,pins = <
-					0x0a8 0x27 /* P8.43 lcd_data2.gpio2[8]    */
+					0x0a8 0x2f /* P8.43 lcd_data2.gpio2[8]  DISABLE internal pullup  */
 				>;
 			};
 		};
@@ -39,7 +39,7 @@
 				#size-cells = <0>;
 
 				button@1 {
-					debounce_interval = <1>;
+					debounce_interval = <0>;
 					linux,code = <28>;
 					label = "enter";
 					gpios = <&gpio3 8 0x0>;
