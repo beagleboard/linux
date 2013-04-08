@@ -60,6 +60,13 @@ input-files   := $(foreach hdr, $(header-y), \
 			$(error Missing generated UAPI file $(gendir)/$(hdr)) \
 		   ))
 
+# these will leave a file in /tmp - but they work...
+input-files-temp := $(shell mktemp)
+$(foreach f, $(input-files), $(shell echo "$(f)" >> $(input-files-temp)))
+
+all-files-temp := $(shell mktemp)
+$(foreach f, $(all-files), $(shell echo "$(installdir)/$(f)" >> $(all-files-temp)))
+
 # Work out what needs to be removed
 oldheaders    := $(patsubst $(installdir)/%,%,$(wildcard $(installdir)/*.h))
 unwanted      := $(filter-out $(all-files),$(oldheaders))
@@ -72,7 +79,7 @@ printdir = $(patsubst $(INSTALL_HDR_PATH)/%/,%,$(dir $@))
 quiet_cmd_install = INSTALL $(printdir) ($(words $(all-files))\
                             file$(if $(word 2, $(all-files)),s))
       cmd_install = \
-        $(PERL) $< $(installdir) $(SRCARCH) $(input-files); \
+        cat $(input-files-temp) | xargs -d '\n' | $(PERL) $< $(installdir) $(SRCARCH); \
         for F in $(wrapper-files); do                                   \
                 echo "\#include <asm-generic/$$F>" > $(installdir)/$$F;    \
         done;                                                           \
@@ -84,11 +91,10 @@ quiet_cmd_remove = REMOVE  $(unwanted)
 quiet_cmd_check = CHECK   $(printdir) ($(words $(all-files)) files)
 # Headers list can be pretty long, xargs helps to avoid
 # the "Argument list too long" error.
-      cmd_check = for f in $(all-files); do                          \
-                  echo "$(installdir)/$${f}"; done                      \
-                  | xargs                                            \
-                  $(PERL) $< $(INSTALL_HDR_PATH)/include $(SRCARCH); \
-	          touch $@
+      cmd_check = \
+        cat $(all-files-temp) | xargs -d '\n' | \
+	$(PERL) $< $(INSTALL_HDR_PATH)/include $(SRCARCH); \
+	touch $@
 
 PHONY += __headersinst __headerscheck
 
