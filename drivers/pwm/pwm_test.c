@@ -91,6 +91,11 @@ static ssize_t pwm_test_store_config(struct device *dev,
 	struct pwm_test *pwm_test = dev_get_drvdata(dev);
 	int ret;
 
+  if (pwm_test->pwm == NULL) {
+    pr_err("PWM Device has not been requested\n");
+    return -ENODEV;
+  }
+
 	if (pwm_test->duty_s == 0) {
 		ret = pwm_config(pwm_test->pwm, 0, pwm_test->period_s);
 		if (ret) {
@@ -199,6 +204,12 @@ static ssize_t pwm_test_store_request(struct device *dev,
 		return rc;
 
 	if (pwm_test->requested_s) {
+
+    if (pwm_test->pwm) {
+      pr_info("PWM already requested!\n");
+      return count;
+    }
+
 		pwm_test->pwm = pwm_get(dev, NULL);
 
 		if (IS_ERR(pwm_test->pwm)) {
@@ -206,9 +217,9 @@ static ssize_t pwm_test_store_request(struct device *dev,
 				PTR_ERR(pwm_test->pwm));
 			rc = -EINVAL;
 		}
-	} else {
-		pwm_free(pwm_test->pwm);
-		pwm_test->polarity = 0;
+	} else if (pwm_test->pwm != NULL) {
+
+    pwm_test->polarity = 0;
 		pwm_test->run = 0;
 		pwm_test->duty = 0;
 		pwm_test->period = 0;
@@ -218,8 +229,18 @@ static ssize_t pwm_test_store_request(struct device *dev,
 		pwm_test->duty_s = 0;
 		pwm_test->period_s = 0;
 		pwm_test->config_s = 0;
+
+		pwm_config(pwm_test->pwm, pwm_test->duty_s,
+      pwm_test->period_s);
+
+    pwm_disable(pwm_test->pwm);
+
 		rc = 0;
 	}
+  else {
+    pr_info("PWM was already unrequested\n");
+  }
+
 
 	if (rc) {
 		pr_err("operation failed %d\n", rc);
@@ -231,13 +252,13 @@ static ssize_t pwm_test_store_request(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(duty, 0644, pwm_test_show_duty, pwm_test_store_duty);
-static DEVICE_ATTR(period, 0644, pwm_test_show_period, pwm_test_store_period);
-static DEVICE_ATTR(polarity, 0644, pwm_test_show_polarity,
+static DEVICE_ATTR(duty, S_IRUSR | S_IWUSR, pwm_test_show_duty, pwm_test_store_duty);
+static DEVICE_ATTR(period, S_IRUSR | S_IWUSR, pwm_test_show_period, pwm_test_store_period);
+static DEVICE_ATTR(polarity, S_IRUSR | S_IWUSR, pwm_test_show_polarity,
 		pwm_test_store_polarity);
-static DEVICE_ATTR(config, 0644 , pwm_test_show_config, pwm_test_store_config);
-static DEVICE_ATTR(run, 0644 , pwm_test_show_run, pwm_test_store_run);
-static DEVICE_ATTR(request, 0644 , pwm_test_show_request, pwm_test_store_request);
+static DEVICE_ATTR(config, S_IRUSR | S_IWUSR , pwm_test_show_config, pwm_test_store_config);
+static DEVICE_ATTR(run, S_IRUSR | S_IWUSR , pwm_test_show_run, pwm_test_store_run);
+static DEVICE_ATTR(request, S_IRUSR | S_IWUSR , pwm_test_show_request, pwm_test_store_request);
 
 static const struct attribute *pwm_attrs[] = {
 	&dev_attr_duty.attr,
