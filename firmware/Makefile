@@ -155,7 +155,8 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-bone-pinmux-test-00A0.dtbo \
 	cape-bone-exptest-00A0.dtbo \
 	cape-bone-mrf24j40-00A0.dtbo \
-	BB-BONELT-BT-00A0.dtbo
+	BB-BONELT-BT-00A0.dtbo \
+	BB-BONE-PWMT-00A0.dtbo
 
 # the geiger cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
