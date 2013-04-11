@@ -1,0 +1,30 @@
+#
+# RSTCTL infrastructure and drivers
+#
+
+menuconfig RSTCTL
+	bool "Reset control subsystem"
+	help
+	  Select this to enable the reset control subsystem
+
+if RSTCTL
+
+config RSTCTL_GPIO
+	tristate "GPIO reset driver"
+	depends on RSTCTL
+	help
+	  This selects the GPIO based reset driver
+
+config RSTCTL_TEST
+	tristate "Test reset driver"
+	depends on RSTCTL
+	help
+	  This selects the test reset driver
+
+config RSTCTL_TEST_CONSUMER
+	tristate "Test reset consumer driver"
+	depends on RSTCTL
+	help
+	  This select the test reset consumer driver
+
+endif
