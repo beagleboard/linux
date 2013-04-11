@@ -11,6 +11,8 @@ obj-y				+= bus/
 # GPIO must come after pinctrl as gpios may need to mux pins etc
 obj-y				+= pinctrl/
 obj-y				+= gpio/
+# similarly rstctl must come very early
+obj-y				+= rstctl/
 obj-y				+= pwm/
 obj-$(CONFIG_PCI)		+= pci/
 obj-$(CONFIG_PARISC)		+= parisc/
