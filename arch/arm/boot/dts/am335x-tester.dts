@@ -177,15 +177,43 @@
 				part-number = "BB-BONE-NIXIE";
 			};
 
-			/* geiger cape version A0 without an EEPROM */
+			/* adafruit 1.8" TFT prototype cape */
 			slot@8 {
 				ti,cape-override;
 				compatible = "kernel-command-line", "runtime";
-				board-name = "Bone-Tester";
+				board-name = "Bone-TFT";
 				version = "00A0";
-				part-number = "BB-BONE-TESTER";
+				manufacturer = "Adafruit";
+				part-number = "BB-BONE-TFT-01";
 			};
 
+			/* adafruit RTC DS1307 prototype cape */
+			slot@9 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-RTC";
+				version = "00A0";
+				manufacturer = "Adafruit";
+				part-number = "BB-BONE-RTC-01";
+			};
+
+			slot@10 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-Hexy";
+				version = "00A0";
+				manufacturer = "Koen Kooi";
+				part-number = "BB-BONE-HEXY-01";
+			};
+			/* MRF24J40 Cape Override */
+			slot@11 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-MRF24J40";
+				version = "00A0";
+				manufacturer = "Signal 11 Software";
+				part-number = "BB-BONE-MRF24J40";
+			};
 		};
 
 		/* mapping between board names and dtb objects */
@@ -201,6 +229,14 @@
 				version@00A1 {
 					version = "00A1", "01";
 					dtbo = "cape-bone-dvi-00A1.dtbo";
+				};
+				version@00A2 {
+					version = "00A2", "A2";
+					dtbo = "cape-bone-dvi-00A2.dtbo";
+				};
+				version@00A3 {
+					version = "00A3";
+					dtbo = "cape-bone-dvi-00A2.dtbo";
 				};
 			};
 
@@ -262,18 +298,55 @@
 					dtbo = "cape-bone-nixie-00A0.dtbo";
 				};
 			};
-
-			/* tester */
 			cape@7 {
-				part-number = "BB-BONE-TESTER";
+				part-number = "BB-BONE-TFT-01";
 				version@00A0 {
 					version = "00A0";
-					dtbo = "cape-bone-tester-00A0.dtbo";
+					dtbo = "cape-bone-adafruit-lcd-00A0.dtbo";
 				};
 			};
 
+			cape@8 {
+				part-number = "BB-BONE-RTC-01";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-adafruit-rtc-00A0.dtbo";
+				};
+			};
+
+			cape@9 {
+				part-number = "BB-BONE-HEXY-01";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-hexy-00A0.dtbo";
+				};
+			};
+			/* mrf24j40 cape */
+			cape@10 {
+				part-number = "BB-BONE-MRF24J40";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-mrf24j40-00A0.dtbo";
+				};
+			};
+			/* expansion test */
+			cape@11 {
+				part-number = "BB-BONE-EXPTEST";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-exptest-00A0.dtbo";
+				};
+			};
 		};
 	};
+
+	vmmcsd_fixed: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmcsd_fixed";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
 };
 
 &i2c0 {
