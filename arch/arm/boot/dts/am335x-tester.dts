@@ -240,6 +240,15 @@
 				};
 			};
 
+			/* tester */
+			cape@100 {
+				part-number = "BB-BONE-TESTER";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-bone-tester-00A0.dtbo";
+				};
+			};
+
 			/* beaglebone black emmc on board */
 			cape@1 {
 				/* board-name = "BeagleBone 2G eMMC1 CAPE"; */
