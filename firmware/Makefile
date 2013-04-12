@@ -156,6 +156,21 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-bone-exptest-00A0.dtbo \
 	cape-bone-mrf24j40-00A0.dtbo \
 	BB-BONELT-BT-00A0.dtbo \
+	am33xx_pwm-00A0.dtbo \
+	bone_pwm_P8_13-00A0.dtbo \
+	bone_pwm_P8_19-00A0.dtbo \
+	bone_pwm_P8_34-00A0.dtbo \
+	bone_pwm_P8_36-00A0.dtbo \
+	bone_pwm_P8_45-00A0.dtbo \
+	bone_pwm_P8_46-00A0.dtbo \
+	bone_pwm_P9_14-00A0.dtbo \
+	bone_pwm_P9_16-00A0.dtbo \
+	bone_pwm_P9_21-00A0.dtbo \
+	bone_pwm_P9_22-00A0.dtbo \
+	bone_pwm_P9_28-00A0.dtbo \
+	bone_pwm_P9_29-00A0.dtbo \
+	bone_pwm_P9_31-00A0.dtbo \
+	bone_pwm_P9_42-00A0.dtbo \
 	BB-BONE-PWMT-00A0.dtbo
 
 # the geiger cape
