@@ -150,7 +150,7 @@
 			ssd1306: oled@3c {
 				compatible = "solomon,ssd1306fb-i2c";
 				reg = <0x3c>;
-				reset-gpios = <&gpio4 19 0>;
+				reset-gpios = <&gpio2 17 0>;
 				solomon,height = <32>;
 				solomon,width = <128>;
 				solomon,page-offset = <0>;
