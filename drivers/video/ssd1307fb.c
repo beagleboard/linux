@@ -245,7 +245,7 @@ static void ssd1307fb_deferred_io(struct fb_info *info,
 }
 
 static struct fb_deferred_io ssd1307fb_defio = {
-	.delay		= HZ,
+	.delay		= HZ/8,
 	.deferred_io	= ssd1307fb_deferred_io,
 };
 
