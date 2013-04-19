@@ -23,7 +23,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_encoder_slave.h>
 #include <drm/drm_edid.h>
-
+#include <linux/hdmi.h>
 
 #define DBG(fmt, ...) DRM_DEBUG(fmt"\n", ##__VA_ARGS__)
 
@@ -110,6 +110,9 @@ struct tda998x_priv {
 #define REG_VIP_CNTRL_5           REG(0x00, 0x25)     /* write */
 # define VIP_CNTRL_5_CKCASE       (1 << 0)
 # define VIP_CNTRL_5_SP_CNT(x)    (((x) & 3) << 1)
+
+#define REG_MUX_AP                REG(0x00, 0x26)
+# define MUX_AP_SELECT_I2S        (0x64)
 #define REG_MAT_CONTRL            REG(0x00, 0x80)     /* write */
 # define MAT_CONTRL_MAT_SC(x)     (((x) & 3) << 0)
 # define MAT_CONTRL_MAT_BP        (1 << 2)
@@ -171,7 +174,10 @@ struct tda998x_priv {
 # define HVF_CNTRL_1_PAD(x)       (((x) & 3) << 4)
 # define HVF_CNTRL_1_SEMI_PLANAR  (1 << 6)
 #define REG_RPT_CNTRL             REG(0x00, 0xf0)     /* write */
+#define REG_I2S_FORMAT            REG(0x00, 0xfc)
 
+#define REG_AIP_CLKSEL            REG(0x00, 0xfd)
+# define SEL_AIP_I2S              (1 << 3)  /* I2S Clk */
 
 /* Page 02h: PLL settings */
 #define REG_PLL_SERIAL_1          REG(0x02, 0x00)     /* read/write */
@@ -212,7 +218,8 @@ struct tda998x_priv {
 
 
 /* Page 10h: information frames and packets */
-
+#define REG_AVI_IF                REG(0x10, 0x40)   /* AVI Infoframe packet */
+#define REG_AUDIO_IF              REG(0x10, 0x80)   /* AVI Infoframe packet */
 
 /* Page 11h: audio settings and content info packets */
 #define REG_AIP_CNTRL_0           REG(0x11, 0x00)     /* read/write */
@@ -221,11 +228,28 @@ struct tda998x_priv {
 # define AIP_CNTRL_0_LAYOUT       (1 << 2)
 # define AIP_CNTRL_0_ACR_MAN      (1 << 5)
 # define AIP_CNTRL_0_RST_CTS      (1 << 6)
+#define REG_ACR_CTS_0             REG(0x11, 0x05)
+#define REG_ACR_CTS_1             REG(0x11, 0x06)
+#define REG_ACR_CTS_2             REG(0x11, 0x07)
+#define REG_ACR_N_0               REG(0x11, 0x08)
+#define REG_ACR_N_1               REG(0x11, 0x09)
+#define REG_ACR_N_2               REG(0x11, 0x0a)
+#define REG_GC_AVMUTE             REG(0x11, 0x0b)
+# define GC_AVMUTE_CLRMUTE        (1 << 0)
+# define GC_AVMUTE_SETMUTE        (1 << 1)
+#define REG_CTS_N                 REG(0x11, 0x0c)
 #define REG_ENC_CNTRL             REG(0x11, 0x0d)     /* read/write */
 # define ENC_CNTRL_RST_ENC        (1 << 0)
 # define ENC_CNTRL_RST_SEL        (1 << 1)
 # define ENC_CNTRL_CTL_CODE(x)    (((x) & 3) << 2)
-
+#define REG_DIP_FLAGS             REG(0x11, 0x0e)
+# define DIP_FLAGS_ACR            (1 << 0)
+#define REG_DIP_IF_FLAGS          REG(0x11, 0x0f)     /* read/write */
+#define DIP_IF_FLAGS_IF1          (1 << 1)
+#define DIP_IF_FLAGS_IF2          (1 << 2)
+#define DIP_IF_FLAGS_IF3          (1 << 3)
+#define DIP_IF_FLAGS_IF4          (1 << 4)
+#define DIP_IF_FLAGS_IF5          (1 << 5)
 
 /* Page 12h: HDCP and OTP */
 #define REG_TX3                   REG(0x12, 0x9a)     /* read/write */
@@ -261,6 +285,9 @@ struct tda998x_priv {
 #define TDA19989                  0x0201
 #define TDA19989N2                0x0202
 #define TDA19988                  0x0301
+
+static uint8_t *
+do_get_edid(struct drm_encoder *encoder);
 
 static void
 cec_write(struct drm_encoder *encoder, uint16_t addr, uint8_t val)
@@ -337,6 +364,35 @@ fail:
 	dev_err(&client->dev, "Error %d reading from 0x%x\n", ret, reg);
 	return ret;
 }
+
+static int
+reg_write_range(struct drm_encoder *encoder, uint16_t reg, char *buf, int cnt)
+{
+	struct i2c_client *client = drm_i2c_encoder_get_client(encoder);
+	int ret = 0;
+	uint8_t *i2cpacket;
+
+	i2cpacket = (uint8_t *)kmalloc(cnt + 1, GFP_KERNEL);
+	if(!i2cpacket) {
+		goto fail;
+	}
+	i2cpacket[0] = REG2ADDR(reg);
+	memcpy(&i2cpacket[1], buf, cnt);
+
+	set_page(encoder, reg);
+
+	ret = i2c_master_send(client, i2cpacket, cnt+1);
+	kfree(i2cpacket);
+	if (ret < 0)
+		goto fail;
+
+	return ret;
+
+fail:
+	dev_err(&client->dev, "Error %d writing to 0x%x\n", ret, reg);
+	return ret;
+}
+
 
 static uint8_t
 reg_read(struct drm_encoder *encoder, uint16_t reg)
@@ -437,7 +493,7 @@ tda998x_encoder_dpms(struct drm_encoder *encoder, int mode)
 	switch (mode) {
 	case DRM_MODE_DPMS_ON:
 		/* enable audio and video ports */
-		reg_write(encoder, REG_ENA_AP, 0xff);
+		reg_write(encoder, REG_ENA_AP, 0x03);
 		reg_write(encoder, REG_ENA_VP_0, 0xff);
 		reg_write(encoder, REG_ENA_VP_1, 0xff);
 		reg_write(encoder, REG_ENA_VP_2, 0xff);
@@ -488,6 +544,87 @@ tda998x_encoder_mode_valid(struct drm_encoder *encoder,
 	return MODE_OK;
 }
 
+
+static void
+tda998x_audio_infoframe_enable(struct drm_encoder *encoder)
+{
+	uint8_t buffer[20];
+	struct hdmi_audio_infoframe audio_frame;
+	size_t len;
+
+	hdmi_audio_infoframe_init(&audio_frame);
+
+	/* NXP audio is fixed at these values for the time being */
+	audio_frame.channels = 2;
+	audio_frame.coding_type = HDMI_AUDIO_CODING_TYPE_PCM;
+	audio_frame.sample_size = HDMI_AUDIO_SAMPLE_SIZE_24;
+	audio_frame.sample_frequency = HDMI_AUDIO_SAMPLE_FREQUENCY_48000;
+
+	len = hdmi_audio_infoframe_pack(&audio_frame, buffer, sizeof(buffer));
+	WARN(len < 0, "hdmi_avi_infoframe_pack failed\n");
+
+	reg_write_range(encoder, REG_AUDIO_IF, buffer, len);
+
+	/* enable Audio Infoframe output in DIP_IF Register */
+	reg_clear(encoder, REG_DIP_IF_FLAGS, DIP_IF_FLAGS_IF4);
+	udelay(5);
+	reg_set(encoder, REG_DIP_IF_FLAGS, DIP_IF_FLAGS_IF4);
+}
+
+static void
+tda998x_avi_infoframe_enable(struct drm_encoder *encoder,
+			struct drm_display_mode *mode)
+{
+	uint8_t buffer[20];
+	struct hdmi_avi_infoframe avi_frame;
+	size_t len;
+
+	hdmi_avi_infoframe_init(&avi_frame);
+	avi_frame.video_code = drm_match_cea_mode(mode);
+	avi_frame.picture_aspect = HDMI_PICTURE_ASPECT_NONE;
+	avi_frame.active_aspect = HDMI_ACTIVE_ASPECT_PICTURE;
+	len = hdmi_avi_infoframe_pack(&avi_frame, buffer, sizeof(buffer));
+	WARN(len < 0, "hdmi_avi_infoframe_pack failed\n");
+
+	reg_write_range(encoder, REG_AVI_IF, buffer, len);
+
+	/*
+	 * enable AVI Infoframe output in DIP_IF Register, but toggle it
+	 * so that the hardware acknowledges that the packet data might have
+	 * changed
+	 */
+	reg_clear(encoder, REG_DIP_IF_FLAGS, DIP_IF_FLAGS_IF3);
+	udelay(5);
+	reg_set(encoder, REG_DIP_IF_FLAGS, DIP_IF_FLAGS_IF3);
+}
+
+/* loopup table for CEA values to VIDFORMAT values taken from NXP datasheet */
+static char cea_to_nxp_mode[32] = {-1, 0, 1, 1, 2, 3, 4, 4, 5, 5, -1, -1,
+		-1, -1, -1, -1, 6, 7, 7, 8, 9, 10, 10,
+		11, 11, -1, -1, -1, -1, -1, -1, 12};
+
+static char tda998x_cea_to_vidformat(unsigned char cea_mode)
+{
+	if(cea_mode > 31) {
+		return -1;
+	}
+	return cea_to_nxp_mode[cea_mode];
+}
+
+static char tda998x_is_monitor_hdmi(struct drm_encoder *encoder)
+{
+	struct edid *edid = (struct edid *)do_get_edid(encoder);
+	char hdmi = 0;
+	if(edid) {
+		hdmi = drm_detect_hdmi_monitor(edid);
+		kfree(edid);
+	} else {
+		return -1;
+	}
+	return hdmi;
+}
+
+
 static void
 tda998x_encoder_mode_set(struct drm_encoder *encoder,
 			struct drm_display_mode *mode,
@@ -534,7 +671,7 @@ tda998x_encoder_mode_set(struct drm_encoder *encoder,
 	/* mute the audio FIFO: */
 	reg_set(encoder, REG_AIP_CNTRL_0, AIP_CNTRL_0_RST_FIFO);
 
-	/* set HDMI HDCP mode off: */
+	/*  HDMI/HDCP mode off... for now...: */
 	reg_set(encoder, REG_TBG_CNTRL_1, TBG_CNTRL_1_DWIN_DIS);
 	reg_clear(encoder, REG_TX33, TX33_HDMI);
 
@@ -611,8 +748,63 @@ tda998x_encoder_mode_set(struct drm_encoder *encoder,
 		reg |= TBG_CNTRL_1_VH_TGL_0;
 	reg_set(encoder, REG_TBG_CNTRL_1, reg);
 
+
+
+
+	if(tda998x_is_monitor_hdmi(encoder) == 1) {
+		char vidformat;
+		vidformat = tda998x_cea_to_vidformat(drm_match_cea_mode(mode));
+		if(vidformat == (char)-1) {
+			dev_err(encoder->dev->dev, "Not sure which CEA mode to set, leaving as DVI");
+			goto out;
+		}
+		dev_info(encoder->dev->dev, "Connected to an HDMI monitor with cea mode %d", vidformat);
+
+		/* this is an HDMI monitor, so set things up a bit differently */
+		reg_write(encoder, REG_TBG_CNTRL_1, 0);
+		reg_write(encoder, REG_VIDFORMAT, vidformat);
+		/* get the infoframes pumping */
+		tda998x_avi_infoframe_enable(encoder, mode);
+		tda998x_audio_infoframe_enable(encoder);
+		reg_set(encoder, REG_TX33, TX33_HDMI);
+
+		/* set up audio registers */
+		reg_write(encoder, REG_ACR_CTS_0, 0x0);
+		reg_write(encoder, REG_ACR_CTS_1, 0x0);
+		reg_write(encoder, REG_ACR_CTS_2, 0x0);
+
+		reg_write(encoder, REG_ACR_N_0, 0x0);
+		reg_write(encoder, REG_ACR_N_1, 0x18);
+		reg_write(encoder, REG_ACR_N_2, 0x0);
+
+		reg_set(encoder, REG_DIP_FLAGS, DIP_FLAGS_ACR);
+
+		reg_write(encoder, REG_ENC_CNTRL, 0x04);
+		reg_write(encoder, REG_CTS_N, 0x33);
+		/* Set 2 channel I2S mode */
+		reg_write(encoder, REG_ENA_AP, 0x3);
+
+		/* set audio divider in pll settings */
+		reg_write(encoder, REG_AUDIO_DIV, 0x2);
+
+		/* select the audio input port clock */
+		reg_write(encoder, REG_AIP_CLKSEL, SEL_AIP_I2S);
+		reg_write(encoder, REG_MUX_AP, MUX_AP_SELECT_I2S);
+
+		/* select I2S format, and datasize */
+		reg_write(encoder, REG_I2S_FORMAT, 0x0a);
+
+		/* enable the audio FIFO: */
+		reg_clear(encoder, REG_AIP_CNTRL_0, AIP_CNTRL_0_RST_FIFO);
+
+		/* mute and then unmute, to get audio going */
+		reg_write(encoder, REG_GC_AVMUTE, GC_AVMUTE_SETMUTE);
+		reg_write(encoder, REG_GC_AVMUTE, GC_AVMUTE_CLRMUTE);
+	}
+out:
 	/* must be last register set: */
 	reg_clear(encoder, REG_TBG_CNTRL_0, TBG_CNTRL_0_SYNC_ONCE);
+
 }
 
 static enum drm_connector_status
