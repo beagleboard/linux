@@ -497,16 +497,22 @@ static int davinci_mcasp_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
-		/* codec is clock and frame slave */
-		mcasp_set_bits(base + DAVINCI_MCASP_ACLKXCTL_REG, ACLKXE);
+	  /* codec is clock and frame slave */
+	  printk("SND_SOC_DAIFMT_CBS_CFS entered\n");
+	  mcasp_set_bits(base + DAVINCI_MCASP_ACLKXCTL_REG, ACLKXE | ACLKXDIV(7));
+	  mcasp_set_bits(base + DAVINCI_MCASP_AHCLKXCTL_REG,  AHCLKXDIV(0));
+	  mcasp_clr_bits(base + DAVINCI_MCASP_AHCLKXCTL_REG,  AHCLKXE);
 		mcasp_set_bits(base + DAVINCI_MCASP_TXFMCTL_REG, AFSXE);
 
 		mcasp_set_bits(base + DAVINCI_MCASP_ACLKRCTL_REG, ACLKRE);
 		mcasp_set_bits(base + DAVINCI_MCASP_RXFMCTL_REG, AFSRE);
 
 		mcasp_set_bits(base + DAVINCI_MCASP_PDIR_REG, ACLKX | AFSX);
+		mcasp_clr_bits(base + DAVINCI_MCASP_PDIR_REG, AHCLKX);
 		break;
 	case SND_SOC_DAIFMT_CBM_CFS:
+	  printk("SND_SOC_DAIFMT_CBM_CFS entered\n");
+
 		/* codec is clock master and frame slave */
 		mcasp_clr_bits(base + DAVINCI_MCASP_ACLKXCTL_REG, ACLKXE);
 		mcasp_set_bits(base + DAVINCI_MCASP_TXFMCTL_REG, AFSXE);
@@ -520,6 +526,7 @@ static int davinci_mcasp_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 				AFSX | AFSR);
 		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
+	  printk("SND_SOC_DAIFMT_CBM_CFM entered\n");
 		/* codec is clock and frame master */
 		mcasp_clr_bits(base + DAVINCI_MCASP_ACLKXCTL_REG, ACLKXE);
 		mcasp_clr_bits(base + DAVINCI_MCASP_TXFMCTL_REG, AFSXE);
@@ -746,6 +753,8 @@ static void davinci_hw_param(struct davinci_audio_dev *dev, int stream)
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* bit stream is MSB first  with no delay */
 		/* DSP_B mode */
+	  printk("davinci hw_params _ PLAYBACK modified\n");
+	  mcasp_clr_bits(dev->base + DAVINCI_MCASP_AHCLKXCTL_REG, AHCLKXE);
 		mcasp_set_reg(dev->base + DAVINCI_MCASP_TXTDM_REG, mask);
 		mcasp_set_bits(dev->base + DAVINCI_MCASP_TXFMT_REG, TXORD);
 
@@ -755,6 +764,8 @@ static void davinci_hw_param(struct davinci_audio_dev *dev, int stream)
 		else
 			printk(KERN_ERR "playback tdm slot %d not supported\n",
 				dev->tdm_slots);
+		mcasp_set_bits(dev->base + DAVINCI_MCASP_TXFMCTL_REG, AFSXE);
+		mcasp_set_bits(dev->base + DAVINCI_MCASP_TXFMCTL_REG, FSXDUR);
 	} else {
 		/* bit stream is MSB first with no delay */
 		/* DSP_B mode */
