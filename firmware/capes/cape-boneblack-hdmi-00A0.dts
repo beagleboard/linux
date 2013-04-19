@@ -46,6 +46,16 @@
 					0x1b0 0x03      /* xdma_event_intr0, OMAP_MUX_MODE3 | AM33XX_PIN_OUTPUT */
 				>;
 			};
+
+			mcasp0_pins: mcasp0_pins {
+				pinctrl-single,pins = <
+					0x1ac 0x30      /* mcasp0_ahclkx,       MODE0 | INPUT */
+					0x19c 0x02	/* mcasp0_ahclkr, */
+					0x194 0x10      /* mcasp0_fsx,         MODE0 | OUTPUT  */ 
+					0x190 0x00      /* mcasp0_aclkr.mcasp0_aclkx,     MODE0 | OUTPUT_PULLDOWN */
+					0x1a8 0x1f	/* mcasp0_axr1 GPIO1_27 | OUTPUT | PULLUP */
+				>;
+			};
 		};
 	};
 
@@ -56,6 +66,11 @@
 			/* avoid stupid warning */
 			#address-cells = <1>;
 			#size-cells = <1>;
+
+			nxptda: nxptda@0 {
+			       compatible = "nxp,nxptda";
+			       status = "okay";
+			};
 
 			hdmi {
 				compatible = "tilcdc,slave";
@@ -75,6 +90,43 @@
 			};
 
 		};
+	};
+
+	fragment@3 {
+		target = <&mcasp0>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&mcasp0_pins>;
+
+			status = "okay";
+
+			op-mode = <0>;          /* MCASP_IIS_MODE */
+			tdm-slots = <2>;
+			num-serializer = <16>;
+			serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+				0 0 1 0
+				0 0 0 0
+				0 0 0 0
+				0 0 0 0
+			>;
+			tx-num-evt = <1>;
+			rx-num-evt = <1>;
+		};
+	};
+
+	fragment@4 {
+		target = <&ocp>;
+		__overlay__ {
+			sound {
+				compatible = "ti,am33xx-beaglebone-black";
+				ti,model = "TI BeagleBone Black";
+				ti,audio-codec = <&nxptda>;
+				ti,mcasp-controller = <&mcasp0>;
+				ti,codec-clock-rate = <2457600>;
+				mcasp_clock_enable = <&gpio2 27 0>; /* BeagleBone Black Clk enable on GPIO1_27 */
+			};
+		};
+
 	};
 
 };

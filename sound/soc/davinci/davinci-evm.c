@@ -30,6 +30,9 @@
 #include "davinci-i2s.h"
 #include "davinci-mcasp.h"
 
+#include <linux/of_gpio.h>
+
+
 #define AUDIO_FORMAT (SND_SOC_DAIFMT_DSP_B | \
 		SND_SOC_DAIFMT_CBM_CFM | SND_SOC_DAIFMT_IB_NF)
 static int evm_hw_params(struct snd_pcm_substream *substream,
@@ -311,11 +314,13 @@ static struct snd_soc_card da850_snd_soc_card = {
 	.num_links = 1,
 };
 
+
 #if defined(CONFIG_OF)
 
 enum {
 	MACHINE_VERSION_1 = 0,	/* DM365 with Voice Codec */
 	MACHINE_VERSION_2,	/* DM365/DA8xx/OMAPL1x/AM33xx */
+	MACHINE_VERSION_3,	/* AM33xx BeagleBone Black */
 };
 
 static const struct of_device_id davinci_evm_dt_ids[] = {
@@ -326,6 +331,10 @@ static const struct of_device_id davinci_evm_dt_ids[] = {
 	{
 		.compatible = "ti,da830-evm-audio",
 		.data = (void *)MACHINE_VERSION_2,
+	},
+	{
+		.compatible = "ti,am33xx-beaglebone-black",
+		.data = (void *)MACHINE_VERSION_3,
 	},
 	{ /* sentinel */ }
 };
@@ -353,7 +362,7 @@ static int davinci_evm_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	const struct of_device_id *match =
 		of_match_device(of_match_ptr(davinci_evm_dt_ids), &pdev->dev);
-	u32 machine_ver;
+	u32 machine_ver, clk_gpio;
 	int ret = 0;
 
 	machine_ver = (u32)match->data;
@@ -363,12 +372,37 @@ static int davinci_evm_probe(struct platform_device *pdev)
 		evm_dai.stream_name	= "CQ93";
 		evm_dai.codec_dai_name	= "cq93vc-hifi";
 		break;
-
 	case MACHINE_VERSION_2:
 		evm_dai.ops = &evm_ops;
 		evm_dai.init = evm_aic3x_init;
 		break;
+	case MACHINE_VERSION_3:
+		evm_dai.name		= "NXP TDA HDMI Chip";
+		evm_dai.stream_name	= "HDMI";
+		evm_dai.codec_dai_name	= "nxp-hdmi-hifi";
+
+		/* 
+		 * Move GPIO handling out of the probe, if probe gets 
+		 * deferred, the gpio will have been claimed on previous
+		 * probe and will fail on the second and susequent probes 
+		 */
+		clk_gpio = of_get_named_gpio(np, "mcasp_clock_enable", 0);
+		if (clk_gpio < 0) {
+		  dev_err(&pdev->dev, "failed to find mcasp_clock enable GPIO!\n");
+		  return -EINVAL;
+		}
+		ret = gpio_request_one(clk_gpio, GPIOF_OUT_INIT_HIGH,
+				       "McASP Clock Enable Pin");
+		if (ret < 0) {
+		  dev_err(&pdev->dev, "Failed to claim McASP Clock Enable pin\n");
+		  return -EINVAL;
+		}
+		gpio_set_value(clk_gpio, 1);
+		evm_dai.dai_fmt = SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF;
+		break;
+	  
 	}
+	
 
 	evm_dai.codec_of_node = of_parse_phandle(np, "ti,audio-codec", 0);
 	if (!evm_dai.codec_of_node)
@@ -387,9 +421,9 @@ static int davinci_evm_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = snd_soc_register_card(&evm_soc_card);
-	if (ret)
+	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n", ret);
-
+	} 
 	return ret;
 }
 
@@ -426,8 +460,9 @@ static int __init evm_init(void)
 	 * If dtb is there, the devices will be created dynamically.
 	 * Only register platfrom driver structure.
 	 */
-	if (of_have_populated_dt())
-		return platform_driver_register(&davinci_evm_driver);
+	if (of_have_populated_dt()) {
+	  return platform_driver_register(&davinci_evm_driver);
+	}
 #endif
 
 	if (machine_is_davinci_evm()) {
@@ -448,8 +483,9 @@ static int __init evm_init(void)
 	} else if (machine_is_davinci_da850_evm()) {
 		evm_snd_dev_data = &da850_snd_soc_card;
 		index = 0;
-	} else
+	} else {
 		return -EINVAL;
+	}
 
 	evm_snd_device = platform_device_alloc("soc-audio", index);
 	if (!evm_snd_device)
