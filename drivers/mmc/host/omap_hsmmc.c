@@ -44,6 +44,7 @@
 #include <linux/err.h>
 #include <mach/hardware.h>
 #include <plat/cpu.h>
+#include <linux/rstctl.h>
 
 /* OMAP HSMMC Host Controller Registers */
 #define OMAP_HSMMC_SYSSTATUS	0x0014
@@ -187,6 +188,8 @@ struct omap_hsmmc_host {
 	struct omap_hsmmc_next	next_data;
 
 	struct	omap_mmc_platform_data	*pdata;
+
+	struct rstctl		*rstctl;
 };
 
 static int omap_hsmmc_card_detect(struct device *dev, int slot)
@@ -1810,6 +1813,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	unsigned tx_req, rx_req;
 	struct dmaengine_chan_caps *dma_chan_caps;
 	struct pinctrl *pinctrl;
+	struct rstctl *rctrl;
 
 	match = of_match_device(of_match_ptr(omap_mmc_of_match), &pdev->dev);
 	if (match) {
@@ -1828,6 +1832,24 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	if (pdata->nr_slots == 0) {
 		dev_err(&pdev->dev, "No Slots\n");
 		return -ENXIO;
+	}
+
+	/* request reset control (bail if deffering) */
+	rctrl = rstctl_get(&pdev->dev, NULL);
+	if (IS_ERR(rctrl)) {
+		if (PTR_ERR(rctrl) == -EPROBE_DEFER) {
+			dev_info(&pdev->dev, "Loading deferred\n");
+			return -EPROBE_DEFER;
+		}
+		dev_info(&pdev->dev, "Failed to get rstctl\n");
+		rctrl = NULL;
+	} else {
+		dev_info(&pdev->dev, "Got rstctl (%s:#%d name %s) label:%s\n",
+				rctrl->rdev->rdesc->name,
+				rctrl->line - rctrl->rdev->rdesc->lines,
+				rctrl->line->name, rctrl->label);
+
+		rstctl_deassert(rctrl);
 	}
 
 	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
@@ -1865,6 +1887,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	host->base	= ioremap(host->mapbase, SZ_4K);
 	host->power_mode = MMC_POWER_OFF;
 	host->next_data.cookie = 1;
+	host->rstctl	= rctrl;
 
 	platform_set_drvdata(pdev, host);
 
@@ -2130,6 +2153,7 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 
 	omap_hsmmc_gpio_free(host->pdata);
 	iounmap(host->base);
+	rstctl_put(host->rstctl);
 	mmc_free_host(host->mmc);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
