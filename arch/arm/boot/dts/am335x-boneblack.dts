@@ -11,10 +11,31 @@
 
 /include/ "am335x-bone-common.dtsi"
 
+&am33xx_pinmux {
+	rstctl_pins: pinmux_rstctl_pins {
+		pinctrl-single,pins = <
+			/* eMMC_RSTn */
+			0x50 0x17	/* gpmc_a4.gpio1_20, OUTPUT | MODE7 | PULLUP */
+		>;
+	};
+};
+
 &ldo3_reg {
 	regulator-min-microvolt = <1800000>;
 	regulator-max-microvolt = <1800000>;
 	regulator-always-on;
+};
+
+&rstctl {
+	status = "okay";
+	compatible = "gpio-rctrl";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rstctl_pins>;
+
+	#reset-cells = <2>;
+
+	gpios = <&gpio2 20 0x00>;
+	gpio-names = "eMMC_RSTn";
 };
 
 &mmc1 {
@@ -26,6 +47,9 @@
 	bus-width = <8>;
 	ti,non-removable;
 	status = "okay";
+
+	reset = <&rstctl 0 0>;
+	reset-names = "eMMC_RSTn-CONSUMER";
 };
 
 
