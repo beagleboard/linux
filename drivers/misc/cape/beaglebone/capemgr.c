@@ -43,6 +43,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/eeprom.h>
 #include <linux/kthread.h>
+#include <linux/wait.h>
 
 /* extra command line overrides */
 static char *extra_override = NULL;
@@ -109,6 +110,9 @@ struct bone_cape_slot {
 
 	/* loader thread */
 	struct task_struct	*loader_thread;
+
+	/* load priority */
+	int priority;
 };
 
 struct bone_capemap {
@@ -154,6 +158,9 @@ struct bone_capemgr_info {
 
 	/* baseboard EEPROM data */
 	struct bone_baseboard	baseboard;
+
+	/* wait queue for keeping the priorities straight */
+	wait_queue_head_t	load_wq;
 };
 
 static int bone_slot_fill_override(struct bone_cape_slot *slot,
@@ -162,6 +169,7 @@ static int bone_slot_fill_override(struct bone_cape_slot *slot,
 static struct bone_cape_slot *bone_capemgr_add_slot(
 		struct bone_capemgr_info *info, struct device_node *node,
 		const char *part_number, const char *version);
+static int bone_capemgr_remove_slot_no_lock(struct bone_cape_slot *slot);
 static int bone_capemgr_remove_slot(struct bone_cape_slot *slot);
 static int bone_capemgr_load(struct bone_cape_slot *slot);
 static int bone_capemgr_unload(struct bone_cape_slot *slot);
@@ -1014,7 +1022,7 @@ static ssize_t slots_store(struct device *dev, struct device_attribute *attr,
 		mutex_unlock(&info->slots_list_mutex);
 		return -ENODEV;
 found:
-		ret = bone_capemgr_remove_slot(slot);
+		ret = bone_capemgr_remove_slot_no_lock(slot);
 		mutex_unlock(&info->slots_list_mutex);
 
 		if (ret == 0)
@@ -1099,6 +1107,9 @@ found:
 	kfree(part_number);
 
 	ret = bone_capemgr_load(slot);
+
+	if (ret != 0)
+		bone_capemgr_remove_slot(slot);
 
 	return ret == 0 ? strlen(buf) : ret;
 err_fail:
@@ -1307,6 +1318,7 @@ err_fail:
 	slot->fw = NULL;
 
 err_fail_no_fw:
+	slot->loading = 0;
 	return err;
 }
 
@@ -1327,7 +1339,7 @@ static int bone_capemgr_unload(struct bone_cape_slot *slot)
 }
 
 /* slots_list_mutex must be taken */
-static int bone_capemgr_remove_slot(struct bone_cape_slot *slot)
+static int bone_capemgr_remove_slot_no_lock(struct bone_cape_slot *slot)
 {
 	struct bone_capemgr_info *info = slot->info;
 	struct device *dev = &info->pdev->dev;
@@ -1336,11 +1348,13 @@ static int bone_capemgr_remove_slot(struct bone_cape_slot *slot)
 	if (slot == NULL)
 		return 0;
 
-	/* unload just in case */
-	ret = bone_capemgr_unload(slot);
-	if (ret != 0) {
-		dev_err(dev, "Unable to unload slot #%d\n", slot->slotno);
-		return ret;
+	if (slot->loaded && slot->ovinfo) {
+		/* unload just in case */
+		ret = bone_capemgr_unload(slot);
+		if (ret != 0) {
+			dev_err(dev, "Unable to unload slot #%d\n", slot->slotno);
+			return ret;
+		}
 	}
 
 	/* if probed OK, remove the sysfs nodes */
@@ -1355,6 +1369,18 @@ static int bone_capemgr_remove_slot(struct bone_cape_slot *slot)
 	return 0;
 }
 
+static int bone_capemgr_remove_slot(struct bone_cape_slot *slot)
+{
+	struct bone_capemgr_info *info = slot->info;
+	int ret;
+
+	mutex_lock(&info->slots_list_mutex);
+	ret = bone_capemgr_remove_slot_no_lock(slot);
+	mutex_unlock(&info->slots_list_mutex);
+
+	return ret;
+}
+
 static int bone_slot_fill_override(struct bone_cape_slot *slot,
 		struct device_node *node,
 		const char *part_number, const char *version)
@@ -1362,6 +1388,7 @@ static int bone_slot_fill_override(struct bone_cape_slot *slot,
 	const struct ee_field *sig_field;
 	struct property *prop;
 	int i, len, has_part_number;
+	u32 val;
 	char *p;
 
 	slot->probe_failed = 0;
@@ -1413,6 +1440,10 @@ static int bone_slot_fill_override(struct bone_cape_slot *slot,
 			if (i == CAPE_EE_FIELD_PART_NUMBER && len > 0)
 				has_part_number = 1;
 		}
+
+		if (of_property_read_u32(node, "priority", &val) != 0)
+			val = 0;
+		slot->priority = val;
 	}
 
 	/* if a part_number is supplied use it */
@@ -1579,11 +1610,72 @@ err_no_mem:
 	return ERR_PTR(ret);
 }
 
+static int lowest_loading_cape(struct bone_cape_slot *slot)
+{
+	struct bone_capemgr_info *info = slot->info;
+	int my_prio = slot->priority;
+	struct device *dev = &info->pdev->dev;
+	int ret;
+
+	dev_info(dev, "loader: check slot-%d %s:%s (prio %d)\n", slot->slotno,
+			slot->part_number, slot->version, slot->priority);
+
+	mutex_lock(&info->slots_list_mutex);
+	ret = 1;
+	list_for_each_entry(slot, &info->slot_list, node) {
+		/* if any slot is loading with lowest priority */
+		if (!slot->loading)
+			continue;
+		if (slot->priority < my_prio) {
+			ret = 0;
+			break;
+		}
+	}
+	mutex_unlock(&info->slots_list_mutex);
+	return ret;
+}
+
 static int bone_capemgr_loader(void *data)
 {
 	struct bone_cape_slot *slot = data;
+	struct bone_capemgr_info *info = slot->info;
+	struct device *dev = &info->pdev->dev;
+	int ret;
 
-	return bone_capemgr_load(slot);
+	dev_info(dev, "loader: before slot-%d %s:%s (prio %d)\n", slot->slotno,
+			slot->part_number, slot->version, slot->priority);
+
+	/*
+	 * We have a basic priority based arbitration system
+	 * Slots have priorities, so the lower priority ones
+	 * should start loading first. So each time we end up
+	 * here.
+	 */ 
+	ret = wait_event_interruptible(info->load_wq,
+			lowest_loading_cape(slot));
+	if (ret < 0) {
+		dev_info(dev, "loader, Signal pending\n");
+		return ret;
+	}
+
+	dev_info(dev, "loader: after slot-%d %s:%s (prio %d)\n", slot->slotno,
+			slot->part_number, slot->version, slot->priority);
+
+	ret = bone_capemgr_load(slot);
+
+	slot->loading = 0;
+
+	dev_info(dev, "loader: done slot-%d %s:%s (prio %d)\n", slot->slotno,
+			slot->part_number, slot->version, slot->priority);
+
+	/* we're done, wake up all */
+	wake_up_interruptible_all(&info->load_wq);
+
+	/* not loaded? remove */
+	if (ret != 0)
+		bone_capemgr_remove_slot(slot);
+
+	return ret;
 }
 
 static int
@@ -1622,6 +1714,8 @@ bone_capemgr_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&info->capemap_list);
 	mutex_init(&info->capemap_mutex);
+
+	init_waitqueue_head(&info->load_wq);
 
 	baseboardmaps_node = NULL;
 	capemaps_node = NULL;
@@ -1803,21 +1897,26 @@ bone_capemgr_probe(struct platform_device *pdev)
 			continue;
 		}
 
-		if (!slot->probe_failed && !slot->loaded) {
+		if (!slot->probe_failed && !slot->loaded)
 			slot->loading = 1;
-			slot->loader_thread = kthread_run(bone_capemgr_loader,
-					slot, "capemgr-loader-%d",
-					slot->slotno);
-			if (IS_ERR(slot->loader_thread)) {
-				dev_warn(&pdev->dev, "slot #%d: Failed to "
-						"start loader\n", slot->slotno);
-				slot->loader_thread = NULL;
-			}
-		}
 	}
 
-	mutex_unlock(&info->slots_list_mutex);
+	/* now start the loader thread(s) (all at once) */
+	list_for_each_entry(slot, &info->slot_list, node) {
 
+		if (!slot->loading)
+			continue;
+
+		slot->loader_thread = kthread_run(bone_capemgr_loader,
+				slot, "capemgr-loader-%d",
+				slot->slotno);
+		if (IS_ERR(slot->loader_thread)) {
+			dev_warn(&pdev->dev, "slot #%d: Failed to "
+					"start loader\n", slot->slotno);
+			slot->loader_thread = NULL;
+		}
+	}
+	mutex_unlock(&info->slots_list_mutex);
 
 	dev_info(&pdev->dev, "initialized OK.\n");
 
@@ -1840,7 +1939,7 @@ static int bone_capemgr_remove(struct platform_device *pdev)
 
 	mutex_lock(&info->slots_list_mutex);
 	list_for_each_entry_safe(slot, slotn, &info->slot_list, node)
-		bone_capemgr_remove_slot(slot);
+		bone_capemgr_remove_slot_no_lock(slot);
 	mutex_unlock(&info->slots_list_mutex);
 
 	bone_capemgr_info_sysfs_unregister(info);
