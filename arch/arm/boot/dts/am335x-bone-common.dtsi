@@ -25,7 +25,7 @@
 
 	am33xx_pinmux: pinmux@44e10800 {
 		pinctrl-names = "default";
-		pinctrl-0 = <&userleds_pins>;
+		pinctrl-0 = <&userled_pins>;
 
 		userled_pins: pinmux_userled_pins {
 			pinctrl-single,pins = <
@@ -50,11 +50,6 @@
 	};
 
 	ocp: ocp {
-
-		/* reset controller comes first (even if disabled) */
-		rstctl: rstctl@0 {
-			status = "disabled";
-		};
 
 		uart1: serial@44e09000 {
 			status = "okay";
@@ -138,10 +133,10 @@
 			 slot@4 {
 			 	ti,cape-override;
 			 	compatible = "ti,beaglebone-black";
-			 	board-name = "Bone-LT-eMMC-2G";
+			 	board-name = "BB-BONE-RST2";
 			 	version = "00A0";
 			 	manufacturer = "Texas Instruments";
-			 	part-number = "BB-BONE-EMMC-2G";
+			 	part-number = "BB-BONE-RST2";
 			 };
 
 			/* geiger cape version A0 without an EEPROM */
@@ -152,16 +147,6 @@
 				version = "00A0";
 				manufacturer = "Geiger Inc.";
 				part-number = "BB-BONE-GEIGER";
-			};
-
-			/* Beaglebone black has it soldered on */
-			slot@6 {
-				ti,cape-override;
-				compatible = "ti,beaglebone-black";
-				board-name = "Bone-Black-HDMI";
-				version = "00A0";
-				manufacturer = "Texas Instruments";
-				part-number = "BB-BONELT-HDMI";
 			};
 
 			/* Nixie cape version A0 without an EEPROM */
@@ -221,6 +206,29 @@
 				manufacturer = "Adafruit";
 				part-number = "BB-BONE-RS232-01";
 			};
+
+			/* Beaglebone black has it soldered on */
+			 slot@100 {
+			 	ti,cape-override;
+				priority = <1>;
+			 	compatible = "ti,beaglebone-black";
+			 	board-name = "Bone-LT-eMMC-2G";
+			 	version = "00A0";
+			 	manufacturer = "Texas Instruments";
+			 	part-number = "BB-BONE-EMMC-2G";
+			 };
+
+			/* Beaglebone black has it soldered on */
+			slot@101 {
+				ti,cape-override;
+				priority = <1>;
+				compatible = "ti,beaglebone-black";
+				board-name = "Bone-Black-HDMI";
+				version = "00A0";
+				manufacturer = "Texas Instruments";
+				part-number = "BB-BONELT-HDMI";
+			};
+
 		};
 									  
 		/* mapping between board names and dtb objects */
