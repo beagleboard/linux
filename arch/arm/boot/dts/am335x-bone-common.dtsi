@@ -50,6 +50,12 @@
 	};
 
 	ocp: ocp {
+
+		/* reset controller comes first (even if disabled) */
+		rstctl: rstctl@0 {
+			status = "disabled";
+		};
+
 		uart1: serial@44e09000 {
 			status = "okay";
 		};
