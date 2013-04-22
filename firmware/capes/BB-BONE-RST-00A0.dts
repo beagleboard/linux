@@ -1,0 +1,62 @@
+/*
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone";
+
+	/* identification */
+	part-number = "BB-BONE-RST";
+	version = "00A0";
+
+	fragment@0 {
+		target = <&ocp>;
+		__overlay__ {
+			test_rctrl: test_reset {
+				compatible = "test-rctrl";
+				#reset-cells = <2>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&ocp>;
+		__overlay__ {
+			test_consumer_rctrl: test_consumer_reset {
+				compatible = "test-consumer-rctrl";
+
+				reset = <&test_rctrl 0 0>;
+				reset-names = "RESET_1";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&ocp>;
+		__overlay__ {
+			gpio_rctrl: gpio_reset {
+				compatible = "gpio-rctrl";
+				#reset-cells = <2>;
+
+				gpios = <&gpio2 28 0x1>, <&gpio2 29 0x0>;
+				gpio-names = "HDMI-reset", "eMMC-reset";
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&ocp>;
+		__overlay__ {
+			gpio_consumer_rctrl:gpio_consumer_reset {
+				compatible = "test-consumer-rctrl";
+
+				reset = <&gpio_rctrl 0 0>, <&gpio_rctrl 1 0>;
+				reset-names = "RESET_1", "RESET_2";
+			};
+		};
+	};
+};
