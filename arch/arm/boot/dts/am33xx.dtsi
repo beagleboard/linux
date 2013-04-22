@@ -160,6 +160,11 @@
 			interrupts = <62>;
 		};
 
+		/* reset controller comes first (even if disabled) */
+		rstctl: rstctl@0 {
+			status = "disabled";
+		};
+
 		uart1: serial@44e09000 {
 			compatible = "ti,omap3-uart";
 			ti,hwmods = "uart1";
