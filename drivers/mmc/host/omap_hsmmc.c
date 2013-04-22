@@ -1837,11 +1837,15 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	/* request reset control (bail if deffering) */
 	rctrl = rstctl_get(&pdev->dev, NULL);
 	if (IS_ERR(rctrl)) {
-		if (PTR_ERR(rctrl) == -EPROBE_DEFER) {
-			dev_info(&pdev->dev, "Loading deferred\n");
+		ret = PTR_ERR(rctrl);
+		if (ret == -EPROBE_DEFER)
 			return -EPROBE_DEFER;
+
+		if (ret != -ENODEV && ret != -ENOENT) {
+			dev_err(&pdev->dev, "Unrecoverable rstctl error\n");
+			return PTR_ERR(rctrl);
 		}
-		dev_info(&pdev->dev, "Failed to get rstctl\n");
+		dev_warn(&pdev->dev, "Failed to get rstctl; not using any\n");
 		rctrl = NULL;
 	} else {
 		dev_info(&pdev->dev, "Got rstctl (%s:#%d name %s) label:%s\n",
