@@ -1,0 +1,27 @@
+/*
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone";
+
+	/* identification */
+	part-number = "BB-BONE-RST2";
+	version = "00A0";
+
+	fragment@0 {
+		target = <&ocp>;
+		__overlay__ {
+			emmc_reset_consumer_rctrl: emmc_reset_consumer {
+				compatible = "test-consumer-rctrl";
+
+				reset = <&rstctl 0 0>;
+				reset-names = "eMMC_RSTn-CONSUMER";
+			};
+		};
+	};
+};
