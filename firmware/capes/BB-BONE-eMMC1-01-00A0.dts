@@ -30,9 +30,6 @@
 					0x14 0x31	/* gpmc_ad5.mmc1_dat5, INPUT_PULLUP | MODE1 */
 					0x18 0x31	/* gpmc_ad6.mmc1_dat6, INPUT_PULLUP | MODE1 */
 					0x1c 0x31	/* gpmc_ad7.mmc1_dat7, INPUT_PULLUP | MODE1 */
-
-					/* the reset */
-					0x50 0x17	/* gpmc_a4.gpio1_20, OUTPUT | MODE7 | PULLUP */
 				>;
 			};
 		};
@@ -46,8 +43,10 @@
 			bus-width = <8>;
 			ti,non-removable;
 			status = "okay";
-			reset-gpios = <&gpio2 20 1>;	/* active low */
 			ti,vcc-aux-disable-is-sleep;
+
+			reset = <&rstctl 0 0>;
+			reset-names = "eMMC_RSTn";
 		};
 	};
 };
