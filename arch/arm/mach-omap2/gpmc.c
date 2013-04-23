@@ -39,6 +39,8 @@
 #include "common.h"
 #include "omap_device.h"
 #include "gpmc.h"
+#include "gpmc-nand.h"
+#include "gpmc-onenand.h"
 
 #define	DEVICE_NAME		"omap-gpmc"
 
