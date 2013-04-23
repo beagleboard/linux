@@ -1,0 +1,39 @@
+/*
+ * Copyright (C) 2013 Matt Ranostay <mranostay@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-RS232";
+	version = "00A0";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			uart_pins: pinmux_uart_pins {
+				pinctrl-single,pins = <
+					0x150	0x21	/* spi0_sclk.uart2_rxd | MODE1 | PULL_UP */
+					0x154	0x01	/* spi0_d0.uart2_txd | MODE1 */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&uart3>;
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&uart_pins>;
+		};
+	};
+
+};
