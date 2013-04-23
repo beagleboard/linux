@@ -205,8 +205,18 @@
 				manufacturer = "Signal 11 Software";
 				part-number = "BB-BONE-MRF24J40";
 			};
-		};
 
+			/* RS232 cape */
+			slot@12 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "BB-BONE-RS232";
+				version = "00A0";
+				manufacturer = "Adafruit";
+				part-number = "BB-BONE-RS232-01";
+			};
+		};
+									  
 		/* mapping between board names and dtb objects */
 		capemaps {
 			/* DVI cape */
@@ -326,6 +336,13 @@
 				version@00A0 {
 					version = "00A0";
 					dtbo = "cape-bone-exptest-00A0.dtbo";
+				};
+			};
+ 			cape@12 {
+				part-number = "BB-BONE-RS232-01";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "BB-BONE-RS232-00A0.dtbo";
 				};
 			};
 		};
