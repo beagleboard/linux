@@ -1,0 +1,161 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-LCD4-01";
+	version = "00A0";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+
+			bone_lcd4_cape_led_00A0_pins: pinmux_bone_lcd4_cape_led_00A0_pins {
+				pinctrl-single,pins = <
+					0x48 0x07	/* gpmc_a2.gpio1_18, OUTPUT | MODE7 */
+				>;
+			};
+
+			bone_lcd4_cape_lcd_pins: pinmux_bone_lcd4_cape_lcd_pins {
+				pinctrl-single,pins = <
+					0xa0 0x08	/* lcd_data0.lcd_data0, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xa4 0x08	/* lcd_data1.lcd_data1, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xa8 0x08	/* lcd_data2.lcd_data2, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xac 0x08	/* lcd_data3.lcd_data3, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xb0 0x08	/* lcd_data4.lcd_data4, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xb4 0x08	/* lcd_data5.lcd_data5, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xb8 0x08	/* lcd_data6.lcd_data6, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xbc 0x08	/* lcd_data7.lcd_data7, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xc0 0x08	/* lcd_data8.lcd_data8, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xc4 0x08	/* lcd_data9.lcd_data9, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xc8 0x08	/* lcd_data10.lcd_data10, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xcc 0x08	/* lcd_data11.lcd_data11, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xd0 0x08	/* lcd_data12.lcd_data12, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xd4 0x08	/* lcd_data13.lcd_data13, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xd8 0x08	/* lcd_data14.lcd_data14, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xdc 0x08	/* lcd_data15.lcd_data15, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
+					0xe0 0x00	/* lcd_vsync.lcd_vsync, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
+					0xe4 0x00	/* lcd_hsync.lcd_hsync, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
+					0xe8 0x00	/* lcd_pclk.lcd_pclk, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
+					0xec 0x00	/* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
+					0x4c 0x27       /* TSC_INT gpmc_a3.gpio1_19, INPUT | MODE7 */
+				>;
+			};
+
+		};
+	};
+
+	fragment@1 {
+		target = <&tps>;
+		__overlay__ {
+			backlight {
+				compatible = "not-tps65217-backlight";
+				isel = <1>;
+				fdim = <200>;
+				brightness = <100>;
+				tps = <&tps>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&ocp>;
+
+		__overlay__ {
+
+			/* avoid stupid warning */
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			tscadc {
+				compatible = "ti,ti-tscadc";
+				reg = <0x44e0d000 0x1000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <16>;
+				ti,hwmods = "adc_tsc";
+				status = "okay";
+
+				tsc {
+					ti,wires = <4>;
+					ti,x-plate-resistance = <200>;
+					ti,coordinate-readouts = <5>;
+					ti,wire-config = <0x00 0x11 0x22 0x33>;
+				};
+
+				adc {
+					ti,adc-channels = <4>;
+				};
+			};
+
+			gpio-leds-cape-lcd4 {
+				compatible = "gpio-leds";
+				pinctrl-names = "default";
+
+				pinctrl-0 = <&bone_lcd4_cape_led_00A0_pins>;
+
+				lcd4-led0 {
+					label = "lcd4:green:usr0";
+					gpios = <&gpio2 18 0>;
+					linux,default-trigger = "heartbeat";
+					default-state = "off";
+				};
+			};
+
+			/* Settings for NHD-4.3-ATXI#-T-1 / LCD4 cape: */
+			panel {
+				compatible = "tilcdc,panel";
+				pinctrl-names = "default";
+				pinctrl-0 = <&bone_lcd4_cape_lcd_pins>;
+				panel-info {
+					ac-bias           = <255>;
+					ac-bias-intrpt    = <0>;
+					dma-burst-sz      = <16>;
+					bpp               = <24>;
+					fdd               = <0x80>;
+					tft-alt-mode      = <0>;
+					stn-565-mode      = <0>;
+					mono-8bit-mode    = <0>;
+					sync-edge         = <0>;
+					sync-ctrl         = <1>;
+					raster-order      = <0>;
+					fifo-th           = <0>;
+				};
+				display-timings {
+					native-mode = <&timing0>;
+					timing0: 480x272 {
+						hactive         = <480>;
+						vactive         = <272>;
+						hback-porch     = <43>;
+						hfront-porch    = <8>;
+						hsync-len       = <4>;
+						vback-porch     = <12>;
+						vfront-porch    = <4>;
+						vsync-len       = <10>;
+						clock-frequency = <9000000>;
+						hsync-active    = <0>;
+						vsync-active    = <0>;
+					};
+				};
+			};
+
+			fb {
+				compatible = "ti,am33xx-tilcdc";
+				reg = <0x4830e000 0x1000>;
+				interrupt-parent = <&intc>;
+				interrupts = <36>;
+				ti,hwmods = "lcdc";
+			};
+
+		};
+	};
+};
