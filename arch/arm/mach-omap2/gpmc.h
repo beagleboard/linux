@@ -205,6 +205,7 @@ struct gpmc_settings {
 	u32 device_width;	/* device bus width (8 or 16 bit) */
 	u32 mux_add_data;	/* multiplex address & data */
 	u32 wait_pin;		/* wait-pin to be used */
+	u32 clk_activation;	/* clock activation time */
 };
 
 extern int gpmc_calc_timings(struct gpmc_timings *gpmc_t,
