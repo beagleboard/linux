@@ -30,6 +30,7 @@
 #include <linux/of_mtd.h>
 #include <linux/of_device.h>
 #include <linux/mtd/nand.h>
+#include <linux/pinctrl/consumer.h>
 
 #include <linux/platform_data/mtd-nand-omap2.h>
 
@@ -1213,6 +1214,8 @@ int gpmc_cs_program_settings(int cs, struct gpmc_settings *p)
 		config1 |= GPMC_CONFIG1_PAGE_LEN(p->burst_len >> 3);
 		config1 |= p->burst_wrap ? GPMC_CONFIG1_WRAPBURST_SUPP : 0;
 	}
+	if (p->clk_activation)
+		config1 |= GPMC_CONFIG1_CLKACTIVATIONTIME(p->clk_activation);
 
 	gpmc_cs_write_reg(cs, GPMC_CS_CONFIG1, config1);
 
@@ -1249,6 +1252,7 @@ void gpmc_read_settings_dt(struct device_node *np, struct gpmc_settings *p)
 	p->device_nand = of_property_read_bool(np, "gpmc,device-nand");
 	of_property_read_u32(np, "gpmc,device-width", &p->device_width);
 	of_property_read_u32(np, "gpmc,mux-add-data", &p->mux_add_data);
+	of_property_read_u32(np, "gpmc,clk-activation", &p->clk_activation);
 
 	if (!of_property_read_u32(np, "gpmc,burst-length", &p->burst_len)) {
 		p->burst_wrap = of_property_read_bool(np, "gpmc,burst-wrap");
@@ -1464,30 +1468,40 @@ static int gpmc_probe_generic_child(struct platform_device *pdev,
 		return ret;
 	}
 
-	/*
-	 * FIXME: gpmc_cs_request() will map the CS to an arbitary
-	 * location in the gpmc address space. When booting with
-	 * device-tree we want the NOR flash to be mapped to the
-	 * location specified in the device-tree blob. So remap the
-	 * CS to this location. Once DT migration is complete should
-	 * just make gpmc_cs_request() map a specific address.
-	 */
-	ret = gpmc_cs_remap(cs, res.start);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "cannot remap GPMC CS %d to 0x%x\n",
-			cs, res.start);
-		goto err;
+	if (!of_property_read_bool(child, "gpmc,no-remap")) {
+		/*
+		 * FIXME: gpmc_cs_request() will map the CS to an arbitary
+		 * location in the gpmc address space. When booting with
+		 * device-tree we want the NOR flash to be mapped to the
+		 * location specified in the device-tree blob. So remap the
+		 * CS to this location. Once DT migration is complete should
+		 * just make gpmc_cs_request() map a specific address.
+		 */
+		ret = gpmc_cs_remap(cs, res.start);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "cannot remap GPMC CS %d to 0x%x\n",
+				cs, res.start);
+			goto err;
+		}
+
+		dev_info(&pdev->dev, "GPMC%d: res.start=0x%x\n", cs, (unsigned int)res.start);
 	}
 
 	gpmc_read_settings_dt(child, &gpmc_s);
 
 	ret = of_property_read_u32(child, "bank-width", &gpmc_s.device_width);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&pdev->dev, "%s has no 'bank-width' property\n",
+			child->full_name);
 		goto err;
+	}
 
 	ret = gpmc_cs_program_settings(cs, &gpmc_s);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&pdev->dev, "%s failed to program settings\n",
+			child->full_name);
 		goto err;
+	}
 
 	gpmc_read_timings_dt(child, &gpmc_t);
 	gpmc_cs_set_timings(cs, &gpmc_t);
@@ -1507,46 +1521,31 @@ err:
 static int gpmc_probe_dt(struct platform_device *pdev)
 {
 	int ret;
+	struct device_node *node = pdev->dev.of_node;
 	struct device_node *child;
-	const struct of_device_id *of_id =
-		of_match_device(gpmc_dt_ids, &pdev->dev);
 
-	if (!of_id)
-		return 0;
-
-	ret = of_property_read_u32(pdev->dev.of_node, "gpmc,num-waitpins",
+	ret = of_property_read_u32(node, "gpmc,num-waitpins",
 				   &gpmc_nr_waitpins);
 	if (ret < 0) {
 		pr_err("%s: number of wait pins not found!\n", __func__);
 		return ret;
 	}
 
-	for_each_node_by_name(child, "nand") {
-		ret = gpmc_probe_nand_child(pdev, child);
-		if (ret < 0) {
-			of_node_put(child);
-			return ret;
-		}
-	}
+	for_each_available_child_of_node(node, child) {
 
-	for_each_node_by_name(child, "onenand") {
-		ret = gpmc_probe_onenand_child(pdev, child);
-		if (ret < 0) {
-			of_node_put(child);
-			return ret;
-		}
-	}
+		if (!child->name)
+			continue;
 
-	for_each_node_by_name(child, "nor") {
-		ret = gpmc_probe_generic_child(pdev, child);
-		if (ret < 0) {
-			of_node_put(child);
-			return ret;
-		}
-	}
+		ret = 0;
+		if (of_node_cmp(child->name, "nand") == 0)
+			ret = gpmc_probe_nand_child(pdev, child);
+		else if (of_node_cmp(child->name, "onenand") == 0)
+			ret = gpmc_probe_onenand_child(pdev, child);
+		else if (of_node_cmp(child->name, "nor") == 0 ||
+			   of_node_cmp(child->name, "ethernet") == 0 ||
+			   of_node_cmp(child->name, "camera") == 0)
+			ret = gpmc_probe_generic_child(pdev, child);
 
-	for_each_node_by_name(child, "ethernet") {
-		ret = gpmc_probe_generic_child(pdev, child);
 		if (ret < 0) {
 			of_node_put(child);
 			return ret;
@@ -1567,6 +1566,11 @@ static int gpmc_probe(struct platform_device *pdev)
 	int rc;
 	u32 l;
 	struct resource *res;
+	struct pinctrl *pinctrl;
+
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl))
+		dev_warn(&pdev->dev, "unable to select pin group\n");
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL)
@@ -1637,6 +1641,7 @@ static int gpmc_probe(struct platform_device *pdev)
 		dev_err(gpmc_dev, "failed to probe DT parameters\n");
 		return rc;
 	}
+	dev_info(gpmc_dev, "loaded OK\n");
 
 	return 0;
 }
@@ -1655,6 +1660,7 @@ static struct platform_driver gpmc_driver = {
 	.driver		= {
 		.name	= DEVICE_NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table	= of_match_ptr(gpmc_dt_ids),
 	},
 };
 
