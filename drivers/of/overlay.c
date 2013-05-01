@@ -271,6 +271,8 @@ static int of_overlay_notify(struct notifier_block *nb,
 	struct of_prop_reconfig *pr;
 	struct platform_device *pdev;
 	struct i2c_client *client;
+	struct device_node *tnode;
+	int depth;
 	int prevstate, state;
 	int err = 0;
 
@@ -359,6 +361,21 @@ static int of_overlay_notify(struct notifier_block *nb,
 		return notifier_from_errno(0);
 	}
 
+	/* find depth */
+	depth = 1;
+	tnode = node;
+	while (tnode != NULL && tnode != ovinfo->target) {
+		tnode = tnode->parent;
+		depth++;
+	}
+
+	/* respect overlay's maximum depth */
+	if (ovinfo->device_depth != 0 && depth > ovinfo->device_depth) {
+		pr_debug("OF: skipping device creation for node=%s depth=%d\n",
+				node->name, depth);
+		goto out;
+	}
+
 	if (state == 0) {
 		pdev = of_find_device_by_node(node);
 		client = of_find_i2c_device_by_node(node);
@@ -366,6 +383,7 @@ static int of_overlay_notify(struct notifier_block *nb,
 
 	of_overlay_device_entry_entry_add(ovinfo, node, pdev, client,
 			prevstate, state);
+out:
 
 	return notifier_from_errno(err);
 }
@@ -748,6 +766,13 @@ int of_fill_overlay_info(struct device_node *info_node,
 	ovinfo->overlay = of_get_child_by_name(info_node, "__overlay__");
 	if (ovinfo->overlay == NULL)
 		goto err_fail;
+
+	ret = of_property_read_u32(info_node, "depth", &val);
+	if (ret == 0)
+		ovinfo->device_depth = val;
+	else
+		ovinfo->device_depth = 0;
+
 
 	return 0;
 
