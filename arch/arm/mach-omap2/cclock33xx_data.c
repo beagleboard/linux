@@ -818,6 +818,242 @@ DEFINE_CLK_DIVIDER_TABLE(clkout2_div_ck, "sysclkout_pre_ck", &sysclkout_pre_ck,
 DEFINE_CLK_GATE(clkout2_ck, "clkout2_div_ck", &clkout2_div_ck, 0x0,
 		AM33XX_CM_CLKOUT_CTRL, AM33XX_CLKOUT2EN_SHIFT, 0x0, NULL);
 
+/********************************************/
+
+static const char *adjustable_sysclkout_ck_parents[] = {
+	"clk_32768_ck", "l3_gclk", "dpll_ddr_m2_ck", "dpll_per_m2_ck",
+	"lcd_gclk",
+};
+
+static const struct clksel foo_sysclkout_pre_sel[] = {
+	{ .parent = &clk_32768_ck,	.rates = div_1_0_rates },
+	{ .parent = &l3_gclk,		.rates = div_1_1_rates },
+	{ .parent = &dpll_ddr_m2_ck,	.rates = div_1_2_rates },
+	{ .parent = &dpll_per_m2_ck,	.rates = div_1_3_rates },
+	{ .parent = &lcd_gclk,		.rates = div_1_4_rates },
+	{ .parent = NULL },
+};
+
+struct clkout_match {
+	unsigned long best_rate;
+	unsigned long parent_rate;
+	const struct clksel *best_clks;
+	const struct clksel_rate *best_clkr;
+	const struct clk_div_table *best_clkd;
+};
+
+struct clk_hw_clkout {
+	struct clk_hw_omap		omap_hw;
+	void __iomem			*div_reg;
+	u32				div_mask;
+	const struct clk_div_table	*div_table;
+	struct clkout_match		match;
+};
+
+#define to_clk_hw_clkout(_hw) container_of(_hw, struct clk_hw_clkout, omap_hw.hw)
+
+static int clkout_clk_enable(struct clk_hw *hw)
+{
+	return omap2_dflt_clk_enable(hw);
+}
+
+static void clkout_clk_disable(struct clk_hw *hw)
+{
+	omap2_dflt_clk_enable(hw);
+}
+
+static int clkout_clk_is_enabled(struct clk_hw *hw)
+{
+	return omap2_dflt_clk_is_enabled(hw);
+}
+
+static int clkout_find_match(struct clk_hw *hw, unsigned long target_rate,
+		struct clkout_match *m)
+{
+	struct clk_hw_clkout *clkout_clk = to_clk_hw_clkout(hw);
+	struct clk_hw_omap *omap_clk = to_clk_hw_omap(hw);
+	struct clk *pclk;
+	unsigned long prate, test_rate;
+	const struct clksel *clks;
+	const struct clksel_rate *clkr;
+	const struct clk_div_table *clkd;
+
+	memset(m, 0, sizeof(*m));
+
+	/* iterate over all the clksel */
+	for (clks = omap_clk->clksel; (pclk = clks->parent) != NULL; clks++) {
+		prate = __clk_get_rate(pclk);
+		for (clkr = clks->rates; clkr->div; clkr++) {
+			if (!(clkr->flags & cpu_mask))
+				continue;
+			for (clkd = clkout_clk->div_table; clkd->div; clkd++) {
+				test_rate = (prate / clkr->div) / clkd->div;
+
+				if (abs(test_rate - target_rate) < abs(m->best_rate - target_rate)) {
+					m->parent_rate = prate / clkr->div;
+					m->best_rate = test_rate;
+					m->best_clks = clks;
+					m->best_clkr = clkr;
+					m->best_clkd = clkd;
+				}
+			}
+		}
+	}
+
+	if (!m->best_clks || !m->best_clkr || !m->best_clkd) {
+		pr_err("%s: Failed to find a best match\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int clkout_clksel_set_rate(struct clk_hw *hw, unsigned long rate,
+				unsigned long parent_rate)
+{
+	struct clk_hw_clkout *clkout_clk = to_clk_hw_clkout(hw);
+	struct clk_hw_omap *omap_clk = to_clk_hw_omap(hw);
+	struct clkout_match *m = &clkout_clk->match;
+	struct clk *clk = hw->clk;
+	int ret;
+	u32 v;
+
+	ret = clkout_find_match(hw, rate, m);
+	if (ret != 0)
+		return ret;
+
+	/* have to be exact now */
+	if (rate != m->best_rate) {
+		pr_err("%s: Failed to find exact rate %lu (was %lu)\n",
+				__func__, rate, m->best_rate);
+		return -EINVAL;
+	}
+
+	/* switch parent */
+	if (m->best_clks->parent != __clk_get_parent(clk)) {
+		__clk_set_parent(clk, m->best_clks->parent);
+		__clk_reparent(clk, m->best_clks->parent);
+		parent_rate = __clk_get_rate(__clk_get_parent(clk));
+	}
+
+	/* we need to write the new value */
+	if (omap_clk->clksel_reg != clkout_clk->div_reg) {
+		v = __raw_readl(omap_clk->clksel_reg);
+		v &= ~omap_clk->clksel_mask;
+		v |= m->best_clkr->val << __ffs(omap_clk->clksel_mask);
+		__raw_writel(v, omap_clk->clksel_reg);
+		v = __raw_readl(omap_clk->clksel_reg);	/* OCP barrier */
+
+		v = __raw_readl(clkout_clk->div_reg);
+		v &= ~clkout_clk->div_mask;
+		v |= m->best_clkd->val << __ffs(clkout_clk->div_mask);
+		__raw_writel(v, clkout_clk->div_reg);
+		v = __raw_readl(clkout_clk->div_reg);	/* OCP barrier */
+	} else {
+		v = __raw_readl(omap_clk->clksel_reg);
+		v &= ~(omap_clk->clksel_mask | clkout_clk->div_mask);
+		v |= (m->best_clkr->val << __ffs(omap_clk->clksel_mask)) |
+		     (m->best_clkd->val << __ffs(clkout_clk->div_mask));
+		__raw_writel(v, omap_clk->clksel_reg);
+		v = __raw_readl(omap_clk->clksel_reg);	/* OCP barrier */
+	}
+
+	return ret;
+}
+
+static long clkout_clksel_round_rate(struct clk_hw *hw, unsigned long target_rate,
+				unsigned long *parent_rate)
+{
+	struct clkout_match m;
+	long ret;
+
+	ret = clkout_find_match(hw, target_rate, &m);
+	if (ret != 0) {
+		pr_err("%s: Failed to find a best match\n", __func__);
+		return (unsigned long)-1;
+	}
+
+	*parent_rate = __clk_get_rate(m.best_clks->parent);
+
+	return m.best_rate;
+}
+
+static unsigned long clkout_clksel_recalc(struct clk_hw *hw, unsigned long parent_rate)
+{
+	struct clk_hw_clkout *clkout_clk = to_clk_hw_clkout(hw);
+	struct clk_hw_omap *omap_clk = to_clk_hw_omap(hw);
+	u32 v;
+	unsigned int divr, divd;
+
+	v = __raw_readl(omap_clk->clksel_reg);
+	v &= omap_clk->clksel_mask;
+	v >>= __ffs(omap_clk->clksel_mask);
+	divr = v;
+
+	v = __raw_readl(clkout_clk->div_reg);
+	v &= clkout_clk->div_mask;
+	v >>= __ffs(clkout_clk->div_mask);
+	divd = v;
+
+	return clkout_clk->match.best_rate;
+}
+
+static u8 clkout_clksel_find_parent_index(struct clk_hw *hw)
+{
+	return omap2_clksel_find_parent_index(hw);
+}
+
+static int clkout_clksel_set_parent(struct clk_hw *hw, u8 field_val)
+{
+	return omap2_clksel_set_parent(hw, field_val);
+}
+
+static void clkout_init_clk_clkdm(struct clk_hw *hw)
+{
+	omap2_init_clk_clkdm(hw);
+}
+
+static const struct clk_ops adjustable_sysclkout_ck_clk_ops = {
+	.enable		= &clkout_clk_enable,
+	.disable	= &clkout_clk_disable,
+	.is_enabled	= &clkout_clk_is_enabled,
+	.set_rate	= &clkout_clksel_set_rate,
+	.round_rate	= &clkout_clksel_round_rate,
+	.recalc_rate	= &clkout_clksel_recalc,
+	.get_parent	= &clkout_clksel_find_parent_index,
+	.set_parent	= &clkout_clksel_set_parent,
+	.init		= &clkout_init_clk_clkdm,
+};
+
+static struct clk adjustable_clkout2_ck;
+static struct clk_hw_clkout adjustable_clkout2_ck_hw = {
+	.omap_hw = {
+		.hw = {
+			.clk	= &adjustable_clkout2_ck,
+		},
+		.ops		= NULL,
+		.enable_reg	= AM33XX_CM_CLKOUT_CTRL,
+		.enable_bit	= AM33XX_CLKOUT2EN_SHIFT,
+		.clksel		= foo_sysclkout_pre_sel,
+		.clksel_reg	= AM33XX_CM_CLKOUT_CTRL,
+		.clksel_mask	= AM33XX_CLKOUT2SOURCE_MASK,
+		.clkdm_name	= NULL,
+	},
+	.div_reg	= AM33XX_CM_CLKOUT_CTRL,
+	.div_mask	= AM33XX_CLKOUT2DIV_MASK,
+	.div_table	= div8_rates,
+};
+static struct clk adjustable_clkout2_ck = {
+	.name		= "adjustable_clkout2_ck",
+	.hw		= &adjustable_clkout2_ck_hw.omap_hw.hw,
+	.parent_names	= adjustable_sysclkout_ck_parents,
+	.num_parents	= ARRAY_SIZE(adjustable_sysclkout_ck_parents),
+	.ops		= &adjustable_sysclkout_ck_clk_ops,
+	.flags		= CLK_GET_RATE_NOCACHE | CLK_SET_PARENT_GATE | CLK_SET_RATE_GATE
+};
+
+/********************************************/
+
 static const char *wdt_ck_parents[] = {
 	"clk_rc32k_ck", "clkdiv32k_ick",
 };
@@ -947,12 +1183,15 @@ static struct omap_clk am33xx_clks[] = {
 	CLK(NULL,	"gfx_fck_div_ck",	&gfx_fck_div_ck,	CK_AM33XX),
 	CLK(NULL,	"sysclkout_pre_ck",	&sysclkout_pre_ck,	CK_AM33XX),
 	CLK(NULL,	"clkout2_div_ck",	&clkout2_div_ck,	CK_AM33XX),
+	CLK(NULL,	"clkout2_ck",		&clkout2_ck,	CK_AM33XX),
 	CLK(NULL,	"timer_32k_ck",		&clkdiv32k_ick,	CK_AM33XX),
 	CLK(NULL,	"timer_sys_ck",		&sys_clkin_ck,	CK_AM33XX),
 	CLK("48300200.ehrpwm",	"tbclk",	&ehrpwm0_tbclk,	CK_AM33XX),
 	CLK("48302200.ehrpwm",	"tbclk",	&ehrpwm1_tbclk,	CK_AM33XX),
 	CLK("48304200.ehrpwm",	"tbclk",	&ehrpwm2_tbclk,	CK_AM33XX),
 	CLK("4830e000.fb", 	"fck",		&lcd_gclk,	CK_AM33XX),
+	/* magical adjustable clkout2 without mult/div */
+	CLK(NULL,	"adjustable_clkout2_ck",	&adjustable_clkout2_ck,CK_AM33XX),
 };
 
 
