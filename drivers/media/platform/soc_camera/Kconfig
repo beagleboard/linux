@@ -86,3 +86,10 @@ config VIDEO_ATMEL_ISI
 	  This module makes the ATMEL Image Sensor Interface available
 	  as a v4l2 device.
 
+config VIDEO_QL_CAMIF
+	tristate "QuickLogic Camera Interface support (EXPERIMENTAL)"
+	depends on VIDEO_DEV && SOC_CAMERA && SOC_AM33XX && EXPERIMENTAL
+	select VIDEOBUF2_DMA_CONTIG
+	---help---
+	  This is a v4l2 driver for the QuickLogic CAMIF controller.
+
