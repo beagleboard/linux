@@ -1554,7 +1554,7 @@ module_platform_driver(cssp_cam_driver);
 /*
  * Macros sets license, author and description
  */
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Dan Aizenstros, Damian Eppel, Przemek Szewczyk");
 MODULE_DESCRIPTION("QuickLogic Camera Interface driver");
 
