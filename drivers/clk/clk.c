@@ -1077,7 +1077,7 @@ out:
 	__clk_recalc_rates(clk, POST_RATE_CHANGE);
 }
 
-static int __clk_set_parent(struct clk *clk, struct clk *parent)
+int __clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	struct clk *old_parent;
 	unsigned long flags;
@@ -1136,6 +1136,7 @@ static int __clk_set_parent(struct clk *clk, struct clk *parent)
 out:
 	return ret;
 }
+EXPORT_SYMBOL_GPL(__clk_set_parent);
 
 /**
  * clk_set_parent - switch the parent of a mux clk
