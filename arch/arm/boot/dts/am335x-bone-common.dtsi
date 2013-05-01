@@ -447,7 +447,8 @@
 };
 
 &edma {
-	ti,edma-xbar-event-map = <32 12>;
+	ti,edma-xbar-event-map = <32 12>,	/* gpevt2 -> 12 */
+				 <30 20>;	/* xdma_event_intr2 -> 20 */
 };
 
 &sham {
