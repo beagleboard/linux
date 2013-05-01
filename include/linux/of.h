@@ -735,6 +735,7 @@ struct of_overlay_info {
 	struct list_head le_list;
 	struct list_head de_list;
 	struct notifier_block notifier;
+	int device_depth;
 };
 
 #ifdef CONFIG_OF_OVERLAY
