@@ -154,6 +154,7 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	BB-BONE-LCD7-01-00A3.dtbo \
 	BB-BONE-LCD7-01-00A4.dtbo \
 	BB-BONE-eMMC1-01-00A0.dtbo \
+	BB-BONE-GPEVT-00A0.dtbo \
 	cape-bone-iio-00A0.dtbo \
 	cape-bone-pinmux-test-00A0.dtbo \
 	cape-bone-exptest-00A0.dtbo \
