@@ -41,7 +41,7 @@ static void gpevt_callback(void *data)
 		dev_info(dev, "*** DMA transfer failed ***\n");
 }
 
-static int __devinit gpevt_probe (struct platform_device *pdev)
+static int gpevt_probe (struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct pinctrl *pinctrl;
@@ -132,7 +132,7 @@ static int __devinit gpevt_probe (struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit gpevt_remove(struct platform_device *pdev)
+static int gpevt_remove(struct platform_device *pdev)
 {
 	return 0;
 }
@@ -149,7 +149,7 @@ static struct platform_driver gpevt_driver = {
 		.of_match_table = gpevt_dt_ids,
 	},
 	.probe  = gpevt_probe,
-	.remove = __devexit_p(gpevt_remove),
+	.remove = gpevt_remove,
 };
 
 static int __init gpevt_init(void)
