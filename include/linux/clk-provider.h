@@ -369,6 +369,8 @@ void __clk_unprepare(struct clk *clk);
 void __clk_reparent(struct clk *clk, struct clk *new_parent);
 unsigned long __clk_round_rate(struct clk *clk, unsigned long rate);
 
+int __clk_set_parent(struct clk *clk, struct clk *parent);
+
 struct of_device_id;
 
 typedef void (*of_clk_init_cb_t)(struct device_node *);
