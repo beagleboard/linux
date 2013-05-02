@@ -129,16 +129,6 @@
 				eeprom = <&cape_eeprom3>;
 			};
 
-			/* Beaglebone black has it soldered on */
-			 slot@4 {
-			 	ti,cape-override;
-			 	compatible = "ti,beaglebone-black";
-			 	board-name = "BB-BONE-RST2";
-			 	version = "00A0";
-			 	manufacturer = "Texas Instruments";
-			 	part-number = "BB-BONE-RST2";
-			 };
-
 			/* geiger cape version A0 without an EEPROM */
 			slot@5 {
 				ti,cape-override;
