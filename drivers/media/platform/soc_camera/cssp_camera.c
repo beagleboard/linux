@@ -16,7 +16,7 @@
  *
  */
 
-
+#define DEBUG
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/gpio.h>
@@ -1345,15 +1345,12 @@ of_get_cssp_platform_data(struct platform_device *pdev)
 
 		/* set orientation flag */
 
-		/*
-		 * But the driver in mainline doesn't support flip
-		 * Commented out for now...
-		 *
-		 *	if (ret)
-		 *		val |= MT9T112_FLAG_VFLIP;
-		 *	else
-		 *		val &= ~MT9T112_FLAG_VFLIP
-		 */
+#ifdef MT9T112_FLAG_VFLIP
+	 	if (ret)
+	 		val |= MT9T112_FLAG_VFLIP;
+	 	else
+	 		val &= ~MT9T112_FLAG_VFLIP;
+#endif
 	}
 	pstore->mt9t111_cam_info.flags = val;
 
@@ -1376,7 +1373,7 @@ err_fail:
 	if (adap != NULL)
 		put_device(&adap->dev);
 
-	/* free memory (even if it will be automatically freed it's good practice) */
+	/* free memory (even if automatically freed it's good practice) */
 	if (pstore != NULL)
 		devm_kfree(dev, pstore);
 
