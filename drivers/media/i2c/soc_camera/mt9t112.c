@@ -33,6 +33,8 @@
 /* you can check PLL/clock info */
 /* #define EXT_CLOCK 24000000 */
 
+//#define TEST_PATTERN
+
 /************************************************************************
 			macro
 ************************************************************************/
@@ -67,6 +69,8 @@
 
 #define mt9t112_reg_read(ret, client, a) \
 	ECHECKER(ret, __mt9t112_reg_read(client, a))
+#define mt9t112_mcu_read(ret, client, a) \
+	ECHECKER(ret, __mt9t112_mcu_read(client, a))
 
 /*
  * Logical address
@@ -85,6 +89,33 @@ struct mt9t112_format {
 	u16 order;
 };
 
+struct mt9t112_resolution_param {
+	u16 col_strt;
+	u16 row_end;
+	u16 col_end;
+	u16 read_mode;
+	u16 fine_cor;
+	u16 fine_min;
+	u16 fine_max;
+	u16 base_lines;
+	u16 min_lin_len;
+	u16 line_len;
+	u16 con_width;
+	u16 con_height;
+	u16 s_f1_50;
+	u16 s_f2_50;
+	u16 s_f1_60;
+	u16 s_f2_60;
+	u16 per_50;
+	u16 per_50_M;
+	u16 per_60;
+	u16 fd_w_height;
+	u16 tx_water;
+	u16 max_fd_50;
+	u16 max_fd_60;
+	u16 targ_fd;
+};
+
 struct mt9t112_priv {
 	struct v4l2_subdev		 subdev;
 	struct mt9t112_camera_info	*info;
@@ -96,6 +127,7 @@ struct mt9t112_priv {
 /* for flags */
 #define INIT_DONE	(1 << 0)
 #define PCLK_RISING	(1 << 1)
+	struct mt9t112_resolution_param	 resolution;
 };
 
 /************************************************************************
@@ -408,6 +440,453 @@ static int mt9t112_set_pll_dividers(const struct i2c_client *client,
 	val = (0x1         << 12) |
 	      ((p7 & 0x0F) <<  0);
 	mt9t112_reg_mask_set(ret, client, 0x002C, 0x100f, val);
+
+	return ret;
+}
+
+static int mt9t112_set_resolution_params(const struct i2c_client *client)
+{
+	int ret = 1;
+	struct mt9t112_priv *priv = to_mt9t112(client);
+	struct mt9t112_resolution_param *resolution = &priv->resolution;
+
+	if ((priv->frame.width == 1280) && (priv->frame.height == 720)) {
+		resolution->col_strt    = 0x0004;
+		resolution->row_end     = 0x05AD;
+		resolution->col_end     = 0x050B;
+		resolution->read_mode   = 0x002C;
+		resolution->fine_cor    = 0x008C;
+		resolution->fine_min    = 0x01F1;
+		resolution->fine_max    = 0x00FF;
+		resolution->base_lines  = 0x032D;
+		resolution->min_lin_len = 0x0378;
+		resolution->line_len    = 0x091C;
+		resolution->con_width   = 0x0508;
+		resolution->con_height  = 0x02D8;
+		resolution->s_f1_50     = 0x23;
+		resolution->s_f2_50     = 0x25;
+		resolution->s_f1_60     = 0x2B;
+		resolution->s_f2_60     = 0x2D;
+		resolution->per_50      = 0xDC;
+		resolution->per_50_M    = 0x00;
+		resolution->per_60      = 0xB7;
+		resolution->fd_w_height = 0x05;
+		resolution->tx_water    = 0x0210;
+		resolution->max_fd_50   = 0x0004;
+		resolution->max_fd_60   = 0x0004;
+		resolution->targ_fd     = 0x0004;
+	} else if ((priv->frame.width <= 1024) && (priv->frame.height <= 768) &&
+		   (priv->frame.width != priv->frame.height)) {
+		resolution->col_strt    = 0x000;
+		resolution->row_end     = 0x60D;
+		resolution->col_end     = 0x80D;
+		resolution->read_mode   = 0x046C;
+		resolution->fine_cor    = 0x00CC;
+		resolution->fine_min    = 0x0381;
+		resolution->fine_max    = 0x024F;
+		resolution->base_lines  = 0x0364;
+		resolution->min_lin_len = 0x05D0;
+		resolution->line_len    = 0x07AC;
+		resolution->con_width   = 0x0408;
+		resolution->con_height  = 0x0308;
+		resolution->s_f1_50     = 0x23;
+		resolution->s_f2_50     = 0x25;
+		resolution->s_f1_60     = 0x2A;
+		resolution->s_f2_60     = 0x2C;
+		resolution->per_50      = 0x05;
+		resolution->per_50_M    = 0x01;
+		resolution->per_60      = 0xD9;
+		resolution->fd_w_height = 0x06;
+		resolution->max_fd_50   = 0x0003;
+		resolution->max_fd_60   = 0x0004;
+		resolution->targ_fd     = 0x0003;
+		if ((priv->frame.width == 1024) && (priv->frame.height == 768)) {
+			resolution->tx_water = 0x0218;
+		} else if ((priv->frame.width == 800) && (priv->frame.height == 480)) {
+			resolution->tx_water = 0x02DA;
+		} else { // 640 x 480 but use it with everything else until we figure out how to calc it
+			resolution->tx_water = 0x0352;
+		}
+	} else {
+		ret = 0;
+	}
+
+	return ret;
+}
+
+static int mt9t112_pll_setup_custom_pll(const struct i2c_client *client)
+{
+/*
+; Bypass PLL: Unchecked
+; Input Frequency: 32.000
+; Target Pads Frequency: 96.000
+; Target I2C Clock Frequency: 100.000
+; Target VCO Frequency: Unspecified
+; For Parallel Output: Checked
+; "M" Value: Unspecified
+; "N" Value: Unspecified
+;
+; Target Pads Clock Frequency: 96 MHz
+; Input Clock Frequency: 32 MHz
+;
+; Actual Pads Clock Frequency: 96 MHz
+; Sensor Core Clock Frequency: 54.857 MHz
+; SOC Clock Frequency: 54.857 MHz
+; MCU Clock Frequency: 96 MHz
+; I2C Master Clock Frequency: 99.740 KHz
+;
+; M = 24
+; N = 1
+; Fpdf = 16 MHz
+; Fvco = 768 MHz
+; P2 = 8
+; P4 = 14
+; P5 = 14
+; P6 = 8
+*/
+	int data, i, ret;
+
+	mt9t112_reg_mask_set(ret, client, 0x14, 1, 1);	// Bypass PLL
+	mt9t112_reg_mask_set(ret, client, 0X14, 2, 0);	// Power-down PLL
+	mt9t112_reg_write(ret, client, 0x0014, 0x2145);	// PLL control: BYPASS PLL = 8517
+	mt9t112_reg_write(ret, client, 0x0010, 0x0118);	// PLL Dividers = 280
+	mt9t112_reg_write(ret, client, 0x0012, 0x0070);	// PLL P Dividers = 112
+	mt9t112_reg_write(ret, client, 0x002A, 0x77EE);	// PLL P Dividers 4-5-6 = 30685
+	mt9t112_reg_write(ret, client, 0x001A, 0x218);	// Reset Misc. Control = 536
+	mt9t112_reg_write(ret, client, 0x0014, 0x2545);	// PLL control: TEST_BYPASS on = 9541
+	mt9t112_reg_write(ret, client, 0x0014, 0x2547);	// PLL control: PLL_ENABLE on = 9543
+	mt9t112_reg_write(ret, client, 0x0014, 0x2447);	// PLL control: SEL_LOCK_DET on = 9287
+	mt9t112_reg_write(ret, client, 0x0014, 0x2047);	// PLL control: TEST_BYPASS off = 8263
+
+	// Wait for the PLL to lock
+	for (i=0; i<1000; i++) {
+		mt9t112_reg_read(data, client, 0x0014);
+		if (0x8000 & data)
+			break;
+
+		mdelay(10);
+	}
+
+	mt9t112_reg_write(ret, client, 0x0014, 0x2046);	// PLL control: PLL_BYPASS off = 8262
+	mt9t112_reg_write(ret, client, 0x0022, 0x0280);	// Reference clock count for 20 us = 640
+	mt9t112_reg_write(ret, client, 0x001E, 0x0777);	// Pad Slew Rate = 1911
+	mt9t112_reg_write(ret, client, 0x0016, 0x0400);	// JPEG Clock = 1024
+
+	return ret;
+}
+
+static int mt9t112_sysctl_startup_K26A_rev_3(const struct i2c_client *client)
+{
+	int ret;
+
+	// reset
+	mt9t112_reset(client);
+
+	// Setup PLL
+	mt9t112_pll_setup_custom_pll(client);
+
+	// crank up the output slew rate (don't forget to enable these bits in TX_SS)
+	mt9t112_reg_write(ret, client, 0x001E, 0x0777);
+
+	return ret;
+}
+
+static int mt9t112_high_speed_overrides(const struct i2c_client *client)
+{
+	int ret;
+
+// Use this section to apply settings that are specific to this revision of SOC
+// or for any other specialized settings
+
+// clear the "Output Buffer Enable Adaptive Clock" bit to enable the SYSCTL
+// slew rate settings, change this in the variables and register
+
+	// PRI_A_CONFIG_JPEG_OB_TX_CONTROL_VAR
+	mt9t112_mcu_write(ret, client, VAR(26, 160), 0x082E);
+	// PRI_B_CONFIG_JPEG_OB_TX_CONTROL_VAR
+	mt9t112_mcu_write(ret, client, VAR(27, 160), 0x082E);
+	//SEC_A_CONFIG_JPEG_OB_TX_CONTROL_VAR
+	mt9t112_mcu_write(ret, client, VAR(28, 160), 0x082E);
+	//SEC_B_CONFIG_JPEG_OB_TX_CONTROL_VAR
+	mt9t112_mcu_write(ret, client, VAR(29, 160), 0x082E);
+	mt9t112_reg_mask_set(ret, client, 0x3C52, 0x0040, 0);         // set this value in HW
+
+	// Set correct values for Context B FIFO control
+	// CAM1_CTX_B_RX_FIFO_TRIGGER_MARK
+	mt9t112_mcu_write(ret, client, VAR(18, 142), 32);
+	// PRI_B_CONFIG_IO_OB_MANUAL_FLAG
+	mt9t112_mcu_write(ret, client, VAR(27, 172), 0);
+
+	return ret;
+}
+
+static int mt9t112_go(const struct i2c_client *client)
+{
+	int data, i, ret;
+
+	// release MCU from standby
+	mt9t112_reg_mask_set(ret, client, 0x0018, 0x0001, 0);
+
+	// wait for K26A to come out of standby
+	for (i=0; i<100; i++) {
+		mt9t112_reg_read(data, client, 0x0018);
+		if (!(0x4000 & data))
+			break;
+
+		mdelay(10);
+	}
+
+	return ret;
+}
+
+static int mt9t112_continue(const struct i2c_client *client)
+{
+	int data, i, ret;
+
+	// clear powerup stop bit
+	mt9t112_reg_mask_set(ret, client, 0x0018, 0x0004, 0);
+
+	// wait for sequencer to enter preview state
+	for (i=0; i<100; i++) {
+		mt9t112_mcu_read(data, client, VAR8(1, 1));
+		if (data == 3)
+			break;
+
+		mdelay(10);
+	}
+
+	return ret;
+}
+
+static int mt9t112_mcu_powerup_stop_enable(const struct i2c_client *client)
+{
+	int ret;
+
+	// set powerup stop bit
+	mt9t112_reg_mask_set(ret, client, 0x0018, 0x0004, 1);
+
+	return ret;
+}
+
+static int mt9t112_custom_setup(const struct i2c_client *client)
+{
+	struct mt9t112_priv *priv = to_mt9t112(client);
+	struct mt9t112_resolution_param *resolution = &priv->resolution;
+	int ret;
+
+	//I2C Master Clock Divider
+	mt9t112_mcu_write(ret, client, 0x6006, 0x0100);	//      = 275
+	//Output Width (A)
+	mt9t112_mcu_write(ret, client, 0x6800, priv->frame.width);
+	//Output Height (A)
+	mt9t112_mcu_write(ret, client, 0x6802, priv->frame.height);
+	//JPEG (A)
+	mt9t112_mcu_write(ret, client, 0xE88E, 0x00);	//      = 0
+	//Adaptive Output Clock (A)
+	mt9t112_mcu_mask_set(ret, client, 0x68A0, 0x0040, 0x0000);	//      = 0
+	//Row Start (A)
+	mt9t112_mcu_write(ret, client, 0x4802, 0x000);	//      = 0
+	//Column Start (A)
+	mt9t112_mcu_write(ret, client, 0x4804, resolution->col_strt);
+	//Row End (A)
+	mt9t112_mcu_write(ret, client, 0x4806, resolution->row_end);
+	//Column End (A)
+	mt9t112_mcu_write(ret, client, 0x4808, resolution->col_end);
+	//Row Speed (A)
+	mt9t112_mcu_write(ret, client, 0x480A, 0x0111);	//      = 273
+	//Read Mode (A)
+	mt9t112_mcu_write(ret, client, 0x480C, resolution->read_mode);
+	//Fine Correction (A)
+	mt9t112_mcu_write(ret, client, 0x480F, resolution->fine_cor);
+	//Fine IT Min (A)
+	mt9t112_mcu_write(ret, client, 0x4811, resolution->fine_min);
+	//Fine IT Max Margin (A)
+	mt9t112_mcu_write(ret, client, 0x4813, resolution->fine_max);
+	//Base Frame Lines (A)
+	mt9t112_mcu_write(ret, client, 0x481D, resolution->base_lines);
+	//Min Line Length (A)
+	mt9t112_mcu_write(ret, client, 0x481F, resolution->min_lin_len);
+	//Line Length (A)
+	mt9t112_mcu_write(ret, client, 0x4825, resolution->line_len);
+	//Contex Width (A)
+	mt9t112_mcu_write(ret, client, 0x482B, resolution->con_width);
+	//Context Height (A)
+	mt9t112_mcu_write(ret, client, 0x482D, resolution->con_height);
+	//Output Width (B)
+	mt9t112_mcu_write(ret, client, 0x6C00, 0x0800);	//      = 2048
+	//Output Height (B)
+	mt9t112_mcu_write(ret, client, 0x6C02, 0x0600);	//      = 1536
+	//JPEG (B)
+	mt9t112_mcu_write(ret, client, 0xEC8E, 0x01);	//      = 1
+	//Adaptive Output Clock (B)
+	mt9t112_mcu_mask_set(ret, client, 0x6CA0, 0x0040, 0x0000);	//      = 0
+	//Row Start (B)
+	mt9t112_mcu_write(ret, client, 0x484A, 0x004);	//      = 4
+	//Column Start (B)
+	mt9t112_mcu_write(ret, client, 0x484C, 0x004);	//      = 4
+	//Row End (B)
+	mt9t112_mcu_write(ret, client, 0x484E, 0x60B);	//      = 1547
+	//Column End (B)
+	mt9t112_mcu_write(ret, client, 0x4850, 0x80B);	//      = 2059
+	//Row Speed (B)
+	mt9t112_mcu_write(ret, client, 0x4852, 0x0111);	//      = 273
+	//Read Mode (B)
+	mt9t112_mcu_write(ret, client, 0x4854, 0x0024);	//      = 36
+	//Fine Correction (B)
+	mt9t112_mcu_write(ret, client, 0x4857, 0x008C);	//      = 140
+	//Fine IT Min (B)
+	mt9t112_mcu_write(ret, client, 0x4859, 0x01F1);	//      = 497
+	//Fine IT Max Margin (B)
+	mt9t112_mcu_write(ret, client, 0x485B, 0x00FF);	//      = 255
+	//Base Frame Lines (B)
+	mt9t112_mcu_write(ret, client, 0x4865, 0x06AE);	//      = 1710
+	//Min Line Length (B)
+	mt9t112_mcu_write(ret, client, 0x4867, 0x0378);	//      = 888
+	//Line Length (B)
+	mt9t112_mcu_write(ret, client, 0x486D, 0x0A3A);	//      = 2618
+	//Contex Width (B)
+	mt9t112_mcu_write(ret, client, 0x4873, 0x0808);	//      = 2056
+	//Context Height (B)
+	mt9t112_mcu_write(ret, client, 0x4875, 0x0608);	//      = 1544
+	//search_f1_50
+	mt9t112_mcu_write(ret, client, 0xC8A5, resolution->s_f1_50);
+	//search_f2_50
+	mt9t112_mcu_write(ret, client, 0xC8A6, resolution->s_f2_50);
+	//search_f1_60
+	mt9t112_mcu_write(ret, client, 0xC8A7, resolution->s_f1_60);
+	//search_f2_60
+	mt9t112_mcu_write(ret, client, 0xC8A8, resolution->s_f2_60);
+	//period_50Hz (A)
+	mt9t112_mcu_write(ret, client, 0xC844, resolution->per_50);
+	//period_50Hz (A MSB)
+	mt9t112_mcu_write(ret, client, 0xC92F, resolution->per_50_M);
+	//period_60Hz (A)
+	mt9t112_mcu_write(ret, client, 0xC845, resolution->per_60);
+	//period_60Hz (A MSB)
+	mt9t112_mcu_write(ret, client, 0xC92D, 0x00);	//      = 0
+	//period_50Hz (B)
+	mt9t112_mcu_write(ret, client, 0xC88C, 0xD2);	//      = 210
+	//period_50Hz (B) MSB
+	mt9t112_mcu_write(ret, client, 0xC930, 0x00);	//      = 0
+	//period_60Hz (B)
+	mt9t112_mcu_write(ret, client, 0xC88D, 0xAF);	//      = 175
+	//period_60Hz (B) MSB
+	mt9t112_mcu_write(ret, client, 0xC92E, 0x00);	//      = 0
+	//FD Window Height
+	mt9t112_mcu_write(ret, client, 0xB825, resolution->fd_w_height);
+	//Stat_min
+	mt9t112_mcu_write(ret, client, 0xA009, 0x02);	//      = 2
+	//Stat_max
+	mt9t112_mcu_write(ret, client, 0xA00A, 0x03);	//      = 3
+	//Min_amplitude
+	mt9t112_mcu_write(ret, client, 0xA00C, 0x0A);	//      = 10
+	//RX FIFO Watermark (A)
+	mt9t112_mcu_write(ret, client, 0x4846, 0x0080);	//      = 128
+	//TX FIFO Watermark (A)
+	mt9t112_mcu_write(ret, client, 0x68AA, resolution->tx_water);
+	//Max FD Zone 50 Hz
+	mt9t112_mcu_write(ret, client, 0x6815, resolution->max_fd_50);
+	//Max FD Zone 60 Hz
+	mt9t112_mcu_write(ret, client, 0x6817, resolution->max_fd_60);
+	//AE Target FD Zone
+	mt9t112_mcu_write(ret, client, 0x682D, resolution->targ_fd);
+	//RX FIFO Watermark (B)
+	mt9t112_mcu_write(ret, client, 0x488E, 0x0080);	//      = 128
+	//TX FIFO Watermark (B)
+	mt9t112_mcu_write(ret, client, 0x6CAA, 0x01D0);	//      = 464
+	//Refresh Sequencer Mode
+	mt9t112_mcu_write(ret, client, 0x8400, 0x06);	//      = 6
+	//Refresh Sequencer
+	mt9t112_mcu_write(ret, client, 0x8400, 0x05);	//      = 5
+
+#ifdef TEST_PATTERN
+	mt9t112_mcu_write(ret, client, VAR(24, 0x03), 0x100);
+	mt9t112_mcu_write(ret, client, VAR(24, 0x25), 0x0B);            // B - Color Bar Test Pattern (supposed to be 6 ?)
+#endif
+
+	return ret;
+}
+
+static int mt9t112_optimal_power_consumption(const struct i2c_client *client)
+{
+	int ret;
+
+	// Analog setting B
+
+	mt9t112_reg_write(ret, client, 0x3084, 0x2409);
+	mt9t112_reg_write(ret, client, 0x3092, 0x0A49);
+	mt9t112_reg_write(ret, client, 0x3094, 0x4949);
+	mt9t112_reg_write(ret, client, 0x3096, 0x4950);
+
+	return ret;
+}
+
+static int mt9t112_blooming_row_pattern(const struct i2c_client *client)
+{
+	int ret;
+
+	// Improve high light image quality
+	// [CAM1_CTX_A_COARSE_ITMIN]
+	mt9t112_mcu_write(ret, client, 0x4815, 0x0004);
+	// [CAM1_CTX_B_COARSE_ITMIN]
+	mt9t112_mcu_write(ret, client, 0x485D, 0x0004);
+
+	return ret;
+}
+
+static int mt9t112_set_orientation(const struct i2c_client *client, int flip)
+{
+	int ret;
+
+	// if flip = 0 set [normal]
+	// if flip = 1 set [horizontal mirror]
+	// if flip = 2 set [vertical flip]
+	// if flip = 3 set [rotate 180]
+	flip &= 0x3;
+
+	// [CAM1_CTX_A_READ_MODE]
+	mt9t112_mcu_mask_set(ret, client, VAR(18, 0x000C), 0x0003, flip);
+	// [CAM1_CTX_A_PIXEL_ORDER]
+	mt9t112_mcu_write(ret, client, VAR8(18, 0x000E), flip);
+
+	// [CAM1_CTX_B_READ_MODE]
+	mt9t112_mcu_mask_set(ret, client, VAR(18, 0x0054), 0x0003, flip);
+	// [CAM1_CTX_B_PIXEL_ORDER]
+	mt9t112_mcu_write(ret, client, VAR8(18, 0x0056), flip);
+
+	// [SEQ_CMD]
+	mt9t112_mcu_write(ret, client, VAR8(1, 0), 0x06);
+
+	return ret;
+}
+
+static int mt9t112_init_camera_optimized(const struct i2c_client *client)
+{
+	int ret;
+
+	// basic startup
+	ECHECKER(ret, mt9t112_sysctl_startup_K26A_rev_3(client));
+
+	// enable powerup stop
+	ECHECKER(ret, mt9t112_mcu_powerup_stop_enable(client));
+
+	// start MCU
+	ECHECKER(ret, mt9t112_go(client));
+
+	// customize the configuration
+	ECHECKER(ret, mt9t112_custom_setup(client));
+
+	// enable operation with fastest clocks
+	ECHECKER(ret, mt9t112_high_speed_overrides(client));
+
+	// Optimal power consumption setting
+	ECHECKER(ret, mt9t112_optimal_power_consumption(client));
+
+	// load anti-blooming settings
+	ECHECKER(ret, mt9t112_blooming_row_pattern(client));
+
+	// continue after powerup stop
+	ECHECKER(ret, mt9t112_continue(client));
 
 	return ret;
 }
@@ -802,6 +1281,7 @@ static int mt9t112_s_stream(struct v4l2_subdev *sd, int enable)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct mt9t112_priv *priv = to_mt9t112(client);
 	int ret = 0;
+	int optimize = 0;
 
 	if (!enable) {
 		/* FIXME
@@ -830,15 +1310,33 @@ static int mt9t112_s_stream(struct v4l2_subdev *sd, int enable)
 		priv->flags |= INIT_DONE;
 	}
 
+	// fill the structure with new resolution parameters
+	optimize = mt9t112_set_resolution_params(client);
+
+	if (optimize)
+		ECHECKER(ret, mt9t112_init_camera_optimized(client));
+	else
+		ECHECKER(ret, mt9t112_init_camera(client));
+
+	/* Invert PCLK (Data sampled on falling edge of pixclk) */
+	mt9t112_reg_write(ret, client, 0x3C20, (PCLK_RISING & priv->flags ? 0x0001 : 0x0000));
+	mdelay(5);
+
 	mt9t112_mcu_write(ret, client, VAR(26, 7), priv->format->fmt);
 	mt9t112_mcu_write(ret, client, VAR(26, 9), priv->format->order);
 	mt9t112_mcu_write(ret, client, VAR8(1, 0), 0x06);
 
-	mt9t112_set_a_frame_size(client,
+	if (!optimize) {
+		mt9t112_set_a_frame_size(client,
 				 priv->frame.width,
 				 priv->frame.height);
 
-	ECHECKER(ret, mt9t112_auto_focus_trigger(client));
+		ECHECKER(ret, mt9t112_auto_focus_trigger(client));
+	}
+
+	if (priv->info->flags & MT9T112_FLAG_VFLIP) {
+		ECHECKER(ret, mt9t112_set_orientation(client, 2));
+	}
 
 	dev_dbg(&client->dev, "format : %d\n", priv->format->code);
 	dev_dbg(&client->dev, "size   : %d x %d\n",
