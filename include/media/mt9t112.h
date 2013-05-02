@@ -13,6 +13,8 @@
 
 #define MT9T112_FLAG_PCLK_RISING_EDGE	(1 << 0)
 #define MT9T112_FLAG_DATAWIDTH_8	(1 << 1) /* default width is 10 */
+#define MT9T112_FLAG_VFLIP             (1 << 2)
+#define MT9T112_FLAG_HFLIP             (1 << 3)
 
 struct mt9t112_pll_divider {
 	u8 m, n;
