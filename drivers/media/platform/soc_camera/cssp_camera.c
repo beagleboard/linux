@@ -471,7 +471,7 @@ static int configure_camera_sensor(struct cssp_cam_dev *cam)
 	/* Enable the clock just for the time of loading the camera driver and disable after that */
 	/* It is going to be be re-enabled later, when camera will be in use */
 	clk_enable(cam->camera_clk);
-	udelay(5); // let the clock stabilize
+	mdelay(50); // let the clock stabilize
 
 	adapter	= i2c_get_adapter(((struct soc_camera_link *)(info->platform_data))->i2c_adapter_id);
 	if (!adapter) {
@@ -504,7 +504,7 @@ static int configure_camera_sensor(struct cssp_cam_dev *cam)
 static int start_camera_sensor(struct cssp_cam_dev *cam)
 {
 	clk_enable(cam->camera_clk);
-	udelay(5); /* let the clock stabilize */
+	mdelay(100); /* let the clock stabilize */
 
 	v4l2_subdev_call(cam->subdev, video, s_stream, 1);
 
