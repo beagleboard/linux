@@ -250,12 +250,17 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 
 	DBG("Maximum Pixel Clock Value %dKHz", priv->max_pixelclock);
 
-
 	priv->allow_non_rblank = of_property_read_bool(node,
 			"ti,allow-non-reduced-blanking-modes");
 
+	DBG("Allowing Standard Monitor Modes: %s",
+			priv->allow_non_rblank ? "true" : "false");
 
-	DBG("Allowing Standard Monitor Modes: %s", priv->allow_non_rblank?"true":"false");
+	priv->allow_non_audio = of_property_read_bool(node,
+			"ti,allow-non-audio-modes");
+
+	DBG("Allowing Non Audio Monitor Modes: %s",
+			priv->allow_non_audio ? "true" : "false");
 
 	pm_runtime_enable(dev->dev);
 
