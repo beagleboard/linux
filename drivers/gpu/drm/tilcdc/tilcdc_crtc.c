@@ -241,7 +241,7 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 	uint32_t reg, hbp, hfp, hsw, vbp, vfp, vsw;
 	int ret;
 
-	ret = tilcdc_crtc_mode_valid(crtc, mode, 0);
+	ret = tilcdc_crtc_mode_valid(crtc, mode, 0, 0, NULL);
 	if (WARN_ON(ret))
 		return ret;
 
@@ -430,11 +430,12 @@ int tilcdc_crtc_max_width(struct drm_crtc *crtc)
 }
 
 int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
-		int rb_check)
+		int rb_check, int audio, struct edid *edid)
 {
 	struct tilcdc_drm_private *priv = crtc->dev->dev_private;
 	unsigned int bandwidth;
 	uint32_t hbp, hfp, hsw, vbp, vfp, vsw;
+	int has_audio, is_cea_mode;
 
 	int rb;
 
@@ -450,10 +451,22 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	if (mode->vdisplay > 2048)
 		return MODE_VIRTUAL_Y;
 
+	/* set if there's audio capability */
+	has_audio = edid && drm_detect_monitor_audio(edid);
 
-	DBG("Processing mode %dx%d@%d with pixel clock %d",
-	       mode->hdisplay, mode->vdisplay, drm_mode_vrefresh(mode), mode->clock);
+	/* set if it's a cea mode */
+	is_cea_mode = drm_match_cea_mode(mode) > 0;
 
+	DBG("mode %dx%d@%d pixel-clock %d audio %s cea %s",
+		mode->hdisplay, mode->vdisplay, drm_mode_vrefresh(mode),
+		mode->clock,
+		has_audio ? "true" : "false",
+		is_cea_mode ? "true" : "false");
+
+	if (audio && has_audio && !is_cea_mode) {
+		DBG("Pruning mode : Does not support audio\n");
+		return MODE_BAD;
+	}
 
 	hbp = mode->htotal - mode->hsync_end;
 	hfp = mode->hsync_start - mode->hdisplay;
@@ -462,56 +475,56 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	vfp = mode->vsync_start - mode->vdisplay;
 	vsw = mode->vsync_end - mode->vsync_start;
 
-	if(hbp & ~0x3ff) {
-	  DBG("Pruning mode : Horizontal Back Porch out of range\n");
-	  return MODE_BAD;
+	if (hbp & ~0x3ff) {
+		DBG("Pruning mode : Horizontal Back Porch out of range\n");
+		return MODE_BAD;
 	}
 
-	if(hfp & ~0x3ff) {
-	  DBG("Pruning mode : Horizontal Front Porch out of range\n");
-	  return MODE_BAD;
+	if (hfp & ~0x3ff) {
+		DBG("Pruning mode : Horizontal Front Porch out of range\n");
+		return MODE_BAD;
 	}
 
-	if(hsw & ~0x3ff) {
-	  DBG("Pruning mode : Horizontal Sync Width out of range\n");
-	  return MODE_BAD;
+	if (hsw & ~0x3ff) {
+		DBG("Pruning mode : Horizontal Sync Width out of range\n");
+		return MODE_BAD;
 	}
 
-	if(vbp & ~0xff) {
-	  DBG("Pruning mode : Vertical Back Porch out of range\n");
-	  return MODE_BAD;
+	if (vbp & ~0xff) {
+		DBG("Pruning mode : Vertical Back Porch out of range\n");
+		return MODE_BAD;
 	}
 
-	if(vfp & ~0xff) {
-	  DBG("Pruning mode : Vertical Front Porch out of range\n");
-	  return MODE_BAD;
+	if (vfp & ~0xff) {
+		DBG("Pruning mode : Vertical Front Porch out of range\n");
+		return MODE_BAD;
 	}
 
-	if(vsw & ~0x3f) {
-	  DBG("Pruning mode : Vertical Sync Width out of range\n");
-	  return MODE_BAD;
+	if (vsw & ~0x3f) {
+		DBG("Pruning mode : Vertical Sync Width out of range\n");
+		return MODE_BAD;
 	}
 
 	/* some devices have a maximum allowed pixel clock */
 	/* configured from the DT */
-	if(mode->clock > priv->max_pixelclock) {
-	  DBG("Pruning mode, pixel clock too high");
-	  return MODE_BAD;
+	if (mode->clock > priv->max_pixelclock) {
+		DBG("Pruning mode, pixel clock too high");
+		return MODE_BAD;
 	}
 
 	/* some devices further limit the max horizontal resolution */
 	/* configured from the DT */
-	if(mode->hdisplay > priv->max_width) {
-	  DBG("Pruning mode, above max width of %d supported by device", priv->max_width);
-	  return MODE_BAD;
+	if (mode->hdisplay > priv->max_width) {
+		DBG("Pruning mode, above max width of %d supported by device", priv->max_width);
+		return MODE_BAD;
 	}
 
 	/* filter out modes that would require too much memory bandwidth: */
 	/* configured from the DT */
 	bandwidth = mode->hdisplay * mode->vdisplay * drm_mode_vrefresh(mode);
 	if (bandwidth > priv->max_bandwidth) {
-	  DBG("Pruning mode, exceeds defined bandwidth limit");
-	  return MODE_BAD;
+		DBG("Pruning mode, exceeds defined bandwidth limit");
+		return MODE_BAD;
 	}
 
 	if (rb_check) {
