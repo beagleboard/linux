@@ -216,7 +216,7 @@ static int tfp410_connector_mode_valid(struct drm_connector *connector,
 	struct tilcdc_drm_private *priv = connector->dev->dev_private;
 	/* our only constraints are what the crtc can generate: */
 	return tilcdc_crtc_mode_valid(priv->crtc, mode,
-			priv->allow_non_rblank ? 0 : 1);
+			priv->allow_non_rblank ? 0 : 1, 0, NULL);
 }
 
 static struct drm_encoder *tfp410_connector_best_encoder(
