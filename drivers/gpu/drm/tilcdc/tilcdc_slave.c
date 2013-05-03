@@ -170,7 +170,11 @@ static int slave_connector_mode_valid(struct drm_connector *connector,
 	int ret;
 
 	ret = tilcdc_crtc_mode_valid(priv->crtc, mode,
-			priv->allow_non_rblank ? 0 : 1);
+			priv->allow_non_rblank ? 0 : 1,
+			priv->allow_non_audio ? 0 : 1,
+			connector->edid_blob_ptr ?
+				(struct edid *)connector->edid_blob_ptr->data :
+				NULL);
 	if (ret != MODE_OK)
 		return ret;
 
