@@ -598,14 +598,14 @@ tda998x_avi_infoframe_enable(struct drm_encoder *encoder,
 	reg_set(encoder, REG_DIP_IF_FLAGS, DIP_IF_FLAGS_IF2);
 }
 
-/* loopup table for CEA values to VIDFORMAT values taken from NXP datasheet */
-static char cea_to_nxp_mode[32] = {-1, 0, 1, 1, 2, 3, 4, 4, 5, 5, -1, -1, 
+/* lookup table for CEA values to VIDFORMAT values taken from NXP datasheet */
+static char cea_to_nxp_mode[34] = {-1, 0, 1, 1, 2, 3, 4, 4, 5, 5, -1, -1, 
 		-1, -1, -1, -1, 6, 7, 7, 8, 9, 10, 10,
-		11, 11, -1, -1, -1, -1, -1, -1, 12};
+		11, 11, -1, -1, -1, -1, -1, -1, 12, 13};
 
 static char tda998x_cea_to_vidformat(unsigned char cea_mode)
 {
-	if(cea_mode > 31) {
+	if(cea_mode > (sizeof(cea_to_nxp_mode) -1) ) {
 		return -1;
 	}
 	return cea_to_nxp_mode[cea_mode];
