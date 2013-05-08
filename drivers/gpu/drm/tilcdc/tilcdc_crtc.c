@@ -308,6 +308,7 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 	    (((hsw-1) & 0x3f) << 10);
 	if (priv->rev == 2)
 	    reg |= (((mode->hdisplay >> 4) - 1) & 0x40) >> 3;
+
 	tilcdc_write(dev, LCDC_RASTER_TIMING_0_REG, reg);
 
 	/* only the vertical sync width maps 0 as 1 so only subtract 1 from vsw */
@@ -316,6 +317,14 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 	    ((vfp & 0xff) << 16) |
 	    (((vsw-1) & 0x3f) << 10);
 	tilcdc_write(dev, LCDC_RASTER_TIMING_1_REG, reg);
+
+        if (priv->rev == 2) {
+            if((mode->vdisplay - 1) & 0x400) {
+              tilcdc_set(dev, LCDC_RASTER_TIMING_2_REG, LCDC_LPP_B10);
+            } else {
+              tilcdc_clear(dev, LCDC_RASTER_TIMING_2_REG, LCDC_LPP_B10);
+            }
+        }
 
 	/* Configure display type: */
 	reg = tilcdc_read(dev, LCDC_RASTER_CTRL_REG) &
@@ -530,9 +539,9 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	if (rb_check) {
 		/* we only support reduced blanking modes */
 		rb = (mode->htotal - mode->hdisplay == 160) &&
-		       (mode->hsync_end - mode->hdisplay == 80) &&
-		       (mode->hsync_end - mode->hsync_start == 32) &&
-		       (mode->vsync_start - mode->vdisplay == 3);
+			(mode->hsync_end - mode->hdisplay == 80) &&
+			(mode->hsync_end - mode->hsync_start == 32) &&
+			(mode->vsync_start - mode->vdisplay == 3);
 		if (!rb) {
 			DBG("Pruning mode, only support reduced blanking modes");
 			return MODE_BAD;
