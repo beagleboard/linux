@@ -593,9 +593,9 @@ tda998x_avi_infoframe_enable(struct drm_encoder *encoder,
 	 * so that the hardware acknowledges that the packet data might have
 	 * changed
 	 */
-	reg_clear(encoder, REG_DIP_IF_FLAGS, DIP_IF_FLAGS_IF3);
+	reg_clear(encoder, REG_DIP_IF_FLAGS, DIP_IF_FLAGS_IF2);
 	udelay(5);
-	reg_set(encoder, REG_DIP_IF_FLAGS, DIP_IF_FLAGS_IF3);
+	reg_set(encoder, REG_DIP_IF_FLAGS, DIP_IF_FLAGS_IF2);
 }
 
 /* loopup table for CEA values to VIDFORMAT values taken from NXP datasheet */
