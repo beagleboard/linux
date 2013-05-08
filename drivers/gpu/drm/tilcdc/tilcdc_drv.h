@@ -37,9 +37,13 @@
 /* Defaulting to pixel clock defined on AM335x */
 #define TILCDC_DEFAULT_MAX_PIXELCLOCK  126000
 /* Defaulting to max width as defined on AM335x */
-#define TILCDC_DEFAULT_MAX_WIDTH  1366
-/* This may need some tweaking, but want to allow at least 1280x1024@60 */
-#define TILCDC_DEFAULT_MAX_BANDWIDTH  (1366*1024*60)
+#define TILCDC_DEFAULT_MAX_WIDTH  2048
+/*
+ * This may need some tweaking, but want to allow at least 1280x1024@60
+ * with optimized DDR & EMIF settings tweaked 1920x1080@24 appears to
+ * be supportable
+ */
+#define TILCDC_DEFAULT_MAX_BANDWIDTH  (1920*1080*25)
 
 struct tilcdc_drm_private {
 	void __iomem *mmio;
