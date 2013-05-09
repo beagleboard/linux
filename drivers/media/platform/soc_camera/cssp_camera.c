@@ -53,13 +53,12 @@ static unsigned int vid_limit = 6;
 module_param(vid_limit, uint, 0644);
 MODULE_PARM_DESC(vid_limit, "capture memory limit in megabytes");
 
-#define VGA_WIDTH 640
-#define VGA_HEIGHT 480
+#define INIT_WIDTH 640
+#define INIT_HEIGHT 480
 
 #define MAX_WIDTH 2048
 #define MAX_HEIGHT 1536
 
-#define VGA_RES (VGA_WIDTH * VGA_HEIGHT)
 #define BYTES_PER_PIXEL 2
 
 /* PaRAM.opt: */
@@ -117,10 +116,14 @@ struct cssp_cam_buffer {
 	struct vb2_buffer	vb;
 	struct list_head	list;
 	struct cssp_cam_fmt	*fmt;
+	unsigned long		queued_jiffies;
 };
+
+#define to_cssp_cam_buffer(_x) container_of(_x, struct cssp_cam_buffer, vb)
 
 struct cssp_cam_dmaqueue {
 	struct list_head	active;
+	int			count;
 };
 
 struct cssp_cam_dev {
@@ -138,7 +141,9 @@ struct cssp_cam_dev {
 	struct cssp_cam_dmaqueue	vidq;
 	void				*dma_cont_ctx;
 	int				streaming_started;
-	struct vb2_buffer		*current_vb;
+	struct vb2_buffer		*current_vb[2];
+	void				*spillover;
+	dma_addr_t			spillover_dma_addr;
 
 	/* video capture */
 	struct cssp_cam_fmt		*fmt;
@@ -160,10 +165,13 @@ struct cssp_cam_dev {
 	u16				mode;
 
 	int				dma_ch;
+	int				dma_link[2];
 	struct edmacc_param		dma_tr_params;
+	struct edmacc_param		dma_link_params;
 
 	u64				dma_mask;
 	int				dma_req_len;
+	int				dma_req_shift;
 
 	int				frame_cnt;
 
@@ -241,6 +249,65 @@ static struct cssp_cam_fmt formats[] = {
 
 /***************************************************************************/
 
+static inline dma_addr_t vb2_dma_contig_cookie(void *a, void *b)
+{
+	/* Same functionality as the vb2_dma_contig_plane_paddr */
+	dma_addr_t *paddr = vb2_dma_contig_memops.cookie(b);
+
+	return *paddr;
+}
+
+/* MFC definitions */
+
+static void set_capture_enable_no_lock(struct cssp_cam_dev *dev, int enable)
+{
+	u16 val;
+
+	// readw(dev->reg_base_virt + REG_MODE);
+	if (enable) {
+		ioread16(dev->reg_base_virt + REG_MODE);
+		iowrite16(dev->mode & ~ENABLE, dev->reg_base_virt + REG_MODE);
+		ioread16(dev->reg_base_virt + REG_MODE);
+		iowrite16(dev->mode |  ENABLE, dev->reg_base_virt + REG_MODE);
+	} else {
+		ioread16(dev->reg_base_virt + REG_MODE);
+		iowrite16(dev->mode |  ENABLE, dev->reg_base_virt + REG_MODE);
+		ioread16(dev->reg_base_virt + REG_MODE);
+		iowrite16(dev->mode & ~ENABLE, dev->reg_base_virt + REG_MODE);
+	}
+
+	val = ioread16(dev->reg_base_virt + REG_MODE);
+	dev_dbg(&dev->pdev->dev, "%s enable=%d val=0x%04x\n", __func__,
+			enable, val);
+}
+
+static int set_capture_enable(struct cssp_cam_dev *dev, int enable)
+{
+	unsigned long flags;
+	unsigned long tmo;
+
+	spin_lock_irqsave(&dev->slock, flags);
+	set_capture_enable_no_lock(dev, enable);
+	spin_unlock_irqrestore(&dev->slock, flags);
+
+	/* sigh, check whether the device gets data */
+	if (enable) {
+		tmo = jiffies + msecs_to_jiffies(1000);
+		while ((ioread16(dev->reg_base_virt + REG_MODE) & 0x0100) != 0) {
+			if (time_after(jiffies, tmo))
+				break;
+			cpu_relax();
+		}
+
+		if (time_after(jiffies, tmo)) {
+			spin_lock_irqsave(&dev->slock, flags);
+			set_capture_enable_no_lock(dev, 0);
+			spin_unlock_irqrestore(&dev->slock, flags);
+			return -EAGAIN;
+		}
+	}
+	return 0;
+}
 
 static int configure_gpio(int nr, int val, const char *name)
 {
@@ -277,96 +344,209 @@ static int reset_cssp(struct cssp_cam_dev *cam)
 	return err;
 }
 
-static int trigger_dma_transfer_to_buf(struct cssp_cam_dev *dev, struct vb2_buffer *vb)
+#if 0
+static void dump_slot(struct cssp_cam_dev *cam, int slot, char *name)
 {
-	dma_addr_t dma_buf = vb2_dma_contig_plane_dma_addr(vb, 0);
+	struct device *dev = &cam->pdev->dev;
+	struct edmacc_param p;
 
-	if (!dma_buf) {
-		/* Is this possible? Release the vb2_buffer with an error here, */
-		vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
-		dev->current_vb = NULL;
-		return -ENOMEM;
+	if (slot < 0)
+		return;
+
+	edma_read_slot(slot, &p);
+	dev_dbg(dev, "%s: 0x%x, opt=%x, src=%x, a_b_cnt=%x dst=%x\n",
+			name, slot, p.opt, p.src, p.a_b_cnt, p.dst);
+	dev_dbg(dev, "    src_dst_bidx=%x link_bcntrld=%x src_dst_cidx=%x ccnt=%x\n",
+			p.src_dst_bidx, p.link_bcntrld, p.src_dst_cidx, p.ccnt);
+}
+#endif
+
+void enqueue_dma(struct cssp_cam_dev *dev, int ch, struct vb2_buffer *vb)
+{
+	dma_addr_t dma_buf;
+	int i, rem;
+	u32 bytesperline, height;
+	u16 acnt, bcnt, ccnt;
+	struct edmacc_param params;
+
+	/* Calculate DMA transfer parameters based on DMA request length */
+	bytesperline = dev->bytesperline;
+	i = 0;
+	do {
+		rem = bytesperline % dev->dma_req_len;
+		if (rem != 0) {
+			bytesperline <<= 1;
+			i++;
+		}
+	} while (rem != 0);
+	height = dev->height >> i;
+	acnt = dev->dma_req_len;
+	bcnt = bytesperline / dev->dma_req_len;
+	ccnt = height;
+
+	if (vb != NULL)
+		dma_buf = vb2_dma_contig_plane_dma_addr(vb, 0);
+	else
+		dma_buf = dev->spillover_dma_addr;
+
+	edma_set_src(ch, dev->reg_base_phys + REG_DATA, INCR, W8BIT);
+	edma_set_dest(ch, dma_buf, INCR, W8BIT);
+	edma_set_src_index(ch, 0, 0);
+	edma_set_dest_index(ch,
+			dev->dma_req_len,	/* dest bidx */
+			dev->dma_req_len);	/* dest cidx */
+	edma_set_transfer_params(ch,
+			dev->dma_req_len,			/* acnt */
+			bytesperline / dev->dma_req_len,	/* bcnt */
+			height,					/* ccnt */
+			bytesperline / dev->dma_req_len,	/* bcnt_rld */
+			ASYNC);
+
+	/*
+	 * Issue transfer completion IRQ when the channel completes
+	 * a transfer, and then always reload from the same slot
+	 */
+	edma_read_slot(ch, &params);
+	params.opt |= TCINTEN | EDMA_TCC(EDMA_CHAN_SLOT(dev->dma_ch));
+	params.link_bcntrld = (params.link_bcntrld & ~0xffff) |
+		((EDMA_CHAN_SLOT(dev->dma_link[0]) << 5) & 0xffff);
+	edma_write_slot(ch, &params);
+
+#if 0
+	{
+	struct edmacc_param p;
+
+	edma_read_slot(ch, &p);
+	dev_dbg(&dev->pdev->dev,
+		"1. opt=%08x, src=%08x, a_b_cnt=%08x dst=%08x src_dst_bidx=%08x "
+		"link_bcntrld=%08x src_dst_cidx=%08x ccnt=%08x\n",
+		p.opt, p.src, p.a_b_cnt, p.dst, p.src_dst_bidx,
+		p.link_bcntrld, p.src_dst_cidx, p.ccnt);
+
+	p.opt = TCINTEN | TCC(dev->dma_ch);
+	p.src = dev->reg_base_phys + REG_DATA;
+	p.dst = dma_buf;
+	p.a_b_cnt = ACNT(dev->dma_req_len) | BCNT((INIT_WIDTH * BYTES_PER_PIXEL) / dev->dma_req_len);
+	p.src_dst_bidx = SRCBIDX(0) | DSTBIDX(dev->dma_req_len);
+	p.link_bcntrld = BCNTRLD((INIT_WIDTH * BYTES_PER_PIXEL) / dev->dma_req_len) | LINK(0xffff);
+	p.src_dst_cidx = SRCCIDX(0) | DSTCIDX(dev->dma_req_len);
+	p.ccnt = CCNT(INIT_HEIGHT);
+
+	dev_dbg(&dev->pdev->dev,
+		"2. opt=%08x, src=%08x, a_b_cnt=%08x dst=%08x src_dst_bidx=%08x "
+		"link_bcntrld=%08x src_dst_cidx=%08x ccnt=%08x\n",
+		p.opt, p.src, p.a_b_cnt, p.dst, p.src_dst_bidx,
+		p.link_bcntrld, p.src_dst_cidx, p.ccnt);
+
 	}
+#endif
 
-	dev->dma_tr_params.dst = dma_buf;
+	// dump_slot(dev, ch, "q");
 
-	// Enable DMA
-	edma_write_slot(dev->dma_ch, &dev->dma_tr_params);
+	/*
+	param->a_b_cnt = ACNT(dev->dma_req_len) | BCNT(bytesperline / dev->dma_req_len);
+	param->src_dst_bidx = SRCBIDX(0) | DSTBIDX(dev->dma_req_len);
+	param->link_bcntrld = BCNTRLD(bytesperline / dev->dma_req_len) | LINK(0xffff);
+	param->src_dst_cidx = SRCCIDX(0) | DSTCIDX(dev->dma_req_len);
+	param->ccnt = CCNT(height);
+	*/
 
-	dev->current_vb = vb;
-
-	// Enable data capture
-	dev->mode |= ENABLE;
-	writew(dev->mode, dev->reg_base_virt + REG_MODE);
-	readw(dev->reg_base_virt + REG_MODE);
-
-	return 0;
 }
 
-static void dequeue_buffer_for_dma(struct cssp_cam_dev *dev)
+static int fillup_dma(struct cssp_cam_dev *dev)
 {
 	struct cssp_cam_dmaqueue *dma_q = &dev->vidq;
-	unsigned long flags = 0;
+	struct cssp_cam_buffer *buf;
+	struct vb2_buffer *vb;
+	int i, ch, cnt;
+	unsigned long flags;
 
 	spin_lock_irqsave(&dev->slock, flags);
-	if (!list_empty(&dma_q->active)) {
-		struct cssp_cam_buffer *buf;
 
-		buf = list_entry(dma_q->active.next, struct cssp_cam_buffer, list);
+	/* while there's a buffer queued, and there's space */
+	cnt = 0;
+	while (!list_empty(&dma_q->active) &&
+		(dev->current_vb[0] == NULL || dev->current_vb[1] == NULL)) {
+
+		if (dev->current_vb[0] == NULL) {
+			i = 0;
+			ch = dev->dma_ch;
+		} else {
+			i = 1;
+			ch = dev->dma_link[0];
+		}
+
+		buf = list_entry(dma_q->active.next,
+				struct cssp_cam_buffer, list);
 		list_del(&buf->list);
-		spin_unlock_irqrestore(&dev->slock, flags);
+		dma_q->count--;
 
-		buf->fmt = dev->fmt;
+		vb = &buf->vb;
+		enqueue_dma(dev, ch, vb);
+		dev->current_vb[i] = vb;
 
-		trigger_dma_transfer_to_buf(dev, &buf->vb);
-	} else {
-		spin_unlock_irqrestore(&dev->slock, flags);
+		cnt++;
+		/* dev_dbg(&pdev->dev, "queued vb %p (#=%d, ch=%d)\n", vb, i, ch); */
 	}
+	spin_unlock_irqrestore(&dev->slock, flags);
+
+	return cnt;
 }
 
 static void dma_callback(unsigned lch, u16 ch_status, void *data)
 {
 	struct cssp_cam_dev *dev = data;
 	struct vb2_buffer *vb;
-	struct edmacc_param dma_tr_params;
+	unsigned long flags;
+	struct cssp_cam_buffer *buf;
+	struct cssp_cam_dmaqueue *dma_q = &dev->vidq;
+	int ch;
 
-	// Disable data capture
-	dev->mode &= ~ENABLE;
-	writew(dev->mode, dev->reg_base_virt + REG_MODE);
-	readw(dev->reg_base_virt + REG_MODE);
+	if (ch_status != DMA_COMPLETE) {
+		dev_dbg(&dev->pdev->dev, "%s - missed interrupt\n",
+				__func__);
+		return;
+	}
 
-	if (ch_status == DMA_COMPLETE) {
+	spin_lock_irqsave(&dev->slock, flags);
 
-		vb = dev->current_vb;
+	vb = dev->current_vb[0];
+	dev->current_vb[0] = dev->current_vb[1];
+	dev->current_vb[1] = NULL;
 
-		edma_read_slot(dev->dma_ch, &dma_tr_params);
-		if ((dma_tr_params.opt != 0) ||
-			(dma_tr_params.src != 0) ||
-			(dma_tr_params.a_b_cnt != 0) ||
-			(dma_tr_params.dst != 0) ||
-			(dma_tr_params.src_dst_bidx != 0) ||
-			(dma_tr_params.link_bcntrld != 0xffff) ||
-			(dma_tr_params.src_dst_cidx != 0) ||
-			(dma_tr_params.ccnt != 0)) {
+	/* if there's a buffer, link to the next */
+	ch = dev->dma_link[0];
 
-			trigger_dma_transfer_to_buf(dev, dev->current_vb);
-			return;
-		}
+	if (!list_empty(&dma_q->active)) {
+
+		buf = list_entry(dma_q->active.next,
+				struct cssp_cam_buffer, list);
+		list_del(&buf->list);
+		dma_q->count--;
+
+		enqueue_dma(dev, ch, &buf->vb);
+		dev->current_vb[1] = &buf->vb;
+	} else {
+		/* no buffer, we need to put the spillover there */
+		enqueue_dma(dev, ch, NULL);
+	}
+
+	spin_unlock_irqrestore(&dev->slock, flags);
+
+	/* fillup_dma(dev); */
+
+	if (vb != NULL) {
+		/* queue the current buffer */
+		buf = to_cssp_cam_buffer(vb);
 
 		vb->v4l2_buf.field = dev->field;
 		vb->v4l2_buf.sequence = dev->frame_cnt++;
 		do_gettimeofday(&vb->v4l2_buf.timestamp);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-		dev->current_vb = NULL;
 
-		/* check if we have new buffer queued */
-		dequeue_buffer_for_dma(dev);
-	} else {
-		/* we got a missed interrupt so just start a new DMA with the existing buffer */
-		if (dev->current_vb != NULL) {
-			if (trigger_dma_transfer_to_buf(dev, dev->current_vb))
-				dev_err(&dev->pdev->dev, "No buffer allocated!\n");
-		}
+		dev_dbg(&dev->pdev->dev, "[%p/%d] done\n",
+				buf, buf->vb.v4l2_buf.index);
+
 	}
 }
 
@@ -374,8 +554,8 @@ static int configure_edma(struct cssp_cam_dev *cam)
 {
 	struct platform_device *pdev = cam->pdev;
 	struct cssp_cam_platform_data *pdata = pdev->dev.platform_data;
-	struct edmacc_param *param;
 	int dma_channel;
+	int ret;
 
 	dma_channel = pdata->dma_ch;
 
@@ -386,24 +566,22 @@ static int configure_edma(struct cssp_cam_dev *cam)
 		dev_err(&pdev->dev, "failed setting mask for DMA\n");
 		return -EINVAL;
 	}
-	cam->dma_ch = edma_alloc_channel(dma_channel, dma_callback, cam, EVENTQ_0);
-	if (cam->dma_ch < 0) {
+	ret = edma_alloc_channel(dma_channel, dma_callback, cam, EVENTQ_0);
+	if (ret < 0) {
 		dev_err(&pdev->dev, "allocating channel for DMA failed\n");
-		return -EBUSY;
+		return ret;
 	}
+	cam->dma_ch = ret;
+	dev_info(&pdev->dev, "dma_ch=%d\n", cam->dma_ch);
 
-	cam->dma_req_len = cam->rev > 3 ? 128 : 32;
-
-	param = &cam->dma_tr_params;
-	param->opt = TCINTEN | TCC(cam->dma_ch);
-	param->src = cam->reg_base_phys + REG_DATA;
-	param->a_b_cnt = ACNT(cam->dma_req_len) |
-		BCNT((VGA_WIDTH * BYTES_PER_PIXEL) / cam->dma_req_len);
-	param->src_dst_bidx = SRCBIDX(0) | DSTBIDX(cam->dma_req_len);
-	param->link_bcntrld = BCNTRLD((VGA_WIDTH * BYTES_PER_PIXEL) /
-			cam->dma_req_len) | LINK(0xffff);
-	param->src_dst_cidx = SRCCIDX(0) | DSTCIDX(cam->dma_req_len);
-	param->ccnt = CCNT(VGA_HEIGHT);
+	/* allocate link channels */
+	ret = edma_alloc_slot(EDMA_CTLR(cam->dma_ch), EDMA_SLOT_ANY);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "allocating slot for DMA failed\n");
+		return ret;
+	}
+	cam->dma_link[0] = ret;
+	dev_info(&pdev->dev, "dma_link[0]=%d\n", cam->dma_link[0]);
 
 	return 0;
 }
@@ -450,7 +628,13 @@ static int configure_cssp(struct cssp_cam_dev *cam)
 	dev_info(&pdev->dev, "CSSP Revision %c%d\n",
 			'A' + ((cam->rev & 0xf0) >> 4), cam->rev & 0x0f);
 
-	cam->dma_req_len = cam->rev > 3 ? 128 : 32;
+	if (cam->rev > 3) {
+		cam->dma_req_len = 128;
+		cam->dma_req_shift = 7;
+	} else {
+		cam->dma_req_len = 32;
+		cam->dma_req_shift = 5;
+	}
 
 	return 0;
 }
@@ -461,17 +645,19 @@ static int configure_camera_sensor(struct cssp_cam_dev *cam)
 	struct i2c_client *client;
 	struct i2c_adapter *adapter;
 	struct v4l2_subdev *subdev;
+	int ret;
 	struct v4l2_mbus_framefmt f_format = {
-			.width = VGA_WIDTH,
-			.height = VGA_HEIGHT,
+			.width = INIT_WIDTH,
+			.height = INIT_HEIGHT,
 			.code = V4L2_MBUS_FMT_YUYV8_2X8,
 			.colorspace = V4L2_COLORSPACE_JPEG,
 	};
 
 	/* Enable the clock just for the time of loading the camera driver and disable after that */
 	/* It is going to be be re-enabled later, when camera will be in use */
-	clk_enable(cam->camera_clk);
-	mdelay(50); // let the clock stabilize
+	ret = clk_prepare_enable(cam->camera_clk);
+	BUG_ON(ret != 0);
+	mdelay(1); // let the clock stabilize
 
 	adapter	= i2c_get_adapter(((struct soc_camera_link *)(info->platform_data))->i2c_adapter_id);
 	if (!adapter) {
@@ -496,17 +682,21 @@ static int configure_camera_sensor(struct cssp_cam_dev *cam)
 
 	v4l2_subdev_call(subdev, video, s_mbus_fmt, &f_format);
 
-	clk_disable(cam->camera_clk);
+	clk_disable_unprepare(cam->camera_clk);
 
 	return 0;
 }
 
 static int start_camera_sensor(struct cssp_cam_dev *cam)
 {
-	clk_enable(cam->camera_clk);
-	mdelay(100); /* let the clock stabilize */
+	int ret;
 
-	v4l2_subdev_call(cam->subdev, video, s_stream, 1);
+	ret = v4l2_subdev_call(cam->subdev, video, s_stream, 1);
+	if (ret != 0) {
+		dev_err(&cam->pdev->dev, "%s: v4l2_subdev_call failed\n",
+				__func__);
+		return ret;
+	}
 
 	return 0;
 }
@@ -514,10 +704,6 @@ static int start_camera_sensor(struct cssp_cam_dev *cam)
 static void stop_camera_sensor(struct cssp_cam_dev *cam)
 {
 	v4l2_subdev_call(cam->subdev, video, s_stream, 0);
-
-	clk_disable(cam->camera_clk);
-
-	return;
 }
 
 static struct cssp_cam_fmt *get_format(struct v4l2_format *f)
@@ -576,18 +762,6 @@ static int buffer_init(struct vb2_buffer *vb)
 	struct cssp_cam_dev *dev = vb2_get_drv_priv(vb->vb2_queue);
 
 	BUG_ON(NULL == dev->fmt);
-
-	/*
-	 * This callback is called once per buffer, after its allocation.
-	 *
-	 * Vivi does not allow changing format during streaming, but it is
-	 * possible to do so when streaming is paused (i.e. in streamoff state).
-	 * Buffers however are not freed when going into streamoff and so
-	 * buffer size verification has to be done in buffer_prepare, on each
-	 * qbuf.
-	 * It would be best to move verification code here to buf_init and
-	 * s_fmt though.
-	 */
 
 	return 0;
 }
@@ -649,30 +823,34 @@ static void buffer_queue(struct vb2_buffer *vb)
 	struct cssp_cam_dmaqueue *vidq = &dev->vidq;
 	unsigned long flags = 0;
 
-	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
-
-	if (dev->streaming_started && !dev->current_vb) {
-		trigger_dma_transfer_to_buf(dev, &buf->vb);
-	} else {
-		spin_lock_irqsave(&dev->slock, flags);
-		list_add_tail(&buf->list, &vidq->active);
-		spin_unlock_irqrestore(&dev->slock, flags);
-	}
+	/* just add it to the queue */
+	spin_lock_irqsave(&dev->slock, flags);
+	list_add_tail(&buf->list, &vidq->active);
+	vidq->count++;
+	spin_unlock_irqrestore(&dev->slock, flags);
 }
 
 static int start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct cssp_cam_dev *dev = vb2_get_drv_priv(vq);
 	struct platform_device *pdev = dev->pdev;
-	int ret;
+	int ret, retries;
 
-	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+	dev_dbg(&dev->pdev->dev, "%s count=%d\n", __func__, count);
 
-	ret = start_camera_sensor(dev);
+	retries = 0;
+
+	set_capture_enable(dev, 0);
+
+	ret = clk_prepare_enable(dev->camera_clk);
 	if (ret != 0) {
-		dev_err(&pdev->dev, "start_camera_sensor failed\n");
+		dev_err(&pdev->dev, "%s: clk_enable failed\n",
+				__func__);
 		return ret;
 	}
+	mdelay(20); /* let the clock stabilize */
+
+	fillup_dma(dev);
 
 	// Enable DMA
 	ret = edma_start(dev->dma_ch);
@@ -680,10 +858,25 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 		dev_err(&pdev->dev, "edma_start failed\n");
 		return ret;
 	}
-	dev->streaming_started = 1;
 
-	/* check if we have new buffer queued */
-	dequeue_buffer_for_dma(dev);
+again:
+	ret = start_camera_sensor(dev);
+	if (ret != 0) {
+		dev_err(&pdev->dev, "start_camera_sensor failed\n");
+		return ret;
+	}
+
+	// Enable data capture
+	ret = set_capture_enable(dev, 1);
+	if (ret != 0) {
+		retries++;
+		dev_warn(&pdev->dev, "no stream; retry #%d\n", retries);
+		if (retries < 3)
+			goto again;
+		goto again;
+	}
+
+	dev->streaming_started = 1;
 
 	return 0;
 }
@@ -693,6 +886,10 @@ static int stop_streaming(struct vb2_queue *vq)
 {
 	struct cssp_cam_dev *dev = vb2_get_drv_priv(vq);
 	struct cssp_cam_dmaqueue *dma_q = &dev->vidq;
+	struct cssp_cam_buffer *buf;
+	unsigned long flags;
+	struct vb2_buffer *vb;
+	int i;
 
 	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
 
@@ -700,27 +897,43 @@ static int stop_streaming(struct vb2_queue *vq)
 	edma_stop(dev->dma_ch);
 
 	// Disable data capture
-	dev->mode &= ~ENABLE;
-	writew(dev->mode, dev->reg_base_virt + REG_MODE);
+	set_capture_enable(dev, 0);
 
 	stop_camera_sensor(dev);
+
+	clk_disable_unprepare(dev->camera_clk);
 
 	dev->streaming_started = 0;
 
 	/* Release all active buffers */
+	spin_lock_irqsave(&dev->slock, flags);
+
+	for (i = 0; i < 2; i++) {
+		vb = dev->current_vb[i];
+		if (vb == NULL)
+			continue;
+		dev->current_vb[i] = NULL;
+
+		buf = to_cssp_cam_buffer(vb);
+
+		vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
+
+		dev_dbg(&dev->pdev->dev, "[%p/%d] in flight\n",
+				buf, buf->vb.v4l2_buf.index);
+	}
+
 	while (!list_empty(&dma_q->active)) {
-		struct cssp_cam_buffer *buf;
 
 		buf = list_entry(dma_q->active.next,
 				struct cssp_cam_buffer, list);
 		list_del(&buf->list);
+
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 
-		dev_dbg(&dev->pdev->dev, "[%p/%d] done\n",
+		dev_dbg(&dev->pdev->dev, "[%p/%d] queued\n",
 				buf, buf->vb.v4l2_buf.index);
 	}
-
-	dev->current_vb = NULL;
+	spin_unlock_irqrestore(&dev->slock, flags);
 
 	return 0;
 }
@@ -759,6 +972,8 @@ static int vidioc_querycap(struct file *file, void *priv,
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
 
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
 	strcpy(cap->driver, "cssp_camera");
 	strcpy(cap->card, "cssp_camera");
 	strlcpy(cap->bus_info, dev->v4l2_dev.name, sizeof(cap->bus_info));
@@ -770,7 +985,10 @@ static int vidioc_querycap(struct file *file, void *priv,
 static int vidioc_enum_fmt_vid_cap(struct file *file, void *priv,
 					struct v4l2_fmtdesc *f)
 {
+	struct cssp_cam_dev *dev = video_drvdata(file);
 	struct cssp_cam_fmt *fmt;
+
+	dev_dbg(&dev->pdev->dev, "%s index=%d\n", __func__, f->index);
 
 	if (f->index >= ARRAY_SIZE(formats))
 		return -EINVAL;
@@ -786,6 +1004,10 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 					struct v4l2_format *f)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s: dev->width=%u dev->height=%u "
+			"dev->sizeimage=%u\n", __func__,
+			dev->width, dev->height, dev->sizeimage);
 
 	f->fmt.pix.width	= dev->width;
 	f->fmt.pix.height	= dev->height;
@@ -805,6 +1027,8 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 	struct cssp_cam_fmt *fmt;
 	struct v4l2_mbus_framefmt mbus_fmt;
 	struct v4l2_pix_format *pix = &f->fmt.pix;
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
 
 	fmt = get_format(f);
 	if (!fmt) {
@@ -843,12 +1067,16 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	struct vb2_queue *q = &dev->vb_vidq;
 	struct v4l2_pix_format *pix = &f->fmt.pix;
 	struct v4l2_mbus_framefmt mbus_fmt;
-	int i = 0, rem;
-	u32 bytesperline, height;
+	int ret;
 
-	int ret = vidioc_try_fmt_vid_cap(file, priv, f);
-	if (ret < 0)
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
+	ret = vidioc_try_fmt_vid_cap(file, priv, f);
+	if (ret < 0) {
+		dev_err(&dev->pdev->dev, "%s: vidioc_try_fmt_vid_cap failed\n",
+				__func__);
 		return ret;
+	}
 
 	if (vb2_is_streaming(q)) {
 		dev_err(&dev->pdev->dev, "%s device busy\n", __func__);
@@ -863,25 +1091,12 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	dev->bytesperline = f->fmt.pix.bytesperline;
 	dev->sizeimage = f->fmt.pix.sizeimage;
 
+	dev_dbg(&dev->pdev->dev, "width=%u height=%u byteperline=%u\n",
+			dev->width, dev->height, dev->bytesperline);
+
 	/* Set the sensor into the new format */
 	v4l2_fill_mbus_format(&mbus_fmt, pix, dev->fmt->code);
 	v4l2_subdev_call(dev->subdev, video, s_mbus_fmt, &mbus_fmt);
-
-	/* Calculate DMA transfer parameters based on DMA request length */
-	bytesperline = dev->bytesperline;
-	do {
-		rem = bytesperline % dev->dma_req_len;
-		if (rem != 0) {
-			bytesperline <<= 1;
-			i++;
-		}
-	} while (rem != 0);
-	height = dev->height >> i;
-
-	/* Set the EDMA for the new resolution */
-	dev->dma_tr_params.a_b_cnt = ACNT(dev->dma_req_len) | BCNT(bytesperline / dev->dma_req_len);
-	dev->dma_tr_params.link_bcntrld = BCNTRLD(bytesperline / dev->dma_req_len) | LINK(0xffff);
-	dev->dma_tr_params.ccnt = CCNT(height);
 
 	return 0;
 }
@@ -890,42 +1105,65 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			  struct v4l2_requestbuffers *p)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
 	return vb2_reqbufs(&dev->vb_vidq, p);
 }
 
 static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
 	return vb2_querybuf(&dev->vb_vidq, p);
 }
 
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
 	return vb2_qbuf(&dev->vb_vidq, p);
 }
 
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
+	u16 val;
+
+	val = ioread16(dev->reg_base_virt + REG_MODE);
+	dev_dbg(&dev->pdev->dev, "%s MODE=0x%04x\n", __func__,
+			val);
+
 	return vb2_dqbuf(&dev->vb_vidq, p, file->f_flags & O_NONBLOCK);
 }
 
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
 	return vb2_streamon(&dev->vb_vidq, i);
 }
 
 static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
 	return vb2_streamoff(&dev->vb_vidq, i);
 }
 
 static int vidioc_log_status(struct file *file, void *priv)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
 
 	v4l2_ctrl_handler_log_status(&dev->ctrl_handler, dev->v4l2_dev.name);
 	return 0;
@@ -934,6 +1172,10 @@ static int vidioc_log_status(struct file *file, void *priv)
 static int vidioc_enum_input(struct file *file, void *priv,
 				struct v4l2_input *inp)
 {
+	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
 	if (inp->index > 0)
 		return -EINVAL;
 
@@ -945,6 +1187,10 @@ static int vidioc_enum_input(struct file *file, void *priv,
 
 static int vidioc_g_input(struct file *file, void *priv, unsigned int *i)
 {
+	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
 	*i = 0;
 
 	return 0;
@@ -952,6 +1198,10 @@ static int vidioc_g_input(struct file *file, void *priv, unsigned int *i)
 
 static int vidioc_s_input(struct file *file, void *priv, unsigned int i)
 {
+	struct cssp_cam_dev *dev = video_drvdata(file);
+
+	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+
 	if (i > 0)
 		return -EINVAL;
 
@@ -1088,9 +1338,10 @@ static int video_probe(struct cssp_cam_dev *cam_dev)
 		goto free_dev;
 
 	cam_dev->fmt = &formats[0];
-	cam_dev->width = VGA_WIDTH;
-	cam_dev->height = VGA_HEIGHT;
-	cam_dev->sizeimage = VGA_WIDTH * VGA_HEIGHT * BYTES_PER_PIXEL;
+	cam_dev->width = INIT_WIDTH;
+	cam_dev->height = INIT_HEIGHT;
+	cam_dev->bytesperline = INIT_WIDTH * BYTES_PER_PIXEL;
+	cam_dev->sizeimage = cam_dev->bytesperline * INIT_HEIGHT;
 	hdl = &cam_dev->ctrl_handler;
 	v4l2_ctrl_handler_init(hdl, 0);
 
@@ -1450,8 +1701,6 @@ static int cssp_cam_probe(struct platform_device *pdev)
 		goto fail1;
 	}
 
-	clk_prepare(cam_dev->camera_clk);
-
 	ret = configure_cssp(cam_dev);
 	if (ret) {
 		dev_err(&pdev->dev, "configure_cssp failed\n");
@@ -1483,6 +1732,20 @@ static int cssp_cam_probe(struct platform_device *pdev)
 	ret = video_probe(cam_dev);
 	if (ret)
 		goto fail4;
+
+	cam_dev->spillover = vb2_dma_contig_memops.alloc(cam_dev->dma_cont_ctx,
+		MAX_WIDTH * MAX_HEIGHT * BYTES_PER_PIXEL);
+	if (cam_dev->spillover == NULL) {
+		ret = -ENOMEM;
+		goto fail4;
+	}
+	cam_dev->spillover_dma_addr = vb2_dma_contig_cookie(
+			cam_dev->dma_cont_ctx, cam_dev->spillover);
+
+	dev_info(&pdev->dev, "spillover at %p, size %d, phys 0x%08lx\n",
+		cam_dev->spillover,
+		MAX_WIDTH * MAX_HEIGHT * BYTES_PER_PIXEL,
+		(unsigned long)cam_dev->spillover_dma_addr);
 
 	dev_err(&pdev->dev, "Loaded OK.\n");
 
@@ -1551,6 +1814,6 @@ module_platform_driver(cssp_cam_driver);
 /*
  * Macros sets license, author and description
  */
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPLv2");
 MODULE_AUTHOR("Dan Aizenstros, Damian Eppel, Przemek Szewczyk");
 MODULE_DESCRIPTION("QuickLogic Camera Interface driver");
