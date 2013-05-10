@@ -657,7 +657,7 @@ static int configure_camera_sensor(struct cssp_cam_dev *cam)
 	/* It is going to be be re-enabled later, when camera will be in use */
 	ret = clk_prepare_enable(cam->camera_clk);
 	BUG_ON(ret != 0);
-	mdelay(1); // let the clock stabilize
+	msleep(100); // let the clock stabilize
 
 	adapter	= i2c_get_adapter(((struct soc_camera_link *)(info->platform_data))->i2c_adapter_id);
 	if (!adapter) {
@@ -848,7 +848,7 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 				__func__);
 		return ret;
 	}
-	mdelay(20); /* let the clock stabilize */
+	msleep(100); /* let the clock stabilize */
 
 	fillup_dma(dev);
 
