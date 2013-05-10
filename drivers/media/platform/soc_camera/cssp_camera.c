@@ -45,6 +45,8 @@
 #include <linux/of_gpio.h>
 #include <linux/of_i2c.h>
 
+#include <linux/rstctl.h>
+
 static unsigned video_nr = -1;
 module_param(video_nr, uint, 0644);
 MODULE_PARM_DESC(video_nr, "videoX start number, -1 is autodetect");
@@ -181,6 +183,8 @@ struct cssp_cam_dev {
 
 	/* OF build platform data here */
 	struct cssp_cam_platform_data_storage *pstore;
+
+	struct rstctl *rctrl;
 };
 
 /*
@@ -802,7 +806,6 @@ static int buffer_prepare(struct vb2_buffer *vb)
 
 static int buffer_finish(struct vb2_buffer *vb)
 {
-	struct cssp_cam_dev *dev = vb2_get_drv_priv(vb->vb2_queue);
 	return 0;
 }
 
@@ -1126,7 +1129,6 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
-	u16 val;
 
 	return vb2_dqbuf(&dev->vb_vidq, p, file->f_flags & O_NONBLOCK);
 }
@@ -1634,6 +1636,21 @@ static int cssp_cam_probe(struct platform_device *pdev)
 	struct cssp_cam_platform_data *pdata;
 	struct pinctrl *pinctrl;
 	int ret = 0, use_of_pdata = 0;
+	struct rstctl *rctrl;
+
+	rctrl = rstctl_get(&pdev->dev, NULL);
+	if (IS_ERR(rctrl)) {
+		dev_info(&pdev->dev, "Failed to get rstctl; nevermind\n");
+		rctrl = NULL;
+	} else {
+		dev_info(&pdev->dev, "Got rstctl (%s:#%d name %s) label:%s\n",
+				rctrl->rdev->rdesc->name,
+				rctrl->line - rctrl->rdev->rdesc->lines,
+				rctrl->line->name, rctrl->label);
+
+		/* always assert to keep the emmc at reset */
+		rstctl_assert(rctrl);
+	}
 
 	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
 	if (IS_ERR(pinctrl))
@@ -1669,6 +1686,8 @@ static int cssp_cam_probe(struct platform_device *pdev)
 
 	cam_dev->pdev = pdev;
 	platform_set_drvdata(pdev, cam_dev);
+
+	cam_dev->rctrl = rctrl;
 
 	cam_dev->camera_board_info = pdata->cam_i2c_board_info;
 
@@ -1779,6 +1798,8 @@ static int cssp_cam_remove(struct platform_device *pdev)
 	video_remove(cam);
 
 	clk_put(cam->camera_clk);
+
+	rstctl_put(cam->rctrl);
 
 	kfree(cam);
 
