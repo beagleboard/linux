@@ -158,6 +158,10 @@
 				/* orientation; -> MT9T112_FLAG_VFLIP */
 				orientation-gpio = <&gpio1 30 0>;
 
+				/* reset controller (for the black) */
+				reset = <&rstctl 0 0>;
+				reset-names = "eMMC_RSTn-CAM3";
+
 				/* camera sensor */
 				cssp,sensor {
 					i2c-adapter = <&i2c2>;
@@ -176,6 +180,7 @@
 						pll-divider = <24 1 0 7 0 10 14 7 0>;
 					};
 				};
+
 			};
 
 		};
