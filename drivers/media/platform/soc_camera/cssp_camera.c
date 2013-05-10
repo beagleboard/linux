@@ -544,8 +544,8 @@ static void dma_callback(unsigned lch, u16 ch_status, void *data)
 		do_gettimeofday(&vb->v4l2_buf.timestamp);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 
-		dev_dbg(&dev->pdev->dev, "[%p/%d] done\n",
-				buf, buf->vb.v4l2_buf.index);
+		/* dev_dbg(&dev->pdev->dev, "[%p/%d] done\n",
+				buf, buf->vb.v4l2_buf.index); */
 
 	}
 }
@@ -773,9 +773,6 @@ static int buffer_prepare(struct vb2_buffer *vb)
 		container_of(vb, struct cssp_cam_buffer, vb);
 	unsigned long size;
 
-	dev_dbg(&dev->pdev->dev, "%s, field=%d\n", __func__,
-			vb->v4l2_buf.field);
-
 	BUG_ON(NULL == dev->fmt);
 
 	/*
@@ -806,7 +803,6 @@ static int buffer_prepare(struct vb2_buffer *vb)
 static int buffer_finish(struct vb2_buffer *vb)
 {
 	struct cssp_cam_dev *dev = vb2_get_drv_priv(vb->vb2_queue);
-	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
 	return 0;
 }
 
@@ -1124,8 +1120,6 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
 
-	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
-
 	return vb2_qbuf(&dev->vb_vidq, p);
 }
 
@@ -1133,10 +1127,6 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct cssp_cam_dev *dev = video_drvdata(file);
 	u16 val;
-
-	val = ioread16(dev->reg_base_virt + REG_MODE);
-	dev_dbg(&dev->pdev->dev, "%s MODE=0x%04x\n", __func__,
-			val);
 
 	return vb2_dqbuf(&dev->vb_vidq, p, file->f_flags & O_NONBLOCK);
 }
@@ -1251,7 +1241,7 @@ static unsigned int video_poll(struct file *file, struct poll_table_struct *wait
 	struct vb2_queue *q = &dev->vb_vidq;
 	unsigned int res;
 
-	dev_dbg(&dev->pdev->dev, "%s\n", __func__);
+	/* dev_dbg(&dev->pdev->dev, "%s\n", __func__); */
 
 	res = vb2_poll(q, file, wait);
 	if (v4l2_event_pending(fh))
