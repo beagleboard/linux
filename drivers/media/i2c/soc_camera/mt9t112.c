@@ -16,7 +16,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
+#define DEBUG
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
@@ -31,7 +31,7 @@
 #include <media/v4l2-common.h>
 
 /* you can check PLL/clock info */
-/* #define EXT_CLOCK 24000000 */
+#define EXT_CLOCK 32000000
 
 //#define TEST_PATTERN
 
