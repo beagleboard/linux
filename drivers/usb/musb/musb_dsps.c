@@ -230,8 +230,14 @@ static void otg_timer(unsigned long _musb)
 	spin_lock_irqsave(&musb->lock, flags);
 	switch (musb->xceiv->state) {
 	case OTG_STATE_A_WAIT_BCON:
-		devctl &= ~MUSB_DEVCTL_SESSION;
-		dsps_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+		/*
+		 * We need to avoid stopping the session in host mode,
+		 * otherwise we don't see any newly connected devices
+		 */
+		if (!is_host_active(musb)) {
+			devctl &= ~MUSB_DEVCTL_SESSION;
+			dsps_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+		}
 
 		devctl = dsps_readb(musb->mregs, MUSB_DEVCTL);
 		if (devctl & MUSB_DEVCTL_BDEVICE) {
