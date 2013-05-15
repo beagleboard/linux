@@ -1,0 +1,37 @@
+/*
+* Copyright (C) 2013 Martin Gysel <me@bearsh.org>
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+/dts-v1/;
+/plugin/;
+
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	part-number = "BB-BONE-SERL-01";
+	version = "00A1";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			bone_serl_01_dcan1_pins: bone_serl_01_dcan1_pins {
+				pinctrl-single,pins = <
+					0x180 0x02      /* uart1_rxd.d_can1_tx", OUTPUT | MODE2 */
+					0x184 0x32      /* uart1_txd.d_can1_rx", INPUT_PULLUP | MODE2 */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&dcan1>;
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bone_serl_01_dcan1_pins>;
+		};
+	};
+};
