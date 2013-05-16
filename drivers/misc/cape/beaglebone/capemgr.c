@@ -1149,6 +1149,116 @@ static void bone_capemgr_info_sysfs_unregister(struct bone_capemgr_info *info)
 	device_remove_file(dev, &dev_attr_slots);
 }
 
+/* verify the overlay */
+static int bone_capemgr_verify_overlay(struct bone_cape_slot *slot)
+{
+	struct bone_capemgr_info *info = slot->info;
+	struct device *dev = &info->pdev->dev;
+	struct bone_baseboard *bbrd = &info->baseboard;
+	struct device_node *node = slot->overlay;
+	struct property *prop;
+	struct bone_cape_slot *slotn;
+	int err, counta, countb, i, j;
+	const char *ra, *rb;
+
+	/* validate */
+	if (node == NULL) {
+		dev_err(dev, "slot #%d: No overlay "
+				"for '%s'\n",
+				slot->slotno, slot->part_number);
+		return -EINVAL;
+	}
+
+	/* check if the slot is compatible with the board */
+	prop = of_find_property(node, "compatible", NULL);
+
+	/* no compatible property? */
+	if (prop == NULL) {
+		dev_err(dev, "slot #%d: No compatible property "
+				"for '%s'\n",
+				slot->slotno, slot->part_number);
+		return -EINVAL;
+	}
+
+	/* verify that the cape is baseboard compatible */
+	if (of_multi_prop_cmp(prop, bbrd->compatible_name) != 0) {
+		dev_err(dev, "slot #%d: Incompatible with baseboard "
+				"for '%s'\n",
+				slot->slotno, slot->part_number);
+		return -EINVAL;
+	}
+
+	/* count the strings */
+	counta = of_property_count_strings(node, "exclusive-use");
+	/* no valid property, or no resources; no matter, it's OK */
+	if (counta <= 0)
+		return 0;
+
+	/* and now check if there's a resource conflict */
+	err = 0;
+	mutex_lock(&info->slots_list_mutex);
+	for (i = 0; i < counta; i++) {
+
+		ra = NULL;
+		err = of_property_read_string_index(node, "exclusive-use",
+				i, &ra);
+		if (err != 0) {
+			dev_err(dev, "slot #%d: Could not read string #%d\n",
+					slot->slotno, i);
+			break;
+		}
+
+		list_for_each_entry(slotn, &info->slot_list, node) {
+
+			/* don't check against self */
+			if (slot == slotn)
+				continue;
+
+			/* only check against loaded or loading slots */
+			if (!slotn->loaded && !slotn->loading)
+				continue;
+
+			countb = of_property_count_strings(slotn->overlay,
+					"exclusive-use");
+			/* no valid property, or resources; it's OK */
+			if (countb <= 0)
+				continue;
+
+
+			for (j = 0; j < countb; j++) {
+
+				/* count the resources */
+				rb = NULL;
+				err = of_property_read_string_index(
+					slotn->overlay, "exclusive-use",
+						j, &rb);
+				if (err != 0) {
+					/* error, but we don't care */
+					err = 0;
+					break;
+				}
+
+				/* ignore case; just in case ;) */
+				if (strcasecmp(ra, rb) == 0) {
+
+					/* resource conflict */
+					err = -EEXIST;
+					dev_err(dev, "slot #%d: %s conflict "
+						"%s (#%d:%s)\n", slot->slotno,
+						slot->part_number, ra,
+						slotn->slotno,
+						slotn->part_number);
+					goto out;
+				}
+			}
+		}
+	}
+out:
+	mutex_unlock(&info->slots_list_mutex);
+
+	return err;
+}
+
 static int bone_capemgr_load(struct bone_cape_slot *slot)
 {
 	struct bone_capemgr_info *info = slot->info;
@@ -1269,6 +1379,13 @@ static int bone_capemgr_load(struct bone_cape_slot *slot)
 	err = of_resolve(slot->overlay);
 	if (err != 0) {
 		dev_err(dev, "slot #%d: Failed to resolve tree\n",
+				slot->slotno);
+		goto err_fail;
+	}
+
+	err = bone_capemgr_verify_overlay(slot);
+	if (err != 0) {
+		dev_err(dev, "slot #%d: Failed verification\n",
 				slot->slotno);
 		goto err_fail;
 	}
@@ -1665,8 +1782,14 @@ static int bone_capemgr_loader(void *data)
 
 	slot->loading = 0;
 
-	dev_info(dev, "loader: done slot-%d %s:%s (prio %d)\n", slot->slotno,
-			slot->part_number, slot->version, slot->priority);
+	if (ret == 0)
+		dev_info(dev, "loader: done slot-%d %s:%s (prio %d)\n",
+			slot->slotno, slot->part_number, slot->version,
+			slot->priority);
+	else
+		dev_err(dev, "loader: failed to load slot-%d %s:%s (prio %d)\n",
+			slot->slotno, slot->part_number, slot->version,
+			slot->priority);
 
 	/* we're done, wake up all */
 	wake_up_interruptible_all(&info->load_wq);
