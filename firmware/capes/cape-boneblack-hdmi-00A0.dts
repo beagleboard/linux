@@ -9,9 +9,41 @@
 /plugin/;
 
 / {
-  	compatible = "ti,beaglebone";
+  	compatible = "ti,beaglebone-black";
 	part-number = "BB-BONELT-HDMI";
 	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.25",	/* mcasp0: mcasp0_ahclkx */
+		"P9.28",	/* mcasp0: mcasp0_axr2 */
+		"P9.29",	/* mcasp0: mcasp0_fsx */
+		"P9.31",	/* mcasp0: mcasp0_aclkx */
+		"P8.45",	/* lcd: lcd_data0 */
+		"P8.46",	/* lcd: lcd_data1 */
+		"P8.43",	/* lcd: lcd_data2 */
+		"P8.44",	/* lcd: lcd_data3 */
+		"P8.41",	/* lcd: lcd_data4 */
+		"P8.42",	/* lcd: lcd_data5 */
+		"P8.39",	/* lcd: lcd_data6 */
+		"P8.40",	/* lcd: lcd_data7 */
+		"P8.37",	/* lcd: lcd_data8 */
+		"P8.38",	/* lcd: lcd_data9 */
+		"P8.36",	/* lcd: lcd_data10 */
+		"P8.34",	/* lcd: lcd_data11 */
+		"P8.35",	/* lcd: lcd_data12 */
+		"P8.33",	/* lcd: lcd_data13 */
+		"P8.31",	/* lcd: lcd_data14 */
+		"P8.32",	/* lcd: lcd_data15 */
+		"P8.27",	/* lcd: lcd_vsync */
+		"P8.29",	/* lcd: lcd_hsync */
+		"P8.28",	/* lcd: lcd_pclk */
+		"P8.30",	/* lcd: lcd_ac_bias_en */
+		/* the hardware IP uses */
+		"gpio1_27",
+		"mcasp0",
+		"lcd";
 
 	fragment@0 {
 		target = <&am33xx_pinmux>;
