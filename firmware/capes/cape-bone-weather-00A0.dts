@@ -9,11 +9,12 @@
 /plugin/;
 
 / {
-       compatible = "ti,beaglebone";
-       part-number = "BB-BONE-WTHR-01";
-       version = "00A0";
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
 
-       fragment@0 {
+	part-number = "BB-BONE-WTHR-01";
+	version = "00A0";
+
+	fragment@0 {
                target = <&am33xx_pinmux>;
                __overlay__ {
 			weather_cape_w1_pins: pinmux_weather_cape_w1_pins {
@@ -22,9 +23,9 @@
 				>;
 			};
                };
-       };
+	};
 
-       fragment@1 {
+	fragment@1 {
                target = <&i2c2>;
 
                __overlay__ {
@@ -50,9 +51,9 @@
 			       reg = <0x77>;
 		       };
                };
-       };
+	};
 
-       fragment@2 {
+	fragment@2 {
                target = <&ocp>;
                __overlay__ {
 		       onewire@0 {
@@ -64,5 +65,5 @@
 			       gpios = <&gpio2 3 0>;
 		       };
                };
-       };
+	};
 };
