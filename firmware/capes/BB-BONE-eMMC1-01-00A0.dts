@@ -9,7 +9,7 @@
 /plugin/;
 
 / {
-	compatible = "ti,beaglebone";
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
 
 	/* identification */
 	part-number = "BB-BONE-eMMC1-01";
