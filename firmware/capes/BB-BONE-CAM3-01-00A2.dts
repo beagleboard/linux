@@ -9,11 +9,52 @@
 /plugin/;
 
 / {
-	compatible = "ti,beaglebone";
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
 
 	/* identification */
 	part-number = "BB-BONE-CAM3-01";
 	version = "00A2", "A2";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.25",	/* gpmc: gpmc_ad0 */
+		"P8.24",	/* gpmc: gpmc_ad1 */
+		"P8.5",		/* gpmc: gpmc_ad2 */
+		"P8.6",		/* gpmc: gpmc_ad3 */
+		"P8.23",	/* gpmc: gpmc_ad4 */
+		"P8.22",	/* gpmc: gpmc_ad5 */
+		"P8.3",		/* gpmc: gpmc_ad6 */
+		"P8.4",		/* gpmc: gpmc_ad7 */
+		"P8.19",	/* gpmc: gpmc_ad8 */
+		"P8.13",	/* gpmc: gpmc_ad9 */
+		"P8.14",	/* gpmc: gpmc_ad10 */
+		"P8.17",	/* gpmc: gpmc_ad11 */
+		"P8.12",	/* gpmc: gpmc_ad12 */
+		"P8.11",	/* gpmc: gpmc_ad13 */
+		"P8.16",	/* gpmc: gpmc_ad14 */
+		"P8.15",	/* gpmc: gpmc_ad15 */
+		"P9.13",	/* gpmc: gpmc_wpn */
+		"P8.21",	/* gpmc: gpmc_csn1 */
+		"P8.18",	/* gpmc: gpmc_clk */
+		"P8.7",		/* gpmc: gpmc_advn_ale */
+		"P8.8",		/* gpmc: gpmc_oen_ren */
+		"P8.10",	/* gpmc: gpmc_wen */
+		"P8.9",		/* gpmc: gpmc_ben0_cle */
+		"P9.41",	/* cssp: clkout2 */
+		"P9.42",	/* cssp: xdma_event_intr2 */
+		"P9.18",	/* cssp: gpio0_4 */
+		"P9.17",	/* cssp: gpio0_5 */
+		"P9.11",	/* cssp: gpio0_30 */
+
+		/* the hardware IP uses */
+		"gpio0_4",
+		"gpio0_5",
+		"gpio0_30",
+		"gpmc",
+		"clkout2",
+		/* the reset pin */
+		"eMMC_RSTn";
 
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -41,7 +82,7 @@
 					0x038 0x30	/* gpmc_ad14.gpmc_ad14 MODE0 | INPUT | PULLUP */
 					0x03C 0x30	/* gpmc_ad15.gpmc_ad15 MODE0 | INPUT | PULLUP */
 					0x074 0x30	/* gpmc_wpn.gpmc_wpn MODE0 | INPUT | PULLUP */ /* WAS MODE 7 */
-					0x080 0x08	/* gpmc_wait0.gpmc_cscn1 MODE0 | OUTPUT */
+					0x080 0x08	/* gpmc_cscn1.gpmc_cscn1 MODE0 | OUTPUT */
 					0x08C 0x28	/* gpmc_clk.gpmc_clk MODE0 | INPUT */
 					0x090 0x08	/* gpmc_advn_ale.gpmc_advn_ale MODE0 | OUTPUT */
 					0x094 0x08	/* gpmc_oen_ren.gpmc_oen_ren MODE0 | OUTPUT */
