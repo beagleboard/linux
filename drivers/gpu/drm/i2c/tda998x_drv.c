@@ -110,6 +110,7 @@ struct tda998x_priv {
 #define REG_VIP_CNTRL_5           REG(0x00, 0x25)     /* write */
 # define VIP_CNTRL_5_CKCASE       (1 << 0)
 # define VIP_CNTRL_5_SP_CNT(x)    (((x) & 3) << 1)
+#define REG_MUX_VP_VIP_OUT        REG(0x00, 0x27)     /* read/write */
 
 #define REG_MUX_AP                REG(0x00, 0x26)
 # define MUX_AP_SELECT_I2S        (0x64)
@@ -494,6 +495,8 @@ tda998x_encoder_dpms(struct drm_encoder *encoder, int mode)
 
 	switch (mode) {
 	case DRM_MODE_DPMS_ON:
+		/* Write the default value MUX register */
+		reg_write(encoder, REG_MUX_VP_VIP_OUT, 0x24);
 		/* enable audio and video ports */
 		reg_write(encoder, REG_ENA_AP, 0x03);
 		reg_write(encoder, REG_ENA_VP_0, 0xff);
