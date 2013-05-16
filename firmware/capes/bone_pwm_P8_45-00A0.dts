@@ -10,7 +10,7 @@
 /plugin/;
 
 / {
-	compatible = "ti,beaglebone";
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
 
 	/* identification */
 	part-number = "bone_pwm_P8_45";
