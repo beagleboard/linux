@@ -16,6 +16,24 @@
 	part-number = "*";	/* any part number */
 	version = "*";		/* any version */
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.21",	/* mmc1: mmc1_clk */
+		"P8.20",	/* mmc1: mmc1_cmd */
+		"P8.25",	/* mmc1: mmc1_dat0 */
+		"P8.24",	/* mmc1: mmc1_dat1 */
+		"P8.5",		/* mmc1: mmc1_dat2 */
+		"P8.6",		/* mmc1: mmc1_dat3 */
+		"P8.23",	/* mmc1: mmc1_dat4 */
+		"P8.22",	/* mmc1: mmc1_dat5 */
+		"P8.3",		/* mmc1: mmc1_dat6 */
+		"P8.4",		/* mmc1: mmc1_dat7 */
+		/* the hardware IP uses */
+		"mmc1",
+		/* the reset pin */
+		"eMMC_RSTn";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
