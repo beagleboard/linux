@@ -9,11 +9,24 @@
 /plugin/;
 
 / {
-	compatible = "ti,beaglebone";
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
 
 	/* identification */
 	part-number = "BB-BONE-AUDI-01";
 	version = "00A0", "A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.14",	/* leds:   gpio1_18 */
+		"P9.16",	/* leds:   gpio1_19 */
+		"P9.31",	/* mcasp0: mcasp0_aclkx */
+		"P9.29",	/* mcasp0: mcasp0_fsx */
+		"P9.28",	/* mcasp0: mcasp0_axr2 */
+		"P9.25",	/* mcasp0: mcasp0_ahclkx */
+		/* the hardware ip uses */
+		"gpio1_18", "gpio1_19",
+		"mcasp0";
 
 	fragment@0 {
 		target = <&am33xx_pinmux>;
