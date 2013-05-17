@@ -24,13 +24,29 @@
  */
 
 / {
-       compatible = "ti,beaglebone", "ti,beaglebone-black";
-       part-number = "BB-BONE-TFT-01";
-       version = "00A0";
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	part-number = "BB-BONE-TFT-01";
+	version = "00A0";
 
-       fragment@0 {
-               target = <&am33xx_pinmux>;
-               __overlay__ {
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.19",	/* bl: ehrpwm2A */
+		"P9.27",	/* lcd: gpio3_19 */
+		"P9.25",	/* lcd: gpio3_21 */
+		"P9.31",	/* spi: spi1_sclk */
+		"P9.29",	/* spi: spi1_d0 */
+		"P9.30",	/* spi: spi1_d1 */
+		"P9.28",	/* spi: spi1_cs0 */
+		/* the hardware IP uses */
+		"gpio3_19",
+		"gpio3_21",
+		"ehrpwm2A",
+		"spi1";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
 			pwm_backlight_pins: pinmux_pwm_backlight_pins {
 				pinctrl-single,pins = <
 					0x020  0x4      /* gpmc_ad8.gpio0_22 | MODE4 */
@@ -122,5 +138,4 @@
 			};
 		};
 	};
-
 };
