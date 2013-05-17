@@ -16,6 +16,13 @@
 	part-number = "bone_pwm_P8_13";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.13",		/* pwm: ehrpwm2B */
+		/* the hardware IP uses */
+		"ehrpwm2B";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
@@ -32,8 +39,10 @@
 				compatible	= "pwm_test";
 				pwms 		= <&ehrpwm2 1 500000 1>;
 				pwm-names 	= "PWM_P8_13";
-			    pinctrl-names	= "default";
-			    pinctrl-0	= <&pwm_P8_13>;
+
+				pinctrl-names	= "default";
+				pinctrl-0	= <&pwm_P8_13>;
+
 				enabled		= <1>;
 				duty		= <0>;
 				status 		= "okay";
