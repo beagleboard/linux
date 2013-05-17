@@ -15,6 +15,21 @@
 	part-number = "BB-BONE-GEIGER";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.29",	/* led: gpio2_23 */
+		"P8.30",	/* led: gpio2_25 */
+		"P9.14",	/* geiger: ehrpwm1A */
+		"P9.28",	/* geiger: gpio3_17 */
+		"P9.36",	/* geiger: AIN5 */
+		/* the hardware IP uses */
+		"gpio2_23",
+		"gpio2_25",
+		"gpio3_17",
+		"ehrpwm1A",
+		"tscadc";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
