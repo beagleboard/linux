@@ -16,6 +16,22 @@
 	part-number = "BB-BONE-MRF24J40";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.11",	/* gpio1_13 */
+		"P8.16",	/* gpio1_14 */
+		"P8.26",	/* gpio1_29 */
+		"P9.31",	/* spi1_sclk */
+		"P9.29",	/* spi1_d0 */
+		"P9.30",	/* spi1_d1 */
+		"P9.28",	/* spi1_cs0 */
+		/* the hardware IP uses */
+		"gpio1_13",
+		"gpio1_14",
+		"gpio1_29",
+		"spi1";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
