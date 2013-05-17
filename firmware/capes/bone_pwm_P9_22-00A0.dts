@@ -16,6 +16,13 @@
 	part-number = "bone_pwm_P9_22";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.22",		/* pwm: ehrpwm0A */
+		/* the hardware IP uses */
+		"ehrpwm0A";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
