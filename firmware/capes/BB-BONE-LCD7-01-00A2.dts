@@ -15,13 +15,53 @@
 	part-number = "BB-BONE-LCD7-01";
 	version = "00A2";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.45",	/* lcd: lcd_data0 */
+		"P8.46",	/* lcd: lcd_data1 */
+		"P8.43",	/* lcd: lcd_data2 */
+		"P8.44",	/* lcd: lcd_data3 */
+		"P8.41",	/* lcd: lcd_data4 */
+		"P8.42",	/* lcd: lcd_data5 */
+		"P8.39",	/* lcd: lcd_data6 */
+		"P8.40",	/* lcd: lcd_data7 */
+		"P8.37",	/* lcd: lcd_data8 */
+		"P8.38",	/* lcd: lcd_data9 */
+		"P8.36",	/* lcd: lcd_data10 */
+		"P8.34",	/* lcd: lcd_data11 */
+		"P8.35",	/* lcd: lcd_data12 */
+		"P8.33",	/* lcd: lcd_data13 */
+		"P8.31",	/* lcd: lcd_data14 */
+		"P8.32",	/* lcd: lcd_data15 */
+		"P8.27",	/* lcd: lcd_vsync */
+		"P8.29",	/* lcd: lcd_hsync */
+		"P8.28",	/* lcd: lcd_pclk */
+		"P8.30",	/* lcd: lcd_ac_bias_en */
+		"P8.20",	/* lcd: gpio1_31 */
+		"P9.12",	/* led: gpio1_28 */
+		"P9.14",	/* pwm: ehrpwm1a */
+		"P9.15",	/* keys: gpio1_16 */
+		"P9.23",	/* keys: gpio1_17 */
+		"P9.16",	/* keys: gpio1_19 */
+		"P9.27",	/* keys: gpio3_19 */
+		/* the hardware IP uses */
+		"gpio1_31",
+		"gpio1_28",
+		"gpio1_16",
+		"gpio1_17",
+		"gpio1_19",
+		"gpio3_19",
+		"lcd",
+		"ehrpwm1a";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
 
 			bone_lcd7_cape_led_00A2_pins: pinmux_bone_lcd7_cape_led_00A2_pins {
 				pinctrl-single,pins = <
-					0x078 0x2f	/* gpmc_ben1.gpio1_28, INPUT | PULLDIS | MODE7 */
+					0x078 0x2f	/* gpmc_be1n.gpio1_28, INPUT | PULLDIS | MODE7 */
 				>;
 			};
 
@@ -33,7 +73,7 @@
 
 			bone_lcd7_cape_lcd_pins: pinmux_bone_lcd7_cape_lcd_pins {
 				pinctrl-single,pins = <
-					//0x84 0x07	/* gpmc_csn2.gpio1_31, OUTPUT | MODE7 - AVDD_EN */
+					0x84 0x07	/* gpmc_csn2.gpio1_31, OUTPUT | MODE7 - AVDD_EN */
 					0xa0 0x08	/* lcd_data0.lcd_data0, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
 					0xa4 0x08	/* lcd_data1.lcd_data1, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
 					0xa8 0x08	/* lcd_data2.lcd_data2, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
@@ -62,8 +102,8 @@
 					0x040 0x2f	/* KEY_LEFT gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
 					0x044 0x2f	/* KEY_RIGHT gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
 					0x04c 0x2f 	/* KEY_UP gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+					0x198 0x2f	/* KEY_DOWN mcasp0_axr0.gpio3_16, INPUT | PULLDIS | MODE7 */
 					0x1a4 0x2f	/* KEY_ENTER mcasp0_fsr.gpio3_19, INPUT | PULLDIS | MODE7 */
-					// gpio3_16 KEY_DOWN
 				>;
 			};
 
