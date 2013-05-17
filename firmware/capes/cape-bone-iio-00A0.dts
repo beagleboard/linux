@@ -14,6 +14,19 @@
 	/* identification */
 	part-number = "iio-test";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.39",	/* AIN0 */
+		"P9.40",	/* AIN1 */
+		"P9.37",	/* AIN2 */
+		"P9.38",	/* AIN3 */
+		"P9.33",	/* AIN4 */
+		"P9.36",	/* AIN5 */
+		"P9.35",	/* AIN6 */
+		/* the hardware IP uses */
+		"tscadc";
+
 	fragment@0 {
 		target = <&ocp>;
 		__overlay__ {
