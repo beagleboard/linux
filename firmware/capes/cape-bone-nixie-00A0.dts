@@ -15,6 +15,20 @@
 	part-number = "BB-BONE-NIXIE";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.25",	/* gpio3_21 */
+		"P8.45",	/* ehrpwm2A */
+		"P8.46",	/* ehrpwm2B */
+		"P9.31",	/* pr1_pru0_pru_r30_0 */
+		"P9.29",	/* pr1_pru0_pru_r30_1 */
+		"P9.27",	/* pr1_pru0_pru_r30_5 */
+		/* the hardware IP uses */
+		"gpio3_21",
+		"ehrpwm2A", "ehrpwm2B",
+		"pru";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
