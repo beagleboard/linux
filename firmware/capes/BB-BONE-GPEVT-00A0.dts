@@ -13,6 +13,13 @@
 	part-number = "BB-BONE-GPEVT";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.7",
+		/* the hardware IP uses */
+		"gpio2_2";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {

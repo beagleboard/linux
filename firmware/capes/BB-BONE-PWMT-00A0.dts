@@ -15,11 +15,18 @@
 	part-number = "BB-BONE-PWMT";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.22",	/* pwm: ehrpwm0a */
+		/* the hardware ip uses */
+		"ehrpwm0a";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
 			pwm_test_pins: pinmux_pwm_test_pins {
-				pinctrl-single,pins = <0x150  0x3>; /* spi0_sclk = ehrpwm0A = P9_14 = Heater_HBP  | MODE 3 */
+				pinctrl-single,pins = <0x150  0x3>; /* spi0_sclk = ehrpwm0A = P9_14 | MODE 3 */
 			};
 		};
 	};
