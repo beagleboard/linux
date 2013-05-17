@@ -16,6 +16,13 @@
 	part-number = "bone_pwm_P8_19";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.19",		/* pwm: ehrpwm2A */
+		/* the hardware IP uses */
+		"ehrpwm2A";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
@@ -32,8 +39,10 @@
 				compatible	= "pwm_test";
 				pwms 		= <&ehrpwm2 0 500000 1>;
 				pwm-names 	= "PWM_P8_19";
-			    pinctrl-names	= "default";
-			    pinctrl-0	= <&pwm_P8_19>;
+
+				pinctrl-names	= "default";
+				pinctrl-0	= <&pwm_P8_19>;
+
 				enabled		= <1>;
 				duty		= <0>;
 				status 		= "okay";

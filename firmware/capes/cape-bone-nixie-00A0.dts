@@ -15,6 +15,20 @@
 	part-number = "BB-BONE-NIXIE";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.25",	/* gpio3_21 */
+		"P8.45",	/* ehrpwm2A */
+		"P8.46",	/* ehrpwm2B */
+		"P9.31",	/* pr1_pru0_pru_r30_0 */
+		"P9.29",	/* pr1_pru0_pru_r30_1 */
+		"P9.27",	/* pr1_pru0_pru_r30_5 */
+		/* the hardware IP uses */
+		"gpio3_21",
+		"ehrpwm2A", "ehrpwm2B",
+		"pru";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
@@ -28,7 +42,7 @@
 			bone_nixie_cape_pins: pinmux_bone_nixie_cape_pins {
 				pinctrl-single,pins = <
 					0x0a0 0x03      /* lcd_data0.gpio2_6 | MODE3 */
-					0x0a4 0x03      /* lcd_data1.gpio2_7 | MODE3 */ 
+					0x0a4 0x03      /* lcd_data1.gpio2_7 | MODE3 */
 				>;
 		        };
 
@@ -39,7 +53,7 @@
 					0x1a4 0x05	/* mcasp0_fsr.pr1_pru1_pru_r30_5, MODE5 | CLK */
 				>;
 			};
-		};	
+		};
 	};
 
 	fragment@2 {
