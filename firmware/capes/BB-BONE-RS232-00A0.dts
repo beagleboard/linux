@@ -15,6 +15,14 @@
 	part-number = "BB-BONE-RS232";
 	version = "00A0";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.22",		/* rs232: uart2_rxd */
+		"P9.21",		/* rs232: uart2_txd */
+		/* the hardware IP uses */
+		"uart2";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
