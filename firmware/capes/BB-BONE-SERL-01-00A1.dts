@@ -14,6 +14,14 @@
 	part-number = "BB-BONE-SERL-01";
 	version = "00A1";
 
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.26",		/* dcan1: dcan1_tx */
+		"P9.24",		/* dcan1: dcan1_rx */
+		/* the hardware IP uses */
+		"dcan1";
+
 	fragment@0 {
 		target = <&am33xx_pinmux>;
 		__overlay__ {
