@@ -444,7 +444,7 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	struct tilcdc_drm_private *priv = crtc->dev->dev_private;
 	unsigned int bandwidth;
 	uint32_t hbp, hfp, hsw, vbp, vfp, vsw;
-	int has_audio, is_cea_mode;
+	int has_audio, is_cea_mode, can_output_audio, refresh;
 
 	int rb;
 
@@ -463,16 +463,24 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	/* set if there's audio capability */
 	has_audio = edid && drm_detect_monitor_audio(edid);
 
+	/* only 50 & 60Hz modes reliably support audio */
+	refresh = drm_mode_vrefresh(mode);
+
 	/* set if it's a cea mode */
 	is_cea_mode = drm_match_cea_mode(mode) > 0;
 
-	DBG("mode %dx%d@%d pixel-clock %d audio %s cea %s",
-		mode->hdisplay, mode->vdisplay, drm_mode_vrefresh(mode),
+	/* set if we can output audio */
+	can_output_audio = edid && has_audio && is_cea_mode &&
+		(refresh == 50 || refresh == 60);
+
+	DBG("mode %dx%d@%d pixel-clock %d audio %s cea %s can_output %s",
+		mode->hdisplay, mode->vdisplay,refresh,
 		mode->clock,
 		has_audio ? "true" : "false",
-		is_cea_mode ? "true" : "false");
+		is_cea_mode ? "true" : "false",
+		can_output_audio ? "true" : "false" );
 
-	if (edid && audio && has_audio && !is_cea_mode) {
+	if (edid && has_audio && !can_output_audio) {
 		DBG("Pruning mode : Does not support audio");
 		return MODE_BAD;
 	}
