@@ -473,7 +473,7 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 		is_cea_mode ? "true" : "false");
 
 	if (audio && has_audio && !is_cea_mode) {
-		DBG("Pruning mode : Does not support audio\n");
+		DBG("Pruning mode : Does not support audio");
 		return MODE_BAD;
 	}
 
@@ -485,32 +485,32 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	vsw = mode->vsync_end - mode->vsync_start;
 
 	if (hbp & ~0x3ff) {
-		DBG("Pruning mode : Horizontal Back Porch out of range\n");
+		DBG("Pruning mode : Horizontal Back Porch out of range");
 		return MODE_BAD;
 	}
 
 	if (hfp & ~0x3ff) {
-		DBG("Pruning mode : Horizontal Front Porch out of range\n");
+		DBG("Pruning mode : Horizontal Front Porch out of range");
 		return MODE_BAD;
 	}
 
 	if (hsw & ~0x3ff) {
-		DBG("Pruning mode : Horizontal Sync Width out of range\n");
+		DBG("Pruning mode : Horizontal Sync Width out of range");
 		return MODE_BAD;
 	}
 
 	if (vbp & ~0xff) {
-		DBG("Pruning mode : Vertical Back Porch out of range\n");
+		DBG("Pruning mode : Vertical Back Porch out of range");
 		return MODE_BAD;
 	}
 
 	if (vfp & ~0xff) {
-		DBG("Pruning mode : Vertical Front Porch out of range\n");
+		DBG("Pruning mode : Vertical Front Porch out of range");
 		return MODE_BAD;
 	}
 
 	if (vsw & ~0x3f) {
-		DBG("Pruning mode : Vertical Sync Width out of range\n");
+		DBG("Pruning mode : Vertical Sync Width out of range");
 		return MODE_BAD;
 	}
 
