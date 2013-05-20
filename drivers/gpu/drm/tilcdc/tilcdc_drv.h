@@ -40,10 +40,11 @@
 #define TILCDC_DEFAULT_MAX_WIDTH  2048
 /*
  * This may need some tweaking, but want to allow at least 1280x1024@60
- * with optimized DDR & EMIF settings tweaked 1920x1080@24 appears to
+ * with optimized DDR & EMIF settings tweaked 1920x1080@25 appears to
  * be supportable
+ * Note: 1920x1080x25=49766400 < 1280x1024x60=78643200
  */
-#define TILCDC_DEFAULT_MAX_BANDWIDTH  (1920*1080*25)
+#define TILCDC_DEFAULT_MAX_BANDWIDTH  (1280*1024*60)
 
 struct tilcdc_drm_private {
 	void __iomem *mmio;
