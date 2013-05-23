@@ -102,8 +102,18 @@ struct rpmsg_channel_info {
  * can change this without changing anything in the firmware of the remote
  * processor.
  */
-#define RPMSG_NUM_BUFS		(512)
-#define RPMSG_BUF_SIZE		(512)
+#ifndef CONFIG_RPMSG_NUM_BUFS
+#define RPMSG_NUM_BUFS		512
+#else
+#define RPMSG_NUM_BUFS		CONFIG_RPMSG_NUM_BUFS
+#endif
+
+#ifndef CONFIG_RPMSG_BUF_SIZE
+#define RPMSG_BUF_SIZE		512
+#else
+#define RPMSG_BUF_SIZE		CONFIG_RPMSG_BUF_SIZE
+#endif
+
 #define RPMSG_TOTAL_BUF_SPACE	(RPMSG_NUM_BUFS * RPMSG_BUF_SIZE)
 
 /*
