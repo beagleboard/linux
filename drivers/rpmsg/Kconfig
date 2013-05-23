@@ -6,4 +6,18 @@ config RPMSG
 	select VIRTIO
 	depends on EXPERIMENTAL
 
+config RPMSG_NUM_BUFS
+	int "RPMSG number of buffers"
+	depends on RPMSG
+	default 512
+	help
+	  Configure rpmsg number of bufs (default is 512)
+
+config RPMSG_BUF_SIZE
+	int "RPMSG size of buffers"
+	depends on RPMSG
+	default 512
+	help
+	  Configure rpmsg buffer size (default is 512)
+
 endmenu
