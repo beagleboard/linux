@@ -1,6 +1,9 @@
 /*
  * CAN bus driver for Microchip 251x CAN Controller with SPI Interface
  *
+ * Copyright (C) 2013 Tower Technologies
+ * Device Tree by Alessandro Zummo <a.zummo@towertech.it>
+ *
  * MCP2510 support and bug fixes by Christian Pellegrin
  * <chripell@evolware.org>
  *
@@ -72,6 +75,10 @@
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
 #include <linux/uaccess.h>
@@ -238,9 +245,13 @@ enum mcp251x_model {
 };
 
 struct mcp251x_priv {
+
 	struct can_priv	   can;
 	struct net_device *net;
 	struct spi_device *spi;
+
+	struct mcp251x_platform_data *pdata;
+
 	enum mcp251x_model model;
 
 	struct mutex mcp_lock; /* SPI device lock */
@@ -500,7 +511,10 @@ static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
 
 static void mcp251x_hw_sleep(struct spi_device *spi)
 {
-//	mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_SLEEP);
+	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
+
+	if (!priv->pdata->stay_awake)
+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_SLEEP);
 }
 
 static netdev_tx_t mcp251x_hard_start_xmit(struct sk_buff *skb,
@@ -557,16 +571,18 @@ static int mcp251x_set_normal_mode(struct spi_device *spi)
 
 	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
 		/* Put device into loopback mode */
-		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LOOPBACK | CANCTRL_CLKEN);
+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LOOPBACK | (priv->pdata->enable_clkout ? CANCTRL_CLKEN : 0));
+
 	} else if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) {
 		/* Put device into listen-only mode */
-		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LISTEN_ONLY | CANCTRL_CLKEN);
+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_LISTEN_ONLY | (priv->pdata->enable_clkout ? CANCTRL_CLKEN : 0));
+
 	} else {
 		/* Put device into normal mode */
-		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL | CANCTRL_CLKEN);
+		mcp251x_write_reg(spi, CANCTRL, CANCTRL_REQOP_NORMAL | (priv->pdata->enable_clkout ? CANCTRL_CLKEN : 0));
 
-                netdev_info(priv->net, "CANCTRL: 0x%02x\n",
-                  mcp251x_read_reg(spi, CANCTRL));
+		netdev_info(priv->net, "CANCTRL: 0x%02x\n",
+		mcp251x_read_reg(spi, CANCTRL));
 
 		/* Wait for the device to enter normal mode */
 		timeout = jiffies + HZ;
@@ -676,7 +692,7 @@ static void mcp251x_open_clean(struct net_device *net)
 {
 	struct mcp251x_priv *priv = netdev_priv(net);
 	struct spi_device *spi = priv->spi;
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+	struct mcp251x_platform_data *pdata = priv->pdata;
 
 	free_irq(spi->irq, priv);
 	mcp251x_hw_sleep(spi);
@@ -689,7 +705,7 @@ static int mcp251x_stop(struct net_device *net)
 {
 	struct mcp251x_priv *priv = netdev_priv(net);
 	struct spi_device *spi = priv->spi;
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+	struct mcp251x_platform_data *pdata = priv->pdata;
 
 	close_candev(net);
 
@@ -847,13 +863,13 @@ static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
 		/* Update can state */
 		if (eflag & EFLG_TXBO) {
 
-		        netdev_err(net, "err: bus off\n");
+			netdev_err(net, "err: bus off\n");
 
 			new_state = CAN_STATE_BUS_OFF;
 			can_id |= CAN_ERR_BUSOFF;
 		} else if (eflag & EFLG_TXEP) {
 
-		        netdev_err(net, "err: txep\n");
+			netdev_err(net, "err: txep\n");
 
 			new_state = CAN_STATE_ERROR_PASSIVE;
 			can_id |= CAN_ERR_CRTL;
@@ -861,21 +877,21 @@ static irqreturn_t mcp251x_can_ist(int irq, void *dev_id)
 
 		} else if (eflag & EFLG_RXEP) {
 
-		        netdev_err(net, "err: rxep\n");
+			netdev_err(net, "err: rxep\n");
 
 			new_state = CAN_STATE_ERROR_PASSIVE;
 			can_id |= CAN_ERR_CRTL;
 			data1 |= CAN_ERR_CRTL_RX_PASSIVE;
 		} else if (eflag & EFLG_TXWAR) {
 
-		        netdev_err(net, "err: txwar\n");
+			netdev_err(net, "err: txwar\n");
 
 			new_state = CAN_STATE_ERROR_WARNING;
 			can_id |= CAN_ERR_CRTL;
 			data1 |= CAN_ERR_CRTL_TX_WARNING;
 		} else if (eflag & EFLG_RXWAR) {
 
-		        netdev_err(net, "err: rxwar\n");
+			netdev_err(net, "err: rxwar\n");
 
 			new_state = CAN_STATE_ERROR_WARNING;
 			can_id |= CAN_ERR_CRTL;
@@ -948,8 +964,8 @@ static int mcp251x_open(struct net_device *net)
 {
 	struct mcp251x_priv *priv = netdev_priv(net);
 	struct spi_device *spi = priv->spi;
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
-	unsigned long flags;
+	struct mcp251x_platform_data *pdata = priv->pdata;
+	unsigned long flags = 0;
 	int ret;
 
 	ret = open_candev(net);
@@ -966,14 +982,13 @@ static int mcp251x_open(struct net_device *net)
 	priv->tx_skb = NULL;
 	priv->tx_len = 0;
 
-	flags = IRQF_ONESHOT;
 	if (pdata->irq_flags)
 		flags |= pdata->irq_flags;
 	else
 		flags |= IRQF_TRIGGER_FALLING;
 
 	ret = request_threaded_irq(spi->irq, NULL, mcp251x_can_ist,
-				   flags, DEVICE_NAME, priv);
+				   IRQF_ONESHOT | flags, dev_name(&net->dev), priv);
 	if (ret) {
 		netdev_err(net, "failed to acquire irq %d\n", spi->irq);
 		if (pdata->transceiver_enable)
@@ -1014,21 +1029,79 @@ static const struct net_device_ops mcp251x_netdev_ops = {
 	.ndo_start_xmit = mcp251x_hard_start_xmit,
 };
 
+static struct mcp251x_platform_data *
+mcp251x_platform_data_dt_get(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct mcp251x_platform_data *pd;
+
+	u32 tmp;
+	int err, gpio;
+
+	dev_dbg(dev, "reading device tree\n");
+
+	if (!np) {
+		dev_err(dev, "no device tree node defined\n");
+		return NULL;
+	}
+
+	pd = devm_kzalloc(dev, sizeof(struct mcp251x_platform_data), GFP_KERNEL);
+	if (!pd) {
+		dev_err(dev, "cannot allocate platform data memory\n");
+		return NULL;
+	}
+
+	of_property_read_u32(np, "mcp251x,oscillator-frequency", &tmp);
+	pd->oscillator_frequency = tmp;
+
+	pd->stay_awake = of_property_read_bool(np, "mcp251x,stay-awake");
+	pd->enable_clkout = of_property_read_bool(np, "mcp251x,enable-clkout");
+
+	gpio = of_get_named_gpio(np, "mcp251x,irq-gpios", 0);
+	if (gpio_is_valid(gpio)) {
+		err = devm_gpio_request_one(dev, gpio, GPIOF_DIR_IN, "mcp251x-irq");
+		if (err) {
+			dev_err(dev, "cannot request gpio %d\n", gpio);
+			return NULL;
+		}
+	} else {
+			dev_warn(dev, "mcp251x,irq-gpios missing or invalid\n");
+	}
+
+	return pd;
+}
+
 static int mcp251x_can_probe(struct spi_device *spi)
 {
 	struct net_device *net;
 	struct mcp251x_priv *priv;
 	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
+	struct pinctrl *pinctrl;
 	int ret = -ENODEV;
 
-	if (!pdata)
+	dev_dbg(&spi->dev, "probing\n");
+
+	if (!pdata && IS_ENABLED(CONFIG_OF))
+		pdata = mcp251x_platform_data_dt_get(&spi->dev);
+
+	if (!pdata) {
 		/* Platform data is required for osc freq */
+		dev_err(&spi->dev, "missing platform data\n");
 		goto error_out;
+	}
+
+	dev_info(&spi->dev, "mode %d, irq %d, awake %d, clkout %d, oscillator freq %ld\n",
+			spi->mode, spi->irq, pdata->stay_awake, pdata->enable_clkout, pdata->oscillator_frequency);
+
+	pinctrl = devm_pinctrl_get_select_default(&spi->dev);
+	if (IS_ERR(pinctrl))
+		dev_warn(&spi->dev, "pinctrl pins are not configured from the driver");
 
 	/* Allocate can/net device */
 	net = alloc_candev(sizeof(struct mcp251x_priv), TX_ECHO_SKB_MAX);
 	if (!net) {
 		ret = -ENOMEM;
+		dev_err(&spi->dev, "alloc_candev failed\n");
 		goto error_alloc;
 	}
 
@@ -1036,16 +1109,22 @@ static int mcp251x_can_probe(struct spi_device *spi)
 	net->flags |= IFF_ECHO;
 
 	priv = netdev_priv(net);
-	priv->can.bittiming_const = &mcp251x_bittiming_const;
+
+	priv->net = net;
+	priv->spi = spi;
+	priv->pdata = pdata;
+
+	priv->model = spi_get_device_id(spi)->driver_data;
+
 	priv->can.do_set_mode = mcp251x_do_set_mode;
 	priv->can.clock.freq = pdata->oscillator_frequency / 2;
+	priv->can.bittiming_const = &mcp251x_bittiming_const;
+
 	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
 		CAN_CTRLMODE_LOOPBACK | CAN_CTRLMODE_LISTENONLY;
-	priv->model = spi_get_device_id(spi)->driver_data;
-	priv->net = net;
+
 	dev_set_drvdata(&spi->dev, priv);
 
-	priv->spi = spi;
 	mutex_init(&priv->mcp_lock);
 
 	/* If requested, allocate DMA buffers */
@@ -1095,13 +1174,13 @@ static int mcp251x_can_probe(struct spi_device *spi)
 	SET_NETDEV_DEV(net, &spi->dev);
 
 	/* Configure the SPI bus */
-	spi->mode = SPI_MODE_0;
+	//spi->mode = SPI_MODE_0;
 	spi->bits_per_word = 8;
 	spi_setup(spi);
 
 	/* Here is OK to not lock the MCP, no one knows about it yet */
 	if (!mcp251x_hw_probe(spi)) {
-		dev_info(&spi->dev, "Probe failed\n");
+		dev_info(&spi->dev, "hw probe failed\n");
 		goto error_probe;
 	}
 	mcp251x_hw_sleep(spi);
@@ -1135,8 +1214,8 @@ error_out:
 
 static int mcp251x_can_remove(struct spi_device *spi)
 {
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
+	struct mcp251x_platform_data *pdata = priv->pdata;
 	struct net_device *net = priv->net;
 
 	unregister_candev(net);
@@ -1159,8 +1238,8 @@ static int mcp251x_can_remove(struct spi_device *spi)
 #ifdef CONFIG_PM
 static int mcp251x_can_suspend(struct spi_device *spi, pm_message_t state)
 {
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
+	struct mcp251x_platform_data *pdata = priv->pdata;
 	struct net_device *net = priv->net;
 
 	priv->force_quit = 1;
@@ -1190,8 +1269,8 @@ static int mcp251x_can_suspend(struct spi_device *spi, pm_message_t state)
 
 static int mcp251x_can_resume(struct spi_device *spi)
 {
-	struct mcp251x_platform_data *pdata = spi->dev.platform_data;
 	struct mcp251x_priv *priv = dev_get_drvdata(&spi->dev);
+	struct mcp251x_platform_data *pdata = priv->pdata;
 
 	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
 		pdata->power_enable(1);
