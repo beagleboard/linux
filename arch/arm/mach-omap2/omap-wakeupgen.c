@@ -381,7 +381,7 @@ static struct notifier_block irq_notifier_block = {
 static void __init irq_pm_init(void)
 {
 	/* FIXME: Remove this when MPU OSWR support is added */
-	if (!soc_is_omap54xx())
+	if (!soc_is_omap54xx() && !soc_is_dra7xx())
 		cpu_pm_register_notifier(&irq_notifier_block);
 }
 #else
