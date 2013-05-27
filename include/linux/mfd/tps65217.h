@@ -21,6 +21,7 @@
 #include <linux/i2c.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#include <linux/input.h>
 
 /* TPS chip id list */
 #define TPS65217			0xF0
@@ -274,6 +275,11 @@ struct tps65217 {
 	struct regulator_dev *rdev[TPS65217_NUM_REGULATOR];
 	struct tps_info *info[TPS65217_NUM_REGULATOR];
 	struct regmap *regmap;
+
+	/* Power button and IRQ handling */
+	int irq_gpio;	/* might not be set */
+	int irq;
+	struct input_dev *pwr_but;
 };
 
 static inline struct tps65217 *dev_to_tps65217(struct device *dev)
