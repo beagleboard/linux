@@ -1,0 +1,65 @@
+/*
+ * Copyright (C) 2013 CircuitCo
+ *
+ * Virtual cape for I2C1 on connector pins P9.26 P9.24 (ALT config #1)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-I2C1A1";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.26",	/* i2c1_sda */
+		"P9.24",	/* i2c1_scl */
+		/* the hardware ip uses */
+		"i2c1";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			bb_i2c1a1_pins: pinmux_bb_i2c1a1_pins {
+				pinctrl-single,pins = <
+					0x180 0x73	/* uart1_rxd.i2c1_sda, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
+					0x184 0x73	/* uart1_txdi2c1_scl, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&i2c1>;	/* i2c1 is numbered correctly */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_i2c1a1_pins>;
+
+			/* this is the configuration part */
+			clock-frequency = <100000>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* add any i2c devices on the bus here */
+
+			// commented out example of a touchscreen (taken from BB-BONE-LCD7-01-00A4) */
+			// maxtouch@4a {
+			//	compatible = "mXT224";
+			//	reg = <0x4a>;
+			//	interrupt-parent = <&gpio4>;
+			//	interrupts = <19 0x0>;
+			//	atmel,irq-gpio = <&gpio4 19 0>;
+			// };
+		};
+	};
+};
