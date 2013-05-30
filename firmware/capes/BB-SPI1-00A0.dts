@@ -24,6 +24,7 @@
 		"P9.29",	/* spi1_d0 */
 		"P9.30",	/* spi1_d1 */
 		"P9.28",	/* spi1_cs0 */
+		// "P9.42",	/* spi1_cs1 */
 		/* the hardware ip uses */
 		"spi1";
 
@@ -37,6 +38,7 @@
 					0x194 0x33	/* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
 					0x198 0x13	/* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
 					0x19c 0x13	/* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+					// 0x164 0x12	/* eCAP0_in_PWM0_out.spi1_cs1 OUTPUT_PULLUP | MODE2 */
 				>;
 			};
 		};
