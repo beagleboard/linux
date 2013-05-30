@@ -1,0 +1,79 @@
+/*
+ * Copyright (C) 2013 CircuitCo
+ *
+ * Virtual cape for SPI1 on connector pins P9.29 P9.31 P9.30 P9.28
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-SPI1";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.31",	/* spi1_sclk */
+		"P9.29",	/* spi1_d0 */
+		"P9.30",	/* spi1_d1 */
+		"P9.28",	/* spi1_cs0 */
+		/* the hardware ip uses */
+		"spi1";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			/* default state has all gpios released and mode set to uart1 */
+			bb_spi1_pins: pinmux_bb_spi1_pins {
+				pinctrl-single,pins = <
+					0x190 0x33	/* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+					0x194 0x33	/* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+					0x198 0x13	/* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+					0x19c 0x13	/* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi1>;	/* spi1 is numbered correctly */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_spi1_pins>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* add any spi devices connected here */
+			/* note that you can do direct SPI via spidev now */
+
+			// commented out example of an adafruit 1.8" TFT display
+			// from firmare/capes/cape-bone-adafruit-lcd-00A0.dts
+			// lcd@0 {
+			//	#address-cells = <1>;
+			//	#size-cells = <0>;
+			//
+			//	compatible = "adafruit,tft-lcd-1.8-red", "sitronix,st7735";
+			//	reg = <0>;
+			//
+			//	spi-max-frequency = <8000000>;
+			//	spi-cpol;
+			//	spi-cpha;
+			//
+			//	pinctrl-names = "default";
+			//	pinctrl-0 = <&bone_adafruit_lcd_pins>;
+			//
+			//	st7735-rst = <&gpio4 19 0>;
+			//	st7735-dc = <&gpio4 21 0>;
+			// };
+		};
+	};
+};
