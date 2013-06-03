@@ -66,7 +66,6 @@ static void set_scanout(struct drm_crtc *crtc, int n)
 	struct tilcdc_crtc *tilcdc_crtc = to_tilcdc_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
 
-	pm_runtime_get_sync(dev->dev);
 	tilcdc_write(dev, base_reg[n], tilcdc_crtc->start);
 	tilcdc_write(dev, ceil_reg[n], tilcdc_crtc->end);
 	if (tilcdc_crtc->scanout[n]) {
@@ -82,7 +81,6 @@ static void set_scanout(struct drm_crtc *crtc, int n)
 	tilcdc_crtc->scanout[n] = crtc->fb;
 	drm_framebuffer_reference(tilcdc_crtc->scanout[n]);
 	tilcdc_crtc->dirty &= ~stat[n];
-	pm_runtime_put_sync(dev->dev);
 }
 
 static void update_scanout(struct drm_crtc *crtc)
@@ -165,7 +163,9 @@ static int tilcdc_crtc_page_flip(struct drm_crtc *crtc,
 
 	crtc->fb = fb;
 	tilcdc_crtc->event = event;
+	pm_runtime_get_sync(dev->dev);
 	update_scanout(crtc);
+	pm_runtime_put_sync(dev->dev);
 
 	return 0;
 }
@@ -380,7 +380,11 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 static int tilcdc_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 		struct drm_framebuffer *old_fb)
 {
+	struct drm_device *dev = crtc->dev;
+
+	pm_runtime_get_sync(dev->dev);
 	update_scanout(crtc);
+	pm_runtime_put_sync(dev->dev);
 	return 0;
 }
 
