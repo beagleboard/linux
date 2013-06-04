@@ -217,6 +217,14 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	BB-SPI0-00A0.dtbo BB-SPI1-00A0.dtbo BB-SPI1A1-00A0.dtbo
 
+# the virtual peripheral capes for ADC
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	BB-ADC-00A0.dtbo
+
+# the virtual peripheral capes for GPIO
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	BB-GPIOHELP-00A0.dtbo
+
 # PRU firmware
 #fw-shipped-$(CONFIG_PRU_RPROC) += \
 #	prutest.bin
