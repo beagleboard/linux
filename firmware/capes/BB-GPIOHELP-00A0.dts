@@ -1,0 +1,66 @@
+/*
+* Copyright (C) 2013 Pantelis Antoniou <panto@antoniou-consulting.com>
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-PRU-01";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.27",	/* gpio */
+		"P9.28",	/* gpio */
+		/* the hardware IP uses */
+		"gpio3_19", "gpio3_17";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			gpio_helper_pins: pinmux_gpio_helper_pins {
+				pinctrl-single,pins = <
+					0x1a4 0x0f 	/* P9 27 GPIO3_19: mcasp0_fsr.gpio3_19 | MODE7 | OUTPUT */
+					0x19c 0x2f	/* P9 28 SPI1_CS0: mcasp0_ahclkr.gpio3_17 | MODE7 | INPUT */
+				>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&ocp>;
+		__overlay__ {
+
+			gpio_helper {
+				compatible = "gpio-of-helper";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&gpio_helper_pins>;
+
+				/* declare your gpios */
+				test_led {
+					gpio-name = "test_led";
+					gpio = <&gpio4 19 0x00>;	/* gpio4 is gpio3 */
+					output;
+					init-high;
+				};
+
+				test_input {
+					gpio-name = "test_input";
+					gpio = <&gpio4 17 0x00>;	/* gpio4 is gpio3 */
+					input;
+					count-rising-edge;
+					count-falling-edge;
+				};
+			};
+		};
+	};
+};
