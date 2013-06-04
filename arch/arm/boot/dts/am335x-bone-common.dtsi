@@ -219,6 +219,17 @@
 				part-number = "BB-BONELT-HDMI";
 			};
 
+			/* Beaglebone black has it soldered on (but no audio) */
+			slot@102 {
+				ti,cape-override;
+				priority = <2>;
+				compatible = "ti,beaglebone-black";
+				board-name = "Bone-Black-HDMIN";
+				version = "00A0";
+				manufacturer = "Texas Instruments";
+				part-number = "BB-BONELT-HDMIN";
+			};
+
 		};
 
 		/* mapping between board names and dtb objects */
@@ -349,6 +360,16 @@
 					dtbo = "BB-BONE-RS232-00A0.dtbo";
 				};
 			};
+
+			/* beaglebone black hdmi on board (No audio) */
+			cape@13 {
+				part-number = "BB-BONELT-HDMIN";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "cape-boneblack-hdmin-00A0.dtbo";
+				};
+			};
+
 		};
 	};
 
