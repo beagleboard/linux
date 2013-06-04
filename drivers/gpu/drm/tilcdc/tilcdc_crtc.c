@@ -480,7 +480,8 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 		is_cea_mode ? "true" : "false",
 		can_output_audio ? "true" : "false" );
 
-	if (edid && has_audio && !can_output_audio) {
+	/* we only prune the mode if we ask for it */
+	if (audio && edid && has_audio && !can_output_audio) {
 		DBG("Pruning mode : Does not support audio");
 		return MODE_BAD;
 	}
