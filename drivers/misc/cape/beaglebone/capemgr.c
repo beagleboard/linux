@@ -57,6 +57,13 @@ module_param(disable_partno, charp, 0444);
 MODULE_PARM_DESC(disable_partno,
 		"Comma delimited list of PART-NUMBER[:REV] of disabled capes");
 
+/* enable capes */
+static char *enable_partno = NULL;
+module_param(enable_partno, charp, 0444);
+MODULE_PARM_DESC(enable_partno,
+		"Comma delimited list of PART-NUMBER[:REV] of enabled capes");
+
+
 struct bone_capemgr_info;
 
 struct slot_ee_attribute {
@@ -1812,10 +1819,12 @@ bone_capemgr_probe(struct platform_device *pdev)
 	struct device_node *slots_node, *capemaps_node, *node;
 	struct device_node *eeprom_node;
 	const char *part_number;
+	const char *version;
 	const char *board_name;
 	const char *compatible_name;
 	struct bone_capemap *capemap;
 	int ret, len;
+	char *wbuf, *s, *p, *e;
 
 	/* we don't use platform_data at all; we require OF */
 	if (pnode == NULL)
@@ -1996,6 +2005,62 @@ bone_capemgr_probe(struct platform_device *pdev)
 	}
 	slots_node = NULL;
 
+	/* iterate over enable_partno (if there) */
+	if (enable_partno && strlen(enable_partno) > 0) {
+
+		/* allocate a temporary buffer */
+		wbuf = devm_kzalloc(&pdev->dev, PAGE_SIZE, GFP_KERNEL);
+		if (wbuf == NULL) {
+			dev_err(&pdev->dev, "Failed to allocate temporary buffer\n");
+			ret = -ENOMEM;
+			goto err_exit;
+		}
+
+		/* add any enable_partno capes */
+		s = enable_partno;
+		while (*s) {
+			/* form is PART[:REV],PART.. */
+			p = strchr(s, ',');
+			if (p == NULL)
+				e = s + strlen(s);
+			else
+				e = p;
+
+			/* copy to temp buffer */
+			len = e - s;
+			if (len >= PAGE_SIZE - 1)
+				len = PAGE_SIZE - 1;
+			memcpy(wbuf, s, len);
+			wbuf[len] = '\0';
+
+			/* move to the next */
+			s = *e ? e + 1 : e;
+
+			/* now split the rev part */
+			p = strchr(wbuf, ':');
+			if (p != NULL)
+				*p++ = '\0';
+
+			part_number = wbuf;
+			version = p;
+
+			dev_info(&pdev->dev, "enabled_partno part_number '%s', version '%s'\n",
+					part_number, version ? version : "N/A");
+
+			/* only immediate slots are allowed here */
+			slot = bone_capemgr_add_slot(info, NULL,
+					part_number, version);
+
+			/* we continue even in case of an error */
+			if (IS_ERR_OR_NULL(slot)) {
+				dev_warn(&pdev->dev, "Failed to add slot #%d\n",
+					atomic_read(&info->next_slot_nr) - 1);
+			}
+		}
+
+		devm_kfree(&pdev->dev, wbuf);
+	}
+
 	pm_runtime_enable(&pdev->dev);
 	ret = pm_runtime_get_sync(&pdev->dev);
 	if (IS_ERR_VALUE(ret)) {
@@ -2009,6 +2074,7 @@ bone_capemgr_probe(struct platform_device *pdev)
 
 	/* now load each (take lock to be sure */
 	mutex_lock(&info->slots_list_mutex);
+
 	list_for_each_entry(slot, &info->slot_list, node) {
 
 		/* if matches the disabled ones skip */
