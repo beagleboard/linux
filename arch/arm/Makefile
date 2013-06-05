@@ -299,7 +299,7 @@ uImage-dtb.%: scripts
 	$(Q)$(MAKE) $(build)=$(boot) MACHINE=$(MACHINE) $(boot)/$@
 
 %.dtb: scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts MACHINE=$(MACHINE) $(boot)/dts/$@
+	$(Q)$(MAKE) $(build)=$(boot)/dts MACHINE=$(MACHINE) DTC_FLAGS=$(DTC_FLAGS) $(boot)/dts/$@
 
 dtbs: scripts
 	$(Q)$(MAKE) $(build)=$(boot)/dts MACHINE=$(MACHINE) DTC_FLAGS=$(DTC_FLAGS) dtbs
