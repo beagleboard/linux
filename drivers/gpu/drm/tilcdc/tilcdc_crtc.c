@@ -286,15 +286,18 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 			mode->hdisplay, mode->vdisplay, hbp, hfp, hsw, vbp, vfp, vsw);
 
 	/* Configure the AC Bias Period and Number of Transitions per Interrupt: */
-	reg = tilcdc_read(dev, LCDC_RASTER_TIMING_2_REG) & ~0x000fff00;
+	reg = tilcdc_read(dev, LCDC_RASTER_TIMING_2_REG);
+	reg &= ~0x000fff00;
 	reg |= LCDC_AC_BIAS_FREQUENCY(info->ac_bias) |
 		LCDC_AC_BIAS_TRANSITIONS_PER_INT(info->ac_bias_intrpt);
 
 	/* subtract one from hfp, hbp, hsw because the hardware uses a value of 0 as 1 */
 	if (priv->rev == 2) {
-	    reg |= ((hfp-1) & 0x300) >> 8;
-	    reg |= ((hbp-1) & 0x300) >> 4;
-	    reg |= ((hsw-1) & 0x3c0) << 21;
+		/* clear bits we're going to set */
+		reg &= ~0x78000033;
+		reg |= ((hfp-1) & 0x300) >> 8;
+		reg |= ((hbp-1) & 0x300) >> 4;
+		reg |= ((hsw-1) & 0x3c0) << 21;
 	}
 	tilcdc_write(dev, LCDC_RASTER_TIMING_2_REG, reg);
 
@@ -307,7 +310,7 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 	    (((hfp-1) & 0xff) << 16) |
 	    (((hsw-1) & 0x3f) << 10);
 	if (priv->rev == 2)
-	    reg |= (((mode->hdisplay >> 4) - 1) & 0x40) >> 3;
+		reg |= (((mode->hdisplay >> 4) - 1) & 0x40) >> 3;
 
 	tilcdc_write(dev, LCDC_RASTER_TIMING_0_REG, reg);
 
@@ -319,11 +322,10 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 	tilcdc_write(dev, LCDC_RASTER_TIMING_1_REG, reg);
 
         if (priv->rev == 2) {
-            if((mode->vdisplay - 1) & 0x400) {
-              tilcdc_set(dev, LCDC_RASTER_TIMING_2_REG, LCDC_LPP_B10);
-            } else {
-              tilcdc_clear(dev, LCDC_RASTER_TIMING_2_REG, LCDC_LPP_B10);
-            }
+		if ((mode->vdisplay - 1) & 0x400)
+			tilcdc_set(dev, LCDC_RASTER_TIMING_2_REG, LCDC_LPP_B10);
+		else
+			tilcdc_clear(dev, LCDC_RASTER_TIMING_2_REG, LCDC_LPP_B10);
         }
 
 	/* Configure display type: */
