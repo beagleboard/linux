@@ -12,7 +12,7 @@
 	compatible = "ti,beaglebone", "ti,beaglebone-black";
 
 	/* identification */
-	part-number = "BB-BONE-PRU-01";
+	part-number = "BB-GPIOHELP";
 	version = "00A0";
 
 	/* state the resources this cape uses */
