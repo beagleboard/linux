@@ -170,4 +170,7 @@ void tilcdc_crtc_set_panel_info(struct drm_crtc *crtc,
 int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode);
 int tilcdc_crtc_max_width(struct drm_crtc *crtc);
 
+/* OF helper for reading panel info */
+struct tilcdc_panel_info *tilcdc_of_get_panel_info(struct device_node *np);
+
 #endif /* __TILCDC_DRV_H__ */
