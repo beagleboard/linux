@@ -721,3 +721,58 @@ fail:
 	tilcdc_crtc_destroy(crtc);
 	return NULL;
 }
+
+struct tilcdc_panel_info *tilcdc_of_get_panel_info(struct device_node *np)
+{
+	struct device_node *info_np;
+	struct tilcdc_panel_info *info;
+	int ret = 0;
+
+	if (!np)
+		return NULL;
+
+	info_np = of_get_child_by_name(np, "panel-info");
+	if (!info_np) {
+		pr_err("%s: could not find panel-info node\n",
+				of_node_full_name(np));
+		return NULL;
+	}
+
+	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	if (!info) {
+		pr_err("%s: allocation failed\n",
+				of_node_full_name(np));
+		goto err_no_mem;
+	}
+
+	ret |= of_property_read_u32(info_np, "ac-bias", &info->ac_bias);
+	ret |= of_property_read_u32(info_np, "ac-bias-intrpt", &info->ac_bias_intrpt);
+	ret |= of_property_read_u32(info_np, "dma-burst-sz", &info->dma_burst_sz);
+	ret |= of_property_read_u32(info_np, "bpp", &info->bpp);
+	ret |= of_property_read_u32(info_np, "fdd", &info->fdd);
+	ret |= of_property_read_u32(info_np, "sync-edge", &info->sync_edge);
+	ret |= of_property_read_u32(info_np, "sync-ctrl", &info->sync_ctrl);
+	ret |= of_property_read_u32(info_np, "raster-order", &info->raster_order);
+	ret |= of_property_read_u32(info_np, "fifo-th", &info->fifo_th);
+
+	/* optional: */
+	info->tft_alt_mode      = of_property_read_bool(info_np, "tft-alt-mode");
+	info->invert_pxl_clk    = of_property_read_bool(info_np, "invert-pxl-clk");
+
+	if (ret) {
+		pr_err("%s: error reading panel-info properties\n",
+				of_node_full_name(info_np));
+		goto err_bad_prop;
+	}
+
+	/* release ref */
+	of_node_put(info_np);
+
+	return info;
+
+err_bad_prop:
+	kfree(info);
+err_no_mem:
+	of_node_put(info_np);
+	return NULL;
+}

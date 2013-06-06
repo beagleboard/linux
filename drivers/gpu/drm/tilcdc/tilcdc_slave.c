@@ -25,24 +25,12 @@
 
 struct slave_module {
 	struct tilcdc_module base;
+	struct tilcdc_panel_info *info;
 	struct i2c_adapter *i2c;
 	struct pinctrl *pinctrl;
 	char *selected_state_name;
 };
 #define to_slave_module(x) container_of(x, struct slave_module, base)
-
-static const struct tilcdc_panel_info slave_info = {
-		.bpp                    = 16,
-		.ac_bias                = 255,
-		.ac_bias_intrpt         = 0,
-		.dma_burst_sz           = 16,
-		.fdd                    = 0x80,
-		.tft_alt_mode           = 0,
-		.sync_edge              = 0,
-		.sync_ctrl              = 1,
-		.raster_order           = 0,
-};
-
 
 /*
  * Encoder:
@@ -71,8 +59,10 @@ static void slave_encoder_destroy(struct drm_encoder *encoder)
 
 static void slave_encoder_prepare(struct drm_encoder *encoder)
 {
+	struct slave_encoder *slave_encoder = to_slave_encoder(encoder);
+
 	drm_i2c_encoder_prepare(encoder);
-	tilcdc_crtc_set_panel_info(encoder->crtc, &slave_info);
+	tilcdc_crtc_set_panel_info(encoder->crtc, slave_encoder->mod->info);
 }
 
 static const struct drm_encoder_funcs slave_encoder_funcs = {
@@ -283,6 +273,7 @@ static void slave_destroy(struct tilcdc_module *mod)
 	struct slave_module *slave_mod = to_slave_module(mod);
 
 	tilcdc_module_cleanup(mod);
+	kfree(slave_mod->info);
 	kfree(slave_mod);
 }
 
@@ -443,6 +434,12 @@ static int slave_probe(struct platform_device *pdev)
 	slave_mod->i2c = of_find_i2c_adapter_by_node(i2c_node);
 	if (!slave_mod->i2c) {
 		dev_err(&pdev->dev, "could not get i2c\n");
+		goto fail;
+	}
+
+	slave_mod->info = tilcdc_of_get_panel_info(node);
+	if (!slave_mod->info) {
+		dev_err(&pdev->dev, "could not get panel info\n");
 		goto fail;
 	}
 
