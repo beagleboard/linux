@@ -440,6 +440,25 @@ int tilcdc_crtc_max_width(struct drm_crtc *crtc)
 	return max_width;
 }
 
+/* this should find it's way to DT */
+static int audio_mode_check(int hdisplay, int vdisplay, int refresh,
+		int cea_mode)
+{
+	/* only cea modes can handle audio */
+	if (cea_mode <= 0)
+		return 0;
+
+	/* hardcoded mode that supports audio (at 24Hz) */
+	if (hdisplay == 1920 && vdisplay == 1080 && refresh == 24)
+		return 1;
+
+	/* from the rest, only those modes that refresh at 50/60 */
+	if (refresh != 50 && refresh != 60)
+		return 0;
+
+	return 1;
+}
+
 int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 		int rb_check, int audio, struct edid *edid)
 {
@@ -447,6 +466,7 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	unsigned int bandwidth;
 	uint32_t hbp, hfp, hsw, vbp, vfp, vsw;
 	int has_audio, is_cea_mode, can_output_audio, refresh;
+	uint8_t cea_mode;
 
 	int rb;
 
@@ -469,14 +489,16 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	refresh = drm_mode_vrefresh(mode);
 
 	/* set if it's a cea mode */
-	is_cea_mode = drm_match_cea_mode(mode) > 0;
+	cea_mode = drm_match_cea_mode(mode);
+	is_cea_mode = cea_mode > 0;
 
 	/* set if we can output audio */
-	can_output_audio = edid && has_audio && is_cea_mode &&
-		(refresh == 50 || refresh == 60);
+	can_output_audio = edid && has_audio &&
+			audio_mode_check(mode->hdisplay, mode->vdisplay,
+					refresh, cea_mode);
 
 	DBG("mode %dx%d@%d pixel-clock %d audio %s cea %s can_output %s",
-		mode->hdisplay, mode->vdisplay,refresh,
+		mode->hdisplay, mode->vdisplay, refresh,
 		mode->clock,
 		has_audio ? "true" : "false",
 		is_cea_mode ? "true" : "false",
