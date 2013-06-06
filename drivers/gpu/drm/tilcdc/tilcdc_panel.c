@@ -308,53 +308,6 @@ static const struct tilcdc_module_ops panel_module_ops = {
  * Device:
  */
 
-/* maybe move this somewhere common if it is needed by other outputs? */
-static struct tilcdc_panel_info * of_get_panel_info(struct device_node *np)
-{
-	struct device_node *info_np;
-	struct tilcdc_panel_info *info;
-	int ret = 0;
-
-	if (!np) {
-		pr_err("%s: no devicenode given\n", __func__);
-		return NULL;
-	}
-
-	info_np = of_get_child_by_name(np, "panel-info");
-	if (!info_np) {
-		pr_err("%s: could not find panel-info node\n", __func__);
-		return NULL;
-	}
-
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
-	if (!info) {
-		pr_err("%s: allocation failed\n", __func__);
-		return NULL;
-	}
-
-	ret |= of_property_read_u32(info_np, "ac-bias", &info->ac_bias);
-	ret |= of_property_read_u32(info_np, "ac-bias-intrpt", &info->ac_bias_intrpt);
-	ret |= of_property_read_u32(info_np, "dma-burst-sz", &info->dma_burst_sz);
-	ret |= of_property_read_u32(info_np, "bpp", &info->bpp);
-	ret |= of_property_read_u32(info_np, "fdd", &info->fdd);
-	ret |= of_property_read_u32(info_np, "sync-edge", &info->sync_edge);
-	ret |= of_property_read_u32(info_np, "sync-ctrl", &info->sync_ctrl);
-	ret |= of_property_read_u32(info_np, "raster-order", &info->raster_order);
-	ret |= of_property_read_u32(info_np, "fifo-th", &info->fifo_th);
-
-	/* optional: */
-	info->tft_alt_mode      = of_property_read_bool(info_np, "tft-alt-mode");
-	info->invert_pxl_clk    = of_property_read_bool(info_np, "invert-pxl-clk");
-
-	if (ret) {
-		pr_err("%s: error reading panel-info properties\n", __func__);
-		kfree(info);
-		return NULL;
-	}
-
-	return info;
-}
-
 static struct of_device_id panel_of_match[];
 
 static ssize_t pinmux_show_state(struct device *dev,
@@ -495,7 +448,7 @@ static int panel_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	panel_mod->info = of_get_panel_info(node);
+	panel_mod->info = tilcdc_of_get_panel_info(node);
 	if (!panel_mod->info) {
 		dev_err(&pdev->dev, "could not get panel info\n");
 		goto fail;
