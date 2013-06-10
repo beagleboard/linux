@@ -46,7 +46,7 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 	bus-width = <8>;
 	ti,non-removable;
-	status = "okay";
+	status = "disabled";
 
 	reset = <&rstctl 0 0>;
 	reset-names = "eMMC_RSTn-CONSUMER";
