@@ -38,7 +38,7 @@
 		"P8.29",	/* lcd: lcd_hsync */
 		"P8.28",	/* lcd: lcd_pclk */
 		"P8.30",	/* lcd: lcd_ac_bias_en */
-		"P8.20",	/* lcd: gpio1_31 */
+		"P9.22",	/* lcd: gpio0_2 */
 		"P9.12",	/* led: gpio1_28 */
 		"P9.14",	/* pwm: ehrpwm1a */
 		"P9.15",	/* keys: gpio1_16 */
@@ -47,7 +47,7 @@
 		"P9.30",	/* keys: gpio3_16 */
 		"P9.21",	/* keys: gpio0_3 */
 		/* the hardware IP uses */
-		"gpio1_31",
+		"gpio0_2",
 		"gpio1_28",
 		"gpio1_16",
 		"gpio1_17",
@@ -75,7 +75,7 @@
 
 			bone_lcd7_cape_lcd_pins: pinmux_bone_lcd7_cape_lcd_pins {
 				pinctrl-single,pins = <
-					0x84 0x07	/* gpmc_csn2.gpio1_31, OUTPUT | MODE7 - AVDD_EN */
+					0x150 0x07	/* spi0_sclk.gpio0_2, OUTPUT | MODE7 - AVDD_EN */
 					0xa0 0x08	/* lcd_data0.lcd_data0, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
 					0xa3 0x08	/* lcd_data1.lcd_data1, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
 					0xa8 0x08	/* lcd_data2.lcd_data2, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
@@ -275,7 +275,7 @@
 				interrupt-parent = <&intc>;
 				interrupts = <36>;
 				ti,hwmods = "lcdc";
-				ti,power-gpio = <&gpio2 31 0x0>;
+				ti,power-gpio = <&gpio1 2 0x0>;
 				ti,allow-non-reduced-blanking-modes;
 			};
 
