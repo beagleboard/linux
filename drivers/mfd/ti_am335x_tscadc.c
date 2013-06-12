@@ -210,6 +210,7 @@ static	int ti_tscadc_probe(struct platform_device *pdev)
 	/* ADC Cell */
 	cell = &tscadc->cells[ADC_CELL];
 	cell->name = "tiadc";
+	cell->of_compatible = "ti,ti-tscadc";
 	cell->platform_data = &tscadc;
 	cell->pdata_size = sizeof(tscadc);
 
