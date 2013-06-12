@@ -107,7 +107,9 @@
 					0x044 0x2f	/* KEY_RIGHT gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
 					0x04c 0x2f 	/* KEY_UP gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
 					0x198 0x2f	/* KEY_DOWN mcasp0_axr0.gpio3_16, INPUT | PULLDIS | MODE7 */
-					0x070 0x2f	/* KEY_ENTER gpmc_wait0.gpio0_3, INPUT | PULLDIS | MODE7 */
+					0x154 0x2f	/* KEY_ENTER spi0_d0.gpio0_3, INPUT | PULLDIS | MODE7 */
+
+					/* the next one should be in the tsc driver */
 					0x1a4 0x2f	/* TSC_INTn mcasp0_fsr.gpio3_19, INPUT | PULLDIS | MODE7 */
 				>;
 			};
