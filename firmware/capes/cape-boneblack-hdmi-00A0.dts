@@ -83,7 +83,7 @@
 				pinctrl-single,pins = <
 					0x1ac 0x30      /* mcasp0_ahclkx,       MODE0 | INPUT */
 					0x19c 0x02	/* mcasp0_ahclkr, */
-					0x194 0x10      /* mcasp0_fsx,         MODE0 | OUTPUT  */ 
+					0x194 0x10      /* mcasp0_fsx,         MODE0 | OUTPUT  */
 					0x190 0x00      /* mcasp0_aclkr.mcasp0_aclkx,     MODE0 | OUTPUT_PULLDOWN */
 					0x1a8 0x1f	/* mcasp0_axr1 GPIO1_27 | OUTPUT | PULLUP */
 				>;
@@ -110,6 +110,17 @@
 				pinctrl-names = "default", "off";
 				pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
 				pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
+
+				modes-blacklisted =
+					"1920x1080@25",
+					"832x624@75";
+
+				// Enable this when we figure out the modes
+				//
+				// modes-whitelisted =
+				//	"1920x1080@24",
+				//	"1280x720@50", "1280x720@60",
+				//	"720x576@50","720x480@60";
 
 				panel-info {
 					bpp = <16>;
