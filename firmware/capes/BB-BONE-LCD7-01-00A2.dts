@@ -259,7 +259,7 @@
 						hsync-len       = <48>;
 						vback-porch     = <30>;
 						vfront-porch    = <13>;
-						vsync-len       = <2>;
+						vsync-len       = <3>;
 						clock-frequency = <30000000>;
 						hsync-active    = <0>;
 						vsync-active    = <0>;
