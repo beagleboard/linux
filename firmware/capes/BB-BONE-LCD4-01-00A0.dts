@@ -166,10 +166,10 @@
 					timing0: 480x272 {
 						hactive         = <480>;
 						vactive         = <272>;
-						hback-porch     = <43>;
-						hfront-porch    = <8>;
-						hsync-len       = <4>;
-						vback-porch     = <12>;
+						hback-porch     = <44>;
+						hfront-porch    = <9>;
+						hsync-len       = <5>;
+						vback-porch     = <13>;
 						vfront-porch    = <4>;
 						vsync-len       = <10>;
 						clock-frequency = <9000000>;
