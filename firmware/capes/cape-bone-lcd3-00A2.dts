@@ -91,7 +91,9 @@
 					0xe0 0x00	/* lcd_vsync.lcd_vsync, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 					0xe4 0x00	/* lcd_hsync.lcd_hsync, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 					0xe8 0x00	/* lcd_pclk.lcd_pclk, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
-					0xec 0x00	/* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
+					// 0xec 0x00    /* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
+					0xec 0x07       /* lcd_ac_bias_en.gpio2_25 OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT */
+
 				>;
 			};
 
@@ -271,6 +273,7 @@
 				interrupt-parent = <&intc>;
 				interrupts = <36>;
 				ti,hwmods = "lcdc";
+				ti,power-gpio = <&gpio3 25 0>;
 			};
 
 		};
