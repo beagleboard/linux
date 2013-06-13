@@ -88,7 +88,8 @@
 					0xe0 0x00	/* lcd_vsync.lcd_vsync, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 					0xe4 0x00	/* lcd_hsync.lcd_hsync, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 					0xe8 0x00	/* lcd_pclk.lcd_pclk, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
-					0xec 0x00	/* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
+					// 0xec 0x00	/* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
+					0xec 0x07	/* lcd_ac_bias_en.gpio2_25 OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT */
 				>;
 			};
 
@@ -236,16 +237,17 @@
 					sync-ctrl         = <1>;
 					raster-order      = <0>;
 					fifo-th           = <0>;
+					invert-pxl-clk;
 				};
 				display-timings {
 					native-mode = <&timing0>;
 					timing0: 320x240 {
 						hactive         = <320>;
 						vactive         = <240>;
-						hback-porch     = <21>;
-						hfront-porch    = <58>;
-						hsync-len       = <47>;
-						vback-porch     = <11>;
+						hback-porch     = <22>;
+						hfront-porch    = <59>;
+						hsync-len       = <48>;
+						vback-porch     = <12>;
 						vfront-porch    = <23>;
 						vsync-len       = <2>;
 						clock-frequency = <8000000>;
@@ -261,6 +263,7 @@
 				interrupt-parent = <&intc>;
 				interrupts = <36>;
 				ti,hwmods = "lcdc";
+				ti,power-gpio = <&gpio3 25 0>;
 			};
 
 		};
