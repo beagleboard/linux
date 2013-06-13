@@ -234,16 +234,17 @@
 					sync-ctrl         = <1>;
 					raster-order      = <0>;
 					fifo-th           = <0>;
+					invert-pxl-clk;
 				};
 				display-timings {
 					native-mode = <&timing0>;
 					timing0: 800x480 {
 						hactive         = <800>;
 						vactive         = <480>;
-						hback-porch     = <39>;
-						hfront-porch    = <39>;
-						hsync-len       = <47>;
-						vback-porch     = <29>;
+						hback-porch     = <40>;
+						hfront-porch    = <40>;
+						hsync-len       = <48>;
+						vback-porch     = <30>;
 						vfront-porch    = <13>;
 						vsync-len       = <2>;
 						clock-frequency = <30000000>;
