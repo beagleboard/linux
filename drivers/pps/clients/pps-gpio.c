@@ -109,7 +109,6 @@ static int pps_gpio_probe(struct platform_device *pdev)
 	struct pps_gpio_device_data *data;
 	int irq;
 	int ret;
-	int err;
 	int pps_default_params;
 	const struct pps_gpio_platform_data *pdata = pdev->dev.platform_data;
 
@@ -123,15 +122,13 @@ static int pps_gpio_probe(struct platform_device *pdev)
 	irq = gpio_to_irq(pdata->gpio_pin);
 	if (irq < 0) {
 		pr_err("failed to map GPIO to IRQ: %d\n", irq);
-		err = -EINVAL;
-		goto return_error;
+		return -EINVAL;
 	}
 
 	/* allocate space for device info */
 	data = kzalloc(sizeof(struct pps_gpio_device_data), GFP_KERNEL);
 	if (data == NULL) {
-		err = -ENOMEM;
-		goto return_error;
+		return -ENOMEM;
 	}
 
 	/* initialize PPS specific parts of the bookkeeping data structure. */
@@ -152,42 +149,33 @@ static int pps_gpio_probe(struct platform_device *pdev)
 	if (data->pps == NULL) {
 		kfree(data);
 		pr_err("failed to register IRQ %d as PPS source\n", irq);
-		err = -EINVAL;
-		goto return_error;
+		return -EINVAL;
 	}
 
 	data->irq = irq;
 	data->pdata = pdata;
 
 	/* register IRQ interrupt handler */
-	ret = request_irq(irq, pps_gpio_irq_handler,
+	ret = devm_request_irq(&pdev->dev, irq, pps_gpio_irq_handler,
 			get_irqf_trigger_flags(pdata), data->info.name, data);
 	if (ret) {
 		pps_unregister_source(data->pps);
 		kfree(data);
 		pr_err("failed to acquire IRQ %d\n", irq);
-		err = -EINVAL;
-		goto return_error;
+		return -EINVAL;
 	}
 
 	platform_set_drvdata(pdev, data);
 	dev_info(data->pps->dev, "Registered IRQ %d as PPS source\n", irq);
 
 	return 0;
-
-return_error:
-	gpio_free(pdata->gpio_pin);
-	return err;
 }
 
 static int pps_gpio_remove(struct platform_device *pdev)
 {
 	struct pps_gpio_device_data *data = platform_get_drvdata(pdev);
-	const struct pps_gpio_platform_data *pdata = data->pdata;
 
 	platform_set_drvdata(pdev, NULL);
-	free_irq(data->irq, data);
-	gpio_free(pdata->gpio_pin);
 	pps_unregister_source(data->pps);
 	pr_info("removed IRQ %d as PPS source\n", data->irq);
 	kfree(data);
