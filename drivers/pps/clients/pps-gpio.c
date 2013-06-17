@@ -33,6 +33,8 @@
 #include <linux/pps-gpio.h>
 #include <linux/gpio.h>
 #include <linux/list.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 
 /* Info for each registered platform device */
 struct pps_gpio_device_data {
@@ -104,14 +106,62 @@ get_irqf_trigger_flags(const struct pps_gpio_platform_data *pdata)
 	return flags;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id pps_gpio_dt_ids[] = {
+	{ .compatible = "pps-gpio", },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, pps_gpio_dt_ids);
+
+static struct pps_gpio_platform_data *
+of_get_pps_gpio_pdata(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	struct pps_gpio_platform_data *pdata;
+	int ret;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return NULL;
+
+	ret = of_get_gpio(np, 0);
+	if (ret < 0) {
+		pr_err("failed to get GPIO from device tree\n");
+		return NULL;
+	}
+
+	pdata->gpio_pin = ret;
+	pdata->gpio_label = PPS_GPIO_NAME;
+
+	if (of_get_property(np, "assert-falling-edge", NULL))
+		pdata->assert_falling_edge = true;
+
+	return pdata;
+}
+#else
+static struct pps_gpio_platform_data *
+of_get_pps_gpio_pdata(struct platform_device *pdev)
+{
+	return NULL;
+}
+#endif
+
 static int pps_gpio_probe(struct platform_device *pdev)
 {
 	struct pps_gpio_device_data *data;
 	int irq;
 	int ret;
 	int pps_default_params;
-	const struct pps_gpio_platform_data *pdata = pdev->dev.platform_data;
+	struct pps_gpio_platform_data *pdata;
+	const struct of_device_id *match;
 
+	match = of_match_device(pps_gpio_dt_ids, &pdev->dev);
+	if (match)
+		pdev->dev.platform_data = of_get_pps_gpio_pdata(pdev);
+	pdata = pdev->dev.platform_data;
+
+	if (!pdata)
+		return -ENODEV;
 
 	/* GPIO setup */
 	ret = pps_gpio_setup(pdev);
@@ -187,7 +237,8 @@ static struct platform_driver pps_gpio_driver = {
 	.remove		= pps_gpio_remove,
 	.driver		= {
 		.name	= PPS_GPIO_NAME,
-		.owner	= THIS_MODULE
+		.owner	= THIS_MODULE,
+		.of_match_table	= of_match_ptr(pps_gpio_dt_ids),
 	},
 };
 
