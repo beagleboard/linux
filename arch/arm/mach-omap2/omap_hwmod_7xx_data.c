@@ -582,6 +582,23 @@ static struct omap_hwmod dra7xx_dsp1_hwmod = {
 	},
 };
 
+/* dsp2 processor */
+static struct omap_hwmod dra7xx_dsp2_hwmod = {
+	.name		= "dsp2",
+	.class		= &dra7xx_dsp_hwmod_class,
+	.clkdm_name	= "dsp2_clkdm",
+	.rst_lines	= dra7xx_dsp_resets,
+	.rst_lines_cnt	= ARRAY_SIZE(dra7xx_dsp_resets),
+	.main_clk	= "dpll_dsp_m2_ck",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_DSP2_DSP2_CLKCTRL_OFFSET,
+			.rstctrl_offs = DRA7XX_RM_DSP2_RSTCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_DSP2_DSP2_CONTEXT_OFFSET,
+		},
+	},
+};
+
 /*
  * 'dss' class
  *
@@ -3179,6 +3196,14 @@ static struct omap_hwmod_ocp_if dra7xx_dsp1__l3_main_1 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* dsp2 -> l3_main_1 */
+static struct omap_hwmod_ocp_if dra7xx_dsp2__l3_main_1 = {
+	.master		= &dra7xx_dsp2_hwmod,
+	.slave		= &dra7xx_l3_main_1_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /* l3_main_1 -> dss */
 static struct omap_hwmod_ocp_if dra7xx_l3_main_1__dss = {
 	.master		= &dra7xx_l3_main_1_hwmod,
@@ -4197,6 +4222,7 @@ static struct omap_hwmod_ocp_if *dra74x_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per3__usb_otg_ss4,
 	&dra7xx_l3_main_1__mmu0_dsp2,
 	&dra7xx_l3_main_1__mmu1_dsp2,
+	&dra7xx_dsp2__l3_main_1,
 	NULL,
 };
 
