@@ -62,6 +62,81 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 	};
+
+	bone_capemgr {
+		compatible = "ti,bone-capemgr";
+		status = "okay";
+
+		eeprom = <&baseboard_eeprom>;
+
+		baseboardmaps {
+			baseboard_beaglebone: board@0 {
+				board-name = "A335BONE";
+				compatible-name = "ti,beaglebone";
+			};
+
+			baseboard_beaglebone_black: board@1 {
+				board-name = "A335BNLT";
+				compatible-name = "ti,beaglebone-black";
+			};
+		};
+
+		slots {
+			slot@0 {
+				eeprom = <&cape_eeprom0>;
+			};
+
+			slot@1 {
+				eeprom = <&cape_eeprom1>;
+			};
+
+			slot@2 {
+				eeprom = <&cape_eeprom2>;
+			};
+
+			slot@3 {
+				eeprom = <&cape_eeprom3>;
+			};
+
+			/* Beaglebone black has it soldered on */
+			slot@100 {
+				ti,cape-override;
+				priority = <1>;
+				compatible = "ti,beaglebone-black";
+				board-name = "Bone-LT-eMMC-2G";
+				version = "00A0";
+				manufacturer = "Texas Instruments";
+				part-number = "BB-BONE-EMMC-2G";
+			};
+
+			/* Beaglebone black has it soldered on */
+			slot@101 {
+				ti,cape-override;
+				priority = <1>;
+				compatible = "ti,beaglebone-black";
+				board-name = "Bone-Black-HDMI";
+				version = "00A0";
+				manufacturer = "Texas Instruments";
+				part-number = "BB-BONELT-HDMI";
+			};
+
+			/* Beaglebone black has it soldered on (but no audio) */
+			slot@102 {
+				ti,cape-override;
+				priority = <2>;
+				compatible = "ti,beaglebone-black";
+				board-name = "Bone-Black-HDMIN";
+				version = "00A0";
+				manufacturer = "Texas Instruments";
+				part-number = "BB-BONELT-HDMIN";
+			};
+		};
+
+		/* mapping between board names and dtb objects */
+		capemaps {
+			/* capemaps are only needed for special cases */
+		};
+	};
 };
 
 &am33xx_pinmux {
