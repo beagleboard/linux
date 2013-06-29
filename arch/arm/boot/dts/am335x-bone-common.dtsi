@@ -326,7 +326,7 @@
 				part-number = "BB-BONE-RTC-01";
 				version@00A0 {
 					version = "00A0";
-					dtbo = "cape-bone-adafruit-rtc-00A0.dtbo";
+					dtbo = "BB-BONE-RTC-00A0.dtbo";
 				};
 			};
 
