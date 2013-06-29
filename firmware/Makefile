@@ -155,6 +155,7 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	BB-BONE-LCD7-01-00A4.dtbo \
 	BB-BONE-eMMC1-01-00A0.dtbo \
 	BB-BONE-GPEVT-00A0.dtbo \
+	BB-BONE-RTC-00A0.dtbo \
 	BB-BONE-RS232-00A0.dtbo \
 	BB-BONE-SERL-01-00A1.dtbo \
 	cape-bone-iio-00A0.dtbo \
@@ -186,8 +187,7 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	BB-BONE-RST2-00A0.dtbo \
 	BB-BONE-CAM3-01-00A2.dtbo \
 	TT3201-001-01.dtbo \
-	BB-BONE-SERL-03-00A1.dtbo \
-	BB-BONE-PRU-01-00A0.dtbo
+	BB-BONE-SERL-03-00A1.dtbo
 
 # the geiger cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
