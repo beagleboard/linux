@@ -146,6 +146,32 @@ static const struct snd_soc_dapm_route audio_map[] = {
 };
 
 /* Logic for a aic3x as connected on a davinci-evm */
+static int evm_tda998x_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret;
+
+	ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_dai_set_clkdiv(cpu_dai, 1, 8);
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, SND_SOC_CLOCK_IN);
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_IB_NF);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+/* Logic for a aic3x as connected on a davinci-evm */
 static int evm_aic3x_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
@@ -380,6 +406,7 @@ static int davinci_evm_probe(struct platform_device *pdev)
 		evm_dai.name		= "NXP TDA HDMI Chip";
 		evm_dai.stream_name	= "HDMI";
 		evm_dai.codec_dai_name	= "nxp-hdmi-hifi";
+		evm_dai.init = evm_tda998x_init;
 
 		/*
 		 * Move GPIO handling out of the probe, if probe gets
@@ -398,11 +425,8 @@ static int davinci_evm_probe(struct platform_device *pdev)
 		  return -EINVAL;
 		}
 		gpio_set_value(clk_gpio, 1);
-		evm_dai.dai_fmt = SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF;
 		break;
-
 	}
-
 
 	evm_dai.codec_of_node = of_parse_phandle(np, "ti,audio-codec", 0);
 	if (!evm_dai.codec_of_node)
@@ -421,9 +445,9 @@ static int davinci_evm_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = snd_soc_register_card(&evm_soc_card);
-	if (ret) {
+	if (ret)
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n", ret);
-	}
+
 	return ret;
 }
 
@@ -460,9 +484,8 @@ static int __init evm_init(void)
 	 * If dtb is there, the devices will be created dynamically.
 	 * Only register platfrom driver structure.
 	 */
-	if (of_have_populated_dt()) {
-	  return platform_driver_register(&davinci_evm_driver);
-	}
+	if (of_have_populated_dt())
+		return platform_driver_register(&davinci_evm_driver);
 #endif
 
 	if (machine_is_davinci_evm()) {
@@ -483,9 +506,8 @@ static int __init evm_init(void)
 	} else if (machine_is_davinci_da850_evm()) {
 		evm_snd_dev_data = &da850_snd_soc_card;
 		index = 0;
-	} else {
+	} else
 		return -EINVAL;
-	}
 
 	evm_snd_device = platform_device_alloc("soc-audio", index);
 	if (!evm_snd_device)
