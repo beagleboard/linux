@@ -375,25 +375,7 @@ static void free_buf(struct port_buffer *buf, bool can_sleep)
 		put_page(page);
 	}
 
-	if (!buf->dev) {
-		kfree(buf->buf);
-	} else if (is_rproc_enabled) {
-		unsigned long flags;
-
-		/* dma_free_coherent requires interrupts to be enabled. */
-		if (!can_sleep) {
-			/* queue up dma-buffers to be freed later */
-			spin_lock_irqsave(&dma_bufs_lock, flags);
-			list_add_tail(&buf->list, &pending_free_dma_bufs);
-			spin_unlock_irqrestore(&dma_bufs_lock, flags);
-			return;
-		}
-		dma_free_coherent(buf->dev, buf->size, buf->buf, buf->dma);
-
-		/* Release device refcnt and allow it to be freed */
-		put_device(buf->dev);
-	}
-
+	kfree(buf->buf);
 	kfree(buf);
 }
 
@@ -442,28 +424,13 @@ static struct port_buffer *alloc_buf(struct virtqueue *vq, size_t buf_size,
 		return buf;
 	}
 
-	if (is_rproc_serial(vq->vdev)) {
-		/*
-		 * Allocate DMA memory from ancestor. When a virtio
-		 * device is created by remoteproc, the DMA memory is
-		 * associated with the grandparent device:
-		 * vdev => rproc => platform-dev.
-		 * The code here would have been less quirky if
-		 * DMA_MEMORY_INCLUDES_CHILDREN had been supported
-		 * in dma-coherent.c
-		 */
-		if (!vq->vdev->dev.parent || !vq->vdev->dev.parent->parent)
-			goto free_buf;
-		buf->dev = vq->vdev->dev.parent->parent;
-
-		/* Increase device refcnt to avoid freeing it */
-		get_device(buf->dev);
-		buf->buf = dma_alloc_coherent(buf->dev, buf_size, &buf->dma,
-					      GFP_KERNEL);
-	} else {
-		buf->dev = NULL;
-		buf->buf = kmalloc(buf_size, GFP_KERNEL);
-	}
+	/* NOTE: No more dma_alloc_coherent for rproc_serial
+	 * It was bogus anyway, since you ended up calling sg_phys()
+	 * on a dma_alloc_coherent address. With vring supporting
+	 * dma mapping regular kmalloc memory is fine.
+	 */
+	buf->dev = NULL;	/* FIXME: Perhaps revisit? */
+	buf->buf = kmalloc(buf_size, GFP_KERNEL);
 
 	if (!buf->buf)
 		goto free_buf;
