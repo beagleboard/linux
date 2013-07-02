@@ -19,6 +19,8 @@
 #include <linux/virtio.h>
 #include <linux/virtio_ring.h>
 #include <linux/virtio_config.h>
+#include <linux/virtio_ids.h>
+#include <linux/dma-mapping.h>
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/module.h>
@@ -74,6 +76,13 @@
 #define END_USE(vq)
 #endif
 
+struct vring_sg {
+	struct scatterlist sg;
+	void *va;
+	dma_addr_t dma;
+	enum dma_data_direction dir;
+};
+
 struct vring_virtqueue
 {
 	struct virtqueue vq;
@@ -113,11 +122,82 @@ struct vring_virtqueue
 	ktime_t last_add_time;
 #endif
 
+	/* copy of the scatter list */
+	struct vring_sg *vsg;
+
 	/* Tokens for callbacks. */
 	void *data[];
 };
 
 #define to_vvq(_vq) container_of(_vq, struct vring_virtqueue, vq)
+
+/* gross hack */
+#define is_rproc_enabled IS_ENABLED(CONFIG_REMOTEPROC)
+
+static inline bool vdev_needs_mapping(const struct virtio_device *vdev)
+{
+	return is_rproc_enabled && vdev->id.device == VIRTIO_ID_RPROC_SERIAL;
+}
+
+static inline bool vring_needs_mapping(const struct virtqueue *vq)
+{
+	return vdev_needs_mapping(vq->vdev);
+}
+
+dma_addr_t vring_map_single(struct virtqueue *vq, int pos,
+		struct scatterlist *sg, enum dma_data_direction dir)
+{
+	struct device *dev;
+	struct vring_sg *vsg;
+	struct vring_virtqueue *vvq;
+
+	if (!vring_needs_mapping(vq))
+		return sg_phys(sg);
+
+	/* grab the ancestor (this is vdev->rproc->pdev) */
+	if (!vq->vdev->dev.parent || !vq->vdev->dev.parent->parent)
+		return DMA_ERROR_CODE;
+	dev = vq->vdev->dev.parent->parent;
+
+	vvq = to_vvq(vq);
+
+	vsg = &vvq->vsg[pos];
+
+	/* copy the whole structure */
+	vsg->sg = *sg;
+	vsg->va = sg_virt(sg);
+	vsg->dir = dir;
+	vsg->dma = dma_map_single(dev, vsg->va, vsg->sg.length, dir);
+
+	/* could be dma_mapping_error */
+	return vsg->dma;
+}
+
+int vring_unmap_single(struct virtqueue *vq, int pos)
+{
+	struct device *dev;
+	struct vring_sg *vsg;
+	struct vring_virtqueue *vvq;
+
+	if (!vring_needs_mapping(vq))
+		return 0;
+
+	/* grab the ancestor (this is vdev->rproc->pdev) */
+	if (!vq->vdev->dev.parent || !vq->vdev->dev.parent->parent)
+		return -EINVAL;
+
+	dev = vq->vdev->dev.parent->parent;
+
+	vvq = to_vvq(vq);
+
+	vsg = &vvq->vsg[pos];
+
+	dma_unmap_single(dev, vsg->dma, vsg->sg.length, vsg->dir);
+
+	memset(vsg, 0, sizeof(*vsg));
+
+	return 0;
+}
 
 /* Set up an indirect table of descriptors and add it to the queue. */
 static int vring_add_indirect(struct vring_virtqueue *vq,
@@ -219,8 +299,10 @@ int virtqueue_add_buf(struct virtqueue *_vq,
 #endif
 
 	/* If the host supports indirect descriptor tables, and we have multiple
-	 * buffers, then go indirect. FIXME: tune this threshold */
-	if (vq->indirect && (out + in) > 1 && vq->vq.num_free) {
+	 * buffers, then go indirect; but only if we don't need dma mapping.
+	 * FIXME: tune this threshold */
+	if (vq->indirect && (out + in) > 1 && vq->vq.num_free &&
+			!vring_needs_mapping(_vq)) {
 		head = vring_add_indirect(vq, sg, out, in, gfp);
 		if (likely(head >= 0))
 			goto add_head;
@@ -247,14 +329,14 @@ int virtqueue_add_buf(struct virtqueue *_vq,
 	head = vq->free_head;
 	for (i = vq->free_head; out; i = vq->vring.desc[i].next, out--) {
 		vq->vring.desc[i].flags = VRING_DESC_F_NEXT;
-		vq->vring.desc[i].addr = sg_phys(sg);
+		vq->vring.desc[i].addr = vring_map_single(_vq, i, sg, DMA_TO_DEVICE);
 		vq->vring.desc[i].len = sg->length;
 		prev = i;
 		sg++;
 	}
 	for (; in; i = vq->vring.desc[i].next, in--) {
 		vq->vring.desc[i].flags = VRING_DESC_F_NEXT|VRING_DESC_F_WRITE;
-		vq->vring.desc[i].addr = sg_phys(sg);
+		vq->vring.desc[i].addr = vring_map_single(_vq, i, sg, DMA_FROM_DEVICE);
 		vq->vring.desc[i].len = sg->length;
 		prev = i;
 		sg++;
@@ -371,7 +453,8 @@ EXPORT_SYMBOL_GPL(virtqueue_kick);
 
 static void detach_buf(struct vring_virtqueue *vq, unsigned int head)
 {
-	unsigned int i;
+	unsigned int i, out, in;
+	u16 flags;
 
 	/* Clear data ptr. */
 	vq->data[head] = NULL;
@@ -383,15 +466,21 @@ static void detach_buf(struct vring_virtqueue *vq, unsigned int head)
 	if (vq->vring.desc[i].flags & VRING_DESC_F_INDIRECT)
 		kfree(phys_to_virt(vq->vring.desc[i].addr));
 
-	while (vq->vring.desc[i].flags & VRING_DESC_F_NEXT) {
+	out = 0;
+	in = 0;
+	while ((flags = vq->vring.desc[i].flags) & VRING_DESC_F_NEXT) {
 		i = vq->vring.desc[i].next;
 		vq->vq.num_free++;
+
+		vring_unmap_single(&vq->vq, i);
 	}
 
 	vq->vring.desc[i].next = vq->free_head;
 	vq->free_head = head;
 	/* Plus final descriptor */
 	vq->vq.num_free++;
+
+	vring_unmap_single(&vq->vq, i);
 }
 
 static inline bool more_used(const struct vring_virtqueue *vq)
@@ -629,7 +718,7 @@ struct virtqueue *vring_new_virtqueue(unsigned int index,
 				      const char *name)
 {
 	struct vring_virtqueue *vq;
-	unsigned int i;
+	unsigned int i, size, size_vsg;
 
 	/* We assume num is a power of 2. */
 	if (num & (num - 1)) {
@@ -637,7 +726,16 @@ struct virtqueue *vring_new_virtqueue(unsigned int index,
 		return NULL;
 	}
 
-	vq = kmalloc(sizeof(*vq) + sizeof(void *)*num, GFP_KERNEL);
+	size = sizeof(*vq) + sizeof(void *)*num;
+	/* align size to dma_addr_t */
+	size = ALIGN(size, sizeof(struct vring_sg));
+
+	/* add the size of the sg array (if needed) */
+	if (vdev_needs_mapping(vdev))
+		size_vsg = sizeof(struct vring_sg) * num;
+	else
+		size_vsg = 0;
+	vq = kmalloc(size + size_vsg, GFP_KERNEL);
 	if (!vq)
 		return NULL;
 
@@ -672,6 +770,12 @@ struct virtqueue *vring_new_virtqueue(unsigned int index,
 		vq->data[i] = NULL;
 	}
 	vq->data[i] = NULL;
+
+	/* initialize everything to zero */
+	if (size_vsg > 0) {
+		vq->vsg = (void *)vq + size;
+		memset(vq->vsg, 0, size_vsg);
+	}
 
 	return &vq->vq;
 }
