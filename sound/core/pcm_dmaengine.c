@@ -276,6 +276,16 @@ struct dma_chan *snd_dmaengine_pcm_request_channel(dma_filter_fn filter_fn,
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_request_channel);
 
+struct dma_chan *snd_dmaengine_pcm_request_slave_channel(
+	struct snd_pcm_substream *substream, char *name)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct device *dev = snd_soc_dai_get_drvdata(rtd->cpu_dai);
+
+	return dma_request_slave_channel(dev, name);
+}
+EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_request_slave_channel);
+
 /**
  * snd_dmaengine_pcm_open - Open a dmaengine based PCM substream
  * @substream: PCM substream
@@ -333,6 +343,18 @@ int snd_dmaengine_pcm_open_request_chan(struct snd_pcm_substream *substream,
 		    snd_dmaengine_pcm_request_channel(filter_fn, filter_data));
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_open_request_chan);
+
+int snd_dmaengine_pcm_open_request_slave_chan(struct snd_pcm_substream *substream, char *name)
+{
+	if(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		return snd_dmaengine_pcm_open(substream,
+			    snd_dmaengine_pcm_request_slave_channel(substream, "tx"));
+	} else {
+		return snd_dmaengine_pcm_open(substream,
+			    snd_dmaengine_pcm_request_slave_channel(substream, "rx"));
+	}
+}
+EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_open_request_slave_chan);
 
 /**
  * snd_dmaengine_pcm_close - Close a dmaengine based PCM substream
