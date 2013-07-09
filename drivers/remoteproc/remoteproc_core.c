@@ -868,16 +868,13 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 
 	/* look for the resource table */
 	table = rproc_find_rsc_table(rproc, fw, &tablesz);
-	if (!table) {
-		ret = -EINVAL;
-		goto clean_up;
-	}
-
-	/* handle fw resources which are required to boot rproc */
-	ret = rproc_handle_boot_rsc(rproc, table, tablesz);
-	if (ret) {
-		dev_err(dev, "Failed to process resources: %d\n", ret);
-		goto clean_up;
+	if (table != NULL) {
+		/* handle fw resources which are required to boot rproc */
+		ret = rproc_handle_boot_rsc(rproc, table, tablesz);
+		if (ret) {
+			dev_err(dev, "Failed to process resources: %d\n", ret);
+			goto clean_up;
+		}
 	}
 
 	/* load the ELF segments to memory */
