@@ -1,0 +1,216 @@
+/*
+ * Copyright (C) 2013 Circuit Co.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-BACON";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.36",	/* AIN5 */
+		"P8.19",	/* gpio-keys: gpio0_23 */
+		"P9.14",	/* pwm: ehrpwm1A */
+		"P9.16",	/* pwm: ehrpwm1B */
+		"P9.42",	/* pwm: eCAP0_in_PWM0_out */
+		"P9.17",	/* shift: gpio0_5 LATCH */
+		"P9.18",	/* shift: gpio0_4 SERIAL */
+		"P9.22",	/* shift: gpio0_2 CLOCK */
+		/* the hardware IP uses */
+		"tscadc",
+		"gpio0_23",
+		"ehrpwm1A",
+		"ehrpwm1B",
+		"eCAP0_in_PWM0_out",
+		"gpio0_5",
+		"gpio0_4",
+		"gpio0_2";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+
+			bacon_key_pins: pinmux_bacon_key_pins {
+				pinctrl-single,pins = <
+					0x020 0x2f	/* gpmc_ad8.gpio0_22, INPUT | PULLDIS | MODE7 */
+				>;
+			};
+
+			bacon_ehrpwm1_pins: pinmux_bacon_ehrpwm1_pins {
+				pinctrl-single,pins = <
+					0x048  0x6	/* P9_14 (ZCZ ball U14) | MODE 6 */
+					0x04c  0x6	/* P9_16 (ZCZ ball T14) | MODE 6 */
+				>;
+			};
+
+			bacon_ecap0_pins: pinmux_bacon_ecap0_pins {
+				pinctrl-single,pins = <
+					0x164  0x0	/* P9_42 (ZCZ ball C18) | MODE 0 */
+				>;
+			};
+
+			bacon_gpiohelp_pins: pinmux_bacon_gpio_helper_pins {
+				pinctrl-single,pins = <
+					0x15c 0x0f 	/* P9 17 spi0_cs0.gpio0_5 | MODE7 | OUTPUT */
+					0x158 0x0f 	/* P9 18 spi0_d1.gpio0_4 | MODE7 | OUTPUT */
+					0x150 0x0f 	/* P9 22 spi0_sclk.gpio0_2 | MODE7 | OUTPUT */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&ocp>;
+		__overlay__ {
+			/* avoid stupid warning */
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			tscadc {
+				compatible = "ti,ti-tscadc";
+				reg = <0x44e0d000 0x1000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <16>;
+				ti,hwmods = "adc_tsc";
+				status = "okay";
+
+				adc {
+					ti,adc-channels = <8>;	/* 8 channels (but only 5 is used) */
+				};
+			};
+
+			bacon_helper {
+				compatible = "bone-iio-helper";
+				vsense-name  = "AIN0", "AIN1", "AIN2", "AIN3", "AIN4", "AIN5", "AIN6", "AIN7";
+				/* report micro-volts */
+				vsense-scale = <100000  100000  100000  100000  100000  100000  100000  100000>;
+				status = "okay";
+			};
+
+			/* the single button */
+			bacon_gpio_keys {
+				compatible = "gpio-keys";
+				pinctrl-names = "default";
+				pinctrl-0 = <&bacon_key_pins>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				button@0 {
+					debounce_interval = <50>;
+					linux,code = <28>;
+					label = "enter";
+					gpios = <&gpio1 22 0x1>;	/* really gpio0_23 */
+					gpio-key,wakeup;
+				};
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&epwmss0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@4 {
+		target = <&ecap0>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&bacon_ecap0_pins>;
+			status = "okay";
+		};
+	};
+
+	fragment@5 {
+		target = <&epwmss1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@6 {
+		target = <&ehrpwm1>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&bacon_ehrpwm1_pins>;
+			status = "okay";
+		};
+	};
+
+	fragment@7 {
+		target = <&ocp>;
+		__overlay__ {
+			bacon_pwm_leds {
+				compatible = "pwm-leds";
+
+				bacon_pwm_green {
+					label = "bacon::green";
+					pwms = <&ehrpwm1 0 500000 0>;
+					max-brightness = <255>;
+				};
+
+				bacon_pwm_blue {
+					label = "bacon::blue";
+					pwms = <&ehrpwm1 1 500000 0>;
+					max-brightness = <255>;
+				};
+
+				bacon_pwm_red {
+					label = "bacon::red";
+					pwms = <&ecap0 0 500000 0>;
+					max-brightness = <255>;
+				};
+			};
+		};
+	};
+
+	fragment@8 {
+		target = <&ocp>;
+		__overlay__ {
+
+			bacon_gpiohelp {
+				compatible = "gpio-of-helper";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&bacon_gpiohelp_pins>;
+
+				/* declare your gpios */
+				LATCH {
+					gpio-name = "LATCH";
+					gpio = <&gpio1 5 0x00>;	/* gpio1 is gpio0 */
+					output;
+					init-high;
+				};
+
+				SERIAL {
+					gpio-name = "SERIAL";
+					gpio = <&gpio1 4 0x00>;	/* gpio1 is gpio0 */
+					output;
+					init-low;
+				};
+
+				CLOCK {
+					gpio-name = "CLOCK";
+					gpio = <&gpio1 2 0x00>;	/* gpio1 is gpio0 */
+					output;
+					init-low;
+				};
+			};
+		};
+	};
+
+
+
+};
