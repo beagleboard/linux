@@ -105,7 +105,8 @@ static struct led_pwm_priv *led_pwm_create_of(struct platform_device *pdev)
 		led_dat->cdev.name = of_get_property(child, "label",
 						     NULL) ? : child->name;
 
-		led_dat->pwm = devm_of_pwm_get(&pdev->dev, child, NULL);
+		/* caution: this is not release automatically */
+		led_dat->pwm = of_pwm_request(child, NULL);
 		if (IS_ERR(led_dat->pwm)) {
 			dev_err(&pdev->dev, "unable to request PWM for %s\n",
 				led_dat->cdev.name);
@@ -123,7 +124,7 @@ static struct led_pwm_priv *led_pwm_create_of(struct platform_device *pdev)
 		led_dat->cdev.brightness = LED_OFF;
 		led_dat->cdev.flags |= LED_CORE_SUSPENDRESUME;
 
-		led_dat->can_sleep = pwm_can_sleep(led_dat->pwm);
+		led_dat->can_sleep = 0; /* pwm_can_sleep(led_dat->pwm); */
 		if (led_dat->can_sleep)
 			INIT_WORK(&led_dat->work, led_pwm_work);
 
@@ -180,7 +181,7 @@ static int led_pwm_probe(struct platform_device *pdev)
 			led_dat->cdev.max_brightness = cur_led->max_brightness;
 			led_dat->cdev.flags |= LED_CORE_SUSPENDRESUME;
 
-			led_dat->can_sleep = pwm_can_sleep(led_dat->pwm);
+			led_dat->can_sleep = 0; /* pwm_can_sleep(led_dat->pwm); */
 			if (led_dat->can_sleep)
 				INIT_WORK(&led_dat->work, led_pwm_work);
 
