@@ -46,6 +46,7 @@ config PRU_RPROC
 	depends on EXPERIMENTAL
 	depends on HAS_DMA && SOC_AM33XX
 	select REMOTEPROC
+	select RPMSG
 	default n
 	help
 	  Say y or m here to support AM33xx PRU
