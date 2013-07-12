@@ -30,6 +30,8 @@
 #include <linux/virtio_ring.h>
 #include <asm/atomic.h>
 
+#include <linux/pwm.h>
+
 #include "remoteproc_internal.h"
 
 /* PRU_EVTOUT0 is halt (system call) */
@@ -75,6 +77,15 @@ struct pruproc_core;
 #define PRU_VRING_MAX	(RVDEV_NUM_VRINGS * PRU_VDEV_MAX)
 
 #define PRU_HALT_INSN	0x2a000000
+
+/* down call IDs */
+#define DC_PWM_CONFIG   0       /* pwm, hi, lo */
+#define DC_PWM_ENABLE   1       /* pwm */
+#define DC_PWM_DISABLE  2       /* pwm */
+#define DC_PWM_MAX	3
+
+/* maximum PWMs */
+#define PRU_PWM_MAX	32
 
 struct pru_vring_info {
 	struct fw_rsc_vdev_vring *rsc;
@@ -166,6 +177,18 @@ struct pruproc {
 	u32 num_prus;
 	struct pruproc_core **pruc;
 	struct pruproc_core *pru_to_pruc[MAX_PRUS];
+
+	/* PRU clock period in ns */
+	u32 clock_freq;
+
+	/* the actual linux devices */
+	struct {
+		struct pwm_chip chip;
+		int count;
+		u32 map[PRU_PWM_MAX];	/* maximum pwm channels is 32 */
+		int controller;
+		u32 dc_ids[DC_PWM_MAX];
+	} pwm;
 };
 
 /* global memory map (for am33xx) (almost the same as local) */
@@ -1262,7 +1285,10 @@ static ssize_t pruproc_store_reset(struct device *dev,
 }
 
 static int pru_downcall(struct pruproc_core *ppc,
-		u32 nr, u32 arg0, u32 arg1, u32 arg2);
+		u32 nr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4);
+
+static int pru_downcall_idx(struct pruproc *pp, int idx,
+		u32 nr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4);
 
 static ssize_t pruproc_store_downcall(int idx,
 		struct device *dev, struct device_attribute *attr,
@@ -1270,20 +1296,11 @@ static ssize_t pruproc_store_downcall(int idx,
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct pruproc *pp = platform_get_drvdata(pdev);
-	struct pruproc_core *ppc = NULL;
-	int i, ret;
+	int ret;
 
-	for (i = 0; i < pp->num_prus; i++) {
-		ppc = pp->pruc[i];
-		if (ppc->idx == idx)
-			break;
-	}
-	if (i >= pp->num_prus)
-		return -EINVAL;
+	ret = pru_downcall_idx(pp, idx, 0x5, 0xaa55, 0x1234, 0x98ff, 0, 0);
 
-	ret = pru_downcall(ppc, 0x5, 0xaa55, 0x1234, 0x98ff);
-
-	dev_info(dev, "PRU#%d downcall test - ret = %d\n", ppc->idx, ret);
+	dev_info(dev, "PRU#%d downcall test - ret = %d\n", idx, ret);
 
 	return strlen(buf);
 }
@@ -1579,7 +1596,7 @@ static int pru_handle_syscall(struct pruproc_core *ppc)
 
 /* perform the downcall */
 static int pru_downcall(struct pruproc_core *ppc,
-		u32 nr, u32 arg0, u32 arg1, u32 arg2)
+		u32 nr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4)
 {
 	struct pruproc *pp = ppc->pruproc;
 	struct device *dev = &pp->pdev->dev;
@@ -1650,6 +1667,8 @@ static int pru_downcall(struct pruproc_core *ppc,
 	pru_write_cpu_reg(ppc, 15, arg0);
 	pru_write_cpu_reg(ppc, 16, arg1);
 	pru_write_cpu_reg(ppc, 17, arg2);
+	pru_write_cpu_reg(ppc, 18, arg3);
+	pru_write_cpu_reg(ppc, 19, arg4);
 
 	set_bit(PRU_DCF_DOWNCALL_ISSUE, &ppc->dc_flags);
 
@@ -1689,6 +1708,22 @@ ret_unlock:
 	return ret;
 }
 
+static int pru_downcall_idx(struct pruproc *pp, int idx,
+		u32 nr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4)
+{
+	struct pruproc_core *ppc = NULL;
+	int i;
+
+	for (i = 0; i < pp->num_prus; i++) {
+		ppc = pp->pruc[i];
+		if (ppc->idx == idx)
+			break;
+	}
+	if (i >= pp->num_prus)
+		return -EINVAL;
+
+	return pru_downcall(ppc, nr, arg0, arg1, arg2, arg3, arg4);
+}
 
 static irqreturn_t pru_handler(int irq, void *data)
 {
@@ -2162,6 +2197,153 @@ static int configure_pintc(struct platform_device *pdev, struct pruproc *pp)
 	return 0;
 }
 
+static int pru_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
+			     int duty_ns, int period_ns)
+{
+	struct device *dev = chip->dev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pruproc *pp = platform_get_drvdata(pdev);
+	int hwpwm, prupwm, ret;
+	u32 hi, lo;
+
+	hwpwm = pwm->hwpwm;
+	if (hwpwm >= pp->pwm.count)
+		return -EINVAL;
+	prupwm = pp->pwm.map[hwpwm];
+
+	dev_dbg(&pdev->dev, "%s (%d/%d) duty_ns=%d period_ns=%d\n", __func__,
+			hwpwm, prupwm, duty_ns, period_ns);
+
+	hi = div_u64((u64)duty_ns * pp->clock_freq, 1000000000);
+	lo = div_u64((u64)(period_ns - duty_ns) * pp->clock_freq, 1000000000);
+	ret = pru_downcall_idx(pp, pp->pwm.controller,
+			pp->pwm.dc_ids[DC_PWM_CONFIG], prupwm, hi, lo, 0, 0);
+	return ret;
+}
+
+static int pru_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	struct device *dev = chip->dev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pruproc *pp = platform_get_drvdata(pdev);
+	int hwpwm, prupwm, ret;
+
+	hwpwm = pwm->hwpwm;
+	if (hwpwm >= pp->pwm.count)
+		return -EINVAL;
+	prupwm = pp->pwm.map[hwpwm];
+
+	dev_dbg(&pdev->dev, "%s (%d/%d)\n", __func__, hwpwm, prupwm);
+
+	ret = pru_downcall_idx(pp, pp->pwm.controller,
+			pp->pwm.dc_ids[DC_PWM_ENABLE], prupwm, 0, 0, 0, 0);
+	return ret;
+}
+
+static void pru_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
+{
+	struct device *dev = chip->dev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pruproc *pp = platform_get_drvdata(pdev);
+	int hwpwm, prupwm;
+
+	hwpwm = pwm->hwpwm;
+	if (hwpwm >= pp->pwm.count)
+		return;
+	prupwm = pp->pwm.map[hwpwm];
+
+	dev_dbg(&pdev->dev, "%s (%d/%d)\n", __func__, hwpwm, prupwm);
+
+	pru_downcall_idx(pp, pp->pwm.controller,
+			pp->pwm.dc_ids[DC_PWM_DISABLE], prupwm, 0, 0, 0, 0);
+}
+
+static const struct pwm_ops pru_pwm_ops = {
+	.config = pru_pwm_config,
+	.enable = pru_pwm_enable,
+	.disable = pru_pwm_disable,
+};
+
+static int pruproc_create_pwm_devices(struct pruproc *pp)
+{
+	struct platform_device *pdev = pp->pdev;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	struct property *prop;
+	u32 val;
+	int err, i, cnt, proplen;
+
+	/* pwms */
+
+	/* find property */
+	prop = of_find_property(np, "pru-pwm-channels", &proplen);
+	if (prop == NULL)
+		return 0;
+
+	cnt = proplen / sizeof(u32);
+	if (cnt >= ARRAY_SIZE(pp->pwm.map)) {
+		dev_err(dev, "Too many PWMs %d (max %d)\n",
+				cnt, ARRAY_SIZE(pp->pwm.map));
+		return -EINVAL;
+	}
+	pp->pwm.count = cnt;
+
+	/* now read it */
+	err = of_property_read_u32_array(np, "pru-pwm-channels",
+			pp->pwm.map, cnt);
+	if (err != 0) {
+		dev_err(dev, "Failed to read %s property\n",
+				"pru-pwm-channels");
+		return err;
+	}
+
+	if (of_property_read_u32(np, "pru-pwm-controller", &val) == 0)
+		pp->pwm.controller = val;
+	else
+		pp->pwm.controller = 0;	/* default is PRU0 */
+
+	/* verify they are sane */
+	for (i = 0; i < cnt; i++) {
+		if (pp->pwm.map[i] >= ARRAY_SIZE(pp->pwm.map)) {
+			dev_err(dev, "Bad PWM number\n");
+			return -EINVAL;
+		}
+	}
+
+	/* get the PWM DC IDs */
+	err = of_property_read_u32_array(np, "pru-pwm-dc-ids",
+			pp->pwm.dc_ids, ARRAY_SIZE(pp->pwm.dc_ids));
+	if (err != 0) {
+		dev_err(dev, "Failed to read %s array\n",
+				"pru-pwm-dc-ids");
+		return err;
+	}
+
+	pp->pwm.chip.dev = dev;
+	pp->pwm.chip.ops = &pru_pwm_ops;
+	pp->pwm.chip.base = pdev->id;	/* ? */
+	pp->pwm.chip.npwm = cnt;
+
+	/* add the pwms */
+	err = pwmchip_add(&pp->pwm.chip);
+	if (err != 0) {
+		dev_err(dev, "pwmchip_add failed\n");
+		return err;
+	}
+
+	return 0;
+}
+
+/* after all is configured create the linux devices */
+static int pruproc_create_devices(struct pruproc *pp)
+{
+	int ret;
+
+	ret = pruproc_create_pwm_devices(pp);
+
+	return ret;
+}
+
 static int pruproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2176,7 +2358,7 @@ static int pruproc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct pinctrl *pinctrl;
 	int err, i, j, irq, sysev;
-	u32 tmparr[4], pru_idx;
+	u32 tmparr[4], pru_idx, val;
 	u32 tmpev[MAX_ARM_PRU_INTS];
 
 	/* get pinctrl */
@@ -2303,6 +2485,14 @@ static int pruproc_probe(struct platform_device *pdev)
 	pp->pdram    = tmparr[0];
 	pp->pdram_sz = tmparr[1];
 	pp->pdram_da = tmparr[2];
+
+	/* get the clock frequency */
+	err = of_property_read_u32(node, "clock-freq", &val);
+	if (err != 0) {
+		dev_warn(dev, "no clock-freq property; assuming default 200MHz\n");
+		val = 200000000;
+	}
+	pp->clock_freq = val;
 
 	/* configure PRU interrupt controller from DT */
 	err = configure_pintc(pdev, pp);
@@ -2591,6 +2781,9 @@ static int pruproc_probe(struct platform_device *pdev)
 	}
 
 	dev_info(dev, "Loaded OK\n");
+
+	/* creating devices */
+	pruproc_create_devices(pp);
 
 	(void)pru_d_read_u32;
 	(void)pru_i_write_u32;
