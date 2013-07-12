@@ -74,6 +74,8 @@ struct pruproc_core;
 #define PRU_VDEV_MAX	4
 #define PRU_VRING_MAX	(RVDEV_NUM_VRINGS * PRU_VDEV_MAX)
 
+#define PRU_HALT_INSN	0x2a000000
+
 struct pru_vring_info {
 	struct fw_rsc_vdev_vring *rsc;
 	struct vring vr;
@@ -122,6 +124,15 @@ struct pruproc_core {
 
 	/* boots */
 	atomic_t bootcnt;
+
+	/* downcall lock */
+	struct mutex dc_lock;
+	wait_queue_head_t dc_waitq;
+	unsigned long dc_flags;
+#define PRU_DCF_DOWNCALL_REQ	0
+#define PRU_DCF_DOWNCALL_ACK	1
+#define PRU_DCF_DOWNCALL_ISSUE	2
+#define PRU_DCF_DOWNCALL_DONE	3
 };
 
 struct pru_sysev_target {
@@ -898,16 +909,17 @@ static void pruproc_kick(struct rproc *rproc, int vqid)
 
 	dev_dbg(dev, "kick #%d vqid:%d\n", ppc->idx, vqid);
 
-	/* ARM to PRUx system event */
-	sysint = pp->target_to_sysev[TARGET_ARM_TO_PRU_IDX(ppc->idx)];
+	sysint = ppc->pru_vring_sysev;
+	if (sysint < 0) {
+		dev_err(dev, "PRU#%d no vring_sysev to kick with\n", ppc->idx);
+		return;
+	}
 
 	/* signal event */
 	if (sysint < 32)
 		pintc_write_reg(pp, PINTC_SRSR0, 1 << sysint);
 	else
 		pintc_write_reg(pp, PINTC_SRSR1, 1 << (sysint - 32));
-
-	// dump_all_vrings(ppc);
 }
 
 void dump_resource_table(const struct resource_table *res)
@@ -973,10 +985,13 @@ static int pruproc_start(struct rproc *rproc)
 	u32 val;
 	int err;
 
+	dev_info(dev, "PRU#%d bootcnt=%d\n",
+			ppc->idx, atomic_read(&ppc->bootcnt));
+
 	/* start the processors only when all devices have booted */
 	if (ppc->num_vdevs == 0 || atomic_inc_return(&ppc->bootcnt) == 1) {
 
-		dev_info(dev, "start PRU #%d entry-point 0x%x\n",
+		dev_info(dev, "PRU#%d entry-point 0x%x\n",
 				ppc->idx, ppc->entry_point);
 
 #if 1
@@ -1044,7 +1059,7 @@ static void *pruproc_alloc_vring(struct rproc *rproc,
 	}
 
 	if (i >= ppc->num_vrings) {
-		dev_err(dev, "PRU #%d could not find rsc_vring at %p\n",
+		dev_err(dev, "PRU#%d could not find rsc_vring at %p\n",
 				ppc->idx, rsc_vring);
 		return NULL;
 	}
@@ -1053,18 +1068,18 @@ static void *pruproc_alloc_vring(struct rproc *rproc,
 		dma = &dma_tmp;
 
 	if (rsc_vring->da != 0) {
-		dev_dbg(dev, "PRU #%d alloc vring #%d from internal memory\n",
+		dev_dbg(dev, "PRU#%d alloc vring #%d from internal memory\n",
 				ppc->idx, i);
 		va = pru_d_da_to_va_block(ppc, rsc_vring->da, dma, size);
 	} else {
-		dev_dbg(dev, "PRU #%d alloc vring #%d dma_alloc_coherent\n",
+		dev_dbg(dev, "PRU#%d alloc vring #%d dma_alloc_coherent\n",
 				ppc->idx, i);
 		va = dma_alloc_coherent(dev->parent, PAGE_ALIGN(size),
 			dma, GFP_KERNEL);
 	}
 
 	if (va == NULL) {
-		dev_err(dev, "PRU #%d could not allocate vring %p\n",
+		dev_err(dev, "PRU#%d could not allocate vring %p\n",
 				ppc->idx, rsc_vring);
 		return NULL;
 	}
@@ -1079,7 +1094,7 @@ static void *pruproc_alloc_vring(struct rproc *rproc,
 	vri->pa = *dma;
 	vri->da = pru_d_pa_to_da(ppc, *dma);
 
-	dev_dbg(dev, "PRU #%d vring #%d da=0x%x, va=%p, dma=0x%llx size=%u\n",
+	dev_dbg(dev, "PRU#%d vring #%d da=0x%x, va=%p, dma=0x%llx size=%u\n",
 		ppc->idx, i, rsc_vring->da, va, (unsigned long long)*dma, size);
 
 	return va;
@@ -1246,8 +1261,52 @@ static ssize_t pruproc_store_reset(struct device *dev,
 	return strlen(buf);
 }
 
+static int pru_downcall(struct pruproc_core *ppc,
+		u32 nr, u32 arg0, u32 arg1, u32 arg2);
+
+static ssize_t pruproc_store_downcall(int idx,
+		struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pruproc *pp = platform_get_drvdata(pdev);
+	struct pruproc_core *ppc = NULL;
+	int i, ret;
+
+	for (i = 0; i < pp->num_prus; i++) {
+		ppc = pp->pruc[i];
+		if (ppc->idx == idx)
+			break;
+	}
+	if (i >= pp->num_prus)
+		return -EINVAL;
+
+	ret = pru_downcall(ppc, 0x5, 0xaa55, 0x1234, 0x98ff);
+
+	dev_info(dev, "PRU#%d downcall test - ret = %d\n", ppc->idx, ret);
+
+	return strlen(buf);
+}
+
+static ssize_t pruproc_store_downcall0(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	return pruproc_store_downcall(0, dev, attr, buf, count);
+}
+
+static ssize_t pruproc_store_downcall1(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	return pruproc_store_downcall(1, dev, attr, buf, count);
+}
+
 static DEVICE_ATTR(load, S_IWUSR, NULL, pruproc_store_load);
 static DEVICE_ATTR(reset, S_IWUSR, NULL, pruproc_store_reset);
+
+static DEVICE_ATTR(downcall0, S_IWUSR, NULL, pruproc_store_downcall0);
+static DEVICE_ATTR(downcall1, S_IWUSR, NULL, pruproc_store_downcall1);
 
 /* PRU is unregistered */
 static int pruproc_remove(struct platform_device *pdev)
@@ -1278,8 +1337,6 @@ static int pruproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#define PRU_HALT_INSN	0x2a000000
-
 #define PRU_SC_HALT	0
 #define PRU_SC_PUTC	1
 #define PRU_SC_EXIT	2
@@ -1289,6 +1346,9 @@ static int pruproc_remove(struct platform_device *pdev)
 #define  PRU_SC_GET_CFG_VRING_INFO 1
 #define  PRU_SC_GET_CFG_RESOURCE_TABLE 2
 
+#define PRU_SC_DOWNCALL_READY       254     /* host requested a downcall, ack it, and execute */
+#define PRU_SC_DOWNCALL_DONE        255     /* call is performed, inform the host */
+
 struct pru_dev_vring_info {
 	u32 paddr;
 	u32 num;
@@ -1296,44 +1356,87 @@ struct pru_dev_vring_info {
 	u32 pad;
 };
 
-static int pru_handle_syscall(struct pruproc_core *ppc)
+/* verify that the PRU is halted */
+static int pru_is_halted(struct pruproc_core *ppc, u32 *addrp)
 {
 	struct pruproc *pp = ppc->pruproc;
 	struct device *dev = &pp->pdev->dev;
-	u32 val, addr, scno, arg0, arg1, arg2, ret;
-	int err, valid_sc;
-	void * __iomem va;
-	struct pru_vring_info *vri;
-	struct pru_dev_vring_info *dvri;
+	u32 val, addr;
+	int err;
 
 	/* check whether it's halted */
 	val = pcntrl_read_reg(ppc, PCTRL_CONTROL);
 	if ((val & CONTROL_RUNSTATE) != 0) {
-		dev_dbg(dev, "PRU #%d not halted\n",
+		dev_err(dev, "PRU#%d not halted\n",
 				ppc->idx);
 		return -EINVAL;
 	}
 
 	/* read the instruction */
-	addr = pcntrl_read_reg(ppc, PCTRL_STATUS) * 4;
+	addr = pcntrl_read_reg(ppc, PCTRL_STATUS) << 2;
 	err = pru_i_read_u32(ppc, addr, &val);
 	if (err != 0) {
-		dev_err(dev, "PRU #%d halted PC 0x%x bad\n", ppc->idx, addr);
+		dev_err(dev, "PRU#%d halted PC 0x%x bad\n", ppc->idx, addr);
 		return err;
 	}
 
 	/* check whether it's a halt instruction */
 	if (val != PRU_HALT_INSN) {
-		dev_err(dev, "PRU #%d not in halt insn (addr=0x%x val 0x%08x)\n",
+		dev_err(dev, "PRU#%d not in halt insn (addr=0x%x val 0x%08x)\n",
 				ppc->idx, addr, val);
 		return -EFAULT;
 	}
 
+	if (addrp != NULL)
+		*addrp = addr;
+
+	return 0;
+}
+
+static u32 pru_read_cpu_reg(struct pruproc_core *ppc, int reg)
+{
+	return pdbg_read_reg(ppc, PDBG_GPREG(reg));
+}
+
+static void pru_write_cpu_reg(struct pruproc_core *ppc, int reg, u32 val)
+{
+	pdbg_write_reg(ppc, PDBG_GPREG(reg), val);
+}
+
+/* it is assumed that the PRU is halted */
+static void pru_resume(struct pruproc_core *ppc, u32 addr)
+{
+	u32 val;
+
+	val = pcntrl_read_reg(ppc, PCTRL_CONTROL);
+	val &= 0xffff;
+	val |= ((addr >> 2) << 16) | CONTROL_ENABLE;
+	val &= ~CONTROL_SOFT_RST_N;
+	pcntrl_write_reg(ppc, PCTRL_CONTROL, val);
+}
+
+/* handle a PRU syscall */
+static int pru_handle_syscall(struct pruproc_core *ppc)
+{
+	struct pruproc *pp = ppc->pruproc;
+	struct device *dev = &pp->pdev->dev;
+	u32 addr, scno, arg0, arg1, arg2, ret;
+	int valid_sc;
+	void * __iomem va;
+	struct pru_vring_info *vri;
+	struct pru_dev_vring_info *dvri;
+
+	ret = pru_is_halted(ppc, &addr);
+	if (ret != 0) {
+		dev_err(dev, "PRU#%d not halted\n", ppc->idx);
+		return ret;
+	}
+
 	valid_sc = 0;
-	scno = pdbg_read_reg(ppc, PDBG_GPREG(14));
-	arg0 = pdbg_read_reg(ppc, PDBG_GPREG(15));
-	arg1 = pdbg_read_reg(ppc, PDBG_GPREG(16));
-	arg2 = pdbg_read_reg(ppc, PDBG_GPREG(17));
+	scno = pru_read_cpu_reg(ppc, 14);
+	arg0 = pru_read_cpu_reg(ppc, 15);
+	arg1 = pru_read_cpu_reg(ppc, 16);
+	arg2 = pru_read_cpu_reg(ppc, 17);
 	ret  = 0;	/* by default we return 0 */
 
 	switch (scno) {
@@ -1356,7 +1459,7 @@ static int pru_handle_syscall(struct pruproc_core *ppc)
 			/* pointers can only be in own data ram */
 			va = pru_d_da_to_va(ppc, arg0, NULL);
 			if (va == NULL) {
-				dev_err(dev, "PRU #%d SC PUTS bad 0x%x\n",
+				dev_err(dev, "PRU#%d SC PUTS bad 0x%x\n",
 						ppc->idx, arg0);
 				ret = (u32)-1;
 			} else {
@@ -1374,7 +1477,7 @@ static int pru_handle_syscall(struct pruproc_core *ppc)
 					break;
 				case PRU_SC_GET_CFG_VRING_INFO:
 					if (arg1 >= ppc->num_vrings) {
-						dev_err(dev, "PRU #%d SC "
+						dev_err(dev, "PRU#%d SC "
 							"GET_CFG_VRING_INFO "
 							"bad idx %d\n",
 							ppc->idx, arg1);
@@ -1382,7 +1485,7 @@ static int pru_handle_syscall(struct pruproc_core *ppc)
 
 					va = pru_d_da_to_va(ppc, arg2, NULL);
 					if (va == NULL) {
-						dev_err(dev, "PRU #%d SC "
+						dev_err(dev, "PRU#%d SC "
 							"GET_CFG_VRING_INFO "
 							"bad 0x%x\n",
 							ppc->idx, arg2);
@@ -1410,7 +1513,7 @@ static int pru_handle_syscall(struct pruproc_core *ppc)
 					break;
 
 				default:
-					dev_err(dev, "PRU #%d SC "
+					dev_err(dev, "PRU#%d SC "
 						"GET_CFG bad 0x%x\n",
 						ppc->idx, arg1);
 					ret = (u32)-1;
@@ -1418,29 +1521,174 @@ static int pru_handle_syscall(struct pruproc_core *ppc)
 			}
 			break;
 
+		case PRU_SC_DOWNCALL_READY:
+			/* if we were waiting for it, wake up */
+			if (test_and_clear_bit(PRU_DCF_DOWNCALL_REQ, &ppc->dc_flags)) {
+				set_bit(PRU_DCF_DOWNCALL_ACK, &ppc->dc_flags);
+				wake_up_interruptible(&ppc->dc_waitq);
+				return 1;
+			}
+			dev_err(dev, "P%d No-one expected downcall; halting\n",
+					ppc->idx);
+			return 1;
+
+		case PRU_SC_DOWNCALL_DONE:
+			/* if we were waiting for it, wake up */
+			if (test_and_clear_bit(PRU_DCF_DOWNCALL_ISSUE, &ppc->dc_flags)) {
+				set_bit(PRU_DCF_DOWNCALL_DONE, &ppc->dc_flags);
+				wake_up_interruptible(&ppc->dc_waitq);
+				return 1;
+			}
+			dev_err(dev, "P%d No-one expected downcall; halting\n",
+					ppc->idx);
+			return 1;
+
 		default:
-			dev_err(dev, "PRU #%d SC Unknown (%d)\n",
+			dev_err(dev, "PRU#%d SC Unknown (%d)\n",
 				ppc->idx, scno);
 			return 1;
 	}
 
 	/* return code */
-	pdbg_write_reg(ppc, PDBG_GPREG(14), ret);
+	pru_write_cpu_reg(ppc, 14, ret);
 
 	/* skip over the HALT insn */
-	val = pcntrl_read_reg(ppc, PCTRL_CONTROL);
-	val &= 0xffff;
-	addr = pcntrl_read_reg(ppc, PCTRL_STATUS);
-	val |= ((addr + 1) << 16) | CONTROL_ENABLE;
-	val &= ~CONTROL_SOFT_RST_N;
-
-	/* dev_dbg(dev, "PRU#%d new PCTRL_CONTROL=0x%08x\n",
-			ppc->idx, val); */
-
-	pcntrl_write_reg(ppc, PCTRL_CONTROL, val);
+	pru_resume(ppc, addr + 4);
 
 	return 0;
 }
+
+/*
+ * The source of the downcall part on the PRU
+ *
+ *         .global sc_downcall
+ *sc_downcall:
+ *	MOV R0.w0, R14.w0               ;* save the pointer to the function
+ *	;* first issue the downcall ready
+ *	LDI R14, DOWNCALL_READY
+ *	LDI R31, SYSCALL_VALUE
+ *	HALT                            ;* host must save R3.w0 locally
+ *	;* the host will manipulate our state so that the arguments are correct
+ *	JAL R3.w0, R0.w0                ;* call
+ *	MOV R0, R14                     ;* save the return code
+ *	;* when we return here, we will inform the host of the result
+ *	LDI R14, DOWNCALL_DONE          ;
+ *	LDI R31, SYSCALL_VALUE
+ *	HALT                            ;* host must return to save R3.w0
+ */
+
+/* perform the downcall */
+static int pru_downcall(struct pruproc_core *ppc,
+		u32 nr, u32 arg0, u32 arg1, u32 arg2)
+{
+	struct pruproc *pp = ppc->pruproc;
+	struct device *dev = &pp->pdev->dev;
+	int sysint;
+	int ret;
+	long intr;
+	u32 addr, r3in;
+
+	sysint = pp->target_to_sysev[TARGET_ARM_TO_PRU_IDX(ppc->idx)];
+	if (sysint == -1)
+		return -EINVAL;
+
+	/* we might sleep, warn with a backtrace */
+	might_sleep();
+
+	mutex_lock(&ppc->dc_lock);
+
+	/* state machine out of sync */
+	if (ppc->dc_flags != 0) {
+		ret = -EBUSY;
+		goto ret_unlock;
+	}
+
+	if (test_and_set_bit(PRU_DCF_DOWNCALL_REQ, &ppc->dc_flags) != 0) {
+		dev_err(dev, "PRU#%d downcall failed due to mangled req bit\n",
+				ppc->idx);
+		ret = -EBUSY;
+		goto ret_unlock;
+	}
+
+	/* signal downcall event */
+	if (sysint < 32)
+		pintc_write_reg(pp, PINTC_SRSR0, 1 << sysint);
+	else
+		pintc_write_reg(pp, PINTC_SRSR1, 1 << (sysint - 32));
+
+	/* now waiting until we get the downcall ready (maximum 100ms) */
+	intr = wait_event_interruptible_timeout(ppc->dc_waitq,
+		test_and_clear_bit(PRU_DCF_DOWNCALL_ACK, &ppc->dc_flags),
+		HZ / 10);
+	if (intr < 0) {
+		ret = (int)intr;
+		dev_err(dev, "PRU#%d error waiting for downcall ready (%d)\n",
+				ppc->idx, ret);
+		goto ret_call_failed;
+	}
+	if (intr == 0) {
+		dev_err(dev, "PRU#%d failed to issue downcall ready in 100ms\n",
+				ppc->idx);
+		ret = -ETIMEDOUT;
+		goto ret_call_failed;
+	}
+	dev_dbg(dev, "PRU#%d got downcall ready\n", ppc->idx);
+
+	ret = pru_is_halted(ppc, &addr);
+	if (ret != 0) {
+		dev_err(dev, "PRU#%d not halted\n",
+				ppc->idx);
+		ret = -EFAULT;
+		goto ret_call_failed;
+	}
+
+	/* get the actual return address */
+	r3in = pru_read_cpu_reg(ppc, 3) << 2;
+
+	/* write the arguments */
+	pru_write_cpu_reg(ppc, 14, nr);
+	pru_write_cpu_reg(ppc, 15, arg0);
+	pru_write_cpu_reg(ppc, 16, arg1);
+	pru_write_cpu_reg(ppc, 17, arg2);
+
+	set_bit(PRU_DCF_DOWNCALL_ISSUE, &ppc->dc_flags);
+
+	/* skip over the HALT insn */
+	pru_resume(ppc, addr + 4);
+
+	/* now waiting until we get the downcall ready (maximum 100ms) */
+	intr = wait_event_interruptible_timeout(ppc->dc_waitq,
+		test_and_clear_bit(PRU_DCF_DOWNCALL_DONE, &ppc->dc_flags),
+		HZ / 10);
+	if (intr < 0) {
+		ret = (int)intr;
+		dev_err(dev, "PRU#%d error waiting for downcall done (%d)\n",
+				ppc->idx, ret);
+		goto ret_call_failed;
+	}
+	if (intr == 0) {
+		dev_err(dev, "PRU#%d failed to issue downcall done in 100ms\n",
+				ppc->idx);
+		ret = -ETIMEDOUT;
+		goto ret_call_failed;
+	}
+	dev_dbg(dev, "PRU#%d got downcall done\n", ppc->idx);
+
+	/* return */
+	ret = pru_read_cpu_reg(ppc, 0);
+
+	/* and we're done */
+	pru_resume(ppc, r3in);
+
+ret_call_failed:
+	ppc->dc_flags = 0;
+
+ret_unlock:
+	mutex_unlock(&ppc->dc_lock);
+
+	return ret;
+}
+
 
 static irqreturn_t pru_handler(int irq, void *data)
 {
@@ -1512,7 +1760,7 @@ static irqreturn_t pru_handler(int irq, void *data)
 	/* we either handle a vring or not */
 	if (!pst->vring) {
 		ret = pru_handle_syscall(ppc);
-		if (ret == 0) 	/* system call handled */
+		if (ret >= 0) 	/* system call handled */
 			handled++;
 	} else {
 		/* handle any vrings action */
@@ -1522,7 +1770,7 @@ static irqreturn_t pru_handler(int irq, void *data)
 				continue;
 			ret = rproc_vq_interrupt(rproc, vri->rvring->notifyid);
 			if (ret == IRQ_HANDLED) {
-				dev_dbg(dev, "PRU #%d; vring irq handled\n",
+				dev_dbg(dev, "PRU#%d; vring irq handled\n",
 						ppc->idx);
 				handled++;
 			}
@@ -1530,13 +1778,11 @@ static irqreturn_t pru_handler(int irq, void *data)
 		}
 	}
 
-#if 0
 	if (!handled) {
 		dev_err(dev, "sysint not handled; disabling interrupt\n");
-		goto disable_int;
+		return IRQ_NONE;
 
 	}
-#endif
 
 	return IRQ_HANDLED;
 
@@ -1552,7 +1798,6 @@ static int build_rsc_table(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct device_node *rnode = NULL;	/* resource table node */
 	struct device_node *rvnode = NULL;	/* vdev node */
-	// struct pruproc *pp = ppc->pruproc;
 	struct resource_table *rsc;
 	struct fw_rsc_hdr *rsc_hdr;
 	struct fw_rsc_vdev *rsc_vdev;
@@ -2144,6 +2389,9 @@ static int pruproc_probe(struct platform_device *pdev)
 
 		atomic_set(&ppc->bootcnt, 0);
 
+		mutex_init(&ppc->dc_lock);
+		init_waitqueue_head(&ppc->dc_waitq);
+
 		err = of_property_read_u32_array(pnode, "iram", tmparr, 3);
 		if (err != 0) {
 			dev_err(dev, "no iram property\n");
@@ -2325,6 +2573,18 @@ static int pruproc_probe(struct platform_device *pdev)
 	}
 
 	err = device_create_file(dev, &dev_attr_reset);
+	if (err != 0) {
+		dev_err(dev, "device_create_file failed\n");
+		goto err_fail;
+	}
+
+	err = device_create_file(dev, &dev_attr_downcall0);
+	if (err != 0) {
+		dev_err(dev, "device_create_file failed\n");
+		goto err_fail;
+	}
+
+	err = device_create_file(dev, &dev_attr_downcall1);
 	if (err != 0) {
 		dev_err(dev, "device_create_file failed\n");
 		goto err_fail;
