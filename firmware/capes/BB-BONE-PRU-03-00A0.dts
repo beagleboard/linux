@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2013 Matt Ranostay <mranostay@gmail.com>
+* Copyright (C) 2013 Pantelis Antoniou <panto@antoniou-consulting.com>
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 as
@@ -166,6 +166,9 @@
 					<0xffffffff         21         22>,	/* ARM:  DONTCARE, ARM_PRU0,  ARM_PRU1  */
 					<        19 0xffffffff         17>,	/* PRU0: PRU0_ARM, DONTCARE,  PRU0_PRU1 */
 					<        20         18 0xffffffff>;	/* PRU1: PRU1_ARM, PRU1_PRU0, DONTCARE  */
+
+				/* both the PRUs have 200MHz frequency so period is 5ns */
+				clock-freq = <200000000>;
 
 				/* definition for the first PRU */
 				pru0 {
