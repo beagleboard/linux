@@ -1,0 +1,142 @@
+/*
+ * Device Tree Overlay for DNIL Electronic Audio Amplifier Cape.
+ * Copyright (C) 2013 DNIL Electronic - http://www.dnil.se
+ *
+ * Work based on Beagle Board Toys Audio Cape;
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "DNIL-AMPCAPE-1";
+	version = "00R1";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.14",	/* leds:   gpio1_18 */
+		"P9.16",	/* leds:   gpio1_19 */
+		"P9.31",	/* mcasp0: mcasp0_aclkx */
+		"P9.29",	/* mcasp0: mcasp0_fsx */
+		"P9.28",	/* mcasp0: mcasp0_axr2 Codec -> SoC */
+		"P9.25",	/* mcasp0: mcasp0_axr3 SoC -> Codec */
+		/* the hardware ip uses */
+		"gpio1_18", "gpio1_19",
+		"mcasp0";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+
+			dnil_ampcape_led_pins: pinmux_dnil_ampcape_led_pins {
+				pinctrl-single,pins = <
+					0x48 0x07	/* gpmc_a2.gpio1_18, OUTPUT | MODE7 */
+					0x4c 0x07	/* gpmc_a3.gpio1_19, OUTPUT | MODE7 */
+				>;
+			};
+
+			dnil_ampcape_audio_pins: pinmux_dnil_ampcape_audio_pins {
+				pinctrl-single,pins = <
+					0x190 0x20	/* mcasp0_aclkx, INPUT  | MODE0 */
+					0x194 0x20	/* mcasp0_fsx,   INPUT  | MODE0 */
+					0x19c 0x22	/* mcasp0_axr2,  INPUT  | MODE2 */
+					0x1ac 0x22	/* mcasp0_axr3,  OUTPUT | MODE2 */
+
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&ocp>;
+		__overlay__ {
+
+			/* avoid stupid warning */
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			gpio-leds-cape-audio {
+				compatible = "gpio-leds";
+				pinctrl-names = "default";
+				pinctrl-0 = <&dnil_ampcape_led_pins>;
+
+				audio-led0 {
+					label = "audio:green:usr0";
+					gpios = <&gpio2 18 0>;
+					linux,default-trigger = "heartbeat";
+					default-state = "off";
+				};
+
+				audio-led1 {
+					label = "audio:green:usr1";
+					gpios = <&gpio2 19 0>;
+					linux,default-trigger = "mmc0";
+					default-state = "off";
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c2>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			tlv320aic3x: tlv320aic3x@1b {
+				compatible = "ti,tlv320aic3x";
+				reg = <0x1b>;
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&mcasp0>;
+		__overlay__ {
+			compatible = "ti,omap2-mcasp-audio";
+			pinctrl-names = "default";
+			pinctrl-0 = <&dnil_ampcape_audio_pins>;
+
+			status = "okay";
+
+			op-mode = <0>;          /* MCASP_IIS_MODE */
+			tdm-slots = <2>;
+			num-serializer = <16>;
+			serial-dir = <
+			0 0 2 1	/* 0: INACTIVE, 1: TX, 2: RX */
+			0 0 0 0
+			0 0 0 0
+			0 0 0 0 >;
+			tx-num-evt = <1>;
+			rx-num-evt = <1>;
+		};
+	};
+
+	fragment@4 {
+		target = <&ocp>;
+		__overlay__ {
+			sound {
+				compatible = "ti,da830-evm-audio";
+				ti,model = "DNIL_AMPCAPE";
+				ti,audio-codec = <&tlv320aic3x>;
+				ti,mcasp-controller = <&mcasp0>;
+				ti,codec-clock-rate = <12000000>;
+				ti,audio-routing =
+					"Line Out",       "LLOUT",
+					"Line Out",       "RLOUT",
+					"LINE1L",         "Line In",
+					"LINE1R",         "Line In";
+			};
+		};
+
+	};
+};
