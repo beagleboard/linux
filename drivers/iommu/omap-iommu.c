@@ -927,6 +927,46 @@ static void omap_iommu_detach(struct omap_iommu *obj)
 	dev_dbg(obj->dev, "%s: %s\n", __func__, obj->name);
 }
 
+static int omap_iommu_dra7_get_dsp_system_cfg(struct platform_device *pdev,
+					      struct omap_iommu *obj,
+					      resource_size_t start)
+{
+	struct device_node *np = pdev->dev.of_node;
+	struct resource *res;
+
+	if (!of_device_is_compatible(np, "ti,dra7-iommu"))
+		return 0;
+
+	/*
+	 * Assign the SYS_MMU enable MMU index for DRA7 DSP MMUs,
+	 * nothing to process for DRA7 IPU MMUs
+	 */
+	if (start == 0x40D01000 || start == 0x41501000)
+		obj->id = 0;
+	else if (start == 0x40D02000 || start == 0x41502000)
+		obj->id = 1;
+	else
+		return 0;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dsp_system");
+	if (res) {
+		/*
+		 * The DSP_SYSTEM space is common across two instances of MMU
+		 * and there is no common object for storing common data, so the
+		 * resource is deliberately not locked using request_mem_region
+		 */
+		obj->syscfgbase = devm_ioremap(obj->dev, res->start,
+					       resource_size(res));
+		if (!obj->syscfgbase)
+			return -ENOMEM;
+	} else {
+		dev_err(&pdev->dev, "dsp_system register space is missing\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /*
  *	OMAP Device MMU(IOMMU) detection
  */
@@ -982,6 +1022,10 @@ static int omap_iommu_probe(struct platform_device *pdev)
 	obj->regbase = devm_ioremap_resource(obj->dev, res);
 	if (IS_ERR(obj->regbase))
 		return PTR_ERR(obj->regbase);
+
+	err = omap_iommu_dra7_get_dsp_system_cfg(pdev, obj, res->start);
+	if (err)
+		return err;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
