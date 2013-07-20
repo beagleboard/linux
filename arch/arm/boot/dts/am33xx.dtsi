@@ -654,5 +654,9 @@
 			dma-names = "tx", "rx";
 		};
 
+		bandgap@44e10448 {
+			compatible = "ti,am335x-bandgap";
+			reg = <0x44e10448 0x8>;
+		};
 	};
 };
