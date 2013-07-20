@@ -1,0 +1,12 @@
+TI AM335x bandgap temperature sensor
+------------------------------------
+
+Requires node properties:
+- compatible: Should be "ti,am335x-bandgap"
+- reg: Should contain registers location and length
+
+Example:
+	bandgap@44e10448 {
+		compatible = "ti,am335x-bandgap";
+		reg = <0x44e10448 0x8>;
+	};
