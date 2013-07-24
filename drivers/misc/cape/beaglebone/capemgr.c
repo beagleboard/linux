@@ -175,7 +175,7 @@ static int bone_slot_fill_override(struct bone_cape_slot *slot,
 		const char *part_number, const char *version);
 static struct bone_cape_slot *bone_capemgr_add_slot(
 		struct bone_capemgr_info *info, struct device_node *node,
-		const char *part_number, const char *version);
+		const char *part_number, const char *version, int prio);
 static int bone_capemgr_remove_slot_no_lock(struct bone_cape_slot *slot);
 static int bone_capemgr_remove_slot(struct bone_cape_slot *slot);
 static int bone_capemgr_load(struct bone_cape_slot *slot);
@@ -1083,7 +1083,7 @@ found:
 			}
 
 			slot = bone_capemgr_add_slot(info, node,
-					part_number, version);
+					part_number, version, 0);
 			if (IS_ERR(slot)) {
 				dev_err(&pdev->dev, "Failed to add slot #%d\n",
 					atomic_read(&info->next_slot_nr) - 1);
@@ -1101,7 +1101,7 @@ found:
 	/* no specific slot found, try immediate */
 	if (!slot)
 		slot = bone_capemgr_add_slot(info, NULL,
-				part_number, version);
+				part_number, version, 0);
 
 	if (IS_ERR_OR_NULL(slot)) {
 		dev_err(&pdev->dev, "Failed to add slot #%d\n",
@@ -1613,7 +1613,7 @@ static int bone_slot_fill_override(struct bone_cape_slot *slot,
 
 static struct bone_cape_slot *
 bone_capemgr_add_slot(struct bone_capemgr_info *info, struct device_node *node,
-		const char *part_number, const char *version)
+		const char *part_number, const char *version, int prio)
 {
 	struct device_node *eeprom_node;
 	struct bone_cape_slot *slot;
@@ -1632,6 +1632,7 @@ bone_capemgr_add_slot(struct bone_capemgr_info *info, struct device_node *node,
 	}
 	slot->info = info;
 	slot->slotno = slotno;
+	slot->priority = prio;
 
 	if (node && !of_property_read_bool(node, "ti,cape-override")) {
 		ret = of_property_read_u32(node, "eeprom",
@@ -1823,7 +1824,8 @@ bone_capemgr_probe(struct platform_device *pdev)
 	const char *board_name;
 	const char *compatible_name;
 	struct bone_capemap *capemap;
-	int ret, len;
+	int ret, len, prio;
+	long val;
 	char *wbuf, *s, *p, *e;
 
 	/* we don't use platform_data at all; we require OF */
@@ -1992,7 +1994,7 @@ bone_capemgr_probe(struct platform_device *pdev)
 				continue;
 
 			slot = bone_capemgr_add_slot(info, node,
-					NULL, NULL);
+					NULL, NULL, 0);
 			if (IS_ERR(slot)) {
 				dev_err(&pdev->dev, "Failed to add slot #%d\n",
 					atomic_read(&info->next_slot_nr));
@@ -2019,7 +2021,7 @@ bone_capemgr_probe(struct platform_device *pdev)
 		/* add any enable_partno capes */
 		s = enable_partno;
 		while (*s) {
-			/* form is PART[:REV],PART.. */
+			/* form is PART[:REV[:PRIO]],PART.. */
 			p = strchr(s, ',');
 			if (p == NULL)
 				e = s + strlen(s);
@@ -2036,20 +2038,34 @@ bone_capemgr_probe(struct platform_device *pdev)
 			/* move to the next */
 			s = *e ? e + 1 : e;
 
-			/* now split the rev part */
-			p = strchr(wbuf, ':');
-			if (p != NULL)
-				*p++ = '\0';
-
 			part_number = wbuf;
-			version = p;
 
-			dev_info(&pdev->dev, "enabled_partno part_number '%s', version '%s'\n",
-					part_number, version ? version : "N/A");
+			/* default version is NULL & prio is 0 */
+			version = NULL;
+			prio = 0;
+
+			/* now split the rev & prio part */
+			p = strchr(wbuf, ':');
+			if (p != NULL) {
+				*p++ = '\0';
+				if (*p != ':')
+					version = p;
+				p = strchr(p, ':');
+				if (p != NULL) {
+					*p++ = '\0';
+					ret = kstrtol(p, 10, &val);
+					if (ret == 0)
+						prio = val;
+				}
+			}
+
+
+			dev_info(&pdev->dev, "enabled_partno part_number '%s', version '%s', prio '%d'\n",
+					part_number, version ? version : "N/A", prio);
 
 			/* only immediate slots are allowed here */
 			slot = bone_capemgr_add_slot(info, NULL,
-					part_number, version);
+					part_number, version, prio);
 
 			/* we continue even in case of an error */
 			if (IS_ERR_OR_NULL(slot)) {
