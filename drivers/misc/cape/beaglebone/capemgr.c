@@ -44,6 +44,8 @@
 #include <linux/i2c/eeprom.h>
 #include <linux/kthread.h>
 #include <linux/wait.h>
+#include <linux/file.h>
+#include <linux/fs.h>
 
 /* extra command line overrides */
 static char *extra_override = NULL;
@@ -109,6 +111,7 @@ struct bone_cape_slot {
 
 	unsigned int		loading : 1;
 	unsigned int		loaded : 1;
+	unsigned int		retry_loading : 1;
 	char			*dtbo;
 	const struct firmware	*fw;
 	struct device_node	*overlay;
@@ -1282,6 +1285,10 @@ static int bone_capemgr_load(struct bone_cape_slot *slot)
 	if (slot->loaded)
 		return -EAGAIN;
 
+	/* make sure we don't leak this on repeated calls */
+	kfree(slot->dtbo);
+	slot->dtbo = NULL;
+
 	mutex_lock(&info->capemap_mutex);
 	found = 0;
 	list_for_each_entry(capemap, &info->capemap_list, node) {
@@ -1353,6 +1360,7 @@ static int bone_capemgr_load(struct bone_cape_slot *slot)
 				slot->slotno, dtbo);
 		return -ENOMEM;
 	}
+	mutex_unlock(&info->capemap_mutex);
 
 	dev_info(dev, "slot #%d: Requesting firmware '%s' for board-name '%s'"
 			", version '%s'\n",
@@ -1362,14 +1370,11 @@ static int bone_capemgr_load(struct bone_cape_slot *slot)
 	err = request_firmware(&slot->fw, slot->dtbo, dev);
 	if (err != 0) {
 		dev_err(dev, "failed to load firmware '%s'\n", slot->dtbo);
-		mutex_unlock(&info->capemap_mutex);
 		goto err_fail_no_fw;
 	}
 
 	dev_info(dev, "slot #%d: dtbo '%s' loaded; converting to live tree\n",
 			slot->slotno, slot->dtbo);
-
-	mutex_unlock(&info->capemap_mutex);
 
 	of_fdt_unflatten_tree((void *)slot->fw->data, &slot->overlay);
 	if (slot->overlay == NULL) {
@@ -1734,14 +1739,39 @@ err_no_mem:
 	return ERR_PTR(ret);
 }
 
-static int lowest_loading_cape(struct bone_cape_slot *slot)
+/* return 1 if it makes sense to retry loading */
+static int retry_loading_condition(struct bone_cape_slot *slot)
+{
+	struct bone_capemgr_info *info = slot->info;
+	struct device *dev = &info->pdev->dev;
+	struct bone_cape_slot *slotn;
+	int ret;
+
+	dev_dbg(dev, "loader: retry_loading slot-%d %s:%s (prio %d)\n", slot->slotno,
+			slot->part_number, slot->version, slot->priority);
+
+	mutex_lock(&info->slots_list_mutex);
+	ret = 0;
+	list_for_each_entry(slotn, &info->slot_list, node) {
+		/* if same slot or not loading skip */
+		if (!slotn->loading || slotn->retry_loading)
+			continue;
+		/* at least one cape is still loading (without retrying) */
+		ret = 1;
+	}
+	mutex_unlock(&info->slots_list_mutex);
+	return ret;
+}
+
+/* return 1 if this slot is clear to try to load now */
+static int clear_to_load_condition(struct bone_cape_slot *slot)
 {
 	struct bone_capemgr_info *info = slot->info;
 	int my_prio = slot->priority;
 	struct device *dev = &info->pdev->dev;
 	int ret;
 
-	dev_info(dev, "loader: check slot-%d %s:%s (prio %d)\n", slot->slotno,
+	dev_dbg(dev, "loader: check slot-%d %s:%s (prio %d)\n", slot->slotno,
 			slot->part_number, slot->version, slot->priority);
 
 	mutex_lock(&info->slots_list_mutex);
@@ -1764,9 +1794,13 @@ static int bone_capemgr_loader(void *data)
 	struct bone_cape_slot *slot = data;
 	struct bone_capemgr_info *info = slot->info;
 	struct device *dev = &info->pdev->dev;
-	int ret;
+	int ret, done;
 
-	dev_info(dev, "loader: before slot-%d %s:%s (prio %d)\n", slot->slotno,
+	done = 0;
+
+	slot->retry_loading = 0;
+
+	dev_dbg(dev, "loader: before slot-%d %s:%s (prio %d)\n", slot->slotno,
 			slot->part_number, slot->version, slot->priority);
 
 	/*
@@ -1775,31 +1809,68 @@ static int bone_capemgr_loader(void *data)
 	 * should start loading first. So each time we end up
 	 * here.
 	 */ 
-	ret = wait_event_interruptible(info->load_wq,
-			lowest_loading_cape(slot));
+	ret = wait_event_interruptible(info->load_wq, clear_to_load_condition(slot));
 	if (ret < 0) {
 		dev_info(dev, "loader, Signal pending\n");
 		return ret;
 	}
 
-	dev_info(dev, "loader: after slot-%d %s:%s (prio %d)\n", slot->slotno,
+	dev_dbg(dev, "loader: after slot-%d %s:%s (prio %d)\n", slot->slotno,
 			slot->part_number, slot->version, slot->priority);
 
+	/* using the return value */
 	ret = bone_capemgr_load(slot);
 
-	slot->loading = 0;
+	/* wake up all just in case */
+	wake_up_interruptible_all(&info->load_wq);
 
 	if (ret == 0)
-		dev_info(dev, "loader: done slot-%d %s:%s (prio %d)\n",
+		goto done;
+
+	dev_info(dev, "loader: retrying slot-%d %s:%s (prio %d)\n", slot->slotno,
+			slot->part_number, slot->version, slot->priority);
+
+	/* first attempt has failed; now try each time there's any change */
+	slot->retry_loading = 1;
+
+	while (retry_loading_condition(slot)) {
+
+		/* simple wait for someone to kick us */
+		{
+			DEFINE_WAIT(__wait);
+			prepare_to_wait(&info->load_wq, &__wait, TASK_INTERRUPTIBLE);
+			finish_wait(&info->load_wq, &__wait);
+		}
+
+		if (signal_pending(current)) {
+			dev_info(dev, "loader, Signal pending\n");
+			ret = -ERESTARTSYS;
+			goto done;
+		}
+
+		/* using the return value */
+		ret = bone_capemgr_load(slot);
+		if (ret == 0)
+			goto done;
+
+		/* wake up all just in case */
+		wake_up_interruptible_all(&info->load_wq);
+
+	}
+
+done:
+	slot->loading = 0;
+	slot->retry_loading = 0;
+
+	if (ret == 0) {
+		dev_dbg(dev, "loader: done slot-%d %s:%s (prio %d)\n",
 			slot->slotno, slot->part_number, slot->version,
 			slot->priority);
-	else
+	} else {
 		dev_err(dev, "loader: failed to load slot-%d %s:%s (prio %d)\n",
 			slot->slotno, slot->part_number, slot->version,
 			slot->priority);
-
-	/* we're done, wake up all */
-	wake_up_interruptible_all(&info->load_wq);
+	}
 
 	/* not loaded? remove */
 	if (ret != 0)
