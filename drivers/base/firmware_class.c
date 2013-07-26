@@ -93,7 +93,7 @@ enum fw_buf_fmt {
 	PAGE_BUF,	/* used in loading via userspace */
 };
 
-static int loading_timeout = 60;	/* In seconds */
+static int loading_timeout = CONFIG_FIRMWARE_LOADING_TIMEOUT;	/* In seconds */
 
 static inline long firmware_loading_timeout(void)
 {
