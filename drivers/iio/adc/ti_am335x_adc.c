@@ -33,6 +33,7 @@
 struct tiadc_device {
 	struct ti_tscadc_dev *mfd_tscadc;
 	int channels;
+	struct iio_map *map;
 	u8 channel_line[8];
 	u8 channel_step[8];
 };
@@ -105,13 +106,16 @@ static int tiadc_channel_init(struct iio_dev *indio_dev, int channels)
 	struct tiadc_device *adc_dev = iio_priv(indio_dev);
 	struct iio_chan_spec *chan_array;
 	struct iio_chan_spec *chan;
-	int i;
+	struct iio_map *map;
+	int i, ret;
 
 	indio_dev->num_channels = channels;
 	chan_array = kcalloc(channels,
 			sizeof(struct iio_chan_spec), GFP_KERNEL);
-	if (chan_array == NULL)
-		return -ENOMEM;
+	if (chan_array == NULL) {
+		ret = -ENOMEM;
+		goto err_no_chan_array;
+	}
 
 	chan = chan_array;
 	for (i = 0; i < channels; i++, chan++) {
@@ -128,12 +132,44 @@ static int tiadc_channel_init(struct iio_dev *indio_dev, int channels)
 
 	indio_dev->channels = chan_array;
 
+
+	map = kcalloc(channels + 1, sizeof(struct iio_map), GFP_KERNEL);
+	if (map == NULL) {
+		ret = -ENOMEM;
+		goto err_no_iio_map;
+	}
+	adc_dev->map = map;
+
+	for (i = 0, chan = chan_array; i < channels; i++, chan++, map++) {
+		map->adc_channel_label = chan->datasheet_name;
+		map->consumer_dev_name = "any";
+		map->consumer_channel = chan->datasheet_name;
+	}
+	map->adc_channel_label = NULL;
+	map->consumer_dev_name = NULL;
+	map->consumer_channel = NULL;
+
+	ret = iio_map_array_register(indio_dev, adc_dev->map);
+	if (ret != 0)
+		goto err_iio_map_register_fail;
+
 	return 0;
+
+err_iio_map_register_fail:
+	kfree(adc_dev->map);
+	adc_dev->map = NULL;
+err_no_iio_map:
+	kfree(chan_array);
+	indio_dev->channels = NULL;
+err_no_chan_array:
+	return ret;
 }
 
 static void tiadc_channels_remove(struct iio_dev *indio_dev)
 {
+	struct tiadc_device *adc_dev = iio_priv(indio_dev);
 	kfree(indio_dev->channels);
+	kfree(adc_dev->map);
 }
 
 static int tiadc_read_raw(struct iio_dev *indio_dev,
@@ -246,12 +282,16 @@ static int tiadc_probe(struct platform_device *pdev)
 	tiadc_step_config(adc_dev);
 
 	err = tiadc_channel_init(indio_dev, adc_dev->channels);
-	if (err < 0)
+	if (err < 0) {
+		dev_err(&pdev->dev, "tiadc_channel_init() failed\n");
 		goto err_free_device;
+	}
 
 	err = iio_device_register(indio_dev);
-	if (err)
+	if (err) {
+		dev_err(&pdev->dev, "iio_device_register() failed\n");
 		goto err_free_channels;
+	}
 
 	platform_set_drvdata(pdev, indio_dev);
 
