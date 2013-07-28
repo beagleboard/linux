@@ -47,6 +47,11 @@
 				0x17c 0x73	/* uart1_rtsn.i2c2_scl, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
 			>;
 		};
+		mmc1_pins: pinmux_mmc1_pins {
+			pinctrl-single,pins = <
+				0x160 0x2f /* GPIO0_6 (PIN_INPUT | MUX_MODE7) */
+			>;
+		};
 	};
 
 	ocp: ocp {
@@ -483,6 +488,10 @@
 };
 
 &mmc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc1_pins>;
+	cd-gpios = <&gpio1 6 0>; /* gpio1 is misnamed, 0 == GPIO_ACTIVE_HIGH */
+	cd-inverted;
 	status = "okay";
 	vmmc-supply = <&ldo3_reg>;
 	ti,vcc-aux-disable-is-sleep;
