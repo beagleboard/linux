@@ -202,6 +202,15 @@
 				part-number = "BB-BONE-RS232-01";
 			};
 
+			/* GPS cape */
+			slot@13 {
+				compatible = "kernel-command-line", "runtime";
+				board-name = "BB-BONE-GPS";
+				version = "00A0";
+				manufacturer = "Adafruit";
+				part-number = "BB-BONE-GPS-01";
+			};
+
 			/* Beaglebone black has it soldered on */
 			 slot@100 {
 				ti,cape-override;
@@ -366,8 +375,17 @@
 				};
 			};
 
-			/* beaglebone black hdmi on board (No audio) */
 			cape@13 {
+				part-number = "BB-BONE-GPS-01";
+				version@00A0 {
+					version = "00A0";
+					dtbo = "BB-BONE-GPS-00A0.dtbo";
+				};
+			};
+
+
+			/* beaglebone black hdmi on board (No audio) */
+			cape@14 {
 				part-number = "BB-BONELT-HDMIN";
 				version@00A0 {
 					version = "00A0";

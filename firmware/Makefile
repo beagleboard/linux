@@ -156,6 +156,7 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	BB-BONE-eMMC1-01-00A0.dtbo \
 	BB-BONE-GPEVT-00A0.dtbo \
 	BB-BONE-RTC-00A0.dtbo \
+	BB-BONE-GPS-00A0.dtbo \
 	BB-BONE-RS232-00A0.dtbo \
 	BB-BONE-SERL-01-00A1.dtbo \
 	cape-bone-iio-00A0.dtbo \
