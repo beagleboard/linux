@@ -232,6 +232,26 @@ static int _omap_device_check_reidle_hwmods(struct omap_device *od)
 	return 0;
 }
 
+static void _omap_device_cleanup(struct omap_device *od)
+{
+	struct omap_hwmod *oh;
+	int i;
+
+	for (i = 0; i < od->hwmods_cnt; i++) {
+
+		oh = od->hwmods[i];
+
+		/* shutdown hwmods */
+		omap_hwmod_shutdown(oh);
+
+		/* we don't remove clocks cause there's no API to do so */
+		/* no harm done, since they will not be created next time */
+	}
+
+	/* cleanup the structure now */
+	omap_device_delete(od);
+}
+
 static int _omap_device_notifier_call(struct notifier_block *nb,
 				      unsigned long event, void *dev)
 {
@@ -239,9 +259,12 @@ static int _omap_device_notifier_call(struct notifier_block *nb,
 	struct omap_device *od;
 
 	switch (event) {
-	case BUS_NOTIFY_DEL_DEVICE:
-		if (pdev->archdata.od)
-			omap_device_delete(pdev->archdata.od);
+	case BUS_NOTIFY_UNBOUND_DRIVER:
+		/* NOTIFY_DEL_DEVICE is not the right call... */
+		od = pdev->archdata.od;
+		pdev->archdata.od = NULL;
+		if (od)
+			_omap_device_cleanup(od);
 		break;
 	case BUS_NOTIFY_BOUND_DRIVER:
 		od = to_omap_device(pdev);
