@@ -31,8 +31,13 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pinctrl/consumer.h>
-
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/spi/spi.h>
+
+static int enable_qspi;
+module_param(enable_qspi, int, 0);
+MODULE_PARM_DESC(enable_qspi, "enable qspi on AM437x board");
 
 struct ti_qspi_regs {
 	u32 clkctrl;
@@ -494,6 +499,19 @@ static int ti_qspi_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	u32 max_freq;
 	int ret = 0, num_cs, irq;
+	int gpio;
+	enum of_gpio_flags flags;
+
+	if (enable_qspi) {
+		gpio = of_get_named_gpio_flags(np, "qspi-gpio", 0, &flags);
+		if (gpio_is_valid(gpio)) {
+			gpio_request(gpio, "qspi");
+			gpio_direction_output(gpio, flags);
+		} else {
+			dev_err(&pdev->dev, "GPIO not available to select qspi");
+			return 0;
+		}
+	}
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*qspi));
 	if (!master)
