@@ -33,6 +33,9 @@
 #include <linux/pps-gpio.h>
 #include <linux/gpio.h>
 #include <linux/list.h>
+#include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/pinmux.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 
@@ -152,6 +155,7 @@ static int pps_gpio_probe(struct platform_device *pdev)
 	int irq;
 	int ret;
 	int pps_default_params;
+	struct pinctrl *pinctrl;
 	struct pps_gpio_platform_data *pdata;
 	const struct of_device_id *match;
 
@@ -162,6 +166,11 @@ static int pps_gpio_probe(struct platform_device *pdev)
 
 	if (!pdata)
 		return -ENODEV;
+
+	/* PINCTL setup */
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl))
+		pr_warn("pins are not configured from the driver\n");
 
 	/* GPIO setup */
 	ret = pps_gpio_setup(pdev);
