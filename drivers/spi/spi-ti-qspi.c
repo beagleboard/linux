@@ -117,6 +117,14 @@ struct ti_qspi {
 
 #define QSPI_AUTOSUSPEND_TIMEOUT         2000
 
+#define MM_SWITCH      0x01
+#define MEM_CS         0x100
+#define MEM_CS_DIS     0xfffff0ff
+
+#define QSPI_SETUP0_RD_NORMAL   (0x0 << 12)
+#define QSPI_SETUP0_RD_DUAL     (0x1 << 12)
+#define QSPI_SETUP0_RD_QUAD     (0x3 << 12)
+
 static inline unsigned long ti_qspi_read(struct ti_qspi *qspi,
 		unsigned long reg)
 {
@@ -127,6 +135,30 @@ static inline void ti_qspi_write(struct ti_qspi *qspi,
 		unsigned long val, unsigned long reg)
 {
 	writel(val, qspi->base + reg);
+}
+
+void enable_qspi_memory_mapped(struct ti_qspi *qspi)
+{
+	u32 val;
+
+	ti_qspi_write(qspi, MM_SWITCH, QSPI_SPI_SWITCH_REG);
+	if (qspi->ctrl_mod) {
+		val = readl(qspi->ctrl_base);
+		val |= MEM_CS;
+		writel(val, qspi->ctrl_base);
+	}
+}
+
+void disable_qspi_memory_mapped(struct ti_qspi *qspi)
+{
+	u32 val;
+
+	ti_qspi_write(qspi, ~MM_SWITCH, QSPI_SPI_SWITCH_REG);
+	if (qspi->ctrl_mod) {
+		val = readl(qspi->ctrl_base);
+		val |= MEM_CS_DIS;
+		writel(val, qspi->ctrl_base);
+	}
 }
 
 static int ti_qspi_setup(struct spi_device *spi)
@@ -190,6 +222,46 @@ static int ti_qspi_setup(struct spi_device *spi)
 	}
 
 	return 0;
+}
+
+static void ti_qspi_configure_from_slave(struct spi_device *spi, u8 *val)
+{
+	struct ti_qspi  *qspi = spi_master_get_devdata(spi->master);
+	u32 memval, mode;
+
+	mode = spi->mode & (SPI_RX_DUAL | SPI_RX_QUAD);
+	memval =  (val[0] << 0) | (val[1] << 16) |
+			((val[2] - 1) << 8) | (val[3] << 10);
+
+	switch (mode) {
+	case SPI_RX_DUAL:
+		memval |= QSPI_SETUP0_RD_DUAL;
+		break;
+	case SPI_RX_QUAD:
+		memval |= QSPI_SETUP0_RD_QUAD;
+		break;
+	default:
+		memval |= QSPI_SETUP0_RD_NORMAL;
+		break;
+	}
+	ti_qspi_write(qspi, memval, QSPI_SPI_SETUP0_REG);
+}
+
+static inline void  __iomem *ti_qspi_get_mem_buf(struct spi_master *master)
+{
+	struct ti_qspi *qspi = spi_master_get_devdata(master);
+
+	pm_runtime_get_sync(qspi->dev);
+	enable_qspi_memory_mapped(qspi);
+	return qspi->mmap_base;
+}
+
+static void ti_qspi_put_mem_buf(struct spi_master *master)
+{
+	struct ti_qspi *qspi = spi_master_get_devdata(master);
+
+	disable_qspi_memory_mapped(qspi);
+	pm_runtime_put(qspi->dev);
 }
 
 static void ti_qspi_restore_ctx(struct ti_qspi *qspi)
@@ -436,6 +508,10 @@ static int ti_qspi_probe(struct platform_device *pdev)
 	master->transfer_one_message = ti_qspi_start_transfer_one;
 	master->dev.of_node = pdev->dev.of_node;
 	master->bits_per_word_mask = BIT(32 - 1) | BIT(16 - 1) | BIT(8 - 1);
+	master->configure_from_slave = ti_qspi_configure_from_slave;
+	master->get_buf = ti_qspi_get_mem_buf;
+	master->put_buf = ti_qspi_put_mem_buf;
+	master->mmap = true;
 
 	if (!of_property_read_u32(np, "num-cs", &num_cs))
 		master->num_chipselect = num_cs;
