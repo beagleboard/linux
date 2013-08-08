@@ -111,17 +111,6 @@
 				pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
 				pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 
-				modes-blacklisted =
-					"1920x1080@25",
-					"832x624@75";
-
-				// Enable this when we figure out the modes
-				//
-				// modes-whitelisted =
-				//	"1920x1080@24",
-				//	"1280x720@50", "1280x720@60",
-				//	"720x576@50","720x480@60";
-
 				panel-info {
 					bpp = <16>;
 					ac-bias = <255>;
