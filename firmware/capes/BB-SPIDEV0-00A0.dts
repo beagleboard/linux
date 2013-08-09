@@ -45,35 +45,35 @@
 	fragment@1 {
 		target = <&spi0>;	/* spi0 is numbered correctly */
 		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
 			status = "okay";
 			pinctrl-names = "default";
 			pinctrl-0 = <&bb_spi0_pins>;
 
-			#address-cells = <1>;
-			#size-cells = <0>;
 
-			/* add any spi devices connected here */
-			/* note that you can do direct SPI via spidev now */
+			channel@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
 
-			// commented out example of an adafruit 1.8" TFT display
-			// from firmare/capes/cape-bone-adafruit-lcd-00A0.dts
-			// lcd@0 {
-			//	#address-cells = <1>;
-			//	#size-cells = <0>;
-			//
-			//	compatible = "adafruit,tft-lcd-1.8-red", "sitronix,st7735";
-			//	reg = <0>;
-			//
-			//	spi-max-frequency = <8000000>;
-			//	spi-cpol;
-			//	spi-cpha;
-			//
-			//	pinctrl-names = "default";
-			//	pinctrl-0 = <&bone_adafruit_lcd_pins>;
-			//
-			//	st7735-rst = <&gpio4 19 0>;
-			//	st7735-dc = <&gpio4 21 0>;
-			// };
+				compatible = "spidev";
+
+				reg = <0>;
+				spi-max-frequency = <16000000>;
+				spi-cpha;
+			};
+
+
+			channel@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				compatible = "spidev";
+
+				reg = <1>;
+				spi-max-frequency = <16000000>;
+			};
 		};
 	};
 };
