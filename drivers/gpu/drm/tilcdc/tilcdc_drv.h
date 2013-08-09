@@ -44,7 +44,7 @@
  * be supportable
  * Note: 1920x1080x25=49766400 < 1280x1024x60=78643200
  */
-#define TILCDC_DEFAULT_MAX_BANDWIDTH  (1280*1024*60)
+#define TILCDC_DEFAULT_MAX_BANDWIDTH  (1680*1050*60)
 
 struct tilcdc_drm_private {
 	void __iomem *mmio;
