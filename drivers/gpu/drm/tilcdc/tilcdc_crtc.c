@@ -42,7 +42,8 @@ struct tilcdc_crtc {
 
 static void unref_worker(struct work_struct *work)
 {
-	struct tilcdc_crtc *tilcdc_crtc = container_of(work, struct tilcdc_crtc, work);
+	struct tilcdc_crtc *tilcdc_crtc =
+		container_of(work, struct tilcdc_crtc, work);
 	struct drm_device *dev = tilcdc_crtc->base.dev;
 	struct drm_framebuffer *fb;
 
@@ -55,10 +56,12 @@ static void unref_worker(struct work_struct *work)
 static void set_scanout(struct drm_crtc *crtc, int n)
 {
 	static const uint32_t base_reg[] = {
-			LCDC_DMA_FB_BASE_ADDR_0_REG, LCDC_DMA_FB_BASE_ADDR_1_REG,
+			LCDC_DMA_FB_BASE_ADDR_0_REG,
+			LCDC_DMA_FB_BASE_ADDR_1_REG,
 	};
 	static const uint32_t ceil_reg[] = {
-			LCDC_DMA_FB_CEILING_ADDR_0_REG, LCDC_DMA_FB_CEILING_ADDR_1_REG,
+			LCDC_DMA_FB_CEILING_ADDR_0_REG,
+			LCDC_DMA_FB_CEILING_ADDR_1_REG,
 	};
 	static const uint32_t stat[] = {
 			LCDC_END_OF_FRAME0, LCDC_END_OF_FRAME1,
@@ -70,7 +73,7 @@ static void set_scanout(struct drm_crtc *crtc, int n)
 	tilcdc_write(dev, ceil_reg[n], tilcdc_crtc->end);
 	if (tilcdc_crtc->scanout[n]) {
 		if (kfifo_put(&tilcdc_crtc->unref_fifo,
-				(const struct drm_framebuffer **)&tilcdc_crtc->scanout[n])) {
+				(const struct drm_framebuffer **)&tilcdc_crtc->scanout[n])) 			{
 			struct tilcdc_drm_private *priv = dev->dev_private;
 			queue_work(priv->wq, &tilcdc_crtc->work);
 		} else {
@@ -522,48 +525,48 @@ int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode,
 	vfp = mode->vsync_start - mode->vdisplay;
 	vsw = mode->vsync_end - mode->vsync_start;
 
-	if (hbp & ~0x3ff) {
-		DBG("Pruning mode : Horizontal Back Porch out of range");
-		return MODE_BAD;
+	if ((hbp-1) & ~0x3ff) {
+		DBG("Pruning mode: Horizontal Back Porch out of range");
+		return MODE_HBLANK_WIDE;
 	}
 
-	if (hfp & ~0x3ff) {
-		DBG("Pruning mode : Horizontal Front Porch out of range");
-		return MODE_BAD;
+	if ((hfp-1) & ~0x3ff) {
+		DBG("Pruning mode: Horizontal Front Porch out of range");
+		return MODE_HBLANK_WIDE;
 	}
 
-	if (hsw & ~0x3ff) {
-		DBG("Pruning mode : Horizontal Sync Width out of range");
-		return MODE_BAD;
+	if ((hsw-1) & ~0x3ff) {
+		DBG("Pruning mode: Horizontal Sync Width out of range");
+		return MODE_HSYNC_WIDE;
 	}
 
 	if (vbp & ~0xff) {
-		DBG("Pruning mode : Vertical Back Porch out of range");
-		return MODE_BAD;
+		DBG("Pruning mode: Vertical Back Porch out of range");
+		return MODE_VBLANK_WIDE;
 	}
 
 	if (vfp & ~0xff) {
-		DBG("Pruning mode : Vertical Front Porch out of range");
-		return MODE_BAD;
+		DBG("Pruning mode: Vertical Front Porch out of range");
+		return MODE_VBLANK_WIDE;
 	}
 
-	if (vsw & ~0x3f) {
-		DBG("Pruning mode : Vertical Sync Width out of range");
-		return MODE_BAD;
+	if ((vsw-1) & ~0x3f) {
+		DBG("Pruning mode: Vertical Sync Width out of range");
+		return MODE_VSYNC_WIDE;
 	}
 
 	/* some devices have a maximum allowed pixel clock */
 	/* configured from the DT */
 	if (mode->clock > priv->max_pixelclock) {
 		DBG("Pruning mode, pixel clock too high");
-		return MODE_BAD;
+		return MODE_CLOCK_HIGH;
 	}
 
 	/* some devices further limit the max horizontal resolution */
 	/* configured from the DT */
 	if (mode->hdisplay > priv->max_width) {
 		DBG("Pruning mode, above max width of %d supported by device", priv->max_width);
-		return MODE_BAD;
+		return MODE_BAD_WIDTH;
 	}
 
 	/* filter out modes that would require too much memory bandwidth: */
