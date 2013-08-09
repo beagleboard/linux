@@ -223,9 +223,9 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	BB-I2C1-00A0.dtbo BB-I2C1A1-00A0.dtbo
 
-# the virtual peripheral capes for the SPIs
+# the virtual peripheral capes for the SPIDEVs
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
-	BB-SPI0-00A0.dtbo BB-SPI1-00A0.dtbo BB-SPI1A1-00A0.dtbo
+	BB-SPIDEV0-00A0.dtbo BB-SPIDEV1-00A0.dtbo BB-SPIDEV1A1-00A0.dtbo
 
 # the virtual peripheral capes for ADC
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
