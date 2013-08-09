@@ -363,6 +363,7 @@ static int slave_probe(struct platform_device *pdev)
 	struct slave_module *slave_mod;
 	struct tilcdc_module *mod;
 	struct pinctrl_state *state;
+	struct i2c_adapter *slavei2c;
 	uint32_t i2c_phandle;
 	char *state_name;
 	int ret = -EINVAL;
@@ -373,13 +374,37 @@ static int slave_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
+	/* Bail out early if i2c not specified */
+	if (of_property_read_u32(node, "i2c", &i2c_phandle)) {
+		dev_err(&pdev->dev, "could not get i2c bus phandle\n");
+		return ret;
+	}
+
+	i2c_node = of_find_node_by_phandle(i2c_phandle);
+	if (!i2c_node) {
+		dev_err(&pdev->dev, "could not get i2c bus node\n");
+		return ret;
+	}
+
+	/* but defer the probe if it can't be initialized it might come later */
+	slavei2c = of_find_i2c_adapter_by_node(i2c_node);
+	of_node_put(i2c_node);
+	if (!slavei2c) {
+		ret = -EPROBE_DEFER;
+		tilcdc_slave_probedefer(true);
+		dev_err(&pdev->dev, "could not get i2c\n");
+		return ret;
+	}
+
 	slave_mod = kzalloc(sizeof(*slave_mod), GFP_KERNEL);
 	if (!slave_mod)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, slave_mod);
-
 	mod = &slave_mod->base;
+
+	slave_mod->i2c = slavei2c;
+
+	platform_set_drvdata(pdev, slave_mod);
 
 	tilcdc_module_init(mod, "slave", &slave_module_ops);
 
@@ -388,7 +413,7 @@ static int slave_probe(struct platform_device *pdev)
 	if (state_name == NULL) {
 		dev_err(dev, "Failed to allocate state name\n");
 		ret = -ENOMEM;
-		goto fail;
+		return ret;
 	}
 	slave_mod->selected_state_name = state_name;
 	strcpy(slave_mod->selected_state_name, PINCTRL_STATE_DEFAULT);
@@ -397,7 +422,7 @@ static int slave_probe(struct platform_device *pdev)
 	if (IS_ERR(slave_mod->pinctrl)) {
 		dev_err(dev, "Failed to get pinctrl\n");
 		ret = PTR_RET(slave_mod->pinctrl);
-		goto fail;
+		return ret;
 	}
 
 	/* try to select default state at first (if it exists) */
@@ -407,7 +432,7 @@ static int slave_probe(struct platform_device *pdev)
 		ret = pinctrl_select_state(slave_mod->pinctrl, state);
 		if (ret != 0) {
 			dev_err(dev, "Failed to select default state\n");
-			goto fail;
+			return ret;
 		}
 	} else {
 		slave_mod->selected_state_name = '\0';
@@ -417,39 +442,18 @@ static int slave_probe(struct platform_device *pdev)
 	ret = sysfs_create_group(&dev->kobj, &pinmux_attr_group);
 	if (ret) {
 		dev_err(dev, "Failed to create sysfs group\n");
-		goto fail;
-	}
-
-	if (of_property_read_u32(node, "i2c", &i2c_phandle)) {
-		dev_err(&pdev->dev, "could not get i2c bus phandle\n");
-		goto fail;
-	}
-
-	i2c_node = of_find_node_by_phandle(i2c_phandle);
-	if (!i2c_node) {
-		dev_err(&pdev->dev, "could not get i2c bus node\n");
-		goto fail;
-	}
-
-	slave_mod->i2c = of_find_i2c_adapter_by_node(i2c_node);
-	if (!slave_mod->i2c) {
-		dev_err(&pdev->dev, "could not get i2c\n");
-		goto fail;
+		return ret;
 	}
 
 	slave_mod->info = tilcdc_of_get_panel_info(node);
 	if (!slave_mod->info) {
 		dev_err(&pdev->dev, "could not get panel info\n");
-		goto fail;
+		return ret;
 	}
 
-	of_node_put(i2c_node);
+	tilcdc_slave_probedefer(false);
 
 	return 0;
-
-fail:
-	slave_destroy(mod);
-	return ret;
 }
 
 static int slave_remove(struct platform_device *pdev)
