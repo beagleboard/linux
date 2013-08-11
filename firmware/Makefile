@@ -138,7 +138,6 @@ fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
 
 # all the generic capes
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
-	2191-R2.dtbo \
 	cape-bone-2g-emmc1.dtbo \
 	cape-bone-adafruit-lcd-00A0.dtbo \
 	cape-bone-dvi-00A0.dtbo \
