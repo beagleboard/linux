@@ -393,6 +393,15 @@
 				};
 			};
 
+			/* remain backwards compatible with old EEPROM */
+			cape@15 {
+				part-number = "2191";
+				version@R2 {
+					version = "R2";
+					dtbo = "cape-bebopr-R2.dtbo";
+				};
+			};
+
 		};
 	};
 
