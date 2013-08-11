@@ -140,6 +140,7 @@ fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-bebopr-R2.dtbo \
 	cape-bebopr-ena-R2.dtbo \
+	cape-bebopr-brdg-R2.dtbo \
 	cape-bone-2g-emmc1.dtbo \
 	cape-bone-adafruit-lcd-00A0.dtbo \
 	cape-bone-dvi-00A0.dtbo \
