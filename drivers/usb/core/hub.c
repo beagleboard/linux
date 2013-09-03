@@ -168,6 +168,14 @@ EXPORT_SYMBOL_GPL(ehci_cf_port_reset_rwsem);
 #define HUB_DEBOUNCE_STEP	  25
 #define HUB_DEBOUNCE_STABLE	 100
 
+/*
+ * TRSMRCY is defined by the USB 2.0 specification to be 10 msec,
+ * but some Intel xHCI hosts take longer to link train.
+ * On Intel Lynx Point LP, U0 transition can take as long as
+ * 12757 microseconds, so wait 20 msec to be on the safe side.
+ */
+#define TRSMRCY			  20
+
 #define to_usb_port(_dev) \
 	container_of(_dev, struct usb_port, dev)
 
@@ -3179,8 +3187,7 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 		 */
 		status = hub_port_status(hub, port1, &portstatus, &portchange);
 
-		/* TRSMRCY = 10 msec */
-		msleep(10);
+		msleep(TRSMRCY);
 	}
 
  SuspendCleared:
@@ -4538,8 +4545,7 @@ static int hub_handle_remote_wakeup(struct usb_hub *hub, unsigned int port,
 	}
 
 	if (udev) {
-		/* TRSMRCY = 10 msec */
-		msleep(10);
+		msleep(TRSMRCY);
 
 		usb_lock_device(udev);
 		ret = usb_remote_wakeup(udev);
