@@ -15,6 +15,11 @@
 
 #include "powerdomain.h"
 
+#ifdef CONFIG_PM_DEBUG
+extern u32 wakeup_timer_seconds;
+extern u32 wakeup_timer_milliseconds;
+#endif
+
 #ifdef CONFIG_CPU_IDLE
 extern int __init omap3_idle_init(void);
 extern int __init omap4_idle_init(void);
