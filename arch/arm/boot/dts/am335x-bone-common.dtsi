@@ -535,6 +535,7 @@
 &mmc1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc1_pins>;
+	bus-width = <0x4>;
 	cd-gpios = <&gpio1 6 0>; /* gpio1 is misnamed, 0 == GPIO_ACTIVE_HIGH */
 	cd-inverted;
 	status = "okay";
