@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "dra74x.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	model = "TI DRA742";
@@ -23,6 +24,16 @@
 		regulator-name = "mmc2_3v3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
+	};
+
+	vmmcwl_fixed: fixedregulator-mmcwl {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmcwl_fixed";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio5 8 0>;	/* gpio5_8 */
+		startup-delay-us = <70000>;
+		enable-active-high;
 	};
 };
 
@@ -73,17 +84,6 @@
 		pinctrl-single,pins = <
 			0x3e0 (PIN_INPUT_SLEW | MUX_MODE0) /* uart1_rxd */
 			0x3e4 (PIN_INPUT_SLEW | MUX_MODE0) /* uart1_txd */
-			0x3e8 (PIN_INPUT | MUX_MODE3) /* uart1_ctsn */
-			0x3ec (PIN_INPUT | MUX_MODE3) /* uart1_rtsn */
-		>;
-	};
-
-	uart2_pins: pinmux_uart2_pins {
-		pinctrl-single,pins = <
-			0x3f0 (PIN_INPUT | MUX_MODE0) /* uart2_rxd */
-			0x3f4 (PIN_INPUT | MUX_MODE0) /* uart2_txd */
-			0x3f8 (PIN_INPUT | MUX_MODE0) /* uart2_ctsn */
-			0x3fc (PIN_INPUT | MUX_MODE0) /* uart2_rtsn */
 		>;
 	};
 
@@ -120,6 +120,24 @@
 			0x284 (PIN_INPUT_SLEW | MUX_MODE0) /* usb2_drvvbus */
                 >;
         };
+
+	wlan_pins: pinmux_wlan_pins {
+		pinctrl-single,pins = <
+			0x3e8 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart1_ctsn.mmc4_clk */
+			0x3ec (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart1_rtsn.mmc4_cmd */
+			0x3f0 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart2_rxd.mmc4_dat0 */
+			0x3f4 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart2_txd.mmc4_dat1 */
+			0x3f8 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart2_ctsn.mmc4_dat2 */
+			0x3fc (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart2_rtsn.mmc4_dat3 */
+			0x2cc (PIN_OUTPUT | MUX_MODE14)		/* mcasp1_axr6.gpio5_8 - WLAN_EN */
+		>;
+	};
+
+	wlirq_pins: pinmux_wlirq_pins {
+		pinctrl-single,pins = <
+			0x2c8 (PIN_INPUT_PULLUP | WAKEUP_EN | MUX_MODE14 ) /* mcasp1_axr5.gpio5_7 - WLAN_IRQ */
+		>;
+	};
 
 	cpsw_default: cpsw_default {
 		pinctrl-single,pins = <
@@ -353,12 +371,6 @@
 	pinctrl-0 = <&uart1_pins>;
 };
 
-&uart2 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_pins>;
-};
-
 &uart3 {
 	status = "okay";
 	pinctrl-names = "default";
@@ -375,6 +387,26 @@
 	status = "okay";
 	vmmc-supply = <&mmc2_3v3>;
 	bus-width = <8>;
+};
+
+&mmc4 {
+	status = "okay";
+	vmmc-supply = <&vmmcwl_fixed>;
+	bus-width = <4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wlan_pins &wlirq_pins>;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,non-removable;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@0 {
+		compatible = "ti,wlcore";
+		reg = <2>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_NONE>;
+	};
 };
 
 &cpu0 {
