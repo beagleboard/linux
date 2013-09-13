@@ -21,6 +21,8 @@ Required properties:
 Optional properties:
 - ti,no_idle_on_suspend: When present, it prevents the PM to idle the module
   during suspend.
+- ti,deassert-hard-reset: list of hwmod and hardware reset line name pairs
+  (ascii strings) to be deasserted upon device instantiation.
 
 
 Example:
