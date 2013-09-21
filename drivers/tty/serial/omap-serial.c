@@ -266,7 +266,7 @@ serial_omap_baud_is_mode16(struct uart_port *port, unsigned int baud)
 	if(baudAbsDiff16 < 0)
 		baudAbsDiff16 = -baudAbsDiff16;
 
-	return (baudAbsDiff13 > baudAbsDiff16);
+	return (baudAbsDiff13 >= baudAbsDiff16);
 }
 
 /*
