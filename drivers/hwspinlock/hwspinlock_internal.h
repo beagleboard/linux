@@ -53,6 +53,7 @@ struct hwspinlock {
 
 /**
  * struct hwspinlock_device - a device which usually spans numerous hwspinlocks
+ * @list: list element to link hwspinlock devices together
  * @dev: underlying device, will be used to invoke runtime PM api
  * @ops: platform-specific hwspinlock handlers
  * @base_id: id index of the first lock in this device
@@ -60,6 +61,7 @@ struct hwspinlock {
  * @lock: dynamically allocated array of 'struct hwspinlock'
  */
 struct hwspinlock_device {
+	struct list_head list;
 	struct device *dev;
 	const struct hwspinlock_ops *ops;
 	int base_id;

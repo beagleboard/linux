@@ -59,6 +59,11 @@ static RADIX_TREE(hwspinlock_tree, GFP_KERNEL);
  */
 static DEFINE_MUTEX(hwspinlock_tree_lock);
 
+/*
+ * A linked list for maintaining all the registered hwspinlock devices.
+ * The list is maintained in an ordered-list of the supported locks group.
+ */
+static LIST_HEAD(hwspinlock_devices);
 
 /**
  * __hwspin_trylock() - attempt to lock a specific hwspinlock
@@ -307,6 +312,40 @@ out:
 	return hwlock;
 }
 
+/*
+ * Add a new hwspinlock device to the global list, keeping the list of
+ * devices sorted by base order.
+ *
+ * Returns 0 on success, or -EBUSY if the new device overlaps with some
+ * other device's lock space.
+ */
+static int hwspinlock_device_add(struct hwspinlock_device *bank)
+{
+	struct list_head *entry = &hwspinlock_devices;
+	struct hwspinlock_device *_bank;
+	int ret = 0;
+
+	list_for_each(entry, &hwspinlock_devices) {
+		_bank = list_entry(entry, struct hwspinlock_device, list);
+		if (_bank->base_id >= bank->base_id + bank->num_locks)
+			break;
+	}
+
+	if (entry != &hwspinlock_devices &&
+	    entry->prev != &hwspinlock_devices) {
+		_bank = list_entry(entry->prev, struct hwspinlock_device, list);
+		if (_bank->base_id + _bank->num_locks > bank->base_id) {
+			dev_err(bank->dev, "hwlock space overlap, cannot add device\n");
+			ret = -EBUSY;
+		}
+	}
+
+	if (!ret)
+		list_add_tail(&bank->list, entry);
+
+	return ret;
+}
+
 /**
  * hwspin_lock_register() - register a new hw spinlock device
  * @bank: the hwspinlock device, which usually provides numerous hw locks
@@ -339,6 +378,12 @@ int hwspin_lock_register(struct hwspinlock_device *bank, struct device *dev,
 	bank->base_id = base_id;
 	bank->num_locks = num_locks;
 
+	mutex_lock(&hwspinlock_tree_lock);
+	ret = hwspinlock_device_add(bank);
+	mutex_unlock(&hwspinlock_tree_lock);
+	if (ret)
+		return ret;
+
 	for (i = 0; i < num_locks; i++) {
 		hwlock = &bank->lock[i];
 
@@ -355,6 +400,9 @@ int hwspin_lock_register(struct hwspinlock_device *bank, struct device *dev,
 reg_failed:
 	while (--i >= 0)
 		hwspin_lock_unregister_single(base_id + i);
+	mutex_lock(&hwspinlock_tree_lock);
+	list_del(&bank->list);
+	mutex_unlock(&hwspinlock_tree_lock);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(hwspin_lock_register);
@@ -386,6 +434,9 @@ int hwspin_lock_unregister(struct hwspinlock_device *bank)
 		WARN_ON(tmp != hwlock);
 	}
 
+	mutex_lock(&hwspinlock_tree_lock);
+	list_del(&bank->list);
+	mutex_unlock(&hwspinlock_tree_lock);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(hwspin_lock_unregister);
