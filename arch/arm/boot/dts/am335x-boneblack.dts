@@ -11,7 +11,7 @@
 #include "am335x-bone-common.dtsi"
 
 &hdmi {
-		status = "okay";
+	status = "okay";
 };
 
 &ldo3_reg {
@@ -20,17 +20,15 @@
 	regulator-always-on;
 };
 
-&mmc1 { 
+&mmc1 {
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-&mmc2 { 
+&mmc2 {
 	vmmc-supply = <&vmmcsd_fixed>;
-	vmmc-supply = <&ldo3_reg>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&emmc_pins>;
 	bus-width = <8>;
-	ti,non-removable;
-	status = "disabled";
+	status = "okay";
 	ti,vcc-aux-disable-is-sleep;
-
-	reset-gpio = <&gpio1 20 GPIO_ACTIVE_HIGH>;
 };

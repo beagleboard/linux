@@ -30,6 +30,8 @@
 		usb1 = &usb1;
 		phy0 = &usb0_phy;
 		phy1 = &usb1_phy;
+		ethernet0 = &cpsw_emac0;
+		ethernet1 = &cpsw_emac1;
 	};
 
 	cpus {
@@ -55,6 +57,11 @@
 			voltage-tolerance = <2>; /* 2 percentage */
 			clock-latency = <300000>; /* From omap-cpufreq driver */
 		};
+	};
+
+	pmu {
+		compatible = "arm,cortex-a8-pmu";
+		interrupts = <3>;
 	};
 
 	/*
@@ -118,7 +125,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 			reg = <0x44e07000 0x1000>;
 			interrupts = <96>;
 		};
@@ -129,7 +136,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 			reg = <0x4804c000 0x1000>;
 			interrupts = <98>;
 		};
@@ -140,7 +147,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 			reg = <0x481ac000 0x1000>;
 			interrupts = <32>;
 		};
@@ -151,7 +158,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 			reg = <0x481ae000 0x1000>;
 			interrupts = <62>;
 		};
