@@ -347,6 +347,23 @@ static inline void mcasp_set_ctl_reg(void __iomem *regs, u32 val)
 
 static void mcasp_start_rx(struct davinci_audio_dev *dev)
 {
+	u32 pdir = mcasp_get_reg(dev->base + DAVINCI_MCASP_PDIR_REG);
+	u32 thclk_reg = mcasp_get_reg(dev->base + DAVINCI_MCASP_AHCLKXCTL_REG);
+	u32 tclk_reg = mcasp_get_reg(dev->base + DAVINCI_MCASP_ACLKXCTL_REG);
+
+	/*
+	*  If Transmit CLK or High Frequency Transmit CLK are set to output
+	*  and they use the internally generated clock. Do not reset the
+	*  transmit clock divider when receiving data in case they supply
+	*  the clock source for another device.
+	*/
+	if((pdir & ACLKX) && (tclk_reg & ACLKXE)) {
+		mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG, TXCLKRST);
+	}
+
+	if((pdir & AHCLKX) && (thclk_reg & AHCLKXE)) {
+		mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG, TXHCLKRST);
+	}
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXHCLKRST);
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXCLKRST);
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXSERCLR);
@@ -364,6 +381,23 @@ static void mcasp_start_tx(struct davinci_audio_dev *dev)
 {
 	u8 offset = 0, i;
 	u32 cnt;
+	u32 pdir = mcasp_get_reg(dev->base + DAVINCI_MCASP_PDIR_REG);
+	u32 rhclk_reg = mcasp_get_reg(dev->base + DAVINCI_MCASP_AHCLKRCTL_REG);
+	u32 rclk_reg = mcasp_get_reg(dev->base + DAVINCI_MCASP_ACLKRCTL_REG);
+
+	/*
+	*  If Receive CLK or High Frequency Receive CLK are set to output
+	*  and they use the internally generated clock. Do not reset the
+	*  receive clock divider when transmitting data in case they supply
+	*  the clock source for another device.
+	*/
+	if((pdir & ACLKR) && (rclk_reg & ACLKRE)) {
+		mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXCLKRST);
+	}
+
+	if((pdir & AHCLKR) && (rhclk_reg & AHCLKRE)) {
+		mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLR_REG, RXHCLKRST);
+	}
 
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG, TXHCLKRST);
 	mcasp_set_ctl_reg(dev->base + DAVINCI_MCASP_GBLCTLX_REG, TXCLKRST);
