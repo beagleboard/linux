@@ -19,6 +19,7 @@
 #include <asm/mach/arch.h>
 
 #include "common.h"
+#include "soc.h"
 
 #if !(defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3))
 #define intc_of_init	NULL
@@ -36,6 +37,9 @@ static struct of_device_id omap_dt_match_table[] __initdata = {
 static void __init omap_generic_init(void)
 {
 	pdata_quirks_init(omap_dt_match_table);
+
+	if (omap3_has_sgx())
+		omap_sgx_init_of();
 }
 
 #ifdef CONFIG_SOC_OMAP2420
