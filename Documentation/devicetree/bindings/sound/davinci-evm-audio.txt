@@ -1,7 +1,8 @@
 * Texas Instruments SoC audio setups with TLV320AIC3X Codec
 
 Required properties:
-- compatible : "ti,da830-evm-audio" : forDM365/DA8xx/OMAPL1x/AM33xx
+- compatible : "ti,da830-evm-audio" : for DM365/DA8xx/OMAPL1x/AM33xx
+               "ti,am33xx-beaglebone-black" : for Beaglebone-black HDMI audio
 - ti,model : The user-visible name of this sound complex.
 - ti,audio-codec : The phandle of the TLV320AIC3x audio codec
 - ti,mcasp-controller : The phandle of the McASP controller
