@@ -98,6 +98,84 @@
 				eeprom = <&cape_eeprom3>;
 			};
 
+			/* geiger cape version A0 without an EEPROM */
+			slot@5 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-Geiger";
+				version = "00A0";
+				manufacturer = "Geiger Inc.";
+				part-number = "BB-BONE-GEIGER";
+			};
+
+			/* Nixie cape version A0 without an EEPROM */
+			slot@7 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-Nixie";
+				version = "00A0";
+				manufacturer = "Ranostay Industries";
+				part-number = "BB-BONE-NIXIE";
+			};
+
+			/* adafruit 1.8" TFT prototype cape */
+			slot@8 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-TFT";
+				version = "00A0";
+				manufacturer = "Adafruit";
+				part-number = "BB-BONE-TFT-01";
+			};
+
+			/* adafruit RTC DS1307 prototype cape */
+			slot@9 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-RTC";
+				version = "00A0";
+				manufacturer = "Adafruit";
+				part-number = "BB-BONE-RTC-01";
+			};
+
+			slot@10 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-Hexy";
+				version = "00A0";
+				manufacturer = "Koen Kooi";
+				part-number = "BB-BONE-HEXY-01";
+			};
+
+			/* MRF24J40 Cape Override */
+			slot@11 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "Bone-MRF24J40";
+				version = "00A0";
+				manufacturer = "Signal 11 Software";
+				part-number = "BB-BONE-MRF24J40";
+			};
+
+			/* RS232 cape */
+			slot@12 {
+				ti,cape-override;
+				compatible = "kernel-command-line", "runtime";
+				board-name = "BB-BONE-RS232";
+				version = "00A0";
+				manufacturer = "Adafruit";
+				part-number = "BB-BONE-RS232-01";
+			};
+
+			/* GPS cape */
+			slot@13 {
+				compatible = "kernel-command-line", "runtime";
+				board-name = "BB-BONE-GPS";
+				version = "00A0";
+				manufacturer = "Adafruit";
+				part-number = "BB-BONE-GPS-01";
+			};
+
 			/* Beaglebone black has it soldered on */
 			slot@100 {
 				ti,cape-override;

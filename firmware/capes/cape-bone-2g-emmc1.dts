@@ -1,0 +1,71 @@
+/*
+* Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone-black";
+	ti,on-baseboard;
+
+	/* identification */
+	part-number = "*";	/* any part number */
+	version = "*";		/* any version */
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.21",	/* mmc1: mmc1_clk */
+		"P8.20",	/* mmc1: mmc1_cmd */
+		"P8.25",	/* mmc1: mmc1_dat0 */
+		"P8.24",	/* mmc1: mmc1_dat1 */
+		"P8.5",		/* mmc1: mmc1_dat2 */
+		"P8.6",		/* mmc1: mmc1_dat3 */
+		"P8.23",	/* mmc1: mmc1_dat4 */
+		"P8.22",	/* mmc1: mmc1_dat5 */
+		"P8.3",		/* mmc1: mmc1_dat6 */
+		"P8.4",		/* mmc1: mmc1_dat7 */
+		/* the hardware IP uses */
+		"mmc1",
+		/* the reset pin */
+		"eMMC_RSTn";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			emmc2_pins: pinmux_emmc2_pins {
+				pinctrl-single,pins = <
+					0x80 0x32	/* gpmc_csn1.mmc1_clk, INPUT_PULLUP | MODE2 */
+					0x84 0x32	/* gpmc_csn2.mmc1_cmd, INPUT_PULLUP | MODE2 */
+					0x00 0x31	/* gpmc_ad0.mmc1_dat0, INPUT_PULLUP | MODE1 */
+					0x04 0x31	/* gpmc_ad1.mmc1_dat1, INPUT_PULLUP | MODE1 */
+					0x08 0x31	/* gpmc_ad2.mmc1_dat2, INPUT_PULLUP | MODE1 */
+					0x0c 0x31	/* gpmc_ad3.mmc1_dat3, INPUT_PULLUP | MODE1 */
+					0x10 0x31	/* gpmc_ad4.mmc1_dat4, INPUT_PULLUP | MODE1 */
+					0x14 0x31	/* gpmc_ad5.mmc1_dat5, INPUT_PULLUP | MODE1 */
+					0x18 0x31	/* gpmc_ad6.mmc1_dat6, INPUT_PULLUP | MODE1 */
+					0x1c 0x31	/* gpmc_ad7.mmc1_dat7, INPUT_PULLUP | MODE1 */
+				>;
+			};
+		};
+	};
+	fragment@1 {
+		target = <&mmc2>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&emmc2_pins>;	/* wrong numbering */
+			vmmc-supply = <&ldo3_reg>;
+			bus-width = <8>;
+			ti,non-removable;
+			status = "okay";
+			ti,vcc-aux-disable-is-sleep;
+
+			reset = <&rstctl 0 0>;
+			reset-names = "eMMC_RSTn";
+		};
+	};
+};

@@ -1,0 +1,140 @@
+/*
+ * Copyright (C) 2013 CircuitCo
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-EXPTEST";
+	version = "00A0";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			bone_exp_input_gpio_pins: pinmux_bone_exp_input_gpio_pins {
+				pinctrl-single,pins = <
+					/* P8 connector on the bone */
+					/* P3 - P46 pins, B_A3-B_A46, INPUT | PULLDIS | MODE7 */
+					// 0x018 0x2f /*  3 GPIO1_6    gpmc_ad6.gpio1[6]      */
+					// 0x01C 0x2f /*  4 GPIO1_7    gpmc_ad7.gpio1[7]      */
+					// 0x008 0x2f /*  5 GPIO1_2    gpmc_ad2.gpio1[2]      */
+					// 0x00C 0x2f /*  6 GPIO1_3    gpmc_ad3.gpio1[3]      */
+					0x090 0x2f /*  7 TIMER4     gpmc_advn_ale.gpio2[2] */
+					0x094 0x2f /*  8 TIMER7     gpmc_oen_ren.gpio2[3]  */
+					0x09C 0x2f /*  9 TIMER5     gpmc_ben0_cle.gpio2[5] */
+					0x098 0x2f /* 10 TIMER6     gpmc_wen.gpio2[4]      */
+					0x034 0x2f /* 11 GPIO1_13   gpmc_ad13.gpio1[13]    */
+					0x030 0x2f /* 12 GPIO1_12   gpmc_ad12.gpio1[12]    */
+					0x024 0x2f /* 13 EHRPWM2B   gpmc_ad9 .gpio0[23]    */
+					0x028 0x2f /* 14 GPIO0_26   gpmc_ad10.gpio0[26]    */
+					0x03C 0x2f /* 15 GPIO1_15   gpmc_ad15.gpio1[15]    */
+					0x038 0x2f /* 16 GPIO1_14   gpmc_ad14.gpio1[14]    */
+					0x02C 0x2f /* 17 GPIO0_27   gpmc_ad11.gpio0[27]    */
+					0x08C 0x2f /* 18 GPIO2_1    gpmc_clk .gpio2[1]     */
+					0x020 0x2f /* 19 EHRPWM2A   gpmc_ad8 .gpio0[22]    */
+					// 0x084 0x2f /* 20 GPIO1_31   gpmc_csn2.gpio1[31]    */
+					// 0x080 0x2f /* 21 GPIO1_30   gpmc_csn1.gpio1[30]    */
+					// 0x014 0x2f /* 22 GPIO1_5    gpmc_ad5 .gpio1[5]     */
+					// 0x010 0x2f /* 23 GPIO1_4    gpmc_ad4 .gpio1[4]     */
+					// 0x004 0x2f /* 24 GPIO1_1    gpmc_ad1 .gpio1[1]     */
+					// 0x000 0x2f /* 25 GPIO1_0    gpmc_ad0 .gpio1[0]     */
+					0x07C 0x2f /* 26 GPIO1_29   gpmc_csn0.gpio1[29]    */
+
+					/* P9 connector on the bone */
+					/* B_B0-B_B19, INPUT | PULLDIS | MODE7 */
+					0x070 0x2f /* 11 UART4_RXD  gpmc_wait0.gpio0[30]   */
+					0x078 0x2f /* 12 GPIO1_28   gpmc_be1n.gpio1[28]    */
+					0x074 0x2f /* 13 UART4_TXD  gpmc_wpn.gpio0[31]     */
+					0x048 0x2f /* 14 EHRPWM1A   gpmc_a2.gpio1[18]      */
+					0x040 0x2f /* 15 GPIO1_16   gpmc_a0.gpio1[16]      */
+					0x04C 0x2f /* 16 EHRPWM1B   gpmc_a3.gpio1[19]      */
+
+					0x154 0x2f /* 21 UART2_TXD  spi0_d0.gpio0[3]       */
+					0x150 0x2f /* 22 UART2_RXD  spi0_sclk.gpio0[2]     */
+					0x044 0x2f /* 23 GPIO1_17   gpmc_a1.gpio1[17]      */
+					0x1AC 0x2f /* 25 GPIO3_21   mcasp0_ahclkx.gpio3[21]*/
+					0x1A4 0x2f /* 27 GPIO3_19   mcasp0_fsr.gpio3[19]   */
+					0x19C 0x2f /* 28 SPI1_CS0   mcasp0_ahclkr.gpio3[17]*/
+					0x198 0x2f /* 30 SPI1_D1    mcasp0_axr0.gpio3[16]  */
+					0x190 0x2f /* 31 SPI1_SCLK  mcasp0_aclkx.gpio3[14] */
+					0x1B4 0x2f /* 41 CLKOUT2    xdma_event_intr1.gpio0[20]*/
+					0x164 0x2f /* 42 GPIO0_7    eCAP0_in_PWM0_out.gpio0[7]*/
+				>;
+			};
+
+			bone_exp_output_gpio_pins: pinmux_bone_exp_output_gpio_pins {
+				pinctrl-single,pins = <
+					/* P8 connector on the bone */
+					/* P3 - P46 pins, B_A3-B_A46, OUTPUT | MODE7 */
+					// 0x018 0x07 /*  3 GPIO1_6    gpmc_ad6.gpio1[6]      */
+					// 0x01C 0x07 /*  4 GPIO1_7    gpmc_ad7.gpio1[7]      */
+					// 0x008 0x07 /*  5 GPIO1_2    gpmc_ad2.gpio1[2]      */
+					// 0x00C 0x07 /*  6 GPIO1_3    gpmc_ad3.gpio1[3]      */
+					0x090 0x07 /*  7 TIMER4     gpmc_advn_ale.gpio2[2] */
+					0x094 0x07 /*  8 TIMER7     gpmc_oen_ren.gpio2[3]  */
+					0x09C 0x07 /*  9 TIMER5     gpmc_ben0_cle.gpio2[5] */
+					0x098 0x07 /* 10 TIMER6     gpmc_wen.gpio2[4]      */
+					0x034 0x07 /* 11 GPIO1_13   gpmc_ad13.gpio1[13]    */
+					0x030 0x07 /* 12 GPIO1_12   gpmc_ad12.gpio1[12]    */
+					0x024 0x07 /* 13 EHRPWM2B   gpmc_ad9 .gpio0[23]    */
+					0x028 0x07 /* 14 GPIO0_26   gpmc_ad10.gpio0[26]    */
+					0x03C 0x07 /* 15 GPIO1_15   gpmc_ad15.gpio1[15]    */
+					0x038 0x07 /* 16 GPIO1_14   gpmc_ad14.gpio1[14]    */
+					0x02C 0x07 /* 17 GPIO0_27   gpmc_ad11.gpio0[27]    */
+					0x08C 0x07 /* 18 GPIO2_1    gpmc_clk .gpio2[1]     */
+					0x020 0x07 /* 19 EHRPWM2A   gpmc_ad8 .gpio0[22]    */
+					// 0x084 0x07 /* 20 GPIO1_31   gpmc_csn2.gpio1[31]    */
+					// 0x080 0x07 /* 21 GPIO1_30   gpmc_csn1.gpio1[30]    */
+					// 0x014 0x07 /* 22 GPIO1_5    gpmc_ad5 .gpio1[5]     */
+					// 0x010 0x07 /* 23 GPIO1_4    gpmc_ad4 .gpio1[4]     */
+					// 0x004 0x07 /* 24 GPIO1_1    gpmc_ad1 .gpio1[1]     */
+					// 0x000 0x07 /* 25 GPIO1_0    gpmc_ad0 .gpio1[0]     */
+					0x07C 0x07 /* 26 GPIO1_29   gpmc_csn0.gpio1[29]    */
+
+					/* P9 connector on the bone */
+					/* B_B0-B_B19, INPUT | PULLDIS | MODE7 */
+					0x070 0x07 /* 11 UART4_RXD  gpmc_wait0.gpio0[30]   */
+					0x078 0x07 /* 12 GPIO1_28   gpmc_be1n.gpio1[28]    */
+					0x074 0x07 /* 13 UART4_TXD  gpmc_wpn.gpio0[31]     */
+					0x048 0x07 /* 14 EHRPWM1A   gpmc_a2.gpio1[18]      */
+					0x040 0x07 /* 15 GPIO1_16   gpmc_a0.gpio1[16]      */
+					0x04C 0x07 /* 16 EHRPWM1B   gpmc_a3.gpio1[19]      */
+
+					0x154 0x07 /* 21 UART2_TXD  spi0_d0.gpio0[3]       */
+					0x150 0x07 /* 22 UART2_RXD  spi0_sclk.gpio0[2]     */
+					0x044 0x07 /* 23 GPIO1_17   gpmc_a1.gpio1[17]      */
+					0x1AC 0x07 /* 25 GPIO3_21   mcasp0_ahclkx.gpio3[21]*/
+					0x1A4 0x07 /* 27 GPIO3_19   mcasp0_fsr.gpio3[19]   */
+					0x19C 0x07 /* 28 SPI1_CS0   mcasp0_ahclkr.gpio3[17]*/
+					0x198 0x07 /* 30 SPI1_D1    mcasp0_axr0.gpio3[16]  */
+					0x190 0x07 /* 31 SPI1_SCLK  mcasp0_aclkx.gpio3[14] */
+					0x1B4 0x07 /* 41 CLKOUT2    xdma_event_intr1.gpio0[20]*/
+					0x164 0x07 /* 42 GPIO0_7    eCAP0_in_PWM0_out.gpio0[7]*/
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&ocp>;
+		__overlay__ {
+			exp_test_pinmux_helper {
+				compatible = "bone-pinmux-helper";
+				status = "okay";
+
+				pinctrl-names = "input", "output";
+				pinctrl-0 = <&bone_exp_input_gpio_pins>;
+				pinctrl-1 = <&bone_exp_output_gpio_pins>;
+			};
+
+		};
+
+	};
+};
