@@ -136,6 +136,113 @@ fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
 
+# all the generic capes
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	cape-bebopr-R2.dtbo \
+	cape-bebopr-ena-R2.dtbo \
+	cape-bebopr-brdg-R2.dtbo \
+	cape-bone-2g-emmc1.dtbo \
+	cape-bone-adafruit-lcd-00A0.dtbo \
+	cape-bone-dvi-00A0.dtbo \
+	cape-bone-dvi-00A1.dtbo \
+	cape-bone-dvi-00A2.dtbo \
+	cape-bone-hexy-00A0.dtbo \
+	cape-bone-lcd3-00A0.dtbo \
+	cape-bone-lcd3-00A2.dtbo \
+	BB-BONE-AUDI-01-00A0.dtbo \
+	BB-BONE-LCD4-01-00A0.dtbo \
+	BB-BONE-LCD4-01-00A1.dtbo \
+	BB-BONE-LCD7-01-00A2.dtbo \
+	BB-BONE-LCD7-01-00A3.dtbo \
+	BB-BONE-LCD7-01-00A4.dtbo \
+	BB-BONE-eMMC1-01-00A0.dtbo \
+	BB-BONE-GPEVT-00A0.dtbo \
+	BB-BONE-RTC-00A0.dtbo \
+	BB-BONE-GPS-00A0.dtbo \
+	BB-BONE-RS232-00A0.dtbo \
+	BB-BONE-SERL-01-00A1.dtbo \
+	cape-bone-iio-00A0.dtbo \
+	cape-bone-pinmux-test-00A0.dtbo \
+	cape-bone-exptest-00A0.dtbo \
+	cape-bone-mrf24j40-00A0.dtbo \
+	BB-BONELT-BT-00A0.dtbo \
+	am33xx_pwm-00A0.dtbo \
+	bone_pwm_P8_13-00A0.dtbo \
+	bone_pwm_P8_19-00A0.dtbo \
+	bone_pwm_P8_34-00A0.dtbo \
+	bone_pwm_P8_36-00A0.dtbo \
+	bone_pwm_P8_45-00A0.dtbo \
+	bone_pwm_P8_46-00A0.dtbo \
+	bone_pwm_P9_14-00A0.dtbo \
+	bone_pwm_P9_16-00A0.dtbo \
+	bone_pwm_P9_21-00A0.dtbo \
+	bone_pwm_P9_22-00A0.dtbo \
+	bone_pwm_P9_28-00A0.dtbo \
+	bone_pwm_P9_29-00A0.dtbo \
+	bone_pwm_P9_31-00A0.dtbo \
+	bone_pwm_P9_42-00A0.dtbo \
+	BB-BONE-PWMT-00A0.dtbo \
+	BB-BONE-PRU-01-00A0.dtbo \
+	BB-BONE-PRU-02-00A0.dtbo \
+	BB-BONE-PRU-03-00A0.dtbo \
+	BB-BONE-PRU-04-00A0.dtbo \
+	BB-BONE-RST-00A0.dtbo \
+	BB-BONE-RST2-00A0.dtbo \
+	BB-BONE-CAM3-01-00A2.dtbo \
+	TT3201-001-01.dtbo \
+	BB-BONE-SERL-03-00A1.dtbo \
+	BB-BONE-BACON-00A0.dtbo \
+	BB-BONE-BACONE-00A0.dtbo \
+	BB-BONE-BACONE2-00A0.dtbo \
+	DNIL-AMPCAPE-1-00R1.dtbo \
+	cape-bone-replicape-00A2.dtbo \
+	cape-bone-replicape-00A3.dtbo
+
+# the geiger cape
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
+	cape-bone-geiger-00A0.dtbo
+
+# the nixie cape
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_NIXIE) += \
+	cape-bone-nixie-00A0.dtbo
+
+# the weather cape
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-bone-weather-00A0.dtbo
+
+# the HDMI virtual capes on the beaglebone-black
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	cape-boneblack-hdmi-00A0.dtbo cape-boneblack-hdmin-00A0.dtbo
+
+# the Tester cape (tester-side)
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-bone-tester-00A0.dtbo
+
+# the virtual peripheral capes for the UARTs
+# UART3 is not routed to the connectors, no cape for it
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	BB-UART1-00A0.dtbo BB-UART2-00A0.dtbo \
+	BB-UART4-00A0.dtbo BB-UART5-00A0.dtbo
+
+# the virtual peripheral capes for the I2Cs
+# I2C0 & I2C2 are enabled by default, no capes for them
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	BB-I2C1-00A0.dtbo BB-I2C1A1-00A0.dtbo
+
+# the virtual peripheral capes for the SPIDEVs
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	BB-SPIDEV0-00A0.dtbo BB-SPIDEV1-00A0.dtbo BB-SPIDEV1A1-00A0.dtbo
+
+# the virtual peripheral capes for ADC
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	BB-ADC-00A0.dtbo
+
+# the virtual peripheral capes for GPIO
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	BB-GPIOHELP-00A0.dtbo
+
+# PRU firmware
+#fw-shipped-$(CONFIG_PRU_RPROC) += \
+#	prutest.bin
+
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 # Directories which we _might_ need to create, so we have a rule for them.
@@ -237,7 +344,7 @@ $(obj)/%.fw: $(obj)/%.H16 $(ihex2fw_dep) | $(objtree)/$(obj)/$$(dir %)
 	$(call cmd,h16tofw)
 
 # DTBO is device tree blob object
-$(obj)/%.dtbo: $(obj)/%.dts | $(objtree)/$(obj)/$$(dir %)
+$(obj)/%.dtbo: $(obj)/capes/%.dts | $(objtree)/$(obj)/$$(dir %)
 	$(call cmd,dtco)
 
 $(firmware-dirs):

@@ -1,0 +1,74 @@
+/*
+* Copyright (C) 2013 Matt Ranostay <mranostay@gmail.com>
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+/dts-v1/;
+/plugin/;
+
+/*
+ * Pin assignments
+ *
+ * Module     Connector
+ * SCL     -> P9.19
+ * SDA     <- P9.20
+ * SQW/PPS <- P9.15
+ *
+ */
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	part-number = "BB-BONE-RTC-01";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.15";	/*gpio1_16 */
+
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			pps_pins: pinmux_pps_pins {
+				pinctrl-single,pins = <
+					0x040	0x27	/* gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
+				>;
+			};
+		};
+	};
+
+
+	fragment@1 {
+		target = <&i2c2>;
+
+		__overlay__ {
+			/* shut up DTC warnings */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* DS1307 RTC module */
+			rtc@68 {
+				compatible = "dallas,ds1307";
+				reg = <0x68>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&ocp>;
+		__overlay__ {
+			pps {
+				compatible = "pps-gpio";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pps_pins>;
+
+				gpios = <&gpio2 16 0>;
+				assert-falling-edge;
+			};
+		};
+	};
+};

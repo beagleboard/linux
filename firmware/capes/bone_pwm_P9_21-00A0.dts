@@ -1,0 +1,50 @@
+/*
+ * Copyright (C) 2013 CircuitCo
+ * Copyright (C) 2013 Texas Instruments
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "bone_pwm_P9_21";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P9.21",		/* pwm: ehrpwm0B */
+		/* the hardware IP uses */
+		"ehrpwm0B";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			pwm_P9_21: pinmux_pwm_P9_21_pins {
+				pinctrl-single,pins = <0x154  0x3>; /* P9_21 (ZCZ ball B17) | MODE 3 */
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&ocp>;
+		__overlay__ {
+			pwm_test_P9_21 {
+				compatible	= "pwm_test";
+				pwms 		= <&ehrpwm0 1 500000 1>;
+				pwm-names 	= "PWM_P9_21";
+			    pinctrl-names	= "default";
+			    pinctrl-0	= <&pwm_P9_21>;
+				enabled		= <1>;
+				duty		= <0>;
+				status 		= "okay";
+			};
+		};
+	};
+};
