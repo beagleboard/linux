@@ -1093,9 +1093,18 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	dev_dbg(&dev->pdev->dev, "width=%u height=%u byteperline=%u\n",
 			dev->width, dev->height, dev->bytesperline);
 
+	/* Enable sensor clock before setting format */
+	ret = clk_prepare_enable(dev->camera_clk);
+	if (ret != 0) {
+		dev_err(&dev->pdev->dev, "%s: clk_enable failed\n",
+				__func__);
+		return ret;
+	}
+	msleep(100); /* let the clock stabilize */
 	/* Set the sensor into the new format */
 	v4l2_fill_mbus_format(&mbus_fmt, pix, dev->fmt->code);
 	v4l2_subdev_call(dev->subdev, video, s_mbus_fmt, &mbus_fmt);
+	clk_disable_unprepare(dev->camera_clk);
 
 	return 0;
 }
@@ -1529,6 +1538,12 @@ of_get_cssp_platform_data(struct platform_device *pdev)
 		/* we only support a single sensor for now */
 		if (of_device_is_compatible(npc, "aptina,mt9t112")) {
 			strncpy(pstore->i2c_camera.type, "mt9t112",
+					sizeof(pstore->i2c_camera.type));
+			found = 1;
+			break;
+		} else if (of_device_is_compatible(npc, "aptina,mt9m114")) {
+			/* Add support for mt9m114 sensor VVDN */
+			strncpy(pstore->i2c_camera.type, "mt9m114",
 					sizeof(pstore->i2c_camera.type));
 			found = 1;
 			break;
