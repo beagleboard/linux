@@ -101,7 +101,7 @@ static struct virtqueue *rp_find_vq(struct virtio_device *vdev,
 	memset(addr, 0, size);
 
 	dev_dbg(dev, "vring%d: va %p qsz %d notifyid %d\n",
-					id, addr, len, rvring->notifyid);
+		id, addr, len, rvring->notifyid);
 
 	/*
 	 * Create the new vq, and tell virtio we're not interested in

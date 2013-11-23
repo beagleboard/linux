@@ -230,11 +230,11 @@ void rproc_create_debug_dir(struct rproc *rproc)
 		return;
 
 	debugfs_create_file("name", 0400, rproc->dbg_dir,
-					rproc, &rproc_name_ops);
+			    rproc, &rproc_name_ops);
 	debugfs_create_file("state", 0400, rproc->dbg_dir,
-					rproc, &rproc_state_ops);
+			    rproc, &rproc_state_ops);
 	debugfs_create_file("recovery", 0400, rproc->dbg_dir,
-					rproc, &rproc_recovery_ops);
+			    rproc, &rproc_recovery_ops);
 }
 
 void __init rproc_init_debugfs(void)
