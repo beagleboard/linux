@@ -1,0 +1,230 @@
+/*
+ * Copyright (C) 2013 VVDN Technologies
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-APTU-CAM";
+	version = "00A0", "A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.25",	/* gpmc: gpmc_ad0 */
+		"P8.24",	/* gpmc: gpmc_ad1 */
+		"P8.5",		/* gpmc: gpmc_ad2 */
+		"P8.6",		/* gpmc: gpmc_ad3 */
+		"P8.23",	/* gpmc: gpmc_ad4 */
+		"P8.22",	/* gpmc: gpmc_ad5 */
+		"P8.3",		/* gpmc: gpmc_ad6 */
+		"P8.4",		/* gpmc: gpmc_ad7 */
+		"P8.19",	/* gpmc: gpmc_ad8 */
+		"P8.13",	/* gpmc: gpmc_ad9 */
+		"P8.14",	/* gpmc: gpmc_ad10 */
+		"P8.17",	/* gpmc: gpmc_ad11 */
+		"P8.12",	/* gpmc: gpmc_ad12 */
+		"P8.11",	/* gpmc: gpmc_ad13 */
+		"P8.16",	/* gpmc: gpmc_ad14 */
+		"P8.15",	/* gpmc: gpmc_ad15 */
+		"P9.13",	/* gpmc: gpmc_wpn */
+		"P8.21",	/* gpmc: gpmc_csn1 */
+		"P8.18",	/* gpmc: gpmc_clk */
+		"P8.7",		/* gpmc: gpmc_advn_ale */
+		"P8.8",		/* gpmc: gpmc_oen_ren */
+		"P8.10",	/* gpmc: gpmc_wen */
+		"P8.9",		/* gpmc: gpmc_ben0_cle */
+		"P9.41",	/* cssp: clkout2 */
+		"P9.42",	/* cssp: xdma_event_intr2 */
+		"P9.18",	/* cssp: gpio0_4 */
+		"P9.17",	/* cssp: gpio0_5 */
+		"P9.11",	/* cssp: gpio0_30 */
+
+		/* the hardware IP uses */
+		"gpio0_4",
+		"gpio0_5",
+		"gpio0_30",
+		"gpmc",
+		"clkout2",
+		/* the reset pin */
+		"eMMC_RSTn";
+
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+
+			gpmc_pins: pinmux_gpmc_pins {
+				pinctrl-single,pins = <
+					0x000 0x30	/* gpmc_ad0.gpmc_ad0 MODE0 | INPUT | PULLUP */
+					0x004 0x30	/* gpmc_ad1.gpmc_ad1 MODE0 | INPUT | PULLUP */
+					0x008 0x30	/* gpmc_ad2.gpmc_ad2 MODE0 | INPUT | PULLUP */
+					0x00C 0x30	/* gpmc_ad3.gpmc_ad3 MODE0 | INPUT | PULLUP */
+					0x010 0x30	/* gpmc_ad4.gpmc_ad4 MODE0 | INPUT | PULLUP */
+					0x014 0x30	/* gpmc_ad5.gpmc_ad5 MODE0 | INPUT | PULLUP */
+					0x018 0x30	/* gpmc_ad6.gpmc_ad6 MODE0 | INPUT | PULLUP */
+					0x01C 0x30	/* gpmc_ad7.gpmc_ad7 MODE0 | INPUT | PULLUP */
+					0x020 0x30	/* gpmc_ad8.gpmc_ad8 MODE0 | INPUT | PULLUP */
+					0x024 0x30	/* gpmc_ad9.gpmc_ad9 MODE0 | INPUT | PULLUP */
+					0x028 0x30	/* gpmc_ad10.gpmc_ad10 MODE0 | INPUT | PULLUP */
+					0x02C 0x30	/* gpmc_ad11.gpmc_ad11 MODE0 | INPUT | PULLUP */
+					0x030 0x30	/* gpmc_ad12.gpmc_ad12 MODE0 | INPUT | PULLUP */
+					0x034 0x30	/* gpmc_ad13.gpmc_ad13 MODE0 | INPUT | PULLUP */
+					0x038 0x30	/* gpmc_ad14.gpmc_ad14 MODE0 | INPUT | PULLUP */
+					0x03C 0x30	/* gpmc_ad15.gpmc_ad15 MODE0 | INPUT | PULLUP */
+					0x074 0x30	/* gpmc_wpn.gpmc_wpn MODE0 | INPUT | PULLUP */ /* WAS MODE 7 */
+					0x080 0x08	/* gpmc_cscn1.gpmc_cscn1 MODE0 | OUTPUT */
+					0x08C 0x28	/* gpmc_clk.gpmc_clk MODE0 | INPUT */
+					0x090 0x08	/* gpmc_advn_ale.gpmc_advn_ale MODE0 | OUTPUT */
+					0x094 0x08	/* gpmc_oen_ren.gpmc_oen_ren MODE0 | OUTPUT */
+					0x098 0x08	/* gpmc_wen.gpmc_wen MODE0 | OUTPUT */
+					0x09C 0x08	/* gpmc_ben0_cle.gpmc_ben0_cle MODE0 | OUTPUT */
+				>;
+			};
+			cssp_camera_pins: pinmux_cssp_camera_pins {
+				pinctrl-single,pins = <
+					/* clkout2 */
+					0x1B4 0x03	/* xdma_event_intr1.clkout2 MODE3 | OUTPUT clkout2 */
+
+					/* dmar */
+					0x164 0x2e	/* ecap0_in_pwm0_out.xdma_event_intr2 MODE6 | INPUT */
+
+					/* cssp camera */
+					0x158 0x07	/* spi0_d1.gpio0_4 MODE7 | OUTPUT, QL CSSP and Camera Sensor Reset */
+					0x15C 0x17	/* spi0_cs0.gpio0_5 MODE7 | OUTPUT | PULLUP, 1V8 and 2V8 Power Enable */
+					0x070 0x2f	/* gpmc_wait0.gpio0_30 MODE0 | INPUT | PULLUPDIS, Sensor orientation detect: low -> frontfacing, high -> backfacing */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&gpmc>;
+		depth = <1>;	/* only create devices on depth 1 */
+
+		/* stupid warnings */
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		__overlay__ {
+
+			status = "okay";
+
+			#address-cells = <2>;
+			#size-cells = <1>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&gpmc_pins>;
+
+			/* chip select ranges */
+			ranges = <0 0 0x08000000 0x10000000>,	/* bootloader has this enabled */
+				 <1 0 0x18000000 0x08000000>,
+				 <2 0 0x20000000 0x08000000>,
+				 <3 0 0x28000000 0x08000000>,
+				 <4 0 0x30000000 0x08000000>,
+				 <5 0 0x38000000 0x04000000>,
+				 <6 0 0x3c000000 0x04000000>;
+
+			/*
+			 * This is complete and utter cr*p
+			 * It doesn't belong here, but we don't
+			 * have a memory controller abstraction.
+			 * So we muddle along...
+			 */
+			camera {
+				compatible = "cssp-camera";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&cssp_camera_pins>;
+
+				reg = <1 0 0x01000000>;		/* CS1 */
+
+				bank-width = <2>;		/* GPMC_CONFIG1_DEVICESIZE(1) */
+
+				gpmc,burst-read;		/* GPMC_CONFIG1_READMULTIPLE_SUPP */
+				gpmc,sync-read;			/* GPMC_CONFIG1_READTYPE_SYNC */
+				gpmc,sync-write;		/* GPMC_CONFIG1_WRITETYPE_SYNC */
+				gpmc,clk-activation-ns = <20>;	/* GPMC_CONFIG1_CLKACTIVATIONTIME(2) */
+				gpmc,burst-length = <16>;	/* GPMC_CONFIG1_PAGE_LEN(2) */
+				gpmc,mux-add-data = <2>;	/* GPMC_CONFIG1_MUXTYPE(2) */
+
+				gpmc,sync-clk-ps = <20000>;	/* CONFIG2 */
+
+				gpmc,cs-on-ns = <1>;
+				gpmc,cs-rd-off-ns = <160>;
+				gpmc,cs-wr-off-ns = <310>;
+
+				gpmc,adv-on-ns = <0>;		/* CONFIG3 */
+				gpmc,adv-rd-off-ns = <40>;
+				gpmc,adv-wr-off-ns = <40>;
+
+				gpmc,we-on-ns = <60>;		/* CONFIG4 */
+				gpmc,we-off-ns = <310>;
+				gpmc,oe-on-ns = <60>;
+				gpmc,oe-off-ns = <160>;
+
+				gpmc,page-burst-access-ns = <20>;	/* CONFIG 5 */
+				gpmc,access-ns = <140>;
+				gpmc,rd-cycle-ns = <160>;
+				gpmc,wr-cycle-ns = <310>;
+
+				gpmc,wr-access-ns = <100>;		/* CONFIG 6 */
+				gpmc,wr-data-mux-bus-ns = <60>;
+
+				gpmc,bus-turnaround-ns = <40>;		/* CONFIG6:3:0 = 4 */
+				gpmc,cycle2cycle-samecsen;		/* CONFIG6:7 = 1 */
+				gpmc,cycle2cycle-delay-ns = <40>;	/* CONFIG6:11:8 = 4 */
+
+				/* not using dma engine yet, but we can get the channel number here */
+				dmas = <&edma 20>;
+				dma-names = "cssp";
+
+				/* clocks */
+				cssp,camera-clk-name = "adjustable_clkout2_ck";
+				cssp,camera-clk-rate = <32000000>;
+
+				/* reset */
+				reset-gpio = <&gpio1 4 0>;
+
+				/* orientation; -> MT9T112_FLAG_VFLIP */
+				orientation-gpio = <&gpio1 30 0>;
+
+				/* reset controller (for the black) */
+				reset = <&rstctl 0 0>;
+				reset-names = "eMMC_RSTn-CAM3";
+
+				/* camera sensor */
+				cssp,sensor {
+					i2c-adapter = <&i2c2>;
+
+					/* need it to stop the whinning */
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					/* i2c device node */
+					m59t112 {
+						compatible = "aptina,mt9m114";
+						reg = <0x48>;
+
+						/* dummy pll flags m, n, p1-7, PLL hardcoded in Driver */
+						flags = <0>;
+						pll-divider = <0 0 0 0 0 0 0 0 0>;
+					};
+				};
+
+			};
+
+		};
+	};
+
+};
