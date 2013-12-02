@@ -51,4 +51,5 @@ obj-$(CONFIG_ALTERA_STAPL)	+=altera-stapl/
 obj-$(CONFIG_INTEL_MEI)		+= mei/
 obj-$(CONFIG_GPEVT)		+= gpevt.o
 obj-$(CONFIG_GROVE_I2C)		+= grove-i2c.o
+obj-$(CONFIG_TIEQEP)      += tieqep.o
 obj-y				+= cape/
