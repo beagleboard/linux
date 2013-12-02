@@ -658,6 +658,15 @@
 				ti,hwmods = "ehrpwm0";
 				status = "disabled";
 			};
+
+			eqep0: eqep@0x48300180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x48300180 0x80>;
+				interrupt-parent = <&intc>;
+				interrupts = <79>;
+				ti,hwmods = "eqep0";
+				status = "disabled";
+			};
 		};
 
 		epwmss1: epwmss@48302000 {
@@ -688,6 +697,15 @@
 				ti,hwmods = "ehrpwm1";
 				status = "disabled";
 			};
+
+			eqep1: eqep@0x48302180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x48302180 0x80>;
+				interrupt-parent = <&intc>;
+				interrupts = <88>;
+				ti,hwmods = "eqep1";
+				status = "disabled";
+			};
 		};
 
 		epwmss2: epwmss@48304000 {
@@ -716,6 +734,15 @@
 				#pwm-cells = <3>;
 				reg = <0x48304200 0x80>;
 				ti,hwmods = "ehrpwm2";
+				status = "disabled";
+			};
+
+			eqep2: eqep@0x48304180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x48304180 0x80>;
+				interrupt-parent = <&intc>;
+				interrupts = <89>;
+				ti,hwmods = "eqep2";
 				status = "disabled";
 			};
 		};
