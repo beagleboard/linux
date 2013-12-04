@@ -1,7 +1,7 @@
 #ifndef __ASM_ARM_IRQ_H
 #define __ASM_ARM_IRQ_H
 
-#define NR_IRQS_LEGACY	16
+#define NR_IRQS_LEGACY	0
 
 #ifndef CONFIG_SPARSE_IRQ
 #include <mach/irqs.h>
