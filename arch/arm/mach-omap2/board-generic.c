@@ -36,6 +36,9 @@ static struct of_device_id omap_dt_match_table[] __initdata = {
 	{ }
 };
 
+// TEMP
+void __init omap_sgx_init_of(void);
+
 static void __init omap_generic_init(void)
 {
 	omap_sdrc_init(NULL, NULL);
@@ -50,6 +53,7 @@ static void __init omap_generic_init(void)
 		omap4_panda_display_init_of();
 	else if (of_machine_is_compatible("ti,omap4-sdp"))
 		omap_4430sdp_display_init_of();
+    omap_sgx_init_of();
 }
 
 #ifdef CONFIG_SOC_OMAP2420
