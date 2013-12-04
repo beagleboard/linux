@@ -96,6 +96,14 @@
 			reg = <0x48200000 0x1000>;
 		};
 
+        sgx@0x56000000 {
+            compatible = "ti,sgx";
+            ti,hwmods = "gfx";
+            clock-frequency = <200000000>;
+            reg = <0x56000000 0x1000000>;
+            interrupts = <37>;
+        };
+
 		edma: edma@49000000 {
 			compatible = "ti,edma3";
 			ti,hwmods = "tpcc", "tptc0", "tptc1", "tptc2";
