@@ -1694,7 +1694,10 @@ static int serial_omap_probe(struct platform_device *pdev)
 			return -EPROBE_DEFER;
 		wakeirq = irq_of_parse_and_map(pdev->dev.of_node, 1);
 		omap_up_info = of_get_uart_port_info(&pdev->dev);
-		pdev->dev.platform_data = omap_up_info;
+		ret = platform_device_add_data(pdev, omap_up_info,
+				sizeof(*omap_up_info));
+		if (ret != 0)
+			return ret;
 	} else {
 		uartirq = platform_get_irq(pdev, 0);
 		if (uartirq < 0)
