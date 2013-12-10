@@ -227,6 +227,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 static int evm_aic3x_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct device_node *np = codec->card->dev->of_node;
 	int ret;
@@ -244,6 +245,11 @@ static int evm_aic3x_init(struct snd_soc_pcm_runtime *rtd)
 		/* Set up davinci-evm specific audio path audio_map */
 		snd_soc_dapm_add_routes(dapm, audio_map, ARRAY_SIZE(audio_map));
 	}
+
+	/* Divide McASP MCLK by 2 to provide 12MHz to codec */
+	ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, 2);
+	if (ret < 0)
+		return ret;
 
 	/* not connected */
 	snd_soc_dapm_disable_pin(dapm, "MONO_LOUT");
