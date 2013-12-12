@@ -1,0 +1,90 @@
+/*
+ * Copyright (C) 2013 David Lambert - Breakaway Systems LLC>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This has been, and continues to be very confusing to me!!!
+ *
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "argus-ups";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header usage */
+		"P8.11",	/* Request from UPS */
+		"P8.17",	/* Acknowledge to UPS */
+		"P8.18",	/* Watchdog to UPS */
+		"P8.7",		/* LED 1 Green */
+		"P8.8",		/* LED 1 Red */
+		"P8.9",		/* LED 2 Green */
+		"P8.10",	/* LED 2 Red */
+		"P9.41",	/* General Output #1 */
+		"P9.42",	/* General Output #2 */
+		/* the hardware IP usage  - note that gpios here need to be numbered 0-n */
+		/* whereas in the fragments they are numbered 1-(n+1)????? */
+		"gpio0_30",
+		"gpio0_5",
+		"gpio0_4",
+		"gpio2_2",	/* LED 1 Green */
+		"gpio2_3",	/* LED 1 Red */
+		"gpio2_5",	/* LED 2 Green */
+		"gpio2_4",	/* LED 2 Red */
+		"gpio0_20",	/* General Output #1 */
+		"gpio0_7";	/* General Output #2 */
+
+	fragment@0 {		/* Deals with the pinmux */
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			argus_ups_pins: pinmux_argus_ups_pins { /* Set up pinmux */
+				pinctrl-single,pins = <
+					0x070 0x27 /* gpmc_wait0.gpio0_30,  OMAP_MUX_MODE7 | INPUT_PULLDOWN */
+					0x15c 0x17 /* spi0_cs0.gpio0_5,   OMAP_MUX_MODE7 | OUTPUT_PULLUP */
+					0x158 0x17 /* spi0_d1.gpio0_4,   OMAP_MUX_MODE7 | OUTPUT_PULLUP */
+					0x090 0x17 /* gpmc_advn_ale.gpio_2 , OMAP_MUX_MODE7 | OUTPUT_PULLUP */
+					0x094 0x17 /* gpmc_oen_ren.gpio2_3 , OMAP_MUX_MODE7 | OUTPUT_PULLUP */
+					0x09c 0x17 /* gpmc_ben0_cle.gpio2_5 , OMAP_MUX_MODE7 | OUTPUT_PULLUP */
+					0x098 0x17 /* gpmc_gpmc_wen.gpio2_4 , OMAP_MUX_MODE7 | OUTPUT_PULLUP */
+					0x1b4 0x17 /* xdma_event_intr1.gpio0_20 , OMAP_MUX_MODE7 | OUTPUT_PULLUP */
+					0x164 0x17 /* ecap0_in_pwm0_out.gpio0_7 , OMAP_MUX_MODE7 | OUTPUT_PULLUP */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&ocp>;
+		__overlay__ {
+			argus-ups {
+				compatible = "argus-ups";
+				status = "okay";
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&argus_ups_pins>; /* Refer to previous label */
+				/* This section communicates the gpio numbers to the driver module */
+				/* Note that gpio controllers appear to be numbered from 1-n here rather than 0-(n-1)????? */
+				gpios = <&gpio1 30 0>,  /* Request */
+					<&gpio1 5 0>,  	/* Acknowledge */
+					<&gpio1 4 0>,   /* Watchdog */
+					<&gpio3 2 0>, 	/* LED 1 Green */
+					<&gpio3 3 0>, 	/* LED 1 Red */
+					<&gpio3 5 0>, 	/* LED 2 Green */
+					<&gpio3 4 0>, 	/* LED 2 Red */
+					<&gpio1 20 0>,	/* General Output #1 */
+					<&gpio1 7 0>;	/* General Output #2 */
+				debug = <0>;
+				shutdown = <1>;
+
+			};
+		};
+	};
+};

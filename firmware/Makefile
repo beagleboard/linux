@@ -203,6 +203,10 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
 	cape-bone-geiger-00A0.dtbo
 
+# the Argus UPS cape
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_ARGUS) += \
+	cape-bone-argus-00A0.dtbo
+
 # the nixie cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_NIXIE) += \
 	cape-bone-nixie-00A0.dtbo
