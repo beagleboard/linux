@@ -31,6 +31,13 @@ config CAPE_BEAGLEBONE_GEIGER
 	help
 	  Say Y here to include support for the Geiger Cape
 
+config CAPE_BEAGLEBONE_ARGUS
+	tristate "Beaglebone Argus UPS Cape"
+	depends on CAPE_BEAGLEBONE
+	default n
+	help
+	  Say Y here to include support for the Argus UPS cape
+
 
 config CAPE_BEAGLEBONE_NIXIE
 	tristate "Beaglebone Nixie Cape"
