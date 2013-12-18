@@ -91,5 +91,9 @@ struct lcd_sync_arg {
 /* Proprietary FB_SYNC_ flags */
 #define FB_SYNC_CLK_INVERT 0x40000000
 
+typedef void (*vsync_callback_t)(void *arg);
+int register_vsync_cb(vsync_callback_t handler, void *arg, int idx);
+int unregister_vsync_cb(vsync_callback_t handler, void *arg, int idx);
+
 #endif  /* ifndef DA8XX_FB_H */
 

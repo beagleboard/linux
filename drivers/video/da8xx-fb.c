@@ -196,6 +196,9 @@ static struct fb_fix_screeninfo da8xx_fb_fix = {
 	.accel = FB_ACCEL_NONE
 };
 
+static vsync_callback_t vsync_cb_handler;
+static void *vsync_cb_arg;
+
 static struct fb_videomode known_lcd_panels[] = {
 	/* Sharp LCD035Q3DG01 */
 	[0] = {
@@ -824,6 +827,32 @@ static int lcd_init(struct da8xx_fb_par *par, const struct lcd_ctrl_config *cfg,
 	return 0;
 }
 
+int register_vsync_cb(vsync_callback_t handler, void *arg, int idx)
+{
+	if ((vsync_cb_handler == NULL) && (vsync_cb_arg == NULL)) {
+		vsync_cb_arg = arg;
+		vsync_cb_handler = handler;
+	} else {
+		return -EEXIST;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(register_vsync_cb);
+
+int unregister_vsync_cb(vsync_callback_t handler, void *arg, int idx)
+{
+	if ((vsync_cb_handler == handler) && (vsync_cb_arg == arg)) {
+		vsync_cb_handler = NULL;
+		vsync_cb_arg = NULL;
+	} else {
+		return -ENXIO;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(unregister_vsync_cb);
+
 /* IRQ handler for version 2 of LCDC */
 static irqreturn_t lcdc_irq_handler_rev02(int irq, void *arg)
 {
@@ -861,6 +890,8 @@ static irqreturn_t lcdc_irq_handler_rev02(int irq, void *arg)
 				   LCD_DMA_FRM_BUF_CEILING_ADDR_0_REG);
 			par->vsync_flag = 1;
 			wake_up_interruptible(&par->vsync_wait);
+			if (vsync_cb_handler)
+				vsync_cb_handler(vsync_cb_arg);
 		}
 
 		if (stat & LCD_END_OF_FRAME1) {
@@ -871,6 +902,8 @@ static irqreturn_t lcdc_irq_handler_rev02(int irq, void *arg)
 				   LCD_DMA_FRM_BUF_CEILING_ADDR_1_REG);
 			par->vsync_flag = 1;
 			wake_up_interruptible(&par->vsync_wait);
+			if (vsync_cb_handler)
+				vsync_cb_handler(vsync_cb_arg);
 		}
 
 		/* Set only when controller is disabled and at the end of
