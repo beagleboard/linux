@@ -1,0 +1,13 @@
+TI Power Reset Clock Manager (PRCM)
+
+Properties:
+- compatible:	"ti,am4372-prcm" for prcm in am43x SoC's
+		"ti,am3352-prcm" for prcm in am335x SoC's
+- #reset-cells: 1 (refer generic reset bindings for details)
+
+example:
+	prcm: prcm@44df0000 {
+		compatible = "ti,am4372-prcm";
+		reg = <0x44df0000 0xa000>;
+		#reset-cells = <1>;
+	};

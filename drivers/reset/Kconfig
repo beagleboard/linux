@@ -21,4 +21,14 @@ config RESET_GPIO
 	  This driver provides support for reset lines that are controlled
 	  directly by GPIOs.
 
+config	RESET_TI
+	bool "TI reset controller"
+	help
+	  Reset controller support for TI SoC's
+
+	  Reset controller found in TI's AM series of SoC's like
+	  AM335x and AM43x and OMAP SoC's like OMAP5 and DRA7
+
+	  If unsure, say no.
+
 endif

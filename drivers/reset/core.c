@@ -127,6 +127,38 @@ int reset_control_deassert(struct reset_control *rstc)
 EXPORT_SYMBOL_GPL(reset_control_deassert);
 
 /**
+ * reset_control_is_reset - check reset status
+ * @rstc: reset controller
+ *
+ * Returns a boolean or negative error code
+ *
+ */
+int reset_control_is_reset(struct reset_control *rstc)
+{
+	if (rstc->rcdev->ops->is_reset)
+		return rstc->rcdev->ops->is_reset(rstc->rcdev, rstc->id);
+
+	return -ENOSYS;
+}
+EXPORT_SYMBOL_GPL(reset_control_is_reset);
+
+/**
+ * reset_control_clear_reset - clear the reset
+ * @rstc: reset controller
+ *
+ * Returns zero on success or negative error code
+ *
+ */
+int reset_control_clear_reset(struct reset_control *rstc)
+{
+	if (rstc->rcdev->ops->clear_reset)
+		return rstc->rcdev->ops->clear_reset(rstc->rcdev, rstc->id);
+
+	return -ENOSYS;
+}
+EXPORT_SYMBOL_GPL(reset_control_clear_reset);
+
+/**
  * reset_control_get - Lookup and obtain a reference to a reset controller.
  * @dev: device to be reset by the controller
  * @id: reset line name

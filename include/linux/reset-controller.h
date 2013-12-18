@@ -17,6 +17,8 @@ struct reset_control_ops {
 	int (*reset)(struct reset_controller_dev *rcdev, unsigned long id);
 	int (*assert)(struct reset_controller_dev *rcdev, unsigned long id);
 	int (*deassert)(struct reset_controller_dev *rcdev, unsigned long id);
+	int (*is_reset)(struct reset_controller_dev *rcdev, unsigned long id);
+	int (*clear_reset)(struct reset_controller_dev *rcdev, unsigned long i);
 };
 
 struct module;

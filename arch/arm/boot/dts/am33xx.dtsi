@@ -803,5 +803,11 @@
 			reg = <0x48310000 0x2000>;
 			interrupts = <111>;
 		};
+
+		prcm: prcm@44e00000 {
+			compatible = "ti,am3352-prcm";
+			reg = <0x44e00000 0x1300>;
+			#reset-cells = <1>;
+		};
 	};
 };
