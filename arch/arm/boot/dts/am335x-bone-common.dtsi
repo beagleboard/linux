@@ -98,6 +98,13 @@
 		>;
 	};
 
+	uart1_pins: pinmux_uart1_pins {
+		pinctrl-single,pins = <
+			0x180 (PIN_INPUT_PULLUP | MUX_MODE0)	/* uart1_rxd.uart1_rxd */
+			0x184 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* uart1_txd.uart1_txd */
+		>;
+	};
+
 	clkout2_pin: pinmux_clkout2_pin {
 		pinctrl-single,pins = <
 			0x1b4 (PIN_OUTPUT_PULLDOWN | MUX_MODE3)	/* xdma_event_intr1.clkout2 */
@@ -178,11 +185,45 @@
 			0x1c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad7.mmc1_dat7 */
 		>;
 	};
+
+	spi0_pins: pinmux_spi0_pins {
+		pinctrl-single,pins = <
+			0x150 (PIN_INPUT_PULLUP | MUX_MODE0)	/* spi0_sclk.spi0_sclk */
+			0x154 (PIN_INPUT_PULLUP | MUX_MODE0)	/* spi0_d0.spi0_d0 */
+			0x158 (PIN_OUTPUT_PULLUP | MUX_MODE0)	/* spi0_d1.spi0_d1 */
+			0x15c (PIN_OUTPUT_PULLUP | MUX_MODE0)	/* spi0_cs0.spi0_cs0 */
+		>;
+	};
+
+	ehrpwm1_pin_p9_14: pinmux_ehrpwm1_pin_p9_14 {
+		pinctrl-single,pins = <
+			0x048 0x6	/* P9_14 (ZCZ ball U14) | MODE 6 */
+		>;
+	};
+
+	ehrpwm1_pin_p9_16: pinmux_ehrpwm1_pin_p9_16 {
+		pinctrl-single,pins = <
+			0x04c 0x6	/* P9_16 (ZCZ ball T14) | MODE 6 */
+		>;
+	};
+
+	ecap0_pin_p9_42: pinmux_ecap0_pin_p9_42 {
+		pinctrl-single,pins = <
+			0x164 0x0	/* P9_42 (ZCZ ball C18) | MODE 0 */
+		>;
+	};
 };
 
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_pins>;
+
+	status = "okay";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
 
 	status = "okay";
 };
@@ -261,6 +302,56 @@
 	};
 };
 
+&epwmss0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ecap0_pin_p9_42>;
+	status = "okay";
+
+	ecap@48300100 {
+		status = "okay";
+	};
+};
+
+&epwmss1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&ehrpwm1_pin_p9_14
+		&ehrpwm1_pin_p9_16
+	>;
+
+	status = "okay";
+
+	ehrpwm@48302200 {
+		status = "okay";
+	};
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <16000000>;
+		spi-cpha;
+	};
+
+	spidev1: spi@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <16000000>;
+	};
+};
+
+&tscadc {
+	status = "okay";
+	adc {
+		ti,adc-channels = <4 5 6>;
+	};
+};
+
 /include/ "tps65217.dtsi"
 
 &tps {
@@ -335,4 +426,43 @@
 	pinctrl-0 = <&mmc1_pins>;
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
 	cd-inverted;
+};
+
+/ {
+	ocp {
+		//FIXME: these pwm's still need work, this guild isn't working..
+		//http://elinux.org/EBC_Exercise_13_Pulse_Width_Modulation
+		pwm_test_P9_14@0 {
+			compatible = "pwm_test";
+			pwms = <&ehrpwm1 0 500000 1>;
+			pwm-names = "PWM_P9_14";
+			pinctrl-names = "default";
+			pinctrl-0 = <&ehrpwm1_pin_p9_14>;
+			enabled = <1>;
+			duty = <0>;
+			status = "okay";
+		};
+
+		pwm_test_P9_16@0 {
+			compatible = "pwm_test";
+			pwms = <&ehrpwm1 0 500000 1>;
+			pwm-names = "PWM_P9_16";
+			pinctrl-names = "default";
+			pinctrl-0 = <&ehrpwm1_pin_p9_16>;
+			enabled = <1>;
+			duty = <0>;
+			status = "okay";
+		};
+
+		pwm_test_P9_42 {
+			compatible = "pwm_test";
+			pwms = <&ecap0 0 500000 1>;
+			pwm-names = "PWM_P9_42";
+			pinctrl-names = "default";
+			pinctrl-0 = <&ecap0_pin_p9_42>;
+			enabled = <1>;
+			duty = <0>;
+			status = "okay";
+		};
+	};
 };
