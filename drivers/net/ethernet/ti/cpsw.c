@@ -342,6 +342,7 @@ struct cpsw_priv {
 	/* snapshot of IRQ numbers */
 	u32 irqs_table[4];
 	u32 num_irqs;
+	bool irq_enabled;
 	struct cpts cpts;
 };
 
@@ -458,7 +459,10 @@ static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
 
 	if (likely(netif_running(priv->ndev))) {
 		cpsw_intr_disable(priv);
-		cpsw_disable_irq(priv);
+		if (priv->irq_enabled == true) {
+			cpsw_disable_irq(priv);
+			priv->irq_enabled = false;
+		}
 		napi_schedule(&priv->napi);
 	}
 
@@ -512,7 +516,10 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
 	if ((num_total_rx + num_total_tx) < budget) {
 		napi_complete(napi);
 		cpsw_intr_enable(priv);
-		cpsw_enable_irq(priv);
+		if (priv->irq_enabled == false) {
+			cpsw_enable_irq(priv);
+			priv->irq_enabled = true;
+		}
 	}
 
 	return num_total_rx + num_total_rx;
@@ -812,7 +819,10 @@ static int cpsw_ndo_stop(struct net_device *ndev)
 	struct cpsw_priv *priv = netdev_priv(ndev);
 
 	cpsw_info(priv, ifdown, "shutting down cpsw device\n");
-	cpsw_disable_irq(priv);
+	if (priv->irq_enabled == true) {
+		cpsw_disable_irq(priv);
+		priv->irq_enabled = false;
+	}
 	netif_stop_queue(priv->ndev);
 	if (!priv->data.disable_napi)
 		napi_disable(&priv->napi);
@@ -1306,6 +1316,7 @@ static int cpsw_probe(struct platform_device *pdev)
 	priv->dev  = &ndev->dev;
 	priv->msg_enable = netif_msg_init(debug_level, CPSW_DEBUG);
 	priv->rx_packet_max = max(rx_packet_max, 128);
+	priv->irq_enabled = false;
 
 	/*
 	 * This may be required here for child devices.
