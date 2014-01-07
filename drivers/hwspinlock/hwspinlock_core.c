@@ -27,6 +27,7 @@
 #include <linux/hwspinlock.h>
 #include <linux/pm_runtime.h>
 #include <linux/mutex.h>
+#include <linux/of.h>
 
 #include "hwspinlock_internal.h"
 
@@ -261,6 +262,127 @@ void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 		spin_unlock(&hwlock->lock);
 }
 EXPORT_SYMBOL_GPL(__hwspin_unlock);
+
+/**
+ * of_hwspin_lock_simple_xlate - translate hwlock_spec to return a lock id
+ * @bank: the hwspinlock device bank
+ * @hwlock_spec: hwlock specifier as found in the device tree
+ *
+ * This is a simple translation function, suitable for hwspinlock platform
+ * drivers that only has a lock specifier length of 1.
+ *
+ * Returns a negative value on error, and a relative index of the lock within
+ * a specified bank on success.
+ */
+static int of_hwspin_lock_simple_xlate(struct hwspinlock_device *bank,
+				const struct of_phandle_args *hwlock_spec)
+{
+	/* sanity check (these shouldn't happen) */
+	if (WARN_ON(!bank->dev->of_node))
+		return -EINVAL;
+
+	if (WARN_ON(hwlock_spec->args_count != 1))
+		return -EINVAL;
+
+	return hwlock_spec->args[0];
+}
+
+/**
+ * of_hwspin_lock_get_id() - get lock id for an OF phandle-based specific lock
+ * @np: device node from which to request the specific hwlock
+ * @index: index of the hwlock in the list of values
+ *
+ * This function provides a means for DT users of the hwspinlock module to
+ * get the global lock id of a specific hwspinlock using the phandle of the
+ * hwspinlock device, so that it can be requested using the normal
+ * hwspin_lock_request_specific() API.
+ *
+ * Returns the global lock id number on success, -EPROBE_DEFER if the hwspinlock
+ * device is not yet registered, -EINVAL on invalid args specifier value or an
+ * appropriate error as returned from the OF parsing of the DT user node.
+ */
+int of_hwspin_lock_get_id(struct device_node *np, int index)
+{
+	struct hwspinlock_device *bank;
+	struct of_phandle_args args;
+	int id;
+	int ret;
+
+	ret = of_parse_phandle_with_args(np, "hwlocks", "#hwlock-cells", index,
+					 &args);
+	if (ret)
+		return ret;
+
+	mutex_lock(&hwspinlock_tree_lock);
+	list_for_each_entry(bank, &hwspinlock_devices, list)
+		if (bank->dev->of_node == args.np)
+			break;
+	mutex_unlock(&hwspinlock_tree_lock);
+	if (&bank->list == &hwspinlock_devices) {
+		ret = -EPROBE_DEFER;
+		goto out;
+	}
+
+	id = of_hwspin_lock_simple_xlate(bank, &args);
+	if (id < 0 || id >= bank->num_locks) {
+		ret = -EINVAL;
+		goto out;
+	}
+	id += bank->base_id;
+
+out:
+	of_node_put(args.np);
+	return ret ? ret : id;
+}
+EXPORT_SYMBOL_GPL(of_hwspin_lock_get_id);
+
+/**
+ * of_hwspin_lock_get_base_id() - OF helper to retrieve base id
+ * @dn: device node pointer
+ *
+ * This is an OF helper function that can be called by the underlying
+ * platform-specific implementations, to retrieve the base id for the
+ * set of locks present within a hwspinlock device instance.
+ *
+ * Returns the base id value on success, or an appropriate error code
+ * as returned by the OF layer
+ */
+int of_hwspin_lock_get_base_id(struct device_node *dn)
+{
+	unsigned int val;
+	int ret;
+
+	ret = of_property_read_u32(dn, "hwlock-base-id", &val);
+	return ret ? ret : val;
+}
+EXPORT_SYMBOL_GPL(of_hwspin_lock_get_base_id);
+
+/**
+ * of_hwspin_lock_get_num_locks() - OF helper to retrieve number of locks
+ * @dn: device node pointer
+ *
+ * This is an OF helper function that can be called by the underlying
+ * platform-specific implementations, to retrieve the number of locks
+ * present within a hwspinlock device instance. The hwlock-num-locks
+ * DT property may be optional for some platforms, while mandatory for
+ * some others, so this function is typically called only by needed
+ * platform-specific implementations.
+ *
+ * Returns a positive number of locks on success, -ENODEV on generic
+ * failure or an appropriate error code as returned by the OF layer
+ */
+int of_hwspin_lock_get_num_locks(struct device_node *dn)
+{
+	unsigned int val;
+	int ret = -ENODEV;
+
+	ret = of_property_read_u32(dn, "hwlock-num-locks", &val);
+	if (!ret)
+		ret = val ? val : -ENODEV;
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(of_hwspin_lock_get_num_locks);
 
 static int hwspin_lock_register_single(struct hwspinlock *hwlock, int id)
 {
