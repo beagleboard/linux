@@ -53,6 +53,7 @@ struct titsc {
 	u32			config_inp[4];
 	u32			bit_xp, bit_xn, bit_yp, bit_yn;
 	u32			inp_xp, inp_xn, inp_yp, inp_yn;
+	unsigned int 		prevZ;
 };
 
 static unsigned int titsc_readl(struct titsc *ts, unsigned int reg)
@@ -204,11 +205,10 @@ static void titsc_read_coordinates(struct titsc *ts_dev,
 		u32 *x, u32 *y, u32 *z1, u32 *z2)
 {
 	unsigned int fifocount = titsc_readl(ts_dev, REG_FIFO0CNT);
-	unsigned int prev_val_x = ~0, prev_val_y = ~0;
-	unsigned int prev_diff_x = ~0, prev_diff_y = ~0;
-	unsigned int read, diff;
+	unsigned int read;
 	unsigned int i, channel;
 	unsigned int creads = ts_dev->coordinate_readouts;
+	unsigned int nX, nY;
 
 	*z1 = *z2 = 0;
 	if (fifocount % (creads * 2 + 2))
@@ -221,33 +221,33 @@ static void titsc_read_coordinates(struct titsc *ts_dev,
 	 * algorithm compares the difference with that of a present value,
 	 * if true the value is reported to the sub system.
 	 */
+	*x=0;
+	*y=0;
+	nX=0;
+	nY=0;
 	for (i = 0; i < fifocount; i++) {
 		read = titsc_readl(ts_dev, REG_FIFO0);
 
 		channel = (read & 0xf0000) >> 16;
 		read &= 0xfff;
 		if (channel < creads) {
-			diff = abs(read - prev_val_x);
-			if (diff < prev_diff_x) {
-				prev_diff_x = diff;
-				*x = read;
-			}
-			prev_val_x = read;
-
+			(*x)+=read;
+			nX++;
 		} else if (channel < creads * 2) {
-			diff = abs(read - prev_val_y);
-			if (diff < prev_diff_y) {
-				prev_diff_y = diff;
-				*y = read;
-			}
-			prev_val_y = read;
-
+			(*y)+=read;
+			nY++;
 		} else if (channel < creads * 2 + 1) {
 			*z1 = read;
 
 		} else if (channel < creads * 2 + 2) {
 			*z2 = read;
 		}
+	}
+	if (nX != 0) {
+		(*x)/=nX;
+	}
+	if (nY != 0) {
+		(*y)/=nY;
 	}
 }
 
@@ -258,6 +258,7 @@ static irqreturn_t titsc_irq(int irq, void *dev)
 	unsigned int status, irqclr = 0;
 	unsigned int x = 0, y = 0;
 	unsigned int z1, z2, z;
+	int deltaZ;
 	unsigned int fsm;
 
 	status = titsc_readl(ts_dev, REG_IRQSTATUS);
@@ -288,7 +289,13 @@ static irqreturn_t titsc_irq(int irq, void *dev)
 			z /= z2;
 			z = (z + 2047) >> 12;
 
-			if (z <= MAX_12BIT) {
+			// calculate the deltaZ :
+			deltaZ= z - ts_dev->prevZ;
+			// save the last z calculated :
+			ts_dev->prevZ=z;
+			pr_debug("x %d y %d deltaZ %d\n", x, y, deltaZ);
+
+			if (z <= MAX_12BIT && deltaZ>=0  && deltaZ<=10 ) {
 				input_report_abs(input_dev, ABS_X, x);
 				input_report_abs(input_dev, ABS_Y, y);
 				input_report_abs(input_dev, ABS_PRESSURE, z);
@@ -444,6 +451,9 @@ static int titsc_probe(struct platform_device *pdev)
 	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, 0, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT, 0, 0);
+
+	/*init prev Z*/
+	ts_dev->prevZ=0;
 
 	/* register to the input system */
 	err = input_register_device(input_dev);
