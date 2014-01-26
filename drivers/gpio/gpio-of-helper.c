@@ -181,6 +181,8 @@ gpio_of_entry_create(struct gpio_of_helper_info *info,
 				req_flags |= GPIOF_OUT_INIT_LOW;
 			break;
 	}
+	if (of_property_read_bool(node, "dir-changeable"))
+		req_flags |= GPIOF_EXPORT_CHANGEABLE;
 
 	/* request the gpio */
 	err = devm_gpio_request_one(dev, gpio, req_flags, name);
