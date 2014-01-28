@@ -116,10 +116,12 @@ struct serial_rs485 {
 							   sending */
 #define SER_RS485_RTS_AFTER_SEND	(1 << 2)	/* Logical level for
 							   RTS pin after sent*/
-#define SER_RS485_RX_DURING_TX		(1 << 4)
+  #define SER_RS485_RTS_BEFORE_SEND       (1 << 3)
+  #define SER_RS485_USE_GPIO              (1 << 5)
 	__u32	delay_rts_before_send;	/* Delay before send (milliseconds) */
 	__u32	delay_rts_after_send;	/* Delay after send (milliseconds) */
-	__u32	padding[5];		/* Memory is cheap, new structs
+          __u32   gpio_pin;               /* GPIO Pin Index */
+	__u32	padding[4];		/* Memory is cheap, new structs
 					   are a royal PITA .. */
 };
 
