@@ -1,0 +1,310 @@
+/*
+ * Copyright (C) 2014 Robert Nelson <robertcnelson@gmail.com>
+ *
+ * Virtual cape http://elinux.org/CircuitCo:Basic_Proto_Cape
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "basic-proto";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		/* gpio */
+		"P8.7",
+		"P8.8",
+		"P8.9",
+		"P8.10",
+		"P8.19",
+		"P9.15",
+
+		"P9.14",	/* pwm: ehrpwm1A */
+		"P9.16",	/* pwm: ehrpwm1B */
+
+		/* spi0 */
+		"P9.17",	/* spi0_cs0 */
+		"P9.18",	/* spi0_d1 */
+		"P9.21",	/* spi0_d0 */
+		"P9.22",	/* spi0_sclk */
+
+		/* uart 1 */
+		"P9.24",	/* uart1_txd */
+		"P9.26",	/* uart1_rxd */
+
+		/* adc */
+		"P9.33",	/* AIN4 */
+		"P9.36",	/* AIN5 */
+		"P9.35",	/* AIN6 */
+
+		"P9.42",	/* pwm: eCAP0_in_PWM0_out */
+
+		/* the hardware ip uses */
+		"ehrpwm1A",
+		"ehrpwm1B",
+		"eCAP0_in_PWM0_out",
+		"spi0",
+		"tscadc",
+		"uart1";
+
+	fragment@0 {
+		target = <&epwmss0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&ehrpwm0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&ecap0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@3 {
+		target = <&epwmss1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@4 {
+		target = <&ehrpwm1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@5 {
+		target = <&epwmss2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@6 {
+		target = <&ehrpwm2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@7 {
+		target = <&ecap2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@10 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+
+			gpio_helper_pins: pinmux_gpio_helper_pins {
+				pinctrl-single,pins = <
+					0x020 0x47	/* P8 19 GPIO0_22: */
+					0x040 0x47	/* P9 15 GPIO1_16: */
+					0x090 0x67	/* P8 07 GPIO2_2: */
+					0x094 0x67	/* P8 08 GPIO2_3: */
+					0x098 0x67	/* P8 10 GPIO2_4: */
+					0x09c 0x67	/* P8 09 GPIO2_5: */
+				>;
+			};
+
+			bb_spi0_pins: pinmux_bb_spi0_pins {
+				pinctrl-single,pins = <
+					0x150 0x30	/* spi0_sclk.spi0_sclk, INPUT_PULLUP | MODE0 */
+					0x154 0x30	/* spi0_d0.spi0_d0, INPUT_PULLUP | MODE0 */
+					0x158 0x10	/* spi0_d1.spi0_d1, OUTPUT_PULLUP | MODE0 */
+					0x15c 0x10	/* spi0_cs0.spi0_cs0, OUTPUT_PULLUP | MODE0 */
+				>;
+			};
+
+			bb_uart1_pins: pinmux_bb_uart1_pins {
+				pinctrl-single,pins = <
+					0x184 0x20 /* P9.24 uart1_txd.uart1_txd  OUTPUT  */
+					0x180 0x20 /* P9.26 uart1_rxd.uart1_rxd  INPUT  */
+				>;
+			};
+
+			pwm_P9_14: pinmux_pwm_P9_14_pins {
+				pinctrl-single,pins = <0x048  0x6>; /* P9_14 (ZCZ ball U14) | MODE 6 */
+			};
+
+			pwm_P9_16: pinmux_pwm_P9_16_pins {
+				pinctrl-single,pins = <0x04c  0x6>; /* P9_16 (ZCZ ball T14) | MODE 6 */
+			};
+
+			pwm_P9_42: pinmux_pwm_P9_42_pins {
+				pinctrl-single,pins = <0x164  0x0>; /* P9_42 (ZCZ ball C18) | MODE 0 */
+			};
+		};
+	};
+
+	fragment@11 {
+		target = <&ocp>;
+		__overlay__ {
+
+			// !!!WARNING!!!
+			// gpio-of-helper &gpio pointers are off-by-one vs. the hardware:
+			//   hardware GPIO bank 0 = &gpio1
+			gpio_export {
+				compatible = "gpio-of-helper";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&gpio_helper_pins>;
+
+				P8_07 {
+					gpio-name = "P8_07";
+					gpio = <&gpio3 2 0>;
+					input;
+					dir-changeable;
+				};
+				P8_08 {
+					gpio-name = "P8_08";
+					gpio = <&gpio3 3 0>;
+					input;
+					dir-changeable;
+				};
+				P8_09 {
+					gpio-name = "P8_09";
+					gpio = <&gpio3 5 0>;
+					input;
+					dir-changeable;
+				};
+				P8_10 {
+					gpio-name = "P8_10";
+					gpio = <&gpio3 4 0>;
+					input;
+					dir-changeable;
+				};
+				P9_15 {
+					gpio-name = "P9_15";
+					gpio = <&gpio2 16 0>;
+					input;
+					dir-changeable;
+				};
+			};
+		};
+	};
+
+	fragment@12 {
+		target = <&ocp>;
+		__overlay__ {
+
+			pwm_test_P9_14 {
+				compatible	= "pwm_test";
+				pwms 		= <&ehrpwm1 0 500000 1>;
+				pwm-names 	= "PWM_P9_14";
+				pinctrl-names	= "default";
+				pinctrl-0	= <&pwm_P9_14>;
+				enabled		= <1>;
+				duty		= <0>;
+				status 		= "okay";
+			};
+
+			pwm_test_P9_16 {
+				compatible	= "pwm_test";
+				pwms 		= <&ehrpwm1 1 500000 1>;
+				pwm-names 	= "PWM_P9_16";
+				pinctrl-names	= "default";
+				pinctrl-0	= <&pwm_P9_16>;
+				enabled		= <1>;
+				duty		= <0>;
+				status 		= "okay";
+			};
+
+			pwm_test_P9_42 {
+				compatible	= "pwm_test";
+				pwms 		= <&ecap0 0 500000 1>;
+				pwm-names 	= "PWM_P9_42";
+				pinctrl-names	= "default";
+				pinctrl-0	= <&pwm_P9_42>;
+				enabled		= <1>;
+				duty		= <0>;
+				status 		= "okay";
+			};
+		};
+	};
+
+	fragment@13 {
+		target = <&ocp>;
+		__overlay__ {
+			/* avoid stupid warning */
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			tscadc {
+				compatible = "ti,ti-tscadc";
+				reg = <0x44e0d000 0x1000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <16>;
+				ti,hwmods = "adc_tsc";
+				status = "okay";
+
+				adc {
+					ti,adc-channels = <4 5 6>;
+				};
+			};
+		};
+	};
+
+	fragment@14 {
+		target = <&spi0>;	/* spi0 is numbered correctly */
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_spi0_pins>;
+
+			channel@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				compatible = "spidev";
+
+				reg = <0>;
+				spi-max-frequency = <16000000>;
+				spi-cpha;
+			};
+
+			channel@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				compatible = "spidev";
+
+				reg = <1>;
+				spi-max-frequency = <16000000>;
+			};
+		};
+	};
+
+	fragment@15 {
+		target = <&uart2>;	/* really uart1 */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_uart1_pins>;
+		};
+	};
+};
