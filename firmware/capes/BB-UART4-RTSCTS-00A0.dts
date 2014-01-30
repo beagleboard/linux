@@ -1,0 +1,57 @@
+/* BB-UART4-RTSCTS-00A0.dts
+ * Written by Alexander Hiam <hiamalexander@gmail.com>
+ * for Logic Supply - http://logicsupply.com
+ * Jan 28, 2014
+ *
+ * This overlay enables RTS/CTS flow control for UART4.
+ * HDMI must be disabled before enabling this overlay, see:
+ *  http://www.logicsupply.com/blog/2013/07/18/disabling-the-beaglebone-black-hdmi-cape/
+ *
+ * Copyright (c) 2014 - Logic Supply (http://logicsupply.com)
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/{
+  compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+  part-number = "BB-UART4-RTSCTS";
+  version = "00A0";
+
+  exclusive-use =
+  "P8.33", /* uart4 rts */
+  "P8.35"; /* uart4 cts */
+
+  fragment@0 {
+    /* Sets pinmux for flow control pins. */
+    target = <&am33xx_pinmux>;
+    __overlay__ {
+      u4_rtscts_pins: pinmux_u4_rtscts_pins {
+        pinctrl-single,pins = <
+          0x0d4 0x0e /* lcd_data13 - pullup | mode 6 (uart4_rtsn) */
+          0x0d0 0x36 /* lcd_data12 - rx enable | pullup | mode 6 (uart4_ctsn) */
+        >;
+      };
+    };
+  };
+
+  fragment@1 {
+    /* Enable pinmux-helper driver for setting mux configuration. */
+    target = <&ocp>; /* On-Chip Peripherals */
+    __overlay__ {
+      uart4-rtscts-pinmux {
+        compatible = "bone-pinmux-helper"; /* Use the pinmux helper */
+        status="okay";
+        /* Define custom names for indexes in pinctrl array: */
+        pinctrl-names = "default";
+        /* Set the elements of the pinctrl array to the pinmux overlays
+           defined above: */
+        pinctrl-0 = <&u4_rtscts_pins>;
+      };
+    };
+  };
+};
