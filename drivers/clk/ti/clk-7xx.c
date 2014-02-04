@@ -308,6 +308,7 @@ int __init dra7xx_dt_clk_init(void)
 {
 	int rc;
 	struct clk *abe_dpll_mux, *sys_clkin2, *dpll_ck, *dss_deshdcp_ck;
+	struct clk *ipu1_gfclk, *ipu1_gfclk_parent;
 
 	ti_dt_clocks_register(dra7xx_clks);
 
@@ -332,6 +333,12 @@ int __init dra7xx_dt_clk_init(void)
 	rc = clk_prepare_enable(dss_deshdcp_ck);
 	if (rc)
 		pr_err("%s: failed to enable DESHDCP clock\n", __func__);
+
+	ipu1_gfclk = clk_get_sys(NULL, "ipu1_gfclk_mux");
+	ipu1_gfclk_parent = clk_get_sys(NULL, "dpll_core_h22x2_ck");
+	rc = clk_set_parent(ipu1_gfclk, ipu1_gfclk_parent);
+	if (rc)
+		pr_err("%s: failed to reparent ipu1_gfclk_mux\n", __func__);
 
 	return rc;
 }
