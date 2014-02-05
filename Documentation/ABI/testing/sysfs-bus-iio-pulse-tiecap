@@ -1,0 +1,9 @@
+What:		/sys/bus/iio/devices/iio:deviceX/pulse_polarityY
+What:		/sys/bus/iio/devices/iio:deviceX/pulse_polarity
+Date:		January 2014
+KernelVersion:	3.15
+Contact:	Matt Porter <mporter@linaro.org>
+Description:
+		Get and set the polarity of the pulse signal to be captured
+		for channel Y.  1 indicates a high pulse signal and 0
+		indicates a low pulse signal.
