@@ -187,6 +187,7 @@ config GENERIC_CPUFREQ_CPU0
 	tristate "Generic CPU0 cpufreq driver"
 	depends on HAVE_CLK && REGULATOR && OF && THERMAL && CPU_THERMAL
 	select PM_OPP
+	select VOLTAGE_DOMAIN
 	help
 	  This adds a generic cpufreq driver for CPU0 frequency management.
 	  It supports both uniprocessor (UP) and symmetric multiprocessor (SMP)
