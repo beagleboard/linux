@@ -1,0 +1,20 @@
+#
+# Pulse Capture Devices
+#
+# When adding new entries keep the list in alphabetical order
+
+menu "Pulse Capture Devices"
+
+config IIO_TIECAP
+	tristate "TI ECAP Pulse Capture"
+	depends on SOC_AM33XX
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+	 If you say yes here you get support for the TI ECAP peripheral
+	 in pulse capture mode.
+
+	 This driver can also be built as a module.  If so, the module
+	 will be called tiecap
+
+endmenu
