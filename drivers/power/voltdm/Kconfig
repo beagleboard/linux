@@ -1,0 +1,7 @@
+config VOLTAGE_DOMAIN
+	bool
+	depends on COMMON_CLK && OF && PM_OPP
+	default y if COMMON_CLK
+	---help---
+	  Core voltage domain framework using common clock framework's
+	  notifier mechanism.
