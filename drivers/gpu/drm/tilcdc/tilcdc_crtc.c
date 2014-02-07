@@ -146,6 +146,22 @@ static void tilcdc_crtc_destroy(struct drm_crtc *crtc)
 	kfree(tilcdc_crtc);
 }
 
+static int tilcdc_verify_fb(struct drm_crtc *crtc, struct drm_framebuffer *fb)
+{
+	struct drm_device *dev = crtc->dev;
+	unsigned int depth, bpp;
+
+	drm_fb_get_bpp_depth(fb->pixel_format, &depth, &bpp);
+
+	if (fb->pitches[0] != crtc->mode.hdisplay * bpp / 8) {
+		dev_err(dev->dev,
+			"Invalid pitch: fb and crtc widths must be the same");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int tilcdc_crtc_page_flip(struct drm_crtc *crtc,
 		struct drm_framebuffer *fb,
 		struct drm_pending_vblank_event *event,
@@ -153,6 +169,11 @@ static int tilcdc_crtc_page_flip(struct drm_crtc *crtc,
 {
 	struct tilcdc_crtc *tilcdc_crtc = to_tilcdc_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
+	int r;
+
+	r = tilcdc_verify_fb(crtc, fb);
+	if (r)
+		return r;
 
 	if (tilcdc_crtc->event) {
 		dev_err(dev->dev, "already pending page flip!\n");
@@ -244,6 +265,10 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 
 	if (WARN_ON(!info))
 		return -EINVAL;
+
+	ret = tilcdc_verify_fb(crtc, crtc->fb);
+	if (ret)
+		return ret;
 
 	pm_runtime_get_sync(dev->dev);
 
@@ -404,6 +429,12 @@ static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 static int tilcdc_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 		struct drm_framebuffer *old_fb)
 {
+	int r;
+
+	r = tilcdc_verify_fb(crtc, crtc->fb);
+	if (r)
+		return r;
+
 	update_scanout(crtc);
 	return 0;
 }
