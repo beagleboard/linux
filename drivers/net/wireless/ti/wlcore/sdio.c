@@ -390,8 +390,16 @@ static int wl1271_suspend(struct device *dev)
 	dev_dbg(dev, "wl1271 suspend. wow_enabled: %d\n",
 		wl->wow_enabled);
 
-	/* check whether sdio should keep power */
-	if (wl->wow_enabled) {
+	/*
+	 * check whether sdio should keep power.
+	 * due to some mmc layer issues, the system automatically
+	 * powers us up on resume, which later cause issues when
+	 * we try to restore_power again explicitly.
+	 * workaround it by always asking to keep power. this is
+	 * fine as the driver controls the chip power anyway.
+	 * TODO: remove it when mmc issue is fixed.
+	 */
+	if (true || wl->wow_enabled) {
 		sdio_flags = sdio_get_host_pm_caps(func);
 
 		if (!(sdio_flags & MMC_PM_KEEP_POWER)) {
