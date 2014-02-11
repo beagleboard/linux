@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/sched.h>
 #include <linux/pm_runtime.h>
+#include <linux/of.h>
 
 #include "../w1.h"
 #include "../w1_int.h"
@@ -73,11 +74,18 @@ struct hdq_data {
 static int omap_hdq_probe(struct platform_device *pdev);
 static int omap_hdq_remove(struct platform_device *pdev);
 
+static const struct of_device_id omap_hdq_dt_match[] = {
+	{ .compatible = "ti,am43xx-hdq"},
+	{},
+};
+MODULE_DEVICE_TABLE(of, omap_hdq_dt_match);
+
 static struct platform_driver omap_hdq_driver = {
 	.probe =	omap_hdq_probe,
 	.remove =	omap_hdq_remove,
 	.driver =	{
 		.name =	"omap_hdq",
+		.of_match_table = of_match_ptr(omap_hdq_dt_match),
 	},
 };
 
