@@ -9,4 +9,11 @@ config VOLTAGE_DOMAIN
 menu "Voltage Domain Framework Drivers"
 	depends on VOLTAGE_DOMAIN
 
+config VOLTAGE_DOMAIN_OMAP
+	tristate "TI OMAP Voltage domain driver"
+	---help---
+	  Voltage domain support for OMAP platforms which need
+	  vdd regulator and Adaptive Body Bias(ABB) regulator
+	  support
+
 endmenu
