@@ -1,0 +1,24 @@
+Texas Instruments OMAP compatible voltage domain description
+
+This binding uses [1] and describes the voltage domain devices
+typically used on Texas Instruments OMAP compatible SoC family of
+processors.
+
+[1] Documentation/devicetree/bindings/power/voltdm/voltage_domain.txt
+
+Required Properties:
+- compatible: Should be one of:
+	"ti,omap-voltdm" - basic voltage domain controlling VDD and VBB
+- vdd-supply: phandle to regulator controlling VDD supply
+- vbb-supply: phandle to regulator controlling Body Bias supply
+  (Usually Adaptive Body Bias regulator)
+- #voltdm-cells: shall be <0>
+
+Example:
+voltage_domain_mpu: voltdm@1 {
+	compatible = "ti,omap-voltdm";
+	#voltdm-cells = <0>;
+
+	vdd-supply = <&vcc>;
+	vbb-supply = <&abb_mpu>;
+};
