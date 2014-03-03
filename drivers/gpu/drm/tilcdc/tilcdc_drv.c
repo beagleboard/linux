@@ -598,6 +598,13 @@ static int tilcdc_pm_resume(struct device *dev)
 		if (registers[i].save && (priv->rev >= registers[i].rev))
 			tilcdc_write(ddev, registers[i].reg, priv->saved_register[n++]);
 
+	/*
+	 * if this call isn't here, the display is blank on return from
+	 * suspend.  With this call here the contents of the framebuffer
+	 * during suspend are restored correctly.
+	 */
+	drm_helper_resume_force_mode(ddev);
+
 	drm_kms_helper_poll_enable(ddev);
 
 	return 0;
