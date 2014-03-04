@@ -44,6 +44,7 @@
 
 /**
  * struct omap_iommu_domain - omap iommu domain
+ * @attached:	flag to indicate if domain is already attached to
  * @pgtable:	the page table
  * @iommu_dev:	an omap iommu device attached to this domain. only a single
  *		iommu device can be attached for now.
@@ -51,6 +52,7 @@
  * @lock:	domain lock, should be taken when attaching/detaching
  */
 struct omap_iommu_domain {
+	u32 attached;
 	u32 *pgtable;
 	struct omap_iommu *iommu_dev;
 	struct device *dev;
@@ -781,7 +783,7 @@ static irqreturn_t iommu_fault_handler(int irq, void *data)
 	struct iommu_domain *domain = obj->domain;
 	struct omap_iommu_domain *omap_domain = to_omap_domain(domain);
 
-	if (!omap_domain->iommu_dev)
+	if (!omap_domain->attached)
 		return IRQ_NONE;
 
 	errs = iommu_report_fault(obj, &da);
@@ -1080,8 +1082,8 @@ omap_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	spin_lock(&omap_domain->lock);
 
-	/* only a single device is supported per domain for now */
-	if (omap_domain->iommu_dev) {
+	/* only a single client device can be attached to a domain */
+	if (omap_domain->attached) {
 		dev_err(dev, "iommu domain is already attached\n");
 		ret = -EBUSY;
 		goto out;
@@ -1098,6 +1100,7 @@ omap_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	omap_domain->iommu_dev = oiommu;
 	arch_data->iommu_dev = oiommu;
 	omap_domain->dev = dev;
+	omap_domain->attached = 1;
 	oiommu->domain = domain;
 
 out:
@@ -1110,6 +1113,11 @@ static void _omap_iommu_detach_dev(struct omap_iommu_domain *omap_domain,
 {
 	struct omap_iommu *oiommu = dev_to_omap_iommu(dev);
 	struct omap_iommu_arch_data *arch_data = dev->archdata.iommu;
+
+	if (!omap_domain->attached) {
+		dev_err(dev, "domain has no attached devices.\n");
+		return;
+	}
 
 	/* only a single device is supported per domain for now */
 	if (omap_domain->iommu_dev != oiommu) {
@@ -1124,6 +1132,7 @@ static void _omap_iommu_detach_dev(struct omap_iommu_domain *omap_domain,
 	omap_domain->iommu_dev = NULL;
 	arch_data->iommu_dev = NULL;
 	omap_domain->dev = NULL;
+	omap_domain->attached = 0;
 	oiommu->domain = NULL;
 }
 
@@ -1184,7 +1193,7 @@ static void omap_iommu_domain_free(struct iommu_domain *domain)
 	 * An iommu device is still attached
 	 * (currently, only one device can be attached) ?
 	 */
-	if (omap_domain->iommu_dev)
+	if (omap_domain->attached)
 		_omap_iommu_detach_dev(omap_domain, omap_domain->dev);
 
 	kfree(omap_domain->pgtable);
