@@ -198,6 +198,11 @@ dtb-$(CONFIG_ARCH_OMAP2PLUS) += omap2420-h4.dtb \
 	am335x-evmsk.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-boneblack-default.dtb \
+	am335x-boneblack-ttyO1.dtb \
+	am335x-boneblack-ttyO2.dtb \
+	am335x-boneblack-ttyO4.dtb \
+	am335x-boneblack-cape-bone-argus.dtb \
 	am335x-nano.dtb \
 	am335x-base0033.dtb \
 	am3517-evm.dtb \
