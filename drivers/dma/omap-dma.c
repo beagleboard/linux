@@ -1110,6 +1110,7 @@ static int omap_dma_probe(struct platform_device *pdev)
 	struct omap_dmadev *od;
 	struct resource *res;
 	int rc, i, irq;
+	u32 reqs;
 
 	od = devm_kzalloc(&pdev->dev, sizeof(*od), GFP_KERNEL);
 	if (!od)
@@ -1144,7 +1145,9 @@ static int omap_dma_probe(struct platform_device *pdev)
 
 	tasklet_init(&od->task, omap_dma_sched, (unsigned long)od);
 
-	for (i = 0; i < 127; i++) {
+	of_property_read_u32(pdev->dev.of_node, "#dma-requests", &reqs);
+
+	for (i = 0; i < reqs; i++) {
 		rc = omap_dma_chan_init(od, i);
 		if (rc) {
 			omap_dma_free(od);
