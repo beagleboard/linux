@@ -21,6 +21,7 @@
 #include <linux/of_device.h>
 
 #include "virt-dma.h"
+#include "omap-dma-xbar.h"
 
 struct omap_dmadev {
 	struct dma_device ddev;
