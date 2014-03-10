@@ -528,6 +528,10 @@
 	usb@47401000 {
 		status = "okay";
 	};
+
+	dma-controller@47402000  {
+		status = "okay";
+	};
 };
 
 &epwmss2 {
