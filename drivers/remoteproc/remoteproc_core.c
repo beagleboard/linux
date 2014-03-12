@@ -664,6 +664,84 @@ free_carv:
 	return ret;
 }
 
+/**
+ * rproc_handle_intmem() - handle internal memory resource entry
+ * @rproc: rproc handle
+ * @rsc: the intmem resource entry
+ * @offset: offset of the resource data in resource table
+ * @avail: size of available data (for image validation)
+ *
+ * This function will handle firmware requests for mapping a memory region
+ * internal to a remote processor into kernel. It neither allocates any
+ * physical pages, nor performs any iommu mapping, as this resource entry
+ * is primarily used for representing physical internal memories. If the
+ * internal memory region can only be accessed through an iommu, please
+ * use a devmem resource entry.
+ *
+ * These resource entries should be grouped near the carveout entries in
+ * the firmware's resource table, as other firmware entries might request
+ * placing other data objects inside these memory regions (e.g. data/code
+ * segments, trace resource entries, ...).
+ */
+static int rproc_handle_intmem(struct rproc *rproc, struct fw_rsc_intmem *rsc,
+			       int offset, int avail)
+{
+	struct rproc_mem_entry *intmem;
+	struct device *dev = &rproc->dev;
+	void *va;
+	int ret;
+
+	if (sizeof(*rsc) > avail) {
+		dev_err(dev, "intmem rsc is truncated\n");
+		return -EINVAL;
+	}
+
+	if (rsc->version != 1) {
+		dev_err(dev, "intmem rsc version %d is not supported\n",
+			rsc->version);
+		return -EINVAL;
+	}
+
+	if (rsc->reserved) {
+		dev_err(dev, "intmem rsc has non zero reserved bytes\n");
+		return -EINVAL;
+	}
+
+	dev_dbg(dev, "intmem rsc: da 0x%x, pa 0x%x, len 0x%x\n",
+		rsc->da, rsc->pa, rsc->len);
+
+	intmem = kzalloc(sizeof(*intmem), GFP_KERNEL);
+	if (!intmem) {
+		dev_err(dev, "kzalloc carveout failed\n");
+		return -ENOMEM;
+	}
+
+	va = (__force void *)ioremap_nocache(rsc->pa, rsc->len);
+	if (!va) {
+		dev_err(dev, "ioremap_nocache err: %d\n", rsc->len);
+		ret = -ENOMEM;
+		goto free_intmem;
+	}
+
+	dev_dbg(dev, "intmem mapped pa 0x%x of len 0x%x into kernel va %p\n",
+		rsc->pa, rsc->len, va);
+
+	intmem->va = va;
+	intmem->len = rsc->len;
+	intmem->dma = rsc->pa;
+	intmem->da = rsc->da;
+	intmem->priv = (void *)1;    /* prevents freeing */
+
+	/* reuse the rproc->carveouts list, so that loading is automatic */
+	list_add_tail(&intmem->node, &rproc->carveouts);
+
+	return 0;
+
+free_intmem:
+	kfree(intmem);
+	return ret;
+}
+
 static int rproc_count_vrings(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 			      int offset, int avail)
 {
@@ -681,6 +759,7 @@ static rproc_handle_resource_t rproc_loading_handlers[RSC_LAST] = {
 	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
 	[RSC_DEVMEM] = (rproc_handle_resource_t)rproc_handle_devmem,
 	[RSC_TRACE] = (rproc_handle_resource_t)rproc_handle_trace,
+	[RSC_INTMEM] = (rproc_handle_resource_t)rproc_handle_intmem,
 	[RSC_VDEV] = NULL, /* VDEVs were handled upon registrarion */
 };
 
@@ -768,7 +847,11 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 
 	/* clean up carveout allocations */
 	list_for_each_entry_safe(entry, tmp, &rproc->carveouts, node) {
-		dma_free_coherent(dev->parent, entry->len, entry->va, entry->dma);
+		if (!entry->priv)
+			dma_free_coherent(dev->parent, entry->len, entry->va,
+					  entry->dma);
+		else
+			iounmap((__force void __iomem *)entry->va);
 		list_del(&entry->node);
 		kfree(entry);
 	}
