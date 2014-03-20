@@ -212,7 +212,9 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_NIXIE) += \
 	cape-bone-nixie-00A0.dtbo
 
 # the weather cape
-fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-bone-weather-00A0.dtbo
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	cape-bone-weather-00A0.dtbo \
+	cape-bone-weather-00B0.dtbo
 
 # the HDMI virtual capes on the beaglebone-black
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
