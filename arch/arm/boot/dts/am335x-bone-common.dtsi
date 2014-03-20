@@ -309,6 +309,10 @@
 					version = "00A0";
 					dtbo = "cape-bone-weather-00A0.dtbo";
 				};
+				version@00B0 {
+					version = "00B0";
+					dtbo = "cape-bone-weather-00B0.dtbo";
+				};
 			};
 
 			/* beaglebone black hdmi on board */
