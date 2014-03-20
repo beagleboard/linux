@@ -320,6 +320,7 @@ enum omapdss_version {
 	OMAPDSS_VER_OMAP4,		/* All other OMAP4s */
 	OMAPDSS_VER_OMAP5,
 	OMAPDSS_VER_AM43xx,
+	OMAPDSS_VER_DRA74xx,
 };
 
 /* Board specific data */

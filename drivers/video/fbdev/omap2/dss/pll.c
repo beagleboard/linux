@@ -467,6 +467,7 @@ static int __init pll_init_features(struct pll_data *pll)
 		break;
 
 	case OMAPDSS_VER_OMAP5:
+	case OMAPDSS_VER_DRA74xx:
 		pll->feats = &omap54xx_pll_features;
 		break;
 
