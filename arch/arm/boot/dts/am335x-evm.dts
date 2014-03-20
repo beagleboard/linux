@@ -304,23 +304,42 @@
 	};
 
 	/* wl12xx/wl18xx card on mmc3 */
-	mmc3_pins: pinmux_mmc3_pins {
+	mmc3_pins_default: pinmux_mmc3_pins_default {
 		pinctrl-single,pins = <
-			0x44 (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a1.mmc2_dat0, INPUT_PULLUP | MODE3 */
-			0x48 (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a2.mmc2_dat1, INPUT_PULLUP | MODE3 */
-			0x4C (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a3.mmc2_dat2, INPUT_PULLUP | MODE3 */
-			0x78 (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_ben1.mmc2_dat3, INPUT_PULLUP | MODE3 */
-			0x88 (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_csn3.mmc2_cmd, INPUT_PULLUP | MODE3 */
-			0x8C (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_clk.mmc2_clk, INPUT_PULLUP | MODE3 */
+			0x44 (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a1.mmc2_dat0 */
+			0x48 (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a2.mmc2_dat1 */
+			0x4C (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_a3.mmc2_dat2 */
+			0x78 (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_ben1.mmc2_dat3 */
+			0x88 (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_csn3.mmc2_cmd */
+			0x8C (PIN_INPUT_PULLUP | MUX_MODE3)	/* gpmc_clk.mmc2_clk */
+		>;
+	};
+
+	mmc3_pins_sleep: pinmux_mmc3_pins_sleep {
+		pinctrl-single,pins = <
+			0x44 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a1.mmc2_dat0 */
+			0x48 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a2.mmc2_dat1 */
+			0x4C (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a3.mmc2_dat2 */
+			0x78 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ben1.mmc2_da */
+			0x88 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_csn3.mmc2_cmd */
+			0x8C (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_clk.mmc2_clk */
 		>;
 	};
 
 	/* wl12xx/wl18xx card enable/irq GPIOs. */
-	wlan_pins: pinmux_wlan_pins {
+	wlan_pins_default: pinmux_wlan_pins_default {
 		pinctrl-single,pins = <
 			0x40 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a0.gpio1_16 */
 			0x19C (PIN_INPUT | MUX_MODE7)		/* mcasp0_ahclkr.gpio3_17 */
 			0x1AC (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* mcasp0_ahclkx.gpio3_21 */
+		>;
+	};
+
+	wlan_pins_sleep: pinmux_wlan_pins_sleep {
+		pinctrl-single,pins = <
+			0x40 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a0.gpio1_16 */
+			0x19C (PIN_INPUT | MUX_MODE7)		/* mcasp0_ahclkr.gpio3_17 */
+			0x1AC (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* mcasp0_ahclkx.gpio3_21 */
 		>;
 	};
 
@@ -729,8 +748,9 @@
 	status = "okay";
 	vmmc-supply = <&wlan_en_reg>;
 	bus-width = <4>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc3_pins &wlan_pins>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&mmc3_pins_default &wlan_pins_default>;
+	pinctrl-1 = <&mmc3_pins_sleep &wlan_pins_sleep>;
 	ti,non-removable;
 	ti,needs-special-hs-handling;
 	cap-power-off-card;
