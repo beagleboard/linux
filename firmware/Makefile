@@ -197,7 +197,10 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	BB-BONE-BACONE2-00A0.dtbo \
 	DNIL-AMPCAPE-1-00R1.dtbo \
 	cape-bone-replicape-00A2.dtbo \
-	cape-bone-replicape-00A3.dtbo
+	cape-bone-replicape-00A3.dtbo \
+	cape-univ-emmc-00A0.dtbo \
+	cape-universal-00A0.dtbo \
+	cape-universaln-00A0.dtbo
 
 # the geiger cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
