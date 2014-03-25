@@ -28,4 +28,14 @@ config KEYSTONE_NAVIGATOR_DMA
 
 	  If unsure, say N.
 
+config WKUP_M3_IPC
+	tristate "TI AM33XX Wkup-M3 IPC Driver"
+	depends on WKUP_M3_RPROC
+	depends on OMAP2PLUS_MBOX
+	help
+	  TI AM33XX has a Cortex M3 to handle low power transitions. This IPC
+	  driver provides the necessary API to communicate and use the wkup m3
+	  for PM features like Suspend/Resume and boots the wkup_m3 using
+	  wkup_m3_rproc driver.
+
 endif # SOC_TI
