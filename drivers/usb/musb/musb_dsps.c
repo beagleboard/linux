@@ -341,8 +341,20 @@ static irqreturn_t dsps_interrupt(int irq, void *hci)
 	 * value but DEVCTL.BDEVICE is invalid without DEVCTL.SESSION set.
 	 * Also, DRVVBUS pulses for SRP (but not at 5V) ...
 	 */
-	if (usbintr & MUSB_INTR_BABBLE)
+	if (usbintr & MUSB_INTR_BABBLE) {
 		pr_info("CAUTION: musb: Babble Interrupt Occurred\n");
+
+		/*
+		 * When a babble condition occurs, the musb controller removes
+		 * the session and is no longer in host mode. Hence, all
+		 * devices connected to its root hub get disconnected.
+		 *
+		 * Hand this error down to the musb core isr, so it can
+		 * recover.
+		 */
+		musb->int_usb = MUSB_INTR_BABBLE | MUSB_INTR_DISCONNECT;
+		musb->int_tx = musb->int_rx = 0;
+	}
 
 	if (usbintr & ((1 << wrp->drvvbus) << wrp->usb_shift)) {
 		int drvvbus = dsps_readl(reg_base, wrp->status);
@@ -496,6 +508,16 @@ static int dsps_musb_exit(struct musb *musb)
 	return 0;
 }
 
+static void dsps_musb_reset(struct musb *musb)
+{
+	struct device *dev = musb->controller;
+	struct dsps_glue *glue = dev_get_drvdata(dev->parent);
+	const struct dsps_musb_wrapper *wrp = glue->wrp;
+
+	dsps_writel(musb->ctrl_base, wrp->control, (1 << wrp->reset));
+	udelay(100);
+}
+
 static struct musb_platform_ops dsps_ops = {
 	.init		= dsps_musb_init,
 	.exit		= dsps_musb_exit,
@@ -504,6 +526,7 @@ static struct musb_platform_ops dsps_ops = {
 	.disable	= dsps_musb_disable,
 
 	.try_idle	= dsps_musb_try_idle,
+	.reset		= dsps_musb_reset,
 };
 
 static u64 musb_dmamask = DMA_BIT_MASK(32);
