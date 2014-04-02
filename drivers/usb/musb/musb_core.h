@@ -206,6 +206,7 @@ struct musb_platform_ops {
 
 	int	(*set_mode)(struct musb *musb, u8 mode);
 	void	(*try_idle)(struct musb *musb, unsigned long timeout);
+	void	(*reset)(struct musb *musb);
 
 	int	(*vbus_status)(struct musb *musb);
 	void	(*set_vbus)(struct musb *musb, int on);
@@ -563,6 +564,12 @@ static inline void musb_platform_try_idle(struct musb *musb,
 {
 	if (musb->ops->try_idle)
 		musb->ops->try_idle(musb, timeout);
+}
+
+static inline void musb_platform_reset(struct musb *musb)
+{
+	if (musb->ops->reset)
+		musb->ops->reset(musb);
 }
 
 static inline int musb_platform_get_vbus_status(struct musb *musb)
