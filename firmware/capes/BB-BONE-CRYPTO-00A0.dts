@@ -1,0 +1,114 @@
+/*
+ * Copyright (C) 2014 Cryptotronix
+ *
+ * Cape support for the CryptoCape
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-CRYPTO";
+	version = "00A0";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		/* For Flashing the ATmega328p */
+		"P9.13",	/* uart4_txd */
+		"P9.11",	/* uart4_rxd */
+		"P9.23",	/* gpio1_17 */
+		/* As the AUTHO Input from the AES132 */
+		"P8.11",	/* gpio1_13 */
+		/* the hardware ip uses */
+		"uart4",
+		"gpio1_13",
+		"gpio1_17";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+
+			cryptocape_pins: pinmux_cryptocape_pins {
+				pinctrl-single,pins = <
+					0x044 0x17	/* gpio1_17 FAST | OUTPUT | PULLUP | MODE7 */
+					0x034 0x2F	/* gpio1_13 FAST | INPUT | PULLDOWN | MODE7 */
+				>;
+			};
+
+			cryptocape_uart4_pins: pinmux_cryptocape_uart4_pins {
+				pinctrl-single,pins = <
+					0x070 0x26	/* uart4_rxd | FAST | INPUT | MODE6 */
+					0x074 0x06	/* uart4_txd | FAST | OUTPUT | MODE6 */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&uart5>;	/* uart4 to the BBB hardware */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&cryptocape_uart4_pins>;
+		};
+	};
+
+
+	fragment@2 {
+		target = <&i2c2>;
+
+		__overlay__ {
+			/* needed to avoid gripping by DTC */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Real Time Clock */
+			ds1307@68 {
+				compatible = "ds1307";
+				reg = <0x68>;
+			};
+
+			/* TPM - Driver currently only available in 3.13.x */
+			tpm_i2c_atmel@29 {
+				compatible = "tpm_i2c_atmel";
+				reg = <0x29>;
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&ocp>;
+		__overlay__ {
+
+			cryptocape_gpio_helper {
+				compatible = "gpio-of-helper";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&cryptocape_pins>;
+
+				/* declare your gpios */
+				atmega_rst {
+					gpio-name = "atmega_rst";
+					gpio = <&gpio2 17 0x00>;	/* gpio2 is gpio1 */
+					output;
+					init-high;
+				};
+
+				ataes132_auth {
+					gpio-name = "test_input";
+					gpio = <&gpio2 13 0x00>;	/* gpio2 is gpio1 */
+					input;
+					count-rising-edge;
+					count-falling-edge;
+				};
+			};
+		};
+	};
+};
