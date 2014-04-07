@@ -1,0 +1,128 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	part-number = "cape-bone-ibb";
+	version = "00A0";
+	exclusive-use = "P9.24", "P9.26", "uart1",
+                  "P9.21", "P9.22", "uart2",
+                  "P9.13", "P9.11", "uart4",
+                  "P9.15";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			bb_uart1_pins: pinmux_bb_uart1_pins {
+				pinctrl-single,pins = <0x180 0x20 0x184 0x00>;
+			};
+			bb_uart2_pins: pinmux_bb_uart2_pins {
+				pinctrl-single,pins = <0x150 0x21 0x154 0x01>;
+			};
+			bb_uart4_pins: pinmux_bb_uart4_pins {
+				pinctrl-single,pins = <0x70 0x26 0x74 0x06>;
+			};
+			rtc_int_pin: pinmux_rtc_int_pin {
+				pinctrl-single,pins = <0x40 0x37>; /* GPIO1_16 gpmc_a0 */
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&uart2>;	/* really uart1 */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_uart1_pins>;
+		};
+	};
+
+	fragment@2 {
+		target = <&uart3>;	/* really uart2 */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_uart2_pins>;
+		};
+	};
+
+	fragment@3 {
+		target = <&uart5>;	/* really uart4 */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_uart4_pins>;
+		};
+	};
+
+	fragment@4 {
+		target = <&i2c2>;
+		__overlay__ {
+			/* shut up DTC warnings */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* DS1307 RTC module */
+			rtc@68 {
+				compatible = "dallas,ds3231";
+				reg = <0x68>;
+			};
+
+			/* PCA9546 I2C multiplexer */
+			i2cmux@70 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "nxp,pca9545";
+				reg = <0x70>;
+
+				i2c@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "nxp,pca954x-bus";
+					reg = <0>;
+					deselect_on_exit;
+				};
+				i2c@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "nxp,pca954x-bus";
+					reg = <1>;
+					deselect_on_exit;
+				};
+				i2c@2 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "nxp,pca954x-bus";
+					reg = <2>;
+					deselect_on_exit;
+				};
+				i2c@3 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "nxp,pca954x-bus";
+					reg = <3>;
+					deselect_on_exit;
+				};
+			};
+		};
+	};
+
+	fragment@5 {
+		target = <&ocp>;
+		__overlay__ {
+			gpio_keys {
+				compatible = "gpio-keys";
+				pinctrl-names = "default";
+				pinctrl-0 = <&rtc_int_pin>;
+				int_x1 {
+					label = "RTC-INT";
+					debounce_interval = <50>;
+					linux,code = <1>;
+					gpios = <&gpio2 16 0x5>;
+					gpio-key,wakeup;
+				};
+			};
+		};
+	};
+
+};
