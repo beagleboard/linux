@@ -200,7 +200,8 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-bone-replicape-00A3.dtbo \
 	cape-univ-emmc-00A0.dtbo \
 	cape-universal-00A0.dtbo \
-	cape-universaln-00A0.dtbo
+	cape-universaln-00A0.dtbo \
+	cape-bone-ibb-00A0.dtbo
 
 # the geiger cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
