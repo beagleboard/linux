@@ -404,14 +404,18 @@ enum rproc_state {
 /**
  * enum rproc_crash_type - remote processor crash types
  * @RPROC_MMUFAULT:	iommu fault
+ * @RPROC_WATCHDOG:	watchdog error
+ * @RPROC_EXCEPTION:	generic device exception
  *
- * Each element of the enum is used as an array index. So that, the value of
+ * Each element of the enum is used as an array index. So, the value of
  * the elements should be always something sane.
  *
  * Feel free to add more types when needed.
  */
 enum rproc_crash_type {
 	RPROC_MMUFAULT,
+	RPROC_WATCHDOG,
+	RPROC_EXCEPTION,
 };
 
 /**

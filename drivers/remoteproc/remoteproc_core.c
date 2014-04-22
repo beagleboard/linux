@@ -55,6 +55,8 @@ static DEFINE_IDA(rproc_dev_index);
 
 static const char * const rproc_crash_names[] = {
 	[RPROC_MMUFAULT]	= "mmufault",
+	[RPROC_WATCHDOG]	= "watchdog",
+	[RPROC_EXCEPTION]	= "device exception",
 };
 
 /* translate rproc_crash_type to string */
