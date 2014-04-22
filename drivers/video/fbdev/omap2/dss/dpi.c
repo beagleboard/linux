@@ -633,6 +633,17 @@ static enum omap_channel dpi_get_channel(int port_num)
 	case OMAPDSS_VER_AM43xx:
 		return OMAP_DSS_CHANNEL_LCD;
 
+	case OMAPDSS_VER_DRA74xx:
+		switch (port_num) {
+		case 2:
+			return OMAP_DSS_CHANNEL_LCD3;
+		case 1:
+			return OMAP_DSS_CHANNEL_LCD2;
+		case 0:
+		default:
+			return OMAP_DSS_CHANNEL_LCD;
+		}
+
 	case OMAPDSS_VER_OMAP4430_ES1:
 	case OMAPDSS_VER_OMAP4430_ES2:
 	case OMAPDSS_VER_OMAP4:
