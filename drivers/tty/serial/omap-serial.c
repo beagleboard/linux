@@ -1391,7 +1391,7 @@ serial_omap_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case TIOCSRS485:
-		if (copy_from_user(&rs485conf, (struct serial_rs485 *) arg,
+		if (copy_from_user(&rs485conf, (void __user *) arg,
 					sizeof(rs485conf)))
 			return -EFAULT;
 
@@ -1399,7 +1399,7 @@ serial_omap_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 		break;
 
 	case TIOCGRS485:
-		if (copy_to_user((struct serial_rs485 *) arg,
+		if (copy_to_user((void __user *) arg,
 					&(to_uart_omap_port(port)->rs485),
 					sizeof(rs485conf)))
 			return -EFAULT;
