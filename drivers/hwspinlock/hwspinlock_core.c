@@ -33,6 +33,7 @@
 
 /* radix tree tags */
 #define HWSPINLOCK_UNUSED	(0) /* tags an hwspinlock as unused */
+#define HWSPINLOCK_RESERVED	(1) /* tags an hwspinlock as reserved */
 
 /*
  * A radix tree is used to maintain the available hwspinlock instances.
@@ -399,7 +400,7 @@ static int hwspin_lock_register_single(struct hwspinlock *hwlock, int id)
 	}
 
 	/* mark this hwspinlock as available */
-	tmp = radix_tree_tag_set(&hwspinlock_tree, id, HWSPINLOCK_UNUSED);
+	tmp = radix_tree_tag_set(&hwspinlock_tree, id, hwlock->type);
 
 	/* self-sanity check which should never fail */
 	WARN_ON(tmp != hwlock);
@@ -417,7 +418,7 @@ static int hwspin_lock_unregister_single(struct hwspinlock *hwlock, int id)
 	mutex_lock(&hwspinlock_tree_lock);
 
 	/* make sure the hwspinlock is not in use (tag is set) */
-	if (!radix_tree_tag_get(&hwspinlock_tree, id, HWSPINLOCK_UNUSED)) {
+	if (!radix_tree_tag_get(&hwspinlock_tree, id, hwlock->type)) {
 		pr_err("hwspinlock %d still in use (or not present)\n", id);
 		ret = -EBUSY;
 		goto out;
@@ -515,6 +516,7 @@ int hwspin_lock_register(struct hwspinlock_device *bank, struct device *dev,
 
 		spin_lock_init(&hwlock->lock);
 		hwlock->bank = bank;
+		hwlock->type = HWSPINLOCK_UNUSED;
 
 		ret = hwspin_lock_register_single(hwlock, base_id + i);
 		if (ret)
@@ -599,7 +601,7 @@ static int __hwspin_lock_request(struct hwspinlock *hwlock)
 
 	/* mark hwspinlock as used, should not fail */
 	tmp = radix_tree_tag_clear(&hwspinlock_tree, hwlock_to_id(hwlock),
-							HWSPINLOCK_UNUSED);
+							hwlock->type);
 
 	/* self-sanity check that should never fail */
 	WARN_ON(tmp != hwlock);
@@ -698,7 +700,7 @@ struct hwspinlock *hwspin_lock_request_specific(unsigned int id)
 	WARN_ON(hwlock_to_id(hwlock) != id);
 
 	/* make sure this hwspinlock is unused */
-	ret = radix_tree_tag_get(&hwspinlock_tree, id, HWSPINLOCK_UNUSED);
+	ret = radix_tree_tag_get(&hwspinlock_tree, id, hwlock->type);
 	if (ret == 0) {
 		pr_warn("hwspinlock %u is already in use\n", id);
 		hwlock = NULL;
@@ -744,7 +746,7 @@ int hwspin_lock_free(struct hwspinlock *hwlock)
 
 	/* make sure the hwspinlock is used */
 	ret = radix_tree_tag_get(&hwspinlock_tree, hwlock_to_id(hwlock),
-							HWSPINLOCK_UNUSED);
+							hwlock->type);
 	if (ret == 1) {
 		dev_err(dev, "%s: hwlock is already free\n", __func__);
 		dump_stack();
@@ -759,7 +761,7 @@ int hwspin_lock_free(struct hwspinlock *hwlock)
 
 	/* mark this hwspinlock as available */
 	tmp = radix_tree_tag_set(&hwspinlock_tree, hwlock_to_id(hwlock),
-							HWSPINLOCK_UNUSED);
+							hwlock->type);
 
 	/* sanity check (this shouldn't happen) */
 	WARN_ON(tmp != hwlock);
