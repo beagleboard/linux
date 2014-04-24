@@ -1,0 +1,57 @@
+/*
+ * Copyright (C) 2013 Nathaniel R. Lewis - http://teknoman117.wordpress.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Enable eQEP1 on the Beaglebone White and Black
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+    /* identification */
+    part-number = "bone_eqep1";
+    version     = "00A0";
+
+    fragment@0 {
+        target = <&am33xx_pinmux>;
+        __overlay__ {
+		pinctrl_eqep1: pinctrl_eqep1_pins {
+                pinctrl-single,pins = <
+                        0x0D8 0x22  /* P8_31 = GPIO0_10 = EQEP1_index, MODE2 */
+                        0x0DC 0x22  /* P8_32 = GPIO0_11 = EQEP1_strobe, MODE2 */
+                        0x0D4 0x32  /* P8_33 = GPIO0_9 = EQEP1B_in, MODE2 */
+                        0x0D0 0x32  /* P8_35 = GPIO0_8 = EQEP1A_in, MODE2 */
+                >;
+            };
+        };
+    };
+
+    fragment@1 {
+        target = <&epwmss1>;
+        __overlay__ {
+            status = "okay";
+        };
+    };
+
+    fragment@2 {
+	target = <&eqep1>;
+	__overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <&pinctrl_eqep1>;
+
+            count_mode = <0>;  /* 0 - Quadrature mode, normal 90 phase offset cha & chb.  1 - Direction mode.  cha input = clock, chb input = direction */
+            swap_inputs = <0>; /* Are channel A and channel B swapped? (0 - no, 1 - yes) */
+            invert_qa = <1>;   /* Should we invert the channel A input?  */
+            invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
+            invert_qi = <0>;   /* Should we invert the index input? */
+            invert_qs = <0>;   /* Should we invert the strobe input? */
+
+	        status = "okay";
+	};
+    };
+};
