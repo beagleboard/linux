@@ -202,7 +202,10 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-universal-00A0.dtbo \
 	cape-universaln-00A0.dtbo \
 	cape-bone-ibb-00A0.dtbo \
-	BB-BONE-CRYPTO-00A0.dtbo
+	BB-BONE-CRYPTO-00A0.dtbo \
+	bone_eqep0-00A0.dtbo \
+	bone_eqep1-00A0.dtbo \
+	bone_eqep2-00A0.dtbo
 
 # the geiger cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
