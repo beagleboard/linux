@@ -568,11 +568,11 @@ void xhci_find_new_dequeue_state(struct xhci_hcd *xhci,
 	if (ep->ep_state & EP_HAS_STREAMS) {
 		struct xhci_stream_ctx *ctx =
 			&ep->stream_info->stream_ctx_array[stream_id];
-		state->new_cycle_state = 0x1 & le64_to_cpu(ctx->stream_ring);
+		hw_dequeue = le64_to_cpu(ctx->stream_ring);
 	} else {
 		struct xhci_ep_ctx *ep_ctx
 			= xhci_get_ep_ctx(xhci, dev->out_ctx, ep_index);
-		state->new_cycle_state = 0x1 & le64_to_cpu(ep_ctx->deq);
+		hw_dequeue = le64_to_cpu(ep_ctx->deq);
 	}
 
 	/* Find virtual address and segment of hardware dequeue pointer */
