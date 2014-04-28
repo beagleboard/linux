@@ -1,0 +1,221 @@
+/*
+ * optargs=capemgr.disable_partno=BB-BONE-EMMC-2G
+ * "arch/arm/boot/dts/am335x-boneblack.dts", find the section starting
+ * with "&mmc2 {" and in section change  status = "okay" into "disabled".
+ * do once : mmc dev 1
+ *           mmc rstn 1
+ * in uBoot or in uEnv and then delete
+ */
+
+
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-LOGIBONE";
+	version = "00R1";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.25",	/* gpmc: gpmc_ad0 */
+		"P8.24",	/* gpmc: gpmc_ad1 */
+		"P8.5",		/* gpmc: gpmc_ad2 */
+		"P8.6",		/* gpmc: gpmc_ad3 */
+		"P8.23",	/* gpmc: gpmc_ad4 */
+		"P8.22",	/* gpmc: gpmc_ad5 */
+		"P8.3",		/* gpmc: gpmc_ad6 */
+		"P8.4",		/* gpmc: gpmc_ad7 */
+		"P8.19",	/* gpmc: gpmc_ad8 */
+		"P8.13",	/* gpmc: gpmc_ad9 */
+		"P8.14",	/* gpmc: gpmc_ad10 */
+		"P8.17",	/* gpmc: gpmc_ad11 */
+		"P8.12",	/* gpmc: gpmc_ad12 */
+		"P8.11",	/* gpmc: gpmc_ad13 */
+		"P8.16",	/* gpmc: gpmc_ad14 */
+		"P8.15",	/* gpmc: gpmc_ad15 */
+		"P9.12",	/* gpmc: gpmc_ben1 */
+		"P8.21",	/* gpmc: gpmc_csn1 */
+		"P8.18",	/* gpmc: gpmc_clk */
+		"P8.7",		/* gpmc: gpmc_advn_ale */
+		"P8.8",		/* gpmc: gpmc_oen_ren */
+		"P8.10",	/* gpmc: gpmc_wen */
+		"P8.9",		/* gpmc: gpmc_ben0_cle */
+
+		"gpmc",
+		/* the reset pin */
+		"eMMC_RSTn";
+
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+
+			gpmc_pins: pinmux_gpmc_pins {
+				pinctrl-single,pins = <
+					0x000 0x30	/* gpmc_ad0.gpmc_ad0 MODE0 | INPUT | PULLUP */
+					0x004 0x30	/* gpmc_ad1.gpmc_ad1 MODE0 | INPUT | PULLUP */
+					0x008 0x30	/* gpmc_ad2.gpmc_ad2 MODE0 | INPUT | PULLUP */
+					0x00C 0x30	/* gpmc_ad3.gpmc_ad3 MODE0 | INPUT | PULLUP */
+					0x010 0x30	/* gpmc_ad4.gpmc_ad4 MODE0 | INPUT | PULLUP */
+					0x014 0x30	/* gpmc_ad5.gpmc_ad5 MODE0 | INPUT | PULLUP */
+					0x018 0x30	/* gpmc_ad6.gpmc_ad6 MODE0 | INPUT | PULLUP */
+					0x01C 0x30	/* gpmc_ad7.gpmc_ad7 MODE0 | INPUT | PULLUP */
+					0x020 0x30	/* gpmc_ad8.gpmc_ad8 MODE0 | INPUT | PULLUP */
+					0x024 0x30	/* gpmc_ad9.gpmc_ad9 MODE0 | INPUT | PULLUP */
+					0x028 0x30	/* gpmc_ad10.gpmc_ad10 MODE0 | INPUT | PULLUP */
+					0x02C 0x30	/* gpmc_ad11.gpmc_ad11 MODE0 | INPUT | PULLUP */
+					0x030 0x30	/* gpmc_ad12.gpmc_ad12 MODE0 | INPUT | PULLUP */
+					0x034 0x30	/* gpmc_ad13.gpmc_ad13 MODE0 | INPUT | PULLUP */
+					0x038 0x30	/* gpmc_ad14.gpmc_ad14 MODE0 | INPUT | PULLUP */
+					0x03C 0x30	/* gpmc_ad15.gpmc_ad15 MODE0 | INPUT | PULLUP */
+					0x080 0x08	/* gpmc_cscn1.gpmc_cscn1 MODE0 | OUTPUT */
+					0x08C 0x28	/* gpmc_clk.gpmc_clk MODE0 | INPUT */
+					0x090 0x08	/* gpmc_advn_ale.gpmc_advn_ale MODE0 | OUTPUT */
+					0x094 0x08	/* gpmc_oen_ren.gpmc_oen_ren MODE0 | OUTPUT */
+					0x098 0x08	/* gpmc_wen.gpmc_wen MODE0 | OUTPUT */
+					0x09C 0x08	/* gpmc_ben0_cle.gpmc_ben0_cle MODE0 | OUTPUT */
+					0x078 0x08	/* gpmc_ben1_cle.gpmc_ben1_cle MODE0 | OUTPUT */
+				>;
+			};
+
+			fpga_config_pins: pinmux_fpga_config_pins {
+				pinctrl-single,pins = <
+					/* config clk and data */
+					0x198 0x37      /*  spi1_d1 MODE3 | INPUT | PULLUP , serial data config */
+					0x190 0x37	/* spi1_sclk MODE3 | INPUT | PULLUP, serial clock config  */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&gpmc>;
+		depth = <1>;	/* only create devices on depth 1 */
+
+		/* stupid warnings */
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		__overlay__ {
+
+			status = "okay";
+
+			#address-cells = <2>;
+			#size-cells = <1>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&gpmc_pins>;
+
+
+
+
+			/* chip select ranges */
+			ranges = <1 0 0x01000000 0x1000000>;
+
+			camera{
+				compatible = "logibone_ra1";
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&fpga_config_pins>;
+
+				reset = <&rstctl 0 0>;
+				reset-names = "eMMC_RSTn-LOGIBONE";
+
+				reg = <1 0 0x01000000>;	/*CSn1*/
+
+				bank-width = <2>;		/* GPMC_CONFIG1_DEVICESIZE(1) */
+
+				/*gpmc,burst-write;*/
+				/*gpmc,burst-read;*/
+				/*gpmc,burst-wrap;*/
+				gpmc,sync-read;		/* GPMC_CONFIG1_READTYPE_ASYNC */
+				gpmc,sync-write;		/* GPMC_CONFIG1_WRITETYPE_ASYNC */
+				gpmc,clk-activation-ns = <0>;	/* GPMC_CONFIG1_CLKACTIVATIONTIME(2) */
+				gpmc,burst-length = <16>;	/* GPMC_CONFIG1_PAGE_LEN(2) */
+				gpmc,mux-add-data = <2>;	/* GPMC_CONFIG1_MUXTYPE(2) */
+
+				gpmc,sync-clk-ps = <20000>;	/* CONFIG2 */
+
+				gpmc,cs-on-ns = <0>;
+				gpmc,cs-rd-off-ns = <100>;
+				gpmc,cs-wr-off-ns = <40>;
+
+				gpmc,adv-on-ns = <0>;		/* CONFIG3 */
+				gpmc,adv-rd-off-ns = <20>;
+				gpmc,adv-wr-off-ns = <20>;
+
+				gpmc,we-on-ns = <20>;		/* CONFIG4 */
+				gpmc,we-off-ns = <40>;
+				gpmc,oe-on-ns = <20>;
+				gpmc,oe-off-ns = <100>;
+
+				gpmc,page-burst-access-ns = <20>;	/* CONFIG 5 */
+				gpmc,access-ns = <80>;
+				gpmc,rd-cycle-ns = <120>;
+				gpmc,wr-cycle-ns = <60>;
+				gpmc,wr-access-ns = <40>;		/* CONFIG 6 */
+				gpmc,wr-data-mux-bus-ns = <20>;
+
+				/*gpmc,bus-turnaround-ns = <40>;*/		/* CONFIG6:3:0 = 4 */
+				/*gpmc,cycle2cycle-samecsen;*/		/* CONFIG6:7 = 1 */
+				/*gpmc,cycle2cycle-delay-ns = <40>;*/	/* CONFIG6:11:8 = 4 */
+
+				/* not using dma engine yet, but we can get the channel number here */
+				dmas = <&edma 20>;
+				dma-names = "logibone";
+
+				fpga,config {
+					i2c-adapter = <&i2c2>;
+
+					/* need it to stop the whinning */
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					/* fake i2c device node */
+					pca9534 {
+						compatible = "logibone";
+						reg = <0x24>;
+					};
+				};
+
+			};
+
+		};
+	};
+
+	fragment@2 {
+        target = <&spi0>;
+        __overlay__ {
+            #address-cells     = <1>;
+            #size-cells     = <0>;
+            status            = "okay";
+            pinctrl-names    = "default";
+            pinctrl-0        = <&fpga_config_pins>;
+
+            spi0_0{
+                #address-cells       = <1>;
+                #size-cells       = <0>;
+                compatible           = "spidev";
+                reg               = <0>;
+                spi-max-frequency = <16000000>;
+                spi-cpha;
+            };
+            spi0_1{
+                #address-cells       = <1>;
+                #size-cells       = <0>;
+                compatible           = "spidev";
+                reg               = <1>;
+                spi-max-frequency = <16000000>;
+                // Mode 0 (CPOL = 0, CPHA = 0)
+            };
+        };
+    };
+
+ };
