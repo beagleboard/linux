@@ -211,6 +211,7 @@
 				part-number = "BB-BONE-GPS-01";
 			};
 
+
 			/* Beaglebone black has it soldered on */
 			 slot@100 {
 				ti,cape-override;
@@ -403,6 +404,15 @@
 				version@R2 {
 					version = "R2";
 					dtbo = "cape-bebopr-R2.dtbo";
+				};
+			};
+
+			/* LOGIBONE cape */
+			cape@16 {
+				part-number = "BB-BONE-LOGIBONE";
+				version@00R1 {
+					version = "00R1";
+					dtbo = "BB-BONE-LOGIBONE-00R1.dtbo";
 				};
 			};
 
