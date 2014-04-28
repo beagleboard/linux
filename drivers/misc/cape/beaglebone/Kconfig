@@ -45,3 +45,5 @@ config CAPE_BEAGLEBONE_NIXIE
 	default n
 	help
 	  Say Y here to include support for the Nixie Cape
+
+source "drivers/misc/cape/beaglebone/logibone/Kconfig"
