@@ -1,0 +1,6 @@
+config CAPE_LOGIBONE_R1
+	tristate "Beaglebone Logibone Cape"
+	depends on CAPE_BEAGLEBONE
+	default n
+	help
+	  Say Y here to include support for the Nixie Cape
