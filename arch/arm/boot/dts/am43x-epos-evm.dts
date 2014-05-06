@@ -420,6 +420,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&qspi1_default>;
 
+	qspi-gpio = <&gpio1 16 GPIO_ACTIVE_LOW>;
 	spi-max-frequency = <48000000>;
 	m25p80@0 {
 		compatible = "mx66l51235l";
