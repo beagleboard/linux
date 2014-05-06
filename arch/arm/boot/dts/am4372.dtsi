@@ -850,6 +850,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			ti,hwmods = "qspi";
+			clocks = <&qspi_fclk>;
+			clock-names = "fck";
 			interrupts = <0 138 0x4>;
 			num-cs = <4>;
 			status = "disabled";
