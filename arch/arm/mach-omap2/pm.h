@@ -38,12 +38,17 @@ extern int omap_pm_clkdms_setup(struct clockdomain *clkdm, void *unused);
 #if defined(CONFIG_PM_OPP)
 extern int omap3_opp_init(void);
 extern int omap4_opp_init(void);
+extern int am33xx_opp_init(void);
 #else
 static inline int omap3_opp_init(void)
 {
 	return -EINVAL;
 }
 static inline int omap4_opp_init(void)
+{
+	return -EINVAL;
+}
+static inline int am33xx_opp_init(void)
 {
 	return -EINVAL;
 }
