@@ -231,11 +231,15 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 # the Tester cape (tester-side)
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += cape-bone-tester-00A0.dtbo
 
-# the CBB-Serial cape (tester-side)
+# the CBB-Serial cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-CBB-Serial-r01.dtbo \
 	BB-UART2-RTSCTS-00A0.dtbo \
 	BB-UART4-RTSCTS-00A0.dtbo
+
+# the CBB-Relay cape
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	CBB-Relay-00A0.dtbo
 
 # the virtual peripheral capes for the UARTs
 # UART3 is not routed to the connectors, no cape for it

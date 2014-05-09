@@ -1,0 +1,331 @@
+/* CBB-Relay-00A0.dts
+ * Logic Supply - http://logicsupply.com
+ *
+ * This is the Device Tree overlay for the CBB-Relay BeagleBone and
+ * BeagleBone Black cape.
+ *
+ * Upon loading, 6 sysfs kernel driver interfaces will be created
+ * (The values of 'X' in the paths below will change depending on
+ *  your system):
+ *
+ *  - /sys/devices/ocp.X/CBB-Relay-ain.X/
+ *    - AIN1 : Reading this file will give the voltage in mV on AIN0,
+ *             accounting for the CBB-Relay's /10 divider
+ *    - AIN5 : Reading this file will give the voltage in mV on AIN1
+ *
+ *  - /sys/devices/ocp.X/CBB-Relay-in1-pull.X/
+ *    - state : The following strings may be written to this file
+ *              (without quotes):
+ *               - "pullup" : enables pullup on in1 (default state)
+ *               - "nopull" : disables pullup/pulldown on in1
+ *
+ *  - /sys/devices/ocp.X/CBB-Relay-in2-pull.X/
+ *    - state : See above
+ *
+ *  - /sys/devices/ocp.X/CBB-Relay-in3-pull.X/
+ *    - state : See above
+ *
+ *  - /sys/devices/ocp.X/CBB-Relay-in4-pull.X/
+ *    - state : See above
+ *
+ *  - /sys/devices/ocp.X/CBB-Relay-servo1.X/
+ *    - duty : Write desired pulse width in nanoseconds
+ *             (initial value is 1000000 [1ms])
+ *    - period : Write desired period in nanoseconds
+ *               (initial value is 20000000 [50Hz])
+ *    - polarity : Write 0 for normally low, 1 for normally high
+ *                 (initial value is 0)
+ *    - run : Write 1 to enable output, 0 to disable
+ *            (initial value is 0)
+ *
+ * Copyright (c) 2014 - Logic Supply (http://logicsupply.com)
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/{
+  compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+  part-number = "CBB-Relay";
+  version = "00A0";
+
+  /* State the resources this cape uses - used to check cape compatibility. */
+  exclusive-use =
+    /* the pin header uses */
+    "P8.26",  /* Relay K1 - GPIO1_29 */
+    "P9.27",  /* Relay K2 - GPIO3_19 */
+
+    "P9.24",  /* Blue LED - GPIO0_15 */
+
+    "P9.42",  /* out1 - GPIO0_7 (eCAP?) */
+    "P9.22",  /* out2 - GPIO0_2 (eCAP?) */
+    "P9.21",  /* out3 - GPIO0_3 (eCAP?) */
+    "P9.16",  /* out4 - GPIO1_19 (eCAP?) */
+
+    "P8.11",  /* in1 - GPIO1_13 */
+    "P8.12",  /* in2 - GPIO1_12 */
+    "P8.14",  /* in3 - GPIO0_26 */
+    "P8.15",  /* in4 - GPIO1_15 */
+
+    "P9.14",  /* servo1 */
+
+    "P9.40",  /* ain1 (/10) */
+    "P9.36",  /* ain5 (pot) */
+
+    /* the hardware IP uses */
+    "tscadc1",
+    "tscadc5",
+    "ehrpwm1A";
+
+  /*----- Start pinmux -----*/
+
+  fragment@0 {
+    /* Sets pinmux for relays. */
+    target = <&am33xx_pinmux>;
+    __overlay__ {
+      cbb_relay_relay_pins: pinmux_cbb_relay_relay_pins {
+        pinctrl-single,pins = <
+          0x07c 0x7  /* gpmc_csn0 - MODE7 (GPIO1_29) */
+          0x1a4 0x7  /* mcasp0_fsr - MODE7 (GPIO3_19) */
+        >;
+      };
+    };
+  };
+
+  fragment@1 {
+    /* Sets pinmux for general purpose outputs. */
+    target = <&am33xx_pinmux>;
+    __overlay__ {
+      cbb_relay_out_pins: pinmux_cbb_relay_out_pins {
+        pinctrl-single,pins = <
+          0x164 0x7  /* eCAP0_in_PWM0_out - MODE7 (GPIO0_7) */
+          0x150 0x7  /* spi0_sclk - MODE7 (GPIO0_2) */
+          0x154 0x7  /* spi0_d0 - MODE7 (GPIO0_3) */
+          0x04c 0x7  /* gpmc_a3 - MODE7 (GPIO1_19) */
+          0x184 0x7  /* uart1_txd - MODE7 (GPIO0_15) - blue LED */
+        >;
+      };
+    };
+  };
+
+  fragment@2 {
+    /* Defines pinmux modes for general purpose inputs. */
+    target = <&am33xx_pinmux>;
+    __overlay__ {
+      cbb_relay_in1_nopull: pinmux_cbb_relay_in1_nopull {
+        pinctrl-single,pins = <
+          0x034 0x2f  /* gpmc_ad13 - rx enabled | nopull | - MODE7 (GPIO1_13) */
+        >;
+      };
+      cbb_relay_in1_pullup: pinmux_cbb_relay_in1_pullup {
+        pinctrl-single,pins = <
+          0x034 0x37  /* gpmc_ad13 - rx enabled | pullup | - MODE7 (GPIO1_13) */
+        >;
+      };
+      cbb_relay_in1_pulldown: pinmux_cbb_relay_in1_pulldown {
+        pinctrl-single,pins = <
+          0x034 0x27  /* gpmc_ad13 - rx enabled | pulldown | - MODE7 (GPIO1_13) */
+        >;
+      };
+
+      cbb_relay_in2_nopull: pinmux_cbb_relay_in2_nopull {
+        pinctrl-single,pins = <
+          0x030 0x2f  /* gpmc_ad12 - rx enabled | nopull | - MODE7 (GPIO1_12) */
+        >;
+      };
+      cbb_relay_in2_pullup: pinmux_cbb_relay_in2_pullup {
+        pinctrl-single,pins = <
+          0x030 0x37  /* gpmc_ad12 - rx enabled | pullup | - MODE7 (GPIO1_12) */
+        >;
+      };
+      cbb_relay_in2_pulldown: pinmux_cbb_relay_in2_pulldown {
+        pinctrl-single,pins = <
+          0x030 0x27  /* gpmc_ad12 - rx enabled | pulldown | - MODE7 (GPIO1_12) */
+        >;
+      };
+
+      cbb_relay_in3_nopull: pinmux_cbb_relay_in3_nopull {
+        pinctrl-single,pins = <
+          0x028 0x2f  /* gpmc_ad10 - rx enabled | nopull | - MODE7 (GPIO0_26) */
+        >;
+      };
+      cbb_relay_in3_pullup: pinmux_cbb_relay_in3_pullup {
+        pinctrl-single,pins = <
+          0x028 0x37  /* gpmc_ad10 - rx enabled | pullup | - MODE7 (GPIO0_26) */
+        >;
+      };
+      cbb_relay_in3_pulldown: pinmux_cbb_relay_in3_pulldown {
+        pinctrl-single,pins = <
+          0x028 0x27  /* gpmc_ad10 - rx enabled | pulldown | - MODE7 (GPIO0_26) */
+        >;
+      };
+
+      cbb_relay_in4_nopull: pinmux_cbb_relay_in4_nopull {
+        pinctrl-single,pins = <
+          0x03c 0x2f  /* gpmc_ad15 - rx enabled | nopull | - MODE7 (GPIO1_15) */
+        >;
+      };
+      cbb_relay_in4_pullup: pinmux_cbb_relay_in4_pullup {
+        pinctrl-single,pins = <
+          0x03c 0x37  /* gpmc_ad15 - rx enabled | pullup | - MODE7 (GPIO1_15) */
+        >;
+      };
+      cbb_relay_in4_pulldown: pinmux_cbb_relay_in4_pulldown {
+        pinctrl-single,pins = <
+          0x03c 0x27  /* gpmc_ad15 - rx enabled | pulldown | - MODE7 (GPIO1_15) */
+        >;
+      };
+    };
+  };
+
+  fragment@3 {
+    /* Sets pinmux for servo output. */
+    target = <&am33xx_pinmux>;
+    __overlay__ {
+      cbb_relay_servo_pins: pinmux_cbb_relay_servo_pins {
+        pinctrl-single,pins = <
+          0x048  0x6  /* gpmc_a2 - MODE 6 (EHRPWM1A) */
+        >;
+      };
+    };
+  };
+
+  /*----- End pinmux -----*/
+
+  /*----- Start subsystem/module enable -----*/
+
+  fragment@4 {
+    /* Enable the enhanced resolution PWM 1 sub-system. */
+    target = <&epwmss1>;
+    __overlay__ {
+      status = "okay";
+    };
+  };
+
+  fragment@5 {
+    /* Enable the enhanced resolution PWM 1 module. */
+    target = <&ehrpwm1>;
+    __overlay__ {
+      status = "okay";
+    };
+  };
+
+  /*----- End subsystem/module enable -----*/
+
+  /*----- Start ocp driver setup -----*/
+
+  fragment@6 {
+    /* Enable pinmux-helper driver for setting input pull configuration. */
+    target = <&ocp>; /* On-Chip Peripherals */
+    __overlay__ {
+      CBB-Relay-out-pins {
+        compatible = "bone-pinmux-helper"; /* Use the pinmux helper */
+        status="okay";
+        /* Define custom names for indexes in pinctrl array: */
+        pinctrl-names = "default";
+        pinctrl-0 = <&cbb_relay_out_pins>;
+      };
+    };
+  };
+
+
+  fragment@7 {
+    /* Enable pinmux-helper driver for setting input pull configuration. */
+    target = <&ocp>; /* On-Chip Peripherals */
+    __overlay__ {
+      CBB-Relay-in1-pull {
+        compatible = "bone-pinmux-helper"; /* Use the pinmux helper */
+        status="okay";
+        /* Define custom names for indexes in pinctrl array: */
+        pinctrl-names = "default", "pullup", "nopull";
+        /* Set the elements of the pinctrl array to the pinmux overlays
+           defined above: */
+        pinctrl-0 = <&cbb_relay_in1_pullup>;
+        pinctrl-1 = <&cbb_relay_in1_pullup>;
+        pinctrl-2 = <&cbb_relay_in1_nopull>;
+      };
+      CBB-Relay-in2-pull {
+        compatible = "bone-pinmux-helper"; /* Use the pinmux helper */
+        status="okay";
+        pinctrl-names = "default", "pullup", "nopull";
+        pinctrl-0 = <&cbb_relay_in2_pullup>;
+        pinctrl-1 = <&cbb_relay_in2_pullup>;
+        pinctrl-2 = <&cbb_relay_in2_nopull>;
+      };
+      CBB-Relay-in3-pull {
+        compatible = "bone-pinmux-helper"; /* Use the pinmux helper */
+        status="okay";
+        pinctrl-names = "default", "pullup", "nopull";
+        pinctrl-0 = <&cbb_relay_in3_pullup>;
+        pinctrl-1 = <&cbb_relay_in3_pullup>;
+        pinctrl-2 = <&cbb_relay_in3_nopull>;
+      };
+      CBB-Relay-in4-pull {
+        compatible = "bone-pinmux-helper"; /* Use the pinmux helper */
+        status="okay";
+        pinctrl-names = "default", "pullup", "nopull";
+        pinctrl-0 = <&cbb_relay_in4_pullup>;
+        pinctrl-1 = <&cbb_relay_in4_pullup>;
+        pinctrl-2 = <&cbb_relay_in4_nopull>;
+      };
+    };
+  };
+
+
+  fragment@8 {
+    /* Enable the sysfs kernel driver to control ehrpwm1. */
+    target = <&ocp>;
+    __overlay__ {
+      CBB-Relay-servo1 {
+        compatible = "pwm_test"; /* Use the pwm_test driver. */
+        status = "okay";
+        pwms = <&ehrpwm1 0 20000000 0>;
+        /* ehrpwm1 module, channel 0, 2e7 ns period (50Hz) normally low. */
+        pwm-names = "Servo1"; /* Friendly name - this doesn't seem to be
+                                 implemented... */
+        pinctrl-names = "default";
+        pinctrl-0 = <&cbb_relay_servo_pins>;
+        enabled = <0>; /* Output disabled on boot. */
+        duty = <1000000>; /* Initial pulse width = 5e5 ns = 0.5ms. */
+      };
+    };
+  };
+
+  fragment@9 {
+    /* Enable ADC driver for analog inputs. */
+    target = <&ocp>;
+    __overlay__ {
+      /* avoid stupid warning */
+      #address-cells = <1>;
+      #size-cells = <1>;
+      tscadc {
+        compatible = "ti,ti-tscadc";
+        reg = <0x44e0d000 0x1000>;
+
+        interrupt-parent = <&intc>;
+        interrupts = <16>;
+        ti,hwmods = "adc_tsc";
+        status = "okay";
+
+        adc {
+          ti,adc-channels = <0 1 2 3 4 5 6 7>;
+        };
+      };
+      CBB-Relay-ain {
+        compatible = "bone-iio-helper";
+        vsense-name = "AIN1", "AIN5";
+        /* Set scale for voltages - values will be in mV (the CBB-Relay
+           has a /10 divider on AIN1): */
+        vsense-scale = <1000 100>;
+        status = "okay";
+      };
+    };
+
+  /*----- End ocp driver setup -----*/
+
+  };
+};
