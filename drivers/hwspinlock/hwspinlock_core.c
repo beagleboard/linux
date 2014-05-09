@@ -474,6 +474,53 @@ static int hwspinlock_device_add(struct hwspinlock_device *bank)
 }
 
 /**
+ * hwspin_mark_reserved_locks() - mark reserved locks
+ *
+ * This is an internal function that mark all the reserved locks within
+ * a hwspinlock device during the registration phase, and is applicable
+ * only for device-tree boots. The locks are marked by browsing through
+ * all the user nodes with the property "hwlocks", so that a separate
+ * property is not needed in the hwspinlock device itself. Note that it
+ * also marks locks used on disabled user nodes.
+ */
+static void hwspin_mark_reserved_locks(struct hwspinlock_device *bank)
+{
+	struct device_node *np = bank->dev->of_node;
+	const char *prop_name = "hwlocks";
+	const char *cells_name = "#hwlock-cells";
+	struct device_node *node = NULL;
+	struct of_phandle_args args;
+	struct hwspinlock *hwlock;
+	int i, id, count, ret;
+
+	for_each_node_with_property(node, prop_name) {
+		count = of_count_phandle_with_args(node, prop_name, cells_name);
+		if (count <= 0)
+			continue;
+
+		for (i = 0; i < count; i++, of_node_put(args.np)) {
+			args.np = NULL;
+			ret = of_parse_phandle_with_args(node, prop_name,
+							 cells_name, i, &args);
+			if (ret || np != args.np)
+				continue;
+
+			id = of_hwspin_lock_simple_xlate(bank, &args);
+			if (id < 0 || id >= bank->num_locks)
+				continue;
+
+			hwlock = &bank->lock[id];
+			if (hwlock->type == HWSPINLOCK_RESERVED) {
+				dev_err(bank->dev, "potential reuse of hwspinlock %d between multiple clients on %s\n",
+					id, np->full_name);
+				continue;
+			}
+			hwlock->type = HWSPINLOCK_RESERVED;
+		}
+	}
+}
+
+/**
  * hwspin_lock_register() - register a new hw spinlock device
  * @bank: the hwspinlock device, which usually provides numerous hw locks
  * @dev: the backing device
@@ -511,12 +558,16 @@ int hwspin_lock_register(struct hwspinlock_device *bank, struct device *dev,
 	if (ret)
 		return ret;
 
+	if (dev->of_node)
+		hwspin_mark_reserved_locks(bank);
+
 	for (i = 0; i < num_locks; i++) {
 		hwlock = &bank->lock[i];
 
 		spin_lock_init(&hwlock->lock);
 		hwlock->bank = bank;
-		hwlock->type = HWSPINLOCK_UNUSED;
+		if (hwlock->type != HWSPINLOCK_RESERVED)
+			hwlock->type = HWSPINLOCK_UNUSED;
 
 		ret = hwspin_lock_register_single(hwlock, base_id + i);
 		if (ret)
@@ -699,7 +750,13 @@ struct hwspinlock *hwspin_lock_request_specific(unsigned int id)
 	/* sanity check (this shouldn't happen) */
 	WARN_ON(hwlock_to_id(hwlock) != id);
 
-	/* make sure this hwspinlock is unused */
+	if (hwlock->bank->dev->of_node && hwlock->type != HWSPINLOCK_RESERVED) {
+		pr_warn("hwspinlock %u is not a reserved lock\n", id);
+		hwlock = NULL;
+		goto out;
+	}
+
+	/* make sure this hwspinlock is an unused reserved lock */
 	ret = radix_tree_tag_get(&hwspinlock_tree, id, hwlock->type);
 	if (ret == 0) {
 		pr_warn("hwspinlock %u is already in use\n", id);
