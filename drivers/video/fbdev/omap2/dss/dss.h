@@ -100,6 +100,23 @@ enum dss_writeback_channel {
 	DSS_WB_LCD3_MGR =	7,
 };
 
+struct pll_params {
+	unsigned long fint;
+	unsigned long clkin;
+	unsigned long clkout;
+
+	unsigned long clkout_hsdiv[4];
+
+	u16 regn;
+	u16 regm;
+	u16 regm2;
+	u32 regmf;
+	u16 regsd;
+
+	u16 regm_hsdiv[4];
+	bool hsdiv_enabled[4];
+};
+
 struct dispc_clock_info {
 	/* rates that we get with dividers below */
 	unsigned long lck;
@@ -129,6 +146,25 @@ struct dsi_clock_info {
 	u16 regm_dsi;	/* OMAP3: REGM4
 			 * OMAP4: REGM5 */
 	u16 lp_clk_div;
+};
+
+enum pll_type {
+	DSS_PLL_TYPE_DSI,
+	DSS_PLL_TYPE_HDMI,
+};
+
+struct pll_data {
+	void __iomem *base;
+
+	struct clk *clkin;
+
+	struct pll_params params;
+	struct pll_features *feats;
+
+	bool locked;
+	enum pll_type type;
+
+	struct platform_device *pdev;
 };
 
 struct dss_lcd_mgr_config {
@@ -368,6 +404,32 @@ static inline bool dsi_pll_calc(struct platform_device *dsidev,
 }
 
 #endif
+
+typedef bool (*pll_calc_func)(int regn, int regm, unsigned long fint,
+		unsigned long pll, void *data);
+typedef bool (*pll_hsdiv_calc_func)(int regm_dispc, unsigned long dispc,
+		void *data);
+
+void pll_dump(struct pll_data *pll, struct seq_file *s);
+unsigned long pll_get_hsdiv_rate(struct pll_data *pll, int index);
+unsigned long pll_get_clkin(struct pll_data *pll);
+int pll_wait_hsdiv_active(struct pll_data *pll, int index);
+void pll_sysreset(struct pll_data *pll);
+int pll_get_reset_status(struct pll_data *pll);
+int pll_wait_reset(struct pll_data *pll);
+void pll_enable_clock(struct pll_data *pll, bool enable);
+bool pll_hsdiv_calc(struct pll_data *pll, unsigned long clkout,
+		unsigned long hsdiv_out_min, unsigned long hsdiv_out_max,
+		pll_hsdiv_calc_func func, void *data);
+bool pll_calc(struct pll_data *pll, unsigned long clkout_min,
+		unsigned long clkout_max, pll_calc_func func,
+		void *data);
+int pll_calc_and_check_clock_rates(struct pll_data *pll,
+		struct pll_params *params);
+int pll_set_clock_div(struct pll_data *pll, struct pll_params *params);
+struct pll_data *pll_create(struct platform_device *pdev,
+		const char *res_name, const char *clk_name,
+		enum pll_type type, u32 offset);
 
 /* DPI */
 int dpi_init_platform_driver(void) __init;
