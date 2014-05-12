@@ -409,9 +409,6 @@ static struct prm_ll_data omap3xxx_prm_ll_data = {
 
 int __init omap3xxx_prm_init(void)
 {
-	if (!cpu_is_omap34xx())
-		return 0;
-
 	return prm_register(&omap3xxx_prm_ll_data);
 }
 
@@ -433,11 +430,6 @@ static int __init omap3xxx_prm_late_init(void)
 
 static void __exit omap3xxx_prm_exit(void)
 {
-	if (!cpu_is_omap34xx())
-		return;
-
-	/* Should never happen */
-	WARN(prm_unregister(&omap3xxx_prm_ll_data),
-	     "%s: prm_ll_data function pointer mismatch\n", __func__);
+	prm_unregister(&omap3xxx_prm_ll_data);
 }
 __exitcall(omap3xxx_prm_exit);
