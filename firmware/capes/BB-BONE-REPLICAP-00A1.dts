@@ -1,0 +1,233 @@
+/*
+ * Copyright (C) 2013 Intelligent Agent AS	<elias@iagent.no>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-BONE-REPLICAP";
+	version = "00A1";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+			// 	  From Cameon.net
+			//    Bit 5: 1 - Input, 		0 - Output
+			//    Bit 4: 1 - Pull up, 		0 - Pull down
+			//    Bit 3: 1 - Pull disabled, 0 - Pull enabled
+			//    Bit 2: - Mode
+			//    Bit 1: - Mode
+			//    Bit 0: - Mode
+			bone_replicape_spi1_pins: pinmux_replicape_spi1_pins {
+				pinctrl-single,pins = <
+					0x190 0x13	/* P9_31 = mcasp0_aclkx.spi1_sclk				 , OUTPUT_PULLUP | MODE3 */
+					0x194 0x33	/* P9_29 = mcasp0_fsx.spi1_d0					 , INPUT_PULLUP  | MODE3 */
+					0x198 0x13	/* P9_30 = mcasp0_axr0.spi1_d1					 , OUTPUT_PULLUP | MODE3 */
+					0x19c 0x13	/* P9_28 = mcasp0_ahclkr.spi1_cs0				 , OUTPUT_PULLUP | MODE3 */
+					0x164 0x12  /* P9_42 = GPIO0_7 =  eCAP0_in_PWM0_out.gpio0[7] , OUTPUT_PULLUP | MODE2 */
+				>;
+			};
+			pwm_mosfet_ext1_pins: pinmux_pwm_mosfet_ext1_pins {
+				pinctrl-single,pins = <
+					0x024  0x4		/* P8_13 = gpmc_ad9  = ehrpwm2B = Heater_ext1 | MODE 4 */
+				>;
+			};
+			pwm_mosfet_ext2_pins: pinmux_pwm_mosfet_ext2_pins {
+				pinctrl-single,pins = <
+					0x020  0x4      /* P8_19 = gpmc_ad8  = ehrpwm2A = Heater_ext2 | MODE 4 */
+				>;
+			};
+			pruicss_stepper_pins: pinmux_pruicss_stepper_pins{
+				pinctrl-single,pins = <
+					0x018 0x07 /* P8_3  = DIR_EXT_2  = GPIO1_6    gpmc_ad6.gpio1[6]      	*/
+					0x01C 0x07 /* P8_4  = DIR_EXT_1  = GPIO1_7    gpmc_ad7.gpio1[7]      	*/
+					0x008 0x07 /* P8_5  = DIR_Z   	 = GPIO1_2    gpmc_ad2.gpio1[2]      	*/
+					0x034 0x07 /* P8_11 = DIR_X   	 = GPIO1_13   gpmc_ad13.gpio1[13]    	*/
+					0x030 0x07 /* P8_12 = STEP_X  	 = GPIO1_12   gpmc_ad12.gpio1[12]    	*/
+					0x038 0x07 /* P8_16 = STEP_EXT_2 = GPIO1_14   gpmc_ad14.gpio1[14]    	*/
+					0x084 0x07 /* P8_20 = STEP_Y	 = GPIO1_31   gpmc_csn2.gpio1[31]    	*/
+					0x080 0x07 /* P8_21 = DIR_Y		 = GPIO1_30   gpmc_csn1.gpio1[30]    	*/
+					0x004 0x07 /* P8_24 = STEP_Z 	 = GPIO1_1    gpmc_ad1 .gpio1[1]	 	*/
+					0x1AC 0x07 /* P9_25	= STEP_EXT_1 = GPIO3_21	  mcasp0_ahclkx.gpio3[21]	*/
+				>;
+			};
+
+			pwm_mosfet_hbp_pins: pinmux_pwm_mosfet_hbp_pins {
+				pinctrl-single,pins = <
+					0x150  0x3		/* P9_14 = spi0_sclk = ehrpwm0A = Heater_HBP  | MODE 3 */
+				>;
+			};
+
+			pruicss_fault_pins: pinmux_pruicss_fault_pins{
+				pinctrl-single,pins = <
+					0x094 0x37 // P8_8  = FAULT_EXT_2 = GPIO2_2    gpmc_oen_ren.gpio2[3]
+					0x098 0x37 // P8_10 = FAULT_X     = GPIO2_4    gpmc_wen.gpio2[4]
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi1>;
+		__overlay__ {
+			#address-cells 	= <1>;
+			#size-cells 	= <0>;
+			status			= "okay";
+			pinctrl-names	= "default";
+			pinctrl-0		= <&bone_replicape_spi1_pins>;
+			cs-gpios 		= <&gpio4 17 0>, <&gpio1 7 0>;
+
+			stepper_control{
+				#address-cells 	  = <1>;
+				#size-cells 	  = <0>;
+				compatible 		  = "spidev";
+				reg 			  = <0>;
+				spi-max-frequency = <16000000>;
+				spi-cpha;		  // Stepper control has mode 1 (CPOL = 0, CPHA = 1)
+			};
+
+			stepper_current{
+				#address-cells 	  = <1>;
+				#size-cells 	  = <0>;
+				compatible 		  = "spidev";
+				reg 			  = <1>;
+				spi-max-frequency = <16000000>;
+								  // Stepper current has mode 0 (CPOL = 0, CPHA = 0)
+			};
+		};
+	};
+	fragment@2 {
+		target = <&epwmss2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@3 {
+		target = <&ehrpwm2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@4 {
+		target = <&epwmss0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@5 {
+		target = <&ehrpwm0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@6{
+		target = <&pruss>;
+		__overlay__{
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 	  = <&pruicss_stepper_pins>;
+
+			stepper_x{
+				pin-names 	= "Replic:pru-step_x", "Replic:pru-dir_x";
+				gpios 		= <&gpio2 12 0
+							   &gpio2 13 0>;
+			};
+			stepper_y{
+				pin-names 	= "Replic:pru-step_y", "Replic:pru-dir_y";
+				gpios 		=<&gpio2 31 0
+							  &gpio2 30 0>;
+			};
+			stepper_z{
+				pin-names 	= "Replic:pru-step_z", "Replic:pru-dir_z";
+				gpios 		= <&gpio2 1 0
+							   &gpio2 2 0>;
+			};
+			stepper_ext_1{
+				pin-names 	= "Replic:pru-step_ext_1", "Replic:pru-dir_ext_1";
+				gpios 		= <&gpio4 21 0
+							   &gpio2 7 0>;
+			};
+			stepper_ext_2{
+				pin-names 	= "Replic:pru-step_ext_2", "Replic:pru-dir_ext_2";
+				gpios 		= <&gpio2 14 0
+							   &gpio2 6 0>;
+			};
+		};
+	};
+
+	fragment@7 {
+		target = <&ocp>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			mosfet_ext1 {
+				compatible      = "pwm_test";
+				pinctrl-names   = "default";
+				pinctrl-0       = <&pwm_mosfet_ext1_pins>;
+				pwms 			= <&ehrpwm2 1 500000 1>;
+				pwm-names 		= "Mosfet_Ext_1";
+				enabled			= <1>;
+				polarity		= <1>; // 0 = normal, 1 = inverse
+				duty			= <0>;
+				status 			= "okay";
+			};
+			mosfet_ext2 {
+				compatible      = "pwm_test";
+				pinctrl-names   = "default";
+				pinctrl-0       = <&pwm_mosfet_ext2_pins>;
+				pwms 			= <&ehrpwm2 0 500000 1>;
+				pwm-names 		= "Mosfet_Ext_2";
+				enabled			= <1>;
+				duty			= <0>;
+				status 			= "okay";
+			};
+			mosfet_hbp {
+				compatible      = "pwm_test";
+				pinctrl-names   = "default";
+				pinctrl-0       = <&pwm_mosfet_hbp_pins>;
+				pwms 			= <&ehrpwm0 0 500000 1>;
+				pwm-names 		= "Mosfet_HBP";
+				enabled			= <1>;
+				duty			= <0>;
+				status 			= "okay";
+			};
+
+			tscadc {
+				compatible = "ti,ti-tscadc";
+				reg = <0x44e0d000 0x1000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <16>;
+				ti,hwmods = "adc_tsc";
+				status = "okay";
+
+				tsc {
+					ti,wires = <4>;
+				};
+				adc {
+					ti,adc-channels = <4>;
+				};
+			};
+
+			thermistors{
+				compatible = "bone-iio-helper";
+				vsense-name  = "AIN4", "AIN5", "AIN6", "AIN7";
+				vsense-scale = <100     100     100     100 >;
+				status = "okay";
+			};
+		};
+	};
+
+};
