@@ -691,6 +691,30 @@
 			>;
 		};
 
+		voltdm_mpu: voltdm_mpu {
+			compatible = "ti,omap-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_mpu>;
+		};
+
+		voltdm_ivahd: voltdm_ivahd {
+			compatible = "ti,omap-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_ivahd>;
+		};
+
+		voltdm_dspeve: voltdm_dspeve {
+			compatible = "ti,omap-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_dspeve>;
+		};
+
+		voltdm_gpu: voltdm_gpu {
+			compatible = "ti,omap-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_gpu>;
+		};
+
 		mcspi1: spi@48098000 {
 			compatible = "ti,omap4-mcspi";
 			reg = <0x48098000 0x200>;
