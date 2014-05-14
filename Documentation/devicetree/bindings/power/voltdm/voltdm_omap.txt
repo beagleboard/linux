@@ -9,10 +9,18 @@ processors.
 Required Properties:
 - compatible: Should be one of:
 	"ti,omap-voltdm" - basic voltage domain controlling VDD and VBB
+	"ti,omap5-voltdm" - OMAP5+ optimized voltages in efuse(class0)VDD
+			    along with VBB
 - vdd-supply: phandle to regulator controlling VDD supply
 - vbb-supply: phandle to regulator controlling Body Bias supply
   (Usually Adaptive Body Bias regulator)
 - #voltdm-cells: shall be <0>
+- reg: Address and length of the efuse register set for the device (mandatory
+	only for "ti,omap5-voltdm")
+- ti,efuse-settings: An array of u32 tuple items providing information about
+	optimized efuse configuration. Each item consists of the following:
+	volt: voltage in uV - reference voltage (OPP voltage)
+	efuse_offseet: efuse offset from reg where the optimized voltage is stored.
 
 Example:
 voltage_domain_mpu: voltdm@1 {
@@ -21,4 +29,18 @@ voltage_domain_mpu: voltdm@1 {
 
 	vdd-supply = <&vcc>;
 	vbb-supply = <&abb_mpu>;
+};
+
+voltdm_mpu: voltdm@4a003b20 {
+	compatible = "ti,omap5-voltdm";
+	#voltdm-cells = <0>;
+	vdd-supply = <&vcc>;
+	vbb-supply = <&abb_mpu>;
+	reg = <0x4a003b20 0x8>;
+	ti,efuse-settings = <
+	/* uV   offset */
+	1060000 0x0
+	1160000 0x4
+	1210000 0x8
+	>;
 };

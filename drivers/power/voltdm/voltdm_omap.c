@@ -11,6 +11,7 @@
 #include <linux/clk.h>
 #include <linux/cpufreq.h>
 #include <linux/device.h>
+#include <linux/io.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
 #include <linux/of_device.h>
@@ -22,22 +23,190 @@
 #include "voltage_domain_private.h"
 
 /**
+ * struct omap_voltdm_optimium_voltage_table - optimized voltage table
+ * @reference_uv:	reference voltage (usually Nominal voltage)
+ * @optimized_uv:	Optimized voltage from efuse
+ */
+struct omap_voltdm_optimium_voltage_table {
+	unsigned int reference_uv;
+	unsigned int optimized_uv;
+};
+
+/**
  * struct omap_voltdm_data - OMAP specific voltage domain data
  * @vdd_reg:	VDD regulator
  * @vbb_reg:	Body Bias regulator
+ * @vdd_table:	Optimized voltage mapping table
+ * @num_vdd_table: number of entries in vdd_table
  */
 struct omap_voltdm_data {
 	struct regulator *vdd_reg;
 	struct regulator *vbb_reg;
+	struct omap_voltdm_optimium_voltage_table *vdd_table;
+	u32 num_vdd_table;
 };
 
 /**
  * struct omap_voltdm_of_data - device tree match data
  * @desc:	voltage domain descriptor for voltage domain core
+ * @flags:	specific type of voltage domain
+ * @efuse_voltage_mask: mask required for efuse register representing voltage
+ * @efuse_voltage_uv: Are the efuse entries in micro-volts? if not, assume
+ *		milli-volts.
  */
 struct omap_voltdm_of_data {
 	const struct pm_voltdm_desc *desc;
+#define VOLTDM_EFUSE_CLASS0_OPTIMIZED_VOLTAGE	BIT(1)
+	const u8 flags;
+	const u32 efuse_voltage_mask;
+	const bool efuse_voltage_uv;
 };
+
+/**
+ * voltdm_store_optimized_voltages() - store optimized voltages
+ * @dev:	voltage domain device for which we need to store info
+ * @data:	data specific to the device
+ *
+ * Picks up efuse based optimized voltages for VDD unique per device and
+ * stores it in internal data structure for use during transition requests.
+ *
+ * Return: If successful, 0, else appropriate error value.
+ */
+static int voltdm_store_optimized_voltages(struct device *dev,
+					   struct omap_voltdm_data *data)
+{
+	void __iomem *base;
+	struct property *prop;
+	struct resource *res;
+	const __be32 *val;
+	int proplen, i;
+	int ret = 0;
+	struct omap_voltdm_optimium_voltage_table *table;
+	const struct omap_voltdm_of_data *of_data = dev_get_drvdata(dev);
+
+	/* pick up Efuse based voltages */
+	res = platform_get_resource(to_platform_device(dev), IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(dev, "Unable to get IO resource\n");
+		ret = -ENODEV;
+		goto out_map;
+	}
+
+	base = ioremap_nocache(res->start, resource_size(res));
+	if (!base) {
+		dev_err(dev, "Unable to map Efuse registers\n");
+		ret = -ENOMEM;
+		goto out_map;
+	}
+
+	/* Fetch efuse-settings. */
+	prop = of_find_property(dev->of_node, "ti,efuse-settings", NULL);
+	if (!prop) {
+		dev_err(dev, "No 'ti,efuse-settings' property found\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	proplen = prop->length / sizeof(int);
+	data->num_vdd_table = proplen / 2;
+	/* Verify for corrupted OPP entries in dt */
+	if (data->num_vdd_table * 2 * sizeof(int) != prop->length) {
+		dev_err(dev, "Invalid 'ti,efuse-settings'\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	table = kzalloc(sizeof(*data->vdd_table) *
+				  data->num_vdd_table, GFP_KERNEL);
+	if (!table) {
+		dev_err(dev, "Unable to Allocate voltage set table\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	data->vdd_table = table;
+
+	val = prop->value;
+	for (i = 0; i < data->num_vdd_table; i++, table++) {
+		u32 efuse_offset;
+		u32 tmp;
+
+		table->reference_uv = be32_to_cpup(val++);
+		efuse_offset = be32_to_cpup(val++);
+
+		tmp = readl(base + efuse_offset);
+		tmp &= of_data->efuse_voltage_mask;
+		tmp >>= __ffs(of_data->efuse_voltage_mask);
+
+		table->optimized_uv = of_data->efuse_voltage_uv ? tmp :
+					tmp * 1000;
+
+		dev_dbg(dev, "[%d] efuse=0x%08x volt_table=%d vset=%d\n",
+			i, efuse_offset, table->reference_uv,
+			table->optimized_uv);
+
+		/*
+		 * Some older samples might not have optimized efuse
+		 * Use reference voltage for those - just add debug message
+		 * for them.
+		 */
+		if (!table->optimized_uv) {
+			dev_dbg(dev, "[%d] efuse=0x%08x volt_table=%d:vset0\n",
+				i, efuse_offset, table->reference_uv);
+			table->optimized_uv = table->reference_uv;
+		}
+	}
+
+out:
+	iounmap(base);
+out_map:
+	return ret;
+}
+
+/**
+ * voltdm_free_optimized_voltages() - free resources for optimized voltages
+ * @dev:	voltage domain device for which we need to free info
+ * @data:	data specific to the device
+ */
+static void voltdm_free_optimized_voltages(struct device *dev,
+					   struct omap_voltdm_data *data)
+{
+	kfree(data->vdd_table);
+	data->vdd_table = NULL;
+	data->num_vdd_table = 0;
+}
+
+/**
+ * voltdm_get_optimal_vdd_voltage() - Finds optimal voltage for the domain
+ * @dev:	voltage domain device for which we need to find info
+ * @data:	data specific to the device
+ * @reference_uv:	reference voltage (OPP voltage) for which we need value
+ *
+ * Return: if a match is found, return optimized voltage, else return
+ * reference_uv, also return reference_uv if no optimization is needed.
+ */
+static int voltdm_get_optimal_vdd_voltage(struct device *dev,
+					  struct omap_voltdm_data *data,
+					  int reference_uv)
+{
+	int i;
+	struct omap_voltdm_optimium_voltage_table *table;
+
+	if (!data->num_vdd_table)
+		return reference_uv;
+
+	table = data->vdd_table;
+	BUG_ON(!table);
+
+	/* Find a exact match - this list is usually very small */
+	for (i = 0; i < data->num_vdd_table; i++, table++)
+		if (table->reference_uv == reference_uv)
+			return table->optimized_uv;
+
+	/* IF things are screwed up, we'd make a mess on console.. ratelimit */
+	dev_err_ratelimited(dev, "%s: Failed optimized voltage match for %d\n",
+			    __func__, reference_uv);
+	return reference_uv;
+}
 
 /**
  * omap_voltdm_do_transition() - do the voltage domain transition
@@ -57,6 +226,7 @@ static int omap_voltdm_do_transition(struct device *dev,
 	struct omap_voltdm_data *data = (struct omap_voltdm_data *)voltdm_data;
 	int ret;
 	bool do_abb_first;
+	int vdd_uv;
 
 	/* We dont expect voltdm layer to make mistakes.. but still */
 	BUG_ON(!data);
@@ -75,12 +245,14 @@ static int omap_voltdm_do_transition(struct device *dev,
 		}
 	}
 
-	dev_dbg(dev, "vdd for voltage %duV[tol %duV]\n", uv, tol_uv);
-	ret = regulator_set_voltage_tol(data->vdd_reg, uv, tol_uv);
+	vdd_uv = voltdm_get_optimal_vdd_voltage(dev, data, uv);
+	dev_dbg(dev, "vdd for voltage %duV(ref=%duV)[tol %duV]\n",
+		vdd_uv, uv, tol_uv);
+	ret = regulator_set_voltage_tol(data->vdd_reg, vdd_uv, tol_uv);
 	if (ret) {
 		dev_err(dev,
-			"vdd failed for voltage %duV[tol %duV]:%d\n",
-			uv, tol_uv, ret);
+			"vdd failed for voltage %duV(ref=%duV)[tol %duV]:%d\n",
+			vdd_uv, uv, tol_uv, ret);
 		return ret;
 	}
 
@@ -173,12 +345,20 @@ static int omap_voltdm_get(struct device *voltdm_dev,
 {
 	struct omap_voltdm_data *data;
 	int ret = 0;
+	const struct omap_voltdm_of_data *of_data = dev_get_drvdata(voltdm_dev);
 
-	BUG_ON(!voltdm_dev || !request_dev || !voltdm_data);
+	BUG_ON(!voltdm_dev || !request_dev || !voltdm_data || !of_data);
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
+
+	/* If we need optimized voltage */
+	if (of_data->flags & VOLTDM_EFUSE_CLASS0_OPTIMIZED_VOLTAGE) {
+		ret = voltdm_store_optimized_voltages(voltdm_dev, data);
+		if (ret)
+			goto out_free;
+	}
 
 	/*
 	 * Setup aliases for request device supply to let regulator framework
@@ -187,7 +367,7 @@ static int omap_voltdm_get(struct device *voltdm_dev,
 	ret = regulator_register_supply_alias(request_dev, "vdd",
 					      voltdm_dev, "vdd");
 	if (ret)
-		goto out_free;
+		goto out_release_optimized_voltages;
 	ret = regulator_register_supply_alias(request_dev, "vbb",
 					      voltdm_dev, "vbb");
 	if (ret)
@@ -216,6 +396,9 @@ out_unreg:
 	regulator_unregister_supply_alias(request_dev, "vbb");
 out_unreg_vdd:
 	regulator_unregister_supply_alias(request_dev, "vdd");
+out_release_optimized_voltages:
+	if (of_data->flags & VOLTDM_EFUSE_CLASS0_OPTIMIZED_VOLTAGE)
+		voltdm_free_optimized_voltages(voltdm_dev, data);
 out_free:
 	kfree(data);
 
@@ -260,8 +443,16 @@ static const struct omap_voltdm_of_data omap_generic_of_data = {
 	.desc = &omap_voltdm_desc,
 };
 
+static const struct omap_voltdm_of_data omap_omap5_of_data = {
+	.desc = &omap_voltdm_desc,
+	.flags = VOLTDM_EFUSE_CLASS0_OPTIMIZED_VOLTAGE,
+	.efuse_voltage_mask = 0xFFF,
+	.efuse_voltage_uv = false,
+};
+
 static const struct of_device_id omap_voltdm_of_match[] = {
 	{.compatible = "ti,omap-voltdm", .data = &omap_generic_of_data},
+	{.compatible = "ti,omap5-voltdm", .data = &omap_omap5_of_data},
 	{},
 };
 
