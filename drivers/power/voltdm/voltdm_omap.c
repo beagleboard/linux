@@ -57,6 +57,7 @@ struct omap_voltdm_data {
 struct omap_voltdm_of_data {
 	const struct pm_voltdm_desc *desc;
 #define VOLTDM_EFUSE_CLASS0_OPTIMIZED_VOLTAGE	BIT(1)
+#define VOLTDM_HAS_NO_ABB			BIT(2)
 	const u8 flags;
 	const u32 efuse_voltage_mask;
 	const bool efuse_voltage_uv;
@@ -234,7 +235,7 @@ static int omap_voltdm_do_transition(struct device *dev,
 	do_abb_first = clk_notifier_flags == ABORT_RATE_CHANGE ||
 	    clk_notifier_flags == POST_RATE_CHANGE;
 
-	if (do_abb_first) {
+	if (do_abb_first && !IS_ERR(data->vbb_reg)) {
 		dev_dbg(dev, "vbb pre %duV[tol %duV]\n", uv, tol_uv);
 		ret = regulator_set_voltage_tol(data->vbb_reg, uv, tol_uv);
 		if (ret) {
@@ -256,7 +257,7 @@ static int omap_voltdm_do_transition(struct device *dev,
 		return ret;
 	}
 
-	if (!do_abb_first) {
+	if (!do_abb_first && !IS_ERR(data->vbb_reg)) {
 		dev_dbg(dev, "vbb post %duV[tol %duV]\n", uv, tol_uv);
 		ret = regulator_set_voltage_tol(data->vbb_reg, uv, tol_uv);
 		if (ret) {
@@ -301,6 +302,9 @@ static int omap_voltdm_latency(struct device *dev, void *voltdm_data,
 	tot_latency += ret;
 
 skip_vdd:
+	if (IS_ERR(data->vbb_reg))
+		goto skip_vbb;
+
 	ret = regulator_set_voltage_time(data->vbb_reg, min, max);
 	if (ret < 0) {
 		dev_dbg(dev, "vbb failed voltage latency: %d\n", ret);
@@ -380,11 +384,16 @@ static int omap_voltdm_get(struct device *voltdm_dev,
 		goto out_unreg;
 	}
 
-	data->vbb_reg = regulator_get(request_dev, "vbb");
-	if (IS_ERR(data->vbb_reg)) {
-		ret = PTR_ERR(data->vbb_reg);
-		dev_err(voltdm_dev, "Unable to get vbb regulator:%d\n", ret);
-		goto out_vdd_reg;
+	if (of_data->flags & VOLTDM_HAS_NO_ABB) {
+		data->vbb_reg = ERR_PTR(-ENODEV);
+	} else {
+		data->vbb_reg = regulator_get(request_dev, "vbb");
+		if (IS_ERR(data->vbb_reg)) {
+			ret = PTR_ERR(data->vbb_reg);
+			dev_err(voltdm_dev, "Unable to get vbb regulator:%d\n",
+				ret);
+			goto out_vdd_reg;
+		}
 	}
 
 	*voltdm_data = data;
@@ -419,7 +428,8 @@ static void omap_voltdm_put(struct device *voltdm_dev,
 	/* We dont expect voltdm layer to make mistakes.. but still */
 	BUG_ON(!data || !voltdm_dev || !request_dev);
 
-	regulator_put(data->vbb_reg);
+	if (!IS_ERR(data->vbb_reg))
+		regulator_put(data->vbb_reg);
 	regulator_put(data->vdd_reg);
 	regulator_unregister_supply_alias(request_dev, "vbb");
 	regulator_unregister_supply_alias(request_dev, "vdd");
@@ -450,9 +460,17 @@ static const struct omap_voltdm_of_data omap_omap5_of_data = {
 	.efuse_voltage_uv = false,
 };
 
+static const struct omap_voltdm_of_data omap_omap5core_of_data = {
+	.desc = &omap_voltdm_desc,
+	.flags = VOLTDM_EFUSE_CLASS0_OPTIMIZED_VOLTAGE | VOLTDM_HAS_NO_ABB,
+	.efuse_voltage_mask = 0xFFF,
+	.efuse_voltage_uv = false,
+};
+
 static const struct of_device_id omap_voltdm_of_match[] = {
 	{.compatible = "ti,omap-voltdm", .data = &omap_generic_of_data},
 	{.compatible = "ti,omap5-voltdm", .data = &omap_omap5_of_data},
+	{.compatible = "ti,omap5-core-voltdm", .data = &omap_omap5core_of_data},
 	{},
 };
 
