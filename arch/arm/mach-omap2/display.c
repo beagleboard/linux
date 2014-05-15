@@ -556,6 +556,11 @@ int omap_dss_reset(struct omap_hwmod *oh)
 	return r;
 }
 
+void __init omapdss_early_init_of(void)
+{
+
+}
+
 struct device_node * __init omapdss_find_dss_of_node(void)
 {
 	struct device_node *node;
