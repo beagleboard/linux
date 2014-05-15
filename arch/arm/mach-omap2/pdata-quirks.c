@@ -19,6 +19,7 @@
 #include <linux/platform_data/iommu-omap.h>
 #include <linux/platform_data/remoteproc-omap.h>
 #include <linux/platform_data/wkup_m3.h>
+#include <linux/platform_data/remoteproc-pruss.h>
 
 #include "common.h"
 #include "common-board-devices.h"
@@ -295,6 +296,14 @@ static struct wkup_m3_platform_data wkup_m3_data = {
 };
 #endif
 
+#ifdef CONFIG_SOC_AM33XX
+static struct pruss_platform_data pruss_pdata = {
+	.reset_name = "pruss",
+	.assert_reset = omap_device_assert_hardreset,
+	.deassert_reset = omap_device_deassert_hardreset,
+};
+#endif
+
 #ifdef CONFIG_SOC_OMAP5
 static void __init omap5_uevm_legacy_init(void)
 {
@@ -369,6 +378,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 #ifdef CONFIG_SOC_AM33XX
 	OF_DEV_AUXDATA("ti,am3352-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
 		       &wkup_m3_data),
+	OF_DEV_AUXDATA("ti,am3352-pruss", 0x4a300000, "4a300000.pruss",
+		       &pruss_pdata),
 #endif
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
