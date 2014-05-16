@@ -857,6 +857,39 @@ static int rproc_handle_intmem(struct rproc *rproc, struct fw_rsc_intmem *rsc,
 	return 0;
 }
 
+/**
+ * rproc_handle_custom_rsc() - provide implementation specific hook
+ *			       to handle custom resources
+ * @rproc: the remote processor
+ * @rsc: custom resource to be handled by drivers
+ * @offset: offset of the resource data in resource table
+ * @avail: size of available data
+ *
+ * Remoteproc implementations might want to add resource table
+ * entries that are not generic enough to be handled by the framework.
+ * This provides a hook to handle such custom resources.
+ *
+ * Returns 0 on success, or an appropriate error code otherwise
+ */
+static int rproc_handle_custom_rsc(struct rproc *rproc,
+				   struct fw_rsc_custom *rsc,
+				   int offset, int avail)
+{
+	struct device *dev = &rproc->dev;
+
+	if (!rproc->ops->handle_custom_rsc) {
+		dev_err(dev, "custom resource handler unavailable\n");
+		return -EINVAL;
+	}
+
+	if (sizeof(*rsc) > avail) {
+		dev_err(dev, "custom resource is truncated\n");
+		return -EINVAL;
+	}
+
+	return rproc->ops->handle_custom_rsc(rproc, (void *)rsc);
+}
+
 static int rproc_count_vrings(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 			      int offset, int avail)
 {
@@ -875,6 +908,7 @@ static rproc_handle_resource_t rproc_loading_handlers[RSC_LAST] = {
 	[RSC_DEVMEM] = (rproc_handle_resource_t)rproc_handle_devmem,
 	[RSC_TRACE] = (rproc_handle_resource_t)rproc_handle_trace,
 	[RSC_INTMEM] = (rproc_handle_resource_t)rproc_handle_intmem,
+	[RSC_CUSTOM] = (rproc_handle_resource_t)rproc_handle_custom_rsc,
 	[RSC_VDEV] = NULL, /* VDEVs were handled upon registrarion */
 };
 
