@@ -1488,6 +1488,7 @@ static int edma_of_parse_dt(struct device *dev,
 	pdata->n_slot = value;
 
 	pdata->n_cc = 1;
+	pdata->n_tc = 3;
 
 	rsv_info = devm_kzalloc(dev, sizeof(struct edma_rsv_info), GFP_KERNEL);
 	if (!rsv_info)
@@ -1648,6 +1649,7 @@ static int edma_probe(struct platform_device *pdev)
 							EDMA_MAX_PARAMENTRY);
 		edma_cc[j]->num_cc = min_t(unsigned, info[j]->n_cc,
 							EDMA_MAX_CC);
+		edma_cc[j]->num_tc = info[j]->n_tc;
 
 		edma_cc[j]->default_queue = info[j]->default_queue;
 
@@ -1740,9 +1742,6 @@ static int edma_probe(struct platform_device *pdev)
 		for (i = 0; queue_tc_mapping[i][0] != -1; i++)
 			map_queue_tc(j, queue_tc_mapping[i][0],
 					queue_tc_mapping[i][1]);
-
-		/* Save the number of TCs */
-		edma_cc[j]->num_tc = i;
 
 		/* Event queue priority mapping */
 		for (i = 0; queue_priority_mapping[i][0] != -1; i++)
