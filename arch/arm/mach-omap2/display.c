@@ -585,6 +585,10 @@ struct device_node * __init omapdss_find_dss_of_node(void)
 	if (node)
 		return node;
 
+	node = of_find_compatible_node(NULL, NULL, "ti,dra7-dss");
+	if (node)
+		return node;
+
 	return NULL;
 }
 
