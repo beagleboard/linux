@@ -101,6 +101,8 @@ struct fw_rsc_hdr {
  *		    the remote processor will be writing logs.
  * @RSC_VDEV:       declare support for a virtio device, and serve as its
  *		    virtio header.
+ * @RSC_CUSTOM:     a custom resource type that needs to be handled outside
+ *		    remoteproc core.
  * @RSC_LAST:       just keep this one at the end
  *
  * For more details regarding a specific resource type, please see its
@@ -116,7 +118,8 @@ enum fw_resource_type {
 	RSC_DEVMEM	= 1,
 	RSC_TRACE	= 2,
 	RSC_VDEV	= 3,
-	RSC_LAST	= 4,
+	RSC_CUSTOM	= 5,
+	RSC_LAST	= 6,
 };
 
 #define FW_RSC_ADDR_ANY (-1)
@@ -307,6 +310,18 @@ struct fw_rsc_vdev {
 } __packed;
 
 /**
+ * struct fw_rsc_custom - custom resource definition
+ * @sub_type: implementation specific type
+ * @size: size of the custom resource
+ * @data: label for the start of the resource
+ */
+struct fw_rsc_custom {
+	u32  sub_type;
+	u32  size;
+	u8   data[0];
+} __packed;
+
+/**
  * struct rproc_mem_entry - memory entry descriptor
  * @va:	virtual address
  * @dma: dma address
@@ -345,12 +360,15 @@ struct rproc;
  * @stop:	power off the device
  * @kick:	kick a virtqueue (virtqueue id given as a parameter)
  * @da_to_va:	optional platform hook to perform address translations
+ * @handle_custom_rsc:	hook to handle device specific resource table entries
  */
 struct rproc_ops {
 	int (*start)(struct rproc *rproc);
 	int (*stop)(struct rproc *rproc);
 	void (*kick)(struct rproc *rproc, int vqid);
 	void * (*da_to_va)(struct rproc *rproc, u64 da, int len, u32 flags);
+	int (*handle_custom_rsc)(struct rproc *rproc,
+				 struct fw_rsc_custom *rsc);
 };
 
 /**
