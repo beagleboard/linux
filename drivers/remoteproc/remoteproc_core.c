@@ -920,8 +920,11 @@ static rproc_handle_resource_t rproc_loading_handlers[RSC_LAST] = {
 	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
 	[RSC_DEVMEM] = (rproc_handle_resource_t)rproc_handle_devmem,
 	[RSC_TRACE] = (rproc_handle_resource_t)rproc_handle_trace,
-	[RSC_CUSTOM] = (rproc_handle_resource_t)rproc_handle_custom_rsc,
 	[RSC_VDEV] = (rproc_handle_resource_t)rproc_handle_vdev,
+};
+
+static rproc_handle_resource_t rproc_post_loading_handlers[RSC_LAST] = {
+	[RSC_CUSTOM] = (rproc_handle_resource_t)rproc_handle_custom_rsc,
 };
 
 /* handle firmware resource entries before booting the remote processor */
@@ -1176,6 +1179,15 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	if (loaded_table) {
 		memcpy(loaded_table, rproc->cached_table, tablesz);
 		rproc->table_ptr = loaded_table;
+	}
+
+	/* handle fw resources which require fw segments to be loaded*/
+	ret = rproc_handle_resources(rproc, tablesz,
+				     rproc_post_loading_handlers);
+	if (ret) {
+		dev_err(dev, "Failed to process post-loading resources: %d\n",
+			ret);
+		goto clean_up;
 	}
 
 	/* power up the remote processor */
