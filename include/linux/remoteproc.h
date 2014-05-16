@@ -101,6 +101,8 @@ struct fw_rsc_hdr {
  * @RSC_VDEV:       declare support for a virtio device, and serve as its
  *		    virtio header.
  * @RSC_INTMEM:     request to map into kernel an internal memory region.
+ * @RSC_CUSTOM:     a custom resource type that needs to be handled outside
+ *		    remoteproc core.
  * @RSC_LAST:       just keep this one at the end
  *
  * For more details regarding a specific resource type, please see its
@@ -117,7 +119,8 @@ enum fw_resource_type {
 	RSC_TRACE	= 2,
 	RSC_VDEV	= 3,
 	RSC_INTMEM	= 4,
-	RSC_LAST	= 5,
+	RSC_CUSTOM	= 5,
+	RSC_LAST	= 6,
 };
 
 #define FW_RSC_ADDR_ANY (0xFFFFFFFFFFFFFFFF)
@@ -347,6 +350,18 @@ struct fw_rsc_intmem {
 } __packed;
 
 /**
+ * struct fw_rsc_custom - custom resource definition
+ * @sub_type: implementation specific type
+ * @size: size of the custom resource
+ * @data: label for the start of the resource
+ */
+struct fw_rsc_custom {
+	u32  sub_type;
+	u32  size;
+	u8   data[0];
+} __packed;
+
+/**
  * struct rproc_mem_entry - memory entry descriptor
  * @va:	virtual address
  * @dma: dma address
@@ -371,11 +386,14 @@ struct rproc;
  * @start:	power on the device and boot it
  * @stop:	power off the device
  * @kick:	kick a virtqueue (virtqueue id given as a parameter)
+ * @handle_custom_rsc:	hook to handle device specific resource table entries
  */
 struct rproc_ops {
 	int (*start)(struct rproc *rproc);
 	int (*stop)(struct rproc *rproc);
 	void (*kick)(struct rproc *rproc, int vqid);
+	int (*handle_custom_rsc)(struct rproc *rproc,
+				 struct fw_rsc_custom *rsc);
 };
 
 /**
