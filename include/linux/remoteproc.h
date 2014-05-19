@@ -387,6 +387,7 @@ struct rproc;
  * @stop:	power off the device
  * @kick:	kick a virtqueue (virtqueue id given as a parameter)
  * @handle_custom_rsc:	hook to handle device specific resource table entries
+ * @da_to_va:	optional platform hook to perform address translations
  */
 struct rproc_ops {
 	int (*start)(struct rproc *rproc);
@@ -394,6 +395,7 @@ struct rproc_ops {
 	void (*kick)(struct rproc *rproc, int vqid);
 	int (*handle_custom_rsc)(struct rproc *rproc,
 				 struct fw_rsc_custom *rsc);
+	void * (*da_to_va)(struct rproc *rproc, u64 da, int len, u32 flags);
 };
 
 /**
