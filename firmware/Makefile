@@ -206,6 +206,7 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-universal-00A0.dtbo \
 	cape-universaln-00A0.dtbo \
 	cape-bone-ibb-00A0.dtbo \
+	BB-BONE-HAS-00R1.dtbo \
 	BB-BONE-CRYPTO-00A0.dtbo \
 	bone_eqep0-00A0.dtbo \
 	bone_eqep1-00A0.dtbo \
