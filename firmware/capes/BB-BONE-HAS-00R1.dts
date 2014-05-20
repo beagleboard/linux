@@ -1,0 +1,116 @@
+/*
+ * Copyright (C) 2014 Dennie de Groot
+ *
+ * Cape support for the Home Automation System
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+    /* identification */
+    part-number = "BB-BONE-HAS";
+    version = "00R1";
+
+    /* state the resources this cape uses */
+    exclusive-use =
+        /* the pin header uses */
+        "P9.22",    /* uart2_rxd */
+        "P9.23",    /* gpio1.17 */
+        "P9.24",    /* uart1_txd */
+        "P9.25",    /* gpio3.21 */
+        "P9.26",    /* uart1_rxd */
+        /* the hardware ip uses */
+        "uart1",
+        "uart2",
+        "gpio1_17",
+        "gpio3_21";
+
+    fragment@0 {
+        target = <&am33xx_pinmux>;
+        __overlay__ {
+            bb_uart1_pins: pinmux_bb_uart1_pins {
+                pinctrl-single,pins = <
+                    0x184 0x20  /* P9.24 uart1_txd.uart1_txd | OUTPUT | MODE 0 */
+                    0x180 0x20  /* P9.26 uart1_rxd.uart1_rxd | INPUT | MODE 0 */
+                >;
+            };
+
+            bb_uart2_pins: pinmux_bb_uart2_pins {
+                pinctrl-single,pins = <
+                    0x150 0x21  /* P9.22 spi0_sclk.uart2_rxd | INPUT | MODE1 */
+                >;
+            };
+
+            bb_gpio_pins: pinmux_bb_gpio_pins {
+                pinctrl-single,pins = <
+                    0x044 0x07  /* P9.23 gpmc_a1.gpio1[17] | OUTPUT | MODE7 */
+                    0x1AC 0x07  /* P9.25 mcasp0_ahclkx.gpio3[21] | OUTPUT | MODE7 */
+                >;
+            };
+        };
+    };
+
+    fragment@1 {
+        target = <&uart2>;
+        __overlay__ {
+            status = "okay";
+            pinctrl-names = "default";
+            pinctrl-0 = <&bb_uart1_pins>;
+        };
+    };
+
+    fragment@2 {
+        target = <&uart3>;
+        __overlay__ {
+            status = "okay";
+            pinctrl-names = "default";
+            pinctrl-0 = <&bb_uart2_pins>;
+        };
+    };
+
+    fragment@3 {
+        target = <&ocp>;
+        __overlay__ {
+            gpio_helper {
+                compatible = "gpio-of-helper";
+                status = "okay";
+                pinctrl-names = "default";
+                pinctrl-0 = <&bb_gpio_pins>;
+
+                RESET {
+                    gpio-name = "has:reset";
+                    gpio = <&gpio2 17 0x00>;
+                    output;
+                    init-low;
+                };
+
+                P1 {
+                    gpio-name = "has:p1";
+                    gpio = <&gpio4 21 0x00>;
+                    output;
+                    init-low;
+                };
+            };
+        };
+    };
+
+    fragment@4 {
+        target = <&i2c2>;
+        __overlay__ {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            rtc@68 {
+                compatible = "dallas,ds3231";
+                reg = <0x68>;
+            };
+        };
+    };
+};
