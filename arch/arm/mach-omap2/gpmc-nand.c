@@ -95,10 +95,7 @@ int gpmc_nand_init(struct omap_nand_platform_data *gpmc_nand_data,
 	gpmc_nand_res[1].start = gpmc_get_irq();
 
 	memset(&s, 0, sizeof(struct gpmc_settings));
-	if (gpmc_nand_data->of_node)
-		gpmc_read_settings_dt(gpmc_nand_data->of_node, &s);
-	else
-		gpmc_set_legacy(gpmc_nand_data, &s);
+	gpmc_set_legacy(gpmc_nand_data, &s);
 
 	s.device_nand = true;
 
