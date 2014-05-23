@@ -17,6 +17,7 @@
 
 /* LCDC DRM driver, based on da8xx-fb */
 
+#include <linux/suspend.h>
 #include "tilcdc_drv.h"
 #include "tilcdc_regs.h"
 #include "tilcdc_tfp410.h"
@@ -233,6 +234,14 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 	DBG("Maximum Pixel Clock Value %dKHz", priv->max_pixelclock);
 
 	pm_runtime_enable(dev->dev);
+
+	/*
+	 * disable creation of new console during suspend.
+	 * this works around a problem where a ctrl-c is needed
+	 * to be entered on the VT to actually get the device
+	 * to continue into the suspend state.
+	 */
+	pm_set_vt_switch(0);
 
 	/* Determine LCD IP Version */
 	pm_runtime_get_sync(dev->dev);
