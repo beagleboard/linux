@@ -536,7 +536,7 @@ static int dsps_musb_set_mode(struct musb *musb, u8 mode)
 	return 0;
 }
 
-static void dsps_musb_reset(struct musb *musb)
+static int dsps_musb_reset(struct musb *musb)
 {
 	struct device *dev = musb->controller;
 	struct dsps_glue *glue = dev_get_drvdata(dev->parent);
@@ -548,6 +548,7 @@ static void dsps_musb_reset(struct musb *musb)
 	usleep_range(100, 200);
 	usb_phy_init(musb->xceiv);
 
+	return 0;
 }
 
 static struct musb_platform_ops dsps_ops = {
