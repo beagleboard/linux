@@ -402,6 +402,12 @@
 #define		FEAT_NEON_NONE		1
 
 
+/* AM335X DEV_FEATURES register */
+#define AM335X_DEV_FEATURES				0x604
+
+#define AM335X_SGX_SHIFT		29
+#define AM335X_SGX_MASK			(1 << AM335X_SGX_SHIFT)
+
 #ifndef __ASSEMBLY__
 #ifdef CONFIG_ARCH_OMAP2PLUS
 extern void __iomem *omap_ctrl_base_get(void);
