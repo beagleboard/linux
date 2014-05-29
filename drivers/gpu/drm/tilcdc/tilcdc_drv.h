@@ -31,6 +31,7 @@
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_fb_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_fb_cma_helper.h>
 
@@ -38,6 +39,9 @@
 #define TILCDC_DEFAULT_MAX_PIXELCLOCK  126000
 /* Defaulting to max width as defined on AM335x */
 #define TILCDC_DEFAULT_MAX_WIDTH  2048
+/* Default preferred BPP */
+#define TILCDC_DEFAULT_PREFERRED_BPP 16
+
 /*
  * This may need some tweaking, but want to allow at least 1280x1024@60
  * with optimized DDR & EMIF settings tweaked 1920x1080@25 appears to
@@ -64,6 +68,8 @@ struct tilcdc_drm_private {
 
 	int allow_non_rblank;	/* ATM we don't support non reduced blank modes */
 	int allow_non_audio;	/* allow modes that don't have working audio */
+        int bgrx_16bpp_swap;	/* 16bpp RBGx-to-BGRx workaround (Beagle LCD capes) */
+        int bgrx_24bpp_swap;    /* 24bpp RGBx-to-BGRx workaround (Beagle LCD capes) */
 
 	/* register contents saved across suspend/resume: */
 	u32 saved_register[12];
@@ -75,7 +81,7 @@ struct tilcdc_drm_private {
 
 	struct workqueue_struct *wq;
 
-	struct drm_fbdev_cma *fbdev;
+        struct tilcdc_drm_fbdev /* drm_fbdev_cma */ *fbdev;
 
 	struct drm_crtc *crtc;
 
@@ -84,6 +90,8 @@ struct tilcdc_drm_private {
 
 	unsigned int num_connectors;
 	struct drm_connector *connectors[8];
+
+        struct drm_fb_helper_funcs *drm_fb_helper_funcs;
 };
 
 /* Sub-module for display.  Since we don't know at compile time what panels

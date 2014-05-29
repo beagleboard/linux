@@ -785,8 +785,17 @@ static int con2fb_release_oldinfo(struct vc_data *vc, struct fb_info *oldinfo,
 		  the fb_release() method of oldinfo may attempt to
 		  restore the hardware state.  This will leave the
 		  newinfo in an undefined state. Thus, a call to
-		  fb_set_par() may be needed for the newinfo.
+		  fb_check_par() and fb_set_par() may be needed for the
+		  newinfo.
 		*/
+		if (newinfo->fbops->fb_check_var) {
+			ret = newinfo->fbops->fb_check_var(&newinfo->var, newinfo);
+			if (ret)
+				printk(KERN_ERR "con2fb_release_oldinfo: detected "
+				       "unhandled fb_check_var error, "
+				       "error code %d\n", ret);
+		}
+
 		if (newinfo->fbops->fb_set_par) {
 			ret = newinfo->fbops->fb_set_par(newinfo);
 
@@ -808,13 +817,25 @@ static void con2fb_init_display(struct vc_data *vc, struct fb_info *info,
 
 	ops->currcon = fg_console;
 
-	if (info->fbops->fb_set_par && !(ops->flags & FBCON_FLAGS_INIT)) {
-		ret = info->fbops->fb_set_par(info);
+	if (!(ops->flags & FBCON_FLAGS_INIT)) {
+		/* Ensure that fb_check_var and fb_set_var are called
+		   as a pair. */
+	        if (info->fbops->fb_check_var) {
+		        ret = info->fbops->fb_check_var(&info->var, info);
+			if (ret)
+			      printk(KERN_ERR "con2fb_init_display: detected "
+				      "unhandled fb_check_var error, "
+				      "error code %d\n", ret);
+		}
 
-		if (ret)
-			printk(KERN_ERR "con2fb_init_display: detected "
-				"unhandled fb_set_par error, "
-				"error code %d\n", ret);
+		if (info->fbops->fb_set_par) {
+			ret = info->fbops->fb_set_par(info);
+
+			if (ret)
+				printk(KERN_ERR "con2fb_init_display: detected "
+				       "unhandled fb_set_par error, "
+				       "error code %d\n", ret);
+		}
 	}
 
 	ops->flags |= FBCON_FLAGS_INIT;
@@ -1142,14 +1163,23 @@ static void fbcon_init(struct vc_data *vc, int init)
 	 * We need to do it in fbcon_init() to prevent screen corruption.
 	 */
 	if (CON_IS_VISIBLE(vc) && vc->vc_mode == KD_TEXT) {
-		if (info->fbops->fb_set_par &&
-		    !(ops->flags & FBCON_FLAGS_INIT)) {
-			ret = info->fbops->fb_set_par(info);
+		if (!(ops->flags & FBCON_FLAGS_INIT)) {
+		        if (info->fbops->fb_check_var) {
+			        ret = info->fbops->fb_check_var(&info->var, info);
+				if (ret)
+				      printk(KERN_ERR "fbcon_init: detected "
+					      "unhandled fb_check_var error, "
+					      "error code %d\n", ret);
+			}
 
-			if (ret)
-				printk(KERN_ERR "fbcon_init: detected "
-					"unhandled fb_set_par error, "
-					"error code %d\n", ret);
+			if (info->fbops->fb_set_par) {
+				ret = info->fbops->fb_set_par(info);
+
+				if (ret)
+					printk(KERN_ERR "fbcon_init: detected "
+					       "unhandled fb_set_par error, "
+					       "error code %d\n", ret);
+			}
 		}
 
 		ops->flags |= FBCON_FLAGS_INIT;

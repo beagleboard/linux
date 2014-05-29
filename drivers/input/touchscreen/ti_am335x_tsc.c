@@ -53,13 +53,29 @@ struct titsc {
 	u32			config_inp[4];
 	u32			bit_xp, bit_xn, bit_yp, bit_yn;
 	u32			inp_xp, inp_xn, inp_yp, inp_yn;
-	unsigned int 		prevZ;
+#define	TOUCH_TYPE_LCD_NORM	0
+#define	TOUCH_TYPE_LCD43	1
+#define	TOUCH_TYPE_LCD7		2
+	int			touch_type;
 };
 
 static unsigned int titsc_readl(struct titsc *ts, unsigned int reg)
 {
 	return readl(ts->mfd_tscadc->tscadc_base + reg);
 }
+
+static u32 reg_read(unsigned addr) { return readl((const volatile void*)addr); }
+static int dump_regs(char* name, unsigned addr, int size) {
+	int i;
+	u32 reg;
+
+	for (i = 0; i < size; i += sizeof(int)) {
+		reg = reg_read(addr + i);
+		printk("%s[%.4X] = 0x%.8X\n", name, i, reg);
+	}
+	return 0;
+}
+
 
 static void titsc_writel(struct titsc *tsc, unsigned int reg,
 					unsigned int val)
@@ -176,15 +192,15 @@ static void titsc_step_config(struct titsc *ts_dev)
 	/* Charge step configuration */
 	config = ts_dev->bit_xp | ts_dev->bit_yn |
 			STEPCHARGE_RFP_XPUL | STEPCHARGE_RFM_XNUR |
-			STEPCHARGE_INM_AN1 | STEPCHARGE_INP(ts_dev->inp_yp);
+			STEPCHARGE_INM_AN1 | STEPCHARGE_INP(ts_dev->inp_xn);
 
 	titsc_writel(ts_dev, REG_CHARGECONFIG, config);
 	titsc_writel(ts_dev, REG_CHARGEDELAY, CHARGEDLY_OPENDLY);
 
 	/* coordinate_readouts * 2 … coordinate_readouts * 2 + 2 is for Z */
 	config = STEPCONFIG_MODE_HWSYNC |
-			STEPCONFIG_AVG_16 | ts_dev->bit_yp |
-			ts_dev->bit_xn | STEPCONFIG_INM_ADCREFM |
+			STEPCONFIG_AVG_16 | STEPCONFIG_YPN |
+			STEPCONFIG_XNP | STEPCONFIG_INM_ADCREFM |
 			STEPCONFIG_INP(ts_dev->inp_xp);
 	titsc_writel(ts_dev, REG_STEPCONFIG(end_step), config);
 	titsc_writel(ts_dev, REG_STEPDELAY(end_step),
@@ -205,10 +221,11 @@ static void titsc_read_coordinates(struct titsc *ts_dev,
 		u32 *x, u32 *y, u32 *z1, u32 *z2)
 {
 	unsigned int fifocount = titsc_readl(ts_dev, REG_FIFO0CNT);
-	unsigned int read;
+	unsigned int prev_val_x = ~0, prev_val_y = ~0;
+	unsigned int prev_diff_x = ~0, prev_diff_y = ~0;
+	unsigned int read, diff;
 	unsigned int i, channel;
 	unsigned int creads = ts_dev->coordinate_readouts;
-	unsigned int nX, nY;
 
 	*z1 = *z2 = 0;
 	if (fifocount % (creads * 2 + 2))
@@ -221,33 +238,33 @@ static void titsc_read_coordinates(struct titsc *ts_dev,
 	 * algorithm compares the difference with that of a present value,
 	 * if true the value is reported to the sub system.
 	 */
-	*x=0;
-	*y=0;
-	nX=0;
-	nY=0;
 	for (i = 0; i < fifocount; i++) {
 		read = titsc_readl(ts_dev, REG_FIFO0);
 
 		channel = (read & 0xf0000) >> 16;
 		read &= 0xfff;
 		if (channel < creads) {
-			(*x)+=read;
-			nX++;
+			diff = abs(read - prev_val_x);
+			if (diff < prev_diff_x) {
+				prev_diff_x = diff;
+				*x = read;
+			}
+			prev_val_x = read;
+
 		} else if (channel < creads * 2) {
-			(*y)+=read;
-			nY++;
+			diff = abs(read - prev_val_y);
+			if (diff < prev_diff_y) {
+				prev_diff_y = diff;
+				*y = read;
+			}
+			prev_val_y = read;
+
 		} else if (channel < creads * 2 + 1) {
 			*z1 = read;
 
 		} else if (channel < creads * 2 + 2) {
 			*z2 = read;
 		}
-	}
-	if (nX != 0) {
-		(*x)/=nX;
-	}
-	if (nY != 0) {
-		(*y)/=nY;
 	}
 }
 
@@ -258,7 +275,6 @@ static irqreturn_t titsc_irq(int irq, void *dev)
 	unsigned int status, irqclr = 0;
 	unsigned int x = 0, y = 0;
 	unsigned int z1, z2, z;
-	int deltaZ;
 	unsigned int fsm;
 
 	status = titsc_readl(ts_dev, REG_IRQSTATUS);
@@ -289,15 +305,21 @@ static irqreturn_t titsc_irq(int irq, void *dev)
 			z /= z2;
 			z = (z + 2047) >> 12;
 
-			// calculate the deltaZ :
-			deltaZ= z - ts_dev->prevZ;
-			// save the last z calculated :
-			ts_dev->prevZ=z;
-			pr_debug("x %d y %d deltaZ %d\n", x, y, deltaZ);
-
-			if (z <= MAX_12BIT && deltaZ>=0  && deltaZ<=10 ) {
+			if (z <= MAX_12BIT) {
+				if (ts_dev->touch_type != TOUCH_TYPE_LCD_NORM) {
+					x &= ~0x0007;
+					y &= ~0x0007;
+				}
+				if (ts_dev->touch_type == TOUCH_TYPE_LCD7) {
+					input_report_abs(input_dev, ABS_X, 4096 - y);
+					input_report_abs(input_dev, ABS_Y, x - 256);
+				} else if (ts_dev->touch_type == TOUCH_TYPE_LCD43) {
+					input_report_abs(input_dev, ABS_X, 4096 - x);
+					input_report_abs(input_dev, ABS_Y, 3840 - y);
+				} else {
 				input_report_abs(input_dev, ABS_X, x);
 				input_report_abs(input_dev, ABS_Y, y);
+				}
 				input_report_abs(input_dev, ABS_PRESSURE, z);
 				input_report_key(input_dev, BTN_TOUCH, 1);
 				input_sync(input_dev);
@@ -371,6 +393,11 @@ static int titsc_parse_dt(struct ti_tscadc_dev *tscadc_dev,
 			&ts_dev->coordinate_readouts);
 	if (err < 0)
 		return err;
+
+	err = of_property_read_u32(node, "ti,touch-type", &ts_dev->touch_type);
+	if (err < 0) {
+		ts_dev->touch_type = TOUCH_TYPE_LCD_NORM;
+	}
 
 	return of_property_read_u32_array(node, "ti,wire-config",
 			ts_dev->config_inp, ARRAY_SIZE(ts_dev->config_inp));
@@ -452,15 +479,14 @@ static int titsc_probe(struct platform_device *pdev)
 	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, 0, 0);
 	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT, 0, 0);
 
-	/*init prev Z*/
-	ts_dev->prevZ=0;
-
 	/* register to the input system */
 	err = input_register_device(input_dev);
 	if (err)
 		goto err_free_irq;
 
 	platform_set_drvdata(pdev, ts_dev);
+
+	dump_regs("TSC", (unsigned)ts_dev->mfd_tscadc->tscadc_base, REG_FIFO0);
 	return 0;
 
 err_free_irq:

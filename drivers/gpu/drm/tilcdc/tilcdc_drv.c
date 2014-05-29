@@ -22,6 +22,7 @@
 #include "tilcdc_tfp410.h"
 #include "tilcdc_slave.h"
 #include "tilcdc_panel.h"
+#include "tilcdc_fbdev.h"
 
 #include "drm_fb_helper.h"
 
@@ -60,8 +61,10 @@ static struct drm_framebuffer *tilcdc_fb_create(struct drm_device *dev,
 static void tilcdc_fb_output_poll_changed(struct drm_device *dev)
 {
 	struct tilcdc_drm_private *priv = dev->dev_private;
-	if (priv->fbdev)
-		drm_fbdev_cma_hotplug_event(priv->fbdev);
+	if (priv->fbdev) {
+	        struct drm_fbdev_cma *fbdev_cma = (struct drm_fbdev_cma *) priv->fbdev;
+		drm_fbdev_cma_hotplug_event(fbdev_cma);
+	}
 }
 
 static const struct drm_mode_config_funcs mode_config_funcs = {
@@ -164,11 +167,13 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 {
 	struct platform_device *pdev = dev->platformdev;
 	struct device_node *node = pdev->dev.of_node;
+	struct device_node *panel_info_node;
 	struct tilcdc_drm_private *priv;
 	struct resource *res;
 	enum of_gpio_flags ofgpioflags;
 	unsigned long gpioflags;
 	int gpio, ret;
+	uint32_t preferred_bpp;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -268,7 +273,25 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 	DBG("Allowing Non Audio Monitor Modes: %s",
 			priv->allow_non_audio ? "true" : "false");
 
+	priv->bgrx_16bpp_swap = of_property_read_bool(node, "bgrx_16bpp");
+
+	DBG("Enable 16bpp BGRx swap: %s",
+	                priv->bgrx_16bpp_swap ? "true" : "false");
+
+	priv->bgrx_24bpp_swap = of_property_read_bool(node, "bgrx_24bpp");
+
+	DBG("Enable 24bpp BGRx swap: %s",
+	                priv->bgrx_24bpp_swap ? "true" : "false");
+
 	pm_runtime_enable(dev->dev);
+
+	/* Query the preferred BPP from the DTS' panel-info/bpp property */
+	panel_info_node = of_find_node_by_path("/ocp/panel/panel-info");
+	if (!panel_info_node ||
+	    of_property_read_u32(panel_info_node, "bpp", &preferred_bpp))
+	        preferred_bpp = TILCDC_DEFAULT_PREFERRED_BPP;
+
+	DBG("preferred_bpp %d", preferred_bpp);
 
 	/* Determine LCD IP Version */
 	pm_runtime_get_sync(dev->dev);
@@ -312,7 +335,7 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 
 	platform_set_drvdata(pdev, dev);
 
-	priv->fbdev = drm_fbdev_cma_init(dev, 16,
+	priv->fbdev = tilcdc_fbdev_cma_init(dev, preferred_bpp,
 			dev->mode_config.num_crtc,
 			dev->mode_config.num_connector);
 
@@ -335,7 +358,8 @@ static void tilcdc_preclose(struct drm_device *dev, struct drm_file *file)
 static void tilcdc_lastclose(struct drm_device *dev)
 {
 	struct tilcdc_drm_private *priv = dev->dev_private;
-	drm_fbdev_cma_restore_mode(priv->fbdev);
+	struct drm_fbdev_cma *fbdev_cma = (struct drm_fbdev_cma *) priv->fbdev;
+	drm_fbdev_cma_restore_mode(fbdev_cma);
 }
 
 static irqreturn_t tilcdc_irq(DRM_IRQ_ARGS)

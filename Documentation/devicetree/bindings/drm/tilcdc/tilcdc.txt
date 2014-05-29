@@ -17,6 +17,11 @@ Optional properties:
    the lcd controller.
  - max-pixelclock: The maximum pixel clock that can be supported
    by the lcd controller in KHz.
+ - bgrx_16bpp: Swap blue and red to work around the TI Sitara
+   erratum -- some LCD capes for BeagleBone Black output BGR in
+   16bpp mode so that 24 and 32bpp modes output "correct" color.
+ - bgrx_24bpp: Swap blue and red to work around the TI Sitara
+   erratum (should normally be used)
 
 Example:
 
@@ -26,4 +31,6 @@ Example:
 		interrupt-parent = <&intc>;
 		interrupts = <36>;
 		ti,hwmods = "lcdc";
+		bgrx_24bpp;
+		bgrx_16bpp;
 	};
