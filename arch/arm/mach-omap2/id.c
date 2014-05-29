@@ -289,6 +289,29 @@ void __init ti81xx_check_features(void)
 	omap3_cpuinfo();
 }
 
+void __init am33xx_check_features(void)
+{
+	omap_features = OMAP3_HAS_NEON;
+
+        /*
+	 * am335x() fixups:
+	 * - The DEV_FEATURES register knows whether the SoC has SGX.
+	 */
+	if (soc_is_am335x()) {
+		u32 status;
+
+		status = omap_ctrl_readl(AM335X_DEV_FEATURES);
+
+		if (((status & AM335X_SGX_MASK) >> AM335X_SGX_SHIFT) == 1) {
+			omap_features |= OMAP3_HAS_SGX;
+		}
+
+		omap_features |= OMAP3_HAS_L2CACHE;
+	}
+
+	omap3_cpuinfo();
+}
+
 void __init omap3xxx_check_revision(void)
 {
 	u32 cpuid, idcode;
@@ -399,8 +422,25 @@ void __init omap3xxx_check_revision(void)
 		}
 		break;
 	case 0xb944:
-		omap_revision = AM335X_REV_ES1_0;
-		cpu_rev = "1.0";
+		switch (rev) {
+		case 0:
+			omap_revision = AM335X_REV_ES1_0;
+			cpu_rev = "1.0";
+			break;
+		case 1:
+			omap_revision = AM335X_REV_ES2_0;
+			cpu_rev = "2.0";
+			break;
+		case 2:
+			omap_revision = AM335X_REV_ES2_1;
+			cpu_rev = "2.1";
+			break;
+		default:
+			/* Assume 1.0 silicon errata if invalid. */
+			omap_revision = AM335X_REV_ES1_0;
+			cpu_rev = "1.0";
+			break;
+		}
 		break;
 	case 0xb8f2:
 		switch (rev) {
