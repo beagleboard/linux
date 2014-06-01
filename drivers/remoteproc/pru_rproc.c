@@ -666,6 +666,8 @@ pruproc_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 		}
 
 		/* we can't use rproc_da_to_va (it relies on carveouts) */
+		if (filesz == 0)
+			continue;
 
 		/* text? to code area */
 		if (flags & PF_X)
@@ -1660,7 +1662,7 @@ static int pru_downcall(struct pruproc_core *ppc,
 	}
 
 	/* get the actual return address */
-	r3in = pru_read_cpu_reg(ppc, 3) << 2;
+	r3in = (pru_read_cpu_reg(ppc, 3) >> 16) << 2;
 
 	/* write the arguments */
 	pru_write_cpu_reg(ppc, 14, nr);
