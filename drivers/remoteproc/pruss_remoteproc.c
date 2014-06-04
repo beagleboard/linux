@@ -139,10 +139,12 @@ struct pru_rproc_platform_data {
  * struct pruss_private_data - PRUSS driver private data
  * @num_irqs: number of interrupts to MPU
  * @host_events: bit mask of PRU host interrupts that are routed to MPU
+ * @aux_data: auxiliary data used for creating the child nodes
  */
 struct pruss_private_data {
 	int num_irqs;
 	int host_events;
+	struct of_dev_auxdata *aux_data;
 };
 
 struct pru_rproc;
@@ -1035,8 +1037,7 @@ static int pruss_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pruss);
 
 	dev_info(&pdev->dev, "creating platform devices for PRU cores\n");
-	ret = of_platform_populate(node, NULL, pru_rproc_auxdata_lookup,
-				   &pdev->dev);
+	ret = of_platform_populate(node, NULL, data->aux_data, &pdev->dev);
 
 	return ret;
 
@@ -1089,10 +1090,18 @@ static struct pru_rproc_platform_data pru1_rproc_pdata = {
 };
 
 /* platform data to be added when creating the PRU platform devices */
-static struct of_dev_auxdata pru_rproc_auxdata_lookup[] = {
+static struct of_dev_auxdata am335x_pru_rproc_auxdata_lookup[] = {
 	OF_DEV_AUXDATA("ti,pru-rproc", 0x4a334000, "4a334000.pru0",
 		       &pru0_rproc_pdata),
 	OF_DEV_AUXDATA("ti,pru-rproc", 0x4a338000, "4a338000.pru1",
+		       &pru1_rproc_pdata),
+	{ /* sentinel */ },
+};
+
+static struct of_dev_auxdata am4372_pru_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x54434000, "54434000.pru0",
+		       &pru0_rproc_pdata),
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x54438000, "54438000.pru1",
 		       &pru1_rproc_pdata),
 	{ /* sentinel */ },
 };
@@ -1122,10 +1131,19 @@ static struct pruss_private_data am335x_priv_data = {
 	.num_irqs = 8,
 	.host_events = (BIT(2) | BIT(3) | BIT(4) | BIT(5) |
 			BIT(6) | BIT(7) | BIT(8) | BIT(9)),
+	.aux_data = am335x_pru_rproc_auxdata_lookup,
+};
+
+static struct pruss_private_data am4372_priv_data = {
+	.num_irqs = 7,
+	.host_events = (BIT(2) | BIT(3) | BIT(4) | BIT(5) |
+			BIT(6) | BIT(8) | BIT(9)),
+	.aux_data = am4372_pru_rproc_auxdata_lookup,
 };
 
 static const struct of_device_id pruss_of_match[] = {
 	{ .compatible = "ti,am335x-pruss", .data = &am335x_priv_data, },
+	{ .compatible = "ti,am4372-pruss", .data = &am4372_priv_data, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
