@@ -294,9 +294,7 @@ static struct wkup_m3_platform_data wkup_m3_data = {
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
 };
-#endif
 
-#ifdef CONFIG_SOC_AM33XX
 static struct pruss_platform_data pruss_pdata = {
 	.reset_name = "pruss",
 	.assert_reset = omap_device_assert_hardreset,
@@ -416,6 +414,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,am437-padconf", 0x44e10800, "44e10800.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,am4372-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
 		       &wkup_m3_data),
+	OF_DEV_AUXDATA("ti,am4372-pruss", 0x54400000, "54400000.pruss",
+		       &pruss_pdata),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
