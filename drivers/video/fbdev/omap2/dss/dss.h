@@ -146,6 +146,9 @@ struct dsi_clock_info {
 	u16 regm_dsi;	/* OMAP3: REGM4
 			 * OMAP4: REGM5 */
 	u16 lp_clk_div;
+
+	/* pll library params */
+	struct pll_params params;
 };
 
 enum pll_type {
