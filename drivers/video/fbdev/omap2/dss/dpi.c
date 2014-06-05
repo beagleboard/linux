@@ -280,6 +280,7 @@ static int dpi_set_dsi_clk(struct dpi_data *dpi, enum omap_channel channel,
 	if (r)
 		return r;
 
+	dsi_wait_pll_hsdiv_dispc_active(dpi->dsidev);
 	dss_select_lcd_clk_source(channel,
 			dpi_get_alt_clk_src(channel));
 

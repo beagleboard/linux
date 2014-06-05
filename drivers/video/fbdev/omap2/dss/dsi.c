@@ -4367,6 +4367,7 @@ static int dsi_display_init_dispc(struct platform_device *dsidev,
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
 	int r;
 
+	dsi_wait_pll_hsdiv_dispc_active(dsidev);
 	dss_select_lcd_clk_source(mgr->id, dsi->module_id == 0 ?
 			OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DISPC :
 			OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DISPC);
@@ -4468,6 +4469,7 @@ static int dsi_display_init_dsi(struct platform_device *dsidev)
 	if (r)
 		goto err1;
 
+	dsi_wait_pll_hsdiv_dsi_active(dsidev);
 	dss_select_dsi_clk_source(dsi->module_id, dsi->module_id == 0 ?
 			OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DSI :
 			OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DSI);
