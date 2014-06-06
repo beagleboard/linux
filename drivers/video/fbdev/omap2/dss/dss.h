@@ -341,6 +341,7 @@ void dsi_pll_uninit(struct platform_device *dsidev, bool disconnect_lanes);
 void dsi_wait_pll_hsdiv_dispc_active(struct platform_device *dsidev);
 void dsi_wait_pll_hsdiv_dsi_active(struct platform_device *dsidev);
 struct platform_device *dsi_get_dsidev_from_id(int module);
+struct pll_data *dsi_get_pll_data_from_dsidev(struct platform_device *dsidev);
 #else
 static inline int dsi_runtime_get(struct platform_device *dsidev)
 {
@@ -385,7 +386,10 @@ static inline struct platform_device *dsi_get_dsidev_from_id(int module)
 {
 	return NULL;
 }
-
+static inline struct pll_data *dsi_get_pll_data_from_dsidev(struct platform_device *dsidev)
+{
+	return NULL;
+}
 static inline unsigned long dsi_get_pll_clkin(struct platform_device *dsidev)
 {
 	return 0;

@@ -440,6 +440,13 @@ struct platform_device *dsi_get_dsidev_from_id(int module)
 	return out ? to_platform_device(out->dev) : NULL;
 }
 
+struct pll_data *dsi_get_pll_data_from_dsidev(struct platform_device *dsidev)
+{
+	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
+
+	return dsi->pll;
+}
+
 static inline void dsi_write_reg(struct platform_device *dsidev,
 		const struct dsi_reg idx, u32 val)
 {
