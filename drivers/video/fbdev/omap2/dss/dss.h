@@ -151,6 +151,13 @@ enum pll_type {
 	DSS_PLL_TYPE_HDMI,
 };
 
+struct pll_data;
+
+struct pll_ops {
+	int (*enable)(struct pll_data *pll);
+	void (*disable)(struct pll_data *pll);
+};
+
 struct pll_data {
 	void __iomem *base;
 
@@ -163,6 +170,7 @@ struct pll_data {
 	enum pll_type type;
 
 	struct platform_device *pdev;
+	struct pll_ops *ops;
 };
 
 struct dss_lcd_mgr_config {
@@ -376,7 +384,7 @@ int pll_calc_and_check_clock_rates(struct pll_data *pll,
 int pll_set_clock_div(struct pll_data *pll, struct pll_params *params);
 struct pll_data *pll_create(struct platform_device *pdev,
 		const char *res_name, const char *clk_name,
-		enum pll_type type, u32 offset);
+		enum pll_type type, struct pll_ops *ops, u32 offset);
 
 /* DPI */
 int dpi_init_platform_driver(void) __init;

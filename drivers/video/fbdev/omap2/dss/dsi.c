@@ -5285,7 +5285,7 @@ static int omap_dsihw_probe(struct platform_device *dsidev)
 	}
 
 	dsi->pll = pll_create(dsidev, "pll", "sys_clk", DSS_PLL_TYPE_DSI,
-			DSI_PLL_OFFSET);
+			NULL, DSI_PLL_OFFSET);
 	if (!dsi->pll) {
 		DSSERR("can't get DSI PLL\n");
 		return -ENODEV;

@@ -480,7 +480,8 @@ static int __init pll_init_features(struct pll_data *pll)
 
 struct pll_data *pll_create(struct platform_device *pdev,
 		const char *res_name, const char *clk_name,
-		enum pll_type type, u32 offset)
+		enum pll_type type, struct pll_ops *ops,
+		u32 offset)
 {
 	struct resource *res, temp_res;
 	struct pll_data *pll;
@@ -519,6 +520,7 @@ struct pll_data *pll_create(struct platform_device *pdev,
 
 	pll->pdev = pdev;
 	pll->type = type;
+	pll->ops = ops;
 
 	r = pll_init_features(pll);
 	if (r)
