@@ -127,28 +127,23 @@ struct dispc_clock_info {
 	u16 pck_div;
 };
 
+/*
+ * HSDIV1 used for DISPC pixel clock/functional clock
+ *
+ * OMAP3:  divider name: REGM3, clk name: DSI1_PLL_CLK
+ * OMAP4+: divider name: REGM4, clk name: PLLx_CLK1
+ *
+ * HSDIV2 used for DSI FCLK
+ *
+ * OMAP3:  divider name: REGM4, clk name: DSI2_PLL_CLK
+ * OMAP4+: divider name: REGM5, clk name: PLLx_CLK2
+ */
+
 struct dsi_clock_info {
-	/* rates that we get with dividers below */
-	unsigned long fint;
-	unsigned long clkin4ddr;
-	unsigned long clkin;
-	unsigned long dsi_pll_hsdiv_dispc_clk;	/* OMAP3: DSI1_PLL_CLK
-						 * OMAP4: PLLx_CLK1 */
-	unsigned long dsi_pll_hsdiv_dsi_clk;	/* OMAP3: DSI2_PLL_CLK
-						 * OMAP4: PLLx_CLK2 */
-	unsigned long lp_clk;
-
-	/* dividers */
-	u16 regn;
-	u16 regm;
-	u16 regm_dispc;	/* OMAP3: REGM3
-			 * OMAP4: REGM4 */
-	u16 regm_dsi;	/* OMAP3: REGM4
-			 * OMAP4: REGM5 */
-	u16 lp_clk_div;
-
-	/* pll library params */
 	struct pll_params params;
+
+	unsigned long lp_clk;
+	u16 lp_clk_div;
 };
 
 enum pll_type {
@@ -303,11 +298,6 @@ static inline void __exit sdi_uninit_port(struct device_node *port)
 
 /* DSI */
 
-typedef bool (*dsi_pll_calc_func)(int regn, int regm, unsigned long fint,
-		unsigned long pll, void *data);
-typedef bool (*dsi_hsdiv_calc_func)(int regm_dispc, unsigned long dispc,
-		void *data);
-
 #ifdef CONFIG_OMAP2_DSS_DSI
 
 struct dentry;
@@ -324,22 +314,9 @@ void dsi_dump_clocks(struct seq_file *s);
 void dsi_irq_handler(void);
 u8 dsi_get_pixel_size(enum omap_dss_dsi_pixel_format fmt);
 
-unsigned long dsi_get_pll_clkin(struct platform_device *dsidev);
-
-bool dsi_hsdiv_calc(struct platform_device *dsidev, unsigned long pll,
-		unsigned long out_min, dsi_hsdiv_calc_func func, void *data);
-bool dsi_pll_calc(struct platform_device *dsidev, unsigned long clkin,
-		unsigned long pll_min, unsigned long pll_max,
-		dsi_pll_calc_func func, void *data);
-
-unsigned long dsi_get_pll_hsdiv_dispc_rate(struct platform_device *dsidev);
-int dsi_pll_set_clock_div(struct platform_device *dsidev,
-		struct dsi_clock_info *cinfo);
 int dsi_pll_init(struct platform_device *dsidev, bool enable_hsclk,
 		bool enable_hsdiv);
 void dsi_pll_uninit(struct platform_device *dsidev, bool disconnect_lanes);
-void dsi_wait_pll_hsdiv_dispc_active(struct platform_device *dsidev);
-void dsi_wait_pll_hsdiv_dsi_active(struct platform_device *dsidev);
 struct platform_device *dsi_get_dsidev_from_id(int module);
 struct pll_data *dsi_get_pll_data_from_dsidev(struct platform_device *dsidev);
 #else
@@ -355,17 +332,6 @@ static inline u8 dsi_get_pixel_size(enum omap_dss_dsi_pixel_format fmt)
 	WARN("%s: DSI not compiled in, returning pixel_size as 0\n", __func__);
 	return 0;
 }
-static inline unsigned long dsi_get_pll_hsdiv_dispc_rate(struct platform_device *dsidev)
-{
-	WARN("%s: DSI not compiled in, returning rate as 0\n", __func__);
-	return 0;
-}
-static inline int dsi_pll_set_clock_div(struct platform_device *dsidev,
-		struct dsi_clock_info *cinfo)
-{
-	WARN("%s: DSI not compiled in\n", __func__);
-	return -ENODEV;
-}
 static inline int dsi_pll_init(struct platform_device *dsidev,
 		bool enable_hsclk, bool enable_hsdiv)
 {
@@ -376,12 +342,6 @@ static inline void dsi_pll_uninit(struct platform_device *dsidev,
 		bool disconnect_lanes)
 {
 }
-static inline void dsi_wait_pll_hsdiv_dispc_active(struct platform_device *dsidev)
-{
-}
-static inline void dsi_wait_pll_hsdiv_dsi_active(struct platform_device *dsidev)
-{
-}
 static inline struct platform_device *dsi_get_dsidev_from_id(int module)
 {
 	return NULL;
@@ -390,26 +350,6 @@ static inline struct pll_data *dsi_get_pll_data_from_dsidev(struct platform_devi
 {
 	return NULL;
 }
-static inline unsigned long dsi_get_pll_clkin(struct platform_device *dsidev)
-{
-	return 0;
-}
-
-static inline bool dsi_hsdiv_calc(struct platform_device *dsidev,
-		unsigned long pll, unsigned long out_min,
-		dsi_hsdiv_calc_func func, void *data)
-{
-	return false;
-}
-
-static inline bool dsi_pll_calc(struct platform_device *dsidev,
-		unsigned long clkin,
-		unsigned long pll_min, unsigned long pll_max,
-		dsi_pll_calc_func func, void *data)
-{
-	return false;
-}
-
 #endif
 
 typedef bool (*pll_calc_func)(int regn, int regm, unsigned long fint,
