@@ -698,6 +698,7 @@ static void cpsw_tx_handler(void *token, int len, int status)
 	cpts_tx_timestamp(priv->cpts, skb);
 	ndev->stats.tx_packets++;
 	ndev->stats.tx_bytes += len;
+	netdev_completed_queue(ndev,1,len);
 	dev_kfree_skb_any(skb);
 }
 
@@ -1325,6 +1326,8 @@ static int cpsw_ndo_open(struct net_device *ndev)
 		cpsw_set_coalesce(ndev, &coal);
 	}
 
+	netdev_reset_queue(ndev);
+	dev_info(priv->dev, "BQL enabled\n");
 	napi_enable(&priv->napi);
 	cpdma_ctlr_start(priv->dma);
 	cpsw_intr_enable(priv);
@@ -1357,6 +1360,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
 	netif_stop_queue(priv->ndev);
 	napi_disable(&priv->napi);
 	netif_carrier_off(priv->ndev);
+	netdev_reset_queue(priv->ndev);
 
 	if (cpsw_common_res_usage_state(priv) <= 1) {
 		cpts_unregister(priv->cpts);
@@ -1377,6 +1381,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	int ret;
+	int len;
 
 	ndev->trans_start = jiffies;
 
@@ -1391,9 +1396,11 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 
 	skb_tx_timestamp(skb);
-
+	len = max(skb->len, CPSW_MIN_PACKET_SIZE);
+	netdev_sent_queue(ndev,len);
 	ret = cpsw_tx_packet_submit(ndev, priv, skb);
 	if (unlikely(ret != 0)) {
+		netdev_completed_queue(ndev,1,len);
 		cpsw_err(priv, tx_err, "desc submit failed\n");
 		goto fail;
 	}
