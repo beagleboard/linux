@@ -51,6 +51,7 @@ struct module;
 struct configfs_item_operations;
 struct configfs_group_operations;
 struct configfs_attribute;
+struct configfs_bin_attribute;
 struct configfs_subsystem;
 
 struct config_item {
@@ -84,6 +85,7 @@ struct config_item_type {
 	struct configfs_item_operations		*ct_item_ops;
 	struct configfs_group_operations	*ct_group_ops;
 	struct configfs_attribute		**ct_attrs;
+	struct configfs_bin_attribute		**ct_bin_attrs;
 };
 
 /**
@@ -207,6 +209,96 @@ static ssize_t _item##_attr_store(struct config_item *item,		\
 	return ret;							\
 }
 
+struct file;
+struct vm_area_struct;
+
+struct configfs_bin_attribute {
+	struct configfs_attribute	cb_attr;	/* std. attribute */
+	void				*cb_private;	/* for user       */
+	size_t				cb_max_size;	/* max core size  */
+};
+
+/*
+ * Similar to CONFIGFS_ATTR_STRUCT
+ */
+#define CONFIGFS_BIN_ATTR_STRUCT(_item)					\
+struct _item##_bin_attribute {						\
+	struct configfs_bin_attribute bin_attr;				\
+	ssize_t (*read)(struct _item *, void *, size_t);		\
+	ssize_t (*write)(struct _item *, const void *, size_t);		\
+}
+
+/* macros to create static binary attributes easier */
+#define __CONFIGFS_BIN_ATTR(_name, _mode, _read, _write, _priv, _max)	\
+{									\
+	.bin_attr = {							\
+		.cb_attr	= {					\
+				.ca_name = __stringify(_name),		\
+				.ca_mode = _mode,			\
+				.ca_owner = THIS_MODULE,		\
+		},							\
+		.cb_private	= _priv,				\
+		.cb_max_size	= _max,					\
+	},								\
+	.read	= _read,						\
+	.write	= _write,						\
+}
+
+#define __CONFIGFS_BIN_ATTR_RO(_name, _priv, _max) {			\
+	.bin_attr = {							\
+		.cb_attr	= {					\
+			.ca_name = __stringify(_name),			\
+			.ca_mode = _mode,				\
+			.ca_owner = THIS_MODULE,			\
+		},							\
+		.cb_private	= _priv,				\
+		.cb_max_size	= _max,					\
+	},								\
+	.read	= _read,						\
+}
+
+#define __CONFIGFS_BIN_ATTR_RW(_name)					\
+	__CONFIGFS_BIN_ATTR(_name, (S_IWUSR | S_IRUGO),			\
+		_name##_read, _name##_write)
+
+#define CONFIGFS_BIN_ATTR(_name, _mode, _read, _write)			\
+struct configfs_bin_attribute bin_attr_##_name =			\
+	__CONFIGFS_BIN_ATTR(_name, _mode, _read, _write)
+
+#define CONFIGFS_BIN_ATTR_RO(_name)					\
+struct configfs_bin_attribute bin_attr_##_name =			\
+	__CONFIGFS_BIN_ATTR_RO(_name)
+
+#define CONFIGFS_BIN_ATTR_OPS(_item)					\
+static ssize_t _item##_bin_attr_read(struct config_item *item,		\
+			struct configfs_bin_attribute *bin_attr,	\
+			void *buf, size_t max_count)			\
+{									\
+	struct _item *_item = to_##_item(item);				\
+	struct _item##_bin_attribute *_item##_bin_attr =		\
+		container_of(bin_attr, struct _item##_bin_attribute,	\
+				bin_attr);				\
+	ssize_t ret = 0;						\
+									\
+	if (_item##_bin_attr->read)					\
+		ret = _item##_bin_attr->read(_item, buf, max_count);	\
+	return ret;							\
+}									\
+static ssize_t _item##_bin_attr_write(struct config_item *item,		\
+			struct configfs_bin_attribute *bin_attr,	\
+			const void *buf, size_t count)			\
+{									\
+	struct _item *_item = to_##_item(item);				\
+	struct _item##_bin_attribute *_item##_bin_attr =		\
+		container_of(bin_attr, struct _item##_bin_attribute,	\
+				bin_attr);				\
+	ssize_t ret = -EINVAL;						\
+									\
+	if (_item##_bin_attr->write)					\
+		ret = _item##_bin_attr->write(_item, buf, count);	\
+	return ret;							\
+}
+
 /*
  * If allow_link() exists, the item can symlink(2) out to other
  * items.  If the item is a group, it may support mkdir(2).
@@ -225,6 +317,12 @@ struct configfs_item_operations {
 	void (*release)(struct config_item *);
 	ssize_t	(*show_attribute)(struct config_item *, struct configfs_attribute *,char *);
 	ssize_t	(*store_attribute)(struct config_item *,struct configfs_attribute *,const char *, size_t);
+	ssize_t (*read_bin_attribute)(struct config_item *,
+				      struct configfs_bin_attribute *,
+				      void *, size_t);
+	ssize_t (*write_bin_attribute)(struct config_item *,
+				       struct configfs_bin_attribute *,
+				       const void *, size_t);
 	int (*allow_link)(struct config_item *src, struct config_item *target);
 	int (*drop_link)(struct config_item *src, struct config_item *target);
 };
