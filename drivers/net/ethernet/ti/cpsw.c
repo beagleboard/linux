@@ -116,7 +116,7 @@ do {								\
 #define CPDMA_TXCP		0x40
 #define CPDMA_RXCP		0x60
 
-#define CPSW_POLL_WEIGHT	64
+#define CPSW_POLL_WEIGHT	16
 #define CPSW_MIN_PACKET_SIZE	60
 #define CPSW_MAX_PACKET_SIZE	(1500 + 14 + 4 + 4)
 
