@@ -1,0 +1,7 @@
+comment "Argus cape driver for beaglebone black"
+
+config CAPE_BONE_ARGUS
+	tristate "Argus Cape Driver"
+	default M
+	help
+	    Argus Cape Driver
