@@ -1,0 +1,85 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/ {
+	ocp {
+		P8_07_pinmux {
+			/* gpio2[2] */
+			status = "disabled";
+		};
+		P8_08_pinmux {
+			/* gpio2[3] */
+			status = "disabled";
+		};
+		P8_09_pinmux {
+			/* gpio2[5] */
+			status = "disabled";
+		};
+		P8_10_pinmux {
+			/* gpio2[4] */
+			status = "disabled";
+		};
+		P9_11_pinmux {
+			/* gpio0[30] */
+			status = "disabled";
+		};
+		P9_17_pinmux {
+			/* gpio0[5] */
+			status = "disabled";
+		};
+		P9_18_pinmux {
+			/* gpio0[4] */
+			status = "disabled";
+		};
+		P9_41_pinmux {
+			/* gpio0[20] */
+			status = "disabled";
+		};
+		P9_42_pinmux {
+			/* gpio0[7] */
+			status = "disabled";
+		};
+	};
+};
+/ {
+	argus-ups {
+		compatible = "argus-ups";
+		status = "okay";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&argus_ups_pins>; /* Refer to previous label */
+		/* This section communicates the gpio numbers to the driver module */
+		/* Note that gpio controllers appear to be numbered from 1-n here rather than 0-(n-1)????? */
+		gpios = <&gpio0 30 0>,  /* Request */
+			<&gpio0 5 0>,  	/* Acknowledge */
+			<&gpio0 4 0>,   /* Watchdog */
+			<&gpio2 2 0>, 	/* LED 1 Green */
+			<&gpio2 3 0>, 	/* LED 1 Red */
+			<&gpio2 5 0>, 	/* LED 2 Green */
+			<&gpio2 4 0>, 	/* LED 2 Red */
+			<&gpio0 20 0>,	/* General Output #1 */
+			<&gpio0 7 0>;	/* General Output #2 */
+		debug = <1>;
+		shutdown = <1>;
+	};
+};
+
+&am33xx_pinmux {
+	argus_ups_pins: pinmux_argus_ups_pins { /* Set up pinmux */
+		pinctrl-single,pins = <
+			0x070 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_wait0.gpio0_30 */
+			0x15c (PIN_OUTPUT_PULLUP | MUX_MODE7) /* spi0_cs0.gpio0_5 */
+			0x158 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* spi0_d1.gpio0_4 */
+			0x090 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpmc_advn_ale.gpio_2 */
+			0x094 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpmc_oen_ren.gpio2_3 */
+			0x09c (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpmc_ben0_cle.gpio2_5 */
+			0x098 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpmc_gpmc_wen.gpio2_4 */
+			0x1b4 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* xdma_event_intr1.gpio0_20 */
+			0x164 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* ecap0_in_pwm0_out.gpio0_7 */
+		>;
+	};
+};
