@@ -416,7 +416,7 @@ int __init omap3xxx_prm_init(void)
 	return prm_register(&omap3xxx_prm_ll_data);
 }
 
-static int __init omap3xxx_prm_late_init(void)
+static int omap3xxx_prm_late_init(void)
 {
 	int ret;
 

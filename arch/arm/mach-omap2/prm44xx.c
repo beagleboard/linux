@@ -670,7 +670,7 @@ int __init omap44xx_prm_init(void)
 	return prm_register(&omap44xx_prm_ll_data);
 }
 
-static int __init omap44xx_prm_late_init(void)
+static int omap44xx_prm_late_init(void)
 {
 	if (!cpu_is_omap44xx())
 		return 0;
