@@ -293,6 +293,7 @@
 		reg = <0x2e30>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		ti,set-rate-parent;
 	};
 
 	dpll_per_ck: dpll_per_ck {
@@ -575,6 +576,7 @@
 		compatible = "ti,mux-clock";
 		clocks = <&dpll_disp_m2_ck>, <&dpll_core_m5_ck>, <&dpll_per_m2_ck>;
 		reg = <0x4244>;
+		ti,set-rate-parent;
 	};
 
 	dpll_extdev_ck: dpll_extdev_ck {
@@ -673,10 +675,13 @@
 
 	dpll_per_clkdcoldo: dpll_per_clkdcoldo {
 		#clock-cells = <0>;
-		compatible = "fixed-factor-clock";
+		compatible = "ti,fixed-factor-clock";
 		clocks = <&dpll_per_ck>;
-		clock-mult = <1>;
-		clock-div = <1>;
+		ti,clock-mult = <1>;
+		ti,clock-div = <1>;
+		ti,autoidle-shift = <8>;
+		reg = <0x2e14>;
+		ti,invert-autoidle-bit;
 	};
 
 	dll_aging_clk_div: dll_aging_clk_div {
