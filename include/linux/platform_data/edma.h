@@ -158,13 +158,6 @@ struct edma_rsv_info {
 
 /* platform_data for EDMA driver */
 struct edma_soc_info {
-
-	/* how many dma resources of each type */
-	unsigned	n_channel;
-	unsigned	n_region;
-	unsigned	n_slot;
-	unsigned	n_tc;
-	unsigned	n_cc;
 	/*
 	 * Default queue is expected to be a low-priority queue.
 	 * This way, long transfers on the default queue started
@@ -175,7 +168,6 @@ struct edma_soc_info {
 	/* Resource reservation for other cores */
 	struct edma_rsv_info	*rsv;
 
-	s8	(*queue_tc_mapping)[2];
 	s8	(*queue_priority_mapping)[2];
 	const s16	(*xbar_chans)[2];
 };
