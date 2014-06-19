@@ -1693,7 +1693,7 @@ done:
 		struct drm_crtc *crtc = encoder->base.crtc;
 		drm_crtc_helper_set_mode(crtc, &crtc->mode,
 					 crtc->x, crtc->y,
-					 crtc->primary->fb);
+					 crtc->fb);
 	}
 
 	return 0;

@@ -591,7 +591,7 @@ void drm_framebuffer_remove(struct drm_framebuffer *fb)
 		drm_modeset_lock_all(dev);
 		/* remove from any CRTC */
 		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-			if (crtc->primary->fb == fb) {
+			if (crtc->fb == fb) {
 				/* should turn off the crtc */
 				memset(&set, 0, sizeof(struct drm_mode_set));
 				set.crtc = crtc;
@@ -1588,8 +1588,8 @@ int drm_mode_getcrtc(struct drm_device *dev,
 	crtc_resp->x = crtc->x;
 	crtc_resp->y = crtc->y;
 	crtc_resp->gamma_size = crtc->gamma_size;
-	if (crtc->primary->fb)
-		crtc_resp->fb_id = crtc->primary->fb->base.id;
+	if (crtc->fb)
+		crtc_resp->fb_id = crtc->fb->base.id;
 	else
 		crtc_resp->fb_id = 0;
 
@@ -2064,19 +2064,19 @@ int drm_mode_set_config_internal(struct drm_mode_set *set)
 	 * crtcs. Atomic modeset will have saner semantics ...
 	 */
 	list_for_each_entry(tmp, &crtc->dev->mode_config.crtc_list, head)
-		tmp->old_fb = tmp->primary->fb;
+		tmp->old_fb = tmp->fb;
 
 	fb = set->fb;
 
 	ret = crtc->funcs->set_config(set);
 	if (ret == 0) {
 		/* crtc->fb must be updated by ->set_config, enforces this. */
-		WARN_ON(fb != crtc->primary->fb);
+		WARN_ON(fb != crtc->fb);
 	}
 
 	list_for_each_entry(tmp, &crtc->dev->mode_config.crtc_list, head) {
-		if (tmp->primary->fb)
-			drm_framebuffer_reference(tmp->primary->fb);
+		if (tmp->fb)
+			drm_framebuffer_reference(tmp->fb);
 		if (tmp->old_fb)
 			drm_framebuffer_unreference(tmp->old_fb);
 	}
@@ -2174,12 +2174,12 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 		/* If we have a mode we need a framebuffer. */
 		/* If we pass -1, set the mode with the currently bound fb */
 		if (crtc_req->fb_id == -1) {
-			if (!crtc->primary->fb) {
+			if (!crtc->fb) {
 				DRM_DEBUG_KMS("CRTC doesn't have current FB\n");
 				ret = -EINVAL;
 				goto out;
 			}
-			fb = crtc->primary->fb;
+			fb = crtc->fb;
 			/* Make refcounting symmetric with the lookup path. */
 			drm_framebuffer_reference(fb);
 		} else {
@@ -3646,7 +3646,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	crtc = obj_to_crtc(obj);
 
 	mutex_lock(&crtc->mutex);
-	if (crtc->primary->fb == NULL) {
+	if (crtc->fb == NULL) {
 		/* The framebuffer is currently unbound, presumably
 		 * due to a hotplug event, that userspace has not
 		 * yet discovered.
@@ -3668,7 +3668,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	if (ret)
 		goto out;
 
-	if (crtc->primary->fb->pixel_format != fb->pixel_format) {
+	if (crtc->fb->pixel_format != fb->pixel_format) {
 		DRM_DEBUG_KMS("Page flip is not allowed to change frame buffer format.\n");
 		ret = -EINVAL;
 		goto out;
@@ -3701,7 +3701,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 			(void (*) (struct drm_pending_event *)) kfree;
 	}
 
-	old_fb = crtc->primary->fb;
+	old_fb = crtc->fb;
 	ret = crtc->funcs->page_flip(crtc, fb, e, page_flip->flags);
 	if (ret) {
 		if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT) {
@@ -3719,7 +3719,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 		 * Failing to do so will screw with the reference counting
 		 * on framebuffers.
 		 */
-		WARN_ON(crtc->primary->fb != fb);
+		WARN_ON(crtc->fb != fb);
 		/* Unref only the old framebuffer. */
 		fb = NULL;
 	}

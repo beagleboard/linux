@@ -478,12 +478,11 @@ static int armada_drm_crtc_mode_set(struct drm_crtc *crtc,
 	unsigned i;
 	bool interlaced;
 
-	drm_framebuffer_reference(crtc->primary->fb);
+	drm_framebuffer_reference(crtc->fb);
 
 	interlaced = !!(adj->flags & DRM_MODE_FLAG_INTERLACE);
 
-	i = armada_drm_crtc_calc_fb(dcrtc->crtc.primary->fb,
-				    x, y, regs, interlaced);
+	i = armada_drm_crtc_calc_fb(dcrtc->crtc.fb, x, y, regs, interlaced);
 
 	rm = adj->crtc_hsync_start - adj->crtc_hdisplay;
 	lm = adj->crtc_htotal - adj->crtc_hsync_end;
@@ -568,10 +567,10 @@ static int armada_drm_crtc_mode_set(struct drm_crtc *crtc,
 	}
 
 	val = CFG_GRA_ENA | CFG_GRA_HSMOOTH;
-	val |= CFG_GRA_FMT(drm_fb_to_armada_fb(dcrtc->crtc.primary->fb)->fmt);
-	val |= CFG_GRA_MOD(drm_fb_to_armada_fb(dcrtc->crtc.primary->fb)->mod);
+	val |= CFG_GRA_FMT(drm_fb_to_armada_fb(dcrtc->crtc.fb)->fmt);
+	val |= CFG_GRA_MOD(drm_fb_to_armada_fb(dcrtc->crtc.fb)->mod);
 
-	if (drm_fb_to_armada_fb(dcrtc->crtc.primary->fb)->fmt > CFG_420)
+	if (drm_fb_to_armada_fb(dcrtc->crtc.fb)->fmt > CFG_420)
 		val |= CFG_PALETTE_ENA;
 
 	if (interlaced)
@@ -609,7 +608,7 @@ static int armada_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	struct armada_regs regs[4];
 	unsigned i;
 
-	i = armada_drm_crtc_calc_fb(crtc->primary->fb, crtc->x, crtc->y, regs,
+	i = armada_drm_crtc_calc_fb(crtc->fb, crtc->x, crtc->y, regs,
 				    dcrtc->interlaced);
 	armada_reg_queue_end(regs, i);
 
@@ -617,7 +616,7 @@ static int armada_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	wait_event(dcrtc->frame_wait, !dcrtc->frame_work);
 
 	/* Take a reference to the new fb as we're using it */
-	drm_framebuffer_reference(crtc->primary->fb);
+	drm_framebuffer_reference(crtc->fb);
 
 	/* Update the base in the CRTC */
 	armada_drm_crtc_update_regs(dcrtc, regs);
@@ -638,7 +637,7 @@ static void armada_drm_crtc_disable(struct drm_crtc *crtc)
 	struct armada_crtc *dcrtc = drm_to_armada_crtc(crtc);
 
 	armada_drm_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
-	armada_drm_crtc_finish_fb(dcrtc, crtc->primary->fb, true);
+	armada_drm_crtc_finish_fb(dcrtc, crtc->fb, true);
 
 	/* Power down most RAMs and FIFOs */
 	writel_relaxed(CFG_PDWN256x32 | CFG_PDWN256x24 | CFG_PDWN256x8 |
@@ -906,7 +905,7 @@ static int armada_drm_crtc_page_flip(struct drm_crtc *crtc,
 	int ret;
 
 	/* We don't support changing the pixel format */
-	if (fb->pixel_format != crtc->primary->fb->pixel_format)
+	if (fb->pixel_format != crtc->fb->pixel_format)
 		return -EINVAL;
 
 	work = kmalloc(sizeof(*work), GFP_KERNEL);
@@ -914,7 +913,7 @@ static int armada_drm_crtc_page_flip(struct drm_crtc *crtc,
 		return -ENOMEM;
 
 	work->event = event;
-	work->old_fb = dcrtc->crtc.primary->fb;
+	work->old_fb = dcrtc->crtc.fb;
 
 	i = armada_drm_crtc_calc_fb(fb, crtc->x, crtc->y, work->regs,
 				    dcrtc->interlaced);
@@ -943,7 +942,7 @@ static int armada_drm_crtc_page_flip(struct drm_crtc *crtc,
 	 * will _not_ drop that reference on successful return from this
 	 * function.  Simply mark this new framebuffer as the current one.
 	 */
-	dcrtc->crtc.primary->fb = fb;
+	dcrtc->crtc.fb = fb;
 
 	/*
 	 * Finally, if the display is blanked, we won't receive an

@@ -569,7 +569,7 @@ nouveau_display_suspend(struct drm_device *dev)
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		struct nouveau_framebuffer *nouveau_fb;
 
-		nouveau_fb = nouveau_framebuffer(crtc->primary->fb);
+		nouveau_fb = nouveau_framebuffer(crtc->fb);
 		if (!nouveau_fb || !nouveau_fb->nvbo)
 			continue;
 
@@ -596,7 +596,7 @@ nouveau_display_repin(struct drm_device *dev)
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		struct nouveau_framebuffer *nouveau_fb;
 
-		nouveau_fb = nouveau_framebuffer(crtc->primary->fb);
+		nouveau_fb = nouveau_framebuffer(crtc->fb);
 		if (!nouveau_fb || !nouveau_fb->nvbo)
 			continue;
 
@@ -693,7 +693,7 @@ nouveau_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	const int swap_interval = (flags & DRM_MODE_PAGE_FLIP_ASYNC) ? 0 : 1;
 	struct drm_device *dev = crtc->dev;
 	struct nouveau_drm *drm = nouveau_drm(dev);
-	struct nouveau_bo *old_bo = nouveau_framebuffer(crtc->primary->fb)->nvbo;
+	struct nouveau_bo *old_bo = nouveau_framebuffer(crtc->fb)->nvbo;
 	struct nouveau_bo *new_bo = nouveau_framebuffer(fb)->nvbo;
 	struct nouveau_page_flip_state *s;
 	struct nouveau_channel *chan = drm->channel;
@@ -767,7 +767,7 @@ nouveau_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	mutex_unlock(&chan->cli->mutex);
 
 	/* Update the crtc struct and cleanup */
-	crtc->primary->fb = fb;
+	crtc->fb = fb;
 
 	nouveau_bo_fence(old_bo, fence);
 	ttm_bo_unreserve(&old_bo->bo);
