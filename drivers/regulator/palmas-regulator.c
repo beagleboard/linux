@@ -1220,7 +1220,7 @@ static int palmas_smps_registration(struct palmas_pmic *pmic,
 					PALMAS_SMPS12_CTRL_MODE_ACTIVE_MASK;
 
 			pmic->desc[id].enable_reg =
-					PALMAS_BASE_TO_REG(PALMAS_LDO_BASE,
+					PALMAS_BASE_TO_REG(PALMAS_SMPS_BASE,
 						palmas_regs_info[id].ctrl_addr);
 			pmic->desc[id].enable_mask =
 					PALMAS_SMPS12_CTRL_MODE_ACTIVE_MASK;
