@@ -185,6 +185,7 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	bone_pwm_P9_42-00A0.dtbo \
 	BB-BONE-LOGIBONE-00R1.dtbo \
 	BB-BONE-PWMT-00A0.dtbo \
+	BB-BEAGLELOGIC-00A0.dtbo \
 	BB-BONE-PRU-01-00A0.dtbo \
 	BB-BONE-PRU-02-00A0.dtbo \
 	BB-BONE-PRU-03-00A0.dtbo \
