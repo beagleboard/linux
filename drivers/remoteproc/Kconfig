@@ -53,4 +53,17 @@ config PRU_RPROC
 	  This can be either built-in or a loadable module.
 	  If unsure say N.
 
+config PRU_RPROC_BEAGLELOGIC
+	tristate "BeagleLogic support over AM33xx PRU remoteproc support"
+	depends on EXPERIMENTAL
+	depends on HAS_DMA && SOC_AM33XX
+	select REMOTEPROC
+	select RPMSG
+	select PRU_RPROC
+	default n
+	help
+	  Say y or m here to support BeagleLogic - a LA based on the AM33xx PRUs
+	  This can be either built-in or a loadable module.
+	  If unsure say N.
+
 endmenu
