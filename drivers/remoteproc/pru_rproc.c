@@ -34,6 +34,8 @@
 
 #include "remoteproc_internal.h"
 
+#include "beaglelogic_glue.h"
+
 /* PRU_EVTOUT0 is halt (system call) */
 
 /* maximum PRUs */
@@ -189,7 +191,12 @@ struct pruproc {
 		int controller;
 		u32 dc_ids[DC_PWM_MAX];
 	} pwm;
+
+	struct beaglelogic_glue *beaglelogic;
 };
+
+/* For the BeagleLogic bindings */
+static struct pruproc *pp_bl;
 
 /* global memory map (for am33xx) (almost the same as local) */
 #define PRU_DATA_RAM0		0x00000
@@ -1794,6 +1801,11 @@ static irqreturn_t pru_handler(int irq, void *data)
 
 	handled = 0;
 
+	/* Handle BeagleLogic interrupts (same as vrings)
+	 * This takes precedence when BeagleLogic is enabled and bound */
+	if (pst->vring == 1 && pp->beaglelogic)
+		return pp->beaglelogic->serve_irq(pru_idx, pp->beaglelogic);
+
 	/* we either handle a vring or not */
 	if (!pst->vring) {
 		ret = pru_handle_syscall(ppc);
@@ -2346,6 +2358,83 @@ static int pruproc_create_devices(struct pruproc *pp)
 	return ret;
 }
 
+/* BeagleLogic plugin code section */
+
+/* Downcall wrapper */
+static int beaglelogic_pru_downcall(int pru_no, u32 nr, u32 arg0, u32 arg1,
+		u32 arg2, u32 arg3, u32 arg4)
+{
+	return pru_downcall_idx(pp_bl, pru_no, nr, arg0,
+			arg1, arg2, arg3, arg4);
+}
+
+/* Request VA to remapped PRU memory area */
+static void * __iomem beaglelogic_pru_d_da_to_va(int idx, u32 daddr)
+{
+	return pru_d_da_to_va(pp_bl->pru_to_pruc[idx], daddr, NULL);
+}
+
+/* Post-configuration, resume the PRU [reserved for a future FWrev] */
+static int beaglelogic_pru_start(int idx)
+{
+	/* u32 addr; */
+
+	/* TODO Attempt to start halted PRU, skip over HALT */
+	/*
+	if (pru_is_halted(pp_bl->pru_to_pruc[idx], &addr)) {
+		return -1;
+	}
+	pru_resume(pp_bl->pru_to_pruc[idx], addr + 4);
+	*/
+	return 0;
+}
+
+/* Signal the PRU Firmware to abort after the next buffer */
+static void beaglelogic_pru_request_stop(void)
+{
+	/* ARM -> PRU1 interrupt */
+	u32 sysint = pp_bl->target_to_sysev[TARGET_ARM_TO_PRU_IDX(1)];
+
+	/* Raise interrupt */
+	if (sysint < 32)
+		pintc_write_reg(pp_bl, PINTC_SRSR0, 1 << sysint);
+	else
+		pintc_write_reg(pp_bl, PINTC_SRSR1, 1 << (sysint - 32));
+}
+
+/* The BeagleLogic module requests attach to the remoteproc module here */
+int pruproc_beaglelogic_request_bind(struct beaglelogic_glue *g)
+{
+	if (pp_bl == NULL)
+		return -1;
+
+	/* Export the fp's to BeagleLogic functions located in this module */
+	g->downcall_idx = beaglelogic_pru_downcall;
+	g->d_da_to_va = beaglelogic_pru_d_da_to_va;
+	g->pru_request_stop = beaglelogic_pru_request_stop;
+	g->pru_start = beaglelogic_pru_start;
+
+	g->coreclockfreq = pp_bl->clock_freq;
+
+	pp_bl->beaglelogic = g;
+
+	return 0;
+}
+EXPORT_SYMBOL(pruproc_beaglelogic_request_bind);
+
+void pruproc_beaglelogic_request_unbind(void)
+{
+	/* Invalidate our handle to the module exported functions */
+	pp_bl->beaglelogic = NULL;
+}
+EXPORT_SYMBOL(pruproc_beaglelogic_request_unbind);
+
+static void pruproc_beaglelogic_init_bindings(struct pruproc *pp)
+{
+	pp_bl = pp;
+}
+/* End BeagleLogic Section */
+
 static int pruproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2786,6 +2875,9 @@ static int pruproc_probe(struct platform_device *pdev)
 
 	/* creating devices */
 	pruproc_create_devices(pp);
+
+	/* init the BeagleLogic binding section */
+	pruproc_beaglelogic_init_bindings(pp);
 
 	(void)pru_d_read_u32;
 	(void)pru_i_write_u32;
