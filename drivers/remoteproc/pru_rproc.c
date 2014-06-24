@@ -34,6 +34,7 @@
 
 #include "remoteproc_internal.h"
 
+#include <linux/miscdevice.h>
 #include "beaglelogic_glue.h"
 
 /* PRU_EVTOUT0 is halt (system call) */
