@@ -88,8 +88,11 @@
 			fpga_config_pins: pinmux_fpga_config_pins {
 				pinctrl-single,pins = <
 					/* config clk and data */
-					0x198 0x37      /*  spi1_d1 MODE3 | INPUT | PULLUP , serial data config */
-					0x190 0x37	/* spi1_sclk MODE3 | INPUT | PULLUP, serial clock config  */
+					0x190 0x33    /* P9_31 = mcasp0_aclkx.spi1_sclk                 , INPUT_PULLUP | MODE3 */
+					0x194 0x33    /* P9_29 = mcasp0_fsx.spi1_d0                     , INPUT_PULLUP  | MODE3 */
+					0x198 0x13    /* P9_30 = mcasp0_axr0.spi1_d1                     , OUTPUT_PULLUP | MODE3 */
+					0x19c 0x13    /* P9_28 = mcasp0_ahclkr.spi1_cs0                 , OUTPUT_PULLUP | MODE3 */
+
 				>;
 			};
 		};
@@ -191,29 +194,19 @@
 	};
 
 	fragment@2 {
-        target = <&spi0>;
+        target = <&spi1>;
         __overlay__ {
+
             #address-cells     = <1>;
             #size-cells     = <0>;
             status            = "okay";
             pinctrl-names    = "default";
             pinctrl-0        = <&fpga_config_pins>;
 
-            spi0_0{
-                #address-cells       = <1>;
-                #size-cells       = <0>;
-                compatible           = "spidev";
+            spidev@1{
+                compatible           = "linux,spidev";
                 reg               = <0>;
-                spi-max-frequency = <16000000>;
-                spi-cpha;
-            };
-            spi0_1{
-                #address-cells       = <1>;
-                #size-cells       = <0>;
-                compatible           = "spidev";
-                reg               = <1>;
-                spi-max-frequency = <16000000>;
-                // Mode 0 (CPOL = 0, CPHA = 0)
+                spi-max-frequency = <48000000>;
             };
         };
     };
