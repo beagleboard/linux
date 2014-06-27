@@ -239,6 +239,10 @@ MACHINE_END
 
 #ifdef CONFIG_SOC_DRA7XX
 static const char *dra74x_boards_compat[] __initconst = {
+	"ti,am5728",
+	"ti,am5737",
+	"ti,am5757",
+	"ti,am5777",
 	"ti,dra742",
 	"ti,dra7",
 	NULL,
@@ -258,6 +262,7 @@ DT_MACHINE_START(DRA74X_DT, "Generic DRA74X (Flattened Device Tree)")
 MACHINE_END
 
 static const char *dra72x_boards_compat[] __initconst = {
+	"ti,am5718",
 	"ti,dra722",
 	NULL,
 };
