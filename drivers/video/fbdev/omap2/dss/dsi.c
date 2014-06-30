@@ -5122,6 +5122,37 @@ static const struct omapdss_dsi_ops dsi_ops = {
 	.set_max_rx_packet_size = dsi_vc_set_max_rx_packet_size,
 };
 
+static int dsi_enable_pll(struct pll_data *pll)
+{
+	struct platform_device *dsidev = pll->pdev;
+	int r;
+
+	r = dsi_runtime_get(dsidev);
+	if (r)
+		return r;
+
+	r = dsi_pll_init(dsidev, 0, 1);
+	if (r) {
+		dsi_runtime_put(dsidev);
+		return r;
+	}
+
+	return 0;
+}
+
+static void dsi_disable_pll(struct pll_data *pll)
+{
+	struct platform_device *dsidev = pll->pdev;
+
+	dsi_pll_uninit(dsidev, true);
+	dsi_runtime_put(dsidev);
+}
+
+static struct pll_ops dsi_pll_ops = {
+	.enable	= dsi_enable_pll,
+	.disable = dsi_disable_pll,
+};
+
 static void dsi_init_output(struct platform_device *dsidev)
 {
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
@@ -5285,7 +5316,7 @@ static int omap_dsihw_probe(struct platform_device *dsidev)
 	}
 
 	dsi->pll = pll_create(dsidev, "pll", "sys_clk", DSS_PLL_TYPE_DSI,
-			NULL, DSI_PLL_OFFSET);
+			&dsi_pll_ops, DSI_PLL_OFFSET);
 	if (!dsi->pll) {
 		DSSERR("can't get DSI PLL\n");
 		return -ENODEV;
