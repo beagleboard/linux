@@ -23,7 +23,6 @@
 #include <linux/of_gpio.h>
 #include <linux/completion.h>
 #include "generic.h"
-#include "config.h"
 #include "drvr.h"
 #include "ioctl.h"
 
@@ -37,10 +36,6 @@ static ssize_t dm_read(struct file *filp, char *buf, size_t count, loff_t *f_pos
 static int edma_memtomemcpy(int count, unsigned long src_addr, unsigned long trgt_addr, int dma_ch);
 static void dma_callback(unsigned lch, u16 ch_status, void *data);
 
-
-static struct i2c_board_info io_exp_info= {
-	I2C_BOARD_INFO("fpga_ctrl", I2C_IO_EXP_ADDR),
-};
 
 static struct file_operations dm_ops = {
 	.read =   dm_read,
@@ -89,7 +84,7 @@ ssize_t writeMem(struct file *filp, const char *buf, size_t count, loff_t *f_pos
 	unsigned short int transfer_size;
 	ssize_t transferred = 0;
 	unsigned long src_addr, trgt_addr;
-	struct drvr_mem * mem_to_write = &(((struct drvr_device *) filp->private_data)->data.mem);
+	struct drvr_mem * mem_to_write = &(((struct drvr_device *) filp->private_data)->data);
 /*
 	if (count % 2 != 0) {
 		printk("%s: write: Transfer must be 16bits aligned.\n", DEVICE_NAME);
@@ -157,7 +152,7 @@ ssize_t readMem(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 	ssize_t transferred = 0;
 	unsigned long src_addr, trgt_addr;
 
-	struct drvr_mem * mem_to_read = &(((struct drvr_device *) filp->private_data)->data.mem);
+	struct drvr_mem * mem_to_read = &(((struct drvr_device *) filp->private_data)->data);
 /*
 	if (count % 2 != 0) {
 		printk("%s: read: Transfer must be 16bits aligned.\n", DEVICE_NAME);
@@ -218,8 +213,8 @@ ssize_t readMem(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 
 static int dm_open(struct inode *inode, struct file *filp)
 {
-	struct drvr_device
-	* dev = container_of(inode->i_cdev, struct drvr_device, cdev);
+	struct drvr_device * dev = container_of(inode->i_cdev, struct drvr_device, cdev);
+	struct drvr_mem* mem_dev ;
 
 	filp->private_data = dev; /* for other methods */
 
@@ -235,23 +230,20 @@ static int dm_open(struct inode *inode, struct file *filp)
 		return 0;
 	}
 
-	if (dev->type != prog) {
-		struct drvr_mem* mem_dev = &((dev->data).mem);
+	mem_dev = &(dev->data);
+	request_mem_region((unsigned long) mem_dev->base_addr, FPGA_MEM_SIZE, DEVICE_NAME);
+	mem_dev->virt_addr = ioremap_nocache(((unsigned long) mem_dev->base_addr), FPGA_MEM_SIZE);
+	mem_dev->dma_chan = edma_alloc_channel(EDMA_CHANNEL_ANY, dma_callback, NULL, EVENTQ_0);
+	mem_dev->dma_buf = (unsigned char *) dma_alloc_coherent(NULL, MAX_DMA_TRANSFER_IN_BYTES, &dmaphysbuf, 0);
+	printk("EDMA channel %d reserved \n", mem_dev->dma_chan);
 
-		request_mem_region((unsigned long) mem_dev->base_addr, FPGA_MEM_SIZE, DEVICE_NAME);
-		mem_dev->virt_addr = ioremap_nocache(((unsigned long) mem_dev->base_addr), FPGA_MEM_SIZE);
-		mem_dev->dma_chan = edma_alloc_channel(EDMA_CHANNEL_ANY, dma_callback, NULL, EVENTQ_0);
-		mem_dev->dma_buf = (unsigned char *) dma_alloc_coherent(NULL, MAX_DMA_TRANSFER_IN_BYTES, &dmaphysbuf, 0);
-		printk("EDMA channel %d reserved \n", mem_dev->dma_chan);
+	if (mem_dev->dma_chan < 0) {
+		printk("edma_alloc_channel failed for dma_ch, error: %d\n", mem_dev->dma_chan);
 
-		if (mem_dev->dma_chan < 0) {
-			printk("edma_alloc_channel failed for dma_ch, error: %d\n", mem_dev->dma_chan);
-
-			return -1;
-		}
-
-		printk("mem interface opened \n");
+		return -1;
 	}
+
+	printk("mem interface opened \n");
 
 	dev->opened = 1;
 
@@ -269,13 +261,12 @@ static int dm_release(struct inode *inode, struct file *filp)
 		return 0;
 	}
 
-	if (dev->type == mem) {
-		iounmap((dev->data.mem).virt_addr);
-		release_mem_region(((unsigned long) (dev->data.mem).base_addr), FPGA_MEM_SIZE);
-		printk("%s: Release: module released\n", DEVICE_NAME);
-		dma_free_coherent(NULL, MAX_DMA_TRANSFER_IN_BYTES, (dev->data.mem).dma_buf, dmaphysbuf);
-		edma_free_channel((dev->data.mem).dma_chan);
-	}
+	iounmap((dev->data).virt_addr);
+	release_mem_region(((unsigned long) (dev->data).base_addr), FPGA_MEM_SIZE);
+	printk("%s: Release: module released\n", DEVICE_NAME);
+	dma_free_coherent(NULL, MAX_DMA_TRANSFER_IN_BYTES, (dev->data).dma_buf, dmaphysbuf);
+	edma_free_channel((dev->data).dma_chan);
+
 
 	dev->opened = 0;
 
@@ -284,34 +275,13 @@ static int dm_release(struct inode *inode, struct file *filp)
 
 static ssize_t dm_write(struct file *filp, const char *buf, size_t count, loff_t *f_pos)
 {
-	struct drvr_device * dev = filp->private_data; /* for other methods */
-
-	switch (dev->type) {
-		case prog:
-			return loadBitFile((dev->data.prog.i2c_io), buf, count);
-
-		case mem:
-			return writeMem(filp, buf, count, f_pos);
-
-		default:
-			return loadBitFile((dev->data.prog.i2c_io), buf, count);
-	};
+	return writeMem(filp, buf, count, f_pos);
 }
 
 static ssize_t dm_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 {
-	struct drvr_device * dev = filp->private_data; /* for other methods */
+	return readMem(filp, buf, count, f_pos);
 
-	switch (dev->type) {
-		case prog:
-			return -1;
-
-		case mem:
-			return readMem(filp, buf, count, f_pos);
-
-		default:
-			return -1;
-	};
 }
 
 static void dm_exit(void)
@@ -320,17 +290,10 @@ static void dm_exit(void)
 
 	/* Get rid of our char dev entries */
 	if (drvr_devices) {
-		int i;
+		int i = 0;
 
-		for (i = 0; i < 2; i++) {
-			if (i == 0) {
-				i2c_unregister_device(drvr_devices[i].data.prog.i2c_io);
-			}
-
-			device_destroy(drvr_class, MKDEV(gDrvrMajor, i));
-			cdev_del(&drvr_devices[i].cdev);
-		}
-
+		device_destroy(drvr_class, MKDEV(gDrvrMajor, i));
+		cdev_del(&drvr_devices[i].cdev);
 		kfree(drvr_devices);
 	}
 
@@ -346,76 +309,38 @@ static int dm_init(void)
 	int result;
 	int devno;
 	struct drvr_mem * memDev;
-	struct drvr_prog * progDev;
-	struct i2c_adapter *i2c_adap;
 
 	dev_t dev = 0;
-	result = alloc_chrdev_region(&dev, 0, 2, DEVICE_NAME);
+	result = alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME);
 	gDrvrMajor = MAJOR(dev);
 
 	if (result < 0) {
 		printk(KERN_ALERT "Registering char device failed with %d\n", gDrvrMajor);
-
 		return result;
 	}
 
-	drvr_devices = kmalloc(2 * sizeof(struct drvr_device), GFP_KERNEL);
+	drvr_devices = kmalloc(sizeof(struct drvr_device), GFP_KERNEL);
 
 	if (!drvr_devices) {
 		dm_exit();
-
 		return -ENOMEM;
 	}
 
 	drvr_class = class_create(THIS_MODULE, DEVICE_NAME);
-	memset(drvr_devices, 0, 2 * sizeof(struct drvr_device));
+	memset(drvr_devices, 0, sizeof(struct drvr_device));
 
-	/*Initializing main mdevice for prog*/
-	devno = MKDEV(gDrvrMajor, 0);
-	drvr_devices[0].type = prog;
-	progDev = &(drvr_devices[0].data.prog);
-	prog_device = device_create(drvr_class, NULL, devno, NULL, DEVICE_NAME);	// should create /dev entry for main node
-	drvr_devices[0].opened = 0;
-
-	/*Do the i2c stuff*/
-	i2c_adap = i2c_get_adapter(1); // todo need to check i2c adapter id
-
-	if (i2c_adap == NULL) {
-		printk("Cannot get adapter 1 \n");
-		dm_exit();
-
-		return -1;
-	}
-
-	progDev->i2c_io = i2c_new_device(i2c_adap, &io_exp_info);
-	i2c_put_adapter(i2c_adap); //don't know what it does, seems to release the adapter ...
-
-	if (prog_device == NULL) {
-		class_destroy(drvr_class);
-		drvr_devices[0].opened = 0;
-		dm_exit();
-
-		return -ENOMEM;;
-	}
-
-	cdev_init(&(drvr_devices[0].cdev), &dm_ops);
-	drvr_devices[0].cdev.owner = THIS_MODULE;
-	drvr_devices[0].cdev.ops = &dm_ops;
-	cdev_add(&(drvr_devices[0].cdev), devno, 1);
 	//printk(KERN_INFO "'mknod /dev/%s c %d %d'.\n", DEVICE_NAME, gDrvrMajor, 0);
 	/* Initialize each device. */
-	devno = MKDEV(gDrvrMajor, 1);
-	drvr_devices[1].type = mem;
-	memDev = &(drvr_devices[1].data.mem);
+	devno = MKDEV(gDrvrMajor, 0);
+	memDev = &(drvr_devices[0].data);
 	memDev->base_addr = (unsigned short *) (FPGA_BASE_ADDR);
 	device_create(drvr_class, prog_device, devno, NULL, DEVICE_NAME_MEM);
-	cdev_init(&(drvr_devices[1].cdev), &dm_ops);
-	(drvr_devices[1].cdev).owner = THIS_MODULE;
-	(drvr_devices[1].cdev).ops = &dm_ops;
-	cdev_add(&(drvr_devices[1].cdev), devno, 1);
-	drvr_devices[1].opened = 0;
+	cdev_init(&(drvr_devices[0].cdev), &dm_ops);
+	(drvr_devices[0].cdev).owner = THIS_MODULE;
+	(drvr_devices[0].cdev).ops = &dm_ops;
+	cdev_add(&(drvr_devices[0].cdev), devno, 1);
+	drvr_devices[0].opened = 0;
 	init_completion(&dma_comp);
-
 	return ioctl_init();
 }
 
