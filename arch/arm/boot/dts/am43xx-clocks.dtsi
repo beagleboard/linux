@@ -754,4 +754,12 @@
 		ti,bit-shift = <8>;
 		reg = <0x8a68>;
 	};
+
+	qspi_fclk: qspi_fclk {
+		#clock-cells = <0>;
+		compatible = "ti,fixed-factor-clock";
+		clocks = <&dpll_per_m2_div4_ck>;
+		clock-mult = <1>;
+		clock-div = <1>;
+	};
 };

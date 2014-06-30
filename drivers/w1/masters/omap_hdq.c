@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/sched.h>
 #include <linux/pm_runtime.h>
+#include <linux/of.h>
 
 #include "../w1.h"
 #include "../w1_int.h"
@@ -27,21 +28,22 @@
 #define OMAP_HDQ_TX_DATA			0x04
 #define OMAP_HDQ_RX_DATA			0x08
 #define OMAP_HDQ_CTRL_STATUS			0x0c
-#define OMAP_HDQ_CTRL_STATUS_INTERRUPTMASK	(1<<6)
-#define OMAP_HDQ_CTRL_STATUS_CLOCKENABLE	(1<<5)
-#define OMAP_HDQ_CTRL_STATUS_GO			(1<<4)
-#define OMAP_HDQ_CTRL_STATUS_INITIALIZATION	(1<<2)
-#define OMAP_HDQ_CTRL_STATUS_DIR		(1<<1)
-#define OMAP_HDQ_CTRL_STATUS_MODE		(1<<0)
+#define OMAP_HDQ_CTRL_STATUS_INTERRUPTMASK	(1 << 6)
+#define OMAP_HDQ_CTRL_STATUS_CLOCKENABLE	(1 << 5)
+#define OMAP_HDQ_CTRL_STATUS_PRESENCE		(1 << 3)
+#define OMAP_HDQ_CTRL_STATUS_GO                 (1 << 4)
+#define OMAP_HDQ_CTRL_STATUS_INITIALIZATION	(1 << 2)
+#define OMAP_HDQ_CTRL_STATUS_DIR		(1 << 1)
+#define OMAP_HDQ_CTRL_STATUS_MODE		(1 << 0)
 #define OMAP_HDQ_INT_STATUS			0x10
-#define OMAP_HDQ_INT_STATUS_TXCOMPLETE		(1<<2)
-#define OMAP_HDQ_INT_STATUS_RXCOMPLETE		(1<<1)
-#define OMAP_HDQ_INT_STATUS_TIMEOUT		(1<<0)
+#define OMAP_HDQ_INT_STATUS_TXCOMPLETE		(1 << 2)
+#define OMAP_HDQ_INT_STATUS_RXCOMPLETE		(1 << 1)
+#define OMAP_HDQ_INT_STATUS_TIMEOUT		(1 << 0)
 #define OMAP_HDQ_SYSCONFIG			0x14
-#define OMAP_HDQ_SYSCONFIG_SOFTRESET		(1<<1)
-#define OMAP_HDQ_SYSCONFIG_AUTOIDLE		(1<<0)
+#define OMAP_HDQ_SYSCONFIG_SOFTRESET		(1 << 1)
+#define OMAP_HDQ_SYSCONFIG_AUTOIDLE		(1 << 0)
 #define OMAP_HDQ_SYSSTATUS			0x18
-#define OMAP_HDQ_SYSSTATUS_RESETDONE		(1<<0)
+#define OMAP_HDQ_SYSSTATUS_RESETDONE		(1 << 0)
 
 #define OMAP_HDQ_FLAG_CLEAR			0
 #define OMAP_HDQ_FLAG_SET			1
@@ -72,11 +74,18 @@ struct hdq_data {
 static int omap_hdq_probe(struct platform_device *pdev);
 static int omap_hdq_remove(struct platform_device *pdev);
 
+static const struct of_device_id omap_hdq_dt_match[] = {
+	{ .compatible = "ti,am43xx-hdq"},
+	{},
+};
+MODULE_DEVICE_TABLE(of, omap_hdq_dt_match);
+
 static struct platform_driver omap_hdq_driver = {
 	.probe =	omap_hdq_probe,
 	.remove =	omap_hdq_remove,
 	.driver =	{
 		.name =	"omap_hdq",
+		.of_match_table = of_match_ptr(omap_hdq_dt_match),
 	},
 };
 
@@ -113,6 +122,15 @@ static inline u8 hdq_reg_merge(struct hdq_data *hdq_data, u32 offset,
 	__raw_writel(new_val, hdq_data->hdq_base + offset);
 
 	return new_val;
+}
+
+static void hdq_disable_interrupt(struct hdq_data *hdq_data)
+{
+	u32 ie;
+
+	ie = readl(hdq_data->hdq_base + OMAP_HDQ_CTRL_STATUS);
+	writel(ie & ~OMAP_HDQ_CTRL_STATUS_INTERRUPTMASK,
+	       hdq_data->hdq_base + OMAP_HDQ_CTRL_STATUS);
 }
 
 /*
@@ -263,8 +281,7 @@ static int _omap_hdq_reset(struct hdq_data *hdq_data)
 	 * interrupt.
 	 */
 	hdq_reg_out(hdq_data, OMAP_HDQ_CTRL_STATUS,
-		OMAP_HDQ_CTRL_STATUS_CLOCKENABLE |
-		OMAP_HDQ_CTRL_STATUS_INTERRUPTMASK);
+		OMAP_HDQ_CTRL_STATUS_CLOCKENABLE);
 
 	/* wait for reset to complete */
 	ret = hdq_wait_for_flag(hdq_data, OMAP_HDQ_SYSSTATUS,
@@ -275,7 +292,8 @@ static int _omap_hdq_reset(struct hdq_data *hdq_data)
 	else {
 		hdq_reg_out(hdq_data, OMAP_HDQ_CTRL_STATUS,
 			OMAP_HDQ_CTRL_STATUS_CLOCKENABLE |
-			OMAP_HDQ_CTRL_STATUS_INTERRUPTMASK);
+			OMAP_HDQ_CTRL_STATUS_INTERRUPTMASK |
+			OMAP_HDQ_CTRL_STATUS_MODE);
 		hdq_reg_out(hdq_data, OMAP_HDQ_SYSCONFIG,
 			OMAP_HDQ_SYSCONFIG_AUTOIDLE);
 	}
@@ -327,6 +345,18 @@ static int omap_hdq_break(struct hdq_data *hdq_data)
 		ret = -ETIMEDOUT;
 		goto out;
 	}
+
+	/*
+	 * check for the presence detect bit to get
+	 * set to show that the slave is responding
+	 */
+	if (hdq_reg_in(hdq_data, OMAP_HDQ_CTRL_STATUS) &
+			OMAP_HDQ_CTRL_STATUS_PRESENCE) {
+		dev_dbg(hdq_data->dev, "Presence bit not set\n");
+		ret = -ETIMEDOUT;
+		goto out;
+	}
+
 	/*
 	 * wait for both INIT and GO bits rerurn to zero.
 	 * zero wait time expected for interrupt mode.
@@ -360,6 +390,8 @@ static int hdq_read_byte(struct hdq_data *hdq_data, u8 *val)
 		ret = -EINVAL;
 		goto out;
 	}
+
+	hdq_data->hdq_irqstatus = 0;
 
 	if (!(hdq_data->hdq_irqstatus & OMAP_HDQ_INT_STATUS_RXCOMPLETE)) {
 		hdq_reg_merge(hdq_data, OMAP_HDQ_CTRL_STATUS,
@@ -426,7 +458,8 @@ static int omap_hdq_get(struct hdq_data *hdq_data)
 				/* select HDQ mode & enable clocks */
 				hdq_reg_out(hdq_data, OMAP_HDQ_CTRL_STATUS,
 					OMAP_HDQ_CTRL_STATUS_CLOCKENABLE |
-					OMAP_HDQ_CTRL_STATUS_INTERRUPTMASK);
+					OMAP_HDQ_CTRL_STATUS_INTERRUPTMASK |
+					OMAP_HDQ_CTRL_STATUS_MODE);
 				hdq_reg_out(hdq_data, OMAP_HDQ_SYSCONFIG,
 					OMAP_HDQ_SYSCONFIG_AUTOIDLE);
 				hdq_reg_in(hdq_data, OMAP_HDQ_INT_STATUS);
@@ -471,6 +504,10 @@ static u8 omap_w1_read_byte(void *_hdq)
 	u8 val = 0;
 	int ret;
 
+	/* First write to initialize the transfer */
+	if (hdq_data->init_trans == 0)
+		omap_hdq_get(hdq_data);
+
 	ret = hdq_read_byte(hdq_data, &val);
 	if (ret) {
 		ret = mutex_lock_interruptible(&hdq_data->hdq_mutex);
@@ -483,6 +520,9 @@ static u8 omap_w1_read_byte(void *_hdq)
 		omap_hdq_put(hdq_data);
 		return -1;
 	}
+
+	hdq_disable_interrupt(hdq_data);
+	hdq_data->hdq_usecount = 0;
 
 	/* Write followed by a read, release the module */
 	if (hdq_data->init_trans) {
@@ -509,6 +549,14 @@ static void omap_w1_write_byte(void *_hdq, u8 byte)
 	/* First write to initialize the transfer */
 	if (hdq_data->init_trans == 0)
 		omap_hdq_get(hdq_data);
+
+	/*
+	 * We need to reset the slave before
+	 * issuing the SKIP ROM command, else
+	 * the slave will not work.
+	 */
+	if (byte == W1_SKIP_ROM)
+		omap_hdq_break(hdq_data);
 
 	ret = mutex_lock_interruptible(&hdq_data->hdq_mutex);
 	if (ret < 0) {
@@ -563,7 +611,17 @@ static int omap_hdq_probe(struct platform_device *pdev)
 	mutex_init(&hdq_data->hdq_mutex);
 
 	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&pdev->dev);
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0) {
+		dev_dbg(&pdev->dev, "pm_runtime_get_sync failed\n");
+		goto err_w1;
+	}
+
+	ret = _omap_hdq_reset(hdq_data);
+	if (ret) {
+		dev_dbg(&pdev->dev, "reset failed\n");
+		return -EINVAL;
+	}
 
 	rev = hdq_reg_in(hdq_data, OMAP_HDQ_REVISION);
 	dev_info(&pdev->dev, "OMAP HDQ Hardware Rev %c.%c. Driver in %s mode\n",
