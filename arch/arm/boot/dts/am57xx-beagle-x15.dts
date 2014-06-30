@@ -41,9 +41,62 @@
 		gpio = <&gpio7 11 GPIO_ACTIVE_HIGH>;
 	};
 
+	leds {
+		compatible = "gpio-leds";
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&leds_pins_default>;
+		pinctrl-1 = <&leds_pins_sleep>;
+
+		led@0 {
+			label = "beagle-x15:usr0";
+			gpios = <&gpio7 9 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		led@1 {
+			label = "beagle-x15:usr1";
+			gpios = <&gpio7 8 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "cpu0";
+			default-state = "off";
+		};
+
+		led@2 {
+			label = "beagle-x15:usr2";
+			gpios = <&gpio7 14 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "mmc0";
+			default-state = "off";
+		};
+
+		led@3 {
+			label = "beagle-x15:usr3";
+			gpios = <&gpio7 15 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "ide-disk";
+			default-state = "off";
+		};
+	};
 };
 
 &dra7_pmx_core {
+	leds_pins_default: leds_pins_default {
+		pinctrl-single,pins = <
+			0x3a8 (PIN_OUTPUT | MUX_MODE14)	/* spi1_d1.gpio7_8 */
+			0x3ac (PIN_OUTPUT | MUX_MODE14)	/* spi1_d0.gpio7_9 */
+			0x3c0 (PIN_OUTPUT | MUX_MODE14)	/* spi2_sclk.gpio7_14 */
+			0x3c4 (PIN_OUTPUT | MUX_MODE14)	/* spi2_d1.gpio7_15 */
+		>;
+	};
+
+	leds_pins_sleep: leds_pins_sleep {
+		pinctrl-single,pins = <
+			0x3a8 (PIN_INPUT_PULLDOWN | MUX_MODE15)
+			0x3ac (PIN_INPUT_PULLDOWN | MUX_MODE15)
+			0x3c0 (PIN_INPUT_PULLDOWN | MUX_MODE15)
+			0x3c4 (PIN_INPUT_PULLDOWN | MUX_MODE15)
+		>;
+	};
+
 	i2c1_pins: pinmux_i2c1_pins {
 		pinctrl-single,pins = <
 			0x400 (PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c1_sda.sda */
