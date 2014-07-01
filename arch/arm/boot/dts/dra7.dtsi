@@ -950,26 +950,6 @@
 			};
 		};
 
-		omap_dwc3_4@48940000 {
-			compatible = "ti,dwc3";
-			ti,hwmods = "usb_otg_ss4";
-			reg = <0x48940000 0x10000>;
-		/*	interrupts = <0 TBD 4>; */
-			#address-cells = <1>;
-			#size-cells = <1>;
-			utmi-mode = <2>;
-			ranges;
-			status = "disabled";
-			usb4: usb@48950000 {
-				compatible = "snps,dwc3";
-				reg = <0x48950000 0x17000>;
-		/*		interrupts = <0 TBD 4>; */
-				tx-fifo-resize;
-				maximum-speed = "high-speed";
-				dr_mode = "otg";
-			};
-		};
-
 		mac: ethernet@4a100000 {
 			compatible = "ti,cpsw";
 			ti,hwmods = "gmac";
