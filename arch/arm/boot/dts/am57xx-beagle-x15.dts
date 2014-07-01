@@ -113,7 +113,7 @@
 
 	mmc1_pins: pinmux_mmc1_pins {
 		pinctrl-single,pins = <
-			0x36c (PIN_INPUT | MUX_MODE15)	/* mmc1sdcd.gpio219 */
+			0x36c (PIN_INPUT | MUX_MODE14)	/* mmc1sdcd.gpio219 */
 		>;
 	};
 
