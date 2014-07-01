@@ -165,6 +165,36 @@
 		>;
 	};
 
+	mmc2_pins_default: mmc2_pins_default {
+		pinctrl-single,pins = <
+			0x9c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a23.mmc2_clk */
+			0xb0 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_cs1.mmc2_cmd */
+			0xa0 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a24.mmc2_dat0 */
+			0xa4 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a25.mmc2_dat1 */
+			0xa8 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a26.mmc2_dat2 */
+			0xac (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a27.mmc2_dat3 */
+			0x8c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a19.mmc2_dat4 */
+			0x90 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a20.mmc2_dat5 */
+			0x94 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a21.mmc2_dat6 */
+			0x98 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a22.mmc2_dat7 */
+		>;
+	};
+
+	mmc2_pins_sleep: mmc2_pins_sleep {
+		pinctrl-single,pins = <
+			0x9c (PIN_INPUT | MUX_MODE15)
+			0xb0 (PIN_INPUT | MUX_MODE15)
+			0xa0 (PIN_INPUT | MUX_MODE15)
+			0xa4 (PIN_INPUT | MUX_MODE15)
+			0xa8 (PIN_INPUT | MUX_MODE15)
+			0xac (PIN_INPUT | MUX_MODE15)
+			0x8c (PIN_INPUT | MUX_MODE15)
+			0x90 (PIN_INPUT | MUX_MODE15)
+			0x94 (PIN_INPUT | MUX_MODE15)
+			0x98 (PIN_INPUT | MUX_MODE15)
+		>;
+	};
+
 	cpsw_pins_default: cpsw_pins_default {
 		pinctrl-single,pins = <
 			/* Slave 1 */
@@ -439,20 +469,23 @@
 
 &mmc1 {
 	status = "okay";
-	vmmc-supply = <&ldo1_reg>;
-	vmmc_aux-supply = <&vdd_3v3>;
-	pbias-supply = <&pbias_regulator>;
-	bus-width = <4>;
 	pinctrl-names = "default", "sleep", "muxpu", "muxpd";
 	pinctrl-0 = <&mmc1_pins_default>;
 	pinctrl-1 = <&mmc1_pins_sleep>;
 	pinctrl-2 = <&mmc1_pins_pullup>;
 	pinctrl-3 = <&mmc1_pins_pulldown>;
+	vmmc-supply = <&ldo1_reg>;
+	vmmc_aux-supply = <&vdd_3v3>;
+	pbias-supply = <&pbias_regulator>;
+	bus-width = <4>;
 	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
 };
 
 &mmc2 {
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&mmc2_pins_default>;
+	pinctrl-1 = <&mmc2_pins_sleep>;
 	vmmc-supply = <&vdd_3v3>;
 	bus-width = <8>;
 	ti,non-removable;
