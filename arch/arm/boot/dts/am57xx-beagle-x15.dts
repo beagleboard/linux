@@ -97,27 +97,27 @@
 		>;
 	};
 
-	i2c1_pins: pinmux_i2c1_pins {
+	i2c1_pins_default: i2c1_pins_default {
 		pinctrl-single,pins = <
 			0x400 (PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c1_sda.sda */
 			0x404 (PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c1_scl.scl */
 		>;
 	};
 
-	uart3_pins: pinmux_uart3_pins {
+	uart3_pins_default: uart3_pins_default {
 		pinctrl-single,pins = <
 			0x248 (PIN_INPUT_SLEW | MUX_MODE0) /* uart3_rxd.rxd */
 			0x24c (PIN_INPUT_SLEW | MUX_MODE0) /* uart3_txd.txd */
 		>;
 	};
 
-	mmc1_pins: pinmux_mmc1_pins {
+	mmc1_pins_default: mmc1_pins_default {
 		pinctrl-single,pins = <
 			0x36c (PIN_INPUT | MUX_MODE14)	/* mmc1sdcd.gpio219 */
 		>;
 	};
 
-	mmc1_muxpu: pinmux_mmc1_muxpu {
+	mmc1_pins_pullup: mmc1_pins_pullup {
 		pinctrl-single,pins = <
 			0x354 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc1_clk.clk */
 			0x358 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc1_cmd.cmd */
@@ -128,7 +128,7 @@
 		>;
 	};
 
-	mmc1_muxpd: pinmux_mmc1_muxpd {
+	mmc1_pins_pulldown: mmc1_pins_pulldown {
 		pinctrl-single,pins = <
 			0x354 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mmc1_clk.clk */
 			0x358 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mmc1_cmd.cmd */
@@ -143,7 +143,7 @@
 &i2c1 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&i2c1_pins>;
+	pinctrl-0 = <&i2c1_pins_default>;
 	clock-frequency = <400000>;
 
 	tps659038: tps659038@58 {
@@ -275,7 +275,7 @@
 &uart3 {
         status = "okay";
         pinctrl-names = "default";
-        pinctrl-0 = <&uart3_pins>;
+        pinctrl-0 = <&uart3_pins_default>;
 };
 
 &mmc1 {
@@ -285,9 +285,9 @@
 	pbias-supply = <&pbias_regulator>;
 	bus-width = <4>;
 	pinctrl-names = "default", "muxpu", "muxpd";
-	pinctrl-0 = <&mmc1_pins>;
-	pinctrl-1 = <&mmc1_muxpu>;
-	pinctrl-2 = <&mmc1_muxpd>;
+	pinctrl-0 = <&mmc1_pins_default>;
+	pinctrl-1 = <&mmc1_pins_pullup>;
+	pinctrl-2 = <&mmc1_pins_pulldown>;
 	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
 };
 
