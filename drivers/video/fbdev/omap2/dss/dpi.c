@@ -44,7 +44,6 @@ struct dpi_data {
 
 	struct regulator *vdds_dsi_reg;
 
-	struct platform_device *dsidev;
 	struct pll_data *pll;
 
 	struct mutex lock;
@@ -69,7 +68,7 @@ static struct dpi_data *dpi_get_data_from_pdev(struct platform_device *pdev)
 	return dev_get_drvdata(&pdev->dev);
 }
 
-static struct platform_device *dpi_get_dsidev(enum omap_channel channel)
+static struct pll_data *dpi_get_pll_data(enum omap_channel channel)
 {
 	/*
 	 * XXX we can't currently use DSI PLL for DPI with OMAP3, as the DSI PLL
@@ -90,9 +89,9 @@ static struct platform_device *dpi_get_dsidev(enum omap_channel channel)
 	case OMAPDSS_VER_OMAP4:
 		switch (channel) {
 		case OMAP_DSS_CHANNEL_LCD:
-			return dsi_get_dsidev_from_id(0);
+			return dsi_get_pll_data_from_id(0);
 		case OMAP_DSS_CHANNEL_LCD2:
-			return dsi_get_dsidev_from_id(1);
+			return dsi_get_pll_data_from_id(1);
 		default:
 			return NULL;
 		}
@@ -100,9 +99,9 @@ static struct platform_device *dpi_get_dsidev(enum omap_channel channel)
 	case OMAPDSS_VER_OMAP5:
 		switch (channel) {
 		case OMAP_DSS_CHANNEL_LCD:
-			return dsi_get_dsidev_from_id(0);
+			return dsi_get_pll_data_from_id(0);
 		case OMAP_DSS_CHANNEL_LCD3:
-			return dsi_get_dsidev_from_id(1);
+			return dsi_get_pll_data_from_id(1);
 		default:
 			return NULL;
 		}
@@ -375,6 +374,7 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 {
 	struct dpi_data *dpi = dpi_get_data_from_dssdev(dssdev);
 	struct omap_dss_device *out = &dpi->output;
+	struct pll_data *pll = dpi->pll;
 	int r;
 
 	mutex_lock(&dpi->lock);
@@ -405,14 +405,10 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 	if (r)
 		goto err_src_sel;
 
-	if (dpi->pll) {
-		r = dsi_runtime_get(dpi->dsidev);
+	if (pll) {
+		r = pll->ops->enable(pll);
 		if (r)
-			goto err_get_dsi;
-
-		r = dsi_pll_init(dpi->dsidev, 0, 1);
-		if (r)
-			goto err_dsi_pll_init;
+			goto err_pll_enable;
 	}
 
 	r = dpi_set_mode(dpi);
@@ -433,12 +429,9 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 
 err_mgr_enable:
 err_set_mode:
-	if (dpi->pll)
-		dsi_pll_uninit(dpi->dsidev, true);
-err_dsi_pll_init:
-	if (dpi->dsidev)
-		dsi_runtime_put(dpi->dsidev);
-err_get_dsi:
+	if (pll)
+		pll->ops->disable(pll);
+err_pll_enable:
 err_src_sel:
 	dispc_runtime_put();
 err_get_dispc:
@@ -455,15 +448,15 @@ static void dpi_display_disable(struct omap_dss_device *dssdev)
 {
 	struct dpi_data *dpi = dpi_get_data_from_dssdev(dssdev);
 	struct omap_overlay_manager *mgr = dpi->output.manager;
+	struct pll_data *pll = dpi->pll;
 
 	mutex_lock(&dpi->lock);
 
 	dss_mgr_disable(mgr);
 
-	if (dpi->pll) {
+	if (pll) {
 		dss_select_lcd_clk_source(mgr->id, OMAP_DSS_CLK_SRC_FCK);
-		dsi_pll_uninit(dpi->dsidev, true);
-		dsi_runtime_put(dpi->dsidev);
+		pll->ops->disable(pll);
 	}
 
 	dispc_runtime_put();
@@ -552,24 +545,17 @@ static void dpi_set_data_lines(struct omap_dss_device *dssdev, int data_lines)
 	mutex_unlock(&dpi->lock);
 }
 
-static int dpi_verify_dsi_pll(struct platform_device *dsidev)
+static int dpi_verify_pll(struct pll_data *pll)
 {
 	int r;
 
 	/* do initial setup with the PLL to see if it is operational */
 
-	r = dsi_runtime_get(dsidev);
+	r = pll->ops->enable(pll);
 	if (r)
 		return r;
 
-	r = dsi_pll_init(dsidev, 0, 1);
-	if (r) {
-		dsi_runtime_put(dsidev);
-		return r;
-	}
-
-	dsi_pll_uninit(dsidev, true);
-	dsi_runtime_put(dsidev);
+	pll->ops->disable(pll);
 
 	return 0;
 }
@@ -598,26 +584,20 @@ static int dpi_init_regulator(struct dpi_data *dpi)
 
 static void dpi_init_pll(struct dpi_data *dpi)
 {
-	struct platform_device *dsidev;
 	struct pll_data *pll;
 
-	if (dpi->dsidev)
+	if (dpi->pll)
 		return;
 
-	dsidev = dpi_get_dsidev(dpi->output.dispc_channel);
-	if (!dsidev)
-		return;
-
-	pll = dsi_get_pll_data_from_dsidev(dsidev);
+	pll = dpi_get_pll_data(dpi->output.dispc_channel);
 	if (!pll)
 		return;
 
-	if (dpi_verify_dsi_pll(dsidev)) {
-		DSSWARN("DSI PLL not operational\n");
+	if (dpi_verify_pll(pll)) {
+		DSSWARN("PLL not operational\n");
 		return;
 	}
 
-	dpi->dsidev = dsidev;
 	dpi->pll = pll;
 }
 

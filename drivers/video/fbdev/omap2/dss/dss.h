@@ -314,19 +314,13 @@ struct file_operations;
 int dsi_init_platform_driver(void) __init;
 void dsi_uninit_platform_driver(void) __exit;
 
-int dsi_runtime_get(struct platform_device *dsidev);
-void dsi_runtime_put(struct platform_device *dsidev);
-
 void dsi_dump_clocks(struct seq_file *s);
 
 void dsi_irq_handler(void);
 u8 dsi_get_pixel_size(enum omap_dss_dsi_pixel_format fmt);
 
-int dsi_pll_init(struct platform_device *dsidev, bool enable_hsclk,
-		bool enable_hsdiv);
-void dsi_pll_uninit(struct platform_device *dsidev, bool disconnect_lanes);
 struct platform_device *dsi_get_dsidev_from_id(int module);
-struct pll_data *dsi_get_pll_data_from_dsidev(struct platform_device *dsidev);
+struct pll_data *dsi_get_pll_data_from_id(int module);
 #else
 static inline int dsi_runtime_get(struct platform_device *dsidev)
 {
@@ -354,7 +348,7 @@ static inline struct platform_device *dsi_get_dsidev_from_id(int module)
 {
 	return NULL;
 }
-static inline struct pll_data *dsi_get_pll_data_from_dsidev(struct platform_device *dsidev)
+static inline struct pll_data *dsi_get_pll_data_from_id(int module)
 {
 	return NULL;
 }

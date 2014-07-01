@@ -425,8 +425,9 @@ struct platform_device *dsi_get_dsidev_from_id(int module)
 	return out ? to_platform_device(out->dev) : NULL;
 }
 
-struct pll_data *dsi_get_pll_data_from_dsidev(struct platform_device *dsidev)
+struct pll_data *dsi_get_pll_data_from_id(int module)
 {
+	struct platform_device *dsidev = dsi_get_dsidev_from_id(module);
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
 
 	return dsi->pll;
@@ -1131,7 +1132,7 @@ static u32 dsi_get_errors(struct platform_device *dsidev)
 	return e;
 }
 
-int dsi_runtime_get(struct platform_device *dsidev)
+static int dsi_runtime_get(struct platform_device *dsidev)
 {
 	int r;
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
@@ -1143,7 +1144,7 @@ int dsi_runtime_get(struct platform_device *dsidev)
 	return r < 0 ? r : 0;
 }
 
-void dsi_runtime_put(struct platform_device *dsidev)
+static void dsi_runtime_put(struct platform_device *dsidev)
 {
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
 	int r;
@@ -1421,7 +1422,7 @@ static int dsi_pll_set_clock_div(struct platform_device *dsidev,
 	return r;
 }
 
-int dsi_pll_init(struct platform_device *dsidev, bool enable_hsclk,
+static int dsi_pll_init(struct platform_device *dsidev, bool enable_hsclk,
 		bool enable_hsdiv)
 {
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
@@ -1496,7 +1497,8 @@ err0:
 	return r;
 }
 
-void dsi_pll_uninit(struct platform_device *dsidev, bool disconnect_lanes)
+static void dsi_pll_uninit(struct platform_device *dsidev,
+	bool disconnect_lanes)
 {
 	struct dsi_data *dsi = dsi_get_dsidrv_data(dsidev);
 
