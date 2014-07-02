@@ -167,7 +167,8 @@ fi
 
 if grep -q '^CONFIG_OF=y' $KCONFIG_CONFIG ; then
 	mkdir -p "$tmpdir/boot/dtbs/$version"
-	INSTALL_DTBS_PATH="$tmpdir/boot/dtbs/$version" $MAKE KBUILD_SRC= dtbs_install
+	$MAKE KBUILD_SRC= dtbs
+	find arch/arm/boot/ -iname "*.dtb" -exec cp -v '{}' "$tmpdir/boot/dtbs/$version" \;
 
 	#make dtbs_install seems to add an .old directory
 	if [ -d "$tmpdir/boot/dtbs/$version.old" ] ; then
