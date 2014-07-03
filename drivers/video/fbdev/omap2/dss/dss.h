@@ -104,6 +104,7 @@ struct pll_params {
 	unsigned long fint;
 	unsigned long clkin;
 	unsigned long clkout;
+	unsigned long clkoutldo;
 
 	unsigned long clkout_hsdiv[4];
 

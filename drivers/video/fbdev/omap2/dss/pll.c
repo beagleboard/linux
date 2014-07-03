@@ -40,6 +40,8 @@ struct pll_features {
 	bool freqsel;
 	bool refsel;
 	bool sysreset_fsm;
+	bool selfreqdco;
+	bool bound_dcofreq;
 };
 
 static inline void pll_write_reg(void __iomem *base_addr, const u16 idx,
@@ -163,7 +165,7 @@ void pll_enable_clock(struct pll_data *pll, bool enable)
 int pll_calc_and_check_clock_rates(struct pll_data *pll,
 		struct pll_params *params)
 {
-	int i;
+	int i, mult;
 	struct pll_features *feats = pll->feats;
 
 	if (params->regn == 0 || params->regn > feats->regn_max)
@@ -184,9 +186,24 @@ int pll_calc_and_check_clock_rates(struct pll_data *pll,
 			params->fint < feats->fint_min)
 		return -EINVAL;
 
-	params->clkout = 2 * params->regm * params->fint;
+	mult = pll->type == DSS_PLL_TYPE_DSI ? 2 : 1;
+
+	params->clkout = mult * params->regm * params->fint;
+
+	/*	add frac component
+	 *	if (params->regmf) {
+			params->clkout += ;
+		}
+	*/
 
 	if (params->clkout > feats->clkout_max)
+		return -EINVAL;
+
+	if (params->regm2)
+		params->clkoutldo = params->clkout / params->regm2;
+
+	if (pll->type == DSS_PLL_TYPE_HDMI && feats->selfreqdco &&
+			params->clkout < feats->dco_range1_min)
 		return -EINVAL;
 
 	for (i = 0; i < 4; i++) {
@@ -222,6 +239,55 @@ bool pll_hsdiv_calc(struct pll_data *pll, unsigned long clkout,
 	return false;
 }
 
+#define HDMI_DEFAULT_REGN	16
+#define HDMI_DEFAULT_REGM2	1
+
+static bool pll_calc_hdmi(struct pll_data *pll, unsigned long clkin,
+		unsigned long phy, struct pll_params *p)
+{
+	struct pll_features *feats = pll->feats;
+	unsigned long refclk, dco_range1_min;
+	u32 mf;
+
+	/* scale units */
+	phy /= 10000;
+	clkin /= 10000;
+	dco_range1_min = feats->dco_range1_min / 10000;
+	/*
+	 * input clock is predivided by N + 1, output of which is reference clk
+	 */
+	p->regn = HDMI_DEFAULT_REGN;
+
+	refclk = clkin / p->regn;
+
+	/* temporary hack to make sure DCO freq isn't calculated too low */
+	if (feats->bound_dcofreq && phy <= dco_range1_min)
+		p->regm2 = 3;
+	else
+		p->regm2 = HDMI_DEFAULT_REGM2;
+
+	/*
+	 * multiplier is phy_clk/ref_clk
+	 * multiply by 100 to avoid fractional part removal
+	 */
+	p->regm = phy * p->regm2 / refclk;
+
+	/*
+	 * fractional multiplier is remainder of the difference between
+	 * multiplier and actual phy(required pixel clock thus should be
+	 * multiplied by 2^18(262144) divided by the reference clock
+	 */
+	mf = (phy - p->regm / p->regm2 * refclk) * 262144;
+	p->regmf = p->regm2 * mf / refclk;
+
+	p->regsd = ((p->regm * clkin / 10) / (p->regn * 250) + 5) / 10;
+
+	DSSDBG("M = %d Mf = %d M2 = %d sd = %d\n", p->regm, p->regmf, p->regm2,
+		p->regsd);
+
+	return true;
+}
+
 bool pll_calc(struct pll_data *pll, unsigned long clkout_min,
 		unsigned long clkout_max, pll_calc_func func, void *data)
 {
@@ -232,6 +298,9 @@ bool pll_calc(struct pll_data *pll, unsigned long clkout_min,
 	unsigned long clkout_hw_max;
 	unsigned long fint_hw_min, fint_hw_max;
 	unsigned long clkin = clk_get_rate(pll->clkin);
+
+	if (pll->type == DSS_PLL_TYPE_HDMI)
+		return pll_calc_hdmi(pll, clkin, clkout_max, data);
 
 	fint_hw_min = feats->fint_min;
 	fint_hw_max = feats->fint_max;
@@ -303,6 +372,11 @@ int pll_set_clock_div(struct pll_data *pll, struct pll_params *params)
 			0x7;
 
 		l = FLD_MOD(l, f, 4, 1);	/* PLL_FREQSEL */
+	} else if (feats->selfreqdco && pll->type == DSS_PLL_TYPE_HDMI) {
+		f = params->clkout < feats->dco_range1_max &&
+			params->clkout < feats->dco_range2_min ? 0x2 : 0x4;
+
+		l = FLD_MOD(l, f, 4, 1);	/* PLL_SELFREQDCO */
 	}
 
 	l = FLD_MOD(l, 1, 13, 13);		/* PLL_REFEN */
@@ -321,7 +395,15 @@ int pll_set_clock_div(struct pll_data *pll, struct pll_params *params)
 				feats->regm_hsdiv_start[i],
 				feats->regm_hsdiv_end[i]);
 	}
+	l = FLD_MOD(l, params->regsd, 17, 10);
 	pll_write_reg(pll->base, PLL_CONFIGURATION3, l);
+
+	if (pll->type == DSS_PLL_TYPE_HDMI) {
+		l = pll_read_reg(pll->base, PLL_CONFIGURATION4);
+		l = FLD_MOD(l, params->regm2, 24, 18);
+		l = FLD_MOD(l, params->regmf, 17, 0);
+		pll_write_reg(pll->base, PLL_CONFIGURATION4, l);
+	}
 
 	REG_FLD_MOD(pll->base, PLL_GO, 1, 0, 0);	/* DSI_PLL_GO */
 
@@ -382,6 +464,8 @@ static struct pll_features omap34xx_pll_features = {
 	.freqsel = true,
 	.refsel = false,
 	.sysreset_fsm = false,
+	.selfreqdco = false,
+	.bound_dcofreq = false,
 };
 
 static struct pll_features omap36xx_pll_features = {
@@ -400,6 +484,8 @@ static struct pll_features omap36xx_pll_features = {
 	.freqsel = false,
 	.refsel = false,
 	.sysreset_fsm = false,
+	.selfreqdco = false,
+	.bound_dcofreq = false,
 };
 
 static struct pll_features omap44xx_pll_features = {
@@ -422,6 +508,8 @@ static struct pll_features omap44xx_pll_features = {
 	.freqsel = false,
 	.refsel = true,
 	.sysreset_fsm = false,
+	.selfreqdco = true,
+	.bound_dcofreq = false,
 };
 
 static struct pll_features omap54xx_pll_features = {
@@ -444,6 +532,8 @@ static struct pll_features omap54xx_pll_features = {
 	.freqsel = false,
 	.refsel = true,
 	.sysreset_fsm = true,
+	.selfreqdco = true,
+	.bound_dcofreq = true,
 };
 
 static int __init pll_init_features(struct pll_data *pll)
