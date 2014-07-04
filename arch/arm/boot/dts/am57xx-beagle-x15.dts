@@ -385,6 +385,31 @@
         pinctrl-0 = <&uart3_pins_default>;
 };
 
+&cpu0 {
+	cpu0-voltdm = <&voltdm_mpu>;
+	voltage-tolerance = <1>;
+};
+
+&voltdm_mpu {
+	vdd-supply = <&smps12_reg>;
+};
+
+&voltdm_dspeve {
+	vdd-supply = <&smps45_reg>;
+};
+
+&voltdm_gpu {
+	vdd-supply = <&smps45_reg>;
+};
+
+&voltdm_ivahd {
+	vdd-supply = <&smps45_reg>;
+};
+
+&voltdm_core {
+	vdd-supply = <&smps6_reg>;
+};
+
 &mac {
 	status = "okay";
 	pinctrl-names = "default", "sleep";
