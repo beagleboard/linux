@@ -403,6 +403,8 @@ struct cpsw_priv {
 	bool irq_enabled;
 	struct cpts *cpts;
 	u32 emac_port;
+	u32 rx_max_mcast;
+	u32 rx_max_bcast;
 };
 
 struct cpsw_stats {
@@ -871,11 +873,13 @@ static int cpsw_get_coalesce(struct net_device *ndev,
 	struct cpsw_priv *priv = netdev_priv(ndev);
 
 	coal->rx_coalesce_usecs = priv->coal_intvl;
+	coal->rx_max_mcast = priv->rx_max_mcast;
+	coal->rx_max_bcast = priv->rx_max_bcast;
 	return 0;
 }
 
-static int cpsw_set_coalesce(struct net_device *ndev,
-				struct ethtool_coalesce *coal)
+static int cpsw_set_coalesce_usecs(struct net_device *ndev,
+				   struct ethtool_coalesce *coal)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	u32 int_ctrl;
@@ -938,6 +942,76 @@ update_return:
 	}
 
 	return 0;
+}
+
+static int cpsw_set_coalesce_mcast(struct net_device *ndev,
+				   struct ethtool_coalesce *coal)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int ret = -EINVAL;
+	int port;
+
+	priv->rx_max_mcast = coal->rx_max_mcast;
+
+	if (priv->data.dual_emac)
+		port = priv->emac_port;
+	else
+		port = priv->data.active_slave;
+
+	ret = cpsw_ale_control_set(priv->ale, port, ALE_PORT_MCAST_LIMIT,
+				   coal->rx_max_mcast);
+
+	dev_dbg(priv->dev, "rx_max_mcast set to %d\n", priv->rx_max_mcast);
+	return ret;
+}
+
+static int cpsw_set_coalesce_bcast(struct net_device *ndev,
+				   struct ethtool_coalesce *coal)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int ret = -EINVAL;
+	int port;
+
+	priv->rx_max_bcast = coal->rx_max_bcast;
+
+	if (priv->data.dual_emac)
+		port = priv->emac_port + 1;
+	else
+		port = priv->data.active_slave + 1;
+
+	ret = cpsw_ale_control_set(priv->ale, port, ALE_PORT_BCAST_LIMIT,
+				   coal->rx_max_bcast);
+
+	dev_dbg(priv->dev, "rx_max_mcast set to %d\n", priv->rx_max_bcast);
+	return ret;
+}
+
+static int cpsw_set_coalesce(struct net_device *ndev,
+			     struct ethtool_coalesce *coal)
+{
+	int ret = -EINVAL;
+
+	if (coal->rx_coalesce_usecs) {
+		ret = cpsw_set_coalesce_usecs(ndev, coal);
+		if (ret) {
+			dev_err(&ndev->dev, "set rx-usecs failed\n");
+			return ret;
+		}
+	}
+
+	ret = cpsw_set_coalesce_mcast(ndev, coal);
+	if (ret) {
+		dev_err(&ndev->dev, "set coalesce rx-max-mcast failed\n");
+		return ret;
+	}
+
+	ret = cpsw_set_coalesce_bcast(ndev, coal);
+	if (ret) {
+		dev_err(&ndev->dev, "set coalesce rx-max-bcast failed\n");
+		return ret;
+	}
+
+	return ret;
 }
 
 static int cpsw_get_sset_count(struct net_device *ndev, int sset)
@@ -1222,6 +1296,10 @@ static int cpsw_ndo_open(struct net_device *ndev)
 
 		/* enable statistics collection only on all ports */
 		__raw_writel(0x7, &priv->regs->stat_port_en);
+
+		/* Enable rate limit feature in the switch for rx only */
+		cpsw_ale_control_set(priv->ale, 0, ALE_RATE_LIMIT, 1);
+		cpsw_ale_control_set(priv->ale, 0, ALE_RATE_LIMIT_TX, 0);
 
 		if (WARN_ON(!priv->data.rx_descs))
 			priv->data.rx_descs = 128;
