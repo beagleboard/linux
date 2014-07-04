@@ -65,9 +65,6 @@ struct dss_reg {
 #define REG_FLD_MOD(idx, val, start, end) \
 	dss_write_reg(idx, FLD_MOD(dss_read_reg(idx), val, start, end))
 
-static int dss_runtime_get(void);
-static void dss_runtime_put(void);
-
 struct dss_features {
 	u8 fck_div_max;
 	u8 dss_fck_multiplier;
@@ -76,6 +73,7 @@ struct dss_features {
 	int num_ports;
 	int (*dpi_select_source)(int id, enum omap_channel channel);
 	bool pll_ext_ctrl;
+	bool video1_pll, video2_pll;
 };
 
 static struct {
@@ -750,7 +748,7 @@ static void dss_put_clocks(void)
 		clk_put(dss.parent_clk);
 }
 
-static int dss_runtime_get(void)
+int dss_runtime_get(void)
 {
 	int r;
 
@@ -761,7 +759,7 @@ static int dss_runtime_get(void)
 	return r < 0 ? r : 0;
 }
 
-static void dss_runtime_put(void)
+void dss_runtime_put(void)
 {
 	int r;
 
@@ -821,6 +819,8 @@ static const struct dss_features omap34xx_dss_feats __initconst = {
 	.ports			=	omap34xx_ports,
 	.num_ports		=	ARRAY_SIZE(omap34xx_ports),
 	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
 };
 
 static const struct dss_features omap3630_dss_feats __initconst = {
@@ -831,6 +831,8 @@ static const struct dss_features omap3630_dss_feats __initconst = {
 	.ports			=	omap2plus_ports,
 	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
 	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
 };
 
 static const struct dss_features omap44xx_dss_feats __initconst = {
@@ -841,6 +843,8 @@ static const struct dss_features omap44xx_dss_feats __initconst = {
 	.ports			=	omap2plus_ports,
 	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
 	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
 };
 
 static const struct dss_features omap54xx_dss_feats __initconst = {
@@ -851,6 +855,8 @@ static const struct dss_features omap54xx_dss_feats __initconst = {
 	.ports			=	omap2plus_ports,
 	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
 	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
 };
 
 static const struct dss_features am43xx_dss_feats __initconst = {
@@ -861,6 +867,8 @@ static const struct dss_features am43xx_dss_feats __initconst = {
 	.ports			=	omap2plus_ports,
 	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
 	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
 };
 
 static const struct dss_features dra74x_dss_feats __initconst = {
@@ -871,6 +879,8 @@ static const struct dss_features dra74x_dss_feats __initconst = {
 	.ports			=	dra7xx_ports,
 	.num_ports		=	ARRAY_SIZE(dra7xx_ports),
 	.pll_ext_ctrl		=	true,
+	.video1_pll		=	true,
+	.video2_pll		=	true,
 };
 
 static int __init dss_init_features(struct platform_device *pdev)
@@ -1080,6 +1090,18 @@ static int __init omap_dsshw_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "failed to get regmap\n");
 			return -ENODEV;
 		}
+	}
+
+	if (dss.feat->video1_pll) {
+		r = dss_dpll_init(pdev, 0);
+		if (r)
+			goto err_runtime_get;
+	}
+
+	if (dss.feat->video2_pll) {
+		r = dss_dpll_init(pdev, 1);
+		if (r)
+			goto err_runtime_get;
 	}
 
 	rev = dss_read_reg(DSS_REVISION);

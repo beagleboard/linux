@@ -250,6 +250,9 @@ void dss_overlay_kobj_uninit(struct omap_overlay *ovl);
 int dss_init_platform_driver(void) __init;
 void dss_uninit_platform_driver(void);
 
+int dss_runtime_get(void);
+void dss_runtime_put(void);
+
 unsigned long dss_get_dispc_clk_rate(void);
 int dss_dpi_select_source(int id, enum omap_channel channel);
 void dss_select_hdmi_venc_clk_source(enum dss_hdmi_venc_clk_source_select);
@@ -289,6 +292,10 @@ int dss_set_fck_rate(unsigned long rate);
 typedef bool (*dss_div_calc_func)(unsigned long fck, void *data);
 bool dss_div_calc(unsigned long pck, unsigned long fck_min,
 		dss_div_calc_func func, void *data);
+
+/* DSS DPLL */
+struct pll_data *dss_dpll_get_pll_data(int id);
+int dss_dpll_init(struct platform_device *pdev, int id);
 
 /* SDI */
 int sdi_init_platform_driver(void) __init;
