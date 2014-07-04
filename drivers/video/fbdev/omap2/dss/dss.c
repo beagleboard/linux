@@ -34,6 +34,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/gfp.h>
 #include <linux/sizes.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 #include <linux/of.h>
 
 #include <video/omapdss.h>
@@ -73,11 +75,13 @@ struct dss_features {
 	enum omap_display_type *ports;
 	int num_ports;
 	int (*dpi_select_source)(int id, enum omap_channel channel);
+	bool pll_ext_ctrl;
 };
 
 static struct {
 	struct platform_device *pdev;
 	void __iomem    *base;
+	struct regmap	*syscon;
 
 	struct clk	*parent_clk;
 	struct clk	*dss_clk;
@@ -157,6 +161,89 @@ static void dss_restore_context(void)
 
 #undef SR
 #undef RR
+
+#define CTRL_CORE_DSS_PLL_CONTROL_OFF	0x538
+
+void dss_ctrl_pll_enable(int pll_id, bool enable)
+{
+	if (!dss.syscon)
+		return;
+
+	regmap_update_bits(dss.syscon, CTRL_CORE_DSS_PLL_CONTROL_OFF,
+		1 << pll_id, !enable);
+}
+
+void dss_ctrl_hdmi_pll_enable(bool enable)
+{
+	if (!dss.syscon)
+		return;
+
+	regmap_update_bits(dss.syscon, CTRL_CORE_DSS_PLL_CONTROL_OFF,
+		1 << 2, !enable);
+}
+
+void dss_ctrl_pll_set_control_mux(int pll_id, enum omap_channel channel)
+{
+	u8 shift, val;
+
+	if (!dss.syscon)
+		return;
+
+	switch (channel) {
+	case OMAP_DSS_CHANNEL_LCD:
+		shift = 3;
+
+		switch (pll_id) {
+		case 0:
+			val = 0; break;
+		case 2:
+			val = 1; break;
+		default:
+			DSSERR("error in PLL mux config for LCD\n");
+			return;
+		}
+
+		break;
+	case OMAP_DSS_CHANNEL_LCD2:
+		shift = 5;
+
+		switch (pll_id) {
+		case 0:
+			val = 0; break;
+		case 1:
+			val = 1; break;
+		case 2:
+			val = 2; break;
+		default:
+			DSSERR("error in PLL mux config for LCD2\n");
+			return;
+		}
+
+		break;
+	case OMAP_DSS_CHANNEL_LCD3:
+		shift = 7;
+
+		switch (pll_id) {
+		case 0:
+			val = 1; break;
+		case 1:
+			val = 0; break;
+		case 2:
+			val = 2; break;
+		default:
+			DSSERR("error in PLL mux config for LCD3\n");
+			return;
+		}
+
+		break;
+	default:
+		DSSERR("error in PLL mux config\n");
+		return;
+	}
+
+	regmap_update_bits(dss.syscon, CTRL_CORE_DSS_PLL_CONTROL_OFF,
+		0x3 << shift, val);
+}
 
 void dss_sdi_init(int datapairs)
 {
@@ -723,6 +810,7 @@ static const struct dss_features omap24xx_dss_feats __initconst = {
 	.dpi_select_source	=	&dss_dpi_select_source_omap2_omap3,
 	.ports			=	omap2plus_ports,
 	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
 };
 
 static const struct dss_features omap34xx_dss_feats __initconst = {
@@ -732,6 +820,7 @@ static const struct dss_features omap34xx_dss_feats __initconst = {
 	.dpi_select_source	=	&dss_dpi_select_source_omap2_omap3,
 	.ports			=	omap34xx_ports,
 	.num_ports		=	ARRAY_SIZE(omap34xx_ports),
+	.pll_ext_ctrl		=	false,
 };
 
 static const struct dss_features omap3630_dss_feats __initconst = {
@@ -741,6 +830,7 @@ static const struct dss_features omap3630_dss_feats __initconst = {
 	.dpi_select_source	=	&dss_dpi_select_source_omap2_omap3,
 	.ports			=	omap2plus_ports,
 	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
 };
 
 static const struct dss_features omap44xx_dss_feats __initconst = {
@@ -750,6 +840,7 @@ static const struct dss_features omap44xx_dss_feats __initconst = {
 	.dpi_select_source	=	&dss_dpi_select_source_omap4,
 	.ports			=	omap2plus_ports,
 	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
 };
 
 static const struct dss_features omap54xx_dss_feats __initconst = {
@@ -759,6 +850,7 @@ static const struct dss_features omap54xx_dss_feats __initconst = {
 	.dpi_select_source	=	&dss_dpi_select_source_omap5,
 	.ports			=	omap2plus_ports,
 	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
 };
 
 static const struct dss_features am43xx_dss_feats __initconst = {
@@ -768,6 +860,7 @@ static const struct dss_features am43xx_dss_feats __initconst = {
 	.dpi_select_source	=	&dss_dpi_select_source_omap2_omap3,
 	.ports			=	omap2plus_ports,
 	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
 };
 
 static const struct dss_features dra74x_dss_feats __initconst = {
@@ -777,6 +870,7 @@ static const struct dss_features dra74x_dss_feats __initconst = {
 	.dpi_select_source	=	&dss_dpi_select_source_dra7xx,
 	.ports			=	dra7xx_ports,
 	.num_ports		=	ARRAY_SIZE(dra7xx_ports),
+	.pll_ext_ctrl		=	true,
 };
 
 static int __init dss_init_features(struct platform_device *pdev)
@@ -923,6 +1017,7 @@ static void __exit dss_uninit_ports(struct platform_device *pdev)
 static int __init omap_dsshw_probe(struct platform_device *pdev)
 {
 	struct resource *dss_mem;
+	struct device_node *np = pdev->dev.of_node;
 	u32 rev;
 	int r;
 
@@ -978,6 +1073,14 @@ static int __init omap_dsshw_probe(struct platform_device *pdev)
 	dss.lcd_clk_source[1] = OMAP_DSS_CLK_SRC_FCK;
 
 	dss_init_ports(pdev);
+
+	if (dss.feat->pll_ext_ctrl) {
+		dss.syscon = syscon_regmap_lookup_by_phandle(np, "syscon");
+		if (!dss.syscon) {
+			dev_err(&pdev->dev, "failed to get regmap\n");
+			return -ENODEV;
+		}
+	}
 
 	rev = dss_read_reg(DSS_REVISION);
 	printk(KERN_INFO "OMAP DSS rev %d.%d\n",
