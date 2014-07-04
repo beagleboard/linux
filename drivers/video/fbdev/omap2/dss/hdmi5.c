@@ -164,6 +164,8 @@ static int hdmi_pll_enable(struct pll_data *pll, struct hdmi_wp_data *wp,
 {
 	u16 r = 0;
 
+	dss_ctrl_hdmi_pll_enable(true);
+
 	r = hdmi_wp_set_pll_pwr(wp, HDMI_PLLPWRCMD_ALLOFF);
 	if (r)
 		return r;
@@ -192,6 +194,8 @@ static int hdmi_pll_enable(struct pll_data *pll, struct hdmi_wp_data *wp,
 static void hdmi_pll_disable(struct hdmi_wp_data *wp)
 {
 	hdmi_wp_set_pll_pwr(wp, HDMI_PLLPWRCMD_ALLOFF);
+
+	dss_ctrl_hdmi_pll_enable(false);
 }
 
 static int hdmi_power_on_core(struct omap_dss_device *dssdev)
