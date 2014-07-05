@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/wait.h>
+#include <linux/poll.h>
 
 #include <linux/platform_device.h>
 #include <linux/miscdevice.h>
@@ -130,8 +131,8 @@ struct beaglelogicdev {
 	ccontext *cxt_pru;
 
 	/* Device capabilities */
-	u32 bufunitsize;  	/* Size of 1 Allocation unit */
 	u32 maxbufcount;	/* Max buffer count supported by the PRU FW */
+	u32 bufunitsize;  	/* Size of 1 Allocation unit */
 	u32 samplerate; 	/* Sample rate = 100 / n MHz, n = 2+ (int) */
 	u32 triggerflags;	/* bit 0 : 1shot/!continuous */
 	u32 sampleunit; 	/* 0:8bits, 1:16bits */
@@ -153,7 +154,7 @@ typedef struct bufreader {
 		struct beaglelogicdev, miscdev)
 
 #define DRV_NAME	"beaglelogic"
-#define DRV_VERSION	"1.0"
+#define DRV_VERSION	"1.1"
 
 /* Begin Buffer Management section */
 static int bufunitsize = 4 * 1024 * 1024;
@@ -348,7 +349,7 @@ u32 beaglelogic_get_samplerate(struct device *dev)
 int beaglelogic_set_samplerate(struct device *dev, u32 samplerate)
 {
 	struct beaglelogicdev *bldev = dev_get_drvdata(dev);
-	if (samplerate > bldev->coreclockfreq / 2 || samplerate < 100000)
+	if (samplerate > bldev->coreclockfreq / 2 || samplerate < 1)
 		return -EINVAL;
 
 	if (mutex_trylock(&bldev->mutex)) {
@@ -527,14 +528,17 @@ static int beaglelogic_f_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = reader;
 
-	/* Map and submit all the buffers */
-	if (beaglelogic_map_and_submit_all_buffers(dev))
+	/* The buffers will be mapped/resubmitted at the time of allocation
+	 * Here, we just map the first buffer */
+	if (!bldev->buffers)
 		return -ENOMEM;
+
+	beaglelogic_map_buffer(dev, &bldev->buffers[0]);
 
 	return 0;
 }
 
-/* Read the sample (ring) buffer. TODO Implement Nonblock */
+/* Read the sample (ring) buffer. */
 ssize_t beaglelogic_f_read (struct file *filp, char __user *buf,
                           size_t sz, loff_t *offset)
 {
@@ -546,46 +550,55 @@ ssize_t beaglelogic_f_read (struct file *filp, char __user *buf,
 	if (bldev->state == STATE_BL_ERROR)
 		return -EIO;
 
-	if (reader->remaining > 0)
+	if (reader->pos > 0)
 		goto perform_copy;
 
-	if (reader->buf) {
-		if (bldev->state == STATE_BL_INITIALIZED &&
-				bldev->lastbufready == reader->buf)
+	if (reader->buf == NULL) {
+		/* First time init */
+		reader->buf = &reader->bldev->buffers[0];
+		reader->remaining = reader->buf->size;
+
+		if (bldev->state != STATE_BL_RUNNING) {
+			/* Start the capture */
+			if (beaglelogic_start(dev))
+				return -ENOEXEC;
+		}
+	} else {
+		/* EOF Condition, back to buffer 0 and stopped */
+		if (reader->buf == bldev->buffers &&
+				bldev->state == STATE_BL_INITIALIZED)
 			return 0;
-
-		reader->buf = reader->buf->next;
 	}
-	else {
-		/* (re)trigger */
-		if (beaglelogic_start(dev))
-			return -ENOEXEC;
 
-		reader->buf = &bldev->buffers[0];
-	}
-	reader->pos = 0;
-	reader->remaining = reader->buf->size;
-
-	dev_dbg(dev, "waiting for IRQ\n");
-	wait_event_interruptible(bldev->wait,
-			reader->buf->state == STATE_BL_BUF_UNMAPPED);
-	dev_dbg(dev, "got IRQ\n");
+	if (filp->f_flags & O_NONBLOCK) {
+		if (reader->buf->state != STATE_BL_BUF_UNMAPPED)
+			return -EAGAIN;
+	} else
+		wait_event_interruptible(bldev->wait,
+				reader->buf->state == STATE_BL_BUF_UNMAPPED);
 perform_copy:
 	count = min(reader->remaining, sz);
 
+	if (copy_to_user(buf, reader->buf->buf + reader->pos, count))
+		return -EFAULT;
+
 	/* Detect buffer drop */
 	if (reader->buf->state == STATE_BL_BUF_MAPPED) {
-		dev_warn(dev, "buffer dropped at index %d \n",
+		dev_warn(dev, "buffer may be dropped at index %d \n",
 				reader->buf->index);
 		reader->buf->state = STATE_BL_BUF_DROPPED;
 		bldev->lasterror = 0x10000 | reader->buf->index;
 	}
 
-	if (copy_to_user(buf, reader->buf->buf + reader->pos, count))
-		return -EFAULT;
-
 	reader->pos += count;
 	reader->remaining -= count;
+
+	if (reader->remaining == 0) {
+		/* Change the buffer */
+		reader->buf = reader->buf->next;
+		reader->pos = 0;
+		reader->remaining = reader->buf->size;
+	}
 
 	return count;
 }
@@ -626,7 +639,7 @@ static long beaglelogic_f_ioctl(struct file *filp, unsigned int cmd,
 
 	u32 val;
 
-	dev_info(dev, "BeagleLogic: IOCTL called cmd = %08X, "\
+	dev_dbg(dev, "BeagleLogic: IOCTL called cmd = %08X, "\
 			"arg = %08lX\n", cmd, arg);
 
 	switch (cmd) {
@@ -710,6 +723,11 @@ static long beaglelogic_f_ioctl(struct file *filp, unsigned int cmd,
 			return 0;
 
 		case IOCTL_BL_START:
+			/* Reset and reconfigure the reader object and then start */
+			reader->buf = &bldev->buffers[0];
+			reader->pos = 0;
+			reader->remaining = reader->buf->size;
+
 			beaglelogic_start(dev);
 			return 0;
 
@@ -725,7 +743,36 @@ static long beaglelogic_f_ioctl(struct file *filp, unsigned int cmd,
 static loff_t beaglelogic_f_llseek(struct file *filp, loff_t offset, int whence)
 {
 	logic_buffer_reader *reader = filp->private_data;
-	struct device *dev = reader->bldev->miscdev.this_device;
+	struct beaglelogicdev *bldev = reader->bldev;
+	struct device *dev = bldev->miscdev.this_device;
+
+	loff_t i = offset;
+	u32 j;
+
+	if (whence == SEEK_CUR) {
+		while (i > 0) {
+			if (reader->buf->state == STATE_BL_BUF_MAPPED) {
+				dev_warn(dev, "buffer may be dropped at index %d \n",
+						reader->buf->index);
+				reader->buf->state = STATE_BL_BUF_DROPPED;
+				bldev->lasterror = 0x10000 | reader->buf->index;
+			}
+
+			j = min((u32)i, reader->remaining);
+			reader->pos += j;
+
+			if ((reader->remaining -= j) == 0) {
+				/* Change the buffer */
+				reader->buf = reader->buf->next;
+				reader->pos = 0;
+				reader->remaining = reader->buf->size;
+			}
+
+			i -= j;
+		}
+		return offset;
+	}
+
 	if (whence == SEEK_SET && offset == 0) {
 		/* The next read triggers the LA */
 		reader->buf = NULL;
@@ -735,8 +782,32 @@ static loff_t beaglelogic_f_llseek(struct file *filp, loff_t offset, int whence)
 		/* Stop and map the first buffer */
 		beaglelogic_stop(dev);
 		beaglelogic_map_buffer(dev, &reader->bldev->buffers[0]);
+
+		return 0;
 	}
+
 	return -EINVAL;
+}
+
+/* Poll the file descriptor */
+unsigned int beaglelogic_f_poll(struct file *filp,
+		struct poll_table_struct *tbl)
+{
+	logic_buffer_reader *reader = filp->private_data;
+	struct beaglelogicdev *bldev = reader->bldev;
+	logic_buffer *buf;
+
+	/* Raise an error if polled without starting the LA first */
+	if (reader->buf == NULL && bldev->state != STATE_BL_RUNNING)
+		return -ENOEXEC;
+
+	buf = reader->buf;
+	if (buf->state == STATE_BL_BUF_UNMAPPED)
+		return (POLLIN | POLLRDNORM);
+
+	poll_wait(filp, &bldev->wait, tbl);
+
+	return 0;
 }
 
 /* Device file close handler */
@@ -761,6 +832,7 @@ static const struct file_operations pru_beaglelogic_fops = {
 	.read = beaglelogic_f_read,
 	.llseek = beaglelogic_f_llseek,
 	.mmap = beaglelogic_f_mmap,
+	.poll = beaglelogic_f_poll,
 	.release = beaglelogic_f_release,
 };
 /* fops */
