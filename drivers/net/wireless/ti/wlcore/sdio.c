@@ -34,6 +34,8 @@
 #include <linux/wl12xx.h>
 #include <linux/pm_runtime.h>
 #include <linux/printk.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
 
 #include "wlcore.h"
 #include "wl12xx_80211.h"
@@ -214,6 +216,56 @@ static struct wl1271_if_operations sdio_ops = {
 	.set_block_size = wl1271_sdio_set_block_size,
 };
 
+#ifdef CONFIG_OF
+static struct wl12xx_platform_data *wlcore_probe_of(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct wl12xx_platform_data *pdata;
+
+	if (!np || !of_device_is_compatible(np, "ti,wlcore")) {
+		dev_err(dev, "No platform data set\n");
+		return NULL;
+	}
+
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "Can't allocate platform data\n");
+		return NULL;
+	}
+
+	pdata->irq = irq_of_parse_and_map(np, 0);
+	if (!pdata->irq) {
+		dev_err(dev, "No irq in platform data\n");
+		kfree(pdata);
+		return NULL;
+	}
+
+	return pdata;
+}
+#else
+static struct wl12xx_platform_data *wlcore_probe_of(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
+static struct wl12xx_platform_data *
+wlcore_get_platform_data(struct device *dev)
+{
+	struct wl12xx_platform_data *pdata;
+
+	pdata = wl12xx_get_platform_data();
+	if (!IS_ERR(pdata))
+		return kmemdup(pdata, sizeof(*pdata), GFP_KERNEL);
+
+	return wlcore_probe_of(dev);
+}
+
+static void wlcore_del_platform_data(struct wl12xx_platform_data *pdata)
+{
+	kfree(pdata);
+}
+
 static int wl1271_probe(struct sdio_func *func,
 				  const struct sdio_device_id *id)
 {
@@ -245,12 +297,9 @@ static int wl1271_probe(struct sdio_func *func,
 	/* Use block mode for transferring over one block size of data */
 	func->card->quirks |= MMC_QUIRK_BLKSZ_FOR_BYTE_MODE;
 
-	pdev_data.pdata = wl12xx_get_platform_data();
-	if (IS_ERR(pdev_data.pdata)) {
-		ret = PTR_ERR(pdev_data.pdata);
-		dev_err(glue->dev, "missing wlan platform data: %d\n", ret);
+	pdev_data.pdata = wlcore_get_platform_data(&func->dev);
+	if (!pdev_data.pdata)
 		goto out_free_glue;
-	}
 
 	/* if sdio can keep power while host is suspended, enable wow */
 	mmcflags = sdio_get_host_pm_caps(func);
@@ -279,7 +328,7 @@ static int wl1271_probe(struct sdio_func *func,
 	if (!glue->core) {
 		dev_err(glue->dev, "can't allocate platform_device");
 		ret = -ENOMEM;
-		goto out_free_glue;
+		goto out_free_pdata;
 	}
 
 	glue->core->dev.parent = &func->dev;
@@ -313,6 +362,9 @@ static int wl1271_probe(struct sdio_func *func,
 out_dev_put:
 	platform_device_put(glue->core);
 
+out_free_pdata:
+	wlcore_del_platform_data(pdev_data.pdata);
+
 out_free_glue:
 	kfree(glue);
 
@@ -323,11 +375,14 @@ out:
 static void wl1271_remove(struct sdio_func *func)
 {
 	struct wl12xx_sdio_glue *glue = sdio_get_drvdata(func);
+	struct wlcore_platdev_data *pdev_data = glue->core->dev.platform_data;
+	struct wl12xx_platform_data *pdata = pdev_data->pdata;
 
 	/* Undo decrement done above in wl1271_probe */
 	pm_runtime_get_noresume(&func->dev);
 
 	platform_device_unregister(glue->core);
+	wlcore_del_platform_data(pdata);
 	kfree(glue);
 }
 
