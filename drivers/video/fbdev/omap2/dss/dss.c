@@ -883,6 +883,18 @@ static const struct dss_features dra74x_dss_feats __initconst = {
 	.video2_pll		=	true,
 };
 
+static const struct dss_features dra72x_dss_feats __initconst = {
+	.fck_div_max		=	64,
+	.dss_fck_multiplier	=	1,
+	.parent_clk_name	=	"dpll_per_x2_ck",
+	.dpi_select_source	=	&dss_dpi_select_source_dra7xx,
+	.ports			=	dra7xx_ports,
+	.num_ports		=	ARRAY_SIZE(dra7xx_ports),
+	.pll_ext_ctrl		=	true,
+	.video1_pll		=	true,
+	.video2_pll		=	false,
+};
+
 static int __init dss_init_features(struct platform_device *pdev)
 {
 	const struct dss_features *src;
@@ -925,6 +937,10 @@ static int __init dss_init_features(struct platform_device *pdev)
 
 	case OMAPDSS_VER_DRA74xx:
 		src = &dra74x_dss_feats;
+		break;
+
+	case OMAPDSS_VER_DRA72xx:
+		src = &dra72x_dss_feats;
 		break;
 
 	default:

@@ -945,6 +945,7 @@ void dss_features_init(enum omapdss_version version)
 
 	case OMAPDSS_VER_OMAP5:
 	case OMAPDSS_VER_DRA74xx:
+	case OMAPDSS_VER_DRA72xx:
 		omap_current_dss_features = &omap5_dss_features;
 		break;
 
