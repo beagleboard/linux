@@ -282,6 +282,8 @@ static enum omapdss_version __init omap_display_get_version(void)
 		return OMAPDSS_VER_AM43xx;
 	else if (soc_is_dra74x())
 		return OMAPDSS_VER_DRA74xx;
+	else if (soc_is_dra72x())
+		return OMAPDSS_VER_DRA72xx;
 	else
 		return OMAPDSS_VER_UNKNOWN;
 }
