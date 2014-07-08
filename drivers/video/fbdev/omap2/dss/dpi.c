@@ -121,6 +121,18 @@ static struct pll_data *dpi_get_pll_data(enum omap_channel channel)
 			return NULL;
 	}
 
+	/* DRA72x only has VIDEO1 PLL */
+	case OMAPDSS_VER_DRA72xx:
+		switch (channel) {
+		case OMAP_DSS_CHANNEL_LCD:
+		case OMAP_DSS_CHANNEL_LCD2:
+		case OMAP_DSS_CHANNEL_LCD3:
+			dss_ctrl_pll_set_control_mux(0, channel);
+			return dss_dpll_get_pll_data(0);
+		default:
+			return NULL;
+	}
+
 	default:
 		return NULL;
 	}
@@ -634,6 +646,7 @@ static enum omap_channel dpi_get_channel(int port_num)
 		return OMAP_DSS_CHANNEL_LCD;
 
 	case OMAPDSS_VER_DRA74xx:
+	case OMAPDSS_VER_DRA72xx:
 		switch (port_num) {
 		case 2:
 			return OMAP_DSS_CHANNEL_LCD3;
