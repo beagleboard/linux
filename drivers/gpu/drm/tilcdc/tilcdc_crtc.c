@@ -38,6 +38,10 @@ struct tilcdc_crtc {
 	/* for deferred fb unref's: */
 	struct drm_flip_work unref_work;
 };
+
+static vsync_callback_t vsync_cb_handler;
+static void *vsync_cb_arg;
+
 #define to_tilcdc_crtc(x) container_of(x, struct tilcdc_crtc, base)
 
 static void unref_worker(struct drm_flip_work *work, void *val)
@@ -577,6 +581,32 @@ out:
 	pm_runtime_put_sync(dev->dev);
 }
 
+int register_vsync_cb(vsync_callback_t handler, void *arg, int idx)
+{
+	if ((vsync_cb_handler == NULL) && (vsync_cb_arg == NULL)) {
+		vsync_cb_arg = arg;
+		vsync_cb_handler = handler;
+	} else {
+		return -EEXIST;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(register_vsync_cb);
+
+int unregister_vsync_cb(vsync_callback_t handler, void *arg, int idx)
+{
+	if ((vsync_cb_handler == handler) && (vsync_cb_arg == arg)) {
+		vsync_cb_handler = NULL;
+		vsync_cb_arg = NULL;
+	} else {
+		return -ENXIO;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(unregister_vsync_cb);
+
 irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 {
 	struct tilcdc_crtc *tilcdc_crtc = to_tilcdc_crtc(crtc);
@@ -611,6 +641,10 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 		tilcdc_crtc->event = NULL;
 		if (event)
 			drm_send_vblank_event(dev, 0, event);
+
+		if (vsync_cb_handler)
+			vsync_cb_handler(vsync_cb_arg);
+
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 
 		if (dirty && !tilcdc_crtc->dirty)
