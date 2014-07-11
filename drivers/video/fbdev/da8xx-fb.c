@@ -27,6 +27,7 @@
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
 #include <linux/pm_runtime.h>
+#include <linux/suspend.h>
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 #include <linux/clk.h>
@@ -1367,6 +1368,14 @@ static int fb_probe(struct platform_device *device)
 
 	pm_runtime_enable(&device->dev);
 	pm_runtime_get_sync(&device->dev);
+
+	/*
+	 * disable creation of new console during suspend.
+	 * this works around a problem where a ctrl-c is needed
+	 * to be entered on the VT to actually get the device
+	 * to continue into the suspend state.
+	 */
+	pm_set_vt_switch(0);
 
 	/* Determine LCD IP Version */
 	switch (lcdc_read(LCD_PID_REG)) {
