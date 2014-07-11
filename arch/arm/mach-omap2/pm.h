@@ -81,11 +81,14 @@ extern unsigned int omap3_do_wfi_sz;
 /* ... and its pointer from SRAM after copy */
 extern void (*omap3_do_wfi_sram)(void);
 
-/* 33xx */
+/* 33xx am33xx_do_wfi function pointer and size, for copy to SRAM */
 struct wkup_m3_pm_ipc_ops;
 void am33xx_pm_set_ipc_ops(struct wkup_m3_pm_ipc_ops *ops);
+extern void am33xx_do_wfi(void);
+extern unsigned int am33xx_do_wfi_sz;
+extern unsigned int am33xx_resume_offset;
+extern unsigned long am33xx_emif_sram_table;
 
->>>>>>> 839ba7c7... pm33xx: add am33xx_pm_set_ipc_ops for use by pdata_quirks
 /* save_secure_ram_context function pointer and size, for copy to SRAM */
 extern int save_secure_ram_context(u32 *addr);
 extern unsigned int save_secure_ram_context_sz;
