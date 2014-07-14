@@ -520,10 +520,9 @@ int __init of_prcm_init(void)
 		mem = of_iomap(np, 0);
 		clk_memmaps[memmap_index] = mem;
 		ti_dt_clk_init_provider(np, memmap_index);
+		ti_dt_clockdomains_setup(np);
 		memmap_index++;
 	}
-
-	ti_dt_clockdomains_setup();
 
 	return 0;
 }

@@ -292,7 +292,7 @@ void omap2xxx_clkt_vps_init(void);
 void __iomem *ti_clk_get_reg_addr(struct device_node *node, int index);
 void ti_dt_clocks_register(struct ti_dt_clk *oclks);
 void ti_dt_clk_init_provider(struct device_node *np, int index);
-void ti_dt_clockdomains_setup(void);
+void ti_dt_clockdomains_setup(struct device_node *node);
 int ti_clk_retry_init(struct device_node *node, struct clk_hw *hw,
 		      ti_of_clk_init_cb_t func);
 int of_ti_clk_autoidle_setup(struct device_node *node);
