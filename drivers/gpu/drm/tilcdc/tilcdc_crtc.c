@@ -664,6 +664,8 @@ struct drm_crtc *tilcdc_crtc_create(struct drm_device *dev)
 	tilcdc_crtc->dpms = DRM_MODE_DPMS_OFF;
 	init_waitqueue_head(&tilcdc_crtc->frame_done_wq);
 
+	pm_runtime_irq_safe(dev->dev);
+
 	ret = drm_flip_work_init(&tilcdc_crtc->unref_work, 16,
 			"unref", unref_worker);
 	if (ret) {
