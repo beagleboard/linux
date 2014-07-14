@@ -726,7 +726,7 @@ int __init omap_clk_init(void)
 	if (!omap_clk_soc_init)
 		return 0;
 
-	ret = of_scrm_init();
+	ret = of_control_init();
 	if (ret)
 		return ret;
 

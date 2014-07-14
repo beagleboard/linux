@@ -592,7 +592,27 @@ static struct of_device_id omap_scrm_dt_match_table[] = {
 	{ }
 };
 
-int __init of_scrm_init(void)
+static int __init of_scrm_init(void)
 {
 	return of_prcm_module_init(omap_scrm_dt_match_table);
+}
+
+static struct of_device_id omap_ctrl_core_dt_match_table[] = {
+	{ .compatible = "ti,dra7-ctrl-core" },
+	{ }
+};
+
+static int __init of_ctrl_core_init(void)
+{
+	return of_prcm_module_init(omap_ctrl_core_dt_match_table);
+}
+
+int __init of_control_init(void)
+{
+	int ret;
+
+	ret = of_scrm_init();
+	ret |= of_ctrl_core_init();
+
+	return ret;
 }
