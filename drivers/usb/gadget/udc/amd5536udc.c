@@ -3363,4 +3363,3 @@ module_pci_driver(udc_pci_driver);
 MODULE_DESCRIPTION(UDC_MOD_DESCRIPTION);
 MODULE_AUTHOR("Thomas Dahlmann");
 MODULE_LICENSE("GPL");
-

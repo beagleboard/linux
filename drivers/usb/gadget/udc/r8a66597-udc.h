@@ -287,4 +287,3 @@ static inline void r8a66597_sudmac_write(struct r8a66597 *r8a66597, u32 val,
 	disable_pipe_irq(r8a66597, pipenum, NRDYENB)
 
 #endif	/* __R8A66597_H__ */
-

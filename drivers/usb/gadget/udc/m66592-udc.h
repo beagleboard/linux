@@ -602,5 +602,3 @@ static inline void m66592_write_fifo(struct m66592 *m66592,
 }
 
 #endif	/* ifndef __M66592_UDC_H__ */
-
-
