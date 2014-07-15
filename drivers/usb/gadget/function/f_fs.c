@@ -2489,7 +2489,7 @@ static int _ffs_name_dev(struct ffs_dev *dev, const char *name)
 	existing = _ffs_find_dev(name);
 	if (existing)
 		return -EBUSY;
-	
+
 	dev->name = name;
 
 	return 0;
@@ -2572,7 +2572,7 @@ static void ffs_release_dev(struct ffs_data *ffs_data)
 	ffs_dev = ffs_data->private_data;
 	if (ffs_dev)
 		ffs_dev->mounted = false;
-	
+
 	if (ffs_dev->ffs_release_dev_callback)
 		ffs_dev->ffs_release_dev_callback(ffs_dev);
 

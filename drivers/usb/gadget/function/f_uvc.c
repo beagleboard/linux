@@ -833,4 +833,3 @@ error:
 
 module_param_named(trace, uvc_gadget_trace_param, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(trace, "Trace level bitmask");
-

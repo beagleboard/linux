@@ -391,4 +391,3 @@ uvc_video_init(struct uvc_video *video)
 	uvc_queue_init(&video->queue, V4L2_BUF_TYPE_VIDEO_OUTPUT);
 	return 0;
 }
-

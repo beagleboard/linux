@@ -60,4 +60,3 @@ static inline int uvc_queue_streaming(struct uvc_video_queue *queue)
 #endif /* __KERNEL__ */
 
 #endif /* _UVC_QUEUE_H_ */
-
