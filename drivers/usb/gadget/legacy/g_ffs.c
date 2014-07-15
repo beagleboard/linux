@@ -277,7 +277,7 @@ static void *functionfs_acquire_dev(struct ffs_dev *dev)
 {
 	if (!try_module_get(THIS_MODULE))
 		return ERR_PTR(-ENODEV);
-	
+
 	return 0;
 }
 
@@ -287,7 +287,7 @@ static void functionfs_release_dev(struct ffs_dev *dev)
 }
 
 /*
- * The caller of this function takes ffs_lock 
+ * The caller of this function takes ffs_lock
  */
 static int functionfs_ready_callback(struct ffs_data *ffs)
 {
@@ -304,12 +304,12 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 	ret = usb_composite_probe(&gfs_driver);
 	if (unlikely(ret < 0))
 		gfs_registered = false;
-	
+
 	return ret;
 }
 
 /*
- * The caller of this function takes ffs_lock 
+ * The caller of this function takes ffs_lock
  */
 static void functionfs_closed_callback(struct ffs_data *ffs)
 {

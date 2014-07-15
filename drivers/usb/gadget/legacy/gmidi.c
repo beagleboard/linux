@@ -174,4 +174,3 @@ static void __exit midi_cleanup(void)
 	usb_composite_unregister(&midi_driver);
 }
 module_exit(midi_cleanup);
-
