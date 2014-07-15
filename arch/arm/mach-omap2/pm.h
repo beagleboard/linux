@@ -40,6 +40,7 @@ extern int omap3_opp_init(void);
 extern int omap4_opp_init(void);
 extern int am33xx_opp_init(void);
 extern int am43xx_opp_init(void);
+extern int dra7xx_opp_init(void);
 #else
 static inline int omap3_opp_init(void)
 {
@@ -54,6 +55,10 @@ static inline int am33xx_opp_init(void)
 	return -EINVAL;
 }
 static inline int am43xx_opp_init(void)
+{
+	return -EINVAL;
+}
+static inline int dra7xx_opp_init(void)
 {
 	return -EINVAL;
 }
