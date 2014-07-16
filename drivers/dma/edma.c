@@ -722,10 +722,10 @@ static struct dma_async_tx_descriptor *edma_prep_dma_cyclic(
 		edesc->absync = ret;
 
 		/*
-		 * Enable interrupts for every period because callback
-		 * has to be called for every period.
+		 * Enable period interrupt only if it is requested
 		 */
-		edesc->pset[i].param.opt |= TCINTEN;
+		if (tx_flags & DMA_PREP_INTERRUPT)
+			edesc->pset[i].param.opt |= TCINTEN;
 	}
 
 	/* Place the cyclic channel to highest priority queue */
