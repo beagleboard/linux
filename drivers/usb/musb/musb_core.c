@@ -857,7 +857,8 @@ b_host:
 
 	/* handle babble condition */
 	if (int_usb & MUSB_INTR_BABBLE && is_host_active(musb))
-		schedule_work(&musb->recover_work);
+		schedule_delayed_work(&musb->recover_work,
+				      msecs_to_jiffies(100));
 
 #if 0
 /* REVISIT ... this would be for multiplexing periodic endpoints, or
@@ -1762,16 +1763,16 @@ static void musb_irq_work(struct work_struct *data)
 /* Recover from babble interrupt conditions */
 static void musb_recover_work(struct work_struct *data)
 {
-	struct musb *musb = container_of(data, struct musb, recover_work);
+	struct musb *musb = container_of(data, struct musb, recover_work.work);
 	int status;
 
 	musb_platform_reset(musb);
 
 	usb_phy_vbus_off(musb->xceiv);
-	udelay(100);
+	usleep_range(100, 200);
 
 	usb_phy_vbus_on(musb->xceiv);
-	udelay(100);
+	usleep_range(100, 200);
 
 	/*
 	 * When a babble condition occurs, the musb controller removes the
@@ -1946,7 +1947,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	musb_platform_disable(musb);
 	musb_generic_disable(musb);
 
-	INIT_WORK(&musb->recover_work, musb_recover_work);
+	INIT_DELAYED_WORK(&musb->recover_work, musb_recover_work);
 
 	/* setup musb parts of the core (especially endpoints) */
 	status = musb_core_init(plat->config->multipoint
@@ -2054,7 +2055,7 @@ fail4:
 		musb_gadget_cleanup(musb);
 
 fail3:
-	cancel_work_sync(&musb->recover_work);
+	cancel_delayed_work_sync(&musb->recover_work);
 	pm_runtime_put_sync(musb->controller);
 
 fail2:
@@ -2119,7 +2120,7 @@ static int musb_remove(struct platform_device *pdev)
 	musb_exit_debugfs(musb);
 	musb_shutdown(pdev);
 
-	cancel_work_sync(&musb->recover_work);
+	cancel_delayed_work_sync(&musb->recover_work);
 	musb_free(musb);
 	iounmap(ctrl_base);
 	device_init_wakeup(dev, 0);
