@@ -114,6 +114,16 @@
 		>;
 	};
 
+	mcasp0_pins: mcasp0_pins {
+		pinctrl-single,pins = <
+			0x1ac 0x00	/* mcasp0_ahclkx, OUTPUT | MODE0, Codec MCLK */
+			0x194 0x20	/* mcasp0_fsx, INPUT | MODE0, Codec WCLK */
+			0x190 0x20	/* mcasp0_aclkx, INPUT | MODE0, Codec BCLK */
+			0x198 0x20	/* mcasp0_axr0, INPUT | MODE0, Codec DOUT */
+			0x19c 0x22	/* mcasp0_axr2, INPUT | MODE2, Codec DIN */
+		>;
+	};
+
 	mmc1_pins_default: pinmux_mmc1_pins {
 		pinctrl-single,pins = <
 			0x0F0 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc0_dat3.mmc0_dat3 */
