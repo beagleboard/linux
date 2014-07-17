@@ -38,4 +38,24 @@
 			reg = <1>;
 		};
 	};
+
+	ocp {
+		mmu0_dsp2: mmu@41501000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x41501000 0x100>, <0x41500000 0x100>;
+			reg-names = "mmu_cfg", "dsp_system";
+			interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu0_dsp2";
+			status = "disabled";
+		};
+
+		mmu1_dsp2: mmu@41502000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x41502000 0x100>, <0x41500000 0x100>;
+			reg-names = "mmu_cfg", "dsp_system";
+			interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu1_dsp2";
+			status = "disabled";
+		};
+	};
 };
