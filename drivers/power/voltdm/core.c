@@ -182,7 +182,7 @@ static int voltdm_get(struct voltdm_scale_data *vsd, struct device_node *np,
 		if (IS_ERR(vsd->reg))
 			ret = PTR_ERR(vsd->reg);
 		/* Regulator is not mandatory */
-		if (ret != -EPROBE_DEFER) {
+		if (ret && ret != -EPROBE_DEFER) {
 			ret = 0;
 			*skip_reg = true;
 			dev_dbg(dev, "%s: Failed to get %s regulator:%d\n",
