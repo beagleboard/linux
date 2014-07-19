@@ -219,6 +219,39 @@ static struct omap_hwmod dra7xx_bb2d_hwmod = {
 };
 
 /*
+ * 'vpe' class
+ *
+ */
+
+static struct omap_hwmod_class_sysconfig dra7xx_vpe_sysc = {
+	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_MIDLEMODE | SYSC_HAS_SIDLEMODE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   SIDLE_SMART_WKUP | MSTANDBY_FORCE | MSTANDBY_NO |
+			   MSTANDBY_SMART | MSTANDBY_SMART_WKUP),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
+};
+
+static struct omap_hwmod_class dra7xx_vpe_hwmod_class = {
+	.name	= "vpe",
+	.sysc	= &dra7xx_vpe_sysc,
+};
+
+/* vpe */
+static struct omap_hwmod dra7xx_vpe_hwmod = {
+	.name		= "vpe",
+	.class		= &dra7xx_vpe_hwmod_class,
+	.clkdm_name	= "vpe_clkdm",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_VPE_VPE_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_VPE_VPE_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_HWCTRL,
+		},
+	},
+};
+
+/*
  * 'counter' class
  *
  */
@@ -1267,6 +1300,82 @@ static struct omap_hwmod dra7xx_ocp2scp3_hwmod = {
 			.clkctrl_offs = DRA7XX_CM_L3INIT_OCP2SCP3_CLKCTRL_OFFSET,
 			.context_offs = DRA7XX_RM_L3INIT_OCP2SCP3_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_HWCTRL,
+		},
+	},
+};
+
+/*
+ * 'PCIE' class
+ *
+ */
+
+static struct omap_hwmod_class dra7xx_pcie_hwmod_class = {
+	.name	= "pcie",
+};
+
+/* pcie1 */
+static struct omap_hwmod dra7xx_pcie1_hwmod = {
+	.name		= "pcie1",
+	.class		= &dra7xx_pcie_hwmod_class,
+	.clkdm_name	= "pcie_clkdm",
+	.main_clk	= "l4_root_clk_div",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs	= DRA7XX_CM_PCIE_CLKSTCTRL_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* pcie2 */
+static struct omap_hwmod dra7xx_pcie2_hwmod = {
+	.name		= "pcie2",
+	.class		= &dra7xx_pcie_hwmod_class,
+	.clkdm_name	= "pcie_clkdm",
+	.main_clk	= "l4_root_clk_div",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_PCIE_CLKSTCTRL_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/*
+ * 'PCIE PHY' class
+ *
+ */
+
+static struct omap_hwmod_class dra7xx_pcie_phy_hwmod_class = {
+	.name	= "pcie-phy",
+};
+
+/* pcie1 phy */
+static struct omap_hwmod dra7xx_pcie1_phy_hwmod = {
+	.name		= "pcie1-phy",
+	.class		= &dra7xx_pcie_phy_hwmod_class,
+	.clkdm_name	= "l3init_clkdm",
+	.main_clk	= "l4_root_clk_div",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_L3INIT_PCIESS1_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_L3INIT_PCIESS1_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* pcie2 phy */
+static struct omap_hwmod dra7xx_pcie2_phy_hwmod = {
+	.name		= "pcie2-phy",
+	.class		= &dra7xx_pcie_phy_hwmod_class,
+	.clkdm_name	= "l3init_clkdm",
+	.main_clk	= "l4_root_clk_div",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_L3INIT_PCIESS2_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_L3INIT_PCIESS2_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
 };
@@ -2411,6 +2520,54 @@ static struct omap_hwmod_ocp_if dra7xx_l4_cfg__ocp2scp3 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* l3_main_1 -> pcie1 */
+static struct omap_hwmod_ocp_if dra7xx_l3_main_1__pcie1 = {
+	.master		= &dra7xx_l3_main_1_hwmod,
+	.slave		= &dra7xx_pcie1_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_cfg -> pcie1 */
+static struct omap_hwmod_ocp_if dra7xx_l4_cfg__pcie1 = {
+	.master		= &dra7xx_l4_cfg_hwmod,
+	.slave		= &dra7xx_pcie1_hwmod,
+	.clk		= "l4_root_clk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l3_main_1 -> pcie2 */
+static struct omap_hwmod_ocp_if dra7xx_l3_main_1__pcie2 = {
+	.master		= &dra7xx_l3_main_1_hwmod,
+	.slave		= &dra7xx_pcie2_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_cfg -> pcie2 */
+static struct omap_hwmod_ocp_if dra7xx_l4_cfg__pcie2 = {
+	.master		= &dra7xx_l4_cfg_hwmod,
+	.slave		= &dra7xx_pcie2_hwmod,
+	.clk		= "l4_root_clk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_cfg -> pcie1 phy */
+static struct omap_hwmod_ocp_if dra7xx_l4_cfg__pcie1_phy = {
+	.master		= &dra7xx_l4_cfg_hwmod,
+	.slave		= &dra7xx_pcie1_phy_hwmod,
+	.clk		= "l4_root_clk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_cfg -> pcie2 phy */
+static struct omap_hwmod_ocp_if dra7xx_l4_cfg__pcie2_phy = {
+	.master		= &dra7xx_l4_cfg_hwmod,
+	.slave		= &dra7xx_pcie2_phy_hwmod,
+	.clk		= "l4_root_clk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 static struct omap_hwmod_addr_space dra7xx_qspi_addrs[] = {
 	{
 		.pa_start	= 0x4b300000,
@@ -2702,6 +2859,14 @@ static struct omap_hwmod_ocp_if dra7xx_l4_per2__vcp2 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* l4_per3 -> vpe */
+static struct omap_hwmod_ocp_if dra7xx_l4_per3__vpe = {
+	.master		= &dra7xx_l4_per3_hwmod,
+	.slave		= &dra7xx_vpe_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /* l4_wkup -> wd_timer2 */
 static struct omap_hwmod_ocp_if dra7xx_l4_wkup__wd_timer2 = {
 	.master		= &dra7xx_l4_wkup_hwmod,
@@ -2760,6 +2925,12 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_cfg__mpu,
 	&dra7xx_l4_cfg__ocp2scp1,
 	&dra7xx_l4_cfg__ocp2scp3,
+	&dra7xx_l3_main_1__pcie1,
+	&dra7xx_l4_cfg__pcie1,
+	&dra7xx_l3_main_1__pcie2,
+	&dra7xx_l4_cfg__pcie2,
+	&dra7xx_l4_cfg__pcie1_phy,
+	&dra7xx_l4_cfg__pcie2_phy,
 	&dra7xx_l3_main_1__qspi,
 	&dra7xx_l4_cfg__sata,
 	&dra7xx_l4_cfg__smartreflex_core,
@@ -2789,6 +2960,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per2__vcp1,
 	&dra7xx_l3_main_1__vcp2,
 	&dra7xx_l4_per2__vcp2,
+	&dra7xx_l4_per3__vpe,
 	&dra7xx_l4_wkup__wd_timer2,
 	NULL,
 };

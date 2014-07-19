@@ -363,7 +363,7 @@ static int omap_crtc_page_flip_locked(struct drm_crtc *crtc,
 	}
 
 	omap_crtc->event = event;
-	omap_crtc->old_fb = fb;
+	omap_crtc->old_fb = crtc->fb = fb;
 
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 

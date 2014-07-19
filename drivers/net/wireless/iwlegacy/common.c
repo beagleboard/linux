@@ -4701,7 +4701,8 @@ out:
 }
 EXPORT_SYMBOL(il_mac_change_interface);
 
-void il_mac_flush(struct ieee80211_hw *hw, u32 queues, bool drop)
+void il_mac_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		  u32 queues, bool drop)
 {
 	struct il_priv *il = hw->priv;
 	unsigned long timeout = jiffies + msecs_to_jiffies(500);
