@@ -21,13 +21,6 @@
 			compatible = "arm,cortex-a15";
 			reg = <0>;
 
-			operating-points = <
-				/* kHz    uV */
-				1000000	1060000
-				1176000	1160000
-				1500000	1210000
-				>;
-
 			clocks = <&dpll_mpu_ck>;
 			clock-names = "cpu";
 
