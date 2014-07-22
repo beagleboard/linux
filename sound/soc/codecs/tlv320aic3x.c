@@ -879,6 +879,7 @@ static int aic3x_hw_params(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_FORMAT_S20_3LE:
 		data |= (0x01 << 4);
 		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
 	case SNDRV_PCM_FORMAT_S24_LE:
 		data |= (0x02 << 4);
 		break;
@@ -1194,7 +1195,8 @@ static int aic3x_set_bias_level(struct snd_soc_codec *codec,
 
 #define AIC3X_RATES	SNDRV_PCM_RATE_8000_96000
 #define AIC3X_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE | \
-			 SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S32_LE)
+			 SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S24_LE | \
+			 SNDRV_PCM_FMTBIT_S32_LE)
 
 static const struct snd_soc_dai_ops aic3x_dai_ops = {
 	.hw_params	= aic3x_hw_params,
@@ -1484,10 +1486,8 @@ static int aic3x_i2c_probe(struct i2c_client *i2c,
 	u32 value;
 
 	aic3x = devm_kzalloc(&i2c->dev, sizeof(struct aic3x_priv), GFP_KERNEL);
-	if (aic3x == NULL) {
-		dev_err(&i2c->dev, "failed to create private data\n");
+	if (!aic3x)
 		return -ENOMEM;
-	}
 
 	aic3x->regmap = devm_regmap_init_i2c(i2c, &aic3x_regmap);
 	if (IS_ERR(aic3x->regmap)) {
@@ -1505,10 +1505,8 @@ static int aic3x_i2c_probe(struct i2c_client *i2c,
 	} else if (np) {
 		ai3x_setup = devm_kzalloc(&i2c->dev, sizeof(*ai3x_setup),
 								GFP_KERNEL);
-		if (ai3x_setup == NULL) {
-			dev_err(&i2c->dev, "failed to create private data\n");
+		if (!ai3x_setup)
 			return -ENOMEM;
-		}
 
 		ret = of_get_named_gpio(np, "gpio-reset", 0);
 		if (ret >= 0)

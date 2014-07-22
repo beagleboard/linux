@@ -14,6 +14,8 @@
 #include <dt-bindings/pinctrl/am43xx.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pwm/pwm.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/sound/tlv320aic31xx-micbias.h>
 
 / {
 	model = "TI AM43x EPOS EVM";
@@ -21,6 +23,7 @@
 
 	aliases {
 		display0 = &lcd0;
+		serial3 = &uart3;
 	};
 
 	vmmcsd_fixed: fixedregulator-sd {
@@ -29,6 +32,14 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		enable-active-high;
+	};
+
+	vbat: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vbat";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
 	};
 
 	lcd0: display {
@@ -67,6 +78,28 @@
 				remote-endpoint = <&dpi_out>;
 			};
 		};
+	};
+
+	vmmcwl_fixed: fixedregulator-mmcwl {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmcwl_fixed";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio1 23 0>;
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+
+	kim {
+		compatible = "kim";
+		nshutdown_gpio = <53>; /* Bank1, pin21 */
+		dev_name = "/dev/ttyO3";
+		flow_cntrl = <1>;
+		baud_rate = <3000000>;
+	};
+
+	btwilink {
+		compatible = "btwilink";
 	};
 
 	am43xx_pinmux: pinmux@44e10800 {
@@ -181,6 +214,24 @@
 			>;
 		};
 
+		mmc2_pins: pinmux_mmc2_pins {
+			pinctrl-single,pins = <
+				0x210 (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data2.mmc1_clk  */
+				0x214 (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data3.mmc1_cmd  */
+				0x218 (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data4.mmc1_dat0 */
+				0x21c (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data5.mmc1_dat1 */
+				0x220 (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data6.mmc1_dat2 */
+				0x224 (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data7.mmc1_dat3 */
+				0x05c (PIN_OUTPUT | MUX_MODE7)            /*gpmc_a7.gpio1_23 */
+			>;
+		};
+
+		wlirq_pins: pinmux_wlirq_pins {
+			pinctrl-single,pins = <
+				0x74 (PIN_INPUT | WAKEUP_ENABLE | MUX_MODE7)   /*gpmc_wpn.gpio0_31 */
+ 			>;
+ 		};
+
 		qspi1_default: qspi1_default {
 			pinctrl-single,pins = <
 				0x7c (PIN_INPUT_PULLUP | MUX_MODE3)
@@ -243,6 +294,34 @@
 				0x08C (PIN_OUTPUT_PULLUP | MUX_MODE7)
 			>;
 		};
+
+		uart3_pins: uart3_pins {
+			pinctrl-single,pins = <
+				0x230 (PIN_INPUT | MUX_MODE0)			/* uart3_ctsn.uart3_ctsn */
+				0x234 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)		/* uart3_rtsn.uart3_rtsn */
+				0x228 (PIN_INPUT_PULLUP | MUX_MODE0)		/* uart3_rxd.uart3_rxd */
+				0x22C (PIN_OUTPUT_PULLDOWN | MUX_MODE0)		/* uart3_txd.uart3_txd */
+				0x054 (PIN_OUTPUT | MUX_MODE7)			/* gpmc_a7.gpio1_21 */
+			>;
+		};
+
+		mcasp1_pins: mcasp1_pins {
+			pinctrl-single,pins = <
+				0x1a0 (PIN_INPUT_PULLDOWN | MUX_MODE3) /* MCASP0_ACLKR/MCASP1_ACLKX */
+				0x1a4 (PIN_INPUT_PULLDOWN | MUX_MODE3) /* MCASP0_FSR/MCASP1_FSX */
+				0x1a8 (PIN_OUTPUT_PULLDOWN | MUX_MODE3)/* MCASP0_AXR1/MCASP1_AXR0 */
+				0x1ac (PIN_INPUT_PULLDOWN | MUX_MODE3) /* MCASP0_AHCLKX/MCASP1_AXR1 */
+			>;
+		};
+
+		mcasp1_sleep_pins: mcasp1_sleep_pins {
+			pinctrl-single,pins = <
+				0x1a0 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x1a4 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x1a8 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x1ac (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			>;
+		};
 	};
 
 	matrix_keypad: matrix_keypad@0 {
@@ -284,6 +363,39 @@
 		brightness-levels = <0 51 53 56 62 75 101 152 255>;
 		default-brightness-level = <8>;
 	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "AM43-EPOS-EVM";
+		simple-audio-card,widgets =
+			"Microphone", "Microphone Jack",
+			"Headphone", "Headphone Jack",
+			"Speaker", "Speaker";
+		simple-audio-card,routing =
+			"MIC1LP", "Microphone Jack",
+			"MIC1RP", "Microphone Jack",
+			"MIC1LP", "MICBIAS",
+			"MIC1RP", "MICBIAS",
+			"Headphone Jack", "HPL",
+			"Headphone Jack", "HPR",
+			"Speaker", "SPL",
+			"Speaker", "SPR";
+		simple-audio-card,format = "dsp_b";
+		simple-audio-card,bitclock-master = <&link0_codec>;
+		simple-audio-card,frame-master = <&link0_codec>;
+		simple-audio-card,bitclock-inversion;
+
+		simple-audio-card,cpu {
+			sound-dai = <&mcasp1>;
+			system-clock-frequency = <12000000>;
+		};
+
+		link0_codec: simple-audio-card,codec {
+			sound-dai = <&tlv320aic3111>;
+			system-clock-frequency = <12000000>;
+		};
+	};
+
 };
 
 &mmc1 {
@@ -293,6 +405,26 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc1_pins>;
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+};
+
+&mmc2 {
+	status = "okay";
+	vmmc-supply = <&vmmcwl_fixed>;
+	bus-width = <4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc2_pins &wlirq_pins>;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,non-removable;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@0 {
+		compatible = "ti,wlcore";
+		reg = <2>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <31 IRQ_TYPE_NONE>;
+	};
 };
 
 &mac {
@@ -364,6 +496,15 @@
 			regulator-always-on;
 		};
 
+		dcdc4: regulator-dcdc4 {
+			compatible = "ti,tps65218-dcdc4";
+			regulator-name = "vdcdc4";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+
 		dcdc5: regulator-dcdc5 {
 			compatible = "ti,tps65218-dcdc5";
 			regulator-name = "v1_0bat";
@@ -406,12 +547,35 @@
 		touchscreen-size-x = <1024>;
 		touchscreen-size-y = <600>;
 	};
+
+	tlv320aic3111: tlv320aic3111@18 {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3111";
+		reg = <0x18>;
+		status = "okay";
+
+		ai31xx-micbias-vg = <MICBIAS_2_0V>;
+
+		/* Regulators */
+		HPVDD-supply = <&dcdc4>; /* v3_3AUD -> V3_3D -> DCDC4 */
+		SPRVDD-supply = <&vbat>; /* vbat */
+		SPLVDD-supply = <&vbat>; /* vbat */
+		AVDD-supply = <&dcdc4>; /* v3_3AUD -> V3_3D -> DCDC4 */
+		IOVDD-supply = <&dcdc4>; /* V3_3D -> DCDC4 */
+		DVDD-supply = <&ldo1>; /* V1_8AUD -> V1_8D -> LDO1 */
+	};
 };
 
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c2_pins>;
 	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_pins>;
 };
 
 &gpio0 {
@@ -627,4 +791,22 @@
 			data-lines = <24>;
 		};
 	};
+};
+
+&mcasp1 {
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&mcasp1_pins>;
+	pinctrl-1 = <&mcasp1_sleep_pins>;
+
+	status = "okay";
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	/* 4 serializer */
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+		1 2 0 0
+	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
 };
