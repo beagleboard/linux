@@ -376,7 +376,8 @@
 };
 
 &gpio7 {
-	ti,no-reset;
+	ti,no-reset-on-init;
+	ti,no-idle-on-init;
 };
 
 &uart3 {
