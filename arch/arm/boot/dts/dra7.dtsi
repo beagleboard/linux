@@ -1145,7 +1145,7 @@
 			compatible = "ti,am3352-gpmc";
 			ti,hwmods = "gpmc";
 			reg = <0x50000000 0x37c>;      /* device IO registers */
-			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
 			gpmc,num-cs = <8>;
 			gpmc,num-waitpins = <2>;
 			#address-cells = <2>;
