@@ -65,3 +65,29 @@
 		status = "disabled";
 	};
 };
+
+&mailbox5 {
+	mbox_ipu1_legacy: mbox_ipu1_legacy {
+		ti,mbox-tx = <6 2 2>;
+		ti,mbox-rx = <4 2 2>;
+		status = "disabled";
+	};
+	mbox_dsp1_legacy: mbox_dsp1_legacy {
+		ti,mbox-tx = <5 2 2>;
+		ti,mbox-rx = <1 2 2>;
+		status = "disabled";
+	};
+};
+
+&mailbox6 {
+	mbox_ipu2_legacy: mbox_ipu2_legacy {
+		ti,mbox-tx = <6 2 2>;
+		ti,mbox-rx = <4 2 2>;
+		status = "disabled";
+	};
+	mbox_dsp2_legacy: mbox_dsp2_legacy {
+		ti,mbox-tx = <5 2 2>;
+		ti,mbox-rx = <1 2 2>;
+		status = "disabled";
+	};
+};
