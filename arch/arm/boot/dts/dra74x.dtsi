@@ -39,3 +39,29 @@
 		};
 	};
 };
+
+&mailbox1 {
+	mbox_ipu2: mbox_ipu2 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+	mbox_dsp1: mbox_dsp1 {
+		ti,mbox-tx = <3 0 0>;
+		ti,mbox-rx = <2 0 0>;
+		status = "disabled";
+	};
+};
+
+&mailbox2 {
+	mbox_ipu1: mbox_ipu1 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+	mbox_dsp2: mbox_dsp2 {
+		ti,mbox-tx = <2 0 0>;
+		ti,mbox-rx = <3 0 0>;
+		status = "disabled";
+	};
+};
