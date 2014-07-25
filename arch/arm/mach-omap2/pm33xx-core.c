@@ -93,6 +93,8 @@ static int am43xx_suspend_init(void (*do_sram_cpuidle)(u32 wfi_flags))
 		return ret;
 	}
 
+	am437x_idle_init();
+
 	ret = amx3_common_init();
 
 	return ret;

@@ -17,6 +17,7 @@
 
 #ifdef CONFIG_CPU_IDLE
 extern int am33xx_idle_init(bool ddr3, void (*do_idle)(u32 wfi_flags));
+extern int am437x_idle_init(void);
 extern int __init omap3_idle_init(void);
 extern int __init omap4_idle_init(void);
 #else

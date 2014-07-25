@@ -108,6 +108,7 @@ endif
 
 ifeq ($(CONFIG_CPU_IDLE),y)
 obj-$(CONFIG_SOC_AM33XX)                += cpuidle33xx.o
+obj-$(CONFIG_SOC_AM43XX)                += cpuidle43xx.o
 obj-$(CONFIG_ARCH_OMAP3)                += cpuidle34xx.o
 omap-4-5-idle-common			=  cpuidle44xx.o
 obj-$(CONFIG_ARCH_OMAP4)		+= $(omap-4-5-idle-common)
