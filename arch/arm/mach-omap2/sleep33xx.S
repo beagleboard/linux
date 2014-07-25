@@ -87,8 +87,6 @@ ENTRY(am33xx_do_wfi)
 
 	/* Save EMIF configuration */
 	ldr	r0, emif_addr_virt
-	ldr	r1, [r0, #EMIF_SDRAM_CONFIG]
-	str	r1, emif_sdcfg_val
 	ldr	r1, [r0, #EMIF_SDRAM_REFRESH_CONTROL]
 	str	r1, emif_ref_ctrl_val
 	ldr	r1, [r0, #EMIF_SDRAM_TIMING_1]
@@ -211,16 +209,6 @@ wait_emif_enable:
 	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CTRL_SHDW]
 
 	/*
-	 * A write to SDRAM CONFIG register triggers
-	 * an init sequence and hence it must be done
-	 * at the end for DDR2
-	 */
-	ldr r0, emif_addr_virt
-	add r0, r0, #EMIF_SDRAM_CONFIG
-	ldr r4, emif_sdcfg_val
-	str r4, [r0]
-
-	/*
 	 * Set SCTLR.C bit to allow data cache allocation
 	 */
 	mrc	p15, 0, r0, c1, c0, 0
@@ -297,20 +285,6 @@ wait_emif_enable1:
 	ldr	r1, emif_zqcfg_val
 	str	r1, [r0, #EMIF_SDRAM_OUTPUT_IMPEDANCE_CALIBRATION_CONFIG]
 
-	/* Write to SDRAM_CONFIG only for DDR2 */
-	ldr	r2, mem_type
-	cmp	r2, #MEM_TYPE_DDR2
-	bne	resume_to_ddr
-
-	/*
-	 * A write to SDRAM CONFIG register triggers
-	 * an init sequence and hence it must be done
-	 * at the end for DDR2
-	 */
-	ldr	r1, emif_sdcfg_val
-	str	r1, [r0, #EMIF_SDRAM_CONFIG]
-
-resume_to_ddr:
 	/* EMIF needs some time before read/write possible */
 	mov	r1, #EMIF_POWER_MGMT_DELAY_PERIOD
 wait_resume:
@@ -363,8 +337,6 @@ emif_timing1_val:
 emif_timing2_val:
 	.word	0xDEADBEEF
 emif_timing3_val:
-	.word	0xDEADBEEF
-emif_sdcfg_val:
 	.word	0xDEADBEEF
 emif_ref_ctrl_val:
 	.word	0xDEADBEEF
