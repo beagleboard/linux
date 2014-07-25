@@ -16,9 +16,21 @@
 #include "powerdomain.h"
 
 #ifdef CONFIG_CPU_IDLE
+extern int am33xx_idle_init(bool ddr3, void (*do_idle)(u32 wfi_flags));
 extern int __init omap3_idle_init(void);
 extern int __init omap4_idle_init(void);
 #else
+static inline int am33xx_idle_init(bool ddr3, void (*do_sram_cpuidle)
+				   (u32 wfi_flags))
+{
+	return 0;
+}
+
+static inline int am437x_idle_init(void)
+{
+	return 0;
+}
+
 static inline int omap3_idle_init(void)
 {
 	return 0;

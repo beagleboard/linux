@@ -76,6 +76,8 @@ static int am33xx_suspend_init(void (*do_sram_cpuidle)(u32 wfi_flags))
 		return -ENODEV;
 	}
 
+	am33xx_idle_init(true, do_sram_cpuidle);
+
 	ret = amx3_common_init();
 
 	return ret;
