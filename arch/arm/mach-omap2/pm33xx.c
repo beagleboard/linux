@@ -36,6 +36,7 @@
 #include <asm/system_misc.h>
 #include <asm/smp_scu.h>
 
+#include "control.h"
 #include "pm.h"
 #include "cm33xx.h"
 #include "pm33xx.h"
@@ -45,11 +46,15 @@
 #include "soc.h"
 #include "sram.h"
 
-static void __iomem *am33xx_emif_base, *scu_base;
+#ifdef CONFIG_SUSPEND
+static void __iomem *scu_base;
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
 static struct clockdomain *gfx_l4ls_clkdm;
 static struct clockdomain *l3s_clkdm, *l4fw_clkdm, *clk_24mhz_clkdm;
+#endif /* CONFIG_SUSPEND */
 
+#ifdef CONFIG_CPU_PM
+static void __iomem *am33xx_emif_base;
 static struct am33xx_pm_context *am33xx_pm;
 
 static DECLARE_COMPLETION(am33xx_pm_sync);
@@ -57,6 +62,40 @@ static DECLARE_COMPLETION(am33xx_pm_sync);
 static void (*am33xx_do_wfi_sram)(struct am33xx_suspend_params *);
 
 static struct am33xx_suspend_params susp_params;
+
+int am33xx_do_sram_cpuidle(u32 wfi_flags, u32 m3_flags)
+{
+	struct am33xx_suspend_params params;
+	int ret;
+
+	/* Start with the default flags */
+	memcpy(&params, &susp_params, sizeof(params));
+
+	/* Clear bits configurable through this call */
+	params.wfi_flags &= ~(WFI_SELF_REFRESH | WFI_WAKE_M3 | WFI_SAVE_EMIF |
+							WFI_DISABLE_EMIF);
+
+	/* Don't enter these states if the M3 isn't available */
+	if (am33xx_pm->state != M3_STATE_INITED)
+		wfi_flags &= ~WFI_WAKE_M3;
+
+	/* Set bits that have been passed */
+	params.wfi_flags |= wfi_flags;
+
+	if (wfi_flags & WFI_WAKE_M3) {
+		am33xx_pm->ipc.reg1 = IPC_CMD_IDLE;
+		am33xx_pm->ipc.reg2 = DS_IPC_DEFAULT;
+		am33xx_pm->ipc.reg3 = m3_flags;
+		am33xx_pm->ipc.reg5 = DS_IPC_DEFAULT;
+		wkup_m3_set_cmd(&am33xx_pm->ipc);
+		ret = wkup_m3_ping();
+		if (ret < 0)
+			return ret;
+	}
+
+	am33xx_do_wfi_sram(&params);
+	return 0;
+}
 
 #ifdef CONFIG_SUSPEND
 static int am33xx_do_sram_idle(unsigned long int arg)
@@ -256,6 +295,8 @@ static void am33xx_m3_ready_cb(void)
 			am33xx_pm->ver);
 	}
 
+	am33xx_idle_init(susp_params.wfi_flags & WFI_MEM_TYPE_DDR3);
+
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&am33xx_pm_ops);
 #endif /* CONFIG_SUSPEND */
@@ -291,6 +332,7 @@ static int __init am33xx_map_emif(void)
 	return 0;
 }
 
+#ifdef CONFIG_SUSPEND
 static int __init am43xx_map_scu(void)
 {
 	scu_base = ioremap(scu_a9_get_base(), SZ_256);
@@ -407,29 +449,41 @@ static struct am33xx_pm_ops am43xx_ops = {
 	.pre_suspend = am43xx_pre_suspend,
 	.post_suspend = am43xx_post_suspend,
 };
+#endif /* CONFIG_SUSPEND */
+#endif /* CONFIG_CPU_PM */
 
 int __init am33xx_pm_init(void)
 {
+#ifdef CONFIG_CPU_PM
 	int ret;
 	u32 temp;
 	struct device_node *np;
+#endif /* CONFIG_CPU_PM */
 
 	if (!soc_is_am33xx() && !soc_is_am43xx())
 		return -ENODEV;
 
-	gfx_pwrdm = pwrdm_lookup("gfx_pwrdm");
-	per_pwrdm = pwrdm_lookup("per_pwrdm");
-	mpu_pwrdm = pwrdm_lookup("mpu_pwrdm");
-
-	if ((!gfx_pwrdm) || (!per_pwrdm) || (!mpu_pwrdm))
-		return -ENODEV;
-
+#ifdef CONFIG_CPU_PM
 	am33xx_pm = kzalloc(sizeof(*am33xx_pm), GFP_KERNEL);
 	if (!am33xx_pm) {
 		pr_err("Memory allocation failed\n");
 		ret = -ENOMEM;
 		return ret;
 	}
+
+	ret = am33xx_map_emif();
+	if (ret) {
+		pr_err("PM: Could not ioremap EMIF\n");
+		goto err;
+	}
+
+#ifdef CONFIG_SUSPEND
+	gfx_pwrdm = pwrdm_lookup("gfx_pwrdm");
+	per_pwrdm = pwrdm_lookup("per_pwrdm");
+	mpu_pwrdm = pwrdm_lookup("mpu_pwrdm");
+
+	if ((!gfx_pwrdm) || (!per_pwrdm) || (!mpu_pwrdm))
+		return -ENODEV;
 
 	/*
 	 * Code paths for each SoC are nearly the same but set ops
@@ -445,12 +499,7 @@ int __init am33xx_pm_init(void)
 
 	if (ret)
 		goto err;
-
-	ret = am33xx_map_emif();
-	if (ret) {
-		pr_err("PM: Could not ioremap EMIF\n");
-		goto err;
-	}
+#endif /* CONFIG_SUSPEND */
 
 	/* Determine Memory Type */
 	temp = readl(am33xx_emif_base + EMIF_SDRAM_CONFIG);
@@ -491,6 +540,7 @@ int __init am33xx_pm_init(void)
 		if (of_find_property(np, "ti,set-io-isolation", NULL))
 			am33xx_pm->ipc.reg4 |= (1 << IO_ISOLATION_STAT_SHIFT);
 	}
+#endif /* CONFIG_CPU_PM */
 
 	(void) clkdm_for_each(omap_pm_clkdms_setup, NULL);
 
@@ -501,6 +551,7 @@ int __init am33xx_pm_init(void)
 	else
 		pr_err("PM: Failed to get cefuse_pwrdm\n");
 
+#ifdef CONFIG_CPU_PM
 	am33xx_pm->state = M3_STATE_RESET;
 
 	wkup_m3_set_ops(&am33xx_wkup_m3_ops);
@@ -510,4 +561,5 @@ int __init am33xx_pm_init(void)
 err:
 	kfree(am33xx_pm);
 	return ret;
+#endif /* CONFIG_CPU_PM */
 }

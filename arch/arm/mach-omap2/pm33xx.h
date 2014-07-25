@@ -50,10 +50,15 @@ struct am33xx_suspend_params {
 	void __iomem *cke_override_virt;
 };
 
+void wkup_m3_reset_data_pos(void);
+int wkup_m3_copy_data(const u8 *data, size_t size);
+int am33xx_do_sram_cpuidle(u32, u32);
+
 #endif /*__ASSEMBLER__ */
 
 #define	IPC_CMD_DS0			0x4
 #define	IPC_CMD_STANDBY			0xc
+#define	IPC_CMD_IDLE			0xd
 #define IPC_CMD_RESET			0xe
 #define DS_IPC_DEFAULT			0xffffffff
 #define M3_VERSION_UNKNOWN		0x0000ffff
@@ -106,5 +111,17 @@ struct am33xx_suspend_params {
 #define VTT_GPIO_PIN_MASK	(0x3f << 4)
 #define IO_ISOLATION_STAT_SHIFT (10)
 #define IO_ISOLATION_STAT_MASK  (0x1 << 10)
+
+#define MPU_WAKE		0x800
+
+#define MEM_BANK_RET_ST_OFF		0x0
+#define MEM_BANK_RET_ST_RET		0x1
+
+#define M3_PARAM2_MPU_STATE_SHIFT	0
+#define M3_PARAM2_MPU_RAM_RET_SHIFT	2
+#define M3_PARAM2_MPU_L1_RET_SHIFT	3
+#define M3_PARAM2_MPU_L2_RET_SHIFT	4
+#define M3_PARAM2_PER_STATE_SHIFT	7
+#define M3_PARAM2_WAKE_SOURCES_SHIFT	18
 
 #endif /* __ARCH_ARM_MACH_OMAP2_PM33XX_H */
