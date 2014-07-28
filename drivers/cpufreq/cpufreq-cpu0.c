@@ -89,11 +89,12 @@ static int cpu0_cpufreq_probe(struct platform_device *pdev)
 		}
 
 		np = of_node_get(cpu_dev->of_node);
-		ret = of_init_opp_table(cpu_dev);
-		if (ret) {
-			pr_err("failed to init OPP table: %d\n", ret);
-			goto out_put_node;
-		}
+
+		/*
+		 * OPPs might be populated at runtime,
+		 * don't check for error here
+		 */
+		of_init_opp_table(cpu_dev);
 	} else {
 		np = of_node_get(cpu_dev->of_node);
 	}

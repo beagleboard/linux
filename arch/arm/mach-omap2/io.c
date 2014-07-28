@@ -47,6 +47,7 @@
 #include "cm3xxx.h"
 #include "prm.h"
 #include "cm.h"
+#include "pm.h"
 #include "prcm_mpu44xx.h"
 #include "prminst44xx.h"
 #include "cminst44xx.h"
@@ -588,6 +589,7 @@ void __init am33xx_init_early(void)
 
 void __init am33xx_init_late(void)
 {
+	am33xx_opp_init();
 	omap_common_late_init();
 }
 #endif
@@ -614,6 +616,7 @@ void __init am43xx_init_early(void)
 
 void __init am43xx_init_late(void)
 {
+	am43xx_opp_init();
 	omap_common_late_init();
 }
 #endif
@@ -703,6 +706,7 @@ void __init dra7xx_init_early(void)
 
 void __init dra7xx_init_late(void)
 {
+	dra7xx_opp_init();
 	omap_common_late_init();
 }
 #endif

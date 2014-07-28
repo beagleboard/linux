@@ -810,3 +810,7 @@
 	tx-num-evt = <32>;
 	rx-num-evt = <32>;
 };
+
+&cpu {
+	cpu0-supply = <&dcdc2>;
+};
