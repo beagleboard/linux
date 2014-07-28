@@ -35,10 +35,10 @@ struct rproc;
  * @get_boot_addr:	get boot address to entry point specified in firmware
  */
 struct rproc_fw_ops {
-	struct resource_table *(*find_rsc_table) (struct rproc *rproc,
+	struct resource_table * (*find_rsc_table)(struct rproc *rproc,
 						const struct firmware *fw,
 						int *tablesz);
-	struct resource_table *(*find_loaded_rsc_table)(struct rproc *rproc,
+	struct resource_table * (*find_loaded_rsc_table)(struct rproc *rproc,
 						const struct firmware *fw);
 	int (*load)(struct rproc *rproc, const struct firmware *fw);
 	int (*sanity_check)(struct rproc *rproc, const struct firmware *fw);
