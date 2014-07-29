@@ -1478,6 +1478,9 @@ static int serial_omap_suspend(struct device *dev)
 	else
 		serial_omap_enable_wakeup(up, false);
 
+	/* Select sleep pin state */
+	pinctrl_pm_select_sleep_state(dev);
+
 	return 0;
 }
 
@@ -1487,6 +1490,9 @@ static int serial_omap_resume(struct device *dev)
 
 	if (device_may_wakeup(dev))
 		serial_omap_enable_wakeup(up, false);
+
+	/* Select default pin state */
+	pinctrl_pm_select_default_state(dev);
 
 	uart_resume_port(&serial_omap_reg, &up->port);
 
