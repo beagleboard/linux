@@ -303,11 +303,18 @@
 		>;
 	};
 
-	ecap2_pins: backlight_pins {
+	ecap2_pins_default: backlight_pins {
 		pinctrl-single,pins = <
 			0x19c 0x4	/* mcasp0_ahclkr.ecap2_in_pwm2_out MODE4 */
 		>;
 	};
+
+	ecap2_pins_sleep: ecap2_pins_sleep {
+		pinctrl-single,pins = <
+			0x19c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* mcasp0_ahclkr.ecap2_in_pwm2_out */
+		>;
+	};
+
 
 	cpsw_default: cpsw_default {
 		pinctrl-single,pins = <
@@ -503,8 +510,9 @@
 
 	ecap2: ecap@48304100 {
 		status = "okay";
-		pinctrl-names = "default";
-		pinctrl-0 = <&ecap2_pins>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&ecap2_pins_default>;
+		pinctrl-1 = <&ecap2_pins_sleep>;
 	};
 };
 

@@ -250,9 +250,15 @@
 		>;
 	};
 
-	ecap0_pins: backlight_pins {
+	ecap0_pins_default: backlight_pins {
 		pinctrl-single,pins = <
 			0x164 0x0	/* eCAP0_in_PWM0_out.eCAP0_in_PWM0_out MODE0 */
+		>;
+	};
+
+	ecap0_pins_sleep: ecap0_pins_sleep {
+		pinctrl-single,pins = <
+			0x164  (PULL_DISABLE | MUX_MODE7)	/* eCAP0_in_PWM0_out.eCAP0_in_PWM0_out */
 		>;
 	};
 
@@ -523,8 +529,9 @@
 
 	ecap0: ecap@48300100 {
 		status = "okay";
-		pinctrl-names = "default";
-		pinctrl-0 = <&ecap0_pins>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&ecap0_pins_default>;
+		pinctrl-1 = <&ecap0_pins_sleep>;
 	};
 };
 
