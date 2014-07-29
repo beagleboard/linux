@@ -58,6 +58,10 @@
 		debounce-delay-ms = <5>;
 		col-scan-delay-us = <2>;
 
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&matrix_keypad_default>;
+		pinctrl-1 = <&matrix_keypad_sleep>;
+
 		row-gpios = <&gpio1 25 GPIO_ACTIVE_HIGH		/* Bank1, pin25 */
 			     &gpio1 26 GPIO_ACTIVE_HIGH		/* Bank1, pin26 */
 			     &gpio1 27 GPIO_ACTIVE_HIGH>;	/* Bank1, pin27 */
@@ -163,15 +167,22 @@
 
 &am33xx_pinmux {
 	pinctrl-names = "default";
-	pinctrl-0 = <&matrix_keypad_s0 &volume_keys_s0 &clkout2_pin>;
+	pinctrl-0 = <&matrix_keypad_default &volume_keys_s0 &clkout2_pin>;
 
-	matrix_keypad_s0: matrix_keypad_s0 {
+	matrix_keypad_default: matrix_keypad_default {
 		pinctrl-single,pins = <
 			0x54 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a5.gpio1_21 */
 			0x58 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a6.gpio1_22 */
 			0x64 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a9.gpio1_25 */
 			0x68 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a10.gpio1_26 */
 			0x6c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a11.gpio1_27 */
+		>;
+	};
+
+	matrix_keypad_sleep: matrix_keypad_sleep {
+		pinctrl-single,pins = <
+			0x54 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a5.gpio1_21 */
+			0x58 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a6.gpio1_22 */
 		>;
 	};
 
