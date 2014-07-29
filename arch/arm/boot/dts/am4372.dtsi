@@ -669,6 +669,15 @@
 			};
 		};
 
+		ocmcram: ocmcram@40300000 {
+			compatible = "ti,am4372-ocmcram","ti,am3352-ocmcram";
+			reg = <0x40300000 0x40000>;
+			ti,hwmods = "ocmcram";
+			clocks = <&l3_gclk>;
+			clock-names = "fck";
+			status = "okay";
+		};
+
 		sham: sham@53100000 {
 			compatible = "ti,omap5-sham";
 			ti,hwmods = "sham";
