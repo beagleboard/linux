@@ -167,7 +167,7 @@
 
 &am33xx_pinmux {
 	pinctrl-names = "default";
-	pinctrl-0 = <&matrix_keypad_default &volume_keys_s0 &clkout2_pin>;
+	pinctrl-0 = <&volume_keys_s0 &clkout2_pin>;
 
 	matrix_keypad_default: matrix_keypad_default {
 		pinctrl-single,pins = <
