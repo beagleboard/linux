@@ -637,17 +637,19 @@ static struct mbox_chan *omap_mbox_of_xlate(struct mbox_controller *controller,
 	struct omap_mbox_device *mdev;
 	struct omap_mbox *mbox;
 
-	node = of_find_node_by_phandle(phandle);
-	if (!node) {
-		pr_err("could not find node phandle 0x%x\n", phandle);
-		return NULL;
-	}
-
 	mdev = container_of(controller, struct omap_mbox_device, controller);
 	if (WARN_ON(!mdev))
 		return NULL;
 
+	node = of_find_node_by_phandle(phandle);
+	if (!node) {
+		pr_err("%s: could not find node phandle 0x%x\n",
+		       __func__, phandle);
+		return NULL;
+	}
+
 	mbox = omap_mbox_device_find(mdev, node->name);
+	of_node_put(node);
 	return mbox ? mbox->chan : NULL;
 }
 
