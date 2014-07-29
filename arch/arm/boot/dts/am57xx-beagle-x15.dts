@@ -10,10 +10,16 @@
 #include "dra74x.dtsi"
 #include <dt-bindings/clk/ti-dra7-atl.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	model = "TI AM5728 BeagleBoard-X15";
 	compatible = "ti,am572x-beagle-x15", "ti,am5728", "ti,dra752", "ti,dra7";
+
+	aliases {
+		rtc0 = &rtc;
+		rtc1 = &tps659038_rtc;
+	};
 
 	memory {
 		device_type = "memory";
@@ -274,6 +280,12 @@
 			0x240 (PIN_INPUT | MUX_MODE15)
 		>;
 	};
+
+	tps659038_pins_default: tps659038_pins_default {
+		pinctrl-single,pins = <
+			0x418 (PIN_INPUT_PULLUP | MUX_MODE14)	/* wakeup0.gpio1_0 */
+		>;
+	};
 };
 
 &i2c1 {
@@ -286,6 +298,14 @@
 	tps659038: tps659038@58 {
 		compatible = "ti,tps659038";
 		reg = <0x58>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&tps659038_pins_default>;
+
+		#interrupt-cells = <2>;
+		interrupt-controller;
 
 		ti,system-power-controller;
 
@@ -401,6 +421,21 @@
 					regulator-always-on;
 				};
 			};
+		};
+
+		tps659038_rtc: tps659038_rtc {
+			compatible = "ti,palmas-rtc";
+			interrupt-parent = <&tps659038>;
+			interrupts = <8 IRQ_TYPE_NONE>;
+			wakeup-source;
+		};
+
+		tps659038_pwr_button: tps659038_pwr_button {
+			compatible = "ti,palmas-pwrbutton";
+			interrupt-parent = <&tps659038>;
+			interrupts = <1 IRQ_TYPE_NONE>;
+			wakeup-source;
+			ti,palmas-long-press-seconds = <13>;
 		};
 	};
 };
