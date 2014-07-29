@@ -2551,9 +2551,13 @@ static int __init _init(struct omap_hwmod *oh, void *data)
 			oh->flags |= HWMOD_INIT_NO_RESET;
 		if (of_find_property(np, "ti,no-idle-on-init", NULL))
 			oh->flags |= HWMOD_INIT_NO_IDLE;
+		if (of_find_property(np, "ti,no-init", NULL))
+			oh->flags |= HWMOD_NO_INIT;
 	}
-
-	oh->_state = _HWMOD_STATE_INITIALIZED;
+	if (oh->flags & HWMOD_NO_INIT)
+		oh->_state = _HWMOD_STATE_DISABLED;
+	else
+		oh->_state = _HWMOD_STATE_INITIALIZED;
 
 	return 0;
 }
