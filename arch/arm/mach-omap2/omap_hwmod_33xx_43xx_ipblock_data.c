@@ -681,7 +681,6 @@ struct omap_hwmod am33xx_gpmc_hwmod = {
 	.name		= "gpmc",
 	.class		= &am33xx_gpmc_hwmod_class,
 	.clkdm_name	= "l3s_clkdm",
-	.flags		= (HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET),
 	.main_clk	= "l3s_gclk",
 	.prcm		= {
 		.omap4	= {
