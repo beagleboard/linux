@@ -82,11 +82,6 @@
 			ti,hwmods = "mpu";
 		};
 
-		dsp {
-			compatible = "ti,omap3-c64";
-			ti,hwmods = "dsp";
-		};
-
 		iva {
 			compatible = "ti,ivahd";
 			ti,hwmods = "iva";
@@ -750,6 +745,14 @@
 			interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer11";
 			ti,timer-pwm;
+		};
+
+		dsp: dsp {
+			compatible = "ti,omap4-rproc-dsp";
+			ti,hwmods = "dsp";
+			iommus = <&mmu_dsp>;
+			mboxes = <&mailbox &mbox_dsp>;
+			status = "disabled";
 		};
 
 		usbhstll: usbhstll@4a062000 {
