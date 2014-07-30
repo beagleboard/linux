@@ -55,6 +55,7 @@
 #include "soc.h"
 #include "common.h"
 #include "powerdomain.h"
+#include "pm.h"
 #include "omap-secure.h"
 
 #define REALTIME_COUNTER_BASE				0x48243200
@@ -121,8 +122,33 @@ static void omap2_gp_timer_set_mode(enum clock_event_mode mode,
 		break;
 	case CLOCK_EVT_MODE_ONESHOT:
 		break;
-	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_SHUTDOWN:
+#ifdef CONFIG_PM_DEBUG
+		if (wakeup_timer_seconds || wakeup_timer_milliseconds) {
+			u32 tick_rate, cycles;
+
+			tick_rate = clkev.rate;
+			cycles = tick_rate * wakeup_timer_seconds;
+			cycles += DIV_ROUND_UP(tick_rate *
+					       wakeup_timer_milliseconds,
+					       1000);
+
+			__omap_dm_timer_write(&clkev, OMAP_TIMER_LOAD_REG,
+					      0xffffffff - cycles,
+					      OMAP_TIMER_POSTED);
+			__omap_dm_timer_load_start(&clkev,
+						   OMAP_TIMER_CTRL_AR |
+						   OMAP_TIMER_CTRL_ST,
+						   0xffffffff - cycles,
+						   OMAP_TIMER_POSTED);
+
+			pr_info("Resume timer @%u.%03uSecs(%d ticks @ %d Hz)\n",
+				wakeup_timer_seconds, wakeup_timer_milliseconds,
+				cycles, tick_rate);
+		}
+#endif
+		break;
+	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_RESUME:
 		break;
 	}
