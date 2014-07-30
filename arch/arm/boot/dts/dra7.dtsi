@@ -196,6 +196,19 @@
 			};
 		};
 
+		ctrl_core: ctrl_core@4a002000 {
+			compatible = "ti,dra7-ctrl-core";
+			reg = <0x4a002000 0x6d0>;
+
+			ctrl_core_clocks: clocks {
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+
+			ctrl_core_clockdomains: clockdomains {
+			};
+		};
+
 		counter32k: counter@4ae04000 {
 			compatible = "ti,omap-counter32k";
 			reg = <0x4ae04000 0x40>;
