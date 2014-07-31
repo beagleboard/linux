@@ -862,16 +862,6 @@ static void gpio_unmask_irq(struct irq_data *d)
 	spin_unlock_irqrestore(&bank->lock, flags);
 }
 
-static struct irq_chip gpio_irq_chip = {
-	.name		= "GPIO",
-	.irq_shutdown	= gpio_irq_shutdown,
-	.irq_ack	= gpio_ack_irq,
-	.irq_mask	= gpio_mask_irq,
-	.irq_unmask	= gpio_unmask_irq,
-	.irq_set_type	= gpio_irq_type,
-	.irq_set_wake	= gpio_wake_enable,
-};
-
 /*---------------------------------------------------------------------*/
 
 static int omap_mpuio_suspend_noirq(struct device *dev)
@@ -1081,7 +1071,7 @@ omap_mpuio_alloc_gc(struct gpio_bank *bank, unsigned int irq_start,
 			       IRQ_NOREQUEST | IRQ_NOPROBE, 0);
 }
 
-static void omap_gpio_chip_init(struct gpio_bank *bank)
+static void omap_gpio_chip_init(struct gpio_bank *bank, struct irq_chip *irqc)
 {
 	int j;
 	static int gpio;
@@ -1119,7 +1109,7 @@ static void omap_gpio_chip_init(struct gpio_bank *bank)
 		if (bank->is_mpuio) {
 			omap_mpuio_alloc_gc(bank, irq, bank->width);
 		} else {
-			irq_set_chip_and_handler(irq, &gpio_irq_chip,
+			irq_set_chip_and_handler(irq, irqc,
 						 handle_simple_irq);
 			set_irq_flags(irq, IRQF_VALID);
 		}
@@ -1138,6 +1128,7 @@ static int omap_gpio_probe(struct platform_device *pdev)
 	const struct omap_gpio_platform_data *pdata;
 	struct resource *res;
 	struct gpio_bank *bank;
+	struct irq_chip *irqc;
 #ifdef CONFIG_ARCH_OMAP1
 	int irq_base;
 #endif
@@ -1153,6 +1144,18 @@ static int omap_gpio_probe(struct platform_device *pdev)
 		dev_err(dev, "Memory alloc failed\n");
 		return -ENOMEM;
 	}
+
+	irqc = devm_kzalloc(dev, sizeof(*irqc), GFP_KERNEL);
+	if (!irqc)
+		return -ENOMEM;
+
+	irqc->irq_shutdown = gpio_irq_shutdown,
+	irqc->irq_ack = gpio_ack_irq,
+	irqc->irq_mask = gpio_mask_irq,
+	irqc->irq_unmask = gpio_unmask_irq,
+	irqc->irq_set_type = gpio_irq_type,
+	irqc->irq_set_wake = gpio_wake_enable,
+	irqc->name = dev_name(&pdev->dev);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (unlikely(!res)) {
@@ -1244,7 +1247,7 @@ static int omap_gpio_probe(struct platform_device *pdev)
 		mpuio_init(bank);
 
 	omap_gpio_mod_init(bank);
-	omap_gpio_chip_init(bank);
+	omap_gpio_chip_init(bank, irqc);
 	omap_gpio_show_rev(bank);
 
 	pm_runtime_put(bank->dev);
