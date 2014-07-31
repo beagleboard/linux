@@ -488,6 +488,21 @@
 				};
 			};
 		};
+
+		palmas_rtc  {
+			compatible = "ti,palmas-rtc";
+			interrupt-parent = <&palmas>;
+			interrupts = <8 IRQ_TYPE_NONE>;
+			wakeup-source;
+			ti,backup-battery-chargeable;
+		};
+
+		palmas_power_button {
+			compatible = "ti,palmas-pwrbutton";
+			interrupt-parent = <&palmas>;
+			interrupts = <1 IRQ_TYPE_NONE>;
+			wakeup-source;
+		};
 	};
 };
 
