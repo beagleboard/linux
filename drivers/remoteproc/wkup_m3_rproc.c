@@ -449,6 +449,7 @@ static const struct dev_pm_ops wkup_m3_rproc_pm_ops = {
 
 static const struct of_device_id wkup_m3_rproc_of_match[] = {
 	{ .compatible = "ti,am3353-wkup-m3", .data = NULL, },
+	{ .compatible = "ti,am4372-wkup-m3", .data = NULL, },
 	{},
 };
 
