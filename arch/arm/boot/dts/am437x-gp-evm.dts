@@ -525,3 +525,7 @@
 &cpu {
 	cpu0-supply = <&dcdc2>;
 };
+
+&wkup_m3 {
+	ti,set-io-isolation;
+};
