@@ -314,6 +314,10 @@ extern void omap_sdrc_init(struct omap_sdrc_params *sdrc_cs0,
 struct omap2_hsmmc_info;
 extern void omap_reserve(void);
 
+void am33xx_reserve(void);
+void am33xx_dram_sync_init(void);
+extern void __iomem *am33xx_dram_sync;
+
 struct omap_hwmod;
 extern int omap_dss_reset(struct omap_hwmod *);
 
