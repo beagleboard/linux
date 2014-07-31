@@ -20,10 +20,17 @@
 
 #include <linux/wkup_m3.h>
 
+struct am33xx_pm_ops {
+	int (*init)(void);
+	void (*pre_suspend)(unsigned int state);
+	void (*post_suspend)(unsigned int state);
+};
+
 struct am33xx_pm_context {
 	struct wkup_m3_ipc_regs	ipc;
 	struct firmware		*firmware;
 	struct omap_mbox	*mbox;
+	struct am33xx_pm_ops	*ops;
 	u8			state;
 	u32			ver;
 };

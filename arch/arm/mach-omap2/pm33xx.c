@@ -34,6 +34,7 @@
 #include <asm/proc-fns.h>
 #include <asm/fncpy.h>
 #include <asm/system_misc.h>
+#include <asm/smp_scu.h>
 
 #include "pm.h"
 #include "cm33xx.h"
@@ -44,7 +45,7 @@
 #include "soc.h"
 #include "sram.h"
 
-static void __iomem *am33xx_emif_base;
+static void __iomem *am33xx_emif_base, *scu_base;
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
 static struct clockdomain *gfx_l4ls_clkdm;
 static struct clockdomain *l3s_clkdm, *l4fw_clkdm, *clk_24mhz_clkdm;
@@ -72,29 +73,21 @@ static int am33xx_pm_suspend(unsigned int state)
 	struct wkup_m3_wakeup_src wakeup_src = {.irq_nr = 0,
 						.src = "Unknown",};
 
-	if (state == PM_SUSPEND_STANDBY) {
-		clkdm_wakeup(l3s_clkdm);
-		clkdm_wakeup(l4fw_clkdm);
-		clkdm_wakeup(clk_24mhz_clkdm);
-	}
-
-	/* Try to put GFX to sleep */
 	omap_set_pwrdm_state(gfx_pwrdm, PWRDM_POWER_OFF);
+
+	am33xx_pm->ops->pre_suspend(state);
 
 	ret = cpu_suspend(0, am33xx_do_sram_idle);
 
+	/*
+	 * Because gfx_pwrdm is the only one under MPU control,
+	 * comment on transition status
+	 */
 	status = pwrdm_read_pwrst(gfx_pwrdm);
 	if (status != PWRDM_POWER_OFF)
 		pr_err("PM: GFX domain did not transition\n");
 
-	/*
-	 * BUG: GFX_L4LS clock domain needs to be woken up to
-	 * ensure thet L4LS clock domain does not get stuck in transition
-	 * If that happens L3 module does not get disabled, thereby leading
-	 * to PER power domain transition failing
-	 */
-	clkdm_wakeup(gfx_l4ls_clkdm);
-	clkdm_sleep(gfx_l4ls_clkdm);
+	am33xx_pm->ops->post_suspend(state);
 
 	if (ret) {
 		pr_err("PM: Kernel suspend failure\n");
@@ -282,6 +275,12 @@ void am33xx_push_sram_idle(void)
 					(am33xx_do_wfi, am33xx_do_wfi_sz);
 }
 
+void am43xx_push_sram_idle(void)
+{
+	am33xx_do_wfi_sram = (void *)omap_sram_push
+					(am43xx_do_wfi, am43xx_do_wfi_sz);
+}
+
 static int __init am33xx_map_emif(void)
 {
 	am33xx_emif_base = ioremap(AM33XX_EMIF_BASE, SZ_32K);
@@ -292,25 +291,126 @@ static int __init am33xx_map_emif(void)
 	return 0;
 }
 
+static int __init am43xx_map_scu(void)
+{
+	scu_base = ioremap(scu_a9_get_base(), SZ_256);
+
+	if (!scu_base)
+		return -ENOMEM;
+
+	return 0;
+}
+
+
+static int am33xx_suspend_init(void)
+{
+	gfx_l4ls_clkdm = clkdm_lookup("gfx_l4ls_gfx_clkdm");
+	l3s_clkdm = clkdm_lookup("l3s_clkdm");
+	l4fw_clkdm = clkdm_lookup("l4fw_clkdm");
+	clk_24mhz_clkdm = clkdm_lookup("clk_24mhz_clkdm");
+
+	if ((!gfx_l4ls_clkdm) || (!l3s_clkdm) || (!l4fw_clkdm) ||
+	    (!clk_24mhz_clkdm)) {
+		pr_err("PM: Cannot lookup clockdomains\n");
+		return -ENODEV;
+	}
+
+	/* Physical resume address to be used by ROM code */
+	am33xx_pm->ipc.reg0 = (AM33XX_OCMC_END -
+		am33xx_do_wfi_sz + am33xx_resume_offset + 0x4);
+
+	return 0;
+}
+
+static int am43xx_suspend_init(void)
+{
+	int ret = 0;
+
+	ret = am43xx_map_scu();
+	if (ret) {
+			pr_err("PM: Could not ioremap SCU\n");
+			return ret;
+	}
+
+	susp_params.l2_base_virt = omap4_get_l2cache_base();
+
+	if (!susp_params.l2_base_virt) {
+		pr_err("PM: Could not get l2 cache base address\n");
+		return -ENOMEM;
+	}
+
+	susp_params.cke_override_virt =
+		ioremap(AM43XX_CTRL_CKE_OVERRIDE, SZ_4);
+
+	if (!susp_params.cke_override_virt) {
+		pr_err("PM: Could not ioremap CKE override in Control Module\n");
+		return -ENOMEM;
+	}
+
+	/* Physical resume address to be used by ROM code */
+	am33xx_pm->ipc.reg0 = (AM33XX_OCMC_END -
+		am43xx_do_wfi_sz + am43xx_resume_offset + 0x4);
+
+	return ret;
+}
+
+static void am33xx_pre_suspend(unsigned int state)
+{
+	if (state == PM_SUSPEND_STANDBY) {
+		clkdm_wakeup(l3s_clkdm);
+		clkdm_wakeup(l4fw_clkdm);
+		clkdm_wakeup(clk_24mhz_clkdm);
+	}
+}
+
+static void am43xx_pre_suspend(unsigned int state)
+{
+	scu_power_mode(scu_base, SCU_PM_POWEROFF);
+}
+
+static void am33xx_post_suspend(unsigned int state)
+{
+	/*
+	 * BUG: GFX_L4LS clock domain needs to be woken up to
+	 * ensure thet L4LS clock domain does not get stuck in
+	 * transition. If that happens L3 module does not get
+	 * disabled, thereby leading to PER power domain
+	 * transition failing
+	 */
+	clkdm_wakeup(gfx_l4ls_clkdm);
+	clkdm_sleep(gfx_l4ls_clkdm);
+}
+
+static void am43xx_post_suspend(unsigned int state)
+{
+	scu_power_mode(scu_base, SCU_PM_NORMAL);
+}
+
+static struct am33xx_pm_ops am33xx_ops = {
+	.init = am33xx_suspend_init,
+	.pre_suspend = am33xx_pre_suspend,
+	.post_suspend = am33xx_post_suspend,
+};
+
+static struct am33xx_pm_ops am43xx_ops = {
+	.init = am43xx_suspend_init,
+	.pre_suspend = am43xx_pre_suspend,
+	.post_suspend = am43xx_post_suspend,
+};
+
 int __init am33xx_pm_init(void)
 {
 	int ret;
 	u32 temp;
 
-	if (!soc_is_am33xx())
+	if (!soc_is_am33xx() && !soc_is_am43xx())
 		return -ENODEV;
 
 	gfx_pwrdm = pwrdm_lookup("gfx_pwrdm");
 	per_pwrdm = pwrdm_lookup("per_pwrdm");
 	mpu_pwrdm = pwrdm_lookup("mpu_pwrdm");
 
-	gfx_l4ls_clkdm = clkdm_lookup("gfx_l4ls_gfx_clkdm");
-	l3s_clkdm = clkdm_lookup("l3s_clkdm");
-	l4fw_clkdm = clkdm_lookup("l4fw_clkdm");
-	clk_24mhz_clkdm = clkdm_lookup("clk_24mhz_clkdm");
-
-	if ((!gfx_pwrdm) || (!per_pwrdm) || (!mpu_pwrdm) || (!gfx_l4ls_clkdm) ||
-	    (!l3s_clkdm) || (!l4fw_clkdm) || (!clk_24mhz_clkdm))
+	if ((!gfx_pwrdm) || (!per_pwrdm) || (!mpu_pwrdm))
 		return -ENODEV;
 
 	am33xx_pm = kzalloc(sizeof(*am33xx_pm), GFP_KERNEL);
@@ -319,6 +419,21 @@ int __init am33xx_pm_init(void)
 		ret = -ENOMEM;
 		return ret;
 	}
+
+	/*
+	 * Code paths for each SoC are nearly the same but set ops
+	 * handle differences during init, pre-suspend, and post-suspend
+	 */
+
+	if (soc_is_am33xx())
+		am33xx_pm->ops = &am33xx_ops;
+	else if (soc_is_am43xx())
+		am33xx_pm->ops = &am43xx_ops;
+
+	ret = am33xx_pm->ops->init();
+
+	if (ret)
+		goto err;
 
 	ret = am33xx_map_emif();
 	if (ret) {
@@ -347,10 +462,6 @@ int __init am33xx_pm_init(void)
 	am33xx_pm->state = M3_STATE_RESET;
 
 	wkup_m3_set_ops(&am33xx_wkup_m3_ops);
-
-	/* Physical resume address to be used by ROM code */
-	am33xx_pm->ipc.reg0 = (AM33XX_OCMC_END -
-		am33xx_do_wfi_sz + am33xx_resume_offset + 0x4);
 
 	return 0;
 
