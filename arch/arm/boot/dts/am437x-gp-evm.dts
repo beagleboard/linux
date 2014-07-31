@@ -659,3 +659,7 @@
 		};
 	};
 };
+
+&wkup_m3_ipc {
+	ti,set-io-isolation;
+};
