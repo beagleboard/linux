@@ -1,7 +1,7 @@
 /*
  * OMAP Remote Processor driver
  *
- * Copyright (C) 2011 Texas Instruments, Inc.
+ * Copyright (C) 2011-2014 Texas Instruments, Inc.
  * Copyright (C) 2011 Google, Inc.
  *
  * Ohad Ben-Cohen <ohad@wizery.com>
@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/err.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/remoteproc.h>
@@ -128,7 +129,7 @@ static int omap_rproc_start(struct rproc *rproc)
 	client->tx_block = false;
 	client->knows_txdone = false;
 
-	oproc->mbox = omap_mbox_request_channel(client, pdata->mbox_name);
+	oproc->mbox = mbox_request_channel(client, 0);
 	if (IS_ERR(oproc->mbox)) {
 		ret = -EBUSY;
 		dev_err(dev, "mbox_request_channel failed: %ld\n",
@@ -186,12 +187,62 @@ static struct rproc_ops omap_rproc_ops = {
 	.kick		= omap_rproc_kick,
 };
 
+static const struct of_device_id omap_rproc_of_match[] = {
+	{
+		.compatible     = "ti,omap4-rproc-dsp",
+		.data           = "tesla-dsp.xe64T",
+	},
+	{
+		.compatible     = "ti,omap4-rproc-ipu",
+		.data           = "ducati-m3-core0.xem3",
+	},
+	{
+		.compatible     = "ti,omap5-rproc-dsp",
+		.data           = "tesla-dsp.xe64T",
+	},
+	{
+		.compatible     = "ti,omap5-rproc-ipu",
+		.data           = "ducati-m3-core0.xem3",
+	},
+	{
+		/* end */
+	},
+};
+MODULE_DEVICE_TABLE(of, omap_rproc_of_match);
+
+static const char *omap_rproc_get_firmware(struct platform_device *pdev)
+{
+	const struct of_device_id *match;
+
+	match = of_match_device(omap_rproc_of_match, &pdev->dev);
+	if (!match)
+		return ERR_PTR(-ENODEV);
+
+	return match->data;
+}
+
 static int omap_rproc_probe(struct platform_device *pdev)
 {
 	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
+	struct device_node *np = pdev->dev.of_node;
 	struct omap_rproc *oproc;
 	struct rproc *rproc;
+	const char *firmware;
 	int ret;
+
+	if (!np) {
+		dev_err(&pdev->dev, "only DT-based devices are supported\n");
+		return -ENODEV;
+	}
+
+	if (!pdata || !pdata->device_enable || !pdata->device_shutdown) {
+		dev_err(&pdev->dev, "platform data is either missing or incomplete\n");
+		return -ENODEV;
+	}
+
+	firmware = omap_rproc_get_firmware(pdev);
+	if (IS_ERR(firmware))
+		return PTR_ERR(firmware);
 
 	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
 	if (ret) {
@@ -199,8 +250,8 @@ static int omap_rproc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	rproc = rproc_alloc(&pdev->dev, pdata->name, &omap_rproc_ops,
-				pdata->firmware, sizeof(*oproc));
+	rproc = rproc_alloc(&pdev->dev, dev_name(&pdev->dev), &omap_rproc_ops,
+			    firmware, sizeof(*oproc));
 	if (!rproc)
 		return -ENOMEM;
 
@@ -242,6 +293,7 @@ static struct platform_driver omap_rproc_driver = {
 	.driver = {
 		.name = "omap-rproc",
 		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(omap_rproc_of_match),
 	},
 };
 
