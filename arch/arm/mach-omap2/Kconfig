@@ -68,6 +68,7 @@ config SOC_AM33XX
 	select ARM_CPU_SUSPEND if PM
 	select CPU_V7
 	select MULTI_IRQ_HANDLER
+	select WKUP_M3_RPROC if PM
 
 config SOC_AM43XX
 	bool "TI AM43x"
