@@ -31,6 +31,14 @@
 		enable-active-high;
 	};
 
+	vbat: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vbat";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+	};
+
 	lcd0: display {
 		compatible = "osddisplays,osd057T0559-34ts", "panel-dpi";
 		label = "lcd";
@@ -364,6 +372,15 @@
 			regulator-always-on;
 		};
 
+		dcdc4: regulator-dcdc4 {
+			compatible = "ti,tps65218-dcdc4";
+			regulator-name = "vdcdc4";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+
 		dcdc5: regulator-dcdc5 {
 			compatible = "ti,tps65218-dcdc5";
 			regulator-name = "v1_0bat";
@@ -630,4 +647,8 @@
 
 &cpu {
 	cpu0-supply = <&dcdc2>;
+};
+
+&rtc {
+	ti,no-init;
 };

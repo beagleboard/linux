@@ -2015,6 +2015,16 @@
 	};
 };
 
+&ctrl_core_clocks {
+	dss_deshdcp_clk: dss_deshdcp_clk {
+		#clock-cells = <0>;
+		compatible = "ti,gate-clock";
+		clocks = <&l3_iclk_div>;
+		ti,bit-shift = <0>;
+		reg = <0x0558>;
+	};
+};
+
 &cm_core_clockdomains {
 	coreaon_clkdm: coreaon_clkdm {
 		compatible = "ti,clockdomain";

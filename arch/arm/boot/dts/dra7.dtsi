@@ -137,6 +137,19 @@
 			};
 		};
 
+		ctrl_core: ctrl_core@4a002000 {
+			compatible = "ti,dra7-ctrl-core";
+			reg = <0x4a002000 0x6d0>;
+
+			ctrl_core_clocks: clocks {
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+
+			ctrl_core_clockdomains: clockdomains {
+			};
+		};
+
 		counter32k: counter@4ae04000 {
 			compatible = "ti,omap-counter32k";
 			reg = <0x4ae04000 0x40>;
@@ -476,7 +489,7 @@
 		};
 
 		wdt2: wdt@4ae14000 {
-			compatible = "ti,omap4-wdt";
+			compatible = "ti,omap3-wdt";
 			reg = <0x4ae14000 0x80>;
 			interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "wd_timer2";
@@ -901,6 +914,15 @@
 			phy-names = "sata-phy";
 			clocks = <&sata_ref_clk>;
 			ti,hwmods = "sata";
+		};
+
+		rtc: rtcss@48838000 {
+			compatible = "ti,am3352-rtc";
+			reg = <0x48838000 0x100>;
+			interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "rtcss";
+			clocks = <&sys_32k_ck>;
 		};
 
 		omap_control_usb2phy1: control-phy@4a002300 {
