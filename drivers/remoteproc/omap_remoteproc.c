@@ -199,6 +199,12 @@ static int omap_rproc_probe(struct platform_device *pdev)
 
 	oproc = rproc->priv;
 	oproc->rproc = rproc;
+	/*
+	 * All existing OMAP IPU and DSP processors do have an MMU, and
+	 * are expected to use MMU, so this statement suffices.
+	 * XXX: Replace this logic if and when a need arises.
+	 */
+	rproc->has_iommu = true;
 
 	platform_set_drvdata(pdev, rproc);
 
