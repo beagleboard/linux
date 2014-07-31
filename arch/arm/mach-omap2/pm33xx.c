@@ -463,6 +463,9 @@ int __init am33xx_pm_init(void)
 			else
 				pr_warn("PM: Invalid VTT GPIO(%d) pin\n", temp);
 		}
+
+		if (of_find_property(np, "ti,set-io-isolation", NULL))
+			am33xx_pm->ipc.reg4 |= (1 << IO_ISOLATION_STAT_SHIFT);
 	}
 
 	(void) clkdm_for_each(omap_pm_clkdms_setup, NULL);
