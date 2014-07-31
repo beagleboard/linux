@@ -55,6 +55,7 @@
 #include "soc.h"
 #include "common.h"
 #include "powerdomain.h"
+#include "pm.h"
 #include "omap-secure.h"
 
 #define REALTIME_COUNTER_BASE				0x48243200
@@ -121,8 +122,33 @@ static void omap2_gp_timer_set_mode(enum clock_event_mode mode,
 		break;
 	case CLOCK_EVT_MODE_ONESHOT:
 		break;
-	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_SHUTDOWN:
+#ifdef CONFIG_PM_DEBUG
+		if (wakeup_timer_seconds || wakeup_timer_milliseconds) {
+			u32 tick_rate, cycles;
+
+			tick_rate = clkev.rate;
+			cycles = tick_rate * wakeup_timer_seconds;
+			cycles += DIV_ROUND_UP(tick_rate *
+					       wakeup_timer_milliseconds,
+					       1000);
+
+			__omap_dm_timer_write(&clkev, OMAP_TIMER_LOAD_REG,
+					      0xffffffff - cycles,
+					      OMAP_TIMER_POSTED);
+			__omap_dm_timer_load_start(&clkev,
+						   OMAP_TIMER_CTRL_AR |
+						   OMAP_TIMER_CTRL_ST,
+						   0xffffffff - cycles,
+						   OMAP_TIMER_POSTED);
+
+			pr_info("Resume timer @%u.%03uSecs(%d ticks @ %d Hz)\n",
+				wakeup_timer_seconds, wakeup_timer_milliseconds,
+				cycles, tick_rate);
+		}
+#endif
+		break;
+	case CLOCK_EVT_MODE_UNUSED:
 	case CLOCK_EVT_MODE_RESUME:
 		break;
 	}
@@ -454,6 +480,38 @@ static int __init __maybe_unused omap2_sync32k_clocksource_init(void)
 	return ret;
 }
 
+static unsigned omap2_gptimer_clksrc_load;
+
+static void omap2_gptimer_clksrc_suspend(struct clocksource *unused)
+{
+	struct omap_hwmod *oh;
+
+	omap2_gptimer_clksrc_load =
+		__omap_dm_timer_read_counter(&clksrc, OMAP_TIMER_NONPOSTED);
+
+	oh = omap_hwmod_lookup(clocksource_gpt.name);
+	if (!oh)
+		return;
+
+	omap_hwmod_idle(oh);
+}
+
+static void omap2_gptimer_clksrc_resume(struct clocksource *unused)
+{
+	struct omap_hwmod *oh;
+
+	oh = omap_hwmod_lookup(clocksource_gpt.name);
+	if (!oh)
+		return;
+
+	omap_hwmod_enable(oh);
+
+	__omap_dm_timer_load_start(&clksrc,
+				   OMAP_TIMER_CTRL_ST | OMAP_TIMER_CTRL_AR,
+				   omap2_gptimer_clksrc_load,
+				   OMAP_TIMER_NONPOSTED);
+}
+
 static void __init omap2_gptimer_clocksource_init(int gptimer_id,
 						  const char *fck_source,
 						  const char *property)
@@ -462,6 +520,11 @@ static void __init omap2_gptimer_clocksource_init(int gptimer_id,
 
 	clksrc.id = gptimer_id;
 	clksrc.errata = omap_dm_timer_get_errata();
+
+	if (soc_is_am43xx()) {
+		clocksource_gpt.suspend = omap2_gptimer_clksrc_suspend;
+		clocksource_gpt.resume = omap2_gptimer_clksrc_resume;
+	}
 
 	res = omap_dm_timer_init_one(&clksrc, fck_source, property,
 				     &clocksource_gpt.name,

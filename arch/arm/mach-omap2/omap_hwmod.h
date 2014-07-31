@@ -514,6 +514,13 @@ struct omap_hwmod_omap4_prcm {
  * HWMOD_SWSUP_SIDLE_ACT: omap_hwmod code should manually bring the module
  *     out of idle, but rely on smart-idle to the put it back in idle,
  *     so the wakeups are still functional (Only known case for now is UART)
+ * HWMOD_NO_INIT: Do not initialize the hwmod. Useful for when certain
+ *     platforms disable the IP through hardware configuration, like the
+ *     RTC on the AM437x EPOS EVM.
+ * HWMOD_NEEDS_REIDLE: Some devices do not assert their MSTANDBY signal by
+ *     default after losing context if no driver is present and using the
+ *     hwmod. This will break subsequent suspend cycles but can be fixed by
+ *     enabling then idling the unused hwmod after each suspend cycle.
  */
 #define HWMOD_SWSUP_SIDLE			(1 << 0)
 #define HWMOD_SWSUP_MSTANDBY			(1 << 1)
@@ -528,6 +535,8 @@ struct omap_hwmod_omap4_prcm {
 #define HWMOD_BLOCK_WFI				(1 << 10)
 #define HWMOD_FORCE_MSTANDBY			(1 << 11)
 #define HWMOD_SWSUP_SIDLE_ACT			(1 << 12)
+#define HWMOD_NO_INIT				(1 << 13)
+#define HWMOD_NEEDS_REIDLE			(1 << 14)
 
 /*
  * omap_hwmod._int_flags definitions
@@ -678,6 +687,14 @@ struct omap_hwmod {
 	u8				_postsetup_state;
 };
 
+/*
+ * omap_hwmod_list - simple generic container for omap_hwmod lists
+ */
+struct omap_hwmod_list {
+	struct omap_hwmod *oh;
+	struct list_head oh_list;
+};
+
 struct omap_hwmod *omap_hwmod_lookup(const char *name);
 int omap_hwmod_for_each(int (*fn)(struct omap_hwmod *oh, void *data),
 			void *data);
@@ -718,6 +735,10 @@ int omap_hwmod_del_initiator_dep(struct omap_hwmod *oh,
 
 int omap_hwmod_enable_wakeup(struct omap_hwmod *oh);
 int omap_hwmod_disable_wakeup(struct omap_hwmod *oh);
+
+int omap_hwmod_setup_reidle(void);
+int omap_hwmod_enable_reidle(struct omap_hwmod *oh);
+int omap_hwmod_disable_reidle(struct omap_hwmod *oh);
 
 int omap_hwmod_for_each_by_class(const char *classname,
 				 int (*fn)(struct omap_hwmod *oh,

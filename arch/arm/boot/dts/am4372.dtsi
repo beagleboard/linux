@@ -38,6 +38,13 @@
 			clocks = <&dpll_mpu_ck>;
 			clock-names = "cpu";
 
+			/*
+			 * To consider voltage drop between PMIC and SoC,
+			 * tolerance value is reduced to 2% from 4% and
+			 * voltage value is increased as a precaution.
+			 */
+			voltage-tolerance = <2>;
+
 			clock-latency = <300000>; /* From omap-cpufreq driver */
 		};
 	};
@@ -76,6 +83,11 @@
 		       0x44800000 0x400000>;
 		interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+
+		emif: emif@4c000000 {
+			reg = <0x4c000000 0x1000000>;
+			ti,hwmods = "emif";
+		};
 
 		prcm: prcm@44df0000 {
 			compatible = "ti,am4-prcm";
@@ -664,6 +676,15 @@
 			};
 		};
 
+		ocmcram: ocmcram@40300000 {
+			compatible = "ti,am4372-ocmcram","ti,am3352-ocmcram";
+			reg = <0x40300000 0x40000>;
+			ti,hwmods = "ocmcram";
+			clocks = <&l3_gclk>;
+			clock-names = "fck";
+			status = "okay";
+		};
+
 		sham: sham@53100000 {
 			compatible = "ti,omap5-sham";
 			ti,hwmods = "sham";
@@ -734,6 +755,7 @@
 		gpmc: gpmc@50000000 {
 			compatible = "ti,am3352-gpmc";
 			ti,hwmods = "gpmc";
+			ti,no-idle-on-init;
 			clocks = <&l3s_gclk>;
 			clock-names = "fck";
 			reg = <0x50000000 0x2000>;

@@ -28,7 +28,7 @@ prepare_for_exit()
 
 check_for_compiler()
 {
-	COMPILER_COMMAND=$CROSS_COMPILE"gcc"
+	COMPILER_COMMAND=`which $CROSS_COMPILE"gcc"`
 	if [ -f "$COMPILER_COMMAND" ]; then
 		return 0
 	else
