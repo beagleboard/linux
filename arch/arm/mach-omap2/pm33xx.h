@@ -85,4 +85,16 @@ struct am33xx_suspend_params {
 
 #define MEM_TYPE_DDR2		2
 
+/*
+ * 9-4 = VTT GPIO PIN (6 Bits)
+ *   3 = VTT Status (1 Bit)
+ * 2-0 = Memory Type (3 Bits)
+*/
+#define MEM_TYPE_SHIFT		(0x0)
+#define MEM_TYPE_MASK		(0x7 << 0)
+#define VTT_STAT_SHIFT		(0x3)
+#define VTT_STAT_MASK		(0x1 << 3)
+#define VTT_GPIO_PIN_SHIFT	(0x4)
+#define VTT_GPIO_PIN_MASK	(0x3f << 4)
+
 #endif /* __ARCH_ARM_MACH_OMAP2_PM33XX_H */

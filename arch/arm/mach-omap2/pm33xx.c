@@ -402,6 +402,7 @@ int __init am33xx_pm_init(void)
 {
 	int ret;
 	u32 temp;
+	struct device_node *np;
 
 	if (!soc_is_am33xx() && !soc_is_am43xx())
 		return -ENODEV;
@@ -448,7 +449,21 @@ int __init am33xx_pm_init(void)
 	susp_params.emif_addr_virt = am33xx_emif_base;
 	susp_params.dram_sync = am33xx_dram_sync;
 	susp_params.mem_type = temp;
-	am33xx_pm->ipc.reg4 = temp;
+	am33xx_pm->ipc.reg4 = temp & MEM_TYPE_MASK;
+
+	np = of_find_compatible_node(NULL, NULL, "ti,am3353-wkup-m3");
+	if (np) {
+		if (of_find_property(np, "ti,needs-vtt-toggle", NULL) &&
+		    (!(of_property_read_u32(np, "ti,vtt-gpio-pin",
+							&temp)))) {
+			if (temp >= 0 && temp <= 31)
+				am33xx_pm->ipc.reg4 |=
+					((1 << VTT_STAT_SHIFT) |
+					(temp << VTT_GPIO_PIN_SHIFT));
+			else
+				pr_warn("PM: Invalid VTT GPIO(%d) pin\n", temp);
+		}
+	}
 
 	(void) clkdm_for_each(omap_pm_clkdms_setup, NULL);
 
