@@ -47,6 +47,7 @@
 static void __iomem *am33xx_emif_base;
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
 static struct clockdomain *gfx_l4ls_clkdm;
+static struct clockdomain *l3s_clkdm, *l4fw_clkdm, *clk_24mhz_clkdm;
 
 static struct am33xx_pm_context *am33xx_pm;
 
@@ -64,12 +65,18 @@ static int am33xx_do_sram_idle(long unsigned int unused)
 	return 0;
 }
 
-static int am33xx_pm_suspend(void)
+static int am33xx_pm_suspend(unsigned int state)
 {
 	int i, ret = 0;
 	int status = 0;
 	struct wkup_m3_wakeup_src wakeup_src = {.irq_nr = 0,
 						.src = "Unknown",};
+
+	if (state == PM_SUSPEND_STANDBY) {
+		clkdm_wakeup(l3s_clkdm);
+		clkdm_wakeup(l4fw_clkdm);
+		clkdm_wakeup(clk_24mhz_clkdm);
+	}
 
 	/* Try to put GFX to sleep */
 	omap_set_pwrdm_state(gfx_pwrdm, PWRDM_POWER_OFF);
@@ -129,8 +136,9 @@ static int am33xx_pm_enter(suspend_state_t suspend_state)
 	int ret = 0;
 
 	switch (suspend_state) {
+	case PM_SUSPEND_STANDBY:
 	case PM_SUSPEND_MEM:
-		ret = am33xx_pm_suspend();
+		ret = am33xx_pm_suspend(suspend_state);
 		break;
 	default:
 		ret = -EINVAL;
@@ -171,6 +179,9 @@ static int am33xx_pm_begin(suspend_state_t state)
 	case PM_SUSPEND_MEM:
 		am33xx_pm->ipc.reg1	= IPC_CMD_DS0;
 		break;
+	case PM_SUSPEND_STANDBY:
+		am33xx_pm->ipc.reg1	= IPC_CMD_STANDBY;
+		break;
 	}
 
 	am33xx_pm->ipc.reg2		= DS_IPC_DEFAULT;
@@ -203,6 +214,7 @@ static void am33xx_pm_end(void)
 static int am33xx_pm_valid(suspend_state_t state)
 {
 	switch (state) {
+	case PM_SUSPEND_STANDBY:
 	case PM_SUSPEND_MEM:
 		return 1;
 	default:
@@ -293,8 +305,12 @@ int __init am33xx_pm_init(void)
 	mpu_pwrdm = pwrdm_lookup("mpu_pwrdm");
 
 	gfx_l4ls_clkdm = clkdm_lookup("gfx_l4ls_gfx_clkdm");
+	l3s_clkdm = clkdm_lookup("l3s_clkdm");
+	l4fw_clkdm = clkdm_lookup("l4fw_clkdm");
+	clk_24mhz_clkdm = clkdm_lookup("clk_24mhz_clkdm");
 
-	if ((!gfx_pwrdm) || (!per_pwrdm) || (!mpu_pwrdm) || (!gfx_l4ls_clkdm))
+	if ((!gfx_pwrdm) || (!per_pwrdm) || (!mpu_pwrdm) || (!gfx_l4ls_clkdm) ||
+	    (!l3s_clkdm) || (!l4fw_clkdm) || (!clk_24mhz_clkdm))
 		return -ENODEV;
 
 	am33xx_pm = kzalloc(sizeof(*am33xx_pm), GFP_KERNEL);
