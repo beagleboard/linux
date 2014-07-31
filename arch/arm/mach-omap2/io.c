@@ -620,6 +620,8 @@ void __init am43xx_init_late(void)
 {
 	am43xx_opp_init();
 	omap_common_late_init();
+	am33xx_pm_init();
+	omap2_clk_enable_autoidle_all();
 }
 #endif
 

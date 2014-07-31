@@ -75,7 +75,8 @@ static inline int omap4_pm_init_early(void)
 }
 #endif
 
-#if defined(CONFIG_PM) && defined(CONFIG_SOC_AM33XX)
+#if defined(CONFIG_PM) && \
+	(defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX))
 int am33xx_pm_init(void);
 #else
 static inline int am33xx_pm_init(void)
@@ -126,6 +127,7 @@ void omap3630_init_late(void);
 void am35xx_init_late(void);
 void ti81xx_init_late(void);
 void am33xx_init_late(void);
+void am43xx_init_late(void);
 void omap5_init_late(void);
 int omap2_common_pm_late_init(void);
 void dra7xx_init_early(void);

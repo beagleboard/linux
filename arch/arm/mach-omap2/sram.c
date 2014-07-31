@@ -298,6 +298,19 @@ static inline int am33xx_sram_init(void)
 }
 #endif
 
+#ifdef CONFIG_SOC_AM43XX
+static inline int am43xx_sram_init(void)
+{
+	am43xx_push_sram_idle();
+	return 0;
+}
+#else
+static inline int am43xx_sram_init(void)
+{
+	return 0;
+}
+#endif
+
 int __init omap_sram_init(void)
 {
 	omap_detect_sram();
@@ -309,6 +322,8 @@ int __init omap_sram_init(void)
 		omap243x_sram_init();
 	else if (soc_is_am33xx())
 		am33xx_sram_init();
+	else if (soc_is_am43xx())
+		am43xx_sram_init();
 	else if (cpu_is_omap34xx())
 		omap34xx_sram_init();
 
