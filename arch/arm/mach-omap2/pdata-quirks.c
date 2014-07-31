@@ -17,6 +17,7 @@
 
 #include <linux/platform_data/pinctrl-single.h>
 #include <linux/platform_data/iommu-omap.h>
+#include <linux/platform_data/remoteproc-omap.h>
 
 #include "am35xx.h"
 #include "common.h"
@@ -26,6 +27,7 @@
 #include "omap-secure.h"
 #include "soc.h"
 #include "omap_device.h"
+#include "remoteproc.h"
 
 struct pdata_init {
 	const char *compatible;
@@ -193,6 +195,17 @@ static void __init omap4_panda_legacy_init(void)
 {
 	legacy_init_wl12xx(WL12XX_REFCLOCK_38, 0, 53);
 }
+
+static struct omap_rproc_pdata omap4_ipu_pdata = {
+	.device_enable = omap_rproc_device_enable,
+	.device_shutdown = omap_rproc_device_shutdown,
+};
+
+static struct omap_rproc_pdata omap4_dsp_pdata = {
+	.device_enable = omap_rproc_device_enable,
+	.device_shutdown = omap_rproc_device_shutdown,
+	.set_bootaddr = omap_ctrl_write_dsp_boot_addr,
+};
 #endif
 
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
@@ -273,6 +286,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a31e040, "4a31e040.pinmux", &pcs_pdata),
+	OF_DEV_AUXDATA("ti,omap4-rproc-dsp", 0, "dsp", &omap4_dsp_pdata),
+	OF_DEV_AUXDATA("ti,omap4-rproc-ipu", 0, "ipu", &omap4_ipu_pdata),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
