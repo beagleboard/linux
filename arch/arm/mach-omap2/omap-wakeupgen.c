@@ -55,6 +55,16 @@ static unsigned int irq_banks = DEFAULT_NR_REG_BANKS;
 static unsigned int max_irqs = DEFAULT_IRQS;
 static unsigned int omap_secure_apis;
 
+#ifdef CONFIG_CPU_PM
+struct omap_wakeupgen_ops {
+	void (*save_context)(void);
+	void (*restore_context)(void);
+};
+
+static struct omap_wakeupgen_ops *wakeupgen_ops;
+static unsigned int wakeupgen_context[MAX_NR_REG_BANKS];
+#endif
+
 /*
  * Static helper functions.
  */
@@ -276,6 +286,16 @@ static inline void omap5_irq_save_context(void)
 
 }
 
+static inline void am43xx_irq_save_context(void)
+{
+	u32 i;
+
+	for (i = 0; i < irq_banks; i++) {
+		wakeupgen_context[i] = wakeupgen_readl(i, 0);
+		wakeupgen_writel(0, i, CPU0_ID);
+	}
+}
+
 /*
  * Save WakeupGen interrupt context in SAR BANK3. Restore is done by
  * ROM code. WakeupGen IP is integrated along with GIC to manage the
@@ -288,11 +308,7 @@ static void irq_save_context(void)
 {
 	if (!sar_base)
 		sar_base = omap4_get_sar_ram_base();
-
-	if (soc_is_omap54xx())
-		omap5_irq_save_context();
-	else
-		omap4_irq_save_context();
+	wakeupgen_ops->save_context();
 }
 
 /*
@@ -311,6 +327,20 @@ static void irq_sar_clear(void)
 	__raw_writel(val, sar_base + offset);
 }
 
+static void am43xx_irq_restore_context(void)
+{
+	u32 i;
+
+	for (i = 0; i < irq_banks; i++)
+		wakeupgen_writel(wakeupgen_context[i], i, CPU0_ID);
+}
+
+
+static void irq_restore_context(void)
+{
+	wakeupgen_ops->restore_context();
+}
+
 /*
  * Save GIC and Wakeupgen interrupt context using secure API
  * for HS/EMU devices.
@@ -324,6 +354,23 @@ static void irq_save_secure_context(void)
 	if (ret != API_HAL_RET_VALUE_OK)
 		pr_err("GIC and Wakeupgen context save failed\n");
 }
+
+/* Define ops for context save and restore for each SoC */
+
+static struct omap_wakeupgen_ops omap4_wakeupgen_ops = {
+	.save_context = omap4_irq_save_context,
+	.restore_context = irq_sar_clear,
+};
+
+static struct omap_wakeupgen_ops omap5_wakeupgen_ops = {
+	.save_context = omap5_irq_save_context,
+	.restore_context = irq_sar_clear,
+};
+
+static struct omap_wakeupgen_ops am43xx_wakeupgen_ops = {
+	.save_context = am43xx_irq_save_context,
+	.restore_context = am43xx_irq_restore_context,
+};
 #endif
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -368,7 +415,7 @@ static int irq_notifier(struct notifier_block *self, unsigned long cmd,	void *v)
 		break;
 	case CPU_CLUSTER_PM_EXIT:
 		if (omap_type() == OMAP2_DEVICE_TYPE_GP)
-			irq_sar_clear();
+			irq_restore_context();
 		break;
 	}
 	return NOTIFY_OK;
@@ -383,6 +430,13 @@ static void __init irq_pm_init(void)
 	/* FIXME: Remove this when MPU OSWR support is added */
 	if (!soc_is_omap54xx() && !soc_is_dra7xx())
 		cpu_pm_register_notifier(&irq_notifier_block);
+
+	if (cpu_is_omap44xx())
+		wakeupgen_ops = &omap4_wakeupgen_ops;
+	else if (soc_is_omap54xx())
+		wakeupgen_ops = &omap5_wakeupgen_ops;
+	else if (soc_is_am43xx())
+		wakeupgen_ops = &am43xx_wakeupgen_ops;
 }
 #else
 static void __init irq_pm_init(void)
