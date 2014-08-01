@@ -755,6 +755,14 @@
 			status = "disabled";
 		};
 
+		ipu: ipu {
+			compatible = "ti,omap4-rproc-ipu";
+			ti,hwmods = "ipu";
+			iommus = <&mmu_ipu>;
+			mboxes = <&mailbox &mbox_ipu>;
+			status = "disabled";
+		};
+
 		usbhstll: usbhstll@4a062000 {
 			compatible = "ti,usbhs-tll";
 			reg = <0x4a062000 0x1000>;
