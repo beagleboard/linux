@@ -165,6 +165,12 @@
 		pinctrl-1 = <&beeper_pins_sleep>;
 		gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;
 	};
+
+	audio_mstrclk: mclk_osc {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12000000>;
+	};
 };
 
 &am43xx_pinmux {
@@ -715,7 +721,7 @@
 		compatible = "ovti,ov2659";
 		reg = <0x30>;
 
-		clocks = <&refclk 0>;
+		clocks = <&audio_mstrclk>;
 		clock-names = "xvclk";
 
 		port {
@@ -756,7 +762,7 @@
 		compatible = "ovti,ov2659";
 		reg = <0x30>;
 
-		clocks = <&refclk 0>;
+		clocks = <&audio_mstrclk>;
 		clock-names = "xvclk";
 
 		port {
