@@ -17,8 +17,9 @@
 	compatible = "ti,am572x-beagle-x15", "ti,am5728", "ti,dra752", "ti,dra7";
 
 	aliases {
-		rtc0 = &rtc;
-		rtc1 = &tps659038_rtc;
+		rtc0 = &mcp_rtc;
+		rtc1 = &rtc;
+		rtc2 = &tps659038_rtc;
 	};
 
 	memory {
@@ -114,6 +115,20 @@
 		pinctrl-single,pins = <
 			0x400 (PIN_INPUT | MUX_MODE15)
 			0x404 (PIN_INPUT | MUX_MODE15)
+		>;
+	};
+
+	i2c3_pins_default: i2c3_pins_default {
+		pinctrl-single,pins = <
+			0x2a4 (PIN_INPUT| MUX_MODE10)	/* mcasp1_aclkx.i2c3_sda */
+			0x2a8 (PIN_INPUT| MUX_MODE10)	/* mcasp1_fsx.i2c3_scl */
+		>;
+	};
+
+	i2c3_pins_sleep: i2c3_pins_sleep {
+		pinctrl-single,pins = <
+			0x2a4 (PIN_INPUT | MUX_MODE15) /* i2c3_sda */
+			0x2a8 (PIN_INPUT | MUX_MODE15) /* i2c3_scl */
 		>;
 	};
 
@@ -437,6 +452,20 @@
 			wakeup-source;
 			ti,palmas-long-press-seconds = <13>;
 		};
+	};
+};
+
+&i2c3 {
+	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&i2c3_pins_default>;
+	pinctrl-1 = <&i2c3_pins_sleep>;
+	clock-frequency = <400000>;
+
+	mcp_rtc: rtc@6f {
+		compatible = "microchip,mcp7941x";
+		reg = <0x6f>;
+		vcc-supply = <&vdd_3v3>;
 	};
 };
 
