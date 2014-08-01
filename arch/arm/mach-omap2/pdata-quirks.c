@@ -17,6 +17,7 @@
 
 #include <linux/platform_data/pinctrl-single.h>
 #include <linux/platform_data/iommu-omap.h>
+#include <linux/platform_data/pci-dra7xx.h>
 
 #include "am35xx.h"
 #include "common.h"
@@ -216,6 +217,12 @@ static void __init omap5_uevm_legacy_init(void)
 }
 #endif
 
+static struct pci_dra7xx_platform_data dra7xx_pci_pdata = {
+	.reset_name = "pcie",
+	.assert_reset = omap_device_assert_hardreset,
+	.deassert_reset = omap_device_deassert_hardreset,
+};
+
 static struct pcs_pdata pcs_pdata;
 
 void omap_pcs_legacy_init(int irq, void (*rearm)(void))
@@ -280,6 +287,10 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x55082000, "55082000.mmu",
 		       &omap4_iommu_pdata),
 #endif
+	OF_DEV_AUXDATA("ti,dra7-pcie", 0x51000000, "51000000.pcie",
+		       &dra7xx_pci_pdata),
+	OF_DEV_AUXDATA("ti,dra7-pcie", 0x51800000, "51800000.pcie",
+		       &dra7xx_pci_pdata),
 	{ /* sentinel */ },
 };
 

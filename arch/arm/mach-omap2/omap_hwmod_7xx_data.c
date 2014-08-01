@@ -1314,28 +1314,42 @@ static struct omap_hwmod_class dra7xx_pcie_hwmod_class = {
 };
 
 /* pcie1 */
+static struct omap_hwmod_rst_info dra7xx_pcie1_resets[] = {
+	{ .name = "pcie", .rst_shift = 0 },
+};
+
 static struct omap_hwmod dra7xx_pcie1_hwmod = {
 	.name		= "pcie1",
 	.class		= &dra7xx_pcie_hwmod_class,
 	.clkdm_name	= "pcie_clkdm",
+	.rst_lines	= dra7xx_pcie1_resets,
+	.rst_lines_cnt	= ARRAY_SIZE(dra7xx_pcie1_resets),
 	.main_clk	= "l4_root_clk_div",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs	= DRA7XX_CM_PCIE_CLKSTCTRL_OFFSET,
+			.rstctrl_offs	= DRA7XX_RM_L3INIT_RSTCTRL_OFFSET,
 			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
 };
 
 /* pcie2 */
+static struct omap_hwmod_rst_info dra7xx_pcie2_resets[] = {
+	{ .name = "pcie", .rst_shift = 1 },
+};
+
 static struct omap_hwmod dra7xx_pcie2_hwmod = {
 	.name		= "pcie2",
 	.class		= &dra7xx_pcie_hwmod_class,
 	.clkdm_name	= "pcie_clkdm",
+	.rst_lines	= dra7xx_pcie2_resets,
+	.rst_lines_cnt	= ARRAY_SIZE(dra7xx_pcie2_resets),
 	.main_clk	= "l4_root_clk_div",
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_PCIE_CLKSTCTRL_OFFSET,
+			.rstctrl_offs = DRA7XX_RM_L3INIT_RSTCTRL_OFFSET,
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
