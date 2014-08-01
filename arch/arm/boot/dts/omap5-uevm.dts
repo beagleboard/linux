@@ -20,6 +20,26 @@
 		reg = <0x80000000 0x7F000000>; /* 2032 MB */
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		dsp_cma_pool: dsp_cma@95000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x95000000 0x800000>;
+			reusable;
+			status = "disabled";
+		};
+
+		ipu_cma_pool: ipu_cma@95800000 {
+			compatible = "shared-dma-pool";
+			reg = <0x95800000 0x3800000>;
+			reusable;
+			status = "disabled";
+		};
+	};
+
 	vmmcsd_fixed: fixedregulator-mmcsd {
 		compatible = "regulator-fixed";
 		regulator-name = "vmmcsd_fixed";
