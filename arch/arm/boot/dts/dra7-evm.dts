@@ -59,6 +59,53 @@
 		enable-active-high;
 		gpio = <&gpio7 11 GPIO_ACTIVE_HIGH>;
 	};
+
+	aliases {
+		display0 = &tlc59108;
+		display1 = &hdmi0;
+	};
+
+	hdmi0: connector@1 {
+		compatible = "omapdss,hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&tpd12s015_out>;
+			};
+		};
+	};
+
+	tpd12s015: encoder@1 {
+		compatible = "ti,dra7evm-tpd12s015";
+
+		gpios = <&pcf_hdmi 4 0>,	/* P4, CT CP HPD */
+			<&pcf_hdmi 5 0>,	/* P5, LS OE */
+			<&gpio7 12 0>;	/* gpio7_12/sp1_cs2, HPD */
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				tpd12s015_in: endpoint@0 {
+					remote-endpoint = <&hdmi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				tpd12s015_out: endpoint@0 {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
 };
 
 &dra7_pmx_core {
@@ -318,6 +365,12 @@
 			0x238	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d23 */
 		>;
 	};
+
+	hpd_pin: pinmux_hpd_pin {
+		pinctrl-single,pins = <
+			0x3b8	(PIN_INPUT | MUX_MODE14)	/* gpio7_12 */
+		>;
+	};
 };
 
 &i2c1 {
@@ -465,6 +518,14 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c2_pins>;
 	clock-frequency = <400000>;
+
+	pcf_hdmi: gpio@26 {
+		compatible = "nxp,pcf8575";
+		reg = <0x26>;
+		lines-initial-states = <0xffeb>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &i2c3 {
@@ -755,6 +816,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <
 		&vout1_pins
+		&hpd_pin
 	>;
 
 	vdda_video-supply = <&ldoln_reg>;
@@ -770,6 +832,17 @@
 				remote-endpoint = <&tlc_in>;
 				data-lines = <24>;
 			};
+		};
+	};
+};
+
+&hdmi {
+	status = "ok";
+	vdda-supply = <&ldo3_reg>;
+
+	port {
+		hdmi_out: endpoint {
+			remote-endpoint = <&tpd12s015_in>;
 		};
 	};
 };
