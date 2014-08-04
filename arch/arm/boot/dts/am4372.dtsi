@@ -178,11 +178,13 @@
 			reg = <0x480C8000 0x200>;
 			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mailbox";
+			#mbox-cells = <1>;
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <8>;
-			ti,mbox-names = "wkup_m3";
-			ti,mbox-data = <0 0 0 0>;
-			status = "disabled";
+			mbox_wkupm3: wkup_m3 {
+				ti,mbox-tx = <0 0 0>;
+				ti,mbox-rx = <0 0 3>;
+			};
 		};
 
 		timer1: timer@44e31000 {
@@ -682,6 +684,20 @@
 			ti,hwmods = "ocmcram";
 			clocks = <&l3_gclk>;
 			clock-names = "fck";
+			status = "okay";
+		};
+
+		wkup_m3: wkup_m3@44d00000 {
+			compatible = "ti,am4372-wkup-m3","ti,am3353-wkup-m3";
+			reg = <0x44d00000 0x4000	/* M3 UMEM */
+			       0x44d80000 0x2000	/* M3 DMEM */
+			       0x44e11324 0x0024>;	/* IPC REGS */
+			reg-names = "m3_umem", "m3_dmem", "ipc_regs";
+			interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "wkup_m3";
+			clocks = <&sys_clkin_ck>;
+			clock-names = "fck";
+			mboxes = <&mailbox &mbox_wkupm3>;
 			status = "okay";
 		};
 

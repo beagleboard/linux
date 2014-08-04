@@ -335,6 +335,20 @@
 			status = "disabled";
 		};
 
+		mailbox: mailbox@480C8000 {
+			compatible = "ti,omap4-mailbox";
+			reg = <0x480C8000 0x200>;
+			interrupts = <77>;
+			ti,hwmods = "mailbox";
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <8>;
+			mbox_wkupm3: wkup_m3 {
+				ti,mbox-tx = <0 0 0>;
+				ti,mbox-rx = <0 0 3>;
+			};
+		};
+
 		timer1: timer@44e31000 {
 			compatible = "ti,am335x-timer-1ms";
 			reg = <0x44e31000 0x400>;
@@ -704,10 +718,14 @@
 
 		wkup_m3: wkup_m3@44d00000 {
 			compatible = "ti,am3353-wkup-m3";
-			reg = <0x44d00000 0x4000	/* M3 UMEM */
-			       0x44d80000 0x2000>;	/* M3 DMEM */
+			reg = <0x44d00000 0x4000
+			       0x44d80000 0x2000
+			       0x44e11324 0x0024>;
+			reg-names = "m3_umem", "m3_dmem", "ipc_regs";
+			interrupts = <78>;
 			ti,hwmods = "wkup_m3";
 			ti,no-reset-on-init;
+			mboxes = <&mailbox &mbox_wkupm3>;
 		};
 
 		elm: elm@48080000 {
