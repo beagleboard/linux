@@ -499,6 +499,7 @@ static int ehrpwm_pwm_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
+	pm_runtime_irq_safe(&pdev->dev);
 
 	status = pwmss_submodule_state_change(pdev->dev.parent,
 			PWMSS_EPWMCLK_EN);
