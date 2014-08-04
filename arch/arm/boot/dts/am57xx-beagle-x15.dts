@@ -301,6 +301,18 @@
 			0x418 (PIN_INPUT_PULLUP | MUX_MODE14)	/* wakeup0.gpio1_0 */
 		>;
 	};
+
+	tmp102_pins_default: tmp102_pins_default {
+		pinctrl-single,pins = <
+			0x3C8 (PIN_INPUT_PULLUP | MUX_MODE14)	/* spi2_d0.gpio7_16 */
+		>;
+	};
+
+	tmp102_pins_sleep: tmp102_pins_sleep {
+		pinctrl-single,pins = <
+			0x3C8 (PIN_INPUT | MUX_MODE15)
+		>;
+	};
 };
 
 &i2c1 {
@@ -452,6 +464,16 @@
 			wakeup-source;
 			ti,palmas-long-press-seconds = <13>;
 		};
+	};
+
+	tmp102: tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&tmp102_pins_default>;
+		pinctrl-1 = <&tmp102_pins_sleep>;
+		interrupt-parent = <&gpio7>;
+		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
