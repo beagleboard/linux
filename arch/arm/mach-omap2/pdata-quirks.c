@@ -196,15 +196,24 @@ static void __init omap4_panda_legacy_init(void)
 	legacy_init_wl12xx(WL12XX_REFCLOCK_38, 0, 53);
 }
 
+static struct omap_rproc_timer_ops omap_rproc_dmtimer_ops = {
+	.request_timer = omap_rproc_request_timer,
+	.release_timer = omap_rproc_release_timer,
+	.start_timer = omap_rproc_start_timer,
+	.stop_timer = omap_rproc_stop_timer,
+};
+
 static struct omap_rproc_pdata omap4_ipu_pdata = {
 	.device_enable = omap_rproc_device_enable,
 	.device_shutdown = omap_rproc_device_shutdown,
+	.timer_ops = &omap_rproc_dmtimer_ops,
 };
 
 static struct omap_rproc_pdata omap4_dsp_pdata = {
 	.device_enable = omap_rproc_device_enable,
 	.device_shutdown = omap_rproc_device_shutdown,
 	.set_bootaddr = omap_ctrl_write_dsp_boot_addr,
+	.timer_ops = &omap_rproc_dmtimer_ops,
 };
 #endif
 
