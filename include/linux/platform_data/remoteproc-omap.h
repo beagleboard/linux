@@ -27,12 +27,18 @@ struct omap_dm_timer;
  * @release_timer: omap-specific handler for freeing a rproc timer
  * @start_timer: omap-specific handler for enabling a rproc timer
  * @stop_timer: omap-specific handler for disabling a rproc timer
+ * @get_timer_irq: handler to retrieve the irq id of a OMAP DMTimer
+ * @ack_timer_irq: handler to acknowledge the interrupt of a OMAP DMTimer
  */
 struct omap_rproc_timer_ops {
 	struct omap_dm_timer * (*request_timer)(struct device_node *np);
 	int (*release_timer)(struct omap_dm_timer *timer);
 	int (*start_timer)(struct omap_dm_timer *timer);
 	int (*stop_timer)(struct omap_dm_timer *timer);
+
+	/* watchdog timer specific ops */
+	int (*get_timer_irq)(struct omap_dm_timer *timer);
+	void (*ack_timer_irq)(struct omap_dm_timer *timer);
 };
 
 /*

@@ -202,3 +202,35 @@ int omap_rproc_release_timer(struct omap_dm_timer *timer)
 {
 	return omap_dm_timer_free(timer);
 }
+
+/**
+ * omap_rproc_get_timer_irq - get the irq for a timer
+ * @timer - handle to a OMAP timer
+ *
+ * This function is used to get the irq associated with a timer, obtained
+ * using the request_timer ops. The function is called by the OMAP remoteproc
+ * driver to register a interrupt handler to handle watchdog events on the
+ * remote processor.
+ *
+ * Returns the irq id on success, otherwise a failure as returned by DMTimer API
+ */
+int omap_rproc_get_timer_irq(struct omap_dm_timer *timer)
+{
+	return omap_dm_timer_get_irq(timer);
+}
+
+/**
+ * omap_rproc_ack_timer_irq - acknowledge a timer irq
+ * @timer - handle to a OMAP timer
+ *
+ * This function is used to clear the irq associated with a timer, obtained
+ * using the request_timer ops. The function is called by the OMAP remoteproc
+ * driver upon a watchdog event on the remote processor to clear the interrupt
+ * status of the watchdog timer.
+ *
+ * Returns the irq id on success, otherwise a failure as returned by DMTimer API
+ */
+void omap_rproc_ack_timer_irq(struct omap_dm_timer *timer)
+{
+	omap_dm_timer_write_status(timer, OMAP_TIMER_INT_OVERFLOW);
+}
