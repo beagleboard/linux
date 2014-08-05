@@ -52,3 +52,5 @@ obj-y	+= davinci/
 obj-$(CONFIG_ARCH_OMAP)	+= omap/
 
 ccflags-y += -I$(srctree)/drivers/media/i2c
+
+obj-$(CONFIG_VIDEO_AM437X_VPFE)	+= ti-vpfe/
