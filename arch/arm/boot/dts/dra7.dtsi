@@ -180,7 +180,7 @@
 				     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
 			#dma-cells = <2>;
 			#dma-channels = <32>;
-			#dma-requests = <127>;
+			#dma-requests = <203>;
 		};
 
 		dmacb: dma-crossbar@4a020000 {
