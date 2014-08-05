@@ -28,6 +28,7 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/interrupt.h>
 #include <linux/remoteproc.h>
 #include <linux/mailbox_client.h>
 #include <linux/omap-mailbox.h>
@@ -68,9 +69,11 @@ struct omap_rproc_mem {
 /**
  * struct omap_rproc_timers_info - timers for the omap rproc
  * @odt: timer pointer
+ * @irq: timer irq
  */
 struct omap_rproc_timers_info {
 	struct omap_dm_timer *odt;
+	int irq;
 };
 
 /**
@@ -81,6 +84,7 @@ struct omap_rproc_timers_info {
  * @mem: internal memory regions data
  * @num_mems: number of internal memory regions
  * @num_timers: number of rproc timer(s)
+ * @num_wd_timers: number of rproc watchdog timers
  * @timers: timer(s) info used by rproc
  * @rproc: rproc handle
  */
@@ -91,6 +95,7 @@ struct omap_rproc {
 	struct omap_rproc_mem *mem;
 	int num_mems;
 	int num_timers;
+	int num_wd_timers;
 	struct omap_rproc_timers_info *timers;
 	struct rproc *rproc;
 };
@@ -104,6 +109,54 @@ struct omap_rproc_dev_data {
 	const char *device_name;
 	const char *fw_name;
 };
+
+/**
+ * omap_rproc_watchdog_isr - Watchdog ISR handler for remoteproc device
+ * @irq: IRQ number associated with a watchdog timer
+ * @data: IRQ handler data
+ *
+ * This ISR routine executes the required necessary low-level code to
+ * acknowledge a watchdog timer interrupt. There can be multiple watchdog
+ * timers associated with a rproc (like IPUs which have 2 watchdog timers,
+ * one per Cortex M3/M4 core), so a lookup has to be performed to identify
+ * the timer to acknowledge its interrupt.
+ *
+ * The function also invokes rproc_report_crash to report the watchdog event
+ * to the remoteproc driver core, to trigger a recovery.
+ *
+ * Return: IRQ_HANDLED or IRQ_NONE
+ */
+static irqreturn_t omap_rproc_watchdog_isr(int irq, void *data)
+{
+	struct platform_device *pdev = data;
+	struct rproc *rproc = platform_get_drvdata(pdev);
+	struct omap_rproc *oproc = rproc->priv;
+	struct device *dev = &pdev->dev;
+	struct omap_rproc_pdata *pdata = dev->platform_data;
+	struct omap_rproc_timer_ops *timer_ops = pdata->timer_ops;
+	struct omap_rproc_timers_info *timers = oproc->timers;
+	struct omap_dm_timer *timer = NULL;
+	int num_timers = oproc->num_timers + oproc->num_wd_timers;
+	int i;
+
+	for (i = oproc->num_timers; i < num_timers; i++) {
+		if (timers[i].irq > 0 && irq == timers[i].irq) {
+			timer = timers[i].odt;
+			break;
+		}
+	}
+
+	if (!timer) {
+		dev_err(dev, "invalid timer\n");
+		return IRQ_NONE;
+	}
+
+	timer_ops->ack_timer_irq(timer);
+
+	rproc_report_crash(rproc, RPROC_WATCHDOG);
+
+	return IRQ_HANDLED;
+}
 
 /**
  * omap_rproc_enable_timers - enable the timers for a remoteproc
@@ -127,22 +180,29 @@ omap_rproc_enable_timers(struct platform_device *pdev, bool configure)
 	struct omap_rproc_timers_info *timers = oproc->timers;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = NULL;
+	int num_timers = oproc->num_timers + oproc->num_wd_timers;
 
-	if (oproc->num_timers <= 0)
+	if (num_timers <= 0)
 		return 0;
 
 	if (!configure)
 		goto start_timers;
 
-	for (i = 0; i < oproc->num_timers; i++) {
-		np = of_parse_phandle(dev->of_node, "timers", i);
+	for (i = 0; i < num_timers; i++) {
+		if (i < oproc->num_timers)
+			np = of_parse_phandle(dev->of_node, "timers", i);
+		else
+			np = of_parse_phandle(dev->of_node, "watchdog-timers",
+					      (i - oproc->num_timers));
 		if (!np) {
 			ret = -ENXIO;
 			dev_err(dev, "device node lookup for timer at index %d failed: %d\n",
-				i, ret);
+				i < oproc->num_timers ? i :
+				i - oproc->num_timers, ret);
 			goto free_timers;
 		}
 
+		timers[i].irq = -1;
 		timers[i].odt = timer_ops->request_timer(np);
 		of_node_put(np);
 		if (IS_ERR(timers[i].odt)) {
@@ -151,17 +211,42 @@ omap_rproc_enable_timers(struct platform_device *pdev, bool configure)
 			ret = -EBUSY;
 			goto free_timers;
 		}
+
+		if (i >= oproc->num_timers) {
+			timers[i].irq = timer_ops->get_timer_irq(timers[i].odt);
+			if (timers[i].irq < 0) {
+				dev_err(dev, "get_irq for timer %p failed: %d\n",
+					np, timers[i].irq);
+				ret = -EBUSY;
+				goto free_timers;
+			}
+
+			ret = request_irq(timers[i].irq,
+					  omap_rproc_watchdog_isr, IRQF_SHARED,
+					  "rproc-wdt", pdev);
+			if (ret) {
+				dev_err(&pdev->dev, "error requesting irq for timer %p\n",
+					np);
+				timer_ops->release_timer(timers[i].odt);
+				timers[i].odt = NULL;
+				timers[i].irq = -1;
+				goto free_timers;
+			}
+		}
 	}
 
 start_timers:
-	for (i = 0; i < oproc->num_timers; i++)
+	for (i = 0; i < num_timers; i++)
 		timer_ops->start_timer(timers[i].odt);
 	return 0;
 
 free_timers:
 	while (i--) {
+		if (i >= oproc->num_timers)
+			free_irq(timers[i].irq, pdev);
 		timer_ops->release_timer(timers[i].odt);
 		timers[i].odt = NULL;
+		timers[i].irq = -1;
 	}
 
 	return ret;
@@ -186,15 +271,19 @@ omap_rproc_disable_timers(struct platform_device *pdev, bool configure)
 	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
 	struct omap_rproc_timer_ops *timer_ops = pdata->timer_ops;
 	struct omap_rproc_timers_info *timers = oproc->timers;
+	int num_timers = oproc->num_timers + oproc->num_wd_timers;
 
-	if (oproc->num_timers <= 0)
+	if (num_timers <= 0)
 		return 0;
 
-	for (i = 0; i < oproc->num_timers; i++) {
+	for (i = 0; i < num_timers; i++) {
 		timer_ops->stop_timer(timers[i].odt);
 		if (configure) {
+			if (i >= oproc->num_timers)
+				free_irq(timers[i].irq, pdev);
 			timer_ops->release_timer(timers[i].odt);
 			timers[i].odt = NULL;
+			timers[i].irq = -1;
 		}
 	}
 
@@ -550,6 +639,7 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	struct omap_rproc *oproc;
 	struct rproc *rproc;
 	const char *firmware;
+	int num_timers;
 	int ret;
 
 	if (!np) {
@@ -612,16 +702,34 @@ static int omap_rproc_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (oproc->num_timers) {
+#ifdef CONFIG_OMAP_REMOTEPROC_WATCHDOG
+	oproc->num_wd_timers = of_count_phandle_with_args(np, "watchdog-timers",
+							  NULL);
+	if (oproc->num_wd_timers <= 0) {
+		dev_dbg(&pdev->dev, "device does not have watchdog timers, status = %d\n",
+			oproc->num_wd_timers);
+		oproc->num_wd_timers = 0;
+	} else {
+		if (!timer_ops || !timer_ops->get_timer_irq ||
+		    !timer_ops->ack_timer_irq) {
+			dev_err(&pdev->dev, "device does not have required watchdog timer ops\n");
+			ret = -ENODEV;
+			goto free_rproc;
+		}
+	}
+#endif
+
+	if (oproc->num_timers || oproc->num_wd_timers) {
+		num_timers = oproc->num_timers + oproc->num_wd_timers;
 		oproc->timers = devm_kzalloc(&pdev->dev, sizeof(*oproc->timers)
-					     * oproc->num_timers, GFP_KERNEL);
+					     * num_timers, GFP_KERNEL);
 		if (!oproc->timers) {
 			ret = -ENOMEM;
 			goto free_rproc;
 		}
 
-		dev_dbg(&pdev->dev, "device has %d tick timers\n",
-			oproc->num_timers);
+		dev_dbg(&pdev->dev, "device has %d tick timers and %d watchdog timers\n",
+			oproc->num_timers, oproc->num_wd_timers);
 	}
 
 	if (of_reserved_mem_device_init(&pdev->dev)) {
