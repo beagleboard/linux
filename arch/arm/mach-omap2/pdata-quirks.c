@@ -421,6 +421,8 @@ static struct omap_rproc_timer_ops omap_rproc_dmtimer_ops = {
 	.release_timer = omap_rproc_release_timer,
 	.start_timer = omap_rproc_start_timer,
 	.stop_timer = omap_rproc_stop_timer,
+	.get_timer_irq = omap_rproc_get_timer_irq,
+	.ack_timer_irq = omap_rproc_ack_timer_irq,
 };
 
 static struct omap_rproc_pdata omap4_ipu_dsp_pdata = {
