@@ -237,6 +237,13 @@ static struct omap_rproc_pdata dra7_dsp1_pdata = {
 	.set_bootaddr = dra7_ctrl_write_dsp1_boot_addr,
 	.timer_ops = &omap_rproc_dmtimer_ops,
 };
+
+static struct omap_rproc_pdata dra7_dsp2_pdata = {
+	.device_enable = omap_rproc_device_enable,
+	.device_shutdown = omap_rproc_device_shutdown,
+	.set_bootaddr = dra7_ctrl_write_dsp2_boot_addr,
+	.timer_ops = &omap_rproc_dmtimer_ops,
+};
 #endif
 
 #ifdef CONFIG_SOC_AM33XX
@@ -343,6 +350,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &omap4_ipu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-rproc-dsp", 0x40800000, "40800000.dsp",
 		       &dra7_dsp1_pdata),
+	OF_DEV_AUXDATA("ti,dra7-rproc-dsp", 0x41000000, "41000000.dsp",
+		       &dra7_dsp2_pdata),
 #endif
 	{ /* sentinel */ },
 };
