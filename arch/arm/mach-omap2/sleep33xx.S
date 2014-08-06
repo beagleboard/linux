@@ -42,12 +42,12 @@
  * This routine is executed from internal RAM and expects some
  * parameters to be passed in r0 _strictly_ in following order:
  * 1) emif_addr_virt - ioremapped EMIF address
- * 2) mem_type - 2 -> DDR2, 3-> DDR3
+ * 2) wfi_flags - actions to perform
  * 3) dram_sync_word - uncached word in SDRAM
  *
  * The code loads these values taking r0 value as reference to
  * the array in registers starting from r0, i.e emif_addr_virt
- * goes to r1, mem_type goes to r2 and and so on. These are
+ * goes to r1, wfi_flags goes to r2 and and so on. These are
  * then saved into memory locations before proceeding with the
  * sleep sequence and hence registers r0, r1 etc can still be
  * used in the rest of the sleep code.
@@ -60,8 +60,12 @@ ENTRY(am33xx_do_wfi)
 
 	/* Save the values passed */
 	str	r1, emif_addr_virt
-	str	r2, mem_type
+	str	r2, wfi_flags
 	str	r3, dram_sync_word
+
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_SELF_REFRESH
+	beq	skip_sr
 
 	/*
 	 * Flush all data from the L1 and L2 data cache before disabling
@@ -86,9 +90,16 @@ ENTRY(am33xx_do_wfi)
 	ldr	r1, kernel_flush
 	blx	r1
 
-	/* Save EMIF configuration */
+	/* Need to load emif addr for context save and self refresh */
 	ldr	r0, emif_addr_virt
 	ldr	r1, [r0, #EMIF_SDRAM_REFRESH_CONTROL]
+
+	/* Only necessary if PER is losing context */
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_SAVE_EMIF
+	beq	skip_save_emif
+
+	/* Save EMIF configuration */
 	str	r1, emif_ref_ctrl_val
 	ldr	r1, [r0, #EMIF_SDRAM_TIMING_1]
 	str	r1, emif_timing1_val
@@ -101,6 +112,7 @@ ENTRY(am33xx_do_wfi)
 	ldr	r1, [r0, #EMIF_DDR_PHY_CTRL_1]
 	str	r1, emif_rd_lat_val
 
+skip_save_emif:
 	/* Put SDRAM in self-refresh */
 	ldr	r1, [r0, #EMIF_POWER_MANAGEMENT_CONTROL]
 	bic	r1, r1, #EMIF_POWER_MGMT_SR_TIMER_MASK
@@ -116,6 +128,9 @@ ENTRY(am33xx_do_wfi)
 	ldr	r1, dram_sync_word	@ a dummy access to DDR as per spec
 	ldr	r2, [r1, #0]
 
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_DISABLE_EMIF
+	beq	skip_sr
 
 	/* Disable EMIF */
 	ldr	r1, virt_emif_clkctrl
@@ -130,6 +145,11 @@ wait_emif_disable:
 	cmp	r2, r3
 	bne	wait_emif_disable
 
+skip_sr:
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_WAKE_M3
+	beq	skip_m3
+
 	/*
 	 * For the MPU WFI to be registered as an interrupt
 	 * to WKUP_M3, MPU_CLKCTRL.MODULEMODE needs to be set
@@ -140,6 +160,7 @@ wait_emif_disable:
 	bic	r2, r2, #AM33XX_CM_CLKCTRL_MODULEMODE_DISABLE
 	str	r2, [r1]
 
+skip_m3:
 	/*
 	 * Execute an ISB instruction to ensure that all of the
 	 * CP15 register changes have been committed.
@@ -178,11 +199,20 @@ wait_emif_disable:
 	nop
 
 	/* We come here in case of an abort due to a late interrupt */
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_WAKE_M3
 
 	/* Set MPU_CLKCTRL.MODULEMODE back to ENABLE */
-	ldr	r1, virt_mpu_clkctrl
-	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
-	str	r2, [r1]
+	ldrne	r1, virt_mpu_clkctrl
+	movne	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
+	strne	r2, [r1]
+
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_SELF_REFRESH
+	beq	skip_reenable_emif
+
+	tst	r2, #WFI_DISABLE_EMIF
+	beq	skip_emif_enable
 
 	/* Re-enable EMIF */
 	ldr	r1, virt_emif_clkctrl
@@ -193,6 +223,7 @@ wait_emif_enable:
 	cmp	r2, r3
 	bne	wait_emif_enable
 
+skip_emif_enable:
 	/* Disable EMIF self-refresh */
 	ldr	r0, emif_addr_virt
 	ldr	r1, emif_pmcr_val
@@ -213,6 +244,7 @@ wait_emif_enable:
 	mcr	p15, 0, r0, c1, c0, 0
 	isb
 
+skip_reenable_emif:
 	/* Let the suspend code know about the abort */
 	mov	r0, #1
 	ldmfd	sp!, {r4 - r11, pc}	@ restore regs and return
@@ -223,6 +255,13 @@ ENTRY(am33xx_resume_offset)
 	.word . - am33xx_do_wfi
 
 ENTRY(am33xx_resume_from_deep_sleep)
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_SELF_REFRESH
+	beq	skip_reenable_emif1
+
+	tst	r2, #WFI_DISABLE_EMIF
+	beq	skip_emif_enable1
+
 	/* Re-enable EMIF */
 	ldr	r0, phys_emif_clkctrl
 	mov	r1, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
@@ -232,8 +271,14 @@ wait_emif_enable1:
 	cmp	r1, r2
 	bne	wait_emif_enable1
 
-	/* Config EMIF Timings */
+skip_emif_enable1:
 	ldr	r0, emif_phys_addr
+
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_SAVE_EMIF
+	beq	skip_restore_emif
+
+	/* Config EMIF Timings */
 	ldr	r1, emif_rd_lat_val
 	str	r1, [r0, #EMIF_DDR_PHY_CTRL_1]
 	str	r1, [r0, #EMIF_DDR_PHY_CTRL_1_SHDW]
@@ -252,6 +297,8 @@ wait_emif_enable1:
 
 	ldr	r1, emif_pmcr_shdw_val
 	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CTRL_SHDW]
+
+skip_restore_emif:
 	/*
 	 * Toggle EMIF to exit refresh mode:
 	 * if EMIF lost context, PWR_MGT_CTRL is currently 0, writing disable
@@ -285,6 +332,7 @@ wait_emif_enable1:
 	tst	r1, #EMIF_STATUS_READY
 	beq	1b
 
+skip_reenable_emif1:
 	/* We are back. Branch to the common CPU resume routine */
 	mov	r0, #0
 	ldr	pc, resume_addr
@@ -316,7 +364,7 @@ module_disabled_val:
 /* DDR related defines */
 dram_sync_word:
 	.word	0xDEADBEEF
-mem_type:
+wfi_flags:
 	.word	0xDEADBEEF
 emif_addr_virt:
 	.word	0xDEADBEEF
