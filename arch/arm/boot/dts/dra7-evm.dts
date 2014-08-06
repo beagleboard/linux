@@ -484,16 +484,20 @@
 
 &ipu2 {
 	memory-region = <&ipu2_cma_pool>;
+	mboxes = <&mailbox6 &mbox_ipu2_legacy>;
 };
 
 &ipu1 {
 	memory-region = <&ipu1_cma_pool>;
+	mboxes = <&mailbox5 &mbox_ipu1_legacy>;
 };
 
 &dsp1 {
 	memory-region = <&dsp1_cma_pool>;
+	mboxes = <&mailbox5 &mbox_dsp1_legacy>;
 };
 
 &dsp2 {
 	memory-region = <&dsp2_cma_pool>;
+	mboxes = <&mailbox6 &mbox_dsp2_legacy>;
 };
