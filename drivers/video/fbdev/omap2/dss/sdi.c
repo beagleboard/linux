@@ -424,7 +424,7 @@ err_datapairs:
 	return r;
 }
 
-void __exit sdi_uninit_port(void)
+void __exit sdi_uninit_port(struct device_node *port)
 {
 	if (!sdi.port_initialized)
 		return;

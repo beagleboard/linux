@@ -48,13 +48,12 @@ static struct {
 	struct platform_device *pdev;
 
 	struct hdmi_wp_data	wp;
-	struct hdmi_pll_data	pll;
+	struct pll_data		*pll;
 	struct hdmi_phy_data	phy;
 	struct hdmi_core_data	core;
 
 	struct hdmi_config cfg;
 
-	struct clk *sys_clk;
 	struct regulator *vdda_reg;
 
 	bool core_enabled;
@@ -160,6 +159,45 @@ static int hdmi_init_regulator(void)
 	return 0;
 }
 
+static int hdmi_pll_enable(struct pll_data *pll, struct hdmi_wp_data *wp,
+		struct pll_params *p)
+{
+	u16 r = 0;
+
+	dss_ctrl_hdmi_pll_enable(true);
+
+	r = hdmi_wp_set_pll_pwr(wp, HDMI_PLLPWRCMD_ALLOFF);
+	if (r)
+		return r;
+
+	r = hdmi_wp_set_pll_pwr(wp, HDMI_PLLPWRCMD_BOTHON_ALLCLKS);
+	if (r)
+		return r;
+
+	pll_sysreset(pll);
+
+	r = pll_wait_reset(pll);
+	if (r)
+		return r;
+
+	r = pll_calc_and_check_clock_rates(pll, p);
+	if (r)
+		return r;
+
+	r = pll_set_clock_div(pll, p);
+	if (r)
+		return r;
+
+	return 0;
+}
+
+static void hdmi_pll_disable(struct hdmi_wp_data *wp)
+{
+	hdmi_wp_set_pll_pwr(wp, HDMI_PLLPWRCMD_ALLOFF);
+
+	dss_ctrl_hdmi_pll_enable(false);
+}
+
 static int hdmi_power_on_core(struct omap_dss_device *dssdev)
 {
 	int r;
@@ -199,6 +237,7 @@ static int hdmi_power_on_full(struct omap_dss_device *dssdev)
 	struct omap_video_timings *p;
 	struct omap_overlay_manager *mgr = hdmi.output.manager;
 	unsigned long phy;
+	struct pll_params param;
 
 	r = hdmi_power_on_core(dssdev);
 	if (r)
@@ -208,10 +247,11 @@ static int hdmi_power_on_full(struct omap_dss_device *dssdev)
 
 	DSSDBG("hdmi_power_on x_res= %d y_res = %d\n", p->x_res, p->y_res);
 
-	/* the functions below use kHz pixel clock. TODO: change to Hz */
-	phy = p->pixelclock / 1000;
+	phy = p->pixelclock * 10;
 
-	hdmi_pll_compute(&hdmi.pll, clk_get_rate(hdmi.sys_clk), phy);
+	memset(&param, 0, sizeof(param));
+
+	pll_calc(hdmi.pll, phy, phy, NULL, &param);
 
 	/* disable and clear irqs */
 	hdmi_wp_clear_irqenable(&hdmi.wp, 0xffffffff);
@@ -219,7 +259,7 @@ static int hdmi_power_on_full(struct omap_dss_device *dssdev)
 			hdmi_wp_get_irqstatus(&hdmi.wp));
 
 	/* config the PLL and PHY hdmi_set_pll_pwrfirst */
-	r = hdmi_pll_enable(&hdmi.pll, &hdmi.wp);
+	r = hdmi_pll_enable(hdmi.pll, &hdmi.wp, &param);
 	if (r) {
 		DSSDBG("Failed to lock PLL\n");
 		goto err_pll_enable;
@@ -262,7 +302,7 @@ err_vid_enable:
 	hdmi_wp_set_phy_pwr(&hdmi.wp, HDMI_PHYPWRCMD_OFF);
 err_phy_pwr:
 err_phy_cfg:
-	hdmi_pll_disable(&hdmi.pll, &hdmi.wp);
+	hdmi_pll_disable(&hdmi.wp);
 err_pll_enable:
 	hdmi_power_off_core(dssdev);
 	return -EIO;
@@ -280,7 +320,7 @@ static void hdmi_power_off_full(struct omap_dss_device *dssdev)
 
 	hdmi_wp_set_phy_pwr(&hdmi.wp, HDMI_PHYPWRCMD_OFF);
 
-	hdmi_pll_disable(&hdmi.pll, &hdmi.wp);
+	hdmi_pll_disable(&hdmi.wp);
 
 	hdmi_power_off_core(dssdev);
 }
@@ -349,7 +389,7 @@ static void hdmi_dump_regs(struct seq_file *s)
 	}
 
 	hdmi_wp_dump(&hdmi.wp, s);
-	hdmi_pll_dump(&hdmi.pll, s);
+	pll_dump(hdmi.pll, s);
 	hdmi_phy_dump(&hdmi.phy, s);
 	hdmi5_core_dump(&hdmi.core, s);
 
@@ -452,21 +492,6 @@ static void hdmi_core_disable(struct omap_dss_device *dssdev)
 	hdmi_power_off_core(dssdev);
 
 	mutex_unlock(&hdmi.lock);
-}
-
-static int hdmi_get_clocks(struct platform_device *pdev)
-{
-	struct clk *clk;
-
-	clk = devm_clk_get(&pdev->dev, "sys_clk");
-	if (IS_ERR(clk)) {
-		DSSERR("can't get sys_clk\n");
-		return PTR_ERR(clk);
-	}
-
-	hdmi.sys_clk = clk;
-
-	return 0;
 }
 
 static int hdmi_connect(struct omap_dss_device *dssdev,
@@ -725,9 +750,10 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 	if (r)
 		return r;
 
-	r = hdmi_pll_init(pdev, &hdmi.pll);
-	if (r)
-		return r;
+	hdmi.pll = pll_create(pdev, "pll", "sys_clk", DSS_PLL_TYPE_HDMI,
+			NULL, 0);
+	if (!hdmi.pll)
+		return -ENODEV;
 
 	r = hdmi_phy_init(pdev, &hdmi.phy);
 	if (r)
@@ -736,12 +762,6 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 	r = hdmi5_core_init(pdev, &hdmi.core);
 	if (r)
 		return r;
-
-	r = hdmi_get_clocks(pdev);
-	if (r) {
-		DSSERR("can't get clocks\n");
-		return r;
-	}
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
@@ -777,7 +797,7 @@ static int __exit omapdss_hdmihw_remove(struct platform_device *pdev)
 
 static int hdmi_runtime_suspend(struct device *dev)
 {
-	clk_disable_unprepare(hdmi.sys_clk);
+	pll_enable_clock(hdmi.pll, false);
 
 	dispc_runtime_put();
 
@@ -792,7 +812,7 @@ static int hdmi_runtime_resume(struct device *dev)
 	if (r < 0)
 		return r;
 
-	clk_prepare_enable(hdmi.sys_clk);
+	pll_enable_clock(hdmi.pll, true);
 
 	return 0;
 }
@@ -804,6 +824,7 @@ static const struct dev_pm_ops hdmi_pm_ops = {
 
 static const struct of_device_id hdmi_of_match[] = {
 	{ .compatible = "ti,omap5-hdmi", },
+	{ .compatible = "ti,dra7-hdmi", },
 	{},
 };
 

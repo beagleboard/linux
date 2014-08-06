@@ -280,6 +280,10 @@ static enum omapdss_version __init omap_display_get_version(void)
 		return OMAPDSS_VER_OMAP5;
 	else if (soc_is_am43xx())
 		return OMAPDSS_VER_AM43xx;
+	else if (soc_is_dra74x())
+		return OMAPDSS_VER_DRA74xx;
+	else if (soc_is_dra72x())
+		return OMAPDSS_VER_DRA72xx;
 	else
 		return OMAPDSS_VER_UNKNOWN;
 }
@@ -578,6 +582,10 @@ struct device_node * __init omapdss_find_dss_of_node(void)
 		return node;
 
 	node = of_find_compatible_node(NULL, NULL, "ti,omap5-dss");
+	if (node)
+		return node;
+
+	node = of_find_compatible_node(NULL, NULL, "ti,dra7-dss");
 	if (node)
 		return node;
 

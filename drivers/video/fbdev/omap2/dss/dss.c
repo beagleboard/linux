@@ -34,6 +34,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/gfp.h>
 #include <linux/sizes.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 #include <linux/of.h>
 
 #include <video/omapdss.h>
@@ -63,19 +65,21 @@ struct dss_reg {
 #define REG_FLD_MOD(idx, val, start, end) \
 	dss_write_reg(idx, FLD_MOD(dss_read_reg(idx), val, start, end))
 
-static int dss_runtime_get(void);
-static void dss_runtime_put(void);
-
 struct dss_features {
 	u8 fck_div_max;
 	u8 dss_fck_multiplier;
 	const char *parent_clk_name;
-	int (*dpi_select_source)(enum omap_channel channel);
+	enum omap_display_type *ports;
+	int num_ports;
+	int (*dpi_select_source)(int id, enum omap_channel channel);
+	bool pll_ext_ctrl;
+	bool video1_pll, video2_pll;
 };
 
 static struct {
 	struct platform_device *pdev;
 	void __iomem    *base;
+	struct regmap	*syscon;
 
 	struct clk	*parent_clk;
 	struct clk	*dss_clk;
@@ -155,6 +159,89 @@ static void dss_restore_context(void)
 
 #undef SR
 #undef RR
+
+#define CTRL_CORE_DSS_PLL_CONTROL_OFF	0x538
+
+void dss_ctrl_pll_enable(int pll_id, bool enable)
+{
+	if (!dss.syscon)
+		return;
+
+	regmap_update_bits(dss.syscon, CTRL_CORE_DSS_PLL_CONTROL_OFF,
+		1 << pll_id, !enable);
+}
+
+void dss_ctrl_hdmi_pll_enable(bool enable)
+{
+	if (!dss.syscon)
+		return;
+
+	regmap_update_bits(dss.syscon, CTRL_CORE_DSS_PLL_CONTROL_OFF,
+		1 << 2, !enable);
+}
+
+void dss_ctrl_pll_set_control_mux(int pll_id, enum omap_channel channel)
+{
+	u8 shift, val;
+
+	if (!dss.syscon)
+		return;
+
+	switch (channel) {
+	case OMAP_DSS_CHANNEL_LCD:
+		shift = 3;
+
+		switch (pll_id) {
+		case 0:
+			val = 0; break;
+		case 2:
+			val = 1; break;
+		default:
+			DSSERR("error in PLL mux config for LCD\n");
+			return;
+		}
+
+		break;
+	case OMAP_DSS_CHANNEL_LCD2:
+		shift = 5;
+
+		switch (pll_id) {
+		case 0:
+			val = 0; break;
+		case 1:
+			val = 1; break;
+		case 2:
+			val = 2; break;
+		default:
+			DSSERR("error in PLL mux config for LCD2\n");
+			return;
+		}
+
+		break;
+	case OMAP_DSS_CHANNEL_LCD3:
+		shift = 7;
+
+		switch (pll_id) {
+		case 0:
+			val = 1; break;
+		case 1:
+			val = 0; break;
+		case 2:
+			val = 2; break;
+		default:
+			DSSERR("error in PLL mux config for LCD3\n");
+			return;
+		}
+
+		break;
+	default:
+		DSSERR("error in PLL mux config\n");
+		return;
+	}
+
+	regmap_update_bits(dss.syscon, CTRL_CORE_DSS_PLL_CONTROL_OFF,
+		0x3 << shift, val);
+}
 
 void dss_sdi_init(int datapairs)
 {
@@ -294,7 +381,6 @@ static void dss_dump_regs(struct seq_file *s)
 
 static void dss_select_dispc_clk_source(enum omap_dss_clk_source clk_src)
 {
-	struct platform_device *dsidev;
 	int b;
 	u8 start, end;
 
@@ -304,13 +390,9 @@ static void dss_select_dispc_clk_source(enum omap_dss_clk_source clk_src)
 		break;
 	case OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DISPC:
 		b = 1;
-		dsidev = dsi_get_dsidev_from_id(0);
-		dsi_wait_pll_hsdiv_dispc_active(dsidev);
 		break;
 	case OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DISPC:
 		b = 2;
-		dsidev = dsi_get_dsidev_from_id(1);
-		dsi_wait_pll_hsdiv_dispc_active(dsidev);
 		break;
 	default:
 		BUG();
@@ -327,7 +409,6 @@ static void dss_select_dispc_clk_source(enum omap_dss_clk_source clk_src)
 void dss_select_dsi_clk_source(int dsi_module,
 		enum omap_dss_clk_source clk_src)
 {
-	struct platform_device *dsidev;
 	int b, pos;
 
 	switch (clk_src) {
@@ -337,14 +418,10 @@ void dss_select_dsi_clk_source(int dsi_module,
 	case OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DSI:
 		BUG_ON(dsi_module != 0);
 		b = 1;
-		dsidev = dsi_get_dsidev_from_id(0);
-		dsi_wait_pll_hsdiv_dsi_active(dsidev);
 		break;
 	case OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DSI:
 		BUG_ON(dsi_module != 1);
 		b = 1;
-		dsidev = dsi_get_dsidev_from_id(1);
-		dsi_wait_pll_hsdiv_dsi_active(dsidev);
 		break;
 	default:
 		BUG();
@@ -360,7 +437,6 @@ void dss_select_dsi_clk_source(int dsi_module,
 void dss_select_lcd_clk_source(enum omap_channel channel,
 		enum omap_dss_clk_source clk_src)
 {
-	struct platform_device *dsidev;
 	int b, ix, pos;
 
 	if (!dss_has_feature(FEAT_LCD_CLK_SRC)) {
@@ -375,15 +451,11 @@ void dss_select_lcd_clk_source(enum omap_channel channel,
 	case OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DISPC:
 		BUG_ON(channel != OMAP_DSS_CHANNEL_LCD);
 		b = 1;
-		dsidev = dsi_get_dsidev_from_id(0);
-		dsi_wait_pll_hsdiv_dispc_active(dsidev);
 		break;
 	case OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DISPC:
 		BUG_ON(channel != OMAP_DSS_CHANNEL_LCD2 &&
 		       channel != OMAP_DSS_CHANNEL_LCD3);
 		b = 1;
-		dsidev = dsi_get_dsidev_from_id(1);
-		dsi_wait_pll_hsdiv_dispc_active(dsidev);
 		break;
 	default:
 		BUG();
@@ -564,7 +636,7 @@ enum dss_hdmi_venc_clk_source_select dss_get_hdmi_venc_clk_source(void)
 	return REG_GET(DSS_CONTROL, 15, 15);
 }
 
-static int dss_dpi_select_source_omap2_omap3(enum omap_channel channel)
+static int dss_dpi_select_source_omap2_omap3(int id, enum omap_channel channel)
 {
 	if (channel != OMAP_DSS_CHANNEL_LCD)
 		return -EINVAL;
@@ -572,7 +644,7 @@ static int dss_dpi_select_source_omap2_omap3(enum omap_channel channel)
 	return 0;
 }
 
-static int dss_dpi_select_source_omap4(enum omap_channel channel)
+static int dss_dpi_select_source_omap4(int id, enum omap_channel channel)
 {
 	int val;
 
@@ -592,7 +664,7 @@ static int dss_dpi_select_source_omap4(enum omap_channel channel)
 	return 0;
 }
 
-static int dss_dpi_select_source_omap5(enum omap_channel channel)
+static int dss_dpi_select_source_omap5(int id, enum omap_channel channel)
 {
 	int val;
 
@@ -618,9 +690,29 @@ static int dss_dpi_select_source_omap5(enum omap_channel channel)
 	return 0;
 }
 
-int dss_dpi_select_source(enum omap_channel channel)
+static int dss_dpi_select_source_dra7xx(int id, enum omap_channel channel)
 {
-	return dss.feat->dpi_select_source(channel);
+	switch (id) {
+	case 0:
+		return dss_dpi_select_source_omap5(id, channel);
+	case 1:
+		if (channel != OMAP_DSS_CHANNEL_LCD2)
+			return -EINVAL;
+		break;
+	case 2:
+		if (channel != OMAP_DSS_CHANNEL_LCD3)
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int dss_dpi_select_source(int id, enum omap_channel channel)
+{
+	return dss.feat->dpi_select_source(id, channel);
 }
 
 static int dss_get_clocks(void)
@@ -656,7 +748,7 @@ static void dss_put_clocks(void)
 		clk_put(dss.parent_clk);
 }
 
-static int dss_runtime_get(void)
+int dss_runtime_get(void)
 {
 	int r;
 
@@ -667,7 +759,7 @@ static int dss_runtime_get(void)
 	return r < 0 ? r : 0;
 }
 
-static void dss_runtime_put(void)
+void dss_runtime_put(void)
 {
 	int r;
 
@@ -689,6 +781,22 @@ void dss_debug_dump_clocks(struct seq_file *s)
 }
 #endif
 
+
+static enum omap_display_type omap2plus_ports[] = {
+	OMAP_DISPLAY_TYPE_DPI,
+};
+
+static enum omap_display_type omap34xx_ports[] = {
+	OMAP_DISPLAY_TYPE_DPI,
+	OMAP_DISPLAY_TYPE_SDI,
+};
+
+static enum omap_display_type dra7xx_ports[] = {
+	OMAP_DISPLAY_TYPE_DPI,
+	OMAP_DISPLAY_TYPE_DPI,
+	OMAP_DISPLAY_TYPE_DPI,
+};
+
 static const struct dss_features omap24xx_dss_feats __initconst = {
 	/*
 	 * fck div max is really 16, but the divider range has gaps. The range
@@ -698,6 +806,9 @@ static const struct dss_features omap24xx_dss_feats __initconst = {
 	.dss_fck_multiplier	=	2,
 	.parent_clk_name	=	"core_ck",
 	.dpi_select_source	=	&dss_dpi_select_source_omap2_omap3,
+	.ports			=	omap2plus_ports,
+	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
 };
 
 static const struct dss_features omap34xx_dss_feats __initconst = {
@@ -705,6 +816,11 @@ static const struct dss_features omap34xx_dss_feats __initconst = {
 	.dss_fck_multiplier	=	2,
 	.parent_clk_name	=	"dpll4_ck",
 	.dpi_select_source	=	&dss_dpi_select_source_omap2_omap3,
+	.ports			=	omap34xx_ports,
+	.num_ports		=	ARRAY_SIZE(omap34xx_ports),
+	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
 };
 
 static const struct dss_features omap3630_dss_feats __initconst = {
@@ -712,6 +828,11 @@ static const struct dss_features omap3630_dss_feats __initconst = {
 	.dss_fck_multiplier	=	1,
 	.parent_clk_name	=	"dpll4_ck",
 	.dpi_select_source	=	&dss_dpi_select_source_omap2_omap3,
+	.ports			=	omap2plus_ports,
+	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
 };
 
 static const struct dss_features omap44xx_dss_feats __initconst = {
@@ -719,6 +840,11 @@ static const struct dss_features omap44xx_dss_feats __initconst = {
 	.dss_fck_multiplier	=	1,
 	.parent_clk_name	=	"dpll_per_x2_ck",
 	.dpi_select_source	=	&dss_dpi_select_source_omap4,
+	.ports			=	omap2plus_ports,
+	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
 };
 
 static const struct dss_features omap54xx_dss_feats __initconst = {
@@ -726,6 +852,11 @@ static const struct dss_features omap54xx_dss_feats __initconst = {
 	.dss_fck_multiplier	=	1,
 	.parent_clk_name	=	"dpll_per_x2_ck",
 	.dpi_select_source	=	&dss_dpi_select_source_omap5,
+	.ports			=	omap2plus_ports,
+	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
 };
 
 static const struct dss_features am43xx_dss_feats __initconst = {
@@ -733,6 +864,35 @@ static const struct dss_features am43xx_dss_feats __initconst = {
 	.dss_fck_multiplier	=	0,
 	.parent_clk_name	=	NULL,
 	.dpi_select_source	=	&dss_dpi_select_source_omap2_omap3,
+	.ports			=	omap2plus_ports,
+	.num_ports		=	ARRAY_SIZE(omap2plus_ports),
+	.pll_ext_ctrl		=	false,
+	.video1_pll		=	false,
+	.video2_pll		=	false,
+};
+
+static const struct dss_features dra74x_dss_feats __initconst = {
+	.fck_div_max		=	64,
+	.dss_fck_multiplier	=	1,
+	.parent_clk_name	=	"dpll_per_x2_ck",
+	.dpi_select_source	=	&dss_dpi_select_source_dra7xx,
+	.ports			=	dra7xx_ports,
+	.num_ports		=	ARRAY_SIZE(dra7xx_ports),
+	.pll_ext_ctrl		=	true,
+	.video1_pll		=	true,
+	.video2_pll		=	true,
+};
+
+static const struct dss_features dra72x_dss_feats __initconst = {
+	.fck_div_max		=	64,
+	.dss_fck_multiplier	=	1,
+	.parent_clk_name	=	"dpll_per_x2_ck",
+	.dpi_select_source	=	&dss_dpi_select_source_dra7xx,
+	.ports			=	dra7xx_ports,
+	.num_ports		=	ARRAY_SIZE(dra7xx_ports),
+	.pll_ext_ctrl		=	true,
+	.video1_pll		=	true,
+	.video2_pll		=	false,
 };
 
 static int __init dss_init_features(struct platform_device *pdev)
@@ -775,6 +935,14 @@ static int __init dss_init_features(struct platform_device *pdev)
 		src = &am43xx_dss_feats;
 		break;
 
+	case OMAPDSS_VER_DRA74xx:
+		src = &dra74x_dss_feats;
+		break;
+
+	case OMAPDSS_VER_DRA72xx:
+		src = &dra72x_dss_feats;
+		break;
+
 	default:
 		return -ENODEV;
 	}
@@ -798,43 +966,84 @@ static int __init dss_init_ports(struct platform_device *pdev)
 	if (!port)
 		return 0;
 
+	if (dss.feat->num_ports == 0)
+		return 0;
+
 	do {
+		enum omap_display_type port_type;
 		u32 reg;
 
 		r = of_property_read_u32(port, "reg", &reg);
 		if (r)
 			reg = 0;
 
-#ifdef CONFIG_OMAP2_DSS_DPI
-		if (reg == 0)
+		if (reg >= dss.feat->num_ports)
+			continue;
+
+		port_type = dss.feat->ports[reg];
+
+		switch (port_type) {
+		case OMAP_DISPLAY_TYPE_DPI:
 			dpi_init_port(pdev, port);
-#endif
-
-#ifdef CONFIG_OMAP2_DSS_SDI
-		if (reg == 1)
+			break;
+		case OMAP_DISPLAY_TYPE_SDI:
 			sdi_init_port(pdev, port);
-#endif
-
+			break;
+		default:
+			break;
+		}
 	} while ((port = omapdss_of_get_next_port(parent, port)) != NULL);
 
 	return 0;
 }
 
-static void __exit dss_uninit_ports(void)
+static void __exit dss_uninit_ports(struct platform_device *pdev)
 {
-#ifdef CONFIG_OMAP2_DSS_DPI
-	dpi_uninit_port();
-#endif
+	struct device_node *parent = pdev->dev.of_node;
+	struct device_node *port;
+	int r;
 
-#ifdef CONFIG_OMAP2_DSS_SDI
-	sdi_uninit_port();
-#endif
+	if (parent == NULL)
+		return;
+
+	port = omapdss_of_get_next_port(parent, NULL);
+	if (!port)
+		return;
+
+	if (dss.feat->num_ports == 0)
+		return;
+
+	do {
+		enum omap_display_type port_type;
+		u32 reg;
+
+		r = of_property_read_u32(port, "reg", &reg);
+		if (r)
+			reg = 0;
+
+		if (reg >= dss.feat->num_ports)
+			continue;
+
+		port_type = dss.feat->ports[reg];
+
+		switch (port_type) {
+		case OMAP_DISPLAY_TYPE_DPI:
+			dpi_uninit_port(port);
+			break;
+		case OMAP_DISPLAY_TYPE_SDI:
+			sdi_uninit_port(port);
+			break;
+		default:
+			break;
+		}
+	} while ((port = omapdss_of_get_next_port(parent, port)) != NULL);
 }
 
 /* DSS HW IP initialisation */
 static int __init omap_dsshw_probe(struct platform_device *pdev)
 {
 	struct resource *dss_mem;
+	struct device_node *np = pdev->dev.of_node;
 	u32 rev;
 	int r;
 
@@ -891,6 +1100,26 @@ static int __init omap_dsshw_probe(struct platform_device *pdev)
 
 	dss_init_ports(pdev);
 
+	if (dss.feat->pll_ext_ctrl) {
+		dss.syscon = syscon_regmap_lookup_by_phandle(np, "syscon");
+		if (!dss.syscon) {
+			dev_err(&pdev->dev, "failed to get regmap\n");
+			return -ENODEV;
+		}
+	}
+
+	if (dss.feat->video1_pll) {
+		r = dss_dpll_init(pdev, 0);
+		if (r)
+			goto err_runtime_get;
+	}
+
+	if (dss.feat->video2_pll) {
+		r = dss_dpll_init(pdev, 1);
+		if (r)
+			goto err_runtime_get;
+	}
+
 	rev = dss_read_reg(DSS_REVISION);
 	printk(KERN_INFO "OMAP DSS rev %d.%d\n",
 			FLD_GET(rev, 7, 4), FLD_GET(rev, 3, 0));
@@ -910,7 +1139,7 @@ err_setup_clocks:
 
 static int __exit omap_dsshw_remove(struct platform_device *pdev)
 {
-	dss_uninit_ports();
+	dss_uninit_ports(pdev);
 
 	pm_runtime_disable(&pdev->dev);
 
@@ -954,6 +1183,7 @@ static const struct of_device_id dss_of_match[] = {
 	{ .compatible = "ti,omap3-dss", },
 	{ .compatible = "ti,omap4-dss", },
 	{ .compatible = "ti,omap5-dss", },
+	{ .compatible = "ti,dra7-dss", },
 	{},
 };
 

@@ -92,6 +92,9 @@ struct dispc_features {
 	bool mstandby_workaround:1;
 
 	bool set_max_preload:1;
+
+	/* alternate pixel clock source is DSI PLL, or VIDEO PLL */
+	bool alt_clk_dsi_pll:1;
 };
 
 #define DISPC_MAX_NR_FIFOS 5
@@ -3023,23 +3026,33 @@ static void dispc_mgr_get_lcd_divisor(enum omap_channel channel, int *lck_div,
 
 unsigned long dispc_fclk_rate(void)
 {
-	struct platform_device *dsidev;
+	struct pll_data *pll;
 	unsigned long r = 0;
 
 	switch (dss_get_dispc_clk_source()) {
 	case OMAP_DSS_CLK_SRC_FCK:
 		r = dss_get_dispc_clk_rate();
 		break;
+
 	case OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DISPC:
-		dsidev = dsi_get_dsidev_from_id(0);
-		r = dsi_get_pll_hsdiv_dispc_rate(dsidev);
+		if (dispc.feat->alt_clk_dsi_pll)
+			pll = dsi_get_pll_data_from_id(0);
+		else
+			pll = dss_dpll_get_pll_data(0);
+
+		r = pll_get_hsdiv_rate(pll, 0);
 		break;
+
 	case OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DISPC:
-		dsidev = dsi_get_dsidev_from_id(1);
-		r = dsi_get_pll_hsdiv_dispc_rate(dsidev);
+		if (dispc.feat->alt_clk_dsi_pll)
+			pll = dsi_get_pll_data_from_id(1);
+		else
+			pll = dss_dpll_get_pll_data(1);
+
+		r = pll_get_hsdiv_rate(pll, 0);
 		break;
+
 	default:
-		BUG();
 		return 0;
 	}
 
@@ -3048,7 +3061,7 @@ unsigned long dispc_fclk_rate(void)
 
 unsigned long dispc_mgr_lclk_rate(enum omap_channel channel)
 {
-	struct platform_device *dsidev;
+	struct pll_data *pll;
 	int lcd;
 	unsigned long r;
 	u32 l;
@@ -3062,16 +3075,26 @@ unsigned long dispc_mgr_lclk_rate(enum omap_channel channel)
 		case OMAP_DSS_CLK_SRC_FCK:
 			r = dss_get_dispc_clk_rate();
 			break;
+
 		case OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DISPC:
-			dsidev = dsi_get_dsidev_from_id(0);
-			r = dsi_get_pll_hsdiv_dispc_rate(dsidev);
+			if (dispc.feat->alt_clk_dsi_pll)
+				pll = dsi_get_pll_data_from_id(0);
+			else
+				pll = dss_dpll_get_pll_data(0);
+
+			r = pll_get_hsdiv_rate(pll, 0);
 			break;
+
 		case OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DISPC:
-			dsidev = dsi_get_dsidev_from_id(1);
-			r = dsi_get_pll_hsdiv_dispc_rate(dsidev);
+			if (dispc.feat->alt_clk_dsi_pll)
+				pll = dsi_get_pll_data_from_id(0);
+			else
+				pll = dss_dpll_get_pll_data(0);
+
+			r = pll_get_hsdiv_rate(pll, 0);
 			break;
+
 		default:
-			BUG();
 			return 0;
 		}
 
@@ -3550,6 +3573,7 @@ static const struct dispc_features omap24xx_dispc_feats __initconst = {
 	.num_fifos		=	3,
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
+	.alt_clk_dsi_pll	=	false,
 };
 
 static const struct dispc_features omap34xx_rev1_0_dispc_feats __initconst = {
@@ -3570,6 +3594,7 @@ static const struct dispc_features omap34xx_rev1_0_dispc_feats __initconst = {
 	.num_fifos		=	3,
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
+	.alt_clk_dsi_pll	=	true,
 };
 
 static const struct dispc_features omap34xx_rev3_0_dispc_feats __initconst = {
@@ -3590,6 +3615,7 @@ static const struct dispc_features omap34xx_rev3_0_dispc_feats __initconst = {
 	.num_fifos		=	3,
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
+	.alt_clk_dsi_pll	=	true,
 };
 
 static const struct dispc_features omap44xx_dispc_feats __initconst = {
@@ -3610,6 +3636,7 @@ static const struct dispc_features omap44xx_dispc_feats __initconst = {
 	.num_fifos		=	5,
 	.gfx_fifo_workaround	=	true,
 	.set_max_preload	=	true,
+	.alt_clk_dsi_pll	=	true,
 };
 
 static const struct dispc_features omap54xx_dispc_feats __initconst = {
@@ -3631,6 +3658,29 @@ static const struct dispc_features omap54xx_dispc_feats __initconst = {
 	.gfx_fifo_workaround	=	true,
 	.mstandby_workaround	=	true,
 	.set_max_preload	=	true,
+	.alt_clk_dsi_pll	=	true,
+};
+
+static const struct dispc_features dra7xx_dispc_feats __initconst = {
+	.sw_start		=	7,
+	.fp_start		=	19,
+	.bp_start		=	31,
+	.sw_max			=	256,
+	.vp_max			=	4095,
+	.hp_max			=	4096,
+	.mgr_width_start	=	11,
+	.mgr_height_start	=	27,
+	.mgr_width_max		=	4096,
+	.mgr_height_max		=	4096,
+	.max_lcd_pclk		=	170000000,
+	.max_tv_pclk		=	186000000,
+	.calc_scaling		=	dispc_ovl_calc_scaling_44xx,
+	.calc_core_clk		=	calc_core_clk_44xx,
+	.num_fifos		=	5,
+	.gfx_fifo_workaround	=	true,
+	.mstandby_workaround	=	true,
+	.set_max_preload	=	true,
+	.alt_clk_dsi_pll	=	false,
 };
 
 static int __init dispc_init_features(struct platform_device *pdev)
@@ -3668,6 +3718,11 @@ static int __init dispc_init_features(struct platform_device *pdev)
 
 	case OMAPDSS_VER_OMAP5:
 		src = &omap54xx_dispc_feats;
+		break;
+
+	case OMAPDSS_VER_DRA74xx:
+	case OMAPDSS_VER_DRA72xx:
+		src = &dra7xx_dispc_feats;
 		break;
 
 	default:
@@ -3831,6 +3886,7 @@ static const struct of_device_id dispc_of_match[] = {
 	{ .compatible = "ti,omap3-dispc", },
 	{ .compatible = "ti,omap4-dispc", },
 	{ .compatible = "ti,omap5-dispc", },
+	{ .compatible = "ti,dra7-dispc", },
 	{},
 };
 
