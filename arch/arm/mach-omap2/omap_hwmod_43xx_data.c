@@ -524,6 +524,44 @@ static struct omap_hwmod am43xx_dss_rfbi_hwmod = {
 	},
 };
 
+static struct omap_hwmod_class_sysconfig am43xx_vpfe_sysc = {
+	.rev_offs       = 0x0,
+	.sysc_offs      = 0x104,
+	.sysc_flags     = SYSC_HAS_MIDLEMODE | SYSC_HAS_SIDLEMODE,
+	.idlemodes      = (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+				MSTANDBY_FORCE | MSTANDBY_SMART | MSTANDBY_NO),
+	.sysc_fields    = &omap_hwmod_sysc_type2,
+};
+
+static struct omap_hwmod_class am43xx_vpfe_hwmod_class = {
+	.name           = "vpfe",
+	.sysc           = &am43xx_vpfe_sysc,
+};
+
+static struct omap_hwmod am43xx_vpfe0_hwmod = {
+	.name           = "vpfe0",
+	.class          = &am43xx_vpfe_hwmod_class,
+	.clkdm_name     = "l3s_clkdm",
+	.prcm           = {
+		.omap4  = {
+			.modulemode     = MODULEMODE_SWCTRL,
+			.clkctrl_offs   = AM43XX_CM_PER_VPFE0_CLKCTRL_OFFSET,
+		},
+	},
+};
+
+static struct omap_hwmod am43xx_vpfe1_hwmod = {
+	.name           = "vpfe1",
+	.class          = &am43xx_vpfe_hwmod_class,
+	.clkdm_name     = "l3s_clkdm",
+	.prcm           = {
+		.omap4  = {
+			.modulemode     = MODULEMODE_SWCTRL,
+			.clkctrl_offs   = AM43XX_CM_PER_VPFE1_CLKCTRL_OFFSET,
+		},
+	},
+};
+
 /* Interfaces */
 static struct omap_hwmod_ocp_if am43xx_l3_main__emif = {
 	.master		= &am33xx_l3_main_hwmod,
@@ -806,6 +844,22 @@ static struct omap_hwmod_ocp_if am43xx_l4_ls__dss_rfbi = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+static struct omap_hwmod_ocp_if am43xx_l3__vpfe0 = {
+	.master         = &am33xx_l3_main_hwmod,
+	.slave          = &am43xx_vpfe0_hwmod,
+	.clk            = "l3_gclk",
+	.flags          = OCPIF_SWSUP_IDLE,
+	.user           = OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if am43xx_l3__vpfe1 = {
+	.master         = &am33xx_l3_main_hwmod,
+	.slave          = &am43xx_vpfe1_hwmod,
+	.clk            = "l3_gclk",
+	.flags          = OCPIF_SWSUP_IDLE,
+	.user           = OCP_USER_MPU,
+};
+
 static struct omap_hwmod_ocp_if *am43xx_hwmod_ocp_ifs[] __initdata = {
 	&am33xx_l4_wkup__synctimer,
 	&am43xx_l4_ls__timer8,
@@ -907,6 +961,8 @@ static struct omap_hwmod_ocp_if *am43xx_hwmod_ocp_ifs[] __initdata = {
 	&am43xx_l4_ls__dss_dispc,
 	&am43xx_l4_ls__dss_rfbi,
 	&am33xx_l4_wkup__rtc,
+	&am43xx_l3__vpfe0,
+	&am43xx_l3__vpfe1,
 	NULL,
 };
 
