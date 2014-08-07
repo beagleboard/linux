@@ -39,6 +39,13 @@
 		};
 	};
 
+	aliases {
+		rproc0 = &ipu1;
+		rproc1 = &ipu2;
+		rproc2 = &dsp1;
+		rproc3 = &dsp2;
+	};
+
 	ocp {
 		mmu0_dsp2: mmu@41501000 {
 			compatible = "ti,dra7-iommu";
