@@ -21,9 +21,21 @@ extern u32 wakeup_timer_milliseconds;
 #endif
 
 #ifdef CONFIG_CPU_IDLE
+int am33xx_idle_init(bool ddr3);
+int am437x_idle_init(void);
 extern int __init omap3_idle_init(void);
 extern int __init omap4_idle_init(void);
 #else
+static inline int am33xx_idle_init(bool ddr3)
+{
+	return 0;
+}
+
+static inline int am437x_idle_init(void)
+{
+	return 0;
+}
+
 static inline int omap3_idle_init(void)
 {
 	return 0;
