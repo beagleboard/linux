@@ -21,16 +21,4 @@ struct omap_rproc_pdata {
 	int (*device_shutdown)(struct platform_device *pdev);
 };
 
-#if defined(CONFIG_OMAP_REMOTEPROC) || defined(CONFIG_OMAP_REMOTEPROC_MODULE)
-
-void __init omap_rproc_reserve_cma(void);
-
-#else
-
-static inline void __init omap_rproc_reserve_cma(void)
-{
-}
-
-#endif
-
 #endif /* _PLAT_REMOTEPROC_H */
