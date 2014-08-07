@@ -200,13 +200,6 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 		goto fail;
 	}
 
-	priv->disp_clk = clk_get(dev->dev, "dpll_disp_ck");
-	if (IS_ERR(priv->clk)) {
-		dev_err(dev->dev, "failed to get display clock\n");
-		ret = -ENODEV;
-		goto fail;
-	}
-
 #ifdef CONFIG_CPU_FREQ
 	priv->lcd_fck_rate = clk_get_rate(priv->clk);
 	priv->freq_transition.notifier_call = cpufreq_transition;
