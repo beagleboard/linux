@@ -31,6 +31,7 @@
 #include <linux/of_device.h>
 #include <linux/mtd/nand.h>
 #include <linux/pm_runtime.h>
+#include <linux/pinctrl/consumer.h>
 
 #include <linux/platform_data/mtd-nand-omap2.h>
 
@@ -1738,11 +1739,18 @@ static int gpmc_suspend(struct device *dev)
 {
 	omap3_gpmc_save_context();
 	pm_runtime_put_sync(dev);
+
+	/* Select sleep pin state */
+	pinctrl_pm_select_sleep_state(dev);
+
 	return 0;
 }
 
 static int gpmc_resume(struct device *dev)
 {
+	/* Select default pin state */
+	pinctrl_pm_select_default_state(dev);
+
 	pm_runtime_get_sync(dev);
 	omap3_gpmc_restore_context();
 	return 0;

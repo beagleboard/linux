@@ -2185,6 +2185,10 @@ static int omap_hsmmc_suspend(struct device *dev)
 		clk_disable_unprepare(host->dbclk);
 
 	pm_runtime_put_sync(host->dev);
+
+	/* Select sleep pin state */
+	pinctrl_pm_select_sleep_state(host->dev);
+
 	return 0;
 }
 
@@ -2195,6 +2199,9 @@ static int omap_hsmmc_resume(struct device *dev)
 
 	if (!host)
 		return 0;
+
+	/* Select default pin state */
+	pinctrl_pm_select_default_state(host->dev);
 
 	pm_runtime_get_sync(host->dev);
 
@@ -2226,6 +2233,9 @@ static int omap_hsmmc_runtime_suspend(struct device *dev)
 	omap_hsmmc_context_save(host);
 	dev_dbg(dev, "disabled\n");
 
+	/* Optionally let pins go into sleep state */
+	pinctrl_pm_select_sleep_state(host->dev);
+
 	return 0;
 }
 
@@ -2234,6 +2244,10 @@ static int omap_hsmmc_runtime_resume(struct device *dev)
 	struct omap_hsmmc_host *host;
 
 	host = platform_get_drvdata(to_platform_device(dev));
+
+	/* go to the default state */
+	pinctrl_pm_select_default_state(host->dev);
+
 	omap_hsmmc_context_restore(host);
 	dev_dbg(dev, "enabled\n");
 
