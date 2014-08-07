@@ -440,6 +440,13 @@
 			wakeup-source;
 		};
 
+		tps659038_pwr_button: tps659038_pwr_button {
+			compatible = "ti,palmas-pwrbutton";
+			interrupt-parent = <&tps659038>;
+			interrupts = <1 IRQ_TYPE_NONE>;
+			wakeup-source;
+			ti,palmas-long-press-seconds = <13>;
+		};
 	};
 
 	tmp102: tmp102@48 {
