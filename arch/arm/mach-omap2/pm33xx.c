@@ -313,17 +313,21 @@ static struct wkup_m3_ops am33xx_wkup_m3_ops = {
 /*
  * Push the minimal suspend-resume code to SRAM
  */
+#ifdef CONFIG_SOC_AM33XX
 void am33xx_push_sram_idle(void)
 {
 	am33xx_do_wfi_sram = (void *)omap_sram_push
 					(am33xx_do_wfi, am33xx_do_wfi_sz);
 }
+#endif
 
+#ifdef CONFIG_SOC_AM43XX
 void am43xx_push_sram_idle(void)
 {
 	am33xx_do_wfi_sram = (void *)omap_sram_push
 					(am43xx_do_wfi, am43xx_do_wfi_sz);
 }
+#endif
 
 static int __init am33xx_map_emif(void)
 {
