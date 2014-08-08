@@ -40,6 +40,7 @@
 #include <linux/crc32.h>
 #include <linux/virtio_ids.h>
 #include <linux/virtio_ring.h>
+#include <linux/of.h>
 #include <asm/byteorder.h>
 
 #include "remoteproc_internal.h"
@@ -1082,6 +1083,27 @@ static void rproc_crash_handler_work(struct work_struct *work)
 	if (!rproc->recovery_disabled)
 		rproc_trigger_recovery(rproc);
 }
+
+/**
+ * rproc_get_alias_id() - return the alias id for the rproc device
+ * @rproc: handle of a remote processor
+ *
+ * Each rproc device is associated with a platform device, but since the
+ * devices are created from device tree, they do not have a valid platform
+ * device id. This function returns an alternate DT-based alias id, and is
+ * useful for clients needing to know an id for a processor. It is assumed
+ * that the devices were given proper alias ids.
+ *
+ * Return: alias id associated with the rproc
+ */
+int rproc_get_alias_id(struct rproc *rproc)
+{
+	struct device *dev = rproc->dev.parent;
+	struct device_node *np = dev->of_node;
+
+	return of_alias_get_id(np, "rproc");
+}
+EXPORT_SYMBOL(rproc_get_alias_id);
 
 /**
  * rproc_boot() - boot a remote processor
