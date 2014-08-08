@@ -92,7 +92,10 @@ ENTRY(am33xx_do_wfi)
 
 	/* Need to load emif addr for context save and self refresh */
 	ldr	r0, emif_addr_virt
-	ldr	r1, [r0, #EMIF_SDRAM_REFRESH_CONTROL]
+	ldr     r1, [r0, #EMIF_POWER_MANAGEMENT_CONTROL]
+	str     r1, emif_pmcr_val
+	ldr     r1, [r0, #EMIF_POWER_MANAGEMENT_CTRL_SHDW]
+	str     r1, emif_pmcr_shdw_val
 
 	/* Only necessary if PER is losing context */
 	ldr	r2, wfi_flags
@@ -100,6 +103,7 @@ ENTRY(am33xx_do_wfi)
 	beq	skip_save_emif
 
 	/* Save EMIF configuration */
+	ldr	r1, [r0, #EMIF_SDRAM_REFRESH_CONTROL]
 	str	r1, emif_ref_ctrl_val
 	ldr	r1, [r0, #EMIF_SDRAM_TIMING_1]
 	str	r1, emif_timing1_val
@@ -376,6 +380,8 @@ emif_timing2_val:
 	.word	0xDEADBEEF
 emif_timing3_val:
 	.word	0xDEADBEEF
+emif_sdcfg_val:
+	.word   0xDEADBEEF
 emif_ref_ctrl_val:
 	.word	0xDEADBEEF
 emif_zqcfg_val:
