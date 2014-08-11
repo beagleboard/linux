@@ -18,6 +18,33 @@
 		reg = <0x80000000 0x40000000>; /* 1024 MB */
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		ipu2_cma_pool: ipu2_cma@95800000 {
+			compatible = "shared-dma-pool";
+			reg = <0x95800000 0x3800000>;
+			reusable;
+			status = "disabled";
+		};
+
+		dsp1_cma_pool: dsp1_cma@99000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x99000000 0x4000000>;
+			reusable;
+			status = "disabled";
+		};
+
+		ipu1_cma_pool: ipu1_cma@9d000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x9d000000 0x2000000>;
+			reusable;
+			status = "disabled";
+		};
+	};
+
 	mmc2_3v3: fixedregulator-mmc2 {
 		compatible = "regulator-fixed";
 		regulator-name = "mmc2_3v3";
@@ -210,4 +237,16 @@
 
 &mmu_ipu2 {
 	status = "okay";
+};
+
+&ipu2 {
+	memory-region = <&ipu2_cma_pool>;
+};
+
+&ipu1 {
+	memory-region = <&ipu1_cma_pool>;
+};
+
+&dsp1 {
+	memory-region = <&dsp1_cma_pool>;
 };
