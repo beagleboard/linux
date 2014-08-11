@@ -33,6 +33,7 @@
 #include <linux/of_net.h>
 #include <linux/of_device.h>
 #include <linux/if_vlan.h>
+#include <linux/net_switch_config.h>
 
 #include <linux/pinctrl/consumer.h>
 
@@ -403,6 +404,8 @@ struct cpsw_priv {
 	bool irq_enabled;
 	struct cpts *cpts;
 	u32 emac_port;
+	u32 rx_max_mcast;
+	u32 rx_max_bcast;
 };
 
 struct cpsw_stats {
@@ -871,11 +874,13 @@ static int cpsw_get_coalesce(struct net_device *ndev,
 	struct cpsw_priv *priv = netdev_priv(ndev);
 
 	coal->rx_coalesce_usecs = priv->coal_intvl;
+	coal->rx_max_mcast = priv->rx_max_mcast;
+	coal->rx_max_bcast = priv->rx_max_bcast;
 	return 0;
 }
 
-static int cpsw_set_coalesce(struct net_device *ndev,
-				struct ethtool_coalesce *coal)
+static int cpsw_set_coalesce_usecs(struct net_device *ndev,
+				   struct ethtool_coalesce *coal)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	u32 int_ctrl;
@@ -884,13 +889,15 @@ static int cpsw_set_coalesce(struct net_device *ndev,
 	u32 addnl_dvdr = 1;
 	u32 coal_intvl = 0;
 
-	if (!coal->rx_coalesce_usecs)
-		return -EINVAL;
-
 	coal_intvl = coal->rx_coalesce_usecs;
 
 	int_ctrl =  readl(&priv->wr_regs->int_control);
 	prescale = priv->bus_freq_mhz * 4;
+
+	if (!coal->rx_coalesce_usecs) {
+		int_ctrl &= ~(CPSW_INTPRESCALE_MASK | CPSW_INTPACEEN);
+		goto update_return;
+	}
 
 	if (coal_intvl < CPSW_CMINTMIN_INTVL)
 		coal_intvl = CPSW_CMINTMIN_INTVL;
@@ -919,6 +926,8 @@ static int cpsw_set_coalesce(struct net_device *ndev,
 	int_ctrl |= CPSW_INTPACEEN;
 	int_ctrl &= (~CPSW_INTPRESCALE_MASK);
 	int_ctrl |= (prescale & CPSW_INTPRESCALE_MASK);
+
+update_return:
 	writel(int_ctrl, &priv->wr_regs->int_control);
 
 	cpsw_notice(priv, timer, "Set coalesce to %d usecs.\n", coal_intvl);
@@ -934,6 +943,76 @@ static int cpsw_set_coalesce(struct net_device *ndev,
 	}
 
 	return 0;
+}
+
+static int cpsw_set_coalesce_mcast(struct net_device *ndev,
+				   struct ethtool_coalesce *coal)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int ret = -EINVAL;
+	int port;
+
+	priv->rx_max_mcast = coal->rx_max_mcast;
+
+	if (priv->data.dual_emac)
+		port = priv->emac_port;
+	else
+		port = priv->data.active_slave;
+
+	ret = cpsw_ale_control_set(priv->ale, port, ALE_PORT_MCAST_LIMIT,
+				   coal->rx_max_mcast);
+
+	dev_dbg(priv->dev, "rx_max_mcast set to %d\n", priv->rx_max_mcast);
+	return ret;
+}
+
+static int cpsw_set_coalesce_bcast(struct net_device *ndev,
+				   struct ethtool_coalesce *coal)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int ret = -EINVAL;
+	int port;
+
+	priv->rx_max_bcast = coal->rx_max_bcast;
+
+	if (priv->data.dual_emac)
+		port = priv->emac_port + 1;
+	else
+		port = priv->data.active_slave + 1;
+
+	ret = cpsw_ale_control_set(priv->ale, port, ALE_PORT_BCAST_LIMIT,
+				   coal->rx_max_bcast);
+
+	dev_dbg(priv->dev, "rx_max_mcast set to %d\n", priv->rx_max_bcast);
+	return ret;
+}
+
+static int cpsw_set_coalesce(struct net_device *ndev,
+			     struct ethtool_coalesce *coal)
+{
+	int ret = -EINVAL;
+
+	if (coal->rx_coalesce_usecs) {
+		ret = cpsw_set_coalesce_usecs(ndev, coal);
+		if (ret) {
+			dev_err(&ndev->dev, "set rx-usecs failed\n");
+			return ret;
+		}
+	}
+
+	ret = cpsw_set_coalesce_mcast(ndev, coal);
+	if (ret) {
+		dev_err(&ndev->dev, "set coalesce rx-max-mcast failed\n");
+		return ret;
+	}
+
+	ret = cpsw_set_coalesce_bcast(ndev, coal);
+	if (ret) {
+		dev_err(&ndev->dev, "set coalesce rx-max-bcast failed\n");
+		return ret;
+	}
+
+	return ret;
 }
 
 static int cpsw_get_sset_count(struct net_device *ndev, int sset)
@@ -997,17 +1076,6 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
 			break;
 		}
 	}
-}
-
-static inline int __show_stat(char *buf, int maxlen, const char *name, u32 val)
-{
-	static char *leader = "........................................";
-
-	if (!val)
-		return 0;
-	else
-		return snprintf(buf, maxlen, "%s %s %10d\n", name,
-				leader + strlen(name), val);
 }
 
 static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
@@ -1229,6 +1297,10 @@ static int cpsw_ndo_open(struct net_device *ndev)
 
 		/* enable statistics collection only on all ports */
 		__raw_writel(0x7, &priv->regs->stat_port_en);
+
+		/* Enable rate limit feature in the switch for rx only */
+		cpsw_ale_control_set(priv->ale, 0, ALE_RATE_LIMIT, 1);
+		cpsw_ale_control_set(priv->ale, 0, ALE_RATE_LIMIT_TX, 0);
 
 		if (WARN_ON(!priv->data.rx_descs))
 			priv->data.rx_descs = 128;
@@ -1505,6 +1577,78 @@ static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
 
 #endif /*CONFIG_TI_CPTS*/
 
+static int cpsw_switch_config_ioctl(struct net_device *ndev,
+				    struct ifreq *ifrq, int cmd)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	struct net_switch_config config;
+	int ret = -EFAULT;
+
+	if (priv->data.dual_emac) {
+		dev_err(priv->dev, "CPSW not in switch mode\n");
+		return -ENOTSUPP;
+	}
+
+	/* Only SIOCSWITCHCONFIG is used as cmd argument and hence, there is no
+	 * switch statement required.
+	 * Function calls are based on switch_config.cmd
+	 */
+
+	if (copy_from_user(&config, (ifrq->ifr_data), sizeof(config)))
+		return ret;
+
+	if (config.vid > 4095) {
+		dev_err(priv->dev, "Invalid VLAN Arguments for cmd %d\n",
+			config.cmd);
+		ret = -EINVAL;
+	}
+
+	switch (config.cmd) {
+	case CONFIG_SWITCH_ADD_MULTICAST:
+		if ((config.port > 0) && (config.port <= 7) &&
+		    is_multicast_ether_addr(config.addr)) {
+			ret = cpsw_ale_add_mcast(priv->ale, config.addr,
+						 config.port, ALE_VLAN,
+						 config.vid, 0);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments for cmd %d\n",
+				config.cmd);
+			ret = -EINVAL;
+		}
+		break;
+	case CONFIG_SWITCH_DEL_MULTICAST:
+		if (is_multicast_ether_addr(config.addr)) {
+			ret = cpsw_ale_del_mcast(priv->ale, config.addr,
+						 0, ALE_VLAN, config.vid);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments for cmd %d\n",
+				config.cmd);
+			ret = -EINVAL;
+		}
+		break;
+	case CONFIG_SWITCH_ADD_VLAN:
+		if ((config.port > 0) && (config.port <= 7)) {
+			ret = cpsw_ale_add_vlan(priv->ale, config.vid,
+						config.port,
+						config.untag_port,
+						config.reg_multi,
+						config.unreg_multi);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments for cmd %d\n",
+				config.cmd);
+			ret = -EINVAL;
+		}
+		break;
+	case CONFIG_SWITCH_DEL_VLAN:
+		ret = cpsw_ale_del_vlan(priv->ale, config.vid, 0);
+		break;
+	default:
+		ret = -EOPNOTSUPP;
+	}
+
+	return ret;
+}
+
 static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
 	struct cpsw_priv *priv = netdev_priv(dev);
@@ -1524,6 +1668,8 @@ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 	case SIOCGMIIPHY:
 		data->phy_id = priv->slaves[slave_no].phy->addr;
 		break;
+	case SIOCSWITCHCONFIG:
+		return cpsw_switch_config_ioctl(dev, req, cmd);
 	default:
 		return -ENOTSUPP;
 	}
@@ -1675,14 +1821,34 @@ static const struct net_device_ops cpsw_netdev_ops = {
 	.ndo_vlan_rx_kill_vid	= cpsw_ndo_vlan_rx_kill_vid,
 };
 
+static int cpsw_get_regs_len(struct net_device *ndev)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+
+	return priv->data.ale_entries * ALE_ENTRY_WORDS * sizeof(u32);
+}
+
+static void cpsw_get_regs(struct net_device *ndev,
+			  struct ethtool_regs *regs, void *p)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	u32 *reg = p;
+
+	/* update CPSW IP version */
+	regs->version = priv->version;
+
+	cpsw_ale_dump(priv->ale, reg);
+}
+
 static void cpsw_get_drvinfo(struct net_device *ndev,
 			     struct ethtool_drvinfo *info)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 
-	strlcpy(info->driver, "TI CPSW Driver v1.0", sizeof(info->driver));
+	strlcpy(info->driver, "cpsw", sizeof(info->driver));
 	strlcpy(info->version, "1.0", sizeof(info->version));
 	strlcpy(info->bus_info, priv->pdev->name, sizeof(info->bus_info));
+	info->regdump_len = cpsw_get_regs_len(ndev);
 }
 
 static u32 cpsw_get_msglevel(struct net_device *ndev)
@@ -1790,6 +1956,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
 	.get_ethtool_stats	= cpsw_get_ethtool_stats,
 	.get_wol	= cpsw_get_wol,
 	.set_wol	= cpsw_set_wol,
+	.get_regs_len	= cpsw_get_regs_len,
+	.get_regs	= cpsw_get_regs,
 };
 
 static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
