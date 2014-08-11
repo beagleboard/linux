@@ -23,21 +23,21 @@
 			compatible = "shared-dma-pool";
 			reg = <0x0 0x95800000 0x0 0x3800000>;
 			reusable;
-			status = "disabled";
+			status = "okay";
 		};
 
 		dsp1_cma_pool: dsp1_cma@99000000 {
 			compatible = "shared-dma-pool";
 			reg = <0x0 0x99000000 0x0 0x4000000>;
 			reusable;
-			status = "disabled";
+			status = "okay";
 		};
 
 		ipu1_cma_pool: ipu1_cma@9d000000 {
 			compatible = "shared-dma-pool";
 			reg = <0x0 0x9d000000 0x0 0x2000000>;
 			reusable;
-			status = "disabled";
+			status = "okay";
 		};
 	};
 };
@@ -72,13 +72,16 @@
 };
 
 &ipu2 {
+	status = "okay";
 	memory-region = <&ipu2_cma_pool>;
 };
 
 &ipu1 {
+	status = "okay";
 	memory-region = <&ipu1_cma_pool>;
 };
 
 &dsp1 {
+	status = "okay";
 	memory-region = <&dsp1_cma_pool>;
 };
