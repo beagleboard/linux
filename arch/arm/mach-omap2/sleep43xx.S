@@ -314,22 +314,17 @@ wait_emif_enable:
 	cmp	r2, r3
 	bne	wait_emif_enable
 
+	/* disable CKE override for both CKE0 and CKE1 */
+	ldr    r2, cke_override_virt
+	mov    r1, #3
+	str    r1, [r2]
+
 	/* Disable EMIF self-refresh */
 	ldr	r0, emif_addr_virt
 	ldr	r1, [r0, #EMIF_POWER_MANAGEMENT_CONTROL]
 	bic	r1, r1, #LP_MODE_MASK
 	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CONTROL]
 	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CTRL_SHDW]
-
-	/*
-	 * A write to SDRAM CONFIG register triggers
-	 * an init sequence and hence it must be done
-	 * at the end for DDR2
-	 */
-	ldr r0, emif_addr_virt
-	add r0, r0, #EMIF_SDRAM_CONFIG
-	ldr r4, emif_sdcfg_val
-	str r4, [r0]
 
 	/*
 	 * Set SCTLR.C bit to allow data cache allocation

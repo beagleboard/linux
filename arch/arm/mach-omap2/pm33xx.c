@@ -50,7 +50,6 @@
 static void __iomem *scu_base;
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
 static struct clockdomain *gfx_l4ls_clkdm;
-static struct clockdomain *l3s_clkdm, *l4fw_clkdm, *clk_24mhz_clkdm;
 #endif /* CONFIG_SUSPEND */
 
 #ifdef CONFIG_CPU_PM
@@ -313,17 +312,21 @@ static struct wkup_m3_ops am33xx_wkup_m3_ops = {
 /*
  * Push the minimal suspend-resume code to SRAM
  */
+#ifdef CONFIG_SOC_AM33XX
 void am33xx_push_sram_idle(void)
 {
 	am33xx_do_wfi_sram = (void *)omap_sram_push
 					(am33xx_do_wfi, am33xx_do_wfi_sz);
 }
+#endif
 
+#ifdef CONFIG_SOC_AM43XX
 void am43xx_push_sram_idle(void)
 {
 	am33xx_do_wfi_sram = (void *)omap_sram_push
 					(am43xx_do_wfi, am43xx_do_wfi_sz);
 }
+#endif
 
 static int __init am33xx_map_emif(void)
 {
@@ -352,13 +355,9 @@ static int am33xx_suspend_init(void)
 	u32 temp;
 
 	gfx_l4ls_clkdm = clkdm_lookup("gfx_l4ls_gfx_clkdm");
-	l3s_clkdm = clkdm_lookup("l3s_clkdm");
-	l4fw_clkdm = clkdm_lookup("l4fw_clkdm");
-	clk_24mhz_clkdm = clkdm_lookup("clk_24mhz_clkdm");
 
-	if ((!gfx_l4ls_clkdm) || (!l3s_clkdm) || (!l4fw_clkdm) ||
-	    (!clk_24mhz_clkdm)) {
-		pr_err("PM: Cannot lookup clockdomains\n");
+	if (!gfx_l4ls_clkdm) {
+		pr_err("PM: Cannot lookup gfx_l4ls_clkdm clockdomains\n");
 		return -ENODEV;
 	}
 
@@ -411,11 +410,7 @@ static int am43xx_suspend_init(void)
 
 static void am33xx_pre_suspend(unsigned int state)
 {
-	if (state == PM_SUSPEND_STANDBY) {
-		clkdm_wakeup(l3s_clkdm);
-		clkdm_wakeup(l4fw_clkdm);
-		clkdm_wakeup(clk_24mhz_clkdm);
-	}
+	return;
 }
 
 static void am43xx_pre_suspend(unsigned int state)
