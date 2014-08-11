@@ -14,11 +14,12 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/errno.h>
+#include <linux/bug.h>
+#include <linux/of.h>
 
 #include "cm2xxx.h"
 #include "cm3xxx.h"
 #include "cm44xx.h"
-#include "common.h"
 
 /*
  * cm_ll_data: function pointers to SoC-specific implementations of
@@ -137,4 +138,21 @@ int cm_unregister(struct cm_ll_data *cld)
 	cm_ll_data = &null_cm_ll_data;
 
 	return 0;
+}
+
+static struct of_device_id omap_cm_dt_match_table[] = {
+	{ .compatible = "ti,omap3-cm" },
+	{ .compatible = "ti,omap4-cm1" },
+	{ .compatible = "ti,omap4-cm2" },
+	{ .compatible = "ti,omap5-cm-core-aon" },
+	{ .compatible = "ti,omap5-cm-core" },
+	{ .compatible = "ti,dra7-cm-core-aon" },
+	{ .compatible = "ti,dra7-cm-core" },
+	{ }
+};
+
+
+int __init of_cm_init(void)
+{
+	return of_prcm_module_init(omap_cm_dt_match_table);
 }
