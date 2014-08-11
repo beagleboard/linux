@@ -483,6 +483,18 @@
 				0x2c4 (DS0_PULL_UP_DOWN_EN | PIN_INPUT_PULLDOWN | MUX_MODE7)
 			>;
 		};
+
+		hdq_pins_default: pinmux_hdq_pins_default {
+			pinctrl-single,pins = <
+				0x234 (PIN_INPUT_PULLUP | MUX_MODE1)    /* cam1_wen.hdq_gpio */
+			>;
+		};
+
+		hdq_pins_sleep: pinmux_hdq_pins_sleep {
+			pinctrl-single,pins = <
+				0x234 (DS0_PULL_UP_DOWN_EN | PIN_INPUT_PULLDOWN | MUX_MODE7)
+			>;
+		};
 	};
 
 	matrix_keypad: matrix_keypad@0 {
@@ -971,8 +983,9 @@
 
 &hdq {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&hdq_pins>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&hdq_pins_default>;
+	pinctrl-1 = <&hdq_pins_sleep>;
 };
 
 &dss {
