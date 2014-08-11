@@ -510,6 +510,24 @@
 		>;
 	};
 
+	uart0_pins_default: uart0_pins_default {
+		pinctrl-single,pins = <
+			0x168 (DS0_PULL_UP_DOWN_EN | INPUT_EN | MUX_MODE0)
+			0x16C (DS0_PULL_UP_DOWN_EN | INPUT_EN | MUX_MODE0)
+			0x170 (PIN_INPUT_PULLUP | SLEWCTRL_FAST | DS0_PULL_UP_DOWN_EN | MUX_MODE0) /* uart0_rxd.uart0_rxd */
+			0x174 (PIN_INPUT | PULL_DISABLE | SLEWCTRL_FAST | DS0_PULL_UP_DOWN_EN | MUX_MODE0) /* uart0_txd.uart0_txd */
+		>;
+	};
+
+	uart0_pins_sleep: uart0_pins_sleep {
+		pinctrl-single,pins = <
+			0x168 (DS0_PULL_UP_DOWN_EN | INPUT_EN | MUX_MODE7)
+			0x16C (DS0_PULL_UP_DOWN_EN | INPUT_EN | MUX_MODE7)
+			0x170 (PIN_INPUT_PULLUP | SLEWCTRL_FAST | DS0_PULL_UP_DOWN_EN | MUX_MODE0) /* uart0_rxd.uart0_rxd */
+			0x174 (PIN_INPUT_PULLDOWN | SLEWCTRL_FAST | DS0_PULL_UP_DOWN_EN | MUX_MODE0) /* uart0_txd.uart0_txd */
+		>;
+	};
+
 	matrix_keypad_default: matrix_keypad_default {
 		pinctrl-single,pins = <
 			0x1a4 (PIN_OUTPUT | MUX_MODE7)
@@ -892,6 +910,13 @@
 			reg = <0x00a00000 0x1f600000>;
 		};
 	};
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&uart0_pins_default>;
+	pinctrl-1 = <&uart0_pins_sleep>;
 };
 
 &dss {
