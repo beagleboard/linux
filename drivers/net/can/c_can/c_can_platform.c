@@ -285,6 +285,8 @@ static int c_can_suspend(struct platform_device *pdev, pm_message_t state)
 
 	priv->can.state = CAN_STATE_SLEEPING;
 
+	pinctrl_pm_select_sleep_state(&pdev->dev);
+
 	return 0;
 }
 
@@ -298,6 +300,8 @@ static int c_can_resume(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "Not supported\n");
 		return 0;
 	}
+
+	pinctrl_pm_select_default_state(&pdev->dev);
 
 	ret = c_can_power_up(ndev);
 	if (ret) {
