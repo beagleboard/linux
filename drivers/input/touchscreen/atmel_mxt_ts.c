@@ -1223,9 +1223,10 @@ static int mxt_probe(struct i2c_client *client,
 	input_set_drvdata(input_dev, data);
 	i2c_set_clientdata(client, data);
 
-	error = request_threaded_irq(client->irq, NULL, mxt_interrupt,
-				     pdata->irqflags | IRQF_ONESHOT,
-				     client->name, data);
+	error = devm_request_threaded_irq(&client->dev, client->irq,
+					  NULL, mxt_interrupt,
+					  pdata->irqflags | IRQF_ONESHOT,
+					  dev_name(&client->dev), data);
 	if (error) {
 		dev_err(&client->dev, "Failed to register interrupt\n");
 		goto err_free_object;
@@ -1233,11 +1234,11 @@ static int mxt_probe(struct i2c_client *client,
 
 	error = mxt_make_highchg(data);
 	if (error)
-		goto err_free_irq;
+		goto err_free_object;
 
 	error = input_register_device(input_dev);
 	if (error)
-		goto err_free_irq;
+		goto err_free_object;
 
 	error = sysfs_create_group(&client->dev.kobj, &mxt_attr_group);
 	if (error)
@@ -1248,8 +1249,6 @@ static int mxt_probe(struct i2c_client *client,
 err_unregister_device:
 	input_unregister_device(input_dev);
 	input_dev = NULL;
-err_free_irq:
-	free_irq(client->irq, data);
 err_free_object:
 	kfree(data->object_table);
 err_free_mem:
@@ -1263,7 +1262,6 @@ static int mxt_remove(struct i2c_client *client)
 	struct mxt_data *data = i2c_get_clientdata(client);
 
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
-	free_irq(data->irq, data);
 	input_unregister_device(data->input_dev);
 	kfree(data->object_table);
 	kfree(data);
