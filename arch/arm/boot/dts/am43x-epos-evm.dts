@@ -187,7 +187,7 @@
 			>;
 		};
 
-		nand_flash_x8: nand_flash_x8 {
+		nand_flash_x8_default: nand_flash_x8_default {
 			pinctrl-single,pins = <
 				0x40 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a0.SELQSPIorNAND/GPIO */
 				0x0  (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* gpmc_ad0.gpmc_ad0 */
@@ -205,6 +205,27 @@
 				0x94 (PIN_OUTPUT | MUX_MODE0)		/* gpmc_oen_ren.gpmc_oen_ren */
 				0x98 (PIN_OUTPUT | MUX_MODE0)		/* gpmc_wen.gpmc_wen */
 				0x9c (PIN_OUTPUT | MUX_MODE0)		/* gpmc_be0n_cle.gpmc_be0n_cle */
+			>;
+		};
+
+		nand_flash_x8_sleep: nand_flash_x8_sleep {
+			pinctrl-single,pins = <
+				0x40 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a0.SELQSPIorNAND/GPIO */
+				0x0  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad0.gpmc_ad0 */
+				0x4  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad1.gpmc_ad1 */
+				0x8  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad2.gpmc_ad2 */
+				0xc  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad3.gpmc_ad3 */
+				0x10 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad4.gpmc_ad4 */
+				0x14 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad5.gpmc_ad5 */
+				0x18 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad6.gpmc_ad6 */
+				0x1c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad7.gpmc_ad7 */
+				0x70 (PIN_INPUT | PULL_DISABLE | MUX_MODE7)	/* gpmc_wait0.gpmc_wait0 */
+				0x74 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_wpn.gpmc_wpn */
+				0x7c (PIN_INPUT | PULL_DISABLE | MUX_MODE7)		/* gpmc_csn0.gpmc_csn0  */
+				0x90 (PIN_INPUT | PULL_DISABLE | MUX_MODE7)		/* gpmc_advn_ale.gpmc_advn_ale */
+				0x94 (PIN_INPUT_PULLDOWN | MUX_MODE7)		/* gpmc_oen_ren.gpmc_oen_ren */
+				0x98 (PIN_INPUT_PULLDOWN |  MUX_MODE7)		/* gpmc_wen.gpmc_wen */
+				0x9c (PIN_INPUT | PULL_DISABLE | MUX_MODE7)		/* gpmc_be0n_cle.gpmc_be0n_cle */
 			>;
 		};
 
@@ -709,8 +730,9 @@
 
 &gpmc {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&nand_flash_x8>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&nand_flash_x8_default>;
+	pinctrl-1 = <&nand_flash_x8_sleep>;
 	ranges = <0 0 0x08000000 0x10000000>;	/* CS0: NAND */
 	nand@0,0 {
 		reg = <0 0 0>; /* CS0, offset 0 */
