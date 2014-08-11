@@ -74,21 +74,6 @@ struct hdq_data {
 static int omap_hdq_probe(struct platform_device *pdev);
 static int omap_hdq_remove(struct platform_device *pdev);
 
-static const struct of_device_id omap_hdq_dt_match[] = {
-	{ .compatible = "ti,am43xx-hdq"},
-	{},
-};
-MODULE_DEVICE_TABLE(of, omap_hdq_dt_match);
-
-static struct platform_driver omap_hdq_driver = {
-	.probe =	omap_hdq_probe,
-	.remove =	omap_hdq_remove,
-	.driver =	{
-		.name =	"omap_hdq",
-		.of_match_table = of_match_ptr(omap_hdq_dt_match),
-	},
-};
-
 static u8 omap_w1_read_byte(void *_hdq);
 static void omap_w1_write_byte(void *_hdq, u8 byte);
 static u8 omap_w1_reset_bus(void *_hdq);
@@ -585,6 +570,33 @@ static void omap_w1_write_byte(void *_hdq, u8 byte)
 	}
 }
 
+
+#ifdef CONFIG_PM
+#ifdef CONFIG_PM_RUNTIME
+static int omap_hdq_runtime_suspend(struct device *dev)
+{
+	pinctrl_pm_select_sleep_state(dev);
+
+	return 0;
+}
+
+static int omap_hdq_runtime_resume(struct device *dev)
+{
+	pinctrl_pm_select_default_state(dev);
+
+	return 0;
+}
+#endif /* CONFIG_PM_RUNTIME */
+
+static const struct dev_pm_ops omap_hdq_pm_ops = {
+	SET_RUNTIME_PM_OPS(omap_hdq_runtime_suspend,
+			   omap_hdq_runtime_resume, NULL)
+};
+#define OMAP_HDQ_PM_OPS (&omap_hdq_pm_ops)
+#else
+#define OMAP_HDQ_PM_OPS NULL
+#endif /* CONFIG_PM */
+
 static int omap_hdq_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -682,6 +694,22 @@ static int omap_hdq_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+static const struct of_device_id omap_hdq_dt_match[] = {
+	{ .compatible = "ti,am43xx-hdq"},
+	{},
+};
+MODULE_DEVICE_TABLE(of, omap_hdq_dt_match);
+
+static struct platform_driver omap_hdq_driver = {
+	.probe =	omap_hdq_probe,
+	.remove =	omap_hdq_remove,
+	.driver =	{
+		.name =	"omap_hdq",
+		.pm = OMAP_HDQ_PM_OPS,
+		.of_match_table = of_match_ptr(omap_hdq_dt_match),
+	},
+};
 
 module_platform_driver(omap_hdq_driver);
 
