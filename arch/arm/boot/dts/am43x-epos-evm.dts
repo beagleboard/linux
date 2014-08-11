@@ -103,6 +103,9 @@
 	};
 
 	am43xx_pinmux: pinmux@44e10800 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&debugss_pins>;
+
 		cpsw_default: cpsw_default {
 			pinctrl-single,pins = <
 				/* Slave 1 */
@@ -493,6 +496,18 @@
 		hdq_pins_sleep: pinmux_hdq_pins_sleep {
 			pinctrl-single,pins = <
 				0x234 (DS0_PULL_UP_DOWN_EN | PIN_INPUT_PULLDOWN | MUX_MODE7)
+			>;
+		};
+
+		debugss_pins: pinmux_debugss_pins {
+			pinctrl-single,pins = <
+				0x290 (PIN_INPUT_PULLDOWN)
+				0x294 (PIN_INPUT_PULLDOWN)
+				0x298 (PIN_INPUT_PULLDOWN)
+				0x29C (PIN_INPUT_PULLDOWN)
+				0x2A0 (PIN_INPUT_PULLDOWN)
+				0x2A4 (PIN_INPUT_PULLDOWN)
+				0x2A8 (PIN_INPUT_PULLDOWN)
 			>;
 		};
 	};
