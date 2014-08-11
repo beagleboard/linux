@@ -145,7 +145,7 @@
 			pinctrl-single,pins = <
 				/* MDIO reset value */
 				0x148 (PIN_INPUT_PULLDOWN | MUX_MODE7)
-				0x14c (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x14c (PIN_INPUT |PULL_DISABLE | MUX_MODE7)
 			>;
 		};
 
