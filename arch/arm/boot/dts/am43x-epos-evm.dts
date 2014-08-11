@@ -235,7 +235,7 @@
 			>;
 		};
 
-		mmc2_pins: pinmux_mmc2_pins {
+		mmc2_pins_default: pinmux_mmc2_pins {
 			pinctrl-single,pins = <
 				0x210 (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data2.mmc1_clk  */
 				0x214 (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data3.mmc1_cmd  */
@@ -244,6 +244,18 @@
 				0x220 (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data6.mmc1_dat2 */
 				0x224 (PIN_INPUT_PULLUP | MUX_MODE1)      /*cam0_data7.mmc1_dat3 */
 				0x05c (PIN_OUTPUT | MUX_MODE7)            /*gpmc_a7.gpio1_23 */
+			>;
+		};
+
+		mmc2_pins_sleep: pinmux_mmc2_pins_sleep {
+			pinctrl-single,pins = <
+				0x210 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x214 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x218 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x21c (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x220 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x224 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x05c (PIN_INPUT_PULLDOWN | MUX_MODE7)
 			>;
 		};
 
@@ -505,8 +517,9 @@
 	status = "okay";
 	vmmc-supply = <&vmmcwl_fixed>;
 	bus-width = <4>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc2_pins &wlirq_pins>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&mmc2_pins_default &wlirq_pins>;
+	pinctrl-1 = <&mmc2_pins_sleep>;
 	cap-power-off-card;
 	keep-power-in-suspend;
 	ti,non-removable;
