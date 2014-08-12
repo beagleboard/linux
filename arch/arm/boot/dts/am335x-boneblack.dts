@@ -37,4 +37,7 @@
 /* #include "am335x-bone-ttyO5.dtsi" */
 
 #include "am335x-boneblack-emmc.dtsi"
+
+/* Display */
 #include "am335x-boneblack-nxp-hdmi.dtsi"
+/* #include "am335x-bone-lcd4.dtsi" */
