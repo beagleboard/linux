@@ -26,6 +26,9 @@
 	pinctrl-0 = <&clkout2_pin>;
 };
 
+/* spiX */
+/* #include "am335x-bone-spi0.dtsi" */
+
 /* uartX */
 /* #include "am335x-bone-ttyO1.dtsi" */
 /* #include "am335x-bone-ttyO2.dtsi" */
