@@ -33,3 +33,9 @@
 &aes {
 	status = "okay";
 };
+
+/* uartX */
+/* #include "am335x-bone-ttyO1.dtsi" */
+/* #include "am335x-bone-ttyO2.dtsi" */
+/* #include "am335x-bone-ttyO4.dtsi" */
+/* #include "am335x-bone-ttyO5.dtsi" */

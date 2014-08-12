@@ -26,5 +26,12 @@
 	pinctrl-0 = <&clkout2_pin>;
 };
 
+/* uartX */
+/* #include "am335x-bone-ttyO1.dtsi" */
+/* #include "am335x-bone-ttyO2.dtsi" */
+/* #include "am335x-bone-ttyO4.dtsi" */
+/* am335x-boneblack: hdmi has to be disabled for ttyO5 */
+/* #include "am335x-bone-ttyO5.dtsi" */
+
 #include "am335x-boneblack-emmc.dtsi"
 #include "am335x-boneblack-nxp-hdmi.dtsi"
