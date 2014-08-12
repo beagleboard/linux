@@ -59,3 +59,6 @@
 /* #include "am335x-bone-lcd7-01-00a2.dtsi" */
 /* #include "am335x-bone-lcd7-01-00a3.dtsi" */
 /* #include "am335x-bone-lcd7-01-00a4.dtsi" */
+
+/* http://elinux.org/CircuitCo:Basic_Proto_Cape */
+#include "am335x-bone-basic-proto-cape.dtsi"
