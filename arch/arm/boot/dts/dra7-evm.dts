@@ -403,3 +403,23 @@
 	ti,no-reset-on-init;
 	ti,no-idle-on-init;
 };
+
+&mailbox5 {
+	status = "okay";
+	mbox_ipu1_legacy: mbox_ipu1_legacy {
+		status = "okay";
+	};
+	mbox_dsp1_legacy: mbox_dsp1_legacy {
+		status = "okay";
+	};
+};
+
+&mailbox6 {
+	status = "okay";
+	mbox_ipu2_legacy: mbox_ipu2_legacy {
+		status = "okay";
+	};
+	mbox_dsp2_legacy: mbox_dsp2_legacy {
+		status = "okay";
+	};
+};
