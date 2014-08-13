@@ -1,0 +1,48 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+#include "am335x-bone-common-pinmux.dtsi"
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <3300000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&ldo3_reg>;
+};
+
+&am33xx_pinmux {
+	pinctrl-names = "default";
+	pinctrl-0 = <&clkout2_pin>;
+};
+
+&sham {
+	status = "okay";
+};
+
+&aes {
+	status = "okay";
+};
+
+/* spiX */
+/* #include "am335x-bone-spi0.dtsi" */
+
+/* uartX */
+/* #include "am335x-bone-ttyO1.dtsi" */
+/* #include "am335x-bone-ttyO2.dtsi" */
+/* #include "am335x-bone-ttyO4.dtsi" */
+/* #include "am335x-bone-ttyO5.dtsi" */
+
+/* Display */
+/* #include "am335x-bone-lcd4.dtsi" */
+#include "am335x-bone-lcd4.dtsi"
