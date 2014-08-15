@@ -13,6 +13,13 @@ Optional properties:
 - ti,hwmods		: Must be "d_can<n>" or "c_can<n>", n being the
 			  instance number
 
+- syscon		: Handle to system control region that contains the
+			  RAMINIT register. If specified, the second memory resource
+			  in the reg property must index into the RAMINIT
+			  register within the syscon region
+- raminit-start-bit	: Bit posistion of START bit in the RAMINIT register
+- raminit-done-bit	: Bit position of DONE bit in the RAMINIT register
+
 Note: "ti,hwmods" field is used to fetch the base address and irq
 resources from TI, omap hwmod data base during device registration.
 Future plan is to migrate hwmod data base contents into device tree

@@ -170,6 +170,10 @@ struct c_can_priv {
 	u16 irqstatus;
 	enum c_can_dev_id type;
 	u32 __iomem *raminit_ctrlreg;
+	struct regmap *syscon;		/* Alternative raminit reg. access */
+	unsigned int raminit_idx;	/* register index within syscon */
+	u8 raminit_start_bit;	/* START bit position in raminit reg. */
+	u8 raminit_done_bit;	/* DONE bit position in raminit reg. */
 	unsigned int instance;
 	void (*raminit) (const struct c_can_priv *priv, bool enable);
 };
