@@ -378,6 +378,19 @@
 		>;
 	};
 
+	dcan1_pins_default: dcan1_pins_default {
+		pinctrl-single,pins = <
+			0x3d4	(PIN_INPUT | MUX_MODE0)		/* dcan1_tx */
+			0x3d8	(PIN_INPUT | MUX_MODE0)		/* dcan1_rx */
+		>;
+	};
+
+	dcan1_pins_sleep: dcan1_pins_sleep {
+		pinctrl-single,pins = <
+			0x3d4	(PIN_INPUT | MUX_MODE15)	/* dcan1_tx */
+			0x3d8	(PIN_INPUT | MUX_MODE15)	/* dcan1_rx */
+		>;
+	};
 };
 
 &i2c1 {
@@ -911,4 +924,11 @@
 			remote-endpoint = <&tpd12s015_in>;
 		};
 	};
+};
+
+&dcan1 {
+	status = "ok";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&dcan1_pins_default>;
+	pinctrl-1 = <&dcan1_pins_sleep>;
 };
