@@ -28,17 +28,5 @@
 
 #include "am335x-boneblack-emmc.dtsi"
 
-&lcdc {
-	status = "okay";
-};
-
-/ {
-	hdmi {
-		compatible = "ti,tilcdc,slave";
-		i2c = <&i2c0>;
-		pinctrl-names = "default", "off";
-		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
-		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
-		status = "okay";
-	};
-};
+/* Display */
+#include "am335x-boneblack-nxp-hdmi.dtsi"
