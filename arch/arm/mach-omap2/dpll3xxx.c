@@ -319,6 +319,15 @@ static int omap3_noncore_dpll_program(struct clk_hw_omap *clk, u16 freqsel)
 
 	/* Set DPLL multiplier, divider */
 	v = omap2_clk_readl(clk, dd->mult_div1_reg);
+
+	/* Handle Duty Cycle Correction */
+	if (dd->dcc_mask) {
+		if (dd->last_rounded_rate >= dd->dcc_rate)
+			v |= dd->dcc_mask; /* Enable DCC */
+		else
+			v &= ~dd->dcc_mask; /* Disable DCC */
+	}
+
 	v &= ~(dd->mult_mask | dd->div1_mask);
 	v |= dd->last_rounded_m << __ffs(dd->mult_mask);
 	v |= (dd->last_rounded_n - 1) << __ffs(dd->div1_mask);
@@ -469,6 +478,7 @@ int omap3_noncore_dpll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
 	struct clk *new_parent = NULL;
+	unsigned long rrate;
 	u16 freqsel = 0;
 	struct dpll_data *dd;
 	int ret;
@@ -496,8 +506,15 @@ int omap3_noncore_dpll_set_rate(struct clk_hw *hw, unsigned long rate,
 		__clk_prepare(dd->clk_ref);
 		clk_enable(dd->clk_ref);
 
-		if (dd->last_rounded_rate != rate)
-			rate = __clk_round_rate(hw->clk, rate);
+		if (dd->last_rounded_rate != rate) {
+			rrate = __clk_round_rate(hw->clk, rate);
+			if (rrate != rate) {
+				pr_warn("%s: %s: final rate %lu does not match desired rate %lu\n",
+					__func__, __clk_get_name(hw->clk),
+					rrate, rate);
+				rate = rrate;
+			}
+		}
 
 		if (dd->last_rounded_rate == 0)
 			return -EINVAL;

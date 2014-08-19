@@ -217,6 +217,11 @@ void omap_gic_of_init(void);
 
 #ifdef CONFIG_CACHE_L2X0
 extern void __iomem *omap4_get_l2cache_base(void);
+#else
+static inline void __iomem *omap4_get_l2cache_base(void)
+{
+	return NULL;
+}
 #endif
 
 struct device_node;

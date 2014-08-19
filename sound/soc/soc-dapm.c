@@ -251,7 +251,6 @@ static int dapm_kcontrol_data_alloc(struct snd_soc_dapm_widget *widget,
 static void dapm_kcontrol_free(struct snd_kcontrol *kctl)
 {
 	struct dapm_kcontrol_data *data = snd_kcontrol_chip(kctl);
-	kfree(data->widget);
 	kfree(data->wlist);
 	kfree(data);
 }
@@ -3650,8 +3649,11 @@ void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 		cpu_dai = rtd->cpu_dai;
 		codec_dai = rtd->codec_dai;
 
-		/* dynamic FE links have no fixed DAI mapping */
-		if (rtd->dai_link->dynamic)
+		/*
+		 * dynamic FE links have no fixed DAI mapping.
+		 * CODEC<->CODEC links have no direct connection.
+		 */
+		if (rtd->dai_link->dynamic || rtd->dai_link->params)
 			continue;
 
 		/* there is no point in connecting BE DAI links with dummies */
