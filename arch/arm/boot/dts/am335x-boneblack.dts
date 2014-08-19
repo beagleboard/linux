@@ -47,3 +47,15 @@
 /* http://elinux.org/CircuitCo:Audio_Cape_RevB */
 /* Pins: P9.24, P9.28, P9.29, P9.31, P9.30 */
 /* #include "am335x-bone-audio.dtsi" */
+
+/* http://elinux.org/CircuitCo:BeagleBone_LCD3 */
+/* #include "am335x-bone-lcd3-01-00a2.dtsi" */
+
+/* http://elinux.org/CircuitCo:BeagleBone_LCD4 */
+/* #include "am335x-bone-lcd4-01-00a1.dtsi" */
+
+/* http://elinux.org/CircuitCo:BeagleBone_LCD7 */
+/* am335x-boneblack: emmc has to be disabled for lcd7-01-00a2 */
+/* #include "am335x-bone-lcd7-01-00a2.dtsi" */
+/* #include "am335x-bone-lcd7-01-00a3.dtsi" */
+/* #include "am335x-bone-lcd7-01-00a4.dtsi" */

@@ -1,0 +1,20 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/*/ { */
+/* Untested */
+/*	backlight { */
+/*		compatible = "not-tps65217-backlight"; */
+/*		isel = <1>; */
+/*		fdim = <200>; */
+/*		brightness = <100>; */
+/*		tps = <&tps>; */
+/*	}; */
+/*} */
+
+#include "am335x-bone-lcd4.dtsi"
