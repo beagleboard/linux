@@ -34,6 +34,9 @@
 	status = "okay";
 };
 
+/* spi0: P9.17, P9.18, P9.21, P9.22 */
+/* #include "am335x-bone-spi0-spidev.dtsi" */
+
 /* uart1: P9.24, P9.26 */
 /* #include "am335x-bone-ttyO1.dtsi" */
 /* uart2: P9.21, P9.22 */
