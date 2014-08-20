@@ -17,4 +17,5 @@
 	};
 };
 
+#include "am335x-bone-ti-tscadc-4-wire.dtsi"
 #include "am335x-bone-lcd7.dtsi"
