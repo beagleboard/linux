@@ -7,4 +7,5 @@
  */
 
 #include "am335x-bone-lcd-gpio-backlight-gpio1-18.dtsi"
+#include "am335x-bone-ti-tscadc-4-wire.dtsi"
 #include "am335x-bone-lcd3.dtsi"
