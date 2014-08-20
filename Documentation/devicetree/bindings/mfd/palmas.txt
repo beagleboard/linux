@@ -51,3 +51,23 @@ palmas {
 		....
 	};
 }
+
+Example: with interrupts extended
+ See Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
+ Use pinmux 0x418 as wakeup interrupt and gpio1_0 as interrupt source
+
+palmas {
+	compatible = "ti,twl6035", "ti,palmas";
+	reg = <0x48>
+	interrupt-parent = <&intc>;
+	interrupt-controller;
+	#interrupt-cells = <2>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupts-extended = <&gpio1 0 IRQ_TYPE_LEVEL_HIGH
+			       &pinmux 0x418>;
+	pmic {
+		compatible = "ti,twl6035-pmic", "ti,palmas-pmic";
+		....
+	};
+}

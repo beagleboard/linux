@@ -75,6 +75,7 @@ struct palmas {
 	/* IRQ Data */
 	int irq;
 	u32 irq_mask;
+	int wakeirq;
 	struct mutex irq_lock;
 	struct regmap_irq_chip_data *irq_data;
 
@@ -377,6 +378,7 @@ struct palmas_clk_platform_data {
 
 struct palmas_platform_data {
 	int irq_flags;
+	int wakeirq;
 	int gpio_base;
 
 	/* bit value to be loaded to the POWER_CTRL register */
