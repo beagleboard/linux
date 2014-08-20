@@ -693,5 +693,12 @@
 			compatible = "ti,am335x-bandgap";
 			reg = <0x44e10448 0x8>;
 		};
+
+		rng: rng@483100000 {
+			compatible = "ti,omap4-rng";
+			ti,hwmods = "rng";
+			reg = <0x48310000 0x2000>;
+			interrupts = <111>;
+		};
 	};
 };
