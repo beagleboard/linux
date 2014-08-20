@@ -6,16 +6,16 @@
  * published by the Free Software Foundation.
  */
 
-/ {
-	backlight {
-		status = "okay";
-		compatible = "gpio-backlight";
-		pinctrl-names = "default";
-		pinctrl-0 = <&bbcape_backlight_pins>;
-		gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
-		default-on;
+&tscadc {
+	status = "okay";
+	tsc {
+		ti,wires = <4>;
+		ti,x-plate-resistance = <200>;
+		ti,coordinate-readouts = <5>;
+		ti,wire-config = <0x00 0x11 0x22 0x33>;
+	};
+
+	adc {
+		ti,adc-channels = <4 5 6 7>;
 	};
 };
-
-#include "am335x-bone-ti-tscadc-4-wire.dtsi"
-#include "am335x-bone-lcd3.dtsi"
