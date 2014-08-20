@@ -34,6 +34,13 @@
 		>;
 	};
 
+	uart1_pins: pinmix_uart1_pins {
+		pinctrl-single,pins = <
+			0x3e0 (PIN_INPUT_PULLUP | MUX_MODE0) /* uart1_rxd */
+			0x3e4 (PIN_INPUT_PULLUP | MUX_MODE0) /* uart1_txd */
+		>;
+	};
+
 	cpsw_default: cpsw_default {
 		pinctrl-single,pins = <
 			/* Slave 2 */
@@ -223,6 +230,11 @@
 };
 
 &uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
+
+	interrupts-extended = <&gic GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH
+			       &dra7_pmx_core 0x3e0>;
 	status = "okay";
 };
 
