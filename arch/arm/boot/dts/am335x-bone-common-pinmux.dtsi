@@ -151,6 +151,32 @@
 		>;
 	};
 
+	lcd_gpio1_28_led_pins: pinmux_lcd_gpio1_28_led_pins {
+		pinctrl-single,pins = <
+			0x078 0x2f	/* gpmc_ben1.gpio1_28, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
+	lcd4_01_00a2_keymap_pins: pinmux_lcd4_01_00a2_keymap_pins {
+		pinctrl-single,pins = <
+			0x040 0x2f	/* KEY_LEFT gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
+			0x044 0x2f	/* KEY_RIGHT gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f 	/* KEY_UP gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x198 0x2f	/* KEY_DOWN mcasp0_axr0.gpio3_16, INPUT | PULLDIS | MODE7 */
+			0x184 0x2f	/* KEY_ENTER uart1_txd.gpio0_15, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
+	lcd7_01_00a3_keymap_pins: pinmux_lcd7_01_00a3_keymap_pins {
+		pinctrl-single,pins = <
+			0x040 0x2f	/* KEY_LEFT gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
+			0x044 0x2f	/* KEY_RIGHT gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f 	/* KEY_UP gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x198 0x2f	/* KEY_DOWN mcasp0_axr0.gpio3_16, INPUT | PULLDIS | MODE7 */
+			0x154 0x2f	/* KEY_ENTER spi0_d0.gpio0_3, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
 	mcasp0_pins_audio: mcasp0_pins_audio {
 		pinctrl-single,pins = <
 			0x1ac 0x00	/* mcasp0_ahclkx, OUTPUT | MODE0, Codec MCLK */
