@@ -1,0 +1,108 @@
+Atmel MaxTouch Touchscreen
+--------------------------
+Required properties:
+ - compatible: "atmel,mXT244" or "atmel,qt602240_ts"
+                or "atmel,atmel_mxt_ts"
+ - reg: I2C address of the chip
+ - interrupts: interrupt signal to which the chip is connected
+ - atmel,x-line: Number of x lines the touch object occupies in pixels
+ - atmel,y-line: Number of y lines the touch object occupies in pixels
+ - atmel,x-size: Horizontal resolution of touchscreen in pixels
+ - atmel,y-size: Vertical resolution of touchscreen in pixels
+ - atmel,blen: Sets the gain of the analog circuit in front of ADC
+               Gain setting depends on package type. Range: 0-3
+ - atmel,threshold: Channel detection threshold value. Range: 0-255
+                    Typical: 30-80. Lower the threshold, higher the
+                    sensitivity
+ - atmel,voltage: Nominal AVdd in uV for analog circuitry, greater than
+                  or less than base voltage of 2.7V, used for optimizing
+                  capacitive sensing. For example, if you want to
+                  program an optimum voltage of 2.8V in your design,
+                  specify 2800000 for this parameter
+ - atmel,orientation: touchscreen orientation, must be one of following,
+     as defined inside include/linux/i2c/atmel_mxt_ts.h
+     - 0: MXT_NORMAL - normal
+     - 1: MXT_DIAGONAL - diagonal
+     - 2: MXT_HORIZONTAL_FLIP - horizonally flipped
+     - 3: MXT_ROTATED_90_COUNTER - rotated by 90 degrees
+                                  counter-clockwise
+     - 4: MXT_VERTICAL_FLIP - vertically flipped
+     - 5: MXT_ROTATED_90 - rotated by 90 degress clockwise
+     - 6: MXT_ROTATED_180 - rotated by 180 degrees
+     - 7: MXT_DIAGONAL_COUNTER - diagonal counter
+
+Optional properties:
+ - atmel,config: list of 8-bit register values for controller objects
+   in the following order. Number of objects and values depends on the
+   particular model of Atmel touch screen you are using. Please check
+   with your Atmel representative for helping you tune these values
+   GEN_COMMAND, GEN_POWER, GEN_ACQUIRE, TOUCH_MULTI
+   TOUCH_KEYARRAY, MXT244_COMMSCONFIG_T18, SPT_GPIOPWM, PROCI_GRIPFACE,
+   PROCG_NOISE, TOUCH_PROXIMITY, PROCI_ONETOUCH, SPT_SELFTEST,
+   PROCI_TWOTOUCH, SPT_CTECONFIG
+   Note: These register values can be specified here according to
+   the specific controller and platform configuration desired. The
+   driver does not configure these registers by default and leaves it
+   to the platform dts file to supply them
+
+Example:
+
+	&i2c1 {
+		mXT244:mXT244@4a {
+			reg = <0x4a>;
+		};
+	};
+
+	&mXT244 {
+		compatible = "atmel,mXT244";
+		interrupts = <0 119 0x4>;
+
+		atmel,config = <
+		/* MXT244_GEN_COMMAND(6) */
+		0x00 0x00 0x00 0x00 0x00 0x00
+		/* MXT244_GEN_POWER(7) */
+		0x20 0xff 0x32
+		/* MXT244_GEN_ACQUIRE(8) */
+		0x0a 0x00 0x05 0x00 0x00 0x00 0x09 0x23
+		/* MXT244_TOUCH_MULTI(9) */
+		0x00 0x00 0x00 0x13 0x0b 0x00 0x00 0x00 0x02 0x00
+		0x00 0x01 0x01 0x0e 0x0a 0x0a 0x0a 0x0a 0x00 0x00
+		0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+		0x00
+		/* MXT244_TOUCH_KEYARRAY(15) */
+		0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+		0x00
+		/* MXT244_COMMSCONFIG_T18(2) */
+		0x00 0x00
+		/* MXT244_SPT_GPIOPWM(19) */
+		0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+		0x00 0x00 0x00 0x00 0x00 0x00
+		/* MXT244_PROCI_GRIPFACE(20) */
+		0x07 0x00 0x00 0x00 0x00 0x00 0x00 0x50 0x28 0x04
+		0x0f 0x0a
+		/* MXT244_PROCG_NOISE(22) */
+		0x05 0x00 0x00 0x00 0x00 0x00 0x00 0x03 0x23 0x00
+		0x00 0x05 0x0f 0x19 0x23 0x2d 0x03
+		/* MXT244_TOUCH_PROXIMITY(23) */
+		0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+		0x00 0x00 0x00 0x00 0x00
+		/* MXT244_PROCI_ONETOUCH(24) */
+		0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+		0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+		/* MXT244_SPT_SELFTEST(25) */
+		0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+		0x00 0x00 0x00 0x00
+		/* MXT244_PROCI_TWOTOUCH(27) */
+		0x00 0x00 0x00 0x00 0x00 0x00 0x00
+		/* MXT244_SPT_CTECONFIG(28) */
+		0x00 0x00 0x02 0x08 0x10 0x00 >;
+
+		atmel,x_line = <18>;
+		atmel,y_line = <12>;
+		atmel,x_size = <800>;
+		atmel,y_size = <480>;
+		atmel,blen = <0x01>;
+		atmel,threshold = <30>;
+		atmel,voltage = <2800000>;
+		atmel,orient = <0x4>;
+	};

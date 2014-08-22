@@ -136,7 +136,7 @@
 
 #define BADBLOCK_MARKER_LENGTH		2
 
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 static u_char bch16_vector[] = {0xf5, 0x24, 0x1c, 0xd0, 0x61, 0xb3, 0xf1, 0x55,
 				0x2e, 0x2c, 0x86, 0xa3, 0xed, 0x36, 0x1b, 0x78,
 				0x48, 0x76, 0xa9, 0x3b, 0x97, 0xd1, 0x7a, 0x93,
@@ -1332,7 +1332,7 @@ static int erased_sector_bitflips(u_char *data, u_char *oob,
 	return flip_bits;
 }
 
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 /**
  * omap_elm_correct_data - corrects page data area in case error reported
  * @mtd:	MTD device structure
@@ -1830,7 +1830,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 		break;
 
 	case OMAP_ECC_BCH4_CODE_HW_DETECTION_SW:
-#ifdef CONFIG_MTD_NAND_ECC_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_ECC_BCH)
 		pr_info("nand: using OMAP_ECC_BCH4_CODE_HW_DETECTION_SW\n");
 		nand_chip->ecc.mode		= NAND_ECC_HW;
 		nand_chip->ecc.size		= 512;
@@ -1869,7 +1869,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 #endif
 
 	case OMAP_ECC_BCH4_CODE_HW:
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 		pr_info("nand: using OMAP_ECC_BCH4_CODE_HW ECC scheme\n");
 		nand_chip->ecc.mode		= NAND_ECC_HW;
 		nand_chip->ecc.size		= 512;
@@ -1945,7 +1945,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 #endif
 
 	case OMAP_ECC_BCH8_CODE_HW:
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 		pr_info("nand: using OMAP_ECC_BCH8_CODE_HW ECC scheme\n");
 		nand_chip->ecc.mode		= NAND_ECC_HW;
 		nand_chip->ecc.size		= 512;
@@ -1981,7 +1981,7 @@ static int omap_nand_probe(struct platform_device *pdev)
 #endif
 
 	case OMAP_ECC_BCH16_CODE_HW:
-#ifdef CONFIG_MTD_NAND_OMAP_BCH
+#if IS_ENABLED(CONFIG_MTD_NAND_OMAP_BCH)
 		pr_info("using OMAP_ECC_BCH16_CODE_HW ECC scheme\n");
 		nand_chip->ecc.mode		= NAND_ECC_HW;
 		nand_chip->ecc.size		= 512;
