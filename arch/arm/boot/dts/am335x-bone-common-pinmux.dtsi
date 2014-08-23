@@ -174,6 +174,16 @@
 		>;
 	};
 
+	lcd7_01_00a2_keymap_pins: pinmux_lcd7_01_00a2_keymap_pins {
+		pinctrl-single,pins = <
+			0x040 0x2f	/* KEY_LEFT gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
+			0x044 0x2f	/* KEY_RIGHT gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f 	/* KEY_UP gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x198 0x2f	/* KEY_DOWN mcasp0_axr0.gpio3_16, INPUT | PULLDIS | MODE7 */
+			0x1a4 0x2f	/* KEY_ENTER mcasp0_fsr.gpio3_19, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
 	lcd7_01_00a3_keymap_pins: pinmux_lcd7_01_00a3_keymap_pins {
 		pinctrl-single,pins = <
 			0x040 0x2f	/* KEY_LEFT gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
