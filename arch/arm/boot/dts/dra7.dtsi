@@ -488,7 +488,6 @@
 		hwspinlock: spinlock@4a0f6000 {
 			compatible = "ti,omap4-hwspinlock";
 			reg = <0x4a0f6000 0x1000>;
-			interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "spinlock";
 			#hwlock-cells = <1>;
 		};
