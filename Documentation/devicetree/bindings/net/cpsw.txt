@@ -30,10 +30,10 @@ Required properties:
 - phy_id		: Specifies slave phy id
 - phy-mode		: The interface between the SoC and the PHY (a string
 			  that of_get_phy_mode() can understand)
-- mac-address		: Specifies slave MAC address
 
 Optional properties:
 - dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
+- mac-address		: See ethernet.txt file in the same directory
 
 Note: "ti,hwmods" field is used to fetch the base address and irq
 resources from TI, omap hwmod data base during device registration.
