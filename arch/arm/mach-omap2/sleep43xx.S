@@ -381,6 +381,11 @@ ENTRY(am43xx_resume_offset)
 	.word . - am43xx_do_wfi
 
 ENTRY(am43xx_resume_from_deep_sleep)
+	/* Set MPU CLKSTCTRL to HW AUTO so that CPUidle works properly */
+	ldr	r1, am43xx_virt_mpu_clkstctrl
+	mov	r2, #AM43XX_CM_CLKSTCTRL_CLKTRCTRL_HW_AUTO
+	str	r2, [r1]
+
 	/* For AM43xx, use EMIF power down until context is restored */
 	ldr	r2, am43xx_phys_emif_poweroff
 	mov	r1, #AM43XX_EMIF_POWEROFF_ENABLE
