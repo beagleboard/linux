@@ -44,6 +44,12 @@
 #include "am335x-boneblack-nxp-hdmi-no-audio.dtsi"
 
 /* Capes */
+/* http://elinux.org/4D_4.3_LCD_CAPE */
+/* 4DCAPE-43 (Non Touch version): */
+/* #include "am335x-bone-lcd-4dcape-43.dtsi" */
+/* 4DCAPE-43T (Resistive Touch version): */
+/* #include "am335x-bone-lcd-4dcape-43t.dtsi" */
+
 /* http://elinux.org/CircuitCo:Audio_Cape_RevB */
 /* Pins: P9.24, P9.28, P9.29, P9.31, P9.30 */
 /* #include "am335x-bone-audio.dtsi" */
