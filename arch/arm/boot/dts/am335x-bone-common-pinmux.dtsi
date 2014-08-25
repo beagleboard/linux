@@ -171,6 +171,12 @@
 		>;
 	};
 
+	lcd_gpio3_19_led_pins: pinmux_lcd_gpio3_19_led_pins {
+		pinctrl-single,pins = <
+			0x1a4 0x07	/* mcasp0_fsr.gpio3_19, OUTPUT | MODE7 */
+		>;
+	};
+
 	lcd4_01_00a2_keymap_pins: pinmux_lcd4_01_00a2_keymap_pins {
 		pinctrl-single,pins = <
 			0x040 0x2f	/* KEY_LEFT gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
