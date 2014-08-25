@@ -123,17 +123,18 @@ int __init am33xx_opp_init(void)
 			opp_def_list_update_opp_voltage(am33xx_es2_x_opp_list,
 				ARRAY_SIZE(am33xx_es2_x_opp_list),
 				"mpu", 300000000, 1100000);
+			opp_def_list_enable_opp(am33xx_es2_x_opp_list,
+				ARRAY_SIZE(am33xx_es2_x_opp_list),
+				"mpu", 300000000, true);
+		} else if (max_freq & EFUSE_OPP_50_300MHZ_BIT) {
+			opp_def_list_enable_opp(am33xx_es2_x_opp_list,
+				ARRAY_SIZE(am33xx_es2_x_opp_list),
+				"mpu", 300000000, true);
+		} else {
+			opp_def_list_enable_opp(am33xx_es2_x_opp_list,
+				ARRAY_SIZE(am33xx_es2_x_opp_list),
+				"mpu", 300000000, false);
 		}
-
-		opp_def_list_enable_opp(am33xx_es2_x_opp_list,
-			ARRAY_SIZE(am33xx_es2_x_opp_list),
-			"mpu", 300000000,
-			(max_freq & EFUSE_OPP_50_300MHZ_BIT) ? true : false);
-
-		opp_def_list_enable_opp(am33xx_es2_x_opp_list,
-			ARRAY_SIZE(am33xx_es2_x_opp_list),
-			"mpu", 300000000,
-			(max_freq & EFUSE_OPP_100_300MHZ_BIT) ? true : false);
 
 		opp_def_list_enable_opp(am33xx_es2_x_opp_list,
 			ARRAY_SIZE(am33xx_es2_x_opp_list),
