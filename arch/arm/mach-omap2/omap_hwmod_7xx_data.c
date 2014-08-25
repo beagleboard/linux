@@ -2393,6 +2393,7 @@ static struct omap_hwmod_class dra7xx_rng_hwmod_class = {
 static struct omap_hwmod dra7xx_rng_hwmod = {
 	.name           = "rng",
 	.class          = &dra7xx_rng_hwmod_class,
+	.flags		= HWMOD_SWSUP_SIDLE,
 	.clkdm_name     = "l4sec_clkdm",
 	.prcm = {
 		.omap4 = {
