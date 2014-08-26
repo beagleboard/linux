@@ -527,6 +527,10 @@
 	cpu0-supply = <&dcdc2>;
 };
 
+&rtc {
+        status = "okay";
+};
+
 &wkup_m3 {
 	ti,set-io-isolation;
 };
