@@ -72,6 +72,10 @@
 
 #define OMAP_RTC_IRQWAKEEN		0x7c
 
+#define OMAP_RTC_SCRATCH0_REG		0x60
+#define OMAP_RTC_SCRATCH1_REG		0x64
+#define OMAP_RTC_SCRATCH2_REG		0x68
+
 #define OMAP_RTC_ALARM2_SECONDS_REG	0x80
 #define OMAP_RTC_ALARM2_MINUTES_REG	0x84
 #define OMAP_RTC_ALARM2_HOURS_REG	0x88
@@ -354,6 +358,24 @@ void __iomem *omap_rtc_get_base_addr(void)
 	return rtc_base;
 }
 
+static const u32 omap_rtc_scratch_regs[] = {
+	OMAP_RTC_SCRATCH0_REG,
+	OMAP_RTC_SCRATCH1_REG,
+	OMAP_RTC_SCRATCH2_REG,
+};
+
+static int omap_rtc_read_scratch(struct device *dev, unsigned index, u32 *value)
+{
+	*value = readl(rtc_base + omap_rtc_scratch_regs[index]);
+	return 0;
+}
+
+static int omap_rtc_write_scratch(struct device *dev, unsigned index, u32 value)
+{
+	writel(value, rtc_base + omap_rtc_scratch_regs[index]);
+	return 0;
+}
+
 /*
  * rtc_power_off: Set the pmic power off sequence. The RTC generates
  * pmic_pwr_enable control, which can be used to control an external
@@ -439,6 +461,9 @@ static struct rtc_class_ops omap_rtc_ops = {
 	.read_alarm	= omap_rtc_read_alarm,
 	.set_alarm	= omap_rtc_set_alarm,
 	.alarm_irq_enable = omap_rtc_alarm_irq_enable,
+	.read_scratch	= omap_rtc_read_scratch,
+	.write_scratch	= omap_rtc_write_scratch,
+	.scratch_size	= ARRAY_SIZE(omap_rtc_scratch_regs),
 };
 
 static int omap_rtc_alarm;
