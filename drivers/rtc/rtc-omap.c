@@ -116,6 +116,7 @@
 
 /* OMAP_RTC_OSC_REG bit fields: */
 #define OMAP_RTC_OSC_32KCLK_EN		BIT(6)
+#define OMAP_RTC_OSC_EXT_32K		BIT(3)
 
 /* OMAP_RTC_IRQWAKEEN bit fields: */
 #define OMAP_RTC_IRQWAKEEN_ALARM_WAKEEN	BIT(1)
@@ -140,6 +141,7 @@
  * the 32KHz clock to be explicitly enabled.
  */
 #define OMAP_RTC_HAS_32KCLK_EN		BIT(2)
+#define OMAP_RTC_HAS_EXT_32K		BIT(3)
 
 #define SHUTDOWN_TIME_SEC		1
 
@@ -479,7 +481,7 @@ static struct platform_device_id omap_rtc_devtype[] = {
 	[OMAP_RTC_DATA_AM3352_IDX] = {
 		.name	= "am3352-rtc",
 		.driver_data = OMAP_RTC_HAS_KICKER | OMAP_RTC_HAS_IRQWAKEEN |
-			       OMAP_RTC_HAS_32KCLK_EN,
+			       OMAP_RTC_HAS_32KCLK_EN | OMAP_RTC_HAS_EXT_32K,
 	},
 	[OMAP_RTC_DATA_DA830_IDX] = {
 		.name	= "da830-rtc",
@@ -569,6 +571,11 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 	/* enable RTC functional clock */
 	if (id_entry->driver_data & OMAP_RTC_HAS_32KCLK_EN)
 		rtc_writel(OMAP_RTC_OSC_32KCLK_EN, OMAP_RTC_OSC_REG);
+
+	/* Enable External clock as the source */
+	if (id_entry->driver_data & OMAP_RTC_HAS_32KCLK_EN)
+		rtc_writel(OMAP_RTC_OSC_EXT_32K | rtc_read(OMAP_RTC_OSC_REG),
+			   OMAP_RTC_OSC_REG);
 
 	/* clear old status */
 	reg = rtc_read(OMAP_RTC_STATUS_REG);
