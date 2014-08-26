@@ -32,6 +32,8 @@
 #include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 #include <linux/can/dev.h>
 
@@ -81,6 +83,22 @@ static void c_can_hw_raminit(const struct c_can_priv *priv, bool enable)
 	writel(val, priv->raminit_ctrlreg);
 }
 
+static void c_can_syscon_raminit(const struct c_can_priv *priv, bool enable)
+{
+	u32 mask;
+
+	if (IS_ERR(priv->syscon))
+		return;
+
+	mask = 1 << priv->raminit_start_bit;
+
+	if (enable)
+		regmap_update_bits(priv->syscon, priv->raminit_idx,
+				   mask, mask);
+	else
+		regmap_update_bits(priv->syscon, priv->raminit_idx, mask, 0);
+}
+
 static struct platform_device_id c_can_id_table[] = {
 	[BOSCH_C_CAN_PLATFORM] = {
 		.name = KBUILD_MODNAME,
@@ -116,6 +134,7 @@ static int c_can_plat_probe(struct platform_device *pdev)
 	struct resource *mem, *res;
 	int irq;
 	struct clk *clk;
+	struct device_node *np = pdev->dev.of_node;
 
 	if (pdev->dev.of_node) {
 		match = of_match_device(c_can_of_table, &pdev->dev);
@@ -188,15 +207,68 @@ static int c_can_plat_probe(struct platform_device *pdev)
 		priv->read_reg = c_can_plat_read_reg_aligned_to_16bit;
 		priv->write_reg = c_can_plat_write_reg_aligned_to_16bit;
 
+		/* Try if syscon property exists */
+		if (np)
+			priv->syscon = syscon_regmap_lookup_by_phandle(np,
+								       "syscon");
+		ret = -EINVAL;
+		if (!IS_ERR(priv->syscon)) {
+			u32 val;
+
+			res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+			if (!res) {
+				dev_err(&pdev->dev,
+					"missing memory resource 1\n");
+				goto exit_free_device;
+			}
+			priv->raminit_idx = res->start;
+
+			if (of_property_read_u32(np, "raminit-start-bit",
+						 &val)) {
+				dev_err(&pdev->dev,
+					"missing raminit-start-bit property\n");
+				goto exit_free_device;
+			}
+
+			if (val > 31) {
+				dev_err(&pdev->dev,
+					"invalid raminit-start-bit property\n");
+				goto exit_free_device;
+			}
+
+			priv->raminit_start_bit = val & 0x1f;
+
+			if (of_property_read_u32(np, "raminit-done-bit",
+						 &val)) {
+				dev_err(&pdev->dev,
+					"missing raminit-done-bit property\n");
+				goto exit_free_device;
+			}
+
+			if (val > 31) {
+				dev_err(&pdev->dev,
+					"invalid raminit-done-bit property\n");
+				goto exit_free_device;
+			}
+
+			priv->raminit_done_bit = val & 0x1f;
+			priv->raminit = c_can_syscon_raminit;
+			break;	/* skip the non syscon method */
+		}
+
+		/* non syscon method */
 		if (pdev->dev.of_node)
 			priv->instance = of_alias_get_id(pdev->dev.of_node, "d_can");
 		else
 			priv->instance = pdev->id;
 
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-		priv->raminit_ctrlreg = devm_ioremap(&pdev->dev, res->start,
-						     resource_size(res));
-		if (IS_ERR(priv->raminit_ctrlreg) || (int)priv->instance < 0)
+		if (res)
+			priv->raminit_ctrlreg = devm_ioremap(&pdev->dev,
+							     res->start,
+							     resource_size(res));
+
+		if (!priv->raminit_ctrlreg || (int)priv->instance < 0)
 			dev_info(&pdev->dev, "control memory is not used for raminit\n");
 		else
 			priv->raminit = c_can_hw_raminit;
@@ -285,6 +357,8 @@ static int c_can_suspend(struct platform_device *pdev, pm_message_t state)
 
 	priv->can.state = CAN_STATE_SLEEPING;
 
+	pinctrl_pm_select_sleep_state(&pdev->dev);
+
 	return 0;
 }
 
@@ -298,6 +372,8 @@ static int c_can_resume(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "Not supported\n");
 		return 0;
 	}
+
+	pinctrl_pm_select_default_state(&pdev->dev);
 
 	ret = c_can_power_up(ndev);
 	if (ret) {

@@ -296,6 +296,13 @@
 			0x3C8 (PIN_INPUT | MUX_MODE15)
 		>;
 	};
+
+	mcp79410_pins_default: mcp79410_pins_default {
+		pinctrl-single,pins = <
+			0x424 (PIN_INPUT_PULLUP | MUX_MODE1)	/* wakeup3.sys_nirq1 */
+		>;
+	};
+
 };
 
 &i2c1 {
@@ -308,8 +315,8 @@
 	tps659038: tps659038@58 {
 		compatible = "ti,tps659038";
 		reg = <0x58>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+		interrupts-extended = <&gpio1 0 IRQ_TYPE_LEVEL_HIGH
+			       &dra7_pmx_core 0x418>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&tps659038_pins_default>;
@@ -471,9 +478,13 @@
 		compatible = "microchip,mcp7941x";
 		reg = <0x6f>;
 		vcc-supply = <&vdd_3v3>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&mcp79410_pins_default>;
+
 		/* Rev A1 */
-		interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_LOW>;  /* IRQ_SYS_1N */
-		interrupt-parent = <&gic>;
+		interrupts-extended = <&gic GIC_SPI 2 IRQ_TYPE_LEVEL_LOW
+			       &dra7_pmx_core 0x424>;
+		wakeup-source;
 	};
 };
 
@@ -486,6 +497,9 @@
         status = "okay";
         pinctrl-names = "default";
         pinctrl-0 = <&uart3_pins_default>;
+
+	interrupts-extended = <&gic GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH
+			       &dra7_pmx_core 0x248>;
 };
 
 &voltdm_mpu {

@@ -30,6 +30,7 @@
 #include <linux/phy/omap_control_phy.h>
 #include <linux/phy/phy.h>
 #include <linux/of_platform.h>
+#include <linux/pinctrl/consumer.h>
 
 #define USB2PHY_DISCON_BYP_LATCH (1 << 31)
 #define USB2PHY_ANA_CONFIG1 0x4c
@@ -332,6 +333,8 @@ static int omap_usb2_runtime_suspend(struct device *dev)
 	if (!IS_ERR(phy->optclk))
 		clk_disable(phy->optclk);
 
+	pinctrl_pm_select_sleep_state(dev);
+
 	return 0;
 }
 
@@ -340,6 +343,8 @@ static int omap_usb2_runtime_resume(struct device *dev)
 	struct platform_device	*pdev = to_platform_device(dev);
 	struct omap_usb	*phy = platform_get_drvdata(pdev);
 	int ret;
+
+	pinctrl_pm_select_default_state(dev);
 
 	ret = clk_enable(phy->wkupclk);
 	if (ret < 0) {

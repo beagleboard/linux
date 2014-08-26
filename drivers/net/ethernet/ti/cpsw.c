@@ -702,8 +702,27 @@ static void cpsw_rx_handler(void *token, int len, int status)
 	cpsw_dual_emac_src_port_detect(status, priv, ndev, skb);
 
 	if (unlikely(status < 0) || unlikely(!netif_running(ndev))) {
-		/* the interface is going down, skbs are purged */
-		dev_kfree_skb_any(skb);
+		bool ndev_status = false;
+		struct cpsw_slave *slave = priv->slaves;
+		int n;
+
+		if (priv->data.dual_emac) {
+			/* In dual emac mode check for all interfaces */
+			for (n = priv->data.slaves; n; n--, slave++)
+				if (netif_running(slave->ndev))
+					ndev_status = true;
+		}
+
+		if (ndev_status) {
+			/* Though this interface is down, other interface is up
+			 * and running so requeue skb back to cpdma.
+			 */
+			new_skb = skb;
+			goto requeue;
+		} else {
+			/* the interface is going down, skbs are purged */
+			dev_kfree_skb_any(skb);
+		}
 		return;
 	}
 
@@ -720,6 +739,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
 		new_skb = skb;
 	}
 
+requeue:
 	ret = cpdma_chan_submit(priv->rxch, new_skb, new_skb->data,
 			skb_tailroom(new_skb), 0);
 	if (WARN_ON(ret < 0))
