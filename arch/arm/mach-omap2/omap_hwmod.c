@@ -4411,3 +4411,42 @@ const char *omap_hwmod_get_main_clk(struct omap_hwmod *oh)
 
 	return oh->main_clk;
 }
+
+static int omap_hwmod_save_context(struct omap_hwmod *oh, void *unused)
+{
+	int i;
+	for (i = 0; i < oh->rst_lines_cnt; i++)
+		oh->rst_lines[i].context =
+				_read_hardreset(oh, oh->rst_lines[i].name);
+	return 0;
+}
+
+static int omap_hwmod_restore_context(struct omap_hwmod *oh, void *unused)
+{
+	int i;
+	for (i = 0; i < oh->rst_lines_cnt; i++)
+		if (oh->rst_lines[i].context)
+			_assert_hardreset(oh, oh->rst_lines[i].name);
+		else if (oh->_state == _HWMOD_STATE_ENABLED)
+			_deassert_hardreset(oh, oh->rst_lines[i].name);
+
+	if (oh->_state == _HWMOD_STATE_ENABLED) {
+		if (soc_ops.enable_module)
+			soc_ops.enable_module(oh);
+	} else {
+		if (soc_ops.disable_module)
+			soc_ops.disable_module(oh);
+	}
+
+	return 0;
+}
+
+void omap_hwmods_save_context(void)
+{
+	omap_hwmod_for_each(omap_hwmod_save_context, NULL);
+}
+
+void omap_hwmods_restore_context(void)
+{
+	omap_hwmod_for_each(omap_hwmod_restore_context, NULL);
+}
