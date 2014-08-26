@@ -63,9 +63,9 @@
  * 1) emif_addr_virt - ioremapped EMIF address
  * 2) wfi_flags - 2 -> DDR2, 3-> DDR3
  * 3) dram_sync_word - uncached word in SDRAM
- * 4) l2_virt_base - L2CC ioremapped address for AM437x
- * 5) cke_override_virt - CKE override virtual address
- * 6) rtc_base_addr - ioremapped RTC base address
+ * 4) rtc_base_addr - ioremapped RTC base address
+ * 5) l2_virt_base - L2CC ioremapped address for AM437x
+ * 6) cke_override_virt - CKE override virtual address
  *
  * The code loads these values taking r0 value as reference to
  * the array in registers starting from r0, i.e emif_addr_virt
@@ -84,9 +84,9 @@ ENTRY(am43xx_do_wfi)
 	str	r1, emif_addr_virt
 	str	r2, wfi_flags
 	str	r3, dram_sync_word
-	str	r4, l2_base_virt
-	str	r5, cke_override_virt
-	str	r6, rtc_base_addr
+	str	r4, rtc_base_addr
+	str	r5, l2_base_virt
+	str	r6, cke_override_virt
 
 	ldr	r0, emif_addr_virt
 	/* Save EMIF configuration */

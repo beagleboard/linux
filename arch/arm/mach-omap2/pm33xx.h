@@ -48,9 +48,9 @@ struct am33xx_suspend_params {
 	void __iomem *emif_addr_virt;
 	u32 wfi_flags;
 	void __iomem *dram_sync;
+	void __iomem *rtc_base;
 	void __iomem *l2_base_virt;
 	void __iomem *cke_override_virt;
-	void __iomem *rtc_base;
 };
 
 void wkup_m3_reset_data_pos(void);

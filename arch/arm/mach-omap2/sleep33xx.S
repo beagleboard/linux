@@ -35,6 +35,10 @@
 #define AM33XX_CM_CLKCTRL_MODULEMODE_DISABLE			0x0003
 #define AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE			0x0002
 
+#define RTC_SECONDS_REG			0x0
+#define RTC_PMIC_REG			0x98
+#define RTC_PMIC_POWER_EN		(1 << 16)
+
 	.text
 	.align 3
 
@@ -56,12 +60,13 @@
 ENTRY(am33xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
 
-	ldm	r0, {r1-r3}		@ gather values passed
+	ldm	r0, {r1-r4}		@ gather values passed
 
 	/* Save the values passed */
 	str	r1, emif_addr_virt
 	str	r2, wfi_flags
 	str	r3, dram_sync_word
+	str	r4, rtc_base_addr
 
 	ldr	r2, wfi_flags
 	tst	r2, #WFI_SELF_REFRESH
@@ -150,6 +155,30 @@ wait_emif_disable:
 	bne	wait_emif_disable
 
 skip_sr:
+	ldr	r1, wfi_flags
+	tst	r1, #WFI_RTC_ONLY
+	beq	am33xx_deep_sleep_suspend
+
+	ldr	r1, rtc_base_addr
+	ldr	r0, [r1, #RTC_PMIC_REG]
+	orr	r0, r0, #RTC_PMIC_POWER_EN
+	str	r0, [r1, #RTC_PMIC_REG]
+	ldr	r0, [r1, #RTC_PMIC_REG]
+
+	/* Wait for 2 seconds to lose power */
+	mov	r3, #2
+	ldr	r2, [r1, #RTC_SECONDS_REG]
+rtc_loop:
+	ldr	r0, [r1, #RTC_SECONDS_REG]
+	cmp	r0, r2
+	beq	rtc_loop
+	mov	r2, r0
+	subs	r3, r3, #1
+	bne	rtc_loop
+
+	b	re_enable_emif
+
+am33xx_deep_sleep_suspend:
 	ldr	r2, wfi_flags
 	tst	r2, #WFI_WAKE_M3
 	beq	skip_m3
@@ -211,6 +240,7 @@ skip_m3:
 	movne	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
 	strne	r2, [r1]
 
+re_enable_emif:
 	ldr	r2, wfi_flags
 	tst	r2, #WFI_SELF_REFRESH
 	beq	skip_reenable_emif
@@ -364,6 +394,8 @@ phys_emif_clkctrl:
 		AM33XX_CM_PER_EMIF_CLKCTRL_OFFSET)
 module_disabled_val:
 	.word	0x30000
+rtc_base_addr:
+	.word	0xDEADBEEF
 
 /* DDR related defines */
 dram_sync_word:
