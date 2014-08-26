@@ -61,6 +61,7 @@ struct wkup_m3_rproc {
 	struct mbox_chan *mbox;
 
 	bool is_active;
+	bool is_rtc_only;
 };
 
 static struct wkup_m3_rproc *m3_rproc_static;
@@ -149,6 +150,12 @@ static void wkup_m3_mbox_callback(struct mbox_client *client, void *data)
 	omap_mbox_disable_irq(m3_rproc_static->mbox, IRQ_RX);
 }
 
+void wkup_m3_set_rtc_only_mode(void)
+{
+	m3_rproc_static->is_rtc_only = true;
+}
+EXPORT_SYMBOL(wkup_m3_set_rtc_only_mode);
+
 static int wkup_m3_rproc_start(struct rproc *rproc)
 {
 	struct wkup_m3_rproc *m3_rproc = rproc->priv;
@@ -180,7 +187,8 @@ static int wkup_m3_rproc_start(struct rproc *rproc)
 		return ret;
 	}
 
-	if (wkup_m3_pm_ops && wkup_m3_pm_ops->rproc_ready)
+	if (wkup_m3_pm_ops && wkup_m3_pm_ops->rproc_ready &&
+	    !m3_rproc_static->is_rtc_only)
 		wkup_m3_pm_ops->rproc_ready();
 
 	m3_rproc_static->is_active = 1;
@@ -190,6 +198,15 @@ static int wkup_m3_rproc_start(struct rproc *rproc)
 
 static int wkup_m3_rproc_stop(struct rproc *rproc)
 {
+	struct wkup_m3_rproc *m3_rproc = rproc->priv;
+	struct platform_device *pdev = m3_rproc->pdev;
+	struct device *dev = &pdev->dev;
+	struct wkup_m3_platform_data *pdata = dev->platform_data;
+
+	mbox_free_channel(m3_rproc_static->mbox);
+
+	pdata->assert_reset(pdev, pdata->reset_name);
+
 	return 0;
 }
 
@@ -335,7 +352,6 @@ static void wkup_m3_rproc_loader_thread(struct rproc *rproc)
 
 	do_exit(0);
 }
-
 static int wkup_m3_rproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -433,6 +449,23 @@ static int wkup_m3_rproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int wkm3_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int wkm3_resume(struct device *dev)
+{
+	if (m3_rproc_static->is_rtc_only) {
+		rproc_shutdown(m3_rproc_static->rproc);
+		rproc_boot(m3_rproc_static->rproc);
+	}
+
+	m3_rproc_static->is_rtc_only = false;
+
+	return 0;
+}
+
 static int wkup_m3_rpm_suspend(struct device *dev)
 {
 	return -EBUSY;
@@ -444,6 +477,7 @@ static int wkup_m3_rpm_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops wkup_m3_rproc_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(wkm3_suspend, wkm3_resume)
 	SET_RUNTIME_PM_OPS(wkup_m3_rpm_suspend, wkup_m3_rpm_resume, NULL)
 };
 
