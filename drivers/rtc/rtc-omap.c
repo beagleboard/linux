@@ -349,29 +349,25 @@ static int omap_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	return 0;
 }
 
+void __iomem *omap_rtc_get_base_addr(void)
+{
+	return rtc_base;
+}
+
 /*
  * rtc_power_off: Set the pmic power off sequence. The RTC generates
  * pmic_pwr_enable control, which can be used to control an external
  * PMIC.
  */
-static void rtc_power_off(void)
+void omap_rtc_power_off_program(void)
 {
 	u32 val;
 	struct rtc_time tm;
 	unsigned long time;
 	int seconds;
 
-	/* Make sure alarm2 interrupt is disabled */
-	val = readl(rtc_base + OMAP_RTC_INTERRUPTS_REG);
-	val &= ~OMAP_RTC_INTERRUPTS_IT_ALARM2;
-	writel(val, rtc_base + OMAP_RTC_INTERRUPTS_REG);
-
 	/* Clear any existing ALARM2 event */
 	writel(OMAP_RTC_STATUS_ALARM2, rtc_base + OMAP_RTC_STATUS_REG);
-
-	/* Set PMIC power enable */
-	val = readl(rtc_base + OMAP_RTC_PMIC_REG);
-	writel(val | OMAP_RTC_PMIC_POWER_EN_EN, rtc_base + OMAP_RTC_PMIC_REG);
 
 	pr_info("System will go to power_off state in approx. %d second\n",
 		SHUTDOWN_TIME_SEC);
@@ -418,6 +414,23 @@ again:
 	val = readl(rtc_base + OMAP_RTC_INTERRUPTS_REG);
 	writel(val | OMAP_RTC_INTERRUPTS_IT_ALARM2,
 	       rtc_base + OMAP_RTC_INTERRUPTS_REG);
+}
+
+static void rtc_power_off(void)
+{
+	u32 val;
+
+	omap_rtc_power_off_program();
+
+	/* Set PMIC power enable */
+	val = readl(rtc_base + OMAP_RTC_PMIC_REG);
+	writel(val | OMAP_RTC_PMIC_POWER_EN_EN, rtc_base + OMAP_RTC_PMIC_REG);
+
+	/* Wait 1 second for power-off, if we are still alive, bail out */
+	for (val = 0; val < 1000; val++)
+		udelay(1000);
+
+	pr_err("rtc_power_off failed, bailing out.\n");
 }
 
 static struct rtc_class_ops omap_rtc_ops = {
