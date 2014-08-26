@@ -29,6 +29,12 @@
 #include <linux/ti_emif.h>
 #include <linux/omap-mailbox.h>
 #include <linux/sizes.h>
+#include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/pinmux.h>
+#include <linux/gpio.h>
+#include <linux/platform_data/gpio-omap.h>
+#include <linux/platform_data/wkup_m3.h>
+#include <linux/rtc.h>
 
 #include <asm/suspend.h>
 #include <asm/proc-fns.h>
@@ -45,12 +51,29 @@
 #include "powerdomain.h"
 #include "soc.h"
 #include "sram.h"
+#include "omap_hwmod.h"
+#include "iomap.h"
+
+static struct rtc_device *omap_rtc;
+static struct omap_hwmod *rtc_oh;
+static struct pinctrl_dev *pmx_dev;
+static u32 rtc_magic_val;
+static int retrigger_irq;
+
+#define RTC_SCRATCH_RESUME_REG         0
+#define RTC_SCRATCH_MAGIC_REG          1
+
+#define RTC_REG_BOOT_MAGIC		0x8cd0 /* RTC */
+#define RTC_REG_DDR_TYPE_DDR2_0		(0x00 << 16)
+#define RTC_REG_DDR_TYPE_DDR3_0		(0x01 << 16)
 
 #ifdef CONFIG_SUSPEND
-static void __iomem *scu_base;
+static void __iomem *scu_base, *gic_dist_base;
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
 static struct clockdomain *gfx_l4ls_clkdm;
 #endif /* CONFIG_SUSPEND */
+
+static struct am33xx_suspend_params susp_params;
 
 #ifdef CONFIG_CPU_PM
 static void __iomem *am33xx_emif_base;
@@ -59,8 +82,6 @@ static struct am33xx_pm_context *am33xx_pm;
 static DECLARE_COMPLETION(am33xx_pm_sync);
 
 static void (*am33xx_do_wfi_sram)(struct am33xx_suspend_params *);
-
-static struct am33xx_suspend_params susp_params;
 
 int am33xx_do_sram_cpuidle(u32 wfi_flags, u32 m3_flags)
 {
@@ -103,10 +124,87 @@ static int am33xx_do_sram_idle(unsigned long int arg)
 	return 0;
 }
 
+static struct wkup_m3_wakeup_src rtc_wakeups[] = {
+	{.irq_nr = 0, .src = "Unknown"},
+	{.irq_nr = 0, .src = "Unknown"},
+	{.irq_nr = 108, .src = "RTC Alarm"},
+	{.irq_nr = 0, .src = "Ext wakeup"},
+};
+
+struct wkup_m3_wakeup_src rtc_wake_src(void)
+{
+	u32 i;
+
+	i = __raw_readl(susp_params.rtc_base + 0x98) >> 17;
+	retrigger_irq = rtc_wakeups[i].irq_nr;
+
+	return rtc_wakeups[i];
+}
+
+static void common_save_context(void)
+{
+	omap2_gpio_prepare_for_idle(1);
+	pinmux_save_context(pmx_dev, "am33xx_pmx_per");
+	clks_save_context();
+	pwrdms_save_context();
+	omap_hwmods_save_context();
+	clkdm_save_context();
+}
+
+static void common_restore_context(void)
+{
+	clks_restore_context();
+	pwrdms_restore_context();
+	clkdm_restore_context();
+	omap_hwmods_restore_context();
+	pinmux_restore_context(pmx_dev, "am33xx_pmx_per");
+	wkup_m3_set_rtc_only_mode();
+	pwrdms_lost_power();
+	omap2_gpio_resume_after_idle();
+	omap_sram_reset();
+}
+
+static void am33xx_save_context(void)
+{
+	common_save_context();
+	omap_intc_save_context();
+	am33xx_control_save_context();
+}
+
+static void am33xx_restore_context(void)
+{
+	common_restore_context();
+	am33xx_control_restore_context();
+	omap_intc_restore_context();
+	am33xx_push_sram_idle();
+}
+
+static void am43xx_save_context(void)
+{
+	common_save_context();
+	am43xx_control_save_context();
+}
+
+static void am43xx_restore_context(void)
+{
+	common_restore_context();
+	am43xx_control_restore_context();
+	am43xx_push_sram_idle();
+}
+
+int am33xx_rtc_only_idle(long unsigned int unused)
+{
+	rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, rtc_magic_val);
+	omap_rtc_power_off_program();
+	am33xx_do_wfi_sram(&susp_params);
+	return 0;
+}
+
 static int am33xx_pm_suspend(unsigned int state)
 {
 	int i, ret = 0;
 	int status = 0;
+	int rtc_only_idle = 0;
 	struct wkup_m3_wakeup_src wakeup_src = {.irq_nr = 0,
 						.src = "Unknown",};
 
@@ -114,8 +212,21 @@ static int am33xx_pm_suspend(unsigned int state)
 
 	am33xx_pm->ops->pre_suspend(state);
 
-	ret = cpu_suspend((unsigned long int)&susp_params,
-			  am33xx_do_sram_idle);
+	if (state == PM_SUSPEND_MEM && enable_off_mode)
+		rtc_only_idle = 1;
+
+	if (rtc_only_idle) {
+		omap_hwmod_enable(rtc_oh);
+		am33xx_pm->ops->save_context();
+		susp_params.wfi_flags |= WFI_RTC_ONLY;
+		ret = cpu_suspend((long unsigned int) &susp_params,
+							am33xx_rtc_only_idle);
+		susp_params.wfi_flags &= ~WFI_RTC_ONLY;
+		if (!ret)
+			am33xx_pm->ops->restore_context();
+	} else
+		ret = cpu_suspend((long unsigned int) &susp_params,
+				  am33xx_do_sram_idle);
 
 	/*
 	 * Because gfx_pwrdm is the only one under MPU control,
@@ -154,7 +265,12 @@ static int am33xx_pm_suspend(unsigned int state)
 			ret = -1;
 		}
 		/* print the wakeup reason */
-		wkup_m3_wake_src(&wakeup_src);
+		if (rtc_only_idle) {
+			wakeup_src = rtc_wake_src();
+			omap_hwmod_idle(rtc_oh);
+		} else {
+			wkup_m3_wake_src(&wakeup_src);
+		}
 
 		pr_info("PM: Wakeup source %s\n", wakeup_src.src);
 	}
@@ -240,6 +356,10 @@ static int am33xx_pm_begin(suspend_state_t state)
 static void am33xx_pm_end(void)
 {
 	am33xx_m3_state_machine_reset();
+
+	if (retrigger_irq)
+		writel_relaxed(1 << (retrigger_irq & 31),
+			       gic_dist_base + 0x200 + retrigger_irq / 32 * 4);
 }
 
 static int am33xx_pm_valid(suspend_state_t state)
@@ -349,6 +469,15 @@ static int __init am43xx_map_scu(void)
 	return 0;
 }
 
+static int __init am43xx_map_gic(void)
+{
+	gic_dist_base = ioremap(AM43XX_GIC_DIST_BASE, SZ_4K);
+
+	if (!gic_dist_base)
+		return -ENOMEM;
+
+	return 0;
+}
 
 static int am33xx_suspend_init(void)
 {
@@ -384,6 +513,12 @@ static int am43xx_suspend_init(void)
 	if (ret) {
 			pr_err("PM: Could not ioremap SCU\n");
 			return ret;
+	}
+
+	ret = am43xx_map_gic();
+	if (ret) {
+		pr_err("PM: Could not ioremap GIC\n");
+		return ret;
 	}
 
 	susp_params.l2_base_virt = omap4_get_l2cache_base();
@@ -440,12 +575,16 @@ static struct am33xx_pm_ops am33xx_ops = {
 	.init = am33xx_suspend_init,
 	.pre_suspend = am33xx_pre_suspend,
 	.post_suspend = am33xx_post_suspend,
+	.save_context = am33xx_save_context,
+	.restore_context = am33xx_restore_context,
 };
 
 static struct am33xx_pm_ops am43xx_ops = {
 	.init = am43xx_suspend_init,
 	.pre_suspend = am43xx_pre_suspend,
 	.post_suspend = am43xx_post_suspend,
+	.save_context = am43xx_save_context,
+	.restore_context = am43xx_restore_context,
 };
 #endif /* CONFIG_SUSPEND */
 #endif /* CONFIG_CPU_PM */
@@ -493,6 +632,8 @@ int __init am33xx_pm_init(void)
 	else if (soc_is_am43xx())
 		am33xx_pm->ops = &am43xx_ops;
 
+	rtc_magic_val = RTC_REG_BOOT_MAGIC;
+
 	ret = am33xx_pm->ops->init();
 
 	if (ret)
@@ -506,6 +647,7 @@ int __init am33xx_pm_init(void)
 	susp_params.wfi_flags = 0;
 	susp_params.emif_addr_virt = am33xx_emif_base;
 	susp_params.dram_sync = am33xx_dram_sync;
+	susp_params.rtc_base = omap_rtc_get_base_addr();
 
 	switch (temp) {
 	case MEM_TYPE_DDR2:
@@ -527,6 +669,7 @@ int __init am33xx_pm_init(void)
 		if (of_find_property(np, "ti,needs-vtt-toggle", NULL) &&
 		    (!(of_property_read_u32(np, "ti,vtt-gpio-pin",
 							&temp)))) {
+			rtc_magic_val |= RTC_REG_DDR_TYPE_DDR3_0;
 			if (temp >= 0 && temp <= 31)
 				am33xx_pm->ipc.reg4 |=
 					((1 << VTT_STAT_SHIFT) |
@@ -549,10 +692,24 @@ int __init am33xx_pm_init(void)
 	else
 		pr_err("PM: Failed to get cefuse_pwrdm\n");
 
+	rtc_oh = omap_hwmod_lookup("rtc");
+	if (!rtc_oh) {
+		pr_err("PM: could not locate rtc hwmod\n");
+		ret = -ENOENT;
+		goto err;
+	}
+
 #ifdef CONFIG_CPU_PM
 	am33xx_pm->state = M3_STATE_RESET;
 
 	wkup_m3_set_ops(&am33xx_wkup_m3_ops);
+
+	pmx_dev = get_pinctrl_dev_from_devname("44e10800.pinmux");
+	omap_rtc = rtc_class_open("rtc0");
+
+	rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, 0);
+	rtc_write_scratch(omap_rtc, RTC_SCRATCH_RESUME_REG,
+			  virt_to_phys(cpu_resume));
 
 	return 0;
 

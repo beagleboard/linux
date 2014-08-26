@@ -50,6 +50,10 @@
 #define AM43XX_CM_CLKSTCTRL_CLKTRCTRL_SW_SLEEP		0x1
 #define AM43XX_CM_CLKSTCTRL_CLKTRCTRL_HW_AUTO		0x3
 
+#define RTC_SECONDS_REG					0x0
+#define RTC_PMIC_REG					0x98
+#define RTC_PMIC_POWER_EN				(1 << 16)
+
 	.text
 	.align 3
 
@@ -57,13 +61,15 @@
  * This routine is executed from internal RAM and expects some
  * parameters to be passed in r0 _strictly_ in following order:
  * 1) emif_addr_virt - ioremapped EMIF address
- * 2) mem_type - 2 -> DDR2, 3-> DDR3
+ * 2) wfi_flags - 2 -> DDR2, 3-> DDR3
  * 3) dram_sync_word - uncached word in SDRAM
  * 4) l2_virt_base - L2CC ioremapped address for AM437x
+ * 5) cke_override_virt - CKE override virtual address
+ * 6) rtc_base_addr - ioremapped RTC base address
  *
  * The code loads these values taking r0 value as reference to
  * the array in registers starting from r0, i.e emif_addr_virt
- * goes to r1, mem_type goes to r2 and and so on. These are
+ * goes to r1, wfi_flags goes to r2 and and so on. These are
  * then saved into memory locations before proceeding with the
  * sleep sequence and hence registers r0, r1 etc can still be
  * used in the rest of the sleep code.
@@ -72,14 +78,15 @@
 ENTRY(am43xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
 
-	ldm	r0, {r1-r5}		@ gather values passed
+	ldm	r0, {r1-r6}		@ gather values passed
 
 	/* Save the values passed */
 	str	r1, emif_addr_virt
-	str	r2, mem_type
+	str	r2, wfi_flags
 	str	r3, dram_sync_word
 	str	r4, l2_base_virt
 	str	r5, cke_override_virt
+	str	r6, rtc_base_addr
 
 	ldr	r0, emif_addr_virt
 	/* Save EMIF configuration */
@@ -244,6 +251,29 @@ wait_emif_disable:
 	mov    r1, #0
 	str    r1, [r2]
 
+	ldr	r1, wfi_flags
+	tst	r1, #WFI_RTC_ONLY
+	beq	am43xx_deep_sleep_suspend
+
+	ldr	r1, rtc_base_addr
+	ldr	r0, [r1, #RTC_PMIC_REG]
+	orr	r0, r0, #RTC_PMIC_POWER_EN
+	str	r0, [r1, #RTC_PMIC_REG]
+	ldr	r0, [r1, #RTC_PMIC_REG]
+	/* Wait for 2 seconds to lose power */
+	mov	r3, #2
+	ldr	r2, [r1, #RTC_SECONDS_REG]
+rtc_loop:
+	ldr	r0, [r1, #RTC_SECONDS_REG]
+	cmp	r0, r2
+	beq	rtc_loop
+	mov	r2, r0
+	subs	r3, r3, #1
+	bne	rtc_loop
+
+	b	re_enable_emif
+
+am43xx_deep_sleep_suspend:
 	/*
 	 * For the MPU WFI to be registered as an interrupt
 	 * to WKUP_M3, MPU_CLKCTRL.MODULEMODE needs to be set
@@ -305,6 +335,7 @@ wait_emif_disable:
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
 	str	r2, [r1]
 
+re_enable_emif:
 	/* Re-enable EMIF */
 	ldr	r1, am43xx_virt_emif_clkctrl
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
@@ -516,6 +547,10 @@ ddr_start:
 	.word	PAGE_OFFSET
 emif_phys_addr:
 	.word	AM33XX_EMIF_BASE
+wfi_flags:
+	.word	0
+rtc_base_addr:
+	.word	(0xdeadbeef)
 
 cke_override_virt:
 	.word	0xDEADBEEF
@@ -557,8 +592,6 @@ l2_smc3:
 
 /* DDR related defines */
 dram_sync_word:
-	.word	0xDEADBEEF
-mem_type:
 	.word	0xDEADBEEF
 l2_base_virt:
 	.word	0xDEADBEEF
