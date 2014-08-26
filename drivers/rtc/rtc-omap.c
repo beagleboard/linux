@@ -90,8 +90,13 @@
 #define OMAP_RTC_CTRL_ROUND_30S		BIT(1)
 #define OMAP_RTC_CTRL_STOP		BIT(0)
 
-/* OMAP_RTC_STATUS_REG bit fields: */
+/*
+ * OMAP_RTC_STATUS_REG bit fields:
+ * Bit 7 has different meaning on am335x.
+ */
+
 #define OMAP_RTC_STATUS_POWER_UP	BIT(7)
+#define OMAP_RTC_STATUS_ALARM2		BIT(7)
 #define OMAP_RTC_STATUS_ALARM		BIT(6)
 #define OMAP_RTC_STATUS_1D_EVENT	BIT(5)
 #define OMAP_RTC_STATUS_1H_EVENT	BIT(4)
@@ -132,7 +137,7 @@
  */
 #define OMAP_RTC_HAS_32KCLK_EN		BIT(2)
 
-#define SHUTDOWN_TIME_SEC		2
+#define SHUTDOWN_TIME_SEC		1
 
 static void __iomem	*rtc_base;
 
@@ -354,28 +359,49 @@ static void rtc_power_off(void)
 	u32 val;
 	struct rtc_time tm;
 	unsigned long time;
+	int seconds;
+
+	/* Make sure alarm2 interrupt is disabled */
+	val = readl(rtc_base + OMAP_RTC_INTERRUPTS_REG);
+	val &= ~OMAP_RTC_INTERRUPTS_IT_ALARM2;
+	writel(val, rtc_base + OMAP_RTC_INTERRUPTS_REG);
+
+	/* Clear any existing ALARM2 event */
+	writel(OMAP_RTC_STATUS_ALARM2, rtc_base + OMAP_RTC_STATUS_REG);
 
 	/* Set PMIC power enable */
 	val = readl(rtc_base + OMAP_RTC_PMIC_REG);
 	writel(val | OMAP_RTC_PMIC_POWER_EN_EN, rtc_base + OMAP_RTC_PMIC_REG);
 
+	pr_info("System will go to power_off state in approx. %d second\n",
+		SHUTDOWN_TIME_SEC);
+
+again:
 	/* Read rtc time */
-	omap_rtc_read_time(NULL, &tm);
+	tm.tm_sec = rtc_read(OMAP_RTC_SECONDS_REG);
+	seconds = tm.tm_sec;
+	tm.tm_min = rtc_read(OMAP_RTC_MINUTES_REG);
+	tm.tm_hour = rtc_read(OMAP_RTC_HOURS_REG);
+	tm.tm_mday = rtc_read(OMAP_RTC_DAYS_REG);
+	tm.tm_mon = rtc_read(OMAP_RTC_MONTHS_REG);
+	tm.tm_year = rtc_read(OMAP_RTC_YEARS_REG);
+	bcd2tm(&tm);
 
 	/* Convert Gregorian date to seconds since 01-01-1970 00:00:00 */
 	rtc_tm_to_time(&tm, &time);
 
-	/* Add shutdown time to the current value */
-	time += SHUTDOWN_TIME_SEC;
-
 	/* Convert seconds since 01-01-1970 00:00:00 to Gregorian date */
-	rtc_time_to_tm(time, &tm);
+	rtc_time_to_tm(time + SHUTDOWN_TIME_SEC, &tm);
 
 	if (tm2bcd(&tm) < 0)
 		return;
 
-	pr_info("System will go to power_off state in approx. %d secs\n",
-		SHUTDOWN_TIME_SEC);
+	/* After wait_not_busy, we have at least 15us until the next second. */
+	rtc_wait_not_busy();
+
+	/* Our calculations started right before the rollover, try again */
+	if (seconds != rtc_read(OMAP_RTC_SECONDS_REG))
+		goto again;
 
 	/*
 	 * pmic_pwr_enable is controlled by means of ALARM2 event. So here
@@ -508,10 +534,14 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 
 	/* clear old status */
 	reg = rtc_read(OMAP_RTC_STATUS_REG);
-	if (reg & (u8) OMAP_RTC_STATUS_POWER_UP) {
-		pr_info("%s: RTC power up reset detected\n",
-			pdev->name);
-		rtc_write(OMAP_RTC_STATUS_POWER_UP, OMAP_RTC_STATUS_REG);
+	if (!pm_off) {
+		/* For RTCs with power off capability, this bit is redefined */
+		if (reg & (u8) OMAP_RTC_STATUS_POWER_UP) {
+			pr_info("%s: RTC power up reset detected\n",
+				pdev->name);
+			rtc_write(OMAP_RTC_STATUS_POWER_UP,
+				  OMAP_RTC_STATUS_REG);
+		}
 	}
 	if (reg & (u8) OMAP_RTC_STATUS_ALARM)
 		rtc_write(OMAP_RTC_STATUS_ALARM, OMAP_RTC_STATUS_REG);
