@@ -25,6 +25,12 @@
 		>;
 	};
 
+	bbcape_backlight_pins: bbcape_backlight_pins {
+		pinctrl-single,pins = <
+			0x48  (PIN_OUTPUT | MUX_MODE7)	/* gpmc_a[2].GPIO1[18] (backlight control) */
+		>;
+	};
+
 	clkout2_pin: pinmux_clkout2_pin {
 		pinctrl-single,pins = <
 			0x1b4 (PIN_OUTPUT_PULLDOWN | MUX_MODE3)	/* xdma_event_intr1.clkout2 */
