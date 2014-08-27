@@ -25,14 +25,14 @@
 		compatible = "gpio-leds";
 
 		led@2 {
-			label = "beaglebone:green:heartbeat";
+			label = "beaglebone:green:usr0";
 			gpios = <&gpio1 21 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
 		led@3 {
-			label = "beaglebone:green:mmc0";
+			label = "beaglebone:green:usr1";
 			gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "mmc0";
 			default-state = "off";
