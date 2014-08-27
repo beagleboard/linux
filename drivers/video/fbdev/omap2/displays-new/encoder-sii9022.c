@@ -42,28 +42,6 @@ static const struct regmap_config sii9022_regmap_config = {
 	.val_bits = 8,
 };
 
-struct panel_drv_data {
-	struct omap_dss_device dssdev;
-	struct omap_dss_device *in;
-	struct i2c_client *i2c_client;
-	struct gpio_desc *reset_gpio;
-	struct regmap *regmap;
-	struct omap_video_timings timings;
-	struct delayed_work work;
-	struct mutex lock;
-
-	int irq;
-	bool use_polling;
-
-	bool htplg_state;
-	bool rxsense_state;
-
-	bool hdmi_mode;
-	struct hdmi_avi_infoframe frame;
-};
-
-#define to_panel_data(x) container_of(x, struct panel_drv_data, dssdev)
-
 static int sii9022_set_power_state(struct panel_drv_data *ddata,
 	enum sii9022_power_state state)
 {
