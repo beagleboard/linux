@@ -9,6 +9,7 @@
 /* AM43x EPOS EVM with HDMI output */
 
 #include "am43x-epos-evm.dts"
+#include "dt-bindings/sound/sii9022-audio.h"
 
 / {
 	aliases {
@@ -27,6 +28,28 @@
 			};
 		};
 	};
+
+	sound@1 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HDMI";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&hdmi_dailink_master>;
+		simple-audio-card,frame-master = <&hdmi_dailink_master>;
+		hdmi_dailink_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp1>;
+			system-clock-frequency = <24000000>;
+			system-clock-direction = "out";
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&sii9022>;
+			system-clock-frequency = <12000000>;
+		};
+	};
+};
+
+&sound0 {
+	status = "disabled";
 };
 
 &am43xx_pinmux {
@@ -38,12 +61,20 @@
 };
 
 &i2c2 {
-	sii9022@3b {
+	sii9022: sii9022@3b {
+		#sound-dai-cells = <0>;
 		compatible = "sil,sii9022";
 		reg = <0x3b>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&sii9022_pins>;
+
+		i2s-fifo-routing = <
+			(ENABLE_BIT|CONNECT_SD0)
+			0
+			0
+			0
+		>;
 
 		reset-gpio = <&gpio2 1 GPIO_ACTIVE_LOW>;/* 65'SelLCDorHDMI' Gpio, LOW to select HDMI */
 
