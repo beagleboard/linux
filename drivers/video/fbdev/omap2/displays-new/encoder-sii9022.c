@@ -886,8 +886,14 @@ static int sii9022_probe(struct i2c_client *client,
 		goto err_reg;
 	}
 
-	return 0;
+#ifdef CONFIG_DISPLAY_ENCODER_SII9022_AUDIO_CODEC
+	r = sii9022_hdmi_codec_register(&client->dev);
+	if (r)
+		dev_err(&client->dev,
+			"Failed to register audio codec, no audio support!\n");
+#endif
 
+	return 0;
 err_reg:
 err_i2c:
 err_tpi:
@@ -899,6 +905,10 @@ static int sii9022_remove(struct i2c_client *client)
 {
 	struct panel_drv_data *ddata = dev_get_drvdata(&client->dev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
+
+#ifdef CONFIG_DISPLAY_ENCODER_SII9022_AUDIO_CODEC
+	sii9022_hdmi_codec_unregister(&client->dev);
+#endif
 
 	omapdss_unregister_output(dssdev);
 

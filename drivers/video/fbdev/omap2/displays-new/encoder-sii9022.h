@@ -168,4 +168,7 @@ struct panel_drv_data {
 
 #define to_panel_data(x) container_of(x, struct panel_drv_data, dssdev)
 
+int sii9022_hdmi_codec_register(struct device *dev);
+void sii9022_hdmi_codec_unregister(struct device *dev);
+
 #endif
