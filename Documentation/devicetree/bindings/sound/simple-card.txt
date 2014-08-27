@@ -86,6 +86,7 @@ Optional CPU/CODEC subnodes properties:
 					  in dai startup() and disabled with
 					  clk_disable_unprepare() in dai
 					  shutdown().
+- system-clock-direction		: "in" or "out", default "in"
 
 Example 1 - single DAI link:
 
