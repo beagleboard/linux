@@ -12,6 +12,13 @@ Optional properties:
 - reset-gpio: reset gpio
 - interrupts: interrupt line
 
+Required for HDMI audio:
+- i2s-fifo-routing:
+  - Array of exactly 4 integers indicating i2s pins to audio fifo routing
+  - First integer defines routing to fifo 0 and second to fifo 1, etc.
+  - Integers can be filled with definitions from:
+    include/dt-bindings/sound/sii9022-audio.h
+
 Required nodes:
 - Video port 0 for parallel video input
 - Video port 1 for HDMI output
@@ -23,6 +30,13 @@ Example
 	sii9022: sii9022@3b {
 		compatible = "sil,sii9022";
 		reg = <0x3b>;
+
+		i2s-fifo-routing = <
+			(ENABLE_BIT|CONNECT_SD0)
+			0
+			0
+			0
+		>;
 
 		reset-gpio = <&gpio2 1 GPIO_ACTIVE_LOW>;
 
