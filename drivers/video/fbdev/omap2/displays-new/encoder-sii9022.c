@@ -892,6 +892,7 @@ static int sii9022_probe(struct i2c_client *client,
 	dssdev->type = OMAP_DISPLAY_TYPE_DPI;
 	dssdev->output_type = OMAP_DISPLAY_TYPE_HDMI;
 	dssdev->owner = THIS_MODULE;
+	dssdev->port_num = 1;
 
 	r = sii9022_enable_tpi(ddata);
 	if (r)
