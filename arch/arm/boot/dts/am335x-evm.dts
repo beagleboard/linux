@@ -662,3 +662,7 @@
 &aes {
 	status = "okay";
 };
+
+&wkup_m3 {
+	ti,scale-data-fw = "am335x-evm-scale-data.bin";
+};

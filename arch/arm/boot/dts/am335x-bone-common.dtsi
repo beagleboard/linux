@@ -303,3 +303,7 @@
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
 	cd-inverted;
 };
+
+&wkup_m3 {
+	ti,scale-data-fw = "am335x-bone-scale-data.bin";
+};
