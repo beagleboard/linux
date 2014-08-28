@@ -405,7 +405,7 @@ static void am33xx_txev_handler(void)
 	}
 }
 
-static void am33xx_m3_ready_cb(void)
+static void am33xx_m3_ready_cb(struct device *m3_dev)
 {
 	am33xx_pm->ver = wkup_m3_fw_version_read();
 

@@ -193,7 +193,7 @@ static int wkup_m3_rproc_start(struct rproc *rproc)
 
 	if (wkup_m3_pm_ops && wkup_m3_pm_ops->rproc_ready &&
 	    !m3_rproc_static->is_rtc_only)
-		wkup_m3_pm_ops->rproc_ready();
+		wkup_m3_pm_ops->rproc_ready(&m3_rproc_static->pdev->dev);
 
 	m3_rproc_static->is_active = 1;
 
@@ -256,7 +256,7 @@ void wkup_m3_set_ops(struct wkup_m3_ops *ops)
 
 	if (m3_rproc_static && m3_rproc_static->is_active &&
 	    wkup_m3_pm_ops && wkup_m3_pm_ops->rproc_ready)
-		wkup_m3_pm_ops->rproc_ready();
+		wkup_m3_pm_ops->rproc_ready(&m3_rproc_static->pdev->dev);
 }
 
 /**

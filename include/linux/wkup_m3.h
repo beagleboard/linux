@@ -29,7 +29,7 @@
 
 struct wkup_m3_ops {
 	void (*txev_handler)(void);
-	void (*rproc_ready)(void);
+	void (*rproc_ready)(struct device *dev);
 };
 
 struct wkup_m3_wakeup_src {
