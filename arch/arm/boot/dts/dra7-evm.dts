@@ -659,6 +659,19 @@
 		atmel,voltage = <2800000>;
 		atmel,orient = <0x4>;
 	};
+
+	tlv320aic3106: tlv320aic3106@18 {
+		compatible = "ti,tlv320aic3106";
+		reg = <0x18>;
+		adc-settle-ms = <40>;
+		status = "okay";
+
+		/* Regulators */
+		AVDD-supply = <&evm_3v3_sw>;
+		IOVDD-supply = <&evm_3v3_sw>;
+		DRVDD-supply = <&evm_3v3_sw>;
+		DVDD-supply = <&aic_dvdd>;
+	};
 };
 
 &i2c2 {
