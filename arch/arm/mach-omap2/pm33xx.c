@@ -67,6 +67,8 @@ static int retrigger_irq;
 #define RTC_REG_DDR_TYPE_DDR2_0		(0x00 << 16)
 #define RTC_REG_DDR_TYPE_DDR3_0		(0x01 << 16)
 
+#define WKUP_M3_SD_FW_MAGIC	0x570C
+
 #ifdef CONFIG_SUSPEND
 static void __iomem *scu_base, *gic_dist_base;
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
@@ -76,6 +78,12 @@ static struct clockdomain *gfx_l4ls_clkdm;
 static struct am33xx_suspend_params susp_params;
 
 #ifdef CONFIG_CPU_PM
+struct wkup_m3_scale_data_header {
+	u16 magic;
+	u8 sleep_offset;
+	u8 wake_offset;
+} __packed;
+
 static void __iomem *am33xx_emif_base;
 static struct am33xx_pm_context *am33xx_pm;
 
@@ -106,7 +114,6 @@ int am33xx_do_sram_cpuidle(u32 wfi_flags, u32 m3_flags)
 		am33xx_pm->ipc.reg1 = IPC_CMD_IDLE;
 		am33xx_pm->ipc.reg2 = DS_IPC_DEFAULT;
 		am33xx_pm->ipc.reg3 = m3_flags;
-		am33xx_pm->ipc.reg5 = DS_IPC_DEFAULT;
 		wkup_m3_set_cmd(&am33xx_pm->ipc);
 		ret = wkup_m3_ping();
 		if (ret < 0)
@@ -386,6 +393,54 @@ static const struct platform_suspend_ops am33xx_pm_ops = {
 };
 #endif /* CONFIG_SUSPEND */
 
+static void am33xx_scale_data_fw_cb(const struct firmware *fw, void *context)
+{
+	unsigned long val, aux_base;
+	struct wkup_m3_scale_data_header hdr;
+
+	if (!fw) {
+		pr_info("PM: Voltage scale fw name given but file missing.\n");
+		return;
+	}
+
+	memcpy(&hdr, fw->data, sizeof(hdr));
+
+	if (hdr.magic != WKUP_M3_SD_FW_MAGIC) {
+		pr_info("PM: Voltage Scale Data binary does not appear valid.\n");
+		goto release_sd_fw;
+	}
+
+	aux_base = wkup_m3_copy_aux_data(fw->data + sizeof(hdr),
+					 fw->size - sizeof(hdr));
+
+	val = (aux_base + hdr.sleep_offset);
+	val |= ((aux_base + hdr.wake_offset) << 16);
+
+	am33xx_pm->ipc.reg5 = val;
+
+release_sd_fw:
+	release_firmware(fw);
+};
+
+static int __init
+am33xx_init_scale_data(struct device *dev, const char *sd_fw_name)
+{
+	int ret = 0;
+
+	/*
+	 * If no name is provided, user has already been warned, pm will
+	 * still work so return 0
+	 */
+	if (!sd_fw_name)
+		return ret;
+
+	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
+			sd_fw_name, dev, GFP_KERNEL, NULL,
+			am33xx_scale_data_fw_cb);
+
+	return ret;
+}
+
 static void am33xx_txev_handler(void)
 {
 	switch (am33xx_pm->state) {
@@ -407,6 +462,8 @@ static void am33xx_txev_handler(void)
 
 static void am33xx_m3_ready_cb(struct device *m3_dev)
 {
+	int ret;
+
 	am33xx_pm->ver = wkup_m3_fw_version_read();
 
 	if (am33xx_pm->ver == M3_VERSION_UNKNOWN ||
@@ -423,6 +480,10 @@ static void am33xx_m3_ready_cb(struct device *m3_dev)
 		am33xx_idle_init(susp_params.wfi_flags & WFI_MEM_TYPE_DDR3);
 	else if (soc_is_am437x())
 		am437x_idle_init();
+
+	ret = am33xx_init_scale_data(m3_dev, am33xx_pm->sd_fw_name);
+	if (ret)
+		pr_err("PM: Cannot load voltage scaling data blob: %d\n", ret);
 
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&am33xx_pm_ops);
@@ -682,7 +743,14 @@ int __init am33xx_pm_init(void)
 
 		if (of_find_property(np, "ti,set-io-isolation", NULL))
 			am33xx_pm->ipc.reg4 |= (1 << IO_ISOLATION_STAT_SHIFT);
+
+		ret = of_property_read_string(np, "ti,scale-data-fw",
+					      &am33xx_pm->sd_fw_name);
+		if (ret) {
+			pr_warn("PM: Voltage scaling data blob not provided from DT.\n");
+		};
 	}
+
 #endif /* CONFIG_CPU_PM */
 
 	(void) clkdm_for_each(omap_pm_clkdms_setup, NULL);

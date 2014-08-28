@@ -35,6 +35,7 @@ struct am33xx_pm_context {
 	struct am33xx_pm_ops	*ops;
 	u8			state;
 	u32			ver;
+	const char		*sd_fw_name;
 };
 
 /*
