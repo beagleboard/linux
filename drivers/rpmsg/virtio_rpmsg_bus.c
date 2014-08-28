@@ -34,6 +34,8 @@
 #include <linux/rpmsg.h>
 #include <linux/mutex.h>
 
+#define RPMSG_HEX_DUMP	0
+
 /**
  * struct virtproc_info - virtual remote processor state
  * @vdev:	the virtio device
@@ -41,6 +43,7 @@
  * @svq:	tx virtqueue
  * @rbufs:	kernel address of rx buffers
  * @sbufs:	kernel address of tx buffers
+ * @num_bufs:	total number of buffers for rx and tx
  * @last_sbuf:	index of last tx buffer used
  * @bufs_dma:	dma base addr of the buffers
  * @tx_lock:	protects svq, sbufs and sleepers, to allow concurrent senders.
@@ -60,6 +63,7 @@ struct virtproc_info {
 	struct virtio_device *vdev;
 	struct virtqueue *rvq, *svq;
 	void *rbufs, *sbufs;
+	unsigned int num_bufs;
 	int last_sbuf;
 	dma_addr_t bufs_dma;
 	struct mutex tx_lock;
@@ -73,11 +77,13 @@ struct virtproc_info {
 /**
  * struct rpmsg_channel_info - internal channel info representation
  * @name: name of service
+ * @desc: description of service
  * @src: local address
  * @dst: destination address
  */
 struct rpmsg_channel_info {
 	char name[RPMSG_NAME_SIZE];
+	char desc[RPMSG_NAME_SIZE];
 	u32 src;
 	u32 dst;
 };
@@ -86,13 +92,13 @@ struct rpmsg_channel_info {
 #define to_rpmsg_driver(d) container_of(d, struct rpmsg_driver, drv)
 
 /*
- * We're allocating 512 buffers of 512 bytes for communications, and then
- * using the first 256 buffers for RX, and the last 256 buffers for TX.
+ * We're allocating buffers of 512 bytes each for communications. The
+ * number of buffers are computed from the number of buffers supported
+ * by the virtqueue vring and then use the first half of those buffers
+ * for RX, and the last half buffers for TX.
  *
  * Each buffer will have 16 bytes for the msg header and 496 bytes for
  * the payload.
- *
- * This will require a total space of 256KB for the buffers.
  *
  * We might also want to add support for user-provided buffers in time.
  * This will allow bigger buffer size flexibility, and can also be used
@@ -102,9 +108,7 @@ struct rpmsg_channel_info {
  * can change this without changing anything in the firmware of the remote
  * processor.
  */
-#define RPMSG_NUM_BUFS		(512)
 #define RPMSG_BUF_SIZE		(512)
-#define RPMSG_TOTAL_BUF_SPACE	(RPMSG_NUM_BUFS * RPMSG_BUF_SIZE)
 
 /*
  * Local addresses are dynamically allocated on-demand.
@@ -131,6 +135,7 @@ field##_show(struct device *dev,					\
 rpmsg_show_attr(name, id.name, "%s\n");
 rpmsg_show_attr(src, src, "0x%x\n");
 rpmsg_show_attr(dst, dst, "0x%x\n");
+rpmsg_show_attr(desc, desc, "%s\n");
 rpmsg_show_attr(announce, announce ? "true" : "false", "%s\n");
 
 /*
@@ -151,6 +156,7 @@ static ssize_t modalias_show(struct device *dev,
 
 static struct device_attribute rpmsg_dev_attrs[] = {
 	__ATTR_RO(name),
+	__ATTR_RO(desc),
 	__ATTR_RO(modalias),
 	__ATTR_RO(dst),
 	__ATTR_RO(src),
@@ -158,7 +164,7 @@ static struct device_attribute rpmsg_dev_attrs[] = {
 	__ATTR_NULL
 };
 
-/* rpmsg devices and drivers are matched using the service name */
+/* rpmsg devices and drivers are matched using the service name only */
 static inline int rpmsg_id_match(const struct rpmsg_channel *rpdev,
 				  const struct rpmsg_device_id *id)
 {
@@ -484,6 +490,9 @@ static int rpmsg_channel_match(struct device *dev, void *data)
 	if (strncmp(chinfo->name, rpdev->id.name, RPMSG_NAME_SIZE))
 		return 0;
 
+	if (strncmp(chinfo->desc, rpdev->desc, RPMSG_NAME_SIZE))
+		return 0;
+
 	/* found a match ! */
 	return 1;
 }
@@ -505,8 +514,9 @@ static struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
 	if (tmp) {
 		/* decrement the matched device's refcount back */
 		put_device(tmp);
-		dev_err(dev, "channel %s:%x:%x already exist\n",
-				chinfo->name, chinfo->src, chinfo->dst);
+		dev_err(dev, "channel %s:%s:%x:%x already exist\n",
+			chinfo->name, chinfo->desc,
+			chinfo->src, chinfo->dst);
 		return NULL;
 	}
 
@@ -519,6 +529,7 @@ static struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
 	rpdev->vrp = vrp;
 	rpdev->src = chinfo->src;
 	rpdev->dst = chinfo->dst;
+	strncpy(rpdev->desc, chinfo->desc, RPMSG_NAME_SIZE);
 
 	/*
 	 * rpmsg server channels has predefined local address (for now),
@@ -579,7 +590,7 @@ static void *get_a_tx_buf(struct virtproc_info *vrp)
 	 * either pick the next unused tx buffer
 	 * (half of our buffers are used for sending messages)
 	 */
-	if (vrp->last_sbuf < RPMSG_NUM_BUFS / 2)
+	if (vrp->last_sbuf < vrp->num_bufs / 2)
 		ret = vrp->sbufs + RPMSG_BUF_SIZE * vrp->last_sbuf++;
 	/* or recycle a used one */
 	else
@@ -749,8 +760,10 @@ int rpmsg_send_offchannel_raw(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 	dev_dbg(dev, "TX From 0x%x, To 0x%x, Len %d, Flags %d, Reserved %d\n",
 					msg->src, msg->dst, msg->len,
 					msg->flags, msg->reserved);
+#if RPMSG_HEX_DUMP
 	print_hex_dump(KERN_DEBUG, "rpmsg_virtio TX: ", DUMP_PREFIX_NONE, 16, 1,
 					msg, sizeof(*msg) + msg->len, true);
+#endif
 
 	sg_init_one(&sg, msg, sizeof(*msg) + len);
 
@@ -786,8 +799,10 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 	dev_dbg(dev, "From: 0x%x, To: 0x%x, Len: %d, Flags: %d, Reserved: %d\n",
 					msg->src, msg->dst, msg->len,
 					msg->flags, msg->reserved);
+#if RPMSG_HEX_DUMP
 	print_hex_dump(KERN_DEBUG, "rpmsg_virtio RX: ", DUMP_PREFIX_NONE, 16, 1,
 					msg, sizeof(*msg) + msg->len, true);
+#endif
 
 	/*
 	 * We currently use fixed-sized buffers, so trivially sanitize
@@ -898,9 +913,11 @@ static void rpmsg_ns_cb(struct rpmsg_channel *rpdev, void *data, int len,
 	struct device *dev = &vrp->vdev->dev;
 	int ret;
 
+#if RPMSG_HEX_DUMP
 	print_hex_dump(KERN_DEBUG, "NS announcement: ",
 			DUMP_PREFIX_NONE, 16, 1,
 			data, len, true);
+#endif
 
 	if (len != sizeof(*msg)) {
 		dev_err(dev, "malformed ns msg (%d)\n", len);
@@ -926,6 +943,7 @@ static void rpmsg_ns_cb(struct rpmsg_channel *rpdev, void *data, int len,
 			msg->name, msg->addr);
 
 	strncpy(chinfo.name, msg->name, sizeof(chinfo.name));
+	strncpy(chinfo.desc, msg->desc, sizeof(chinfo.desc));
 	chinfo.src = RPMSG_ADDR_ANY;
 	chinfo.dst = msg->addr;
 
@@ -948,6 +966,7 @@ static int rpmsg_probe(struct virtio_device *vdev)
 	struct virtproc_info *vrp;
 	void *bufs_va;
 	int err = 0, i;
+	size_t total_buf_space;
 
 	vrp = kzalloc(sizeof(*vrp), GFP_KERNEL);
 	if (!vrp)
@@ -968,10 +987,19 @@ static int rpmsg_probe(struct virtio_device *vdev)
 	vrp->rvq = vqs[0];
 	vrp->svq = vqs[1];
 
+	/*
+	 * We expect equal number of buffers for each direction as per current
+	 * code, so throw a warning if the configuration doesn't match. This can
+	 * easily be adjusted if needed.
+	 */
+	vrp->num_bufs = virtqueue_get_vring_size(vrp->rvq) * 2;
+	WARN_ON(virtqueue_get_vring_size(vrp->svq) != (vrp->num_bufs / 2));
+	total_buf_space = vrp->num_bufs * RPMSG_BUF_SIZE;
+
 	/* allocate coherent memory for the buffers */
 	bufs_va = dma_alloc_coherent(vdev->dev.parent->parent,
-				RPMSG_TOTAL_BUF_SPACE,
-				&vrp->bufs_dma, GFP_KERNEL);
+				     total_buf_space, &vrp->bufs_dma,
+				     GFP_KERNEL);
 	if (!bufs_va) {
 		err = -ENOMEM;
 		goto vqs_del;
@@ -984,10 +1012,10 @@ static int rpmsg_probe(struct virtio_device *vdev)
 	vrp->rbufs = bufs_va;
 
 	/* and half is dedicated for TX */
-	vrp->sbufs = bufs_va + RPMSG_TOTAL_BUF_SPACE / 2;
+	vrp->sbufs = bufs_va + total_buf_space / 2;
 
 	/* set up the receive buffers */
-	for (i = 0; i < RPMSG_NUM_BUFS / 2; i++) {
+	for (i = 0; i < vrp->num_bufs / 2; i++) {
 		struct scatterlist sg;
 		void *cpu_addr = vrp->rbufs + i * RPMSG_BUF_SIZE;
 
@@ -1023,8 +1051,8 @@ static int rpmsg_probe(struct virtio_device *vdev)
 	return 0;
 
 free_coherent:
-	dma_free_coherent(vdev->dev.parent->parent, RPMSG_TOTAL_BUF_SPACE,
-					bufs_va, vrp->bufs_dma);
+	dma_free_coherent(vdev->dev.parent->parent, total_buf_space,
+			  bufs_va, vrp->bufs_dma);
 vqs_del:
 	vdev->config->del_vqs(vrp->vdev);
 free_vrp:
@@ -1042,9 +1070,8 @@ static int rpmsg_remove_device(struct device *dev, void *data)
 static void rpmsg_remove(struct virtio_device *vdev)
 {
 	struct virtproc_info *vrp = vdev->priv;
+	size_t total_buf_space = vrp->num_bufs * RPMSG_BUF_SIZE;
 	int ret;
-
-	vdev->config->reset(vdev);
 
 	ret = device_for_each_child(&vdev->dev, NULL, rpmsg_remove_device);
 	if (ret)
@@ -1056,9 +1083,10 @@ static void rpmsg_remove(struct virtio_device *vdev)
 	idr_destroy(&vrp->endpoints);
 
 	vdev->config->del_vqs(vrp->vdev);
+	vdev->config->reset(vdev);
 
-	dma_free_coherent(vdev->dev.parent->parent, RPMSG_TOTAL_BUF_SPACE,
-					vrp->rbufs, vrp->bufs_dma);
+	dma_free_coherent(vdev->dev.parent->parent, total_buf_space,
+			  vrp->rbufs, vrp->bufs_dma);
 
 	kfree(vrp);
 }
