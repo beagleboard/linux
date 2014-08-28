@@ -109,6 +109,21 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 	};
+
+	sound {
+		compatible = "ti,dra7xx-evm-audio";
+		ti,model = "DRA7xx-EVM";
+		ti,audio-codec = <&tlv320aic3106>;
+		ti,mcasp-controller = <&mcasp3>;
+		ti,codec-clock-rate = <5644800>;
+		clocks = <&atl_clkin2_ck>;
+		clock-names = "ti,codec-clock";
+		ti,audio-routing =
+			"Headphone Jack",       "HPLOUT",
+			"Headphone Jack",       "HPROUT",
+			"LINE1L",               "Line In",
+			"LINE1R",               "Line In";
+	};
 };
 
 &dra7_pmx_core {
