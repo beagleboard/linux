@@ -17,6 +17,7 @@
 
 #include <linux/platform_data/pinctrl-single.h>
 #include <linux/platform_data/iommu-omap.h>
+#include <linux/platform_data/remoteproc-omap.h>
 
 #include "am35xx.h"
 #include "common.h"
@@ -26,6 +27,7 @@
 #include "omap-secure.h"
 #include "soc.h"
 #include "omap_device.h"
+#include "remoteproc.h"
 
 struct pdata_init {
 	const char *compatible;
@@ -196,6 +198,28 @@ static void __init omap4_panda_legacy_init(void)
 #endif
 
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
+static struct omap_rproc_timer_ops omap_rproc_dmtimer_ops = {
+	.request_timer = omap_rproc_request_timer,
+	.release_timer = omap_rproc_release_timer,
+	.start_timer = omap_rproc_start_timer,
+	.stop_timer = omap_rproc_stop_timer,
+	.get_timer_irq = omap_rproc_get_timer_irq,
+	.ack_timer_irq = omap_rproc_ack_timer_irq,
+};
+
+static struct omap_rproc_pdata omap4_ipu_pdata = {
+	.device_enable = omap_rproc_device_enable,
+	.device_shutdown = omap_rproc_device_shutdown,
+	.timer_ops = &omap_rproc_dmtimer_ops,
+};
+
+static struct omap_rproc_pdata omap4_dsp_pdata = {
+	.device_enable = omap_rproc_device_enable,
+	.device_shutdown = omap_rproc_device_shutdown,
+	.set_bootaddr = omap_ctrl_write_dsp_boot_addr,
+	.timer_ops = &omap_rproc_dmtimer_ops,
+};
+
 static struct iommu_platform_data omap4_iommu_pdata = {
 	.reset_name = "mmu_cache",
 	.assert_reset = omap_device_assert_hardreset,
@@ -273,12 +297,18 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a31e040, "4a31e040.pinmux", &pcs_pdata),
+	OF_DEV_AUXDATA("ti,omap4-rproc-dsp", 0, "dsp", &omap4_dsp_pdata),
+	OF_DEV_AUXDATA("ti,omap4-rproc-ipu", 0, "ipu", &omap4_ipu_pdata),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
 		       &omap4_iommu_pdata),
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x55082000, "55082000.mmu",
 		       &omap4_iommu_pdata),
+#endif
+#ifdef CONFIG_SOC_OMAP5
+	OF_DEV_AUXDATA("ti,omap5-rproc-dsp", 0, "dsp", &omap4_dsp_pdata),
+	OF_DEV_AUXDATA("ti,omap5-rproc-ipu", 0, "ipu", &omap4_ipu_pdata),
 #endif
 	{ /* sentinel */ },
 };

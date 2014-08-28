@@ -33,16 +33,19 @@ struct rproc;
  *			expects to find it
  * @sanity_check:	sanity check the fw image
  * @get_boot_addr:	get boot address to entry point specified in firmware
+ * @find_version:	get the version information string from the firmware
  */
 struct rproc_fw_ops {
-	struct resource_table *(*find_rsc_table) (struct rproc *rproc,
+	struct resource_table * (*find_rsc_table)(struct rproc *rproc,
 						const struct firmware *fw,
 						int *tablesz);
-	struct resource_table *(*find_loaded_rsc_table)(struct rproc *rproc,
+	struct resource_table * (*find_loaded_rsc_table)(struct rproc *rproc,
 						const struct firmware *fw);
 	int (*load)(struct rproc *rproc, const struct firmware *fw);
 	int (*sanity_check)(struct rproc *rproc, const struct firmware *fw);
 	u32 (*get_boot_addr)(struct rproc *rproc, const struct firmware *fw);
+	const char * (*find_version)(struct rproc *rproc,
+					const struct firmware *fw, int *versz);
 };
 
 /* from remoteproc_core.c */
@@ -115,6 +118,18 @@ struct resource_table *rproc_find_loaded_rsc_table(struct rproc *rproc,
 	return NULL;
 }
 
+static inline
+const char *rproc_find_version_info(struct rproc *rproc,
+				const struct firmware *fw, int *versz)
+{
+	if (rproc->fw_ops->find_version)
+		return rproc->fw_ops->find_version(rproc, fw, versz);
+
+	return NULL;
+}
+
 extern const struct rproc_fw_ops rproc_elf_fw_ops;
+
+extern struct device_type rproc_type;
 
 #endif /* REMOTEPROC_INTERNAL_H */

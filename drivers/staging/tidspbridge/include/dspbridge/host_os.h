@@ -42,6 +42,7 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/omap-mailbox.h>
+#include <linux/mailbox_client.h>
 #include <linux/pagemap.h>
 #include <asm/cacheflush.h>
 #include <linux/dma-mapping.h>
