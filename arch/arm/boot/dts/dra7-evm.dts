@@ -10,6 +10,7 @@
 #include "dra74x.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clk/ti-dra7-atl.h>
 
 / {
 	model = "TI DRA742";
@@ -432,6 +433,13 @@
 		pinctrl-single,pins = <
 			0x3d4	(PIN_INPUT | MUX_MODE15)	/* dcan1_tx */
 			0x3d8	(PIN_INPUT | MUX_MODE15)	/* dcan1_rx */
+		>;
+	};
+
+	atl_pins: pinmux_atl_pins {
+		pinctrl-single,pins = <
+			0x298 (PIN_OUTPUT | MUX_MODE5)	/* xref_clk1.atl_clk1 */
+			0x29c (PIN_OUTPUT | MUX_MODE5)	/* xref_clk2.atl_clk2 */
 		>;
 	};
 };
@@ -1047,4 +1055,16 @@
 	memory-region = <&dsp2_cma_pool>;
 	mboxes = <&mailbox6 &mbox_dsp2_legacy>;
 	timers = <&timer6>;
+};
+
+&atl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&atl_pins>;
+
+	status = "okay";
+
+	atl2 {
+		bws = <DRA7_ATL_WS_MCASP2_FSX>;
+		aws = <DRA7_ATL_WS_MCASP3_FSX>;
+	};
 };
