@@ -438,6 +438,19 @@
 			};
 		};
 	};
+
+	tlv320aic3106: tlv320aic3106@19 {
+		compatible = "ti,tlv320aic3106";
+		reg = <0x19>;
+		adc-settle-ms = <40>;
+		status = "okay";
+
+		/* Regulators */
+		AVDD-supply = <&evm_3v3>;
+		IOVDD-supply = <&evm_3v3>;
+		DRVDD-supply = <&evm_3v3>;
+		DVDD-supply = <&aic_dvdd>;
+	};
 };
 
 &dra7_pmx_core {
