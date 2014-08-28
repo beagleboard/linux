@@ -50,6 +50,10 @@
 #define AM33XX_M3_TXEV_ACK		(0x1 << 0)
 #define AM33XX_M3_TXEV_ENABLE		(0x0 << 0)
 
+#define WKUP_M3_DMEM_START		0x80000
+#define WKUP_M3_AUXDATA_OFFSET		0xF00
+#define WKUP_M3_AUXDATA_SIZE		0xFF
+
 struct wkup_m3_rproc {
 	struct rproc *rproc;
 
@@ -216,6 +220,28 @@ static struct rproc_ops wkup_m3_rproc_ops = {
 };
 
 /* Public Functions */
+
+/**
+ * wkup_m3_copy_aux_data - Copy auxillary data to special region of m3 dmem
+ * @data - pointer to data
+ * @sz - size of data to copy (limit 256 bytes)
+ *
+ * Copies any additional blob of data to the wkup_m3 dmem to be used by the
+ * firmware
+ */
+unsigned long wkup_m3_copy_aux_data(const void *data, int sz)
+{
+	unsigned long aux_data_dev_addr;
+	void *aux_data_addr;
+
+	aux_data_dev_addr = WKUP_M3_DMEM_START + WKUP_M3_AUXDATA_OFFSET;
+	aux_data_addr = rproc_da_to_va(m3_rproc_static->rproc,
+				       aux_data_dev_addr,
+				       WKUP_M3_AUXDATA_SIZE);
+	memcpy(aux_data_addr, data, sz);
+
+	return WKUP_M3_AUXDATA_OFFSET;
+}
 
 /**
  * wkup_m3_set_ops - Set callbacks for user of rproc
