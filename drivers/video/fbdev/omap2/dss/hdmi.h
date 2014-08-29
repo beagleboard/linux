@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/hdmi.h>
 #include <video/omapdss.h>
+#include <video/omapdss_hdmi_audio_data.h>
 
 #include "dss.h"
 
@@ -309,6 +310,8 @@ static inline bool hdmi_mode_has_audio(int mode)
 
 /* HDMI DRV data */
 struct omap_hdmi {
+	struct omapdss_hdmi_drvdata_hdr header;
+
 	struct mutex lock;
 	struct platform_device *pdev;
 
