@@ -769,11 +769,6 @@ static int sii9022_set_hdmi_mode(struct omap_dss_device *dssdev, bool hdmi_mode)
 	return 0;
 }
 
-static bool sii9022_audio_supported(struct omap_dss_device *dssdev)
-{
-	return false;
-}
-
 static const struct omapdss_hdmi_ops sii9022_hdmi_ops = {
 	.connect		= sii9022_connect,
 	.disconnect		= sii9022_disconnect,
@@ -789,8 +784,6 @@ static const struct omapdss_hdmi_ops sii9022_hdmi_ops = {
 	.detect			= sii9022_detect,
 	.set_hdmi_mode		= sii9022_set_hdmi_mode,
 	.set_infoframe		= sii9022_set_infoframe,
-
-	.audio_supported	= sii9022_audio_supported,
 };
 
 static int sii9022_probe_of(struct i2c_client *client)

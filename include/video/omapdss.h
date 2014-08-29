@@ -637,19 +637,6 @@ struct omapdss_hdmi_ops {
 	int (*set_hdmi_mode)(struct omap_dss_device *dssdev, bool hdmi_mode);
 	int (*set_infoframe)(struct omap_dss_device *dssdev,
 		const struct hdmi_avi_infoframe *avi);
-
-	/*
-	 * Note: These functions might sleep. Do not call while
-	 * holding a spinlock/readlock.
-	 */
-	int (*audio_enable)(struct omap_dss_device *dssdev);
-	void (*audio_disable)(struct omap_dss_device *dssdev);
-	bool (*audio_supported)(struct omap_dss_device *dssdev);
-	int (*audio_config)(struct omap_dss_device *dssdev,
-		struct omap_dss_audio *audio);
-	/* Note: These functions may not sleep */
-	int (*audio_start)(struct omap_dss_device *dssdev);
-	void (*audio_stop)(struct omap_dss_device *dssdev);
 };
 
 struct omapdss_dsi_ops {
@@ -863,24 +850,6 @@ struct omap_dss_driver {
 	int (*set_hdmi_mode)(struct omap_dss_device *dssdev, bool hdmi_mode);
 	int (*set_hdmi_infoframe)(struct omap_dss_device *dssdev,
 		const struct hdmi_avi_infoframe *avi);
-
-	/*
-	 * For display drivers that support audio. This encompasses
-	 * HDMI and DisplayPort at the moment.
-	 */
-	/*
-	 * Note: These functions might sleep. Do not call while
-	 * holding a spinlock/readlock.
-	 */
-	int (*audio_enable)(struct omap_dss_device *dssdev);
-	void (*audio_disable)(struct omap_dss_device *dssdev);
-	bool (*audio_supported)(struct omap_dss_device *dssdev);
-	int (*audio_config)(struct omap_dss_device *dssdev,
-		struct omap_dss_audio *audio);
-	/* Note: These functions may not sleep */
-	int (*audio_start)(struct omap_dss_device *dssdev);
-	void (*audio_stop)(struct omap_dss_device *dssdev);
-
 };
 
 enum omapdss_version omapdss_get_version(void);
