@@ -1647,8 +1647,7 @@ static void __d_instantiate(struct dentry *dentry, struct inode *inode)
 	unsigned add_flags = d_flags_for_inode(inode);
 
 	spin_lock(&dentry->d_lock);
-	dentry->d_flags &= ~DCACHE_ENTRY_TYPE;
-	dentry->d_flags |= add_flags;
+	__d_set_type(dentry, add_flags);
 	if (inode)
 		hlist_add_head(&dentry->d_alias, &inode->i_dentry);
 	dentry->d_inode = inode;
@@ -3112,6 +3111,7 @@ char *simple_dname(struct dentry *dentry, char *buffer, int buflen)
 		end = ERR_PTR(-ENAMETOOLONG);
 	return end;
 }
+EXPORT_SYMBOL(simple_dname);
 
 /*
  * Write full pathname from the root of the filesystem into the buffer.

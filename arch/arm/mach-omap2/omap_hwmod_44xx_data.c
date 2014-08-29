@@ -3633,15 +3633,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__dmic = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_dmic_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU,
-};
-
-/* l4_abe -> dmic (dma) */
-static struct omap_hwmod_ocp_if omap44xx_l4_abe__dmic_dma = {
-	.master		= &omap44xx_l4_abe_hwmod,
-	.slave		= &omap44xx_dmic_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_SDMA,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* dsp -> iva */
@@ -4197,15 +4189,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcbsp1 = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_mcbsp1_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU,
-};
-
-/* l4_abe -> mcbsp1 (dma) */
-static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcbsp1_dma = {
-	.master		= &omap44xx_l4_abe_hwmod,
-	.slave		= &omap44xx_mcbsp1_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_SDMA,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_abe -> mcbsp2 */
@@ -4213,15 +4197,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcbsp2 = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_mcbsp2_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU,
-};
-
-/* l4_abe -> mcbsp2 (dma) */
-static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcbsp2_dma = {
-	.master		= &omap44xx_l4_abe_hwmod,
-	.slave		= &omap44xx_mcbsp2_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_SDMA,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_abe -> mcbsp3 */
@@ -4229,15 +4205,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcbsp3 = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_mcbsp3_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU,
-};
-
-/* l4_abe -> mcbsp3 (dma) */
-static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcbsp3_dma = {
-	.master		= &omap44xx_l4_abe_hwmod,
-	.slave		= &omap44xx_mcbsp3_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_SDMA,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_per -> mcbsp4 */
@@ -4253,15 +4221,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcpdm = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_mcpdm_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU,
-};
-
-/* l4_abe -> mcpdm (dma) */
-static struct omap_hwmod_ocp_if omap44xx_l4_abe__mcpdm_dma = {
-	.master		= &omap44xx_l4_abe_hwmod,
-	.slave		= &omap44xx_mcpdm_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_SDMA,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_per -> mcspi1 */
@@ -4563,15 +4523,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__timer5 = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_timer5_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU,
-};
-
-/* l4_abe -> timer5 (dma) */
-static struct omap_hwmod_ocp_if omap44xx_l4_abe__timer5_dma = {
-	.master		= &omap44xx_l4_abe_hwmod,
-	.slave		= &omap44xx_timer5_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_SDMA,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_abe -> timer6 */
@@ -4579,15 +4531,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__timer6 = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_timer6_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU,
-};
-
-/* l4_abe -> timer6 (dma) */
-static struct omap_hwmod_ocp_if omap44xx_l4_abe__timer6_dma = {
-	.master		= &omap44xx_l4_abe_hwmod,
-	.slave		= &omap44xx_timer6_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_SDMA,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_abe -> timer7 */
@@ -4595,15 +4539,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__timer7 = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_timer7_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU,
-};
-
-/* l4_abe -> timer7 (dma) */
-static struct omap_hwmod_ocp_if omap44xx_l4_abe__timer7_dma = {
-	.master		= &omap44xx_l4_abe_hwmod,
-	.slave		= &omap44xx_timer7_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_SDMA,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_abe -> timer8 */
@@ -4611,15 +4547,7 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__timer8 = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_timer8_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU,
-};
-
-/* l4_abe -> timer8 (dma) */
-static struct omap_hwmod_ocp_if omap44xx_l4_abe__timer8_dma = {
-	.master		= &omap44xx_l4_abe_hwmod,
-	.slave		= &omap44xx_timer8_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_SDMA,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 /* l4_per -> timer9 */
@@ -4819,7 +4747,6 @@ static struct omap_hwmod_ocp_if *omap44xx_hwmod_ocp_ifs[] __initdata = {
 	&omap44xx_l3_instr__debugss,
 	&omap44xx_l4_cfg__dma_system,
 	&omap44xx_l4_abe__dmic,
-	&omap44xx_l4_abe__dmic_dma,
 	&omap44xx_dsp__iva,
 	/* &omap44xx_dsp__sl2if, */
 	&omap44xx_l4_cfg__dsp,
@@ -4862,14 +4789,10 @@ static struct omap_hwmod_ocp_if *omap44xx_hwmod_ocp_ifs[] __initdata = {
 	&omap44xx_l4_abe__mcasp,
 	&omap44xx_l4_abe__mcasp_dma,
 	&omap44xx_l4_abe__mcbsp1,
-	&omap44xx_l4_abe__mcbsp1_dma,
 	&omap44xx_l4_abe__mcbsp2,
-	&omap44xx_l4_abe__mcbsp2_dma,
 	&omap44xx_l4_abe__mcbsp3,
-	&omap44xx_l4_abe__mcbsp3_dma,
 	&omap44xx_l4_per__mcbsp4,
 	&omap44xx_l4_abe__mcpdm,
-	&omap44xx_l4_abe__mcpdm_dma,
 	&omap44xx_l4_per__mcspi1,
 	&omap44xx_l4_per__mcspi2,
 	&omap44xx_l4_per__mcspi3,
@@ -4901,13 +4824,9 @@ static struct omap_hwmod_ocp_if *omap44xx_hwmod_ocp_ifs[] __initdata = {
 	&omap44xx_l4_per__timer3,
 	&omap44xx_l4_per__timer4,
 	&omap44xx_l4_abe__timer5,
-	&omap44xx_l4_abe__timer5_dma,
 	&omap44xx_l4_abe__timer6,
-	&omap44xx_l4_abe__timer6_dma,
 	&omap44xx_l4_abe__timer7,
-	&omap44xx_l4_abe__timer7_dma,
 	&omap44xx_l4_abe__timer8,
-	&omap44xx_l4_abe__timer8_dma,
 	&omap44xx_l4_per__timer9,
 	&omap44xx_l4_per__timer10,
 	&omap44xx_l4_per__timer11,

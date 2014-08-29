@@ -741,7 +741,7 @@ bool intel_crtc_active(struct drm_crtc *crtc)
 	 * We can ditch the crtc->fb check as soon as we can
 	 * properly reconstruct framebuffers.
 	 */
-	return intel_crtc->active && crtc->primary->fb &&
+	return intel_crtc->active && crtc->fb &&
 		intel_crtc->config.adjusted_mode.crtc_clock;
 }
 
@@ -2269,8 +2269,8 @@ void intel_display_handle_reset(struct drm_device *dev)
 		 * disabling them without disabling the entire crtc) allow again
 		 * a NULL crtc->fb.
 		 */
-		if (intel_crtc->active && crtc->primary->fb)
-			dev_priv->display.update_plane(crtc, crtc->primary->fb,
+		if (intel_crtc->active && crtc->fb)
+			dev_priv->display.update_plane(crtc, crtc->fb,
 						       crtc->x, crtc->y);
 		mutex_unlock(&crtc->mutex);
 	}
@@ -2398,8 +2398,8 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 		return ret;
 	}
 
-	old_fb = crtc->primary->fb;
-	crtc->primary->fb = fb;
+	old_fb = crtc->fb;
+	crtc->fb = fb;
 	crtc->x = x;
 	crtc->y = y;
 
@@ -3011,7 +3011,7 @@ static void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if (crtc->primary->fb == NULL)
+	if (crtc->fb == NULL)
 		return;
 
 	WARN_ON(waitqueue_active(&dev_priv->pending_flip_queue));
@@ -3020,7 +3020,7 @@ static void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 		   !intel_crtc_has_pending_flip(crtc));
 
 	mutex_lock(&dev->struct_mutex);
-	intel_finish_fb(crtc->primary->fb);
+	intel_finish_fb(crtc->fb);
 	mutex_unlock(&dev->struct_mutex);
 }
 
@@ -4365,11 +4365,11 @@ static void intel_crtc_disable(struct drm_crtc *crtc)
 	assert_cursor_disabled(dev_priv, to_intel_crtc(crtc)->pipe);
 	assert_pipe_disabled(dev->dev_private, to_intel_crtc(crtc)->pipe);
 
-	if (crtc->primary->fb) {
+	if (crtc->fb) {
 		mutex_lock(&dev->struct_mutex);
-		intel_unpin_fb_obj(to_intel_framebuffer(crtc->primary->fb)->obj);
+		intel_unpin_fb_obj(to_intel_framebuffer(crtc->fb)->obj);
 		mutex_unlock(&dev->struct_mutex);
-		crtc->primary->fb = NULL;
+		crtc->fb = NULL;
 	}
 
 	/* Update computed state. */
@@ -8205,7 +8205,7 @@ void intel_mark_idle(struct drm_device *dev)
 		return;
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-		if (!crtc->primary->fb)
+		if (!crtc->fb)
 			continue;
 
 		intel_decrease_pllclock(crtc);
@@ -8225,10 +8225,10 @@ void intel_mark_fb_busy(struct drm_i915_gem_object *obj,
 		return;
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-		if (!crtc->primary->fb)
+		if (!crtc->fb)
 			continue;
 
-		if (to_intel_framebuffer(crtc->primary->fb)->obj != obj)
+		if (to_intel_framebuffer(crtc->fb)->obj != obj)
 			continue;
 
 		intel_increase_pllclock(crtc);
@@ -8656,7 +8656,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_framebuffer *old_fb = crtc->primary->fb;
+	struct drm_framebuffer *old_fb = crtc->fb;
 	struct drm_i915_gem_object *obj = to_intel_framebuffer(fb)->obj;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
@@ -8664,7 +8664,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	int ret;
 
 	/* Can't change pixel format via MI display flips. */
-	if (fb->pixel_format != crtc->primary->fb->pixel_format)
+	if (fb->pixel_format != crtc->fb->pixel_format)
 		return -EINVAL;
 
 	/*
@@ -8672,8 +8672,8 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	 * Note that pitch changes could also affect these register.
 	 */
 	if (INTEL_INFO(dev)->gen > 3 &&
-	    (fb->offsets[0] != crtc->primary->fb->offsets[0] ||
-	     fb->pitches[0] != crtc->primary->fb->pitches[0]))
+	    (fb->offsets[0] != crtc->fb->offsets[0] ||
+	     fb->pitches[0] != crtc->fb->pitches[0]))
 		return -EINVAL;
 
 	work = kzalloc(sizeof(*work), GFP_KERNEL);
@@ -8713,7 +8713,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	drm_gem_object_reference(&work->old_fb_obj->base);
 	drm_gem_object_reference(&obj->base);
 
-	crtc->primary->fb = fb;
+	crtc->fb = fb;
 
 	work->pending_flip_obj = obj;
 
@@ -8736,7 +8736,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 cleanup_pending:
 	atomic_dec(&intel_crtc->unpin_work_count);
-	crtc->primary->fb = old_fb;
+	crtc->fb = old_fb;
 	drm_gem_object_unreference(&work->old_fb_obj->base);
 	drm_gem_object_unreference(&obj->base);
 	mutex_unlock(&dev->struct_mutex);
@@ -9354,11 +9354,22 @@ intel_pipe_config_compare(struct drm_device *dev,
 	PIPE_CONF_CHECK_I(pipe_src_w);
 	PIPE_CONF_CHECK_I(pipe_src_h);
 
-	PIPE_CONF_CHECK_I(gmch_pfit.control);
-	/* pfit ratios are autocomputed by the hw on gen4+ */
-	if (INTEL_INFO(dev)->gen < 4)
-		PIPE_CONF_CHECK_I(gmch_pfit.pgm_ratios);
-	PIPE_CONF_CHECK_I(gmch_pfit.lvds_border_bits);
+	/*
+	 * FIXME: BIOS likes to set up a cloned config with lvds+external
+	 * screen. Since we don't yet re-compute the pipe config when moving
+	 * just the lvds port away to another pipe the sw tracking won't match.
+	 *
+	 * Proper atomic modesets with recomputed global state will fix this.
+	 * Until then just don't check gmch state for inherited modes.
+	 */
+	if (!PIPE_CONF_QUIRK(PIPE_CONFIG_QUIRK_INHERITED_MODE)) {
+		PIPE_CONF_CHECK_I(gmch_pfit.control);
+		/* pfit ratios are autocomputed by the hw on gen4+ */
+		if (INTEL_INFO(dev)->gen < 4)
+			PIPE_CONF_CHECK_I(gmch_pfit.pgm_ratios);
+		PIPE_CONF_CHECK_I(gmch_pfit.lvds_border_bits);
+	}
+
 	PIPE_CONF_CHECK_I(pch_pfit.enabled);
 	if (current_config->pch_pfit.enabled) {
 		PIPE_CONF_CHECK_I(pch_pfit.pos);
@@ -9734,7 +9745,7 @@ static int intel_set_mode(struct drm_crtc *crtc,
 
 void intel_crtc_restore_mode(struct drm_crtc *crtc)
 {
-	intel_set_mode(crtc, &crtc->mode, crtc->x, crtc->y, crtc->primary->fb);
+	intel_set_mode(crtc, &crtc->mode, crtc->x, crtc->y, crtc->fb);
 }
 
 #undef for_each_intel_crtc_masked
@@ -9834,9 +9845,9 @@ intel_set_config_compute_mode_changes(struct drm_mode_set *set,
 	 * and then just flip_or_move it */
 	if (is_crtc_connector_off(set)) {
 		config->mode_changed = true;
-	} else if (set->crtc->primary->fb != set->fb) {
+	} else if (set->crtc->fb != set->fb) {
 		/* If we have no fb then treat it as a full mode set */
-		if (set->crtc->primary->fb == NULL) {
+		if (set->crtc->fb == NULL) {
 			struct intel_crtc *intel_crtc =
 				to_intel_crtc(set->crtc);
 
@@ -9850,7 +9861,7 @@ intel_set_config_compute_mode_changes(struct drm_mode_set *set,
 		} else if (set->fb == NULL) {
 			config->mode_changed = true;
 		} else if (set->fb->pixel_format !=
-			   set->crtc->primary->fb->pixel_format) {
+			   set->crtc->fb->pixel_format) {
 			config->mode_changed = true;
 		} else {
 			config->fb_changed = true;
@@ -10012,7 +10023,7 @@ static int intel_crtc_set_config(struct drm_mode_set *set)
 	save_set.mode = &set->crtc->mode;
 	save_set.x = set->crtc->x;
 	save_set.y = set->crtc->y;
-	save_set.fb = set->crtc->primary->fb;
+	save_set.fb = set->crtc->fb;
 
 	/* Compute whether we need a full modeset, only an fb base update or no
 	 * change at all. In the future we might also check whether only the
@@ -10771,6 +10782,17 @@ static void quirk_invert_brightness(struct drm_device *dev)
 	DRM_INFO("applying inverted panel brightness quirk\n");
 }
 
+/*
+ * Some machines (Dell XPS13) suffer broken backlight controls if
+ * BLM_PCH_PWM_ENABLE is set.
+ */
+static void quirk_no_pcm_pwm_enable(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	dev_priv->quirks |= QUIRK_NO_PCH_PWM_ENABLE;
+	DRM_INFO("applying no-PCH_PWM_ENABLE quirk\n");
+}
+
 struct intel_quirk {
 	int device;
 	int subsystem_vendor;
@@ -10839,6 +10861,14 @@ static struct intel_quirk intel_quirks[] = {
 
 	/* Acer Aspire 4736Z */
 	{ 0x2a42, 0x1025, 0x0260, quirk_invert_brightness },
+
+	/* Acer Aspire 5336 */
+	{ 0x2a42, 0x1025, 0x048a, quirk_invert_brightness },
+
+	/* Dell XPS13 HD Sandy Bridge */
+	{ 0x0116, 0x1028, 0x052e, quirk_no_pcm_pwm_enable },
+	/* Dell XPS13 HD and XPS13 FHD Ivy Bridge */
+	{ 0x0166, 0x1028, 0x058b, quirk_no_pcm_pwm_enable },
 };
 
 static void intel_init_quirks(struct drm_device *dev)
@@ -10962,15 +10992,6 @@ void intel_modeset_init(struct drm_device *dev)
 	intel_disable_fbc(dev);
 }
 
-static void
-intel_connector_break_all_links(struct intel_connector *connector)
-{
-	connector->base.dpms = DRM_MODE_DPMS_OFF;
-	connector->base.encoder = NULL;
-	connector->encoder->connectors_active = false;
-	connector->encoder->base.crtc = NULL;
-}
-
 static void intel_enable_pipe_a(struct drm_device *dev)
 {
 	struct intel_connector *connector;
@@ -11052,8 +11073,17 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc)
 			if (connector->encoder->base.crtc != &crtc->base)
 				continue;
 
-			intel_connector_break_all_links(connector);
+			connector->base.dpms = DRM_MODE_DPMS_OFF;
+			connector->base.encoder = NULL;
 		}
+		/* multiple connectors may have the same encoder:
+		 *  handle them and break crtc link separately */
+		list_for_each_entry(connector, &dev->mode_config.connector_list,
+				    base.head)
+			if (connector->encoder->base.crtc == &crtc->base) {
+				connector->encoder->base.crtc = NULL;
+				connector->encoder->connectors_active = false;
+			}
 
 		WARN_ON(crtc->active);
 		crtc->base.enabled = false;
@@ -11124,6 +11154,8 @@ static void intel_sanitize_encoder(struct intel_encoder *encoder)
 				      drm_get_encoder_name(&encoder->base));
 			encoder->disable(encoder);
 		}
+		encoder->base.crtc = NULL;
+		encoder->connectors_active = false;
 
 		/* Inconsistent output/port/pipe state happens presumably due to
 		 * a bug in one of the get_hw_state functions. Or someplace else
@@ -11134,8 +11166,8 @@ static void intel_sanitize_encoder(struct intel_encoder *encoder)
 				    base.head) {
 			if (connector->encoder != encoder)
 				continue;
-
-			intel_connector_break_all_links(connector);
+			connector->base.dpms = DRM_MODE_DPMS_OFF;
+			connector->base.encoder = NULL;
 		}
 	}
 	/* Enabled encoders without active connectors will be fixed in
@@ -11176,6 +11208,8 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list,
 			    base.head) {
 		memset(&crtc->config, 0, sizeof(crtc->config));
+
+		crtc->config.quirks |= PIPE_CONFIG_QUIRK_INHERITED_MODE;
 
 		crtc->active = dev_priv->display.get_pipe_config(crtc,
 								 &crtc->config);
@@ -11313,7 +11347,7 @@ void intel_modeset_setup_hw_state(struct drm_device *dev,
 				dev_priv->pipe_to_crtc_mapping[pipe];
 
 			__intel_set_mode(crtc, &crtc->mode, crtc->x, crtc->y,
-					 crtc->primary->fb);
+					 crtc->fb);
 		}
 	} else {
 		intel_modeset_update_staged_output_state(dev);
@@ -11332,6 +11366,14 @@ void intel_modeset_gem_init(struct drm_device *dev)
 	drm_mode_config_reset(dev);
 	intel_modeset_setup_hw_state(dev, false);
 	mutex_unlock(&dev->mode_config.mutex);
+}
+
+void intel_connector_unregister(struct intel_connector *intel_connector)
+{
+	struct drm_connector *connector = &intel_connector->base;
+
+	intel_panel_destroy_backlight(connector);
+	drm_sysfs_connector_remove(connector);
 }
 
 void intel_modeset_cleanup(struct drm_device *dev)
@@ -11359,7 +11401,7 @@ void intel_modeset_cleanup(struct drm_device *dev)
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		/* Skip inactive CRTCs */
-		if (!crtc->primary->fb)
+		if (!crtc->fb)
 			continue;
 
 		intel_increase_pllclock(crtc);
@@ -11378,8 +11420,10 @@ void intel_modeset_cleanup(struct drm_device *dev)
 
 	/* destroy the backlight and sysfs files before encoders/connectors */
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-		intel_panel_destroy_backlight(connector);
-		drm_sysfs_connector_remove(connector);
+		struct intel_connector *intel_connector;
+
+		intel_connector = to_intel_connector(connector);
+		intel_connector->unregister(intel_connector);
 	}
 
 	drm_mode_config_cleanup(dev);

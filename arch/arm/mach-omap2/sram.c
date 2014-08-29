@@ -121,7 +121,7 @@ static void __init omap_detect_sram(void)
 			omap_sram_size = 0x10000; /* 64K */
 		} else if (soc_is_am43xx()) {
 			omap_sram_start = AM33XX_SRAM_PA;
-			omap_sram_size = SZ_256K;
+			omap_sram_size = SZ_64K;
 		} else if (cpu_is_omap34xx()) {
 			omap_sram_start = OMAP3_SRAM_PA;
 			omap_sram_size = 0x10000; /* 64K */

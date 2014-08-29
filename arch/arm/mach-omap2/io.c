@@ -693,6 +693,7 @@ void __init dra7xx_init_early(void)
 	omap_prm_base_init();
 	omap_cm_base_init();
 	omap44xx_prm_init();
+	dra7xxx_check_revision();
 	dra7xx_powerdomains_init();
 	dra7xx_clockdomains_init();
 	dra7xx_hwmod_init();
@@ -724,6 +725,10 @@ int __init omap_clk_init(void)
 
 	if (!omap_clk_soc_init)
 		return 0;
+
+	ret = of_control_init();
+	if (ret)
+		return ret;
 
 	ret = of_prcm_init();
 	if (!ret)

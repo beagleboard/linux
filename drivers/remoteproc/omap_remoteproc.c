@@ -66,6 +66,16 @@ struct omap_rproc {
 };
 
 /**
+ * struct omap_rproc_fw_data - firmware data for the omap remote processor
+ * @device_name: device name of the remote processor
+ * @fw_name: firmware name to use
+ */
+struct omap_rproc_fw_data {
+	const char *device_name;
+	const char *fw_name;
+};
+
+/**
  * omap_rproc_watchdog_isr - Watchdog ISR handler for remoteproc device
  * @irq: IRQ number associated with a watchdog timer
  * @data: IRQ handler data
@@ -400,6 +410,28 @@ static struct rproc_ops omap_rproc_ops = {
 	.kick		= omap_rproc_kick,
 };
 
+static const struct omap_rproc_fw_data dra7_rproc_fw_data[] = {
+	{
+		.device_name	= "40800000.dsp",
+		.fw_name	= "dra7-dsp1-fw.xe66",
+	},
+	{
+		.device_name	= "41000000.dsp",
+		.fw_name	= "dra7-dsp2-fw.xe66",
+	},
+	{
+		.device_name	= "55020000.ipu",
+		.fw_name	= "dra7-ipu2-fw.xem4",
+	},
+	{
+		.device_name	= "58820000.ipu",
+		.fw_name	= "dra7-ipu1-fw.xem4",
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id omap_rproc_of_match[] = {
 	{
 		.compatible     = "ti,omap4-rproc-dsp",
@@ -418,6 +450,14 @@ static const struct of_device_id omap_rproc_of_match[] = {
 		.data           = "ducati-m3-core0.xem3",
 	},
 	{
+		.compatible     = "ti,dra7-rproc-dsp",
+		.data           = dra7_rproc_fw_data,
+	},
+	{
+		.compatible     = "ti,dra7-rproc-ipu",
+		.data           = dra7_rproc_fw_data,
+	},
+	{
 		/* end */
 	},
 };
@@ -425,13 +465,25 @@ MODULE_DEVICE_TABLE(of, omap_rproc_of_match);
 
 static const char *omap_rproc_get_firmware(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
+	const struct omap_rproc_fw_data *data;
 	const struct of_device_id *match;
 
 	match = of_match_device(omap_rproc_of_match, &pdev->dev);
 	if (!match)
 		return ERR_PTR(-ENODEV);
 
-	return match->data;
+	if (!of_device_is_compatible(np, "ti,dra7-rproc-dsp") &&
+	    !of_device_is_compatible(np, "ti,dra7-rproc-ipu"))
+		return match->data;
+
+	data = match->data;
+	for (; data && data->device_name; data++) {
+		if (!strcmp(dev_name(&pdev->dev), data->device_name))
+			return data->fw_name;
+	}
+
+	return NULL;
 }
 
 static int omap_rproc_probe(struct platform_device *pdev)

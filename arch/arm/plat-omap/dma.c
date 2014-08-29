@@ -2010,6 +2010,12 @@ void omap_dma_global_context_restore(void)
 			omap_clear_dma(ch);
 }
 
+struct omap_system_dma_plat_info *omap_get_plat_info(void)
+{
+	return p;
+}
+EXPORT_SYMBOL_GPL(omap_get_plat_info);
+
 static int omap_system_dma_probe(struct platform_device *pdev)
 {
 	int ch, ret = 0;
@@ -2034,8 +2040,15 @@ static int omap_system_dma_probe(struct platform_device *pdev)
 
 	dma_lch_count		= d->lch_count;
 	dma_chan_count		= dma_lch_count;
-	dma_chan		= d->chan;
 	enable_1510_mode	= d->dev_caps & ENABLE_1510_MODE;
+
+	dma_chan = devm_kcalloc(&pdev->dev, dma_lch_count,
+				sizeof(struct omap_dma_lch), GFP_KERNEL);
+	if (!dma_chan) {
+		dev_err(&pdev->dev, "%s: kzalloc fail\n", __func__);
+		return -ENOMEM;
+	}
+
 
 	if (dma_omap2plus()) {
 		dma_linked_lch = kzalloc(sizeof(struct dma_link_info) *
@@ -2087,7 +2100,7 @@ static int omap_system_dma_probe(struct platform_device *pdev)
 		omap_dma_set_global_params(DMA_DEFAULT_ARB_RATE,
 				DMA_DEFAULT_FIFO_DEPTH, 0);
 
-	if (dma_omap2plus()) {
+	if (dma_omap2plus() && !(d->dev_caps & DMA_ENGINE_HANDLE_IRQ)) {
 		strcpy(irq_name, "0");
 		dma_irq = platform_get_irq_byname(pdev, irq_name);
 		if (dma_irq < 0) {
@@ -2121,7 +2134,6 @@ exit_dma_irq_fail:
 	}
 
 exit_dma_lch_fail:
-	kfree(dma_chan);
 	return ret;
 }
 
@@ -2133,7 +2145,8 @@ static int omap_system_dma_remove(struct platform_device *pdev)
 		char irq_name[4];
 		strcpy(irq_name, "0");
 		dma_irq = platform_get_irq_byname(pdev, irq_name);
-		remove_irq(dma_irq, &omap24xx_dma_irq);
+		if (dma_irq >= 0)
+			remove_irq(dma_irq, &omap24xx_dma_irq);
 	} else {
 		int irq_rel = 0;
 		for ( ; irq_rel < dma_chan_count; irq_rel++) {
@@ -2141,7 +2154,6 @@ static int omap_system_dma_remove(struct platform_device *pdev)
 			free_irq(dma_irq, (void *)(irq_rel + 1));
 		}
 	}
-	kfree(dma_chan);
 	return 0;
 }
 

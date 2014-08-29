@@ -258,6 +258,11 @@
 #define OMAP5XXX_CONTROL_STATUS                0x134
 #define OMAP5_DEVICETYPE_MASK          (0x7 << 6)
 
+/* DRA7XX DSP Reset Vector boot register */
+#define DRA7XX_CTRL_CORE_CONTROL_DSP1_RST_VECT	0x55C
+#define DRA7XX_CTRL_CORE_DSP_RST_VECT_MASK	(0x3FFFFF << 0)
+#define DRA7XX_CTRL_CORE_DSP_RST_VECT_SHIFT	10
+
 /*
  * REVISIT: This list of registers is not comprehensive - there are more
  * that should be added.
@@ -425,9 +430,11 @@ extern void omap3_control_restore_context(void);
 extern void omap3_ctrl_write_boot_mode(u8 bootmode);
 extern void omap_ctrl_write_dsp_boot_addr(u32 bootaddr);
 extern void omap_ctrl_write_dsp_boot_mode(u8 bootmode);
+extern void dra7_ctrl_write_dsp_boot_addr(u32 bootaddr, u32 inst);
 extern void omap3630_ctrl_disable_rta(void);
 extern int omap3_ctrl_save_padconf(void);
 extern void omap3_ctrl_set_iva_bootmode_idle(void);
+int of_control_init(void);
 extern void omap2_set_globals_control(void __iomem *ctrl,
 				      void __iomem *ctrl_pad);
 #else

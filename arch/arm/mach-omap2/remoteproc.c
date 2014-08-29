@@ -20,7 +20,18 @@
 #include <plat/dmtimer.h>
 
 #include "omap_device.h"
+#include "control.h"
 #include "remoteproc.h"
+
+void dra7_ctrl_write_dsp1_boot_addr(u32 bootaddr)
+{
+	dra7_ctrl_write_dsp_boot_addr(bootaddr, 0);
+}
+
+void dra7_ctrl_write_dsp2_boot_addr(u32 bootaddr)
+{
+	dra7_ctrl_write_dsp_boot_addr(bootaddr, 1);
+}
 
 /**
  * omap_rproc_device_enable - enable the remoteproc device
