@@ -632,8 +632,6 @@ int __init am33xx_pm_init(void)
 	else if (soc_is_am43xx())
 		am33xx_pm->ops = &am43xx_ops;
 
-	rtc_magic_val = RTC_REG_BOOT_MAGIC;
-
 	ret = am33xx_pm->ops->init();
 
 	if (ret)
@@ -669,7 +667,6 @@ int __init am33xx_pm_init(void)
 		if (of_find_property(np, "ti,needs-vtt-toggle", NULL) &&
 		    (!(of_property_read_u32(np, "ti,vtt-gpio-pin",
 							&temp)))) {
-			rtc_magic_val |= RTC_REG_DDR_TYPE_DDR3_0;
 			if (temp >= 0 && temp <= 31)
 				am33xx_pm->ipc.reg4 |=
 					((1 << VTT_STAT_SHIFT) |
@@ -706,6 +703,11 @@ int __init am33xx_pm_init(void)
 
 	pmx_dev = get_pinctrl_dev_from_devname("44e10800.pinmux");
 	omap_rtc = rtc_class_open("rtc0");
+
+	rtc_read_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, &rtc_magic_val);
+
+	if ((rtc_magic_val & 0xffff) != RTC_REG_BOOT_MAGIC)
+		pr_warn("PM: Bootloader does not support rtc-only mode!\n");
 
 	rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, 0);
 	rtc_write_scratch(omap_rtc, RTC_SCRATCH_RESUME_REG,
