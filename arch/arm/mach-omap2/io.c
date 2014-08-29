@@ -731,8 +731,14 @@ int __init omap_clk_init(void)
 		return ret;
 
 	ret = of_prcm_init();
-	if (!ret)
-		ret = omap_clk_soc_init();
+	if (ret)
+		return ret;
+
+	of_clk_init(NULL);
+
+	ti_dt_clockdomains_setup();
+
+	ret = omap_clk_soc_init();
 
 	return ret;
 }
