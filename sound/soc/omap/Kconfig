@@ -15,6 +15,12 @@ config SND_OMAP_SOC_MCPDM
 config SND_OMAP_SOC_HDMI
 	tristate
 
+config SND_OMAP_SOC_HDMI_AUDIO
+	tristate
+	depends on SND_OMAP_SOC
+	select SND_SOC_HDMI_CODEC
+	select SND_SIMPLE_CARD
+
 config SND_OMAP_SOC_N810
 	tristate "SoC Audio support for Nokia N810"
 	depends on SND_OMAP_SOC && MACH_NOKIA_N810 && I2C
