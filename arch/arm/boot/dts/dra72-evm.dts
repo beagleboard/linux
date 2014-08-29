@@ -8,14 +8,62 @@
 /dts-v1/;
 
 #include "dra72x.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "TI DRA722";
 	compatible = "ti,dra72-evm", "ti,dra722", "ti,dra72", "ti,dra7";
 
+	aliases {
+		display0 = &tlc59108;
+		display1 = &hdmi0;
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0x80000000 0x40000000>; /* 1024 MB */
+	};
+
+	tpd12s015: encoder@0 {
+		compatible = "omapdss,ti,tpd12s015";
+
+                gpios = <&pcf_hdmi 4 GPIO_ACTIVE_HIGH>,	/* P4, CT CP HPD */
+                        <&pcf_hdmi 5 GPIO_ACTIVE_HIGH>,	/* P5, LS OE */
+                        <&gpio7 12 GPIO_ACTIVE_HIGH>;	/* gpio7_12/sp1_cs2, HPD */
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				tpd12s015_in: endpoint@0 {
+					remote-endpoint = <&hdmi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				tpd12s015_out: endpoint@0 {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
+
+	hdmi0: connector@0 {
+		compatible = "omapdss,hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&tpd12s015_out>;
+			};
+		};
 	};
 
 	mmc2_3v3: fixedregulator-mmc2 {
@@ -38,6 +86,13 @@
 		pinctrl-single,pins = <
 			0x3e0 (PIN_INPUT_PULLUP | MUX_MODE0) /* uart1_rxd */
 			0x3e4 (PIN_INPUT_PULLUP | MUX_MODE0) /* uart1_txd */
+		>;
+	};
+
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			0x408 (PIN_INPUT | MUX_MODE1) /* hdmi1_ddc_scl */
+			0x40c (PIN_INPUT | MUX_MODE1) /* hdmi1_ddc_sda */
 		>;
 	};
 
@@ -137,6 +192,46 @@
 		pinctrl-single,pins = <
 			0x3d4	(PIN_INPUT | MUX_MODE15)	/* dcan1_tx.off */
 			0x418	(PIN_INPUT | MUX_MODE15)	/* wakeup0.off */
+		>;
+	};
+
+	vout1_pins: pinmux_vout1_pins {
+		pinctrl-single,pins = <
+			0x1C8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_clk */
+			0x1CC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_de */
+			0x1D0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_fld */
+			0x1D4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_hsync */
+			0x1D8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_vsync */
+			0x1DC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d0 */
+			0x1E0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d1 */
+			0x1E4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d2 */
+			0x1E8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d3 */
+			0x1EC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d4 */
+			0x1F0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d5 */
+			0x1F4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d6 */
+			0x1F8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d7 */
+			0x1FC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d8 */
+			0x200	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d9 */
+			0x204	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d10 */
+			0x208	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d11 */
+			0x20C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d12 */
+			0x210	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d13 */
+			0x214	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d14 */
+			0x218	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d15 */
+			0x21C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d16 */
+			0x220	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d17 */
+			0x224	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d18 */
+			0x228	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d19 */
+			0x22C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d20 */
+			0x230	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d21 */
+			0x234	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d22 */
+			0x238	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d23 */
+		>;
+	};
+
+	hpd_pin: pinmux_hpd_pin {
+		pinctrl-single,pins = <
+			0x3b8   (PIN_INPUT | MUX_MODE14) /* gpio7_12 */
 		>;
 	};
 };
@@ -261,6 +356,26 @@
 			ti,palmas-long-press-seconds = <6>;
 		};
 	};
+
+	pcf_lcd: gpio@20 {
+		compatible = "nxp,pcf8575";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	/* TLC chip for LCD panel power and backlight */
+	tlc59108: tlc59108@40 {
+		compatible = "ti,tlc59108-lp101";
+		reg = <0x40>;
+		enable-gpio = <&pcf_lcd 13 GPIO_ACTIVE_HIGH>; /* P15, CON_LCD_PWR_DN */
+
+		port {
+			tlc_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
 };
 
 &dra7_pmx_core {
@@ -277,6 +392,19 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c5_pins>;
 	clock-frequency = <400000>;
+
+	pcf_hdmi: pcf8575@26 {
+		compatible = "nxp,pcf8575";
+		reg = <0x26>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		/*
+		 * initial state is used here to keep the mdio interface
+		 * selected on RU89 through SEL_VIN4_MUX_S0, VIN2_S1 and
+		 * VIN2_S0 driven high otherwise Ethernet stops working
+		 */
+		lines-initial-states = <0xff29>;
+	};
 };
 
 &uart1 {
@@ -446,9 +574,45 @@
 	};
 };
 
+&dss {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&vout1_pins>;
+
+	vdda-supply = <&ldo5_reg>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				remote-endpoint = <&tlc_in>;
+				data-lines = <24>;
+			};
+		};
+	};
+};
+
+
 &dcan1 {
 	status = "ok";
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&dcan1_pins_default>;
 	pinctrl-1 = <&dcan1_pins_sleep>;
+};
+
+&hdmi {
+	status = "ok";
+	vdda-supply = <&ldo3_reg>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&hpd_pin &i2c2_pins>;
+
+	port {
+		hdmi_out: endpoint {
+			remote-endpoint = <&tpd12s015_in>;
+		};
+	};
 };

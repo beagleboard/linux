@@ -551,6 +551,9 @@ static int tilcdc_pm_suspend(struct device *dev)
 		if (registers[i].save && (priv->rev >= registers[i].rev))
 			priv->saved_register[n++] = tilcdc_read(ddev, registers[i].reg);
 
+	/* Select sleep pin state */
+	pinctrl_pm_select_sleep_state(dev);
+
 	return 0;
 }
 
@@ -559,6 +562,9 @@ static int tilcdc_pm_resume(struct device *dev)
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct tilcdc_drm_private *priv = ddev->dev_private;
 	unsigned i, n = 0;
+
+	/* Select default pin state */
+	pinctrl_pm_select_default_state(dev);
 
 	/* Restore register state: */
 	for (i = 0; i < ARRAY_SIZE(registers); i++)
