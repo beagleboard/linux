@@ -33,6 +33,7 @@
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
 #include <video/omapdss.h>
+#include <sound/omap-hdmi-audio.h>
 
 #include "hdmi4_core.h"
 #include "dss.h"
@@ -677,6 +678,84 @@ err:
 	return r;
 }
 
+#if defined(CONFIG_OMAP4_DSS_HDMI_AUDIO)
+static int mode_has_audio(struct device *dev)
+{
+	struct omap_hdmi *hd = dev_get_drvdata(dev);
+	int ret;
+
+	mutex_lock(&hd->lock);
+	ret = hdmi_mode_has_audio(&hd->cfg);
+	mutex_unlock(&hd->lock);
+
+	return ret;
+}
+
+static int audio_enable(struct device *dev, bool enable)
+{
+	struct omap_hdmi *hd = dev_get_drvdata(dev);
+	int ret;
+
+	mutex_lock(&hd->lock);
+	if (!hdmi_mode_has_audio(&hd->cfg))
+		ret = -EPERM;
+	else
+		ret = hdmi_wp_audio_enable(&hd->wp, enable);
+	mutex_unlock(&hd->lock);
+
+	return ret;
+}
+
+static int audio_start(struct device *dev, bool enable)
+{
+	struct omap_hdmi *hd = dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (enable)
+		ret = hdmi4_audio_start(&hd->core, &hd->wp);
+	else
+		hdmi4_audio_stop(&hd->core, &hd->wp);
+
+	return ret;
+}
+
+static int audio_config(struct device *dev, struct omap_dss_audio *dss_audio)
+{
+	struct omap_hdmi *hd = dev_get_drvdata(dev);
+	int ret;
+
+	mutex_lock(&hd->lock);
+	if (!hdmi_mode_has_audio(&hd->cfg))
+		ret = -EPERM;
+	else
+		ret = hdmi4_audio_config(&hd->core, &hd->wp, dss_audio,
+					 hd->cfg.timings.pixelclock);
+	mutex_unlock(&hd->lock);
+
+	return ret;
+}
+
+static int hdmi_audio_register(struct device *dev)
+{
+	struct omap_hdmi_audio ha = {
+		.dev = dev,
+		.hw_version = OMAP4_HDMI,
+		.audio_dma_addr = hdmi_wp_get_audio_dma_addr(&hdmi.wp),
+		.mode_has_audio = mode_has_audio,
+		.audio_enable = audio_enable,
+		.audio_start = audio_start,
+		.audio_config = audio_config,
+	};
+
+	return omap_hdmi_audio_register(&ha);
+}
+#else /* CONFIG_OMAP4_DSS_HDMI_AUDIO */
+static int hdmi_audio_register(struct device *dev)
+{
+	return 0;
+}
+#endif
+
 /* HDMI HW IP initialisation */
 static int omapdss_hdmihw_probe(struct platform_device *pdev)
 {
@@ -729,6 +808,14 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 
 	hdmi_init_output(pdev);
 
+	r = hdmi_audio_register(&pdev->dev);
+	if (r) {
+		DSSERR("Registering HDMI audio failed\n");
+		hdmi_uninit_output(pdev);
+		pm_runtime_disable(&pdev->dev);
+		return r;
+	}
+
 	dss_debugfs_create_file("hdmi", hdmi_dump_regs);
 
 	return 0;
@@ -736,6 +823,8 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 
 static int __exit omapdss_hdmihw_remove(struct platform_device *pdev)
 {
+	omap_hdmi_audio_unregister(&pdev->dev);
+
 	hdmi_uninit_output(pdev);
 
 	pm_runtime_disable(&pdev->dev);
