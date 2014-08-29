@@ -190,6 +190,11 @@ static void am43xx_restore_context(void)
 	common_restore_context();
 	am43xx_control_restore_context();
 	am43xx_push_sram_idle();
+	/*
+	 * HACK: restore dpll_per_clkdcoldo register contents, to avoid
+	 * breaking suspend-resume
+	 */
+	writel_relaxed(0x0, AM33XX_L4_WK_IO_ADDRESS(0x44df2e14));
 }
 
 int am33xx_rtc_only_idle(long unsigned int unused)
