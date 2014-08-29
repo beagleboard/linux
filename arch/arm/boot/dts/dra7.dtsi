@@ -161,10 +161,12 @@
 		};
 
 		dra7_pmx_core: pinmux@4a003400 {
-			compatible = "pinctrl-single";
+			compatible = "ti,dra7-padconf", "pinctrl-single";
 			reg = <0x4a003400 0x0464>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			#interrupt-cells = <1>;
+			interrupt-controller;
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0x3fffffff>;
 		};
@@ -772,6 +774,44 @@
 			ti,needs-special-reset;
 			dmas = <&sdma 57>, <&sdma 58>;
 			dma-names = "tx", "rx";
+			status = "disabled";
+		};
+
+		mmu0_dsp1: mmu@40d01000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x40d01000 0x100>, <0x40d00000 0x100>;
+			reg-names = "mmu_cfg", "dsp_system";
+			interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu0_dsp1";
+			status = "disabled";
+		};
+
+		mmu1_dsp1: mmu@40d02000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x40d02000 0x100>, <0x40d00000 0x100>;
+			reg-names = "mmu_cfg", "dsp_system";
+			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu1_dsp1";
+			status = "disabled";
+		};
+
+		mmu_ipu1: mmu@58882000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x58882000 0x100>;
+			reg-names = "mmu_cfg";
+			interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu_ipu1";
+			ti,iommu-bus-err-back;
+			status = "disabled";
+		};
+
+		mmu_ipu2: mmu@55082000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x55082000 0x100>;
+			reg-names = "mmu_cfg";
+			interrupts = <GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu_ipu2";
+			ti,iommu-bus-err-back;
 			status = "disabled";
 		};
 

@@ -219,7 +219,10 @@ static struct omap_rproc_pdata omap4_dsp_pdata = {
 	.set_bootaddr = omap_ctrl_write_dsp_boot_addr,
 	.timer_ops = &omap_rproc_dmtimer_ops,
 };
+#endif
 
+#if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5) || \
+	defined(CONFIG_SOC_DRA7XX)
 static struct iommu_platform_data omap4_iommu_pdata = {
 	.reset_name = "mmu_cache",
 	.assert_reset = omap_device_assert_hardreset,
@@ -294,11 +297,20 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,am3517-emac", 0x5c000000, "davinci_emac.0",
 		       &am35xx_emac_pdata),
 #endif
+#ifdef CONFIG_SOC_AM43XX
+	OF_DEV_AUXDATA("ti,am437-padconf", 0x44e10800, "44e10800.pinmux", &pcs_pdata),
+#endif
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a31e040, "4a31e040.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,omap4-rproc-dsp", 0, "dsp", &omap4_dsp_pdata),
 	OF_DEV_AUXDATA("ti,omap4-rproc-ipu", 0, "ipu", &omap4_ipu_pdata),
+#endif
+#ifdef CONFIG_SOC_OMAP5
+	OF_DEV_AUXDATA("ti,omap5-padconf", 0x4a002840, "4a002840.pinmux", &pcs_pdata),
+	OF_DEV_AUXDATA("ti,omap5-padconf", 0x4ae0c840, "4ae0c840.pinmux", &pcs_pdata),
+	OF_DEV_AUXDATA("ti,omap5-rproc-dsp", 0, "dsp", &omap4_dsp_pdata),
+	OF_DEV_AUXDATA("ti,omap5-rproc-ipu", 0, "ipu", &omap4_ipu_pdata),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
@@ -306,9 +318,16 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x55082000, "55082000.mmu",
 		       &omap4_iommu_pdata),
 #endif
-#ifdef CONFIG_SOC_OMAP5
-	OF_DEV_AUXDATA("ti,omap5-rproc-dsp", 0, "dsp", &omap4_dsp_pdata),
-	OF_DEV_AUXDATA("ti,omap5-rproc-ipu", 0, "ipu", &omap4_ipu_pdata),
+#ifdef CONFIG_SOC_DRA7XX
+	OF_DEV_AUXDATA("ti,dra7-padconf", 0x4a003400, "4a003400.pinmux", &pcs_pdata),
+	OF_DEV_AUXDATA("ti,dra7-iommu", 0x40d01000, "40d01000.mmu",
+		       &omap4_iommu_pdata),
+	OF_DEV_AUXDATA("ti,dra7-iommu", 0x41501000, "41501000.mmu",
+		       &omap4_iommu_pdata),
+	OF_DEV_AUXDATA("ti,dra7-iommu", 0x55082000, "55082000.mmu",
+		       &omap4_iommu_pdata),
+	OF_DEV_AUXDATA("ti,dra7-iommu", 0x58882000, "58882000.mmu",
+		       &omap4_iommu_pdata),
 #endif
 	{ /* sentinel */ },
 };

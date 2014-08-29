@@ -33,6 +33,12 @@
 			0x404 (PIN_INPUT | MUX_MODE0) /* i2c1_scl.i2c1_scl */
 		>;
 	};
+
+	tps65917_pins_default: tps65917_pins_default {
+		pinctrl-single,pins = <
+			0x424 (PIN_INPUT_PULLUP | MUX_MODE1)	/* wakeup3.sys_nirq1 */
+		>;
+	};
 };
 
 &i2c1 {
@@ -45,7 +51,10 @@
 		compatible = "ti,tps65917";
 		reg = <0x58>;
 
-		interrupts = <GIC_SPI 2 IRQ_TYPE_NONE>;  /* IRQ_SYS_1N */
+		pinctrl-names = "default";
+		pinctrl-0 = <&tps65917_pins_default>;
+		interrupts-extended = <&gic GIC_SPI 2 IRQ_TYPE_NONE
+					&dra7_pmx_core 0x424>;
 		interrupt-parent = <&gic>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
@@ -185,4 +194,20 @@
 	mbox_ipu2_legacy: mbox_ipu2_legacy {
 		status = "okay";
 	};
+};
+
+&mmu0_dsp1 {
+	status = "okay";
+};
+
+&mmu1_dsp1 {
+	status = "okay";
+};
+
+&mmu_ipu1 {
+	status = "okay";
+};
+
+&mmu_ipu2 {
+	status = "okay";
 };
