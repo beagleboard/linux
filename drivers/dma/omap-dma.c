@@ -21,6 +21,7 @@
 #include <linux/of_device.h>
 
 #include "virt-dma.h"
+#include "omap-dma-xbar.h"
 
 struct omap_dmadev {
 	struct dma_device ddev;
@@ -44,7 +45,10 @@ struct omap_chan {
 	uint32_t ccr;
 
 	struct dma_slave_config	cfg;
+	struct dma_xbar_device *router;
+
 	unsigned dma_sig;
+	unsigned dma_xbar;
 	bool cyclic;
 	bool paused;
 
@@ -73,6 +77,11 @@ struct omap_desc {
 
 	unsigned sglen;
 	struct omap_sg sg[0];
+};
+
+struct omap_dma_filter_args {
+	void *router_data;
+	unsigned chan;
 };
 
 enum {
@@ -523,6 +532,11 @@ static int omap_dma_alloc_chan_resources(struct dma_chan *chan)
 	struct omap_chan *c = to_omap_dma_chan(chan);
 	int ret;
 
+	if (c->router)
+		c->dma_sig = c->router->ops->map(c->dma_xbar, c->router);
+	else
+		c->dma_sig = c->dma_xbar;
+
 	if (od->legacy) {
 		ret = omap_request_dma(c->dma_sig, "DMA engine",
 				       omap_dma_callback, c, &c->dma_ch);
@@ -532,7 +546,7 @@ static int omap_dma_alloc_chan_resources(struct dma_chan *chan)
 	}
 
 	dev_dbg(od->ddev.dev, "allocating channel %u for %u\n",
-		c->dma_ch, c->dma_sig);
+		c->dma_ch, c->dma_xbar);
 
 	if (ret >= 0) {
 		omap_dma_assign(od, c, c->dma_ch);
@@ -586,9 +600,15 @@ static void omap_dma_free_chan_resources(struct dma_chan *chan)
 	c->channel_base = NULL;
 	od->lch_map[c->dma_ch] = NULL;
 	vchan_free_chan_resources(&c->vc);
+
+	if (c->router) {
+		c->router->ops->unmap(c->dma_sig, c->router);
+		c->dma_sig = 0;
+	}
+
 	omap_free_dma(c->dma_ch);
 
-	dev_dbg(od->ddev.dev, "freeing channel for %u\n", c->dma_sig);
+	dev_dbg(od->ddev.dev, "freeing channel for %u\n", c->dma_xbar);
 }
 
 static size_t omap_dma_sg_size(struct omap_sg *sg)
@@ -1056,7 +1076,7 @@ static int omap_dma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	return ret;
 }
 
-static int omap_dma_chan_init(struct omap_dmadev *od, int dma_sig)
+static int omap_dma_chan_init(struct omap_dmadev *od, int dma_xbar)
 {
 	struct omap_chan *c;
 
@@ -1065,7 +1085,7 @@ static int omap_dma_chan_init(struct omap_dmadev *od, int dma_sig)
 		return -ENOMEM;
 
 	c->reg_map = od->reg_map;
-	c->dma_sig = dma_sig;
+	c->dma_xbar = dma_xbar;
 	c->vc.desc_free = omap_dma_desc_free;
 	vchan_init(&c->vc, &od->ddev);
 	INIT_LIST_HEAD(&c->node);
@@ -1105,11 +1125,40 @@ static int omap_dma_device_slave_caps(struct dma_chan *dchan,
 	return 0;
 }
 
+static struct dma_chan *of_omap_dma_xlate(struct of_phandle_args *dma_spec,
+						 struct of_dma *ofdma)
+{
+	int count = dma_spec->args_count;
+	struct of_dma_filter_info *info = ofdma->of_dma_data;
+	struct omap_dma_filter_args args;
+	struct dma_xbar_device *c = NULL;
+
+	if (!info || !info->filter_fn)
+		return NULL;
+
+	if ((count != 1) && (count != 2))
+		return NULL;
+
+	args.chan = dma_spec->args[0];
+	args.router_data = NULL;
+
+	if (count == 2) {
+		c = of_dma_get_router_data(dma_spec->args[1]);
+
+		if (c && c->ops && c->ops->map && c->ops->unmap)
+			args.router_data = c;
+	}
+
+	return dma_request_channel(info->dma_cap, info->filter_fn,
+			&args);
+}
+
 static int omap_dma_probe(struct platform_device *pdev)
 {
 	struct omap_dmadev *od;
 	struct resource *res;
 	int rc, i, irq;
+	u32 reqs;
 
 	od = devm_kzalloc(&pdev->dev, sizeof(*od), GFP_KERNEL);
 	if (!od)
@@ -1144,7 +1193,9 @@ static int omap_dma_probe(struct platform_device *pdev)
 
 	tasklet_init(&od->task, omap_dma_sched, (unsigned long)od);
 
-	for (i = 0; i < 127; i++) {
+	of_property_read_u32(pdev->dev.of_node, "#dma-requests", &reqs);
+
+	for (i = 0; i < reqs; i++) {
 		rc = omap_dma_chan_init(od, i);
 		if (rc) {
 			omap_dma_free(od);
@@ -1182,7 +1233,7 @@ static int omap_dma_probe(struct platform_device *pdev)
 
 		/* Device-tree DMA controller registration */
 		rc = of_dma_controller_register(pdev->dev.of_node,
-				of_dma_simple_xlate, &omap_dma_info);
+				of_omap_dma_xlate, &omap_dma_info);
 		if (rc) {
 			pr_warn("OMAP-DMA: failed to register DMA controller\n");
 			dma_async_device_unregister(&od->ddev);
@@ -1236,11 +1287,16 @@ static struct platform_driver omap_dma_driver = {
 
 bool omap_dma_filter_fn(struct dma_chan *chan, void *param)
 {
+	struct omap_dma_filter_args *args = param;
+
 	if (chan->device->dev->driver == &omap_dma_driver.driver) {
 		struct omap_chan *c = to_omap_dma_chan(chan);
-		unsigned req = *(unsigned *)param;
+		unsigned req = args->chan;
 
-		return req == c->dma_sig;
+		if (req == c->dma_xbar) {
+			c->router = args->router_data;
+			return true;
+		}
 	}
 	return false;
 }
