@@ -306,4 +306,25 @@ static inline bool hdmi_mode_has_audio(int mode)
 {
 	return mode == HDMI_HDMI ? true : false;
 }
+
+/* HDMI DRV data */
+struct omap_hdmi {
+	struct mutex lock;
+	struct platform_device *pdev;
+
+	struct hdmi_wp_data	wp;
+	struct pll_data		*pll;
+	struct hdmi_phy_data	phy;
+	struct hdmi_core_data	core;
+
+	struct hdmi_config cfg;
+
+	struct clk *sys_clk;
+	struct regulator *vdda_reg;
+
+	bool core_enabled;
+
+	struct omap_dss_device output;
+};
+
 #endif

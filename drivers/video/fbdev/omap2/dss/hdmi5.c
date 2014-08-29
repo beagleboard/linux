@@ -43,23 +43,7 @@
 #include "dss.h"
 #include "dss_features.h"
 
-static struct {
-	struct mutex lock;
-	struct platform_device *pdev;
-
-	struct hdmi_wp_data	wp;
-	struct pll_data		*pll;
-	struct hdmi_phy_data	phy;
-	struct hdmi_core_data	core;
-
-	struct hdmi_config cfg;
-
-	struct regulator *vdda_reg;
-
-	bool core_enabled;
-
-	struct omap_dss_device output;
-} hdmi;
+static struct omap_hdmi hdmi;
 
 static int hdmi_runtime_get(void)
 {
@@ -728,6 +712,7 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 	int irq;
 
 	hdmi.pdev = pdev;
+	dev_set_drvdata(&pdev->dev, &hdmi);
 
 	mutex_init(&hdmi.lock);
 
