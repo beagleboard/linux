@@ -232,7 +232,7 @@ static struct drm_framebuffer *drm_mode_config_fb(struct drm_crtc *crtc)
 
 	list_for_each_entry(c, &dev->mode_config.crtc_list, head) {
 		if (crtc->base.id == c->base.id)
-			return c->primary->fb;
+			return c->fb;
 	}
 
 	return NULL;
@@ -365,9 +365,9 @@ static bool drm_fb_helper_is_bound(struct drm_fb_helper *fb_helper)
 		return false;
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-		if (crtc->primary->fb)
+		if (crtc->fb)
 			crtcs_bound++;
-		if (crtc->primary->fb == fb_helper->fb)
+		if (crtc->fb == fb_helper->fb)
 			bound++;
 	}
 

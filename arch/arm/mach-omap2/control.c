@@ -581,3 +581,38 @@ void omap3_ctrl_set_iva_bootmode_idle(void)
 			 OMAP343X_CONTROL_IVA2_BOOTMOD);
 }
 #endif /* CONFIG_ARCH_OMAP3 && CONFIG_PM */
+
+static struct of_device_id omap_scrm_dt_match_table[] = {
+	{ .compatible = "ti,am3-scrm" },
+	{ .compatible = "ti,am4-scrm" },
+	{ .compatible = "ti,omap2-scrm" },
+	{ .compatible = "ti,omap3-scrm" },
+	{ .compatible = "ti,omap4-scrm" },
+	{ .compatible = "ti,omap5-scrm" },
+	{ }
+};
+
+static int __init of_scrm_init(void)
+{
+	return of_prcm_module_init(omap_scrm_dt_match_table);
+}
+
+static struct of_device_id omap_ctrl_core_dt_match_table[] = {
+	{ .compatible = "ti,dra7-ctrl-core" },
+	{ }
+};
+
+static int __init of_ctrl_core_init(void)
+{
+	return of_prcm_module_init(omap_ctrl_core_dt_match_table);
+}
+
+int __init of_control_init(void)
+{
+	int ret;
+
+	ret = of_scrm_init();
+	ret |= of_ctrl_core_init();
+
+	return ret;
+}
