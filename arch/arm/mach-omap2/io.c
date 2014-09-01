@@ -736,6 +736,8 @@ int __init omap_clk_init(void)
 
 	of_clk_init(NULL);
 
+	ti_dt_clk_init_retry();
+
 	ti_dt_clockdomains_setup();
 
 	ret = omap_clk_soc_init();

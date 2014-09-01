@@ -146,8 +146,6 @@ void __iomem *ti_clk_get_reg_addr(struct device_node *node, int index)
 void ti_dt_clk_init_provider(struct device_node *parent, int index)
 {
 	struct device_node *clocks;
-	struct clk_init_item *retry;
-	struct clk_init_item *tmp;
 
 	/* get clocks for this parent */
 	clocks = of_get_child_by_name(parent, "clocks");
@@ -158,11 +156,21 @@ void ti_dt_clk_init_provider(struct device_node *parent, int index)
 
 	/* add clocks node info */
 	clocks_node_ptr[index] = clocks;
+}
 
-	list_for_each_entry_safe(retry, tmp, &retry_list, link) {
-		pr_debug("retry-init: %s\n", retry->node->name);
-		retry->func(retry->hw, retry->node);
-		list_del(&retry->link);
-		kfree(retry);
+void ti_dt_clk_init_retry(void)
+{
+	struct clk_init_item *retry;
+	struct clk_init_item *tmp;
+	int retries = 5;
+
+	while (!list_empty(&retry_list) && retries) {
+		list_for_each_entry_safe(retry, tmp, &retry_list, link) {
+			pr_debug("retry-init: %s\n", retry->node->name);
+			retry->func(retry->hw, retry->node);
+			list_del(&retry->link);
+			kfree(retry);
+		}
+		retries--;
 	}
 }
