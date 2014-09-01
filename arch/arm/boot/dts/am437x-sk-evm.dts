@@ -690,3 +690,7 @@
 		};
 	};
 };
+
+&wkup_m3 {
+	ti,scale-data-fw = "am43x-evm-scale-data.bin";
+};

@@ -49,6 +49,8 @@ static inline int omap4_idle_init(void)
 
 extern void *omap3_secure_ram_storage;
 extern void omap3_pm_off_mode_enable(int);
+extern void am33xx_enable_rtc_only_mode(int);
+extern int am33xx_get_rtc_only_mode(void);
 extern void omap_sram_idle(void);
 extern int omap_pm_clkdms_setup(struct clockdomain *clkdm, void *unused);
 

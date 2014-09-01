@@ -255,6 +255,8 @@
 /include/ "tps65217.dtsi"
 
 &tps {
+	ti,pmic-shutdown-controller;
+
 	regulators {
 		dcdc1_reg: regulator@0 {
 			regulator-always-on;
@@ -293,6 +295,10 @@
 		ldo4_reg: regulator@6 {
 			regulator-always-on;
 		};
+
+		rtc@44e3e000 {
+			ti,system-power-controller;
+		};
 	};
 };
 
@@ -327,4 +333,8 @@
 	pinctrl-1 = <&mmc1_pins_sleep>;
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
 	cd-inverted;
+};
+
+&wkup_m3 {
+	ti,scale-data-fw = "am335x-bone-scale-data.bin";
 };

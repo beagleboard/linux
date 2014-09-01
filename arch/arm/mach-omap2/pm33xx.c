@@ -29,6 +29,12 @@
 #include <linux/ti_emif.h>
 #include <linux/omap-mailbox.h>
 #include <linux/sizes.h>
+#include <linux/pinctrl/pinctrl.h>
+#include <linux/pinctrl/pinmux.h>
+#include <linux/gpio.h>
+#include <linux/platform_data/gpio-omap.h>
+#include <linux/platform_data/wkup_m3.h>
+#include <linux/rtc.h>
 
 #include <asm/suspend.h>
 #include <asm/proc-fns.h>
@@ -45,22 +51,45 @@
 #include "powerdomain.h"
 #include "soc.h"
 #include "sram.h"
+#include "omap_hwmod.h"
+#include "iomap.h"
+
+static struct rtc_device *omap_rtc;
+static struct omap_hwmod *rtc_oh;
+static struct pinctrl_dev *pmx_dev;
+static u32 rtc_magic_val;
+static int retrigger_irq;
+
+#define RTC_SCRATCH_RESUME_REG         0
+#define RTC_SCRATCH_MAGIC_REG          1
+
+#define RTC_REG_BOOT_MAGIC		0x8cd0 /* RTC */
+#define RTC_REG_DDR_TYPE_DDR2_0		(0x00 << 16)
+#define RTC_REG_DDR_TYPE_DDR3_0		(0x01 << 16)
+
+#define WKUP_M3_SD_FW_MAGIC	0x570C
 
 #ifdef CONFIG_SUSPEND
-static void __iomem *scu_base;
+static void __iomem *scu_base, *gic_dist_base;
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
 static struct clockdomain *gfx_l4ls_clkdm;
 #endif /* CONFIG_SUSPEND */
 
+static struct am33xx_suspend_params susp_params;
+
 #ifdef CONFIG_CPU_PM
+struct wkup_m3_scale_data_header {
+	u16 magic;
+	u8 sleep_offset;
+	u8 wake_offset;
+} __packed;
+
 static void __iomem *am33xx_emif_base;
 static struct am33xx_pm_context *am33xx_pm;
 
 static DECLARE_COMPLETION(am33xx_pm_sync);
 
 static void (*am33xx_do_wfi_sram)(struct am33xx_suspend_params *);
-
-static struct am33xx_suspend_params susp_params;
 
 int am33xx_do_sram_cpuidle(u32 wfi_flags, u32 m3_flags)
 {
@@ -85,7 +114,6 @@ int am33xx_do_sram_cpuidle(u32 wfi_flags, u32 m3_flags)
 		am33xx_pm->ipc.reg1 = IPC_CMD_IDLE;
 		am33xx_pm->ipc.reg2 = DS_IPC_DEFAULT;
 		am33xx_pm->ipc.reg3 = m3_flags;
-		am33xx_pm->ipc.reg5 = DS_IPC_DEFAULT;
 		wkup_m3_set_cmd(&am33xx_pm->ipc);
 		ret = wkup_m3_ping();
 		if (ret < 0)
@@ -103,10 +131,92 @@ static int am33xx_do_sram_idle(unsigned long int arg)
 	return 0;
 }
 
+static struct wkup_m3_wakeup_src rtc_wakeups[] = {
+	{.irq_nr = 0, .src = "Unknown"},
+	{.irq_nr = 0, .src = "Unknown"},
+	{.irq_nr = 108, .src = "RTC Alarm"},
+	{.irq_nr = 0, .src = "Ext wakeup"},
+};
+
+struct wkup_m3_wakeup_src rtc_wake_src(void)
+{
+	u32 i;
+
+	i = __raw_readl(susp_params.rtc_base + 0x98) >> 17;
+	retrigger_irq = rtc_wakeups[i].irq_nr;
+
+	return rtc_wakeups[i];
+}
+
+static void common_save_context(void)
+{
+	omap2_gpio_prepare_for_idle(1);
+	pinmux_save_context(pmx_dev, "am33xx_pmx_per");
+	clks_save_context();
+	pwrdms_save_context();
+	omap_hwmods_save_context();
+	clkdm_save_context();
+}
+
+static void common_restore_context(void)
+{
+	clks_restore_context();
+	pwrdms_restore_context();
+	clkdm_restore_context();
+	omap_hwmods_restore_context();
+	pinmux_restore_context(pmx_dev, "am33xx_pmx_per");
+	wkup_m3_set_rtc_only_mode();
+	pwrdms_lost_power();
+	omap2_gpio_resume_after_idle();
+	omap_sram_reset();
+}
+
+static void am33xx_save_context(void)
+{
+	common_save_context();
+	omap_intc_save_context();
+	am33xx_control_save_context();
+}
+
+static void am33xx_restore_context(void)
+{
+	common_restore_context();
+	am33xx_control_restore_context();
+	omap_intc_restore_context();
+	am33xx_push_sram_idle();
+}
+
+static void am43xx_save_context(void)
+{
+	common_save_context();
+	am43xx_control_save_context();
+}
+
+static void am43xx_restore_context(void)
+{
+	common_restore_context();
+	am43xx_control_restore_context();
+	am43xx_push_sram_idle();
+	/*
+	 * HACK: restore dpll_per_clkdcoldo register contents, to avoid
+	 * breaking suspend-resume
+	 */
+	writel_relaxed(0x0, AM33XX_L4_WK_IO_ADDRESS(0x44df2e14));
+}
+
+int am33xx_rtc_only_idle(long unsigned int unused)
+{
+	rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, rtc_magic_val);
+	omap_rtc_power_off_program();
+	am33xx_do_wfi_sram(&susp_params);
+	return 0;
+}
+
 static int am33xx_pm_suspend(unsigned int state)
 {
 	int i, ret = 0;
 	int status = 0;
+	int rtc_only_idle = 0;
 	struct wkup_m3_wakeup_src wakeup_src = {.irq_nr = 0,
 						.src = "Unknown",};
 
@@ -114,8 +224,21 @@ static int am33xx_pm_suspend(unsigned int state)
 
 	am33xx_pm->ops->pre_suspend(state);
 
-	ret = cpu_suspend((unsigned long int)&susp_params,
-			  am33xx_do_sram_idle);
+	if (state == PM_SUSPEND_MEM && enable_off_mode)
+		rtc_only_idle = 1;
+
+	if (rtc_only_idle) {
+		omap_hwmod_enable(rtc_oh);
+		am33xx_pm->ops->save_context();
+		susp_params.wfi_flags |= WFI_RTC_ONLY;
+		ret = cpu_suspend((long unsigned int) &susp_params,
+							am33xx_rtc_only_idle);
+		susp_params.wfi_flags &= ~WFI_RTC_ONLY;
+		if (!ret)
+			am33xx_pm->ops->restore_context();
+	} else
+		ret = cpu_suspend((long unsigned int) &susp_params,
+				  am33xx_do_sram_idle);
 
 	/*
 	 * Because gfx_pwrdm is the only one under MPU control,
@@ -154,7 +277,12 @@ static int am33xx_pm_suspend(unsigned int state)
 			ret = -1;
 		}
 		/* print the wakeup reason */
-		wkup_m3_wake_src(&wakeup_src);
+		if (rtc_only_idle) {
+			wakeup_src = rtc_wake_src();
+			omap_hwmod_idle(rtc_oh);
+		} else {
+			wkup_m3_wake_src(&wakeup_src);
+		}
 
 		pr_info("PM: Wakeup source %s\n", wakeup_src.src);
 	}
@@ -240,6 +368,10 @@ static int am33xx_pm_begin(suspend_state_t state)
 static void am33xx_pm_end(void)
 {
 	am33xx_m3_state_machine_reset();
+
+	if (retrigger_irq)
+		writel_relaxed(1 << (retrigger_irq & 31),
+			       gic_dist_base + 0x200 + retrigger_irq / 32 * 4);
 }
 
 static int am33xx_pm_valid(suspend_state_t state)
@@ -261,6 +393,54 @@ static const struct platform_suspend_ops am33xx_pm_ops = {
 };
 #endif /* CONFIG_SUSPEND */
 
+static void am33xx_scale_data_fw_cb(const struct firmware *fw, void *context)
+{
+	unsigned long val, aux_base;
+	struct wkup_m3_scale_data_header hdr;
+
+	if (!fw) {
+		pr_info("PM: Voltage scale fw name given but file missing.\n");
+		return;
+	}
+
+	memcpy(&hdr, fw->data, sizeof(hdr));
+
+	if (hdr.magic != WKUP_M3_SD_FW_MAGIC) {
+		pr_info("PM: Voltage Scale Data binary does not appear valid.\n");
+		goto release_sd_fw;
+	}
+
+	aux_base = wkup_m3_copy_aux_data(fw->data + sizeof(hdr),
+					 fw->size - sizeof(hdr));
+
+	val = (aux_base + hdr.sleep_offset);
+	val |= ((aux_base + hdr.wake_offset) << 16);
+
+	am33xx_pm->ipc.reg5 = val;
+
+release_sd_fw:
+	release_firmware(fw);
+};
+
+static int __init
+am33xx_init_scale_data(struct device *dev, const char *sd_fw_name)
+{
+	int ret = 0;
+
+	/*
+	 * If no name is provided, user has already been warned, pm will
+	 * still work so return 0
+	 */
+	if (!sd_fw_name)
+		return ret;
+
+	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
+			sd_fw_name, dev, GFP_KERNEL, NULL,
+			am33xx_scale_data_fw_cb);
+
+	return ret;
+}
+
 static void am33xx_txev_handler(void)
 {
 	switch (am33xx_pm->state) {
@@ -280,8 +460,10 @@ static void am33xx_txev_handler(void)
 	}
 }
 
-static void am33xx_m3_ready_cb(void)
+static void am33xx_m3_ready_cb(struct device *m3_dev)
 {
+	int ret;
+
 	am33xx_pm->ver = wkup_m3_fw_version_read();
 
 	if (am33xx_pm->ver == M3_VERSION_UNKNOWN ||
@@ -298,6 +480,10 @@ static void am33xx_m3_ready_cb(void)
 		am33xx_idle_init(susp_params.wfi_flags & WFI_MEM_TYPE_DDR3);
 	else if (soc_is_am437x())
 		am437x_idle_init();
+
+	ret = am33xx_init_scale_data(m3_dev, am33xx_pm->sd_fw_name);
+	if (ret)
+		pr_err("PM: Cannot load voltage scaling data blob: %d\n", ret);
 
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&am33xx_pm_ops);
@@ -349,6 +535,15 @@ static int __init am43xx_map_scu(void)
 	return 0;
 }
 
+static int __init am43xx_map_gic(void)
+{
+	gic_dist_base = ioremap(AM43XX_GIC_DIST_BASE, SZ_4K);
+
+	if (!gic_dist_base)
+		return -ENOMEM;
+
+	return 0;
+}
 
 static int am33xx_suspend_init(void)
 {
@@ -384,6 +579,12 @@ static int am43xx_suspend_init(void)
 	if (ret) {
 			pr_err("PM: Could not ioremap SCU\n");
 			return ret;
+	}
+
+	ret = am43xx_map_gic();
+	if (ret) {
+		pr_err("PM: Could not ioremap GIC\n");
+		return ret;
 	}
 
 	susp_params.l2_base_virt = omap4_get_l2cache_base();
@@ -440,12 +641,16 @@ static struct am33xx_pm_ops am33xx_ops = {
 	.init = am33xx_suspend_init,
 	.pre_suspend = am33xx_pre_suspend,
 	.post_suspend = am33xx_post_suspend,
+	.save_context = am33xx_save_context,
+	.restore_context = am33xx_restore_context,
 };
 
 static struct am33xx_pm_ops am43xx_ops = {
 	.init = am43xx_suspend_init,
 	.pre_suspend = am43xx_pre_suspend,
 	.post_suspend = am43xx_post_suspend,
+	.save_context = am43xx_save_context,
+	.restore_context = am43xx_restore_context,
 };
 #endif /* CONFIG_SUSPEND */
 #endif /* CONFIG_CPU_PM */
@@ -506,6 +711,7 @@ int __init am33xx_pm_init(void)
 	susp_params.wfi_flags = 0;
 	susp_params.emif_addr_virt = am33xx_emif_base;
 	susp_params.dram_sync = am33xx_dram_sync;
+	susp_params.rtc_base = omap_rtc_get_base_addr();
 
 	switch (temp) {
 	case MEM_TYPE_DDR2:
@@ -537,7 +743,14 @@ int __init am33xx_pm_init(void)
 
 		if (of_find_property(np, "ti,set-io-isolation", NULL))
 			am33xx_pm->ipc.reg4 |= (1 << IO_ISOLATION_STAT_SHIFT);
+
+		ret = of_property_read_string(np, "ti,scale-data-fw",
+					      &am33xx_pm->sd_fw_name);
+		if (ret) {
+			pr_warn("PM: Voltage scaling data blob not provided from DT.\n");
+		};
 	}
+
 #endif /* CONFIG_CPU_PM */
 
 	(void) clkdm_for_each(omap_pm_clkdms_setup, NULL);
@@ -549,10 +762,29 @@ int __init am33xx_pm_init(void)
 	else
 		pr_err("PM: Failed to get cefuse_pwrdm\n");
 
+	rtc_oh = omap_hwmod_lookup("rtc");
+	if (!rtc_oh) {
+		pr_err("PM: could not locate rtc hwmod\n");
+		ret = -ENOENT;
+		goto err;
+	}
+
 #ifdef CONFIG_CPU_PM
 	am33xx_pm->state = M3_STATE_RESET;
 
 	wkup_m3_set_ops(&am33xx_wkup_m3_ops);
+
+	pmx_dev = get_pinctrl_dev_from_devname("44e10800.pinmux");
+	omap_rtc = rtc_class_open("rtc0");
+
+	rtc_read_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, &rtc_magic_val);
+
+	if ((rtc_magic_val & 0xffff) != RTC_REG_BOOT_MAGIC)
+		pr_warn("PM: Bootloader does not support rtc-only mode!\n");
+
+	rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, 0);
+	rtc_write_scratch(omap_rtc, RTC_SCRATCH_RESUME_REG,
+			  virt_to_phys(cpu_resume));
 
 	return 0;
 

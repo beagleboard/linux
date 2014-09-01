@@ -696,6 +696,7 @@
 		dcdc3: regulator-dcdc3 {
 			compatible = "ti,tps65218-dcdc3";
 			regulator-name = "vdcdc3";
+			regulator-suspend-enable;
 			regulator-min-microvolt = <1350000>;
 			regulator-max-microvolt = <1350000>;
 			regulator-boot-on;
@@ -1052,8 +1053,13 @@
 	cpu0-supply = <&dcdc2>;
 };
 
+&rtc {
+        status = "okay";
+};
+
 &wkup_m3 {
 	ti,set-io-isolation;
+	ti,scale-data-fw = "am43x-evm-scale-data.bin";
 };
 
 &vpfe1 {

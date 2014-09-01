@@ -13,6 +13,8 @@
 #ifndef _LINUX_PLATFORM_DATA_WKUP_M3_H
 #define _LINUX_PLATFORM_DATA_WKUP_M3_H
 
+void wkup_m3_set_rtc_only_mode(void);
+
 struct wkup_m3_platform_data {
 	const char *reset_name;
 

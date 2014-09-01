@@ -21,6 +21,7 @@
 #include <linux/i2c.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#include <linux/notifier.h>
 
 /* TPS chip id list */
 #define TPS65217			0xF0
@@ -256,6 +257,9 @@ struct tps65217 {
 	struct regulator_desc desc[TPS65217_NUM_REGULATOR];
 	struct regulator_dev *rdev[TPS65217_NUM_REGULATOR];
 	struct regmap *regmap;
+
+	int write_status_off;
+	struct notifier_block reboot_notifier;
 };
 
 static inline struct tps65217 *dev_to_tps65217(struct device *dev)

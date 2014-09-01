@@ -29,7 +29,7 @@
 
 struct wkup_m3_ops {
 	void (*txev_handler)(void);
-	void (*rproc_ready)(void);
+	void (*rproc_ready)(struct device *dev);
 };
 
 struct wkup_m3_wakeup_src {
@@ -50,6 +50,7 @@ struct wkup_m3_ipc_regs {
 
 #ifdef CONFIG_WKUP_M3_RPROC
 int wkup_m3_prepare(void);
+unsigned long wkup_m3_copy_aux_data(const void *data, int sz);
 void wkup_m3_set_ops(struct wkup_m3_ops *ops);
 int wkup_m3_ping(void);
 void wkup_m3_wake_src(struct wkup_m3_wakeup_src *wakeup_src);
@@ -61,6 +62,8 @@ void wkup_m3_set_cmd(struct wkup_m3_ipc_regs *ipc_regs);
 #else
 
 static inline int wkup_m3_prepare(void) { return -EINVAL; }
+static inline
+unsigned long wkup_m3_copy_aux_data(void *data, int sz) { return -1; }
 static inline void wkup_m3_set_ops(struct wkup_m3_ops *ops) { }
 static inline int wkup_m3_ping(void) { return -EINVAL }
 static inline void wkup_m3_wake_src(struct wkup_m3_wakeup_src *wakeup_src) { }

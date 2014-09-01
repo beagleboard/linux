@@ -24,6 +24,8 @@ struct am33xx_pm_ops {
 	int (*init)(void);
 	void (*pre_suspend)(unsigned int state);
 	void (*post_suspend)(unsigned int state);
+	void (*save_context)(void);
+	void (*restore_context)(void);
 };
 
 struct am33xx_pm_context {
@@ -33,6 +35,7 @@ struct am33xx_pm_context {
 	struct am33xx_pm_ops	*ops;
 	u8			state;
 	u32			ver;
+	const char		*sd_fw_name;
 };
 
 /*
@@ -46,6 +49,7 @@ struct am33xx_suspend_params {
 	void __iomem *emif_addr_virt;
 	u32 wfi_flags;
 	void __iomem *dram_sync;
+	void __iomem *rtc_base;
 	void __iomem *l2_base_virt;
 	void __iomem *cke_override_virt;
 };
@@ -53,9 +57,12 @@ struct am33xx_suspend_params {
 void wkup_m3_reset_data_pos(void);
 int wkup_m3_copy_data(const u8 *data, size_t size);
 int am33xx_do_sram_cpuidle(u32, u32);
+void omap_rtc_power_off_program(void);
+void __iomem *omap_rtc_get_base_addr(void);
 
 #endif /*__ASSEMBLER__ */
 
+#define IPC_CMD_RTC_ONLY		0x1
 #define	IPC_CMD_DS0			0x4
 #define	IPC_CMD_STANDBY			0xc
 #define	IPC_CMD_IDLE			0xd
@@ -97,6 +104,7 @@ int am33xx_do_sram_cpuidle(u32, u32);
 #define WFI_SAVE_EMIF		(1 << 3)
 #define WFI_WAKE_M3		(1 << 4)
 #define WFI_DISABLE_EMIF	(1 << 7)
+#define WFI_RTC_ONLY		(1 << 8)
 
 /*
  * 9-4 = VTT GPIO PIN (6 Bits)
