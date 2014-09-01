@@ -42,8 +42,56 @@
 		#include "omap4-cpu-thermal.dtsi"
 	};
 
+	aliases {
+		rproc0 = &ipu1;
+		rproc1 = &ipu2;
+		rproc2 = &dsp1;
+	};
+
 	pmu {
 		compatible = "arm,cortex-a15-pmu";
 		interrupts = <GIC_SPI DIRECT_IRQ(131) IRQ_TYPE_LEVEL_HIGH>;
+	};
+};
+
+&mailbox1 {
+	mbox_ipu2: mbox_ipu2 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+	mbox_dsp1: mbox_dsp1 {
+		ti,mbox-tx = <3 0 0>;
+		ti,mbox-rx = <2 0 0>;
+		status = "disabled";
+	};
+};
+
+&mailbox2 {
+	mbox_ipu1: mbox_ipu1 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+};
+
+&mailbox5 {
+	mbox_ipu1_legacy: mbox_ipu1_legacy {
+		ti,mbox-tx = <6 2 2>;
+		ti,mbox-rx = <4 2 2>;
+		status = "disabled";
+	};
+	mbox_dsp1_legacy: mbox_dsp1_legacy {
+		ti,mbox-tx = <5 2 2>;
+		ti,mbox-rx = <1 2 2>;
+		status = "disabled";
+	};
+};
+
+&mailbox6 {
+	mbox_ipu2_legacy: mbox_ipu2_legacy {
+		ti,mbox-tx = <6 2 2>;
+		ti,mbox-rx = <4 2 2>;
+		status = "disabled";
 	};
 };

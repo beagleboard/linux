@@ -62,6 +62,23 @@
 #define OMAP_IOMMU_ERR_TBLWALK_FAULT	(1 << 3)
 #define OMAP_IOMMU_ERR_MULTIHIT_FAULT	(1 << 4)
 
+static void dra7_cfg_dspsys_mmu(struct omap_iommu *obj, bool enable)
+{
+	u32 val, mask;
+
+	if (!obj->syscfgbase)
+		return;
+
+	val = __raw_readl(obj->syscfgbase + DSP_SYS_MMU_CONFIG);
+	mask = (1 << (obj->id * DSP_SYS_MMU_EN_SHIFT));
+	if (enable)
+		val |= mask;
+	else
+		val &= ~mask;
+
+	__raw_writel(val, obj->syscfgbase + DSP_SYS_MMU_CONFIG);
+}
+
 static void __iommu_set_twl(struct omap_iommu *obj, bool on)
 {
 	u32 l = iommu_read_reg(obj, MMU_CNTL);
@@ -98,6 +115,8 @@ static int omap2_iommu_enable(struct omap_iommu *obj)
 
 	iommu_write_reg(obj, pa, MMU_TTB);
 
+	dra7_cfg_dspsys_mmu(obj, true);
+
 	if (obj->has_bus_err_back)
 		iommu_write_reg(obj, MMU_GP_REG_BUS_ERR_BACK_EN, MMU_GP_REG);
 
@@ -112,6 +131,7 @@ static void omap2_iommu_disable(struct omap_iommu *obj)
 
 	l &= ~MMU_CNTL_MASK;
 	iommu_write_reg(obj, l, MMU_CNTL);
+	dra7_cfg_dspsys_mmu(obj, false);
 
 	dev_dbg(obj->dev, "%s is shutting down\n", obj->name);
 }

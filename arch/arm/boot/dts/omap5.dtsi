@@ -32,6 +32,8 @@
 		serial3 = &uart4;
 		serial4 = &uart5;
 		serial5 = &uart6;
+		rproc0 = &dsp;
+		rproc1 = &ipu;
 	};
 
 	cpus {
@@ -755,6 +757,22 @@
 			reg = <0x4ae14000 0x80>;
 			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "wd_timer2";
+		};
+
+		dsp: dsp {
+			compatible = "ti,omap5-rproc-dsp";
+			ti,hwmods = "dsp";
+			iommus = <&mmu_dsp>;
+			mboxes = <&mailbox &mbox_dsp>;
+			status = "disabled";
+		};
+
+		ipu: ipu {
+			compatible = "ti,omap5-rproc-ipu";
+			ti,hwmods = "ipu";
+			iommus = <&mmu_ipu>;
+			mboxes = <&mailbox &mbox_ipu>;
+			status = "disabled";
 		};
 
 		dmm@4e000000 {

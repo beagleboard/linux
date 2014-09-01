@@ -236,10 +236,29 @@ void omap3_ctrl_write_boot_mode(u8 bootmode)
  */
 void omap_ctrl_write_dsp_boot_addr(u32 bootaddr)
 {
+	dra7_ctrl_write_dsp_boot_addr(bootaddr, 0);
+}
+
+/**
+ * dra7_ctrl_write_dsp_boot_addr - set boot address for a dsp remote processor
+ * @bootaddr: physical address of the boot loader
+ * @inst: instance index of the DSP (applicable only for DRA7xx)
+ *
+ * Set boot address for the boot loader of a supported processor
+ * when a power ON sequence occurs.
+ *
+ * DRA7xx has different register bitfields compared to previous OMAP
+ * generations, retain the number of DSP instances while configuring
+ * the reset vector address.
+ */
+void dra7_ctrl_write_dsp_boot_addr(u32 bootaddr, u32 inst)
+{
+	u32 addr = bootaddr;
 	u32 offset = cpu_is_omap243x() ? OMAP243X_CONTROL_IVA2_BOOTADDR :
 		     cpu_is_omap34xx() ? OMAP343X_CONTROL_IVA2_BOOTADDR :
 		     cpu_is_omap44xx() ? OMAP4_CTRL_MODULE_CORE_DSP_BOOTADDR :
 		     soc_is_omap54xx() ? OMAP4_CTRL_MODULE_CORE_DSP_BOOTADDR :
+		     soc_is_dra7xx() ? DRA7XX_CTRL_CORE_CONTROL_DSP1_RST_VECT :
 		     0;
 
 	if (!offset) {
@@ -247,7 +266,15 @@ void omap_ctrl_write_dsp_boot_addr(u32 bootaddr)
 		return;
 	}
 
-	omap_ctrl_writel(bootaddr, offset);
+	if (soc_is_dra7xx()) {
+		if (inst)
+			offset += 0x4;
+		addr = omap_ctrl_readl(offset);
+		addr &= ~DRA7XX_CTRL_CORE_DSP_RST_VECT_MASK;
+		addr |= (bootaddr >> DRA7XX_CTRL_CORE_DSP_RST_VECT_SHIFT);
+	}
+
+	omap_ctrl_writel(addr, offset);
 }
 
 /**
