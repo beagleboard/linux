@@ -45,9 +45,9 @@
 		};
 	};
 
-	mmc2_3v3: fixedregulator-mmc2 {
+	evm_3v3: fixedregulator-evm_3v3 {
 		compatible = "regulator-fixed";
-		regulator-name = "mmc2_3v3";
+		regulator-name = "evm_3v3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 	};
@@ -201,7 +201,7 @@
 &mmc2 {
 	/* Using default configured pins */
 	status = "okay";
-	vmmc-supply = <&mmc2_3v3>;
+	vmmc-supply = <&evm_3v3>;
 	bus-width = <8>;
 	ti,non-removable;
 };

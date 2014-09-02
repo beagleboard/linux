@@ -514,7 +514,6 @@ int __init of_prcm_module_init(struct of_device_id *match_table)
 		mem = of_iomap(np, 0);
 		clk_memmaps[prcm_memmap_index] = mem;
 		ti_dt_clk_init_provider(np, prcm_memmap_index);
-		ti_dt_clockdomains_setup(np);
 		prcm_memmap_index++;
 	}
 
