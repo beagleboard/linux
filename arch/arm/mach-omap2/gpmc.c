@@ -205,11 +205,6 @@ static unsigned long gpmc_get_fclk_period(void)
 {
 	unsigned long rate = clk_get_rate(gpmc_l3_clk);
 
-	if (rate == 0) {
-		printk(KERN_WARNING "gpmc_l3_clk not enabled\n");
-		return 0;
-	}
-
 	rate /= 1000;
 	rate = 1000000000 / rate;	/* In picoseconds */
 
@@ -1213,8 +1208,7 @@ int gpmc_cs_program_settings(int cs, struct gpmc_settings *p)
 		}
 	}
 
-	if ((p->wait_on_read || p->wait_on_write) &&
-	    (p->wait_pin > gpmc_nr_waitpins)) {
+	if (p->wait_pin > gpmc_nr_waitpins) {
 		pr_err("%s: invalid wait-pin (%d)\n", __func__, p->wait_pin);
 		return -EINVAL;
 	}
@@ -1294,8 +1288,8 @@ void gpmc_read_settings_dt(struct device_node *np, struct gpmc_settings *p)
 		p->wait_on_write = of_property_read_bool(np,
 							 "gpmc,wait-on-write");
 		if (!p->wait_on_read && !p->wait_on_write)
-			pr_warn("%s: read/write wait monitoring not enabled!\n",
-				__func__);
+			pr_debug("%s: rd/wr wait monitoring not enabled!\n",
+				 __func__);
 	}
 }
 
@@ -1692,11 +1686,16 @@ static int gpmc_probe(struct platform_device *pdev)
 	else
 		gpmc_irq = res->start;
 
-	gpmc_l3_clk = clk_get(&pdev->dev, "fck");
+	gpmc_l3_clk = devm_clk_get(&pdev->dev, "fck");
 	if (IS_ERR(gpmc_l3_clk)) {
-		dev_err(&pdev->dev, "error: clk_get\n");
+		dev_err(&pdev->dev, "Failed to get GPMC fck\n");
 		gpmc_irq = 0;
 		return PTR_ERR(gpmc_l3_clk);
+	}
+
+	if (!clk_get_rate(gpmc_l3_clk)) {
+		dev_err(&pdev->dev, "Invalid GPMC fck clock rate\n");
+		return -EINVAL;
 	}
 
 	pm_runtime_enable(&pdev->dev);
@@ -1741,7 +1740,6 @@ static int gpmc_probe(struct platform_device *pdev)
 	rc = gpmc_probe_dt(pdev);
 	if (rc < 0) {
 		pm_runtime_put_sync(&pdev->dev);
-		clk_put(gpmc_l3_clk);
 		dev_err(gpmc_dev, "failed to probe DT parameters\n");
 		return rc;
 	}
