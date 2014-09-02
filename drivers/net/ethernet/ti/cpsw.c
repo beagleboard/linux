@@ -1602,7 +1602,7 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	struct net_switch_config config;
-	int ret = -EFAULT;
+	int ret = 0;
 
 	if (priv->data.dual_emac) {
 		dev_err(priv->dev, "CPSW not in switch mode\n");
@@ -1615,7 +1615,7 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 	 */
 
 	if (copy_from_user(&config, (ifrq->ifr_data), sizeof(config)))
-		return ret;
+		return -EFAULT;
 
 	if (config.vid > 4095) {
 		dev_err(priv->dev, "Invalid VLAN Arguments for cmd %d\n",
@@ -1699,6 +1699,28 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 		ret = copy_to_user(ifrq->ifr_data, &config, sizeof(config));
 		break;
 	}
+	case CONFIG_SWITCH_ADD_UNKNOWN_VLAN_INFO:
+		if ((config.unknown_vlan_member <= 7) &&
+		    (config.unknown_vlan_untag <= 7) &&
+		    (config.unknown_vlan_unreg_multi <= 7) &&
+		    (config.unknown_vlan_reg_multi <= 7)) {
+			cpsw_ale_control_set(priv->ale, 0,
+					     ALE_PORT_UNTAGGED_EGRESS,
+					     config.unknown_vlan_untag);
+			cpsw_ale_control_set(priv->ale, 0,
+					     ALE_PORT_UNKNOWN_REG_MCAST_FLOOD,
+					     config.unknown_vlan_reg_multi);
+			cpsw_ale_control_set(priv->ale, 0,
+					     ALE_PORT_UNKNOWN_MCAST_FLOOD,
+					     config.unknown_vlan_unreg_multi);
+			cpsw_ale_control_set(priv->ale, 0,
+					     ALE_PORT_UNKNOWN_VLAN_MEMBER,
+					     config.unknown_vlan_member);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments\n");
+			ret = -EINVAL;
+		}
+		break;
 
 	default:
 		ret = -EOPNOTSUPP;
