@@ -71,6 +71,10 @@ static void unpin_worker(struct drm_flip_work *work, void *val)
 			container_of(work, struct omap_plane, unpin_work);
 	struct drm_device *dev = omap_plane->base.dev;
 
+	/*
+	 * omap_framebuffer_pin/unpin are always called from priv->wq,
+	 * so there's no need for locking here.
+	 */
 	omap_framebuffer_unpin(val);
 	mutex_lock(&dev->mode_config.mutex);
 	drm_framebuffer_unreference(val);
@@ -142,8 +146,8 @@ static void omap_plane_pre_apply(struct omap_drm_apply *apply)
 	DBG("%dx%d -> %dx%d (%d)", info->width, info->height,
 			info->out_width, info->out_height,
 			info->screen_width);
-	DBG("%d,%d %08x %08x", info->pos_x, info->pos_y,
-			info->paddr, info->p_uv_addr);
+	DBG("%d,%d %pad %pad", info->pos_x, info->pos_y,
+			&info->paddr, &info->p_uv_addr);
 
 	/* TODO: */
 	ilace = false;
@@ -225,11 +229,6 @@ int omap_plane_mode_set(struct drm_plane *plane,
 		omap_plane->apply_done_cb.arg = arg;
 	}
 
-	if (plane->fb)
-		drm_framebuffer_unreference(plane->fb);
-
-	drm_framebuffer_reference(fb);
-
 	plane->fb = fb;
 	plane->crtc = crtc;
 
@@ -245,6 +244,11 @@ static int omap_plane_update(struct drm_plane *plane,
 {
 	struct omap_plane *omap_plane = to_omap_plane(plane);
 	omap_plane->enabled = true;
+
+	if (plane->fb)
+		drm_framebuffer_unreference(plane->fb);
+
+	drm_framebuffer_reference(fb);
 
 	/* omap_plane_mode_set() takes adjusted src */
 	switch (omap_plane->win.rotation & 0xf) {

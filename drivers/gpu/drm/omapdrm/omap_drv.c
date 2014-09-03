@@ -286,14 +286,13 @@ static int omap_modeset_init(struct drm_device *dev)
 		for (id = 0; id < priv->num_crtcs; id++) {
 			struct drm_crtc *crtc = priv->crtcs[id];
 			enum omap_channel crtc_channel;
-			enum omap_dss_output_id supported_outputs;
 
 			crtc_channel = omap_crtc_channel(crtc);
-			supported_outputs =
-				dss_feat_get_supported_outputs(crtc_channel);
 
-			if (supported_outputs & output->id)
+			if (output->dispc_channel == crtc_channel) {
 				encoder->possible_crtcs |= (1 << id);
+				break;
+			}
 		}
 
 		omap_dss_put_device(output);
@@ -597,7 +596,20 @@ static void dev_lastclose(struct drm_device *dev)
 
 static void dev_preclose(struct drm_device *dev, struct drm_file *file)
 {
+	struct omap_drm_private *priv = dev->dev_private;
+	int i;
+
 	DBG("preclose: dev=%p", dev);
+
+	/*
+	 * Flush crtcs to finish any pending work.
+	 * Note: this may not be correct if there are multiple applications
+	 * using the drm device, and could possibly result in a timeout from
+	 * omap_crtc_flush() if an other application is actively queuing new
+	 * work.
+	 */
+	for (i = 0; i < priv->num_crtcs; i++)
+		omap_crtc_flush(priv->crtcs[i]);
 }
 
 static void dev_postclose(struct drm_device *dev, struct drm_file *file)

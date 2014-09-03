@@ -47,6 +47,9 @@ struct omap_crtc {
 	bool enabled;
 	bool full_update;
 
+	/* tracks the state of GO bit between irq handler and apply worker */
+	bool go_bit_set;
+
 	struct omap_drm_apply apply;
 
 	struct omap_drm_irq apply_irq;
@@ -274,8 +277,13 @@ static void omap_crtc_prepare(struct drm_crtc *crtc)
 static void omap_crtc_commit(struct drm_crtc *crtc)
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+	struct drm_device *dev = crtc->dev;
 	DBG("%s", omap_crtc->name);
 	omap_crtc_dpms(crtc, DRM_MODE_DPMS_ON);
+
+	drm_modeset_unlock_all(dev);
+	omap_crtc_flush(crtc);
+	drm_modeset_lock_all(dev);
 }
 
 static int omap_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
@@ -359,7 +367,7 @@ static int omap_crtc_page_flip_locked(struct drm_crtc *crtc,
 	if (omap_crtc->old_fb) {
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 		dev_err(dev->dev, "already a pending flip\n");
-		return -EINVAL;
+		return -EBUSY;
 	}
 
 	omap_crtc->event = event;
@@ -441,11 +449,16 @@ static void omap_crtc_apply_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 	if (!omap_crtc->error_irq.registered)
 		__omap_irq_register(crtc->dev, &omap_crtc->error_irq);
 
-	if (!dispc_mgr_go_busy(omap_crtc->channel)) {
+	/* make sure we see the most recent 'go_bit_set' */
+	rmb();
+	if (omap_crtc->go_bit_set && !dispc_mgr_go_busy(omap_crtc->channel)) {
 		struct omap_drm_private *priv =
 				crtc->dev->dev_private;
 		DBG("%s: apply done", omap_crtc->name);
 		__omap_irq_unregister(crtc->dev, &omap_crtc->apply_irq);
+		omap_crtc->go_bit_set = false;
+		/* make sure apple_worker sees 'go_bit_set = false' */
+		wmb();
 		queue_work(priv->wq, &omap_crtc->apply_work);
 	}
 }
@@ -471,7 +484,9 @@ static void apply_worker(struct work_struct *work)
 	 * If we are still pending a previous update, wait.. when the
 	 * pending update completes, we get kicked again.
 	 */
-	if (omap_crtc->apply_irq.registered)
+	/* make sure we see the most recent 'go_bit_set' */
+	rmb();
+	if (omap_crtc->go_bit_set)
 		goto out;
 
 	/* finish up previous apply's: */
@@ -501,6 +516,9 @@ static void apply_worker(struct work_struct *work)
 		if (dispc_mgr_is_enabled(channel)) {
 			omap_irq_register(dev, &omap_crtc->apply_irq);
 			dispc_mgr_go(channel);
+			omap_crtc->go_bit_set = true;
+			/* make sure the irq handler sees 'go_bit_set' */
+			wmb();
 		} else {
 			struct omap_drm_private *priv = dev->dev_private;
 			queue_work(priv->wq, &omap_crtc->apply_work);
@@ -636,21 +654,42 @@ static void omap_crtc_post_apply(struct omap_drm_apply *apply)
 	/* nothing needed for post-apply */
 }
 
+static bool omap_crtc_work_pending(struct omap_crtc *omap_crtc)
+{
+	return !list_empty(&omap_crtc->pending_applies) ||
+		!list_empty(&omap_crtc->queued_applies) ||
+		omap_crtc->event || omap_crtc->old_fb;
+}
+
+/*
+ * Wait for any work on the workqueue to be finished, and any work which will
+ * be run via vsync irq to be done.
+ *
+ * Note that work on workqueue could schedule new vsync work, and vice versa.
+ */
 void omap_crtc_flush(struct drm_crtc *crtc)
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+	struct omap_drm_private *priv = crtc->dev->dev_private;
 	int loops = 0;
 
-	while (!list_empty(&omap_crtc->pending_applies) ||
-		!list_empty(&omap_crtc->queued_applies) ||
-		omap_crtc->event || omap_crtc->old_fb) {
+	while (true) {
+		/* first flush the wq, so that any scheduled work is done */
+		flush_workqueue(priv->wq);
+
+		/* if we have nothing queued for this crtc, we're done */
+		if (!omap_crtc_work_pending(omap_crtc))
+			break;
 
 		if (++loops > 10) {
-			dev_err(crtc->dev->dev,
-				"omap_crtc_flush() timeout\n");
+			dev_err(crtc->dev->dev, "omap_crtc_flush() timeout\n");
 			break;
 		}
 
+		/*
+		 * wait for a bit so that a vsync has (probably) happened, and
+		 * that the crtc work is (probably) done.
+		 */
 		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
 	}
 }

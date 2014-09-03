@@ -30,6 +30,8 @@ struct tilcdc_crtc {
 	int dpms;
 	wait_queue_head_t frame_done_wq;
 	bool frame_done;
+	spinlock_t irq_lock;
+	int dma_completed_channel;
 
 	/* fb currently set to scanout 0/1: */
 	struct drm_framebuffer *scanout[2];
@@ -37,6 +39,10 @@ struct tilcdc_crtc {
 	/* for deferred fb unref's: */
 	struct drm_flip_work unref_work;
 };
+
+static vsync_callback_t vsync_cb_handler;
+static void *vsync_cb_arg;
+
 #define to_tilcdc_crtc(x) container_of(x, struct tilcdc_crtc, base)
 
 static void unref_worker(struct drm_flip_work *work, void *val)
@@ -98,10 +104,23 @@ static void update_scanout(struct drm_crtc *crtc)
 			(crtc->mode.vdisplay * fb->pitches[0]);
 
 	if (tilcdc_crtc->dpms == DRM_MODE_DPMS_ON) {
-		/* already enabled, so just mark the frames that need
-		 * updating and they will be updated on vblank:
+		/*
+		 * already enabled, so just mark the frames that need
+		 * updating and they will be updated on vblank
+		 * and update the inactive DMA channel immediately
+		 * to avoid any tearing due to the DMA already starting
+		 * on the pending dma buffer when we hit the vblank IRQ
 		 */
-		tilcdc_crtc->dirty |= LCDC_END_OF_FRAME0 | LCDC_END_OF_FRAME1;
+		if (tilcdc_crtc->dma_completed_channel == 0) {
+			tilcdc_crtc->dirty |= LCDC_END_OF_FRAME1;
+			set_scanout(crtc, 0);
+		}
+
+		if (tilcdc_crtc->dma_completed_channel == 1) {
+			tilcdc_crtc->dirty |= LCDC_END_OF_FRAME0;
+			set_scanout(crtc, 1);
+		}
+
 		drm_vblank_get(dev, 0);
 	} else {
 		/* not enabled yet, so update registers immediately: */
@@ -607,12 +626,39 @@ out:
 	pm_runtime_put_sync(dev->dev);
 }
 
+int register_vsync_cb(vsync_callback_t handler, void *arg, int idx)
+{
+	if ((vsync_cb_handler == NULL) && (vsync_cb_arg == NULL)) {
+		vsync_cb_arg = arg;
+		vsync_cb_handler = handler;
+	} else {
+		return -EEXIST;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(register_vsync_cb);
+
+int unregister_vsync_cb(vsync_callback_t handler, void *arg, int idx)
+{
+	if ((vsync_cb_handler == handler) && (vsync_cb_arg == arg)) {
+		vsync_cb_handler = NULL;
+		vsync_cb_arg = NULL;
+	} else {
+		return -ENXIO;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(unregister_vsync_cb);
+
 irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 {
 	struct tilcdc_crtc *tilcdc_crtc = to_tilcdc_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
 	struct tilcdc_drm_private *priv = dev->dev_private;
 	uint32_t stat = tilcdc_read_irqstatus(dev);
+	unsigned long irq_flags;
 
 	if ((stat & LCDC_SYNC_LOST) && (stat & LCDC_FIFO_UNDERFLOW)) {
 		stop(crtc);
@@ -628,11 +674,19 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 
 		tilcdc_clear_irqstatus(dev, stat);
 
-		if (dirty & LCDC_END_OF_FRAME0)
-			set_scanout(crtc, 0);
+		spin_lock_irqsave(&tilcdc_crtc->irq_lock, irq_flags);
 
-		if (dirty & LCDC_END_OF_FRAME1)
+		if (dirty & LCDC_END_OF_FRAME0) {
+			set_scanout(crtc, 0);
+			tilcdc_crtc->dma_completed_channel = 0;
+		}
+
+		if (dirty & LCDC_END_OF_FRAME1) {
 			set_scanout(crtc, 1);
+			tilcdc_crtc->dma_completed_channel = 1;
+		}
+
+		spin_unlock_irqrestore(&tilcdc_crtc->irq_lock, irq_flags);
 
 		drm_handle_vblank(dev, 0);
 
@@ -641,6 +695,10 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 		tilcdc_crtc->event = NULL;
 		if (event)
 			drm_send_vblank_event(dev, 0, event);
+
+		if (vsync_cb_handler)
+			vsync_cb_handler(vsync_cb_arg);
+
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 
 		if (dirty && !tilcdc_crtc->dirty)
@@ -703,6 +761,8 @@ struct drm_crtc *tilcdc_crtc_create(struct drm_device *dev)
 		dev_err(dev->dev, "could not allocate unref FIFO\n");
 		goto fail;
 	}
+
+	spin_lock_init(&tilcdc_crtc->irq_lock);
 
 	ret = drm_crtc_init(dev, crtc, &tilcdc_crtc_funcs);
 	if (ret < 0)
