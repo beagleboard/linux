@@ -654,21 +654,42 @@ static void omap_crtc_post_apply(struct omap_drm_apply *apply)
 	/* nothing needed for post-apply */
 }
 
+static bool omap_crtc_work_pending(struct omap_crtc *omap_crtc)
+{
+	return !list_empty(&omap_crtc->pending_applies) ||
+		!list_empty(&omap_crtc->queued_applies) ||
+		omap_crtc->event || omap_crtc->old_fb;
+}
+
+/*
+ * Wait for any work on the workqueue to be finished, and any work which will
+ * be run via vsync irq to be done.
+ *
+ * Note that work on workqueue could schedule new vsync work, and vice versa.
+ */
 void omap_crtc_flush(struct drm_crtc *crtc)
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+	struct omap_drm_private *priv = crtc->dev->dev_private;
 	int loops = 0;
 
-	while (!list_empty(&omap_crtc->pending_applies) ||
-		!list_empty(&omap_crtc->queued_applies) ||
-		omap_crtc->event || omap_crtc->old_fb) {
+	while (true) {
+		/* first flush the wq, so that any scheduled work is done */
+		flush_workqueue(priv->wq);
+
+		/* if we have nothing queued for this crtc, we're done */
+		if (!omap_crtc_work_pending(omap_crtc))
+			break;
 
 		if (++loops > 10) {
-			dev_err(crtc->dev->dev,
-				"omap_crtc_flush() timeout\n");
+			dev_err(crtc->dev->dev, "omap_crtc_flush() timeout\n");
 			break;
 		}
 
+		/*
+		 * wait for a bit so that a vsync has (probably) happened, and
+		 * that the crtc work is (probably) done.
+		 */
 		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
 	}
 }
