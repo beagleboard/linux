@@ -202,9 +202,15 @@ int pll_calc_and_check_clock_rates(struct pll_data *pll,
 	if (params->regm2)
 		params->clkoutldo = params->clkout / params->regm2;
 
+	/*
+	 * HACK: The check below looks correct, but it prevents the current
+	 * driver from functioning when the pixel clock is very low.
+	 */
+	/*
 	if (pll->type == DSS_PLL_TYPE_HDMI && feats->selfreqdco &&
 			params->clkout < feats->dco_range1_min)
 		return -EINVAL;
+	*/
 
 	for (i = 0; i < 4; i++) {
 		if (params->regm_hsdiv[i] > 0)
