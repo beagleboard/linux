@@ -376,7 +376,7 @@ int pll_set_clock_div(struct pll_data *pll, struct pll_params *params)
 		f = params->clkout < feats->dco_range1_max &&
 			params->clkout < feats->dco_range2_min ? 0x2 : 0x4;
 
-		l = FLD_MOD(l, f, 4, 1);	/* PLL_SELFREQDCO */
+		l = FLD_MOD(l, f, 3, 1);	/* PLL_SELFREQDCO */
 	}
 
 	l = FLD_MOD(l, 1, 13, 13);		/* PLL_REFEN */
