@@ -47,6 +47,9 @@ struct omap_crtc {
 	bool enabled;
 	bool full_update;
 
+	/* tracks the state of GO bit between irq handler and apply worker */
+	bool go_bit_set;
+
 	struct omap_drm_apply apply;
 
 	struct omap_drm_irq apply_irq;
@@ -441,11 +444,16 @@ static void omap_crtc_apply_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 	if (!omap_crtc->error_irq.registered)
 		__omap_irq_register(crtc->dev, &omap_crtc->error_irq);
 
-	if (!dispc_mgr_go_busy(omap_crtc->channel)) {
+	/* make sure we see the most recent 'go_bit_set' */
+	rmb();
+	if (omap_crtc->go_bit_set && !dispc_mgr_go_busy(omap_crtc->channel)) {
 		struct omap_drm_private *priv =
 				crtc->dev->dev_private;
 		DBG("%s: apply done", omap_crtc->name);
 		__omap_irq_unregister(crtc->dev, &omap_crtc->apply_irq);
+		omap_crtc->go_bit_set = false;
+		/* make sure apple_worker sees 'go_bit_set = false' */
+		wmb();
 		queue_work(priv->wq, &omap_crtc->apply_work);
 	}
 }
@@ -471,7 +479,9 @@ static void apply_worker(struct work_struct *work)
 	 * If we are still pending a previous update, wait.. when the
 	 * pending update completes, we get kicked again.
 	 */
-	if (omap_crtc->apply_irq.registered)
+	/* make sure we see the most recent 'go_bit_set' */
+	rmb();
+	if (omap_crtc->go_bit_set)
 		goto out;
 
 	/* finish up previous apply's: */
@@ -501,6 +511,9 @@ static void apply_worker(struct work_struct *work)
 		if (dispc_mgr_is_enabled(channel)) {
 			omap_irq_register(dev, &omap_crtc->apply_irq);
 			dispc_mgr_go(channel);
+			omap_crtc->go_bit_set = true;
+			/* make sure the irq handler sees 'go_bit_set' */
+			wmb();
 		} else {
 			struct omap_drm_private *priv = dev->dev_private;
 			queue_work(priv->wq, &omap_crtc->apply_work);
