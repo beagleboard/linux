@@ -30,3 +30,4 @@
 
 /* Display */
 #include "am335x-boneblack-nxp-hdmi-audio.dtsi"
+/* #include "am335x-boneblack-nxp-hdmi-no-audio.dtsi" */
