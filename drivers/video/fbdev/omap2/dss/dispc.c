@@ -3092,9 +3092,9 @@ unsigned long dispc_mgr_lclk_rate(enum omap_channel channel)
 
 		case OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DISPC:
 			if (dispc.feat->alt_clk_dsi_pll)
-				pll = dsi_get_pll_data_from_id(0);
+				pll = dsi_get_pll_data_from_id(1);
 			else
-				pll = dss_dpll_get_pll_data(0);
+				pll = dss_dpll_get_pll_data(1);
 
 			r = pll_get_hsdiv_rate(pll, 0);
 			break;
