@@ -193,53 +193,22 @@ static bool tpd_detect(struct omap_dss_device *dssdev)
 	return gpio_get_value_cansleep(ddata->hpd_gpio);
 }
 
-static int tpd_audio_enable(struct omap_dss_device *dssdev)
+static int tpd_set_infoframe(struct omap_dss_device *dssdev,
+		const struct hdmi_avi_infoframe *avi)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
-	return in->ops.hdmi->audio_enable(in);
+	return in->ops.hdmi->set_infoframe(in, avi);
 }
 
-static void tpd_audio_disable(struct omap_dss_device *dssdev)
+static int tpd_set_hdmi_mode(struct omap_dss_device *dssdev,
+		bool hdmi_mode)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
 
-	in->ops.hdmi->audio_disable(in);
-}
-
-static int tpd_audio_start(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	return in->ops.hdmi->audio_start(in);
-}
-
-static void tpd_audio_stop(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	in->ops.hdmi->audio_stop(in);
-}
-
-static bool tpd_audio_supported(struct omap_dss_device *dssdev)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	return in->ops.hdmi->audio_supported(in);
-}
-
-static int tpd_audio_config(struct omap_dss_device *dssdev,
-		struct omap_dss_audio *audio)
-{
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	struct omap_dss_device *in = ddata->in;
-
-	return in->ops.hdmi->audio_config(in, audio);
+	return in->ops.hdmi->set_hdmi_mode(in, hdmi_mode);
 }
 
 static const struct omapdss_hdmi_ops tpd_hdmi_ops = {
@@ -255,13 +224,8 @@ static const struct omapdss_hdmi_ops tpd_hdmi_ops = {
 
 	.read_edid		= tpd_read_edid,
 	.detect			= tpd_detect,
-
-	.audio_enable		= tpd_audio_enable,
-	.audio_disable		= tpd_audio_disable,
-	.audio_start		= tpd_audio_start,
-	.audio_stop		= tpd_audio_stop,
-	.audio_supported	= tpd_audio_supported,
-	.audio_config		= tpd_audio_config,
+	.set_infoframe		= tpd_set_infoframe,
+	.set_hdmi_mode		= tpd_set_hdmi_mode,
 };
 
 static int tpd_probe_pdata(struct platform_device *pdev)

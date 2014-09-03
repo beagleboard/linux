@@ -68,6 +68,7 @@ Optional CPU/CODEC subnodes properties:
 					  it can be specified via "clocks" if system has
 					  clock node (= common clock), or "system-clock-frequency"
 					  (if system doens't support common clock)
+- system-clock-direction		: "in" or "out", default "in"
 
 Example 1 - single DAI link:
 

@@ -5,6 +5,9 @@ menuconfig OMAP2_DSS
         tristate "OMAP2+ Display Subsystem support"
 	select VIDEOMODE_HELPERS
 	select OMAP2_DSS_INIT
+	select HDMI
+	select SND_OMAP_SOC_HDMI_AUDIO if OMAP_DSS_HDMI_AUDIO
+	select SND_OMAP_SOC if OMAP_DSS_HDMI_AUDIO
         help
 	  OMAP2+ Display Subsystem support.
 
@@ -66,6 +69,9 @@ config OMAP2_DSS_VENC
 config OMAP2_DSS_HDMI_COMMON
 	bool
 
+config OMAP_DSS_HDMI_AUDIO
+	bool
+
 config OMAP4_DSS_HDMI
 	bool "HDMI support for OMAP4"
         default y
@@ -74,7 +80,17 @@ config OMAP4_DSS_HDMI
 	  HDMI support for OMAP4 based SoCs.
 
 config OMAP4_DSS_HDMI_AUDIO
-	bool
+	bool "OMAP4 HDMI audio support"
+	depends on OMAP4_DSS_HDMI
+	depends on SND_SOC=y || OMAP2_DSS = SND_SOC
+	select OMAP_DSS_HDMI_AUDIO
+	default y
+	help
+	  HDMI audio support for OMAP4 based SoCs. Selects audio
+	  support libarary for OMAPDSS HDMI driver. The librarry
+	  implements an integrated ASoC Digital Audio Interface
+	  component driver into OMAPDSS module and registers a dummy
+	  HDMI codec and SND_SIMPLE_CARD for full HDMI audio support.
 
 config OMAP5_DSS_HDMI
 	bool "HDMI support for OMAP5"
@@ -86,8 +102,17 @@ config OMAP5_DSS_HDMI
 	  specification.
 
 config OMAP5_DSS_HDMI_AUDIO
+	bool "OMAP5 HDMI audio support"
 	depends on OMAP5_DSS_HDMI
-	bool
+	depends on SND_SOC=y || OMAP2_DSS = SND_SOC
+	select OMAP_DSS_HDMI_AUDIO
+	default y
+	help
+	  HDMI audio support for OMAP5 based SoCs. Selects audio
+	  support libarary for OMAPDSS HDMI driver. The librarry
+	  implements an integrated ASoC Digital Audio Interface
+	  component driver into OMAPDSS module and registers a dummy
+	  HDMI codec and SND_SIMPLE_CARD for full HDMI audio support.
 
 config OMAP2_DSS_SDI
 	bool "SDI support"

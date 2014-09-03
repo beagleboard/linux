@@ -145,6 +145,7 @@
 #define HDMI_CORE_AV_DPD			0xF4
 #define HDMI_CORE_AV_PB_CTRL1			0xF8
 #define HDMI_CORE_AV_PB_CTRL2			0xFC
+#define HDMI_CORE_AV_AVI_BASE			0x100
 #define HDMI_CORE_AV_AVI_TYPE			0x100
 #define HDMI_CORE_AV_AVI_VERS			0x104
 #define HDMI_CORE_AV_AVI_LEN			0x108
@@ -265,12 +266,8 @@ void hdmi4_configure(struct hdmi_core_data *core, struct hdmi_wp_data *wp,
 void hdmi4_core_dump(struct hdmi_core_data *core, struct seq_file *s);
 int hdmi4_core_init(struct platform_device *pdev, struct hdmi_core_data *core);
 
-#if defined(CONFIG_OMAP4_DSS_HDMI_AUDIO)
 int hdmi4_audio_start(struct hdmi_core_data *core, struct hdmi_wp_data *wp);
 void hdmi4_audio_stop(struct hdmi_core_data *core, struct hdmi_wp_data *wp);
 int hdmi4_audio_config(struct hdmi_core_data *core, struct hdmi_wp_data *wp,
 		struct omap_dss_audio *audio, u32 pclk);
-int hdmi4_audio_get_dma_port(u32 *offset, u32 *size);
-#endif
-
 #endif
