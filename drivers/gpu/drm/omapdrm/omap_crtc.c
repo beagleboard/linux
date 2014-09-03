@@ -277,8 +277,13 @@ static void omap_crtc_prepare(struct drm_crtc *crtc)
 static void omap_crtc_commit(struct drm_crtc *crtc)
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+	struct drm_device *dev = crtc->dev;
 	DBG("%s", omap_crtc->name);
 	omap_crtc_dpms(crtc, DRM_MODE_DPMS_ON);
+
+	drm_modeset_unlock_all(dev);
+	omap_crtc_flush(crtc);
+	drm_modeset_lock_all(dev);
 }
 
 static int omap_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
