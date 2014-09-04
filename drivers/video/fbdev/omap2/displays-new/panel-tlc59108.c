@@ -46,6 +46,33 @@ struct panel_drv_data {
 
 struct tlc_board_data {
 	struct omap_video_timings timings;
+	const unsigned int *init_seq;
+	unsigned init_seq_len;
+};
+
+static const unsigned int tlc_7_inch_init_seq[] = {
+	/* Init the TLC chip */
+	TLC59108_MODE1, 0x01,
+	/*
+	 * set LED1(AVDD) to ON state(default), enable LED2 in PWM mode, enable
+	 * LED0 to OFF state
+	 */
+	TLC59108_LEDOUT0, 0x21,
+	/* set LED2 PWM to full freq */
+	TLC59108_PWM2, 0xff,
+	/* set LED4(UPDN) and LED6(MODE3) to OFF state */
+	TLC59108_LEDOUT1, 0x11,
+};
+
+static const unsigned int tlc_10_inch_init_seq[] = {
+	/* Init the TLC chip */
+	TLC59108_MODE1, 0x01,
+	/* LDR0: ON, LDR1: OFF, LDR2: PWM, LDR3: OFF */
+	TLC59108_LEDOUT0, 0x21,
+	/* Set LED2 PWM to full */
+	TLC59108_PWM2, 0xff,
+	/* LDR4: OFF, LDR5: OFF, LDR6: OFF, LDR7: ON */
+	TLC59108_LEDOUT1, 0x40,
 };
 
 static const struct tlc_board_data tlc_7_inch_data = {
@@ -69,6 +96,8 @@ static const struct tlc_board_data tlc_7_inch_data = {
 		.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
 		.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
 	},
+	.init_seq = tlc_7_inch_init_seq,
+	.init_seq_len = ARRAY_SIZE(tlc_7_inch_init_seq),
 };
 
 static const struct tlc_board_data tlc_10_inch_data = {
@@ -92,26 +121,21 @@ static const struct tlc_board_data tlc_10_inch_data = {
 		.de_level       = OMAPDSS_SIG_ACTIVE_HIGH,
 		.sync_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE,
 	},
+	.init_seq = tlc_10_inch_init_seq,
+	.init_seq_len = ARRAY_SIZE(tlc_10_inch_init_seq),
 };
 
 static int tlc_init(struct panel_drv_data *ddata)
 {
 	struct regmap *map = ddata->regmap;
+	unsigned i, len;
+	const unsigned int *seq;
 
-	/* init the TLC chip */
-	regmap_write(map, TLC59108_MODE1, 0x01);
+	len = ddata->board_data->init_seq_len;
+	seq = ddata->board_data->init_seq;
 
-	/*
-	 * set LED1(AVDD) to ON state(default), enable LED2 in PWM mode, enable
-	 * LED0 to OFF state
-	 */
-	regmap_write(map, TLC59108_LEDOUT0, 0x21);
-
-	/* set LED2 PWM to full freq */
-	regmap_write(map, TLC59108_PWM2, 0xff);
-
-	/* set LED4(UPDN) and LED6(MODE3) to OFF state */
-	regmap_write(map, TLC59108_LEDOUT1, 0x11);
+	for (i = 0; i < len; i += 2)
+		regmap_write(map, seq[i], seq[i + 1]);
 
 	return 0;
 }
