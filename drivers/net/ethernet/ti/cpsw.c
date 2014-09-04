@@ -714,7 +714,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
 					ndev_status = true;
 		}
 
-		if (ndev_status) {
+		if (ndev_status && (status >= 0)) {
 			/* Though this interface is down, other interface is up
 			 * and running so requeue skb back to cpdma.
 			 */
