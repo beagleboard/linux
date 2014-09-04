@@ -64,19 +64,18 @@ static const struct omap_video_timings tlc_default_timings[] = {
 		.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
 	},
 	{
-		/* 1280 x 800 @ 60 Hz Reduced blanking VESA CVT 0.31M3-R */
 		.x_res          = 1280,
 		.y_res          = 800,
 
-		.pixelclock    = 67333000,
+		.pixelclock     = 69300404,
 
-		.hfp            = 32,
-		.hsw            = 48,
-		.hbp            = 80,
+		.hfp            = 48,
+		.hsw            = 32,
+		.hbp            = 44,
 
 		.vfp            = 4,
-		.vsw            = 3,
-		.vbp            = 7,
+		.vsw            = 7,
+		.vbp            = 12,
 
 		.vsync_level    = OMAPDSS_SIG_ACTIVE_LOW,
 		.hsync_level    = OMAPDSS_SIG_ACTIVE_LOW,
