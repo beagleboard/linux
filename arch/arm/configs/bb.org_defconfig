@@ -1256,6 +1256,7 @@ CONFIG_SENSORS_LIS3_I2C=m
 # Argus cape driver for beaglebone black
 #
 CONFIG_CAPE_BONE_ARGUS=y
+CONFIG_BEAGLEBONE_PINMUX_HELPER=m
 
 #
 # SCSI device support
@@ -1926,6 +1927,7 @@ CONFIG_GPIO_DEVRES=y
 CONFIG_OF_GPIO=y
 # CONFIG_DEBUG_GPIO is not set
 CONFIG_GPIO_SYSFS=y
+CONFIG_GPIO_OF_HELPER=y
 
 #
 # Memory mapped GPIO drivers:
