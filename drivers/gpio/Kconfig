@@ -83,7 +83,7 @@ config GPIO_SYSFS
 
 config GPIO_OF_HELPER
 	bool "GPIO OF helper device"
-	depends on OF_GPIO && EXPERIMENTAL
+	depends on OF_GPIO
 	help
 	  Say Y here to add an GPIO OF helper driver
 
