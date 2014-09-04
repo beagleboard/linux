@@ -237,7 +237,7 @@ unsigned long wkup_m3_copy_aux_data(const void *data, int sz)
 	aux_data_dev_addr = WKUP_M3_DMEM_START + WKUP_M3_AUXDATA_OFFSET;
 	aux_data_addr = rproc_da_to_va(m3_rproc_static->rproc,
 				       aux_data_dev_addr,
-				       WKUP_M3_AUXDATA_SIZE);
+				       WKUP_M3_AUXDATA_SIZE, 0);
 	memcpy(aux_data_addr, data, sz);
 
 	return WKUP_M3_AUXDATA_OFFSET;
