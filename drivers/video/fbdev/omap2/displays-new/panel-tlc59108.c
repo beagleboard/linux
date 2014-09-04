@@ -382,16 +382,7 @@ static struct i2c_driver tlc59108_i2c_driver = {
 	.remove		= tlc59108_i2c_remove,
 };
 
-static int __init tlc59108_init(void)
-{
-	return i2c_add_driver(&tlc59108_i2c_driver);
-}
-
-static void __exit tlc59108_exit(void)
-{
-}
-module_init(tlc59108_init);
-module_exit(tlc59108_exit);
+module_i2c_driver(tlc59108_i2c_driver);
 
 MODULE_AUTHOR("Archit Taneja  <archit@ti.com>");
 MODULE_DESCRIPTION("TLC-59108 DPI Panel Driver");
