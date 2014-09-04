@@ -157,10 +157,16 @@ static void rproc_disable_iommu(struct rproc *rproc)
  * but only on kernel direct mapped RAM memory. Instead, we're just using
  * here the output of the DMA API, which should be more correct.
  */
-void *rproc_da_to_va(struct rproc *rproc, u64 da, int len)
+void *rproc_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags)
 {
 	struct rproc_mem_entry *carveout;
 	void *ptr = NULL;
+
+	if (rproc->ops->da_to_va) {
+		ptr = rproc->ops->da_to_va(rproc, da, len, flags);
+		if (ptr)
+			goto out;
+	}
 
 	list_for_each_entry(carveout, &rproc->carveouts, node) {
 		int offset = da - carveout->da;
@@ -178,6 +184,7 @@ void *rproc_da_to_va(struct rproc *rproc, u64 da, int len)
 		break;
 	}
 
+out:
 	return ptr;
 }
 EXPORT_SYMBOL(rproc_da_to_va);
@@ -560,7 +567,7 @@ static int rproc_handle_trace(struct rproc *rproc, struct fw_rsc_trace *rsc,
 	}
 
 	/* what's the kernel address of this resource ? */
-	ptr = rproc_da_to_va(rproc, rsc->da, rsc->len);
+	ptr = rproc_da_to_va(rproc, rsc->da, rsc->len, 0);
 	if (!ptr) {
 		dev_err(dev, "erroneous trace resource entry\n");
 		return -EINVAL;
@@ -899,6 +906,39 @@ free_intmem:
 	return ret;
 }
 
+/**
+ * rproc_handle_custom_rsc() - provide implementation specific hook
+ *			       to handle custom resources
+ * @rproc: the remote processor
+ * @rsc: custom resource to be handled by drivers
+ * @offset: offset of the resource data in resource table
+ * @avail: size of available data
+ *
+ * Remoteproc implementations might want to add resource table
+ * entries that are not generic enough to be handled by the framework.
+ * This provides a hook to handle such custom resources.
+ *
+ * Returns 0 on success, or an appropriate error code otherwise
+ */
+static int rproc_handle_custom_rsc(struct rproc *rproc,
+				   struct fw_rsc_custom *rsc,
+				   int offset, int avail)
+{
+	struct device *dev = &rproc->dev;
+
+	if (!rproc->ops->handle_custom_rsc) {
+		dev_err(dev, "custom resource handler unavailable\n");
+		return -EINVAL;
+	}
+
+	if (sizeof(*rsc) > avail) {
+		dev_err(dev, "custom resource is truncated\n");
+		return -EINVAL;
+	}
+
+	return rproc->ops->handle_custom_rsc(rproc, (void *)rsc);
+}
+
 static int rproc_count_vrings(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 			      int offset, int avail)
 {
@@ -926,6 +966,10 @@ static rproc_handle_resource_t rproc_vdev_handler[RSC_LAST] = {
 
 static rproc_handle_resource_t rproc_count_vrings_handler[RSC_LAST] = {
 	[RSC_VDEV] = (rproc_handle_resource_t)rproc_count_vrings,
+};
+
+static rproc_handle_resource_t rproc_post_loading_handlers[RSC_LAST] = {
+	[RSC_CUSTOM] = (rproc_handle_resource_t)rproc_handle_custom_rsc,
 };
 
 /* handle firmware resource entries before booting the remote processor */
@@ -1144,6 +1188,15 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	}
 
 	memcpy(loaded_table, rproc->cached_table, tablesz);
+
+	/* handle fw resources which require fw segments to be loaded*/
+	ret = rproc_handle_resources(rproc, tablesz,
+				     rproc_post_loading_handlers);
+	if (ret) {
+		dev_err(dev, "Failed to process post-loading resources: %d\n",
+			ret);
+		goto clean_up;
+	}
 
 	/* power up the remote processor */
 	ret = rproc->ops->start(rproc);

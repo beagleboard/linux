@@ -21,6 +21,7 @@
 #include <linux/platform_data/sgx-omap.h>
 #include <linux/platform_data/pci-dra7xx.h>
 #include <linux/platform_data/remoteproc-omap.h>
+#include <linux/platform_data/remoteproc-pruss.h>
 
 #include "am35xx.h"
 #include "common.h"
@@ -200,6 +201,11 @@ static struct wkup_m3_platform_data wkup_m3_data = {
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
 };
+static struct pruss_platform_data pruss_pdata = {
+	.reset_name = "pruss",
+	.assert_reset = omap_device_assert_hardreset,
+	.deassert_reset = omap_device_deassert_hardreset,
+};
 #endif
 
 #ifdef CONFIG_ARCH_OMAP4
@@ -337,7 +343,6 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,am3517-emac", 0x5c000000, "davinci_emac.0",
 		       &am35xx_emac_pdata),
 #endif
-
 #ifdef CONFIG_SOC_AM33XX
 	OF_DEV_AUXDATA("ti,am3353-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
 		       &wkup_m3_data),
@@ -350,8 +355,14 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,sgx", 0x56000000, "56000000.sgx",
 		       &sgx_pdata),
 #endif
+#ifdef CONFIG_SOC_AM33XX
+	OF_DEV_AUXDATA("ti,am335x-pruss", 0x4a300000, "4a300000.pruss",
+		       &pruss_pdata),
+#endif
 #ifdef CONFIG_SOC_AM43XX
 	OF_DEV_AUXDATA("ti,am437-padconf", 0x44e10800, "44e10800.pinmux", &pcs_pdata),
+	OF_DEV_AUXDATA("ti,am4372-pruss", 0x54400000, "54400000.pruss",
+		       &pruss_pdata),
 #endif
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
