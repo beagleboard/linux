@@ -40,10 +40,43 @@ struct panel_drv_data {
 
 	int enable_gpio;
 	struct regmap *regmap;
+
+	const struct tlc_board_data *board_data;
 };
 
-static const struct omap_video_timings tlc_default_timings[] = {
-	{
+struct tlc_board_data {
+	struct omap_video_timings timings;
+	const unsigned int *init_seq;
+	unsigned init_seq_len;
+};
+
+static const unsigned int tlc_7_inch_init_seq[] = {
+	/* Init the TLC chip */
+	TLC59108_MODE1, 0x01,
+	/*
+	 * set LED1(AVDD) to ON state(default), enable LED2 in PWM mode, enable
+	 * LED0 to OFF state
+	 */
+	TLC59108_LEDOUT0, 0x21,
+	/* set LED2 PWM to full freq */
+	TLC59108_PWM2, 0xff,
+	/* set LED4(UPDN) and LED6(MODE3) to OFF state */
+	TLC59108_LEDOUT1, 0x11,
+};
+
+static const unsigned int tlc_10_inch_init_seq[] = {
+	/* Init the TLC chip */
+	TLC59108_MODE1, 0x01,
+	/* LDR0: ON, LDR1: OFF, LDR2: PWM, LDR3: OFF */
+	TLC59108_LEDOUT0, 0x21,
+	/* Set LED2 PWM to full */
+	TLC59108_PWM2, 0xff,
+	/* LDR4: OFF, LDR5: OFF, LDR6: OFF, LDR7: ON */
+	TLC59108_LEDOUT1, 0x40,
+};
+
+static const struct tlc_board_data tlc_7_inch_data = {
+	.timings = {
 		.x_res		= 800,
 		.y_res		= 480,
 
@@ -63,20 +96,24 @@ static const struct omap_video_timings tlc_default_timings[] = {
 		.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
 		.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
 	},
-	{
-		/* 1280 x 800 @ 60 Hz Reduced blanking VESA CVT 0.31M3-R */
+	.init_seq = tlc_7_inch_init_seq,
+	.init_seq_len = ARRAY_SIZE(tlc_7_inch_init_seq),
+};
+
+static const struct tlc_board_data tlc_10_inch_data = {
+	.timings = {
 		.x_res          = 1280,
 		.y_res          = 800,
 
-		.pixelclock    = 67333000,
+		.pixelclock     = 69300404,
 
-		.hfp            = 32,
-		.hsw            = 48,
-		.hbp            = 80,
+		.hfp            = 48,
+		.hsw            = 32,
+		.hbp            = 44,
 
 		.vfp            = 4,
-		.vsw            = 3,
-		.vbp            = 7,
+		.vsw            = 7,
+		.vbp            = 12,
 
 		.vsync_level    = OMAPDSS_SIG_ACTIVE_LOW,
 		.hsync_level    = OMAPDSS_SIG_ACTIVE_LOW,
@@ -84,26 +121,21 @@ static const struct omap_video_timings tlc_default_timings[] = {
 		.de_level       = OMAPDSS_SIG_ACTIVE_HIGH,
 		.sync_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE,
 	},
+	.init_seq = tlc_10_inch_init_seq,
+	.init_seq_len = ARRAY_SIZE(tlc_10_inch_init_seq),
 };
 
 static int tlc_init(struct panel_drv_data *ddata)
 {
 	struct regmap *map = ddata->regmap;
+	unsigned i, len;
+	const unsigned int *seq;
 
-	/* init the TLC chip */
-	regmap_write(map, TLC59108_MODE1, 0x01);
+	len = ddata->board_data->init_seq_len;
+	seq = ddata->board_data->init_seq;
 
-	/*
-	 * set LED1(AVDD) to ON state(default), enable LED2 in PWM mode, enable
-	 * LED0 to OFF state
-	 */
-	regmap_write(map, TLC59108_LEDOUT0, 0x21);
-
-	/* set LED2 PWM to full freq */
-	regmap_write(map, TLC59108_PWM2, 0xff);
-
-	/* set LED4(UPDN) and LED6(MODE3) to OFF state */
-	regmap_write(map, TLC59108_LEDOUT1, 0x11);
+	for (i = 0; i < len; i += 2)
+		regmap_write(map, seq[i], seq[i + 1]);
 
 	return 0;
 }
@@ -237,11 +269,11 @@ static struct omap_dss_driver panel_dpi_ops = {
 static const struct of_device_id tlc59108_of_match[] = {
 	{
 		.compatible = "ti,tlc59108-tfcs9700",
-		.data = &tlc_default_timings[0],
+		.data = &tlc_7_inch_data,
 	},
 	{
 		.compatible = "ti,tlc59108-lp101",
-		.data = &tlc_default_timings[1],
+		.data = &tlc_10_inch_data,
 	},
 	{ }
 };
@@ -252,7 +284,6 @@ static int tlc_probe_of(struct device *dev)
 	struct panel_drv_data *ddata = dev_get_drvdata(dev);
 	struct device_node *np = dev->of_node;
 	const struct of_device_id *of_dev_id;
-	struct omap_video_timings *timings;
 
 	ddata->enable_gpio = of_get_named_gpio(np, "enable-gpio", 0);
 
@@ -268,8 +299,8 @@ static int tlc_probe_of(struct device *dev)
 		return -ENODEV;
 	}
 
-	timings = (struct omap_video_timings *)of_dev_id->data;
-	ddata->videomode = *timings;
+	ddata->board_data = of_dev_id->data;
+	ddata->videomode = ddata->board_data->timings;
 
 	return 0;
 }
@@ -382,16 +413,7 @@ static struct i2c_driver tlc59108_i2c_driver = {
 	.remove		= tlc59108_i2c_remove,
 };
 
-static int __init tlc59108_init(void)
-{
-	return i2c_add_driver(&tlc59108_i2c_driver);
-}
-
-static void __exit tlc59108_exit(void)
-{
-}
-module_init(tlc59108_init);
-module_exit(tlc59108_exit);
+module_i2c_driver(tlc59108_i2c_driver);
 
 MODULE_AUTHOR("Archit Taneja  <archit@ti.com>");
 MODULE_DESCRIPTION("TLC-59108 DPI Panel Driver");
