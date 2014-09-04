@@ -40,10 +40,16 @@ struct panel_drv_data {
 
 	int enable_gpio;
 	struct regmap *regmap;
+
+	const struct tlc_board_data *board_data;
 };
 
-static const struct omap_video_timings tlc_default_timings[] = {
-	{
+struct tlc_board_data {
+	struct omap_video_timings timings;
+};
+
+static const struct tlc_board_data tlc_7_inch_data = {
+	.timings = {
 		.x_res		= 800,
 		.y_res		= 480,
 
@@ -63,7 +69,10 @@ static const struct omap_video_timings tlc_default_timings[] = {
 		.de_level	= OMAPDSS_SIG_ACTIVE_HIGH,
 		.sync_pclk_edge	= OMAPDSS_DRIVE_SIG_RISING_EDGE,
 	},
-	{
+};
+
+static const struct tlc_board_data tlc_10_inch_data = {
+	.timings = {
 		.x_res          = 1280,
 		.y_res          = 800,
 
@@ -236,11 +245,11 @@ static struct omap_dss_driver panel_dpi_ops = {
 static const struct of_device_id tlc59108_of_match[] = {
 	{
 		.compatible = "ti,tlc59108-tfcs9700",
-		.data = &tlc_default_timings[0],
+		.data = &tlc_7_inch_data,
 	},
 	{
 		.compatible = "ti,tlc59108-lp101",
-		.data = &tlc_default_timings[1],
+		.data = &tlc_10_inch_data,
 	},
 	{ }
 };
@@ -251,7 +260,6 @@ static int tlc_probe_of(struct device *dev)
 	struct panel_drv_data *ddata = dev_get_drvdata(dev);
 	struct device_node *np = dev->of_node;
 	const struct of_device_id *of_dev_id;
-	struct omap_video_timings *timings;
 
 	ddata->enable_gpio = of_get_named_gpio(np, "enable-gpio", 0);
 
@@ -267,8 +275,8 @@ static int tlc_probe_of(struct device *dev)
 		return -ENODEV;
 	}
 
-	timings = (struct omap_video_timings *)of_dev_id->data;
-	ddata->videomode = *timings;
+	ddata->board_data = of_dev_id->data;
+	ddata->videomode = ddata->board_data->timings;
 
 	return 0;
 }
