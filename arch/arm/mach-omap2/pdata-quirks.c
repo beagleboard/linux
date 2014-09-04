@@ -346,23 +346,19 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 #ifdef CONFIG_SOC_AM33XX
 	OF_DEV_AUXDATA("ti,am3353-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
 		       &wkup_m3_data),
-#endif
-#ifdef CONFIG_SOC_AM43XX
-	OF_DEV_AUXDATA("ti,am4372-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
-		       &wkup_m3_data),
-#endif
-#if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)
-	OF_DEV_AUXDATA("ti,sgx", 0x56000000, "56000000.sgx",
-		       &sgx_pdata),
-#endif
-#ifdef CONFIG_SOC_AM33XX
 	OF_DEV_AUXDATA("ti,am335x-pruss", 0x4a300000, "4a300000.pruss",
 		       &pruss_pdata),
 #endif
 #ifdef CONFIG_SOC_AM43XX
+	OF_DEV_AUXDATA("ti,am4372-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
+		       &wkup_m3_data),
 	OF_DEV_AUXDATA("ti,am437-padconf", 0x44e10800, "44e10800.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,am4372-pruss", 0x54400000, "54400000.pruss",
 		       &pruss_pdata),
+#endif
+#if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)
+	OF_DEV_AUXDATA("ti,sgx", 0x56000000, "56000000.sgx",
+		       &sgx_pdata),
 #endif
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
