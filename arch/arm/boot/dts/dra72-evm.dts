@@ -494,7 +494,7 @@
 		 * VIN2_S0 driven high otherwise Ethernet stops working
 		 * VIN6_SEL_S0 is low, thus selecting McASP3 over VIN6
 		 */
-		lines-initial-states = <0xff2b>;
+		lines-initial-states = <0x0f2b>;
 	};
 };
 
