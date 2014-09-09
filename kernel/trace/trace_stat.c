@@ -277,19 +277,23 @@ static int tracing_stat_init(void)
 
 	d_tracing = tracing_init_dentry();
 	if (!d_tracing)
-		return 0;
+		return -ENODEV;
 
 	stat_dir = debugfs_create_dir("trace_stat", d_tracing);
-	if (!stat_dir)
+	if (!stat_dir) {
 		pr_warning("Could not create debugfs "
 			   "'trace_stat' entry\n");
+		return -ENOMEM;
+	}
 	return 0;
 }
 
 static int init_stat_file(struct stat_session *session)
 {
-	if (!stat_dir && tracing_stat_init())
-		return -ENODEV;
+	int ret;
+
+	if (!stat_dir && (ret = tracing_stat_init()))
+		return ret;
 
 	session->file = debugfs_create_file(session->ts->name, 0644,
 					    stat_dir,
