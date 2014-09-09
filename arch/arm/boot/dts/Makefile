@@ -229,6 +229,34 @@ dtb-$(CONFIG_ARCH_OMAP2PLUS) += omap2420-h4.dtb \
 	am335x-evmsk.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-boneblack-ttyO5.dtb \
+	am335x-boneblack-ttyO4.dtb \
+	am335x-boneblack-ttyO2.dtb \
+	am335x-boneblack-ttyO1.dtb \
+	am335x-boneblack-rtc-01-00a1.dtb \
+	am335x-boneblack-lcd7-01-00a3.dtb \
+	am335x-boneblack-lcd7-01-00a2.dtb \
+	am335x-boneblack-lcd4-01-00a1.dtb \
+	am335x-boneblack-lcd3-01-00a2.dtb \
+	am335x-boneblack-4dcape-70t.dtb \
+	am335x-boneblack-4dcape-70.dtb \
+	am335x-boneblack-4dcape-43t.dtb \
+	am335x-boneblack-4dcape-43.dtb \
+	am335x-boneblack-crypto-00a0.dtb \
+	am335x-boneblack-cape-bone-argus.dtb \
+	am335x-boneblack-audio.dtb \
+	am335x-bone-ttyO5.dtb \
+	am335x-bone-ttyO4.dtb \
+	am335x-bone-ttyO2.dtb \
+	am335x-bone-ttyO1.dtb \
+	am335x-bone-rtc-01-00a1.dtb \
+	am335x-bone-lcd7-01-00a3.dtb \
+	am335x-bone-lcd7-01-00a2.dtb \
+	am335x-bone-lcd4-01-00a1.dtb \
+	am335x-bone-lcd3-01-00a2.dtb \
+	am335x-bone-crypto-00a0.dtb \
+	am335x-bone-cape-bone-argus.dtb \
+	am335x-bone-audio.dtb \
 	am335x-nano.dtb \
 	am335x-base0033.dtb \
 	am3517-craneboard.dtb \
