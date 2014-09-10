@@ -146,6 +146,45 @@ void omap_control_phy_power(struct device *dev, int on)
 EXPORT_SYMBOL_GPL(omap_control_phy_power);
 
 /**
+ * omap_control_phy_wkup - PHY wkup on/off the phy using control module reg
+ * @dev: the control module device
+ * @on: 0 or 1, based on enable phy wakeup or disable phy wakeup
+ */
+int omap_control_phy_wkup(struct device *dev, int on)
+{
+	u32 val;
+	struct omap_control_phy	*control_phy;
+
+	if (IS_ERR(dev) || !dev) {
+		pr_err("%s: invalid device\n", __func__);
+		return -EINVAL;
+	}
+
+	control_phy = dev_get_drvdata(dev);
+	if (!control_phy) {
+		dev_dbg(dev, "%s: invalid control phy device\n", __func__);
+		return -ENODEV;
+	}
+
+	val = readl(control_phy->power);
+
+	if (control_phy->type != OMAP_CTRL_TYPE_AM437USB2) {
+		dev_dbg(dev, "%s: type %d not recognized\n",
+			__func__, control_phy->type);
+		return -EINVAL;
+	}
+
+	if (on)
+		val |= AM437X_CTRL_USB2_WKUP_EN;
+	else
+		val &= ~(AM437X_CTRL_USB2_WKUP_EN);
+
+	writel(val, control_phy->power);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(omap_control_phy_wkup);
+/**
  * omap_control_usb_host_mode - set AVALID, VBUSVALID and ID pin in grounded
  * @ctrl_phy: struct omap_control_phy *
  *
