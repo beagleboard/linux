@@ -209,15 +209,6 @@
 		>;
 	};
 
-	mcspi2_pins: pinmux_mcspi2_pins {
-		pinctrl-single,pins = <
-			0x3c0 (PIN_INPUT | MUX_MODE0) /* spi2_sclk */
-			0x3c4 (PIN_INPUT_SLEW | MUX_MODE0) /* spi2_d1 */
-			0x3c8 (PIN_INPUT_SLEW | MUX_MODE0) /* spi2_d1 */
-			0x3cc (PIN_INPUT_SLEW | MUX_MODE0) /* spi2_cs0 */
-		>;
-	};
-
 	uart1_pins: pinmux_uart1_pins {
 		pinctrl-single,pins = <
 			0x3e0 (PIN_INPUT_SLEW | MUX_MODE0) /* uart1_rxd */
@@ -715,12 +706,6 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcspi1_pins>;
-};
-
-&mcspi2 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&mcspi2_pins>;
 };
 
 &uart1 {
