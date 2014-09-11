@@ -209,8 +209,11 @@ static inline u32 _read_pending_irq_reg(u16 irqen_offs, u16 irqst_offs)
  */
 void omap44xx_prm_read_pending_irqs(unsigned long *events)
 {
-	events[0] = _read_pending_irq_reg(OMAP4_PRM_IRQENABLE_MPU_OFFSET,
-					  OMAP4_PRM_IRQSTATUS_MPU_OFFSET);
+	events[0] = _read_pending_irq_reg(omap4_prcm_irq_setup.mask,
+					  omap4_prcm_irq_setup.ack);
+
+	if (omap4_prcm_irq_setup.nr_regs == 1)
+		return;
 
 	events[1] = _read_pending_irq_reg(OMAP4_PRM_IRQENABLE_MPU_2_OFFSET,
 					  OMAP4_PRM_IRQSTATUS_MPU_2_OFFSET);
@@ -245,15 +248,20 @@ void omap44xx_prm_save_and_clear_irqen(u32 *saved_mask)
 {
 	saved_mask[0] =
 		omap4_prm_read_inst_reg(OMAP4430_PRM_OCP_SOCKET_INST,
-					OMAP4_PRM_IRQENABLE_MPU_OFFSET);
-	saved_mask[1] =
-		omap4_prm_read_inst_reg(OMAP4430_PRM_OCP_SOCKET_INST,
-					OMAP4_PRM_IRQENABLE_MPU_2_OFFSET);
+					omap4_prcm_irq_setup.mask);
 
 	omap4_prm_write_inst_reg(0, OMAP4430_PRM_OCP_SOCKET_INST,
-				 OMAP4_PRM_IRQENABLE_MPU_OFFSET);
-	omap4_prm_write_inst_reg(0, OMAP4430_PRM_OCP_SOCKET_INST,
-				 OMAP4_PRM_IRQENABLE_MPU_2_OFFSET);
+				 omap4_prcm_irq_setup.mask);
+
+	if (omap4_prcm_irq_setup.nr_regs == 2) {
+		saved_mask[1] =
+			omap4_prm_read_inst_reg(OMAP4430_PRM_OCP_SOCKET_INST,
+				OMAP4_PRM_IRQENABLE_MPU_2_OFFSET);
+
+			omap4_prm_write_inst_reg(0,
+				OMAP4430_PRM_OCP_SOCKET_INST,
+				OMAP4_PRM_IRQENABLE_MPU_2_OFFSET);
+	}
 
 	/* OCP barrier */
 	omap4_prm_read_inst_reg(OMAP4430_PRM_OCP_SOCKET_INST,
@@ -273,7 +281,11 @@ void omap44xx_prm_save_and_clear_irqen(u32 *saved_mask)
 void omap44xx_prm_restore_irqen(u32 *saved_mask)
 {
 	omap4_prm_write_inst_reg(saved_mask[0], OMAP4430_PRM_OCP_SOCKET_INST,
-				 OMAP4_PRM_IRQENABLE_MPU_OFFSET);
+				 omap4_prcm_irq_setup.mask);
+
+	if (omap4_prcm_irq_setup.nr_regs == 1)
+		return;
+
 	omap4_prm_write_inst_reg(saved_mask[1], OMAP4430_PRM_OCP_SOCKET_INST,
 				 OMAP4_PRM_IRQENABLE_MPU_2_OFFSET);
 }
