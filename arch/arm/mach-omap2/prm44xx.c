@@ -26,6 +26,7 @@
 #include "vp.h"
 #include "prm44xx.h"
 #include "prm-regbits-44xx.h"
+#include "prcm43xx.h"
 #include "prcm44xx.h"
 #include "prminst44xx.h"
 #include "powerdomain.h"
@@ -704,10 +705,18 @@ static struct prm_ll_data omap44xx_prm_ll_data = {
 	.late_init = &omap44xx_prm_late_init,
 };
 
+static struct prm_ll_data am43xx_prm_ll_data = {
+	.late_init = &omap44xx_prm_late_init,
+};
+
 int __init omap44xx_prm_init(void)
 {
-	if (cpu_is_omap44xx() || soc_is_omap54xx() || soc_is_dra7xx())
+	if (cpu_is_omap44xx() || soc_is_omap54xx() || soc_is_dra7xx() ||
+	    soc_is_am437x())
 		prm_features |= PRM_HAS_IO_WAKEUP;
+
+	if (soc_is_am437x())
+		return prm_register(&am43xx_prm_ll_data);
 
 	return prm_register(&omap44xx_prm_ll_data);
 }
@@ -716,6 +725,7 @@ static struct of_device_id omap_prm_dt_match_table[] = {
 	{ .compatible = "ti,omap4-prm" },
 	{ .compatible = "ti,omap5-prm" },
 	{ .compatible = "ti,dra7-prm" },
+	{ .compatible = "ti,am4-prcm" },
 	{ }
 };
 
@@ -755,6 +765,13 @@ static int omap44xx_prm_late_init(void)
 
 	if (!(prm_features & PRM_HAS_IO_WAKEUP))
 		return 0;
+
+	if (soc_is_am437x()) {
+		omap4_prcm_irq_setup.nr_irqs = 1;
+		omap4_prcm_irq_setup.pm_ctrl = AM43XX_PRM_IO_PMCTRL_OFFSET;
+		omap4_prcm_irq_setup.ack = AM43XX_PRM_IRQSTATUS_MPU_OFFSET;
+		omap4_prcm_irq_setup.mask = AM43XX_PRM_IRQENABLE_MPU_OFFSET;
+	}
 
 	omap44xx_prm_enable_io_wakeup();
 

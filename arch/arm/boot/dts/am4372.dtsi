@@ -94,6 +94,7 @@
 		prcm: prcm@44df0000 {
 			compatible = "ti,am4-prcm";
 			reg = <0x44df0000 0x11000>;
+			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
 
 			prcm_clocks: clocks {
 				#address-cells = <1>;
