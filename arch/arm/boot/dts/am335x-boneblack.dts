@@ -16,6 +16,15 @@
 	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
+&dcdc1_reg {
+	/* VDD_DDR3 voltage 1.35V */
+	regulator-name = "vdd_ddr3";
+	regulator-min-microvolt = <1350000>;
+	regulator-max-microvolt = <1350000>;
+	regulator-boot-on;
+	regulator-always-on;
+};
+
 &ldo3_reg {
 	regulator-min-microvolt = <1800000>;
 	regulator-max-microvolt = <1800000>;
