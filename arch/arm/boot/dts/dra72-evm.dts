@@ -94,6 +94,18 @@
 		};
 	};
 
+	extcon1: dra7x_usbid_extcon1 {
+		compatible = "linux,extcon-gpio";
+		gpios = <&pcf_gpio_21 1 GPIO_ACTIVE_LOW>;
+		cable-name = "USB-HOST";
+	};
+
+	extcon2: dra7x_usbid_extcon2 {
+		compatible = "linux,extcon-gpio";
+		gpios = <&pcf_gpio_21 2 GPIO_ACTIVE_LOW>;
+		cable-name = "USB-HOST";
+	};
+
 	evm_3v3: fixedregulator-evm_3v3 {
 		compatible = "regulator-fixed";
 		regulator-name = "evm_3v3";
@@ -311,6 +323,18 @@
 			0x330 (PIN_OFF_NONE)
 		>;
 	};
+
+	usb1_pins: pinmux_usb1_pins {
+                pinctrl-single,pins = <
+			0x280 (PIN_INPUT_SLEW | MUX_MODE0) /* usb1_drvvbus */
+                >;
+        };
+
+	usb2_pins: pinmux_usb2_pins {
+                pinctrl-single,pins = <
+			0x284 (PIN_INPUT_SLEW | MUX_MODE0) /* usb2_drvvbus */
+                >;
+        };
 };
 
 &i2c1 {
@@ -439,6 +463,18 @@
 		reg = <0x20>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	pcf_gpio_21: gpio@21 {
+		compatible = "nxp,pcf8575";
+		reg = <0x21>;
+		lines-initial-states = <0x1408>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <11 2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
 	};
 
 	/* TLC chip for LCD panel power and backlight */
@@ -793,4 +829,24 @@
 		0 0 0 0
 		0 0 0 0
 	>;
+};
+
+&omap_dwc3_1 {
+	extcon = <&extcon1>;
+};
+
+&omap_dwc3_2 {
+	extcon = <&extcon2>;
+};
+
+&usb1 {
+	dr_mode = "peripheral";
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb1_pins>;
+};
+
+&usb2 {
+	dr_mode = "host";
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2_pins>;
 };
