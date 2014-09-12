@@ -220,6 +220,37 @@
 		>;
 	};
 
+	emmc_pins_default: emmc_pins_default {
+		pinctrl-single,pins = <
+			0x00 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad0.mmc1_dat0 */
+			0x04 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad1.mmc1_dat1 */
+			0x08 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad2.mmc1_dat2 */
+			0x0c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad3.mmc1_dat3 */
+			0x10 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad4.mmc1_dat4 */
+			0x14 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad5.mmc1_dat5 */
+			0x18 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad6.mmc1_dat6 */
+			0x1c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad7.mmc1_dat7 */
+			0x80 (PIN_INPUT_PULLUP | MUX_MODE2) /* gpmc_csn1.mmc1_clk */
+			0x84 (PIN_INPUT_PULLUP | MUX_MODE2) /* gpmc_csn2.mmc1_cmd */
+		>;
+	};
+
+	emmc_pins_sleep: emmc_pins_sleep {
+		pinctrl-single,pins = <
+			0x00 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad0.gpio1_0 */
+			0x04 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad1.gpio1_1 */
+			0x08 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad2.gpio1_2 */
+			0x0c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad3.gpio1_3 */
+			0x10 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad4.gpio1_4 */
+			0x14 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad5.gpio1_5 */
+			0x18 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad6.gpio1_6 */
+			0x1c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad7.gpio1_7 */
+			0x80 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn1.gpio1_30 */
+			0x84 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn2.gpio1_31 */
+		>;
+	};
+
+
 	ecap0_pins_default: backlight_pins_default {
 		pinctrl-single,pins = <
 			0x164 MUX_MODE0       /* eCAP0_in_PWM0_out.eCAP0_in_PWM0_out MODE0 */
@@ -620,8 +651,6 @@
 
 	unused_pins: unused_pins {
 		pinctrl-single,pins = <
-			0x80	(PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn1.mmc1_clk */
-			0x84	(PIN_INPUT | PULL_DISABLE | MUX_MODE7) /* gpmc_csn2.mmc1_cmd */
 			0x150	(PIN_INPUT_PULLDOWN | MUX_MODE7)
 			0x154	(PIN_INPUT_PULLDOWN | MUX_MODE0)
 			0x190	(PIN_INPUT_PULLDOWN | MUX_MODE7)
@@ -835,6 +864,17 @@
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
 };
 
+/* eMMC sits on mmc2 */
+&mmc2 {
+	status = "disabled"; /* Disable GPMC/NAND when enabling mmc2 */
+	vmmc-supply = <&evm_v3_3d>;
+	bus-width = <8>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&emmc_pins_default>;
+	pinctrl-1 = <&emmc_pins_sleep>;
+	ti,non-removable;
+};
+
 &mmc3 {
 	status = "okay";
 	/* these are on the crossbar and are outlined in the
@@ -921,7 +961,7 @@
 };
 
 &gpmc {
-	status = "okay";
+	status = "okay"; /* Disable eMMC when enabling GPMC/NAND */
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&nand_flash_x8_default>;
 	pinctrl-1 = <&nand_flash_x8_sleep>;
