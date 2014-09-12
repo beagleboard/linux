@@ -166,7 +166,7 @@
 
 &am43xx_pinmux {
 	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&wlan_pins_default &ddr3_vtt_toggle_default &debugss_pins &unused_pins>;
+	pinctrl-0 = <&wlan_pins_default &ddr3_vtt_toggle_default &debugss_pins &unused_pins &board_pins>;
 	pinctrl-1 = <&wlan_pins_sleep>;
 
 	ddr3_vtt_toggle_default: ddr_vtt_toggle_default {
@@ -298,7 +298,6 @@
 
 	nand_flash_x8_default: nand_flash_x8_default {
 		pinctrl-single,pins = <
-			0x26c(PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* spi2_cs0.gpio/eMMCorNANDsel */
 			0x0  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad0.gpmc_ad0 */
 			0x4  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad1.gpmc_ad1 */
 			0x8  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad2.gpmc_ad2 */
@@ -319,7 +318,6 @@
 
 	nand_flash_x8_sleep: nand_flash_x8_sleep {
 		pinctrl-single,pins = <
-			0x26C(PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a0.SELQSPIorNAND/GPIO */
 			0x0  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad0.gpmc_ad0 */
 			0x4  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad1.gpmc_ad1 */
 			0x8  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad2.gpmc_ad2 */
@@ -614,6 +612,12 @@
 		>;
 	};
 
+	board_pins: board_pins {
+		pinctrl-single,pins = <
+			0x26c (PIN_OUTPUT_PULLDOWN | MUX_MODE7) /* spi2_cs0.gpio3_25 SEL_eMMCorNANDn */
+		>;
+	};
+
 	unused_pins: unused_pins {
 		pinctrl-single,pins = <
 			0x80	(PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn1.mmc1_clk */
@@ -801,6 +805,10 @@
 };
 
 &gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
 	status = "okay";
 };
 
