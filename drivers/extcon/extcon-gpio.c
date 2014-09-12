@@ -33,8 +33,7 @@
 
 struct gpio_extcon_data {
 	struct extcon_dev edev;
-	unsigned gpio;
-	bool gpio_active_low;
+	struct gpio_desc *gpiod;
 	const char *state_on;
 	const char *state_off;
 	int irq;
@@ -50,9 +49,7 @@ static void gpio_extcon_work(struct work_struct *work)
 		container_of(to_delayed_work(work), struct gpio_extcon_data,
 			     work);
 
-	state = gpio_get_value(data->gpio);
-	if (data->gpio_active_low)
-		state = !state;
+	state = gpiod_get_value(data->gpiod);
 	extcon_set_state(&data->edev, state);
 }
 
@@ -100,21 +97,20 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 
 	extcon_data->edev.name = pdata->name;
 	extcon_data->edev.dev.parent = &pdev->dev;
-	extcon_data->gpio = pdata->gpio;
-	extcon_data->gpio_active_low = pdata->gpio_active_low;
+	extcon_data->gpiod = gpio_to_desc(pdata->gpio);
 	extcon_data->state_on = pdata->state_on;
 	extcon_data->state_off = pdata->state_off;
 	extcon_data->check_on_resume = pdata->check_on_resume;
 	if (pdata->state_on && pdata->state_off)
 		extcon_data->edev.print_state = extcon_gpio_print_state;
 
-	ret = devm_gpio_request_one(&pdev->dev, extcon_data->gpio, GPIOF_DIR_IN,
+	ret = devm_gpio_request_one(&pdev->dev, pdata->gpio, GPIOF_DIR_IN,
 				    pdev->name);
 	if (ret < 0)
 		return ret;
 
 	if (pdata->debounce) {
-		ret = gpio_set_debounce(extcon_data->gpio,
+		ret = gpiod_set_debounce(extcon_data->gpiod,
 					pdata->debounce * 1000);
 		if (ret < 0)
 			extcon_data->debounce_jiffies =
@@ -127,7 +123,7 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&extcon_data->work, gpio_extcon_work);
 
-	extcon_data->irq = gpio_to_irq(extcon_data->gpio);
+	extcon_data->irq = gpiod_to_irq(extcon_data->gpiod);
 	if (extcon_data->irq < 0) {
 		ret = extcon_data->irq;
 		goto err;
