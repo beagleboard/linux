@@ -25,8 +25,10 @@
 #include <linux/gpio.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -79,42 +81,62 @@ static ssize_t extcon_gpio_print_state(struct extcon_dev *edev, char *buf)
 
 static int gpio_extcon_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
 	struct gpio_extcon_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	struct gpio_extcon_data *extcon_data;
 	int ret;
-
-	if (!pdata)
-		return -EBUSY;
-	if (!pdata->irq_flags) {
-		dev_err(&pdev->dev, "IRQ flag is not specified.\n");
-		return -EINVAL;
-	}
+	unsigned int irq_flags;
+	unsigned int debounce = 0;
 
 	extcon_data = devm_kzalloc(&pdev->dev, sizeof(struct gpio_extcon_data),
 				   GFP_KERNEL);
 	if (!extcon_data)
 		return -ENOMEM;
+	if (np) {
+		int irq;
 
-	extcon_data->edev.name = pdata->name;
-	extcon_data->edev.dev.parent = &pdev->dev;
-	extcon_data->gpiod = gpio_to_desc(pdata->gpio);
-	extcon_data->state_on = pdata->state_on;
-	extcon_data->state_off = pdata->state_off;
-	extcon_data->check_on_resume = pdata->check_on_resume;
-	if (pdata->state_on && pdata->state_off)
-		extcon_data->edev.print_state = extcon_gpio_print_state;
+		extcon_data->gpiod = devm_gpiod_get(&pdev->dev, NULL);
+		if (IS_ERR(extcon_data->gpiod))
+			return PTR_ERR(extcon_data->gpiod);
 
-	ret = devm_gpio_request_one(&pdev->dev, pdata->gpio, GPIOF_DIR_IN,
-				    pdev->name);
-	if (ret < 0)
-		return ret;
+		extcon_data->edev.name = np->name;
+		extcon_data->edev.dev.parent = &pdev->dev;
+		of_property_read_u32(np, "debounce", &debounce);
+		irq = gpiod_to_irq(extcon_data->gpiod);
+		irq_flags = irq_get_trigger_type(irq);
+	} else {
+		if (!pdata)
+			return -EBUSY;
 
-	if (pdata->debounce) {
+		if (!pdata->irq_flags) {
+			dev_err(&pdev->dev, "IRQ flag is not specified.\n");
+			return -EINVAL;
+		}
+
+		extcon_data->edev.name = pdata->name;
+		extcon_data->edev.dev.parent = &pdev->dev;
+		extcon_data->state_on = pdata->state_on;
+		extcon_data->state_off = pdata->state_off;
+		extcon_data->check_on_resume = pdata->check_on_resume;
+		if (pdata->state_on && pdata->state_off)
+			extcon_data->edev.print_state = extcon_gpio_print_state;
+
+		extcon_data->gpiod = gpio_to_desc(pdata->gpio);
+		ret = devm_gpio_request_one(&pdev->dev, pdata->gpio,
+					    GPIOF_DIR_IN, pdev->name);
+		if (ret < 0)
+			return ret;
+
+		irq_flags = pdata->irq_flags;
+		debounce = pdata->debounce;
+	}
+
+	if (debounce) {
 		ret = gpiod_set_debounce(extcon_data->gpiod,
-					pdata->debounce * 1000);
+					 debounce * 1000);
 		if (ret < 0)
 			extcon_data->debounce_jiffies =
-				msecs_to_jiffies(pdata->debounce);
+				msecs_to_jiffies(debounce);
 	}
 
 	ret = extcon_dev_register(&extcon_data->edev);
@@ -130,7 +152,7 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	}
 
 	ret = request_any_context_irq(extcon_data->irq, gpio_irq_handler,
-				      pdata->irq_flags, pdev->name,
+				      irq_flags, pdev->name,
 				      extcon_data);
 	if (ret < 0)
 		goto err;
@@ -176,6 +198,11 @@ static const struct dev_pm_ops gpio_extcon_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(NULL, gpio_extcon_resume)
 };
 
+static struct of_device_id of_extcon_gpio_match_tbl[] = {
+	{ .compatible = "linux,extcon-gpio", },
+	{ /* end */ }
+};
+
 static struct platform_driver gpio_extcon_driver = {
 	.probe		= gpio_extcon_probe,
 	.remove		= gpio_extcon_remove,
@@ -183,6 +210,7 @@ static struct platform_driver gpio_extcon_driver = {
 		.name	= "extcon-gpio",
 		.owner	= THIS_MODULE,
 		.pm	= &gpio_extcon_pm_ops,
+		.of_match_table = of_extcon_gpio_match_tbl,
 	},
 };
 

@@ -1,0 +1,21 @@
+GPIO based EXTCON
+
+EXTCON GPIO
+-----------
+
+Required Properties:
+ - compatible: should be:
+   * "linux,extcon-gpio"
+ - gpios: specifies the gpio pin used.
+
+Optional Properties:
+ - debounce: Debounce time for GPIO IRQ in ms
+
+
+Eg:
+
+	extcon1: am43_usbid_extcon1 {
+		compatible = "linux,extcon-gpio";
+		gpios = <&gpio3 12 GPIO_ACTIVE_HIGH>;
+		debounce = <20>;
+	};
