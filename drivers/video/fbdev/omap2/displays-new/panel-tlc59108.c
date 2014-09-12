@@ -352,7 +352,7 @@ static int tlc59108_i2c_probe(struct i2c_client *client,
 	r = regmap_read(ddata->regmap, TLC59108_MODE1, &val);
 	if (r < 0) {
 		dev_err(dev, "Failed to set MODE1: %d\n", r);
-		return r;
+		goto err_read;
 	}
 
 	dssdev = &ddata->dssdev;
@@ -372,6 +372,7 @@ static int tlc59108_i2c_probe(struct i2c_client *client,
 
 	return 0;
 err_reg:
+err_read:
 err_gpio:
 	omap_dss_put_device(ddata->in);
 	return r;
