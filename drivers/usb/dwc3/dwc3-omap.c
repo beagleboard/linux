@@ -127,6 +127,7 @@ struct dwc3_omap {
 	u32			irq0_offset;
 
 	u32			dma_status:1;
+	u32			id_detect_only:1;
 
 	struct extcon_specific_cable_nb extcon_vbus_dev;
 	struct extcon_specific_cable_nb extcon_id_dev;
@@ -357,10 +358,15 @@ static int dwc3_omap_id_notifier(struct notifier_block *nb,
 {
 	struct dwc3_omap *omap = container_of(nb, struct dwc3_omap, id_nb);
 
-	if (event)
+	if (event) {
+		if (omap->id_detect_only)
+			dwc3_omap_set_mailbox(omap, OMAP_DWC3_VBUS_OFF);
 		dwc3_omap_set_mailbox(omap, OMAP_DWC3_ID_GROUND);
-	else
+	} else {
 		dwc3_omap_set_mailbox(omap, OMAP_DWC3_ID_FLOAT);
+		if (omap->id_detect_only)
+			dwc3_omap_set_mailbox(omap, OMAP_DWC3_VBUS_VALID);
+	}
 
 	return NOTIFY_DONE;
 }
@@ -423,7 +429,7 @@ static void dwc3_omap_set_utmi_mode(struct dwc3_omap *omap)
 
 static int dwc3_omap_extcon_register(struct dwc3_omap *omap)
 {
-	u32			ret;
+	int			ret;
 	struct device_node	*node = omap->dev->of_node;
 	struct extcon_dev	*edev;
 
@@ -438,8 +444,10 @@ static int dwc3_omap_extcon_register(struct dwc3_omap *omap)
 		ret = extcon_register_interest(&omap->extcon_vbus_dev,
 					       edev->name, "USB",
 					       &omap->vbus_nb);
-		if (ret < 0)
+		if (ret < 0) {
+			omap->id_detect_only = 1;
 			dev_vdbg(omap->dev, "failed to register notifier for USB\n");
+		}
 
 		omap->id_nb.notifier_call = dwc3_omap_id_notifier;
 		ret = extcon_register_interest(&omap->extcon_id_dev,
@@ -448,10 +456,13 @@ static int dwc3_omap_extcon_register(struct dwc3_omap *omap)
 		if (ret < 0)
 			dev_vdbg(omap->dev, "failed to register notifier for USB-HOST\n");
 
+
 		if (extcon_get_cable_state(edev, "USB") == true)
 			dwc3_omap_set_mailbox(omap, OMAP_DWC3_VBUS_VALID);
 		if (extcon_get_cable_state(edev, "USB-HOST") == true)
 			dwc3_omap_set_mailbox(omap, OMAP_DWC3_ID_GROUND);
+		else if (omap->id_detect_only)
+			dwc3_omap_set_mailbox(omap, OMAP_DWC3_VBUS_VALID);
 	}
 
 	return 0;
