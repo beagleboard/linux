@@ -51,7 +51,7 @@ static void gpio_extcon_work(struct work_struct *work)
 		container_of(to_delayed_work(work), struct gpio_extcon_data,
 			     work);
 
-	state = gpiod_get_value(data->gpiod);
+	state = gpiod_get_value_cansleep(data->gpiod);
 	extcon_set_state(&data->edev, state);
 }
 
