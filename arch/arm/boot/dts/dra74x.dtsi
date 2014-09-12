@@ -44,7 +44,7 @@
 	};
 
 	thermal-zones {
-		#include "omap4-cpu-thermal.dtsi"
+		#include "omap5-cpu-thermal.dtsi"
 	};
 
 	aliases {
