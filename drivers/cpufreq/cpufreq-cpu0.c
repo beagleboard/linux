@@ -61,6 +61,7 @@ static int cpu0_set_target(struct cpufreq_policy *policy, unsigned int index)
 static int cpu0_cpufreq_init(struct cpufreq_policy *policy)
 {
 	policy->clk = cpu_clk;
+	policy->suspend_freq = freq_table[0].frequency;
 	return cpufreq_generic_init(policy, freq_table, transition_latency);
 }
 
@@ -73,6 +74,9 @@ static struct cpufreq_driver cpu0_cpufreq_driver = {
 	.exit = cpufreq_generic_exit,
 	.name = "generic_cpu0",
 	.attr = cpufreq_generic_attr,
+#ifdef CONFIG_PM
+	.suspend	= cpufreq_generic_suspend,
+#endif
 };
 
 static int cpu0_cpufreq_probe(struct platform_device *pdev)
