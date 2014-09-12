@@ -42,6 +42,7 @@ struct gpio_extcon_data {
 	struct delayed_work work;
 	unsigned long debounce_jiffies;
 	bool check_on_resume;
+	const char *cable_name[1];
 };
 
 static void gpio_extcon_work(struct work_struct *work)
@@ -104,6 +105,9 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 		of_property_read_u32(np, "debounce", &debounce);
 		irq = gpiod_to_irq(extcon_data->gpiod);
 		irq_flags = irq_get_trigger_type(irq);
+		of_property_read_string_index(np, "cable-name", 0,
+					      extcon_data->cable_name);
+		extcon_data->edev.supported_cable = extcon_data->cable_name;
 	} else {
 		if (!pdata)
 			return -EBUSY;
