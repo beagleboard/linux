@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2012 Texas Instruments Incorporated - 
- *http://www.ti.com/
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -180,21 +179,20 @@
 				0xec 0x00       /* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 			>;
 		};
-		
+
 		tre_audio_pins: pinmux_tre_audio_pins {
 		       pinctrl-single,pins = <
-			       0x1ac 0x00	/*mcasp0_ahclkx       (AUD_MCLK)->12MHz, INPUT | MODE0*/ 
+			       0x1ac 0x00	/*mcasp0_ahclkx       (AUD_MCLK)->12MHz, INPUT | MODE0*/
 			       0x190 0x20	/* mcasp0_aclkx        (AUD_BCLK)->, 	 INPUT | MODE0*/
 			       0x194 0x20	/* mcasp0_fsx          (AUD_FSX)-> , 	 INPUT | MODE0*/
-			       0x198 0x20	/* mcasp0_axr0         (AUD_DIN)<-, 	 INPUT | MODE0*/ 
-			       0x19c 0x22	/* mcasp0_ahclkr-_axr2 (AUD_DOUT)->, 	       | MODE2*/ 
+			       0x198 0x20	/* mcasp0_axr0         (AUD_DIN)<-, 	 INPUT | MODE0*/
+			       0x19c 0x22	/* mcasp0_ahclkr-_axr2 (AUD_DOUT)->, 	       | MODE2*/
 
 		       >;
 	       };
 	};
 
 	ocp: ocp {
-		
 		uart1: serial@44e09000 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&uart1_pins>;
@@ -479,8 +477,8 @@
 				"Headphone Jack",       "HPLOUT",
 				"Headphone Jack",       "HPROUT",
 				"LINE2L",               "Line In",
-				"LINE2R",               "Line In";	
-		};		
+				"LINE2R",               "Line In";
+		};
 	};
 
 	vmmcsd_fixed: fixedregulator@0 {
