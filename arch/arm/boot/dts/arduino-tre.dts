@@ -595,6 +595,10 @@
 
 	regulators {
 		dcdc1_reg: regulator@0 {
+			regulator-name = "vdd_ddr";
+			regulator-min-microvolt = <1350000>;
+			regulator-max-microvolt = <1350000>;
+			regulator-boot-on;
 			regulator-always-on;
 		};
 
