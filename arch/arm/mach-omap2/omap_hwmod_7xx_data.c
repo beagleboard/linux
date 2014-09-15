@@ -50,6 +50,48 @@
  */
 
 /*
+ * 'dmm' class
+ * instance(s): dmm
+ */
+static struct omap_hwmod_class dra7xx_dmm_hwmod_class = {
+	.name	= "dmm",
+};
+
+/* dmm */
+static struct omap_hwmod dra7xx_dmm_hwmod = {
+	.name		= "dmm",
+	.class		= &dra7xx_dmm_hwmod_class,
+	.clkdm_name	= "emif_clkdm",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_EMIF_DMM_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_EMIF_DMM_CONTEXT_OFFSET,
+		},
+	},
+};
+
+/*
+ * 'emif_ocp_fw' class
+ * instance(s): emif_ocp_fw
+ */
+static struct omap_hwmod_class dra7xx_emif_ocp_fw_hwmod_class = {
+	.name	= "emif_ocp_fw",
+};
+
+/* emif_ocp_fw */
+static struct omap_hwmod dra7xx_emif_ocp_fw_hwmod = {
+	.name		= "emif_ocp_fw",
+	.class		= &dra7xx_emif_ocp_fw_hwmod_class,
+	.clkdm_name	= "emif_clkdm",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_EMIF_EMIF_OCP_FW_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_EMIF_EMIF_OCP_FW_CONTEXT_OFFSET,
+		},
+	},
+};
+
+/*
  * 'l3' class
  * instance(s): l3_instr, l3_main_1, l3_main_2
  */
@@ -2787,6 +2829,36 @@ static struct omap_hwmod_ocp_if dra7xx_l4_cfg__l3_main_1 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/*
+ * Interfaces
+ */
+
+static struct omap_hwmod_addr_space dra7xx_dmm_addrs[] = {
+	{
+		.pa_start	= 0x4e000000,
+		.pa_end		= 0x4e0007ff,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+/* l3_main_1 -> dmm */
+static struct omap_hwmod_ocp_if dra7xx_l3_main_1__dmm = {
+	.master		= &dra7xx_l3_main_1_hwmod,
+	.slave		= &dra7xx_dmm_hwmod,
+	.clk		= "l3_iclk_div",
+	.addr		= dra7xx_dmm_addrs,
+	.user		= OCP_USER_SDMA,
+};
+
+/* dmm -> emif_ocp_fw */
+static struct omap_hwmod_ocp_if dra7xx_dmm__emif_ocp_fw = {
+	.master		= &dra7xx_dmm_hwmod,
+	.slave		= &dra7xx_emif_ocp_fw_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /* mpu -> l3_main_1 */
 static struct omap_hwmod_ocp_if dra7xx_mpu__l3_main_1 = {
 	.master		= &dra7xx_mpu_hwmod,
@@ -3850,6 +3922,8 @@ static struct omap_hwmod_ocp_if dra7xx_l4_wkup__wd_timer2 = {
 };
 
 static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
+	&dra7xx_l3_main_1__dmm,
+	&dra7xx_dmm__emif_ocp_fw,
 	&dra7xx_l3_main_2__l3_instr,
 	&dra7xx_l4_cfg__l3_main_1,
 	&dra7xx_mpu__l3_main_1,
