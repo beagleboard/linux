@@ -51,7 +51,7 @@
 #define AM33XX_M3_TXEV_ENABLE		(0x0 << 0)
 
 #define WKUP_M3_DMEM_START		0x80000
-#define WKUP_M3_AUXDATA_OFFSET		0xF00
+#define WKUP_M3_AUXDATA_OFFSET		0x1000
 #define WKUP_M3_AUXDATA_SIZE		0xFF
 
 struct wkup_m3_rproc {
