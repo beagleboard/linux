@@ -6,6 +6,12 @@
  * published by the Free Software Foundation.
  */
 
+&ocp {
+	P9_27_pinmux {
+		status = "disabled";
+	};
+};
+
 &lcdc {
 	status = "okay";
 };
