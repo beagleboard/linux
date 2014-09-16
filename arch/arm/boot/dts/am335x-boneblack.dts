@@ -29,3 +29,5 @@
 #include "am335x-boneblack-emmc.dtsi"
 /* HDMI: with audio */
 #include "am335x-boneblack-nxp-hdmi-audio.dtsi"
+/* HDMI: without audio */
+/* #include "am335x-boneblack-nxp-hdmi-no-audio.dtsi" */
