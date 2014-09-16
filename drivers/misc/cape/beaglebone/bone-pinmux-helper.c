@@ -117,6 +117,8 @@ static int bone_pinmux_helper_probe(struct platform_device *pdev)
 	struct pinmux_helper_data *data;
 	struct pinctrl_state *state;
 	char *state_name;
+	const char *mode_name;
+	int mode_len;
 	int err;
 
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
@@ -125,12 +127,13 @@ static int bone_pinmux_helper_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto err_no_mem;
 	}
+
 	state_name = kmalloc(strlen(PINCTRL_STATE_DEFAULT) + 1,
 			GFP_KERNEL);
 	if (state_name == NULL) {
 		dev_err(dev, "Failed to allocate state name\n");
 		err = -ENOMEM;
-		goto err_no_mem;
+		goto err_no_state_mem;
 	}
 	data->selected_state_name = state_name;
 	strcpy(data->selected_state_name, PINCTRL_STATE_DEFAULT);
@@ -144,17 +147,47 @@ static int bone_pinmux_helper_probe(struct platform_device *pdev)
 		goto err_no_pinctrl;
 	}
 
-	/* try to select default state at first (if it exists) */
-	state = pinctrl_lookup_state(data->pinctrl,
-			data->selected_state_name);
-	if (!IS_ERR(state)) {
-		err = pinctrl_select_state(data->pinctrl, state);
-		if (err != 0) {
-			dev_err(dev, "Failed to select default state\n");
-			goto err_no_state;
+	/* See if an initial mode is specified in the device tree */
+	mode_name = of_get_property(dev->of_node, "mode", &mode_len);
+
+	err = -1;
+	if (mode_name != NULL ) {
+		state_name = kmalloc(mode_len + 1, GFP_KERNEL);
+		if (state_name == NULL) {
+			dev_err(dev, "Failed to allocate state name\n");
+			err = -ENOMEM;
+			goto err_no_mode_mem;
 		}
-	} else {
-		data->selected_state_name = '\0';
+		strncpy(state_name, mode_name, mode_len);
+
+		/* try to select requested mode */
+		state = pinctrl_lookup_state(data->pinctrl, state_name);
+		if (!IS_ERR(state)) {
+			err = pinctrl_select_state(data->pinctrl, state);
+			if (err != 0) {
+				dev_warn(dev, "Unable to select requested mode %s\n", state_name);
+				kfree(state_name);
+			} else {
+				kfree(data->selected_state_name);
+				data->selected_state_name = state_name;
+				dev_notice(dev, "Set initial pinmux mode to %s\n", state_name);
+			}
+		}
+	}
+
+	/* try to select default state if mode_name failed */
+	if ( err != 0) {
+		state = pinctrl_lookup_state(data->pinctrl,
+				data->selected_state_name);
+		if (!IS_ERR(state)) {
+			err = pinctrl_select_state(data->pinctrl, state);
+			if (err != 0) {
+				dev_err(dev, "Failed to select default state\n");
+				goto err_no_state;
+			}
+		} else {
+			data->selected_state_name = '\0';
+		}
 	}
 
 	/* Register sysfs hooks */
@@ -168,8 +201,11 @@ static int bone_pinmux_helper_probe(struct platform_device *pdev)
 
 err_no_sysfs:
 err_no_state:
+err_no_mode_mem:
 	devm_pinctrl_put(data->pinctrl);
 err_no_pinctrl:
+	devm_kfree(dev, data->selected_state_name);
+err_no_state_mem:
 	devm_kfree(dev, data);
 err_no_mem:
 	return err;
