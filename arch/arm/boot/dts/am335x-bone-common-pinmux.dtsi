@@ -33,6 +33,13 @@
 		>;
 	};
 
+	/* bbb-exp-c */
+	gpio1_17_pins: pinmux_gpio1_17_pins {
+		pinctrl-single,pins = <
+			0x044 0x27      /* CAP_TSC gpmc_a1.gpio1_17, INPUT | MODE7 */
+		>;
+	};
+
 	/* lcd4-01-00a0 */
 	gpio1_18_led_pins: pinmux_gpio1_18_led_pins {
 		pinctrl-single,pins = <
