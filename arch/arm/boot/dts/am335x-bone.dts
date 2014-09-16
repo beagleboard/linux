@@ -60,3 +60,8 @@
 /* http://elinux.org/CircuitCo:BeagleBone_LCD7 */
 /* #include "am335x-bone-lcd7-01-00a2.dtsi" */
 /* #include "am335x-bone-lcd7-01-00a3.dtsi" */
+
+/* http://elinux.org/CircuitCo:RTC_Cape */
+/* i2c1: P9.17, P9.18 */
+/* gpio: P8.26 (mfp: wakeup) */
+/* #include "am335x-bone-rtc-01-00a1.dtsi" */
