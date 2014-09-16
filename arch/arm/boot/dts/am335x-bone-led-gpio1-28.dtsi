@@ -6,6 +6,12 @@
  * published by the Free Software Foundation.
  */
 
+&ocp {
+	P9_12_pinmux {
+		status = "disabled";
+	};
+};
+
 / {
 	gpio-leds-cape-lcd {
 		compatible = "gpio-leds";
