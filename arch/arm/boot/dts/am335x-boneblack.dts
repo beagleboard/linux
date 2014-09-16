@@ -21,19 +21,12 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-&mmc2 {
-	vmmc-supply = <&vmmcsd_fixed>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_pins>;
-	bus-width = <8>;
-	status = "okay";
-	ti,vcc-aux-disable-is-sleep;
-};
-
 &am33xx_pinmux {
 	pinctrl-names = "default";
 	pinctrl-0 = <&clkout2_pin>;
 };
+
+#include "am335x-boneblack-emmc.dtsi"
 
 &lcdc {
 	status = "okay";
