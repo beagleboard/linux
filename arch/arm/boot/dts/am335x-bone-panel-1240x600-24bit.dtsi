@@ -6,6 +6,33 @@
  * published by the Free Software Foundation.
  */
 
+&ocp {
+	P8_11_pinmux {
+		status = "disabled";
+	};
+	P8_12_pinmux {
+		status = "disabled";
+	};
+	P8_13_pinmux {
+		status = "disabled";
+	};
+	P8_14_pinmux {
+		status = "disabled";
+	};
+	P8_15_pinmux {
+		status = "disabled";
+	};
+	P8_16_pinmux {
+		status = "disabled";
+	};
+	P8_17_pinmux {
+		status = "disabled";
+	};
+	P8_19_pinmux {
+		status = "disabled";
+	};
+};
+
 &lcdc {
 	status = "okay";
 };
