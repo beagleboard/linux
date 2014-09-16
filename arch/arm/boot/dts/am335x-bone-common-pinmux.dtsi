@@ -428,6 +428,16 @@
 		>;
 	};
 
+	/* bbb-exp-c */
+	mcasp0_pins_audio2: mcasp0_pins_audio2 {
+		pinctrl-single,pins = <
+			0x190 0x20      /* mcasp0_aclkx.mcasp0_aclkx, INPUT | MODE0 */
+			0x194 0x20      /* mcasp0_fsx.mcasp0_fsx, INPUT | MODE0 */
+			0x198 0x20      /* mcasp0_axr0.mcasp0_axr0, INPUT | MODE0 */
+			0x19c 0x22      /* mcasp0_ahclkr.mcasp0_axr2, INPUT | MODE2 */
+		>;
+	};
+
 	/************************/
 	/* P8 Header            */
 	/************************/
