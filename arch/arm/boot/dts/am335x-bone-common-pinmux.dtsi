@@ -226,6 +226,12 @@
 		>;
 	};
 
+	bbcape_lcd7_avdd_en_pins: bbcape_lcd7_avdd_en {
+		pinctrl-single,pins = <
+			0x150 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* spi0_sclk.gpio0_2, OUTPUT | MODE7 - AVDD_EN */
+		>;
+	};
+
 	bbcape_lcd4_disen_pins: bbcape_lcd4_disen_pins {
 		pinctrl-single,pins = <
 			0x1a4 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* mcasp0_fsr.gpio3[19] (lcd_disen) */
