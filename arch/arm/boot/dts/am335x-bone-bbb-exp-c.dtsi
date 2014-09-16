@@ -10,6 +10,36 @@
 #include "am335x-bone-ttyO2.dtsi"
 #include "am335x-bone-ttyO4.dtsi"
 
+&ocp {
+	/* i2c */
+	P9_17_pinmux {
+		status = "disabled";
+	};
+	P9_18_pinmux {
+		status = "disabled";
+	};
+	/* edt-ft5306 irq pin */
+	P9_23_pinmux {
+		status = "disabled";
+	};
+	/* audio */
+	P9_28_pinmux {
+		status = "disabled";
+	};
+	P9_29_pinmux {
+		status = "disabled";
+	};
+	P9_30_pinmux {
+		status = "disabled";
+	};
+	P9_31_pinmux {
+		status = "disabled";
+	};
+	P9_41_pinmux {
+		status = "disabled";
+	};
+};
+
 &i2c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_pins>;
