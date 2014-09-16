@@ -74,3 +74,8 @@
 
 /* http://www.chipsee.com/product/evm/beagle/beaglebone-black-expansion-capacitive.html */
 /* #include "am335x-bone-bbb-exp-c.dtsi" */
+
+/* http://elinux.org/CircuitCo:RTC_Cape */
+/* i2c1: P9.17, P9.18 */
+/* gpio: P8.26 (mfp: wakeup) */
+/* #include "am335x-bone-rtc-01-00a1.dtsi" */
