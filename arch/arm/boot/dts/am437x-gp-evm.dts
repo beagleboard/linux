@@ -166,7 +166,7 @@
 
 &am43xx_pinmux {
 	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&wlan_pins_default &ddr3_vtt_toggle_default &debugss_pins &unused_pins>;
+	pinctrl-0 = <&wlan_pins_default &ddr3_vtt_toggle_default &debugss_pins &unused_pins &board_pins>;
 	pinctrl-1 = <&wlan_pins_sleep>;
 
 	ddr3_vtt_toggle_default: ddr_vtt_toggle_default {
@@ -219,6 +219,37 @@
 			0x160 (PIN_INPUT | PULL_DISABLE | MUX_MODE7)
 		>;
 	};
+
+	emmc_pins_default: emmc_pins_default {
+		pinctrl-single,pins = <
+			0x00 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad0.mmc1_dat0 */
+			0x04 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad1.mmc1_dat1 */
+			0x08 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad2.mmc1_dat2 */
+			0x0c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad3.mmc1_dat3 */
+			0x10 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad4.mmc1_dat4 */
+			0x14 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad5.mmc1_dat5 */
+			0x18 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad6.mmc1_dat6 */
+			0x1c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad7.mmc1_dat7 */
+			0x80 (PIN_INPUT_PULLUP | MUX_MODE2) /* gpmc_csn1.mmc1_clk */
+			0x84 (PIN_INPUT_PULLUP | MUX_MODE2) /* gpmc_csn2.mmc1_cmd */
+		>;
+	};
+
+	emmc_pins_sleep: emmc_pins_sleep {
+		pinctrl-single,pins = <
+			0x00 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad0.gpio1_0 */
+			0x04 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad1.gpio1_1 */
+			0x08 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad2.gpio1_2 */
+			0x0c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad3.gpio1_3 */
+			0x10 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad4.gpio1_4 */
+			0x14 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad5.gpio1_5 */
+			0x18 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad6.gpio1_6 */
+			0x1c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad7.gpio1_7 */
+			0x80 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn1.gpio1_30 */
+			0x84 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn2.gpio1_31 */
+		>;
+	};
+
 
 	ecap0_pins_default: backlight_pins_default {
 		pinctrl-single,pins = <
@@ -298,7 +329,6 @@
 
 	nand_flash_x8_default: nand_flash_x8_default {
 		pinctrl-single,pins = <
-			0x26c(PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* spi2_cs0.gpio/eMMCorNANDsel */
 			0x0  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad0.gpmc_ad0 */
 			0x4  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad1.gpmc_ad1 */
 			0x8  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad2.gpmc_ad2 */
@@ -319,7 +349,6 @@
 
 	nand_flash_x8_sleep: nand_flash_x8_sleep {
 		pinctrl-single,pins = <
-			0x26C(PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a0.SELQSPIorNAND/GPIO */
 			0x0  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad0.gpmc_ad0 */
 			0x4  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad1.gpmc_ad1 */
 			0x8  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad2.gpmc_ad2 */
@@ -614,10 +643,14 @@
 		>;
 	};
 
+	board_pins: board_pins {
+		pinctrl-single,pins = <
+			0x26c (PIN_OUTPUT_PULLDOWN | MUX_MODE7) /* spi2_cs0.gpio3_25 SEL_eMMCorNANDn */
+		>;
+	};
+
 	unused_pins: unused_pins {
 		pinctrl-single,pins = <
-			0x80	(PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn1.mmc1_clk */
-			0x84	(PIN_INPUT | PULL_DISABLE | MUX_MODE7) /* gpmc_csn2.mmc1_cmd */
 			0x150	(PIN_INPUT_PULLDOWN | MUX_MODE7)
 			0x154	(PIN_INPUT_PULLDOWN | MUX_MODE0)
 			0x190	(PIN_INPUT_PULLDOWN | MUX_MODE7)
@@ -804,6 +837,10 @@
 	status = "okay";
 };
 
+&gpio2 {
+	status = "okay";
+};
+
 &gpio3 {
 	status = "okay";
 };
@@ -825,6 +862,17 @@
 	pinctrl-0 = <&mmc1_pins>;
 	pinctrl-1 = <&mmc1_sleep_pins>;
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+};
+
+/* eMMC sits on mmc2 */
+&mmc2 {
+	status = "disabled"; /* Disable GPMC/NAND when enabling mmc2 */
+	vmmc-supply = <&evm_v3_3d>;
+	bus-width = <8>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&emmc_pins_default>;
+	pinctrl-1 = <&emmc_pins_sleep>;
+	ti,non-removable;
 };
 
 &mmc3 {
@@ -913,7 +961,7 @@
 };
 
 &gpmc {
-	status = "okay";
+	status = "okay"; /* Disable eMMC when enabling GPMC/NAND */
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&nand_flash_x8_default>;
 	pinctrl-1 = <&nand_flash_x8_sleep>;

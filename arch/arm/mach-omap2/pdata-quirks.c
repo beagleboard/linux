@@ -283,6 +283,27 @@ static void __init omap5_uevm_legacy_init(void)
 }
 #endif
 
+#ifdef CONFIG_SOC_AM43XX
+#define AM43x_GP_EVM_EMMCNAND_GPIO 121	/* gpio3_25 set SEL_eMMCorNANDn */
+static void __init am437x_gp_evm_legacy_init(void)
+{
+	struct device_node *node;
+	int ret, flags;
+
+	flags = GPIOF_OUT_INIT_HIGH;	/* Enable eMMC */
+	node = of_find_compatible_node(NULL, NULL, "ti,am3352-gpmc");
+
+	if (node && of_device_is_available(node))
+		flags = GPIOF_OUT_INIT_LOW;	/* Enable NAND */
+
+	ret = gpio_request_one(AM43x_GP_EVM_EMMCNAND_GPIO,
+			       flags, "NAND/eMMC switch");
+	if (ret)
+		pr_err("%s: Failed to get gpio %d\n",
+		       __func__, AM43x_GP_EVM_EMMCNAND_GPIO);
+}
+#endif
+
 static struct pci_dra7xx_platform_data dra7xx_pci_pdata = {
 	.reset_name = "pcie",
 	.assert_reset = omap_device_assert_hardreset,
@@ -428,6 +449,9 @@ static struct pdata_init pdata_quirks[] __initdata = {
 #endif
 #ifdef CONFIG_SOC_OMAP5
 	{ "ti,omap5-uevm", omap5_uevm_legacy_init, },
+#endif
+#ifdef CONFIG_SOC_AM43XX
+	{ "ti,am437x-gp-evm", am437x_gp_evm_legacy_init, },
 #endif
 	{ /* sentinel */ },
 };
