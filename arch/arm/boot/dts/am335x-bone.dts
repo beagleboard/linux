@@ -9,6 +9,7 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
+#include "am335x-bone-common-pinmux.dtsi"
 
 &ldo3_reg {
 	regulator-min-microvolt = <1800000>;
@@ -18,6 +19,11 @@
 
 &mmc1 {
 	vmmc-supply = <&ldo3_reg>;
+};
+
+&am33xx_pinmux {
+	pinctrl-names = "default";
+	pinctrl-0 = <&clkout2_pin>;
 };
 
 &sham {
