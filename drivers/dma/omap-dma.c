@@ -1040,6 +1040,9 @@ static int omap_dma_resume(struct omap_chan *c)
 	if (c->paused) {
 		mb();
 
+		/* Restore channel link register */
+		omap_dma_chan_write(c, CLNK_CTRL, c->desc->clnk_ctrl);
+
 		omap_dma_start(c, c->desc);
 		c->paused = false;
 	}
