@@ -1622,6 +1622,7 @@
 				ti,hwmods = "dss_dispc";
 				clocks = <&dss_dss_clk>;
 				clock-names = "fck";
+				syscon = <&dra7_ctrl_core>;
 			};
 
 			hdmi: encoder@58060000 {

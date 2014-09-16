@@ -36,12 +36,16 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/sizes.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 #include <video/omapdss.h>
 
 #include "dss.h"
 #include "dss_features.h"
 #include "dispc.h"
+
+#define CTRL_CORE_SMA_SW_1	0x534
 
 /* DISPC */
 #define DISPC_SZ_REGS			SZ_4K
@@ -95,6 +99,9 @@ struct dispc_features {
 
 	/* alternate pixel clock source is DSI PLL, or VIDEO PLL */
 	bool alt_clk_dsi_pll:1;
+
+	/* polarities must be programmed to CTRL_CORE_SMA_SW_1 also */
+	bool has_ctrl_core_sma_sw_1:1;
 };
 
 #define DISPC_MAX_NR_FIFOS 5
@@ -120,6 +127,8 @@ static struct {
 	const struct dispc_features *feat;
 
 	bool is_enabled;
+
+	struct regmap	*syscon;
 } dispc;
 
 enum omap_color_component {
@@ -2961,6 +2970,24 @@ static void _dispc_mgr_set_lcd_timings(enum omap_channel channel, int hsw,
 		FLD_VAL(vsync_level, 12, 12);
 
 	dispc_write_reg(DISPC_POL_FREQ(channel), l);
+
+	if (dispc.feat->has_ctrl_core_sma_sw_1) {
+		const int shifts[] = {
+			[OMAP_DSS_CHANNEL_LCD] = 0,
+			[OMAP_DSS_CHANNEL_LCD2] = 1,
+			[OMAP_DSS_CHANNEL_LCD3] = 2,
+		};
+
+		u32 mask, val;
+
+		mask = (1 << 0) | (1 << 3) | (1 << 6);
+		val = (rf << 0) | (ipc << 3) | (onoff << 6);
+
+		mask <<= 16 + shifts[channel];
+		val <<= 16 + shifts[channel];
+
+		regmap_update_bits(dispc.syscon, CTRL_CORE_SMA_SW_1, mask, val);
+	}
 }
 
 /* change name to mode? */
@@ -3683,6 +3710,7 @@ static const struct dispc_features dra7xx_dispc_feats __initconst = {
 	.mstandby_workaround	=	true,
 	.set_max_preload	=	true,
 	.alt_clk_dsi_pll	=	false,
+	.has_ctrl_core_sma_sw_1	=	true,
 };
 
 static int __init dispc_init_features(struct platform_device *pdev)
@@ -3808,6 +3836,16 @@ static int __init omap_dispchw_probe(struct platform_device *pdev)
 	if (dispc.irq < 0) {
 		DSSERR("platform_get_irq failed\n");
 		return -ENODEV;
+	}
+
+	if (dispc.feat->has_ctrl_core_sma_sw_1) {
+		struct device_node *np = pdev->dev.of_node;
+
+		dispc.syscon = syscon_regmap_lookup_by_phandle(np, "syscon");
+		if (IS_ERR(dispc.syscon)) {
+			dev_err(&pdev->dev, "failed to get syscon regmap\n");
+			return PTR_ERR(dispc.syscon);
+		}
 	}
 
 	pm_runtime_enable(&pdev->dev);

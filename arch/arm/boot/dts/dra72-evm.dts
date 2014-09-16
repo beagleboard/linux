@@ -28,6 +28,9 @@
 	tpd12s015: encoder@0 {
 		compatible = "omapdss,ti,tpd12s015";
 
+		pinctrl-names = "default";
+		pinctrl-0 = <&hpd_pin>;
+
                 gpios = <&pcf_hdmi 4 GPIO_ACTIVE_HIGH>,	/* P4, CT CP HPD */
                         <&pcf_hdmi 5 GPIO_ACTIVE_HIGH>,	/* P5, LS OE */
                         <&gpio7 12 GPIO_ACTIVE_HIGH>;	/* gpio7_12/sp1_cs2, HPD */
@@ -735,7 +738,7 @@
 	status = "ok";
 	vdda-supply = <&ldo3_reg>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&hpd_pin &i2c2_pins>;
+	pinctrl-0 = <&i2c2_pins>;
 
 	port {
 		hdmi_out: endpoint {
