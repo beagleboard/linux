@@ -6,6 +6,25 @@
  * published by the Free Software Foundation.
  */
 
+&ocp {
+	/* audio */
+	P9_25_pinmux {
+		status = "disabled";
+	};
+	P9_28_pinmux {
+		status = "disabled";
+	};
+	P9_29_pinmux {
+		status = "disabled";
+	};
+	P9_31_pinmux {
+		status = "disabled";
+	};
+	P9_41_pinmux {
+		status = "disabled";
+	};
+};
+
 &lcdc {
 	status = "okay";
 };
