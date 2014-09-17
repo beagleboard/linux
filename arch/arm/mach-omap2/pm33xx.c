@@ -333,6 +333,7 @@ static int am33xx_pm_begin(suspend_state_t state)
 {
 	int i;
 
+	cpu_idle_poll_ctrl(true);
 
 	switch (state) {
 	case PM_SUSPEND_MEM:
@@ -372,6 +373,8 @@ static void am33xx_pm_end(void)
 	if (retrigger_irq)
 		writel_relaxed(1 << (retrigger_irq & 31),
 			       gic_dist_base + 0x200 + retrigger_irq / 32 * 4);
+
+	cpu_idle_poll_ctrl(false);
 }
 
 static int am33xx_pm_valid(suspend_state_t state)
