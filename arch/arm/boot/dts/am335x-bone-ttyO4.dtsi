@@ -6,18 +6,13 @@
  * published by the Free Software Foundation.
  */
 
+#include "am335x-ttyO1.dtsi"
+
 &ocp {
 	P9_11_pinmux {
-		status = "disabled";
+		mode = "uart";
 	};
 	P9_13_pinmux {
-		status = "disabled";
+		mode = "uart";
 	};
-};
-
-&uart4 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart4_pins>;
-
-	status = "okay";
 };
