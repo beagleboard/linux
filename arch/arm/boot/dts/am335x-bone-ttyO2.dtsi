@@ -6,7 +6,7 @@
  * published by the Free Software Foundation.
  */
 
-#include "am335x-ttyO1.dtsi"
+#include "am335x-ttyO2.dtsi"
 
 &ocp {
 	P9_21_pinmux {
