@@ -7,6 +7,12 @@
  */
 
 &ocp {
+	P8_37_pinmux {
+		status = "disabled";
+	};
+	P8_38_pinmux {
+		status = "disabled";
+	};
 	P9_22_pinmux {
 		status = "disabled";
 	};
