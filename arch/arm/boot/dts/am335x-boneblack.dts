@@ -17,6 +17,13 @@
 	regulator-always-on;
 };
 
+&ocp {
+	/* mmc1 */
+	P9_92_pinmux {
+		status = "disabled";
+	};
+};
+
 &mmc1 {
 	vmmc-supply = <&vmmcsd_fixed>;
 };
