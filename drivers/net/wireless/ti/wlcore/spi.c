@@ -211,7 +211,7 @@ static int __must_check wl12xx_spi_raw_read(struct device *child, int addr,
 	u32 chunk_len;
 
 	while (len > 0) {
-		chunk_len = min((size_t)WSPI_MAX_CHUNK_SIZE, len);
+		chunk_len = min_t(size_t, WSPI_MAX_CHUNK_SIZE, len);
 
 		cmd = &wl->buffer_cmd;
 		busy_buf = wl->buffer_busyword;
@@ -285,7 +285,7 @@ static int __must_check wl12xx_spi_raw_write(struct device *child, int addr,
 	cmd = &commands[0];
 	i = 0;
 	while (len > 0) {
-		chunk_len = min((size_t)WSPI_MAX_CHUNK_SIZE, len);
+		chunk_len = min_t(size_t, WSPI_MAX_CHUNK_SIZE, len);
 
 		*cmd = 0;
 		*cmd |= WSPI_CMD_WRITE;
@@ -327,27 +327,25 @@ static struct wl1271_if_operations spi_ops = {
 static int wl1271_probe(struct spi_device *spi)
 {
 	struct wl12xx_spi_glue *glue;
-	struct wlcore_platdev_data *pdev_data;
+	struct wlcore_platdev_data pdev_data;
 	struct resource res[1];
 	int ret = -ENOMEM;
 
-	pdev_data = kzalloc(sizeof(*pdev_data), GFP_KERNEL);
-	if (!pdev_data)
-		goto out;
+	memset(&pdev_data, 0x00, sizeof(pdev_data));
 
-	pdev_data->pdata = dev_get_platdata(&spi->dev);
-	if (!pdev_data->pdata) {
+	pdev_data.pdata = dev_get_platdata(&spi->dev);
+	if (!pdev_data.pdata) {
 		dev_err(&spi->dev, "no platform data\n");
 		ret = -ENODEV;
-		goto out_free_pdev_data;
+		goto out;
 	}
 
-	pdev_data->if_ops = &spi_ops;
+	pdev_data.if_ops = &spi_ops;
 
 	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
 	if (!glue) {
 		dev_err(&spi->dev, "can't allocate glue\n");
-		goto out_free_pdev_data;
+		goto out;
 	}
 
 	glue->dev = &spi->dev;
@@ -385,8 +383,8 @@ static int wl1271_probe(struct spi_device *spi)
 		goto out_dev_put;
 	}
 
-	ret = platform_device_add_data(glue->core, pdev_data,
-				       sizeof(*pdev_data));
+	ret = platform_device_add_data(glue->core, &pdev_data,
+				       sizeof(pdev_data));
 	if (ret) {
 		dev_err(glue->dev, "can't add platform data\n");
 		goto out_dev_put;
@@ -405,9 +403,6 @@ out_dev_put:
 
 out_free_glue:
 	kfree(glue);
-
-out_free_pdev_data:
-	kfree(pdev_data);
 
 out:
 	return ret;

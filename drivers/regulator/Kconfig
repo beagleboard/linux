@@ -384,6 +384,15 @@ config REGULATOR_PALMAS
 	  on the muxing. This is handled automatically in the driver by
 	  reading the mux info from OTP.
 
+config REGULATOR_PBIAS
+	tristate "PBIAS OMAP regulator driver"
+	depends on (ARCH_OMAP || COMPILE_TEST) && MFD_SYSCON
+	help
+	 Say y here to support pbias regulator for mmc1:SD card i/o
+	 on OMAP SoCs.
+	 This driver provides support for OMAP pbias modelled
+	 regulators.
+
 config REGULATOR_PCAP
 	tristate "Motorola PCAP2 regulator driver"
 	depends on EZX_PCAP
@@ -510,6 +519,15 @@ config REGULATOR_TPS65217
 	help
 	  This driver supports TPS65217 voltage regulator chips. TPS65217
 	  provides three step-down converters and four general-purpose LDO
+	  voltage regulators. It supports software based voltage control
+	  for different voltage domains
+
+config REGULATOR_TPS65218
+	tristate "TI TPS65218 Power regulators"
+	depends on MFD_TPS65218 && OF
+	help
+	  This driver supports TPS65218 voltage regulator chips. TPS65218
+	  provides six step-down converters and one general-purpose LDO
 	  voltage regulators. It supports software based voltage control
 	  for different voltage domains
 

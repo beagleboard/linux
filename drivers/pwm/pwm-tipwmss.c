@@ -40,6 +40,8 @@ u16 pwmss_submodule_state_change(struct device *dev, int set)
 
 	mutex_lock(&info->pwmss_lock);
 	val = readw(info->mmio_base + PWMSS_CLKCONFIG);
+	if (set == PWMSS_ECAPCLK_EN)
+		val &= ~PWMSS_ECAPCLK_STOP_REQ;
 	val |= set;
 	writew(val , info->mmio_base + PWMSS_CLKCONFIG);
 	mutex_unlock(&info->pwmss_lock);

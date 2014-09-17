@@ -2470,6 +2470,7 @@ enum ieee80211_roc_type {
  *	This process will continue until sched_scan_stop is called.
  *
  * @sched_scan_stop: Tell the hardware to stop an ongoing scheduled scan.
+ *	In this case, ieee80211_sched_scan_stopped() must not be called.
  *
  * @sw_scan_start: Notifier function that is called just before a software scan
  *	is started. Can be NULL, if the driver doesn't need this notification.
@@ -2616,6 +2617,7 @@ enum ieee80211_roc_type {
  *	of queues to flush, which is useful if different virtual interfaces
  *	use different hardware queues; it may also indicate all queues.
  *	If the parameter @drop is set to %true, pending frames may be dropped.
+ *	Note that vif can be NULL.
  *	The callback can sleep.
  *
  * @channel_switch: Drivers that need (or want) to offload the channel
@@ -2817,7 +2819,7 @@ struct ieee80211_ops {
 				struct ieee80211_vif *vif,
 				struct cfg80211_sched_scan_request *req,
 				struct ieee80211_sched_scan_ies *ies);
-	void (*sched_scan_stop)(struct ieee80211_hw *hw,
+	int (*sched_scan_stop)(struct ieee80211_hw *hw,
 			       struct ieee80211_vif *vif);
 	void (*sw_scan_start)(struct ieee80211_hw *hw);
 	void (*sw_scan_complete)(struct ieee80211_hw *hw);
@@ -2878,7 +2880,8 @@ struct ieee80211_ops {
 			     struct netlink_callback *cb,
 			     void *data, int len);
 #endif
-	void (*flush)(struct ieee80211_hw *hw, u32 queues, bool drop);
+	void (*flush)(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		      u32 queues, bool drop);
 	void (*channel_switch)(struct ieee80211_hw *hw,
 			       struct ieee80211_channel_switch *ch_switch);
 	int (*napi_poll)(struct ieee80211_hw *hw, int budget);

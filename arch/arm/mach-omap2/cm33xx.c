@@ -354,6 +354,33 @@ static int am33xx_clkdm_clk_disable(struct clockdomain *clkdm)
 	return 0;
 }
 
+static int am33xx_clkdm_save_context(struct clockdomain *clkdm)
+{
+	clkdm->context = am33xx_cm_read_reg_bits(clkdm->cm_inst,
+				clkdm->clkdm_offs, AM33XX_CLKTRCTRL_MASK);
+
+	return 0;
+}
+
+static int am33xx_clkdm_restore_context(struct clockdomain *clkdm)
+{
+	switch (clkdm->context) {
+	case OMAP34XX_CLKSTCTRL_DISABLE_AUTO:
+		am33xx_clkdm_deny_idle(clkdm);
+		break;
+	case OMAP34XX_CLKSTCTRL_FORCE_SLEEP:
+		am33xx_clkdm_sleep(clkdm);
+		break;
+	case OMAP34XX_CLKSTCTRL_FORCE_WAKEUP:
+		am33xx_clkdm_wakeup(clkdm);
+		break;
+	case OMAP34XX_CLKSTCTRL_ENABLE_AUTO:
+		am33xx_clkdm_allow_idle(clkdm);
+		break;
+	}
+	return 0;
+}
+
 struct clkdm_ops am33xx_clkdm_operations = {
 	.clkdm_sleep		= am33xx_clkdm_sleep,
 	.clkdm_wakeup		= am33xx_clkdm_wakeup,
@@ -361,4 +388,6 @@ struct clkdm_ops am33xx_clkdm_operations = {
 	.clkdm_deny_idle	= am33xx_clkdm_deny_idle,
 	.clkdm_clk_enable	= am33xx_clkdm_clk_enable,
 	.clkdm_clk_disable	= am33xx_clkdm_clk_disable,
+	.clkdm_save_context	= am33xx_clkdm_save_context,
+	.clkdm_restore_context	= am33xx_clkdm_restore_context,
 };

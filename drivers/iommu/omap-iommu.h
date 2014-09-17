@@ -30,6 +30,7 @@ struct omap_iommu {
 	const char	*name;
 	struct module	*owner;
 	void __iomem	*regbase;
+	void __iomem	*syscfgbase;
 	struct device	*dev;
 	void		*isr_priv;
 	struct iommu_domain *domain;
@@ -52,6 +53,9 @@ struct omap_iommu {
 	void *ctx; /* iommu context: registres saved area */
 	u32 da_start;
 	u32 da_end;
+
+	int has_bus_err_back;
+	u32 id;
 };
 
 struct cr_regs {
@@ -130,6 +134,7 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 #define MMU_READ_CAM		0x68
 #define MMU_READ_RAM		0x6c
 #define MMU_EMU_FAULT_AD	0x70
+#define MMU_GP_REG		0x88
 
 #define MMU_REG_SIZE		256
 
@@ -162,6 +167,21 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 #define MMU_RAM_MIXED_SHIFT	6
 #define MMU_RAM_MIXED_MASK	(1 << MMU_RAM_MIXED_SHIFT)
 #define MMU_RAM_MIXED		MMU_RAM_MIXED_MASK
+
+#define MMU_GP_REG_BUS_ERR_BACK_EN	0x1
+
+/*
+ * DSP_SYSTEM registers (applicable only for DRA7xx DSP)
+ */
+#define DSP_SYS_REVISION	0x00
+#define DSP_SYS_HWINFO		0x04
+#define DSP_SYS_MMU_CONFIG	0x18
+
+/*
+ * DSP_SYSTEM registers bit definitions (applicable only for DRA7xx DSP)
+ */
+#define DSP_SYS_HWINFO_NUM_MASK	0xF
+#define DSP_SYS_MMU_EN_SHIFT	4
 
 /*
  * utilities for super page(16MB, 1MB, 64KB and 4KB)

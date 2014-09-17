@@ -223,14 +223,18 @@ static struct platform_device omap3isp_device = {
 	.resource	= omap3isp_resources,
 };
 
-static struct omap_iommu_arch_data omap3_isp_iommu = {
-	.name = "mmu_isp",
+static struct omap_iommu_arch_data omap3_isp_iommu[] = {
+	{ .name = "mmu_isp", },
+	{ .name = NULL, },
 };
 
 int omap3_init_camera(struct isp_platform_data *pdata)
 {
+	if (of_have_populated_dt())
+		omap3_isp_iommu[0].name = "480bd400.mmu";
+
 	omap3isp_device.dev.platform_data = pdata;
-	omap3isp_device.dev.archdata.iommu = &omap3_isp_iommu;
+	omap3isp_device.dev.archdata.iommu = omap3_isp_iommu;
 
 	return platform_device_register(&omap3isp_device);
 }
@@ -325,33 +329,6 @@ static void omap_init_audio(void)
 
 #else
 static inline void omap_init_audio(void) {}
-#endif
-
-#if defined(CONFIG_SND_OMAP_SOC_OMAP_HDMI) || \
-		defined(CONFIG_SND_OMAP_SOC_OMAP_HDMI_MODULE)
-
-static struct platform_device omap_hdmi_audio = {
-	.name	= "omap-hdmi-audio",
-	.id	= -1,
-};
-
-static void __init omap_init_hdmi_audio(void)
-{
-	struct omap_hwmod *oh;
-	struct platform_device *pdev;
-
-	oh = omap_hwmod_lookup("dss_hdmi");
-	if (!oh)
-		return;
-
-	pdev = omap_device_build("omap-hdmi-audio-dai", -1, oh, NULL, 0);
-	WARN(IS_ERR(pdev),
-	     "Can't build omap_device for omap-hdmi-audio-dai.\n");
-
-	platform_device_register(&omap_hdmi_audio);
-}
-#else
-static inline void omap_init_hdmi_audio(void) {}
 #endif
 
 #if defined(CONFIG_SPI_OMAP24XX) || defined(CONFIG_SPI_OMAP24XX_MODULE)
@@ -489,10 +466,9 @@ static int __init omap2_init_devices(void)
 	 */
 	omap_init_audio();
 	omap_init_camera();
-	omap_init_hdmi_audio();
-	omap_init_mbox();
 	/* If dtb is there, the devices will be created dynamically */
 	if (!of_have_populated_dt()) {
+		omap_init_mbox();
 		omap_init_mcspi();
 		omap_init_sham();
 		omap_init_aes();

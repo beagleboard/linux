@@ -310,6 +310,7 @@ config ARCH_MULTIPLATFORM
 	select ARM_PATCH_PHYS_VIRT
 	select AUTO_ZRELADDR
 	select COMMON_CLK
+	select MIGHT_HAVE_PCI
 	select MULTI_IRQ_HANDLER
 	select SPARSE_IRQ
 	select USE_OF
@@ -1922,6 +1923,7 @@ config USE_OF
 	select IRQ_DOMAIN
 	select OF
 	select OF_EARLY_FLATTREE
+	select OF_RESERVED_MEM
 	help
 	  Include support for flattened device tree machine descriptions.
 

@@ -71,6 +71,10 @@ static void unpin_worker(struct drm_flip_work *work, void *val)
 			container_of(work, struct omap_plane, unpin_work);
 	struct drm_device *dev = omap_plane->base.dev;
 
+	/*
+	 * omap_framebuffer_pin/unpin are always called from priv->wq,
+	 * so there's no need for locking here.
+	 */
 	omap_framebuffer_unpin(val);
 	mutex_lock(&dev->mode_config.mutex);
 	drm_framebuffer_unreference(val);
@@ -245,6 +249,14 @@ static int omap_plane_update(struct drm_plane *plane,
 		drm_framebuffer_unreference(plane->fb);
 
 	drm_framebuffer_reference(fb);
+
+	/* omap_plane_mode_set() takes adjusted src */
+	switch (omap_plane->win.rotation & 0xf) {
+	case BIT(DRM_ROTATE_90):
+	case BIT(DRM_ROTATE_270):
+		swap(src_w, src_h);
+		break;
+	}
 
 	return omap_plane_mode_set(plane, crtc, fb,
 			crtc_x, crtc_y, crtc_w, crtc_h,

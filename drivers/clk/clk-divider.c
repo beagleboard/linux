@@ -17,6 +17,7 @@
 #include <linux/err.h>
 #include <linux/string.h>
 #include <linux/log2.h>
+#include <linux/clk/ti.h>
 
 /*
  * DOC: basic adjustable divider clock that cannot gate
@@ -24,7 +25,7 @@
  * Traits of this clock:
  * prepare - clk_prepare only ensures that parents are prepared
  * enable - clk_enable only ensures that parents are enabled
- * rate - rate is adjustable.  clk->rate = parent->rate / divisor
+ * rate - rate is adjustable.  clk->rate = DIV_ROUND_UP(parent->rate / divisor)
  * parent - fixed parent.  No clk_set_parent support
  */
 
@@ -115,7 +116,7 @@ static unsigned long clk_divider_recalc_rate(struct clk_hw *hw,
 		return parent_rate;
 	}
 
-	return parent_rate / div;
+	return DIV_ROUND_UP(parent_rate, div);
 }
 
 /*
@@ -185,7 +186,7 @@ static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 		}
 		parent_rate = __clk_round_rate(__clk_get_parent(hw->clk),
 				MULT_ROUND_UP(rate, i));
-		now = parent_rate / i;
+		now = DIV_ROUND_UP(parent_rate, i);
 		if (now <= rate && now > best) {
 			bestdiv = i;
 			best = now;
@@ -207,7 +208,7 @@ static long clk_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 	int div;
 	div = clk_divider_bestdiv(hw, rate, prate);
 
-	return *prate / div;
+	return DIV_ROUND_UP(*prate, div);
 }
 
 static int clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -218,7 +219,7 @@ static int clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long flags = 0;
 	u32 val;
 
-	div = parent_rate / rate;
+	div = DIV_ROUND_UP(parent_rate, rate);
 	value = _get_val(divider, div);
 
 	if (value > div_mask(divider))
@@ -242,10 +243,34 @@ static int clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+int clk_divider_save_context(struct clk_hw *hw)
+{
+	struct clk_divider *divider = to_clk_divider(hw);
+	u32 val;
+
+	val = ti_clk_ll_ops->clk_readl(divider->reg) >> divider->shift;
+	divider->context = val & div_mask(divider);
+
+	return 0;
+}
+
+void clk_divider_restore_context(struct clk_hw *hw)
+{
+	struct clk_divider *divider = to_clk_divider(hw);
+	u32 val;
+
+	val = ti_clk_ll_ops->clk_readl(divider->reg);
+	val &= ~(div_mask(divider) << divider->shift);
+	val |= divider->context << divider->shift;
+	ti_clk_ll_ops->clk_writel(val, divider->reg);
+}
+
 const struct clk_ops clk_divider_ops = {
 	.recalc_rate = clk_divider_recalc_rate,
 	.round_rate = clk_divider_round_rate,
 	.set_rate = clk_divider_set_rate,
+	.save_context = clk_divider_save_context,
+	.restore_context = clk_divider_restore_context,
 };
 EXPORT_SYMBOL_GPL(clk_divider_ops);
 
