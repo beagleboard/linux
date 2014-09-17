@@ -833,8 +833,9 @@ static irqreturn_t iommu_fault_handler(int irq, void *data)
 	u32 *iopgd, *iopte;
 	struct omap_iommu *obj = data;
 	struct iommu_domain *domain = obj->domain;
+	struct omap_iommu_domain *omap_domain = domain->priv;
 
-	if (!obj->refcount)
+	if (!omap_domain->attached)
 		return IRQ_NONE;
 
 	errs = iommu_report_fault(obj, &da);
@@ -894,13 +895,6 @@ static struct omap_iommu *omap_iommu_attach(const char *name, u32 *iopgd)
 
 	spin_lock(&obj->iommu_lock);
 
-	/* an iommu device can only be attached once */
-	if (++obj->refcount > 1) {
-		dev_err(dev, "%s: already attached!\n", obj->name);
-		err = -EBUSY;
-		goto err_enable;
-	}
-
 	obj->iopgd = iopgd;
 	err = iommu_enable(obj);
 	if (err)
@@ -913,7 +907,6 @@ static struct omap_iommu *omap_iommu_attach(const char *name, u32 *iopgd)
 	return obj;
 
 err_enable:
-	obj->refcount--;
 	spin_unlock(&obj->iommu_lock);
 	return ERR_PTR(err);
 }
@@ -929,9 +922,7 @@ static void omap_iommu_detach(struct omap_iommu *obj)
 
 	spin_lock(&obj->iommu_lock);
 
-	if (--obj->refcount == 0)
-		iommu_disable(obj);
-
+	iommu_disable(obj);
 	obj->iopgd = NULL;
 
 	spin_unlock(&obj->iommu_lock);
