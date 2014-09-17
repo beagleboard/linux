@@ -86,6 +86,7 @@ struct plane {
 
 struct omap_framebuffer {
 	struct drm_framebuffer base;
+	int pin_count;
 	const struct format *format;
 	struct plane planes[4];
 };
@@ -218,6 +219,20 @@ void omap_framebuffer_update_scanout(struct drm_framebuffer *fb,
 		info->rotation_type = OMAP_DSS_ROT_TILER;
 		info->screen_width  = omap_gem_tiled_stride(plane->bo, orient);
 	} else {
+		switch (win->rotation & 0xf) {
+		case 0:
+		case BIT(DRM_ROTATE_0):
+			/* OK */
+			break;
+
+		default:
+			dev_warn(fb->dev->dev,
+				"rotation '%d' ignored for non-tiled fb\n",
+				win->rotation);
+			win->rotation = 0;
+			break;
+		}
+
 		info->paddr         = get_linear_addr(plane, format, 0, x, y);
 		info->rotation_type = OMAP_DSS_ROT_DMA;
 		info->screen_width  = plane->pitch;
@@ -247,6 +262,11 @@ int omap_framebuffer_pin(struct drm_framebuffer *fb)
 	struct omap_framebuffer *omap_fb = to_omap_framebuffer(fb);
 	int ret, i, n = drm_format_num_planes(fb->pixel_format);
 
+	if (omap_fb->pin_count > 0) {
+		omap_fb->pin_count++;
+		return 0;
+	}
+
 	for (i = 0; i < n; i++) {
 		struct plane *plane = &omap_fb->planes[i];
 		ret = omap_gem_get_paddr(plane->bo, &plane->paddr, true);
@@ -254,6 +274,8 @@ int omap_framebuffer_pin(struct drm_framebuffer *fb)
 			goto fail;
 		omap_gem_dma_sync(plane->bo, DMA_TO_DEVICE);
 	}
+
+	omap_fb->pin_count++;
 
 	return 0;
 
@@ -272,6 +294,11 @@ int omap_framebuffer_unpin(struct drm_framebuffer *fb)
 {
 	struct omap_framebuffer *omap_fb = to_omap_framebuffer(fb);
 	int ret, i, n = drm_format_num_planes(fb->pixel_format);
+
+	omap_fb->pin_count--;
+
+	if (omap_fb->pin_count > 0)
+		return 0;
 
 	for (i = 0; i < n; i++) {
 		struct plane *plane = &omap_fb->planes[i];
@@ -306,7 +333,8 @@ struct drm_connector *omap_framebuffer_get_next_connector(
 	struct drm_connector *connector = from;
 
 	if (!from)
-		return list_first_entry(connector_list, typeof(*from), head);
+		return list_first_entry_or_null(connector_list, typeof(*from),
+						head);
 
 	list_for_each_entry_from(connector, connector_list, head) {
 		if (connector != from) {

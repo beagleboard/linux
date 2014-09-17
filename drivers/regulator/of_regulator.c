@@ -67,6 +67,11 @@ static void of_get_regulation_constraints(struct device_node *np,
 	if (of_property_read_bool(np, "regulator-allow-bypass"))
 		constraints->valid_ops_mask |= REGULATOR_CHANGE_BYPASS;
 
+	if (of_property_read_bool(np, "regulator-suspend-enable")) {
+		constraints->state_mem.enabled = 1;
+		constraints->initial_state = PM_SUSPEND_MEM;
+	}
+
 	prop = of_find_property(np, "regulator-ramp-delay", NULL);
 	if (prop && prop->value) {
 		ramp_delay = prop->value;

@@ -1295,3 +1295,39 @@ int clkdm_hwmod_disable(struct clockdomain *clkdm, struct omap_hwmod *oh)
 	return 0;
 }
 
+/**
+ * _clkdm_save_context - save the context for the control of this clkdm
+ *
+ * Due to a suspend or hibernation operation, the state of the registers
+ * controlling this clkdm will be lost, save their context.
+ */
+static int _clkdm_save_context(struct clockdomain *clkdm, void *ununsed)
+{
+	if (!arch_clkdm || !arch_clkdm->clkdm_save_context)
+		return -EINVAL;
+
+	return arch_clkdm->clkdm_save_context(clkdm);
+}
+
+/**
+ * _clkdm_restore_context - restore context for control of this clkdm
+ *
+ * Restore the register values for this clockdomain.
+ */
+static int _clkdm_restore_context(struct clockdomain *clkdm, void *ununsed)
+{
+	if (!arch_clkdm || !arch_clkdm->clkdm_restore_context)
+		return -EINVAL;
+
+	return arch_clkdm->clkdm_restore_context(clkdm);
+}
+
+void clkdm_save_context(void)
+{
+	clkdm_for_each(_clkdm_save_context, NULL);
+}
+
+void clkdm_restore_context(void)
+{
+	clkdm_for_each(_clkdm_restore_context, NULL);
+}

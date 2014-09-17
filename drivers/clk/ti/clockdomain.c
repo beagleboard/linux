@@ -41,6 +41,7 @@ static void __init of_ti_clockdomain_setup(struct device_node *node)
 				__clk_get_name(clk));
 			continue;
 		}
+
 		clk_hw = __clk_get_hw(clk);
 		to_clk_hw_omap(clk_hw)->clkdm_name = clkdm_name;
 		omap2_init_clk_clkdm(clk_hw);

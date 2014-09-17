@@ -25,6 +25,12 @@
 #include <drm/drm_fb_cma_helper.h>
 #include <linux/module.h>
 
+/*
+ * number of buffers to allocate from CMA pool, often increased for
+ * double/triple buffering
+ */
+#define DRM_NUM_FBDEV_BUFFERS 3
+
 struct drm_fb_cma {
 	struct drm_framebuffer		fb;
 	struct drm_gem_cma_object	*obj[4];
@@ -265,7 +271,7 @@ static int drm_fbdev_cma_create(struct drm_fb_helper *helper,
 	bytes_per_pixel = DIV_ROUND_UP(sizes->surface_bpp, 8);
 
 	mode_cmd.width = sizes->surface_width;
-	mode_cmd.height = sizes->surface_height;
+	mode_cmd.height = sizes->surface_height * DRM_NUM_FBDEV_BUFFERS;
 	mode_cmd.pitches[0] = sizes->surface_width * bytes_per_pixel;
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
 		sizes->surface_depth);
@@ -304,7 +310,7 @@ static int drm_fbdev_cma_create(struct drm_fb_helper *helper,
 	}
 
 	drm_fb_helper_fill_fix(fbi, fb->pitches[0], fb->depth);
-	drm_fb_helper_fill_var(fbi, helper, fb->width, fb->height);
+	drm_fb_helper_fill_var(fbi, helper, fb->width, sizes->surface_height);
 
 	offset = fbi->var.xoffset * bytes_per_pixel;
 	offset += fbi->var.yoffset * fb->pitches[0];

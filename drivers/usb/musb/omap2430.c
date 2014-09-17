@@ -37,7 +37,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/usb/musb-omap.h>
-#include <linux/usb/omap_control_usb.h>
+#include <linux/phy/omap_control_phy.h>
 #include <linux/of_platform.h>
 
 #include "musb_core.h"
@@ -316,7 +316,13 @@ static void omap_musb_mailbox_work(struct work_struct *mailbox_work)
 {
 	struct omap2430_glue *glue = container_of(mailbox_work,
 				struct omap2430_glue, omap_musb_mailbox_work);
+	struct musb *musb = glue_to_musb(glue);
+	struct device *dev = musb->controller;
+
+	pm_runtime_get_sync(dev);
 	omap_musb_set_mailbox(glue);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
 }
 
 static irqreturn_t omap2430_musb_interrupt(int irq, void *__hci)

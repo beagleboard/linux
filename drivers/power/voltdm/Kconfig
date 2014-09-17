@@ -1,0 +1,19 @@
+config VOLTAGE_DOMAIN
+	bool
+	depends on COMMON_CLK && OF && PM_OPP
+	default y if COMMON_CLK
+	---help---
+	  Core voltage domain framework using common clock framework's
+	  notifier mechanism.
+
+menu "Voltage Domain Framework Drivers"
+	depends on VOLTAGE_DOMAIN
+
+config VOLTAGE_DOMAIN_OMAP
+	tristate "TI OMAP Voltage domain driver"
+	---help---
+	  Voltage domain support for OMAP platforms which need
+	  vdd regulator and Adaptive Body Bias(ABB) regulator
+	  support
+
+endmenu

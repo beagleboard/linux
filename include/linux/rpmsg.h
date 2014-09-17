@@ -66,7 +66,8 @@ struct rpmsg_hdr {
 
 /**
  * struct rpmsg_ns_msg - dynamic name service announcement message
- * @name: name of remote service that is published
+ * @name: name of remote service that is being published
+ * @desc: description of remote service
  * @addr: address of remote service that is published
  * @flags: indicates whether service is created or destroyed
  *
@@ -78,6 +79,7 @@ struct rpmsg_hdr {
  */
 struct rpmsg_ns_msg {
 	char name[RPMSG_NAME_SIZE];
+	char desc[RPMSG_NAME_SIZE];
 	u32 addr;
 	u32 flags;
 } __packed;
@@ -102,6 +104,7 @@ struct virtproc_info;
  * @vrp: the remote processor this channel belongs to
  * @dev: the device struct
  * @id: device id (used to match between rpmsg drivers and devices)
+ * @desc: description of remote service
  * @src: local address
  * @dst: destination address
  * @ept: the rpmsg endpoint of this channel
@@ -111,6 +114,7 @@ struct rpmsg_channel {
 	struct virtproc_info *vrp;
 	struct device dev;
 	struct rpmsg_device_id id;
+	char desc[RPMSG_NAME_SIZE];
 	u32 src;
 	u32 dst;
 	struct rpmsg_endpoint *ept;
@@ -176,6 +180,11 @@ struct rpmsg_endpoint *rpmsg_create_ept(struct rpmsg_channel *,
 				rpmsg_rx_cb_t cb, void *priv, u32 addr);
 int
 rpmsg_send_offchannel_raw(struct rpmsg_channel *, u32, u32, void *, int, bool);
+struct virtio_device *rpmsg_get_virtio_dev(struct rpmsg_channel *rpdev);
+struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
+					   const char *name, const char *desc,
+					   int src, int dst);
+int rpmsg_destroy_channel(struct rpmsg_channel *rpdev);
 
 /**
  * rpmsg_send() - send a message across to the remote processor

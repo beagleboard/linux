@@ -34,6 +34,7 @@
 #include <sound/initval.h>
 #include <sound/soc.h>
 #include <sound/dmaengine_pcm.h>
+#include <sound/omap-pcm.h>
 
 #include <linux/platform_data/asoc-ti-mcbsp.h>
 #include "mcbsp.h"
@@ -148,9 +149,6 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 		snd_pcm_hw_constraint_step(substream->runtime, 0,
 					   SNDRV_PCM_HW_PARAM_PERIOD_SIZE, 2);
 	}
-
-	snd_soc_dai_set_dma_data(cpu_dai, substream,
-				 &mcbsp->dma_data[substream->stream]);
 
 	return err;
 }
@@ -559,6 +557,10 @@ static int omap_mcbsp_probe(struct snd_soc_dai *dai)
 
 	pm_runtime_enable(mcbsp->dev);
 
+	snd_soc_dai_init_dma_data(dai,
+				  &mcbsp->dma_data[SNDRV_PCM_STREAM_PLAYBACK],
+				  &mcbsp->dma_data[SNDRV_PCM_STREAM_CAPTURE]);
+
 	return 0;
 }
 
@@ -799,11 +801,15 @@ static int asoc_mcbsp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, mcbsp);
 
 	ret = omap_mcbsp_init(pdev);
-	if (!ret)
-		return snd_soc_register_component(&pdev->dev, &omap_mcbsp_component,
-						  &omap_mcbsp_dai, 1);
+	if (ret)
+		return ret;
 
-	return ret;
+	ret = snd_soc_register_component(&pdev->dev, &omap_mcbsp_component,
+					 &omap_mcbsp_dai, 1);
+	if (ret)
+		return ret;
+
+	return omap_pcm_platform_register(&pdev->dev);
 }
 
 static int asoc_mcbsp_remove(struct platform_device *pdev)

@@ -60,6 +60,7 @@ AFLAGS_sram34xx.o			:=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_OMAP2420)		+= omap2-restart.o
 obj-$(CONFIG_SOC_OMAP2430)		+= omap2-restart.o
 obj-$(CONFIG_SOC_AM33XX)		+= am33xx-restart.o
+obj-$(CONFIG_SOC_AM43XX)		+= omap4-restart.o
 obj-$(CONFIG_ARCH_OMAP3)		+= omap3-restart.o
 obj-$(CONFIG_ARCH_OMAP4)		+= omap4-restart.o
 obj-$(CONFIG_SOC_OMAP5)			+= omap4-restart.o
@@ -76,7 +77,10 @@ obj-$(CONFIG_ARCH_OMAP2)		+= sdrc2xxx.o
 ifeq ($(CONFIG_PM_OPP),y)
 obj-y					+= opp.o
 obj-$(CONFIG_ARCH_OMAP3)		+= opp3xxx_data.o
+obj-$(CONFIG_SOC_AM33XX)		+= opp33xx_data.o
+obj-$(CONFIG_SOC_AM43XX)		+= opp43xx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= opp4xxx_data.o
+obj-$(CONFIG_SOC_DRA7XX)		+= opp7xx_data.o
 endif
 
 # Power Management
@@ -89,6 +93,8 @@ obj-$(CONFIG_ARCH_OMAP3)		+= pm34xx.o sleep34xx.o
 obj-$(CONFIG_ARCH_OMAP4)		+= pm44xx.o omap-mpuss-lowpower.o
 obj-$(CONFIG_SOC_OMAP5)			+= omap-mpuss-lowpower.o
 obj-$(CONFIG_SOC_DRA7XX)		+= omap-mpuss-lowpower.o
+obj-$(CONFIG_SOC_AM33XX)		+= pm33xx.o sleep33xx.o
+obj-$(CONFIG_SOC_AM43XX)		+= pm33xx.o sleep43xx.o
 obj-$(CONFIG_PM_DEBUG)			+= pm-debug.o
 
 obj-$(CONFIG_POWER_AVS_OMAP)		+= sr_device.o
@@ -96,10 +102,14 @@ obj-$(CONFIG_POWER_AVS_OMAP_CLASS3)    += smartreflex-class3.o
 
 AFLAGS_sleep24xx.o			:=-Wa,-march=armv6
 AFLAGS_sleep34xx.o			:=-Wa,-march=armv7-a$(plus_sec)
+AFLAGS_sleep33xx.o			:=-Wa,-march=armv7-a$(plus_sec)
+AFLAGS_sleep43xx.o			:=-Wa,-march=armv7-a$(plus_sec)
 
 endif
 
 ifeq ($(CONFIG_CPU_IDLE),y)
+obj-$(CONFIG_SOC_AM33XX)                += cpuidle33xx.o
+obj-$(CONFIG_SOC_AM43XX)                += cpuidle43xx.o
 obj-$(CONFIG_ARCH_OMAP3)                += cpuidle34xx.o
 obj-$(CONFIG_ARCH_OMAP4)                += cpuidle44xx.o
 endif
@@ -109,14 +119,16 @@ obj-y					+= prm_common.o cm_common.o
 obj-$(CONFIG_ARCH_OMAP2)		+= prm2xxx_3xxx.o prm2xxx.o cm2xxx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= prm2xxx_3xxx.o prm3xxx.o cm3xxx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= vc3xxx_data.o vp3xxx_data.o
-obj-$(CONFIG_SOC_AM33XX)		+= prm33xx.o cm33xx.o
 omap-prcm-4-5-common			=  cminst44xx.o cm44xx.o prm44xx.o \
 					   prcm_mpu44xx.o prminst44xx.o \
 					   vc44xx_data.o vp44xx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= $(omap-prcm-4-5-common)
 obj-$(CONFIG_SOC_OMAP5)			+= $(omap-prcm-4-5-common)
 obj-$(CONFIG_SOC_DRA7XX)		+= $(omap-prcm-4-5-common)
-obj-$(CONFIG_SOC_AM43XX)		+= $(omap-prcm-4-5-common)
+am33xx-43xx-prcm-common			+= prm33xx.o
+obj-$(CONFIG_SOC_AM33XX)		+= $(am33xx-43xx-prcm-common) cm33xx.o
+obj-$(CONFIG_SOC_AM43XX)		+= $(omap-prcm-4-5-common) \
+					   $(am33xx-43xx-prcm-common)
 
 # OMAP voltage domains
 voltagedomain-common			:= voltage.o vc.o vp.o
@@ -296,3 +308,7 @@ emac-$(CONFIG_TI_DAVINCI_EMAC)		:= am35xx-emac.o
 obj-y					+= $(emac-m) $(emac-y)
 
 obj-y					+= common-board-devices.o twl-common.o dss-common.o
+
+ifneq ($(CONFIG_OMAP_REMOTEPROC),)
+obj-y					+= remoteproc.o
+endif
