@@ -18,6 +18,10 @@
 };
 
 &ocp {
+	/* clkout2 */
+	P9_41_pinmux {
+		status = "disabled";
+	};
 	/* mmc1 */
 	P9_92_pinmux {
 		status = "disabled";
@@ -76,6 +80,10 @@
 /* #include "am335x-bone-ttyO5.dtsi" */
 
 /* Capes */
+
+/* http://elinux.org/CircuitCo:Audio_Cape_RevA */
+/* #include "am335x-bone-audio-reva.dtsi" */
+
 /* http://elinux.org/CircuitCo:Audio_Cape_RevB */
 /* Pins: P9.24, P9.28, P9.29, P9.31, P9.30 */
 /* #include "am335x-bone-audio.dtsi" */
