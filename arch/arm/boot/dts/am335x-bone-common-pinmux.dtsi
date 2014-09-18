@@ -414,6 +414,16 @@
 		>;
 	};
 
+        /* bb-view */
+	keymap4_pins: pinmux_keymap4_pins {
+		pinctrl-single,pins = <
+			0x044 0x2f	/* usr2 gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f	/* usr0 gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x070 0x2f	/* usr3 gpmc_wait0.gpio0_30, INPUT | PULLDIS | MODE7 */
+			0x184 0x2f	/* usr1 uart1_txd.gpio0_15, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
 	mcasp0_pins: mcasp0_pins {
 		pinctrl-single,pins = <
 			0x1ac (PIN_INPUT_PULLUP | MUX_MODE0)	/* mcasp0_ahclkx.mcasp0_ahclkx */
