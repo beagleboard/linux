@@ -174,10 +174,12 @@
 		};
 
 		dra7_pmx_core: pinmux@4a003400 {
-			compatible = "pinctrl-single";
+			compatible = "ti,dra7-padconf", "pinctrl-single";
 			reg = <0x4a003400 0x0464>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			#interrupt-cells = <1>;
+			interrupt-controller;
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0x3fffffff>;
 		};
@@ -189,9 +191,17 @@
 				     <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
-			#dma-cells = <1>;
+			#dma-cells = <2>;
 			#dma-channels = <32>;
-			#dma-requests = <127>;
+			#dma-requests = <203>;
+		};
+
+		dmacb: dma-crossbar@4a020000 {
+			compatible = "ti,dma-crossbar";
+			reg = <0x4a002b78 0x100>;
+			ti,dma-reqs = <160>;
+			ti,reg-size = <2>;
+			ti,dma-safe-map = <0>;
 		};
 
 		gpio1: gpio@4ae10000 {
@@ -629,7 +639,6 @@
 		hwspinlock: spinlock@4a0f6000 {
 			compatible = "ti,omap4-hwspinlock";
 			reg = <0x4a0f6000 0x1000>;
-			interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "spinlock";
 			#hwlock-cells = <1>;
 		};
@@ -637,7 +646,7 @@
 		dmm@4e000000 {
 			compatible = "ti,omap5-dmm";
 			reg = <0x4e000000 0x800>;
-			interrupts = <0 113 0x4>;
+			interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "dmm";
 		};
 
@@ -698,7 +707,7 @@
 			ti,hwmods = "mmc1";
 			ti,dual-volt;
 			ti,needs-special-reset;
-			dmas = <&sdma 61>, <&sdma 62>;
+			dmas = <&sdma 61 &dmacb>, <&sdma 62 &dmacb>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 			pbias-supply = <&pbias_mmc_reg>;
@@ -710,7 +719,7 @@
 			interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmc2";
 			ti,needs-special-reset;
-			dmas = <&sdma 47>, <&sdma 48>;
+			dmas = <&sdma 47 &dmacb>, <&sdma 48 &dmacb>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -721,7 +730,7 @@
 			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmc3";
 			ti,needs-special-reset;
-			dmas = <&sdma 77>, <&sdma 78>;
+			dmas = <&sdma 77 &dmacb>, <&sdma 78 &dmacb>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -732,7 +741,7 @@
 			interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmc4";
 			ti,needs-special-reset;
-			dmas = <&sdma 57>, <&sdma 58>;
+			dmas = <&sdma 57 &dmacb>, <&sdma 58 &dmacb>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -939,14 +948,14 @@
 			#size-cells = <0>;
 			ti,hwmods = "mcspi1";
 			ti,spi-num-cs = <4>;
-			dmas = <&sdma 35>,
-			       <&sdma 36>,
-			       <&sdma 37>,
-			       <&sdma 38>,
-			       <&sdma 39>,
-			       <&sdma 40>,
-			       <&sdma 41>,
-			       <&sdma 42>;
+			dmas = <&sdma 35 &dmacb>,
+			       <&sdma 36 &dmacb>,
+			       <&sdma 37 &dmacb>,
+			       <&sdma 38 &dmacb>,
+			       <&sdma 39 &dmacb>,
+			       <&sdma 40 &dmacb>,
+			       <&sdma 41 &dmacb>,
+			       <&sdma 42 &dmacb>;
 			dma-names = "tx0", "rx0", "tx1", "rx1",
 				    "tx2", "rx2", "tx3", "rx3";
 			status = "disabled";
@@ -960,10 +969,10 @@
 			#size-cells = <0>;
 			ti,hwmods = "mcspi2";
 			ti,spi-num-cs = <2>;
-			dmas = <&sdma 43>,
-			       <&sdma 44>,
-			       <&sdma 45>,
-			       <&sdma 46>;
+			dmas = <&sdma 43 &dmacb>,
+			       <&sdma 44 &dmacb>,
+			       <&sdma 45 &dmacb>,
+			       <&sdma 46 &dmacb>;
 			dma-names = "tx0", "rx0", "tx1", "rx1";
 			status = "disabled";
 		};
@@ -976,7 +985,7 @@
 			#size-cells = <0>;
 			ti,hwmods = "mcspi3";
 			ti,spi-num-cs = <2>;
-			dmas = <&sdma 15>, <&sdma 16>;
+			dmas = <&sdma 15 &dmacb>, <&sdma 16 &dmacb>;
 			dma-names = "tx0", "rx0";
 			status = "disabled";
 		};
@@ -989,7 +998,7 @@
 			#size-cells = <0>;
 			ti,hwmods = "mcspi4";
 			ti,spi-num-cs = <1>;
-			dmas = <&sdma 70>, <&sdma 71>;
+			dmas = <&sdma 70 &dmacb>, <&sdma 71 &dmacb>;
 			dma-names = "tx0", "rx0";
 			status = "disabled";
 		};
@@ -1232,7 +1241,7 @@
 			ti,hwmods = "aes";
 			reg = <0x4b500000 0xa0>;
 			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma 111>, <&sdma 110>;
+			dmas = <&sdma 111 &dmacb>, <&sdma 110 &dmacb>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1243,7 +1252,7 @@
 			ti,hwmods = "des";
 			reg = <0x480a5000 0xa0>;
 			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma 117>, <&sdma 116>;
+			dmas = <&sdma 117 &dmacb>, <&sdma 116 &dmacb>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1254,7 +1263,7 @@
 			ti,hwmods = "sham";
 			reg = <0x4b101000 0x300>;
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma 119>;
+			dmas = <&sdma 119 &dmacb>;
 			dma-names = "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
