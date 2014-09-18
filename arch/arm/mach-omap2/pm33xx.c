@@ -46,6 +46,7 @@
 #include "pm.h"
 #include "cm33xx.h"
 #include "pm33xx.h"
+#include "prm33xx.h"
 #include "common.h"
 #include "clockdomain.h"
 #include "powerdomain.h"
@@ -190,12 +191,14 @@ static void am43xx_save_context(void)
 {
 	common_save_context();
 	am43xx_control_save_context();
+	am43xx_prm_save_context();
 }
 
 static void am43xx_restore_context(void)
 {
 	common_restore_context();
 	am43xx_control_restore_context();
+	am43xx_prm_restore_context();
 	am43xx_push_sram_idle();
 	/*
 	 * HACK: restore dpll_per_clkdcoldo register contents, to avoid
