@@ -22,6 +22,7 @@
 #include "powerdomain.h"
 #include "prm33xx.h"
 #include "prm-regbits-33xx.h"
+#include "prcm43xx.h"
 
 /* Read a register in a PRM instance */
 u32 am33xx_prm_read_reg(s16 inst, u16 idx)
@@ -341,6 +342,65 @@ static void am33xx_pwrdm_restore_context(struct powerdomain *pwrdm)
 	am33xx_prm_write_reg(pwrdm->context, pwrdm->prcm_offs,
 			     pwrdm->pwrstctrl_offs);
 	am33xx_pwrdm_wait_transition(pwrdm);
+}
+
+struct prm_register {
+	s16 inst;
+	u16 offset;
+	u32 val;
+};
+
+static struct prm_register am43xx_prm_regs[] = {
+	{ .inst = AM43XX_PRM_DEVICE_INST,
+	  .offset = AM33XX_PRM_SRAM_COUNT_OFFSET, },
+	{ .inst = AM43XX_PRM_DEVICE_INST,
+	  .offset = AM33XX_PRM_LDO_SRAM_CORE_SETUP_OFFSET, },
+	{ .inst = AM43XX_PRM_DEVICE_INST,
+	  .offset = AM33XX_PRM_LDO_SRAM_CORE_CTRL_OFFSET, },
+	{ .inst = AM43XX_PRM_DEVICE_INST,
+	  .offset = AM33XX_PRM_LDO_SRAM_MPU_SETUP_OFFSET, },
+	{ .inst = AM43XX_PRM_DEVICE_INST,
+	  .offset = AM33XX_PRM_LDO_SRAM_MPU_CTRL_OFFSET, },
+	{ .inst = AM43XX_PRM_DEVICE_INST,
+	  .offset = AM43XX_PRM_IO_PMCTRL_OFFSET, },
+	{ .inst = AM43XX_PRM_OCP_SOCKET_INST,
+	  .offset = AM43XX_PRM_IRQENABLE_MPU_OFFSET, },
+	{ .inst = -1 },
+};
+
+/**
+ * am43xx_prm_save_context - saves context of misc PRM registers
+ *
+ * Saves mist PRM registers before rtc-mode entry. Currently just saves
+ * PRM device/irq registers but should be expanded to cover all the PRM
+ * registers.
+ */
+void am43xx_prm_save_context(void)
+{
+	struct prm_register *reg = am43xx_prm_regs;
+
+	while (reg->inst >= 0) {
+		reg->val = am33xx_prm_read_reg(reg->inst, reg->offset);
+		reg++;
+	}
+}
+
+/**
+ * am43xx_prm_restore_context - restores context of misc PRM registers
+ *
+ *
+ * Restores misc PRM registers after rtc-mode entry. Currently just
+ * restores PRM device/irq registers but should be expanded to cover all the
+ * PRM registers.
+ */
+void am43xx_prm_restore_context(void)
+{
+	struct prm_register *reg = am43xx_prm_regs;
+
+	while (reg->inst >= 0) {
+		am33xx_prm_write_reg(reg->val, reg->inst, reg->offset);
+		reg++;
+	}
 }
 
 struct pwrdm_ops am33xx_pwrdm_operations = {

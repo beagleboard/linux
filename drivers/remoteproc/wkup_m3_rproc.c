@@ -51,7 +51,7 @@
 #define AM33XX_M3_TXEV_ENABLE		(0x0 << 0)
 
 #define WKUP_M3_DMEM_START		0x80000
-#define WKUP_M3_AUXDATA_OFFSET		0xF00
+#define WKUP_M3_AUXDATA_OFFSET		0x1000
 #define WKUP_M3_AUXDATA_SIZE		0xFF
 
 struct wkup_m3_rproc {
@@ -72,6 +72,7 @@ static struct wkup_m3_rproc *m3_rproc_static;
 struct wkup_m3_ops *wkup_m3_pm_ops;
 
 static const struct wkup_m3_wakeup_src wakeups[] = {
+	{.irq_nr = 16,	.src = "PRCM"},
 	{.irq_nr = 35,	.src = "USB0_PHY"},
 	{.irq_nr = 36,	.src = "USB1_PHY"},
 	{.irq_nr = 40,	.src = "I2C0"},

@@ -382,7 +382,7 @@ ENTRY(am43xx_resume_offset)
 
 ENTRY(am43xx_resume_from_deep_sleep)
 	/* Set MPU CLKSTCTRL to HW AUTO so that CPUidle works properly */
-	ldr	r1, am43xx_virt_mpu_clkstctrl
+	ldr	r1, am43xx_phys_mpu_clkstctrl
 	mov	r2, #AM43XX_CM_CLKSTCTRL_CLKTRCTRL_HW_AUTO
 	str	r2, [r1]
 
@@ -569,6 +569,9 @@ am43xx_virt_mpu_pwrstctrl:
 	.word	(AM43XX_PM_MPU_PWRSTCTRL)
 am43xx_virt_mpu_clkstctrl:
 	.word	(AM43XX_CM_MPU_CLKSTCTRL)
+am43xx_phys_mpu_clkstctrl:
+	.word	(AM43XX_CM_BASE + AM43XX_CM_MPU_INST + \
+		 AM43XX_CM_MPU_MPU_CDOFFS)
 am43xx_virt_mpu_clkctrl:
 	.word	(AM43XX_CM_MPU_MPU_CLKCTRL)
 am43xx_virt_emif_clkctrl:

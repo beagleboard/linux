@@ -494,6 +494,7 @@ struct omap_prcm_irq {
 struct omap_prcm_irq_setup {
 	u16 ack;
 	u16 mask;
+	u16 pm_ctrl;
 	u8 nr_regs;
 	u8 nr_irqs;
 	const struct omap_prcm_irq *irqs;
