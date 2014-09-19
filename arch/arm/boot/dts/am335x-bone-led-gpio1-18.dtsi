@@ -1,0 +1,30 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&ocp {
+	P9_14_pinmux {
+		/* gpio1[18] */
+		status = "disabled";
+	};
+};
+
+/ {
+	gpio-leds-cape-lcd {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+
+		pinctrl-0 = <&gpio1_18_led_pins>;
+
+		lcd-led0 {
+			label = "lcd:green:usr0";
+			gpios = <&gpio1 18 0>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+	};
+};
