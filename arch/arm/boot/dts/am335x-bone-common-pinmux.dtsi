@@ -25,6 +25,35 @@
 		>;
 	};
 
+	/* bbb-exp-c */
+	user_leds_s1: user_leds_s1 {
+		pinctrl-single,pins = <
+			0x98 0x7	/* gpmc_wen.gpio2_4, OUTPUT | MODE7 */
+			0x9c 0x7	/* gpmc_ben0_cle.gpio2_5, OUTPUT | MODE7 */
+		>;
+	};
+
+	/* lcd4-01-00a0 */
+	gpio1_18_led_pins: pinmux_gpio1_18_led_pins {
+		pinctrl-single,pins = <
+			0x48 0x07	/* gpmc_a2.gpio1_18, OUTPUT | MODE7 */
+		>;
+	};
+
+	/* lcd4-01-00a1/lcd7-01-00a2/lcd7-01-00a3 */
+	gpio1_28_led_pins: pinmux_gpio1_28_led_pins {
+		pinctrl-single,pins = <
+			0x078 0x2f	/* gpmc_ben1.gpio1_28, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
+	/* lcd3-01-00a2 */
+	gpio3_19_led_pins: pinmux_gpio3_19_led_pins {
+		pinctrl-single,pins = <
+			0x1a4 0x07	/* mcasp0_fsr.gpio3_19, OUTPUT | MODE7 */
+		>;
+	};
+
 	i2c0_pins: pinmux_i2c0_pins {
 		pinctrl-single,pins = <
 			0x188 (PIN_INPUT_PULLUP | MUX_MODE0)	/* i2c0_sda.i2c0_sda */
