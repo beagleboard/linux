@@ -48,11 +48,7 @@ struct panel_drv_data {
 	int ls_oe_gpio;
 	int hpd_gpio;
 
-	bool disable_hpd;
-
 	struct omap_video_timings timings;
-
-	struct completion hpd_completion;
 };
 
 static void __iomem *mcasp2_base;
@@ -145,33 +141,11 @@ static void config_demux(struct device *dev, int sel)
 
 #define to_panel_data(x) container_of(x, struct panel_drv_data, dssdev)
 
-static irqreturn_t tpd_hpd_irq_handler(int irq, void *data)
-{
-	struct panel_drv_data *ddata = data;
-	bool hpd;
-
-	hpd = gpio_get_value_cansleep(ddata->hpd_gpio);
-
-	dev_dbg(ddata->dssdev.dev, "hpd %d\n", hpd);
-
-	if (gpio_is_valid(ddata->ls_oe_gpio)) {
-		if (hpd)
-			gpio_set_value_cansleep(ddata->ls_oe_gpio, 1);
-		else
-			gpio_set_value_cansleep(ddata->ls_oe_gpio, 0);
-	}
-
-	complete_all(&ddata->hpd_completion);
-
-	return IRQ_HANDLED;
-}
-
 static int tpd_connect(struct omap_dss_device *dssdev,
 		struct omap_dss_device *dst)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct omap_dss_device *in = ddata->in;
-	bool hpd;
 	int r;
 
 	r = in->ops.hdmi->connect(in, dssdev);
@@ -181,47 +155,17 @@ static int tpd_connect(struct omap_dss_device *dssdev,
 	dst->src = dssdev;
 	dssdev->dst = dst;
 
-	reinit_completion(&ddata->hpd_completion);
-
 	gpio_set_value_cansleep(ddata->ct_cp_hpd_gpio, 1);
 	/* DC-DC converter needs at max 300us to get to 90% of 5V */
 	udelay(300);
 
-	if (!ddata->disable_hpd) {
-		/*
-		 * if there's a cable connected, wait for the hpd irq to
-		 * trigger, which turns on the level shifters.
-		 */
-		hpd = gpio_get_value_cansleep(ddata->hpd_gpio);
-
-		if (hpd) {
-			unsigned long to;
-			to = wait_for_completion_timeout(&ddata->hpd_completion,
-					msecs_to_jiffies(250));
-			WARN_ON_ONCE(to == 0);
-		}
-	} else {
-		/*
-		 * if there's a cable connected, the hpd gpio should be up, turn
-		 * the level shifters accordingly, we don't wait for a hot plug
-		 * event here since we don't have hpd interrupts enabled. We
-		 * also need to swith the demux to HDMI mode to read hpd gpio,
-		 * and then switch back to I2C2 in order to control the level
-		 * shifter
-		 */
-		config_demux(dssdev->dev, SEL_HDMI);
-
-		hpd = gpio_get_value_cansleep(ddata->hpd_gpio);
-
-		config_demux(dssdev->dev, SEL_I2C2);
-
-		if (gpio_is_valid(ddata->ls_oe_gpio)) {
-			if (hpd)
-				gpio_set_value_cansleep(ddata->ls_oe_gpio, 1);
-			else
-				gpio_set_value_cansleep(ddata->ls_oe_gpio, 0);
-		}
-	}
+	/*
+	 * The HPD GPIO debounce causes a delay until we see the real HPD state.
+	 * If tpd_read_edid() or tpd_detect() are called very soon after setting
+	 * the ct_cp_hpd-gpio, we could observe wrong HPD value. So sleep here
+	 * until the GPIO values has become valid.
+	 */
+	msleep(DIV_ROUND_UP(HPD_DEBOUNCE_TIME, 1000));
 
 	return 0;
 }
@@ -317,17 +261,11 @@ static int tpd_read_edid(struct omap_dss_device *dssdev,
 	struct omap_dss_device *in = ddata->in;
 	int r = 0;
 
-	if (ddata->disable_hpd)
-		config_demux(dssdev->dev, SEL_HDMI);
-
 	if (!gpio_get_value_cansleep(ddata->hpd_gpio))
-		r = -ENODEV;
+		return -ENODEV;
 
-	if (ddata->disable_hpd)
-		config_demux(dssdev->dev, SEL_I2C2);
-
-	if (r)
-		return r;
+	if (gpio_is_valid(ddata->ls_oe_gpio))
+		gpio_set_value_cansleep(ddata->ls_oe_gpio, 1);
 
 	config_demux(dssdev->dev, SEL_HDMI);
 
@@ -335,23 +273,17 @@ static int tpd_read_edid(struct omap_dss_device *dssdev,
 
 	config_demux(dssdev->dev, SEL_I2C2);
 
+	if (gpio_is_valid(ddata->ls_oe_gpio))
+		gpio_set_value_cansleep(ddata->ls_oe_gpio, 0);
+
 	return r;
 }
 
 static bool tpd_detect(struct omap_dss_device *dssdev)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
-	bool hpd;
 
-	if (ddata->disable_hpd)
-		config_demux(dssdev->dev, SEL_HDMI);
-
-	hpd = gpio_get_value_cansleep(ddata->hpd_gpio);
-
-	if (ddata->disable_hpd)
-		config_demux(dssdev->dev, SEL_I2C2);
-
-	return hpd;
+	return gpio_get_value_cansleep(ddata->hpd_gpio);
 
 }
 
@@ -448,9 +380,6 @@ static int tpd_probe_of(struct platform_device *pdev)
 	}
 	ddata->hpd_gpio = gpio;
 
-	if (of_find_property(node, "disable-hpd", NULL))
-		ddata->disable_hpd = true;
-
 	in = omapdss_of_find_source_for_first_ep(node);
 	if (IS_ERR(in)) {
 		dev_err(&pdev->dev, "failed to find video source\n");
@@ -473,8 +402,6 @@ static int tpd_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, ddata);
-
-	init_completion(&ddata->hpd_completion);
 
 	if (dev_get_platdata(&pdev->dev)) {
 		r = tpd_probe_pdata(pdev);
@@ -510,14 +437,8 @@ static int tpd_probe(struct platform_device *pdev)
 			goto err_gpio;
 	}
 
-	if (ddata->disable_hpd)
-		config_demux(&pdev->dev, SEL_HDMI);
-
 	r = devm_gpio_request_one(&pdev->dev, ddata->hpd_gpio,
 			GPIOF_DIR_IN, "hdmi_hpd");
-
-	if (ddata->disable_hpd)
-		config_demux(&pdev->dev, SEL_I2C2);
 	if (r)
 		goto err_gpio;
 
@@ -530,19 +451,9 @@ static int tpd_probe(struct platform_device *pdev)
 	 * the reason for the glitch not being taken care of by the TPD chip
 	 * needs to be investigated
 	 */
-	if (!ddata->disable_hpd) {
-		r = gpio_set_debounce(ddata->hpd_gpio, HPD_DEBOUNCE_TIME);
-		if (r)
-			goto err_debounce;
-
-		r = devm_request_threaded_irq(&pdev->dev,
-				gpio_to_irq(ddata->hpd_gpio), NULL,
-				tpd_hpd_irq_handler, IRQF_TRIGGER_RISING |
-				IRQF_TRIGGER_FALLING | IRQF_ONESHOT, "hpd",
-				ddata);
-		if (r)
-			goto err_irq;
-	}
+	r = gpio_set_debounce(ddata->hpd_gpio, HPD_DEBOUNCE_TIME);
+	if (r)
+		goto err_debounce;
 
 	dssdev = &ddata->dssdev;
 	dssdev->ops.hdmi = &tpd_hdmi_ops;
@@ -563,7 +474,6 @@ static int tpd_probe(struct platform_device *pdev)
 	return 0;
 err_reg:
 err_debounce:
-err_irq:
 err_gpio:
 	omap_dss_put_device(ddata->in);
 	return r;

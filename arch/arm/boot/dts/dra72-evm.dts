@@ -298,7 +298,7 @@
 
 	hpd_pin: pinmux_hpd_pin {
 		pinctrl-single,pins = <
-			0x3b8   (PIN_INPUT | MUX_MODE14) /* gpio7_12 */
+			0x3b8   (PIN_INPUT_PULLDOWN | MUX_MODE14) /* gpio7_12 */
 		>;
 	};
 
@@ -484,7 +484,7 @@
 	tlc59108: tlc59108@40 {
 		compatible = "ti,tlc59108-lp101";
 		reg = <0x40>;
-		enable-gpio = <&pcf_lcd 13 GPIO_ACTIVE_HIGH>; /* P15, CON_LCD_PWR_DN */
+		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
 
 		port {
 			tlc_in: endpoint {
@@ -709,7 +709,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&vout1_pins>;
 
-	vdda-supply = <&ldo5_reg>;
+	vdda_video-supply = <&ldo5_reg>;
 
 	ports {
 		#address-cells = <1>;

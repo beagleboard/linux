@@ -422,7 +422,7 @@
 
 	hpd_pin: pinmux_hpd_pin {
 		pinctrl-single,pins = <
-			0x3b8	(PIN_INPUT | MUX_MODE14)	/* gpio7_12 */
+			0x3b8	(PIN_INPUT_PULLDOWN | MUX_MODE14)	/* gpio7_12 */
 		>;
 	};
 
@@ -615,7 +615,7 @@
 	tlc59108: tlc59108@40 {
 		compatible = "ti,tlc59108-tfcs9700";
 		reg = <0x40>;
-		enable-gpio = <&pcf_lcd 13 0>; /* P15, CON_LCD_PWR_DN */
+		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
 
 		port {
 			tlc_in: endpoint {
