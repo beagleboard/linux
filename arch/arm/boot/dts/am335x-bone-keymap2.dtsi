@@ -1,0 +1,81 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&ocp {
+	P9_15_pinmux {
+		/* gpio1[16] */
+		status = "disabled";
+	};
+	P9_16_pinmux {
+		/* gpio1[19] */
+		status = "disabled";
+	};
+	P9_23_pinmux {
+		/* gpio1[17] */
+		status = "disabled";
+	};
+	P9_27_pinmux {
+		/* gpio3[19] */
+		status = "disabled";
+	};
+	P9_30_pinmux {
+		/* gpio3[16] */
+		status = "disabled";
+	};
+};
+
+/ {
+	gpio_keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&keymap2_pins>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		button@1 {
+			debounce_interval = <50>;
+			linux,code = <105>;
+			label = "left";
+			gpios = <&gpio1 16 0x1>;
+			gpio-key,wakeup;
+			autorepeat;
+		};
+		button@2 {
+			debounce_interval = <50>;
+			linux,code = <106>;
+			label = "right";
+			gpios = <&gpio1 17 0x1>;
+			gpio-key,wakeup;
+			autorepeat;
+		};
+		button@3 {
+			debounce_interval = <50>;
+			linux,code = <103>;
+			label = "up";
+			gpios = <&gpio1 19 0x1>;
+			gpio-key,wakeup;
+			autorepeat;
+		};
+		button@4 {
+			debounce_interval = <50>;
+			linux,code = <108>;
+			label = "down";
+			gpios = <&gpio3 16 0x1>;
+			gpio-key,wakeup;
+			autorepeat;
+		};
+		button@5 {
+			debounce_interval = <50>;
+			linux,code = <28>;
+			label = "enter";
+			gpios = <&gpio3 19 0x1>;
+			gpio-key,wakeup;
+		};
+	};
+};
