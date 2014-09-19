@@ -673,7 +673,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&vout1_pins>;
 
-	vdda-supply = <&ldo5_reg>;
+	vdda_video-supply = <&ldo5_reg>;
 
 	ports {
 		#address-cells = <1>;
