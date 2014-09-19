@@ -37,6 +37,8 @@
 #include <linux/miscdevice.h>
 #include "beaglelogic_glue.h"
 
+#include "external_glue.h"
+
 /* PRU_EVTOUT0 is halt (system call) */
 
 /* maximum PRUs */
@@ -198,6 +200,9 @@ struct pruproc {
 
 /* For the BeagleLogic bindings */
 static struct pruproc *pp_bl;
+
+/* For the external bindings */
+static struct pruproc *pp_external;
 
 /* global memory map (for am33xx) (almost the same as local) */
 #define PRU_DATA_RAM0		0x00000
@@ -1153,12 +1158,11 @@ static struct rproc_ops pruproc_ops = {
 	.free_vring	= pruproc_free_vring,
 };
 
-static ssize_t pruproc_store_load(struct device *dev,
+static ssize_t pruproc_load(struct pruproc *pp,
+				struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct pruproc *pp = platform_get_drvdata(pdev);
 	struct pruproc_core *ppc;
 	char *fw_name[MAX_PRUS];
 	const char *s, *e, *t;
@@ -1266,12 +1270,32 @@ static ssize_t pruproc_store_load(struct device *dev,
 	return strlen(buf);
 }
 
-static ssize_t pruproc_store_reset(struct device *dev,
+static ssize_t pruproc_store_load(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct pruproc *pp = platform_get_drvdata(pdev);
+
+	return pruproc_load(pp, dev, attr, buf, count);
+}
+
+ssize_t pru_external_load(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	if(!pp_external)
+		return 0;
+
+	return pruproc_load(pp_external, dev, attr, buf, count);
+}
+EXPORT_SYMBOL(pru_external_load);
+
+static ssize_t pruproc_reset(struct pruproc *pp,
+				struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
 	struct pruproc_core *ppc;
 	int i;
 	u32 val;
@@ -1293,6 +1317,27 @@ static ssize_t pruproc_store_reset(struct device *dev,
 
 	return strlen(buf);
 }
+
+static ssize_t pruproc_store_reset(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct pruproc *pp = platform_get_drvdata(pdev);
+
+	return pruproc_reset(pp, dev, attr, buf, count);
+}
+
+ssize_t pru_external_reset(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	if(!pp_external)
+		return 0;
+
+	return pruproc_reset(pp_external, dev, attr, buf, count);
+}
+EXPORT_SYMBOL(pru_external_reset);
 
 static int pru_downcall(struct pruproc_core *ppc,
 		u32 nr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4);
@@ -2436,6 +2481,34 @@ static void pruproc_beaglelogic_init_bindings(struct pruproc *pp)
 }
 /* End BeagleLogic Section */
 
+static int external_pru_downcall(int pru_no, u32 nr, u32 arg0, u32 arg1,
+		u32 arg2, u32 arg3, u32 arg4)
+{
+	return pru_downcall_idx(pp_external, pru_no, nr, arg0,
+			arg1, arg2, arg3, arg4);
+}
+
+int pruproc_external_request_bind(struct pru_rproc_external_glue *g)
+{
+	if (pp_external == NULL)
+		return -1;
+
+	g->downcall_idx = external_pru_downcall;
+
+	return 0;
+}
+EXPORT_SYMBOL(pruproc_external_request_bind);
+
+void pruproc_external_request_unbind(void)
+{
+}
+EXPORT_SYMBOL(pruproc_external_request_unbind);
+
+static void pruproc_external_init_bindings(struct pruproc *pp)
+{
+	pp_external = pp;
+}
+
 static int pruproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2879,6 +2952,9 @@ static int pruproc_probe(struct platform_device *pdev)
 
 	/* init the BeagleLogic binding section */
 	pruproc_beaglelogic_init_bindings(pp);
+
+	/* init the external downcall binding section */
+	pruproc_external_init_bindings(pp);
 
 	(void)pru_d_read_u32;
 	(void)pru_i_write_u32;
