@@ -118,6 +118,13 @@
 		>;
 	};
 
+	bbcape_crypto_pins: pinmux_bbcape_crypto_pins {
+		pinctrl-single,pins = <
+			0x044 0x17	/* gpio1_17 FAST | OUTPUT | PULLUP | MODE7 */
+			0x034 0x2F	/* gpio1_13 FAST | INPUT | PULLDOWN | MODE7 */
+		>;
+	};
+
 	bbcape_lcd_pins: bbcape_lcd_pins {
 		pinctrl-single,pins = <
 			0xa0 (PIN_OUTPUT | MUX_MODE0)	/* lcd_data0.lcd_data0 */
