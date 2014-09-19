@@ -32,6 +32,20 @@
 		>;
 	};
 
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			0x158 0x72	/* spi0_d1.i2c1_sda, SLEWCTRL_SLOW | INPUT_PULLUP | MODE2 */
+			0x15c 0x72	/* spi0_cs0.i2c1_scl, SLEWCTRL_SLOW | INPUT_PULLUP | MODE2 */
+		>;
+	};
+
+	i2c2_pins: pinmux_i2c2_pins {
+		pinctrl-single,pins = <
+			0x178 0x73 /* (SLEWCTRL_SLOW | PIN_INPUT_PULLUP | MUX_MODE3) uart1_ctsn.i2c2_sda */
+			0x17c 0x73 /* (SLEWCTRL_SLOW | PIN_INPUT_PULLUP | MUX_MODE3) uart1_rtsn.i2c2_scl */
+		>;
+	};
+
 	uart0_pins: pinmux_uart0_pins {
 		pinctrl-single,pins = <
 			0x170 (PIN_INPUT_PULLUP | MUX_MODE0)	/* uart0_rxd.uart0_rxd */
