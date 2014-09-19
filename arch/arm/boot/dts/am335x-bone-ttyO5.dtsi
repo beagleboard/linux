@@ -1,0 +1,18 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "am335x-ttyO5.dtsi"
+
+&ocp {
+	P8_37_pinmux {
+		mode = "uart";
+	};
+	P8_38_pinmux {
+		mode = "uart";
+	};
+};
