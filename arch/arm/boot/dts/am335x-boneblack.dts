@@ -42,3 +42,16 @@
 #include "am335x-boneblack-nxp-hdmi-audio.dtsi"
 /* HDMI: without audio */
 /* #include "am335x-boneblack-nxp-hdmi-no-audio.dtsi" */
+
+/* uart1: P9.24, P9.26 */
+#include "am335x-ttyO1.dtsi"
+/* #include "am335x-bone-ttyO1.dtsi" */
+/* uart2: P9.21, P9.22 */
+#include "am335x-ttyO2.dtsi"
+/* #include "am335x-bone-ttyO2.dtsi" */
+/* uart4: P9.11, P9.13 */
+#include "am335x-ttyO4.dtsi"
+/* #include "am335x-bone-ttyO4.dtsi" */
+/* uart5: P8.37, P8.38 boneblack: hdmi has to be disabled for ttyO5 */
+#include "am335x-ttyO5.dtsi"
+/* #include "am335x-bone-ttyO5.dtsi" */
