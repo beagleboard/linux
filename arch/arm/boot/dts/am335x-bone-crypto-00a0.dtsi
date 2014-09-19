@@ -1,0 +1,36 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/*
+ * FIXME: gpio
+ * (bbcape_crypto_pins)
+ * atmega_rst@1 {
+ * 	label = "atmega_rst";
+ * 	gpio = <&gpio1 17 0x00>;
+ * };
+ *
+ * ataes132_auth@2 {
+ * 	label = "test_input";
+ * 	gpio = <&gpio1 13 0x00>;
+ * };
+ */
+
+&i2c2 {
+	ds1307@68 {
+		compatible = "ds1307";
+		reg = <0x68>;
+	};
+
+	tpm_i2c_atmel@29 {
+		compatible = "tpm_i2c_atmel";
+		reg = <0x29>;
+	};
+};
+
+/* uart4: P9.11, P9.13 */
+#include "am335x-bone-ttyO4.dtsi"
