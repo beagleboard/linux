@@ -6,6 +6,32 @@
  * published by the Free Software Foundation.
  */
 
+&ocp {
+	/* hdmi */
+	P8_37_pinmux {
+		status = "disabled";
+	};
+	P8_38_pinmux {
+		status = "disabled";
+	};
+	/* audio */
+	P9_25_pinmux {
+		status = "disabled";
+	};
+	P9_28_pinmux {
+		status = "disabled";
+	};
+	P9_29_pinmux {
+		status = "disabled";
+	};
+	P9_31_pinmux {
+		status = "disabled";
+	};
+	P9_41_pinmux {
+		status = "disabled";
+	};
+};
+
 &lcdc {
 	status = "okay";
 };
