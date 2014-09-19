@@ -1,0 +1,62 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&ocp {
+	P8_37_pinmux {
+		status = "disabled";
+	};
+	P8_38_pinmux {
+		status = "disabled";
+	};
+	P9_22_pinmux {
+		status = "disabled";
+	};
+};
+
+&lcdc {
+	status = "okay";
+};
+
+/ {
+	panel {
+		status = "okay";
+		compatible = "ti,tilcdc,panel";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bbcape_lcd_pins &bbcape_lcd7_avdd_en_pins>;
+		panel-info {
+			ac-bias           = <255>;
+			ac-bias-intrpt    = <0>;
+			dma-burst-sz      = <16>;
+			bpp               = <16>;
+			fdd               = <0x80>;
+			sync-edge         = <0>;
+			sync-ctrl         = <1>;
+			raster-order      = <0>;
+			fifo-th           = <0>;
+		};
+		display-timings {
+			native-mode = <&timing0>;
+			/* Settings for ThreeFive S9700RTWV35TR / LCD7 cape: */
+			timing0: 800x480 {
+				clock-frequency = <30000000>;
+				hactive = <800>;
+				vactive = <480>;
+				hfront-porch = <40>;
+				hback-porch = <40>;
+				hsync-len = <48>;
+				vback-porch = <30>;
+				vfront-porch = <13>;
+				vsync-len = <3>;
+				hsync-active = <0>;
+				vsync-active = <0>;
+				de-active = <1>;
+				pixelclk-active = <0>;
+			};
+		};
+	};
+};
