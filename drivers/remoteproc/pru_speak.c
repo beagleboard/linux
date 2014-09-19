@@ -341,6 +341,7 @@ static int pru_speak_probe(struct platform_device *pdev)
 	pp->shm_code.size_in_pages = PS_SHM_CODE_SIZE;
 	pp->shm_code.idx = PS_SHM_CODE_IDX;
 	pp->shm_code.is_valid = 1;
+	dma_set_coherent_mask(dev, 0xFFFFFFFF);
 	pp->shm_code.vaddr = dma_zalloc_coherent(dev, pp->shm_code.size_in_pages * PAGE_SIZE,
 							(dma_addr_t *) &(pp->shm_code.paddr), GFP_DMA);
 	if(!(pp->shm_code.vaddr)){
