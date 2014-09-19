@@ -249,6 +249,60 @@
 		>;
 	};
 
+	/* lcd3-01-00a2/lcd7-01-00a3/4dcape-70(t) */
+	keymap0_pins: pinmux_keymap0_pins {
+		pinctrl-single,pins = <
+			0x040 0x2f	/* KEY_LEFT gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
+			0x044 0x2f	/* KEY_RIGHT gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f 	/* KEY_UP gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x198 0x2f	/* KEY_DOWN mcasp0_axr0.gpio3_16, INPUT | PULLDIS | MODE7 */
+			0x154 0x2f	/* KEY_ENTER spi0_d0.gpio0_3, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
+	/* lcd4-01-00a1/4dcape-43(t) */
+	keymap1_pins: pinmux_keymap1_pins {
+		pinctrl-single,pins = <
+			0x040 0x2f	/* KEY_LEFT gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
+			0x044 0x2f	/* KEY_RIGHT gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f 	/* KEY_UP gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x198 0x2f	/* KEY_DOWN mcasp0_axr0.gpio3_16, INPUT | PULLDIS | MODE7 */
+			0x184 0x2f	/* KEY_ENTER uart1_txd.gpio0_15, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
+	/* lcd7-01-00a2 */
+	keymap2_pins: pinmux_keymap2_pins {
+		pinctrl-single,pins = <
+			0x040 0x2f	/* KEY_LEFT gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
+			0x044 0x2f	/* KEY_RIGHT gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f 	/* KEY_UP gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x198 0x2f	/* KEY_DOWN mcasp0_axr0.gpio3_16, INPUT | PULLDIS | MODE7 */
+			0x1a4 0x2f	/* KEY_ENTER mcasp0_fsr.gpio3_19, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
+	/* bbb-exp-c */
+	keymap3_pins: pinmux_keymap3_pins {
+		pinctrl-single,pins = <
+			0x040 0x2f	/* KEY_UP gpmc_a0.gpio1_16, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f	/* KEY_DOWN gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x078 0x2f	/* KEY_RIGHT gpmc_ben1.gpio1_28, INPUT | PULLDIS | MODE7 */
+			0x164 0x2f	/* KEY_LEFT ecap0_in_pwm0_out.gpio0_7, INPUT | PULLDIS | MODE7 */
+			0x1a4 0x2f	/* KEY_ENTER mcasp0_fxr.gpio3_19, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
+        /* bb-view */
+	keymap4_pins: pinmux_keymap4_pins {
+		pinctrl-single,pins = <
+			0x044 0x2f	/* usr2 gpmc_a1.gpio1_17, INPUT | PULLDIS | MODE7 */
+			0x04c 0x2f	/* usr0 gpmc_a3.gpio1_19, INPUT | PULLDIS | MODE7 */
+			0x070 0x2f	/* usr3 gpmc_wait0.gpio0_30, INPUT | PULLDIS | MODE7 */
+			0x184 0x2f	/* usr1 uart1_txd.gpio0_15, INPUT | PULLDIS | MODE7 */
+		>;
+	};
+
 	mcasp0_pins: mcasp0_pins {
 		pinctrl-single,pins = <
 			0x1ac (PIN_INPUT_PULLUP | MUX_MODE0)	/* mcasp0_ahclkx.mcasp0_ahclkx */
