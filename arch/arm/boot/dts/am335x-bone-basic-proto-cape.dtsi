@@ -1,0 +1,17 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "am335x-bone-spi0-spidev.dtsi"
+#include "am335x-bone-ttyO1.dtsi"
+
+&tscadc {
+	status = "okay";
+	adc {
+		ti,adc-channels = <4 5 6>;
+	};
+};
