@@ -1,0 +1,90 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&ocp {
+	/* gpio */
+	P9_14_pinmux {
+		mode = "P9_14_gpio_pu_pin";
+	};
+	P9_16_pinmux {
+		mode = "P9_16_gpio_pu_pin";
+	};
+	/* audio */
+	P9_25_pinmux {
+		status = "disabled";
+	};
+	P9_28_pinmux {
+		status = "disabled";
+	};
+	P9_29_pinmux {
+		status = "disabled";
+	};
+	P9_31_pinmux {
+		status = "disabled";
+	};
+
+	gpio-leds-cape-audio {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <>;
+
+		audio-led0 {
+			label = "audio:green:usr0";
+			gpios = <&gpio1 18 0>;
+			linux,default-trigger = "heartbeat";
+			default-state = "off";
+		};
+
+		audio-led1 {
+			label = "audio:green:usr1";
+			gpios = <&gpio1 19 0>;
+			linux,default-trigger = "mmc0";
+			default-state = "off";
+		};
+	};
+};
+
+&i2c2 {
+	tlv320aic3x: tlv320aic3x@1b {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x1b>;
+		status = "okay";
+	};
+};
+
+&mcasp0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp0_pins_audio_reva>;
+	status = "okay";
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	num-serializer = <16>;
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+		0 0 2 1
+		0 0 0 0
+		0 0 0 0
+		0 0 0 0
+	>;
+	tx-num-evt = <1>;
+	rx-num-evt = <1>;
+};
+
+/ {
+	sound {
+		compatible = "ti,da830-evm-audio";
+		ti,model = "DA830 EVM";
+		ti,audio-codec = <&tlv320aic3x>;
+		ti,mcasp-controller = <&mcasp0>;
+		ti,codec-clock-rate = <12000000>;
+		ti,audio-routing =
+			"Headphone Jack",       "HPLOUT",
+			"Headphone Jack",       "HPROUT",
+			"LINE1L",               "Line In",
+			"LINE1R",               "Line In";
+	};
+};
