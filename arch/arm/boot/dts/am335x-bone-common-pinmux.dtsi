@@ -394,6 +394,16 @@
 		>;
 	};
 
+	/* audio rev a */
+	mcasp0_pins_audio_reva: mcasp0_pins_audio_reva {
+		pinctrl-single,pins = <
+			0x190 0x20	/* mcasp0_aclkx.mcasp0_aclkx, INPUT | MODE0 */
+			0x194 0x20	/* mcasp0_fsx.mcasp0_fsx, INPUT | MODE0 */
+			0x19c 0x22	/* mcasp0_ahclkr.mcasp0_axr2, INPUT | MODE2 */
+			0x1ac 0x22	/* mcasp0_ahclkx.mcasp0_axr3, INPUT | MODE2 */
+		>;
+	};
+
 	/* audio rev b */
 	mcasp0_pins_audio_revb: mcasp0_pins_audio_revb {
 		pinctrl-single,pins = <
