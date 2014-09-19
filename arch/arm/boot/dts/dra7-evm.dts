@@ -611,7 +611,7 @@
 	tlc59108: tlc59108@40 {
 		compatible = "ti,tlc59108-tfcs9700";
 		reg = <0x40>;
-		enable-gpio = <&pcf_lcd 13 0>; /* P15, CON_LCD_PWR_DN */
+		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
 
 		port {
 			tlc_in: endpoint {
