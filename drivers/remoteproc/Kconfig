@@ -66,4 +66,17 @@ config PRU_RPROC_BEAGLELOGIC
 	  This can be either built-in or a loadable module.
 	  If unsure say N.
 
+config PRU_RPROC_PRU_SPEAK
+	tristate "BotSpeak interpreter support over AM33xx PRU remoteproc support"
+	depends on EXPERIMENTAL
+	depends on HAS_DMA && SOC_AM33XX
+	select REMOTEPROC
+	select RPMSG
+	select PRU_RPROC
+	default n
+	help
+	  Say y or m here to support PRU Speak - a BotSpeak interpreter for AM335x PRUs
+	  This can be either built-in or a loadable module.
+	  If unsure say N.
+
 endmenu
