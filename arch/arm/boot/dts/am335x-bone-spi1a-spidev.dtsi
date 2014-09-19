@@ -1,0 +1,41 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&ocp {
+	P9_20_pinmux {
+		status = "disabled";
+	};
+	P9_29_pinmux {
+		status = "disabled";
+	};
+	P9_30_pinmux {
+		status = "disabled";
+	};
+	P9_42_pinmux {
+		status = "disabled";
+	};
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1a_pins>;
+	status = "okay";
+
+	spidev2: spi@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <16000000>;
+		spi-cpha;
+	};
+
+	spidev3: spi@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <16000000>;
+	};
+};
