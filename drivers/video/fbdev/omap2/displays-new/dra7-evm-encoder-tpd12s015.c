@@ -159,6 +159,14 @@ static int tpd_connect(struct omap_dss_device *dssdev,
 	/* DC-DC converter needs at max 300us to get to 90% of 5V */
 	udelay(300);
 
+	/*
+	 * The HPD GPIO debounce causes a delay until we see the real HPD state.
+	 * If tpd_read_edid() or tpd_detect() are called very soon after setting
+	 * the ct_cp_hpd-gpio, we could observe wrong HPD value. So sleep here
+	 * until the GPIO values has become valid.
+	 */
+	msleep(DIV_ROUND_UP(HPD_DEBOUNCE_TIME, 1000));
+
 	return 0;
 }
 
