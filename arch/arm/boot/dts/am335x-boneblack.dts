@@ -78,6 +78,17 @@
 /* #include "am335x-bone-ttyO5.dtsi" */
 
 /* Capes */
+/* http://elinux.org/4D_4.3_LCD_CAPE */
+/* 4DCAPE-43 (Non Touch version): */
+/* #include "am335x-bone-4dcape-43.dtsi" */
+/* 4DCAPE-43T (Resistive Touch version): */
+/* #include "am335x-bone-4dcape-43t.dtsi" */
+
+/* http://www.4dsystems.com.au/product/4DCAPE_70T/ */
+/* 4DCAPE-70 (Non Touch version): */
+/* #include "am335x-bone-4dcape-70.dtsi" */
+/* 4DCAPE-70T (Resistive Touch version): */
+/* #include "am335x-bone-4dcape-70t.dtsi" */
 
 /* http://elinux.org/CircuitCo:Audio_Cape_RevA */
 /* #include "am335x-bone-audio-reva.dtsi" */
@@ -85,6 +96,20 @@
 /* http://elinux.org/CircuitCo:Audio_Cape_RevB */
 /* Pins: P9.24, P9.28, P9.29, P9.31, P9.30 */
 /* #include "am335x-bone-audio-revb.dtsi" */
+
+/* http://elinux.org/CircuitCo:BeagleBone_LCD3 */
+/* #include "am335x-bone-lcd3-01-00a2.dtsi" */
+
+/* http://elinux.org/CircuitCo:BeagleBone_LCD4 */
+/* #include "am335x-bone-lcd4-01-00a1.dtsi" */
+
+/* http://elinux.org/CircuitCo:BeagleBone_LCD7 */
+/* am335x-boneblack: emmc has to be disabled for lcd7-01-00a2 */
+/* #include "am335x-bone-lcd7-01-00a2.dtsi" */
+/* #include "am335x-bone-lcd7-01-00a3.dtsi" */
+
+/* http://www.chipsee.com/product/evm/beagle/beaglebone-black-expansion-capacitive.html */
+/* #include "am335x-bone-bbb-exp-c.dtsi" */
 
 /* http://elinux.org/CircuitCo:RTC_Cape */
 /* i2c1: P9.17, P9.18 */
