@@ -121,3 +121,6 @@
 /* uart4: P9.11, P9.13 */
 /* gpio: gpio1 13 gpio1 17 (gpio NOT IMPLEMENTED YET) */
 /* #include "am335x-bone-crypto-00a0.dtsi" */
+
+/* http://elinux.org/CircuitCo:Basic_Proto_Cape */
+/* #include "am335x-bone-basic-proto-cape.dtsi" */
