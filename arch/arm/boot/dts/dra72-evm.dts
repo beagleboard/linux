@@ -286,7 +286,7 @@
 
 	hpd_pin: pinmux_hpd_pin {
 		pinctrl-single,pins = <
-			0x3b8   (PIN_INPUT | MUX_MODE14) /* gpio7_12 */
+			0x3b8   (PIN_INPUT_PULLDOWN | MUX_MODE14) /* gpio7_12 */
 		>;
 	};
 
