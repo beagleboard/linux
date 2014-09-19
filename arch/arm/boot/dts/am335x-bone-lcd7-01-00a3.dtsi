@@ -1,0 +1,31 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* Led */
+/* #include "am335x-bone-led-gpio1-18.dtsi" */
+#include "am335x-bone-led-gpio1-28.dtsi"
+/* #include "am335x-bone-led-gpio3-19.dtsi" */
+/* #include "am335x-bone-led-gpio2-4-gpio2-5.dtsi" */
+
+/* Keypad */
+#include "am335x-bone-keymap0.dtsi"
+/* #include "am335x-bone-keymap1.dtsi" */
+/* #include "am335x-bone-keymap2.dtsi" */
+/* #include "am335x-bone-keymap3.dtsi" */
+
+/* Backlight */
+#include "am335x-bone-bl-gpio1-18.dtsi"
+
+/* Touchscreen */
+#include "am335x-bone-ti-tscadc-4-wire.dtsi"
+
+/* Panel */
+/* #include "am335x-bone-panel-320x240.dtsi" */
+/* #include "am335x-bone-panel-480x272.dtsi" */
+#include "am335x-bone-panel-800x480.dtsi"
+/* #include "am335x-bone-panel-1240x600-24bit.dtsi" */
