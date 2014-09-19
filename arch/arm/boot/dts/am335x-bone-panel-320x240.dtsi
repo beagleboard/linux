@@ -1,0 +1,61 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&ocp {
+	/* hdmi */
+	P8_37_pinmux {
+		status = "disabled";
+	};
+	P8_38_pinmux {
+		status = "disabled";
+	};
+};
+
+&lcdc {
+	status = "okay";
+};
+
+/ {
+	panel {
+		status = "okay";
+		compatible = "ti,tilcdc,panel";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bbcape_lcd_pins>;
+		panel-info {
+			ac-bias           = <255>;
+			ac-bias-intrpt    = <0>;
+			dma-burst-sz      = <16>;
+			bpp               = <16>;
+			fdd               = <0x80>;
+			sync-edge         = <0>;
+			sync-ctrl         = <1>;
+			raster-order      = <0>;
+			fifo-th           = <0>;
+			invert-pxl-clk;
+		};
+		display-timings {
+			/* Settings for CDTech_S035Q01 / LCD3 cape: */
+			native-mode = <&timing0>;
+			timing0: 320x240 {
+				clock-frequency = <8000000>;
+				hactive = <320>;
+				vactive = <240>;
+				hfront-porch = <59>;
+				hback-porch = <22>;
+				hsync-len = <48>;
+				vback-porch = <12>;
+				vfront-porch = <23>;
+				vsync-len = <2>;
+				hsync-active = <0>;
+				vsync-active = <0>;
+				de-active = <1>;
+				pixelclk-active = <0>;
+			};
+		};
+	};
+};
