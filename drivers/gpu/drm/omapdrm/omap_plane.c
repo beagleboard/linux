@@ -207,6 +207,24 @@ int omap_plane_mode_set(struct drm_plane *plane,
 {
 	struct omap_plane *omap_plane = to_omap_plane(plane);
 	struct omap_drm_window *win = &omap_plane->win;
+	int i;
+
+	/*
+	 * Check whether this plane supports the fb pixel format.
+	 * I don't think this should really be needed, but it looks like the
+	 * drm core only checks the format for planes, not for the crtc. So
+	 * when setting the format for crtc, without this check we would
+	 * get an error later when trying to program the color format into the
+	 * HW.
+	 */
+	for (i = 0; i < plane->format_count; i++)
+		if (fb->pixel_format == plane->format_types[i])
+			break;
+	if (i == plane->format_count) {
+		DBG("Invalid pixel format %s",
+			      drm_get_format_name(fb->pixel_format));
+		return -EINVAL;
+	}
 
 	win->crtc_x = crtc_x;
 	win->crtc_y = crtc_y;
