@@ -1,0 +1,25 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&ocp {
+	P9_14_pinmux {
+		/* gpio1[18] */
+		status = "disabled";
+	};
+};
+
+/ {
+	backlight {
+		status = "okay";
+		compatible = "gpio-backlight";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bbcape_backlight_pins>;
+		gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+		default-on;
+	};
+};
