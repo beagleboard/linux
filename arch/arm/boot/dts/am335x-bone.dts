@@ -45,6 +45,27 @@
 	status = "okay";
 };
 
+/* spi0: */
+/* P9.17 spi0_cs0 */
+/* P9.18 spi0_d1 */
+/* P9.21 spi0_d0 */
+/* P9.22 spi0_sclk */
+/* #include "am335x-bone-spi0-spidev.dtsi" */
+
+/* spi1: */
+/* P9.31 spi1_sclk */
+/* P9.29 spi1_d0 */
+/* P9.30 spi1_d1 */
+/* P9.28 spi1_cs0 */
+/* #include "am335x-bone-spi1-spidev.dtsi" */
+
+/* spi1a: */
+/* P9.42 spi1_sclk */
+/* P9.29 spi1_d0 */
+/* P9.30 spi1_d1 */
+/* P9.20 spi1_cs0 */
+/* #include "am335x-bone-spi1a-spidev.dtsi" */
+
 /* uart1: P9.24, P9.26 */
 #include "am335x-ttyO1.dtsi"
 /* #include "am335x-bone-ttyO1.dtsi" */
