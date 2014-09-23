@@ -304,8 +304,8 @@ static struct omap_hwmod_class_sysconfig dra7xx_vip_sysc = {
 	.sysc_offs	= 0x0010,
 	.sysc_flags	= (SYSC_HAS_MIDLEMODE | SYSC_HAS_SIDLEMODE),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
-			   SIDLE_SMART_WKUP | MSTANDBY_FORCE | MSTANDBY_NO |
-			   MSTANDBY_SMART | MSTANDBY_SMART_WKUP),
+			   MSTANDBY_FORCE | MSTANDBY_NO |
+			   MSTANDBY_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
@@ -320,6 +320,7 @@ static struct omap_hwmod dra7xx_vip1_hwmod = {
 	.class		= &dra7xx_vip_hwmod_class,
 	.clkdm_name	= "cam_clkdm",
 	.main_clk	= "vip1_gclk_mux",
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_CAM_VIP1_CLKCTRL_OFFSET,
@@ -335,6 +336,7 @@ static struct omap_hwmod dra7xx_vip2_hwmod = {
 	.class		= &dra7xx_vip_hwmod_class,
 	.clkdm_name	= "cam_clkdm",
 	.main_clk	= "vip2_gclk_mux",
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_CAM_VIP2_CLKCTRL_OFFSET,
@@ -350,6 +352,7 @@ static struct omap_hwmod dra7xx_vip3_hwmod = {
 	.class		= &dra7xx_vip_hwmod_class,
 	.clkdm_name	= "cam_clkdm",
 	.main_clk	= "vip3_gclk_mux",
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_CAM_VIP3_CLKCTRL_OFFSET,
