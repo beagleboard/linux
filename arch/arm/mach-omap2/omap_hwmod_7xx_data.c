@@ -270,8 +270,8 @@ static struct omap_hwmod_class_sysconfig dra7xx_vpe_sysc = {
 	.sysc_offs	= 0x0010,
 	.sysc_flags	= (SYSC_HAS_MIDLEMODE | SYSC_HAS_SIDLEMODE),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
-			   SIDLE_SMART_WKUP | MSTANDBY_FORCE | MSTANDBY_NO |
-			   MSTANDBY_SMART | MSTANDBY_SMART_WKUP),
+			   MSTANDBY_FORCE | MSTANDBY_NO |
+			   MSTANDBY_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
@@ -285,6 +285,7 @@ static struct omap_hwmod dra7xx_vpe_hwmod = {
 	.name		= "vpe",
 	.class		= &dra7xx_vpe_hwmod_class,
 	.clkdm_name	= "vpe_clkdm",
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_VPE_VPE_CLKCTRL_OFFSET,
