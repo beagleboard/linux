@@ -30,6 +30,11 @@ static DEFINE_MUTEX(iommu_debug_lock);
 
 static struct dentry *iommu_debug_root;
 
+static inline bool is_omap_iommu_detached(struct omap_iommu *obj)
+{
+	return !obj->domain;
+}
+
 static ssize_t debug_read_regs(struct file *file, char __user *userbuf,
 			       size_t count, loff_t *ppos)
 {
@@ -37,6 +42,9 @@ static ssize_t debug_read_regs(struct file *file, char __user *userbuf,
 	struct omap_iommu *obj = dev_to_omap_iommu(dev);
 	char *p, *buf;
 	ssize_t bytes;
+
+	if (is_omap_iommu_detached(obj))
+		return -EPERM;
 
 	buf = kmalloc(count, GFP_KERNEL);
 	if (!buf)
@@ -61,6 +69,9 @@ static ssize_t debug_read_tlb(struct file *file, char __user *userbuf,
 	struct omap_iommu *obj = dev_to_omap_iommu(dev);
 	char *p, *buf;
 	ssize_t bytes, rest;
+
+	if (is_omap_iommu_detached(obj))
+		return -EPERM;
 
 	buf = kmalloc(count, GFP_KERNEL);
 	if (!buf)
@@ -180,6 +191,9 @@ static ssize_t debug_read_pagetable(struct file *file, char __user *userbuf,
 	struct omap_iommu *obj = dev_to_omap_iommu(dev);
 	char *p, *buf;
 	size_t bytes;
+
+	if (is_omap_iommu_detached(obj))
+		return -EPERM;
 
 	buf = (char *)__get_free_page(GFP_KERNEL);
 	if (!buf)
