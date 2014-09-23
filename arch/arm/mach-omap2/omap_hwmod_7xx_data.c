@@ -369,10 +369,9 @@ static struct omap_hwmod dra7xx_vip3_hwmod = {
 
 static struct omap_hwmod_class_sysconfig dra7xx_cal_sysc = {
 	.sysc_offs	= 0x0010,
-	.sysc_flags	= (SYSC_HAS_MIDLEMODE | SYSC_HAS_SIDLEMODE),
-	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
-			   SIDLE_SMART_WKUP | MSTANDBY_FORCE | MSTANDBY_NO |
-			   MSTANDBY_SMART | MSTANDBY_SMART_WKUP),
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_RESET_STATUS |
+			   SYSC_HAS_SOFTRESET),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
