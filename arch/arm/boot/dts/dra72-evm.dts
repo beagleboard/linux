@@ -248,20 +248,6 @@
 		>;
 	};
 
-	dcan1_pins_default: dcan1_pins_default {
-		pinctrl-single,pins = <
-			0x3d4	(PIN_INPUT | MUX_MODE0)		/* dcan1_tx */
-			0x418	(PIN_INPUT | MUX_MODE1)		/* wakeup0.dcan1_rx */
-		>;
-	};
-
-	dcan1_pins_sleep: dcan1_pins_sleep {
-		pinctrl-single,pins = <
-			0x3d4	(PIN_INPUT | MUX_MODE15)	/* dcan1_tx.off */
-			0x418	(PIN_INPUT | MUX_MODE15)	/* wakeup0.off */
-		>;
-	};
-
 	vout1_pins: pinmux_vout1_pins {
 		pinctrl-single,pins = <
 			0x1C8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_clk */
@@ -725,14 +711,6 @@
 			};
 		};
 	};
-};
-
-
-&dcan1 {
-	status = "ok";
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&dcan1_pins_default>;
-	pinctrl-1 = <&dcan1_pins_sleep>;
 };
 
 &hdmi {
