@@ -4309,8 +4309,8 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 	if (retval)
 		goto fail;
 
-	if (hcd->phy && !hdev->parent)
-		usb_phy_notify_connect(hcd->phy, udev->speed);
+	if (hcd->usb_phy && !hdev->parent)
+		usb_phy_notify_connect(hcd->usb_phy, udev->speed);
 
 	/*
 	 * Some superspeed devices have finished the link training process
@@ -4520,9 +4520,9 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 
 	/* Disconnect any existing devices under this port */
 	if (udev) {
-		if (hcd->phy && !hdev->parent &&
+		if (hcd->usb_phy && !hdev->parent &&
 				!(portstatus & USB_PORT_STAT_CONNECTION))
-			usb_phy_notify_disconnect(hcd->phy, udev->speed);
+			usb_phy_notify_disconnect(hcd->usb_phy, udev->speed);
 		usb_disconnect(&hub->ports[port1 - 1]->child);
 	}
 	clear_bit(port1, hub->change_bits);
