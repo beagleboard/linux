@@ -144,6 +144,75 @@ int dwc3_gadget_set_link_state(struct dwc3 *dwc, enum dwc3_link_state state)
 }
 
 /**
+ * dwc3_gadget_ep_fifo_space - returns currently available space on FIFO
+ * @dwc: pointer to our context struct
+ * @dep: the endpoint to fetch FIFO space
+ *
+ * This function will return the currently available FIFO space
+ */
+static int dwc3_gadget_ep_fifo_space(struct dwc3 *dwc, struct dwc3_ep *dep)
+{
+	u32 current_fifo;
+	u32 reg;
+
+	if (dep->direction)
+		reg = DWC3_GDBGFIFOSPACE_TXFIFO;
+	else
+		reg = DWC3_GDBGFIFOSPACE_RXFIFO;
+
+	/* remove direction bit */
+	reg |= dep->number >> 1;
+
+	dwc3_writel(dwc->regs, DWC3_GDBGFIFOSPACE, reg);
+	reg = dwc3_readl(dwc->regs, DWC3_GDBGFIFOSPACE);
+	current_fifo = DWC3_GDBGFIFOSPACE_SPACE_AVAIL(reg);
+
+	return current_fifo;
+}
+
+/**
+ * dwc3_gadget_ep_fifo_size - returns allocated FIFO size
+ * @dwc: pointer to our context struct
+ * @dep: TX endpoint to fetch allocated FIFO size
+ *
+ * This function will read the correct TX FIFO register and
+ * return the FIFO size
+ */
+static int dwc3_gadget_ep_fifo_size(struct dwc3 *dwc, struct dwc3_ep *dep)
+{
+	if (WARN_ON(!dep->direction))
+		return 0;
+
+	return dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(dep->number)) & 0xffff;
+}
+
+/**
+ * dwc3_gadget_ep_fifo_empty - returns true when FIFO is empty
+ * @dwc: pointer to our context struct
+ * @dep: endpoint to request FIFO space
+ *
+ * This function will return a TRUE when FIFO is empty and FALSE
+ * otherwise.
+ */
+static int dwc3_gadget_ep_fifo_empty(struct dwc3 *dwc, struct dwc3_ep *dep)
+{
+	u32 allocated_fifo;
+	u32 current_fifo;
+
+	/* should not be called for RX endpoints */
+	if (WARN_ON(!dep->direction))
+		return false;
+
+	current_fifo = dwc3_gadget_ep_fifo_space(dwc, dep);
+	allocated_fifo = dwc3_gadget_ep_fifo_size(dwc, dep);
+
+	dev_vdbg(dwc->dev, "%s: FIFO space %u/%u\n", dep->name,
+			current_fifo, allocated_fifo);
+
+	return current_fifo == allocated_fifo;
+}
+
+/**
  * dwc3_gadget_resize_tx_fifos - reallocate fifo spaces for current use-case
  * @dwc: pointer to our context structure
  *
@@ -1295,6 +1364,20 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value)
 	memset(&params, 0x00, sizeof(params));
 
 	if (value) {
+		if (dep->flags & DWC3_EP_BUSY ||
+				(!list_empty(&dep->req_queued) ||
+				 !list_empty(&dep->request_list))) {
+			dev_dbg(dwc->dev, "%s: pending request, cannot halt\n",
+					dep->name);
+			return -EAGAIN;
+		}
+
+		if (dep->direction && !dwc3_gadget_ep_fifo_empty(dwc, dep)) {
+			dev_dbg(dwc->dev, "%s: FIFO not empty, cannot halt\n",
+					dep->name);
+			return -EAGAIN;
+		}
+
 		ret = dwc3_send_gadget_ep_cmd(dwc, dep->number,
 			DWC3_DEPCMD_SETSTALL, &params);
 		if (ret)

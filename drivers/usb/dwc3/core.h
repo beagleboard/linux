@@ -195,6 +195,14 @@
 #define DWC3_GHWPARAMS4_HIBER_SCRATCHBUFS(n)	(((n) & (0x0f << 13)) >> 13)
 #define DWC3_MAX_HIBER_SCRATCHBUFS		15
 
+/* Global FIFO Space Register */
+#define DWC3_GDBGFIFOSPACE_TXFIFO		(0 << 5)
+#define DWC3_GDBGFIFOSPACE_RXFIFO		(1 << 5)
+#define DWC3_GDBGFIFOSPACE_TXREQ_Q		(2 << 5)
+#define DWC3_GDBGFIFOSPACE_RXREQ_Q		(3 << 5)
+
+#define DWC3_GDBGFIFOSPACE_SPACE_AVAIL(num)	(((num) & 0xffff0000) >> 16)
+
 /* Device Configuration Register */
 #define DWC3_DCFG_DEVADDR(addr)	((addr) << 3)
 #define DWC3_DCFG_DEVADDR_MASK	DWC3_DCFG_DEVADDR(0x7f)
