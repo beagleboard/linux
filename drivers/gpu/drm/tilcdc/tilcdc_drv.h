@@ -169,6 +169,7 @@ void tilcdc_crtc_set_panel_info(struct drm_crtc *crtc,
 		const struct tilcdc_panel_info *info);
 int tilcdc_crtc_mode_valid(struct drm_crtc *crtc, struct drm_display_mode *mode);
 int tilcdc_crtc_max_width(struct drm_crtc *crtc);
+void tilcdc_crtc_dpms(struct drm_crtc *crtc, int mode);
 
 /* used by SGX OMAPLFB drvier */
 typedef void (*vsync_callback_t)(void *arg);

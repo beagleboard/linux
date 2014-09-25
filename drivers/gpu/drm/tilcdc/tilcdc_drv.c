@@ -333,7 +333,9 @@ static int tilcdc_irq_postinstall(struct drm_device *dev)
 	if (priv->rev == 1)
 		tilcdc_set(dev, LCDC_RASTER_CTRL_REG, LCDC_V1_UNDERFLOW_INT_ENA);
 	else
-		tilcdc_set(dev, LCDC_INT_ENABLE_SET_REG, LCDC_V2_UNDERFLOW_INT_ENA);
+		tilcdc_set(dev, LCDC_INT_ENABLE_SET_REG,
+			   LCDC_V2_UNDERFLOW_INT_ENA |
+			   LCDC_FRAME_DONE);
 
 	return 0;
 }
@@ -367,7 +369,7 @@ static void enable_vblank(struct drm_device *dev, bool enable)
 	} else {
 		reg = LCDC_INT_ENABLE_SET_REG;
 		mask = LCDC_V2_END_OF_FRAME0_INT_ENA |
-			LCDC_V2_END_OF_FRAME1_INT_ENA | LCDC_FRAME_DONE;
+			LCDC_V2_END_OF_FRAME1_INT_ENA;
 	}
 
 	if (enable)
@@ -553,6 +555,9 @@ static int tilcdc_pm_suspend(struct device *dev)
 		priv->ctx_valid = false;
 		return 0;
 	}
+
+	/* Disable the LCDC controller, to avoid locking up the PRCM */
+	tilcdc_crtc_dpms(priv->crtc, DRM_MODE_DPMS_OFF);
 
 	/* Save register state: */
 	for (i = 0; i < ARRAY_SIZE(registers); i++)
