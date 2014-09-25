@@ -419,7 +419,7 @@ struct drm_framebuffer *omap_framebuffer_create(struct drm_device *dev,
 struct drm_framebuffer *omap_framebuffer_init(struct drm_device *dev,
 		struct drm_mode_fb_cmd2 *mode_cmd, struct drm_gem_object **bos)
 {
-	struct omap_framebuffer *omap_fb;
+	struct omap_framebuffer *omap_fb = NULL;
 	struct drm_framebuffer *fb = NULL;
 	const struct format *format = NULL;
 	int ret, i, n = drm_format_num_planes(mode_cmd->pixel_format);
@@ -462,6 +462,14 @@ struct drm_framebuffer *omap_framebuffer_init(struct drm_device *dev,
 			goto fail;
 		}
 
+		if (mode_cmd->width % format->planes[i].stride_bpp != 0) {
+			dev_err(dev->dev,
+				"buffer width (%d) is not a multiple of pixel width (%d)\n",
+				mode_cmd->width, format->planes[i].stride_bpp);
+			ret = -EINVAL;
+			goto fail;
+		}
+
 		size = pitch * mode_cmd->height / format->planes[i].sub_y;
 
 		if (size > (omap_gem_mmap_size(bos[i]) - mode_cmd->offsets[i])) {
@@ -490,8 +498,7 @@ struct drm_framebuffer *omap_framebuffer_init(struct drm_device *dev,
 	return fb;
 
 fail:
-	if (fb)
-		omap_framebuffer_destroy(fb);
+	kfree(omap_fb);
 
 	return ERR_PTR(ret);
 }

@@ -518,7 +518,8 @@ static int dev_unload(struct drm_device *dev)
 
 	drm_kms_helper_poll_fini(dev);
 
-	omap_fbdev_free(dev);
+	if (priv->fbdev)
+		omap_fbdev_free(dev);
 
 	/* flush crtcs so the fbs get released */
 	for (i = 0; i < priv->num_crtcs; i++)
@@ -587,11 +588,13 @@ static void dev_lastclose(struct drm_device *dev)
 		}
 	}
 
-	drm_modeset_lock_all(dev);
-	ret = drm_fb_helper_restore_fbdev_mode(priv->fbdev);
-	drm_modeset_unlock_all(dev);
-	if (ret)
-		DBG("failed to restore crtc mode");
+	if (priv->fbdev) {
+		drm_modeset_lock_all(dev);
+		ret = drm_fb_helper_restore_fbdev_mode(priv->fbdev);
+		drm_modeset_unlock_all(dev);
+		if (ret)
+			DBG("failed to restore crtc mode");
+	}
 }
 
 static void dev_preclose(struct drm_device *dev, struct drm_file *file)

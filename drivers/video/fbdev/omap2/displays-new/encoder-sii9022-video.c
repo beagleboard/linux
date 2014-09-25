@@ -396,6 +396,7 @@ static int sii9022_hw_enable(struct omap_dss_device *dssdev)
 	/* configure input bus and pixel repetition */
 	/* Note: must be done after enabling TMDS */
 	r = regmap_write(regmap, SII9022_PIXEL_REPETITION_REG,
+		(0 << 4) |	/* Edge select = latch on falling edge */
 		(1 << 5) |	/* 24BIT */
 		(1 << 6)	/* CLK_RATIO_1X */
 		);
@@ -641,7 +642,7 @@ static void sii9022_set_timings(struct omap_dss_device *dssdev,
 	/* update DPI specific timing info */
 	t.data_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE;
 	t.de_level = OMAPDSS_SIG_ACTIVE_HIGH;
-	t.sync_pclk_edge = OMAPDSS_DRIVE_SIG_OPPOSITE_EDGES;
+	t.sync_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE;
 
 	ddata->timings = t;
 	dssdev->panel.timings = t;
@@ -665,7 +666,7 @@ static int sii9022_check_timings(struct omap_dss_device *dssdev,
 	/* update DPI specific timing info */
 	timings->data_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE;
 	timings->de_level = OMAPDSS_SIG_ACTIVE_HIGH;
-	timings->sync_pclk_edge = OMAPDSS_DRIVE_SIG_OPPOSITE_EDGES;
+	timings->sync_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE;
 
 	return in->ops.dpi->check_timings(in, timings);
 }
