@@ -486,6 +486,16 @@
 			0x144 (PIN_INPUT_PULLDOWN | MUX_MODE4) /* rmii1_ref_clk.mcasp1_axr3 */
 		>;
 	};
+
+	am335x_evm_audio_pins_sleep: am335x_evm_audio_pins_sleep {
+		pinctrl-single,pins = <
+			0x10c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* mii1_rx_dv.mcasp1_aclkx */
+			0x110 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* mii1_txd3.mcasp1_fsx */
+			0x108 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* mii1_col.mcasp1_axr2 */
+			0x144 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* rmii1_ref_clk.mcasp1_axr3 */
+		>;
+	};
+
 };
 
 &uart0 {
@@ -712,8 +722,9 @@
 #include "tps65910.dtsi"
 
 &mcasp1 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&am335x_evm_audio_pins>;
+	pinctrl-1 = <&am335x_evm_audio_pins_sleep>;
 
 	status = "okay";
 
