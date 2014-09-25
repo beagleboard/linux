@@ -203,7 +203,7 @@ static int tilcdc_crtc_page_flip(struct drm_crtc *crtc,
 	return 0;
 }
 
-static void tilcdc_crtc_dpms(struct drm_crtc *crtc, int mode)
+void tilcdc_crtc_dpms(struct drm_crtc *crtc, int mode)
 {
 	struct tilcdc_crtc *tilcdc_crtc = to_tilcdc_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
