@@ -432,8 +432,7 @@ static int pru_speak_remove(struct platform_device *pdev)
 	struct device *dev = pp->miscdev.this_device;
 
 	/* TODO: Unregister ourselves from the pru_rproc module */
-
-	/* TODO: deallocate memory */
+	pruproc_external_request_unbind();
 
 	device_remove_file(dev, &dev_attr_reset);
 	device_remove_file(dev, &dev_attr_load);
@@ -445,7 +444,15 @@ static int pru_speak_remove(struct platform_device *pdev)
 	device_remove_file(dev, &dev_attr_pru_speak_single_cmd);
 	device_remove_file(dev, &dev_attr_pru_speak_single_cmd_64);
 
+	misc_deregister(&pp->miscdev);
 	platform_set_drvdata(pdev, NULL);
+
+	/* TODO: deallocate memory */
+	dma_free_coherent(dev, pp->shm_code.size_in_pages * PAGE_SIZE, pp->shm_code.vaddr,
+		(dma_addr_t) pp->shm_code.paddr);
+	dma_free_coherent(dev, pp->shm_ret.size_in_pages * PAGE_SIZE, pp->shm_ret.vaddr,
+		(dma_addr_t) pp->shm_ret.paddr);
+	kfree(pp);
 
 	/* Print a log message to announce unloading */
 	printk("PRU Speak unloaded\n");

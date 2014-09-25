@@ -26,4 +26,5 @@ ssize_t pru_external_reset(struct device *dev,
 
 int pruproc_external_request_bind(struct pru_rproc_external_glue *g);
 
+void pruproc_external_request_unbind(void);
 #endif /* RPROC_EXTERNAL_GLUE_H_ */
