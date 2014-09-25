@@ -304,11 +304,13 @@ static void __init am437x_gp_evm_legacy_init(void)
 }
 #endif
 
+#ifdef CONFIG_SOC_DRA7XX
 static struct pci_dra7xx_platform_data dra7xx_pci_pdata = {
 	.reset_name = "pcie",
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
 };
+#endif
 
 static struct pcs_pdata pcs_pdata;
 
