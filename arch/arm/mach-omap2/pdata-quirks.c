@@ -284,11 +284,25 @@ static void __init omap5_uevm_legacy_init(void)
 #endif
 
 #ifdef CONFIG_SOC_AM43XX
+static void __init am4_evm_legacy_init_lcd_hdmi_switch(int gpio_num)
+{
+	if (gpio_request_one(gpio_num, GPIOF_DIR_OUT, "LCD/HDMI switch"))
+		return;
+
+	if (of_find_compatible_node(NULL, NULL, "sil,sii9022"))
+		gpio_set_value(gpio_num, 0);
+	else
+		gpio_set_value(gpio_num, 1);
+}
+
 #define AM43x_GP_EVM_EMMCNAND_GPIO 121	/* gpio3_25 set SEL_eMMCorNANDn */
 static void __init am437x_gp_evm_legacy_init(void)
 {
 	struct device_node *node;
 	int ret, flags;
+	const int lcd_hdmi_switch_gpio = 104;
+
+	am4_evm_legacy_init_lcd_hdmi_switch(lcd_hdmi_switch_gpio);
 
 	flags = GPIOF_OUT_INIT_HIGH;	/* Enable eMMC */
 	node = of_find_compatible_node(NULL, NULL, "ti,am3352-gpmc");
@@ -301,6 +315,13 @@ static void __init am437x_gp_evm_legacy_init(void)
 	if (ret)
 		pr_err("%s: Failed to get gpio %d\n",
 		       __func__, AM43x_GP_EVM_EMMCNAND_GPIO);
+}
+
+static void __init am43x_epos_evm_legacy_init(void)
+{
+	const int lcd_hdmi_switch_gpio = 65;
+
+	am4_evm_legacy_init_lcd_hdmi_switch(lcd_hdmi_switch_gpio);
 }
 #endif
 
@@ -454,6 +475,7 @@ static struct pdata_init pdata_quirks[] __initdata = {
 #endif
 #ifdef CONFIG_SOC_AM43XX
 	{ "ti,am437x-gp-evm", am437x_gp_evm_legacy_init, },
+	{ "ti,am43x-epos-evm", am43x_epos_evm_legacy_init, },
 #endif
 	{ /* sentinel */ },
 };
