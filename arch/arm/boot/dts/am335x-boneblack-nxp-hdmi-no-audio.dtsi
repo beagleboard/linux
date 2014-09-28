@@ -8,11 +8,65 @@
 
 &ocp {
 	/* hdmi */
+	P8_27_pinmux {
+		mode = "hdmi";
+	};
+	P8_28_pinmux {
+		mode = "hdmi";
+	};
+	P8_29_pinmux {
+		mode = "hdmi";
+	};
+	P8_30_pinmux {
+		mode = "hdmi";
+	};
+	P8_31_pinmux {
+		mode = "hdmi";
+	};
+	P8_32_pinmux {
+		mode = "hdmi";
+	};
+	P8_33_pinmux {
+		mode = "hdmi";
+	};
+	P8_34_pinmux {
+		mode = "hdmi";
+	};
+	P8_35_pinmux {
+		mode = "hdmi";
+	};
+	P8_36_pinmux {
+		mode = "hdmi";
+	};
 	P8_37_pinmux {
-		status = "disabled";
+		mode = "hdmi";
 	};
 	P8_38_pinmux {
-		status = "disabled";
+		mode = "hdmi";
+	};
+	P8_39_pinmux {
+		mode = "hdmi";
+	};
+	P8_40_pinmux {
+		mode = "hdmi";
+	};
+	P8_41_pinmux {
+		mode = "hdmi";
+	};
+	P8_42_pinmux {
+		mode = "hdmi";
+	};
+	P8_43_pinmux {
+		mode = "hdmi";
+	};
+	P8_44_pinmux {
+		mode = "hdmi";
+	};
+	P8_45_pinmux {
+		mode = "hdmi";
+	};
+	P8_46_pinmux {
+		mode = "hdmi";
 	};
 };
 
@@ -25,7 +79,8 @@
 		compatible = "ti,tilcdc,slave";
 		i2c = <&i2c0>;
 		pinctrl-names = "default", "off";
-		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
+		/* pinctrl-0 = <&nxp_hdmi_bonelt_pins>; */
+		pinctrl-0 = <&nxp_hdmi_bonelt_off_pins>;
 		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 		status = "okay";
 	};
