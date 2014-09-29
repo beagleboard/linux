@@ -48,6 +48,10 @@
 	};
 };
 
+&lcd_bl {
+	status = "disabled";
+};
+
 &sound0 {
 	status = "disabled";
 };
