@@ -415,6 +415,12 @@
 		>;
 	};
 
+	mcasp0_clken: mcasp0_clken {
+		pinctrl-single,pins = <
+			0x06c (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a11.GPIO1_27 */
+		>;
+	};
+
 	/* audio rev a */
 	mcasp0_pins_audio_reva: mcasp0_pins_audio_reva {
 		pinctrl-single,pins = <
