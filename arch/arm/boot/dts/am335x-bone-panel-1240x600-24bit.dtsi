@@ -7,6 +7,7 @@
  */
 
 &ocp {
+	/* hdmi */
 	P8_11_pinmux {
 		status = "disabled";
 	};
@@ -31,10 +32,64 @@
 	P8_19_pinmux {
 		status = "disabled";
 	};
+	P8_27_pinmux {
+		status = "disabled";
+	};
+	P8_28_pinmux {
+		status = "disabled";
+	};
+	P8_29_pinmux {
+		status = "disabled";
+	};
+	P8_30_pinmux {
+		status = "disabled";
+	};
+	P8_31_pinmux {
+		status = "disabled";
+	};
+	P8_32_pinmux {
+		status = "disabled";
+	};
+	P8_33_pinmux {
+		status = "disabled";
+	};
+	P8_34_pinmux {
+		status = "disabled";
+	};
+	P8_35_pinmux {
+		status = "disabled";
+	};
+	P8_36_pinmux {
+		status = "disabled";
+	};
 	P8_37_pinmux {
 		status = "disabled";
 	};
 	P8_38_pinmux {
+		status = "disabled";
+	};
+	P8_39_pinmux {
+		status = "disabled";
+	};
+	P8_40_pinmux {
+		status = "disabled";
+	};
+	P8_41_pinmux {
+		status = "disabled";
+	};
+	P8_42_pinmux {
+		status = "disabled";
+	};
+	P8_43_pinmux {
+		status = "disabled";
+	};
+	P8_44_pinmux {
+		status = "disabled";
+	};
+	P8_45_pinmux {
+		status = "disabled";
+	};
+	P8_46_pinmux {
 		status = "disabled";
 	};
 };
