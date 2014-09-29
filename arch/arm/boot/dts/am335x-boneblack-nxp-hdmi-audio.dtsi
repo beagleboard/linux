@@ -8,27 +8,81 @@
 
 &ocp {
 	/* hdmi */
+	P8_27_pinmux {
+		mode = "hdmi";
+	};
+	P8_28_pinmux {
+		mode = "hdmi";
+	};
+	P8_29_pinmux {
+		mode = "hdmi";
+	};
+	P8_30_pinmux {
+		mode = "hdmi";
+	};
+	P8_31_pinmux {
+		mode = "hdmi";
+	};
+	P8_32_pinmux {
+		mode = "hdmi";
+	};
+	P8_33_pinmux {
+		mode = "hdmi";
+	};
+	P8_34_pinmux {
+		mode = "hdmi";
+	};
+	P8_35_pinmux {
+		mode = "hdmi";
+	};
+	P8_36_pinmux {
+		mode = "hdmi";
+	};
 	P8_37_pinmux {
-		status = "disabled";
+		mode = "hdmi";
 	};
 	P8_38_pinmux {
-		status = "disabled";
+		mode = "hdmi";
+	};
+	P8_39_pinmux {
+		mode = "hdmi";
+	};
+	P8_40_pinmux {
+		mode = "hdmi";
+	};
+	P8_41_pinmux {
+		mode = "hdmi";
+	};
+	P8_42_pinmux {
+		mode = "hdmi";
+	};
+	P8_43_pinmux {
+		mode = "hdmi";
+	};
+	P8_44_pinmux {
+		mode = "hdmi";
+	};
+	P8_45_pinmux {
+		mode = "hdmi";
+	};
+	P8_46_pinmux {
+		mode = "hdmi";
 	};
 	/* audio */
 	P9_25_pinmux {
-		status = "disabled";
+		mode = "audio";
 	};
 	P9_28_pinmux {
-		status = "disabled";
+		mode = "audio";
 	};
 	P9_29_pinmux {
-		status = "disabled";
+		mode = "audio";
 	};
 	P9_31_pinmux {
-		status = "disabled";
+		mode = "audio";
 	};
 	P9_41_pinmux {
-		status = "disabled";
+		mode = "audio";
 	};
 };
 
@@ -38,8 +92,9 @@
 
 &mcasp0	{
 	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&mcasp0_pins>;
-	pinctrl-1 = <&mcasp0_pins_sleep>;
+	pinctrl-0 = <&mcasp0_clken>;
+	/* pinctrl-0 = <&mcasp0_pins>; */
+	/* pinctrl-1 = <&mcasp0_pins_sleep>; */
 	status = "okay";
 	op-mode = <0>;	/* MCASP_IIS_MODE */
 	tdm-slots = <2>;
@@ -55,7 +110,8 @@
 		compatible = "ti,tilcdc,slave";
 		i2c = <&i2c0>;
 		pinctrl-names = "default", "off";
-		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
+		/* pinctrl-0 = <&nxp_hdmi_bonelt_pins>; */
+		pinctrl-0 = <&nxp_hdmi_bonelt_off_pins>;
 		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 		status = "okay";
 	};
