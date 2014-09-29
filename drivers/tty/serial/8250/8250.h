@@ -16,6 +16,10 @@
 #include <linux/dmaengine.h>
 
 struct uart_8250_dma {
+	int (*tx_dma)(struct uart_8250_port *p);
+	int (*rx_dma)(struct uart_8250_port *p, unsigned int iir);
+
+	/* Filter function */
 	dma_filter_fn		fn;
 	void			*rx_param;
 	void			*tx_param;
