@@ -58,6 +58,7 @@ struct davinci_mcasp_context {
 	u32	txtdm;
 	u32	rfifoctl;
 	u32	wfifoctl;
+	u32	*xrsrctl;
 };
 
 struct davinci_mcasp {
@@ -873,6 +874,7 @@ static int davinci_mcasp_suspend(struct snd_soc_dai *dai)
 {
 	struct davinci_mcasp *mcasp = snd_soc_dai_get_drvdata(dai);
 	struct davinci_mcasp_context *context = &mcasp->context;
+	int i;
 	u32 reg;
 
 	context->txfmtctl = mcasp_get_reg(mcasp, DAVINCI_MCASP_TXFMCTL_REG);
@@ -896,6 +898,9 @@ static int davinci_mcasp_suspend(struct snd_soc_dai *dai)
 		reg = mcasp->fifo_base + MCASP_RFIFOCTL_OFFSET;
 		context->rfifoctl = mcasp_get_reg(mcasp, reg);
 	}
+	for (i = 0; i < mcasp->num_serializer; i++)
+		context->xrsrctl[i] = mcasp_get_reg(mcasp,
+						DAVINCI_MCASP_XRSRCTL_REG(i));
 
 	return 0;
 }
@@ -904,6 +909,7 @@ static int davinci_mcasp_resume(struct snd_soc_dai *dai)
 {
 	struct davinci_mcasp *mcasp = snd_soc_dai_get_drvdata(dai);
 	struct davinci_mcasp_context *context = &mcasp->context;
+	int i;
 	u32 reg;
 
 	mcasp_set_reg(mcasp, DAVINCI_MCASP_TXFMCTL_REG, context->txfmtctl);
@@ -927,6 +933,9 @@ static int davinci_mcasp_resume(struct snd_soc_dai *dai)
 		reg = mcasp->fifo_base + MCASP_RFIFOCTL_OFFSET;
 		mcasp_set_reg(mcasp, reg, context->rfifoctl);
 	}
+	for (i = 0; i < mcasp->num_serializer; i++)
+		mcasp_set_reg(mcasp, DAVINCI_MCASP_XRSRCTL_REG(i),
+			      context->xrsrctl[i]);
 
 	return 0;
 }
@@ -1245,6 +1254,11 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	mcasp->op_mode = pdata->op_mode;
 	mcasp->tdm_slots = pdata->tdm_slots;
 	mcasp->num_serializer = pdata->num_serializer;
+#ifdef CONFIG_PM_SLEEP
+	mcasp->context.xrsrctl = devm_kzalloc(&pdev->dev,
+					sizeof(u32) * mcasp->num_serializer,
+					GFP_KERNEL);
+#endif
 	mcasp->serial_dir = pdata->serial_dir;
 	mcasp->version = pdata->version;
 	mcasp->txnumevt = pdata->txnumevt;
