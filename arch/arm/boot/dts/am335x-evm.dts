@@ -859,6 +859,7 @@
 	pinctrl-0 = <&mmc1_pins_default>;
 	pinctrl-1 = <&mmc1_pins_sleep>;
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+	wp-gpios = <&gpio3 18 GPIO_ACTIVE_HIGH>;
 };
 
 &mmc3 {

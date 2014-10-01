@@ -251,7 +251,7 @@ static void dwc3_ep0_stall_and_restart(struct dwc3 *dwc)
 
 	/* stall is always issued on EP0 */
 	dep = dwc->eps[0];
-	__dwc3_gadget_ep_set_halt(dep, 1);
+	__dwc3_gadget_ep_set_halt(dep, 1, false);
 	dep->flags = DWC3_EP_ENABLED;
 	dwc->delayed_status = false;
 
@@ -475,7 +475,7 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 				return -EINVAL;
 			if (set == 0 && (dep->flags & DWC3_EP_WEDGE))
 				break;
-			ret = __dwc3_gadget_ep_set_halt(dep, set);
+			ret = __dwc3_gadget_ep_set_halt(dep, set, true);
 			if (ret)
 				return -EINVAL;
 			break;
@@ -781,9 +781,6 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 
 	dwc->ep0_next_event = DWC3_EP0_NRDY_STATUS;
 
-	r = next_request(&ep0->request_list);
-	ur = &r->request;
-
 	trb = dwc->ep0_trb;
 
 	status = DWC3_TRB_SIZE_TRBSTS(trb->size);
@@ -795,6 +792,12 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 
 		return;
 	}
+
+	r = next_request(&ep0->request_list);
+	if (!r)
+		return;
+
+	ur = &r->request;
 
 	length = trb->size & DWC3_TRB_SIZE_MASK;
 
@@ -817,12 +820,18 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 
 		dwc3_ep0_stall_and_restart(dwc);
 	} else {
-		/*
-		 * handle the case where we have to send a zero packet. This
-		 * seems to be case when req.length > maxpacket. Could it be?
-		 */
-		if (r)
-			dwc3_gadget_giveback(ep0, r, 0);
+		dwc3_gadget_giveback(ep0, r, 0);
+
+		if (IS_ALIGNED(ur->length, ep0->endpoint.maxpacket)) {
+			int ret;
+
+			dwc->ep0_next_event = DWC3_EP0_COMPLETE;
+
+			ret = dwc3_ep0_start_trans(dwc, epnum,
+					dwc->ctrl_req_addr, 0,
+					DWC3_TRBCTL_CONTROL_DATA);
+			WARN_ON(ret < 0);
+		}
 	}
 }
 
