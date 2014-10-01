@@ -203,6 +203,7 @@ static int hdmi_power_on_full(struct omap_dss_device *dssdev)
 	unsigned long phy;
 	struct hdmi_wp_data *wp = &hdmi.wp;
 	struct pll_params param;
+	bool ok;
 
 	r = hdmi_power_on_core(dssdev);
 	if (r)
@@ -220,7 +221,11 @@ static int hdmi_power_on_full(struct omap_dss_device *dssdev)
 
 	memset(&param, 0, sizeof(param));
 
-	pll_calc(hdmi.pll, phy, phy, NULL, &param);
+	ok = pll_calc(hdmi.pll, phy, phy, NULL, &param);
+	if (!ok) {
+		DSSDBG("Failed to calculate PLL settings\n");
+		goto err_pll_enable;
+	}
 
 	/* config the PLL and PHY hdmi_set_pll_pwrfirst */
 	r = hdmi_pll_enable(hdmi.pll, &hdmi.wp, &param);
