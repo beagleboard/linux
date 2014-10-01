@@ -154,7 +154,7 @@ int hdmi_phy_configure(struct hdmi_phy_data *phy, struct hdmi_config *cfg)
 		u32 dco_min = phy_feat->dcofreq_min / 10;
 		u32 pclk = cfg->timings.pixelclock;
 
-		if (pclk < dco_min)
+		if (pclk <= dco_min)
 			freqout = 0;
 		else if ((pclk >= dco_min) && (pclk < phy_feat->max_phy))
 			freqout = 1;
