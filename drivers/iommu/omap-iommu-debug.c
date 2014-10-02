@@ -403,7 +403,7 @@ static int __init iommu_debug_init(void)
 	struct dentry *d;
 	int err;
 
-	d = debugfs_create_dir("iommu", NULL);
+	d = debugfs_create_dir("omap_iommu", NULL);
 	if (!d)
 		return -ENOMEM;
 	iommu_debug_root = d;
