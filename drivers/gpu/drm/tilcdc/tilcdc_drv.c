@@ -17,6 +17,7 @@
 
 /* LCDC DRM driver, based on da8xx-fb */
 
+#include <linux/pinctrl/consumer.h>
 #include <linux/suspend.h>
 #include "tilcdc_drv.h"
 #include "tilcdc_regs.h"
