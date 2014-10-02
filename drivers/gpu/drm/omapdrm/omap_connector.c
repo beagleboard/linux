@@ -23,6 +23,13 @@
 
 #include "omap_drv.h"
 
+#define OMAP_DRM_MODE_FLAG_DATA_RISING	(1 << 24)
+#define OMAP_DRM_MODE_FLAG_DATA_FALLING	(1 << 25)
+#define OMAP_DRM_MODE_FLAG_SYNC_RISING	(1 << 26)
+#define OMAP_DRM_MODE_FLAG_SYNC_FALLING	(1 << 27)
+#define OMAP_DRM_MODE_FLAG_PDE		(1 << 28)
+#define OMAP_DRM_MODE_FLAG_NDE		(1 << 29)
+
 /*
  * connector funcs
  */
@@ -72,6 +79,21 @@ void copy_timings_omap_to_drm(struct drm_display_mode *mode,
 		mode->flags |= DRM_MODE_FLAG_PVSYNC;
 	else
 		mode->flags |= DRM_MODE_FLAG_NVSYNC;
+
+	if (timings->data_pclk_edge == OMAPDSS_DRIVE_SIG_RISING_EDGE)
+		mode->flags |= OMAP_DRM_MODE_FLAG_DATA_RISING;
+	else
+		mode->flags |= OMAP_DRM_MODE_FLAG_DATA_FALLING;
+
+	if (timings->sync_pclk_edge == OMAPDSS_DRIVE_SIG_RISING_EDGE)
+		mode->flags |= OMAP_DRM_MODE_FLAG_SYNC_RISING;
+	else
+		mode->flags |= OMAP_DRM_MODE_FLAG_SYNC_FALLING;
+
+	if (timings->de_level == OMAPDSS_SIG_ACTIVE_HIGH)
+		mode->flags |= OMAP_DRM_MODE_FLAG_PDE;
+	else
+		mode->flags |= OMAP_DRM_MODE_FLAG_NDE;
 }
 
 void copy_timings_drm_to_omap(struct omap_video_timings *timings,
@@ -101,9 +123,20 @@ void copy_timings_drm_to_omap(struct omap_video_timings *timings,
 	else
 		timings->vsync_level = OMAPDSS_SIG_ACTIVE_LOW;
 
-	timings->data_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE;
-	timings->de_level = OMAPDSS_SIG_ACTIVE_HIGH;
-	timings->sync_pclk_edge = OMAPDSS_DRIVE_SIG_FALLING_EDGE;
+	if (mode->flags & OMAP_DRM_MODE_FLAG_DATA_RISING)
+		timings->data_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE;
+	else
+		timings->data_pclk_edge = OMAPDSS_DRIVE_SIG_FALLING_EDGE;
+
+	if (mode->flags & OMAP_DRM_MODE_FLAG_SYNC_RISING)
+		timings->de_level = OMAPDSS_SIG_ACTIVE_HIGH;
+	else
+		timings->de_level = OMAPDSS_SIG_ACTIVE_LOW;
+
+	if (mode->flags & OMAP_DRM_MODE_FLAG_PDE)
+		timings->sync_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE;
+	else
+		timings->sync_pclk_edge = OMAPDSS_DRIVE_SIG_FALLING_EDGE;
 }
 
 static enum drm_connector_status omap_connector_detect(
