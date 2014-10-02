@@ -1279,6 +1279,7 @@ attach_fail:
 		omap_iommu_detach(oiommu);
 		iommu->iommu_dev = NULL;
 		arch_data->iommu_dev = NULL;
+		oiommu->domain = NULL;
 	};
 init_fail:
 	omap_iommu_detach_fini(omap_domain);
@@ -1319,6 +1320,7 @@ static void _omap_iommu_detach_dev(struct omap_iommu_domain *omap_domain,
 		omap_iommu_detach(oiommu);
 		iommu->iommu_dev = NULL;
 		arch_data->iommu_dev = NULL;
+		oiommu->domain = NULL;
 	}
 
 	omap_iommu_detach_fini(omap_domain);
