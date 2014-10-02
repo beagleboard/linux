@@ -10,6 +10,9 @@
  * published by the Free Software Foundation.
  */
 
+#ifndef _OMAP_IOMMU_H
+#define _OMAP_IOMMU_H
+
 #if defined(CONFIG_ARCH_OMAP1)
 #error "iommu for this processor not implemented yet"
 #endif
@@ -28,14 +31,12 @@ struct iotlb_entry {
 
 struct omap_iommu {
 	const char	*name;
-	struct module	*owner;
 	void __iomem	*regbase;
 	void __iomem	*syscfgbase;
 	struct device	*dev;
 	void		*isr_priv;
 	struct iommu_domain *domain;
 
-	unsigned int	refcount;
 	spinlock_t	iommu_lock;	/* global for this whole object */
 
 	/*
@@ -77,8 +78,6 @@ struct cr_regs {
 
 /* architecture specific functions */
 struct iommu_functions {
-	unsigned long	version;
-
 	int (*enable)(struct omap_iommu *obj);
 	void (*disable)(struct omap_iommu *obj);
 	void (*set_twl)(struct omap_iommu *obj, bool on);
@@ -102,7 +101,6 @@ struct iommu_functions {
 	ssize_t (*dump_ctx)(struct omap_iommu *obj, char *buf, ssize_t len);
 };
 
-#ifdef CONFIG_IOMMU_API
 /**
  * dev_to_omap_iommu() - retrieves an omap iommu object from a user device
  * @dev: iommu client device
@@ -113,7 +111,6 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 
 	return arch_data->iommu_dev;
 }
-#endif
 
 /*
  * MMU Register offsets
@@ -210,15 +207,10 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 /*
  * global functions
  */
-extern u32 omap_iommu_arch_version(void);
-
 extern void omap_iotlb_cr_to_e(struct cr_regs *cr, struct iotlb_entry *e);
 
 extern int
 omap_iopgtable_store_entry(struct omap_iommu *obj, struct iotlb_entry *e);
-
-extern void omap_iommu_save_ctx(struct device *dev);
-extern void omap_iommu_restore_ctx(struct device *dev);
 
 extern int omap_foreach_iommu_device(void *data,
 				int (*fn)(struct device *, void *));
@@ -243,3 +235,5 @@ static inline void iommu_write_reg(struct omap_iommu *obj, u32 val, size_t offs)
 {
 	__raw_writel(val, obj->regbase + offs);
 }
+
+#endif /* _OMAP_IOMMU_H */

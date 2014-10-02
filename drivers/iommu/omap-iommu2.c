@@ -26,8 +26,6 @@
 /*
  * omap2 architecture specific register bit definitions
  */
-#define IOMMU_ARCH_VERSION	0x00000011
-
 /* IRQSTATUS & IRQENABLE */
 #define MMU_IRQ_MULTIHITFAULT	(1 << 4)
 #define MMU_IRQ_TABLEWALKFAULT	(1 << 3)
@@ -54,13 +52,6 @@
 	 ((pgsz) == MMU_CAM_PGSZ_1M)  ? 0xfff00000 :	\
 	 ((pgsz) == MMU_CAM_PGSZ_64K) ? 0xffff0000 :	\
 	 ((pgsz) == MMU_CAM_PGSZ_4K)  ? 0xfffff000 : 0)
-
-/* IOMMU errors */
-#define OMAP_IOMMU_ERR_TLB_MISS		(1 << 0)
-#define OMAP_IOMMU_ERR_TRANS_FAULT	(1 << 1)
-#define OMAP_IOMMU_ERR_EMU_MISS		(1 << 2)
-#define OMAP_IOMMU_ERR_TBLWALK_FAULT	(1 << 3)
-#define OMAP_IOMMU_ERR_MULTIHIT_FAULT	(1 << 4)
 
 static void dra7_cfg_dspsys_mmu(struct omap_iommu *obj, bool enable)
 {
@@ -144,7 +135,6 @@ static void omap2_iommu_set_twl(struct omap_iommu *obj, bool on)
 static u32 omap2_iommu_fault_isr(struct omap_iommu *obj, u32 *ra)
 {
 	u32 stat, da;
-	u32 errs = 0;
 
 	stat = iommu_read_reg(obj, MMU_IRQSTATUS);
 	stat &= MMU_IRQ_MASK;
@@ -156,19 +146,9 @@ static u32 omap2_iommu_fault_isr(struct omap_iommu *obj, u32 *ra)
 	da = iommu_read_reg(obj, MMU_FAULT_AD);
 	*ra = da;
 
-	if (stat & MMU_IRQ_TLBMISS)
-		errs |= OMAP_IOMMU_ERR_TLB_MISS;
-	if (stat & MMU_IRQ_TRANSLATIONFAULT)
-		errs |= OMAP_IOMMU_ERR_TRANS_FAULT;
-	if (stat & MMU_IRQ_EMUMISS)
-		errs |= OMAP_IOMMU_ERR_EMU_MISS;
-	if (stat & MMU_IRQ_TABLEWALKFAULT)
-		errs |= OMAP_IOMMU_ERR_TBLWALK_FAULT;
-	if (stat & MMU_IRQ_MULTIHITFAULT)
-		errs |= OMAP_IOMMU_ERR_MULTIHIT_FAULT;
 	iommu_write_reg(obj, stat, MMU_IRQSTATUS);
 
-	return errs;
+	return stat;
 }
 
 static void omap2_tlb_read_cr(struct omap_iommu *obj, struct cr_regs *cr)
@@ -288,8 +268,6 @@ static void omap2_iommu_save_ctx(struct omap_iommu *obj)
 		p[i] = iommu_read_reg(obj, i * sizeof(u32));
 		dev_dbg(obj->dev, "%s\t[%02d] %08x\n", __func__, i, p[i]);
 	}
-
-	BUG_ON(p[0] != IOMMU_ARCH_VERSION);
 }
 
 static void omap2_iommu_restore_ctx(struct omap_iommu *obj)
@@ -301,8 +279,6 @@ static void omap2_iommu_restore_ctx(struct omap_iommu *obj)
 		iommu_write_reg(obj, p[i], i * sizeof(u32));
 		dev_dbg(obj->dev, "%s\t[%02d] %08x\n", __func__, i, p[i]);
 	}
-
-	BUG_ON(p[0] != IOMMU_ARCH_VERSION);
 }
 
 static void omap2_cr_to_e(struct cr_regs *cr, struct iotlb_entry *e)
@@ -317,8 +293,6 @@ static void omap2_cr_to_e(struct cr_regs *cr, struct iotlb_entry *e)
 }
 
 static const struct iommu_functions omap2_iommu_ops = {
-	.version	= IOMMU_ARCH_VERSION,
-
 	.enable		= omap2_iommu_enable,
 	.disable	= omap2_iommu_disable,
 	.set_twl	= omap2_iommu_set_twl,
