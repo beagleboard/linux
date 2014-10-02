@@ -160,15 +160,6 @@ void omap_iommu_restore_ctx(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(omap_iommu_restore_ctx);
 
-/**
- * omap_iommu_arch_version - Return running iommu arch version
- **/
-u32 omap_iommu_arch_version(void)
-{
-	return arch_iommu->version;
-}
-EXPORT_SYMBOL_GPL(omap_iommu_arch_version);
-
 static int iommu_enable(struct omap_iommu *obj)
 {
 	int err;
@@ -833,8 +824,9 @@ static irqreturn_t iommu_fault_handler(int irq, void *data)
 	u32 *iopgd, *iopte;
 	struct omap_iommu *obj = data;
 	struct iommu_domain *domain = obj->domain;
+	struct omap_iommu_domain *omap_domain = domain->priv;
 
-	if (!obj->refcount)
+	if (!omap_domain->attached)
 		return IRQ_NONE;
 
 	errs = iommu_report_fault(obj, &da);
@@ -894,34 +886,18 @@ static struct omap_iommu *omap_iommu_attach(const char *name, u32 *iopgd)
 
 	spin_lock(&obj->iommu_lock);
 
-	/* an iommu device can only be attached once */
-	if (++obj->refcount > 1) {
-		dev_err(dev, "%s: already attached!\n", obj->name);
-		err = -EBUSY;
-		goto err_enable;
-	}
-
 	obj->iopgd = iopgd;
 	err = iommu_enable(obj);
 	if (err)
 		goto err_enable;
 	flush_iotlb_all(obj);
 
-	if (!try_module_get(obj->owner)) {
-		err = -ENODEV;
-		goto err_module;
-	}
-
 	spin_unlock(&obj->iommu_lock);
 
 	dev_dbg(obj->dev, "%s: %s\n", __func__, obj->name);
 	return obj;
 
-err_module:
-	if (obj->refcount == 1)
-		iommu_disable(obj);
 err_enable:
-	obj->refcount--;
 	spin_unlock(&obj->iommu_lock);
 	return ERR_PTR(err);
 }
@@ -937,11 +913,7 @@ static void omap_iommu_detach(struct omap_iommu *obj)
 
 	spin_lock(&obj->iommu_lock);
 
-	if (--obj->refcount == 0)
-		iommu_disable(obj);
-
-	module_put(obj->owner);
-
+	iommu_disable(obj);
 	obj->iopgd = NULL;
 
 	spin_unlock(&obj->iommu_lock);
@@ -1260,13 +1232,12 @@ omap_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	int ret = 0;
 	int i;
 
-	spin_lock(&omap_domain->lock);
-
-	if (!arch_data) {
+	if (!arch_data || !arch_data->name) {
 		dev_err(dev, "device doesn't have an associated iommu\n");
-		ret = -EINVAL;
-		goto out;
+		return -EINVAL;
 	}
+
+	spin_lock(&omap_domain->lock);
 
 	/* only a single client device can be attached to a domain */
 	if (omap_domain->attached) {
@@ -1308,6 +1279,7 @@ attach_fail:
 		omap_iommu_detach(oiommu);
 		iommu->iommu_dev = NULL;
 		arch_data->iommu_dev = NULL;
+		oiommu->domain = NULL;
 	};
 init_fail:
 	omap_iommu_detach_fini(omap_domain);
@@ -1348,6 +1320,7 @@ static void _omap_iommu_detach_dev(struct omap_iommu_domain *omap_domain,
 		omap_iommu_detach(oiommu);
 		iommu->iommu_dev = NULL;
 		arch_data->iommu_dev = NULL;
+		oiommu->domain = NULL;
 	}
 
 	omap_iommu_detach_fini(omap_domain);
