@@ -89,7 +89,6 @@ static void set_scanout(struct drm_crtc *crtc, int n)
 static void update_scanout(struct drm_crtc *crtc)
 {
 	struct tilcdc_crtc *tilcdc_crtc = to_tilcdc_crtc(crtc);
-	struct drm_device *dev = crtc->dev;
 	struct drm_framebuffer *fb = crtc->fb;
 	struct drm_gem_cma_object *gem;
 	unsigned int depth, bpp;
@@ -120,8 +119,6 @@ static void update_scanout(struct drm_crtc *crtc)
 			tilcdc_crtc->dirty |= LCDC_END_OF_FRAME0;
 			set_scanout(crtc, 1);
 		}
-
-		drm_vblank_get(dev, 0);
 	} else {
 		/* not enabled yet, so update registers immediately: */
 		set_scanout(crtc, 0);
@@ -706,8 +703,6 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 
-		if (dirty && !tilcdc_crtc->dirty)
-			drm_vblank_put(dev, 0);
 	}
 
 	if (priv->rev == 2) {
@@ -736,7 +731,6 @@ void tilcdc_crtc_cancel_page_flip(struct drm_crtc *crtc, struct drm_file *file)
 	if (event && event->base.file_priv == file) {
 		tilcdc_crtc->event = NULL;
 		event->base.destroy(&event->base);
-		drm_vblank_put(dev, 0);
 	}
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 }
