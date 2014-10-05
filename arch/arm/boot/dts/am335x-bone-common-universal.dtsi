@@ -728,7 +728,7 @@
 	P9_26_uart_pin: pinmux_P9_26_uart_pin {
 		pinctrl-single,pins = <0x180  0x30>; };     /* Mode 0, Pull-Up, RxActive */
 	P9_26_can_pin: pinmux_P9_26_can_pin {
-		pinctrl-single,pins = <0x180  0x32>; };     /* Mode 2, Pull-Up, RxActive */
+		pinctrl-single,pins = <0x180  0x12>; };     /* Mode 2, Pull-Up, RxActive */
 	P9_26_i2c_pin: pinmux_P9_26_i2c_pin {
 		pinctrl-single,pins = <0x180  0x33>; };     /* Mode 3, Pull-Up, RxActive */
 	P9_26_pruin_pin: pinmux_P9_26_pruin_pin {
