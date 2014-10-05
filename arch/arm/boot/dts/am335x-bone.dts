@@ -45,6 +45,10 @@
 	status = "okay";
 };
 
+/* can1: P9_24, P9_26 */
+#include "am335x-can1.dtsi"
+/* #include "am335x-bone-can1.dtsi" */
+
 /* spi0: */
 /* P9.17 spi0_cs0 */
 /* P9.18 spi0_d1 */
