@@ -48,6 +48,16 @@ independent, drivers.
      ids for predefined purposes.
      Should be called from a process context (might sleep).
 
+  int of_hwspin_lock_get_id(struct device_node *np, int index);
+   - retrieve the global lock id for an OF phandle-based specific lock.
+     This function provides a means for DT users of a hwspinlock module
+     to get the global lock id of a specific hwspinlock, so that it can
+     be requested using the normal hwspin_lock_request_specific() API.
+     The function returns a valid lock id number on success, -EPROBE_DEFER
+     if the hwspinlock device is not yet registered with the core, or other
+     error values.
+     Should be called from a process context (might sleep).
+
   int hwspin_lock_free(struct hwspinlock *hwlock);
    - free a previously-assigned hwspinlock; returns 0 on success, or an
      appropriate error code on failure (e.g. -EINVAL if the hwspinlock
@@ -243,6 +253,22 @@ int hwspinlock_example2(void)
      Returns the address of hwspinlock on success, or NULL on error (e.g.
      if the hwspinlock is still in use).
 
+  int of_hwspin_lock_get_num_locks(struct device_node *dn);
+   - is a common OF helper function that can be used by some underlying
+     vendor-specific implementations. This can be used by implementations
+     that require and define the number of locks supported within a hwspinlock
+     bank as a device tree node property. This function should be called by
+     needed implementations before registering a hwspinlock device with the
+     core.
+
+  int of_hwspin_lock_get_base_id(struct device_node *dn);
+   - is a common OF helper function that can be used by some underlying
+     vendor-specific implementations. This can be used by implementations
+     that require and define the base index for a block of locks present
+     within a hwspinlock bank as a device tree node property. This function
+     should be called by needed implementations before registering a hwspinlock
+     device with the core.
+
 5. Important structs
 
 struct hwspinlock_device is a device which usually contains a bank
@@ -251,6 +277,7 @@ implementation using the hwspin_lock_register() API.
 
 /**
  * struct hwspinlock_device - a device which usually spans numerous hwspinlocks
+ * @list: list element to link hwspinlock devices together
  * @dev: underlying device, will be used to invoke runtime PM api
  * @ops: platform-specific hwspinlock handlers
  * @base_id: id index of the first lock in this device
@@ -258,6 +285,7 @@ implementation using the hwspin_lock_register() API.
  * @lock: dynamically allocated array of 'struct hwspinlock'
  */
 struct hwspinlock_device {
+	struct list_head list;
 	struct device *dev;
 	const struct hwspinlock_ops *ops;
 	int base_id;
@@ -272,11 +300,13 @@ of which represents a single hardware lock:
  * struct hwspinlock - this struct represents a single hwspinlock instance
  * @bank: the hwspinlock_device structure which owns this lock
  * @lock: initialized and used by hwspinlock core
+ * @type: type of lock, used to distinguish regular locks from reserved locks
  * @priv: private data, owned by the underlying platform-specific hwspinlock drv
  */
 struct hwspinlock {
 	struct hwspinlock_device *bank;
 	spinlock_t lock;
+	unsigned int type;
 	void *priv;
 };
 

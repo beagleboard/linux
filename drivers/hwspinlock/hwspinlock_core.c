@@ -27,11 +27,13 @@
 #include <linux/hwspinlock.h>
 #include <linux/pm_runtime.h>
 #include <linux/mutex.h>
+#include <linux/of.h>
 
 #include "hwspinlock_internal.h"
 
 /* radix tree tags */
 #define HWSPINLOCK_UNUSED	(0) /* tags an hwspinlock as unused */
+#define HWSPINLOCK_RESERVED	(1) /* tags an hwspinlock as reserved */
 
 /*
  * A radix tree is used to maintain the available hwspinlock instances.
@@ -59,6 +61,11 @@ static RADIX_TREE(hwspinlock_tree, GFP_KERNEL);
  */
 static DEFINE_MUTEX(hwspinlock_tree_lock);
 
+/*
+ * A linked list for maintaining all the registered hwspinlock devices.
+ * The list is maintained in an ordered-list of the supported locks group.
+ */
+static LIST_HEAD(hwspinlock_devices);
 
 /**
  * __hwspin_trylock() - attempt to lock a specific hwspinlock
@@ -257,6 +264,127 @@ void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 }
 EXPORT_SYMBOL_GPL(__hwspin_unlock);
 
+/**
+ * of_hwspin_lock_simple_xlate - translate hwlock_spec to return a lock id
+ * @bank: the hwspinlock device bank
+ * @hwlock_spec: hwlock specifier as found in the device tree
+ *
+ * This is a simple translation function, suitable for hwspinlock platform
+ * drivers that only has a lock specifier length of 1.
+ *
+ * Returns a negative value on error, and a relative index of the lock within
+ * a specified bank on success.
+ */
+static int of_hwspin_lock_simple_xlate(struct hwspinlock_device *bank,
+				const struct of_phandle_args *hwlock_spec)
+{
+	/* sanity check (these shouldn't happen) */
+	if (WARN_ON(!bank->dev->of_node))
+		return -EINVAL;
+
+	if (WARN_ON(hwlock_spec->args_count != 1))
+		return -EINVAL;
+
+	return hwlock_spec->args[0];
+}
+
+/**
+ * of_hwspin_lock_get_id() - get lock id for an OF phandle-based specific lock
+ * @np: device node from which to request the specific hwlock
+ * @index: index of the hwlock in the list of values
+ *
+ * This function provides a means for DT users of the hwspinlock module to
+ * get the global lock id of a specific hwspinlock using the phandle of the
+ * hwspinlock device, so that it can be requested using the normal
+ * hwspin_lock_request_specific() API.
+ *
+ * Returns the global lock id number on success, -EPROBE_DEFER if the hwspinlock
+ * device is not yet registered, -EINVAL on invalid args specifier value or an
+ * appropriate error as returned from the OF parsing of the DT user node.
+ */
+int of_hwspin_lock_get_id(struct device_node *np, int index)
+{
+	struct hwspinlock_device *bank;
+	struct of_phandle_args args;
+	int id;
+	int ret;
+
+	ret = of_parse_phandle_with_args(np, "hwlocks", "#hwlock-cells", index,
+					 &args);
+	if (ret)
+		return ret;
+
+	mutex_lock(&hwspinlock_tree_lock);
+	list_for_each_entry(bank, &hwspinlock_devices, list)
+		if (bank->dev->of_node == args.np)
+			break;
+	mutex_unlock(&hwspinlock_tree_lock);
+	if (&bank->list == &hwspinlock_devices) {
+		ret = -EPROBE_DEFER;
+		goto out;
+	}
+
+	id = of_hwspin_lock_simple_xlate(bank, &args);
+	if (id < 0 || id >= bank->num_locks) {
+		ret = -EINVAL;
+		goto out;
+	}
+	id += bank->base_id;
+
+out:
+	of_node_put(args.np);
+	return ret ? ret : id;
+}
+EXPORT_SYMBOL_GPL(of_hwspin_lock_get_id);
+
+/**
+ * of_hwspin_lock_get_base_id() - OF helper to retrieve base id
+ * @dn: device node pointer
+ *
+ * This is an OF helper function that can be called by the underlying
+ * platform-specific implementations, to retrieve the base id for the
+ * set of locks present within a hwspinlock device instance.
+ *
+ * Returns the base id value on success, or an appropriate error code
+ * as returned by the OF layer
+ */
+int of_hwspin_lock_get_base_id(struct device_node *dn)
+{
+	unsigned int val;
+	int ret;
+
+	ret = of_property_read_u32(dn, "hwlock-base-id", &val);
+	return ret ? ret : val;
+}
+EXPORT_SYMBOL_GPL(of_hwspin_lock_get_base_id);
+
+/**
+ * of_hwspin_lock_get_num_locks() - OF helper to retrieve number of locks
+ * @dn: device node pointer
+ *
+ * This is an OF helper function that can be called by the underlying
+ * platform-specific implementations, to retrieve the number of locks
+ * present within a hwspinlock device instance. The hwlock-num-locks
+ * DT property may be optional for some platforms, while mandatory for
+ * some others, so this function is typically called only by needed
+ * platform-specific implementations.
+ *
+ * Returns a positive number of locks on success, -ENODEV on generic
+ * failure or an appropriate error code as returned by the OF layer
+ */
+int of_hwspin_lock_get_num_locks(struct device_node *dn)
+{
+	unsigned int val;
+	int ret = -ENODEV;
+
+	ret = of_property_read_u32(dn, "hwlock-num-locks", &val);
+	if (!ret)
+		ret = val ? val : -ENODEV;
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(of_hwspin_lock_get_num_locks);
+
 static int hwspin_lock_register_single(struct hwspinlock *hwlock, int id)
 {
 	struct hwspinlock *tmp;
@@ -272,7 +400,7 @@ static int hwspin_lock_register_single(struct hwspinlock *hwlock, int id)
 	}
 
 	/* mark this hwspinlock as available */
-	tmp = radix_tree_tag_set(&hwspinlock_tree, id, HWSPINLOCK_UNUSED);
+	tmp = radix_tree_tag_set(&hwspinlock_tree, id, hwlock->type);
 
 	/* self-sanity check which should never fail */
 	WARN_ON(tmp != hwlock);
@@ -282,29 +410,114 @@ out:
 	return 0;
 }
 
-static struct hwspinlock *hwspin_lock_unregister_single(unsigned int id)
+static int hwspin_lock_unregister_single(struct hwspinlock *hwlock, int id)
 {
-	struct hwspinlock *hwlock = NULL;
-	int ret;
+	struct hwspinlock *tmp = NULL;
+	int ret = 0;
 
 	mutex_lock(&hwspinlock_tree_lock);
 
 	/* make sure the hwspinlock is not in use (tag is set) */
-	ret = radix_tree_tag_get(&hwspinlock_tree, id, HWSPINLOCK_UNUSED);
-	if (ret == 0) {
+	if (!radix_tree_tag_get(&hwspinlock_tree, id, hwlock->type)) {
 		pr_err("hwspinlock %d still in use (or not present)\n", id);
+		ret = -EBUSY;
 		goto out;
 	}
 
-	hwlock = radix_tree_delete(&hwspinlock_tree, id);
-	if (!hwlock) {
+	tmp = radix_tree_delete(&hwspinlock_tree, id);
+	if (!tmp) {
 		pr_err("failed to delete hwspinlock %d\n", id);
+		ret = -EIO;
 		goto out;
 	}
+
+	/* self-sanity check that should never fail */
+	WARN_ON(tmp != hwlock);
 
 out:
 	mutex_unlock(&hwspinlock_tree_lock);
-	return hwlock;
+	return ret;
+}
+
+/*
+ * Add a new hwspinlock device to the global list, keeping the list of
+ * devices sorted by base order.
+ *
+ * Returns 0 on success, or -EBUSY if the new device overlaps with some
+ * other device's lock space.
+ */
+static int hwspinlock_device_add(struct hwspinlock_device *bank)
+{
+	struct list_head *entry = &hwspinlock_devices;
+	struct hwspinlock_device *_bank;
+	int ret = 0;
+
+	list_for_each(entry, &hwspinlock_devices) {
+		_bank = list_entry(entry, struct hwspinlock_device, list);
+		if (_bank->base_id >= bank->base_id + bank->num_locks)
+			break;
+	}
+
+	if (entry != &hwspinlock_devices &&
+	    entry->prev != &hwspinlock_devices) {
+		_bank = list_entry(entry->prev, struct hwspinlock_device, list);
+		if (_bank->base_id + _bank->num_locks > bank->base_id) {
+			dev_err(bank->dev, "hwlock space overlap, cannot add device\n");
+			ret = -EBUSY;
+		}
+	}
+
+	if (!ret)
+		list_add_tail(&bank->list, entry);
+
+	return ret;
+}
+
+/**
+ * hwspin_mark_reserved_locks() - mark reserved locks
+ *
+ * This is an internal function that mark all the reserved locks within
+ * a hwspinlock device during the registration phase, and is applicable
+ * only for device-tree boots. The locks are marked by browsing through
+ * all the user nodes with the property "hwlocks", so that a separate
+ * property is not needed in the hwspinlock device itself. Note that it
+ * also marks locks used on disabled user nodes.
+ */
+static void hwspin_mark_reserved_locks(struct hwspinlock_device *bank)
+{
+	struct device_node *np = bank->dev->of_node;
+	const char *prop_name = "hwlocks";
+	const char *cells_name = "#hwlock-cells";
+	struct device_node *node = NULL;
+	struct of_phandle_args args;
+	struct hwspinlock *hwlock;
+	int i, id, count, ret;
+
+	for_each_node_with_property(node, prop_name) {
+		count = of_count_phandle_with_args(node, prop_name, cells_name);
+		if (count <= 0)
+			continue;
+
+		for (i = 0; i < count; i++, of_node_put(args.np)) {
+			args.np = NULL;
+			ret = of_parse_phandle_with_args(node, prop_name,
+							 cells_name, i, &args);
+			if (ret || np != args.np)
+				continue;
+
+			id = of_hwspin_lock_simple_xlate(bank, &args);
+			if (id < 0 || id >= bank->num_locks)
+				continue;
+
+			hwlock = &bank->lock[id];
+			if (hwlock->type == HWSPINLOCK_RESERVED) {
+				dev_err(bank->dev, "potential reuse of hwspinlock %d between multiple clients on %s\n",
+					id, np->full_name);
+				continue;
+			}
+			hwlock->type = HWSPINLOCK_RESERVED;
+		}
+	}
 }
 
 /**
@@ -339,11 +552,22 @@ int hwspin_lock_register(struct hwspinlock_device *bank, struct device *dev,
 	bank->base_id = base_id;
 	bank->num_locks = num_locks;
 
+	mutex_lock(&hwspinlock_tree_lock);
+	ret = hwspinlock_device_add(bank);
+	mutex_unlock(&hwspinlock_tree_lock);
+	if (ret)
+		return ret;
+
+	if (dev->of_node)
+		hwspin_mark_reserved_locks(bank);
+
 	for (i = 0; i < num_locks; i++) {
 		hwlock = &bank->lock[i];
 
 		spin_lock_init(&hwlock->lock);
 		hwlock->bank = bank;
+		if (hwlock->type != HWSPINLOCK_RESERVED)
+			hwlock->type = HWSPINLOCK_UNUSED;
 
 		ret = hwspin_lock_register_single(hwlock, base_id + i);
 		if (ret)
@@ -353,8 +577,13 @@ int hwspin_lock_register(struct hwspinlock_device *bank, struct device *dev,
 	return 0;
 
 reg_failed:
-	while (--i >= 0)
-		hwspin_lock_unregister_single(base_id + i);
+	while (--i >= 0) {
+		hwlock =  &bank->lock[i];
+		hwspin_lock_unregister_single(hwlock, base_id + i);
+	}
+	mutex_lock(&hwspinlock_tree_lock);
+	list_del(&bank->list);
+	mutex_unlock(&hwspinlock_tree_lock);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(hwspin_lock_register);
@@ -372,20 +601,20 @@ EXPORT_SYMBOL_GPL(hwspin_lock_register);
  */
 int hwspin_lock_unregister(struct hwspinlock_device *bank)
 {
-	struct hwspinlock *hwlock, *tmp;
-	int i;
+	struct hwspinlock *hwlock;
+	int i, ret;
 
 	for (i = 0; i < bank->num_locks; i++) {
 		hwlock = &bank->lock[i];
 
-		tmp = hwspin_lock_unregister_single(bank->base_id + i);
-		if (!tmp)
+		ret = hwspin_lock_unregister_single(hwlock, bank->base_id + i);
+		if (ret)
 			return -EBUSY;
-
-		/* self-sanity check that should never fail */
-		WARN_ON(tmp != hwlock);
 	}
 
+	mutex_lock(&hwspinlock_tree_lock);
+	list_del(&bank->list);
+	mutex_unlock(&hwspinlock_tree_lock);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(hwspin_lock_unregister);
@@ -423,7 +652,7 @@ static int __hwspin_lock_request(struct hwspinlock *hwlock)
 
 	/* mark hwspinlock as used, should not fail */
 	tmp = radix_tree_tag_clear(&hwspinlock_tree, hwlock_to_id(hwlock),
-							HWSPINLOCK_UNUSED);
+							hwlock->type);
 
 	/* self-sanity check that should never fail */
 	WARN_ON(tmp != hwlock);
@@ -521,8 +750,14 @@ struct hwspinlock *hwspin_lock_request_specific(unsigned int id)
 	/* sanity check (this shouldn't happen) */
 	WARN_ON(hwlock_to_id(hwlock) != id);
 
-	/* make sure this hwspinlock is unused */
-	ret = radix_tree_tag_get(&hwspinlock_tree, id, HWSPINLOCK_UNUSED);
+	if (hwlock->bank->dev->of_node && hwlock->type != HWSPINLOCK_RESERVED) {
+		pr_warn("hwspinlock %u is not a reserved lock\n", id);
+		hwlock = NULL;
+		goto out;
+	}
+
+	/* make sure this hwspinlock is an unused reserved lock */
+	ret = radix_tree_tag_get(&hwspinlock_tree, id, hwlock->type);
 	if (ret == 0) {
 		pr_warn("hwspinlock %u is already in use\n", id);
 		hwlock = NULL;
@@ -568,7 +803,7 @@ int hwspin_lock_free(struct hwspinlock *hwlock)
 
 	/* make sure the hwspinlock is used */
 	ret = radix_tree_tag_get(&hwspinlock_tree, hwlock_to_id(hwlock),
-							HWSPINLOCK_UNUSED);
+							hwlock->type);
 	if (ret == 1) {
 		dev_err(dev, "%s: hwlock is already free\n", __func__);
 		dump_stack();
@@ -583,7 +818,7 @@ int hwspin_lock_free(struct hwspinlock *hwlock)
 
 	/* mark this hwspinlock as available */
 	tmp = radix_tree_tag_set(&hwspinlock_tree, hwlock_to_id(hwlock),
-							HWSPINLOCK_UNUSED);
+							hwlock->type);
 
 	/* sanity check (this shouldn't happen) */
 	WARN_ON(tmp != hwlock);
