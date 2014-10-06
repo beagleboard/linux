@@ -218,6 +218,15 @@ sync:
 	bne	sync
 #endif
 
+	ldr	r1, am43xx_virt_mpu_clkctrl
+	ldr	r2, [r1]
+
+	ldr	r1, am43xx_virt_mpu_clkstctrl
+	ldr	r2, [r1]
+
+	ldr	r1, am43xx_virt_emif_clkctrl
+	ldr	r2, [r1]
+
 	ldr	r0, emif_addr_virt
 	/* Put SDRAM in self-refresh */
 	ldr	r1, [r0, #EMIF_POWER_MANAGEMENT_CONTROL]
