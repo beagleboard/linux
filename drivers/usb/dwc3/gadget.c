@@ -2839,7 +2839,9 @@ int dwc3_gadget_prepare(struct dwc3 *dwc)
 {
 	if (dwc->pullups_connected) {
 		dwc3_gadget_disable_irq(dwc);
-		dwc3_gadget_run_stop(dwc, true, true);
+		dwc3_gadget_run_stop(dwc, false, true);
+		/* remember to connect back on resume */
+		dwc->pullups_connected = true;
 	}
 
 	return 0;
