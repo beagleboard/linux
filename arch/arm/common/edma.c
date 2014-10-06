@@ -31,6 +31,7 @@
 #include <linux/of_dma.h>
 #include <linux/of_irq.h>
 #include <linux/pm_runtime.h>
+#include <linux/dma-mapping.h>
 
 #include <linux/platform_data/edma.h>
 
@@ -1606,6 +1607,18 @@ static struct edma_soc_info *edma_setup_info_from_dt(struct device *dev,
 }
 #endif
 
+static const struct platform_device_info edma_dmaengine_dev[EDMA_MAX_CC] = {
+	{
+		.name = "edma-dma-engine",
+		.id = 0,
+		.dma_mask = DMA_BIT_MASK(32),
+	}, {
+		.name = "edma-dma-engine",
+		.id = 1,
+		.dma_mask = DMA_BIT_MASK(32),
+	},
+};
+
 static int edma_probe(struct platform_device *pdev)
 {
 	struct edma_soc_info	**info = pdev->dev.platform_data;
@@ -1623,6 +1636,7 @@ static int edma_probe(struct platform_device *pdev)
 	char			res_name[10];
 	struct device_node	*node = pdev->dev.of_node;
 	struct device		*dev = &pdev->dev;
+	struct platform_device	*dmaengine_pdev;
 	int			ret;
 
 	if (node) {
@@ -1793,7 +1807,16 @@ static int edma_probe(struct platform_device *pdev)
 			edma_write_array2(j, EDMA_DRAE, i, 1, 0x0);
 			edma_write_array(j, EDMA_QRAE, i, 0x0);
 		}
+
 		edma_cc[j]->info = info[j];
+
+		dmaengine_pdev = platform_device_register_full(
+							&edma_dmaengine_dev[j]);
+		if (IS_ERR(dmaengine_pdev))
+			dev_err(dev,
+				"device%d for dmaengine register failed (%ld)",
+				j, PTR_ERR(dmaengine_pdev));
+
 		arch_num_cc++;
 	}
 
