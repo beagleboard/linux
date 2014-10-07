@@ -411,7 +411,8 @@ static int omap_usb2_suspend(struct device *dev)
 	if (device_may_wakeup(dev))
 		omap_usb2_enable_phywkup(phy);
 
-	omap_usb2_disable_clocks(phy);
+	if (!pm_runtime_suspended(dev))
+		omap_usb2_disable_clocks(phy);
 
 	return 0;
 }
@@ -422,11 +423,16 @@ static int omap_usb2_resume(struct device *dev)
 	struct omap_usb	*phy = platform_get_drvdata(pdev);
 	int ret;
 
-	ret = omap_usb2_enable_clocks(phy);
-	if (device_may_wakeup(dev) && !ret)
+	if (!pm_runtime_suspended(dev)) {
+		ret = omap_usb2_enable_clocks(phy);
+		if (ret)
+			return ret;
+	}
+
+	if (device_may_wakeup(dev))
 		omap_usb2_disable_phywkup(phy);
 
-	return ret;
+	return 0;
 }
 
 static const struct dev_pm_ops omap_usb2_pm_ops = {
