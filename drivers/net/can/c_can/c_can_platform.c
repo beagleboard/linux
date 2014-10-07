@@ -34,6 +34,7 @@
 #include <linux/of_device.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/pinctrl/consumer.h>
 
 #include <linux/can/dev.h>
 
