@@ -861,8 +861,13 @@ static int dsps_suspend(struct device *dev)
 	struct dsps_glue *glue = dev_get_drvdata(dev);
 	const struct dsps_musb_wrapper *wrp = glue->wrp;
 	struct musb *musb = platform_get_drvdata(glue->musb);
-	void __iomem *mbase = musb->ctrl_base;
+	void __iomem *mbase;
 
+	if (!musb)
+		/* This can happen if musb is still defered */
+		return 0;
+
+	mbase = musb->ctrl_base;
 	del_timer_sync(&glue->timer);
 	glue->context.control = dsps_readl(mbase, wrp->control);
 	glue->context.epintr = dsps_readl(mbase, wrp->epintr_set);
@@ -880,8 +885,12 @@ static int dsps_resume(struct device *dev)
 	struct dsps_glue *glue = dev_get_drvdata(dev);
 	const struct dsps_musb_wrapper *wrp = glue->wrp;
 	struct musb *musb = platform_get_drvdata(glue->musb);
-	void __iomem *mbase = musb->ctrl_base;
+	void __iomem *mbase;
 
+	if (!musb)
+		return 0;
+
+	mbase = musb->ctrl_base;
 	dsps_writel(mbase, wrp->control, glue->context.control);
 	dsps_writel(mbase, wrp->epintr_set, glue->context.epintr);
 	dsps_writel(mbase, wrp->coreintr_set, glue->context.coreintr);
