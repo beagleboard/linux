@@ -826,50 +826,6 @@ static int dwc3_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
-static int dwc3_prepare(struct device *dev)
-{
-	struct dwc3	*dwc = dev_get_drvdata(dev);
-	unsigned long	flags;
-
-	spin_lock_irqsave(&dwc->lock, flags);
-
-	switch (dwc->dr_mode) {
-	case USB_DR_MODE_PERIPHERAL:
-	case USB_DR_MODE_OTG:
-		dwc3_gadget_prepare(dwc);
-		/* FALLTHROUGH */
-	case USB_DR_MODE_HOST:
-	default:
-		dwc3_event_buffers_cleanup(dwc);
-		break;
-	}
-
-	spin_unlock_irqrestore(&dwc->lock, flags);
-
-	return 0;
-}
-
-static void dwc3_complete(struct device *dev)
-{
-	struct dwc3	*dwc = dev_get_drvdata(dev);
-	unsigned long	flags;
-
-	spin_lock_irqsave(&dwc->lock, flags);
-
-	dwc3_event_buffers_setup(dwc);
-	switch (dwc->dr_mode) {
-	case USB_DR_MODE_PERIPHERAL:
-	case USB_DR_MODE_OTG:
-		dwc3_gadget_complete(dwc);
-		/* FALLTHROUGH */
-	case USB_DR_MODE_HOST:
-	default:
-		break;
-	}
-
-	spin_unlock_irqrestore(&dwc->lock, flags);
-}
-
 static int dwc3_suspend(struct device *dev)
 {
 	struct dwc3	*dwc = dev_get_drvdata(dev);
@@ -884,7 +840,7 @@ static int dwc3_suspend(struct device *dev)
 		/* FALLTHROUGH */
 	case USB_DR_MODE_HOST:
 	default:
-		/* do nothing */
+		dwc3_event_buffers_cleanup(dwc);
 		break;
 	}
 
@@ -918,6 +874,7 @@ static int dwc3_resume(struct device *dev)
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	dwc3_writel(dwc->regs, DWC3_GCTL, dwc->gctl);
+	dwc3_event_buffers_setup(dwc);
 
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
@@ -945,9 +902,6 @@ err_usb2phy_init:
 }
 
 static const struct dev_pm_ops dwc3_dev_pm_ops = {
-	.prepare	= dwc3_prepare,
-	.complete	= dwc3_complete,
-
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, dwc3_resume)
 };
 
