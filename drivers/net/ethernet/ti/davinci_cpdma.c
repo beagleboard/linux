@@ -285,10 +285,8 @@ struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
 					    ctlr->params.desc_hw_addr,
 					    ctlr->params.desc_mem_size,
 					    ctlr->params.desc_align);
-	if (!ctlr->pool) {
-		kfree(ctlr);
+	if (!ctlr->pool)
 		return NULL;
-	}
 
 	if (WARN_ON(ctlr->num_chan > CPDMA_MAX_CHANNELS))
 		ctlr->num_chan = CPDMA_MAX_CHANNELS;
@@ -563,7 +561,6 @@ int cpdma_chan_destroy(struct cpdma_chan *chan)
 		cpdma_chan_stop(chan);
 	ctlr->channels[chan->chan_num] = NULL;
 	spin_unlock_irqrestore(&ctlr->lock, flags);
-	kfree(chan);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(cpdma_chan_destroy);
