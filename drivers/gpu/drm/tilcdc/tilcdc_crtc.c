@@ -89,7 +89,6 @@ static void set_scanout(struct drm_crtc *crtc, int n)
 static void update_scanout(struct drm_crtc *crtc)
 {
 	struct tilcdc_crtc *tilcdc_crtc = to_tilcdc_crtc(crtc);
-	struct drm_device *dev = crtc->dev;
 	struct drm_framebuffer *fb = crtc->fb;
 	struct drm_gem_cma_object *gem;
 	unsigned int depth, bpp;
@@ -120,8 +119,6 @@ static void update_scanout(struct drm_crtc *crtc)
 			tilcdc_crtc->dirty |= LCDC_END_OF_FRAME0;
 			set_scanout(crtc, 1);
 		}
-
-		drm_vblank_get(dev, 0);
 	} else {
 		/* not enabled yet, so update registers immediately: */
 		set_scanout(crtc, 0);
@@ -133,6 +130,7 @@ static void start(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct tilcdc_drm_private *priv = dev->dev_private;
+	struct tilcdc_crtc *tilcdc_crtc = to_tilcdc_crtc(crtc);
 
 	if (priv->rev == 2) {
 		tilcdc_set(dev, LCDC_CLK_RESET_REG, LCDC_CLK_MAIN_RESET);
@@ -140,6 +138,8 @@ static void start(struct drm_crtc *crtc)
 		tilcdc_clear(dev, LCDC_CLK_RESET_REG, LCDC_CLK_MAIN_RESET);
 		msleep(1);
 	}
+
+	tilcdc_crtc->dma_completed_channel = 0;
 
 	tilcdc_set(dev, LCDC_DMA_CTRL_REG, LCDC_DUAL_FRAME_BUFFER_ENABLE);
 	tilcdc_set(dev, LCDC_RASTER_CTRL_REG, LCDC_PALETTE_LOAD_MODE(DATA_ONLY));
@@ -676,15 +676,17 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 
 		spin_lock_irqsave(&tilcdc_crtc->irq_lock, irq_flags);
 
-		if (dirty & LCDC_END_OF_FRAME0) {
-			set_scanout(crtc, 0);
+		if (stat & LCDC_END_OF_FRAME0)
 			tilcdc_crtc->dma_completed_channel = 0;
-		}
 
-		if (dirty & LCDC_END_OF_FRAME1) {
-			set_scanout(crtc, 1);
+		if (stat & LCDC_END_OF_FRAME1)
 			tilcdc_crtc->dma_completed_channel = 1;
-		}
+
+		if (dirty & LCDC_END_OF_FRAME0)
+			set_scanout(crtc, 0);
+
+		if (dirty & LCDC_END_OF_FRAME1)
+			set_scanout(crtc, 1);
 
 		spin_unlock_irqrestore(&tilcdc_crtc->irq_lock, irq_flags);
 
@@ -701,8 +703,6 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 
-		if (dirty && !tilcdc_crtc->dirty)
-			drm_vblank_put(dev, 0);
 	}
 
 	if (priv->rev == 2) {
@@ -731,7 +731,6 @@ void tilcdc_crtc_cancel_page_flip(struct drm_crtc *crtc, struct drm_file *file)
 	if (event && event->base.file_priv == file) {
 		tilcdc_crtc->event = NULL;
 		event->base.destroy(&event->base);
-		drm_vblank_put(dev, 0);
 	}
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 }
