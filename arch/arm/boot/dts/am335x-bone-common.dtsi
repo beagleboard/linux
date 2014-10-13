@@ -167,10 +167,12 @@
 		ldo4_reg: regulator@6 {
 			regulator-always-on;
 		};
+	};
+};
 
-		rtc@44e3e000 {
-			ti,system-power-controller;
-		};
+&ocp {
+	rtc@44e3e000 {
+		ti,system-power-controller;
 	};
 };
 
