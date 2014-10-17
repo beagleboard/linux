@@ -1232,9 +1232,8 @@ static int fsl_pullup(struct usb_gadget *gadget, int is_on)
 
 static int fsl_udc_start(struct usb_gadget *g,
 		struct usb_gadget_driver *driver);
-static int fsl_udc_stop(struct usb_gadget *g,
-		struct usb_gadget_driver *driver);
-/* defined in gadget.h */
+static int fsl_udc_stop(struct usb_gadget *g);
+
 static const struct usb_gadget_ops fsl_gadget_ops = {
 	.get_frame = fsl_get_frame,
 	.wakeup = fsl_wakeup,
@@ -1970,8 +1969,7 @@ static int fsl_udc_start(struct usb_gadget *g,
 }
 
 /* Disconnect from gadget driver */
-static int fsl_udc_stop(struct usb_gadget *g,
-		struct usb_gadget_driver *driver)
+static int fsl_udc_stop(struct usb_gadget *g)
 {
 	struct fsl_ep *loop_ep;
 	unsigned long flags;

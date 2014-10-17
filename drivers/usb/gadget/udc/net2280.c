@@ -1402,8 +1402,7 @@ static int net2280_pullup(struct usb_gadget *_gadget, int is_on)
 
 static int net2280_start(struct usb_gadget *_gadget,
 		struct usb_gadget_driver *driver);
-static int net2280_stop(struct usb_gadget *_gadget,
-		struct usb_gadget_driver *driver);
+static int net2280_stop(struct usb_gadget *_gadget);
 
 static const struct usb_gadget_ops net2280_ops = {
 	.get_frame	= net2280_get_frame,
@@ -1950,8 +1949,7 @@ stop_activity (struct net2280 *dev, struct usb_gadget_driver *driver)
 	usb_reinit (dev);
 }
 
-static int net2280_stop(struct usb_gadget *_gadget,
-		struct usb_gadget_driver *driver)
+static int net2280_stop(struct usb_gadget *_gadget)
 {
 	struct net2280	*dev;
 	unsigned long	flags;
