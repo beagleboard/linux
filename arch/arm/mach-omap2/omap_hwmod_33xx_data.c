@@ -50,21 +50,6 @@ static struct omap_hwmod am33xx_emif_hwmod = {
 	},
 };
 
-/* l4_hs */
-static struct omap_hwmod am33xx_l4_hs_hwmod = {
-	.name		= "l4_hs",
-	.class		= &am33xx_l4_hwmod_class,
-	.clkdm_name	= "l4hs_clkdm",
-	.flags		= HWMOD_INIT_NO_IDLE,
-	.main_clk	= "l4hs_gclk",
-	.prcm		= {
-		.omap4	= {
-			.clkctrl_offs	= AM33XX_CM_PER_L4HS_CLKCTRL_OFFSET,
-			.modulemode	= MODULEMODE_SWCTRL,
-		},
-	},
-};
-
 static struct omap_hwmod_rst_info am33xx_wkup_m3_resets[] = {
 	{ .name = "wkup_m3", .rst_shift = 3, .st_shift = 5 },
 };

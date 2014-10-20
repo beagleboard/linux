@@ -94,6 +94,21 @@ struct omap_hwmod am33xx_l4_ls_hwmod = {
 	},
 };
 
+/* l4_hs */
+struct omap_hwmod am33xx_l4_hs_hwmod = {
+	.name		= "l4_hs",
+	.class		= &am33xx_l4_hwmod_class,
+	.clkdm_name	= "l4hs_clkdm",
+	.flags		= HWMOD_INIT_NO_IDLE,
+	.main_clk	= "l4hs_gclk",
+	.prcm		= {
+		.omap4  = {
+			.clkctrl_offs   = AM33XX_CM_PER_L4HS_CLKCTRL_OFFSET,
+			.modulemode     = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
 /* l4_wkup */
 struct omap_hwmod am33xx_l4_wkup_hwmod = {
 	.name		= "l4_wkup",
