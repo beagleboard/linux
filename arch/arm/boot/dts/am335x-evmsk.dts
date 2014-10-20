@@ -532,6 +532,14 @@
 	dma-controller@47402000  {
 		status = "okay";
 	};
+
+	usb-phy@47401b00 {
+		status = "okay";
+	};
+	usb@47401800 {
+		status = "okay";
+		dr_mode = "host";
+	};
 };
 
 &epwmss2 {
