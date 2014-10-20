@@ -65,6 +65,7 @@ extern struct omap_hwmod_ocp_if am33xx_l4_ls__timer4;
 extern struct omap_hwmod_ocp_if am33xx_l4_ls__timer5;
 extern struct omap_hwmod_ocp_if am33xx_l4_ls__timer6;
 extern struct omap_hwmod_ocp_if am33xx_l4_ls__timer7;
+extern struct omap_hwmod_ocp_if am33xx_l4_wkup__adc_tsc;
 extern struct omap_hwmod_ocp_if am33xx_l3_main__tpcc;
 extern struct omap_hwmod_ocp_if am33xx_l3_main__tptc0;
 extern struct omap_hwmod_ocp_if am33xx_l3_main__tptc1;
