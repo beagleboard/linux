@@ -718,7 +718,9 @@ static ssize_t rppc_read(struct file *filp, char __user *buf, size_t len,
 
 		prepare_to_wait_exclusive(&rpc->readq, &wait,
 					  TASK_INTERRUPTIBLE);
-		schedule();
+		if (skb_queue_empty(&rpc->queue) &&
+		    rpc->state != RPPC_STATE_STALE)
+			schedule();
 		finish_wait(&rpc->readq, &wait);
 		if (signal_pending(current))
 			return -ERESTARTSYS;
