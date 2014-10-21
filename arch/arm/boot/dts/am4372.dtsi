@@ -953,7 +953,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			ti,hwmods = "qspi";
-			clocks = <&qspi_fclk>;
+			clocks = <&dpll_per_m2_div4_ck>;
 			clock-names = "fck";
 			interrupts = <0 138 0x4>;
 			num-cs = <4>;
