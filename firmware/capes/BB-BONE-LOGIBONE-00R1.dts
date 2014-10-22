@@ -45,7 +45,10 @@
 		"P8.8",		/* gpmc: gpmc_oen_ren */
 		"P8.10",	/* gpmc: gpmc_wen */
 		"P8.9",		/* gpmc: gpmc_ben0_cle */
-
+		"P9.28",
+		"P9.29",
+		"P9.30",
+		"P9.31",
 		"gpmc",
 		/* the reset pin */
 		"eMMC_RSTn";
