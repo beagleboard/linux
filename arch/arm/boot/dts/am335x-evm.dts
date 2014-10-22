@@ -291,7 +291,7 @@
 
 	ecap0_pins_sleep: ecap0_pins_sleep {
 		pinctrl-single,pins = <
-			0x164  (PULL_DISABLE | MUX_MODE7)	/* eCAP0_in_PWM0_out.eCAP0_in_PWM0_out */
+			0x164  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* eCAP0_in_PWM0_out.eCAP0_in_PWM0_out */
 		>;
 	};
 
