@@ -328,6 +328,8 @@ struct omap_hdmi {
 	bool core_enabled;
 
 	struct omap_dss_device output;
+
+	int wp_idlemode;
 };
 
 #endif

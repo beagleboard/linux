@@ -617,10 +617,25 @@ static int audio_enable(struct device *dev, bool enable)
 	int ret;
 
 	mutex_lock(&hd->lock);
+
+	if (enable) {
+		/* No idle while playing audio */
+		hd->wp_idlemode =
+			REG_GET(hdmi.wp.base, HDMI_WP_SYSCONFIG, 3, 2);
+		REG_FLD_MOD(hdmi.wp.base, HDMI_WP_SYSCONFIG, 1, 3, 2);
+	}
+
 	if (!hdmi_mode_has_audio(&hd->cfg))
 		ret = -EPERM;
 	else
 		ret = hdmi_wp_audio_enable(&hd->wp, enable);
+
+	if (!enable) {
+		/* Playback stopped, restore original idlemode */
+		REG_FLD_MOD(hdmi.wp.base, HDMI_WP_SYSCONFIG, hd->wp_idlemode,
+			    3, 2);
+	}
+
 	mutex_unlock(&hd->lock);
 
 	return ret;
