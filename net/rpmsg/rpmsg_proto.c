@@ -173,6 +173,12 @@ static int rpmsg_sock_sendmsg(struct socket *sock, struct msghdr *msg,
 
 	lock_sock(sk);
 
+	/* we don't support Tx on errored-out sockets */
+	if (sk->sk_state == RPMSG_ERROR) {
+		release_sock(sk);
+		return -ESHUTDOWN;
+	}
+
 	/* we don't support loopback at this point */
 	if (sk->sk_state != RPMSG_CONNECTED) {
 		err = -ENOTCONN;
