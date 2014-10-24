@@ -3412,7 +3412,7 @@ int __init omap_hwmod_register_links(struct omap_hwmod_ocp_if **ois)
 	if (!ois)
 		return 0;
 
-	if (ois[0] == NULL) /*empty list*/
+	if (ois[0] == NULL) /* Empty list */
 		return 0;
 
 	if (!linkspace) {

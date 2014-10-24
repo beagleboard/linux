@@ -868,6 +868,7 @@ static int dsps_suspend(struct device *dev)
 		return 0;
 
 	mbase = musb->ctrl_base;
+
 	del_timer_sync(&glue->timer);
 	glue->context.control = dsps_readl(mbase, wrp->control);
 	glue->context.epintr = dsps_readl(mbase, wrp->epintr_set);
