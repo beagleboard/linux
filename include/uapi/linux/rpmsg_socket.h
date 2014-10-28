@@ -28,14 +28,6 @@
 #define PF_RPMSG	AF_RPMSG
 #endif
 
-/* Connection and socket states */
-enum {
-	RPMSG_CONNECTED = 1, /* wait_for_packet() wants this... */
-	RPMSG_OPEN,
-	RPMSG_LISTENING,
-	RPMSG_CLOSED,
-};
-
 struct sockaddr_rpmsg {
 	__kernel_sa_family_t family;
 	__u32 vproc_id;
