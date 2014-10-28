@@ -261,6 +261,8 @@ static void mcasp_stop_tx(struct davinci_mcasp *mcasp)
 static void davinci_mcasp_stop(struct davinci_mcasp *mcasp, int stream)
 {
 	u32 reg;
+	u8 dir = (stream == SNDRV_PCM_STREAM_PLAYBACK) ? TX_MODE : RX_MODE;
+	int  i = 0;
 
 	mcasp->streams--;
 
@@ -276,6 +278,13 @@ static void davinci_mcasp_stop(struct davinci_mcasp *mcasp, int stream)
 			mcasp_clr_bits(mcasp, reg, FIFO_ENABLE);
 		}
 		mcasp_stop_rx(mcasp);
+	}
+
+	/* turn stream off */
+	for (i = 0; i < mcasp->num_serializer; i++) {
+		if (mcasp->serial_dir[i] == dir) {
+			mcasp_set_reg(mcasp, DAVINCI_MCASP_XRSRCTL_REG(i), 0);
+		}
 	}
 }
 
@@ -548,19 +557,23 @@ static int mcasp_common_hw_param(struct davinci_mcasp *mcasp, int stream,
 	}
 
 	for (i = 0; i < mcasp->num_serializer; i++) {
-		mcasp_set_bits(mcasp, DAVINCI_MCASP_XRSRCTL_REG(i),
-			       mcasp->serial_dir[i]);
+		bool active = false;
+
 		if (mcasp->serial_dir[i] == TX_MODE &&
 					tx_ser < max_active_serializers) {
 			mcasp_set_bits(mcasp, DAVINCI_MCASP_PDIR_REG, AXR(i));
 			tx_ser++;
+			active = true;
 		} else if (mcasp->serial_dir[i] == RX_MODE &&
 					rx_ser < max_active_serializers) {
 			mcasp_clr_bits(mcasp, DAVINCI_MCASP_PDIR_REG, AXR(i));
 			rx_ser++;
-		} else {
-			mcasp_mod_bits(mcasp, DAVINCI_MCASP_XRSRCTL_REG(i),
-				       SRMOD_INACTIVE, SRMOD_MASK);
+			active = true;
+		}
+
+		if (active) {
+			mcasp_set_bits(mcasp, DAVINCI_MCASP_XRSRCTL_REG(i),
+				       mcasp->serial_dir[i]);
 		}
 	}
 
