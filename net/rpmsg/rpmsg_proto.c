@@ -52,6 +52,7 @@
 struct rpmsg_socket {
 	struct sock sk;
 	struct rpmsg_channel *rpdev;
+	int rproc_id;
 	struct list_head elem;
 	bool unregister_rpdev;
 };
@@ -172,6 +173,7 @@ static int rpmsg_sock_connect(struct socket *sock, struct sockaddr *addr,
 		goto out;
 	}
 
+	rpsk->rproc_id = sa->vproc_id;
 	rpsk->rpdev = rpdev;
 
 	/* bind this socket with its rpmsg endpoint */
@@ -344,7 +346,7 @@ static int rpmsg_sock_getname(struct socket *sock, struct sockaddr *addr,
 	*len = sizeof(*sa);
 
 	if (peer) {
-		sa->vproc_id = rpmsg_sock_get_proc_id(rpdev);
+		sa->vproc_id = rpsk->rproc_id;
 		sa->addr = rpdev->dst;
 	} else {
 		sa->vproc_id = RPMSG_LOCALHOST;
@@ -417,6 +419,7 @@ rpmsg_sock_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 
 	rpsk->rpdev = rpdev;
 	rpsk->unregister_rpdev = true;
+	rpsk->rproc_id = sa->vproc_id;
 
 	/* bind this socket with its rpmsg endpoint */
 	rpdev->ept->priv = sk;
@@ -478,6 +481,8 @@ static int rpmsg_sock_create(struct net *net, struct socket *sock, int proto,
 
 	rpsk = container_of(sk, struct rpmsg_socket, sk);
 	INIT_LIST_HEAD(&rpsk->elem);
+	/* use RPMSG_LOCALHOST to serve as an invalid value */
+	rpsk->rproc_id = RPMSG_LOCALHOST;
 
 	return 0;
 }
