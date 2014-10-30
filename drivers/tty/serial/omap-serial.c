@@ -258,6 +258,7 @@ serial_omap_baud_is_mode16(struct uart_port *port, unsigned int baud)
 		n13 ? (baud - (port->uartclk / (13 * n13))) : INT_MAX;
 	int baudAbsDiff16 =
 		n16 ? (baud - (port->uartclk / (16 * n16))) : INT_MAX;
+
 	if (baudAbsDiff13 < 0)
 		baudAbsDiff13 = -baudAbsDiff13;
 	if (baudAbsDiff16 < 0)
