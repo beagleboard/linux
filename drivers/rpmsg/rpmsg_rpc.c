@@ -1323,6 +1323,10 @@ static void rppc_remove(struct rpmsg_device *rpdev)
 		if (rpc->state == RPPC_STATE_CONNECTED && rpc->in_transition)
 			complete_all(&rpc->reply_arrived);
 		rpc->state = RPPC_STATE_STALE;
+		if (rpc->ept) {
+			rpmsg_destroy_ept(rpc->ept);
+			rpc->ept = NULL;
+		}
 		wake_up_interruptible(&rpc->readq);
 	}
 	device_destroy(rppc_class, MKDEV(major, rppcdev->minor));
