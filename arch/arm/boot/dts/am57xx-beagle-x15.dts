@@ -83,6 +83,15 @@
 		gpio = <&gpio7 11 GPIO_ACTIVE_HIGH>;
 	};
 
+	extcon: extcon {
+		compatible = "linux,extcon-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&extcon_pins_default>;
+
+		gpios = <&gpio7 24 GPIO_ACTIVE_HIGH>;
+		cable-name = "USB-HOST";
+	};
+
 	hdmi0: connector@1 {
 		compatible = "omapdss,hdmi-connector";
 		label = "hdmi";
@@ -394,6 +403,25 @@
 			0x370 	(PIN_OUTPUT | MUX_MODE14)	/* gpio6_28 */
 		>;
 	};
+
+	usb1_pins: pinmux_usb1_pins {
+		pinctrl-single,pins = <
+			0x280 (PIN_INPUT_SLEW | MUX_MODE0) /* usb1_drvvbus */
+		>;
+	};
+
+	usb2_pins: pinmux_usb2_pins {
+		pinctrl-single,pins = <
+			0x284 (PIN_INPUT_SLEW | MUX_MODE0) /* usb2_drvvbus */
+		>;
+	};
+
+	extcon_pins_default:  extcon_pins_default {
+		pinctrl-single,pins = <
+			0x3e8 (PIN_INPUT | MUX_MODE14) /* uart1_ctsn.gpio7_24 */
+		>;
+	};
+
 };
 
 &i2c1 {
@@ -757,4 +785,24 @@
 	memory-region = <&dsp2_cma_pool>;
 	mboxes = <&mailbox6 &mbox_dsp2_legacy>;
 	timers = <&timer6>;
+};
+
+&usb1 {
+	dr_mode = "host";
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb1_pins>;
+};
+
+&omap_dwc3_2 {
+	extcon = <&extcon>;
+};
+
+&usb2 {
+	/*
+	 * NOTE(rev A1+): Assumes R321 is populated(default).
+	 * If R321 is DNI and R320 is populated, this should be "host"
+	 */
+	dr_mode = "peripheral";
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2_pins>;
 };
