@@ -731,6 +731,7 @@ static ssize_t rppc_read(struct file *filp, char __user *buf, size_t len,
 
 		/* make sure state is sane while we waited */
 		if (rpc->state != RPPC_STATE_CONNECTED) {
+			mutex_unlock(&rpc->lock);
 			ret = -EIO;
 			goto out;
 		}
@@ -738,9 +739,11 @@ static ssize_t rppc_read(struct file *filp, char __user *buf, size_t len,
 
 	skb = skb_dequeue(&rpc->queue);
 	if (WARN_ON(!skb)) {
+		mutex_unlock(&rpc->lock);
 		ret = -EIO;
 		goto out;
 	}
+
 	mutex_unlock(&rpc->lock);
 
 	packet = (struct rppc_packet *)skb->data;
