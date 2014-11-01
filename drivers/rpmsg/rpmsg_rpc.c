@@ -1180,7 +1180,7 @@ static int find_rpccdev_by_name(int id, void *p, void *data)
 {
 	struct rppc_device *rppcdev = p;
 
-	return strcmp(dev_name(rppcdev->dev), data) ? 0 : (int)p;
+	return strcmp(rppcdev->desc, data) ? 0 : (int)p;
 }
 
 /*
@@ -1208,7 +1208,8 @@ static int rppc_device_create(struct rpmsg_device *rpdev)
 
 static int rppc_probe(struct rpmsg_device *rpdev)
 {
-	int ret, major, minor;
+	int ret, minor;
+	int major = MAJOR(rppc_dev);
 	struct rppc_device *rppcdev = NULL;
 	dev_t dev;
 	char namedesc[RPMSG_NAME_SIZE];
@@ -1245,9 +1246,9 @@ static int rppc_probe(struct rpmsg_device *rpdev)
 
 	rppcdev->minor = minor;
 	rppcdev->rpdev = rpdev;
+	strncpy(rppcdev->desc, namedesc, RPMSG_NAME_SIZE);
 	dev_set_drvdata(&rpdev->dev, rppcdev);
 
-	major = MAJOR(rppc_dev);
 	cdev_init(&rppcdev->cdev, &rppc_fops);
 	rppcdev->cdev.owner = THIS_MODULE;
 	dev = MKDEV(major, minor);
@@ -1257,8 +1258,10 @@ static int rppc_probe(struct rpmsg_device *rpdev)
 		goto free_id;
 	}
 
-	rppcdev->dev = device_create(rppc_class, &rpdev->dev, dev, NULL,
-					namedesc);
+serv_up:
+	rppcdev->dev = device_create(rppc_class, &rpdev->dev,
+				     MKDEV(major, rppcdev->minor), NULL,
+				     namedesc);
 	if (IS_ERR(rppcdev->dev)) {
 		int ret = PTR_ERR(rppcdev->dev);
 
@@ -1267,7 +1270,6 @@ static int rppc_probe(struct rpmsg_device *rpdev)
 	}
 	dev_set_drvdata(rppcdev->dev, rppcdev);
 
-serv_up:
 	ret = rppc_device_create(rpdev);
 	if (ret) {
 		dev_err(&rpdev->dev, "failed to query channel info: %d\n", ret);
@@ -1337,6 +1339,8 @@ static void rppc_remove(struct rpmsg_device *rpdev)
 		rpc->state = RPPC_STATE_STALE;
 		wake_up_interruptible(&rpc->readq);
 	}
+	device_destroy(rppc_class, MKDEV(major, rppcdev->minor));
+	rppcdev->dev = NULL;
 	rppcdev->rpdev = NULL;
 	mutex_unlock(&rppcdev->lock);
 	mutex_unlock(&rppc_devices_lock);
