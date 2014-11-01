@@ -38,6 +38,7 @@
 #include <linux/wait.h>
 #include <linux/fs.h>
 #include <linux/skbuff.h>
+#include <linux/rpmsg.h>
 
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
 typedef u64 virt_addr_t;
@@ -63,6 +64,7 @@ typedef u32 virt_addr_t;
  * @num_funcs: number of functions published by this remote server device
  * @cur_func: counter used while querying information for each function
  *	      associated with this remote server device
+ * @desc: description of the exposed service
  *
  * A rppc_device indicates the base remote server device that supports the
  * execution of a bunch of remote functions. Each such remote server device
@@ -81,6 +83,7 @@ struct rppc_device {
 	unsigned int minor;
 	u32 num_funcs;
 	u32 cur_func;
+	char desc[RPMSG_NAME_SIZE];
 };
 
 /**
