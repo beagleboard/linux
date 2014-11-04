@@ -166,6 +166,20 @@
 			default-state = "off";
 		};
 	};
+
+	sound {
+		compatible = "ti,da830-evm-audio";
+		ti,model = "BeagleBoard-X15";
+		ti,audio-codec = <&tlv320aic3104>;
+		ti,mcasp-controller = <&mcasp3>;
+		clocks = <&clkout2_clk>;
+		clock-names = "mclk";
+		ti,audio-routing =
+			"Line Out",		"LLOUT",
+			"Line Out",		"RLOUT",
+			"LINE1L",               "Line In",
+			"LINE1R",               "Line In";
+	};
 };
 
 &dra7_pmx_core {
