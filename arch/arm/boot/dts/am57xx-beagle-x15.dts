@@ -393,6 +393,18 @@
 			0x370 	(PIN_OUTPUT | MUX_MODE14)	/* gpio6_28 */
 		>;
 	};
+
+	clkout2_pins_default: clkout2_pins_default {
+		pinctrl-single,pins = <
+			0x294 (PIN_OUTPUT_PULLDOWN | MUX_MODE9)	/* xref_clk0.clkout2 */
+		>;
+	};
+
+	clkout2_pins_sleep: clkout2_pins_sleep {
+		pinctrl-single,pins = <
+			0x294 (PIN_INPUT | MUX_MODE15)	/* xref_clk0.clkout2 */
+		>;
+	};
 };
 
 &i2c1 {
