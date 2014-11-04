@@ -596,6 +596,7 @@ static int rppc_release(struct inode *inode, struct file *filp)
 {
 	struct rppc_instance *rpc = filp->private_data;
 	struct rppc_device *rppcdev = rpc->rppcdev;
+	struct sk_buff *skb = NULL;
 
 	dev_dbg(rpc->dev, "releasing Instance %p, in state %d\n", rpc,
 		rpc->state);
@@ -609,6 +610,11 @@ static int rppc_release(struct inode *inode, struct file *filp)
 	}
 
 	rppc_delete_fxns(rpc);
+
+	while (!skb_queue_empty(&rpc->queue)) {
+		skb = skb_dequeue(&rpc->queue);
+		kfree_skb(skb);
+	}
 
 	mutex_lock(&rpc->lock);
 	idr_for_each(&rpc->dma_idr, rppc_free_dmabuf, rpc);
