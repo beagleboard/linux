@@ -405,6 +405,24 @@
 			0x294 (PIN_INPUT | MUX_MODE15)	/* xref_clk0.clkout2 */
 		>;
 	};
+
+	mcasp3_pins_default: mcasp3_pins_default {
+		pinctrl-single,pins = <
+			0x324 (PIN_INPUT_PULLDOWN | MUX_MODE0) /* mcasp3_aclkx.mcasp3_aclkx */
+			0x328 (PIN_INPUT_PULLDOWN | MUX_MODE0) /* mcasp3_fsx.mcasp3_fsx */
+			0x32c (PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* mcasp3_axr0.mcasp3_axr0 */
+			0x330 (PIN_INPUT_PULLDOWN | MUX_MODE0) /* mcasp3_axr1.mcasp3_axr1 */
+		>;
+	};
+
+	mcasp3_pins_sleep: mcasp3_pins_sleep {
+		pinctrl-single,pins = <
+			0x324 (PIN_INPUT | MUX_MODE15)
+			0x328 (PIN_INPUT | MUX_MODE15)
+			0x32c (PIN_INPUT | MUX_MODE15)
+			0x330 (PIN_INPUT | MUX_MODE15)
+		>;
+	};
 };
 
 &i2c1 {
