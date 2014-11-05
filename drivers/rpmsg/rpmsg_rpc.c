@@ -729,6 +729,11 @@ static ssize_t rppc_read(struct file *filp, char __user *buf, size_t len,
 		if (ret < 0)
 			return -ERESTARTSYS;
 
+		if (rpc->state == RPPC_STATE_STALE) {
+			mutex_unlock(&rpc->lock);
+			return -ENXIO;
+		}
+
 		/* make sure state is sane while we waited */
 		if (rpc->state != RPPC_STATE_CONNECTED) {
 			mutex_unlock(&rpc->lock);
