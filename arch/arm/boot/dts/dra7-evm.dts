@@ -1101,11 +1101,8 @@
 
 	op-mode = <0>;          /* MCASP_IIS_MODE */
 	tdm-slots = <2>;
-	/* 16 serializer */
+	/* 4 serializer */
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
-		0 0 0 0
-		0 0 0 0
-		0 0 0 0
 	>;
 };
