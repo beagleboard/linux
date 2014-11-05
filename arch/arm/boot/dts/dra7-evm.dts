@@ -172,7 +172,7 @@
 		ti,mcasp-controller = <&mcasp3>;
 		ti,codec-clock-rate = <5644800>;
 		clocks = <&atl_clkin2_ck>;
-		clock-names = "ti,codec-clock";
+		clock-names = "mclk";
 		ti,audio-routing =
 			"Headphone Jack",       "HPLOUT",
 			"Headphone Jack",       "HPROUT",
