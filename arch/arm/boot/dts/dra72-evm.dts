@@ -135,6 +135,11 @@
 		ti,audio-routing =
 			"Headphone Jack",       "HPLOUT",
 			"Headphone Jack",       "HPROUT",
+			"Line Out",		"LLOUT",
+			"Line Out",		"RLOUT",
+			"MIC3L",		"Mic Jack",
+			"MIC3R",		"Mic Jack",
+			"Mic Jack",		"Mic Bias",
 			"LINE1L",               "Line In",
 			"LINE1R",               "Line In";
 	};
@@ -483,6 +488,7 @@
 		compatible = "ti,tlv320aic3106";
 		reg = <0x19>;
 		adc-settle-ms = <40>;
+		ai3x-micbias-vg = <1>;		/* 2.0V */
 		status = "okay";
 
 		/* Regulators */
