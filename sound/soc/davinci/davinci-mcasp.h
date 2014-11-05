@@ -285,6 +285,16 @@
 #define TXDATADMADIS	BIT(0)
 
 /*
+ * DAVINCI_MCASP_EVTCTLR_REG - Receiver Interrupt Control Register Bits
+ */
+#define ROVRN		BIT(0)
+
+/*
+ * DAVINCI_MCASP_EVTCTLX_REG - Transmitter Interrupt Control Register Bits
+ */
+#define XUNDRN		BIT(0)
+
+/*
  * DAVINCI_MCASP_W[R]FIFOCTL - Write/Read FIFO Control Register bits
  */
 #define FIFO_ENABLE	BIT(16)
