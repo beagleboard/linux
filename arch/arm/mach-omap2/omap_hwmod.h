@@ -765,6 +765,7 @@ void omap_hwmods_restore_context(void);
  */
 
 extern int omap_hwmod_aess_preprogram(struct omap_hwmod *oh);
+int omap_hwmod_rtc_unlock(struct omap_hwmod *oh);
 
 /*
  * Chip variant-specific hwmod init routines - XXX should be converted
