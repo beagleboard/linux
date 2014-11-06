@@ -32,6 +32,7 @@
  */
 #define EFUSE_HAS_OD_MPU_OPP		11
 #define EFUSE_HAS_HIGH_MPU_OPP		15
+#define EFUSE_HAS_ALL_MPU_OPP		23
 
 /*
  * We only include OPP_OD and OPP_HIGH here, OPP_NOM is common to all
@@ -74,6 +75,7 @@ int __init dra7xx_opp_init(void)
 		max_freq >>= SPEED_VAL_SHFT;
 
 		switch (max_freq) {
+		case EFUSE_HAS_ALL_MPU_OPP:
 		case EFUSE_HAS_HIGH_MPU_OPP:
 			opp_def_list_enable_opp(dra7xx_es1_0_opp_list,
 				ARRAY_SIZE(dra7xx_es1_0_opp_list),
