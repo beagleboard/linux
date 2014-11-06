@@ -1156,6 +1156,7 @@ static int omap8250_suspend(struct device *dev)
 	serial8250_suspend_port(priv->line);
 	flush_work(&priv->qos_work);
 
+	pinctrl_pm_select_sleep_state(dev);
 	if (device_may_wakeup(dev))
 		omap8250_enable_wakeup(priv, true);
 	else
@@ -1167,6 +1168,7 @@ static int omap8250_resume(struct device *dev)
 {
 	struct omap8250_priv *priv = dev_get_drvdata(dev);
 
+	pinctrl_pm_select_default_state(dev);
 	if (device_may_wakeup(dev))
 		omap8250_enable_wakeup(priv, false);
 
