@@ -29,6 +29,7 @@ struct asoc_simple_card_info {
 	const char *codec;
 	const char *platform;
 
+	int id_hint;
 	unsigned int daifmt;
 	struct asoc_simple_dai cpu_dai;
 	struct asoc_simple_dai codec_dai;
