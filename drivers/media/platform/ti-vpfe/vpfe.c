@@ -1744,20 +1744,25 @@ static void vpfe_stop_isif_capture(struct vpfe_device *dev)
 static int vpfe_release(struct file *file)
 {
 	struct vpfe_device *dev = video_drvdata(file);
+	bool fh_singular = v4l2_fh_is_singular_file(file);
+	int ret;
 
 	vpfe_dbg(2, dev, "vpfe_release\n");
 
+	/* the release helper will cleanup any on-going streaming */
+	ret = vb2_fop_release(file);
+
 	/*
-	 * If this is the last open file.
+	 * If this was the last open file.
 	 * Then de-initialize hw module.
 	 */
-	if (v4l2_fh_is_singular_file(file)) {
+	if (fh_singular) {
 		mutex_lock(&dev->lock);
 		isif_close(&dev->vpfe_isif, dev->pdev);
 		mutex_unlock(&dev->lock);
 	}
 
-	return vb2_fop_release(file);
+	return ret;
 }
 
 static int vpfe_querycap(struct file *file, void  *priv,
