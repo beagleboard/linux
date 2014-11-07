@@ -112,7 +112,6 @@ static inline long rppc_recalc_off(phys_addr_t lpa, long uoff)
 struct rppc_dma_buf *rppc_alloc_dmabuf(struct rppc_instance *rpc, int fd,
 				       bool autoreg)
 {
-	struct rppc_device *rppcdev = rpc->rppcdev;
 	struct rppc_dma_buf *dma;
 	void *ret;
 	int id;
@@ -129,7 +128,7 @@ struct rppc_dma_buf *rppc_alloc_dmabuf(struct rppc_instance *rpc, int fd,
 		goto free_dma;
 	}
 
-	dma->attach = dma_buf_attach(dma->buf, rppcdev->dev);
+	dma->attach = dma_buf_attach(dma->buf, rpc->dev);
 	if (IS_ERR(dma->attach)) {
 		ret = dma->attach;
 		goto put_buf;
@@ -272,14 +271,14 @@ struct rppc_dma_buf *rppc_find_dmabuf(struct rppc_instance *rpc, int fd)
 	struct rppc_dma_buf *node = NULL;
 	void *data = (void *)fd;
 
-	dev_dbg(rpc->rppcdev->dev, "looking for fd %u\n", fd);
+	dev_dbg(rpc->dev, "looking for fd %u\n", fd);
 
 	mutex_lock(&rpc->lock);
 	node = (struct rppc_dma_buf *)
 			idr_for_each(&rpc->dma_idr, find_dma_by_fd, data);
 	mutex_unlock(&rpc->lock);
 
-	dev_dbg(rpc->rppcdev->dev, "returning node %p for fd %u\n",
+	dev_dbg(rpc->dev, "returning node %p for fd %u\n",
 		node, fd);
 
 	return node;
@@ -315,7 +314,7 @@ static int rppc_map_page(struct rppc_instance *rpc, int fd, u32 offset,
 	uint32_t pg_offset;
 	unsigned long pg_num;
 	size_t begin, end = PAGE_SIZE;
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 
 	if (!base_ptr || !dmabuf)
 		return -EINVAL;
@@ -378,7 +377,7 @@ static void rppc_unmap_page(struct rppc_instance *rpc, u32 offset,
 	uint32_t pg_offset;
 	unsigned long pg_num;
 	size_t begin, end = PAGE_SIZE;
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 
 	if (!base_ptr || !dmabuf)
 		return;
@@ -424,7 +423,7 @@ phys_addr_t rppc_buffer_lookup(struct rppc_instance *rpc, virt_addr_t uva,
 {
 	phys_addr_t lpa = 0, rda = 0;
 	long uoff = uva - buva;
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 	struct rppc_dma_buf *buf;
 
 	dev_dbg(dev, "buva = %p uva = %p offset = %ld [0x%016lx] fd = %d\n",
@@ -477,7 +476,7 @@ int rppc_xlate_buffers(struct rppc_instance *rpc, struct rppc_function *func,
 {
 	uint8_t *base_ptr = NULL;
 	struct dma_buf *dbuf = NULL;
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 	uint32_t ptr_idx, pri_offset, sec_offset, offset, pg_offset, size;
 	int i, limit, inc = 1;
 	virt_addr_t kva, uva, buva;
