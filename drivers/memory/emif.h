@@ -585,5 +585,13 @@ struct emif_regs {
 	u32 ext_phy_ctrl_3_shdw;
 	u32 ext_phy_ctrl_4_shdw;
 };
+
+struct ti_emif_pm_functions;
+
+extern unsigned int ti_emif_sram;
+extern unsigned int ti_emif_sram_sz;
+extern void __iomem *ti_emif_base_addr_virt;
+extern void __iomem *ti_emif_base_addr_phys;
+extern struct ti_emif_pm_functions ti_emif_pm;
 #endif /* __ASSEMBLY__ */
 #endif /* __EMIF_H */

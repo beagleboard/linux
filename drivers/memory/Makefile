@@ -16,3 +16,6 @@ obj-$(CONFIG_TEGRA20_MC)	+= tegra20-mc.o
 obj-$(CONFIG_JZ4780_NEMC)	+= jz4780-nemc.o
 
 obj-$(CONFIG_TEGRA_MC)		+= tegra/
+obj-$(CONFIG_TI_EMIF_SRAM)	+= ti-emif-sram.o ti-emif-sram-pm.o
+
+AFLAGS_ti-emif-sram-pm.o	:=-Wa,-march=armv7-a
