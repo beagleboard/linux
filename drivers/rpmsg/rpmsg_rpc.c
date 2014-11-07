@@ -563,11 +563,13 @@ static int rppc_open(struct inode *inode, struct file *filp)
 	rpc->state = RPPC_STATE_DISCONNECTED;
 	rpc->rppcdev = rppcdev;
 
+	rpc->dev = get_device(rppcdev->dev);
 	chinfo.src = RPMSG_ADDR_ANY;
 	chinfo.dst = RPMSG_ADDR_ANY;
 	rpc->ept = rpmsg_create_ept(rppcdev->rpdev, rppc_cb, rpc, chinfo);
 	if (!rpc->ept) {
 		dev_err(rppcdev->dev, "create ept failed\n");
+		put_device(rpc->dev);
 		kfree(rpc);
 		return -ENOMEM;
 	}
@@ -621,6 +623,7 @@ static int rppc_release(struct inode *inode, struct file *filp)
 	if (list_empty(&rppcdev->instances))
 		dev_dbg(rppcdev->dev, "all instances have been removed!\n");
 
+	put_device(rpc->dev);
 	kfree(rpc);
 	return 0;
 }
