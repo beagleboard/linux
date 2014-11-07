@@ -118,6 +118,8 @@
 
 	aliases {
 		display0 = &hdmi0;
+		sound0 = &primary_sound;
+		sound1 = &hdmi;
 	};
 
 	hdmi0: connector@1 {
@@ -165,7 +167,7 @@
 		};
 	};
 
-	sound {
+	primary_sound: primary_sound {
 		compatible = "ti,dra7xx-evm-audio";
 		ti,model = "DRA7xx-EVM";
 		ti,audio-codec = <&tlv320aic3106>;
