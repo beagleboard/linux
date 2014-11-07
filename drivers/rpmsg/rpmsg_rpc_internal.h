@@ -62,6 +62,7 @@ struct rppc_device {
  * struct rppc_instance - The per-instance data structure (per user)
  * @list: list node
  * @rppcdev: the rppc device (remote server instance) handle
+ * @dev: local device reference pointer of the rppc device
  * @queue: queue of buffers waiting to be read by the user
  * @lock: mutex for protecting instance variables
  * @readq: wait queue of blocked user threads waiting to read data
@@ -82,6 +83,7 @@ struct rppc_device {
 struct rppc_instance {
 	struct list_head list;
 	struct rppc_device *rppcdev;
+	struct device *dev;
 	struct sk_buff_head queue;
 	struct mutex lock; /* instance state variables lock */
 	wait_queue_head_t readq;
