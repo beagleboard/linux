@@ -182,6 +182,12 @@
 			#dma-cells = <1>;
 		};
 
+		emif: emif@4c000000 {
+			compatible = "ti,am3352-emif";
+			reg =	<0x4C000000 0x1000>;
+			sram = <&ocmcram>;
+		};
+
 		gpio0: gpio@44e07000 {
 			compatible = "ti,omap4-gpio";
 			ti,hwmods = "gpio1";
