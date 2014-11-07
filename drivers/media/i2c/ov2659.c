@@ -1339,7 +1339,6 @@ static const struct v4l2_ctrl_ops ov2659_ctrl_ops = {
 static const char * const test_pattern_menu[] = {
 	"Disabled",
 	"Color bars",
-	NULL
 };
 
 static int ov2659_initialize_controls(struct ov2659 *ov2659)
