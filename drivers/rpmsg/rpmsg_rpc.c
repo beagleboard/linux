@@ -1087,7 +1087,7 @@ rppc_handle_devinfo_resp(struct rpmsg_channel *rpdev, char *data, int len)
 		return;
 	}
 
-	dev_info(&rpdev->dev, "publised functions = %u\n", info->num_funcs);
+	dev_info(&rpdev->dev, "published functions = %u\n", info->num_funcs);
 
 	/* send the function query for first function */
 	if (rppc_query_function(rpdev) == -EINVAL)
@@ -1303,7 +1303,7 @@ static void rppc_remove(struct rpmsg_channel *rpdev)
 	struct rppc_instance *rpc = NULL;
 	int major = MAJOR(rppc_dev);
 
-	dev_dbg(rppcdev->dev, "removing rpmsg-rpc device %u.%u\n",
+	dev_dbg(&rpdev->dev, "removing rpmsg-rpc device %u.%u\n",
 		major, rppcdev->minor);
 
 	mutex_lock(&rppc_devices_lock);
@@ -1331,7 +1331,7 @@ static void rppc_remove(struct rpmsg_channel *rpdev)
 	init_completion(&rppcdev->comp);
 	mutex_lock(&rppcdev->lock);
 	list_for_each_entry(rpc, &rppcdev->instances, list) {
-		dev_dbg(rppcdev->dev, "instance %p in state %d\n",
+		dev_dbg(&rpdev->dev, "instance %p in state %d\n",
 			rpc, rpc->state);
 		if ((rpc->state == RPPC_STATE_CONNECTED) && rpc->in_transition)
 			complete_all(&rpc->reply_arrived);
@@ -1343,7 +1343,8 @@ static void rppc_remove(struct rpmsg_channel *rpdev)
 	rppcdev->rpdev = NULL;
 	mutex_unlock(&rppcdev->lock);
 	mutex_unlock(&rppc_devices_lock);
-	dev_dbg(&rpdev->dev, "removed rpmsg rpmsgrpc driver.\n");
+	dev_dbg(&rpdev->dev, "removed rpmsg rpmsg-rpc service %s\n",
+		rpdev->desc);
 }
 
 static struct rpmsg_device_id rppc_id_table[] = {
