@@ -203,14 +203,14 @@ static struct vip_fmt vip_formats[] = {
 /*
  * Find our format description corresponding to the passed v4l2_format
  */
-static struct vip_fmt *find_format(struct v4l2_format *f)
+static struct vip_fmt *find_format(u32 pixelformat)
 {
 	struct vip_fmt *fmt;
 	unsigned int k;
 
 	for (k = 0; k < ARRAY_SIZE(vip_formats); k++) {
 		fmt = &vip_formats[k];
-		if (fmt->fourcc == f->fmt.pix.pixelformat)
+		if (fmt->fourcc == pixelformat)
 			return fmt;
 	}
 
@@ -1217,7 +1217,12 @@ static int vip_enum_framesizes(struct file *file, void *priv,
 {
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
+	struct vip_fmt *fmt;
 	int ret;
+
+	fmt = find_format(f->pixel_format);
+	if (!fmt)
+		return -EINVAL;
 
 	ret = v4l2_subdev_call(dev->sensor, video, enum_framesizes, f);
 	if (ret)
@@ -1229,8 +1234,44 @@ static int vip_enum_framesizes(struct file *file, void *priv,
 static int vip_enum_frameintervals(struct file *file, void *priv,
 			struct v4l2_frmivalenum *f)
 {
-	if (f->index >= ARRAY_SIZE(vip_formats))
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+	struct v4l2_frmsizeenum fsize;
+	struct vip_fmt *fmt;
+	int ret;
+
+	if (f->index)
 		return -EINVAL;
+
+	fmt = find_format(f->pixel_format);
+	if (!fmt)
+		return -EINVAL;
+
+	/* check for valid width/height */
+	ret = 0;
+	for (fsize.index = 0; ; fsize.index++) {
+		ret = v4l2_subdev_call(dev->sensor, video,
+					enum_framesizes, &fsize);
+		if (ret) {
+			if (fsize.index == 0)
+				vip_dbg(1, dev, "enum_frameinterval failed on the first enum_framesize\n");
+			return -EINVAL;
+		}
+
+		if (fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+			if ((f->width == fsize.discrete.width) &&
+			    (f->height == fsize.discrete.height))
+				break;
+		} else if ((fsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS) ||
+			   (fsize.type == V4L2_FRMSIZE_TYPE_STEPWISE)) {
+			if ((f->width >= fsize.stepwise.min_width) &&
+			    (f->width <= fsize.stepwise.max_width) &&
+			    (f->height >= fsize.stepwise.min_height) &&
+			    (f->height <= fsize.stepwise.max_height))
+				break;
+		} else
+			return -EINVAL;
+	}
 
 	f->type = V4L2_FRMIVAL_TYPE_DISCRETE;
 	f->discrete.numerator = 30;
@@ -1282,7 +1323,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 {
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
-	struct vip_fmt *fmt = find_format(f);
+	struct vip_fmt *fmt = find_format(f->fmt.pix.pixelformat);
 	enum v4l2_field field;
 	int depth;
 
@@ -1316,6 +1357,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		(fmt->vpdma_fmt[0]->depth +
 		 (fmt->coplanar ? fmt->vpdma_fmt[1]->depth : 0)) >> 3;
 	f->fmt.pix.colorspace = fmt->colorspace;
+	f->fmt.pix.priv = 0;
 
 	return 0;
 }
@@ -1359,7 +1401,7 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 		return -EBUSY;
 	}
 
-	port->fmt		= find_format(f);
+	port->fmt		= find_format(f->fmt.pix.pixelformat);
 	stream->width		= f->fmt.pix.width;
 	stream->height		= f->fmt.pix.height;
 	port->fmt->colorspace	= f->fmt.pix.colorspace;
