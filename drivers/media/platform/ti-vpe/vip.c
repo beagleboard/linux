@@ -1514,6 +1514,14 @@ static int vip_s_selection(struct file *file, void *fh,
 static long vip_ioctl_default(struct file *file, void *fh, bool valid_prio,
 			      unsigned int cmd, void *arg)
 {
+	struct vip_stream *stream = file2stream(file);
+	struct vip_port *port = stream->port;
+
+	if (!valid_prio) {
+		vip_err(port->dev, "%s device busy\n", __func__);
+		return -EBUSY;
+	}
+
 	switch (cmd) {
 	default:
 		return -ENOTTY;
@@ -2022,6 +2030,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	*vfd = vip_videodev;
 	vfd->v4l2_dev = &dev->v4l2_dev;
 	vfd->queue = q;
+	set_bit(V4L2_FL_USE_FH_PRIO, &vfd->flags);
 
 	vfd->lock = &dev->mutex;
 	video_set_drvdata(vfd, stream);
