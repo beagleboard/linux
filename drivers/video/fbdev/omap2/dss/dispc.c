@@ -129,6 +129,9 @@ static struct {
 	bool is_enabled;
 
 	struct regmap	*syscon;
+
+	/* DISPC_CONTROL & DISPC_CONFIG lock*/
+	spinlock_t control_lock;
 } dispc;
 
 enum omap_color_component {
@@ -267,7 +270,16 @@ static u32 mgr_fld_read(enum omap_channel channel, enum mgr_reg_fields regfld)
 static void mgr_fld_write(enum omap_channel channel,
 					enum mgr_reg_fields regfld, int val) {
 	const struct dispc_reg_field rfld = mgr_desc[channel].reg_desc[regfld];
+	const bool need_lock = rfld.reg == DISPC_CONTROL || rfld.reg == DISPC_CONFIG;
+	unsigned long flags;
+
+	if (need_lock)
+		spin_lock_irqsave(&dispc.control_lock, flags);
+
 	REG_FLD_MOD(rfld.reg, val, rfld.high, rfld.low);
+
+	if (need_lock)
+		spin_unlock_irqrestore(&dispc.control_lock, flags);
 }
 
 #define SR(reg) \
@@ -3912,6 +3924,8 @@ static int __init omap_dispchw_probe(struct platform_device *pdev)
 	struct resource *dispc_mem;
 
 	dispc.pdev = pdev;
+
+	spin_lock_init(&dispc.control_lock);
 
 	r = dispc_init_features(dispc.pdev);
 	if (r)
