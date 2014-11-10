@@ -146,7 +146,6 @@ struct vip_port {
  * port.  The vip_stream structure holds per-stream data.
  */
 struct vip_stream {
-	struct v4l2_fh		fh;
 	struct video_device	*vfd;
 	struct vip_port		*port;
 	int			stream_id;

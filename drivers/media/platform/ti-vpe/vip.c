@@ -867,9 +867,10 @@ static const struct dfn_holder s_dfn = {
 /*
  * Return the vip_stream structure for a given struct file
  */
-static struct vip_stream *file2stream(struct file *file)
+static inline struct vip_stream *file2stream(struct file *file)
 {
-	return container_of(file->private_data, struct vip_stream, fh);
+	return video_drvdata(file);
+
 }
 
 /*
@@ -1822,35 +1823,54 @@ int vip_open(struct file *file)
 	struct vip_stream *stream = video_drvdata(file);
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
-	int ret;
+	struct v4l2_fh *fh = kzalloc(sizeof(*fh), GFP_KERNEL);
+	int ret = 0;
 
-	if (vb2_is_busy(&stream->vb_vidq)) {
-		vip_err(dev, "%s queue busy\n", __func__);
-		return -EBUSY;
+	vip_dbg(2, dev, "vip_open\n");
+
+	file->private_data = fh;
+	if (fh == NULL)
+		return -ENOMEM;
+
+	mutex_lock(&dev->mutex);
+
+	v4l2_fh_init(fh, video_devdata(file));
+	v4l2_fh_add(fh);
+
+	/*
+	 * If this is the first open file.
+	 * Then initialize hw module.
+	 */
+	if (v4l2_fh_is_singular_file(file)) {
+		if (vip_init_port(port)) {
+			goto free_fh;
+			ret = -ENODEV;
+		}
+		stream->width = 1280;
+		stream->height = 720;
+		stream->sizeimage = stream->width * stream->height *
+			(port->fmt->vpdma_fmt[0]->depth +
+			(port->fmt->coplanar ?
+				port->fmt->vpdma_fmt[1]->depth : 0)) >> 3;
+		stream->bytesperline = round_up((stream->width *
+					port->fmt->vpdma_fmt[0]->depth) >> 3,
+					1 << L_ALIGN);
+		stream->sup_field = V4L2_FIELD_NONE;
+		port->c_rect.width = stream->width;
+		port->c_rect.height = stream->height;
+		vip_dbg(1, dev, "Created stream instance %p\n", stream);
 	}
 
-	ret = vip_init_port(port);
-	if (ret)
-		goto done;
-
-	stream->width = 1280;
-	stream->height = 720;
-	stream->sizeimage = stream->width * stream->height *
-			(port->fmt->vpdma_fmt[0]->depth + (port->fmt->coplanar ?
-				port->fmt->vpdma_fmt[1]->depth : 0)) >> 3;
-	stream->sup_field = V4L2_FIELD_NONE;
-	port->c_rect.width = stream->width;
-	port->c_rect.height = stream->height;
-
-	v4l2_fh_init(&stream->fh, video_devdata(file));
-	file->private_data = &stream->fh;
-
-	v4l2_fh_add(&stream->fh);
-	vip_dbg(1, dev, "Created stream instance %p\n", stream);
-
+	mutex_unlock(&dev->mutex);
 	return 0;
 
-done:
+free_fh:
+	mutex_unlock(&dev->mutex);
+	if (fh) {
+		v4l2_fh_del(fh);
+		v4l2_fh_exit(fh);
+		kfree(fh);
+	}
 	return ret;
 }
 EXPORT_SYMBOL(vip_open);
@@ -1862,20 +1882,23 @@ int vip_release(struct file *file)
 	struct vip_dev *dev = port->dev;
 	struct vb2_queue *q = &stream->vb_vidq;
 
-	vip_dbg(1, dev, "Releasing stream instance %p\n", stream);
+	vip_dbg(2, dev, "vip_release\n");
 
-	mutex_lock(&dev->mutex);
+	/*
+	 * If this is the last open file.
+	 * Then de-initialize hw module.
+	 */
+	if (v4l2_fh_is_singular_file(file)) {
+		mutex_lock(&dev->mutex);
 
-	vip_stop_streaming(q);
-	vip_release_port(stream->port);
+		vip_stop_streaming(q);
+		vip_release_port(stream->port);
 
-	v4l2_fh_del(&stream->fh);
-	v4l2_fh_exit(&stream->fh);
-	vb2_queue_release(q);
+		mutex_unlock(&dev->mutex);
+		vip_dbg(1, dev, "Releasing stream instance %p\n", stream);
+	}
 
-	mutex_unlock(&dev->mutex);
-
-	return 0;
+	return vb2_fop_release(file);
 }
 EXPORT_SYMBOL(vip_release);
 
