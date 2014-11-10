@@ -131,10 +131,15 @@
 		ti,mcasp-controller = <&mcasp3>;
 		ti,codec-clock-rate = <5644800>;
 		clocks = <&atl_clkin2_ck>;
-		clock-names = "ti,codec-clock";
+		clock-names = "mclk";
 		ti,audio-routing =
 			"Headphone Jack",       "HPLOUT",
 			"Headphone Jack",       "HPROUT",
+			"Line Out",		"LLOUT",
+			"Line Out",		"RLOUT",
+			"MIC3L",		"Mic Jack",
+			"MIC3R",		"Mic Jack",
+			"Mic Jack",		"Mic Bias",
 			"LINE1L",               "Line In",
 			"LINE1R",               "Line In";
 	};
@@ -481,6 +486,7 @@
 		compatible = "ti,tlv320aic3106";
 		reg = <0x19>;
 		adc-settle-ms = <40>;
+		ai3x-micbias-vg = <1>;		/* 2.0V */
 		status = "okay";
 
 		/* Regulators */
@@ -786,12 +792,9 @@
 
 	op-mode = <0>;          /* MCASP_IIS_MODE */
 	tdm-slots = <2>;
-	/* 16 serializer */
+	/* 4 serializer */
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
-		0 0 0 0
-		0 0 0 0
-		0 0 0 0
 	>;
 };
 

@@ -78,6 +78,8 @@ struct aic3x_priv {
 	struct aic3x_disable_nb disable_nb[AIC3X_NUM_SUPPLIES];
 	struct aic3x_setup_data *setup;
 	unsigned int sysclk;
+	unsigned int dai_fmt;
+	unsigned int tdm_delay;
 	struct list_head list;
 	int master;
 	int gpio_reset;
@@ -270,6 +272,18 @@ static const struct soc_enum aic3x_agc_decay_enum[] = {
 	SOC_ENUM_SINGLE(RAGC_CTRL_A, 0, 4, aic3x_agc_decay),
 };
 
+static const char * const aic3x_poweron_time[] = {
+	"0us", "10us", "100us", "1ms", "10ms", "50ms", "100ms",
+	"200ms", "400ms", "800ms", "2s", "4s",
+};
+static const char * const aic3x_rampup_step[] = {
+	"0ms", "1ms", "2ms", "4ms"
+};
+static const struct soc_enum aic3x_pop_reduction_enum[] = {
+	SOC_ENUM_SINGLE(HPOUT_POP_REDUCTION, 4, 12, aic3x_poweron_time),
+	SOC_ENUM_SINGLE(HPOUT_POP_REDUCTION, 2, 4, aic3x_rampup_step),
+};
+
 /*
  * DAC digital volumes. From -63.5 to 0 dB in 0.5 dB steps
  */
@@ -399,6 +413,10 @@ static const struct snd_kcontrol_new aic3x_snd_controls[] = {
 	SOC_DOUBLE_R("PGA Capture Switch", LADC_VOL, RADC_VOL, 7, 0x01, 1),
 
 	SOC_ENUM("ADC HPF Cut-off", aic3x_enum[ADC_HPF_ENUM]),
+
+	/* Pop reduction */
+	SOC_ENUM("Output Driver Power-On time", aic3x_pop_reduction_enum[0]),
+	SOC_ENUM("Output Driver Ramp-up step", aic3x_pop_reduction_enum[1]),
 };
 
 static const struct snd_kcontrol_new aic3x_mono_controls[] = {
@@ -1010,6 +1028,25 @@ found:
 	return 0;
 }
 
+static int aic3x_prepare(struct snd_pcm_substream *substream,
+			   struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	struct aic3x_priv *aic3x = snd_soc_codec_get_drvdata(codec);
+	int delay = 0;
+
+	/* TDM slot selection only valid in DSP_A/_B mode */
+	if (aic3x->dai_fmt == SND_SOC_DAIFMT_DSP_A)
+		delay += (aic3x->tdm_delay + 1);
+	else if (aic3x->dai_fmt == SND_SOC_DAIFMT_DSP_B)
+		delay += aic3x->tdm_delay;
+
+	/* Configure data delay */
+	snd_soc_write(codec, AIC3X_ASD_INTF_CTRLC, aic3x->tdm_delay);
+
+	return 0;
+}
+
 static int aic3x_mute(struct snd_soc_dai *dai, int mute)
 {
 	struct snd_soc_codec *codec = dai->codec;
@@ -1049,7 +1086,6 @@ static int aic3x_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	struct snd_soc_codec *codec = codec_dai->codec;
 	struct aic3x_priv *aic3x = snd_soc_codec_get_drvdata(codec);
 	u8 iface_areg, iface_breg;
-	int delay = 0;
 
 	iface_areg = snd_soc_read(codec, AIC3X_ASD_INTF_CTRLA) & 0x3f;
 	iface_breg = snd_soc_read(codec, AIC3X_ASD_INTF_CTRLB) & 0x3f;
@@ -1077,7 +1113,6 @@ static int aic3x_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	case (SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF):
 		break;
 	case (SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_IB_NF):
-		delay = 1;
 	case (SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF):
 		iface_breg |= (0x01 << 6);
 		break;
@@ -1091,10 +1126,45 @@ static int aic3x_set_dai_fmt(struct snd_soc_dai *codec_dai,
 		return -EINVAL;
 	}
 
+	aic3x->dai_fmt = fmt & SND_SOC_DAIFMT_FORMAT_MASK;
+
 	/* set iface */
 	snd_soc_write(codec, AIC3X_ASD_INTF_CTRLA, iface_areg);
 	snd_soc_write(codec, AIC3X_ASD_INTF_CTRLB, iface_breg);
-	snd_soc_write(codec, AIC3X_ASD_INTF_CTRLC, delay);
+
+	return 0;
+}
+
+static int aic3x_set_dai_tdm_slot(struct snd_soc_dai *codec_dai,
+				  unsigned int tx_mask, unsigned int rx_mask,
+				  int slots, int slot_width)
+{
+	struct snd_soc_codec *codec = codec_dai->codec;
+	struct aic3x_priv *aic3x = snd_soc_codec_get_drvdata(codec);
+	unsigned int lsb;
+
+	if (tx_mask != rx_mask) {
+		dev_err(codec->dev, "tx and rx masks must be symmetric\n");
+		return -EINVAL;
+	}
+
+	if (unlikely(!tx_mask)) {
+		dev_err(codec->dev, "tx and rx masks need to be non 0\n");
+		return -EINVAL;
+	}
+
+	/* TDM based on DSP mode requires slots to be adjacent */
+	lsb = __ffs(tx_mask);
+	if ((lsb + 1) != __fls(tx_mask)) {
+		dev_err(codec->dev, "Invalid mask, slots must be adjacent\n");
+		return -EINVAL;
+	}
+
+	aic3x->tdm_delay = lsb * slot_width;
+
+	/* DOUT in high-impedance on inactive bit clocks */
+	snd_soc_update_bits(codec, AIC3X_ASD_INTF_CTRLA,
+			    DOUT_TRISTATE, DOUT_TRISTATE);
 
 	return 0;
 }
@@ -1200,9 +1270,11 @@ static int aic3x_set_bias_level(struct snd_soc_codec *codec,
 
 static const struct snd_soc_dai_ops aic3x_dai_ops = {
 	.hw_params	= aic3x_hw_params,
+	.prepare	= aic3x_prepare,
 	.digital_mute	= aic3x_mute,
 	.set_sysclk	= aic3x_set_dai_sysclk,
 	.set_fmt	= aic3x_set_dai_fmt,
+	.set_tdm_slot	= aic3x_set_dai_tdm_slot,
 };
 
 static struct snd_soc_dai_driver aic3x_dai = {
