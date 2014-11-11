@@ -594,6 +594,12 @@ static void dev_lastclose(struct drm_device *dev)
 		drm_modeset_unlock_all(dev);
 		if (ret)
 			DBG("failed to restore crtc mode");
+		/*
+		 * Flush crtcs to finish any pending work.
+		 * This makes sure the fbdev mode has been restored.
+		 */
+		for (i = 0; i < priv->num_crtcs; i++)
+			omap_crtc_flush(priv->crtcs[i]);
 	}
 }
 

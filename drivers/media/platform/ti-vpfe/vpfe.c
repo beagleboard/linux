@@ -108,7 +108,7 @@ static struct vpfe_fmt formats[] = {
 	{
 		.name		= "4:2:2, packed, UYVY",
 		.fourcc		= V4L2_PIX_FMT_UYVY,
-		.code		= V4L2_MBUS_FMT_YUYV8_2X8,
+		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.l.width	= 10,
 		.l.bpp		= 4,
 		.s.width	= 8,
@@ -191,7 +191,7 @@ static struct vpfe_fmt formats[] = {
 	{
 		.name		= "RGB565 (LE)",
 		.fourcc		= V4L2_PIX_FMT_RGB565,
-		.code		= V4L2_MBUS_FMT_BGR565_2X8_LE,
+		.code		= V4L2_MBUS_FMT_RGB565_2X8_LE,
 		.l.width	= 10,
 		.l.bpp		= 4,
 		.s.width	= 8,
@@ -200,7 +200,7 @@ static struct vpfe_fmt formats[] = {
 	{
 		.name		= "RGB565 (BE)",
 		.fourcc		= V4L2_PIX_FMT_RGB565X,
-		.code		= V4L2_MBUS_FMT_BGR565_2X8_BE,
+		.code		= V4L2_MBUS_FMT_RGB565_2X8_BE,
 		.l.width	= 10,
 		.l.bpp		= 4,
 		.s.width	= 8,
@@ -1744,20 +1744,25 @@ static void vpfe_stop_isif_capture(struct vpfe_device *dev)
 static int vpfe_release(struct file *file)
 {
 	struct vpfe_device *dev = video_drvdata(file);
+	bool fh_singular = v4l2_fh_is_singular_file(file);
+	int ret;
 
 	vpfe_dbg(2, dev, "vpfe_release\n");
 
+	/* the release helper will cleanup any on-going streaming */
+	ret = vb2_fop_release(file);
+
 	/*
-	 * If this is the last open file.
+	 * If this was the last open file.
 	 * Then de-initialize hw module.
 	 */
-	if (v4l2_fh_is_singular_file(file)) {
+	if (fh_singular) {
 		mutex_lock(&dev->lock);
 		isif_close(&dev->vpfe_isif, dev->pdev);
 		mutex_unlock(&dev->lock);
 	}
 
-	return vb2_fop_release(file);
+	return ret;
 }
 
 static int vpfe_querycap(struct file *file, void  *priv,
@@ -1900,18 +1905,36 @@ static int vpfe_g_fmt(struct file *file, void *priv,
 }
 
 static int vpfe_enum_fmt(struct file *file, void  *priv,
-				   struct v4l2_fmtdesc *f)
+			 struct v4l2_fmtdesc *f)
 {
 	struct vpfe_device *dev = video_drvdata(file);
+	struct v4l2_subdev_mbus_code_enum mbus_code;
+	struct v4l2_subdev *subdev;
+	struct media_pad *remote;
 	struct vpfe_fmt *fmt;
+	u32 pad;
+	int ret;
 
 	vpfe_dbg(2, dev, "vpfe_enum_format index:%d\n",
 		f->index);
 
-	if (f->index >= ARRAY_SIZE(formats))
+	subdev = vpfe_remote_subdev(dev, &pad);
+	if (subdev == NULL)
 		return -EINVAL;
 
-	fmt = &formats[f->index];
+	remote = media_entity_remote_pad(&dev->pad);
+	mbus_code.index = f->index;
+	ret = v4l2_subdev_call(subdev, pad, enum_mbus_code, NULL, &mbus_code);
+	if (ret)
+		return -EINVAL;
+
+	/* convert mbus_format to v4l2_format */
+	fmt = find_format_by_code(mbus_code.code);
+	if (fmt == NULL) {
+		vpfe_err(dev, "mbus code 0x%08x not found\n",
+			mbus_code.code);
+		return -EINVAL;
+	}
 
 	strncpy(f->description, fmt->name, sizeof(f->description) - 1);
 	f->pixelformat = fmt->fourcc;
