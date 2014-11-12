@@ -82,8 +82,8 @@ config GPIO_SYSFS
 	  exported to userspace; this can be useful when debugging.
 
 config GPIO_OF_HELPER
-	bool "GPIO OF helper device"
-	depends on OF_GPIO && EXPERIMENTAL
+	bool "GPIO OF helper device (EXPERIMENTAL)"
+	depends on OF_GPIO
 	help
 	  Say Y here to add an GPIO OF helper driver
 
