@@ -370,8 +370,9 @@ static struct omap_hwmod dra7xx_vip3_hwmod = {
 static struct omap_hwmod_class_sysconfig dra7xx_cal_sysc = {
 	.sysc_offs	= 0x0010,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_RESET_STATUS |
-			   SYSC_HAS_SOFTRESET),
-	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
@@ -386,6 +387,7 @@ static struct omap_hwmod dra7xx_cal_hwmod = {
 	.class		= &dra7xx_cal_hwmod_class,
 	.clkdm_name	= "cam_clkdm",
 	.main_clk	= "vip2_gclk_mux",
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_CAM_VIP2_CLKCTRL_OFFSET,

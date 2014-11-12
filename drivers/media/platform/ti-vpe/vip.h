@@ -47,7 +47,8 @@
 #define VIP_CAP_STREAMS_PER_PORT	16
 #define VIP_VBI_STREAMS_PER_PORT	16
 
-#define VIP_MAX_SUBDEV	5
+#define VIP_MAX_SUBDEV			5
+#define VIP_MAX_ACTIVE_FMT		10
 
 /* buffer for one video frame */
 struct vip_buffer {
@@ -56,6 +57,25 @@ struct vip_buffer {
 	struct list_head	list;
 	bool			drop;
 };
+
+/*
+ * struct vip_fmt - VIP media bus format information
+ * @name: V4L2 format description
+ * @fourcc: V4L2 pixel format FCC identifier
+ * @code: V4L2 media bus format code
+ * @colorspace: V4L2 colorspace identifier
+ * @coplanar: 1 if unpacked Luma and Chroma, 0 otherwise (packed/interleaved)
+ * @vpdma_fmt: VPDMA data format per plane.
+ */
+struct vip_fmt {
+	char	*name;
+	u32	fourcc;
+	enum v4l2_mbus_pixelcode code;
+	enum v4l2_colorspace colorspace;
+	u8	coplanar;
+	const struct vpdma_data_format *vpdma_fmt[VIP_MAX_PLANES];
+};
+
 
 /*
  * The vip_shared structure contains data that is shared by both
@@ -88,6 +108,8 @@ struct vip_dev {
 	struct vip_config	*config;
 	struct v4l2_subdev	*sensor;
 	struct v4l2_of_endpoint *endpoint;
+	struct vip_fmt		*active_fmt[VIP_MAX_ACTIVE_FMT];
+	int			num_active_fmt;
 	struct v4l2_device	v4l2_dev;
 	struct platform_device *pdev;
 	struct vip_shared	*shared;
@@ -109,16 +131,6 @@ struct vip_dev {
 	struct vb2_alloc_ctx	*alloc_ctx;
 	struct vip_port		*ports[VIP_NUM_PORTS];
 
-	int			mux_gpio;
-	int			mux1_sel0_gpio;
-	int			mux1_sel1_gpio;
-	int			mux2_sel0_gpio;
-	int			mux2_sel1_gpio;
-	int			cam_fpd_mux_s0_gpio;
-	int			vin2_s0_gpio;
-	int			ov_pwdn_gpio;
-
-	struct video_device	*early_vdev;
 	const char		*vip_name;
 };
 
@@ -146,7 +158,6 @@ struct vip_port {
  * port.  The vip_stream structure holds per-stream data.
  */
 struct vip_stream {
-	struct v4l2_fh		fh;
 	struct video_device	*vfd;
 	struct vip_port		*port;
 	int			stream_id;
