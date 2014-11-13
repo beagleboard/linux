@@ -52,6 +52,7 @@
 struct rpmsg_socket {
 	struct sock sk;
 	struct rpmsg_channel *rpdev;
+	struct list_head elem;
 	bool unregister_rpdev;
 };
 
@@ -174,7 +175,7 @@ static int rpmsg_sock_connect(struct socket *sock, struct sockaddr *addr,
 	rpsk->rpdev = rpdev;
 
 	/* bind this socket with its rpmsg endpoint */
-	rpdev->ept->priv = sk;
+	list_add_tail(&rpsk->elem, rpdev->ept->priv);
 
 	/* XXX take care of disconnection state too */
 	sk->sk_state = RPMSG_CONNECTED;
@@ -362,10 +363,12 @@ static int rpmsg_sock_release(struct socket *sock)
 	if (!sk)
 		return 0;
 
-	if (rpsk->unregister_rpdev) {
+	if (rpsk->unregister_rpdev) { /* Rx (bound) sockets */
 		ret = rpmsg_destroy_channel(rpsk->rpdev);
 		if (ret)
 			pr_err("rpmsg_destroy_channel failed for sk %p\n", sk);
+	} else { /* Tx (connected) sockets */
+		list_del(&rpsk->elem);
 	}
 
 	sock_put(sock->sk);
@@ -453,6 +456,7 @@ static int rpmsg_sock_create(struct net *net, struct socket *sock, int proto,
 			     int kern)
 {
 	struct sock *sk;
+	struct rpmsg_socket *rpsk;
 
 	if (sock->type != SOCK_SEQPACKET)
 		return -ESOCKTNOSUPPORT;
@@ -471,6 +475,9 @@ static int rpmsg_sock_create(struct net *net, struct socket *sock, int proto,
 	sk->sk_protocol = proto;
 
 	sk->sk_state = RPMSG_OPEN;
+
+	rpsk = container_of(sk, struct rpmsg_socket, sk);
+	INIT_LIST_HEAD(&rpsk->elem);
 
 	return 0;
 }
@@ -550,6 +557,7 @@ static int rpmsg_proto_probe(struct rpmsg_channel *rpdev)
 	int ret, dst = rpdev->dst, id;
 	struct radix_tree_root *vrp_channels;
 	struct virtproc_info *vrp;
+	struct list_head *sock_list = NULL;
 
 	id = rpmsg_sock_get_proc_id(rpdev);
 
@@ -595,10 +603,22 @@ static int rpmsg_proto_probe(struct rpmsg_channel *rpdev)
 		goto out;
 	}
 
+	WARN_ON(!!rpdev->ept->priv);
+	sock_list = kzalloc(sizeof(*sock_list), GFP_KERNEL);
+	if (!sock_list) {
+		dev_err(dev, "failed to allocate list_head\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	INIT_LIST_HEAD(sock_list);
+
 	/* let's associate the new channel with its dst */
 	ret = radix_tree_insert(vrp_channels, dst, rpdev);
-	if (ret)
+	if (ret) {
 		dev_err(dev, "failed to add rpmsg addr %d: %d\n", dst, ret);
+		kfree(sock_list);
+	}
+	rpdev->ept->priv = sock_list;
 
 out:
 	mutex_unlock(&rpmsg_channels_lock);
@@ -635,6 +655,8 @@ static void rpmsg_proto_remove(struct rpmsg_channel *rpdev)
 		if (!radix_tree_delete(&rpmsg_vprocs, id))
 			dev_err(dev, "failed to delete id %d\n", id);
 		mutex_unlock(&rpmsg_vprocs_lock);
+		kfree(rpdev->ept->priv);
+		rpdev->ept->priv = NULL;
 
 		if (!radix_tree_delete(vrp_channels, dst))
 			dev_err(dev, "failed to delete rpmsg %d\n", dst);
