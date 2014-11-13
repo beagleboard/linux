@@ -878,7 +878,7 @@
 		};
 		partition@9 {
 			label = "QSPI.file-system";
-			reg = <0x009e0000 0x01690000>;
+			reg = <0x009e0000 0x01620000>;
 		};
 	};
 };

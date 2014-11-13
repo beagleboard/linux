@@ -12,9 +12,14 @@
  */
 
 #include <linux/serial_8250.h>
+#include <linux/serial_reg.h>
 #include <linux/dmaengine.h>
 
 struct uart_8250_dma {
+	int (*tx_dma)(struct uart_8250_port *p);
+	int (*rx_dma)(struct uart_8250_port *p, unsigned int iir);
+
+	/* Filter function */
 	dma_filter_fn		fn;
 	void			*rx_param;
 	void			*tx_param;
@@ -40,6 +45,8 @@ struct uart_8250_dma {
 	size_t			tx_size;
 
 	unsigned char		tx_running:1;
+	unsigned char		tx_err:1;
+	unsigned char		rx_running:1;
 };
 
 struct old_serial_port {
@@ -60,6 +67,7 @@ struct serial8250_config {
 	unsigned short	fifo_size;
 	unsigned short	tx_loadsz;
 	unsigned char	fcr;
+	unsigned char	rxtrig_bytes[UART_FCR_R_TRIG_MAX_STATE];
 	unsigned int	flags;
 };
 
@@ -70,6 +78,7 @@ struct serial8250_config {
 #define UART_CAP_UUE	(1 << 12)	/* UART needs IER bit 6 set (Xscale) */
 #define UART_CAP_RTOIE	(1 << 13)	/* UART needs IER bit 4 set (Xscale, Tegra) */
 #define UART_CAP_HFIFO	(1 << 14)	/* UART has a "hidden" FIFO */
+#define UART_CAP_RPM	(1 << 15)	/* Runtime PM is active while idle */
 
 #define UART_BUG_QUOT	(1 << 0)	/* UART has buggy quot LSB */
 #define UART_BUG_TXEN	(1 << 1)	/* UART has buggy TX IIR status */
@@ -109,6 +118,10 @@ static inline void serial_dl_write(struct uart_8250_port *up, int value)
 {
 	up->dl_write(up, value);
 }
+
+struct uart_8250_port *serial8250_get_port(int line);
+void serial8250_rpm_get(struct uart_8250_port *p);
+void serial8250_rpm_put(struct uart_8250_port *p);
 
 #if defined(__alpha__) && !defined(CONFIG_PCI)
 /*
