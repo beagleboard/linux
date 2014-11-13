@@ -478,13 +478,10 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 						| MUSB_PORT_STAT_RESUME;
 				musb->rh_timer = jiffies
 						 + msecs_to_jiffies(20);
-				schedule_delayed_work(
-					&musb->finish_resume_work,
-					msecs_to_jiffies(20));
+				musb->need_finish_resume = 1;
 
 				musb->xceiv->state = OTG_STATE_A_HOST;
 				musb->is_active = 1;
-				musb_host_resume_root_hub(musb);
 				break;
 			case OTG_STATE_B_WAIT_ACON:
 				musb->xceiv->state = OTG_STATE_B_PERIPHERAL;
@@ -2297,9 +2294,11 @@ static int musb_suspend(struct device *dev)
 	return 0;
 }
 
-static int musb_resume_noirq(struct device *dev)
+static int musb_resume(struct device *dev)
 {
 	struct musb	*musb = dev_to_musb(dev);
+	u8		devctl;
+	u8		mask;
 
 	/*
 	 * For static cmos like DaVinci, register values were preserved
@@ -2313,6 +2312,15 @@ static int musb_resume_noirq(struct device *dev)
 
 	musb_restore_context(musb);
 
+	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+	mask = MUSB_DEVCTL_BDEVICE | MUSB_DEVCTL_FSDEV | MUSB_DEVCTL_LSDEV;
+	if ((devctl & mask) != (musb->context.devctl & mask))
+		musb->port1_status = 0;
+	if (musb->need_finish_resume) {
+		musb->need_finish_resume = 0;
+		schedule_delayed_work(&musb->finish_resume_work,
+				      msecs_to_jiffies(20));
+	}
 	return 0;
 }
 
@@ -2348,7 +2356,7 @@ static int musb_runtime_resume(struct device *dev)
 
 static const struct dev_pm_ops musb_dev_pm_ops = {
 	.suspend	= musb_suspend,
-	.resume_noirq	= musb_resume_noirq,
+	.resume		= musb_resume,
 	.runtime_suspend = musb_runtime_suspend,
 	.runtime_resume = musb_runtime_resume,
 };
