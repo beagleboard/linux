@@ -17,6 +17,7 @@
 #include <sound/simple_card.h>
 #include <sound/soc-dai.h>
 #include <sound/soc.h>
+#include <sound/initval.h>
 
 struct simple_card_data {
 	struct snd_soc_card snd_card;
@@ -470,6 +471,8 @@ static int asoc_simple_card_probe(struct platform_device *pdev)
 		}
 
 		priv->snd_card.name	= (cinfo->card) ? cinfo->card : cinfo->name;
+		priv->snd_card.id_hint	= (cinfo->id_hint >= 0) ?
+					cinfo->id_hint : SNDRV_DEFAULT_IDX1;
 		dai_link->name		= cinfo->name;
 		dai_link->stream_name	= cinfo->name;
 		dai_link->platform_name	= cinfo->platform;

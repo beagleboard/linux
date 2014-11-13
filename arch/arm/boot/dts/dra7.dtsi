@@ -1729,7 +1729,7 @@
 			reg-names = "mpu";
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
-			interrupts-names = "tx", "rx";
+			interrupt-names = "tx", "rx";
 			dmas = <&sdma 133 &dmacb>, <&sdma 132 &dmacb>;
 			dma-names = "tx", "rx";
 			clocks = <&mcasp3_ahclkx_mux>;

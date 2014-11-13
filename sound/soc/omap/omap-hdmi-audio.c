@@ -28,6 +28,7 @@
 #include <sound/asoundef.h>
 #include <sound/omap-pcm.h>
 #include <sound/omap-hdmi-audio.h>
+#include <sound/initval.h>
 #include <video/omapdss_hdmi_audio_data.h>
 
 #include <sound/simple_card.h>
@@ -286,6 +287,14 @@ int omap_hdmi_audio_register(struct omap_hdmi_audio *ha)
 		.codec_dai.name = "hdmi-hifi",
 	};
 	int ret;
+	int id = SNDRV_DEFAULT_IDX1;
+
+	/* Get the id of the parent (the HDMI HW IP) */
+	if (ha->dev->of_node) {
+		id = of_alias_get_id(ha->dev->of_node, "sound");
+		if (id < 0)
+			id = SNDRV_DEFAULT_IDX1;
+	}
 
 	ad = devm_kzalloc(ha->dev, sizeof(*ad), GFP_KERNEL);
 	if (!ad)
@@ -326,6 +335,7 @@ int omap_hdmi_audio_register(struct omap_hdmi_audio *ha)
 	card_info.cpu_dai.name = dev_name(ha->dev);
 	card_info.platform = dev_name(ha->dev);
 	card_info.codec = dev_name(&ad->codec_pdev->dev);
+	card_info.id_hint = id;
 
 	ad->card_pdev =
 		platform_device_register_data(ha->dev, "asoc-simple-card", 0,
