@@ -496,6 +496,12 @@
 		>;
 	};
 
+	dcan1_pins_default: dcan1_pins_default {
+		pinctrl-single,pins = <
+			0x168 (PIN_OUTPUT | MUX_MODE2) /* uart0_ctsn.d_can1_tx */
+			0x16c (PIN_INPUT_PULLDOWN | MUX_MODE2) /* uart0_rtsn.d_can1_rx */
+		>;
+	};
 };
 
 &uart0 {
@@ -905,4 +911,10 @@
 
 &wkup_m3 {
 	ti,scale-data-fw = "am335x-evm-scale-data.bin";
+};
+
+&dcan1 {
+	status = "disabled";	/* Enable only if Profile 1 is selected */
+	pinctrl-names = "default";
+	pinctrl-0 = <&dcan1_pins_default>;
 };
