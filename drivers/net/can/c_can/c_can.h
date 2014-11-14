@@ -194,12 +194,14 @@ struct c_can_priv {
 	enum c_can_dev_id type;
 	struct c_can_raminit raminit_sys;	/* RAMINIT via syscon regmap */
 	void (*raminit) (const struct c_can_priv *priv, bool enable);
+	struct pinctrl *pinctrl;
 };
 
 struct net_device *alloc_c_can_dev(void);
 void free_c_can_dev(struct net_device *dev);
 int register_c_can_dev(struct net_device *dev);
 void unregister_c_can_dev(struct net_device *dev);
+void c_can_pinctrl_select_state(struct net_device *dev, const char *name);
 
 #ifdef CONFIG_PM
 int c_can_power_up(struct net_device *dev);
