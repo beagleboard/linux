@@ -170,7 +170,7 @@ struct c_can_priv {
 	u16 irqstatus;
 	enum c_can_dev_id type;
 	u32 __iomem *raminit_ctrlreg;
-	unsigned int instance;
+	int instance;
 	void (*raminit) (const struct c_can_priv *priv, bool enable);
 };
 
