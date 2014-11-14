@@ -154,6 +154,12 @@ enum c_can_dev_id {
 
 struct c_can_driver_data {
 	enum c_can_dev_id id;
+
+	/* RAMINIT register description. Optional. */
+	u8 num_can;		/* Number of CAN instances on the SoC */
+	u8 *raminit_start_bits;	/* Array of START bit positions */
+	u8 *raminit_done_bits;	/* Array of DONE bit positions */
+	bool raminit_pulse;	/* If set, sets and clears START bit (pulse) */
 };
 
 /* c_can private data structure */
