@@ -1696,27 +1696,21 @@
 			clock-names = "fck";
 		};
 
-		dcan1: d_can@481cc000 {
-			compatible = "bosch,d_can";
+		dcan1: can@481cc000 {
+			compatible = "ti,dra7-d_can";
 			ti,hwmods = "dcan1";
-			reg = <0x4ae3c000 0x2000>,
-			      <0x558 0x4>; /* index to RAMINIT reg within syscon */
-			syscon = <&dra7_ctrl_core>;
-			raminit-start-bit = <3>;
-			raminit-done-bit = <1>;
+			reg = <0x4ae3c000 0x2000>;
+			syscon-raminit = <&dra7_ctrl_core 0x558 0>;
 			interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&dcan1_sys_clk_mux>;
 			status = "disabled";
 		};
 
-		dcan2: d_can@481d0000 {
-			compatible = "bosch,d_can";
+		dcan2: can@481d0000 {
+			compatible = "ti,dra7-d_can";
 			ti,hwmods = "dcan2";
-			reg = <0x48480000 0x2000>,
-			      <0x558 0x4>; /* index to RAMINIT reg within syscon */
-			syscon = <&dra7_ctrl_core>;
-			raminit-start-bit = <5>;
-			raminit-done-bit = <2>;
+			reg = <0x48480000 0x2000>;
+			syscon-raminit = <&dra7_ctrl_core 0x558 1>;
 			interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&sys_clkin1>;
 			status = "disabled";
