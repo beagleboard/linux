@@ -168,6 +168,7 @@ struct c_can_raminit {
 	unsigned int reg;	/* register index within syscon */
 	u8 start_bit;
 	u8 done_bit;
+	bool needs_pulse;
 };
 
 /* c_can private data structure */
