@@ -1,0 +1,31 @@
+EMIF SRAM Driver
+=====================
+
+TI AMx3 family of devices use a similar EMIF to other TI SoCs but have
+different PM requirements. Late suspend code runs from SRAM and requires
+save and restore of EMIF context and placing the SDRAM in and out of
+self-refresh. Because of this, the ti-emif-sram driver introduces
+relocatable PM function that can run from SRAM and place the EMIF in
+the proper state for low-power mode transition.
+
+EMIF Device Node:
+====================
+A emif node is used to represent an EMIF IP instance within an SoC. The node
+must contain a phandle to an sram node so the ti-emif-sram driver can allocate
+space within the sram and copy the relocatable PM functions.
+
+Required properties:
+--------------------
+- compatible:		Should be "ti,am3352-emif" for AM33xx SoCs
+- reg:			Contains the emif register address ranges.
+- sram:			Phandle for generic sram node for the driver
+			to use to copy PM functions to.
+
+Example:
+--------
+/* AM33xx */
+emif: emif@4c000000 {
+	compatible = "ti,am3352-emif";
+	reg =	<0x4C000000 0x1000>;
+	sram = <&ocmcram>;
+};
