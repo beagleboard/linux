@@ -492,7 +492,7 @@ static struct clockdomain l4cfg_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_CM_CORE_CORE_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_CORE_L4CFG_CDOFFS,
 	.dep_bit	  = DRA7XX_L4CFG_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_HWSUP,
+	.flags		  = CLKDM_CAN_DISABLE_AUTO,
 };
 
 static struct clockdomain dma_7xx_clkdm = {
@@ -677,7 +677,7 @@ static struct clockdomain wkupaon_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_PRM_WKUPAON_CM_INST,
 	.clkdm_offs	  = DRA7XX_PRM_WKUPAON_CM_WKUPAON_CDOFFS,
 	.dep_bit	  = DRA7XX_WKUPAON_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_DISABLE_AUTO,
 };
 
 static struct clockdomain eve1_7xx_clkdm = {
