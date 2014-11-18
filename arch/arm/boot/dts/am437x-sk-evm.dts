@@ -473,7 +473,7 @@
 
 	edt-ft5306@38 {
 		status = "okay";
-		compatible = "edt,edt-ft5306", "edt,edt-ft5x06";
+		compatible = "edt-ft5306", "edt-ft5x06";
 		pinctrl-names = "default";
 		pinctrl-0 = <&edt_ft5306_ts_pins>;
 
