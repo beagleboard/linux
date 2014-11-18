@@ -50,6 +50,14 @@ struct rpmsg_socket {
 	bool unregister_rpdev;
 };
 
+/* Connection and socket states */
+enum {
+	RPMSG_CONNECTED = 1,
+	RPMSG_OPEN,
+	RPMSG_LISTENING,
+	RPMSG_CLOSED,
+};
+
 /* A two-level radix-tree-based scheme is used to maintain the rpmsg channels
  * we're exposing to userland. The first radix tree maps vproc index id
  * to its channels, and the second radix tree associates each channel
