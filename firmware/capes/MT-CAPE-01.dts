@@ -1,0 +1,92 @@
+/*
+ * Copyright 2014 Mutli-Tech Systems, Inc.
+ *
+ * Author: Robert Nelson <robertcnelson@gmail.com>
+ *
+ * Cape http://xyz.com
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "MT-CAPE";
+	version = "01";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		/* gpio */
+		"P8.30",	/* led: gpio2_25 */
+
+		/* uart 5 */
+		"P8.31",	/* uart5_ctsn */
+		"P8.32",	/* uart5_rtsn */
+		"P8.37",	/* uart5_txd */
+		"P8.38",	/* uart5_rxd */
+
+		/* need driver support: tty: serial: omap: use mctrl_gpio helpers */
+		"P8.39", /* #DSR */
+		"P8.40", /* #RI */
+		"P8.41", /* #DCD */
+		"P8.42", /* #DTR */
+
+		/* the hardware ip uses */
+		"uart5";
+
+	fragment@10 {
+		target = <&am33xx_pinmux>;
+		__overlay__ {
+
+			multitech_led_pins: pinmux_multitech_led_pins {
+				pinctrl-single,pins = <
+					0xec 0x07	/* lcd_ac_bias_en.gpio2_25, OUTPUT | MODE7 */
+				>;
+			};
+
+			bb_uart5_pins: pinmux_bb_uart5_pins {
+				pinctrl-single,pins = <
+					/* the uart pins */
+					0x0d8 0x36	/* lcd_data14.usart5_ctsn | MODE 6 */
+					0x0dc 0x0e	/* lcd_data15.usart5_rtsn | MODE 6 */
+					0x0C0 0x04	/* lcd_data8.uart5_txd | MODE4 */
+					0x0C4 0x24	/* lcd_data9.uart5_rxd | MODE4 */
+				>;
+			};
+		};
+	};
+
+	fragment@11 {
+		target = <&ocp>;
+		__overlay__ {
+
+			gpio-leds-cape-multitech {
+				compatible = "gpio-leds";
+				pinctrl-names = "default";
+
+				pinctrl-0 = <&multitech_led_pins>;
+
+				Link_Status {
+					label = "Link_Status";
+					gpios = <&gpio3 25 0>;
+					default-state = "off";
+				};
+			};
+		};
+	};
+
+	fragment@12 {
+		target = <&uart6>;	/* really uart5 */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_uart5_pins>;
+		};
+	};
+};
