@@ -149,6 +149,7 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-bone-hexy-00A0.dtbo \
 	cape-bone-lcd3-00A0.dtbo \
 	cape-bone-lcd3-00A2.dtbo \
+	MT-CAPE-01.dtbo \
 	BB-BONE-AUDI-01-00A0.dtbo \
 	BB-BONE-AUDI-02-00A0.dtbo \
 	BB-BONE-LCD4-01-00A0.dtbo \
