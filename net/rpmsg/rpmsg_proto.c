@@ -615,17 +615,18 @@ static void rpmsg_proto_remove(struct rpmsg_channel *rpdev)
 
 	mutex_lock(&rpmsg_channels_lock);
 
-	vrp_channels = radix_tree_lookup(&rpmsg_channels, id);
-	if (!vrp_channels) {
-		dev_err(dev, "can't find channels for this vrp: %d\n", id);
-		goto out;
-	}
-
 	/* Only remove non-reserved channels from the tree, as only these
 	 * were "probed".  Note: bind is not causing a probe, and bound
 	 * sockets have src addresses < RPMSG_RESERVED_ADDRESSES.
 	 */
 	if (src >= RPMSG_RESERVED_ADDRESSES) {
+		vrp_channels = radix_tree_lookup(&rpmsg_channels, id);
+		if (!vrp_channels) {
+			dev_err(dev, "can't find channels for this vrp: %d\n",
+				id);
+			goto out;
+		}
+
 		mutex_lock(&rpmsg_vprocs_lock);
 		if (!radix_tree_delete(&rpmsg_vprocs, id))
 			dev_err(dev, "failed to delete id %d\n", id);
@@ -633,6 +634,11 @@ static void rpmsg_proto_remove(struct rpmsg_channel *rpdev)
 
 		if (!radix_tree_delete(vrp_channels, dst))
 			dev_err(dev, "failed to delete rpmsg %d\n", dst);
+
+		if (!radix_tree_delete(&rpmsg_channels, id))
+			dev_err(dev, "failed to delete vrp_channels for id %d\n",
+				id);
+		kfree(vrp_channels);
 	}
 
 out:
