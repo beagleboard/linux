@@ -589,6 +589,10 @@ static int rpmsg_proto_probe(struct rpmsg_channel *rpdev)
 			kfree(vrp_channels);
 			goto out;
 		}
+	} else {
+		ret = -ENODEV;
+		dev_err(dev, "multiple rpmsg-proto devices from the same rproc is not supported.\n");
+		goto out;
 	}
 
 	/* let's associate the new channel with its dst */
