@@ -165,6 +165,16 @@ if grep -q '^CONFIG_MODULES=y' $KCONFIG_CONFIG ; then
 	fi
 fi
 
+if grep -q '^CONFIG_OF=y' $KCONFIG_CONFIG ; then
+	mkdir -p "$tmpdir/boot/dtbs/$version"
+	INSTALL_DTBS_PATH="$tmpdir/boot/dtbs/$version" $MAKE KBUILD_SRC= dtbs_install
+
+	#make dtbs_install seems to add an .old directory
+	if [ -d "$tmpdir/boot/dtbs/$version.old" ] ; then
+		rm -rf "$tmpdir/boot/dtbs/$version.old"
+	fi
+fi
+
 if [ "$ARCH" != "um" ]; then
 	$MAKE headers_check KBUILD_SRC=
 	$MAKE headers_install KBUILD_SRC= INSTALL_HDR_PATH="$libc_headers_dir/usr"
