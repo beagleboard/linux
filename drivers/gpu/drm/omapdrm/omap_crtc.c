@@ -573,11 +573,13 @@ static void set_enabled(struct drm_crtc *crtc, bool enable)
 	if (dispc_mgr_is_enabled(channel) == enable)
 		return;
 
-	/*
-	 * Digit output produces some sync lost interrupts during the first
-	 * frame when enabling, so we need to ignore those.
-	 */
-	omap_crtc->ignore_digit_sync_lost = true;
+	if (omap_crtc->channel == OMAP_DSS_CHANNEL_DIGIT) {
+		/*
+		 * Digit output produces some sync lost interrupts during the
+		 * first frame when enabling, so we need to ignore those.
+		 */
+		omap_crtc->ignore_digit_sync_lost = true;
+	}
 
 	framedone_irq = dispc_mgr_get_framedone_irq(channel);
 	vsync_irq = dispc_mgr_get_vsync_irq(channel);
@@ -608,9 +610,11 @@ static void set_enabled(struct drm_crtc *crtc, bool enable)
 				omap_crtc->name, enable ? "enable" : "disable");
 	}
 
-	omap_crtc->ignore_digit_sync_lost = false;
-	/* make sure the irq handler sees the value above */
-	mb();
+	if (omap_crtc->channel == OMAP_DSS_CHANNEL_DIGIT) {
+		omap_crtc->ignore_digit_sync_lost = false;
+		/* make sure the irq handler sees the value above */
+		mb();
+	}
 }
 
 static void omap_crtc_pre_apply(struct omap_drm_apply *apply)
