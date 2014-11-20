@@ -47,6 +47,8 @@
 struct rpmsg_socket {
 	struct sock sk;
 	struct rpmsg_channel *rpdev;
+	int rproc_id;
+	struct list_head elem;
 	bool unregister_rpdev;
 };
 
@@ -56,6 +58,7 @@ enum {
 	RPMSG_OPEN,
 	RPMSG_LISTENING,
 	RPMSG_CLOSED,
+	RPMSG_ERROR,
 };
 
 /* A two-level radix-tree-based scheme is used to maintain the rpmsg channels
@@ -146,11 +149,11 @@ static int rpmsg_sock_connect(struct socket *sock, struct sockaddr *addr,
 
 	sa = (struct sockaddr_rpmsg *)addr;
 
+	mutex_lock(&rpmsg_channels_lock);
+
 	lock_sock(sk);
 
 	rpsk = container_of(sk, struct rpmsg_socket, sk);
-
-	mutex_lock(&rpmsg_channels_lock);
 
 	/* find the set of channels exposed by this remote processor */
 	vrp_channels = radix_tree_lookup(&rpmsg_channels, sa->vproc_id);
@@ -166,17 +169,18 @@ static int rpmsg_sock_connect(struct socket *sock, struct sockaddr *addr,
 		goto out;
 	}
 
+	rpsk->rproc_id = sa->vproc_id;
 	rpsk->rpdev = rpdev;
 
 	/* bind this socket with its rpmsg endpoint */
-	rpdev->ept->priv = sk;
+	list_add_tail(&rpsk->elem, rpdev->ept->priv);
 
 	/* XXX take care of disconnection state too */
 	sk->sk_state = RPMSG_CONNECTED;
 
 out:
-	mutex_unlock(&rpmsg_channels_lock);
 	release_sock(sk);
+	mutex_unlock(&rpmsg_channels_lock);
 	return err;
 }
 
@@ -198,6 +202,12 @@ static int rpmsg_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 		return -EINVAL;
 
 	lock_sock(sk);
+
+	/* we don't support Tx on errored-out sockets */
+	if (sk->sk_state == RPMSG_ERROR) {
+		release_sock(sk);
+		return -ESHUTDOWN;
+	}
 
 	/* we don't support loopback at this point */
 	if (sk->sk_state != RPMSG_CONNECTED) {
@@ -335,7 +345,7 @@ static int rpmsg_sock_getname(struct socket *sock, struct sockaddr *addr,
 	*len = sizeof(*sa);
 
 	if (peer) {
-		sa->vproc_id = rpmsg_sock_get_proc_id(rpdev);
+		sa->vproc_id = rpsk->rproc_id;
 		sa->addr = rpdev->dst;
 	} else {
 		sa->vproc_id = RPMSG_LOCALHOST;
@@ -349,17 +359,41 @@ static int rpmsg_sock_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct rpmsg_socket *rpsk = container_of(sk, struct rpmsg_socket, sk);
+	struct virtproc_info *vrp = NULL;
 	int ret;
 
 	if (!sk)
 		return 0;
 
-	if (rpsk->unregister_rpdev) {
-		ret = rpmsg_destroy_channel(rpsk->rpdev);
-		if (ret)
-			pr_err("rpmsg_destroy_channel failed for sk %p\n", sk);
+	mutex_lock(&rpmsg_channels_lock);
+	if (rpsk->unregister_rpdev) { /* Rx (bound) sockets */
+		/* The bound socket's rpmsg device will be removed by rpmsg bus
+		 * core during recovery, but only after the published rpmsg
+		 * channel is removed (device registration order). The check for
+		 * valid vrp will ensure that rpmsg_destroy_channel will not be
+		 * called if the release from userspace occurs first. However,
+		 * the socket can be released much later than the recreated vrp
+		 * as well, so an additional check for a sane socket state is
+		 * also needed.
+		 */
+		vrp = radix_tree_lookup(&rpmsg_vprocs, rpsk->rproc_id);
+		if (vrp && sk->sk_state != RPMSG_ERROR) {
+			rpsk->rpdev->ept->priv = NULL;
+			mutex_unlock(&rpmsg_channels_lock);
+			ret = rpmsg_destroy_channel(rpsk->rpdev);
+			if (ret) {
+				pr_err("rpmsg_destroy_channel failed for sk %p\n",
+				       sk);
+			}
+			goto release;
+		}
+	} else { /* Tx (connected) sockets */
+		if (sk->sk_state != RPMSG_ERROR)
+			list_del(&rpsk->elem);
 	}
+	mutex_unlock(&rpmsg_channels_lock);
 
+release:
 	sock_put(sock->sk);
 
 	return 0;
@@ -406,6 +440,7 @@ rpmsg_sock_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 
 	rpsk->rpdev = rpdev;
 	rpsk->unregister_rpdev = true;
+	rpsk->rproc_id = sa->vproc_id;
 
 	/* bind this socket with its rpmsg endpoint */
 	rpdev->ept->priv = sk;
@@ -445,6 +480,7 @@ static int rpmsg_sock_create(struct net *net, struct socket *sock, int proto,
 				int kern)
 {
 	struct sock *sk;
+	struct rpmsg_socket *rpsk;
 
 	if (sock->type != SOCK_SEQPACKET)
 		return -ESOCKTNOSUPPORT;
@@ -463,6 +499,11 @@ static int rpmsg_sock_create(struct net *net, struct socket *sock, int proto,
 	sk->sk_protocol = proto;
 
 	sk->sk_state = RPMSG_OPEN;
+
+	rpsk = container_of(sk, struct rpmsg_socket, sk);
+	INIT_LIST_HEAD(&rpsk->elem);
+	/* use RPMSG_LOCALHOST to serve as an invalid value */
+	rpsk->rproc_id = RPMSG_LOCALHOST;
 
 	return 0;
 }
@@ -542,6 +583,7 @@ static int rpmsg_proto_probe(struct rpmsg_channel *rpdev)
 	int ret, dst = rpdev->dst, id;
 	struct radix_tree_root *vrp_channels;
 	struct virtproc_info *vrp;
+	struct list_head *sock_list = NULL;
 
 	id = rpmsg_sock_get_proc_id(rpdev);
 
@@ -581,12 +623,28 @@ static int rpmsg_proto_probe(struct rpmsg_channel *rpdev)
 			kfree(vrp_channels);
 			goto out;
 		}
+	} else {
+		ret = -ENODEV;
+		dev_err(dev, "multiple rpmsg-proto devices from the same rproc is not supported.\n");
+		goto out;
 	}
+
+	WARN_ON(!!rpdev->ept->priv);
+	sock_list = kzalloc(sizeof(*sock_list), GFP_KERNEL);
+	if (!sock_list) {
+		dev_err(dev, "failed to allocate list_head\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	INIT_LIST_HEAD(sock_list);
 
 	/* let's associate the new channel with its dst */
 	ret = radix_tree_insert(vrp_channels, dst, rpdev);
-	if (ret)
+	if (ret) {
 		dev_err(dev, "failed to add rpmsg addr %d: %d\n", dst, ret);
+		kfree(sock_list);
+	}
+	rpdev->ept->priv = sock_list;
 
 out:
 	mutex_unlock(&rpmsg_channels_lock);
@@ -599,6 +657,9 @@ static void rpmsg_proto_remove(struct rpmsg_channel *rpdev)
 	struct device *dev = &rpdev->dev;
 	int id, dst = rpdev->dst, src = rpdev->src;
 	struct radix_tree_root *vrp_channels;
+	struct list_head *sk_list;
+	struct rpmsg_socket *rpsk, *tmp;
+	struct sock *sk;
 
 	if (dst == RPMSG_ADDR_ANY)
 		return;
@@ -607,24 +668,54 @@ static void rpmsg_proto_remove(struct rpmsg_channel *rpdev)
 
 	mutex_lock(&rpmsg_channels_lock);
 
-	vrp_channels = radix_tree_lookup(&rpmsg_channels, id);
-	if (!vrp_channels) {
-		dev_err(dev, "can't find channels for this vrp: %d\n", id);
-		goto out;
-	}
-
-	/* Only remove non-reserved channels from the tree, as only these
-	 * were "probed".  Note: bind is not causing a probe, and bound
+	/* Only remove non-reserved channels from the radix trees, as only these
+	 * were "probed" (published from remote processor and added to radix
+	 * trees).  Note: bind is not causing a "true" probe, and bound
 	 * sockets have src addresses < RPMSG_RESERVED_ADDRESSES.
 	 */
 	if (src >= RPMSG_RESERVED_ADDRESSES) {
+		vrp_channels = radix_tree_lookup(&rpmsg_channels, id);
+		if (!vrp_channels) {
+			dev_err(dev, "can't find channels for this vrp: %d\n",
+				id);
+			goto out;
+		}
+
 		mutex_lock(&rpmsg_vprocs_lock);
 		if (!radix_tree_delete(&rpmsg_vprocs, id))
 			dev_err(dev, "failed to delete id %d\n", id);
 		mutex_unlock(&rpmsg_vprocs_lock);
 
+		/* mark all connected sockets invalid and remove them
+		 * from the rpdev's list.
+		 */
+		sk_list = rpdev->ept->priv;
+		list_for_each_entry_safe(rpsk, tmp, sk_list, elem) {
+			rpsk->sk.sk_state = RPMSG_ERROR;
+			list_del(&rpsk->elem);
+		}
+		kfree(sk_list);
+		rpdev->ept->priv = NULL;
+
 		if (!radix_tree_delete(vrp_channels, dst))
 			dev_err(dev, "failed to delete rpmsg %d\n", dst);
+
+		if (!radix_tree_delete(&rpmsg_channels, id))
+			dev_err(dev, "failed to delete vrp_channels for id %d\n",
+				id);
+		kfree(vrp_channels);
+	} else {
+		/* mark the associated bound socket as invalid if it has not
+		 * already been deleted by rpmsg_sock_release().
+		 */
+		sk = rpdev->ept->priv;
+		if (sk) {
+			lock_sock(sk);
+			sk->sk_state = RPMSG_ERROR;
+			rpsk = container_of(sk, struct rpmsg_socket, sk);
+			rpsk->rpdev = NULL;
+			release_sock(sk);
+		}
 	}
 
 out:
