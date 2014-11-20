@@ -1079,6 +1079,16 @@ static void disable_irqs(struct vip_dev *dev, int irq_num)
 		irq_num, list_num, false);
 }
 
+static void clear_irqs(struct vip_dev *dev, int irq_num)
+{
+	u32 reg_addr = VIP_INT0_STATUS0_CLR +
+			VIP_INTC_INTX_OFFSET * irq_num;
+
+	write_sreg(dev->shared, reg_addr, 0xffffffff);
+
+	vpdma_clear_list_stat(dev->shared->vpdma, irq_num);
+}
+
 static void populate_desc_list(struct vip_stream *stream)
 {
 	struct vip_port *port = stream->port;
@@ -1895,6 +1905,7 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 	struct vip_buffer *buf;
 
 	disable_irqs(dev, dev->slice_id);
+	clear_irqs(dev, dev->slice_id);
 
 	/* release all active buffers */
 	while (!list_empty(&dev->vip_bufs)) {
