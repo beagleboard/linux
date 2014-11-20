@@ -1424,8 +1424,8 @@ static int vip_enum_frameintervals(struct file *file, void *priv,
 	}
 
 	f->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-	f->discrete.numerator = 30;
-	f->discrete.denominator = 1;
+	f->discrete.numerator = 1;
+	f->discrete.denominator = 30;
 
 	return 0;
 }
@@ -1436,8 +1436,8 @@ static int vip_s_parm(struct file *file, void *priv,
 	if (parm->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
-	parm->parm.capture.timeperframe.numerator = 30;
-	parm->parm.capture.timeperframe.denominator = 1;
+	parm->parm.capture.timeperframe.numerator = 1;
+	parm->parm.capture.timeperframe.denominator = 30;
 
 	return 0;
 }
