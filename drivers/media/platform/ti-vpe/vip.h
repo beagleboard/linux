@@ -2,10 +2,10 @@
  * TI VIP capture driver
  *
  * Copyright (C) 2013 - 2014 Texas Instruments, Inc.
- * Benoit Parrot, <bparrot@ti.com>
- *
- * Based on original work by Dale Farnsworth.
+ * David Griego, <dagriego@biglakesoftware.com>
  * Dale Farnsworth, <dale@farnsworth.org>
+ * Nikhil Devshatwar, <nikhil.nd@ti.com>
+ * Benoit Parrot, <bparrot@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
