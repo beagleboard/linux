@@ -139,7 +139,7 @@ struct vpe_dei_regs {
  */
 static const struct vpe_dei_regs dei_regs = {
 	0x020C0804u,
-	0x0118100Fu,
+	0x0118100Cu,
 	0x08040200u,
 	0x1010100Cu,
 	0x10101010u,
@@ -806,6 +806,23 @@ static void set_dei_shadow_registers(struct vpe_ctx *ctx)
 	ctx->load_mmrs = true;
 }
 
+static void config_edi_input_mode(struct vpe_ctx *ctx, int mode)
+{
+	struct vpe_mmr_adb *mmr_adb = ctx->mmr_adb.addr;
+	u32 *edi_config_reg = &mmr_adb->dei_regs[3];
+
+	if (mode & 0x2)
+		write_field(edi_config_reg, 1, 1, 2);	/* EDI_ENABLE_3D */
+
+	if (mode & 0x3)
+		write_field(edi_config_reg, 1, 1, 3);	/* EDI_CHROMA_3D  */
+
+	write_field(edi_config_reg, mode, VPE_EDI_INP_MODE_MASK,
+		VPE_EDI_INP_MODE_SHIFT);
+
+	ctx->load_mmrs = true;
+}
+
 /*
  * Set the shadow registers whose values are modified when either the
  * source or destination format is changed.
@@ -1117,6 +1134,15 @@ static void device_run(void *priv)
 	WARN_ON(ctx->src_vbs[0] == NULL);
 	ctx->dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 	WARN_ON(ctx->dst_vb == NULL);
+
+	if (ctx->deinterlacing) {
+		/*
+		 * we have output the first 2 frames through line average, we
+		 * now switch to EDI de-interlacer
+		 */
+		if (ctx->sequence == 2)
+			config_edi_input_mode(ctx, 0x3); /* EDI (Y + UV) */
+	}
 
 	/* config descriptors */
 	if (ctx->dev->loaded_mmrs != ctx->mmr_adb.dma_addr || ctx->load_mmrs) {
@@ -1778,6 +1804,9 @@ static int vpe_dqbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 static int vpe_streamon(struct file *file, void *priv, enum v4l2_buf_type type)
 {
 	struct vpe_ctx *ctx = file2ctx(file);
+
+	if (ctx->deinterlacing)
+		config_edi_input_mode(ctx, 0x0);
 
 	return v4l2_m2m_streamon(file, ctx->m2m_ctx, type);
 }
