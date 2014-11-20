@@ -127,6 +127,8 @@ struct vip_dev {
 	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
 	struct vpdma_dtd	*write_desc;
 	void			*desc_next;	/* next unused desc_list addr */
+	/* Maintain a list of used channels - Needed for VPDMA cleanup */
+	int			vpdma_channels[VPDMA_MAX_CHANNELS];
 	struct list_head	vip_bufs;	/* vip_bufs to be DMAed */
 	struct vb2_alloc_ctx	*alloc_ctx;
 	struct vip_port		*ports[VIP_NUM_PORTS];
