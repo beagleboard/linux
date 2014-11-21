@@ -76,6 +76,8 @@ struct omap_crtc {
 	 * XXX maybe fold into apply_work??
 	 */
 	struct work_struct page_flip_work;
+
+	bool ignore_digit_sync_lost;
 };
 
 uint32_t pipe2vbl(struct drm_crtc *crtc)
@@ -434,10 +436,14 @@ static void omap_crtc_error_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 {
 	struct omap_crtc *omap_crtc =
 			container_of(irq, struct omap_crtc, error_irq);
-	struct drm_crtc *crtc = &omap_crtc->base;
-	DRM_ERROR("%s: errors: %08x\n", omap_crtc->name, irqstatus);
-	/* avoid getting in a flood, unregister the irq until next vblank */
-	__omap_irq_unregister(crtc->dev, &omap_crtc->error_irq);
+
+	if (omap_crtc->ignore_digit_sync_lost) {
+		irqstatus &= ~DISPC_IRQ_SYNC_LOST_DIGIT;
+		if (!irqstatus)
+			return;
+	}
+
+	DRM_ERROR_RATELIMITED("%s: errors: %08x\n", omap_crtc->name, irqstatus);
 }
 
 static void omap_crtc_apply_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
@@ -445,9 +451,6 @@ static void omap_crtc_apply_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 	struct omap_crtc *omap_crtc =
 			container_of(irq, struct omap_crtc, apply_irq);
 	struct drm_crtc *crtc = &omap_crtc->base;
-
-	if (!omap_crtc->error_irq.registered)
-		__omap_irq_register(crtc->dev, &omap_crtc->error_irq);
 
 	/* make sure we see the most recent 'go_bit_set' */
 	rmb();
@@ -570,11 +573,13 @@ static void set_enabled(struct drm_crtc *crtc, bool enable)
 	if (dispc_mgr_is_enabled(channel) == enable)
 		return;
 
-	/*
-	 * Digit output produces some sync lost interrupts during the first
-	 * frame when enabling, so we need to ignore those.
-	 */
-	omap_irq_unregister(crtc->dev, &omap_crtc->error_irq);
+	if (omap_crtc->channel == OMAP_DSS_CHANNEL_DIGIT) {
+		/*
+		 * Digit output produces some sync lost interrupts during the
+		 * first frame when enabling, so we need to ignore those.
+		 */
+		omap_crtc->ignore_digit_sync_lost = true;
+	}
 
 	framedone_irq = dispc_mgr_get_framedone_irq(channel);
 	vsync_irq = dispc_mgr_get_vsync_irq(channel);
@@ -605,7 +610,11 @@ static void set_enabled(struct drm_crtc *crtc, bool enable)
 				omap_crtc->name, enable ? "enable" : "disable");
 	}
 
-	omap_irq_register(crtc->dev, &omap_crtc->error_irq);
+	if (omap_crtc->channel == OMAP_DSS_CHANNEL_DIGIT) {
+		omap_crtc->ignore_digit_sync_lost = false;
+		/* make sure the irq handler sees the value above */
+		mb();
+	}
 }
 
 static void omap_crtc_pre_apply(struct omap_drm_apply *apply)
