@@ -219,6 +219,10 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	bone_eqep1-00A0.dtbo \
 	bone_eqep2-00A0.dtbo
 
+# Probotix LCD Display
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	PBXLCD-01-00A0.dtbo
+
 # the geiger cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
 	cape-bone-geiger-00A0.dtbo
