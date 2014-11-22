@@ -224,6 +224,10 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	DD-GPS-00A0.dtbo \
 	DD-GPS-TCLKIN-00A0.dtbo
 
+# Probotix LCD Display
+fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
+	PBXLCD-01-00A0.dtbo
+
 # the geiger cape
 fw-shipped-$(CONFIG_CAPE_BEAGLEBONE_GEIGER) += \
 	cape-bone-geiger-00A0.dtbo
