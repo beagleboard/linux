@@ -2,10 +2,10 @@
  * TI VIP capture driver
  *
  * Copyright (C) 2013 - 2014 Texas Instruments, Inc.
- * Benoit Parrot, <bparrot@ti.com>
- *
- * Based on original work by Dale Farnsworth.
+ * David Griego, <dagriego@biglakesoftware.com>
  * Dale Farnsworth, <dale@farnsworth.org>
+ * Nikhil Devshatwar, <nikhil.nd@ti.com>
+ * Benoit Parrot, <bparrot@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -31,6 +31,10 @@
 
 #include "vpdma.h"
 #include "vpdma_priv.h"
+
+#define VIP_INSTANCE1	1
+#define VIP_INSTANCE2	2
+#define VIP_INSTANCE3	3
 
 #define VIP_SLICE1	0
 #define VIP_SLICE2	1
@@ -114,6 +118,8 @@ struct vip_dev {
 	struct platform_device *pdev;
 	struct vip_shared	*shared;
 	struct resource		*res;
+	struct regmap		*syscon;
+	int			instance_id;
 	int			slice_id;
 	int			num_ports;	/* count of open ports */
 	struct mutex		mutex;
@@ -127,6 +133,8 @@ struct vip_dev {
 	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
 	struct vpdma_dtd	*write_desc;
 	void			*desc_next;	/* next unused desc_list addr */
+	/* Maintain a list of used channels - Needed for VPDMA cleanup */
+	int			vpdma_channels[VPDMA_MAX_CHANNELS];
 	struct list_head	vip_bufs;	/* vip_bufs to be DMAed */
 	struct vb2_alloc_ctx	*alloc_ctx;
 	struct vip_port		*ports[VIP_NUM_PORTS];

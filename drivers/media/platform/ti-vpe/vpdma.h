@@ -35,6 +35,7 @@ struct vpdma_data {
 
 	struct platform_device	*pdev;
 
+	spinlock_t		lock;
 	/* callback to VPE driver when the firmware is loaded */
 	void (*cb)(struct platform_device *pdev);
 };
@@ -117,6 +118,30 @@ enum vpdma_frame_start_event {
 	VPDMA_FSEVENT_CHANNEL_ACTIVE,
 };
 
+/* max width configurations */
+enum vpdma_max_width {
+	MAX_OUT_WIDTH_UNLIMITED = 0,
+	MAX_OUT_WIDTH_REG1,
+	MAX_OUT_WIDTH_REG2,
+	MAX_OUT_WIDTH_REG3,
+	MAX_OUT_WIDTH_352,
+	MAX_OUT_WIDTH_768,
+	MAX_OUT_WIDTH_1280,
+	MAX_OUT_WIDTH_1920,
+};
+
+/* max height configurations */
+enum vpdma_max_height {
+	MAX_OUT_HEIGHT_UNLIMITED = 0,
+	MAX_OUT_HEIGHT_REG1,
+	MAX_OUT_HEIGHT_REG2,
+	MAX_OUT_HEIGHT_REG3,
+	MAX_OUT_HEIGHT_288,
+	MAX_OUT_HEIGHT_576,
+	MAX_OUT_HEIGHT_720,
+	MAX_OUT_HEIGHT_1080,
+};
+
 /*
  * VPDMA channel numbers
  */
@@ -138,6 +163,8 @@ enum vpdma_channel {
 #define VIP_CHAN_MULT_PORTB_OFFSET	16
 #define VIP_CHAN_YUV_PORTB_OFFSET	2
 #define VIP_CHAN_RGB_PORTB_OFFSET	1
+
+#define VPDMA_MAX_CHANNELS		256
 
 /* flags for VPDMA data descriptors */
 #define VPDMA_DATA_ODD_LINE_SKIP	(1 << 0)
@@ -195,24 +222,30 @@ void vpdma_add_cfd_adb(struct vpdma_desc_list *list, int client,
 		struct vpdma_buf *adb);
 void vpdma_add_sync_on_channel_ctd(struct vpdma_desc_list *list,
 		enum vpdma_channel chan);
+void vpdma_add_abort_channel_ctd(struct vpdma_desc_list *list,
+		int chan_num);
 void vpdma_add_out_dtd(struct vpdma_desc_list *list, int width,
 		const struct v4l2_rect *c_rect,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
-		enum vpdma_channel chan, u32 flags);
+		int max_w, int max_h, enum vpdma_channel chan, u32 flags);
 void vpdma_rawchan_add_out_dtd(struct vpdma_desc_list *list, int width,
 		const struct v4l2_rect *c_rect,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
-		int raw_vpdma_chan, u32 flags);
+		int max_w, int max_h, int raw_vpdma_chan, u32 flags);
+
 void vpdma_add_in_dtd(struct vpdma_desc_list *list, int width,
 		const struct v4l2_rect *c_rect,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
 		enum vpdma_channel chan, int field, u32 flags, int frame_width,
 		int frame_height, int start_h, int start_v);
+int vpdma_list_cleanup(struct vpdma_data *vpdma, int list_num,
+		int *channels, int size);
 
 /* vpdma list interrupt management */
 void vpdma_enable_list_complete_irq(struct vpdma_data *vpdma, int irq_num,
 		int list_num, bool enable);
-void vpdma_clear_list_stat(struct vpdma_data *vpdma, int irq_num);
+void vpdma_clear_list_stat(struct vpdma_data *vpdma, int irq_num,
+			   int list_num);
 unsigned int vpdma_get_list_stat(struct vpdma_data *vpdma, int irq_num);
 unsigned int vpdma_get_list_mask(struct vpdma_data *vpdma, int irq_num);
 
@@ -221,7 +254,9 @@ void vpdma_set_line_mode(struct vpdma_data *vpdma, int line_mode,
 		enum vpdma_channel chan);
 void vpdma_set_frame_start_event(struct vpdma_data *vpdma,
 		enum vpdma_frame_start_event fs_event, enum vpdma_channel chan);
-void vpdma_vip_set_max_size(struct vpdma_data *vpdma, int vip_num);
+void vpdma_set_max_size(struct vpdma_data *vpdma, int reg_addr,
+			u32 width, u32 height);
+
 void vpdma_set_bg_color(struct vpdma_data *vpdma,
 			struct vpdma_data_format *fmt, u32 color);
 void vpdma_dump_regs(struct vpdma_data *vpdma);

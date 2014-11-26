@@ -2,10 +2,10 @@
  * TI VIP capture driver
  *
  * Copyright (C) 2013 - 2014 Texas Instruments, Inc.
- * Benoit Parrot, <bparrot@ti.com>
- *
- * Based on original work by Dale Farnsworth.
+ * David Griego, <dagriego@biglakesoftware.com>
  * Dale Farnsworth, <dale@farnsworth.org>
+ * Nikhil Devshatwar, <nikhil.nd@ti.com>
+ * Benoit Parrot, <bparrot@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -27,6 +27,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 #include <linux/pinctrl/consumer.h>
 #include <linux/of_device.h>
@@ -363,13 +365,23 @@ static void vip_set_clock_enable(struct vip_dev *dev, bool on)
 {
 	u32 val = 0;
 
+	val = read_vreg(dev, VIP_CLK_ENABLE);
 	if (on) {
+		val |= VIP_VPDMA_CLK_ENABLE;
 		if (dev->slice_id == VIP_SLICE1)
-			val = VIP_VIP1_DATA_PATH_CLK_ENABLE |
-				VIP_VPDMA_CLK_ENABLE;
+			val |= VIP_VIP1_DATA_PATH_CLK_ENABLE;
 		else
-			val = VIP_VIP2_DATA_PATH_CLK_ENABLE |
-				VIP_VPDMA_CLK_ENABLE;
+			val |= VIP_VIP2_DATA_PATH_CLK_ENABLE;
+	} else {
+		if (dev->slice_id == VIP_SLICE1)
+			val &= ~VIP_VIP1_DATA_PATH_CLK_ENABLE;
+		else
+			val &= ~VIP_VIP2_DATA_PATH_CLK_ENABLE;
+
+		/* Both VIP are disabled then shutdown VPDMA also */
+		if (!(val & (VIP_VIP1_DATA_PATH_CLK_ENABLE|
+			     VIP_VIP2_DATA_PATH_CLK_ENABLE)))
+			val = 0;
 	}
 
 	write_vreg(dev, VIP_CLK_ENABLE, val);
@@ -509,7 +521,29 @@ static void vip_set_discrete_basic_mode(struct vip_port *port)
 
 static void vip_set_pclk_polarity(struct vip_port *port, int polarity)
 {
-	u32 val;
+	u32 val, ret, offset;
+
+	if (polarity == 0 && port->dev->syscon) {
+
+		/*
+		 * When the VIP parser is configured to so that the pixel clock
+		 * is to be sampled at falling edge, the pixel clock needs to be
+		 * inverted before it is given to the VIP module. This is done
+		 * by setting a bit in the CTRL_CORE_SMA_SW1 register.
+		 */
+
+		if (port->dev->instance_id == VIP_INSTANCE1)
+			offset = 0 + 2 * port->port_id + port->dev->slice_id;
+		else if (port->dev->instance_id == VIP_INSTANCE2)
+			offset = 4 + 2 * port->port_id + port->dev->slice_id;
+		else if (port->dev->instance_id == VIP_INSTANCE3)
+			offset = 10 - port->dev->slice_id;
+		else
+			BUG();
+
+		ret = regmap_update_bits(port->dev->syscon,
+			0, 1 << offset, 1 << offset);
+	}
 
 	if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE1) {
 		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET +
@@ -908,21 +942,6 @@ static void vip_set_slice_path(struct vip_dev *dev,
 	}
 }
 
-/* This are unused function for now.
- * Just declare them to quiet down the compiler.
- */
-struct dfn_holder {
-	void (*reset_port)(struct vip_port *port);
-	void (*xtra_set_repack_sel)(struct vip_port *port, int repack_mode);
-	void (*set_actvid_hsync_n)(struct vip_port *port, int enable);
-};
-
-static const struct dfn_holder s_dfn = {
-	.reset_port = vip_reset_port,
-	.xtra_set_repack_sel = vip_xtra_set_repack_sel,
-	.set_actvid_hsync_n = vip_set_actvid_hsync_n,
-};
-
 /*
  * Return the vip_stream structure for a given struct file
  */
@@ -944,6 +963,7 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	struct v4l2_rect *c_rect = &port->c_rect;
 	struct vip_fmt *fmt = port->fmt;
 	int channel, plane = 0;
+	int max_width, max_height;
 	dma_addr_t dma_addr;
 	u32 flags;
 
@@ -981,9 +1001,33 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	 */
 	dma_addr = (dma_addr_t)NULL;
 
-	vpdma_vip_set_max_size(dev->shared->vpdma, 1);
+	/*
+	 * Use VPDMA_MAX_SIZE1 or VPDMA_MAX_SIZE2 register for slice0/1
+	 */
+
+	if (dev->slice_id == VIP_SLICE1) {
+		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE1,
+			stream->width, stream->height);
+
+		max_width = MAX_OUT_WIDTH_REG1;
+		max_height = MAX_OUT_HEIGHT_REG1;
+	} else {
+		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE2,
+			stream->width, stream->height);
+
+		max_width = MAX_OUT_WIDTH_REG2;
+		max_height = MAX_OUT_HEIGHT_REG2;
+	}
+
+	/* Mark this channel to be cleared while cleaning up resources
+	 * This will make sure that an abort descriptor for this channel
+	 * would be submitted to VPDMA causing any ongoing  transaction to be
+	 * aborted and cleanup the VPDMA FSM for this channel */
+	dev->vpdma_channels[channel] = 1;
+
 	vpdma_rawchan_add_out_dtd(&dev->desc_list, c_rect->width, c_rect,
-		fmt->vpdma_fmt[plane], dma_addr, channel, flags);
+		fmt->vpdma_fmt[plane], dma_addr, max_width, max_height,
+		channel, flags);
 
 	return 0;
 }
@@ -1033,6 +1077,16 @@ static void disable_irqs(struct vip_dev *dev, int irq_num)
 
 	vpdma_enable_list_complete_irq(dev->shared->vpdma,
 		irq_num, list_num, false);
+}
+
+static void clear_irqs(struct vip_dev *dev, int irq_num)
+{
+	u32 reg_addr = VIP_INT0_STATUS0_CLR +
+			VIP_INTC_INTX_OFFSET * irq_num;
+
+	write_sreg(dev->shared, reg_addr, 0xffffffff);
+
+	vpdma_clear_list_stat(dev->shared->vpdma, irq_num, dev->slice_id);
 }
 
 static void populate_desc_list(struct vip_stream *stream)
@@ -1186,7 +1240,8 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 	vip_dbg(8, dev, "IRQ %d VIP_INT%d_STATUS0 0x%x\n",
 		irq_vip, irq_num, irqst);
 	if (irqst) {
-		vpdma_clear_list_stat(dev->shared->vpdma, list_num);
+		vpdma_clear_list_stat(dev->shared->vpdma, irq_num, list_num);
+
 		reg_addr = VIP_INT0_STATUS0_CLR +
 			VIP_INTC_INTX_OFFSET * irq_num;
 		write_sreg(dev->shared, reg_addr, irqst);
@@ -1251,6 +1306,62 @@ static int vip_enuminput(struct file *file, void *priv,
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
 	sprintf(inp->name, "camera %u", stream->vfd->num);
 
+	return 0;
+}
+
+static int vip_g_input(struct file *file, void *priv, unsigned int *i)
+{
+	*i = 0;
+	return 0;
+}
+
+static int vip_s_input(struct file *file, void *priv, unsigned int i)
+{
+	if (i != 0)
+		return -EINVAL;
+	return 0;
+}
+
+static int vip_querystd(struct file *file, void *fh, v4l2_std_id *std)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+
+	v4l2_subdev_call(dev->sensor, video, querystd, std);
+	return 0;
+}
+
+static int vip_g_std(struct file *file, void *fh, v4l2_std_id *std)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+
+	*std = 0;
+	v4l2_subdev_call(dev->sensor, video, g_std_output, std);
+	return 0;
+}
+
+static int vip_s_std(struct file *file, void *fh, v4l2_std_id std)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+
+	v4l2_subdev_call(dev->sensor, video, s_std_output, std);
+	return 0;
+}
+
+static int vip_queryctrl(struct file *file, void *fh, struct v4l2_queryctrl *a)
+{
+	return -EINVAL;
+}
+
+static int vip_g_ctrl(struct file *file, void *fh, struct v4l2_control *a)
+{
+	return 0;
+}
+
+static int vip_s_ctrl(struct file *file, void *fh, struct v4l2_control *a)
+{
 	return 0;
 }
 
@@ -1343,8 +1454,8 @@ static int vip_enum_frameintervals(struct file *file, void *priv,
 	}
 
 	f->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-	f->discrete.numerator = 30;
-	f->discrete.denominator = 1;
+	f->discrete.numerator = 1;
+	f->discrete.denominator = 30;
 
 	return 0;
 }
@@ -1355,8 +1466,8 @@ static int vip_s_parm(struct file *file, void *priv,
 	if (parm->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
-	parm->parm.capture.timeperframe.numerator = 30;
-	parm->parm.capture.timeperframe.denominator = 1;
+	parm->parm.capture.timeperframe.numerator = 1;
+	parm->parm.capture.timeperframe.denominator = 30;
 
 	return 0;
 }
@@ -1644,6 +1755,17 @@ static long vip_ioctl_default(struct file *file, void *fh, bool valid_prio,
 
 static const struct v4l2_ioctl_ops vip_ioctl_ops = {
 	.vidioc_querycap	= vip_querycap,
+	.vidioc_enum_input	= vip_enuminput,
+	.vidioc_g_input		= vip_g_input,
+	.vidioc_s_input		= vip_s_input,
+
+	.vidioc_querystd	= vip_querystd,
+	.vidioc_g_std		= vip_g_std,
+	.vidioc_s_std		= vip_s_std,
+
+	.vidioc_queryctrl	= vip_queryctrl,
+	.vidioc_g_ctrl		= vip_g_ctrl,
+	.vidioc_s_ctrl		= vip_s_ctrl,
 
 	.vidioc_enum_fmt_vid_cap = vip_enum_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap	= vip_g_fmt_vid_cap,
@@ -1782,16 +1904,9 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
-	unsigned long flags;
-
-	if (!vb2_is_streaming(vq))
-		return 0;
-
-	spin_lock_irqsave(&dev->slock, flags);
-	vpdma_unmap_desc_buf(dev->shared->vpdma, &dev->desc_list.buf);
-	vpdma_reset_desc_list(&dev->desc_list);
 
 	disable_irqs(dev, dev->slice_id);
+	clear_irqs(dev, dev->slice_id);
 
 	/* release all active buffers */
 	while (!list_empty(&dev->vip_bufs)) {
@@ -1807,7 +1922,13 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 		list_del(&buf->list);
 		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 	}
-	spin_unlock_irqrestore(&dev->slock, flags);
+
+	if (!vb2_is_streaming(vq))
+		return 0;
+
+	vpdma_unmap_desc_buf(dev->shared->vpdma, &dev->desc_list.buf);
+	vpdma_reset_desc_list(&dev->desc_list);
+
 	return 0;
 }
 
@@ -1884,6 +2005,7 @@ static int vip_setup_parser(struct vip_port *port)
 	int sync_type;
 	unsigned int flags;
 
+	vip_reset_port(port);
 	vip_set_port_enable(port, 1);
 
 	if (endpoint->bus_type == V4L2_MBUS_BT656) {
@@ -1941,6 +2063,8 @@ static int vip_setup_parser(struct vip_port *port)
 			vip_set_pclk_polarity(port,
 				flags & V4L2_MBUS_PCLK_SAMPLE_RISING ? 1 : 0);
 
+		vip_xtra_set_repack_sel(port, 0);
+		vip_set_actvid_hsync_n(port, 0);
 		vip_set_actvid_polarity(port, 1);
 		vip_set_discrete_basic_mode(port);
 
@@ -1977,6 +2101,24 @@ done:
 
 static void vip_release_port(struct vip_port *port)
 {
+	struct vip_dev *dev = port->dev;
+	int ch, size = 0;
+
+	/* Create a list of channels to be cleared */
+	for (ch = 0; ch < VPDMA_MAX_CHANNELS; ch++) {
+		if (dev->vpdma_channels[ch] == 1) {
+			dev->vpdma_channels[size++] = ch;
+			vip_dbg(2, dev, "Clear channel no: %d\n", ch);
+		}
+	}
+
+	/* Clear all the used channels for the list */
+	vpdma_list_cleanup(dev->shared->vpdma, dev->slice_id,
+		dev->vpdma_channels, size);
+
+	for (ch = 0; ch < VPDMA_MAX_CHANNELS; ch++)
+		dev->vpdma_channels[ch] = 0;
+
 	if (--port->num_streams == 0)
 		vip_release_dev(port->dev);
 }
@@ -2408,12 +2550,17 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 {
 	struct device_node *ep_node = NULL, *port, *remote_ep,
 			*sensor_node, *parent;
+	struct device_node *syscon_np;
 	struct v4l2_of_endpoint *endpoint;
 	struct v4l2_async_subdev *asd;
 	u32 regval = 0;
 	int ret, slice, i = 0, found_port = 0;
 
 	parent = pdev->dev.of_node;
+
+	syscon_np = of_parse_phandle(pdev->dev.of_node, "syscon-smasw", 0);
+	dev->syscon = syscon_node_to_regmap(syscon_np);
+	of_node_put(syscon_np);
 
 	dev->config = kzalloc(sizeof(struct vip_config), GFP_KERNEL);
 	if (!dev->config)
@@ -2628,10 +2775,10 @@ static int vip_probe(struct platform_device *pdev)
 
 		INIT_LIST_HEAD(&dev->vip_bufs);
 
-		dev->vip_name = (const char *)of_dev_id->data;
+		dev->instance_id = (int)of_dev_id->data;
 
 		snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
-			"%s-%d", dev->vip_name, slice);
+			"%s%d-%d", VIP_MODULE_NAME, dev->instance_id, slice);
 		ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 		if (ret)
 			goto err_runtime_get;
@@ -2702,15 +2849,15 @@ static int vip_remove(struct platform_device *pdev)
 #if defined(CONFIG_OF)
 static const struct of_device_id vip_of_match[] = {
 	{
-		.compatible = "ti,vip1", .data = "vip1",
+		.compatible = "ti,vip1", .data = (void *) VIP_INSTANCE1,
 	},
 
 	{
-		.compatible = "ti,vip2", .data = "vip2",
+		.compatible = "ti,vip2", .data = (void *) VIP_INSTANCE2,
 	},
 
 	{
-		.compatible = "ti,vip3", .data = "vip3",
+		.compatible = "ti,vip3", .data = (void *) VIP_INSTANCE3,
 	},
 	{},
 };

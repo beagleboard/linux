@@ -385,6 +385,56 @@ void vpdma_unmap_desc_buf(struct vpdma_data *vpdma, struct vpdma_buf *buf)
 EXPORT_SYMBOL(vpdma_unmap_desc_buf);
 
 /*
+ * Cleanup all pending descriptors of a list
+ * First, stop the current list being processed.
+ * If the VPDMA was busy, this step makes vpdma to accept post lists.
+ * To cleanup the internal FSM, post abort list descriptor for all the
+ * channels from @channels array of size @size.
+ */
+int vpdma_list_cleanup(struct vpdma_data *vpdma, int list_num,
+		int *channels, int size)
+{
+	struct vpdma_desc_list abort_list;
+	int i, ret, timeout = 500;
+
+	write_reg(vpdma, VPDMA_LIST_ATTR,
+			(list_num << VPDMA_LIST_NUM_SHFT) |
+			(1 << VPDMA_LIST_STOP_SHFT));
+
+	if (size <= 0 || !channels)
+		return 0;
+
+	ret = vpdma_create_desc_list(&abort_list,
+		size * sizeof(struct vpdma_dtd), VPDMA_LIST_TYPE_NORMAL);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < size; i++)
+		vpdma_add_abort_channel_ctd(&abort_list, channels[i]);
+
+	ret = vpdma_map_desc_buf(vpdma, &abort_list.buf);
+	if (ret)
+		return ret;
+	ret = vpdma_submit_descs(vpdma, &abort_list, list_num);
+	if (ret)
+		return ret;
+
+	while (vpdma_list_busy(vpdma, list_num) && timeout--)
+		;
+
+	if (timeout == 0) {
+		dev_err(&vpdma->pdev->dev, "Timed out cleaning up VPDMA list\n");
+		return -EBUSY;
+	}
+
+	vpdma_unmap_desc_buf(vpdma, &abort_list.buf);
+	vpdma_free_desc_buf(&abort_list.buf);
+
+	return 0;
+}
+EXPORT_SYMBOL(vpdma_list_cleanup);
+
+/*
  * create a descriptor list, the user of this list will append configuration,
  * control and data descriptors to this list, this list will be submitted to
  * VPDMA. VPDMA's list parser will go through each descriptor and perform the
@@ -441,6 +491,7 @@ int vpdma_submit_descs(struct vpdma_data *vpdma,
 			struct vpdma_desc_list *list, int list_num)
 {
 	int list_size;
+	unsigned long flags;
 
 	if (vpdma_list_busy(vpdma, list_num))
 		return -EBUSY;
@@ -448,12 +499,14 @@ int vpdma_submit_descs(struct vpdma_data *vpdma,
 	/* 16-byte granularity */
 	list_size = (list->next - list->buf.addr) >> 4;
 
+	spin_lock_irqsave(&vpdma->lock, flags);
 	write_reg(vpdma, VPDMA_LIST_ADDR, (u32) list->buf.dma_addr);
 
 	write_reg(vpdma, VPDMA_LIST_ATTR,
 			(list_num << VPDMA_LIST_NUM_SHFT) |
 			(list->type << VPDMA_LIST_TYPE_SHFT) |
 			list_size);
+	spin_unlock_irqrestore(&vpdma->lock, flags);
 
 	return 0;
 }
@@ -492,18 +545,21 @@ void vpdma_update_dma_addr(struct vpdma_data *vpdma,
 }
 EXPORT_SYMBOL(vpdma_update_dma_addr);
 
-void vpdma_vip_set_max_size(struct vpdma_data *vpdma, int vip_num)
+void vpdma_set_max_size(struct vpdma_data *vpdma, int reg_addr,
+		u32 width, u32 height)
 {
-	if (vip_num == 1) {
-		write_field_reg(vpdma, VPDMA_MAX_SIZE1, 1919,
-				VPDMA_MAX_SIZE_WIDTH_MASK,
-				VPDMA_MAX_SIZE_WIDTH_SHFT);
-		write_field_reg(vpdma, VPDMA_MAX_SIZE1, 1079,
-				VPDMA_MAX_SIZE_HEIGHT_MASK,
-				VPDMA_MAX_SIZE_HEIGHT_SHFT);
-	}
+	if (reg_addr != VPDMA_MAX_SIZE1 && reg_addr != VPDMA_MAX_SIZE2
+		&& reg_addr != VPDMA_MAX_SIZE3)
+			reg_addr = VPDMA_MAX_SIZE1;
+
+	write_field_reg(vpdma, reg_addr, width - 1 ,
+		VPDMA_MAX_SIZE_WIDTH_MASK, VPDMA_MAX_SIZE_WIDTH_SHFT);
+
+	write_field_reg(vpdma, reg_addr, height - 1 ,
+		VPDMA_MAX_SIZE_HEIGHT_MASK, VPDMA_MAX_SIZE_HEIGHT_SHFT);
+
 }
-EXPORT_SYMBOL(vpdma_vip_set_max_size);
+EXPORT_SYMBOL(vpdma_set_max_size);
 
 static void dump_cfd(struct vpdma_cfd *cfd)
 {
@@ -625,6 +681,31 @@ void vpdma_add_sync_on_channel_ctd(struct vpdma_desc_list *list,
 }
 EXPORT_SYMBOL(vpdma_add_sync_on_channel_ctd);
 
+/*
+ * append an 'abort_channel' type control descriptor to the given descriptor
+ * list, this descriptor aborts any DMA transaction happening using the
+ * specified channel
+ */
+void vpdma_add_abort_channel_ctd(struct vpdma_desc_list *list,
+		int chan_num)
+{
+	struct vpdma_ctd *ctd;
+
+	ctd = list->next;
+	WARN_ON((void *)(ctd + 1) > (list->buf.addr + list->buf.size));
+
+	ctd->w0 = 0;
+	ctd->w1 = 0;
+	ctd->w2 = 0;
+	ctd->type_source_ctl = ctd_type_source_ctl(chan_num,
+				CTD_TYPE_ABORT_CHANNEL);
+
+	list->next = ctd + 1;
+
+	dump_ctd(ctd);
+}
+EXPORT_SYMBOL(vpdma_add_abort_channel_ctd);
+
 static void dump_dtd(struct vpdma_dtd *dtd)
 {
 	int dir, chan;
@@ -681,23 +762,25 @@ static void dump_dtd(struct vpdma_dtd *dtd)
  * @c_rect: compose params of output image
  * @fmt: vpdma data format of the buffer
  * dma_addr: dma address as seen by VPDMA
+ * max_width: enum for maximum width of data transfer
+ * max_height: enum for maximum height of data transfer
  * chan: VPDMA channel
  * flags: VPDMA flags to configure some descriptor fileds
  */
 void vpdma_add_out_dtd(struct vpdma_desc_list *list, int width,
 		const struct v4l2_rect *c_rect,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
-		enum vpdma_channel chan, u32 flags)
+		int max_w, int max_h, enum vpdma_channel chan, u32 flags)
 {
 	vpdma_rawchan_add_out_dtd(list, width, c_rect, fmt, dma_addr,
-				  chan_info[chan].num, flags);
+				  max_w, max_h, chan_info[chan].num, flags);
 }
 EXPORT_SYMBOL(vpdma_add_out_dtd);
 
 void vpdma_rawchan_add_out_dtd(struct vpdma_desc_list *list, int width,
 		const struct v4l2_rect *c_rect,
 		const struct vpdma_data_format *fmt, dma_addr_t dma_addr,
-		int raw_vpdma_chan, u32 flags)
+		int max_w, int max_h, int raw_vpdma_chan, u32 flags)
 {
 	int priority = 0;
 	int field = 0;
@@ -736,8 +819,7 @@ void vpdma_rawchan_add_out_dtd(struct vpdma_desc_list *list, int width,
 	dtd->pkt_ctl = dtd_pkt_ctl(!!(flags & VPDMA_DATA_MODE_TILED),
 				DTD_DIR_OUT, channel, priority, next_chan);
 	dtd->desc_write_addr = dtd_desc_write_addr(0, 0, 0, 0);
-	dtd->max_width_height = dtd_max_width_height(MAX_OUT_WIDTH_1920,
-					MAX_OUT_HEIGHT_1080);
+	dtd->max_width_height = dtd_max_width_height(max_w, max_h);
 	dtd->client_attr0 = 0;
 	dtd->client_attr1 = 0;
 
@@ -870,11 +952,11 @@ unsigned int vpdma_get_list_mask(struct vpdma_data *vpdma, int irq_num)
 EXPORT_SYMBOL(vpdma_get_list_mask);
 
 /* clear previosuly occured list intterupts in the LIST_STAT register */
-void vpdma_clear_list_stat(struct vpdma_data *vpdma, int irq_num)
+void vpdma_clear_list_stat(struct vpdma_data *vpdma, int irq_num,
+			   int list_num)
 {
 	u32 reg_addr = VPDMA_INT_LIST0_STAT + VPDMA_INTX_OFFSET * irq_num;
-	write_reg(vpdma, reg_addr,
-		read_reg(vpdma, reg_addr));
+	write_reg(vpdma, reg_addr, 3 << (list_num * 2));
 }
 EXPORT_SYMBOL(vpdma_clear_list_stat);
 
@@ -1009,6 +1091,7 @@ struct vpdma_data *vpdma_create(struct platform_device *pdev,
 
 	vpdma->pdev = pdev;
 	vpdma->cb = cb;
+	spin_lock_init(&vpdma->lock);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vpdma");
 	if (res == NULL) {

@@ -51,8 +51,8 @@
 /* minimum and maximum frame sizes */
 #define MIN_W		32
 #define MIN_H		32
-#define MAX_W		1920
-#define MAX_H		1080
+#define MAX_W		2048
+#define MAX_H		1184
 
 /* required alignments */
 #define S_ALIGN		0	/* multiple of 1 */
@@ -139,7 +139,7 @@ struct vpe_dei_regs {
  */
 static const struct vpe_dei_regs dei_regs = {
 	0x020C0804u,
-	0x0118100Fu,
+	0x0118100Cu,
 	0x08040200u,
 	0x1010100Cu,
 	0x10101010u,
@@ -318,9 +318,13 @@ struct vpe_q_data {
 };
 
 /* vpe_q_data flag bits */
-#define	Q_DATA_FRAME_1D		(1 << 0)
-#define	Q_DATA_MODE_TILED	(1 << 1)
-#define	Q_DATA_INTERLACED	(1 << 2)
+#define	Q_DATA_FRAME_1D			(1 << 0)
+#define	Q_DATA_MODE_TILED		(1 << 1)
+#define	Q_DATA_INTERLACED_ALTERNATE	(1 << 2)
+#define	Q_DATA_INTERLACED_SEQ_TB	(1 << 3)
+
+#define Q_IS_INTERLACED		(Q_DATA_INTERLACED_ALTERNATE | \
+				Q_DATA_INTERLACED_SEQ_TB)
 
 enum {
 	Q_DATA_SRC = 0,
@@ -416,7 +420,7 @@ static struct vpe_q_data *get_q_data(struct vpe_ctx *ctx,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		return &ctx->q_data[Q_DATA_DST];
 	default:
-		BUG();
+		return NULL;
 	}
 	return NULL;
 }
@@ -495,6 +499,14 @@ struct vpe_mmr_adb {
 
 #define VPE_SET_MMR_ADB_HDR(ctx, hdr, regs, offset_a)	\
 	VPDMA_SET_MMR_ADB_HDR(ctx->mmr_adb, vpe_mmr_adb, hdr, regs, offset_a)
+
+static inline dma_addr_t vb2_dma_addr_plus_data_offset(struct vb2_buffer *vb,
+	unsigned int plane_no)
+{
+	return vb2_dma_contig_plane_dma_addr(vb, plane_no) +
+		vb->v4l2_planes[plane_no].data_offset;
+}
+
 /*
  * Set the headers for all of the address/data block structures.
  */
@@ -638,7 +650,7 @@ static void set_us_coefficients(struct vpe_ctx *ctx)
 
 	cp = &us_coeffs[0].anchor_fid0_c0;
 
-	if (s_q_data->flags & Q_DATA_INTERLACED)	/* interlaced */
+	if (s_q_data->flags & Q_IS_INTERLACED)		/* interlaced */
 		cp += sizeof(us_coeffs[0]) / sizeof(*cp);
 
 	end_cp = cp + sizeof(us_coeffs[0]) / sizeof(*cp);
@@ -655,14 +667,13 @@ static void set_us_coefficients(struct vpe_ctx *ctx)
 /*
  * Set the upsampler config mode and the VPDMA line mode in the shadow MMRs.
  */
-static void set_cfg_and_line_modes(struct vpe_ctx *ctx)
+static void set_cfg_modes(struct vpe_ctx *ctx)
 {
 	struct vpe_fmt *fmt = ctx->q_data[Q_DATA_SRC].fmt;
 	struct vpe_mmr_adb *mmr_adb = ctx->mmr_adb.addr;
 	u32 *us1_reg0 = &mmr_adb->us1_regs[0];
 	u32 *us2_reg0 = &mmr_adb->us2_regs[0];
 	u32 *us3_reg0 = &mmr_adb->us3_regs[0];
-	int line_mode = 1;
 	int cfg_mode = 1;
 
 	/*
@@ -670,14 +681,23 @@ static void set_cfg_and_line_modes(struct vpe_ctx *ctx)
 	 * Cfg Mode 1: YUV422 source, disable upsampler, DEI is de-interlacing.
 	 */
 
-	if (fmt->fourcc == V4L2_PIX_FMT_NV12) {
+	if (fmt->fourcc == V4L2_PIX_FMT_NV12)
 		cfg_mode = 0;
-		line_mode = 0;		/* double lines to line buffer */
-	}
 
 	write_field(us1_reg0, cfg_mode, VPE_US_MODE_MASK, VPE_US_MODE_SHIFT);
 	write_field(us2_reg0, cfg_mode, VPE_US_MODE_MASK, VPE_US_MODE_SHIFT);
 	write_field(us3_reg0, cfg_mode, VPE_US_MODE_MASK, VPE_US_MODE_SHIFT);
+
+	ctx->load_mmrs = true;
+}
+
+static void set_line_modes(struct vpe_ctx *ctx)
+{
+	struct vpe_fmt *fmt = ctx->q_data[Q_DATA_SRC].fmt;
+	int line_mode = 1;
+
+	if (fmt->fourcc == V4L2_PIX_FMT_NV12)
+		line_mode = 0;		/* double lines to line buffer */
 
 	/* regs for now */
 	vpdma_set_line_mode(ctx->dev->vpdma, line_mode, VPE_CHAN_CHROMA1_IN);
@@ -703,8 +723,6 @@ static void set_cfg_and_line_modes(struct vpe_ctx *ctx)
 	/* frame start for MV in client */
 	vpdma_set_frame_start_event(ctx->dev->vpdma, VPDMA_FSEVENT_CHANNEL_ACTIVE,
 		VPE_CHAN_MV_IN);
-
-	ctx->load_mmrs = true;
 }
 
 /*
@@ -765,8 +783,7 @@ static void set_dei_regs(struct vpe_ctx *ctx)
 	 * for both progressive and interlace content in interlace bypass mode.
 	 * It has been recommended not to use progressive bypass mode.
 	 */
-	if ((!ctx->deinterlacing && (s_q_data->flags & Q_DATA_INTERLACED)) ||
-			!(s_q_data->flags & Q_DATA_INTERLACED)) {
+	if (!(s_q_data->flags & Q_IS_INTERLACED) || !ctx->deinterlacing) {
 		deinterlace = false;
 		val = VPE_DEI_INTERLACE_BYPASS;
 	}
@@ -798,6 +815,23 @@ static void set_dei_shadow_registers(struct vpe_ctx *ctx)
 	ctx->load_mmrs = true;
 }
 
+static void config_edi_input_mode(struct vpe_ctx *ctx, int mode)
+{
+	struct vpe_mmr_adb *mmr_adb = ctx->mmr_adb.addr;
+	u32 *edi_config_reg = &mmr_adb->dei_regs[3];
+
+	if (mode & 0x2)
+		write_field(edi_config_reg, 1, 1, 2);	/* EDI_ENABLE_3D */
+
+	if (mode & 0x3)
+		write_field(edi_config_reg, 1, 1, 3);	/* EDI_CHROMA_3D  */
+
+	write_field(edi_config_reg, mode, VPE_EDI_INP_MODE_MASK,
+		VPE_EDI_INP_MODE_SHIFT);
+
+	ctx->load_mmrs = true;
+}
+
 /*
  * Set the shadow registers whose values are modified when either the
  * source or destination format is changed.
@@ -817,8 +851,8 @@ static int set_srcdst_params(struct vpe_ctx *ctx)
 	ctx->sequence = 0;
 	ctx->field = V4L2_FIELD_TOP;
 
-	if ((s_q_data->flags & Q_DATA_INTERLACED) &&
-			!(d_q_data->flags & Q_DATA_INTERLACED)) {
+	if ((s_q_data->flags & Q_IS_INTERLACED) &&
+			!(d_q_data->flags & Q_IS_INTERLACED)) {
 		int bytes_per_line;
 		const struct vpdma_data_format *mv =
 			&vpdma_misc_fmts[VPDMA_DATA_FMT_MV];
@@ -847,7 +881,7 @@ static int set_srcdst_params(struct vpe_ctx *ctx)
 	if (ret)
 		return ret;
 
-	set_cfg_and_line_modes(ctx);
+	set_cfg_modes(ctx);
 	set_dei_regs(ctx);
 
 	csc_set_coeff(ctx->dev->csc, &mmr_adb->csc_regs[0],
@@ -881,15 +915,14 @@ static struct vpe_ctx *file2ctx(struct file *file)
 static int job_ready(void *priv)
 {
 	struct vpe_ctx *ctx = priv;
-	int needed = ctx->bufs_per_job;
 
-	if (ctx->deinterlacing && ctx->src_vbs[2] == NULL)
-		needed += 2;	/* need additional two most recent fields */
-
-	if (v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx) < needed)
-		return 0;
-
-	if (v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx) < needed)
+	/*
+	 * This check is needed as this might be called directly from driver
+	 * When called by m2m framework, this will always satisy, but when
+	 * called from vpe_irq, this might fail. (src stream with zero buffers)
+	 */
+	if (v4l2_m2m_num_src_bufs_ready(ctx->m2m_ctx) <= 0 ||
+		v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx) <= 0)
 		return 0;
 
 	return 1;
@@ -1002,7 +1035,7 @@ static void add_out_dtd(struct vpe_ctx *ctx, int port)
 		int plane = fmt->coplanar ? p_data->vb_part : 0;
 
 		vpdma_fmt = fmt->vpdma_fmt[plane];
-		dma_addr = vb2_dma_contig_plane_dma_addr(vb, plane);
+		dma_addr = vb2_dma_addr_plus_data_offset(vb, plane);
 		if (!dma_addr) {
 			vpe_err(ctx->dev,
 				"acquiring output buffer(%d) dma_addr failed\n",
@@ -1017,7 +1050,8 @@ static void add_out_dtd(struct vpe_ctx *ctx, int port)
 		flags |= VPDMA_DATA_MODE_TILED;
 
 	vpdma_add_out_dtd(&ctx->desc_list, q_data->width, &q_data->c_rect,
-		vpdma_fmt, dma_addr, p_data->channel, flags);
+		vpdma_fmt, dma_addr, MAX_OUT_WIDTH_1920, MAX_OUT_HEIGHT_1080,
+		p_data->channel, flags);
 }
 
 static void add_in_dtd(struct vpe_ctx *ctx, int port)
@@ -1042,7 +1076,28 @@ static void add_in_dtd(struct vpe_ctx *ctx, int port)
 
 		vpdma_fmt = fmt->vpdma_fmt[plane];
 
-		dma_addr = vb2_dma_contig_plane_dma_addr(vb, plane);
+		dma_addr = vb2_dma_addr_plus_data_offset(vb, plane);
+
+		if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB) {
+			/*
+			 * Use top or bottom field from same vb alternately
+			 * f,f-1,f-2 = TBT when seq is even
+			 * f,f-1,f-2 = BTB when seq is odd
+			 */
+			field = (p_data->vb_index + (ctx->sequence % 2)) % 2;
+
+			if (field) {
+				/* bottom field of a SEQ_TB buffer
+				 * Skip the top field data by */
+				int height = q_data->height / 2;
+				int bpp = fmt->fourcc == V4L2_PIX_FMT_NV12 ?
+						1 : (vpdma_fmt->depth >> 3);
+				if (plane)
+					height /= 2;
+				dma_addr += q_data->width * height * bpp;
+			}
+		}
+
 		if (!dma_addr) {
 			vpe_err(ctx->dev,
 				"acquiring input buffer(%d) dma_addr failed\n",
@@ -1097,23 +1152,49 @@ static void device_run(void *priv)
 	struct vpe_ctx *ctx = priv;
 	struct sc_data *sc = ctx->dev->sc;
 	struct vpe_q_data *d_q_data = &ctx->q_data[Q_DATA_DST];
+	struct vpe_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
 
-	if (ctx->deinterlacing && ctx->src_vbs[2] == NULL) {
-		ctx->src_vbs[2] = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-		WARN_ON(ctx->src_vbs[2] == NULL);
-		ctx->src_vbs[1] = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-		WARN_ON(ctx->src_vbs[1] == NULL);
+	if (ctx->deinterlacing && s_q_data->flags & Q_DATA_INTERLACED_SEQ_TB &&
+		ctx->sequence % 2 == 0) {
+		/* When using SEQ_TB buffers, When using it first time,
+		 * No need to remove the buffer as the next field is present
+		 * in the same buffer. (so that job_ready won't fail)
+		 * It will be removed when using bottom field
+		 */
+		ctx->src_vbs[0] = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+		WARN_ON(ctx->src_vbs[0] == NULL);
+	} else {
+		ctx->src_vbs[0] = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+		WARN_ON(ctx->src_vbs[0] == NULL);
 	}
 
-	ctx->src_vbs[0] = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
-	WARN_ON(ctx->src_vbs[0] == NULL);
 	ctx->dst_vb = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 	WARN_ON(ctx->dst_vb == NULL);
+
+	if (ctx->deinterlacing) {
+
+		if (ctx->src_vbs[2] == NULL) {
+			ctx->src_vbs[2] = ctx->src_vbs[0];
+			WARN_ON(ctx->src_vbs[2] == NULL);
+			ctx->src_vbs[1] = ctx->src_vbs[0];
+			WARN_ON(ctx->src_vbs[1] == NULL);
+		}
+
+		/*
+		 * we have output the first 2 frames through line average, we
+		 * now switch to EDI de-interlacer
+		 */
+		if (ctx->sequence == 2)
+			config_edi_input_mode(ctx, 0x3); /* EDI (Y + UV) */
+	}
 
 	/* config descriptors */
 	if (ctx->dev->loaded_mmrs != ctx->mmr_adb.dma_addr || ctx->load_mmrs) {
 		vpdma_map_desc_buf(ctx->dev->vpdma, &ctx->mmr_adb);
 		vpdma_add_cfd_adb(&ctx->desc_list, CFD_MMR_CLIENT, &ctx->mmr_adb);
+
+		set_line_modes(ctx);
+
 		ctx->dev->loaded_mmrs = ctx->mmr_adb.dma_addr;
 		ctx->load_mmrs = false;
 	}
@@ -1221,6 +1302,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 	struct vpe_dev *dev = (struct vpe_dev *)data;
 	struct vpe_ctx *ctx;
 	struct vpe_q_data *d_q_data;
+	struct vpe_q_data *s_q_data;
 	struct vb2_buffer *s_vb, *d_vb;
 	struct v4l2_buffer *s_buf, *d_buf;
 	unsigned long flags;
@@ -1257,7 +1339,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 
 	if (irqst0) {
 		if (irqst0 & VPE_INT0_LIST0_COMPLETE)
-			vpdma_clear_list_stat(ctx->dev->vpdma, 0);
+			vpdma_clear_list_stat(ctx->dev->vpdma, 0, 0);
 
 		irqst0 &= ~(VPE_INT0_LIST0_COMPLETE);
 	}
@@ -1297,7 +1379,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 	d_buf->sequence = ctx->sequence;
 
 	d_q_data = &ctx->q_data[Q_DATA_DST];
-	if (d_q_data->flags & Q_DATA_INTERLACED) {
+	if (d_q_data->flags & Q_IS_INTERLACED) {
 		d_buf->field = ctx->field;
 		if (ctx->field == V4L2_FIELD_BOTTOM) {
 			ctx->sequence++;
@@ -1311,12 +1393,28 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 		ctx->sequence++;
 	}
 
-	if (ctx->deinterlacing)
-		s_vb = ctx->src_vbs[2];
+	s_q_data = &ctx->q_data[Q_DATA_SRC];
+
+	if (ctx->deinterlacing) {
+		/* Allow source buffer to be dequeued only if it won't be used
+		 * in the next iteration. All vbs are initialized to first
+		 * buffer and we are shifting buffers every iteration, for the
+		 * first two iterations, no buffer will be dequeued.
+		 * This ensures that driver will keep (n-2)th (n-1)th and (n)th
+		 * field when deinterlacing is enabled */
+		if (ctx->src_vbs[2] != ctx->src_vbs[1])
+			s_vb = ctx->src_vbs[2];
+		else
+			s_vb = NULL;
+	}
 
 	spin_lock_irqsave(&dev->lock, flags);
-	v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
+
+	if (s_vb)
+		v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
+
 	v4l2_m2m_buf_done(d_vb, VB2_BUF_STATE_DONE);
+
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	if (ctx->deinterlacing) {
@@ -1325,7 +1423,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 	}
 
 	ctx->bufs_completed++;
-	if (ctx->bufs_completed < ctx->bufs_per_job) {
+	if (ctx->bufs_completed < ctx->bufs_per_job && job_ready(ctx)) {
 		device_run(ctx);
 		goto handled;
 	}
@@ -1432,7 +1530,7 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct v4l2_plane_pix_format *plane_fmt;
 	unsigned int w_align;
-	int i, depth, depth_bytes;
+	int i, depth, depth_bytes, height;
 
 	if (!fmt || !(fmt->types & type)) {
 		vpe_err(ctx->dev, "Fourcc format (0x%08x) invalid.\n",
@@ -1440,7 +1538,8 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 		return -EINVAL;
 	}
 
-	if (pix->field != V4L2_FIELD_NONE && pix->field != V4L2_FIELD_ALTERNATE)
+	if (pix->field != V4L2_FIELD_NONE && pix->field != V4L2_FIELD_ALTERNATE
+			&& pix->field != V4L2_FIELD_SEQ_TB)
 		pix->field = V4L2_FIELD_NONE;
 
 	depth = fmt->vpdma_fmt[VPE_LUMA]->depth;
@@ -1474,6 +1573,14 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 	pix->num_planes = fmt->coplanar ? 2 : 1;
 	pix->pixelformat = fmt->fourcc;
 
+	/* for the actual image parameters, we need to consider the field height
+	 * of the image for SEQ_TB buffers.
+	 */
+	if (pix->field == V4L2_FIELD_SEQ_TB)
+		height = pix->height / 2;
+	else
+		height = pix->height;
+
 	if (!pix->colorspace) {
 		if (fmt->fourcc == V4L2_PIX_FMT_RGB24 ||
 				fmt->fourcc == V4L2_PIX_FMT_BGR24 ||
@@ -1481,7 +1588,7 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 				fmt->fourcc == V4L2_PIX_FMT_BGR32) {
 			pix->colorspace = V4L2_COLORSPACE_SRGB;
 		} else {
-			if (pix->height > 1280)	/* HD */
+			if (height > 1280)	/* HD */
 				pix->colorspace = V4L2_COLORSPACE_REC709;
 			else			/* SD */
 				pix->colorspace = V4L2_COLORSPACE_SMPTE170M;
@@ -1558,9 +1665,15 @@ static int __vpe_s_fmt(struct vpe_ctx *ctx, struct v4l2_format *f)
 	q_data->c_rect.height	= q_data->height;
 
 	if (q_data->field == V4L2_FIELD_ALTERNATE)
-		q_data->flags |= Q_DATA_INTERLACED;
+		q_data->flags |= Q_DATA_INTERLACED_ALTERNATE;
+	else if (q_data->field == V4L2_FIELD_SEQ_TB)
+		q_data->flags |= Q_DATA_INTERLACED_SEQ_TB;
 	else
-		q_data->flags &= ~Q_DATA_INTERLACED;
+		q_data->flags &= ~Q_IS_INTERLACED;
+
+	/* the crop height is halved for the case of SEQ_TB buffers */
+	if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB)
+		q_data->c_rect.height /= 2;
 
 	vpe_dbg(ctx->dev, "Setting format for type %d, wxh: %dx%d, fmt: %d bpl_y %d",
 		f->type, q_data->width, q_data->height, q_data->fmt->fourcc,
@@ -1596,6 +1709,7 @@ static int vpe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 static int __vpe_try_selection(struct vpe_ctx *ctx, struct v4l2_selection *s)
 {
 	struct vpe_q_data *q_data;
+	int height;
 
 	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
 	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
@@ -1630,13 +1744,22 @@ static int __vpe_try_selection(struct vpe_ctx *ctx, struct v4l2_selection *s)
 		return -EINVAL;
 	}
 
+	/*
+	* For SEQ_TB buffers, crop height should be less than the height of
+	* the field height, not the buffer height
+	*/
+	if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB)
+		height = q_data->height / 2;
+	else
+		height = q_data->height;
+
 	if (s->r.top < 0 || s->r.left < 0) {
 		vpe_err(ctx->dev, "negative values for top and left\n");
 		s->r.top = s->r.left = 0;
 	}
 
 	v4l_bound_align_image(&s->r.width, MIN_W, q_data->width, 1,
-		&s->r.height, MIN_H, q_data->height, H_ALIGN, S_ALIGN);
+		&s->r.height, MIN_H, height, H_ALIGN, S_ALIGN);
 
 	/* adjust left/top if cropping rectangle is out of bounds */
 	if (s->r.left + s->r.width > q_data->width)
@@ -1771,6 +1894,9 @@ static int vpe_streamon(struct file *file, void *priv, enum v4l2_buf_type type)
 {
 	struct vpe_ctx *ctx = file2ctx(file);
 
+	if (ctx->deinterlacing)
+		config_edi_input_mode(ctx, 0x0);
+
 	return v4l2_m2m_streamon(file, ctx->m2m_ctx, type);
 }
 
@@ -1881,11 +2007,12 @@ static int vpe_buf_prepare(struct vb2_buffer *vb)
 	num_planes = q_data->fmt->coplanar ? 2 : 1;
 
 	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (!(q_data->flags & Q_DATA_INTERLACED)) {
+		if (!(q_data->flags & Q_IS_INTERLACED)) {
 			vb->v4l2_buf.field = V4L2_FIELD_NONE;
 		} else {
 			if (vb->v4l2_buf.field != V4L2_FIELD_TOP &&
-					vb->v4l2_buf.field != V4L2_FIELD_BOTTOM)
+			    vb->v4l2_buf.field != V4L2_FIELD_BOTTOM &&
+			    vb->v4l2_buf.field != V4L2_FIELD_SEQ_TB)
 				return -EINVAL;
 		}
 	}
@@ -2111,6 +2238,9 @@ static int vpe_release(struct file *file)
 	free_mv_buffers(ctx);
 	vpdma_free_desc_list(&ctx->desc_list);
 	vpdma_free_desc_buf(&ctx->mmr_adb);
+
+	vpdma_free_desc_buf(&ctx->sc_coeff_v);
+	vpdma_free_desc_buf(&ctx->sc_coeff_h);
 
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
