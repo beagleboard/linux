@@ -213,8 +213,10 @@ static const struct can_bittiming_const c_can_bittiming_const = {
 
 static inline void c_can_pm_runtime_enable(const struct c_can_priv *priv)
 {
-	if (priv->device)
+	if (priv->device) {
 		pm_runtime_enable(priv->device);
+		pm_runtime_irq_safe(priv->device);
+	}
 }
 
 static inline void c_can_pm_runtime_disable(const struct c_can_priv *priv)
