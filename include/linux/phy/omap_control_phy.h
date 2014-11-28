@@ -66,7 +66,7 @@ enum omap_control_usb_mode {
 #define	OMAP_CTRL_PIPE3_PHY_TX_RX_POWEROFF	0x0
 
 #define	OMAP_CTRL_PCIE_PCS_MASK			0xff
-#define	OMAP_CTRL_PCIE_PCS_DELAY_COUNT_SHIFT	0x8
+#define	OMAP_CTRL_PCIE_PCS_DELAY_COUNT_SHIFT	16
 
 #define OMAP_CTRL_USB2_PHY_PD		BIT(28)
 
@@ -81,7 +81,7 @@ void omap_control_phy_power(struct device *dev, int on);
 int omap_control_phy_wkup(struct device *dev, int on);
 void omap_control_usb_set_mode(struct device *dev,
 			       enum omap_control_usb_mode mode);
-void omap_control_pcie_pcs(struct device *dev, u8 id, u8 delay);
+void omap_control_pcie_pcs(struct device *dev, u8 delay);
 #else
 
 static inline void omap_control_phy_power(struct device *dev, int on)
@@ -98,7 +98,7 @@ static inline void omap_control_usb_set_mode(struct device *dev,
 {
 }
 
-static inline void omap_control_pcie_pcs(struct device *dev, u8 id, u8 delay)
+static inline void omap_control_pcie_pcs(struct device *dev, u8 delay)
 {
 }
 #endif
