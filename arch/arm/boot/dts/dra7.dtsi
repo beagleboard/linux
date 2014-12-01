@@ -1270,7 +1270,6 @@
 					      "wkupclk", "refclk",
 					      "div-clk", "phy-div";
 				#phy-cells = <0>;
-				id = <1>;
 				ti,hwmods = "pcie1-phy";
 			};
 
@@ -1291,7 +1290,6 @@
 					      "div-clk", "phy-div";
 				#phy-cells = <0>;
 				ti,hwmods = "pcie2-phy";
-				id = <2>;
 				status = "disabled";
 			};
 		};
