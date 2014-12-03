@@ -389,6 +389,9 @@ static int wkup_m3_rproc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct task_struct *task;
 
+	if (!wkup_m3_pm_ops)
+		return -EPROBE_DEFER;
+
 	pm_runtime_enable(&pdev->dev);
 
 	ret = pm_runtime_get_sync(&pdev->dev);
