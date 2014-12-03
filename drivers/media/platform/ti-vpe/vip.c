@@ -27,6 +27,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 #include <linux/pinctrl/consumer.h>
 #include <linux/of_device.h>
@@ -509,7 +511,29 @@ static void vip_set_discrete_basic_mode(struct vip_port *port)
 
 static void vip_set_pclk_polarity(struct vip_port *port, int polarity)
 {
-	u32 val;
+	u32 val, ret, offset;
+
+	if (polarity == 0 && port->dev->syscon) {
+
+		/*
+		 * When the VIP parser is configured to so that the pixel clock
+		 * is to be sampled at falling edge, the pixel clock needs to be
+		 * inverted before it is given to the VIP module. This is done
+		 * by setting a bit in the CTRL_CORE_SMA_SW1 register.
+		 */
+
+		if (port->dev->instance_id == VIP_INSTANCE1)
+			offset = 0 + 2 * port->port_id + port->dev->slice_id;
+		else if (port->dev->instance_id == VIP_INSTANCE2)
+			offset = 4 + 2 * port->port_id + port->dev->slice_id;
+		else if (port->dev->instance_id == VIP_INSTANCE3)
+			offset = 10 - port->dev->slice_id;
+		else
+			BUG();
+
+		ret = regmap_update_bits(port->dev->syscon,
+			0, 1 << offset, 1 << offset);
+	}
 
 	if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE1) {
 		val = read_vreg(port->dev, VIP1_PARSER_REG_OFFSET +
@@ -2516,12 +2540,17 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 {
 	struct device_node *ep_node = NULL, *port, *remote_ep,
 			*sensor_node, *parent;
+	struct device_node *syscon_np;
 	struct v4l2_of_endpoint *endpoint;
 	struct v4l2_async_subdev *asd;
 	u32 regval = 0;
 	int ret, slice, i = 0, found_port = 0;
 
 	parent = pdev->dev.of_node;
+
+	syscon_np = of_parse_phandle(pdev->dev.of_node, "syscon-smasw", 0);
+	dev->syscon = syscon_node_to_regmap(syscon_np);
+	of_node_put(syscon_np);
 
 	dev->config = kzalloc(sizeof(struct vip_config), GFP_KERNEL);
 	if (!dev->config)
@@ -2736,10 +2765,10 @@ static int vip_probe(struct platform_device *pdev)
 
 		INIT_LIST_HEAD(&dev->vip_bufs);
 
-		dev->vip_name = (const char *)of_dev_id->data;
+		dev->instance_id = (int)of_dev_id->data;
 
 		snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
-			"%s-%d", dev->vip_name, slice);
+			"%s%d-%d", VIP_MODULE_NAME, dev->instance_id, slice);
 		ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 		if (ret)
 			goto err_runtime_get;
@@ -2810,15 +2839,15 @@ static int vip_remove(struct platform_device *pdev)
 #if defined(CONFIG_OF)
 static const struct of_device_id vip_of_match[] = {
 	{
-		.compatible = "ti,vip1", .data = "vip1",
+		.compatible = "ti,vip1", .data = (void *) VIP_INSTANCE1,
 	},
 
 	{
-		.compatible = "ti,vip2", .data = "vip2",
+		.compatible = "ti,vip2", .data = (void *) VIP_INSTANCE2,
 	},
 
 	{
-		.compatible = "ti,vip3", .data = "vip3",
+		.compatible = "ti,vip3", .data = (void *) VIP_INSTANCE3,
 	},
 	{},
 };
