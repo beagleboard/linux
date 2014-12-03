@@ -231,42 +231,6 @@ struct vpdma_dtd {
 #define DTD_MAX_HEIGHT_MASK	0x07
 #define DTD_MAX_HEIGHT_SHFT	0
 
-/* max width configurations */
- /* unlimited width */
-#define	MAX_OUT_WIDTH_UNLIMITED		0
-/* as specified in max_size1 reg */
-#define MAX_OUT_WIDTH_REG1		1
-/* as specified in max_size2 reg */
-#define MAX_OUT_WIDTH_REG2		2
-/* as specified in max_size3 reg */
-#define	MAX_OUT_WIDTH_REG3		3
-/* maximum of 352 pixels as width */
-#define MAX_OUT_WIDTH_352		4
-/* maximum of 768 pixels as width */
-#define	MAX_OUT_WIDTH_768		5
-/* maximum of 1280 pixels width */
-#define	MAX_OUT_WIDTH_1280		6
-/* maximum of 1920 pixels as width */
-#define	MAX_OUT_WIDTH_1920		7
-
-/* max height configurations */
- /* unlimited height */
-#define	MAX_OUT_HEIGHT_UNLIMITED	0
-/* as specified in max_size1 reg */
-#define MAX_OUT_HEIGHT_REG1		1
-/* as specified in max_size2 reg */
-#define MAX_OUT_HEIGHT_REG2		2
-/* as specified in max_size3 reg */
-#define	MAX_OUT_HEIGHT_REG3		3
-/* maximum of 288 lines as height */
-#define MAX_OUT_HEIGHT_288		4
-/* maximum of 576 lines as height */
-#define	MAX_OUT_HEIGHT_576		5
-/* maximum of 720 lines as height */
-#define	MAX_OUT_HEIGHT_720		6
-/* maximum of 1080 lines as height */
-#define	MAX_OUT_HEIGHT_1080		7
-
 static inline u32 dtd_type_ctl_stride(int type, bool notify, int field,
 			bool one_d, bool even_line_skip, bool odd_line_skip,
 			int line_stride)
