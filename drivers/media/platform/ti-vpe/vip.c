@@ -365,13 +365,23 @@ static void vip_set_clock_enable(struct vip_dev *dev, bool on)
 {
 	u32 val = 0;
 
+	val = read_vreg(dev, VIP_CLK_ENABLE);
 	if (on) {
+		val |= VIP_VPDMA_CLK_ENABLE;
 		if (dev->slice_id == VIP_SLICE1)
-			val = VIP_VIP1_DATA_PATH_CLK_ENABLE |
-				VIP_VPDMA_CLK_ENABLE;
+			val |= VIP_VIP1_DATA_PATH_CLK_ENABLE;
 		else
-			val = VIP_VIP2_DATA_PATH_CLK_ENABLE |
-				VIP_VPDMA_CLK_ENABLE;
+			val |= VIP_VIP2_DATA_PATH_CLK_ENABLE;
+	} else {
+		if (dev->slice_id == VIP_SLICE1)
+			val &= ~VIP_VIP1_DATA_PATH_CLK_ENABLE;
+		else
+			val &= ~VIP_VIP2_DATA_PATH_CLK_ENABLE;
+
+		/* Both VIP are disabled then shutdown VPDMA also */
+		if (!(val & (VIP_VIP1_DATA_PATH_CLK_ENABLE|
+			     VIP_VIP2_DATA_PATH_CLK_ENABLE)))
+			val = 0;
 	}
 
 	write_vreg(dev, VIP_CLK_ENABLE, val);
