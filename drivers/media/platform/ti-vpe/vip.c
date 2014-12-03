@@ -1254,6 +1254,62 @@ static int vip_enuminput(struct file *file, void *priv,
 	return 0;
 }
 
+static int vip_g_input(struct file *file, void *priv, unsigned int *i)
+{
+	*i = 0;
+	return 0;
+}
+
+static int vip_s_input(struct file *file, void *priv, unsigned int i)
+{
+	if (i != 0)
+		return -EINVAL;
+	return 0;
+}
+
+static int vip_querystd(struct file *file, void *fh, v4l2_std_id *std)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+
+	v4l2_subdev_call(dev->sensor, video, querystd, std);
+	return 0;
+}
+
+static int vip_g_std(struct file *file, void *fh, v4l2_std_id *std)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+
+	*std = 0;
+	v4l2_subdev_call(dev->sensor, video, g_std_output, std);
+	return 0;
+}
+
+static int vip_s_std(struct file *file, void *fh, v4l2_std_id std)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_dev *dev = stream->port->dev;
+
+	v4l2_subdev_call(dev->sensor, video, s_std_output, std);
+	return 0;
+}
+
+static int vip_queryctrl(struct file *file, void *fh, struct v4l2_queryctrl *a)
+{
+	return -EINVAL;
+}
+
+static int vip_g_ctrl(struct file *file, void *fh, struct v4l2_control *a)
+{
+	return 0;
+}
+
+static int vip_s_ctrl(struct file *file, void *fh, struct v4l2_control *a)
+{
+	return 0;
+}
+
 static int vip_enum_fmt_vid_cap(struct file *file, void *priv,
 				struct v4l2_fmtdesc *f)
 {
@@ -1644,6 +1700,17 @@ static long vip_ioctl_default(struct file *file, void *fh, bool valid_prio,
 
 static const struct v4l2_ioctl_ops vip_ioctl_ops = {
 	.vidioc_querycap	= vip_querycap,
+	.vidioc_enum_input	= vip_enuminput,
+	.vidioc_g_input		= vip_g_input,
+	.vidioc_s_input		= vip_s_input,
+
+	.vidioc_querystd	= vip_querystd,
+	.vidioc_g_std		= vip_g_std,
+	.vidioc_s_std		= vip_s_std,
+
+	.vidioc_queryctrl	= vip_queryctrl,
+	.vidioc_g_ctrl		= vip_g_ctrl,
+	.vidioc_s_ctrl		= vip_s_ctrl,
 
 	.vidioc_enum_fmt_vid_cap = vip_enum_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap	= vip_g_fmt_vid_cap,
