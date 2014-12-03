@@ -690,12 +690,16 @@ void st_kim_ref(struct st_data_s **core_data, int id)
 	struct kim_data_s	*kim_gdata;
 	/* get kim_gdata reference from platform device */
 	pdev = st_get_plat_device(id);
-	if (!pdev) {
-		*core_data = NULL;
-		return;
-	}
+	if (!pdev)
+		goto err;
 	kim_gdata = platform_get_drvdata(pdev);
+	if (!kim_gdata)
+		goto err;
+
 	*core_data = kim_gdata->core_data;
+	return;
+err:
+	*core_data = NULL;
 }
 
 static int kim_version_open(struct inode *i, struct file *f)
@@ -835,8 +839,7 @@ static int kim_probe(struct platform_device *pdev)
 	kim_debugfs_dir = debugfs_create_dir("ti-st", NULL);
 	if (IS_ERR(kim_debugfs_dir)) {
 		pr_err(" debugfs entries creation failed ");
-		err = -EIO;
-		goto err_debugfs_dir;
+		return 0;
 	}
 
 	debugfs_create_file("version", S_IRUGO, kim_debugfs_dir,
@@ -845,9 +848,6 @@ static int kim_probe(struct platform_device *pdev)
 				kim_gdata, &list_debugfs_fops);
 	pr_info(" debugfs entries created ");
 	return 0;
-
-err_debugfs_dir:
-	sysfs_remove_group(&pdev->dev.kobj, &uim_attr_grp);
 
 err_sysfs_group:
 	st_core_exit(kim_gdata->core_data);
