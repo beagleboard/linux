@@ -1631,6 +1631,9 @@ static int serial_omap_probe(struct platform_device *pdev)
 	int uartirq = 0;
 	int wakeirq = 0;
 	int ret;
+	enum of_gpio_flags flags;
+	int gpio_sel;
+	unsigned long gpio_flags;
 
 	/* The optional wakeirq may be specified in the board dts file */
 	if (pdev->dev.of_node) {
@@ -1644,6 +1647,24 @@ static int serial_omap_probe(struct platform_device *pdev)
 		uartirq = platform_get_irq(pdev, 0);
 		if (uartirq < 0)
 			return -EPROBE_DEFER;
+	}
+
+	/* Check if the UART needs to be selected */
+	gpio_sel = of_get_gpio_flags(pdev->dev.of_node, 0, &flags);
+	if (gpio_is_valid(gpio_sel)) {
+		dev_dbg(&pdev->dev, "using gpio %d for uart%d_sel\n",
+			gpio_sel, pdev->id);
+		gpio_flags = (flags & OF_GPIO_ACTIVE_LOW) ?
+			GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH;
+		ret = devm_gpio_request_one(&pdev->dev, gpio_sel,
+					    gpio_flags, "uart_sel");
+		if (ret) {
+			dev_err(&pdev->dev, "gpio%d request failed, ret %d\n",
+				gpio_sel, ret);
+			return ret;
+		}
+	} else if (gpio_sel == -EPROBE_DEFER) {
+		return -EPROBE_DEFER;
 	}
 
 	up = devm_kzalloc(&pdev->dev, sizeof(*up), GFP_KERNEL);

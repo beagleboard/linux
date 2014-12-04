@@ -737,6 +737,7 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&bt_uart3_pins>;
+	gpios = <&pcf_gpio_21 14 GPIO_ACTIVE_LOW>;
 };
 
 &mmc1 {
