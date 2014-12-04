@@ -79,7 +79,7 @@ config DA8XX_REMOTEPROC
 
 config PRUSS_REMOTEPROC
 	tristate "TI PRUSS remoteproc support"
-	depends on HAS_DMA && (SOC_AM33XX || SOC_AM43XX)
+	depends on HAS_DMA && (SOC_AM33XX || SOC_AM43XX || SOC_DRA7XX)
 	select REMOTEPROC
 	select MAILBOX
 	select OMAP2PLUS_MBOX
