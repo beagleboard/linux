@@ -72,6 +72,32 @@
 	};
 };
 
+&mailbox3 {
+	mbox_pru1_0: mbox_pru1_0 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+	mbox_pru1_1: mbox_pru1_1 {
+		ti,mbox-tx = <2 0 0>;
+		ti,mbox-rx = <3 0 0>;
+		status = "disabled";
+	};
+};
+
+&mailbox4 {
+	mbox_pru2_0: mbox_pru2_0 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+	mbox_pru2_1: mbox_pru2_1 {
+		ti,mbox-tx = <2 0 0>;
+		ti,mbox-rx = <3 0 0>;
+		status = "disabled";
+	};
+};
+
 &mailbox5 {
 	mbox_ipu1_legacy: mbox_ipu1_legacy {
 		ti,mbox-tx = <6 2 2>;
