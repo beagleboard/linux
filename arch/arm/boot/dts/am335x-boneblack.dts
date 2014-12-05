@@ -43,6 +43,12 @@
 /* HDMI: without audio */
 /* #include "am335x-boneblack-nxp-hdmi-no-audio.dtsi" */
 
+/* can0: P9.19, P9.20: disable: i2c2: cape eeprom */
+/* can0: peripheral */
+#include "am335x-can0.dtsi"
+/* can0: pinmux */
+/* #include "am335x-bone-can0.dtsi" */
+
 /* can1: P9_24, P9_26 */
 #include "am335x-can1.dtsi"
 /* #include "am335x-bone-can1.dtsi" */
