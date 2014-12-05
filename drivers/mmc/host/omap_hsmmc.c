@@ -1850,6 +1850,8 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 {
 	struct omap_mmc_platform_data *pdata = pdev->dev.platform_data;
 	struct mmc_host *mmc;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	struct omap_hsmmc_host *host = NULL;
 	struct resource *res;
 	int ret, irq;
@@ -1980,6 +1982,19 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		mmc->caps |= MMC_CAP_NONREMOVABLE;
 
 	mmc->pm_caps = mmc_slot(host).pm_caps;
+
+	if (of_property_read_bool(np, "sd-uhs-sdr12"))
+		mmc->caps |= MMC_CAP_UHS_SDR12;
+	if (of_property_read_bool(np, "sd-uhs-sdr25"))
+		mmc->caps |= MMC_CAP_UHS_SDR25;
+	if (of_property_read_bool(np, "sd-uhs-sdr50"))
+		mmc->caps |= MMC_CAP_UHS_SDR50;
+	if (of_property_read_bool(np, "sd-uhs-sdr104"))
+		mmc->caps |= MMC_CAP_UHS_SDR104;
+	if (of_property_read_bool(np, "sd-uhs-ddr50"))
+		mmc->caps |= MMC_CAP_UHS_DDR50;
+	if (of_property_read_bool(np, "mmc-hs200-1_8v"))
+		mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
 
 	omap_hsmmc_conf_bus_power(host);
 
