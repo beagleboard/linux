@@ -123,7 +123,6 @@ static size_t memcmpshow(loff_t addr, const void *cs, const void *ct, size_t cou
 {
 	const unsigned char *su1, *su2;
 	int res;
-	int ret = 0;
 	size_t i = 0;
 	size_t bitflips = 0;
 
@@ -133,7 +132,6 @@ static size_t memcmpshow(loff_t addr, const void *cs, const void *ct, size_t cou
 			pr_info("error @addr[0x%lx:0x%x] 0x%x -> 0x%x diff 0x%x\n",
 				(unsigned long)addr, i, *su1, *su2, res);
 			bitflips += hweight8(res);
-			ret = 1;
 		}
 	}
 
