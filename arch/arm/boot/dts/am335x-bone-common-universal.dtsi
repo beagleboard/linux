@@ -628,9 +628,33 @@
 	P9_18_pwm_pin: pinmux_P9_18_pwm_pin {
 		pinctrl-single,pins = <0x158  0x33>; };     /* Mode 3, Pull-Up, RxActive */
 
-	// Leave the cape I2C EEPROM bus alone
-	/* P9_19 (ZCZ ball D17) I2C     */
-	/* P9_20 (ZCZ ball D18) I2C     */
+	/* P9_19 (ZCZ ball D17) */
+	P9_19_default_pin: pinmux_P9_19_default_pin {
+		pinctrl-single,pins = <0x17c  0x37>; };     /* Mode 7, Pull-Up, RxActive */
+	P9_19_gpio_pin: pinmux_P9_19_gpio_pin {
+		pinctrl-single,pins = <0x17c  0x2F>; };     /* Mode 7, RxActive */
+	P9_19_gpio_pu_pin: pinmux_P9_19_gpio_pu_pin {
+		pinctrl-single,pins = <0x17c  0x37>; };     /* Mode 7, Pull-Up, RxActive */
+	P9_19_gpio_pd_pin: pinmux_P9_19_gpio_pd_pin {
+		pinctrl-single,pins = <0x17c  0x27>; };     /* Mode 7, Pull-Down, RxActive */
+	P9_19_can_pin: pinmux_P9_19_can_pin {
+		pinctrl-single,pins = <0x17c  0x32>; };     /* Mode 2, Pull-Up, RxActive */
+	P9_19_i2c_pin: pinmux_P9_19_i2c_pin {
+		pinctrl-single,pins = <0x17c  0x73>; };     /* (SLEWCTRL_SLOW | PIN_INPUT_PULLUP | MUX_MODE3) */
+
+	/* P9_20 (ZCZ ball D18) */
+	P9_20_default_pin: pinmux_P9_20_default_pin {
+		pinctrl-single,pins = <0x178  0x37>; };     /* Mode 7, Pull-Up, RxActive */
+	P9_20_gpio_pin: pinmux_P9_20_gpio_pin {
+		pinctrl-single,pins = <0x178  0x2F>; };     /* Mode 7, RxActive */
+	P9_20_gpio_pu_pin: pinmux_P9_20_gpio_pu_pin {
+		pinctrl-single,pins = <0x178  0x37>; };     /* Mode 7, Pull-Up, RxActive */
+	P9_20_gpio_pd_pin: pinmux_P9_20_gpio_pd_pin {
+		pinctrl-single,pins = <0x178  0x27>; };     /* Mode 7, Pull-Down, RxActive */
+	P9_20_can_pin: pinmux_P9_20_can_pin {
+		pinctrl-single,pins = <0x178  0x12>; };     /* Mode 2, Pull-Up, RxActive */
+	P9_20_i2c_pin: pinmux_P9_20_i2c_pin {
+		pinctrl-single,pins = <0x178  0x73>; };     /* (SLEWCTRL_SLOW | PIN_INPUT_PULLUP | MUX_MODE3) */
 
 	/* P9_21 (ZCZ ball B17) */
 	P9_21_default_pin: pinmux_P9_21_default_pin {
@@ -1431,9 +1455,29 @@
 		pinctrl-6 = <&P9_18_pwm_pin>;
 	};
 
-	// I2C Pins
-	// P9_19_pinmux
-	// P9_20_pinmux
+	P9_19_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "can", "i2c";
+		pinctrl-0 = <&P9_19_default_pin>;
+		pinctrl-1 = <&P9_19_gpio_pin>;
+		pinctrl-2 = <&P9_19_gpio_pu_pin>;
+		pinctrl-3 = <&P9_19_gpio_pd_pin>;
+		pinctrl-4 = <&P9_19_can_pin>;
+		pinctrl-5 = <&P9_19_i2c_pin>;
+	};
+
+	P9_20_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "can", "i2c";
+		pinctrl-0 = <&P9_20_default_pin>;
+		pinctrl-1 = <&P9_20_gpio_pin>;
+		pinctrl-2 = <&P9_20_gpio_pu_pin>;
+		pinctrl-3 = <&P9_20_gpio_pd_pin>;
+		pinctrl-4 = <&P9_20_can_pin>;
+		pinctrl-5 = <&P9_20_i2c_pin>;
+	};
 
 	P9_21_pinmux {
 		compatible = "bone-pinmux-helper";
@@ -1902,11 +1946,18 @@
 			input;
 			dir-changeable;
 		};
-
-		// I2C pins
-		// P9_19
-		// P9_20
-
+		P9_19 {
+			gpio-name = "P9_19";
+			gpio = <&gpio0 13 0>;
+			input;
+			dir-changeable;
+		};
+		P9_20 {
+			gpio-name = "P9_20";
+			gpio = <&gpio0 12 0>;
+			input;
+			dir-changeable;
+		};
 		P9_21 {
 			gpio-name = "P9_21";
 			gpio = <&gpio0 3 0>;
