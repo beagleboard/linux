@@ -491,7 +491,6 @@ int vpdma_submit_descs(struct vpdma_data *vpdma,
 			struct vpdma_desc_list *list, int list_num)
 {
 	int list_size;
-	unsigned long flags;
 
 	if (vpdma_list_busy(vpdma, list_num))
 		return -EBUSY;
@@ -499,14 +498,12 @@ int vpdma_submit_descs(struct vpdma_data *vpdma,
 	/* 16-byte granularity */
 	list_size = (list->next - list->buf.addr) >> 4;
 
-	spin_lock_irqsave(&vpdma->lock, flags);
 	write_reg(vpdma, VPDMA_LIST_ADDR, (u32) list->buf.dma_addr);
 
 	write_reg(vpdma, VPDMA_LIST_ATTR,
 			(list_num << VPDMA_LIST_NUM_SHFT) |
 			(list->type << VPDMA_LIST_TYPE_SHFT) |
 			list_size);
-	spin_unlock_irqrestore(&vpdma->lock, flags);
 
 	return 0;
 }
@@ -1091,7 +1088,6 @@ struct vpdma_data *vpdma_create(struct platform_device *pdev,
 
 	vpdma->pdev = pdev;
 	vpdma->cb = cb;
-	spin_lock_init(&vpdma->lock);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vpdma");
 	if (res == NULL) {

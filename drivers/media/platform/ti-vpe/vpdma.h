@@ -35,7 +35,6 @@ struct vpdma_data {
 
 	struct platform_device	*pdev;
 
-	spinlock_t		lock;
 	/* callback to VPE driver when the firmware is loaded */
 	void (*cb)(struct platform_device *pdev);
 };
