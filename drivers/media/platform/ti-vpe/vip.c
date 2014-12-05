@@ -944,7 +944,6 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	struct v4l2_rect *c_rect = &port->c_rect;
 	struct vip_fmt *fmt = port->fmt;
 	int channel, plane = 0;
-	int max_width, max_height;
 	dma_addr_t dma_addr;
 	u32 flags;
 
@@ -982,27 +981,9 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	 */
 	dma_addr = (dma_addr_t)NULL;
 
-	/*
-	 * Use VPDMA_MAX_SIZE1 or VPDMA_MAX_SIZE2 register for slice0/1
-	 */
-
-	if (dev->slice_id == VIP_SLICE1) {
-		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE1,
-			stream->width, stream->height);
-
-		max_width = MAX_OUT_WIDTH_REG1;
-		max_height = MAX_OUT_HEIGHT_REG1;
-	} else {
-		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE2,
-			stream->width, stream->height);
-
-		max_width = MAX_OUT_WIDTH_REG2;
-		max_height = MAX_OUT_HEIGHT_REG2;
-	}
-
+	vpdma_vip_set_max_size(dev->shared->vpdma, 1);
 	vpdma_rawchan_add_out_dtd(&dev->desc_list, c_rect->width, c_rect,
-		fmt->vpdma_fmt[plane], dma_addr, max_width, max_height,
-		channel, flags);
+		fmt->vpdma_fmt[plane], dma_addr, channel, flags);
 
 	return 0;
 }
