@@ -47,6 +47,10 @@
 #include "am335x-can1.dtsi"
 /* #include "am335x-bone-can1.dtsi" */
 
+/* i2c2: cape eeprom */
+/* P9.19 P9.20 */
+#include "am335x-bone-i2c2-cape-eeprom.dtsi"
+
 /* spi0: */
 /* P9.17 spi0_cs0 */
 /* P9.18 spi0_d1 */
