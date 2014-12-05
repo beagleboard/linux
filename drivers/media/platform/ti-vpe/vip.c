@@ -2,10 +2,10 @@
  * TI VIP capture driver
  *
  * Copyright (C) 2013 - 2014 Texas Instruments, Inc.
- * David Griego, <dagriego@biglakesoftware.com>
- * Dale Farnsworth, <dale@farnsworth.org>
- * Nikhil Devshatwar, <nikhil.nd@ti.com>
  * Benoit Parrot, <bparrot@ti.com>
+ *
+ * Based on original work by Dale Farnsworth.
+ * Dale Farnsworth, <dale@farnsworth.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -931,6 +931,21 @@ static void vip_set_slice_path(struct vip_dev *dev,
 		BUG();
 	}
 }
+
+/* This are unused function for now.
+ * Just declare them to quiet down the compiler.
+ */
+struct dfn_holder {
+	void (*reset_port)(struct vip_port *port);
+	void (*xtra_set_repack_sel)(struct vip_port *port, int repack_mode);
+	void (*set_actvid_hsync_n)(struct vip_port *port, int enable);
+};
+
+static const struct dfn_holder s_dfn = {
+	.reset_port = vip_reset_port,
+	.xtra_set_repack_sel = vip_xtra_set_repack_sel,
+	.set_actvid_hsync_n = vip_set_actvid_hsync_n,
+};
 
 /*
  * Return the vip_stream structure for a given struct file
@@ -1983,7 +1998,6 @@ static int vip_setup_parser(struct vip_port *port)
 	int sync_type;
 	unsigned int flags;
 
-	vip_reset_port(port);
 	vip_set_port_enable(port, 1);
 
 	if (endpoint->bus_type == V4L2_MBUS_BT656) {
@@ -2041,8 +2055,6 @@ static int vip_setup_parser(struct vip_port *port)
 			vip_set_pclk_polarity(port,
 				flags & V4L2_MBUS_PCLK_SAMPLE_RISING ? 1 : 0);
 
-		vip_xtra_set_repack_sel(port, 0);
-		vip_set_actvid_hsync_n(port, 0);
 		vip_set_actvid_polarity(port, 1);
 		vip_set_discrete_basic_mode(port);
 
