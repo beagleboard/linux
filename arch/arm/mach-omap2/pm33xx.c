@@ -115,6 +115,7 @@ int am33xx_do_sram_cpuidle(u32 wfi_flags, u32 m3_flags)
 		am33xx_pm->ipc.reg1 = IPC_CMD_IDLE;
 		am33xx_pm->ipc.reg2 = DS_IPC_DEFAULT;
 		am33xx_pm->ipc.reg3 = m3_flags;
+		am33xx_pm->ipc.reg5 = DS_IPC_DEFAULT;
 		wkup_m3_set_cmd(&am33xx_pm->ipc);
 		ret = wkup_m3_ping();
 		if (ret < 0)
@@ -341,9 +342,11 @@ static int am33xx_pm_begin(suspend_state_t state)
 	switch (state) {
 	case PM_SUSPEND_MEM:
 		am33xx_pm->ipc.reg1	= IPC_CMD_DS0;
+		am33xx_pm->ipc.reg5	= am33xx_pm->m3_i2c_sequence_offsets;
 		break;
 	case PM_SUSPEND_STANDBY:
 		am33xx_pm->ipc.reg1	= IPC_CMD_STANDBY;
+		am33xx_pm->ipc.reg5	= DS_IPC_DEFAULT;
 		break;
 	}
 
@@ -422,7 +425,7 @@ static void am33xx_scale_data_fw_cb(const struct firmware *fw, void *context)
 	val = (aux_base + hdr.sleep_offset);
 	val |= ((aux_base + hdr.wake_offset) << 16);
 
-	am33xx_pm->ipc.reg5 = val;
+	am33xx_pm->m3_i2c_sequence_offsets = val;
 
 release_sd_fw:
 	release_firmware(fw);
