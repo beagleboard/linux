@@ -1,8 +1,10 @@
-/* A Bison parser, made by GNU Bison 2.7.12-4996.  */
 
-/* Bison interface for Yacc-like parsers in C
+/* A Bison parser, made by GNU Bison 2.4.1.  */
+
+/* Skeleton interface for Bison's Yacc-like parsers in C
    
-      Copyright (C) 1984, 1989-1990, 2000-2013 Free Software Foundation, Inc.
+      Copyright (C) 1984, 1989, 1990, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -30,15 +32,6 @@
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
 
-#ifndef YY_YY_DTC_PARSER_TAB_H_INCLUDED
-# define YY_YY_DTC_PARSER_TAB_H_INCLUDED
-/* Enabling traces.  */
-#ifndef YYDEBUG
-# define YYDEBUG 0
-#endif
-#if YYDEBUG
-extern int yydebug;
-#endif
 
 /* Tokens.  */
 #ifndef YYTOKENTYPE
@@ -47,22 +40,22 @@ extern int yydebug;
       know about them.  */
    enum yytokentype {
      DT_V1 = 258,
-     DT_MEMRESERVE = 259,
-     DT_LSHIFT = 260,
-     DT_RSHIFT = 261,
-     DT_LE = 262,
-     DT_GE = 263,
-     DT_EQ = 264,
-     DT_NE = 265,
-     DT_AND = 266,
-     DT_OR = 267,
-     DT_BITS = 268,
-     DT_DEL_PROP = 269,
-     DT_DEL_NODE = 270,
-     DT_PROPNODENAME = 271,
-     DT_LITERAL = 272,
-     DT_CHAR_LITERAL = 273,
-     DT_BASE = 274,
+     DT_PLUGIN = 259,
+     DT_MEMRESERVE = 260,
+     DT_LSHIFT = 261,
+     DT_RSHIFT = 262,
+     DT_LE = 263,
+     DT_GE = 264,
+     DT_EQ = 265,
+     DT_NE = 266,
+     DT_AND = 267,
+     DT_OR = 268,
+     DT_BITS = 269,
+     DT_DEL_PROP = 270,
+     DT_DEL_NODE = 271,
+     DT_PROPNODENAME = 272,
+     DT_LITERAL = 273,
+     DT_CHAR_LITERAL = 274,
      DT_BYTE = 275,
      DT_STRING = 276,
      DT_LABEL = 277,
@@ -72,16 +65,16 @@ extern int yydebug;
 #endif
 
 
+
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
 {
-/* Line 2053 of yacc.c  */
-#line 40 "dtc-parser.y"
+
+/* Line 1676 of yacc.c  */
+#line 39 "dtc-parser.y"
 
 	char *propnodename;
-	char *literal;
 	char *labelref;
-	unsigned int cbase;
 	uint8_t byte;
 	struct data data;
 
@@ -96,10 +89,12 @@ typedef union YYSTYPE
 	struct node *nodelist;
 	struct reserve_info *re;
 	uint64_t integer;
+	bool is_plugin;
 
 
-/* Line 2053 of yacc.c  */
-#line 103 "dtc-parser.tab.h"
+
+/* Line 1676 of yacc.c  */
+#line 98 "dtc-parser.tab.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -108,18 +103,17 @@ typedef union YYSTYPE
 
 extern YYSTYPE yylval;
 
-#ifdef YYPARSE_PARAM
-#if defined __STDC__ || defined __cplusplus
-int yyparse (void *YYPARSE_PARAM);
-#else
-int yyparse ();
+#if ! defined YYLTYPE && ! defined YYLTYPE_IS_DECLARED
+typedef struct YYLTYPE
+{
+  int first_line;
+  int first_column;
+  int last_line;
+  int last_column;
+} YYLTYPE;
+# define yyltype YYLTYPE /* obsolescent; will be withdrawn */
+# define YYLTYPE_IS_DECLARED 1
+# define YYLTYPE_IS_TRIVIAL 1
 #endif
-#else /* ! YYPARSE_PARAM */
-#if defined __STDC__ || defined __cplusplus
-int yyparse (void);
-#else
-int yyparse ();
-#endif
-#endif /* ! YYPARSE_PARAM */
 
-#endif /* !YY_YY_DTC_PARSER_TAB_H_INCLUDED  */
+extern YYLTYPE yylloc;
