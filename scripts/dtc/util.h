@@ -2,6 +2,7 @@
 #define _UTIL_H
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <getopt.h>
 
 /*
@@ -68,7 +69,7 @@ extern char *join_path(const char *path, const char *name);
  * @param len	The string length including terminator
  * @return 1 if a valid printable string, 0 if not
  */
-int util_is_printable_string(const void *data, int len);
+bool util_is_printable_string(const void *data, int len);
 
 /*
  * Parse an escaped character starting at index i in string s.  The resulting
