@@ -184,10 +184,10 @@
 		clocks = <&clkout2_clk>;
 		clock-names = "mclk";
 		ti,audio-routing =
-			"Line Out",		"LLOUT",
-			"Line Out",		"RLOUT",
-			"LINE1L",               "Line In",
-			"LINE1R",               "Line In";
+			"Line Out",	"LLOUT",
+			"Line Out",	"RLOUT",
+			"MIC3L",	"Line In", /* Mic2L/LINE2L on aic3104 */
+			"MIC3R",	"Line In"; /* Mic2R/LINE2R on aic3104 */
 	};
 };
 
