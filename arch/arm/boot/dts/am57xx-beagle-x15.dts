@@ -557,21 +557,27 @@
 };
 
 &pruss1 {
+	status = "okay";
 	pru1_0: pru@4b234000 {
 		mboxes = <&mailbox3 &mbox_pru1_0>;
+		status = "okay";
 	};
 
 	pru1_1: pru@4b238000 {
 		mboxes = <&mailbox3 &mbox_pru1_1>;
+		status = "okay";
 	};
 };
 
 &pruss2 {
+	status = "okay";
 	pru2_0: pru@4b2b4000 {
 		mboxes = <&mailbox4 &mbox_pru2_0>;
+		status = "okay";
 	};
 
 	pru2_1: pru@4b2b8000 {
 		mboxes = <&mailbox4 &mbox_pru2_1>;
+		status = "okay";
 	};
 };
