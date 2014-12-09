@@ -75,6 +75,7 @@ MODULE_PARM_DESC(debug, "debug level (0-8)");
 #define vip_info(dev, fmt, arg...)	\
 		v4l2_info(&dev->v4l2_dev, fmt, ##arg)
 
+#define CTRL_CORE_SMA_SW_1      0x534
 /*
  * The srce_info structure contains per-srce data.
  */
@@ -542,7 +543,7 @@ static void vip_set_pclk_polarity(struct vip_port *port, int polarity)
 			BUG();
 
 		ret = regmap_update_bits(port->dev->syscon,
-			0, 1 << offset, 1 << offset);
+			CTRL_CORE_SMA_SW_1, 1 << offset, 1 << offset);
 	}
 
 	if (port->port_id == 0 && port->dev->slice_id == VIP_SLICE1) {
@@ -2558,7 +2559,7 @@ static int vip_of_probe(struct platform_device *pdev, struct vip_dev *dev)
 
 	parent = pdev->dev.of_node;
 
-	syscon_np = of_parse_phandle(pdev->dev.of_node, "syscon-smasw", 0);
+	syscon_np = of_parse_phandle(pdev->dev.of_node, "syscon", 0);
 	dev->syscon = syscon_node_to_regmap(syscon_np);
 	of_node_put(syscon_np);
 
