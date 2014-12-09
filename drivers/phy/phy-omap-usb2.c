@@ -414,6 +414,9 @@ static int omap_usb2_suspend(struct device *dev)
 	if (!pm_runtime_suspended(dev))
 		omap_usb2_disable_clocks(phy);
 
+	if (!device_may_wakeup(dev))
+		pinctrl_pm_select_sleep_state(dev);
+
 	return 0;
 }
 
@@ -422,6 +425,9 @@ static int omap_usb2_resume(struct device *dev)
 	struct platform_device	*pdev = to_platform_device(dev);
 	struct omap_usb	*phy = platform_get_drvdata(pdev);
 	int ret;
+
+	if (!device_may_wakeup(dev))
+		pinctrl_pm_select_default_state(dev);
 
 	if (!pm_runtime_suspended(dev)) {
 		ret = omap_usb2_enable_clocks(phy);
