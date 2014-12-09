@@ -429,6 +429,26 @@
 	cap-mmc-dual-data-rate;
 };
 
+&mailbox3 {
+	status = "okay";
+	mbox_pru1_0: mbox_pru1_0 {
+		status = "okay";
+	};
+	mbox_pru1_1: mbox_pru1_1 {
+		status = "okay";
+	};
+};
+
+&mailbox4 {
+	status = "okay";
+	mbox_pru2_0: mbox_pru2_0 {
+		status = "okay";
+	};
+	mbox_pru2_1: mbox_pru2_1 {
+		status = "okay";
+	};
+};
+
 &mailbox5 {
 	status = "okay";
 	mbox_ipu1_legacy: mbox_ipu1_legacy {
