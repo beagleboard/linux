@@ -29,6 +29,7 @@ Required Properties:
 - compatible     : should be one of,
                        "ti,am335x-pruss" for AM335x family of SoCs
                        "ti,am4372-pruss" for AM437x family of SoCs
+                       "ti,am5728-pruss" for AM572x family of SoCs
 - ti,hwmods      : name of the hwmod associated with the PRUSS instance
 - reg            : base address and size for each of the sub-modules as
                    mentioned in reg-names, and in the same order as the
