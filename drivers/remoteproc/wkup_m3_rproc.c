@@ -150,11 +150,6 @@ static void wkup_m3_fw_version_clear(void)
 	wkup_m3_ctrl_ipc_write(m3_rproc_static, val, 2);
 }
 
-static void wkup_m3_mbox_callback(struct mbox_client *client, void *data)
-{
-	omap_mbox_disable_irq(m3_rproc_static->mbox, IRQ_RX);
-}
-
 void wkup_m3_set_rtc_only_mode(void)
 {
 	m3_rproc_static->is_rtc_only = true;
@@ -179,7 +174,7 @@ static int wkup_m3_rproc_start(struct rproc *rproc)
 
 	m3_rproc->mbox_client.dev = dev;
 	m3_rproc->mbox_client.tx_done = NULL;
-	m3_rproc->mbox_client.rx_callback = wkup_m3_mbox_callback;
+	m3_rproc->mbox_client.rx_callback = NULL;
 	m3_rproc->mbox_client.tx_block = false;
 	m3_rproc->mbox_client.knows_txdone = false;
 
@@ -283,13 +278,13 @@ int wkup_m3_ping(void)
 	 * the RX callback to avoid multiple interrupts being received
 	 * by the CM3.
 	 */
-	omap_mbox_enable_irq(m3_rproc_static->mbox, IRQ_RX);
 	ret = mbox_send_message(m3_rproc_static->mbox, (void *)dummy_msg);
 	if (ret < 0) {
 		pr_err("%s: mbox_send_message() failed: %d\n", __func__, ret);
 		return ret;
 	}
 
+	mbox_client_txdone(m3_rproc_static->mbox, 0);
 	return 0;
 }
 
