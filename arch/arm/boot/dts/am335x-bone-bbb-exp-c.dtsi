@@ -6,6 +6,7 @@
  * published by the Free Software Foundation.
  */
 
+#include "am335x-bone-can0.dtsi"
 #include "am335x-bone-ttyO1.dtsi"
 #include "am335x-bone-ttyO2.dtsi"
 #include "am335x-bone-ttyO4.dtsi"
@@ -57,7 +58,7 @@
 		interrupt-parent = <&gpio1>;
 		interrupts = <17 0>;
 
-		touchscreen-size-x = <1240>;
+		touchscreen-size-x = <1024>;
 		touchscreen-size-y = <600>;
 	};
 
@@ -124,4 +125,4 @@
 /* #include "am335x-bone-panel-320x240.dtsi" */
 /* #include "am335x-bone-panel-480x272.dtsi" */
 /* #include "am335x-bone-panel-800x480.dtsi" */
-#include "am335x-bone-panel-1240x600-24bit.dtsi"
+#include "am335x-bone-panel-1024x600-24bit.dtsi"
