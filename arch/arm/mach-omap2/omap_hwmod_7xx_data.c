@@ -1993,6 +1993,28 @@ static struct omap_hwmod dra7xx_pcie1_hwmod = {
 	},
 };
 
+/*
+ * 'pru-icss' class
+ * Programmable Real-Time Unit and Industrial Communication Subsystem
+ */
+static struct omap_hwmod_class dra7xx_pruss_hwmod_class = {
+	.name	= "pruss",
+};
+
+/* pru-icss1 */
+static struct omap_hwmod dra7xx_pruss1_hwmod = {
+	.name		= "pruss1",
+	.class		= &dra7xx_pruss_hwmod_class,
+	.clkdm_name	= "l4per2_clkdm",
+	.prcm		= {
+		.omap4	= {
+			.clkctrl_offs	= DRA7XX_CM_L4PER2_PRUSS1_CLKCTRL_OFFSET,
+			.context_offs	= DRA7XX_RM_L4PER2_PRUSS1_CONTEXT_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+};
+
 /* pcie2 */
 static struct omap_hwmod_rst_info dra7xx_pcie2_resets[] = {
 	{ .name = "pcie", .rst_shift = 1 },
@@ -2049,6 +2071,20 @@ static struct omap_hwmod dra7xx_pcie2_phy_hwmod = {
 			.clkctrl_offs = DRA7XX_CM_L3INIT_PCIESS2_CLKCTRL_OFFSET,
 			.context_offs = DRA7XX_RM_L3INIT_PCIESS2_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* pru-icss2 */
+static struct omap_hwmod dra7xx_pruss2_hwmod = {
+	.name		= "pruss2",
+	.class		= &dra7xx_pruss_hwmod_class,
+	.clkdm_name	= "l4per2_clkdm",
+	.prcm		= {
+		.omap4	= {
+			.clkctrl_offs	= DRA7XX_CM_L4PER2_PRUSS2_CLKCTRL_OFFSET,
+			.context_offs	= DRA7XX_RM_L4PER2_PRUSS2_CONTEXT_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
 		},
 	},
 };
@@ -3632,6 +3668,22 @@ static struct omap_hwmod_ocp_if dra7xx_l4_cfg__pcie2_phy = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* l4_cfg -> pruss1 */
+static struct omap_hwmod_ocp_if dra7xx_l4_cfg__pruss1 = {
+	.master		= &dra7xx_l4_cfg_hwmod,
+	.slave		= &dra7xx_pruss1_hwmod,
+	.clk		= "dpll_gmac_h13x2_ck",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_cfg -> pruss2 */
+static struct omap_hwmod_ocp_if dra7xx_l4_cfg__pruss2 = {
+	.master		= &dra7xx_l4_cfg_hwmod,
+	.slave		= &dra7xx_pruss2_hwmod,
+	.clk		= "dpll_gmac_h13x2_ck",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 static struct omap_hwmod_addr_space dra7xx_qspi_addrs[] = {
 	{
 		.pa_start	= 0x4b300000,
@@ -4107,6 +4159,8 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_cfg__pcie2,
 	&dra7xx_l4_cfg__pcie1_phy,
 	&dra7xx_l4_cfg__pcie2_phy,
+	&dra7xx_l4_cfg__pruss1, /* AM57xx only */
+	&dra7xx_l4_cfg__pruss2, /* AM57xx only */
 	&dra7xx_l3_main_1__qspi,
 	&dra7xx_l4_per3__rtcss,
 	&dra7xx_l4_cfg__sata,
