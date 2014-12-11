@@ -282,6 +282,7 @@
 
 &mmc1 {
 	vmmc-supply = <&ldo9_reg>;
+	pbias-supply = <&pbias_mmc_reg>;
 	bus-width = <4>;
 };
 

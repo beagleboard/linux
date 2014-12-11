@@ -548,6 +548,7 @@
 	/* Using default configured pins */
 	status = "okay";
 	vmmc-supply = <&ldo1_reg>;
+	pbias-supply = <&pbias_mmc_reg>;
 	bus-width = <4>;
 	/*
 	 * SDCD signal is not being used here - using the fact that GPIO mode
