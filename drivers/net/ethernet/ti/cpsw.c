@@ -1843,6 +1843,79 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 			ret = -EINVAL;
 		}
 		break;
+	case CONFIG_SWITCH_GET_PORT_VLAN_CONFIG:
+	{
+		u32 __iomem *port_vlan_reg;
+		u32 port_vlan;
+
+		switch (config.port) {
+		case 0:
+			port_vlan_reg = &priv->host_port_regs->port_vlan;
+			port_vlan = readl(port_vlan_reg);
+			break;
+		case 1:
+		case 2:
+		{
+			int slave = config.port - 1;
+			if (priv->version == CPSW_VERSION_1) {
+				port_vlan = slave_read(priv->slaves + slave,
+						       CPSW1_PORT_VLAN);
+			} else {
+				port_vlan = slave_read(priv->slaves + slave,
+						       CPSW2_PORT_VLAN);
+			}
+			break;
+		}
+		default:
+			dev_err(priv->dev, "Invalid Arguments\n");
+			ret = -EINVAL;
+			break;
+		}
+
+		if (!ret) {
+			config.vid = port_vlan & 0xfff;
+			config.vlan_cfi = port_vlan & BIT(12) ? true : false;
+			config.prio = (port_vlan >> 13) & 0x7;
+			ret = copy_to_user(ifrq->ifr_data, &config,
+					   sizeof(config));
+		}
+		break;
+	}
+	case CONFIG_SWITCH_SET_PORT_VLAN_CONFIG:
+	{
+		void __iomem *port_vlan_reg;
+		u32 port_vlan;
+
+		port_vlan = config.vid;
+		port_vlan |= config.vlan_cfi ? BIT(12) : 0;
+		port_vlan |= (config.prio & 0x7) << 13;
+
+		switch (config.port) {
+		case 0:
+			port_vlan_reg = &priv->host_port_regs->port_vlan;
+			writel(port_vlan, port_vlan_reg);
+			break;
+		case 1:
+		case 2:
+		{
+			int slave = config.port - 1;
+			if (priv->version == CPSW_VERSION_1) {
+				slave_write(priv->slaves + slave, port_vlan,
+					    CPSW1_PORT_VLAN);
+			} else {
+				slave_write(priv->slaves + slave, port_vlan,
+					    CPSW2_PORT_VLAN);
+			}
+			break;
+		}
+		default:
+			dev_err(priv->dev, "Invalid Arguments\n");
+			ret = -EINVAL;
+			break;
+		}
+
+		break;
+	}
 
 	default:
 		ret = -EOPNOTSUPP;
