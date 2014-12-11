@@ -560,6 +560,7 @@
 	sd-uhs-ddr50;
 	sd-uhs-sdr25;
 	sd-uhs-sdr12;
+	max-frequency = <192000000>;
 };
 
 &mmc2 {
@@ -569,6 +570,7 @@
 	bus-width = <8>;
 	ti,non-removable;
 	mmc-hs200-1_8v;
+	max-frequency = <192000000>;
 };
 
 &mac {
