@@ -1916,6 +1916,36 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 
 		break;
 	}
+	case CONFIG_SWITCH_RATELIMIT:
+	{
+		if (config.port > 2) {
+			dev_err(priv->dev, "Invalid Arguments\n");
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = cpsw_ale_control_set(priv->ale, 0, ALE_RATE_LIMIT_TX,
+					   !!config.direction);
+		if (ret) {
+			dev_err(priv->dev, "CPSW_ALE control set failed");
+			break;
+		}
+
+		ret = cpsw_ale_control_set(priv->ale, config.port,
+					   ALE_PORT_BCAST_LIMIT,
+					   config.bcast_rate_limit);
+		if (ret) {
+			dev_err(priv->dev, "CPSW_ALE control set failed");
+			break;
+		}
+
+		ret = cpsw_ale_control_set(priv->ale, config.port,
+					   ALE_PORT_MCAST_LIMIT,
+					   config.mcast_rate_limit);
+		if (ret)
+			dev_err(priv->dev, "CPSW_ALE control set failed");
+		break;
+	}
 
 	default:
 		ret = -EOPNOTSUPP;
