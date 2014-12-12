@@ -110,6 +110,15 @@
 		cable-name = "USB-HOST";
 	};
 
+	evm_3v3_sd: fixedregulator-sd {
+		compatible = "regulator-fixed";
+		regulator-name = "evm_3v3_sd";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		gpio = <&pcf_gpio_21 5 0>;
+	};
+
 	evm_3v3: fixedregulator-evm_3v3 {
 		compatible = "regulator-fixed";
 		regulator-name = "evm_3v3";
@@ -555,13 +564,21 @@
 &mmc1 {
 	/* Using default configured pins */
 	status = "okay";
-	vmmc-supply = <&ldo1_reg>;
+	pbias-supply = <&pbias_mmc_reg>;
+	vmmc-supply = <&evm_3v3_sd>;
+	vmmc_aux-supply = <&ldo1_reg>;
 	bus-width = <4>;
 	/*
 	 * SDCD signal is not being used here - using the fact that GPIO mode
 	 * is always hardwired.
 	 */
 	cd-gpios = <&gpio6 27 0>;
+	sd-uhs-sdr104;
+	sd-uhs-sdr50;
+	sd-uhs-ddr50;
+	sd-uhs-sdr25;
+	sd-uhs-sdr12;
+	max-frequency = <192000000>;
 };
 
 &mmc2 {
@@ -570,6 +587,8 @@
 	vmmc-supply = <&evm_3v3>;
 	bus-width = <8>;
 	ti,non-removable;
+	mmc-hs200-1_8v;
+	max-frequency = <192000000>;
 };
 
 &mac {
