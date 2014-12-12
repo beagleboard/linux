@@ -85,7 +85,7 @@
 					0x19c 0x02	/* mcasp0_ahclkr, */
 					0x194 0x10      /* mcasp0_fsx,         MODE0 | OUTPUT  */
 					0x190 0x00      /* mcasp0_aclkr.mcasp0_aclkx,     MODE0 | OUTPUT_PULLDOWN */
-					0x1a8 0x1f	/* mcasp0_axr1 GPIO1_27 | OUTPUT | PULLUP */
+					0x06c 0x07	/* gpmc_a11 GPIO1_27   MODE7 | OUTPUT | PULLDOWN */
 				>;
 			};
 		};
