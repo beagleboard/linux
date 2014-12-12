@@ -1075,6 +1075,7 @@ static int __init omap_dsshw_probe(struct platform_device *pdev)
 		goto err_setup_clocks;
 
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_irq_safe(&pdev->dev);
 
 	r = dss_runtime_get();
 	if (r)
