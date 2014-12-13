@@ -108,7 +108,7 @@
 				0x4a002564 0x8
 				0x4a002574 0x50>;
 				compatible = "ti,dra752-bandgap";
-				interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
+				interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
 				#thermal-sensor-cells = <1>;
 		};
 
