@@ -172,11 +172,12 @@ int xhci_reset(struct xhci_hcd *xhci)
 
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init, "// Reset the HC");
 	command = readl(&xhci->op_regs->command);
-	command |= CMD_RESET;
+	command |= (xhci->quirks & XHCI_NEEDS_LHC_RESET) ? CMD_LRESET : CMD_RESET;
 	writel(command, &xhci->op_regs->command);
 
 	ret = xhci_handshake(xhci, &xhci->op_regs->command,
-			CMD_RESET, 0, 10 * 1000 * 1000);
+			(xhci->quirks & XHCI_NEEDS_LHC_RESET) ? CMD_LRESET : CMD_RESET,
+			0, 10 * 1000 * 1000);
 	if (ret)
 		return ret;
 
