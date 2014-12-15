@@ -62,7 +62,13 @@ static int hdmi_dai_startup(struct snd_pcm_substream *substream,
 	ret = snd_pcm_hw_constraint_step(substream->runtime, 0,
 					 SNDRV_PCM_HW_PARAM_PERIOD_BYTES, 128);
 	if (ret < 0) {
-		dev_err(dai->dev, "could not apply constraint\n");
+		dev_err(dai->dev, "could not apply period constraint\n");
+		return ret;
+	}
+	ret = snd_pcm_hw_constraint_step(substream->runtime, 0,
+					 SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 128);
+	if (ret < 0) {
+		dev_err(dai->dev, "could not apply buffer constraint\n");
 		return ret;
 	}
 
