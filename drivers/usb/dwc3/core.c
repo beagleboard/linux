@@ -655,6 +655,18 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->xhci_resources[1].flags = res->flags;
 	dwc->xhci_resources[1].name = res->name;
 
+	dwc->otg_irq = platform_get_irq_byname(pdev, "otg");
+	if (!dwc->otg_irq)
+		dev_err(dev, "missing OTG IRQ\n");
+
+	dwc->gadget_irq = platform_get_irq_byname(pdev, "peripheral");
+	if (!dwc->gadget_irq)
+		dev_err(dev, "missing peripheral IRQ\n");
+
+	dwc->xhci_irq = platform_get_irq_byname(pdev, "host");
+	if (!dwc->xhci_irq)
+		dev_err(dev, "missing HOST IRQ\n");
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(dev, "missing memory resource\n");
