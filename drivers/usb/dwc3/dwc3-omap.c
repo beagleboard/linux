@@ -637,6 +637,7 @@ static int dwc3_omap_suspend(struct device *dev)
 	omap->utmi_otg_status = dwc3_omap_read_utmi_status(omap);
 	dwc3_omap_disable_irqs(omap);
 
+	pinctrl_pm_select_sleep_state(dev);
 	return 0;
 }
 
@@ -644,13 +645,14 @@ static int dwc3_omap_resume(struct device *dev)
 {
 	struct dwc3_omap	*omap = dev_get_drvdata(dev);
 
-	dwc3_omap_write_utmi_status(omap, omap->utmi_otg_status);
-	dwc3_omap_enable_irqs(omap);
+	pinctrl_pm_select_default_state(dev);
 
 	pm_runtime_disable(dev);
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 
+	dwc3_omap_write_utmi_status(omap, omap->utmi_otg_status);
+	dwc3_omap_enable_irqs(omap);
 	return 0;
 }
 
