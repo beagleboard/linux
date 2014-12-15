@@ -285,7 +285,11 @@ static int xhci_plat_suspend(struct device *dev)
 	 * reconsider this when xhci_plat_suspend enlarges its scope, e.g.,
 	 * also applies to runtime suspend.
 	 */
-	return xhci_suspend(xhci, device_may_wakeup(dev));
+
+	if (usb_drd_get_state(dev->parent) & DRD_HOST_ACTIVE)
+		return xhci_suspend(xhci, device_may_wakeup(dev));
+
+	return 0;
 }
 
 static int xhci_plat_resume(struct device *dev)
@@ -293,7 +297,10 @@ static int xhci_plat_resume(struct device *dev)
 	struct usb_hcd	*hcd = dev_get_drvdata(dev);
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 
-	return xhci_resume(xhci, 0);
+	if (usb_drd_get_state(dev->parent) & DRD_HOST_ACTIVE)
+		return xhci_resume(xhci, 0);
+
+	return 0;
 }
 
 static const struct dev_pm_ops xhci_plat_pm_ops = {
