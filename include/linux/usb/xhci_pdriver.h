@@ -23,6 +23,7 @@
 struct usb_xhci_pdata {
 	unsigned	usb3_lpm_capable:1;
 	unsigned	usb_drd_support:1;
+	unsigned	usb_needs_lhc_reset:1;
 };
 
 #endif /* __USB_CORE_XHCI_PDRIVER_H */
