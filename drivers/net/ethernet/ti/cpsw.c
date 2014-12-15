@@ -920,7 +920,7 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
 		/* disable forwarding */
 		cpsw_ale_control_set(priv->ale, slave_port,
 				     ALE_PORT_STATE,
-				     priv->port_state[slave_port]);
+				     ALE_PORT_STATE_DISABLE);
 	}
 
 	if (mac_control != slave->mac_control) {
