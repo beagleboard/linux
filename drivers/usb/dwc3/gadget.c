@@ -29,6 +29,7 @@
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/usb/drd.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -2754,6 +2755,89 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 	return ret;
 }
 
+static void dwc3_gadget_release(struct device *dev)
+{
+	struct usb_gadget *gadget = container_of(dev, struct usb_gadget, dev);
+	struct dwc3_gadget *dwc_gadget = gadget_to_dwc_gadget(gadget);
+	struct dwc3 *dwc = dwc_gadget->dwc;
+
+	dev_dbg(dev, "releasing '%s'\n", dev_name(dev));
+	dwc3_gadget_free_endpoints(dwc);
+	dma_free_coherent(dwc->dev, DWC3_EP0_BOUNCE_SIZE,
+			  dwc->ep0_bounce, dwc->ep0_bounce_addr);
+	kfree(dwc->setup_buf);
+	dma_free_coherent(dwc->dev, sizeof(*dwc->ep0_trb),
+			  dwc->ep0_trb, dwc->ep0_trb_addr);
+	dma_free_coherent(dwc->dev, sizeof(*dwc->ctrl_req),
+			  dwc->ctrl_req, dwc->ctrl_req_addr);
+	usb_drd_unregister_udc(dwc->dev);
+	kfree(dwc_gadget);
+}
+
+static int dwc3_gadget_setup(void *data)
+{
+	struct dwc3 *dwc = data;
+	struct dwc3_gadget *dwc_gadget;
+	struct usb_drd_gadget *drd_gadget;
+	struct usb_drd_setup *gadget_setup;
+	int ret;
+
+	drd_gadget = kzalloc(sizeof(*drd_gadget), GFP_KERNEL);
+	if (!drd_gadget) {
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	gadget_setup = kzalloc(sizeof(*gadget_setup), GFP_KERNEL);
+	if (!gadget_setup) {
+		ret = -ENOMEM;
+		goto err2;
+	}
+
+	dwc_gadget = kzalloc(sizeof(*dwc_gadget), GFP_KERNEL);
+	if (!dwc_gadget) {
+		ret = -ENOMEM;
+		goto err3;
+	}
+
+	drd_gadget->g_driver = dwc->gadget_driver;
+
+	/*
+	 * Pass the DWC3 specific routines for
+	 * switching roles to the drd library
+	 */
+	gadget_setup->ll_start = NULL;
+	gadget_setup->ll_stop = NULL;
+	gadget_setup->ll_release = dwc3_gadget_release;
+	gadget_setup->data =  (void *)dwc;
+	drd_gadget->gadget_setup = gadget_setup;
+
+	dwc_gadget->gadget.ops			= &dwc3_gadget_ops;
+	dwc_gadget->gadget.max_speed		= USB_SPEED_SUPER;
+	dwc_gadget->gadget.speed		= USB_SPEED_UNKNOWN;
+	dwc_gadget->gadget.sg_supported		= true;
+	dwc_gadget->gadget.name			= "dwc3-gadget";
+	dwc_gadget->dwc				= dwc;
+	drd_gadget->gadget = &dwc_gadget->gadget;
+
+	/*
+	 * Per databook, DWC3 needs buffer size to be aligned to MaxPacketSize
+	 * on ep out.
+	 */
+	dwc_gadget->gadget.quirk_ep_out_aligned_size = true;
+	dwc->dwc_gadget = dwc_gadget;
+	usb_drd_register_udc(dwc->dev, drd_gadget);
+
+	return 0;
+
+err3:
+	kfree(gadget_setup);
+err2:
+	kfree(drd_gadget);
+err1:
+	return ret;
+}
+
 /**
  * dwc3_gadget_init - Initializes gadget related registers
  * @dwc: pointer to our controller context structure
@@ -2763,7 +2847,6 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 int dwc3_gadget_init(struct dwc3 *dwc)
 {
 	int					ret;
-	struct dwc3_gadget			*dwc_gadget;
 
 	dwc->ctrl_req = dma_alloc_coherent(dwc->dev, sizeof(*dwc->ctrl_req),
 			&dwc->ctrl_req_addr, GFP_KERNEL);
@@ -2797,24 +2880,9 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		goto err3;
 	}
 
-	dwc_gadget = kzalloc(sizeof(*dwc_gadget), GFP_KERNEL);
-	if (!dwc_gadget) {
-		ret = -ENOMEM;
+	ret = dwc3_gadget_setup(dwc);
+	if (ret)
 		goto err3;
-	}
-
-	dwc_gadget->gadget.ops			= &dwc3_gadget_ops;
-	dwc_gadget->gadget.max_speed		= USB_SPEED_SUPER;
-	dwc_gadget->gadget.speed		= USB_SPEED_UNKNOWN;
-	dwc_gadget->gadget.sg_supported	= true;
-	dwc_gadget->gadget.name		= "dwc3-gadget";
-	dwc_gadget->dwc = dwc;
-
-	/*
-	 * Per databook, DWC3 needs buffer size to be aligned to MaxPacketSize
-	 * on ep out.
-	 */
-	dwc_gadget->gadget.quirk_ep_out_aligned_size = true;
 
 	/*
 	 * REVISIT: Here we should clear all pending IRQs to be
@@ -2825,7 +2893,8 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	if (ret)
 		goto err4;
 
-	ret = usb_add_gadget_udc(dwc->dev, &dwc_gadget->gadget);
+	ret = usb_add_gadget_udc_release(dwc->dev, &dwc->dwc_gadget->gadget,
+					 dwc3_gadget_release);
 	if (ret) {
 		dev_err(dwc->dev, "failed to register udc\n");
 		goto err4;
@@ -2834,6 +2903,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	return 0;
 
 err4:
+	usb_drd_unregister_udc(dwc->dev);
 	dwc3_gadget_free_endpoints(dwc);
 	dma_free_coherent(dwc->dev, DWC3_EP0_BOUNCE_SIZE,
 			dwc->ep0_bounce, dwc->ep0_bounce_addr);
@@ -2859,20 +2929,23 @@ void dwc3_gadget_exit(struct dwc3 *dwc)
 {
 	struct dwc3_gadget *dwc_gadget = dwc->dwc_gadget;
 
-	usb_del_gadget_udc(&dwc_gadget->gadget);
 
-	dwc3_gadget_free_endpoints(dwc);
+	if (usb_drd_get_state(dwc->dev) & DRD_DEVICE_REGISTERED) {
+		usb_del_gadget_udc(&dwc_gadget->gadget);
 
-	dma_free_coherent(dwc->dev, DWC3_EP0_BOUNCE_SIZE,
-			dwc->ep0_bounce, dwc->ep0_bounce_addr);
+		dwc3_gadget_free_endpoints(dwc);
 
-	kfree(dwc->setup_buf);
+		dma_free_coherent(dwc->dev, DWC3_EP0_BOUNCE_SIZE,
+				dwc->ep0_bounce, dwc->ep0_bounce_addr);
 
-	dma_free_coherent(dwc->dev, sizeof(*dwc->ep0_trb),
-			dwc->ep0_trb, dwc->ep0_trb_addr);
+		kfree(dwc->setup_buf);
 
-	dma_free_coherent(dwc->dev, sizeof(*dwc->ctrl_req),
-			dwc->ctrl_req, dwc->ctrl_req_addr);
+		dma_free_coherent(dwc->dev, sizeof(*dwc->ep0_trb),
+				dwc->ep0_trb, dwc->ep0_trb_addr);
+
+		dma_free_coherent(dwc->dev, sizeof(*dwc->ctrl_req),
+				dwc->ctrl_req, dwc->ctrl_req_addr);
+	}
 }
 
 int dwc3_gadget_suspend(struct dwc3 *dwc)
