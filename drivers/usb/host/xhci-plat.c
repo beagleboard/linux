@@ -25,6 +25,10 @@
 
 static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 {
+	struct usb_xhci_pdata   *pdata = dev_get_platdata(dev);
+
+	if (pdata->usb_drd_support)
+		xhci->quirks |= XHCI_DRD_SUPPORT;
 	/*
 	 * As of now platform drivers don't provide MSI support so we ensure
 	 * here that the generic code does not try to make a pci_dev from our
