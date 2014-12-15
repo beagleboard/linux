@@ -780,6 +780,11 @@ struct dwc3 {
 	/* used for suspend/resume */
 	u32			dcfg;
 	u32			gctl;
+	u32			ocfg;
+	u32			octl;
+	u32			oevt;
+	u32			oevten;
+	u32			osts;
 
 	u32			nr_scratch;
 	u32			num_event_buffers;
@@ -1037,10 +1042,16 @@ static inline int dwc3_send_gadget_generic_command(struct dwc3 *dwc,
 #if IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 int dwc3_otg_init(struct dwc3 *dwc);
 void dwc3_otg_exit(struct dwc3 *dwc);
+void dwc3_otg_suspend(struct dwc3 *dwc);
+void dwc3_otg_resume(struct dwc3 *dwc);
 #else
 static inline int dwc3_otg_init(struct dwc3 *dwc)
 { return 0; }
 static inline void dwc3_otg_exit(struct dwc3 *dwc)
+{ }
+static inline void dwc3_otg_suspend(struct dwc3 *dwc)
+{ }
+static inline void dwc3_otg_resume(struct dwc3 *dwc)
 { }
 #endif
 

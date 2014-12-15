@@ -124,3 +124,21 @@ int dwc3_otg_init(struct dwc3 *dwc)
 
 	return 0;
 }
+
+void dwc3_otg_suspend(struct dwc3 *dwc)
+{
+	dwc->ocfg = dwc3_readl(dwc->regs, DWC3_OCFG);
+	dwc->octl = dwc3_readl(dwc->regs, DWC3_OCTL);
+	dwc->oevt = dwc3_readl(dwc->regs, DWC3_OEVT);
+	dwc->oevten = dwc3_readl(dwc->regs, DWC3_OEVTEN);
+	dwc->osts = dwc3_readl(dwc->regs, DWC3_OSTS);
+}
+
+void dwc3_otg_resume(struct dwc3 *dwc)
+{
+	dwc3_writel(dwc->regs, DWC3_OCFG, dwc->ocfg);
+	dwc3_writel(dwc->regs, DWC3_OCTL, dwc->octl);
+	dwc3_writel(dwc->regs, DWC3_OEVT, dwc->oevt);
+	dwc3_writel(dwc->regs, DWC3_OEVTEN, dwc->oevten);
+	dwc3_writel(dwc->regs, DWC3_OSTS, dwc->osts);
+}
