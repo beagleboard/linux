@@ -105,6 +105,7 @@ static int __dwc3_gadget_ep0_queue(struct dwc3_ep *dep,
 		struct dwc3_request *req)
 {
 	struct dwc3		*dwc = dep->dwc;
+	struct dwc3_gadget	*dwc_gadget = dwc->dwc_gadget;
 
 	req->request.actual	= 0;
 	req->request.status	= -EINPROGRESS;
@@ -148,7 +149,7 @@ static int __dwc3_gadget_ep0_queue(struct dwc3_ep *dep,
 
 		direction = !dwc->ep0_expect_in;
 		dwc->delayed_status = false;
-		usb_gadget_set_state(&dwc->gadget, USB_STATE_CONFIGURED);
+		usb_gadget_set_state(&dwc_gadget->gadget, USB_STATE_CONFIGURED);
 
 		if (dwc->ep0state == EP0_STATUS_PHASE)
 			__dwc3_ep0_do_control_status(dwc, dwc->eps[direction]);
@@ -384,6 +385,7 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 		struct usb_ctrlrequest *ctrl, int set)
 {
 	struct dwc3_ep		*dep;
+	struct dwc3_gadget	*dwc_gadget = dwc->dwc_gadget;
 	u32			recip;
 	u32			wValue;
 	u32			wIndex;
@@ -394,7 +396,7 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 	wValue = le16_to_cpu(ctrl->wValue);
 	wIndex = le16_to_cpu(ctrl->wIndex);
 	recip = ctrl->bRequestType & USB_RECIP_MASK;
-	state = dwc->gadget.state;
+	state = dwc_gadget->gadget.state;
 
 	switch (recip) {
 	case USB_RECIP_DEVICE:
@@ -493,7 +495,8 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 
 static int dwc3_ep0_set_address(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 {
-	enum usb_device_state state = dwc->gadget.state;
+	struct dwc3_gadget *dwc_gadget = dwc->dwc_gadget;
+	enum usb_device_state state = dwc_gadget->gadget.state;
 	u32 addr;
 	u32 reg;
 
@@ -514,26 +517,28 @@ static int dwc3_ep0_set_address(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
 
 	if (addr)
-		usb_gadget_set_state(&dwc->gadget, USB_STATE_ADDRESS);
+		usb_gadget_set_state(&dwc_gadget->gadget, USB_STATE_ADDRESS);
 	else
-		usb_gadget_set_state(&dwc->gadget, USB_STATE_DEFAULT);
+		usb_gadget_set_state(&dwc_gadget->gadget, USB_STATE_DEFAULT);
 
 	return 0;
 }
 
 static int dwc3_ep0_delegate_req(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 {
+	struct dwc3_gadget *dwc_gadget = dwc->dwc_gadget;
 	int ret;
 
 	spin_unlock(&dwc->lock);
-	ret = dwc->gadget_driver->setup(&dwc->gadget, ctrl);
+	ret = dwc->gadget_driver->setup(&dwc_gadget->gadget, ctrl);
 	spin_lock(&dwc->lock);
 	return ret;
 }
 
 static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 {
-	enum usb_device_state state = dwc->gadget.state;
+	struct dwc3_gadget *dwc_gadget = dwc->dwc_gadget;
+	enum usb_device_state state = dwc_gadget->gadget.state;
 	u32 cfg;
 	int ret;
 	u32 reg;
@@ -558,7 +563,7 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 			 * to change the state on the next usb_ep_queue()
 			 */
 			if (ret == 0)
-				usb_gadget_set_state(&dwc->gadget,
+				usb_gadget_set_state(&dwc_gadget->gadget,
 						USB_STATE_CONFIGURED);
 
 			/*
@@ -577,7 +582,7 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 	case USB_STATE_CONFIGURED:
 		ret = dwc3_ep0_delegate_req(dwc, ctrl);
 		if (!cfg && !ret)
-			usb_gadget_set_state(&dwc->gadget,
+			usb_gadget_set_state(&dwc_gadget->gadget,
 					USB_STATE_ADDRESS);
 		break;
 	default:
@@ -633,7 +638,8 @@ static void dwc3_ep0_set_sel_cmpl(struct usb_ep *ep, struct usb_request *req)
 static int dwc3_ep0_set_sel(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 {
 	struct dwc3_ep	*dep;
-	enum usb_device_state state = dwc->gadget.state;
+	struct dwc3_gadget *dwc_gadget = dwc->dwc_gadget;
+	enum usb_device_state state = dwc_gadget->gadget.state;
 	u16		wLength;
 	u16		wValue;
 
@@ -905,6 +911,7 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 		struct dwc3_ep *dep, struct dwc3_request *req)
 {
 	int			ret;
+	struct dwc3_gadget	*dwc_gadget = dwc->dwc_gadget;
 
 	req->direction = !!dep->number;
 
@@ -917,7 +924,7 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 		u32	transfer_size;
 		u32	maxpacket;
 
-		ret = usb_gadget_map_request(&dwc->gadget, &req->request,
+		ret = usb_gadget_map_request(&dwc_gadget->gadget, &req->request,
 				dep->number);
 		if (ret) {
 			dev_dbg(dwc->dev, "failed to map request\n");
@@ -940,7 +947,7 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 				dwc->ep0_bounce_addr, transfer_size,
 				DWC3_TRBCTL_CONTROL_DATA);
 	} else {
-		ret = usb_gadget_map_request(&dwc->gadget, &req->request,
+		ret = usb_gadget_map_request(&dwc_gadget->gadget, &req->request,
 				dep->number);
 		if (ret) {
 			dev_dbg(dwc->dev, "failed to map request\n");

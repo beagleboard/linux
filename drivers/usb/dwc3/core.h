@@ -600,6 +600,11 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
+struct dwc3_gadget {
+	struct usb_gadget gadget;
+	struct dwc3 *dwc;
+};
+
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -686,7 +691,7 @@ struct dwc3 {
 	struct dwc3_event_buffer **ev_buffs;
 	struct dwc3_ep		*eps[DWC3_ENDPOINTS_NUM];
 
-	struct usb_gadget	gadget;
+	struct dwc3_gadget	*dwc_gadget;
 	struct usb_gadget_driver *gadget_driver;
 
 	struct usb_phy		*usb2_phy;
