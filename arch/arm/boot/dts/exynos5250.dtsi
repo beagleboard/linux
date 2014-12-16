@@ -511,7 +511,12 @@
 		dwc3 {
 			compatible = "synopsys,dwc3";
 			reg = <0x12000000 0x10000>;
-			interrupts = <0 72 0>;
+			interrupts = <0 72 0>,
+				     <0 72 0>,
+				     <0 72 0>;
+			interrupt-names = "peripheral",
+					  "host",
+					  "otg";
 			usb-phy = <&usb2_phy &usb3_phy>;
 		};
 	};

@@ -935,23 +935,30 @@
 	pinctrl-0 = <&uart3_pins>;
 };
 
-&usb2_phy1 {
-	status = "okay";
+&dwc3_1 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&usb2_phy1_default>;
 	pinctrl-1 = <&usb2_phy1_sleep>;
+
+};
+
+&usb2_phy1 {
+	status = "okay";
 };
 
 &usb1 {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
 	status = "okay";
+};
+
+&dwc3_2 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&usb2_phy2_default>;
+	pinctrl-1 = <&usb2_phy2_sleep>;
 };
 
 &usb2_phy2 {
 	status = "okay";
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&usb2_phy2_default>;
-	pinctrl-1 = <&usb2_phy2_sleep>;
 };
 
 &usb2 {

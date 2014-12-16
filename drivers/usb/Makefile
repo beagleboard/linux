@@ -59,3 +59,4 @@ obj-$(CONFIG_USB_RENESAS_USBHS)	+= renesas_usbhs/
 obj-$(CONFIG_USB_GADGET)	+= gadget/
 
 obj-$(CONFIG_USB_COMMON)	+= usb-common.o
+obj-$(CONFIG_DRD_LIB)       	+= drd-lib.o

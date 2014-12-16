@@ -17,6 +17,8 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/usb/otg.h>
+#include <linux/usb/drd.h>
 #include <linux/usb/xhci_pdriver.h>
 
 #include "xhci.h"
@@ -25,6 +27,13 @@
 
 static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 {
+	struct usb_xhci_pdata   *pdata = dev_get_platdata(dev);
+
+	if (pdata->usb_drd_support)
+		xhci->quirks |= XHCI_DRD_SUPPORT;
+
+	if (pdata->usb_needs_lhc_reset)
+		xhci->quirks |= XHCI_NEEDS_LHC_RESET;
 	/*
 	 * As of now platform drivers don't provide MSI support so we ensure
 	 * here that the generic code does not try to make a pci_dev from our
@@ -122,6 +131,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	struct resource         *res;
 	struct usb_hcd		*hcd;
 	struct clk              *clk;
+	struct usb_drd_host	*drd_host;
 	int			ret;
 	int			irq;
 
@@ -213,6 +223,17 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto put_usb3_hcd;
 
+	drd_host = kzalloc(sizeof(*drd_host), GFP_KERNEL);
+	if (!drd_host)
+		return -ENOMEM;
+
+	drd_host->main_hcd = xhci->main_hcd;
+	drd_host->shared_hcd = xhci->shared_hcd;
+	drd_host->hcd_irq = irq;
+	drd_host->host_setup = NULL;
+
+	usb_drd_register_hcd(pdev->dev.parent, drd_host);
+
 	return 0;
 
 put_usb3_hcd:
@@ -244,6 +265,7 @@ static int xhci_plat_remove(struct platform_device *dev)
 	if (!IS_ERR(clk))
 		clk_disable_unprepare(clk);
 	usb_put_hcd(hcd);
+	usb_drd_unregister_hcd(dev->dev.parent);
 	kfree(xhci);
 
 	return 0;
@@ -263,7 +285,11 @@ static int xhci_plat_suspend(struct device *dev)
 	 * reconsider this when xhci_plat_suspend enlarges its scope, e.g.,
 	 * also applies to runtime suspend.
 	 */
-	return xhci_suspend(xhci, device_may_wakeup(dev));
+
+	if (usb_drd_get_state(dev->parent) & DRD_HOST_ACTIVE)
+		return xhci_suspend(xhci, device_may_wakeup(dev));
+
+	return 0;
 }
 
 static int xhci_plat_resume(struct device *dev)
@@ -271,7 +297,10 @@ static int xhci_plat_resume(struct device *dev)
 	struct usb_hcd	*hcd = dev_get_drvdata(dev);
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 
-	return xhci_resume(xhci, 0);
+	if (usb_drd_get_state(dev->parent) & DRD_HOST_ACTIVE)
+		return xhci_resume(xhci, 0);
+
+	return 0;
 }
 
 static const struct dev_pm_ops xhci_plat_pm_ops = {

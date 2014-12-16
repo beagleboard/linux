@@ -357,6 +357,74 @@
 #define DWC3_DEPCMD_TYPE_BULK		2
 #define DWC3_DEPCMD_TYPE_INTR		3
 
+/* OTG Configuration Register */
+#define DWC3_OCFG_DISPWRCUTTOFF                (1 << 5)
+#define DWC3_OCFG_HIBDISMASK           (1 << 4)
+#define DWC3_OCFG_SFTRSTMASK           (1 << 3)
+#define DWC3_OCFG_OTGVERSION           (1 << 2)
+#define DWC3_OCFG_HNPCAP               (1 << 1)
+#define DWC3_OCFG_SRPCAP               (1 << 0)
+
+/* OTG CTL Register */
+#define DWC3_OCTL_OTG3GOERR            (1 << 7)
+#define DWC3_OCTL_PERIMODE             (1 << 6)
+#define DWC3_OCTL_PRTPWRCTL            (1 << 5)
+#define DWC3_OCTL_HNPREQ               (1 << 4)
+#define DWC3_OCTL_SESREQ               (1 << 3)
+#define DWC3_OCTL_TERMSELIDPULSE       (1 << 2)
+#define DWC3_OCTL_DEVSETHNPEN          (1 << 1)
+#define DWC3_OCTL_HOSTSETHNPEN         (1 << 0)
+
+/* OTG Event Register */
+#define DWC3_OEVT_DEVICEMODE           (1 << 31)
+#define DWC3_OEVT_XHCIRUNSTPSET                (1 << 27)
+#define DWC3_OEVT_DEVRUNSTPSET         (1 << 26)
+#define DWC3_OEVT_HIBENTRY             (1 << 25)
+#define DWC3_OEVT_IDSTSCHNG            (1 << 24)
+#define DWC3_OEVT_HRRCONFNOTIF         (1 << 23)
+#define DWC3_OEVT_HRRINITNOTIF         (1 << 22)
+#define DWC3_OEVT_ADEVIDLE             (1 << 21)
+#define DWC3_OEVT_ADEVBHOSTEND         (1 << 20)
+#define DWC3_OEVT_ADEVHOST             (1 << 19)
+#define DWC3_OEVT_ADEVHNPCHNG          (1 << 18)
+#define DWC3_OEVT_ADEVSRPDET           (1 << 17)
+#define DWC3_OEVT_ADEVSESSENDDET       (1 << 16)
+#define DWC3_OEVT_BDEVBHOSTEND         (1 << 11)
+#define DWC3_OEVT_BDEVHNPCHNG          (1 << 10)
+#define DWC3_OEVT_BDEVSESSVLDDET       (1 << 9)
+#define DWC3_OEVT_BDEVVBUSCHNG         (1 << 8)
+#define DWC3_OEVT_BSESSVLD             (1 << 3)
+#define DWC3_OEVT_HOSTNEGSTS           (1 << 2)
+#define DWC3_OEVT_SESSREQSTS           (1 << 1)
+#define DWC3_OEVT_ERR                  (1 << 0)
+
+/* OTG Event Enable Register */
+#define DWC3_OEVTEN_XHCIRUNSTPSETEN    (1 << 27)
+#define DWC3_OEVTEN_DEVRUNSTPSETEN     (1 << 26)
+#define DWC3_OEVTEN_HIBENTRYEN         (1 << 25)
+#define DWC3_OEVTEN_CONIDSTSCHNGEN     (1 << 24)
+#define DWC3_OEVTEN_HRRCONFNOTIFEN     (1 << 23)
+#define DWC3_OEVTEN_HRRINITNOTIFEN     (1 << 22)
+#define DWC3_OEVTEN_ADEVIDLEEN         (1 << 21)
+#define DWC3_OEVTEN_ADEVBHOSTENDEN     (1 << 20)
+#define DWC3_OEVTEN_ADEVHOSTEN         (1 << 19)
+#define DWC3_OEVTEN_ADEVHNPCHNGEN      (1 << 18)
+#define DWC3_OEVTEN_ADEVSRPDETEN       (1 << 17)
+#define DWC3_OEVTEN_ADEVSESSENDDETEN   (1 << 16)
+#define DWC3_OEVTEN_BDEVHOSTENDEN      (1 << 11)
+#define DWC3_OEVTEN_BDEVHNPCHNGEN      (1 << 10)
+#define DWC3_OEVTEN_BDEVSESSVLDDETEN   (1 << 9)
+#define DWC3_OEVTEN_BDEVVBUSCHNGEVNTEN (1 << 8)
+
+/* OTG Status Register */
+#define DWC3_OSTS_DEVRUNSTP            (1 << 13)
+#define DWC3_OSTS_XHCIRUNSTP           (1 << 12)
+#define DWC3_OSTS_PERIPHERALSTATE      (1 << 4)
+#define DWC3_OSTS_XHCIPORTPOWER                (1 << 3)
+#define DWC3_OSTS_BSESVLD              (1 << 2)
+#define DWC3_OSTS_VBUSVLD              (1 << 1)
+#define DWC3_OSTS_CONIDSTS             (1 << 0)
+
 /* Structures */
 
 struct dwc3_trb;
@@ -600,6 +668,11 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
+struct dwc3_gadget {
+	struct usb_gadget gadget;
+	struct dwc3 *dwc;
+};
+
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -625,6 +698,9 @@ struct dwc3_scratchpad_array {
  * @maximum_speed: maximum speed requested (mainly for testing purposes)
  * @revision: revision register contents
  * @dr_mode: requested mode of operation
+ * @xhci_irq: IRQ number for XHCI IRQs
+ * @gadget_irq: IRQ number for Peripheral IRQs
+ * @otg_irq: IRQ number for OTG IRQs
  * @usb2_phy: pointer to USB2 PHY
  * @usb3_phy: pointer to USB3 PHY
  * @usb2_generic_phy: pointer to USB2 PHY
@@ -683,7 +759,7 @@ struct dwc3 {
 	struct dwc3_event_buffer **ev_buffs;
 	struct dwc3_ep		*eps[DWC3_ENDPOINTS_NUM];
 
-	struct usb_gadget	gadget;
+	struct dwc3_gadget	*dwc_gadget;
 	struct usb_gadget_driver *gadget_driver;
 
 	struct usb_phy		*usb2_phy;
@@ -697,9 +773,18 @@ struct dwc3 {
 
 	enum usb_dr_mode	dr_mode;
 
+	int			gadget_irq;
+	int			xhci_irq;
+	int			otg_irq;
+
 	/* used for suspend/resume */
 	u32			dcfg;
 	u32			gctl;
+	u32			ocfg;
+	u32			octl;
+	u32			oevt;
+	u32			oevten;
+	u32			osts;
 
 	u32			nr_scratch;
 	u32			num_event_buffers;
@@ -912,6 +997,7 @@ struct dwc3_gadget_ep_cmd_params {
 /* prototypes */
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
+int dwc3_core_gadget_helper(struct dwc3 *dwc);
 
 #if IS_ENABLED(CONFIG_USB_DWC3_HOST) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 int dwc3_host_init(struct dwc3 *dwc);
@@ -951,6 +1037,22 @@ static inline int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 static inline int dwc3_send_gadget_generic_command(struct dwc3 *dwc,
 		int cmd, u32 param)
 { return 0; }
+#endif
+
+#if IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
+int dwc3_otg_init(struct dwc3 *dwc);
+void dwc3_otg_exit(struct dwc3 *dwc);
+void dwc3_otg_suspend(struct dwc3 *dwc);
+void dwc3_otg_resume(struct dwc3 *dwc);
+#else
+static inline int dwc3_otg_init(struct dwc3 *dwc)
+{ return 0; }
+static inline void dwc3_otg_exit(struct dwc3 *dwc)
+{ }
+static inline void dwc3_otg_suspend(struct dwc3 *dwc)
+{ }
+static inline void dwc3_otg_resume(struct dwc3 *dwc)
+{ }
 #endif
 
 /* power management interface */

@@ -44,6 +44,21 @@ config USB_COMMON
 	default y
 	depends on USB || USB_GADGET
 
+config DRD_LIB
+	tristate  "DRD Library support"
+	default y
+	depends on USB && USB_GADGET
+	---help---
+	  This option adds DRD Library support for Universal Serial Bus (USB).
+	  DRD Library faciliatets the Role switching by HOST and DEVICE roles,
+	  If your hardware has a Dual Role Device.
+
+	  The DRD Library uses USB core API's to start/stop HOST controllers,
+	  UDC API's to start/stop DEVICE controllers, ther by enabling to
+	  switch roles between HOST and Device modes.
+
+	  Say N if unsure.
+
 config USB_ARCH_HAS_HCD
 	def_bool y
 

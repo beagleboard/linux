@@ -254,6 +254,11 @@ static void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
 	}
 }
 
+int dwc3_core_gadget_helper(struct dwc3 *dwc)
+{
+	return dwc3_event_buffers_setup(dwc);
+}
+
 static int dwc3_alloc_scratch_buffers(struct dwc3 *dwc)
 {
 	if (!dwc->has_hibernation)
@@ -577,15 +582,9 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 		break;
 	case USB_DR_MODE_OTG:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
-		ret = dwc3_host_init(dwc);
+		ret = dwc3_otg_init(dwc);
 		if (ret) {
-			dev_err(dev, "failed to initialize host\n");
-			return ret;
-		}
-
-		ret = dwc3_gadget_init(dwc);
-		if (ret) {
-			dev_err(dev, "failed to initialize gadget\n");
+			dev_err(dev, "failed to initialize otg\n");
 			return ret;
 		}
 		break;
@@ -649,6 +648,18 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->xhci_resources[1].end = res->end;
 	dwc->xhci_resources[1].flags = res->flags;
 	dwc->xhci_resources[1].name = res->name;
+
+	dwc->otg_irq = platform_get_irq_byname(pdev, "otg");
+	if (!dwc->otg_irq)
+		dev_err(dev, "missing OTG IRQ\n");
+
+	dwc->gadget_irq = platform_get_irq_byname(pdev, "peripheral");
+	if (!dwc->gadget_irq)
+		dev_err(dev, "missing peripheral IRQ\n");
+
+	dwc->xhci_irq = platform_get_irq_byname(pdev, "host");
+	if (!dwc->xhci_irq)
+		dev_err(dev, "missing HOST IRQ\n");
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -834,8 +845,9 @@ static int dwc3_suspend(struct device *dev)
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	switch (dwc->dr_mode) {
-	case USB_DR_MODE_PERIPHERAL:
 	case USB_DR_MODE_OTG:
+		dwc3_otg_suspend(dwc);
+	case USB_DR_MODE_PERIPHERAL:
 		dwc3_gadget_suspend(dwc);
 		/* FALLTHROUGH */
 	case USB_DR_MODE_HOST:
@@ -877,8 +889,9 @@ static int dwc3_resume(struct device *dev)
 	dwc3_event_buffers_setup(dwc);
 
 	switch (dwc->dr_mode) {
-	case USB_DR_MODE_PERIPHERAL:
 	case USB_DR_MODE_OTG:
+		dwc3_otg_resume(dwc);
+	case USB_DR_MODE_PERIPHERAL:
 		dwc3_gadget_resume(dwc);
 		/* FALLTHROUGH */
 	case USB_DR_MODE_HOST:
