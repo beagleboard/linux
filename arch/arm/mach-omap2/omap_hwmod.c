@@ -2991,9 +2991,6 @@ static int _omap2xxx_wait_target_ready(struct omap_hwmod *oh)
 	if (oh->flags & HWMOD_NO_IDLEST)
 		return 0;
 
-	if (!_find_mpu_rt_port(oh))
-		return 0;
-
 	/* XXX check module SIDLEMODE, hardreset status, enabled clocks */
 
 	return omap2xxx_cm_wait_module_ready(oh->prcm.omap2.module_offs,
@@ -3016,9 +3013,6 @@ static int _omap3xxx_wait_target_ready(struct omap_hwmod *oh)
 		return -EINVAL;
 
 	if (oh->flags & HWMOD_NO_IDLEST)
-		return 0;
-
-	if (!_find_mpu_rt_port(oh))
 		return 0;
 
 	/* XXX check module SIDLEMODE, hardreset status, enabled clocks */
@@ -3045,9 +3039,6 @@ static int _omap4_wait_target_ready(struct omap_hwmod *oh)
 	if (oh->flags & HWMOD_NO_IDLEST || !oh->clkdm)
 		return 0;
 
-	if (!_find_mpu_rt_port(oh))
-		return 0;
-
 	/* XXX check module SIDLEMODE, hardreset status */
 
 	return omap4_cminst_wait_module_ready(oh->clkdm->prcm_partition,
@@ -3071,9 +3062,6 @@ static int _am33xx_wait_target_ready(struct omap_hwmod *oh)
 		return -EINVAL;
 
 	if (oh->flags & HWMOD_NO_IDLEST)
-		return 0;
-
-	if (!_find_mpu_rt_port(oh))
 		return 0;
 
 	/* XXX check module SIDLEMODE, hardreset status */
