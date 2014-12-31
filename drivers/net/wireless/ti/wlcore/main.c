@@ -674,6 +674,10 @@ static irqreturn_t wlcore_irq(int irq, void *cookie)
 		wl1271_debug(DEBUG_IRQ, "should not enqueue work");
 		disable_irq_nosync(wl->irq);
 		pm_wakeup_event(wl->dev, 0);
+#ifdef CONFIG_HAS_WAKELOCK
+		if (!test_and_set_bit(WL1271_FLAG_WAKE_LOCK, &wl->flags))
+			wake_lock(&wl->wake_lock);
+#endif
 		spin_unlock_irqrestore(&wl->wl_lock, flags);
 		return IRQ_HANDLED;
 	}
@@ -695,6 +699,11 @@ static irqreturn_t wlcore_irq(int irq, void *cookie)
 	if (!test_bit(WL1271_FLAG_FW_TX_BUSY, &wl->flags) &&
 	    wl1271_tx_total_queue_count(wl) > 0)
 		ieee80211_queue_work(wl->hw, &wl->tx_work);
+
+#ifdef CONFIG_HAS_WAKELOCK
+	if (test_and_clear_bit(WL1271_FLAG_WAKE_LOCK, &wl->flags))
+		wake_unlock(&wl->wake_lock);
+#endif
 	spin_unlock_irqrestore(&wl->wl_lock, flags);
 
 	mutex_unlock(&wl->mutex);
@@ -1923,6 +1932,12 @@ out_sleep:
 	wl1271_ps_elp_sleep(wl);
 
 out:
+#ifdef CONFIG_HAS_WAKELOCK
+	spin_lock_irqsave(&wl->wl_lock, flags);
+	if (test_and_clear_bit(WL1271_FLAG_WAKE_LOCK, &wl->flags))
+		wake_unlock(&wl->wake_lock);
+	spin_unlock_irqrestore(&wl->wl_lock, flags);
+#endif
 	wl->wow_enabled = false;
 
 	/*
@@ -6351,6 +6366,10 @@ struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
 		wl->tx_frames[i] = NULL;
 
 	spin_lock_init(&wl->wl_lock);
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_init(&wl->wake_lock, WAKE_LOCK_SUSPEND, "wl1271_wake");
+	wake_lock_init(&wl->rx_wake, WAKE_LOCK_SUSPEND, "rx_wake");
+#endif
 
 	wl->state = WLCORE_STATE_OFF;
 	wl->fw_type = WL12XX_FW_TYPE_NONE;
@@ -6407,6 +6426,10 @@ err_aggr:
 	free_pages((unsigned long)wl->aggr_buf, order);
 
 err_wq:
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_destroy(&wl->wake_lock);
+	wake_lock_destroy(&wl->rx_wake);
+#endif
 	destroy_workqueue(wl->freezable_wq);
 
 err_hw:
@@ -6424,6 +6447,10 @@ EXPORT_SYMBOL_GPL(wlcore_alloc_hw);
 
 int wlcore_free_hw(struct wl1271 *wl)
 {
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_destroy(&wl->wake_lock);
+	wake_lock_destroy(&wl->rx_wake);
+#endif
 	/* Unblock any fwlog readers */
 	mutex_lock(&wl->mutex);
 	wl->fwlog_size = -1;
