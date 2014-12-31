@@ -549,9 +549,19 @@ static int gpio_fan_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static void gpio_fan_shutdown(struct platform_device *pdev)
+{
+	struct gpio_fan_data *fan_data = dev_get_drvdata(&pdev->dev);
+
+	if (fan_data->ctrl)
+		set_fan_speed(fan_data, 0);
+}
+
 static int gpio_fan_remove(struct platform_device *pdev)
 {
 	struct gpio_fan_data *fan_data = platform_get_drvdata(pdev);
+
+	gpio_fan_shutdown(pdev);
 
 	hwmon_device_unregister(fan_data->hwmon_dev);
 
@@ -590,6 +600,7 @@ static SIMPLE_DEV_PM_OPS(gpio_fan_pm, gpio_fan_suspend, gpio_fan_resume);
 static struct platform_driver gpio_fan_driver = {
 	.probe		= gpio_fan_probe,
 	.remove		= gpio_fan_remove,
+	.shutdown	= gpio_fan_shutdown,
 	.driver	= {
 		.name	= "gpio-fan",
 		.pm	= GPIO_FAN_PM,
