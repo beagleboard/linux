@@ -18,6 +18,9 @@
 #include "nl80211.h"
 #include "rdev-ops.h"
 
+static unsigned int dfs_nop_time_ms = IEEE80211_DFS_MIN_NOP_TIME_MS;
+module_param(dfs_nop_time_ms, uint, 0644);
+MODULE_PARM_DESC(dfs_nop_time_ms, "DFS NOP time (in ms)");
 
 void cfg80211_rx_assoc_resp(struct net_device *dev, struct cfg80211_bss *bss,
 			    const u8 *buf, size_t len, int uapsd_queues)
@@ -739,7 +742,7 @@ void cfg80211_dfs_channels_update_work(struct work_struct *work)
 				continue;
 
 			timeout = c->dfs_state_entered + msecs_to_jiffies(
-					IEEE80211_DFS_MIN_NOP_TIME_MS);
+					dfs_nop_time_ms);
 
 			if (time_after_eq(jiffies, timeout)) {
 				c->dfs_state = NL80211_DFS_USABLE;
@@ -785,7 +788,7 @@ void cfg80211_radar_event(struct wiphy *wiphy,
 	 */
 	cfg80211_set_dfs_state(wiphy, chandef, NL80211_DFS_UNAVAILABLE);
 
-	timeout = msecs_to_jiffies(IEEE80211_DFS_MIN_NOP_TIME_MS);
+	timeout = msecs_to_jiffies(dfs_nop_time_ms);
 	queue_delayed_work(cfg80211_wq, &rdev->dfs_update_channels_wk,
 			   timeout);
 
