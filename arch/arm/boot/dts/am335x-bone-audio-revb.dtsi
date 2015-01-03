@@ -73,7 +73,7 @@
 		ti,model = "DA830 EVM";
 		ti,audio-codec = <&tlv320aic3x>;
 		ti,mcasp-controller = <&mcasp0>;
-		ti,codec-clock-rate = <12000000>;
+		ti,codec-clock-rate = <24000000>;
 		ti,audio-routing =
 			"Headphone Jack",       "HPLOUT",
 			"Headphone Jack",       "HPROUT",
