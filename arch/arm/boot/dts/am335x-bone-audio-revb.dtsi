@@ -13,6 +13,9 @@
 	P9_20_pinmux {
 		mode = "i2c";
 	};
+
+	/* The following are disabled because the audio mode is set
+	   by <&mcasp0_pins_audio_revb>. */
 	P9_25_pinmux {
 		/* mcasp0_ahclkx, OUTPUT | MODE0, Codec MCLK */
 		status = "disabled";
@@ -28,6 +31,8 @@
 	P9_30_pinmux {
 		/* mcasp0_axr0, INPUT | MODE0, Codec DOUT */
 		status = "disabled";
+		/* TODO Add support in am335x-bone-common-pinmux.dtsi
+		 * for an "audio" mode. */
 	};
 	P9_31_pinmux {
 		/* mcasp0_aclkx, INPUT | MODE0, Codec BCLK */
