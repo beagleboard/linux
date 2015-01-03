@@ -7,6 +7,12 @@
  */
 
 &ocp {
+	P9_19_pinmux {
+		mode = "i2c";
+	};
+	P9_20_pinmux {
+		mode = "i2c";
+	};
 	P9_25_pinmux {
 		/* mcasp0_ahclkx, OUTPUT | MODE0, Codec MCLK */
 		status = "disabled";
