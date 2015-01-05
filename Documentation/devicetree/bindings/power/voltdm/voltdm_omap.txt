@@ -25,6 +25,9 @@ Required Properties:
 	volt: voltage in uV - reference voltage (OPP voltage)
 	efuse_offseet: efuse offset from reg where the optimized voltage is stored.
 
+Optional Properties:
+- ti,absolute-max-voltage-uv: absolute maximum voltage for the voltage domain.
+
 Example:
 voltage_domain_mpu: voltdm@1 {
 	compatible = "ti,omap-voltdm";
