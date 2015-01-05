@@ -889,6 +889,7 @@
 			1160000 0x4
 			1210000 0x8
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		voltdm_ivahd: voltdm@4a0025cc {
@@ -902,6 +903,7 @@
 			1150000 0x4
 			1250000 0x8
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		voltdm_dspeve: voltdm@4a0025e0 {
@@ -915,6 +917,7 @@
 			1150000 0x4
 			1250000 0x8
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		voltdm_gpu: voltdm@4a003b08 {
@@ -928,6 +931,7 @@
 			1210000 0x4
 			1280000 0x8
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		voltdm_core: voltdm@4a0025f4 {
@@ -938,6 +942,7 @@
 			/* uV   offset */
 			1090000 0x0
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		mcspi1: spi@48098000 {
