@@ -108,6 +108,8 @@
 	cpsw_default: cpsw_default {
 		pinctrl-single,pins = <
 			/* Slave 1 */
+			0x108 (PIN_INPUT | MUX_MODE0)		/* mii1_col.mii1_col */
+			0x10c (PIN_INPUT | MUX_MODE0)		/* mii1_crs.mii1_crs */
 			AM33XX_IOPAD(0x910, PIN_INPUT_PULLUP | MUX_MODE0)	/* mii1_rxerr.mii1_rxerr */
 			AM33XX_IOPAD(0x914, PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mii1_txen.mii1_txen */
 			AM33XX_IOPAD(0x918, PIN_INPUT_PULLUP | MUX_MODE0)	/* mii1_rxdv.mii1_rxdv */
@@ -127,6 +129,8 @@
 	cpsw_sleep: cpsw_sleep {
 		pinctrl-single,pins = <
 			/* Slave 1 reset value */
+			0x108 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x10c (PIN_INPUT_PULLDOWN | MUX_MODE7)
 			AM33XX_IOPAD(0x910, PIN_INPUT_PULLDOWN | MUX_MODE7)
 			AM33XX_IOPAD(0x914, PIN_INPUT_PULLDOWN | MUX_MODE7)
 			AM33XX_IOPAD(0x918, PIN_INPUT_PULLDOWN | MUX_MODE7)
