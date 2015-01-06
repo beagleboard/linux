@@ -181,7 +181,7 @@
 				0x4a002564 0x8
 				0x4a002574 0x50>;
 				compatible = "ti,dra752-bandgap";
-				interrupts = <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
+				interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
 				#thermal-sensor-cells = <1>;
 		};
 
@@ -1177,6 +1177,7 @@
 			1160000 0x4
 			1210000 0x8
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		voltdm_ivahd: voltdm@4a0025cc {
@@ -1190,6 +1191,7 @@
 			1150000 0x4
 			1250000 0x8
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		voltdm_dspeve: voltdm@4a0025e0 {
@@ -1203,6 +1205,7 @@
 			1150000 0x4
 			1250000 0x8
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		voltdm_gpu: voltdm@4a003b08 {
@@ -1216,6 +1219,7 @@
 			1210000 0x4
 			1280000 0x8
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		voltdm_core: voltdm@4a0025f4 {
@@ -1226,6 +1230,7 @@
 			/* uV   offset */
 			1090000 0x0
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		mcspi1: spi@48098000 {
