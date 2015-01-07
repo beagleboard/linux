@@ -320,6 +320,11 @@ int omap_plane_dpms(struct drm_plane *plane, int mode)
 	return ret;
 }
 
+static const struct drm_prop_enum_list pre_mult[] = {
+	{ 0, "disable"},
+	{ 1, "enable"},
+};
+
 /* helper to install properties which are common to planes and crtcs */
 void omap_plane_install_properties(struct drm_plane *plane,
 		struct drm_mode_object *obj)
@@ -366,6 +371,16 @@ void omap_plane_install_properties(struct drm_plane *plane,
 		priv->global_alpha_prop = prop;
 	}
 	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->pre_mult_alpha_prop;
+	if (!prop) {
+		prop = drm_property_create_enum(dev, 0, "pre_mult_alpha",
+						 pre_mult, ARRAY_SIZE(pre_mult));
+		if (prop == NULL)
+			return;
+		priv->pre_mult_alpha_prop = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
 }
 
 int omap_plane_set_property(struct drm_plane *plane,
@@ -386,6 +401,11 @@ int omap_plane_set_property(struct drm_plane *plane,
 	} else if (property == priv->global_alpha_prop) {
 		DBG("%s: global_alpha: %02x", omap_plane->name, (uint32_t)val);
 		omap_plane->info.global_alpha = val;
+		ret = apply(plane);
+	} else if (property == priv->pre_mult_alpha_prop) {
+		DBG("%s: pre_mult_alpha: %02x", omap_plane->name,
+						(uint32_t)val);
+		omap_plane->info.pre_mult_alpha = val;
 		ret = apply(plane);
 	}
 
