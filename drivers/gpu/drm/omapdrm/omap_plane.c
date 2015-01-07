@@ -356,6 +356,16 @@ void omap_plane_install_properties(struct drm_plane *plane,
 		priv->zorder_prop = prop;
 	}
 	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->global_alpha_prop;
+	if (!prop) {
+		prop = drm_property_create_range(dev, 0, "global_alpha",
+						 0, 255);
+		if (prop == NULL)
+			return;
+		priv->global_alpha_prop = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
 }
 
 int omap_plane_set_property(struct drm_plane *plane,
@@ -372,6 +382,10 @@ int omap_plane_set_property(struct drm_plane *plane,
 	} else if (property == priv->zorder_prop) {
 		DBG("%s: zorder: %02x", omap_plane->name, (uint32_t)val);
 		omap_plane->info.zorder = val;
+		ret = apply(plane);
+	} else if (property == priv->global_alpha_prop) {
+		DBG("%s: global_alpha: %02x", omap_plane->name, (uint32_t)val);
+		omap_plane->info.global_alpha = val;
 		ret = apply(plane);
 	}
 
