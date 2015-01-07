@@ -24,7 +24,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x40000000>; /* 1GB to start. Target 2GB */
+		reg = <0x80000000 0x80000000>;
 	};
 
 	reserved-memory {
