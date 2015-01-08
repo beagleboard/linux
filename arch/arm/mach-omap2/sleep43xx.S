@@ -65,7 +65,6 @@
  * 3) dram_sync_word - uncached word in SDRAM
  * 4) rtc_base_addr - ioremapped RTC base address
  * 5) l2_virt_base - L2CC ioremapped address for AM437x
- * 6) cke_override_virt - CKE override virtual address
  *
  * The code loads these values taking r0 value as reference to
  * the array in registers starting from r0, i.e emif_addr_virt
@@ -86,7 +85,6 @@ ENTRY(am43xx_do_wfi)
 	str	r3, dram_sync_word
 	str	r4, rtc_base_addr
 	str	r5, l2_base_virt
-	str	r6, cke_override_virt
 
 	ldr	r0, emif_addr_virt
 	/* Save EMIF configuration */
@@ -268,12 +266,6 @@ wait_emif_disable:
 	cmp	r2, r3
 	bne	wait_emif_disable
 
-	/*enable CKE override for both CKE0 and CKE1*/
-	/*ensures CKE stays low throughout sleep*/
-	ldr    r2, cke_override_virt
-	mov    r1, #0
-	str    r1, [r2]
-
 	ldr	r1, wfi_flags
 	tst	r1, #WFI_RTC_ONLY
 	beq	am43xx_deep_sleep_suspend
@@ -373,11 +365,6 @@ wait_emif_enable:
 	ldr	r3, [r1]
 	cmp	r2, r3
 	bne	wait_emif_enable
-
-	/* disable CKE override for both CKE0 and CKE1 */
-	ldr    r2, cke_override_virt
-	mov    r1, #3
-	str    r1, [r2]
 
 	/* Disable EMIF self-refresh */
 	ldr	r0, emif_addr_virt
@@ -491,11 +478,6 @@ ddr_phy_ctrl_restore:
 	cmp	r2, #AM43XX_EMIF_PHY_CTRL_REG_COUNT
 	bne	ddr_phy_ctrl_restore
 
-	/*disable CKE override for both CKE0 and CKE1*/
-	ldr    r2, cke_override_phys
-	mov    r1, #3
-	str    r1, [r2]
-
 	/*
 	 * Toggle EMIF to exit refresh mode:
 	 * if EMIF lost context, PWR_MGT_CTRL is currently 0, writing disable
@@ -597,11 +579,6 @@ wfi_flags:
 	.word	0
 rtc_base_addr:
 	.word	(0xdeadbeef)
-
-cke_override_virt:
-	.word	0xDEADBEEF
-cke_override_phys:
-	.word	AM43XX_CTRL_CKE_OVERRIDE
 
 am43xx_phys_emif_poweroff:
 	.word   (AM43XX_CM_BASE + AM43XX_PRM_DEVICE_INST + \
