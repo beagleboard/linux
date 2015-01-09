@@ -501,7 +501,7 @@ static int __exit tpd_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id tpd_of_match[] = {
-	{ .compatible = "ti,dra7evm-tpd12s015", },
+	{ .compatible = "omapdss,ti,dra7evm-tpd12s015", },
 	{},
 };
 
