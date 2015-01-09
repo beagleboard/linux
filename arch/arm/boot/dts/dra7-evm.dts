@@ -132,7 +132,7 @@
 	};
 
 	hdmi0: connector@1 {
-		compatible = "omapdss,hdmi-connector";
+		compatible = "hdmi-connector";
 		label = "hdmi";
 
 		type = "a";
