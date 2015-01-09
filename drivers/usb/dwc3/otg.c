@@ -27,6 +27,7 @@
 #include "io.h"
 
 #define DWC3_GSTS_OTG_IP (1 << 10)
+#define DWC3_OSTS_A_IDLE 0x0
 
 static irqreturn_t dwc3_otg_interrupt(int irq , void *_dwc)
 {
@@ -113,9 +114,36 @@ int dwc3_otg_init(struct dwc3 *dwc)
 			    DWC3_OEVTEN_CONIDSTSCHNGEN);
 
 	} else if (!(reg & DWC3_OSTS_CONIDSTS)) {
+		unsigned wait = 100;
+
 		dev_vdbg(dwc->dev, "Host  init\n");
 		dwc3_writel(dwc->regs, DWC3_OCFG,
 			    DWC3_OCFG_DISPWRCUTTOFF | DWC3_OCFG_SFTRSTMASK);
+		/*
+		 * We need 2 seperate writes to OCTL register.
+		 * First to set to HOST mode and then to enable the PORT power
+		 * If written in single shot devices never get detected at
+		 * boot time. This is because the OTG internal state machine
+		 * disables Port power when it enters A_IDLE.
+		 * Based on experiments, it needs almost 50ms to transition to
+		 * A_IDLE.
+		 */
+		dwc3_writel(dwc->regs, DWC3_OCTL, 0x0);
+		do {
+			u32 reg;
+
+			reg = ((dwc3_readl(dwc->regs, DWC3_OSTS) >> 8) & 0xf);
+			if (reg == DWC3_OSTS_A_IDLE)
+				break;
+			wait--;
+			usleep_range(1000, 2000);
+		} while (wait);
+
+		if (!wait) {
+			dev_err(dwc->dev, "Timedout while waiting transition to A_IDLE\n");
+			return -ETIMEDOUT;
+		}
+
 		dwc3_writel(dwc->regs, DWC3_OCTL, DWC3_OCTL_PRTPWRCTL);
 		dwc3_host_init(dwc);
 		dwc3_writel(dwc->regs, DWC3_OEVTEN,
