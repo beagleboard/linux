@@ -1844,6 +1844,7 @@
                         ti,hwmods = "vip1";
 			interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
                         #address-cells = <1>;
                         #size-cells = <0>;
 			status = "disabled";
@@ -1867,6 +1868,7 @@
                         ti,hwmods = "vip2";
 			interrupts = <GIC_SPI 352 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
                         #address-cells = <1>;
                         #size-cells = <0>;
 			status = "disabled";
@@ -1890,6 +1892,7 @@
                         ti,hwmods = "vip3";
 			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
                         #address-cells = <1>;
                         #size-cells = <0>;
 			status = "disabled";
