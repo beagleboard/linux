@@ -65,7 +65,6 @@
  * 3) dram_sync_word - uncached word in SDRAM
  * 4) rtc_base_addr - ioremapped RTC base address
  * 5) l2_virt_base - L2CC ioremapped address for AM437x
- * 6) cke_override_virt - CKE override virtual address
  *
  * The code loads these values taking r0 value as reference to
  * the array in registers starting from r0, i.e emif_addr_virt
@@ -86,7 +85,6 @@ ENTRY(am43xx_do_wfi)
 	str	r3, dram_sync_word
 	str	r4, rtc_base_addr
 	str	r5, l2_base_virt
-	str	r6, cke_override_virt
 
 	ldr	r0, emif_addr_virt
 	/* Save EMIF configuration */
@@ -116,6 +114,18 @@ ENTRY(am43xx_do_wfi)
 	str	r1, emif_zqcfg_val
 	ldr	r1, [r0, #EMIF_DDR_PHY_CTRL_1]
 	str	r1, emif_ddr_phy_ctlr_1
+	ldr	r1, [r0, #EMIF_READ_WRITE_LEVELING_RAMP_CONTROL]
+	str	r1, emif_rd_wr_level_ramp_ctrl
+	ldr	r1, [r0, #EMIF_READ_WRITE_EXECUTION_THRESHOLD]
+	str	r1, emif_rd_wr_exec_thresh
+	ldr	r1, [r0, #EMIF_COS_CONFIG]
+	str	r1, emif_cos_config
+	ldr	r1, [r0, #EMIF_PRIORITY_TO_CLASS_OF_SERVICE_MAPPING]
+	str	r1, emif_priority_to_cos_mapping
+	ldr	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_1_MAPPING]
+	str	r1, emif_connect_id_serv_1_map
+	ldr	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_2_MAPPING]
+	str	r1, emif_connect_id_serv_2_map
 	ldr	r1, [r0, #EMIF_LPDDR2_NVM_TIMING]
 	str	r1, emif_lpddr2_nvm_tim
 	ldr	r1, [r0, #EMIF_LPDDR2_NVM_TIMING_SHDW]
@@ -256,12 +266,6 @@ wait_emif_disable:
 	cmp	r2, r3
 	bne	wait_emif_disable
 
-	/*enable CKE override for both CKE0 and CKE1*/
-	/*ensures CKE stays low throughout sleep*/
-	ldr    r2, cke_override_virt
-	mov    r1, #0
-	str    r1, [r2]
-
 	ldr	r1, wfi_flags
 	tst	r1, #WFI_RTC_ONLY
 	beq	am43xx_deep_sleep_suspend
@@ -362,11 +366,6 @@ wait_emif_enable:
 	cmp	r2, r3
 	bne	wait_emif_enable
 
-	/* disable CKE override for both CKE0 and CKE1 */
-	ldr    r2, cke_override_virt
-	mov    r1, #3
-	str    r1, [r2]
-
 	/* Disable EMIF self-refresh */
 	ldr	r0, emif_addr_virt
 	ldr	r1, [r0, #EMIF_POWER_MANAGEMENT_CONTROL]
@@ -439,6 +438,18 @@ wait_emif_enable1:
 	ldr	r1, emif_ddr_phy_ctlr_1
 	str	r1, [r0, #EMIF_DDR_PHY_CTRL_1]
 	str	r1, [r0, #EMIF_DDR_PHY_CTRL_1_SHDW]
+	ldr	r1, emif_rd_wr_level_ramp_ctrl
+	str	r1, [r0, #EMIF_READ_WRITE_LEVELING_RAMP_CONTROL]
+	ldr	r1, emif_rd_wr_exec_thresh
+	str	r1, [r0, #EMIF_READ_WRITE_EXECUTION_THRESHOLD]
+	ldr	r1, emif_cos_config
+	str	r1, [r0, #EMIF_COS_CONFIG]
+	ldr	r1, emif_priority_to_cos_mapping
+	str	r1, [r0, #EMIF_PRIORITY_TO_CLASS_OF_SERVICE_MAPPING]
+	ldr	r1, emif_connect_id_serv_1_map
+	str	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_1_MAPPING]
+	ldr	r1, emif_connect_id_serv_2_map
+	str	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_2_MAPPING]
 	ldr	r1, emif_pmcr_val
 	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CONTROL]
 	ldr	r1, emif_pmcr_shdw_val
@@ -466,11 +477,6 @@ ddr_phy_ctrl_restore:
 	add	r2, r2, #0x4
 	cmp	r2, #AM43XX_EMIF_PHY_CTRL_REG_COUNT
 	bne	ddr_phy_ctrl_restore
-
-	/*disable CKE override for both CKE0 and CKE1*/
-	ldr    r2, cke_override_phys
-	mov    r1, #3
-	str    r1, [r2]
 
 	/*
 	 * Toggle EMIF to exit refresh mode:
@@ -574,11 +580,6 @@ wfi_flags:
 rtc_base_addr:
 	.word	(0xdeadbeef)
 
-cke_override_virt:
-	.word	0xDEADBEEF
-cke_override_phys:
-	.word	AM43XX_CTRL_CKE_OVERRIDE
-
 am43xx_phys_emif_poweroff:
 	.word   (AM43XX_CM_BASE + AM43XX_PRM_DEVICE_INST + \
 		 AM43XX_PRM_EMIF_CTRL_OFFSET)
@@ -637,6 +638,18 @@ emif_timing3_val:
 emif_timing3_val_shdw:
 	.word	0xDEADBEEF
 emif_rd_lat_val:
+	.word	0xDEADBEEF
+emif_rd_wr_level_ramp_ctrl:
+	.word	0xDEADBEEF
+emif_rd_wr_exec_thresh:
+	.word	0xDEADBEEF
+emif_cos_config:
+	.word	0xDEADBEEF
+emif_priority_to_cos_mapping:
+	.word	0xDEADBEEF
+emif_connect_id_serv_1_map:
+	.word	0xDEADBEEF
+emif_connect_id_serv_2_map:
 	.word	0xDEADBEEF
 emif_ref_ctrl_val:
 	.word	0xDEADBEEF
