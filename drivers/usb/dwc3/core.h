@@ -791,6 +791,7 @@ struct dwc3 {
 	u32			u1u2;
 	u32			maximum_speed;
 	u32			revision;
+	u32			iddig;
 
 #define DWC3_REVISION_173A	0x5533173a
 #define DWC3_REVISION_175A	0x5533175a
