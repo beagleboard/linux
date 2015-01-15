@@ -190,7 +190,7 @@ int usb_drd_stop_hcd(struct device *parent)
 	if (!drd)
 		return -ENODEV;
 
-	if (WARN_ON(!(drd->state & DRD_HOST_ACTIVE)))
+	if (WARN_ON(!(drd->state & DRD_HOST_REGISTERED)))
 		return -EINVAL;
 
 	setup = drd->host->host_setup;
