@@ -876,6 +876,7 @@ static int set_srcdst_params(struct vpe_ctx *ctx)
 	}
 
 	free_vbs(ctx);
+	ctx->src_vbs[2] = ctx->src_vbs[1] = ctx->src_vbs[0] = NULL;
 
 	ret = realloc_mv_buffers(ctx, mv_buf_size);
 	if (ret)
@@ -1897,6 +1898,8 @@ static int vpe_streamon(struct file *file, void *priv, enum v4l2_buf_type type)
 	if (ctx->deinterlacing)
 		config_edi_input_mode(ctx, 0x0);
 
+	if (ctx->sequence != 0)
+		set_srcdst_params(ctx);
 	return v4l2_m2m_streamon(file, ctx->m2m_ctx, type);
 }
 
