@@ -324,9 +324,48 @@ Network device features:
 
 	Passed by reference.
 
+Command from struct task_struct
+
+	%pT	ls
+
+	For printing executable name excluding path from struct
+	task_struct.
+
+	Passed by reference.
+
+Device tree nodes:
+
+	%pO[fnpPcCFr]
+
+	For printing device tree nodes. The optional arguments are:
+            f device node full_name
+            n device node name
+            p device node phandle
+            P device node path spec (name + @unit)
+            F device node flags
+            c major compatible string
+            C full compatible string
+            r node reference count
+	Without any arguments prints full_name (same as %pOf)
+	The separator when using multiple arguments is '|'
+
+	Examples:
+
+	%pO	/foo/bar@0			- Node full name
+	%pOf	/foo/bar@0			- Same as above
+	%pOfp	/foo/bar@0|10			- Node full name + phandle
+	%pOfcF	/foo/bar@0|foo,device|--P-	- Node full name +
+	                                          major compatible string +
+						  node flags
+							D - dynamic
+							d - detached
+							P - Populated
+							B - Populated bus
+
+	Passed by reference
+
 If you add other %p extensions, please extend lib/test_printf.c with
 one or more test cases, if at all feasible.
-
 
 Thank you for your cooperation and attention.
 
