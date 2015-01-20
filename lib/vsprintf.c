@@ -35,6 +35,7 @@
 #ifdef CONFIG_BLOCK
 #include <linux/blkdev.h>
 #endif
+#include <linux/of.h>
 
 #include "../mm/internal.h"	/* For the trace_print_flags arrays */
 
@@ -1467,6 +1468,141 @@ char *flags_string(char *buf, char *end, void *flags_ptr, const char *fmt)
 	return format_flags(buf, end, flags, names);
 }
 
+/* helper method for calculating extends on first pass  and filling in later */
+static noinline_for_stack
+void append_str(const char *str, int pass, int *lenp, char **bufp, char *end)
+{
+	int len;
+
+	len = strlen(str);
+	if (pass == 1)
+		*lenp += len;
+	else {
+		if (len > (end - *bufp))
+			len = end - *bufp;
+		memcpy(*bufp, str, len);
+		*bufp += len;
+	}
+}
+
+static noinline_for_stack
+char *device_node_string(char *buf, char *end, struct device_node *dn,
+			 struct printf_spec spec, const char *fmt)
+{
+	char tbuf[sizeof("xxxxxxxxxx") + 1];
+	const char *fmtp, *p;
+	int len, ret, i, j, pass;
+	char c;
+
+	if (!IS_ENABLED(CONFIG_OF)) {
+		/* if OF is not enabled just print the pointer */
+		spec.flags |= SMALL;
+		if (spec.field_width == -1) {
+			spec.field_width = 2 * sizeof(void *);
+			spec.flags |= ZEROPAD;
+		}
+		spec.base = 16;
+		return number(buf, end, (unsigned long) dn, spec);
+	}
+
+	if ((unsigned long)dn < PAGE_SIZE)
+		return string(buf, end, "(null)", spec);
+
+	/* simple case without anything any more format specifiers */
+	if (fmt[1] == '\0' || isspace(fmt[1]))
+		fmt = "Of";
+
+	len = 0;
+
+	/* two passes; the first calculates length, the second fills in */
+	for (pass = 1; pass <= 2; pass++) {
+		if (pass == 2 && !(spec.flags & LEFT)) {
+			/* padding */
+			while (len < spec.field_width--) {
+				if (buf < end)
+					*buf = ' ';
+				++buf;
+			}
+		}
+
+		for (fmtp = fmt + 1, j = 0; (c = *fmtp++) != '\0'; ) {
+
+			/* validate option */
+			if (c != 'f' && c != 'n' && c != 'p' && c != 'P' &&
+			    c != 'F' && c != 'c' && c != 'C' && c != 'r')
+				continue;
+
+			/* handle separator */
+			if (j++ > 0)
+				append_str("|", pass, &len, &buf, end);
+
+			switch (c) {
+			case 'f':	/* full_name */
+				append_str(of_node_full_name(dn), pass, &len,
+						&buf, end);
+				break;
+			case 'n':	/* name */
+				append_str(dn->name, pass, &len, &buf, end);
+				break;
+			case 'p':	/* phandle */
+				snprintf(tbuf, sizeof(tbuf), "%u",
+						(unsigned int)dn->phandle);
+				append_str(tbuf, pass, &len, &buf, end);
+				break;
+			case 'P':	/* path-spec */
+				append_str(dn->name, pass, &len, &buf, end);
+				/* need to tack on the @ postfix */
+				p = strchr(of_node_full_name(dn), '@');
+				if (p)
+					append_str(p, pass, &len, &buf, end);
+				break;
+			case 'F':	/* flags */
+				snprintf(tbuf, sizeof(tbuf), "%c%c%c%c",
+					of_node_check_flag(dn, OF_DYNAMIC) ?
+						'D' : '-',
+					of_node_check_flag(dn, OF_DETACHED) ?
+						'd' : '-',
+					of_node_check_flag(dn, OF_POPULATED) ?
+						'P' : '-',
+					of_node_check_flag(dn,
+						OF_POPULATED_BUS) ?  'B' : '-');
+				append_str(tbuf, pass, &len, &buf, end);
+				break;
+			case 'c':	/* major compatible string */
+				ret = of_property_read_string(dn, "compatible",
+						&p);
+				if (ret == 0)
+					append_str(p, pass, &len, &buf, end);
+				break;
+			case 'C':	/* full compatible string */
+				i = 0;
+				while (of_property_read_string_index(dn,
+						"compatible", i, &p) == 0) {
+					append_str(i == 0 ? "\"" : "\",\"",
+							pass, &len, &buf, end);
+					append_str(p, pass, &len, &buf, end);
+					i++;
+				}
+				if (i > 0)
+					append_str("\"", pass, &len, &buf, end);
+				break;
+			case 'r':	/* node reference count */
+				snprintf(tbuf, sizeof(tbuf), "%u",
+					atomic_read(&dn->kobj.kref.refcount));
+				append_str(tbuf, pass, &len, &buf, end);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	/* finish up */
+	while (buf < end && len < spec.field_width--)
+		*buf++ = ' ';
+
+	return buf;
+}
+
 int kptr_restrict __read_mostly;
 
 /*
@@ -1560,6 +1696,16 @@ int kptr_restrict __read_mostly;
  *       p page flags (see struct page) given as pointer to unsigned long
  *       g gfp flags (GFP_* and __GFP_*) given as pointer to gfp_t
  *       v vma flags (VM_*) given as pointer to unsigned long
+ * - 'O[fnpPcCFr]' For an DT device node
+ *                Without any optional arguments prints the full_name
+ *                f device node full_name
+ *                n device node name
+ *                p device node phandle
+ *                P device node path spec (name + @unit)
+ *                F device node flags
+ *                c major compatible string
+ *                C full compatible string
+ *                r node reference count
  *
  * ** Please update also Documentation/printk-formats.txt when making changes **
  *
@@ -1715,6 +1861,10 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 
 	case 'G':
 		return flags_string(buf, end, ptr, fmt);
+
+	case 'O':
+		return device_node_string(buf, end, ptr, spec, fmt);
+
 	}
 	spec.flags |= SMALL;
 	if (spec.field_width == -1) {
