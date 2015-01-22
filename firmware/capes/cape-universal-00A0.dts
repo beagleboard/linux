@@ -908,7 +908,7 @@
             P8_18_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd";
                 pinctrl-0 = <&P8_18_default_pin>;
                 pinctrl-1 = <&P8_18_gpio_pin>;
                 pinctrl-2 = <&P8_18_gpio_pu_pin>;
@@ -929,7 +929,7 @@
             P8_26_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd";
                 pinctrl-0 = <&P8_26_default_pin>;
                 pinctrl-1 = <&P8_26_gpio_pin>;
                 pinctrl-2 = <&P8_26_gpio_pu_pin>;
@@ -955,7 +955,7 @@
             P9_12_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd";
                 pinctrl-0 = <&P9_12_default_pin>;
                 pinctrl-1 = <&P9_12_gpio_pin>;
                 pinctrl-2 = <&P9_12_gpio_pu_pin>;
@@ -1727,4 +1727,59 @@
         };
     };
 
+
+    /************************/
+    /* eQEP                 */
+    /************************/
+
+    fragment@50 {
+	target = <&eqep0>;
+	__overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <>;
+
+            count_mode = <0>;  /* 0 - Quadrature mode, normal 90 phase offset cha & chb.  1 - Direction mode.  cha input = clock, chb input = direction */
+            swap_inputs = <0>; /* Are channel A and channel B swapped? (0 - no, 1 - yes) */
+            invert_qa = <1>;   /* Should we invert the channel A input?  */
+            invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
+            invert_qi = <0>;   /* Should we invert the index input? */
+            invert_qs = <0>;   /* Should we invert the strobe input? */
+
+	    status = "okay";
+	};
+    };
+
+    fragment@51 {
+	target = <&eqep1>;
+	__overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <>;
+
+            count_mode = <0>;  /* 0 - Quadrature mode, normal 90 phase offset cha & chb.  1 - Direction mode.  cha input = clock, chb input = direction */
+            swap_inputs = <0>; /* Are channel A and channel B swapped? (0 - no, 1 - yes) */
+            invert_qa = <1>;   /* Should we invert the channel A input?  */
+            invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
+            invert_qi = <0>;   /* Should we invert the index input? */
+            invert_qs = <0>;   /* Should we invert the strobe input? */
+
+	    status = "okay";
+	};
+    };
+
+    fragment@52 {
+	target = <&eqep2>;
+	__overlay__ {
+            pinctrl-names = "default";
+            pinctrl-0 = <>;
+
+            count_mode = <0>;  /* 0 - Quadrature mode, normal 90 phase offset cha & chb.  1 - Direction mode.  cha input = clock, chb input = direction */
+            swap_inputs = <0>; /* Are channel A and channel B swapped? (0 - no, 1 - yes) */
+            invert_qa = <1>;   /* Should we invert the channel A input?  */
+            invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
+            invert_qi = <0>;   /* Should we invert the index input? */
+            invert_qs = <0>;   /* Should we invert the strobe input? */
+
+	    status = "okay";
+	};
+    };
 };
