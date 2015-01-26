@@ -260,6 +260,11 @@ struct tps65217 {
 
 	int write_status_off;
 	struct notifier_block reboot_notifier;
+
+	/* Power button and IRQ handling */
+	int irq_gpio;	/* might not be set */
+	int irq;
+	struct input_dev *pwr_but;
 };
 
 static inline struct tps65217 *dev_to_tps65217(struct device *dev)
