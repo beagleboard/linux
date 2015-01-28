@@ -20,6 +20,8 @@
 		rtc1 = &rtc;
 		rtc2 = &tps659038_rtc;
 		display0 = &hdmi0;
+		sound0 = &primary_sound;
+		sound1 = &hdmi;
 	};
 
 	memory {
@@ -176,7 +178,7 @@
 		};
 	};
 
-	sound {
+	primary_sound: primary_sound {
 		compatible = "ti,da830-evm-audio";
 		ti,model = "BeagleBoard-X15";
 		ti,audio-codec = <&tlv320aic3104>;
