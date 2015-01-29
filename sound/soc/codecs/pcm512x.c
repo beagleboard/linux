@@ -1267,7 +1267,6 @@ int pcm512x_probe(struct device *dev, struct regmap *regmap)
 {
 	struct pcm512x_priv *pcm512x;
 	int i, ret;
-	u32 val;
 
 	pcm512x = devm_kzalloc(dev, sizeof(struct pcm512x_priv), GFP_KERNEL);
 	if (!pcm512x)
@@ -1348,6 +1347,7 @@ int pcm512x_probe(struct device *dev, struct regmap *regmap)
 #ifdef CONFIG_OF
 	if (dev->of_node) {
 		const struct device_node *np = dev->of_node;
+		u32 val;
 
 		if (of_property_read_u32(np, "pll-in", &val) >= 0) {
 			if (val > 6) {
