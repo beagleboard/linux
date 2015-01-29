@@ -212,6 +212,7 @@ static int palmas_pwron_probe(struct platform_device *pdev)
 	input_dev->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
 	input_dev->name = "palmas_pwron";
 	input_dev->phys = "palmas_pwron/input0";
+	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = dev;
 
 	pwron->palmas = palmas;
