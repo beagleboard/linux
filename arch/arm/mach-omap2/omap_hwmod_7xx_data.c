@@ -185,6 +185,7 @@ static struct omap_hwmod dra7xx_atl_hwmod = {
 	.class		= &dra7xx_atl_hwmod_class,
 	.clkdm_name	= "atl_clkdm",
 	.main_clk	= "atl_gfclk_mux",
+	.lockdep_class	= HWMOD_LOCKDEP_SUBCLASS_CLASS1,
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_ATL_ATL_CLKCTRL_OFFSET,
