@@ -100,7 +100,7 @@
 	};
 
 	hdmi0: connector@1 {
-		compatible = "omapdss,hdmi-connector";
+		compatible = "hdmi-connector";
 		label = "hdmi";
 
 		type = "a";
@@ -113,7 +113,7 @@
 	};
 
 	tpd12s015: encoder@1 {
-		compatible = "omapdss,ti,tpd12s015";
+		compatible = "ti,tpd12s015";
 
 		gpios = <&gpio7 10 GPIO_ACTIVE_HIGH>,	/* gpio7_10, CT CP HPD */
 			<&gpio6 28 GPIO_ACTIVE_HIGH>,	/* gpio6_28, LS OE */

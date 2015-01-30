@@ -267,11 +267,11 @@ static struct omap_dss_driver panel_dpi_ops = {
 
 static const struct of_device_id tlc59108_of_match[] = {
 	{
-		.compatible = "ti,tlc59108-tfcs9700",
+		.compatible = "omapdss,ti,tlc59108-tfcs9700",
 		.data = &tlc_7_inch_data,
 	},
 	{
-		.compatible = "ti,tlc59108-lp101",
+		.compatible = "omapdss,ti,tlc59108-lp101",
 		.data = &tlc_10_inch_data,
 	},
 	{ }

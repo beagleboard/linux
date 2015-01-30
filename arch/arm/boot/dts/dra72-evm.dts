@@ -27,7 +27,7 @@
 	};
 
 	tpd12s015: encoder@0 {
-		compatible = "omapdss,ti,tpd12s015";
+		compatible = "ti,tpd12s015";
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&hpd_pin>;
@@ -59,7 +59,7 @@
 	};
 
 	hdmi0: connector@0 {
-		compatible = "omapdss,hdmi-connector";
+		compatible = "hdmi-connector";
 		label = "hdmi";
 
 		type = "a";

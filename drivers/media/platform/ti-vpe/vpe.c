@@ -299,6 +299,22 @@ static struct vpe_fmt vpe_formats[] = {
 		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_ABGR32],
 				  },
 	},
+	{
+		.name		= "RGB565",
+		.fourcc		= V4L2_PIX_FMT_RGB565,
+		.types		= VPE_FMT_TYPE_CAPTURE,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_RGB565],
+				  },
+	},
+	{
+		.name		= "RGB5551",
+		.fourcc		= V4L2_PIX_FMT_RGB555,
+		.types		= VPE_FMT_TYPE_CAPTURE,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_RGBA16_5551],
+				  },
+	},
 };
 
 /*
@@ -745,9 +761,11 @@ static void set_dst_registers(struct vpe_ctx *ctx)
 	struct vpe_fmt *fmt = ctx->q_data[Q_DATA_DST].fmt;
 	u32 val = 0;
 
-	if (clrspc == V4L2_COLORSPACE_SRGB)
+	if (clrspc == V4L2_COLORSPACE_SRGB) {
 		val |= VPE_RGB_OUT_SELECT;
-	else if (fmt->fourcc == V4L2_PIX_FMT_NV16)
+		vpdma_set_bg_color(ctx->dev->vpdma,
+			(struct vpdma_data_format *)fmt->vpdma_fmt[0], 0xff);
+	} else if (fmt->fourcc == V4L2_PIX_FMT_NV16)
 		val |= VPE_COLOR_SEPARATE_422;
 
 	/*
@@ -876,6 +894,7 @@ static int set_srcdst_params(struct vpe_ctx *ctx)
 	}
 
 	free_vbs(ctx);
+	ctx->src_vbs[2] = ctx->src_vbs[1] = ctx->src_vbs[0] = NULL;
 
 	ret = realloc_mv_buffers(ctx, mv_buf_size);
 	if (ret)
@@ -1307,6 +1326,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 	struct v4l2_buffer *s_buf, *d_buf;
 	unsigned long flags;
 	u32 irqst0, irqst1;
+	bool list_complete = false;
 
 	irqst0 = read_reg(dev, VPE_INT0_STATUS0);
 	if (irqst0) {
@@ -1342,6 +1362,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 			vpdma_clear_list_stat(ctx->dev->vpdma, 0, 0);
 
 		irqst0 &= ~(VPE_INT0_LIST0_COMPLETE);
+		list_complete = true;
 	}
 
 	if (irqst0 | irqst1) {
@@ -1349,6 +1370,11 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 			"INT0_STATUS0 = 0x%08x, INT0_STATUS1 = 0x%08x\n",
 			irqst0, irqst1);
 	}
+
+	/* Setup next operation only when list complete IRQ occurs
+	 * otherwise, skip the following code */
+	if (list_complete != true)
+		goto handled;
 
 	disable_irqs(ctx);
 
@@ -1897,6 +1923,8 @@ static int vpe_streamon(struct file *file, void *priv, enum v4l2_buf_type type)
 	if (ctx->deinterlacing)
 		config_edi_input_mode(ctx, 0x0);
 
+	if (ctx->sequence != 0)
+		set_srcdst_params(ctx);
 	return v4l2_m2m_streamon(file, ctx->m2m_ctx, type);
 }
 
