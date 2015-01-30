@@ -1187,13 +1187,13 @@ static int omap_iommu_attach_init(struct device *dev,
 		return -EINVAL;
 
 	odomain->iommus = kzalloc(odomain->num_iommus * sizeof(*iommu),
-				  GFP_KERNEL);
+				  GFP_ATOMIC);
 	if (!odomain->iommus)
 		return -ENOMEM;
 
 	iommu = odomain->iommus;
 	for (i = 0; i < odomain->num_iommus; i++, iommu++) {
-		iommu->pgtable = kzalloc(IOPGD_TABLE_SIZE, GFP_KERNEL);
+		iommu->pgtable = kzalloc(IOPGD_TABLE_SIZE, GFP_ATOMIC);
 		if (!iommu->pgtable)
 			return -ENOMEM;
 
