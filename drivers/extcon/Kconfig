@@ -70,4 +70,11 @@ config EXTCON_PALMAS
 	  Say Y here to enable support for USB peripheral and USB host
 	  detection by palmas usb.
 
+config EXTCON_USB_GPIO
+	tristate "USB GPIO extcon support"
+	depends on GPIOLIB
+	help
+	  Say Y here to enable GPIO based USB cable detection extcon support.
+	  Used typically if GPIO is used for USB ID pin detection.
+
 endif # MULTISTATE_SWITCH
