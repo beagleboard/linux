@@ -890,7 +890,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		ret = rproc_boot(pru->rproc);
 		if (ret) {
 			dev_err(dev, "rproc_boot failed\n");
-			goto put_mbox;
+			goto del_rproc;
 		}
 	}
 
@@ -901,6 +901,8 @@ static int pru_rproc_probe(struct platform_device *pdev)
 
 	return 0;
 
+del_rproc:
+	rproc_del(pru->rproc);
 put_mbox:
 	mbox_free_channel(pru->mbox);
 free_rproc:
