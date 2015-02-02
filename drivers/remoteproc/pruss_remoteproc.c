@@ -918,6 +918,11 @@ static int pru_rproc_remove(struct platform_device *pdev)
 
 	dev_info(dev, "%s: removing rproc %s\n", __func__, rproc->name);
 
+	if (list_empty(&pru->rproc->rvdevs)) {
+		dev_info(dev, "stopping the manually booted PRU core\n");
+		rproc_shutdown(pru->rproc);
+	}
+
 	mbox_free_channel(pru->mbox);
 
 	rproc_del(rproc);
