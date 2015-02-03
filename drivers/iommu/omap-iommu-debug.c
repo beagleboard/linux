@@ -118,7 +118,7 @@ static void dump_ioptable(struct seq_file *s)
 				continue;
 
 			da = (i << IOPGD_SHIFT) + (j << IOPTE_SHIFT);
-			seq_printf(s, "1: 0x%08x 0x%08x\n", da, *iopte);
+			seq_printf(s, "2: 0x%08x 0x%08x\n", da, *iopte);
 		}
 	}
 
