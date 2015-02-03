@@ -1228,7 +1228,7 @@ static struct pru_match_private_data pru_match_data[] = {
 		.priv_data	= &pru0_rproc_pdata,
 	},
 	{
-		.device_name	= "4b280000.pru1",
+		.device_name	= "4a338000.pru1",
 		.priv_data	= &pru1_rproc_pdata,
 	},
 	/* AM43xx SoC-specific data */
