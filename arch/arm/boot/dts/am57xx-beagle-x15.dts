@@ -758,7 +758,7 @@
 	pinctrl-1 = <&mmc1_pins_sleep>;
 	vmmc-supply = <&ldo1_reg>;
 	vmmc_aux-supply = <&vdd_3v3>;
-	pbias-supply = <&pbias_regulator>;
+	pbias-supply = <&pbias_mmc_reg>;
 	bus-width = <4>;
 	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
 };
