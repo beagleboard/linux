@@ -479,6 +479,7 @@ static struct omap_hwmod dra7xx_gmac_hwmod = {
 	.clkdm_name	= "gmac_clkdm",
 	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
 	.main_clk	= "dpll_gmac_ck",
+	.mpu_rt_idx	= 1,
 	.prcm		= {
 		.omap4	= {
 			.clkctrl_offs	= DRA7XX_CM_GMAC_GMAC_CLKCTRL_OFFSET,
