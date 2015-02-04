@@ -176,6 +176,14 @@
 		};
 	};
 
+	gpio_fan {
+		/* Based on 5v 500mA AFB02505HHB */
+		compatible = "gpio-fan";
+		gpios =  <&tps659038_gpio 1 GPIO_ACTIVE_HIGH>;
+		gpio-fan,speed-map = <0    0
+				      13000 1>;
+	};
+
 	sound {
 		compatible = "ti,da830-evm-audio";
 		ti,model = "BeagleBoard-X15";
@@ -622,6 +630,12 @@
 			interrupts = <1 IRQ_TYPE_NONE>;
 			wakeup-source;
 			ti,palmas-long-press-seconds = <13>;
+		};
+
+		tps659038_gpio: tps659038_gpio {
+			compatible = "ti,palmas-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
 		};
 	};
 
