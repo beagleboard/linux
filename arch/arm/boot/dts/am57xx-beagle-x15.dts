@@ -20,6 +20,8 @@
 		rtc1 = &rtc;
 		rtc2 = &tps659038_rtc;
 		display0 = &hdmi0;
+		sound0 = &primary_sound;
+		sound1 = &hdmi;
 	};
 
 	memory {
@@ -184,7 +186,7 @@
 				      13000 1>;
 	};
 
-	sound {
+	primary_sound: primary_sound {
 		compatible = "ti,da830-evm-audio";
 		ti,model = "BeagleBoard-X15";
 		ti,audio-codec = <&tlv320aic3104>;
@@ -194,8 +196,8 @@
 		ti,audio-routing =
 			"Line Out",	"LLOUT",
 			"Line Out",	"RLOUT",
-			"MIC3L",	"Line In", /* Mic2L/LINE2L on aic3104 */
-			"MIC3R",	"Line In"; /* Mic2R/LINE2R on aic3104 */
+			"MIC2L",	"Line In",
+			"MIC2R",	"Line In";
 	};
 };
 
@@ -650,7 +652,7 @@
 	};
 
 	tlv320aic3104: tlv320aic3104@18 {
-		compatible = "ti,tlv320aic3106";
+		compatible = "ti,tlv320aic3104";
 		reg = <0x18>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&clkout2_pins_default>;
