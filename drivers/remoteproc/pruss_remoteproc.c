@@ -604,7 +604,7 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 	/* send the index of the triggered virtqueue in the mailbox payload */
 	ret = mbox_send_message(pru->mbox, (void *)vq_id);
 	if (ret)
-		dev_err(dev, "omap_mbox_msg_send failed: %d\n", ret);
+		dev_err(dev, "mbox_send_message failed: %d\n", ret);
 }
 
 /* start a PRU core */
@@ -866,7 +866,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	pru->mbox = mbox_request_channel(client, 0);
 	if (IS_ERR(pru->mbox)) {
 		ret = PTR_ERR(pru->mbox);
-		dev_err(dev, "omap_mbox_get failed: %d\n", ret);
+		dev_err(dev, "mbox_request_channel failed: %d\n", ret);
 		goto free_rproc;
 	}
 
@@ -1228,7 +1228,7 @@ static struct pru_match_private_data pru_match_data[] = {
 		.priv_data	= &pru0_rproc_pdata,
 	},
 	{
-		.device_name	= "4b280000.pru1",
+		.device_name	= "4a338000.pru1",
 		.priv_data	= &pru1_rproc_pdata,
 	},
 	/* AM43xx SoC-specific data */
