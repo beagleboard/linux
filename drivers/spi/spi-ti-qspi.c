@@ -229,7 +229,7 @@ static inline u32 qspi_is_busy(struct ti_qspi *qspi)
 
 static int qspi_write_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 {
-	int wlen, count, ret;
+	int wlen, count;
 	unsigned int cmd;
 	const u8 *txbuf;
 
@@ -261,9 +261,8 @@ static int qspi_write_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 		}
 
 		ti_qspi_write(qspi, cmd, QSPI_SPI_CMD_REG);
-		ret = wait_for_completion_timeout(&qspi->transfer_complete,
-						  QSPI_COMPLETION_TIMEOUT);
-		if (ret == 0) {
+		if (!wait_for_completion_timeout(&qspi->transfer_complete,
+						 QSPI_COMPLETION_TIMEOUT)) {
 			dev_err(qspi->dev, "write timed out\n");
 			return -ETIMEDOUT;
 		}
@@ -276,7 +275,7 @@ static int qspi_write_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 
 static int qspi_read_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 {
-	int wlen, count, ret;
+	int wlen, count;
 	unsigned int cmd;
 	u8 *rxbuf;
 
@@ -302,9 +301,8 @@ static int qspi_read_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 			return -EBUSY;
 
 		ti_qspi_write(qspi, cmd, QSPI_SPI_CMD_REG);
-		ret = wait_for_completion_timeout(&qspi->transfer_complete,
-				QSPI_COMPLETION_TIMEOUT);
-		if (ret == 0) {
+		if (!wait_for_completion_timeout(&qspi->transfer_complete,
+						 QSPI_COMPLETION_TIMEOUT)) {
 			dev_err(qspi->dev, "read timed out\n");
 			return -ETIMEDOUT;
 		}
