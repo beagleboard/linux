@@ -719,7 +719,7 @@
 			#size-cells = <1>;
 			ranges;
 
-			pru0: pru@4a334000 {
+			pru0: pru@54434000 {
 				compatible = "ti,pru-rproc";
 				reg = <0x54434000 0x3000>,
 				      <0x54422000 0x400>,
@@ -728,7 +728,7 @@
 				mboxes = <&mailbox &mbox_pru0>;
 			};
 
-			pru1: pru@4a338000 {
+			pru1: pru@54438000 {
 				compatible = "ti,pru-rproc";
 				reg = <0x54438000 0x3000>,
 				      <0x54424000 0x400>,
