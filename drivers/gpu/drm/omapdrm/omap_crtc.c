@@ -308,6 +308,7 @@ static void vblank_cb(void *arg)
 	struct drm_device *dev = crtc->dev;
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	unsigned long flags;
+	struct drm_framebuffer *fb;
 
 	spin_lock_irqsave(&dev->event_lock, flags);
 
@@ -315,10 +316,15 @@ static void vblank_cb(void *arg)
 	if (omap_crtc->event)
 		drm_send_vblank_event(dev, omap_crtc->pipe, omap_crtc->event);
 
+	fb = omap_crtc->old_fb;
+
 	omap_crtc->event = NULL;
 	omap_crtc->old_fb = NULL;
 
 	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+	if (fb)
+		drm_framebuffer_unreference(fb);
 }
 
 static void page_flip_worker(struct work_struct *work)
@@ -374,6 +380,7 @@ static int omap_crtc_page_flip_locked(struct drm_crtc *crtc,
 
 	omap_crtc->event = event;
 	omap_crtc->old_fb = crtc->fb = fb;
+	drm_framebuffer_reference(omap_crtc->old_fb);
 
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 
