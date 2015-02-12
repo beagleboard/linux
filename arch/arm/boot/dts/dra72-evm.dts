@@ -21,7 +21,8 @@
 	};
 
 	aliases {
-		display0 = &hdmi0;
+		display0 = &tlc59108;
+		display1 = &hdmi0;
 	};
 
 	evm_3v3: fixedregulator-evm_3v3 {
@@ -287,6 +288,40 @@
 			0x330 (PIN_INPUT_PULLDOWN | MUX_MODE15)
 		>;
 	};
+
+	vout1_pins: pinmux_vout1_pins {
+		pinctrl-single,pins = <
+			0x1C8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_clk */
+			0x1CC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_de */
+			0x1D0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_fld */
+			0x1D4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_hsync */
+			0x1D8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_vsync */
+			0x1DC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d0 */
+			0x1E0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d1 */
+			0x1E4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d2 */
+			0x1E8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d3 */
+			0x1EC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d4 */
+			0x1F0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d5 */
+			0x1F4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d6 */
+			0x1F8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d7 */
+			0x1FC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d8 */
+			0x200	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d9 */
+			0x204	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d10 */
+			0x208	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d11 */
+			0x20C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d12 */
+			0x210	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d13 */
+			0x214	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d14 */
+			0x218	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d15 */
+			0x21C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d16 */
+			0x220	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d17 */
+			0x224	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d18 */
+			0x228	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d19 */
+			0x22C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d20 */
+			0x230	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d21 */
+			0x234	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d22 */
+			0x238	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d23 */
+		>;
+	};
 };
 
 &i2c1 {
@@ -409,6 +444,13 @@
 		};
 	};
 
+	pcf_lcd: gpio@20 {
+		compatible = "nxp,pcf8575";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
 	pcf_gpio_21: gpio@21 {
 		compatible = "ti,pcf8575";
 		reg = <0x21>;
@@ -434,6 +476,19 @@
 		IOVDD-supply = <&evm_3v3>;
 		DRVDD-supply = <&evm_3v3>;
 		DVDD-supply = <&aic_dvdd>;
+	};
+
+	/* TLC chip for LCD panel power and backlight */
+	tlc59108: tlc59108@40 {
+		compatible = "ti,tlc59108-lp101";
+		reg = <0x40>;
+		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
+
+		port {
+			tlc_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
 	};
 };
 
@@ -779,7 +834,24 @@
 &dss {
 	status = "ok";
 
+	pinctrl-names = "default";
+	pinctrl-0 = <&vout1_pins>;
+
 	vdda_video-supply = <&ldo5_reg>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				remote-endpoint = <&tlc_in>;
+				data-lines = <24>;
+			};
+		};
+	};
 };
 
 &hdmi {
