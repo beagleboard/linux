@@ -88,7 +88,7 @@ static int blk_mq_queue_enter(struct request_queue *q, gfp_t gfp)
 		if (!(gfp & __GFP_WAIT))
 			return -EBUSY;
 
-		ret = wait_event_interruptible(q->mq_freeze_wq,
+		ret = swait_event_interruptible(q->mq_freeze_wq,
 				!q->mq_freeze_depth || blk_queue_dying(q));
 		if (blk_queue_dying(q))
 			return -ENODEV;
@@ -107,7 +107,7 @@ static void blk_mq_usage_counter_release(struct percpu_ref *ref)
 	struct request_queue *q =
 		container_of(ref, struct request_queue, mq_usage_counter);
 
-	wake_up_all(&q->mq_freeze_wq);
+	swait_wake_all(&q->mq_freeze_wq);
 }
 
 void blk_mq_freeze_queue_start(struct request_queue *q)
@@ -127,7 +127,7 @@ EXPORT_SYMBOL_GPL(blk_mq_freeze_queue_start);
 
 static void blk_mq_freeze_queue_wait(struct request_queue *q)
 {
-	wait_event(q->mq_freeze_wq, percpu_ref_is_zero(&q->mq_usage_counter));
+	swait_event(q->mq_freeze_wq, percpu_ref_is_zero(&q->mq_usage_counter));
 }
 
 /*
@@ -151,7 +151,7 @@ void blk_mq_unfreeze_queue(struct request_queue *q)
 	spin_unlock_irq(q->queue_lock);
 	if (wake) {
 		percpu_ref_reinit(&q->mq_usage_counter);
-		wake_up_all(&q->mq_freeze_wq);
+		swait_wake_all(&q->mq_freeze_wq);
 	}
 }
 EXPORT_SYMBOL_GPL(blk_mq_unfreeze_queue);
@@ -170,7 +170,7 @@ void blk_mq_wake_waiters(struct request_queue *q)
 	 * dying, we need to ensure that processes currently waiting on
 	 * the queue are notified as well.
 	 */
-	wake_up_all(&q->mq_freeze_wq);
+	swait_wake_all(&q->mq_freeze_wq);
 }
 
 bool blk_mq_can_queue(struct blk_mq_hw_ctx *hctx)
