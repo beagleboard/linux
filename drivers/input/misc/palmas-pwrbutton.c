@@ -14,6 +14,7 @@
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <linux/init.h>
 #include <linux/input.h>
 #include <linux/interrupt.h>
@@ -22,61 +23,35 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/reboot.h>
 #include <linux/slab.h>
 
 #define PALMAS_LPK_TIME_MASK		0x0c
-#define PALMAS_PWR_KEY_PRESS		0x01
+#define PALMAS_PWRON_DEBOUNCE_MASK	0x03
 #define PALMAS_PWR_KEY_Q_TIME_MS	20
 
 /**
  * struct palmas_pwron - Palmas power on data
  * @palmas:		pointer to palmas device
  * @input_dev:		pointer to input device
- * @irq:		irq that we are hooked on to
  * @input_work:		work for detecting release of key
- * @current_state:	key current state
- * @key_recheck_ms:	duration for recheck of key (in milli-seconds)
+ * @irq:		irq that we are hooked on to
  */
 struct palmas_pwron {
 	struct palmas *palmas;
 	struct input_dev *input_dev;
-	int irq;
 	struct delayed_work input_work;
-	int current_state;
-	u32 key_recheck_ms;
+	int irq;
 };
 
 /**
  * struct palmas_pwron_config - configuration of palmas power on
  * @long_press_time_val:	value for long press h/w shutdown event
+ * @pwron_debounce_val:		value for debounce of power button
  */
 struct palmas_pwron_config {
 	u8 long_press_time_val;
+	u8 pwron_debounce_val;
 };
-
-/**
- * palmas_get_pwr_state() - read button state
- * @pwron: pointer to pwron struct
- */
-static int palmas_get_pwr_state(struct palmas_pwron *pwron)
-{
-	struct input_dev *input_dev = pwron->input_dev;
-	struct device *dev = input_dev->dev.parent;
-	unsigned int reg = 0;
-	int ret;
-
-	ret = palmas_read(pwron->palmas, PALMAS_INTERRUPT_BASE,
-			  PALMAS_INT1_LINE_STATE, &reg);
-	if (ret) {
-		dev_err(dev, "%s:Cannot read palmas PWRON status(%d)\n",
-			__func__, ret);
-		return ret;
-	}
-
-	/* PWRON line state is BIT(1) of the register */
-	return reg & BIT(1) ? 0 : PALMAS_PWR_KEY_PRESS;
-}
 
 /**
  * palmas_power_button_work() - Detects the button release event
@@ -84,50 +59,47 @@ static int palmas_get_pwr_state(struct palmas_pwron *pwron)
  */
 static void palmas_power_button_work(struct work_struct *work)
 {
-	struct palmas_pwron *pwron = container_of((struct delayed_work *)work,
+	struct palmas_pwron *pwron = container_of(work,
 						  struct palmas_pwron,
-						  input_work);
+						  input_work.work);
 	struct input_dev *input_dev = pwron->input_dev;
-	int next_state;
+	unsigned int reg;
+	int error;
 
-	next_state = palmas_get_pwr_state(pwron);
-	if (next_state < 0)
-		return;
-
-	/*
-	 * If the state did not change then schedule a work item to check the
-	 * status of the power button line
-	 */
-	if (next_state == pwron->current_state) {
+	error = palmas_read(pwron->palmas, PALMAS_INTERRUPT_BASE,
+			    PALMAS_INT1_LINE_STATE, &reg);
+	if (error) {
+		dev_err(input_dev->dev.parent,
+			"Cannot read palmas PWRON status: %d\n", error);
+	} else if (reg & BIT(1)) {
+		/* The button is released, report event. */
+		input_report_key(input_dev, KEY_POWER, 0);
+		input_sync(input_dev);
+	} else {
+		/* The button is still depressed, keep checking. */
 		schedule_delayed_work(&pwron->input_work,
-				      msecs_to_jiffies(pwron->key_recheck_ms));
-		return;
+				msecs_to_jiffies(PALMAS_PWR_KEY_Q_TIME_MS));
 	}
-
-	pwron->current_state = next_state;
-	input_report_key(input_dev, KEY_POWER, pwron->current_state);
-	input_sync(input_dev);
 }
 
 /**
  * pwron_irq() - button press isr
  * @irq:		irq
  * @palmas_pwron:	pwron struct
+ *
+ * Return: IRQ_HANDLED
  */
 static irqreturn_t pwron_irq(int irq, void *palmas_pwron)
 {
 	struct palmas_pwron *pwron = palmas_pwron;
 	struct input_dev *input_dev = pwron->input_dev;
 
-	cancel_delayed_work_sync(&pwron->input_work);
-
-	pwron->current_state = PALMAS_PWR_KEY_PRESS;
-
-	input_report_key(input_dev, KEY_POWER, pwron->current_state);
+	input_report_key(input_dev, KEY_POWER, 1);
 	pm_wakeup_event(input_dev->dev.parent, 0);
 	input_sync(input_dev);
 
-	schedule_delayed_work(&pwron->input_work, 0);
+	mod_delayed_work(system_wq, &pwron->input_work,
+			 msecs_to_jiffies(PALMAS_PWR_KEY_Q_TIME_MS));
 
 	return IRQ_HANDLED;
 }
@@ -137,43 +109,55 @@ static irqreturn_t pwron_irq(int irq, void *palmas_pwron)
  * @dev:	palmas button device
  * @config:	configuration params that this fills up
  */
-static int palmas_pwron_params_ofinit(struct device *dev,
-				      struct palmas_pwron_config *config)
+static void palmas_pwron_params_ofinit(struct device *dev,
+				       struct palmas_pwron_config *config)
 {
 	struct device_node *np;
 	u32 val;
-	int i;
+	int i, error;
 	u8 lpk_times[] = { 6, 8, 10, 12 };
+	int pwr_on_deb_ms[] = { 15, 100, 500, 1000 };
 
-	/* Legacy boot? */
-	if (!of_have_populated_dt())
-		return 0;
+	memset(config, 0, sizeof(*config));
 
-	np = of_node_get(dev->of_node);
-	/* Mixed boot? */
-	if (!np)
-		return 0;
-
-	val = 0;
-	of_property_read_u32(np, "ti,palmas-long-press-seconds", &val);
+	/* Default config parameters */
 	config->long_press_time_val = ARRAY_SIZE(lpk_times) - 1;
-	for (i = 0; i < ARRAY_SIZE(lpk_times); i++) {
-		if (val <= lpk_times[i]) {
-			config->long_press_time_val = i;
-			break;
+
+	np = dev->of_node;
+	if (!np)
+		return;
+
+	error = of_property_read_u32(np, "ti,palmas-long-press-seconds", &val);
+	if (!error) {
+		for (i = 0; i < ARRAY_SIZE(lpk_times); i++) {
+			if (val <= lpk_times[i]) {
+				config->long_press_time_val = i;
+				break;
+			}
 		}
 	}
+
+	error = of_property_read_u32(np,
+				     "ti,palmas-pwron-debounce-milli-seconds",
+				     &val);
+	if (!error) {
+		for (i = 0; i < ARRAY_SIZE(pwr_on_deb_ms); i++) {
+			if (val <= pwr_on_deb_ms[i]) {
+				config->pwron_debounce_val = i;
+				break;
+			}
+		}
+	}
+
 	dev_info(dev, "h/w controlled shutdown duration=%d seconds\n",
 		 lpk_times[config->long_press_time_val]);
-
-	of_node_put(np);
-
-	return 0;
 }
 
 /**
  * palmas_pwron_probe() - probe
  * @pdev:	platform device for the button
+ *
+ * Return: 0 for successful probe else appropriate error
  */
 static int palmas_pwron_probe(struct platform_device *pdev)
 {
@@ -181,132 +165,162 @@ static int palmas_pwron_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct input_dev *input_dev;
 	struct palmas_pwron *pwron;
-	int irq, ret;
-	struct palmas_pwron_config config = { 0 };
+	struct palmas_pwron_config config;
+	int val;
+	int error;
 
-	ret = palmas_pwron_params_ofinit(dev, &config);
-	if (ret)
-		return ret;
+	palmas_pwron_params_ofinit(dev, &config);
 
-	pwron = devm_kzalloc(dev, sizeof(*pwron), GFP_KERNEL);
+	pwron = kzalloc(sizeof(*pwron), GFP_KERNEL);
 	if (!pwron)
 		return -ENOMEM;
 
-	input_dev = devm_input_allocate_device(dev);
+	input_dev = input_allocate_device();
 	if (!input_dev) {
 		dev_err(dev, "Can't allocate power button\n");
-		return -ENOMEM;
+		error = -ENOMEM;
+		goto err_free_mem;
 	}
 
-	/* Setup default hardware shutdown option (long key press) */
-	ret = palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
-				 PALMAS_LONG_PRESS_KEY,
-				 PALMAS_LPK_TIME_MASK,
-				 config.long_press_time_val);
-	if (ret < 0) {
-		dev_err(dev, "LONG_PRESS_KEY_UPDATE failed!\n");
-		return ret;
-	}
-
-	input_dev->evbit[0] = BIT_MASK(EV_KEY);
-	input_dev->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
 	input_dev->name = "palmas_pwron";
 	input_dev->phys = "palmas_pwron/input0";
 	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = dev;
+
+	input_set_capability(input_dev, EV_KEY, KEY_POWER);
+
+	/*
+	 * Setup default hardware shutdown option (long key press)
+	 * and debounce.
+	 */
+	val = config.long_press_time_val << __ffs(PALMAS_LPK_TIME_MASK);
+	val |= config.pwron_debounce_val << __ffs(PALMAS_PWRON_DEBOUNCE_MASK);
+	error = palmas_update_bits(palmas, PALMAS_PMU_CONTROL_BASE,
+				   PALMAS_LONG_PRESS_KEY,
+				   PALMAS_LPK_TIME_MASK |
+					PALMAS_PWRON_DEBOUNCE_MASK,
+				   val);
+	if (error) {
+		dev_err(dev, "LONG_PRESS_KEY_UPDATE failed: %d\n", error);
+		goto err_free_input;
+	}
 
 	pwron->palmas = palmas;
 	pwron->input_dev = input_dev;
 
 	INIT_DELAYED_WORK(&pwron->input_work, palmas_power_button_work);
 
-	irq = platform_get_irq(pdev, 0);
-
-	/* Wakeup source? interrupts extended - TODO? */
-
-	device_init_wakeup(dev, 1);
-
-	ret = devm_request_threaded_irq(dev, irq, NULL, pwron_irq,
-					IRQF_TRIGGER_HIGH |
-					IRQF_TRIGGER_LOW,
-					dev_name(dev),
-					pwron);
-	if (ret < 0) {
-		dev_err(dev, "Can't get IRQ for pwron: %d\n", ret);
-		return ret;
+	pwron->irq = platform_get_irq(pdev, 0);
+	error = request_threaded_irq(pwron->irq, NULL, pwron_irq,
+				     IRQF_TRIGGER_HIGH |
+					IRQF_TRIGGER_LOW |
+					IRQF_ONESHOT,
+				     dev_name(dev), pwron);
+	if (error) {
+		dev_err(dev, "Can't get IRQ for pwron: %d\n", error);
+		goto err_free_input;
 	}
 
-	enable_irq_wake(irq);
-
-	ret = input_register_device(input_dev);
-	if (ret) {
-		dev_dbg(dev, "Can't register power button: %d\n", ret);
-		goto out_irq_wake;
+	error = input_register_device(input_dev);
+	if (error) {
+		dev_err(dev, "Can't register power button: %d\n", error);
+		goto err_free_irq;
 	}
-	pwron->irq = irq;
-
-	pwron->key_recheck_ms = PALMAS_PWR_KEY_Q_TIME_MS;
 
 	platform_set_drvdata(pdev, pwron);
+	device_init_wakeup(dev, true);
 
 	return 0;
 
-out_irq_wake:
-	disable_irq_wake(irq);
-
-	return ret;
+err_free_irq:
+	cancel_delayed_work_sync(&pwron->input_work);
+	free_irq(pwron->irq, pwron);
+err_free_input:
+	input_free_device(input_dev);
+err_free_mem:
+	kfree(pwron);
+	return error;
 }
 
+/**
+ * palmas_pwron_remove() - Cleanup on removal
+ * @pdev:	platform device for the button
+ *
+ * Return: 0
+ */
 static int palmas_pwron_remove(struct platform_device *pdev)
 {
 	struct palmas_pwron *pwron = platform_get_drvdata(pdev);
 
-	disable_irq_wake(pwron->irq);
+	free_irq(pwron->irq, pwron);
+	cancel_delayed_work_sync(&pwron->input_work);
+
 	input_unregister_device(pwron->input_dev);
+	kfree(pwron);
 
 	return 0;
 }
 
-#ifdef CONFIG_PM
 /**
  * palmas_pwron_suspend() - suspend handler
  * @dev:	power button device
  *
- * Cancel all pending work items for the power button
+ * Cancel all pending work items for the power button, setup irq for wakeup
+ *
+ * Return: 0
  */
-static int palmas_pwron_suspend(struct device *dev)
+static int __maybe_unused palmas_pwron_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct palmas_pwron *pwron = platform_get_drvdata(pdev);
 
 	cancel_delayed_work_sync(&pwron->input_work);
 
+	if (device_may_wakeup(dev))
+		enable_irq_wake(pwron->irq);
+
 	return 0;
 }
-static UNIVERSAL_DEV_PM_OPS(palmas_pwron_pm, palmas_pwron_suspend, NULL, NULL);
 
-#else
-static UNIVERSAL_DEV_PM_OPS(palmas_pwron_pm, NULL, NULL, NULL);
-#endif
+/**
+ * palmas_pwron_resume() - resume handler
+ * @dev:	power button device
+ *
+ * Just disable the wakeup capability of irq here.
+ *
+ * Return: 0
+ */
+static int __maybe_unused palmas_pwron_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct palmas_pwron *pwron = platform_get_drvdata(pdev);
+
+	if (device_may_wakeup(dev))
+		disable_irq_wake(pwron->irq);
+
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(palmas_pwron_pm,
+			 palmas_pwron_suspend, palmas_pwron_resume);
 
 #ifdef CONFIG_OF
 static struct of_device_id of_palmas_pwr_match[] = {
-	{.compatible = "ti,palmas-pwrbutton"},
-	{},
+	{ .compatible = "ti,palmas-pwrbutton" },
+	{ },
 };
 
 MODULE_DEVICE_TABLE(of, of_palmas_pwr_match);
 #endif
 
 static struct platform_driver palmas_pwron_driver = {
-	.probe = palmas_pwron_probe,
-	.remove = palmas_pwron_remove,
-	.driver = {
-		   .name = "palmas_pwrbutton",
-		   .owner = THIS_MODULE,
-		   .of_match_table = of_match_ptr(of_palmas_pwr_match),
-		   .pm = &palmas_pwron_pm,
-		   },
+	.probe	= palmas_pwron_probe,
+	.remove	= palmas_pwron_remove,
+	.driver	= {
+		.name	= "palmas_pwrbutton",
+		.of_match_table = of_match_ptr(of_palmas_pwr_match),
+		.pm	= &palmas_pwron_pm,
+	},
 };
 module_platform_driver(palmas_pwron_driver);
 

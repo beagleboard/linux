@@ -959,6 +959,9 @@ static int omap8250_probe(struct platform_device *pdev)
 	struct uart_8250_port up;
 	int ret;
 	void __iomem *membase;
+	enum of_gpio_flags flags;
+	int gpio_sel;
+	unsigned long gpio_flags;
 
 	if (!regs || !irq) {
 		dev_err(&pdev->dev, "missing registers or irq\n");
@@ -1032,6 +1035,24 @@ static int omap8250_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev,
 			 "No clock speed specified: using default: %d\n",
 			 DEFAULT_CLK_SPEED);
+	}
+
+	/* Check if the UART needs to be selected */
+	gpio_sel = of_get_gpio_flags(pdev->dev.of_node, 0, &flags);
+	if (gpio_is_valid(gpio_sel)) {
+		dev_dbg(&pdev->dev, "using gpio %d for uart%d_sel\n",
+			gpio_sel, pdev->id);
+		gpio_flags = (flags & OF_GPIO_ACTIVE_LOW) ?
+			GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH;
+		ret = devm_gpio_request_one(&pdev->dev, gpio_sel,
+					    gpio_flags, "uart_sel");
+		if (ret) {
+			dev_err(&pdev->dev, "gpio%d request failed, ret %d\n",
+				gpio_sel, ret);
+			return ret;
+		}
+	} else if (gpio_sel == -EPROBE_DEFER) {
+		return -EPROBE_DEFER;
 	}
 
 	priv->latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
