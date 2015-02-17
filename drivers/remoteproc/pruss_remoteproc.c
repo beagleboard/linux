@@ -1098,7 +1098,8 @@ static int pruss_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 	err = pm_runtime_get_sync(dev);
-	if (err) {
+	if (err < 0) {
+		pm_runtime_put_noidle(dev);
 		dev_err(dev, "pm_runtime_get_sync failed\n");
 		goto err_rpm_fail;
 	}
