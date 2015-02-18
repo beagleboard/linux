@@ -36,7 +36,8 @@ static const struct tilcdc_panel_info slave_info = {
 		.dma_burst_sz           = 16,
 		.fdd                    = 0x80,
 		.tft_alt_mode           = 0,
-		.sync_edge              = 0,
+		.invert_pxl_clk		= 1,
+		.sync_edge              = 1,
 		.sync_ctrl              = 1,
 		.raster_order           = 0,
 };
