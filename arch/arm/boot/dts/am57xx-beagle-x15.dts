@@ -178,12 +178,13 @@
 		};
 	};
 
-	gpio_fan {
+	gpio_fan: gpio_fan {
 		/* Based on 5v 500mA AFB02505HHB */
 		compatible = "gpio-fan";
 		gpios =  <&tps659038_gpio 1 GPIO_ACTIVE_HIGH>;
 		gpio-fan,speed-map = <0    0
 				      13000 1>;
+		#cooling-cells = <2>;
 	};
 
 	primary_sound: primary_sound {
@@ -649,6 +650,7 @@
 		pinctrl-1 = <&tmp102_pins_sleep>;
 		interrupt-parent = <&gpio7>;
 		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
+		#thermal-sensor-cells = <1>;
 	};
 
 	tlv320aic3104: tlv320aic3104@18 {
@@ -945,5 +947,52 @@
 	pru2_1: pru@4b2b8000 {
 		mboxes = <&mailbox4 &mbox_pru2_1>;
 		status = "okay";
+	};
+};
+
+&cpu_trips {
+	cpu_alert1: cpu_alert1 {
+		temperature = <50000>; /* millicelsius */
+		hysteresis = <2000>; /* millicelsius */
+		type = "active";
+	};
+};
+
+&cpu_cooling_maps {
+	map1 {
+		trip = <&cpu_alert1>;
+		cooling-device = <&gpio_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+	};
+};
+
+&thermal_zones {
+	board_thermal: board_thermal {
+		polling-delay-passive = <1250>; /* milliseconds */
+		polling-delay = <1500>; /* milliseconds */
+
+				/* sensor       ID */
+		thermal-sensors = <&tmp102     0>;
+
+		board_trips: trips {
+			board_alert0: board_alert {
+				temperature = <40000>; /* millicelsius */
+				hysteresis = <2000>; /* millicelsius */
+				type = "active";
+			};
+
+			board_crit: board_crit {
+				temperature = <105000>; /* millicelsius */
+				hysteresis = <0>; /* millicelsius */
+				type = "critical";
+			};
+		};
+
+		board_cooling_maps: cooling-maps {
+			map0 {
+				trip = <&board_alert0>;
+				cooling-device =
+				  <&gpio_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+		};
 	};
 };
