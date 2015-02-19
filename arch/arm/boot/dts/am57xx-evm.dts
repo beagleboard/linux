@@ -102,6 +102,33 @@
 
 		default-on;
 	};
+
+	vmmcwl_fixed: fixedregulator-mmcwl {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmcwl_fixed";
+		/*
+		  the gpio used for wlan_enable goes through a level shifter
+		  on the platform. the settings for 1.8v below is needed by
+		  the regulator driver, but is more of a comment since it
+		  doesn't really control the voltage of the gpio
+		*/
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio5 8 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	kim {
+		compatible = "kim";
+		nshutdown_gpio = <132>;
+		dev_name = "/dev/ttyO7";
+		flow_cntrl = <1>;
+		baud_rate = <3686400>;
+	};
+
+	btwilink {
+		compatible = "btwilink";
+	};
 };
 
 &dra7_pmx_core {
@@ -159,6 +186,34 @@
 			0x7c 	(PIN_OUTPUT | MUX_MODE14)	/* gpmc_a15.gpio2_5 */
 		>;
 	};
+
+	bt_uart8_pins: pinmux_uart8_pins {
+		pinctrl-single,pins = <
+			0x334 (PIN_INPUT  | MUX_MODE3)		/* mcasp4_aclkx.uart8_rxd */
+			0x338 (PIN_OUTPUT | MUX_MODE3)		/* mcasp4_fsx.uart8_txd */
+			0x33c (PIN_INPUT  | MUX_MODE3)		/* mcasp4_axr0.uart8_ctsn */
+			0x340 (PIN_OUTPUT | MUX_MODE3)		/* mcasp4_axr1.uart8_rtsn */
+			0x2bc (PIN_OUTPUT | MUX_MODE14) 	/* mcasp1_axr2.gpio5_4 - BT_EN */
+		>;
+	};
+
+	wlan_pins: pinmux_wlan_pins {
+		pinctrl-single,pins = <
+			0x37C (PIN_INPUT | MUX_MODE0) 		/* mmc3_clk.clk */
+			0x380 (PIN_INPUT | MUX_MODE0) 		/* mmc3_cmd.cmd */
+			0x384 (PIN_INPUT | MUX_MODE0) 		/* mmc3_dat0.dat0 */
+			0x388 (PIN_INPUT | MUX_MODE0) 		/* mmc3_dat1.dat1 */
+			0x38C (PIN_INPUT | MUX_MODE0) 		/* mmc3_dat2.dat2 */
+			0x390 (PIN_INPUT | MUX_MODE0) 		/* mmc3_dat3.dat3 */
+			0x2cc (PIN_OUTPUT | MUX_MODE14)	    	/* mcasp1_axr6.gpio5_8 - WLAN_EN */
+		>;
+	};
+
+	wlirq_pins: pinmux_wlirq_pins {
+		pinctrl-single,pins = <
+			0x2c8 (PIN_INPUT_PULLUP | MUX_MODE14 ) 	/* mcasp1_axr5.gpio5_7 - WLAN_IRQ */
+		>;
+	};
 };
 
 &dss {
@@ -177,5 +232,31 @@
 				data-lines = <24>;
 			};
 		};
+	};
+};
+
+&uart8 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bt_uart8_pins>;
+};
+
+&mmc3 {
+	status = "okay";
+	vmmc-supply = <&vmmcwl_fixed>;
+	bus-width = <4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wlan_pins &wlirq_pins>;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,non-removable;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@0 {
+		compatible = "ti,wlcore";
+		reg = <2>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
 	};
 };
