@@ -71,8 +71,8 @@ DEFINE_CLK_MUX(sys_clkin_ck, sys_clkin_ck_parents, NULL, 0x0,
 	       AM33XX_CONTROL_STATUS_SYSBOOT1_WIDTH,
 	       0, NULL);
 
-/* External clock - 12 MHz */
-DEFINE_CLK_FIXED_RATE(tclkin_ck, CLK_IS_ROOT, 12000000, 0x0);
+/* External clock - 24 MHz */
+DEFINE_CLK_FIXED_RATE(tclkin_ck, CLK_IS_ROOT, 24000000, 0x0);
 
 /* Module clocks and DPLL outputs */
 
