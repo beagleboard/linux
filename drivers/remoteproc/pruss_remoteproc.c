@@ -758,8 +758,12 @@ static void *pru_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags)
 {
 	struct pru_rproc *pru = rproc->priv;
 	void *va;
+	u32 exec_flag = 0;
 
-	if (flags & PF_X)
+	exec_flag = ((flags & RPROC_FLAGS_ELF_SHDR) ? flags & SHF_EXECINSTR :
+		     ((flags & RPROC_FLAGS_ELF_PHDR) ? flags & PF_X : 0));
+
+	if (exec_flag)
 		va = pru_i_da_to_va(pru, da, len);
 	else
 		va = pru_d_da_to_va(pru, da, len);
