@@ -1,0 +1,74 @@
+/*
+ * Copyright (C) 2013 the8thlayerof.net
+ *
+ * GPS cape
+ * UART4 on pins P9.11, P9.13
+ * PPS on pin P8.7
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+        /* identification */
+        part-number = "DD-GPS";
+        version = "00A0";
+
+        /* state the resources this cape uses */
+        exclusive-use =
+                /* the pin header uses */
+                "P9.11",        /* uart4_rxd/GPS TX */
+                "P9.13",        /* uart4_txd/GPS RX */
+                "P8.7",         /* timer4/GPS PPS   */
+                /* the hardware ip uses */
+                "uart4",   /* 0-based counting */
+                "gpio2_2", /* 0-based counting */
+		"timer4";  /* 1-based counting */
+
+        fragment@0 {
+                target = <&am33xx_pinmux>;
+                __overlay__ {
+                        gps_uart4_pins: pinmux_gps_uart4_pins {
+                                pinctrl-single,pins = <
+					0x70 0x26 /* P9.11 uart4_rxd MODE6 INPUT (RX) */
+                                        0x74 0x06 /* P9.13 uart4_txd MODE6 OUTPUT (TX) */
+                                >;
+                        };
+
+                        gps_pps_pins: pinmux_gps_pps_pins {
+				pinctrl-single,pins = <
+				      0x90 0x22 /* P8.7 MODE2 TIMER4 */
+				>;
+			};
+
+                };
+        };
+
+	fragment@1 {
+                target = <&uart5>;	/* 1-based counting */
+                __overlay__ {
+                        status = "okay";
+                        pinctrl-names = "default";
+                        pinctrl-0 = <&gps_uart4_pins>;
+                };
+	};
+
+	fragment@2 {
+		target = <&ocp>;
+
+                __overlay__ {
+			pps_gmtimer {
+				compatible = "pps-gmtimer";
+				status = "okay";
+				timer = <&timer4>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&gps_pps_pins>;
+			};
+		};
+	};
+};
