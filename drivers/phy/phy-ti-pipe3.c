@@ -342,7 +342,11 @@ static int ti_pipe3_probe(struct platform_device *pdev)
 	phy->refclk = devm_clk_get(phy->dev, "refclk");
 	if (IS_ERR(phy->refclk)) {
 		dev_err(&pdev->dev, "unable to get refclk\n");
-		return PTR_ERR(phy->refclk);
+		/* older DTBs have missing refclk in SATA PHY
+		 * so don't bail out in case of SATA PHY.
+		 */
+		if (!of_device_is_compatible(node, "ti,phy-pipe3-sata"))
+			return PTR_ERR(phy->refclk);
 	}
 
 	if (!of_device_is_compatible(node, "ti,phy-pipe3-sata")) {
