@@ -22,6 +22,20 @@
 
 #include <linux/irqreturn.h>
 #include <linux/firmware.h>
+#include <linux/bitops.h>
+
+/*
+ * Macros to use with flags field in rproc_da_to_va API. Use
+ * the upper 16 bits to dictate the flags type and the lower
+ * 16 bits to pass on the value of the flags pertinent to that
+ * type.
+ *
+ * Add any new flags type at a new bit-field position
+ */
+#define RPROC_FLAGS_SHIFT	16
+#define RPROC_FLAGS_NONE	0
+#define RPROC_FLAGS_ELF_PHDR	BIT(0 + RPROC_FLAGS_SHIFT)
+#define RPROC_FLAGS_ELF_SHDR	BIT(1 + RPROC_FLAGS_SHIFT)
 
 struct rproc;
 
