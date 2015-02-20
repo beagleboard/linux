@@ -140,22 +140,36 @@ static void rproc_disable_iommu(struct rproc *rproc)
 	return;
 }
 
-/*
+/**
+ * rproc_da_to_va() - lookup the kernel virtual address for a remoteproc address
+ * @rproc: handle of a remote processor
+ * @da: remoteproc device address to translate
+ * @len: length of the memory region @da is pointing to
+ * @flags: flags to pass onto platform implementations for aiding translations
+ *
  * Some remote processors will ask us to allocate them physically contiguous
  * memory regions (which we call "carveouts"), and map them to specific
- * device addresses (which are hardcoded in the firmware).
+ * device addresses (which are hardcoded in the firmware). They may also have
+ * dedicated memory regions internal to the processors, and use them either
+ * exclusively or alongside carveouts.
  *
  * They may then ask us to copy objects into specific device addresses (e.g.
  * code/data sections) or expose us certain symbols in other device address
  * (e.g. their trace buffer).
  *
- * This function is an internal helper with which we can go over the allocated
- * carveouts and translate specific device address to kernel virtual addresses
- * so we can access the referenced memory.
+ * This function is a helper function with which we can go over the allocated
+ * carveouts and translate specific device addresses to kernel virtual addresses
+ * so we can access the referenced memory. This function also allows to perform
+ * translations on the internal remoteproc memory regions through a platform
+ * implementation specific da_to_va ops, if present. The @flags field is passed
+ * onto these ops to aid the translation within the ops implementation.
+ *
+ * The function returns a valid kernel address on success or NULL on failure.
  *
  * Note: phys_to_virt(iommu_iova_to_phys(rproc->domain, da)) will work too,
  * but only on kernel direct mapped RAM memory. Instead, we're just using
- * here the output of the DMA API, which should be more correct.
+ * here the output of the DMA API for the carveouts, which should be more
+ * correct.
  */
 void *rproc_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags)
 {
