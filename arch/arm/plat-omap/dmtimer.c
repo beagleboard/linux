@@ -514,7 +514,7 @@ int omap_dm_timer_set_source(struct omap_dm_timer *timer, int source)
 		break;
 
 	case OMAP_TIMER_SRC_EXT_CLK:
-		parent_name = "timer_ext_ck";
+		parent_name = "tclkin_ck";
 		break;
 	}
 
