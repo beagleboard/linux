@@ -38,4 +38,10 @@ config PPS_CLIENT_GPIO
 	  specifying the GPIO pin and other options, usually in your board
 	  setup.
 
+config PPS_BB_GMTIMER
+	tristate "PPS client using Beaglebone Black Hardware Counter Capture Driver"
+	depends on PPS && GENERIC_HARDIRQS && ARCH_OMAP2PLUS
+	help
+	  Beaglebone Black Hardware Counter Capture Driver
+
 endif
