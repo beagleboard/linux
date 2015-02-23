@@ -687,6 +687,9 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		dev_err(dev, "rproc_alloc failed\n");
 		return -ENOMEM;
 	}
+	/* error recovery is not supported for PRUs */
+	rproc->recovery_disabled = true;
+
 	pru = rproc->priv;
 	pru->id = pdata->id;
 	pru->pruss = platform_get_drvdata(ppdev);
