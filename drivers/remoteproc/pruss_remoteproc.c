@@ -758,8 +758,12 @@ static void *pru_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags)
 {
 	struct pru_rproc *pru = rproc->priv;
 	void *va;
+	u32 exec_flag = 0;
 
-	if (flags & PF_X)
+	exec_flag = ((flags & RPROC_FLAGS_ELF_SHDR) ? flags & SHF_EXECINSTR :
+		     ((flags & RPROC_FLAGS_ELF_PHDR) ? flags & PF_X : 0));
+
+	if (exec_flag)
 		va = pru_i_da_to_va(pru, da, len);
 	else
 		va = pru_d_da_to_va(pru, da, len);
@@ -826,6 +830,9 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		dev_err(dev, "rproc_alloc failed\n");
 		return -ENOMEM;
 	}
+	/* error recovery is not supported for PRUs */
+	rproc->recovery_disabled = true;
+
 	pru = rproc->priv;
 	pru->id = pdata->id;
 	pru->pruss = platform_get_drvdata(ppdev);
@@ -1094,7 +1101,8 @@ static int pruss_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 	err = pm_runtime_get_sync(dev);
-	if (err) {
+	if (err < 0) {
+		pm_runtime_put_noidle(dev);
 		dev_err(dev, "pm_runtime_get_sync failed\n");
 		goto err_rpm_fail;
 	}
