@@ -18,6 +18,7 @@
 #include <linux/platform_data/pinctrl-single.h>
 #include <linux/platform_data/iommu-omap.h>
 #include <linux/platform_data/wkup_m3.h>
+#include <linux/platform_data/wkup_m3_ipc.h>
 
 #include "common.h"
 #include "common-board-devices.h"
@@ -25,6 +26,7 @@
 #include "control.h"
 #include "omap_device.h"
 #include "omap-secure.h"
+#include "pm.h"
 #include "soc.h"
 
 struct pdata_init {
@@ -264,6 +266,10 @@ static struct wkup_m3_platform_data wkup_m3_data = {
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
 };
+
+static struct wkup_m3_ipc_data wkup_m3_ipc_pm_data = {
+	.set_pm_ipc_ops = am33xx_pm_set_ipc_ops,
+};
 #endif
 
 #ifdef CONFIG_SOC_OMAP5
@@ -331,6 +337,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 #ifdef CONFIG_SOC_AM33XX
 	OF_DEV_AUXDATA("ti,am3352-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
 		       &wkup_m3_data),
+	OF_DEV_AUXDATA("ti,am3352-wkup-m3-ipc", 0x44e11324, "44e11324.wkup_m3",
+		       &wkup_m3_ipc_pm_data),
 #endif
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
@@ -347,6 +355,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,am437-padconf", 0x44e10800, "44e10800.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,am4372-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
 		       &wkup_m3_data),
+	OF_DEV_AUXDATA("ti,am4372-wkup-m3-ipc", 0x44e11324, "44e11324.wkup_m3",
+		       &wkup_m3_ipc_pm_data),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
