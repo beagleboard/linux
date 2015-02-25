@@ -217,3 +217,11 @@
 &rtc {
 	ti,system-power-controller;
 };
+
+&aes {
+	status = "okay";
+};
+
+&sham {
+	status = "okay";
+};
