@@ -215,3 +215,11 @@
 &wkup_m3 {
 	ti,scale-data-fw = "am335x-bone-scale-data.bin";
 };
+
+&aes {
+	status = "okay";
+};
+
+&sham {
+	status = "okay";
+};
