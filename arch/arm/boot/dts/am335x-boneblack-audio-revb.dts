@@ -1,0 +1,49 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+#include "am335x-bone-common-pinmux.dtsi"
+
+/ {
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&ocp {
+	/* clkout2 */
+	P9_41_pinmux {
+		status = "disabled";
+	};
+	/* mmc1 */
+	P9_92_pinmux {
+		status = "disabled";
+	};
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&am33xx_pinmux {
+	pinctrl-names = "default";
+	pinctrl-0 = <&clkout2_pin>;
+};
+
+#include "am335x-boneblack-emmc.dtsi"
+/* #include "am335x-boneblack-nxp-hdmi-audio.dtsi" */
+#include "am335x-bone-i2c2-cape-eeprom.dtsi"
+#include "am335x-bone-audio-revb.dtsi"
+#include "am335x-boneblack-nxp-hdmi-no-audio.dtsi"
