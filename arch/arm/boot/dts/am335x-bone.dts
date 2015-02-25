@@ -42,14 +42,6 @@
 	pinctrl-0 = <&clkout2_pin>;
 };
 
-&sham {
-	status = "okay";
-};
-
-&aes {
-	status = "okay";
-};
-
 /* can0: P9.19, P9.20: disable: i2c2: cape eeprom */
 /* can0: peripheral */
 #include "am335x-can0.dtsi"
