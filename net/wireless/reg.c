@@ -1292,6 +1292,15 @@ static void handle_channel(struct wiphy *wiphy,
 			chan->dfs_cac_ms = reg_rule->dfs_cac_ms;
 		else
 			chan->dfs_cac_ms = dfs_cac_time_ms;
+
+		/*
+		 * workaround: use 10 minutes CAC for channel 120,124 and 128
+		 * in case of ETSI dfs region
+		 */
+		if (regd->dfs_region == NL80211_DFS_ETSI &&
+		    chan->band == IEEE80211_BAND_5GHZ &&
+		    chan->center_freq >= 5600 && chan->center_freq <= 5640)
+			chan->dfs_cac_ms = 10 * 60 * 1000;
 	}
 
 	if (chan->orig_mpwr) {
