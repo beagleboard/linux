@@ -612,6 +612,9 @@ struct omap_hwmod_link {
 	struct list_head		node;
 };
 
+#define HWMOD_LOCKDEP_SUBCLASS_NORMAL	0
+#define HWMOD_LOCKDEP_SUBCLASS_CLASS1	1	/* hwmod might be used as nested */
+
 /**
  * struct omap_hwmod - integration data for OMAP hardware "modules" (IP blocks)
  * @name: name of the hwmod
@@ -638,6 +641,7 @@ struct omap_hwmod_link {
  * @_postsetup_state: internal-use state to leave the hwmod in after _setup()
  * @flags: hwmod flags (documented below)
  * @_lock: spinlock serializing operations on this hwmod
+ * @lockdep_class: subclass to use with spin_lock_irqsave_nested()
  * @node: list node for hwmod list (internal use)
  * @parent_hwmod: (temporary) a pointer to the hierarchical parent of this hwmod
  *
@@ -680,6 +684,7 @@ struct omap_hwmod {
 	u32				_sysc_cache;
 	void __iomem			*_mpu_rt_va;
 	spinlock_t			_lock;
+	unsigned int			lockdep_class;
 	struct list_head		node;
 	struct omap_hwmod_ocp_if	*_mpu_port;
 	u16				flags;

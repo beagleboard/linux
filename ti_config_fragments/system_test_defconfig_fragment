@@ -5,4 +5,5 @@ config-fragment=ti_config_fragments/power.cfg
 config-fragment=ti_config_fragments/connectivity.cfg
 config-fragment=ti_config_fragments/ipc.cfg
 config-fragment=ti_config_fragments/audio_display.cfg
+config-fragment=ti_config_fragments/debug_options.cfg
 config-fragment=ti_config_fragments/system_test.cfg

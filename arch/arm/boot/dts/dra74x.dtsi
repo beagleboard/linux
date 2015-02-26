@@ -43,7 +43,7 @@
 		};
 	};
 
-	thermal-zones {
+	thermal_zones: thermal-zones {
 		#include "omap5-cpu-thermal.dtsi"
 	};
 

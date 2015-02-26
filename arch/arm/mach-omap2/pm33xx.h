@@ -35,6 +35,7 @@ struct am33xx_pm_context {
 	struct am33xx_pm_ops	*ops;
 	u8			state;
 	u32			ver;
+	u32			m3_i2c_sequence_offsets;
 	const char		*sd_fw_name;
 };
 
@@ -51,7 +52,6 @@ struct am33xx_suspend_params {
 	void __iomem *dram_sync;
 	void __iomem *rtc_base;
 	void __iomem *l2_base_virt;
-	void __iomem *cke_override_virt;
 };
 
 void wkup_m3_reset_data_pos(void);
@@ -69,7 +69,7 @@ void __iomem *omap_rtc_get_base_addr(void);
 #define IPC_CMD_RESET			0xe
 #define DS_IPC_DEFAULT			0xffffffff
 #define M3_VERSION_UNKNOWN		0x0000ffff
-#define M3_BASELINE_VERSION		0x189
+#define M3_BASELINE_VERSION		0x190
 
 #define M3_STATE_UNKNOWN		0
 #define M3_STATE_RESET			1
@@ -81,8 +81,6 @@ void __iomem *omap_rtc_get_base_addr(void);
 #define AM33XX_EMIF_BASE		0x4C000000
 
 #define AM43XX_CM_BASE			0x44DF0000
-
-#define AM43XX_CTRL_CKE_OVERRIDE	0x44E1131C
 
 #define AM43XX_CM_REGADDR(inst, reg)				\
 	AM33XX_L4_WK_IO_ADDRESS(AM43XX_CM_BASE + (inst) + (reg))

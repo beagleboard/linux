@@ -240,6 +240,21 @@ static bool omap_crtc_mode_fixup(struct drm_crtc *crtc,
 	return true;
 }
 
+static void vblank_cb(void *arg);
+
+static void omap_crtc_cancel_page_flip(struct drm_crtc *crtc)
+{
+	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+	struct drm_gem_object *bo;
+
+	if (omap_crtc->old_fb == NULL)
+		return;
+
+	bo = omap_framebuffer_bo(omap_crtc->old_fb, 0);
+	drm_gem_object_unreference_unlocked(bo);
+	vblank_cb(crtc);
+}
+
 static int omap_crtc_mode_set(struct drm_crtc *crtc,
 		struct drm_display_mode *mode,
 		struct drm_display_mode *adjusted_mode,
@@ -261,6 +276,8 @@ static int omap_crtc_mode_set(struct drm_crtc *crtc,
 
 	copy_timings_drm_to_omap(&omap_crtc->timings, mode);
 	omap_crtc->full_update = true;
+
+	omap_crtc_cancel_page_flip(crtc);
 
 	return omap_plane_mode_set(omap_crtc->plane, crtc, crtc->fb,
 			0, 0, mode->hdisplay, mode->vdisplay,
@@ -295,6 +312,8 @@ static int omap_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	struct drm_plane *plane = omap_crtc->plane;
 	struct drm_display_mode *mode = &crtc->mode;
 
+	omap_crtc_cancel_page_flip(crtc);
+
 	return omap_plane_mode_set(plane, crtc, crtc->fb,
 			0, 0, mode->hdisplay, mode->vdisplay,
 			x << 16, y << 16,
@@ -308,6 +327,7 @@ static void vblank_cb(void *arg)
 	struct drm_device *dev = crtc->dev;
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	unsigned long flags;
+	struct drm_framebuffer *fb;
 
 	spin_lock_irqsave(&dev->event_lock, flags);
 
@@ -315,10 +335,15 @@ static void vblank_cb(void *arg)
 	if (omap_crtc->event)
 		drm_send_vblank_event(dev, omap_crtc->pipe, omap_crtc->event);
 
+	fb = omap_crtc->old_fb;
+
 	omap_crtc->event = NULL;
 	omap_crtc->old_fb = NULL;
 
 	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+	if (fb)
+		drm_framebuffer_unreference(fb);
 }
 
 static void page_flip_worker(struct work_struct *work)
@@ -330,15 +355,31 @@ static void page_flip_worker(struct work_struct *work)
 	struct drm_gem_object *bo;
 
 	mutex_lock(&crtc->mutex);
-	omap_plane_mode_set(omap_crtc->plane, crtc, crtc->fb,
-			0, 0, mode->hdisplay, mode->vdisplay,
-			crtc->x << 16, crtc->y << 16,
-			mode->hdisplay << 16, mode->vdisplay << 16,
-			vblank_cb, crtc);
-	mutex_unlock(&crtc->mutex);
 
-	bo = omap_framebuffer_bo(crtc->fb, 0);
-	drm_gem_object_unreference_unlocked(bo);
+	/* if the page flip has been cancelled, just exit */
+	if (omap_crtc->old_fb == NULL) {
+		mutex_unlock(&crtc->mutex);
+		return;
+	}
+
+	if (!crtc->fb) {
+		/*
+		 * the fb we were going to show has been removed, so cancel
+		 * this page flip
+		 */
+		omap_crtc_cancel_page_flip(crtc);
+	} else {
+		omap_plane_mode_set(omap_crtc->plane, crtc, crtc->fb,
+				0, 0, mode->hdisplay, mode->vdisplay,
+				crtc->x << 16, crtc->y << 16,
+				mode->hdisplay << 16, mode->vdisplay << 16,
+				vblank_cb, crtc);
+
+		bo = omap_framebuffer_bo(crtc->fb, 0);
+		drm_gem_object_unreference_unlocked(bo);
+	}
+
+	mutex_unlock(&crtc->mutex);
 }
 
 static void page_flip_cb(void *arg)
@@ -374,6 +415,7 @@ static int omap_crtc_page_flip_locked(struct drm_crtc *crtc,
 
 	omap_crtc->event = event;
 	omap_crtc->old_fb = crtc->fb = fb;
+	drm_framebuffer_reference(omap_crtc->old_fb);
 
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 

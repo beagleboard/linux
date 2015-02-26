@@ -1,0 +1,262 @@
+/*
+ * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "am57xx-beagle-x15.dts"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "TI AM572x EVM";
+	compatible = "ti,am572x-evm", "ti,am572x-beagle-x15", "ti,am5728", "ti,dra742", "ti,dra74", "ti,dra7";
+
+	gpio_keys {
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_keys_default>;
+
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+
+		USER1 {
+			label = "Up";
+			linux,code = <KEY_UP>;
+			gpios = <&gpio2 23 GPIO_ACTIVE_LOW>;
+		};
+
+		USER2 {
+			label = "Down";
+			linux,code = <KEY_DOWN>;
+			gpios = <&gpio2 25 GPIO_ACTIVE_LOW>;
+		};
+
+		USER3 {
+			label = "Left";
+			linux,code = <KEY_LEFT>;
+			gpios = <&gpio2 28 GPIO_ACTIVE_LOW>;
+		};
+
+		USER4 {
+			label = "Right";
+			linux,code = <KEY_RIGHT>;
+			gpios = <&gpio2 24 GPIO_ACTIVE_LOW>;
+		};
+
+		USER5 {
+			label = "Home";
+			linux,code = <KEY_HOME>;
+			gpios = <&gpio2 20 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	aliases {
+		display0 = &lcd0;
+		display1 = &hdmi0;
+	};
+
+	lcd0: display {
+		compatible = "osddisplays,osd070t1718-19ts", "panel-dpi";
+
+		label = "lcd";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&lcd_pins>;
+
+		enable-gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
+
+		panel-timing {
+			clock-frequency = <33000000>;
+			hactive = <800>;
+			vactive = <480>;
+			hfront-porch = <210>;
+			hback-porch = <16>;
+			hsync-len = <30>;
+			vback-porch = <10>;
+			vfront-porch = <22>;
+			vsync-len = <13>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+		};
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
+
+	backlight {
+		compatible = "gpio-backlight";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&bl_pins>;
+
+		gpios = <&gpio6 10 GPIO_ACTIVE_LOW>;
+
+		default-on;
+	};
+
+	vmmcwl_fixed: fixedregulator-mmcwl {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmcwl_fixed";
+		/*
+		  the gpio used for wlan_enable goes through a level shifter
+		  on the platform. the settings for 1.8v below is needed by
+		  the regulator driver, but is more of a comment since it
+		  doesn't really control the voltage of the gpio
+		*/
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio5 8 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	kim {
+		compatible = "kim";
+		nshutdown_gpio = <132>;
+		dev_name = "/dev/ttyO7";
+		flow_cntrl = <1>;
+		baud_rate = <3686400>;
+	};
+
+	btwilink {
+		compatible = "btwilink";
+	};
+};
+
+&dra7_pmx_core {
+	gpio_keys_default: gpio_keys_default {
+		pinctrl-single,pins = <
+			0x0b8 (PIN_INPUT | MUX_MODE14)	/* gpmc_cs2.gpio2_20 */
+			0x0c4 (PIN_INPUT | MUX_MODE14)	/* gpmc_advn_ale.gpio2_23 */
+			0x0c8 (PIN_INPUT | MUX_MODE14)	/* gpmc_oen_ren.gpio2_24 */
+			0x0cc (PIN_INPUT | MUX_MODE14)	/* gpmc_wen.gpio2_25 */
+			0x0d8 (PIN_INPUT | MUX_MODE14)	/* gpmc_wait0.gpio2_28 */
+		>;
+	};
+
+	vout1_pins: pinmux_vout1_pins {
+		pinctrl-single,pins = <
+			0x1C8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_clk */
+			0x1CC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_de */
+			0x1D4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_hsync */
+			0x1D8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_vsync */
+			0x1DC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d0 */
+			0x1E0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d1 */
+			0x1E4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d2 */
+			0x1E8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d3 */
+			0x1EC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d4 */
+			0x1F0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d5 */
+			0x1F4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d6 */
+			0x1F8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d7 */
+			0x1FC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d8 */
+			0x200	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d9 */
+			0x204	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d10 */
+			0x208	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d11 */
+			0x20C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d12 */
+			0x210	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d13 */
+			0x214	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d14 */
+			0x218	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d15 */
+			0x21C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d16 */
+			0x220	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d17 */
+			0x224	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d18 */
+			0x228	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d19 */
+			0x22C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d20 */
+			0x230	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d21 */
+			0x234	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d22 */
+			0x238	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d23 */
+		>;
+	};
+
+	bl_pins: pinmux_bl_pins {
+		pinctrl-single,pins = <
+			0x374 	(PIN_OUTPUT | MUX_MODE14)	/* gpio6_10.gpio6_10 */
+		>;
+	};
+
+	lcd_pins: pinmux_lcd_pins {
+		pinctrl-single,pins = <
+			0x7c 	(PIN_OUTPUT | MUX_MODE14)	/* gpmc_a15.gpio2_5 */
+		>;
+	};
+
+	bt_uart8_pins: pinmux_uart8_pins {
+		pinctrl-single,pins = <
+			0x334 (PIN_INPUT  | MUX_MODE3)		/* mcasp4_aclkx.uart8_rxd */
+			0x338 (PIN_OUTPUT | MUX_MODE3)		/* mcasp4_fsx.uart8_txd */
+			0x33c (PIN_INPUT  | MUX_MODE3)		/* mcasp4_axr0.uart8_ctsn */
+			0x340 (PIN_OUTPUT | MUX_MODE3)		/* mcasp4_axr1.uart8_rtsn */
+			0x2bc (PIN_OUTPUT | MUX_MODE14) 	/* mcasp1_axr2.gpio5_4 - BT_EN */
+		>;
+	};
+
+	wlan_pins: pinmux_wlan_pins {
+		pinctrl-single,pins = <
+			0x37C (PIN_INPUT | MUX_MODE0) 		/* mmc3_clk.clk */
+			0x380 (PIN_INPUT | MUX_MODE0) 		/* mmc3_cmd.cmd */
+			0x384 (PIN_INPUT | MUX_MODE0) 		/* mmc3_dat0.dat0 */
+			0x388 (PIN_INPUT | MUX_MODE0) 		/* mmc3_dat1.dat1 */
+			0x38C (PIN_INPUT | MUX_MODE0) 		/* mmc3_dat2.dat2 */
+			0x390 (PIN_INPUT | MUX_MODE0) 		/* mmc3_dat3.dat3 */
+			0x2cc (PIN_OUTPUT | MUX_MODE14)	    	/* mcasp1_axr6.gpio5_8 - WLAN_EN */
+		>;
+	};
+
+	wlirq_pins: pinmux_wlirq_pins {
+		pinctrl-single,pins = <
+			0x2c8 (PIN_INPUT_PULLUP | MUX_MODE14 ) 	/* mcasp1_axr5.gpio5_7 - WLAN_IRQ */
+		>;
+	};
+};
+
+&dss {
+	pinctrl-names = "default";
+	pinctrl-0 = <&vout1_pins>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				remote-endpoint = <&lcd_in>;
+				data-lines = <24>;
+			};
+		};
+	};
+};
+
+&uart8 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bt_uart8_pins>;
+};
+
+&mmc3 {
+	status = "okay";
+	vmmc-supply = <&vmmcwl_fixed>;
+	bus-width = <4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wlan_pins &wlirq_pins>;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,non-removable;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@0 {
+		compatible = "ti,wlcore";
+		reg = <2>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};

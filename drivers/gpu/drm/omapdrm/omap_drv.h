@@ -104,6 +104,9 @@ struct omap_drm_private {
 
 	struct workqueue_struct *wq;
 
+	/* lock for obj_list below */
+	spinlock_t list_lock;
+
 	/* list of GEM objects: */
 	struct list_head obj_list;
 
@@ -112,6 +115,8 @@ struct omap_drm_private {
 	/* properties: */
 	struct drm_property *rotation_prop;
 	struct drm_property *zorder_prop;
+	struct drm_property *global_alpha_prop;
+	struct drm_property *pre_mult_alpha_prop;
 
 	/* irq handling: */
 	struct list_head irq_list;    /* list of omap_drm_irq */

@@ -2995,9 +2995,6 @@ static int _omap2xxx_wait_target_ready(struct omap_hwmod *oh)
 	if (oh->flags & HWMOD_NO_IDLEST)
 		return 0;
 
-	if (!_find_mpu_rt_port(oh))
-		return 0;
-
 	/* XXX check module SIDLEMODE, hardreset status, enabled clocks */
 
 	return omap2xxx_cm_wait_module_ready(oh->prcm.omap2.module_offs,
@@ -3020,9 +3017,6 @@ static int _omap3xxx_wait_target_ready(struct omap_hwmod *oh)
 		return -EINVAL;
 
 	if (oh->flags & HWMOD_NO_IDLEST)
-		return 0;
-
-	if (!_find_mpu_rt_port(oh))
 		return 0;
 
 	/* XXX check module SIDLEMODE, hardreset status, enabled clocks */
@@ -3049,9 +3043,6 @@ static int _omap4_wait_target_ready(struct omap_hwmod *oh)
 	if (oh->flags & HWMOD_NO_IDLEST || !oh->clkdm)
 		return 0;
 
-	if (!_find_mpu_rt_port(oh))
-		return 0;
-
 	/* XXX check module SIDLEMODE, hardreset status */
 
 	return omap4_cminst_wait_module_ready(oh->clkdm->prcm_partition,
@@ -3075,9 +3066,6 @@ static int _am33xx_wait_target_ready(struct omap_hwmod *oh)
 		return -EINVAL;
 
 	if (oh->flags & HWMOD_NO_IDLEST)
-		return 0;
-
-	if (!_find_mpu_rt_port(oh))
 		return 0;
 
 	/* XXX check module SIDLEMODE, hardreset status */
@@ -3585,7 +3573,7 @@ int omap_hwmod_enable(struct omap_hwmod *oh)
 	if (!oh)
 		return -EINVAL;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 	r = _enable(oh);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
@@ -3606,7 +3594,7 @@ int omap_hwmod_idle(struct omap_hwmod *oh)
 	if (!oh)
 		return -EINVAL;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 	_idle(oh);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
@@ -3628,7 +3616,7 @@ int omap_hwmod_shutdown(struct omap_hwmod *oh)
 	if (!oh)
 		return -EINVAL;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 	_shutdown(oh);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
@@ -3645,7 +3633,7 @@ int omap_hwmod_enable_clocks(struct omap_hwmod *oh)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 	_enable_clocks(oh);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
@@ -3662,7 +3650,7 @@ int omap_hwmod_disable_clocks(struct omap_hwmod *oh)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 	_disable_clocks(oh);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
@@ -3713,7 +3701,7 @@ int omap_hwmod_reset(struct omap_hwmod *oh)
 	if (!oh)
 		return -EINVAL;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 	r = _reset(oh);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
@@ -4037,7 +4025,7 @@ int omap_hwmod_enable_wakeup(struct omap_hwmod *oh)
 	unsigned long flags;
 	u32 v;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 
 	if (oh->class->sysc &&
 	    (oh->class->sysc->sysc_flags & SYSC_HAS_ENAWAKEUP)) {
@@ -4070,7 +4058,7 @@ int omap_hwmod_disable_wakeup(struct omap_hwmod *oh)
 	unsigned long flags;
 	u32 v;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 
 	if (oh->class->sysc &&
 	    (oh->class->sysc->sysc_flags & SYSC_HAS_ENAWAKEUP)) {
@@ -4105,7 +4093,7 @@ int omap_hwmod_assert_hardreset(struct omap_hwmod *oh, const char *name)
 	if (!oh)
 		return -EINVAL;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 	ret = _assert_hardreset(oh, name);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
@@ -4132,7 +4120,7 @@ int omap_hwmod_deassert_hardreset(struct omap_hwmod *oh, const char *name)
 	if (!oh)
 		return -EINVAL;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 	ret = _deassert_hardreset(oh, name);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
@@ -4158,7 +4146,7 @@ int omap_hwmod_read_hardreset(struct omap_hwmod *oh, const char *name)
 	if (!oh)
 		return -EINVAL;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 	ret = _read_hardreset(oh, name);
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
@@ -4233,7 +4221,7 @@ int omap_hwmod_set_postsetup_state(struct omap_hwmod *oh, u8 state)
 	    state != _HWMOD_STATE_IDLE)
 		return -EINVAL;
 
-	spin_lock_irqsave(&oh->_lock, flags);
+	spin_lock_irqsave_nested(&oh->_lock, flags, oh->lockdep_class);
 
 	if (oh->_state != _HWMOD_STATE_REGISTERED) {
 		ret = -EINVAL;

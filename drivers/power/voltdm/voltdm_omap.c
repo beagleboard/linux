@@ -38,12 +38,14 @@ struct omap_voltdm_optimium_voltage_table {
  * @vbb_reg:	Body Bias regulator
  * @vdd_table:	Optimized voltage mapping table
  * @num_vdd_table: number of entries in vdd_table
+ * @vdd_absolute_max_voltage_uv: absolute maximum voltage in UV for the domain
  */
 struct omap_voltdm_data {
 	struct regulator *vdd_reg;
 	struct regulator *vbb_reg;
 	struct omap_voltdm_optimium_voltage_table *vdd_table;
 	u32 num_vdd_table;
+	u32 vdd_absolute_max_voltage_uv;
 };
 
 /**
@@ -157,6 +159,9 @@ static int voltdm_store_optimized_voltages(struct device *dev,
 		}
 	}
 
+	of_property_read_u32(dev->of_node, "ti,absolute-max-voltage-uv",
+				     &data->vdd_absolute_max_voltage_uv);
+
 out:
 	iounmap(base);
 out_map:
@@ -247,9 +252,20 @@ static int omap_voltdm_do_transition(struct device *dev,
 	}
 
 	vdd_uv = voltdm_get_optimal_vdd_voltage(dev, data, uv);
-	dev_dbg(dev, "vdd for voltage %duV(ref=%duV)[tol %duV]\n",
-		vdd_uv, uv, tol_uv);
-	ret = regulator_set_voltage_tol(data->vdd_reg, vdd_uv, tol_uv);
+	dev_dbg(dev, "vdd for voltage %duV(ref=%duV)[tol %duV] MAX=%duV\n",
+		vdd_uv, uv, tol_uv, data->vdd_absolute_max_voltage_uv);
+	if (data->vdd_absolute_max_voltage_uv) {
+		ret = regulator_set_voltage(data->vdd_reg,
+					    vdd_uv,
+					    data->vdd_absolute_max_voltage_uv);
+		/* Try a lower range */
+		if (ret)
+			ret = regulator_set_voltage(data->vdd_reg,
+					    vdd_uv - tol_uv,
+					    data->vdd_absolute_max_voltage_uv);
+	} else {
+		ret = regulator_set_voltage_tol(data->vdd_reg, vdd_uv, tol_uv);
+	}
 	if (ret) {
 		dev_err(dev,
 			"vdd failed for voltage %duV(ref=%duV)[tol %duV]:%d\n",

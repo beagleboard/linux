@@ -20,11 +20,13 @@
 		rtc1 = &rtc;
 		rtc2 = &tps659038_rtc;
 		display0 = &hdmi0;
+		sound0 = &primary_sound;
+		sound1 = &hdmi;
 	};
 
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x40000000>; /* 1GB to start. Target 2GB */
+		reg = <0x80000000 0x80000000>;
 	};
 
 	reserved-memory {
@@ -100,7 +102,7 @@
 	};
 
 	hdmi0: connector@1 {
-		compatible = "omapdss,hdmi-connector";
+		compatible = "hdmi-connector";
 		label = "hdmi";
 
 		type = "a";
@@ -113,7 +115,7 @@
 	};
 
 	tpd12s015: encoder@1 {
-		compatible = "omapdss,ti,tpd12s015";
+		compatible = "ti,tpd12s015";
 
 		gpios = <&gpio7 10 GPIO_ACTIVE_HIGH>,	/* gpio7_10, CT CP HPD */
 			<&gpio6 28 GPIO_ACTIVE_HIGH>,	/* gpio6_28, LS OE */
@@ -176,15 +178,16 @@
 		};
 	};
 
-	gpio_fan {
+	gpio_fan: gpio_fan {
 		/* Based on 5v 500mA AFB02505HHB */
 		compatible = "gpio-fan";
 		gpios =  <&tps659038_gpio 1 GPIO_ACTIVE_HIGH>;
 		gpio-fan,speed-map = <0    0
 				      13000 1>;
+		#cooling-cells = <2>;
 	};
 
-	sound {
+	primary_sound: primary_sound {
 		compatible = "ti,da830-evm-audio";
 		ti,model = "BeagleBoard-X15";
 		ti,audio-codec = <&tlv320aic3104>;
@@ -194,8 +197,8 @@
 		ti,audio-routing =
 			"Line Out",	"LLOUT",
 			"Line Out",	"RLOUT",
-			"MIC3L",	"Line In", /* Mic2L/LINE2L on aic3104 */
-			"MIC3R",	"Line In"; /* Mic2R/LINE2R on aic3104 */
+			"MIC2L",	"Line In",
+			"MIC2R",	"Line In";
 	};
 };
 
@@ -647,10 +650,11 @@
 		pinctrl-1 = <&tmp102_pins_sleep>;
 		interrupt-parent = <&gpio7>;
 		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
+		#thermal-sensor-cells = <1>;
 	};
 
 	tlv320aic3104: tlv320aic3104@18 {
-		compatible = "ti,tlv320aic3106";
+		compatible = "ti,tlv320aic3104";
 		reg = <0x18>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&clkout2_pins_default>;
@@ -943,5 +947,52 @@
 	pru2_1: pru@4b2b8000 {
 		mboxes = <&mailbox4 &mbox_pru2_1>;
 		status = "okay";
+	};
+};
+
+&cpu_trips {
+	cpu_alert1: cpu_alert1 {
+		temperature = <50000>; /* millicelsius */
+		hysteresis = <2000>; /* millicelsius */
+		type = "active";
+	};
+};
+
+&cpu_cooling_maps {
+	map1 {
+		trip = <&cpu_alert1>;
+		cooling-device = <&gpio_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+	};
+};
+
+&thermal_zones {
+	board_thermal: board_thermal {
+		polling-delay-passive = <1250>; /* milliseconds */
+		polling-delay = <1500>; /* milliseconds */
+
+				/* sensor       ID */
+		thermal-sensors = <&tmp102     0>;
+
+		board_trips: trips {
+			board_alert0: board_alert {
+				temperature = <40000>; /* millicelsius */
+				hysteresis = <2000>; /* millicelsius */
+				type = "active";
+			};
+
+			board_crit: board_crit {
+				temperature = <105000>; /* millicelsius */
+				hysteresis = <0>; /* millicelsius */
+				type = "critical";
+			};
+		};
+
+		board_cooling_maps: cooling-maps {
+			map0 {
+				trip = <&board_alert0>;
+				cooling-device =
+				  <&gpio_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+		};
 	};
 };

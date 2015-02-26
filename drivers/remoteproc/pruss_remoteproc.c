@@ -126,13 +126,23 @@ enum pru_mem {
 };
 
 /**
- * struct pru_rproc_platform_data - PRU core platform data
+ * struct pru_private_data - PRU core private data
  * @id: PRU index
  * @fw_name: firmware name to be used for the PRU core
  */
-struct pru_rproc_platform_data {
+struct pru_private_data {
 	u32 id;
 	const char *fw_name;
+};
+
+/**
+ * struct pru_match_private_data - match private data to handle multiple instances
+ * @device_name: device name of the PRU processor core instance
+ * @priv_data: PRU driver private data for this PRU processor core instance
+ */
+struct pru_match_private_data {
+	const char *device_name;
+	struct pru_private_data *priv_data;
 };
 
 /**
@@ -594,7 +604,7 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 	/* send the index of the triggered virtqueue in the mailbox payload */
 	ret = mbox_send_message(pru->mbox, (void *)vq_id);
 	if (ret)
-		dev_err(dev, "omap_mbox_msg_send failed: %d\n", ret);
+		dev_err(dev, "mbox_send_message failed: %d\n", ret);
 }
 
 /* start a PRU core */
@@ -748,8 +758,12 @@ static void *pru_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags)
 {
 	struct pru_rproc *pru = rproc->priv;
 	void *va;
+	u32 exec_flag = 0;
 
-	if (flags & PF_X)
+	exec_flag = ((flags & RPROC_FLAGS_ELF_SHDR) ? flags & SHF_EXECINSTR :
+		     ((flags & RPROC_FLAGS_ELF_PHDR) ? flags & PF_X : 0));
+
+	if (exec_flag)
 		va = pru_i_da_to_va(pru, da, len);
 	else
 		va = pru_d_da_to_va(pru, da, len);
@@ -765,13 +779,34 @@ static struct rproc_ops pru_rproc_ops = {
 	.da_to_va		= pru_da_to_va,
 };
 
+static const struct of_device_id pru_rproc_match[];
+
+static const struct pru_private_data *pru_rproc_get_private_data(
+						struct platform_device *pdev)
+{
+	const struct pru_match_private_data *data;
+	const struct of_device_id *match;
+
+	match = of_match_device(pru_rproc_match, &pdev->dev);
+	if (!match)
+		return ERR_PTR(-ENODEV);
+
+	data = match->data;
+	for (; data && data->device_name; data++) {
+		if (!strcmp(dev_name(&pdev->dev), data->device_name))
+			return data->priv_data;
+	}
+
+	return NULL;
+}
+
 static int pru_rproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct platform_device *ppdev = to_platform_device(dev->parent);
 	struct pru_rproc *pru;
-	struct pru_rproc_platform_data *pdata = dev_get_platdata(dev);
+	const struct pru_private_data *pdata;
 	struct rproc *rproc = NULL;
 	struct mbox_client *client;
 	struct resource *res;
@@ -783,8 +818,9 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	if (!pdata || !pdata->fw_name) {
-		dev_err(dev, "platform data (PRU-private) missing\n");
+	pdata = pru_rproc_get_private_data(pdev);
+	if (IS_ERR_OR_NULL(pdata) || !pdata->fw_name) {
+		dev_err(dev, "missing or incomplete PRU-private data\n");
 		return -ENODEV;
 	}
 
@@ -794,6 +830,9 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		dev_err(dev, "rproc_alloc failed\n");
 		return -ENOMEM;
 	}
+	/* error recovery is not supported for PRUs */
+	rproc->recovery_disabled = true;
+
 	pru = rproc->priv;
 	pru->id = pdata->id;
 	pru->pruss = platform_get_drvdata(ppdev);
@@ -834,7 +873,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	pru->mbox = mbox_request_channel(client, 0);
 	if (IS_ERR(pru->mbox)) {
 		ret = PTR_ERR(pru->mbox);
-		dev_err(dev, "omap_mbox_get failed: %d\n", ret);
+		dev_err(dev, "mbox_request_channel failed: %d\n", ret);
 		goto free_rproc;
 	}
 
@@ -858,7 +897,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		ret = rproc_boot(pru->rproc);
 		if (ret) {
 			dev_err(dev, "rproc_boot failed\n");
-			goto put_mbox;
+			goto del_rproc;
 		}
 	}
 
@@ -869,6 +908,8 @@ static int pru_rproc_probe(struct platform_device *pdev)
 
 	return 0;
 
+del_rproc:
+	rproc_del(pru->rproc);
 put_mbox:
 	mbox_free_channel(pru->mbox);
 free_rproc:
@@ -883,6 +924,11 @@ static int pru_rproc_remove(struct platform_device *pdev)
 	struct pru_rproc *pru = rproc->priv;
 
 	dev_info(dev, "%s: removing rproc %s\n", __func__, rproc->name);
+
+	if (list_empty(&pru->rproc->rvdevs)) {
+		dev_info(dev, "stopping the manually booted PRU core\n");
+		rproc_shutdown(pru->rproc);
+	}
 
 	mbox_free_channel(pru->mbox);
 
@@ -1055,7 +1101,8 @@ static int pruss_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 	err = pm_runtime_get_sync(dev);
-	if (err) {
+	if (err < 0) {
+		pm_runtime_put_noidle(dev);
 		dev_err(dev, "pm_runtime_get_sync failed\n");
 		goto err_rpm_fail;
 	}
@@ -1096,7 +1143,7 @@ static int pru_rproc_unregister(struct device *dev, void *data)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 
-	platform_device_unregister(pdev);
+	of_device_unregister(pdev);
 
 	return 0;
 }
@@ -1118,73 +1165,113 @@ static int pruss_remove(struct platform_device *pdev)
 	return 0;
 }
 
-/* PRU0 core-specific platform data */
-static struct pru_rproc_platform_data pru0_rproc_pdata = {
+/* PRU0 core-specific private data */
+static struct pru_private_data pru0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "rproc-pru0-fw",
 };
 
-/* PRU1 core-specific platform data */
-static struct pru_rproc_platform_data pru1_rproc_pdata = {
+/* PRU1 core-specific private data */
+static struct pru_private_data pru1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "rproc-pru1-fw",
 };
 
-static struct pru_rproc_platform_data pru1_0_rproc_pdata = {
+static struct pru_private_data pru1_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am57xx-pru1_0-fw",
 };
 
-static struct pru_rproc_platform_data pru1_1_rproc_pdata = {
+static struct pru_private_data pru1_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am57xx-pru1_1-fw",
 };
 
-static struct pru_rproc_platform_data pru2_0_rproc_pdata = {
+static struct pru_private_data pru2_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am57xx-pru2_0-fw",
 };
 
-static struct pru_rproc_platform_data pru2_1_rproc_pdata = {
+static struct pru_private_data pru2_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am57xx-pru2_1-fw",
 };
 
 /* platform data to be added when creating the PRU platform devices */
 static struct of_dev_auxdata am335x_pru_rproc_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("ti,pru-rproc", 0x4a334000, "4a334000.pru0",
-		       &pru0_rproc_pdata),
-	OF_DEV_AUXDATA("ti,pru-rproc", 0x4a338000, "4a338000.pru1",
-		       &pru1_rproc_pdata),
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x4a334000, "4a334000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x4a338000, "4a338000.pru1", NULL),
 	{ /* sentinel */ },
 };
 
 static struct of_dev_auxdata am4372_pru_rproc_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("ti,pru-rproc", 0x54434000, "54434000.pru0",
-		       &pru0_rproc_pdata),
-	OF_DEV_AUXDATA("ti,pru-rproc", 0x54438000, "54438000.pru1",
-		       &pru1_rproc_pdata),
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x54434000, "54434000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x54438000, "54438000.pru1", NULL),
 	{ /* sentinel */ },
 };
 
 static struct of_dev_auxdata am5728_pruss1_rproc_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("ti,pru-rproc", 0x4b234000, "4b234000.pru0",
-		       &pru1_0_rproc_pdata),
-	OF_DEV_AUXDATA("ti,pru-rproc", 0x4b238000, "4b238000.pru1",
-		       &pru1_1_rproc_pdata),
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x4b234000, "4b234000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x4b238000, "4b238000.pru1", NULL),
 	{ /* sentinel */ },
 };
 
 static struct of_dev_auxdata am5728_pruss2_rproc_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("ti,pru-rproc", 0x4b2b4000, "4b2b4000.pru0",
-		       &pru2_0_rproc_pdata),
-	OF_DEV_AUXDATA("ti,pru-rproc", 0x4b2b8000, "4b2b8000.pru1",
-		       &pru2_1_rproc_pdata),
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x4b2b4000, "4b2b4000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,pru-rproc", 0x4b2b8000, "4b2b8000.pru1", NULL),
 	{ /* sentinel */ },
 };
 
+/*
+ * A single match structure is used against a unified compatible
+ * string "ti,pru-rproc" as the addresses of the different PRU cores
+ * are unique across all the applicable SoCs.
+ * XXX: A SoC-specific compatible string is probably a better option
+ *	for the future to allow more flexibility.
+ */
+static struct pru_match_private_data pru_match_data[] = {
+	/* AM33xx SoC-specific data */
+	{
+		.device_name	= "4a334000.pru0",
+		.priv_data	= &pru0_rproc_pdata,
+	},
+	{
+		.device_name	= "4a338000.pru1",
+		.priv_data	= &pru1_rproc_pdata,
+	},
+	/* AM43xx SoC-specific data */
+	{
+		.device_name	= "54434000.pru0",
+		.priv_data	= &pru0_rproc_pdata,
+	},
+	{
+		.device_name	= "54438000.pru1",
+		.priv_data	= &pru1_rproc_pdata,
+	},
+	/* AM57xx SoC-specific data */
+	{
+		.device_name	= "4b234000.pru0",
+		.priv_data	= &pru1_0_rproc_pdata,
+	},
+	{
+		.device_name	= "4b238000.pru1",
+		.priv_data	= &pru1_1_rproc_pdata,
+	},
+	{
+		.device_name	= "4b2b4000.pru0",
+		.priv_data	= &pru2_0_rproc_pdata,
+	},
+	{
+		.device_name	= "4b2b8000.pru1",
+		.priv_data	= &pru2_1_rproc_pdata,
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id pru_rproc_match[] = {
-	{ .compatible = "ti,pru-rproc", .data = NULL, },
+	{ .compatible = "ti,pru-rproc", .data = pru_match_data, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pru_rproc_match);
