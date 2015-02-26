@@ -304,6 +304,9 @@ static struct ti_dt_clk dra7xx_clks[] = {
 	DT_CLK("48822000.timer", "timer_sys_ck", "timer_sys_clk_div"),
 	DT_CLK("48824000.timer", "timer_sys_ck", "timer_sys_clk_div"),
 	DT_CLK("48826000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("4843e200.ehrpwm", "tbclk", "ehrpwm0_tbclk"),
+	DT_CLK("48440200.ehrpwm", "tbclk", "ehrpwm1_tbclk"),
+	DT_CLK("48442200.ehrpwm", "tbclk", "ehrpwm2_tbclk"),
 	DT_CLK(NULL, "sys_clkin", "sys_clkin1"),
 	{ .node_name = NULL },
 };
