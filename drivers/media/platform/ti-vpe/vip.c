@@ -1272,12 +1272,14 @@ vip_video_pix_to_mbus(const struct v4l2_pix_format *pix,
 	mbus->width = pix->width;
 	mbus->height = pix->height;
 
+	mbus->code = V4L2_MBUS_FMT_YUYV8_2X8;
 	for (i = 0; i < ARRAY_SIZE(vip_formats) - 1; ++i) {
-		if (vip_formats[i].fourcc == pix->pixelformat)
+		if (vip_formats[i].fourcc == pix->pixelformat) {
+			mbus->code = vip_formats[i].code;
 			break;
+		}
 	}
 
-	mbus->code = V4L2_MBUS_FMT_YUYV8_2X8;
 	mbus->colorspace = pix->colorspace;
 	mbus->field = pix->field;
 
@@ -1574,9 +1576,7 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 	*f = try_f;
 	stream->width = f->fmt.pix.width;
 	stream->height = f->fmt.pix.height;
-	port->fmt->fourcc = f->fmt.pix.pixelformat;
 	stream->sup_field = f->fmt.pix.field;
-	port->fmt->colorspace = f->fmt.pix.colorspace;
 	stream->bytesperline = f->fmt.pix.bytesperline;
 	stream->sizeimage = f->fmt.pix.sizeimage;
 
@@ -1630,7 +1630,6 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 					f->fmt.pix.pixelformat);
 	stream->width		= f->fmt.pix.width;
 	stream->height		= f->fmt.pix.height;
-	port->fmt->colorspace	= f->fmt.pix.colorspace;
 	stream->bytesperline	= f->fmt.pix.bytesperline;
 	stream->sizeimage	= f->fmt.pix.sizeimage;
 	stream->sup_field	= f->fmt.pix.field;
