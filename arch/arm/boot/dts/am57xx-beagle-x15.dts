@@ -350,6 +350,13 @@
 					regulator-boot-on;
 					regulator-always-on;
 				};
+
+				regen2: regen2 {
+					/* Needed for PMIC internal resource */
+					regulator-name = "regen2";
+					regulator-boot-on;
+					regulator-always-on;
+				};
 			};
 		};
 
