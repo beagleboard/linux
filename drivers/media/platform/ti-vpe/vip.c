@@ -1468,7 +1468,6 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	struct vip_fmt *fmt = find_active_format_by_pix(dev,
 							f->fmt.pix.pixelformat);
 	enum v4l2_field field;
-	int depth;
 
 	if (!fmt) {
 		vip_err(dev,
@@ -1490,17 +1489,20 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 			      &f->fmt.pix.height, MIN_H, MAX_H, H_ALIGN,
 			      S_ALIGN);
 
-	if (fmt->coplanar)
-		depth = 8;
-
-	f->fmt.pix.bytesperline = round_up((f->fmt.pix.width *
-					    fmt->vpdma_fmt[0]->depth) >> 3,
-					   1 << L_ALIGN);
+	f->fmt.pix.bytesperline = f->fmt.pix.width *
+				  (fmt->vpdma_fmt[0]->depth >> 3);
+	f->fmt.pix.bytesperline = ALIGN(f->fmt.pix.bytesperline,
+					VPDMA_STRIDE_ALIGN);
 	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.width *
 		(fmt->vpdma_fmt[0]->depth +
 		 (fmt->coplanar ? fmt->vpdma_fmt[1]->depth : 0)) >> 3;
 	f->fmt.pix.colorspace = fmt->colorspace;
 	f->fmt.pix.priv = 0;
+
+	vip_dbg(3, dev, "try_fmt fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
+		fourcc_to_str(f->fmt.pix.pixelformat),
+		f->fmt.pix.width, f->fmt.pix.height,
+		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
 
 	return 0;
 }
