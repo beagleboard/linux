@@ -115,6 +115,7 @@ struct vip_dev {
 	struct vip_fmt		*active_fmt[VIP_MAX_ACTIVE_FMT];
 	int			num_active_fmt;
 	struct v4l2_device	v4l2_dev;
+	struct v4l2_ctrl_handler ctrl_handler;
 	struct platform_device *pdev;
 	struct vip_shared	*shared;
 	struct resource		*res;

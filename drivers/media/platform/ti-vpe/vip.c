@@ -1353,21 +1353,6 @@ static int vip_s_std(struct file *file, void *fh, v4l2_std_id std)
 	return 0;
 }
 
-static int vip_queryctrl(struct file *file, void *fh, struct v4l2_queryctrl *a)
-{
-	return -EINVAL;
-}
-
-static int vip_g_ctrl(struct file *file, void *fh, struct v4l2_control *a)
-{
-	return 0;
-}
-
-static int vip_s_ctrl(struct file *file, void *fh, struct v4l2_control *a)
-{
-	return 0;
-}
-
 static int vip_enum_fmt_vid_cap(struct file *file, void *priv,
 				struct v4l2_fmtdesc *f)
 {
@@ -1762,10 +1747,6 @@ static const struct v4l2_ioctl_ops vip_ioctl_ops = {
 	.vidioc_querystd	= vip_querystd,
 	.vidioc_g_std		= vip_g_std,
 	.vidioc_s_std		= vip_s_std,
-
-	.vidioc_queryctrl	= vip_queryctrl,
-	.vidioc_g_ctrl		= vip_g_ctrl,
-	.vidioc_s_ctrl		= vip_s_ctrl,
 
 	.vidioc_enum_fmt_vid_cap = vip_enum_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap	= vip_g_fmt_vid_cap,
@@ -2698,6 +2679,7 @@ static int vip_probe(struct platform_device *pdev)
 	struct pinctrl *pinctrl;
 	int ret, slice = VIP_SLICE1;
 	u32 tmp, pid;
+	struct v4l2_ctrl_handler *hdl;
 
 	pm_runtime_enable(&pdev->dev);
 
@@ -2801,6 +2783,10 @@ static int vip_probe(struct platform_device *pdev)
 			goto err_runtime_get;
 
 		mutex_init(&dev->mutex);
+
+		hdl = &dev->ctrl_handler;
+		v4l2_ctrl_handler_init(hdl, 11);
+		dev->v4l2_dev.ctrl_handler = hdl;
 
 		dev->slice_id = slice;
 		dev->pdev = pdev;
