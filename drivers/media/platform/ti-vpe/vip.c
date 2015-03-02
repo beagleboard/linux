@@ -1143,7 +1143,7 @@ static void vip_schedule_next_buffer(struct vip_stream *stream)
 
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&stream->vidq)) {
-		vip_dbg(3, dev, "Dropping frame\n");
+		vip_dbg(4, dev, "Dropping frame\n");
 		if (list_empty(&stream->dropq)) {
 			vip_err(dev, "No dropq buffer left!");
 			spin_unlock_irqrestore(&dev->slock, flags);
@@ -1538,6 +1538,11 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 		return -EINVAL;
 	}
 
+	vip_dbg(3, dev, "g_fmt subdev mbus_code: %04X fourcc:%s size: %dx%d\n",
+		fmt->code,
+		fourcc_to_str(fmt->fourcc),
+		mbus_fmt.width, mbus_fmt.height);
+
 	/*
 	 * Run a try_fmt call to properly calculate
 	 * the sizeimage and bytesperline values
@@ -1554,6 +1559,17 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 	if (ret)
 		return ret;
 
+	if (port->fmt != fmt) {
+		vip_dbg(1, dev, "g_fmt fmt mismatch port->fmt:%p fmt:%p\n",
+			port->fmt, fmt);
+		vip_dbg(1, dev, "g_fmt port->fmt->fourcc:%s\n",
+			fourcc_to_str(port->fmt->fourcc));
+		vip_dbg(1, dev, "fmt->fourcc:%s\n",
+			fourcc_to_str(fmt->fourcc));
+		vip_dbg(1, dev, "g_fmt port->fmt->name:%s fmt->name:%s\n",
+			port->fmt->name, fmt->name);
+		port->fmt = fmt;
+	}
 	/*
 	 * Since everything looks correct update
 	 * the local copy as well to make sure we are consistent
@@ -1562,12 +1578,21 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 	stream->width = f->fmt.pix.width;
 	stream->height = f->fmt.pix.height;
 	stream->sup_field = f->fmt.pix.field;
+	if (stream->sup_field == V4L2_FIELD_ALTERNATE)
+		port->flags |= FLAG_INTERLACED;
+	else
+		port->flags &= ~FLAG_INTERLACED;
 	stream->bytesperline = f->fmt.pix.bytesperline;
 	stream->sizeimage = f->fmt.pix.sizeimage;
+	port->c_rect.left	= 0;
+	port->c_rect.top	= 0;
+	port->c_rect.width	= stream->width;
+	port->c_rect.height	= stream->height;
 
-	vip_dbg(3, dev, "g_fmt fourcc:%s size: %dx%d\n",
+	vip_dbg(3, dev, "g_fmt fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
 		fourcc_to_str(f->fmt.pix.pixelformat),
-		f->fmt.pix.width, f->fmt.pix.height);
+		f->fmt.pix.width, f->fmt.pix.height,
+		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
 
 	return 0;
 }
