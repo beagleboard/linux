@@ -1850,6 +1850,7 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
 	unsigned long flags;
+	int ret;
 
 	buf = list_entry(stream->vidq.next,
 			 struct vip_buffer, list);
@@ -1859,6 +1860,14 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	buf->drop = false;
 	stream->sequence = 0;
 	stream->field = V4L2_FIELD_TOP;
+
+	if (dev->sensor) {
+		ret = v4l2_subdev_call(dev->sensor, video, s_stream, 1);
+		if (ret) {
+			vip_dbg(1, dev, "stream on failed in subdev\n");
+			return ret;
+		}
+	}
 
 	populate_desc_list(stream);
 
@@ -1904,6 +1913,13 @@ static int vip_stop_streaming(struct vb2_queue *vq)
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
 	struct vip_buffer *buf;
+	int ret;
+
+	if (dev->sensor) {
+		ret = v4l2_subdev_call(dev->sensor, video, s_stream, 0);
+		if (ret)
+			vip_dbg(1, dev, "stream on failed in subdev\n");
+	}
 
 	disable_irqs(dev, dev->slice_id);
 	clear_irqs(dev, dev->slice_id);
