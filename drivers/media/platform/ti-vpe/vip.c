@@ -1627,9 +1627,17 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	struct v4l2_mbus_framefmt *mf;
 	int ret;
 
+	vip_dbg(3, dev, "s_fmt input fourcc:%s size: %dx%d\n",
+		fourcc_to_str(f->fmt.pix.pixelformat),
+		f->fmt.pix.width, f->fmt.pix.height);
+
 	ret = vip_try_fmt_vid_cap(file, priv, f);
 	if (ret)
 		return ret;
+
+	vip_dbg(3, dev, "s_fmt try_fmt fourcc:%s size: %dx%d\n",
+		fourcc_to_str(f->fmt.pix.pixelformat),
+		f->fmt.pix.width, f->fmt.pix.height);
 
 	if (vb2_is_busy(&stream->vb_vidq)) {
 		vip_err(dev, "%s queue busy\n", __func__);
@@ -1640,6 +1648,10 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 					f->fmt.pix.pixelformat);
 	stream->width		= f->fmt.pix.width;
 	stream->height		= f->fmt.pix.height;
+	if (port->fmt->colorspace != f->fmt.pix.colorspace)
+		vip_dbg(1, dev, "s_fmt colorspace mismatch port->fmt %d f->fmt %d\n",
+			port->fmt->colorspace, f->fmt.pix.colorspace);
+
 	stream->bytesperline	= f->fmt.pix.bytesperline;
 	stream->sizeimage	= f->fmt.pix.sizeimage;
 	stream->sup_field	= f->fmt.pix.field;
@@ -1655,25 +1667,37 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 		port->flags &= ~FLAG_INTERLACED;
 
 	vip_dbg(1, dev,
-		"Setting format for type %d, wxh: %dx%d, fmt: %d\n",
-		f->type, stream->width, stream->height, port->fmt->fourcc);
+		"Setting format for type %d, wxh: %dx%d, fourcc:%s\n",
+		f->type, stream->width, stream->height,
+		fourcc_to_str(port->fmt->fourcc));
 
-	set_fmt_params(stream);
+	vip_dbg(3, dev, "s_fmt fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
+		fourcc_to_str(f->fmt.pix.pixelformat),
+		f->fmt.pix.width, f->fmt.pix.height,
+		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
 
 	mf = vip_video_pix_to_mbus(&f->fmt.pix, &sfmt.format);
+
+	vip_dbg(3, dev, "s_fmt pix_to_mbus mbus_code: %04X size: %dx%d\n",
+		mf->code,
+		mf->width, mf->height);
 
 	ret = v4l2_subdev_call(dev->sensor, video, try_mbus_fmt, mf);
 	if (ret) {
 		vip_dbg(1, dev, "try_mbus_fmt failed in subdev\n");
 		return ret;
 	}
+	vip_dbg(3, dev, "s_fmt subdev try_fmt mbus_code: %04X size: %dx%d\n",
+		mf->code,
+		mf->width, mf->height);
 	ret = v4l2_subdev_call(dev->sensor, video, s_mbus_fmt, mf);
 	if (ret) {
 		vip_dbg(1, dev, "s_mbus_fmt failed in subdev\n");
 		return ret;
 	}
-
-	vip_setup_parser(dev->ports[0]);
+	vip_dbg(3, dev, "s_fmt subdev s_fmt mbus_code: %04X size: %dx%d\n",
+		mf->code,
+		mf->width, mf->height);
 
 	return 0;
 }
@@ -1857,6 +1881,9 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct vip_buffer *buf;
 	unsigned long flags;
 	int ret;
+
+	set_fmt_params(stream);
+	vip_setup_parser(dev->ports[0]);
 
 	buf = list_entry(stream->vidq.next,
 			 struct vip_buffer, list);
