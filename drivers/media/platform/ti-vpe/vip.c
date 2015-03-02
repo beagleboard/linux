@@ -2002,6 +2002,7 @@ done:
 
 static void vip_release_dev(struct vip_dev *dev)
 {
+	vpdma_unmap_desc_buf(dev->shared->vpdma, &dev->desc_list.buf);
 	vpdma_free_desc_buf(&dev->desc_list.buf);
 	vpdma_free_desc_list(&dev->desc_list);
 
