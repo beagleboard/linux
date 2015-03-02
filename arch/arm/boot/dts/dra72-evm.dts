@@ -841,6 +841,14 @@
 	extcon = <&extcon2>;
 };
 
+&usb2_phy1 {
+	phy-supply = <&ldo4_reg>;
+};
+
+&usb2_phy2 {
+	phy-supply = <&ldo4_reg>;
+};
+
 &usb1 {
 	dr_mode = "otg";
 	pinctrl-names = "default";

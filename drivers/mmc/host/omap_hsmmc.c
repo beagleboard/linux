@@ -242,6 +242,15 @@ struct omap_hsmmc_host {
 	int			tuning_fsrc;
 	u32			tuning_uhsmc;
 	u32			tuning_opcode;
+	bool			require_io_delay;
+	struct pinctrl		*pinctrl;
+	/*
+	 * flag to determine if the pinctrl is in default state.
+	 * It is required to set the pinctrl to default state on
+	 * card removal if the pinctrl is not in default state.
+	 */
+	bool			pinctrl_default_state;
+	struct pinctrl_state	*pinctrl_state;
 	struct omap_hsmmc_next	next_data;
 	struct	omap_mmc_platform_data	*pdata;
 };
@@ -697,17 +706,87 @@ static inline void omap_hsmmc_save_dll(struct omap_hsmmc_host *host)
 	OMAP_HSMMC_WRITE(host->base, AC12, ac12);
 }
 
+static int omap_hsmmc_pinctrl_set_state(struct omap_hsmmc_host *host,
+					char *mode)
+{
+	int ret;
+
+	if (IS_ERR(host->pinctrl)) {
+		dev_vdbg(mmc_dev(host->mmc),
+			 "pins are not configured from the driver\n");
+		return -ENODEV;
+	}
+
+	if (!mode) {
+		dev_err(mmc_dev(host->mmc), "empty mode string\n");
+		return -EINVAL;
+	}
+
+	host->pinctrl_state = pinctrl_lookup_state(host->pinctrl, mode);
+	if (IS_ERR(host->pinctrl_state)) {
+		dev_err(mmc_dev(host->mmc),
+			"no pinctrl state for %s mode\n", mode);
+		return PTR_ERR(host->pinctrl_state);
+	}
+
+	ret = pinctrl_select_state(host->pinctrl, host->pinctrl_state);
+	if (ret) {
+		dev_err(mmc_dev(host->mmc),
+			"failed to activate pinctrl state\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 {
 	struct mmc_ios *ios = &host->mmc->ios;
 	unsigned long regval;
 	unsigned long timeout;
 	unsigned long clkdiv;
+	char *mode;
 
 	dev_vdbg(mmc_dev(host->mmc), "Set clock to %uHz\n", ios->clock);
 
 	omap_hsmmc_stop_clock(host);
 
+	if (!host->require_io_delay)
+		goto no_io_delay;
+
+	switch (ios->timing) {
+	case MMC_TIMING_UHS_SDR104:
+		mode = kstrdup("sdr104", GFP_KERNEL);
+		break;
+	case MMC_TIMING_UHS_DDR50:
+		mode = kstrdup("ddr50", GFP_KERNEL);
+		break;
+	case MMC_TIMING_UHS_SDR50:
+		mode = kstrdup("sdr50", GFP_KERNEL);
+		break;
+	case MMC_TIMING_SD_HS:
+	case MMC_TIMING_MMC_HS:
+		mode = kstrdup("hs", GFP_KERNEL);
+		break;
+	case MMC_TIMING_UHS_SDR25:
+		mode = kstrdup("sdr25", GFP_KERNEL);
+		break;
+	case MMC_TIMING_UHS_SDR12:
+		mode = kstrdup("sdr12", GFP_KERNEL);
+		break;
+	case MMC_TIMING_MMC_HS200:
+		mode = kstrdup("hs200", GFP_KERNEL);
+		break;
+	default:
+		dev_dbg(mmc_dev(host->mmc), "no io delay setting\n");
+		goto no_io_delay;
+	}
+
+	omap_hsmmc_pinctrl_set_state(host, mode);
+	host->pinctrl_default_state = false;
+	kfree(mode);
+
+no_io_delay:
 	regval = OMAP_HSMMC_READ(host->base, SYSCTL);
 	regval = regval & ~(CLKD_MASK | DTO_MASK);
 	clkdiv = calc_divisor(host, ios);
@@ -1432,6 +1511,13 @@ static irqreturn_t omap_hsmmc_detect(int irq, void *dev_id)
 		mmc_detect_change(host->mmc, (HZ * 200) / 1000);
 	else
 		mmc_detect_change(host->mmc, (HZ * 50) / 1000);
+
+	if (host->require_io_delay && !host->mmc->card &&
+	    !host->pinctrl_default_state) {
+		omap_hsmmc_pinctrl_set_state(host, "default");
+		host->pinctrl_default_state = true;
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -2262,6 +2348,10 @@ static const struct of_device_id omap_mmc_of_match[] = {
 		.compatible = "ti,omap4-hsmmc",
 		.data = &omap4_mmc_of_data,
 	},
+	{
+		.compatible = "ti,dra7-hsmmc",
+		.data = &omap4_mmc_of_data,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, omap_mmc_of_match);
@@ -2343,7 +2433,6 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	dma_cap_mask_t mask;
 	unsigned tx_req, rx_req;
-	struct pinctrl *pinctrl;
 	const struct omap_mmc_of_data *data;
 	void __iomem *base;
 
@@ -2437,6 +2526,10 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "multiblock reads disabled due to 35xx erratum 2.1.1.128; MMC read performance may suffer\n");
 		mmc->caps2 |= MMC_CAP2_NO_MULTI_READ;
 	}
+
+	host->pinctrl = devm_pinctrl_get(&pdev->dev);
+	omap_hsmmc_pinctrl_set_state(host, "default");
+	host->pinctrl_default_state = true;
 
 	pm_runtime_enable(host->dev);
 	pm_runtime_get_sync(host->dev);
@@ -2579,10 +2672,8 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 
 	omap_hsmmc_disable_irq(host);
 
-	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
-	if (IS_ERR(pinctrl))
-		dev_warn(&pdev->dev,
-			"pins are not configured from the driver\n");
+	if (of_device_is_compatible(np, "ti,dra7-hsmmc"))
+		host->require_io_delay = true;
 
 	omap_hsmmc_protect_card(host);
 
@@ -2715,6 +2806,7 @@ static int omap_hsmmc_resume(struct device *dev)
 
 	/* Select default pin state */
 	pinctrl_pm_select_default_state(host->dev);
+	host->pinctrl_default_state = true;
 
 	pm_runtime_get_sync(host->dev);
 
@@ -2758,11 +2850,16 @@ static int omap_hsmmc_runtime_suspend(struct device *dev)
 static int omap_hsmmc_runtime_resume(struct device *dev)
 {
 	struct omap_hsmmc_host *host;
+	int ret;
 
 	host = platform_get_drvdata(to_platform_device(dev));
 
-	/* go to the default state */
-	pinctrl_pm_select_default_state(host->dev);
+	if (!IS_ERR(host->pinctrl_state)) {
+		ret = pinctrl_select_state(host->pinctrl, host->pinctrl_state);
+		if (ret)
+			dev_err(mmc_dev(host->mmc),
+				"failed to activate pinctrl state\n");
+	}
 
 	omap_hsmmc_context_restore(host);
 
