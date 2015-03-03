@@ -51,6 +51,7 @@ struct omap_crtc {
 	bool go_bit_set;
 
 	struct omap_drm_apply apply;
+	struct omap_drm_apply mgr_apply;
 
 	struct omap_drm_irq apply_irq;
 	struct omap_drm_irq error_irq;
@@ -437,13 +438,46 @@ static int omap_crtc_set_property(struct drm_crtc *crtc,
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	struct omap_drm_private *priv = crtc->dev->dev_private;
+	struct omap_overlay_manager_info *info = &omap_crtc->info;
+	bool mgr_property = false;
 
 	if (property == priv->rotation_prop) {
 		crtc->invert_dimensions =
 				!!(val & ((1LL << DRM_ROTATE_90) | (1LL << DRM_ROTATE_270)));
+	} else if (property == priv->trans_key_mode_prop) {
+		mgr_property = true;
+
+		switch (val) {
+		case 0:
+			info->trans_enabled = false;
+			break;
+		case 1:
+			info->trans_enabled = true;
+			info->trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;
+			break;
+		case 2:
+			info->trans_enabled = true;
+			info->trans_key_type = OMAP_DSS_COLOR_KEY_VID_SRC;
+			break;
+		}
+	} else if (property == priv->trans_key_prop) {
+		mgr_property = true;
+
+		info->trans_key = val;
+	} else if (property == priv->background_color_prop) {
+		mgr_property = true;
+
+		info->default_color = val;
+	} else if (property == priv->alpha_blender_prop) {
+		mgr_property = true;
+
+		info->partial_alpha_enabled = !!val;
 	}
 
-	return omap_plane_set_property(omap_crtc->plane, property, val);
+	if (mgr_property)
+		return omap_crtc_apply(crtc, &omap_crtc->mgr_apply);
+	else
+		return omap_plane_set_property(omap_crtc->plane, property, val);
 }
 
 static const struct drm_crtc_funcs omap_crtc_funcs = {
@@ -659,6 +693,19 @@ static void set_enabled(struct drm_crtc *crtc, bool enable)
 	}
 }
 
+static void omap_crtc_mgr_pre_apply(struct omap_drm_apply *apply)
+{
+	struct omap_crtc *omap_crtc =
+			container_of(apply, struct omap_crtc, mgr_apply);
+
+	dispc_mgr_setup(omap_crtc->channel, &omap_crtc->info);
+}
+
+static void omap_crtc_mgr_post_apply(struct omap_drm_apply *apply)
+{
+	/* nothing needed for post-apply */
+}
+
 static void omap_crtc_pre_apply(struct omap_drm_apply *apply)
 {
 	struct omap_crtc *omap_crtc =
@@ -762,6 +809,63 @@ void omap_crtc_pre_uninit(void)
 	dss_uninstall_mgr_ops();
 }
 
+static void omap_crtc_install_properties(struct drm_crtc *crtc)
+{
+	struct drm_mode_object *obj = &crtc->base;
+	struct drm_device *dev = crtc->dev;
+	struct omap_drm_private *priv = dev->dev_private;
+	struct drm_property *prop;
+
+	prop = priv->trans_key_mode_prop;
+	if (!prop) {
+		static const struct drm_prop_enum_list list[] = {
+			{ 0, "disable"},
+			{ 1, "gfx-dst"},
+			{ 2, "vid-src"},
+		};
+		prop = drm_property_create_enum(dev, 0, "trans-key-mode",
+					 list, ARRAY_SIZE(list));
+		if (prop == NULL)
+			return;
+		priv->trans_key_mode_prop = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->trans_key_prop;
+	if (!prop) {
+		prop = drm_property_create_range(dev, 0, "trans-key",
+					 0, 0xffffff);
+		if (prop == NULL)
+			return;
+		priv->trans_key_prop = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->background_color_prop;
+	if (!prop) {
+		prop = drm_property_create_range(dev, 0, "background",
+					 0, 0xffffff);
+		if (prop == NULL)
+			return;
+		priv->background_color_prop = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->alpha_blender_prop;
+	if (!prop) {
+		static const struct drm_prop_enum_list list[] = {
+			{ 0, "disable"},
+			{ 1, "enable"},
+		};
+		prop = drm_property_create_enum(dev, 0, "alpha_blender",
+					 list, ARRAY_SIZE(list));
+		if (prop == NULL)
+			return;
+		priv->alpha_blender_prop = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
+}
+
 /* initialize crtc */
 struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 		struct drm_plane *plane, enum omap_channel channel, int id)
@@ -786,6 +890,9 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 
 	omap_crtc->apply.pre_apply  = omap_crtc_pre_apply;
 	omap_crtc->apply.post_apply = omap_crtc_post_apply;
+
+	omap_crtc->mgr_apply.pre_apply  = omap_crtc_mgr_pre_apply;
+	omap_crtc->mgr_apply.post_apply = omap_crtc_mgr_post_apply;
 
 	omap_crtc->channel = channel;
 	omap_crtc->plane = plane;
@@ -814,6 +921,7 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 	drm_crtc_init(dev, crtc, &omap_crtc_funcs);
 	drm_crtc_helper_add(crtc, &omap_crtc_helper_funcs);
 
+	omap_crtc_install_properties(crtc);
 	omap_plane_install_properties(omap_crtc->plane, &crtc->base);
 
 	omap_crtcs[channel] = omap_crtc;
