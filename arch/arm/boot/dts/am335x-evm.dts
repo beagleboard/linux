@@ -140,7 +140,7 @@
 	kim {
 		compatible = "kim";
 		nshutdown_gpio = <117>; /* Bank3, pin21 */
-		dev_name = "/dev/ttyO1";
+		dev_name = "/dev/ttyS1";
 		flow_cntrl = <1>;
 		baud_rate = <3000000>;
 	};

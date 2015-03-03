@@ -121,7 +121,7 @@
 	kim {
 		compatible = "kim";
 		nshutdown_gpio = <132>;
-		dev_name = "/dev/ttyO7";
+		dev_name = "/dev/ttyS7";
 		flow_cntrl = <1>;
 		baud_rate = <3686400>;
 	};

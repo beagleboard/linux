@@ -82,7 +82,7 @@
 	kim {
 		compatible = "kim";
 		nshutdown_gpio = <53>; /* Bank1, pin21 */
-		dev_name = "/dev/ttyO3";
+		dev_name = "/dev/ttyS3";
 		flow_cntrl = <1>;
 		baud_rate = <3000000>;
 	};
