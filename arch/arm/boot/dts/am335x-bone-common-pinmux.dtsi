@@ -47,6 +47,13 @@
 		>;
 	};
 
+	/* rtc-01-00a1 */
+	gpio1_29_pins: pinmux_gpio1_29_pins {
+		pinctrl-single,pins = <
+			0x07c 0x3f	/* gpmc_csn0.gpio1_29, INPUT | PULLDIS | MODE 7 */
+		>;
+	};
+
 	/* lcd3-01-00a2 */
 	gpio3_19_led_pins: pinmux_gpio3_19_led_pins {
 		pinctrl-single,pins = <
