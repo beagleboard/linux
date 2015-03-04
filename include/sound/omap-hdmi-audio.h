@@ -27,7 +27,8 @@ struct omap_hdmi_audio {
 	enum { OMAP4_HDMI, OMAP5_HDMI } hw_version;
 	phys_addr_t audio_dma_addr;
 
-	int (*mode_has_audio)(struct device *dev);
+	int (*audio_startup)(struct device *dev,
+			     void (*abort_cb)(struct device *dev));
 	int (*audio_enable)(struct device *dev, bool enable);
 	int (*audio_start)(struct device *dev, bool enable);
 	int (*audio_config)(struct device *dev,

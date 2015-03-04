@@ -326,9 +326,11 @@ struct omap_hdmi {
 	struct regulator *vdda_reg;
 
 	bool core_enabled;
+	bool display_enabled;
 
 	struct omap_dss_device output;
 
+	void (*audio_abort_cb)(struct device *dev);
 	int wp_idlemode;
 };
 

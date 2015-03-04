@@ -34,7 +34,8 @@
 #include <sound/simple_card.h>
 
 struct hdmi_audio_data {
-	int (*mode_has_audio)(struct device *dev);
+	int (*audio_startup)(struct device *dev,
+			     void (*abort_cb)(struct device *dev));
 	int (*audio_enable)(struct device *dev, bool enable);
 	int (*audio_start)(struct device *dev, bool enable);
 	int (*audio_config)(struct device *dev,
@@ -48,7 +49,25 @@ struct hdmi_audio_data {
 	struct platform_device *card_pdev;
 
 	char cardname[64];
+
+	struct mutex current_stream_lock;
+	struct snd_pcm_substream *current_stream;
 };
+
+static void hdmi_dai_abort(struct device *dev)
+{
+	struct hdmi_audio_data *ad = omapdss_hdmi_get_audio_data(dev);
+
+	mutex_lock(&ad->current_stream_lock);
+	if (ad->current_stream && ad->current_stream->runtime &&
+	    snd_pcm_running(ad->current_stream)) {
+		dev_info(dev, "HDMI display disabled, aborting playback\n");
+		snd_pcm_stream_lock_irq(ad->current_stream);
+		snd_pcm_stop(ad->current_stream, SNDRV_PCM_STATE_DISCONNECTED);
+		snd_pcm_stream_unlock_irq(ad->current_stream);
+	}
+	mutex_unlock(&ad->current_stream_lock);
+}
 
 static int hdmi_dai_startup(struct snd_pcm_substream *substream,
 			    struct snd_soc_dai *dai)
@@ -72,14 +91,21 @@ static int hdmi_dai_startup(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
-	if (!ad->mode_has_audio(dai->dev)) {
-		dev_err(dai->dev, "audio not supported\n");
-		return -ENODEV;
-	}
-
 	snd_soc_dai_set_dma_data(dai, substream, &ad->dma_data);
 
-	return 0;
+	mutex_lock(&ad->current_stream_lock);
+	ad->current_stream = substream;
+	mutex_unlock(&ad->current_stream_lock);
+
+	ret = ad->audio_startup(dai->dev, hdmi_dai_abort);
+
+	if (ret) {
+		mutex_lock(&ad->current_stream_lock);
+		ad->current_stream = NULL;
+		mutex_unlock(&ad->current_stream_lock);
+	}
+
+	return ret;
 }
 
 static int hdmi_dai_prepare(struct snd_pcm_substream *substream,
@@ -242,6 +268,10 @@ static void hdmi_dai_shutdown(struct snd_pcm_substream *substream,
 {
 	struct hdmi_audio_data *ad = omapdss_hdmi_get_audio_data(dai->dev);
 
+	mutex_lock(&ad->current_stream_lock);
+	ad->current_stream = NULL;
+	mutex_unlock(&ad->current_stream_lock);
+
 	ad->audio_enable(dai->dev, false);
 }
 
@@ -305,13 +335,14 @@ int omap_hdmi_audio_register(struct omap_hdmi_audio *ha)
 	ad = devm_kzalloc(ha->dev, sizeof(*ad), GFP_KERNEL);
 	if (!ad)
 		return -ENOMEM;
-	ad->mode_has_audio = ha->mode_has_audio;
+	ad->audio_startup = ha->audio_startup;
 	ad->audio_enable = ha->audio_enable;
 	ad->audio_start = ha->audio_start;
 	ad->audio_config = ha->audio_config;
 	ad->dma_data.addr = ha->audio_dma_addr;
 	ad->dma_data.filter_data = "audio_tx";
 	ad->dma_data.addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	mutex_init(&ad->current_stream_lock);
 	if (ha->hw_version == OMAP5_HDMI)
 		dai_drv = &omap5_hdmi_dai;
 	else
