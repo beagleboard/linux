@@ -200,92 +200,6 @@
 };
 
 &dra7_pmx_core {
-	pinctrl-names = "default";
-	pinctrl-0 = <&vtt_pin>;
-
-		vtt_pin: pinmux_vtt_pin {
-		pinctrl-single,pins = <
-			0x3b4 (PIN_OUTPUT | MUX_MODE14) /* gpio7_11 */
-		>;
-	};
-
-	i2c1_pins: pinmux_i2c1_pins {
-		pinctrl-single,pins = <
-			0x400 (PIN_INPUT | MUX_MODE0) /* i2c1_sda */
-			0x404 (PIN_INPUT | MUX_MODE0) /* i2c1_scl */
-		>;
-	};
-
-	i2c2_pins: pinmux_i2c2_pins {
-		pinctrl-single,pins = <
-			0x408 (PIN_INPUT | MUX_MODE0) /* i2c2_sda */
-			0x40c (PIN_INPUT | MUX_MODE0) /* i2c2_scl */
-		>;
-	};
-
-	i2c3_pins: pinmux_i2c3_pins {
-		pinctrl-single,pins = <
-			0x288 (PIN_INPUT | MUX_MODE9) /* gpio6_14.i2c3_sda */
-			0x28c (PIN_INPUT | MUX_MODE9) /* gpio6_15.i2c3_scl */
-		>;
-	};
-
-	mcspi1_pins: pinmux_mcspi1_pins {
-		pinctrl-single,pins = <
-			0x3a4 (PIN_INPUT | MUX_MODE0) /* spi1_sclk */
-			0x3a8 (PIN_INPUT | MUX_MODE0) /* spi1_d1 */
-			0x3ac (PIN_INPUT | MUX_MODE0) /* spi1_d0 */
-			0x3b0 (PIN_INPUT_SLEW | MUX_MODE0) /* spi1_cs0 */
-			0x3b4 (PIN_INPUT_SLEW | MUX_MODE0) /* spi1_cs1 */
-			0x3b8 (PIN_INPUT_SLEW | MUX_MODE6) /* spi1_cs2.hdmi1_hpd */
-			0x3bc (PIN_INPUT_SLEW | MUX_MODE6) /* spi1_cs3.hdmi1_cec */
-		>;
-	};
-
-	uart1_pins: pinmux_uart1_pins {
-		pinctrl-single,pins = <
-			0x3e0 (PIN_INPUT_SLEW | MUX_MODE0) /* uart1_rxd */
-			0x3e4 (PIN_INPUT_SLEW | MUX_MODE0) /* uart1_txd */
-		>;
-	};
-
-	bt_uart3_pins: pinmux_uart3_pins {
-		pinctrl-single,pins = <
-			0x3c0 (PIN_INPUT_PULLUP | MUX_MODE1)	/* spi2_sclk.uart3_rxd */
-			0x3c4 (PIN_OUTPUT_PULLDOWN | MUX_MODE1)	/* spi2_d1.uart3_txd */
-			0x3c8 (PIN_INPUT | MUX_MODE1)		/* spi2.d0.uart3_ctsn */
-			0x3cc (PIN_OUTPUT_PULLDOWN | MUX_MODE1)	/* spi2_cs0.uart3_rtsn */
-			0x2bc (PIN_OUTPUT | MUX_MODE14) 	/* mcasp1_axr2.gpio5_4 - BT_EN */
-		>;
-	};
-
-	qspi1_pins: pinmux_qspi1_pins {
-		pinctrl-single,pins = <
-			0x4c (PIN_INPUT | MUX_MODE1)  /* gpmc_a3.qspi1_cs2 */
-			0x50 (PIN_INPUT | MUX_MODE1)  /* gpmc_a4.qspi1_cs3 */
-			0x74 (PIN_INPUT | MUX_MODE1)  /* gpmc_a13.qspi1_rtclk */
-			0x78 (PIN_INPUT | MUX_MODE1)  /* gpmc_a14.qspi1_d3 */
-			0x7c (PIN_INPUT | MUX_MODE1)  /* gpmc_a15.qspi1_d2 */
-			0x80 (PIN_INPUT | MUX_MODE1) /* gpmc_a16.qspi1_d1 */
-			0x84 (PIN_INPUT | MUX_MODE1)  /* gpmc_a17.qspi1_d0 */
-			0x88 (PIN_INPUT | MUX_MODE1)  /* qpmc_a18.qspi1_sclk */
-			0xb8 (PIN_INPUT_PULLUP | MUX_MODE1)  /* gpmc_cs2.qspi1_cs0 */
-			0xbc (PIN_INPUT_PULLUP | MUX_MODE1)  /* gpmc_cs3.qspi1_cs1 */
-		>;
-	};
-
-	usb1_pins: pinmux_usb1_pins {
-                pinctrl-single,pins = <
-			0x280 (PIN_INPUT_SLEW | MUX_MODE0) /* usb1_drvvbus */
-                >;
-        };
-
-	usb2_pins: pinmux_usb2_pins {
-                pinctrl-single,pins = <
-			0x284 (PIN_INPUT_SLEW | MUX_MODE0) /* usb2_drvvbus */
-                >;
-        };
-
 	wlan_pins: pinmux_wlan_pins {
 		pinctrl-single,pins = <
 			0x3e8 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart1_ctsn.mmc4_clk */
@@ -556,8 +470,6 @@
 
 &i2c1 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c1_pins>;
 	clock-frequency = <400000>;
 
 	tps659038: tps659038@58 {
@@ -799,8 +711,6 @@
 
 &i2c2 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c2_pins>;
 	clock-frequency = <400000>;
 
 	pcf_hdmi: gpio@26 {
@@ -814,24 +724,29 @@
 
 &i2c3 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c3_pins>;
-	clock-frequency = <400000>;
+	clock-frequency = <3400000>;
+};
+
+&mcspi1 {
+	status = "okay";
+};
+
+&mcspi2 {
+	status = "okay";
 };
 
 &uart1 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart1_pins>;
-
 	interrupts-extended = <&gic GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH
 			       &dra7_pmx_core 0x3e0>;
 };
 
+&uart2 {
+	status = "okay";
+};
+
 &uart3 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&bt_uart3_pins>;
 	gpios = <&pcf_gpio_21 14 GPIO_ACTIVE_LOW>;
 };
 
@@ -907,8 +822,6 @@
 
 &qspi {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&qspi1_pins>;
 
 	spi-max-frequency = <48000000>;
 	m25p80@0 {
@@ -979,15 +892,11 @@
 };
 
 &usb1 {
-	dr_mode = "otg";
-	pinctrl-names = "default";
-	pinctrl-0 = <&usb1_pins>;
+	dr_mode = "peripheral";
 };
 
 &usb2 {
 	dr_mode = "host";
-	pinctrl-names = "default";
-	pinctrl-0 = <&usb2_pins>;
 };
 
 &mac {
