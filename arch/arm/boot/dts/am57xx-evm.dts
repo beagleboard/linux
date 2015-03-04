@@ -214,6 +214,69 @@
 			0x2c8 (PIN_INPUT_PULLUP | MUX_MODE14 ) 	/* mcasp1_axr5.gpio5_7 - WLAN_IRQ */
 		>;
 	};
+
+	i2c5_pins: pinmux_i2c5_pins {
+		pinctrl-single,pins = <
+			0x2b4 (PIN_INPUT | MUX_MODE10) /* mcasp1_axr0.i2c5_sda */
+			0x2b8 (PIN_INPUT | MUX_MODE10) /* mcasp1_axr1.i2c5_scl */
+		>;
+	};
+
+	mt9t11x_pins: pinmux_mt9t11x_pins {
+		pinctrl-single,pins = <
+			0x2e0 (PIN_OUTPUT | MUX_MODE14) /* mcasp1_axr11.gpio4_17 */
+			0x2d4 (PIN_OUTPUT | MUX_MODE14) /* mcasp1_axr8.gpio5_10 */
+			0x2d8 (PIN_OUTPUT | MUX_MODE14) /* mcasp1_axr9.gpio5_11 */
+			0x2dc (PIN_OUTPUT | MUX_MODE14) /* mcasp1_axr10.gpio5_12 */
+			0x378 (PIN_OUTPUT | MUX_MODE0)  /* gpio6_11378.gpio6_11*/
+		>;
+	};
+
+	vin3a_pins: pinmux_vin3a_pins {
+		pinctrl-single,pins = <
+			0x0BC   (PIN_INPUT | MUX_MODE2) /* gpmc_cs3.vin3a_clk0 */
+			0x060   (PIN_INPUT | MUX_MODE2) /* gpmc_a8.vin3a_hsync0 */
+			0x064   (PIN_INPUT | MUX_MODE2) /* gpmc_a9.vin3a_vsync0 */
+			0x000   (PIN_INPUT | MUX_MODE2) /* gpmc_ad0.vin3a_d0 */
+			0x004   (PIN_INPUT | MUX_MODE2) /* gpmc_ad1.vin3a_d1 */
+			0x008   (PIN_INPUT | MUX_MODE2) /* gpmc_ad2.vin3a_d2 */
+			0x00C   (PIN_INPUT | MUX_MODE2) /* gpmc_ad3.vin3a_d3 */
+			0x010   (PIN_INPUT | MUX_MODE2) /* gpmc_ad4.vin3a_d4 */
+			0x014   (PIN_INPUT | MUX_MODE2) /* gpmc_ad5.vin3a_d5 */
+			0x018   (PIN_INPUT | MUX_MODE2) /* gpmc_ad6.vin3a_d6 */
+			0x01C   (PIN_INPUT | MUX_MODE2) /* gpmc_ad7.vin3a_d7 */
+		>;
+	};
+};
+
+&i2c5 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c5_pins &mt9t11x_pins>;
+	clock-frequency = <400000>;
+
+	mt9t11x@3C {
+		compatible = "aptina,mt9t111";
+		reg = <0x3C>;
+
+		reset-gpios = <&gpio4 17 GPIO_ACTIVE_LOW>;
+		oscen-gpios = <&gpio5 10 GPIO_ACTIVE_HIGH>;
+		powerdown-gpios = <&gpio5 11 GPIO_ACTIVE_LOW>;
+		bufen-gpios = <&gpio5 12 GPIO_ACTIVE_LOW>;
+		camen-gpios = <&gpio6 11 GPIO_ACTIVE_LOW>;
+
+		port {
+			cam: endpoint {
+				remote-endpoint = <&vin3a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+				input-clock-freq = <32000000>;
+				pixel-clock-freq = <96000000>;
+			};
+		};
+	};
+
 };
 
 &dss {
@@ -258,5 +321,18 @@
 		reg = <2>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};
+
+&vip2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&vin3a_pins>;
+	status = "okay";
+};
+
+&vin3a {
+	endpoint {
+		slave-mode;
+		remote-endpoint = <&cam>;
 	};
 };
