@@ -2760,8 +2760,7 @@ static int vip_probe(struct platform_device *pdev)
 
 	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
 	if (IS_ERR(pinctrl)) {
-		ret = PTR_ERR(pinctrl);
-		goto free_shared;
+		dev_warn(&pdev->dev, "No explicit pinctrl resources data.\n");
 	}
 
 	if (devm_request_mem_region(&pdev->dev, shared->res->start,
