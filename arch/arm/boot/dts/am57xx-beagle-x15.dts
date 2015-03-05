@@ -784,11 +784,3 @@
 		};
 	};
 };
-
-&epwmss1 {
-	status = "okay";
-
-	ehrpwm1: ehrpwm@48440200 {
-		status = "okay";
-	};
-};
