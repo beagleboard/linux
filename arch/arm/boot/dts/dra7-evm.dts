@@ -218,117 +218,6 @@
 		>;
 	};
 
-	cpsw_default: cpsw_default {
-		pinctrl-single,pins = <
-			/* Slave 1 */
-			0x250 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_tclk */
-			0x254 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_tctl */
-			0x258 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td3 */
-			0x25c (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td2 */
-			0x260 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td1 */
-			0x264 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td0 */
-			0x268 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rclk */
-			0x26c (PIN_INPUT | MUX_MODE0)	/* rgmii1_rctl */
-			0x270 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd3 */
-			0x274 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd2 */
-			0x278 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd1 */
-			0x27c (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd0 */
-
-			/* Slave 2 */
-			0x198 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_tclk */
-			0x19c (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_tctl */
-			0x1a0 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td3 */
-			0x1a4 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td2 */
-			0x1a8 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td1 */
-			0x1ac (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td0 */
-			0x1b0 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rclk */
-			0x1b4 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rctl */
-			0x1b8 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd3 */
-			0x1bc (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd2 */
-			0x1c0 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd1 */
-			0x1c4 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd0 */
-		>;
-
-	};
-
-	cpsw_sleep: cpsw_sleep {
-		pinctrl-single,pins = <
-			/* Slave 1 */
-			0x250 (PIN_OFF_NONE)
-			0x254 (PIN_OFF_NONE)
-			0x258 (PIN_OFF_NONE)
-			0x25c (PIN_OFF_NONE)
-			0x260 (PIN_OFF_NONE)
-			0x264 (PIN_OFF_NONE)
-			0x268 (PIN_OFF_NONE)
-			0x26c (PIN_OFF_NONE)
-			0x270 (PIN_OFF_NONE)
-			0x274 (PIN_OFF_NONE)
-			0x278 (PIN_OFF_NONE)
-			0x27c (PIN_OFF_NONE)
-
-			/* Slave 1 */
-			0x198 (PIN_OFF_NONE)
-			0x19c (PIN_OFF_NONE)
-			0x1a0 (PIN_OFF_NONE)
-			0x1a4 (PIN_OFF_NONE)
-			0x1a8 (PIN_OFF_NONE)
-			0x1ac (PIN_OFF_NONE)
-			0x1b0 (PIN_OFF_NONE)
-			0x1b4 (PIN_OFF_NONE)
-			0x1b8 (PIN_OFF_NONE)
-			0x1bc (PIN_OFF_NONE)
-			0x1c0 (PIN_OFF_NONE)
-			0x1c4 (PIN_OFF_NONE)
-		>;
-	};
-
-	davinci_mdio_default: davinci_mdio_default {
-		pinctrl-single,pins = <
-			/* MDIO */
-			0x23c (PIN_OUTPUT_PULLUP | MUX_MODE0)	/* mdio_data */
-			0x240 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mdio_clk */
-		>;
-	};
-
-	davinci_mdio_sleep: davinci_mdio_sleep {
-		pinctrl-single,pins = <
-			0x23c (PIN_OFF_NONE)
-			0x240 (PIN_OFF_NONE)
-		>;
-	};
-
-	nand_flash_x16: nand_flash_x16 {
-		/* On DRA7 EVM, GPMC_WPN and NAND_BOOTn comes from DIP switch
-		 * So NAND flash requires following switch settings:
-		 * SW5.9 (GPMC_WPN) = LOW
-		 * SW5.1 (NAND_BOOTn) = HIGH */
-		pinctrl-single,pins = <
-			0x0 	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad0	*/
-			0x4 	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad1	*/
-			0x8 	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad2	*/
-			0xc 	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad3	*/
-			0x10	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad4	*/
-			0x14	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad5	*/
-			0x18	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad6	*/
-			0x1c	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad7	*/
-			0x20	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad8	*/
-			0x24	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad9	*/
-			0x28	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad10	*/
-			0x2c	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad11	*/
-			0x30	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad12	*/
-			0x34	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad13	*/
-			0x38	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad14	*/
-			0x3c	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad15	*/
-			0xd8	(PIN_INPUT_PULLUP  | MUX_MODE0)	/* gpmc_wait0	*/
-			0xcc	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_wen	*/
-			0xb4	(PIN_OUTPUT_PULLUP | MUX_MODE0)	/* gpmc_csn0	*/
-			0xc4	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_advn_ale */
-			0xc8	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_oen_ren	 */
-			0xd0	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_be0n_cle */
-		>;
-	};
-
 	vout1_pins: pinmux_vout1_pins {
 		pinctrl-single,pins = <
 			0x1C8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_clk */
@@ -366,12 +255,6 @@
 	hpd_pin: pinmux_hpd_pin {
 		pinctrl-single,pins = <
 			0x3b8	(PIN_INPUT_PULLDOWN | MUX_MODE14)	/* gpio7_12 */
-		>;
-	};
-
-	tsc_pins: pinmux_tsc_pins {
-		pinctrl-single,pins = <
-			0x420 (PIN_INPUT_PULLUP | MUX_MODE1) /* sys_nirq2 */
 		>;
 	};
 
@@ -641,7 +524,6 @@
 		status = "okay";
 		reg = <0x4a>;
 		interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
-		pinctrl-0 = <&tsc_pins>;
 
 		atmel,config = <
 			/* MXT244_GEN_COMMAND(6) */
@@ -901,9 +783,6 @@
 
 &mac {
 	status = "okay";
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&cpsw_default>;
-	pinctrl-1 = <&cpsw_sleep>;
 	dual_emac;
 };
 
@@ -919,20 +798,12 @@
 	dual_emac_res_vlan = <2>;
 };
 
-&davinci_mdio {
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&davinci_mdio_default>;
-	pinctrl-1 = <&davinci_mdio_sleep>;
-};
-
 &elm {
 	status = "okay";
 };
 
 &gpmc {
 	status = "disabled";
-	pinctrl-names = "default";
-	pinctrl-0 = <&nand_flash_x16>;
 	ranges = <0 0 0 0x01000000>;	/* minimum GPMC partition = 16MB */
 	nand@0,0 {
 		reg = <0 0 4>;		/* device IO registers */
