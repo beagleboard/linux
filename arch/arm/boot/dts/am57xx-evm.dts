@@ -87,11 +87,13 @@
 	};
 
 	backlight {
-		compatible = "gpio-backlight";
+		compatible = "pwm-backlight";
+		pwms = <&ehrpwm1 0 50000 0>;
 
-		gpios = <&gpio6 10 GPIO_ACTIVE_LOW>;
+		/* Anything lower than 241 is no longer visible */
+		brightness-levels = <0 243 245 247 249 251 252 253 255>;
 
-		default-on;
+		default-brightness-level = <8>;
 	};
 
 	vmmcwl_fixed: fixedregulator-mmcwl {
