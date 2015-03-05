@@ -29,9 +29,6 @@
 };
 
 &dss {
-	pinctrl-names = "default";
-	pinctrl-0 = <&vout1_pins>;
-
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;

@@ -149,9 +149,6 @@
 	tpd12s015: encoder@1 {
 		compatible = "ti,dra7evm-tpd12s015";
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&hpd_pin>;
-
 		gpios = <&pcf_hdmi 4 0>,	/* P4, CT CP HPD */
 			<&pcf_hdmi 5 0>,	/* P5, LS OE */
 			<&gpio7 12 0>;	/* gpio7_12/sp1_cs2, HPD */
@@ -218,43 +215,120 @@
 		>;
 	};
 
-	vout1_pins: pinmux_vout1_pins {
+	cpsw_default: cpsw_default {
 		pinctrl-single,pins = <
-			0x1C8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_clk */
-			0x1CC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_de */
-			0x1D0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_fld */
-			0x1D4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_hsync */
-			0x1D8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_vsync */
-			0x1DC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d0 */
-			0x1E0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d1 */
-			0x1E4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d2 */
-			0x1E8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d3 */
-			0x1EC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d4 */
-			0x1F0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d5 */
-			0x1F4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d6 */
-			0x1F8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d7 */
-			0x1FC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d8 */
-			0x200	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d9 */
-			0x204	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d10 */
-			0x208	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d11 */
-			0x20C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d12 */
-			0x210	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d13 */
-			0x214	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d14 */
-			0x218	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d15 */
-			0x21C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d16 */
-			0x220	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d17 */
-			0x224	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d18 */
-			0x228	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d19 */
-			0x22C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d20 */
-			0x230	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d21 */
-			0x234	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d22 */
-			0x238	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d23 */
+			/* Slave 1 */
+			0x250 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_tclk */
+			0x254 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_tctl */
+			0x258 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td3 */
+			0x25c (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td2 */
+			0x260 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td1 */
+			0x264 (PIN_OUTPUT | MUX_MODE0)	/* rgmii1_td0 */
+			0x268 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rclk */
+			0x26c (PIN_INPUT | MUX_MODE0)	/* rgmii1_rctl */
+			0x270 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd3 */
+			0x274 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd2 */
+			0x278 (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd1 */
+			0x27c (PIN_INPUT | MUX_MODE0)	/* rgmii1_rd0 */
+
+			/* Slave 2 */
+			0x198 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_tclk */
+			0x19c (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_tctl */
+			0x1a0 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td3 */
+			0x1a4 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td2 */
+			0x1a8 (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td1 */
+			0x1ac (PIN_OUTPUT | MUX_MODE3)	/* rgmii2_td0 */
+			0x1b0 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rclk */
+			0x1b4 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rctl */
+			0x1b8 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd3 */
+			0x1bc (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd2 */
+			0x1c0 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd1 */
+			0x1c4 (PIN_INPUT | MUX_MODE3)	/* rgmii2_rd0 */
+		>;
+
+	};
+
+	cpsw_sleep: cpsw_sleep {
+		pinctrl-single,pins = <
+			/* Slave 1 */
+			0x250 (PIN_OFF_NONE)
+			0x254 (PIN_OFF_NONE)
+			0x258 (PIN_OFF_NONE)
+			0x25c (PIN_OFF_NONE)
+			0x260 (PIN_OFF_NONE)
+			0x264 (PIN_OFF_NONE)
+			0x268 (PIN_OFF_NONE)
+			0x26c (PIN_OFF_NONE)
+			0x270 (PIN_OFF_NONE)
+			0x274 (PIN_OFF_NONE)
+			0x278 (PIN_OFF_NONE)
+			0x27c (PIN_OFF_NONE)
+
+			/* Slave 1 */
+			0x198 (PIN_OFF_NONE)
+			0x19c (PIN_OFF_NONE)
+			0x1a0 (PIN_OFF_NONE)
+			0x1a4 (PIN_OFF_NONE)
+			0x1a8 (PIN_OFF_NONE)
+			0x1ac (PIN_OFF_NONE)
+			0x1b0 (PIN_OFF_NONE)
+			0x1b4 (PIN_OFF_NONE)
+			0x1b8 (PIN_OFF_NONE)
+			0x1bc (PIN_OFF_NONE)
+			0x1c0 (PIN_OFF_NONE)
+			0x1c4 (PIN_OFF_NONE)
 		>;
 	};
 
-	hpd_pin: pinmux_hpd_pin {
+	davinci_mdio_default: davinci_mdio_default {
 		pinctrl-single,pins = <
-			0x3b8	(PIN_INPUT_PULLDOWN | MUX_MODE14)	/* gpio7_12 */
+			/* MDIO */
+			0x23c (PIN_OUTPUT_PULLUP | MUX_MODE0)	/* mdio_data */
+			0x240 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mdio_clk */
+		>;
+	};
+
+	davinci_mdio_sleep: davinci_mdio_sleep {
+		pinctrl-single,pins = <
+			0x23c (PIN_OFF_NONE)
+			0x240 (PIN_OFF_NONE)
+		>;
+	};
+
+	nand_flash_x16: nand_flash_x16 {
+		/* On DRA7 EVM, GPMC_WPN and NAND_BOOTn comes from DIP switch
+		 * So NAND flash requires following switch settings:
+		 * SW5.9 (GPMC_WPN) = LOW
+		 * SW5.1 (NAND_BOOTn) = HIGH */
+		pinctrl-single,pins = <
+			0x0 	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad0	*/
+			0x4 	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad1	*/
+			0x8 	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad2	*/
+			0xc 	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad3	*/
+			0x10	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad4	*/
+			0x14	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad5	*/
+			0x18	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad6	*/
+			0x1c	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad7	*/
+			0x20	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad8	*/
+			0x24	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad9	*/
+			0x28	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad10	*/
+			0x2c	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad11	*/
+			0x30	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad12	*/
+			0x34	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad13	*/
+			0x38	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad14	*/
+			0x3c	(PIN_INPUT  | MUX_MODE0)	/* gpmc_ad15	*/
+			0xd8	(PIN_INPUT_PULLUP  | MUX_MODE0)	/* gpmc_wait0	*/
+			0xcc	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_wen	*/
+			0xb4	(PIN_OUTPUT_PULLUP | MUX_MODE0)	/* gpmc_csn0	*/
+			0xc4	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_advn_ale */
+			0xc8	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_oen_ren	 */
+			0xd0	(PIN_OUTPUT | MUX_MODE0)	/* gpmc_be0n_cle */
+		>;
+	};
+
+	tsc_pins: pinmux_tsc_pins {
+		pinctrl-single,pins = <
+			0x420 (PIN_INPUT_PULLUP | MUX_MODE1) /* sys_nirq2 */
 		>;
 	};
 

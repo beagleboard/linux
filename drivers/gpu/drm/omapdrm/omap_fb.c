@@ -462,10 +462,10 @@ struct drm_framebuffer *omap_framebuffer_init(struct drm_device *dev,
 			goto fail;
 		}
 
-		if (mode_cmd->width % format->planes[i].stride_bpp != 0) {
+		if (pitch % format->planes[i].stride_bpp != 0) {
 			dev_err(dev->dev,
-				"buffer width (%d) is not a multiple of pixel width (%d)\n",
-				mode_cmd->width, format->planes[i].stride_bpp);
+				"buffer pitch (%d bytes) is not a multiple of pixel size (%d bytes)\n",
+				pitch, format->planes[i].stride_bpp);
 			ret = -EINVAL;
 			goto fail;
 		}
