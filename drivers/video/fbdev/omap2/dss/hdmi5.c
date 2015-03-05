@@ -453,6 +453,8 @@ static int hdmi_display_enable(struct omap_dss_device *dssdev)
 		goto err0;
 	}
 
+	hdmi.display_enabled = true;
+
 	mutex_unlock(&hdmi.lock);
 	return 0;
 
@@ -467,7 +469,12 @@ static void hdmi_display_disable(struct omap_dss_device *dssdev)
 
 	mutex_lock(&hdmi.lock);
 
+	if (hdmi.audio_abort_cb)
+		hdmi.audio_abort_cb(&hdmi.pdev->dev);
+
 	hdmi_power_off_full(dssdev);
+
+	hdmi.display_enabled = false;
 
 	mutex_unlock(&hdmi.lock);
 }
@@ -645,13 +652,22 @@ err:
 }
 
 #if defined(CONFIG_OMAP5_DSS_HDMI_AUDIO)
-static int mode_has_audio(struct device *dev)
+static int audio_startup(struct device *dev,
+			 void (*abort_cb)(struct device *dev))
 {
 	struct omap_hdmi *hd = dev_get_drvdata(dev);
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&hd->lock);
-	ret = hdmi_mode_has_audio(&hd->cfg);
+
+	if (!hdmi_mode_has_audio(&hd->cfg) || !hd->display_enabled) {
+		ret = -EPERM;
+		goto out;
+	}
+
+	hd->audio_abort_cb = abort_cb;
+
+out:
 	mutex_unlock(&hd->lock);
 
 	return ret;
@@ -671,15 +687,14 @@ static int audio_enable(struct device *dev, bool enable)
 		REG_FLD_MOD(hdmi.wp.base, HDMI_WP_SYSCONFIG, 1, 3, 2);
 	}
 
-	if (!hdmi_mode_has_audio(&hd->cfg))
-		ret = -EPERM;
-	else
-		ret = hdmi_wp_audio_enable(&hd->wp, enable);
+	ret = hdmi_wp_audio_enable(&hd->wp, enable);
 
 	if (!enable) {
 		/* Playback stopped, restore original idlemode */
 		REG_FLD_MOD(hdmi.wp.base, HDMI_WP_SYSCONFIG, hd->wp_idlemode,
 			    3, 2);
+
+		hd->audio_abort_cb = NULL;
 	}
 
 	mutex_unlock(&hd->lock);
@@ -716,7 +731,7 @@ static int hdmi_audio_register(struct device *dev)
 		.dev = dev,
 		.hw_version = OMAP5_HDMI,
 		.audio_dma_addr = hdmi_wp_get_audio_dma_addr(&hdmi.wp),
-		.mode_has_audio = mode_has_audio,
+		.audio_startup = audio_startup,
 		.audio_enable = audio_enable,
 		.audio_start = audio_start,
 		.audio_config = audio_config,
