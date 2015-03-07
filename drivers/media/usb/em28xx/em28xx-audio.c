@@ -814,7 +814,7 @@ static int em28xx_audio_urb_init(struct em28xx *dev)
 	if (urb_size > ep_size * npackets)
 		npackets = DIV_ROUND_UP(urb_size, ep_size);
 
-	em28xx_info("Number of URBs: %d, with %d packets and %d size",
+	em28xx_info("Number of URBs: %d, with %d packets and %d size\n",
 		    num_urb, npackets, urb_size);
 
 	/* Estimate the bytes per period */
@@ -974,7 +974,7 @@ static int em28xx_audio_fini(struct em28xx *dev)
 		return 0;
 	}
 
-	em28xx_info("Closing audio extension");
+	em28xx_info("Closing audio extension\n");
 
 	if (dev->adev.sndcard) {
 		snd_card_disconnect(dev->adev.sndcard);
