@@ -1235,6 +1235,7 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 static irqreturn_t vip_irq(int irq_vip, void *data)
 {
 	struct vip_dev *dev = (struct vip_dev *)data;
+	struct vpdma_data *vpdma = dev->shared->vpdma;
 	struct vip_stream *stream;
 	int list_num;
 	int irq_num = dev->slice_id;
@@ -1254,22 +1255,28 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 			VIP_INTC_INTX_OFFSET * irq_num;
 		write_sreg(dev->shared, reg_addr, irqst);
 
-		for (list_num = dev->slice_id; list_num < 8; list_num += 2) {
-			if (irqst & 1 << (list_num * 2)) {
-				vpdma_clear_list_stat(dev->shared->vpdma,
-					irq_num, list_num);
+		for (list_num = 0; list_num < 8;  list_num++) {
+			/* Check for LIST_COMPLETE IRQ */
+			if (!(irqst & (1 << list_num * 2)))
+				continue;
 
-				stream = dev->ports[0]->cap_streams[list_num];
+			vip_dbg(8, dev, "IRQ %d: handling LIST%d_COMPLETE\n",
+				irq_num, list_num);
 
-				if (dev->num_skip_irq)
-					dev->num_skip_irq--;
-				else
-					vip_process_buffer_complete(stream);
-
-				vip_schedule_next_buffer(stream);
-
+			stream = vpdma_hwlist_get_priv(vpdma, list_num);
+			if (!stream || stream->list_num != list_num) {
+				vip_err(dev, "IRQ occured for unused list");
+				continue;
 			}
 
+			vpdma_clear_list_stat(vpdma, irq_num, list_num);
+
+			if (dev->num_skip_irq)
+				dev->num_skip_irq--;
+			else
+				vip_process_buffer_complete(stream);
+
+			vip_schedule_next_buffer(stream);
 			irqst &= ~((1 << list_num * 2));
 		}
 	}
@@ -2332,8 +2339,14 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 
 	stream->port = port;
 	stream->stream_id = stream_id;
-	stream->list_num = stream_id;
 	stream->vfl_type = vfl_type;
+
+	stream->list_num = vpdma_hwlist_alloc(dev->shared->vpdma, stream);
+	if (stream->list_num < 0) {
+		vip_err(dev, "Could not get VPDMA hwlist");
+		ret = -ENODEV;
+		goto do_free_stream;
+	}
 
 	INIT_LIST_HEAD(&stream->post_bufs);
 
@@ -2424,6 +2437,7 @@ static void free_stream(struct vip_stream *stream)
 
 	video_unregister_device(stream->vfd);
 	video_device_release(stream->vfd);
+	vpdma_hwlist_release(dev->shared->vpdma, stream->list_num);
 	kfree(stream);
 }
 
