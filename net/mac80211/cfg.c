@@ -2815,7 +2815,22 @@ static int ieee80211_cancel_roc(struct ieee80211_local *local,
 		}
 
 		list_del(&found->list);
+		mutex_unlock(&local->mtx);
 
+		/*
+		 * The driver might have already expired the ROC (by
+		 * calling ieee80211_remain_on_channel_expired()), so
+		 * cancel the pending roc_done work (otherwise, it might
+		 * cancel the upcoming roc).
+		 */
+		cancel_work_sync(&local->hw_roc_done);
+
+		mutex_lock(&local->mtx);
+		/*
+		 * We hold rtnl, so nothing should have been able to
+		 * manipulate the roc_list during the temporary
+		 * lock release.
+		 */
 		if (found->started)
 			ieee80211_start_next_roc(local);
 		mutex_unlock(&local->mtx);
