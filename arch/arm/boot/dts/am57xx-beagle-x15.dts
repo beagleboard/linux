@@ -198,13 +198,6 @@
 };
 
 &dra7_pmx_core {
-	i2c2_pins: pinmux_i2c2_pins {
-		pinctrl-single,pins = <
-			0x408 (PIN_INPUT | MUX_MODE1) /* hdmi1_ddc_scl */
-			0x40c (PIN_INPUT | MUX_MODE1) /* hdmi1_ddc_sda */
-		>;
-	};
-
 	mmc1_pins_default: mmc1_pins_default {
 		pinctrl-single,pins = <
 			0x36c (PIN_INPUT | MUX_MODE14)	/* mmc1sdcd.gpio219 */
@@ -261,14 +254,6 @@
 	mcp79410_pins_default: mcp79410_pins_default {
 		pinctrl-single,pins = <
 			0x424 (PIN_INPUT_PULLUP | MUX_MODE1)	/* wakeup3.sys_nirq1 */
-		>;
-	};
-
-	hdmi_pins: pinmux_hdmi_pins {
-		pinctrl-single,pins = <
-			0x3b0 	(PIN_OUTPUT | MUX_MODE14)	/* gpio7_10 */
-			0x3b8 	(PIN_INPUT | MUX_MODE14)	/* gpio7_12 */
-			0x370 	(PIN_OUTPUT | MUX_MODE14)	/* gpio6_28 */
 		>;
 	};
 
@@ -588,8 +573,6 @@
 &hdmi {
 	status = "ok";
 	vdda-supply = <&ldo3_reg>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&hdmi_pins &i2c2_pins>;
 
 	port {
 		hdmi_out: endpoint {
@@ -799,13 +782,5 @@
 				  <&gpio_fan THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 			};
 		};
-	};
-};
-
-&epwmss1 {
-	status = "okay";
-
-	ehrpwm1: ehrpwm@48440200 {
-		status = "okay";
 	};
 };
