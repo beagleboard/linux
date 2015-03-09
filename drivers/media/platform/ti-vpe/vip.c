@@ -1111,6 +1111,7 @@ static void populate_desc_list(struct vip_stream *stream)
 static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 {
 	struct vpdma_data *vpdma = dev->shared->vpdma;
+	struct vip_stream *stream = vb2_get_drv_priv(buf->vb.vb2_queue);
 	dma_addr_t dma_addr;
 	int drop_data;
 
@@ -1131,7 +1132,14 @@ static void start_dma(struct vip_dev *dev, struct vip_buffer *buf)
 	}
 
 	vpdma_update_dma_addr(dev->shared->vpdma, &dev->desc_list,
-			      dma_addr, dev->write_desc, drop_data);
+			      dma_addr, dev->write_desc, drop_data, 0);
+
+	if (stream->port->fmt->coplanar) {
+		dma_addr += stream->width * stream->height;
+		vpdma_update_dma_addr(dev->shared->vpdma, &dev->desc_list,
+			      dma_addr, dev->write_desc + 1, drop_data, 1);
+	}
+
 	vpdma_submit_descs(dev->shared->vpdma, &dev->desc_list, dev->slice_id);
 }
 
@@ -1616,6 +1624,14 @@ static void set_fmt_params(struct vip_stream *stream)
 			(struct vpdma_data_format *)
 			 stream->port->fmt->vpdma_fmt[0],
 			0xff);
+	}
+
+	if (stream->port->fmt->coplanar) {
+		stream->port->flags &= ~FLAG_MULT_PORT;
+		write_vreg(dev, VIP_VIP1_DATA_PATH_SELECT, 0x600);
+	} else {
+		stream->port->flags |= FLAG_MULT_PORT;
+		write_vreg(dev, VIP_VIP1_DATA_PATH_SELECT, 0x8000);
 	}
 }
 
@@ -2483,6 +2499,10 @@ static int get_subdev_active_format(struct vip_dev *dev,
 			}
 		}
 	}
+
+	if (find_active_format_by_pix(dev, V4L2_PIX_FMT_YUYV))
+		/* When YUYV format is supported, NV12 can also be supported */
+		dev->active_fmt[dev->num_active_fmt++] = &vip_formats[2];
 
 	if (dev->num_active_fmt == 0) {
 
