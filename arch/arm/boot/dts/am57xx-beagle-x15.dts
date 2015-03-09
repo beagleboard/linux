@@ -250,13 +250,6 @@
 			0x98 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a22.mmc2_dat7 */
 		>;
 	};
-
-	mcp79410_pins_default: mcp79410_pins_default {
-		pinctrl-single,pins = <
-			0x424 (PIN_INPUT_PULLUP | MUX_MODE1)	/* wakeup3.sys_nirq1 */
-		>;
-	};
-
 };
 
 &i2c1 {
@@ -446,8 +439,6 @@
 		compatible = "microchip,mcp7941x";
 		reg = <0x6f>;
 		vcc-supply = <&vdd_3v3>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&mcp79410_pins_default>;
 
 		/* Rev A1 */
 		interrupts-extended = <&gic GIC_SPI 2 IRQ_TYPE_LEVEL_LOW
