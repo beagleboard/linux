@@ -58,6 +58,7 @@ struct pixcir_ts_platform_data {
 	int x_max;
 	int y_max;
 	int gpio_attb;		/* GPIO connected to ATTB line */
+	int gpio_reset;		/* GPIO connected to RESET line */
 	struct pixcir_i2c_chip_data chip;
 };
 

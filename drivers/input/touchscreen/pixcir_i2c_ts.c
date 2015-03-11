@@ -51,6 +51,19 @@ struct pixcir_report_data {
 	struct pixcir_touch touches[PIXCIR_MAX_SLOTS];
 };
 
+static void pixcir_reset(struct pixcir_i2c_ts_data *tsdata)
+{
+	const struct pixcir_ts_platform_data *pdata = tsdata->pdata;
+
+	if (gpio_is_valid(pdata->gpio_reset)) {
+		gpio_set_value(pdata->gpio_reset, 1);
+		ndelay(100);	/* datasheet section 1.2.3 says 80ns min. */
+		gpio_set_value(pdata->gpio_reset, 0);
+		/* wait for controller ready. 100ms guess. */
+		msleep(100);
+	}
+}
+
 static void pixcir_ts_parse(struct pixcir_i2c_ts_data *tsdata,
 			    struct pixcir_report_data *report)
 {
@@ -431,7 +444,8 @@ static struct pixcir_ts_platform_data *pixcir_parse_dt(struct device *dev)
 	pdata->chip = *(const struct pixcir_i2c_chip_data *)match->data;
 
 	pdata->gpio_attb = of_get_named_gpio(np, "attb-gpio", 0);
-	/* gpio_attb validity is checked in probe */
+	pdata->gpio_reset = of_get_named_gpio(np, "reset-gpio", 0);
+	/* gpio validity is checked in probe */
 
 	if (of_property_read_u32(np, "touchscreen-size-x", &pdata->x_max)) {
 		dev_err(dev, "Failed to get touchscreen-size-x property\n");
@@ -445,8 +459,9 @@ static struct pixcir_ts_platform_data *pixcir_parse_dt(struct device *dev)
 	}
 	pdata->y_max -= 1;
 
-	dev_dbg(dev, "%s: x %d, y %d, gpio %d\n", __func__,
-		pdata->x_max + 1, pdata->y_max + 1, pdata->gpio_attb);
+	dev_dbg(dev, "%s: x %d, y %d, ATTB gpio %d, RESET gpio %d\n", __func__,
+		pdata->x_max + 1, pdata->y_max + 1, pdata->gpio_attb,
+		pdata->gpio_reset);
 
 	return pdata;
 }
@@ -483,6 +498,10 @@ static int pixcir_i2c_ts_probe(struct i2c_client *client,
 		dev_err(dev, "Invalid gpio_attb in pdata\n");
 		return -EINVAL;
 	}
+
+	/* RESET gpio is optional */
+	if (!gpio_is_valid(pdata->gpio_reset))
+		dev_dbg(dev, "Invalid gpio_reset in pdata\n");
 
 	if (pdata->chip.max_fingers <= 0) {
 		dev_err(dev, "Invalid max_fingers in pdata\n");
@@ -533,6 +552,16 @@ static int pixcir_i2c_ts_probe(struct i2c_client *client,
 
 	input_set_drvdata(input, tsdata);
 
+	if (gpio_is_valid(pdata->gpio_reset)) {
+		error = devm_gpio_request_one(dev, pdata->gpio_reset,
+					      GPIOF_OUT_INIT_LOW,
+					      "pixcir_i2c_reset");
+		if (error) {
+			dev_err(dev, "Failed to request RESET gpio\n");
+			return error;
+		}
+	}
+
 	error = devm_gpio_request_one(dev, pdata->gpio_attb,
 				      GPIOF_DIR_IN, "pixcir_i2c_attb");
 	if (error) {
@@ -547,6 +576,8 @@ static int pixcir_i2c_ts_probe(struct i2c_client *client,
 		dev_err(dev, "failed to request irq %d\n", client->irq);
 		return error;
 	}
+
+	pixcir_reset(tsdata);
 
 	/* Always be in IDLE mode to save power, device supports auto wake */
 	error = pixcir_set_power_mode(tsdata, PIXCIR_POWER_IDLE);
