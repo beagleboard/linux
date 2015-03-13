@@ -33,6 +33,8 @@
 #define UART_ERRATA_i202_MDR1_ACCESS	(1 << 0)
 #define OMAP_UART_WER_HAS_TX_WAKEUP	(1 << 1)
 #define OMAP_DMA_TX_KICK		(1 << 2)
+/* See advisory Advisory 1.0.41 in AM335x errata SPRZ360G revised March 2015 */
+#define UART_ERRATA_CLOCK_DISABLE	(1 << 3)
 
 #define OMAP_UART_FCR_RX_TRIG		6
 #define OMAP_UART_FCR_TX_TRIG		4
@@ -53,6 +55,9 @@
 #define OMAP_UART_MVR_MAJ_MASK		0x700
 #define OMAP_UART_MVR_MAJ_SHIFT		8
 #define OMAP_UART_MVR_MIN_MASK		0x3f
+
+/* SYSC register bitmasks */
+#define OMAP_UART_SYSC_SOFTRESET	(1 << 1)
 
 #define UART_TI752_TLR_TX	0
 #define UART_TI752_TLR_RX	4
@@ -959,7 +964,7 @@ static inline int omap_8250_rx_dma(struct uart_8250_port *p, unsigned int iir)
 }
 #endif
 
-static const u8 am3352_habit = OMAP_DMA_TX_KICK;
+static const u8 am3352_habit = OMAP_DMA_TX_KICK | UART_ERRATA_CLOCK_DISABLE;
 
 static const struct of_device_id omap8250_dt_ids[] = {
 	{ .compatible = "ti,omap2-uart" },
@@ -1224,9 +1229,18 @@ static int omap8250_resume(struct device *dev)
 #endif
 
 #ifdef CONFIG_PM_RUNTIME
-static int omap8250_lost_context(struct uart_8250_port *up)
+static int omap8250_lost_context(struct device *dev)
 {
+	struct omap8250_priv *priv = dev_get_drvdata(dev);
+	struct uart_8250_port *up = serial8250_get_port(priv->line);
 	u32 val;
+
+	/*
+	 * If suffering from clock disable errata, you lost context
+	 * despite what MDR1 tells you.
+	 */
+	if (device_may_wakeup(dev) && priv->habit & UART_ERRATA_CLOCK_DISABLE)
+		return 1;
 
 	val = serial_in(up, UART_OMAP_MDR1);
 	/*
@@ -1243,6 +1257,7 @@ static int omap8250_runtime_suspend(struct device *dev)
 {
 	struct omap8250_priv *priv = dev_get_drvdata(dev);
 	struct uart_8250_port *up;
+	int sysc;
 
 	up = serial8250_get_port(priv->line);
 	/*
@@ -1254,6 +1269,24 @@ static int omap8250_runtime_suspend(struct device *dev)
 	if (priv->is_suspending && !console_suspend_enabled) {
 		if (uart_console(&up->port))
 			return -EBUSY;
+	}
+
+	if (priv->habit & UART_ERRATA_CLOCK_DISABLE) {
+		sysc = serial_in(up, UART_OMAP_SYSC);
+
+		/* softreset the UART */
+		sysc |= OMAP_UART_SYSC_SOFTRESET;
+		serial_out(up, UART_OMAP_SYSC, sysc);
+
+		/*
+		 * Softreset bit *always* returns 0 on read. Wait for 10us for
+		 * hardware to stabilize (guess, TODO: check with h/w folks).
+		 */
+		usleep_range(10, 20);
+
+		/* For wake-up to work, MDR1.MODESELECT should be set */
+		if (device_may_wakeup(dev))
+			omap8250_update_mdr1(up, priv);
 	}
 
 	omap8250_enable_wakeup(priv, true);
@@ -1278,7 +1311,7 @@ static int omap8250_runtime_resume(struct device *dev)
 
 	up = serial8250_get_port(priv->line);
 	omap8250_enable_wakeup(priv, false);
-	loss_cntx = omap8250_lost_context(up);
+	loss_cntx = omap8250_lost_context(dev);
 
 	if (loss_cntx)
 		omap8250_restore_regs(up);
