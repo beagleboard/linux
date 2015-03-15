@@ -20,6 +20,7 @@
 #include <linux/libfdt.h>
 #include <linux/err.h>
 #include <linux/idr.h>
+#include <linux/sysfs.h>
 
 #include "of_private.h"
 
@@ -73,6 +74,7 @@ struct overlay_changeset {
 	struct fragment *fragments;
 	bool symbols_fragment;
 	struct of_changeset cset;
+	struct kobject kobj;
 };
 
 /* flags are sticky - once set, do not reset */
@@ -858,6 +860,18 @@ static void free_overlay_changeset(struct overlay_changeset *ovcs)
 		of_node_put(ovcs->fragments[i].overlay);
 	}
 	kfree(ovcs->fragments);
+	kobject_put(&ovcs->kobj);
+}
+
+static inline struct overlay_changeset *kobj_to_ovcs(struct kobject *kobj)
+{
+	return container_of(kobj, struct overlay_changeset, kobj);
+}
+
+static void overlay_changeset_release(struct kobject *kobj)
+{
+	struct overlay_changeset *ovcs = kobj_to_ovcs(kobj);
+
 	/*
 	 * There should be no live pointers into ovcs->overlay_tree and
 	 * ovcs->fdt due to the policy that overlay notifiers are not allowed
@@ -867,6 +881,12 @@ static void free_overlay_changeset(struct overlay_changeset *ovcs)
 	kfree(ovcs->fdt);
 	kfree(ovcs);
 }
+
+static struct kobj_type overlay_changeset_ktype = {
+	.release = overlay_changeset_release,
+};
+
+static struct kset *ov_kset;
 
 /*
  * internal documentation
@@ -938,6 +958,8 @@ static int of_overlay_apply(const void *fdt, struct device_node *tree,
 		goto out;
 	}
 
+	kobject_init(&ovcs->kobj, &overlay_changeset_ktype);
+
 	of_overlay_mutex_lock();
 	mutex_lock(&of_mutex);
 
@@ -971,6 +993,22 @@ static int of_overlay_apply(const void *fdt, struct device_node *tree,
 			pr_debug("overlay changeset revert error %d\n",
 				 ret_revert);
 			devicetree_state_flags |= DTSF_APPLY_FAIL;
+		}
+		goto err_free_overlay_changeset;
+	}
+
+	ovcs->kobj.kset = ov_kset;
+	ret = kobject_add(&ovcs->kobj, NULL, "%d", ovcs->id);
+	if (ret != 0) {
+		pr_err("%s: kobject_add() failed for tree@%s\n", __func__,
+				tree->full_name);
+		ret_tmp = 0;
+		ret_revert = __of_changeset_revert_entries(&ovcs->cset,
+							   &ret_tmp);
+		if (ret_revert) {
+			pr_debug("overlay changeset revert error %d\n",
+				 ret_revert);
+			devicetree_state_flags |= DTSF_REVERT_FAIL;
 		}
 		goto err_free_overlay_changeset;
 	}
@@ -1274,3 +1312,13 @@ int of_overlay_remove_all(void)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(of_overlay_remove_all);
+
+/* called from of_init() */
+int of_overlay_init(void)
+{
+	ov_kset = kset_create_and_add("overlays", NULL, &of_kset->kobj);
+	if (!ov_kset)
+		return -ENOMEM;
+
+	return 0;
+}
