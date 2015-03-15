@@ -169,4 +169,13 @@ static inline int of_dma_get_range(struct device_node *np,
 }
 #endif
 
+#if defined(CONFIG_OF_OVERLAY)
+extern int of_overlay_init(void);
+#else
+static inline int of_overlay_init(void)
+{
+	return 0;
+}
+#endif
+
 #endif /* _LINUX_OF_PRIVATE_H */
