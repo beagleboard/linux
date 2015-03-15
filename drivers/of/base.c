@@ -192,6 +192,7 @@ int __of_attach_node_sysfs(struct device_node *np)
 void __init of_core_init(void)
 {
 	struct device_node *np;
+	int ret;
 
 	/* Create the kset, and register existing nodes */
 	mutex_lock(&of_mutex);
@@ -208,6 +209,12 @@ void __init of_core_init(void)
 	/* Symlink in /proc as required by userspace ABI */
 	if (of_root)
 		proc_symlink("device-tree", NULL, "/sys/firmware/devicetree/base");
+
+	ret = of_overlay_init();
+	if (ret != 0)
+		pr_warn("of_init: of_overlay_init failed!\n");
+
+	return 0;
 }
 
 static struct property *__of_find_property(const struct device_node *np,
