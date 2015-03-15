@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/idr.h>
+#include <linux/sysfs.h>
 
 #include "of_private.h"
 
@@ -51,6 +52,7 @@ struct of_overlay {
 	int count;
 	struct of_overlay_info *ovinfo_tab;
 	struct of_changeset cset;
+	struct kobject kobj;
 };
 
 static int of_overlay_apply_one(struct of_overlay *ov,
@@ -326,6 +328,24 @@ static int of_free_overlay_info(struct of_overlay *ov)
 static LIST_HEAD(ov_list);
 static DEFINE_IDR(ov_idr);
 
+static inline struct of_overlay *kobj_to_overlay(struct kobject *kobj)
+{
+	return container_of(kobj, struct of_overlay, kobj);
+}
+
+void of_overlay_release(struct kobject *kobj)
+{
+	struct of_overlay *ov = kobj_to_overlay(kobj);
+
+	kfree(ov);
+}
+
+static struct kobj_type of_overlay_ktype = {
+	.release = of_overlay_release,
+};
+
+static struct kset *ov_kset;
+
 /**
  * of_overlay_create() - Create and apply an overlay
  * @tree:	Device node containing all the overlays
@@ -350,6 +370,9 @@ int of_overlay_create(struct device_node *tree)
 	INIT_LIST_HEAD(&ov->node);
 
 	of_changeset_init(&ov->cset);
+
+	/* initialize kobject */
+	kobject_init(&ov->kobj, &of_overlay_ktype);
 
 	mutex_lock(&of_mutex);
 
@@ -386,6 +409,14 @@ int of_overlay_create(struct device_node *tree)
 		goto err_revert_overlay;
 	}
 
+	ov->kobj.kset = ov_kset;
+	err = kobject_add(&ov->kobj, NULL, "%d", id);
+	if (err != 0) {
+		pr_err("%s: kobject_add() failed for tree@%s\n",
+				__func__, tree->full_name);
+		goto err_cancel_overlay;
+	}
+
 	/* add to the tail of the overlay list */
 	list_add_tail(&ov->node, &ov_list);
 
@@ -393,6 +424,8 @@ int of_overlay_create(struct device_node *tree)
 
 	return id;
 
+err_cancel_overlay:
+	of_changeset_revert(&ov->cset);
 err_revert_overlay:
 err_abort_trans:
 	of_free_overlay_info(ov);
@@ -515,7 +548,8 @@ int of_overlay_destroy(int id)
 	of_free_overlay_info(ov);
 	idr_remove(&ov_idr, id);
 	of_changeset_destroy(&ov->cset);
-	kfree(ov);
+
+	kobject_put(&ov->kobj);
 
 	err = 0;
 
@@ -545,7 +579,7 @@ int of_overlay_destroy_all(void)
 		of_changeset_revert(&ov->cset);
 		of_free_overlay_info(ov);
 		idr_remove(&ov_idr, ov->id);
-		kfree(ov);
+		kobject_put(&ov->kobj);
 	}
 
 	mutex_unlock(&of_mutex);
@@ -553,3 +587,15 @@ int of_overlay_destroy_all(void)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(of_overlay_destroy_all);
+
+/* called from of_init() */
+int of_overlay_init(void)
+{
+	int rc;
+
+	ov_kset = kset_create_and_add("overlays", NULL, &of_kset->kobj);
+	if (!ov_kset)
+		return -ENOMEM;
+
+	return 0;
+}
