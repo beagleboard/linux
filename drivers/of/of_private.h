@@ -95,4 +95,13 @@ extern void __of_sysfs_remove_bin_file(struct device_node *np,
 #define for_each_transaction_entry_reverse(_oft, _te) \
 	list_for_each_entry_reverse(_te, &(_oft)->te_list, node)
 
+#if defined(CONFIG_OF_OVERLAY)
+extern int of_overlay_init(void);
+#else
+static inline int of_overlay_init(void)
+{
+	return 0;
+}
+#endif
+
 #endif /* _LINUX_OF_PRIVATE_H */
