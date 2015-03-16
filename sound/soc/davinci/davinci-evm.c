@@ -86,23 +86,11 @@ static int evm_tda998x_startup(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_mask *fmt = constrs_mask(&runtime->hw_constraints,
 					    SNDRV_PCM_HW_PARAM_FORMAT);
+
 	snd_mask_none(fmt);
 	snd_mask_set(fmt, TDA998X_SAMPLE_FORMAT);
 
 	return evm_startup(substream);
-}
-
-static int evm_tda998x_hw_params(struct snd_pcm_substream *substream,
-				 struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_card *soc_card = rtd->card;
-	struct snd_soc_card_drvdata_davinci *drvdata =
-		snd_soc_card_get_drvdata(soc_card);
-
-	return snd_soc_dai_set_sysclk(cpu_dai, 0, drvdata->sysclk,
-				      SND_SOC_CLOCK_IN);
 }
 
 static struct snd_soc_ops evm_ops = {
@@ -115,7 +103,6 @@ static struct snd_soc_ops evm_ops = {
 static struct snd_soc_ops evm_tda998x_ops = {
 	.startup = evm_tda998x_startup,
 	.shutdown = evm_shutdown,
-	.hw_params = evm_tda998x_hw_params,
 };
 
 /* davinci-evm machine dapm widgets */
@@ -186,9 +173,16 @@ static int evm_tda998x_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dapm_context *dapm = &rtd->codec->dapm;
 	struct snd_soc_card *soc_card = rtd->card;
+	struct snd_soc_card_drvdata_davinci *drvdata =
+		snd_soc_card_get_drvdata(soc_card);
 	int ret;
 
 	ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, drvdata->sysclk,
+				     SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
 
