@@ -637,6 +637,119 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 	return 0;
 }
 
+/* --------------------- Dual-Role management ------------------------------- */
+
+static void dwc3_drd_fsm_sync(struct dwc3 *dwc)
+{
+	int id, vbus;
+
+	/* get ID */
+	id = extcon_get_cable_state(dwc->edev, "USB-HOST");
+	/* Host means ID == 0 */
+	id = !id;
+
+	/* get VBUS */
+	vbus = extcon_get_cable_state(dwc->edev, "USB");
+	dev_dbg(dwc->dev, "id %d vbus %d\n", id, vbus);
+
+	dwc->fsm->id = id;
+	dwc->fsm->vbus = vbus;
+	usb_otg_sync_inputs(dwc->fsm);
+}
+
+static int dwc3_drd_start_host(struct otg_fsm *fsm, int on)
+{
+	struct device *dev = usb_otg_fsm_to_dev(fsm);
+	struct dwc3 *dwc = dev_get_drvdata(dev);
+
+	dev_dbg(dwc->dev, "%s: %d\n", __func__, on);
+	if (on)
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
+
+	return 0;
+}
+
+static int dwc3_drd_start_gadget(struct otg_fsm *fsm, int on)
+{
+	struct device *dev = usb_otg_fsm_to_dev(fsm);
+	struct dwc3 *dwc = dev_get_drvdata(dev);
+
+	dev_dbg(dwc->dev, "%s: %d\n", __func__, on);
+	if (on) {
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+		dwc3_event_buffers_setup(dwc);
+	}
+
+	return 0;
+}
+
+static struct otg_fsm_ops dwc3_drd_ops = {
+	.start_host = dwc3_drd_start_host,
+	.start_gadget = dwc3_drd_start_gadget,
+};
+
+static int dwc3_drd_notifier(struct notifier_block *nb,
+		unsigned long event, void *ptr)
+{
+	struct dwc3 *dwc = container_of(nb, struct dwc3, otg_nb);
+
+	dwc3_drd_fsm_sync(dwc);
+
+	return NOTIFY_DONE;
+}
+
+static int dwc3_drd_init(struct dwc3 *dwc)
+{
+	int ret, id, vbus;
+
+	if (!dwc->edev) {
+		dev_err(dwc->dev, "No extcon device found for OTG mode\n");
+		return -ENODEV;
+	}
+
+	dwc->otg_nb.notifier_call = dwc3_drd_notifier;
+	ret = extcon_register_notifier(dwc->edev, &dwc->otg_nb);
+	if (ret < 0) {
+		dev_err(dwc->dev, "Couldn't register USB cable notifier\n");
+		return -ENODEV;
+	}
+
+	/* sanity check id & vbus states */
+	id = extcon_get_cable_state(dwc->edev, "USB-HOST");
+	vbus = extcon_get_cable_state(dwc->edev, "USB");
+	if (id < 0 || vbus < 0) {
+		dev_err(dwc->dev, "Invalid USB cable state. id %d, vbus %d\n",
+			id, vbus);
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	/* register parent as OTG device with USB core */
+	dwc->fsm = usb_otg_register(dwc->dev, &dwc3_drd_ops, true);
+	if (IS_ERR(dwc->fsm)) {
+		dev_err(dwc->dev, "Failed to register with OTG core\n");
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	dwc3_drd_fsm_sync(dwc);
+
+	return 0;
+
+fail:
+	extcon_unregister_notifier(dwc->edev, &dwc->otg_nb);
+
+	return ret;
+}
+
+static void dwc3_drd_exit(struct dwc3 *dwc)
+{
+	usb_otg_unregister(dwc->dev);
+	extcon_unregister_notifier(dwc->edev, &dwc->otg_nb);
+}
+
+/* -------------------------------------------------------------------------- */
+
 static int dwc3_core_init_mode(struct dwc3 *dwc)
 {
 	struct device *dev = dwc->dev;
@@ -660,7 +773,12 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 		}
 		break;
 	case USB_DR_MODE_OTG:
-		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
+		ret = dwc3_drd_init(dwc);
+		if (ret) {
+			dev_err(dev, "failed to initialize drd\n");
+			return ret;
+		}
+
 		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize host\n");
@@ -693,6 +811,7 @@ static void dwc3_core_exit_mode(struct dwc3 *dwc)
 	case USB_DR_MODE_OTG:
 		dwc3_host_exit(dwc);
 		dwc3_gadget_exit(dwc);
+		dwc3_drd_exit(dwc);
 		break;
 	default:
 		/* do nothing */
@@ -789,6 +908,16 @@ static int dwc3_probe(struct platform_device *pdev)
 	hird_threshold = 12;
 
 	if (node) {
+		if (of_property_read_bool(node, "extcon"))
+			dwc->edev = extcon_get_edev_by_phandle(dev, 0);
+		else if (of_property_read_bool(dev->parent->of_node, "extcon"))
+			dwc->edev = extcon_get_edev_by_phandle(dev->parent, 0);
+
+		if (IS_ERR(dwc->edev)) {
+			dev_vdbg(dev, "couldn't get extcon device\n");
+			return -EPROBE_DEFER;
+		}
+
 		dwc->maximum_speed = of_usb_get_maximum_speed(node);
 		dwc->has_lpm_erratum = of_property_read_bool(node,
 				"snps,has-lpm-erratum");
@@ -829,6 +958,13 @@ static int dwc3_probe(struct platform_device *pdev)
 		of_property_read_u8(node, "snps,tx_de_emphasis",
 				&tx_de_emphasis);
 	} else if (pdata) {
+		if (pdata->extcon) {
+			dwc->edev = extcon_get_extcon_dev(pdata->extcon);
+			if (!dwc->edev) {
+				dev_vdbg(dev, "couldn't get extcon device\n");
+				return -EPROBE_DEFER;
+			}
+		}
 		dwc->maximum_speed = pdata->maximum_speed;
 		dwc->has_lpm_erratum = pdata->has_lpm_erratum;
 		if (pdata->lpm_nyet_threshold)
