@@ -1398,9 +1398,17 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 		 */
 		omap_obj->vaddr =  dma_alloc_writecombine(dev->dev, size,
 				&omap_obj->paddr, GFP_KERNEL);
-		if (omap_obj->vaddr)
-			flags |= OMAP_BO_DMA;
+		if (!omap_obj->vaddr) {
+			spin_lock(&priv->list_lock);
+			list_del(&omap_obj->mm_list);
+			spin_unlock(&priv->list_lock);
 
+			kfree(omap_obj);
+
+			return NULL;
+		}
+
+		flags |= OMAP_BO_DMA;
 	}
 
 	omap_obj->flags = flags;
