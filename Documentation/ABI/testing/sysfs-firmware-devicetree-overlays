@@ -1,0 +1,34 @@
+What:		/sys/firmware/devicetree/overlays/
+Date:		March 2015
+Contact:	Pantelis Antoniou <pantelis.antoniou@konsulko.com>
+Description:
+		This directory contains the applied device tree overlays of
+		the running system, as directories of the overlay id.
+
+		enable: The master enable switch, by default is 1, and when
+		        set to 0 it cannot be re-enabled for security reasons.
+
+What:		/sys/firmware/devicetree/overlays/<id>
+Date:		March 2015
+Contact:	Pantelis Antoniou <pantelis.antoniou@konsulko.com>
+Description:
+		Each directory represents an applied overlay, containing
+		the following attribute files.
+
+		The discussion about this switch takes place in:
+		http://comments.gmane.org/gmane.linux.drivers.devicetree/101871
+
+		Kees Cook:
+		"Coming from the perspective of drawing a bright line between
+		kernel and the root user (which tends to start with disabling
+		kernel module loading), I would say that there at least needs
+		to be a high-level one-way "off" switch for the interface so
+		that systems that have this interface can choose to turn it off
+		during initial boot, etc."
+
+		targets: A file containing the list of targets of each overlay
+		         with each line containing a target.
+
+		can_remove: The attribute set to 1 means that the overlay can
+		            be removed, while 0 means that the overlay is being
+			    overlapped therefore removal is prohibited.
