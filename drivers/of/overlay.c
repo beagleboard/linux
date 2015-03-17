@@ -22,6 +22,7 @@
 #include <linux/err.h>
 #include <linux/idr.h>
 #include <linux/sysfs.h>
+#include <linux/atomic.h>
 
 #include "of_private.h"
 
@@ -57,9 +58,20 @@ struct of_overlay {
 	struct kobject kobj;
 };
 
+/* master enable switch; once set to 0 can't be re-enabled */
+static atomic_t ov_enable = ATOMIC_INIT(1);
+
+static int __init of_overlay_disable_setup(char *str __always_unused)
+{
+	atomic_set(&ov_enable, 0);
+	return 1;
+}
+__setup("of_overlay_disable", of_overlay_disable_setup);
+
 static int of_overlay_apply_one(struct of_overlay *ov,
 		struct device_node *target, const struct device_node *overlay,
 		bool is_symbols_node);
+static int overlay_removal_is_ok(struct of_overlay *ov);
 
 static BLOCKING_NOTIFIER_HEAD(of_overlay_chain);
 
@@ -478,6 +490,35 @@ void of_overlay_release(struct kobject *kobj)
 	kfree(ov);
 }
 
+static ssize_t enable_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&ov_enable));
+}
+
+static ssize_t enable_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	bool new_enable;
+
+	ret = strtobool(buf, &new_enable);
+	if (ret != 0)
+		return ret;
+	/* if we've disabled it, no going back */
+	if (atomic_read(&ov_enable) == 0)
+		return -EPERM;
+	atomic_set(&ov_enable, (int)new_enable);
+	return count;
+}
+
+static struct kobj_attribute enable_attr = __ATTR_RW(enable);
+
+static const struct attribute *overlay_global_attrs[] = {
+	&enable_attr.attr,
+	NULL
+};
+
 static struct kobj_type of_overlay_ktype = {
 	.release = of_overlay_release,
 };
@@ -498,6 +539,10 @@ int of_overlay_create(struct device_node *tree)
 {
 	struct of_overlay *ov;
 	int err, id;
+
+	/* administratively disabled */
+	if (!atomic_read(&ov_enable))
+		return -EPERM;
 
 	/* allocate the overlay structure */
 	ov = kzalloc(sizeof(*ov), GFP_KERNEL);
@@ -733,5 +778,8 @@ int of_overlay_init(void)
 	if (!ov_kset)
 		return -ENOMEM;
 
-	return 0;
+	rc = sysfs_create_files(&ov_kset->kobj, overlay_global_attrs);
+	WARN(rc, "%s: error adding global attributes\n", __func__);
+
+	return rc;
 }
