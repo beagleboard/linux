@@ -900,10 +900,13 @@
 
 &mmc3 {
 	status = "okay";
-	/* these are on the crossbar and are outlined in the
-	   xbar-event-map element */
-	dmas = <&edma 30
-		&edma 31>;
+	/*
+	 * These are on the crossbar and are outlined in the
+	 * xbar-event-map element. Using GPIO0 and GPIO1 direct
+	 * mapped events.
+	 */
+	dmas = <&edma 22
+		&edma 23>;
 	dma-names = "tx", "rx";
 	vmmc-supply = <&vmmcwl_fixed>;
 	bus-width = <4>;
@@ -925,8 +928,8 @@
 };
 
 &edma {
-	ti,edma-xbar-event-map = /bits/ 16 <1 30
-				  	    2 31>;
+	ti,edma-xbar-event-map = /bits/ 16 <1 22
+					    2 23>;
 };
 
 &uart3 {
