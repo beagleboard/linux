@@ -28,6 +28,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb.h>
+#include <linux/usb/otg.h>
 
 /**
  * struct usb_udc - describes one usb device controller
@@ -35,6 +36,7 @@
  * @dev - the child device to the actual controller
  * @gadget - the gadget. For use by the class code
  * @list - for use by the udc class driver
+ * @is_otg - we're registered with OTG core and it takes care of UDC start/stop
  *
  * This represents the internal data structure which is used by the UDC-class
  * to hold information about udc driver and gadget together.
@@ -44,6 +46,7 @@ struct usb_udc {
 	struct usb_gadget		*gadget;
 	struct device			dev;
 	struct list_head		list;
+	bool				is_otg;
 };
 
 static struct class *udc_class;
@@ -187,6 +190,7 @@ EXPORT_SYMBOL_GPL(usb_gadget_udc_reset);
  */
 static inline int usb_gadget_udc_start(struct usb_udc *udc)
 {
+	dev_dbg(&udc->dev, "%s\n", __func__);
 	return udc->gadget->ops->udc_start(udc->gadget, udc->driver);
 }
 
@@ -204,7 +208,78 @@ static inline int usb_gadget_udc_start(struct usb_udc *udc)
  */
 static inline void usb_gadget_udc_stop(struct usb_udc *udc)
 {
+	dev_dbg(&udc->dev, "%s\n", __func__);
 	udc->gadget->ops->udc_stop(udc->gadget);
+}
+
+/**
+ * usb_gadget_start - start the usb gadget controller and connect to bus
+ * @gadget: the gadget device to start
+ *
+ * This is external API for use by OTG core.
+ *
+ * Start the usb device controller and connect to bus (enable pull).
+ */
+static int usb_gadget_start(struct usb_gadget *gadget)
+{
+	int ret;
+	struct usb_udc *udc = NULL;
+
+	dev_dbg(&gadget->dev, "%s\n", __func__);
+	mutex_lock(&udc_lock);
+	list_for_each_entry(udc, &udc_list, list)
+		if (udc->gadget == gadget)
+			goto found;
+
+	dev_err(gadget->dev.parent, "%s: gadget not registered.\n",
+		__func__);
+	mutex_unlock(&udc_lock);
+	return -EINVAL;
+
+found:
+	ret = usb_gadget_udc_start(udc);
+	if (ret)
+		dev_err(&udc->dev, "USB Device Controller didn't start: %d\n",
+			ret);
+	else
+		usb_gadget_connect(udc->gadget);
+
+	mutex_unlock(&udc_lock);
+
+	return ret;
+}
+
+/**
+ * usb_gadget_stop - disconnect from bus and stop the usb gadget
+ * @gadget: The gadget device we want to stop
+ *
+ * This is external API for use by OTG core.
+ *
+ * Disconnect from the bus (disable pull) and stop the
+ * gadget controller.
+ */
+static int usb_gadget_stop(struct usb_gadget *gadget)
+{
+	struct usb_udc *udc = NULL;
+
+	dev_dbg(&gadget->dev, "%s\n", __func__);
+	mutex_lock(&udc_lock);
+	list_for_each_entry(udc, &udc_list, list)
+		if (udc->gadget == gadget)
+			goto found;
+
+	dev_err(gadget->dev.parent, "%s: gadget not registered.\n",
+		__func__);
+	mutex_unlock(&udc_lock);
+	return -EINVAL;
+
+found:
+	usb_gadget_disconnect(udc->gadget);
+	udc->driver->disconnect(udc->gadget);
+	usb_gadget_udc_stop(udc);
+	mutex_unlock(&udc_lock);
+
+	return 0;
 }
 
 /**
@@ -329,10 +404,14 @@ static void usb_gadget_remove_driver(struct usb_udc *udc)
 
 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
 
-	usb_gadget_disconnect(udc->gadget);
-	udc->driver->disconnect(udc->gadget);
+	/* If OTG, the otg core ensures UDC is stopped on unregister */
+	if (usb_otg_unregister_gadget(udc->gadget)) {
+		usb_gadget_disconnect(udc->gadget);
+		udc->driver->disconnect(udc->gadget);
+		usb_gadget_udc_stop(udc);
+	}
+
 	udc->driver->unbind(udc->gadget);
-	usb_gadget_udc_stop(udc);
 
 	udc->driver = NULL;
 	udc->dev.driver = NULL;
@@ -378,6 +457,11 @@ EXPORT_SYMBOL_GPL(usb_del_gadget_udc);
 
 /* ------------------------------------------------------------------------- */
 
+static struct otg_gadget_ops otg_gadget_intf = {
+	.start = usb_gadget_start,
+	.stop = usb_gadget_stop,
+};
+
 static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *driver)
 {
 	int ret;
@@ -392,12 +476,17 @@ static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *dri
 	ret = driver->bind(udc->gadget, driver);
 	if (ret)
 		goto err1;
-	ret = usb_gadget_udc_start(udc);
-	if (ret) {
-		driver->unbind(udc->gadget);
-		goto err1;
+
+	/* If OTG, the otg core starts the UDC when needed */
+	udc->is_otg = !usb_otg_register_gadget(udc->gadget, &otg_gadget_intf);
+	if (!udc->is_otg) {
+		ret = usb_gadget_udc_start(udc);
+		if (ret) {
+			driver->unbind(udc->gadget);
+			goto err1;
+		}
+		usb_gadget_connect(udc->gadget);
 	}
-	usb_gadget_connect(udc->gadget);
 
 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
 	return 0;
@@ -506,6 +595,12 @@ static ssize_t usb_udc_softconn_store(struct device *dev,
 
 	if (!udc->driver) {
 		dev_err(dev, "soft-connect without a gadget driver\n");
+		return -EOPNOTSUPP;
+	}
+
+	/* In OTG mode we don't support softconnect, but b_bus_req */
+	if (udc->is_otg) {
+		dev_err(dev, "soft-connect not supported in OTG mode\n");
 		return -EOPNOTSUPP;
 	}
 
