@@ -397,6 +397,7 @@ int usb_add_gadget_udc(struct device *parent, struct usb_gadget *gadget)
 }
 EXPORT_SYMBOL_GPL(usb_add_gadget_udc);
 
+/* udc_lock must be held */
 static void usb_gadget_remove_driver(struct usb_udc *udc)
 {
 	dev_dbg(&udc->dev, "unregistering UDC driver [%s]\n",
@@ -405,7 +406,11 @@ static void usb_gadget_remove_driver(struct usb_udc *udc)
 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
 
 	/* If OTG, the otg core ensures UDC is stopped on unregister */
-	if (usb_otg_unregister_gadget(udc->gadget)) {
+	if (udc->is_otg) {
+		mutex_unlock(&udc_lock);
+		usb_otg_unregister_gadget(udc->gadget);
+		mutex_lock(&udc_lock);
+	} else {
 		usb_gadget_disconnect(udc->gadget);
 		udc->driver->disconnect(udc->gadget);
 		usb_gadget_udc_stop(udc);
@@ -443,10 +448,11 @@ found:
 	dev_vdbg(gadget->dev.parent, "unregistering gadget\n");
 
 	list_del(&udc->list);
-	mutex_unlock(&udc_lock);
 
 	if (udc->driver)
 		usb_gadget_remove_driver(udc);
+
+	mutex_unlock(&udc_lock);
 
 	kobject_uevent(&udc->dev.kobj, KOBJ_REMOVE);
 	flush_work(&gadget->work);
@@ -462,6 +468,7 @@ static struct otg_gadget_ops otg_gadget_intf = {
 	.stop = usb_gadget_stop,
 };
 
+/* udc_lock must be held */
 static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *driver)
 {
 	int ret;
@@ -478,7 +485,9 @@ static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *dri
 		goto err1;
 
 	/* If OTG, the otg core starts the UDC when needed */
+	mutex_unlock(&udc_lock);
 	udc->is_otg = !usb_otg_register_gadget(udc->gadget, &otg_gadget_intf);
+	mutex_lock(&udc_lock);
 	if (!udc->is_otg) {
 		ret = usb_gadget_udc_start(udc);
 		if (ret) {
