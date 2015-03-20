@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 #include <linux/delay.h>
@@ -32,6 +33,8 @@
 #define UART_ERRATA_i202_MDR1_ACCESS	(1 << 0)
 #define OMAP_UART_WER_HAS_TX_WAKEUP	(1 << 1)
 #define OMAP_DMA_TX_KICK		(1 << 2)
+/* See advisory Advisory 1.0.41 in AM335x errata SPRZ360G revised March 2015 */
+#define UART_ERRATA_CLOCK_DISABLE	(1 << 3)
 
 #define OMAP_UART_FCR_RX_TRIG		6
 #define OMAP_UART_FCR_TX_TRIG		4
@@ -52,6 +55,9 @@
 #define OMAP_UART_MVR_MAJ_MASK		0x700
 #define OMAP_UART_MVR_MAJ_SHIFT		8
 #define OMAP_UART_MVR_MIN_MASK		0x3f
+
+/* SYSC register bitmasks */
+#define OMAP_UART_SYSC_SOFTRESET	(1 << 1)
 
 #define UART_TI752_TLR_TX	0
 #define UART_TI752_TLR_RX	4
@@ -209,6 +215,15 @@ static void omap8250_update_scr(struct uart_8250_port *up,
 	serial_out(up, UART_OMAP_SCR, priv->scr);
 }
 
+static void omap8250_update_mdr1(struct uart_8250_port *up,
+				struct omap8250_priv *priv)
+{
+	if (priv->habit & UART_ERRATA_i202_MDR1_ACCESS)
+		omap_8250_mdr1_errataset(up, priv);
+	else
+		serial_out(up, UART_OMAP_MDR1, priv->mdr1);
+}
+
 static void omap8250_restore_regs(struct uart_8250_port *up)
 {
 	struct omap8250_priv *priv = up->port.private_data;
@@ -259,11 +274,9 @@ static void omap8250_restore_regs(struct uart_8250_port *up)
 	serial_out(up, UART_XOFF1, priv->xoff);
 
 	serial_out(up, UART_LCR, up->lcr);
-	/* need mode A for FCR */
-	if (priv->habit & UART_ERRATA_i202_MDR1_ACCESS)
-		omap_8250_mdr1_errataset(up, priv);
-	else
-		serial_out(up, UART_OMAP_MDR1, priv->mdr1);
+
+	omap8250_update_mdr1(up, priv);
+
 	up->port.ops->set_mctrl(&up->port, up->port.mctrl);
 }
 
@@ -505,14 +518,14 @@ static void omap_serial_fill_features_erratas(struct uart_8250_port *up,
 
 	switch (revision) {
 	case OMAP_UART_REV_46:
-		priv->habit = UART_ERRATA_i202_MDR1_ACCESS;
+		priv->habit |= UART_ERRATA_i202_MDR1_ACCESS;
 		break;
 	case OMAP_UART_REV_52:
-		priv->habit = UART_ERRATA_i202_MDR1_ACCESS |
+		priv->habit |= UART_ERRATA_i202_MDR1_ACCESS |
 				OMAP_UART_WER_HAS_TX_WAKEUP;
 		break;
 	case OMAP_UART_REV_63:
-		priv->habit = UART_ERRATA_i202_MDR1_ACCESS |
+		priv->habit |= UART_ERRATA_i202_MDR1_ACCESS |
 			OMAP_UART_WER_HAS_TX_WAKEUP;
 		break;
 	default:
@@ -951,6 +964,17 @@ static inline int omap_8250_rx_dma(struct uart_8250_port *p, unsigned int iir)
 }
 #endif
 
+static const u8 am3352_habit = OMAP_DMA_TX_KICK | UART_ERRATA_CLOCK_DISABLE;
+
+static const struct of_device_id omap8250_dt_ids[] = {
+	{ .compatible = "ti,omap2-uart" },
+	{ .compatible = "ti,omap3-uart" },
+	{ .compatible = "ti,omap4-uart" },
+	{ .compatible = "ti,am3352-uart", .data = &am3352_habit, },
+	{},
+};
+MODULE_DEVICE_TABLE(of, omap8250_dt_ids);
+
 static int omap8250_probe(struct platform_device *pdev)
 {
 	struct resource *regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1017,10 +1041,16 @@ static int omap8250_probe(struct platform_device *pdev)
 	up.port.unthrottle = omap_8250_unthrottle;
 
 	if (pdev->dev.of_node) {
+		const struct of_device_id *id;
+
 		up.port.line = of_alias_get_id(pdev->dev.of_node, "serial");
 		of_property_read_u32(pdev->dev.of_node, "clock-frequency",
 				     &up.port.uartclk);
 		priv->wakeirq = irq_of_parse_and_map(pdev->dev.of_node, 1);
+
+		id = of_match_device(of_match_ptr(omap8250_dt_ids), &pdev->dev);
+		if (id && id->data)
+			priv->habit |= *(u8 *)id->data;
 	} else {
 		up.port.line = pdev->id;
 	}
@@ -1091,9 +1121,6 @@ static int omap8250_probe(struct platform_device *pdev)
 			priv->omap8250_dma.rx_size = RX_TRIGGER;
 			priv->omap8250_dma.rxconf.src_maxburst = RX_TRIGGER;
 			priv->omap8250_dma.txconf.dst_maxburst = TX_TRIGGER;
-
-			if (of_machine_is_compatible("ti,am33xx"))
-				priv->habit |= OMAP_DMA_TX_KICK;
 		}
 	}
 #endif
@@ -1202,9 +1229,18 @@ static int omap8250_resume(struct device *dev)
 #endif
 
 #ifdef CONFIG_PM_RUNTIME
-static int omap8250_lost_context(struct uart_8250_port *up)
+static int omap8250_lost_context(struct device *dev)
 {
+	struct omap8250_priv *priv = dev_get_drvdata(dev);
+	struct uart_8250_port *up = serial8250_get_port(priv->line);
 	u32 val;
+
+	/*
+	 * If suffering from clock disable errata, you lost context
+	 * despite what MDR1 tells you.
+	 */
+	if (device_may_wakeup(dev) && priv->habit & UART_ERRATA_CLOCK_DISABLE)
+		return 1;
 
 	val = serial_in(up, UART_OMAP_MDR1);
 	/*
@@ -1221,6 +1257,7 @@ static int omap8250_runtime_suspend(struct device *dev)
 {
 	struct omap8250_priv *priv = dev_get_drvdata(dev);
 	struct uart_8250_port *up;
+	int sysc;
 
 	up = serial8250_get_port(priv->line);
 	/*
@@ -1232,6 +1269,24 @@ static int omap8250_runtime_suspend(struct device *dev)
 	if (priv->is_suspending && !console_suspend_enabled) {
 		if (uart_console(&up->port))
 			return -EBUSY;
+	}
+
+	if (priv->habit & UART_ERRATA_CLOCK_DISABLE) {
+		sysc = serial_in(up, UART_OMAP_SYSC);
+
+		/* softreset the UART */
+		sysc |= OMAP_UART_SYSC_SOFTRESET;
+		serial_out(up, UART_OMAP_SYSC, sysc);
+
+		/*
+		 * Softreset bit *always* returns 0 on read. Wait for 10us for
+		 * hardware to stabilize (guess, TODO: check with h/w folks).
+		 */
+		usleep_range(10, 20);
+
+		/* For wake-up to work, MDR1.MODESELECT should be set */
+		if (device_may_wakeup(dev))
+			omap8250_update_mdr1(up, priv);
 	}
 
 	omap8250_enable_wakeup(priv, true);
@@ -1256,7 +1311,7 @@ static int omap8250_runtime_resume(struct device *dev)
 
 	up = serial8250_get_port(priv->line);
 	omap8250_enable_wakeup(priv, false);
-	loss_cntx = omap8250_lost_context(up);
+	loss_cntx = omap8250_lost_context(dev);
 
 	if (loss_cntx)
 		omap8250_restore_regs(up);
@@ -1317,14 +1372,6 @@ static const struct dev_pm_ops omap8250_dev_pm_ops = {
 	.prepare        = omap8250_prepare,
 	.complete       = omap8250_complete,
 };
-
-static const struct of_device_id omap8250_dt_ids[] = {
-	{ .compatible = "ti,omap2-uart" },
-	{ .compatible = "ti,omap3-uart" },
-	{ .compatible = "ti,omap4-uart" },
-	{},
-};
-MODULE_DEVICE_TABLE(of, omap8250_dt_ids);
 
 static struct platform_driver omap8250_platform_driver = {
 	.driver = {
