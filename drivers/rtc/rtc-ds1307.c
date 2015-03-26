@@ -1026,6 +1026,9 @@ static int ds1307_probe(struct i2c_client *client,
 		if (ds1307->client->irq > 0 && chip->alarm) {
 			INIT_WORK(&ds1307->work, mcp7941x_work);
 			want_irq = true;
+			i2c_smbus_write_byte_data(client,
+						  DS1340_REG_CONTROL,
+						  DS1340_BIT_OUT);
 		}
 		break;
 	default:
