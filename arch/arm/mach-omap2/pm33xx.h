@@ -65,7 +65,7 @@ void __iomem *omap_rtc_get_base_addr(void);
 #define IPC_CMD_RTC_ONLY		0x1
 #define	IPC_CMD_DS0			0x4
 #define	IPC_CMD_STANDBY			0xc
-#define	IPC_CMD_IDLE			0xd
+#define	IPC_CMD_IDLE			0x10
 #define IPC_CMD_RESET			0xe
 #define DS_IPC_DEFAULT			0xffffffff
 #define M3_VERSION_UNKNOWN		0x0000ffff
