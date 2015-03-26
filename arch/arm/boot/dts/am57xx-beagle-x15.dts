@@ -441,7 +441,7 @@
 		vcc-supply = <&vdd_3v3>;
 
 		/* Rev A1 */
-		interrupts-extended = <&gic GIC_SPI 2 IRQ_TYPE_LEVEL_LOW
+		interrupts-extended = <&gic GIC_SPI 2 IRQ_TYPE_EDGE_RISING
 			       &dra7_pmx_core 0x424>;
 		wakeup-source;
 	};
