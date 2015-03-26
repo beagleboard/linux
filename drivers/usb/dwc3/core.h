@@ -720,6 +720,7 @@ struct dwc3_scratchpad_array {
  * @gadget_driver: pointer to the gadget driver
  * @regs: base address for our registers
  * @regs_size: address space size
+ * @oevten: otg interrupt enable mask copy
  * @nr_scratch: number of scratch buffers
  * @num_event_buffers: calculated number of event buffers
  * @u1u2: only used on revisions <1.83a for workaround
@@ -787,6 +788,11 @@ struct dwc3_scratchpad_array {
  * 	1	- -3.5dB de-emphasis
  * 	2	- No de-emphasis
  * 	3	- Reserved
+ * @otg_has_srp: set if otg core supports SRP
+ * @otg_has_hnp_rsp: set if otg core supports HNP/RSP
+ * @otg_has_adp: set if otg core supports ADP
+ * @otg_has_bc: set if otg core supports BC
+ * @otg_has_otg3: set if otg core supports OTG v3.0
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -836,6 +842,8 @@ struct dwc3 {
 	/* used for suspend/resume */
 	u32			dcfg;
 	u32			gctl;
+
+	u32			oevten;
 
 	u32			nr_scratch;
 	u32			num_event_buffers;
@@ -917,6 +925,12 @@ struct dwc3 {
 
 	unsigned		tx_de_emphasis_quirk:1;
 	unsigned		tx_de_emphasis:2;
+
+	unsigned		otg_has_srp:1;
+	unsigned		otg_has_hnp_rsp:1;
+	unsigned		otg_has_adp:1;
+	unsigned		otg_has_bc:1;
+	unsigned		otg_has_otg3:1;
 };
 
 /* -------------------------------------------------------------------------- */

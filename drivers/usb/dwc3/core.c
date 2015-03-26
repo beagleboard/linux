@@ -637,6 +637,63 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 	return 0;
 }
 
+/* Get OTG events and sync it to OTG fsm */
+static void dwc3_otg_fsm_sync(struct dwc3 *dwc)
+{
+	u32 reg;
+	int id, vbus;
+
+	reg = dwc3_readl(dwc->regs, DWC3_OSTS);
+	dev_dbg(dwc->dev, "otgstatus 0x%x\n", reg);
+
+	id = !!(reg & DWC3_OSTS_CONIDSTS);
+	vbus = !!(reg & DWC3_OSTS_BSESVLD);
+
+	if (id != dwc->fsm->id || vbus != dwc->fsm->vbus) {
+		dev_dbg(dwc->dev, "id %d vbus %d\n", id, vbus);
+		dwc->fsm->id = id;
+		dwc->fsm->vbus = vbus;
+		usb_otg_sync_inputs(dwc->fsm);
+	}
+}
+
+static irqreturn_t dwc3_otg_thread_irq(int irq, void *_dwc)
+{
+	struct dwc3 *dwc = _dwc;
+	unsigned long flags;
+	irqreturn_t ret = IRQ_NONE;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	dwc3_otg_fsm_sync(dwc);
+	/* unmask interrupts */
+	dwc3_writel(dwc->regs, DWC3_OEVTEN, dwc->oevten);
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return ret;
+}
+
+static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)
+{
+	struct dwc3 *dwc = _dwc;
+	irqreturn_t ret = IRQ_NONE;
+	u32 reg;
+
+	spin_lock(&dwc->lock);
+
+	reg = dwc3_readl(dwc->regs, DWC3_OEVT);
+	if (reg) {
+		dwc3_writel(dwc->regs, DWC3_OEVT, reg);
+		/* mask interrupts till processed */
+		dwc->oevten = dwc3_readl(dwc->regs, DWC3_OEVTEN);
+		dwc3_writel(dwc->regs, DWC3_OEVTEN, 0);
+		ret = IRQ_WAKE_THREAD;
+	}
+
+	spin_unlock(&dwc->lock);
+
+	return ret;
+}
+
 /* --------------------- Dual-Role management ------------------------------- */
 
 static void dwc3_drd_fsm_sync(struct dwc3 *dwc)
@@ -661,10 +718,35 @@ static int dwc3_drd_start_host(struct otg_fsm *fsm, int on)
 {
 	struct device *dev = usb_otg_fsm_to_dev(fsm);
 	struct dwc3 *dwc = dev_get_drvdata(dev);
+	u32 reg;
 
 	dev_dbg(dwc->dev, "%s: %d\n", __func__, on);
-	if (on)
-		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
+	if (dwc->edev) {
+		if (on)
+			dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
+
+		return 0;
+	}
+
+	/* switch OTG core */
+	if (on) {
+		/* OCTL.PeriMode = 0 */
+		reg = dwc3_readl(dwc->regs, DWC3_OCTL);
+		reg &= ~DWC3_OCTL_PERIMODE;
+		dwc3_writel(dwc->regs, DWC3_OCTL, reg);
+		/* unconditionally turn on VBUS */
+		reg |= DWC3_OCTL_PRTPWRCTL;
+		dwc3_writel(dwc->regs, DWC3_OCTL, reg);
+	} else {
+		/* turn off VBUS */
+		reg = dwc3_readl(dwc->regs, DWC3_OCTL);
+		reg &= ~DWC3_OCTL_PRTPWRCTL;
+		dwc3_writel(dwc->regs, DWC3_OCTL, reg);
+		/* OCTL.PeriMode = 1 */
+		reg = dwc3_readl(dwc->regs, DWC3_OCTL);
+		reg |= DWC3_OCTL_PERIMODE;
+		dwc3_writel(dwc->regs, DWC3_OCTL, reg);
+	}
 
 	return 0;
 }
@@ -673,11 +755,42 @@ static int dwc3_drd_start_gadget(struct otg_fsm *fsm, int on)
 {
 	struct device *dev = usb_otg_fsm_to_dev(fsm);
 	struct dwc3 *dwc = dev_get_drvdata(dev);
+	u32 reg;
 
 	dev_dbg(dwc->dev, "%s: %d\n", __func__, on);
-	if (on) {
-		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+	if (on)
 		dwc3_event_buffers_setup(dwc);
+
+	if (dwc->edev) {
+		if (on)
+			dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+
+		return 0;
+	}
+
+	/* switch OTG core */
+	if (on) {
+		/* OCTL.PeriMode = 1 */
+		reg = dwc3_readl(dwc->regs, DWC3_OCTL);
+		reg |= DWC3_OCTL_PERIMODE;
+		dwc3_writel(dwc->regs, DWC3_OCTL, reg);
+		/* GUSB2PHYCFG0.SusPHY = 1 */
+		if (!dwc->dis_u2_susphy_quirk) {
+			reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+			reg |= DWC3_GUSB2PHYCFG_SUSPHY;
+			dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+		}
+	} else {
+		/* GUSB2PHYCFG0.SusPHY=0 */
+		if (!dwc->dis_u2_susphy_quirk) {
+			reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+			reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
+			dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+		}
+		/* OCTL.PeriMode = 1 */
+		reg = dwc3_readl(dwc->regs, DWC3_OCTL);
+		reg |= DWC3_OCTL_PERIMODE;
+		dwc3_writel(dwc->regs, DWC3_OCTL, reg);
 	}
 
 	return 0;
@@ -701,10 +814,14 @@ static int dwc3_drd_notifier(struct notifier_block *nb,
 static int dwc3_drd_init(struct dwc3 *dwc)
 {
 	int ret, id, vbus;
+	int irq;
+	u32 reg;
+	struct dwc3_hwparams *parms = &dwc->hwparams;
 
+	/* If extcon device is not present we rely on OTG core for ID event */
 	if (!dwc->edev) {
-		dev_err(dwc->dev, "No extcon device found for OTG mode\n");
-		return -ENODEV;
+		dev_dbg(dwc->dev, "No extcon device found for OTG mode\n");
+		goto try_otg_core;
 	}
 
 	dwc->otg_nb.notifier_call = dwc3_drd_notifier;
@@ -738,6 +855,85 @@ static int dwc3_drd_init(struct dwc3 *dwc)
 
 fail:
 	extcon_unregister_notifier(dwc->edev, &dwc->otg_nb);
+
+	return ret;
+
+try_otg_core:
+	/* get OTG capabilities */
+	dwc->otg_has_hnp_rsp = !!(parms->hwparams6 & DWC3_GHWPARAMS6_HNPSUPPORT);
+	dwc->otg_has_srp = !!(parms->hwparams6 & DWC3_GHWPARAMS6_SRPSUPPORT);
+	dwc->otg_has_adp = !!(parms->hwparams6 & DWC3_GHWPARAMS6_ADPSUPPORT);
+	dwc->otg_has_bc = !!(parms->hwparams6 & DWC3_GHWPARAMS6_BCSUPPORT);
+	dwc->otg_has_otg3 = !!(parms->hwparams6 & DWC3_GHWPARAMS6_OTG3SUPPORT);
+
+	dev_dbg(dwc->dev, "otg v%s - srp: %d, hnp/rsp:%d, adp:%d, bc:%d\n",
+		 dwc->otg_has_otg3 ? "3.0":"2.0",
+		 dwc->otg_has_srp, dwc->otg_has_hnp_rsp,
+		 dwc->otg_has_adp, dwc->otg_has_bc);
+
+
+	/* Some SoCs have OTG events in a separate IRQ, try that first */
+	irq = dwc->otg_irq;
+	if (!irq)
+		irq = dwc->gadget_irq;
+	if (!irq) {
+		dev_err(dwc->dev, "failed to get irq for OTG\n");
+		return -ENODEV;
+	}
+
+	/* register parent as OTG device with USB core */
+	dwc->fsm = usb_otg_register(dwc->dev, &dwc3_drd_ops, true);
+	if (IS_ERR(dwc->fsm)) {
+		dev_err(dwc->dev, "Failed to register with OTG core\n");
+		return -ENODEV;
+	}
+
+	/* disable all irqs */
+	dwc3_writel(dwc->regs, DWC3_OEVTEN, 0);
+	/* clear all events */
+	dwc3_writel(dwc->regs, DWC3_OEVT, ~0);
+
+	ret = request_threaded_irq(irq, dwc3_otg_irq, dwc3_otg_thread_irq,
+				   IRQF_SHARED, "dwc3-otg", dwc);
+	if (ret) {
+		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
+			irq, ret);
+		ret = -ENODEV;
+		goto error;
+	}
+
+	/* we need to set OTG to get events from OTG core */
+	dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
+	/* GUSB2PHYCFG0.SusPHY=0 */
+	if (!dwc->dis_u2_susphy_quirk) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+		reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
+		dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+	}
+
+	/* Initialize OTG registers */
+	/*
+	 * Prevent host/device reset from resetting OTG core.
+	 * If we don't do this then xhci_reset (USBCMD.HCRST) will reset
+	 * the signal outputs sent to the PHY, the OTG FSM logic of the
+	 * core and also the resets to the VBUS filters inside the core.
+	 */
+	reg = DWC3_OCFG_SFTRSTMASK;
+	dwc3_writel(dwc->regs, DWC3_OCFG, reg);
+	/* Enable ID event interrupt */
+	dwc3_writel(dwc->regs, DWC3_OEVTEN, DWC3_OEVTEN_CONIDSTSCHNGEN |
+			DWC3_OEVTEN_BDEVVBUSCHNGE |
+			DWC3_OEVTEN_BDEVSESSVLDDETEN);
+	/* OCTL.PeriMode = 1 */
+	dwc3_writel(dwc->regs, DWC3_OCTL, DWC3_OCTL_PERIMODE);
+
+	dwc3_otg_fsm_sync(dwc);
+	usb_otg_sync_inputs(dwc->fsm);
+
+	return 0;
+
+error:
+	usb_otg_unregister(dwc->dev);
 
 	return ret;
 }
