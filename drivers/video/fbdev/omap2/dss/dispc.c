@@ -2323,6 +2323,18 @@ again:
 		error = (error || in_width > maxsinglelinewidth * 2 ||
 			(in_width > maxsinglelinewidth && *five_taps) ||
 			!*core_clk || *core_clk > dispc_core_clk_rate());
+
+		if (!error) {
+			/* verify that we're inside the limits of scaler */
+			if (*five_taps) {
+				if (in_height / 4 > out_height)
+					error = 1;
+			} else {
+				if (in_height / 2 > out_height)
+					error = 1;
+			}
+		}
+
 		if (error) {
 			if (*decim_x == *decim_y) {
 				*decim_x = min_factor;
@@ -2335,8 +2347,8 @@ again:
 		}
 	} while (*decim_x <= *x_predecim && *decim_y <= *y_predecim && error);
 
-	if (check_horiz_timing_omap3(pclk, lclk, mgr_timings, pos_x, width,
-				height, out_width, out_height, *five_taps)) {
+	if (check_horiz_timing_omap3(pclk, lclk, mgr_timings, pos_x, in_width,
+				in_height, out_width, out_height, *five_taps)) {
 			DSSERR("horizontal timing too tight\n");
 			return -EINVAL;
 	}

@@ -49,37 +49,6 @@ static int evm_startup(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static int dra7xx_evm_startup(struct snd_pcm_substream *substream)
-{
-	snd_pcm_hw_constraint_minmax(substream->runtime,
-				     SNDRV_PCM_HW_PARAM_RATE, 44100, 44100);
-
-	return evm_startup(substream);
-}
-
-static int dra7xx_evm_hw_params(struct snd_pcm_substream *substream,
-				     struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_card *soc_card = rtd->card;
-	struct snd_soc_card_drvdata_davinci *drvdata =
-		snd_soc_card_get_drvdata(soc_card);
-	int ret;
-
-	/* Set MCLK as clock source for tlv320aic3106 */
-	ret = snd_soc_dai_set_sysclk(codec_dai, 0, drvdata->sysclk,
-				     SND_SOC_CLOCK_IN);
-	if (ret < 0)
-		return ret;
-
-	/* Set McASP sysclk from AHCLKX sourced from ATL */
-	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, drvdata->sysclk,
-				     SND_SOC_CLOCK_IN);
-	return ret;
-}
-
 static void evm_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -123,23 +92,11 @@ static int evm_tda998x_startup(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_mask *fmt = constrs_mask(&runtime->hw_constraints,
 					    SNDRV_PCM_HW_PARAM_FORMAT);
+
 	snd_mask_none(fmt);
 	snd_mask_set(fmt, TDA998X_SAMPLE_FORMAT);
 
 	return evm_startup(substream);
-}
-
-static int evm_tda998x_hw_params(struct snd_pcm_substream *substream,
-				 struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_card *soc_card = rtd->card;
-	struct snd_soc_card_drvdata_davinci *drvdata =
-		snd_soc_card_get_drvdata(soc_card);
-
-	return snd_soc_dai_set_sysclk(cpu_dai, 0, drvdata->sysclk,
-				      SND_SOC_CLOCK_IN);
 }
 
 static struct snd_soc_ops evm_ops = {
@@ -152,13 +109,11 @@ static struct snd_soc_ops evm_ops = {
 static struct snd_soc_ops evm_tda998x_ops = {
 	.startup = evm_tda998x_startup,
 	.shutdown = evm_shutdown,
-	.hw_params = evm_tda998x_hw_params,
 };
 
 static struct snd_soc_ops dra7xx_ops = {
-	.startup = dra7xx_evm_startup,
+	.startup = evm_startup,
 	.shutdown = evm_shutdown,
-	.hw_params = dra7xx_evm_hw_params,
 };
 
 /* davinci-evm machine dapm widgets */
@@ -221,6 +176,30 @@ static int evm_aic3x_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+/* Logic for a dra7xx-evm */
+static int evm_dra7xx_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_card *card = rtd->card;
+	struct snd_soc_card_drvdata_davinci *drvdata =
+		snd_soc_card_get_drvdata(card);
+	int ret;
+
+	/* Set MCLK as clock source for tlv320aic3106 */
+	ret = snd_soc_dai_set_sysclk(rtd->codec_dai, 0, drvdata->sysclk,
+				     SND_SOC_CLOCK_IN);
+	if (ret < 0)
+		return ret;
+
+	/* Set McASP sysclk from AHCLKX sourced from ATL */
+	ret = snd_soc_dai_set_sysclk(rtd->cpu_dai, 0, drvdata->sysclk,
+				     SND_SOC_CLOCK_IN);
+	if (ret < 0)
+		return ret;
+
+	/* davinci-evm specific widgets work with dra7xx too */
+	return evm_aic3x_init(rtd);
+}
+
 static const struct snd_soc_dapm_widget tda998x_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("HDMI Out"),
 };
@@ -230,9 +209,16 @@ static int evm_tda998x_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dapm_context *dapm = &rtd->codec->dapm;
 	struct snd_soc_card *soc_card = rtd->card;
+	struct snd_soc_card_drvdata_davinci *drvdata =
+		snd_soc_card_get_drvdata(soc_card);
 	int ret;
 
 	ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, drvdata->sysclk,
+				     SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
 
@@ -463,7 +449,7 @@ static struct snd_soc_dai_link dra7xx_evm_link = {
 	.stream_name	= "AIC3X",
 	.codec_dai_name	= "tlv320aic3x-hifi",
 	.ops            = &dra7xx_ops,
-	.init           = evm_aic3x_init,
+	.init           = evm_dra7xx_init,
 	.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_CBS_CFS |
 		   SND_SOC_DAIFMT_IB_NF,
 };
@@ -562,18 +548,8 @@ static int davinci_evm_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int davinci_evm_remove(struct platform_device *pdev)
-{
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-
-	snd_soc_unregister_card(card);
-
-	return 0;
-}
-
 static struct platform_driver davinci_evm_driver = {
 	.probe		= davinci_evm_probe,
-	.remove		= davinci_evm_remove,
 	.driver		= {
 		.name	= "davinci_evm",
 		.owner	= THIS_MODULE,
