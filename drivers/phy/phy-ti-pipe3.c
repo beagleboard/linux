@@ -28,7 +28,6 @@
 #include <linux/delay.h>
 #include <linux/phy/omap_control_phy.h>
 #include <linux/of_platform.h>
-#include <linux/spinlock.h>
 
 #define	PLL_STATUS		0x00000004
 #define	PLL_GO			0x00000008
@@ -83,9 +82,6 @@ struct ti_pipe3 {
 	struct clk		*refclk;
 	struct clk		*div_clk;
 	struct pipe3_dpll_map	*dpll_map;
-	bool enabled;
-	bool refclk_enabled;	/* this flag is needed specifically for SATA */
-	spinlock_t lock;	/* serialize clock enable/disable */
 };
 
 static struct pipe3_dpll_map dpll_map_usb[] = {
@@ -135,6 +131,9 @@ static struct pipe3_dpll_params *ti_pipe3_get_dpll_params(struct ti_pipe3 *phy)
 
 	return NULL;
 }
+
+static int ti_pipe3_enable_clocks(struct ti_pipe3 *phy);
+static void ti_pipe3_disable_clocks(struct ti_pipe3 *phy);
 
 static int ti_pipe3_power_off(struct phy *x)
 {
@@ -220,6 +219,7 @@ static int ti_pipe3_init(struct phy *x)
 	u32 val;
 	int ret = 0;
 
+	ti_pipe3_enable_clocks(phy);
 	/*
 	 * Set pcie_pcs register to 0x96 for proper functioning of phy
 	 * as recommended in AM572x TRM SPRUHZ6, section 18.5.2.2, table
@@ -280,6 +280,8 @@ static int ti_pipe3_exit(struct phy *x)
 		return -EBUSY;
 	}
 
+	ti_pipe3_disable_clocks(phy);
+
 	return 0;
 }
 static struct phy_ops ops = {
@@ -311,8 +313,7 @@ static int ti_pipe3_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "unable to alloc mem for TI PIPE3 PHY\n");
 		return -ENOMEM;
 	}
-	phy->dev		= &pdev->dev;
-	spin_lock_init(&phy->lock);
+	phy->dev = &pdev->dev;
 
 	if (!of_device_is_compatible(node, "ti,phy-pipe3-pcie")) {
 		match = of_match_device(of_match_ptr(ti_pipe3_id_table),
@@ -409,6 +410,9 @@ static int ti_pipe3_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, phy);
 	pm_runtime_enable(phy->dev);
+	/* Prevent auto-disable of refclk for SATA PHY due to Errata i783 */
+	if (of_device_is_compatible(node, "ti,phy-pipe3-sata"))
+		clk_prepare_enable(phy->refclk);
 
 	generic_phy = devm_phy_create(phy->dev, &ops, NULL);
 	if (IS_ERR(generic_phy))
@@ -420,15 +424,11 @@ static int ti_pipe3_probe(struct platform_device *pdev)
 	if (IS_ERR(phy_provider))
 		return PTR_ERR(phy_provider);
 
-	pm_runtime_get(&pdev->dev);
-
 	return 0;
 }
 
 static int ti_pipe3_remove(struct platform_device *pdev)
 {
-	if (!pm_runtime_suspended(&pdev->dev))
-		pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;
@@ -436,7 +436,7 @@ static int ti_pipe3_remove(struct platform_device *pdev)
 
 static int ti_pipe3_enable_refclk(struct ti_pipe3 *phy)
 {
-	if (!IS_ERR(phy->refclk) && !phy->refclk_enabled) {
+	if (!IS_ERR(phy->refclk)) {
 		int ret;
 
 		ret = clk_prepare_enable(phy->refclk);
@@ -444,7 +444,6 @@ static int ti_pipe3_enable_refclk(struct ti_pipe3 *phy)
 			dev_err(phy->dev, "Failed to enable refclk %d\n", ret);
 			return ret;
 		}
-		phy->refclk_enabled = true;
 	}
 
 	return 0;
@@ -454,28 +453,21 @@ static void ti_pipe3_disable_refclk(struct ti_pipe3 *phy)
 {
 	if (!IS_ERR(phy->refclk))
 		clk_disable_unprepare(phy->refclk);
-
-	phy->refclk_enabled = false;
 }
 
 static int ti_pipe3_enable_clocks(struct ti_pipe3 *phy)
 {
 	int ret = 0;
-	unsigned long flags;
-
-	spin_lock_irqsave(&phy->lock, flags);
-	if (phy->enabled)
-		goto err1;
 
 	ret = ti_pipe3_enable_refclk(phy);
 	if (ret)
-		goto err1;
+		return ret;
 
 	if (!IS_ERR(phy->wkupclk)) {
 		ret = clk_prepare_enable(phy->wkupclk);
 		if (ret) {
 			dev_err(phy->dev, "Failed to enable wkupclk %d\n", ret);
-			goto err2;
+			goto disable_refclk;
 		}
 	}
 
@@ -483,96 +475,29 @@ static int ti_pipe3_enable_clocks(struct ti_pipe3 *phy)
 		ret = clk_prepare_enable(phy->div_clk);
 		if (ret) {
 			dev_err(phy->dev, "Failed to enable div_clk %d\n", ret);
-			goto err3;
+			goto disable_wkupclk;
 		}
 	}
 
-	phy->enabled = true;
-	spin_unlock_irqrestore(&phy->lock, flags);
 	return 0;
 
-err3:
+disable_wkupclk:
 	if (!IS_ERR(phy->wkupclk))
 		clk_disable_unprepare(phy->wkupclk);
-err2:
+disable_refclk:
 	ti_pipe3_disable_refclk(phy);
-err1:
-	spin_unlock_irqrestore(&phy->lock, flags);
+
 	return ret;
 }
 
 static void ti_pipe3_disable_clocks(struct ti_pipe3 *phy)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&phy->lock, flags);
-	if (!phy->enabled) {
-		spin_unlock_irqrestore(&phy->lock, flags);
-		return;
-	}
-
 	if (!IS_ERR(phy->wkupclk))
 		clk_disable_unprepare(phy->wkupclk);
-	/* Don't disable refclk for SATA PHY due to Errata i783 */
-	if (!of_device_is_compatible(phy->dev->of_node, "ti,phy-pipe3-sata"))
-		ti_pipe3_disable_refclk(phy);
+	ti_pipe3_disable_refclk(phy);
 	if (!IS_ERR(phy->div_clk))
 		clk_disable_unprepare(phy->div_clk);
-	phy->enabled = false;
-	spin_unlock_irqrestore(&phy->lock, flags);
 }
-
-#ifdef CONFIG_PM_RUNTIME
-
-static int ti_pipe3_runtime_suspend(struct device *dev)
-{
-	struct ti_pipe3	*phy = dev_get_drvdata(dev);
-
-	ti_pipe3_disable_clocks(phy);
-	return 0;
-}
-
-static int ti_pipe3_runtime_resume(struct device *dev)
-{
-	struct ti_pipe3	*phy = dev_get_drvdata(dev);
-	int ret = 0;
-
-	ret = ti_pipe3_enable_clocks(phy);
-	return ret;
-}
-#endif
-
-#ifdef CONFIG_PM
-
-static int ti_pipe3_suspend(struct device *dev)
-{
-	struct ti_pipe3	*phy = dev_get_drvdata(dev);
-
-	ti_pipe3_disable_clocks(phy);
-	return 0;
-}
-
-static int ti_pipe3_resume(struct device *dev)
-{
-	struct ti_pipe3	*phy = dev_get_drvdata(dev);
-	int ret;
-
-	ret = ti_pipe3_enable_clocks(phy);
-	if (ret)
-		return ret;
-
-	pm_runtime_disable(dev);
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
-	return 0;
-}
-#endif
-
-static const struct dev_pm_ops ti_pipe3_pm_ops = {
-	SET_RUNTIME_PM_OPS(ti_pipe3_runtime_suspend,
-			   ti_pipe3_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(ti_pipe3_suspend, ti_pipe3_resume)
-};
 
 #ifdef CONFIG_OF
 static const struct of_device_id ti_pipe3_id_table[] = {
@@ -602,7 +527,6 @@ static struct platform_driver ti_pipe3_driver = {
 	.driver		= {
 		.name	= "ti-pipe3",
 		.owner	= THIS_MODULE,
-		.pm	= &ti_pipe3_pm_ops,
 		.of_match_table = of_match_ptr(ti_pipe3_id_table),
 	},
 };
