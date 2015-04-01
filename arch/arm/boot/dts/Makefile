@@ -240,10 +240,8 @@ dtb-$(CONFIG_ARCH_OMAP2PLUS) += omap2420-h4.dtb \
 	am437x-gp-evm-hdmi.dtb \
 	am437x-sk-evm.dtb \
 	dra7-evm.dtb \
-	dra7-evm-lcd7.dtb \
 	dra7-evm-lcd10.dtb \
 	dra72-evm.dtb \
-	dra72-evm-lcd7.dtb \
 	dra72-evm-lcd10.dtb \
 	am57xx-beagle-x15.dtb \
 	am57xx-evm.dtb
