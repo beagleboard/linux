@@ -55,7 +55,7 @@ enum usb_dr_mode {
 
 #if IS_ENABLED(CONFIG_USB_OTG)
 struct otg_fsm *usb_otg_register(struct device *parent_dev,
-				 struct otg_fsm_ops *fsm_ops);
+				 struct otg_fsm_ops *fsm_ops, bool drd_only);
 int usb_otg_unregister(struct device *parent_dev);
 int usb_otg_register_hcd(struct usb_hcd *hcd, unsigned int irqnum,
 			 unsigned long irqflags, struct otg_hcd_ops *ops);
@@ -71,7 +71,8 @@ struct device *usb_otg_fsm_to_dev(struct otg_fsm *fsm);
 #else /* CONFIG_USB_OTG */
 
 static inline struct otg_fsm *usb_otg_register(struct device *parent_dev,
-					       struct otg_fsm_ops *fsm_ops)
+					       struct otg_fsm_ops *fsm_ops,
+					       bool drd_only)
 {
 	return ERR_PTR(-ENOSYS);
 }
