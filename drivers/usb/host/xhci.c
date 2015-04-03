@@ -667,8 +667,7 @@ static void xhci_only_stop_hcd(struct usb_hcd *hcd)
 	 * calls this function when allocation fails in usb_add_hcd(), or
 	 * usb_remove_hcd() is called).  So we need to unset xHCI's pointer.
 	 */
-	if (!(xhci->quirks & XHCI_DRD_SUPPORT))
-		xhci->shared_hcd = NULL;
+	xhci->shared_hcd = NULL;
 	spin_unlock_irq(&xhci->lock);
 }
 
@@ -4823,7 +4822,6 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	struct xhci_hcd		*xhci;
 	struct device		*dev = hcd->self.controller;
 	int			retval;
-	bool			allocated = false;
 
 	/* Accept arbitrarily long scatter-gather lists */
 	hcd->self.sg_tablesize = ~0;
@@ -4835,15 +4833,10 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	hcd->self.no_stop_on_short = 1;
 
 	if (usb_hcd_is_primary_hcd(hcd)) {
-		if (*((struct xhci_hcd **)hcd->hcd_priv) == NULL) {
-			xhci = kzalloc(sizeof(struct xhci_hcd), GFP_KERNEL);
-			if (!xhci)
-				return -ENOMEM;
-			*((struct xhci_hcd **)hcd->hcd_priv) = xhci;
-			allocated = true;
-		} else {
-			xhci = *((struct xhci_hcd **)hcd->hcd_priv);
-		}
+		xhci = kzalloc(sizeof(struct xhci_hcd), GFP_KERNEL);
+		if (!xhci)
+			return -ENOMEM;
+		*((struct xhci_hcd **) hcd->hcd_priv) = xhci;
 		xhci->main_hcd = hcd;
 		/* Mark the first roothub as being USB 2.0.
 		 * The xHCI driver will register the USB 3.0 roothub.
@@ -4916,10 +4909,7 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	xhci_dbg(xhci, "Called HCD init\n");
 	return 0;
 error:
-	if (allocated) {
-		*((struct xhci_hcd **)hcd->hcd_priv) = NULL;
-		kfree(xhci);
-	}
+	kfree(xhci);
 	return retval;
 }
 
