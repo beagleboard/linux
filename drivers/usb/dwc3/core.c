@@ -845,9 +845,8 @@ static int dwc3_suspend(struct device *dev)
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	switch (dwc->dr_mode) {
-	case USB_DR_MODE_OTG:
-		dwc3_otg_suspend(dwc);
 	case USB_DR_MODE_PERIPHERAL:
+	case USB_DR_MODE_OTG:
 		dwc3_gadget_suspend(dwc);
 		/* FALLTHROUGH */
 	case USB_DR_MODE_HOST:
@@ -889,9 +888,8 @@ static int dwc3_resume(struct device *dev)
 	dwc3_event_buffers_setup(dwc);
 
 	switch (dwc->dr_mode) {
-	case USB_DR_MODE_OTG:
-		dwc3_otg_resume(dwc);
 	case USB_DR_MODE_PERIPHERAL:
+	case USB_DR_MODE_OTG:
 		dwc3_gadget_resume(dwc);
 		/* FALLTHROUGH */
 	case USB_DR_MODE_HOST:
