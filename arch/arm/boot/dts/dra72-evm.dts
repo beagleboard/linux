@@ -849,7 +849,7 @@
 };
 
 &usb1 {
-	dr_mode = "otg";
+	dr_mode = "peripheral";
 	pinctrl-names = "default";
 	pinctrl-0 = <&usb1_pins>;
 };

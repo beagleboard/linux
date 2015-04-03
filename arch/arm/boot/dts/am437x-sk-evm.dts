@@ -549,7 +549,7 @@
 };
 
 &usb1 {
-	dr_mode = "otg";
+	dr_mode = "peripheral";
 	status = "okay";
 };
 
