@@ -53,14 +53,7 @@ static irqreturn_t dwc3_otg_thread_interrupt(int irq, void *_dwc)
 	struct dwc3 *dwc = _dwc;
 	u32 reg = dwc3_readl(dwc->regs, DWC3_OSTS);
 
-	dev_vdbg(dwc->dev, "OTG thread interrupt, OSTS 0x04%x, prev iddig %d\n",
-		 reg, dwc->iddig);
-
-	if ((reg & DWC3_OSTS_CONIDSTS) == dwc->iddig)
-		goto out;
-	else
-		dwc->iddig = reg & DWC3_OSTS_CONIDSTS;
-
+	dev_vdbg(dwc->dev, "OTG thread interrupt\n");
 	if ((reg & DWC3_OSTS_CONIDSTS)) {
 		usb_drd_stop_hcd(dwc->dev);
 		dwc3_writel(dwc->regs, DWC3_OCFG, DWC3_OCFG_SFTRSTMASK);
@@ -88,7 +81,6 @@ static irqreturn_t dwc3_otg_thread_interrupt(int irq, void *_dwc)
 			    DWC3_OEVTEN_CONIDSTSCHNGEN);
 	}
 
-out:
 	return IRQ_HANDLED;
 }
 
@@ -157,8 +149,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_OEVTEN,
 			    DWC3_OEVTEN_CONIDSTSCHNGEN);
 	}
-
-	dwc->iddig = reg & DWC3_OSTS_CONIDSTS;
 
 	return 0;
 }
