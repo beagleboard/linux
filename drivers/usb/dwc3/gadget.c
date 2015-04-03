@@ -1856,7 +1856,6 @@ static void dwc3_gadget_free_endpoints(struct dwc3 *dwc)
 		}
 
 		kfree(dep);
-		dwc->eps[epnum] = NULL;
 	}
 }
 
@@ -2960,10 +2959,8 @@ int dwc3_gadget_suspend(struct dwc3 *dwc)
 		dwc->pullups_connected = true;
 	}
 
-	if (dwc->eps[0] && dwc->eps[1]) {
-		__dwc3_gadget_ep_disable(dwc->eps[0]);
-		__dwc3_gadget_ep_disable(dwc->eps[1]);
-	}
+	__dwc3_gadget_ep_disable(dwc->eps[0]);
+	__dwc3_gadget_ep_disable(dwc->eps[1]);
 
 	dwc->dcfg = dwc3_readl(dwc->regs, DWC3_DCFG);
 
@@ -2975,33 +2972,30 @@ int dwc3_gadget_resume(struct dwc3 *dwc)
 	struct dwc3_ep		*dep;
 	int			ret;
 
-	if (dwc->eps[0] && dwc->eps[1]) {
-		/* Start with SuperSpeed Default */
-		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(512);
+	/* Start with SuperSpeed Default */
+	dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(512);
 
-		dep = dwc->eps[0];
-		ret = __dwc3_gadget_ep_enable(dep, &dwc3_gadget_ep0_desc,
-					      NULL, false);
-		if (ret)
-			goto err0;
+	dep = dwc->eps[0];
+	ret = __dwc3_gadget_ep_enable(dep, &dwc3_gadget_ep0_desc, NULL, false);
+	if (ret)
+		goto err0;
 
-		dep = dwc->eps[1];
-		ret = __dwc3_gadget_ep_enable(dep, &dwc3_gadget_ep0_desc,
-					      NULL, false);
-		if (ret)
-			goto err1;
+	dep = dwc->eps[1];
+	ret = __dwc3_gadget_ep_enable(dep, &dwc3_gadget_ep0_desc, NULL, false);
+	if (ret)
+		goto err1;
 
-		/* begin to receive SETUP packets */
-		dwc->ep0state = EP0_SETUP_PHASE;
-		dwc3_ep0_out_start(dwc);
+	/* begin to receive SETUP packets */
+	dwc->ep0state = EP0_SETUP_PHASE;
+	dwc3_ep0_out_start(dwc);
 
-		dwc3_writel(dwc->regs, DWC3_DCFG, dwc->dcfg);
+	dwc3_writel(dwc->regs, DWC3_DCFG, dwc->dcfg);
 
-		if (dwc->pullups_connected) {
-			dwc3_gadget_enable_irq(dwc);
-			dwc3_gadget_run_stop(dwc, true, false);
-		}
+	if (dwc->pullups_connected) {
+		dwc3_gadget_enable_irq(dwc);
+		dwc3_gadget_run_stop(dwc, true, false);
 	}
+
 	return 0;
 
 err1:
