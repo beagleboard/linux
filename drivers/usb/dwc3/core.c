@@ -254,11 +254,6 @@ static void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
 	}
 }
 
-int dwc3_core_gadget_helper(struct dwc3 *dwc)
-{
-	return dwc3_event_buffers_setup(dwc);
-}
-
 static int dwc3_alloc_scratch_buffers(struct dwc3 *dwc)
 {
 	if (!dwc->has_hibernation)
