@@ -2502,7 +2502,7 @@ static struct omap_hwmod dra7xx_timer3_hwmod = {
 /* timer4 */
 static struct omap_hwmod dra7xx_timer4_hwmod = {
 	.name		= "timer4",
-	.class		= &dra7xx_timer_secure_hwmod_class,
+	.class		= &dra7xx_timer_hwmod_class,
 	.clkdm_name	= "l4per_clkdm",
 	.main_clk	= "timer4_gfclk_mux",
 	.prcm = {
@@ -2614,6 +2614,80 @@ static struct omap_hwmod dra7xx_timer11_hwmod = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_L4PER_TIMER11_CLKCTRL_OFFSET,
 			.context_offs = DRA7XX_RM_L4PER_TIMER11_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* timer12 */
+static struct omap_hwmod dra7xx_timer12_hwmod = {
+	.name		= "timer12",
+	.class		= &dra7xx_timer_secure_hwmod_class,
+	.clkdm_name	= "wkupaon_clkdm",
+	.main_clk	= "secure_32k_clk_src_ck",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_WKUPAON_TIMER12_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_WKUPAON_TIMER12_CONTEXT_OFFSET,
+		},
+	},
+};
+
+/* timer13 */
+static struct omap_hwmod dra7xx_timer13_hwmod = {
+	.name		= "timer13",
+	.class		= &dra7xx_timer_hwmod_class,
+	.clkdm_name	= "l4per3_clkdm",
+	.main_clk	= "timer13_gfclk_mux",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_L4PER3_TIMER13_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_L4PER3_TIMER13_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* timer14 */
+static struct omap_hwmod dra7xx_timer14_hwmod = {
+	.name		= "timer14",
+	.class		= &dra7xx_timer_hwmod_class,
+	.clkdm_name	= "l4per3_clkdm",
+	.main_clk	= "timer14_gfclk_mux",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_L4PER3_TIMER14_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_L4PER3_TIMER14_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* timer15 */
+static struct omap_hwmod dra7xx_timer15_hwmod = {
+	.name		= "timer15",
+	.class		= &dra7xx_timer_hwmod_class,
+	.clkdm_name	= "l4per3_clkdm",
+	.main_clk	= "timer15_gfclk_mux",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_L4PER3_TIMER15_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_L4PER3_TIMER15_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* timer16 */
+static struct omap_hwmod dra7xx_timer16_hwmod = {
+	.name		= "timer16",
+	.class		= &dra7xx_timer_hwmod_class,
+	.clkdm_name	= "l4per3_clkdm",
+	.main_clk	= "timer16_gfclk_mux",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_L4PER3_TIMER16_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_L4PER3_TIMER16_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
@@ -4047,6 +4121,46 @@ static struct omap_hwmod_ocp_if dra7xx_l4_per1__timer11 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* l4_wkup -> timer12 */
+static struct omap_hwmod_ocp_if dra7xx_l4_wkup__timer12 = {
+	.master		= &dra7xx_l4_wkup_hwmod,
+	.slave		= &dra7xx_timer12_hwmod,
+	.clk		= "wkupaon_iclk_mux",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_per3 -> timer13 */
+static struct omap_hwmod_ocp_if dra7xx_l4_per3__timer13 = {
+	.master		= &dra7xx_l4_per3_hwmod,
+	.slave		= &dra7xx_timer13_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_per3 -> timer14 */
+static struct omap_hwmod_ocp_if dra7xx_l4_per3__timer14 = {
+	.master		= &dra7xx_l4_per3_hwmod,
+	.slave		= &dra7xx_timer14_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_per3 -> timer15 */
+static struct omap_hwmod_ocp_if dra7xx_l4_per3__timer15 = {
+	.master		= &dra7xx_l4_per3_hwmod,
+	.slave		= &dra7xx_timer15_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_per3 -> timer16 */
+static struct omap_hwmod_ocp_if dra7xx_l4_per3__timer16 = {
+	.master		= &dra7xx_l4_per3_hwmod,
+	.slave		= &dra7xx_timer16_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /* l4_per1 -> uart1 */
 static struct omap_hwmod_ocp_if dra7xx_l4_per1__uart1 = {
 	.master		= &dra7xx_l4_per1_hwmod,
@@ -4352,6 +4466,11 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per1__timer9,
 	&dra7xx_l4_per1__timer10,
 	&dra7xx_l4_per1__timer11,
+	&dra7xx_l4_wkup__timer12,
+	&dra7xx_l4_per3__timer13,
+	&dra7xx_l4_per3__timer14,
+	&dra7xx_l4_per3__timer15,
+	&dra7xx_l4_per3__timer16,
 	&dra7xx_l4_per1__uart1,
 	&dra7xx_l4_per1__uart2,
 	&dra7xx_l4_per1__uart3,

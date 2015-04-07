@@ -23,6 +23,7 @@
 #define DRA7_DPLL_EVE_GCLK_NOMFREQ			400000000
 
 #define DRA7_ATL_DEFFREQ				5644800
+#define DRA7_DPLL_USB_DEFFREQ				960000000
 
 static struct ti_dt_clk dra7xx_clks[] = {
 	DT_CLK(NULL, "atl_clkin0_ck", "atl_clkin0_ck"),
@@ -293,17 +294,21 @@ static struct ti_dt_clk dra7xx_clks[] = {
 	DT_CLK("usbhs_omap", "usbtll_fck", "dummy_ck"),
 	DT_CLK("omap_wdt", "ick", "dummy_ck"),
 	DT_CLK(NULL, "timer_32k_ck", "sys_32k_ck"),
-	DT_CLK("4ae18000.timer", "timer_sys_ck", "sys_clkin2"),
-	DT_CLK("48032000.timer", "timer_sys_ck", "sys_clkin2"),
-	DT_CLK("48034000.timer", "timer_sys_ck", "sys_clkin2"),
-	DT_CLK("48036000.timer", "timer_sys_ck", "sys_clkin2"),
-	DT_CLK("4803e000.timer", "timer_sys_ck", "sys_clkin2"),
-	DT_CLK("48086000.timer", "timer_sys_ck", "sys_clkin2"),
-	DT_CLK("48088000.timer", "timer_sys_ck", "sys_clkin2"),
+	DT_CLK("4ae18000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("48032000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("48034000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("48036000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("4803e000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("48086000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("48088000.timer", "timer_sys_ck", "timer_sys_clk_div"),
 	DT_CLK("48820000.timer", "timer_sys_ck", "timer_sys_clk_div"),
 	DT_CLK("48822000.timer", "timer_sys_ck", "timer_sys_clk_div"),
 	DT_CLK("48824000.timer", "timer_sys_ck", "timer_sys_clk_div"),
 	DT_CLK("48826000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("48828000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("4882a000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("4882c000.timer", "timer_sys_ck", "timer_sys_clk_div"),
+	DT_CLK("4882e000.timer", "timer_sys_ck", "timer_sys_clk_div"),
 	DT_CLK("4843e200.ehrpwm", "tbclk", "ehrpwm0_tbclk"),
 	DT_CLK("48440200.ehrpwm", "tbclk", "ehrpwm1_tbclk"),
 	DT_CLK("48442200.ehrpwm", "tbclk", "ehrpwm2_tbclk"),
@@ -387,6 +392,16 @@ int __init dra7xx_dt_clk_init(void)
 	rc = clk_set_rate(atl_fck, DRA7_ATL_DEFFREQ);
 	if (rc)
 		pr_err("%s: failed to set atl_clkin1_ck\n", __func__);
+
+	dpll_ck = clk_get_sys(NULL, "dpll_usb_ck");
+	rc = clk_set_rate(dpll_ck, DRA7_DPLL_USB_DEFFREQ);
+	if (rc)
+		pr_err("%s: failed to configure USB DPLL!\n", __func__);
+
+	dpll_ck = clk_get_sys(NULL, "dpll_usb_m2_ck");
+	rc = clk_set_rate(dpll_ck, DRA7_DPLL_USB_DEFFREQ/2);
+	if (rc)
+		pr_err("%s: failed to set USB_DPLL M2 OUT\n", __func__);
 
 	return rc;
 }
