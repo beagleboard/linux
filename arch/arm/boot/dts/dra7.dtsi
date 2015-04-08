@@ -971,7 +971,7 @@
 			ti,hwmods = "pruss1";
 			reg = <0x4b200000 0x2000>,
 			      <0x4b202000 0x2000>,
-			      <0x4b210000 0x10000>,
+			      <0x4b210000 0x8000>,
 			      <0x4b220000 0x2000>,
 			      <0x4b226000 0x2000>;
 			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
