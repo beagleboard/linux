@@ -23,6 +23,8 @@ Optional properties:
   during suspend.
 - ti,no-reset-on-init: When present, the module should not be reset at init
 - ti,no-idle-on-init: When present, the module should not be idled at init
+- ti,deassert-hard-reset: list of hwmod and hardware reset line name pairs
+  (ascii strings) to be deasserted upon device instantiation.
 
 Example:
 
