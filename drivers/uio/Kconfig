@@ -129,7 +129,7 @@ config UIO_PRUSS
 	select GENERIC_ALLOCATOR
 	depends on HAS_IOMEM && HAS_DMA
 	help
-	  PRUSS driver for OMAPL138/DA850/AM18XX devices
+	  PRUSS driver for OMAPL138/DA850/AM18XX and AM33XX devices
 	  PRUSS driver requires user space components, examples and user space
 	  driver is available from below SVN repo - you may use anonymous login
 
