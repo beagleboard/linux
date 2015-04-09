@@ -603,7 +603,7 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 
 	/* send the index of the triggered virtqueue in the mailbox payload */
 	ret = mbox_send_message(pru->mbox, (void *)vq_id);
-	if (ret)
+	if (ret < 0)
 		dev_err(dev, "mbox_send_message failed: %d\n", ret);
 }
 
