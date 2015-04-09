@@ -410,6 +410,16 @@ static struct rproc_ops omap_rproc_ops = {
 	.kick		= omap_rproc_kick,
 };
 
+static const struct omap_rproc_fw_data omap4_dsp_fw_data = {
+	.device_name	= "dsp",
+	.fw_name	= "tesla-dsp.xe64T",
+};
+
+static const struct omap_rproc_fw_data omap4_ipu_fw_data = {
+	.device_name	= "ipu",
+	.fw_name	= "ducati-m3-core0.xem3",
+};
+
 static const struct omap_rproc_fw_data dra7_rproc_fw_data[] = {
 	{
 		.device_name	= "40800000.dsp",
@@ -435,19 +445,19 @@ static const struct omap_rproc_fw_data dra7_rproc_fw_data[] = {
 static const struct of_device_id omap_rproc_of_match[] = {
 	{
 		.compatible     = "ti,omap4-rproc-dsp",
-		.data           = "tesla-dsp.xe64T",
+		.data           = &omap4_dsp_fw_data,
 	},
 	{
 		.compatible     = "ti,omap4-rproc-ipu",
-		.data           = "ducati-m3-core0.xem3",
+		.data           = &omap4_ipu_fw_data,
 	},
 	{
 		.compatible     = "ti,omap5-rproc-dsp",
-		.data           = "tesla-dsp.xe64T",
+		.data           = &omap4_dsp_fw_data,
 	},
 	{
 		.compatible     = "ti,omap5-rproc-ipu",
-		.data           = "ducati-m3-core0.xem3",
+		.data           = &omap4_ipu_fw_data,
 	},
 	{
 		.compatible     = "ti,dra7-rproc-dsp",
@@ -473,11 +483,12 @@ static const char *omap_rproc_get_firmware(struct platform_device *pdev)
 	if (!match)
 		return ERR_PTR(-ENODEV);
 
+	data = match->data;
+
 	if (!of_device_is_compatible(np, "ti,dra7-rproc-dsp") &&
 	    !of_device_is_compatible(np, "ti,dra7-rproc-ipu"))
-		return match->data;
+		return data->fw_name;
 
-	data = match->data;
 	for (; data && data->device_name; data++) {
 		if (!strcmp(dev_name(&pdev->dev), data->device_name))
 			return data->fw_name;
