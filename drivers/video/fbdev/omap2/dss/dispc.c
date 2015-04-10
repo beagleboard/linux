@@ -102,6 +102,9 @@ struct dispc_features {
 
 	/* polarities must be programmed to CTRL_CORE_SMA_SW_1 also */
 	bool has_ctrl_core_sma_sw_1:1;
+
+	/* PIXEL_INC is not added to the last pixel of a line */
+	bool last_pixel_inc_missing:1;
 };
 
 #define DISPC_MAX_NR_FIFOS 5
@@ -2695,6 +2698,9 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 		dispc_ovl_set_ba1_uv(plane, p_uv_addr + offset1);
 	}
 
+	if (dispc.feat->last_pixel_inc_missing)
+		row_inc += pix_inc - 1;
+
 	dispc_ovl_set_row_inc(plane, row_inc);
 	dispc_ovl_set_pix_inc(plane, pix_inc);
 
@@ -3780,6 +3786,7 @@ static const struct dispc_features omap24xx_dispc_feats __initconst = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.alt_clk_dsi_pll	=	false,
+	.last_pixel_inc_missing	=	true,
 };
 
 static const struct dispc_features omap34xx_rev1_0_dispc_feats __initconst = {
@@ -3801,6 +3808,7 @@ static const struct dispc_features omap34xx_rev1_0_dispc_feats __initconst = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.alt_clk_dsi_pll	=	true,
+	.last_pixel_inc_missing	=	true,
 };
 
 static const struct dispc_features omap34xx_rev3_0_dispc_feats __initconst = {
@@ -3822,6 +3830,7 @@ static const struct dispc_features omap34xx_rev3_0_dispc_feats __initconst = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.alt_clk_dsi_pll	=	true,
+	.last_pixel_inc_missing	=	true,
 };
 
 static const struct dispc_features omap44xx_dispc_feats __initconst = {
