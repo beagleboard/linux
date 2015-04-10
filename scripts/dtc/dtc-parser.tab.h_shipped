@@ -53,12 +53,11 @@
      DT_PROPNODENAME = 271,
      DT_LITERAL = 272,
      DT_CHAR_LITERAL = 273,
-     DT_BASE = 274,
-     DT_BYTE = 275,
-     DT_STRING = 276,
-     DT_LABEL = 277,
-     DT_REF = 278,
-     DT_INCBIN = 279
+     DT_BYTE = 274,
+     DT_STRING = 275,
+     DT_LABEL = 276,
+     DT_REF = 277,
+     DT_INCBIN = 278
    };
 #endif
 
@@ -69,12 +68,10 @@ typedef union YYSTYPE
 {
 
 /* Line 2068 of yacc.c  */
-#line 40 "dtc-parser.y"
+#line 38 "dtc-parser.y"
 
 	char *propnodename;
-	char *literal;
 	char *labelref;
-	unsigned int cbase;
 	uint8_t byte;
 	struct data data;
 
@@ -93,7 +90,7 @@ typedef union YYSTYPE
 
 
 /* Line 2068 of yacc.c  */
-#line 97 "dtc-parser.tab.h"
+#line 94 "dtc-parser.tab.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -102,4 +99,18 @@ typedef union YYSTYPE
 
 extern YYSTYPE yylval;
 
+#if ! defined YYLTYPE && ! defined YYLTYPE_IS_DECLARED
+typedef struct YYLTYPE
+{
+  int first_line;
+  int first_column;
+  int last_line;
+  int last_column;
+} YYLTYPE;
+# define yyltype YYLTYPE /* obsolescent; will be withdrawn */
+# define YYLTYPE_IS_DECLARED 1
+# define YYLTYPE_IS_TRIVIAL 1
+#endif
+
+extern YYLTYPE yylloc;
 

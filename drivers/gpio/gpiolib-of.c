@@ -22,6 +22,8 @@
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/slab.h>
 
+#include "gpiolib.h"
+
 struct gpio_desc;
 
 /* Private data structure for of_gpiochip_find_and_xlate */
@@ -101,6 +103,116 @@ struct gpio_desc *of_get_named_gpiod_flags(struct device_node *np,
 	return gg_data.out_gpio;
 }
 EXPORT_SYMBOL(of_get_named_gpiod_flags);
+
+/**
+ * of_get_gpio_hog() - Get a GPIO hog descriptor, names and flags for GPIO API
+ * @np:		device node to get GPIO from
+ * @name:	GPIO line name
+ * @flags:	a flags pointer to fill in
+ *
+ * Returns GPIO descriptor to use with Linux GPIO API, or one of the errno
+ * value on the error condition.
+ */
+static struct gpio_desc *of_get_gpio_hog(struct device_node *np,
+				  const char **name,
+				  unsigned long *flags)
+{
+	struct device_node *chip_np;
+	enum of_gpio_flags xlate_flags;
+	struct gpio_desc *desc;
+	struct gg_data gg_data = {
+		.flags = &xlate_flags,
+		.out_gpio = NULL,
+	};
+	u32 tmp;
+	int i, ret;
+
+	chip_np = np->parent;
+	if (!chip_np)
+		return ERR_PTR(-EINVAL);
+
+	xlate_flags = 0;
+	*flags = 0;
+
+	ret = of_property_read_u32(chip_np, "#gpio-cells", &tmp);
+	if (ret)
+		return ERR_PTR(ret);
+
+	if (tmp > MAX_PHANDLE_ARGS)
+		return ERR_PTR(-EINVAL);
+
+	gg_data.gpiospec.args_count = tmp;
+	gg_data.gpiospec.np = chip_np;
+	for (i = 0; i < tmp; i++) {
+		ret = of_property_read_u32_index(np, "gpios", i,
+					   &gg_data.gpiospec.args[i]);
+		if (ret)
+			return ERR_PTR(ret);
+	}
+
+	gpiochip_find(&gg_data, of_gpiochip_find_and_xlate);
+	if (!gg_data.out_gpio) {
+		if (np->parent == np)
+			return ERR_PTR(-ENXIO);
+		else
+			return ERR_PTR(-EINVAL);
+	}
+
+	if (xlate_flags & OF_GPIO_ACTIVE_LOW)
+		*flags |= GPIOF_ACTIVE_LOW;
+
+	if (of_property_read_bool(np, "input"))
+		*flags |= GPIOF_DIR_IN;
+	else if (of_property_read_bool(np, "output-low"))
+		; /* No flag needed for output-low */
+	else if (of_property_read_bool(np, "output-high"))
+		*flags |= GPIOF_INIT_HIGH;
+	else {
+		pr_warn("GPIO line %d (%s): no hogging state specified, bailing out\n",
+			desc_to_gpio(gg_data.out_gpio), np->name);
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (name && of_property_read_string(np, "line-name", name))
+		*name = np->name;
+
+	desc = gg_data.out_gpio;
+
+	return desc;
+}
+
+/**
+ * of_gpiochip_scan_hogs - Scan gpio-controller and apply GPIO hog as requested
+ * @chip:	gpio chip to act on
+ *
+ * This is only used by of_gpiochip_add to request/set GPIO initial
+ * configuration.
+ */
+static void of_gpiochip_scan_hogs(struct gpio_chip *chip)
+{
+	struct gpio_desc *desc = NULL;
+	struct device_node *np;
+	const char *name;
+	unsigned long flags = 0;
+
+	if (chip->of_node == NULL) {
+		pr_err("GPIO: chip->label:%s chip->of_node is NULL\n",
+		       chip->label);
+		return;
+	}
+
+	for_each_child_of_node(chip->of_node, np) {
+		if (!of_property_read_bool(np, "gpio-hog"))
+			continue;
+
+		desc = of_get_gpio_hog(np, &name, &flags);
+		if (IS_ERR(desc))
+			continue;
+
+		if (gpiod_hog(desc, name, flags))
+			continue;
+	}
+}
 
 /**
  * of_gpio_simple_xlate - translate gpio_spec to the GPIO number and flags
@@ -294,12 +406,12 @@ void of_gpiochip_add(struct gpio_chip *chip)
 
 	of_gpiochip_add_pin_range(chip);
 	of_node_get(chip->of_node);
+
+	of_gpiochip_scan_hogs(chip);
 }
 
 void of_gpiochip_remove(struct gpio_chip *chip)
 {
 	gpiochip_remove_pin_ranges(chip);
-
-	if (chip->of_node)
-		of_node_put(chip->of_node);
+	of_node_put(chip->of_node);
 }
