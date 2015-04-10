@@ -217,7 +217,6 @@ static int pruss_probe(struct platform_device *pdev)
 				continue;
 			}
 
-			dev_err(&pdev->dev, "Child has %u gpios\n", count);
 			for(cnt=0; cnt<count; cnt++){
 				ret = of_property_read_string_index(child,
 					"pin-names", cnt, &pin_name);
@@ -225,6 +224,10 @@ static int pruss_probe(struct platform_device *pdev)
 					dev_err(&pdev->dev, "Error on pin-name #%d\n", cnt);
 				gpio = of_get_gpio_flags(child, cnt, &flags);
 				ret = devm_gpio_request_one(&pdev->dev, gpio, flags, pin_name);
+				if (ret < 0) {
+		                        dev_err(dev, "Failed to request GPIO %d (%s) flags: '%d', error %d\n",
+					gpio, pin_name, flags, ret);
+		                }
 			}
 		}
 	}
