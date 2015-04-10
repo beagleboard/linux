@@ -209,6 +209,13 @@ int omap_plane_mode_set(struct drm_plane *plane,
 	struct omap_plane *omap_plane = to_omap_plane(plane);
 	struct omap_drm_window *win = &omap_plane->win;
 	int i;
+	struct drm_display_mode *mode = &crtc->mode;
+
+	if (crtc_x >= mode->hdisplay || crtc_y >= mode->vdisplay)
+		return -EINVAL;
+
+	if (crtc_x + crtc_w > mode->hdisplay || crtc_y + crtc_h > mode->vdisplay)
+		return -EINVAL;
 
 	/*
 	 * Check whether this plane supports the fb pixel format.
