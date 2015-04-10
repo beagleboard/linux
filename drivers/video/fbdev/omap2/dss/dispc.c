@@ -2338,6 +2338,9 @@ again:
 
 		if (!error) {
 			/* verify that we're inside the limits of scaler */
+			if (in_width / 4 > out_width)
+					error = 1;
+
 			if (*five_taps) {
 				if (in_height / 4 > out_height)
 					error = 1;
