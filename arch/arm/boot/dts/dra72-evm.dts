@@ -544,6 +544,12 @@
 		interrupts = <11 2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+
+		cpsw_sel_s0 {
+			gpio-hog;
+			gpios = <4 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
 	};
 
 	tlv320aic3106: tlv320aic3106@19 {
