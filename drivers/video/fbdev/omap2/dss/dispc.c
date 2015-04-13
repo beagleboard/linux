@@ -102,6 +102,9 @@ struct dispc_features {
 
 	/* polarities must be programmed to CTRL_CORE_SMA_SW_1 also */
 	bool has_ctrl_core_sma_sw_1:1;
+
+	/* PIXEL_INC is not added to the last pixel of a line */
+	bool last_pixel_inc_missing:1;
 };
 
 #define DISPC_MAX_NR_FIFOS 5
@@ -1747,6 +1750,15 @@ static void dispc_ovl_set_rotation_attrs(enum omap_plane plane, u8 rotation,
 			row_repeat = false;
 	}
 
+	/*
+	 * OMAP4/5 Errata i631:
+	 * NV12 in 1D mode must use ROTATION=1. Otherwise DSS will fetch extra
+	 * rows beyond the framebuffer, which may cause OCP error.
+	 */
+	if (color_mode == OMAP_DSS_COLOR_NV12 &&
+			rotation_type != OMAP_DSS_ROT_TILER)
+		vidrot = 1;
+
 	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), vidrot, 13, 12);
 	if (dss_has_feature(FEAT_ROWREPEATENABLE))
 		REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane),
@@ -2160,7 +2172,7 @@ static unsigned long calc_core_clk_five_taps(unsigned long pclk,
 	if (height > out_height) {
 		unsigned int ppl = mgr_timings->x_res;
 
-		tmp = pclk * height * out_width;
+		tmp = (u64)pclk * height * out_width;
 		do_div(tmp, 2 * out_height * ppl);
 		core_clk = tmp;
 
@@ -2168,14 +2180,14 @@ static unsigned long calc_core_clk_five_taps(unsigned long pclk,
 			if (ppl == out_width)
 				return 0;
 
-			tmp = pclk * (height - 2 * out_height) * out_width;
+			tmp = (u64)pclk * (height - 2 * out_height) * out_width;
 			do_div(tmp, 2 * out_height * (ppl - out_width));
 			core_clk = max_t(u32, core_clk, tmp);
 		}
 	}
 
 	if (width > out_width) {
-		tmp = pclk * width;
+		tmp = (u64)pclk * width;
 		do_div(tmp, out_width);
 		core_clk = max_t(u32, core_clk, tmp);
 
@@ -2273,6 +2285,11 @@ static int dispc_ovl_calc_scaling_24xx(unsigned long pclk, unsigned long lclk,
 		}
 	} while (*decim_x <= *x_predecim && *decim_y <= *y_predecim && error);
 
+	if (error) {
+		DSSERR("failed to find scaling settings\n");
+		return -EINVAL;
+	}
+
 	if (in_width > maxsinglelinewidth) {
 		DSSERR("Cannot scale max input width exceeded");
 		return -EINVAL;
@@ -2289,7 +2306,6 @@ static int dispc_ovl_calc_scaling_34xx(unsigned long pclk, unsigned long lclk,
 {
 	int error;
 	u16 in_width, in_height;
-	int min_factor = min(*decim_x, *decim_y);
 	const int maxsinglelinewidth =
 			dss_feat_get_param_max(FEAT_PARAM_LINEWIDTH);
 
@@ -2326,6 +2342,9 @@ again:
 
 		if (!error) {
 			/* verify that we're inside the limits of scaler */
+			if (in_width / 4 > out_width)
+					error = 1;
+
 			if (*five_taps) {
 				if (in_height / 4 > out_height)
 					error = 1;
@@ -2335,17 +2354,14 @@ again:
 			}
 		}
 
-		if (error) {
-			if (*decim_x == *decim_y) {
-				*decim_x = min_factor;
-				++*decim_y;
-			} else {
-				swap(*decim_x, *decim_y);
-				if (*decim_x < *decim_y)
-					++*decim_x;
-			}
-		}
+		if (error)
+			++*decim_y;
 	} while (*decim_x <= *x_predecim && *decim_y <= *y_predecim && error);
+
+	if (error) {
+		DSSERR("failed to find scaling settings\n");
+		return -EINVAL;
+	}
 
 	if (check_horiz_timing_omap3(pclk, lclk, mgr_timings, pos_x, in_width,
 				in_height, out_width, out_height, *five_taps)) {
@@ -2408,6 +2424,9 @@ static int dispc_ovl_calc_scaling_44xx(unsigned long pclk, unsigned long lclk,
 	return 0;
 }
 
+#define DIV_FRAC(dividend, divisor) \
+	((dividend) * 100 / (divisor) - ((dividend) / (divisor) * 100))
+
 static int dispc_ovl_calc_scaling(unsigned long pclk, unsigned long lclk,
 		enum omap_overlay_caps caps,
 		const struct omap_video_timings *mgr_timings,
@@ -2467,8 +2486,19 @@ static int dispc_ovl_calc_scaling(unsigned long pclk, unsigned long lclk,
 	if (ret)
 		return ret;
 
-	DSSDBG("required core clk rate = %lu Hz\n", core_clk);
-	DSSDBG("current core clk rate = %lu Hz\n", dispc_core_clk_rate());
+	DSSDBG("%dx%d -> %dx%d (%d.%02d x %d.%02d), decim %dx%d %dx%d (%d.%02d x %d.%02d), taps %d, req clk %lu, cur clk %lu\n",
+		width, height,
+		out_width, out_height,
+		out_width / width, DIV_FRAC(out_width, width),
+		out_height / height, DIV_FRAC(out_height, height),
+
+		decim_x, decim_y,
+		width / decim_x, height / decim_y,
+		out_width / (width / decim_x), DIV_FRAC(out_width, width / decim_x),
+		out_height / (height / decim_y), DIV_FRAC(out_height, height / decim_y),
+
+		*five_taps ? 5 : 3,
+		core_clk, dispc_core_clk_rate());
 
 	if (!core_clk || core_clk > dispc_core_clk_rate()) {
 		DSSERR("failed to set up scaling, "
@@ -2685,6 +2715,9 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 		dispc_ovl_set_ba0_uv(plane, p_uv_addr + offset0);
 		dispc_ovl_set_ba1_uv(plane, p_uv_addr + offset1);
 	}
+
+	if (dispc.feat->last_pixel_inc_missing)
+		row_inc += pix_inc - 1;
 
 	dispc_ovl_set_row_inc(plane, row_inc);
 	dispc_ovl_set_pix_inc(plane, pix_inc);
@@ -3771,6 +3804,7 @@ static const struct dispc_features omap24xx_dispc_feats __initconst = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.alt_clk_dsi_pll	=	false,
+	.last_pixel_inc_missing	=	true,
 };
 
 static const struct dispc_features omap34xx_rev1_0_dispc_feats __initconst = {
@@ -3792,6 +3826,7 @@ static const struct dispc_features omap34xx_rev1_0_dispc_feats __initconst = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.alt_clk_dsi_pll	=	true,
+	.last_pixel_inc_missing	=	true,
 };
 
 static const struct dispc_features omap34xx_rev3_0_dispc_feats __initconst = {
@@ -3813,6 +3848,7 @@ static const struct dispc_features omap34xx_rev3_0_dispc_feats __initconst = {
 	.no_framedone_tv	=	true,
 	.set_max_preload	=	false,
 	.alt_clk_dsi_pll	=	true,
+	.last_pixel_inc_missing	=	true,
 };
 
 static const struct dispc_features omap44xx_dispc_feats __initconst = {
