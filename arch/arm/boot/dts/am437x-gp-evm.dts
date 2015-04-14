@@ -802,6 +802,9 @@
 
 		attb-gpio = <&gpio3 22 GPIO_ACTIVE_HIGH>;
 
+		interrupts-extended = <&gpio3 22 GPIO_ACTIVE_HIGH>,
+				      <&am43xx_pinmux 0x264>;
+
 		touchscreen-size-x = <1024>;
 		touchscreen-size-y = <600>;
 	};
