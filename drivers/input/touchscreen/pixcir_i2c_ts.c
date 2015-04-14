@@ -29,6 +29,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_device.h>
+#include <linux/of_irq.h>
 
 #define PIXCIR_MAX_SLOTS       5 /* Max fingers supported by driver */
 
@@ -169,6 +170,15 @@ static void pixcir_ts_report(struct pixcir_i2c_ts_data *ts,
 
 	input_mt_sync_frame(ts->input);
 	input_sync(ts->input);
+}
+
+static irqreturn_t pixcir_ts_wake_isr(int irq, void *dev_id)
+{
+	/*
+	 * We don't need to handle this event as a normal IRQ, we
+	 * only need to acknowledge that we've been woken up.
+	 */
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t pixcir_ts_isr(int irq, void *dev_id)
@@ -380,6 +390,9 @@ static int pixcir_i2c_ts_suspend(struct device *dev)
 		}
 
 		enable_irq_wake(client->irq);
+
+		if (ts->pdata->wakeirq)
+			enable_irq(ts->pdata->wakeirq);
 	} else if (input->users) {
 		ret = pixcir_stop(ts);
 	}
@@ -401,6 +414,9 @@ static int pixcir_i2c_ts_resume(struct device *dev)
 
 	if (device_may_wakeup(&client->dev)) {
 		disable_irq_wake(client->irq);
+
+		if (ts->pdata->wakeirq)
+			disable_irq(ts->pdata->wakeirq);
 
 		if (!input->users) {
 			ret = pixcir_stop(ts);
@@ -458,6 +474,8 @@ static struct pixcir_ts_platform_data *pixcir_parse_dt(struct device *dev)
 		return ERR_PTR(-EINVAL);
 	}
 	pdata->y_max -= 1;
+
+	pdata->wakeirq = irq_of_parse_and_map(np, 1);
 
 	dev_dbg(dev, "%s: x %d, y %d, ATTB gpio %d, RESET gpio %d\n", __func__,
 		pdata->x_max + 1, pdata->y_max + 1, pdata->gpio_attb,
@@ -575,6 +593,20 @@ static int pixcir_i2c_ts_probe(struct i2c_client *client,
 	if (error) {
 		dev_err(dev, "failed to request irq %d\n", client->irq);
 		return error;
+	}
+
+	if (pdata->wakeirq) {
+		error = devm_request_irq(dev, pdata->wakeirq,
+					 pixcir_ts_wake_isr,
+					 IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					 client->name, tsdata);
+		if (error) {
+			dev_err(dev, "unable to get wakeirq %d\n", error);
+			return error;
+		}
+
+		/* Only enable during suspend sequence */
+		disable_irq_nosync(pdata->wakeirq);
 	}
 
 	pixcir_reset(tsdata);
