@@ -770,8 +770,10 @@ static ssize_t rppc_read(struct file *filp, char __user *buf, size_t len,
 	function = rppc_find_fxn(rpc, packet->msg_id);
 	if (function && function->num_translations > 0) {
 		ret = rppc_xlate_buffers(rpc, function, RPPC_RPA_TO_UVA);
-		if (ret < 0)
+		if (ret < 0) {
+			dev_err(rpc->dev, "failed to translate back pointers from remote core!\n");
 			goto failure;
+		}
 	}
 	returned.fxn_id = RPPC_FXN_MASK(packet->fxn_id);
 	returned.status = packet->result;
