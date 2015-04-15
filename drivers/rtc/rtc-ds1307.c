@@ -358,7 +358,8 @@ static irqreturn_t ds1307_irq(int irq, void *dev_id)
 	struct i2c_client	*client = dev_id;
 	struct ds1307		*ds1307 = i2c_get_clientdata(client);
 
-	disable_irq_nosync(irq);
+	if (irq == client->irq)
+		disable_irq_nosync(irq);
 	schedule_work(&ds1307->work);
 	return IRQ_HANDLED;
 }
