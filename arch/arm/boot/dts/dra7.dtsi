@@ -882,7 +882,7 @@
 			compatible = "ti,omap5-voltdm";
 			#voltdm-cells = <0>;
 			vbb-supply = <&abb_mpu>;
-			reg = <0x4a003b20 0x8>;
+			reg = <0x4a003b20 0xc>;
 			ti,efuse-settings = <
 			/* uV   offset */
 			1060000 0x0
@@ -896,7 +896,7 @@
 			compatible = "ti,omap5-voltdm";
 			#voltdm-cells = <0>;
 			vbb-supply = <&abb_ivahd>;
-			reg = <0x4a0025cc 0x8>;
+			reg = <0x4a0025cc 0xc>;
 			ti,efuse-settings = <
 			/* uV   offset */
 			1055000 0x0
@@ -910,7 +910,7 @@
 			compatible = "ti,omap5-voltdm";
 			#voltdm-cells = <0>;
 			vbb-supply = <&abb_dspeve>;
-			reg = <0x4a0025e0 0x8>;
+			reg = <0x4a0025e0 0xc>;
 			ti,efuse-settings = <
 			/* uV   offset */
 			1055000 0x0
@@ -924,7 +924,7 @@
 			compatible = "ti,omap5-voltdm";
 			#voltdm-cells = <0>;
 			vbb-supply = <&abb_gpu>;
-			reg = <0x4a003b08 0x8>;
+			reg = <0x4a003b08 0xc>;
 			ti,efuse-settings = <
 			/* uV   offset */
 			1090000 0x0
