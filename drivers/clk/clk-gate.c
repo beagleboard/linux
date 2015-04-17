@@ -104,7 +104,6 @@ const struct clk_ops clk_gate_ops = {
 	.enable = clk_gate_enable,
 	.disable = clk_gate_disable,
 	.is_enabled = clk_gate_is_enabled,
-	.restore_context = clk_dflt_restore_context,
 };
 EXPORT_SYMBOL_GPL(clk_gate_ops);
 

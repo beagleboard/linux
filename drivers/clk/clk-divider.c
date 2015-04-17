@@ -243,34 +243,10 @@ static int clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
-int clk_divider_save_context(struct clk_hw *hw)
-{
-	struct clk_divider *divider = to_clk_divider(hw);
-	u32 val;
-
-	val = ti_clk_ll_ops->clk_readl(divider->reg) >> divider->shift;
-	divider->context = val & div_mask(divider);
-
-	return 0;
-}
-
-void clk_divider_restore_context(struct clk_hw *hw)
-{
-	struct clk_divider *divider = to_clk_divider(hw);
-	u32 val;
-
-	val = ti_clk_ll_ops->clk_readl(divider->reg);
-	val &= ~(div_mask(divider) << divider->shift);
-	val |= divider->context << divider->shift;
-	ti_clk_ll_ops->clk_writel(val, divider->reg);
-}
-
 const struct clk_ops clk_divider_ops = {
 	.recalc_rate = clk_divider_recalc_rate,
 	.round_rate = clk_divider_round_rate,
 	.set_rate = clk_divider_set_rate,
-	.save_context = clk_divider_save_context,
-	.restore_context = clk_divider_restore_context,
 };
 EXPORT_SYMBOL_GPL(clk_divider_ops);
 
