@@ -131,12 +131,6 @@ struct vip_dev {
 	int			num_skip_irq;
 	void __iomem		*base;
 
-	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
-	struct vpdma_dtd	*write_desc;
-	void			*desc_next;	/* next unused desc_list addr */
-	/* Maintain a list of used channels - Needed for VPDMA cleanup */
-	int			vpdma_channels[VPDMA_MAX_CHANNELS];
-	struct list_head	vip_bufs;	/* vip_bufs to be DMAed */
 	struct vb2_alloc_ctx	*alloc_ctx;
 	struct vip_port		*ports[VIP_NUM_PORTS];
 
@@ -170,6 +164,7 @@ struct vip_stream {
 	struct video_device	*vfd;
 	struct vip_port		*port;
 	int			stream_id;
+	int			list_num;
 	int			vfl_type;
 	enum v4l2_field		field;		/* current field */
 	unsigned int		sequence;	/* current frame/field seq */
@@ -180,9 +175,14 @@ struct vip_stream {
 	unsigned int		sizeimage;	/* image size in memory */
 	struct list_head	vidq;		/* incoming vip_bufs queue */
 	struct list_head	dropq;		/* drop vip_bufs queue */
+	struct list_head	post_bufs;	/* vip_bufs to be DMAed */
+	/* Maintain a list of used channels - Needed for VPDMA cleanup */
+	int			vpdma_channels[VPDMA_MAX_CHANNELS];
+	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
+	struct vpdma_dtd	*write_desc;
+	void			*desc_next;	/* next unused desc_list addr */
 	struct vb2_queue	vb_vidq;
 	struct video_device	vdev;
-	int			open;
 };
 
 extern int vip_open(struct file *file);
