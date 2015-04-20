@@ -901,7 +901,7 @@ free_ep(struct uac2_rtd_params *prm, struct usb_ep *ep)
 			"%s:%d Error!\n", __func__, __LINE__);
 }
 
-static int __init
+static int
 afunc_bind(struct usb_configuration *cfg, struct usb_function *fn)
 {
 	struct audio_dev *agdev = func_to_agdev(fn);
