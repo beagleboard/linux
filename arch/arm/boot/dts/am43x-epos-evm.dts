@@ -640,7 +640,7 @@
 		compatible = "ti,wlcore";
 		reg = <2>;
 		interrupt-parent = <&gpio0>;
-		interrupts = <31 IRQ_TYPE_NONE>;
+		interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
 	};
 };
 
