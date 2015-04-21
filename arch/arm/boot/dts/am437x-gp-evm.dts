@@ -926,7 +926,7 @@
 		compatible = "ti,wlcore";
 		reg = <2>;
 		interrupt-parent = <&gpio1>;
-		interrupts = <23 IRQ_TYPE_NONE>;
+		interrupts = <23 IRQ_TYPE_LEVEL_HIGH>;
 	};
 };
 

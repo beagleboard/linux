@@ -543,7 +543,7 @@
 		compatible = "ti,wlcore";
 		reg = <2>;
 		interrupt-parent = <&gpio5>;
-		interrupts = <7 IRQ_TYPE_NONE>;
+		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
 	};
 };
 
