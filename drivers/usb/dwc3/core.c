@@ -54,6 +54,7 @@ void dwc3_set_mode(struct dwc3 *dwc, u32 mode)
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 	reg &= ~(DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG));
 	reg |= DWC3_GCTL_PRTCAPDIR(mode);
+	dwc->current_mode = mode;
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 }
 
@@ -1338,6 +1339,14 @@ static int dwc3_suspend(struct device *dev)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
+	/* Save OTG state only if we're really using it */
+	if (dwc->current_mode == DWC3_GCTL_PRTCAP_OTG) {
+		dwc->ocfg = dwc3_readl(dwc->regs, DWC3_OCFG);
+		dwc->octl = dwc3_readl(dwc->regs, DWC3_OCTL);
+		dwc->oevt = dwc3_readl(dwc->regs, DWC3_OEVT);
+		dwc->oevten = dwc3_readl(dwc->regs, DWC3_OEVTEN);
+	}
+
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
 	case USB_DR_MODE_OTG:
@@ -1380,6 +1389,14 @@ static int dwc3_resume(struct device *dev)
 
 	dwc3_writel(dwc->regs, DWC3_GCTL, dwc->gctl);
 	dwc3_event_buffers_setup(dwc);
+
+	/* Restore OTG state only if we're really using it */
+	if (dwc->current_mode == DWC3_GCTL_PRTCAP_OTG) {
+		dwc3_writel(dwc->regs, DWC3_OCFG, dwc->ocfg);
+		dwc3_writel(dwc->regs, DWC3_OCTL, dwc->octl);
+		dwc3_writel(dwc->regs, DWC3_OEVT, dwc->oevt);
+		dwc3_writel(dwc->regs, DWC3_OEVTEN, dwc->oevten);
+	}
 
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:

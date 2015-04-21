@@ -721,6 +721,7 @@ struct dwc3_scratchpad_array {
  * @regs: base address for our registers
  * @regs_size: address space size
  * @oevten: otg interrupt enable mask copy
+ * @current_mode: current mode of operation written to PRTCAPDIR
  * @nr_scratch: number of scratch buffers
  * @num_event_buffers: calculated number of event buffers
  * @u1u2: only used on revisions <1.83a for workaround
@@ -842,9 +843,12 @@ struct dwc3 {
 	/* used for suspend/resume */
 	u32			dcfg;
 	u32			gctl;
-
+	u32			ocfg;
+	u32			octl;
+	u32			oevt;
 	u32			oevten;
 
+	u32			current_mode;
 	u32			nr_scratch;
 	u32			num_event_buffers;
 	u32			u1u2;
