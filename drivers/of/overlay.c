@@ -25,8 +25,23 @@
 
 #include "of_private.h"
 
+/* fwd. decl */
+struct of_overlay;
+struct of_overlay_info;
+
+/* an attribute for each fragment */
+struct fragment_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct kobject *kobj, struct fragment_attribute *fattr,
+			char *buf);
+	ssize_t (*store)(struct kobject *kobj, struct fragment_attribute *fattr,
+			 const char *buf, size_t count);
+	struct of_overlay_info *ovinfo;
+};
+
 /**
  * struct of_overlay_info - Holds a single overlay info
+ * @info:	info node that contains the target and overlay
  * @target:	target of the overlay operation
  * @overlay:	pointer to the overlay contents node
  *
@@ -34,8 +49,13 @@
  * records.
  */
 struct of_overlay_info {
+	struct of_overlay *ov;
+	struct device_node *info;
 	struct device_node *target;
 	struct device_node *overlay;
+	struct attribute_group attr_group;
+	struct attribute *attrs[2];
+	struct fragment_attribute target_attr;
 };
 
 /**
@@ -52,6 +72,7 @@ struct of_overlay {
 	struct list_head node;
 	int count;
 	struct of_overlay_info *ovinfo_tab;
+	const struct attribute_group **attr_groups;
 	struct of_changeset cset;
 	struct kobject kobj;
 };
@@ -253,6 +274,8 @@ static int of_fill_overlay_info(struct of_overlay *ov,
 	if (ovinfo->target == NULL)
 		goto err_fail;
 
+	ovinfo->info = of_node_get(info_node);
+
 	return 0;
 
 err_fail:
@@ -262,6 +285,17 @@ err_fail:
 	memset(ovinfo, 0, sizeof(*ovinfo));
 	return -EINVAL;
 }
+
+static ssize_t target_show(struct kobject *kobj,
+		struct fragment_attribute *fattr, char *buf)
+{
+	struct of_overlay_info *ovinfo = fattr->ovinfo;
+
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+			of_node_full_name(ovinfo->target));
+}
+
+static const struct fragment_attribute target_template_attr = __ATTR_RO(target);
 
 /**
  * of_build_overlay_info() - Build an overlay info array
@@ -280,7 +314,7 @@ static int of_build_overlay_info(struct of_overlay *ov,
 {
 	struct device_node *node;
 	struct of_overlay_info *ovinfo;
-	int cnt, err;
+	int i, cnt, err;
 
 	/* worst case; every child is a node */
 	cnt = 0;
@@ -301,14 +335,45 @@ static int of_build_overlay_info(struct of_overlay *ov,
 
 	/* if nothing filled, return error */
 	if (cnt == 0) {
-		kfree(ovinfo);
-		return -ENODEV;
+		err = -ENODEV;
+		goto err_free_ovinfo;
 	}
 
 	ov->count = cnt;
 	ov->ovinfo_tab = ovinfo;
 
+	ov->attr_groups = kcalloc(cnt + 1,
+			sizeof(struct attribute_group *), GFP_KERNEL);
+	if (ov->attr_groups == NULL) {
+		err = -ENOMEM;
+		goto err_free_ovinfo;
+	}
+
+	for (i = 0; i < cnt; i++) {
+		ovinfo = &ov->ovinfo_tab[i];
+
+		ov->attr_groups[i] = &ovinfo->attr_group;
+
+		ovinfo->target_attr = target_template_attr;
+		/* make lockdep happy */
+		sysfs_attr_init(&ovinfo->target_attr.attr);
+		ovinfo->target_attr.ovinfo = ovinfo;
+
+		ovinfo->attrs[0] = &ovinfo->target_attr.attr;
+		ovinfo->attrs[1] = NULL;
+
+		/* NOTE: direct reference to the full_name */
+		ovinfo->attr_group.name = kbasename(ovinfo->info->full_name);
+		ovinfo->attr_group.attrs = ovinfo->attrs;
+
+	}
+	ov->attr_groups[i] = NULL;
+
 	return 0;
+
+err_free_ovinfo:
+	kfree(ovinfo);
+	return err;
 }
 
 /**
@@ -325,12 +390,16 @@ static int of_free_overlay_info(struct of_overlay *ov)
 	struct of_overlay_info *ovinfo;
 	int i;
 
+	/* free attribute groups space */
+	kfree(ov->attr_groups);
+
 	/* do it in reverse */
 	for (i = ov->count - 1; i >= 0; i--) {
 		ovinfo = &ov->ovinfo_tab[i];
 
 		of_node_put(ovinfo->target);
 		of_node_put(ovinfo->overlay);
+		of_node_put(ovinfo->info);
 	}
 	kfree(ov->ovinfo_tab);
 
@@ -381,8 +450,25 @@ static const struct attribute *overlay_global_attrs[] = {
 	NULL
 };
 
+static ssize_t can_remove_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct of_overlay *ov = kobj_to_overlay(kobj);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", overlay_removal_is_ok(ov));
+}
+
+static struct kobj_attribute can_remove_attr = __ATTR_RO(can_remove);
+
+static struct attribute *overlay_attrs[] = {
+	&can_remove_attr.attr,
+	NULL
+};
+
 static struct kobj_type of_overlay_ktype = {
 	.release = of_overlay_release,
+	.sysfs_ops = &kobj_sysfs_ops,	/* default kobj sysfs ops */
+	.default_attrs = overlay_attrs,
 };
 
 static struct kset *ov_kset;
@@ -462,13 +548,21 @@ int of_overlay_create(struct device_node *tree)
 		goto err_cancel_overlay;
 	}
 
+	err = sysfs_create_groups(&ov->kobj, ov->attr_groups);
+	if (err != 0) {
+		pr_err("%s: sysfs_create_groups() failed for tree@%s\n",
+				__func__, tree->full_name);
+		goto err_remove_kobj;
+	}
+
 	/* add to the tail of the overlay list */
 	list_add_tail(&ov->node, &ov_list);
 
 	mutex_unlock(&of_mutex);
 
 	return id;
-
+err_remove_kobj:
+	kobject_put(&ov->kobj);
 err_cancel_overlay:
 	of_changeset_revert(&ov->cset);
 err_revert_overlay:
@@ -589,6 +683,7 @@ int of_overlay_destroy(int id)
 
 
 	list_del(&ov->node);
+	sysfs_remove_groups(&ov->kobj, ov->attr_groups);
 	of_changeset_revert(&ov->cset);
 	of_free_overlay_info(ov);
 	idr_remove(&ov_idr, id);
