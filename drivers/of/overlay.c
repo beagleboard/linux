@@ -373,8 +373,61 @@ static const struct attribute *overlay_global_attrs[] = {
 	NULL
 };
 
+static ssize_t can_remove_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct of_overlay *ov = kobj_to_overlay(kobj);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", overlay_removal_is_ok(ov));
+}
+
+static ssize_t targets_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct of_overlay *ov = kobj_to_overlay(kobj);
+	struct of_overlay_info *ovinfo;
+	char *s, *e;
+	ssize_t ret;
+	int i, len;
+
+	s = buf;
+	e = buf + PAGE_SIZE;
+
+	mutex_lock(&of_mutex);
+
+	/* targets */
+	for (i = 0; i < ov->count; i++) {
+		ovinfo = &ov->ovinfo_tab[i];
+
+		len = snprintf(s, e - s, "%s\n",
+				of_node_full_name(ovinfo->target));
+		if (len == 0) {
+			ret = -ENOSPC;
+			goto err;
+		}
+		s += len;
+	}
+
+	/* the buffer is zero terminated */
+	ret = s - buf;
+err:
+	mutex_unlock(&of_mutex);
+	return ret;
+}
+
+static struct kobj_attribute can_remove_attr = __ATTR_RO(can_remove);
+static struct kobj_attribute targets_attr = __ATTR_RO(targets);
+
+static struct attribute *overlay_attrs[] = {
+	&can_remove_attr.attr,
+	&targets_attr.attr,
+	NULL
+};
+
 static struct kobj_type of_overlay_ktype = {
 	.release = of_overlay_release,
+	.sysfs_ops = &kobj_sysfs_ops,	/* default kobj sysfs ops */
+	.default_attrs = overlay_attrs,
 };
 
 static struct kset *ov_kset;
