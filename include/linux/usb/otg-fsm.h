@@ -192,6 +192,7 @@ struct otg_fsm_ops {
 	void	(*del_timer)(struct otg_fsm *fsm, enum otg_fsm_timer timer);
 	int	(*start_host)(struct otg_fsm *fsm, int on);
 	int	(*start_gadget)(struct otg_fsm *fsm, int on);
+	int	(*start_enum)(struct usb_bus *bus, unsigned port_num);
 };
 
 
