@@ -400,16 +400,6 @@ static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 		phy[i] = devm_phy_get(dev, name);
 		if (IS_ERR(phy[i]))
 			return PTR_ERR(phy[i]);
-
-		ret = phy_init(phy[i]);
-		if (ret < 0)
-			goto err_phy;
-
-		ret = phy_power_on(phy[i]);
-		if (ret < 0) {
-			phy_exit(phy[i]);
-			goto err_phy;
-		}
 	}
 
 	dra7xx->base = base;
@@ -417,11 +407,13 @@ static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 	dra7xx->dev = dev;
 	dra7xx->phy_count = phy_count;
 
+	platform_set_drvdata(pdev, dra7xx);
+
 	pm_runtime_enable(dev);
 	ret = pm_runtime_get_sync(dev);
 	if (IS_ERR_VALUE(ret)) {
 		dev_err(dev, "pm_runtime_get_sync failed\n");
-		goto err_phy;
+		goto err_get_sync;
 	}
 
 	reg = dra7xx_pcie_readl(dra7xx, PCIECTRL_DRA7XX_CONF_DEVICE_CMD);
@@ -438,13 +430,9 @@ static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 
 err_add_port:
 	pm_runtime_put(dev);
-	pm_runtime_disable(dev);
 
-err_phy:
-	while (--i >= 0) {
-		phy_power_off(phy[i]);
-		phy_exit(phy[i]);
-	}
+err_get_sync:
+	pm_runtime_disable(dev);
 
 	return ret;
 }
@@ -468,6 +456,79 @@ static int __exit dra7xx_pcie_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_RUNTIME
+static int dra7xx_pcie_runtime_suspend(struct device *dev)
+{
+	struct dra7xx_pcie *dra7xx = dev_get_drvdata(dev);
+	int phy_count = dra7xx->phy_count;
+
+	while (phy_count--) {
+		phy_power_off(dra7xx->phy[phy_count]);
+		phy_exit(dra7xx->phy[phy_count]);
+	}
+
+	return 0;
+}
+
+static int dra7xx_pcie_runtime_resume(struct device *dev)
+{
+	struct dra7xx_pcie *dra7xx = dev_get_drvdata(dev);
+	int phy_count = dra7xx->phy_count;
+	int ret;
+	int i;
+
+	for (i = 0; i < phy_count; i++) {
+		ret = phy_init(dra7xx->phy[i]);
+		if (ret < 0)
+			goto err_phy;
+
+		ret = phy_power_on(dra7xx->phy[i]);
+		if (ret < 0) {
+			phy_exit(dra7xx->phy[i]);
+			goto err_phy;
+		}
+	}
+
+	return 0;
+
+err_phy:
+	while (--i >= 0) {
+		phy_power_off(dra7xx->phy[i]);
+		phy_exit(dra7xx->phy[i]);
+	}
+
+	return ret;
+}
+#endif
+
+#ifdef CONFIG_PM_SLEEP
+static int dra7xx_pcie_suspend(struct device *dev)
+{
+	struct dra7xx_pcie *dra7xx = dev_get_drvdata(dev);
+	struct pcie_port *pp = &dra7xx->pp;
+
+	dw_pcie_suspend_rc(pp);
+
+	return 0;
+}
+
+static int dra7xx_pcie_resume(struct device *dev)
+{
+	struct dra7xx_pcie *dra7xx = dev_get_drvdata(dev);
+	struct pcie_port *pp = &dra7xx->pp;
+
+	dw_pcie_resume_rc(pp);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops dra7xx_pcie_pm_ops = {
+	SET_RUNTIME_PM_OPS(dra7xx_pcie_runtime_suspend,
+			   dra7xx_pcie_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(dra7xx_pcie_suspend, dra7xx_pcie_resume)
+};
+
 static const struct of_device_id of_dra7xx_pcie_match[] = {
 	{ .compatible = "ti,dra7-pcie", },
 	{},
@@ -480,6 +541,7 @@ static struct platform_driver dra7xx_pcie_driver = {
 		.name	= "dra7-pcie",
 		.owner	= THIS_MODULE,
 		.of_match_table = of_dra7xx_pcie_match,
+		.pm	= &dra7xx_pcie_pm_ops,
 	},
 };
 
