@@ -866,6 +866,26 @@ void dw_pcie_setup_rc(struct pcie_port *pp)
 	dw_pcie_writel_rc(pp, val, PCI_COMMAND);
 }
 
+void dw_pcie_suspend_rc(struct pcie_port *pp)
+{
+	u32 val;
+
+	/* clear MSE */
+	dw_pcie_readl_rc(pp, PCI_COMMAND, &val);
+	val &= ~PCI_COMMAND_MEMORY;
+	dw_pcie_writel_rc(pp, val, PCI_COMMAND);
+}
+
+void dw_pcie_resume_rc(struct pcie_port *pp)
+{
+	u32 val;
+
+	/* set MSE */
+	dw_pcie_readl_rc(pp, PCI_COMMAND, &val);
+	val |= PCI_COMMAND_MEMORY;
+	dw_pcie_writel_rc(pp, val, PCI_COMMAND);
+}
+
 MODULE_AUTHOR("Jingoo Han <jg1.han@samsung.com>");
 MODULE_DESCRIPTION("Designware PCIe host controller driver");
 MODULE_LICENSE("GPL v2");
