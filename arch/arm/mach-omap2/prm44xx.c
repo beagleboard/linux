@@ -673,6 +673,40 @@ static int omap4_check_vcvp(void)
 	return 1;
 }
 
+static void omap4_pwrdm_save_context(struct powerdomain *pwrdm)
+{
+	pwrdm->context = omap4_prminst_read_inst_reg(pwrdm->prcm_partition,
+						     pwrdm->prcm_offs,
+						     pwrdm->pwrstctrl_offs);
+
+	/*
+	 * Do not save LOWPOWERSTATECHANGE, writing a 1 indicates a request,
+	 * reading back a 1 indicates a request in progress.
+	 */
+	pwrdm->context &= ~OMAP4430_LOWPOWERSTATECHANGE_MASK;
+}
+
+static void omap4_pwrdm_restore_context(struct powerdomain *pwrdm)
+{
+	int st, ctrl;
+
+	st = omap4_prminst_read_inst_reg(pwrdm->prcm_partition,
+					 pwrdm->prcm_offs,
+					 pwrdm->pwrstctrl_offs);
+
+	omap4_prminst_write_inst_reg(pwrdm->context,
+				     pwrdm->prcm_partition,
+				     pwrdm->prcm_offs,
+				     pwrdm->pwrstctrl_offs);
+
+	/* Make sure we only wait for a transition if there is one */
+	st &= OMAP_POWERSTATEST_MASK;
+	ctrl = OMAP_POWERSTATEST_MASK & pwrdm->context;
+
+	if (st != ctrl)
+		omap4_pwrdm_wait_transition(pwrdm);
+}
+
 struct pwrdm_ops omap4_pwrdm_operations = {
 	.pwrdm_set_next_pwrst	= omap4_pwrdm_set_next_pwrst,
 	.pwrdm_read_next_pwrst	= omap4_pwrdm_read_next_pwrst,
@@ -691,6 +725,8 @@ struct pwrdm_ops omap4_pwrdm_operations = {
 	.pwrdm_set_mem_retst	= omap4_pwrdm_set_mem_retst,
 	.pwrdm_wait_transition	= omap4_pwrdm_wait_transition,
 	.pwrdm_has_voltdm	= omap4_check_vcvp,
+	.pwrdm_save_context	= omap4_pwrdm_save_context,
+	.pwrdm_restore_context	= omap4_pwrdm_restore_context,
 };
 
 static int omap44xx_prm_late_init(void);
