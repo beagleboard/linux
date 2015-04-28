@@ -256,28 +256,29 @@ static int ti_pipe3_exit(struct phy *x)
 	/* SATA DPLL can't be powered down due to Errata i783 and PCIe
 	 * does not have internal DPLL
 	 */
-	if (of_device_is_compatible(phy->dev->of_node, "ti,phy-pipe3-sata") ||
-	    of_device_is_compatible(phy->dev->of_node, "ti,phy-pipe3-pcie"))
+	if (of_device_is_compatible(phy->dev->of_node, "ti,phy-pipe3-sata"))
 		return 0;
 
-	/* Put DPLL in IDLE mode */
-	val = ti_pipe3_readl(phy->pll_ctrl_base, PLL_CONFIGURATION2);
-	val |= PLL_IDLE;
-	ti_pipe3_writel(phy->pll_ctrl_base, PLL_CONFIGURATION2, val);
+	if (!of_device_is_compatible(phy->dev->of_node, "ti,phy-pipe3-pcie")) {
+		/* Put DPLL in IDLE mode */
+		val = ti_pipe3_readl(phy->pll_ctrl_base, PLL_CONFIGURATION2);
+		val |= PLL_IDLE;
+		ti_pipe3_writel(phy->pll_ctrl_base, PLL_CONFIGURATION2, val);
 
-	/* wait for LDO and Oscillator to power down */
-	timeout = jiffies + msecs_to_jiffies(PLL_IDLE_TIME);
-	do {
-		cpu_relax();
-		val = ti_pipe3_readl(phy->pll_ctrl_base, PLL_STATUS);
-		if ((val & PLL_TICOPWDN) && (val & PLL_LDOPWDN))
-			break;
-	} while (!time_after(jiffies, timeout));
+		/* wait for LDO and Oscillator to power down */
+		timeout = jiffies + msecs_to_jiffies(PLL_IDLE_TIME);
+		do {
+			cpu_relax();
+			val = ti_pipe3_readl(phy->pll_ctrl_base, PLL_STATUS);
+			if ((val & PLL_TICOPWDN) && (val & PLL_LDOPWDN))
+				break;
+		} while (!time_after(jiffies, timeout));
 
-	if (!(val & PLL_TICOPWDN) || !(val & PLL_LDOPWDN)) {
-		dev_err(phy->dev, "Failed to power down: PLL_STATUS 0x%x\n",
-			val);
-		return -EBUSY;
+		if (!(val & PLL_TICOPWDN) || !(val & PLL_LDOPWDN)) {
+			dev_err(phy->dev, "Failed to power down: PLL_STATUS 0x%x\n",
+				val);
+			return -EBUSY;
+		}
 	}
 
 	ti_pipe3_disable_clocks(phy);
