@@ -8,7 +8,8 @@ translation for initiators which need contiguous dma bus addresses.
 
 Required properties:
 - compatible:	Should contain "ti,omap4-dmm" for OMAP4 family
-		Should contain "ti,omap5-dmm" for OMAP5 and DRA7x family
+		Should contain "ti,omap5-dmm" for OMAP5 family
+		Should contain "ti,dra7-dmm" for DRA7x family
 - reg:		Contains DMM register address range (base address and length)
 - interrupts:	Should contain an interrupt-specifier for DMM_IRQ.
 - ti,hwmods:	Name of the hwmod associated to DMM, which is typically "dmm"
