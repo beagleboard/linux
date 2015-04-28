@@ -309,6 +309,12 @@ static int fill(struct tcm_area *area, struct page **pages,
 	struct tcm_area slice, area_s;
 	struct dmm_txn *txn;
 
+	/*
+	 * XXX async wait doesn't work, as it does not handle timeout errors
+	 * properly
+	 */
+	wait = true;
+
 	txn = dmm_txn_init(omap_dmm, area->tcm);
 	if (IS_ERR_OR_NULL(txn))
 		return -ENOMEM;
