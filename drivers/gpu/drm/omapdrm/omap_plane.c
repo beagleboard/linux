@@ -131,7 +131,9 @@ static void omap_plane_pre_apply(struct omap_drm_apply *apply)
 	DBG("%s, enabled=%d", omap_plane->name, enabled);
 
 	/* if fb has changed, pin new fb: */
-	update_pin(plane, enabled ? plane->fb : NULL);
+	ret = update_pin(plane, enabled ? plane->fb : NULL);
+	if (ret)
+		enabled = false;
 
 	if (!enabled) {
 		dispc_ovl_enable(omap_plane->id, false);
