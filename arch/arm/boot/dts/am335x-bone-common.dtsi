@@ -338,3 +338,7 @@
 &wkup_m3 {
 	ti,scale-data-fw = "am335x-bone-scale-data.bin";
 };
+
+&rtc {
+	ti,system-power-controller;
+};

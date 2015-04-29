@@ -918,3 +918,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&dcan1_pins_default>;
 };
+
+&rtc {
+	ti,system-power-controller;
+};
