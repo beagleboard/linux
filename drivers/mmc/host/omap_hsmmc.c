@@ -253,6 +253,7 @@ struct omap_hsmmc_host {
 	struct pinctrl_state	*pinctrl_state;
 	struct omap_hsmmc_next	next_data;
 	struct	omap_mmc_platform_data	*pdata;
+	struct timer_list	timer;
 };
 
 struct omap_mmc_of_data {
@@ -1384,6 +1385,16 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 	int status;
 
 	status = OMAP_HSMMC_READ(host->base, STAT);
+
+	/*
+	 * During a successful bulk data transfer command-completion
+	 * interrupt and transfer-completion interrupt will be generated,
+	 * but software-timeout timer should be deleted only on non-CC
+	 * interrupts (transfer complete or error)
+	 */
+	if (timer_pending(&host->timer) && (status & (~CC_EN)))
+		del_timer(&host->timer);
+
 	while (status & INT_EN_MASK && host->req_in_progress) {
 		omap_hsmmc_do_irq(host, status);
 
@@ -1392,6 +1403,13 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 	}
 
 	return IRQ_HANDLED;
+}
+
+static void omap_hsmmc_soft_timeout(unsigned long data)
+{
+	struct omap_hsmmc_host *host = (struct omap_hsmmc_host *)data;
+
+	hsmmc_command_incomplete(host, -ETIMEDOUT, 0);
 }
 
 static void set_sd_bus_power(struct omap_hsmmc_host *host)
@@ -1691,8 +1709,25 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 			dto -= 13;
 		else
 			dto = 0;
-		if (dto > 14)
-			dto = 14;
+		if (dto > 14) {
+			unsigned long timeout_jiff;
+			unsigned int irq_mask;
+
+			/* Disable DTO interrupt */
+			irq_mask = OMAP_HSMMC_READ(host->base, IE);
+			irq_mask &= ~DTO_EN;
+			OMAP_HSMMC_WRITE(host->base, ISE, irq_mask);
+			OMAP_HSMMC_WRITE(host->base, IE, irq_mask);
+
+			timeout_ns += (timeout_clks / (host->clk_rate / clkd));
+			timeout_jiff = jiffies + nsecs_to_jiffies(timeout_ns);
+
+			host->timer.expires = timeout_jiff;
+			host->timer.data = (unsigned long)host;
+			host->timer.function = omap_hsmmc_soft_timeout;
+			add_timer(&host->timer);
+			return;
+		}
 	}
 
 	reg &= ~DTO_MASK;
@@ -2499,6 +2534,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	host->next_data.cookie = 1;
 	host->pbias_enabled = 0;
 	host->regulator_enabled = 0;
+	init_timer(&host->timer);
 
 	platform_set_drvdata(pdev, host);
 
