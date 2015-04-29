@@ -251,6 +251,11 @@ struct omap_hsmmc_host {
 	 */
 	bool			pinctrl_default_state;
 	struct pinctrl_state	*pinctrl_state;
+	/*
+	 * flag to determine whether card was removed during data
+	 * transfer
+	 */
+	bool			transfer_incomplete;
 	struct omap_hsmmc_next	next_data;
 	struct	omap_mmc_platform_data	*pdata;
 	struct timer_list	timer;
@@ -1520,6 +1525,7 @@ static irqreturn_t omap_hsmmc_detect(int irq, void *dev_id)
 {
 	struct omap_hsmmc_host *host = dev_id;
 	struct omap_mmc_slot_data *slot = &mmc_slot(host);
+	struct mmc_request *mrq = host->mrq;
 	int carddetect;
 
 	sysfs_notify(&host->mmc->class_dev.kobj, NULL, "cover_switch");
@@ -1531,6 +1537,22 @@ static irqreturn_t omap_hsmmc_detect(int irq, void *dev_id)
 		carddetect = -ENOSYS;
 	}
 
+	/*
+	 * If the card was removed in the middle of data transfer last
+	 * time, the TC/CC/timeout interrupt is not raised due to which
+	 * mmc_request is not cleared. Hence, this card insertion will
+	 * still see pending mmc_request. Clear the request to make sure
+	 * that this card enumeration is successful.
+	 */
+	if (carddetect && mrq && host->transfer_incomplete) {
+		dev_info(host->dev,
+			 "card removed during transfer last time\n");
+		hsmmc_command_incomplete(host, -ENOMEDIUM, 1);
+		omap_hsmmc_request_done(host, mrq);
+		dev_info(host->dev, "recovery done\n");
+	 }
+	host->transfer_incomplete = false;
+
 	if (carddetect)
 		mmc_detect_change(host->mmc, (HZ * 200) / 1000);
 	else
@@ -1541,6 +1563,16 @@ static irqreturn_t omap_hsmmc_detect(int irq, void *dev_id)
 		omap_hsmmc_pinctrl_set_state(host, "default");
 		host->pinctrl_default_state = true;
 	}
+
+	/*
+	 * The current mmc_request is usually null before card removal
+	 * sequence is complete. It may not be null if TC/CC interrupt
+	 * never happens due to removal of card during a data
+	 * transfer. Set a flag to indicate mmc_request was not null
+	 * in order to do cleanup on next card insertion.
+	 */
+	if (!carddetect && mrq)
+		host->transfer_incomplete = true;
 
 	return IRQ_HANDLED;
 }
