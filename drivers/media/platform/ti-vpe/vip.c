@@ -2993,6 +2993,7 @@ static const struct of_device_id vip_of_match[] = {
 	},
 	{},
 };
+MODULE_DEVICE_TABLE(of, vip_of_match);
 #else
 #define vip_of_match NULL
 #endif
