@@ -131,7 +131,9 @@ static void omap_plane_pre_apply(struct omap_drm_apply *apply)
 	DBG("%s, enabled=%d", omap_plane->name, enabled);
 
 	/* if fb has changed, pin new fb: */
-	update_pin(plane, enabled ? plane->fb : NULL);
+	ret = update_pin(plane, enabled ? plane->fb : NULL);
+	if (ret)
+		enabled = false;
 
 	if (!enabled) {
 		dispc_ovl_enable(omap_plane->id, false);
@@ -269,12 +271,12 @@ static int omap_plane_update(struct drm_plane *plane,
 		uint32_t src_w, uint32_t src_h)
 {
 	struct omap_plane *omap_plane = to_omap_plane(plane);
+	struct drm_framebuffer *old_fb;
+	int r;
+
 	omap_plane->enabled = true;
 
-	if (plane->fb)
-		drm_framebuffer_unreference(plane->fb);
-
-	drm_framebuffer_reference(fb);
+	old_fb = plane->fb;
 
 	/* omap_plane_mode_set() takes adjusted src */
 	switch (omap_plane->win.rotation & 0xf) {
@@ -284,10 +286,21 @@ static int omap_plane_update(struct drm_plane *plane,
 		break;
 	}
 
-	return omap_plane_mode_set(plane, crtc, fb,
+	r = omap_plane_mode_set(plane, crtc, fb,
 			crtc_x, crtc_y, crtc_w, crtc_h,
 			src_x, src_y, src_w, src_h,
 			NULL, NULL);
+	if (r)
+		return r;
+
+	/* if new fb was set ok, unref the old fb and ref the new one */
+
+	if (old_fb)
+		drm_framebuffer_unreference(old_fb);
+
+	drm_framebuffer_reference(fb);
+
+	return 0;
 }
 
 static int omap_plane_disable(struct drm_plane *plane)

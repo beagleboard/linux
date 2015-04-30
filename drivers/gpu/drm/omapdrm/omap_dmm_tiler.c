@@ -30,6 +30,7 @@
 #include <linux/time.h>
 #include <linux/list.h>
 #include <linux/completion.h>
+#include <linux/omap-dma.h>
 
 #include "omap_dmm_tiler.h"
 #include "omap_dmm_priv.h"
@@ -78,6 +79,130 @@ static const uint32_t reg[][4] = {
 				DMM_PAT_DESCR__2, DMM_PAT_DESCR__3},
 };
 
+static int dmm_dma_copy(struct dmm *dmm, u32 src, u32 dst)
+{
+	int count;
+
+	omap_set_dma_src_params(dmm->wa_dma_channel, 0, OMAP_DMA_AMODE_POST_INC, src, 0, 0);
+	omap_set_dma_dest_params(dmm->wa_dma_channel, 0, OMAP_DMA_AMODE_POST_INC, dst, 0, 0);
+
+	omap_start_dma(dmm->wa_dma_channel);
+
+	/* we only copy 4 bytes, so use polling. usually one loop is enough */
+	for (count = 100; count > 0; --count) {
+		if (omap_get_dma_active_status(dmm->wa_dma_channel) == 0)
+			break;
+	}
+
+	if (count == 0) {
+		omap_stop_dma(dmm->wa_dma_channel);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static u32 dmm_read_wa(struct dmm *dmm, u32 reg)
+{
+	u32 src, dst;
+	int r;
+
+	src = (u32)(dmm->phys_base + reg);
+	dst = (u32)dmm->wa_dma_handle;
+
+	r = dmm_dma_copy(dmm, src, dst);
+	if (r) {
+		dev_err(dmm->dev, "sDMA read transfer timeout\n");
+		return readl(dmm->base + reg);
+	}
+
+	return readl(dmm->wa_dma_data);
+}
+
+static void dmm_write_wa(struct dmm *dmm, u32 val, u32 reg)
+{
+	u32 src, dst;
+	int r;
+
+	writel(val, dmm->wa_dma_data);
+
+	src = (u32)dmm->wa_dma_handle;
+	dst = (u32)(dmm->phys_base + reg);
+
+	r = dmm_dma_copy(dmm, src, dst);
+	if (r) {
+		dev_err(dmm->dev, "sDMA write transfer timeout\n");
+		writel(val, dmm->base + reg);
+	}
+}
+
+static u32 dmm_read(struct dmm *dmm, u32 reg)
+{
+	if (dmm->dmm_workaround) {
+		u32 v;
+		unsigned long flags;
+
+		spin_lock_irqsave(&dmm->wa_lock, flags);
+		v = dmm_read_wa(dmm, reg);
+		spin_unlock_irqrestore(&dmm->wa_lock, flags);
+
+		return v;
+	} else {
+		return readl(dmm->base + reg);
+	}
+}
+
+static void dmm_write(struct dmm *dmm, u32 val, u32 reg)
+{
+	if (dmm->dmm_workaround) {
+		unsigned long flags;
+
+		spin_lock_irqsave(&dmm->wa_lock, flags);
+		dmm_write_wa(dmm, val, reg);
+		spin_unlock_irqrestore(&dmm->wa_lock, flags);
+	} else {
+		writel(val, dmm->base + reg);
+	}
+}
+
+static int dmm_workaround_init(struct dmm *dmm)
+{
+	const int dev_id = 0;
+	const int elem_count = 1;
+	const int frame_count = 1;
+	int r;
+
+	spin_lock_init(&dmm->wa_lock);
+
+	dmm->wa_dma_data = dma_alloc_coherent(dmm->dev, 4, &dmm->wa_dma_handle, GFP_KERNEL);
+	if (!dmm->wa_dma_data)
+		return -ENOMEM;
+
+	r = omap_request_dma(dev_id, "omap_dmm_workaround_dma", NULL, 0,
+		&dmm->wa_dma_channel);
+	if (r < 0) {
+		dma_free_coherent(dmm->dev, 4, dmm->wa_dma_data, dmm->wa_dma_handle);
+		return r;
+	}
+
+	omap_set_dma_transfer_params(dmm->wa_dma_channel, OMAP_DMA_DATA_TYPE_S32,
+			elem_count, frame_count, OMAP_DMA_SYNC_ELEMENT,
+			dev_id, 0x0);
+
+	omap_set_dma_src_burst_mode(dmm->wa_dma_channel, OMAP_DMA_DATA_BURST_DIS);
+	omap_set_dma_dest_burst_mode(dmm->wa_dma_channel, OMAP_DMA_DATA_BURST_DIS);
+	omap_set_dma_write_mode(dmm->wa_dma_channel, OMAP_DMA_WRITE_NON_POSTED);
+
+	return 0;
+}
+
+static void dmm_workaround_uninit(struct dmm *dmm)
+{
+	omap_free_dma(dmm->wa_dma_channel);
+
+	dma_free_coherent(dmm->dev, 4, dmm->wa_dma_data, dmm->wa_dma_handle);
+}
+
 /* simple allocator to grab next 16 byte aligned memory from txn */
 static void *alloc_dma(struct dmm_txn *txn, size_t sz, dma_addr_t *pa)
 {
@@ -107,7 +232,7 @@ static int wait_status(struct refill_engine *engine, uint32_t wait_mask)
 
 	i = DMM_FIXED_RETRY_COUNT;
 	while (true) {
-		r = readl(dmm->base + reg[PAT_STATUS][engine->id]);
+		r = dmm_read(dmm, reg[PAT_STATUS][engine->id]);
 		err = r & DMM_PATSTATUS_ERR;
 		if (err)
 			return -EFAULT;
@@ -139,11 +264,11 @@ static void release_engine(struct refill_engine *engine)
 static irqreturn_t omap_dmm_irq_handler(int irq, void *arg)
 {
 	struct dmm *dmm = arg;
-	uint32_t status = readl(dmm->base + DMM_PAT_IRQSTATUS);
+	uint32_t status = dmm_read(dmm, DMM_PAT_IRQSTATUS);
 	int i;
 
 	/* ack IRQ */
-	writel(status, dmm->base + DMM_PAT_IRQSTATUS);
+	dmm_write(dmm, status, DMM_PAT_IRQSTATUS);
 
 	for (i = 0; i < dmm->num_engines; i++) {
 		if (status & DMM_IRQSTAT_LST) {
@@ -261,9 +386,20 @@ static int dmm_txn_commit(struct dmm_txn *txn, bool wait)
 	}
 
 	txn->last_pat->next_pa = 0;
+	/* ensure that the written descriptors are visible to DMM */
+	wmb();
+
+	/*
+	 * NOTE: the wmb() above should be enough, but there seems to be a bug
+	 * in OMAP's memory barrier implementation, which in some rare cases may
+	 * cause the writes not to be observable after wmb().
+	 */
+
+	/* read back to ensure the data is in RAM */
+	readl(&txn->last_pat->next_pa);
 
 	/* write to PAT_DESCR to clear out any pending transaction */
-	writel(0x0, dmm->base + reg[PAT_DESCR][engine->id]);
+	dmm_write(dmm, 0x0, reg[PAT_DESCR][engine->id]);
 
 	/* wait for engine ready: */
 	ret = wait_status(engine, DMM_PATSTATUS_READY);
@@ -279,12 +415,11 @@ static int dmm_txn_commit(struct dmm_txn *txn, bool wait)
 	smp_mb();
 
 	/* kick reload */
-	writel(engine->refill_pa,
-		dmm->base + reg[PAT_DESCR][engine->id]);
+	dmm_write(dmm, engine->refill_pa, reg[PAT_DESCR][engine->id]);
 
 	if (wait) {
 		if (!wait_for_completion_timeout(&engine->compl,
-				msecs_to_jiffies(1))) {
+				msecs_to_jiffies(100))) {
 			dev_err(dmm->dev, "timed out waiting for done\n");
 			ret = -ETIMEDOUT;
 		}
@@ -307,6 +442,12 @@ static int fill(struct tcm_area *area, struct page **pages,
 	int ret = 0;
 	struct tcm_area slice, area_s;
 	struct dmm_txn *txn;
+
+	/*
+	 * XXX async wait doesn't work, as it does not handle timeout errors
+	 * properly
+	 */
+	wait = true;
 
 	txn = dmm_txn_init(omap_dmm, area->tcm);
 	if (IS_ERR_OR_NULL(txn))
@@ -576,6 +717,9 @@ static int omap_dmm_remove(struct platform_device *dev)
 		if (omap_dmm->dummy_page)
 			__free_page(omap_dmm->dummy_page);
 
+		if (omap_dmm->dmm_workaround)
+			dmm_workaround_uninit(omap_dmm);
+
 		if (omap_dmm->irq > 0)
 			free_irq(omap_dmm->irq, omap_dmm);
 
@@ -623,6 +767,7 @@ static int omap_dmm_probe(struct platform_device *dev)
 		goto fail;
 	}
 
+	omap_dmm->phys_base = mem->start;
 	omap_dmm->base = ioremap(mem->start, SZ_2K);
 
 	if (!omap_dmm->base) {
@@ -638,7 +783,20 @@ static int omap_dmm_probe(struct platform_device *dev)
 
 	omap_dmm->dev = &dev->dev;
 
-	hwinfo = readl(omap_dmm->base + DMM_PAT_HWINFO);
+	omap_dmm->dmm_workaround = omap_dmm->plat_data->errata_i878_wa;
+
+	if (omap_dmm->dmm_workaround) {
+		int r;
+		r = dmm_workaround_init(omap_dmm);
+		if (r) {
+			omap_dmm->dmm_workaround = false;
+			dev_err(&dev->dev, "failed to initialize work-around, WA not used\n");
+		} else {
+			dev_info(&dev->dev, "workaround for errata i878 in use\n");
+		}
+	}
+
+	hwinfo = dmm_read(omap_dmm, DMM_PAT_HWINFO);
 	omap_dmm->num_engines = (hwinfo >> 24) & 0x1F;
 	omap_dmm->num_lut = (hwinfo >> 16) & 0x1F;
 	omap_dmm->container_width = 256;
@@ -647,7 +805,7 @@ static int omap_dmm_probe(struct platform_device *dev)
 	atomic_set(&omap_dmm->engine_counter, omap_dmm->num_engines);
 
 	/* read out actual LUT width and height */
-	pat_geom = readl(omap_dmm->base + DMM_PAT_GEOMETRY);
+	pat_geom = dmm_read(omap_dmm, DMM_PAT_GEOMETRY);
 	omap_dmm->lut_width = ((pat_geom >> 16) & 0xF) << 5;
 	omap_dmm->lut_height = ((pat_geom >> 24) & 0xF) << 5;
 
@@ -657,12 +815,12 @@ static int omap_dmm_probe(struct platform_device *dev)
 		omap_dmm->num_lut++;
 
 	/* initialize DMM registers */
-	writel(0x88888888, omap_dmm->base + DMM_PAT_VIEW__0);
-	writel(0x88888888, omap_dmm->base + DMM_PAT_VIEW__1);
-	writel(0x80808080, omap_dmm->base + DMM_PAT_VIEW_MAP__0);
-	writel(0x80000000, omap_dmm->base + DMM_PAT_VIEW_MAP_BASE);
-	writel(0x88888888, omap_dmm->base + DMM_TILER_OR__0);
-	writel(0x88888888, omap_dmm->base + DMM_TILER_OR__1);
+	dmm_write(omap_dmm, 0x88888888, DMM_PAT_VIEW__0);
+	dmm_write(omap_dmm, 0x88888888, DMM_PAT_VIEW__1);
+	dmm_write(omap_dmm, 0x80808080, DMM_PAT_VIEW_MAP__0);
+	dmm_write(omap_dmm, 0x80000000, DMM_PAT_VIEW_MAP_BASE);
+	dmm_write(omap_dmm, 0x88888888, DMM_TILER_OR__0);
+	dmm_write(omap_dmm, 0x88888888, DMM_TILER_OR__1);
 
 	ret = request_irq(omap_dmm->irq, omap_dmm_irq_handler, IRQF_SHARED,
 				"omap_dmm_irq_handler", omap_dmm);
@@ -680,7 +838,7 @@ static int omap_dmm_probe(struct platform_device *dev)
 	 * buffers for accelerated pan/scroll) and FILL_DSC<n> which
 	 * we just generally don't care about.
 	 */
-	writel(0x7e7e7e7e, omap_dmm->base + DMM_PAT_IRQENABLE_SET);
+	dmm_write(omap_dmm, 0x7e7e7e7e, DMM_PAT_IRQENABLE_SET);
 
 	omap_dmm->dummy_page = alloc_page(GFP_KERNEL | __GFP_DMA32);
 	if (!omap_dmm->dummy_page) {
@@ -1004,6 +1162,11 @@ static const struct dmm_platform_data dmm_omap5_platform_data = {
 	.cpu_cache_flags = OMAP_BO_UNCACHED,
 };
 
+static const struct dmm_platform_data dmm_dra7_platform_data = {
+	.cpu_cache_flags = OMAP_BO_UNCACHED,
+	.errata_i878_wa = true,
+};
+
 static const struct of_device_id dmm_of_match[] = {
 	{
 		.compatible = "ti,omap4-dmm",
@@ -1012,6 +1175,10 @@ static const struct of_device_id dmm_of_match[] = {
 	{
 		.compatible = "ti,omap5-dmm",
 		.data = &dmm_omap5_platform_data,
+	},
+	{
+		.compatible = "ti,dra7-dmm",
+		.data = &dmm_dra7_platform_data,
 	},
 	{},
 };

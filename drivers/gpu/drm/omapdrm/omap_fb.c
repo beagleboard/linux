@@ -290,28 +290,21 @@ fail:
 }
 
 /* unpin, no longer being scanned out: */
-int omap_framebuffer_unpin(struct drm_framebuffer *fb)
+void omap_framebuffer_unpin(struct drm_framebuffer *fb)
 {
 	struct omap_framebuffer *omap_fb = to_omap_framebuffer(fb);
-	int ret, i, n = drm_format_num_planes(fb->pixel_format);
+	int i, n = drm_format_num_planes(fb->pixel_format);
 
 	omap_fb->pin_count--;
 
 	if (omap_fb->pin_count > 0)
-		return 0;
+		return;
 
 	for (i = 0; i < n; i++) {
 		struct plane *plane = &omap_fb->planes[i];
-		ret = omap_gem_put_paddr(plane->bo);
-		if (ret)
-			goto fail;
+		omap_gem_put_paddr(plane->bo);
 		plane->paddr = 0;
 	}
-
-	return 0;
-
-fail:
-	return ret;
 }
 
 struct drm_gem_object *omap_framebuffer_bo(struct drm_framebuffer *fb, int p)
