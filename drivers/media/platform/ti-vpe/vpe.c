@@ -2525,6 +2525,7 @@ static const struct of_device_id vpe_of_match[] = {
 	},
 	{},
 };
+MODULE_DEVICE_TABLE(of, vpe_of_match);
 #else
 #define vpe_of_match NULL
 #endif
