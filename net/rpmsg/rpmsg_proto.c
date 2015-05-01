@@ -248,6 +248,14 @@ static int rpmsg_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 		return -EOPNOTSUPP;
 	}
 
+	/* return failure on errored-out Rx sockets */
+	lock_sock(sk);
+	if (sk->sk_state == RPMSG_ERROR) {
+		release_sock(sk);
+		return -ENOLINK;
+	}
+	release_sock(sk);
+
 	msg->msg_namelen = 0;
 
 	skb = skb_recv_datagram(sk, flags, noblock, &ret);
@@ -296,6 +304,8 @@ static unsigned int rpmsg_sock_poll(struct file *file, struct socket *sock,
 
 	/* exceptional events? */
 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+		mask |= POLLERR;
+	if (sk->sk_state == RPMSG_ERROR)
 		mask |= POLLERR;
 	if (sk->sk_shutdown & RCV_SHUTDOWN)
 		mask |= POLLRDHUP;
@@ -714,6 +724,7 @@ static void rpmsg_proto_remove(struct rpmsg_channel *rpdev)
 			sk->sk_state = RPMSG_ERROR;
 			rpsk = container_of(sk, struct rpmsg_socket, sk);
 			rpsk->rpdev = NULL;
+			sk->sk_error_report(sk);
 			release_sock(sk);
 		}
 	}
