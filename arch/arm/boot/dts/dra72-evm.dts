@@ -404,6 +404,63 @@
 			0x2c8 (PIN_INPUT_PULLUP | WAKEUP_EN | MUX_MODE14 ) /* mcasp1_axr5.gpio5_7 - WLAN_IRQ */
 		>;
 	};
+
+	vin1a_pins: pinmux_vin1a_pins {
+		pinctrl-single,pins = <
+			0x0DC   (PIN_INPUT | MUX_MODE0) /* vin1a_clk0 */
+			0x0E4   (PIN_INPUT | MUX_MODE0) /* vin1a_de0 */
+			0x0E8   (PIN_INPUT | MUX_MODE0) /* vin1a_fld0 */
+			0x0EC   (PIN_INPUT | MUX_MODE0) /* vin1a_hsync0 */
+			0x0F0   (PIN_INPUT | MUX_MODE0) /* vin1a_vsync0 */
+			0x0F4   (PIN_INPUT | MUX_MODE0) /* vin1a_d0 */
+			0x0F8   (PIN_INPUT | MUX_MODE0) /* vin1a_d1 */
+			0x0FC   (PIN_INPUT | MUX_MODE0) /* vin1a_d2 */
+			0x100   (PIN_INPUT | MUX_MODE0) /* vin1a_d3 */
+			0x104   (PIN_INPUT | MUX_MODE0) /* vin1a_d4 */
+			0x108   (PIN_INPUT | MUX_MODE0) /* vin1a_d5 */
+			0x10C   (PIN_INPUT | MUX_MODE0) /* vin1a_d6 */
+			0x110   (PIN_INPUT | MUX_MODE0) /* vin1a_d7 */
+			0x114   (PIN_INPUT | MUX_MODE0) /* vin1a_d8 */
+			0x118   (PIN_INPUT | MUX_MODE0) /* vin1a_d9 */
+			0x11C   (PIN_INPUT | MUX_MODE0) /* vin1a_d10 */
+			0x120   (PIN_INPUT | MUX_MODE0) /* vin1a_d11 */
+			0x124   (PIN_INPUT | MUX_MODE0) /* vin1a_d12 */
+			0x128   (PIN_INPUT | MUX_MODE0) /* vin1a_d13 */
+			0x12C   (PIN_INPUT | MUX_MODE0) /* vin1a_d14 */
+			0x130   (PIN_INPUT | MUX_MODE0) /* vin1a_d15 */
+		>;
+	};
+
+	vin1a_d16_d23_pins: pinmux_vin1a_d16_d23_pins {
+		pinctrl-single,pins = <
+			0x134   (PIN_INPUT | MUX_MODE0) /* vin1a_d16 */
+			0x138   (PIN_INPUT | MUX_MODE0) /* vin1a_d17 */
+			0x13C   (PIN_INPUT | MUX_MODE0) /* vin1a_d18 */
+			0x140   (PIN_INPUT | MUX_MODE0) /* vin1a_d19 */
+			0x144   (PIN_INPUT | MUX_MODE0) /* vin1a_d20 */
+			0x148   (PIN_INPUT | MUX_MODE0) /* vin1a_d21 */
+			0x14C   (PIN_INPUT | MUX_MODE0) /* vin1a_d22 */
+			0x150   (PIN_INPUT | MUX_MODE0) /* vin1a_d23 */
+
+		>;
+	};
+
+	vin2a_pins: pinmux_vin2a_pins {
+		pinctrl-single,pins = <
+			0x154   (PIN_INPUT | MUX_MODE0) /* vin2a_clk0 */
+			0x160   (PIN_INPUT | MUX_MODE0) /* vin2a_hsync0 */
+			0x164   (PIN_INPUT | MUX_MODE0) /* vin2a_vsync0 */
+			0x168   (PIN_INPUT | MUX_MODE0) /* vin2a_d0 */
+			0x16c   (PIN_INPUT | MUX_MODE0) /* vin2a_d1 */
+			0x170   (PIN_INPUT | MUX_MODE0) /* vin2a_d2 */
+			0x174   (PIN_INPUT | MUX_MODE0) /* vin2a_d3 */
+			0x178   (PIN_INPUT | MUX_MODE0) /* vin2a_d4 */
+			0x17c   (PIN_INPUT | MUX_MODE0) /* vin2a_d5 */
+			0x180   (PIN_INPUT | MUX_MODE0) /* vin2a_d6 */
+			0x184   (PIN_INPUT | MUX_MODE0) /* vin2a_d7 */
+		>;
+	};
+
 };
 
 &i2c1 {
@@ -1015,6 +1072,8 @@
 };
 
 &vip1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&vin2a_pins>;
 	status = "okay";
 };
 
