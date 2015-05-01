@@ -2372,6 +2372,12 @@
 				reg = <1>;
 			};
 		};
+
+                debugss: debugss {
+                        compatible = "ti,dra7xx-debugss";
+                        clocks = <&sys_clkin1>;
+                        clock-names = "sysclockin1";
+                };
 	};
 
 	thermal_zones: thermal-zones {
