@@ -2870,12 +2870,6 @@ static int vip_probe(struct platform_device *pdev)
 	vip_shared_set_clock_enable(shared, 1);
 	vip_top_vpdma_reset(shared);
 
-	shared->vpdma = vpdma_create(pdev, vip_vpdma_fw_cb);
-	if (!shared->vpdma) {
-		dev_err(&pdev->dev, "Creating VPDMA failed");
-		goto do_iounmap;
-	}
-
 	list_add_tail(&shared->list, &vip_shared_list);
 	platform_set_drvdata(pdev, shared);
 	atomic_set(&shared->devs_allocated, 0);
@@ -2938,6 +2932,12 @@ static int vip_probe(struct platform_device *pdev)
 		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT);
 	}
 
+	shared->vpdma = vpdma_create(pdev, vip_vpdma_fw_cb);
+	if (!shared->vpdma) {
+		dev_err(&pdev->dev, "Creating VPDMA failed");
+		goto dev_unreg;
+	}
+
 	return 0;
 
 dev_unreg:
@@ -2993,6 +2993,7 @@ static const struct of_device_id vip_of_match[] = {
 	},
 	{},
 };
+MODULE_DEVICE_TABLE(of, vip_of_match);
 #else
 #define vip_of_match NULL
 #endif
