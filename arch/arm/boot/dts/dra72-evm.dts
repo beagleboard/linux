@@ -1083,3 +1083,7 @@
 		remote-endpoint = <&onboardLI>;
 	};
 };
+
+&cal {
+	status = "okay";
+};
