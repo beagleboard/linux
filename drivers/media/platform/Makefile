@@ -21,6 +21,8 @@ obj-$(CONFIG_VIDEO_MEM2MEM_TESTDEV) += mem2mem_testdev.o
 
 obj-$(CONFIG_VIDEO_TI_VPE)		+= ti-vpe/
 
+obj-$(CONFIG_VIDEO_TI_CAL)		+= ti-vpe/
+
 obj-$(CONFIG_VIDEO_MX2_EMMAPRP)		+= mx2_emmaprp.o
 obj-$(CONFIG_VIDEO_CODA) 		+= coda.o
 
