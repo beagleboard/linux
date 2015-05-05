@@ -1,0 +1,128 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	wlan_en_reg: fixedregulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan-en-regulator";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		/* WL_EN */
+		gpio = <&gpio0 26 0>;
+		enable-active-high;
+	};
+
+	kim {
+	        compatible = "kim";
+	        nshutdown_gpio = <44>; /* Bank1, pin12 */
+	        dev_name = "/dev/ttyO4";
+	        flow_cntrl = <1>;
+	        baud_rate = <3000000>;
+	};
+
+	btwilink {
+	        compatible = "btwilink";
+	};
+};
+
+&am33xx_pinmux {
+	bt_pins: pinmux_bt_pins {
+		pinctrl-single,pins = <
+			0x30 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_ad12.gpio1_12 */
+		>;
+	};
+
+	mmc2_pins: pinmux_mmc2_pins {
+		pinctrl-single,pins = <
+			0x80 (PIN_INPUT_PULLUP | MUX_MODE2) /* gpmc_csn1.mmc1_clk */
+			0x84 (PIN_INPUT_PULLUP | MUX_MODE2) /* gpmc_csn2.mmc1_cmd */
+			0x00 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad0.mmc1_dat0 */
+			0x04 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad1.mmc1_dat1 */
+			0x08 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad2.mmc1_dat2 */
+			0x0c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad3.mmc1_dat3 */
+		>;
+	};
+
+	mmc2_pins_sleep: pinmux_mmc2_pins_sleep {
+		pinctrl-single,pins = <
+			0x80 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn1.mmc1_clk */
+			0x84 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn2.mmc1_cmd */
+			0x00 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad0.mmc1_dat0 */
+			0x04 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad1.mmc1_dat1 */
+			0x08 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad2.mmc1_dat2 */
+			0x0c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad3.mmc1_dat3 */
+		>;
+	};
+
+	/* wl18xx card enable/irq GPIOs. */
+	wlan_pins: pinmux_wlan_pins {
+		pinctrl-single,pins = <
+			0x28 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad10.gpio0_26 WL_EN*/
+			0x2C (PIN_INPUT_PULLUP | MUX_MODE7)	/* gpmc_ad11.gpio0_27 WL_IRQ*/
+			0x7C (PIN_OUTPUT_PULLUP | MUX_MODE0)	/* gpmc_csn0.gpio1_29 BF_EN*/
+		>;
+	};
+
+	/* wl18xx card enable/irq GPIOs. */
+	wlan_pins_sleep: pinmux_wlan_pins_sleep {
+		pinctrl-single,pins = <
+			0x28 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_ad10.gpio0_26 WL_EN*/
+			0x2C (PIN_INPUT_PULLUP | MUX_MODE7)	/* gpmc_ad11.gpio0_27 WL_IRQ*/
+			0x7C (PIN_OUTPUT_PULLUP | MUX_MODE0)	/* gpmc_csn0.gpio1_29 BF_EN*/
+		>;
+	};
+
+	uart4_pins_default: pinmux_uart4_pins_default {
+		pinctrl-single,pins = <
+			0xD0 (PIN_INPUT | MUX_MODE6)		/* lcd_data12.uart4_cts */
+			0xD4 (PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* lcd_data13.uart4_rts */
+			0x70 (PIN_INPUT_PULLUP | MUX_MODE6)	/* gpmc_wait0.uart4_rxd */
+			0x74 (PIN_OUTPUT_PULLDOWN | MUX_MODE6)	/* gpmc_wpn.uart4_txd */
+		>;
+	};
+
+	uart4_pins_sleep: pinmux_uart4_pins_sleep {
+		pinctrl-single,pins = <
+			0xD0 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* lcd_data12.uart4_cts */
+			0xD4 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* lcd_data13.uart4_rts */
+			0x70 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_wait0.uart4_rxd */
+			0x74 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_wpn.uart4_txd */
+		>;
+	};
+};
+
+&mmc2 {
+	status = "okay";
+	vmmc-supply = <&wlan_en_reg>;
+	bus-width = <4>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&mmc2_pins &wlan_pins>;
+	pinctrl-1 = <&mmc2_pins_sleep &wlan_pins_sleep>;
+	ti,non-removable;
+	ti,needs-special-hs-handling;
+	cap-power-off-card;
+	keep-power-in-suspend;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@0 {
+		compatible = "ti,wl1835";
+		reg = <2>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <27 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};
+
+&uart4 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&uart4_pins_default>;
+	pinctrl-1 = <&uart4_pins_sleep>;
+	status = "okay";
+};
