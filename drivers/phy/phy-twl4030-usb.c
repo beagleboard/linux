@@ -637,7 +637,7 @@ static int twl4030_set_peripheral(struct usb_otg *otg,
 
 	otg->gadget = gadget;
 	if (!gadget)
-		otg->phy->state = OTG_STATE_UNDEFINED;
+		otg->state = OTG_STATE_UNDEFINED;
 
 	return 0;
 }
@@ -649,7 +649,7 @@ static int twl4030_set_host(struct usb_otg *otg, struct usb_bus *host)
 
 	otg->host = host;
 	if (!host)
-		otg->phy->state = OTG_STATE_UNDEFINED;
+		otg->state = OTG_STATE_UNDEFINED;
 
 	return 0;
 }

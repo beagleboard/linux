@@ -106,7 +106,7 @@ struct usb_hcd {
 	 * OTG and some Host controllers need software interaction with phys;
 	 * other external phys should be software-transparent
 	 */
-	struct usb_phy	*phy;
+	struct usb_phy		*usb_phy;
 
 	/* Flags that need to be manipulated atomically because they can
 	 * change while the host controller is running.  Always use
@@ -377,6 +377,20 @@ struct hc_driver {
 	int	(*disable_usb3_lpm_timeout)(struct usb_hcd *,
 			struct usb_device *, enum usb3_link_state state);
 	int	(*find_raw_port_number)(struct usb_hcd *, int);
+};
+
+/**
+ * struct otg_hcd_ops - Interface between OTG core and HCD
+ *
+ * Provided by the HCD core to allow the OTG core to start/stop the HCD
+ *
+ * @add: function to add the HCD
+ * @remove: function to remove the HCD
+ */
+struct otg_hcd_ops {
+	int (*add)(struct usb_hcd *hcd,
+		       unsigned int irqnum, unsigned long irqflags);
+	void (*remove)(struct usb_hcd *hcd);
 };
 
 static inline int hcd_giveback_urb_in_bh(struct usb_hcd *hcd)

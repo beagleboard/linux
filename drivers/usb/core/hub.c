@@ -2223,6 +2223,9 @@ static int usb_enumerate_device_otg(struct usb_device *udev)
 						"can't set HNP mode: %d\n",
 						err);
 					bus->b_hnp_enable = 0;
+				} else {
+					/* notify OTG fsm about a_set_b_hnp_enable */
+					usb_otg_kick_fsm(udev->bus->controller);
 				}
 			}
 		}
@@ -4094,8 +4097,13 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 	 */
 	if (!hdev->parent) {
 		delay = HUB_ROOT_RESET_TIME;
-		if (port1 == hdev->bus->otg_port)
+		if (port1 == hdev->bus->otg_port) {
 			hdev->bus->b_hnp_enable = 0;
+#ifdef CONFIG_USB_OTG
+			/* notify OTG fsm about a_set_b_hnp_enable change */
+			usb_otg_kick_fsm(hdev->bus->controller);
+#endif
+		}
 	}
 
 	/* Some low speed devices have problems with the quick delay, so */
@@ -4309,8 +4317,8 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 	if (retval)
 		goto fail;
 
-	if (hcd->phy && !hdev->parent)
-		usb_phy_notify_connect(hcd->phy, udev->speed);
+	if (hcd->usb_phy && !hdev->parent)
+		usb_phy_notify_connect(hcd->usb_phy, udev->speed);
 
 	/*
 	 * Some superspeed devices have finished the link training process
@@ -4520,9 +4528,9 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 
 	/* Disconnect any existing devices under this port */
 	if (udev) {
-		if (hcd->phy && !hdev->parent &&
+		if (hcd->usb_phy && !hdev->parent &&
 				!(portstatus & USB_PORT_STAT_CONNECTION))
-			usb_phy_notify_disconnect(hcd->phy, udev->speed);
+			usb_phy_notify_disconnect(hcd->usb_phy, udev->speed);
 		usb_disconnect(&hub->ports[port1 - 1]->child);
 	}
 	clear_bit(port1, hub->change_bits);

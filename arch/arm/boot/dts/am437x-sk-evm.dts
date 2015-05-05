@@ -375,7 +375,7 @@
 
 	usb2_phy2_pins: usb2_phy2_pins {
 		pinctrl-single,pins = <
-			0x2c0 (PIN_OUTPUT_PULLUP | MUX_MODE0)
+			0x2c4 (PIN_OUTPUT_PULLUP | MUX_MODE0)
 		>;
 	};
 };

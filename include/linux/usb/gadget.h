@@ -489,8 +489,7 @@ struct usb_gadget_ops {
 	void	(*get_config_params)(struct usb_dcd_config_params *);
 	int	(*udc_start)(struct usb_gadget *,
 			struct usb_gadget_driver *);
-	int	(*udc_stop)(struct usb_gadget *,
-			struct usb_gadget_driver *);
+	int	(*udc_stop)(struct usb_gadget *);
 };
 
 /**
@@ -523,6 +522,7 @@ struct usb_gadget_ops {
  *	enabled HNP support.
  * @quirk_ep_out_aligned_size: epout requires buffer size to be aligned to
  *	MaxPacketSize.
+ * @is_selfpowered: if the gadget is self-powered.
  *
  * Gadgets have a mostly-portable "gadget driver" implementing device
  * functions, handling all usb configurations and interfaces.  Gadget
@@ -563,6 +563,7 @@ struct usb_gadget {
 	unsigned			a_hnp_support:1;
 	unsigned			a_alt_hnp_support:1;
 	unsigned			quirk_ep_out_aligned_size:1;
+	unsigned			is_selfpowered:1;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 
@@ -816,6 +817,8 @@ static inline int usb_gadget_disconnect(struct usb_gadget *gadget)
  *	Called in a context that permits sleeping.
  * @suspend: Invoked on USB suspend.  May be called in_interrupt.
  * @resume: Invoked on USB resume.  May be called in_interrupt.
+ * @reset: Invoked on USB bus reset. It is mandatory for all gadget drivers
+ *	and should be called in_interrupt.
  * @driver: Driver model state for this driver.
  *
  * Devices are disabled till a gadget driver successfully bind()s, which
@@ -873,12 +876,27 @@ struct usb_gadget_driver {
 	void			(*disconnect)(struct usb_gadget *);
 	void			(*suspend)(struct usb_gadget *);
 	void			(*resume)(struct usb_gadget *);
+	void			(*reset)(struct usb_gadget *);
 
 	/* FIXME support safe rmmod */
 	struct device_driver	driver;
 };
 
 
+/*-------------------------------------------------------------------------*/
+
+/**
+ * struct otg_gadget_ops - Interface between OTG core and gadget
+ *
+ * Provided by the gadget core to allow the OTG core to start/stop the gadget
+ *
+ * @start: function to start the gadget
+ * @stop: function to stop the gadget
+ */
+struct otg_gadget_ops {
+	int (*start)(struct usb_gadget *gadget);
+	int (*stop)(struct usb_gadget *gadget);
+};
 
 /*-------------------------------------------------------------------------*/
 
@@ -921,7 +939,7 @@ extern int usb_add_gadget_udc_release(struct device *parent,
 		struct usb_gadget *gadget, void (*release)(struct device *dev));
 extern int usb_add_gadget_udc(struct device *parent, struct usb_gadget *gadget);
 extern void usb_del_gadget_udc(struct usb_gadget *gadget);
-extern int udc_attach_driver(const char *name,
+extern int usb_udc_attach_driver(const char *name,
 		struct usb_gadget_driver *driver);
 
 /*-------------------------------------------------------------------------*/
@@ -1010,6 +1028,20 @@ extern void usb_gadget_unmap_request(struct usb_gadget *gadget,
 
 extern void usb_gadget_set_state(struct usb_gadget *gadget,
 		enum usb_device_state state);
+
+/*-------------------------------------------------------------------------*/
+
+/* utility to tell udc core that the bus reset occurs */
+extern void usb_gadget_udc_reset(struct usb_gadget *gadget,
+		struct usb_gadget_driver *driver);
+
+/*-------------------------------------------------------------------------*/
+
+/* utility to give requests back to the gadget layer */
+
+extern void usb_gadget_giveback_request(struct usb_ep *ep,
+		struct usb_request *req);
+
 
 /*-------------------------------------------------------------------------*/
 

@@ -1564,8 +1564,6 @@ struct xhci_hcd {
 #define XHCI_SPURIOUS_WAKEUP	(1 << 18)
 /* For controllers with a broken beyond repair streams implementation */
 #define XHCI_BROKEN_STREAMS	(1 << 19)
-#define XHCI_DRD_SUPPORT	(1 << 20)
-#define XHCI_NEEDS_LHC_RESET	(1 << 21)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
@@ -1592,10 +1590,24 @@ struct xhci_hcd {
 #define COMP_MODE_RCVRY_MSECS 2000
 };
 
+/* Platform specific overrides to generic XHCI hc_driver ops */
+struct xhci_driver_overrides {
+	size_t extra_priv_size;
+	int (*reset)(struct usb_hcd *hcd);
+	int (*start)(struct usb_hcd *hcd);
+};
+
 /* convert between an HCD pointer and the corresponding EHCI_HCD */
 static inline struct xhci_hcd *hcd_to_xhci(struct usb_hcd *hcd)
 {
-	return *((struct xhci_hcd **) (hcd->hcd_priv));
+	struct usb_hcd *primary_hcd;
+
+	if (usb_hcd_is_primary_hcd(hcd))
+		primary_hcd = hcd;
+	else
+		primary_hcd = hcd->primary_hcd;
+
+	return (struct xhci_hcd *) (primary_hcd->hcd_priv);
 }
 
 static inline struct usb_hcd *xhci_to_hcd(struct xhci_hcd *xhci)
@@ -1737,25 +1749,6 @@ void xhci_urb_free_priv(struct xhci_hcd *xhci, struct urb_priv *urb_priv);
 void xhci_free_command(struct xhci_hcd *xhci,
 		struct xhci_command *command);
 
-#ifdef CONFIG_PCI
-/* xHCI PCI glue */
-int xhci_register_pci(void);
-void xhci_unregister_pci(void);
-#else
-static inline int xhci_register_pci(void) { return 0; }
-static inline void xhci_unregister_pci(void) {}
-#endif
-
-#if IS_ENABLED(CONFIG_USB_XHCI_PLATFORM)
-int xhci_register_plat(void);
-void xhci_unregister_plat(void);
-#else
-static inline int xhci_register_plat(void)
-{ return 0; }
-static inline void xhci_unregister_plat(void)
-{  }
-#endif
-
 /* xHCI host controller glue */
 typedef void (*xhci_get_quirks_t)(struct device *, struct xhci_hcd *);
 int xhci_handshake(struct xhci_hcd *xhci, void __iomem *ptr,
@@ -1768,6 +1761,8 @@ int xhci_run(struct usb_hcd *hcd);
 void xhci_stop(struct usb_hcd *hcd);
 void xhci_shutdown(struct usb_hcd *hcd);
 int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks);
+void xhci_init_driver(struct hc_driver *drv,
+		      const struct xhci_driver_overrides *over);
 
 #ifdef	CONFIG_PM
 int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup);
@@ -1892,8 +1887,5 @@ void xhci_ring_device(struct xhci_hcd *xhci, int slot_id);
 struct xhci_input_control_ctx *xhci_get_input_control_ctx(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx);
 struct xhci_slot_ctx *xhci_get_slot_ctx(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx);
 struct xhci_ep_ctx *xhci_get_ep_ctx(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx, unsigned int ep_index);
-
-/* xHCI quirks */
-bool xhci_compliance_mode_recovery_timer_quirk_check(void);
 
 #endif /* __LINUX_XHCI_HCD_H */

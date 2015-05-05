@@ -40,6 +40,15 @@
 
 static const char hcd_name[] = "xhci_hcd";
 
+static struct hc_driver __read_mostly xhci_pci_hc_driver;
+
+static int xhci_pci_setup(struct usb_hcd *hcd);
+
+static const struct xhci_driver_overrides xhci_pci_overrides __initconst = {
+	.extra_priv_size = sizeof(struct xhci_hcd),
+	.reset = xhci_pci_setup,
+};
+
 /* called after powerup, by probe or system-pm "wakeup" */
 static int xhci_pci_reinit(struct xhci_hcd *xhci, struct pci_dev *pdev)
 {
@@ -188,7 +197,6 @@ static int xhci_pci_setup(struct usb_hcd *hcd)
 	if (!retval)
 		return retval;
 
-	kfree(xhci);
 	return retval;
 }
 
@@ -222,17 +230,13 @@ static int xhci_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	/* USB 2.0 roothub is stored in the PCI device now. */
 	hcd = dev_get_drvdata(&dev->dev);
 	xhci = hcd_to_xhci(hcd);
+	xhci->main_hcd = hcd;
 	xhci->shared_hcd = usb_create_shared_hcd(driver, &dev->dev,
 				pci_name(dev), hcd);
 	if (!xhci->shared_hcd) {
 		retval = -ENOMEM;
 		goto dealloc_usb2_hcd;
 	}
-
-	/* Set the xHCI pointer before xhci_pci_setup() (aka hcd_driver.reset)
-	 * is called by usb_add_hcd().
-	 */
-	*((struct xhci_hcd **) xhci->shared_hcd->hcd_priv) = xhci;
 
 	retval = usb_add_hcd(xhci->shared_hcd, dev->irq,
 			IRQF_SHARED);
@@ -272,8 +276,6 @@ static void xhci_pci_remove(struct pci_dev *dev)
 	/* Workaround for spurious wakeups at shutdown with HSW */
 	if (xhci->quirks & XHCI_SPURIOUS_WAKEUP)
 		pci_set_power_state(dev, PCI_D3hot);
-
-	kfree(xhci);
 }
 
 #ifdef CONFIG_PM
@@ -286,7 +288,7 @@ static int xhci_pci_suspend(struct usb_hcd *hcd, bool do_wakeup)
 	 * Systems with the TI redriver that loses port status change events
 	 * need to have the registers polled during D3, so avoid D3cold.
 	 */
-	if (xhci_compliance_mode_recovery_timer_quirk_check())
+	if (xhci->quirks & XHCI_COMP_MODE_QUIRK)
 		pdev->no_d3cold = true;
 
 	return xhci_suspend(xhci, do_wakeup);
@@ -324,68 +326,6 @@ static int xhci_pci_resume(struct usb_hcd *hcd, bool hibernated)
 }
 #endif /* CONFIG_PM */
 
-static const struct hc_driver xhci_pci_hc_driver = {
-	.description =		hcd_name,
-	.product_desc =		"xHCI Host Controller",
-	.hcd_priv_size =	sizeof(struct xhci_hcd *),
-
-	/*
-	 * generic hardware linkage
-	 */
-	.irq =			xhci_irq,
-	.flags =		HCD_MEMORY | HCD_USB3 | HCD_SHARED,
-
-	/*
-	 * basic lifecycle operations
-	 */
-	.reset =		xhci_pci_setup,
-	.start =		xhci_run,
-#ifdef CONFIG_PM
-	.pci_suspend =          xhci_pci_suspend,
-	.pci_resume =           xhci_pci_resume,
-#endif
-	.stop =			xhci_stop,
-	.shutdown =		xhci_shutdown,
-
-	/*
-	 * managing i/o requests and associated device resources
-	 */
-	.urb_enqueue =		xhci_urb_enqueue,
-	.urb_dequeue =		xhci_urb_dequeue,
-	.alloc_dev =		xhci_alloc_dev,
-	.free_dev =		xhci_free_dev,
-	.alloc_streams =	xhci_alloc_streams,
-	.free_streams =		xhci_free_streams,
-	.add_endpoint =		xhci_add_endpoint,
-	.drop_endpoint =	xhci_drop_endpoint,
-	.endpoint_reset =	xhci_endpoint_reset,
-	.check_bandwidth =	xhci_check_bandwidth,
-	.reset_bandwidth =	xhci_reset_bandwidth,
-	.address_device =	xhci_address_device,
-	.enable_device =	xhci_enable_device,
-	.update_hub_device =	xhci_update_hub_device,
-	.reset_device =		xhci_discover_or_reset_device,
-
-	/*
-	 * scheduling support
-	 */
-	.get_frame_number =	xhci_get_frame,
-
-	/* Root hub support */
-	.hub_control =		xhci_hub_control,
-	.hub_status_data =	xhci_hub_status_data,
-	.bus_suspend =		xhci_bus_suspend,
-	.bus_resume =		xhci_bus_resume,
-	/*
-	 * call back when device connected and addressed
-	 */
-	.update_device =        xhci_update_device,
-	.set_usb2_hw_lpm =	xhci_set_usb2_hardware_lpm,
-	.enable_usb3_lpm_timeout =	xhci_enable_usb3_lpm_timeout,
-	.disable_usb3_lpm_timeout =	xhci_disable_usb3_lpm_timeout,
-	.find_raw_port_number =	xhci_find_raw_port_number,
-};
-
 /*-------------------------------------------------------------------------*/
 
 /* PCI driver selection metadata; PCI hotplugging uses this */
@@ -415,12 +355,22 @@ static struct pci_driver xhci_pci_driver = {
 #endif
 };
 
-int __init xhci_register_pci(void)
+static int __init xhci_pci_init(void)
 {
+	xhci_init_driver(&xhci_pci_hc_driver, &xhci_pci_overrides);
+#ifdef CONFIG_PM
+	xhci_pci_hc_driver.pci_suspend = xhci_pci_suspend;
+	xhci_pci_hc_driver.pci_resume = xhci_pci_resume;
+#endif
 	return pci_register_driver(&xhci_pci_driver);
 }
+module_init(xhci_pci_init);
 
-void xhci_unregister_pci(void)
+static void __exit xhci_pci_exit(void)
 {
 	pci_unregister_driver(&xhci_pci_driver);
 }
+module_exit(xhci_pci_exit);
+
+MODULE_DESCRIPTION("xHCI PCI Host Controller Driver");
+MODULE_LICENSE("GPL");

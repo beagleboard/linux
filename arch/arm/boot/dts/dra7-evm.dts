@@ -55,16 +55,14 @@
 		};
 	};
 
-	extcon1: dra7x_usbid_extcon1 {
-		compatible = "linux,extcon-gpio";
-		gpios = <&pcf_gpio_21 1 GPIO_ACTIVE_LOW>;
-		cable-name = "USB-HOST";
+	extcon_usb1: extcon_usb1 {
+		compatible = "linux,extcon-usb-gpio";
+		id-gpios = <&pcf_gpio_21 1 GPIO_ACTIVE_HIGH>;
 	};
 
-	extcon2: dra7x_usbid_extcon2 {
-		compatible = "linux,extcon-gpio";
-		gpios = <&pcf_gpio_21 2 GPIO_ACTIVE_LOW>;
-		cable-name = "USB-HOST";
+	extcon_usb2: extcon_usb2 {
+		compatible = "linux,extcon-usb-gpio";
+		id-gpios = <&pcf_gpio_21 2 GPIO_ACTIVE_HIGH>;
 	};
 
 	evm_3v3_sd: fixedregulator-sd {
@@ -636,15 +634,15 @@
 };
 
 &omap_dwc3_1 {
-	extcon = <&extcon1>;
+	extcon = <&extcon_usb1>;
 };
 
 &omap_dwc3_2 {
-	extcon = <&extcon2>;
+	extcon = <&extcon_usb2>;
 };
 
 &usb1 {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
 };
 
 &usb2 {
