@@ -1,0 +1,42 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common-no-capemgr.dtsi"
+
+/ {
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&rtc {
+	system-power-controller;
+};
+
+/* EMMC in reset */
+&gpio1 {
+	emmc_rst {
+		gpio-hog;
+		gpios = <20 0>;
+		output-high;
+		line-name = "EMMC ResetN";
+	};
+};
+
+#include "am335x-boneblack-wl1835mod-cape.dtsi"
