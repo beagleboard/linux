@@ -39,14 +39,18 @@ i2c_eeprom_get_memory_accessor(struct i2c_client *client)
 {
 	int ret;
 	struct memory_accessor *macc;
+	struct i2c_driver *i2cdrv;
 
 	/* verify that the i2c client's driver has a command method */
-	if (!client || !client->driver || !client->driver->command)
+	if (!client || !client->dev.driver)
+		return ERR_PTR(-ENOTSUPP);
+
+	i2cdrv = to_i2c_driver(client->dev.driver);
+	if (!i2cdrv)
 		return ERR_PTR(-ENOTSUPP);
 
 	macc = NULL;
-	ret = client->driver->command(client, I2C_EEPROM_GET_MEMORY_ACCESSOR,
-			&macc);
+	ret = i2cdrv->command(client, I2C_EEPROM_GET_MEMORY_ACCESSOR, &macc);
 	if (ret != 0)
 		return ERR_PTR(ret);
 

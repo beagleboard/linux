@@ -79,6 +79,7 @@
 		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 		status = "okay";
 	};
+
 };
 
 &rtc {

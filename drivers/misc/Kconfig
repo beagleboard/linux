@@ -515,6 +515,13 @@ config VEXPRESS_SYSCFG
 	  bus. System Configuration interface is one of the possible means
 	  of generating transactions on this bus.
 
+config CAPE_BEAGLEBONE
+	tristate "Beaglebone cape support"
+	depends on ARCH_OMAP2PLUS && OF && I2C && OF_OVERLAY
+	default n
+	help
+	  Say Y here to include support for beaglebone capes
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -528,4 +535,5 @@ source "drivers/misc/mic/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
+
 endmenu
