@@ -553,6 +553,16 @@ config VEXPRESS_SYSCFG
 	  bus. System Configuration interface is one of the possible means
 	  of generating transactions on this bus.
 
+config BONE_CAPEMGR
+	tristate "Beaglebone cape manager"
+	depends on ARCH_OMAP2PLUS && OF
+	select EEPROM
+	select OF_OVERLAY
+	help
+	  Say Y here to include support for automatic loading of
+	  beaglebone capes. Select M to build as a module which
+	  will be named bone_capemgr.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
