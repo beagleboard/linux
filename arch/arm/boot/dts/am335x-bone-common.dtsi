@@ -111,9 +111,9 @@
 				compatible-name = "ti,beaglebone";
 			};
 
-			baseboard_beaglebone_black: board@1 {
+			baseboard_beaglebone_green: board@1 {
 				board-name = "A335BNLT";
-				compatible-name = "ti,beaglebone-black";
+				compatible-name = "ti,beaglebone-green";
 			};
 		};
 
@@ -212,11 +212,11 @@
 			};
 
 
-			/* Beaglebone black has it soldered on */
+			/* Beaglebone green has it soldered on */
 			 slot@100 {
 				ti,cape-override;
 				priority = <1>;
-				compatible = "ti,beaglebone-black";
+				compatible = "ti,beaglebone-green";
 				board-name = "Bone-LT-eMMC-2G";
 				version = "00A0";
 				manufacturer = "Texas Instruments";
