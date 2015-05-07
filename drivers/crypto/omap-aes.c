@@ -558,6 +558,9 @@ static int omap_aes_check_aligned(struct scatterlist *sg, int total)
 {
 	int len = 0;
 
+	if (!IS_ALIGNED(total, AES_BLOCK_SIZE))
+		return -1;
+
 	while (sg) {
 		if (!IS_ALIGNED(sg->offset, 4))
 			return -1;
@@ -577,9 +580,10 @@ static int omap_aes_check_aligned(struct scatterlist *sg, int total)
 static int omap_aes_copy_sgs(struct omap_aes_dev *dd)
 {
 	void *buf_in, *buf_out;
-	int pages;
+	int pages, total;
 
-	pages = get_order(dd->total);
+	total = ALIGN(dd->total, AES_BLOCK_SIZE);
+	pages = get_order(total);
 
 	buf_in = (void *)__get_free_pages(GFP_ATOMIC, pages);
 	buf_out = (void *)__get_free_pages(GFP_ATOMIC, pages);
@@ -594,11 +598,11 @@ static int omap_aes_copy_sgs(struct omap_aes_dev *dd)
 	sg_copy_buf(buf_in, dd->in_sg, 0, dd->total, 0);
 
 	sg_init_table(&dd->in_sgl, 1);
-	sg_set_buf(&dd->in_sgl, buf_in, dd->total);
+	sg_set_buf(&dd->in_sgl, buf_in, total);
 	dd->in_sg = &dd->in_sgl;
 
 	sg_init_table(&dd->out_sgl, 1);
-	sg_set_buf(&dd->out_sgl, buf_out, dd->total);
+	sg_set_buf(&dd->out_sgl, buf_out, total);
 	dd->out_sg = &dd->out_sgl;
 
 	return 0;
@@ -611,7 +615,7 @@ static int omap_aes_handle_queue(struct omap_aes_dev *dd,
 	struct omap_aes_ctx *ctx;
 	struct omap_aes_reqctx *rctx;
 	unsigned long flags;
-	int err, ret = 0;
+	int err, ret = 0, len;
 
 	spin_lock_irqsave(&dd->lock, flags);
 	if (req)
@@ -650,8 +654,9 @@ static int omap_aes_handle_queue(struct omap_aes_dev *dd,
 		dd->sgs_copied = 0;
 	}
 
-	dd->in_sg_len = scatterwalk_bytes_sglen(dd->in_sg, dd->total);
-	dd->out_sg_len = scatterwalk_bytes_sglen(dd->out_sg, dd->total);
+	len = ALIGN(dd->total, AES_BLOCK_SIZE);
+	dd->in_sg_len = scatterwalk_bytes_sglen(dd->in_sg, len);
+	dd->out_sg_len = scatterwalk_bytes_sglen(dd->out_sg, len);
 	BUG_ON(dd->in_sg_len < 0 || dd->out_sg_len < 0);
 
 	rctx = ablkcipher_request_ctx(req);
@@ -678,7 +683,7 @@ static void omap_aes_done_task(unsigned long data)
 {
 	struct omap_aes_dev *dd = (struct omap_aes_dev *)data;
 	void *buf_in, *buf_out;
-	int pages;
+	int pages, len;
 
 	pr_debug("enter done_task\n");
 
@@ -697,7 +702,8 @@ static void omap_aes_done_task(unsigned long data)
 
 		sg_copy_buf(buf_out, dd->orig_out, 0, dd->total_save, 1);
 
-		pages = get_order(dd->total_save);
+		len = ALIGN(dd->total_save, AES_BLOCK_SIZE);
+		pages = get_order(len);
 		free_pages((unsigned long)buf_in, pages);
 		free_pages((unsigned long)buf_out, pages);
 	}
@@ -725,11 +731,6 @@ static int omap_aes_crypt(struct ablkcipher_request *req, unsigned long mode)
 	pr_debug("nbytes: %d, enc: %d, cbc: %d\n", req->nbytes,
 		  !!(mode & FLAGS_ENCRYPT),
 		  !!(mode & FLAGS_CBC));
-
-	if (!IS_ALIGNED(req->nbytes, AES_BLOCK_SIZE)) {
-		pr_err("request size is not exact amount of AES blocks\n");
-		return -EINVAL;
-	}
 
 	dd = omap_aes_find_dev(ctx);
 	if (!dd)
@@ -839,7 +840,7 @@ static struct crypto_alg algs_ecb_cbc[] = {
 				  CRYPTO_ALG_ASYNC,
 	.cra_blocksize		= AES_BLOCK_SIZE,
 	.cra_ctxsize		= sizeof(struct omap_aes_ctx),
-	.cra_alignmask		= 0,
+	.cra_alignmask		= 0xf,
 	.cra_type		= &crypto_ablkcipher_type,
 	.cra_module		= THIS_MODULE,
 	.cra_init		= omap_aes_cra_init,
@@ -861,7 +862,7 @@ static struct crypto_alg algs_ecb_cbc[] = {
 				  CRYPTO_ALG_ASYNC,
 	.cra_blocksize		= AES_BLOCK_SIZE,
 	.cra_ctxsize		= sizeof(struct omap_aes_ctx),
-	.cra_alignmask		= 0,
+	.cra_alignmask		= 0xf,
 	.cra_type		= &crypto_ablkcipher_type,
 	.cra_module		= THIS_MODULE,
 	.cra_init		= omap_aes_cra_init,
@@ -887,7 +888,7 @@ static struct crypto_alg algs_ctr[] = {
 				  CRYPTO_ALG_ASYNC,
 	.cra_blocksize		= AES_BLOCK_SIZE,
 	.cra_ctxsize		= sizeof(struct omap_aes_ctx),
-	.cra_alignmask		= 0,
+	.cra_alignmask		= 0xf,
 	.cra_type		= &crypto_ablkcipher_type,
 	.cra_module		= THIS_MODULE,
 	.cra_init		= omap_aes_cra_init,
