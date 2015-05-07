@@ -254,7 +254,7 @@ static int omap_aes_write_ctrl(struct omap_aes_dev *dd)
 {
 	unsigned int key32;
 	int i, err;
-	u32 val, mask = 0;
+	u32 val;
 
 	err = omap_aes_hw_init(dd);
 	if (err)
@@ -274,17 +274,13 @@ static int omap_aes_write_ctrl(struct omap_aes_dev *dd)
 	val = FLD_VAL(((dd->ctx->keylen >> 3) - 1), 4, 3);
 	if (dd->flags & FLAGS_CBC)
 		val |= AES_REG_CTRL_CBC;
-	if (dd->flags & FLAGS_CTR) {
+	if (dd->flags & FLAGS_CTR)
 		val |= AES_REG_CTRL_CTR | AES_REG_CTRL_CTR_WIDTH_128;
-		mask = AES_REG_CTRL_CTR | AES_REG_CTRL_CTR_WIDTH_MASK;
-	}
+
 	if (dd->flags & FLAGS_ENCRYPT)
 		val |= AES_REG_CTRL_DIRECTION;
 
-	mask |= AES_REG_CTRL_CBC | AES_REG_CTRL_DIRECTION |
-			AES_REG_CTRL_KEY_SIZE;
-
-	omap_aes_write_mask(dd, AES_REG_CTRL(dd), val, mask);
+	omap_aes_write(dd, AES_REG_CTRL(dd), val);
 
 	return 0;
 }
