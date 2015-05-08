@@ -657,18 +657,13 @@ static int omap_aes_cra_init(struct crypto_tfm *tfm)
 	struct omap_aes_dev *dd = NULL;
 	int err;
 
-	/* Find AES device, currently picks the first device */
-	spin_lock_bh(&list_lock);
 	list_for_each_entry(dd, &dev_list, list) {
-		break;
-	}
-	spin_unlock_bh(&list_lock);
-
-	err = pm_runtime_get_sync(dd->dev);
-	if (err < 0) {
-		dev_err(dd->dev, "%s: failed to get_sync(%d)\n",
-			__func__, err);
-		return err;
+		err = pm_runtime_get_sync(dd->dev);
+		if (err < 0) {
+			dev_err(dd->dev, "%s: failed to get_sync(%d)\n",
+				__func__, err);
+			return err;
+		}
 	}
 
 	tfm->crt_ablkcipher.reqsize = sizeof(struct omap_aes_reqctx);
@@ -681,18 +676,13 @@ static int omap_aes_gcm_cra_init(struct crypto_tfm *tfm)
 	struct omap_aes_dev *dd = NULL;
 	int err;
 
-	/* Find AES device, currently picks the first device */
-	spin_lock_bh(&list_lock);
 	list_for_each_entry(dd, &dev_list, list) {
-		break;
-	}
-	spin_unlock_bh(&list_lock);
-
-	err = pm_runtime_get_sync(dd->dev);
-	if (err < 0) {
-		dev_err(dd->dev, "%s: failed to get_sync(%d)\n",
-			__func__, err);
-		return err;
+		err = pm_runtime_get_sync(dd->dev);
+		if (err < 0) {
+			dev_err(dd->dev, "%s: failed to get_sync(%d)\n",
+				__func__, err);
+			return err;
+		}
 	}
 
 	tfm->crt_aead.reqsize = sizeof(struct omap_aes_reqctx);
@@ -704,14 +694,10 @@ static void omap_aes_cra_exit(struct crypto_tfm *tfm)
 {
 	struct omap_aes_dev *dd = NULL;
 
-	/* Find AES device, currently picks the first device */
-	spin_lock_bh(&list_lock);
 	list_for_each_entry(dd, &dev_list, list) {
-		break;
+		pm_runtime_put_sync(dd->dev);
 	}
-	spin_unlock_bh(&list_lock);
 
-	pm_runtime_put_sync(dd->dev);
 }
 
 /* ********************** ALGS ************************************ */
