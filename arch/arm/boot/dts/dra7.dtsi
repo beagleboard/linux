@@ -1549,12 +1549,23 @@
 			};
 		};
 
-		aes: aes@4b500000 {
+		aes1: aes@4b500000 {
 			compatible = "ti,omap4-aes";
-			ti,hwmods = "aes";
+			ti,hwmods = "aes1";
 			reg = <0x4b500000 0xa0>;
 			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&sdma_xbar 111>, <&sdma_xbar 110>;
+			dma-names = "tx", "rx";
+			clocks = <&l3_iclk_div>;
+			clock-names = "fck";
+		};
+
+		aes2: aes@4b700000 {
+			compatible = "ti,omap4-aes";
+			ti,hwmods = "aes2";
+			reg = <0x4b700000 0xa0>;
+			interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&sdma_xbar 114>, <&sdma_xbar 113>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
