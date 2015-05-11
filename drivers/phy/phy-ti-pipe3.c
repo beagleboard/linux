@@ -389,7 +389,6 @@ static int ti_pipe3_probe(struct platform_device *pdev)
 				return -EINVAL;
 			}
 		}
-		dev_info(&pdev->dev, "%d\n", phy->dpll_reset_reg);
 	}
 
 	if (of_device_is_compatible(node, "ti,phy-pipe3-pcie")) {
