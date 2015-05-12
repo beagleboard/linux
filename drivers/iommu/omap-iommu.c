@@ -908,8 +908,8 @@ static void omap_iommu_detach(struct omap_iommu *obj)
 
 	spin_lock(&obj->iommu_lock);
 
-	iommu_disable(obj);
 	obj->iopgd = NULL;
+	iommu_disable(obj);
 
 	spin_unlock(&obj->iommu_lock);
 
@@ -978,6 +978,46 @@ int omap_iommu_domain_resume(struct iommu_domain *domain)
 }
 EXPORT_SYMBOL_GPL(omap_iommu_domain_resume);
 
+static void omap_iommu_save_tlb_entries(struct omap_iommu *obj)
+{
+	struct iotlb_lock lock;
+	struct cr_regs cr;
+	struct cr_regs *tmp;
+	int i;
+
+	/* check if there are any locked tlbs to save */
+	iotlb_lock_get(obj, &lock);
+	obj->num_cr_ctx = lock.base;
+	if (!obj->num_cr_ctx)
+		return;
+
+	tmp = obj->cr_ctx;
+	for_each_iotlb_cr(obj, obj->num_cr_ctx, i, cr)
+		*tmp++ = cr;
+}
+
+static void omap_iommu_restore_tlb_entries(struct omap_iommu *obj)
+{
+	struct iotlb_lock l;
+	struct cr_regs *tmp;
+	int i;
+
+	/* no locked tlbs to restore */
+	if (!obj->num_cr_ctx)
+		return;
+
+	l.base = 0;
+	tmp = obj->cr_ctx;
+	for (i = 0; i < obj->num_cr_ctx; i++, tmp++) {
+		l.vict = i;
+		iotlb_lock_set(obj, &l);
+		iotlb_load_cr(obj, tmp);
+	}
+	l.base = obj->num_cr_ctx;
+	l.vict = i;
+	iotlb_lock_set(obj, &l);
+}
+
 /**
  * omap_iommu_runtime_suspend - disable an iommu device
  * @dev:	iommu device
@@ -987,13 +1027,18 @@ EXPORT_SYMBOL_GPL(omap_iommu_domain_resume);
  * device, or during system/runtime suspend of the device. This
  * includes programming all the appropriate IOMMU registers, and
  * managing the associated omap_hwmod's state and the device's
- * reset line.
+ * reset line. This function also saves the context of any
+ * locked TLBs if suspending.
  **/
 static int omap_iommu_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct iommu_platform_data *pdata = dev_get_platdata(dev);
 	struct omap_iommu *obj = to_iommu(dev);
+
+	/* save the TLBs only during suspend, and not for power down */
+	if (obj->domain && obj->iopgd)
+		omap_iommu_save_tlb_entries(obj);
 
 	if (arch_iommu->disable)
 		arch_iommu->disable(obj);
@@ -1016,7 +1061,8 @@ static int omap_iommu_runtime_suspend(struct device *dev)
  * device, or during system/runtime resume of the device. This
  * includes programming all the appropriate IOMMU registers, and
  * managing the associated omap_hwmod's state and the device's
- * reset line.
+ * reset line. The function also restores any locked TLBs if
+ * resuming after a suspend.
  **/
 static int omap_iommu_runtime_resume(struct device *dev)
 {
@@ -1035,6 +1081,10 @@ static int omap_iommu_runtime_resume(struct device *dev)
 
 	if (pdata && pdata->device_enable)
 		pdata->device_enable(pdev);
+
+	/* restore the TLBs only during resume, and not for power up */
+	if (obj->domain)
+		omap_iommu_restore_tlb_entries(obj);
 
 	if (arch_iommu->enable)
 		ret = arch_iommu->enable(obj);
@@ -1136,6 +1186,11 @@ static int omap_iommu_probe(struct platform_device *pdev)
 
 	obj->dev = &pdev->dev;
 	obj->ctx = (void *)obj + sizeof(*obj);
+	obj->cr_ctx = devm_kzalloc(&pdev->dev,
+				   sizeof(*obj->cr_ctx) * obj->nr_tlb_entries,
+				   GFP_KERNEL);
+	if (!obj->cr_ctx)
+		return -ENOMEM;
 
 	spin_lock_init(&obj->iommu_lock);
 	mutex_init(&obj->mmap_lock);

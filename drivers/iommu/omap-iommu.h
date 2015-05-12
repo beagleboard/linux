@@ -55,6 +55,9 @@ struct omap_iommu {
 	u32 da_start;
 	u32 da_end;
 
+	struct cr_regs *cr_ctx;
+	u32 num_cr_ctx;
+
 	int has_bus_err_back;
 	u32 id;
 };
