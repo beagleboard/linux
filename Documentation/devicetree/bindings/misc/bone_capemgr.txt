@@ -1,0 +1,111 @@
+* Beaglebone cape manager driver
+
+Required properties:
+- compatible: "ti,bone-capemgr"
+- eeprom: phandle to the EEPROM baseboard.
+          The EEPROM framework interface is use to obtain the data.
+
+Required children nodes:
+
+- baseboardmaps: Contains nodes, which each of the them defines a mapping from
+		 the baseboard EEPROM board-name ID to a DT friendly compatible
+		 string.
+
+  - board-name:      The baseboard EEPROM board name, i.e. A335BONE for the
+                     original beaglebone white.
+  - compatible-name: The DT friendly compatible string to be used for matching
+		     compatible capes, i.e. "ti,beaglebone"
+
+
+ - nvmem-cells: Defines the phandles of the nvmem cells of the baseboard and the
+                slots.
+ - nvmem-cells: Defines the names of the nvmem cells. Required to have at
+                least a baseboard cell name.
+
+ - #slots:	Defines how many slots are there.
+
+- Example of a beaglebone cape-manager:
+
+bone_capemgr {
+	compatible = "ti,bone-capemgr";
+	status = "okay";
+
+	nvmem-cell = <&baseboard_data
+		      &cape0_data &cape1_data &cape2_data &cape3_data>;
+	nvmem-cell-names = "baseboard", "slot0", "slot1", "slot2", "slot3";
+
+	#slots = <4>;
+
+	/* map board revisions to compatible definitions */
+	baseboardmaps {
+		baseboard_beaglebone: board@0 {
+			board-name = "A335BONE";
+			compatible-name = "ti,beaglebone";
+		};
+
+		baseboard_beaglebone_black: board@1 {
+			board-name = "A335BNLT";
+			compatible-name = "ti,beaglebone-black";
+		};
+	};
+};
+
+The format of the cape to be loaded is in a standard overlay format with
+the following root properties that are interpreted by the cape manager:
+
+Required properties:
+ - compatible: Should be compatible to the baseboard according to the
+               baseboard map value, i.e. "ti,beaglebone".
+ - part-numer: Should contain the part-number as stored in the EEPROM.
+ - version:    Should contain a list of all the version that are supported
+               by the single cape dtbo, i.e. "00A1".
+
+Optional properties:
+ - exclusive-use: A string list which state the resources this cape requires.
+                  No processing or matching to anything regarding the internal
+		  kernel state is performed; it's purpose is to guard against
+		  conflicts with other capes.
+ - priority:      A priority to be assigned when loading a cape. A lower value
+                  has higher priority. The purpose of the priority is to control
+		  which cape is loaded first in case of a conflict.
+
+- Example of a serial cape:
+
+/dts-v1/;
+/plugin/;
+/ {
+        compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+        /* identification */
+        part-number = "BB-BONE-SERL-03";
+        version = "00A1";
+
+        /* state the resources this cape uses */
+        exclusive-use =
+                /* the pin header uses */
+                "P9.21",        /* uart2_txd */
+                "P9.22",        /* uart2_rxd */
+                /* the hardware ip uses */
+                "uart2";
+
+        fragment@0 {
+                target = <&am33xx_pinmux>;
+                __overlay__ {
+                        bb_uart2_pins: pinmux_bb_uart2_pins {
+                                pinctrl-single,pins = <
+                                        0x150 0x21      /* spi0_sclk.uart2_rxd | MODE1 */
+                                        0x154 0x01      /* spi0_d0.uart2_txd | MODE1 */
+                                >;
+                        };
+                };
+        };
+
+        fragment@1 {
+                target = <&uart2>;
+                __overlay__ {
+                        status = "okay";
+                        pinctrl-names = "default";
+                        pinctrl-0 = <&bb_uart2_pins>;
+                };
+        };
+};
