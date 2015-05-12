@@ -919,12 +919,13 @@ static void omap_iommu_detach(struct omap_iommu *obj)
 /**
  * omap_iommu_domain_suspend - suspend the iommu device
  * @domain: iommu domain attached to the target iommu device
+ * @auto_suspend: flag to indicate system suspend or runtime suspend
  *
  * This API allows the client devices of IOMMU devices to suspend
  * the IOMMUs they control, after they are idled and suspended all
  * activity.
  **/
-int omap_iommu_domain_suspend(struct iommu_domain *domain)
+int omap_iommu_domain_suspend(struct iommu_domain *domain, bool auto_suspend)
 {
 	struct omap_iommu_domain *omap_domain = domain->priv;
 	struct omap_iommu_device *iommu;
@@ -938,10 +939,14 @@ int omap_iommu_domain_suspend(struct iommu_domain *domain)
 	iommu += (omap_domain->num_iommus - 1);
 	for (i = 0; i < omap_domain->num_iommus; i++, iommu--) {
 		oiommu = iommu->iommu_dev;
-		pm_runtime_put_noidle(oiommu->dev);
-		pm_generic_runtime_suspend(oiommu->dev);
-		pm_runtime_disable(oiommu->dev);
-		pm_runtime_set_suspended(oiommu->dev);
+		if (auto_suspend) {
+			pm_runtime_put_sync(oiommu->dev);
+		} else {
+			pm_runtime_put_noidle(oiommu->dev);
+			pm_generic_runtime_suspend(oiommu->dev);
+			pm_runtime_disable(oiommu->dev);
+			pm_runtime_set_suspended(oiommu->dev);
+		}
 	}
 
 	return 0;
@@ -951,11 +956,12 @@ EXPORT_SYMBOL_GPL(omap_iommu_domain_suspend);
 /**
  * omap_iommu_domain_resume - resume the iommu device
  * @domain: iommu domain attached to the target iommu device
+ * @auto_suspend: flag to indicate system suspend or runtime suspend
  *
  * This API allows the client devices of IOMMU devices to resume
  * the IOMMUs they control, before they can resume operations.
  **/
-int omap_iommu_domain_resume(struct iommu_domain *domain)
+int omap_iommu_domain_resume(struct iommu_domain *domain, bool auto_suspend)
 {
 	struct omap_iommu_domain *omap_domain = domain->priv;
 	struct omap_iommu_device *iommu;
@@ -968,10 +974,14 @@ int omap_iommu_domain_resume(struct iommu_domain *domain)
 	iommu = omap_domain->iommus;
 	for (i = 0; i < omap_domain->num_iommus; i++, iommu++) {
 		oiommu = iommu->iommu_dev;
-		pm_runtime_set_active(oiommu->dev);
-		pm_runtime_enable(oiommu->dev);
-		pm_runtime_get_noresume(oiommu->dev);
-		pm_generic_runtime_resume(oiommu->dev);
+		if (auto_suspend) {
+			pm_runtime_get_sync(oiommu->dev);
+		} else {
+			pm_runtime_set_active(oiommu->dev);
+			pm_runtime_enable(oiommu->dev);
+			pm_runtime_get_noresume(oiommu->dev);
+			pm_generic_runtime_resume(oiommu->dev);
+		}
 	}
 
 	return 0;
