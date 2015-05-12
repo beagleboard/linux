@@ -129,6 +129,11 @@ EXPORT_SYMBOL_GPL(omap_uninstall_iommu_arch);
 /**
  * omap_iommu_save_ctx - Save registers for pm off-mode support
  * @dev:	client device
+ *
+ * This should be treated as an deprecated API. It is preserved only
+ * to maintain existing functionality for OMAP3 ISP driver, newer
+ * SoCs will leverage the newer omap_iommu_domain_suspend() API and
+ * associated runtime_suspend callback.
  **/
 void omap_iommu_save_ctx(struct device *dev)
 {
@@ -146,6 +151,11 @@ EXPORT_SYMBOL_GPL(omap_iommu_save_ctx);
 /**
  * omap_iommu_restore_ctx - Restore registers for pm off-mode support
  * @dev:	client device
+ *
+ * This should be treated as an deprecated API. It is preserved only
+ * to maintain existing functionality for OMAP3 ISP driver, newer
+ * SoCs will leverage the newer omap_iommu_domain_resume() API and
+ * associated runtime_resume callback.
  **/
 void omap_iommu_restore_ctx(struct device *dev)
 {
@@ -905,6 +915,68 @@ static void omap_iommu_detach(struct omap_iommu *obj)
 
 	dev_dbg(obj->dev, "%s: %s\n", __func__, obj->name);
 }
+
+/**
+ * omap_iommu_domain_suspend - suspend the iommu device
+ * @domain: iommu domain attached to the target iommu device
+ *
+ * This API allows the client devices of IOMMU devices to suspend
+ * the IOMMUs they control, after they are idled and suspended all
+ * activity.
+ **/
+int omap_iommu_domain_suspend(struct iommu_domain *domain)
+{
+	struct omap_iommu_domain *omap_domain = domain->priv;
+	struct omap_iommu_device *iommu;
+	struct omap_iommu *oiommu;
+	int i;
+
+	if (!omap_domain->attached)
+		return 0;
+
+	iommu = omap_domain->iommus;
+	iommu += (omap_domain->num_iommus - 1);
+	for (i = 0; i < omap_domain->num_iommus; i++, iommu--) {
+		oiommu = iommu->iommu_dev;
+		pm_runtime_put_noidle(oiommu->dev);
+		pm_generic_runtime_suspend(oiommu->dev);
+		pm_runtime_disable(oiommu->dev);
+		pm_runtime_set_suspended(oiommu->dev);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(omap_iommu_domain_suspend);
+
+/**
+ * omap_iommu_domain_resume - resume the iommu device
+ * @domain: iommu domain attached to the target iommu device
+ *
+ * This API allows the client devices of IOMMU devices to resume
+ * the IOMMUs they control, before they can resume operations.
+ **/
+int omap_iommu_domain_resume(struct iommu_domain *domain)
+{
+	struct omap_iommu_domain *omap_domain = domain->priv;
+	struct omap_iommu_device *iommu;
+	struct omap_iommu *oiommu;
+	int i;
+
+	if (!omap_domain->attached)
+		return 0;
+
+	iommu = omap_domain->iommus;
+	for (i = 0; i < omap_domain->num_iommus; i++, iommu++) {
+		oiommu = iommu->iommu_dev;
+		pm_runtime_set_active(oiommu->dev);
+		pm_runtime_enable(oiommu->dev);
+		pm_runtime_get_noresume(oiommu->dev);
+		pm_generic_runtime_resume(oiommu->dev);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(omap_iommu_domain_resume);
 
 /**
  * omap_iommu_runtime_suspend - disable an iommu device
