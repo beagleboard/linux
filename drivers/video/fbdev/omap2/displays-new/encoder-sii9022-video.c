@@ -730,7 +730,19 @@ static int sii9022_read_edid(struct omap_dss_device *dssdev,
 		goto err_hpd;
 	}
 
+	/*
+	 * Sometimes we get -EREMOTEIO. The reason is unclear, but doing an i2c
+	 * read to SiI9022 after requesting the DDC access seems to cause
+	 * -EREMOTEIO both from the first i2c read and from the subsequent EDID
+	 * read. We don't do that, but it could mean that SiI9022 has some
+	 * issues around the DDC access.
+	 *
+	 * Retrying the EDID read solves the problem.
+	 */
+
 	r = _sii9022_read_edid(ddata, edid, len);
+	if (r == -EREMOTEIO)
+		r = _sii9022_read_edid(ddata, edid, len);
 	if (r < 0)
 		goto err_ddc_read;
 
