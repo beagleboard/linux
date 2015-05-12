@@ -671,27 +671,16 @@ static int sii9022_check_timings(struct omap_dss_device *dssdev,
 	return in->ops.dpi->check_timings(in, timings);
 }
 
-static int sii9022_read_edid(struct omap_dss_device *dssdev,
+static int _sii9022_read_edid(struct panel_drv_data *ddata,
 		u8 *edid, int len)
 {
-	struct panel_drv_data *ddata = to_panel_data(dssdev);
 	struct i2c_client *client = ddata->i2c_client;
 	unsigned ctrl_reg;
 	int r, l, bytes_read;
 
-	mutex_lock(&ddata->lock);
-
-	if (ddata->use_polling)
-		sii9022_handle_hpd(ddata);
-
-	if (ddata->htplg_state == false) {
-		r = -ENODEV;
-		goto err_hpd;
-	}
-
 	r = sii9022_request_ddc_access(ddata, &ctrl_reg);
 	if (r)
-		goto err_ddc_request;
+		return r;
 
 	l = min(len, EDID_LENGTH);
 
@@ -717,16 +706,42 @@ static int sii9022_read_edid(struct omap_dss_device *dssdev,
 	if (r)
 		goto err_ddc_read;
 
-	print_hex_dump_debug("EDID: ", DUMP_PREFIX_NONE, 16, 1, edid,
-		bytes_read, false);
-
-	mutex_unlock(&ddata->lock);
-
 	return bytes_read;
 
 err_ddc_read:
 	sii9022_release_ddc_access(ddata, ctrl_reg);
-err_ddc_request:
+
+	return r;
+}
+
+static int sii9022_read_edid(struct omap_dss_device *dssdev,
+		u8 *edid, int len)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+	int r;
+
+	mutex_lock(&ddata->lock);
+
+	if (ddata->use_polling)
+		sii9022_handle_hpd(ddata);
+
+	if (ddata->htplg_state == false) {
+		r = -ENODEV;
+		goto err_hpd;
+	}
+
+	r = _sii9022_read_edid(ddata, edid, len);
+	if (r < 0)
+		goto err_ddc_read;
+
+	print_hex_dump_debug("EDID: ", DUMP_PREFIX_NONE, 16, 1, edid,
+		r, false);
+
+	mutex_unlock(&ddata->lock);
+
+	return r;
+
+err_ddc_read:
 err_hpd:
 	mutex_unlock(&ddata->lock);
 
