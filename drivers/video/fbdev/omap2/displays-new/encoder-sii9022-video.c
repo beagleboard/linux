@@ -457,7 +457,7 @@ static void sii9022_handle_hpd(struct panel_drv_data *ddata)
 	}
 }
 
-static irqreturn_t dispc_irq_handler(int irq, void *arg)
+static irqreturn_t sii9022_irq_handler(int irq, void *arg)
 {
 	struct panel_drv_data *ddata = arg;
 
@@ -517,7 +517,7 @@ static int sii9022_connect(struct omap_dss_device *dssdev,
 		schedule_delayed_work(&ddata->work, msecs_to_jiffies(250));
 	} else {
 		r = devm_request_threaded_irq(dev, ddata->irq,
-			NULL, dispc_irq_handler,
+			NULL, sii9022_irq_handler,
 			IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 			"sii9022 int", ddata);
 		if (r) {
