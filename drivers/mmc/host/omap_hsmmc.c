@@ -154,6 +154,7 @@
 
 #define CAPA2_TSDR50		(1 << 13)
 #define MMC_AUTOSUSPEND_DELAY	100
+#define MMC_SOFT_TIMER_SLACK	1000000		/* ns */
 #define MMC_TIMEOUT_MS		20		/* 20 mSec */
 #define MMC_TIMEOUT_US		20000		/* 20000 micro Sec */
 #define OMAP_MMC_MIN_CLOCK	400000
@@ -259,6 +260,8 @@ struct omap_hsmmc_host {
 	struct omap_hsmmc_next	next_data;
 	struct	omap_mmc_platform_data	*pdata;
 	struct timer_list	timer;
+	unsigned long		data_timeout;
+	unsigned int		need_i834_errata:1;
 };
 
 struct omap_mmc_of_data {
@@ -661,8 +664,8 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 	else
 		irq_mask = INT_EN_MASK;
 
-	/* Disable timeout for erases */
-	if (cmd->opcode == MMC_ERASE)
+	/* Disable timeout for erases or when using software timeout */
+	if (cmd->opcode == MMC_ERASE || host->need_i834_errata)
 		irq_mask &= ~DTO_EN;
 
 	OMAP_HSMMC_WRITE(host->base, STAT, STAT_CLEAR);
@@ -766,9 +769,23 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 	if (!host->require_io_delay)
 		goto no_io_delay;
 
+	/*
+	 * DRA7 Errata No i834: When using high speed HS200 and SDR104
+	 * cards, the functional clock for MMC module will be 192MHz.
+	 * At this frequency, the maximum obtainable timeout (DTO =0xE)
+	 * in hardware is (1/192MHz)*2^27 = 700ms. Commands taking longer
+	 * than 700ms will be affected by this small window frame and
+	 * will be timing out frequently even without a genune timeout
+	 * from the card. Workarround for this errata is use a software
+	 * timer instead of hardware timer to provide the delay requested
+	 * by the upper layer
+	 */
+	host->need_i834_errata = false;
+
 	switch (ios->timing) {
 	case MMC_TIMING_UHS_SDR104:
 		mode = kstrdup("sdr104", GFP_KERNEL);
+		host->need_i834_errata = true;
 		break;
 	case MMC_TIMING_UHS_DDR50:
 		mode = kstrdup("ddr50", GFP_KERNEL);
@@ -788,6 +805,7 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 		break;
 	case MMC_TIMING_MMC_HS200:
 		mode = kstrdup("hs200", GFP_KERNEL);
+		host->need_i834_errata = true;
 		break;
 	default:
 		dev_dbg(mmc_dev(host->mmc), "no io delay setting\n");
@@ -1397,7 +1415,7 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 	 * but software-timeout timer should be deleted only on non-CC
 	 * interrupts (transfer complete or error)
 	 */
-	if (timer_pending(&host->timer) && (status & (~CC_EN)))
+	if (host->need_i834_errata && (status & (~CC_EN)))
 		del_timer(&host->timer);
 
 	while (status & INT_EN_MASK && host->req_in_progress) {
@@ -1725,6 +1743,22 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 	if (clkd == 0)
 		clkd = 1;
 
+	if (host->need_i834_errata) {
+		unsigned long delta;
+
+		delta = (timeout_clks / (host->clk_rate / clkd));
+
+		/*
+		 * We should really be using just timeout_ns + delta,
+		 * however we have no control over when DMA will
+		 * actually start transferring; due to that we will add
+		 * an extra slack to make sure we don't expire too
+		 * early.
+		 */
+		host->data_timeout = timeout_ns + delta + MMC_SOFT_TIMER_SLACK;
+		return;
+	}
+
 	cycle_ns = 1000000000 / (host->clk_rate / clkd);
 	timeout = timeout_ns / cycle_ns;
 	timeout += timeout_clks;
@@ -1741,21 +1775,8 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 			dto -= 13;
 		else
 			dto = 0;
-		if (dto > 14) {
-			unsigned long timeout_jiff;
-			unsigned int irq_mask;
-
-			/* Disable DTO interrupt */
-			irq_mask = OMAP_HSMMC_READ(host->base, IE);
-			irq_mask &= ~DTO_EN;
-			OMAP_HSMMC_WRITE(host->base, ISE, irq_mask);
-			OMAP_HSMMC_WRITE(host->base, IE, irq_mask);
-
-			timeout_ns += (timeout_clks / (host->clk_rate / clkd));
-			timeout_jiff = jiffies + nsecs_to_jiffies(timeout_ns);
-			mod_timer(&host->timer, timeout_jiff);
-			return;
-		}
+		if (dto > 14)
+			dto = 14;
 	}
 
 	reg &= ~DTO_MASK;
@@ -1776,6 +1797,13 @@ static void omap_hsmmc_start_dma_transfer(struct omap_hsmmc_host *host)
 				req->data->timeout_clks);
 	chan = omap_hsmmc_get_dma_chan(host, req->data);
 	dma_async_issue_pending(chan);
+
+	if (host->need_i834_errata) {
+		unsigned long timeout;
+
+		timeout = jiffies + nsecs_to_jiffies(host->data_timeout);
+		mod_timer(&host->timer, timeout);
+	}
 }
 
 /*
