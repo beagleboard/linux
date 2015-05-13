@@ -41,8 +41,7 @@ struct sii9022_audio {
 	u32 i2s_fifo_routing[4];
 };
 
-static int sii9022_dai_digital_mute(struct snd_soc_dai *dai,
-				    int mute)
+static int sii9022_mute(struct snd_soc_dai *dai, int mute)
 {
 	struct panel_drv_data *dd = dev_get_drvdata(dai->dev);
 	u8 channel_layout = dd->audio->channels > 2 ?
@@ -191,9 +190,8 @@ static int sii9022_audio_start(struct snd_soc_dai *dai,
 	ret = sii9022_select_mclk_div(&i2s_config_reg, params_rate(params),
 				      dd->audio->mclk);
 	if (ret)
-		dev_info(dai->dev, "No matching mclk divider %u/%u != %d\n",
-			 dd->audio->mclk, params_rate(params),
-			 ret);
+		dev_warn(dai->dev, "Inaccurate reference clock (%u/%d != %u)\n",
+			 dd->audio->mclk, ret, params_rate(params));
 
 	switch (params_rate(params)) {
 	case 32000:
@@ -237,7 +235,7 @@ static int sii9022_audio_start(struct snd_soc_dai *dai,
 		return -EINVAL;
 	}
 
-	ret = sii9022_dai_digital_mute(dai, true);
+	ret = sii9022_mute(dai, true);
 	if (ret < 0)
 		return ret;
 
@@ -292,11 +290,21 @@ static int sii9022_dai_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_pcm_hw_params *params,
 				 struct snd_soc_dai *dai)
 {
+	struct panel_drv_data *dd = dev_get_drvdata(dai->dev);
+	int r;
+
 	dev_dbg(dai->dev, "%s: format %d rate %d channels %d\n", __func__,
 		params_format(params),
 		params_rate(params),
 		params_channels(params));
-	return sii9022_audio_start(dai, params);
+
+	mutex_lock(&dd->lock);
+
+	r = sii9022_audio_start(dai, params);
+
+	mutex_unlock(&dd->lock);
+
+	return r;
 }
 
 static int sii9022_dai_set_sysclk(struct snd_soc_dai *dai,
@@ -317,11 +325,28 @@ static int sii9022_dai_set_fmt(struct snd_soc_dai *dai,
 	return 0;
 }
 
+static int sii9022_dai_digital_mute(struct snd_soc_dai *dai, int mute)
+{
+	struct panel_drv_data *dd = dev_get_drvdata(dai->dev);
+	int r;
+
+	mutex_lock(&dd->lock);
+	r = sii9022_mute(dai, mute);
+	mutex_unlock(&dd->lock);
+
+	return r;
+}
+
 static void sii9022_dai_shutdown(struct snd_pcm_substream *s,
 				 struct snd_soc_dai *dai)
 {
+	struct panel_drv_data *dd = dev_get_drvdata(dai->dev);
+
 	dev_dbg(dai->dev, "%s called\n", __func__);
+
+	mutex_lock(&dd->lock);
 	sii9022_audio_stop(dai);
+	mutex_unlock(&dd->lock);
 }
 
 static struct snd_soc_dai_ops sii9022_dai_ops = {
