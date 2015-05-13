@@ -1753,11 +1753,7 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 
 			timeout_ns += (timeout_clks / (host->clk_rate / clkd));
 			timeout_jiff = jiffies + nsecs_to_jiffies(timeout_ns);
-
-			host->timer.expires = timeout_jiff;
-			host->timer.data = (unsigned long)host;
-			host->timer.function = omap_hsmmc_soft_timeout;
-			add_timer(&host->timer);
+			mod_timer(&host->timer, timeout_jiff);
 			return;
 		}
 	}
@@ -2566,7 +2562,8 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	host->next_data.cookie = 1;
 	host->pbias_enabled = 0;
 	host->regulator_enabled = 0;
-	init_timer(&host->timer);
+	setup_timer(&host->timer, omap_hsmmc_soft_timeout,
+		    (unsigned long) host);
 
 	platform_set_drvdata(pdev, host);
 
