@@ -135,11 +135,17 @@ static int usb_extcon_probe(struct platform_device *pdev)
 	info->id_gpiod = devm_gpiod_get(&pdev->dev, "id");
 	info->vbus_gpiod = devm_gpiod_get(&pdev->dev, "vbus");
 
-	if (IS_ERR(info->id_gpiod))
+	if (IS_ERR(info->id_gpiod)) {
+		if (PTR_ERR(info->id_gpiod) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
 		info->id_gpiod = NULL;
+	}
 
-	if (IS_ERR(info->vbus_gpiod))
+	if (IS_ERR(info->vbus_gpiod)) {
+		if (PTR_ERR(info->vbus_gpiod) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
 		info->vbus_gpiod = NULL;
+	}
 
 	if (!info->id_gpiod && !info->vbus_gpiod) {
 		dev_err(dev, "failed to get gpios\n");

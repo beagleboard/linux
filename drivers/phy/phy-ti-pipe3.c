@@ -88,6 +88,7 @@ struct ti_pipe3 {
 	struct pipe3_dpll_map	*dpll_map;
 	struct regmap		*dpll_reset_syscon; /* ctrl. reg. acces */
 	unsigned int		dpll_reset_reg; /* reg. index within syscon */
+	bool			sata_refclk_enabled;
 };
 
 static struct pipe3_dpll_map dpll_map_usb[] = {
@@ -442,6 +443,16 @@ static int ti_pipe3_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, phy);
 	pm_runtime_enable(phy->dev);
 
+	/*
+	 * Prevent auto-disable of refclk for SATA PHY due to Errata i783
+	 */
+	if (of_device_is_compatible(node, "ti,phy-pipe3-sata")) {
+		if (!IS_ERR(phy->refclk)) {
+			clk_prepare_enable(phy->refclk);
+			phy->sata_refclk_enabled = true;
+		}
+	}
+
 	generic_phy = devm_phy_create(phy->dev, &ops, NULL);
 	if (IS_ERR(generic_phy))
 		return PTR_ERR(generic_phy);
@@ -479,8 +490,17 @@ static int ti_pipe3_enable_refclk(struct ti_pipe3 *phy)
 
 static void ti_pipe3_disable_refclk(struct ti_pipe3 *phy)
 {
-	if (!IS_ERR(phy->refclk))
+	if (!IS_ERR(phy->refclk)) {
 		clk_disable_unprepare(phy->refclk);
+		/*
+		 * SATA refclk needs an additional disable as we left it
+		 * on in probe to avoid Errata i783
+		 */
+		if (phy->sata_refclk_enabled) {
+			clk_disable_unprepare(phy->refclk);
+			phy->sata_refclk_enabled = false;
+		}
+	}
 }
 
 static int ti_pipe3_enable_clocks(struct ti_pipe3 *phy)
