@@ -2809,6 +2809,8 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 	if (host->rx_chan)
 		dma_release_channel(host->rx_chan);
 
+	del_timer_sync(&host->timer);
+
 	pm_runtime_put_sync(host->dev);
 	pm_runtime_disable(host->dev);
 	if (host->dbclk)
@@ -2858,6 +2860,8 @@ static int omap_hsmmc_suspend(struct device *dev)
 
 	if (host->dbclk)
 		clk_disable_unprepare(host->dbclk);
+
+	del_timer_sync(&host->timer);
 
 	pm_runtime_put_sync(host->dev);
 
