@@ -143,7 +143,7 @@
 				remote-endpoint = <&vin3a>;
 				hsync-active = <1>;
 				vsync-active = <1>;
-				pclk-sample = <1>;
+				pclk-sample = <0>;
 				input-clock-freq = <32000000>;
 				pixel-clock-freq = <96000000>;
 			};
