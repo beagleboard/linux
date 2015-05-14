@@ -117,6 +117,11 @@ The following are the optional properties:
 			The timers to be used should match with the watchdog
 			timers used in the firmware image.
 
+- ti,rproc-standby-info: Standby data for the remote processor. This is
+			 mandatory to support Power Management for the OMAP
+			 remoteprocs, and should contain the address containing
+			 the module standby status.
+
 Example:
 --------
 
@@ -141,6 +146,7 @@ Example:
 			ti,hwmods = "dsp";
 			syscon-bootreg = <&scm_conf 0x304>;
 			iommus = <&mmu_dsp>;
+			ti,rproc-standby-info = <0x4a004420>;
 			mboxes = <&mailbox &mbox_dsp>;
 			memory-region = <&dsp_memory_region>;
 			timers = <&timer5>;
@@ -170,6 +176,7 @@ Example:
 			reg-names = "l2ram";
 			ti,hwmods = "ipu";
 			iommus = <&mmu_ipu>;
+			ti,rproc-standby-info = <0x4a008920>;
 			mboxes = <&mailbox &mbox_ipu>;
 			memory-region = <&ipu_memory_region>;
 			timers = <&timer3>, <&timer4>;
@@ -202,6 +209,7 @@ Example:
 			ti,hwmods = "dsp1";
 			syscon-bootreg = <&scm_conf 0x55c>;
 			iommus = <&mmu0_dsp1>, <&mmu1_dsp1>;
+			ti,rproc-standby-info = <0x4a005420>;
 			mboxes = <&mailbox5 &mbox_dsp1_ipc3x>;
 			memory-region = <&dsp1_memory_region>;
 			timers = <&timer5>;
