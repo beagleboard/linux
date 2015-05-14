@@ -246,7 +246,6 @@ skip_m3:
 	movne	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
 	strne	r2, [r1]
 
-re_enable_emif:
 	ldr	r2, wfi_flags
 	tst	r2, #WFI_SELF_REFRESH
 	beq	skip_reenable_emif
@@ -254,6 +253,7 @@ re_enable_emif:
 	tst	r2, #WFI_DISABLE_EMIF
 	beq	skip_emif_enable
 
+re_enable_emif:
 	/* Re-enable EMIF */
 	ldr	r1, virt_emif_clkctrl
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
