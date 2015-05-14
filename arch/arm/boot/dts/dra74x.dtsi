@@ -112,6 +112,7 @@
 			ti,hwmods = "dsp2";
 			syscon-bootreg = <&scm_conf 0x560>;
 			iommus = <&mmu0_dsp2>, <&mmu1_dsp2>;
+			ti,rproc-standby-info = <0x4a005620>;
 			status = "disabled";
 		};
 	};
