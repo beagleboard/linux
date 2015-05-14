@@ -1,0 +1,43 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include "am335x-peripheral-gpio-backlight-P9_14.dtsi"
+
+/* cape universal */
+
+/*
+ *&ocp {
+ *	P9_14_pinmux {
+ *		status = "disabled";
+ *	};
+ *};
+ *
+ *&dcan0 {
+ *	pinctrl-0 = <>;
+ *};
+ *
+ */
+
+/* standard */
+
+&am33xx_pinmux {
+	gpio_bl_p9_14_pins: pinmux_gpio_bl_p9_14_pins {
+		pinctrl-single,pins = <
+			/* gpmc_a[2].GPIO1[18] (backlight control) */
+			BONE_P9_14 (PIN_OUTPUT | MUX_MODE7)
+		>;
+	};
+};
+
+/ {
+	backlight {
+		pinctrl-0 = <&gpio_bl_p9_14_pins>;
+		gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+	};
+};
