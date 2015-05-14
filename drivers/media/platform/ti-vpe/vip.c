@@ -2896,6 +2896,10 @@ static int vip_probe(struct platform_device *pdev)
 		if (!dev)
 			return -ENOMEM;
 
+		dev->instance_id = (int)of_dev_id->data;
+		snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
+			"%s%d-s%d", VIP_MODULE_NAME, dev->instance_id, slice);
+
 		dev->irq = platform_get_irq(pdev, slice);
 		if (!dev->irq) {
 			dev_err(&pdev->dev, "Could not get IRQ");
@@ -2903,7 +2907,7 @@ static int vip_probe(struct platform_device *pdev)
 		}
 
 		if (devm_request_irq(&pdev->dev, dev->irq, vip_irq,
-				     0, VIP_MODULE_NAME, dev) < 0) {
+				     0, dev->v4l2_dev.name, dev) < 0) {
 			ret = -ENOMEM;
 			goto dev_unreg;
 		}
@@ -2911,10 +2915,6 @@ static int vip_probe(struct platform_device *pdev)
 		spin_lock_init(&dev->slock);
 		spin_lock_init(&dev->lock);
 
-		dev->instance_id = (int)of_dev_id->data;
-
-		snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
-			"%s%d-%d", VIP_MODULE_NAME, dev->instance_id, slice);
 		ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 		if (ret)
 			goto err_runtime_get;
