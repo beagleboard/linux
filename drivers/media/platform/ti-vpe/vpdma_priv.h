@@ -84,9 +84,11 @@
 #define DATA_TYPE_C444				0x4
 #define DATA_TYPE_C422				0x5
 #define DATA_TYPE_C420				0x6
-#define DATA_TYPE_YC422				0x7
 #define DATA_TYPE_YC444				0x8
-#define DATA_TYPE_CY422				0x27
+#define DATA_TYPE_YCB422			0x7
+#define DATA_TYPE_YC422				0x17
+#define DATA_TYPE_CBY422			0x27
+#define DATA_TYPE_CY422				0x37
 
 #define DATA_TYPE_RGB16_565			0x0
 #define DATA_TYPE_ARGB_1555			0x1

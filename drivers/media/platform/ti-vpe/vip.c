@@ -162,7 +162,8 @@ static struct vip_fmt vip_formats[] = {
 		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CY422],
+		/* bus order is reversed so flip Y and UV bytes */
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
 				  },
 	},
 	{
@@ -171,7 +172,8 @@ static struct vip_fmt vip_formats[] = {
 		.code		= V4L2_MBUS_FMT_YUYV8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_YC422],
+		/* bus order is reversed so flip Y and UV bytes */
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
 				  },
 	},
 	{
@@ -180,7 +182,18 @@ static struct vip_fmt vip_formats[] = {
 		.code		= V4L2_MBUS_FMT_VYUY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_YC422],
+		/* bus order is reversed so flip Y and UV bytes */
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
+				  },
+	},
+	{
+		.name		= "YVYU 422 packed",
+		.fourcc		= V4L2_PIX_FMT_YVYU,
+		.code		= V4L2_MBUS_FMT_YVYU8_2X8,
+		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
+		.coplanar	= 0,
+		/* bus order is reversed so flip Y and UV bytes */
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
 				  },
 	},
 	{
@@ -1621,6 +1634,8 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 		fourcc_to_str(f->fmt.pix.pixelformat),
 		f->fmt.pix.width, f->fmt.pix.height,
 		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
+	vip_dbg(3, dev, "g_fmt vpdma data type: 0x%02X\n",
+		port->fmt->vpdma_fmt[0]->data_type);
 
 	return 0;
 }
@@ -1736,6 +1751,8 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	vip_dbg(3, dev, "s_fmt subdev s_fmt mbus_code: %04X size: %dx%d\n",
 		mf->code,
 		mf->width, mf->height);
+	vip_dbg(3, dev, "s_fmt vpdma data type: 0x%02X\n",
+		port->fmt->vpdma_fmt[0]->data_type);
 
 	return 0;
 }

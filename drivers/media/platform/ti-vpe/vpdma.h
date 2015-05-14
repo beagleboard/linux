@@ -77,6 +77,8 @@ enum vpdma_yuv_formats {
 	VPDMA_DATA_FMT_YC422,
 	VPDMA_DATA_FMT_YC444,
 	VPDMA_DATA_FMT_CY422,
+	VPDMA_DATA_FMT_CBY422,
+	VPDMA_DATA_FMT_YCB422,
 };
 
 enum vpdma_rgb_formats {
