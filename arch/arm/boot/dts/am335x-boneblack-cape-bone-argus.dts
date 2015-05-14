@@ -31,7 +31,7 @@
 
 &am33xx_pinmux {
 	pinctrl-names = "default";
-	pinctrl-0 = <&clkout2_pin>;
+	/* pinctrl-0 = <&clkout2_pin>; */
 };
 
 #include "am335x-peripheral-emmc.dtsi"
@@ -45,4 +45,4 @@
 	system-power-controller;
 };
 
-#include "am335x-bone-replicape.dtsi"
+#include "am335x-bone-argus.dtsi"
