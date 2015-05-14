@@ -52,6 +52,13 @@
 #define OV1063X_PID			0x300a
 #define OV1063X_VER			0x300b
 
+#define OV1063X_FORMAT_CTRL00		0x4300
+#define   OV1063X_FORMAT_YUYV		0x38
+#define   OV1063X_FORMAT_YYYU		0x39
+#define   OV1063X_FORMAT_UYVY		0x3A
+#define   OV1063X_FORMAT_VYUY		0x3B
+
+
 /* IDs */
 #define OV10633_VERSION_REG		0xa630
 #define OV10635_VERSION_REG		0xa635
@@ -100,6 +107,18 @@ static int ov1063x_init_gpios(struct i2c_client *client);
 static const struct ov1063x_color_format ov1063x_cfmts[] = {
 	{
 		.code		= V4L2_MBUS_FMT_YUYV8_2X8,
+		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
+	},
+	{
+		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
+		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
+	},
+	{
+		.code		= V4L2_MBUS_FMT_VYUY8_2X8,
+		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
+	},
+	{
+		.code		= V4L2_MBUS_FMT_YVYU8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 	},
 	{
@@ -366,7 +385,7 @@ static int ov1063x_set_params(struct i2c_client *client, u32 *width,
 	int ret = -EINVAL;
 	int pclk;
 	int hts, vts;
-	u8 r3003, r3004;
+	u8 r3003, r3004, r4300;
 	int tmp;
 	u32 height_pre_subsample;
 	u32 width_pre_subsample;
@@ -460,15 +479,35 @@ static int ov1063x_set_params(struct i2c_client *client, u32 *width,
 	if (ret)
 		return ret;
 
+	switch (priv->cfmt->code) {
+	case V4L2_MBUS_FMT_UYVY8_2X8:
+		r4300 = OV1063X_FORMAT_UYVY;
+		break;
+	case V4L2_MBUS_FMT_VYUY8_2X8:
+		r4300 = OV1063X_FORMAT_VYUY;
+		break;
+	case V4L2_MBUS_FMT_YUYV8_2X8:
+		r4300 = OV1063X_FORMAT_YUYV;
+		break;
+	case V4L2_MBUS_FMT_YVYU8_2X8:
+		r4300 = OV1063X_FORMAT_YYYU;
+		break;
+	default:
+		r4300 = OV1063X_FORMAT_UYVY;
+		break;
+	}
+
 	/* Set format to UYVY */
-	ret = ov1063x_reg_write(client, 0x4300, 0x3a);
+	ret = ov1063x_reg_write(client, OV1063X_FORMAT_CTRL00, r4300);
 	if (ret)
 		return ret;
 
+	dev_dbg(&client->dev, "r4300=0x%X\n", r4300);
+
 	/* Set output to 8-bit yuv */
-		ret = ov1063x_reg_write(client, 0x4605, 0x08);
-		if (ret)
-			return ret;
+	ret = ov1063x_reg_write(client, 0x4605, 0x08);
+	if (ret)
+		return ret;
 
 	/* Horizontal cropping */
 	ret = ov1063x_reg_write(client, 0x3621, horiz_crop_mode);
@@ -496,7 +535,7 @@ static int ov1063x_set_params(struct i2c_client *client, u32 *width,
 		return ret;
 
 	dev_err(&client->dev, "width x height = %x x %x\n",
-			priv->width, priv->height);
+		priv->width, priv->height);
 	/* Output size */
 	ret = ov1063x_reg_write16(client, 0x3808, priv->width);
 	if (ret)
@@ -825,7 +864,7 @@ static int ov1063x_video_probe(struct i2c_client *client)
 	if (ret)
 		return ret;
 
-	udelay(500);
+	usleep_range(500, 510);
 
 	/* check and show product ID and manufacturer ID */
 	ret = ov1063x_reg_read(client, OV1063X_PID, &pid);
@@ -900,10 +939,11 @@ static int ov1063x_of_probe(struct i2c_client *client,
 			gpios[i].flags	= (flags & GPIO_ACTIVE_LOW) ?
 				GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH;
 			gpios[i].label	= client->name;
-		} else if (gpio == -ENOENT)
+		} else if (gpio == -ENOENT) {
 			break;
-		else
+		} else {
 			return gpio;
+		}
 	}
 	priv->num_gpios = i;
 	return 0;
@@ -940,9 +980,9 @@ static int ov1063x_probe(struct i2c_client *client,
 	v4l2_i2c_subdev_init(sd, client, &ov1063x_subdev_ops);
 	v4l2_ctrl_handler_init(&priv->hdl, 2);
 	v4l2_ctrl_new_std(&priv->hdl, &ov1063x_ctrl_ops,
-			V4L2_CID_VFLIP, 0, 1, 1, 0);
+			  V4L2_CID_VFLIP, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(&priv->hdl, &ov1063x_ctrl_ops,
-			V4L2_CID_HFLIP, 0, 1, 1, 0);
+			  V4L2_CID_HFLIP, 0, 1, 1, 0);
 	priv->subdev.ctrl_handler = &priv->hdl;
 	if (priv->hdl.error) {
 		ret = priv->hdl.error;
