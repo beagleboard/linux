@@ -415,6 +415,12 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-base0033.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-boneblack-replicape.dtb \
+	am335x-boneblack-cape-bone-argus.dtb \
+	am335x-boneblack-can0.dtb \
+	am335x-boneblack-bbb-exp-c.dtb \
+	am335x-bone-cape-bone-argus.dtb \
+	am335x-bone-can0.dtb \
 	am335x-boneblack-overlay.dtb \
 	am335x-bonegreen.dtb \
 	am335x-evm.dtb \
