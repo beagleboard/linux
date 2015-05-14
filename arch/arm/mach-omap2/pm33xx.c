@@ -134,21 +134,27 @@ static int am33xx_do_sram_idle(unsigned long int arg)
 	return 0;
 }
 
-static struct wkup_m3_wakeup_src rtc_wakeups[] = {
-	{.irq_nr = 0, .src = "Unknown"},
-	{.irq_nr = 0, .src = "Unknown"},
-	{.irq_nr = 108, .src = "RTC Alarm"},
-	{.irq_nr = 0, .src = "Ext wakeup"},
+static struct wkup_m3_wakeup_src rtc_alarm_wakeup = {
+	.irq_nr = 108, .src = "RTC Alarm",
+};
+
+static struct wkup_m3_wakeup_src rtc_ext_wakeup = {
+	.irq_nr = 0, .src = "Ext wakeup",
 };
 
 struct wkup_m3_wakeup_src rtc_wake_src(void)
 {
 	u32 i;
 
-	i = __raw_readl(susp_params.rtc_base + 0x98) >> 17;
-	retrigger_irq = rtc_wakeups[i].irq_nr;
+	i = __raw_readl(susp_params.rtc_base + 0x44) & 0x40;
 
-	return rtc_wakeups[i];
+	if (i) {
+		retrigger_irq = rtc_alarm_wakeup.irq_nr;
+		return rtc_alarm_wakeup;
+	} else {
+		retrigger_irq = rtc_ext_wakeup.irq_nr;
+		return rtc_ext_wakeup;
+	}
 }
 
 static void common_save_context(void)
