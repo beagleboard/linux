@@ -53,6 +53,9 @@
 #define RTC_SECONDS_REG					0x0
 #define RTC_PMIC_REG					0x98
 #define RTC_PMIC_POWER_EN				(1 << 16)
+#define RTC_PMIC_EXT_WAKEUP_STS				(1 << 12)
+#define RTC_PMIC_EXT_WAKEUP_POL				(1 << 4)
+#define RTC_PMIC_EXT_WAKEUP_EN				(1 << 0)
 
 	.text
 	.align 3
@@ -272,6 +275,9 @@ wait_emif_disable:
 
 	ldr	r1, rtc_base_addr
 	ldr	r0, [r1, #RTC_PMIC_REG]
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_STS
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_EN
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_POL
 	orr	r0, r0, #RTC_PMIC_POWER_EN
 	str	r0, [r1, #RTC_PMIC_REG]
 	ldr	r0, [r1, #RTC_PMIC_REG]
