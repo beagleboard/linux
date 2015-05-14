@@ -538,7 +538,7 @@ static void vip_set_pclk_polarity(struct vip_port *port, int polarity)
 {
 	u32 val, ret, offset;
 
-	if (polarity == 0 && port->dev->syscon) {
+	if (polarity == 1 && port->dev->syscon) {
 
 		/*
 		 * When the VIP parser is configured to so that the pixel clock
@@ -2137,9 +2137,10 @@ static int vip_setup_parser(struct vip_port *port)
 	struct vip_dev *dev = port->dev;
 	struct v4l2_of_endpoint *endpoint = dev->endpoint;
 	int iface = DUAL_8B_INTERFACE;
-	int sync_type;
+	int sync_type, pclk_type;
 	unsigned int flags;
 
+	flags = endpoint->bus.parallel.flags;
 	vip_reset_port(port);
 	vip_set_port_enable(port, 1);
 
@@ -2183,7 +2184,6 @@ static int vip_setup_parser(struct vip_port *port)
 		else
 			sync_type = DISCRETE_SYNC_SINGLE_YUV422;
 
-		flags = endpoint->bus.parallel.flags;
 		if (flags & (V4L2_MBUS_HSYNC_ACTIVE_HIGH |
 			V4L2_MBUS_HSYNC_ACTIVE_LOW))
 			vip_set_vsync_polarity(port,
@@ -2193,11 +2193,6 @@ static int vip_setup_parser(struct vip_port *port)
 			V4L2_MBUS_VSYNC_ACTIVE_LOW))
 			vip_set_hsync_polarity(port,
 				flags & V4L2_MBUS_VSYNC_ACTIVE_HIGH ? 1 : 0);
-
-		if (flags & (V4L2_MBUS_PCLK_SAMPLE_RISING |
-			V4L2_MBUS_PCLK_SAMPLE_FALLING))
-			vip_set_pclk_polarity(port,
-				flags & V4L2_MBUS_PCLK_SAMPLE_RISING ? 1 : 0);
 
 		vip_xtra_set_repack_sel(port, 0);
 		vip_set_actvid_hsync_n(port, 0);
@@ -2209,6 +2204,8 @@ static int vip_setup_parser(struct vip_port *port)
 		return -EINVAL;
 	}
 
+	pclk_type = flags & V4L2_MBUS_PCLK_SAMPLE_RISING ? 0 : 1;
+	vip_set_pclk_polarity(port, pclk_type);
 	vip_set_data_interface(port, iface);
 	vip_sync_type(port, sync_type);
 	return 0;
