@@ -190,6 +190,7 @@ struct mt9t11x_priv {
 	struct v4l2_ctrl		*hflip;
 	struct v4l2_ctrl		*vflip;
 
+	/* Protects the struct fields below */
 	struct mutex			lock;
 	int				streaming;
 	int				power;
@@ -724,8 +725,9 @@ static inline u32 calc_div(u32 desired, u32 src, u8 *_div)
 		div = src / desired;
 		if ((src % desired) > 0)
 			div++;
-	} else
+	} else {
 		div = 1;
+	}
 
 	*_div = (u8)(div - 1);
 
@@ -1181,8 +1183,8 @@ static int mt9t11x_init_camera(const struct i2c_client *client)
 	ECHECKER(ret, mt9t11x_continue(client));
 
 	ECHECKER(ret, mt9t11x_set_a_frame_size(client,
-				 priv->frame.width,
-				 priv->frame.height));
+					       priv->frame.width,
+					       priv->frame.height));
 
 	return ret;
 }
@@ -1276,7 +1278,7 @@ static int mt9t11x_s_ctrl(struct v4l2_ctrl *ctrl)
 	int ret = -EINVAL;
 
 	dev_dbg(&client->dev, "%s: ctrl_id:0x%x (%s), value: %d\n",
-		 __func__, ctrl->id, ctrl->name, ctrl->val);
+		__func__, ctrl->id, ctrl->name, ctrl->val);
 
 	mutex_lock(&priv->lock);
 	/*
@@ -1290,11 +1292,11 @@ static int mt9t11x_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_VFLIP:
-		mt9t11x_set_orientation(client, 0x2, (ctrl->val)?2:0);
+		mt9t11x_set_orientation(client, 0x2, (ctrl->val) ? 2 : 0);
 		ret = 0;
 		break;
 	case V4L2_CID_HFLIP:
-		mt9t11x_set_orientation(client, 0x1, (ctrl->val)?1:0);
+		mt9t11x_set_orientation(client, 0x1, (ctrl->val) ? 1 : 0);
 		ret = 0;
 		break;
 	}
@@ -1413,20 +1415,22 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 
 	mt9t11x_mcu_write(ret, client, VAR(26, 7), priv->format->fmt);
 	mt9t11x_mcu_write(ret, client, VAR(26, 9), priv->format->order);
+
 	mt9t11x_mcu_write(ret, client, VAR8(1, 0), 0x06);
 
 	if (priv->flags & MT9T11x_FLAG_VFLIP)
 		v4l2_ctrl_s_ctrl(priv->vflip, 1);
 
 	/* Make sure H/W is consistent with current control settings */
-	ECHECKER(ret, mt9t11x_set_orientation(client, 0x3,
-				(v4l2_ctrl_g_ctrl(priv->vflip) << 1 |
-				 v4l2_ctrl_g_ctrl(priv->hflip))));
+	ECHECKER(ret,
+		 mt9t11x_set_orientation(client, 0x3,
+					 (v4l2_ctrl_g_ctrl(priv->vflip) << 1 |
+					  v4l2_ctrl_g_ctrl(priv->hflip))));
 
-	dev_dbg(&client->dev, "format : %d\n", priv->format->code);
+	dev_dbg(&client->dev, "format : %04x\n", priv->format->code);
 	dev_dbg(&client->dev, "size   : %d x %d\n",
-			priv->frame.width,
-			priv->frame.height);
+		priv->frame.width,
+		priv->frame.height);
 
 	priv->streaming = enable;
 
@@ -1637,7 +1641,11 @@ static int mt9t11x_camera_probe(struct i2c_client *client)
 	switch (chipid) {
 	case 0x2680:
 		devname = "mt9t111";
-		priv->num_formats = ARRAY_SIZE(mt9t11x_cfmts);
+		/*
+		 * Looks like only uyvy and vyuy are supported
+		 * so limiting available formats.
+		 */
+		priv->num_formats = 1;
 		break;
 	case 0x2682:
 		devname = "mt9t112";
@@ -1877,9 +1885,9 @@ MODULE_DEVICE_TABLE(i2c, mt9t11x_id);
 
 #if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id mt9t11x_of_match[] = {
-	{ .compatible = "aptina,mt9t11x", .data = (void *) MT9T11X_ID},
-	{ .compatible = "aptina,mt9t111", .data = (void *) MT9T111_ID},
-	{ .compatible = "aptina,mt9t112", .data = (void *) MT9T112_ID},
+	{ .compatible = "aptina,mt9t11x", .data = (void *)MT9T11X_ID},
+	{ .compatible = "aptina,mt9t111", .data = (void *)MT9T111_ID},
+	{ .compatible = "aptina,mt9t112", .data = (void *)MT9T112_ID},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mt9t11x_of_match);
