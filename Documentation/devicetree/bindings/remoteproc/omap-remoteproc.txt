@@ -100,6 +100,11 @@ The following are the optional properties:
 			The timers to be used should match with the watchdog
 			timers used in the firmware image.
 
+- ti,rproc-standby-info: Standby data for the remote processor. This is
+			 mandatory to support Power Management for the OMAP
+			 remoteprocs, and should contain the address containing
+			 the module standby status.
+
 Example:
 --------
 
@@ -110,6 +115,7 @@ ocp {
 		ti,hwmods = "dsp";
 		iommus = <&mmu_dsp>;
 		mboxes = <&mailbox &mbox_dsp>;
+		ti,rproc-standby-info = <0x4a004420>;
 		status = "disabled";
 	};
 };
