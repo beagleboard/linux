@@ -297,6 +297,11 @@ static struct iommu_platform_data dra7_ipu1_dsp_iommu_pdata = {
 	.device_idle = omap_device_idle,
 	.set_pwrdm_constraint = omap_iommu_set_pwrdm_constraint,
 };
+
+static struct iommu_platform_data dra7_dsp_mmu_edma_pdata = {
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
+};
 #endif
 
 static struct pcs_pdata pcs_pdata;
@@ -373,6 +378,10 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &dra7_ipu1_dsp_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-dsp-iommu", 0x41501000, "41501000.mmu",
 		       &dra7_ipu1_dsp_iommu_pdata),
+	OF_DEV_AUXDATA("ti,dra7-dsp-iommu", 0x40d02000, "40d02000.mmu",
+		       &dra7_dsp_mmu_edma_pdata),
+	OF_DEV_AUXDATA("ti,dra7-dsp-iommu", 0x41502000, "41502000.mmu",
+		       &dra7_dsp_mmu_edma_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x55082000, "55082000.mmu",
 		       &omap4_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x58882000, "58882000.mmu",
