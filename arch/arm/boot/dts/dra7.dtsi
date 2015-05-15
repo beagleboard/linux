@@ -1952,6 +1952,16 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
+			csi2_0: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			csi2_1: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
 		};
 
 		epwmss0: epwmss@4843e000 {
