@@ -74,6 +74,16 @@ const struct vpdma_data_format vpdma_yuv_fmts[] = {
 		.data_type	= DATA_TYPE_CY422,
 		.depth		= 16,
 	},
+	[VPDMA_DATA_FMT_CBY422] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
+		.data_type	= DATA_TYPE_CBY422,
+		.depth		= 16,
+	},
+	[VPDMA_DATA_FMT_YCB422] = {
+		.type		= VPDMA_DATA_FMT_TYPE_YUV,
+		.data_type	= DATA_TYPE_YCB422,
+		.depth		= 16,
+	},
 };
 EXPORT_SYMBOL(vpdma_yuv_fmts);
 

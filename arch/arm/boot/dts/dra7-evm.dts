@@ -468,7 +468,7 @@
 				remote-endpoint = <&vin1a>;
 				hsync-active = <1>;
 				vsync-active = <1>;
-				pclk-sample = <1>;
+				pclk-sample = <0>;
 			};
 		};
 	};

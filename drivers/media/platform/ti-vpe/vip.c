@@ -162,7 +162,8 @@ static struct vip_fmt vip_formats[] = {
 		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CY422],
+		/* bus order is reversed so flip Y and UV bytes */
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
 				  },
 	},
 	{
@@ -171,7 +172,8 @@ static struct vip_fmt vip_formats[] = {
 		.code		= V4L2_MBUS_FMT_YUYV8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_YC422],
+		/* bus order is reversed so flip Y and UV bytes */
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
 				  },
 	},
 	{
@@ -180,7 +182,18 @@ static struct vip_fmt vip_formats[] = {
 		.code		= V4L2_MBUS_FMT_VYUY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_YC422],
+		/* bus order is reversed so flip Y and UV bytes */
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
+				  },
+	},
+	{
+		.name		= "YVYU 422 packed",
+		.fourcc		= V4L2_PIX_FMT_YVYU,
+		.code		= V4L2_MBUS_FMT_YVYU8_2X8,
+		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
+		.coplanar	= 0,
+		/* bus order is reversed so flip Y and UV bytes */
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
 				  },
 	},
 	{
@@ -525,7 +538,7 @@ static void vip_set_pclk_polarity(struct vip_port *port, int polarity)
 {
 	u32 val, ret, offset;
 
-	if (polarity == 0 && port->dev->syscon) {
+	if (polarity == 1 && port->dev->syscon) {
 
 		/*
 		 * When the VIP parser is configured to so that the pixel clock
@@ -1621,6 +1634,8 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 		fourcc_to_str(f->fmt.pix.pixelformat),
 		f->fmt.pix.width, f->fmt.pix.height,
 		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
+	vip_dbg(3, dev, "g_fmt vpdma data type: 0x%02X\n",
+		port->fmt->vpdma_fmt[0]->data_type);
 
 	return 0;
 }
@@ -1736,6 +1751,8 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	vip_dbg(3, dev, "s_fmt subdev s_fmt mbus_code: %04X size: %dx%d\n",
 		mf->code,
 		mf->width, mf->height);
+	vip_dbg(3, dev, "s_fmt vpdma data type: 0x%02X\n",
+		port->fmt->vpdma_fmt[0]->data_type);
 
 	return 0;
 }
@@ -2120,9 +2137,10 @@ static int vip_setup_parser(struct vip_port *port)
 	struct vip_dev *dev = port->dev;
 	struct v4l2_of_endpoint *endpoint = dev->endpoint;
 	int iface = DUAL_8B_INTERFACE;
-	int sync_type;
+	int sync_type, pclk_type;
 	unsigned int flags;
 
+	flags = endpoint->bus.parallel.flags;
 	vip_reset_port(port);
 	vip_set_port_enable(port, 1);
 
@@ -2166,7 +2184,6 @@ static int vip_setup_parser(struct vip_port *port)
 		else
 			sync_type = DISCRETE_SYNC_SINGLE_YUV422;
 
-		flags = endpoint->bus.parallel.flags;
 		if (flags & (V4L2_MBUS_HSYNC_ACTIVE_HIGH |
 			V4L2_MBUS_HSYNC_ACTIVE_LOW))
 			vip_set_vsync_polarity(port,
@@ -2176,11 +2193,6 @@ static int vip_setup_parser(struct vip_port *port)
 			V4L2_MBUS_VSYNC_ACTIVE_LOW))
 			vip_set_hsync_polarity(port,
 				flags & V4L2_MBUS_VSYNC_ACTIVE_HIGH ? 1 : 0);
-
-		if (flags & (V4L2_MBUS_PCLK_SAMPLE_RISING |
-			V4L2_MBUS_PCLK_SAMPLE_FALLING))
-			vip_set_pclk_polarity(port,
-				flags & V4L2_MBUS_PCLK_SAMPLE_RISING ? 1 : 0);
 
 		vip_xtra_set_repack_sel(port, 0);
 		vip_set_actvid_hsync_n(port, 0);
@@ -2192,6 +2204,8 @@ static int vip_setup_parser(struct vip_port *port)
 		return -EINVAL;
 	}
 
+	pclk_type = flags & V4L2_MBUS_PCLK_SAMPLE_RISING ? 0 : 1;
+	vip_set_pclk_polarity(port, pclk_type);
 	vip_set_data_interface(port, iface);
 	vip_sync_type(port, sync_type);
 	return 0;
@@ -2882,6 +2896,10 @@ static int vip_probe(struct platform_device *pdev)
 		if (!dev)
 			return -ENOMEM;
 
+		dev->instance_id = (int)of_dev_id->data;
+		snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
+			"%s%d-s%d", VIP_MODULE_NAME, dev->instance_id, slice);
+
 		dev->irq = platform_get_irq(pdev, slice);
 		if (!dev->irq) {
 			dev_err(&pdev->dev, "Could not get IRQ");
@@ -2889,7 +2907,7 @@ static int vip_probe(struct platform_device *pdev)
 		}
 
 		if (devm_request_irq(&pdev->dev, dev->irq, vip_irq,
-				     0, VIP_MODULE_NAME, dev) < 0) {
+				     0, dev->v4l2_dev.name, dev) < 0) {
 			ret = -ENOMEM;
 			goto dev_unreg;
 		}
@@ -2897,10 +2915,6 @@ static int vip_probe(struct platform_device *pdev)
 		spin_lock_init(&dev->slock);
 		spin_lock_init(&dev->lock);
 
-		dev->instance_id = (int)of_dev_id->data;
-
-		snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
-			"%s%d-%d", VIP_MODULE_NAME, dev->instance_id, slice);
 		ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 		if (ret)
 			goto err_runtime_get;
