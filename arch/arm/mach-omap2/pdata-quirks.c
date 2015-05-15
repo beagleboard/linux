@@ -208,6 +208,13 @@ static struct iommu_platform_data omap4_iommu_pdata = {
 };
 #endif
 
+#ifdef CONFIG_SOC_DRA7XX
+static struct iommu_platform_data dra7_dsp_mmu_edma_pdata = {
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
+};
+#endif
+
 #ifdef CONFIG_SOC_AM33XX
 static void __init am335x_evmsk_legacy_init(void)
 {
@@ -296,8 +303,12 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,dra7-padconf", 0x4a003400, "4a003400.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x40d01000, "40d01000.mmu",
 		       &omap4_iommu_pdata),
+	OF_DEV_AUXDATA("ti,dra7-iommu", 0x40d02000, "40d02000.mmu",
+		       &dra7_dsp_mmu_edma_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x41501000, "41501000.mmu",
 		       &omap4_iommu_pdata),
+	OF_DEV_AUXDATA("ti,dra7-iommu", 0x41502000, "41502000.mmu",
+		       &dra7_dsp_mmu_edma_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x55082000, "55082000.mmu",
 		       &omap4_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x58882000, "58882000.mmu",
