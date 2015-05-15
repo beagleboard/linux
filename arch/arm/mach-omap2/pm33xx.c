@@ -60,6 +60,7 @@ static struct omap_hwmod *rtc_oh;
 static struct pinctrl_dev *pmx_dev;
 static u32 rtc_magic_val;
 static int retrigger_irq;
+static int rtc_only_idle;
 
 #define RTC_SCRATCH_RESUME_REG         0
 #define RTC_SCRATCH_MAGIC_REG          1
@@ -133,21 +134,27 @@ static int am33xx_do_sram_idle(unsigned long int arg)
 	return 0;
 }
 
-static struct wkup_m3_wakeup_src rtc_wakeups[] = {
-	{.irq_nr = 0, .src = "Unknown"},
-	{.irq_nr = 0, .src = "Unknown"},
-	{.irq_nr = 108, .src = "RTC Alarm"},
-	{.irq_nr = 0, .src = "Ext wakeup"},
+static struct wkup_m3_wakeup_src rtc_alarm_wakeup = {
+	.irq_nr = 108, .src = "RTC Alarm",
+};
+
+static struct wkup_m3_wakeup_src rtc_ext_wakeup = {
+	.irq_nr = 0, .src = "Ext wakeup",
 };
 
 struct wkup_m3_wakeup_src rtc_wake_src(void)
 {
 	u32 i;
 
-	i = __raw_readl(susp_params.rtc_base + 0x98) >> 17;
-	retrigger_irq = rtc_wakeups[i].irq_nr;
+	i = __raw_readl(susp_params.rtc_base + 0x44) & 0x40;
 
-	return rtc_wakeups[i];
+	if (i) {
+		retrigger_irq = rtc_alarm_wakeup.irq_nr;
+		return rtc_alarm_wakeup;
+	} else {
+		retrigger_irq = rtc_ext_wakeup.irq_nr;
+		return rtc_ext_wakeup;
+	}
 }
 
 static void common_save_context(void)
@@ -210,7 +217,6 @@ static void am43xx_restore_context(void)
 
 int am33xx_rtc_only_idle(long unsigned int unused)
 {
-	rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, rtc_magic_val);
 	omap_rtc_power_off_program();
 	am33xx_do_wfi_sram(&susp_params);
 	return 0;
@@ -220,16 +226,12 @@ static int am33xx_pm_suspend(unsigned int state)
 {
 	int i, ret = 0;
 	int status = 0;
-	int rtc_only_idle = 0;
 	struct wkup_m3_wakeup_src wakeup_src = {.irq_nr = 0,
 						.src = "Unknown",};
 
 	omap_set_pwrdm_state(gfx_pwrdm, PWRDM_POWER_OFF);
 
 	am33xx_pm->ops->pre_suspend(state);
-
-	if (state == PM_SUSPEND_MEM && enable_off_mode && rtc_magic_val)
-		rtc_only_idle = 1;
 
 	if (rtc_only_idle) {
 		omap_hwmod_enable(rtc_oh);
@@ -339,6 +341,14 @@ static int am33xx_pm_begin(suspend_state_t state)
 
 	cpu_idle_poll_ctrl(true);
 
+	if (state == PM_SUSPEND_MEM && enable_off_mode && rtc_magic_val) {
+		rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG,
+				  rtc_magic_val);
+		rtc_only_idle = 1;
+	} else {
+		rtc_only_idle = 0;
+	}
+
 	switch (state) {
 	case PM_SUSPEND_MEM:
 		am33xx_pm->ipc.reg1	= IPC_CMD_DS0;
@@ -379,6 +389,9 @@ static void am33xx_pm_end(void)
 	if (retrigger_irq)
 		writel_relaxed(1 << (retrigger_irq & 31),
 			       gic_dist_base + 0x200 + retrigger_irq / 32 * 4);
+
+	if (rtc_only_idle)
+		rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG, 0);
 
 	cpu_idle_poll_ctrl(false);
 }

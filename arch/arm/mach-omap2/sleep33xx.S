@@ -38,6 +38,9 @@
 #define RTC_SECONDS_REG			0x0
 #define RTC_PMIC_REG			0x98
 #define RTC_PMIC_POWER_EN		(1 << 16)
+#define RTC_PMIC_EXT_WAKEUP_STS		(1 << 12)
+#define RTC_PMIC_EXT_WAKEUP_POL		(1 << 4)
+#define RTC_PMIC_EXT_WAKEUP_EN		(1 << 0)
 
 	.text
 	.align 3
@@ -161,6 +164,9 @@ skip_sr:
 
 	ldr	r1, rtc_base_addr
 	ldr	r0, [r1, #RTC_PMIC_REG]
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_STS
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_EN
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_POL
 	orr	r0, r0, #RTC_PMIC_POWER_EN
 	str	r0, [r1, #RTC_PMIC_REG]
 	ldr	r0, [r1, #RTC_PMIC_REG]
@@ -240,7 +246,6 @@ skip_m3:
 	movne	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
 	strne	r2, [r1]
 
-re_enable_emif:
 	ldr	r2, wfi_flags
 	tst	r2, #WFI_SELF_REFRESH
 	beq	skip_reenable_emif
@@ -248,6 +253,7 @@ re_enable_emif:
 	tst	r2, #WFI_DISABLE_EMIF
 	beq	skip_emif_enable
 
+re_enable_emif:
 	/* Re-enable EMIF */
 	ldr	r1, virt_emif_clkctrl
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
