@@ -2328,7 +2328,7 @@ static int musb_resume(struct device *dev)
 	if (musb->need_finish_resume) {
 		musb->need_finish_resume = 0;
 		schedule_delayed_work(&musb->finish_resume_work,
-				      msecs_to_jiffies(20));
+				      msecs_to_jiffies(USB_RESUME_TIMEOUT));
 	}
 
 	/*
@@ -2371,7 +2371,7 @@ static int musb_runtime_resume(struct device *dev)
 	if (musb->need_finish_resume) {
 		musb->need_finish_resume = 0;
 		schedule_delayed_work(&musb->finish_resume_work,
-				msecs_to_jiffies(20));
+				msecs_to_jiffies(USB_RESUME_TIMEOUT));
 	}
 
 	return 0;
