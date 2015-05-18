@@ -89,6 +89,13 @@ static struct iommu_platform_data omap3_iommu_pdata = {
 	.reset_name = "mmu",
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
+};
+
+static struct iommu_platform_data omap3_iommu_isp_pdata = {
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
 };
 
 static int omap3_sbc_t3730_twl_callback(struct device *dev,
@@ -221,6 +228,8 @@ static struct iommu_platform_data omap4_iommu_pdata = {
 	.reset_name = "mmu_cache",
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
 };
 
 static struct omap_rproc_pdata omap4_ipu_pdata = {
@@ -240,6 +249,11 @@ static struct omap_rproc_pdata omap4_dsp_pdata = {
 #endif
 
 #ifdef CONFIG_SOC_DRA7XX
+static struct iommu_platform_data dra7_dsp_mmu_edma_pdata = {
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
+};
+
 static struct omap_rproc_pdata dra7_dsp1_pdata = {
 	.device_enable = omap_rproc_device_enable,
 	.device_shutdown = omap_rproc_device_shutdown,
@@ -317,6 +331,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,omap3-padconf", 0x48002a00, "48002a00.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,omap2-iommu", 0x5d000000, "5d000000.mmu",
 		       &omap3_iommu_pdata),
+	OF_DEV_AUXDATA("ti,omap2-iommu", 0x480bd400, "480bd400.mmu",
+		       &omap3_iommu_isp_pdata),
 	/* Only on am3517 */
 	OF_DEV_AUXDATA("ti,davinci_mdio", 0x5c030000, "davinci_mdio.0", NULL),
 	OF_DEV_AUXDATA("ti,am3517-emac", 0x5c000000, "davinci_emac.0",
@@ -353,8 +369,12 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,dra7-padconf", 0x4a003400, "4a003400.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x40d01000, "40d01000.mmu",
 		       &omap4_iommu_pdata),
+	OF_DEV_AUXDATA("ti,dra7-iommu", 0x40d02000, "40d02000.mmu",
+		       &dra7_dsp_mmu_edma_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x41501000, "41501000.mmu",
 		       &omap4_iommu_pdata),
+	OF_DEV_AUXDATA("ti,dra7-iommu", 0x41502000, "41502000.mmu",
+		       &dra7_dsp_mmu_edma_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x55082000, "55082000.mmu",
 		       &omap4_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x58882000, "58882000.mmu",

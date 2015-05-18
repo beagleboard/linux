@@ -1,7 +1,7 @@
 /*
  * OMAP Remote Processor driver
  *
- * Copyright (C) 2011-2014 Texas Instruments, Inc.
+ * Copyright (C) 2011-2015 Texas Instruments, Inc.
  * Copyright (C) 2011 Google, Inc.
  *
  * Ohad Ben-Cohen <ohad@wizery.com>
@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/err.h>
+#include <linux/io.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -31,6 +32,7 @@
 #include <linux/remoteproc.h>
 #include <linux/mailbox_client.h>
 #include <linux/omap-mailbox.h>
+#include <linux/omap-iommu.h>
 
 #include <linux/platform_data/remoteproc-omap.h>
 
@@ -55,6 +57,9 @@ struct omap_rproc_timers_info {
  * @num_wd_timers: number of rproc watchdog timers
  * @timers: timer(s) info used by rproc
  * @rproc: rproc handle
+ * @pm_comp: completion primitive to sync for suspend response
+ * @standby_addr: kernel address of the register having module standby status
+ * @suspend_acked: state machine flag to store the suspend request ack
  */
 struct omap_rproc {
 	struct mbox_chan *mbox;
@@ -63,6 +68,9 @@ struct omap_rproc {
 	int num_wd_timers;
 	struct omap_rproc_timers_info *timers;
 	struct rproc *rproc;
+	struct completion pm_comp;
+	void __iomem *standby_addr;
+	bool suspend_acked;
 };
 
 /**
@@ -291,6 +299,11 @@ static void omap_rproc_mbox_callback(struct mbox_client *client, void *data)
 	case RP_MBOX_ECHO_REPLY:
 		dev_info(dev, "received echo reply from %s\n", name);
 		break;
+	case RP_MBOX_SUSPEND_ACK:
+	case RP_MBOX_SUSPEND_CANCEL:
+		oproc->suspend_acked = msg == RP_MBOX_SUSPEND_ACK;
+		complete(&oproc->pm_comp);
+		break;
 	default:
 		if (msg >= RP_MBOX_END_MSG) {
 			dev_err(dev, "dropping unknown message %x", msg);
@@ -410,6 +423,187 @@ static struct rproc_ops omap_rproc_ops = {
 	.kick		= omap_rproc_kick,
 };
 
+#ifdef CONFIG_PM
+static bool _is_rproc_in_standby(struct omap_rproc *oproc)
+{
+	static int standby_mask = (1 << 18);
+
+	return readl(oproc->standby_addr) & standby_mask;
+}
+
+/* 1 sec is long enough time to let the remoteproc side suspend the device */
+#define DEF_SUSPEND_TIMEOUT 1000
+static int _omap_rproc_suspend(struct rproc *rproc)
+{
+	struct device *dev = rproc->dev.parent;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_rproc_pdata *pdata = dev_get_platdata(dev);
+	struct omap_rproc *oproc = rproc->priv;
+	unsigned long to = msecs_to_jiffies(DEF_SUSPEND_TIMEOUT);
+	unsigned long ta = jiffies + to;
+	int ret;
+
+	reinit_completion(&oproc->pm_comp);
+	oproc->suspend_acked = false;
+	ret = mbox_send_message(oproc->mbox, (void *)RP_MBOX_SUSPEND_SYSTEM);
+	if (ret < 0) {
+		dev_err(dev, "PM mbox_send_message failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = wait_for_completion_timeout(&oproc->pm_comp, to);
+	if (!oproc->suspend_acked)
+		return -EBUSY;
+
+	/*
+	 * XXX: The remoteproc side is returning the ACK message before saving
+	 * the context, because the context saving is performed within a
+	 * SYS/BIOS function, and it cannot have any inter-dependencies against
+	 * the IPC layer. Revisit this when SYS/BIOS can be improved to send an
+	 * ACK using a BIOS-independent function hook. However, we can know that
+	 * the remote processor has completed saving the context once the module
+	 * reached STANDBY state (after saving the context, the SYS/BIOS
+	 * executes the appropriate target-specific WFI instruction).
+	 */
+	while (!_is_rproc_in_standby(oproc)) {
+		if (time_after(jiffies, ta))
+			return -ETIME;
+		schedule();
+	}
+
+	ret = pdata->device_shutdown(pdev);
+	if (ret)
+		return ret;
+
+	ret = omap_rproc_disable_timers(pdev, false);
+	if (ret) {
+		dev_err(dev, "disabling timers during suspend failed %d\n",
+			ret);
+		goto enable_device;
+	}
+
+	ret = omap_iommu_domain_suspend(rproc->domain, false);
+	if (ret) {
+		dev_err(dev, "iommu domain suspend failed %d\n", ret);
+		goto enable_timers;
+	}
+
+	return 0;
+
+enable_timers:
+	/* ignore errors on re-enabling code */
+	omap_rproc_enable_timers(pdev, false);
+enable_device:
+	pdata->device_enable(pdev);
+	return ret;
+}
+
+static int _omap_rproc_resume(struct rproc *rproc)
+{
+	struct device *dev = rproc->dev.parent;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_rproc_pdata *pdata = dev_get_platdata(dev);
+	int ret;
+
+	ret = omap_iommu_domain_resume(rproc->domain, false);
+	if (ret) {
+		dev_err(dev, "omap_iommu resume failed %d\n", ret);
+		goto out;
+	}
+
+	/* boot address could be lost after suspend, so restore it */
+	if (pdata->set_bootaddr)
+		pdata->set_bootaddr(rproc->bootaddr);
+
+	ret = omap_rproc_enable_timers(pdev, false);
+	if (ret) {
+		dev_err(dev, "enabling timers during resume failed %d\n",
+			ret);
+		goto suspend_iommu;
+	}
+
+	ret = pdata->device_enable(pdev);
+	if (ret)
+		goto disable_timers;
+
+	return 0;
+
+disable_timers:
+	omap_rproc_disable_timers(pdev, false);
+suspend_iommu:
+	omap_iommu_domain_suspend(rproc->domain, false);
+out:
+	return ret;
+}
+
+static int omap_rproc_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct rproc *rproc = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	mutex_lock(&rproc->lock);
+	if (rproc->state == RPROC_OFFLINE)
+		goto out;
+
+	if (rproc->state == RPROC_SUSPENDED)
+		goto out;
+
+	if (rproc->state != RPROC_RUNNING) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	ret = _omap_rproc_suspend(rproc);
+	if (ret) {
+		dev_err(dev, "suspend failed %d\n", ret);
+		goto out;
+	}
+
+	rproc->state = RPROC_SUSPENDED;
+out:
+	mutex_unlock(&rproc->lock);
+	return ret;
+}
+
+static int omap_rproc_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct rproc *rproc = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	mutex_lock(&rproc->lock);
+	if (rproc->state == RPROC_OFFLINE)
+		goto out;
+
+	if (rproc->state != RPROC_SUSPENDED) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	ret = _omap_rproc_resume(rproc);
+	if (ret) {
+		dev_err(dev, "resume failed %d\n", ret);
+		goto out;
+	}
+
+	rproc->state = RPROC_RUNNING;
+out:
+	mutex_unlock(&rproc->lock);
+	return ret;
+}
+#endif /* CONFIG_PM */
+
+static const struct omap_rproc_fw_data omap4_dsp_fw_data = {
+	.device_name	= "dsp",
+	.fw_name	= "tesla-dsp.xe64T",
+};
+
+static const struct omap_rproc_fw_data omap4_ipu_fw_data = {
+	.device_name	= "ipu",
+	.fw_name	= "ducati-m3-core0.xem3",
+};
+
 static const struct omap_rproc_fw_data dra7_rproc_fw_data[] = {
 	{
 		.device_name	= "40800000.dsp",
@@ -435,19 +629,19 @@ static const struct omap_rproc_fw_data dra7_rproc_fw_data[] = {
 static const struct of_device_id omap_rproc_of_match[] = {
 	{
 		.compatible     = "ti,omap4-rproc-dsp",
-		.data           = "tesla-dsp.xe64T",
+		.data           = &omap4_dsp_fw_data,
 	},
 	{
 		.compatible     = "ti,omap4-rproc-ipu",
-		.data           = "ducati-m3-core0.xem3",
+		.data           = &omap4_ipu_fw_data,
 	},
 	{
 		.compatible     = "ti,omap5-rproc-dsp",
-		.data           = "tesla-dsp.xe64T",
+		.data           = &omap4_dsp_fw_data,
 	},
 	{
 		.compatible     = "ti,omap5-rproc-ipu",
-		.data           = "ducati-m3-core0.xem3",
+		.data           = &omap4_ipu_fw_data,
 	},
 	{
 		.compatible     = "ti,dra7-rproc-dsp",
@@ -473,11 +667,12 @@ static const char *omap_rproc_get_firmware(struct platform_device *pdev)
 	if (!match)
 		return ERR_PTR(-ENODEV);
 
+	data = match->data;
+
 	if (!of_device_is_compatible(np, "ti,dra7-rproc-dsp") &&
 	    !of_device_is_compatible(np, "ti,dra7-rproc-ipu"))
-		return match->data;
+		return data->fw_name;
 
-	data = match->data;
 	for (; data && data->device_name; data++) {
 		if (!strcmp(dev_name(&pdev->dev), data->device_name))
 			return data->fw_name;
@@ -494,6 +689,7 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	struct omap_rproc *oproc;
 	struct rproc *rproc;
 	const char *firmware;
+	u32 standby_addr = 0;
 	int num_timers;
 	int ret;
 
@@ -583,6 +779,17 @@ static int omap_rproc_probe(struct platform_device *pdev)
 			oproc->num_timers, oproc->num_wd_timers);
 	}
 
+	init_completion(&oproc->pm_comp);
+
+	ret = of_property_read_u32(np, "ti,rproc-standby-info", &standby_addr);
+	if (ret || !standby_addr)
+		goto free_rproc;
+
+	oproc->standby_addr = devm_ioremap(&pdev->dev, standby_addr,
+					   sizeof(u32));
+	if (!oproc->standby_addr)
+		goto free_rproc;
+
 	platform_set_drvdata(pdev, rproc);
 
 	ret = rproc_add(rproc);
@@ -609,12 +816,17 @@ static int omap_rproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct dev_pm_ops omap_rproc_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(omap_rproc_suspend, omap_rproc_resume)
+};
+
 static struct platform_driver omap_rproc_driver = {
 	.probe = omap_rproc_probe,
 	.remove = omap_rproc_remove,
 	.driver = {
 		.name = "omap-rproc",
 		.owner = THIS_MODULE,
+		.pm = &omap_rproc_pm_ops,
 		.of_match_table = of_match_ptr(omap_rproc_of_match),
 	},
 };
