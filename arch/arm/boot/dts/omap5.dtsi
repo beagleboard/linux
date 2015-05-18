@@ -555,6 +555,7 @@
 			compatible = "ti,omap4-iommu";
 			reg = <0x4a066000 0x100>;
 			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
+			ti,rproc-standby-info = <0x4a004420>;
 			ti,hwmods = "mmu_dsp";
 		};
 
@@ -563,6 +564,7 @@
 			reg = <0x55082000 0x100>;
 			interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmu_ipu";
+			ti,rproc-standby-info = <0x4a008920>;
 			ti,iommu-bus-err-back;
 		};
 

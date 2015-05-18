@@ -51,4 +51,6 @@ struct iommu_platform_data {
 
 	int (*assert_reset)(struct platform_device *pdev, const char *name);
 	int (*deassert_reset)(struct platform_device *pdev, const char *name);
+	int (*device_enable)(struct platform_device *pdev);
+	int (*device_idle)(struct platform_device *pdev);
 };
