@@ -117,6 +117,8 @@ struct ov1063x_priv {
 	/* GPIOs */
 	struct gpio_desc		*reset_gpio;
 	struct gpio_desc		*powerdown_gpio;
+
+	struct v4l2_ctrl		*colorbar;
 };
 
 static int ov1063x_init_gpios(struct i2c_client *client);
@@ -292,12 +294,16 @@ static int ov1063x_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
+static int ov1063x_set_regs(struct i2c_client *client,
+	const struct ov1063x_reg *regs, int nr_regs);
+
 /* Set status of additional camera capabilities */
 static int ov1063x_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct ov1063x_priv *priv = container_of(ctrl->handler,
 					struct ov1063x_priv, hdl);
 	struct i2c_client *client = v4l2_get_subdevdata(&priv->subdev);
+	int n_regs;
 
 	switch (ctrl->id) {
 	case V4L2_CID_VFLIP:
@@ -315,6 +321,19 @@ static int ov1063x_s_ctrl(struct v4l2_ctrl *ctrl)
 		else
 			return ov1063x_reg_rmw(client, OV1063X_HMIRROR,
 				0, OV1063X_HMIRROR_ON);
+		break;
+	case V4L2_CID_TEST_PATTERN:
+		if (ctrl->val) {
+			n_regs = ARRAY_SIZE(ov1063x_regs_colorbar_enable);
+			return ov1063x_set_regs(client,
+						ov1063x_regs_colorbar_enable,
+						n_regs);
+		} else {
+			n_regs = ARRAY_SIZE(ov1063x_regs_colorbar_disable);
+			return ov1063x_set_regs(client,
+						ov1063x_regs_colorbar_disable,
+						n_regs);
+		}
 		break;
 	}
 
@@ -955,6 +974,11 @@ static const struct v4l2_ctrl_ops ov1063x_ctrl_ops = {
 	.s_ctrl = ov1063x_s_ctrl,
 };
 
+static const char * const ov1063x_test_pattern_menu[] = {
+	"Disabled",
+	"Vertical Color Bars",
+};
+
 static const struct v4l2_subdev_video_ops ov1063x_subdev_video_ops = {
 	.s_stream	= ov1063x_s_stream,
 	.g_parm		= ov1063x_g_parm,
@@ -1072,11 +1096,15 @@ static int ov1063x_probe(struct i2c_client *client,
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
 		     V4L2_SUBDEV_FL_HAS_EVENTS;
 
-	v4l2_ctrl_handler_init(&priv->hdl, 2);
+	v4l2_ctrl_handler_init(&priv->hdl, 3);
 	v4l2_ctrl_new_std(&priv->hdl, &ov1063x_ctrl_ops,
 			  V4L2_CID_VFLIP, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(&priv->hdl, &ov1063x_ctrl_ops,
 			  V4L2_CID_HFLIP, 0, 1, 1, 0);
+	priv->colorbar = v4l2_ctrl_new_std_menu_items(&priv->hdl, &ov1063x_ctrl_ops,
+				     V4L2_CID_TEST_PATTERN,
+				     ARRAY_SIZE(ov1063x_test_pattern_menu) - 1,
+				     0, 0, ov1063x_test_pattern_menu);
 	priv->subdev.ctrl_handler = &priv->hdl;
 	if (priv->hdl.error) {
 		ret = priv->hdl.error;
