@@ -92,13 +92,6 @@
 		gpio = <&gpio7 11 GPIO_ACTIVE_HIGH>;
 	};
 
-	extcon: extcon {
-		compatible = "linux,extcon-gpio";
-
-		gpios = <&gpio7 24 GPIO_ACTIVE_HIGH>;
-		cable-name = "USB-HOST";
-	};
-
 	hdmi0: connector@1 {
 		compatible = "hdmi-connector";
 		label = "hdmi";
@@ -408,6 +401,14 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 		};
+
+		extcon_usb2: tps659038_usb {
+			compatible = "ti,palmas-usb-vid";
+			ti,enable-vbus-detection;
+			ti,enable-gpio-id-detection;
+			id-gpios = <&gpio7 24 GPIO_ACTIVE_HIGH>;
+		};
+
 	};
 
 	tmp102: tmp102@48 {
@@ -648,13 +649,17 @@
 };
 
 &omap_dwc3_2 {
-	extcon = <&extcon>;
+	extcon = <&extcon_usb2>;
 };
 
 &usb2 {
 	/*
-	 * NOTE(rev A1+): Assumes R321 is populated(default).
-	 * If R321 is DNI and R320 is populated, this should be "host"
+	 * Stand alone usage is peripheral only.
+	 * However, with some resistor modifications
+	 * this port can be used via expansion connectors
+	 * as "host" or "dual-role". If so, provide
+	 * the necessary dr_mode override in the expansion
+	 * board's DT.
 	 */
 	dr_mode = "peripheral";
 };
