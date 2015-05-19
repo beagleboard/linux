@@ -108,6 +108,10 @@ struct davinci_mdio_data {
 	u32		clk_div;
 };
 
+#if IS_ENABLED(CONFIG_OF)
+static void davinci_mdio_update_dt_from_phymask(u32 phy_mask);
+#endif
+
 static void davinci_mdio_init_clk(struct davinci_mdio_data *data)
 {
 	u32 mdio_in, div, mdio_out_khz, access_time;
@@ -175,6 +179,12 @@ static int davinci_mdio_reset(struct mii_bus *bus)
 		/* restrict mdio bus to live phys only */
 		dev_info(data->dev, "detected phy mask %x\n", ~phy_mask);
 		phy_mask = ~phy_mask;
+
+		#if IS_ENABLED(CONFIG_OF)
+		if (of_machine_is_compatible("ti,am335x-bone"))
+			davinci_mdio_update_dt_from_phymask(phy_mask);
+		#endif
+
 	} else {
 		/* desperately scan all phys */
 		dev_warn(data->dev, "no live phy, scanning all\n");
@@ -489,6 +499,93 @@ static int davinci_mdio_runtime_resume(struct device *dev)
 
 	davinci_mdio_enable(data);
 	return 0;
+}
+static void davinci_mdio_update_dt_from_phymask(u32 phy_mask)
+{
+	int i, len, skip;
+	u32 addr;
+	__be32 *old_phy_p, *phy_id_p;
+	struct property *phy_id_property = NULL;
+	struct device_node *node_p, *slave_p;
+
+	addr = 0;
+
+	for (i = 0; i < PHY_MAX_ADDR; i++) {
+		if ((phy_mask & (1 << i)) == 0) {
+			addr = (u32) i;
+		break;
+		}
+	}
+
+	for_each_compatible_node(node_p, NULL, "ti,cpsw") {
+		for_each_node_by_name(slave_p, "slave") {
+
+#if IS_ENABLED(CONFIG_OF_OVERLAY)
+			skip = 1;
+			// Hack, the overlay fixup "slave" doesn't have phy-mode...
+			old_phy_p = (__be32 *) of_get_property(slave_p, "phy-mode", &len);
+
+			if (len != (sizeof(__be32 *) * 1))
+			{
+				skip = 0;
+			}
+
+			if (skip) {
+#endif
+
+			old_phy_p = (__be32 *) of_get_property(slave_p, "phy_id", &len);
+
+			if (len != (sizeof(__be32 *) * 2))
+				goto err_out;
+
+			if (old_phy_p) {
+
+				phy_id_property = kzalloc(sizeof(*phy_id_property), GFP_KERNEL);
+
+				if (! phy_id_property)
+					goto err_out;
+
+				phy_id_property->length = len;
+				phy_id_property->name = kstrdup("phy_id", GFP_KERNEL);
+				phy_id_property->value = kzalloc(len, GFP_KERNEL);
+
+				if (! phy_id_property->name)
+					goto err_out;
+
+				if (! phy_id_property->value)
+					goto err_out;
+
+				memcpy(phy_id_property->value, old_phy_p, len);
+
+				phy_id_p = (__be32 *) phy_id_property->value + 1;
+
+				*phy_id_p = cpu_to_be32(addr);
+
+				of_update_property(slave_p, phy_id_property);
+				pr_info("davinci_mdio: dt: updated phy_id[%d] from phy_mask[%x]\n", addr, phy_mask);
+
+				++addr;
+			}
+#if IS_ENABLED(CONFIG_OF_OVERLAY)
+		}
+#endif
+		}
+	}
+
+	return;
+
+err_out:
+
+	if (phy_id_property) {
+		if (phy_id_property->name)
+			kfree(phy_id_property->name);
+
+	if (phy_id_property->value)
+		kfree(phy_id_property->value);
+
+	if (phy_id_property)
+		kfree(phy_id_property);
+	}
 }
 #endif
 
