@@ -436,6 +436,51 @@ static int __nvmem_device_put(struct nvmem_device *nvmem)
 	return 0;
 }
 
+static int nvmem_match(struct device *dev, const void *data)
+{
+	return !strcmp(dev_name(dev), (const char *)data);
+}
+
+static struct nvmem_device *nvmem_find(const char *name)
+{
+	struct device *d;
+
+	d = class_find_device(&nvmem_class, NULL, (void *)name, nvmem_match);
+
+	return d ? to_nvmem_device(d) : NULL;
+}
+
+struct nvmem_device *nvmem_device_get(struct device *dev, const char *dev_name)
+{
+	struct device_node *nvmem_np, *np = dev->of_node;
+	struct nvmem_device *nvmem;
+	int index;
+
+	if (np) { /* try dt first */
+		index = of_property_match_string(np, "nvmem-names", dev_name);
+
+		nvmem_np = of_parse_phandle(np, "nvmem", index);
+		if (!nvmem_np)
+			return ERR_PTR(-EINVAL);
+
+		nvmem = __nvmem_device_get(nvmem_np, NULL, NULL);
+
+		if (!IS_ERR(nvmem) || PTR_ERR(nvmem) == -EPROBE_DEFER)
+			return nvmem;
+
+	}
+
+	return nvmem_find(dev_name);
+
+}
+EXPORT_SYMBOL_GPL(nvmem_device_get);
+
+void nvmem_device_put(struct nvmem_device *nvmem)
+{
+	__nvmem_device_put(nvmem);
+}
+EXPORT_SYMBOL_GPL(nvmem_device_put);
+
 static struct nvmem_cell *nvmem_cell_get_from_list(const char *cell_id)
 {
 	struct nvmem_cell *cell = NULL;
@@ -724,6 +769,81 @@ int nvmem_cell_write(struct nvmem_cell *cell, void *buf, ssize_t len)
 	return len;
 }
 EXPORT_SYMBOL_GPL(nvmem_cell_write);
+
+int nvmem_device_cell_read(struct nvmem_device *nvmem,
+			   struct nvmem_cell_info *info, void *buf)
+{
+	struct nvmem_cell cell;
+	int rc, len;
+
+	if (!nvmem || !nvmem->regmap)
+		return -EINVAL;
+
+	rc = nvmem_cell_info_to_nvmem_cell(nvmem, info, &cell);
+	if (IS_ERR_VALUE(rc))
+		return rc;
+
+	rc = __nvmem_cell_read(nvmem, &cell, buf, &len);
+	if (IS_ERR_VALUE(rc))
+		return rc;
+
+	return len;
+}
+EXPORT_SYMBOL_GPL(nvmem_device_cell_read);
+
+int nvmem_device_cell_write(struct nvmem_device *nvmem,
+			    struct nvmem_cell_info *info, void *buf)
+{
+	struct nvmem_cell cell;
+	int rc;
+
+	if (!nvmem || !nvmem->regmap)
+		return -EINVAL;
+
+	rc = nvmem_cell_info_to_nvmem_cell(nvmem, info, &cell);
+	if (IS_ERR_VALUE(rc))
+		return rc;
+
+	return nvmem_cell_write(&cell, buf, cell.bytes);
+}
+EXPORT_SYMBOL_GPL(nvmem_device_cell_write);
+
+int nvmem_device_read(struct nvmem_device *nvmem,
+		      unsigned int offset,
+		      size_t bytes, void *buf)
+{
+	int rc;
+
+	if (!nvmem || !nvmem->regmap)
+		return -EINVAL;
+
+	rc = regmap_raw_read(nvmem->regmap, offset, buf, bytes);
+
+	if (IS_ERR_VALUE(rc))
+		return rc;
+
+	return bytes;
+}
+EXPORT_SYMBOL_GPL(nvmem_device_read);
+
+int nvmem_device_write(struct nvmem_device *nvmem,
+		       unsigned int offset,
+		       size_t bytes, void *buf)
+{
+	int rc;
+
+	if (!nvmem || !nvmem->regmap)
+		return -EINVAL;
+
+	rc = regmap_raw_write(nvmem->regmap, offset, buf, bytes);
+
+	if (IS_ERR_VALUE(rc))
+		return rc;
+
+
+	return bytes;
+}
+EXPORT_SYMBOL_GPL(nvmem_device_write);
 
 static int nvmem_init(void)
 {
