@@ -110,6 +110,12 @@
 						};
 					};
 				};
+
+				unittest16: test-unittest16 {
+					compatible = "unittest";
+					status = "disabled";
+					reg = <16>;
+				};
 			};
 		};
 
@@ -325,5 +331,14 @@
 			};
 		};
 
+		/* test enable using indirect functionality */
+		overlay16 {
+			fragment@0 {
+				target = <&unittest17>, <&unittest16>;
+				__overlay__ {
+					status = "okay";
+				};
+			};
+		};
 	};
 };
