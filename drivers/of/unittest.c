@@ -1986,6 +1986,64 @@ static inline void of_unittest_overlay_i2c_15(void) { }
 
 #endif
 
+static void of_unittest_overlay_16(void)
+{
+	int ret;
+	int overlay_nr = 16;
+	int unittest_nr = 16;
+	enum overlay_type ovtype = PDEV_OVERLAY;
+	int before = 0;
+	int after = 1;
+	struct device_node *np = NULL;
+	int id = -1;
+
+	/* unittest device must not be in before state */
+	if (of_unittest_device_exists(unittest_nr, ovtype) != before) {
+		unittest(0, "overlay @\"%s\" with device @\"%s\" %s\n",
+				overlay_path(overlay_nr),
+				unittest_path(unittest_nr, ovtype),
+				!before ? "enabled" : "disabled");
+		return;
+	}
+
+	np = of_find_node_by_path(overlay_path(overlay_nr));
+	if (np == NULL) {
+		unittest(0, "could not find overlay node @\"%s\"\n",
+				overlay_path(overlay_nr));
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* unittest16 is at index #1 */
+	ret = of_overlay_create_target_index(np, 1);
+	if (ret < 0) {
+		unittest(0, "could not create overlay from \"%s\"\n",
+				overlay_path(overlay_nr));
+		goto out;
+	}
+	id = ret;
+	of_unittest_track_overlay(id);
+
+	ret = 0;
+
+out:
+	of_node_put(np);
+
+	if (ret)
+		return;
+
+	/* unittest device must be to set to after state */
+	if (of_unittest_device_exists(unittest_nr, ovtype) != after) {
+		unittest(0, "overlay @\"%s\" failed to create @\"%s\" %s\n",
+				overlay_path(overlay_nr),
+				unittest_path(unittest_nr, ovtype),
+				!after ? "enabled" : "disabled");
+		return;
+	}
+
+	unittest(1, "overlay test %d passed\n", 16);
+}
+
 static void __init of_unittest_overlay(void)
 {
 	struct device_node *bus_np = NULL;
@@ -2035,6 +2093,8 @@ static void __init of_unittest_overlay(void)
 
 	of_unittest_overlay_10();
 	of_unittest_overlay_11();
+
+	of_unittest_overlay_16();
 
 #if IS_BUILTIN(CONFIG_I2C)
 	if (unittest(of_unittest_overlay_i2c_init() == 0, "i2c init failed\n"))
