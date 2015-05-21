@@ -75,5 +75,14 @@
 				target = <0x00000000>;
 			};
 		};
+		overlay16 {
+			fragment@0 {
+				target-indirect {
+					unittest16 {
+						target = <0x00000000>;
+					};
+				};
+			};
+		};
 	};
 }; };
