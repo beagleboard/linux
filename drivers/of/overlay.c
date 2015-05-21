@@ -77,6 +77,7 @@ struct of_overlay {
 	const struct attribute_group **attr_groups;
 	struct of_changeset cset;
 	struct kobject kobj;
+	int target_index;
 };
 
 /* master enable switch; once set to 0 can't be re-enabled */
@@ -344,29 +345,28 @@ static int of_overlay_apply(struct of_overlay *ov)
 
 /*
  * Find the target node using a number of different strategies
- * in order of preference
+ * in order of preference. Respects the target index if available.
  *
  * "target" property containing the phandle of the target
  * "target-path" property containing the path of the target
  */
-static struct device_node *find_target_node(struct device_node *info_node)
+static struct device_node *find_target_node(struct of_overlay *ov,
+		struct device_node *info_node, int index)
 {
 	const char *path;
 	u32 val;
 	int ret;
 
 	/* first try to go by using the target as a phandle */
-	ret = of_property_read_u32(info_node, "target", &val);
+	ret = of_property_read_u32_index(info_node, "target", index, &val);
 	if (ret == 0)
 		return of_find_node_by_phandle(val);
 
-	/* now try to locate by path */
-	ret = of_property_read_string(info_node, "target-path", &path);
+	/* failed, try to locate by path */
+	ret = of_property_read_string_index(info_node, "target-path", index,
+			&path);
 	if (ret == 0)
 		return of_find_node_by_path(path);
-
-	pr_err("Failed to find target for node %p (%s)\n",
-		info_node, info_node->name);
 
 	return NULL;
 }
@@ -392,7 +392,7 @@ static int of_fill_overlay_info(struct of_overlay *ov,
 	if (ovinfo->overlay == NULL)
 		goto err_fail;
 
-	ovinfo->target = find_target_node(info_node);
+	ovinfo->target = find_target_node(ov, info_node, ov->target_index);
 	if (ovinfo->target == NULL)
 		goto err_fail;
 
@@ -611,17 +611,8 @@ static struct kobj_type of_overlay_ktype = {
 
 static struct kset *ov_kset;
 
-/**
- * of_overlay_create() - Create and apply an overlay
- * @tree:	Device node containing all the overlays
- *
- * Creates and applies an overlay while also keeping track
- * of the overlay in a list. This list can be used to prevent
- * illegal overlay removals.
- *
- * Returns the id of the created overlay, or a negative error number
- */
-int of_overlay_create(struct device_node *tree)
+static int __of_overlay_create(struct device_node *tree,
+		int target_index)
 {
 	struct of_overlay *ov;
 	int err, id;
@@ -635,6 +626,8 @@ int of_overlay_create(struct device_node *tree)
 	if (ov == NULL)
 		return -ENOMEM;
 	ov->id = -1;
+
+	ov->target_index = target_index;
 
 	INIT_LIST_HEAD(&ov->node);
 
@@ -717,7 +710,39 @@ err_destroy_trans:
 
 	return err;
 }
+
+/**
+ * of_overlay_create() - Create and apply an overlay
+ * @tree:	Device node containing all the overlays
+ *
+ * Creates and applies an overlay while also keeping track
+ * of the overlay in a list. This list can be used to prevent
+ * illegal overlay removals.
+ *
+ * Returns the id of the created overlay, or a negative error number
+ */
+int of_overlay_create(struct device_node *tree)
+{
+	return __of_overlay_create(tree, 0);
+}
 EXPORT_SYMBOL_GPL(of_overlay_create);
+
+/**
+ * of_overlay_create_target_index() - Create and apply an overlay
+ * @tree:	Device node containing all the overlays
+ * @index:	Index to use in the target properties
+ *
+ * Creates and applies an overlay while also keeping track
+ * of the overlay in a list. This list can be used to prevent
+ * illegal overlay removals.
+ *
+ * Returns the id of the created overlay, or a negative error number
+ */
+int of_overlay_create_target_index(struct device_node *tree, int index)
+{
+	return __of_overlay_create(tree, index);
+}
+EXPORT_SYMBOL_GPL(of_overlay_create_target_index);
 
 /* check whether the given node, lies under the given tree */
 static int overlay_subtree_check(struct device_node *tree,
