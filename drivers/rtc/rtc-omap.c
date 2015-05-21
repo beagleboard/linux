@@ -24,6 +24,7 @@
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/io.h>
+#include <linux/regulator/machine.h>
 
 /* The OMAP1 RTC is a year/month/day/hours/minutes/seconds BCD clock
  * with century-range alarm matching, driven by the 32kHz clock.
@@ -445,6 +446,8 @@ again:
 static void rtc_power_off(void)
 {
 	u32 val;
+
+	regulator_suspend_prepare(PM_SUSPEND_MAX);
 
 	omap_rtc_power_off_program();
 
