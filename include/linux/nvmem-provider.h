@@ -12,15 +12,9 @@
 #ifndef _LINUX_NVMEM_PROVIDER_H
 #define _LINUX_NVMEM_PROVIDER_H
 
-struct nvmem_device;
+#include <linux/nvmem-consumer.h>
 
-struct nvmem_cell_info {
-	const char		*name;
-	int			offset;
-	int			bytes;
-	int			bit_offset;
-	int			nbits;
-};
+struct nvmem_device;
 
 struct nvmem_config {
 	struct device		*dev;
