@@ -155,6 +155,11 @@ static void __iomem	*rtc_base;
 
 #define rtc_writel(val, addr)	writel(val, rtc_base + (addr))
 
+struct omap_rtc_plat_data {
+	void __iomem *base;
+	bool is_power_controller;
+	struct rtc_device *rtc;
+};
 
 /* we rely on the rtc framework to handle locking (rtc->ops_lock),
  * so the only other requirement is that register accesses which
@@ -514,15 +519,22 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 	struct resource		*res;
 	struct rtc_device	*rtc;
 	u8			reg, new_ctrl;
-	bool			pm_off = false;
 	const struct platform_device_id *id_entry;
 	const struct of_device_id *of_id;
+	struct omap_rtc_plat_data *pdata;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, pdata);
 
 	of_id = of_match_device(omap_rtc_of_match, &pdev->dev);
 	if (of_id) {
 		pdev->id_entry = of_id->data;
-		pm_off = of_property_read_bool(pdev->dev.of_node,
-					"ti,system-power-controller");
+		pdata->is_power_controller =
+			of_property_read_bool(pdev->dev.of_node,
+					      "ti,system-power-controller");
 	}
 
 	id_entry = platform_get_device_id(pdev);
@@ -564,10 +576,11 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 			pdev->name, PTR_ERR(rtc));
 		goto fail0;
 	}
-	platform_set_drvdata(pdev, rtc);
+
+	pdata->rtc = rtc;
 
 	/* RTC power off */
-	if (pm_off && !pm_power_off)
+	if (pdata->is_power_controller && !pm_power_off)
 		pm_power_off = rtc_power_off;
 
 	/* clear pending irqs, and set 1/second periodic,
@@ -586,7 +599,7 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 
 	/* clear old status */
 	reg = rtc_read(OMAP_RTC_STATUS_REG);
-	if (!pm_off) {
+	if (!pdata->is_power_controller) {
 		/* For RTCs with power off capability, this bit is redefined */
 		if (reg & (u8) OMAP_RTC_STATUS_POWER_UP) {
 			pr_info("%s: RTC power up reset detected\n",
@@ -714,7 +727,12 @@ static SIMPLE_DEV_PM_OPS(omap_rtc_pm_ops, omap_rtc_suspend, omap_rtc_resume);
 
 static void omap_rtc_shutdown(struct platform_device *pdev)
 {
-	rtc_write(0, OMAP_RTC_INTERRUPTS_REG);
+	struct omap_rtc_plat_data *pdata;
+
+	pdata = platform_get_drvdata(pdev);
+
+	if (!pdata->is_power_controller)
+		rtc_write(0, OMAP_RTC_INTERRUPTS_REG);
 }
 
 MODULE_ALIAS("platform:omap_rtc");
