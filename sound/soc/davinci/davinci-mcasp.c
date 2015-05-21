@@ -166,6 +166,7 @@ static bool mcasp_is_synchronous(struct davinci_mcasp *mcasp)
 
 static void mcasp_start_rx(struct davinci_mcasp *mcasp)
 {
+  printk("mcasp: Starting to receive...\n");
 	if (mcasp->rxnumevt) {	/* enable FIFO */
 		u32 reg = mcasp->fifo_base + MCASP_RFIFOCTL_OFFSET;
 
@@ -182,6 +183,7 @@ static void mcasp_start_rx(struct davinci_mcasp *mcasp)
 	 * sure that the TX signlas are enabled when starting reception.
 	 */
 	if (mcasp_is_synchronous(mcasp)) {
+    printk("mcasp: seems to be synchronous.\n");
 		mcasp_set_ctl_reg(mcasp, DAVINCI_MCASP_GBLCTLX_REG, TXHCLKRST);
 		mcasp_set_ctl_reg(mcasp, DAVINCI_MCASP_GBLCTLX_REG, TXCLKRST);
 	}
@@ -623,6 +625,8 @@ static int mcasp_common_hw_param(struct davinci_mcasp *mcasp, int stream,
 		mcasp_set_reg(mcasp, DAVINCI_MCASP_RXSTAT_REG, 0xFFFFFFFF);
 		mcasp_clr_bits(mcasp, DAVINCI_MCASP_REVTCTL_REG, RXDATADMADIS);
 	}
+
+  printk("mcasp: hello rom common_hw_param\n");
 
 	for (i = 0; i < mcasp->num_serializer; i++) {
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_XRSRCTL_REG(i),

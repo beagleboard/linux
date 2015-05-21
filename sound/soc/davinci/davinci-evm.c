@@ -31,6 +31,9 @@
 #include "davinci-pcm.h"
 #include "davinci-i2s.h"
 
+#define AUDIO_FORMAT_STA321MP (SND_SOC_DAIFMT_CBM_CFM | \
+    SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_IB_IF)
+
 struct snd_soc_card_drvdata_davinci {
 	struct clk *mclk;
 	unsigned sysclk;
@@ -84,6 +87,31 @@ static int evm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int evm_sta321mp_hw_params(struct snd_pcm_substream *substream,
+				 struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_card *soc_card = codec->card;
+	int ret = 0;
+
+  printk("evm_sta321mp_hw_params: Starting operations.\n");
+
+	/* set cpu DAI configuration */
+	ret = snd_soc_dai_set_fmt(cpu_dai, AUDIO_FORMAT_STA321MP);
+	if (ret < 0)
+		return ret;
+
+	/* set the CPU system clock */
+	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, SND_SOC_CLOCK_IN);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 /* If changing sample format the tda998x configuration (REG_CTS_N) needs
    to be changed. */
 #define TDA998X_SAMPLE_FORMAT SNDRV_PCM_FORMAT_S32_LE
@@ -114,6 +142,12 @@ static struct snd_soc_ops evm_tda998x_ops = {
 static struct snd_soc_ops dra7xx_ops = {
 	.startup = evm_startup,
 	.shutdown = evm_shutdown,
+};
+
+static struct snd_soc_ops evm_sta321mp_ops = {
+	.startup = evm_startup,
+	.shutdown = evm_shutdown,
+  .hw_params = evm_sta321mp_hw_params,
 };
 
 /* davinci-evm machine dapm widgets */
@@ -232,6 +266,31 @@ static int evm_tda998x_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* always connected */
 	snd_soc_dapm_enable_pin(dapm, "HDMI Out");
+
+	return 0;
+}
+
+/* Logic for a sta321mp as connected on a beaglebone black */
+static int evm_sta321mp_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dapm_context *dapm = &codec_dai->dapm;
+	struct device_node *np = codec_dai->card->dev->of_node;
+	int ret;
+
+  printk("sta321mp: init setting clocks.\n");
+  printk("sta321mp: using cpu %s\n", cpu_dai->name);
+
+	/* set cpu DAI configuration */
+	ret = snd_soc_dai_set_fmt(cpu_dai, AUDIO_FORMAT_STA321MP);
+	if (ret < 0)
+		return ret;
+
+	/* set the CPU system clock */
+	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, SND_SOC_CLOCK_IN);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -454,6 +513,16 @@ static struct snd_soc_dai_link dra7xx_evm_link = {
 		   SND_SOC_DAIFMT_IB_NF,
 };
 
+static struct snd_soc_dai_link evm_dai_sta321mp = {
+	.name		= "STA321MP Chip",
+	.stream_name	= "STA321MP",
+	.codec_dai_name	= "sta321mp-audio",
+	.ops		= &evm_sta321mp_ops,
+	.init   = evm_sta321mp_init,
+	.dai_fmt	= (SND_SOC_DAIFMT_CBM_CFM | SND_SOC_DAIFMT_I2S |
+			   SND_SOC_DAIFMT_IB_IF),
+};
+
 static const struct of_device_id davinci_evm_dt_ids[] = {
 	{
 		.compatible = "ti,da830-evm-audio",
@@ -467,6 +536,10 @@ static const struct of_device_id davinci_evm_dt_ids[] = {
 		.compatible = "ti,dra7xx-evm-audio",
 		.data = (void *) &dra7xx_evm_link,
 	},
+  {
+    .compatible = "ti,beaglebone-black-sta321mp",
+    .data = &evm_dai_sta321mp,
+  },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, davinci_evm_dt_ids);

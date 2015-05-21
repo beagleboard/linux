@@ -70,6 +70,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_SSM2518 if I2C
 	select SND_SOC_SSM2602 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_STA32X if I2C
+	select SND_SOC_STA321MP if I2C
 	select SND_SOC_STA529 if I2C
 	select SND_SOC_STAC9766 if SND_SOC_AC97_BUS
 	select SND_SOC_TAS5086 if I2C
@@ -145,6 +146,9 @@ config SND_SOC_ALL_CODECS
 	  be selected separately.
 
           If unsure select "N".
+
+config SND_SOC_STA321MP
+  tristate "Support for STA321MP multichannel microphone codec."
 
 config SND_SOC_88PM860X
 	tristate
@@ -357,6 +361,9 @@ config SND_SOC_SSM2602
 	tristate
 
 config SND_SOC_STA32X
+	tristate
+
+config SND_SOC_STA321MP
 	tristate
 
 config SND_SOC_STA529
