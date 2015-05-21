@@ -75,6 +75,7 @@ struct of_overlay {
 	const struct attribute_group **attr_groups;
 	struct of_changeset cset;
 	struct kobject kobj;
+	char *indirect_id;
 };
 
 /* master enable switch; once set to 0 can't be re-enabled */
@@ -220,14 +221,8 @@ static int of_overlay_apply(struct of_overlay *ov)
 	return 0;
 }
 
-/*
- * Find the target node using a number of different strategies
- * in order of preference
- *
- * "target" property containing the phandle of the target
- * "target-path" property containing the path of the target
- */
-static struct device_node *find_target_node(struct device_node *info_node)
+static struct device_node *find_target_node_direct(struct of_overlay *ov,
+		struct device_node *info_node)
 {
 	const char *path;
 	u32 val;
@@ -238,15 +233,64 @@ static struct device_node *find_target_node(struct device_node *info_node)
 	if (ret == 0)
 		return of_find_node_by_phandle(val);
 
-	/* now try to locate by path */
+	/* failed, try to locate by path */
 	ret = of_property_read_string(info_node, "target-path", &path);
 	if (ret == 0)
 		return of_find_node_by_path(path);
 
-	pr_err("%s: Failed to find target for node %p (%s)\n", __func__,
-		info_node, info_node->name);
-
 	return NULL;
+}
+
+/*
+ * Find the target node using a number of different strategies
+ * in order of preference. Respects the indirect id if available.
+ *
+ * "target" property containing the phandle of the target
+ * "target-path" property containing the path of the target
+ */
+static struct device_node *find_target_node(struct of_overlay *ov,
+		struct device_node *info_node)
+{
+	struct device_node *target;
+	struct device_node *target_indirect;
+	struct device_node *indirect;
+
+	/* try direct target */
+	target = find_target_node_direct(ov, info_node);
+	if (target)
+		return target;
+
+	/* try indirect if there */
+	if (!ov->indirect_id)
+		return NULL;
+
+	target_indirect = of_get_child_by_name(info_node, "target-indirect");
+	if (!target_indirect) {
+		pr_err("%s: Failed to find target-indirect node at %s\n",
+				__func__,
+				of_node_full_name(info_node));
+		return NULL;
+	}
+
+	indirect = of_get_child_by_name(target_indirect, ov->indirect_id);
+	of_node_put(target_indirect);
+	if (!indirect) {
+		pr_err("%s: Failed to find indirect child node \"%s\" at %s\n",
+				__func__, ov->indirect_id,
+				of_node_full_name(info_node));
+		return NULL;
+	}
+
+	target = find_target_node_direct(ov, indirect);
+
+	if (!target) {
+		pr_err("%s: Failed to find target for \"%s\" at %s\n",
+				__func__, ov->indirect_id,
+				of_node_full_name(indirect));
+	}
+	of_node_put(indirect);
+
+	return target;
 }
 
 /**
@@ -270,7 +314,7 @@ static int of_fill_overlay_info(struct of_overlay *ov,
 	if (ovinfo->overlay == NULL)
 		goto err_fail;
 
-	ovinfo->target = find_target_node(info_node);
+	ovinfo->target = find_target_node(ov, info_node);
 	if (ovinfo->target == NULL)
 		goto err_fail;
 
@@ -418,6 +462,7 @@ void of_overlay_release(struct kobject *kobj)
 {
 	struct of_overlay *ov = kobj_to_overlay(kobj);
 
+	kfree(ov->indirect_id);
 	kfree(ov);
 }
 
@@ -473,17 +518,8 @@ static struct kobj_type of_overlay_ktype = {
 
 static struct kset *ov_kset;
 
-/**
- * of_overlay_create() - Create and apply an overlay
- * @tree:	Device node containing all the overlays
- *
- * Creates and applies an overlay while also keeping track
- * of the overlay in a list. This list can be used to prevent
- * illegal overlay removals.
- *
- * Returns the id of the created overlay, or a negative error number
- */
-int of_overlay_create(struct device_node *tree)
+static int __of_overlay_create(struct device_node *tree,
+		const char *indirect_id)
 {
 	struct of_overlay *ov;
 	int err, id;
@@ -497,6 +533,14 @@ int of_overlay_create(struct device_node *tree)
 	if (ov == NULL)
 		return -ENOMEM;
 	ov->id = -1;
+
+	if (indirect_id) {
+		ov->indirect_id = kstrdup(indirect_id, GFP_KERNEL);
+		if (!ov->indirect_id) {
+			err = -ENOMEM;
+			goto err_no_mem;
+		}
+	}
 
 	INIT_LIST_HEAD(&ov->node);
 
@@ -572,12 +616,46 @@ err_free_idr:
 	idr_remove(&ov_idr, ov->id);
 err_destroy_trans:
 	of_changeset_destroy(&ov->cset);
+err_no_mem:
+	kfree(ov->indirect_id);
 	kfree(ov);
 	mutex_unlock(&of_mutex);
 
 	return err;
 }
+
+/**
+ * of_overlay_create() - Create and apply an overlay
+ * @tree:	Device node containing all the overlays
+ *
+ * Creates and applies an overlay while also keeping track
+ * of the overlay in a list. This list can be used to prevent
+ * illegal overlay removals.
+ *
+ * Returns the id of the created overlay, or an negative error number
+ */
+int of_overlay_create(struct device_node *tree)
+{
+	return __of_overlay_create(tree, NULL);
+}
 EXPORT_SYMBOL_GPL(of_overlay_create);
+
+/**
+ * of_overlay_create_indirect() - Create and apply an overlay
+ * @tree:	Device node containing all the overlays
+ * @id:		Indirect property phandle
+ *
+ * Creates and applies an overlay while also keeping track
+ * of the overlay in a list. This list can be used to prevent
+ * illegal overlay removals.
+ *
+ * Returns the id of the created overlay, or an negative error number
+ */
+int of_overlay_create_indirect(struct device_node *tree, const char *id)
+{
+	return __of_overlay_create(tree, id);
+}
+EXPORT_SYMBOL_GPL(of_overlay_create_indirect);
 
 /* check whether the given node, lies under the given tree */
 static int overlay_subtree_check(struct device_node *tree,
