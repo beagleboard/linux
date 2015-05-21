@@ -41,4 +41,23 @@
 #include "am335x-peripheral-nxp-hdmi.dtsi"
 #include "am335x-bone-pinmux-nxp-hdmi.dtsi"
 
-#include "am335x-bone-replicape.dtsi"
+#include "am335x-peripheral-can0.dtsi"
+#include "am335x-bone-pinmux-can0.dtsi"
+
+/* #include "am335x-peripheral-can1.dtsi" */
+/* #include "am335x-bone-pinmux-can1.dtsi" */
+
+/* #include "am335x-peripheral-i2c2.dtsi" */
+/* #include "am335x-bone-pinmux-i2c2.dtsi" */
+
+/* #include "am335x-peripheral-ttyS1.dtsi" */
+/* #include "am335x-bone-pinmux-ttyS1.dtsi" */
+
+/* #include "am335x-peripheral-ttyS2.dtsi" */
+/* #include "am335x-bone-pinmux-ttyS2.dtsi" */
+
+/* #include "am335x-peripheral-ttyS4.dtsi" */
+/* #include "am335x-bone-pinmux-ttyS4.dtsi" */
+
+/* #include "am335x-peripheral-ttyS5.dtsi" */
+/* #include "am335x-bone-pinmux-ttyS5.dtsi" */
