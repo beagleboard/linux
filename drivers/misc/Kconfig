@@ -563,6 +563,15 @@ config BONE_CAPEMGR
 	  beaglebone capes. Select M to build as a module which
 	  will be named bone_capemgr.
 
+config DEV_OVERLAYMGR
+	tristate "Device overlay manager"
+	depends on OF
+	select OF_OVERLAY
+	default n
+	help
+	  Say Y here to include support for the automagical dev
+	  overlay manager.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
