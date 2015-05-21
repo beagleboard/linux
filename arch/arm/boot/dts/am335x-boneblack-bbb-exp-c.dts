@@ -38,7 +38,7 @@
 #include "am335x-bone-pinmux-emmc.dtsi"
 /* #include "am335x-bone-emmc-in-reset.dtsi" */
 
-#include "am335x-peripheral-nxp-hdmi.dtsi"
-#include "am335x-bone-pinmux-nxp-hdmi.dtsi"
+/* #include "am335x-peripheral-nxp-hdmi.dtsi" */
+/* #include "am335x-bone-pinmux-nxp-hdmi.dtsi" */
 
-#include "am335x-bone-replicape.dtsi"
+#include "am335x-cape-bbb-exp-c.dtsi"
