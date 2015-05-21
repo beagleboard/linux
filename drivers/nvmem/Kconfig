@@ -1,0 +1,10 @@
+menuconfig NVMEM
+	tristate "NVMEM Support"
+	select REGMAP
+	help
+	  Support for NVMEM devices.
+
+	  This framework is designed to provide a generic interface to NVMEM
+	  from both the Linux Kernel and the userspace.
+
+	  If unsure, say no.
