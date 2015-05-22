@@ -115,6 +115,9 @@ static void of_get_regulation_constraints(struct device_node *np,
 					       "regulator-off-in-suspend"))
 			suspend_state->disabled = true;
 
+		if (i == PM_SUSPEND_MEM)
+			constraints->initial_state = PM_SUSPEND_MEM;
+
 		suspend_state = NULL;
 		suspend_np = NULL;
 	}
