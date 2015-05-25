@@ -123,6 +123,7 @@
 #define OMAP_RTC_IRQWAKEEN_ALARM_WAKEEN	BIT(1)
 
 /* OMAP_RTC_PMIC_REG bit fields: */
+#define OMAP_RTC_PMIC_EXT_WAKEUP_EN	(1<<0)
 #define OMAP_RTC_PMIC_EXT_WAKEUP_POL	(1<<4)
 #define OMAP_RTC_PMIC_EXT_WAKEUP_STS	(1<<12)
 #define OMAP_RTC_PMIC_POWER_EN_EN       (1<<16)
@@ -459,7 +460,7 @@ static void rtc_power_off(void)
 	/* Set PMIC power enable and EXT_WAKEUP in case PB power on is used */
 	val = readl(rtc_base + OMAP_RTC_PMIC_REG);
 	val |= OMAP_RTC_PMIC_POWER_EN_EN | OMAP_RTC_PMIC_EXT_WAKEUP_POL |
-	       OMAP_RTC_PMIC_EXT_WAKEUP_POL;
+	       OMAP_RTC_PMIC_EXT_WAKEUP_EN;
 	writel(val, rtc_base + OMAP_RTC_PMIC_REG);
 
 	/* Wait 1 second for power-off, if we are still alive, bail out */
