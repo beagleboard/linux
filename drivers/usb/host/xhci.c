@@ -4842,6 +4842,7 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 		 */
 		hcd->speed = HCD_USB2;
 		hcd->self.root_hub->speed = USB_SPEED_HIGH;
+		xhci->main_hcd = hcd;
 		/*
 		 * USB 2.0 roothub under xHCI has an integrated TT,
 		 * (rate matching hub) as opposed to having an OHCI/UHCI
