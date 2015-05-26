@@ -874,6 +874,11 @@
 	>;
 };
 
+&mcasp8 {
+	/* not used for audio. only the AXR2 pin is used as GPIO */
+	status = "okay";
+};
+
 &usb2_phy1 {
 	phy-supply = <&ldousb_reg>;
 };
