@@ -108,6 +108,10 @@ struct davinci_mcasp {
 
 	struct davinci_mcasp_ruledata ruledata[2];
 	struct snd_pcm_hw_constraint_list chconstr[2];
+#if IS_ENABLED(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015)
+	bool	is_mcasp8;
+	u8	hdmi_sel_gpio;
+#endif
 };
 
 static inline void mcasp_set_bits(struct davinci_mcasp *mcasp, u32 offset,
@@ -1610,6 +1614,101 @@ static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 	return PCM_EDMA;
 }
 
+#if IS_ENABLED(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015)
+#define DRA7_MCASP_HDMI_SEL_GPIO	(1 << 2)
+int dra7_mcasp_hdmi_gpio_get(struct platform_device *pdev)
+{
+	struct davinci_mcasp *mcasp;
+
+	if (!pdev)
+		return -EPROBE_DEFER;
+
+	mcasp = dev_get_drvdata(&pdev->dev);
+	if (!mcasp)
+		return -EPROBE_DEFER;
+
+	if (!mcasp->is_mcasp8)
+		return 0;
+
+	pm_runtime_get_sync(mcasp->dev);
+
+	/* First set the direction to output */
+	mcasp_set_bits(mcasp, DAVINCI_MCASP_PDIR_REG,
+		       DRA7_MCASP_HDMI_SEL_GPIO);
+	/* then set the PDOUT */
+	if (mcasp->hdmi_sel_gpio)
+		mcasp_set_bits(mcasp, DAVINCI_MCASP_PDOUT_REG,
+			       DRA7_MCASP_HDMI_SEL_GPIO);
+	else
+		mcasp_clr_bits(mcasp, DAVINCI_MCASP_PDOUT_REG,
+			       DRA7_MCASP_HDMI_SEL_GPIO);
+	/* at last, change the function to GPIO mode */
+	mcasp_set_bits(mcasp, DAVINCI_MCASP_PFUNC_REG,
+		       DRA7_MCASP_HDMI_SEL_GPIO);
+
+	return 0;
+}
+EXPORT_SYMBOL(dra7_mcasp_hdmi_gpio_get);
+
+int dra7_mcasp_hdmi_gpio_put(struct platform_device *pdev)
+{
+	struct davinci_mcasp *mcasp;
+
+	if (!pdev)
+		return -EPROBE_DEFER;
+
+	mcasp = dev_get_drvdata(&pdev->dev);
+	if (!mcasp)
+		return -EPROBE_DEFER;
+
+	if (!mcasp->is_mcasp8)
+		return 0;
+
+	/* Set the pin as McASP pin */
+	mcasp_clr_bits(mcasp, DAVINCI_MCASP_PFUNC_REG,
+		       DRA7_MCASP_HDMI_SEL_GPIO);
+
+	pm_runtime_put_sync(mcasp->dev);
+
+	return 0;
+}
+EXPORT_SYMBOL(dra7_mcasp_hdmi_gpio_put);
+
+int dra7_mcasp_hdmi_gpio_set(struct platform_device *pdev, bool high)
+{
+	struct davinci_mcasp *mcasp;
+
+	if (!pdev)
+		return -EPROBE_DEFER;
+
+	mcasp = dev_get_drvdata(&pdev->dev);
+	if (!mcasp)
+		return -EPROBE_DEFER;
+
+	if (!mcasp->is_mcasp8)
+		return 0;
+
+	if (!pm_runtime_active(mcasp->dev)) {
+		dev_warn(mcasp->dev, "mcasp8 is not enabled!\n");
+		return -ENODEV;
+	}
+
+	if (mcasp->hdmi_sel_gpio == high)
+		return 0;
+
+	mcasp->hdmi_sel_gpio = high;
+	if (mcasp->hdmi_sel_gpio)
+		mcasp_set_bits(mcasp, DAVINCI_MCASP_PDOUT_REG,
+			       DRA7_MCASP_HDMI_SEL_GPIO);
+	else
+		mcasp_clr_bits(mcasp, DAVINCI_MCASP_PDOUT_REG,
+			       DRA7_MCASP_HDMI_SEL_GPIO);
+
+	return 0;
+}
+EXPORT_SYMBOL(dra7_mcasp_hdmi_gpio_set);
+#endif /* CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015 */
+
 static int davinci_mcasp_probe(struct platform_device *pdev)
 {
 	struct snd_dmaengine_dai_dma_data *dma_data;
@@ -1648,6 +1747,10 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		}
 	}
 
+#if IS_ENABLED(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015)
+	if (pdata->version == MCASP_VERSION_4 && mem->start == 0x4847c000)
+		mcasp->is_mcasp8 = true;
+#endif
 	ioarea = devm_request_mem_region(&pdev->dev, mem->start,
 			resource_size(mem), pdev->name);
 	if (!ioarea) {
