@@ -525,14 +525,19 @@ static int _suspend(struct rproc *rproc, bool auto_suspend)
 		return -EBUSY;
 
 	/*
-	 * XXX: The remoteproc side is returning the ACK message before saving
-	 * the context, because the context saving is performed within a
-	 * SYS/BIOS function, and it cannot have any inter-dependencies against
-	 * the IPC layer. Revisit this when SYS/BIOS can be improved to send an
-	 * ACK using a BIOS-independent function hook. However, we can know that
-	 * the remote processor has completed saving the context once the module
-	 * reached STANDBY state (after saving the context, the SYS/BIOS
-	 * executes the appropriate target-specific WFI instruction).
+	 * The remoteproc side is returning the ACK message before saving the
+	 * context, because the context saving is performed within a SYS/BIOS
+	 * function, and it cannot have any inter-dependencies against the IPC
+	 * layer. Also, as the SYS/BIOS needs to preserve properly the processor
+	 * register set, sending this ACK or signalling the completion of the
+	 * context save through a shared memory variable can never be the
+	 * absolute last thing to be executed on the remoteproc side, and the
+	 * MPU cannot use the ACK message as a sync point to put the remoteproc
+	 * into reset. The only way to ensure that the remote processor has
+	 * completed saving the context is to check that the  module has reached
+	 * STANDBY state (after saving the context, the SYS/BIOS executes the
+	 * appropriate target-specific WFI instruction causing the module to
+	 * enter STANDBY).
 	 */
 	while (!_is_rproc_in_standby(oproc)) {
 		if (time_after(jiffies, ta))
