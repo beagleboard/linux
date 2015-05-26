@@ -22,16 +22,12 @@
 
 #define CLK_BASE			0x4a009000
 #define MCASP2_BASE			0x48464000
-#define	CTRL_BASE			0x4a003400
-#define	PINMUX_BASE			0x4a003600
 
 #define CM_L4PER2_MCASP2_CLKCTRL	0x860
 #define	CM_L4PER2_CLKSTCTRL		0x8fc
 #define MCASP_PFUNC			0x10
 #define MCASP_PDIR			0x14
 #define MCASP_PDOUT			0x18
-#define PAD_I2C2_SDA			0x408
-#define PAD_I2C2_SCL			0x40c
 
 #define SEL_I2C2	0
 #define SEL_HDMI	1
@@ -48,25 +44,21 @@ struct panel_drv_data {
 	int hpd_gpio;
 
 	struct omap_video_timings timings;
+
+	struct pinctrl *pins;
+	struct pinctrl_state *pin_state_i2c;
+	struct pinctrl_state *pin_state_ddc;
 };
 
 static void __iomem *mcasp2_base;
-static void __iomem *ctrl_base;
 
 static int sel_hdmi_i2c2_init(struct device *dev)
 {
 	void __iomem *clk_base;
-	void __iomem *pmux_base;
 
 	mcasp2_base = devm_ioremap(dev, MCASP2_BASE, 0x20);
 	if (!mcasp2_base) {
 		dev_err(dev, "couldn't ioremap MCASP2 regs\n");
-		return -ENOMEM;
-	}
-
-	ctrl_base = devm_ioremap(dev, CTRL_BASE, SZ_1K);
-	if (!ctrl_base) {
-		dev_err(dev, "couldn't ioremap Control Module regs\n");
 		return -ENOMEM;
 	}
 
@@ -75,14 +67,6 @@ static int sel_hdmi_i2c2_init(struct device *dev)
 		dev_err(dev, "couldn't ioremap clock domain regs\n");
 		return -ENOMEM;
 	}
-
-	pmux_base = devm_ioremap(dev, PINMUX_BASE, SZ_1K);
-	if (!pmux_base) {
-		dev_err(dev, "couldn't ioremap PMUX regs\n");
-		return -ENOMEM;
-	}
-
-	iowrite32(0x40000, pmux_base + 0xfc);
 
 	/* set CM_L4PER2_CLKSTCTRL to sw supervised wkup */
 	iowrite32(0x2, clk_base + CM_L4PER2_CLKSTCTRL);
@@ -107,10 +91,12 @@ static int sel_hdmi_i2c2_init(struct device *dev)
 
 /*
  * use SEL_I2C2 to configure pcf8575@26 to set/unset LS_OE and CT_HPD, and use
- * SEL_HDMI to read edid via the HDMI ddc lines and recieve HPD events
+ * SEL_HDMI to read edid via the HDMI ddc lines
  */
 static void config_demux(struct device *dev, int sel)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	u32 val;
 
 	/*
@@ -118,17 +104,15 @@ static void config_demux(struct device *dev, int sel)
 	 * to low or high to select I2C2 or HDMI path respectively
 	 */
 	if (sel == SEL_I2C2) {
+		pinctrl_select_state(ddata->pins, ddata->pin_state_i2c);
+
 		val = ioread32(mcasp2_base + MCASP_PDOUT);
 		iowrite32(val & ~(1 << 29), mcasp2_base + MCASP_PDOUT);
-
-		iowrite32(0x60000, ctrl_base + PAD_I2C2_SDA);
-		iowrite32(0x60000, ctrl_base + PAD_I2C2_SCL);
 	} else {
+		pinctrl_select_state(ddata->pins, ddata->pin_state_ddc);
+
 		val = ioread32(mcasp2_base + MCASP_PDOUT);
 		iowrite32(val | (1 << 29), mcasp2_base + MCASP_PDOUT);
-
-		iowrite32(0x60001, ctrl_base + PAD_I2C2_SDA);
-		iowrite32(0x60001, ctrl_base + PAD_I2C2_SCL);
 	}
 
 	/* let it propogate */
@@ -364,6 +348,25 @@ static int tpd_probe_of(struct platform_device *pdev)
 	return 0;
 }
 
+static int tpd_init_pins(struct platform_device *pdev)
+{
+	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
+
+	ddata->pins = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(ddata->pins))
+		return PTR_ERR(ddata->pins);
+
+	ddata->pin_state_i2c = pinctrl_lookup_state(ddata->pins, "i2c");
+	if (IS_ERR(ddata->pin_state_i2c))
+		return PTR_ERR(ddata->pin_state_i2c);
+
+	ddata->pin_state_ddc = pinctrl_lookup_state(ddata->pins, "ddc");
+	if (IS_ERR(ddata->pin_state_ddc))
+		return PTR_ERR(ddata->pin_state_ddc);
+
+	return 0;
+}
+
 static int tpd_probe(struct platform_device *pdev)
 {
 	struct omap_dss_device *in, *dssdev;
@@ -383,6 +386,10 @@ static int tpd_probe(struct platform_device *pdev)
 	} else {
 		return -ENODEV;
 	}
+
+	r = tpd_init_pins(pdev);
+	if (r)
+		goto err_pins;
 
 	/*
 	 * initialize the SEL_HDMI_I2C2 line going to the demux. Configure the
@@ -444,6 +451,7 @@ static int tpd_probe(struct platform_device *pdev)
 err_reg:
 err_debounce:
 err_gpio:
+err_pins:
 	omap_dss_put_device(ddata->in);
 	return r;
 }
