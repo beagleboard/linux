@@ -151,6 +151,8 @@
 		pinctrl-0 = <&hdmi_i2c_sel_pin &hdmi_i2c_pins_i2c>;
 		pinctrl-1 = <&hdmi_i2c_sel_pin &hdmi_i2c_pins_ddc>;
 
+		ddc-i2c-bus = <&i2c2>;
+
 		gpios = <&pcf_hdmi 4 0>,	/* P4, CT CP HPD */
 			<&pcf_hdmi 5 0>,	/* P5, LS OE */
 			<&gpio7 12 0>;	/* gpio7_12/sp1_cs2, HPD */

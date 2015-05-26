@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
+#include <linux/i2c.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/of_gpio.h>
@@ -48,6 +49,8 @@ struct panel_drv_data {
 	struct pinctrl *pins;
 	struct pinctrl_state *pin_state_i2c;
 	struct pinctrl_state *pin_state_ddc;
+
+	struct i2c_adapter *ddc_i2c_adapter;
 };
 
 static void __iomem *mcasp2_base;
@@ -250,11 +253,15 @@ static int tpd_read_edid(struct omap_dss_device *dssdev,
 	if (gpio_is_valid(ddata->ls_oe_gpio))
 		gpio_set_value_cansleep(ddata->ls_oe_gpio, 1);
 
+	i2c_lock_adapter(ddata->ddc_i2c_adapter);
+
 	config_demux(dssdev->dev, SEL_HDMI);
 
 	r = in->ops.hdmi->read_edid(in, edid, len);
 
 	config_demux(dssdev->dev, SEL_I2C2);
+
+	i2c_unlock_adapter(ddata->ddc_i2c_adapter);
 
 	if (gpio_is_valid(ddata->ls_oe_gpio))
 		gpio_set_value_cansleep(ddata->ls_oe_gpio, 0);
@@ -351,6 +358,7 @@ static int tpd_probe_of(struct platform_device *pdev)
 static int tpd_init_pins(struct platform_device *pdev)
 {
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
+	struct device_node *node;
 
 	ddata->pins = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(ddata->pins))
@@ -364,7 +372,22 @@ static int tpd_init_pins(struct platform_device *pdev)
 	if (IS_ERR(ddata->pin_state_ddc))
 		return PTR_ERR(ddata->pin_state_ddc);
 
+	node = of_parse_phandle(pdev->dev.of_node, "ddc-i2c-bus", 0);
+	if (!node)
+		return -ENODEV;
+
+	ddata->ddc_i2c_adapter = of_find_i2c_adapter_by_node(node);
+	if (!ddata->ddc_i2c_adapter)
+		return -ENODEV;
+
 	return 0;
+}
+
+static void tpd_uninit_pins(struct platform_device *pdev)
+{
+	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
+
+	i2c_put_adapter(ddata->ddc_i2c_adapter);
 }
 
 static int tpd_probe(struct platform_device *pdev)
@@ -451,6 +474,7 @@ static int tpd_probe(struct platform_device *pdev)
 err_reg:
 err_debounce:
 err_gpio:
+	tpd_uninit_pins(pdev);
 err_pins:
 	omap_dss_put_device(ddata->in);
 	return r;
@@ -461,6 +485,8 @@ static int __exit tpd_remove(struct platform_device *pdev)
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
 	struct omap_dss_device *dssdev = &ddata->dssdev;
 	struct omap_dss_device *in = ddata->in;
+
+	tpd_uninit_pins(pdev);
 
 	omapdss_unregister_output(&ddata->dssdev);
 
