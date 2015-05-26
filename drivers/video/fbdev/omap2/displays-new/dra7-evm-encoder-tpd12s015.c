@@ -18,20 +18,17 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/of_gpio.h>
+#include <linux/suspend.h>
+#include <linux/of_platform.h>
 
 #include <video/omapdss.h>
 
-#define CLK_BASE			0x4a009000
-#define MCASP2_BASE			0x48464000
-
-#define CM_L4PER2_MCASP2_CLKCTRL	0x860
-#define	CM_L4PER2_CLKSTCTRL		0x8fc
-#define MCASP_PFUNC			0x10
-#define MCASP_PDIR			0x14
-#define MCASP_PDOUT			0x18
-
 #define SEL_I2C2	0
 #define SEL_HDMI	1
+
+int dra7_mcasp_hdmi_gpio_get(struct platform_device *pdev);
+int dra7_mcasp_hdmi_gpio_put(struct platform_device *pdev);
+int dra7_mcasp_hdmi_gpio_set(struct platform_device *pdev, bool high);
 
 /* HPD gpio debounce time in microseconds */
 #define HPD_DEBOUNCE_TIME	1000
@@ -53,76 +50,75 @@ struct panel_drv_data {
 	struct i2c_adapter *ddc_i2c_adapter;
 };
 
-static void __iomem *mcasp2_base;
+static struct platform_device *mcasp;
 
-static int sel_hdmi_i2c2_init(struct device *dev)
+static int hdmi_i2c2_hack_init(struct device *dev)
 {
-	void __iomem *clk_base;
+	struct device_node *node;
 
-	mcasp2_base = devm_ioremap(dev, MCASP2_BASE, 0x20);
-	if (!mcasp2_base) {
-		dev_err(dev, "couldn't ioremap MCASP2 regs\n");
-		return -ENOMEM;
-	}
+	node = of_parse_phandle(dev->of_node, "mcasp-gpio", 0);
 
-	clk_base = devm_ioremap(dev, CLK_BASE, SZ_4K);
-	if (!clk_base) {
-		dev_err(dev, "couldn't ioremap clock domain regs\n");
-		return -ENOMEM;
-	}
+	if (!node)
+		return -ENODEV;
 
-	/* set CM_L4PER2_CLKSTCTRL to sw supervised wkup */
-	iowrite32(0x2, clk_base + CM_L4PER2_CLKSTCTRL);
-
-	iowrite32(0x2, clk_base + CM_L4PER2_MCASP2_CLKCTRL);
-
-	dev_dbg(dev, "CM_L4PER2_CLKSTCTRL %08x\n",
-		ioread32(clk_base + CM_L4PER2_CLKSTCTRL));
-
-	/* let it propogate */
-
-	udelay(5);
-
-	/*
-	 * make mcasp2_aclkr a gpio and set direction to high
-	 */
-	iowrite32(1 << 29, mcasp2_base + MCASP_PFUNC);
-	iowrite32(1 << 29, mcasp2_base + MCASP_PDIR);
+	mcasp = of_find_device_by_node(node);
 
 	return 0;
 }
+
+static int hdmi_i2c2_hack_resume_mcasp(void)
+{
+	return dra7_mcasp_hdmi_gpio_get(mcasp);
+}
+
+static void hdmi_i2c2_hack_suspend_mcasp(void)
+{
+	dra7_mcasp_hdmi_gpio_put(mcasp);
+}
+
+static int hdmi_i2c2_hack_pm_notif(struct notifier_block *b, unsigned long v, void *d)
+{
+	switch (v) {
+	case PM_SUSPEND_PREPARE:
+		hdmi_i2c2_hack_suspend_mcasp();
+		return 0;
+
+	case PM_POST_SUSPEND:
+		hdmi_i2c2_hack_resume_mcasp();
+		return 0;
+
+	default:
+		return 0;
+	}
+}
+
+static struct notifier_block hdmi_i2c2_hack_pm_notif_block = {
+	.notifier_call = hdmi_i2c2_hack_pm_notif,
+};
 
 /*
  * use SEL_I2C2 to configure pcf8575@26 to set/unset LS_OE and CT_HPD, and use
  * SEL_HDMI to read edid via the HDMI ddc lines
  */
-static void config_demux(struct device *dev, int sel)
+static void hdmi_i2c2_hack_demux(struct device *dev, int sel)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct panel_drv_data *ddata = platform_get_drvdata(pdev);
-	u32 val;
 
 	/*
-	 * switch to I2C2 or HDMI DDC internal pinmux and drive MCASP2_ACLKR
+	 * switch to I2C2 or HDMI DDC internal pinmux and drive MCASP8_AXR2
 	 * to low or high to select I2C2 or HDMI path respectively
 	 */
 	if (sel == SEL_I2C2) {
 		pinctrl_select_state(ddata->pins, ddata->pin_state_i2c);
-
-		val = ioread32(mcasp2_base + MCASP_PDOUT);
-		iowrite32(val & ~(1 << 29), mcasp2_base + MCASP_PDOUT);
+		dra7_mcasp_hdmi_gpio_set(mcasp, false);
 	} else {
 		pinctrl_select_state(ddata->pins, ddata->pin_state_ddc);
-
-		val = ioread32(mcasp2_base + MCASP_PDOUT);
-		iowrite32(val | (1 << 29), mcasp2_base + MCASP_PDOUT);
+		dra7_mcasp_hdmi_gpio_set(mcasp, true);
 	}
 
 	/* let it propogate */
 	udelay(5);
-
-	dev_dbg(dev, "select %d, PDOUT %08x\n", sel,
-		ioread32(mcasp2_base + MCASP_PDOUT));
 }
 
 #define to_panel_data(x) container_of(x, struct panel_drv_data, dssdev)
@@ -255,11 +251,11 @@ static int tpd_read_edid(struct omap_dss_device *dssdev,
 
 	i2c_lock_adapter(ddata->ddc_i2c_adapter);
 
-	config_demux(dssdev->dev, SEL_HDMI);
+	hdmi_i2c2_hack_demux(dssdev->dev, SEL_HDMI);
 
 	r = in->ops.hdmi->read_edid(in, edid, len);
 
-	config_demux(dssdev->dev, SEL_I2C2);
+	hdmi_i2c2_hack_demux(dssdev->dev, SEL_I2C2);
 
 	i2c_unlock_adapter(ddata->ddc_i2c_adapter);
 
@@ -418,11 +414,17 @@ static int tpd_probe(struct platform_device *pdev)
 	 * initialize the SEL_HDMI_I2C2 line going to the demux. Configure the
 	 * demux to select the I2C2 bus
 	 */
-	r = sel_hdmi_i2c2_init(&pdev->dev);
+	r = hdmi_i2c2_hack_init(&pdev->dev);
 	if (r)
-		return r;
+		goto err_hack;
 
-	config_demux(&pdev->dev, SEL_I2C2);
+	r = hdmi_i2c2_hack_resume_mcasp();
+	if (r)
+		goto err_hack;
+
+	hdmi_i2c2_hack_demux(&pdev->dev, SEL_I2C2);
+
+	register_pm_notifier(&hdmi_i2c2_hack_pm_notif_block);
 
 	r = devm_gpio_request_one(&pdev->dev, ddata->ct_cp_hpd_gpio,
 			GPIOF_OUT_INIT_LOW, "hdmi_ct_cp_hpd");
@@ -474,6 +476,8 @@ static int tpd_probe(struct platform_device *pdev)
 err_reg:
 err_debounce:
 err_gpio:
+	hdmi_i2c2_hack_suspend_mcasp();
+err_hack:
 	tpd_uninit_pins(pdev);
 err_pins:
 	omap_dss_put_device(ddata->in);
@@ -487,6 +491,10 @@ static int __exit tpd_remove(struct platform_device *pdev)
 	struct omap_dss_device *in = ddata->in;
 
 	tpd_uninit_pins(pdev);
+
+	unregister_pm_notifier(&hdmi_i2c2_hack_pm_notif_block);
+
+	hdmi_i2c2_hack_suspend_mcasp();
 
 	omapdss_unregister_output(&ddata->dssdev);
 

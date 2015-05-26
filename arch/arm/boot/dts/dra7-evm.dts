@@ -152,6 +152,7 @@
 		pinctrl-1 = <&hdmi_i2c_sel_pin &hdmi_i2c_pins_ddc>;
 
 		ddc-i2c-bus = <&i2c2>;
+		mcasp-gpio = <&mcasp8>;
 
 		gpios = <&pcf_hdmi 4 0>,	/* P4, CT CP HPD */
 			<&pcf_hdmi 5 0>,	/* P5, LS OE */
@@ -204,7 +205,7 @@
 	hdmi_i2c_sel_pin: pinmux_hdmi_i2c_sel_pin {
 		pinctrl-single,pins = <
 			/* this pin is used as a GPIO via mcasp */
-			0x2fc	(PIN_INPUT_PULLDOWN | MUX_MODE0) /* mcasp2_aclkr */
+			0x2fc	(PIN_OUTPUT | MUX_MODE1) /* mcasp8_axr2 */
 		>;
 	};
 
