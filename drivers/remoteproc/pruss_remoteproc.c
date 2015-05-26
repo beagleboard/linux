@@ -1371,7 +1371,7 @@ static int __init pruss_init(void)
 		platform_driver_unregister(&pruss_driver);
 	}
 
-	return 0;
+	return ret;
 }
 module_init(pruss_init);
 
