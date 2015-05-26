@@ -2261,6 +2261,9 @@ static int vpe_release(struct file *file)
 
 	vpe_dbg(dev, "releasing instance %p\n", ctx);
 
+	vpe_streamoff(file, NULL, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	vpe_streamoff(file, NULL, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+
 	mutex_lock(&dev->dev_mutex);
 	free_vbs(ctx);
 	free_mv_buffers(ctx);
