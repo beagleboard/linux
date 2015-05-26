@@ -787,3 +787,8 @@
 		1 2 0 0
 	>;
 };
+
+&mcasp8 {
+	/* not used for audio. only the AXR2 pin is used as GPIO */
+	status = "okay";
+};
