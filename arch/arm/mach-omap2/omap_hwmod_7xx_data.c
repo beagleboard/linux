@@ -1796,6 +1796,22 @@ static struct omap_hwmod dra7xx_mcasp3_hwmod = {
 	},
 };
 
+/* mcasp8 */
+static struct omap_hwmod dra7xx_mcasp8_hwmod = {
+	.name		= "mcasp8",
+	.class		= &dra7xx_mcasp_hwmod_class,
+	.clkdm_name	= "l4per2_clkdm",
+	.main_clk	= "mcasp8_ahclkx_mux",
+	.flags		= HWMOD_SWSUP_SIDLE_ACT,
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_L4PER2_MCASP8_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_L4PER2_MCASP8_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
 /*
  * 'mmc' class
  *
@@ -3459,6 +3475,14 @@ static struct omap_hwmod_ocp_if dra7xx_l4_per2__mcasp3 = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* l4_per2 -> mcasp8 */
+static struct omap_hwmod_ocp_if dra7xx_l4_per2__mcasp8 = {
+	.master		= &dra7xx_l4_per2_hwmod,
+	.slave		= &dra7xx_mcasp8_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 static struct omap_hwmod_addr_space dra7xx_elm_addrs[] = {
 	{
 		.pa_start	= 0x48078000,
@@ -4421,6 +4445,7 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l3_main_1__aes2,
 	&dra7xx_l3_main_1__sha0,
 	&dra7xx_l4_per2__mcasp3,
+	&dra7xx_l4_per2__mcasp8,
 	&dra7xx_l4_per1__elm,
 	&dra7xx_l4_wkup__gpio1,
 	&dra7xx_l4_per1__gpio2,
