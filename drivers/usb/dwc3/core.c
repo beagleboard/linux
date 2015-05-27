@@ -818,6 +818,7 @@ static int dwc3_drd_init(struct dwc3 *dwc)
 	int irq;
 	u32 reg;
 	struct dwc3_hwparams *parms = &dwc->hwparams;
+	unsigned long flags;
 
 	/* If extcon device is not present we rely on OTG core for ID event */
 	if (!dwc->edev) {
@@ -903,6 +904,8 @@ try_otg_core:
 		goto error;
 	}
 
+	spin_lock_irqsave(&dwc->lock, flags);
+
 	/* we need to set OTG to get events from OTG core */
 	dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
 	/* GUSB2PHYCFG0.SusPHY=0 */
@@ -927,6 +930,8 @@ try_otg_core:
 			DWC3_OEVTEN_BDEVSESSVLDDETEN);
 	/* OCTL.PeriMode = 1 */
 	dwc3_writel(dwc->regs, DWC3_OCTL, DWC3_OCTL_PERIMODE);
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	dwc3_otg_fsm_sync(dwc);
 	usb_otg_sync_inputs(dwc->fsm);
