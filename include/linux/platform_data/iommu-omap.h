@@ -53,4 +53,6 @@ struct iommu_platform_data {
 	int (*deassert_reset)(struct platform_device *pdev, const char *name);
 	int (*device_enable)(struct platform_device *pdev);
 	int (*device_idle)(struct platform_device *pdev);
+	int (*set_pwrdm_constraint)(struct platform_device *pdev, bool request,
+				    u8 *pwrst);
 };
