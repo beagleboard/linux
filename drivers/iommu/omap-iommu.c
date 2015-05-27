@@ -1045,6 +1045,7 @@ static int omap_iommu_runtime_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct iommu_platform_data *pdata = dev_get_platdata(dev);
 	struct omap_iommu *obj = to_iommu(dev);
+	int ret;
 
 	/* save the TLBs only during suspend, and not for power down */
 	if (obj->domain && obj->iopgd)
@@ -1058,6 +1059,14 @@ static int omap_iommu_runtime_suspend(struct device *dev)
 
 	if (pdata && pdata->assert_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
+
+	if (pdata && pdata->set_pwrdm_constraint) {
+		ret = pdata->set_pwrdm_constraint(pdev, false, &obj->pwrst);
+		if (ret) {
+			dev_warn(dev, "pwrdm_constraint failed to be reset, status = %d\n",
+				 ret);
+		}
+	}
 
 	return 0;
 }
@@ -1080,6 +1089,14 @@ static int omap_iommu_runtime_resume(struct device *dev)
 	struct iommu_platform_data *pdata = dev_get_platdata(dev);
 	struct omap_iommu *obj = to_iommu(dev);
 	int ret = 0;
+
+	if (pdata && pdata->set_pwrdm_constraint) {
+		ret = pdata->set_pwrdm_constraint(pdev, true, &obj->pwrst);
+		if (ret) {
+			dev_warn(dev, "pwrdm_constraint failed to be set, status = %d\n",
+				 ret);
+		}
+	}
 
 	if (pdata && pdata->deassert_reset) {
 		ret = pdata->deassert_reset(pdev, pdata->reset_name);
