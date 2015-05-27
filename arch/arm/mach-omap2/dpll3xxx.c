@@ -306,6 +306,9 @@ static int omap3_noncore_dpll_program(struct clk_hw_omap *clk, u16 freqsel)
 	/* 3430 ES2 TRM: 4.7.6.9 DPLL Programming Sequence */
 	_omap3_noncore_dpll_bypass(clk);
 
+	if (dd->sink_clkdm)
+		clkdm_clk_enable(dd->sink_clkdm, clk->hw.clk);
+
 	/*
 	 * Set jitter correction. Jitter correction applicable for OMAP343X
 	 * only since freqsel field is no longer present on other devices.
@@ -373,6 +376,9 @@ static int omap3_noncore_dpll_program(struct clk_hw_omap *clk, u16 freqsel)
 	/* REVISIT: Set ramp-up delay? */
 
 	_omap3_noncore_dpll_lock(clk);
+
+	if (dd->sink_clkdm)
+		clkdm_clk_disable(dd->sink_clkdm, clk->hw.clk);
 
 	return 0;
 }
