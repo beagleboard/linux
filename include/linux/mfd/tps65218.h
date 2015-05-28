@@ -262,6 +262,7 @@ struct tps_info {
 struct tps65218 {
 	struct device *dev;
 	unsigned int id;
+	u8 rev;
 
 	struct mutex tps_lock;		/* lock guarding the data structure */
 	/* IRQ Data */
