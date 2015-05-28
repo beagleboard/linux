@@ -1350,18 +1350,15 @@ static int dwc3_suspend(struct device *dev)
 		dwc->octl = dwc3_readl(dwc->regs, DWC3_OCTL);
 		dwc->oevt = dwc3_readl(dwc->regs, DWC3_OEVT);
 		dwc->oevten = dwc3_readl(dwc->regs, DWC3_OEVTEN);
+		dwc3_writel(dwc->regs, DWC3_OEVTEN, 0);
+		disable_irq(dwc->otg_irq);
 	}
 
-	switch (dwc->dr_mode) {
-	case USB_DR_MODE_PERIPHERAL:
-	case USB_DR_MODE_OTG:
+	if (dwc->dr_mode == USB_DR_MODE_PERIPHERAL ||
+	    ((dwc->dr_mode == USB_DR_MODE_OTG) && dwc->fsm->protocol == PROTO_GADGET))
 		dwc3_gadget_suspend(dwc);
-		/* FALLTHROUGH */
-	case USB_DR_MODE_HOST:
-	default:
-		dwc3_event_buffers_cleanup(dwc);
-		break;
-	}
+
+	dwc3_event_buffers_cleanup(dwc);
 
 	dwc->gctl = dwc3_readl(dwc->regs, DWC3_GCTL);
 	spin_unlock_irqrestore(&dwc->lock, flags);
@@ -1401,18 +1398,12 @@ static int dwc3_resume(struct device *dev)
 		dwc3_writel(dwc->regs, DWC3_OCTL, dwc->octl);
 		dwc3_writel(dwc->regs, DWC3_OEVT, dwc->oevt);
 		dwc3_writel(dwc->regs, DWC3_OEVTEN, dwc->oevten);
+		enable_irq(dwc->otg_irq);
 	}
 
-	switch (dwc->dr_mode) {
-	case USB_DR_MODE_PERIPHERAL:
-	case USB_DR_MODE_OTG:
+	if (dwc->dr_mode == USB_DR_MODE_PERIPHERAL ||
+	    ((dwc->dr_mode == USB_DR_MODE_OTG) && dwc->fsm->protocol == PROTO_GADGET))
 		dwc3_gadget_resume(dwc);
-		/* FALLTHROUGH */
-	case USB_DR_MODE_HOST:
-	default:
-		/* do nothing */
-		break;
-	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
