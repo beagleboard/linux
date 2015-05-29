@@ -167,7 +167,8 @@ cleanup:
 }
 
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5) || \
-	defined(CONFIG_SOC_DRA7XX) || defined(CONFIG_SOC_AM33XX)
+	defined(CONFIG_SOC_DRA7XX) || defined(CONFIG_SOC_AM33XX) || \
+	defined(CONFIG_SOC_AM43XX)
 /**
  * ti_clk_register_dpll_x2 - Registers a DPLLx2 clock
  * @node: device node for this clock
@@ -328,7 +329,7 @@ CLK_OF_DECLARE(ti_omap4_dpll_x2_clock, "ti,omap4-dpll-x2-clock",
 	       of_ti_omap4_dpll_x2_setup);
 #endif
 
-#ifdef CONFIG_SOC_AM33XX
+#if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)
 static void __init of_ti_am3_dpll_x2_setup(struct device_node *node)
 {
 	ti_clk_register_dpll_x2(node, &dpll_x2_ck_ops, NULL);
@@ -534,6 +535,7 @@ static void __init of_ti_am3_no_gate_dpll_setup(struct device_node *node)
 		.max_multiplier = 2047,
 		.max_divider = 128,
 		.min_divider = 1,
+		.max_rate = 1000000000,
 		.modes = (1 << DPLL_LOW_POWER_BYPASS) | (1 << DPLL_LOCKED),
 	};
 
@@ -553,6 +555,7 @@ static void __init of_ti_am3_jtype_dpll_setup(struct device_node *node)
 		.max_divider = 256,
 		.min_divider = 2,
 		.flags = DPLL_J_TYPE,
+		.max_rate = 2000000000,
 		.modes = (1 << DPLL_LOW_POWER_BYPASS) | (1 << DPLL_LOCKED),
 	};
 
@@ -571,6 +574,7 @@ static void __init of_ti_am3_no_gate_jtype_dpll_setup(struct device_node *node)
 		.max_multiplier = 2047,
 		.max_divider = 128,
 		.min_divider = 1,
+		.max_rate = 2000000000,
 		.flags = DPLL_J_TYPE,
 		.modes = (1 << DPLL_LOW_POWER_BYPASS) | (1 << DPLL_LOCKED),
 	};
@@ -591,6 +595,7 @@ static void __init of_ti_am3_dpll_setup(struct device_node *node)
 		.max_multiplier = 2047,
 		.max_divider = 128,
 		.min_divider = 1,
+		.max_rate = 1000000000,
 		.modes = (1 << DPLL_LOW_POWER_BYPASS) | (1 << DPLL_LOCKED),
 	};
 
@@ -608,6 +613,7 @@ static void __init of_ti_am3_core_dpll_setup(struct device_node *node)
 		.max_multiplier = 2047,
 		.max_divider = 128,
 		.min_divider = 1,
+		.max_rate = 1000000000,
 		.modes = (1 << DPLL_LOW_POWER_BYPASS) | (1 << DPLL_LOCKED),
 	};
 

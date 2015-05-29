@@ -94,6 +94,21 @@ struct omap_hwmod am33xx_l4_ls_hwmod = {
 	},
 };
 
+/* l4_hs */
+struct omap_hwmod am33xx_l4_hs_hwmod = {
+	.name		= "l4_hs",
+	.class		= &am33xx_l4_hwmod_class,
+	.clkdm_name	= "l4hs_clkdm",
+	.flags		= HWMOD_INIT_NO_IDLE,
+	.main_clk	= "l4hs_gclk",
+	.prcm		= {
+		.omap4  = {
+			.clkctrl_offs   = AM33XX_CM_PER_L4HS_CLKCTRL_OFFSET,
+			.modulemode     = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
 /* l4_wkup */
 struct omap_hwmod am33xx_l4_wkup_hwmod = {
 	.name		= "l4_wkup",
@@ -133,6 +148,54 @@ struct omap_hwmod am33xx_mpu_hwmod = {
  */
 struct omap_hwmod_class am33xx_wkup_m3_hwmod_class = {
 	.name		= "wkup_m3",
+};
+
+ /*
+ * 'adc/tsc' class
+ * TouchScreen Controller (Anolog-To-Digital Converter)
+ */
+static struct omap_hwmod_class_sysconfig am33xx_adc_tsc_sysc = {
+	.rev_offs	= 0x00,
+	.sysc_offs	= 0x10,
+	.sysc_flags	= SYSC_HAS_SIDLEMODE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			SIDLE_SMART_WKUP),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
+};
+
+static struct omap_hwmod_class am33xx_adc_tsc_hwmod_class = {
+	.name		= "adc_tsc",
+	.sysc		= &am33xx_adc_tsc_sysc,
+};
+
+struct omap_hwmod am33xx_adc_tsc_hwmod = {
+	.name		= "adc_tsc",
+	.class		= &am33xx_adc_tsc_hwmod_class,
+	.clkdm_name	= "l4_wkup_clkdm",
+	.main_clk	= "adc_tsc_fck",
+	.prcm		= {
+		.omap4  = {
+			.modulemode     = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* L4 WKUP -> ADC_TSC */
+static struct omap_hwmod_addr_space am33xx_adc_tsc_addrs[] = {
+	{
+		.pa_start	= 0x44E0D000,
+		.pa_end		= 0x44E0D000 + SZ_8K - 1,
+		.flags		= ADDR_TYPE_RT
+	},
+	{ }
+};
+
+struct omap_hwmod_ocp_if am33xx_l4_wkup__adc_tsc = {
+	.master		= &am33xx_l4_wkup_hwmod,
+	.slave		= &am33xx_adc_tsc_hwmod,
+	.clk		= "dpll_core_m4_div2_ck",
+	.addr		= am33xx_adc_tsc_addrs,
+	.user		= OCP_USER_MPU,
 };
 
 /*
@@ -1398,6 +1461,7 @@ static void omap_hwmod_am33xx_clkctrl(void)
 	CLKCTRL(am33xx_timer5_hwmod, AM33XX_CM_PER_TIMER5_CLKCTRL_OFFSET);
 	CLKCTRL(am33xx_timer6_hwmod, AM33XX_CM_PER_TIMER6_CLKCTRL_OFFSET);
 	CLKCTRL(am33xx_timer7_hwmod, AM33XX_CM_PER_TIMER7_CLKCTRL_OFFSET);
+	CLKCTRL(am33xx_adc_tsc_hwmod, AM33XX_CM_WKUP_ADC_TSC_CLKCTRL_OFFSET);
 	CLKCTRL(am33xx_smartreflex0_hwmod,
 		AM33XX_CM_WKUP_SMARTREFLEX0_CLKCTRL_OFFSET);
 	CLKCTRL(am33xx_smartreflex1_hwmod,
@@ -1427,6 +1491,18 @@ static void omap_hwmod_am33xx_clkctrl(void)
 	CLKCTRL(am33xx_rng_hwmod , AM33XX_CM_PER_RNG_CLKCTRL_OFFSET);
 }
 
+static void am33xx_hwmod_clockdomain(void)
+{
+	am33xx_l4_hs_hwmod.clkdm_name = "l4hs_clkdm";
+	am33xx_adc_tsc_hwmod.clkdm_name = "l4_wkup_clkdm";
+}
+
+static void am43xx_hwmod_clockdomain(void)
+{
+	am33xx_l4_hs_hwmod.clkdm_name = "l3_clkdm";
+	am33xx_adc_tsc_hwmod.clkdm_name = "l3s_tsc_clkdm";
+}
+
 static void omap_hwmod_am33xx_rst(void)
 {
 	RSTCTRL(am33xx_pruss_hwmod, AM33XX_RM_PER_RSTCTRL_OFFSET);
@@ -1438,6 +1514,7 @@ void omap_hwmod_am33xx_reg(void)
 {
 	omap_hwmod_am33xx_clkctrl();
 	omap_hwmod_am33xx_rst();
+	am33xx_hwmod_clockdomain();
 }
 
 static void omap_hwmod_am43xx_clkctrl(void)
@@ -1472,6 +1549,7 @@ static void omap_hwmod_am43xx_clkctrl(void)
 	CLKCTRL(am33xx_timer5_hwmod, AM43XX_CM_PER_TIMER5_CLKCTRL_OFFSET);
 	CLKCTRL(am33xx_timer6_hwmod, AM43XX_CM_PER_TIMER6_CLKCTRL_OFFSET);
 	CLKCTRL(am33xx_timer7_hwmod, AM43XX_CM_PER_TIMER7_CLKCTRL_OFFSET);
+	CLKCTRL(am33xx_adc_tsc_hwmod, AM43XX_CM_WKUP_ADC_TSC_CLKCTRL_OFFSET);
 	CLKCTRL(am33xx_smartreflex0_hwmod,
 		AM43XX_CM_WKUP_SMARTREFLEX0_CLKCTRL_OFFSET);
 	CLKCTRL(am33xx_smartreflex1_hwmod,
@@ -1511,4 +1589,5 @@ void omap_hwmod_am43xx_reg(void)
 {
 	omap_hwmod_am43xx_clkctrl();
 	omap_hwmod_am43xx_rst();
+	am43xx_hwmod_clockdomain();
 }

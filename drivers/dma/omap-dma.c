@@ -824,13 +824,16 @@ static struct dma_async_tx_descriptor *omap_dma_prep_slave_sg(
 	d->es = es;
 
 	d->ccr = c->ccr | CCR_SYNC_FRAME;
-	if (dir == DMA_DEV_TO_MEM)
+	if (dir == DMA_DEV_TO_MEM) {
 		d->ccr |= CCR_DST_AMODE_POSTINC | CCR_SRC_AMODE_CONSTANT;
-	else
+		d->csdp = CSDP_DST_BURST_64 | CSDP_DST_PACKED;
+	} else {
 		d->ccr |= CCR_DST_AMODE_CONSTANT | CCR_SRC_AMODE_POSTINC;
+		d->csdp = CSDP_SRC_BURST_64 | CSDP_SRC_PACKED;
+	}
 
 	d->cicr = CICR_DROP_IE | CICR_BLOCK_IE;
-	d->csdp = es;
+	d->csdp |= es;
 
 	if (dma_omap1()) {
 		d->cicr |= CICR_TOUT_IE;
@@ -999,6 +1002,7 @@ static int omap_dma_terminate_all(struct omap_chan *c)
 	 * c->desc is NULL and exit.)
 	 */
 	if (c->desc) {
+		omap_dma_desc_free(&c->desc->vd);
 		c->desc = NULL;
 		/* Avoid stopping the dma twice */
 		if (!c->paused)
@@ -1038,6 +1042,11 @@ static int omap_dma_resume(struct omap_chan *c)
 		return -EINVAL;
 
 	if (c->paused) {
+		mb();
+
+		/* Restore channel link register */
+		omap_dma_chan_write(c, CLNK_CTRL, c->desc->clnk_ctrl);
+
 		omap_dma_start(c, c->desc);
 		c->paused = false;
 	}

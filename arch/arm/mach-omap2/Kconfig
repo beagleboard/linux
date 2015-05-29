@@ -95,6 +95,7 @@ config SOC_DRA7XX
 	select HAVE_ARM_ARCH_TIMER
 	select IRQ_CROSSBAR
 	select OMAP_DMA_CROSSBAR if DMA_OMAP
+	select ARM_ERRATA_798181 if SMP
 
 config ARCH_OMAP2PLUS
 	bool
