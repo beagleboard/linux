@@ -1261,7 +1261,8 @@ static int vip_querycap(struct file *file, void *priv,
 	strncpy(cap->card, VIP_MODULE_NAME, sizeof(cap->card) - 1);
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
 		VIP_MODULE_NAME);
-	cap->device_caps  = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE;
+	cap->device_caps  = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE |
+			    V4L2_CAP_READWRITE;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
@@ -1275,6 +1276,7 @@ static int vip_enuminput(struct file *file, void *priv,
 		return -EINVAL;
 
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
+	inp->std = stream->vfd->tvnorms;
 	sprintf(inp->name, "camera %u", stream->vfd->num);
 
 	return 0;
@@ -1298,7 +1300,9 @@ static int vip_querystd(struct file *file, void *fh, v4l2_std_id *std)
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
 
+	*std = stream->vfd->tvnorms;
 	v4l2_subdev_call(dev->sensor, video, querystd, std);
+	vip_dbg(1, dev, "querystd: 0x%lx\n", (unsigned long)*std);
 	return 0;
 }
 
@@ -1307,8 +1311,10 @@ static int vip_g_std(struct file *file, void *fh, v4l2_std_id *std)
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
 
-	*std = 0;
+	*std = stream->vfd->tvnorms;
 	v4l2_subdev_call(dev->sensor, video, g_std_output, std);
+	vip_dbg(1, dev, "g_std: 0x%lx\n", (unsigned long)*std);
+
 	return 0;
 }
 
@@ -1316,6 +1322,14 @@ static int vip_s_std(struct file *file, void *fh, v4l2_std_id std)
 {
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
+
+	vip_dbg(1, dev, "s_std: 0x%lx\n", (unsigned long)std);
+
+	if (!(std & stream->vfd->tvnorms)) {
+		vip_dbg(1, dev, "s_std after check: 0x%lx\n",
+			(unsigned long)std);
+		return -EINVAL;
+	}
 
 	v4l2_subdev_call(dev->sensor, video, s_std_output, std);
 	return 0;
@@ -1413,6 +1427,19 @@ static int vip_enum_frameintervals(struct file *file, void *priv,
 	return 0;
 }
 
+static int vip_g_parm(struct file *file, void *priv,
+		      struct v4l2_streamparm *parm)
+{
+	if (parm->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
+	parm->parm.capture.capability   = V4L2_CAP_TIMEPERFRAME;
+	parm->parm.capture.timeperframe.numerator = 1;
+	parm->parm.capture.timeperframe.denominator = 30;
+	parm->parm.capture.readbuffers  = 4;
+	return 0;
+}
+
 static int vip_s_parm(struct file *file, void *priv,
 			struct v4l2_streamparm *parm)
 {
@@ -1421,6 +1448,7 @@ static int vip_s_parm(struct file *file, void *priv,
 
 	parm->parm.capture.timeperframe.numerator = 1;
 	parm->parm.capture.timeperframe.denominator = 30;
+	parm->parm.capture.readbuffers  = 4;
 
 	return 0;
 }
@@ -1771,7 +1799,7 @@ static const struct v4l2_ioctl_ops vip_ioctl_ops = {
 	.vidioc_enum_frameintervals	= vip_enum_frameintervals,
 	.vidioc_enum_framesizes		= vip_enum_framesizes,
 	.vidioc_s_parm			= vip_s_parm,
-
+	.vidioc_g_parm			= vip_g_parm,
 	.vidioc_g_selection	= vip_g_selection,
 	.vidioc_s_selection	= vip_s_selection,
 	.vidioc_reqbufs		= vb2_ioctl_reqbufs,
@@ -2293,6 +2321,7 @@ static const struct v4l2_file_operations vip_fops = {
 	.owner		= THIS_MODULE,
 	.open		= vip_open,
 	.release	= vip_release,
+	.read		= vb2_fop_read,
 	.poll		= vb2_fop_poll,
 	.unlocked_ioctl	= video_ioctl2,
 	.mmap		= vb2_fop_mmap,
@@ -2304,6 +2333,7 @@ static struct video_device vip_videodev = {
 	.ioctl_ops	= &vip_ioctl_ops,
 	.minor		= -1,
 	.release	= video_device_release,
+	.tvnorms	= V4L2_STD_NTSC | V4L2_STD_PAL | V4L2_STD_SECAM,
 };
 
 static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
@@ -2342,7 +2372,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	 */
 	q = &stream->vb_vidq;
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	q->io_modes = VB2_MMAP | VB2_DMABUF;
+	q->io_modes = VB2_MMAP | VB2_DMABUF | VB2_READ;
 	q->drv_priv = stream;
 	q->buf_struct_size = sizeof(struct vip_buffer);
 	q->ops = &vip_video_qops;
