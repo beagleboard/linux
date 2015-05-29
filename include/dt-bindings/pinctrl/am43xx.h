@@ -19,9 +19,9 @@
 #define PULL_DISABLE		(1 << 16)
 #define PULL_UP			(1 << 17)
 #define INPUT_EN		(1 << 18)
+#define DS0_FORCE_OFF_MODE	(1 << 24)
 #define SLEWCTRL_FAST		0
 #define SLEWCTRL_SLOW		(1 << 19)
-#define DS0_FORCE_OFF_MODE	(1 << 24)
 #define DS0_PULL_UP_DOWN_EN	(1 << 27)
 #define WAKEUP_ENABLE		(1 << 29)
 

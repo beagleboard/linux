@@ -916,7 +916,6 @@ static int palmas_ldo_registration(struct palmas_pmic *pmic,
 			    (id == PALMAS_REG_LDO6))
 				desc->enable_time = 2000;
 		} else {
-
 			if (!ddata->has_regen3 && id == PALMAS_REG_REGEN3)
 				continue;
 

@@ -24,6 +24,7 @@
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/io.h>
+#include <linux/regulator/machine.h>
 
 /* The OMAP1 RTC is a year/month/day/hours/minutes/seconds BCD clock
  * with century-range alarm matching, driven by the 32kHz clock.
@@ -122,6 +123,7 @@
 #define OMAP_RTC_IRQWAKEEN_ALARM_WAKEEN	BIT(1)
 
 /* OMAP_RTC_PMIC_REG bit fields: */
+#define OMAP_RTC_PMIC_EXT_WAKEUP_EN	(1<<0)
 #define OMAP_RTC_PMIC_EXT_WAKEUP_POL	(1<<4)
 #define OMAP_RTC_PMIC_EXT_WAKEUP_STS	(1<<12)
 #define OMAP_RTC_PMIC_POWER_EN_EN       (1<<16)
@@ -154,6 +156,11 @@ static void __iomem	*rtc_base;
 
 #define rtc_writel(val, addr)	writel(val, rtc_base + (addr))
 
+struct omap_rtc_plat_data {
+	void __iomem *base;
+	bool is_power_controller;
+	struct rtc_device *rtc;
+};
 
 /* we rely on the rtc framework to handle locking (rtc->ops_lock),
  * so the only other requirement is that register accesses which
@@ -446,12 +453,14 @@ static void rtc_power_off(void)
 {
 	u32 val;
 
+	regulator_suspend_prepare(PM_SUSPEND_MAX);
+
 	omap_rtc_power_off_program();
 
 	/* Set PMIC power enable and EXT_WAKEUP in case PB power on is used */
 	val = readl(rtc_base + OMAP_RTC_PMIC_REG);
 	val |= OMAP_RTC_PMIC_POWER_EN_EN | OMAP_RTC_PMIC_EXT_WAKEUP_POL |
-	       OMAP_RTC_PMIC_EXT_WAKEUP_POL;
+	       OMAP_RTC_PMIC_EXT_WAKEUP_EN;
 	writel(val, rtc_base + OMAP_RTC_PMIC_REG);
 
 	/* Wait 1 second for power-off, if we are still alive, bail out */
@@ -511,15 +520,22 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 	struct resource		*res;
 	struct rtc_device	*rtc;
 	u8			reg, new_ctrl;
-	bool			pm_off = false;
 	const struct platform_device_id *id_entry;
 	const struct of_device_id *of_id;
+	struct omap_rtc_plat_data *pdata;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, pdata);
 
 	of_id = of_match_device(omap_rtc_of_match, &pdev->dev);
 	if (of_id) {
 		pdev->id_entry = of_id->data;
-		pm_off = of_property_read_bool(pdev->dev.of_node,
-					"ti,system-power-controller");
+		pdata->is_power_controller =
+			of_property_read_bool(pdev->dev.of_node,
+					      "ti,system-power-controller");
 	}
 
 	id_entry = platform_get_device_id(pdev);
@@ -561,10 +577,11 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 			pdev->name, PTR_ERR(rtc));
 		goto fail0;
 	}
-	platform_set_drvdata(pdev, rtc);
+
+	pdata->rtc = rtc;
 
 	/* RTC power off */
-	if (pm_off && !pm_power_off)
+	if (pdata->is_power_controller && !pm_power_off)
 		pm_power_off = rtc_power_off;
 
 	/* clear pending irqs, and set 1/second periodic,
@@ -583,7 +600,7 @@ static int __init omap_rtc_probe(struct platform_device *pdev)
 
 	/* clear old status */
 	reg = rtc_read(OMAP_RTC_STATUS_REG);
-	if (!pm_off) {
+	if (!pdata->is_power_controller) {
 		/* For RTCs with power off capability, this bit is redefined */
 		if (reg & (u8) OMAP_RTC_STATUS_POWER_UP) {
 			pr_info("%s: RTC power up reset detected\n",
@@ -711,7 +728,12 @@ static SIMPLE_DEV_PM_OPS(omap_rtc_pm_ops, omap_rtc_suspend, omap_rtc_resume);
 
 static void omap_rtc_shutdown(struct platform_device *pdev)
 {
-	rtc_write(0, OMAP_RTC_INTERRUPTS_REG);
+	struct omap_rtc_plat_data *pdata;
+
+	pdata = platform_get_drvdata(pdev);
+
+	if (!pdata->is_power_controller)
+		rtc_write(0, OMAP_RTC_INTERRUPTS_REG);
 }
 
 MODULE_ALIAS("platform:omap_rtc");

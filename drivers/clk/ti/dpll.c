@@ -306,6 +306,8 @@ static void __init of_ti_dpll_setup(struct device_node *node,
 	if (of_property_read_bool(node, "ti,lock"))
 		dpll_mode |= 1 << DPLL_LOCKED;
 
+	omap2_init_dpll_clkdm(dd, node);
+
 	if (dpll_mode)
 		dd->modes = dpll_mode;
 
