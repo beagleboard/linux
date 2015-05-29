@@ -127,7 +127,7 @@ static struct vip_srce_info srce_info[5] = {
 
 static struct vip_fmt vip_formats[] = {
 	{
-		.name		= "YUV 444 co-planar",
+		.name		= "NV24 YUV 444 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV24,
 		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
@@ -137,7 +137,7 @@ static struct vip_fmt vip_formats[] = {
 				  },
 	},
 	{
-		.name		= "YUV 422 co-planar",
+		.name		= "NV16 YUV 422 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV16,
 		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
@@ -147,7 +147,7 @@ static struct vip_fmt vip_formats[] = {
 				  },
 	},
 	{
-		.name		= "YUV 420 co-planar",
+		.name		= "NV12 YUV 420 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV12,
 		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
@@ -180,7 +180,7 @@ static struct vip_fmt vip_formats[] = {
 		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CY422],
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CRY422],
 				  },
 	},
 	{
@@ -189,7 +189,7 @@ static struct vip_fmt vip_formats[] = {
 		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_YC422],
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_YCR422],
 				  },
 	},
 	{

@@ -77,7 +77,18 @@
 #define VPDMA_LIST_TYPE_SHFT		16
 #define VPDMA_LIST_SIZE_MASK		0xffff
 
-/* VPDMA data type values for data formats */
+/*
+ * The YUV data type definition below are taken from
+ * both the TRM and i839 Errata information.
+ * Use the correct data type considering byte
+ * reordering of components.
+ *
+ * Also since the single use of "C" in the 422 case
+ * to mean "Cr" (i.e. V component). It was decided
+ * to explictly label them CR to remove any confusion.
+ * Bear in mind that the type label refer to the memory
+ * packed order (LSB - MSB).
+ */
 #define DATA_TYPE_Y444				0x0
 #define DATA_TYPE_Y422				0x1
 #define DATA_TYPE_Y420				0x2
@@ -86,17 +97,17 @@
 #define DATA_TYPE_C420				0x6
 #define DATA_TYPE_YC444				0x8
 #define DATA_TYPE_YCB422			0x7
-#define DATA_TYPE_YC422				0x17
+#define DATA_TYPE_YCR422			0x17
 #define DATA_TYPE_CBY422			0x27
-#define DATA_TYPE_CY422				0x37
+#define DATA_TYPE_CRY422			0x37
 
 /*
  * The RGB data type definition below are defined
- * to follow Errata i819.
- * The initial values were taken from:
- * VPDMA_data_type_mapping_v0.2vayu_c.pdf
+ * to follow Errata i839.
+ * The initial values were taken from both the TRM and
+ * the i839 Errata information.
  * But some of the ARGB definition appeared to be wrong
- * in the document also. As they would yield RGBA instead.
+ * as they would yield RGBA instead.
  * They have been corrected based on experimentation.
  */
 #define DATA_TYPE_RGB16_565			0x10
