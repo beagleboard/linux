@@ -31,6 +31,7 @@
 #include <linux/of_dma.h>
 #include <linux/of_irq.h>
 #include <linux/pm_runtime.h>
+#include <linux/dma-mapping.h>
 
 #include <linux/platform_data/edma.h>
 
@@ -432,8 +433,11 @@ static irqreturn_t dma_ccerr_handler(int irq, void *data)
 	if ((edma_read_array(ctlr, EDMA_EMR, 0) == 0) &&
 	    (edma_read_array(ctlr, EDMA_EMR, 1) == 0) &&
 	    (edma_read(ctlr, EDMA_QEMR) == 0) &&
-	    (edma_read(ctlr, EDMA_CCERR) == 0))
+	    (edma_read(ctlr, EDMA_CCERR) == 0)) {
+		dev_err(data, "%s: unmanaged event occured\n", __func__);
+		edma_write(ctlr, EDMA_EEVAL, 1);
 		return IRQ_NONE;
+	}
 
 	while (1) {
 		int j = -1;
@@ -1347,6 +1351,9 @@ void edma_stop(unsigned channel)
 		edma_shadow0_write_array(ctlr, SH_SECR, j, mask);
 		edma_write_array(ctlr, EDMA_EMCR, j, mask);
 
+		/* clear possibly pending completion interrupt */
+		edma_shadow0_write_array(ctlr, SH_ICR, j, mask);
+
 		pr_debug("EDMA: EER%d %08x\n", j,
 				edma_shadow0_read_array(ctlr, SH_EER, j));
 
@@ -1575,6 +1582,18 @@ static struct edma_soc_info *edma_setup_info_from_dt(struct device *dev,
 }
 #endif
 
+static const struct platform_device_info edma_dmaengine_dev[EDMA_MAX_CC] = {
+	{
+		.name = "edma-dma-engine",
+		.id = 0,
+		.dma_mask = DMA_BIT_MASK(32),
+	}, {
+		.name = "edma-dma-engine",
+		.id = 1,
+		.dma_mask = DMA_BIT_MASK(32),
+	},
+};
+
 static int edma_probe(struct platform_device *pdev)
 {
 	struct edma_soc_info	**info = pdev->dev.platform_data;
@@ -1592,6 +1611,7 @@ static int edma_probe(struct platform_device *pdev)
 	char			res_name[10];
 	struct device_node	*node = pdev->dev.of_node;
 	struct device		*dev = &pdev->dev;
+	struct platform_device	*dmaengine_pdev;
 	int			ret;
 
 	if (node) {
@@ -1762,6 +1782,14 @@ static int edma_probe(struct platform_device *pdev)
 			edma_write_array2(j, EDMA_DRAE, i, 1, 0x0);
 			edma_write_array(j, EDMA_QRAE, i, 0x0);
 		}
+
+		dmaengine_pdev = platform_device_register_full(
+							&edma_dmaengine_dev[j]);
+		if (IS_ERR(dmaengine_pdev))
+			dev_err(dev,
+				"device%d for dmaengine register failed (%ld)",
+				j, PTR_ERR(dmaengine_pdev));
+
 		arch_num_cc++;
 	}
 

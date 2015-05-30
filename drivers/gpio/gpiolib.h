@@ -43,4 +43,6 @@ acpi_get_gpiod_by_index(struct device *dev, int index,
 }
 #endif
 
+int gpiod_hog(struct gpio_desc *desc, const char *name, unsigned long flags);
+
 #endif /* GPIOLIB_H */
