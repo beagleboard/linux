@@ -102,7 +102,7 @@ struct palmas_sleep_requestor_info {
 	int bit_pos;
 };
 
-struct regs_info {
+struct palmas_regs_info {
 	char	*name;
 	char	*sname;
 	u8	vsel_addr;
@@ -117,7 +117,8 @@ struct palmas_pmic_driver_data {
 	int ldo_begin;
 	int ldo_end;
 	int max_reg;
-	struct regs_info *palmas_regs_info;
+	bool has_regen3;
+	struct palmas_regs_info *palmas_regs_info;
 	struct of_regulator_match *palmas_matches;
 	struct palmas_sleep_requestor_info *sleep_req_info;
 	int (*smps_register)(struct palmas_pmic *pmic,
@@ -2998,6 +2999,9 @@ enum usb_irq_events {
 #define PALMAS_GPADC_TRIM14					0x0D
 #define PALMAS_GPADC_TRIM15					0x0E
 #define PALMAS_GPADC_TRIM16					0x0F
+
+/* TPS659038 regen2_ctrl offset iss different from palmas */
+#define TPS659038_REGEN2_CTRL					0x12
 
 /* TPS65917 Interrupt registers */
 
