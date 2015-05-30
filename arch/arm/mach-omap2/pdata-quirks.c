@@ -41,6 +41,17 @@ struct pdata_init {
 struct of_dev_auxdata omap_auxdata_lookup[];
 static struct twl4030_gpio_platform_data twl_gpio_auxdata;
 
+#if IS_ENABLED(CONFIG_OMAP_IOMMU)
+int omap_iommu_set_pwrdm_constraint(struct platform_device *pdev, bool request,
+				    u8 *pwrst);
+#else
+static inline int omap_iommu_set_pwrdm_constraint(struct platform_device *pdev,
+						  bool request, u8 *pwrst)
+{
+	return 0;
+}
+#endif
+
 #if IS_ENABLED(CONFIG_WL12XX)
 
 static struct wl12xx_platform_data wl12xx __initdata;
@@ -269,6 +280,15 @@ static struct iommu_platform_data dra7_dsp_mmu_edma_pdata = {
 	.device_idle = omap_device_idle,
 };
 
+static struct iommu_platform_data dra7_ipu1_iommu_pdata = {
+	.reset_name = "mmu_cache",
+	.assert_reset = omap_device_assert_hardreset,
+	.deassert_reset = omap_device_deassert_hardreset,
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
+	.set_pwrdm_constraint = omap_iommu_set_pwrdm_constraint,
+};
+
 static struct omap_rproc_pdata dra7_dsp1_pdata = {
 	.device_enable = omap_rproc_device_enable,
 	.device_shutdown = omap_rproc_device_shutdown,
@@ -455,7 +475,7 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x55082000, "55082000.mmu",
 		       &omap4_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x58882000, "58882000.mmu",
-		       &omap4_iommu_pdata),
+		       &dra7_ipu1_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-rproc-ipu", 0x55020000, "55020000.ipu",
 		       &omap4_ipu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-rproc-ipu", 0x58820000, "58820000.ipu",

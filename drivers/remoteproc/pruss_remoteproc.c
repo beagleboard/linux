@@ -589,7 +589,7 @@ static void pru_rproc_mbox_callback(struct mbox_client *client, void *data)
 
 	/* msg contains the index of the triggered vring */
 	if (rproc_vq_interrupt(pru->rproc, msg) == IRQ_NONE)
-		dev_err(dev, "no message was found in vqid %d\n", msg);
+		dev_dbg(dev, "no message was found in vqid %d\n", msg);
 }
 
 /* kick a virtqueue */
@@ -1371,7 +1371,7 @@ static int __init pruss_init(void)
 		platform_driver_unregister(&pruss_driver);
 	}
 
-	return 0;
+	return ret;
 }
 module_init(pruss_init);
 

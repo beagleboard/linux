@@ -373,7 +373,7 @@ static struct clockdomain ipu1_7xx_clkdm = {
 	.dep_bit	  = DRA7XX_IPU1_STATDEP_SHIFT,
 	.wkdep_srcs	  = ipu1_wkup_sleep_deps,
 	.sleepdep_srcs	  = ipu1_wkup_sleep_deps,
-	.flags		  = CLKDM_CAN_SWSUP,
+	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
 };
 
 static struct clockdomain ipu2_7xx_clkdm = {
