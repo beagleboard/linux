@@ -127,9 +127,9 @@ static struct vip_srce_info srce_info[5] = {
 
 static struct vip_fmt vip_formats[] = {
 	{
-		.name		= "YUV 444 co-planar",
+		.name		= "NV24 YUV 444 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV24,
-		.code		= V4L2_MBUS_FMT_YDYUYDYV8_1X16,
+		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 1,
 		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_Y444],
@@ -137,9 +137,9 @@ static struct vip_fmt vip_formats[] = {
 				  },
 	},
 	{
-		.name		= "YUV 422 co-planar",
+		.name		= "NV16 YUV 422 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV16,
-		.code		= V4L2_MBUS_FMT_YDYUYDYV8_1X16,
+		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 1,
 		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_Y422],
@@ -147,9 +147,9 @@ static struct vip_fmt vip_formats[] = {
 				  },
 	},
 	{
-		.name		= "YUV 420 co-planar",
+		.name		= "NV12 YUV 420 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV12,
-		.code		= V4L2_MBUS_FMT_YDYUYDYV8_1X16,
+		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 1,
 		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_Y420],
@@ -162,38 +162,34 @@ static struct vip_fmt vip_formats[] = {
 		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		/* bus order is reversed so flip Y and UV bytes */
 		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
 				  },
 	},
 	{
 		.name		= "YUYV 422 packed",
 		.fourcc		= V4L2_PIX_FMT_YUYV,
-		.code		= V4L2_MBUS_FMT_YUYV8_2X8,
+		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		/* bus order is reversed so flip Y and UV bytes */
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_YCB422],
 				  },
 	},
 	{
 		.name		= "VYUY 422 packed",
 		.fourcc		= V4L2_PIX_FMT_VYUY,
-		.code		= V4L2_MBUS_FMT_VYUY8_2X8,
+		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		/* bus order is reversed so flip Y and UV bytes */
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CRY422],
 				  },
 	},
 	{
 		.name		= "YVYU 422 packed",
 		.fourcc		= V4L2_PIX_FMT_YVYU,
-		.code		= V4L2_MBUS_FMT_YVYU8_2X8,
+		.code		= V4L2_MBUS_FMT_UYVY8_2X8,
 		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
 		.coplanar	= 0,
-		/* bus order is reversed so flip Y and UV bytes */
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_CBY422],
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_YCR422],
 				  },
 	},
 	{
@@ -232,60 +228,17 @@ static char *fourcc_to_str(u32 fmt)
 /*
  * Find our format description corresponding to the passed v4l2_format
  */
-#ifdef DISABLED_FOR_NOW
-static struct vip_fmt *find_format_by_pix(u32 pixelformat)
+
+static struct vip_fmt *find_port_format_by_pix(struct vip_port *port,
+					       u32 pixelformat)
 {
-	struct vip_fmt *fmt;
-	unsigned int k;
-
-	for (k = 0; k < ARRAY_SIZE(vip_formats); k++) {
-		fmt = &vip_formats[k];
-		if (fmt->fourcc == pixelformat)
-			return fmt;
-	}
-
-	return NULL;
-}
-#endif
-
-static struct vip_fmt *find_format_by_code(u32 code)
-{
-	struct vip_fmt *fmt;
-	unsigned int k;
-
-	for (k = 0; k < ARRAY_SIZE(vip_formats); k++) {
-		fmt = &vip_formats[k];
-		if (fmt->code == code)
-			return fmt;
-	}
-
-	return NULL;
-}
-
-static struct vip_fmt *find_active_format_by_pix(struct vip_dev *dev,
-						 u32 pixelformat)
-{
+	struct vip_dev *dev = port->dev;
 	struct vip_fmt *fmt;
 	unsigned int k;
 
 	for (k = 0; k < dev->num_active_fmt; k++) {
 		fmt = dev->active_fmt[k];
 		if (fmt->fourcc == pixelformat)
-			return fmt;
-	}
-
-	return NULL;
-}
-
-static struct vip_fmt *find_active_format_by_code(struct vip_dev *dev,
-						 u32 code)
-{
-	struct vip_fmt *fmt;
-	unsigned int k;
-
-	for (k = 0; k < dev->num_active_fmt; k++) {
-		fmt = dev->active_fmt[k];
-		if (fmt->code == code)
 			return fmt;
 	}
 
@@ -1301,30 +1254,6 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 /*
  * video ioctls
  */
-static struct v4l2_mbus_framefmt *
-vip_video_pix_to_mbus(const struct v4l2_pix_format *pix,
-		      struct v4l2_mbus_framefmt *mbus)
-{
-	unsigned int i;
-
-	memset(mbus, 0, sizeof(*mbus));
-	mbus->width = pix->width;
-	mbus->height = pix->height;
-
-	mbus->code = V4L2_MBUS_FMT_YUYV8_2X8;
-	for (i = 0; i < ARRAY_SIZE(vip_formats) - 1; ++i) {
-		if (vip_formats[i].fourcc == pix->pixelformat) {
-			mbus->code = vip_formats[i].code;
-			break;
-		}
-	}
-
-	mbus->colorspace = pix->colorspace;
-	mbus->field = pix->field;
-
-	return mbus;
-}
-
 static int vip_querycap(struct file *file, void *priv,
 			struct v4l2_capability *cap)
 {
@@ -1332,7 +1261,8 @@ static int vip_querycap(struct file *file, void *priv,
 	strncpy(cap->card, VIP_MODULE_NAME, sizeof(cap->card) - 1);
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
 		VIP_MODULE_NAME);
-	cap->device_caps  = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE;
+	cap->device_caps  = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE |
+			    V4L2_CAP_READWRITE;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
@@ -1346,6 +1276,7 @@ static int vip_enuminput(struct file *file, void *priv,
 		return -EINVAL;
 
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
+	inp->std = stream->vfd->tvnorms;
 	sprintf(inp->name, "camera %u", stream->vfd->num);
 
 	return 0;
@@ -1369,7 +1300,9 @@ static int vip_querystd(struct file *file, void *fh, v4l2_std_id *std)
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
 
+	*std = stream->vfd->tvnorms;
 	v4l2_subdev_call(dev->sensor, video, querystd, std);
+	vip_dbg(1, dev, "querystd: 0x%lx\n", (unsigned long)*std);
 	return 0;
 }
 
@@ -1378,8 +1311,10 @@ static int vip_g_std(struct file *file, void *fh, v4l2_std_id *std)
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
 
-	*std = 0;
+	*std = stream->vfd->tvnorms;
 	v4l2_subdev_call(dev->sensor, video, g_std_output, std);
+	vip_dbg(1, dev, "g_std: 0x%lx\n", (unsigned long)*std);
+
 	return 0;
 }
 
@@ -1387,6 +1322,14 @@ static int vip_s_std(struct file *file, void *fh, v4l2_std_id std)
 {
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
+
+	vip_dbg(1, dev, "s_std: 0x%lx\n", (unsigned long)std);
+
+	if (!(std & stream->vfd->tvnorms)) {
+		vip_dbg(1, dev, "s_std after check: 0x%lx\n",
+			(unsigned long)std);
+		return -EINVAL;
+	}
 
 	v4l2_subdev_call(dev->sensor, video, s_std_output, std);
 	return 0;
@@ -1397,9 +1340,10 @@ static int vip_enum_fmt_vid_cap(struct file *file, void *priv,
 {
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
-	struct vip_fmt *fmt;
+	struct vip_fmt *fmt = NULL;
 
 	vip_dbg(3, dev, "enum_fmt index:%d\n", f->index);
+
 	if (f->index >= dev->num_active_fmt)
 		return -EINVAL;
 
@@ -1424,18 +1368,14 @@ static int vip_enum_framesizes(struct file *file, void *priv,
 {
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
+	struct vip_port *port = stream->port;
 	struct vip_fmt *fmt;
-	int ret;
 
-	fmt = find_active_format_by_pix(dev, f->pixel_format);
+	fmt = find_port_format_by_pix(port, f->pixel_format);
 	if (!fmt)
 		return -EINVAL;
 
-	ret = v4l2_subdev_call(dev->sensor, video, enum_framesizes, f);
-	if (ret)
-		vip_dbg(1, dev, "enum_framesizes failed in subdev\n");
-
-	return ret;
+	return v4l2_subdev_call(dev->sensor, video, enum_framesizes, f);
 }
 
 static int vip_enum_frameintervals(struct file *file, void *priv,
@@ -1443,6 +1383,7 @@ static int vip_enum_frameintervals(struct file *file, void *priv,
 {
 	struct vip_stream *stream = file2stream(file);
 	struct vip_dev *dev = stream->port->dev;
+	struct vip_port *port = stream->port;
 	struct v4l2_frmsizeenum fsize;
 	struct vip_fmt *fmt;
 	int ret;
@@ -1450,7 +1391,7 @@ static int vip_enum_frameintervals(struct file *file, void *priv,
 	if (f->index)
 		return -EINVAL;
 
-	fmt = find_active_format_by_pix(dev, f->pixel_format);
+	fmt = find_port_format_by_pix(port, f->pixel_format);
 	if (!fmt)
 		return -EINVAL;
 
@@ -1460,8 +1401,6 @@ static int vip_enum_frameintervals(struct file *file, void *priv,
 		ret = v4l2_subdev_call(dev->sensor, video,
 					enum_framesizes, &fsize);
 		if (ret) {
-			if (fsize.index == 0)
-				vip_dbg(1, dev, "enum_frameinterval failed on the first enum_framesize\n");
 			return -EINVAL;
 		}
 
@@ -1476,14 +1415,28 @@ static int vip_enum_frameintervals(struct file *file, void *priv,
 			    (f->height >= fsize.stepwise.min_height) &&
 			    (f->height <= fsize.stepwise.max_height))
 				break;
-		} else
+		} else {
 			return -EINVAL;
+		}
 	}
 
 	f->type = V4L2_FRMIVAL_TYPE_DISCRETE;
 	f->discrete.numerator = 1;
 	f->discrete.denominator = 30;
 
+	return 0;
+}
+
+static int vip_g_parm(struct file *file, void *priv,
+		      struct v4l2_streamparm *parm)
+{
+	if (parm->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
+	parm->parm.capture.capability   = V4L2_CAP_TIMEPERFRAME;
+	parm->parm.capture.timeperframe.numerator = 1;
+	parm->parm.capture.timeperframe.denominator = 30;
+	parm->parm.capture.readbuffers  = 4;
 	return 0;
 }
 
@@ -1495,34 +1448,29 @@ static int vip_s_parm(struct file *file, void *priv,
 
 	parm->parm.capture.timeperframe.numerator = 1;
 	parm->parm.capture.timeperframe.denominator = 30;
+	parm->parm.capture.readbuffers  = 4;
 
 	return 0;
 }
 
-static int vip_try_fmt_vid_cap(struct file *file, void *priv,
-			       struct v4l2_format *f)
+static int vip_calc_format_size(struct vip_port *port,
+				struct vip_fmt *fmt,
+				struct v4l2_format *f)
 {
-	struct vip_stream *stream = file2stream(file);
-	struct vip_dev *dev = stream->port->dev;
-	struct vip_fmt *fmt = find_active_format_by_pix(dev,
-							f->fmt.pix.pixelformat);
-	enum v4l2_field field;
+	struct vip_dev *dev = port->dev;
+	enum v4l2_field *field;
 
 	if (!fmt) {
-		vip_err(dev,
-			"Fourcc format (0x%08x) invalid.\n",
-			f->fmt.pix.pixelformat);
+		vip_dbg(2, dev,
+			"no vip_fmt format provided!\n");
 		return -EINVAL;
 	}
 
-	field = f->fmt.pix.field;
-
-	if (field == V4L2_FIELD_ANY)
-		field = V4L2_FIELD_NONE;
-	else if (V4L2_FIELD_NONE != field && V4L2_FIELD_ALTERNATE != field)
+	field = &f->fmt.pix.field;
+	if (*field == V4L2_FIELD_ANY)
+		*field = V4L2_FIELD_NONE;
+	else if (V4L2_FIELD_NONE != *field && V4L2_FIELD_ALTERNATE != *field)
 		return -EINVAL;
-
-	f->fmt.pix.field = field;
 
 	v4l_bound_align_image(&f->fmt.pix.width, MIN_W, MAX_W, W_ALIGN,
 			      &f->fmt.pix.height, MIN_H, MAX_H, H_ALIGN,
@@ -1538,12 +1486,74 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.colorspace = fmt->colorspace;
 	f->fmt.pix.priv = 0;
 
-	vip_dbg(3, dev, "try_fmt fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
+	vip_dbg(3, dev, "calc_format_size: fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
 		fourcc_to_str(f->fmt.pix.pixelformat),
 		f->fmt.pix.width, f->fmt.pix.height,
 		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
 
 	return 0;
+}
+
+static int vip_try_fmt_vid_cap(struct file *file, void *priv,
+			       struct v4l2_format *f)
+{
+	struct vip_stream *stream = file2stream(file);
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	struct v4l2_frmsizeenum fsize;
+	struct vip_fmt *fmt;
+	int ret, found;
+
+	vip_dbg(3, dev, "try_fmt fourcc:%s size: %dx%d\n",
+		fourcc_to_str(f->fmt.pix.pixelformat),
+		f->fmt.pix.width, f->fmt.pix.height);
+
+	fmt = find_port_format_by_pix(port, f->fmt.pix.pixelformat);
+	if (!fmt) {
+		vip_dbg(2, dev,
+			"Fourcc format (0x%08x) not found.\n",
+			f->fmt.pix.pixelformat);
+
+		/* Just get the first one enumerated */
+		fmt = dev->active_fmt[0];
+		f->fmt.pix.pixelformat = fmt->fourcc;
+	}
+
+	/* check for/find a valid width/height */
+	ret = 0;
+	found = false;
+	for (fsize.index = 0; ; fsize.index++) {
+		ret = v4l2_subdev_call(dev->sensor, video,
+					enum_framesizes, &fsize);
+		if (ret)
+			break;
+
+		if (fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+			if ((f->fmt.pix.width == fsize.discrete.width) &&
+			    (f->fmt.pix.height == fsize.discrete.height)) {
+				found = true;
+				break;
+			}
+		} else if ((fsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS) ||
+			   (fsize.type == V4L2_FRMSIZE_TYPE_STEPWISE)) {
+			if ((f->fmt.pix.width >= fsize.stepwise.min_width) &&
+			    (f->fmt.pix.width <= fsize.stepwise.max_width) &&
+			    (f->fmt.pix.height >= fsize.stepwise.min_height) &&
+			    (f->fmt.pix.height <= fsize.stepwise.max_height)) {
+				found = true;
+				break;
+			}
+		}
+	}
+
+	if (!found) {
+		/* use existing values as default */
+		f->fmt.pix.width = port->mbus_framefmt.width;
+		f->fmt.pix.height =  port->mbus_framefmt.height;
+	}
+
+	/* That we have a fmt calculate imagesize and bytesperline */
+	return vip_calc_format_size(port, fmt, f);
 }
 
 static int vip_g_fmt_vid_cap(struct file *file, void *priv,
@@ -1552,10 +1562,7 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 	struct vip_stream *stream = file2stream(file);
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = stream->port->dev;
-	struct v4l2_mbus_framefmt mbus_fmt;
-	struct vip_fmt *fmt;
-	struct v4l2_format try_f;
-	int ret;
+	struct vip_fmt *fmt = port->fmt;
 
 	/* Use last known values or defaults */
 	f->fmt.pix.width	= stream->width;
@@ -1566,72 +1573,10 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.bytesperline	= stream->bytesperline;
 	f->fmt.pix.sizeimage	= stream->sizeimage;
 
-	/* Check with the subdevice */
-	ret = v4l2_subdev_call(dev->sensor, video, g_mbus_fmt, &mbus_fmt);
-	if (ret)
-		vip_dbg(1, dev, "g_mbus_fmt failed in subdev\n");
-
-	fmt = find_active_format_by_code(dev, mbus_fmt.code);
-	if (!fmt) {
-		vip_err(dev,
-			"mbus_code (0x%08x) invalid.\n",
-			mbus_fmt.code);
-		return -EINVAL;
-	}
-
-	vip_dbg(3, dev, "g_fmt subdev mbus_code: %04X fourcc:%s size: %dx%d\n",
-		fmt->code,
-		fourcc_to_str(fmt->fourcc),
-		mbus_fmt.width, mbus_fmt.height);
-
-	/*
-	 * Run a try_fmt call to properly calculate
-	 * the sizeimage and bytesperline values
-	 * in case the defaults were not accurate.
-	 */
-	try_f = *f;
-	try_f.fmt.pix.pixelformat = fmt->fourcc;
-	try_f.fmt.pix.width = mbus_fmt.width;
-	try_f.fmt.pix.height = mbus_fmt.height;
-	try_f.fmt.pix.field = mbus_fmt.field;
-	try_f.fmt.pix.colorspace = mbus_fmt.colorspace;
-
-	ret = vip_try_fmt_vid_cap(file, priv, &try_f);
-	if (ret)
-		return ret;
-
-	if (port->fmt != fmt) {
-		vip_dbg(1, dev, "g_fmt fmt mismatch port->fmt:%p fmt:%p\n",
-			port->fmt, fmt);
-		vip_dbg(1, dev, "g_fmt port->fmt->fourcc:%s\n",
-			fourcc_to_str(port->fmt->fourcc));
-		vip_dbg(1, dev, "fmt->fourcc:%s\n",
-			fourcc_to_str(fmt->fourcc));
-		vip_dbg(1, dev, "g_fmt port->fmt->name:%s fmt->name:%s\n",
-			port->fmt->name, fmt->name);
-		port->fmt = fmt;
-	}
-	/*
-	 * Since everything looks correct update
-	 * the local copy as well to make sure we are consistent
-	 */
-	*f = try_f;
-	stream->width = f->fmt.pix.width;
-	stream->height = f->fmt.pix.height;
-	stream->sup_field = f->fmt.pix.field;
-	if (stream->sup_field == V4L2_FIELD_ALTERNATE)
-		port->flags |= FLAG_INTERLACED;
-	else
-		port->flags &= ~FLAG_INTERLACED;
-	stream->bytesperline = f->fmt.pix.bytesperline;
-	stream->sizeimage = f->fmt.pix.sizeimage;
-	port->c_rect.left	= 0;
-	port->c_rect.top	= 0;
-	port->c_rect.width	= stream->width;
-	port->c_rect.height	= stream->height;
-
-	vip_dbg(3, dev, "g_fmt fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
+	vip_dbg(3, dev,
+		"g_fmt fourcc:%s code: %04x size: %dx%d bpl:%d img_size:%d\n",
 		fourcc_to_str(f->fmt.pix.pixelformat),
+		fmt->code,
 		f->fmt.pix.width, f->fmt.pix.height,
 		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
 	vip_dbg(3, dev, "g_fmt vpdma data type: 0x%02X\n",
@@ -1640,37 +1585,7 @@ static int vip_g_fmt_vid_cap(struct file *file, void *priv,
 	return 0;
 }
 
-/*
- * Set the registers that are modified when the video format changes.
- */
-static void set_fmt_params(struct vip_stream *stream)
-{
-	struct vip_dev *dev = stream->port->dev;
-	int data_path_reg;
-
-	stream->sequence = 0;
-	stream->field = V4L2_FIELD_TOP;
-
-	if (stream->port->fmt->colorspace == V4L2_COLORSPACE_SRGB) {
-		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT);
-		/* Set alpha component in background color */
-		vpdma_set_bg_color(dev->shared->vpdma,
-			(struct vpdma_data_format *)
-			 stream->port->fmt->vpdma_fmt[0],
-			0xff);
-	}
-
-	data_path_reg = VIP_VIP1_DATA_PATH_SELECT + 4 * dev->slice_id;
-	if (stream->port->fmt->coplanar) {
-		stream->port->flags &= ~FLAG_MULT_PORT;
-		write_vreg(dev, data_path_reg, 0x600);
-	} else {
-		stream->port->flags |= FLAG_MULT_PORT;
-		write_vreg(dev, data_path_reg, 0x8000);
-	}
-}
-
-int vip_s_fmt_vid_cap(struct file *file, void *priv,
+static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 			     struct v4l2_format *f)
 {
 	struct vip_stream *stream = file2stream(file);
@@ -1697,14 +1612,10 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 		return -EBUSY;
 	}
 
-	port->fmt		= find_active_format_by_pix(dev,
-					f->fmt.pix.pixelformat);
+	port->fmt = find_port_format_by_pix(port,
+					    f->fmt.pix.pixelformat);
 	stream->width		= f->fmt.pix.width;
 	stream->height		= f->fmt.pix.height;
-	if (port->fmt->colorspace != f->fmt.pix.colorspace)
-		vip_dbg(1, dev, "s_fmt colorspace mismatch port->fmt %d f->fmt %d\n",
-			port->fmt->colorspace, f->fmt.pix.colorspace);
-
 	stream->bytesperline	= f->fmt.pix.bytesperline;
 	stream->sizeimage	= f->fmt.pix.sizeimage;
 	stream->sup_field	= f->fmt.pix.field;
@@ -1719,17 +1630,16 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	else
 		port->flags &= ~FLAG_INTERLACED;
 
-	vip_dbg(1, dev,
-		"Setting format for type %d, wxh: %dx%d, fourcc:%s\n",
-		f->type, stream->width, stream->height,
-		fourcc_to_str(port->fmt->fourcc));
-
 	vip_dbg(3, dev, "s_fmt fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
 		fourcc_to_str(f->fmt.pix.pixelformat),
 		f->fmt.pix.width, f->fmt.pix.height,
 		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
 
-	mf = vip_video_pix_to_mbus(&f->fmt.pix, &sfmt.format);
+	mf = &sfmt.format;
+	v4l2_fill_mbus_format(mf, &f->fmt.pix, port->fmt->code);
+
+	/* Save it */
+	port->mbus_framefmt = *mf;
 
 	vip_dbg(3, dev, "s_fmt pix_to_mbus mbus_code: %04X size: %dx%d\n",
 		mf->code,
@@ -1756,7 +1666,36 @@ int vip_s_fmt_vid_cap(struct file *file, void *priv,
 
 	return 0;
 }
-EXPORT_SYMBOL(vip_s_fmt_vid_cap);
+
+/*
+ * Set the registers that are modified when the video format changes.
+ */
+static void set_fmt_params(struct vip_stream *stream)
+{
+	struct vip_dev *dev = stream->port->dev;
+	int data_path_reg;
+
+	stream->sequence = 0;
+	stream->field = V4L2_FIELD_TOP;
+
+	if (stream->port->fmt->colorspace == V4L2_COLORSPACE_SRGB) {
+		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT);
+		/* Set alpha component in background color */
+		vpdma_set_bg_color(dev->shared->vpdma,
+				   (struct vpdma_data_format *)
+				   stream->port->fmt->vpdma_fmt[0],
+				   0xff);
+	}
+
+	data_path_reg = VIP_VIP1_DATA_PATH_SELECT + 4 * dev->slice_id;
+	if (stream->port->fmt->coplanar) {
+		stream->port->flags &= ~FLAG_MULT_PORT;
+		write_vreg(dev, data_path_reg, 0x600);
+	} else {
+		stream->port->flags |= FLAG_MULT_PORT;
+		write_vreg(dev, data_path_reg, 0x8000);
+	}
+}
 
 static int vip_g_selection(struct file *file, void *fh,
 			   struct v4l2_selection *s)
@@ -1860,7 +1799,7 @@ static const struct v4l2_ioctl_ops vip_ioctl_ops = {
 	.vidioc_enum_frameintervals	= vip_enum_frameintervals,
 	.vidioc_enum_framesizes		= vip_enum_framesizes,
 	.vidioc_s_parm			= vip_s_parm,
-
+	.vidioc_g_parm			= vip_g_parm,
 	.vidioc_g_selection	= vip_g_selection,
 	.vidioc_s_selection	= vip_s_selection,
 	.vidioc_reqbufs		= vb2_ioctl_reqbufs,
@@ -2085,6 +2024,9 @@ done:
 static int vip_init_port(struct vip_port *port)
 {
 	int ret;
+	struct vip_dev *dev = port->dev;
+	struct vip_fmt *fmt;
+	struct v4l2_mbus_framefmt *mbus_fmt = &port->mbus_framefmt;
 
 	if (port->num_streams != 0)
 		goto done;
@@ -2093,10 +2035,43 @@ static int vip_init_port(struct vip_port *port)
 	if (ret)
 		goto done;
 
-	port->fmt = port->dev->active_fmt[0];
-	port->src_colorspace = port->fmt->colorspace;
-	port->c_rect.left = 0;
-	port->c_rect.top = 0;
+	/* Get subdevice current frame format */
+	ret = v4l2_subdev_call(dev->sensor, video, g_mbus_fmt, mbus_fmt);
+	if (ret)
+		vip_dbg(1, dev, "init_port g_mbus_fmt failed in subdev\n");
+
+	/* try to find one that matches */
+	fmt = find_port_format_by_pix(port, mbus_fmt->code);
+	if (!fmt) {
+		vip_dbg(1, dev, "subdev default mbus_fmt %04x is not matched.\n",
+			mbus_fmt->code);
+		/* if all else fails just pick the first one */
+		fmt = dev->active_fmt[0];
+
+		mbus_fmt->code = fmt->code;
+		ret = v4l2_subdev_call(dev->sensor, video,
+				       s_mbus_fmt, mbus_fmt);
+		if (ret)
+			vip_dbg(1, dev, "init_port s_mbus_fmt failed in subdev\n");
+	}
+
+	/* Assign current format */
+	port->fmt = fmt;
+
+	vip_dbg(3, dev, "vip_init_port: g_mbus_fmt subdev mbus_code: %04X fourcc:%s size: %dx%d\n",
+		fmt->code,
+		fourcc_to_str(fmt->fourcc),
+		mbus_fmt->width, mbus_fmt->height);
+
+	if (mbus_fmt->field == V4L2_FIELD_ALTERNATE)
+		port->flags |= FLAG_INTERLACED;
+	else
+		port->flags &= ~FLAG_INTERLACED;
+
+	port->c_rect.left	= 0;
+	port->c_rect.top	= 0;
+	port->c_rect.width	= mbus_fmt->width;
+	port->c_rect.height	= mbus_fmt->height;
 
 done:
 	port->num_streams++;
@@ -2105,11 +2080,39 @@ done:
 
 static int vip_init_stream(struct vip_stream *stream)
 {
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	struct vip_fmt *fmt;
+	struct v4l2_mbus_framefmt *mbus_fmt;
+	struct v4l2_format f;
 	int ret;
 
-	ret = vip_init_port(stream->port);
+	ret = vip_init_port(port);
 	if (ret != 0)
 		return ret;
+
+	fmt = port->fmt;
+	mbus_fmt = &port->mbus_framefmt;
+
+	/* Properly calculate the sizeimage and bytesperline values. */
+	v4l2_fill_pix_format(&f.fmt.pix, mbus_fmt);
+	f.fmt.pix.pixelformat = fmt->fourcc;
+	ret = vip_calc_format_size(port, fmt, &f);
+	if (ret)
+		return ret;
+
+	stream->width = f.fmt.pix.width;
+	stream->height = f.fmt.pix.height;
+	stream->sup_field = f.fmt.pix.field;
+	stream->bytesperline = f.fmt.pix.bytesperline;
+	stream->sizeimage = f.fmt.pix.sizeimage;
+
+	vip_dbg(3, dev, "init_stream fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
+		fourcc_to_str(f.fmt.pix.pixelformat),
+		f.fmt.pix.width, f.fmt.pix.height,
+		f.fmt.pix.bytesperline, f.fmt.pix.sizeimage);
+	vip_dbg(3, dev, "init_stream vpdma data type: 0x%02X\n",
+		port->fmt->vpdma_fmt[0]->data_type);
 
 	ret = vpdma_create_desc_list(&stream->desc_list, VIP_DESC_LIST_SIZE,
 			VPDMA_LIST_TYPE_NORMAL);
@@ -2241,7 +2244,7 @@ static void stop_dma(struct vip_stream *stream)
 		stream->vpdma_channels[ch] = 0;
 }
 
-int vip_open(struct file *file)
+static int vip_open(struct file *file)
 {
 	struct vip_stream *stream = video_drvdata(file);
 	struct vip_port *port = stream->port;
@@ -2266,21 +2269,9 @@ int vip_open(struct file *file)
 	 */
 	if (v4l2_fh_is_singular_file(file)) {
 		if (vip_init_stream(stream)) {
-			goto free_fh;
 			ret = -ENODEV;
+			goto free_fh;
 		}
-		stream->width = 1280;
-		stream->height = 720;
-		stream->sizeimage = stream->width * stream->height *
-			(port->fmt->vpdma_fmt[0]->depth +
-			(port->fmt->coplanar ?
-				port->fmt->vpdma_fmt[1]->depth : 0)) >> 3;
-		stream->bytesperline = round_up((stream->width *
-					port->fmt->vpdma_fmt[0]->depth) >> 3,
-					1 << L_ALIGN);
-		stream->sup_field = V4L2_FIELD_NONE;
-		port->c_rect.width = stream->width;
-		port->c_rect.height = stream->height;
 		vip_dbg(1, dev, "Created stream instance %p\n", stream);
 	}
 
@@ -2296,9 +2287,8 @@ free_fh:
 	}
 	return ret;
 }
-EXPORT_SYMBOL(vip_open);
 
-int vip_release(struct file *file)
+static int vip_release(struct file *file)
 {
 	struct vip_stream *stream = video_drvdata(file);
 	struct vip_port *port = stream->port;
@@ -2326,12 +2316,12 @@ int vip_release(struct file *file)
 
 	return vb2_fop_release(file);
 }
-EXPORT_SYMBOL(vip_release);
 
 static const struct v4l2_file_operations vip_fops = {
 	.owner		= THIS_MODULE,
 	.open		= vip_open,
 	.release	= vip_release,
+	.read		= vb2_fop_read,
 	.poll		= vb2_fop_poll,
 	.unlocked_ioctl	= video_ioctl2,
 	.mmap		= vb2_fop_mmap,
@@ -2343,6 +2333,7 @@ static struct video_device vip_videodev = {
 	.ioctl_ops	= &vip_ioctl_ops,
 	.minor		= -1,
 	.release	= video_device_release,
+	.tvnorms	= V4L2_STD_NTSC | V4L2_STD_PAL | V4L2_STD_SECAM,
 };
 
 static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
@@ -2381,7 +2372,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	 */
 	q = &stream->vb_vidq;
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	q->io_modes = VB2_MMAP | VB2_DMABUF;
+	q->io_modes = VB2_MMAP | VB2_DMABUF | VB2_READ;
 	q->drv_priv = stream;
 	q->buf_struct_size = sizeof(struct vip_buffer);
 	q->ops = &vip_video_qops;
@@ -2462,6 +2453,49 @@ static void free_stream(struct vip_stream *stream)
 	kfree(stream);
 }
 
+static int get_subdev_active_format(struct vip_port *port,
+				    struct v4l2_subdev *subdev)
+{
+	struct vip_dev *dev = port->dev;
+	struct vip_fmt *fmt;
+	enum v4l2_mbus_pixelcode code;
+	int ret = 0;
+	unsigned int k, i, j;
+
+	/* Enumerate sub device formats and enable all matching local formats */
+	dev->num_active_fmt = 0;
+	for (k = 0, i = 0;
+	     (ret != -EINVAL);
+	     k++) {
+		ret = v4l2_subdev_call(subdev, video, enum_mbus_fmt, k, &code);
+		if (ret == 0) {
+			vip_dbg(2, dev,
+				"subdev %s: code: %04x idx: %d\n",
+				subdev->name, code, k);
+
+			for (j = 0; j < ARRAY_SIZE(vip_formats); j++) {
+				fmt = &vip_formats[j];
+				if (code == fmt->code) {
+					dev->active_fmt[i] = fmt;
+					dev->num_active_fmt = i++;
+					vip_dbg(2, dev,
+						"matched fourcc: %s: code: %04x idx: %d\n",
+						fourcc_to_str(fmt->fourcc),
+						fmt->code,
+						dev->num_active_fmt);
+				}
+			}
+		}
+	}
+
+	if (i == 0) {
+		vip_err(dev, "No suitable format reported by subdev %s\n",
+			subdev->name);
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int alloc_port(struct vip_dev *dev, int id)
 {
 	struct vip_port *port;
@@ -2486,7 +2520,7 @@ static int alloc_port(struct vip_dev *dev, int id)
 		ret = alloc_stream(port, 6, VFL_TYPE_GRABBER);
 	}
 
-	return 0;
+	return get_subdev_active_format(port, dev->sensor);
 }
 
 static void free_port(struct vip_port *port)
@@ -2548,42 +2582,6 @@ static int vip_runtime_get(struct platform_device *pdev)
 	return r < 0 ? r : 0;
 }
 
-static int get_subdev_active_format(struct vip_dev *dev,
-				    struct v4l2_subdev *subdev)
-{
-	struct vip_fmt *fmt;
-	enum v4l2_mbus_pixelcode code;
-	int ret = 0;
-	unsigned int k;
-
-	/* first find how many formats to allocate the correct size */
-	dev->num_active_fmt = 0;
-	for (k = 0;
-	     (ret != -EINVAL) && (dev->num_active_fmt < VIP_MAX_ACTIVE_FMT);
-	     k++) {
-		ret = v4l2_subdev_call(subdev, video, enum_mbus_fmt, k, &code);
-		if (ret == 0) {
-			fmt = find_format_by_code(code);
-			if (fmt) {
-				dev->active_fmt[dev->num_active_fmt] = fmt;
-				dev->num_active_fmt++;
-			}
-		}
-	}
-
-	if (find_active_format_by_pix(dev, V4L2_PIX_FMT_YUYV))
-		/* When YUYV format is supported, NV12 can also be supported */
-		dev->active_fmt[dev->num_active_fmt++] = &vip_formats[2];
-
-	if (dev->num_active_fmt == 0) {
-
-		vip_err(dev, "No suitable format reported by subdev %s\n",
-			subdev->name);
-		return -EINVAL;
-	}
-
-	return 0;
-}
 
 static int vip_async_bound(struct v4l2_async_notifier *notifier,
 			struct v4l2_subdev *subdev,
@@ -2591,13 +2589,11 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 {
 	struct vip_dev *dev = notifier_to_vip_dev(notifier);
 	unsigned int idx = asd - &dev->config->asd[0];
+	int ret;
 
 	vip_dbg(1, dev, "vip_async_bound\n");
 	if (idx > dev->config->asd_sizes)
 		return -EINVAL;
-
-	if (get_subdev_active_format(dev, subdev))
-		return 0;
 
 	if (dev->sensor) {
 		if (asd < dev->sensor->asd) {
@@ -2615,10 +2611,11 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 
 	dev->sensor = subdev;
 	dev->endpoint = &dev->config->endpoints[idx];
-	vip_info(dev, "Using sensor %s for capture\n", subdev->name);
-	alloc_port(dev, 0);
+	ret = alloc_port(dev, 0);
+	if (!ret)
+		vip_info(dev, "Using sensor %s for capture\n", subdev->name);
 
-	return 0;
+	return ret;
 }
 
 static int vip_async_complete(struct v4l2_async_notifier *notifier)

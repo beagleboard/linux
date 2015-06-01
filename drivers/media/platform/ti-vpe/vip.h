@@ -52,6 +52,11 @@
 #define VIP_VBI_STREAMS_PER_PORT	16
 
 #define VIP_MAX_SUBDEV			5
+/*
+ * This value needs to be at least as large as the number of entry in
+ * vip_formats[].
+ * When vip_formats[] is modified make sure to adjust this value also.
+ */
 #define VIP_MAX_ACTIVE_FMT		10
 
 /* buffer for one video frame */
@@ -150,7 +155,9 @@ struct vip_port {
 	unsigned int		src_width;
 	unsigned int		src_height;
 	struct v4l2_rect	c_rect;		/* crop rectangle */
-	struct vip_fmt		*fmt;		/* format info */
+	struct v4l2_mbus_framefmt mbus_framefmt;
+
+	struct vip_fmt		*fmt;		/* current format info */
 	int			num_streams;	/* count of open streams */
 	struct vip_stream	*cap_streams[VIP_CAP_STREAMS_PER_PORT];
 	struct vip_stream	*vbi_streams[VIP_VBI_STREAMS_PER_PORT];
@@ -184,11 +191,6 @@ struct vip_stream {
 	struct vb2_queue	vb_vidq;
 	struct video_device	vdev;
 };
-
-extern int vip_open(struct file *file);
-extern int vip_release(struct file *file);
-extern int vip_s_fmt_vid_cap(struct file *file, void *priv,
-			     struct v4l2_format *f);
 
 /*
  * VIP Enumerations
