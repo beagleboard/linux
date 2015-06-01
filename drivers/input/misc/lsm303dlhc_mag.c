@@ -45,6 +45,7 @@
 #include <linux/mutex.h>
 #include <linux/input-polldev.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 
 #include <linux/input/lsm303dlhc.h>
 /* #include "lsm303dlhc.h" */
@@ -1091,7 +1092,7 @@ static struct i2c_driver lsm303dlhc_mag_driver = {
 			.pm = &lsm303dlhc_pm,
 		   },
 	.probe = lsm303dlhc_mag_probe,
-	.remove = __devexit_p(lsm303dlhc_mag_remove),
+	.remove = lsm303dlhc_mag_remove,
 	.id_table = lsm303dlhc_mag_id,
 };
 
