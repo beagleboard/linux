@@ -725,11 +725,11 @@ static int spidev_probe(struct spi_device *spi)
 	 * compatbile string, it is a Linux implementation thing
 	 * rather than a description of the hardware.
 	 */
-	if (spi->dev.of_node && !of_match_device(spidev_dt_ids, &spi->dev)) {
-		dev_err(&spi->dev, "buggy DT: spidev listed directly in DT\n");
-		WARN_ON(spi->dev.of_node &&
-			!of_match_device(spidev_dt_ids, &spi->dev));
-	}
+//	if (spi->dev.of_node && !of_match_device(spidev_dt_ids, &spi->dev)) {
+//		dev_err(&spi->dev, "buggy DT: spidev listed directly in DT\n");
+//		WARN_ON(spi->dev.of_node &&
+//			!of_match_device(spidev_dt_ids, &spi->dev));
+//	}
 
 	/* Allocate driver data */
 	spidev = kzalloc(sizeof(*spidev), GFP_KERNEL);
