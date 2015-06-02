@@ -1414,7 +1414,7 @@ exit_check_functionality_failed:
 	return err;
 }
 
-static int __devexit lsm330_acc_remove(struct i2c_client *client)
+static int lsm330_acc_remove(struct i2c_client *client)
 {
 	struct lsm330_acc_data *acc = i2c_get_clientdata(client);
 
@@ -1479,7 +1479,7 @@ static struct i2c_driver lsm330_acc_driver = {
 			.name = LSM330_ACC_DEV_NAME,
 		  },
 	.probe = lsm330_acc_probe,
-	.remove = __devexit_p(lsm330_acc_remove),
+	.remove = lsm330_acc_remove,
 	.suspend = lsm330_acc_suspend,
 	.resume = lsm330_acc_resume,
 	.id_table = lsm330_acc_id,
