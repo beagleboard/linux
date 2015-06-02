@@ -4458,7 +4458,9 @@ static int omap_hwmod_restore_context(struct omap_hwmod *oh, void *unused)
 		if (soc_ops.enable_module)
 			soc_ops.enable_module(oh);
 	} else {
-		if (soc_ops.disable_module)
+		if (oh->flags & HWMOD_NEEDS_REIDLE)
+			_reidle(oh);
+		else if (soc_ops.disable_module)
 			soc_ops.disable_module(oh);
 	}
 
