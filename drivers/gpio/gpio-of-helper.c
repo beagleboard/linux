@@ -208,11 +208,13 @@ gpio_of_entry_create(struct gpio_of_helper_info *info,
 			irq_flags |= IRQF_TRIGGER_FALLING;
 	}
 
-	if (!idr_pre_get(&info->idr, GFP_KERNEL)) {
-		dev_err(dev, "Failed on idr_pre_get of '%s'\n", name);
-		err = -ENOMEM;
-		goto err_no_mem;
-	}
+//	if (!idr_pre_get(&info->idr, GFP_KERNEL)) {
+//		dev_err(dev, "Failed on idr_pre_get of '%s'\n", name);
+//		err = -ENOMEM;
+//		goto err_no_mem;
+//	}
+
+	idr_preload(GFP_KERNEL);
 
 	entry = devm_kzalloc(dev, sizeof(*entry), GFP_KERNEL);
 	if (entry == NULL) {
@@ -243,8 +245,19 @@ gpio_of_entry_create(struct gpio_of_helper_info *info,
 	}
 
 	/* all done; insert */
-	err = idr_get_new(&info->idr, entry, &entry->id);
-	if (IS_ERR_VALUE(err)) {
+//	err = idr_get_new(&info->idr, entry, &entry->id);
+//	if (IS_ERR_VALUE(err)) {
+//		dev_err(dev, "Failed to idr_get_new  of '%s'\n", name);
+//		goto err_fail_idr;
+//	}
+
+	err = idr_alloc(&info->idr, entry, 0, 0, GFP_NOWAIT);
+	if (err >= 0)
+		entry->id = err;
+
+	idr_preload_end();
+
+	if (err < 0) {
 		dev_err(dev, "Failed to idr_get_new  of '%s'\n", name);
 		goto err_fail_idr;
 	}
@@ -374,7 +387,7 @@ static int gpio_of_helper_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-#ifdef CONFIG_PM_RUNTIME
+//#ifdef CONFIG_PM_RUNTIME
 static int gpio_of_helper_runtime_suspend(struct device *dev)
 {
 	/* place holder */
@@ -386,7 +399,7 @@ static int gpio_of_helper_runtime_resume(struct device *dev)
 	/* place holder */
 	return 0;
 }
-#endif /* CONFIG_PM_RUNTIME */
+//#endif /* CONFIG_PM_RUNTIME */
 
 static struct dev_pm_ops gpio_of_helper_pm_ops = {
 	SET_RUNTIME_PM_OPS(gpio_of_helper_runtime_suspend,
