@@ -1449,7 +1449,7 @@ err0:
 		return err;
 }
 
-static int __devexit lsm330_gyr_remove(struct i2c_client *client)
+static int lsm330_gyr_remove(struct i2c_client *client)
 {
 	struct lsm330_gyr_status *stat = i2c_get_clientdata(client);
 
@@ -1566,7 +1566,7 @@ static struct i2c_driver lsm330_gyr_driver = {
 			.pm = &lsm330_gyr_pm,
 	},
 	.probe = lsm330_gyr_probe,
-	.remove = __devexit_p(lsm330_gyr_remove),
+	.remove = lsm330_gyr_remove,
 	.id_table = lsm330_gyr_id,
 
 };
