@@ -3276,6 +3276,7 @@ static void _reidle(struct omap_hwmod *oh)
 	pr_debug("omap_hwmod: %s: %s\n", oh->name, __func__);
 
 	omap_hwmod_enable(oh);
+	omap_hwmod_softreset(oh);
 	omap_hwmod_idle(oh);
 }
 
