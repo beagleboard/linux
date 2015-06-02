@@ -61,3 +61,5 @@ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-y					+= lsm303dlhc_acc.o
 obj-y					+= lsm303dlhc_mag.o
+obj-y					+= lsm330_acc.o
+obj-y					+= lsm330_gyr.o
