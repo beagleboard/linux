@@ -1,0 +1,140 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+#include "am335x-bone-common-pinmux.dtsi"
+
+/ {
+	model = "TI AM335x BeagleBone Green";
+	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&ocp {
+	/* clkout2 */
+	P9_41_pinmux {
+		status = "disabled";
+	};
+	/* mmc1 */
+	P9_92_pinmux {
+		status = "disabled";
+	};
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&am33xx_pinmux {
+	pinctrl-names = "default";
+	pinctrl-0 = <&clkout2_pin>;
+};
+
+#include "am335x-boneblack-emmc.dtsi"
+
+/* can0: P9.19, P9.20: disable: i2c2: cape eeprom */
+/* can0: peripheral */
+#include "am335x-can0.dtsi"
+/* can0: pinmux */
+/* #include "am335x-bone-can0.dtsi" */
+
+/* can1: P9_24, P9_26 */
+#include "am335x-can1.dtsi"
+/* #include "am335x-bone-can1.dtsi" */
+
+/* i2c2: cape eeprom */
+/* P9.19 P9.20 */
+#include "am335x-bone-i2c2-cape-eeprom.dtsi"
+
+/* spi0: */
+/* P9.17 spi0_cs0 */
+/* P9.18 spi0_d1 */
+/* P9.21 spi0_d0 */
+/* P9.22 spi0_sclk */
+/* #include "am335x-bone-spi0-spidev.dtsi" */
+
+/* spi1: */
+/* P9.31 spi1_sclk */
+/* P9.29 spi1_d0 */
+/* P9.30 spi1_d1 */
+/* P9.28 spi1_cs0 */
+/* #include "am335x-bone-spi1-spidev.dtsi" */
+
+/* spi1a: */
+/* P9.42 spi1_sclk */
+/* P9.29 spi1_d0 */
+/* P9.30 spi1_d1 */
+/* P9.20 spi1_cs0 */
+/* #include "am335x-bone-spi1a-spidev.dtsi" */
+
+/* uart1: P9.24, P9.26 */
+#include "am335x-ttyO1.dtsi"
+/* #include "am335x-bone-ttyO1.dtsi" */
+/* uart2: P9.21, P9.22 */
+#include "am335x-ttyO2.dtsi"
+/* #include "am335x-bone-ttyO2.dtsi" */
+/* uart4: P9.11, P9.13 */
+#include "am335x-ttyO4.dtsi"
+/* #include "am335x-bone-ttyO4.dtsi" */
+/* uart5: P8.37, P8.38 */
+#include "am335x-ttyO5.dtsi"
+/* #include "am335x-bone-ttyO5.dtsi" */
+
+/* Capes */
+/* http://elinux.org/4D_4.3_LCD_CAPE */
+/* 4DCAPE-43 (Non Touch version): */
+/* #include "am335x-bone-4dcape-43.dtsi" */
+/* 4DCAPE-43T (Resistive Touch version): */
+/* #include "am335x-bone-4dcape-43t.dtsi" */
+
+/* http://www.4dsystems.com.au/product/4DCAPE_70T/ */
+/* 4DCAPE-70 (Non Touch version): */
+/* #include "am335x-bone-4dcape-70.dtsi" */
+/* 4DCAPE-70T (Resistive Touch version): */
+/* #include "am335x-bone-4dcape-70t.dtsi" */
+
+/* http://elinux.org/CircuitCo:Audio_Cape_RevA */
+/* #include "am335x-bone-audio-reva.dtsi" */
+
+/* http://elinux.org/CircuitCo:Audio_Cape_RevB */
+/* Pins: P9.24, P9.28, P9.29, P9.31, P9.30 */
+/* #include "am335x-bone-audio-revb.dtsi" */
+
+/* http://elinux.org/CircuitCo:BeagleBone_LCD3 */
+/* #include "am335x-bone-lcd3-01-00a2.dtsi" */
+
+/* http://elinux.org/CircuitCo:BeagleBone_LCD4 */
+/* #include "am335x-bone-lcd4-01-00a1.dtsi" */
+
+/* http://elinux.org/CircuitCo:BeagleBone_LCD7 */
+/* am335x-boneblack: emmc has to be disabled for lcd7-01-00a2 */
+/* #include "am335x-bone-lcd7-01-00a2.dtsi" */
+/* #include "am335x-bone-lcd7-01-00a3.dtsi" */
+
+/* http://www.chipsee.com/product/evm/beagle/beaglebone-black-expansion-capacitive.html */
+/* #include "am335x-bone-bbb-exp-c.dtsi" */
+
+/* http://elinux.org/CircuitCo:RTC_Cape */
+/* i2c1: P9.17, P9.18 */
+/* gpio: P8.26 (mfp: wakeup) */
+/* #include "am335x-bone-rtc-01-00a1.dtsi" */
+
+/* http://elinux.org/Cryptotronix:CryptoCape */
+/* uart4: P9.11, P9.13 */
+/* gpio: gpio1 13 gpio1 17 (gpio NOT IMPLEMENTED YET) */
+/* #include "am335x-bone-crypto-00a0.dtsi" */
+
+/* http://elinux.org/CircuitCo:Basic_Proto_Cape */
+/* #include "am335x-bone-basic-proto-cape.dtsi" */
