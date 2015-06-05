@@ -504,9 +504,9 @@ static int eqep_probe(struct platform_device *pdev)
     }
 
     // Remap the eQEP controller memory into our own memory space
-    eqep->mmio_base = devm_request_and_ioremap(&pdev->dev, r);
-    if (!eqep->mmio_base)
-        return  -EADDRNOTAVAIL;
+    eqep->mmio_base = devm_ioremap_resource(&pdev->dev, r);
+    if (IS_ERR(eqep->mmio_base))
+        return PTR_ERR(eqep->mmio_base);
 
     // Store the platform device in our eQEP data structure for later usage
     eqep->pdev = pdev;
