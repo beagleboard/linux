@@ -242,11 +242,38 @@ static void omap_disconnect_dssdevs(void)
 		dssdev->driver->disconnect(dssdev);
 }
 
+static bool dssdev_with_alias_exists(const char *alias)
+{
+	struct omap_dss_device *dssdev = NULL;
+
+	for_each_dss_dev(dssdev) {
+		if (strcmp(alias, dssdev->alias) == 0) {
+			omap_dss_put_device(dssdev);
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static int omap_connect_dssdevs(void)
 {
 	int r;
 	struct omap_dss_device *dssdev = NULL;
 	bool no_displays = true;
+	struct device_node *aliases;
+	struct property *pp;
+
+	aliases = of_find_node_by_path("/aliases");
+	if (aliases) {
+		for_each_property_of_node(aliases, pp) {
+			if (strncmp(pp->name, "display", 7) != 0)
+				continue;
+
+			if (dssdev_with_alias_exists(pp->name) == false)
+				return -EPROBE_DEFER;
+		}
+	}
 
 	for_each_dss_dev(dssdev) {
 		r = dssdev->driver->connect(dssdev);
