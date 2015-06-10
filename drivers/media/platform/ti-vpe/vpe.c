@@ -381,6 +381,7 @@ struct vpe_dev {
 	struct resource		*res;
 
 	struct vb2_alloc_ctx	*alloc_ctx;
+	struct vpdma_data	vpdma_data;
 	struct vpdma_data	*vpdma;		/* vpdma data handle */
 	struct sc_data		*sc;		/* scaler data handle */
 	struct csc_data		*csc;		/* csc data handle */
@@ -2481,11 +2482,10 @@ static int vpe_probe(struct platform_device *pdev)
 		goto runtime_put;
 	}
 
-	dev->vpdma = vpdma_create(pdev, vpe_fw_cb);
-	if (IS_ERR(dev->vpdma)) {
-		ret = PTR_ERR(dev->vpdma);
+	dev->vpdma = &dev->vpdma_data;
+	ret = vpdma_create(pdev, dev->vpdma, vpe_fw_cb);
+	if (ret)
 		goto runtime_put;
-	}
 
 	return 0;
 
