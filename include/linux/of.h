@@ -1031,6 +1031,27 @@ static inline int of_changeset_update_property(struct of_changeset *ocs,
 {
 	return of_changeset_action(ocs, OF_RECONFIG_UPDATE_PROPERTY, np, prop);
 }
+
+struct device_node *of_changeset_create_device_nodev(
+	struct of_changeset *ocs, struct device_node *parent,
+	const char *fmt, va_list vargs);
+__printf(3, 4) struct device_node *of_changeset_create_device_node(
+	struct of_changeset *ocs, struct device_node *parent,
+	const char *fmt, ...);
+int of_changeset_add_property_copy(struct of_changeset *ocs,
+	struct device_node *np, const char *name,
+	const void *value, int length);
+int of_changeset_add_property_string(struct of_changeset *ocs,
+	struct device_node *np, const char *name, const char *str);
+__printf(4, 5) int of_changeset_add_property_stringf(struct of_changeset *ocs,
+		struct device_node *np, const char *name, const char *fmt, ...);
+int of_changeset_add_property_string_list(struct of_changeset *ocs,
+	struct device_node *np, const char *name, const char **strs, int count);
+int of_changeset_add_property_u32(struct of_changeset *ocs,
+	struct device_node *np, const char *name, u32 val);
+int of_changeset_add_property_bool(struct of_changeset *ocs,
+	struct device_node *np, const char *name);
+
 #else /* CONFIG_OF_DYNAMIC */
 static inline int of_reconfig_notifier_register(struct notifier_block *nb)
 {
@@ -1047,6 +1068,58 @@ static inline int of_reconfig_notify(unsigned long action,
 }
 static inline int of_reconfig_get_state_change(unsigned long action,
 						struct of_reconfig_data *arg)
+{
+	return -EINVAL;
+}
+
+static inline int of_changeset_create_device_node(struct of_changeset *ocs,
+	struct device_node *parent, const char *fmt, ...)
+{
+	return -EINVAL;
+}
+
+int of_changeset_add_property_copy(struct of_changeset *ocs,
+	struct device_node *np, const char *name,
+	const void *value, int length)
+{
+	return -EINVAL;
+}
+
+int of_changeset_add_property_string(struct of_changeset *ocs,
+	struct device_node *np, const char *name, const char *str)
+{
+	return -EINVAL;
+}
+
+static inline struct device_node *of_changeset_create_device_nodev(
+	struct of_changeset *ocs, struct device_node *parent,
+	const char *fmt, va_list vargs)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+static inline __printf(4, 5) struct device_node *
+	of_changeset_add_property_stringf(
+		struct of_changeset *ocs, struct device_node *np,
+		const char *name, const char *fmt, ...)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+int of_changeset_add_property_string_list(struct of_changeset *ocs,
+	struct device_node *np, const char *name, const char **strs, int count)
+{
+	return -EINVAL;
+}
+
+int of_changeset_add_property_u32(struct of_changeset *ocs,
+	struct device_node *np, const char *name, u32 val)
+{
+	return -EINVAL;
+}
+
+int of_changeset_add_property_bool(struct of_changeset *ocs,
+	struct device_node *np, const char *name)
 {
 	return -EINVAL;
 }
