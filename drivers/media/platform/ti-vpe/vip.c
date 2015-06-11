@@ -2943,8 +2943,9 @@ static int vip_probe(struct platform_device *pdev)
 		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT);
 	}
 
-	shared->vpdma = vpdma_create(pdev, vip_vpdma_fw_cb);
-	if (!shared->vpdma) {
+	shared->vpdma = &shared->vpdma_data;
+	ret = vpdma_create(pdev, shared->vpdma, vip_vpdma_fw_cb);
+	if (ret) {
 		dev_err(&pdev->dev, "Creating VPDMA failed");
 		goto dev_unreg;
 	}
