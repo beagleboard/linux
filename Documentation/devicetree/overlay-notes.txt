@@ -98,6 +98,10 @@ Finally, if you need to remove all overlays in one-go, just call
 of_overlay_destroy_all() which will remove every single one in the correct
 order.
 
+If your board has multiple slots/places where a single overlay can work
+and each slot is defined by a node, you can use the
+of_overlay_create_target_index() method to select the target.
+
 Overlay DTS Format
 ------------------
 
@@ -108,9 +112,11 @@ The DTS of an overlay should have the following format:
 
 	fragment@0 {	/* first child node */
 
-		target=<phandle>;	/* phandle target of the overlay */
+		/* phandle target of the overlay */
+		target=<phandle> [, <phandle>, ...];
 	or
-		target-path="/path";	/* target path of the overlay */
+		/* target path of the overlay */
+		target-path="/path" [ , "/path", ...];
 
 		__overlay__ {
 			property-a;	/* add property-a to the target */
@@ -129,3 +135,7 @@ Using the non-phandle based target method allows one to use a base DT which does
 not contain a __symbols__ node, i.e. it was not compiled with the -@ option.
 The __symbols__ node is only required for the target=<phandle> method, since it
 contains the information required to map from a phandle to a tree location.
+
+Using a target index requires the use of a selector target on the call to
+of_overlay_create_target_index(). I.e. passing an index of 0 will select the
+target in the foo node, an index of 1 the bar node, etc.
