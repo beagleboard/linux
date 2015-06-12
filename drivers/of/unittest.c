@@ -753,6 +753,11 @@ static void __init of_unittest_match_node(void)
 	}
 }
 
+static struct resource test_bus_res = {
+	.start = 0xfffffff8,
+	.end = 0xfffffff9,
+	.flags = IORESOURCE_MEM,
+};
 static const struct platform_device_info test_bus_info = {
 	.name = "unittest-bus",
 };
@@ -795,6 +800,7 @@ static void __init of_unittest_platform_populate(void)
 	if (rc)
 		return;
 	test_bus->dev.of_node = np;
+	platform_device_add_resources(test_bus, &test_bus_res, 1);
 
 	of_platform_populate(np, match, NULL, &test_bus->dev);
 	for_each_child_of_node(np, child) {
