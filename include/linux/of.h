@@ -1078,6 +1078,8 @@ int of_overlay_destroy(int id);
 int of_overlay_destroy_all(void);
 
 int of_overlay_create_indirect(struct device_node *tree, const char *id);
+int of_overlay_create_target_root(struct device_node *tree,
+		struct device_node *target_root);
 
 #else
 
@@ -1098,6 +1100,12 @@ static inline int of_overlay_destroy_all(void)
 
 static inline int of_overlay_create_indirect(struct device_node *tree,
 		const char *id)
+{
+	return -ENOTSUPP;
+}
+
+static inline int of_overlay_create_target_root(struct device_node *tree,
+		struct device_node *target_root)
 {
 	return -ENOTSUPP;
 }
