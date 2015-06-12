@@ -100,6 +100,10 @@ Finally, if you need to remove all overlays in one-go, just call
 of_overlay_destroy_all() which will remove every single one in the correct
 order.
 
+If your board has multiple slots/places where a single overlay can work
+and each slot is defined by a node, you can use the of_overlay_create_indirect()
+method to select the target.
+
 Overlay DTS Format
 ------------------
 
@@ -113,6 +117,11 @@ The DTS of an overlay should have the following format:
 		target=<phandle>;	/* phandle target of the overlay */
 	or
 		target-path="/path";	/* target path of the overlay */
+	or
+		target-indirect {	/* indirect target selector */
+			foo { target|target-path ... };
+			bar { .... };
+		};
 
 		__overlay__ {
 			property-a;	/* add property-a to the target */
@@ -131,3 +140,7 @@ Using the non-phandle based target method allows one to use a base DT which does
 not contain a __symbols__ node, i.e. it was not compiled with the -@ option.
 The __symbols__ node is only required for the target=<phandle> method, since it
 contains the information required to map from a phandle to a tree location.
+
+The indirect target requires the use of a selector target on the call to
+of_overlay_create_indirect(). I.e. passing the "foo" id will select the target
+in the foo node, "bar" in bar node, etc.
