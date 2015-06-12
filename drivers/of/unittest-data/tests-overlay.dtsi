@@ -116,6 +116,24 @@
 					status = "disabled";
 					reg = <16>;
 				};
+
+				unittest17: test-unittest17 {
+					compatible = "unittest";
+					status = "disabled";
+					reg = <17>;
+				};
+
+				unittest18: test-unittest18 {
+					compatible = "unittest";
+					status = "disabled";
+					reg = <18>;
+				};
+
+				unittest19: test-unittest19 {
+					compatible = "unittest";
+					status = "disabled";
+					reg = <19>;
+				};
 			};
 		};
 
@@ -335,6 +353,36 @@
 		overlay16 {
 			fragment@0 {
 				target = <&unittest17>, <&unittest16>;
+				__overlay__ {
+					status = "okay";
+				};
+			};
+		};
+
+		/* test enable using target root (relative path) */
+		overlay17 {
+			fragment@0 {
+				target-path = "/";
+				__overlay__ {
+					status = "okay";
+				};
+			};
+		};
+
+		/* test enable using target phandle */
+		overlay18 {
+			fragment@0 {
+				target = <&unittest18>;
+				__overlay__ {
+					status = "okay";
+				};
+			};
+		};
+
+		/* test trying to enable out of root (should fail) */
+		overlay19 {
+			fragment@0 {
+				target = <&unittest19>;
 				__overlay__ {
 					status = "okay";
 				};
