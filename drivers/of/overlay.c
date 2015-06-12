@@ -78,6 +78,7 @@ struct of_overlay {
 	struct of_changeset cset;
 	struct kobject kobj;
 	int target_index;
+	struct device_node *target_root;
 };
 
 /* master enable switch; once set to 0 can't be re-enabled */
@@ -353,21 +354,84 @@ static int of_overlay_apply(struct of_overlay *ov)
 static struct device_node *find_target_node(struct of_overlay *ov,
 		struct device_node *info_node, int index)
 {
+	struct device_node *target = NULL, *np;
 	const char *path;
+	char *newpath;
 	u32 val;
 	int ret;
 
 	/* first try to go by using the target as a phandle */
 	ret = of_property_read_u32_index(info_node, "target", index, &val);
-	if (ret == 0)
-		return of_find_node_by_phandle(val);
+	if (ret == 0) {
+		target = of_find_node_by_phandle(val);
+		if (!target) {
+			pr_err("%s: Could not find target phandle 0x%x\n",
+					__func__, val);
+			return NULL;
+		}
+		goto check_root;
+	}
 
 	/* failed, try to locate by path */
 	ret = of_property_read_string_index(info_node, "target-path", index,
 			&path);
-	if (ret == 0)
-		return of_find_node_by_path(path);
+	if (ret == 0) {
 
+		if (!ov->target_root) {
+			target = of_find_node_by_path(path);
+			if (!target)
+				pr_err("%s: Could not find target path \"%s\"\n",
+						__func__, path);
+			return target;
+		}
+
+		/* remove preceding '/' from path; relative path */
+		if (*path == '/') {
+			while (*path == '/')
+				path++;
+
+			newpath = kasprintf(GFP_KERNEL, "%s%s%s",
+					of_node_full_name(ov->target_root),
+					*path ? "/" : "", path);
+			if (!newpath) {
+				pr_err("%s: Could not allocate \"%s%s%s\"\n",
+					__func__,
+					of_node_full_name(ov->target_root),
+					*path ? "/" : "", path);
+				return NULL;
+			}
+			target = of_find_node_by_path(newpath);
+			kfree(newpath);
+
+			return target;
+
+		}
+		/* target is an alias, need to check */
+		target = of_find_node_by_path(path);
+		if (!target) {
+			pr_err("%s: Could not find alias \"%s\"\n",
+					__func__, path);
+			return NULL;
+		}
+		goto check_root;
+	}
+
+	return NULL;
+
+check_root:
+	if (!ov->target_root)
+		return target;
+
+	/* got a target, but we have to check it's under target root */
+	for (np = target; np; np = np->parent) {
+		if (np == ov->target_root)
+			return target;
+	}
+	pr_err("%s: target \"%s\" not under target_root \"%s\"\n",
+			__func__, of_node_full_name(target),
+			of_node_full_name(ov->target_root));
+	/* target is not under target_root */
+	of_node_put(target);
 	return NULL;
 }
 
@@ -556,6 +620,7 @@ void of_overlay_release(struct kobject *kobj)
 {
 	struct of_overlay *ov = kobj_to_overlay(kobj);
 
+	of_node_put(ov->target_root);
 	kfree(ov);
 }
 
@@ -612,7 +677,7 @@ static struct kobj_type of_overlay_ktype = {
 static struct kset *ov_kset;
 
 static int __of_overlay_create(struct device_node *tree,
-		int target_index)
+		int target_index, struct device_node *target_root)
 {
 	struct of_overlay *ov;
 	int err, id;
@@ -628,6 +693,7 @@ static int __of_overlay_create(struct device_node *tree,
 	ov->id = -1;
 
 	ov->target_index = target_index;
+	ov->target_root = of_node_get(target_root);
 
 	INIT_LIST_HEAD(&ov->node);
 
@@ -705,6 +771,7 @@ err_free_idr:
 	idr_remove(&ov_idr, ov->id);
 err_destroy_trans:
 	of_changeset_destroy(&ov->cset);
+	of_node_put(ov->target_root);
 	kfree(ov);
 	mutex_unlock(&of_mutex);
 
@@ -723,7 +790,7 @@ err_destroy_trans:
  */
 int of_overlay_create(struct device_node *tree)
 {
-	return __of_overlay_create(tree, 0);
+	return __of_overlay_create(tree, 0, NULL);
 }
 EXPORT_SYMBOL_GPL(of_overlay_create);
 
@@ -740,9 +807,29 @@ EXPORT_SYMBOL_GPL(of_overlay_create);
  */
 int of_overlay_create_target_index(struct device_node *tree, int index)
 {
-	return __of_overlay_create(tree, index);
+	return __of_overlay_create(tree, index, NULL);
 }
 EXPORT_SYMBOL_GPL(of_overlay_create_target_index);
+
+/**
+ * of_overlay_create_target_root() - Create and apply an overlay
+ *			under which will be limited to target_root
+ * @tree:		Device node containing all the overlays
+ * @target_root:	Target root for the overlay.
+ *
+ * Creates and applies an overlay while also keeping track
+ * of the overlay in a list. This list can be used to prevent
+ * illegal overlay removals. The overlay is only allowed to
+ * target nodes under the target_root node.
+ *
+ * Returns the id of the created overlay, or an negative error number
+ */
+int of_overlay_create_target_root(struct device_node *tree,
+		struct device_node *target_root)
+{
+	return __of_overlay_create(tree, 0, target_root);
+}
+EXPORT_SYMBOL_GPL(of_overlay_create_target_root);
 
 /* check whether the given node, lies under the given tree */
 static int overlay_subtree_check(struct device_node *tree,
