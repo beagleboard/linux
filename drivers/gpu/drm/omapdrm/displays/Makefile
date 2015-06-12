@@ -1,6 +1,7 @@
 obj-$(CONFIG_DISPLAY_ENCODER_OPA362) += encoder-opa362.o
 obj-$(CONFIG_DISPLAY_ENCODER_TFP410) += encoder-tfp410.o
 obj-$(CONFIG_DISPLAY_ENCODER_TPD12S015) += encoder-tpd12s015.o
+obj-$(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015) += dra7-evm-encoder-tpd12s015.o
 obj-$(CONFIG_DISPLAY_ENCODER_SII9022) += encoder-sii9022.o
 encoder-sii9022-y += encoder-sii9022-video.o
 encoder-sii9022-$(CONFIG_DISPLAY_ENCODER_SII9022_AUDIO_CODEC) += encoder-sii9022-audio.o
