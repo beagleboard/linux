@@ -17,6 +17,23 @@ config DISPLAY_ENCODER_TPD12S015
 	  Driver for TPD12S015, which offers HDMI ESD protection and level
 	  shifting.
 
+config DISPLAY_ENCODER_SII9022
+	tristate "SiI9022 HDMI Encoder"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Driver for Silicon Image SiI9022 HDMI encoder.
+	  A brief about SiI9022 can be found here:
+	  http://www.semiconductorstore.com/pdf/newsite/siliconimage/SiI9022a_pb.pdf
+
+config DISPLAY_ENCODER_SII9022_AUDIO_CODEC
+	bool "ASoC codec driver for SiI9022 HDMI Encoder"
+	depends on DISPLAY_ENCODER_SII9022
+	depends on SND_SOC = y || DISPLAY_ENCODER_SII9022 = SND_SOC
+	default y
+	help
+	  ASoC DAI driver for Silicon Image Sil9022 DPI to HDMI encoder.
+
 config DISPLAY_CONNECTOR_DVI
         tristate "DVI Connector"
 	depends on I2C
