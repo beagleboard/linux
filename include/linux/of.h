@@ -1669,6 +1669,8 @@ int of_overlay_notifier_register(struct notifier_block *nb);
 int of_overlay_notifier_unregister(struct notifier_block *nb);
 
 int of_overlay_create_target_index(struct device_node *tree, int index);
+int of_overlay_create_target_root(struct device_node *tree,
+		struct device_node *target_root);
 
 #else
 
@@ -1699,6 +1701,12 @@ static inline int of_overlay_notifier_unregister(struct notifier_block *nb)
 
 static inline int of_overlay_create_target_index(struct device_node *tree,
 		int index)
+{
+	return -ENOTSUPP;
+}
+
+static inline int of_overlay_create_target_root(struct device_node *tree,
+		struct device_node *target_root)
 {
 	return -ENOTSUPP;
 }
