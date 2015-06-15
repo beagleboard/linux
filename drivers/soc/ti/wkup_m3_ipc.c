@@ -48,6 +48,13 @@
 #define M3_FW_VERSION_MASK		0xffff
 #define M3_WAKE_SRC_MASK		0xff
 
+#define IPC_MEM_TYPE_SHIFT		(0x0)
+#define IPC_MEM_TYPE_MASK		(0x7 << 0)
+#define IPC_VTT_STAT_SHIFT		(0x3)
+#define IPC_VTT_STAT_MASK		(0x1 << 3)
+#define IPC_VTT_GPIO_PIN_SHIFT		(0x4)
+#define IPC_VTT_GPIO_PIN_MASK		(0x3f << 4)
+
 #define M3_STATE_UNKNOWN		0
 #define M3_STATE_RESET			1
 #define M3_STATE_INITED			2
@@ -62,6 +69,7 @@ struct wkup_m3_ipc {
 
 	int mem_type;
 	unsigned long resume_addr;
+	int vtt_conf;
 	int state;
 
 	struct completion sync_complete;
@@ -213,6 +221,12 @@ static int wkup_m3_is_available(struct wkup_m3_ipc *m3_ipc)
 	return (m3_ipc->state != M3_STATE_RESET) && (m3_ipc->state != M3_STATE_UNKNOWN);
 }
 
+static void wkup_m3_set_vtt_gpio(int gpio)
+{
+	m3_ipc_state.vtt_conf = (1 << IPC_VTT_STAT_SHIFT) |
+				(gpio << IPC_VTT_GPIO_PIN_SHIFT);
+}
+
 /* Public functions */
 /**
  * wkup_m3_set_mem_type - Pass wkup_m3 which type of memory is in use
@@ -290,7 +304,8 @@ int wkup_m3_prepare_low_power(int state)
 	/* Program each required IPC register then write defaults to others */
 	wkup_m3_ctrl_ipc_write(m3_ipc, m3_ipc_state.resume_addr, 0);
 	wkup_m3_ctrl_ipc_write(m3_ipc, m3_power_state, 1);
-	wkup_m3_ctrl_ipc_write(m3_ipc, m3_ipc_state.mem_type, 4);
+	wkup_m3_ctrl_ipc_write(m3_ipc, m3_ipc_state.mem_type |
+			       m3_ipc_state.vtt_conf, 4);
 
 	wkup_m3_ctrl_ipc_write(m3_ipc, DS_IPC_DEFAULT, 2);
 	wkup_m3_ctrl_ipc_write(m3_ipc, DS_IPC_DEFAULT, 3);
@@ -381,11 +396,12 @@ static void wkup_m3_rproc_boot_thread(struct rproc *rproc)
 static int wkup_m3_ipc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	int irq, ret;
+	int irq, ret, temp;
 	uint32_t rproc_phandle;
 	struct rproc *m3_rproc;
 	struct resource *res;
 	struct task_struct *task;
+	struct device_node *np = dev->of_node;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	m3_ipc_state.ipc_mem_base = devm_ioremap_resource(dev, res);
@@ -440,6 +456,14 @@ static int wkup_m3_ipc_probe(struct platform_device *pdev)
 	m3_ipc_state.rproc = m3_rproc;
 	m3_ipc_state.dev = dev;
 	m3_ipc_state.state = M3_STATE_RESET;
+
+	if (of_find_property(np, "ti,needs-vtt-toggle", NULL) &&
+	    !(of_property_read_u32(np, "ti,vtt-gpio-pin", &temp))) {
+		if (temp >= 0 && temp <= 31)
+			wkup_m3_set_vtt_gpio(temp);
+		else
+			dev_warn(dev, "Invalid VTT GPIO(%d) pin\n", temp);
+	}
 
 	/*
 	 * Wait for firmware loading completion in a thread so we
