@@ -487,6 +487,7 @@
 &mac {
 	status = "okay";
 	dual_emac;
+	ti,no-idle;
 };
 
 &cpsw_emac0 {
