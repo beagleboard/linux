@@ -44,6 +44,11 @@
  */
 #define RPMSG_RESERVED_ADDRESSES     (1024)
 
+/* Maximum buffer size supported by virtio rpmsg transport.
+ * Must match value as in drivers/rpmsg/virtio_rpmsg_bus.c
+ */
+#define RPMSG_BUF_SIZE               (512)
+
 struct rpmsg_socket {
 	struct sock sk;
 	struct rpmsg_channel *rpdev;
@@ -189,7 +194,7 @@ static int rpmsg_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 {
 	struct sock *sk = sock->sk;
 	struct rpmsg_socket *rpsk;
-	char payload[512];/* todo: sane payload length methodology */
+	char payload[RPMSG_BUF_SIZE];/* todo: sane payload length methodology */
 	int err;
 
 	/* XXX check for sock_error as well ? */
@@ -200,6 +205,10 @@ static int rpmsg_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 	/* no payload ? */
 	if (msg->msg_iov->iov_base == NULL)
 		return -EINVAL;
+
+	/* make sure the length is valid for copying into kernel buffer */
+	if (len > RPMSG_BUF_SIZE - sizeof(struct rpmsg_hdr))
+		return -EMSGSIZE;
 
 	lock_sock(sk);
 
@@ -224,7 +233,6 @@ static int rpmsg_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (err)
 		goto out;
 
-	/* XXX add length validation */
 	err = rpmsg_send(rpsk->rpdev, payload, len);
 	if (err)
 		pr_err("rpmsg_send failed: %d\n", err);
