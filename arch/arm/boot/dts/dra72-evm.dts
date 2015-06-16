@@ -738,6 +738,7 @@
 	pinctrl-0 = <&cpsw_default>;
 	pinctrl-1 = <&cpsw_sleep>;
 	slaves = <1>;
+	ti,no-idle;
 };
 
 &cpsw_emac0 {

@@ -25,6 +25,7 @@ Optional properties:
 - ti,no-idle-on-init: When present, the module should not be idled at init
 - ti,no_init: When present, the module is marked as disabled immediately and
   no setup is done.
+- ti,no-idle: When present, the module is never allowed to idle.
 Example:
 
 spinlock@1 {
