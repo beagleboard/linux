@@ -1,0 +1,52 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common-no-capemgr.dtsi"
+
+/ {
+	model = "TI AM335x BeagleBone";
+	compatible = "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <3300000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&ldo3_reg>;
+};
+
+&am33xx_pinmux {
+	pinctrl-names = "default";
+	pinctrl-0 = <&clkout2_pin>;
+};
+
+#include "am335x-peripheral-can0.dtsi"
+#include "am335x-bone-pinmux-can0.dtsi"
+
+/* #include "am335x-peripheral-can1.dtsi" */
+/* #include "am335x-bone-pinmux-can1.dtsi" */
+
+/* #include "am335x-peripheral-i2c2.dtsi" */
+/* #include "am335x-bone-pinmux-i2c2.dtsi" */
+
+/* #include "am335x-peripheral-ttyS1.dtsi" */
+/* #include "am335x-bone-pinmux-ttyS1.dtsi" */
+
+/* #include "am335x-peripheral-ttyS2.dtsi" */
+/* #include "am335x-bone-pinmux-ttyS2.dtsi" */
+
+/* #include "am335x-peripheral-ttyS4.dtsi" */
+/* #include "am335x-bone-pinmux-ttyS4.dtsi" */
+
+/* #include "am335x-peripheral-ttyS5.dtsi" */
+/* #include "am335x-bone-pinmux-ttyS5.dtsi" */
