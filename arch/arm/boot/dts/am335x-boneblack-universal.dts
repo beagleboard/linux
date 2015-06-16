@@ -8,7 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
+#include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone Black";
@@ -33,12 +33,4 @@
 	system-power-controller;
 };
 
-/* EMMC in reset */
-&gpio1 {
-	emmc_rst {
-		gpio-hog;
-		gpios = <20 0>;
-		output-high;
-		line-name = "EMMC ResetN";
-	};
-};
+#include "am335x-bone-common-universal.dtsi"
