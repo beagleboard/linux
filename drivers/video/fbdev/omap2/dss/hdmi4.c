@@ -395,8 +395,8 @@ static void hdmi_display_disable(struct omap_dss_device *dssdev)
 
 	mutex_lock(&hdmi.lock);
 
-	if (hdmi.audio_abort_cb)
-		hdmi.audio_abort_cb(&hdmi.pdev->dev);
+	/* If set hdmi.audio_abort_cb(&hdmi.pdev->dev) should be
+	 * called here, if audio abort functionality is needed. */
 
 	hdmi_power_off_full(dssdev);
 
