@@ -8,6 +8,7 @@ of the EMIF IP and memory parts attached to it.
 Required properties:
 - compatible	: Should be of the form "ti,emif-<ip-rev>" where <ip-rev>
   is the IP revision of the specific EMIF instance.
+		  For am335x should be ti,emif-am3352.
 		  For am437x should be ti,emif-am4372.
 
 - phy-type	: <u32> indicating the DDR phy type. Following are the
@@ -41,6 +42,9 @@ Optional properties:
 
 - hw-caps-temp-alert	: Have this property if the controller
   has capability for generating SDRAM temperature alerts
+
+- sram			: Phandle for generic sram node for the driver
+  to use to copy PM functions to
 
 Example:
 
