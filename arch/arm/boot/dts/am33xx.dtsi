@@ -289,6 +289,13 @@
 			interrupt-names = "edma3_tcerrint";
 		};
 
+		emif: emif@4c000000 {
+			compatible = "ti,emif-am3352";
+			reg =	<0x4C000000 0x1000>;
+			sram = <&pm_sram_code
+				&pm_sram_data>;
+		};
+
 		gpio0: gpio@44e07000 {
 			compatible = "ti,omap4-gpio";
 			ti,hwmods = "gpio1";
