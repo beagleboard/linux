@@ -43,7 +43,7 @@ build_the_defconfig()
 	#Check for defconfig issues
 	echo "Making the $DEFCONFIG"
 	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $DEFCONFIG > $BUILD_OUT 2>&1
-	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wc error`
+	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wc "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
 		rm $BUILD_OUT
 		return 1
@@ -76,7 +76,7 @@ build_the_new_defconfig()
 	echo "Making the $NEW_DEFCONFIG"
 	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $NEW_DEFCONFIG > $BUILD_OUT 2>&1
 
-	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wc error`
+	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wc "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
 		rm $BUILD_OUT
 		return 1
@@ -139,7 +139,7 @@ build_the_dtbs()
 	echo "Building the device tree"
 	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE dtbs > $BUILD_OUT 2>&1
 	#Check for build errors
-	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci error`
+	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
 		cat $BUILD_OUT >> $OUT_LOG
 		rm $BUILD_OUT
@@ -167,7 +167,7 @@ build_the_modules()
 	echo "Building the modules"
 	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE modules > $BUILD_OUT 2>&1
 	#Check for build errors
-	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci error`
+	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
 		cat $BUILD_OUT >> $OUT_LOG
 		rm $BUILD_OUT
@@ -188,7 +188,7 @@ build_the_modules()
 
 	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE tar-pkg > $BUILD_OUT 2>&1
 	#Check for build errors
-	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci error`
+	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
 		cat $BUILD_OUT >> $OUT_LOG
 		rm $BUILD_OUT
