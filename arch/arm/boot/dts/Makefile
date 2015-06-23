@@ -428,7 +428,8 @@ dtb-$(CONFIG_SOC_AM43XX) += \
 	am43x-epos-evm.dtb \
 	am437x-sk-evm.dtb \
 	am437x-idk-evm.dtb \
-	am437x-gp-evm.dtb
+	am437x-gp-evm.dtb \
+	am437x-gp-evm-hdmi.dtb
 dtb-$(CONFIG_SOC_OMAP5) += \
 	omap5-cm-t54.dtb \
 	omap5-sbc-t54.dtb \
