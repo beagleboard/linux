@@ -35,6 +35,14 @@
 		regulator-max-microvolt = <3300000>;
 	};
 
+	aic_dvdd: fixedregulator-aic_dvdd {
+		compatible = "regulator-fixed";
+		regulator-name = "aic_dvdd_fixed";
+		vin-supply = <&vdd_3v3>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
 	vtt_fixed: fixedregulator-vtt {
 		/* TPS51200 */
 		compatible = "regulator-fixed";
@@ -147,6 +155,32 @@
 					remote-endpoint = <&hdmi_connector_in>;
 				};
 			};
+		};
+	};
+
+	sound0: sound@0 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "BeagleBoard-X15";
+		simple-audio-card,widgets =
+			"Line", "Line Out",
+			"Line", "Line In";
+		simple-audio-card,routing =
+			"Line Out",	"LLOUT",
+			"Line Out",	"RLOUT",
+			"MIC2L",	"Line In",
+			"MIC2R",	"Line In";
+		simple-audio-card,format = "dsp_b";
+		simple-audio-card,bitclock-master = <&sound0_master>;
+		simple-audio-card,frame-master = <&sound0_master>;
+		simple-audio-card,bitclock-inversion;
+
+		simple-audio-card,cpu {
+			sound-dai = <&mcasp3>;
+		};
+
+		sound0_master: simple-audio-card,codec {
+			sound-dai = <&tlv320aic3104>;
+			clocks = <&clkout2_clk>;
 		};
 	};
 };
@@ -506,6 +540,19 @@
 		interrupts = <16 IRQ_TYPE_LEVEL_LOW>;
 		#thermal-sensor-cells = <1>;
 	};
+
+	tlv320aic3104: tlv320aic3104@18 {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3104";
+		reg = <0x18>;
+		status = "okay";
+		adc-settle-ms = <40>;
+
+		AVDD-supply = <&vdd_3v3>;
+		IOVDD-supply = <&vdd_3v3>;
+		DRVDD-supply = <&vdd_3v3>;
+		DVDD-supply = <&aic_dvdd>;
+	};
 };
 
 &i2c3 {
@@ -688,4 +735,16 @@
 			remote-endpoint = <&tpd12s015_in>;
 		};
 	};
+};
+
+&mcasp3 {
+	#sound-dai-cells = <0>;
+	status = "okay";
+
+	op-mode = <0>;	/* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	/* 4 serializers */
+	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
+		1 2 0 0
+	>;
 };
