@@ -14,10 +14,10 @@
  * GNU General Public License for more details.
  */
 
+#include <generated/ti-pm-asm-offsets.h>
 #include <linux/linkage.h>
 #include <linux/ti-emif-sram.h>
 
-#include <asm/asm-offsets.h>
 #include <asm/assembler.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/memory.h>
@@ -376,7 +376,6 @@ l2_val:
 .align 3
 /* DDR related defines */
 ENTRY(am43xx_emif_sram_table)
-	.space EMIF_PM_FUNCTIONS_SIZE
 
 ENTRY(am43xx_pm_sram)
 .word am43xx_do_wfi

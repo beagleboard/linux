@@ -14,9 +14,9 @@
  * GNU General Public License for more details.
  */
 
+#include <generated/ti-pm-asm-offsets.h>
 #include <linux/linkage.h>
 #include <linux/ti-emif-sram.h>
-#include <asm/asm-offsets.h>
 #include <asm/assembler.h>
 #include <asm/memory.h>
 
@@ -204,7 +204,6 @@ phys_emif_clkctrl:
 .align 3
 /* DDR related defines */
 am33xx_emif_sram_table:
-	.space EMIF_PM_FUNCTIONS_SIZE
 
 ENTRY(am33xx_pm_sram)
 .word am33xx_do_wfi
