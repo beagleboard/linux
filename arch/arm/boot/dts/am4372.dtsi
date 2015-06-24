@@ -979,6 +979,7 @@
 		ocmcram: ocmcram@40300000 {
 			compatible = "mmio-sram";
 			reg = <0x40300000 0x40000>; /* 256k */
+			map-exec;
 		};
 
 		dcan0: can@481cc000 {
