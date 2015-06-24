@@ -263,6 +263,15 @@ config OMAP3_SDRC_AC_TIMING
 	  wish to say no.  Selecting yes without understanding what is
 	  going on could result in system crashes;
 
+config AMX3_PM
+	tristate "AMx3 Power Management"
+	depends on SOC_AM33XX || SOC_AM43XX
+	depends on WKUP_M3_IPC && TI_EMIF_SRAM
+	default y
+	help
+	  Enable power management on am335x and am437x. Required for suspend to mem
+	  and standby on both platforms and deeper cpuidle c-states on am335x only.
+
 endmenu
 
 endif
