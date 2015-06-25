@@ -46,6 +46,7 @@
 #define M3_BASELINE_VERSION		0x191
 #define M3_STATUS_RESP_MASK		(0xffff << 16)
 #define M3_FW_VERSION_MASK		0xffff
+#define M3_WAKE_SRC_MASK		0xff
 
 #define M3_STATE_UNKNOWN		0
 #define M3_STATE_RESET			1
@@ -69,6 +70,23 @@ struct wkup_m3_ipc {
 };
 
 static struct wkup_m3_ipc m3_ipc_state;
+
+static const struct wkup_m3_wakeup_src wakeups[] = {
+	{.irq_nr = 35,	.src = "USB0_PHY"},
+	{.irq_nr = 36,	.src = "USB1_PHY"},
+	{.irq_nr = 40,	.src = "I2C0"},
+	{.irq_nr = 41,	.src = "RTC Timer"},
+	{.irq_nr = 42,	.src = "RTC Alarm"},
+	{.irq_nr = 43,	.src = "Timer0"},
+	{.irq_nr = 44,	.src = "Timer1"},
+	{.irq_nr = 45,	.src = "UART"},
+	{.irq_nr = 46,	.src = "GPIO0"},
+	{.irq_nr = 48,	.src = "MPU_WAKE"},
+	{.irq_nr = 49,	.src = "WDT0"},
+	{.irq_nr = 50,	.src = "WDT1"},
+	{.irq_nr = 51,	.src = "ADC_TSC"},
+	{.irq_nr = 0,	.src = "Unknown"},
+};
 
 static void am33xx_txev_eoi(struct wkup_m3_ipc *m3_ipc)
 {
@@ -320,6 +338,29 @@ int wkup_m3_finish_low_power(void)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(wkup_m3_finish_low_power);
+
+/**
+ * wkup_m3_wake_src - Get the wakeup source info passed from wkup_m3
+ * @wkup_m3_wakeup: struct wkup_m3_wakeup_src * gets assigned the
+ *		    wakeup src value
+ */
+const char *wkup_m3_request_wake_src(void)
+{
+	struct wkup_m3_ipc *m3_ipc = &m3_ipc_state;
+	unsigned int wakeup_src_idx;
+	int j, val;
+
+	val = wkup_m3_ctrl_ipc_read(m3_ipc, 6);
+
+	wakeup_src_idx = val & M3_WAKE_SRC_MASK;
+
+	for (j = 0; j < ARRAY_SIZE(wakeups) - 1; j++) {
+		if (wakeups[j].irq_nr == wakeup_src_idx)
+			return wakeups[j].src;
+	}
+	return wakeups[j].src;
+}
+EXPORT_SYMBOL(wkup_m3_request_wake_src);
 
 static void wkup_m3_rproc_boot_thread(struct rproc *rproc)
 {
