@@ -45,7 +45,7 @@ create_package() {
 	arm64)
 		debarch=arm64 ;;
 	arm*)
-		debarch=arm$(grep -q CONFIG_AEABI=y $KCONFIG_CONFIG && echo el || true) ;;
+		debarch=arm$(grep -q CONFIG_AEABI=y $KCONFIG_CONFIG && echo hf || true) ;;
 	*)
 		echo "" >&2
 		echo "** ** **  WARNING  ** ** **" >&2
@@ -162,6 +162,16 @@ if grep -q '^CONFIG_MODULES=y' $KCONFIG_CONFIG ; then
 			# then add a link to those
 			$OBJCOPY --add-gnu-debuglink=$dbg_dir/usr/lib/debug/$module $tmpdir/$module
 		done
+	fi
+fi
+
+if grep -q '^CONFIG_OF=y' $KCONFIG_CONFIG ; then
+	mkdir -p "$tmpdir/boot/dtbs/$version"
+	INSTALL_DTBS_PATH="$tmpdir/boot/dtbs/$version" $MAKE KBUILD_SRC= dtbs_install
+
+	#make dtbs_install seems to add an .old directory
+	if [ -d "$tmpdir/boot/dtbs/$version.old" ] ; then
+		rm -rf "$tmpdir/boot/dtbs/$version.old"
 	fi
 fi
 
