@@ -23,6 +23,9 @@
 	aliases {
 		display0 = &tlc59108;
 		display1 = &hdmi0;
+
+		sound0 = &sound0;
+		sound1 = &hdmi;
 	};
 
 	evm_3v3: fixedregulator-evm_3v3 {
