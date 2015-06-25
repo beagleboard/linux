@@ -152,14 +152,6 @@ static irqreturn_t wkup_m3_txev_handler(int irq, void *ipc_data)
 	return IRQ_HANDLED;
 }
 
-static void wkup_m3_mbox_callback(struct mbox_client *client, void *data)
-{
-	struct wkup_m3_ipc *m3_ipc = container_of(client, struct wkup_m3_ipc,
-						  mbox_client);
-
-	omap_mbox_disable_irq(m3_ipc->mbox, IRQ_RX);
-}
-
 static int wkup_m3_ping(struct wkup_m3_ipc *m3_ipc)
 {
 	struct device *dev = m3_ipc->dev;
@@ -179,7 +171,6 @@ static int wkup_m3_ping(struct wkup_m3_ipc *m3_ipc)
 	 * the RX callback to avoid multiple interrupts being received
 	 * by the CM3.
 	 */
-	omap_mbox_enable_irq(m3_ipc->mbox, IRQ_RX);
 	ret = mbox_send_message(m3_ipc->mbox, &dummy_msg);
 	if (ret < 0) {
 		dev_err(dev, "%s: mbox_send_message() failed: %d\n",
@@ -195,6 +186,7 @@ static int wkup_m3_ping(struct wkup_m3_ipc *m3_ipc)
 		return -EIO;
 	}
 
+	mbox_client_txdone(m3_ipc->mbox, 0);
 	return 0;
 }
 
@@ -378,7 +370,7 @@ static int wkup_m3_ipc_probe(struct platform_device *pdev)
 
 	m3_ipc_state.mbox_client.dev = dev;
 	m3_ipc_state.mbox_client.tx_done = NULL;
-	m3_ipc_state.mbox_client.rx_callback = wkup_m3_mbox_callback;
+	m3_ipc_state.mbox_client.rx_callback = NULL;
 	m3_ipc_state.mbox_client.tx_block = false;
 	m3_ipc_state.mbox_client.knows_txdone = false;
 
