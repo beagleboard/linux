@@ -67,6 +67,8 @@ static int am33xx_pm_suspend(suspend_state_t suspend_state)
 			pr_err("PM: CM3 returned unknown result = %d\n", i);
 			ret = -1;
 		}
+
+		pr_info("PM: Wakeup source %s\n", wkup_m3_request_wake_src());
 	}
 
 	return ret;
