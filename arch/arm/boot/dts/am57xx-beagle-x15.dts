@@ -132,9 +132,6 @@
 	tpd12s015: encoder {
 		compatible = "ti,tpd12s015";
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&tpd12s015_pins>;
-
 		gpios = <&gpio7 10 GPIO_ACTIVE_HIGH>,	/* gpio7_10, CT CP HPD */
 			<&gpio6 28 GPIO_ACTIVE_HIGH>,	/* gpio6_28, LS OE */
 			<&gpio7 12 GPIO_ACTIVE_HIGH>;	/* gpio7_12/sp1_cs2, HPD */
@@ -366,14 +363,6 @@
 	extcon_usb2_pins: extcon_usb2_pins {
 		pinctrl-single,pins = <
 			0x3e8 (PIN_INPUT_PULLUP | MUX_MODE14) /* uart1_ctsn.gpio7_24 */
-		>;
-	};
-
-	tpd12s015_pins: pinmux_tpd12s015_pins {
-		pinctrl-single,pins = <
-			0x3b0 (PIN_OUTPUT | MUX_MODE14)		/* gpio7_10 CT_CP_HPD */
-			0x3b8 (PIN_INPUT_PULLDOWN | MUX_MODE14)	/* gpio7_12 HPD */
-			0x370 (PIN_OUTPUT | MUX_MODE14)		/* gpio6_28 LS_OE */
 		>;
 	};
 };
