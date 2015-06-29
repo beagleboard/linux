@@ -836,7 +836,7 @@ static bool is_valid_cache(u32 val)
 	u32 level, ctype;
 
 	if (val >= CSSELR_MAX)
-		return -ENOENT;
+		return false;
 
 	/* Bottom bit is Instruction or Data bit.  Next 3 bits are level. */
 	level = (val >> 1);
@@ -962,7 +962,7 @@ static unsigned int num_demux_regs(void)
 
 static int write_demux_regids(u64 __user *uindices)
 {
-	u64 val = KVM_REG_ARM | KVM_REG_SIZE_U32 | KVM_REG_ARM_DEMUX;
+	u64 val = KVM_REG_ARM64 | KVM_REG_SIZE_U32 | KVM_REG_ARM_DEMUX;
 	unsigned int i;
 
 	val |= KVM_REG_ARM_DEMUX_ID_CCSIDR;
