@@ -1,0 +1,53 @@
+/*
+ * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "am57xx-beagle-x15.dts"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+	model = "TI AM572x EVM";
+	compatible = "ti,am572x-evm", "ti,am572x-beagle-x15", "ti,am5728", "ti,dra742", "ti,dra74", "ti,dra7";
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+
+		USER1 {
+			label = "Up";
+			linux,code = <KEY_UP>;
+			gpios = <&gpio2 23 GPIO_ACTIVE_LOW>;
+		};
+
+		USER2 {
+			label = "Down";
+			linux,code = <KEY_DOWN>;
+			gpios = <&gpio2 25 GPIO_ACTIVE_LOW>;
+		};
+
+		USER3 {
+			label = "Left";
+			linux,code = <KEY_LEFT>;
+			gpios = <&gpio2 28 GPIO_ACTIVE_LOW>;
+		};
+
+		USER4 {
+			label = "Right";
+			linux,code = <KEY_RIGHT>;
+			gpios = <&gpio2 24 GPIO_ACTIVE_LOW>;
+		};
+
+		USER5 {
+			label = "Home";
+			linux,code = <KEY_HOME>;
+			gpios = <&gpio2 20 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
