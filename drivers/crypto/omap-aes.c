@@ -789,6 +789,28 @@ static struct crypto_alg algs_ctr[] = {
 		.decrypt	= omap_aes_ctr_decrypt,
 	}
 },
+{
+	.cra_name		= "gcm(aes)",
+	.cra_driver_name	= "gcm-aes-omap",
+	.cra_priority		= 100,
+	.cra_flags		= CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC |
+				  CRYPTO_ALG_KERN_DRIVER_ONLY,
+	.cra_blocksize		= AES_BLOCK_SIZE,
+	.cra_ctxsize		= sizeof(struct omap_aes_ctx),
+	.cra_alignmask		= 0xf,
+	.cra_type		= &crypto_aead_type,
+	.cra_module		= THIS_MODULE,
+	.cra_init		= omap_aes_gcm_cra_init,
+	.cra_exit		= omap_aes_cra_exit,
+	.cra_u.aead = {
+		.maxauthsize	= AES_BLOCK_SIZE,
+		.geniv		= "eseqiv",
+		.ivsize		= AES_BLOCK_SIZE,
+		.setkey		= omap_aes_gcm_setkey,
+		.encrypt	= omap_aes_gcm_encrypt,
+		.decrypt	= omap_aes_gcm_decrypt,
+	}
+},
 };
 
 static struct omap_aes_algs_info omap_aes_algs_info_ecb_cbc[] = {
