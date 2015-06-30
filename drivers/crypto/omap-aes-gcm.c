@@ -52,8 +52,8 @@ static void omap_aes_gcm_done_task(struct omap_aes_dev *dd)
 	u8 *tag;
 	int pages, alen, clen, i, ret = 0, nsg;
 
-	alen = ALIGN(dd->assoc_len, AES_BLOCK_SIZE);
-	clen = ALIGN(dd->total, AES_BLOCK_SIZE);
+	alen = ALIGN(dd->assoc_len_save, AES_BLOCK_SIZE);
+	clen = ALIGN(dd->total_save, AES_BLOCK_SIZE);
 
 	nsg = 1 + !!(dd->assoc_len && dd->total);
 
@@ -161,7 +161,9 @@ static int omap_aes_gcm_copy_buffers(struct omap_aes_dev *dd,
 
 	dd->in_sg = dd->in_sgl;
 	dd->total = cryptlen;
+	dd->total_save = cryptlen;
 	dd->assoc_len = req->assoclen;
+	dd->assoc_len_save = req->assoclen;
 	dd->authsize = authlen;
 
 	if (omap_aes_check_aligned(req->dst, cryptlen)) {
@@ -248,14 +250,14 @@ static int do_encrypt_iv(struct aead_request *req, u32 *tag)
 	return ret;
 }
 
-void omap_aes_gcm_dma_out_callback(void *data)
+void omap_aes_gcm_process_auth_tag(void *data)
 {
 	struct omap_aes_dev *dd = data;
 	int i, val;
 	u32 *auth_tag, tag[4];
 
 	if (!(dd->flags & FLAGS_ENCRYPT))
-		scatterwalk_map_and_copy(tag, dd->aead_req->src, dd->total,
+		scatterwalk_map_and_copy(tag, dd->aead_req->src, dd->total_save,
 					 dd->authsize, 0);
 
 	auth_tag = dd->ctx->auth_tag;

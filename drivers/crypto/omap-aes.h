@@ -164,6 +164,7 @@ struct omap_aes_dev {
 	size_t				total;
 	size_t				total_save;
 	size_t				assoc_len;
+	size_t				assoc_len_save;
 	size_t				authsize;
 
 	struct scatterlist		*in_sg;
@@ -199,7 +200,7 @@ int omap_aes_gcm_decrypt(struct aead_request *req);
 int omap_aes_write_ctrl(struct omap_aes_dev *dd);
 int omap_aes_check_aligned(struct scatterlist *sg, int total);
 int omap_aes_crypt_dma_start(struct omap_aes_dev *dd);
-void omap_aes_gcm_dma_out_callback(void *data);
+void omap_aes_gcm_process_auth_tag(void *data);
 int omap_aes_crypt_dma_stop(struct omap_aes_dev *dd);
 
 #endif

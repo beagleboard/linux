@@ -340,7 +340,7 @@ static int omap_aes_crypt_dma(struct omap_aes_dev *dd,
 	}
 
 	if (dd->flags & FLAGS_GCM)
-		tx_out->callback = omap_aes_gcm_dma_out_callback;
+		tx_out->callback = omap_aes_gcm_process_auth_tag;
 	else
 		tx_out->callback = omap_aes_dma_out_callback;
 	tx_out->callback_param = dd;
@@ -927,8 +927,15 @@ static irqreturn_t omap_aes_irq(int irq, void *dev_id)
 		status &= ~AES_REG_IRQ_DATA_IN;
 		omap_aes_write(dd, AES_REG_IRQ_STATUS(dd), status);
 
-		/* Enable DATA_OUT interrupt */
-		omap_aes_write(dd, AES_REG_IRQ_ENABLE(dd), 0x4);
+		/*
+		 * if GCM mode enable DATA_IN till assoc data is copied
+		 * else Enable DATA_OUT interrupt
+		 * */
+		if ((dd->flags & FLAGS_GCM) && dd->assoc_len)
+			dd->assoc_len -= min((size_t)AES_BLOCK_SIZE,
+					     dd->assoc_len);
+		else
+			omap_aes_write(dd, AES_REG_IRQ_ENABLE(dd), 0x4);
 
 	} else if (status & AES_REG_IRQ_DATA_OUT) {
 		omap_aes_write(dd, AES_REG_IRQ_ENABLE(dd), 0x0);
@@ -961,12 +968,17 @@ static irqreturn_t omap_aes_irq(int irq, void *dev_id)
 		status &= ~AES_REG_IRQ_DATA_OUT;
 		omap_aes_write(dd, AES_REG_IRQ_STATUS(dd), status);
 
-		if (!dd->total)
+		if (!dd->total) {
 			/* All bytes read! */
-			tasklet_schedule(&dd->done_task);
-		else
+			if (dd->flags & FLAGS_GCM)
+				/* Process auth tag and call done_task */
+				omap_aes_gcm_process_auth_tag(dd);
+			else
+				tasklet_schedule(&dd->done_task);
+		} else {
 			/* Enable DATA_IN interrupt for next block */
 			omap_aes_write(dd, AES_REG_IRQ_ENABLE(dd), 0x2);
+		}
 	}
 
 	return IRQ_HANDLED;
