@@ -87,7 +87,7 @@ static int omap_aes_gcm_copy_buffers(struct omap_aes_dev *dd,
 				     struct aead_request *req)
 {
 	void *buf_in;
-	int alen, clen;
+	int alen, clen, nsg;
 	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 	unsigned int authlen = crypto_aead_authsize(aead);
 	u32 dec = !(dd->flags & FLAGS_ENCRYPT);
@@ -97,12 +97,18 @@ static int omap_aes_gcm_copy_buffers(struct omap_aes_dev *dd,
 
 	dd->sgs_copied = 0;
 
-	sg_init_table(dd->in_sgl, 2);
-	buf_in = sg_virt(req->assoc);
-	sg_set_buf(dd->in_sgl, buf_in, alen);
+	nsg = 1 + !!(req->assoclen && req->cryptlen);
 
-	buf_in = sg_virt(req->src);
-	sg_set_buf(&dd->in_sgl[1], buf_in, clen);
+	sg_init_table(dd->in_sgl, nsg);
+	if (req->assoclen) {
+		buf_in = sg_virt(req->assoc);
+		sg_set_buf(dd->in_sgl, buf_in, alen);
+	}
+
+	if (req->cryptlen) {
+		buf_in = sg_virt(req->src);
+		sg_set_buf(&dd->in_sgl[nsg - 1], buf_in, clen);
+	}
 
 	dd->in_sg = dd->in_sgl;
 	dd->total = clen;
@@ -258,6 +264,8 @@ static int omap_aes_gcm_crypt(struct aead_request *req, unsigned long mode)
 {
 	struct omap_aes_ctx *ctx = crypto_aead_ctx(crypto_aead_reqtfm(req));
 	struct omap_aes_reqctx *rctx = aead_request_ctx(req);
+	struct crypto_aead *aead = crypto_aead_reqtfm(req);
+	unsigned int authlen = crypto_aead_authsize(aead);
 	struct omap_aes_dev *dd;
 	__be32 counter = cpu_to_be32(1);
 	int err;
@@ -269,6 +277,12 @@ static int omap_aes_gcm_crypt(struct aead_request *req, unsigned long mode)
 	err = do_encrypt_iv(req, ctx->auth_tag);
 	if (err)
 		return err;
+
+	if (req->assoclen + req->cryptlen == 0) {
+		scatterwalk_map_and_copy(ctx->auth_tag, req->dst, 0, authlen,
+					 1);
+		return 0;
+	}
 
 	dd = omap_aes_find_dev(ctx);
 	if (!dd)
