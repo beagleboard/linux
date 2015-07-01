@@ -17,6 +17,8 @@
 
 /* LCDC DRM driver, based on da8xx-fb */
 
+#include <linux/pinctrl/consumer.h>
+#include <linux/suspend.h>
 #include "tilcdc_drv.h"
 #include "tilcdc_regs.h"
 #include "tilcdc_tfp410.h"
@@ -198,13 +200,6 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 		goto fail_iounmap;
 	}
 
-	priv->disp_clk = clk_get(dev->dev, "dpll_disp_ck");
-	if (IS_ERR(priv->clk)) {
-		dev_err(dev->dev, "failed to get display clock\n");
-		ret = -ENODEV;
-		goto fail_put_clk;
-	}
-
 #ifdef CONFIG_CPU_FREQ
 	priv->lcd_fck_rate = clk_get_rate(priv->clk);
 	priv->freq_transition.notifier_call = cpufreq_transition;
@@ -212,7 +207,7 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 			CPUFREQ_TRANSITION_NOTIFIER);
 	if (ret) {
 		dev_err(dev->dev, "failed to register cpufreq notifier\n");
-		goto fail_put_disp_clk;
+		goto fail_put_clk;
 	}
 #endif
 
@@ -233,6 +228,15 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 	DBG("Maximum Pixel Clock Value %dKHz", priv->max_pixelclock);
 
 	pm_runtime_enable(dev->dev);
+	pm_runtime_irq_safe(dev->dev);
+
+	/*
+	 * disable creation of new console during suspend.
+	 * this works around a problem where a ctrl-c is needed
+	 * to be entered on the VT to actually get the device
+	 * to continue into the suspend state.
+	 */
+	pm_set_vt_switch(0);
 
 	/* Determine LCD IP Version */
 	pm_runtime_get_sync(dev->dev);
@@ -312,8 +316,6 @@ fail_cpufreq_unregister:
 #ifdef CONFIG_CPU_FREQ
 	cpufreq_unregister_notifier(&priv->freq_transition,
 			CPUFREQ_TRANSITION_NOTIFIER);
-fail_put_disp_clk:
-	clk_put(priv->disp_clk);
 #endif
 
 fail_put_clk:
@@ -365,7 +367,11 @@ static int tilcdc_irq_postinstall(struct drm_device *dev)
 	if (priv->rev == 1)
 		tilcdc_set(dev, LCDC_RASTER_CTRL_REG, LCDC_V1_UNDERFLOW_INT_ENA);
 	else
-		tilcdc_set(dev, LCDC_INT_ENABLE_SET_REG, LCDC_V2_UNDERFLOW_INT_ENA);
+		tilcdc_set(dev, LCDC_INT_ENABLE_SET_REG,
+			   LCDC_V2_UNDERFLOW_INT_ENA |
+			   LCDC_V2_END_OF_FRAME0_INT_ENA |
+			   LCDC_V2_END_OF_FRAME1_INT_ENA |
+			   LCDC_FRAME_DONE);
 
 	return 0;
 }
@@ -385,38 +391,16 @@ static void tilcdc_irq_uninstall(struct drm_device *dev)
 			LCDC_V2_END_OF_FRAME0_INT_ENA | LCDC_V2_END_OF_FRAME1_INT_ENA |
 			LCDC_FRAME_DONE);
 	}
-
-}
-
-static void enable_vblank(struct drm_device *dev, bool enable)
-{
-	struct tilcdc_drm_private *priv = dev->dev_private;
-	u32 reg, mask;
-
-	if (priv->rev == 1) {
-		reg = LCDC_DMA_CTRL_REG;
-		mask = LCDC_V1_END_OF_FRAME_INT_ENA;
-	} else {
-		reg = LCDC_INT_ENABLE_SET_REG;
-		mask = LCDC_V2_END_OF_FRAME0_INT_ENA |
-			LCDC_V2_END_OF_FRAME1_INT_ENA | LCDC_FRAME_DONE;
-	}
-
-	if (enable)
-		tilcdc_set(dev, reg, mask);
-	else
-		tilcdc_clear(dev, reg, mask);
 }
 
 static int tilcdc_enable_vblank(struct drm_device *dev, int crtc)
 {
-	enable_vblank(dev, true);
 	return 0;
 }
 
 static void tilcdc_disable_vblank(struct drm_device *dev, int crtc)
 {
-	enable_vblank(dev, false);
+	return;
 }
 
 #if defined(CONFIG_DEBUG_FS) || defined(CONFIG_PM_SLEEP)
@@ -579,10 +563,23 @@ static int tilcdc_pm_suspend(struct device *dev)
 
 	drm_kms_helper_poll_disable(ddev);
 
+	/* Select sleep pin state */
+	pinctrl_pm_select_sleep_state(dev);
+
+	if (pm_runtime_suspended(dev)) {
+		priv->ctx_valid = false;
+		return 0;
+	}
+
+	/* Disable the LCDC controller, to avoid locking up the PRCM */
+	tilcdc_crtc_dpms(priv->crtc, DRM_MODE_DPMS_OFF);
+
 	/* Save register state: */
 	for (i = 0; i < ARRAY_SIZE(registers); i++)
 		if (registers[i].save && (priv->rev >= registers[i].rev))
 			priv->saved_register[n++] = tilcdc_read(ddev, registers[i].reg);
+
+	priv->ctx_valid = true;
 
 	return 0;
 }
@@ -593,10 +590,24 @@ static int tilcdc_pm_resume(struct device *dev)
 	struct tilcdc_drm_private *priv = ddev->dev_private;
 	unsigned i, n = 0;
 
-	/* Restore register state: */
-	for (i = 0; i < ARRAY_SIZE(registers); i++)
-		if (registers[i].save && (priv->rev >= registers[i].rev))
-			tilcdc_write(ddev, registers[i].reg, priv->saved_register[n++]);
+	/* Select default pin state */
+	pinctrl_pm_select_default_state(dev);
+
+	if (priv->ctx_valid == true) {
+		/* Restore register state: */
+		for (i = 0; i < ARRAY_SIZE(registers); i++)
+			if (registers[i].save &&
+			    (priv->rev >= registers[i].rev))
+				tilcdc_write(ddev, registers[i].reg,
+					     priv->saved_register[n++]);
+	}
+
+	/*
+	 * if this call isn't here, the display is blank on return from
+	 * suspend.  With this call here the contents of the framebuffer
+	 * during suspend are restored correctly.
+	 */
+	drm_helper_resume_force_mode(ddev);
 
 	drm_kms_helper_poll_enable(ddev);
 
