@@ -42,13 +42,15 @@ static phys_addr_t ocmcram_location;
 
 static struct am33xx_pm_ops *pm_ops;
 static struct am33xx_pm_sram_addr *pm_sram;
+static unsigned long suspend_wfi_flags;
 
 #ifdef CONFIG_SUSPEND
 static int am33xx_pm_suspend(suspend_state_t suspend_state)
 {
 	int i, ret = 0;
 
-	ret = pm_ops->soc_suspend(suspend_state, am33xx_do_wfi_sram);
+	ret = pm_ops->soc_suspend(suspend_state, am33xx_do_wfi_sram,
+				  suspend_wfi_flags);
 
 	if (ret) {
 		pr_err("PM: Kernel suspend failure\n");
@@ -226,6 +228,12 @@ int am33xx_pm_init(void)
 		pr_err("PM: Cannot get core PM ops!\n");
 		return -ENODEV;
 	}
+
+	suspend_wfi_flags = 0;
+	suspend_wfi_flags |= WFI_FLAG_SELF_REFRESH;
+	suspend_wfi_flags |= WFI_FLAG_SAVE_EMIF;
+	suspend_wfi_flags |= WFI_FLAG_DISABLE_EMIF;
+	suspend_wfi_flags |= WFI_FLAG_WAKE_M3;
 
 	ret = pm_ops->init();
 	if (ret) {

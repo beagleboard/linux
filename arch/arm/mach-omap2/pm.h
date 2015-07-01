@@ -84,7 +84,8 @@ extern void (*omap3_do_wfi_sram)(void);
 /* for sharing core pm ops with amx3 pm modules */
 struct am33xx_pm_ops {
 	int	(*init)(void);
-	int	(*soc_suspend)(unsigned int state, int (*fn)(unsigned long));
+	int	(*soc_suspend)(unsigned int state, int (*fn)(unsigned long),
+			       unsigned long args);
 };
 
 /* for sharing asm function addrs with amx3 pm modules */
@@ -97,6 +98,12 @@ struct am33xx_pm_sram_addr {
 
 struct am33xx_pm_ops *amx3_get_pm_ops(void);
 struct am33xx_pm_sram_addr *amx3_get_sram_addrs(void);
+
+#define WFI_FLAG_SELF_REFRESH		(1 << 2)
+#define WFI_FLAG_SAVE_EMIF		(1 << 3)
+#define WFI_FLAG_WAKE_M3		(1 << 4)
+#define WFI_FLAG_DISABLE_EMIF		(1 << 7)
+#define WFI_FLAG_RTC_ONLY		(1 << 8)
 
 extern struct am33xx_pm_sram_addr am33xx_pm_sram;
 extern struct am33xx_pm_sram_addr am43xx_pm_sram;

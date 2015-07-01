@@ -21,6 +21,12 @@
 #include "iomap.h"
 #include "cm33xx.h"
 
+#define WFI_FLAG_SELF_REFRESH		(1 << 2)
+#define WFI_FLAG_SAVE_EMIF		(1 << 3)
+#define WFI_FLAG_WAKE_M3		(1 << 4)
+#define WFI_FLAG_DISABLE_EMIF		(1 << 7)
+#define WFI_FLAG_RTC_ONLY		(1 << 8)
+
 #define AM33XX_CM_CLKCTRL_MODULEMODE_DISABLE			0x0003
 #define AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE			0x0002
 
@@ -29,6 +35,13 @@
 
 ENTRY(am33xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
+
+	str	r0, wfi_flags
+
+	/* Only necessary if PER is losing context */
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_FLAG_SAVE_EMIF
+	beq	emif_skip_save
 
 	/*
 	 * Flush all data from the L1 and L2 data cache before disabling
@@ -56,8 +69,18 @@ ENTRY(am33xx_do_wfi)
 	ldr	r1, ti_emif_save_context
 	blx	r1
 
+emif_skip_save:
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_FLAG_SELF_REFRESH
+	beq	emif_skip_enter_sr
+
 	ldr	r1, ti_emif_enter_sr
 	blx	r1
+
+emif_skip_enter_sr:
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_FLAG_DISABLE_EMIF
+	beq	emif_skip_disable
 
 	/* Disable EMIF */
 	ldr     r1, virt_emif_clkctrl
@@ -65,13 +88,18 @@ ENTRY(am33xx_do_wfi)
 	bic     r2, r2, #AM33XX_CM_CLKCTRL_MODULEMODE_DISABLE
 	str     r2, [r1]
 
-	ldr	r1, virt_emif_clkctrl
 wait_emif_disable:
 	ldr	r2, [r1]
 	ldr	r3, module_disabled_val
 	cmp	r2, r3
 	bne	wait_emif_disable
 
+emif_skip_disable:
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_FLAG_WAKE_M3
+	beq	wkup_m3_skip
+
+	ldr	r1, virt_emif_clkctrl
 	/*
 	 * For the MPU WFI to be registered as an interrupt
 	 * to WKUP_M3, MPU_CLKCTRL.MODULEMODE needs to be set
@@ -82,6 +110,7 @@ wait_emif_disable:
 	bic	r2, r2, #AM33XX_CM_CLKCTRL_MODULEMODE_DISABLE
 	str	r2, [r1]
 
+wkup_m3_skip:
 	/*
 	 * Execute an ISB instruction to ensure that all of the
 	 * CP15 register changes have been committed.
@@ -126,6 +155,11 @@ wait_emif_disable:
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
 	str	r2, [r1]
 
+	/* Only necessary if PER is losing context */
+	ldr	r2, wfi_flags
+	tst	r2, #WFI_FLAG_SELF_REFRESH
+	beq	emif_skip_exit_sr_abt
+
 	/* Re-enable EMIF */
 	ldr	r1, virt_emif_clkctrl
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
@@ -138,6 +172,7 @@ wait_emif_enable:
 	ldr	r1, ti_emif_abort_sr
 	blx	r1
 
+emif_skip_exit_sr_abt:
 	/*
 	 * Set SCTLR.C bit to allow data cache allocation
 	 */
@@ -196,6 +231,8 @@ phys_emif_clkctrl:
 		AM33XX_CM_PER_EMIF_CLKCTRL_OFFSET)
 module_disabled_val:
 	.word	0x30000
+wfi_flags:
+	.word	0x00000000
 
 /* DDR related defines */
 am33xx_emif_sram_table:
