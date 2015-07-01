@@ -280,6 +280,8 @@ mode_fixup(struct drm_atomic_state *state)
 		 */
 		encoder = conn_state->best_encoder;
 		funcs = encoder->helper_private;
+		if (!funcs)
+			continue;
 
 		if (encoder->bridge && encoder->bridge->funcs->mode_fixup) {
 			ret = encoder->bridge->funcs->mode_fixup(
@@ -317,6 +319,9 @@ mode_fixup(struct drm_atomic_state *state)
 			continue;
 
 		funcs = crtc->helper_private;
+		if (!funcs->mode_fixup)
+			continue;
+
 		ret = funcs->mode_fixup(crtc, &crtc_state->mode,
 					&crtc_state->adjusted_mode);
 		if (!ret) {
@@ -1138,7 +1143,8 @@ void drm_atomic_helper_commit_planes(struct drm_device *dev,
 		if (drm_atomic_plane_disabling(plane, old_plane_state) &&
 		    funcs->atomic_disable)
 			funcs->atomic_disable(plane, old_plane_state);
-		else
+		else if (plane->state->crtc ||
+			 drm_atomic_plane_disabling(plane, old_plane_state))
 			funcs->atomic_update(plane, old_plane_state);
 	}
 
@@ -1309,12 +1315,12 @@ retry:
 	plane_state->src_h = src_h;
 	plane_state->src_w = src_w;
 
+	if (plane == crtc->cursor)
+		state->legacy_cursor_update = true;
+
 	ret = drm_atomic_commit(state);
 	if (ret != 0)
 		goto fail;
-
-	if (plane == crtc->cursor)
-		state->legacy_cursor_update = true;
 
 	/* Driver takes ownership of state on successful commit. */
 	return 0;
