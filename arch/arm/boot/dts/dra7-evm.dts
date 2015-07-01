@@ -9,6 +9,7 @@
 
 #include "dra74x.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clk/ti-dra7-atl.h>
 
 / {
 	model = "TI DRA742";
@@ -19,11 +20,20 @@
 		reg = <0x80000000 0x60000000>; /* 1536 MB */
 	};
 
-	mmc2_3v3: fixedregulator-mmc2 {
+	evm_3v3_sw: fixedregulator-evm_3v3_sw {
 		compatible = "regulator-fixed";
-		regulator-name = "mmc2_3v3";
+		regulator-name = "evm_3v3_sw";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
+	};
+
+	aic_dvdd: fixedregulator-aic_dvdd {
+		/* TPS77018DBVT */
+		compatible = "regulator-fixed";
+		regulator-name = "aic_dvdd";
+		vin-supply = <&evm_3v3_sw>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
 	};
 
 	extcon_usb1: extcon_usb1 {
@@ -45,6 +55,40 @@
 		regulator-boot-on;
 		enable-active-high;
 		gpio = <&gpio7 11 GPIO_ACTIVE_HIGH>;
+	};
+
+	sound0: sound@0 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "DRA7xx-EVM";
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Line", "Line Out",
+			"Microphone", "Mic Jack",
+			"Line", "Line In";
+		simple-audio-card,routing =
+			"Headphone Jack",       "HPLOUT",
+			"Headphone Jack",       "HPROUT",
+			"Line Out",		"LLOUT",
+			"Line Out",		"RLOUT",
+			"MIC3L",		"Mic Jack",
+			"MIC3R",		"Mic Jack",
+			"Mic Jack",		"Mic Bias",
+			"LINE1L",               "Line In",
+			"LINE1R",               "Line In";
+		simple-audio-card,format = "dsp_b";
+		simple-audio-card,bitclock-master = <&sound0_master>;
+		simple-audio-card,frame-master = <&sound0_master>;
+		simple-audio-card,bitclock-inversion;
+
+		sound0_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp3>;
+			system-clock-frequency = <5644800>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&tlv320aic3106>;
+			clocks = <&atl_clkin2_ck>;
+		};
 	};
 };
 
@@ -412,6 +456,20 @@
 		#interrupt-cells = <2>;
 	};
 
+	tlv320aic3106: tlv320aic3106@18 {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3106";
+		reg = <0x19>;
+		adc-settle-ms = <40>;
+		ai3x-micbias-vg = <1>;		/* 2.0V */
+		status = "okay";
+
+		/* Regulators */
+		AVDD-supply = <&evm_3v3_sw>;
+		IOVDD-supply = <&evm_3v3_sw>;
+		DRVDD-supply = <&evm_3v3_sw>;
+		DVDD-supply = <&aic_dvdd>;
+	};
 };
 
 &i2c2 {
@@ -419,6 +477,21 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c2_pins>;
 	clock-frequency = <400000>;
+
+	pcf_hdmi: gpio@26 {
+		compatible = "nxp,pcf8575";
+		reg = <0x26>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		lines-initial-states = <0xffeb>;
+		p1 {
+			/* vin6_sel_s0: high: VIN6, low: audio */
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_HIGH>;
+			output-low;
+			line-name = "vin6_sel_s0";
+		};
+	};
 };
 
 &i2c3 {
@@ -468,7 +541,7 @@
 
 &mmc2 {
 	status = "okay";
-	vmmc-supply = <&mmc2_3v3>;
+	vmmc-supply = <&evm_3v3_sw>;
 	bus-width = <8>;
 };
 
@@ -689,4 +762,33 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&dcan1_pins_default>;
 	pinctrl-1 = <&dcan1_pins_sleep>;
+};
+
+&atl {
+	status = "okay";
+
+	atl2 {
+		bws = <DRA7_ATL_WS_MCASP2_FSX>;
+		aws = <DRA7_ATL_WS_MCASP3_FSX>;
+	};
+};
+
+&mcasp3 {
+	#sound-dai-cells = <0>;
+
+	fck_parent = "atl_clkin2_ck";
+
+	status = "okay";
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	/* 4 serializer */
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+		1 2 0 0
+	>;
+};
+
+&mcasp8 {
+	/* not used for audio. only the AXR2 pin is used as GPIO */
+	status = "okay";
 };
