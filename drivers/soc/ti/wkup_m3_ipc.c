@@ -40,6 +40,7 @@
 
 #define IPC_CMD_DS0			0x4
 #define IPC_CMD_STANDBY			0xc
+#define IPC_CMD_IDLE			0x10
 #define IPC_CMD_RESET			0xe
 #define DS_IPC_DEFAULT			0xffffffff
 #define M3_VERSION_UNKNOWN		0x0000ffff
@@ -219,6 +220,29 @@ static int wkup_m3_ping(struct wkup_m3_ipc *m3_ipc)
 	return 0;
 }
 
+static int wkup_m3_ping_noirq(struct wkup_m3_ipc *m3_ipc)
+{
+	struct device *dev = m3_ipc->dev;
+	mbox_msg_t dummy_msg = 0;
+	int ret;
+
+	if (!m3_ipc->mbox) {
+		dev_err(dev,
+			"No IPC channel to communicate with wkup_m3!\n");
+		return -EIO;
+	}
+
+	ret = mbox_send_message(m3_ipc->mbox, &dummy_msg);
+	if (ret < 0) {
+		dev_err(dev, "%s: mbox_send_message() failed: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	mbox_client_txdone(m3_ipc->mbox, 0);
+	return 0;
+}
+
 static int wkup_m3_is_available(struct wkup_m3_ipc *m3_ipc)
 {
 	return (m3_ipc->state != M3_STATE_RESET) && (m3_ipc->state != M3_STATE_UNKNOWN);
@@ -305,6 +329,9 @@ int wkup_m3_prepare_low_power(int state)
 	case PM_SUSPEND_STANDBY:
 		m3_power_state = IPC_CMD_STANDBY;
 		break;
+	case WKUP_M3_IDLE:
+		m3_power_state = IPC_CMD_IDLE;
+		break;
 	default:
 		return 1;
 	}
@@ -324,7 +351,11 @@ int wkup_m3_prepare_low_power(int state)
 
 	m3_ipc->state = M3_STATE_MSG_FOR_LP;
 
-	ret = wkup_m3_ping(m3_ipc);
+	if (state == WKUP_M3_IDLE)
+		ret = wkup_m3_ping_noirq(m3_ipc);
+	else
+		ret = wkup_m3_ping(m3_ipc);
+
 	if (ret) {
 		dev_err(dev, "Unable to ping CM3\n");
 		return ret;

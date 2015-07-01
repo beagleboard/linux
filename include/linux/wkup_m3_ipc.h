@@ -17,6 +17,10 @@
 #ifndef _LINUX_WKUP_M3_IPC_H
 #define _LINUX_WKUP_M3_IPC_H
 
+#include <linux/suspend.h>
+
+#define WKUP_M3_IDLE (PM_SUSPEND_MAX + 1)
+
 struct wkup_m3_wakeup_src {
 	int irq_nr;
 	char src[10];
