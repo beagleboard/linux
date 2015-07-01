@@ -49,6 +49,27 @@
  */
 
 /*
+ * 'dmm' class
+ * instance(s): dmm
+ */
+static struct omap_hwmod_class dra7xx_dmm_hwmod_class = {
+	.name	= "dmm",
+};
+
+/* dmm */
+static struct omap_hwmod dra7xx_dmm_hwmod = {
+	.name		= "dmm",
+	.class		= &dra7xx_dmm_hwmod_class,
+	.clkdm_name	= "emif_clkdm",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_EMIF_DMM_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_EMIF_DMM_CONTEXT_OFFSET,
+		},
+	},
+};
+
+/*
  * 'l3' class
  * instance(s): l3_instr, l3_main_1, l3_main_2
  */
@@ -438,6 +459,7 @@ static struct omap_hwmod_opt_clk dss_opt_clks[] = {
 	{ .role = "video2_clk", .clk = "dss_video2_clk" },
 	{ .role = "video1_clk", .clk = "dss_video1_clk" },
 	{ .role = "hdmi_clk", .clk = "dss_hdmi_clk" },
+	{ .role = "hdcp_clk", .clk = "dss_deshdcp_clk" },
 };
 
 static struct omap_hwmod dra7xx_dss_hwmod = {
@@ -500,6 +522,7 @@ static struct omap_hwmod dra7xx_dss_dispc_hwmod = {
 		},
 	},
 	.dev_attr	= &dss_dispc_dev_attr,
+	.parent_hwmod	= &dra7xx_dss_hwmod,
 };
 
 /*
@@ -541,6 +564,7 @@ static struct omap_hwmod dra7xx_dss_hdmi_hwmod = {
 	},
 	.opt_clks	= dss_hdmi_opt_clks,
 	.opt_clks_cnt	= ARRAY_SIZE(dss_hdmi_opt_clks),
+	.parent_hwmod	= &dra7xx_dss_hwmod,
 };
 
 /*
@@ -1272,6 +1296,54 @@ static struct omap_hwmod dra7xx_mcspi4_hwmod = {
 		},
 	},
 	.dev_attr	= &mcspi4_dev_attr,
+};
+
+/*
+ * 'mcasp' class
+ *
+ */
+static struct omap_hwmod_class_sysconfig dra7xx_mcasp_sysc = {
+	.sysc_offs	= 0x0004,
+	.sysc_flags	= SYSC_HAS_SIDLEMODE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type3,
+};
+
+static struct omap_hwmod_class dra7xx_mcasp_hwmod_class = {
+	.name	= "mcasp",
+	.sysc	= &dra7xx_mcasp_sysc,
+};
+
+/* mcasp3 */
+static struct omap_hwmod dra7xx_mcasp3_hwmod = {
+	.name		= "mcasp3",
+	.class		= &dra7xx_mcasp_hwmod_class,
+	.clkdm_name	= "l4per2_clkdm",
+	.main_clk	= "mcasp3_ahclkx_mux",
+	.flags		= HWMOD_SWSUP_SIDLE,
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_L4PER2_MCASP3_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_L4PER2_MCASP3_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* mcasp8 */
+static struct omap_hwmod dra7xx_mcasp8_hwmod = {
+	.name		= "mcasp8",
+	.class		= &dra7xx_mcasp_hwmod_class,
+	.clkdm_name	= "l4per2_clkdm",
+	.main_clk	= "mcasp8_ahclkx_mux",
+	.flags		= HWMOD_SWSUP_SIDLE_ACT,
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_L4PER2_MCASP8_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_L4PER2_MCASP8_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
 };
 
 /*
@@ -2321,6 +2393,14 @@ static struct omap_hwmod dra7xx_wd_timer2_hwmod = {
  * Interfaces
  */
 
+/* l3_main_1 -> dmm */
+static struct omap_hwmod_ocp_if dra7xx_l3_main_1__dmm = {
+	.master		= &dra7xx_l3_main_1_hwmod,
+	.slave		= &dra7xx_dmm_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_SDMA,
+};
+
 /* l3_main_2 -> l3_instr */
 static struct omap_hwmod_ocp_if dra7xx_l3_main_2__l3_instr = {
 	.master		= &dra7xx_l3_main_2_hwmod,
@@ -2532,6 +2612,22 @@ static struct omap_hwmod_ocp_if dra7xx_l3_main_1__hdmi = {
 	.slave		= &dra7xx_dss_hdmi_hwmod,
 	.clk		= "l3_iclk_div",
 	.addr		= dra7xx_dss_hdmi_addrs,
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_per2 -> mcasp3 */
+static struct omap_hwmod_ocp_if dra7xx_l4_per2__mcasp3 = {
+	.master		= &dra7xx_l4_per2_hwmod,
+	.slave		= &dra7xx_mcasp3_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+/* l4_per2 -> mcasp8 */
+static struct omap_hwmod_ocp_if dra7xx_l4_per2__mcasp8 = {
+	.master		= &dra7xx_l4_per2_hwmod,
+	.slave		= &dra7xx_mcasp8_hwmod,
+	.clk		= "l3_iclk_div",
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
@@ -3289,6 +3385,7 @@ static struct omap_hwmod_ocp_if dra7xx_l4_wkup__wd_timer2 = {
 };
 
 static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
+	&dra7xx_l3_main_1__dmm,
 	&dra7xx_l3_main_2__l3_instr,
 	&dra7xx_l4_cfg__l3_main_1,
 	&dra7xx_mpu__l3_main_1,
@@ -3306,6 +3403,8 @@ static struct omap_hwmod_ocp_if *dra7xx_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_wkup__dcan1,
 	&dra7xx_l4_per2__dcan2,
 	&dra7xx_l4_per2__cpgmac0,
+	&dra7xx_l4_per2__mcasp3,
+	&dra7xx_l4_per2__mcasp8,
 	&dra7xx_gmac__mdio,
 	&dra7xx_l4_cfg__dma_system,
 	&dra7xx_l3_main_1__dss,

@@ -1,6 +1,10 @@
 obj-$(CONFIG_DISPLAY_ENCODER_OPA362) += encoder-opa362.o
 obj-$(CONFIG_DISPLAY_ENCODER_TFP410) += encoder-tfp410.o
 obj-$(CONFIG_DISPLAY_ENCODER_TPD12S015) += encoder-tpd12s015.o
+obj-$(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015) += dra7-evm-encoder-tpd12s015.o
+obj-$(CONFIG_DISPLAY_ENCODER_SII9022) += encoder-sii9022.o
+encoder-sii9022-y += encoder-sii9022-video.o
+encoder-sii9022-$(CONFIG_DISPLAY_ENCODER_SII9022_AUDIO_CODEC) += encoder-sii9022-audio.o
 obj-$(CONFIG_DISPLAY_CONNECTOR_DVI) += connector-dvi.o
 obj-$(CONFIG_DISPLAY_CONNECTOR_HDMI) += connector-hdmi.o
 obj-$(CONFIG_DISPLAY_CONNECTOR_ANALOG_TV) += connector-analog-tv.o
@@ -12,3 +16,4 @@ obj-$(CONFIG_DISPLAY_PANEL_SHARP_LS037V7DW01) += panel-sharp-ls037v7dw01.o
 obj-$(CONFIG_DISPLAY_PANEL_TPO_TD028TTEC1) += panel-tpo-td028ttec1.o
 obj-$(CONFIG_DISPLAY_PANEL_TPO_TD043MTEA1) += panel-tpo-td043mtea1.o
 obj-$(CONFIG_DISPLAY_PANEL_NEC_NL8048HL11) += panel-nec-nl8048hl11.o
+obj-$(CONFIG_DISPLAY_PANEL_TLC59108) += panel-tlc59108.o

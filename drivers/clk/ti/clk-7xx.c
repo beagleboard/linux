@@ -20,6 +20,7 @@
 #define DRA7_DPLL_GMAC_DEFFREQ				1000000000
 #define DRA7_DPLL_USB_DEFFREQ				960000000
 
+#define DRA7_ATL_DEFFREQ				5644800
 
 static struct ti_dt_clk dra7xx_clks[] = {
 	DT_CLK(NULL, "atl_clkin0_ck", "atl_clkin0_ck"),
@@ -223,7 +224,7 @@ static struct ti_dt_clk dra7xx_clks[] = {
 	DT_CLK(NULL, "mcasp6_aux_gfclk_mux", "mcasp6_aux_gfclk_mux"),
 	DT_CLK(NULL, "mcasp7_ahclkx_mux", "mcasp7_ahclkx_mux"),
 	DT_CLK(NULL, "mcasp7_aux_gfclk_mux", "mcasp7_aux_gfclk_mux"),
-	DT_CLK(NULL, "mcasp8_ahclk_mux", "mcasp8_ahclk_mux"),
+	DT_CLK(NULL, "mcasp8_ahclkx_mux", "mcasp8_ahclkx_mux"),
 	DT_CLK(NULL, "mcasp8_aux_gfclk_mux", "mcasp8_aux_gfclk_mux"),
 	DT_CLK(NULL, "mmc1_fclk_mux", "mmc1_fclk_mux"),
 	DT_CLK(NULL, "mmc1_fclk_div", "mmc1_fclk_div"),
@@ -305,13 +306,15 @@ static struct ti_dt_clk dra7xx_clks[] = {
 	DT_CLK("4882c000.timer", "timer_sys_ck", "timer_sys_clk_div"),
 	DT_CLK("4882e000.timer", "timer_sys_ck", "timer_sys_clk_div"),
 	DT_CLK(NULL, "sys_clkin", "sys_clkin1"),
+	DT_CLK(NULL, "dss_deshdcp_clk", "dss_deshdcp_clk"),
 	{ .node_name = NULL },
 };
 
 int __init dra7xx_dt_clk_init(void)
 {
 	int rc;
-	struct clk *abe_dpll_mux, *sys_clkin2, *dpll_ck;
+	struct clk *abe_dpll_mux, *sys_clkin2, *dpll_ck, *hdcp_ck;
+	struct clk *atl_fck, *atl_parent;
 
 	ti_dt_clocks_register(dra7xx_clks);
 
@@ -346,6 +349,22 @@ int __init dra7xx_dt_clk_init(void)
 	rc = clk_set_rate(dpll_ck, DRA7_DPLL_USB_DEFFREQ/2);
 	if (rc)
 		pr_err("%s: failed to set USB_DPLL M2 OUT\n", __func__);
+
+	hdcp_ck = clk_get_sys(NULL, "dss_deshdcp_clk");
+	rc = clk_prepare_enable(hdcp_ck);
+	if (rc)
+		pr_err("%s: failed to set dss_deshdcp_clk\n", __func__);
+
+	atl_fck = clk_get_sys(NULL, "atl_gfclk_mux");
+	atl_parent = clk_get_sys(NULL, "dpll_abe_m2_ck");
+	rc = clk_set_parent(atl_fck, atl_parent);
+	if (rc)
+		pr_err("%s: failed to reparent atl_gfclk_mux\n", __func__);
+
+	atl_fck = clk_get_sys(NULL, "atl_clkin2_ck");
+	rc = clk_set_rate(atl_fck, DRA7_ATL_DEFFREQ);
+	if (rc)
+		pr_err("%s: failed to set atl_clkin2_ck\n", __func__);
 
 	return rc;
 }
