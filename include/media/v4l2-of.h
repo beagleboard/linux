@@ -50,6 +50,7 @@ struct v4l2_of_bus_parallel {
 	unsigned int flags;
 	unsigned char bus_width;
 	unsigned char data_shift;
+	unsigned int num_channels;
 };
 
 /**
