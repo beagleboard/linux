@@ -516,12 +516,13 @@ static void dump_dtd(struct vpdma_dtd *dtd);
 
 void vpdma_update_dma_addr(struct vpdma_data *vpdma,
 	struct vpdma_desc_list *list, dma_addr_t dma_addr,
-	void *write_dtd, int drop)
+	void *write_dtd, int drop, int idx)
 {
 	struct vpdma_dtd *dtd = list->buf.addr;
 	dma_addr_t write_desc_addr;
 	int offset;
 
+	dtd += idx;
 	vpdma_unmap_desc_buf(vpdma, &list->buf);
 
 	dtd->start_addr = dma_addr;
