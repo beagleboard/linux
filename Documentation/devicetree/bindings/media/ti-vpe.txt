@@ -1,0 +1,41 @@
+Texas Instruments DRA7x VIDEO PROCESSING ENGINE (VPE)
+------------------------------------------------------
+
+The Video Processing Engine (VPE) is a key component for image post
+processing applications. VPE consist of a single memory to memory
+path which can perform chroma up/down sampling, deinterlacing,
+scaling and color space conversion.
+
+Required properties:
+- compatible: must be "ti,vpe"
+- reg:	physical base address and length of the registers set for the 8
+	memory regions required;
+- reg-names: name associated with the memory regions described is <reg>;
+- interrupts: should contain IRQ line for VPE;
+
+Example:
+	vpe {
+		compatible = "ti,vpe";
+		ti,hwmods = "vpe";
+		clocks = <&dpll_core_h23x2_ck>;
+		clock-names = "fck";
+		reg =	<0x489d0000 0x120>,
+			<0x489d0300 0x20>,
+			<0x489d0400 0x20>,
+			<0x489d0500 0x20>,
+			<0x489d0600 0x3c>,
+			<0x489d0700 0x80>,
+			<0x489d5700 0x18>,
+			<0x489dd000 0x400>;
+		reg-names =	"vpe_top",
+				"vpe_chr_us0",
+				"vpe_chr_us1",
+				"vpe_chr_us2",
+				"vpe_dei",
+				"sc",
+				"csc",
+				"vpdma";
+		interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
