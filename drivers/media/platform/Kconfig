@@ -132,6 +132,16 @@ config VIDEO_TI_CAL
 	  In TI Technical Reference Manual this module is referred as
 	  Camera Interface Subsystem (CAMSS).
 
+config VIDEO_TI_VIP
+	tristate "TI Video Input Port"
+	default n
+	depends on VIDEO_DEV && VIDEO_V4L2 && SOC_DRA7XX
+	select VIDEO_TI_VPDMA_HELPER
+	---help---
+	Driver support for VIP module on certain TI SoC's
+	VIP = Video Input Port.
+
+
 endif # V4L_PLATFORM_DRIVERS
 
 menuconfig V4L_MEM2MEM_DRIVERS
@@ -267,7 +277,7 @@ endif # V4L_MEM2MEM_DRIVERS
 
 config VIDEO_TI_VPDMA_HELPER
        tristate "TI VPDMA helper module"
-       depends on VIDEO_TI_VPE
+       depends on VIDEO_TI_VPE || VIDEO_TI_VIP
        default n
        ---help---
        Video Port Direct Memory Access
