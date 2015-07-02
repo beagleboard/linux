@@ -1309,6 +1309,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 	struct v4l2_buffer *s_buf, *d_buf;
 	unsigned long flags;
 	u32 irqst0, irqst1;
+	bool list_complete = false;
 
 	irqst0 = read_reg(dev, VPE_INT0_STATUS0);
 	if (irqst0) {
@@ -1344,6 +1345,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 			vpdma_clear_list_stat(ctx->dev->vpdma, 0, 0);
 
 		irqst0 &= ~(VPE_INT0_LIST0_COMPLETE);
+		list_complete = true;
 	}
 
 	if (irqst0 | irqst1) {
@@ -1351,6 +1353,11 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 			"INT0_STATUS0 = 0x%08x, INT0_STATUS1 = 0x%08x\n",
 			irqst0, irqst1);
 	}
+
+	/* Setup next operation only when list complete IRQ occurs
+	 * otherwise, skip the following code */
+	if (list_complete != true)
+		goto handled;
 
 	disable_irqs(ctx);
 
