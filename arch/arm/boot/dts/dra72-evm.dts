@@ -325,6 +325,22 @@
 			0x238	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d23 */
 		>;
 	};
+
+	vin2a_pins: pinmux_vin2a_pins {
+		pinctrl-single,pins = <
+			0x154   (PIN_INPUT | MUX_MODE0) /* vin2a_clk0 */
+			0x160   (PIN_INPUT | MUX_MODE0) /* vin2a_hsync0 */
+			0x164   (PIN_INPUT | MUX_MODE0) /* vin2a_vsync0 */
+			0x168   (PIN_INPUT | MUX_MODE0) /* vin2a_d0 */
+			0x16c   (PIN_INPUT | MUX_MODE0) /* vin2a_d1 */
+			0x170   (PIN_INPUT | MUX_MODE0) /* vin2a_d2 */
+			0x174   (PIN_INPUT | MUX_MODE0) /* vin2a_d3 */
+			0x178   (PIN_INPUT | MUX_MODE0) /* vin2a_d4 */
+			0x17c   (PIN_INPUT | MUX_MODE0) /* vin2a_d5 */
+			0x180   (PIN_INPUT | MUX_MODE0) /* vin2a_d6 */
+			0x184   (PIN_INPUT | MUX_MODE0) /* vin2a_d7 */
+		>;
+	};
 };
 
 &i2c1 {
@@ -519,6 +535,22 @@
 		 * VIN6_SEL_S0 is low, thus selecting McASP3 over VIN6
 		 */
 		lines-initial-states = <0x0f2b>;
+	};
+
+	ov10633@37 {
+		compatible = "ovti,ov10633";
+		reg = <0x37>;
+
+		mux-gpios = <&pcf_hdmi 2	GPIO_ACTIVE_HIGH>, /* VIN2_S0 */
+			    <&pcf_hdmi 6	GPIO_ACTIVE_LOW>; /* VIN2_S2 */
+		port {
+			onboardLI: endpoint {
+				remote-endpoint = <&vin2a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
 	};
 };
 
@@ -905,4 +937,17 @@
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
 	>;
+};
+
+&vip1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&vin2a_pins>;
+	status = "okay";
+};
+
+&vin2a {
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
+	};
 };
