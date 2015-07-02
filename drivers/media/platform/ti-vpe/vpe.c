@@ -2033,9 +2033,24 @@ static int vpe_start_streaming(struct vb2_queue *q, unsigned int count)
 static void vpe_stop_streaming(struct vb2_queue *q)
 {
 	struct vpe_ctx *ctx = vb2_get_drv_priv(q);
+	struct vb2_buffer *vb;
+	unsigned long flags;
 
 	vpe_dump_regs(ctx->dev);
 	vpdma_dump_regs(ctx->dev->vpdma);
+
+	for (;;) {
+		if (V4L2_TYPE_IS_OUTPUT(q->type))
+			vb = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
+		else
+			vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+		if (vb == NULL)
+			return;
+		spin_lock_irqsave(&ctx->dev->lock, flags);
+		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
+		spin_unlock_irqrestore(&ctx->dev->lock, flags);
+	}
+
 }
 
 static struct vb2_ops vpe_qops = {
