@@ -10696,6 +10696,8 @@ L:	linux-media@vger.kernel.org
 T:	git git://linuxtv.org/media_tree.git
 S:	Maintained
 F:	Documentation/devicetree/bindings/media/i2c/ov1063x.txt
+F:	drivers/media/i2c/ov1063x.c
+F:	drivers/media/i2c/ov1063x_regs.h
 
 OMNIVISION OV13858 SENSOR DRIVER
 M:	Sakari Ailus <sakari.ailus@linux.intel.com>
