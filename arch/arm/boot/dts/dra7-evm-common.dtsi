@@ -101,6 +101,12 @@
 			gpios = <&pcf_lcd 3 GPIO_ACTIVE_LOW>;
 		};
 	};
+
+	clk_ov10633_fixed: clk-ov10633-fixed {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24000000>;
+	};
 };
 
 &i2c3 {
@@ -282,3 +288,4 @@
 		interrupts = <7 IRQ_TYPE_EDGE_RISING>;
 	};
 };
+
