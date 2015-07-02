@@ -251,6 +251,7 @@ config VIDEO_TI_VPE
 	depends on HAS_DMA
 	select VIDEOBUF2_DMA_CONTIG
 	select V4L2_MEM2MEM_DEV
+	select VIDEO_TI_VPDMA_HELPER
 	default n
 	---help---
 	  Support for the TI VPE(Video Processing Engine) block
@@ -263,6 +264,16 @@ config VIDEO_TI_VPE_DEBUG
 	  Enable debug messages on VPE driver.
 
 endif # V4L_MEM2MEM_DRIVERS
+
+config VIDEO_TI_VPDMA_HELPER
+       tristate "TI VPDMA helper module"
+       depends on VIDEO_TI_VPE
+       default n
+       ---help---
+       Video Port Direct Memory Access
+       Used with VIP and VPE on some TI SoC's (e.g. DRA7xx)
+       it provides a mem2mem, mem2device, device2mem DMA specifically
+       for transferring and manipulating video data.
 
 menuconfig V4L_TEST_DRIVERS
 	bool "Media test drivers"
