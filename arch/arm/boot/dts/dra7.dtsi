@@ -1645,6 +1645,78 @@
 			#size-cells = <0>;
 		};
 
+		vip1: vip@0x48970000 {
+			compatible = "ti,vip1";
+			reg = <0x48970000 0x10000>,
+			      <0x4897d000 0x1000>;
+			reg-names = "vip","vpdma";
+			ti,hwmods = "vip1";
+			interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			vin1a: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			vin2a: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
+		};
+
+		vip2: vip@0x48990000 {
+			compatible = "ti,vip2";
+			reg = <0x48990000 0x10000>,
+			      <0x4899d000 0x1000>;
+			reg-names = "vip","vpdma";
+			ti,hwmods = "vip2";
+			interrupts = <GIC_SPI 352 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			vin3a: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			vin4a: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
+		};
+
+		vip3: vip@0x489b0000 {
+			compatible = "ti,vip3";
+			reg = <0x489b0000 0x10000>,
+			      <0x489bd000 0x1000>;
+			reg-names = "vip","vpdma";
+			ti,hwmods = "vip3";
+			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			vin5a: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			vin6a: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
+		};
+
 		cal: cal@4845b000 {
 			compatible = "ti,cal";
 			ti,hwmods = "cal";
