@@ -2109,6 +2109,23 @@
 			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
+		vpe {
+			compatible = "ti,vpe";
+			ti,hwmods = "vpe";
+			clocks = <&dpll_core_h23x2_ck>;
+			clock-names = "fck";
+			reg = <0x489d0000 0x120>,
+			      <0x489d0700 0x80>,
+			      <0x489d5700 0x18>,
+			      <0x489dd000 0x400>;
+			reg-names = "vpe_top",
+				    "sc",
+				    "csc",
+				    "vpdma";
+			interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
 	};
 
 	thermal_zones: thermal-zones {
