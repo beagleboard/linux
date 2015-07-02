@@ -65,7 +65,7 @@ static int amx3_common_init(void)
 	return 0;
 }
 
-static int am33xx_suspend_init(void)
+static int am33xx_suspend_init(void (*do_sram_cpuidle)(u32 wfi_flags))
 {
 	int ret;
 
@@ -81,7 +81,7 @@ static int am33xx_suspend_init(void)
 	return ret;
 }
 
-static int am43xx_suspend_init(void)
+static int am43xx_suspend_init(void (*do_sram_cpuidle)(u32 wfi_flags))
 {
 	int ret = 0;
 
@@ -150,9 +150,19 @@ static int am43xx_suspend(unsigned int state, int (*fn)(unsigned long),
 	return ret;
 }
 
+static int am33xx_cpu_suspend(int (*fn)(unsigned long), unsigned long args)
+{
+	int ret = 0;
+
+	ret = cpu_suspend(args, fn);
+
+	return ret;
+}
+
 static struct am33xx_pm_ops am33xx_ops = {
 	.init = am33xx_suspend_init,
 	.soc_suspend = am33xx_suspend,
+	.cpu_suspend = am33xx_cpu_suspend,
 };
 
 static struct am33xx_pm_ops am43xx_ops = {

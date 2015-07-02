@@ -44,6 +44,16 @@ static struct am33xx_pm_ops *pm_ops;
 static struct am33xx_pm_sram_addr *pm_sram;
 static unsigned long suspend_wfi_flags;
 
+static void am33xx_do_sram_idle(u32 wfi_flags)
+{
+	int ret = 0;
+
+	ret = wkup_m3_prepare_low_power(WKUP_M3_IDLE);
+
+	if (!ret)
+		pm_ops->cpu_suspend(am33xx_do_wfi_sram, wfi_flags);
+}
+
 #ifdef CONFIG_SUSPEND
 static int am33xx_pm_suspend(suspend_state_t suspend_state)
 {
@@ -96,6 +106,8 @@ static int am33xx_pm_begin(suspend_state_t state)
 {
 	int ret = -EINVAL;
 
+	cpu_idle_poll_ctrl(true);
+
 	switch (state) {
 	case PM_SUSPEND_MEM:
 	case PM_SUSPEND_STANDBY:
@@ -109,6 +121,7 @@ static int am33xx_pm_begin(suspend_state_t state)
 static void am33xx_pm_end(void)
 {
 	wkup_m3_finish_low_power();
+	cpu_idle_poll_ctrl(false);
 }
 
 static int am33xx_pm_valid(suspend_state_t state)
@@ -235,7 +248,7 @@ int am33xx_pm_init(void)
 	suspend_wfi_flags |= WFI_FLAG_DISABLE_EMIF;
 	suspend_wfi_flags |= WFI_FLAG_WAKE_M3;
 
-	ret = pm_ops->init();
+	ret = pm_ops->init(am33xx_do_sram_idle);
 	if (ret) {
 		pr_err("Unable to call core pm init!\n");
 		return -ENODEV;

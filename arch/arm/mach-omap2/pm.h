@@ -83,9 +83,10 @@ extern void (*omap3_do_wfi_sram)(void);
 
 /* for sharing core pm ops with amx3 pm modules */
 struct am33xx_pm_ops {
-	int	(*init)(void);
+	int	(*init)(void (*do_sram_cpuidle)(u32 wfi_flags));
 	int	(*soc_suspend)(unsigned int state, int (*fn)(unsigned long),
 			       unsigned long args);
+	int	(*cpu_suspend)(int (*fn)(unsigned long), unsigned long args);
 };
 
 /* for sharing asm function addrs with amx3 pm modules */
