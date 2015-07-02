@@ -14708,6 +14708,7 @@ Q:	http://patchwork.linuxtv.org/project/linux-media/list/
 S:	Maintained
 F:	drivers/media/platform/ti-vpe/
 F:	Documentation/devicetree/bindings/media/ti-vpe.txt
+F:	Documentation/devicetree/bindings/media/ti-vip.txt
 
 TI WILINK WIRELESS DRIVERS
 L:	linux-wireless@vger.kernel.org
