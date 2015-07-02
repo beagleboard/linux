@@ -9849,6 +9849,7 @@ L:	linux-media@vger.kernel.org
 T:	git git://linuxtv.org/media_tree.git
 S:	Odd Fixes
 F:	Documentation/devicetree/bindings/media/i2c/mt9t11x.txt
+F:	drivers/media/i2c/mt9t11x.c
 
 MT9V032 APTINA CAMERA SENSOR
 M:	Laurent Pinchart <laurent.pinchart@ideasonboard.com>
