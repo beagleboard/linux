@@ -77,6 +77,98 @@
 			ti,syscon-mmuconfig = <&dsp2_system 0x1>;
 			status = "disabled";
 		};
+
+		vip2: vip@0x48990000 {
+			compatible = "ti,vip2";
+			reg = <0x48990000 0x114>,
+			      <0x48995500 0xD8>,
+			      <0x48995700 0x18>,
+			      <0x48995800 0x80>,
+			      <0x48995a00 0xD8>,
+			      <0x48995c00 0x18>,
+			      <0x48995d00 0x80>,
+			      <0x4899d000 0x400>;
+			reg-names = "vip",
+				    "parser0",
+				    "csc0",
+				    "sc0",
+				    "parser1",
+				    "csc1",
+				    "sc1",
+				    "vpdma";
+			ti,hwmods = "vip2";
+			interrupts = <GIC_SPI 352 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+			/* CTRL_CORE_SMA_SW_1 */
+			syscon-pol = <&scm_conf 0x534>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			vin3a: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				status = "disabled";
+			};
+			vin4a: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+				status = "disabled";
+			};
+			vin3b: port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+				status = "disabled";
+			};
+			vin4b: port@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+				status = "disabled";
+			};
+		};
+
+		vip3: vip@0x489b0000 {
+			compatible = "ti,vip3";
+			reg = <0x489b0000 0x114>,
+			      <0x489b5500 0xD8>,
+			      <0x489b5700 0x18>,
+			      <0x489b5800 0x80>,
+			      <0x489b5a00 0xD8>,
+			      <0x489b5c00 0x18>,
+			      <0x489b5d00 0x80>,
+			      <0x489bd000 0x400>;
+			reg-names = "vip",
+				    "parser0",
+				    "csc0",
+				    "sc0",
+				    "parser1",
+				    "csc1",
+				    "sc1",
+				    "vpdma";
+			ti,hwmods = "vip3";
+			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>;
+			/* CTRL_CORE_SMA_SW_1 */
+			syscon-pol = <&scm_conf 0x534>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			vin5a: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				status = "disabled";
+			};
+			vin6a: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+				status = "disabled";
+			};
+		};
 	};
 };
 
