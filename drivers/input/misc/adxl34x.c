@@ -913,3 +913,4 @@ EXPORT_SYMBOL_GPL(adxl34x_remove);
 MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
 MODULE_DESCRIPTION("ADXL345/346 Three-Axis Digital Accelerometer Driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("misc:adxl34x");
