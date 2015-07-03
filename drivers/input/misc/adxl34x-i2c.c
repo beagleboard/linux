@@ -153,3 +153,4 @@ module_i2c_driver(adxl34x_driver);
 MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
 MODULE_DESCRIPTION("ADXL345/346 Three-Axis Digital Accelerometer I2C Bus Driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("i2c:adxl34x");
