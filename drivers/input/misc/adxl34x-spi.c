@@ -134,3 +134,4 @@ module_spi_driver(adxl34x_driver);
 MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
 MODULE_DESCRIPTION("ADXL345/346 Three-Axis Digital Accelerometer SPI Bus Driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("spi:adxl34x");
