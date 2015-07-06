@@ -85,6 +85,44 @@
 			};
 		};
 	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&ehrpwm1 0 50000 0>;
+
+		/* Anything lower than 241 is no longer visible */
+		brightness-levels = <0 243 245 247 249 251 252 253 255>;
+
+		default-brightness-level = <8>;
+	};
+};
+
+&i2c5 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	mt9t11x@3C {
+		compatible = "aptina,mt9t111";
+		reg = <0x3C>;
+
+		reset-gpios = <&gpio4 17 GPIO_ACTIVE_LOW>;
+		oscen-gpios = <&gpio5 10 GPIO_ACTIVE_HIGH>;
+		powerdown-gpios = <&gpio5 11 GPIO_ACTIVE_LOW>;
+		bufen-gpios = <&gpio5 12 GPIO_ACTIVE_LOW>;
+		camen-gpios = <&gpio6 11 GPIO_ACTIVE_LOW>;
+
+		port {
+			cam: endpoint {
+				remote-endpoint = <&vin3a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+				input-clock-freq = <32000000>;
+				pixel-clock-freq = <96000000>;
+			};
+		};
+	};
+
 };
 
 &dss {
@@ -100,5 +138,24 @@
 				data-lines = <24>;
 			};
 		};
+	};
+};
+
+&vip2 {
+	status = "okay";
+};
+
+&vin3a {
+	endpoint {
+		slave-mode;
+		remote-endpoint = <&cam>;
+	};
+};
+
+&epwmss1 {
+	status = "okay";
+
+	ehrpwm1: ehrpwm@48440200 {
+		status = "okay";
 	};
 };

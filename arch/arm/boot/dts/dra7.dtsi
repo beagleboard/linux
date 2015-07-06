@@ -1672,6 +1672,131 @@
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
 		};
+
+		vpe {
+			compatible = "ti,vpe";
+			ti,hwmods = "vpe";
+			clocks = <&dpll_core_h23x2_ck>;
+			clock-names = "fck";
+			reg = <0x489d0000 0x120>,
+			      <0x489d0300 0x20>,
+			      <0x489d0400 0x20>,
+			      <0x489d0500 0x20>,
+			      <0x489d0600 0x3c>,
+			      <0x489d0700 0x80>,
+			      <0x489d5700 0x18>,
+			      <0x489dd000 0x400>;
+			reg-names = "vpe_top",
+				    "vpe_chr_us0",
+				    "vpe_chr_us1",
+				    "vpe_chr_us2",
+				    "vpe_dei",
+				    "sc",
+				    "csc",
+				    "vpdma";
+			interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		vip1: vip@0x48970000 {
+			compatible = "ti,vip1";
+			reg = <0x48970000 0x10000>,
+			      <0x4897d000 0x1000>;
+			reg-names = "vip","vpdma";
+			ti,hwmods = "vip1";
+			interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			vin1a: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			vin2a: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
+		};
+
+		vip2: vip@0x48990000 {
+			compatible = "ti,vip2";
+			reg = <0x48990000 0x10000>,
+			      <0x4899d000 0x1000>;
+			reg-names = "vip","vpdma";
+			ti,hwmods = "vip2";
+			interrupts = <GIC_SPI 352 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			vin3a: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			vin4a: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
+		};
+
+		vip3: vip@0x489b0000 {
+			compatible = "ti,vip3";
+			reg = <0x489b0000 0x10000>,
+			      <0x489bd000 0x1000>;
+			reg-names = "vip","vpdma";
+			ti,hwmods = "vip3";
+			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>;
+			syscon = <&dra7_ctrl_core>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			vin5a: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			vin6a: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
+		};
+
+		cal: cal@4845b000 {
+			compatible = "ti,cal";
+			ti,hwmods = "cal";
+			reg = <0x4845B000 0x400>,
+			      <0x4845B800 0x40>,
+			      <0x4845B900 0x40>,
+			      <0x4A002e94 0x4>;
+			reg-names = "cal_top",
+				    "cal_rx_core0",
+				    "cal_rx_core1",
+				    "camerrx_control";
+			interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			csi2_0: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+			csi2_1: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
+		};
 	};
 
 	thermal_zones: thermal-zones {
