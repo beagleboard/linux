@@ -415,6 +415,11 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-base0033.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-bonegreen.dtb \
+	am335x-boneblack-wl1835mod.dtb \
+	am335x-boneblack-replicape.dtb \
+	am335x-boneblack-overlay.dtb \
+	am335x-arduino-tre.dtb \
 	am335x-boneblack-overlay.dtb \
 	am335x-bonegreen.dtb \
 	am335x-evm.dtb \
