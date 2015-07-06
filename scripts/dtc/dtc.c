@@ -18,6 +18,8 @@
  *                                                                   USA
  */
 
+#include <sys/stat.h>
+
 #include "dtc.h"
 #include "srcpos.h"
 
@@ -29,6 +31,7 @@ int reservenum;		/* Number of memory reservation slots */
 int minsize;		/* Minimum blob size */
 int padsize;		/* Additional padding to blob */
 int phandle_format = PHANDLE_BOTH;	/* Use linux,phandle or phandle properties */
+int symbol_fixup_support = 0;
 
 static void fill_fullpaths(struct node *tree, const char *prefix)
 {
@@ -48,8 +51,10 @@ static void fill_fullpaths(struct node *tree, const char *prefix)
 }
 
 /* Usage related data. */
+#define FDT_VERSION(version)	_FDT_VERSION(version)
+#define _FDT_VERSION(version)	#version
 static const char usage_synopsis[] = "dtc [options] <input file>";
-static const char usage_short_opts[] = "qI:O:o:V:d:R:S:p:fb:i:H:sW:E:hv";
+static const char usage_short_opts[] = "qI:O:o:V:d:R:S:p:fb:i:H:sW:E:@hv";
 static struct option const usage_long_opts[] = {
 	{"quiet",            no_argument, NULL, 'q'},
 	{"in-format",         a_argument, NULL, 'I'},
@@ -67,6 +72,7 @@ static struct option const usage_long_opts[] = {
 	{"phandle",           a_argument, NULL, 'H'},
 	{"warning",           a_argument, NULL, 'W'},
 	{"error",             a_argument, NULL, 'E'},
+	{"symbols",	     no_argument, NULL, '@'},
 	{"help",             no_argument, NULL, 'h'},
 	{"version",          no_argument, NULL, 'v'},
 	{NULL,               no_argument, NULL, 0x0},
@@ -82,9 +88,9 @@ static const char * const usage_opts_help[] = {
 	 "\t\tdts - device tree source text\n"
 	 "\t\tdtb - device tree blob\n"
 	 "\t\tasm - assembler source",
-	"\n\tBlob version to produce, defaults to %d (for dtb and asm output)", //, DEFAULT_FDT_VERSION);
+	"\n\tBlob version to produce, defaults to "FDT_VERSION(DEFAULT_FDT_VERSION)" (for dtb and asm output)",
 	"\n\tOutput dependency file",
-	"\n\ttMake space for <number> reserve map entries (for dtb and asm output)",
+	"\n\tMake space for <number> reserve map entries (for dtb and asm output)",
 	"\n\tMake the blob at least <bytes> long (extra space)",
 	"\n\tAdd padding to the blob of <bytes> long (extra space)",
 	"\n\tSet the physical boot cpu",
@@ -97,19 +103,65 @@ static const char * const usage_opts_help[] = {
 	 "\t\tboth   - Both \"linux,phandle\" and \"phandle\" properties",
 	"\n\tEnable/disable warnings (prefix with \"no-\")",
 	"\n\tEnable/disable errors (prefix with \"no-\")",
+	"\n\tEnable symbols/fixup support",
 	"\n\tPrint this help and exit",
 	"\n\tPrint version and exit",
 	NULL,
 };
 
+static const char *guess_type_by_name(const char *fname, const char *fallback)
+{
+	const char *s;
+
+	s = strrchr(fname, '.');
+	if (s == NULL)
+		return fallback;
+	if (!strcasecmp(s, ".dts"))
+		return "dts";
+	if (!strcasecmp(s, ".dtb"))
+		return "dtb";
+	return fallback;
+}
+
+static const char *guess_input_format(const char *fname, const char *fallback)
+{
+	struct stat statbuf;
+	uint32_t magic;
+	FILE *f;
+
+	if (stat(fname, &statbuf) != 0)
+		return fallback;
+
+	if (S_ISDIR(statbuf.st_mode))
+		return "fs";
+
+	if (!S_ISREG(statbuf.st_mode))
+		return fallback;
+
+	f = fopen(fname, "r");
+	if (f == NULL)
+		return fallback;
+	if (fread(&magic, 4, 1, f) != 1) {
+		fclose(f);
+		return fallback;
+	}
+	fclose(f);
+
+	magic = fdt32_to_cpu(magic);
+	if (magic == FDT_MAGIC)
+		return "dtb";
+
+	return guess_type_by_name(fname, fallback);
+}
+
 int main(int argc, char *argv[])
 {
 	struct boot_info *bi;
-	const char *inform = "dts";
-	const char *outform = "dts";
+	const char *inform = NULL;
+	const char *outform = NULL;
 	const char *outname = "-";
 	const char *depname = NULL;
-	int force = 0, sort = 0;
+	bool force = false, sort = false;
 	const char *arg;
 	int opt;
 	FILE *outf = NULL;
@@ -148,7 +200,7 @@ int main(int argc, char *argv[])
 			padsize = strtol(optarg, NULL, 0);
 			break;
 		case 'f':
-			force = 1;
+			force = true;
 			break;
 		case 'q':
 			quiet++;
@@ -174,7 +226,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 's':
-			sort = 1;
+			sort = true;
 			break;
 
 		case 'W':
@@ -184,7 +236,9 @@ int main(int argc, char *argv[])
 		case 'E':
 			parse_checks_option(false, true, optarg);
 			break;
-
+		case '@':
+			symbol_fixup_support = 1;
+			break;
 		case 'h':
 			usage(NULL);
 		default:
@@ -211,6 +265,17 @@ int main(int argc, char *argv[])
 		fprintf(depfile, "%s:", outname);
 	}
 
+	if (inform == NULL)
+		inform = guess_input_format(arg, "dts");
+	if (outform == NULL) {
+		outform = guess_type_by_name(outname, NULL);
+		if (outform == NULL) {
+			if (streq(inform, "dts"))
+				outform = "dtb";
+			else
+				outform = "dts";
+		}
+	}
 	if (streq(inform, "dts"))
 		bi = dt_from_source(arg);
 	else if (streq(inform, "fs"))
@@ -237,7 +302,7 @@ int main(int argc, char *argv[])
 	if (streq(outname, "-")) {
 		outf = stdout;
 	} else {
-		outf = fopen(outname, "w");
+		outf = fopen(outname, "wb");
 		if (! outf)
 			die("Couldn't open output file %s: %s\n",
 			    outname, strerror(errno));
