@@ -674,7 +674,7 @@ static bool read_set_clear_sgi_pend_reg(struct kvm_vcpu *vcpu,
 {
 	struct vgic_dist *dist = &vcpu->kvm->arch.vgic;
 	int sgi;
-	int min_sgi = (offset & ~0x3) * 4;
+	int min_sgi = (offset & ~0x3);
 	int max_sgi = min_sgi + 3;
 	int vcpu_id = vcpu->vcpu_id;
 	u32 reg = 0;
@@ -695,7 +695,7 @@ static bool write_set_clear_sgi_pend_reg(struct kvm_vcpu *vcpu,
 {
 	struct vgic_dist *dist = &vcpu->kvm->arch.vgic;
 	int sgi;
-	int min_sgi = (offset & ~0x3) * 4;
+	int min_sgi = (offset & ~0x3);
 	int max_sgi = min_sgi + 3;
 	int vcpu_id = vcpu->vcpu_id;
 	u32 reg;
@@ -1387,7 +1387,8 @@ out:
 int kvm_vgic_inject_irq(struct kvm *kvm, int cpuid, unsigned int irq_num,
 			bool level)
 {
-	if (vgic_update_irq_state(kvm, cpuid, irq_num, level))
+	if (likely(vgic_initialized(kvm)) &&
+	    vgic_update_irq_state(kvm, cpuid, irq_num, level))
 		vgic_kick_vcpus(kvm);
 
 	return 0;
@@ -1610,7 +1611,7 @@ out:
 
 int kvm_vgic_create(struct kvm *kvm)
 {
-	int i, vcpu_lock_idx = -1, ret = 0;
+	int i, vcpu_lock_idx = -1, ret;
 	struct kvm_vcpu *vcpu;
 
 	mutex_lock(&kvm->lock);
@@ -1625,6 +1626,7 @@ int kvm_vgic_create(struct kvm *kvm)
 	 * vcpu->mutex.  By grabbing the vcpu->mutex of all VCPUs we ensure
 	 * that no other VCPUs are run while we create the vgic.
 	 */
+	ret = -EBUSY;
 	kvm_for_each_vcpu(i, vcpu, kvm) {
 		if (!mutex_trylock(&vcpu->mutex))
 			goto out_unlock;
@@ -1632,11 +1634,10 @@ int kvm_vgic_create(struct kvm *kvm)
 	}
 
 	kvm_for_each_vcpu(i, vcpu, kvm) {
-		if (vcpu->arch.has_run_once) {
-			ret = -EBUSY;
+		if (vcpu->arch.has_run_once)
 			goto out_unlock;
-		}
 	}
+	ret = 0;
 
 	spin_lock_init(&kvm->arch.vgic.lock);
 	kvm->arch.vgic.vctrl_base = vgic_vctrl_base;
