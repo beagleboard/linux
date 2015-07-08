@@ -59,6 +59,14 @@ config TI_EMIF_SRAM
 	  this driver provides several relocatable PM functions for the SoC
 	  PM code to use.
 
+config OMAP_GPMC_DEBUG
+	bool
+	depends on OMAP_GPMC
+	help
+	  Enables verbose debugging mostly to decode the bootloader provided
+	  timings. Enable this during development to configure devices
+	  connected to the GPMC bus.
+
 config MVEBU_DEVBUS
 	bool "Marvell EBU Device Bus Controller"
 	default y
