@@ -1,2 +1,3 @@
 use-kernel-config=omap2plus_defconfig
 config-fragment=ti_config_fragments/audio_display.cfg
+config-fragment=ti_config_fragments/ipc.cfg
