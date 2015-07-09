@@ -36,11 +36,12 @@
 #define REMOTEPROC_H
 
 #include <linux/types.h>
-#include <linux/klist.h>
 #include <linux/mutex.h>
 #include <linux/virtio.h>
 #include <linux/completion.h>
 #include <linux/idr.h>
+#include <linux/of.h>
+#include <linux/bitops.h>
 
 /**
  * struct resource_table - firmware resource table header
@@ -325,16 +326,31 @@ struct rproc_mem_entry {
 
 struct rproc;
 
+/*
+ * Macros to use with flags field in rproc_da_to_va API. Use
+ * the upper 16 bits to dictate the flags type and the lower
+ * 16 bits to pass on the value of the flags pertinent to that
+ * type.
+ *
+ * Add any new flags type at a new bit-field position
+ */
+#define RPROC_FLAGS_SHIFT	16
+#define RPROC_FLAGS_NONE	0
+#define RPROC_FLAGS_ELF_PHDR	BIT(0 + RPROC_FLAGS_SHIFT)
+#define RPROC_FLAGS_ELF_SHDR	BIT(1 + RPROC_FLAGS_SHIFT)
+
 /**
  * struct rproc_ops - platform-specific device handlers
  * @start:	power on the device and boot it
  * @stop:	power off the device
  * @kick:	kick a virtqueue (virtqueue id given as a parameter)
+ * @da_to_va:	optional platform hook to perform address translations
  */
 struct rproc_ops {
 	int (*start)(struct rproc *rproc);
 	int (*stop)(struct rproc *rproc);
 	void (*kick)(struct rproc *rproc, int vqid);
+	void * (*da_to_va)(struct rproc *rproc, u64 da, int len, u32 flags);
 };
 
 /**
@@ -375,7 +391,7 @@ enum rproc_crash_type {
 
 /**
  * struct rproc - represents a physical remote processor device
- * @node: klist node of this rproc object
+ * @node: list node of this rproc object
  * @domain: iommu domain
  * @name: human readable name of the rproc
  * @firmware: name of firmware file to be loaded
@@ -407,7 +423,7 @@ enum rproc_crash_type {
  * @has_iommu: flag to indicate if remote processor is behind an MMU
  */
 struct rproc {
-	struct klist_node node;
+	struct list_head node;
 	struct iommu_domain *domain;
 	const char *name;
 	const char *firmware;
@@ -481,6 +497,7 @@ struct rproc_vdev {
 	u32 rsc_offset;
 };
 
+struct rproc *rproc_get_by_phandle(phandle phandle);
 struct rproc *rproc_alloc(struct device *dev, const char *name,
 				const struct rproc_ops *ops,
 				const char *firmware, int len);
@@ -491,6 +508,7 @@ int rproc_del(struct rproc *rproc);
 int rproc_boot(struct rproc *rproc);
 void rproc_shutdown(struct rproc *rproc);
 void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type);
+void *rproc_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags);
 
 static inline struct rproc_vdev *vdev_to_rvdev(struct virtio_device *vdev)
 {

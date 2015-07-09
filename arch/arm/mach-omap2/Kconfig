@@ -60,6 +60,7 @@ config SOC_AM43XX
 	select ARM_GIC
 	select MACH_OMAP_GENERIC
 	select MIGHT_HAVE_CACHE_L2X0
+	select HAVE_ARM_SCU
 
 config SOC_DRA7XX
 	bool "TI DRA7XX"
@@ -261,6 +262,15 @@ config OMAP3_SDRC_AC_TIMING
 	  users who will wish to say yes at this point - almost everyone will
 	  wish to say no.  Selecting yes without understanding what is
 	  going on could result in system crashes;
+
+config AMX3_PM
+	tristate "AMx3 Power Management"
+	depends on SOC_AM33XX || SOC_AM43XX
+	depends on WKUP_M3_IPC && TI_EMIF_SRAM
+	default y
+	help
+	  Enable power management on am335x and am437x. Required for suspend to mem
+	  and standby on both platforms and deeper cpuidle c-states on am335x only.
 
 endmenu
 

@@ -56,6 +56,14 @@ static unsigned int irq_target_cpu[MAX_IRQS];
 static unsigned int irq_banks = DEFAULT_NR_REG_BANKS;
 static unsigned int max_irqs = DEFAULT_IRQS;
 static unsigned int omap_secure_apis;
+static unsigned int wakeupgen_context[MAX_NR_REG_BANKS];
+
+struct omap_wakeupgen_ops {
+	void (*save_context)(void);
+	void (*restore_context)(void);
+};
+
+static struct omap_wakeupgen_ops *wakeupgen_ops;
 
 /*
  * Static helper functions.
@@ -263,6 +271,16 @@ static inline void omap5_irq_save_context(void)
 
 }
 
+static inline void am43xx_irq_save_context(void)
+{
+	u32 i;
+
+	for (i = 0; i < irq_banks; i++) {
+		wakeupgen_context[i] = wakeupgen_readl(i, 0);
+		wakeupgen_writel(0, i, CPU0_ID);
+	}
+}
+
 /*
  * Save WakeupGen interrupt context in SAR BANK3. Restore is done by
  * ROM code. WakeupGen IP is integrated along with GIC to manage the
@@ -275,11 +293,7 @@ static void irq_save_context(void)
 {
 	if (!sar_base)
 		sar_base = omap4_get_sar_ram_base();
-
-	if (soc_is_omap54xx())
-		omap5_irq_save_context();
-	else
-		omap4_irq_save_context();
+	wakeupgen_ops->save_context();
 }
 
 /*
@@ -296,6 +310,19 @@ static void irq_sar_clear(void)
 	val = readl_relaxed(sar_base + offset);
 	val &= ~SAR_BACKUP_STATUS_WAKEUPGEN;
 	writel_relaxed(val, sar_base + offset);
+}
+
+static void am43xx_irq_restore_context(void)
+{
+	u32 i;
+
+	for (i = 0; i < irq_banks; i++)
+		wakeupgen_writel(wakeupgen_context[i], i, CPU0_ID);
+}
+
+static void irq_restore_context(void)
+{
+	wakeupgen_ops->restore_context();
 }
 
 /*
@@ -355,7 +382,7 @@ static int irq_notifier(struct notifier_block *self, unsigned long cmd,	void *v)
 		break;
 	case CPU_CLUSTER_PM_EXIT:
 		if (omap_type() == OMAP2_DEVICE_TYPE_GP)
-			irq_sar_clear();
+			irq_restore_context();
 		break;
 	}
 	return NOTIFY_OK;
@@ -450,6 +477,23 @@ static struct irq_domain_ops wakeupgen_domain_ops = {
 	.free	= irq_domain_free_irqs_common,
 };
 
+/* Define ops for context save and restore for each SoC */
+
+static struct omap_wakeupgen_ops omap4_wakeupgen_ops = {
+	.save_context = omap4_irq_save_context,
+	.restore_context = irq_sar_clear,
+};
+
+static struct omap_wakeupgen_ops omap5_wakeupgen_ops = {
+	.save_context = omap5_irq_save_context,
+	.restore_context = irq_sar_clear,
+};
+
+static struct omap_wakeupgen_ops am43xx_wakeupgen_ops = {
+	.save_context = am43xx_irq_save_context,
+	.restore_context = am43xx_irq_restore_context,
+};
+
 /*
  * Initialise the wakeupgen module.
  */
@@ -486,9 +530,13 @@ static int __init wakeupgen_init(struct device_node *node,
 		irq_banks = OMAP4_NR_BANKS;
 		max_irqs = OMAP4_NR_IRQS;
 		omap_secure_apis = 1;
+		wakeupgen_ops = &omap4_wakeupgen_ops;
+	} else if (soc_is_omap54xx()) {
+		wakeupgen_ops = &omap5_wakeupgen_ops;
 	} else if (soc_is_am43xx()) {
 		irq_banks = AM43XX_NR_REG_BANKS;
 		max_irqs = AM43XX_IRQS;
+		wakeupgen_ops = &am43xx_wakeupgen_ops;
 	}
 
 	domain = irq_domain_add_hierarchy(parent_domain, 0, max_irqs,

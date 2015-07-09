@@ -16,9 +16,22 @@
 #include "powerdomain.h"
 
 #ifdef CONFIG_CPU_IDLE
+extern int am33xx_idle_init(bool ddr3, void (*do_idle)(u32 wfi_flags));
+extern int am437x_idle_init(void);
 extern int __init omap3_idle_init(void);
 extern int __init omap4_idle_init(void);
 #else
+static inline int am33xx_idle_init(bool ddr3, void (*do_sram_cpuidle)
+				   (u32 wfi_flags))
+{
+	return 0;
+}
+
+static inline int am437x_idle_init(void)
+{
+	return 0;
+}
+
 static inline int omap3_idle_init(void)
 {
 	return 0;
@@ -80,6 +93,34 @@ extern void omap3_do_wfi(void);
 extern unsigned int omap3_do_wfi_sz;
 /* ... and its pointer from SRAM after copy */
 extern void (*omap3_do_wfi_sram)(void);
+
+/* for sharing core pm ops with amx3 pm modules */
+struct am33xx_pm_ops {
+	int	(*init)(void (*do_sram_cpuidle)(u32 wfi_flags));
+	int	(*soc_suspend)(unsigned int state, int (*fn)(unsigned long),
+			       unsigned long args);
+	int	(*cpu_suspend)(int (*fn)(unsigned long), unsigned long args);
+};
+
+/* for sharing asm function addrs with amx3 pm modules */
+struct am33xx_pm_sram_addr {
+	void (*do_wfi)(void);
+	unsigned long *do_wfi_sz;
+	unsigned long *resume_offset;
+	unsigned long *emif_sram_table;
+};
+
+struct am33xx_pm_ops *amx3_get_pm_ops(void);
+struct am33xx_pm_sram_addr *amx3_get_sram_addrs(void);
+
+#define WFI_FLAG_SELF_REFRESH		(1 << 2)
+#define WFI_FLAG_SAVE_EMIF		(1 << 3)
+#define WFI_FLAG_WAKE_M3		(1 << 4)
+#define WFI_FLAG_DISABLE_EMIF		(1 << 7)
+#define WFI_FLAG_RTC_ONLY		(1 << 8)
+
+extern struct am33xx_pm_sram_addr am33xx_pm_sram;
+extern struct am33xx_pm_sram_addr am43xx_pm_sram;
 
 /* save_secure_ram_context function pointer and size, for copy to SRAM */
 extern int save_secure_ram_context(u32 *addr);

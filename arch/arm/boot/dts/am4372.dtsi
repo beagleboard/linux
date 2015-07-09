@@ -42,6 +42,15 @@
 		};
 	};
 
+	soc {
+		compatible = "ti,omap-infra";
+		mpu {
+			compatible = "ti,omap4-mpu";
+			ti,hwmods = "mpu";
+			sram = <&ocmcram>;
+		};
+	};
+
 	gic: interrupt-controller@48241000 {
 		compatible = "arm,cortex-a9-gic";
 		interrupt-controller;
@@ -72,6 +81,7 @@
 		#size-cells = <1>;
 		ranges;
 		ti,hwmods = "l3_main";
+		ti,no-idle;
 		reg = <0x44000000 0x400000
 		       0x44800000 0x400000>;
 		interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
@@ -82,6 +92,15 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0 0x44c00000 0x287000>;
+
+			wkup_m3: wkup_m3@100000 {
+				compatible = "ti,am4372-wkup-m3";
+				reg = <0x100000 0x4000>,
+				      <0x180000	0x2000>;
+				reg-names = "umem", "dmem";
+				ti,hwmods = "wkup_m3";
+				ti,pm-firmware = "am335x-pm-firmware.elf";
+			};
 
 			prcm: prcm@1f0000 {
 				compatible = "ti,am4-prcm";
@@ -127,9 +146,25 @@
 					};
 				};
 
+				wkup_m3_ipc: wkup_m3_ipc@1324 {
+					compatible = "ti,am4372-wkup-m3-ipc";
+					reg = <0x1324 0x44>;
+					interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+					ti,rproc = <&wkup_m3>;
+					mboxes = <&mailbox &mbox_wkupm3>;
+				};
+
 				scm_clockdomains: clockdomains {
 				};
 			};
+		};
+
+		emif: emif@4c000000 {
+			compatible = "ti,emif-am4372";
+			reg = <0x4c000000 0x1000000>;
+			ti,hwmods = "emif";
+			ti,no-idle;
+			sram = <&ocmcram>;
 		};
 
 		edma: edma@49000000 {
@@ -199,6 +234,7 @@
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <8>;
 			mbox_wkupm3: wkup_m3 {
+				ti,mbox-send-noirq;
 				ti,mbox-tx = <0 0 0>;
 				ti,mbox-rx = <0 0 3>;
 			};
@@ -955,6 +991,7 @@
 		ocmcram: ocmcram@40300000 {
 			compatible = "mmio-sram";
 			reg = <0x40300000 0x40000>; /* 256k */
+			map-exec;
 		};
 
 		dcan0: can@481cc000 {
