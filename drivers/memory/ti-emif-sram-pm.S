@@ -146,7 +146,7 @@ ENTRY(ti_emif_restore_context)
 
 	ldr	r2, ti_emif_sram_config
 	cmp	r2, #EMIF_SRAM_AM43_REG_LAYOUT
-	bne	emif_skip_save_extra_regs
+	bne	emif_skip_restore_extra_regs
 
 	ldr     r1, emif_rd_wr_level_ramp_ctrl
 	str	r1, [r0, #EMIF_READ_WRITE_LEVELING_RAMP_CONTROL]
