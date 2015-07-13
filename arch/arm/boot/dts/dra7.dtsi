@@ -1149,6 +1149,7 @@
 				ctrl-module = <&omap_control_sata>;
 				clocks = <&sys_clkin1>, <&sata_ref_clk>;
 				clock-names = "sysclk", "refclk";
+				syscon-pllreset = <&dra7_ctrl_core 0x3fc>;
 				#phy-cells = <0>;
 			};
 
