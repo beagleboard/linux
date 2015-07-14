@@ -364,7 +364,7 @@ static void blk_mq_ipi_complete_request(struct request *rq)
 		return;
 	}
 
-	cpu = get_cpu();
+	cpu = get_cpu_light();
 	if (!test_bit(QUEUE_FLAG_SAME_FORCE, &rq->q->queue_flags))
 		shared = cpus_share_cache(cpu, ctx->cpu);
 
@@ -376,7 +376,7 @@ static void blk_mq_ipi_complete_request(struct request *rq)
 	} else {
 		rq->q->softirq_done_fn(rq);
 	}
-	put_cpu();
+	put_cpu_light();
 }
 
 void __blk_mq_complete_request(struct request *rq)
@@ -905,14 +905,14 @@ void blk_mq_run_hw_queue(struct blk_mq_hw_ctx *hctx, bool async)
 		return;
 
 	if (!async) {
-		int cpu = get_cpu();
+		int cpu = get_cpu_light();
 		if (cpumask_test_cpu(cpu, hctx->cpumask)) {
 			__blk_mq_run_hw_queue(hctx);
-			put_cpu();
+			put_cpu_light();
 			return;
 		}
 
-		put_cpu();
+		put_cpu_light();
 	}
 
 	kblockd_schedule_delayed_work_on(blk_mq_hctx_next_cpu(hctx),
