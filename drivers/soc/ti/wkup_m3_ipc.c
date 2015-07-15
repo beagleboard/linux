@@ -16,6 +16,7 @@
  */
 
 #include <linux/err.h>
+#include <linux/firmware.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/interrupt.h>
@@ -64,6 +65,12 @@
 #define M3_STATE_MSG_FOR_LP		3
 #define M3_STATE_MSG_FOR_RESET		4
 
+#define WKUP_M3_SD_FW_MAGIC		0x570C
+
+#define WKUP_M3_DMEM_START		0x80000
+#define WKUP_M3_AUXDATA_OFFSET		0x1000
+#define WKUP_M3_AUXDATA_SIZE		0xFF
+
 struct wkup_m3_ipc {
 	struct rproc *rproc;
 
@@ -76,10 +83,19 @@ struct wkup_m3_ipc {
 	int isolation_conf;
 	int state;
 
+	unsigned long volt_scale_offsets;
+	const char *sd_fw_name;
+
 	struct completion sync_complete;
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox;
 };
+
+struct wkup_m3_scale_data_header {
+	u16 magic;
+	u8 sleep_offset;
+	u8 wake_offset;
+} __packed;
 
 static struct wkup_m3_ipc m3_ipc_state;
 
@@ -100,6 +116,77 @@ static const struct wkup_m3_wakeup_src wakeups[] = {
 	{.irq_nr = 51,	.src = "ADC_TSC"},
 	{.irq_nr = 0,	.src = "Unknown"},
 };
+
+/**
+ * wkup_m3_copy_aux_data - Copy auxillary data to special region of m3 dmem
+ * @data - pointer to data
+ * @sz - size of data to copy (limit 256 bytes)
+ *
+ * Copies any additional blob of data to the wkup_m3 dmem to be used by the
+ * firmware
+ */
+static unsigned long wkup_m3_copy_aux_data(const void *data, int sz)
+{
+	unsigned long aux_data_dev_addr;
+	void *aux_data_addr;
+
+	aux_data_dev_addr = WKUP_M3_DMEM_START + WKUP_M3_AUXDATA_OFFSET;
+	aux_data_addr = rproc_da_to_va(m3_ipc_state.rproc,
+				       aux_data_dev_addr,
+				       WKUP_M3_AUXDATA_SIZE, 0);
+	memcpy(aux_data_addr, data, sz);
+
+	return WKUP_M3_AUXDATA_OFFSET;
+}
+
+static void wkup_m3_scale_data_fw_cb(const struct firmware *fw, void *context)
+{
+	unsigned long val, aux_base;
+	struct wkup_m3_scale_data_header hdr;
+	struct device *dev = (struct device *)context;
+
+	if (!fw) {
+		dev_err(dev, "Voltage scale fw name given but file missing.\n");
+		return;
+	}
+
+	memcpy(&hdr, fw->data, sizeof(hdr));
+
+	if (hdr.magic != WKUP_M3_SD_FW_MAGIC) {
+		dev_err(dev, "PM: Voltage Scale Data binary does not appear valid.\n");
+		goto release_sd_fw;
+	}
+
+	aux_base = wkup_m3_copy_aux_data(fw->data + sizeof(hdr),
+					 fw->size - sizeof(hdr));
+
+	val = (aux_base + hdr.sleep_offset);
+	val |= ((aux_base + hdr.wake_offset) << 16);
+
+	m3_ipc_state.volt_scale_offsets = val;
+
+release_sd_fw:
+	release_firmware(fw);
+};
+
+static int wkup_m3_init_scale_data(struct device *dev)
+{
+	int ret = 0;
+
+	/*
+	 * If no name is provided, user has already been warned, pm will
+	 * still work so return 0
+	 */
+
+	if (!m3_ipc_state.sd_fw_name)
+		return ret;
+
+	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
+				      m3_ipc_state.sd_fw_name, dev, GFP_KERNEL,
+				      dev, wkup_m3_scale_data_fw_cb);
+
+	return ret;
+}
 
 static void am33xx_txev_eoi(struct wkup_m3_ipc *m3_ipc)
 {
@@ -165,6 +252,7 @@ static irqreturn_t wkup_m3_txev_handler(int irq, void *ipc_data)
 		}
 
 		m3_ipc->state = M3_STATE_INITED;
+		wkup_m3_init_scale_data(dev);
 		complete(&m3_ipc->sync_complete);
 		break;
 	case M3_STATE_MSG_FOR_RESET:
@@ -325,13 +413,16 @@ int wkup_m3_prepare_low_power(int state)
 
 	switch (state) {
 	case PM_SUSPEND_MEM:
+		wkup_m3_ctrl_ipc_write(m3_ipc, m3_ipc->volt_scale_offsets, 5);
 		m3_power_state = IPC_CMD_DS0;
 		break;
 	case PM_SUSPEND_STANDBY:
 		m3_power_state = IPC_CMD_STANDBY;
+		wkup_m3_ctrl_ipc_write(m3_ipc, DS_IPC_DEFAULT, 5);
 		break;
 	case WKUP_M3_IDLE:
 		m3_power_state = IPC_CMD_IDLE;
+		wkup_m3_ctrl_ipc_write(m3_ipc, DS_IPC_DEFAULT, 5);
 		break;
 	default:
 		return 1;
@@ -346,7 +437,6 @@ int wkup_m3_prepare_low_power(int state)
 
 	wkup_m3_ctrl_ipc_write(m3_ipc, DS_IPC_DEFAULT, 2);
 	wkup_m3_ctrl_ipc_write(m3_ipc, DS_IPC_DEFAULT, 3);
-	wkup_m3_ctrl_ipc_write(m3_ipc, DS_IPC_DEFAULT, 5);
 	wkup_m3_ctrl_ipc_write(m3_ipc, DS_IPC_DEFAULT, 6);
 	wkup_m3_ctrl_ipc_write(m3_ipc, DS_IPC_DEFAULT, 7);
 
@@ -508,6 +598,12 @@ static int wkup_m3_ipc_probe(struct platform_device *pdev)
 
 	if (of_find_property(np, "ti,set-io-isolation", NULL))
 		wkup_m3_set_io_isolation();
+
+	ret = of_property_read_string(np, "ti,scale-data-fw",
+				      &m3_ipc_state.sd_fw_name);
+	if (ret) {
+		dev_dbg(dev, "Voltage scaling data blob not provided from DT.\n");
+	};
 
 	/*
 	 * Wait for firmware loading completion in a thread so we

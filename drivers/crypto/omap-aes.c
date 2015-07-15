@@ -36,6 +36,7 @@
 #include <linux/interrupt.h>
 #include <crypto/scatterwalk.h>
 #include <crypto/aes.h>
+#include <crypto/internal/aead.h>
 #include "omap-aes.h"
 
 /* keep registered devices data here */
@@ -128,7 +129,7 @@ int omap_aes_write_ctrl(struct omap_aes_dev *dd)
 
 	if ((dd->flags & (FLAGS_GCM)) && dd->aead_req->iv)
 		omap_aes_write_n(dd, AES_REG_IV(dd, 0),
-				 (u32 *)dd->aead_req->iv, 4);
+				 (u32 *)dd->ctx->iv, 4);
 
 	val = FLD_VAL(((dd->ctx->keylen >> 3) - 1), 4, 3);
 	if (dd->flags & FLAGS_CBC)
@@ -787,6 +788,28 @@ static struct crypto_alg algs_ctr[] = {
 		.setkey		= omap_aes_gcm_setkey,
 		.encrypt	= omap_aes_gcm_encrypt,
 		.decrypt	= omap_aes_gcm_decrypt,
+	}
+},
+{
+	.cra_name		= "rfc4106(gcm(aes))",
+	.cra_driver_name	= "rfc4106-gcm-aes-omap",
+	.cra_priority		= 300,
+	.cra_flags		= CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC |
+				  CRYPTO_ALG_KERN_DRIVER_ONLY,
+	.cra_blocksize		= 1,
+	.cra_ctxsize		= sizeof(struct omap_aes_ctx),
+	.cra_alignmask		= 0,
+	.cra_type		= &crypto_nivaead_type,
+	.cra_module		= THIS_MODULE,
+	.cra_init		= omap_aes_gcm_cra_init,
+	.cra_exit		= omap_aes_cra_exit,
+	.cra_u.aead = {
+		.maxauthsize	= AES_BLOCK_SIZE,
+		.geniv		= "eseqiv",
+		.ivsize		= AES_BLOCK_SIZE,
+		.setkey		= omap_aes_4106gcm_setkey,
+		.encrypt	= omap_aes_4106gcm_encrypt,
+		.decrypt	= omap_aes_4106gcm_decrypt,
 	}
 },
 };

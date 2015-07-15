@@ -678,3 +678,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&dcan1_pins_default>;
 };
+
+&wkup_m3_ipc {
+	ti,scale-data-fw = "am335x-evm-scale-data.bin";
+};
