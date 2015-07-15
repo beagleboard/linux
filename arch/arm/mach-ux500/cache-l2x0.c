@@ -7,6 +7,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 
+#include <asm/outercache.h>
 #include <asm/hardware/cache-l2x0.h>
 
 #include "db8500-regs.h"
