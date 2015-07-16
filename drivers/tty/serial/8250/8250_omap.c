@@ -1498,10 +1498,10 @@ static int __init omap8250_console_fixup(void)
 	}
 
 	add_preferred_console("ttyS", idx, options);
-	pr_err("WARNING: Your 'console=ttyO%d' has been replaced by 'ttyS%d'\n",
+	pr_info("WARNING: Your 'console=ttyO%d' has been replaced by 'ttyS%d'\n",
 	       idx, idx);
-	pr_err("This ensures that you still see kernel messages. Please\n");
-	pr_err("update your kernel commandline.\n");
+	pr_info("This ensures that you still see kernel messages. Please\n");
+	pr_info("update your kernel commandline.\n");
 	return 0;
 }
 console_initcall(omap8250_console_fixup);
