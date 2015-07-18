@@ -115,4 +115,28 @@ sata_phy: phy@4A096000 {
 	clock-names = "sysclk", "refclk";
 	syscon-pllreset = <&dra7_ctrl_core 0x3fc>;
 	#phy-cells = <0>;
+
+TI Keystone SerDes PHY
+
+Required properties:
+ - compatible: should be "ti,keystone-serdes-phy";
+ - reg: base address and length of the SerDes register set
+ - reg-names: should be "reg_serdes", name of the reg SerDes register set
+ - #phy-cells: from the generic phy bindings, must be 0;
+
+Example for Keystone PCIE,
+
+		pcie0_phy: serdes_phy@2320000 {
+			#phy-cells = <0>;
+			compatible = "ti,keystone-serdes-phy";
+			reg = <0x02320000 0x4000>;
+			reg-names = "reg_serdes";
+		};
+
+
+Then the PHY can be used in PCIe controller node as
+
+pcie@21800000 {
+	phys = <&pcie0_phy>;
+	phy-names = "pcie-phy";
 };
