@@ -313,4 +313,10 @@ config PHY_QCOM_UFS
 	help
 	  Support for UFS PHY on QCOM chipsets.
 
+config PHY_TI_KEYSTONE_SERDES
+	tristate "TI Keystone SerDes PHY support"
+	depends on OF && ARCH_KEYSTONE
+	select GENERIC_PHY
+	help
+	  This option enables support for TI Keystone SerDes PHY.
 endmenu
