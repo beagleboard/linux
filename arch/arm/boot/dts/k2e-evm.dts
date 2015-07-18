@@ -152,3 +152,7 @@
 		reg = <1>;
 	};
 };
+
+&pcie1_phy {
+	status = "okay";
+};
