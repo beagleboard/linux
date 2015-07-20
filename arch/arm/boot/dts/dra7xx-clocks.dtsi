@@ -193,6 +193,7 @@
 		compatible = "ti,omap4-dpll-m4xen-clock";
 		clocks = <&abe_dpll_clk_mux>, <&abe_dpll_bypass_clk_mux>;
 		reg = <0x01e0>, <0x01e4>, <0x01ec>, <0x01e8>;
+		ti,sink-clkdm = <&atl_clkdm>;
 	};
 
 	dpll_abe_x2_ck: dpll_abe_x2_ck {
@@ -330,6 +331,7 @@
 		compatible = "ti,omap4-dpll-clock";
 		clocks = <&sys_clkin1>, <&dpll_dsp_byp_mux>;
 		reg = <0x0234>, <0x0238>, <0x0240>, <0x023c>;
+		ti,sink-clkdm = <&dsp1_clkdm>;
 	};
 
 	dpll_dsp_m2_ck: dpll_dsp_m2_ck {
@@ -364,6 +366,7 @@
 		compatible = "ti,omap4-dpll-clock";
 		clocks = <&sys_clkin1>, <&dpll_iva_byp_mux>;
 		reg = <0x01a0>, <0x01a4>, <0x01ac>, <0x01a8>;
+		ti,sink-clkdm = <&iva_clkdm>;
 	};
 
 	dpll_iva_m2_ck: dpll_iva_m2_ck {
@@ -398,6 +401,7 @@
 		compatible = "ti,omap4-dpll-clock";
 		clocks = <&sys_clkin1>, <&dpll_gpu_byp_mux>;
 		reg = <0x02d8>, <0x02dc>, <0x02e4>, <0x02e0>;
+		ti,sink-clkdm = <&gpu_clkdm>;
 	};
 
 	dpll_gpu_m2_ck: dpll_gpu_m2_ck {
@@ -469,6 +473,7 @@
 		compatible = "ti,omap4-dpll-clock";
 		clocks = <&sys_clkin1>, <&dpll_gmac_byp_mux>;
 		reg = <0x02a8>, <0x02ac>, <0x02b4>, <0x02b0>;
+		ti,sink-clkdm = <&gmac_clkdm>;
 	};
 
 	dpll_gmac_m2_ck: dpll_gmac_m2_ck {
@@ -543,6 +548,7 @@
 		compatible = "ti,omap4-dpll-clock";
 		clocks = <&sys_clkin1>, <&dpll_eve_byp_mux>;
 		reg = <0x0284>, <0x0288>, <0x0290>, <0x028c>;
+		ti,sink-clkdm = <&eve1_clkdm>;
 	};
 
 	dpll_eve_m2_ck: dpll_eve_m2_ck {
@@ -1195,6 +1201,7 @@
 		compatible = "ti,omap4-dpll-clock";
 		clocks = <&sys_clkin1>, <&sys_clkin1>;
 		reg = <0x0200>, <0x0204>, <0x020c>, <0x0208>;
+		ti,sink-clkdm = <&pcie_clkdm>;
 	};
 
 	dpll_pcie_ref_m2ldo_ck: dpll_pcie_ref_m2ldo_ck {
@@ -1352,6 +1359,7 @@
 		compatible = "ti,omap4-dpll-j-type-clock";
 		clocks = <&sys_clkin1>, <&dpll_usb_byp_mux>;
 		reg = <0x0180>, <0x0184>, <0x018c>, <0x0188>;
+		ti,sink-clkdm = <&l3init_clkdm>;
 	};
 
 	dpll_usb_m2_ck: dpll_usb_m2_ck {
@@ -2135,6 +2143,38 @@
 	coreaon_clkdm: coreaon_clkdm {
 		compatible = "ti,clockdomain";
 		clocks = <&dpll_usb_ck>;
+	};
+
+	gpu_clkdm: gpu_clkdm {
+		compatible = "ti,clockdomain";
+	};
+
+	pcie_clkdm: pcie_clkdm {
+		compatible = "ti,clockdomain";
+	};
+
+	iva_clkdm: iva_clkdm {
+		compatible = "ti,clockdomain";
+	};
+
+	dsp1_clkdm: dsp1_clkdm {
+		compatible = "ti,clockdomain";
+	};
+
+	gmac_clkdm: gmac_clkdm {
+		compatible = "ti,clockdomain";
+	};
+
+	l3init_clkdm: l3init_clkdm {
+		compatible = "ti,clockdomain";
+	};
+
+	eve1_clkdm: eve1_clkdm {
+		compatible = "ti,clockdomain";
+	};
+
+	atl_clkdm: atl_clkdm {
+		compatible = "ti,clockdomain";
 	};
 };
 

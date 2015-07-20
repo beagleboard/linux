@@ -25,6 +25,7 @@
  * @div1_mask: mask of the DPLL N bitfield in @mult_div1_reg
  * @clk_bypass: struct clk pointer to the clock's bypass clock input
  * @clk_ref: struct clk pointer to the clock's reference clock input
+ * @sink_clkdm: the main clockdomain fed by this DPLL, for errata i810 on DRA7
  * @control_reg: register containing the DPLL mode bitfield
  * @enable_mask: mask of the DPLL mode bitfield in @control_reg
  * @last_rounded_rate: cache of the last rate result of omap2_dpll_round_rate()
@@ -37,6 +38,7 @@
  * @last_rounded_n: cache of the last N result of omap2_dpll_round_rate()
  * @min_divider: minimum valid non-bypass divider value (actual)
  * @max_divider: maximum valid non-bypass divider value (actual)
+ * @max_rate: maximum clock rate for the DPLL
  * @modes: possible values of @enable_mask
  * @autoidle_reg: register containing the DPLL autoidle mode bitfield
  * @idlest_reg: register containing the DPLL idle status bitfield
@@ -71,6 +73,7 @@ struct dpll_data {
 	u32			div1_mask;
 	struct clk		*clk_bypass;
 	struct clk		*clk_ref;
+	struct clockdomain	*sink_clkdm;
 	void __iomem		*control_reg;
 	u32			enable_mask;
 	unsigned long		last_rounded_rate;
@@ -81,6 +84,7 @@ struct dpll_data {
 	u8			last_rounded_n;
 	u8			min_divider;
 	u16			max_divider;
+	unsigned long		max_rate;
 	u8			modes;
 	void __iomem		*autoidle_reg;
 	void __iomem		*idlest_reg;
@@ -291,6 +295,7 @@ unsigned long omap3_dpll_recalc(struct clk_hw *hw, unsigned long parent_rate);
 long omap2_dpll_round_rate(struct clk_hw *hw, unsigned long target_rate,
 			   unsigned long *parent_rate);
 void omap2_init_clk_clkdm(struct clk_hw *clk);
+void omap2_init_dpll_clkdm(struct dpll_data *dd, struct device_node *np);
 unsigned long omap3_clkoutx2_recalc(struct clk_hw *hw,
 				    unsigned long parent_rate);
 int omap3_clkoutx2_set_rate(struct clk_hw *hw, unsigned long rate,
