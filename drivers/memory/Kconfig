@@ -49,6 +49,24 @@ config OMAP_GPMC
 	  interfacing to a variety of asynchronous as well as synchronous
 	  memory drives like NOR, NAND, OneNAND, SRAM.
 
+config TI_EMIF_SRAM
+	tristate "Texas Instruments EMIF SRAM driver"
+	depends on SOC_AM33XX || SOC_AM43XX || SRAM
+	help
+	  This driver is for the EMIF module available on Texas Instruments
+	  AM33XX SoCs and is required for PM. Certain parts of the EMIF PM
+	  code must run from on-chip SRAM late in the suspend sequence so
+	  this driver provides several relocatable PM functions for the SoC
+	  PM code to use.
+
+config OMAP_GPMC_DEBUG
+	bool
+	depends on OMAP_GPMC
+	help
+	  Enables verbose debugging mostly to decode the bootloader provided
+	  timings. Enable this during development to configure devices
+	  connected to the GPMC bus.
+
 config MVEBU_DEVBUS
 	bool "Marvell EBU Device Bus Controller"
 	default y

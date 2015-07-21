@@ -109,6 +109,12 @@ extern struct omap_hwmod_sysc_fields omap_hwmod_sysc_type3;
 
 #define DEBUG_OMAPUART_FLAGS	(HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET)
 
+#ifdef CONFIG_OMAP_GPMC_DEBUG
+#define DEBUG_OMAP_GPMC_HWMOD_FLAGS	HWMOD_INIT_NO_RESET
+#else
+#define DEBUG_OMAP_GPMC_HWMOD_FLAGS	0
+#endif
+
 #if defined(CONFIG_DEBUG_OMAP2UART1)
 #undef DEBUG_OMAP2UART1_FLAGS
 #define DEBUG_OMAP2UART1_FLAGS DEBUG_OMAPUART_FLAGS
@@ -517,6 +523,12 @@ struct omap_hwmod_omap4_prcm {
  * HWMOD_RECONFIG_IO_CHAIN: omap_hwmod code needs to reconfigure wake-up 
  *     events by calling _reconfigure_io_chain() when a device is enabled
  *     or idled.
+ * HWMOD_NO_IDLE: Do not idle the hwmod at all. Useful to handle certain
+ *     IPs like CPSW on DRA7, where clocks to this module cannot be disabled.
+ * HWMOD_NEEDS_REIDLE: Some devices do not assert their MSTANDBY signal by
+ *     default after losing context if no driver is present and using the
+ *     hwmod. This will break subsequent suspend cycles but can be fixed by
+ *     enabling then idling the unused hwmod after each suspend cycle.
  */
 #define HWMOD_SWSUP_SIDLE			(1 << 0)
 #define HWMOD_SWSUP_MSTANDBY			(1 << 1)
@@ -532,6 +544,8 @@ struct omap_hwmod_omap4_prcm {
 #define HWMOD_FORCE_MSTANDBY			(1 << 11)
 #define HWMOD_SWSUP_SIDLE_ACT			(1 << 12)
 #define HWMOD_RECONFIG_IO_CHAIN			(1 << 13)
+#define HWMOD_NO_IDLE				(1 << 14)
+#define HWMOD_NEEDS_REIDLE			(1 << 15)
 
 /*
  * omap_hwmod._int_flags definitions
@@ -570,6 +584,8 @@ struct omap_hwmod_omap4_prcm {
  * @pre_shutdown: ptr to fn to be executed immediately prior to device shutdown
  * @reset: ptr to fn to be executed in place of the standard hwmod reset fn
  * @enable_preprogram:  ptr to fn to be executed during device enable
+ * @lock: ptr to fn to be executed to lock IP registers
+ * @unlock: ptr to fn to be executed to unlock IP registers
  *
  * Represent the class of a OMAP hardware "modules" (e.g. timer,
  * smartreflex, gpio, uart...)
@@ -594,6 +610,8 @@ struct omap_hwmod_class {
 	int					(*pre_shutdown)(struct omap_hwmod *oh);
 	int					(*reset)(struct omap_hwmod *oh);
 	int					(*enable_preprogram)(struct omap_hwmod *oh);
+	void				(*lock)(struct omap_hwmod *oh);
+	void				(*unlock)(struct omap_hwmod *oh);
 };
 
 /**
@@ -692,6 +710,14 @@ struct omap_hwmod {
 	struct omap_hwmod		*parent_hwmod;
 };
 
+/*
+ * omap_hwmod_list - simple generic container for omap_hwmod lists
+ */
+struct omap_hwmod_list {
+	struct omap_hwmod *oh;
+	struct list_head oh_list;
+};
+
 struct omap_hwmod *omap_hwmod_lookup(const char *name);
 int omap_hwmod_for_each(int (*fn)(struct omap_hwmod *oh, void *data),
 			void *data);
@@ -721,6 +747,10 @@ void __iomem *omap_hwmod_get_mpu_rt_va(struct omap_hwmod *oh);
 int omap_hwmod_enable_wakeup(struct omap_hwmod *oh);
 int omap_hwmod_disable_wakeup(struct omap_hwmod *oh);
 
+int omap_hwmod_setup_reidle(void);
+int omap_hwmod_enable_reidle(struct omap_hwmod *oh);
+int omap_hwmod_disable_reidle(struct omap_hwmod *oh);
+
 int omap_hwmod_for_each_by_class(const char *classname,
 				 int (*fn)(struct omap_hwmod *oh,
 					   void *user),
@@ -738,6 +768,8 @@ const char *omap_hwmod_get_main_clk(struct omap_hwmod *oh);
  */
 
 extern int omap_hwmod_aess_preprogram(struct omap_hwmod *oh);
+void omap_hwmod_rtc_unlock(struct omap_hwmod *oh);
+void omap_hwmod_rtc_lock(struct omap_hwmod *oh);
 
 /*
  * Chip variant-specific hwmod init routines - XXX should be converted

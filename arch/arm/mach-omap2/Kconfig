@@ -29,6 +29,7 @@ config ARCH_OMAP4
 	select HAVE_ARM_SCU if SMP
 	select HAVE_ARM_TWD if SMP
 	select OMAP_INTERCONNECT
+	select OMAP_INTERCONNECT_BARRIER
 	select PL310_ERRATA_588369 if CACHE_L2X0
 	select PL310_ERRATA_727915 if CACHE_L2X0
 	select PM_OPP if PM
@@ -46,6 +47,7 @@ config SOC_OMAP5
 	select HAVE_ARM_TWD if SMP
 	select HAVE_ARM_ARCH_TIMER
 	select ARM_ERRATA_798181 if SMP
+	select OMAP_INTERCONNECT_BARRIER
 
 config SOC_AM33XX
 	bool "TI AM33XX"
@@ -60,6 +62,7 @@ config SOC_AM43XX
 	select ARM_GIC
 	select MACH_OMAP_GENERIC
 	select MIGHT_HAVE_CACHE_L2X0
+	select HAVE_ARM_SCU
 
 config SOC_DRA7XX
 	bool "TI DRA7XX"
@@ -70,6 +73,7 @@ config SOC_DRA7XX
 	select HAVE_ARM_ARCH_TIMER
 	select IRQ_CROSSBAR
 	select ARM_ERRATA_798181 if SMP
+	select OMAP_INTERCONNECT_BARRIER
 
 config ARCH_OMAP2PLUS
 	bool
@@ -90,6 +94,10 @@ config ARCH_OMAP2PLUS
 	select OMAP_IRQCHIP
 	help
 	  Systems based on OMAP2, OMAP3, OMAP4 or OMAP5
+
+config OMAP_INTERCONNECT_BARRIER
+	bool
+	select ARM_HEAVY_MB
 
 
 if ARCH_OMAP2PLUS
@@ -261,6 +269,15 @@ config OMAP3_SDRC_AC_TIMING
 	  users who will wish to say yes at this point - almost everyone will
 	  wish to say no.  Selecting yes without understanding what is
 	  going on could result in system crashes;
+
+config AMX3_PM
+	tristate "AMx3 Power Management"
+	depends on SOC_AM33XX || SOC_AM43XX
+	depends on WKUP_M3_IPC && TI_EMIF_SRAM
+	default y
+	help
+	  Enable power management on am335x and am437x. Required for suspend to mem
+	  and standby on both platforms and deeper cpuidle c-states on am335x only.
 
 endmenu
 

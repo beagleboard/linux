@@ -1061,7 +1061,7 @@ static int __inject_extcall(struct kvm_vcpu *vcpu, struct kvm_s390_irq *irq)
 	if (sclp_has_sigpif())
 		return __inject_extcall_sigpif(vcpu, src_id);
 
-	if (!test_and_set_bit(IRQ_PEND_EXT_EXTERNAL, &li->pending_irqs))
+	if (test_and_set_bit(IRQ_PEND_EXT_EXTERNAL, &li->pending_irqs))
 		return -EBUSY;
 	*extcall = irq->u.extcall;
 	atomic_set_mask(CPUSTAT_EXT_INT, li->cpuflags);
@@ -1606,6 +1606,9 @@ void kvm_s390_clear_float_irqs(struct kvm *kvm)
 	int i;
 
 	spin_lock(&fi->lock);
+	fi->pending_irqs = 0;
+	memset(&fi->srv_signal, 0, sizeof(fi->srv_signal));
+	memset(&fi->mchk, 0, sizeof(fi->mchk));
 	for (i = 0; i < FIRQ_LIST_COUNT; i++)
 		clear_irq_list(&fi->lists[i]);
 	for (i = 0; i < FIRQ_MAX_COUNT; i++)
