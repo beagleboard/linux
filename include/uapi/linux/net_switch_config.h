@@ -29,6 +29,15 @@ enum {
 	CONFIG_SWITCH_SET_PORT_CONFIG,
 	CONFIG_SWITCH_GET_PORT_CONFIG,
 	CONFIG_SWITCH_ADD_UNKNOWN_VLAN_INFO,
+	CONFIG_SWITCH_GET_PORT_STATE,
+	CONFIG_SWITCH_SET_PORT_STATE,
+};
+
+enum {
+	PORT_STATE_DISABLED = 0,
+	PORT_STATE_BLOCKED,
+	PORT_STATE_LEARN,
+	PORT_STATE_FORWARD,
 };
 
 /*
@@ -48,6 +57,7 @@ struct net_switch_config {
 	unsigned char	unknown_vlan_untag;
 	unsigned int	unknown_vlan_unreg_multi;
 	unsigned int	unknown_vlan_reg_multi;
+	unsigned int	port_state;
 	struct ethtool_cmd ecmd;
 
 	unsigned int ret_type;   /* Return  Success/Failure */
