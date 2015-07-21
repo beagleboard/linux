@@ -28,6 +28,7 @@ enum {
 	CONFIG_SWITCH_DEL_VLAN,
 	CONFIG_SWITCH_SET_PORT_CONFIG,
 	CONFIG_SWITCH_GET_PORT_CONFIG,
+	CONFIG_SWITCH_ADD_UNKNOWN_VLAN_INFO,
 };
 
 /*
@@ -43,6 +44,10 @@ struct net_switch_config {
 	unsigned char	untag_port;	/* Untag ports */
 	unsigned char	addr[6];
 	unsigned int	super;
+	unsigned char	unknown_vlan_member;
+	unsigned char	unknown_vlan_untag;
+	unsigned int	unknown_vlan_unreg_multi;
+	unsigned int	unknown_vlan_reg_multi;
 	struct ethtool_cmd ecmd;
 
 	unsigned int ret_type;   /* Return  Success/Failure */
