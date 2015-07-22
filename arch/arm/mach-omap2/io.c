@@ -48,6 +48,7 @@
 #include "cm44xx.h"
 #include "prm.h"
 #include "cm.h"
+#include "pm.h"
 #include "prcm_mpu44xx.h"
 #include "prminst44xx.h"
 #include "prm2xxx.h"
@@ -652,6 +653,7 @@ void __init am33xx_init_early(void)
 
 void __init am33xx_init_late(void)
 {
+	am33xx_opp_init();
 	omap_common_late_init();
 }
 #endif
