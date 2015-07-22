@@ -5,3 +5,8 @@ config VOLTAGE_DOMAIN
 	---help---
 	  Core voltage domain framework using common clock framework's
 	  notifier mechanism.
+
+menu "Voltage Domain Framework Drivers"
+	depends on VOLTAGE_DOMAIN
+
+endmenu
