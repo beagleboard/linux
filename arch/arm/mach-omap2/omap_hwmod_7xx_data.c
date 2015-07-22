@@ -338,6 +338,7 @@ static struct omap_hwmod dra7xx_dcan1_hwmod = {
 	.class		= &dra7xx_dcan_hwmod_class,
 	.clkdm_name	= "wkupaon_clkdm",
 	.main_clk	= "dcan1_sys_clk_mux",
+	.flags		= HWMOD_CLKDM_NOAUTO,
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_WKUPAON_DCAN1_CLKCTRL_OFFSET,
