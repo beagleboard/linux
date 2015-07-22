@@ -77,6 +77,7 @@ obj-$(CONFIG_ARCH_OMAP3)		+= opp3xxx_data.o
 obj-$(CONFIG_SOC_AM33XX)		+= opp33xx_data.o
 obj-$(CONFIG_SOC_AM43XX)		+= opp43xx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= opp4xxx_data.o
+obj-$(CONFIG_SOC_DRA7XX)		+= opp7xx_data.o
 endif
 
 # Power Management
