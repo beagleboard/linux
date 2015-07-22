@@ -546,6 +546,7 @@ struct omap_hwmod_omap4_prcm {
 #define HWMOD_RECONFIG_IO_CHAIN			(1 << 13)
 #define HWMOD_NO_IDLE				(1 << 14)
 #define HWMOD_NEEDS_REIDLE			(1 << 15)
+#define HWMOD_CLKDM_NOAUTO			(1 << 16)
 
 /*
  * omap_hwmod._int_flags definitions
