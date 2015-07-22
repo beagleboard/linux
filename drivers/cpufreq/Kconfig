@@ -198,6 +198,23 @@ config CPUFREQ_DT
 
 	  If in doubt, say N.
 
+config CPUFREQ_VOLTDM
+	tristate "Generic DT based cpufreq driver using clk notifiers"
+	depends on HAVE_CLK && OF
+	# if CPU_THERMAL is on and THERMAL=m, CPUFREQ_DT cannot be =y:
+	depends on !CPU_THERMAL || THERMAL
+	select PM_OPP
+	select VOLTAGE_DOMAIN
+	help
+	  This adds a generic DT based cpufreq driver for frequency management.
+	  It supports both uniprocessor (UP) and symmetric multiprocessor (SMP)
+	  systems which share clock and voltage across all CPUs, similar to
+	  cpufreq-dt but does frequency transitions using clk notifiers and the
+	  voltage domain framework rather than controlling the regulators
+	  directly.
+
+	  If in doubt, say N.
+
 if X86
 source "drivers/cpufreq/Kconfig.x86"
 endif
