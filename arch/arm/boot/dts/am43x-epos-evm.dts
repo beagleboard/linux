@@ -690,3 +690,7 @@
 &wkup_m3_ipc {
 	ti,scale-data-fw = "am43x-evm-scale-data.bin";
 };
+
+&cpu {
+	cpu0-supply = <&dcdc2>;
+};
