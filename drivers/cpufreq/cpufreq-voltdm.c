@@ -266,6 +266,7 @@ static int voltdm_cpufreq_probe(struct platform_device *pdev)
 	struct clk *cpu_clk;
 	int ret, tmp;
 	struct notifier_block *clk_nb;
+	struct device_node *np;
 
 	/*
 	 * All per-cluster (CPUs sharing clock/voltages) initialization is done
@@ -278,7 +279,9 @@ static int voltdm_cpufreq_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	clk_nb = of_pm_voltdm_notifier_register(cpu_dev, pdev->dev.of_node,
+	np = cpu_dev->of_node;
+
+	clk_nb = of_pm_voltdm_notifier_register(cpu_dev, np,
 						cpu_clk, "cpu0", &tmp);
 
 	if (IS_ERR(clk_nb)) {
