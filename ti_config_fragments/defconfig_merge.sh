@@ -29,10 +29,10 @@ prepare_for_exit()
 check_for_compiler()
 {
 	COMPILER_COMMAND=`which $CROSS_COMPILE"gcc"`
-	if [ -f "$COMPILER_COMMAND" ]; then
+	if [ -x "$COMPILER_COMMAND" ]; then
 		return 0
 	else
-		echo "Compiler $COMPILER_COMMAND does not exist on this host" > build_failure.txt
+		echo "Invalid or non-existent compiler $COMPILER_COMMAND" > build_failure.txt
 		return 1
 	fi
 }
