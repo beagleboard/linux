@@ -199,6 +199,18 @@ config PINCTRL_TEGRA_XUSB
 	select PINCONF
 	select PINMUX
 
+config PINCTRL_TI_IODELAY
+	bool "TI IODelay Module pinconf driver"
+	depends on OF
+	select PINCONF
+	select GENERIC_PINCONF
+	select REGMAP_MMIO
+	help
+	  Say Y here to support Texas Instruments' IODelay pinconf driver.
+	  IODelay module is used for the DRA7 SoC family. This driver is in
+	  addition to PINCTRL_SINGLE which controls the mux.
+
+
 config PINCTRL_TZ1090
 	bool "Toumaz Xenif TZ1090 pin control driver"
 	depends on SOC_TZ1090
