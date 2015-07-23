@@ -294,7 +294,7 @@
 			status = "disabled";
 		};
 
-		pcie@21800000 {
+		pcie0: pcie@21800000 {
 			compatible = "ti,keystone-pcie", "snps,dw-pcie";
 			clocks = <&clkpcie>;
 			clock-names = "pcie";
