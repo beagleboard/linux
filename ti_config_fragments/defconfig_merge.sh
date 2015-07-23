@@ -380,7 +380,9 @@ else
 	fi
 fi
 
-cp -v .config $LOGGING_DIRECTORY/base_config
+if [ -a .config ]; then
+	cp -v .config $LOGGING_DIRECTORY/base_config
+fi
 
 # There is only one file passed in via command line
 if [ "$DEFCONFIG_EXTRAS_FILE" == '' ]; then
