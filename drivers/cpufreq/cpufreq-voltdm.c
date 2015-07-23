@@ -281,8 +281,12 @@ static int voltdm_cpufreq_probe(struct platform_device *pdev)
 
 	np = cpu_dev->of_node;
 
+	/* OPPs might be populated at runtime, This is just a dummy setup */
+	dev_pm_opp_of_add_table(cpu_dev);
+
 	clk_nb = of_pm_voltdm_notifier_register(cpu_dev, np,
 						cpu_clk, "cpu0", &tmp);
+	dev_pm_opp_of_remove_table(cpu_dev);
 
 	if (IS_ERR(clk_nb)) {
 		ret = PTR_ERR(clk_nb);
