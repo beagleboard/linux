@@ -424,7 +424,10 @@ echo -e "\n\t Copying $LOGGING_DIRECTORY/.config to $WORKING_DIRECTORY/.config"
 cp -v $LOGGING_DIRECTORY/.config .config
 echo -e "\n\t Copying $LOGGING_DIRECTORY/.config to arch/arm/configs/$NEW_DEFCONFIG"
 cp -v $LOGGING_DIRECTORY/.config arch/arm/configs/$NEW_DEFCONFIG
-rm $LOGGING_DIRECTORY/temp_config
+
+if [ -a $LOGGING_DIRECTORY/temp_config ]; then
+	rm $LOGGING_DIRECTORY/temp_config
+fi
 
 if [ "$BUILD_ALL" == 1 ]; then
 	build_the_new_defconfig
