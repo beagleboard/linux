@@ -619,8 +619,28 @@
 	ti,no-idle-on-init;
 };
 
+&voltdm_mpu {
+	vdd-supply = <&smps12_reg>;
+};
+
+&voltdm_dspeve {
+	vdd-supply = <&smps45_reg>;
+};
+
+&voltdm_gpu {
+	vdd-supply = <&smps45_reg>;
+};
+
+&voltdm_ivahd {
+	vdd-supply = <&smps45_reg>;
+};
+
+&voltdm_core {
+	vdd-supply = <&smps6_reg>;
+};
+
 &cpu0 {
-	cpu0-supply = <&smps12_reg>;
+	cpu0-voltdm = <&voltdm_mpu>;
 	voltage-tolerance = <1>;
 };
 
