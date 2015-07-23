@@ -335,7 +335,7 @@ NEW_DEFCONFIG="appended_$DEFCONFIG"
 
 set_working_directory
 
-LOGGING_DIRECTORY="$WORKING_PATH""ti_config_fragments/""$LOGGING_DIRECTORY"
+LOGGING_DIRECTORY="$WORKING_PATH""/ti_config_fragments/""$LOGGING_DIRECTORY"
 if [ ! -d "$LOGGING_DIRETORY" ];then
 	echo -e "\n\tRemoving $LOGGING_DIRECTORY"
 	rm -rf $LOGGING_DIRECTORY
