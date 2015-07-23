@@ -12,7 +12,7 @@
 export unix_user=`whoami`
 export user_home_directory=`getent passwd $unix_user |cut -d: -f6`
 
-BUILD_THREADS=`grep "^processor" /proc/cpuinfo | wc -l`
+BUILD_THREADS=`grep -c "^processor" /proc/cpuinfo`
 DEFCONFIG="omap2plus_defconfig"
 NEW_DEFCONFIG="appended_omap2plus_defconfig"
 CROSS_COMPILE=
