@@ -199,7 +199,7 @@ build_the_modules()
 
 clean_the_build()
 {
-	make -j$BUILD_THREADS mrproper
+	make ARCH=arm -j$BUILD_THREADS mrproper
 }
 
 set_working_directory()
