@@ -1135,6 +1135,40 @@
 			1120000		0	0x4	0 0x02000000 0x01F00000
 			>;
 		};
+
+		voltdm_mpu: voltdm@4a0021c4 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_mpu>;
+			reg = <0x4a0021c4 0x8>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1060000 0x0
+			1250000 0x4
+			>;
+		};
+
+		voltdm_mm: voltdm@4a0021a4 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_mm>;
+			reg = <0x4a0021a4 0x8>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1025000 0x0
+			1120000 0x4
+			>;
+		};
+
+		voltdm_core: voltdm@4a0021d8 {
+			compatible = "ti,omap5-core-voltdm";
+			#voltdm-cells = <0>;
+			reg = <0x4a0021d8 0x4>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1050000 0x0
+			>;
+		};
 	};
 };
 
