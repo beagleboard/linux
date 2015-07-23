@@ -1088,6 +1088,73 @@
 			>;
 		};
 
+		voltdm_mpu: voltdm@4a003b20 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_mpu>;
+			reg = <0x4a003b20 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1060000 0x0
+			1160000 0x4
+			1210000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_ivahd: voltdm@4a0025cc {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_ivahd>;
+			reg = <0x4a0025cc 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_dspeve: voltdm@4a0025e0 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_dspeve>;
+			reg = <0x4a0025e0 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_gpu: voltdm@4a003b08 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_gpu>;
+			reg = <0x4a003b08 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			1210000 0x4
+			1280000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_core: voltdm@4a0025f4 {
+			compatible = "ti,omap5-core-voltdm";
+			#voltdm-cells = <0>;
+			reg = <0x4a0025f4 0x4>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
 		mcspi1: spi@48098000 {
 			compatible = "ti,omap4-mcspi";
 			reg = <0x48098000 0x200>;
