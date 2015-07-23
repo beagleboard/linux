@@ -309,7 +309,8 @@ do
 			exit;;
      esac
 done
-if [ "$BUILD_ALL" != 1 -a "$NO_CLEAN_DEFCONFIG" != 1 ]; then
+
+if [ "$BUILD_ALL" == 1 -o "$NO_CLEAN_DEFCONFIG" != 1 ]; then
 	if [ "$CROSS_COMPILE" == "" ]; then
 		echo "Missing cross compile"
 		usage
