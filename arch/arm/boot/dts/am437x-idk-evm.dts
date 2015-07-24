@@ -395,6 +395,7 @@
 
 &rtc {
 	status = "okay";
+	ext-clk-src;
 };
 
 &wdt {
