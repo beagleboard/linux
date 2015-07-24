@@ -104,6 +104,10 @@
 	rx-num-evt = <1>;
 };
 
+&rtc {
+	system-power-controller;
+};
+
 / {
 	hdmi {
 		compatible = "ti,tilcdc,slave";
