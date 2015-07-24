@@ -15,6 +15,7 @@ Required properties:
 Optional properties:
 - system-power-controller: whether the rtc is controlling the system power
   through pmic_power_en
+- ext-clk-src: Whether the rtc can be sourced by external clock
 
 Example:
 
@@ -25,4 +26,5 @@ rtc@1c23000 {
 		      19>;
 	interrupt-parent = <&intc>;
 	system-power-controller;
+	ext-clk-src;
 };
