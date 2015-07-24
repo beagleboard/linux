@@ -156,3 +156,7 @@
 &pcie1_phy {
 	status = "okay";
 };
+
+&pcie1 {
+	status = "okay";
+};
