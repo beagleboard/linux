@@ -1,0 +1,328 @@
+/*
+* Copyright (C) 2013 Daniele Sdei <danielesdei@gmail.com>
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+	/* identification */
+	part-number = "BB-MIKROBUS-01";
+	version = "00A1";
+
+	/* state the resources this cape uses */
+	exclusive-use =
+		/* the pin header uses */
+		"P8.11",	/* gpio1_13 */
+		"P8.12",	/* gpio1_12 */
+		"P8.13",	/* ehrpwm2B */
+		"P8.14",	/* gpio0_26 */
+		"P8.15",	/* gpio1_15 */
+		"P8.16",	/* gpio1_14 */
+		"P8.17",	/* gpio0_27 */
+		"P8.18",	/* gpio2_1 */
+		"P8.19",	/* ehrpwm2A */
+		"P8.26",	/* gpio1_29 */
+		"P9.11",	/* uart4_rxd_mux2 */
+		"P9.12",	/* gpio1_28 */
+		"P9.13",	/* uart4_txd_mux2 */
+		"P9.14",	/* ehrpwm1A_mux1 */
+		"P9.15",	/* gpio1_16 */
+		"P9.16",	/* ehrpwm1B_mux1 */
+		"P9.19",	/* i2c2_scl */
+		"P9.20",	/* i2c2_sda */
+		"P9.21",	/* uart2_txd */
+		"P9.22",	/* uart2_rxd */
+		"P9.23",	/* gpio1_17 */
+		"P9.24",	/* uart1_txd */
+		"P9.26",	/* uart1_rxd */
+		"P9.28",	/* spi1_cs0 */
+		"P9.29",	/* spi1_d0 */
+		"P9.30",	/* spi1_d1 */
+		"P9.31",	/* spi1_sclk */
+        "P9.33",	/* AIN4 */
+        "P9.35",	/* AIN6 */
+        "P9.36",	/* AIN5 */
+		"P9.37",	/* AIN2 */
+		"P9.38",	/* AIN3 */
+		"P9.39",	/* AIN0 */
+		"P9.40",	/* AIN1 */
+		"P9.41",	/* gpio0_20 */
+		"P9.42",	/* spi1_cs1 */
+		/* the hardware ip uses */
+		"gpio1_13",
+		"gpio1_12",
+		"ehrpwm2B",
+		"gpio0_26",
+		"gpio1_15",
+		"gpio1_14",
+		"gpio0_27",
+		"gpio2_1",
+		"ehrpwm2A",
+		"gpio1_29",
+		"uart4",
+		"ehrpwm1A",
+		"gpio1_16",
+		"ehrpwm1B",
+		"i2c2",
+		"uart2",
+		"gpio1_17",
+		"uart1",
+		"spi1",
+		"gpio0_20",
+		"tscadc";
+
+	fragment@0 {
+		target = <&am33xx_pinmux>;
+
+		__overlay__ {
+
+			/* avoid stupid warning */
+		        #address-cells = <1>;
+	                #size-cells = <1>;
+
+			bb_spi1_pins: pinmux_bb_spi1_pins {
+				pinctrl-single,pins = <
+					0x190 0x33	/* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
+					0x194 0x33	/* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+					0x198 0x13	/* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+					0x19c 0x13	/* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
+					0x164 0x12	/* eCAP0_in_PWM0_out.spi1_cs1 OUTPUT_PULLUP | MODE2 */
+				>;
+			};
+			bb_i2c2_pins: pinmux_bb_i2c2_pins {
+				pinctrl-single,pins = <
+					0x17c 0x73	/* uart1_rtsn.i2c2_scl, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
+					0x178 0x73	/* uart1_ctsn.i2c2_sda, SLEWCTRL_SLOW | INPUT_PULLUP | MODE3 */
+				>;
+			};
+			bb_uart1_pins: pinmux_bb_uart1_pins {
+				pinctrl-single,pins = <
+					0x184 0x00	/* P9.24 uart1_txd.uart1_txd | MODE0 OUTPUT */
+					0x180 0x20	/* P9.26 uart1_rxd.uart1_rxd | MODE0 INPUT */
+				>;
+			};
+			bb_uart2_pins: pinmux_bb_uart2_pins {
+				pinctrl-single,pins = <
+					0x150 0x21	/* P9.22 spi0_sclk.uart2_rxd | MODE1 INPUT */
+					0x154 0x01	/* P9.21 spi0_d0.uart2_txd | MODE1 OUTPUT */
+				>;
+			};
+			bb_uart4_pins: pinmux_bb_uart4_pins {
+				pinctrl-single,pins = <
+					0x070 0x26	/* P9.11 gpmc_wait0.uart4_rxd | MODE6 INPUT */
+					0x074 0x06	/* P9.13 gpmc_wpn.uart4_txd | MODE6 OUTPUT */
+				>;
+			};
+			pwm_P8_13: pinmux_pwm_P8_13_pins {
+				pinctrl-single,pins = <0x024  0x4>; /* P8_13 (ZCZ ball T10) | MODE 4 */
+			};
+			pwm_P8_19: pinmux_pwm_P8_19_pins {
+				pinctrl-single,pins = <0x020  0x4>; /* P8_19 (ZCZ ball U10) | MODE 4 */
+			};
+			pwm_P9_14: pinmux_pwm_P9_14_pins {
+				pinctrl-single,pins = <0x048  0x6>; /* P9_14 (ZCZ ball U14) | MODE 6 */
+			};
+			pwm_P9_16: pinmux_pwm_P9_16_pins {
+				pinctrl-single,pins = <0x04c  0x6>; /* P9_16 (ZCZ ball T14) | MODE 6 */
+			};
+			bb_gpio_pins: pinmux_bb_gpio_pins {
+				pinctrl-single,pins = <
+					0x034 0x17	/* gpmc_ad13.gpio1_13, OUTPUT_PULLUP | MODE7 */
+					0x030 0x17	/* gpmc_ad12.gpio1_12, OUTPUT_PULLUP | MODE7 */
+					0x028 0x17	/* gpmc_ad10.gpio0_26, OUTPUT_PULLUP | MODE7 */
+					0x03c 0x17	/* gpmc_ad15.gpio1_15, OUTPUT_PULLUP | MODE7 */
+					0x038 0x17	/* gpmc_ad14.gpio1_14, OUTPUT_PULLUP | MODE7 */
+					0x02c 0x17	/* gpmc_ad11.gpio0_27, OUTPUT_PULLUP | MODE7 */
+					0x08c 0x17	/* gpmc_clk.gpio2_1, OUTPUT_PULLUP | MODE7 */
+					0x07c 0x17	/* gpmc_csn0.gpio1_29, OUTPUT_PULLUP | MODE7 */
+					0x078 0x17	/* gpmc_be1n.gpio1_28, OUTPUT_PULLUP | MODE7 */
+					0x040 0x17	/* gpmc_a0.gpio1_16, OUTPUT_PULLUP | MODE7 */
+					0x044 0x17	/* gpmc_a1.gpio1_17, OUTPUT_PULLUP | MODE7 */
+					0x1b4 0x17	/* xdma_event_intr1.gpio0_20, OUTPUT_PULLUP | MODE7 */
+				>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi1>;	/* spi1 is numbered correctly */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_spi1_pins>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* add any spi devices connected here */
+			/* note that you can do direct SPI via spidev now */
+            spi1_0{
+                #address-cells = <1>;
+                #size-cells = <0>;
+                compatible = "spidev";
+                reg = <0>;
+                spi-max-frequency = <16000000>;
+				spi-cpol;
+                spi-cpha;
+            };
+            spi1_1{
+                #address-cells = <1>;
+                #size-cells = <0>;
+                compatible = "spidev";
+                reg = <1>;
+                spi-max-frequency = <16000000>;
+                spi-cpol;
+                spi-cpha;
+            };
+		};
+	};
+
+	fragment@2 {
+		target = <&i2c2>;	/* i2c2 is numbered correctly */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_i2c2_pins>;
+
+			/* this is the configuration part */
+			clock-frequency = <100000>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* add any i2c devices on the bus here */
+
+		};
+	};
+
+	fragment@3 {
+		target = <&uart2>;	/* really uart1 */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_uart1_pins>;
+		};
+	};
+
+	fragment@4 {
+		target = <&uart3>;	/* really uart2 */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_uart2_pins>;
+		};
+	};
+
+	fragment@5 {
+		target = <&uart5>;	/* really uart4 */
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&bb_uart4_pins>;
+		};
+	};
+
+	fragment@6 {
+		target = <&ocp>;
+		__overlay__ {
+			pwm_test_P8_13 {
+				compatible	= "pwm_test";
+				pwms 		= <&ehrpwm2 1 500000 1>;
+				pwm-names 	= "PWM_P8_13";
+
+				pinctrl-names	= "default";
+				pinctrl-0	= <&pwm_P8_13>;
+
+				enabled		= <1>;
+				duty		= <0>;
+				status 		= "okay";
+			};
+		};
+	};
+
+	fragment@7 {
+		target = <&ocp>;
+		__overlay__ {
+			pwm_test_P8_19 {
+				compatible	= "pwm_test";
+				pwms 		= <&ehrpwm2 0 500000 1>;
+				pwm-names 	= "PWM_P8_19";
+
+				pinctrl-names	= "default";
+				pinctrl-0	= <&pwm_P8_19>;
+
+				enabled		= <1>;
+				duty		= <0>;
+				status 		= "okay";
+			};
+		};
+	};
+
+	fragment@8 {
+		target = <&ocp>;
+		__overlay__ {
+			pwm_test_P9_14 {
+				compatible	= "pwm_test";
+				pwms 		= <&ehrpwm1 0 500000 1>;
+				pwm-names 	= "PWM_P9_14";
+			    pinctrl-names	= "default";
+			    pinctrl-0	= <&pwm_P9_14>;
+				enabled		= <1>;
+				duty		= <0>;
+				status 		= "okay";
+			};
+		};
+	};
+
+	fragment@9 {
+		target = <&ocp>;
+		__overlay__ {
+			pwm_test_P9_16 {
+				compatible	= "pwm_test";
+				pwms 		= <&ehrpwm1 1 500000 1>;
+				pwm-names 	= "PWM_P9_16";
+			    pinctrl-names	= "default";
+			    pinctrl-0	= <&pwm_P9_16>;
+				enabled		= <1>;
+				duty		= <0>;
+				status 		= "okay";
+			};
+		};
+	};
+
+	fragment@10 {
+		target = <&ocp>;
+		__overlay__ {
+            /* avoid stupid warning */
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			tscadc {
+				compatible = "ti,ti-tscadc";
+				reg = <0x44e0d000 0x1000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <16>;
+				ti,hwmods = "adc_tsc";
+				status = "okay";
+
+				adc {
+					ti,adc-channels = <0 1 2 3 4 5 6 7>;
+				};
+			};
+
+			test_helper: helper {
+				compatible = "bone-iio-helper";
+				vsense-name  = "AIN0", "AIN1", "AIN2", "AIN3", "AIN4", "AIN5", "AIN6", "AIN7";
+				vsense-scale = <100     100     100     100     100     100     100     100>;
+				status = "okay";
+			};
+		};
+	};
+};
