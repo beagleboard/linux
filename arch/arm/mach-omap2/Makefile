@@ -291,3 +291,7 @@ obj-y					+= hwspinlock.o
 endif
 
 obj-y					+= common-board-devices.o twl-common.o dss-common.o
+
+ifneq ($(CONFIG_OMAP_REMOTEPROC),)
+obj-y					+= remoteproc.o
+endif
