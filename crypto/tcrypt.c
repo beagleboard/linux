@@ -992,6 +992,234 @@ out:
 	crypto_free_ahash(tfm);
 }
 
+static inline int do_one_aead_op(struct aead_request *req, int ret)
+{
+	if (ret == -EINPROGRESS || ret == -EBUSY) {
+		struct tcrypt_result *tr = req->base.data;
+
+		ret = wait_for_completion_interruptible(&tr->completion);
+		if (!ret)
+			ret = tr->err;
+		reinit_completion(&tr->completion);
+	}
+
+	return ret;
+}
+
+static int test_aaead_jiffies(struct aead_request *req, int enc,
+			      int blen, int sec)
+{
+	unsigned long start, end;
+	int bcount;
+	int ret;
+
+	for (start = jiffies, end = start + sec * HZ, bcount = 0;
+	     time_before(jiffies, end); bcount++) {
+		if (enc)
+			ret = do_one_aead_op(req, crypto_aead_encrypt(req));
+		else
+			ret = do_one_aead_op(req, crypto_aead_decrypt(req));
+
+		if (ret)
+			return ret;
+	}
+
+	pr_cont("%d operations in %d seconds (%ld bytes)\n",
+		bcount, sec, (long)bcount * blen);
+	return 0;
+}
+
+static int test_aaead_cycles(struct aead_request *req, int enc, int blen)
+{
+	unsigned long cycles = 0;
+	int ret = 0;
+	int i;
+
+	/* Warm-up run. */
+	for (i = 0; i < 4; i++) {
+		if (enc)
+			ret = do_one_aead_op(req, crypto_aead_encrypt(req));
+		else
+			ret = do_one_aead_op(req, crypto_aead_decrypt(req));
+
+		if (ret)
+			goto out;
+	}
+
+	/* The real thing. */
+	for (i = 0; i < 8; i++) {
+		cycles_t start, end;
+
+		start = get_cycles();
+		if (enc)
+			ret = do_one_aead_op(req, crypto_aead_encrypt(req));
+		else
+			ret = do_one_aead_op(req, crypto_aead_decrypt(req));
+
+		end = get_cycles();
+
+		if (ret)
+			goto out;
+
+		cycles += end - start;
+	}
+
+out:
+	if (ret == 0)
+		pr_cont("1 operation in %lu cycles (%d bytes)\n",
+			(cycles + 4) / 8, blen);
+
+	return ret;
+}
+
+static void test_aaead_speed(const char *algo, int enc, unsigned int sec,
+			     struct aead_speed_template *template,
+			     unsigned int tcount, u8 authsize,
+			     unsigned int aad_size, u8 *keysize)
+{
+	unsigned int i, j;
+	struct crypto_aead *tfm;
+	int ret = -ENOMEM;
+	const char *key;
+	struct aead_request *req;
+	struct scatterlist *sg;
+	struct scatterlist *asg;
+	struct scatterlist *sgout;
+	const char *e;
+	void *assoc;
+	char iv[MAX_IVLEN];
+	char *xbuf[XBUFSIZE];
+	char *xoutbuf[XBUFSIZE];
+	char *axbuf[XBUFSIZE];
+	unsigned int *b_size;
+	unsigned int iv_len;
+	struct tcrypt_result result;
+
+	if (enc == ENCRYPT)
+		e = "encryption";
+	else
+		e = "decryption";
+
+	if (testmgr_alloc_buf(xbuf))
+		goto out_noxbuf;
+	if (testmgr_alloc_buf(axbuf))
+		goto out_noaxbuf;
+	if (testmgr_alloc_buf(xoutbuf))
+		goto out_nooutbuf;
+
+	sg = kmalloc(sizeof(*sg) * 8 * 3, GFP_KERNEL);
+	if (!sg)
+		goto out_nosg;
+	asg = &sg[8];
+	sgout = &asg[8];
+
+	init_completion(&result.completion);
+	pr_info("\ntesting speed of %s %s\n", algo, e);
+
+	tfm = crypto_alloc_aead(algo, 0, 0);
+
+	if (IS_ERR(tfm)) {
+		pr_err("alg: aead: Failed to load transform for %s: %ld\n",
+		       algo, PTR_ERR(tfm));
+		return;
+	}
+
+	req = aead_request_alloc(tfm, GFP_KERNEL);
+	if (!req) {
+		pr_err("alg: aead: Failed to allocate request for %s\n",
+		       algo);
+		goto out;
+	}
+
+	aead_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+				  tcrypt_complete, &result);
+
+	i = 0;
+	do {
+		b_size = aead_sizes;
+		do {
+			assoc = axbuf[0];
+
+			if (aad_size < PAGE_SIZE) {
+				memset(assoc, 0xff, aad_size);
+			} else {
+				pr_err("associate data length (%u) too big\n",
+				       aad_size);
+				goto out_nosg;
+			}
+			sg_init_one(&asg[0], assoc, aad_size);
+
+			if ((*keysize + *b_size) > TVMEMSIZE * PAGE_SIZE) {
+				pr_err("template (%u) too big for tvmem (%lu)\n",
+				       *keysize + *b_size,
+					TVMEMSIZE * PAGE_SIZE);
+				goto out;
+			}
+
+			key = tvmem[0];
+			for (j = 0; j < tcount; j++) {
+				if (template[j].klen == *keysize) {
+					key = template[j].key;
+					break;
+				}
+			}
+			ret = crypto_aead_setkey(tfm, key, *keysize);
+			ret = crypto_aead_setauthsize(tfm, authsize);
+
+			iv_len = crypto_aead_ivsize(tfm);
+			if (iv_len)
+				memset(&iv, 0xff, iv_len);
+
+			crypto_aead_clear_flags(tfm, ~0);
+			pr_info("test %u (%d bit key, %d byte blocks): ",
+				i, *keysize * 8, *b_size);
+
+			memset(tvmem[0], 0xff, PAGE_SIZE);
+
+			if (ret) {
+				pr_err("setkey() failed flags=%x\n",
+				       crypto_aead_get_flags(tfm));
+				goto out;
+			}
+
+			sg_init_aead(&sg[0], xbuf,
+				     *b_size + (enc ? authsize : 0));
+
+			sg_init_aead(&sgout[0], xoutbuf,
+				     *b_size + (enc ? authsize : 0));
+
+			aead_request_set_crypt(req, sg, sgout, *b_size, iv);
+			aead_request_set_assoc(req, asg, aad_size);
+
+			if (sec)
+				ret = test_aaead_jiffies(req, enc, *b_size,
+							 sec);
+			else
+				ret = test_aaead_cycles(req, enc, *b_size);
+
+			if (ret) {
+				pr_err("%s() failed return code=%d\n", e, ret);
+				break;
+			}
+			b_size++;
+			i++;
+		} while (*b_size);
+		keysize++;
+	} while (*keysize);
+
+out:
+	crypto_free_aead(tfm);
+	kfree(sg);
+out_nosg:
+	testmgr_free_buf(xoutbuf);
+out_nooutbuf:
+	testmgr_free_buf(axbuf);
+out_noaxbuf:
+	testmgr_free_buf(xbuf);
+out_noxbuf:
+	return;
+}
+
 static inline int do_one_acipher_op(struct ablkcipher_request *req, int ret)
 {
 	if (ret == -EINPROGRESS || ret == -EBUSY) {
@@ -2137,6 +2365,11 @@ static int do_test(const char *alg, u32 type, u32 mask, int m)
 				   speed_template_8_32);
 		test_acipher_speed("ctr(blowfish)", DECRYPT, sec, NULL, 0,
 				   speed_template_8_32);
+		break;
+
+	case 510:
+		test_aaead_speed("gcm(aes)", ENCRYPT, sec, NULL, 0, 16, 8,
+				 aead_speed_template_16_24_32);
 		break;
 
 	case 1000:

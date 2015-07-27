@@ -1460,6 +1460,12 @@ static inline void aead_request_set_tfm(struct aead_request *req,
 	req->base.tfm = crypto_aead_tfm(crypto_aead_crt(tfm)->base);
 }
 
+static inline struct aead_request *aead_request_cast(
+					struct crypto_async_request *req)
+{
+	return container_of(req, struct aead_request, base);
+}
+
 /**
  * aead_request_alloc() - allocate request data structure
  * @tfm: cipher handle to be registered with the request
