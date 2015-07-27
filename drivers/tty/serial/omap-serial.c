@@ -20,6 +20,8 @@
  * this driver as required for the omap-platform.
  */
 
+#define RS485_VERSION "rs485 v1.2"
+
 #if defined(CONFIG_SERIAL_OMAP_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ)
 #define SUPPORT_SYSRQ
 #endif
@@ -270,31 +272,57 @@ static void serial_omap_enable_ms(struct uart_port *port)
 	pm_runtime_mark_last_busy(up->dev);
 	pm_runtime_put_autosuspend(up->dev);
 }
-static inline void wait_for_xmitr(struct uart_omap_port *up);
 
 static void serial_omap_stop_tx(struct uart_port *port)
 {
 	struct uart_omap_port *up = to_uart_omap_port(port);
 	int val;
 	pm_runtime_get_sync(up->dev);
-	if (up->ier & UART_IER_THRI) {
-		up->ier &= ~UART_IER_THRI;
-		serial_out(up, UART_IER, up->ier);
+
+	//wait_for_xmitr(up);
+	if (up->rs485.flags & SER_RS485_ENABLED) {
+		if (up->scr & OMAP_UART_SCR_TX_EMPTY) {
+			/* THR interrupt is fired when both TX FIFO and TX
+                          * shift register are empty. This means there's nothing
+                          * left to transmit now, so make sure the THR interrupt
+                          * is fired when TX FIFO is below the trigger level,
+                          * disable THR interrupts and toggle the RS-485 GPIO
+                          * data direction pin if needed.
+                        */
+			up->scr &= ~OMAP_UART_SCR_TX_EMPTY;
+                         serial_out(up, UART_OMAP_SCR, up->scr);
+
+			val = (up->rs485.flags & SER_RS485_RTS_AFTER_SEND) ? 1 : 0;
+			if (gpio_get_value(up->rs485.gpio_pin) != val) {
+				if(up->rs485.delay_rts_after_send>0) {
+					udelay(up->rs485.delay_rts_after_send);
+				}
+				/* Disable RS485 TX EN */
+				gpio_set_value(up->rs485.gpio_pin, val);
+			}
+		}else{
+			/* We're asked to stop, but there's still stuff in the
+                          * UART FIFO, so make sure the THR interrupt is fired
+                          * when both TX FIFO and TX shift register are empty.
+                          * The next THR interrupt (if no transmission is started
+                          * in the meantime) will indicate the end of a
+                          * transmission. Therefore we _don't_ disable THR
+                          * interrupts in this situation.
+                          */
+                         up->scr |= OMAP_UART_SCR_TX_EMPTY;
+                         serial_out(up, UART_OMAP_SCR, up->scr);
+                         return;
+		}
 	}
+
+	if (up->ier & UART_IER_THRI) {
+                up->ier &= ~UART_IER_THRI;
+                serial_out(up, UART_IER, up->ier);
+        }
 
 	serial_omap_set_forceidle(up);
-
-	pm_runtime_mark_last_busy(up->dev);
-	pm_runtime_put_autosuspend(up->dev);
-	wait_for_xmitr(up);
-	if (up->rs485.flags & SER_RS485_ENABLED) {
-		if(up->rs485.delay_rts_after_send>0) {
-			udelay(up->rs485.delay_rts_after_send);
-		}
-		/* Disable RS485 TX EN */
-		val = (up->rs485.flags & SER_RS485_RTS_AFTER_SEND) ? 1 : 0;
-		gpio_set_value(up->rs485.gpio_pin, val);
-	}
+        pm_runtime_mark_last_busy(up->dev);
+        pm_runtime_put_autosuspend(up->dev);
 }
 
 static void serial_omap_stop_rx(struct uart_port *port)
@@ -354,21 +382,23 @@ static inline void serial_omap_enable_ier_thri(struct uart_omap_port *up)
 	}
 }
 
-static void serial_omap_start_tx(struct uart_port *port)
-{
+static void serial_omap_start_tx(struct uart_port *port){
 	struct uart_omap_port *up = to_uart_omap_port(port);
 	int val;
-
+	pm_runtime_get_sync(up->dev);
 	if (up->rs485.flags & SER_RS485_ENABLED) {
+		/* Fire THR interrupts when FIFO is below trigger level */
+                 up->scr &= ~OMAP_UART_SCR_TX_EMPTY;
+                 serial_out(up, UART_OMAP_SCR, up->scr);
+                /* if rts not already enabled */
 		/* Enable RS485 TX EN */
 		val = (up->rs485.flags & SER_RS485_RTS_ON_SEND) ? 0 : 1;
-		gpio_set_value(up->rs485.gpio_pin, val);
-
-		if(up->rs485.delay_rts_before_send>0)
-			udelay(up->rs485.delay_rts_before_send);
+		if (gpio_get_value(up->rs485.gpio_pin) != val) {
+			gpio_set_value(up->rs485.gpio_pin, val);
+			if(up->rs485.delay_rts_before_send>0)
+				udelay(up->rs485.delay_rts_before_send);
+		}
 	}
-
-	pm_runtime_get_sync(up->dev);
 	serial_omap_enable_ier_thri(up);
 	serial_omap_set_noidle(up);
 	pm_runtime_mark_last_busy(up->dev);
@@ -1342,7 +1372,7 @@ serial_omap_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 	struct serial_rs485 rs485conf;
 	switch (cmd) {
 	case TIOCSRS485:
-		printk("rs485 v1.1\n");
+		printk(RS485_VERSION);
 		if (copy_from_user(&rs485conf, (struct serial_rs485 *)arg,
 			        sizeof(rs485conf)))
 			return -EFAULT;
@@ -1350,7 +1380,7 @@ serial_omap_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 		break;
 
 	case TIOCGRS485:
-		printk("rs485 v1.1\n");
+		printk(RS485_VERSION);
 		if (copy_to_user((struct serial_rs485 *)arg,
 		               &((struct uart_omap_port *)port)->rs485,
 		               sizeof(rs485conf)))
