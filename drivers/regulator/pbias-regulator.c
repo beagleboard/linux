@@ -22,6 +22,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/of_address.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/of.h>
@@ -108,12 +109,14 @@ static int pbias_regulator_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct pbias_regulator_data *drvdata;
-	struct resource *res;
 	struct regulator_config cfg = { };
 	struct regmap *syscon;
 	const struct pbias_reg_info *info;
 	int ret = 0;
 	int count, idx, data_idx = 0;
+	const __be32 *addrp;
+	int ns;
+	unsigned int reg;
 
 	count = of_regulator_match(&pdev->dev, np, pbias_matches,
 						PBIAS_NUM_REGS);
@@ -141,9 +144,12 @@ static int pbias_regulator_probe(struct platform_device *pdev)
 		if (!info)
 			return -ENODEV;
 
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		if (!res)
+		addrp = of_get_address(np, 0, NULL, NULL);
+		if (!addrp)
 			return -EINVAL;
+
+		ns = of_n_size_cells(np);
+		reg = of_read_number(addrp, ns);
 
 		drvdata[data_idx].syscon = syscon;
 		drvdata[data_idx].info = info;
@@ -154,9 +160,9 @@ static int pbias_regulator_probe(struct platform_device *pdev)
 		drvdata[data_idx].desc.volt_table = pbias_volt_table;
 		drvdata[data_idx].desc.n_voltages = 2;
 		drvdata[data_idx].desc.enable_time = info->enable_time;
-		drvdata[data_idx].desc.vsel_reg = res->start;
+		drvdata[data_idx].desc.vsel_reg = reg;
 		drvdata[data_idx].desc.vsel_mask = info->vmode;
-		drvdata[data_idx].desc.enable_reg = res->start;
+		drvdata[data_idx].desc.enable_reg = reg;
 		drvdata[data_idx].desc.enable_mask = info->enable_mask;
 		drvdata[data_idx].desc.enable_val = info->enable;
 
