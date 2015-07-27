@@ -104,11 +104,6 @@
 		id-gpio = <&gpio7 25 GPIO_ACTIVE_HIGH>;
 	};
 
-	extcon_usb2: extcon_usb2 {
-		compatible = "linux,extcon-usb-gpio";
-		id-gpio = <&gpio7 24 GPIO_ACTIVE_HIGH>;
-	};
-
 	hdmi0: connector {
 		compatible = "hdmi-connector";
 		label = "hdmi";
@@ -393,6 +388,14 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 		};
+
+		extcon_usb2: tps659038_usb {
+			compatible = "ti,palmas-usb-vid";
+			ti,enable-vbus-detection;
+			ti,enable-id-detection;
+			id-gpios = <&gpio7 24 GPIO_ACTIVE_HIGH>;
+		};
+
 	};
 
 	tmp102: tmp102@48 {
@@ -514,6 +517,14 @@
 };
 
 &usb2 {
+	/*
+	 * Stand alone usage is peripheral only.
+	 * However, with some resistor modifications
+	 * this port can be used via expansion connectors
+	 * as "host" or "dual-role". If so, provide
+	 * the necessary dr_mode override in the expansion
+	 * board's DT.
+	 */
 	dr_mode = "peripheral";
 };
 
