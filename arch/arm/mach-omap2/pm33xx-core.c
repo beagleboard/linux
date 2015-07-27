@@ -178,7 +178,7 @@ struct am33xx_pm_ops *amx3_get_pm_ops(void)
 {
 	if (soc_is_am33xx())
 		return &am33xx_ops;
-	else if (soc_is_am437x())
+	else if (soc_is_am43xx())
 		return &am43xx_ops;
 	else
 		return NULL;
@@ -189,7 +189,7 @@ struct am33xx_pm_sram_addr *amx3_get_sram_addrs(void)
 {
 	if (soc_is_am33xx())
 		return &am33xx_pm_sram;
-	else if (soc_is_am437x())
+	else if (soc_is_am43xx())
 		return &am43xx_pm_sram;
 	else
 		return NULL;

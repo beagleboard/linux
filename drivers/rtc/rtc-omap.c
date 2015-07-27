@@ -107,6 +107,7 @@
 
 /* OMAP_RTC_OSC_REG bit fields: */
 #define OMAP_RTC_OSC_32KCLK_EN		BIT(6)
+#define OMAP_RTC_OSC_SEL_32KCLK_SRC	BIT(3)
 
 /* OMAP_RTC_IRQWAKEEN bit fields: */
 #define OMAP_RTC_IRQWAKEEN_ALARM_WAKEEN	BIT(1)
@@ -136,6 +137,7 @@ struct omap_rtc {
 	int irq_timer;
 	u8 interrupts_reg;
 	bool is_pmic_controller;
+	bool is_ext_src;
 	const struct omap_rtc_device_type *type;
 };
 
@@ -540,6 +542,8 @@ static int omap_rtc_probe(struct platform_device *pdev)
 		rtc->is_pmic_controller = rtc->type->has_pmic_mode &&
 				of_property_read_bool(pdev->dev.of_node,
 						"system-power-controller");
+		rtc->is_ext_src = of_property_read_bool(pdev->dev.of_node,
+						"ext-clk-src");
 	} else {
 		id_entry = platform_get_device_id(pdev);
 		rtc->type = (void *)id_entry->driver_data;
@@ -626,6 +630,12 @@ static int omap_rtc_probe(struct platform_device *pdev)
 
 	if (reg != new_ctrl)
 		rtc_write(rtc, OMAP_RTC_CTRL_REG, new_ctrl);
+
+	if (rtc->is_ext_src) {
+		reg = rtc_read(rtc, OMAP_RTC_OSC_REG);
+		rtc_writel(rtc, OMAP_RTC_OSC_REG,
+			   reg | OMAP_RTC_OSC_SEL_32KCLK_SRC);
+	}
 
 	rtc->type->lock(rtc);
 

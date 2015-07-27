@@ -546,6 +546,7 @@ struct omap_hwmod_omap4_prcm {
 #define HWMOD_RECONFIG_IO_CHAIN			(1 << 13)
 #define HWMOD_NO_IDLE				(1 << 14)
 #define HWMOD_NEEDS_REIDLE			(1 << 15)
+#define HWMOD_CLKDM_NOAUTO			(1 << 16)
 
 /*
  * omap_hwmod._int_flags definitions
@@ -696,7 +697,7 @@ struct omap_hwmod {
 	struct list_head		node;
 	struct omap_hwmod_ocp_if	*_mpu_port;
 	unsigned int			(*xlate_irq)(unsigned int);
-	u16				flags;
+	u32				flags;
 	u8				mpu_rt_idx;
 	u8				response_lat;
 	u8				rst_lines_cnt;

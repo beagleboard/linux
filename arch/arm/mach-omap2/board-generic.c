@@ -266,6 +266,7 @@ MACHINE_END
 #ifdef CONFIG_SOC_AM43XX
 static const char *const am43_boards_compat[] __initconst = {
 	"ti,am4372",
+	"ti,am438x",
 	"ti,am43",
 	NULL,
 };
