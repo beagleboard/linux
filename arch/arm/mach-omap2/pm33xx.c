@@ -162,10 +162,7 @@ static void am33xx_pm_set_ipc_ops(void)
 	wkup_m3_set_resume_address(resume_address);
 }
 
-/*
- * Push the minimal suspend-resume code to SRAM
- */
-static int am33xx_push_sram_idle(void)
+static int am33xx_prepare_push_sram_idle(void)
 {
 	struct device_node *np;
 	int ret;
@@ -205,6 +202,15 @@ static int am33xx_push_sram_idle(void)
 	/* Save physical address to calculate resume offset during pm init */
 	am33xx_do_wfi_sram_phys = gen_pool_virt_to_phys(sram_pool,
 							ocmcram_location);
+
+	return 0;
+}
+
+/*
+ * Push the minimal suspend-resume code to SRAM
+ */
+int am33xx_push_sram_idle(void)
+{
 	am33xx_do_wfi_sram = (void *)fncpy((void *)ocmcram_location,
 					   pm_sram->do_wfi,
 					   *pm_sram->do_wfi_sz);
@@ -226,10 +232,11 @@ int am33xx_pm_init(void)
 		return -ENODEV;
 	}
 
-	ret = am33xx_push_sram_idle();
+	ret = am33xx_prepare_push_sram_idle();
 	if (ret)
 		return ret;
 
+	am33xx_push_sram_idle();
 	am33xx_pm_set_ipc_ops();
 
 #ifdef CONFIG_SUSPEND
