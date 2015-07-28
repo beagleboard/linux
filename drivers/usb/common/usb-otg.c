@@ -496,7 +496,7 @@ int usb_otg_kick_fsm(struct device *hcd_gcd_device)
 	mutex_lock(&otg_list_mutex);
 	otgd = usb_otg_device_get_otgd(hcd_gcd_device->parent);
 	if (!otgd) {
-		dev_err(hcd_gcd_device, "otg: %s: invalid host/gadget device\n",
+		dev_dbg(hcd_gcd_device, "otg: %s: invalid host/gadget device\n",
 			__func__);
 		mutex_unlock(&otg_list_mutex);
 		return -ENODEV;
@@ -678,7 +678,7 @@ int usb_otg_register_gadget(struct usb_gadget *gadget,
 	mutex_lock(&otg_list_mutex);
 	otgd = usb_otg_device_get_otgd(otg_dev);
 	if (!otgd) {
-		dev_err(otg_dev, "otg: %s: device not registered to otg core\n",
+		dev_dbg(otg_dev, "otg: %s: device not registered to otg core\n",
 			__func__);
 		mutex_unlock(&otg_list_mutex);
 		return -EINVAL;
@@ -724,7 +724,7 @@ int usb_otg_unregister_gadget(struct usb_gadget *gadget)
 	mutex_lock(&otg_list_mutex);
 	otgd = usb_otg_device_get_otgd(otg_dev);
 	if (!otgd) {
-		dev_err(otg_dev, "otg: %s: device not registered to otg core\n",
+		dev_dbg(otg_dev, "otg: %s: device not registered to otg core\n",
 			__func__);
 		mutex_unlock(&otg_list_mutex);
 		return -EINVAL;
