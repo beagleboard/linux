@@ -1,0 +1,1 @@
+am335x-myhomebox.out.dts: am335x-myhomebox.tmp arch/arm/boot/dts/am33xxhbox.dtsi arch/arm/boot/dts/skeleton.dtsi arch/arm/boot/dts/am335x-myhomebox-common.dtsi arch/arm/boot/dts/am33xxhbox.dtsi arch/arm/boot/dts/skeleton.dtsi

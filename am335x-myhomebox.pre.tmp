@@ -1,0 +1,1 @@
+am335x-myhomebox.o: arch/arm/boot/dts/am335x-myhomebox.dts

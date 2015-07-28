@@ -1,0 +1,199 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/include/ "am33xxhbox.dtsi"
+
+/ {
+	model = "MyHomebox AM335x";
+	compatible = "ti,am335x-bone", "ti,am335x-boneblack","ti,am335x-myhomebox", "ti,am33xx";
+
+	cpus {
+		cpu@0 {
+			cpu0-supply = <&dcdc2_reg>;
+		};
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x10000000>; /* 256 MB */
+	};
+
+	am33xx_pinmux: pinmux@44e10800 {
+		pinctrl-names = "default";
+
+		i2c0_pins: pinmux_i2c0_pins {
+			pinctrl-single,pins = <
+				0x188 0x70 	/* i2c0_sda, SLEWCTRL_SLOW | INPUT_PULLUP | MODE0 */
+				0x18c 0x70	/* i2c0_scl, SLEWCTRL_SLOW | INPUT_PULLUP | MODE0 */
+			>;
+		};
+	
+
+	};
+
+	ocp: ocp {
+
+		uart1: serial@44e09000 {
+			status = "okay";
+		};
+
+		uart2: serial@48022000 {
+			status = "okay";
+		};
+
+		uart3: serial@48024000 {
+			status = "okay";
+		};
+
+		uart4: serial@481a6000 {
+			status = "okay";
+		};
+
+		uart5: serial@481a8000 {
+			status = "okay";
+		};
+	
+		rtc@44e3e000 {
+			ti,system-power-controller;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led@1 {
+			label = "red1";
+			gpios = <&gpio2 7 0>;
+			default-state = "on";
+		};
+
+		led@2 {
+			label = "red2";
+			gpios = <&gpio1 22 0>;
+			default-state = "on";
+		};
+
+		led@3 {
+			label = "red3";
+			gpios = <&gpio1 23 0>;
+			default-state = "on";
+		};
+
+
+		led@4 {
+			label = "blue1";
+			gpios = <&gpio2 4 0>;
+			default-state = "off";
+		};
+
+		led@5 {
+			label = "blue2";
+			gpios = <&gpio2 5 0>;
+			default-state = "off";
+		};
+
+		led@6 {
+			label = "blue3";
+			gpios = <&gpio2 6 0>;
+			default-state = "off";
+		};
+	};
+
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+
+	tps: tps@24 {
+		reg = <0x24>;
+	};
+
+};
+
+/include/ "tps65217.dtsi"
+
+&tps {
+	ti,pmic-shutdown-controller;
+
+	interrupt-parent = <&intc>;
+	interrupts = <7>;	/* NNMI */
+
+	regulators {
+		dcdc1_reg: regulator@0 {
+			regulator-always-on;
+		};
+
+		dcdc2_reg: regulator@1 {
+			/* VDD_MPU voltage limits 0.95V - 1.26V with +/-4% tolerance */
+			regulator-name = "vdd_mpu";
+			regulator-min-microvolt = <925000>;
+			regulator-max-microvolt = <1325000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+
+		dcdc3_reg: regulator@2 {
+			/* VDD_CORE voltage limits 0.95V - 1.1V with +/-4% tolerance */
+			regulator-name = "vdd_core";
+			regulator-min-microvolt = <925000>;
+			regulator-max-microvolt = <1150000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+
+		ldo1_reg: regulator@3 {
+			regulator-always-on;
+		};
+
+		ldo2_reg: regulator@4 {
+			regulator-always-on;
+		};
+
+		ldo3_reg: regulator@5 {
+			regulator-always-on;
+		};
+
+		ldo4_reg: regulator@6 {
+			regulator-always-on;
+		};
+	};
+
+};
+
+&cpsw_emac0 {
+	phy_id = <&davinci_mdio>, <0>;
+};
+
+&cpsw_emac1 {
+	phy_id = <&davinci_mdio>, <1>;
+};
+
+
+&edma {
+	ti,edma-xbar-event-map = <32 12>,	/* gpevt2 -> 12 */
+				 <30 20>;	/* xdma_event_intr2 -> 20 */
+};
+
+&sham {
+	status = "okay";
+};
+
+&aes {
+	status = "okay";
+};
+
+&usb_otg_hs {
+	interface_type = <1>;
+	power = <250>;
+	status = "okay";
+};
+
+

@@ -1,0 +1,63 @@
+# 1 "./arch/arm/boot/dts/am335x-myhomebox.dts"
+# 1 "<command-line>"
+# 1 "./arch/arm/boot/dts/am335x-myhomebox.dts"
+
+
+
+
+
+
+
+/dts-v1/;
+
+/include/ "am33xxhbox.dtsi"
+
+/include/ "am335x-myhomebox-common.dtsi"
+
+&am33xx_pinmux {
+
+};
+
+
+&ldo3_reg{
+  regulator-min-microvolt = <1800000>;
+  regulator-max-microvolt = <1800000>;
+  regulator-always-on;
+};
+
+&ldo2_reg{
+  regulator-min-microvolt = <1800000>;
+  regulator-max-microvolt = <3300000>;
+  regulator-always-on;
+};
+
+&ldo4_reg{
+  regulator-min-microvolt = <3300000>;
+  regulator-max-microvolt = <3300000>;
+  regulator-always-on;
+};
+
+&mmc2 {
+ pinctrl-names = "default";
+ pinctrl-0 = <&mmc2_pins>;
+ bus-width = <0x4>;
+ cd-gpios = <&gpio3 15 1>;
+ cd-inverted;
+ status = "okay";
+ vmmc-supply = <&ldo2_reg>;
+ ti,vcc-aux-disable-is-sleep;
+};
+
+
+&cpu {
+
+
+
+
+
+ operating-points = <
+
+  600000 1125000
+  300000 975000
+ >;
+};

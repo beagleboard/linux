@@ -1,0 +1,61 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+/include/ "am33xxhbox.dtsi"
+
+/include/ "am335x-myhomebox-common.dtsi"
+
+&am33xx_pinmux {
+
+};
+
+&ldo3_reg{
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+};
+
+&ldo2_reg{
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+};
+
+&ldo4_reg{
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+};
+
+
+
+&mmc2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc2_pins>;
+	bus-width = <0x4>;
+	cd-gpios = <&gpio3 15 1>; /* gpio1 is misnamed, 0 == GPIO_ACTIVE_HIGH */
+	cd-inverted;
+	status = "okay";
+	vmmc-supply = <&ldo2_reg>;
+	ti,vcc-aux-disable-is-sleep;
+};
+
+
+&cpu {
+	/*
+	 * To consider voltage drop between PMIC and SoC,
+	 * tolerance value is reduced to 2% from 4% and
+	 * voltage value is increased as a precaution.
+	 */
+	operating-points = <
+		/* kHz    uV */
+		600000  1125000
+		300000   975000
+	>;
+};

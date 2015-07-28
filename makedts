@@ -1,0 +1,93 @@
+###############################################################################
+##									     ##
+##	File:     makedts						     ##
+##	Author:   Alison Chaiken <alison_chaiken@mentor.com>                 ##
+##	Created:  Fri Oct 18 03:57:20 BST 2013				     ##
+##	Contents: Run dtc on a single device-tree source, invoking the	     ##
+##	C-preprocessor if appropriate, and processing all dependencies,	     ##
+##	to produce a single human-readable ASCII output.  Output is	     ##
+##	similar to fdtdump except that it operates on source files and	     ##
+##	emits strings as characters rather than hex equivalents.   	     ##
+##									     ##
+##	Copyright (c) 2013 Mentor Graphics.				     ##
+##                                                                           ##
+##	This program is free software; you can redistribute it and/or	     ##
+##	modify it under the terms of the GNU General Public License as	     ##
+##	published by the Free Software Foundation; either version 2 of	     ##
+##	the License, or (at your option) any later version.	    	     ##
+##									     ##
+###############################################################################
+
+#!/bin/bash
+
+CC=arm-linux-gnueabihf-gcc
+SRCARCH=arm
+BASE=`basename $1 .dts`
+DTC_CPP_FLAGS="-E -Wp,-MD,$BASE.pre.tmp -nostdinc -Iarch/$SRCARCH/boot/dts -Iarch/$SRCARCH/boot/dts/include -undef -D__DTS__  -x assembler-with-cpp"
+
+function usage()
+{
+	echo ""
+	echo "makedts compiles a top-level 'board file' device-tree source file "
+	echo "by processing all its dependencies and producing output with the suffix .out.dts."
+	echo ""
+	echo "Run this script from the kernel top-level source directory and "
+	echo "provide the name of one device-tree file to preprocess."
+	exit 1
+}
+
+function calc_kernel_version()
+{
+	VERSION=0
+	VERSION=`head -1 Makefile | awk {'print $3;'}`
+	PATCHLEVEL=`grep PATCHLEVEL Makefile | head -1 | awk {'print $3;'}`
+	SUBLEVEL=`grep SUBLEVEL Makefile | head -1 | awk {'print $3;'}`
+	EXTRAVERSION=`grep EXTRAVERSION Makefile | head -1 | awk {'print $3;'}`
+
+	if [[ $VERSION -eq 0 ]]
+	   then
+		usage
+	fi
+
+	KERNELVERSION_HUMAN=$VERSION.$PATCHLEVEL.$SUBLEVEL$EXTRAVERSION
+	return $KERNELVERSION_HUMAN
+}
+
+if [[ $# -ne 1 ]] ; then
+   usage
+fi
+
+if ( [ ! -d arch ] || [ ! -d scripts ] ) ; then
+   usage
+fi
+
+calc_kernel_version
+echo "KERNELVERSION_HUMAN is $KERNELVERSION_HUMAN"
+KERNELVERSION=`expr $VERSION \* 65536 + $PATCHLEVEL \* 256 + $SUBLEVEL `
+echo "KERNELVERSION is $KERNELVERSION"
+
+# CPP support in dtc first appeared in 3.7: (+ (* 3 65536) (* 7 256)) 198400
+if [[ $KERNELVERSION -lt 198400 ]]
+   then
+	echo "Older kernel: no cpp invocation."
+	scripts/dtc/dtc -O dts -o $BASE.out.dts $1
+	echo "Produced $BASE.out.dts"
+	exit 0
+fi
+
+$CC $DTC_CPP_FLAGS -o $BASE.tmp $1
+
+if [[ $? -ne 0 ]]
+  then
+     echo "C preprocessor parsing of DTS failed."
+     exit
+fi
+
+scripts/dtc/dtc -O dts -o $BASE.out.dts -b 0 -i arch/arm/boot/dts -d $BASE.dtc.tmp $BASE.tmp
+
+if [[ $? -eq 0 ]]
+  then
+     echo "Produced $BASE.out.dts"
+fi
+
+#rm *.tmp
