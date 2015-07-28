@@ -405,7 +405,7 @@ static inline u32 hw_test_and_write(struct ci_hdrc *ci, enum ci_hw_regs reg,
  */
 static inline bool ci_otg_is_fsm_mode(struct ci_hdrc *ci)
 {
-#ifdef CONFIG_USB_OTG_FSM
+#ifdef CONFIG_USB_OTG
 	return ci->is_otg && ci->roles[CI_ROLE_HOST] &&
 					ci->roles[CI_ROLE_GADGET];
 #else
