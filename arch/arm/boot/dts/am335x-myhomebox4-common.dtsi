@@ -23,37 +23,37 @@
 
 		led@1 {
 			label = "red1";
-			gpios = <&gpio2 7 0>;
+			gpios = <&gpio2 7 GPIO_ACTIVE_HIGH>;
 			default-state = "on";
 		};
 
 		led@2 {
 			label = "red2";
-			gpios = <&gpio1 22 0>;
+			gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>;
 			default-state = "on";
 		};
 
 		led@3 {
 			label = "red3";
-			gpios = <&gpio1 23 0>;
+			gpios = <&gpio1 23 GPIO_ACTIVE_HIGH>;
 			default-state = "on";
 		};
 
 		led@4 {
 			label = "blue1";
-			gpios = <&gpio2 4 0>;
+			gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
 		led@5 {
 			label = "blue2";
-			gpios = <&gpio2 5 0>;
+			gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
 		led@6 {
 			label = "blue3";
-			gpios = <&gpio2 6 0>;
+			gpios = <&gpio2 6 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
@@ -157,6 +157,32 @@
 	status = "okay";
 };
 
+&usb {
+	status = "okay";
+};
+
+&usb_ctrl_mod {
+	status = "okay";
+};
+
+&usb0_phy {
+	status = "okay";
+};
+
+&usb1_phy {
+	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
+	dr_mode = "host";
+};
+
+&usb1 {
+	status = "okay";
+	dr_mode = "host";
+};
+
 &i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_pins>;
@@ -242,12 +268,6 @@
 			regulator-always-on;
 		};
 	};
-};
-
-&usb_otg_hs {
-	interface_type = <1>;
-	power = <500>;
-	status = "okay";
 };
 
 &cpsw_emac0 {
