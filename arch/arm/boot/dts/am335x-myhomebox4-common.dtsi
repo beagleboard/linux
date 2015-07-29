@@ -22,38 +22,38 @@
 		compatible = "gpio-leds";
 
 		led@1 {
-			label = "red1";
-			gpios = <&gpio2 7 GPIO_ACTIVE_HIGH>;
+			label = "homebox:red:led1";
+			gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
 			default-state = "on";
 		};
 
 		led@2 {
-			label = "red2";
-			gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>;
+			label = "homebox:red:led2";
+			gpios = <&gpio0 22 GPIO_ACTIVE_HIGH>;
 			default-state = "on";
 		};
 
 		led@3 {
-			label = "red3";
-			gpios = <&gpio1 23 GPIO_ACTIVE_HIGH>;
+			label = "homebox:red:led3";
+			gpios = <&gpio0 23 GPIO_ACTIVE_HIGH>;
 			default-state = "on";
 		};
 
 		led@4 {
-			label = "blue1";
-			gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
+			label = "homebox:blue:led1";
+			gpios = <&gpio1 4 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
 		led@5 {
-			label = "blue2";
-			gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
+			label = "homebox:blue:led2";
+			gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
 		led@6 {
-			label = "blue3";
-			gpios = <&gpio2 6 GPIO_ACTIVE_HIGH>;
+			label = "homebox:blue:led3";
+			gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
