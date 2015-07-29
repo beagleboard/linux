@@ -30,8 +30,10 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
+#include <linux/usb/otg-fsm.h>
 
 #include <linux/phy/phy.h>
+#include <linux/extcon.h>
 
 #define DWC3_MSG_MAX	500
 
@@ -738,6 +740,10 @@ struct dwc3 {
 
 	struct phy		*usb2_generic_phy;
 	struct phy		*usb3_generic_phy;
+
+	struct extcon_dev	*edev;	/* USB cable events ID & VBUS */
+	struct notifier_block	otg_nb;	/* notifier for USB cable events */
+	struct otg_fsm		*fsm;
 
 	void __iomem		*regs;
 	size_t			regs_size;
