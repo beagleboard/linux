@@ -10347,12 +10347,14 @@ S:	Maintained
 F:	Documentation/usb/ohci.txt
 F:	drivers/usb/host/ohci*
 
-USB OTG FSM (Finite State Machine)
+USB OTG/DRD core and FSM (Finite State Machine)
 M:	Peter Chen <Peter.Chen@freescale.com>
+M:	Roger Quadros <rogerq@ti.com>
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/peter.chen/usb.git
 L:	linux-usb@vger.kernel.org
 S:	Maintained
 F:	drivers/usb/common/usb-otg-fsm.c
+F:	drivers/usb/common/usb-otg.c
 
 USB OVER IP DRIVER
 M:	Valentina Manea <valentina.manea.m@gmail.com>
