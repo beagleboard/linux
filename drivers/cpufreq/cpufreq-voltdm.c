@@ -185,6 +185,7 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 		transition_latency += voltage_latency;
 
 	policy->cpuinfo.transition_latency = transition_latency;
+	policy->suspend_freq = freq_table[0].frequency;
 
 	pd = cpufreq_get_driver_data();
 	if (!pd || !pd->independent_clocks)
@@ -258,6 +259,9 @@ static struct cpufreq_driver voltdm_cpufreq_driver = {
 	.ready = cpufreq_ready,
 	.name = "cpufreq-voltdm",
 	.attr = cpufreq_generic_attr,
+#ifdef CONFIG_PM
+	.suspend = cpufreq_generic_suspend,
+#endif
 };
 
 static int voltdm_cpufreq_probe(struct platform_device *pdev)
