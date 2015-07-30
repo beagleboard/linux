@@ -166,6 +166,8 @@ void __init omap_barriers_init(void)
 
 	pr_info("OMAP4: Map %pa to %p for dram barrier\n",
 		&dram_sync_paddr, dram_sync);
+
+	soc_mb = omap4_mb;
 }
 #endif
 
