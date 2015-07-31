@@ -640,6 +640,8 @@ struct spi_transfer {
  * @actual_length: the total number of bytes that were transferred in all
  *	successful segments
  * @status: zero for success, else negative errno
+ * @use_mmap_mode: Indicate to spi master to perform memory mapped
+ *	read if possible.
  * @queue: for use by whichever driver currently owns the message
  * @state: for use by whichever driver currently owns the message
  *
@@ -681,6 +683,7 @@ struct spi_message {
 	unsigned		frame_length;
 	unsigned		actual_length;
 	int			status;
+	bool			use_mmap_mode;
 
 	/* for optional use by whatever driver currently owns the
 	 * spi_message ...  between calls to spi_async and then later
