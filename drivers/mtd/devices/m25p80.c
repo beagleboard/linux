@@ -148,6 +148,9 @@ static int m25p80_read(struct spi_nor *nor, loff_t from, size_t len,
 	t[1].len = len;
 	spi_message_add_tail(&t[1], &m);
 
+	m.spi = spi;
+	m.use_mmap_mode = true;
+
 	spi_sync(spi, &m);
 
 	*retlen = m.actual_length - m25p_cmdsz(nor) - dummy;
