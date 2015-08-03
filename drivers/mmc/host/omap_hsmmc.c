@@ -204,7 +204,6 @@ struct omap_hsmmc_host {
 	int			context_loss;
 	int			protect_card;
 	int			reqs_blocked;
-	int			use_reg;
 	int			req_in_progress;
 	unsigned long		clk_rate;
 	unsigned int		flags;
@@ -250,8 +249,6 @@ static int omap_hsmmc_get_cover_state(struct device *dev)
 
 	return mmc_gpio_get_cd(host->mmc);
 }
-
-#ifdef CONFIG_REGULATOR
 
 static int omap_hsmmc_enable_supply(struct mmc_host *mmc)
 {
@@ -526,29 +523,6 @@ static void omap_hsmmc_reg_put(struct omap_hsmmc_host *host)
 {
 	mmc_pdata(host)->set_power = NULL;
 }
-
-static inline int omap_hsmmc_have_reg(void)
-{
-	return 1;
-}
-
-#else
-
-static inline int omap_hsmmc_reg_get(struct omap_hsmmc_host *host)
-{
-	return -EINVAL;
-}
-
-static inline void omap_hsmmc_reg_put(struct omap_hsmmc_host *host)
-{
-}
-
-static inline int omap_hsmmc_have_reg(void)
-{
-	return 0;
-}
-
-#endif
 
 static irqreturn_t omap_hsmmc_cover_irq(int irq, void *dev_id);
 
@@ -2275,11 +2249,10 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		goto err_irq;
 	}
 
-	if (omap_hsmmc_have_reg() && !mmc_pdata(host)->set_power) {
+	if (!mmc_pdata(host)->set_power) {
 		ret = omap_hsmmc_reg_get(host);
 		if (ret)
 			goto err_irq;
-		host->use_reg = 1;
 	}
 
 	mmc->ocr_avail = mmc_pdata(host)->ocr_mask;
@@ -2322,8 +2295,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 
 err_slot_name:
 	mmc_remove_host(mmc);
-	if (host->use_reg)
-		omap_hsmmc_reg_put(host);
+	omap_hsmmc_reg_put(host);
 err_irq:
 	device_init_wakeup(&pdev->dev, false);
 	if (host->tx_chan)
@@ -2347,8 +2319,7 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 
 	pm_runtime_get_sync(host->dev);
 	mmc_remove_host(host->mmc);
-	if (host->use_reg)
-		omap_hsmmc_reg_put(host);
+	omap_hsmmc_reg_put(host);
 
 	if (host->tx_chan)
 		dma_release_channel(host->tx_chan);
