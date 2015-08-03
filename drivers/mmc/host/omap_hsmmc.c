@@ -360,16 +360,8 @@ static int omap_hsmmc_reg_get(struct omap_hsmmc_host *host)
 		host->vcc = NULL;
 	} else {
 		ocr_value = mmc_regulator_get_ocrmask(host->vcc);
-		if (!mmc_pdata(host)->ocr_mask) {
+		if (ocr_value > 0)
 			mmc_pdata(host)->ocr_mask = ocr_value;
-		} else {
-			if (!(mmc_pdata(host)->ocr_mask & ocr_value)) {
-				dev_err(host->dev, "ocrmask %x is not supported\n",
-					mmc_pdata(host)->ocr_mask);
-				mmc_pdata(host)->ocr_mask = 0;
-				return -EINVAL;
-			}
-		}
 	}
 	mmc_pdata(host)->set_power = omap_hsmmc_set_power;
 
