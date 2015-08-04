@@ -116,7 +116,7 @@
 
 &am43xx_pinmux {
 	pinctrl-names = "default";
-	pinctrl-0 = <&ddr3_vtt_toggle_default>;
+	pinctrl-0 = <&ddr3_vtt_toggle_default &debugss_pins>;
 
 	ddr3_vtt_toggle_default: ddr_vtt_toggle_default {
 		pinctrl-single,pins = <
@@ -371,6 +371,18 @@
 			0x1a8 (PULL_UP | MUX_MODE7)
 			0x1ac (PIN_INPUT | PULL_DISABLE | MUX_MODE9)
 			0x154 (PIN_INPUT_PULLDOWN | MUX_MODE0)
+		>;
+	};
+
+	debugss_pins: pinmux_debugss_pins {
+		pinctrl-single,pins = <
+			0x290 (PIN_INPUT_PULLDOWN)
+			0x294 (PIN_INPUT_PULLDOWN)
+			0x298 (PIN_INPUT_PULLDOWN)
+			0x29C (PIN_INPUT_PULLDOWN)
+			0x2A0 (PIN_INPUT_PULLDOWN)
+			0x2A4 (PIN_INPUT_PULLDOWN)
+			0x2A8 (PIN_INPUT_PULLDOWN)
 		>;
 	};
 };
