@@ -270,7 +270,6 @@
 
 	nand_flash_x8_default: nand_flash_x8_default {
 		pinctrl-single,pins = <
-			0x26c(PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* spi2_cs0.gpio/eMMCorNANDsel */
 			0x0  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad0.gpmc_ad0 */
 			0x4  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad1.gpmc_ad1 */
 			0x8  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad2.gpmc_ad2 */
@@ -291,7 +290,6 @@
 
 	nand_flash_x8_sleep: nand_flash_x8_sleep {
 		pinctrl-single,pins = <
-			0x26C(PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a0.SELQSPIorNAND/GPIO */
 			0x0  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad0.gpmc_ad0 */
 			0x4  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad1.gpmc_ad1 */
 			0x8  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad2.gpmc_ad2 */
@@ -482,6 +480,12 @@
 		>;
 	};
 
+	gpio0_pins: gpio0_pins {
+		pinctrl-single,pins = <
+			0x26c (PIN_OUTPUT | MUX_MODE9) /* spi2_cs0.gpio0_23 SEL_eMMCorNANDn */
+		>;
+	};
+
 	uart0_pins_sleep: uart0_pins_sleep {
 		pinctrl-single,pins = <
 			0x168 (DS0_PULL_UP_DOWN_EN | INPUT_EN | MUX_MODE7)
@@ -646,7 +650,23 @@
 };
 
 &gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpio0_pins>;
 	status = "okay";
+
+	p23 {
+		gpio-hog;
+		gpios = <23 GPIO_ACTIVE_HIGH>;
+		/* SelEMMCorNAND selects between eMMC and NAND:
+		 * Low: NAND
+		 * High: eMMC
+		 * When changing this line make sure the newly
+		 * selected device node is enabled and the previously
+		 * selected device node is disabled.
+		 */
+		output-low;
+		line-name = "SelEMMCorNAND";
+	};
 };
 
 &gpio3 {
