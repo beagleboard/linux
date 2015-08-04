@@ -331,8 +331,6 @@ if [ "$OUT_LOG" == "" ]; then
 	exit 1
 fi
 
-NEW_DEFCONFIG="appended_$DEFCONFIG"
-
 set_working_directory
 
 LOGGING_DIRECTORY="$WORKING_PATH""/ti_config_fragments/""$LOGGING_DIRECTORY"
@@ -420,6 +418,9 @@ else
 	done
 	rm $TEMP_FRAGMENT
 fi
+
+# The final defconfig to create
+NEW_DEFCONFIG="appended_$DEFCONFIG"
 
 # Last step before the build
 cat $LOGGING_DIRECTORY/.config > $LOGGING_DIRECTORY/final_config
