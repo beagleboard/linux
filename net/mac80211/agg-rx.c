@@ -131,6 +131,28 @@ void ieee80211_stop_rx_ba_session(struct ieee80211_vif *vif, u16 ba_rx_bitmap,
 }
 EXPORT_SYMBOL(ieee80211_stop_rx_ba_session);
 
+void ieee80211_change_rx_ba_max_subframes(struct ieee80211_vif *vif,
+					  const u8 *addr,
+					  u8 max_subframes)
+{
+	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
+	struct sta_info *sta;
+
+	if (max_subframes == 0)
+		return;
+
+	rcu_read_lock();
+	sta = sta_info_get_bss(sdata, addr);
+	if (!sta) {
+		rcu_read_unlock();
+		return;
+	}
+	sta->sta.max_rx_aggregation_subframes = max_subframes;
+	ieee80211_queue_work(&sta->local->hw, &sta->ampdu_mlme.work);
+	rcu_read_unlock();
+}
+EXPORT_SYMBOL(ieee80211_change_rx_ba_max_subframes);
+
 /*
  * After accepting the AddBA Request we activated a timer,
  * resetting it after each frame that arrives from the originator.
@@ -270,12 +292,14 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
 	if (buf_size == 0)
 		buf_size = IEEE80211_MAX_AMPDU_BUF;
 
-	/* make sure the size doesn't exceed the maximum supported by the hw */
-	if (buf_size > local->hw.max_rx_aggregation_subframes)
-		buf_size = local->hw.max_rx_aggregation_subframes;
-
 	/* examine state machine */
 	mutex_lock(&sta->ampdu_mlme.mtx);
+
+	/* make sure the size doesn't exceed the maximum supported by link */
+	if (buf_size > sta->sta.max_rx_aggregation_subframes)
+		buf_size = sta->sta.max_rx_aggregation_subframes;
+
+	ht_dbg(sta->sdata, "AddBA Req buf_size=%d\n", buf_size);
 
 	if (sta->ampdu_mlme.tid_rx[tid]) {
 		ht_dbg_ratelimited(sta->sdata,
