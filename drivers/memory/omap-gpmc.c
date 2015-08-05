@@ -1078,8 +1078,58 @@ static bool gpmc_nand_writebuffer_empty(void)
 	return false;
 }
 
+static int gpmc_nand_irq_enable(enum gpmc_nand_irq irq)
+{
+	u32 reg;
+
+	if (irq > GPMC_NAND_IRQ_TERMCOUNT)
+		return -EINVAL;
+
+	reg = gpmc_read_reg(GPMC_IRQENABLE);
+	reg |= BIT(irq);
+	gpmc_write_reg(GPMC_IRQENABLE, reg);
+
+	return 0;
+}
+
+static int gpmc_nand_irq_disable(enum gpmc_nand_irq irq)
+{
+	u32 reg;
+
+	if (irq > GPMC_NAND_IRQ_TERMCOUNT)
+		return -EINVAL;
+
+	reg = gpmc_read_reg(GPMC_IRQENABLE);
+	reg &= ~BIT(irq);
+	gpmc_write_reg(GPMC_IRQENABLE, reg);
+
+	return 0;
+}
+
+static void gpmc_nand_irq_clear(enum gpmc_nand_irq irq)
+{
+	if (irq > GPMC_NAND_IRQ_TERMCOUNT)
+		return;
+
+	/* setting bit to 1 clears the bit in IRQSTATUS */
+	gpmc_write_reg(GPMC_IRQSTATUS, BIT(irq));
+}
+
+static u32 gpmc_nand_irq_status(void)
+{
+	u32 reg = gpmc_read_reg(GPMC_IRQSTATUS);
+
+	/* Mask out non-NAND bits */
+	reg &= GPMC_IRQENABLE_FIFOEVENT | GPMC_IRQENABLE_TERMCOUNT;
+	return reg;
+}
+
 static struct gpmc_nand_ops nand_ops = {
 	.nand_writebuffer_empty = gpmc_nand_writebuffer_empty,
+	.nand_irq_enable = gpmc_nand_irq_enable,
+	.nand_irq_disable = gpmc_nand_irq_disable,
+	.nand_irq_clear = gpmc_nand_irq_clear,
+	.nand_irq_status = gpmc_nand_irq_status,
 };
 
 /**
