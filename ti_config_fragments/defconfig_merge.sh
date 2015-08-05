@@ -15,7 +15,7 @@ export user_home_directory=`getent passwd $unix_user |cut -d: -f6`
 BUILD_THREADS=`grep -c "^processor" /proc/cpuinfo`
 DEFCONFIG="omap2plus_defconfig"
 CROSS_COMPILE=
-WORKING_PATH="linux-kernel"
+WORKING_PATH=""
 LOAD_ADDR=0x80008000
 LOAD_ADDRESS_VALUE=
 LOGGING_DIRECTORY="working_config"
@@ -202,6 +202,28 @@ clean_the_build()
 	cross_make mrproper
 }
 
+setup_directories()
+{
+	INVOKE_DIR=`pwd`
+	SCRIPT_DIR=`dirname $0`
+	if [ -n "$WORKING_PATH" ]; then
+		# invoking script for a different kernel...
+		KERNEL_DIR="$WORKING_PATH"
+	else
+		# The script is located in <kernel_dir>/ti_config_fragments directory..
+		# Lets use that trick to find the kernel directory.
+		KERNEL_DIR=`dirname $SCRIPT_DIR`
+		WORKING_PATH=$KERNEL_DIR
+	fi
+
+	# Sanity checkup kernel build location.
+	if [ ! -d "$KERNEL_DIR" ]; then
+		echo "Kernel working dir $KERNEL_DIR is not a directory/ does not exist! exiting.."
+		exit 1
+	fi
+
+}
+
 set_working_directory()
 {
 	ORIGINAL_DIR=`pwd`
@@ -220,7 +242,7 @@ set_original_directory()
 
 cross_make()
 {
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $*
+	make -C$KERNEL_DIR -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $*
 }
 
 usage()
@@ -238,7 +260,7 @@ A copy of both the base config and the final config is stored in the scripts log
 Single fragment command line example:
 
 	defconfig_merge.sh -c <path to the compiler> -o <path to output log file>
-	-e <path to single fragment file> -w <path to the working directory of the kernel>
+	-e <path to single fragment file> -w <path to the kernel directory>
 
 Multiple fragment file format:
 "use-kernel-config=" - Is required to be defined.  This is the base defconfig
@@ -255,7 +277,7 @@ entry per config fragment.
 Multiple fragment command line example:
 
 	defconfig_merge.sh -c <path to the compiler> -o <path to output log file>
-	-f <path to multiple fragment file> -w <path to the working directory of the kernel>
+	-f <path to multiple fragment file> -w <path to the kernel directory>
 
 Example:
 use-kernel-config=omap2plus_defconfig
@@ -279,14 +301,12 @@ OPTIONS:
 	Build Options:
 	-n  Do not pre-build the defconfig just use the existing .config
 	-m  MAKE the kernel, modules and dtb files based on the new config
-	-w  Linux kernel path directory
+	-w  Linux kernel directory
 
 	-f  Path to file with multiple defconfig options
 
 EOF
 }
-
-trap prepare_for_exit EXIT SIGINT SIGTERM
 
 while getopts “c:j:d:e:o:l:mnbf:w:” OPTION
 do
@@ -316,6 +336,10 @@ do
 			exit;;
      esac
 done
+
+setup_directories
+trap prepare_for_exit EXIT SIGINT SIGTERM
+
 
 if [ "$BUILD_ALL" == 1 -o "$NO_CLEAN_DEFCONFIG" != 1 ]; then
 	if [ -z "$CROSS_COMPILE" ]; then
