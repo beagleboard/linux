@@ -95,6 +95,16 @@
 			ti,syscon-mmuconfig = <&dsp2_system 0x1>;
 			status = "disabled";
 		};
+
+		dsp2: dsp@41000000 {
+			compatible = "ti,dra7-rproc-dsp";
+			reg = <0x41000000 0x48000>;
+			reg-names = "l2ram";
+			ti,hwmods = "dsp2";
+			syscon-bootreg = <&scm_conf 0x560>;
+			iommus = <&mmu0_dsp2>, <&mmu1_dsp2>;
+			status = "disabled";
+		};
 	};
 };
 
