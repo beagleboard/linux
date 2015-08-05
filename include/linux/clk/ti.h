@@ -153,6 +153,7 @@ struct clk_hw_omap {
 	const char		*clkdm_name;
 	struct clockdomain	*clkdm;
 	const struct clk_hw_omap_ops	*ops;
+	u32			context;
 };
 
 /*
@@ -350,6 +351,12 @@ void of_ti_clk_deny_autoidle_all(void);
 static inline void of_ti_clk_allow_autoidle_all(void) { }
 static inline void of_ti_clk_deny_autoidle_all(void) { }
 #endif
+
+int omap3_noncore_dpll_save_context(struct clk_hw *hw);
+void omap3_noncore_dpll_restore_context(struct clk_hw *hw);
+
+int omap3_core_dpll_save_context(struct clk_hw *hw);
+void omap3_core_dpll_restore_context(struct clk_hw *hw);
 
 extern const struct clk_hw_omap_ops clkhwops_omap2xxx_dpll;
 extern const struct clk_hw_omap_ops clkhwops_omap2430_i2chs_wait;
