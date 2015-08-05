@@ -203,6 +203,36 @@
 		>;
 	};
 
+	emmc_pins_default: emmc_pins_default {
+		pinctrl-single,pins = <
+			0x00 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad0.mmc1_dat0 */
+			0x04 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad1.mmc1_dat1 */
+			0x08 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad2.mmc1_dat2 */
+			0x0c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad3.mmc1_dat3 */
+			0x10 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad4.mmc1_dat4 */
+			0x14 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad5.mmc1_dat5 */
+			0x18 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad6.mmc1_dat6 */
+			0x1c (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_ad7.mmc1_dat7 */
+			0x80 (PIN_INPUT_PULLUP | MUX_MODE2) /* gpmc_csn1.mmc1_clk */
+			0x84 (PIN_INPUT_PULLUP | MUX_MODE2) /* gpmc_csn2.mmc1_cmd */
+		>;
+	};
+
+	emmc_pins_sleep: emmc_pins_sleep {
+		pinctrl-single,pins = <
+			0x00 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad0.gpio1_0 */
+			0x04 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad1.gpio1_1 */
+			0x08 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad2.gpio1_2 */
+			0x0c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad3.gpio1_3 */
+			0x10 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad4.gpio1_4 */
+			0x14 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad5.gpio1_5 */
+			0x18 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad6.gpio1_6 */
+			0x1c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad7.gpio1_7 */
+			0x80 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn1.gpio1_30 */
+			0x84 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_csn2.gpio1_31 */
+		>;
+	};
+
 	ecap0_pins_default: backlight_pins_default {
 		pinctrl-single,pins = <
 			0x164 MUX_MODE0       /* eCAP0_in_PWM0_out.eCAP0_in_PWM0_out MODE0 */
@@ -281,7 +311,6 @@
 
 	nand_flash_x8_default: nand_flash_x8_default {
 		pinctrl-single,pins = <
-			0x26c(PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* spi2_cs0.gpio/eMMCorNANDsel */
 			0x0  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad0.gpmc_ad0 */
 			0x4  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad1.gpmc_ad1 */
 			0x8  (PIN_INPUT  | MUX_MODE0)	/* gpmc_ad2.gpmc_ad2 */
@@ -302,7 +331,6 @@
 
 	nand_flash_x8_sleep: nand_flash_x8_sleep {
 		pinctrl-single,pins = <
-			0x26C(PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a0.SELQSPIorNAND/GPIO */
 			0x0  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad0.gpmc_ad0 */
 			0x4  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad1.gpmc_ad1 */
 			0x8  (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad2.gpmc_ad2 */
@@ -490,6 +518,12 @@
 			0x16C (DS0_PULL_UP_DOWN_EN | INPUT_EN | MUX_MODE0)
 			0x170 (PIN_INPUT_PULLUP | SLEWCTRL_FAST | DS0_PULL_UP_DOWN_EN | MUX_MODE0) /* uart0_rxd.uart0_rxd */
 			0x174 (PIN_INPUT | PULL_DISABLE | SLEWCTRL_FAST | DS0_PULL_UP_DOWN_EN | MUX_MODE0) /* uart0_txd.uart0_txd */
+		>;
+	};
+
+	gpio0_pins: gpio0_pins {
+		pinctrl-single,pins = <
+			0x26c (PIN_OUTPUT | MUX_MODE9) /* spi2_cs0.gpio0_23 SEL_eMMCorNANDn */
 		>;
 	};
 
@@ -704,7 +738,23 @@
 };
 
 &gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpio0_pins>;
 	status = "okay";
+
+	p23 {
+		gpio-hog;
+		gpios = <23 GPIO_ACTIVE_HIGH>;
+		/* SelEMMCorNAND selects between eMMC and NAND:
+		 * Low: NAND
+		 * High: eMMC
+		 * When changing this line make sure the newly
+		 * selected device node is enabled and the previously
+		 * selected device node is disabled.
+		 */
+		output-low;
+		line-name = "SelEMMCorNAND";
+	};
 };
 
 &gpio1 {
@@ -785,6 +835,21 @@
 	pinctrl-0 = <&uart3_pins>;
 };
 
+/* eMMC sits on mmc2 */
+&mmc2 {
+	/*
+	 * When enabling eMMC, disable GPMC/NAND and set
+	 * SelEMMCorNAND to output-high
+	 */
+	status = "disabled";
+	vmmc-supply = <&evm_v3_3d>;
+	bus-width = <8>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&emmc_pins_default>;
+	pinctrl-1 = <&emmc_pins_sleep>;
+	ti,non-removable;
+};
+
 &usb2_phy1 {
 	status = "okay";
 };
@@ -828,6 +893,10 @@
 };
 
 &gpmc {
+	/*
+	 * When enabling GPMC, disable eMMC and set
+	 * SelEMMCorNAND to output-low
+	 */
 	status = "okay";
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&nand_flash_x8_default>;
