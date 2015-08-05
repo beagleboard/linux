@@ -446,13 +446,6 @@ static int omap_hsmmc_set_power(struct device *dev, int power_on, int iov)
 	struct mmc_host *mmc = host->mmc;
 	int ret = 0;
 
-	/*
-	 * If we don't see a Vcc regulator, assume it's a fixed
-	 * voltage always-on regulator.
-	 */
-	if (!mmc->supply.vmmc)
-		return 0;
-
 	if (mmc_pdata(host)->before_set_reg)
 		mmc_pdata(host)->before_set_reg(dev, power_on, iov);
 
