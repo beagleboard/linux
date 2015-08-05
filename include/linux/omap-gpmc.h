@@ -11,9 +11,6 @@
 
 #define GPMC_CONFIG_WP		0x00000005
 
-#define GPMC_IRQ_FIFOEVENTENABLE	0x01
-#define GPMC_IRQ_COUNT_EVENT		0x02
-
 enum gpmc_nand_irq {
 	GPMC_NAND_IRQ_FIFOEVENT = 0,
 	GPMC_NAND_IRQ_TERMCOUNT,
@@ -53,10 +50,16 @@ static inline gpmc_nand_ops *gpmc_omap_get_nand_ops(struct gpmc_nand_regs *regs,
 /* deprecated APIs */
 #if IS_ENABLED(CONFIG_OMAP_GPMC)
 void gpmc_update_nand_reg(struct gpmc_nand_regs *reg, int cs);
+int gpmc_get_irq(void);
 #else
 static inline void gpmc_update_nand_reg(struct gpmc_nand_regs *reg, int cs)
 {
 	reg = NULL;
+}
+
+static inline int gpmc_get_irq(void)
+{
+	return -ENOTSUPP;
 }
 #endif /* CONFIG_OMAP_GPMC */
 /*--------------------------------*/
@@ -66,8 +69,6 @@ extern int gpmc_calc_timings(struct gpmc_timings *gpmc_t,
 			     struct gpmc_device_timings *dev_t);
 
 struct device_node;
-
-extern int gpmc_get_client_irq(unsigned irq_config);
 
 extern unsigned int gpmc_ticks_to_ns(unsigned int ticks);
 

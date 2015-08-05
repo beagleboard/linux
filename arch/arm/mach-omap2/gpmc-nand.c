@@ -80,7 +80,6 @@ int gpmc_nand_init(struct omap_nand_platform_data *gpmc_nand_data,
 	struct resource gpmc_nand_res[] = {
 		{ .flags = IORESOURCE_MEM, },
 		{ .flags = IORESOURCE_IRQ, },
-		{ .flags = IORESOURCE_IRQ, },
 	};
 
 	BUG_ON(gpmc_nand_data->cs >= GPMC_CS_NUM);
@@ -93,8 +92,7 @@ int gpmc_nand_init(struct omap_nand_platform_data *gpmc_nand_data,
 		return err;
 	}
 	gpmc_nand_res[0].end = gpmc_nand_res[0].start + NAND_IO_SIZE - 1;
-	gpmc_nand_res[1].start = gpmc_get_client_irq(GPMC_IRQ_FIFOEVENTENABLE);
-	gpmc_nand_res[2].start = gpmc_get_client_irq(GPMC_IRQ_COUNT_EVENT);
+	gpmc_nand_res[1].start = gpmc_get_irq();
 
 	memset(&s, 0, sizeof(struct gpmc_settings));
 	if (gpmc_nand_data->of_node)
