@@ -41,7 +41,7 @@ build_the_defconfig()
 	BUILD_OUT=`mktemp`
 	#Check for defconfig issues
 	echo "Making the $DEFCONFIG"
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $DEFCONFIG > $BUILD_OUT 2>&1
+	cross_make $DEFCONFIG > $BUILD_OUT 2>&1
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wc "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
 		rm $BUILD_OUT
@@ -73,7 +73,7 @@ build_the_new_defconfig()
 	BUILD_OUT=`mktemp`
 	#Check for defconfig issues
 	echo "Making the $NEW_DEFCONFIG"
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $NEW_DEFCONFIG > $BUILD_OUT 2>&1
+	cross_make $NEW_DEFCONFIG > $BUILD_OUT 2>&1
 
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wc "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -109,7 +109,7 @@ build_the_kernel()
 		LOAD_ADDRESS_VALUE="LOADADDR=$LOAD_ADDR"
 	fi
 
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $LOAD_ADDRESS_VALUE uImage > $BUILD_OUT 2>&1
+	cross_make $LOAD_ADDRESS_VALUE uImage > $BUILD_OUT 2>&1
 	#Check for build errors
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -136,7 +136,7 @@ build_the_dtbs()
 {
 	BUILD_OUT=`mktemp`
 	echo "Building the device tree"
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE dtbs > $BUILD_OUT 2>&1
+	cross_make dtbs > $BUILD_OUT 2>&1
 	#Check for build errors
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -164,7 +164,7 @@ build_the_modules()
 {
 	BUILD_OUT=`mktemp`
 	echo "Building the modules"
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE modules > $BUILD_OUT 2>&1
+	cross_make modules > $BUILD_OUT 2>&1
 	#Check for build errors
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -185,7 +185,7 @@ build_the_modules()
 	echo  "There are a total of "$NUM_OF_WARNINGS" warnings in the modules" >> $OUT_LOG
 	echo  >> $OUT_LOG
 
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE tar-pkg > $BUILD_OUT 2>&1
+	cross_make tar-pkg > $BUILD_OUT 2>&1
 	#Check for build errors
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -199,7 +199,7 @@ build_the_modules()
 
 clean_the_build()
 {
-	make ARCH=arm -j$BUILD_THREADS mrproper
+	cross_make mrproper
 }
 
 set_working_directory()
@@ -216,6 +216,11 @@ set_original_directory()
 	if [ "$CURRENT_DIR" != "$ORIGINAL_DIR" ]; then
 		cd $ORIGINAL_DIR
 	fi
+}
+
+cross_make()
+{
+	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $*
 }
 
 usage()
