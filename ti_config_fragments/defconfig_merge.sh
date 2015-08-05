@@ -222,6 +222,30 @@ setup_directories()
 		exit 1
 	fi
 
+	if [ -n "$DEFCONFIG_EXTRAS_FILE" ]; then
+		DEFCONFIG_EXTRAS_DIR=`dirname $DEFCONFIG_EXTRAS_FILE`
+		DEFCONFIG_EXTRAS_KERNEL_DIR=`dirname $DEFCONFIG_EXTRAS_DIR`
+		DEFCONFIG_EXTRAS_FILE_NAME=`basename $DEFCONFIG_EXTRAS_FILE`
+		DEFCONFIG_EXTRAS_FILE="$DEFCONFIG_EXTRAS_DIR/$DEFCONFIG_EXTRAS_FILE_NAME"
+		if [ ! -e "$DEFCONFIG_EXTRAS_FILE" ]; then
+			echo "Kernel fragments file $DEFCONFIG_EXTRAS_FILE does not exist/is not readable!"
+			usage
+			exit 1
+		fi
+		if [ ! -d "$DEFCONFIG_EXTRAS_DIR" ]; then
+			echo "Kernel fragments dir $DEFCONFIG_EXTRAS_DIR does not exist/is not a directory?"
+			usage
+			exit 1
+		fi
+	fi
+
+	# if just the appended config is provided
+	if [ -n "$APPENDED_CONFIG" ]; then
+		APPENDED_CONFIG_DIR=`dirname $APPENDED_CONFIG`
+		APPENDED_CONFIG_FILE_NAME=`basename $APPENDED_CONFIG`
+		APPENDED_CONFIG="$APPENDED_CONFIG_DIR/$APPENDED_CONFIG_FILE_NAME"
+	fi
+
 }
 
 set_working_directory()
@@ -413,7 +437,7 @@ fi
 # There is only one file passed in via command line
 if [ -z "$DEFCONFIG_EXTRAS_FILE" ]; then
 	echo "Only appending $DEFCONFIG_EXTRAS_FILE"
-	./scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/base_config $APPENDED_CONFIG
+	$KERNEL_DIR/scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/base_config $APPENDED_CONFIG
 	if [ $? -ne 0 ]; then
 		echo "Failed to merge config $APPENDED_CONFIG"
 		exit 1
@@ -428,22 +452,31 @@ else
 		exit 1
 	fi
 	cat $LOGGING_DIRECTORY/base_config > $LOGGING_DIRECTORY/temp_config
-	while true;
+	while read APPENDED_CONFIG
 	do
-		APPENDED_CONFIG=`head -1 $TEMP_FRAGMENT`
 		if [ -z "$APPENDED_CONFIG" ]; then
 			break
 		fi
-		./scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/temp_config $APPENDED_CONFIG
+		if [ ! -r "$APPENDED_CONFIG" ]; then
+			# If not using absolute path, then assume we are relative to kernel dir
+			# of the defconfig_extras
+			APPENDED_CONFIG=$DEFCONFIG_EXTRAS_KERNEL_DIR/$APPENDED_CONFIG
+		fi
+		if [ ! -r "$APPENDED_CONFIG" ]; then
+			echo "Failed to find $APPENDED_CONFIG"
+			usage
+			exit 1
+		fi
+
+		$KERNEL_DIR/scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/temp_config $APPENDED_CONFIG
 		if [ $? -ne 0 ]; then
 			echo "Failed to merge config $APPENDED_CONFIG"
 			rm $TEMP_FRAGMENT
 			exit 1
 		fi
-		sed -i "1d" $TEMP_FRAGMENT
 		cat $APPENDED_CONFIG >> $DEFCONFIG_EXTRAS
 		cat $LOGGING_DIRECTORY/.config > $LOGGING_DIRECTORY/temp_config
-	done
+	done <$TEMP_FRAGMENT
 	rm $TEMP_FRAGMENT
 fi
 
@@ -452,10 +485,10 @@ NEW_DEFCONFIG="appended_$DEFCONFIG"
 
 # Last step before the build
 cat $LOGGING_DIRECTORY/.config > $LOGGING_DIRECTORY/final_config
-echo -e "\n\t Copying $LOGGING_DIRECTORY/.config to $WORKING_DIRECTORY/.config"
-cp -v $LOGGING_DIRECTORY/.config .config
+echo -e "\n\t Copying $LOGGING_DIRECTORY/.config to $KERNEL_DIR/.config"
+cp -v $LOGGING_DIRECTORY/.config $KERNEL_DIR/.config
 echo -e "\n\t Copying $LOGGING_DIRECTORY/.config to arch/arm/configs/$NEW_DEFCONFIG"
-cp -v $LOGGING_DIRECTORY/.config arch/arm/configs/$NEW_DEFCONFIG
+cp -v $LOGGING_DIRECTORY/.config $KERNEL_DIR/arch/arm/configs/$NEW_DEFCONFIG
 
 if [ -a $LOGGING_DIRECTORY/temp_config ]; then
 	rm $LOGGING_DIRECTORY/temp_config
