@@ -14,14 +14,59 @@
 #define GPMC_IRQ_FIFOEVENTENABLE	0x01
 #define GPMC_IRQ_COUNT_EVENT		0x02
 
+enum gpmc_nand_irq {
+	GPMC_NAND_IRQ_FIFOEVENT = 0,
+	GPMC_NAND_IRQ_TERMCOUNT,
+};
+
+/**
+ * gpmc_nand_ops - Interface between NAND and GPMC
+ * @nand_irq_enable: enable the requested GPMC NAND interrupt event.
+ * @nand_irq_disable: disable the requested GPMC NAND interrupt event.
+ * @nand_irq_clear: clears the GPMC NAND interrupt event status.
+ * @nand_irq_status: get the NAND interrupt event status.
+ * @nand_write_buffer_empty: get the NAND write buffer empty status.
+ */
+struct gpmc_nand_ops {
+	int (*nand_irq_enable)(enum gpmc_nand_irq irq);
+	int (*nand_irq_disable)(enum gpmc_nand_irq irq);
+	void (*nand_irq_clear)(enum gpmc_nand_irq irq);
+	u32 (*nand_irq_status)(void);
+	bool (*nand_writebuffer_empty)(void);
+};
+
+struct gpmc_nand_regs;
+
+#if IS_ENABLED(CONFIG_OMAP_GPMC)
+struct gpmc_nand_ops *gpmc_omap_get_nand_ops(struct gpmc_nand_regs *regs,
+					     int cs);
+#else
+static inline gpmc_nand_ops *gpmc_omap_get_nand_ops(struct gpmc_nand_regs *regs,
+						    int cs)
+{
+	return NULL;
+}
+#endif /* CONFIG_OMAP_GPMC */
+
+/*--------------------------------*/
+
+/* deprecated APIs */
+#if IS_ENABLED(CONFIG_OMAP_GPMC)
+void gpmc_update_nand_reg(struct gpmc_nand_regs *reg, int cs);
+#else
+static inline void gpmc_update_nand_reg(struct gpmc_nand_regs *reg, int cs)
+{
+	reg = NULL;
+}
+#endif /* CONFIG_OMAP_GPMC */
+/*--------------------------------*/
+
 extern int gpmc_calc_timings(struct gpmc_timings *gpmc_t,
 			     struct gpmc_settings *gpmc_s,
 			     struct gpmc_device_timings *dev_t);
 
-struct gpmc_nand_regs;
 struct device_node;
 
-extern void gpmc_update_nand_reg(struct gpmc_nand_regs *reg, int cs);
 extern int gpmc_get_client_irq(unsigned irq_config);
 
 extern unsigned int gpmc_ticks_to_ns(unsigned int ticks);
