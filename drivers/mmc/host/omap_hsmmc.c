@@ -235,6 +235,7 @@ struct omap_mmc_of_data {
 };
 
 static void omap_hsmmc_start_dma_transfer(struct omap_hsmmc_host *host);
+static void omap_hsmmc_conf_bus_power(struct omap_hsmmc_host *host, int iov);
 
 static int omap_hsmmc_card_detect(struct device *dev)
 {
@@ -1741,6 +1742,7 @@ static void omap_hsmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			mmc_pdata(host)->set_power(host->dev, 1, ios->vdd);
 			break;
 		case MMC_POWER_ON:
+			omap_hsmmc_conf_bus_power(host, ios->signal_voltage);
 			do_send_init_stream = 1;
 			break;
 		}
@@ -1903,17 +1905,12 @@ static void omap_hsmmc_set_capabilities(struct omap_hsmmc_host *host)
 	OMAP_HSMMC_WRITE(host->base, CAPA, val);
 }
 
-static void omap_hsmmc_conf_bus_power(struct omap_hsmmc_host *host)
+static void omap_hsmmc_conf_bus_power(struct omap_hsmmc_host *host, int iov)
 {
 	u32 hctl, value;
 
-	/* Only MMC1 supports 3.0V */
-	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT)
-		hctl = SDVS30;
-	else
-		hctl = SDVS18;
-
 	value = OMAP_HSMMC_READ(host->base, HCTL) & ~SDVS_MASK;
+	hctl = (iov == MMC_SIGNAL_VOLTAGE_180) ? SDVS18 : SDVS30;
 	OMAP_HSMMC_WRITE(host->base, HCTL, value | hctl);
 
 	/* Set SD bus power bit */
@@ -2224,7 +2221,6 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	mmc->pm_caps |= mmc_pdata(host)->pm_caps;
 
 	omap_hsmmc_set_capabilities(host);
-	omap_hsmmc_conf_bus_power(host);
 
 	if (!pdev->dev.of_node) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_DMA, "tx");
@@ -2399,6 +2395,7 @@ static int omap_hsmmc_suspend(struct device *dev)
 static int omap_hsmmc_resume(struct device *dev)
 {
 	struct omap_hsmmc_host *host = dev_get_drvdata(dev);
+	struct mmc_ios *ios;
 
 	if (!host)
 		return 0;
@@ -2408,8 +2405,9 @@ static int omap_hsmmc_resume(struct device *dev)
 	if (host->dbclk)
 		clk_prepare_enable(host->dbclk);
 
+	ios = &host->mmc->ios;
 	if (!(host->mmc->pm_flags & MMC_PM_KEEP_POWER))
-		omap_hsmmc_conf_bus_power(host);
+		omap_hsmmc_conf_bus_power(host, ios->signal_voltage);
 
 	omap_hsmmc_protect_card(host);
 	pm_runtime_mark_last_busy(host->dev);
