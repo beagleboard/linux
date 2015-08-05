@@ -632,6 +632,19 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 {
 	u32 irq_mask = INT_EN_MASK;
 	unsigned long flags;
+	bool is_tuning;
+
+	is_tuning = cmd && ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
+		    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200));
+
+	if (is_tuning)
+		/*
+		 * OMAP5/DRA74X/DRA72x Errata i802:
+		 * DCRC error interrupts (MMCHS_STAT[21] DCRC=0x1) can occur
+		 * during the tuning procedure. So disable it during the
+		 * tuning procedure.
+		 */
+		irq_mask &= ~DCRC_EN;
 
 	if (host->use_dma)
 		irq_mask &= ~(BRR_EN | BWR_EN);
