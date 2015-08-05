@@ -232,7 +232,7 @@ A copy of both the base config and the final config is stored in the scripts log
 
 Single fragment command line example:
 
-	defconfig_merge.sh -c <path to the compiler> -o <output directory and file name>
+	defconfig_merge.sh -c <path to the compiler> -o <path to output log file>
 	-e <path to single fragment file> -w <path to the working directory of the kernel>
 
 Multiple fragment file format:
@@ -249,7 +249,7 @@ entry per config fragment.
 
 Multiple fragment command line example:
 
-	defconfig_merge.sh -c <path to the compiler> -o <output directory and file name>
+	defconfig_merge.sh -c <path to the compiler> -o <path to output log file>
 	-f <path to multiple fragment file> -w <path to the working directory of the kernel>
 
 Example:
@@ -268,7 +268,7 @@ OPTIONS:
 	-d  The defconfig to use as a base
 	-e  Single defconfig fragment to append
 	-j  How many build threads to use
-	-o  Output log
+	-o  Output log file
 	-l  uImage load address if different from 0x80008000 for no load address use ""
 
 	Build Options:
@@ -328,9 +328,8 @@ fi
 
 
 if [ "$OUT_LOG" == "" ]; then
-	echo "Missing output log path"
-	usage
-	exit 1
+	echo "Missing output log path, dumping to /dev/null"
+	OUT_LOG=/dev/null
 fi
 
 set_working_directory
