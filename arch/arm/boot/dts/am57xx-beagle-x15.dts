@@ -496,6 +496,7 @@
 	vmmc-supply = <&ldo1_reg>;
 	bus-width = <4>;
 	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
+	max-frequency = <96000000>;
 };
 
 &mmc2 {
@@ -508,6 +509,8 @@
 	bus-width = <8>;
 	ti,non-removable;
 	cap-mmc-dual-data-rate;
+	max-frequency = <96000000>;
+	/delete-property/ mmc-hs200-1_8v;
 };
 
 &sata {
