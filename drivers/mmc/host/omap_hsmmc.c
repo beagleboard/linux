@@ -2578,15 +2578,15 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 err_slot_name:
 	mmc_remove_host(mmc);
 err_irq:
-	device_init_wakeup(&pdev->dev, false);
 	if (!IS_ERR_OR_NULL(host->tx_chan))
 		dma_release_channel(host->tx_chan);
 	if (!IS_ERR_OR_NULL(host->rx_chan))
 		dma_release_channel(host->rx_chan);
-	pm_runtime_put_sync(host->dev);
-	pm_runtime_disable(host->dev);
 	if (host->dbclk)
 		clk_disable_unprepare(host->dbclk);
+	pm_runtime_put_sync(host->dev);
+	pm_runtime_disable(host->dev);
+	device_init_wakeup(&pdev->dev, false);
 err1:
 err_gpio:
 	mmc_free_host(mmc);
