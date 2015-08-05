@@ -281,6 +281,8 @@ OPTIONS:
 EOF
 }
 
+trap prepare_for_exit EXIT SIGINT SIGTERM
+
 while getopts “c:j:d:e:o:l:mnbf:w:” OPTION
 do
 	case $OPTION in
@@ -345,7 +347,6 @@ mkdir -p $LOGGING_DIRECTORY
 check_for_compiler
 if [ $? -ne 0 ]; then
 	 echo -e "\n\tCannot find $CROSS_COMPILE compiler\n"
-	 prepare_for_exit
 	 exit 1
 fi
 
@@ -366,7 +367,6 @@ if [ "$NO_CLEAN_DEFCONFIG" != 1 ]; then
 	build_the_defconfig
 	if [ $? -ne 0 ]; then
 		 echo "Building $DEFCONFIG failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 else
@@ -437,28 +437,24 @@ if [ "$BUILD_ALL" == 1 ]; then
 	build_the_new_defconfig
 	if [ $? -ne 0 ]; then
 		 echo "Building the defconfig failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 
 	build_the_kernel
 	if [ $? -ne 0 ]; then
 		 echo "Building the kernel failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 
 	build_the_dtbs
 	if [ $? -ne 0 ]; then
 		 echo "Building the device tree binaries failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 
 	build_the_modules
 	if [ $? -ne 0 ]; then
 		 echo "Building the modules failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 fi
