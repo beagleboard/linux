@@ -105,7 +105,7 @@ build_the_kernel()
 {
 	BUILD_OUT=`mktemp`
 	echo "Building the kernel"
-	if [ "$LOAD_ADDR" != "" ]; then
+	if [ -n "$LOAD_ADDR" ]; then
 		LOAD_ADDRESS_VALUE="LOADADDR=$LOAD_ADDR"
 	fi
 
@@ -313,21 +313,21 @@ do
 done
 
 if [ "$BUILD_ALL" == 1 -o "$NO_CLEAN_DEFCONFIG" != 1 ]; then
-	if [ "$CROSS_COMPILE" == "" ]; then
+	if [ -z "$CROSS_COMPILE" ]; then
 		echo "Missing cross compile"
 		usage
 		exit 1
 	fi
 fi
 
-if [ "$DEFCONFIG_EXTRAS_FILE" == "" -a "$APPENDED_CONFIG" == "" ]; then
+if [ -z "$DEFCONFIG_EXTRAS_FILE" -a -z "$APPENDED_CONFIG" ]; then
 	echo "Missing config fragment information"
 	usage
 	exit 1
 fi
 
 
-if [ "$OUT_LOG" == "" ]; then
+if [ -z "$OUT_LOG" ]; then
 	echo "Missing output log path, dumping to /dev/null"
 	OUT_LOG=/dev/null
 fi
@@ -349,9 +349,9 @@ if [ $? -ne 0 ]; then
 	 exit 1
 fi
 
-if [ "$DEFCONFIG_EXTRAS_FILE" != '' ]; then
+if [ -n "$DEFCONFIG_EXTRAS_FILE"  ]; then
 	DEFCONFIG=`cat $DEFCONFIG_EXTRAS_FILE | grep "use-kernel-config=" | cut -d= -f2`
-	if [ "$DEFCONFIG" == '' ]; then
+	if [ -z "$DEFCONFIG"  ]; then
 		echo -e "\n\tMissing base defconfig in the file\n"
 		usage
 		exit 1
@@ -382,7 +382,7 @@ if [ -a .config ]; then
 fi
 
 # There is only one file passed in via command line
-if [ "$DEFCONFIG_EXTRAS_FILE" == '' ]; then
+if [ -z "$DEFCONFIG_EXTRAS_FILE" ]; then
 	echo "Only appending $DEFCONFIG_EXTRAS_FILE"
 	./scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/base_config $APPENDED_CONFIG
 	if [ $? -ne 0 ]; then
@@ -393,7 +393,7 @@ else
 	TEMP_FRAGMENT=`mktemp`
 	cat $DEFCONFIG_EXTRAS_FILE | grep "config-fragment=" | cut -d= -f2 > $TEMP_FRAGMENT
 	NUM_OF_FRAGMENTS=`wc -l $TEMP_FRAGMENT | awk '{print$1}'`
-	if [ "$NUM_OF_FRAGMENTS" == '' ]; then
+	if [ -z "$NUM_OF_FRAGMENTS" ]; then
 		echo "Malformed defconfig fragment file"
 		rm $TEMP_FRAGMENT
 		exit 1
@@ -402,7 +402,7 @@ else
 	while true;
 	do
 		APPENDED_CONFIG=`head -1 $TEMP_FRAGMENT`
-		if [ "$APPENDED_CONFIG" == '' ]; then
+		if [ -z "$APPENDED_CONFIG" ]; then
 			break
 		fi
 		./scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/temp_config $APPENDED_CONFIG
