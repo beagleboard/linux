@@ -227,3 +227,7 @@
 		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
 	};
 };
+
+&pcie1 {
+	pcie-reset-gpio = <&gpio2 8 GPIO_ACTIVE_LOW>;
+};

@@ -12,6 +12,7 @@
 
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
@@ -365,6 +366,7 @@ static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 	struct phy **phy;
 	void __iomem *base;
 	struct resource *res;
+	struct gpio_desc *reset;
 	struct dra7xx_pcie *dra7xx;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
@@ -436,6 +438,13 @@ static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 		goto err_get_sync;
 	}
 
+	reset = devm_gpiod_get_optional(dev, "pcie-reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(reset)) {
+		ret = PTR_ERR(reset);
+		dev_err(&pdev->dev, "gpio request failed, ret %d\n", ret);
+		goto err_gpio;
+	}
+
 	reg = dra7xx_pcie_readl(dra7xx, PCIECTRL_DRA7XX_CONF_DEVICE_CMD);
 	reg &= ~LTSSM_EN;
 	dra7xx_pcie_writel(dra7xx, PCIECTRL_DRA7XX_CONF_DEVICE_CMD, reg);
@@ -444,11 +453,11 @@ static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 
 	ret = dra7xx_add_pcie_port(dra7xx, pdev);
 	if (ret < 0)
-		goto err_add_port;
+		goto err_gpio;
 
 	return 0;
 
-err_add_port:
+err_gpio:
 	pm_runtime_put(dev);
 
 err_get_sync:
