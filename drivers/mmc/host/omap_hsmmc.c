@@ -250,6 +250,18 @@ struct omap_hsmmc_host {
 	unsigned long		data_timeout;
 	unsigned int		need_i834_errata:1;
 
+	struct pinctrl		*pinctrl;
+	struct pinctrl_state	*pinctrl_state;
+	struct pinctrl_state	*default_pinctrl_state;
+	struct pinctrl_state	*sdr104_pinctrl_state;
+	struct pinctrl_state	*hs200_1_8v_pinctrl_state;
+	struct pinctrl_state	*ddr50_pinctrl_state;
+	struct pinctrl_state	*sdr50_pinctrl_state;
+	struct pinctrl_state	*sdr25_pinctrl_state;
+	struct pinctrl_state	*sdr12_pinctrl_state;
+	struct pinctrl_state	*hs_pinctrl_state;
+	struct pinctrl_state	*ddr_1_8v_pinctrl_state;
+
 	/* return MMC cover switch state, can be NULL if not supported.
 	 *
 	 * possible return values:
@@ -1727,6 +1739,8 @@ static void omap_hsmmc_request(struct mmc_host *mmc, struct mmc_request *req)
 static void omap_hsmmc_set_timing(struct omap_hsmmc_host *host)
 {
 	u32 val;
+	int ret;
+	struct pinctrl_state *pinctrl_state;
 	struct mmc_ios *ios = &host->mmc->ios;
 
 	omap_hsmmc_stop_clock(host);
@@ -1736,34 +1750,53 @@ static void omap_hsmmc_set_timing(struct omap_hsmmc_host *host)
 	switch (ios->timing) {
 	case MMC_TIMING_UHS_SDR104:
 		val |= AC12_UHSMC_SDR104;
+		pinctrl_state = host->sdr104_pinctrl_state;
 		break;
 	case MMC_TIMING_MMC_HS200:
 		val |= AC12_UHSMC_SDR104;
+		pinctrl_state = host->hs200_1_8v_pinctrl_state;
 		break;
 	case MMC_TIMING_UHS_DDR50:
 		val |= AC12_UHSMC_DDR50;
+		pinctrl_state = host->ddr50_pinctrl_state;
 		break;
 	case MMC_TIMING_UHS_SDR50:
 		val |= AC12_UHSMC_SDR50;
+		pinctrl_state = host->sdr50_pinctrl_state;
 		break;
 	case MMC_TIMING_UHS_SDR25:
 		val |= AC12_UHSMC_SDR25;
+		pinctrl_state = host->sdr25_pinctrl_state;
 		break;
 	case MMC_TIMING_UHS_SDR12:
 		val |= AC12_UHSMC_SDR12;
+		pinctrl_state = host->sdr12_pinctrl_state;
 		break;
 	case MMC_TIMING_SD_HS:
 	case MMC_TIMING_MMC_HS:
 		val |= AC12_UHSMC_RES;
+		pinctrl_state = host->hs_pinctrl_state;
 		break;
 	case MMC_TIMING_MMC_DDR52:
 		val |= AC12_UHSMC_RES;
+		pinctrl_state = host->ddr_1_8v_pinctrl_state;
 		break;
 	default:
 		val |= AC12_UHSMC_RES;
+		pinctrl_state = host->default_pinctrl_state;
 		break;
 	}
 	OMAP_HSMMC_WRITE(host->base, AC12, val);
+
+	if (host->pdata->controller_flags & OMAP_HSMMC_REQUIRE_IODELAY) {
+		ret = pinctrl_select_state(host->pinctrl, pinctrl_state);
+		if (ret) {
+			dev_err(mmc_dev(host->mmc),
+				"failed to select pinctrl state\n");
+			return;
+		}
+		host->pinctrl_state = pinctrl_state;
+	}
 
 	omap_hsmmc_start_clock(host);
 }
@@ -2366,6 +2399,63 @@ static inline struct omap_hsmmc_platform_data
 }
 #endif
 
+static struct pinctrl_state *
+omap_hsmmc_pinctrl_lookup_state(struct omap_hsmmc_host *host, char *mode)
+{
+	struct pinctrl_state *state;
+
+	state = pinctrl_lookup_state(host->pinctrl, mode);
+	if (IS_ERR(state))
+		dev_err(mmc_dev(host->mmc),
+			"no pinctrl state for %s mode\n", mode);
+	return state;
+}
+
+#define OMAP_HSMMC_SETUP_PINCTRL(capvar, capmask, pinctrl)		\
+	do {								\
+		if (mmc->capvar & (capmask)) {				\
+			host->pinctrl##_pinctrl_state =			\
+				omap_hsmmc_pinctrl_lookup_state(host, #pinctrl);\
+			if (IS_ERR(host->pinctrl##_pinctrl_state))	\
+				mmc->capvar &= ~(capmask);		\
+		}							\
+	} while (0)
+
+static int omap_hsmmc_get_iodelay_pinctrl_state(struct omap_hsmmc_host *host)
+{
+	struct mmc_host *mmc = host->mmc;
+
+	if (!(host->pdata->controller_flags & OMAP_HSMMC_REQUIRE_IODELAY))
+		return 0;
+
+	host->pinctrl = devm_pinctrl_get(host->dev);
+	if (IS_ERR(host->pinctrl)) {
+		dev_err(host->dev, "Cannot get pinctrl\n");
+		return PTR_ERR(host->pinctrl);
+	}
+
+	host->default_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host,
+								     "default");
+	if (IS_ERR(host->default_pinctrl_state))
+		return PTR_ERR(host->default_pinctrl_state);
+
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_SDR104,	sdr104);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_DDR50,	ddr50);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_SDR50,	sdr50);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_SDR25,	sdr25);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_SDR12,	sdr12);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_1_8V_DDR,	ddr_1_8v);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,
+				 MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED,
+				 hs);
+	OMAP_HSMMC_SETUP_PINCTRL(caps2,	MMC_CAP2_HS200_1_8V_SDR,
+				 hs200_1_8v);
+
+	host->pinctrl_state = host->default_pinctrl_state;
+
+	return 0;
+}
+
 static int omap_hsmmc_probe(struct platform_device *pdev)
 {
 	struct omap_hsmmc_platform_data *pdata = pdev->dev.platform_data;
@@ -2511,6 +2601,10 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 
 	omap_hsmmc_set_capabilities(host);
 
+	ret = omap_hsmmc_get_iodelay_pinctrl_state(host);
+	if (ret)
+		goto err_pinctrl;
+
 	host->rx_chan = dma_request_chan(&pdev->dev, "rx");
 	if (IS_ERR(host->rx_chan)) {
 		dev_err(mmc_dev(host->mmc), "RX DMA channel request failed\n");
@@ -2582,6 +2676,7 @@ err_irq:
 		dma_release_channel(host->tx_chan);
 	if (!IS_ERR_OR_NULL(host->rx_chan))
 		dma_release_channel(host->rx_chan);
+err_pinctrl:
 	if (host->dbclk)
 		clk_disable_unprepare(host->dbclk);
 	pm_runtime_put_sync(host->dev);
@@ -2715,6 +2810,7 @@ static int omap_hsmmc_runtime_resume(struct device *dev)
 {
 	struct omap_hsmmc_host *host;
 	unsigned long flags;
+	int ret;
 
 	host = platform_get_drvdata(to_platform_device(dev));
 	omap_hsmmc_context_restore(host);
@@ -2731,7 +2827,13 @@ static int omap_hsmmc_runtime_resume(struct device *dev)
 		OMAP_HSMMC_WRITE(host->base, ISE, CIRQ_EN);
 		OMAP_HSMMC_WRITE(host->base, IE, CIRQ_EN);
 	} else {
-		pinctrl_pm_select_default_state(host->dev);
+		if (host->pinctrl) {
+			ret = pinctrl_select_state(host->pinctrl,
+						   host->pinctrl_state);
+			if (ret)
+				dev_err(mmc_dev(host->mmc),
+					"failed to activate pinctrl state\n");
+		}
 	}
 	spin_unlock_irqrestore(&host->irq_lock, flags);
 	return 0;

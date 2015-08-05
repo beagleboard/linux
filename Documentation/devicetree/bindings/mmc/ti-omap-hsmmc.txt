@@ -20,6 +20,11 @@ Optional properties:
 ti,dual-volt: boolean, supports dual voltage cards
 <supply-name>-supply: phandle to the regulator device tree node
 "supply-name" examples are "vmmc", "vmmc_aux" etc
+pinctrl-names: Should be a list of pinctrl state names and can be "sdr104",
+"hs200_1_8v", "ddr50", "sdr50", "sdr25", "sdr12", "hs", "ddr_1_8v" or
+"default".
+pinctrl-<num>: Phandle referencing pin configuration of the sd/emmc controller.
+See: Documentation/devicetree/bindings/pinctrl/pinctrl-binding.txt
 ti,non-removable: non-removable slot (like eMMC)
 ti,needs-special-reset: Requires a special softreset sequence
 ti,needs-special-hs-handling: HSMMC IP needs special setting for handling High Speed
