@@ -2139,6 +2139,31 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 
 	mcasp_reparent_fck(pdev);
 
+	if (mcasp->version == MCASP_VERSION_4) {
+		u32 rev;
+
+		pm_runtime_get_sync(mcasp->dev);
+		rev = mcasp_get_reg(mcasp, DAVINCI_MCASP_PID_REG) &
+				    MCASP_V4_REV_MASK;
+		pm_runtime_put(mcasp->dev);
+
+		if (rev < MCASP_V4_REV(3, 3)) {
+			/*
+			 * ERRATA i868: to avoid race condition between DMA and
+			 * AFIFO events the R/WNUMEVT need to be set to be
+			 * less-than-equal to 32 words.
+			 */
+			if (mcasp->txnumevt)
+				mcasp->txnumevt = 32;
+			if (mcasp->rxnumevt)
+				mcasp->rxnumevt = 32;
+
+			if (mcasp->txnumevt || mcasp->rxnumevt)
+				dev_info(&pdev->dev,
+					 "ERRATA i868 workaround is enabled\n");
+		}
+	}
+
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					&davinci_mcasp_component,
 					&davinci_mcasp_dai[pdata->op_mode], 1);
