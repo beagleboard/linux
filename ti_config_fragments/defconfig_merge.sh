@@ -402,14 +402,20 @@ if [ $? -ne 0 ]; then
 	 exit 1
 fi
 
-if [ -n "$DEFCONFIG_EXTRAS_FILE"  ]; then
-	DEFCONFIG=`cat $DEFCONFIG_EXTRAS_FILE | grep "use-kernel-config=" | cut -d= -f2`
-	if [ -z "$DEFCONFIG"  ]; then
-		echo -e "\n\tMissing base defconfig in the file\n"
+if [ -z "$DEFCONFIG" ];then
+	if [ -n "$DEFCONFIG_EXTRAS_FILE"  ]; then
+		DEFCONFIG=`cat $DEFCONFIG_EXTRAS_FILE | grep "use-kernel-config=" | cut -d= -f2`
+		if [ -z "$DEFCONFIG"  ]; then
+			echo -e "\n\tMissing base defconfig in the file\n"
+			usage
+			exit 1
+		fi
+		echo "Using base config $DEFCONFIG from the file $DEFCONFIG_EXTRAS_FILE"
+	else
+		echo "Missing a defconfig cannot proceed"
 		usage
 		exit 1
 	fi
-	echo "Using base config $DEFCONFIG from the file $DEFCONFIG_EXTRAS_FILE"
 fi
 
 DEFCONFIG_EXTRAS="$LOGGING_DIRECTORY/merged_$DEFCONFIG"
