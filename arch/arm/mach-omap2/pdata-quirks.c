@@ -416,9 +416,17 @@ static void __init omap3_pandora_legacy_init(void)
 #endif /* CONFIG_ARCH_OMAP3 */
 
 #ifdef CONFIG_ARCH_OMAP4
+static struct omap_rproc_timer_ops omap_rproc_dmtimer_ops = {
+	.request_timer = omap_rproc_request_timer,
+	.release_timer = omap_rproc_release_timer,
+	.start_timer = omap_rproc_start_timer,
+	.stop_timer = omap_rproc_stop_timer,
+};
+
 static struct omap_rproc_pdata omap4_ipu_dsp_pdata = {
 	.device_enable = omap_rproc_device_enable,
 	.device_shutdown = omap_rproc_device_shutdown,
+	.timer_ops = &omap_rproc_dmtimer_ops,
 };
 #endif
 
