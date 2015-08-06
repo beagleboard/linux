@@ -582,6 +582,18 @@
 			0x234 (PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* uart3_rtsn.uart3_rtsn */
 		>;
 	};
+
+	debugss_pins: pinmux_debugss_pins {
+		pinctrl-single,pins = <
+			0x290 (PIN_INPUT_PULLDOWN)
+			0x294 (PIN_INPUT_PULLDOWN)
+			0x298 (PIN_INPUT_PULLDOWN)
+			0x29C (PIN_INPUT_PULLDOWN)
+			0x2A0 (PIN_INPUT_PULLDOWN)
+			0x2A4 (PIN_INPUT_PULLDOWN)
+			0x2A8 (PIN_INPUT_PULLDOWN)
+		>;
+	};
 };
 
 &i2c0 {
@@ -622,7 +634,14 @@
 			regulator-max-microvolt = <1500000>;
 			regulator-boot-on;
 			regulator-always-on;
+			regulator-state-mem {
+				regulator-on-in-suspend;
+			};
+			regulator-state-disk {
+				regulator-off-in-suspend;
+			};
 		};
+
 		dcdc5: regulator-dcdc5 {
 			compatible = "ti,tps65218-dcdc5";
 			regulator-name = "v1_0bat";
@@ -630,6 +649,9 @@
 			regulator-max-microvolt = <1000000>;
 			regulator-boot-on;
 			regulator-always-on;
+			regulator-state-mem {
+				regulator-on-in-suspend;
+			};
 		};
 
 		dcdc6: regulator-dcdc6 {
@@ -639,6 +661,9 @@
 			regulator-max-microvolt = <1800000>;
 			regulator-boot-on;
 			regulator-always-on;
+			regulator-state-mem {
+				regulator-on-in-suspend;
+			};
 		};
 
 		ldo1: regulator-ldo1 {

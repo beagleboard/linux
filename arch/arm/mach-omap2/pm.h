@@ -115,6 +115,12 @@ struct am33xx_pm_ops {
 	int	(*soc_suspend)(unsigned int state, int (*fn)(unsigned long),
 			       unsigned long args);
 	int	(*cpu_suspend)(int (*fn)(unsigned long), unsigned long args);
+	void (*save_context)(void);
+	void (*restore_context)(void);
+	void (*prepare_rtc_suspend)(void);
+	void (*prepare_rtc_resume)(void);
+	int (*check_off_mode_enable)(void);
+	void __iomem *(*get_rtc_base_addr)(void);
 };
 
 /* for sharing asm function addrs with amx3 pm modules */
@@ -123,6 +129,8 @@ struct am33xx_pm_sram_addr {
 	unsigned long *do_wfi_sz;
 	unsigned long *resume_offset;
 	unsigned long *emif_sram_table;
+	unsigned long *rtc_base_virt;
+	phys_addr_t rtc_resume_phys_addr;
 };
 
 struct am33xx_pm_ops *amx3_get_pm_ops(void);

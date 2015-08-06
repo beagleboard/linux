@@ -89,6 +89,7 @@ struct wkup_m3_ipc {
 	struct completion sync_complete;
 	struct mbox_client mbox_client;
 	struct mbox_chan *mbox;
+	bool is_rtc_only;
 };
 
 struct wkup_m3_scale_data_header {
@@ -372,6 +373,12 @@ void wkup_m3_set_resume_address(void *addr)
 }
 EXPORT_SYMBOL_GPL(wkup_m3_set_resume_address);
 
+void wkup_m3_set_rtc_only_mode(void)
+{
+	m3_ipc_state.is_rtc_only = true;
+}
+EXPORT_SYMBOL(wkup_m3_set_rtc_only_mode);
+
 /**
  * wkup_m3_request_pm_status - Retrieve wkup_m3 status code after suspend
  *
@@ -637,6 +644,24 @@ static int wkup_m3_ipc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int wkup_m3_ipc_resume(struct device *dev)
+{
+	if (m3_ipc_state.is_rtc_only) {
+		rproc_shutdown(m3_ipc_state.rproc);
+		rproc_boot(m3_ipc_state.rproc);
+	}
+
+	m3_ipc_state.is_rtc_only = false;
+
+	return 0;
+}
+
+static const struct dev_pm_ops wkup_m3_ipc_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(NULL, wkup_m3_ipc_resume)
+};
+#endif
+
 static const struct of_device_id wkup_m3_ipc_of_match[] = {
 	{ .compatible = "ti,am3352-wkup-m3-ipc", },
 	{ .compatible = "ti,am4372-wkup-m3-ipc", },
@@ -649,6 +674,9 @@ static struct platform_driver wkup_m3_ipc_driver = {
 	.driver = {
 		.name = "wkup_m3_ipc",
 		.of_match_table = wkup_m3_ipc_of_match,
+#ifdef CONFIG_PM
+		.pm = &wkup_m3_ipc_pm_ops,
+#endif
 	},
 };
 

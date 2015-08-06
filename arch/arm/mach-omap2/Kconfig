@@ -273,7 +273,7 @@ config OMAP3_SDRC_AC_TIMING
 config AMX3_PM
 	tristate "AMx3 Power Management"
 	depends on SOC_AM33XX || SOC_AM43XX
-	depends on WKUP_M3_IPC && TI_EMIF_SRAM
+	depends on WKUP_M3_IPC && TI_EMIF_SRAM && RTC_DRV_OMAP
 	default y
 	help
 	  Enable power management on am335x and am437x. Required for suspend to mem

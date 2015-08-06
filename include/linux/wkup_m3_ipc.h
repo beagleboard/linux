@@ -33,5 +33,6 @@ int wkup_m3_finish_low_power(void);
 int wkup_m3_request_pm_status(void);
 int wkup_m3_request_pm_status(void);
 const char *wkup_m3_request_wake_src(void);
+void wkup_m3_set_rtc_only_mode(void);
 
 #endif /* _LINUX_WKUP_M3_IPC_H */
