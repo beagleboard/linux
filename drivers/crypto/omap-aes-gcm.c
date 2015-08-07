@@ -224,7 +224,7 @@ static int do_encrypt_iv(struct aead_request *req, u32 *tag)
 					tcrypt_complete, &result);
 	ret = crypto_ablkcipher_setkey(tfm, (u8 *)ctx->key, ctx->keylen);
 	ablkcipher_request_set_crypt(ablk_req, &iv_sg, &iv_sg, AES_BLOCK_SIZE,
-				     req->iv);
+				     ctx->iv);
 	ret = crypto_ablkcipher_encrypt(ablk_req);
 	switch (ret) {
 	case 0:
@@ -339,7 +339,7 @@ static int omap_aes_gcm_crypt(struct aead_request *req, unsigned long mode)
 	int err;
 
 	memset(ctx->auth_tag, 0, sizeof(ctx->auth_tag));
-	memcpy(req->iv + 12, &counter, 4);
+	memcpy(ctx->iv + 12, &counter, 4);
 
 	/* Create E(K, IV) */
 	err = do_encrypt_iv(req, ctx->auth_tag);
@@ -362,11 +362,33 @@ static int omap_aes_gcm_crypt(struct aead_request *req, unsigned long mode)
 
 int omap_aes_gcm_encrypt(struct aead_request *req)
 {
+	struct omap_aes_ctx *ctx = crypto_aead_ctx(crypto_aead_reqtfm(req));
+
+	memcpy(ctx->iv, req->iv, 12);
 	return omap_aes_gcm_crypt(req, FLAGS_ENCRYPT | FLAGS_GCM);
 }
 
 int omap_aes_gcm_decrypt(struct aead_request *req)
 {
+	struct omap_aes_ctx *ctx = crypto_aead_ctx(crypto_aead_reqtfm(req));
+
+	memcpy(ctx->iv, req->iv, 12);
+	return omap_aes_gcm_crypt(req, FLAGS_GCM);
+}
+
+int omap_aes_4106gcm_encrypt(struct aead_request *req)
+{
+	struct omap_aes_ctx *ctx = crypto_aead_ctx(crypto_aead_reqtfm(req));
+
+	memcpy(ctx->iv + 4, req->iv, 8);
+	return omap_aes_gcm_crypt(req, FLAGS_ENCRYPT | FLAGS_GCM);
+}
+
+int omap_aes_4106gcm_decrypt(struct aead_request *req)
+{
+	struct omap_aes_ctx *ctx = crypto_aead_ctx(crypto_aead_reqtfm(req));
+
+	memcpy(ctx->iv + 4, req->iv, 8);
 	return omap_aes_gcm_crypt(req, FLAGS_GCM);
 }
 
@@ -381,6 +403,26 @@ int omap_aes_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
 
 	memcpy(ctx->key, key, keylen);
 	ctx->keylen = keylen;
+
+	return 0;
+}
+
+int omap_aes_4106gcm_setkey(struct crypto_aead *tfm, const u8 *key,
+			    unsigned int keylen)
+{
+	struct omap_aes_ctx *ctx = crypto_aead_ctx(tfm);
+	int ret;
+
+	if (keylen < 4)
+		return -EINVAL;
+
+	keylen -= 4;
+
+	ret = omap_aes_gcm_setkey(tfm, key, keylen);
+	if (ret)
+		return ret;
+
+	memcpy(ctx->iv, key + keylen, 4);
 
 	return 0;
 }

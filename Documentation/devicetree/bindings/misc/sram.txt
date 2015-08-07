@@ -33,6 +33,7 @@ Optional properties in the area nodes:
 
 - compatible : standard definition, should contain a vendor specific string
                in the form <vendor>,[<device>-]<usage>
+- map-exec :   Map range to allow code execution
 
 Example:
 
