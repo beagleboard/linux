@@ -19,6 +19,7 @@
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -79,14 +80,124 @@ static const uint32_t reg[][4] = {
 			DMM_PAT_DESCR__2, DMM_PAT_DESCR__3},
 };
 
+static int dmm_dma_copy(struct dmm *dmm, u32 src, u32 dst)
+{
+	struct dma_device *dma_dev = dmm->wa_dma_chan->device;
+	struct dma_async_tx_descriptor *tx = NULL;
+	enum dma_status status;
+	dma_cookie_t cookie;
+
+	tx = dma_dev->device_prep_dma_memcpy(dmm->wa_dma_chan, dst, src, 4, 0);
+	if (!tx) {
+		dev_err(dmm->dev, "Failed to prepare DMA memcpy\n");
+		return -EIO;
+	}
+
+	cookie = tx->tx_submit(tx);
+	if (dma_submit_error(cookie)) {
+		dev_err(dmm->dev, "Failed to do DMA tx_submit\n");
+		return -EIO;
+	}
+
+	dma_async_issue_pending(dmm->wa_dma_chan);
+	status = dma_sync_wait(dmm->wa_dma_chan, cookie);
+	if (status != DMA_COMPLETE)
+		dev_err(dmm->dev, "i878 wa DMA copy failure\n");
+
+	dmaengine_terminate_all(dmm->wa_dma_chan);
+	return 0;
+}
+
+static u32 dmm_read_wa(struct dmm *dmm, u32 reg)
+{
+	u32 src, dst;
+	int r;
+
+	src = (u32)(dmm->phys_base + reg);
+	dst = (u32)dmm->wa_dma_handle;
+
+	r = dmm_dma_copy(dmm, src, dst);
+	if (r) {
+		dev_err(dmm->dev, "sDMA read transfer timeout\n");
+		return readl(dmm->base + reg);
+	}
+
+	return readl(dmm->wa_dma_data);
+}
+
+static void dmm_write_wa(struct dmm *dmm, u32 val, u32 reg)
+{
+	u32 src, dst;
+	int r;
+
+	writel(val, dmm->wa_dma_data);
+
+	src = (u32)dmm->wa_dma_handle;
+	dst = (u32)(dmm->phys_base + reg);
+
+	r = dmm_dma_copy(dmm, src, dst);
+	if (r) {
+		dev_err(dmm->dev, "sDMA write transfer timeout\n");
+		writel(val, dmm->base + reg);
+	}
+}
+
 static u32 dmm_read(struct dmm *dmm, u32 reg)
 {
-	return readl(dmm->base + reg);
+	if (dmm->dmm_workaround) {
+		u32 v;
+		unsigned long flags;
+
+		spin_lock_irqsave(&dmm->wa_lock, flags);
+		v = dmm_read_wa(dmm, reg);
+		spin_unlock_irqrestore(&dmm->wa_lock, flags);
+
+		return v;
+	} else {
+		return readl(dmm->base + reg);
+	}
 }
 
 static void dmm_write(struct dmm *dmm, u32 val, u32 reg)
 {
-	writel(val, dmm->base + reg);
+	if (dmm->dmm_workaround) {
+		unsigned long flags;
+
+		spin_lock_irqsave(&dmm->wa_lock, flags);
+		dmm_write_wa(dmm, val, reg);
+		spin_unlock_irqrestore(&dmm->wa_lock, flags);
+	} else {
+		writel(val, dmm->base + reg);
+	}
+}
+
+static int dmm_workaround_init(struct dmm *dmm)
+{
+	dma_cap_mask_t mask;
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_MEMCPY, mask);
+
+	spin_lock_init(&dmm->wa_lock);
+
+	dmm->wa_dma_data = dma_alloc_coherent(dmm->dev, 4, &dmm->wa_dma_handle, GFP_KERNEL);
+	if (!dmm->wa_dma_data)
+		return -ENOMEM;
+
+	dmm->wa_dma_chan = dma_request_channel(mask, NULL, NULL);
+	if (!dmm->wa_dma_chan) {
+		dma_free_coherent(dmm->dev, 4, dmm->wa_dma_data, dmm->wa_dma_handle);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void dmm_workaround_uninit(struct dmm *dmm)
+{
+	dma_release_channel(dmm->wa_dma_chan);
+
+	dma_free_coherent(dmm->dev, 4, dmm->wa_dma_data, dmm->wa_dma_handle);
 }
 
 /* simple allocator to grab next 16 byte aligned memory from txn */
@@ -615,6 +726,9 @@ static int omap_dmm_remove(struct platform_device *dev)
 		if (omap_dmm->dummy_page)
 			__free_page(omap_dmm->dummy_page);
 
+		if (omap_dmm->dmm_workaround)
+			dmm_workaround_uninit(omap_dmm);
+
 		if (omap_dmm->irq > 0)
 			free_irq(omap_dmm->irq, omap_dmm);
 
@@ -662,6 +776,7 @@ static int omap_dmm_probe(struct platform_device *dev)
 		goto fail;
 	}
 
+	omap_dmm->phys_base = mem->start;
 	omap_dmm->base = ioremap(mem->start, SZ_2K);
 
 	if (!omap_dmm->base) {
@@ -676,6 +791,21 @@ static int omap_dmm_probe(struct platform_device *dev)
 	}
 
 	omap_dmm->dev = &dev->dev;
+
+	omap_dmm->dmm_workaround = omap_dmm->plat_data->errata_i878_wa;
+
+	if (omap_dmm->dmm_workaround) {
+		int r;
+
+		r = dmm_workaround_init(omap_dmm);
+
+		if (r) {
+			omap_dmm->dmm_workaround = false;
+			dev_err(&dev->dev, "failed to initialize work-around, WA not used\n");
+		} else {
+			dev_info(&dev->dev, "workaround for errata i878 in use\n");
+		}
+	}
 
 	hwinfo = dmm_read(omap_dmm, DMM_PAT_HWINFO);
 	omap_dmm->num_engines = (hwinfo >> 24) & 0x1F;
@@ -1040,6 +1170,11 @@ static const struct dmm_platform_data dmm_omap5_platform_data = {
 	.cpu_cache_flags = OMAP_BO_UNCACHED,
 };
 
+static const struct dmm_platform_data dmm_dra7_platform_data = {
+	.cpu_cache_flags = OMAP_BO_UNCACHED,
+	.errata_i878_wa = true,
+};
+
 static const struct of_device_id dmm_of_match[] = {
 	{
 		.compatible = "ti,omap4-dmm",
@@ -1048,6 +1183,10 @@ static const struct of_device_id dmm_of_match[] = {
 	{
 		.compatible = "ti,omap5-dmm",
 		.data = &dmm_omap5_platform_data,
+	},
+	{
+		.compatible = "ti,dra7-dmm",
+		.data = &dmm_dra7_platform_data,
 	},
 	{},
 };
