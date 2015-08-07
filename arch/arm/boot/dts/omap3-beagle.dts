@@ -384,7 +384,9 @@
 
 	/* Chip select 0 */
 	nand@0,0 {
+		compatible = "ti,omap2-nand";
 		reg = <0 0 4>;		/* NAND I/O window, 4 bytes */
+		interrupt-parent = <&intc>;
 		interrupts = <20>;
 		ti,nand-ecc-opt = "ham1";
 		nand-bus-width = <16>;
