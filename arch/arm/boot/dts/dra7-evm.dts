@@ -606,7 +606,7 @@
 };
 
 &gpmc {
-	status = "okay";
+	status = "disabled";
 	ranges = <0 0 0x08000000 0x01000000>;	/* minimum GPMC partition = 16MB */
 	nand@0,0 {
 		compatible = "ti,omap2-nand";
