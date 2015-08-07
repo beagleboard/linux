@@ -50,6 +50,7 @@ struct omap_chan {
 	struct dma_slave_config	cfg;
 	unsigned dma_sig;
 	bool cyclic;
+	bool start_no_delay;
 	bool paused;
 
 	int dma_ch;
@@ -709,6 +710,12 @@ static enum dma_status omap_dma_tx_status(struct dma_chan *chan,
 	if (ret == DMA_COMPLETE || !txstate)
 		return ret;
 
+	if (c->start_no_delay) {
+		uint32_t val = omap_dma_chan_read(c, CCR);
+		if (!(val & CCR_ENABLE))
+			return DMA_COMPLETE;
+	}
+
 	spin_lock_irqsave(&c->vc.lock, flags);
 	vd = vchan_find_desc(&c->vc, cookie);
 	if (vd) {
@@ -719,7 +726,7 @@ static enum dma_status omap_dma_tx_status(struct dma_chan *chan,
 
 		if (d->dir == DMA_MEM_TO_DEV)
 			pos = omap_dma_get_src_pos(c);
-		else if (d->dir == DMA_DEV_TO_MEM)
+		else if (d->dir == DMA_DEV_TO_MEM  || d->dir == DMA_MEM_TO_MEM)
 			pos = omap_dma_get_dst_pos(c);
 		else
 			pos = 0;
@@ -744,15 +751,15 @@ static void omap_dma_issue_pending(struct dma_chan *chan)
 		 * c->cyclic is used only by audio and in this case the DMA need
 		 * to be started without delay.
 		 */
-		if (!c->cyclic) {
+		if (c->cyclic || c->start_no_delay) {
+			omap_dma_start_desc(c);
+		} else {
 			struct omap_dmadev *d = to_omap_dma_dev(chan->device);
 			spin_lock(&d->lock);
 			if (list_empty(&c->node))
 				list_add_tail(&c->node, &d->pending);
 			spin_unlock(&d->lock);
 			tasklet_schedule(&d->task);
-		} else {
-			omap_dma_start_desc(c);
 		}
 	}
 	spin_unlock_irqrestore(&c->vc.lock, flags);
@@ -987,6 +994,8 @@ static struct dma_async_tx_descriptor *omap_dma_prep_dma_memcpy(
 	d->cicr = CICR_DROP_IE;
 	if (tx_flags & DMA_PREP_INTERRUPT)
 		d->cicr |= CICR_FRAME_IE;
+	else
+		c->start_no_delay = true;
 
 	d->csdp = data_type;
 
@@ -1046,6 +1055,8 @@ static int omap_dma_terminate_all(struct dma_chan *chan)
 		c->cyclic = false;
 		c->paused = false;
 	}
+
+	c->start_no_delay = false;
 
 	vchan_get_all_descriptors(&c->vc, &head);
 	spin_unlock_irqrestore(&c->vc.lock, flags);

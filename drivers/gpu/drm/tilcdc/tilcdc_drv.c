@@ -150,10 +150,13 @@ static int tilcdc_unload(struct drm_device *dev)
 
 	pm_runtime_disable(dev->dev);
 
+	kfree(priv->saved_register);
 	kfree(priv);
 
 	return 0;
 }
+
+static size_t tilcdc_num_regs(void);
 
 static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 {
@@ -166,7 +169,11 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 	int ret;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-	if (!priv) {
+	if (priv)
+		priv->saved_register = kcalloc(sizeof(*priv->saved_register),
+					       tilcdc_num_regs(), GFP_KERNEL);
+	if (!priv || !priv->saved_register) {
+		kfree(priv);
 		dev_err(dev->dev, "failed to allocate private data\n");
 		return -ENOMEM;
 	}
@@ -316,9 +323,9 @@ fail_cpufreq_unregister:
 #ifdef CONFIG_CPU_FREQ
 	cpufreq_unregister_notifier(&priv->freq_transition,
 			CPUFREQ_TRANSITION_NOTIFIER);
-#endif
 
 fail_put_clk:
+#endif
 	clk_put(priv->clk);
 
 fail_iounmap:
@@ -330,6 +337,7 @@ fail_free_wq:
 
 fail_free_priv:
 	dev->dev_private = NULL;
+	kfree(priv->saved_register);
 	kfree(priv);
 	return ret;
 }
@@ -434,6 +442,16 @@ static const struct {
 		REG(2, true,  LCDC_INT_ENABLE_SET_REG),
 #undef REG
 };
+
+static size_t tilcdc_num_regs(void)
+{
+	return ARRAY_SIZE(registers);
+}
+#else
+static size_t tilcdc_num_regs(void)
+{
+	return 0;
+}
 #endif
 
 #ifdef CONFIG_DEBUG_FS
@@ -520,7 +538,8 @@ static const struct file_operations fops = {
 };
 
 static struct drm_driver tilcdc_driver = {
-	.driver_features    = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET,
+	.driver_features    = (DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET |
+			       DRIVER_PRIME),
 	.load               = tilcdc_load,
 	.unload             = tilcdc_unload,
 	.preclose           = tilcdc_preclose,
@@ -538,6 +557,16 @@ static struct drm_driver tilcdc_driver = {
 	.dumb_create        = drm_gem_cma_dumb_create,
 	.dumb_map_offset    = drm_gem_cma_dumb_map_offset,
 	.dumb_destroy       = drm_gem_dumb_destroy,
+
+	.prime_handle_to_fd	= drm_gem_prime_handle_to_fd,
+	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
+	.gem_prime_import	= drm_gem_prime_import,
+	.gem_prime_export	= drm_gem_prime_export,
+	.gem_prime_get_sg_table	= drm_gem_cma_prime_get_sg_table,
+	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
+	.gem_prime_vmap		= drm_gem_cma_prime_vmap,
+	.gem_prime_vunmap	= drm_gem_cma_prime_vunmap,
+	.gem_prime_mmap		= drm_gem_cma_prime_mmap,
 #ifdef CONFIG_DEBUG_FS
 	.debugfs_init       = tilcdc_debugfs_init,
 	.debugfs_cleanup    = tilcdc_debugfs_cleanup,
