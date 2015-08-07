@@ -77,7 +77,10 @@ obj-$(CONFIG_ARCH_OMAP2)		+= sdrc2xxx.o
 ifeq ($(CONFIG_PM_OPP),y)
 obj-y					+= opp.o
 obj-$(CONFIG_ARCH_OMAP3)		+= opp3xxx_data.o
+obj-$(CONFIG_SOC_AM33XX)		+= opp33xx_data.o
+obj-$(CONFIG_SOC_AM43XX)		+= opp43xx_data.o
 obj-$(CONFIG_ARCH_OMAP4)		+= opp4xxx_data.o
+obj-$(CONFIG_SOC_DRA7XX)		+= opp7xx_data.o
 endif
 
 # Power Management
@@ -91,6 +94,9 @@ omap-4-5-pm-common			=  pm44xx.o omap-mpuss-lowpower.o
 obj-$(CONFIG_ARCH_OMAP4)		+= $(omap-4-5-pm-common)
 obj-$(CONFIG_SOC_OMAP5)			+= $(omap-4-5-pm-common)
 obj-$(CONFIG_SOC_DRA7XX)		+= $(omap-4-5-pm-common)
+obj-$(CONFIG_AMX3_PM)			+= pm33xx.o
+obj-$(CONFIG_SOC_AM33XX)		+= pm33xx-core.o sleep33xx.o
+obj-$(CONFIG_SOC_AM43XX)		+= pm33xx-core.o sleep43xx.o
 obj-$(CONFIG_PM_DEBUG)			+= pm-debug.o
 
 obj-$(CONFIG_POWER_AVS_OMAP)		+= sr_device.o
@@ -98,10 +104,14 @@ obj-$(CONFIG_POWER_AVS_OMAP_CLASS3)    += smartreflex-class3.o
 
 AFLAGS_sleep24xx.o			:=-Wa,-march=armv6
 AFLAGS_sleep34xx.o			:=-Wa,-march=armv7-a$(plus_sec)
+AFLAGS_sleep33xx.o			:=-Wa,-march=armv7-a$(plus_sec)
+AFLAGS_sleep43xx.o			:=-Wa,-march=armv7-a$(plus_sec)
 
 endif
 
 ifeq ($(CONFIG_CPU_IDLE),y)
+obj-$(CONFIG_SOC_AM33XX)                += cpuidle33xx.o
+obj-$(CONFIG_SOC_AM43XX)                += cpuidle43xx.o
 obj-$(CONFIG_ARCH_OMAP3)                += cpuidle34xx.o
 omap-4-5-idle-common			=  cpuidle44xx.o
 obj-$(CONFIG_ARCH_OMAP4)		+= $(omap-4-5-idle-common)

@@ -31,6 +31,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/genalloc.h>
+#include <linux/platform_data/sram.h>
 
 #define SRAM_GRANULARITY	32
 
@@ -56,6 +57,7 @@ static int sram_reserve_cmp(void *priv, struct list_head *a,
 
 static int sram_probe(struct platform_device *pdev)
 {
+	struct sram_platform_data *pdata = pdev->dev.platform_data;
 	void __iomem *virt_base;
 	struct sram_dev *sram;
 	struct resource *res;
@@ -64,6 +66,7 @@ static int sram_probe(struct platform_device *pdev)
 	struct sram_reserve *rblocks, *block;
 	struct list_head reserve_list;
 	unsigned int nblocks;
+	bool map_exec = false;
 	int ret;
 
 	INIT_LIST_HEAD(&reserve_list);
@@ -82,7 +85,15 @@ static int sram_probe(struct platform_device *pdev)
 		return -EBUSY;
 	}
 
-	virt_base = devm_ioremap_wc(&pdev->dev, res->start, size);
+	if (of_get_property(pdev->dev.of_node, "map-exec", NULL))
+		map_exec = true;
+	if (pdata && pdata->map_exec)
+		map_exec |= true;
+	if (map_exec)
+		virt_base = devm_ioremap_exec(&pdev->dev, res->start, size);
+	else
+		virt_base = devm_ioremap_wc(&pdev->dev, res->start, size);
+
 	if (IS_ERR(virt_base))
 		return PTR_ERR(virt_base);
 

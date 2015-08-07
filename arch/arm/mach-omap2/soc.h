@@ -238,6 +238,7 @@ IS_AM_SUBCLASS(437x, 0x437)
 #define soc_is_am335x()			0
 #define soc_is_am43xx()			0
 #define soc_is_am437x()			0
+#define soc_is_am438x()			0
 #define cpu_is_omap44xx()		0
 #define cpu_is_omap443x()		0
 #define cpu_is_omap446x()		0
@@ -371,8 +372,10 @@ IS_OMAP_TYPE(3430, 0x3430)
 #ifdef	CONFIG_SOC_AM43XX
 # undef soc_is_am43xx
 # undef soc_is_am437x
-# define soc_is_am43xx()		is_am43xx()
-# define soc_is_am437x()		is_am437x()
+# undef soc_is_am438x
+# define soc_is_am43xx()		of_machine_is_compatible("ti,am43")
+# define soc_is_am437x()		of_machine_is_compatible("ti,am4372")
+# define soc_is_am438x()		of_machine_is_compatible("ti,am438x")
 #endif
 
 # if defined(CONFIG_ARCH_OMAP4)
@@ -469,6 +472,8 @@ IS_OMAP_TYPE(3430, 0x3430)
 #define DRA7XX_CLASS		0x07000000
 #define DRA752_REV_ES1_0	(DRA7XX_CLASS | (0x52 << 16) | (0x10 << 8))
 #define DRA752_REV_ES1_1	(DRA7XX_CLASS | (0x52 << 16) | (0x11 << 8))
+#define DRA752_REV_ES2_0	(DRA7XX_CLASS | (0x52 << 16) | (0x20 << 8))
+#define DRA722_REV_ES1_0	(DRA7XX_CLASS | (0x22 << 16) | (0x10 << 8))
 #define DRA722_REV_ES1_0	(DRA7XX_CLASS | (0x22 << 16) | (0x10 << 8))
 
 void omap2xxx_check_revision(void);
