@@ -154,18 +154,20 @@ rproc_recovery_write(struct file *filp, const char __user *user_buf,
 {
 	struct rproc *rproc = filp->private_data;
 	char buf[10];
+	size_t buf_size;
 	int ret;
 
 	if (count > sizeof(buf))
 		return count;
 
-	ret = copy_from_user(buf, user_buf, count);
+	buf_size = min_t(size_t, count, sizeof(buf) - 1);
+	ret = copy_from_user(buf, user_buf, buf_size);
 	if (ret)
 		return -EFAULT;
 
 	/* remove end of line */
-	if (buf[count - 1] == '\n')
-		buf[count - 1] = '\0';
+	if (buf[buf_size - 1] == '\n')
+		buf[buf_size - 1] = '\0';
 
 	if (!strncmp(buf, "enabled", count)) {
 		rproc->recovery_disabled = false;
