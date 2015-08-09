@@ -64,6 +64,7 @@ int __init dra7xx_opp_init(void)
 	switch (rev) {
 	case DRA752_REV_ES1_0:
 	case DRA752_REV_ES1_1:
+	case DRA752_REV_ES2_0:
 	case DRA722_REV_ES1_0:
 	default:
 		/*

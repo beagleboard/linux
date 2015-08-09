@@ -273,7 +273,7 @@ config OMAP3_SDRC_AC_TIMING
 config AMX3_PM
 	tristate "AMx3 Power Management"
 	depends on SOC_AM33XX || SOC_AM43XX
-	depends on WKUP_M3_IPC && TI_EMIF_SRAM
+	depends on WKUP_M3_IPC && TI_EMIF_SRAM && RTC_DRV_OMAP
 	default y
 	help
 	  Enable power management on am335x and am437x. Required for suspend to mem
@@ -282,5 +282,13 @@ config AMX3_PM
 endmenu
 
 endif
+
+config OMAP5_ERRATA_801819
+	bool "Errata 801819: An eviction from L1 data cache might stall indefinitely"
+	depends on SOC_OMAP5 || SOC_DRA7XX
+	help
+	  A livelock can occur in the L2 cache arbitration that might prevent
+	  a snoop from completing. Under certain conditions this can cause the
+	  system to deadlock.
 
 endmenu

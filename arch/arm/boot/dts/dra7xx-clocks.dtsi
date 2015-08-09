@@ -332,6 +332,8 @@
 		clocks = <&sys_clkin1>, <&dpll_dsp_byp_mux>;
 		reg = <0x0234>, <0x0238>, <0x0240>, <0x023c>;
 		ti,sink-clkdm = <&dsp1_clkdm>;
+		assigned-clocks = <&dpll_dsp_ck>;
+		assigned-clock-rates = <600000000>;
 	};
 
 	dpll_dsp_m2_ck: dpll_dsp_m2_ck {
@@ -343,6 +345,8 @@
 		reg = <0x0244>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		assigned-clocks = <&dpll_dsp_m2_ck>;
+		assigned-clock-rates = <600000000>;
 	};
 
 	iva_dpll_hs_clk_div: iva_dpll_hs_clk_div {
@@ -367,6 +371,8 @@
 		clocks = <&sys_clkin1>, <&dpll_iva_byp_mux>;
 		reg = <0x01a0>, <0x01a4>, <0x01ac>, <0x01a8>;
 		ti,sink-clkdm = <&iva_clkdm>;
+		assigned-clocks = <&dpll_iva_ck>;
+		assigned-clock-rates = <1165000000>;
 	};
 
 	dpll_iva_m2_ck: dpll_iva_m2_ck {
@@ -378,6 +384,8 @@
 		reg = <0x01b0>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		assigned-clocks = <&dpll_iva_m2_ck>;
+		assigned-clock-rates = <388333334>;
 	};
 
 	iva_dclk: iva_dclk {
@@ -657,6 +665,8 @@
 		reg = <0x0248>;
 		ti,index-starts-at-one;
 		ti,invert-autoidle-bit;
+		assigned-clocks = <&dpll_dsp_m3x2_ck>;
+		assigned-clock-rates = <400000000>;
 	};
 
 	dpll_gmac_x2_ck: dpll_gmac_x2_ck {
@@ -789,6 +799,8 @@
 		clocks = <&dpll_abe_m2x2_ck>, <&dpll_core_h22x2_ck>;
 		ti,bit-shift = <24>;
 		reg = <0x0520>;
+		assigned-clocks = <&ipu1_gfclk_mux>;
+		assigned-clock-parents = <&dpll_core_h22x2_ck>;
 	};
 
 	mcasp1_ahclkr_mux: mcasp1_ahclkr_mux {

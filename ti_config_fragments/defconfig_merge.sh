@@ -15,7 +15,7 @@ export user_home_directory=`getent passwd $unix_user |cut -d: -f6`
 BUILD_THREADS=`grep -c "^processor" /proc/cpuinfo`
 DEFCONFIG="omap2plus_defconfig"
 CROSS_COMPILE=
-WORKING_PATH="linux-kernel"
+WORKING_PATH=""
 LOAD_ADDR=0x80008000
 LOAD_ADDRESS_VALUE=
 LOGGING_DIRECTORY="working_config"
@@ -41,7 +41,7 @@ build_the_defconfig()
 	BUILD_OUT=`mktemp`
 	#Check for defconfig issues
 	echo "Making the $DEFCONFIG"
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $DEFCONFIG > $BUILD_OUT 2>&1
+	cross_make $DEFCONFIG > $BUILD_OUT 2>&1
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wc "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
 		rm $BUILD_OUT
@@ -73,7 +73,7 @@ build_the_new_defconfig()
 	BUILD_OUT=`mktemp`
 	#Check for defconfig issues
 	echo "Making the $NEW_DEFCONFIG"
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $NEW_DEFCONFIG > $BUILD_OUT 2>&1
+	cross_make $NEW_DEFCONFIG > $BUILD_OUT 2>&1
 
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wc "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -105,11 +105,11 @@ build_the_kernel()
 {
 	BUILD_OUT=`mktemp`
 	echo "Building the kernel"
-	if [ "$LOAD_ADDR" != "" ]; then
+	if [ -n "$LOAD_ADDR" ]; then
 		LOAD_ADDRESS_VALUE="LOADADDR=$LOAD_ADDR"
 	fi
 
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $LOAD_ADDRESS_VALUE uImage > $BUILD_OUT 2>&1
+	cross_make $LOAD_ADDRESS_VALUE uImage > $BUILD_OUT 2>&1
 	#Check for build errors
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -136,7 +136,7 @@ build_the_dtbs()
 {
 	BUILD_OUT=`mktemp`
 	echo "Building the device tree"
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE dtbs > $BUILD_OUT 2>&1
+	cross_make dtbs > $BUILD_OUT 2>&1
 	#Check for build errors
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -164,7 +164,7 @@ build_the_modules()
 {
 	BUILD_OUT=`mktemp`
 	echo "Building the modules"
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE modules > $BUILD_OUT 2>&1
+	cross_make modules > $BUILD_OUT 2>&1
 	#Check for build errors
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -185,7 +185,7 @@ build_the_modules()
 	echo  "There are a total of "$NUM_OF_WARNINGS" warnings in the modules" >> $OUT_LOG
 	echo  >> $OUT_LOG
 
-	make -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE tar-pkg > $BUILD_OUT 2>&1
+	cross_make tar-pkg > $BUILD_OUT 2>&1
 	#Check for build errors
 	NUM_OF_ERRORS=`cat $BUILD_OUT | grep -wci "error:"`
 	if [ "$NUM_OF_ERRORS" -gt '0' ];then
@@ -199,7 +199,53 @@ build_the_modules()
 
 clean_the_build()
 {
-	make ARCH=arm -j$BUILD_THREADS mrproper
+	cross_make mrproper
+}
+
+setup_directories()
+{
+	INVOKE_DIR=`pwd`
+	SCRIPT_DIR=`dirname $0`
+	if [ -n "$WORKING_PATH" ]; then
+		# invoking script for a different kernel...
+		KERNEL_DIR="$WORKING_PATH"
+	else
+		# The script is located in <kernel_dir>/ti_config_fragments directory..
+		# Lets use that trick to find the kernel directory.
+		KERNEL_DIR=`dirname $SCRIPT_DIR`
+		WORKING_PATH=$KERNEL_DIR
+	fi
+
+	# Sanity checkup kernel build location.
+	if [ ! -d "$KERNEL_DIR" ]; then
+		echo "Kernel working dir $KERNEL_DIR is not a directory/ does not exist! exiting.."
+		exit 1
+	fi
+
+	if [ -n "$DEFCONFIG_EXTRAS_FILE" ]; then
+		DEFCONFIG_EXTRAS_DIR=`dirname $DEFCONFIG_EXTRAS_FILE`
+		DEFCONFIG_EXTRAS_KERNEL_DIR=`dirname $DEFCONFIG_EXTRAS_DIR`
+		DEFCONFIG_EXTRAS_FILE_NAME=`basename $DEFCONFIG_EXTRAS_FILE`
+		DEFCONFIG_EXTRAS_FILE="$DEFCONFIG_EXTRAS_DIR/$DEFCONFIG_EXTRAS_FILE_NAME"
+		if [ ! -e "$DEFCONFIG_EXTRAS_FILE" ]; then
+			echo "Kernel fragments file $DEFCONFIG_EXTRAS_FILE does not exist/is not readable!"
+			usage
+			exit 1
+		fi
+		if [ ! -d "$DEFCONFIG_EXTRAS_DIR" ]; then
+			echo "Kernel fragments dir $DEFCONFIG_EXTRAS_DIR does not exist/is not a directory?"
+			usage
+			exit 1
+		fi
+	fi
+
+	# if just the appended config is provided
+	if [ -n "$APPENDED_CONFIG" ]; then
+		APPENDED_CONFIG_DIR=`dirname $APPENDED_CONFIG`
+		APPENDED_CONFIG_FILE_NAME=`basename $APPENDED_CONFIG`
+		APPENDED_CONFIG="$APPENDED_CONFIG_DIR/$APPENDED_CONFIG_FILE_NAME"
+	fi
+
 }
 
 set_working_directory()
@@ -218,6 +264,11 @@ set_original_directory()
 	fi
 }
 
+cross_make()
+{
+	make -C$KERNEL_DIR -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $*
+}
+
 usage()
 {
 cat << EOF
@@ -232,8 +283,8 @@ A copy of both the base config and the final config is stored in the scripts log
 
 Single fragment command line example:
 
-	defconfig_merge.sh -c <path to the compiler> -o <output directory and file name>
-	-e <path to single fragment file> -w <path to the working directory of the kernel>
+	defconfig_merge.sh -c <path to the compiler> -o <path to output log file>
+	-e <path to single fragment file> -w <path to the kernel directory>
 
 Multiple fragment file format:
 "use-kernel-config=" - Is required to be defined.  This is the base defconfig
@@ -249,8 +300,8 @@ entry per config fragment.
 
 Multiple fragment command line example:
 
-	defconfig_merge.sh -c <path to the compiler> -o <output directory and file name>
-	-f <path to multiple fragment file> -w <path to the working directory of the kernel>
+	defconfig_merge.sh -c <path to the compiler> -o <path to output log file>
+	-f <path to multiple fragment file> -w <path to the kernel directory>
 
 Example:
 use-kernel-config=omap2plus_defconfig
@@ -268,13 +319,13 @@ OPTIONS:
 	-d  The defconfig to use as a base
 	-e  Single defconfig fragment to append
 	-j  How many build threads to use
-	-o  Output log
+	-o  Output log file
 	-l  uImage load address if different from 0x80008000 for no load address use ""
 
 	Build Options:
 	-n  Do not pre-build the defconfig just use the existing .config
 	-m  MAKE the kernel, modules and dtb files based on the new config
-	-w  Linux kernel path directory
+	-w  Linux kernel directory
 
 	-f  Path to file with multiple defconfig options
 
@@ -310,28 +361,29 @@ do
      esac
 done
 
+setup_directories
+trap prepare_for_exit EXIT SIGINT SIGTERM
+
+
 if [ "$BUILD_ALL" == 1 -o "$NO_CLEAN_DEFCONFIG" != 1 ]; then
-	if [ "$CROSS_COMPILE" == "" ]; then
+	if [ -z "$CROSS_COMPILE" ]; then
 		echo "Missing cross compile"
 		usage
 		exit 1
 	fi
 fi
 
-if [ "$DEFCONFIG_EXTRAS_FILE" == "" -a "$APPENDED_CONFIG" == "" ]; then
+if [ -z "$DEFCONFIG_EXTRAS_FILE" -a -z "$APPENDED_CONFIG" ]; then
 	echo "Missing config fragment information"
 	usage
 	exit 1
 fi
 
 
-if [ "$OUT_LOG" == "" ]; then
-	echo "Missing output log path"
-	usage
-	exit 1
+if [ -z "$OUT_LOG" ]; then
+	echo "Missing output log path, dumping to /dev/null"
+	OUT_LOG=/dev/null
 fi
-
-NEW_DEFCONFIG="appended_$DEFCONFIG"
 
 set_working_directory
 
@@ -347,13 +399,12 @@ mkdir -p $LOGGING_DIRECTORY
 check_for_compiler
 if [ $? -ne 0 ]; then
 	 echo -e "\n\tCannot find $CROSS_COMPILE compiler\n"
-	 prepare_for_exit
 	 exit 1
 fi
 
-if [ "$DEFCONFIG_EXTRAS_FILE" != '' ]; then
+if [ -n "$DEFCONFIG_EXTRAS_FILE"  ]; then
 	DEFCONFIG=`cat $DEFCONFIG_EXTRAS_FILE | grep "use-kernel-config=" | cut -d= -f2`
-	if [ "$DEFCONFIG" == '' ]; then
+	if [ -z "$DEFCONFIG"  ]; then
 		echo -e "\n\tMissing base defconfig in the file\n"
 		usage
 		exit 1
@@ -368,7 +419,6 @@ if [ "$NO_CLEAN_DEFCONFIG" != 1 ]; then
 	build_the_defconfig
 	if [ $? -ne 0 ]; then
 		 echo "Building $DEFCONFIG failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 else
@@ -385,9 +435,9 @@ if [ -a .config ]; then
 fi
 
 # There is only one file passed in via command line
-if [ "$DEFCONFIG_EXTRAS_FILE" == '' ]; then
+if [ -z "$DEFCONFIG_EXTRAS_FILE" ]; then
 	echo "Only appending $DEFCONFIG_EXTRAS_FILE"
-	./scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/base_config $APPENDED_CONFIG
+	$KERNEL_DIR/scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/base_config $APPENDED_CONFIG
 	if [ $? -ne 0 ]; then
 		echo "Failed to merge config $APPENDED_CONFIG"
 		exit 1
@@ -396,37 +446,49 @@ else
 	TEMP_FRAGMENT=`mktemp`
 	cat $DEFCONFIG_EXTRAS_FILE | grep "config-fragment=" | cut -d= -f2 > $TEMP_FRAGMENT
 	NUM_OF_FRAGMENTS=`wc -l $TEMP_FRAGMENT | awk '{print$1}'`
-	if [ "$NUM_OF_FRAGMENTS" == '' ]; then
+	if [ -z "$NUM_OF_FRAGMENTS" ]; then
 		echo "Malformed defconfig fragment file"
 		rm $TEMP_FRAGMENT
 		exit 1
 	fi
 	cat $LOGGING_DIRECTORY/base_config > $LOGGING_DIRECTORY/temp_config
-	while true;
+	while read APPENDED_CONFIG
 	do
-		APPENDED_CONFIG=`head -1 $TEMP_FRAGMENT`
-		if [ "$APPENDED_CONFIG" == '' ]; then
+		if [ -z "$APPENDED_CONFIG" ]; then
 			break
 		fi
-		./scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/temp_config $APPENDED_CONFIG
+		if [ ! -r "$APPENDED_CONFIG" ]; then
+			# If not using absolute path, then assume we are relative to kernel dir
+			# of the defconfig_extras
+			APPENDED_CONFIG=$DEFCONFIG_EXTRAS_KERNEL_DIR/$APPENDED_CONFIG
+		fi
+		if [ ! -r "$APPENDED_CONFIG" ]; then
+			echo "Failed to find $APPENDED_CONFIG"
+			usage
+			exit 1
+		fi
+
+		$KERNEL_DIR/scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/temp_config $APPENDED_CONFIG
 		if [ $? -ne 0 ]; then
 			echo "Failed to merge config $APPENDED_CONFIG"
 			rm $TEMP_FRAGMENT
 			exit 1
 		fi
-		sed -i "1d" $TEMP_FRAGMENT
 		cat $APPENDED_CONFIG >> $DEFCONFIG_EXTRAS
 		cat $LOGGING_DIRECTORY/.config > $LOGGING_DIRECTORY/temp_config
-	done
+	done <$TEMP_FRAGMENT
 	rm $TEMP_FRAGMENT
 fi
 
+# The final defconfig to create
+NEW_DEFCONFIG="appended_$DEFCONFIG"
+
 # Last step before the build
 cat $LOGGING_DIRECTORY/.config > $LOGGING_DIRECTORY/final_config
-echo -e "\n\t Copying $LOGGING_DIRECTORY/.config to $WORKING_DIRECTORY/.config"
-cp -v $LOGGING_DIRECTORY/.config .config
+echo -e "\n\t Copying $LOGGING_DIRECTORY/.config to $KERNEL_DIR/.config"
+cp -v $LOGGING_DIRECTORY/.config $KERNEL_DIR/.config
 echo -e "\n\t Copying $LOGGING_DIRECTORY/.config to arch/arm/configs/$NEW_DEFCONFIG"
-cp -v $LOGGING_DIRECTORY/.config arch/arm/configs/$NEW_DEFCONFIG
+cp -v $LOGGING_DIRECTORY/.config $KERNEL_DIR/arch/arm/configs/$NEW_DEFCONFIG
 
 if [ -a $LOGGING_DIRECTORY/temp_config ]; then
 	rm $LOGGING_DIRECTORY/temp_config
@@ -436,28 +498,24 @@ if [ "$BUILD_ALL" == 1 ]; then
 	build_the_new_defconfig
 	if [ $? -ne 0 ]; then
 		 echo "Building the defconfig failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 
 	build_the_kernel
 	if [ $? -ne 0 ]; then
 		 echo "Building the kernel failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 
 	build_the_dtbs
 	if [ $? -ne 0 ]; then
 		 echo "Building the device tree binaries failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 
 	build_the_modules
 	if [ $? -ne 0 ]; then
 		 echo "Building the modules failed"
-		 prepare_for_exit
 		 exit 1
 	fi
 fi

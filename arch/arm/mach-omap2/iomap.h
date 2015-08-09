@@ -119,6 +119,13 @@
 #define L4_WK_AM33XX_SIZE	SZ_4M   /* 1MB of 128MB used, want 1MB sect */
 
 /*
+ * ----------------------------------------------------------------------------
+ * AM43XX specific IO mapping
+ * ----------------------------------------------------------------------------
+ */
+#define AM43XX_GIC_DIST_BASE	0x48241000
+
+/*
  * Need to look at the Size 4M for L4.
  * VPOM3430 was not working for Int controller
  */

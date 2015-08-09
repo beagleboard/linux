@@ -768,6 +768,130 @@ unsigned long omap3_clkoutx2_recalc(struct clk_hw *hw,
 	return rate;
 }
 
+/**
+ * omap3_core_dpll_save_context - Save the m and n values of the divider
+ * @hw: pointer  struct clk_hw
+ *
+ * Before the dpll registers are lost save the last rounded rate m and n
+ * and the enable mask.
+ */
+int omap3_core_dpll_save_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	struct dpll_data *dd;
+	u32 v;
+
+	dd = clk->dpll_data;
+
+	v = omap2_clk_readl(clk, dd->control_reg);
+	clk->context = (v & dd->enable_mask) >> __ffs(dd->enable_mask);
+
+	if (clk->context == DPLL_LOCKED) {
+		v = omap2_clk_readl(clk, dd->mult_div1_reg);
+		dd->last_rounded_m = (v & dd->mult_mask) >>
+						__ffs(dd->mult_mask);
+		dd->last_rounded_n = ((v & dd->div1_mask) >>
+						__ffs(dd->div1_mask)) + 1;
+	}
+
+	return 0;
+}
+
+/**
+ * omap3_core_dpll_restore_context - restore the m and n values of the divider
+ * @hw: pointer  struct clk_hw
+ *
+ * Restore the last rounded rate m and n
+ * and the enable mask.
+ */
+void omap3_core_dpll_restore_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	const struct dpll_data *dd;
+	u32 v;
+
+	dd = clk->dpll_data;
+
+	if (clk->context == DPLL_LOCKED) {
+		_omap3_dpll_write_clken(clk, 0x4);
+		_omap3_wait_dpll_status(clk, 0);
+
+		v = omap2_clk_readl(clk, dd->mult_div1_reg);
+		v &= ~(dd->mult_mask | dd->div1_mask);
+		v |= dd->last_rounded_m << __ffs(dd->mult_mask);
+		v |= (dd->last_rounded_n - 1) << __ffs(dd->div1_mask);
+		omap2_clk_writel(v, clk, dd->mult_div1_reg);
+
+		_omap3_dpll_write_clken(clk, DPLL_LOCKED);
+		_omap3_wait_dpll_status(clk, 1);
+	} else {
+		_omap3_dpll_write_clken(clk, clk->context);
+	}
+}
+
+/**
+ * omap3_non_core_dpll_save_context - Save the m and n values of the divider
+ * @hw: pointer  struct clk_hw
+ *
+ * Before the dpll registers are lost save the last rounded rate m and n
+ * and the enable mask.
+ */
+int omap3_noncore_dpll_save_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	struct dpll_data *dd;
+	u32 v;
+
+	dd = clk->dpll_data;
+
+	v = omap2_clk_readl(clk, dd->control_reg);
+	clk->context = (v & dd->enable_mask) >> __ffs(dd->enable_mask);
+
+	if (clk->context == DPLL_LOCKED) {
+		v = omap2_clk_readl(clk, dd->mult_div1_reg);
+		dd->last_rounded_m = (v & dd->mult_mask) >>
+						__ffs(dd->mult_mask);
+		dd->last_rounded_n = ((v & dd->div1_mask) >>
+						__ffs(dd->div1_mask)) + 1;
+	}
+
+	return 0;
+}
+
+/**
+ * omap3_core_dpll_restore_context - restore the m and n values of the divider
+ * @hw: pointer  struct clk_hw
+ *
+ * Restore the last rounded rate m and n
+ * and the enable mask.
+ */
+void omap3_noncore_dpll_restore_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	const struct dpll_data *dd;
+	u32 ctrl, mult_div1;
+
+	dd = clk->dpll_data;
+
+	ctrl = omap2_clk_readl(clk, dd->control_reg);
+	mult_div1 = omap2_clk_readl(clk, dd->mult_div1_reg);
+
+	if (clk->context == ((ctrl & dd->enable_mask) >>
+			     __ffs(dd->enable_mask)) &&
+	    dd->last_rounded_m == ((mult_div1 & dd->mult_mask) >>
+				   __ffs(dd->mult_mask)) &&
+	    dd->last_rounded_n == ((mult_div1 & dd->div1_mask) >>
+				   __ffs(dd->div1_mask)) + 1) {
+		/* nothing to be done */
+		return;
+	}
+
+	if (clk->context == DPLL_LOCKED)
+		omap3_noncore_dpll_program(clk, 0);
+	else
+		_omap3_dpll_write_clken(clk, clk->context);
+}
+
 int omap3_clkoutx2_set_rate(struct clk_hw *hw, unsigned long rate,
 					unsigned long parent_rate)
 {
