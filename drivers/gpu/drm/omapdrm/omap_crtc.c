@@ -33,6 +33,8 @@ struct omap_crtc_state {
 	/* Shadow values for legacy userspace support. */
 	unsigned int rotation;
 	unsigned int zpos;
+
+	u32 default_color;
 };
 
 #define to_omap_crtc(x) container_of(x, struct omap_crtc, base)
@@ -326,10 +328,12 @@ static void omap_crtc_write_crtc_properties(struct drm_crtc *crtc)
 	struct omap_drm_private *priv = crtc->dev->dev_private;
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	struct omap_overlay_manager_info info;
+	const struct omap_crtc_state *omap_state =
+		to_omap_crtc_state(crtc->state);
 
 	memset(&info, 0, sizeof(info));
 
-	info.default_color = 0x000000;
+	info.default_color = omap_state->default_color;
 	info.trans_enabled = false;
 	info.partial_alpha_enabled = false;
 	info.cpr_enable = false;
@@ -561,6 +565,7 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 {
 	struct omap_drm_private *priv = crtc->dev->dev_private;
 	struct drm_plane_state *plane_state;
+	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 
 	/*
 	 * Delegate property set to the primary plane. Get the plane state and
@@ -576,6 +581,8 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 		plane_state->rotation = val;
 	else if (property == priv->zorder_prop)
 		plane_state->zpos = val;
+	else if (property == priv->background_color_prop)
+		omap_state->default_color = val;
 	else
 		return -EINVAL;
 
@@ -594,6 +601,8 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 		*val = omap_state->rotation;
 	else if (property == priv->zorder_prop)
 		*val = omap_state->zpos;
+	else if (property == priv->background_color_prop)
+		*val = omap_state->default_color;
 	else
 		return -EINVAL;
 
@@ -630,6 +639,8 @@ omap_crtc_duplicate_state(struct drm_crtc *crtc)
 
 	state->zpos = current_state->zpos;
 	state->rotation = current_state->rotation;
+
+	state->default_color = current_state->default_color;
 
 	return &state->base;
 }
@@ -679,6 +690,15 @@ void omap_crtc_pre_init(void)
 void omap_crtc_pre_uninit(void)
 {
 	dss_uninstall_mgr_ops();
+}
+
+static void omap_crtc_install_properties(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_mode_object *obj = &crtc->base;
+	struct omap_drm_private *priv = dev->dev_private;
+
+	drm_object_attach_property(obj, priv->background_color_prop, 0);
 }
 
 /* initialize crtc */
@@ -738,6 +758,7 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 		drm_mode_crtc_set_gamma_size(crtc, gamma_lut_size);
 	}
 
+	omap_crtc_install_properties(crtc);
 	omap_plane_install_properties(crtc->primary, &crtc->base);
 
 	omap_crtcs[channel] = omap_crtc;
