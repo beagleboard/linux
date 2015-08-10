@@ -33,6 +33,9 @@ struct omap_plane_state {
 
 	struct omap_hw_overlay *overlay;
 	struct omap_hw_overlay *r_overlay;  /* right overlay */
+
+	unsigned int global_alpha;
+	unsigned int pre_mult_alpha;
 };
 
 #define to_omap_plane(x) container_of(x, struct omap_plane, base)
@@ -103,7 +106,8 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	memset(&info, 0, sizeof(info));
 	info.rotation_type = OMAP_DSS_ROT_NONE;
 	info.rotation = DRM_MODE_ROTATE_0;
-	info.global_alpha = 0xff;
+	info.global_alpha = new_omap_state->global_alpha;
+	info.pre_mult_alpha = new_omap_state->pre_mult_alpha;
 	info.zorder = state->normalized_zpos;
 	info.color_encoding = state->color_encoding;
 	info.color_range = state->color_range;
@@ -440,6 +444,9 @@ static void omap_plane_reset(struct drm_plane *plane)
 			   ? 0 : omap_plane->id;
 	plane->state->color_encoding = DRM_COLOR_YCBCR_BT601;
 	plane->state->color_range = DRM_COLOR_YCBCR_FULL_RANGE;
+
+	omap_state->global_alpha = 0xff;
+	omap_state->pre_mult_alpha = 0;
 }
 
 static struct drm_plane_state *
@@ -457,6 +464,9 @@ omap_plane_atomic_duplicate_state(struct drm_plane *plane)
 		return NULL;
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &copy->base);
+
+	copy->global_alpha = state->global_alpha;
+	copy->pre_mult_alpha = state->pre_mult_alpha;
 
 	return &copy->base;
 }
@@ -496,9 +506,14 @@ static int omap_plane_atomic_set_property(struct drm_plane *plane,
 					  u64 val)
 {
 	struct omap_drm_private *priv = plane->dev->dev_private;
+	struct omap_plane_state *omap_state = to_omap_plane_state(state);
 
 	if (property == priv->zorder_prop)
 		state->zpos = val;
+	else if (property == priv->global_alpha_prop)
+		omap_state->global_alpha = val;
+	else if (property == priv->pre_mult_alpha_prop)
+		omap_state->pre_mult_alpha = val;
 	else
 		return -EINVAL;
 
@@ -511,9 +526,14 @@ static int omap_plane_atomic_get_property(struct drm_plane *plane,
 					  u64 *val)
 {
 	struct omap_drm_private *priv = plane->dev->dev_private;
+	const struct omap_plane_state *omap_state = to_omap_plane_state(state);
 
 	if (property == priv->zorder_prop)
 		*val = state->zpos;
+	else if (property == priv->global_alpha_prop)
+		*val = omap_state->global_alpha;
+	else if (property == priv->pre_mult_alpha_prop)
+		*val = omap_state->pre_mult_alpha;
 	else
 		return -EINVAL;
 
@@ -609,6 +629,9 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 					BIT(DRM_COLOR_YCBCR_LIMITED_RANGE),
 					DRM_COLOR_YCBCR_BT601,
 					DRM_COLOR_YCBCR_FULL_RANGE);
+
+	drm_object_attach_property(&plane->base, priv->global_alpha_prop, 0);
+	drm_object_attach_property(&plane->base, priv->pre_mult_alpha_prop, 0);
 
 	return plane;
 

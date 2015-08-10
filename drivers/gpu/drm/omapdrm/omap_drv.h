@@ -110,6 +110,8 @@ struct omap_drm_private {
 
 	/* properties: */
 	struct drm_property *zorder_prop;
+	struct drm_property *global_alpha_prop;
+	struct drm_property *pre_mult_alpha_prop;
 
 	/* crtc properties */
 	struct drm_property *background_color_prop;

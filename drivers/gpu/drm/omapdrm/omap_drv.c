@@ -391,6 +391,16 @@ static int omap_modeset_init_properties(struct drm_device *dev)
 	if (!priv->zorder_prop)
 		return -ENOMEM;
 
+	priv->global_alpha_prop = drm_property_create_range(dev, 0,
+		"global_alpha", 0, 255);
+	if (!priv->global_alpha_prop)
+		return -ENOMEM;
+
+	priv->pre_mult_alpha_prop = drm_property_create_bool(dev, 0,
+		"pre_mult_alpha");
+	if (!priv->pre_mult_alpha_prop)
+		return -ENOMEM;
+
 	/* crtc properties */
 
 	priv->background_color_prop = drm_property_create_range(dev, 0,
