@@ -53,6 +53,16 @@ struct omap_crtc {
 	wait_queue_head_t pending_wait;
 };
 
+struct omap_crtc_state {
+	struct drm_crtc_state base;
+};
+
+static inline struct omap_crtc_state *
+to_omap_crtc_state(struct drm_crtc_state *state)
+{
+	return container_of(state, struct omap_crtc_state, base);
+}
+
 /* -----------------------------------------------------------------------------
  * Helper Functions
  */
@@ -332,6 +342,25 @@ static void omap_crtc_vblank_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
  * CRTC Functions
  */
 
+static void omap_crtc_reset(struct drm_crtc *crtc)
+{
+	struct omap_crtc_state *omap_state;
+
+	if (crtc->state) {
+		__drm_atomic_helper_crtc_destroy_state(crtc, crtc->state);
+
+		kfree(crtc->state);
+		crtc->state = NULL;
+	}
+
+	omap_state = kzalloc(sizeof(*omap_state), GFP_KERNEL);
+	if (omap_state == NULL)
+		return;
+
+	crtc->state = &omap_state->base;
+	crtc->state->crtc = crtc;
+}
+
 static void omap_crtc_destroy(struct drm_crtc *crtc)
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
@@ -420,6 +449,32 @@ static void omap_crtc_atomic_flush(struct drm_crtc *crtc)
 				    (BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270)));
 }
 
+static struct drm_crtc_state *
+omap_crtc_atomic_duplicate_state(struct drm_crtc *crtc)
+{
+	struct omap_crtc_state *state;
+	struct omap_crtc_state *copy;
+
+	if (WARN_ON(!crtc->state))
+		return NULL;
+
+	state = to_omap_crtc_state(crtc->state);
+	copy = kmemdup(state, sizeof(*state), GFP_KERNEL);
+	if (copy == NULL)
+		return NULL;
+
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &copy->base);
+
+	return &copy->base;
+}
+
+static void omap_crtc_atomic_destroy_state(struct drm_crtc *crtc,
+					   struct drm_crtc_state *state)
+{
+	__drm_atomic_helper_crtc_destroy_state(crtc, state);
+	kfree(to_omap_crtc_state(state));
+}
+
 static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 					 struct drm_crtc_state *state,
 					 struct drm_property *property,
@@ -456,13 +511,13 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 }
 
 static const struct drm_crtc_funcs omap_crtc_funcs = {
-	.reset = drm_atomic_helper_crtc_reset,
+	.reset = omap_crtc_reset,
 	.set_config = drm_atomic_helper_set_config,
 	.destroy = omap_crtc_destroy,
 	.page_flip = drm_atomic_helper_page_flip,
 	.set_property = drm_atomic_helper_crtc_set_property,
-	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
-	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
+	.atomic_duplicate_state = omap_crtc_atomic_duplicate_state,
+	.atomic_destroy_state = omap_crtc_atomic_destroy_state,
 	.atomic_set_property = omap_crtc_atomic_set_property,
 	.atomic_get_property = omap_crtc_atomic_get_property,
 };
