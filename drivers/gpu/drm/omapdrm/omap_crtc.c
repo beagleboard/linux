@@ -48,6 +48,9 @@ struct omap_crtc_state {
 	struct drm_crtc_state base;
 
 	u32 default_color;
+	unsigned int trans_key_mode;
+	unsigned int trans_key;
+	bool partial_alpha_enabled;
 };
 
 #define to_omap_crtc_state(x) container_of(x, struct omap_crtc_state, base)
@@ -330,7 +333,25 @@ static void omap_crtc_write_crtc_properties(struct drm_crtc *crtc)
 
 	memset(&info, 0, sizeof(info));
 	info.default_color = omap_state->default_color;
-	info.trans_enabled = false;
+
+	info.trans_key = omap_state->trans_key;
+
+	switch (omap_state->trans_key_mode) {
+	case 0:
+	default:
+		info.trans_enabled = false;
+		break;
+	case 1:
+		info.trans_enabled = true;
+		info.trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;
+		break;
+	case 2:
+		info.trans_enabled = true;
+		info.trans_key_type = OMAP_DSS_COLOR_KEY_VID_SRC;
+		break;
+	}
+
+	info.partial_alpha_enabled = omap_state->partial_alpha_enabled;
 
 	priv->dispc_ops->mgr_setup(omap_crtc->channel, &info);
 }
@@ -379,6 +400,9 @@ static void omap_crtc_reset(struct drm_crtc *crtc)
 		return;
 
 	omap_state->default_color = 0;
+	omap_state->trans_key_mode = 0;
+	omap_state->trans_key = 0;
+	omap_state->partial_alpha_enabled = false;
 
 	crtc->state = &omap_state->base;
 	crtc->state->crtc = crtc;
@@ -543,6 +567,12 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 
 	if (property == priv->background_color_prop)
 		omap_state->default_color = val;
+	else if (property == priv->trans_key_mode_prop)
+		omap_state->trans_key_mode = val;
+	else if (property == priv->trans_key_prop)
+		omap_state->trans_key = val;
+	else if (property == priv->alpha_blender_prop)
+		omap_state->partial_alpha_enabled = !!val;
 	else
 		return -EINVAL;
 
@@ -571,6 +601,12 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 
 	if (property == priv->background_color_prop)
 		*val = omap_state->default_color;
+	else if (property == priv->trans_key_mode_prop)
+		*val = omap_state->trans_key_mode;
+	else if (property == priv->trans_key_prop)
+		*val = omap_state->trans_key;
+	else if (property == priv->alpha_blender_prop)
+		*val = omap_state->partial_alpha_enabled;
 	else
 		return -EINVAL;
 
@@ -627,6 +663,9 @@ static void omap_crtc_install_properties(struct drm_crtc *crtc)
 	struct omap_drm_private *priv = dev->dev_private;
 
 	drm_object_attach_property(obj, priv->background_color_prop, 0);
+	drm_object_attach_property(obj, priv->trans_key_mode_prop, 0);
+	drm_object_attach_property(obj, priv->trans_key_prop, 0);
+	drm_object_attach_property(obj, priv->alpha_blender_prop, 0);
 }
 
 /* initialize crtc */
