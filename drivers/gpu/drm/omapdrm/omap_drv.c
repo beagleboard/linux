@@ -295,6 +295,8 @@ static int omap_modeset_init_properties(struct drm_device *dev)
 {
 	struct omap_drm_private *priv = dev->dev_private;
 
+	/* plane properties */
+
 	if (priv->has_dmm) {
 		dev->mode_config.rotation_property =
 			drm_mode_create_rotation_property(dev,
@@ -307,6 +309,13 @@ static int omap_modeset_init_properties(struct drm_device *dev)
 
 	priv->zorder_prop = drm_property_create_range(dev, 0, "zorder", 0, 3);
 	if (!priv->zorder_prop)
+		return -ENOMEM;
+
+	/* crtc properties */
+
+	priv->background_color_prop = drm_property_create_range(dev, 0,
+		"background", 0, 0xffffff);
+	if (!priv->background_color_prop)
 		return -ENOMEM;
 
 	return 0;

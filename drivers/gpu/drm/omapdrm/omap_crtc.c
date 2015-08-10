@@ -46,13 +46,11 @@ struct omap_crtc {
 
 struct omap_crtc_state {
 	struct drm_crtc_state base;
+
+	u32 default_color;
 };
 
-static inline struct omap_crtc_state *
-to_omap_crtc_state(struct drm_crtc_state *state)
-{
-	return container_of(state, struct omap_crtc_state, base);
-}
+#define to_omap_crtc_state(x) container_of(x, struct omap_crtc_state, base)
 
 /* -----------------------------------------------------------------------------
  * Helper Functions
@@ -208,15 +206,7 @@ static void omap_crtc_set_enabled(struct drm_crtc *crtc, bool enable)
 static int omap_crtc_dss_enable(enum omap_channel channel)
 {
 	struct omap_crtc *omap_crtc = omap_crtcs[channel];
-	struct omap_overlay_manager_info info;
 
-	memset(&info, 0, sizeof(info));
-	info.default_color = 0x00000000;
-	info.trans_key = 0x00000000;
-	info.trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;
-	info.trans_enabled = false;
-
-	dispc_mgr_setup(omap_crtc->channel, &info);
 	dispc_mgr_set_timings(omap_crtc->channel,
 			&omap_crtc->vm);
 	omap_crtc_set_enabled(&omap_crtc->base, true);
@@ -323,6 +313,20 @@ void omap_crtc_vblank_irq(struct drm_crtc *crtc)
 	DBG("%s: apply done", omap_crtc->name);
 }
 
+static void omap_crtc_write_crtc_properties(struct drm_crtc *crtc)
+{
+	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+	struct omap_overlay_manager_info info;
+	const struct omap_crtc_state *omap_state =
+		to_omap_crtc_state(crtc->state);
+
+	memset(&info, 0, sizeof(info));
+	info.default_color = omap_state->default_color;
+	info.trans_enabled = false;
+
+	dispc_mgr_setup(omap_crtc->channel, &info);
+}
+
 /* -----------------------------------------------------------------------------
  * CRTC Functions
  */
@@ -365,6 +369,8 @@ static void omap_crtc_reset(struct drm_crtc *crtc)
 	omap_state = kzalloc(sizeof(*omap_state), GFP_KERNEL);
 	if (omap_state == NULL)
 		return;
+
+	omap_state->default_color = 0;
 
 	crtc->state = &omap_state->base;
 	crtc->state->crtc = crtc;
@@ -463,6 +469,8 @@ static void omap_crtc_atomic_flush(struct drm_crtc *crtc,
 		dispc_mgr_set_gamma(omap_crtc->channel, lut, length);
 	}
 
+	omap_crtc_write_crtc_properties(crtc);
+
 	/*
 	 * Only flush the CRTC if it is currently enabled. CRTCs that require a
 	 * mode set are disabled prior plane updates and enabled afterwards.
@@ -504,6 +512,8 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 					 uint64_t val)
 {
 	struct drm_device *dev = crtc->dev;
+	struct omap_drm_private *priv = dev->dev_private;
+	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 
 	if (omap_crtc_is_plane_prop(dev, property)) {
 		struct drm_plane_state *plane_state;
@@ -522,7 +532,12 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 				property, val);
 	}
 
-	return -EINVAL;
+	if (property == priv->background_color_prop)
+		omap_state->default_color = val;
+	else
+		return -EINVAL;
+
+	return 0;
 }
 
 static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
@@ -531,6 +546,8 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 					 uint64_t *val)
 {
 	struct drm_device *dev = crtc->dev;
+	struct omap_drm_private *priv = dev->dev_private;
+	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 
 	if (omap_crtc_is_plane_prop(dev, property)) {
 		/*
@@ -543,7 +560,12 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 				property, val);
 	}
 
-	return -EINVAL;
+	if (property == priv->background_color_prop)
+		*val = omap_state->default_color;
+	else
+		return -EINVAL;
+
+	return 0;
 }
 
 static const struct drm_crtc_funcs omap_crtc_funcs = {
@@ -587,6 +609,15 @@ void omap_crtc_pre_init(void)
 void omap_crtc_pre_uninit(void)
 {
 	dss_uninstall_mgr_ops();
+}
+
+static void omap_crtc_install_properties(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_mode_object *obj = &crtc->base;
+	struct omap_drm_private *priv = dev->dev_private;
+
+	drm_object_attach_property(obj, priv->background_color_prop, 0);
 }
 
 /* initialize crtc */
@@ -633,6 +664,7 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 		drm_mode_crtc_set_gamma_size(crtc, gamma_lut_size);
 	}
 
+	omap_crtc_install_properties(crtc);
 	omap_plane_install_properties(crtc->primary, &crtc->base);
 
 	omap_crtcs[channel] = omap_crtc;

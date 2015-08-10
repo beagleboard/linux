@@ -84,8 +84,11 @@ struct omap_drm_private {
 	struct omap_drm_usergart *usergart;
 	bool has_dmm;
 
-	/* properties: */
+	/* plane properties */
 	struct drm_property *zorder_prop;
+
+	/* crtc properties */
+	struct drm_property *background_color_prop;
 
 	/* irq handling: */
 	spinlock_t wait_lock;		/* protects the wait_list */
