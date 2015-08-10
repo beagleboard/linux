@@ -12,6 +12,7 @@ Required properties:
  Should be "ti,omap3-hsmmc", for OMAP3 controllers
  Should be "ti,omap3-pre-es3-hsmmc" for OMAP3 controllers pre ES3.0
  Should be "ti,omap4-hsmmc", for OMAP4 controllers
+ Should be "ti,dra7-hsmmc", for dra7 and dra72 controllers
  Should be "ti,am33xx-hsmmc", for AM335x controllers
 - ti,hwmods: Must be "mmc<n>", n is controller instance starting 1
 
@@ -19,6 +20,11 @@ Optional properties:
 ti,dual-volt: boolean, supports dual voltage cards
 <supply-name>-supply: phandle to the regulator device tree node
 "supply-name" examples are "vmmc", "vmmc_aux" etc
+pinctrl-names: Should be a list of pinctrl state names and can be "sdr104",
+"hs200_1_8v", "ddr50", "sdr50", "sdr25", "sdr12", "hs", "ddr_1_8v" or
+"default".
+pinctrl-<num>: Phandle referencing pin configuration of the sd/emmc controller.
+See: Documentation/devicetree/bindings/pinctrl/pinctrl-binding.txt
 ti,non-removable: non-removable slot (like eMMC)
 ti,needs-special-reset: Requires a special softreset sequence
 ti,needs-special-hs-handling: HSMMC IP needs special setting for handling High Speed
