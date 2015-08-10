@@ -26,6 +26,16 @@
  * plane funcs
  */
 
+#define to_omap_plane_state(x) container_of(x, struct omap_plane_state, base)
+
+struct omap_plane_state {
+	/* Must be first */
+	struct drm_plane_state base;
+
+	unsigned int global_alpha;
+	unsigned int pre_mult_alpha;
+};
+
 #define to_omap_plane(x) container_of(x, struct omap_plane, base)
 
 struct omap_plane {
@@ -58,6 +68,7 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	struct omap_drm_private *priv = plane->dev->dev_private;
 	struct omap_plane *omap_plane = to_omap_plane(plane);
 	struct drm_plane_state *state = plane->state;
+	const struct omap_plane_state *omap_state = to_omap_plane_state(state);
 	struct omap_overlay_info info;
 	int ret;
 
@@ -71,7 +82,8 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	memset(&info, 0, sizeof(info));
 	info.rotation_type = OMAP_DSS_ROT_NONE;
 	info.rotation = DRM_MODE_ROTATE_0;
-	info.global_alpha = 0xff;
+	info.global_alpha = omap_state->global_alpha;
+	info.pre_mult_alpha = omap_state->pre_mult_alpha;
 	info.zorder = state->zpos;
 
 	/* update scanout: */
@@ -202,10 +214,21 @@ void omap_plane_install_properties(struct drm_plane *plane,
 static void omap_plane_reset(struct drm_plane *plane)
 {
 	struct omap_plane *omap_plane = to_omap_plane(plane);
+	struct omap_plane_state *omap_state;
 
-	drm_atomic_helper_plane_reset(plane);
+	if (plane->state)
+		__drm_atomic_helper_plane_destroy_state(plane->state);
+
+	kfree(plane->state);
+	plane->state = kzalloc(sizeof(struct omap_plane_state), GFP_KERNEL);
+
 	if (!plane->state)
 		return;
+
+	omap_state = to_omap_plane_state(plane->state);
+
+	plane->state->plane = plane;
+	plane->state->rotation = DRM_MODE_ROTATE_0;
 
 	/*
 	 * Set the zpos default depending on whether we are a primary or overlay
@@ -213,6 +236,31 @@ static void omap_plane_reset(struct drm_plane *plane)
 	 */
 	plane->state->zpos = plane->type == DRM_PLANE_TYPE_PRIMARY
 			   ? 0 : omap_plane->id;
+
+	omap_state->global_alpha = 0xff;
+	omap_state->pre_mult_alpha = 0;
+}
+
+static struct drm_plane_state *
+omap_plane_duplicate_state(struct drm_plane *plane)
+{
+	struct omap_plane_state *state, *current_state;
+
+	if (WARN_ON(!plane->state))
+		return NULL;
+
+	current_state = to_omap_plane_state(plane->state);
+
+	state = kmalloc(sizeof(*state), GFP_KERNEL);
+	if (!state)
+		return NULL;
+
+	__drm_atomic_helper_plane_duplicate_state(plane, &state->base);
+
+	state->global_alpha = current_state->global_alpha;
+	state->pre_mult_alpha = current_state->pre_mult_alpha;
+
+	return &state->base;
 }
 
 static int omap_plane_atomic_set_property(struct drm_plane *plane,
@@ -221,9 +269,14 @@ static int omap_plane_atomic_set_property(struct drm_plane *plane,
 					  uint64_t val)
 {
 	struct omap_drm_private *priv = plane->dev->dev_private;
+	struct omap_plane_state *omap_state = to_omap_plane_state(plane->state);
 
 	if (property == priv->zorder_prop)
 		state->zpos = val;
+	else if (property == priv->global_alpha_prop)
+		omap_state->global_alpha = val;
+	else if (property == priv->pre_mult_alpha_prop)
+		omap_state->pre_mult_alpha = val;
 	else
 		return -EINVAL;
 
@@ -236,9 +289,15 @@ static int omap_plane_atomic_get_property(struct drm_plane *plane,
 					  uint64_t *val)
 {
 	struct omap_drm_private *priv = plane->dev->dev_private;
+	const struct omap_plane_state *omap_state =
+		to_omap_plane_state(plane->state);
 
 	if (property == priv->zorder_prop)
 		*val = state->zpos;
+	else if (property == priv->global_alpha_prop)
+		*val = omap_state->global_alpha;
+	else if (property == priv->pre_mult_alpha_prop)
+		*val = omap_state->pre_mult_alpha;
 	else
 		return -EINVAL;
 
@@ -250,7 +309,7 @@ static const struct drm_plane_funcs omap_plane_funcs = {
 	.disable_plane = drm_atomic_helper_disable_plane,
 	.reset = omap_plane_reset,
 	.destroy = omap_plane_destroy,
-	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
+	.atomic_duplicate_state = omap_plane_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
 	.atomic_set_property = omap_plane_atomic_set_property,
 	.atomic_get_property = omap_plane_atomic_get_property,
@@ -313,6 +372,9 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 
 	omap_plane_install_properties(plane, &plane->base);
 	drm_plane_create_zpos_property(plane, 0, 0, num_planes - 1);
+
+	drm_object_attach_property(&plane->base, priv->global_alpha_prop, 0);
+	drm_object_attach_property(&plane->base, priv->pre_mult_alpha_prop, 0);
 
 	return plane;
 
