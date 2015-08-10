@@ -200,6 +200,13 @@ static int omap_modeset_init_properties(struct drm_device *dev)
 	if (!priv->zorder_prop)
 		return -ENOMEM;
 
+	/* crtc properties */
+
+	priv->background_color_prop = drm_property_create_range(dev, 0,
+		"background", 0, 0xffffff);
+	if (!priv->background_color_prop)
+		return -ENOMEM;
+
 	return 0;
 }
 
