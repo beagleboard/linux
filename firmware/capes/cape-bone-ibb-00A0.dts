@@ -2,7 +2,7 @@
 /plugin/;
 
 / {
-	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	compatible = "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green";
 	part-number = "cape-bone-ibb";
 	version = "00A0";
 	exclusive-use = "P9.24", "P9.26", "uart1",

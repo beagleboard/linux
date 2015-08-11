@@ -10,7 +10,7 @@
 /plugin/;
 
 / {
-	compatible = "ti,beaglebone", "ti-beaglebone-black";
+	compatible = "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green";
 
 	/* Identification */
 	part-number = "BB-BONE-MRF24J40";
