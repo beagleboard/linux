@@ -266,6 +266,7 @@ MACHINE_END
 #ifdef CONFIG_SOC_AM43XX
 static const char *const am43_boards_compat[] __initconst = {
 	"ti,am4372",
+	"ti,am438x",
 	"ti,am43",
 	NULL,
 };
@@ -297,7 +298,7 @@ static const char *const dra74x_boards_compat[] __initconst = {
 DT_MACHINE_START(DRA74X_DT, "Generic DRA74X (Flattened Device Tree)")
 	.reserve	= omap_reserve,
 	.smp		= smp_ops(omap4_smp_ops),
-	.map_io		= omap5_map_io,
+	.map_io		= dra7xx_map_io,
 	.init_early	= dra7xx_init_early,
 	.init_late	= dra7xx_init_late,
 	.init_irq	= omap_gic_of_init,
@@ -316,7 +317,7 @@ static const char *const dra72x_boards_compat[] __initconst = {
 
 DT_MACHINE_START(DRA72X_DT, "Generic DRA72X (Flattened Device Tree)")
 	.reserve	= omap_reserve,
-	.map_io		= omap5_map_io,
+	.map_io		= dra7xx_map_io,
 	.init_early	= dra7xx_init_early,
 	.init_late	= dra7xx_init_late,
 	.init_irq	= omap_gic_of_init,

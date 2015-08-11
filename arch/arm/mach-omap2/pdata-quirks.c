@@ -17,6 +17,8 @@
 
 #include <linux/platform_data/pinctrl-single.h>
 #include <linux/platform_data/iommu-omap.h>
+#include <linux/platform_data/remoteproc-omap.h>
+#include <linux/platform_data/wkup_m3.h>
 
 #include "common.h"
 #include "common-board-devices.h"
@@ -25,6 +27,7 @@
 #include "omap_device.h"
 #include "omap-secure.h"
 #include "soc.h"
+#include "remoteproc.h"
 
 struct pdata_init {
 	const char *compatible;
@@ -250,8 +253,33 @@ static void __init omap3_tao3530_legacy_init(void)
 #endif /* CONFIG_ARCH_OMAP3 */
 
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
+static struct omap_rproc_timer_ops omap_rproc_dmtimer_ops = {
+	.request_timer = omap_rproc_request_timer,
+	.release_timer = omap_rproc_release_timer,
+	.start_timer = omap_rproc_start_timer,
+	.stop_timer = omap_rproc_stop_timer,
+	.get_timer_irq = omap_rproc_get_timer_irq,
+	.ack_timer_irq = omap_rproc_ack_timer_irq,
+};
+
+static struct omap_rproc_pdata omap4_ipu_dsp_pdata = {
+	.device_enable = omap_rproc_device_enable,
+	.device_shutdown = omap_rproc_device_shutdown,
+	.timer_ops = &omap_rproc_dmtimer_ops,
+};
+#endif
+
+#if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 static struct iommu_platform_data omap4_iommu_pdata = {
 	.reset_name = "mmu_cache",
+	.assert_reset = omap_device_assert_hardreset,
+	.deassert_reset = omap_device_deassert_hardreset,
+};
+#endif
+
+#if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)
+static struct wkup_m3_platform_data wkup_m3_data = {
+	.reset_name = "wkup_m3",
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
 };
@@ -319,19 +347,29 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,am3517-emac", 0x5c000000, "davinci_emac.0",
 		       &am35xx_emac_pdata),
 #endif
+#ifdef CONFIG_SOC_AM33XX
+	OF_DEV_AUXDATA("ti,am3352-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
+		       &wkup_m3_data),
+#endif
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a31e040, "4a31e040.pinmux", &pcs_pdata),
+	OF_DEV_AUXDATA("ti,omap4-rproc-dsp", 0, "dsp", &omap4_ipu_dsp_pdata),
+	OF_DEV_AUXDATA("ti,omap4-rproc-ipu", 0, "ipu", &omap4_ipu_dsp_pdata),
 #endif
 #ifdef CONFIG_SOC_OMAP5
 	OF_DEV_AUXDATA("ti,omap5-padconf", 0x4a002840, "4a002840.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,omap5-padconf", 0x4ae0c840, "4ae0c840.pinmux", &pcs_pdata),
+	OF_DEV_AUXDATA("ti,omap5-rproc-dsp", 0, "dsp", &omap4_ipu_dsp_pdata),
+	OF_DEV_AUXDATA("ti,omap5-rproc-ipu", 0, "ipu", &omap4_ipu_dsp_pdata),
 #endif
 #ifdef CONFIG_SOC_DRA7XX
 	OF_DEV_AUXDATA("ti,dra7-padconf", 0x4a003400, "4a003400.pinmux", &pcs_pdata),
 #endif
 #ifdef CONFIG_SOC_AM43XX
 	OF_DEV_AUXDATA("ti,am437-padconf", 0x44e10800, "44e10800.pinmux", &pcs_pdata),
+	OF_DEV_AUXDATA("ti,am4372-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
+		       &wkup_m3_data),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",

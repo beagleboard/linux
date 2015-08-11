@@ -26,8 +26,7 @@
 static char *da8xx_fw_name;
 module_param(da8xx_fw_name, charp, S_IRUGO);
 MODULE_PARM_DESC(da8xx_fw_name,
-		 "\n\t\tName of DSP firmware file in /lib/firmware"
-		 " (if not specified defaults to 'rproc-dsp-fw')");
+		 "Name of DSP firmware file in /lib/firmware (if not specified defaults to 'rproc-dsp-fw')");
 
 /*
  * OMAP-L138 Technical References:
@@ -148,7 +147,7 @@ static void da8xx_rproc_kick(struct rproc *rproc, int vqid)
 {
 	struct da8xx_rproc *drproc = (struct da8xx_rproc *)rproc->priv;
 
-	/* Interupt remote proc */
+	/* Interrupt remote proc */
 	writel(SYSCFG_CHIPSIG2, drproc->chipsig);
 }
 

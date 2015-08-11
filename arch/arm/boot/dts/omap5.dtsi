@@ -32,6 +32,8 @@
 		serial3 = &uart4;
 		serial4 = &uart5;
 		serial5 = &uart6;
+		rproc0 = &dsp;
+		rproc1 = &ipu;
 	};
 
 	cpus {
@@ -612,6 +614,7 @@
 			reg = <0x4a066000 0x100>;
 			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmu_dsp";
+			#iommu-cells = <0>;
 		};
 
 		mmu_ipu: mmu@55082000 {
@@ -619,6 +622,7 @@
 			reg = <0x55082000 0x100>;
 			interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "mmu_ipu";
+			#iommu-cells = <0>;
 			ti,iommu-bus-err-back;
 		};
 
@@ -813,6 +817,23 @@
 			reg = <0x4ae14000 0x80>;
 			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "wd_timer2";
+		};
+
+		dsp: dsp {
+			compatible = "ti,omap5-rproc-dsp";
+			ti,hwmods = "dsp";
+			syscon-bootreg = <&scm_conf 0x304>;
+			iommus = <&mmu_dsp>;
+			mboxes = <&mailbox &mbox_dsp>;
+			status = "disabled";
+		};
+
+		ipu: ipu {
+			compatible = "ti,omap5-rproc-ipu";
+			ti,hwmods = "ipu";
+			iommus = <&mmu_ipu>;
+			mboxes = <&mailbox &mbox_ipu>;
+			status = "disabled";
 		};
 
 		dmm@4e000000 {
@@ -1124,6 +1145,40 @@
 			/*uV		ABB	efuse	rbb_m fbb_m	vset_m*/
 			1025000		0	0x0	0 0x02000000 0x01F00000
 			1120000		0	0x4	0 0x02000000 0x01F00000
+			>;
+		};
+
+		voltdm_mpu: voltdm@4a0021c4 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_mpu>;
+			reg = <0x4a0021c4 0x8>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1060000 0x0
+			1250000 0x4
+			>;
+		};
+
+		voltdm_mm: voltdm@4a0021a4 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_mm>;
+			reg = <0x4a0021a4 0x8>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1025000 0x0
+			1120000 0x4
+			>;
+		};
+
+		voltdm_core: voltdm@4a0021d8 {
+			compatible = "ti,omap5-core-voltdm";
+			#voltdm-cells = <0>;
+			reg = <0x4a0021d8 0x4>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1050000 0x0
 			>;
 		};
 	};

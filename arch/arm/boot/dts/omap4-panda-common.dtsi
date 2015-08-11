@@ -13,6 +13,26 @@
 		reg = <0x80000000 0x40000000>; /* 1 GB */
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		dsp_cma_pool: dsp_cma@98000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x98000000 0x800000>;
+			reusable;
+			status = "okay";
+		};
+
+		ipu_cma_pool: ipu_cma@98800000 {
+			compatible = "shared-dma-pool";
+			reg = <0x98800000 0x7000000>;
+			reusable;
+			status = "okay";
+		};
+	};
+
 	aliases {
 		display0 = &dvi0;
 		display1 = &hdmi0;
@@ -529,6 +549,20 @@
 &dsi2 {
 	status = "ok";
 	vdd-supply = <&vcxio>;
+};
+
+&dsp {
+	status = "okay";
+	memory-region = <&dsp_cma_pool>;
+	timers = <&timer5>;
+	watchdog-timers = <&timer6>;
+};
+
+&ipu {
+	status = "okay";
+	memory-region = <&ipu_cma_pool>;
+	timers = <&timer3>;
+	watchdog-timers = <&timer9>, <&timer11>;
 };
 
 &hdmi {

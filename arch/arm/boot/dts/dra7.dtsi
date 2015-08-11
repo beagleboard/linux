@@ -131,6 +131,11 @@
 							regulator-max-microvolt = <3000000>;
 						};
 					};
+
+					scm_conf_clocks: clocks {
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
 				};
 
 				dra7_pmx_core: pinmux@1400 {
@@ -289,6 +294,13 @@
 		dra7_ctrl_general: tisyscon@4a002e00 {
 			compatible = "syscon";
 			reg = <0x4a002e00 0x7c>;
+		};
+
+		dra7_iodelay_core: padconf@4844a000 {
+			compatible = "ti,dra7-iodelay";
+			reg = <0x4844a000 0x0d1c>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 		};
 
 		sdma: dma-controller@4a056000 {
@@ -761,6 +773,16 @@
 			ti,hwmods = "timer11";
 		};
 
+		timer12: timer@4ae20000 {
+			compatible = "ti,omap5430-timer";
+			reg = <0x4ae20000 0x80>;
+			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "timer12";
+			ti,timer-alwon;
+			ti,timer-secure;
+			status = "disabled";
+		};
+
 		timer13: timer@48828000 {
 			compatible = "ti,omap5430-timer";
 			reg = <0x48828000 0x80>;
@@ -1040,6 +1062,73 @@
 			1210000		0	0x4	0 0x02000000 0x01F00000
 			1280000		0	0x8	0 0x02000000 0x01F00000
 			>;
+		};
+
+		voltdm_mpu: voltdm@4a003b20 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_mpu>;
+			reg = <0x4a003b20 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1060000 0x0
+			1160000 0x4
+			1210000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_ivahd: voltdm@4a0025cc {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_ivahd>;
+			reg = <0x4a0025cc 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_dspeve: voltdm@4a0025e0 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_dspeve>;
+			reg = <0x4a0025e0 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_gpu: voltdm@4a003b08 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_gpu>;
+			reg = <0x4a003b08 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			1210000 0x4
+			1280000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_core: voltdm@4a0025f4 {
+			compatible = "ti,omap5-core-voltdm";
+			#voltdm-cells = <0>;
+			reg = <0x4a0025f4 0x4>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		mcspi1: spi@48098000 {
@@ -1477,6 +1566,124 @@
 			interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&sys_clkin1>;
 			status = "disabled";
+		};
+
+		epwmss0: epwmss@4843e000 {
+			compatible = "ti,dra7xx-pwmss", "ti,am33xx-pwmss";
+			reg = <0x4843e000 0x30>;
+			ti,hwmods = "epwmss0";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+			ranges = <0x4843e100  0x4843e100 0x80  /* ECAP */
+				  0x4843e180  0x4843e180 0x80  /* EQEP */
+				  0x4843e200  0x4843e200 0x80>;/* EHRPWM */
+
+			ehrpwm0: ehrpwm@4843e200 {
+				compatible = "ti,dra7xx-ehrpwm",
+					     "ti,am33xx-ehrpwm";
+				#pwm-cells = <3>;
+				reg = <0x4843e200 0x80>;
+				ti,hwmods = "ehrpwm0";
+				status = "disabled";
+			};
+		};
+
+		epwmss1: epwmss@48440000 {
+			compatible = "ti,dra7xx-pwmss", "ti,am33xx-pwmss";
+			reg = <0x48440000 0x30>;
+			ti,hwmods = "epwmss1";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+			ranges = <0x48440100  0x48440100  0x80   /* ECAP */
+				  0x48440180  0x48440180  0x80   /* EQEP */
+				  0x48440200  0x48440200  0x80>; /* EHRPWM */
+
+			ehrpwm1: ehrpwm@48440200 {
+				compatible = "ti,dra7xx-ehrpwm",
+					     "ti,am33xx-ehrpwm";
+				#pwm-cells = <3>;
+				reg = <0x48440200 0x80>;
+				ti,hwmods = "ehrpwm1";
+				status = "disabled";
+			};
+		};
+
+		epwmss2: epwmss@48442000 {
+			compatible = "ti,dra7xx-pwmss", "ti,am33xx-pwmss";
+			reg = <0x48442000 0x30>;
+			ti,hwmods = "epwmss2";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			ranges = <0x48442100  0x48442100  0x80   /* ECAP */
+				  0x48442180  0x48442180  0x80   /* EQEP */
+				  0x48442200  0x48442200  0x80>; /* EHRPWM */
+
+			ehrpwm2: ehrpwm@48442200 {
+				compatible = "ti,dra7xx-ehrpwm",
+					     "ti,am33xx-ehrpwm";
+				#pwm-cells = <3>;
+				reg = <0x48442200 0x80>;
+				ti,hwmods = "ehrpwm2";
+				status = "disabled";
+
+			};
+		};
+
+		aes1: aes@4b500000 {
+			compatible = "ti,omap4-aes";
+			ti,hwmods = "aes1";
+			reg = <0x4b500000 0xa0>;
+			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&sdma_xbar 111>, <&sdma_xbar 110>;
+			dma-names = "tx", "rx";
+			clocks = <&l3_iclk_div>;
+			clock-names = "fck";
+		};
+
+		aes2: aes@4b700000 {
+			compatible = "ti,omap4-aes";
+			ti,hwmods = "aes2";
+			reg = <0x4b700000 0xa0>;
+			interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&sdma_xbar 114>, <&sdma_xbar 113>;
+			dma-names = "tx", "rx";
+			clocks = <&l3_iclk_div>;
+			clock-names = "fck";
+		};
+
+		des: des@480a5000 {
+			compatible = "ti,omap4-des";
+			ti,hwmods = "des";
+			reg = <0x480a5000 0xa0>;
+			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&sdma_xbar 117>, <&sdma_xbar 116>;
+			dma-names = "tx", "rx";
+			clocks = <&l3_iclk_div>;
+			clock-names = "fck";
+		};
+
+		sham: sham@53100000 {
+			compatible = "ti,omap5-sham";
+			ti,hwmods = "sham";
+			reg = <0x4b101000 0x300>;
+			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&sdma_xbar 119>;
+			dma-names = "rx";
+			clocks = <&l3_iclk_div>;
+			clock-names = "fck";
+		};
+
+		rng: rng@48090000 {
+			compatible = "ti,omap4-rng";
+			ti,hwmods = "rng";
+			reg = <0x48090000 0x2000>;
+			interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&l3_iclk_div>;
+			clock-names = "fck";
 		};
 	};
 

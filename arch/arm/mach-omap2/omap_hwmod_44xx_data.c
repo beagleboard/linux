@@ -551,7 +551,6 @@ static struct omap_hwmod omap44xx_dsp_hwmod = {
 			.clkctrl_offs = OMAP4_CM_TESLA_TESLA_CLKCTRL_OFFSET,
 			.rstctrl_offs = OMAP4_RM_TESLA_RSTCTRL_OFFSET,
 			.context_offs = OMAP4_RM_TESLA_TESLA_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 };
@@ -1188,15 +1187,8 @@ static struct omap_hwmod omap44xx_gpmc_hwmod = {
 	.name		= "gpmc",
 	.class		= &omap44xx_gpmc_hwmod_class,
 	.clkdm_name	= "l3_2_clkdm",
-	/*
-	 * XXX HWMOD_INIT_NO_RESET should not be needed for this IP
-	 * block.  It is not being added due to any known bugs with
-	 * resetting the GPMC IP block, but rather because any timings
-	 * set by the bootloader are not being correctly programmed by
-	 * the kernel from the board file or DT data.
-	 * HWMOD_INIT_NO_RESET should be removed ASAP.
-	 */
-	.flags		= HWMOD_INIT_NO_IDLE | HWMOD_INIT_NO_RESET,
+	/* Skip reset for CONFIG_OMAP_GPMC_DEBUG for bootloader timings */
+	.flags		= DEBUG_OMAP_GPMC_HWMOD_FLAGS,
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = OMAP4_CM_L3_2_GPMC_CLKCTRL_OFFSET,
@@ -1438,7 +1430,6 @@ static struct omap_hwmod omap44xx_ipu_hwmod = {
 			.clkctrl_offs = OMAP4_CM_DUCATI_DUCATI_CLKCTRL_OFFSET,
 			.rstctrl_offs = OMAP4_RM_DUCATI_RSTCTRL_OFFSET,
 			.context_offs = OMAP4_RM_DUCATI_DUCATI_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 };

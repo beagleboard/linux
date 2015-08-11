@@ -435,8 +435,11 @@ static irqreturn_t dma_ccerr_handler(int irq, void *data)
 	if ((edma_read_array(ctlr, EDMA_EMR, 0) == 0) &&
 	    (edma_read_array(ctlr, EDMA_EMR, 1) == 0) &&
 	    (edma_read(ctlr, EDMA_QEMR) == 0) &&
-	    (edma_read(ctlr, EDMA_CCERR) == 0))
+	    (edma_read(ctlr, EDMA_CCERR) == 0)) {
+		dev_err(data, "%s: unmanaged event occurred\n", __func__);
+		edma_write(ctlr, EDMA_EEVAL, 1);
 		return IRQ_NONE;
+	}
 
 	while (1) {
 		int j = -1;
@@ -1349,6 +1352,9 @@ void edma_stop(unsigned channel)
 		edma_shadow0_write_array(ctlr, SH_ECR, j, mask);
 		edma_shadow0_write_array(ctlr, SH_SECR, j, mask);
 		edma_write_array(ctlr, EDMA_EMCR, j, mask);
+
+		/* clear possibly pending completion interrupt */
+		edma_shadow0_write_array(ctlr, SH_ICR, j, mask);
 
 		pr_debug("EDMA: EER%d %08x\n", j,
 				edma_shadow0_read_array(ctlr, SH_EER, j));

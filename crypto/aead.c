@@ -479,6 +479,9 @@ struct crypto_alg *crypto_lookup_aead(const char *name, u32 type, u32 mask)
 	if (alg->cra_type == &crypto_aead_type)
 		return alg;
 
+	if (alg->cra_type == &crypto_nivaead_type)
+		return alg;
+
 	if (!alg->cra_aead.ivsize)
 		return alg;
 

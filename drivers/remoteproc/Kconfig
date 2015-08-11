@@ -14,6 +14,7 @@ config OMAP_REMOTEPROC
 	depends on HAS_DMA
 	depends on ARCH_OMAP4 || SOC_OMAP5
 	depends on OMAP_IOMMU
+	depends on CMA
 	select REMOTEPROC
 	select MAILBOX
 	select OMAP2PLUS_MBOX
@@ -31,6 +32,18 @@ config OMAP_REMOTEPROC
 	  It's safe to say n here if you're not interested in multimedia
 	  offloading or just want a bare minimum kernel.
 
+config OMAP_REMOTEPROC_WATCHDOG
+	bool "OMAP remoteproc watchdog timer"
+	depends on OMAP_REMOTEPROC
+	default n
+	help
+	  Say Y here to enable watchdog timer for remote processors.
+
+	  This option controls the watchdog functionality for the remote
+	  processors in OMAP. Dedicated OMAP DMTimers are used by the remote
+	  processors and triggers the timer interrupt upon a watchdog
+	  detection.
+
 config STE_MODEM_RPROC
 	tristate "STE-Modem remoteproc support"
 	depends on HAS_DMA
@@ -39,6 +52,19 @@ config STE_MODEM_RPROC
 	help
 	  Say y or m here to support STE-Modem shared memory driver.
 	  This can be either built-in or a loadable module.
+	  If unsure say N.
+
+config WKUP_M3_RPROC
+	tristate "AMx3xx Wakeup M3 remoteproc support"
+	depends on SOC_AM33XX || SOC_AM43XX
+	select REMOTEPROC
+	help
+	  Say y here to support Wakeup M3 remote processor on TI AM33xx
+	  and AM43xx family of SoCs.
+
+	  Required for Suspend-to-RAM on AM33xx and AM43xx SoCs. Also needed
+	  for deep CPUIdle states on AM33xx SoCs. Allows for loading of the
+	  firmware onto these remote processors.
 	  If unsure say N.
 
 config DA8XX_REMOTEPROC
