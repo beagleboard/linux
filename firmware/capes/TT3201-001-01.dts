@@ -11,7 +11,7 @@
 
 
 / {
-	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	compatible = "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green";
 	part-number = "TT3201-001";
 	version = "01";
 
