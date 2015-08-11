@@ -24,7 +24,7 @@
  */
 
 / {
-	compatible = "ti,beaglebone", "ti,beaglebone-black";
+	compatible = "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green";
 	part-number = "BB-BONE-TFT-01";
 	version = "00A0";
 
