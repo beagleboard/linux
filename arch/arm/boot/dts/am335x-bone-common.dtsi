@@ -110,11 +110,6 @@
 				board-name = "A335BONE";
 				compatible-name = "ti,beaglebone";
 			};
-
-			baseboard_beaglebone_black: board@1 {
-				board-name = "A335BNLT";
-				compatible-name = "ti,beaglebone-black";
-			};
 		};
 
 		slots {
@@ -216,7 +211,7 @@
 			 slot@100 {
 				ti,cape-override;
 				priority = <1>;
-				compatible = "ti,beaglebone-black";
+				compatible = "ti,beaglebone-green", "ti,beaglebone-black";
 				board-name = "Bone-LT-eMMC-2G";
 				version = "00A0";
 				manufacturer = "Texas Instruments";
