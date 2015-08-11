@@ -75,11 +75,13 @@ struct virtproc_info {
 /**
  * struct rpmsg_channel_info - internal channel info representation
  * @name: name of service
+ * @desc: description of service
  * @src: local address
  * @dst: destination address
  */
 struct rpmsg_channel_info {
 	char name[RPMSG_NAME_SIZE];
+	char desc[RPMSG_NAME_SIZE];
 	u32 src;
 	u32 dst;
 };
@@ -133,6 +135,7 @@ field##_show(struct device *dev,					\
 rpmsg_show_attr(name, id.name, "%s\n");
 rpmsg_show_attr(src, src, "0x%x\n");
 rpmsg_show_attr(dst, dst, "0x%x\n");
+rpmsg_show_attr(desc, desc, "%s\n");
 rpmsg_show_attr(announce, announce ? "true" : "false", "%s\n");
 
 /*
@@ -153,6 +156,7 @@ static ssize_t modalias_show(struct device *dev,
 
 static struct device_attribute rpmsg_dev_attrs[] = {
 	__ATTR_RO(name),
+	__ATTR_RO(desc),
 	__ATTR_RO(modalias),
 	__ATTR_RO(dst),
 	__ATTR_RO(src),
@@ -160,7 +164,7 @@ static struct device_attribute rpmsg_dev_attrs[] = {
 	__ATTR_NULL
 };
 
-/* rpmsg devices and drivers are matched using the service name */
+/* rpmsg devices and drivers are matched using the service name only */
 static inline int rpmsg_id_match(const struct rpmsg_channel *rpdev,
 				  const struct rpmsg_device_id *id)
 {
@@ -486,6 +490,9 @@ static int rpmsg_channel_match(struct device *dev, void *data)
 	if (strncmp(chinfo->name, rpdev->id.name, RPMSG_NAME_SIZE))
 		return 0;
 
+	if (strncmp(chinfo->desc, rpdev->desc, RPMSG_NAME_SIZE))
+		return 0;
+
 	/* found a match ! */
 	return 1;
 }
@@ -507,8 +514,9 @@ static struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
 	if (tmp) {
 		/* decrement the matched device's refcount back */
 		put_device(tmp);
-		dev_err(dev, "channel %s:%x:%x already exist\n",
-				chinfo->name, chinfo->src, chinfo->dst);
+		dev_err(dev, "channel %s:%s:%x:%x already exist\n",
+			chinfo->name, chinfo->desc,
+			chinfo->src, chinfo->dst);
 		return NULL;
 	}
 
@@ -521,6 +529,7 @@ static struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
 	rpdev->vrp = vrp;
 	rpdev->src = chinfo->src;
 	rpdev->dst = chinfo->dst;
+	strncpy(rpdev->desc, chinfo->desc, RPMSG_NAME_SIZE);
 
 	/*
 	 * rpmsg server channels has predefined local address (for now),
@@ -751,8 +760,10 @@ int rpmsg_send_offchannel_raw(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 	dev_dbg(dev, "TX From 0x%x, To 0x%x, Len %d, Flags %d, Reserved %d\n",
 					msg->src, msg->dst, msg->len,
 					msg->flags, msg->reserved);
-	print_hex_dump(KERN_DEBUG, "rpmsg_virtio TX: ", DUMP_PREFIX_NONE, 16, 1,
-					msg, sizeof(*msg) + msg->len, true);
+#if defined(CONFIG_DYNAMIC_DEBUG)
+	dynamic_hex_dump("rpmsg_virtio TX: ", DUMP_PREFIX_NONE, 16, 1,
+			 msg, sizeof(*msg) + msg->len, true);
+#endif
 
 	sg_init_one(&sg, msg, sizeof(*msg) + len);
 
@@ -778,6 +789,22 @@ out:
 }
 EXPORT_SYMBOL(rpmsg_send_offchannel_raw);
 
+/**
+ * rpmsg_get_virtio_dev - Get underlying virtio device
+ * @rpdev: the rpmsg channel
+ *
+ * Returns the underlying remoteproc virtio device, if one exists. Returns NULL
+ * otherwise.
+ */
+struct virtio_device *rpmsg_get_virtio_dev(struct rpmsg_channel *rpdev)
+{
+	if (!rpdev || !rpdev->vrp)
+		return NULL;
+
+	return rpdev->vrp->vdev;
+}
+EXPORT_SYMBOL(rpmsg_get_virtio_dev);
+
 static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 			     struct rpmsg_hdr *msg, unsigned int len)
 {
@@ -788,8 +815,10 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 	dev_dbg(dev, "From: 0x%x, To: 0x%x, Len: %d, Flags: %d, Reserved: %d\n",
 					msg->src, msg->dst, msg->len,
 					msg->flags, msg->reserved);
-	print_hex_dump(KERN_DEBUG, "rpmsg_virtio RX: ", DUMP_PREFIX_NONE, 16, 1,
-					msg, sizeof(*msg) + msg->len, true);
+#if defined(CONFIG_DYNAMIC_DEBUG)
+	dynamic_hex_dump("rpmsg_virtio RX: ", DUMP_PREFIX_NONE, 16, 1,
+			 msg, sizeof(*msg) + msg->len, true);
+#endif
 
 	/*
 	 * We currently use fixed-sized buffers, so trivially sanitize
@@ -900,9 +929,10 @@ static void rpmsg_ns_cb(struct rpmsg_channel *rpdev, void *data, int len,
 	struct device *dev = &vrp->vdev->dev;
 	int ret;
 
-	print_hex_dump(KERN_DEBUG, "NS announcement: ",
-			DUMP_PREFIX_NONE, 16, 1,
-			data, len, true);
+#if defined(CONFIG_DYNAMIC_DEBUG)
+	dynamic_hex_dump("NS announcement: ", DUMP_PREFIX_NONE, 16, 1,
+			 data, len, true);
+#endif
 
 	if (len != sizeof(*msg)) {
 		dev_err(dev, "malformed ns msg (%d)\n", len);
@@ -928,6 +958,7 @@ static void rpmsg_ns_cb(struct rpmsg_channel *rpdev, void *data, int len,
 			msg->name, msg->addr);
 
 	strncpy(chinfo.name, msg->name, sizeof(chinfo.name));
+	strncpy(chinfo.desc, msg->desc, sizeof(chinfo.desc));
 	chinfo.src = RPMSG_ADDR_ANY;
 	chinfo.dst = msg->addr;
 
@@ -1075,8 +1106,6 @@ static void rpmsg_remove(struct virtio_device *vdev)
 	size_t total_buf_space = vrp->num_bufs * RPMSG_BUF_SIZE;
 	int ret;
 
-	vdev->config->reset(vdev);
-
 	ret = device_for_each_child(&vdev->dev, NULL, rpmsg_remove_device);
 	if (ret)
 		dev_warn(&vdev->dev, "can't remove rpmsg device: %d\n", ret);
@@ -1087,6 +1116,7 @@ static void rpmsg_remove(struct virtio_device *vdev)
 	idr_destroy(&vrp->endpoints);
 
 	vdev->config->del_vqs(vrp->vdev);
+	vdev->config->reset(vdev);
 
 	dma_free_coherent(vdev->dev.parent->parent, total_buf_space,
 			  vrp->rbufs, vrp->bufs_dma);
