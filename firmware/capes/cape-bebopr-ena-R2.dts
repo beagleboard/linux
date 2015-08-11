@@ -24,7 +24,7 @@
 /plugin/;
 
 / {
-	compatible = "aes,bebopr", "ti,beaglebone", "ti,beaglebone-black";
+	compatible = "aes,bebopr", "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green";
 
 	/* identification */
 	part-number = "cape-bebopr-ena";

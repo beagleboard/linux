@@ -13,7 +13,7 @@
 /plugin/;
 
 / {
-	compatible = "ti,beaglebone", "ti,beaglebone-black", "beaglelogic,beaglelogic";
+	compatible = "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green", "beaglelogic,beaglelogic";
 
 	/* Identification */
 	part-number = "bb-beaglelogic";
