@@ -16,7 +16,7 @@
 		baseboardmaps {
 			baseboard_beaglebone_black: board@1 {
 				board-name = "A335BNLT";
-				compatible-name = "ti,beaglebone-black";
+				compatible-name = "ti,beaglebone-green";
 			};
 		};
 	};
