@@ -44,10 +44,13 @@
  * struct omap_rproc_boot_data - boot data structure for the DSP omap rprocs
  * @syscon: regmap handle for the system control configuration module
  * @boot_reg: boot register offset within the @syscon regmap
+ * @boot_reg_shift: bit-field shift required for the boot address value in
+ *		    @boot_reg
  */
 struct omap_rproc_boot_data {
 	struct regmap *syscon;
 	unsigned int boot_reg;
+	unsigned int boot_reg_shift;
 };
 
 /**
@@ -341,8 +344,13 @@ static void omap_rproc_write_dsp_boot_addr(struct rproc *rproc)
 	struct omap_rproc *oproc = rproc->priv;
 	struct omap_rproc_boot_data *bdata = oproc->boot_data;
 	u32 offset = bdata->boot_reg;
+	unsigned int value = rproc->bootaddr;
+	unsigned int mask = ~(SZ_1K - 1);
 
-	regmap_write(bdata->syscon, offset, rproc->bootaddr);
+	value >>= bdata->boot_reg_shift;
+	mask >>= bdata->boot_reg_shift;
+
+	regmap_update_bits(bdata->syscon, offset, mask, value);
 }
 
 /*
@@ -460,6 +468,28 @@ static const struct omap_rproc_dev_data omap5_ipu_dev_data = {
 	.fw_name	= "omap5-ipu-fw.xem4",
 };
 
+static const struct omap_rproc_dev_data dra7_rproc_dev_data[] = {
+	{
+		.device_name	= "40800000.dsp",
+		.fw_name	= "dra7-dsp1-fw.xe66",
+	},
+	{
+		.device_name	= "41000000.dsp",
+		.fw_name	= "dra7-dsp2-fw.xe66",
+	},
+	{
+		.device_name	= "55020000.ipu",
+		.fw_name	= "dra7-ipu2-fw.xem4",
+	},
+	{
+		.device_name	= "58820000.ipu",
+		.fw_name	= "dra7-ipu1-fw.xem4",
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id omap_rproc_of_match[] = {
 	{
 		.compatible     = "ti,omap4-rproc-dsp",
@@ -478,6 +508,14 @@ static const struct of_device_id omap_rproc_of_match[] = {
 		.data           = &omap5_ipu_dev_data,
 	},
 	{
+		.compatible     = "ti,dra7-rproc-dsp",
+		.data           = dra7_rproc_dev_data,
+	},
+	{
+		.compatible     = "ti,dra7-rproc-ipu",
+		.data           = dra7_rproc_dev_data,
+	},
+	{
 		/* end */
 	},
 };
@@ -485,6 +523,7 @@ MODULE_DEVICE_TABLE(of, omap_rproc_of_match);
 
 static const char *omap_rproc_get_firmware(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
 	const struct omap_rproc_dev_data *data;
 	const struct of_device_id *match;
 
@@ -494,7 +533,16 @@ static const char *omap_rproc_get_firmware(struct platform_device *pdev)
 
 	data = match->data;
 
-	return data->fw_name;
+	if (!of_device_is_compatible(np, "ti,dra7-rproc-dsp") &&
+	    !of_device_is_compatible(np, "ti,dra7-rproc-ipu"))
+		return data->fw_name;
+
+	for (; data && data->device_name; data++) {
+		if (!strcmp(dev_name(&pdev->dev), data->device_name))
+			return data->fw_name;
+	}
+
+	return NULL;
 }
 
 static int omap_rproc_get_boot_data(struct platform_device *pdev,
@@ -505,7 +553,8 @@ static int omap_rproc_get_boot_data(struct platform_device *pdev,
 	int ret;
 
 	if (!of_device_is_compatible(np, "ti,omap4-rproc-dsp") &&
-	    !of_device_is_compatible(np, "ti,omap5-rproc-dsp"))
+	    !of_device_is_compatible(np, "ti,omap5-rproc-dsp") &&
+	    !of_device_is_compatible(np, "ti,dra7-rproc-dsp"))
 		return 0;
 
 	oproc->boot_data = devm_kzalloc(&pdev->dev, sizeof(*oproc->boot_data),
@@ -530,6 +579,9 @@ static int omap_rproc_get_boot_data(struct platform_device *pdev,
 		dev_err(&pdev->dev, "couldn't get the boot register\n");
 		return -EINVAL;
 	}
+
+	if (of_device_is_compatible(np, "ti,dra7-rproc-dsp"))
+		oproc->boot_data->boot_reg_shift = 10;
 
 	return 0;
 }
