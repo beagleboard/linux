@@ -31,6 +31,7 @@ struct nvmem_device {
 	struct regmap		*regmap;
 	struct module		*owner;
 	struct device		dev;
+	struct bin_attribute	bin;
 	int			stride;
 	int			word_size;
 	int			ncells;
@@ -109,50 +110,13 @@ static ssize_t bin_attr_nvmem_write(struct file *filp, struct kobject *kobj,
 }
 
 /* default read/write permissions */
-static struct bin_attribute bin_attr_rw_nvmem = {
+static struct bin_attribute bin_attr_template = {
 	.attr	= {
 		.name	= "nvmem",
-		.mode	= S_IWUSR | S_IRUGO,
+		.mode	= S_IRUSR,
 	},
 	.read	= bin_attr_nvmem_read,
 	.write	= bin_attr_nvmem_write,
-};
-
-static struct bin_attribute *nvmem_bin_rw_attributes[] = {
-	&bin_attr_rw_nvmem,
-	NULL,
-};
-
-static const struct attribute_group nvmem_bin_rw_group = {
-	.bin_attrs	= nvmem_bin_rw_attributes,
-};
-
-static const struct attribute_group *nvmem_rw_dev_groups[] = {
-	&nvmem_bin_rw_group,
-	NULL,
-};
-
-/* read only permission */
-static struct bin_attribute bin_attr_ro_nvmem = {
-	.attr	= {
-		.name	= "nvmem",
-		.mode	= S_IRUGO,
-	},
-	.read	= bin_attr_nvmem_read,
-};
-
-static struct bin_attribute *nvmem_bin_ro_attributes[] = {
-	&bin_attr_ro_nvmem,
-	NULL,
-};
-
-static const struct attribute_group nvmem_bin_ro_group = {
-	.bin_attrs	= nvmem_bin_ro_attributes,
-};
-
-static const struct attribute_group *nvmem_ro_dev_groups[] = {
-	&nvmem_bin_ro_group,
-	NULL,
 };
 
 static void nvmem_release(struct device *dev)
@@ -346,10 +310,8 @@ struct nvmem_device *nvmem_register(const struct nvmem_config *config)
 
 	nvmem->read_only = of_property_read_bool(np, "read-only") |
 			   config->read_only;
-
-	nvmem->dev.groups = nvmem->read_only ? nvmem_ro_dev_groups :
-					       nvmem_rw_dev_groups;
-
+	nvmem->bin = bin_attr_template;
+	nvmem->bin.attr.mode = nvmem->read_only ? : (S_IRUSR | S_IWUSR);
 	device_initialize(&nvmem->dev);
 
 	dev_dbg(&nvmem->dev, "Registering nvmem device %s\n", config->name);
@@ -360,6 +322,10 @@ struct nvmem_device *nvmem_register(const struct nvmem_config *config)
 		kfree(nvmem);
 		return ERR_PTR(rval);
 	}
+
+	rval = device_create_bin_file(&nvmem->dev, &nvmem->bin);
+	if (rval)
+		dev_err(&nvmem->dev, "Failed to create nvmem binary file\n");
 
 	if (config->cells)
 		nvmem_add_cells(nvmem, config);
@@ -385,6 +351,7 @@ int nvmem_unregister(struct nvmem_device *nvmem)
 	mutex_unlock(&nvmem_mutex);
 
 	nvmem_device_remove_all_cells(nvmem);
+	device_remove_bin_file(&nvmem->dev, &nvmem->bin);
 	device_del(&nvmem->dev);
 
 	return 0;
