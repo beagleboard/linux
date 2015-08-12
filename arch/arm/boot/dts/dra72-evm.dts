@@ -239,31 +239,6 @@
 		>;
 	};
 
-	atl_pins: pinmux_atl_pins {
-		pinctrl-single,pins = <
-			0x298 (PIN_OUTPUT | MUX_MODE5)	/* xref_clk1.atl_clk1 */
-			0x29c (PIN_OUTPUT | MUX_MODE5)	/* xref_clk2.atl_clk2 */
-		>;
-	};
-
-	mcasp3_pins: pinmux_mcasp3_pins {
-		pinctrl-single,pins = <
-			0x324 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp3_aclkx */
-			0x328 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp3_fsx */
-			0x32c (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp3_axr0 */
-			0x330 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mcasp3_axr1 */
-		>;
-	};
-
-	mcasp3_sleep_pins: pinmux_mcasp3_sleep_pins {
-		pinctrl-single,pins = <
-			0x324 (PIN_INPUT_PULLDOWN | MUX_MODE15)
-			0x328 (PIN_INPUT_PULLDOWN | MUX_MODE15)
-			0x32c (PIN_INPUT_PULLDOWN | MUX_MODE15)
-			0x330 (PIN_INPUT_PULLDOWN | MUX_MODE15)
-		>;
-	};
-
 	vout1_pins: pinmux_vout1_pins {
 		pinctrl-single,pins = <
 			0x1C8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_clk */
@@ -875,9 +850,6 @@
 };
 
 &atl {
-	pinctrl-names = "default";
-	pinctrl-0 = <&atl_pins>;
-
 	status = "okay";
 
 	atl2 {
@@ -888,9 +860,6 @@
 
 &mcasp3 {
 	#sound-dai-cells = <0>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&mcasp3_pins>;
-	pinctrl-1 = <&mcasp3_sleep_pins>;
 
 	fck_parent = "atl_clkin2_ck";
 
