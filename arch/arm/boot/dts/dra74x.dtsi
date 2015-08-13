@@ -43,6 +43,13 @@
 		};
 	};
 
+	aliases {
+		rproc0 = &ipu1;
+		rproc1 = &ipu2;
+		rproc2 = &dsp1;
+		rproc3 = &dsp2;
+	};
+
 	pmu {
 		compatible = "arm,cortex-a15-pmu";
 		interrupt-parent = <&wakeupgen>;
@@ -51,6 +58,11 @@
 	};
 
 	ocp {
+		dsp2_system: dsp_system@41500000 {
+			compatible = "syscon";
+			reg = <0x41500000 0x100>;
+		};
+
 		omap_dwc3_4: omap_dwc3_4@48940000 {
 			compatible = "ti,dwc3";
 			ti,hwmods = "usb_otg_ss4";
@@ -75,6 +87,62 @@
 				dr_mode = "otg";
 			};
 		};
+
+		mmu0_dsp2: mmu@41501000 {
+			compatible = "ti,dra7-dsp-iommu";
+			reg = <0x41501000 0x100>;
+			interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu0_dsp2";
+			#iommu-cells = <0>;
+			ti,syscon-mmuconfig = <&dsp2_system 0x0>;
+			status = "disabled";
+		};
+
+		mmu1_dsp2: mmu@41502000 {
+			compatible = "ti,dra7-dsp-iommu";
+			reg = <0x41502000 0x100>;
+			interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu1_dsp2";
+			#iommu-cells = <0>;
+			ti,syscon-mmuconfig = <&dsp2_system 0x1>;
+			status = "disabled";
+		};
+
+		dsp2: dsp@41000000 {
+			compatible = "ti,dra7-rproc-dsp";
+			reg = <0x41000000 0x48000>;
+			reg-names = "l2ram";
+			ti,hwmods = "dsp2";
+			syscon-bootreg = <&scm_conf 0x560>;
+			iommus = <&mmu0_dsp2>, <&mmu1_dsp2>;
+			status = "disabled";
+		};
+	};
+};
+
+&mailbox5 {
+	mbox_ipu1_ipc3x: mbox_ipu1_ipc3x {
+		ti,mbox-tx = <6 2 2>;
+		ti,mbox-rx = <4 2 2>;
+		status = "disabled";
+	};
+	mbox_dsp1_ipc3x: mbox_dsp1_ipc3x {
+		ti,mbox-tx = <5 2 2>;
+		ti,mbox-rx = <1 2 2>;
+		status = "disabled";
+	};
+};
+
+&mailbox6 {
+	mbox_ipu2_ipc3x: mbox_ipu2_ipc3x {
+		ti,mbox-tx = <6 2 2>;
+		ti,mbox-rx = <4 2 2>;
+		status = "disabled";
+	};
+	mbox_dsp2_ipc3x: mbox_dsp2_ipc3x {
+		ti,mbox-tx = <5 2 2>;
+		ti,mbox-rx = <1 2 2>;
+		status = "disabled";
 	};
 };
 
