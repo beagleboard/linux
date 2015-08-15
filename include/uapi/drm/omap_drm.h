@@ -33,6 +33,12 @@ struct drm_omap_param {
 	uint64_t value;			/* in (set_param), out (get_param) */
 };
 
+struct drm_omap_get_base {
+	char plugin_name[64];           /* in */
+	uint32_t ioctl_base;            /* out */
+	uint32_t __pad;
+};
+
 #define OMAP_BO_SCANOUT		0x00000001	/* scanout capable (phys contiguous) */
 #define OMAP_BO_CACHE_MASK	0x00000006	/* cache type mask, see cache modes */
 #define OMAP_BO_TILED_MASK	0x00000f00	/* tiled mapping mask, see tiled modes */
@@ -101,9 +107,7 @@ struct drm_omap_gem_info {
 
 #define DRM_OMAP_GET_PARAM		0x00
 #define DRM_OMAP_SET_PARAM		0x01
-/* placeholder for plugin-api
 #define DRM_OMAP_GET_BASE		0x02
-*/
 #define DRM_OMAP_GEM_NEW		0x03
 #define DRM_OMAP_GEM_CPU_PREP		0x04
 #define DRM_OMAP_GEM_CPU_FINI		0x05
@@ -112,9 +116,7 @@ struct drm_omap_gem_info {
 
 #define DRM_IOCTL_OMAP_GET_PARAM	DRM_IOWR(DRM_COMMAND_BASE + DRM_OMAP_GET_PARAM, struct drm_omap_param)
 #define DRM_IOCTL_OMAP_SET_PARAM	DRM_IOW (DRM_COMMAND_BASE + DRM_OMAP_SET_PARAM, struct drm_omap_param)
-/* placeholder for plugin-api
 #define DRM_IOCTL_OMAP_GET_BASE		DRM_IOWR(DRM_COMMAND_BASE + DRM_OMAP_GET_BASE, struct drm_omap_get_base)
-*/
 #define DRM_IOCTL_OMAP_GEM_NEW		DRM_IOWR(DRM_COMMAND_BASE + DRM_OMAP_GEM_NEW, struct drm_omap_gem_new)
 #define DRM_IOCTL_OMAP_GEM_CPU_PREP	DRM_IOW (DRM_COMMAND_BASE + DRM_OMAP_GEM_CPU_PREP, struct drm_omap_gem_cpu_prep)
 #define DRM_IOCTL_OMAP_GEM_CPU_FINI	DRM_IOW (DRM_COMMAND_BASE + DRM_OMAP_GEM_CPU_FINI, struct drm_omap_gem_cpu_fini)
