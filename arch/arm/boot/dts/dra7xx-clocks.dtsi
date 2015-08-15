@@ -753,6 +753,14 @@
 		ti,index-power-of-two;
 	};
 
+	gpu_l3_iclk: gpu_l3_iclk {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clocks = <&l3_iclk_div>;
+		clock-mult = <1>;
+		clock-div = <1>;
+	};
+
 	l4_root_clk_div: l4_root_clk_div {
 		#clock-cells = <0>;
 		compatible = "fixed-factor-clock";
