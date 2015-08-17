@@ -25,12 +25,10 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-/* EMMC in reset */
-&gpio1 {
-	emmc_rst {
-		gpio-hog;
-		gpios = <20 0>;
-		output-high;
-		line-name = "EMMC ResetN";
-	};
+&mmc2 {
+	vmmc-supply = <&vmmcsd_fixed>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&emmc_pins>;
+	bus-width = <8>;
+	status = "okay";
 };
