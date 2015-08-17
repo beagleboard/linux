@@ -13,11 +13,11 @@ export unix_user=`whoami`
 export user_home_directory=`getent passwd $unix_user |cut -d: -f6`
 
 BUILD_THREADS=`grep -c "^processor" /proc/cpuinfo`
-DEFCONFIG="omap2plus_defconfig"
-CROSS_COMPILE=
+DEFCONFIG=""
+CROSS_COMPILE=""
 WORKING_PATH=""
 LOAD_ADDR=0x80008000
-LOAD_ADDRESS_VALUE=
+LOAD_ADDRESS_VALUE=""
 LOGGING_DIRECTORY="working_config"
 
 prepare_for_exit()

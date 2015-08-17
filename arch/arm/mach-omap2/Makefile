@@ -244,8 +244,7 @@ obj-$(CONFIG_SOC_DRA7XX)		+= omap_hwmod_7xx_data.o
 # EMU peripherals
 obj-$(CONFIG_HW_PERF_EVENTS)		+= pmu.o
 
-iommu-$(CONFIG_OMAP_IOMMU)		:= omap-iommu.o
-obj-y					+= $(iommu-m) $(iommu-y)
+obj-$(CONFIG_OMAP_IOMMU)		+= omap-iommu.o
 
 # OMAP2420 MSDI controller integration support ("MMC")
 obj-$(CONFIG_SOC_OMAP2420)		+= msdi.o
@@ -289,3 +288,7 @@ smsc911x-$(CONFIG_SMSC911X)		:= gpmc-smsc911x.o
 obj-y					+= $(smsc911x-m) $(smsc911x-y)
 
 obj-y					+= common-board-devices.o twl-common.o dss-common.o
+
+ifneq ($(CONFIG_OMAP_REMOTEPROC),)
+obj-y					+= remoteproc.o
+endif

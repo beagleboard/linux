@@ -296,6 +296,11 @@
 			reg = <0x4a002e00 0x7c>;
 		};
 
+		dsp1_system: dsp_system@40d00000 {
+			compatible = "syscon";
+			reg = <0x40d00000 0x100>;
+		};
+
 		dra7_iodelay_core: padconf@4844a000 {
 			compatible = "ti,dra7-iodelay";
 			reg = <0x4844a000 0x0d1c>;
@@ -836,6 +841,34 @@
 			ti,hwmods = "dmm";
 		};
 
+		ipu1: ipu@58820000 {
+			compatible = "ti,dra7-rproc-ipu";
+			reg = <0x58820000 0x10000>;
+			reg-names = "l2ram";
+			ti,hwmods = "ipu1";
+			iommus = <&mmu_ipu1>;
+			status = "disabled";
+		};
+
+		ipu2: ipu@55020000 {
+			compatible = "ti,dra7-rproc-ipu";
+			reg = <0x55020000 0x10000>;
+			reg-names = "l2ram";
+			ti,hwmods = "ipu2";
+			iommus = <&mmu_ipu2>;
+			status = "disabled";
+		};
+
+		dsp1: dsp@40800000 {
+			compatible = "ti,dra7-rproc-dsp";
+			reg = <0x40800000 0x48000>;
+			reg-names = "l2ram";
+			ti,hwmods = "dsp1";
+			syscon-bootreg = <&scm_conf 0x55c>;
+			iommus = <&mmu0_dsp1>, <&mmu1_dsp1>;
+			status = "disabled";
+		};
+
 		i2c1: i2c@48070000 {
 			compatible = "ti,omap4-i2c";
 			reg = <0x48070000 0x100>;
@@ -938,6 +971,46 @@
 			ti,needs-special-reset;
 			dmas = <&sdma_xbar 57>, <&sdma_xbar 58>;
 			dma-names = "tx", "rx";
+			status = "disabled";
+		};
+
+		mmu0_dsp1: mmu@40d01000 {
+			compatible = "ti,dra7-dsp-iommu";
+			reg = <0x40d01000 0x100>;
+			interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu0_dsp1";
+			#iommu-cells = <0>;
+			ti,syscon-mmuconfig = <&dsp1_system 0x0>;
+			status = "disabled";
+		};
+
+		mmu1_dsp1: mmu@40d02000 {
+			compatible = "ti,dra7-dsp-iommu";
+			reg = <0x40d02000 0x100>;
+			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu1_dsp1";
+			#iommu-cells = <0>;
+			ti,syscon-mmuconfig = <&dsp1_system 0x1>;
+			status = "disabled";
+		};
+
+		mmu_ipu1: mmu@58882000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x58882000 0x100>;
+			interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu_ipu1";
+			#iommu-cells = <0>;
+			ti,iommu-bus-err-back;
+			status = "disabled";
+		};
+
+		mmu_ipu2: mmu@55082000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x55082000 0x100>;
+			interrupts = <GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu_ipu2";
+			#iommu-cells = <0>;
+			ti,iommu-bus-err-back;
 			status = "disabled";
 		};
 

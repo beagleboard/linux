@@ -667,7 +667,7 @@ static int mcasp_common_hw_param(struct davinci_mcasp *mcasp, int stream,
 	u8 rx_ser = 0;
 	u8 slots = mcasp->tdm_slots;
 	u8 max_active_serializers = (channels + slots - 1) / slots;
-	int active_serializers, numevt, n;
+	int active_serializers, numevt;
 	u32 reg;
 	/* Default configuration */
 	if (mcasp->version < MCASP_VERSION_3)
@@ -749,9 +749,8 @@ static int mcasp_common_hw_param(struct davinci_mcasp *mcasp, int stream,
 	 * The number of words for numevt need to be in steps of active
 	 * serializers.
 	 */
-	n = numevt % active_serializers;
-	if (n)
-		numevt += (active_serializers - n);
+	numevt = (numevt / active_serializers) * active_serializers;
+
 	while (period_words % numevt && numevt > 0)
 		numevt -= active_serializers;
 	if (numevt <= 0)
@@ -1903,6 +1902,31 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, mcasp);
 
 	mcasp_reparent_fck(pdev);
+
+	if (mcasp->version == MCASP_VERSION_4) {
+		u32 rev;
+
+		pm_runtime_get_sync(mcasp->dev);
+		rev = mcasp_get_reg(mcasp, DAVINCI_MCASP_PID_REG) &
+				    MCASP_V4_REV_MASK;
+		pm_runtime_put(mcasp->dev);
+
+		if (rev < MCASP_V4_REV(3, 3)) {
+			/*
+			 * ERRATA i868: to avoid race condition between DMA and
+			 * AFIFO events the R/WNUMEVT need to be set to be
+			 * less-than-equal to 32 words.
+			 */
+			if (mcasp->txnumevt)
+				mcasp->txnumevt = 32;
+			if (mcasp->rxnumevt)
+				mcasp->rxnumevt = 32;
+
+			if (mcasp->txnumevt || mcasp->rxnumevt)
+				dev_info(&pdev->dev,
+					 "ERRATA i868 workaround is enabled\n");
+		}
+	}
 
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					&davinci_mcasp_component,
