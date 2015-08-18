@@ -300,6 +300,7 @@ int pwmchip_remove(struct pwm_chip *chip)
 
 		if (test_bit(PWMF_REQUESTED, &pwm->flags)) {
 			ret = -EBUSY;
+			mutex_unlock(&pwm_lock);
 			goto out;
 		}
 	}
@@ -311,10 +312,11 @@ int pwmchip_remove(struct pwm_chip *chip)
 
 	free_pwms(chip);
 
+	mutex_unlock(&pwm_lock);
+
 	pwmchip_sysfs_unexport(chip);
 
 out:
-	mutex_unlock(&pwm_lock);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pwmchip_remove);

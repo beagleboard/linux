@@ -1,0 +1,54 @@
+* Aptina 1/4-Inch 3.1Mp CMOS Digital Image Sensor
+
+The Aptina MT9T11x is a 1/4-inch CMOS active pixel digital image sensor with
+an active array size of 2048H x 1536V. It is programmable through a simple
+two-wire serial interface.
+
+Required Properties:
+- compatible: Should be one of the following
+	(a) "aptina,mt9t11x" for mt9t111 or mt9t112 sensor
+	(b) "aptina,mt9t111" for mt9t111 sensor
+	(c) "aptina,mt9t112" for mt9t112 sensor
+
+- input-clock-freq: Input clock frequency.
+
+- pixel-clock-freq: Pixel clock frequency.
+
+Optional Properties:
+- reset-gpios: Chip reset GPIO
+- powerdown-gpios: Chip powerdown GPIO
+- oscen-gpios: Chip oscillator GPIO
+- bufen-gpios: Data lines GPIO
+- camen-gpios: Camera signal GPIO
+
+For further reading on port node refer to
+Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+Example:
+
+	i2c0@1c22000 {
+		...
+		...
+		mt9t11x@3C {
+			compatible = "aptina,mt9t11x";
+			reg = <0x3C>;
+
+			reset-gpios = <&gpio4 17 GPIO_ACTIVE_LOW>;
+			oscen-gpios = <&gpio5 10 GPIO_ACTIVE_HIGH>;
+			powerdown-gpios = <&gpio5 11 GPIO_ACTIVE_LOW>;
+			bufen-gpios = <&gpio5 12 GPIO_ACTIVE_LOW>;
+			camen-gpios = <&gpio6 11 GPIO_ACTIVE_LOW>;
+
+			port {
+				cam: endpoint {
+					remote-endpoint = <&vin3a>;
+					hsync-active = <1>;
+					vsync-active = <1>;
+					pclk-sample = <1>;
+					input-clock-freq = <32000000>;
+					pixel-clock-freq = <96000000>;
+				};
+			};
+		};
+		...
+	};

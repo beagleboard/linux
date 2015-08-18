@@ -428,6 +428,28 @@
 #define MAX_IOPAD_LATCH_TIME			100
 # ifndef __ASSEMBLER__
 
+#include <linux/delay.h>
+
+/**
+ * omap_test_timeout - busy-loop, testing a condition
+ * @cond: condition to test until it evaluates to true
+ * @timeout: maximum number of microseconds in the timeout
+ * @index: loop index (integer)
+ *
+ * Loop waiting for @cond to become true or until at least @timeout
+ * microseconds have passed.  To use, define some integer @index in the
+ * calling code.  After running, if @index == @timeout, then the loop has
+ * timed out.
+ */
+#define omap_test_timeout(cond, timeout, index)			\
+({								\
+	for (index = 0; index < timeout; index++) {		\
+		if (cond)					\
+			break;					\
+		udelay(1);					\
+	}							\
+})
+
 /**
  * struct omap_prcm_irq - describes a PRCM interrupt bit
  * @name: a short name describing the interrupt type, e.g. "wkup" or "io"
@@ -458,6 +480,7 @@ struct omap_prcm_irq {
  * @ocp_barrier: fn ptr to force buffered PRM writes to complete
  * @save_and_clear_irqen: fn ptr to save and clear IRQENABLE regs
  * @restore_irqen: fn ptr to save and clear IRQENABLE regs
+ * @reconfigure_io_chain: fn ptr to reconfigure IO chain
  * @saved_mask: IRQENABLE regs are saved here during suspend
  * @priority_mask: 1 bit per IRQ, set to 1 if omap_prcm_irq.priority = true
  * @base_irq: base dynamic IRQ number, returned from irq_alloc_descs() in init
@@ -471,6 +494,7 @@ struct omap_prcm_irq {
 struct omap_prcm_irq_setup {
 	u16 ack;
 	u16 mask;
+	u16 pm_ctrl;
 	u8 nr_regs;
 	u8 nr_irqs;
 	const struct omap_prcm_irq *irqs;
@@ -479,6 +503,7 @@ struct omap_prcm_irq_setup {
 	void (*ocp_barrier)(void);
 	void (*save_and_clear_irqen)(u32 *saved_mask);
 	void (*restore_irqen)(u32 *saved_mask);
+	void (*reconfigure_io_chain)(void);
 	u32 *saved_mask;
 	u32 *priority_mask;
 	int base_irq;
@@ -493,12 +518,17 @@ struct omap_prcm_irq_setup {
 	.priority = _priority				\
 	}
 
+struct of_device_id;
+
 extern void omap_prcm_irq_cleanup(void);
 extern int omap_prcm_register_chain_handler(
 	struct omap_prcm_irq_setup *irq_setup);
 extern int omap_prcm_event_to_irq(const char *event);
 extern void omap_prcm_irq_prepare(void);
 extern void omap_prcm_irq_complete(void);
+
+int of_prcm_module_init(struct of_device_id *match_table);
+int of_cm_init(void);
 
 # endif
 

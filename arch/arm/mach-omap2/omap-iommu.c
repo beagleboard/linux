@@ -10,6 +10,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/of.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/err.h>
@@ -19,6 +20,36 @@
 #include "soc.h"
 #include "omap_hwmod.h"
 #include "omap_device.h"
+#include "powerdomain.h"
+
+int omap_iommu_set_pwrdm_constraint(struct platform_device *pdev, bool request,
+				    u8 *pwrst)
+{
+	struct powerdomain *pwrdm;
+	struct omap_device *od;
+	u8 next_pwrst;
+
+	od = to_omap_device(pdev);
+	if (!od)
+		return -ENODEV;
+
+	if (od->hwmods_cnt != 1)
+		return -EINVAL;
+
+	pwrdm = omap_hwmod_get_pwrdm(od->hwmods[0]);
+	if (!pwrdm)
+		return -EINVAL;
+
+	if (request)
+		*pwrst = pwrdm_read_next_pwrst(pwrdm);
+
+	if (*pwrst > PWRDM_POWER_RET)
+		return 0;
+
+	next_pwrst = request ? PWRDM_POWER_ON : *pwrst;
+
+	return pwrdm_set_next_pwrst(pwrdm, next_pwrst);
+}
 
 static int __init omap_iommu_dev_init(struct omap_hwmod *oh, void *unused)
 {
@@ -41,6 +72,8 @@ static int __init omap_iommu_dev_init(struct omap_hwmod *oh, void *unused)
 		pdata->assert_reset = omap_device_assert_hardreset;
 		pdata->deassert_reset = omap_device_deassert_hardreset;
 	}
+	pdata->device_enable = omap_device_enable,
+	pdata->device_idle = omap_device_idle,
 
 	pdev = omap_device_build("omap-iommu", i, oh, pdata, sizeof(*pdata));
 
@@ -58,6 +91,10 @@ static int __init omap_iommu_dev_init(struct omap_hwmod *oh, void *unused)
 
 static int __init omap_iommu_init(void)
 {
+	/* If dtb is there, the devices will be created dynamically */
+	if (of_have_populated_dt())
+		return -ENODEV;
+
 	return omap_hwmod_for_each_by_class("mmu", omap_iommu_dev_init, NULL);
 }
 /* must be ready before omap3isp is probed */

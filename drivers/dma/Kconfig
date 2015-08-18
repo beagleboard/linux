@@ -401,4 +401,11 @@ config DMATEST
 config DMA_ENGINE_RAID
 	bool
 
+config OMAP_DMA_CROSSBAR
+	bool
+	depends on DMA_OMAP
+	help
+	  This enables the dma crossbar ip support to dynamically map the
+	  peripheral dma request lines to the dma controller's input.
+
 endif

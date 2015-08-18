@@ -62,8 +62,12 @@ extern unsigned long omap3_sram_configure_core_dpll_sz;
 
 #ifdef CONFIG_PM
 extern void omap_push_sram_idle(void);
+void am33xx_push_sram_idle(void);
+void am43xx_push_sram_idle(void);
 #else
 static inline void omap_push_sram_idle(void) {}
+static inline void am33xx_push_sram_idle(void) {}
+static inline void am43xx_push_sram_idle(void) {}
 #endif /* CONFIG_PM */
 
 #endif /* __ASSEMBLY__ */

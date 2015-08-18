@@ -31,6 +31,17 @@
  */
 #define OMAP4_DPLL_USB_DEFFREQ				960000000
 
+/*
+ * OMAP4 IVA DPLL frequency settings. The below values are defined
+ * based on the OPP100 values according to OMAP4430 ES2.x Public TRM
+ * version AO, section "3.6.3.8.7 DPLL_IVA Preferred Settings". The
+ * DPLL locked frequency is 1862.4 MHz (value for DPLL_IVA_X2_CLK),
+ * so the DPLL_IVA_DEFFREQ is half of this value.
+ */
+#define OMAP4_DPLL_IVA_DEFFREQ				931200000
+#define OMAP4_DSP_ROOT_CLK_NOMFREQ			465600000
+#define OMAP4_IVAHD_ROOT_CLK_NOMFREQ			266100000
+
 static struct ti_dt_clk omap44xx_clks[] = {
 	DT_CLK(NULL, "extalt_clkin_ck", "extalt_clkin_ck"),
 	DT_CLK(NULL, "pad_clks_src_ck", "pad_clks_src_ck"),
@@ -282,6 +293,7 @@ int __init omap4xxx_dt_clk_init(void)
 {
 	int rc;
 	struct clk *abe_dpll_ref, *abe_dpll, *sys_32k_ck, *usb_dpll;
+	struct clk *iva_dpll, *iva_m4x2_dpll, *iva_m5x2_dpll;
 
 	ti_dt_clocks_register(omap44xx_clks);
 
@@ -310,6 +322,29 @@ int __init omap4xxx_dt_clk_init(void)
 		rc = clk_set_rate(abe_dpll, OMAP4_DPLL_ABE_DEFFREQ);
 	if (rc)
 		pr_err("%s: failed to configure ABE DPLL!\n", __func__);
+
+	/*
+	 * Lock the IVA DPLL and its derivative clocks so that the DSP and
+	 * IVA processors are running at nominal operating points rather
+	 * than at a bypass clock rate or at a misconfigured output rate.
+	 */
+	iva_dpll = clk_get_sys(NULL, "dpll_iva_ck");
+	rc = clk_set_rate(iva_dpll, OMAP4_DPLL_IVA_DEFFREQ);
+	if (!rc) {
+		iva_m4x2_dpll = clk_get_sys(NULL, "dpll_iva_m4x2_ck");
+		rc = clk_set_rate(iva_m4x2_dpll, OMAP4_DSP_ROOT_CLK_NOMFREQ);
+		if (rc)
+			pr_err("%s: failed to configure IVA DPLL m4x2 divider!\n",
+			       __func__);
+
+		iva_m5x2_dpll = clk_get_sys(NULL, "dpll_iva_m5x2_ck");
+		rc = clk_set_rate(iva_m5x2_dpll, OMAP4_IVAHD_ROOT_CLK_NOMFREQ);
+		if (rc)
+			pr_err("%s: failed to configure IVA DPLL m5x2 divider!\n",
+			       __func__);
+	} else {
+		pr_err("%s: failed to configure IVA DPLL!\n", __func__);
+	}
 
 	return 0;
 }

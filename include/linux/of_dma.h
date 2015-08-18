@@ -26,6 +26,12 @@ struct of_dma {
 	void			*of_dma_data;
 };
 
+struct of_dma_router {
+	struct list_head	of_dma_routers;
+	struct device_node	*of_node;
+	void			*of_router_data;
+};
+
 struct of_dma_filter_info {
 	dma_cap_mask_t	dma_cap;
 	dma_filter_fn	filter_fn;
@@ -41,6 +47,9 @@ extern struct dma_chan *of_dma_request_slave_channel(struct device_node *np,
 						     const char *name);
 extern struct dma_chan *of_dma_simple_xlate(struct of_phandle_args *dma_spec,
 		struct of_dma *ofdma);
+void *of_dma_get_router_data(phandle router);
+int of_dma_router_register(struct device_node *np, void *data);
+void of_dma_router_free(struct device_node *np);
 #else
 static inline int of_dma_controller_register(struct device_node *np,
 		struct dma_chan *(*of_dma_xlate)
@@ -66,6 +75,19 @@ static inline struct dma_chan *of_dma_simple_xlate(struct of_phandle_args *dma_s
 	return NULL;
 }
 
+static inline void *of_dma_get_router_data(phandle router)
+{
+	return NULL;
+}
+
+static inline int of_dma_router_register(struct device_node *np, void *data)
+{
+	return NULL;
+}
+
+static void of_dma_router_free(struct device_node *np)
+{
+}
 #endif
 
 #endif /* __LINUX_OF_DMA_H */

@@ -1,0 +1,40 @@
+* OmniVision 8/10 bit digital camera
+
+The Omnivision digital camera is a 720p camera which is configurable at 8/10bit
+YUYV output and can be configured for various resolutions.
+
+Required Properties:
+- compatible : Must be one of the following
+  - "ovti,ov10633": For OV10633 camera
+  - "ovti,ov10635": For OV10635 camera
+
+Optional Properties:
+- gpios : A list of gpios with active high/low flags for enabling the sensor.
+         This may contain gpios for power, board muxes, etc. Driver would
+         set all of them as specified by the active high/low flag
+
+  There are no custom optional properties supported for this device.
+  Although all the endpoint properties documented in
+  Documentation/devicetree/bindings/media/video-interfaces.txt are supported.
+
+Example:
+
+	&i2c2 {
+		...
+		...
+		ovcamera@30 {
+			compatible = "ovti,ov10635";
+			reg = <0x30>;
+
+			mux-gpios = <&pcf_hdmi 3    GPIO_ACTIVE_LOW>;
+
+			port {
+				onboard_cam: endpoint {
+					hsync-active = <1>;
+					vsync-active = <1>;
+					pclk-sample = <1>;
+				};
+			};
+		};
+		...
+	};

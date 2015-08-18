@@ -25,8 +25,8 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
-static int ti_dt_clk_memmap_index;
 struct ti_clk_ll_ops *ti_clk_ll_ops;
+static struct device_node *clocks_node_ptr[CLK_MAX_MEMMAPS];
 
 /**
  * ti_dt_clocks_register - register DT alias clocks during boot
@@ -108,9 +108,21 @@ void __iomem *ti_clk_get_reg_addr(struct device_node *node, int index)
 	struct clk_omap_reg *reg;
 	u32 val;
 	u32 tmp;
+	int i;
 
 	reg = (struct clk_omap_reg *)&tmp;
-	reg->index = ti_dt_clk_memmap_index;
+
+	for (i = 0; i < CLK_MAX_MEMMAPS; i++) {
+		if (clocks_node_ptr[i] == node->parent)
+			break;
+	}
+
+	if (i == CLK_MAX_MEMMAPS) {
+		pr_err("clk-provider not found for %s!\n", node->name);
+		return NULL;
+	}
+
+	reg->index = i;
 
 	if (of_property_read_u32_index(node, "reg", index, &val)) {
 		pr_err("%s must have reg[%d]!\n", node->name, index);
@@ -133,14 +145,7 @@ void __iomem *ti_clk_get_reg_addr(struct device_node *node, int index)
  */
 void ti_dt_clk_init_provider(struct device_node *parent, int index)
 {
-	const struct of_device_id *match;
-	struct device_node *np;
 	struct device_node *clocks;
-	of_clk_init_cb_t clk_init_cb;
-	struct clk_init_item *retry;
-	struct clk_init_item *tmp;
-
-	ti_dt_clk_memmap_index = index;
 
 	/* get clocks for this parent */
 	clocks = of_get_child_by_name(parent, "clocks");
@@ -149,19 +154,23 @@ void ti_dt_clk_init_provider(struct device_node *parent, int index)
 		return;
 	}
 
-	for_each_child_of_node(clocks, np) {
-		match = of_match_node(&__clk_of_table, np);
-		if (!match)
-			continue;
-		clk_init_cb = (of_clk_init_cb_t)match->data;
-		pr_debug("%s: initializing: %s\n", __func__, np->name);
-		clk_init_cb(np);
-	}
+	/* add clocks node info */
+	clocks_node_ptr[index] = clocks;
+}
 
-	list_for_each_entry_safe(retry, tmp, &retry_list, link) {
-		pr_debug("retry-init: %s\n", retry->node->name);
-		retry->func(retry->hw, retry->node);
-		list_del(&retry->link);
-		kfree(retry);
+void ti_dt_clk_init_retry(void)
+{
+	struct clk_init_item *retry;
+	struct clk_init_item *tmp;
+	int retries = 5;
+
+	while (!list_empty(&retry_list) && retries) {
+		list_for_each_entry_safe(retry, tmp, &retry_list, link) {
+			pr_debug("retry-init: %s\n", retry->node->name);
+			retry->func(retry->hw, retry->node);
+			list_del(&retry->link);
+			kfree(retry);
+		}
+		retries--;
 	}
 }

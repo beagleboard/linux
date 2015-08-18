@@ -22,8 +22,9 @@
 	};
 
 	leds {
-		pinctrl-names = "default";
-		pinctrl-0 = <&user_leds_s0>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&user_leds_default>;
+		pinctrl-1 = <&user_leds_sleep>;
 
 		compatible = "gpio-leds";
 
@@ -68,12 +69,21 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&clkout2_pin>;
 
-	user_leds_s0: user_leds_s0 {
+	user_leds_default: user_leds_default {
 		pinctrl-single,pins = <
 			0x54 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a5.gpio1_21 */
 			0x58 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_a6.gpio1_22 */
 			0x5c (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a7.gpio1_23 */
 			0x60 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_a8.gpio1_24 */
+		>;
+	};
+
+	user_leds_sleep: user_leds_sleep {
+		pinctrl-single,pins = <
+			0x54 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a5.gpio1_21 */
+			0x58 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a6.gpio1_22 */
+			0x5c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a7.gpio1_23 */
+			0x60 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a8.gpio1_24 */
 		>;
 	};
 
@@ -151,9 +161,28 @@
 		>;
 	};
 
-	mmc1_pins: pinmux_mmc1_pins {
+	mmc1_pins_default: pinmux_mmc1_pins {
 		pinctrl-single,pins = <
-			0x160 (PIN_INPUT | MUX_MODE7) /* GPIO0_6 */
+			0x0F0 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc0_dat3.mmc0_dat3 */
+			0x0F4 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc0_dat2.mmc0_dat2 */
+			0x0F8 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc0_dat1.mmc0_dat1 */
+			0x0FC (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc0_dat0.mmc0_dat0 */
+			0x100 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc0_clk.mmc0_clk */
+			0x104 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc0_cmd.mmc0_cmd */
+			0x1A0 (PIN_INPUT_PULLUP | MUX_MODE7)	/* mcasp0_aclkr.gpio3_18 */
+			0x160 (PIN_INPUT | MUX_MODE7)		/* spi0_cs1.gpio0_6 */
+		>;
+	};
+
+	mmc1_pins_sleep: pinmux_mmc1_pins_sleep {
+		pinctrl-single,pins = <
+			0x0F0 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x0F4 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x0F8 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x0FC (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x100 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x104 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x1A0 (PIN_INPUT_PULLDOWN | MUX_MODE7)
 		>;
 	};
 
@@ -226,16 +255,18 @@
 /include/ "tps65217.dtsi"
 
 &tps {
+	ti,pmic-shutdown-controller;
+
 	regulators {
 		dcdc1_reg: regulator@0 {
 			regulator-always-on;
 		};
 
 		dcdc2_reg: regulator@1 {
-			/* VDD_MPU voltage limits 0.95V - 1.26V with +/-4% tolerance */
+			/* VDD_MPU voltage limits 0.95V - 1.325V with +/-4% tolerance */
 			regulator-name = "vdd_mpu";
-			regulator-min-microvolt = <925000>;
-			regulator-max-microvolt = <1325000>;
+			regulator-min-microvolt = <912500>;
+			regulator-max-microvolt = <1378000>;
 			regulator-boot-on;
 			regulator-always-on;
 		};
@@ -263,6 +294,10 @@
 
 		ldo4_reg: regulator@6 {
 			regulator-always-on;
+		};
+
+		rtc@44e3e000 {
+			ti,system-power-controller;
 		};
 	};
 };
@@ -293,8 +328,17 @@
 &mmc1 {
 	status = "okay";
 	bus-width = <0x4>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc1_pins>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&mmc1_pins_default>;
+	pinctrl-1 = <&mmc1_pins_sleep>;
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
 	cd-inverted;
+};
+
+&wkup_m3 {
+	ti,scale-data-fw = "am335x-bone-scale-data.bin";
+};
+
+&rtc {
+	ti,system-power-controller;
 };

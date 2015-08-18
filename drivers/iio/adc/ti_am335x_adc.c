@@ -99,7 +99,7 @@ static void tiadc_step_config(struct iio_dev *indio_dev)
 	 * needs to be given to ADC to digitalize data.
 	 */
 
-	steps = TOTAL_STEPS - adc_dev->channels;
+	steps = 0;
 	if (iio_buffer_enabled(indio_dev))
 		stepconfig = STEPCONFIG_AVG_16 | STEPCONFIG_FIFO1
 					| STEPCONFIG_MODE_SWCNT;

@@ -100,6 +100,9 @@ struct fw_rsc_hdr {
  *		    the remote processor will be writing logs.
  * @RSC_VDEV:       declare support for a virtio device, and serve as its
  *		    virtio header.
+ * @RSC_INTMEM:     request to map into kernel an internal memory region.
+ * @RSC_CUSTOM:     a custom resource type that needs to be handled outside
+ *		    remoteproc core.
  * @RSC_LAST:       just keep this one at the end
  *
  * For more details regarding a specific resource type, please see its
@@ -115,7 +118,9 @@ enum fw_resource_type {
 	RSC_DEVMEM	= 1,
 	RSC_TRACE	= 2,
 	RSC_VDEV	= 3,
-	RSC_LAST	= 4,
+	RSC_INTMEM	= 4,
+	RSC_CUSTOM	= 5,
+	RSC_LAST	= 6,
 };
 
 #define FW_RSC_ADDR_ANY (0xFFFFFFFFFFFFFFFF)
@@ -306,6 +311,57 @@ struct fw_rsc_vdev {
 } __packed;
 
 /**
+ * struct fw_rsc_intmem - internal memory publishing request
+ * @version: version for this resource type (must be one)
+ * @da: device address
+ * @pa: physical address
+ * @len: length (in bytes)
+ * @reserved: reserved (must be zero)
+ * @name: human-readable name of the region being published
+ *
+ * This resource entry allows a remote processor to publish an internal
+ * memory region to the host. This resource type allows a remote processor
+ * to publish the whole or just a portion of certain internal memories,
+ * while it owns and manages any unpublished portion (eg: a shared L1
+ * memory that can be split configured as RAM and/or cache). This is
+ * primarily provided to allow a host to load code/data into internal
+ * memories, the memory for which is neither allocated nor required to
+ * be mapped into an iommu.
+ *
+ * @da should specify the required address as accessible by the device
+ * without going through an iommu, @pa should specify the physical address
+ * for the region as seen on the bus, @len should specify the size of the
+ * memory region. As always, @name may (optionally) contain a human readable
+ * name of this mapping (mainly for debugging purposes). The @version field
+ * is added for future scalability, and should be 1 for now.
+ *
+ * Note: at this point we just "trust" these intmem entries to contain valid
+ * physical bus addresses. these are not currently intended to be managed
+ * as host-controlled heaps, as it is much better to do that from the remote
+ * processor side.
+ */
+struct fw_rsc_intmem {
+	u32 version;
+	u32 da;
+	u32 pa;
+	u32 len;
+	u32 reserved;
+	u8 name[32];
+} __packed;
+
+/**
+ * struct fw_rsc_custom - custom resource definition
+ * @sub_type: implementation specific type
+ * @size: size of the custom resource
+ * @data: label for the start of the resource
+ */
+struct fw_rsc_custom {
+	u32  sub_type;
+	u32  size;
+	u8   data[0];
+} __packed;
+
+/**
  * struct rproc_mem_entry - memory entry descriptor
  * @va:	virtual address
  * @dma: dma address
@@ -330,11 +386,16 @@ struct rproc;
  * @start:	power on the device and boot it
  * @stop:	power off the device
  * @kick:	kick a virtqueue (virtqueue id given as a parameter)
+ * @handle_custom_rsc:	hook to handle device specific resource table entries
+ * @da_to_va:	optional platform hook to perform address translations
  */
 struct rproc_ops {
 	int (*start)(struct rproc *rproc);
 	int (*stop)(struct rproc *rproc);
 	void (*kick)(struct rproc *rproc, int vqid);
+	int (*handle_custom_rsc)(struct rproc *rproc,
+				 struct fw_rsc_custom *rsc);
+	void * (*da_to_va)(struct rproc *rproc, u64 da, int len, u32 flags);
 };
 
 /**
@@ -363,14 +424,18 @@ enum rproc_state {
 /**
  * enum rproc_crash_type - remote processor crash types
  * @RPROC_MMUFAULT:	iommu fault
+ * @RPROC_WATCHDOG:	watchdog error
+ * @RPROC_EXCEPTION:	generic device exception
  *
- * Each element of the enum is used as an array index. So that, the value of
+ * Each element of the enum is used as an array index. So, the value of
  * the elements should be always something sane.
  *
  * Feel free to add more types when needed.
  */
 enum rproc_crash_type {
 	RPROC_MMUFAULT,
+	RPROC_WATCHDOG,
+	RPROC_EXCEPTION,
 };
 
 /**
@@ -389,6 +454,8 @@ enum rproc_crash_type {
  * @dbg_dir: debugfs directory of this rproc device
  * @traces: list of trace buffers
  * @num_traces: number of trace buffers
+ * @last_traces: list of last trace buffers
+ * @num_last_traces: number of last trace buffers
  * @carveouts: list of physically contiguous memory allocations
  * @mappings: list of iommu mappings we initiated, needed on shutdown
  * @firmware_loading_complete: marks e/o asynchronous firmware loading
@@ -404,6 +471,8 @@ enum rproc_crash_type {
  * @table_ptr: pointer to the resource table in effect
  * @cached_table: copy of the resource table
  * @table_csum: checksum of the resource table
+ * @fw_version: human readable version information extracted from f/w
+ * @has_iommu: flag to indicate if remote processor is behind an MMU
  */
 struct rproc {
 	struct klist_node node;
@@ -420,6 +489,8 @@ struct rproc {
 	struct dentry *dbg_dir;
 	struct list_head traces;
 	int num_traces;
+	struct list_head last_traces;
+	int num_last_traces;
 	struct list_head carveouts;
 	struct list_head mappings;
 	struct completion firmware_loading_complete;
@@ -435,6 +506,8 @@ struct rproc {
 	struct resource_table *table_ptr;
 	struct resource_table *cached_table;
 	u32 table_csum;
+	char *fw_version;
+	bool has_iommu;
 };
 
 /* we currently support only two vrings per rvdev */
@@ -489,6 +562,9 @@ int rproc_del(struct rproc *rproc);
 int rproc_boot(struct rproc *rproc);
 void rproc_shutdown(struct rproc *rproc);
 void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type);
+struct rproc *rproc_vdev_to_rproc_safe(struct virtio_device *vdev);
+int rproc_get_alias_id(struct rproc *rproc);
+int rproc_pa_to_da(struct rproc *rproc, phys_addr_t pa, u64 *da);
 
 static inline struct rproc_vdev *vdev_to_rvdev(struct virtio_device *vdev)
 {

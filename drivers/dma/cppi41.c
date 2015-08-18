@@ -1,3 +1,4 @@
+#include <linux/delay.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
@@ -85,6 +86,9 @@
 #define USBSS_IRQ_CLEARR	0x30
 
 #define USBSS_IRQ_PD_COMP	(1 <<  2)
+
+/* Packet Descriptor */
+#define PD2_ZERO_LENGTH		(1 << 19)
 
 struct cppi41_channel {
 	struct dma_chan chan;
@@ -307,7 +311,7 @@ static irqreturn_t cppi41_irq(int irq, void *data)
 			__iormb();
 
 		while (val) {
-			u32 desc;
+			u32 desc, len;
 
 			q_num = __fls(val);
 			val &= ~(1 << q_num);
@@ -319,9 +323,13 @@ static irqreturn_t cppi41_irq(int irq, void *data)
 						q_num, desc);
 				continue;
 			}
-			c->residue = pd_trans_len(c->desc->pd6) -
-				pd_trans_len(c->desc->pd0);
 
+			if (c->desc->pd2 & PD2_ZERO_LENGTH)
+				len = 0;
+			else
+				len = pd_trans_len(c->desc->pd0);
+
+			c->residue = pd_trans_len(c->desc->pd6) - len;
 			dma_cookie_complete(&c->txd);
 			c->txd.callback(c->txd.callback_param);
 		}
@@ -560,7 +568,7 @@ static int cppi41_tear_down_chan(struct cppi41_channel *c)
 		reg |= GCR_TEARDOWN;
 		cppi_writel(reg, c->gcr_reg);
 		c->td_queued = 1;
-		c->td_retry = 100;
+		c->td_retry = 500;
 	}
 
 	if (!c->td_seen || !c->td_desc_seen) {
@@ -596,12 +604,16 @@ static int cppi41_tear_down_chan(struct cppi41_channel *c)
 	 * descriptor before the TD we fetch it from enqueue, it has to be
 	 * there waiting for us.
 	 */
-	if (!c->td_seen && c->td_retry)
+	if (!c->td_seen && c->td_retry) {
+		udelay(1);
 		return -EAGAIN;
-
+	}
 	WARN_ON(!c->td_retry);
+
 	if (!c->td_desc_seen) {
 		desc_phys = cppi41_pop_desc(cdd, c->q_num);
+		if (!desc_phys)
+			desc_phys = cppi41_pop_desc(cdd, c->q_comp_num);
 		WARN_ON(!desc_phys);
 	}
 
@@ -620,12 +632,15 @@ static int cppi41_stop_chan(struct dma_chan *chan)
 	u32 desc_phys;
 	int ret;
 
+	desc_phys = lower_32_bits(c->desc_phys);
+	desc_num = (desc_phys - cdd->descs_phys) / sizeof(struct cppi41_desc);
+	if (!cdd->chan_busy[desc_num])
+		return 0;
+
 	ret = cppi41_tear_down_chan(c);
 	if (ret)
 		return ret;
 
-	desc_phys = lower_32_bits(c->desc_phys);
-	desc_num = (desc_phys - cdd->descs_phys) / sizeof(struct cppi41_desc);
 	WARN_ON(!cdd->chan_busy[desc_num]);
 	cdd->chan_busy[desc_num] = NULL;
 

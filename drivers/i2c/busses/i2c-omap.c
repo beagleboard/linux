@@ -42,6 +42,7 @@
 #include <linux/slab.h>
 #include <linux/i2c-omap.h>
 #include <linux/pm_runtime.h>
+#include <linux/pinctrl/consumer.h>
 
 /* I2C controller revisions */
 #define OMAP_I2C_OMAP1_REV_2		0x20
@@ -102,7 +103,7 @@ enum {
 #define OMAP_I2C_STAT_ROVR	(1 << 11)	/* Receive overrun */
 #define OMAP_I2C_STAT_XUDF	(1 << 10)	/* Transmit underflow */
 #define OMAP_I2C_STAT_AAS	(1 << 9)	/* Address as slave */
-#define OMAP_I2C_STAT_AD0	(1 << 8)	/* Address zero */
+#define OMAP_I2C_STAT_BF	(1 << 8)	/* Bus Free */
 #define OMAP_I2C_STAT_XRDY	(1 << 4)	/* Transmit data ready */
 #define OMAP_I2C_STAT_RRDY	(1 << 3)	/* Receive data ready */
 #define OMAP_I2C_STAT_ARDY	(1 << 2)	/* Register access ready */
@@ -150,16 +151,20 @@ enum {
 #define OMAP_I2C_SCLH_HSSCLH	8
 
 /* I2C System Test Register (OMAP_I2C_SYSTEST): */
-#ifdef DEBUG
 #define OMAP_I2C_SYSTEST_ST_EN		(1 << 15)	/* System test enable */
 #define OMAP_I2C_SYSTEST_FREE		(1 << 14)	/* Free running mode */
 #define OMAP_I2C_SYSTEST_TMODE_MASK	(3 << 12)	/* Test mode select */
 #define OMAP_I2C_SYSTEST_TMODE_SHIFT	(12)		/* Test mode select */
+/* Functional mode */
+#define OMAP_I2C_SYSTEST_SCL_I_FUNC	(1 << 8)	/* SCL line input value */
+#define OMAP_I2C_SYSTEST_SCL_O_FUNC	(1 << 7)	/* SCL line output value */
+#define OMAP_I2C_SYSTEST_SDA_I_FUNC	(1 << 6)	/* SDA line input value */
+#define OMAP_I2C_SYSTEST_SDA_O_FUNC	(1 << 5)	/* SDA line output value */
+/* SDA/SCL IO mode */
 #define OMAP_I2C_SYSTEST_SCL_I		(1 << 3)	/* SCL line sense in */
 #define OMAP_I2C_SYSTEST_SCL_O		(1 << 2)	/* SCL line drive out */
 #define OMAP_I2C_SYSTEST_SDA_I		(1 << 1)	/* SDA line sense in */
 #define OMAP_I2C_SYSTEST_SDA_O		(1 << 0)	/* SDA line drive out */
-#endif
 
 /* OCP_SYSSTATUS bit definitions */
 #define SYSS_RESETDONE_MASK		(1 << 0)
@@ -450,6 +455,73 @@ static int omap_i2c_init(struct omap_i2c_dev *dev)
 	return 0;
 }
 
+static void omap_i2c_clock_pulse(struct omap_i2c_dev *dev)
+{
+	u32 reg;
+	int i;
+
+	/* Enable testmode */
+	reg = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+	reg |= OMAP_I2C_SYSTEST_ST_EN;
+	omap_i2c_write_reg(dev, OMAP_I2C_SYSTEST_REG, reg);
+
+	for (i = 0; i < 9; i++) {
+		reg |= OMAP_I2C_SYSTEST_SCL_O;
+		omap_i2c_write_reg(dev, OMAP_I2C_SYSTEST_REG, reg);
+		mdelay(100);
+		reg &= ~OMAP_I2C_SYSTEST_SCL_O;
+		omap_i2c_write_reg(dev, OMAP_I2C_SYSTEST_REG, reg);
+		mdelay(100);
+	}
+
+	/* Disable testmode */
+	reg &= ~OMAP_I2C_SYSTEST_ST_EN;
+	omap_i2c_write_reg(dev, OMAP_I2C_SYSTEST_REG, reg);
+}
+
+static void omap_i2c_bus_recover(struct omap_i2c_dev *dev)
+{
+	u32 reg1;
+	u32 reg2;
+
+	/*
+	 * First differentiate SCL stuck low from SDA stuck low using our
+	 * SYSTEST register. Depending on which line is stuck low, we will
+	 * either Reset our I2C IP (SCL stuck low) or drive 9 clock pulses on
+	 * SCL (SDA stuck low) to tell the device to release the bus.
+	 *
+	 * If, after 9 clock pulses on SCL device still doesn't release the
+	 * bus, there's nothing more we can do; we will still try to Reset
+	 * our I2C IP anyway.
+	 */
+
+	reg1 = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+	usleep_range(1000, 2000);
+	reg2 = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+
+	if (!(reg1 & OMAP_I2C_SYSTEST_SCL_I_FUNC) &&
+			!(reg2 & OMAP_I2C_SYSTEST_SCL_I_FUNC)) {
+		dev_err(dev->dev, "SCL is stuck low, resetting\n");
+		omap_i2c_reset(dev);
+	}
+
+	if (!(reg1 & OMAP_I2C_SYSTEST_SDA_I_FUNC) &&
+			!(reg2 & OMAP_I2C_SYSTEST_SDA_I_FUNC)) {
+		dev_err(dev->dev, "SDA is stuck low, driving 9 pulses on SCL\n");
+		omap_i2c_clock_pulse(dev);
+
+		reg1 = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+		usleep_range(1000, 2000);
+		reg2 = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+
+		if ((reg1 & OMAP_I2C_SYSTEST_SDA_I_FUNC) &&
+				(reg2 & OMAP_I2C_SYSTEST_SDA_I_FUNC)) {
+			dev_err(dev->dev, "SDA still stuck, resetting\n");
+			omap_i2c_reset(dev);
+		}
+	}
+}
+
 /*
  * Waiting on Bus Busy
  */
@@ -460,8 +532,8 @@ static int omap_i2c_wait_for_bb(struct omap_i2c_dev *dev)
 	timeout = jiffies + OMAP_I2C_TIMEOUT;
 	while (omap_i2c_read_reg(dev, OMAP_I2C_STAT_REG) & OMAP_I2C_STAT_BB) {
 		if (time_after(jiffies, timeout)) {
-			dev_warn(dev->dev, "timeout waiting for bus ready\n");
-			return -ETIMEDOUT;
+			omap_i2c_bus_recover(dev);
+			return 0;
 		}
 		msleep(1);
 	}
@@ -1309,6 +1381,8 @@ static int omap_i2c_runtime_suspend(struct device *dev)
 		omap_i2c_read_reg(_dev, OMAP_I2C_STAT_REG);
 	}
 
+	pinctrl_pm_select_sleep_state(dev);
+
 	return 0;
 }
 
@@ -1319,6 +1393,8 @@ static int omap_i2c_runtime_resume(struct device *dev)
 
 	if (!_dev->regs)
 		return 0;
+
+	pinctrl_pm_select_default_state(dev);
 
 	__omap_i2c_init(_dev);
 

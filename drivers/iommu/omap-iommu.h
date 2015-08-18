@@ -10,6 +10,9 @@
  * published by the Free Software Foundation.
  */
 
+#ifndef _OMAP_IOMMU_H
+#define _OMAP_IOMMU_H
+
 #if defined(CONFIG_ARCH_OMAP1)
 #error "iommu for this processor not implemented yet"
 #endif
@@ -28,13 +31,12 @@ struct iotlb_entry {
 
 struct omap_iommu {
 	const char	*name;
-	struct module	*owner;
 	void __iomem	*regbase;
+	void __iomem	*syscfgbase;
 	struct device	*dev;
 	void		*isr_priv;
 	struct iommu_domain *domain;
 
-	unsigned int	refcount;
 	spinlock_t	iommu_lock;	/* global for this whole object */
 
 	/*
@@ -52,6 +54,14 @@ struct omap_iommu {
 	void *ctx; /* iommu context: registres saved area */
 	u32 da_start;
 	u32 da_end;
+
+	struct cr_regs *cr_ctx;
+	u32 num_cr_ctx;
+
+	int has_bus_err_back;
+	u32 id;
+
+	u8 pwrst;
 };
 
 struct cr_regs {
@@ -73,8 +83,6 @@ struct cr_regs {
 
 /* architecture specific functions */
 struct iommu_functions {
-	unsigned long	version;
-
 	int (*enable)(struct omap_iommu *obj);
 	void (*disable)(struct omap_iommu *obj);
 	void (*set_twl)(struct omap_iommu *obj, bool on);
@@ -98,7 +106,6 @@ struct iommu_functions {
 	ssize_t (*dump_ctx)(struct omap_iommu *obj, char *buf, ssize_t len);
 };
 
-#ifdef CONFIG_IOMMU_API
 /**
  * dev_to_omap_iommu() - retrieves an omap iommu object from a user device
  * @dev: iommu client device
@@ -109,7 +116,6 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 
 	return arch_data->iommu_dev;
 }
-#endif
 
 /*
  * MMU Register offsets
@@ -130,6 +136,7 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 #define MMU_READ_CAM		0x68
 #define MMU_READ_RAM		0x6c
 #define MMU_EMU_FAULT_AD	0x70
+#define MMU_GP_REG		0x88
 
 #define MMU_REG_SIZE		256
 
@@ -163,6 +170,21 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 #define MMU_RAM_MIXED_MASK	(1 << MMU_RAM_MIXED_SHIFT)
 #define MMU_RAM_MIXED		MMU_RAM_MIXED_MASK
 
+#define MMU_GP_REG_BUS_ERR_BACK_EN	0x1
+
+/*
+ * DSP_SYSTEM registers (applicable only for DRA7xx DSP)
+ */
+#define DSP_SYS_REVISION	0x00
+#define DSP_SYS_HWINFO		0x04
+#define DSP_SYS_MMU_CONFIG	0x18
+
+/*
+ * DSP_SYSTEM registers bit definitions (applicable only for DRA7xx DSP)
+ */
+#define DSP_SYS_HWINFO_NUM_MASK	0xF
+#define DSP_SYS_MMU_EN_SHIFT	4
+
 /*
  * utilities for super page(16MB, 1MB, 64KB and 4KB)
  */
@@ -190,15 +212,10 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 /*
  * global functions
  */
-extern u32 omap_iommu_arch_version(void);
-
 extern void omap_iotlb_cr_to_e(struct cr_regs *cr, struct iotlb_entry *e);
 
 extern int
 omap_iopgtable_store_entry(struct omap_iommu *obj, struct iotlb_entry *e);
-
-extern void omap_iommu_save_ctx(struct device *dev);
-extern void omap_iommu_restore_ctx(struct device *dev);
 
 extern int omap_foreach_iommu_device(void *data,
 				int (*fn)(struct device *, void *));
@@ -223,3 +240,5 @@ static inline void iommu_write_reg(struct omap_iommu *obj, u32 val, size_t offs)
 {
 	__raw_writel(val, obj->regbase + offs);
 }
+
+#endif /* _OMAP_IOMMU_H */

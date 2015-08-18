@@ -211,6 +211,25 @@ void omap2_init_clk_clkdm(struct clk_hw *hw)
 }
 
 /**
+ * omap2_init_dpll_clkdm - setup DPLL sink clockdomain
+ * @dd: DPLL data pointer
+ * @np: device node pointer describing the DPLL
+ *
+ * Sets up DPLL sink clkdm, if available. This is only required for
+ * fixing J6 errata i810. No return value.
+ */
+void omap2_init_dpll_clkdm(struct dpll_data *dd, struct device_node *np)
+{
+	struct device_node *clkdm;
+
+	clkdm = of_parse_phandle(np, "ti,sink-clkdm", 0);
+	if (!clkdm)
+		return;
+
+	dd->sink_clkdm = clkdm_lookup(clkdm->name);
+}
+
+/**
  * omap2_clk_disable_clkdm_control - disable clkdm control on clk enable/disable
  *
  * Prevent the OMAP clock code from calling into the clockdomain code

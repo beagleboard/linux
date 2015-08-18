@@ -33,6 +33,7 @@ static const struct clk_ops omap_gate_clkdm_clk_ops = {
 	.init		= &omap2_init_clk_clkdm,
 	.enable		= &omap2_clkops_enable_clkdm,
 	.disable	= &omap2_clkops_disable_clkdm,
+	.restore_context = clk_dflt_restore_context,
 };
 
 static const struct clk_ops omap_gate_clk_ops = {
@@ -40,6 +41,7 @@ static const struct clk_ops omap_gate_clk_ops = {
 	.enable		= &omap2_dflt_clk_enable,
 	.disable	= &omap2_dflt_clk_disable,
 	.is_enabled	= &omap2_dflt_clk_is_enabled,
+	.restore_context = clk_dflt_restore_context,
 };
 
 static const struct clk_ops omap_gate_clk_hsdiv_restore_ops = {
@@ -47,6 +49,7 @@ static const struct clk_ops omap_gate_clk_hsdiv_restore_ops = {
 	.enable		= &omap36xx_gate_clk_enable_with_hsdiv_restore,
 	.disable	= &omap2_dflt_clk_disable,
 	.is_enabled	= &omap2_dflt_clk_is_enabled,
+	.restore_context = clk_dflt_restore_context,
 };
 
 /**
@@ -185,7 +188,7 @@ of_ti_composite_no_wait_gate_clk_setup(struct device_node *node)
 CLK_OF_DECLARE(ti_composite_no_wait_gate_clk, "ti,composite-no-wait-gate-clock",
 	       of_ti_composite_no_wait_gate_clk_setup);
 
-#ifdef CONFIG_ARCH_OMAP3
+#if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 static void __init of_ti_composite_interface_clk_setup(struct device_node *node)
 {
 	_of_ti_composite_gate_clk_setup(node, &clkhwops_iclk_wait);
@@ -221,7 +224,7 @@ static void __init of_ti_gate_clk_setup(struct device_node *node)
 {
 	_of_ti_gate_clk_setup(node, &omap_gate_clk_ops, NULL);
 }
-CLK_OF_DECLARE(ti_gate_clk, "ti,gate-clock", of_ti_gate_clk_setup)
+CLK_OF_DECLARE(ti_gate_clk, "ti,gate-clock", of_ti_gate_clk_setup);
 
 static void __init of_ti_wait_gate_clk_setup(struct device_node *node)
 {

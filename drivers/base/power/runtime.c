@@ -381,13 +381,14 @@ static int rpm_callback(int (*cb)(struct device *), struct device *dev)
  * or wait for it to finish, depending on the RPM_NOWAIT and RPM_ASYNC
  * flags. If the RPM_ASYNC flag is set then queue a suspend request;
  * otherwise run the ->runtime_suspend() callback directly. When
- * ->runtime_suspend succeeded, if a deferred resume was requested while
- * the callback was running then carry it out, otherwise send an idle
- * notification for its parent (if the suspend succeeded and both
- * ignore_children of parent->power and irq_safe of dev->power are not set).
- * If ->runtime_suspend failed with -EAGAIN or -EBUSY, and if the RPM_AUTO
- * flag is set and the next autosuspend-delay expiration time is in the
- * future, schedule another autosuspend attempt.
+ * ->runtime_suspend succeeded, if a deferred resume was requested
+ * while the callback was running then carry it out, otherwise send an
+ * idle notification for its parent (if the suspend succeeded,
+ * ignore_children of parent->power is not set and irq_safe of
+ * parent->power is set or irq_safe of dev->power is not set).  If
+ * ->runtime_suspend failed with -EAGAIN or -EBUSY, and if the
+ * RPM_AUTO flag is set and the next autosuspend-delay expiration time
+ * is in the future, schedule another autosuspend attempt.
  *
  * This function must be called under dev->power.lock with interrupts disabled.
  */
@@ -528,7 +529,8 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 	}
 
 	/* Maybe the parent is now able to suspend. */
-	if (parent && !parent->power.ignore_children && !dev->power.irq_safe) {
+	if (parent && !parent->power.ignore_children &&
+	    (!dev->power.irq_safe || parent->power.irq_safe)) {
 		spin_unlock(&dev->power.lock);
 
 		spin_lock(&parent->power.lock);
@@ -688,12 +690,13 @@ static int rpm_resume(struct device *dev, int rpmflags)
 
 	if (!parent && dev->parent) {
 		/*
-		 * Increment the parent's usage counter and resume it if
-		 * necessary.  Not needed if dev is irq-safe; then the
-		 * parent is permanently resumed.
+		 * Increment the parent's usage counter and resume it
+		 * if necessary.  Not needed if dev is irq-safe and
+		 * its paret is not; then the parent is permanently
+		 * resumed.
 		 */
 		parent = dev->parent;
-		if (dev->power.irq_safe)
+		if (dev->power.irq_safe && !parent->power.irq_safe)
 			goto skip_parent;
 		spin_unlock(&dev->power.lock);
 
@@ -754,7 +757,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 		rpm_idle(dev, RPM_ASYNC);
 
  out:
-	if (parent && !dev->power.irq_safe) {
+	if (parent && (!dev->power.irq_safe || parent->power.irq_safe)) {
 		spin_unlock_irq(&dev->power.lock);
 
 		pm_runtime_put(parent);
@@ -1260,15 +1263,17 @@ EXPORT_SYMBOL_GPL(pm_runtime_no_callbacks);
  * @dev: Device to handle
  *
  * Set the power.irq_safe flag, which tells the PM core that the
- * ->runtime_suspend() and ->runtime_resume() callbacks for this device should
- * always be invoked with the spinlock held and interrupts disabled.  It also
- * causes the parent's usage counter to be permanently incremented, preventing
- * the parent from runtime suspending -- otherwise an irq-safe child might have
- * to wait for a non-irq-safe parent.
+ * ->runtime_suspend() and ->runtime_resume() callbacks for this
+ * device should always be invoked with the spinlock held and
+ * interrupts disabled.  It also causes the parent's usage counter to
+ * be permanently incremented if the parent's power.irq_safe flag is
+ * not set, preventing a non-irq-safe parent from runtime suspending
+ * -- otherwise an irq-safe child might have to wait for a
+ * non-irq-safe parent.
  */
 void pm_runtime_irq_safe(struct device *dev)
 {
-	if (dev->parent)
+	if (dev->parent && !dev->parent->power.irq_safe)
 		pm_runtime_get_sync(dev->parent);
 	spin_lock_irq(&dev->power.lock);
 	dev->power.irq_safe = 1;
@@ -1398,6 +1403,6 @@ void pm_runtime_remove(struct device *dev)
 	/* Change the status back to 'suspended' to match the initial status. */
 	if (dev->power.runtime_status == RPM_ACTIVE)
 		pm_runtime_set_suspended(dev);
-	if (dev->power.irq_safe && dev->parent)
+	if (dev->power.irq_safe && dev->parent && !dev->parent->power.irq_safe)
 		pm_runtime_put(dev->parent);
 }

@@ -1,0 +1,118 @@
+/*
+ * Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* AM43x EPOS EVM with HDMI output */
+
+#include "am43x-epos-evm.dts"
+#include "dt-bindings/sound/sii9022-audio.h"
+
+/ {
+	aliases {
+		display0 = &hdmi;
+	};
+
+	hdmi: connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "b";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&sii9022_out>;
+			};
+		};
+	};
+
+	sound@1 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HDMI";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&hdmi_dailink_master>;
+		simple-audio-card,frame-master = <&hdmi_dailink_master>;
+		hdmi_dailink_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp1>;
+			system-clock-frequency = <24000000>;
+			system-clock-direction = "out";
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&sii9022>;
+			system-clock-frequency = <12000000>;
+		};
+	};
+};
+
+&lcd_bl {
+	status = "disabled";
+};
+
+&sound0 {
+	status = "disabled";
+};
+
+&am43xx_pinmux {
+	sii9022_pins: sii9022_pins {
+		pinctrl-single,pins = <
+			0x48 (PIN_INPUT | MUX_MODE7)	/* gpmc_a2.gpio1_18 */
+		>;
+	};
+};
+
+&i2c2 {
+	sii9022: sii9022@3b {
+		#sound-dai-cells = <0>;
+		compatible = "sil,sii9022";
+		reg = <0x3b>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&sii9022_pins>;
+
+		i2s-fifo-routing = <
+			(ENABLE_BIT|CONNECT_SD0)
+			0
+			0
+			0
+		>;
+
+		reset-gpio = <&gpio2 1 GPIO_ACTIVE_LOW>;/* 65'SelLCDorHDMI' Gpio, LOW to select HDMI */
+
+		interrupt-parent = <&gpio1>;
+		interrupts = <18 IRQ_TYPE_LEVEL_LOW>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				sii9022_in: endpoint {
+					remote-endpoint = <&dpi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				sii9022_out: endpoint {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
+};
+
+&dss {
+	port {
+		dpi_out: endpoint@0 {
+			remote-endpoint = <&sii9022_in>;
+			data-lines = <24>;
+		};
+	};
+};

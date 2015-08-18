@@ -127,5 +127,7 @@ extern int am33xx_prm_is_hardreset_asserted(u8 shift, s16 inst,
 extern int am33xx_prm_assert_hardreset(u8 shift, s16 inst, u16 rstctrl_offs);
 extern int am33xx_prm_deassert_hardreset(u8 shift, u8 st_shift, s16 inst,
 		u16 rstctrl_offs, u16 rstst_offs);
+void am43xx_prm_save_context(void);
+void am43xx_prm_restore_context(void);
 #endif /* ASSEMBLER */
 #endif

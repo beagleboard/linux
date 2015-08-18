@@ -427,10 +427,9 @@ int sm_interrupt_dsp(struct bridge_dev_context *dev_context, u16 mb_val)
 		dsp_clock_enable_all(dev_context->dsp_per_clks);
 	}
 
-	status = omap_mbox_msg_send(dev_context->mbox, mb_val);
-
-	if (status) {
-		pr_err("omap_mbox_msg_send Fail and status = %d\n", status);
+	status = mbox_send_message(dev_context->mbox, (void *)((u32)mb_val));
+	if (status < 0) {
+		pr_err("mbox_send_message failed, status = %d\n", status);
 		status = -EPERM;
 	}
 

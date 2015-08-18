@@ -170,6 +170,7 @@
 &mcbsp2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcbsp2_pins>;
+	status = "okay";
 };
 
 &mmc1 {
@@ -177,6 +178,7 @@
       pinctrl-0 = <&mmc1_pins>;
       vmmc-supply = <&vmmc1>;
       vmmc_aux-supply = <&vsim>;
+      pbias-supply = <&pbias_mmc_reg>;
       bus-width = <4>;
 };
 

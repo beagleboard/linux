@@ -61,6 +61,7 @@ enum reg {
 	C_CAN_INTPND2_REG,
 	C_CAN_MSGVAL1_REG,
 	C_CAN_MSGVAL2_REG,
+	C_CAN_FUNCTION_REG,
 };
 
 static const u16 reg_map_c_can[] = {
@@ -112,6 +113,7 @@ static const u16 reg_map_d_can[] = {
 	[C_CAN_BRPEXT_REG]	= 0x0E,
 	[C_CAN_INT_REG]		= 0x10,
 	[C_CAN_TEST_REG]	= 0x14,
+	[C_CAN_FUNCTION_REG]	= 0x18,
 	[C_CAN_TXRQST1_REG]	= 0x88,
 	[C_CAN_TXRQST2_REG]	= 0x8A,
 	[C_CAN_NEWDAT1_REG]	= 0x9C,
@@ -150,6 +152,25 @@ enum c_can_dev_id {
 	BOSCH_D_CAN,
 };
 
+struct c_can_driver_data {
+	enum c_can_dev_id id;
+
+	/* RAMINIT register description. Optional. */
+	u8 num_can;		/* Number of CAN instances on the SoC */
+	u8 *raminit_start_bits;	/* Array of START bit positions */
+	u8 *raminit_done_bits;	/* Array of DONE bit positions */
+	bool raminit_pulse;	/* If set, sets and clears START bit (pulse) */
+};
+
+/* Out of band RAMINIT register access via syscon regmap */
+struct c_can_raminit {
+	struct regmap *syscon;	/* for raminit ctrl. reg. access */
+	unsigned int reg;	/* register index within syscon */
+	u8 start_bit;
+	u8 done_bit;
+	bool needs_pulse;
+};
+
 /* c_can private data structure */
 struct c_can_priv {
 	struct can_priv can;	/* must be the first member */
@@ -159,8 +180,10 @@ struct c_can_priv {
 	int tx_object;
 	int current_status;
 	int last_status;
-	u16 (*read_reg) (struct c_can_priv *priv, enum reg index);
-	void (*write_reg) (struct c_can_priv *priv, enum reg index, u16 val);
+	u16 (*read_reg) (const struct c_can_priv *priv, enum reg index);
+	void (*write_reg) (const struct c_can_priv *priv, enum reg index, u16 val);
+	u32 (*read_reg32) (const struct c_can_priv *priv, enum reg index);
+	void (*write_reg32) (const struct c_can_priv *priv, enum reg index, u32 val);
 	void __iomem *base;
 	const u16 *regs;
 	unsigned long irq_flags; /* for request_irq() */
@@ -169,15 +192,16 @@ struct c_can_priv {
 	void *priv;		/* for board-specific data */
 	u16 irqstatus;
 	enum c_can_dev_id type;
-	u32 __iomem *raminit_ctrlreg;
-	unsigned int instance;
+	struct c_can_raminit raminit_sys;	/* RAMINIT via syscon regmap */
 	void (*raminit) (const struct c_can_priv *priv, bool enable);
+	struct pinctrl *pinctrl;
 };
 
 struct net_device *alloc_c_can_dev(void);
 void free_c_can_dev(struct net_device *dev);
 int register_c_can_dev(struct net_device *dev);
 void unregister_c_can_dev(struct net_device *dev);
+void c_can_pinctrl_select_state(struct net_device *dev, const char *name);
 
 #ifdef CONFIG_PM
 int c_can_power_up(struct net_device *dev);

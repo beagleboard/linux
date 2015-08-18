@@ -1,0 +1,190 @@
+/*
+ * Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ * Based on "omap4.dtsi"
+ */
+
+#include "dra7.dtsi"
+
+/ {
+	compatible = "ti,dra742", "ti,dra74", "ti,dra7";
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a15";
+			reg = <0>;
+
+			operating-points = <
+				/* kHz    uV */
+				1000000	1060000
+				>;
+
+			clocks = <&dpll_mpu_ck>;
+			clock-names = "cpu";
+
+			clock-latency = <300000>; /* From omap-cpufreq driver */
+
+			/* cooling options */
+			cooling-min-level = <0>;
+			cooling-max-level = <2>;
+			#cooling-cells = <2>; /* min followed by max */
+		};
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a15";
+			reg = <1>;
+		};
+	};
+
+	thermal_zones: thermal-zones {
+		#include "omap5-cpu-thermal.dtsi"
+	};
+
+	aliases {
+		rproc0 = &ipu1;
+		rproc1 = &ipu2;
+		rproc2 = &dsp1;
+		rproc3 = &dsp2;
+	};
+
+	ocp {
+		omap_dwc3_4@48940000 {
+			compatible = "ti,dwc3";
+			ti,hwmods = "usb_otg_ss4";
+			reg = <0x48940000 0x10000>;
+			interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			utmi-mode = <2>;
+			ranges;
+			status = "disabled";
+			usb4: usb@48950000 {
+				compatible = "snps,dwc3";
+				reg = <0x48950000 0x17000>;
+				interrupts = <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>;
+				tx-fifo-resize;
+				maximum-speed = "high-speed";
+				dr_mode = "otg";
+			};
+		};
+
+		mmu0_dsp2: mmu@41501000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x41501000 0x100>, <0x41500000 0x100>;
+			reg-names = "mmu_cfg", "dsp_system";
+			interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu0_dsp2";
+			status = "disabled";
+		};
+
+		mmu1_dsp2: mmu@41502000 {
+			compatible = "ti,dra7-iommu";
+			reg = <0x41502000 0x100>, <0x41500000 0x100>;
+			reg-names = "mmu_cfg", "dsp_system";
+			interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "mmu1_dsp2";
+			status = "disabled";
+		};
+
+		dsp2: dsp@41000000 {
+			compatible = "ti,dra7-rproc-dsp";
+			reg = <0x41000000 0x48000>;
+			reg-names = "l2ram";
+			ti,hwmods = "dsp2";
+			iommus = <&mmu0_dsp2>, <&mmu1_dsp2>;
+			ti,rproc-standby-info = <0x4a005620>;
+			status = "disabled";
+		};
+	};
+
+	pmu {
+		compatible = "arm,cortex-a15-pmu";
+		interrupts = <GIC_SPI DIRECT_IRQ(131) IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI DIRECT_IRQ(132) IRQ_TYPE_LEVEL_HIGH>;
+	};
+};
+
+&mailbox1 {
+	mbox_ipu2: mbox_ipu2 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+	mbox_dsp1: mbox_dsp1 {
+		ti,mbox-tx = <3 0 0>;
+		ti,mbox-rx = <2 0 0>;
+		status = "disabled";
+	};
+};
+
+&mailbox2 {
+	mbox_ipu1: mbox_ipu1 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+	mbox_dsp2: mbox_dsp2 {
+		ti,mbox-tx = <2 0 0>;
+		ti,mbox-rx = <3 0 0>;
+		status = "disabled";
+	};
+};
+
+&mailbox3 {
+	mbox_pru1_0: mbox_pru1_0 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+	mbox_pru1_1: mbox_pru1_1 {
+		ti,mbox-tx = <2 0 0>;
+		ti,mbox-rx = <3 0 0>;
+		status = "disabled";
+	};
+};
+
+&mailbox4 {
+	mbox_pru2_0: mbox_pru2_0 {
+		ti,mbox-tx = <0 0 0>;
+		ti,mbox-rx = <1 0 0>;
+		status = "disabled";
+	};
+	mbox_pru2_1: mbox_pru2_1 {
+		ti,mbox-tx = <2 0 0>;
+		ti,mbox-rx = <3 0 0>;
+		status = "disabled";
+	};
+};
+
+&mailbox5 {
+	mbox_ipu1_legacy: mbox_ipu1_legacy {
+		ti,mbox-tx = <6 2 2>;
+		ti,mbox-rx = <4 2 2>;
+		status = "disabled";
+	};
+	mbox_dsp1_legacy: mbox_dsp1_legacy {
+		ti,mbox-tx = <5 2 2>;
+		ti,mbox-rx = <1 2 2>;
+		status = "disabled";
+	};
+};
+
+&mailbox6 {
+	mbox_ipu2_legacy: mbox_ipu2_legacy {
+		ti,mbox-tx = <6 2 2>;
+		ti,mbox-rx = <4 2 2>;
+		status = "disabled";
+	};
+	mbox_dsp2_legacy: mbox_dsp2_legacy {
+		ti,mbox-tx = <5 2 2>;
+		ti,mbox-rx = <1 2 2>;
+		status = "disabled";
+	};
+};

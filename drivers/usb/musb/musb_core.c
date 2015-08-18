@@ -361,23 +361,23 @@ static void musb_otg_timer_func(unsigned long data)
 	unsigned long	flags;
 
 	spin_lock_irqsave(&musb->lock, flags);
-	switch (musb->xceiv->state) {
+	switch (musb->xceiv->otg->state) {
 	case OTG_STATE_B_WAIT_ACON:
 		dev_dbg(musb->controller, "HNP: b_wait_acon timeout; back to b_peripheral\n");
 		musb_g_disconnect(musb);
-		musb->xceiv->state = OTG_STATE_B_PERIPHERAL;
+		musb->xceiv->otg->state = OTG_STATE_B_PERIPHERAL;
 		musb->is_active = 0;
 		break;
 	case OTG_STATE_A_SUSPEND:
 	case OTG_STATE_A_WAIT_BCON:
 		dev_dbg(musb->controller, "HNP: %s timeout\n",
-			usb_otg_state_string(musb->xceiv->state));
+			usb_otg_state_string(musb->xceiv->otg->state));
 		musb_platform_set_vbus(musb, 0);
-		musb->xceiv->state = OTG_STATE_A_WAIT_VFALL;
+		musb->xceiv->otg->state = OTG_STATE_A_WAIT_VFALL;
 		break;
 	default:
 		dev_dbg(musb->controller, "HNP: Unhandled mode %s\n",
-			usb_otg_state_string(musb->xceiv->state));
+			usb_otg_state_string(musb->xceiv->otg->state));
 	}
 	spin_unlock_irqrestore(&musb->lock, flags);
 }
@@ -392,19 +392,19 @@ void musb_hnp_stop(struct musb *musb)
 	u8	reg;
 
 	dev_dbg(musb->controller, "HNP: stop from %s\n",
-			usb_otg_state_string(musb->xceiv->state));
+			usb_otg_state_string(musb->xceiv->otg->state));
 
-	switch (musb->xceiv->state) {
+	switch (musb->xceiv->otg->state) {
 	case OTG_STATE_A_PERIPHERAL:
 		musb_g_disconnect(musb);
 		dev_dbg(musb->controller, "HNP: back to %s\n",
-			usb_otg_state_string(musb->xceiv->state));
+			usb_otg_state_string(musb->xceiv->otg->state));
 		break;
 	case OTG_STATE_B_HOST:
 		dev_dbg(musb->controller, "HNP: Disabling HR\n");
 		if (hcd)
 			hcd->self.is_b_host = 0;
-		musb->xceiv->state = OTG_STATE_B_PERIPHERAL;
+		musb->xceiv->otg->state = OTG_STATE_B_PERIPHERAL;
 		MUSB_DEV_MODE(musb);
 		reg = musb_readb(mbase, MUSB_POWER);
 		reg |= MUSB_POWER_SUSPENDM;
@@ -413,7 +413,7 @@ void musb_hnp_stop(struct musb *musb)
 		break;
 	default:
 		dev_dbg(musb->controller, "HNP: Stopping in unknown state %s\n",
-			usb_otg_state_string(musb->xceiv->state));
+			usb_otg_state_string(musb->xceiv->otg->state));
 	}
 
 	/*
@@ -424,6 +424,7 @@ void musb_hnp_stop(struct musb *musb)
 	musb->port1_status &= ~(USB_PORT_STAT_C_CONNECTION << 16);
 }
 
+static void musb_generic_disable(struct musb *musb);
 /*
  * Interrupt Service Routine to record USB "global" interrupts.
  * Since these do not happen often and signify things of
@@ -450,13 +451,13 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 	 */
 	if (int_usb & MUSB_INTR_RESUME) {
 		handled = IRQ_HANDLED;
-		dev_dbg(musb->controller, "RESUME (%s)\n", usb_otg_state_string(musb->xceiv->state));
+		dev_dbg(musb->controller, "RESUME (%s)\n", usb_otg_state_string(musb->xceiv->otg->state));
 
 		if (devctl & MUSB_DEVCTL_HM) {
 			void __iomem *mbase = musb->mregs;
 			u8 power;
 
-			switch (musb->xceiv->state) {
+			switch (musb->xceiv->otg->state) {
 			case OTG_STATE_A_SUSPEND:
 				/* remote wakeup?  later, GetPortStatus
 				 * will stop RESUME signaling
@@ -479,30 +480,27 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 						| MUSB_PORT_STAT_RESUME;
 				musb->rh_timer = jiffies
 					+ msecs_to_jiffies(USB_RESUME_TIMEOUT);
+				musb->need_finish_resume = 1;
 
-				schedule_delayed_work(
-					&musb->finish_resume_work,
-					msecs_to_jiffies(USB_RESUME_TIMEOUT));
-
-				musb->xceiv->state = OTG_STATE_A_HOST;
+				musb->xceiv->otg->state = OTG_STATE_A_HOST;
 				musb->is_active = 1;
 				musb_host_resume_root_hub(musb);
 				break;
 			case OTG_STATE_B_WAIT_ACON:
-				musb->xceiv->state = OTG_STATE_B_PERIPHERAL;
+				musb->xceiv->otg->state = OTG_STATE_B_PERIPHERAL;
 				musb->is_active = 1;
 				MUSB_DEV_MODE(musb);
 				break;
 			default:
 				WARNING("bogus %s RESUME (%s)\n",
 					"host",
-					usb_otg_state_string(musb->xceiv->state));
+					usb_otg_state_string(musb->xceiv->otg->state));
 			}
 		} else {
-			switch (musb->xceiv->state) {
+			switch (musb->xceiv->otg->state) {
 			case OTG_STATE_A_SUSPEND:
 				/* possibly DISCONNECT is upcoming */
-				musb->xceiv->state = OTG_STATE_A_HOST;
+				musb->xceiv->otg->state = OTG_STATE_A_HOST;
 				musb_host_resume_root_hub(musb);
 				break;
 			case OTG_STATE_B_WAIT_ACON:
@@ -525,7 +523,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 			default:
 				WARNING("bogus %s RESUME (%s)\n",
 					"peripheral",
-					usb_otg_state_string(musb->xceiv->state));
+					usb_otg_state_string(musb->xceiv->otg->state));
 			}
 		}
 	}
@@ -541,7 +539,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 		}
 
 		dev_dbg(musb->controller, "SESSION_REQUEST (%s)\n",
-			usb_otg_state_string(musb->xceiv->state));
+			usb_otg_state_string(musb->xceiv->otg->state));
 
 		/* IRQ arrives from ID pin sense or (later, if VBUS power
 		 * is removed) SRP.  responses are time critical:
@@ -552,7 +550,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 		 */
 		musb_writeb(mbase, MUSB_DEVCTL, MUSB_DEVCTL_SESSION);
 		musb->ep0_stage = MUSB_EP0_START;
-		musb->xceiv->state = OTG_STATE_A_IDLE;
+		musb->xceiv->otg->state = OTG_STATE_A_IDLE;
 		MUSB_HST_MODE(musb);
 		musb_platform_set_vbus(musb, 1);
 
@@ -578,7 +576,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 		 * REVISIT:  do delays from lots of DEBUG_KERNEL checks
 		 * make trouble here, keeping VBUS < 4.4V ?
 		 */
-		switch (musb->xceiv->state) {
+		switch (musb->xceiv->otg->state) {
 		case OTG_STATE_A_HOST:
 			/* recovery is dicey once we've gotten past the
 			 * initial stages of enumeration, but if VBUS
@@ -607,7 +605,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 
 		dev_printk(ignore ? KERN_DEBUG : KERN_ERR, musb->controller,
 				"VBUS_ERROR in %s (%02x, %s), retry #%d, port1 %08x\n",
-				usb_otg_state_string(musb->xceiv->state),
+				usb_otg_state_string(musb->xceiv->otg->state),
 				devctl,
 				({ char *s;
 				switch (devctl & MUSB_DEVCTL_VBUS) {
@@ -632,10 +630,10 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 
 	if (int_usb & MUSB_INTR_SUSPEND) {
 		dev_dbg(musb->controller, "SUSPEND (%s) devctl %02x\n",
-			usb_otg_state_string(musb->xceiv->state), devctl);
+			usb_otg_state_string(musb->xceiv->otg->state), devctl);
 		handled = IRQ_HANDLED;
 
-		switch (musb->xceiv->state) {
+		switch (musb->xceiv->otg->state) {
 		case OTG_STATE_A_PERIPHERAL:
 			/* We also come here if the cable is removed, since
 			 * this silicon doesn't report ID-no-longer-grounded.
@@ -659,7 +657,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 			musb_g_suspend(musb);
 			musb->is_active = musb->g.b_hnp_enable;
 			if (musb->is_active) {
-				musb->xceiv->state = OTG_STATE_B_WAIT_ACON;
+				musb->xceiv->otg->state = OTG_STATE_B_WAIT_ACON;
 				dev_dbg(musb->controller, "HNP: Setting timer for b_ase0_brst\n");
 				mod_timer(&musb->otg_timer, jiffies
 					+ msecs_to_jiffies(
@@ -672,7 +670,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 					+ msecs_to_jiffies(musb->a_wait_bcon));
 			break;
 		case OTG_STATE_A_HOST:
-			musb->xceiv->state = OTG_STATE_A_SUSPEND;
+			musb->xceiv->otg->state = OTG_STATE_A_SUSPEND;
 			musb->is_active = musb->hcd->self.b_hnp_enable;
 			break;
 		case OTG_STATE_B_HOST:
@@ -715,7 +713,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 			musb->port1_status |= USB_PORT_STAT_LOW_SPEED;
 
 		/* indicate new connection to OTG machine */
-		switch (musb->xceiv->state) {
+		switch (musb->xceiv->otg->state) {
 		case OTG_STATE_B_PERIPHERAL:
 			if (int_usb & MUSB_INTR_SUSPEND) {
 				dev_dbg(musb->controller, "HNP: SUSPEND+CONNECT, now b_host\n");
@@ -727,7 +725,7 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb,
 		case OTG_STATE_B_WAIT_ACON:
 			dev_dbg(musb->controller, "HNP: CONNECT, now b_host\n");
 b_host:
-			musb->xceiv->state = OTG_STATE_B_HOST;
+			musb->xceiv->otg->state = OTG_STATE_B_HOST;
 			if (musb->hcd)
 				musb->hcd->self.is_b_host = 1;
 			del_timer(&musb->otg_timer);
@@ -735,7 +733,7 @@ b_host:
 		default:
 			if ((devctl & MUSB_DEVCTL_VBUS)
 					== (3 << MUSB_DEVCTL_VBUS_SHIFT)) {
-				musb->xceiv->state = OTG_STATE_A_HOST;
+				musb->xceiv->otg->state = OTG_STATE_A_HOST;
 				if (hcd)
 					hcd->self.is_b_host = 0;
 			}
@@ -745,16 +743,16 @@ b_host:
 		musb_host_poke_root_hub(musb);
 
 		dev_dbg(musb->controller, "CONNECT (%s) devctl %02x\n",
-				usb_otg_state_string(musb->xceiv->state), devctl);
+				usb_otg_state_string(musb->xceiv->otg->state), devctl);
 	}
 
 	if (int_usb & MUSB_INTR_DISCONNECT) {
 		dev_dbg(musb->controller, "DISCONNECT (%s) as %s, devctl %02x\n",
-				usb_otg_state_string(musb->xceiv->state),
+				usb_otg_state_string(musb->xceiv->otg->state),
 				MUSB_MODE(musb), devctl);
 		handled = IRQ_HANDLED;
 
-		switch (musb->xceiv->state) {
+		switch (musb->xceiv->otg->state) {
 		case OTG_STATE_A_HOST:
 		case OTG_STATE_A_SUSPEND:
 			musb_host_resume_root_hub(musb);
@@ -772,7 +770,7 @@ b_host:
 			musb_root_disconnect(musb);
 			if (musb->hcd)
 				musb->hcd->self.is_b_host = 0;
-			musb->xceiv->state = OTG_STATE_B_PERIPHERAL;
+			musb->xceiv->otg->state = OTG_STATE_B_PERIPHERAL;
 			MUSB_DEV_MODE(musb);
 			musb_g_disconnect(musb);
 			break;
@@ -788,7 +786,7 @@ b_host:
 			break;
 		default:
 			WARNING("unhandled DISCONNECT transition (%s)\n",
-				usb_otg_state_string(musb->xceiv->state));
+				usb_otg_state_string(musb->xceiv->otg->state));
 			break;
 		}
 	}
@@ -814,15 +812,15 @@ b_host:
 			}
 		} else {
 			dev_dbg(musb->controller, "BUS RESET as %s\n",
-				usb_otg_state_string(musb->xceiv->state));
-			switch (musb->xceiv->state) {
+				usb_otg_state_string(musb->xceiv->otg->state));
+			switch (musb->xceiv->otg->state) {
 			case OTG_STATE_A_SUSPEND:
 				musb_g_reset(musb);
 				/* FALLTHROUGH */
 			case OTG_STATE_A_WAIT_BCON:	/* OPT TD.4.7-900ms */
 				/* never use invalid T(a_wait_bcon) */
 				dev_dbg(musb->controller, "HNP: in %s, %d msec timeout\n",
-					usb_otg_state_string(musb->xceiv->state),
+					usb_otg_state_string(musb->xceiv->otg->state),
 					TA_WAIT_BCON(musb));
 				mod_timer(&musb->otg_timer, jiffies
 					+ msecs_to_jiffies(TA_WAIT_BCON(musb)));
@@ -833,21 +831,28 @@ b_host:
 				break;
 			case OTG_STATE_B_WAIT_ACON:
 				dev_dbg(musb->controller, "HNP: RESET (%s), to b_peripheral\n",
-					usb_otg_state_string(musb->xceiv->state));
-				musb->xceiv->state = OTG_STATE_B_PERIPHERAL;
+					usb_otg_state_string(musb->xceiv->otg->state));
+				musb->xceiv->otg->state = OTG_STATE_B_PERIPHERAL;
 				musb_g_reset(musb);
 				break;
 			case OTG_STATE_B_IDLE:
-				musb->xceiv->state = OTG_STATE_B_PERIPHERAL;
+				musb->xceiv->otg->state = OTG_STATE_B_PERIPHERAL;
 				/* FALLTHROUGH */
 			case OTG_STATE_B_PERIPHERAL:
 				musb_g_reset(musb);
 				break;
 			default:
 				dev_dbg(musb->controller, "Unhandled BUS RESET as %s\n",
-					usb_otg_state_string(musb->xceiv->state));
+					usb_otg_state_string(musb->xceiv->otg->state));
 			}
 		}
+	}
+
+	/* handle babble condition */
+	if (int_usb & MUSB_INTR_BABBLE && is_host_active(musb)) {
+		musb_generic_disable(musb);
+		schedule_delayed_work(&musb->recover_work,
+				      msecs_to_jiffies(100));
 	}
 
 #if 0
@@ -1515,7 +1520,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 
 	dev_dbg(musb->controller, "** IRQ %s usb%04x tx%04x rx%04x\n",
-		(devctl & MUSB_DEVCTL_HM) ? "host" : "peripheral",
+		is_host_active(musb) ? "host" : "peripheral",
 		musb->int_usb, musb->int_tx, musb->int_rx);
 
 	/* the core can interrupt us for multiple reasons; docs have
@@ -1529,7 +1534,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 
 	/* handle endpoint 0 first */
 	if (musb->int_tx & 1) {
-		if (devctl & MUSB_DEVCTL_HM)
+		if (is_host_active(musb))
 			retval |= musb_h_ep0_irq(musb);
 		else
 			retval |= musb_g_ep0_irq(musb);
@@ -1543,7 +1548,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 			/* musb_ep_select(musb->mregs, ep_num); */
 			/* REVISIT just retval = ep->rx_irq(...) */
 			retval = IRQ_HANDLED;
-			if (devctl & MUSB_DEVCTL_HM)
+			if (is_host_active(musb))
 				musb_host_rx(musb, ep_num);
 			else
 				musb_g_rx(musb, ep_num);
@@ -1561,7 +1566,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 			/* musb_ep_select(musb->mregs, ep_num); */
 			/* REVISIT just retval |= ep->tx_irq(...) */
 			retval = IRQ_HANDLED;
-			if (devctl & MUSB_DEVCTL_HM)
+			if (is_host_active(musb))
 				musb_host_tx(musb, ep_num);
 			else
 				musb_g_tx(musb, ep_num);
@@ -1583,15 +1588,13 @@ MODULE_PARM_DESC(use_dma, "enable/disable use of DMA");
 
 void musb_dma_completion(struct musb *musb, u8 epnum, u8 transmit)
 {
-	u8	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
-
 	/* called with controller lock already held */
 
 	if (!epnum) {
 #ifndef CONFIG_USB_TUSB_OMAP_DMA
 		if (!is_cppi_enabled()) {
 			/* endpoint 0 */
-			if (devctl & MUSB_DEVCTL_HM)
+			if (is_host_active(musb))
 				musb_h_ep0_irq(musb);
 			else
 				musb_g_ep0_irq(musb);
@@ -1600,13 +1603,13 @@ void musb_dma_completion(struct musb *musb, u8 epnum, u8 transmit)
 	} else {
 		/* endpoints 1..15 */
 		if (transmit) {
-			if (devctl & MUSB_DEVCTL_HM)
+			if (is_host_active(musb))
 				musb_host_tx(musb, epnum);
 			else
 				musb_g_tx(musb, epnum);
 		} else {
 			/* receive */
-			if (devctl & MUSB_DEVCTL_HM)
+			if (is_host_active(musb))
 				musb_host_rx(musb, epnum);
 			else
 				musb_g_rx(musb, epnum);
@@ -1629,7 +1632,7 @@ musb_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 	int ret = -EINVAL;
 
 	spin_lock_irqsave(&musb->lock, flags);
-	ret = sprintf(buf, "%s\n", usb_otg_state_string(musb->xceiv->state));
+	ret = sprintf(buf, "%s\n", usb_otg_state_string(musb->xceiv->otg->state));
 	spin_unlock_irqrestore(&musb->lock, flags);
 
 	return ret;
@@ -1674,7 +1677,7 @@ musb_vbus_store(struct device *dev, struct device_attribute *attr,
 	spin_lock_irqsave(&musb->lock, flags);
 	/* force T(a_wait_bcon) to be zero/unlimited *OR* valid */
 	musb->a_wait_bcon = val ? max_t(int, val, OTG_TIME_A_WAIT_BCON) : 0 ;
-	if (musb->xceiv->state == OTG_STATE_A_WAIT_BCON)
+	if (musb->xceiv->otg->state == OTG_STATE_A_WAIT_BCON)
 		musb->is_active = 0;
 	musb_platform_try_idle(musb, jiffies + msecs_to_jiffies(val));
 	spin_unlock_irqrestore(&musb->lock, flags);
@@ -1742,10 +1745,40 @@ static void musb_irq_work(struct work_struct *data)
 {
 	struct musb *musb = container_of(data, struct musb, irq_work);
 
-	if (musb->xceiv->state != musb->xceiv_old_state) {
-		musb->xceiv_old_state = musb->xceiv->state;
+	if (musb->xceiv->otg->state != musb->xceiv_old_state) {
+		musb->xceiv_old_state = musb->xceiv->otg->state;
 		sysfs_notify(&musb->controller->kobj, NULL, "mode");
 	}
+}
+
+/* Recover from babble interrupt conditions */
+static void musb_recover_work(struct work_struct *data)
+{
+	struct musb *musb = container_of(data, struct musb, recover_work.work);
+	int status, ret;
+
+	ret  = musb_platform_reset(musb);
+	if (ret)
+		return;
+
+	usb_phy_vbus_off(musb->xceiv);
+	usleep_range(100, 200);
+
+	usb_phy_vbus_on(musb->xceiv);
+	usleep_range(100, 200);
+
+	/*
+	 * When a babble condition occurs, the musb controller
+	 * removes the session bit and the endpoint config is lost.
+	 */
+	if (musb->dyn_fifo)
+		status = ep_config_from_table(musb);
+	else
+		status = ep_config_from_hw(musb);
+
+	/* start the session again */
+	if (status == 0)
+		musb_start(musb);
 }
 
 /* --------------------------------------------------------------------------
@@ -1915,6 +1948,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 
 	/* Init IRQ workqueue before request_irq */
 	INIT_WORK(&musb->irq_work, musb_irq_work);
+	INIT_DELAYED_WORK(&musb->recover_work, musb_recover_work);
 	INIT_DELAYED_WORK(&musb->deassert_reset_work, musb_deassert_reset);
 	INIT_DELAYED_WORK(&musb->finish_resume_work, musb_host_finish_resume);
 
@@ -1951,10 +1985,10 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 
 	if (musb->xceiv->otg->default_a) {
 		MUSB_HST_MODE(musb);
-		musb->xceiv->state = OTG_STATE_A_IDLE;
+		musb->xceiv->otg->state = OTG_STATE_A_IDLE;
 	} else {
 		MUSB_DEV_MODE(musb);
-		musb->xceiv->state = OTG_STATE_B_IDLE;
+		musb->xceiv->otg->state = OTG_STATE_B_IDLE;
 	}
 
 	switch (musb->port_mode) {
@@ -2010,6 +2044,7 @@ fail4:
 
 fail3:
 	cancel_work_sync(&musb->irq_work);
+	cancel_delayed_work_sync(&musb->recover_work);
 	cancel_delayed_work_sync(&musb->finish_resume_work);
 	cancel_delayed_work_sync(&musb->deassert_reset_work);
 	if (musb->dma_controller)
@@ -2075,6 +2110,7 @@ static int musb_remove(struct platform_device *pdev)
 		dma_controller_destroy(musb->dma_controller);
 
 	cancel_work_sync(&musb->irq_work);
+	cancel_delayed_work_sync(&musb->recover_work);
 	cancel_delayed_work_sync(&musb->finish_resume_work);
 	cancel_delayed_work_sync(&musb->deassert_reset_work);
 	musb_free(musb);
@@ -2263,9 +2299,11 @@ static int musb_suspend(struct device *dev)
 	return 0;
 }
 
-static int musb_resume_noirq(struct device *dev)
+static int musb_resume(struct device *dev)
 {
 	struct musb	*musb = dev_to_musb(dev);
+	u8		devctl;
+	u8		mask;
 
 	/*
 	 * For static cmos like DaVinci, register values were preserved
@@ -2279,6 +2317,23 @@ static int musb_resume_noirq(struct device *dev)
 
 	musb_restore_context(musb);
 
+	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+	mask = MUSB_DEVCTL_BDEVICE | MUSB_DEVCTL_FSDEV | MUSB_DEVCTL_LSDEV;
+	if ((devctl & mask) != (musb->context.devctl & mask))
+		musb->port1_status = 0;
+	if (musb->need_finish_resume) {
+		musb->need_finish_resume = 0;
+		schedule_delayed_work(&musb->finish_resume_work,
+				      msecs_to_jiffies(USB_RESUME_TIMEOUT));
+	}
+
+	/*
+	 * The USB HUB code expects the device to be in RPM_ACTIVE once it came
+	 * out of suspend
+	 */
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
 	return 0;
 }
 
@@ -2309,12 +2364,18 @@ static int musb_runtime_resume(struct device *dev)
 		musb_restore_context(musb);
 	first = 0;
 
+	if (musb->need_finish_resume) {
+		musb->need_finish_resume = 0;
+		schedule_delayed_work(&musb->finish_resume_work,
+				msecs_to_jiffies(USB_RESUME_TIMEOUT));
+	}
+
 	return 0;
 }
 
 static const struct dev_pm_ops musb_dev_pm_ops = {
 	.suspend	= musb_suspend,
-	.resume_noirq	= musb_resume_noirq,
+	.resume		= musb_resume,
 	.runtime_suspend = musb_runtime_suspend,
 	.runtime_resume = musb_runtime_resume,
 };

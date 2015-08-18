@@ -20,6 +20,30 @@
 		reg = <0x80000000 0x7F000000>; /* 2032 MB */
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		dsp_cma_pool: dsp_cma@95000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x95000000 0x800000>;
+			reusable;
+			status = "okay";
+		};
+
+		ipu_cma_pool: ipu_cma@95800000 {
+			compatible = "shared-dma-pool";
+			reg = <0x95800000 0x3800000>;
+			reusable;
+			status = "okay";
+		};
+	};
+
+	aliases {
+		display0 = &hdmi0;
+	};
+
 	vmmcsd_fixed: fixedregulator-mmcsd {
 		compatible = "regulator-fixed";
 		regulator-name = "vmmcsd_fixed";
@@ -31,12 +55,8 @@
 	hsusb2_phy: hsusb2_phy {
 		compatible = "usb-nop-xceiv";
 		reset-gpios = <&gpio3 16 GPIO_ACTIVE_LOW>; /* gpio3_80 HUB_NRESET */
-	/**
-	  * FIXME
-	  * Put the right clock phandle here when available
-	  *	clocks = <&auxclk1>;
-	  *	clock-names = "main_clk";
-	  */
+		clocks = <&auxclk1_ck>;
+		clock-names = "main_clk";
 		clock-frequency = <19200000>;
 	};
 
@@ -53,6 +73,51 @@
 			gpios = <&gpio5 25 GPIO_ACTIVE_HIGH>; /* gpio5_153 D1 LED */
 			linux,default-trigger = "heartbeat";
 			default-state = "off";
+		};
+	};
+
+	tpd12s015: encoder@0 {
+		compatible = "ti,tpd12s015";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&tpd12s015_pins>;
+
+		gpios = <&gpio9 0 GPIO_ACTIVE_HIGH>,	/* TCA6424A P01, CT CP HPD */
+			<&gpio9 1 GPIO_ACTIVE_HIGH>,	/* TCA6424A P00, LS OE */
+			<&gpio7 1 GPIO_ACTIVE_HIGH>;	/* GPIO 193, HPD */
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				tpd12s015_in: endpoint@0 {
+					remote-endpoint = <&hdmi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				tpd12s015_out: endpoint@0 {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
+
+	hdmi0: connector@0 {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "b";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&tpd12s015_out>;
+			};
 		};
 	};
 };
@@ -187,6 +252,19 @@
 		>;
 	};
 
+	dss_hdmi_pins: pinmux_dss_hdmi_pins {
+		pinctrl-single,pins = <
+			0x0fc (PIN_INPUT_PULLUP | MUX_MODE0)	/* hdmi_cec.hdmi_cec */
+			0x100 (PIN_INPUT | MUX_MODE0)	/* hdmi_ddc_scl.hdmi_ddc_scl */
+			0x102 (PIN_INPUT | MUX_MODE0)	/* hdmi_ddc_sda.hdmi_ddc_sda */
+		>;
+	};
+
+	tpd12s015_pins: pinmux_tpd12s015_pins {
+		pinctrl-single,pins = <
+			0x0fe (PIN_INPUT_PULLDOWN | MUX_MODE6)	/* hdmi_hpd.gpio7_193 */
+		>;
+	};
 };
 
 &omap5_pmx_wkup {
@@ -204,6 +282,7 @@
 
 &mmc1 {
 	vmmc-supply = <&ldo9_reg>;
+	pbias-supply = <&pbias_mmc_reg>;
 	bus-width = <4>;
 };
 
@@ -430,6 +509,21 @@
 				};
 			};
 		};
+
+		palmas_rtc  {
+			compatible = "ti,palmas-rtc";
+			interrupt-parent = <&palmas>;
+			interrupts = <8 IRQ_TYPE_NONE>;
+			wakeup-source;
+			ti,backup-battery-chargeable;
+		};
+
+		palmas_power_button {
+			compatible = "ti,palmas-pwrbutton";
+			interrupt-parent = <&palmas>;
+			interrupts = <1 IRQ_TYPE_NONE>;
+			wakeup-source;
+		};
 	};
 };
 
@@ -438,6 +532,13 @@
 	pinctrl-0 = <&i2c5_pins>;
 
 	clock-frequency = <400000>;
+
+	gpio9: gpio@22 {
+		compatible = "ti,tca6424";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &mcbsp3 {
@@ -493,5 +594,50 @@
 };
 
 &cpu0 {
-	cpu0-supply = <&smps123_reg>;
+	cpu0-voltdm = <&voltdm_mpu>;
+	voltage-tolerance = <1>;
+};
+
+&voltdm_mpu {
+	vdd-supply = <&smps123_reg>;
+};
+
+&voltdm_mm {
+	vdd-supply = <&smps45_reg>;
+};
+
+&voltdm_core {
+	vdd-supply = <&smps6_reg>;
+};
+
+&dsp {
+	status = "okay";
+	memory-region = <&dsp_cma_pool>;
+	timers = <&timer5>;
+	watchdog-timers = <&timer6>;
+};
+
+&ipu {
+	status = "okay";
+	memory-region = <&ipu_cma_pool>;
+	timers = <&timer3>;
+	watchdog-timers = <&timer9>, <&timer11>;
+};
+
+&dss {
+	status = "ok";
+};
+
+&hdmi {
+	status = "ok";
+	vdda-supply = <&ldo4_reg>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&dss_hdmi_pins>;
+
+	port {
+		hdmi_out: endpoint {
+			remote-endpoint = <&tpd12s015_in>;
+		};
+	};
 };

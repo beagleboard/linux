@@ -71,6 +71,10 @@ static void unpin_worker(struct drm_flip_work *work, void *val)
 			container_of(work, struct omap_plane, unpin_work);
 	struct drm_device *dev = omap_plane->base.dev;
 
+	/*
+	 * omap_framebuffer_pin/unpin are always called from priv->wq,
+	 * so there's no need for locking here.
+	 */
 	omap_framebuffer_unpin(val);
 	mutex_lock(&dev->mode_config.mutex);
 	drm_framebuffer_unreference(val);
@@ -127,7 +131,9 @@ static void omap_plane_pre_apply(struct omap_drm_apply *apply)
 	DBG("%s, enabled=%d", omap_plane->name, enabled);
 
 	/* if fb has changed, pin new fb: */
-	update_pin(plane, enabled ? plane->fb : NULL);
+	ret = update_pin(plane, enabled ? plane->fb : NULL);
+	if (ret)
+		enabled = false;
 
 	if (!enabled) {
 		dispc_ovl_enable(omap_plane->id, false);
@@ -149,6 +155,8 @@ static void omap_plane_pre_apply(struct omap_drm_apply *apply)
 	ilace = false;
 	replication = false;
 
+	dispc_ovl_set_channel_out(omap_plane->id, channel);
+
 	/* and finally, update omapdss: */
 	ret = dispc_ovl_setup(omap_plane->id, info,
 			replication, omap_crtc_timings(crtc), false);
@@ -158,7 +166,6 @@ static void omap_plane_pre_apply(struct omap_drm_apply *apply)
 	}
 
 	dispc_ovl_enable(omap_plane->id, true);
-	dispc_ovl_set_channel_out(omap_plane->id, channel);
 }
 
 static void omap_plane_post_apply(struct omap_drm_apply *apply)
@@ -203,6 +210,31 @@ int omap_plane_mode_set(struct drm_plane *plane,
 {
 	struct omap_plane *omap_plane = to_omap_plane(plane);
 	struct omap_drm_window *win = &omap_plane->win;
+	int i;
+	struct drm_display_mode *mode = &crtc->mode;
+
+	if (crtc_x >= mode->hdisplay || crtc_y >= mode->vdisplay)
+		return -EINVAL;
+
+	if (crtc_x + crtc_w > mode->hdisplay || crtc_y + crtc_h > mode->vdisplay)
+		return -EINVAL;
+
+	/*
+	 * Check whether this plane supports the fb pixel format.
+	 * I don't think this should really be needed, but it looks like the
+	 * drm core only checks the format for planes, not for the crtc. So
+	 * when setting the format for crtc, without this check we would
+	 * get an error later when trying to program the color format into the
+	 * HW.
+	 */
+	for (i = 0; i < plane->format_count; i++)
+		if (fb->pixel_format == plane->format_types[i])
+			break;
+	if (i == plane->format_count) {
+		DBG("Invalid pixel format %s",
+			      drm_get_format_name(fb->pixel_format));
+		return -EINVAL;
+	}
 
 	win->crtc_x = crtc_x;
 	win->crtc_y = crtc_y;
@@ -239,17 +271,36 @@ static int omap_plane_update(struct drm_plane *plane,
 		uint32_t src_w, uint32_t src_h)
 {
 	struct omap_plane *omap_plane = to_omap_plane(plane);
+	struct drm_framebuffer *old_fb;
+	int r;
+
 	omap_plane->enabled = true;
 
-	if (plane->fb)
-		drm_framebuffer_unreference(plane->fb);
+	old_fb = plane->fb;
 
-	drm_framebuffer_reference(fb);
+	/* omap_plane_mode_set() takes adjusted src */
+	switch (omap_plane->win.rotation & 0xf) {
+	case BIT(DRM_ROTATE_90):
+	case BIT(DRM_ROTATE_270):
+		swap(src_w, src_h);
+		break;
+	}
 
-	return omap_plane_mode_set(plane, crtc, fb,
+	r = omap_plane_mode_set(plane, crtc, fb,
 			crtc_x, crtc_y, crtc_w, crtc_h,
 			src_x, src_y, src_w, src_h,
 			NULL, NULL);
+	if (r)
+		return r;
+
+	/* if new fb was set ok, unref the old fb and ref the new one */
+
+	if (old_fb)
+		drm_framebuffer_unreference(old_fb);
+
+	drm_framebuffer_reference(fb);
+
+	return 0;
 }
 
 static int omap_plane_disable(struct drm_plane *plane)
@@ -289,6 +340,11 @@ int omap_plane_dpms(struct drm_plane *plane, int mode)
 	return ret;
 }
 
+static const struct drm_prop_enum_list pre_mult[] = {
+	{ 0, "disable"},
+	{ 1, "enable"},
+};
+
 /* helper to install properties which are common to planes and crtcs */
 void omap_plane_install_properties(struct drm_plane *plane,
 		struct drm_mode_object *obj)
@@ -325,6 +381,26 @@ void omap_plane_install_properties(struct drm_plane *plane,
 		priv->zorder_prop = prop;
 	}
 	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->global_alpha_prop;
+	if (!prop) {
+		prop = drm_property_create_range(dev, 0, "global_alpha",
+						 0, 255);
+		if (prop == NULL)
+			return;
+		priv->global_alpha_prop = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
+
+	prop = priv->pre_mult_alpha_prop;
+	if (!prop) {
+		prop = drm_property_create_enum(dev, 0, "pre_mult_alpha",
+						 pre_mult, ARRAY_SIZE(pre_mult));
+		if (prop == NULL)
+			return;
+		priv->pre_mult_alpha_prop = prop;
+	}
+	drm_object_attach_property(obj, prop, 0);
 }
 
 int omap_plane_set_property(struct drm_plane *plane,
@@ -342,6 +418,15 @@ int omap_plane_set_property(struct drm_plane *plane,
 		DBG("%s: zorder: %02x", omap_plane->name, (uint32_t)val);
 		omap_plane->info.zorder = val;
 		ret = apply(plane);
+	} else if (property == priv->global_alpha_prop) {
+		DBG("%s: global_alpha: %02x", omap_plane->name, (uint32_t)val);
+		omap_plane->info.global_alpha = val;
+		ret = apply(plane);
+	} else if (property == priv->pre_mult_alpha_prop) {
+		DBG("%s: pre_mult_alpha: %02x", omap_plane->name,
+						(uint32_t)val);
+		omap_plane->info.pre_mult_alpha = val;
+		ret = apply(plane);
 	}
 
 	return ret;
@@ -358,7 +443,8 @@ static void omap_plane_error_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 {
 	struct omap_plane *omap_plane =
 			container_of(irq, struct omap_plane, error_irq);
-	DRM_ERROR("%s: errors: %08x\n", omap_plane->name, irqstatus);
+	DRM_ERROR_RATELIMITED("%s: errors: %08x\n", omap_plane->name,
+		irqstatus);
 }
 
 static const char *plane_names[] = {

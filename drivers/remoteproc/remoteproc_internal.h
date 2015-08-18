@@ -22,6 +22,20 @@
 
 #include <linux/irqreturn.h>
 #include <linux/firmware.h>
+#include <linux/bitops.h>
+
+/*
+ * Macros to use with flags field in rproc_da_to_va API. Use
+ * the upper 16 bits to dictate the flags type and the lower
+ * 16 bits to pass on the value of the flags pertinent to that
+ * type.
+ *
+ * Add any new flags type at a new bit-field position
+ */
+#define RPROC_FLAGS_SHIFT	16
+#define RPROC_FLAGS_NONE	0
+#define RPROC_FLAGS_ELF_PHDR	BIT(0 + RPROC_FLAGS_SHIFT)
+#define RPROC_FLAGS_ELF_SHDR	BIT(1 + RPROC_FLAGS_SHIFT)
 
 struct rproc;
 
@@ -33,16 +47,19 @@ struct rproc;
  *			expects to find it
  * @sanity_check:	sanity check the fw image
  * @get_boot_addr:	get boot address to entry point specified in firmware
+ * @find_version:	get the version information string from the firmware
  */
 struct rproc_fw_ops {
-	struct resource_table *(*find_rsc_table) (struct rproc *rproc,
+	struct resource_table * (*find_rsc_table)(struct rproc *rproc,
 						const struct firmware *fw,
 						int *tablesz);
-	struct resource_table *(*find_loaded_rsc_table)(struct rproc *rproc,
+	struct resource_table * (*find_loaded_rsc_table)(struct rproc *rproc,
 						const struct firmware *fw);
 	int (*load)(struct rproc *rproc, const struct firmware *fw);
 	int (*sanity_check)(struct rproc *rproc, const struct firmware *fw);
 	u32 (*get_boot_addr)(struct rproc *rproc, const struct firmware *fw);
+	const char * (*find_version)(struct rproc *rproc,
+					const struct firmware *fw, int *versz);
 };
 
 /* from remoteproc_core.c */
@@ -65,7 +82,7 @@ void rproc_exit_debugfs(void);
 void rproc_free_vring(struct rproc_vring *rvring);
 int rproc_alloc_vring(struct rproc_vdev *rvdev, int i);
 
-void *rproc_da_to_va(struct rproc *rproc, u64 da, int len);
+void *rproc_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags);
 int rproc_trigger_recovery(struct rproc *rproc);
 
 static inline
@@ -115,6 +132,18 @@ struct resource_table *rproc_find_loaded_rsc_table(struct rproc *rproc,
 	return NULL;
 }
 
+static inline
+const char *rproc_find_version_info(struct rproc *rproc,
+				const struct firmware *fw, int *versz)
+{
+	if (rproc->fw_ops->find_version)
+		return rproc->fw_ops->find_version(rproc, fw, versz);
+
+	return NULL;
+}
+
 extern const struct rproc_fw_ops rproc_elf_fw_ops;
+
+extern struct device_type rproc_type;
 
 #endif /* REMOTEPROC_INTERNAL_H */

@@ -306,6 +306,9 @@ static int omap3_noncore_dpll_program(struct clk_hw_omap *clk, u16 freqsel)
 	/* 3430 ES2 TRM: 4.7.6.9 DPLL Programming Sequence */
 	_omap3_noncore_dpll_bypass(clk);
 
+	if (dd->sink_clkdm)
+		clkdm_clk_enable(dd->sink_clkdm, clk->hw.clk);
+
 	/*
 	 * Set jitter correction. Jitter correction applicable for OMAP343X
 	 * only since freqsel field is no longer present on other devices.
@@ -319,6 +322,15 @@ static int omap3_noncore_dpll_program(struct clk_hw_omap *clk, u16 freqsel)
 
 	/* Set DPLL multiplier, divider */
 	v = omap2_clk_readl(clk, dd->mult_div1_reg);
+
+	/* Handle Duty Cycle Correction */
+	if (dd->dcc_mask) {
+		if (dd->last_rounded_rate >= dd->dcc_rate)
+			v |= dd->dcc_mask; /* Enable DCC */
+		else
+			v &= ~dd->dcc_mask; /* Disable DCC */
+	}
+
 	v &= ~(dd->mult_mask | dd->div1_mask);
 	v |= dd->last_rounded_m << __ffs(dd->mult_mask);
 	v |= (dd->last_rounded_n - 1) << __ffs(dd->div1_mask);
@@ -364,6 +376,9 @@ static int omap3_noncore_dpll_program(struct clk_hw_omap *clk, u16 freqsel)
 	/* REVISIT: Set ramp-up delay? */
 
 	_omap3_noncore_dpll_lock(clk);
+
+	if (dd->sink_clkdm)
+		clkdm_clk_disable(dd->sink_clkdm, clk->hw.clk);
 
 	return 0;
 }
@@ -469,6 +484,7 @@ int omap3_noncore_dpll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
 	struct clk *new_parent = NULL;
+	unsigned long rrate;
 	u16 freqsel = 0;
 	struct dpll_data *dd;
 	int ret;
@@ -496,8 +512,15 @@ int omap3_noncore_dpll_set_rate(struct clk_hw *hw, unsigned long rate,
 		__clk_prepare(dd->clk_ref);
 		clk_enable(dd->clk_ref);
 
-		if (dd->last_rounded_rate != rate)
-			rate = __clk_round_rate(hw->clk, rate);
+		if (dd->last_rounded_rate != rate) {
+			rrate = __clk_round_rate(hw->clk, rate);
+			if (rrate != rate) {
+				pr_warn("%s: %s: final rate %lu does not match desired rate %lu\n",
+					__func__, __clk_get_name(hw->clk),
+					rrate, rate);
+				rate = rrate;
+			}
+		}
 
 		if (dd->last_rounded_rate == 0)
 			return -EINVAL;
@@ -525,7 +548,7 @@ int omap3_noncore_dpll_set_rate(struct clk_hw *hw, unsigned long rate,
 	* stuff is inherited for free
 	*/
 
-	if (!ret)
+	if (!ret && clk_get_parent(hw->clk) != new_parent)
 		__clk_reparent(hw->clk, new_parent);
 
 	return 0;
@@ -683,6 +706,102 @@ unsigned long omap3_clkoutx2_recalc(struct clk_hw *hw,
 	else
 		rate = parent_rate * 2;
 	return rate;
+}
+
+int omap3_core_dpll_save_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	struct dpll_data *dd;
+	u32 v;
+
+	dd = clk->dpll_data;
+
+	v = omap2_clk_readl(clk, dd->control_reg);
+	clk->context = (v & dd->enable_mask) >> __ffs(dd->enable_mask);
+
+	if (clk->context == DPLL_LOCKED) {
+		v = omap2_clk_readl(clk, dd->mult_div1_reg);
+		dd->last_rounded_m = (v & dd->mult_mask) >>
+						__ffs(dd->mult_mask);
+		dd->last_rounded_n = ((v & dd->div1_mask) >>
+						__ffs(dd->div1_mask)) + 1;
+	}
+
+	return 0;
+}
+
+void omap3_core_dpll_restore_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	const struct dpll_data *dd;
+	u32 v;
+
+	dd = clk->dpll_data;
+
+	if (clk->context == DPLL_LOCKED) {
+		_omap3_dpll_write_clken(clk, 0x4);
+		_omap3_wait_dpll_status(clk, 0);
+
+		v = omap2_clk_readl(clk, dd->mult_div1_reg);
+		v &= ~(dd->mult_mask | dd->div1_mask);
+		v |= dd->last_rounded_m << __ffs(dd->mult_mask);
+		v |= (dd->last_rounded_n - 1) << __ffs(dd->div1_mask);
+		omap2_clk_writel(v, clk, dd->mult_div1_reg);
+
+		_omap3_dpll_write_clken(clk, DPLL_LOCKED);
+		_omap3_wait_dpll_status(clk, 1);
+	} else {
+		_omap3_dpll_write_clken(clk, clk->context);
+	}
+}
+
+int omap3_noncore_dpll_save_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	struct dpll_data *dd;
+	u32 v;
+
+	dd = clk->dpll_data;
+
+	v = omap2_clk_readl(clk, dd->control_reg);
+	clk->context = (v & dd->enable_mask) >> __ffs(dd->enable_mask);
+
+	if (clk->context == DPLL_LOCKED) {
+		v = omap2_clk_readl(clk, dd->mult_div1_reg);
+		dd->last_rounded_m = (v & dd->mult_mask) >>
+						__ffs(dd->mult_mask);
+		dd->last_rounded_n = ((v & dd->div1_mask) >>
+						__ffs(dd->div1_mask)) + 1;
+	}
+
+	return 0;
+}
+
+void omap3_noncore_dpll_restore_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	const struct dpll_data *dd;
+	u32 ctrl, mult_div1;
+
+	dd = clk->dpll_data;
+
+	ctrl = omap2_clk_readl(clk, dd->control_reg);
+	mult_div1 = omap2_clk_readl(clk, dd->mult_div1_reg);
+
+	if (clk->context == ((ctrl & dd->enable_mask) >>
+			     __ffs(dd->enable_mask)) &&
+	    dd->last_rounded_m == ((mult_div1 & dd->mult_mask) >>
+				   __ffs(dd->mult_mask)) &&
+	    dd->last_rounded_n == ((mult_div1 & dd->div1_mask) >>
+				   __ffs(dd->div1_mask)) + 1) {
+		/* nothing to be done */
+		return;
+	}
+
+	if (clk->context == DPLL_LOCKED)
+		omap3_noncore_dpll_program(clk, 0);
+	else
+		_omap3_dpll_write_clken(clk, clk->context);
 }
 
 int omap3_clkoutx2_set_rate(struct clk_hw *hw, unsigned long rate,

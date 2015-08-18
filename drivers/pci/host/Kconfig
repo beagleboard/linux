@@ -1,6 +1,16 @@
 menu "PCI host controller drivers"
 	depends on PCI
 
+config PCI_DRA7XX
+	bool "TI DRA7xx PCIe controller"
+	select PCIE_DW
+	depends on OF && HAS_IOMEM && TI_PIPE3
+	help
+	 Enables support for the PCIE controller present in DRA7xx SoC. There
+	 are two instances of PCIE controller in DRA7xx. This controller can
+	 act both as EP and RC. This reuses the same Designware core as used
+	 by other SoCs.
+
 config PCI_MVEBU
 	bool "Marvell EBU PCIe controller"
 	depends on ARCH_MVEBU || ARCH_DOVE || ARCH_KIRKWOOD

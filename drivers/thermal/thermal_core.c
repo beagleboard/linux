@@ -361,6 +361,7 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 				int trip, enum thermal_trip_type trip_type)
 {
 	long trip_temp;
+	int ret;
 
 	tz->ops->get_trip_temp(tz, trip, &trip_temp);
 
@@ -375,7 +376,16 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 		dev_emerg(&tz->device,
 			  "critical temperature reached(%d C),shutting down\n",
 			  tz->temperature / 1000);
-		orderly_poweroff(true);
+
+		ret = orderly_poweroff(true);
+		/* in case poweroff failed, fallback to restarting the system */
+		if (ret) {
+			dev_emerg(&tz->device,
+				  "poweroff failed with reason %d restarting\n",
+				  ret);
+			/* pbias needs to be fixed to get the reboot working */
+			kernel_restart(NULL);
+		}
 	}
 }
 

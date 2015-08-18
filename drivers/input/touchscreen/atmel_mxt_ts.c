@@ -19,6 +19,8 @@
 #include <linux/input/mt.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 /* Version */
 #define MXT_VER_20		20
@@ -332,6 +334,105 @@ static void mxt_dump_message(struct device *dev,
 {
 	dev_dbg(dev, "reportid: %u\tmessage: %*ph\n",
 		message->reportid, 7, message->message);
+}
+
+static int mxt_of_get_platform_info(struct i2c_client *client,
+			     struct mxt_platform_data *pdata)
+
+{
+	int size, index = 0;
+	u32 val;
+	const __be32 *config_be;
+	u8 *config;
+	const char *pname;
+	struct device_node *node = client->dev.of_node;
+
+	config_be = of_get_property(node, "atmel,config", &size);
+	if (config_be && size) {
+		size /= sizeof(*config_be);
+		config = devm_kzalloc(&client->dev, size, GFP_KERNEL);
+		if (!config) {
+			dev_err(&client->dev, "Failed to allocate memory\n");
+			return -ENOMEM;
+		}
+
+		pdata->config = config;
+		pdata->config_length = size;
+
+		while (index < size) {
+			config[index] = be32_to_cpup(config_be + index) & 0xFF;
+			index++;
+		}
+	} else {
+		dev_dbg(&client->dev, "%s:no config data specified\n",
+			__func__);
+	}
+
+	pname = "atmel,x_line";
+	if (of_property_read_u32(node, pname, &pdata->x_line)) {
+		dev_err(&client->dev, "%s: Failed to read %s property\n",
+			__func__, pname);
+		return -EINVAL;
+	}
+
+	pname = "atmel,y_line";
+	if (of_property_read_u32(node, pname, &pdata->y_line)) {
+		dev_err(&client->dev, "%s: Failed to read %s property\n",
+			__func__, pname);
+		return -EINVAL;
+	}
+
+	pname = "atmel,x_size";
+	if (of_property_read_u32(node, pname, &pdata->x_size)) {
+		dev_err(&client->dev, "%s: Failed to read %s property\n",
+			__func__, pname);
+		return -EINVAL;
+	}
+
+	pname = "atmel,y_size";
+	if (of_property_read_u32(node, pname, &pdata->y_size)) {
+		dev_err(&client->dev, "%s: Failed to read %s property\n",
+			__func__, pname);
+		return -EINVAL;
+	}
+
+	pname = "atmel,blen";
+	if (of_property_read_u32(node, pname, &pdata->blen)) {
+		dev_err(&client->dev, "%s: Failed to read %s property\n",
+			__func__, pname);
+		return -EINVAL;
+	}
+
+	pname = "atmel,threshold";
+	if (of_property_read_u32(node, pname, &pdata->threshold)) {
+		dev_err(&client->dev, "%s: Failed to read %s property\n",
+			__func__, pname);
+		return -EINVAL;
+	}
+
+	pname = "atmel,voltage";
+	if (of_property_read_u32(node, pname, &pdata->voltage)) {
+		dev_err(&client->dev,
+			"%s: Failed to read %s property\n",
+			__func__, pname);
+		return -EINVAL;
+	}
+
+	pname = "atmel,orient";
+	if (of_property_read_u32(node, pname, &val)) {
+		dev_err(&client->dev, "%s: Failed to read %s property\n",
+			__func__, pname);
+		return -EINVAL;
+	}
+
+	if (val > 0xFF) {
+		dev_err(&client->dev, "%s: Bad %s property value %d\n",
+			__func__, pname, val);
+		return -EINVAL;
+	}
+	pdata->orient = val & 0xFF;
+
+	return 0;
 }
 
 static int mxt_check_bootloader(struct i2c_client *client,
@@ -1126,19 +1227,43 @@ static void mxt_input_close(struct input_dev *dev)
 	mxt_stop(data);
 }
 
+static const struct of_device_id mxt_dt_ids[] = {
+	{ .compatible = "atmel,qt602240_ts", },
+	{ .compatible = "atmel,atmel_mxt_ts", },
+	{ .compatible = "atmel,mXT244", },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, mxt_dt_ids);
+
 static int mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
-	const struct mxt_platform_data *pdata = dev_get_platdata(&client->dev);
+	struct mxt_platform_data *pdata;
 	struct mxt_data *data;
 	struct input_dev *input_dev;
 	int error;
 	unsigned int num_mt_slots;
+	const struct of_device_id *match;
 
-	if (!pdata)
-		return -EINVAL;
+	match = of_match_device(of_match_ptr(mxt_dt_ids), &client->dev);
+	if (match) {
+		pdata = devm_kzalloc(&client->dev,
+					sizeof(struct mxt_platform_data),
+					GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+		error = mxt_of_get_platform_info(client, pdata);
+		if (error)
+			return error;
+	} else {
+		pdata = dev_get_platdata(&client->dev);
+		if (!pdata) {
+			dev_err(&client->dev, "Platform data not populated\n");
+			return -EINVAL;
+		}
+	}
 
-	data = kzalloc(sizeof(struct mxt_data), GFP_KERNEL);
+	data = devm_kzalloc(&client->dev, sizeof(struct mxt_data), GFP_KERNEL);
 	input_dev = input_allocate_device();
 	if (!data || !input_dev) {
 		dev_err(&client->dev, "Failed to allocate memory\n");
@@ -1223,9 +1348,10 @@ static int mxt_probe(struct i2c_client *client,
 	input_set_drvdata(input_dev, data);
 	i2c_set_clientdata(client, data);
 
-	error = request_threaded_irq(client->irq, NULL, mxt_interrupt,
-				     pdata->irqflags | IRQF_ONESHOT,
-				     client->name, data);
+	error = devm_request_threaded_irq(&client->dev, client->irq,
+					  NULL, mxt_interrupt,
+					  pdata->irqflags | IRQF_ONESHOT,
+					  dev_name(&client->dev), data);
 	if (error) {
 		dev_err(&client->dev, "Failed to register interrupt\n");
 		goto err_free_object;
@@ -1233,11 +1359,11 @@ static int mxt_probe(struct i2c_client *client,
 
 	error = mxt_make_highchg(data);
 	if (error)
-		goto err_free_irq;
+		goto err_free_object;
 
 	error = input_register_device(input_dev);
 	if (error)
-		goto err_free_irq;
+		goto err_free_object;
 
 	error = sysfs_create_group(&client->dev.kobj, &mxt_attr_group);
 	if (error)
@@ -1248,13 +1374,10 @@ static int mxt_probe(struct i2c_client *client,
 err_unregister_device:
 	input_unregister_device(input_dev);
 	input_dev = NULL;
-err_free_irq:
-	free_irq(client->irq, data);
 err_free_object:
 	kfree(data->object_table);
 err_free_mem:
 	input_free_device(input_dev);
-	kfree(data);
 	return error;
 }
 
@@ -1263,10 +1386,8 @@ static int mxt_remove(struct i2c_client *client)
 	struct mxt_data *data = i2c_get_clientdata(client);
 
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
-	free_irq(data->irq, data);
 	input_unregister_device(data->input_dev);
 	kfree(data->object_table);
-	kfree(data);
 
 	return 0;
 }
@@ -1293,12 +1414,6 @@ static int mxt_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
-
-	/* Soft reset */
-	mxt_write_object(data, MXT_GEN_COMMAND_T6,
-			MXT_COMMAND_RESET, 1);
-
-	msleep(MXT_RESET_TIME);
 
 	mutex_lock(&input_dev->mutex);
 
@@ -1327,6 +1442,7 @@ static struct i2c_driver mxt_driver = {
 		.name	= "atmel_mxt_ts",
 		.owner	= THIS_MODULE,
 		.pm	= &mxt_pm_ops,
+		.of_match_table = mxt_dt_ids,
 	},
 	.probe		= mxt_probe,
 	.remove		= mxt_remove,

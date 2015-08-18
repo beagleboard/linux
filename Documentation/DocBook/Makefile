@@ -14,7 +14,8 @@ DOCBOOKS := z8530book.xml device-drivers.xml \
 	    genericirq.xml s390-drivers.xml uio-howto.xml scsi.xml \
 	    80211.xml debugobjects.xml sh.xml regulator.xml \
 	    alsa-driver-api.xml writing-an-alsa-driver.xml \
-	    tracepoint.xml drm.xml media_api.xml
+	    tracepoint.xml drm.xml media_api.xml \
+	    writing_musb_glue_layer.xml
 
 include $(srctree)/Documentation/DocBook/media/Makefile
 

@@ -23,7 +23,9 @@ Optional properties:
   during suspend.
 - ti,no-reset-on-init: When present, the module should not be reset at init
 - ti,no-idle-on-init: When present, the module should not be idled at init
-
+- ti,no_init: When present, the module is marked as disabled immediately and
+  no setup is done.
+- ti,no-idle: When present, the module is never allowed to idle.
 Example:
 
 spinlock@1 {
@@ -80,7 +82,22 @@ SoCs:
   compatible = "ti,omap5432", "ti,omap5"
 
 - DRA742
-  compatible = "ti,dra7xx", "ti,dra7"
+  compatible = "ti,dra742", "ti,dra74", "ti,dra7"
+
+- DRA722
+  compatible = "ti,dra722", "ti,dra72", "ti,dra7"
+
+- AM5728
+  compatible = "ti,am5728", "ti,dra742", "ti,dra74", "ti,dra7"
+
+- AM5726
+  compatible = "ti,am5726", "ti,dra742", "ti,dra74", "ti,dra7"
+
+- AM5718
+  compatible = "ti,am5718", "ti,dra722", "ti,dra72", "ti,dra7"
+
+- AM5716
+  compatible = "ti,am5716", "ti,dra722", "ti,dra72", "ti,dra7"
 
 - AM4372
   compatible = "ti,am4372", "ti,am43"
@@ -114,5 +131,14 @@ Boards:
 - AM43x EPOS EVM
   compatible = "ti,am43x-epos-evm", "ti,am4372", "ti,am43"
 
-- DRA7 EVM:  Software Developement Board for DRA7XX
-  compatible = "ti,dra7-evm", "ti,dra7"
+- AM437x GP EVM
+  compatible = "ti,am437x-gp-evm", "ti,am4372", "ti,am43"
+
+- AM437x SK EVM: AM437x StarterKit Evaluation Module
+  compatible = "ti,am437x-sk-evm", "ti,am4372", "ti,am43"
+
+- DRA742 EVM:  Software Developement Board for DRA742
+  compatible = "ti,dra7-evm", "ti,dra742", "ti,dra74", "ti,dra7"
+
+- DRA722 EVM: Software Development Board for DRA722
+  compatible = "ti,dra72-evm", "ti,dra722", "ti,dra72", "ti,dra7"

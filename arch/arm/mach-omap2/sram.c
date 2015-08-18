@@ -121,7 +121,7 @@ static void __init omap_detect_sram(void)
 			omap_sram_size = 0x10000; /* 64K */
 		} else if (soc_is_am43xx()) {
 			omap_sram_start = AM33XX_SRAM_PA;
-			omap_sram_size = SZ_256K;
+			omap_sram_size = SZ_64K;
 		} else if (cpu_is_omap34xx()) {
 			omap_sram_start = OMAP3_SRAM_PA;
 			omap_sram_size = 0x10000; /* 64K */
@@ -154,7 +154,7 @@ static void __init omap2_map_sram(void)
 		omap_sram_size -= SZ_16K;
 	}
 #endif
-	if (cpu_is_omap34xx()) {
+	if (cpu_is_omap34xx() || soc_is_am33xx()) {
 		/*
 		 * SRAM must be marked as non-cached on OMAP3 since the
 		 * CORE DPLL M2 divider change code (in SRAM) runs with the
@@ -285,10 +285,31 @@ static inline int omap34xx_sram_init(void)
 }
 #endif /* CONFIG_ARCH_OMAP3 */
 
+#ifdef CONFIG_SOC_AM33XX
+static inline int am33xx_sram_init(void)
+{
+	am33xx_push_sram_idle();
+	return 0;
+}
+#else
 static inline int am33xx_sram_init(void)
 {
 	return 0;
 }
+#endif
+
+#ifdef CONFIG_SOC_AM43XX
+static inline int am43xx_sram_init(void)
+{
+	am43xx_push_sram_idle();
+	return 0;
+}
+#else
+static inline int am43xx_sram_init(void)
+{
+	return 0;
+}
+#endif
 
 int __init omap_sram_init(void)
 {
@@ -301,6 +322,8 @@ int __init omap_sram_init(void)
 		omap243x_sram_init();
 	else if (soc_is_am33xx())
 		am33xx_sram_init();
+	else if (soc_is_am43xx())
+		am43xx_sram_init();
 	else if (cpu_is_omap34xx())
 		omap34xx_sram_init();
 

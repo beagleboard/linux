@@ -47,6 +47,7 @@
 #include "cm3xxx.h"
 #include "prm.h"
 #include "cm.h"
+#include "pm.h"
 #include "prcm_mpu44xx.h"
 #include "prminst44xx.h"
 #include "cminst44xx.h"
@@ -313,6 +314,7 @@ void __init ti81xx_map_io(void)
 void __init am33xx_map_io(void)
 {
 	iotable_init(omapam33xx_io_desc, ARRAY_SIZE(omapam33xx_io_desc));
+	am33xx_dram_sync_init();
 }
 #endif
 
@@ -588,7 +590,9 @@ void __init am33xx_init_early(void)
 
 void __init am33xx_init_late(void)
 {
+	am33xx_opp_init();
 	omap_common_late_init();
+	am33xx_pm_init();
 }
 #endif
 
@@ -604,6 +608,8 @@ void __init am43xx_init_early(void)
 	omap_prm_base_init();
 	omap_cm_base_init();
 	omap3xxx_check_revision();
+	am33xx_check_features();
+	omap44xx_prm_init();
 	am43xx_powerdomains_init();
 	am43xx_clockdomains_init();
 	am43xx_hwmod_init();
@@ -613,7 +619,10 @@ void __init am43xx_init_early(void)
 
 void __init am43xx_init_late(void)
 {
+	am43xx_opp_init();
 	omap_common_late_init();
+	am33xx_pm_init();
+	omap2_clk_enable_autoidle_all();
 }
 #endif
 
@@ -661,6 +670,7 @@ void __init omap5_init_early(void)
 	omap2_set_globals_cm(OMAP2_L4_IO_ADDRESS(OMAP54XX_CM_CORE_AON_BASE),
 			     OMAP2_L4_IO_ADDRESS(OMAP54XX_CM_CORE_BASE));
 	omap2_set_globals_prcm_mpu(OMAP2_L4_IO_ADDRESS(OMAP54XX_PRCM_MPU_BASE));
+	omap4_pm_init_early();
 	omap_prm_base_init();
 	omap_cm_base_init();
 	omap44xx_prm_init();
@@ -676,6 +686,8 @@ void __init omap5_init_early(void)
 void __init omap5_init_late(void)
 {
 	omap_common_late_init();
+	omap4_pm_init();
+	omap2_clk_enable_autoidle_all();
 }
 #endif
 
@@ -689,9 +701,11 @@ void __init dra7xx_init_early(void)
 	omap2_set_globals_cm(OMAP2_L4_IO_ADDRESS(DRA7XX_CM_CORE_AON_BASE),
 			     OMAP2_L4_IO_ADDRESS(OMAP54XX_CM_CORE_BASE));
 	omap2_set_globals_prcm_mpu(OMAP2_L4_IO_ADDRESS(OMAP54XX_PRCM_MPU_BASE));
+	omap4_pm_init_early();
 	omap_prm_base_init();
 	omap_cm_base_init();
 	omap44xx_prm_init();
+	dra7xxx_check_revision();
 	dra7xx_powerdomains_init();
 	dra7xx_clockdomains_init();
 	dra7xx_hwmod_init();
@@ -701,7 +715,10 @@ void __init dra7xx_init_early(void)
 
 void __init dra7xx_init_late(void)
 {
+	dra7xx_opp_init();
 	omap_common_late_init();
+	omap4_pm_init();
+	omap2_clk_enable_autoidle_all();
 }
 #endif
 
@@ -724,9 +741,21 @@ int __init omap_clk_init(void)
 	if (!omap_clk_soc_init)
 		return 0;
 
+	ret = of_control_init();
+	if (ret)
+		return ret;
+
 	ret = of_prcm_init();
-	if (!ret)
-		ret = omap_clk_soc_init();
+	if (ret)
+		return ret;
+
+	of_clk_init(NULL);
+
+	ti_dt_clk_init_retry();
+
+	ti_dt_clockdomains_setup();
+
+	ret = omap_clk_soc_init();
 
 	return ret;
 }

@@ -19,7 +19,29 @@
 #include <linux/of_dma.h>
 
 static LIST_HEAD(of_dma_list);
+static LIST_HEAD(of_dma_router_list);
 static DEFINE_MUTEX(of_dma_lock);
+static DEFINE_MUTEX(of_dma_router_lock);
+
+/**
+ * of_dma_get_router_data - Get a DMA router in DT DMA routers list
+ * @phandle:	phandle to the dma router
+ *
+ * Finds a DMA router using matching phandle and returns the router
+ * specific data. Should be called from dma-controller xlate callback.
+ */
+void *of_dma_get_router_data(phandle router)
+{
+	struct of_dma_router *ofrouter;
+
+	list_for_each_entry(ofrouter, &of_dma_router_list, of_dma_routers) {
+		if (ofrouter->of_node->phandle == router)
+			return ofrouter->of_router_data;
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL(of_dma_get_router_data);
 
 /**
  * of_dma_find_controller - Get a DMA controller in DT DMA helpers list
@@ -43,6 +65,39 @@ static struct of_dma *of_dma_find_controller(struct of_phandle_args *dma_spec)
 
 	return NULL;
 }
+
+/**
+ * of_dma_router_register - Register a DMA router to DT DMA helpers
+ * @np:			device node of DMA controller
+ * @data		pointer to controller specific data to be used by
+ *			dma-controller
+ *
+ * Returns 0 on success or appropriate errno value on error.
+ *
+ * Allocated memory should be freed with appropriate of_dma_router_free()
+ * call.
+ */
+int of_dma_router_register(struct device_node *np, void *data)
+{
+	struct of_dma_router *ofrouter;
+
+	if (!np || !data)
+		return -EINVAL;
+
+	ofrouter = kzalloc(sizeof(*ofrouter), GFP_KERNEL);
+	if (!ofrouter)
+		return -ENOMEM;
+
+	ofrouter->of_node = np;
+	ofrouter->of_router_data = data;
+
+	mutex_lock(&of_dma_router_lock);
+	list_add_tail(&ofrouter->of_dma_routers, &of_dma_router_list);
+	mutex_unlock(&of_dma_router_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(of_dma_router_register);
 
 /**
  * of_dma_controller_register - Register a DMA controller to DT DMA helpers
@@ -87,10 +142,10 @@ int of_dma_controller_register(struct device_node *np,
 EXPORT_SYMBOL_GPL(of_dma_controller_register);
 
 /**
- * of_dma_controller_free - Remove a DMA controller from DT DMA helpers list
+ * of_dma_router_free - Remove a DMA router from DT DMA routers list
  * @np:		device node of DMA controller
  *
- * Memory allocated by of_dma_controller_register() is freed here.
+ * Memory allocated by of_dma_router_register() is freed here.
  */
 void of_dma_controller_free(struct device_node *np)
 {
@@ -108,6 +163,29 @@ void of_dma_controller_free(struct device_node *np)
 	mutex_unlock(&of_dma_lock);
 }
 EXPORT_SYMBOL_GPL(of_dma_controller_free);
+
+/**
+ * of_dma_controller_free - Remove a DMA controller from DT DMA helpers list
+ * @np:		device node of DMA controller
+ *
+ * Memory allocated by of_dma_router_register() is freed here.
+ */
+void of_dma_router_free(struct device_node *np)
+{
+	struct of_dma_router *ofrouter;
+
+	mutex_lock(&of_dma_router_lock);
+
+	list_for_each_entry(ofrouter, &of_dma_router_list, of_dma_routers)
+		if (ofrouter->of_node == np) {
+			list_del(&ofrouter->of_dma_routers);
+			kfree(ofrouter);
+			break;
+		}
+
+	mutex_unlock(&of_dma_router_lock);
+}
+EXPORT_SYMBOL_GPL(of_dma_router_free);
 
 /**
  * of_dma_match_channel - Check if a DMA specifier matches name

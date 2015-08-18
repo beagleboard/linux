@@ -699,17 +699,15 @@ static int max8997_muic_probe(struct platform_device *pdev)
 	}
 
 	/* External connector */
-	info->edev = devm_kzalloc(&pdev->dev, sizeof(struct extcon_dev),
-				  GFP_KERNEL);
-	if (!info->edev) {
+	info->edev = devm_extcon_dev_allocate(&pdev->dev, max8997_extcon_cable);
+	if (IS_ERR(info->edev)) {
 		dev_err(&pdev->dev, "failed to allocate memory for extcon\n");
 		ret = -ENOMEM;
 		goto err_irq;
 	}
 	info->edev->name = DEV_NAME;
-	info->edev->dev.parent = &pdev->dev;
-	info->edev->supported_cable = max8997_extcon_cable;
-	ret = extcon_dev_register(info->edev);
+
+	ret = devm_extcon_dev_register(&pdev->dev, info->edev);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register extcon device\n");
 		goto err_irq;
@@ -788,8 +786,6 @@ static int max8997_muic_remove(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(muic_irqs); i++)
 		free_irq(muic_irqs[i].virq, info);
 	cancel_work_sync(&info->irq_work);
-
-	extcon_dev_unregister(info->edev);
 
 	return 0;
 }

@@ -122,6 +122,10 @@ struct uart_port {
 	void			(*set_termios)(struct uart_port *,
 				               struct ktermios *new,
 				               struct ktermios *old);
+	int			(*startup)(struct uart_port *port);
+	void			(*shutdown)(struct uart_port *port);
+	void			(*throttle)(struct uart_port *port);
+	void			(*unthrottle)(struct uart_port *port);
 	int			(*handle_irq)(struct uart_port *);
 	void			(*pm)(struct uart_port *, unsigned int state,
 				      unsigned int old);
@@ -199,6 +203,8 @@ struct uart_port {
 	unsigned char		suspended;
 	unsigned char		irq_wake;
 	unsigned char		unused[2];
+	struct attribute_group	*attr_group;		/* port specific attributes */
+	const struct attribute_group **tty_groups;	/* all attributes (serial core use only) */
 	void			*private_data;		/* generic platform data pointer */
 };
 

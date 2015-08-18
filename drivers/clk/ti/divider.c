@@ -112,7 +112,7 @@ static unsigned long ti_clk_divider_recalc_rate(struct clk_hw *hw,
 		return parent_rate;
 	}
 
-	return parent_rate / div;
+	return DIV_ROUND_UP(parent_rate, div);
 }
 
 /*
@@ -182,7 +182,7 @@ static int ti_clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 		}
 		parent_rate = __clk_round_rate(__clk_get_parent(hw->clk),
 				MULT_ROUND_UP(rate, i));
-		now = parent_rate / i;
+		now = DIV_ROUND_UP(parent_rate, i);
 		if (now <= rate && now > best) {
 			bestdiv = i;
 			best = now;
@@ -205,7 +205,7 @@ static long ti_clk_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 	int div;
 	div = ti_clk_divider_bestdiv(hw, rate, prate);
 
-	return *prate / div;
+	return DIV_ROUND_UP(*prate, div);
 }
 
 static int ti_clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -216,7 +216,7 @@ static int ti_clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long flags = 0;
 	u32 val;
 
-	div = parent_rate / rate;
+	div = DIV_ROUND_UP(parent_rate, rate);
 	value = _get_val(divider, div);
 
 	if (value > div_mask(divider))
@@ -240,10 +240,34 @@ static int ti_clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static int clk_divider_save_context(struct clk_hw *hw)
+{
+	struct clk_divider *divider = to_clk_divider(hw);
+	u32 val;
+
+	val = ti_clk_ll_ops->clk_readl(divider->reg) >> divider->shift;
+	divider->context = val & div_mask(divider);
+
+	return 0;
+}
+
+static void clk_divider_restore_context(struct clk_hw *hw)
+{
+	struct clk_divider *divider = to_clk_divider(hw);
+	u32 val;
+
+	val = ti_clk_ll_ops->clk_readl(divider->reg);
+	val &= ~(div_mask(divider) << divider->shift);
+	val |= divider->context << divider->shift;
+	ti_clk_ll_ops->clk_writel(val, divider->reg);
+}
+
 const struct clk_ops ti_clk_divider_ops = {
 	.recalc_rate = ti_clk_divider_recalc_rate,
 	.round_rate = ti_clk_divider_round_rate,
 	.set_rate = ti_clk_divider_set_rate,
+	.save_context = clk_divider_save_context,
+	.restore_context = clk_divider_restore_context,
 };
 
 static struct clk *_register_divider(struct device *dev, const char *name,

@@ -331,7 +331,7 @@ static struct clockdomain l4per2_7xx_clkdm = {
 	.dep_bit	  = DRA7XX_L4PER2_STATDEP_SHIFT,
 	.wkdep_srcs	  = l4per2_wkup_sleep_deps,
 	.sleepdep_srcs	  = l4per2_wkup_sleep_deps,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_SWSUP,
 };
 
 static struct clockdomain mpu0_7xx_clkdm = {
@@ -409,7 +409,7 @@ static struct clockdomain l4sec_7xx_clkdm = {
 	.dep_bit	  = DRA7XX_L4SEC_STATDEP_SHIFT,
 	.wkdep_srcs	  = l4sec_wkup_sleep_deps,
 	.sleepdep_srcs	  = l4sec_wkup_sleep_deps,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_SWSUP,
 };
 
 static struct clockdomain l3main1_7xx_clkdm = {
@@ -461,7 +461,7 @@ static struct clockdomain ipu_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_CM_CORE_AON_IPU_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_AON_IPU_IPU_CDOFFS,
 	.dep_bit	  = DRA7XX_IPU_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_SWSUP,
 };
 
 static struct clockdomain mpu1_7xx_clkdm = {
@@ -482,7 +482,7 @@ static struct clockdomain gmac_7xx_clkdm = {
 	.dep_bit	  = DRA7XX_GMAC_STATDEP_SHIFT,
 	.wkdep_srcs	  = gmac_wkup_sleep_deps,
 	.sleepdep_srcs	  = gmac_wkup_sleep_deps,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_SWSUP,
 };
 
 static struct clockdomain l4cfg_7xx_clkdm = {
@@ -492,7 +492,7 @@ static struct clockdomain l4cfg_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_CM_CORE_CORE_INST,
 	.clkdm_offs	  = DRA7XX_CM_CORE_CORE_L4CFG_CDOFFS,
 	.dep_bit	  = DRA7XX_L4CFG_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_HWSUP,
+	.flags		  = CLKDM_CAN_DISABLE_AUTO,
 };
 
 static struct clockdomain dma_7xx_clkdm = {
@@ -609,7 +609,7 @@ static struct clockdomain cam_7xx_clkdm = {
 	.dep_bit	  = DRA7XX_CAM_STATDEP_SHIFT,
 	.wkdep_srcs	  = cam_wkup_sleep_deps,
 	.sleepdep_srcs	  = cam_wkup_sleep_deps,
-	.flags		  = CLKDM_CAN_HWSUP_SWSUP,
+	.flags		  = CLKDM_CAN_SWSUP,
 };
 
 static struct clockdomain l4per_7xx_clkdm = {
@@ -677,7 +677,7 @@ static struct clockdomain wkupaon_7xx_clkdm = {
 	.cm_inst	  = DRA7XX_PRM_WKUPAON_CM_INST,
 	.clkdm_offs	  = DRA7XX_PRM_WKUPAON_CM_WKUPAON_CDOFFS,
 	.dep_bit	  = DRA7XX_WKUPAON_STATDEP_SHIFT,
-	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_HWSUP,
+	.flags		  = CLKDM_CAN_FORCE_WAKEUP | CLKDM_CAN_DISABLE_AUTO,
 };
 
 static struct clockdomain eve1_7xx_clkdm = {

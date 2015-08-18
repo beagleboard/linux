@@ -45,6 +45,11 @@
 	((unsigned long)&(struct soc_mixer_control) \
 	{.reg = xlreg, .rreg = xrreg, .shift = xshift, .rshift = xshift, \
 	.max = xmax, .platform_max = xmax, .invert = xinvert})
+#define SOC_DOUBLE_R_S_VALUE(xlreg, xrreg, xshift, xmin, xmax, xsign_bit, xinvert) \
+	((unsigned long)&(struct soc_mixer_control) \
+	{.reg = xlreg, .rreg = xrreg, .shift = xshift, .rshift = xshift, \
+	.max = xmax, .min = xmin, .platform_max = xmax, .sign_bit = xsign_bit, \
+	.invert = xinvert})
 #define SOC_DOUBLE_R_RANGE_VALUE(xlreg, xrreg, xshift, xmin, xmax, xinvert) \
 	((unsigned long)&(struct soc_mixer_control) \
 	{.reg = xlreg, .rreg = xrreg, .shift = xshift, .rshift = xshift, \
@@ -152,6 +157,15 @@
 		{.reg = xreg, .rreg = xrreg, \
 		.shift = xshift, .rshift = xshift, \
 		.max = xmax, .min = xmin} }
+#define SOC_DOUBLE_R_S_TLV(xname, reg_left, reg_right, xshift, xmin, xmax, xsign_bit, xinvert, tlv_array) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname),\
+	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |\
+		 SNDRV_CTL_ELEM_ACCESS_READWRITE,\
+	.tlv.p = (tlv_array), \
+	.info = snd_soc_info_volsw, \
+	.get = snd_soc_get_volsw, .put = snd_soc_put_volsw, \
+	.private_value = SOC_DOUBLE_R_S_VALUE(reg_left, reg_right, xshift, \
+					    xmin, xmax, xsign_bit, xinvert) }
 #define SOC_DOUBLE_S8_TLV(xname, xreg, xmin, xmax, tlv_array) \
 {	.iface  = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname), \
 	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
@@ -368,6 +382,8 @@ int snd_soc_suspend(struct device *dev);
 int snd_soc_resume(struct device *dev);
 int snd_soc_poweroff(struct device *dev);
 int snd_soc_register_platform(struct device *dev,
+		const struct snd_soc_platform_driver *platform_drv);
+int devm_snd_soc_register_platform(struct device *dev,
 		const struct snd_soc_platform_driver *platform_drv);
 void snd_soc_unregister_platform(struct device *dev);
 int snd_soc_add_platform(struct device *dev, struct snd_soc_platform *platform,
@@ -949,6 +965,7 @@ struct snd_soc_card {
 	struct mutex mutex;
 	struct mutex dapm_mutex;
 
+	int id_hint;
 	bool instantiated;
 
 	int (*probe)(struct snd_soc_card *card);
@@ -1067,6 +1084,7 @@ struct soc_mixer_control {
 	int min, max, platform_max;
 	int reg, rreg;
 	unsigned int shift, rshift;
+	unsigned int sign_bit;
 	unsigned int invert:1;
 	unsigned int autodisable:1;
 };
@@ -1173,10 +1191,17 @@ void snd_soc_util_exit(void);
 
 int snd_soc_of_parse_card_name(struct snd_soc_card *card,
 			       const char *propname);
+int snd_soc_of_parse_audio_simple_widgets(struct snd_soc_card *card,
+					  const char *propname);
+int snd_soc_of_parse_tdm_slot(struct device_node *np,
+			      unsigned int *slots,
+			      unsigned int *slot_width);
 int snd_soc_of_parse_audio_routing(struct snd_soc_card *card,
 				   const char *propname);
 unsigned int snd_soc_of_parse_daifmt(struct device_node *np,
-				     const char *prefix);
+				     const char *prefix,
+				     struct device_node **bitclkmaster,
+				     struct device_node **framemaster);
 int snd_soc_of_get_dai_name(struct device_node *of_node,
 			    const char **dai_name);
 

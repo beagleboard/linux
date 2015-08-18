@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/regmap.h>
 #include <linux/err.h>
+#include <linux/reboot.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 
@@ -146,7 +147,29 @@ EXPORT_SYMBOL_GPL(tps65217_clear_bits);
 static struct regmap_config tps65217_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
+	.max_register = 0x1e,
 };
+
+static int tps65217_reboot_handler(struct notifier_block *this,
+				   unsigned long code,
+				   void *unused)
+{
+	struct tps65217 *tps = container_of(this, struct tps65217,
+					    reboot_notifier);
+
+	if (code == SYS_POWER_OFF && tps->write_status_off) {
+		int ret;
+		dev_info(tps->dev, "%s: Enabling STATUS_OFF\n", __func__);
+		ret = tps65217_set_bits(tps, TPS65217_REG_STATUS,
+					TPS65217_STATUS_OFF,
+					TPS65217_STATUS_OFF,
+					TPS65217_PROTECT_NONE);
+		if (ret < 0)
+			dev_err(tps->dev, "Failed to set status OFF\n");
+	}
+
+	return NOTIFY_OK;
+}
 
 static const struct of_device_id tps65217_of_match[] = {
 	{ .compatible = "ti,tps65217", .data = (void *)TPS65217 },
@@ -212,11 +235,20 @@ static int tps65217_probe(struct i2c_client *client,
 
 	/* Set the PMIC to shutdown on PWR_EN toggle */
 	if (status_off) {
-		ret = tps65217_set_bits(tps, TPS65217_REG_STATUS,
-				TPS65217_STATUS_OFF, TPS65217_STATUS_OFF,
-				TPS65217_PROTECT_NONE);
-		if (ret)
-			dev_warn(tps->dev, "unable to set the status OFF\n");
+		tps->write_status_off = 1;
+		tps->reboot_notifier.notifier_call = tps65217_reboot_handler;
+		ret = register_reboot_notifier(&tps->reboot_notifier);
+		if (ret < 0) {
+			dev_err(tps->dev, "Failed to register reboot handler\n");
+			return ret;
+		}
+		ret = tps65217_clear_bits(tps, TPS65217_REG_STATUS,
+					  TPS65217_STATUS_OFF,
+					  TPS65217_PROTECT_NONE);
+		if (ret < 0) {
+			dev_err(tps->dev, "Failed to clear status-off bit\n");
+			return ret;
+		}
 	}
 
 	dev_info(tps->dev, "TPS65217 ID %#x version 1.%d\n",
@@ -229,6 +261,9 @@ static int tps65217_probe(struct i2c_client *client,
 static int tps65217_remove(struct i2c_client *client)
 {
 	struct tps65217 *tps = i2c_get_clientdata(client);
+
+	if (tps->write_status_off)
+		unregister_reboot_notifier(&tps->reboot_notifier);
 
 	mfd_remove_devices(tps->dev);
 

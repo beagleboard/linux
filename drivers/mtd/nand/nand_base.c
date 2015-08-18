@@ -487,6 +487,23 @@ static int nand_check_wp(struct mtd_info *mtd)
  * nand_block_checkbad - [GENERIC] Check if a block is marked bad
  * @mtd: MTD device structure
  * @ofs: offset from device start
+ *
+ * Check if the block is mark as reserved.
+ */
+static int nand_block_isreserved(struct mtd_info *mtd, loff_t ofs)
+{
+	struct nand_chip *chip = mtd->priv;
+
+	if (!chip->bbt)
+		return 0;
+	/* Return info from the table */
+	return nand_isreserved_bbt(mtd, ofs);
+}
+
+/**
+ * nand_block_checkbad - [GENERIC] Check if a block is marked bad
+ * @mtd: MTD device structure
+ * @ofs: offset from device start
  * @getchip: 0, if the chip is already selected
  * @allowbbt: 1, if its allowed to access the bbt area
  *
@@ -547,6 +564,25 @@ void nand_wait_ready(struct mtd_info *mtd)
 	led_trigger_event(nand_led_trigger, LED_OFF);
 }
 EXPORT_SYMBOL_GPL(nand_wait_ready);
+
+/**
+ * nand_wait_status_ready - [GENERIC] Wait for the ready status after commands.
+ * @mtd: MTD device structure
+ * @timeo: Timeout in ms
+ *
+ * Wait for status ready (i.e. command done) or timeout.
+ */
+static void nand_wait_status_ready(struct mtd_info *mtd, unsigned long timeo)
+{
+	register struct nand_chip *chip = mtd->priv;
+
+	timeo = jiffies + msecs_to_jiffies(timeo);
+	do {
+		if ((chip->read_byte(mtd) & NAND_STATUS_READY))
+			break;
+		touch_softlockup_watchdog();
+	} while (time_before(jiffies, timeo));
+};
 
 /**
  * nand_command - [DEFAULT] Send command to NAND device
@@ -625,8 +661,8 @@ static void nand_command(struct mtd_info *mtd, unsigned int command,
 			       NAND_CTRL_CLE | NAND_CTRL_CHANGE);
 		chip->cmd_ctrl(mtd,
 			       NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
-		while (!(chip->read_byte(mtd) & NAND_STATUS_READY))
-				;
+		/* EZ-NAND can take upto 250ms as per ONFi v4.0 */
+		nand_wait_status_ready(mtd, 250);
 		return;
 
 		/* This applies to read commands */
@@ -721,8 +757,8 @@ static void nand_command_lp(struct mtd_info *mtd, unsigned int command,
 			       NAND_NCE | NAND_CLE | NAND_CTRL_CHANGE);
 		chip->cmd_ctrl(mtd, NAND_CMD_NONE,
 			       NAND_NCE | NAND_CTRL_CHANGE);
-		while (!(chip->read_byte(mtd) & NAND_STATUS_READY))
-				;
+		/* EZ-NAND can take upto 250ms as per ONFi v4.0 */
+		nand_wait_status_ready(mtd, 250);
 		return;
 
 	case NAND_CMD_RNDOUT:
@@ -3936,6 +3972,7 @@ int nand_scan_tail(struct mtd_info *mtd)
 	mtd->_unlock = NULL;
 	mtd->_suspend = nand_suspend;
 	mtd->_resume = nand_resume;
+	mtd->_block_isreserved = nand_block_isreserved;
 	mtd->_block_isbad = nand_block_isbad;
 	mtd->_block_markbad = nand_block_markbad;
 	mtd->writebufsize = mtd->writesize;

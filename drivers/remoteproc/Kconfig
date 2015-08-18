@@ -12,8 +12,9 @@ config REMOTEPROC
 config OMAP_REMOTEPROC
 	tristate "OMAP remoteproc support"
 	depends on HAS_DMA
-	depends on ARCH_OMAP4 || SOC_OMAP5
+	depends on ARCH_OMAP4 || SOC_OMAP5 || SOC_DRA7XX
 	depends on OMAP_IOMMU
+	depends on CMA
 	select REMOTEPROC
 	select MAILBOX
 	select OMAP2PLUS_MBOX
@@ -31,6 +32,18 @@ config OMAP_REMOTEPROC
 	  It's safe to say n here if you're not interested in multimedia
 	  offloading or just want a bare minimum kernel.
 
+config OMAP_REMOTEPROC_WATCHDOG
+	bool "OMAP remoteproc watchdog timer"
+	depends on OMAP_REMOTEPROC
+	default n
+	help
+	  Say Y here to enable watchdog timer for remote processors.
+
+	  This option controls the watchdog functionality for the remote
+	  processors in OMAP. Dedicated OMAP DMTimers are used by the remote
+	  processors and triggers the timer interrupt upon a watchdog
+	  detection.
+
 config STE_MODEM_RPROC
 	tristate "STE-Modem remoteproc support"
 	depends on HAS_DMA
@@ -41,10 +54,25 @@ config STE_MODEM_RPROC
 	  This can be either built-in or a loadable module.
 	  If unsure say N.
 
+config WKUP_M3_RPROC
+	bool "AMx3xx wkup-m3 remoteproc support"
+	depends on SOC_AM33XX || SOC_AM43XX
+	select REMOTEPROC
+	select MAILBOX
+	select OMAP2PLUS_MBOX
+	help
+	  Say y here to support AMx3xx wkup-m3.
+
+	  Required for Suspend-to-ram and CPUIdle on AM33xx and AM43xx.
+	  Allows for loading of firmware and communication with CM3 PM
+	  coprocessor that is present on AMx3xx family of SoCs
+
+	  If unsure say N.
+
 config DA8XX_REMOTEPROC
 	tristate "DA8xx/OMAP-L13x remoteproc support"
 	depends on ARCH_DAVINCI_DA8XX
-	select CMA
+	select CMA if MMU
 	select REMOTEPROC
 	select RPMSG
 	help
@@ -63,5 +91,24 @@ config DA8XX_REMOTEPROC
 
 	  It's safe to say n here if you're not interested in multimedia
 	  offloading.
+
+config PRUSS_REMOTEPROC
+	tristate "TI PRUSS remoteproc support"
+	depends on HAS_DMA && (SOC_AM33XX || SOC_AM43XX || SOC_DRA7XX)
+	select REMOTEPROC
+	select MAILBOX
+	select OMAP2PLUS_MBOX
+	select RPMSG
+	default n
+	help
+	  Support for TI PRU-ICSS remote processors via the remote processor
+	  framework.
+
+	  Currently supported on AM33xx SoCs.
+
+	  Say Y or M here to support the Programmable Realtime Unit (PRU)
+	  processors on various TI SoCs. It's safe to say N here if you're
+	  not interested in the PRU or if you are unsure.
+	  If unsure say N.
 
 endmenu

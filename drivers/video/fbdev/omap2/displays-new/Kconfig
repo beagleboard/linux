@@ -1,0 +1,111 @@
+menu "OMAP Display Device Drivers (new device model)"
+        depends on OMAP2_DSS
+
+config DISPLAY_ENCODER_TFP410
+        tristate "TFP410 DPI to DVI Encoder"
+	help
+	  Driver for TFP410 DPI to DVI encoder.
+
+config DISPLAY_ENCODER_TPD12S015
+        tristate "TPD12S015 HDMI ESD protection and level shifter"
+	help
+	  Driver for TPD12S015, which offers HDMI ESD protection and level
+	  shifting.
+
+config DISPLAY_DRA7EVM_ENCODER_TPD12S015
+        tristate "DRA7 EVM TPD12S015 HDMI ESD protection and level shifter"
+	depends on SND_DAVINCI_SOC_MCASP
+	help
+	  A custom TPD12S015 driver for the DRA7 EVM board, it contains some
+	  hacks required for HDMI to work properly on J6 EVM.
+
+config DISPLAY_ENCODER_SII9022
+	tristate "SiI9022 HDMI Encoder"
+	depends on I2C
+	help
+	  Driver for Silicon Image SiI9022 HDMI encoder.
+	  A brief about SiI9022 can be found here:
+	  http://www.semiconductorstore.com/pdf/newsite/siliconimage/SiI9022a_pb.pdf
+
+config DISPLAY_ENCODER_SII9022_AUDIO_CODEC
+	bool "ASoC codec driver for SiI9022 HDMI Encoder"
+	depends on DISPLAY_ENCODER_SII9022
+	depends on SND_SOC = y || DISPLAY_ENCODER_SII9022 = SND_SOC
+	default y
+	help
+	  ASoC DAI driver for Silicon Image Sil9022 DPI to HDMI encoder.
+
+config DISPLAY_CONNECTOR_DVI
+        tristate "DVI Connector"
+	depends on I2C
+	help
+	  Driver for a generic DVI connector.
+
+config DISPLAY_CONNECTOR_HDMI
+        tristate "HDMI Connector"
+	help
+	  Driver for a generic HDMI connector.
+
+config DISPLAY_CONNECTOR_ANALOG_TV
+        tristate "Analog TV Connector"
+	help
+	  Driver for a generic analog TV connector.
+
+config DISPLAY_PANEL_DPI
+	tristate "Generic DPI panel"
+	help
+	  Driver for generic DPI panels.
+
+config DISPLAY_PANEL_DSI_CM
+	tristate "Generic DSI Command Mode Panel"
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Driver for generic DSI command mode panels.
+
+config DISPLAY_PANEL_SONY_ACX565AKM
+	tristate "ACX565AKM Panel"
+	depends on SPI && BACKLIGHT_CLASS_DEVICE
+	help
+	  This is the LCD panel used on Nokia N900
+
+config DISPLAY_PANEL_LGPHILIPS_LB035Q02
+	tristate "LG.Philips LB035Q02 LCD Panel"
+	depends on SPI
+	help
+	  LCD Panel used on the Gumstix Overo Palo35
+
+config DISPLAY_PANEL_SHARP_LS037V7DW01
+        tristate "Sharp LS037V7DW01 LCD Panel"
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          LCD Panel used in TI's SDP3430 and EVM boards
+
+config DISPLAY_PANEL_TPO_TD028TTEC1
+        tristate "TPO TD028TTEC1 LCD Panel"
+        depends on SPI
+        help
+          LCD panel used in Openmoko.
+
+config DISPLAY_PANEL_TPO_TD043MTEA1
+        tristate "TPO TD043MTEA1 LCD Panel"
+        depends on SPI
+        help
+          LCD Panel used in OMAP3 Pandora
+
+config DISPLAY_PANEL_NEC_NL8048HL11
+	tristate "NEC NL8048HL11 Panel"
+	depends on SPI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+		This NEC NL8048HL11 panel is TFT LCD used in the
+		Zoom2/3/3630 sdp boards.
+
+config DISPLAY_PANEL_TLC59108
+	tristate "TLC59108 based DPI driver"
+	depends on I2C
+	help
+		Driver for DPI panels powered by TLC59108 pwm/gpio expander
+		chips. These are found on the LCD daughter boards of DRA7 and
+		DRA72 EVMs.
+
+endmenu

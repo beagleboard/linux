@@ -36,12 +36,15 @@ struct pcie_port {
 	u8			root_bus_nr;
 	void __iomem		*dbi_base;
 	u64			cfg0_base;
+	u64			cfg0_mod_base;
 	void __iomem		*va_cfg0_base;
 	u64			cfg1_base;
+	u64			cfg1_mod_base;
 	void __iomem		*va_cfg1_base;
 	u64			io_base;
+	u64			io_mod_base;
 	u64			mem_base;
-	spinlock_t		conf_lock;
+	u64			mem_mod_base;
 	struct resource		cfg;
 	struct resource		io;
 	struct resource		mem;
@@ -73,5 +76,7 @@ void dw_pcie_msi_init(struct pcie_port *pp);
 int dw_pcie_link_up(struct pcie_port *pp);
 void dw_pcie_setup_rc(struct pcie_port *pp);
 int dw_pcie_host_init(struct pcie_port *pp);
+void dw_pcie_suspend_rc(struct pcie_port *pp);
+void dw_pcie_resume_rc(struct pcie_port *pp);
 
 #endif /* _PCIE_DESIGNWARE_H */

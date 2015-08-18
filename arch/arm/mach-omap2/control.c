@@ -236,10 +236,29 @@ void omap3_ctrl_write_boot_mode(u8 bootmode)
  */
 void omap_ctrl_write_dsp_boot_addr(u32 bootaddr)
 {
+	dra7_ctrl_write_dsp_boot_addr(bootaddr, 0);
+}
+
+/**
+ * dra7_ctrl_write_dsp_boot_addr - set boot address for a dsp remote processor
+ * @bootaddr: physical address of the boot loader
+ * @inst: instance index of the DSP (applicable only for DRA7xx)
+ *
+ * Set boot address for the boot loader of a supported processor
+ * when a power ON sequence occurs.
+ *
+ * DRA7xx has different register bitfields compared to previous OMAP
+ * generations, retain the number of DSP instances while configuring
+ * the reset vector address.
+ */
+void dra7_ctrl_write_dsp_boot_addr(u32 bootaddr, u32 inst)
+{
+	u32 addr = bootaddr;
 	u32 offset = cpu_is_omap243x() ? OMAP243X_CONTROL_IVA2_BOOTADDR :
 		     cpu_is_omap34xx() ? OMAP343X_CONTROL_IVA2_BOOTADDR :
 		     cpu_is_omap44xx() ? OMAP4_CTRL_MODULE_CORE_DSP_BOOTADDR :
 		     soc_is_omap54xx() ? OMAP4_CTRL_MODULE_CORE_DSP_BOOTADDR :
+		     soc_is_dra7xx() ? DRA7XX_CTRL_CORE_CONTROL_DSP1_RST_VECT :
 		     0;
 
 	if (!offset) {
@@ -247,7 +266,15 @@ void omap_ctrl_write_dsp_boot_addr(u32 bootaddr)
 		return;
 	}
 
-	omap_ctrl_writel(bootaddr, offset);
+	if (soc_is_dra7xx()) {
+		if (inst)
+			offset += 0x4;
+		addr = omap_ctrl_readl(offset);
+		addr &= ~DRA7XX_CTRL_CORE_DSP_RST_VECT_MASK;
+		addr |= (bootaddr >> DRA7XX_CTRL_CORE_DSP_RST_VECT_SHIFT);
+	}
+
+	omap_ctrl_writel(addr, offset);
 }
 
 /**
@@ -581,4 +608,188 @@ void omap3_ctrl_set_iva_bootmode_idle(void)
 	omap_ctrl_writel(OMAP3_IVA2_BOOTMOD_IDLE,
 			 OMAP343X_CONTROL_IVA2_BOOTMOD);
 }
+
 #endif /* CONFIG_ARCH_OMAP3 && CONFIG_PM */
+
+#if (defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)) && \
+	defined(CONFIG_PM)
+static unsigned long am33xx_control_reg_offsets[] = {
+	AM33XX_CONTROL_SYSCONFIG_OFFSET,
+	AM33XX_CONTROL_STATUS_OFFSET,
+	AM33XX_CONTROL_CORTEX_VBBLDO_CTRL_OFFSET,
+	AM33XX_CONTROL_CORE_SLDO_CTRL_OFFSET,
+	AM33XX_CONTROL_MPU_SLDO_CTRL_OFFSET,
+	AM33XX_CONTROL_CLK32KDIVRATIO_CTRL_OFFSET,
+	AM33XX_CONTROL_BANDGAP_CTRL_OFFSET,
+	AM33XX_CONTROL_BANDGAP_TRIM_OFFSET,
+	AM33XX_CONTROL_PLL_CLKINPULOW_CTRL_OFFSET,
+	AM33XX_CONTROL_MOSC_CTRL_OFFSET,
+	AM33XX_CONTROL_RCOSC_CTRL_OFFSET,
+	AM33XX_CONTROL_DEEPSLEEP_CTRL_OFFSET,
+	AM33XX_CONTROL_INIT_PRIORITY_0_OFFSET,
+	AM33XX_CONTROL_INIT_PRIORITY_1_OFFSET,
+	AM33XX_CONTROL_MMU_CFG_OFFSET,
+	AM33XX_CONTROL_TPTC_CFG_OFFSET,
+	AM33XX_CONTROL_USB_CTRL0_OFFSET,
+	AM33XX_CONTROL_USB_CTRL1_OFFSET,
+	AM33XX_CONTROL_USB_WKUP_CTRL_OFFSET,
+	AM33XX_CONTROL_MREQPRIO_0_OFFSET,
+	AM33XX_CONTROL_MREQPRIO_1_OFFSET,
+	AM33XX_CONTROL_HW_EVENT_SEL_GRP1_OFFSET,
+	AM33XX_CONTROL_HW_EVENT_SEL_GRP2_OFFSET,
+	AM33XX_CONTROL_HW_EVENT_SEL_GRP3_OFFSET,
+	AM33XX_CONTROL_HW_EVENT_SEL_GRP4_OFFSET,
+	AM33XX_CONTROL_SMRT_CTRL_OFFSET,
+	AM33XX_CONTROL_MPUSS_HW_DEBUG_SEL_OFFSET,
+	AM33XX_CONTROL_VREF_CTRL_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_0_3_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_4_7_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_8_11_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_12_15_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_16_19_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_20_23_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_24_27_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_28_31_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_32_35_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_36_39_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_40_43_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_44_47_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_48_51_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_52_55_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_56_59_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_60_63_OFFSET,
+	AM33XX_CONTROL_TIMER_EVT_CAPT_OFFSET,
+	AM33XX_CONTROL_ECAP_EVT_CAPT_OFFSET,
+	AM33XX_CONTROL_ADC_EVT_CAPT_OFFSET,
+	AM33XX_CONTROL_RESET_ISO_OFFSET,
+};
+
+static unsigned long am43xx_control_reg_offsets[] = {
+	AM33XX_CONTROL_SYSCONFIG_OFFSET,
+	AM33XX_CONTROL_STATUS_OFFSET,
+	AM43XX_CONTROL_MPU_L2_CTRL_OFFSET,
+	AM33XX_CONTROL_CORE_SLDO_CTRL_OFFSET,
+	AM33XX_CONTROL_MPU_SLDO_CTRL_OFFSET,
+	AM33XX_CONTROL_CLK32KDIVRATIO_CTRL_OFFSET,
+	AM33XX_CONTROL_BANDGAP_CTRL_OFFSET,
+	AM33XX_CONTROL_BANDGAP_TRIM_OFFSET,
+	AM33XX_CONTROL_PLL_CLKINPULOW_CTRL_OFFSET,
+	AM33XX_CONTROL_MOSC_CTRL_OFFSET,
+	AM33XX_CONTROL_DEEPSLEEP_CTRL_OFFSET,
+	AM43XX_CONTROL_DISPLAY_PLL_SEL_OFFSET,
+	AM33XX_CONTROL_INIT_PRIORITY_0_OFFSET,
+	AM33XX_CONTROL_INIT_PRIORITY_1_OFFSET,
+	AM33XX_CONTROL_TPTC_CFG_OFFSET,
+	AM33XX_CONTROL_USB_CTRL0_OFFSET,
+	AM33XX_CONTROL_USB_CTRL1_OFFSET,
+	AM43XX_CONTROL_USB_CTRL2_OFFSET,
+	AM43XX_CONTROL_GMII_SEL_OFFSET,
+	AM43XX_CONTROL_MPUSS_CTRL_OFFSET,
+	AM43XX_CONTROL_TIMER_CASCADE_CTRL_OFFSET,
+	AM43XX_CONTROL_PWMSS_CTRL_OFFSET,
+	AM33XX_CONTROL_MREQPRIO_0_OFFSET,
+	AM33XX_CONTROL_MREQPRIO_1_OFFSET,
+	AM33XX_CONTROL_HW_EVENT_SEL_GRP1_OFFSET,
+	AM33XX_CONTROL_HW_EVENT_SEL_GRP2_OFFSET,
+	AM33XX_CONTROL_HW_EVENT_SEL_GRP3_OFFSET,
+	AM33XX_CONTROL_HW_EVENT_SEL_GRP4_OFFSET,
+	AM33XX_CONTROL_SMRT_CTRL_OFFSET,
+	AM33XX_CONTROL_MPUSS_HW_DEBUG_SEL_OFFSET,
+	AM43XX_CONTROL_CQDETECT_STS_OFFSET,
+	AM43XX_CONTROL_CQDETECT_STS2_OFFSET,
+	AM43XX_CONTROL_VTP_CTRL_OFFSET,
+	AM33XX_CONTROL_VREF_CTRL_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_0_3_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_4_7_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_8_11_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_12_15_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_16_19_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_20_23_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_24_27_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_28_31_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_32_35_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_36_39_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_40_43_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_44_47_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_48_51_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_52_55_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_56_59_OFFSET,
+	AM33XX_CONTROL_TPCC_EVT_MUX_60_63_OFFSET,
+	AM33XX_CONTROL_TIMER_EVT_CAPT_OFFSET,
+	AM33XX_CONTROL_ECAP_EVT_CAPT_OFFSET,
+	AM33XX_CONTROL_ADC_EVT_CAPT_OFFSET,
+	AM43XX_CONTROL_ADC1_EVT_CAPT_OFFSET,
+	AM33XX_CONTROL_RESET_ISO_OFFSET,
+};
+
+static u32 am33xx_control_vals[ARRAY_SIZE(am43xx_control_reg_offsets)];
+
+void am33xx_control_save_context(void)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(am33xx_control_reg_offsets); i++)
+		am33xx_control_vals[i] = omap_ctrl_readl(
+			am33xx_control_reg_offsets[i]);
+}
+
+void am33xx_control_restore_context(void)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(am33xx_control_reg_offsets); i++)
+		omap_ctrl_writel(am33xx_control_vals[i],
+				 am33xx_control_reg_offsets[i]);
+}
+
+void am43xx_control_save_context(void)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(am43xx_control_reg_offsets); i++)
+		am33xx_control_vals[i] = omap_ctrl_readl(
+			am43xx_control_reg_offsets[i]);
+}
+
+void am43xx_control_restore_context(void)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(am43xx_control_reg_offsets); i++)
+		omap_ctrl_writel(am33xx_control_vals[i],
+				 am43xx_control_reg_offsets[i]);
+}
+
+
+#endif /* CONFIG_ARCH_OMAP3 && CONFIG_PM */
+
+static struct of_device_id omap_scrm_dt_match_table[] = {
+	{ .compatible = "ti,am3-scrm" },
+	{ .compatible = "ti,am4-scrm" },
+	{ .compatible = "ti,omap2-scrm" },
+	{ .compatible = "ti,omap3-scrm" },
+	{ .compatible = "ti,omap4-scrm" },
+	{ .compatible = "ti,omap5-scrm" },
+	{ }
+};
+
+static int __init of_scrm_init(void)
+{
+	return of_prcm_module_init(omap_scrm_dt_match_table);
+}
+
+static struct of_device_id omap_ctrl_core_dt_match_table[] = {
+	{ .compatible = "ti,dra7-ctrl-core" },
+	{ }
+};
+
+static int __init of_ctrl_core_init(void)
+{
+	return of_prcm_module_init(omap_ctrl_core_dt_match_table);
+}
+
+int __init of_control_init(void)
+{
+	int ret;
+
+	ret = of_scrm_init();
+	ret |= of_ctrl_core_init();
+
+	return ret;
+}

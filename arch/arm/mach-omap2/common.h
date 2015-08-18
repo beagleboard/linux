@@ -60,7 +60,7 @@ static inline int omap3_pm_init(void)
 }
 #endif
 
-#if defined(CONFIG_PM) && defined(CONFIG_ARCH_OMAP4)
+#if defined(CONFIG_PM) && (defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5) || defined(CONFIG_SOC_DRA7XX))
 int omap4_pm_init(void);
 int omap4_pm_init_early(void);
 #else
@@ -70,6 +70,16 @@ static inline int omap4_pm_init(void)
 }
 
 static inline int omap4_pm_init_early(void)
+{
+	return 0;
+}
+#endif
+
+#if defined(CONFIG_PM) && \
+	(defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX))
+int am33xx_pm_init(void);
+#else
+static inline int am33xx_pm_init(void)
 {
 	return 0;
 }
@@ -117,6 +127,7 @@ void omap3630_init_late(void);
 void am35xx_init_late(void);
 void ti81xx_init_late(void);
 void am33xx_init_late(void);
+void am43xx_init_late(void);
 void omap5_init_late(void);
 int omap2_common_pm_late_init(void);
 void dra7xx_init_early(void);
@@ -154,7 +165,8 @@ static inline void omap3xxx_restart(enum reboot_mode mode, const char *cmd)
 }
 #endif
 
-#if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
+#if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5) || \
+	defined(CONFIG_SOC_DRA7XX) || defined(CONFIG_SOC_AM43XX)
 void omap44xx_restart(enum reboot_mode mode, const char *cmd);
 #else
 static inline void omap44xx_restart(enum reboot_mode mode, const char *cmd)
@@ -217,6 +229,11 @@ void omap_gic_of_init(void);
 
 #ifdef CONFIG_CACHE_L2X0
 extern void __iomem *omap4_get_l2cache_base(void);
+#else
+static inline void __iomem *omap4_get_l2cache_base(void)
+{
+	return NULL;
+}
 #endif
 
 struct device_node;
@@ -309,11 +326,17 @@ extern void omap_sdrc_init(struct omap_sdrc_params *sdrc_cs0,
 struct omap2_hsmmc_info;
 extern void omap_reserve(void);
 
+void am33xx_reserve(void);
+void am33xx_dram_sync_init(void);
+extern void __iomem *am33xx_dram_sync;
+
 struct omap_hwmod;
 extern int omap_dss_reset(struct omap_hwmod *);
 
 /* SoC specific clock initializer */
 int omap_clk_init(void);
+
+int __init omapdss_init_of(void);
 
 #endif /* __ASSEMBLER__ */
 #endif /* __ARCH_ARM_MACH_OMAP2PLUS_COMMON_H */

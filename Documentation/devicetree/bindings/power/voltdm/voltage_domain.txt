@@ -1,0 +1,65 @@
+Specifying Voltage Domain information for devices
+=================================================
+
+1. Specifying a voltage domain.
+
+SoCs may have multiple voltage domains under which various clocks operate.
+
+Mandatory Properties:
+- #voltdm-cells - indicates if there are specifiers needed to reference the
+  voltage domain
+
+Optional Properties:
+- voltage-tolerance: Specify the voltage tolerance in percentage
+
+2. Voltage domain consumer
+consumer nodes can be reference using the below binding:
+- <name>-voltdm: phandle to the voltage domain node.
+
+Examples:
+
+A. Voltage Domain controlling multiple regulator
+voltage_domain_mpu: voltdm@1 {
+	compatible = "xyz";
+	#voltdm-cells = <0>;
+	vdd-supply = <&vcc>;
+	vbb-supply = <&abb_mpu>;
+	...
+};
+
+voltage_domain_gpu: voltdm@2 {
+	compatible = "xyz";
+	#voltdm-cells = <0>;
+	vdd-supply = <&dcdc2>;
+	vbb-supply = <&abb_gpu>;
+	...
+};
+...
+&cpu0 {
+	cpu0-voltdm = <&voltage_domain_mpu>;
+	voltage-tolerance = <1>;
+};
+
+&gpu {
+	gpu-voltdm = <&voltage_domain_gpu>;
+};
+
+B. Indexed voltage domain device
+
+#define SOC_XYZ_VOLTAGE_DOMAIN_MPU	0
+#define SOC_XYZ_VOLTAGE_DOMAIN_GFX	1
+
+voltage_domain_socx: voltdm@1 {
+	compatible = "abc";
+	#voltdm-cells = <1>;
+	...
+};
+...
+&cpu0 {
+	cpu0-voltdm = <&voltage_domain_socx SOC_XYZ_VOLTAGE_DOMAIN_MPU>;
+	voltage-tolerance = <1>;
+};
+
+&gpu {
+	gpu-voltdm = <&voltage_domain_socx SOC_XYZ_VOLTAGE_DOMAIN_GFX>;
+};

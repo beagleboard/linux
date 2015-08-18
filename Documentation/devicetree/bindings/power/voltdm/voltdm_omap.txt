@@ -1,0 +1,63 @@
+Texas Instruments OMAP compatible voltage domain description
+
+This binding uses [1] and describes the voltage domain devices
+typically used on Texas Instruments OMAP compatible SoC family of
+processors.
+
+[1] Documentation/devicetree/bindings/power/voltdm/voltage_domain.txt
+
+Required Properties:
+- compatible: Should be one of:
+	"ti,omap-voltdm" - basic voltage domain controlling VDD and VBB
+	"ti,omap5-voltdm" - OMAP5+ optimized voltages in efuse(class0)VDD
+			    along with VBB
+	"ti,omap5-core-voltdm" - OMAP5+ optimized voltages in efuse(vlass0) VDD
+			    but no VBB.
+- vdd-supply: phandle to regulator controlling VDD supply
+- vbb-supply: phandle to regulator controlling Body Bias supply (optional if
+  "ti,omap5-core-voltdm")
+  (Usually Adaptive Body Bias regulator)
+- #voltdm-cells: shall be <0>
+- reg: Address and length of the efuse register set for the device (mandatory
+	only for "ti,omap5-voltdm")
+- ti,efuse-settings: An array of u32 tuple items providing information about
+	optimized efuse configuration. Each item consists of the following:
+	volt: voltage in uV - reference voltage (OPP voltage)
+	efuse_offseet: efuse offset from reg where the optimized voltage is stored.
+
+Optional Properties:
+- ti,absolute-max-voltage-uv: absolute maximum voltage for the voltage domain.
+
+Example:
+voltage_domain_mpu: voltdm@1 {
+	compatible = "ti,omap-voltdm";
+	#voltdm-cells = <0>;
+
+	vdd-supply = <&vcc>;
+	vbb-supply = <&abb_mpu>;
+};
+
+voltdm_mpu: voltdm@4a003b20 {
+	compatible = "ti,omap5-voltdm";
+	#voltdm-cells = <0>;
+	vdd-supply = <&vcc>;
+	vbb-supply = <&abb_mpu>;
+	reg = <0x4a003b20 0x8>;
+	ti,efuse-settings = <
+	/* uV   offset */
+	1060000 0x0
+	1160000 0x4
+	1210000 0x8
+	>;
+};
+
+voltdm_core: voltdm@4a003d20 {
+	compatible = "ti,omap5-core-voltdm";
+	#voltdm-cells = <0>;
+	vdd-supply = <&smps4>;
+	reg = <0x4a003b20 0x4>;
+	ti,efuse-settings = <
+	/* uV   offset */
+	1060000 0x0
+	>;
+};

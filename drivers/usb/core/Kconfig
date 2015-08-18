@@ -88,4 +88,3 @@ config USB_OTG_BLACKLIST_HUB
 	  external hubs.  OTG hosts are allowed to reduce hardware
 	  and software costs by not supporting external hubs.  So
 	  are "Embedded Hosts" that don't offer OTG support.
-

@@ -228,6 +228,8 @@ struct ethtool_modinfo {
  *	a TX interrupt, when the packet rate is above @pkt_rate_high.
  * @rate_sample_interval: How often to do adaptive coalescing packet rate
  *	sampling, measured in seconds.  Must not be zero.
+ * @rx_max_mcast: Threshold for high multicast packet rate (packets per second)
+ * @rx_max_bcast: Threshold for high broadcast packet rate (packets per second)
  *
  * Each pair of (usecs, max_frames) fields specifies this exit
  * condition for interrupt coalescing:
@@ -277,6 +279,8 @@ struct ethtool_coalesce {
 	__u32	tx_coalesce_usecs_high;
 	__u32	tx_max_coalesced_frames_high;
 	__u32	rate_sample_interval;
+	__u32	rx_max_mcast;
+	__u32	rx_max_bcast;
 };
 
 /* for configuring RX/TX ring parameters */

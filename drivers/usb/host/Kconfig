@@ -26,8 +26,29 @@ config USB_XHCI_HCD
 
 if USB_XHCI_HCD
 
+config USB_XHCI_PCI
+       tristate
+       depends on PCI
+       default y
+
 config USB_XHCI_PLATFORM
 	tristate
+
+config USB_XHCI_MVEBU
+	tristate "xHCI support for Marvell Armada 375/38x"
+	select USB_XHCI_PLATFORM
+	depends on ARCH_MVEBU || COMPILE_TEST
+	---help---
+	  Say 'Y' to enable the support for the xHCI host controller
+	  found in Marvell Armada 375/38x ARM SOCs.
+
+config USB_XHCI_RCAR
+	tristate "xHCI support for Renesas R-Car SoCs"
+	select USB_XHCI_PLATFORM
+	depends on ARCH_SHMOBILE || COMPILE_TEST
+	---help---
+	  Say 'Y' to enable the support for the xHCI host controller
+	  found in Renesas R-Car ARM SoCs.
 
 endif # USB_XHCI_HCD
 
@@ -170,7 +191,6 @@ config USB_EHCI_MSM
 	tristate "Support for Qualcomm QSD/MSM on-chip EHCI USB controller"
 	depends on ARCH_MSM
 	select USB_EHCI_ROOT_HUB_TT
-	select USB_MSM_OTG
 	---help---
 	  Enables support for the USB Host controller present on the
 	  Qualcomm chipsets. Root Hub has inbuilt TT.

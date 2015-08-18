@@ -21,8 +21,6 @@
 #include <linux/err.h>
 #include <linux/io.h>
 
-#include "iomap.h"
-#include "common.h"
 #include "clockdomain.h"
 #include "cm.h"
 #include "cm1_44xx.h"
@@ -30,11 +28,17 @@
 #include "cm44xx.h"
 #include "cminst44xx.h"
 #include "cm-regbits-34xx.h"
-#include "cm-regbits-44xx.h"
 #include "prcm44xx.h"
 #include "prm44xx.h"
 #include "prcm_mpu44xx.h"
 #include "prcm-common.h"
+
+#define OMAP4430_IDLEST_SHIFT		16
+#define OMAP4430_IDLEST_MASK		(0x3 << 16)
+#define OMAP4430_CLKTRCTRL_SHIFT	0
+#define OMAP4430_CLKTRCTRL_MASK		(0x3 << 0)
+#define OMAP4430_MODULEMODE_SHIFT	0
+#define OMAP4430_MODULEMODE_MASK	(0x3 << 0)
 
 /*
  * CLKCTRL_IDLEST_*: possible values for the CM_*_CLKCTRL.IDLEST bitfield:
@@ -254,6 +258,11 @@ void omap4_cminst_clkdm_force_wakeup(u8 part, u16 inst, u16 cdoffs)
  *
  */
 
+void omap4_cminst_clkdm_force_sleep(u8 part, u16 inst, u16 cdoffs)
+{
+	_clktrctrl_write(OMAP34XX_CLKSTCTRL_FORCE_SLEEP, part, inst, cdoffs);
+}
+
 /**
  * omap4_cminst_wait_module_ready - wait for a module to be in 'func' state
  * @part: PRCM partition ID that the CM_CLKCTRL register exists in
@@ -404,8 +413,17 @@ static int omap4_clkdm_clear_all_wkup_sleep_deps(struct clockdomain *clkdm)
 
 static int omap4_clkdm_sleep(struct clockdomain *clkdm)
 {
-	omap4_cminst_clkdm_enable_hwsup(clkdm->prcm_partition,
-					clkdm->cm_inst, clkdm->clkdm_offs);
+	if (clkdm->flags & CLKDM_CAN_HWSUP)
+		omap4_cminst_clkdm_enable_hwsup(clkdm->prcm_partition,
+						clkdm->cm_inst,
+						clkdm->clkdm_offs);
+	else if (clkdm->flags & CLKDM_CAN_FORCE_SLEEP)
+		omap4_cminst_clkdm_force_sleep(clkdm->prcm_partition,
+					       clkdm->cm_inst,
+					       clkdm->clkdm_offs);
+	else
+		return -EINVAL;
+
 	return 0;
 }
 
@@ -467,6 +485,35 @@ static int omap4_clkdm_clk_disable(struct clockdomain *clkdm)
 	return 0;
 }
 
+static int omap4_clkdm_save_context(struct clockdomain *clkdm)
+{
+	clkdm->context = omap4_cminst_read_inst_reg(clkdm->prcm_partition,
+						    clkdm->cm_inst,
+						    clkdm->clkdm_offs +
+						    OMAP4_CM_CLKSTCTRL);
+	clkdm->context &= OMAP4430_MODULEMODE_MASK;
+	return 0;
+}
+
+static int omap4_clkdm_restore_context(struct clockdomain *clkdm)
+{
+	switch (clkdm->context) {
+	case OMAP34XX_CLKSTCTRL_DISABLE_AUTO:
+		omap4_clkdm_deny_idle(clkdm);
+		break;
+	case OMAP34XX_CLKSTCTRL_FORCE_SLEEP:
+		omap4_clkdm_sleep(clkdm);
+		break;
+	case OMAP34XX_CLKSTCTRL_FORCE_WAKEUP:
+		omap4_clkdm_wakeup(clkdm);
+		break;
+	case OMAP34XX_CLKSTCTRL_ENABLE_AUTO:
+		omap4_clkdm_allow_idle(clkdm);
+		break;
+	}
+	return 0;
+}
+
 struct clkdm_ops omap4_clkdm_operations = {
 	.clkdm_add_wkdep	= omap4_clkdm_add_wkup_sleep_dep,
 	.clkdm_del_wkdep	= omap4_clkdm_del_wkup_sleep_dep,
@@ -491,4 +538,6 @@ struct clkdm_ops am43xx_clkdm_operations = {
 	.clkdm_deny_idle	= omap4_clkdm_deny_idle,
 	.clkdm_clk_enable	= omap4_clkdm_clk_enable,
 	.clkdm_clk_disable	= omap4_clkdm_clk_disable,
+	.clkdm_save_context	= omap4_clkdm_save_context,
+	.clkdm_restore_context	= omap4_clkdm_restore_context,
 };

@@ -104,6 +104,9 @@ struct omap_drm_private {
 
 	struct workqueue_struct *wq;
 
+	/* lock for obj_list below */
+	spinlock_t list_lock;
+
 	/* list of GEM objects: */
 	struct list_head obj_list;
 
@@ -112,6 +115,12 @@ struct omap_drm_private {
 	/* properties: */
 	struct drm_property *rotation_prop;
 	struct drm_property *zorder_prop;
+	struct drm_property *global_alpha_prop;
+	struct drm_property *pre_mult_alpha_prop;
+	struct drm_property *trans_key_mode_prop;
+	struct drm_property *trans_key_prop;
+	struct drm_property *background_color_prop;
+	struct drm_property *alpha_blender_prop;
 
 	/* irq handling: */
 	struct list_head irq_list;    /* list of omap_drm_irq */
@@ -163,6 +172,7 @@ void omap_crtc_pre_init(void);
 void omap_crtc_pre_uninit(void);
 struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 		struct drm_plane *plane, enum omap_channel channel, int id);
+void omap_crtc_flush(struct drm_crtc *crtc);
 
 struct drm_plane *omap_plane_init(struct drm_device *dev,
 		int plane_id, bool private_plane);
@@ -193,6 +203,7 @@ struct drm_encoder *omap_connector_attached_encoder(
 		struct drm_connector *connector);
 void omap_connector_flush(struct drm_connector *connector,
 		int x, int y, int w, int h);
+bool omap_connector_get_hdmi_mode(struct drm_connector *connector);
 
 void copy_timings_omap_to_drm(struct drm_display_mode *mode,
 		struct omap_video_timings *timings);
@@ -207,7 +218,7 @@ struct drm_framebuffer *omap_framebuffer_init(struct drm_device *dev,
 		struct drm_mode_fb_cmd2 *mode_cmd, struct drm_gem_object **bos);
 struct drm_gem_object *omap_framebuffer_bo(struct drm_framebuffer *fb, int p);
 int omap_framebuffer_pin(struct drm_framebuffer *fb);
-int omap_framebuffer_unpin(struct drm_framebuffer *fb);
+void omap_framebuffer_unpin(struct drm_framebuffer *fb);
 void omap_framebuffer_update_scanout(struct drm_framebuffer *fb,
 		struct omap_drm_window *win, struct omap_overlay_info *info);
 struct drm_connector *omap_framebuffer_get_next_connector(
@@ -243,7 +254,7 @@ void omap_gem_dma_sync(struct drm_gem_object *obj,
 		enum dma_data_direction dir);
 int omap_gem_get_paddr(struct drm_gem_object *obj,
 		dma_addr_t *paddr, bool remap);
-int omap_gem_put_paddr(struct drm_gem_object *obj);
+void omap_gem_put_paddr(struct drm_gem_object *obj);
 int omap_gem_get_pages(struct drm_gem_object *obj, struct page ***pages,
 		bool remap);
 int omap_gem_put_pages(struct drm_gem_object *obj);

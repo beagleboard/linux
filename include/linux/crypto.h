@@ -702,6 +702,12 @@ static inline struct ablkcipher_request *ablkcipher_request_cast(
 	return container_of(req, struct ablkcipher_request, base);
 }
 
+static inline struct aead_request *aead_request_cast(
+					struct crypto_async_request *req)
+{
+	return container_of(req, struct aead_request, base);
+}
+
 static inline struct ablkcipher_request *ablkcipher_request_alloc(
 	struct crypto_ablkcipher *tfm, gfp_t gfp)
 {

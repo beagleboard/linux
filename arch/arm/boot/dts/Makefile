@@ -82,6 +82,9 @@ dtb-$(CONFIG_ARCH_HIGHBANK) += highbank.dtb \
 	ecx-2000.dtb
 dtb-$(CONFIG_ARCH_INTEGRATOR) += integratorap.dtb \
 	integratorcp.dtb
+dtb-$(CONFIG_ARCH_KEYSTONE) += k2hk-evm.dtb \
+	k2l-evm.dtb \
+	k2e-evm.dtb
 dtb-$(CONFIG_ARCH_LPC32XX) += ea3250.dtb phy3250.dtb
 dtb-$(CONFIG_ARCH_KIRKWOOD) += kirkwood-cloudbox.dtb \
 	kirkwood-db-88f6281.dtb \
@@ -228,10 +231,21 @@ dtb-$(CONFIG_ARCH_OMAP2PLUS) += omap2420-h4.dtb \
 	am335x-boneblack.dtb \
 	am335x-nano.dtb \
 	am335x-base0033.dtb \
+	am3517-craneboard.dtb \
 	am3517-evm.dtb \
 	am3517_mt_ventoux.dtb \
 	am43x-epos-evm.dtb \
-	dra7-evm.dtb
+	am43x-epos-evm-hdmi.dtb \
+	am437x-gp-evm.dtb \
+	am437x-gp-evm-hdmi.dtb \
+	am437x-sk-evm.dtb \
+	dra7-evm.dtb \
+	dra7-evm-lcd10.dtb \
+	dra72-evm.dtb \
+	dra72-evm-lcd10.dtb \
+	am57xx-beagle-x15.dtb \
+	am57xx-evm.dtb
+
 dtb-$(CONFIG_ARCH_ORION5X) += orion5x-lacie-ethernet-disk-mini-v2.dtb
 dtb-$(CONFIG_ARCH_PRIMA2) += prima2-evb.dtb
 dtb-$(CONFIG_ARCH_U8500) += ste-snowball.dtb \

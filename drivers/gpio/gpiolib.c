@@ -60,6 +60,7 @@ struct gpio_desc {
 #define FLAG_OPEN_DRAIN	7	/* Gpio is open drain type */
 #define FLAG_OPEN_SOURCE 8	/* Gpio is open source type */
 #define FLAG_USED_AS_IRQ 9	/* GPIO is connected to an IRQ */
+#define FLAG_IS_HOGGED	10	/* GPIO is hogged */
 
 #define ID_SHIFT	16	/* add new flags before this one */
 
@@ -85,6 +86,8 @@ static DEFINE_IDR(dirent_idr);
 static int gpiod_request(struct gpio_desc *desc, const char *label);
 static void gpiod_free(struct gpio_desc *desc);
 
+struct gpio_desc *__must_check gpiod_get_hog_index(struct device *dev,
+						   unsigned int idx);
 /* With descriptor prefix */
 
 #ifdef CONFIG_DEBUG_FS
@@ -350,9 +353,9 @@ static ssize_t gpio_direction_store(struct device *dev,
 	if (!test_bit(FLAG_EXPORT, &desc->flags))
 		status = -EIO;
 	else if (sysfs_streq(buf, "high"))
-		status = gpiod_direction_output(desc, 1);
+		status = gpiod_direction_output_raw(desc, 1);
 	else if (sysfs_streq(buf, "out") || sysfs_streq(buf, "low"))
-		status = gpiod_direction_output(desc, 0);
+		status = gpiod_direction_output_raw(desc, 0);
 	else if (sysfs_streq(buf, "in"))
 		status = gpiod_direction_input(desc);
 	else
@@ -1272,6 +1275,9 @@ fail:
 }
 EXPORT_SYMBOL_GPL(gpiochip_add);
 
+/* Forward-declaration */
+static void gpiochip_free_hogs(struct gpio_chip *chip);
+
 /**
  * gpiochip_remove() - unregister a gpio_chip
  * @chip: the chip to unregister
@@ -1289,6 +1295,7 @@ int gpiochip_remove(struct gpio_chip *chip)
 	spin_lock_irqsave(&gpio_lock, flags);
 
 	gpiochip_remove_pin_ranges(chip);
+	gpiochip_free_hogs(chip);
 	of_gpiochip_remove(chip);
 	acpi_gpiochip_remove(chip);
 
@@ -1570,6 +1577,7 @@ static void gpiod_free(struct gpio_desc *desc)
 		clear_bit(FLAG_REQUESTED, &desc->flags);
 		clear_bit(FLAG_OPEN_DRAIN, &desc->flags);
 		clear_bit(FLAG_OPEN_SOURCE, &desc->flags);
+		clear_bit(FLAG_IS_HOGGED, &desc->flags);
 	} else
 		WARN_ON(extra_checks);
 
@@ -1608,7 +1616,7 @@ int gpio_request_one(unsigned gpio, unsigned long flags, const char *label)
 	if (flags & GPIOF_DIR_IN)
 		err = gpiod_direction_input(desc);
 	else
-		err = gpiod_direction_output(desc,
+		err = gpiod_direction_output_raw(desc,
 				(flags & GPIOF_INIT_HIGH) ? 1 : 0);
 
 	if (err)
@@ -1774,27 +1782,12 @@ fail:
 }
 EXPORT_SYMBOL_GPL(gpiod_direction_input);
 
-/**
- * gpiod_direction_output - set the GPIO direction to input
- * @desc:	GPIO to set to output
- * @value:	initial output value of the GPIO
- *
- * Set the direction of the passed GPIO to output, such as gpiod_set_value() can
- * be called safely on it. The initial value of the output must be specified.
- *
- * Return 0 in case of success, else an error code.
- */
-int gpiod_direction_output(struct gpio_desc *desc, int value)
+static int _gpiod_direction_output_raw(struct gpio_desc *desc, int value)
 {
 	unsigned long		flags;
 	struct gpio_chip	*chip;
 	int			status = -EINVAL;
 	int offset;
-
-	if (!desc || !desc->chip) {
-		pr_warn("%s: invalid GPIO\n", __func__);
-		return -EINVAL;
-	}
 
 	/* GPIOs used for IRQs shall not be set as output */
 	if (test_bit(FLAG_USED_AS_IRQ, &desc->flags)) {
@@ -1857,6 +1850,50 @@ fail:
 	if (status)
 		gpiod_dbg(desc, "%s: gpio status %d\n", __func__, status);
 	return status;
+}
+
+/**
+ * gpiod_direction_output_raw - set the GPIO direction to output
+ * @desc:	GPIO to set to output
+ * @value:	initial output value of the GPIO
+ *
+ * Set the direction of the passed GPIO to output, such as gpiod_set_value() can
+ * be called safely on it. The initial value of the output must be specified
+ * as raw value on the physical line without regard for the ACTIVE_LOW status.
+ *
+ * Return 0 in case of success, else an error code.
+ */
+int gpiod_direction_output_raw(struct gpio_desc *desc, int value)
+{
+	if (!desc || !desc->chip) {
+		pr_warn("%s: invalid GPIO\n", __func__);
+		return -EINVAL;
+	}
+	return _gpiod_direction_output_raw(desc, value);
+}
+EXPORT_SYMBOL_GPL(gpiod_direction_output_raw);
+
+/**
+ * gpiod_direction_output - set the GPIO direction to output
+ * @desc:	GPIO to set to output
+ * @value:	initial output value of the GPIO
+ *
+ * Set the direction of the passed GPIO to output, such as gpiod_set_value() can
+ * be called safely on it. The initial value of the output must be specified
+ * as the logical value of the GPIO, i.e. taking its ACTIVE_LOW status into
+ * account.
+ *
+ * Return 0 in case of success, else an error code.
+ */
+int gpiod_direction_output(struct gpio_desc *desc, int value)
+{
+	if (!desc || !desc->chip) {
+		pr_warn("%s: invalid GPIO\n", __func__);
+		return -EINVAL;
+	}
+	if (test_bit(FLAG_ACTIVE_LOW, &desc->flags))
+		value = !value;
+	return _gpiod_direction_output_raw(desc, value);
 }
 EXPORT_SYMBOL_GPL(gpiod_direction_output);
 
@@ -2507,6 +2544,51 @@ struct gpio_desc *__must_check gpiod_get_index(struct device *dev,
 	return desc;
 }
 EXPORT_SYMBOL_GPL(gpiod_get_index);
+
+/**
+ * gpiod_hog - Hog the specified GPIO desc given the provided flags
+ * @desc:	gpio whose value will be assigned
+ * @name:	gpio line name
+ * @flags:	gpio initialization flags - returned from of_find_gpio() or
+ *		of_get_gpio_hog()
+ *
+ */
+int gpiod_hog(struct gpio_desc *desc, const char *name,
+	      unsigned long flags)
+{
+	int status;
+
+	status = gpio_request_one(desc_to_gpio(desc), flags, name);
+	if (status)
+		return status;
+
+	/* Mark GPIO as hogged so it can be identified and removed later */
+	set_bit(FLAG_IS_HOGGED, &desc->flags);
+
+	pr_debug("%s: GPIO:%d (%s) as %s%s\n", __func__,
+		 desc_to_gpio(desc), name,
+		 (flags&GPIOF_DIR_IN) ? "input" : "output",
+		 (flags&GPIOF_DIR_IN) ? "" :
+		 (flags&GPIOF_INIT_HIGH) ? "/high" : "/low");
+
+	return 0;
+}
+
+/**
+ * gpiochip_free_hogs - Scan gpio-controller chip and release GPIO hog
+ * @chip:	gpio chip to act on
+ *
+ * This is only used by of_gpiochip_remove to free hogged gpios
+ */
+static void gpiochip_free_hogs(struct gpio_chip *chip)
+{
+	int id;
+
+	for (id = 0; id < chip->ngpio; id++) {
+		if (test_bit(FLAG_IS_HOGGED, &chip->desc[id].flags))
+			gpiod_free(&chip->desc[id]);
+	}
+}
 
 /**
  * gpiod_put - dispose of a GPIO descriptor

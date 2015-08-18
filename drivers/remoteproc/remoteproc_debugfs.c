@@ -190,6 +190,24 @@ static const struct file_operations rproc_recovery_ops = {
 	.llseek = generic_file_llseek,
 };
 
+static ssize_t rproc_fw_version_read(struct file *filp, char __user *userbuf,
+						size_t count, loff_t *ppos)
+{
+	struct rproc *rproc = filp->private_data;
+
+	if (!rproc->fw_version)
+		return 0;
+
+	return simple_read_from_buffer(userbuf, count, ppos, rproc->fw_version,
+						strlen(rproc->fw_version));
+}
+
+static const struct file_operations rproc_version_ops = {
+	.read = rproc_fw_version_read,
+	.open = simple_open,
+	.llseek = generic_file_llseek,
+};
+
 void rproc_remove_trace_file(struct dentry *tfile)
 {
 	debugfs_remove(tfile);
@@ -230,11 +248,13 @@ void rproc_create_debug_dir(struct rproc *rproc)
 		return;
 
 	debugfs_create_file("name", 0400, rproc->dbg_dir,
-					rproc, &rproc_name_ops);
+			    rproc, &rproc_name_ops);
 	debugfs_create_file("state", 0400, rproc->dbg_dir,
-					rproc, &rproc_state_ops);
+			    rproc, &rproc_state_ops);
 	debugfs_create_file("recovery", 0400, rproc->dbg_dir,
-					rproc, &rproc_recovery_ops);
+			    rproc, &rproc_recovery_ops);
+	debugfs_create_file("version", 0400, rproc->dbg_dir,
+			    rproc, &rproc_version_ops);
 }
 
 void __init rproc_init_debugfs(void)

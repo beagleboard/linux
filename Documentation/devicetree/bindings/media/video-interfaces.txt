@@ -86,6 +86,8 @@ Optional endpoint properties
   synchronization may be required, where supported.
 - data-active: similar to HSYNC and VSYNC, specifies data line polarity.
 - field-even-active: field signal level during the even field data transmission.
+- num-channels: for time multiplexed multi channel video signal, this property
+  specifies number of channels multiplexed.
 - pclk-sample: sample data on rising (1) or falling (0) edge of the pixel clock
   signal.
 - sync-on-green-active: active state of Sync-on-green (SoG) signal, 0/1 for
@@ -103,6 +105,12 @@ Optional endpoint properties
   array contains only one entry.
 - clock-noncontinuous: a boolean property to allow MIPI CSI-2 non-continuous
   clock mode.
+- lane-polarities: an array of polarities of the lanes starting from the clock
+  lane and followed by the data lanes in the same order as in data-lanes.
+  Valid values are 0 (normal) and 1 (inverted). The length of the array
+  should be the combined length of data-lanes and clock-lanes properties.
+  If the lane-polarities property is omitted, the value must be interpreted
+  as 0 (normal). This property is valid for serial busses only.
 
 
 Example

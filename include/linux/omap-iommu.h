@@ -49,4 +49,7 @@ extern void *omap_da_to_va(struct device *dev, u32 da);
 extern void omap_iommu_save_ctx(struct device *dev);
 extern void omap_iommu_restore_ctx(struct device *dev);
 
+int omap_iommu_domain_suspend(struct iommu_domain *domain, bool auto_suspend);
+int omap_iommu_domain_resume(struct iommu_domain *domain, bool auto_suspend);
+
 #endif

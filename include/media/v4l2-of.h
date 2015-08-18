@@ -17,6 +17,7 @@
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/errno.h>
+#include <linux/of_graph.h>
 
 #include <media/v4l2-mediabus.h>
 
@@ -28,12 +29,15 @@ struct device_node;
  * @data_lanes: an array of physical data lane indexes
  * @clock_lane: physical lane index of the clock lane
  * @num_data_lanes: number of data lanes
+ * @lane_polarities: polarity of the lanes. The order is the same of
+ *		   the physical lanes.
  */
 struct v4l2_of_bus_mipi_csi2 {
 	unsigned int flags;
 	unsigned char data_lanes[4];
 	unsigned char clock_lane;
 	unsigned short num_data_lanes;
+	bool lane_polarities[5];
 };
 
 /**
@@ -46,21 +50,18 @@ struct v4l2_of_bus_parallel {
 	unsigned int flags;
 	unsigned char bus_width;
 	unsigned char data_shift;
+	unsigned int num_channels;
 };
 
 /**
  * struct v4l2_of_endpoint - the endpoint data structure
- * @port: identifier (value of reg property) of a port this endpoint belongs to
- * @id: identifier (value of reg property) of this endpoint
- * @local_node: pointer to device_node of this endpoint
+ * @base: struct of_endpoint containing port, id, and local of_node
  * @bus_type: bus type
  * @bus: bus configuration data structure
  * @head: list head for this structure
  */
 struct v4l2_of_endpoint {
-	unsigned int port;
-	unsigned int id;
-	const struct device_node *local_node;
+	struct of_endpoint base;
 	enum v4l2_mbus_type bus_type;
 	union {
 		struct v4l2_of_bus_parallel parallel;
@@ -72,36 +73,12 @@ struct v4l2_of_endpoint {
 #ifdef CONFIG_OF
 int v4l2_of_parse_endpoint(const struct device_node *node,
 			   struct v4l2_of_endpoint *endpoint);
-struct device_node *v4l2_of_get_next_endpoint(const struct device_node *parent,
-					struct device_node *previous);
-struct device_node *v4l2_of_get_remote_port_parent(
-					const struct device_node *node);
-struct device_node *v4l2_of_get_remote_port(const struct device_node *node);
 #else /* CONFIG_OF */
 
 static inline int v4l2_of_parse_endpoint(const struct device_node *node,
 					struct v4l2_of_endpoint *link)
 {
 	return -ENOSYS;
-}
-
-static inline struct device_node *v4l2_of_get_next_endpoint(
-					const struct device_node *parent,
-					struct device_node *previous)
-{
-	return NULL;
-}
-
-static inline struct device_node *v4l2_of_get_remote_port_parent(
-					const struct device_node *node)
-{
-	return NULL;
-}
-
-static inline struct device_node *v4l2_of_get_remote_port(
-					const struct device_node *node)
-{
-	return NULL;
 }
 
 #endif /* CONFIG_OF */

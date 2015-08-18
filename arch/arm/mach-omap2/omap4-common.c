@@ -22,6 +22,7 @@
 #include <linux/of_platform.h>
 #include <linux/export.h>
 #include <linux/irqchip/arm-gic.h>
+#include <linux/irqchip/irq-crossbar.h>
 #include <linux/of_address.h>
 #include <linux/reboot.h>
 
@@ -187,7 +188,7 @@ static int __init omap_l2_cache_init(void)
 	 * To avoid code running on other OMAPs in
 	 * multi-omap builds
 	 */
-	if (!cpu_is_omap44xx())
+	if (!cpu_is_omap44xx() && !soc_is_am43xx())
 		return -ENODEV;
 
 	/* Static mapping, never released */
@@ -199,13 +200,18 @@ static int __init omap_l2_cache_init(void)
 	 * 16-way associativity, parity disabled
 	 * Way size - 32KB (es1.0)
 	 * Way size - 64KB (es2.0 +)
+	 * Way size - 16KB (am43xx)
 	 */
 	aux_ctrl = ((1 << L2X0_AUX_CTRL_ASSOCIATIVITY_SHIFT) |
 			(0x1 << 25) |
 			(0x1 << L2X0_AUX_CTRL_NS_LOCKDOWN_SHIFT) |
 			(0x1 << L2X0_AUX_CTRL_NS_INT_CTRL_SHIFT));
-
-	if (omap_rev() == OMAP4430_REV_ES1_0) {
+	if (soc_is_am43xx()) {
+		aux_ctrl |= ((0x1 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) |
+			     (1 << L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT) |
+			     (1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT) |
+			     (1 << L2X0_AUX_CTRL_EARLY_BRESP_SHIFT));
+	} else if (omap_rev() == OMAP4430_REV_ES1_0) {
 		aux_ctrl |= 0x2 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT;
 	} else {
 		aux_ctrl |= ((0x3 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) |
@@ -214,7 +220,7 @@ static int __init omap_l2_cache_init(void)
 			(1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT) |
 			(1 << L2X0_AUX_CTRL_EARLY_BRESP_SHIFT));
 	}
-	if (omap_rev() != OMAP4430_REV_ES1_0)
+	if (soc_is_am43xx() || omap_rev() != OMAP4430_REV_ES1_0)
 		omap_smc1(0x109, aux_ctrl);
 
 	/* Enable PL310 L2 Cache controller */
@@ -288,5 +294,8 @@ void __init omap_gic_of_init(void)
 
 skip_errata_init:
 	omap_wakeupgen_init();
+#ifdef CONFIG_IRQ_CROSSBAR
+	irqcrossbar_init();
+#endif
 	irqchip_init();
 }

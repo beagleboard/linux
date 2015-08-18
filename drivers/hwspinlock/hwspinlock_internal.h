@@ -43,16 +43,19 @@ struct hwspinlock_ops {
  * struct hwspinlock - this struct represents a single hwspinlock instance
  * @bank: the hwspinlock_device structure which owns this lock
  * @lock: initialized and used by hwspinlock core
+ * @type: type of lock, used to distinguish regular locks from reserved locks
  * @priv: private data, owned by the underlying platform-specific hwspinlock drv
  */
 struct hwspinlock {
 	struct hwspinlock_device *bank;
 	spinlock_t lock;
+	unsigned int type;
 	void *priv;
 };
 
 /**
  * struct hwspinlock_device - a device which usually spans numerous hwspinlocks
+ * @list: list element to link hwspinlock devices together
  * @dev: underlying device, will be used to invoke runtime PM api
  * @ops: platform-specific hwspinlock handlers
  * @base_id: id index of the first lock in this device
@@ -60,6 +63,7 @@ struct hwspinlock {
  * @lock: dynamically allocated array of 'struct hwspinlock'
  */
 struct hwspinlock_device {
+	struct list_head list;
 	struct device *dev;
 	const struct hwspinlock_ops *ops;
 	int base_id;

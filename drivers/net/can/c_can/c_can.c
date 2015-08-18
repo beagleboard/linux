@@ -35,6 +35,7 @@
 #include <linux/list.h>
 #include <linux/io.h>
 #include <linux/pm_runtime.h>
+#include <linux/pinctrl/consumer.h>
 
 #include <linux/can.h>
 #include <linux/can/dev.h>
@@ -212,8 +213,10 @@ static const struct can_bittiming_const c_can_bittiming_const = {
 
 static inline void c_can_pm_runtime_enable(const struct c_can_priv *priv)
 {
-	if (priv->device)
+	if (priv->device) {
 		pm_runtime_enable(priv->device);
+		pm_runtime_irq_safe(priv->device);
+	}
 }
 
 static inline void c_can_pm_runtime_disable(const struct c_can_priv *priv)
@@ -685,6 +688,9 @@ static void c_can_start(struct net_device *dev)
 
 	/* enable status change, error and module interrupts */
 	c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
+
+	/* activate pins */
+	c_can_pinctrl_select_state(dev, PINCTRL_STATE_DEFAULT);
 }
 
 static void c_can_stop(struct net_device *dev)
@@ -696,6 +702,9 @@ static void c_can_stop(struct net_device *dev)
 
 	/* set the state as STOPPED */
 	priv->can.state = CAN_STATE_STOPPED;
+
+	/* deactivate pins */
+	c_can_pinctrl_select_state(dev, PINCTRL_STATE_SLEEP);
 }
 
 static int c_can_set_mode(struct net_device *dev, enum can_mode mode)
@@ -1284,6 +1293,15 @@ int register_c_can_dev(struct net_device *dev)
 	struct c_can_priv *priv = netdev_priv(dev);
 	int err;
 
+	priv->pinctrl = devm_pinctrl_get(dev->dev.parent);
+
+	/* Deactivate pins to prevent DRA7 DCAN IP from being
+	 * stuck in transition when module is disabled.
+	 * Pins are activated in c_can_start() and deactivated
+	 * in c_can_stop()
+	 */
+	c_can_pinctrl_select_state(dev, PINCTRL_STATE_SLEEP);
+
 	c_can_pm_runtime_enable(priv);
 
 	dev->flags |= IFF_ECHO;	/* we support local echo */
@@ -1308,6 +1326,22 @@ void unregister_c_can_dev(struct net_device *dev)
 	c_can_pm_runtime_disable(priv);
 }
 EXPORT_SYMBOL_GPL(unregister_c_can_dev);
+
+/* Selects the pinctrl state specified in the name. */
+void c_can_pinctrl_select_state(struct net_device *dev,
+				const char *name)
+{
+	struct c_can_priv *priv = netdev_priv(dev);
+
+	if (!IS_ERR(priv->pinctrl)) {
+		struct pinctrl_state *s;
+
+		s = pinctrl_lookup_state(priv->pinctrl, name);
+		if (!IS_ERR(s))
+			pinctrl_select_state(priv->pinctrl, s);
+	}
+}
+EXPORT_SYMBOL_GPL(c_can_pinctrl_select_state);
 
 MODULE_AUTHOR("Bhupesh Sharma <bhupesh.sharma@st.com>");
 MODULE_LICENSE("GPL v2");

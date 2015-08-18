@@ -46,7 +46,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
-#define OMAP_MAX_HSUART_PORTS	6
+#define OMAP_MAX_HSUART_PORTS	10
 
 #define UART_BUILD_REVISION(x, y)	(((x) << 8) | (y))
 
@@ -163,10 +163,6 @@ struct uart_omap_port {
 	u8			wakeups_enabled;
 	u32			features;
 
-	int			DTR_gpio;
-	int			DTR_inverted;
-	int			DTR_active;
-
 	struct serial_rs485	rs485;
 	int			rts_gpio;
 
@@ -183,8 +179,6 @@ static struct uart_omap_port *ui[OMAP_MAX_HSUART_PORTS];
 
 /* Forward declaration of functions */
 static void serial_omap_mdr1_errataset(struct uart_omap_port *up, u8 mdr1);
-
-static struct workqueue_struct *serial_omap_uart_wq;
 
 static inline unsigned int serial_in(struct uart_omap_port *up, int offset)
 {
@@ -260,16 +254,11 @@ serial_omap_baud_is_mode16(struct uart_port *port, unsigned int baud)
 {
 	unsigned int n13 = port->uartclk / (13 * baud);
 	unsigned int n16 = port->uartclk / (16 * baud);
-	int baudAbsDiff13;
-	int baudAbsDiff16;
+	int baudAbsDiff13 =
+		n13 ? (baud - (port->uartclk / (13 * n13))) : INT_MAX;
+	int baudAbsDiff16 =
+		n16 ? (baud - (port->uartclk / (16 * n16))) : INT_MAX;
 
-	if (n13 == 0)
-		n13 = 1;
-	if (n16 == 0)
-		n16 = 1;
-
-	baudAbsDiff13 = baud - (port->uartclk / (13 * n13));
-	baudAbsDiff16 = baud - (port->uartclk / (16 * n16));
 	if (baudAbsDiff13 < 0)
 		baudAbsDiff13 = -baudAbsDiff13;
 	if (baudAbsDiff16 < 0)
@@ -399,11 +388,8 @@ static void transmit_chars(struct uart_omap_port *up, unsigned int lsr)
 			break;
 	} while (--count > 0);
 
-	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS) {
-		spin_unlock(&up->port.lock);
+	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(&up->port);
-		spin_lock(&up->port.lock);
-	}
 
 	if (uart_circ_empty(xmit))
 		serial_omap_stop_tx(&up->port);
@@ -698,16 +684,6 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	serial_out(up, UART_MCR, up->mcr);
 	pm_runtime_mark_last_busy(up->dev);
 	pm_runtime_put_autosuspend(up->dev);
-
-	if (gpio_is_valid(up->DTR_gpio) &&
-	    !!(mctrl & TIOCM_DTR) != up->DTR_active) {
-		up->DTR_active = !up->DTR_active;
-		if (gpio_cansleep(up->DTR_gpio))
-			schedule_work(&up->qos_work);
-		else
-			gpio_set_value(up->DTR_gpio,
-				       up->DTR_active != up->DTR_inverted);
-	}
 }
 
 static void serial_omap_break_ctl(struct uart_port *port, int break_state)
@@ -851,9 +827,6 @@ static void serial_omap_uart_qos_work(struct work_struct *work)
 						qos_work);
 
 	pm_qos_update_request(&up->pm_qos_request, up->latency);
-	if (gpio_is_valid(up->DTR_gpio))
-		gpio_set_value_cansleep(up->DTR_gpio,
-					up->DTR_active != up->DTR_inverted);
 }
 
 static void
@@ -1421,7 +1394,7 @@ serial_omap_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case TIOCSRS485:
-		if (copy_from_user(&rs485conf, (struct serial_rs485 *) arg,
+		if (copy_from_user(&rs485conf, (void __user *) arg,
 					sizeof(rs485conf)))
 			return -EFAULT;
 
@@ -1429,7 +1402,7 @@ serial_omap_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 		break;
 
 	case TIOCGRS485:
-		if (copy_to_user((struct serial_rs485 *) arg,
+		if (copy_to_user((void __user *) arg,
 					&(to_uart_omap_port(port)->rs485),
 					sizeof(rs485conf)))
 			return -EFAULT;
@@ -1501,6 +1474,9 @@ static int serial_omap_suspend(struct device *dev)
 	uart_suspend_port(&serial_omap_reg, &up->port);
 	flush_work(&up->qos_work);
 
+	/* Select sleep pin state */
+	pinctrl_pm_select_sleep_state(dev);
+
 	if (device_may_wakeup(dev))
 		serial_omap_enable_wakeup(up, true);
 	else
@@ -1512,6 +1488,9 @@ static int serial_omap_suspend(struct device *dev)
 static int serial_omap_resume(struct device *dev)
 {
 	struct uart_omap_port *up = dev_get_drvdata(dev);
+
+	/* Select default pin state */
+	pinctrl_pm_select_default_state(dev);
 
 	if (device_may_wakeup(dev))
 		serial_omap_enable_wakeup(up, false);
@@ -1615,7 +1594,7 @@ static int serial_omap_probe_rs485(struct uart_omap_port *up,
 	/* check for tx enable gpio */
 	up->rts_gpio = of_get_named_gpio_flags(np, "rts-gpio", 0, &flags);
 	if (gpio_is_valid(up->rts_gpio)) {
-		ret = gpio_request(up->rts_gpio, "omap-serial");
+		ret = devm_gpio_request(up->dev, up->rts_gpio, "omap-serial");
 		if (ret < 0)
 			return ret;
 		ret = gpio_direction_output(up->rts_gpio,
@@ -1645,10 +1624,16 @@ static int serial_omap_probe_rs485(struct uart_omap_port *up,
 
 static int serial_omap_probe(struct platform_device *pdev)
 {
-	struct uart_omap_port	*up;
-	struct resource		*mem, *irq;
 	struct omap_uart_port_info *omap_up_info = dev_get_platdata(&pdev->dev);
-	int ret, uartirq = 0, wakeirq = 0;
+	struct uart_omap_port *up;
+	struct resource *mem;
+	void __iomem *base;
+	int uartirq = 0;
+	int wakeirq = 0;
+	int ret;
+	enum of_gpio_flags flags;
+	int gpio_sel;
+	unsigned long gpio_flags;
 
 	/* The optional wakeirq may be specified in the board dts file */
 	if (pdev->dev.of_node) {
@@ -1659,48 +1644,37 @@ static int serial_omap_probe(struct platform_device *pdev)
 		omap_up_info = of_get_uart_port_info(&pdev->dev);
 		pdev->dev.platform_data = omap_up_info;
 	} else {
-		irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-		if (!irq) {
-			dev_err(&pdev->dev, "no irq resource?\n");
-			return -ENODEV;
+		uartirq = platform_get_irq(pdev, 0);
+		if (uartirq < 0)
+			return -EPROBE_DEFER;
+	}
+
+	/* Check if the UART needs to be selected */
+	gpio_sel = of_get_gpio_flags(pdev->dev.of_node, 0, &flags);
+	if (gpio_is_valid(gpio_sel)) {
+		dev_dbg(&pdev->dev, "using gpio %d for uart%d_sel\n",
+			gpio_sel, pdev->id);
+		gpio_flags = (flags & OF_GPIO_ACTIVE_LOW) ?
+			GPIOF_OUT_INIT_LOW : GPIOF_OUT_INIT_HIGH;
+		ret = devm_gpio_request_one(&pdev->dev, gpio_sel,
+					    gpio_flags, "uart_sel");
+		if (ret) {
+			dev_err(&pdev->dev, "gpio%d request failed, ret %d\n",
+				gpio_sel, ret);
+			return ret;
 		}
-		uartirq = irq->start;
-	}
-
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!mem) {
-		dev_err(&pdev->dev, "no mem resource?\n");
-		return -ENODEV;
-	}
-
-	if (!devm_request_mem_region(&pdev->dev, mem->start, resource_size(mem),
-				pdev->dev.driver->name)) {
-		dev_err(&pdev->dev, "memory region already claimed\n");
-		return -EBUSY;
-	}
-
-	if (gpio_is_valid(omap_up_info->DTR_gpio) &&
-	    omap_up_info->DTR_present) {
-		ret = gpio_request(omap_up_info->DTR_gpio, "omap-serial");
-		if (ret < 0)
-			return ret;
-		ret = gpio_direction_output(omap_up_info->DTR_gpio,
-					    omap_up_info->DTR_inverted);
-		if (ret < 0)
-			return ret;
+	} else if (gpio_sel == -EPROBE_DEFER) {
+		return -EPROBE_DEFER;
 	}
 
 	up = devm_kzalloc(&pdev->dev, sizeof(*up), GFP_KERNEL);
 	if (!up)
 		return -ENOMEM;
 
-	if (gpio_is_valid(omap_up_info->DTR_gpio) &&
-	    omap_up_info->DTR_present) {
-		up->DTR_gpio = omap_up_info->DTR_gpio;
-		up->DTR_inverted = omap_up_info->DTR_inverted;
-	} else
-		up->DTR_gpio = -EINVAL;
-	up->DTR_active = 0;
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	base = devm_ioremap_resource(&pdev->dev, mem);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
 
 	up->dev = &pdev->dev;
 	up->port.dev = &pdev->dev;
@@ -1728,20 +1702,20 @@ static int serial_omap_probe(struct platform_device *pdev)
 		goto err_port_line;
 	}
 
+	if (up->port.line >= OMAP_MAX_HSUART_PORTS) {
+		dev_err(&pdev->dev, "uart ID %d >  MAX %d.\n", up->port.line,
+			OMAP_MAX_HSUART_PORTS);
+		ret = -ENXIO;
+		goto err_port_line;
+	}
+
 	ret = serial_omap_probe_rs485(up, pdev->dev.of_node);
 	if (ret < 0)
 		goto err_rs485;
 
 	sprintf(up->name, "OMAP UART%d", up->port.line);
 	up->port.mapbase = mem->start;
-	up->port.membase = devm_ioremap(&pdev->dev, mem->start,
-						resource_size(mem));
-	if (!up->port.membase) {
-		dev_err(&pdev->dev, "can't ioremap UART\n");
-		ret = -ENOMEM;
-		goto err_ioremap;
-	}
-
+	up->port.membase = base;
 	up->port.flags = omap_up_info->flags;
 	up->port.uartclk = omap_up_info->uartclk;
 	if (!up->port.uartclk) {
@@ -1755,12 +1729,12 @@ static int serial_omap_probe(struct platform_device *pdev)
 	up->calc_latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
 	pm_qos_add_request(&up->pm_qos_request,
 		PM_QOS_CPU_DMA_LATENCY, up->latency);
-	serial_omap_uart_wq = create_singlethread_workqueue(up->name);
 	INIT_WORK(&up->qos_work, serial_omap_uart_qos_work);
 
 	platform_set_drvdata(pdev, up);
 	if (omap_up_info->autosuspend_timeout == 0)
 		omap_up_info->autosuspend_timeout = -1;
+
 	device_init_wakeup(up->dev, true);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev,
@@ -1787,7 +1761,6 @@ static int serial_omap_probe(struct platform_device *pdev)
 err_add_port:
 	pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
-err_ioremap:
 err_rs485:
 err_port_line:
 	dev_err(&pdev->dev, "[UART%d]: failure [%s]: %d\n",

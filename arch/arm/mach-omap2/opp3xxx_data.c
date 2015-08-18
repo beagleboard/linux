@@ -159,6 +159,9 @@ int __init omap3_opp_init(void)
 	if (!cpu_is_omap34xx())
 		return r;
 
+	if (of_have_populated_dt())
+		return -EINVAL;
+
 	if (cpu_is_omap3630())
 		r = omap_init_opp_table(omap36xx_opp_def_list,
 			ARRAY_SIZE(omap36xx_opp_def_list));

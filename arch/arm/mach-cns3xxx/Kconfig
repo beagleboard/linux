@@ -4,7 +4,6 @@ config ARCH_CNS3XXX
 	select CPU_V6K
 	select GENERIC_CLOCKEVENTS
 	select MIGHT_HAVE_CACHE_L2X0
-	select MIGHT_HAVE_PCI
 	select PCI_DOMAINS if PCI
 	help
 	  Support for Cavium Networks CNS3XXX platform.

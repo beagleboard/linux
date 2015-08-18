@@ -14,13 +14,30 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/of.h>
 #include <linux/platform_data/gpio-omap.h>
 #include <linux/platform_data/spi-omap2-mcspi.h>
 #include "omap_hwmod.h"
 #include "omap_hwmod_33xx_43xx_common_data.h"
+#include "omap_hwmod_common_data.h"
 #include "prcm43xx.h"
+#include "hdq1w.h"
 
 /* IP blocks */
+static struct omap_hwmod am43xx_emif_hwmod = {
+	.name		= "emif",
+	.class		= &am33xx_emif_hwmod_class,
+	.clkdm_name	= "emif_clkdm",
+	.flags		= HWMOD_INIT_NO_IDLE,
+	.main_clk	= "dpll_ddr_m2_ck",
+	.prcm		= {
+		.omap4	= {
+			.clkctrl_offs	= AM43XX_CM_PER_EMIF_CLKCTRL_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+};
+
 static struct omap_hwmod am43xx_l4_hs_hwmod = {
 	.name		= "l4_hs",
 	.class		= &am33xx_l4_hwmod_class,
@@ -415,7 +432,169 @@ static struct omap_hwmod am43xx_qspi_hwmod = {
 	},
 };
 
+static struct omap_hwmod_class_sysconfig am43xx_hdq1w_sysc = {
+	.rev_offs       = 0x0000,
+	.sysc_offs      = 0x0014,
+	.syss_offs      = 0x0018,
+	.sysc_flags     = (SYSC_HAS_SOFTRESET),
+	.sysc_fields    = &omap_hwmod_sysc_type1,
+};
+
+static struct omap_hwmod_class am43xx_hdq1w_hwmod_class = {
+	.name   = "hdq1w",
+	.sysc   = &am43xx_hdq1w_sysc,
+	.reset  = &omap_hdq1w_reset,
+};
+
+static struct omap_hwmod am43xx_hdq1w_hwmod = {
+	.name           = "hdq1w",
+	.class          = &am43xx_hdq1w_hwmod_class,
+	.clkdm_name     = "l4ls_clkdm",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = AM43XX_CM_PER_HDQ1W_CLKCTRL_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* dss */
+
+static struct omap_hwmod am43xx_dss_core_hwmod = {
+	.name		= "dss_core",
+	.class		= &omap2_dss_hwmod_class,
+	.clkdm_name	= "dss_clkdm",
+	.main_clk	= "disp_clk",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = AM43XX_CM_PER_DSS_CLKCTRL_OFFSET,
+			.modulemode   = MODULEMODE_SWCTRL,
+		},
+	},
+};
+
+/* dispc */
+
+struct omap_dss_dispc_dev_attr am43xx_dss_dispc_dev_attr = {
+	.manager_count		= 1,
+	.has_framedonetv_irq	= 0
+};
+
+static struct omap_hwmod_class_sysconfig am43xx_dispc_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_AUTOIDLE | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_MIDLEMODE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
+static struct omap_hwmod_class am43xx_dispc_hwmod_class = {
+	.name	= "dispc",
+	.sysc	= &am43xx_dispc_sysc,
+};
+
+static struct omap_hwmod am43xx_dss_dispc_hwmod = {
+	.name		= "dss_dispc",
+	.class		= &am43xx_dispc_hwmod_class,
+	.clkdm_name	= "dss_clkdm",
+	.main_clk	= "disp_clk",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = AM43XX_CM_PER_DSS_CLKCTRL_OFFSET,
+		},
+	},
+	.dev_attr	= &am43xx_dss_dispc_dev_attr,
+};
+
+/* rfbi */
+
+static struct omap_hwmod am43xx_dss_rfbi_hwmod = {
+	.name		= "dss_rfbi",
+	.class		= &omap2_rfbi_hwmod_class,
+	.clkdm_name	= "dss_clkdm",
+	.main_clk	= "disp_clk",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = AM43XX_CM_PER_DSS_CLKCTRL_OFFSET,
+		},
+	},
+};
+
+static struct omap_hwmod_class_sysconfig am43xx_vpfe_sysc = {
+	.rev_offs       = 0x0,
+	.sysc_offs      = 0x104,
+	.sysc_flags     = SYSC_HAS_MIDLEMODE | SYSC_HAS_SIDLEMODE,
+	.idlemodes      = (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+				MSTANDBY_FORCE | MSTANDBY_SMART | MSTANDBY_NO),
+	.sysc_fields    = &omap_hwmod_sysc_type2,
+};
+
+static struct omap_hwmod_class am43xx_vpfe_hwmod_class = {
+	.name           = "vpfe",
+	.sysc           = &am43xx_vpfe_sysc,
+};
+
+static struct omap_hwmod am43xx_vpfe0_hwmod = {
+	.name           = "vpfe0",
+	.class          = &am43xx_vpfe_hwmod_class,
+	.clkdm_name     = "l3s_clkdm",
+	.prcm           = {
+		.omap4  = {
+			.modulemode     = MODULEMODE_SWCTRL,
+			.clkctrl_offs   = AM43XX_CM_PER_VPFE0_CLKCTRL_OFFSET,
+		},
+	},
+};
+
+static struct omap_hwmod am43xx_vpfe1_hwmod = {
+	.name           = "vpfe1",
+	.class          = &am43xx_vpfe_hwmod_class,
+	.clkdm_name     = "l3s_clkdm",
+	.prcm           = {
+		.omap4  = {
+			.modulemode     = MODULEMODE_SWCTRL,
+			.clkctrl_offs   = AM43XX_CM_PER_VPFE1_CLKCTRL_OFFSET,
+		},
+	},
+};	
+
+static struct omap_hwmod_class_sysconfig am43xx_des_sysc = {
+	.rev_offs	= 0x30,
+	.sysc_offs	= 0x34,
+	.syss_offs	= 0x38,
+	.sysc_flags	= SYSS_HAS_RESET_STATUS,
+};
+
+static struct omap_hwmod_class am43xx_des_hwmod_class = {
+	.name		= "des",
+	.sysc		= &am43xx_des_sysc,
+};
+
+static struct omap_hwmod am43xx_des_hwmod = {
+	.name		= "des",
+	.class		= &am43xx_des_hwmod_class,
+	.clkdm_name	= "l3_clkdm",
+	.main_clk	= "l3_gclk",
+	.prcm		= {
+		.omap4	= {
+			.clkctrl_offs	= AM43XX_CM_PER_DES_CLKCTRL_OFFSET,
+			.modulemode	= MODULEMODE_SWCTRL,
+		},
+	},
+};
+
 /* Interfaces */
+static struct omap_hwmod_ocp_if am43xx_l3_main__emif = {
+	.master		= &am33xx_l3_main_hwmod,
+	.slave		= &am43xx_emif_hwmod,
+	.clk		= "dpll_core_m4_ck",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 static struct omap_hwmod_ocp_if am43xx_l3_main__l4_hs = {
 	.master		= &am33xx_l3_main_hwmod,
 	.slave		= &am43xx_l4_hs_hwmod,
@@ -654,6 +833,65 @@ static struct omap_hwmod_ocp_if am43xx_l3_s__qspi = {
 	.user           = OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* l4_per -> hdq1w */
+static struct omap_hwmod_ocp_if am43xx_l4_ls__hdq1w = {
+	.master         = &am33xx_l4_ls_hwmod,
+	.slave          = &am43xx_hdq1w_hwmod,
+	.clk            = "l4ls_gclk",
+	.user           = OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+static struct omap_hwmod_ocp_if am43xx_dss__l3_main = {
+	.master		= &am43xx_dss_core_hwmod,
+	.slave		= &am33xx_l3_main_hwmod,
+	.clk		= "l3_gclk",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+static struct omap_hwmod_ocp_if am43xx_l4_ls__dss = {
+	.master		= &am33xx_l4_ls_hwmod,
+	.slave		= &am43xx_dss_core_hwmod,
+	.clk		= "l4ls_gclk",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+static struct omap_hwmod_ocp_if am43xx_l4_ls__dss_dispc = {
+	.master		= &am33xx_l4_ls_hwmod,
+	.slave		= &am43xx_dss_dispc_hwmod,
+	.clk		= "l4ls_gclk",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+static struct omap_hwmod_ocp_if am43xx_l4_ls__dss_rfbi = {
+	.master		= &am33xx_l4_ls_hwmod,
+	.slave		= &am43xx_dss_rfbi_hwmod,
+	.clk		= "l4ls_gclk",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
+static struct omap_hwmod_ocp_if am43xx_l3__vpfe0 = {
+	.master         = &am33xx_l3_main_hwmod,
+	.slave          = &am43xx_vpfe0_hwmod,
+	.clk            = "l3_gclk",
+	.flags          = OCPIF_SWSUP_IDLE,
+	.user           = OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if am43xx_l3__vpfe1 = {
+	.master         = &am33xx_l3_main_hwmod,
+	.slave          = &am43xx_vpfe1_hwmod,
+	.clk            = "l3_gclk",
+	.flags          = OCPIF_SWSUP_IDLE,
+	.user           = OCP_USER_MPU,
+};
+
+static struct omap_hwmod_ocp_if am43xx_l3_main__des = {
+	.master		= &am33xx_l3_main_hwmod,
+	.slave		= &am43xx_des_hwmod,
+	.clk		= "l3_gclk",
+	.user		= OCP_USER_MPU,
+};
+
 static struct omap_hwmod_ocp_if *am43xx_hwmod_ocp_ifs[] __initdata = {
 	&am33xx_l4_wkup__synctimer,
 	&am43xx_l4_ls__timer8,
@@ -681,6 +919,7 @@ static struct omap_hwmod_ocp_if *am43xx_hwmod_ocp_ifs[] __initdata = {
 	&am33xx_l3_main__l3_instr,
 	&am33xx_l3_main__gfx,
 	&am33xx_l3_s__l3_main,
+	&am43xx_l3_main__emif,
 	&am33xx_pruss__l3_main,
 	&am43xx_wkup_m3__l4_wkup,
 	&am33xx_gfx__l3_main,
@@ -702,6 +941,7 @@ static struct omap_hwmod_ocp_if *am43xx_hwmod_ocp_ifs[] __initdata = {
 	&am33xx_l4_per__i2c2,
 	&am33xx_l4_per__i2c3,
 	&am33xx_l4_per__mailbox,
+	&am33xx_l4_per__rng,
 	&am33xx_l4_ls__mcasp0,
 	&am33xx_l4_ls__mcasp1,
 	&am33xx_l4_ls__mmc0,
@@ -713,12 +953,14 @@ static struct omap_hwmod_ocp_if *am43xx_hwmod_ocp_ifs[] __initdata = {
 	&am33xx_l4_ls__timer5,
 	&am33xx_l4_ls__timer6,
 	&am33xx_l4_ls__timer7,
+	&am33xx_l4_wkup__adc_tsc,
 	&am33xx_l3_main__tpcc,
 	&am33xx_l4_ls__uart2,
 	&am33xx_l4_ls__uart3,
 	&am33xx_l4_ls__uart4,
 	&am33xx_l4_ls__uart5,
 	&am33xx_l4_ls__uart6,
+	&am33xx_l4_ls__spinlock,
 	&am33xx_l4_ls__elm,
 	&am33xx_l4_ls__epwmss0,
 	&am33xx_epwmss0__ecap0,
@@ -743,10 +985,19 @@ static struct omap_hwmod_ocp_if *am43xx_hwmod_ocp_ifs[] __initdata = {
 	&am33xx_cpgmac0__mdio,
 	&am33xx_l3_main__sha0,
 	&am33xx_l3_main__aes0,
+	&am43xx_l3_main__des,
 	&am43xx_l4_ls__ocp2scp0,
 	&am43xx_l4_ls__ocp2scp1,
 	&am43xx_l3_s__usbotgss0,
 	&am43xx_l3_s__usbotgss1,
+	&am43xx_l4_ls__hdq1w,
+	&am43xx_dss__l3_main,
+	&am43xx_l4_ls__dss,
+	&am43xx_l4_ls__dss_dispc,
+	&am43xx_l4_ls__dss_rfbi,
+	&am33xx_l4_wkup__rtc,
+	&am43xx_l3__vpfe0,
+	&am43xx_l3__vpfe1,
 	NULL,
 };
 
@@ -754,5 +1005,6 @@ int __init am43xx_hwmod_init(void)
 {
 	omap_hwmod_am43xx_reg();
 	omap_hwmod_init();
+
 	return omap_hwmod_register_links(am43xx_hwmod_ocp_ifs);
 }

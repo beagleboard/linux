@@ -1,0 +1,46 @@
+Wakeup M3 Remote Proc Driver
+=====================
+
+TI AMx3 Family devices use a Cortex M3 co-processor to help with various
+low power tasks that cannot be controlled from the MPU. The CM3 requires
+a firmware binary to accomplish this and communicates with the MPU through
+IPC registers present in the SoCs control module. The wkup_m3 remoteproc
+driver handles the loading of the firmware and exposes an API to
+communicate with the wkup_m3 through the use of the IPC registers and a
+mailbox.
+
+Wkup M3 Device Node:
+====================
+A wkup_m3 device node is used to represent a wakeup M3 IP instance within
+a SoC. The sub-mailboxes are represented as child node of this parent node.
+
+Required properties:
+--------------------
+- compatible:		Should be "ti,am3353-wkup-m3" for AM33xx SoCs
+- reg:			Contains the wkup_m3 register address ranges for
+			umem, dmem, and ipc-regs.
+- reg-names:		Names for reg addresses given above
+- interrupts:		Contains the interrupt information for the wkup_m3
+			interrupt that signals the MPU.
+- ti,hwmods:		Name of the hwmod associated with the mailbox
+- ti,no-reset-on-init:	Reset is handled after fw has been loaded, not at
+			init of hwmod.
+- mbox-names:		Name of the mbox channel for the IPC framework
+- mbox:			Phandle used by IPC framework to get correct mbox
+			channel for communication.
+
+Example:
+--------
+/* AM33xx */
+wkup_m3: wkup_m3@44d00000 {
+	compatible = "ti,am3353-wkup-m3";
+	reg = <0x44d00000 0x4000
+	       0x44d80000 0x2000
+	       0x44e11324 0x0024>;
+	reg-names = "m3_umem", "m3_dmem", "ipc_regs";
+	interrupts = <78>;
+	ti,hwmods = "wkup_m3";
+	ti,no-reset-on-init;
+	mbox-names = "wkup_m3";
+	mbox = <&mailbox &mbox_wkupm3>;
+};

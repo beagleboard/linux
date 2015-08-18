@@ -32,6 +32,7 @@
 
 #include "powerdomain.h"
 #include "clockdomain.h"
+#include "voltage.h"
 
 #include "soc.h"
 #include "pm.h"
@@ -545,7 +546,8 @@ int pwrdm_for_each_clkdm(struct powerdomain *pwrdm,
 		return -EINVAL;
 
 	for (i = 0; i < PWRDM_MAX_CLKDMS && !ret; i++)
-		ret = (*fn)(pwrdm, pwrdm->pwrdm_clkdms[i]);
+		if (pwrdm->pwrdm_clkdms[i])
+			ret = (*fn)(pwrdm, pwrdm->pwrdm_clkdms[i]);
 
 	return ret;
 }
@@ -1079,6 +1081,79 @@ int pwrdm_post_transition(struct powerdomain *pwrdm)
 }
 
 /**
+ * pwrdm_get_valid_lp_state() - Find best match deep power state
+ * @pwrdm:	power domain for which we want to find best match
+ * @is_logic_state: Are we looking for logic state match here? Should
+ *		    be one of PWRDM_xxx macro values
+ * @req_state:	requested power state
+ *
+ * Returns: closest match for requested power state. default fallback
+ * is RET for logic state and ON for power state.
+ *
+ * This does a search from the power domain data looking for the
+ * closest valid power domain state that the hardware can achieve.
+ * PRCM definitions for PWRSTCTRL allows us to program whatever
+ * configuration we'd like, and PRCM will actually attempt such
+ * a transition, however if the powerdomain does not actually support it,
+ * we endup with a hung system. The valid power domain states are already
+ * available in our powerdomain data files. So this function tries to do
+ * the following:
+ * a) find if we have an exact match to the request - no issues.
+ * b) else find if a deeper power state is possible.
+ * c) failing which, it tries to find closest higher power state for the
+ * request.
+ */
+u8 pwrdm_get_valid_lp_state(struct powerdomain *pwrdm,
+			    bool is_logic_state, u8 req_state)
+{
+	u8 pwrdm_states = is_logic_state ? pwrdm->pwrsts_logic_ret :
+			pwrdm->pwrsts;
+	/* For logic, ret is highest and others, ON is highest */
+	u8 default_pwrst = is_logic_state ? PWRDM_POWER_RET : PWRDM_POWER_ON;
+	u8 new_pwrst;
+	bool found;
+
+	/* If it is already supported, nothing to search */
+	if (pwrdm_states & BIT(req_state))
+		return req_state;
+
+	if (!req_state)
+		goto up_search;
+
+	/*
+	 * So, we dont have a exact match
+	 * Can we get a deeper power state match?
+	 */
+	new_pwrst = req_state - 1;
+	found = true;
+	while (!(pwrdm_states & BIT(new_pwrst))) {
+		/* No match even at OFF? Not available */
+		if (new_pwrst == PWRDM_POWER_OFF) {
+			found = false;
+			break;
+		}
+		new_pwrst--;
+	}
+
+	if (found)
+		goto done;
+
+up_search:
+	/* OK, no deeper ones, can we get a higher match? */
+	new_pwrst = req_state + 1;
+	while (!(pwrdm_states & BIT(new_pwrst))) {
+		/* BUG if we have messed up database */
+		BUG_ON(new_pwrst > PWRDM_POWER_ON);
+
+		if (new_pwrst == default_pwrst)
+			break;
+		new_pwrst++;
+	}
+done:
+	return new_pwrst;
+}
+
+/**
  * omap_set_pwrdm_state - change a powerdomain's current power state
  * @pwrdm: struct powerdomain * to change the power state of
  * @pwrst: power state to change to
@@ -1171,42 +1246,61 @@ int pwrdm_get_context_loss_count(struct powerdomain *pwrdm)
 }
 
 /**
- * pwrdm_can_ever_lose_context - can this powerdomain ever lose context?
- * @pwrdm: struct powerdomain *
+ * pwrdm_save_context - save powerdomain registers
  *
- * Given a struct powerdomain * @pwrdm, returns 1 if the powerdomain
- * can lose either memory or logic context or if @pwrdm is invalid, or
- * returns 0 otherwise.  This function is not concerned with how the
- * powerdomain registers are programmed (i.e., to go off or not); it's
- * concerned with whether it's ever possible for this powerdomain to
- * go off while some other part of the chip is active.  This function
- * assumes that every powerdomain can go to either ON or INACTIVE.
+ * Register state is going to be lost due to a suspend or hibernate
+ * event. Save the powerdomain registers.
  */
-bool pwrdm_can_ever_lose_context(struct powerdomain *pwrdm)
+static int pwrdm_save_context(struct powerdomain *pwrdm, void *unused)
 {
-	int i;
+	if (arch_pwrdm && arch_pwrdm->pwrdm_save_context)
+		arch_pwrdm->pwrdm_save_context(pwrdm);
+	return 0;
+}
 
-	if (!pwrdm) {
-		pr_debug("powerdomain: %s: invalid powerdomain pointer\n",
-			 __func__);
-		return 1;
+/**
+ * pwrdm_save_context - restore powerdomain registers
+ *
+ * Restore powerdomain control registers after a suspend or resume
+ * event.
+ */
+static int pwrdm_restore_context(struct powerdomain *pwrdm, void *unused)
+{
+	if (arch_pwrdm && arch_pwrdm->pwrdm_restore_context)
+		arch_pwrdm->pwrdm_restore_context(pwrdm);
+	return 0;
+}
+
+static int pwrdm_lost_power(struct powerdomain *pwrdm, void *unused)
+{
+	int state;
+
+	/*
+	 * Power has been lost across all powerdomains, increment the
+	 * counter.
+	 */
+
+	state = pwrdm_read_pwrst(pwrdm);
+	if (state != PWRDM_POWER_OFF) {
+		pwrdm->state_counter[state]++;
+		pwrdm->state_counter[PWRDM_POWER_OFF]++;
 	}
-
-	if (pwrdm->pwrsts & PWRSTS_OFF)
-		return 1;
-
-	if (pwrdm->pwrsts & PWRSTS_RET) {
-		if (pwrdm->pwrsts_logic_ret & PWRSTS_OFF)
-			return 1;
-
-		for (i = 0; i < pwrdm->banks; i++)
-			if (pwrdm->pwrsts_mem_ret[i] & PWRSTS_OFF)
-				return 1;
-	}
-
-	for (i = 0; i < pwrdm->banks; i++)
-		if (pwrdm->pwrsts_mem_on[i] & PWRSTS_OFF)
-			return 1;
+	pwrdm->state = state;
 
 	return 0;
+}
+
+void pwrdms_save_context(void)
+{
+	pwrdm_for_each(pwrdm_save_context, NULL);
+}
+
+void pwrdms_restore_context(void)
+{
+	pwrdm_for_each(pwrdm_restore_context, NULL);
+}
+
+void pwrdms_lost_power(void)
+{
+	pwrdm_for_each(pwrdm_lost_power, NULL);
 }

@@ -68,6 +68,7 @@ config SOC_AM33XX
 	select ARM_CPU_SUSPEND if PM
 	select CPU_V7
 	select MULTI_IRQ_HANDLER
+	select WKUP_M3_RPROC if PM
 
 config SOC_AM43XX
 	bool "TI AM43x"
@@ -78,6 +79,9 @@ config SOC_AM43XX
 	select MULTI_IRQ_HANDLER
 	select ARM_GIC
 	select MACH_OMAP_GENERIC
+	select HAVE_ARM_SCU
+	select MIGHT_HAVE_CACHE_L2X0
+	select WKUP_M3_RPROC if PM
 
 config SOC_DRA7XX
 	bool "TI DRA7XX"
@@ -89,6 +93,9 @@ config SOC_DRA7XX
 	select CPU_V7
 	select HAVE_SMP
 	select HAVE_ARM_ARCH_TIMER
+	select IRQ_CROSSBAR
+	select OMAP_DMA_CROSSBAR if DMA_OMAP
+	select ARM_ERRATA_798181 if SMP
 
 config ARCH_OMAP2PLUS
 	bool

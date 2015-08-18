@@ -22,9 +22,14 @@
 #include "drm_crtc.h"
 #include "drm_fb_helper.h"
 
+#include <linux/suspend.h>
+
 MODULE_PARM_DESC(ywrap, "Enable ywrap scrolling (omap44xx and later, default 'y')");
+MODULE_PARM_DESC(num_fbdev_backbuffers, "Number of buffers to allocate, 1=single buffered, 2=double buffers, 3=triple buffered...");
 static bool ywrap_enabled = true;
+static int num_fbdev_backbuffers = 1;
 module_param_named(ywrap, ywrap_enabled, bool, 0644);
+module_param(num_fbdev_backbuffers, int, 0444);
 
 /*
  * fbdev funcs, to implement legacy fbdev interface on top of drm driver
@@ -152,15 +157,16 @@ static int omap_fbdev_create(struct drm_fb_helper *helper,
 	sizes->surface_bpp = 32;
 	sizes->surface_depth = 32;
 
-	DBG("create fbdev: %dx%d@%d (%dx%d)", sizes->surface_width,
+	DBG("create fbdev: %dx%d@%d (%dx%d)x%d", sizes->surface_width,
 			sizes->surface_height, sizes->surface_bpp,
-			sizes->fb_width, sizes->fb_height);
+			sizes->fb_width, sizes->fb_height,
+			num_fbdev_backbuffers);
 
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
 			sizes->surface_depth);
 
 	mode_cmd.width = sizes->surface_width;
-	mode_cmd.height = sizes->surface_height;
+	mode_cmd.height = sizes->surface_height * num_fbdev_backbuffers;
 
 	mode_cmd.pitches[0] = align_pitch(
 			mode_cmd.width * ((sizes->surface_bpp + 7) / 8),
@@ -343,6 +349,14 @@ struct drm_fb_helper *omap_fbdev_init(struct drm_device *dev)
 
 	priv->fbdev = helper;
 
+	/*
+	 * disable creation of new console during suspend.
+	 * this works around a problem where a ctrl-c is needed
+	 * to be entered on the VT to actually get the device
+	 * to continue into the suspend state.
+	 */
+	pm_set_vt_switch(0);
+
 	return helper;
 
 fail:
@@ -370,6 +384,9 @@ void omap_fbdev_free(struct drm_device *dev)
 	drm_fb_helper_fini(helper);
 
 	fbdev = to_omap_fbdev(priv->fbdev);
+
+	/* release the ref taken in omap_fbdev_create() */
+	omap_gem_put_paddr(fbdev->bo);
 
 	/* this will free the backing object */
 	if (fbdev->fb) {
