@@ -329,6 +329,26 @@
 			dma-masters = <&sdma>;
 		};
 
+		edma: edma-controller@43300000 {
+			compatible = "ti,edma3";
+			reg = <0x43300000 0x801c>;
+			interrupts = <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			ti,hwmods = "tpcc", "tptc0", "tptc1";
+			dma-requests = <64>;
+		};
+
+		edma_xbar: dma-router@4a002c78 {
+			compatible = "ti,dra7-dma-crossbar";
+			reg = <0x4a002c78 0x7c>;
+			#dma-cells = <1>;
+			dma-requests = <204>;
+			ti,dma-safe-map = <0>;
+			dma-masters = <&edma>;
+		};
+
 		gpio1: gpio@4ae10000 {
 			compatible = "ti,omap4-gpio";
 			reg = <0x4ae10000 0x200>;
