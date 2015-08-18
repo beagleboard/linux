@@ -31,8 +31,11 @@
 #include "davinci-pcm.h"
 #include "davinci-i2s.h"
 
-#define AUDIO_FORMAT_STA321MP (SND_SOC_DAIFMT_CBM_CFM | \
-    SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_IB_IF)
+#include "sta321mp.h"
+
+#define STA321MP_AUDIO_FORMAT (SND_SOC_DAIFMT_CBM_CFM | \
+    SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF)
+#define STA321MP_BCLK_LRCLK_RATIO 64
 
 struct snd_soc_card_drvdata_davinci {
 	struct clk *mclk;
@@ -95,19 +98,60 @@ static int evm_sta321mp_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_card *soc_card = codec->card;
-	int ret = 0;
+  struct platform_device *pdev = to_platform_device(soc_card->dev);
+
+  unsigned int bclk_freq = snd_soc_params_to_bclk(params);
+  unsigned sysclk = ((struct snd_soc_card_drvdata_davinci *)
+      snd_soc_card_get_drvdata(soc_card))->sysclk;
+  int ret = 0;
+  printk("bclk (from params): %d\n", (int)bclk_freq);
+
+  bclk_freq = 1;
+	switch (params_format(params)) {
+  case SNDRV_PCM_FORMAT_S32_LE:
+  case SNDRV_PCM_FORMAT_S24_LE:
+    bclk_freq *= 64;
+		break;
+  case SNDRV_PCM_FORMAT_S24_3LE:
+    bclk_freq *= 48;
+		break;
+  case SNDRV_PCM_FORMAT_S16_LE:
+    bclk_freq *= 32;
+    break;
+	default:
+		dev_err(codec->dev, "Unsupported format\n");
+		return -EINVAL;
+	}
+  bclk_freq *= params_rate(params);
+
+  printk("sysclk: %d\n", (int)sysclk);
+  printk("bclk: %d\n", (int)bclk_freq);
+
+  ret = snd_soc_dai_set_clkdiv(cpu_dai, 1, sysclk/bclk_freq);
+  if (ret < 0) {
+    dev_err(&pdev->dev, "can't set CPU DAI clock divider %d\n",
+        ret);
+    return ret;
+  }
+
 
   printk("evm_sta321mp_hw_params: Starting operations.\n");
 
 	/* set cpu DAI configuration */
-	ret = snd_soc_dai_set_fmt(cpu_dai, AUDIO_FORMAT_STA321MP);
+  /*
+  clkdiv = sta321mp_bclk_lrclk_div(substream, params);
+	ret = snd_soc_dai_set_clkdiv(cpu_dai, 2, clkdiv);
+  */
+	ret = snd_soc_dai_set_fmt(cpu_dai, STA321MP_AUDIO_FORMAT);
 	if (ret < 0)
 		return ret;
 
 	/* set the CPU system clock */
-	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, SND_SOC_CLOCK_IN);
+  /*
+  ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
+  */
 
 	return 0;
 }
@@ -283,14 +327,17 @@ static int evm_sta321mp_init(struct snd_soc_pcm_runtime *rtd)
   printk("sta321mp: using cpu %s\n", cpu_dai->name);
 
 	/* set cpu DAI configuration */
-	ret = snd_soc_dai_set_fmt(cpu_dai, AUDIO_FORMAT_STA321MP);
+	ret = snd_soc_dai_set_clkdiv(cpu_dai, 2, STA321MP_BCLK_LRCLK_RATIO);
+	ret = snd_soc_dai_set_fmt(cpu_dai, STA321MP_AUDIO_FORMAT);
 	if (ret < 0)
 		return ret;
 
 	/* set the CPU system clock */
+  /*
 	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
+    */
 
 	return 0;
 }
