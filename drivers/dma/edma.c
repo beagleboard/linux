@@ -979,7 +979,8 @@ static void edma_dma_init(struct edma_cc *ecc, struct dma_device *dma,
 {
 	dma->device_prep_slave_sg = edma_prep_slave_sg;
 	dma->device_prep_dma_cyclic = edma_prep_dma_cyclic;
-	dma->device_prep_dma_memcpy = edma_prep_dma_memcpy;
+	if (!of_machine_is_compatible("ti,dra7"))
+		dma->device_prep_dma_memcpy = edma_prep_dma_memcpy;
 	dma->device_alloc_chan_resources = edma_alloc_chan_resources;
 	dma->device_free_chan_resources = edma_free_chan_resources;
 	dma->device_issue_pending = edma_issue_pending;
@@ -1030,7 +1031,8 @@ static int edma_probe(struct platform_device *pdev)
 	dma_cap_zero(ecc->dma_slave.cap_mask);
 	dma_cap_set(DMA_SLAVE, ecc->dma_slave.cap_mask);
 	dma_cap_set(DMA_CYCLIC, ecc->dma_slave.cap_mask);
-	dma_cap_set(DMA_MEMCPY, ecc->dma_slave.cap_mask);
+	if (!of_machine_is_compatible("ti,dra7"))
+		dma_cap_set(DMA_MEMCPY, ecc->dma_slave.cap_mask);
 
 	edma_dma_init(ecc, &ecc->dma_slave, &pdev->dev);
 
