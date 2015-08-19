@@ -99,8 +99,16 @@ struct omap_drm_private {
 
 	bool has_dmm;
 
-	/* properties: */
+	/* plane properties */
 	struct drm_property *zorder_prop;
+	struct drm_property *global_alpha_prop;
+	struct drm_property *pre_mult_alpha_prop;
+
+	/* crtc properties */
+	struct drm_property *trans_key_mode_prop;
+	struct drm_property *trans_key_prop;
+	struct drm_property *background_color_prop;
+	struct drm_property *alpha_blender_prop;
 
 	/* irq handling: */
 	struct list_head irq_list;    /* list of omap_drm_irq */
@@ -236,7 +244,7 @@ static inline int align_pitch(int pitch, int width, int bpp)
 	/* PVR needs alignment to 8 pixels.. right now that is the most
 	 * restrictive stride requirement..
 	 */
-	return ALIGN(pitch, 8 * bytespp);
+	return roundup(pitch, 8 * bytespp);
 }
 
 /* map crtc to vblank mask */

@@ -330,6 +330,14 @@ static int omap_modeset_init_properties(struct drm_device *dev)
 {
 	struct omap_drm_private *priv = dev->dev_private;
 
+	static const struct drm_prop_enum_list trans_key_mode_list[] = {
+		{ 0, "disable"},
+		{ 1, "gfx-dst"},
+		{ 2, "vid-src"},
+	};
+
+	/* plane properties */
+
 	if (priv->has_dmm) {
 		dev->mode_config.rotation_property =
 			drm_mode_create_rotation_property(dev,
@@ -342,6 +350,39 @@ static int omap_modeset_init_properties(struct drm_device *dev)
 
 	priv->zorder_prop = drm_property_create_range(dev, 0, "zorder", 0, 3);
 	if (!priv->zorder_prop)
+		return -ENOMEM;
+
+	priv->global_alpha_prop = drm_property_create_range(dev, 0,
+		"global_alpha", 0, 255);
+	if (!priv->global_alpha_prop)
+		return -ENOMEM;
+
+	priv->pre_mult_alpha_prop = drm_property_create_bool(dev, 0,
+		"pre_mult_alpha");
+	if (!priv->pre_mult_alpha_prop)
+		return -ENOMEM;
+
+	/* crtc properties */
+
+	priv->trans_key_mode_prop = drm_property_create_enum(dev, 0,
+		"trans-key-mode",
+		trans_key_mode_list, ARRAY_SIZE(trans_key_mode_list));
+	if (!priv->trans_key_mode_prop)
+		return -ENOMEM;
+
+	priv->trans_key_prop = drm_property_create_range(dev, 0, "trans-key",
+		0, 0xffffff);
+	if (!priv->trans_key_prop)
+		return -ENOMEM;
+
+	priv->background_color_prop = drm_property_create_range(dev, 0,
+		"background", 0, 0xffffff);
+	if (!priv->background_color_prop)
+		return -ENOMEM;
+
+	priv->alpha_blender_prop = drm_property_create_bool(dev, 0,
+		"alpha_blender");
+	if (!priv->alpha_blender_prop)
 		return -ENOMEM;
 
 	return 0;

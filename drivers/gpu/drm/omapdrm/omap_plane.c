@@ -51,6 +51,8 @@ struct omap_plane_state {
 	struct drm_plane_state base;
 
 	unsigned int zorder;
+	unsigned int global_alpha;
+	unsigned int pre_mult_alpha;
 };
 
 static inline struct omap_plane_state *
@@ -88,9 +90,10 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	memset(&info, 0, sizeof(info));
 	info.rotation_type = OMAP_DSS_ROT_DMA;
 	info.rotation = OMAP_DSS_ROT_0;
-	info.global_alpha = 0xff;
 	info.mirror = 0;
 	info.zorder = omap_state->zorder;
+	info.global_alpha = omap_state->global_alpha;
+	info.pre_mult_alpha = omap_state->pre_mult_alpha;
 
 	memset(&win, 0, sizeof(win));
 	win.rotation = state->rotation;
@@ -191,11 +194,12 @@ static void omap_plane_reset(struct drm_plane *plane)
 	struct omap_plane *omap_plane = to_omap_plane(plane);
 	struct omap_plane_state *omap_state;
 
-	if (plane->state && plane->state->fb)
-		drm_framebuffer_unreference(plane->state->fb);
+	if (plane->state) {
+		__drm_atomic_helper_plane_destroy_state(plane, plane->state);
 
-	kfree(plane->state);
-	plane->state = NULL;
+		kfree(plane->state);
+		plane->state = NULL;
+	}
 
 	omap_state = kzalloc(sizeof(*omap_state), GFP_KERNEL);
 	if (omap_state == NULL)
@@ -208,6 +212,8 @@ static void omap_plane_reset(struct drm_plane *plane)
 	omap_state->zorder = plane->type == DRM_PLANE_TYPE_PRIMARY
 			   ? 0 : omap_plane->id;
 	omap_state->base.rotation = BIT(DRM_ROTATE_0);
+	omap_state->global_alpha = 0xff;
+	omap_state->pre_mult_alpha = 0;
 
 	plane->state = &omap_state->base;
 	plane->state->plane = plane;
@@ -240,6 +246,8 @@ void omap_plane_install_properties(struct drm_plane *plane,
 	}
 
 	drm_object_attach_property(obj, priv->zorder_prop, 0);
+	drm_object_attach_property(obj, priv->global_alpha_prop, 0);
+	drm_object_attach_property(obj, priv->pre_mult_alpha_prop, 0);
 }
 
 static struct drm_plane_state *
@@ -278,6 +286,10 @@ static int omap_plane_atomic_set_property(struct drm_plane *plane,
 
 	if (property == priv->zorder_prop)
 		omap_state->zorder = val;
+	else if (property == priv->global_alpha_prop)
+		omap_state->global_alpha = val;
+	else if (property == priv->pre_mult_alpha_prop)
+		omap_state->pre_mult_alpha = val;
 	else
 		return -EINVAL;
 
@@ -295,6 +307,10 @@ static int omap_plane_atomic_get_property(struct drm_plane *plane,
 
 	if (property == priv->zorder_prop)
 		*val = omap_state->zorder;
+	else if (property == priv->global_alpha_prop)
+		*val = omap_state->global_alpha;
+	else if (property == priv->pre_mult_alpha_prop)
+		*val = omap_state->pre_mult_alpha;
 	else
 		return -EINVAL;
 
