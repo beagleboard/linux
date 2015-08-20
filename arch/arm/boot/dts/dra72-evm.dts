@@ -106,9 +106,6 @@
 	tpd12s015: encoder {
 		compatible = "ti,tpd12s015";
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&tpd12s015_pins>;
-
 		gpios = <&pcf_hdmi 4 GPIO_ACTIVE_HIGH>,	/* P4, CT CP HPD */
 			<&pcf_hdmi 5 GPIO_ACTIVE_HIGH>,	/* P5, LS OE */
 			<&gpio7 12 GPIO_ACTIVE_HIGH>;	/* gpio7_12/sp1_cs2, HPD */
@@ -223,78 +220,6 @@
 			0x90 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a20.mmc2_dat5 */
 			0x94 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a21.mmc2_dat6 */
 			0x98 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a22.mmc2_dat7 */
-		>;
-	};
-
-	hdmi_pins: pinmux_hdmi_pins {
-		pinctrl-single,pins = <
-			0x408 (PIN_INPUT | MUX_MODE1) /* i2c2_sda.hdmi1_ddc_scl */
-			0x40c (PIN_INPUT | MUX_MODE1) /* i2c2_scl.hdmi1_ddc_sda */
-		>;
-	};
-
-	tpd12s015_pins: pinmux_tpd12s015_pins {
-		pinctrl-single,pins = <
-			0x3b8 (PIN_INPUT_PULLDOWN | MUX_MODE14) /* gpio7_12 HPD */
-		>;
-	};
-
-	atl_pins: pinmux_atl_pins {
-		pinctrl-single,pins = <
-			0x298 (PIN_OUTPUT | MUX_MODE5)	/* xref_clk1.atl_clk1 */
-			0x29c (PIN_OUTPUT | MUX_MODE5)	/* xref_clk2.atl_clk2 */
-		>;
-	};
-
-	mcasp3_pins: pinmux_mcasp3_pins {
-		pinctrl-single,pins = <
-			0x324 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp3_aclkx */
-			0x328 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp3_fsx */
-			0x32c (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp3_axr0 */
-			0x330 (PIN_INPUT_PULLDOWN | MUX_MODE0)	/* mcasp3_axr1 */
-		>;
-	};
-
-	mcasp3_sleep_pins: pinmux_mcasp3_sleep_pins {
-		pinctrl-single,pins = <
-			0x324 (PIN_INPUT_PULLDOWN | MUX_MODE15)
-			0x328 (PIN_INPUT_PULLDOWN | MUX_MODE15)
-			0x32c (PIN_INPUT_PULLDOWN | MUX_MODE15)
-			0x330 (PIN_INPUT_PULLDOWN | MUX_MODE15)
-		>;
-	};
-
-	vout1_pins: pinmux_vout1_pins {
-		pinctrl-single,pins = <
-			0x1C8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_clk */
-			0x1CC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_de */
-			0x1D0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_fld */
-			0x1D4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_hsync */
-			0x1D8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_vsync */
-			0x1DC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d0 */
-			0x1E0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d1 */
-			0x1E4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d2 */
-			0x1E8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d3 */
-			0x1EC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d4 */
-			0x1F0	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d5 */
-			0x1F4	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d6 */
-			0x1F8	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d7 */
-			0x1FC	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d8 */
-			0x200	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d9 */
-			0x204	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d10 */
-			0x208	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d11 */
-			0x20C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d12 */
-			0x210	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d13 */
-			0x214	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d14 */
-			0x218	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d15 */
-			0x21C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d16 */
-			0x220	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d17 */
-			0x224	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d18 */
-			0x228	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d19 */
-			0x22C	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d20 */
-			0x230	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d21 */
-			0x234	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d22 */
-			0x238	(PIN_OUTPUT | MUX_MODE0)	/* vout1_d23 */
 		>;
 	};
 
@@ -840,9 +765,6 @@
 &dss {
 	status = "ok";
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&vout1_pins>;
-
 	vdda_video-supply = <&ldo5_reg>;
 
 	ports {
@@ -864,9 +786,6 @@
 	status = "ok";
 	vdda-supply = <&ldo3_reg>;
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&hdmi_pins>;
-
 	port {
 		hdmi_out: endpoint {
 			remote-endpoint = <&tpd12s015_in>;
@@ -875,9 +794,6 @@
 };
 
 &atl {
-	pinctrl-names = "default";
-	pinctrl-0 = <&atl_pins>;
-
 	status = "okay";
 
 	atl2 {
@@ -888,9 +804,6 @@
 
 &mcasp3 {
 	#sound-dai-cells = <0>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&mcasp3_pins>;
-	pinctrl-1 = <&mcasp3_sleep_pins>;
 
 	fck_parent = "atl_clkin2_ck";
 
@@ -902,6 +815,8 @@
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
 	>;
+	tx-num-evt = <8>;
+	rx-num-evt = <8>;
 };
 
 &vip1 {

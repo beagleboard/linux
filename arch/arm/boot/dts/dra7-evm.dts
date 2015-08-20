@@ -628,7 +628,7 @@
 		#interrupt-cells = <2>;
 	};
 
-	tlv320aic3106: tlv320aic3106@18 {
+	tlv320aic3106: tlv320aic3106@19 {
 		#sound-dai-cells = <0>;
 		compatible = "ti,tlv320aic3106";
 		reg = <0x19>;
@@ -1020,6 +1020,8 @@
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
 	>;
+	tx-num-evt = <8>;
+	rx-num-evt = <8>;
 };
 
 &mcasp8 {
