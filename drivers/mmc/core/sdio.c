@@ -997,14 +997,9 @@ static int mmc_sdio_resume(struct mmc_host *host)
 	return err;
 }
 
-static int mmc_sdio_power_restore(struct mmc_host *host)
+static int _mmc_sdio_power_restore(struct mmc_host *host)
 {
 	int ret;
-
-	BUG_ON(!host);
-	BUG_ON(!host->card);
-
-	mmc_claim_host(host);
 
 	/*
 	 * Reset the card by performing the same steps that are taken by
@@ -1029,14 +1024,25 @@ static int mmc_sdio_power_restore(struct mmc_host *host)
 
 	ret = mmc_send_io_op_cond(host, 0, NULL);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = mmc_sdio_init_card(host, host->card->ocr, host->card,
 				mmc_card_keep_power(host));
 	if (!ret && host->sdio_irqs)
 		mmc_signal_sdio_irq(host);
 
-out:
+	return 0;
+}
+
+static int mmc_sdio_power_restore(struct mmc_host *host)
+{
+	int ret;
+
+	BUG_ON(!host);
+	BUG_ON(!host->card);
+
+	mmc_claim_host(host);
+	ret = _mmc_sdio_power_restore(host);
 	mmc_release_host(host);
 
 	return ret;
