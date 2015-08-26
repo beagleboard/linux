@@ -149,10 +149,12 @@ struct pru_match_private_data {
  * struct pruss_private_data - PRUSS driver private data
  * @num_irqs: number of interrupts to MPU
  * @host_events: bit mask of PRU host interrupts that are routed to MPU
+ * @aux_data: auxiliary data used for creating the child nodes
  */
 struct pruss_private_data {
 	int num_irqs;
 	int host_events;
+	struct of_dev_auxdata *aux_data;
 };
 
 struct pru_rproc;
@@ -964,7 +966,6 @@ static irqreturn_t pruss_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static struct of_dev_auxdata pruss_rproc_auxdata_lookup[];
 static const struct of_device_id pruss_of_match[];
 
 static int pruss_probe(struct platform_device *pdev)
@@ -1081,8 +1082,7 @@ static int pruss_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pruss);
 
 	dev_info(&pdev->dev, "creating platform devices for PRU cores\n");
-	ret = of_platform_populate(node, NULL, pruss_rproc_auxdata_lookup,
-				   &pdev->dev);
+	ret = of_platform_populate(node, NULL, data->aux_data, &pdev->dev);
 
 	return ret;
 
@@ -1124,6 +1124,17 @@ static struct pru_private_data am335x_pru1_rproc_pdata = {
 	.fw_name = "am335x-pru1-fw",
 };
 
+/* AM437x PRUSS1 PRU core-specific private data */
+static struct pru_private_data am437x_pru1_0_rproc_pdata = {
+	.id = 0,
+	.fw_name = "am437x-pru1_0-fw",
+};
+
+static struct pru_private_data am437x_pru1_1_rproc_pdata = {
+	.id = 1,
+	.fw_name = "am437x-pru1_1-fw",
+};
+
 /* AM33xx SoC-specific PRU Device data */
 static struct pru_match_private_data am335x_pru_match_data[] = {
 	{
@@ -1139,8 +1150,24 @@ static struct pru_match_private_data am335x_pru_match_data[] = {
 	},
 };
 
+/* AM43xx SoC-specific PRU Device data */
+static struct pru_match_private_data am437x_pru_match_data[] = {
+	{
+		.device_name	= "54434000.pru0",
+		.priv_data	= &am437x_pru1_0_rproc_pdata,
+	},
+	{
+		.device_name	= "54438000.pru1",
+		.priv_data	= &am437x_pru1_1_rproc_pdata,
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id pru_rproc_match[] = {
 	{ .compatible = "ti,am3352-pru-rproc", .data = am335x_pru_match_data, },
+	{ .compatible = "ti,am4372-pru-rproc", .data = am437x_pru_match_data, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pru_rproc_match);
@@ -1164,10 +1191,18 @@ static struct platform_driver pru_rproc_driver = {
  *      PRU device names with an identifier like xxxxxxxx.pru0 instead of a
  *      generic xxxxxxxx.pru.
  */
-static struct of_dev_auxdata pruss_rproc_auxdata_lookup[] = {
+static struct of_dev_auxdata am335x_pruss_rproc_auxdata_lookup[] = {
 	OF_DEV_AUXDATA("ti,am3352-pru-rproc", 0x4a334000, "4a334000.pru0",
 		       NULL),
 	OF_DEV_AUXDATA("ti,am3352-pru-rproc", 0x4a338000, "4a338000.pru1",
+		       NULL),
+	{ /* sentinel */ },
+};
+
+static struct of_dev_auxdata am437x_pruss1_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,am4372-pru-rproc", 0x54434000, "54434000.pru0",
+		       NULL),
+	OF_DEV_AUXDATA("ti,am4372-pru-rproc", 0x54438000, "54438000.pru1",
 		       NULL),
 	{ /* sentinel */ },
 };
@@ -1181,10 +1216,19 @@ static struct pruss_private_data am335x_priv_data = {
 	.num_irqs = 8,
 	.host_events = (BIT(2) | BIT(3) | BIT(4) | BIT(5) |
 			BIT(6) | BIT(7) | BIT(8) | BIT(9)),
+	.aux_data = am335x_pruss_rproc_auxdata_lookup,
+};
+
+static struct pruss_private_data am437x_priv_data = {
+	.num_irqs = 7,
+	.host_events = (BIT(2) | BIT(3) | BIT(4) | BIT(5) |
+			BIT(6) | BIT(8) | BIT(9)),
+	.aux_data = am437x_pruss1_rproc_auxdata_lookup,
 };
 
 static const struct of_device_id pruss_of_match[] = {
 	{ .compatible = "ti,am3352-pruss", .data = &am335x_priv_data, },
+	{ .compatible = "ti,am4372-pruss", .data = &am437x_priv_data, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
