@@ -889,6 +889,17 @@
 			status = "disabled";
 		};
 
+		sgx: sgx@0x56000000 {
+			compatible = "ti,dra7-sgx544", "img,sgx544";
+			reg = <0x5600fe00 0x200>;
+			reg-names = "gpu_wrapper";
+			interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "gpu";
+			clocks = <&l3_iclk_div>, <&gpu_core_gclk_mux>,
+				 <&gpu_hyd_gclk_mux>;
+			clock-names = "gpu_iclk", "gpu_fclk1", "gpu_fclk2";
+		};
+
 		i2c1: i2c@48070000 {
 			compatible = "ti,omap4-i2c";
 			reg = <0x48070000 0x100>;
