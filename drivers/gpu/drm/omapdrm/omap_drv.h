@@ -271,4 +271,57 @@ fail:
 	return -ENOENT;
 }
 
+#if IS_ENABLED(CONFIG_DRM_OMAP_SGX_PLUGIN)
+
+/* interface that plug-in drivers (for now just PVR) can implement */
+struct omap_drm_plugin {
+	const char *name;
+
+	/* drm functions */
+	int (*load)(struct drm_device *dev, unsigned long flags);
+	int (*unload)(struct drm_device *dev);
+	int (*open)(struct drm_device *dev, struct drm_file *file);
+	int (*release)(struct drm_device *dev, struct drm_file *file);
+
+	struct drm_ioctl_desc *ioctls;
+	int num_ioctls;
+	int ioctl_base;
+};
+
+int omap_drm_register_plugin(struct omap_drm_plugin *plugin);
+int omap_drm_unregister_plugin(struct omap_drm_plugin *plugin);
+
+void *omap_drm_file_priv(struct drm_file *file);
+void omap_drm_file_set_priv(struct drm_file *file, void *priv);
+
+void *omap_gem_priv(struct drm_gem_object *obj);
+void omap_gem_set_priv(struct drm_gem_object *obj, void *priv);
+void omap_gem_vm_open(struct vm_area_struct *vma);
+void omap_gem_vm_close(struct vm_area_struct *vma);
+
+/* for external plugin buffers wrapped as GEM object (via. omap_gem_new_ext())
+ * a vm_ops struct can be provided to get callback notification of various
+ * events..
+ */
+struct omap_gem_vm_ops {
+	void (*open)(struct vm_area_struct *area);
+	void (*close)(struct vm_area_struct *area);
+	/*maybe: int (*fault)(struct vm_area_struct *vma,
+	  struct vm_fault *vmf)*/
+
+	/* note: mmap isn't expected to do anything. it is just to allow buffer
+	 * allocate to update it's own internal state
+	 */
+	void (*mmap)(struct file *, struct vm_area_struct *);
+};
+
+struct drm_gem_object *omap_gem_new_ext(struct drm_device *dev,
+		union omap_gem_size gsize, uint32_t flags,
+		dma_addr_t paddr, struct page **pages,
+		struct omap_gem_vm_ops *ops);
+
+void omap_gem_op_update(void);
+int omap_gem_set_sync_object(struct drm_gem_object *obj, void *syncobj);
+#endif /* CONFIG_DRM_OMAP_SGX_PLUGIN */
+
 #endif /* __OMAP_DRV_H__ */

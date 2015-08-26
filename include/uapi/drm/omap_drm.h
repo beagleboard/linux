@@ -114,4 +114,18 @@ struct drm_omap_gem_info {
 #define DRM_IOCTL_OMAP_GEM_CPU_FINI	DRM_IOW (DRM_COMMAND_BASE + DRM_OMAP_GEM_CPU_FINI, struct drm_omap_gem_cpu_fini)
 #define DRM_IOCTL_OMAP_GEM_INFO		DRM_IOWR(DRM_COMMAND_BASE + DRM_OMAP_GEM_INFO, struct drm_omap_gem_info)
 
+/* HACK: SGX hack start */
+/* HACK: SGX plugin specific, will be removed */
+
+struct drm_omap_get_base {
+	char plugin_name[64];	/* in */
+	uint32_t ioctl_base;	/* out */
+	uint32_t __pad;
+};
+
+#define DRM_IOCTL_OMAP_GET_BASE		DRM_IOWR(DRM_COMMAND_BASE + DRM_OMAP_GET_BASE, struct drm_omap_get_base)
+#define DRM_OMAP_GET_BASE		0x02
+
+/* HACK: SGX hack end */
+
 #endif /* __OMAP_DRM_H__ */
