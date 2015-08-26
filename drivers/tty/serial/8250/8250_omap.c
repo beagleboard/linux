@@ -1094,6 +1094,7 @@ static int omap8250_probe(struct platform_device *pdev)
 	struct resource *irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	struct omap8250_priv *priv;
 	struct uart_8250_port up;
+	struct gpio_desc *enable;
 	int ret;
 	void __iomem *membase;
 
@@ -1177,6 +1178,13 @@ static int omap8250_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev,
 			 "No clock speed specified: using default: %d\n",
 			 DEFAULT_CLK_SPEED);
+	}
+
+	/* on some boards, a GPIO based port enable is present */
+	enable = devm_gpiod_get_optional(&pdev->dev, "enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(enable)) {
+		dev_err(&pdev->dev, "gpio request failed: %d\n", ret);
+		return PTR_ERR(enable);
 	}
 
 	priv->latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
