@@ -804,6 +804,45 @@
 			interrupts = <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		pruss1: pruss@54400000 {
+			compatible = "ti,am4372-pruss";
+			ti,hwmods = "pruss";
+			reg = <0x54400000 0x2000>,
+			      <0x54402000 0x2000>,
+			      <0x54410000 0x8000>,
+			      <0x54420000 0x2000>,
+			      <0x54426000 0x2000>;
+			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
+			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH
+				      GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			pru1_0: pru@54434000 {
+				compatible = "ti,am4372-pru-rproc";
+				reg = <0x54434000 0x3000>,
+				      <0x54422000 0x400>,
+				      <0x54422400 0x100>;
+				reg-names = "iram", "control", "debug";
+				mboxes = <&mailbox &mbox_pru1_0>;
+			};
+
+			pru1_1: pru@54438000 {
+				compatible = "ti,am4372-pru-rproc";
+				reg = <0x54438000 0x3000>,
+				      <0x54424000 0x400>,
+				      <0x54424400 0x100>;
+				reg-names = "iram", "control", "debug";
+				mboxes = <&mailbox &mbox_pru1_1>;
+			};
+		};
+
 		mcasp0: mcasp@48038000 {
 			compatible = "ti,am33xx-mcasp-audio";
 			ti,hwmods = "mcasp0";
