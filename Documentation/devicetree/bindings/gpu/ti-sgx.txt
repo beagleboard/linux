@@ -1,0 +1,30 @@
+TI SGX 3D Graphics Accelerator
+
+Required properties:
+ - compatible : value should take the following format:
+	"ti,<soc>-<gpuversion>", "img,<gpuversion>"
+
+   accepted values:
+	(a) "ti,dra7-sgx544", "img,sgx544" for TI DRA7xx / AM57x
+	(b) "ti,am4-sgx530", "img,sgx530" for TI AM43x
+	(c) "ti,am3-sgx530", "img,sgx530" for TI AM33x
+ - reg: base address and length of the SGX registers
+ - interrupts : SGX interrupt number
+
+Optional properties:
+ - ti,hwmods: Name of the hwmod associated with the SGX
+ - clocks : from SoC clock binding
+ - clock-names : names of clocks listed in clocks property in the same order
+ - reg-names : names of registers listed in reg property in same order
+
+Example:
+	sgx@0x56000000 {
+		compatible = "ti,dra7-sgx544", "img,sgx544";
+		reg = <0x5600fe00 0x200>;
+		reg-names = "gpu_wrapper";
+		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+		ti,hwmods = "gpu";
+		clocks = <&l3_iclk_div>, <&gpu_core_gclk_mux>,
+			 <&gpu_hyd_gclk_mux>;
+		clock-names = "gpu_iclk", "gpu_fclk1", "gpu_fclk2";
+	};
