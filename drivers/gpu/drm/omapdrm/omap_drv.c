@@ -34,10 +34,19 @@
 #define DRIVER_MINOR		0
 #define DRIVER_PATCHLEVEL	0
 
+struct drm_device *drm_device;
+
 static int num_crtc = CONFIG_DRM_OMAP_NUM_CRTCS;
 
 MODULE_PARM_DESC(num_crtc, "Number of overlays to use as CRTCs");
 module_param(num_crtc, int, 0600);
+
+static struct omap_drm_plugin *sgx_plugin;
+
+/* keep track of whether we are already loaded.. we may need to call
+ * plugin's load() if they register after we are already loaded
+ */
+static bool loaded;
 
 /*
  * mode config funcs
@@ -615,6 +624,19 @@ static int ioctl_set_param(struct drm_device *dev, void *data,
 	return 0;
 }
 
+static int ioctl_get_base(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	struct drm_omap_get_base *args = data;
+
+	if (!sgx_plugin)
+		return -ENODEV;
+
+	args->ioctl_base = sgx_plugin->ioctl_base;
+
+	return 0;
+}
+
 static int ioctl_gem_new(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
@@ -693,9 +715,10 @@ static int ioctl_gem_info(struct drm_device *dev, void *data,
 	return ret;
 }
 
-static const struct drm_ioctl_desc ioctls[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
+static struct drm_ioctl_desc ioctls[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
 	DRM_IOCTL_DEF_DRV(OMAP_GET_PARAM, ioctl_get_param, DRM_UNLOCKED|DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(OMAP_SET_PARAM, ioctl_set_param, DRM_UNLOCKED|DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
+	DRM_IOCTL_DEF_DRV(OMAP_GET_BASE, ioctl_get_base, DRM_UNLOCKED|DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(OMAP_GEM_NEW, ioctl_gem_new, DRM_UNLOCKED|DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(OMAP_GEM_CPU_PREP, ioctl_gem_cpu_prep, DRM_UNLOCKED|DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(OMAP_GEM_CPU_FINI, ioctl_gem_cpu_fini, DRM_UNLOCKED|DRM_AUTH),
@@ -724,6 +747,8 @@ static int dev_load(struct drm_device *dev, unsigned long flags)
 	int ret;
 
 	DBG("load: dev=%p", dev);
+
+	drm_device = dev;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -770,6 +795,11 @@ static int dev_load(struct drm_device *dev, unsigned long flags)
 
 	drm_kms_helper_poll_init(dev);
 
+	loaded = true;
+
+	if (sgx_plugin)
+		sgx_plugin->load(dev, flags);
+
 	return 0;
 }
 
@@ -778,6 +808,9 @@ static int dev_unload(struct drm_device *dev)
 	struct omap_drm_private *priv = dev->dev_private;
 
 	DBG("unload: dev=%p", dev);
+
+	if (sgx_plugin)
+		sgx_plugin->unload(dev);
 
 	drm_kms_helper_poll_fini(dev);
 
@@ -797,14 +830,17 @@ static int dev_unload(struct drm_device *dev)
 
 	dev_set_drvdata(dev->dev, NULL);
 
+	loaded = false;
+
 	return 0;
 }
 
 static int dev_open(struct drm_device *dev, struct drm_file *file)
 {
-	file->driver_priv = NULL;
-
 	DBG("open: dev=%p, file=%p", dev, file);
+
+	if (sgx_plugin)
+		sgx_plugin->open(dev, file);
 
 	return 0;
 }
@@ -862,6 +898,9 @@ static void dev_preclose(struct drm_device *dev, struct drm_file *file)
 
 	DBG("preclose: dev=%p", dev);
 
+	if (sgx_plugin)
+		sgx_plugin->release(dev, file);
+
 	/*
 	 * Unlink all pending CRTC events to make sure they won't be queued up
 	 * by a pending asynchronous commit.
@@ -874,6 +913,8 @@ static void dev_preclose(struct drm_device *dev, struct drm_file *file)
 		}
 	}
 	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+	kfree(file->driver_priv);
 }
 
 static void dev_postclose(struct drm_device *dev, struct drm_file *file)
@@ -883,8 +924,8 @@ static void dev_postclose(struct drm_device *dev, struct drm_file *file)
 
 static const struct vm_operations_struct omap_gem_vm_ops = {
 	.fault = omap_gem_fault,
-	.open = drm_gem_vm_open,
-	.close = drm_gem_vm_close,
+	.open = omap_gem_vm_open,
+	.close = omap_gem_vm_close,
 };
 
 static const struct file_operations omapdriver_fops = {
@@ -933,6 +974,80 @@ static struct drm_driver omap_drm_driver = {
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
 };
+
+int omap_drm_register_plugin(struct omap_drm_plugin *plugin)
+{
+	struct drm_device *dev = drm_device;
+	int i;
+
+	DBG("register plugin: %p (%s)", plugin, plugin->name);
+
+	if (sgx_plugin)
+		return -EBUSY;
+
+	for (i = 0; i < plugin->num_ioctls; i++) {
+		int nr = i + DRM_OMAP_NUM_IOCTLS;
+
+		/* check for out of bounds ioctl or already registered ioctl */
+		if (nr > ARRAY_SIZE(ioctls) || ioctls[nr].func) {
+			dev_err(dev->dev, "invalid ioctl: %d (nr=%d)\n", i, nr);
+			return -EINVAL;
+		}
+	}
+
+	plugin->ioctl_base = DRM_OMAP_NUM_IOCTLS;
+
+	/* register the plugin's ioctl's */
+	for (i = 0; i < plugin->num_ioctls; i++) {
+		int nr = i + DRM_OMAP_NUM_IOCTLS;
+
+		DBG("register ioctl: %d %08x", nr, plugin->ioctls[i].cmd);
+
+		ioctls[nr] = plugin->ioctls[i];
+	}
+
+	omap_drm_driver.num_ioctls = DRM_OMAP_NUM_IOCTLS + plugin->num_ioctls;
+
+	sgx_plugin = plugin;
+
+	if (loaded)
+		plugin->load(dev, 0);
+
+	return 0;
+}
+EXPORT_SYMBOL(omap_drm_register_plugin);
+
+int omap_drm_unregister_plugin(struct omap_drm_plugin *plugin)
+{
+	int i;
+
+	for (i = 0; i < plugin->num_ioctls; i++) {
+		const struct drm_ioctl_desc empty = { 0 };
+		int nr = i + DRM_OMAP_NUM_IOCTLS;
+
+		ioctls[nr] = empty;
+	}
+
+	omap_drm_driver.num_ioctls = DRM_OMAP_NUM_IOCTLS;
+
+	sgx_plugin = NULL;
+
+	return 0;
+}
+EXPORT_SYMBOL(omap_drm_unregister_plugin);
+
+void *omap_drm_file_priv(struct drm_file *file)
+{
+	return file->driver_priv;
+}
+EXPORT_SYMBOL(omap_drm_file_priv);
+
+void omap_drm_file_set_priv(struct drm_file *file, void *priv)
+{
+	file->driver_priv = priv;
+}
+EXPORT_SYMBOL(omap_drm_file_set_priv);
+
 
 static int pdev_probe(struct platform_device *device)
 {
