@@ -178,6 +178,15 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 	if (state->crtc_y + state->crtc_h > crtc_state->adjusted_mode.vdisplay)
 		return -EINVAL;
 
+	if (state->fb) {
+		if (state->rotation != BIT(DRM_ROTATE_0) &&
+			!omap_framebuffer_supports_rotation(state->fb)) {
+
+			printk("FAIL to set rotation\n");
+			return -EINVAL;
+		}
+	}
+
 	return 0;
 }
 
