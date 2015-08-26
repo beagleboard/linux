@@ -511,12 +511,13 @@ static void omap_crtc_atomic_destroy_state(struct drm_crtc *crtc,
 	kfree(to_omap_crtc_state(state));
 }
 
-static bool omap_crtc_is_plane_prop(struct omap_drm_private *priv,
+static bool omap_crtc_is_crtc_prop(struct omap_drm_private *priv,
 	struct drm_property *property)
 {
-	return	property == priv->zorder_prop ||
-		property == priv->global_alpha_prop ||
-		property == priv->pre_mult_alpha_prop;
+	return	property == priv->trans_key_mode_prop ||
+		property == priv->trans_key_prop ||
+		property == priv->background_color_prop ||
+		property == priv->alpha_blender_prop;
 }
 
 static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
@@ -527,7 +528,20 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 	struct omap_drm_private *priv = crtc->dev->dev_private;
 	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 
-	if (omap_crtc_is_plane_prop(priv, property)) {
+	if (omap_crtc_is_crtc_prop(priv, property)) {
+		if (property == priv->trans_key_mode_prop)
+			omap_state->trans_key_mode = val;
+		else if (property == priv->trans_key_prop)
+			omap_state->trans_key = val;
+		else if (property == priv->background_color_prop)
+			omap_state->default_color = val;
+		else if (property == priv->alpha_blender_prop)
+			omap_state->partial_alpha_enabled = !!val;
+		else
+			return -EINVAL;
+
+		return 0;
+	} else {
 		struct drm_plane_state *plane_state;
 		struct drm_plane *plane = crtc->primary;
 
@@ -543,19 +557,6 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 		return drm_atomic_plane_set_property(plane, plane_state,
 			property, val);
 	}
-
-	if (property == priv->trans_key_mode_prop)
-		omap_state->trans_key_mode = val;
-	else if (property == priv->trans_key_prop)
-		omap_state->trans_key = val;
-	else if (property == priv->background_color_prop)
-		omap_state->default_color = val;
-	else if (property == priv->alpha_blender_prop)
-		omap_state->partial_alpha_enabled = !!val;
-	else
-		return -EINVAL;
-
-	return 0;
 }
 
 static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
@@ -567,7 +568,20 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 	const struct omap_crtc_state *omap_state =
 		container_of(state, const struct omap_crtc_state, base);
 
-	if (omap_crtc_is_plane_prop(priv, property)) {
+	if (omap_crtc_is_crtc_prop(priv, property)) {
+		if (property == priv->trans_key_mode_prop)
+			*val = omap_state->trans_key_mode;
+		else if (property == priv->trans_key_prop)
+			*val = omap_state->trans_key;
+		else if (property == priv->background_color_prop)
+			*val = omap_state->default_color;
+		else if (property == priv->alpha_blender_prop)
+			*val = omap_state->partial_alpha_enabled;
+		else
+			return -EINVAL;
+
+		return 0;
+	} else {
 		/*
 		 * Delegate property get to the primary plane. The
 		 * drm_atomic_plane_get_property() function isn't exported, but
@@ -577,19 +591,6 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 		return drm_object_property_get_value(&crtc->primary->base,
 			property, val);
 	}
-
-	if (property == priv->trans_key_mode_prop)
-		*val = omap_state->trans_key_mode;
-	else if (property == priv->trans_key_prop)
-		*val = omap_state->trans_key;
-	else if (property == priv->background_color_prop)
-		*val = omap_state->default_color;
-	else if (property == priv->alpha_blender_prop)
-		*val = omap_state->partial_alpha_enabled;
-	else
-		return -EINVAL;
-
-	return 0;
 }
 
 static const struct drm_crtc_funcs omap_crtc_funcs = {
