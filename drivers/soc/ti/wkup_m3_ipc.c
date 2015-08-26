@@ -183,7 +183,7 @@ static int wkup_m3_init_scale_data(struct device *dev)
 		return ret;
 
 	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
-				      m3_ipc_state.sd_fw_name, dev, GFP_KERNEL,
+				      m3_ipc_state.sd_fw_name, dev, GFP_ATOMIC,
 				      dev, wkup_m3_scale_data_fw_cb);
 
 	return ret;
