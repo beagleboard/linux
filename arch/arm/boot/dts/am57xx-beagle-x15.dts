@@ -727,7 +727,7 @@
 
 &hdmi {
 	status = "ok";
-	vdda-supply = <&ldo3_reg>;
+	vdda-supply = <&ldo4_reg>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&hdmi_pins>;
