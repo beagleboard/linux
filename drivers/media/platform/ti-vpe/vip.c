@@ -305,30 +305,6 @@ static void insert_field(u32 *valp, u32 field, u32 mask, int shift)
 }
 
 /*
- * Set the system idle mode
- */
-static void vip_set_idle_mode(struct vip_shared *shared, int mode)
-{
-	u32 reg = read_sreg(shared, VIP_SYSCONFIG);
-
-	insert_field(&reg, mode, VIP_SYSCONFIG_IDLE_MASK,
-		     VIP_SYSCONFIG_IDLE_SHIFT);
-	write_sreg(shared, VIP_SYSCONFIG, reg);
-}
-
-/*
- * Set the VIP standby mode
- */
-static void vip_set_standby_mode(struct vip_shared *shared, int mode)
-{
-	u32 reg = read_sreg(shared, VIP_SYSCONFIG);
-
-	insert_field(&reg, mode, VIP_SYSCONFIG_STANDBY_MASK,
-		     VIP_SYSCONFIG_STANDBY_SHIFT);
-	write_sreg(shared, VIP_SYSCONFIG, reg);
-}
-
-/*
  * Enable or disable the VIP clocks
  */
 static void vip_set_clock_enable(struct vip_dev *dev, bool on)
@@ -2482,9 +2458,6 @@ static int vip_probe(struct platform_device *pdev)
 
 	list_add_tail(&shared->list, &vip_shared_list);
 	platform_set_drvdata(pdev, shared);
-
-	vip_set_idle_mode(shared, VIP_SMART_IDLE_MODE);
-	vip_set_standby_mode(shared, VIP_SMART_STANDBY_MODE);
 
 	for (slice = VIP_SLICE1; slice < VIP_NUM_SLICES; slice++) {
 		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
