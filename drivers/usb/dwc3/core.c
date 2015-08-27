@@ -753,7 +753,6 @@ static irqreturn_t dwc3_otg_thread_irq(int irq, void *_dwc)
 {
 	struct dwc3 *dwc = _dwc;
 	unsigned long flags;
-	irqreturn_t ret = IRQ_NONE;
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc3_otg_fsm_sync(dwc);
@@ -761,7 +760,7 @@ static irqreturn_t dwc3_otg_thread_irq(int irq, void *_dwc)
 	dwc3_writel(dwc->regs, DWC3_OEVTEN, dwc->oevten);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	return ret;
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)

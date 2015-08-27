@@ -19,6 +19,7 @@ Optional properties:
 - dmas : DMA specifier, consisting of a phandle to the DMA controller
          node and a DMA channel number.
 - dma-names : "rx" for receive channel, "tx" for transmit channel.
+- enable-gpio: A gpio line to enable the uart port
 
 Example:
 
