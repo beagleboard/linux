@@ -94,7 +94,6 @@ struct vip_shared {
 	struct list_head	list;
 	struct resource		*res;
 	void __iomem		*base;
-	atomic_t		devs_allocated;	/* count of devs being shared */
 	struct vpdma_data	vpdma_data;
 	struct vpdma_data	*vpdma;
 	struct vip_dev		*devs[VIP_NUM_SLICES];
@@ -104,8 +103,7 @@ struct vip_shared {
  * There are two vip_dev structure, one for each vip slice: VIP1 & VIP2.
  */
 
-struct vip_config {
-	const char *card_name;
+struct vip_async_config {
 	struct v4l2_async_subdev *asd_list[VIP_MAX_SUBDEV];
 	struct v4l2_async_subdev asd[VIP_MAX_SUBDEV];
 	struct v4l2_of_endpoint endpoints[VIP_MAX_SUBDEV];
@@ -114,12 +112,6 @@ struct vip_config {
 
 
 struct vip_dev {
-	struct v4l2_async_notifier notifier;
-	struct vip_config	*config;
-	struct v4l2_subdev	*sensor;
-	struct v4l2_of_endpoint *endpoint;
-	struct vip_fmt		*active_fmt[VIP_MAX_ACTIVE_FMT];
-	int			num_active_fmt;
 	struct v4l2_device	v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct platform_device *pdev;
@@ -162,6 +154,13 @@ struct vip_port {
 	int			num_streams;	/* count of open streams */
 	struct vip_stream	*cap_streams[VIP_CAP_STREAMS_PER_PORT];
 	struct vip_stream	*vbi_streams[VIP_VBI_STREAMS_PER_PORT];
+
+	struct vip_async_config	config;
+	struct v4l2_async_notifier notifier;
+	struct v4l2_subdev	*subdev;
+	struct v4l2_of_endpoint *endpoint;
+	struct vip_fmt		*active_fmt[VIP_MAX_ACTIVE_FMT];
+	int			num_active_fmt;
 };
 
 /*
