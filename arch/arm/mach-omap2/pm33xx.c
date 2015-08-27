@@ -328,6 +328,11 @@ static int am33xx_pm_rtc_setup(void)
 
 	if (of_device_is_available(np)) {
 		omap_rtc = rtc_class_open("rtc0");
+		if (!omap_rtc) {
+			pr_warn("PM: rtc0 not available");
+			return -EPROBE_DEFER;
+		}
+
 		rtc_read_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG,
 				 &rtc_magic_val);
 
@@ -375,7 +380,10 @@ static int am33xx_pm_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	am33xx_pm_rtc_setup();
+	ret = am33xx_pm_rtc_setup();
+	if (ret)
+		return ret;
+
 	am33xx_push_sram_idle();
 
 	am33xx_pm_set_ipc_ops();
