@@ -189,7 +189,6 @@ struct vip_stream {
 	struct vpdma_dtd	*write_desc;
 	void			*desc_next;	/* next unused desc_list addr */
 	struct vb2_queue	vb_vidq;
-	struct video_device	vdev;
 };
 
 /*

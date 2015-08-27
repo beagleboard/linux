@@ -2023,7 +2023,9 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 		list_add(&buf->list, &stream->dropq);
 	}
 
-	vfd = &stream->vdev;
+	vfd = video_device_alloc();
+	if (!vfd)
+		goto do_free_stream;
 	*vfd = vip_videodev;
 	vfd->v4l2_dev = &dev->v4l2_dev;
 	vfd->queue = q;
@@ -2051,13 +2053,14 @@ do_free_stream:
 
 static void free_stream(struct vip_stream *stream)
 {
-	struct vip_dev *dev = stream->port->dev;
+	struct vip_dev *dev;
 	struct vip_buffer *buf;
 	struct list_head *pos, *q;
 
 	if (!stream)
 		return;
 
+	dev = stream->port->dev;
 	/* Free up the Drop queue */
 	list_for_each_safe(pos, q, &stream->dropq) {
 		buf = list_entry(stream->dropq.next,
@@ -2070,6 +2073,7 @@ static void free_stream(struct vip_stream *stream)
 	video_unregister_device(stream->vfd);
 	video_device_release(stream->vfd);
 	vpdma_hwlist_release(dev->shared->vpdma, stream->list_num);
+	stream->port->cap_streams[stream->stream_id] = NULL;
 	kfree(stream);
 }
 
@@ -2166,6 +2170,33 @@ static void remove_shared(struct vip_shared *shared)
 	kfree(shared);
 }
 
+static int vip_create_streams(struct vip_port *port,
+			      struct v4l2_subdev *subdev)
+{
+	struct v4l2_of_bus_parallel *bus;
+	int i;
+
+	for (i = 0; i < VIP_CAP_STREAMS_PER_PORT; i++)
+		free_stream(port->cap_streams[i]);
+
+	if (get_subdev_active_format(port, subdev))
+		return -ENODEV;
+
+	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL) {
+		port->flags |= FLAG_MULT_PORT;
+		alloc_stream(port, 0, VFL_TYPE_GRABBER);
+	} else if (port->endpoint->bus_type == V4L2_MBUS_BT656) {
+		port->flags |= FLAG_MULT_PORT;
+		bus = &port->endpoint->bus.parallel;
+		for (i = 0; i < bus->num_channels; i++) {
+			if (bus->channels[i] >= 16)
+				continue;
+			alloc_stream(port, bus->channels[i], VFL_TYPE_GRABBER);
+		}
+	}
+	return 0;
+}
+
 static int vip_async_bound(struct v4l2_async_notifier *notifier,
 			   struct v4l2_subdev *subdev,
 			   struct v4l2_async_subdev *asd)
@@ -2174,34 +2205,34 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 	struct vip_async_config *config = &port->config;
 	struct vip_dev *dev = port->dev;
 	unsigned int idx = asd - &config->asd[0];
+	int ret;
 
 	vip_dbg(1, dev, "vip_async_bound\n");
 	if (idx > config->asd_sizes)
 		return -EINVAL;
 
-	if (get_subdev_active_format(port, subdev))
-		return 0;
-
 	if (port->subdev) {
-		if (asd < port->subdev->asd) {
+		if (asd < port->subdev->asd)
 			/* Notified of a subdev earlier in the array */
-			port->subdev = subdev;
-			port->endpoint = &config->endpoints[idx];
 			vip_info(dev, "Switching to subdev %s (High priority)",
 				 subdev->name);
 
-		} else
+		else {
 			vip_info(dev, "Rejecting subdev %s (Low priority)",
 				 subdev->name);
-		return 0;
+			return 0;
+		}
 	}
 
-	port->subdev = subdev;
 	port->endpoint = &config->endpoints[idx];
-	port->flags |= FLAG_MULT_PORT;
 	vip_info(dev, "Port %c: Using subdev %s for capture\n",
 		 port->port_id == VIP_PORTA ? 'A' : 'B', subdev->name);
-	alloc_stream(port, 0, VFL_TYPE_GRABBER);
+
+	ret = vip_create_streams(port, subdev);
+	if (ret)
+		return ret;
+
+	port->subdev = subdev;
 
 	return 0;
 }
