@@ -838,6 +838,25 @@ free_carv:
 	return ret;
 }
 
+/**
+ * rproc_handle_intmem() - placeholder to handle internal memory resource entry
+ * @rproc: rproc handle
+ * @rsc: the intmem resource entry
+ * @offset: offset of the resource data in resource table
+ * @avail: size of available data (for image validation)
+ *
+ * ** DEPRECATION WARNING **
+ * This is a dummy function, it is only being defined to print a deprecation
+ * warning for prior product firmwares so that they can stop using this resource
+ * type and move away from using it.
+ */
+static int rproc_handle_intmem(struct rproc *rproc, struct fw_rsc_intmem *rsc,
+			       int offset, int avail)
+{
+	WARN(1, "RSC_INTMEM is deprecated. Please do not use this resource type to support loading into internal memories.\n");
+	return 0;
+}
+
 static int rproc_count_vrings(struct rproc *rproc, struct fw_rsc_vdev *rsc,
 			      int offset, int avail)
 {
@@ -855,6 +874,7 @@ static rproc_handle_resource_t rproc_loading_handlers[RSC_LAST] = {
 	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
 	[RSC_DEVMEM] = (rproc_handle_resource_t)rproc_handle_devmem,
 	[RSC_TRACE] = (rproc_handle_resource_t)rproc_handle_trace,
+	[RSC_INTMEM] = (rproc_handle_resource_t)rproc_handle_intmem,
 	[RSC_VDEV] = NULL, /* VDEVs were handled upon registrarion */
 };
 
