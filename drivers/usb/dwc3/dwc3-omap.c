@@ -532,7 +532,7 @@ static int dwc3_omap_probe(struct platform_device *pdev)
 	ret = pm_runtime_get_sync(dev);
 	if (ret < 0) {
 		dev_err(dev, "get_sync failed with err %d\n", ret);
-		goto err0;
+		goto err1;
 	}
 
 	dwc3_omap_map_offset(omap);
@@ -554,29 +554,24 @@ static int dwc3_omap_probe(struct platform_device *pdev)
 
 	ret = dwc3_omap_extcon_register(omap);
 	if (ret < 0)
-		goto err2;
+		goto err1;
 
 	ret = of_platform_populate(node, NULL, NULL, dev);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to create dwc3 core\n");
-		goto err3;
+		goto err2;
 	}
 
 	return 0;
 
-err3:
+err2:
 	if (omap->extcon_vbus_dev.edev)
 		extcon_unregister_interest(&omap->extcon_vbus_dev);
 	if (omap->extcon_id_dev.edev)
 		extcon_unregister_interest(&omap->extcon_id_dev);
 
-err2:
-	dwc3_omap_disable_irqs(omap);
-
 err1:
 	pm_runtime_put_sync(dev);
-
-err0:
 	pm_runtime_disable(dev);
 
 	return ret;

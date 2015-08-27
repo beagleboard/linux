@@ -768,6 +768,7 @@
 
 &uart3 {
 	status = "okay";
+	enable-gpio = <&pcf_gpio_21 14 GPIO_ACTIVE_LOW>;
 };
 
 &mmc1 {
