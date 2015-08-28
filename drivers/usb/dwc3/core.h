@@ -842,6 +842,7 @@ struct dwc3 {
 
 	enum usb_dr_mode	dr_mode;
 
+	int			otg_protocol;
 	int			gadget_irq;
 	int			xhci_irq;
 	int			otg_irq;
