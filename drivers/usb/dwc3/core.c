@@ -1547,6 +1547,7 @@ static int dwc3_resume(struct device *dev)
 		dwc3_writel(dwc->regs, DWC3_OCFG, dwc->ocfg);
 		dwc3_writel(dwc->regs, DWC3_OCTL, dwc->octl);
 		dwc3_otg_unmask_irq(dwc);
+		dwc3_otg_fsm_sync(dwc);
 	}
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
