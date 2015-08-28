@@ -21,8 +21,7 @@
 	};
 
 	aliases {
-		display0 = &tlc59108;
-		display1 = &hdmi0;
+		display0 = &hdmi0;
 
 		sound0 = &sound0;
 		sound1 = &hdmi;
@@ -411,19 +410,6 @@
 		DRVDD-supply = <&evm_3v3>;
 		DVDD-supply = <&aic_dvdd>;
 	};
-
-	/* TLC chip for LCD panel power and backlight */
-	tlc59108: tlc59108@40 {
-		compatible = "ti,tlc59108-lp101";
-		reg = <0x40>;
-		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
-
-		port {
-			tlc_in: endpoint {
-				remote-endpoint = <&dpi_out>;
-			};
-		};
-	};
 };
 
 &i2c5 {
@@ -750,20 +736,6 @@
 	status = "ok";
 
 	vdda_video-supply = <&ldo5_reg>;
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port {
-			reg = <0>;
-
-			dpi_out: endpoint {
-				remote-endpoint = <&tlc_in>;
-				data-lines = <24>;
-			};
-		};
-	};
 };
 
 &hdmi {
