@@ -5,6 +5,7 @@ obj-$(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015) += dra7-evm-encoder-tpd12s015.o
 obj-$(CONFIG_DISPLAY_ENCODER_SII9022) += encoder-sii9022.o
 encoder-sii9022-y += encoder-sii9022-video.o
 encoder-sii9022-$(CONFIG_DISPLAY_ENCODER_SII9022_AUDIO_CODEC) += encoder-sii9022-audio.o
+obj-$(CONFIG_DISPLAY_ENCODER_TC358768) += encoder-tc358768.o
 obj-$(CONFIG_DISPLAY_CONNECTOR_DVI) += connector-dvi.o
 obj-$(CONFIG_DISPLAY_CONNECTOR_HDMI) += connector-hdmi.o
 obj-$(CONFIG_DISPLAY_CONNECTOR_ANALOG_TV) += connector-analog-tv.o
