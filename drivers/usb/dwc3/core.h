@@ -851,7 +851,6 @@ struct dwc3 {
 	u32			gctl;
 	u32			ocfg;
 	u32			octl;
-	u32			oevt;
 
 	u32			current_mode;
 	u32			nr_scratch;

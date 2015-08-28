@@ -1451,7 +1451,6 @@ static int dwc3_suspend(struct device *dev)
 	if (dwc->current_mode == DWC3_GCTL_PRTCAP_OTG) {
 		dwc->ocfg = dwc3_readl(dwc->regs, DWC3_OCFG);
 		dwc->octl = dwc3_readl(dwc->regs, DWC3_OCTL);
-		dwc->oevt = dwc3_readl(dwc->regs, DWC3_OEVT);
 		dwc3_otg_mask_irq(dwc);
 	}
 
@@ -1501,7 +1500,6 @@ static int dwc3_resume(struct device *dev)
 	if (dwc->current_mode == DWC3_GCTL_PRTCAP_OTG) {
 		dwc3_writel(dwc->regs, DWC3_OCFG, dwc->ocfg);
 		dwc3_writel(dwc->regs, DWC3_OCTL, dwc->octl);
-		dwc3_writel(dwc->regs, DWC3_OEVT, dwc->oevt);
 		dwc3_otg_unmask_irq(dwc);
 	}
 
