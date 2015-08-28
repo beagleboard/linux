@@ -749,6 +749,18 @@ static void dwc3_otg_fsm_sync(struct dwc3 *dwc)
 	}
 }
 
+static void dwc3_otg_mask_irq(struct dwc3 *dwc)
+{
+	dwc3_writel(dwc->regs, DWC3_OEVTEN, 0);
+}
+
+static void dwc3_otg_unmask_irq(struct dwc3 *dwc)
+{
+	dwc3_writel(dwc->regs, DWC3_OEVTEN, DWC3_OEVTEN_CONIDSTSCHNGEN |
+			DWC3_OEVTEN_BDEVVBUSCHNGE |
+			DWC3_OEVTEN_BDEVSESSVLDDETEN);
+}
+
 static irqreturn_t dwc3_otg_thread_irq(int irq, void *_dwc)
 {
 	struct dwc3 *dwc = _dwc;
@@ -756,8 +768,7 @@ static irqreturn_t dwc3_otg_thread_irq(int irq, void *_dwc)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc3_otg_fsm_sync(dwc);
-	/* unmask interrupts */
-	dwc3_writel(dwc->regs, DWC3_OEVTEN, dwc->oevten);
+	dwc3_otg_unmask_irq(dwc);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return IRQ_HANDLED;
@@ -774,9 +785,7 @@ static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_OEVT);
 	if (reg) {
 		dwc3_writel(dwc->regs, DWC3_OEVT, reg);
-		/* mask interrupts till processed */
-		dwc->oevten = dwc3_readl(dwc->regs, DWC3_OEVTEN);
-		dwc3_writel(dwc->regs, DWC3_OEVTEN, 0);
+		dwc3_otg_mask_irq(dwc);
 		ret = IRQ_WAKE_THREAD;
 	}
 
@@ -981,7 +990,7 @@ try_otg_core:
 		return ret;
 
 	/* disable all irqs */
-	dwc3_writel(dwc->regs, DWC3_OEVTEN, 0);
+	dwc3_otg_mask_irq(dwc);
 	/* clear all events */
 	dwc3_writel(dwc->regs, DWC3_OEVT, ~0);
 
@@ -1016,9 +1025,7 @@ try_otg_core:
 	reg = DWC3_OCFG_SFTRSTMASK;
 	dwc3_writel(dwc->regs, DWC3_OCFG, reg);
 	/* Enable ID event interrupt */
-	dwc3_writel(dwc->regs, DWC3_OEVTEN, DWC3_OEVTEN_CONIDSTSCHNGEN |
-			DWC3_OEVTEN_BDEVVBUSCHNGE |
-			DWC3_OEVTEN_BDEVSESSVLDDETEN);
+	dwc3_otg_unmask_irq(dwc);
 	/* OCTL.PeriMode = 1 */
 	dwc3_writel(dwc->regs, DWC3_OCTL, DWC3_OCTL_PERIMODE);
 
@@ -1445,8 +1452,7 @@ static int dwc3_suspend(struct device *dev)
 		dwc->ocfg = dwc3_readl(dwc->regs, DWC3_OCFG);
 		dwc->octl = dwc3_readl(dwc->regs, DWC3_OCTL);
 		dwc->oevt = dwc3_readl(dwc->regs, DWC3_OEVT);
-		dwc->oevten = dwc3_readl(dwc->regs, DWC3_OEVTEN);
-		dwc3_writel(dwc->regs, DWC3_OEVTEN, 0);
+		dwc3_otg_mask_irq(dwc);
 	}
 
 	if (dwc->dr_mode == USB_DR_MODE_PERIPHERAL ||
@@ -1496,7 +1502,7 @@ static int dwc3_resume(struct device *dev)
 		dwc3_writel(dwc->regs, DWC3_OCFG, dwc->ocfg);
 		dwc3_writel(dwc->regs, DWC3_OCTL, dwc->octl);
 		dwc3_writel(dwc->regs, DWC3_OEVT, dwc->oevt);
-		dwc3_writel(dwc->regs, DWC3_OEVTEN, dwc->oevten);
+		dwc3_otg_unmask_irq(dwc);
 	}
 
 	if (dwc->dr_mode == USB_DR_MODE_PERIPHERAL ||

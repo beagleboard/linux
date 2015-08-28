@@ -726,7 +726,6 @@ struct dwc3_scratchpad_array {
  * @gadget_driver: pointer to the gadget driver
  * @regs: base address for our registers
  * @regs_size: address space size
- * @oevten: otg interrupt enable mask copy
  * @current_mode: current mode of operation written to PRTCAPDIR
  * @nr_scratch: number of scratch buffers
  * @num_event_buffers: calculated number of event buffers
@@ -853,7 +852,6 @@ struct dwc3 {
 	u32			ocfg;
 	u32			octl;
 	u32			oevt;
-	u32			oevten;
 
 	u32			current_mode;
 	u32			nr_scratch;
