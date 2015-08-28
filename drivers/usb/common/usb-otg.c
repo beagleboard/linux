@@ -64,6 +64,10 @@ struct otg_data {
 
 	struct list_head list;
 
+	u32 flags;
+#define OTG_FLAG_GADGET_RUNNING (1 << 0)
+#define OTG_FLAG_HOST_RUNNING (1 << 1)
+
 	struct work_struct work;	/* OTG FSM work */
 	struct workqueue_struct *wq;
 
@@ -211,6 +215,10 @@ static int usb_otg_start_host(struct otg_fsm *fsm, int on)
 	}
 
 	if (on) {
+		if (otgd->flags & OTG_FLAG_HOST_RUNNING)
+			return 0;
+		otgd->flags |= OTG_FLAG_HOST_RUNNING;
+
 		/* OTG device operations */
 		if (otgd->start_host)
 			otgd->start_host(fsm, on);
@@ -226,11 +234,16 @@ static int usb_otg_start_host(struct otg_fsm *fsm, int on)
 				     otgd->shared_hcd.irqflags);
 		}
 	} else {
+		if (!(otgd->flags & OTG_FLAG_HOST_RUNNING))
+			return 0;
+		otgd->flags &= ~OTG_FLAG_HOST_RUNNING;
+
 		/* stop host */
 		if (otgd->shared_hcd.hcd) {
 			hcd_ops = otgd->shared_hcd.ops;
 			hcd_ops->remove(otgd->shared_hcd.hcd);
 		}
+
 		hcd_ops = otgd->primary_hcd.ops;
 		hcd_ops->remove(otgd->primary_hcd.hcd);
 
@@ -257,17 +270,25 @@ static int usb_otg_start_gadget(struct otg_fsm *fsm, int on)
 	}
 
 	if (on) {
+		if (otgd->flags & OTG_FLAG_GADGET_RUNNING)
+			return 0;
+
 		/* OTG device operations */
 		if (otgd->start_gadget)
 			otgd->start_gadget(fsm, on);
 
 		otgd->gadget_ops->start(fsm->otg->gadget);
+		otgd->flags |= OTG_FLAG_GADGET_RUNNING;
 	} else {
+		if (!(otgd->flags & OTG_FLAG_GADGET_RUNNING))
+			return 0;
+
 		otgd->gadget_ops->stop(fsm->otg->gadget);
 
 		/* OTG device operations */
 		if (otgd->start_gadget)
 			otgd->start_gadget(fsm, on);
+		otgd->flags &= ~OTG_FLAG_GADGET_RUNNING;
 	}
 
 	return 0;
