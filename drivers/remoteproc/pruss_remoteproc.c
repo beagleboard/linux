@@ -737,6 +737,22 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		goto put_mbox;
 	}
 
+	/*
+	 * rproc_add will boot the processor if the corresponding PRU
+	 * has a virtio device published in its resource table. If not
+	 * present, manually boot the PRU remoteproc, but only after
+	 * the remoteproc core is done with loading the firmware image.
+	 */
+	wait_for_completion(&pru->rproc->firmware_loading_complete);
+	if (list_empty(&pru->rproc->rvdevs)) {
+		dev_info(dev, "booting the PRU core manually\n");
+		ret = rproc_boot(pru->rproc);
+		if (ret) {
+			dev_err(dev, "rproc_boot failed\n");
+			goto del_rproc;
+		}
+	}
+
 	/* suppress unused function warning */
 	(void)pru_trigger_interrupt;
 
@@ -744,6 +760,8 @@ static int pru_rproc_probe(struct platform_device *pdev)
 
 	return 0;
 
+del_rproc:
+	rproc_del(pru->rproc);
 put_mbox:
 	mbox_free_channel(pru->mbox);
 free_rproc:
@@ -758,6 +776,11 @@ static int pru_rproc_remove(struct platform_device *pdev)
 	struct pru_rproc *pru = rproc->priv;
 
 	dev_info(dev, "%s: removing rproc %s\n", __func__, rproc->name);
+
+	if (list_empty(&pru->rproc->rvdevs)) {
+		dev_info(dev, "stopping the manually booted PRU core\n");
+		rproc_shutdown(pru->rproc);
+	}
 
 	mbox_free_channel(pru->mbox);
 
