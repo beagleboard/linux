@@ -41,6 +41,12 @@ config DISPLAY_ENCODER_SII9022_AUDIO_CODEC
 	help
 	  ASoC DAI driver for Silicon Image Sil9022 DPI to HDMI encoder.
 
+config DISPLAY_ENCODER_TC358768
+	tristate "Toshiba TC358768/TC358778 DPI to DSI encoder"
+	depends on I2C
+	help
+	  Driver for Toshiba TC358768/TC358778 DPI to DSI encoder.
+
 config DISPLAY_CONNECTOR_DVI
         tristate "DVI Connector"
 	depends on I2C

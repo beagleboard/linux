@@ -1,0 +1,134 @@
+/*
+ * Copyright (C) 2013 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/ {
+	aliases {
+		display0 = &lcd;
+		display1 = &hdmi0;
+	};
+
+	backlight {
+		compatible = "led-backlight";
+		leds = <&backlight_led>;
+		brightness-levels = <0 243 245 247 248 249 251 252 255>;
+		default-brightness-level = <8>;
+
+		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>;
+	};
+
+	lcd: display {
+		/*
+		 * TODO: Not a DPI panel, but a dummy DSI video mode panel.
+		 * This needs to be changed later when we can support DSI VM
+		 * panels properly.
+		 */
+		compatible = "osd,osd101t2045-53ts", "panel-dpi";
+
+		label = "lcd";
+
+		panel-timing {
+			clock-frequency = <154000000>;
+			hactive = <1920>;
+			vactive = <1200>;
+
+			hfront-porch = <112>;
+			hback-porch = <32>;
+			hsync-len = <16>;
+
+			vfront-porch = <16>;
+			vback-porch = <16>;
+			vsync-len = <2>;
+
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+		};
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&tc358768_out>;
+			};
+		};
+	};
+
+	tc358768_refclk: tc358768_refclk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <20000000>;
+	};
+};
+
+&i2c1 {
+	tc358768@0e {
+		compatible = "toshiba,tc358768";
+		reg = <0x0e>;
+
+		clocks = <&tc358768_refclk>;
+		clock-names = "refclk";
+
+		reset-gpios = <&pcf_display_board 0 GPIO_ACTIVE_LOW>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				tc358768_in: endpoint {
+					remote-endpoint = <&dpi_out>;
+					data-lines = <24>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				tc358768_out: endpoint {
+					remote-endpoint = <&lcd_in>;
+					lanes = <0 1 2 3 4 5 6 7 8 9>;
+				};
+			};
+		};
+	};
+
+	tlc59108: tlc59116@40 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ti,tlc59108";
+		reg = <0x40>;
+
+		backlight_led: bl@2 {
+			label = "backlight";
+			reg = <0x2>;
+		};
+	};
+
+	pcf_display_board: gpio@27 {
+		compatible = "nxp,pcf8575";
+		reg = <0x27>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&dss {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				remote-endpoint = <&tc358768_in>;
+				data-lines = <24>;
+			};
+		};
+
+	};
+};
