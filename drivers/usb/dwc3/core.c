@@ -1447,7 +1447,6 @@ static int dwc3_suspend(struct device *dev)
 		dwc->oevt = dwc3_readl(dwc->regs, DWC3_OEVT);
 		dwc->oevten = dwc3_readl(dwc->regs, DWC3_OEVTEN);
 		dwc3_writel(dwc->regs, DWC3_OEVTEN, 0);
-		disable_irq(dwc->otg_irq);
 	}
 
 	if (dwc->dr_mode == USB_DR_MODE_PERIPHERAL ||
@@ -1498,7 +1497,6 @@ static int dwc3_resume(struct device *dev)
 		dwc3_writel(dwc->regs, DWC3_OCTL, dwc->octl);
 		dwc3_writel(dwc->regs, DWC3_OEVT, dwc->oevt);
 		dwc3_writel(dwc->regs, DWC3_OEVTEN, dwc->oevten);
-		enable_irq(dwc->otg_irq);
 	}
 
 	if (dwc->dr_mode == USB_DR_MODE_PERIPHERAL ||
