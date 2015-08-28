@@ -741,12 +741,10 @@ static void dwc3_otg_fsm_sync(struct dwc3 *dwc)
 	id = !!(reg & DWC3_OSTS_CONIDSTS);
 	vbus = !!(reg & DWC3_OSTS_BSESVLD);
 
-	if (id != dwc->fsm->id || vbus != dwc->fsm->vbus) {
-		dev_dbg(dwc->dev, "id %d vbus %d\n", id, vbus);
-		dwc->fsm->id = id;
-		dwc->fsm->vbus = vbus;
-		usb_otg_sync_inputs(dwc->fsm);
-	}
+	dev_dbg(dwc->dev, "id %d vbus %d\n", id, vbus);
+	dwc->fsm->id = id;
+	dwc->fsm->vbus = vbus;
+	usb_otg_sync_inputs(dwc->fsm);
 }
 
 static void dwc3_otg_mask_irq(struct dwc3 *dwc)
