@@ -1241,3 +1241,7 @@
 	status = "okay";
 	ext-clk-src;
 };
+
+&sgx {
+	status = "okay";
+};

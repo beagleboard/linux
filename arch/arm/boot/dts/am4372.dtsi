@@ -797,6 +797,14 @@
 			dma-names = "tx", "rx";
 		};
 
+		sgx: sgx@0x56000000 {
+			compatible = "ti,am437x-sgx530", "img,sgx530";
+			ti,hwmods = "gfx";
+			reg = <0x56000000 0x1000000>;
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
 		rng: rng@48310000 {
 			compatible = "ti,omap4-rng";
 			ti,hwmods = "rng";
