@@ -101,6 +101,10 @@ struct fw_rsc_hdr {
  *		    the remote processor will be writing logs.
  * @RSC_VDEV:       declare support for a virtio device, and serve as its
  *		    virtio header.
+ * @RSC_INTMEM:     (deprecated) request to map into kernel an internal memory
+ *		    region.
+ * @RSC_CUSTOM:     a custom resource type that needs to be handled outside
+ *		    remoteproc core.
  * @RSC_LAST:       just keep this one at the end
  *
  * For more details regarding a specific resource type, please see its
@@ -116,7 +120,9 @@ enum fw_resource_type {
 	RSC_DEVMEM	= 1,
 	RSC_TRACE	= 2,
 	RSC_VDEV	= 3,
-	RSC_LAST	= 4,
+	RSC_INTMEM	= 4,
+	RSC_CUSTOM	= 5,
+	RSC_LAST	= 6,
 };
 
 #define FW_RSC_ADDR_ANY (0xFFFFFFFFFFFFFFFF)
@@ -307,6 +313,57 @@ struct fw_rsc_vdev {
 } __packed;
 
 /**
+ * struct fw_rsc_intmem - (deprecated) internal memory publishing request
+ * @version: version for this resource type (must be one)
+ * @da: device address
+ * @pa: physical address
+ * @len: length (in bytes)
+ * @reserved: reserved (must be zero)
+ * @name: human-readable name of the region being published
+ *
+ * This resource entry allows a remote processor to publish an internal
+ * memory region to the host. This resource type allows a remote processor
+ * to publish the whole or just a portion of certain internal memories,
+ * while it owns and manages any unpublished portion (eg: a shared L1
+ * memory that can be split configured as RAM and/or cache). This is
+ * primarily provided to allow a host to load code/data into internal
+ * memories, the memory for which is neither allocated nor required to
+ * be mapped into an iommu.
+ *
+ * @da should specify the required address as accessible by the device
+ * without going through an iommu, @pa should specify the physical address
+ * for the region as seen on the bus, @len should specify the size of the
+ * memory region. As always, @name may (optionally) contain a human readable
+ * name of this mapping (mainly for debugging purposes). The @version field
+ * is added for future scalability, and should be 1 for now.
+ *
+ * Note: at this point we just "trust" these intmem entries to contain valid
+ * physical bus addresses. these are not currently intended to be managed
+ * as host-controlled heaps, as it is much better to do that from the remote
+ * processor side.
+ */
+struct fw_rsc_intmem {
+	u32 version;
+	u32 da;
+	u32 pa;
+	u32 len;
+	u32 reserved;
+	u8 name[32];
+} __packed;
+
+/**
+ * struct fw_rsc_custom - custom resource definition
+ * @sub_type: implementation specific type
+ * @size: size of the custom resource
+ * @data: label for the start of the resource
+ */
+struct fw_rsc_custom {
+	u32  sub_type;
+	u32  size;
+	u8   data[0];
+} __packed;
+
+/**
  * struct rproc_mem_entry - memory entry descriptor
  * @va:	virtual address
  * @dma: dma address
@@ -345,12 +402,15 @@ struct rproc;
  * @stop:	power off the device
  * @kick:	kick a virtqueue (virtqueue id given as a parameter)
  * @da_to_va:	optional platform hook to perform address translations
+ * @handle_custom_rsc:	hook to handle device specific resource table entries
  */
 struct rproc_ops {
 	int (*start)(struct rproc *rproc);
 	int (*stop)(struct rproc *rproc);
 	void (*kick)(struct rproc *rproc, int vqid);
 	void * (*da_to_va)(struct rproc *rproc, u64 da, int len, u32 flags);
+	int (*handle_custom_rsc)(struct rproc *rproc,
+				 struct fw_rsc_custom *rsc);
 };
 
 /**
