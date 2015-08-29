@@ -398,6 +398,14 @@
 				ti,mbox-tx = <0 0 0>;
 				ti,mbox-rx = <0 0 3>;
 			};
+			mbox_pru0: mbox_pru0 {
+				ti,mbox-tx = <2 0 0>;
+				ti,mbox-rx = <3 0 0>;
+			};
+			mbox_pru1: mbox_pru1 {
+				ti,mbox-tx = <4 0 0>;
+				ti,mbox-rx = <5 0 0>;
+			};
 		};
 
 		timer1: timer@44e31000 {
@@ -774,6 +782,39 @@
 			compatible = "mmio-sram";
 			reg = <0x40300000 0x10000>; /* 64k */
 			map-exec;
+		};
+
+		pruss: pruss@4a300000 {
+			compatible = "ti,am3352-pruss";
+			ti,hwmods = "pruss";
+			reg = <0x4a300000 0x2000>,
+			      <0x4a302000 0x2000>,
+			      <0x4a310000 0x3000>,
+			      <0x4a320000 0x2000>,
+			      <0x4a326000 0x2000>;
+			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
+			interrupts = <20 21 22 23 24 25 26 27>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			pru0: pru@4a334000 {
+				compatible = "ti,am3352-pru-rproc";
+				reg = <0x4a334000 0x2000>,
+				      <0x4a322000 0x400>,
+				      <0x4a322400 0x100>;
+				reg-names = "iram", "control", "debug";
+				mboxes = <&mailbox &mbox_pru0>;
+			};
+
+			pru1: pru@4a338000 {
+				compatible = "ti,am3352-pru-rproc";
+				reg = <0x4a338000 0x2000>,
+				      <0x4a324000 0x400>,
+				      <0x4a324400 0x100>;
+				reg-names = "iram", "control", "debug";
+				mboxes = <&mailbox &mbox_pru1>;
+			};
 		};
 
 		elm: elm@48080000 {

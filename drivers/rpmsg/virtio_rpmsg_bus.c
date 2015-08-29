@@ -502,8 +502,9 @@ static int rpmsg_channel_match(struct device *dev, void *data)
  * this function will be used to create both static and dynamic
  * channels.
  */
-static struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
-				struct rpmsg_channel_info *chinfo)
+static
+struct rpmsg_channel *__rpmsg_create_channel(struct virtproc_info *vrp,
+					     struct rpmsg_channel_info *chinfo)
 {
 	struct rpmsg_channel *rpdev;
 	struct device *tmp, *dev = &vrp->vdev->dev;
@@ -556,12 +557,43 @@ static struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
 	return rpdev;
 }
 
+/**
+ * rpmsg_create_channel - create a rpmsg channel using its name, desc, id and
+ *			  address
+ * @vrp: the virtual processor on which this channel is being created
+ * @name: name of the rpmsg channel
+ * @desc: description of the rpmsg channel
+ * @src: source end-point address for the channel
+ * @dst: destination end-point address for the channel
+ *
+ * This function provides a means to create new rpmsg channels on a particular
+ * virtual processor. The caller supplies the address info, name and descriptor
+ * for the channel. This is useful when creating channels from the host side.
+ *
+ * Return: a pointer to a newly created rpmsg channel device on success,
+ *	   or NULL on failure
+ */
+struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
+					   const char *name, const char *desc,
+					   int src, int dst)
+{
+	struct rpmsg_channel_info chinfo;
+
+	strncpy(chinfo.name, name, sizeof(chinfo.name));
+	strncpy(chinfo.desc, desc, sizeof(chinfo.desc));
+	chinfo.src = src;
+	chinfo.dst = dst;
+
+	return __rpmsg_create_channel(vrp, &chinfo);
+}
+EXPORT_SYMBOL(rpmsg_create_channel);
+
 /*
  * find an existing channel using its name + address properties,
  * and destroy it
  */
-static int rpmsg_destroy_channel(struct virtproc_info *vrp,
-					struct rpmsg_channel_info *chinfo)
+static int __rpmsg_destroy_channel(struct virtproc_info *vrp,
+				   struct rpmsg_channel_info *chinfo)
 {
 	struct virtio_device *vdev = vrp->vdev;
 	struct device *dev;
@@ -576,6 +608,34 @@ static int rpmsg_destroy_channel(struct virtproc_info *vrp,
 
 	return 0;
 }
+
+/**
+ * rpmsg_destroy_channel - destroy a rpmsg channel
+ * @rpdev: rpmsg channel to be destroyed
+ *
+ * This function is the primary means to destroy a rpmsg channel that was
+ * created from the host-side. This API is strictly intended to be used only
+ * for channels created using the rpmsg_create_channel API.
+ *
+ * Return: 0 on success, or a failure code otherwise
+ */
+int rpmsg_destroy_channel(struct rpmsg_channel *rpdev)
+{
+	struct device *dev;
+	struct virtio_device *vdev = rpmsg_get_virtio_dev(rpdev);
+
+	if (!rpdev || !vdev)
+		return -EINVAL;
+
+	dev = &rpdev->dev;
+	if (dev->bus != &rpmsg_bus || dev->parent != &vdev->dev)
+		return -EINVAL;
+
+	device_unregister(dev);
+
+	return 0;
+}
+EXPORT_SYMBOL(rpmsg_destroy_channel);
 
 /* super simple buffer "allocator" that is just enough for now */
 static void *get_a_tx_buf(struct virtproc_info *vrp)
@@ -963,13 +1023,14 @@ static void rpmsg_ns_cb(struct rpmsg_channel *rpdev, void *data, int len,
 	chinfo.dst = msg->addr;
 
 	if (msg->flags & RPMSG_NS_DESTROY) {
-		ret = rpmsg_destroy_channel(vrp, &chinfo);
+		ret = __rpmsg_destroy_channel(vrp, &chinfo);
 		if (ret)
-			dev_err(dev, "rpmsg_destroy_channel failed: %d\n", ret);
+			dev_err(dev, "__rpmsg_destroy_channel failed: %d\n",
+				ret);
 	} else {
-		newch = rpmsg_create_channel(vrp, &chinfo);
+		newch = __rpmsg_create_channel(vrp, &chinfo);
 		if (!newch)
-			dev_err(dev, "rpmsg_create_channel failed\n");
+			dev_err(dev, "__rpmsg_create_channel failed\n");
 	}
 }
 
