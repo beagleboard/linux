@@ -27,7 +27,6 @@
 #include <linux/list.h>
 #include <linux/errno.h>
 #include <linux/skbuff.h>
-#include <linux/rwlock.h>
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/rpmsg.h>
