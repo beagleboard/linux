@@ -913,12 +913,6 @@
 	ti,non-removable;
 };
 
-&usb1 {
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&usb1_pins_default>;
-	pinctrl-1 = <&usb1_pins_sleep>;
-};
-
 &usb2_phy1 {
 	status = "okay";
 };
@@ -926,12 +920,9 @@
 &usb1 {
 	dr_mode = "otg";
 	status = "okay";
-};
-
-&usb2 {
 	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&usb2_pins_default>;
-	pinctrl-1 = <&usb2_pins_sleep>;
+	pinctrl-0 = <&usb1_pins_default>;
+	pinctrl-1 = <&usb1_pins_sleep>;
 };
 
 &usb2_phy2 {
@@ -941,6 +932,9 @@
 &usb2 {
 	dr_mode = "host";
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&usb2_pins_default>;
+	pinctrl-1 = <&usb2_pins_sleep>;
 };
 
 &mac {
