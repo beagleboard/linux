@@ -1086,6 +1086,7 @@ static const struct of_device_id edt_ft5x06_of_match[] = {
 	{ .compatible = "edt,edt-ft5206", },
 	{ .compatible = "edt,edt-ft5306", },
 	{ .compatible = "edt,edt-ft5406", },
+	{ .compatible = "edt,edt-ft5506", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, edt_ft5x06_of_match);
