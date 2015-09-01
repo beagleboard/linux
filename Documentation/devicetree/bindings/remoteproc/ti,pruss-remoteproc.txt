@@ -1,0 +1,128 @@
+PRU-ICSS on TI SoCs
+===================
+
+The Programmable Real-Time Unit and Industrial Communication Subsystem
+(PRU-ICSS) is present on various TI SoCs such as AM335x or AM437x. A
+PRUSS consists of dual 32-bit RISC cores (Programmable Real-Time Units,
+or PRUs), shared, data and instruction memories, some internal peripheral
+modules, and an interrupt controller. The programmable nature of the
+PRUs provide flexibility to implement custom peripheral interfaces,
+fast real-time responses, or specialized data handling.
+
+A PRU-ICSS subsystem can have upto three shared data memories. A PRU core
+acts on a primary Data RAM (there are usually 2 Data RAMs) at its address
+0x0, but also has access to a secondary Data RAM (primary to the other PRU
+core). A shared Data RAM, if present, can be accessed by both the PRU cores.
+The Interrupt Controller (INTC) and a CFG module are common to both the
+PRU cores. Each PRU core also has a private instruction RAM, and specific
+register spaces for Control and Debug functionalities.
+
+
+PRU-ICSS Parent Node
+=====================
+Each PRU-ICSS subsystem instance is represented as a node with the
+individual PRU processor cores represented as child nodes within the
+parent PRUSS node.
+
+Required Properties:
+--------------------
+- compatible     : should be one of,
+                       "ti,am3352-pruss" for AM335x family of SoCs
+                       "ti,am4372-pruss" for AM437x family of SoCs
+                       "ti,am5728-pruss" for AM572x family of SoCs
+- ti,hwmods      : name of the hwmod associated with the PRUSS instance
+- reg            : base address and size for each of the sub-modules as
+                   mentioned in reg-names, and in the same order as the
+                   reg-names
+- reg-names      : should contain a string from among the following names,
+                   each representing a specific sub-module. A PRU-ICSS may
+                   not have all of the Data RAMs. The binding is agnostic
+                   of the order of these reg-names
+                       "dram0" for Data RAM0,
+                       "dram1" for Data RAM1,
+                       "shrdram2" for Shared Data RAM,
+                       "intc" for INTC sub-module,
+                       "cfg" for CFG sub-module,
+- interrupts     : all the interrupts generated towards the main host processor
+                   in the SoC. The interrupts should be specified in ascending
+                   order. The format depends on the interrupt specifier for the
+                   particular SoC's host interrupt controller
+- #address-cells : should be 1
+- #size-cells    : should be 1
+- ranges         : no specific range translations required, child nodes have the
+                   same address view as the parent, so should be mentioned without
+                   any value for the property
+
+Optional Properties:
+--------------------
+- pinctrl-0      : pin control group for pins that are handled directly by the
+                   PRU-ICSS subsystem
+- pinctrl-names  : if present, must contain only a "default" entry
+
+
+PRU Child Node
+===============
+Each PRUSS has dual PRU cores, so at most there can be 2 active child nodes.
+Each node can optionally be rendered inactive by using the standard DT string
+property, "status".
+
+Required Properties:
+--------------------
+- compatible     : should be
+                       "ti,am3352-pru-rproc" for AM335x family of SoCs
+                       "ti,am4372-pru-rproc" for AM437x family of SoCs
+                       "ti,am5728-pru-rproc" for AM572x family of SoCs
+- reg            : base address and size for each of the 3 sub-module address
+                   spaces as mentioned in reg-names, and in the same order as
+                   the reg-names
+- reg-names      : should contain each of the following 3 names, with the "iram"
+                   entry being the first one
+                       "iram" for Instruction RAM,
+                       "control" for the CTRL sub-module registers,
+                       "debug" for the Debug sub-module registers,
+
+Optional Properties:
+--------------------
+- mboxes     : OMAP Mailbox specifier denoting the sub-mailbox, if using a
+               mailbox for IPC signalling between host and a PRU core. The
+               specifier format is as per the bindings,
+                   Documentation/devicetree/bindings/mailbox/omap-mailbox.txt
+               This property should match with the sub-mailbox node used in
+               the firmware image.
+
+
+Example:
+========
+	/* AM33xx PRU-ICSS */
+	pruss: pruss@4a300000 {
+		compatible = "ti,am3352-pruss";
+		ti,hwmods = "pruss";
+		reg = <0x4a300000 0x2000>,
+		      <0x4a302000 0x2000>,
+		      <0x4a310000 0x3000>,
+		      <0x4a320000 0x2000>,
+		      <0x4a326000 0x2000>;
+		reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
+		interrupts = <20 21 22 23 24 25 26 27>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		pru0: pru@4a334000 {
+			compatible = "ti,am3352-pru-rproc";
+			reg = <0x4a334000 0x2000>,
+			      <0x4a322000 0x400>,
+			      <0x4a322400 0x100>;
+			reg-names = "iram", "control", "debug";
+			mboxes = <&mailbox &mbox_pru0>;
+		};
+
+		pru1: pru@4a338000 {
+			compatible = "ti,am3352-pru-rproc";
+			reg = <0x4a338000 0x2000>,
+			      <0x4a324000 0x400>,
+			      <0x4a324400 0x100>;
+			reg-names = "iram", "control", "debug";
+			mboxes = <&mailbox &mbox_pru1>;
+		};
+	};

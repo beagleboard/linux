@@ -1034,6 +1034,88 @@
 			status = "disabled";
 		};
 
+		pruss1: pruss@4b200000 {
+			compatible = "ti,am5728-pruss";
+			ti,hwmods = "pruss1";
+			reg = <0x4b200000 0x2000>,
+			      <0x4b202000 0x2000>,
+			      <0x4b210000 0x8000>,
+			      <0x4b220000 0x2000>,
+			      <0x4b226000 0x2000>;
+			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
+			interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			status = "disabled";
+
+			pru1_0: pru@4b234000 {
+				compatible = "ti,am5728-pru-rproc";
+				reg = <0x4b234000 0x3000>,
+				      <0x4b222000 0x400>,
+				      <0x4b222400 0x100>;
+				reg-names = "iram", "control", "debug";
+				status = "disabled";
+			};
+
+			pru1_1: pru@4b238000 {
+				compatible = "ti,am5728-pru-rproc";
+				reg = <0x4b238000 0x3000>,
+				      <0x4b224000 0x400>,
+				      <0x4b224400 0x100>;
+				reg-names = "iram", "control", "debug";
+				status = "disabled";
+			};
+		};
+
+		pruss2: pruss@4b280000 {
+			compatible = "ti,am5728-pruss";
+			ti,hwmods = "pruss2";
+			reg = <0x4b280000 0x2000>,
+			      <0x4b282000 0x2000>,
+			      <0x4b290000 0x8000>,
+			      <0x4b2a0000 0x2000>,
+			      <0x4b2a6000 0x2000>;
+			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
+			interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			status = "disabled";
+
+			pru2_0: pru@4b2b4000 {
+				compatible = "ti,am5728-pru-rproc";
+				reg = <0x4b2b4000 0x3000>,
+				      <0x4b2a2000 0x400>,
+				      <0x4b2a2400 0x100>;
+				reg-names = "iram", "control", "debug";
+				status = "disabled";
+			};
+
+			pru2_1: pru@4b2b8000 {
+				compatible = "ti,am5728-pru-rproc";
+				reg = <0x4b2b8000 0x3000>,
+				      <0x4b2a4000 0x400>,
+				      <0x4b2a4400 0x100>;
+				reg-names = "iram", "control", "debug";
+				status = "disabled";
+			};
+		};
+
 		abb_mpu: regulator-abb-mpu {
 			compatible = "ti,abb-v3";
 			regulator-name = "abb_mpu";
@@ -1934,11 +2016,25 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0>;
+				status = "disabled";
 			};
 			vin2a: port@1 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <1>;
+				status = "disabled";
+			};
+			vin1b: port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+				status = "disabled";
+			};
+			vin2b: port@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+				status = "disabled";
 			};
 		};
 
@@ -1958,11 +2054,25 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0>;
+				status = "disabled";
 			};
 			vin4a: port@1 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <1>;
+				status = "disabled";
+			};
+			vin3b: port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+				status = "disabled";
+			};
+			vin4b: port@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+				status = "disabled";
 			};
 		};
 
@@ -1982,11 +2092,13 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0>;
+				status = "disabled";
 			};
 			vin6a: port@1 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <1>;
+				status = "disabled";
 			};
 		};
 

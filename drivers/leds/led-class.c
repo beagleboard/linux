@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/timer.h>
+#include <linux/of.h>
 #include "leds.h"
 
 static struct class *leds_class;
@@ -210,6 +211,80 @@ static int led_resume(struct device *dev)
 #endif
 
 static SIMPLE_DEV_PM_OPS(leds_class_dev_pm_ops, led_suspend, led_resume);
+
+/* find OF node for the given led_cdev */
+static struct device_node *find_led_of_node(struct led_classdev *led_cdev)
+{
+	struct device *led_dev = led_cdev->dev;
+	struct device_node *child;
+
+	for_each_child_of_node(led_dev->parent->of_node, child) {
+		if (of_property_match_string(child, "label", led_cdev->name) == 0)
+			return child;
+	}
+
+	return NULL;
+}
+
+static int led_match_led_node(struct device *led_dev, const void *data)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(led_dev);
+	const struct device_node *target_node = data;
+	struct device_node *led_node;
+
+	led_node = find_led_of_node(led_cdev);
+	if (!led_node)
+		return 0;
+
+	of_node_put(led_node);
+
+	return led_node == target_node ? 1 : 0;
+}
+
+/**
+ * of_led_get() - request a LED device via the LED framework
+ * @np: device node to get the LED device from
+ *
+ * Returns the LED device parsed from the phandle specified in the "leds"
+ * property of a device tree node or a negative error-code on failure.
+ */
+struct led_classdev *of_led_get(struct device_node *np)
+{
+	struct device *led_dev;
+	struct led_classdev *led_cdev;
+	struct device_node *led_node;
+
+	led_node = of_parse_phandle(np, "leds", 0);
+	if (!led_node)
+		return ERR_PTR(-ENODEV);
+
+	led_dev = class_find_device(leds_class, NULL, led_node,
+		led_match_led_node);
+	if (!led_dev) {
+		of_node_put(led_node);
+		return ERR_PTR(-EPROBE_DEFER);
+	}
+
+	of_node_put(led_node);
+
+	led_cdev = dev_get_drvdata(led_dev);
+
+	if (!try_module_get(led_cdev->dev->parent->driver->owner))
+		return ERR_PTR(-ENODEV);
+
+	return led_cdev;
+}
+EXPORT_SYMBOL_GPL(of_led_get);
+
+/**
+ * led_put() - release a LED device
+ * @led_cdev: LED device
+ */
+void led_put(struct led_classdev *led_cdev)
+{
+	module_put(led_cdev->dev->parent->driver->owner);
+}
+EXPORT_SYMBOL_GPL(led_put);
 
 static int match_name(struct device *dev, const void *data)
 {

@@ -82,6 +82,8 @@ static void v4l2_of_parse_parallel_bus(const struct device_node *node,
 {
 	struct v4l2_of_bus_parallel *bus = &endpoint->bus.parallel;
 	unsigned int flags = 0;
+	struct property *prop;
+	const __be32 *cur;
 	u32 v;
 
 	if (!of_property_read_u32(node, "hsync-active", &v))
@@ -123,8 +125,21 @@ static void v4l2_of_parse_parallel_bus(const struct device_node *node,
 		flags |= v ? V4L2_MBUS_VIDEO_SOG_ACTIVE_HIGH :
 			V4L2_MBUS_VIDEO_SOG_ACTIVE_LOW;
 
-	if (!of_property_read_u32(node, "num-channels", &v))
-		bus->num_channels = v;
+	if (endpoint->bus_type == V4L2_MBUS_BT656) {
+
+		if (of_find_property(node, "pixel-mux", NULL))
+			bus->pixmux = 1;
+		else
+			bus->pixmux = 0;
+
+		bus->num_channels = 0;
+		of_property_for_each_u32(node, "channels", prop, cur, v) {
+			bus->channels[bus->num_channels] = v;
+			bus->num_channels++;
+			if (bus->num_channels == ARRAY_SIZE(bus->channels))
+				break;
+		}
+	}
 
 	bus->flags = flags;
 

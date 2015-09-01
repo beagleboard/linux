@@ -637,8 +637,6 @@ static int ov1063x_set_params(struct i2c_client *client, u32 width, u32 height)
 	if (ret)
 		return ret;
 
-	/* Wait for settings to take effect */
-	usleep_range(500000, 500100);
 
 	return 0;
 }

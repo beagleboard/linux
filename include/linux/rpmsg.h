@@ -181,6 +181,10 @@ struct rpmsg_endpoint *rpmsg_create_ept(struct rpmsg_channel *,
 int
 rpmsg_send_offchannel_raw(struct rpmsg_channel *, u32, u32, void *, int, bool);
 struct virtio_device *rpmsg_get_virtio_dev(struct rpmsg_channel *rpdev);
+struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
+					   const char *name, const char *desc,
+					   int src, int dst);
+int rpmsg_destroy_channel(struct rpmsg_channel *rpdev);
 
 /**
  * rpmsg_send() - send a message across to the remote processor
