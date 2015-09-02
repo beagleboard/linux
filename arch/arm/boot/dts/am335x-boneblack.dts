@@ -33,6 +33,10 @@
 	status = "okay";
 };
 
+&sgx {
+	status = "okay";
+};
+
 &am33xx_pinmux {
 	nxp_hdmi_bonelt_pins: nxp_hdmi_bonelt_pins {
 		pinctrl-single,pins = <
