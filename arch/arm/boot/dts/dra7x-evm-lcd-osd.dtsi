@@ -114,6 +114,22 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
+
+	edt-ft5506@38 {
+		status = "okay";
+		compatible = "edt,edt-ft5506", "edt,edt-ft5x06";
+
+		reg = <0x38>;
+
+		interrupt-parent = <&gpio1>;
+		interrupts = <2 IRQ_TYPE_EDGE_FALLING>;
+
+		/* GPIO line is inverted before going to touch panel */
+		reset-gpios = <&pcf_display_board 5 GPIO_ACTIVE_HIGH>;
+
+		touchscreen-size-x = <1920>;
+		touchscreen-size-y = <1200>;
+	};
 };
 
 &dss {
