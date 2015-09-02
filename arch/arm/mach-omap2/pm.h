@@ -205,10 +205,12 @@ static inline int omap4_twl_init(void)
 extern void omap_pm_setup_oscillator(u32 tstart, u32 tshut);
 extern void omap_pm_get_oscillator(u32 *tstart, u32 *tshut);
 extern void omap_pm_setup_sr_i2c_pcb_length(u32 mm);
+void amx3_common_pm_init(void);
 #else
 static inline void omap_pm_setup_oscillator(u32 tstart, u32 tshut) { }
 static inline void omap_pm_get_oscillator(u32 *tstart, u32 *tshut) { *tstart = *tshut = 0; }
 static inline void omap_pm_setup_sr_i2c_pcb_length(u32 mm) { }
+static inline void amx3_common_pm_init(void) { }
 #endif
 
 #ifdef CONFIG_SUSPEND
