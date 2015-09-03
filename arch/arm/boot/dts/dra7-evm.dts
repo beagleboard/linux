@@ -477,3 +477,8 @@
 &dcan1 {
 	status = "ok";
 };
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
+};

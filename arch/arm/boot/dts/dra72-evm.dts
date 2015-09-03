@@ -437,3 +437,8 @@
 &voltdm_ivahd {
 	vdd-supply = <&smps3_reg>;
 };
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
+};
