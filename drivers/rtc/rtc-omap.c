@@ -131,7 +131,6 @@
 struct omap_rtc;
 
 struct omap_rtc_device_type {
-	bool has_32kclk_en;
 	bool has_irqwakeen;
 	bool has_pmic_mode;
 	bool has_power_up_reset;
@@ -566,7 +565,6 @@ static const struct omap_rtc_device_type omap_rtc_default_type = {
 };
 
 static const struct omap_rtc_device_type omap_rtc_am3352_type = {
-	.has_32kclk_en	= true,
 	.has_irqwakeen	= true,
 	.has_pmic_mode	= true,
 	.lock		= am3352_rtc_lock,
@@ -660,13 +658,6 @@ static int omap_rtc_probe(struct platform_device *pdev)
 	 * NOTE: ALARM2 is not cleared on AM3352 if rtc_write (writeb) is used
 	 */
 	rtc_writel(rtc, OMAP_RTC_INTERRUPTS_REG, 0);
-
-	/* enable RTC functional clock */
-	if (rtc->type->has_32kclk_en) {
-		reg = rtc_read(rtc, OMAP_RTC_OSC_REG);
-		rtc_writel(rtc, OMAP_RTC_OSC_REG,
-				reg | OMAP_RTC_OSC_32KCLK_EN);
-	}
 
 	/* clear old status */
 	reg = rtc_read(rtc, OMAP_RTC_STATUS_REG);
