@@ -24,3 +24,8 @@ config DRM_OMAP_NUM_CRTCS
 	  Select the number of video overlays which can be used as framebuffers.
 	  The remaining overlays are reserved for video.
 
+config DRM_OMAP_SGX_PLUGIN
+	bool "Enable support for SGX plugin"
+	depends on DRM_OMAP
+	help
+	  Enable omapdrm's plugin support for Imagination's SGX GPU driver.

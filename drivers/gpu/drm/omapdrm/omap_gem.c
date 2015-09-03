@@ -117,6 +117,13 @@ struct omap_gem_object {
 		uint32_t read_pending;
 		uint32_t read_complete;
 	} *sync;
+
+#if IS_ENABLED(CONFIG_DRM_OMAP_SGX_PLUGIN)
+	struct omap_gem_vm_ops *ops;
+
+	/* per-mapper private data. */
+	void *priv;
+#endif
 };
 
 static int get_pages(struct drm_gem_object *obj, struct page ***pages);
@@ -592,6 +599,11 @@ int omap_gem_mmap_obj(struct drm_gem_object *obj,
 
 		vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 	}
+
+#if IS_ENABLED(CONFIG_DRM_OMAP_SGX_PLUGIN)
+	if (omap_obj->ops && omap_obj->ops->mmap)
+		omap_obj->ops->mmap(obj->filp, vma);
+#endif
 
 	return 0;
 }
@@ -1485,3 +1497,86 @@ void omap_gem_deinit(struct drm_device *dev)
 	 */
 	kfree(usergart);
 }
+
+#if IS_ENABLED(CONFIG_DRM_OMAP_SGX_PLUGIN)
+
+EXPORT_SYMBOL(omap_gem_flags);
+EXPORT_SYMBOL(omap_gem_mmap_offset);
+EXPORT_SYMBOL(omap_gem_tiled_size);
+EXPORT_SYMBOL(omap_gem_get_paddr);
+EXPORT_SYMBOL(omap_gem_put_paddr);
+EXPORT_SYMBOL(omap_gem_tiled_stride);
+EXPORT_SYMBOL(omap_gem_get_pages);
+EXPORT_SYMBOL(omap_gem_put_pages);
+EXPORT_SYMBOL(omap_gem_op_update);
+EXPORT_SYMBOL(omap_gem_op_start);
+EXPORT_SYMBOL(omap_gem_op_finish);
+EXPORT_SYMBOL(omap_gem_op_sync);
+EXPORT_SYMBOL(omap_gem_op_async);
+EXPORT_SYMBOL(omap_gem_set_sync_object);
+
+/*
+ * This constructor is mainly to give plugins a way to wrap their
+ * own allocations
+ */
+struct drm_gem_object *omap_gem_new_ext(struct drm_device *dev,
+		union omap_gem_size gsize, uint32_t flags,
+		dma_addr_t paddr, struct page **pages,
+		struct omap_gem_vm_ops *ops)
+{
+	struct drm_gem_object *obj;
+
+	BUG_ON((flags & OMAP_BO_TILED) && !pages);
+
+	if (paddr)
+		flags |= OMAP_BO_DMA;
+
+	obj = omap_gem_new(dev, gsize, flags | OMAP_BO_EXT_MEM);
+	if (obj) {
+		struct omap_gem_object *omap_obj = to_omap_bo(obj);
+
+		omap_obj->paddr = paddr;
+		omap_obj->pages = pages;
+		omap_obj->ops = ops;
+	}
+	return obj;
+}
+EXPORT_SYMBOL(omap_gem_new_ext);
+
+void omap_gem_vm_open(struct vm_area_struct *vma)
+{
+	struct drm_gem_object *obj = vma->vm_private_data;
+	struct omap_gem_object *omap_obj = to_omap_bo(obj);
+
+	if (omap_obj->ops && omap_obj->ops->open)
+		omap_obj->ops->open(vma);
+	else
+		drm_gem_vm_open(vma);
+
+}
+
+void omap_gem_vm_close(struct vm_area_struct *vma)
+{
+	struct drm_gem_object *obj = vma->vm_private_data;
+	struct omap_gem_object *omap_obj = to_omap_bo(obj);
+
+	if (omap_obj->ops && omap_obj->ops->close)
+		omap_obj->ops->close(vma);
+	else
+		drm_gem_vm_close(vma);
+
+}
+
+void *omap_gem_priv(struct drm_gem_object *obj)
+{
+	return to_omap_bo(obj)->priv;
+}
+EXPORT_SYMBOL(omap_gem_priv);
+
+void omap_gem_set_priv(struct drm_gem_object *obj, void *priv)
+{
+	to_omap_bo(obj)->priv = priv;
+}
+EXPORT_SYMBOL(omap_gem_set_priv);
+
+#endif /* CONFIG_DRM_OMAP_SGX_PLUGIN */
