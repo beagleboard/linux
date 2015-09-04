@@ -1,7 +1,7 @@
 /*
  * Legacy platform_data quirks
  *
- * Copyright (C) 2013 Texas Instruments
+ * Copyright (C) 2013-2015 Texas Instruments
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,6 +19,7 @@
 #include <linux/platform_data/iommu-omap.h>
 #include <linux/platform_data/remoteproc-omap.h>
 #include <linux/platform_data/wkup_m3.h>
+#include <linux/platform_data/sgx-omap.h>
 #include <linux/platform_data/pci-dra7xx.h>
 #include <linux/platform_data/remoteproc-pruss.h>
 
@@ -38,6 +39,14 @@ struct pdata_init {
 
 struct of_dev_auxdata omap_auxdata_lookup[];
 static struct twl4030_gpio_platform_data twl_gpio_auxdata;
+
+#if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)
+static struct gfx_sgx_platform_data sgx_pdata = {
+	.reset_name = "gfx",
+	.assert_reset = omap_device_assert_hardreset,
+	.deassert_reset = omap_device_deassert_hardreset,
+};
+#endif
 
 #if IS_ENABLED(CONFIG_OMAP_IOMMU)
 int omap_iommu_set_pwrdm_constraint(struct platform_device *pdev, bool request,
@@ -385,6 +394,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &wkup_m3_data),
 	OF_DEV_AUXDATA("ti,am3352-pruss", 0x4a300000, "4a300000.pruss",
 		       &pruss_pdata),
+	OF_DEV_AUXDATA("ti,am3352-sgx530", 0x56000000, "56000000.sgx",
+		       &sgx_pdata),
 #endif
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
@@ -425,6 +436,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &wkup_m3_data),
 	OF_DEV_AUXDATA("ti,am4372-pruss", 0x54400000, "54400000.pruss",
 		       &pruss_pdata),
+	OF_DEV_AUXDATA("ti,am4376-sgx530", 0x56000000, "56000000.sgx",
+		       &sgx_pdata),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
