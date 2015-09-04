@@ -905,3 +905,7 @@
 &rtc {
 	system-power-controller;
 };
+
+&sgx {
+	status = "okay";
+};

@@ -758,3 +758,7 @@
 &wkup_m3_ipc {
 	ti,scale-data-fw = "am43x-evm-scale-data.bin";
 };
+
+&sgx {
+	status = "okay";
+};
