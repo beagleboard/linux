@@ -185,6 +185,7 @@
 };
 
 &vin3a {
+	status = "okay";
 	endpoint {
 		slave-mode;
 		remote-endpoint = <&cam>;
