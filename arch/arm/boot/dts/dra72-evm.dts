@@ -866,3 +866,8 @@
 	mboxes = <&mailbox5 &mbox_dsp1_ipc3x>;
 	timers = <&timer5>;
 };
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
+};
