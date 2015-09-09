@@ -872,3 +872,8 @@
 		status = "okay";
 	};
 };
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
+};

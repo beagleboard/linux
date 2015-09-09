@@ -1168,3 +1168,8 @@
 	mboxes = <&mailbox6 &mbox_dsp2_ipc3x>;
 	timers = <&timer6>;
 };
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
+};
