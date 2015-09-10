@@ -13,3 +13,6 @@ obj-$(CONFIG_DRM_I2C_NXP_TDA998X) += tda998x.o
 
 it66121-y := it66121_drv.o
 obj-$(CONFIG_DRM_I2C_IT66121) += it66121.o
+
+adihdmi-y := adihdmi_drv.o
+obj-$(CONFIG_DRM_I2C_ADIHDMI) += adihdmi.o
