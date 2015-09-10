@@ -10,3 +10,6 @@ obj-$(CONFIG_DRM_I2C_SIL164) += sil164.o
 
 tda998x-y := tda998x_drv.o
 obj-$(CONFIG_DRM_I2C_NXP_TDA998X) += tda998x.o
+
+adihdmi-y := adihdmi_drv.o
+obj-$(CONFIG_DRM_I2C_ADIHDMI) += adihdmi.o
