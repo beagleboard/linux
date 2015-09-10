@@ -113,6 +113,7 @@ static const struct drm_encoder_helper_funcs slave_encoder_helper_funcs = {
 		.restore        = drm_i2c_encoder_restore,
 };
 
+/*
 static struct tda998x_encoder_params tda998x_pdata = {
 	.swap_b = 0x3,
 	.mirr_b = 0x0,
@@ -126,16 +127,16 @@ static struct tda998x_encoder_params tda998x_pdata = {
 	.mirr_f = 0x0,
 	.swap_e = 0x4,
 	.mirr_e = 0x0,
-	.audio_cfg = 0x3,	/* I2S mode */
-	.audio_clk_cfg = 1,	/* select clock pin */
-	.audio_frame[1] = 1,	/* channels - 1 */
+	.audio_cfg = 0x3,	        // I2S mode
+	.audio_clk_cfg = 1,	        // select clock pin
+	.audio_frame[1] = 1,	    // channels - 1
 	.audio_format = AFMT_I2S,
 	.audio_sample_rate = 48000,
 };
+*/
 
 static const struct i2c_board_info info = {
-		I2C_BOARD_INFO("tda998x", 0x70),
-		.platform_data = &tda998x_pdata,
+		I2C_BOARD_INFO("adihdmi", 0x39)
 };
 
 static struct drm_encoder *slave_encoder_create(struct drm_device *dev,
@@ -159,13 +160,19 @@ static struct drm_encoder *slave_encoder_create(struct drm_device *dev,
 	ret = drm_encoder_init(dev, encoder, &slave_encoder_funcs,
 			DRM_MODE_ENCODER_TMDS);
 	if (ret)
+    {
+        pr_err("%s - %d - DRM encoder init failed\n", __FUNCTION__, __LINE__);
 		goto fail;
+    }
 
 	drm_encoder_helper_add(encoder, &slave_encoder_helper_funcs);
 
 	ret = drm_i2c_encoder_init(dev, to_encoder_slave(encoder), mod->i2c, &info);
 	if (ret)
+    {
+        pr_err("%s - %d - DRM I2C encoder init failed\n", __FUNCTION__, __LINE__);
 		goto fail;
+    }
 
 	return encoder;
 
