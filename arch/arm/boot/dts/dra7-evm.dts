@@ -431,6 +431,50 @@
 			0x98 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a22.mmc2_dat7 */
 		>;
 	};
+
+	mmc4_pins_default: mmc4_pins_default {
+		pinctrl-single,pins = <
+			0x3e8 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart1_ctsn.mmc4_clk */
+			0x3ec (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart1_rtsn.mmc4_cmd */
+			0x3f0 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_rxd.mmc4_dat0 */
+			0x3f4 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_txd.mmc4_dat1 */
+			0x3f8 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_ctsn.mmc4_dat2 */
+			0x3fc (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_rtsn.mmc4_dat3 */
+		>;
+	};
+
+	mmc4_pins_hs: pinmux_mmc4_hs_pins {
+		pinctrl-single,pins = <
+			0x3e8 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart1_ctsn.mmc4_clk */
+			0x3ec (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart1_rtsn.mmc4_cmd */
+			0x3f0 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_rxd.mmc4_dat0 */
+			0x3f4 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_txd.mmc4_dat1 */
+			0x3f8 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_ctsn.mmc4_dat2 */
+			0x3fc (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_rtsn.mmc4_dat3 */
+		>;
+	};
+
+	mmc4_pins_sdr12: pinmux_mmc4_sdr12_pins {
+		pinctrl-single,pins = <
+			0x3e8 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart1_ctsn.mmc4_clk */
+			0x3eC (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart1_rtsn.mmc4_cmd */
+			0x3f0 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_rxd.mmc4_dat0 */
+			0x3f4 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_txd.mmc4_dat1 */
+			0x3f8 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_ctsn.mmc4_dat2 */
+			0x3fc (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_rtsn.mmc4_dat3 */
+		>;
+	};
+
+	mmc4_pins_sdr25: pinmux_mmc4_sdr25_pins {
+		pinctrl-single,pins = <
+			0x3e8 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart1_ctsn.mmc4_clk */
+			0x3ec (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart1_rtsn.mmc4_cmd */
+			0x3f0 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_rxd.mmc4_dat0 */
+			0x3f4 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_txd.mmc4_dat1 */
+			0x3f8 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_ctsn.mmc4_dat2 */
+			0x3fc (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE3) /* uart2_rtsn.mmc4_dat3 */
+		>;
+	};
 };
 
 &dra7_iodelay_core {
@@ -503,6 +547,50 @@
 			0x200 (A_DELAY(0) | G_DELAY(0))		/* CFG_GPMC_A27_OUT */
 			0x364 (A_DELAY(0) | G_DELAY(0))		/* CFG_GPMC_CS1_OEN */
 			0x368 (A_DELAY(11) | G_DELAY(0))	/* CFG_GPMC_CS1_OUT */
+		>;
+	};
+
+	mmc4_iodelay_ds_manual1_conf: mmc4_iodelay_ds_manual1_conf {
+		pinctrl-single,pins = <
+			0x840 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART1_CTSN_IN */
+			0x848 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART1_CTSN_OUT */
+			0x84c (A_DELAY(96) | G_DELAY(0))	/* CFG_UART1_RTSN_IN */
+			0x850 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART1_RTSN_OEN */
+			0x854 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART1_RTSN_OUT */
+			0x870 (A_DELAY(582) | G_DELAY(0))	/* CFG_UART2_CTSN_IN */
+			0x874 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_CTSN_OEN */
+			0x878 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_CTSN_OUT */
+			0x87c (A_DELAY(391) | G_DELAY(0))	/* RCFG_UART2_RTSN_IN */
+			0x880 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_RTSN_OEN */
+			0x884 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_RTSN_OUT */
+			0x888 (A_DELAY(561) | G_DELAY(0))	/* RCFG_UART2_RXD_IN */
+			0x88c (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_RXD_OEN */
+			0x890 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_RXD_OUT */
+			0x894 (A_DELAY(588) | G_DELAY(0))	/* CFG_UART2_TXD_IN */
+			0x898 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_TXD_OEN */
+			0x89c (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_TXD_OUT */
+		>;
+	};
+
+	mmc4_iodelay_manual1_conf: mmc4_iodelay_manual1_conf {
+		pinctrl-single,pins = <
+			0x840 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART1_CTSN_IN */
+			0x848 (A_DELAY(2651) | G_DELAY(0))	/* CFG_UART1_CTSN_OUT */
+			0x84c (A_DELAY(1572) | G_DELAY(0))	/* CFG_UART1_RTSN_IN */
+			0x850 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART1_RTSN_OEN */
+			0x854 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART1_RTSN_OUT */
+			0x870 (A_DELAY(1913) | G_DELAY(0))	/* CFG_UART2_CTSN_IN */
+			0x874 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_CTSN_OEN */
+			0x878 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_CTSN_OUT */
+			0x87c (A_DELAY(1721) | G_DELAY(0))	/* RCFG_UART2_RTSN_IN */
+			0x880 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_RTSN_OEN */
+			0x884 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_RTSN_OUT */
+			0x888 (A_DELAY(1891) | G_DELAY(0))	/* RCFG_UART2_RXD_IN */
+			0x88c (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_RXD_OEN */
+			0x890 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_RXD_OUT */
+			0x894 (A_DELAY(1919) | G_DELAY(0))	/* CFG_UART2_TXD_IN */
+			0x898 (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_TXD_OEN */
+			0x89c (A_DELAY(0) | G_DELAY(0))		/* CFG_UART2_TXD_OUT */
 		>;
 	};
 };
@@ -797,6 +885,11 @@
 	cap-power-off-card;
 	keep-power-in-suspend;
 	ti,non-removable;
+	pinctrl-names = "default", "hs", "sdr12", "sdr25";
+	pinctrl-0 = <&mmc4_pins_default &mmc4_iodelay_ds_manual1_conf>;
+	pinctrl-1 = <&mmc4_pins_hs &mmc4_iodelay_manual1_conf>;
+	pinctrl-2 = <&mmc4_pins_sdr12 &mmc4_iodelay_manual1_conf>;
+	pinctrl-3 = <&mmc4_pins_sdr25 &mmc4_iodelay_manual1_conf>;
 
 	#address-cells = <1>;
 	#size-cells = <0>;
