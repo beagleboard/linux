@@ -547,6 +547,15 @@ static void omap_rtc_power_off(void)
 	pr_err("rtc_power_off failed, bailing out.\n");
 }
 
+static void omap_rtc_cleanup_pm_power_off(struct omap_rtc *rtc)
+{
+	if (pm_power_off == omap_rtc_power_off &&
+	    omap_rtc_power_off_rtc == rtc) {
+		pm_power_off = NULL;
+		omap_rtc_power_off_rtc = NULL;
+	}
+}
+
 static struct rtc_class_ops omap_rtc_ops = {
 	.read_time	= omap_rtc_read_time,
 	.set_time	= omap_rtc_set_time,
@@ -718,6 +727,13 @@ static int omap_rtc_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, true);
 
+	if (rtc->is_pmic_controller) {
+		if (!pm_power_off) {
+			omap_rtc_power_off_rtc = rtc;
+			pm_power_off = omap_rtc_power_off;
+		}
+	}
+
 	rtc->rtc = devm_rtc_device_register(&pdev->dev, pdev->name,
 			&omap_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtc->rtc)) {
@@ -738,16 +754,10 @@ static int omap_rtc_probe(struct platform_device *pdev)
 			goto err;
 	}
 
-	if (rtc->is_pmic_controller) {
-		if (!pm_power_off) {
-			omap_rtc_power_off_rtc = rtc;
-			pm_power_off = omap_rtc_power_off;
-		}
-	}
-
 	return 0;
 
 err:
+	omap_rtc_cleanup_pm_power_off(rtc);
 	device_init_wakeup(&pdev->dev, false);
 	rtc->type->lock(rtc);
 	pm_runtime_put_sync(&pdev->dev);
@@ -760,11 +770,7 @@ static int __exit omap_rtc_remove(struct platform_device *pdev)
 {
 	struct omap_rtc *rtc = platform_get_drvdata(pdev);
 
-	if (pm_power_off == omap_rtc_power_off &&
-			omap_rtc_power_off_rtc == rtc) {
-		pm_power_off = NULL;
-		omap_rtc_power_off_rtc = NULL;
-	}
+	omap_rtc_cleanup_pm_power_off(rtc);
 
 	device_init_wakeup(&pdev->dev, 0);
 
