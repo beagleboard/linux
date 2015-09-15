@@ -806,8 +806,6 @@ static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)
 	irqreturn_t ret = IRQ_NONE;
 	u32 reg;
 
-	spin_lock(&dwc->lock);
-
 	reg = dwc3_readl(dwc->regs, DWC3_OEVT);
 	if (reg) {
 		dwc->oevt = reg;
@@ -815,8 +813,6 @@ static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)
 		dwc3_otg_mask_irq(dwc);
 		ret = IRQ_WAKE_THREAD;
 	}
-
-	spin_unlock(&dwc->lock);
 
 	return ret;
 }
