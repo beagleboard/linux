@@ -225,6 +225,7 @@ static int ehrpwm_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	unsigned long period_cycles, duty_cycles;
 	unsigned short ps_divval, tb_divval;
 	int i, cmp_reg;
+	struct pwm_device *pwm_alter; /* In case period changes */
 
 	if (period_ns > NSEC_PER_SEC)
 		return -ERANGE;
@@ -244,26 +245,41 @@ static int ehrpwm_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		duty_cycles = (unsigned long)c;
 	}
 
+
 	/*
 	 * Period values should be same for multiple PWM channels as IP uses
-	 * same period register for multiple channels.
+	 * same period register for multiple channels. Check if there is any with
+	 * a different period.
 	 */
-	for (i = 0; i < NUM_PWM_CHANNEL; i++) {
-		if (pc->period_cycles[i] &&
-				(pc->period_cycles[i] != period_cycles)) {
-			/*
-			 * Allow channel to reconfigure period if no other
-			 * channels being configured.
-			 */
-			if (i == pwm->hwpwm)
+	if (pc->period_cycles[pwm->hwpwm] != period_cycles) {
+		for (i = 0; i < NUM_PWM_CHANNEL; i++) {
+			if (pc->period_cycles[i]) {
+				pwm_alter = &chip->pwms[i];
+				if (pwm_alter->duty > period_ns) {
+					dev_err(chip->dev, "Duty is larger than period");
+					return -EINVAL;
+				}
+			}
+		}
+		if (!pc->period_cycles[pwm->hwpwm])
+			pc->period_cycles[pwm->hwpwm] = period_cycles;
+		for (i = 0; i < NUM_PWM_CHANNEL; i++) {
+			if (pc->period_cycles[i])
+				pc->period_cycles[i] = period_cycles;
+		}
+		for (i = 0; i < NUM_PWM_CHANNEL; i++) {
+			if (i == pwm->hwpwm) /* No need to run for itself */
 				continue;
-
-			dev_err(chip->dev, "Period value conflicts with channel %d\n",
-					i);
-			return -EINVAL;
+			if (pc->period_cycles[i]) {
+				pwm_alter = &chip->pwms[i];
+				if (ehrpwm_pwm_config(chip, pwm_alter, pwm_alter->duty, period_ns)) {
+					dev_err(chip->dev, "Something went seriously wrong");
+					return -EINVAL;
+				}
+				pwm_alter->period = period_ns;
+			}
 		}
 	}
-
 	pc->period_cycles[pwm->hwpwm] = period_cycles;
 
 	/* Configure clock prescaler to support Low frequency PWM wave */
