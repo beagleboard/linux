@@ -24,6 +24,10 @@
 #include <linux/of_platform.h>
 #endif
 
+#define CONFIG_OF_GPIO		1
+#define CONFIG_GPIO_PCA953X_IRQ	1
+#define CONFIG_ARM		1
+
 #define PCA953X_INPUT		0
 #define PCA953X_OUTPUT		1
 #define PCA953X_INVERT		2
