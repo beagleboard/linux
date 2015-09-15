@@ -41,7 +41,7 @@ static ssize_t pwm_test_show_duty(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct pwm_test *pwm_test = dev_get_drvdata(dev);
-
+	pwm_test->duty = pwm_test->pwm->duty;
 	return sprintf(buf, "%d\n", pwm_test->duty);
 }
 
@@ -65,7 +65,7 @@ static ssize_t pwm_test_store_duty(struct device *dev,
 		return rc;
 	}
 
-	pwm_test->duty = duty;
+	pwm_test->duty = pwm_test->pwm->duty;
 
 	return count;
 }
@@ -74,7 +74,7 @@ static ssize_t pwm_test_show_period(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct pwm_test *pwm_test = dev_get_drvdata(dev);
-
+	pwm_test->period = pwm_test->pwm->period;
 	return sprintf(buf, "%d\n", pwm_test->period);
 }
 
@@ -102,7 +102,7 @@ static ssize_t pwm_test_store_period(struct device *dev,
 		return rc;
 	}
 
-	pwm_test->period = period;
+	pwm_test->period = pwm_test->pwm->period;
 
 	return count;
 }
