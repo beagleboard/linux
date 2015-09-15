@@ -60,6 +60,8 @@ struct zoran_sync {
 #   define   V4L_MAX_FRAME   32
 #elif VIDEO_MAX_FRAME <= 64
 #   define   V4L_MAX_FRAME   64
+#elif VIDEO_MAX_FRAME <= 128
+#   define   V4L_MAX_FRAME   128
 #else
 #   error   "Too many video frame buffers to handle"
 #endif
