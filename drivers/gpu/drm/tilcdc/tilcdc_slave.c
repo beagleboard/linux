@@ -20,6 +20,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <drm/drm_encoder_slave.h>
 #include <drm/i2c/tda998x.h>
+#include <drm/i2c/adihdmi.h>
 
 #include "tilcdc_drv.h"
 
@@ -113,7 +114,6 @@ static const struct drm_encoder_helper_funcs slave_encoder_helper_funcs = {
 		.restore        = drm_i2c_encoder_restore,
 };
 
-/*
 static struct tda998x_encoder_params tda998x_pdata = {
 	.swap_b = 0x3,
 	.mirr_b = 0x0,
@@ -127,16 +127,15 @@ static struct tda998x_encoder_params tda998x_pdata = {
 	.mirr_f = 0x0,
 	.swap_e = 0x4,
 	.mirr_e = 0x0,
-	.audio_cfg = 0x3,	        // I2S mode
-	.audio_clk_cfg = 1,	        // select clock pin
-	.audio_frame[1] = 1,	    // channels - 1
+	.audio_cfg = 0x3,	/* I2S mode */
+	.audio_clk_cfg = 1,	/* select clock pin */
+	.audio_frame[1] = 1,	/* channels - 1 */
 	.audio_format = AFMT_I2S,
 	.audio_sample_rate = 48000,
 };
-*/
 
 static const struct i2c_board_info info = {
-		I2C_BOARD_INFO("adihdmi", 0x39)
+	.platform_data = &tda998x_pdata
 };
 
 static struct drm_encoder *slave_encoder_create(struct drm_device *dev,
