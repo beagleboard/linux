@@ -870,7 +870,7 @@ static int rproc_handle_intmem(struct rproc *rproc, struct fw_rsc_intmem *rsc,
 	void *va;
 	int ret;
 
-	WARN(1, "RSC_INTMEM is deprecated. Please do not use this resource type to support loading into internal memories.\n");
+	dev_warn(dev, "RSC_INTMEM is deprecated. Please do not use this resource type to support loading into internal memories.\n");
 
 	if (sizeof(*rsc) > avail) {
 		dev_err(dev, "intmem rsc is truncated\n");
