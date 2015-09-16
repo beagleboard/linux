@@ -155,7 +155,7 @@ static int usb_extcon_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, info);
-	device_init_wakeup(dev, 1);
+	device_init_wakeup(dev, 0);
 
 	/* Perform initial detection */
 	usb_extcon_detect_cable(&info->wq_detcable.work);
@@ -206,6 +206,7 @@ static int usb_extcon_resume(struct device *dev)
 	}
 
 	enable_irq(info->id_irq);
+	usb_extcon_detect_cable(&info->wq_detcable.work);
 
 	return ret;
 }

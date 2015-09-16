@@ -384,6 +384,7 @@ static int drd_statemachine(struct otg_fsm *fsm)
 
 	mutex_lock(&fsm->lock);
 
+	fsm->state_changed = 0;
 	state = fsm->otg->state;
 
 	switch (state) {
