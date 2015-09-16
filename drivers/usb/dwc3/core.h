@@ -836,6 +836,7 @@ struct dwc3 {
 	struct extcon_dev	*edev;	/* USB cable events ID & VBUS */
 	struct notifier_block	otg_nb;	/* notifier for USB cable events */
 	struct otg_fsm		*fsm;
+	bool			otg_prevent_sync;
 
 	void __iomem		*regs;
 	size_t			regs_size;
@@ -852,6 +853,7 @@ struct dwc3 {
 	u32			gctl;
 	u32			ocfg;
 	u32			octl;
+	u32			oevt;
 
 	u32			current_mode;
 	u32			nr_scratch;

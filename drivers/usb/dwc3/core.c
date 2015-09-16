@@ -735,6 +735,14 @@ static void dwc3_otg_fsm_sync(struct dwc3 *dwc)
 	u32 reg;
 	int id, vbus;
 
+	/*
+	 * calling usb_otg_sync_inputs() during resume breaks host
+	 * if adapter was removed during suspend as xhci driver
+	 * is not prepared to see hcd removal before xhci_resume.
+	 */
+	if (dwc->otg_prevent_sync)
+		return;
+
 	reg = dwc3_readl(dwc->regs, DWC3_OSTS);
 	dev_dbg(dwc->dev, "otgstatus 0x%x\n", reg);
 
@@ -752,21 +760,41 @@ static void dwc3_otg_mask_irq(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_OEVTEN, 0);
 }
 
+#define DWC3_OTG_ALL_EVENTS	(DWC3_OEVTEN_XHCIRUNSTPSETEN | \
+		DWC3_OEVTEN_DEVRUNSTPSETEN | DWC3_OEVTEN_HIBENTRYEN | \
+		DWC3_OEVTEN_CONIDSTSCHNGEN | DWC3_OEVTEN_HRRCONFNOTIFEN | \
+		DWC3_OEVTEN_HRRINITNOTIFEN | DWC3_OEVTEN_ADEVIDLEEN | \
+		DWC3_OEVTEN_ADEVBHOSTENDEN | DWC3_OEVTEN_ADEVHOSTEN | \
+		DWC3_OEVTEN_ADEVHNPCHNGEN | DWC3_OEVTEN_ADEVSRPDETEN | \
+		DWC3_OEVTEN_ADEVSESSENDDETEN | DWC3_OEVTEN_BDEVHOSTENDEN | \
+		DWC3_OEVTEN_BDEVHNPCHNGEN | DWC3_OEVTEN_BDEVSESSVLDDETEN | \
+		DWC3_OEVTEN_BDEVVBUSCHNGE)
+
 static void dwc3_otg_unmask_irq(struct dwc3 *dwc)
 {
-	dwc3_writel(dwc->regs, DWC3_OEVTEN, DWC3_OEVTEN_CONIDSTSCHNGEN |
-			DWC3_OEVTEN_BDEVVBUSCHNGE |
-			DWC3_OEVTEN_BDEVSESSVLDDETEN);
+	dwc3_writel(dwc->regs, DWC3_OEVTEN, DWC3_OTG_ALL_EVENTS);
 }
 
+static int dwc3_drd_start_host(struct otg_fsm *fsm, int on);
+static int dwc3_drd_start_gadget(struct otg_fsm *fsm, int on);
 static irqreturn_t dwc3_otg_thread_irq(int irq, void *_dwc)
 {
 	struct dwc3 *dwc = _dwc;
 	unsigned long flags;
 
+	u32 oevt = dwc->oevt;
 	spin_lock_irqsave(&dwc->lock, flags);
+
+	/*
+	 * this bit is needed for otg-host to work after system suspend/resume
+	 */
+	if (!(oevt & DWC3_OEVT_DEVICEMODE))
+		dwc3_drd_start_host(dwc->fsm, true);
+
 	dwc3_otg_fsm_sync(dwc);
 	dwc3_otg_unmask_irq(dwc);
+
+	dwc->oevt = 0;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return IRQ_HANDLED;
@@ -782,6 +810,7 @@ static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)
 
 	reg = dwc3_readl(dwc->regs, DWC3_OEVT);
 	if (reg) {
+		dwc->oevt = reg;
 		dwc3_writel(dwc->regs, DWC3_OEVT, reg);
 		dwc3_otg_mask_irq(dwc);
 		ret = IRQ_WAKE_THREAD;
@@ -797,6 +826,14 @@ static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)
 static void dwc3_drd_fsm_sync(struct dwc3 *dwc)
 {
 	int id, vbus;
+
+	/*
+	 * calling usb_otg_sync_inputs() during resume breaks host
+	 * if adapter was removed during suspend as xhci driver
+	 * is not prepared to see hcd removal before xhci_resume.
+	 */
+	if (dwc->otg_prevent_sync)
+		return;
 
 	/* get ID */
 	id = extcon_get_cable_state(dwc->edev, "USB-HOST");
@@ -828,6 +865,11 @@ static int dwc3_drd_start_host(struct otg_fsm *fsm, int on)
 
 	/* switch OTG core */
 	if (on) {
+		/* Make sure core won't switch off VBUS automatically */
+		reg = dwc3_readl(dwc->regs, DWC3_OCFG);
+		reg |= DWC3_OCFG_DISPWRCUTTOFF;
+		dwc3_writel(dwc->regs, DWC3_OCFG, reg);
+
 		/* OCTL.PeriMode = 0 */
 		reg = dwc3_readl(dwc->regs, DWC3_OCTL);
 		reg &= ~DWC3_OCTL_PERIMODE;
@@ -844,6 +886,11 @@ static int dwc3_drd_start_host(struct otg_fsm *fsm, int on)
 		reg = dwc3_readl(dwc->regs, DWC3_OCTL);
 		reg |= DWC3_OCTL_PERIMODE;
 		dwc3_writel(dwc->regs, DWC3_OCTL, reg);
+
+		/* allow core to switch off VBUS automatically */
+		reg = dwc3_readl(dwc->regs, DWC3_OCFG);
+		reg &= ~DWC3_OCFG_DISPWRCUTTOFF;
+		dwc3_writel(dwc->regs, DWC3_OCFG, reg);
 	}
 
 	return 0;
@@ -1438,6 +1485,34 @@ static int dwc3_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+static int dwc3_prepare(struct device *dev)
+{
+	struct dwc3	*dwc = dev_get_drvdata(dev);
+	unsigned long	flags;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	dwc->otg_prevent_sync = true;
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return 0;
+}
+
+static void dwc3_complete(struct device *dev)
+{
+	struct dwc3	*dwc = dev_get_drvdata(dev);
+	unsigned long	flags;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	dwc->otg_prevent_sync = false;
+	spin_unlock_irqrestore(&dwc->lock, flags);
+	if (dwc->dr_mode == USB_DR_MODE_OTG) {
+		if (dwc->current_mode == DWC3_GCTL_PRTCAP_OTG)
+			dwc3_otg_fsm_sync(dwc);
+		else
+			dwc3_drd_fsm_sync(dwc);
+	}
+}
+
 static int dwc3_suspend(struct device *dev)
 {
 	struct dwc3	*dwc = dev_get_drvdata(dev);
@@ -1455,7 +1530,6 @@ static int dwc3_suspend(struct device *dev)
 	dwc3_event_buffers_cleanup(dwc);
 
 	dwc->gctl = dwc3_readl(dwc->regs, DWC3_GCTL);
-	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
@@ -1467,11 +1541,8 @@ static int dwc3_suspend(struct device *dev)
 		switch (dwc->fsm->protocol) {
 		case PROTO_GADGET:
 			dwc3_gadget_suspend(dwc);
-			otg_start_gadget(dwc->fsm, false);
 			break;
 		case PROTO_HOST:
-			otg_start_host(dwc->fsm, false);
-			break;
 		case PROTO_UNDEF:
 		default:
 			/* nothing */
@@ -1483,6 +1554,7 @@ static int dwc3_suspend(struct device *dev)
 		/* nothing */
 		break;
 	}
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	usb_phy_shutdown(dwc->usb3_phy);
 	usb_phy_shutdown(dwc->usb2_phy);
@@ -1515,7 +1587,6 @@ static int dwc3_resume(struct device *dev)
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc3_event_buffers_setup(dwc);
 	dwc3_writel(dwc->regs, DWC3_GCTL, dwc->gctl);
-	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
@@ -1525,12 +1596,11 @@ static int dwc3_resume(struct device *dev)
 		switch (dwc->otg_protocol) {
 		case PROTO_GADGET:
 			dwc3_gadget_resume(dwc);
-			otg_start_gadget(dwc->fsm, true);
 			break;
 		case PROTO_HOST:
-			otg_start_host(dwc->fsm, true);
 			break;
 		case PROTO_UNDEF:
+		default:
 			/* nothing */
 			break;
 		}
@@ -1541,13 +1611,11 @@ static int dwc3_resume(struct device *dev)
 		break;
 	}
 
-	spin_lock_irqsave(&dwc->lock, flags);
 	/* Restore OTG state only if we're really using it */
 	if (dwc->current_mode == DWC3_GCTL_PRTCAP_OTG) {
 		dwc3_writel(dwc->regs, DWC3_OCFG, dwc->ocfg);
 		dwc3_writel(dwc->regs, DWC3_OCTL, dwc->octl);
 		dwc3_otg_unmask_irq(dwc);
-		dwc3_otg_fsm_sync(dwc);
 	}
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -1565,6 +1633,8 @@ err_usb2phy_init:
 
 static const struct dev_pm_ops dwc3_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, dwc3_resume)
+	.prepare = dwc3_prepare,
+	.complete = dwc3_complete,
 };
 
 #define DWC3_PM_OPS	&(dwc3_dev_pm_ops)
