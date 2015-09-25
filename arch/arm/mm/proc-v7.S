@@ -274,7 +274,10 @@ __v7_ca15mp_setup:
 __v7_b15mp_setup:
 __v7_ca17mp_setup:
 	mov	r10, #0
-1:
+1:	adr	r12, __v7_setup_stack		@ the local stack
+	stmia	r12, {r0-r5, lr}		@ v7_invalidate_l1 touches r0-r6
+	bl      v7_invalidate_l1
+	ldmia	r12, {r0-r5, lr}
 #ifdef CONFIG_SMP
 	ALT_SMP(mrc	p15, 0, r0, c1, c0, 1)
 	ALT_UP(mov	r0, #(1 << 6))		@ fake it for UP
@@ -283,7 +286,7 @@ __v7_ca17mp_setup:
 	orreq	r0, r0, r10			@ Enable CPU-specific SMP bits
 	mcreq	p15, 0, r0, c1, c0, 1
 #endif
-	b	__v7_setup
+	b	__v7_setup_cont
 
 /*
  * Errata:
@@ -413,17 +416,19 @@ __v7_pj4b_setup:
 
 __v7_setup:
 	adr	r12, __v7_setup_stack		@ the local stack
-	stmia	r12, {r0-r5, r7, r9, r11, lr}
-	bl      v7_flush_dcache_louis
-	ldmia	r12, {r0-r5, r7, r9, r11, lr}
+	stmia	r12, {r0-r5, lr}		@ v7_invalidate_l1 touches r0-r6
+	bl      v7_invalidate_l1
+	ldmia	r12, {r0-r5, lr}
 
-	and	r0, r9, #0xff000000		@ ARM?
-	teq	r0, #0x41000000
+__v7_setup_cont:
+	mrc	p15, 0, r0, c0, c0, 0		@ read main ID register
+	and	r10, r0, #0xff000000		@ ARM?
+	teq	r10, #0x41000000
 	bne	__errata_finish
-	and	r3, r9, #0x00f00000		@ variant
-	and	r6, r9, #0x0000000f		@ revision
-	orr	r6, r6, r3, lsr #20-4		@ combine variant and revision
-	ubfx	r0, r9, #4, #12			@ primary part number
+	and	r5, r0, #0x00f00000		@ variant
+	and	r6, r0, #0x0000000f		@ revision
+	orr	r6, r6, r5, lsr #20-4		@ combine variant and revision
+	ubfx	r0, r0, #4, #12			@ primary part number
 
 	/* Cortex-A8 Errata */
 	ldr	r10, =0x00000c08		@ Cortex-A8 primary part number
@@ -480,7 +485,7 @@ ENDPROC(__v7_setup)
 
 	.align	2
 __v7_setup_stack:
-	.space	4 * 11				@ 11 registers
+	.space	4 * 7				@ 12 registers
 
 	__INITDATA
 
