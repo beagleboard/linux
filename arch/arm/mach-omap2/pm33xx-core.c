@@ -52,6 +52,12 @@ static int __init am43xx_map_scu(void)
 	return 0;
 }
 
+static int am33xx_check_off_mode_enable(void)
+{
+	/* off mode not supported on am335x so return 0 always */
+	return 0;
+}
+
 static int am43xx_check_off_mode_enable(void)
 {
 	return enable_off_mode;
@@ -260,7 +266,7 @@ static struct am33xx_pm_ops am33xx_ops = {
 	.restore_context = am33xx_restore_context,
 	.prepare_rtc_suspend = am43xx_prepare_rtc_suspend,
 	.prepare_rtc_resume = am43xx_prepare_rtc_resume,
-	.check_off_mode_enable = am43xx_check_off_mode_enable,
+	.check_off_mode_enable = am33xx_check_off_mode_enable,
 	.get_rtc_base_addr = am43xx_get_rtc_base_addr,
 };
 
