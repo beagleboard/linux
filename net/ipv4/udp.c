@@ -1957,12 +1957,19 @@ void udp_v4_early_demux(struct sk_buff *skb)
 
 	skb->sk = sk;
 	skb->destructor = sock_edemux;
-	dst = sk->sk_rx_dst;
+	dst = ACCESS_ONCE(sk->sk_rx_dst);
 
 	if (dst)
 		dst = dst_check(dst, 0);
-	if (dst)
-		skb_dst_set_noref(skb, dst);
+	if (dst) {
+		/* DST_NOCACHE can not be used without taking a reference */
+		if (dst->flags & DST_NOCACHE) {
+			if (likely(atomic_inc_not_zero(&dst->__refcnt)))
+				skb_dst_set(skb, dst);
+		} else {
+			skb_dst_set_noref(skb, dst);
+		}
+	}
 }
 
 int udp_rcv(struct sk_buff *skb)
@@ -2510,7 +2517,7 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
 	skb->protocol = htons(ETH_P_TEB);
 
 	/* segment inner packet. */
-	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
+	enc_features = skb->dev->hw_enc_features & features;
 	segs = skb_mac_gso_segment(skb, enc_features);
 	if (!segs || IS_ERR(segs)) {
 		skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
