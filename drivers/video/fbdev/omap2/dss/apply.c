@@ -1655,6 +1655,8 @@ int omapdss_compat_init(void)
 
 	dispc_runtime_put();
 
+	dss_install_pm_handler();
+
 out:
 	mutex_unlock(&compat_init_lock);
 
@@ -1687,6 +1689,8 @@ void omapdss_compat_uninit(void)
 
 	if (--compat_refcnt > 0)
 		goto out;
+
+	dss_uninstall_pm_handler();
 
 	dss_dispc_uninitialize_irq();
 
