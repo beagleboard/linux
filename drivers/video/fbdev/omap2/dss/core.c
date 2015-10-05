@@ -191,6 +191,16 @@ static struct notifier_block omap_dss_pm_notif_block = {
 	.notifier_call = omap_dss_pm_notif,
 };
 
+void dss_install_pm_handler(void)
+{
+	register_pm_notifier(&omap_dss_pm_notif_block);
+}
+
+void dss_uninstall_pm_handler(void)
+{
+	unregister_pm_notifier(&omap_dss_pm_notif_block);
+}
+
 static int __init omap_dss_probe(struct platform_device *pdev)
 {
 	struct omap_dss_board_info *pdata = pdev->dev.platform_data;
@@ -211,8 +221,6 @@ static int __init omap_dss_probe(struct platform_device *pdev)
 	else if (pdata->default_device)
 		core.default_display_name = pdata->default_device->name;
 
-	register_pm_notifier(&omap_dss_pm_notif_block);
-
 	return 0;
 
 err_debugfs:
@@ -222,8 +230,6 @@ err_debugfs:
 
 static int omap_dss_remove(struct platform_device *pdev)
 {
-	unregister_pm_notifier(&omap_dss_pm_notif_block);
-
 	dss_uninitialize_debugfs();
 
 	return 0;
