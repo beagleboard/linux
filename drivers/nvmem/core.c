@@ -311,7 +311,7 @@ struct nvmem_device *nvmem_register(const struct nvmem_config *config)
 	nvmem->read_only = of_property_read_bool(np, "read-only") |
 			   config->read_only;
 	nvmem->bin = bin_attr_template;
-	nvmem->bin.attr.mode = nvmem->read_only ? : (S_IRUSR | S_IWUSR);
+	nvmem->bin.attr.mode = nvmem->read_only ? S_IRUSR : (S_IRUSR | S_IWUSR);
 	nvmem->bin.attr.mode |= config->perm;
 	nvmem->bin.size = nvmem->size;
 	device_initialize(&nvmem->dev);
