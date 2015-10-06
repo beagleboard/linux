@@ -10,6 +10,7 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/export.h>
 
 #define SWORK_EVENT_PENDING     (1 << 0)
 
