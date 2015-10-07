@@ -36,11 +36,10 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/of_device.h>
 #include <linux/input/mt.h>
 #include <linux/input/touchscreen.h>
 #include <linux/input/edt-ft5x06.h>
-
-#define MAX_SUPPORT_POINTS		5
 
 #define WORK_REGISTER_THRESHOLD		0x00
 #define WORK_REGISTER_REPORT_RATE	0x08
@@ -107,11 +106,16 @@ struct edt_ft5x06_ts_data {
 	int gain;
 	int offset;
 	int report_rate;
+	int max_support_points;
 
 	char name[EDT_NAME_LEN];
 
 	struct edt_reg_addr reg_addr;
 	enum edt_ver version;
+};
+
+struct edt_i2c_chip_data {
+	int  max_support_points;
 };
 
 static int edt_ft5x06_ts_readwrite(struct i2c_client *client,
@@ -182,14 +186,14 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 		tplen = 4;  /* data comes in so called frames */
 
 		/* how many bytes to listen for */
-		datalen = tplen * MAX_SUPPORT_POINTS + offset + 1;
+		datalen = tplen * tsdata->max_support_points + offset + 1;
 		break;
 
 	case M09:
 		cmd = 0x02;
 		offset = 1;
 		tplen = 6;
-		datalen = tplen * MAX_SUPPORT_POINTS + 1 - cmd;
+		datalen = tplen * tsdata->max_support_points + 1 - cmd;
 		break;
 
 	default:
@@ -221,7 +225,7 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 			goto out;
 	}
 
-	for (i = 0; i < MAX_SUPPORT_POINTS; i++) {
+	for (i = 0; i < tsdata->max_support_points; i++) {
 		u8 *buf = &rdbuf[i * tplen + offset];
 		bool down;
 
@@ -894,11 +898,39 @@ edt_ft5x06_ts_set_regs(struct edt_ft5x06_ts_data *tsdata)
 	}
 }
 
+#ifdef CONFIG_OF
+
+static const struct of_device_id edt_ft5x06_of_match[];
+
+static void edt_ft5x06_ts_set_max_support_points(struct device *dev,
+					struct edt_ft5x06_ts_data *tsdata)
+{
+	struct edt_i2c_chip_data *chip_data;
+	const struct of_device_id *match;
+
+	match = of_match_device(of_match_ptr(edt_ft5x06_of_match), dev);
+
+	if (match) {
+		chip_data = (struct edt_i2c_chip_data *)match->data;
+		tsdata->max_support_points = chip_data->max_support_points;
+	} else {
+		tsdata->max_support_points = 5;
+	}
+
+}
+#else
+static void edt_ft5x06_ts_set_max_support_points(struct device *dev,
+					struct edt_ft5x06_ts_data *tsdata)
+{
+}
+#endif
+
 static int edt_ft5x06_ts_probe(struct i2c_client *client,
 					 const struct i2c_device_id *id)
 {
 	const struct edt_ft5x06_platform_data *pdata =
 						dev_get_platdata(&client->dev);
+	struct device *dev = &client->dev;
 	struct edt_ft5x06_ts_data *tsdata;
 	struct input_dev *input;
 	int error;
@@ -912,6 +944,8 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client,
 		dev_err(&client->dev, "failed to allocate driver data.\n");
 		return -ENOMEM;
 	}
+
+	edt_ft5x06_ts_set_max_support_points(dev, tsdata);
 
 	gpio = devm_gpiod_get_optional(&client->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(gpio)) {
@@ -1003,7 +1037,7 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client,
 	if (!pdata)
 		touchscreen_parse_properties(input, true);
 
-	error = input_mt_init_slots(input, MAX_SUPPORT_POINTS, 0);
+	error = input_mt_init_slots(input, tsdata->max_support_points, 0);
 	if (error) {
 		dev_err(&client->dev, "Unable to init MT slots.\n");
 		return error;
@@ -1085,11 +1119,16 @@ static const struct i2c_device_id edt_ft5x06_ts_id[] = {
 MODULE_DEVICE_TABLE(i2c, edt_ft5x06_ts_id);
 
 #ifdef CONFIG_OF
+
+static const struct edt_i2c_chip_data edt_ft5x06_data = {
+	.max_support_points = 5,
+};
+
 static const struct of_device_id edt_ft5x06_of_match[] = {
-	{ .compatible = "edt,edt-ft5206", },
-	{ .compatible = "edt,edt-ft5306", },
-	{ .compatible = "edt,edt-ft5406", },
-	{ .compatible = "edt,edt-ft5506", },
+	{ .compatible = "edt,edt-ft5206", .data = &edt_ft5x06_data},
+	{ .compatible = "edt,edt-ft5306", .data = &edt_ft5x06_data},
+	{ .compatible = "edt,edt-ft5406", .data = &edt_ft5x06_data},
+	{ .compatible = "edt,edt-ft5506", .data = &edt_ft5x06_data},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, edt_ft5x06_of_match);
