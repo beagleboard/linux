@@ -174,7 +174,7 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 	struct edt_ft5x06_ts_data *tsdata = dev_id;
 	struct device *dev = &tsdata->client->dev;
 	u8 cmd;
-	u8 rdbuf[59];
+	u8 rdbuf[61];
 	int i, type, x, y, id;
 	int offset, tplen, datalen;
 	int error;
@@ -190,8 +190,8 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 		break;
 
 	case M09:
-		cmd = 0x02;
-		offset = 1;
+		cmd = 0x0;
+		offset = 3;
 		tplen = 6;
 		datalen = tplen * tsdata->max_support_points + 1 - cmd;
 		break;
