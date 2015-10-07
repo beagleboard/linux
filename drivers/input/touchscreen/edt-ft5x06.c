@@ -1032,8 +1032,9 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client,
 
 	dev_dbg(&client->dev,
 		"EDT FT5x06 initialized: IRQ %d, WAKE pin %d, Reset pin %d.\n",
-		client->irq, desc_to_gpio(tsdata->wake_pin),
-		desc_to_gpio(tsdata->reset_pin));
+		client->irq,
+		tsdata->wake_pin ? desc_to_gpio(tsdata->wake_pin) : -1,
+		tsdata->reset_pin ? desc_to_gpio(tsdata->reset_pin) : -1);
 
 	return 0;
 
