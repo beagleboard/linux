@@ -180,14 +180,16 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 		cmd = 0xf9; /* tell the controller to send touch data */
 		offset = 5; /* where the actual touch data starts */
 		tplen = 4;  /* data comes in so called frames */
-		datalen = 26; /* how much bytes to listen for */
+
+		/* how many bytes to listen for */
+		datalen = tplen * MAX_SUPPORT_POINTS + offset + 1;
 		break;
 
 	case M09:
 		cmd = 0x02;
 		offset = 1;
 		tplen = 6;
-		datalen = 29;
+		datalen = tplen * MAX_SUPPORT_POINTS + 1 - cmd;
 		break;
 
 	default:
