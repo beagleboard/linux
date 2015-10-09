@@ -324,6 +324,31 @@ int virtqueue_add_outbuf(struct virtqueue *vq,
 EXPORT_SYMBOL_GPL(virtqueue_add_outbuf);
 
 /**
+ * virtqueue_add_outbuf_rpmsg - expose output buffers for virtio_rpmsg
+ * @vq: the struct virtqueue we're talking about.
+ * @sg: scatterlist (with dma fields filled in, and terminated properly!)
+ * @num: the number of entries in @sg readable by other side
+ * @data: the token identifying the buffer.
+ * @gfp: how to do memory allocations (if necessary).
+ *
+ * Caller must ensure we don't call this with other virtqueue operations
+ * at the same time (except where noted). Note that the scatterlist is
+ * non-standard with only the corresponding dma fields filled in, so
+ * should not be used with any sg operations using traditional buffer
+ * and length fields.
+ *
+ * Returns zero or a negative error (ie. ENOSPC, ENOMEM, EIO).
+ */
+int virtqueue_add_outbuf_rpmsg(struct virtqueue *vq,
+			       struct scatterlist *sg, unsigned int num,
+			       void *data,
+			       gfp_t gfp)
+{
+	return virtqueue_add(vq, &sg, num, 1, 0, data, gfp, true);
+}
+EXPORT_SYMBOL_GPL(virtqueue_add_outbuf_rpmsg);
+
+/**
  * virtqueue_add_inbuf - expose input buffers to other end
  * @vq: the struct virtqueue we're talking about.
  * @sg: scatterlist (must be well-formed and terminated!)
@@ -344,6 +369,31 @@ int virtqueue_add_inbuf(struct virtqueue *vq,
 	return virtqueue_add(vq, &sg, num, 0, 1, data, gfp, false);
 }
 EXPORT_SYMBOL_GPL(virtqueue_add_inbuf);
+
+/**
+ * virtqueue_add_inbuf_rpmsg - expose input buffers for virtio_rpmsg
+ * @vq: the struct virtqueue we're talking about.
+ * @sg: scatterlist (with dma fields filled in, and terminated properly!)
+ * @num: the number of entries in @sg writable by other side
+ * @data: the token identifying the buffer.
+ * @gfp: how to do memory allocations (if necessary).
+ *
+ * Caller must ensure we don't call this with other virtqueue operations
+ * at the same time (except where noted). Note that the scatterlist is
+ * non-standard with only the corresponding dma fields filled in, so
+ * should not be used with any sg operations using traditional buffer
+ * and length fields.
+ *
+ * Returns zero or a negative error (ie. ENOSPC, ENOMEM, EIO).
+ */
+int virtqueue_add_inbuf_rpmsg(struct virtqueue *vq,
+			      struct scatterlist *sg, unsigned int num,
+			      void *data,
+			      gfp_t gfp)
+{
+	return virtqueue_add(vq, &sg, num, 0, 1, data, gfp, true);
+}
+EXPORT_SYMBOL_GPL(virtqueue_add_inbuf_rpmsg);
 
 /**
  * virtqueue_kick_prepare - first half of split virtqueue_kick call.
