@@ -214,6 +214,17 @@ static void __ept_release(struct kref *kref)
 	kfree(ept);
 }
 
+static inline void rpmsg_sg_init_one(struct virtproc_info *vrp,
+				     struct scatterlist *sg,
+				     void *msg, unsigned int len)
+{
+	unsigned long offset = msg - vrp->rbufs;
+
+	sg_init_table(sg, 1);
+	sg_dma_address(sg) = vrp->bufs_dma + offset;
+	sg_dma_len(sg) = len;
+}
+
 /* for more info, see below documentation of rpmsg_create_ept() */
 static struct rpmsg_endpoint *__rpmsg_create_ept(struct virtproc_info *vrp,
 		struct rpmsg_channel *rpdev, rpmsg_rx_cb_t cb,
@@ -825,12 +836,12 @@ int rpmsg_send_offchannel_raw(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 			 msg, sizeof(*msg) + msg->len, true);
 #endif
 
-	sg_init_one(&sg, msg, sizeof(*msg) + len);
+	rpmsg_sg_init_one(vrp, &sg, msg, sizeof(*msg) + len);
 
 	mutex_lock(&vrp->tx_lock);
 
 	/* add message to the remote processor's virtqueue */
-	err = virtqueue_add_outbuf(vrp->svq, &sg, 1, msg, GFP_KERNEL);
+	err = virtqueue_add_outbuf_rpmsg(vrp->svq, &sg, 1, msg, GFP_KERNEL);
 	if (err) {
 		/*
 		 * need to reclaim the buffer here, otherwise it's lost
@@ -917,10 +928,10 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 		dev_warn(dev, "msg received with no recipient\n");
 
 	/* publish the real size of the buffer */
-	sg_init_one(&sg, msg, RPMSG_BUF_SIZE);
+	rpmsg_sg_init_one(vrp, &sg, msg, RPMSG_BUF_SIZE);
 
 	/* add the buffer back to the remote processor's virtqueue */
-	err = virtqueue_add_inbuf(vrp->rvq, &sg, 1, msg, GFP_KERNEL);
+	err = virtqueue_add_inbuf_rpmsg(vrp->rvq, &sg, 1, msg, GFP_KERNEL);
 	if (err < 0) {
 		dev_err(dev, "failed to add a virtqueue buffer: %d\n", err);
 		return err;
@@ -1099,10 +1110,10 @@ static int rpmsg_probe(struct virtio_device *vdev)
 		struct scatterlist sg;
 		void *cpu_addr = vrp->rbufs + i * RPMSG_BUF_SIZE;
 
-		sg_init_one(&sg, cpu_addr, RPMSG_BUF_SIZE);
+		rpmsg_sg_init_one(vrp, &sg, cpu_addr, RPMSG_BUF_SIZE);
 
-		err = virtqueue_add_inbuf(vrp->rvq, &sg, 1, cpu_addr,
-								GFP_KERNEL);
+		err = virtqueue_add_inbuf_rpmsg(vrp->rvq, &sg, 1, cpu_addr,
+						GFP_KERNEL);
 		WARN_ON(err); /* sanity check; this can't really happen */
 	}
 
