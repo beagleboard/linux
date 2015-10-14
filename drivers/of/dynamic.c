@@ -898,9 +898,7 @@ int of_changeset_add_property_copy(struct of_changeset *ocs,
 	struct property *prop;
 	char *new_name;
 	void *new_value;
-	int ret;
-
-	ret = -ENOMEM;
+	int ret = -ENOMEM;
 
 	prop = kzalloc(sizeof(*prop), GFP_KERNEL);
 	if (!prop)
@@ -1010,13 +1008,14 @@ int of_changeset_add_property_string_list(struct of_changeset *ocs,
 		struct device_node *np, const char *name, const char **strs,
 		int count)
 {
-	int total, length, i, ret;
+	int total = 0, i, ret;
 	char *value, *s;
 
-	total = 0;
 	for (i = 0; i < count; i++) {
-		length = strlen(strs[i]);
-		total += length + 1;
+		/* check if  it's NULL */
+		if (!strs[i])
+			return -EINVAL;
+		total += strlen(strs[i]) + 1;
 	}
 
 	value = kmalloc(total, GFP_KERNEL);
@@ -1024,9 +1023,9 @@ int of_changeset_add_property_string_list(struct of_changeset *ocs,
 		return -ENOMEM;
 
 	for (i = 0, s = value; i < count; i++) {
-		length = strlen(strs[i]);
-		memcpy(s, strs[i], length + 1);
-		s += length + 1;
+		/* no need to check for NULL, check above */
+		strcpy(s, strs[i]);
+		s += strlen(strs[i]) + 1;
 	}
 
 	ret = of_changeset_add_property_copy(ocs, np, name, value, total);
