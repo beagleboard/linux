@@ -104,4 +104,37 @@ static inline int of_overlay_init(void)
 }
 #endif
 
+extern const struct rhashtable_params of_phandle_ht_params;
+extern struct rhashtable *of_phandle_ht;
+
+/* for unittest use */
+extern bool of_phandle_ht_is_disabled;
+
+static inline bool of_phandle_ht_available(void)
+{
+	return of_phandle_ht != NULL;
+}
+
+static inline int of_phandle_ht_insert(struct device_node *np)
+{
+	if (!np || !np->phandle)
+		return 0;
+	return rhashtable_insert_fast(of_phandle_ht,
+		&np->ht_node, of_phandle_ht_params);
+}
+
+static inline int of_phandle_ht_remove(struct device_node *np)
+{
+	if (!np || !np->phandle)
+		return 0;
+	return rhashtable_remove_fast(of_phandle_ht,
+		&np->ht_node, of_phandle_ht_params);
+}
+
+static inline struct device_node *of_phandle_ht_lookup(phandle handle)
+{
+	return rhashtable_lookup_fast(of_phandle_ht,
+			&handle, of_phandle_ht_params);
+}
+
 #endif /* _LINUX_OF_PRIVATE_H */
