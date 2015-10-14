@@ -192,7 +192,8 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 				unsigned int out_sgs,
 				unsigned int in_sgs,
 				void *data,
-				gfp_t gfp)
+				gfp_t gfp,
+				bool rpmsg)
 {
 	struct vring_virtqueue *vq = to_vvq(_vq);
 	struct scatterlist *sg;
@@ -220,7 +221,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 
 	/* If the host supports indirect descriptor tables, and we have multiple
 	 * buffers, then go indirect. FIXME: tune this threshold */
-	if (vq->indirect && total_sg > 1 && vq->vq.num_free) {
+	if (!rpmsg && vq->indirect && total_sg > 1 && vq->vq.num_free) {
 		head = vring_add_indirect(vq, sgs, next, total_sg, total_out,
 					  total_in,
 					  out_sgs, in_sgs, gfp);
@@ -250,8 +251,10 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 	for (n = 0; n < out_sgs; n++) {
 		for (sg = sgs[n]; sg; sg = next(sg, &total_out)) {
 			vq->vring.desc[i].flags = VRING_DESC_F_NEXT;
-			vq->vring.desc[i].addr = sg_phys(sg);
-			vq->vring.desc[i].len = sg->length;
+			vq->vring.desc[i].addr =
+				rpmsg ? sg_dma_address(sg) : sg_phys(sg);
+			vq->vring.desc[i].len =
+				rpmsg ? sg_dma_len(sg) : sg->length;
 			prev = i;
 			i = vq->vring.desc[i].next;
 		}
@@ -259,8 +262,10 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 	for (; n < (out_sgs + in_sgs); n++) {
 		for (sg = sgs[n]; sg; sg = next(sg, &total_in)) {
 			vq->vring.desc[i].flags = VRING_DESC_F_NEXT|VRING_DESC_F_WRITE;
-			vq->vring.desc[i].addr = sg_phys(sg);
-			vq->vring.desc[i].len = sg->length;
+			vq->vring.desc[i].addr =
+				rpmsg ? sg_dma_address(sg) : sg_phys(sg);
+			vq->vring.desc[i].len =
+				rpmsg ? sg_dma_len(sg) : sg->length;
 			prev = i;
 			i = vq->vring.desc[i].next;
 		}
@@ -332,7 +337,8 @@ int virtqueue_add_sgs(struct virtqueue *_vq,
 			total_in++;
 	}
 	return virtqueue_add(_vq, sgs, sg_next_chained,
-			     total_out, total_in, out_sgs, in_sgs, data, gfp);
+			     total_out, total_in, out_sgs, in_sgs, data, gfp,
+			     false);
 }
 EXPORT_SYMBOL_GPL(virtqueue_add_sgs);
 
@@ -354,9 +360,36 @@ int virtqueue_add_outbuf(struct virtqueue *vq,
 			 void *data,
 			 gfp_t gfp)
 {
-	return virtqueue_add(vq, &sg, sg_next_arr, num, 0, 1, 0, data, gfp);
+	return virtqueue_add(vq, &sg, sg_next_arr, num, 0, 1, 0, data, gfp,
+			     false);
 }
 EXPORT_SYMBOL_GPL(virtqueue_add_outbuf);
+
+/**
+ * virtqueue_add_outbuf_rpmsg - expose output buffers for virtio_rpmsg
+ * @vq: the struct virtqueue we're talking about.
+ * @sg: array of scatterlists (with dma fields filled in)
+ * @num: the number of scatterlists readable by other side
+ * @data: the token identifying the buffer.
+ * @gfp: how to do memory allocations (if necessary).
+ *
+ * Caller must ensure we don't call this with other virtqueue operations
+ * at the same time (except where noted). Note that the scatterlist is
+ * non-standard with only the corresponding dma fields filled in, so
+ * should not be used with any sg operations using traditional buffer
+ * and length fields.
+ *
+ * Returns zero or a negative error (ie. ENOSPC, ENOMEM, EIO).
+ */
+int virtqueue_add_outbuf_rpmsg(struct virtqueue *vq,
+			       struct scatterlist sg[], unsigned int num,
+			       void *data,
+			       gfp_t gfp)
+{
+	return virtqueue_add(vq, &sg, sg_next_arr, num, 0, 1, 0, data, gfp,
+			     true);
+}
+EXPORT_SYMBOL_GPL(virtqueue_add_outbuf_rpmsg);
 
 /**
  * virtqueue_add_inbuf - expose input buffers to other end
@@ -376,9 +409,36 @@ int virtqueue_add_inbuf(struct virtqueue *vq,
 			void *data,
 			gfp_t gfp)
 {
-	return virtqueue_add(vq, &sg, sg_next_arr, 0, num, 0, 1, data, gfp);
+	return virtqueue_add(vq, &sg, sg_next_arr, 0, num, 0, 1, data, gfp,
+			     false);
 }
 EXPORT_SYMBOL_GPL(virtqueue_add_inbuf);
+
+/**
+ * virtqueue_add_inbuf_rpmsg - expose input buffers for virtio_rpmsg
+ * @vq: the struct virtqueue we're talking about.
+ * @sg: array of scatterlists (with dma fields filled in)
+ * @num: the number of scatterlists writable by other side
+ * @data: the token identifying the buffer.
+ * @gfp: how to do memory allocations (if necessary).
+ *
+ * Caller must ensure we don't call this with other virtqueue operations
+ * at the same time (except where noted). Note that the scatterlist is
+ * non-standard with only the corresponding dma fields filled in, so
+ * should not be used with any sg operations using traditional buffer
+ * and length fields.
+ *
+ * Returns zero or a negative error (ie. ENOSPC, ENOMEM, EIO).
+ */
+int virtqueue_add_inbuf_rpmsg(struct virtqueue *vq,
+			      struct scatterlist sg[], unsigned int num,
+			      void *data,
+			      gfp_t gfp)
+{
+	return virtqueue_add(vq, &sg, sg_next_arr, 0, num, 0, 1, data, gfp,
+			     true);
+}
+EXPORT_SYMBOL_GPL(virtqueue_add_inbuf_rpmsg);
 
 /**
  * virtqueue_kick_prepare - first half of split virtqueue_kick call.
