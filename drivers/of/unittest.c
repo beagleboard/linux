@@ -543,6 +543,49 @@ static void __init of_unittest_changeset(void)
 #endif
 }
 
+static void __init of_unittest_changeset_helper(void)
+{
+#ifdef CONFIG_OF_DYNAMIC
+	struct device_node *n1, *n2, *n21, *parent, *np;
+	struct of_changeset chgset;
+
+	of_changeset_init(&chgset);
+
+	parent = of_find_node_by_path("/testcase-data/changeset");
+
+	unittest(parent, "testcase setup failure\n");
+	n1 = of_changeset_create_device_node(&chgset,
+			parent, "/testcase-data/changeset/n1");
+	unittest(n1, "testcase setup failure\n");
+	n2 = of_changeset_create_device_node(&chgset,
+			parent, "/testcase-data/changeset/n2");
+	unittest(n2, "testcase setup failure\n");
+	n21 = of_changeset_create_device_node(&chgset, n2, "%s/%s",
+			"/testcase-data/changeset/n2", "n21");
+
+	of_changeset_init(&chgset);
+	unittest(!of_changeset_add_property_string(&chgset, parent,
+				"prop-add", "foo"), "fail add prop\n");
+	mutex_lock(&of_mutex);
+	unittest(!__of_changeset_apply(&chgset), "apply failed\n");
+	mutex_unlock(&of_mutex);
+
+	/* Make sure node names are constructed correctly */
+	unittest((np = of_find_node_by_path("/testcase-data/changeset/n2/n21")),
+		 "'%s' not added\n", n21->full_name);
+	of_node_put(np);
+
+	mutex_lock(&of_mutex);
+	unittest(!of_changeset_revert(&chgset), "revert failed\n");
+	mutex_unlock(&of_mutex);
+
+	of_changeset_destroy(&chgset);
+
+	of_node_put(parent);
+#endif
+}
+
+
 static void __init of_unittest_parse_interrupts(void)
 {
 	struct device_node *np;
@@ -2222,6 +2265,7 @@ static int __init of_unittest(void)
 	of_unittest_property_string();
 	of_unittest_property_copy();
 	of_unittest_changeset();
+	of_unittest_changeset_helper();
 	of_unittest_parse_interrupts();
 	of_unittest_parse_interrupts_extended();
 	of_unittest_match_node();
