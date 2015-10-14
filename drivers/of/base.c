@@ -27,6 +27,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/proc_fs.h>
+#include <linux/rhashtable.h>
 
 #include "of_private.h"
 
@@ -40,6 +41,16 @@ struct device_node *of_stdout;
 static const char *of_stdout_options;
 
 struct kset *of_kset;
+
+const struct rhashtable_params of_phandle_ht_params = {
+	.key_offset = offsetof(struct device_node, phandle), /* base offset */
+	.key_len = sizeof(phandle),
+	.head_offset = offsetof(struct device_node, ht_node),
+	.automatic_shrinking = true,
+};
+
+struct rhashtable of_phandle_ht;
+bool of_phandle_ht_initialized;
 
 /*
  * Used to protect the of_aliases, to hold off addition of nodes to sysfs.
@@ -162,6 +173,12 @@ int __of_attach_node_post(struct device_node *np)
 	struct property *pp;
 	int rc;
 
+	if (of_phandle_ht_available()) {
+		rc = of_phandle_ht_insert(np);
+		WARN(rc, "insert to phandle hash fail @%s\n",
+				of_node_full_name(np));
+	}
+
 	if (!IS_ENABLED(CONFIG_SYSFS))
 		return 0;
 
@@ -193,6 +210,13 @@ void __init of_core_init(void)
 {
 	struct device_node *np;
 	int ret;
+
+	ret = rhashtable_init(&of_phandle_ht, &of_phandle_ht_params);
+	if (ret) {
+		pr_warn("devicetree: Failed to initialize hashtable\n");
+		return;
+	}
+	of_phandle_ht_initialized = 1;
 
 	/* Create the kset, and register existing nodes */
 	mutex_lock(&of_mutex);
@@ -1073,9 +1097,14 @@ struct device_node *of_find_node_by_phandle(phandle handle)
 		return NULL;
 
 	raw_spin_lock_irqsave(&devtree_lock, flags);
-	for_each_of_allnodes(np)
-		if (np->phandle == handle)
-			break;
+	/* when we're ready use the hash table */
+	if (of_phandle_ht_available() && !in_interrupt())
+		np = of_phandle_ht_lookup(handle);
+	else { /* fallback */
+		for_each_of_allnodes(np)
+			if (np->phandle == handle)
+				break;
+	}
 	of_node_get(np);
 	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 	return np;
