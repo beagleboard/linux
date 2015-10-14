@@ -160,7 +160,7 @@ int __of_add_property_sysfs(struct device_node *np, struct property *pp)
 	return rc;
 }
 
-int __of_attach_node_sysfs(struct device_node *np)
+int __of_attach_node_post(struct device_node *np)
 {
 	const char *name;
 	struct kobject *parent;
@@ -209,7 +209,7 @@ void __init of_core_init(void)
 		return;
 	}
 	for_each_of_allnodes(np)
-		__of_attach_node_sysfs(np);
+		__of_attach_node_post(np);
 	mutex_unlock(&of_mutex);
 
 	/* Symlink in /proc as required by userspace ABI */
