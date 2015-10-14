@@ -11,6 +11,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/proc_fs.h>
+#include <linux/rhashtable.h>
 
 #include "of_private.h"
 
@@ -44,6 +45,13 @@ EXPORT_SYMBOL(of_node_put);
 void __of_detach_node_post(struct device_node *np)
 {
 	struct property *pp;
+	int rc;
+
+	if (of_phandle_ht_available()) {
+		rc = of_phandle_ht_remove(np);
+		WARN(rc, "remove from phandle hash fail @%s\n",
+				of_node_full_name(np));
+	}
 
 	if (!IS_ENABLED(CONFIG_SYSFS))
 		return;
