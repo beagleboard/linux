@@ -213,8 +213,6 @@ void __init of_core_init(void)
 	ret = of_overlay_init();
 	if (ret != 0)
 		pr_warn("of_init: of_overlay_init failed!\n");
-
-	return 0;
 }
 
 static struct property *__of_find_property(const struct device_node *np,
