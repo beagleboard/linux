@@ -178,7 +178,7 @@ void __init of_core_init(void)
 		return;
 	}
 	for_each_of_allnodes(np) {
-		__of_attach_node_sysfs(np);
+		__of_attach_node_post(np);
 		if (np->phandle && !phandle_cache[of_phandle_cache_hash(np->phandle)])
 			phandle_cache[of_phandle_cache_hash(np->phandle)] = np;
 	}
