@@ -243,7 +243,7 @@ int of_attach_node(struct device_node *np)
 	__of_attach_node(np);
 	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 
-	__of_attach_node_sysfs(np);
+	__of_attach_node_post(np);
 	mutex_unlock(&of_mutex);
 
 	of_reconfig_notify(OF_RECONFIG_ATTACH_NODE, &rd);
@@ -295,7 +295,7 @@ int of_detach_node(struct device_node *np)
 	__of_detach_node(np);
 	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 
-	__of_detach_node_sysfs(np);
+	__of_detach_node_post(np);
 	mutex_unlock(&of_mutex);
 
 	of_reconfig_notify(OF_RECONFIG_DETACH_NODE, &rd);
@@ -634,10 +634,10 @@ static int __of_changeset_entry_apply(struct of_changeset_entry *ce)
 
 	switch (ce->action) {
 	case OF_RECONFIG_ATTACH_NODE:
-		__of_attach_node_sysfs(ce->np);
+		__of_attach_node_post(ce->np);
 		break;
 	case OF_RECONFIG_DETACH_NODE:
-		__of_detach_node_sysfs(ce->np);
+		__of_detach_node_post(ce->np);
 		break;
 	case OF_RECONFIG_ADD_PROPERTY:
 		/* ignore duplicate names */
