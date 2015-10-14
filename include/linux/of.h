@@ -25,6 +25,7 @@
 #include <linux/notifier.h>
 #include <linux/property.h>
 #include <linux/list.h>
+#include <linux/rhashtable.h>
 
 #include <asm/byteorder.h>
 #include <asm/errno.h>
@@ -52,6 +53,7 @@ struct device_node {
 	phandle phandle;
 	const char *full_name;
 	struct fwnode_handle fwnode;
+	struct rhash_head ht_node;
 
 	struct	property *properties;
 	struct	property *deadprops;	/* removed properties */
