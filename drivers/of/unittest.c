@@ -911,7 +911,7 @@ static int attach_node_and_children(struct device_node *np)
 	of_node_clear_flag(np, OF_DETACHED);
 	raw_spin_unlock_irqrestore(&devtree_lock, flags);
 
-	__of_attach_node_sysfs(np);
+	__of_attach_node_post(np);
 	mutex_unlock(&of_mutex);
 
 	while (child) {
@@ -969,7 +969,7 @@ static int __init unittest_data_add(void)
 	if (!of_root) {
 		of_root = unittest_data_node;
 		for_each_of_allnodes(np)
-			__of_attach_node_sysfs(np);
+			__of_attach_node_post(np);
 		of_aliases = of_find_node_by_path("/aliases");
 		of_chosen = of_find_node_by_path("/chosen");
 		return 0;
