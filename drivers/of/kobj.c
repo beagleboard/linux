@@ -112,7 +112,7 @@ void __of_update_property_sysfs(struct device_node *np, struct property *newprop
 	__of_add_property_sysfs(np, newprop);
 }
 
-int __of_attach_node_sysfs(struct device_node *np)
+int __of_attach_node_post(struct device_node *np)
 {
 	const char *name;
 	struct kobject *parent;
@@ -146,7 +146,7 @@ int __of_attach_node_sysfs(struct device_node *np)
 	return 0;
 }
 
-void __of_detach_node_sysfs(struct device_node *np)
+void __of_detach_node_post(struct device_node *np)
 {
 	struct property *pp;
 
