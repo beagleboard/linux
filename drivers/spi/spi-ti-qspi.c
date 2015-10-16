@@ -39,8 +39,6 @@ struct ti_qspi_regs {
 };
 
 struct ti_qspi {
-	struct completion       transfer_complete;
-
 	/* list synchronization */
 	struct mutex            list_lock;
 
@@ -62,10 +60,6 @@ struct ti_qspi {
 
 #define QSPI_PID			(0x0)
 #define QSPI_SYSCONFIG			(0x10)
-#define QSPI_INTR_STATUS_RAW_SET	(0x20)
-#define QSPI_INTR_STATUS_ENABLED_CLEAR	(0x24)
-#define QSPI_INTR_ENABLE_SET_REG	(0x28)
-#define QSPI_INTR_ENABLE_CLEAR_REG	(0x2c)
 #define QSPI_SPI_CLOCK_CNTRL_REG	(0x40)
 #define QSPI_SPI_DC_REG			(0x44)
 #define QSPI_SPI_CMD_REG		(0x48)
@@ -94,7 +88,6 @@ struct ti_qspi {
 #define QSPI_RD_DUAL			(3 << 16)
 #define QSPI_RD_QUAD			(7 << 16)
 #define QSPI_INVAL			(4 << 16)
-#define QSPI_WC_CMD_INT_EN			(1 << 14)
 #define QSPI_FLEN(n)			((n - 1) << 0)
 #define QSPI_WLEN_MAX_BITS		128
 #define QSPI_WLEN_MAX_BYTES		16
@@ -102,10 +95,6 @@ struct ti_qspi {
 /* STATUS REGISTER */
 #define BUSY				0x01
 #define WC				0x02
-
-/* INTERRUPT REGISTER */
-#define QSPI_WC_INT_EN				(1 << 1)
-#define QSPI_WC_INT_DISABLE			(1 << 1)
 
 /* Device Control */
 #define QSPI_DD(m, n)			(m << (3 + n * 8))
@@ -224,6 +213,24 @@ static inline u32 qspi_is_busy(struct ti_qspi *qspi)
 	return stat & BUSY;
 }
 
+static inline int ti_qspi_poll_wc(struct ti_qspi *qspi)
+{
+	u32 stat;
+	unsigned long timeout = jiffies + QSPI_COMPLETION_TIMEOUT;
+
+	do {
+		stat = ti_qspi_read(qspi, QSPI_SPI_STATUS_REG);
+		if (stat & WC)
+			return 0;
+		cpu_relax();
+	} while (time_after(timeout, jiffies));
+
+	stat = ti_qspi_read(qspi, QSPI_SPI_STATUS_REG);
+	if (stat & WC)
+		return 0;
+	return  -ETIMEDOUT;
+}
+
 static int qspi_write_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 {
 	int wlen, count, xfer_len;
@@ -282,8 +289,7 @@ static int qspi_write_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 		}
 
 		ti_qspi_write(qspi, cmd, QSPI_SPI_CMD_REG);
-		if (!wait_for_completion_timeout(&qspi->transfer_complete,
-						 QSPI_COMPLETION_TIMEOUT)) {
+		if (ti_qspi_poll_wc(qspi)) {
 			dev_err(qspi->dev, "write timed out\n");
 			return -ETIMEDOUT;
 		}
@@ -322,8 +328,7 @@ static int qspi_read_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 			return -EBUSY;
 
 		ti_qspi_write(qspi, cmd, QSPI_SPI_CMD_REG);
-		if (!wait_for_completion_timeout(&qspi->transfer_complete,
-						 QSPI_COMPLETION_TIMEOUT)) {
+		if (ti_qspi_poll_wc(qspi)) {
 			dev_err(qspi->dev, "read timed out\n");
 			return -ETIMEDOUT;
 		}
@@ -445,8 +450,6 @@ static int ti_qspi_mmap_read(struct spi_master *master,
 
 	mutex_lock(&qspi->list_lock);
 
-	/* disable WC interrupt during memcpy */
-	ti_qspi_write(qspi, QSPI_WC_INT_DISABLE, QSPI_INTR_ENABLE_CLEAR_REG);
 	ti_qspi_enable_memory_map(spi);
 	list_for_each_entry(t, &m->transfers, transfer_list) {
 		if (t->tx_buf) {
@@ -508,9 +511,7 @@ static int ti_qspi_start_transfer_one(struct spi_master *master,
 	qspi->cmd = 0;
 	qspi->cmd |= QSPI_EN_CS(spi->chip_select);
 	qspi->cmd |= QSPI_FLEN(frame_length);
-	qspi->cmd |= QSPI_WC_CMD_INT_EN;
 
-	ti_qspi_write(qspi, QSPI_WC_INT_EN, QSPI_INTR_ENABLE_SET_REG);
 	ti_qspi_write(qspi, qspi->dc, QSPI_SPI_DC_REG);
 
 	mutex_lock(&qspi->list_lock);
@@ -536,31 +537,6 @@ static int ti_qspi_start_transfer_one(struct spi_master *master,
 	ti_qspi_write(qspi, qspi->cmd | QSPI_INVAL, QSPI_SPI_CMD_REG);
 
 	return status;
-}
-
-static irqreturn_t ti_qspi_isr(int irq, void *dev_id)
-{
-	struct ti_qspi *qspi = dev_id;
-	u16 int_stat;
-	u32 stat;
-
-	irqreturn_t ret = IRQ_HANDLED;
-
-	int_stat = ti_qspi_read(qspi, QSPI_INTR_STATUS_ENABLED_CLEAR);
-	stat = ti_qspi_read(qspi, QSPI_SPI_STATUS_REG);
-
-	if (!int_stat) {
-		dev_dbg(qspi->dev, "No IRQ triggered\n");
-		ret = IRQ_NONE;
-		goto out;
-	}
-
-	ti_qspi_write(qspi, QSPI_WC_INT_DISABLE,
-				QSPI_INTR_STATUS_ENABLED_CLEAR);
-	if (stat & WC)
-		complete(&qspi->transfer_complete);
-out:
-	return ret;
 }
 
 static int ti_qspi_runtime_resume(struct device *dev)
@@ -671,21 +647,11 @@ static int ti_qspi_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = devm_request_irq(&pdev->dev, irq, ti_qspi_isr, 0,
-			dev_name(&pdev->dev), qspi);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Failed to register ISR for IRQ %d\n",
-				irq);
-		goto free_master;
-	}
-
 	qspi->fclk = devm_clk_get(&pdev->dev, "fck");
 	if (IS_ERR(qspi->fclk)) {
 		ret = PTR_ERR(qspi->fclk);
 		dev_err(&pdev->dev, "could not get clk: %d\n", ret);
 	}
-
-	init_completion(&qspi->transfer_complete);
 
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, QSPI_AUTOSUSPEND_TIMEOUT);
@@ -715,8 +681,6 @@ static int ti_qspi_remove(struct platform_device *pdev)
 		dev_err(qspi->dev, "pm_runtime_get_sync() failed\n");
 		return ret;
 	}
-
-	ti_qspi_write(qspi, QSPI_WC_INT_DISABLE, QSPI_INTR_ENABLE_CLEAR_REG);
 
 	pm_runtime_put(qspi->dev);
 	pm_runtime_disable(&pdev->dev);
