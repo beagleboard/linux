@@ -572,7 +572,7 @@ config VIDEO_MT9V032
 
 config VIDEO_MT9T11X
 	tristate "Aptina MT9T11x sensor support"
-	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API && GPIOLIB
 	---help---
 	  This is a V4L2 sensor-level driver for the Aptina
 	  MT9T11x camera sensors.
