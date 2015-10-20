@@ -2543,6 +2543,8 @@ static int vip_remove(struct platform_device *pdev)
 		kfree(dev);
 	}
 	kfree(shared);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
