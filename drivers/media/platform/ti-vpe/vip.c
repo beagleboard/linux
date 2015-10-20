@@ -245,8 +245,6 @@ static struct vip_fmt *find_port_format_by_pix(struct vip_port *port,
 	return NULL;
 }
 
-static LIST_HEAD(vip_shared_list);
-
 inline struct vip_port *notifier_to_vip_port(struct v4l2_async_notifier *n)
 {
 	return container_of(n, struct vip_port, notifier);
@@ -2434,7 +2432,6 @@ static int vip_probe(struct platform_device *pdev)
 	vip_shared_set_clock_enable(shared, 1);
 	vip_top_vpdma_reset(shared);
 
-	list_add_tail(&shared->list, &vip_shared_list);
 	platform_set_drvdata(pdev, shared);
 
 	for (slice = VIP_SLICE1; slice < VIP_NUM_SLICES; slice++) {
