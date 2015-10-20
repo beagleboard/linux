@@ -1086,6 +1086,7 @@ static int ov1063x_remove(struct i2c_client *client)
 
 	v4l2_device_unregister_subdev(&priv->subdev);
 	v4l2_ctrl_handler_free(&priv->hdl);
+	pm_runtime_disable(&client->dev);
 
 	return 0;
 }
