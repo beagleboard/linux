@@ -2013,11 +2013,10 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 		goto do_free_stream;
 	}
 
-	snprintf(vfd->name, sizeof(vfd->name), "%s", vip_videodev.name);
 	stream->vfd = vfd;
 
-	vip_info(dev, VIP_MODULE_NAME
-		 " Device registered as /dev/video%d\n", vfd->num);
+	vip_info(dev, "device registered as %s\n",
+		 video_device_node_name(vfd));
 	return 0;
 
 do_free_stream:
@@ -2519,7 +2518,7 @@ static int vip_remove(struct platform_device *pdev)
 		dev = shared->devs[slice];
 		if (!dev)
 			continue;
-		vip_info(dev, "Removing " VIP_MODULE_NAME);
+
 		free_port(dev->ports[VIP_PORTA]);
 		free_port(dev->ports[VIP_PORTB]);
 		vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
