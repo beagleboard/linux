@@ -2410,28 +2410,14 @@ static int vip_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	shared->res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vip");
-	if (!shared->res) {
-		dev_err(&pdev->dev, "Missing platform resources data\n");
-		ret = -ENODEV;
+	shared->base = devm_ioremap_resource(&pdev->dev, shared->res);
+	if (IS_ERR(shared->base)) {
+		dev_err(&pdev->dev, "failed to ioremap\n");
+		ret = PTR_ERR(shared->base);
 		goto free_shared;
 	}
 
 	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
-
-	if (devm_request_mem_region(&pdev->dev, shared->res->start,
-				    resource_size(shared->res),
-				    VIP_MODULE_NAME) == NULL) {
-		ret = -ENOMEM;
-		goto free_shared;
-	}
-
-	shared->base = devm_ioremap(&pdev->dev, shared->res->start,
-				    resource_size(shared->res));
-	if (!shared->base) {
-		dev_err(&pdev->dev, "failed to ioremap\n");
-		ret = -ENOMEM;
-		goto free_shared;
-	}
 
 	/* Make sure H/W module has the right functionality */
 	pid = read_sreg(shared, VIP_PID);
