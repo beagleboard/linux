@@ -235,7 +235,7 @@ int __init omap_voltage_late_init(void)
 	struct voltagedomain *voltdm;
 
 	if (list_empty(&voltdm_list)) {
-		pr_err("%s: Voltage driver support not added\n",
+		pr_info("%s: Voltage driver support not added\n",
 			__func__);
 		return -EINVAL;
 	}
