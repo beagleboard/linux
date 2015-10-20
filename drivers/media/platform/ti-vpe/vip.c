@@ -2538,7 +2538,8 @@ static int vip_remove(struct platform_device *pdev)
 		if (!dev)
 			continue;
 		vip_info(dev, "Removing " VIP_MODULE_NAME);
-		free_port(dev->ports[0]);
+		free_port(dev->ports[VIP_PORTA]);
+		free_port(dev->ports[VIP_PORTB]);
 		vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 		kfree(dev);
 	}
