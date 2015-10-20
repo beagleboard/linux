@@ -2039,7 +2039,7 @@ static void free_stream(struct vip_stream *stream)
 	dev = stream->port->dev;
 	/* Free up the Drop queue */
 	list_for_each_safe(pos, q, &stream->dropq) {
-		buf = list_entry(stream->dropq.next,
+		buf = list_entry(pos,
 				 struct vip_buffer, list);
 		vip_dbg(1, dev, "dropq buffer\n");
 		list_del(pos);
@@ -2047,7 +2047,6 @@ static void free_stream(struct vip_stream *stream)
 	}
 
 	video_unregister_device(stream->vfd);
-	video_device_release(stream->vfd);
 	vpdma_hwlist_release(dev->shared->vpdma, stream->list_num);
 	stream->port->cap_streams[stream->stream_id] = NULL;
 	kfree(stream);
