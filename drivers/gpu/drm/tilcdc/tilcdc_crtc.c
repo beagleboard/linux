@@ -121,18 +121,25 @@ static void update_scanout(struct drm_crtc *crtc)
 	}
 }
 
-static void start(struct drm_crtc *crtc)
+static void reset(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct tilcdc_drm_private *priv = dev->dev_private;
+
+	if (priv->rev != 2)
+		return;
+
+	tilcdc_set(dev, LCDC_CLK_RESET_REG, LCDC_CLK_MAIN_RESET);
+	usleep_range(250, 1000);
+	tilcdc_clear(dev, LCDC_CLK_RESET_REG, LCDC_CLK_MAIN_RESET);
+}
+
+static void start(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
 	struct tilcdc_crtc *tilcdc_crtc = to_tilcdc_crtc(crtc);
 
-	if (priv->rev == 2) {
-		tilcdc_set(dev, LCDC_CLK_RESET_REG, LCDC_CLK_MAIN_RESET);
-		msleep(1);
-		tilcdc_clear(dev, LCDC_CLK_RESET_REG, LCDC_CLK_MAIN_RESET);
-		msleep(1);
-	}
+	reset(crtc);
 
 	tilcdc_crtc->dma_completed_channel = 0;
 
