@@ -2532,7 +2532,7 @@ omap_hsmmc_pinctrl_lookup_state(struct omap_hsmmc_host *host, char *mode)
 
 	state = pinctrl_lookup_state(host->pinctrl, mode);
 	if (IS_ERR(state))
-		dev_err(mmc_dev(host->mmc),
+		dev_info(mmc_dev(host->mmc),
 			"no pinctrl state for %s mode\n", mode);
 	return state;
 }
