@@ -639,7 +639,6 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct tilcdc_drm_private *priv = dev->dev_private;
 	uint32_t stat = tilcdc_read_irqstatus(dev);
-	unsigned long irq_flags;
 
 	if (stat & LCDC_PL_LOAD_DONE) {
 		tilcdc_clear_irqstatus(dev, stat);
@@ -650,7 +649,7 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 
 		tilcdc_clear_irqstatus(dev, stat);
 
-		spin_lock_irqsave(&tilcdc_crtc->irq_lock, irq_flags);
+		spin_lock_irqsave(&tilcdc_crtc->irq_lock, flags);
 
 		if (stat & LCDC_END_OF_FRAME0)
 			tilcdc_crtc->dma_completed_channel = 0;
@@ -664,7 +663,7 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 		if (dirty & LCDC_END_OF_FRAME1)
 			set_scanout(crtc, 1);
 
-		spin_unlock_irqrestore(&tilcdc_crtc->irq_lock, irq_flags);
+		spin_unlock_irqrestore(&tilcdc_crtc->irq_lock, flags);
 
 		drm_handle_vblank(dev, 0);
 
