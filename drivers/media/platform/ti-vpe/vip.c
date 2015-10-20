@@ -2139,13 +2139,6 @@ static void vip_vpdma_fw_cb(struct platform_device *pdev)
 	}
 }
 
-static void remove_shared(struct vip_shared *shared)
-{
-	iounmap(shared->base);
-	release_mem_region(shared->res->start, resource_size(shared->res));
-	kfree(shared);
-}
-
 static int vip_create_streams(struct vip_port *port,
 			      struct v4l2_subdev *subdev)
 {
@@ -2438,7 +2431,7 @@ static int vip_probe(struct platform_device *pdev)
 	if (!shared->base) {
 		dev_err(&pdev->dev, "failed to ioremap\n");
 		ret = -ENOMEM;
-		goto rel_mem_region;
+		goto free_shared;
 	}
 
 	/* Make sure H/W module has the right functionality */
@@ -2449,7 +2442,7 @@ static int vip_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "vip: unexpected PID function: 0x%x\n",
 			 tmp);
 		ret = -ENODEV;
-		goto do_iounmap;
+		goto free_shared;
 	}
 
 	/* enable clocks, so the firmware will load properly */
@@ -2523,10 +2516,6 @@ static int vip_probe(struct platform_device *pdev)
 
 dev_unreg:
 	v4l2_device_unregister(&dev->v4l2_dev);
-do_iounmap:
-	iounmap(shared->base);
-rel_mem_region:
-	release_mem_region(shared->res->start, resource_size(shared->res));
 free_shared:
 	kfree(shared);
 err_runtime_get:
@@ -2551,10 +2540,9 @@ static int vip_remove(struct platform_device *pdev)
 		vip_info(dev, "Removing " VIP_MODULE_NAME);
 		free_port(dev->ports[0]);
 		vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
-		free_irq(dev->irq, dev);
 		kfree(dev);
 	}
-	remove_shared(shared);
+	kfree(shared);
 
 	return 0;
 }
