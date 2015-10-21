@@ -4135,8 +4135,6 @@ static int dispc_bind(struct device *dev, struct device *master, void *data)
 
 	dispc_runtime_put();
 
-	dss_init_overlay_managers();
-
 	dss_debugfs_create_file("dispc", dispc_dump_regs);
 
 	return 0;
@@ -4150,8 +4148,6 @@ static void dispc_unbind(struct device *dev, struct device *master,
 			       void *data)
 {
 	pm_runtime_disable(dev);
-
-	dss_uninit_overlay_managers();
 }
 
 static const struct component_ops dispc_component_ops = {
