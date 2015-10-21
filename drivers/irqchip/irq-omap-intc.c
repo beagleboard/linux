@@ -21,6 +21,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/ratelimit.h>
+#include <linux/printk.h>
 
 #include "irqchip.h"
 
@@ -48,6 +50,7 @@
 #define INTC_ILR0		0x0100
 
 #define ACTIVEIRQ_MASK		0x7f	/* omap2/3 active interrupt bits */
+#define SPURIOUSIRQ_MASK	(0x1ffffff << 7)
 #define INTCPS_NR_ILR_REGS	128
 #define INTCPS_NR_MIR_REGS	4
 
@@ -347,6 +350,21 @@ out:
 			break;
 
 		irqnr = intc_readl(INTC_SIR);
+
+		/*
+		 * A spurious IRQ can result if interrupt that triggered the
+		 * sorting is no longer active during the sorting (10 INTC
+		 * functional clock cycles after interrupt assertion). Or a
+		 * change in interrupt mask affected the result during sorting
+		 * time. There is no special handling required except ignoring
+		 * the SIR register value just read and retrying.
+		 * See section 6.2.5 of AM335x TRM Literature Number: SPRUH73K
+		 */
+		if ((irqnr & SPURIOUSIRQ_MASK) == SPURIOUSIRQ_MASK) {
+			pr_debug_ratelimited("%s: spurious irq!\n", __func__);
+			break;
+		}
+
 		irqnr &= ACTIVEIRQ_MASK;
 
 		if (irqnr) {
