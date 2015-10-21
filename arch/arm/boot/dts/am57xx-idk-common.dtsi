@@ -288,3 +288,20 @@
 	status = "okay";
 	ext-clk-src;
 };
+
+&mac {
+	status = "okay";
+	dual_emac;
+};
+
+&cpsw_emac0 {
+	phy_id = <&davinci_mdio>, <0>;
+	phy-mode = "rgmii";
+	dual_emac_res_vlan = <1>;
+};
+
+&cpsw_emac1 {
+	phy_id = <&davinci_mdio>, <1>;
+	phy-mode = "rgmii";
+	dual_emac_res_vlan = <2>;
+};
