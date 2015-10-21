@@ -208,10 +208,6 @@ void dss_install_pm_handler(void);
 void dss_uninstall_pm_handler(void);
 
 /* display */
-int dss_suspend_all_devices(void);
-int dss_resume_all_devices(void);
-void dss_disable_all_devices(void);
-
 int display_init_sysfs(struct platform_device *pdev);
 void display_uninit_sysfs(struct platform_device *pdev);
 
