@@ -22,3 +22,31 @@ Description:
 		to be a high-level one-way "off" switch for the interface so
 		that systems that have this interface can choose to turn it off
 		during initial boot, etc."
+
+What:		/sys/firmware/devicetree/overlays/<id>
+Date:		October 2015
+Contact:	Pantelis Antoniou <pantelis.antoniou@konsulko.com>
+Description:
+		Each directory represents an applied overlay, containing
+		the following attribute files.
+
+What:		/sys/firmware/devicetree/overlays/<id>/can_remove
+Date:		October 2015
+Contact:	Pantelis Antoniou <pantelis.antoniou@konsulko.com>
+Description:
+		The attribute set to 1 means that the overlay can be removed,
+		while 0 means that the overlay is being overlapped therefore
+		removal is prohibited.
+
+What:		/sys/firmware/devicetree/overlays/<id>/<fragment-name>/
+Date:		October 2015
+Contact:	Pantelis Antoniou <pantelis.antoniou@konsulko.com>
+Description:
+		Each of these directories contain information about of the
+		particular overlay fragment.
+
+What:		/sys/firmware/devicetree/overlays/<id>/<fragment-name>/target
+Date:		October 2015
+Contact:	Pantelis Antoniou <pantelis.antoniou@konsulko.com>
+Description:
+		The full-path of the target of the fragment
