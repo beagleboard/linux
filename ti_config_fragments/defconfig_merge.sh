@@ -145,7 +145,7 @@ build_the_dtbs()
 		return 1
 	fi
 
-	NUM_OF_WARNINGS=`cat $BUILD_OUT | grep -wc warnings`
+	NUM_OF_WARNINGS=`cat $BUILD_OUT | grep -wc "warning:"`
 	echo "#########################################################" >> $OUT_LOG
 	echo "# Device Tree Warnings" >> $OUT_LOG
 	echo "#########################################################" >> $OUT_LOG
@@ -173,7 +173,7 @@ build_the_modules()
 		return 1
 	fi
 
-	NUM_OF_WARNINGS=`cat $BUILD_OUT | grep -wc warnings`
+	NUM_OF_WARNINGS=`cat $BUILD_OUT | grep -wc "warning:"`
 	echo "#########################################################" >> $OUT_LOG
 	echo "# Module Build Warnings" >> $OUT_LOG
 	echo "#########################################################" >> $OUT_LOG
