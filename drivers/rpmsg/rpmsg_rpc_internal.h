@@ -40,11 +40,7 @@
 #include <linux/skbuff.h>
 #include <linux/rpmsg.h>
 
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-typedef u64 virt_addr_t;
-#else
 typedef u32 virt_addr_t;
-#endif
 typedef u32 dev_addr_t;
 
 /**
