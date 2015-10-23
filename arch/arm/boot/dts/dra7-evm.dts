@@ -16,38 +16,38 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x60000000>; /* 1536 MB */
+		reg = <0x0 0x80000000 0x0 0x60000000>; /* 1536 MB */
 	};
 
 	reserved-memory {
-		#address-cells = <1>;
-		#size-cells = <1>;
+		#address-cells = <2>;
+		#size-cells = <2>;
 		ranges;
 
 		ipu2_cma_pool: ipu2_cma@95800000 {
 			compatible = "shared-dma-pool";
-			reg = <0x95800000 0x3800000>;
+			reg = <0x0 0x95800000 0x0 0x3800000>;
 			reusable;
 			status = "okay";
 		};
 
 		dsp1_cma_pool: dsp1_cma@99000000 {
 			compatible = "shared-dma-pool";
-			reg = <0x99000000 0x4000000>;
+			reg = <0x0 0x99000000 0x0 0x4000000>;
 			reusable;
 			status = "okay";
 		};
 
 		ipu1_cma_pool: ipu1_cma@9d000000 {
 			compatible = "shared-dma-pool";
-			reg = <0x9d000000 0x2000000>;
+			reg = <0x0 0x9d000000 0x0 0x2000000>;
 			reusable;
 			status = "okay";
 		};
 
 		dsp2_cma_pool: dsp2_cma@9f000000 {
 			compatible = "shared-dma-pool";
-			reg = <0x9f000000 0x800000>;
+			reg = <0x0 0x9f000000 0x0 0x800000>;
 			reusable;
 			status = "okay";
 		};
@@ -510,6 +510,11 @@
 
 &dcan1 {
 	status = "ok";
+};
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
 };
 
 &mailbox5 {

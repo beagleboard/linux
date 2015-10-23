@@ -569,7 +569,6 @@ static struct omap_hwmod dra7xx_tpcc_hwmod = {
 		.omap4	= {
 			.clkctrl_offs = DRA7XX_CM_L3MAIN1_TPCC_CLKCTRL_OFFSET,
 			.context_offs = DRA7XX_RM_L3MAIN1_TPCC_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 };
