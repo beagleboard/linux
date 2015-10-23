@@ -23,7 +23,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x80000000>;
+		reg = <0x0 0x80000000 0x0 0x80000000>;
 	};
 
 	reserved-memory {
@@ -230,11 +230,12 @@
 				/* SMPS9 unused */
 
 				ldo1_reg: ldo1 {
-					/* VDD_SD  */
+					/* VDD_SD / VDDSHV8  */
 					regulator-name = "ldo1";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <3300000>;
 					regulator-boot-on;
+					regulator-always-on;
 				};
 
 				ldo2_reg: ldo2 {
@@ -491,6 +492,11 @@
 			};
 		};
        };
+};
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
 };
 
 &mailbox3 {

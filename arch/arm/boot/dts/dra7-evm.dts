@@ -16,7 +16,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x60000000>; /* 1536 MB */
+		reg = <0x0 0x80000000 0x0 0x60000000>; /* 1536 MB */
 	};
 
 	reserved-memory {
@@ -510,6 +510,11 @@
 
 &dcan1 {
 	status = "ok";
+};
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
 };
 
 &mailbox5 {

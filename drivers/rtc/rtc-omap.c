@@ -113,6 +113,7 @@
 /* OMAP_RTC_OSC_REG bit fields: */
 #define OMAP_RTC_OSC_32KCLK_EN		BIT(6)
 #define OMAP_RTC_OSC_SEL_32KCLK_SRC	BIT(3)
+#define OMAP_RTC_OSC_OSC32K_GZ_DISABLE	BIT(4)
 
 /* OMAP_RTC_IRQWAKEEN bit fields: */
 #define OMAP_RTC_IRQWAKEEN_ALARM_WAKEEN	BIT(1)
@@ -131,7 +132,6 @@
 struct omap_rtc;
 
 struct omap_rtc_device_type {
-	bool has_32kclk_en;
 	bool has_irqwakeen;
 	bool has_pmic_mode;
 	bool has_power_up_reset;
@@ -547,6 +547,15 @@ static void omap_rtc_power_off(void)
 	pr_err("rtc_power_off failed, bailing out.\n");
 }
 
+static void omap_rtc_cleanup_pm_power_off(struct omap_rtc *rtc)
+{
+	if (pm_power_off == omap_rtc_power_off &&
+	    omap_rtc_power_off_rtc == rtc) {
+		pm_power_off = NULL;
+		omap_rtc_power_off_rtc = NULL;
+	}
+}
+
 static struct rtc_class_ops omap_rtc_ops = {
 	.read_time	= omap_rtc_read_time,
 	.set_time	= omap_rtc_set_time,
@@ -566,7 +575,6 @@ static const struct omap_rtc_device_type omap_rtc_default_type = {
 };
 
 static const struct omap_rtc_device_type omap_rtc_am3352_type = {
-	.has_32kclk_en	= true,
 	.has_irqwakeen	= true,
 	.has_pmic_mode	= true,
 	.lock		= am3352_rtc_lock,
@@ -661,13 +669,6 @@ static int omap_rtc_probe(struct platform_device *pdev)
 	 */
 	rtc_writel(rtc, OMAP_RTC_INTERRUPTS_REG, 0);
 
-	/* enable RTC functional clock */
-	if (rtc->type->has_32kclk_en) {
-		reg = rtc_read(rtc, OMAP_RTC_OSC_REG);
-		rtc_writel(rtc, OMAP_RTC_OSC_REG,
-				reg | OMAP_RTC_OSC_32KCLK_EN);
-	}
-
 	/* clear old status */
 	reg = rtc_read(rtc, OMAP_RTC_STATUS_REG);
 
@@ -717,13 +718,22 @@ static int omap_rtc_probe(struct platform_device *pdev)
 
 	if (rtc->is_ext_src) {
 		reg = rtc_read(rtc, OMAP_RTC_OSC_REG);
-		rtc_writel(rtc, OMAP_RTC_OSC_REG,
-			   reg | OMAP_RTC_OSC_SEL_32KCLK_SRC);
+		reg &= ~OMAP_RTC_OSC_OSC32K_GZ_DISABLE;
+		reg |= OMAP_RTC_OSC_32KCLK_EN | OMAP_RTC_OSC_SEL_32KCLK_SRC;
+		rtc_writel(rtc, OMAP_RTC_OSC_REG, reg);
 	}
 
 	rtc->type->lock(rtc);
 
 	device_init_wakeup(&pdev->dev, true);
+
+	omap_rtc_power_off_rtc = rtc;
+
+	if (rtc->is_pmic_controller) {
+		if (!pm_power_off) {
+			pm_power_off = omap_rtc_power_off;
+		}
+	}
 
 	rtc->rtc = devm_rtc_device_register(&pdev->dev, pdev->name,
 			&omap_rtc_ops, THIS_MODULE);
@@ -745,16 +755,10 @@ static int omap_rtc_probe(struct platform_device *pdev)
 			goto err;
 	}
 
-	if (rtc->is_pmic_controller) {
-		if (!pm_power_off) {
-			omap_rtc_power_off_rtc = rtc;
-			pm_power_off = omap_rtc_power_off;
-		}
-	}
-
 	return 0;
 
 err:
+	omap_rtc_cleanup_pm_power_off(rtc);
 	device_init_wakeup(&pdev->dev, false);
 	rtc->type->lock(rtc);
 	pm_runtime_put_sync(&pdev->dev);
@@ -767,11 +771,7 @@ static int __exit omap_rtc_remove(struct platform_device *pdev)
 {
 	struct omap_rtc *rtc = platform_get_drvdata(pdev);
 
-	if (pm_power_off == omap_rtc_power_off &&
-			omap_rtc_power_off_rtc == rtc) {
-		pm_power_off = NULL;
-		omap_rtc_power_off_rtc = NULL;
-	}
+	omap_rtc_cleanup_pm_power_off(rtc);
 
 	device_init_wakeup(&pdev->dev, 0);
 
