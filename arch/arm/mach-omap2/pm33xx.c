@@ -55,6 +55,8 @@ static void __iomem *gic_dist_base;
 static struct am33xx_pm_sram_addr *pm_sram;
 
 static unsigned long suspend_wfi_flags;
+
+#ifdef CONFIG_SUSPEND
 static int rtc_only_idle;
 static int retrigger_irq;
 
@@ -69,6 +71,7 @@ static struct wkup_m3_wakeup_src rtc_alarm_wakeup = {
 static struct wkup_m3_wakeup_src rtc_ext_wakeup = {
 	.irq_nr = 0, .src = "Ext wakeup",
 };
+#endif
 
 /*
  * Push the minimal suspend-resume code to SRAM
