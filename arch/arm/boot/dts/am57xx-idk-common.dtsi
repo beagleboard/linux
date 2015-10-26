@@ -305,3 +305,19 @@
 	phy-mode = "rgmii";
 	dual_emac_res_vlan = <2>;
 };
+
+&usb2_phy1 {
+	phy-supply = <&ldousb_reg>;
+};
+
+&usb2_phy2 {
+	phy-supply = <&ldousb_reg>;
+};
+
+&usb1 {
+	dr_mode = "host";
+};
+
+&usb2 {
+	dr_mode = "otg";
+};
