@@ -18,10 +18,12 @@
  *
  * @usb3_lpm_capable:	determines if this xhci platform supports USB3
  *			LPM capability
+ * @quirk_port_broken_pe: If true, XHCI will not use Port Disable.
  *
  */
 struct usb_xhci_pdata {
 	unsigned	usb3_lpm_capable:1;
+	unsigned	quirk_port_broken_pe:1;
 };
 
 #endif /* __USB_CORE_XHCI_PDRIVER_H */
