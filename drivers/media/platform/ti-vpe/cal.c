@@ -448,8 +448,8 @@ static struct cm_data *cm_create(struct cal_dev *dev)
 	if (!cm->res)
 		return ERR_PTR(-ENODEV);
 
-	cal_dbg(1, dev, "ioresource %s at  %x - %x\n",
-		cm->res->name, cm->res->start, cm->res->end);
+	cal_dbg(1, dev, "ioresource %s at  %pa - %pa\n",
+		cm->res->name, &cm->res->start, &cm->res->end);
 
 	cm->base = devm_ioremap_resource(&pdev->dev, cm->res);
 	if (!cm->base) {
@@ -563,8 +563,8 @@ static struct cc_data *cc_create(struct cal_dev *dev, unsigned int core)
 		return ERR_PTR(-ENODEV);
 	}
 
-	cal_dbg(1, dev, "ioresource %s at  %x - %x\n",
-		cc->res->name, cc->res->start, cc->res->end);
+	cal_dbg(1, dev, "ioresource %s at  %pa - %pa\n",
+		cc->res->name, &cc->res->start, &cc->res->end);
 
 	cc->base = devm_ioremap_resource(&pdev->dev, cc->res);
 	if (!cc->base) {
@@ -624,13 +624,13 @@ static void cal_top_reset(struct cal_dev *dev)
 
 static void cal_quickdump_regs(struct cal_dev *dev)
 {
-	cal_info(dev, "CAL Registers @ 0x%08x:\n", dev->res->start);
+	cal_info(dev, "CAL Registers @ %pa:\n", &dev->res->start);
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
 		       dev->base, (dev->res->end - dev->res->start + 1), false);
 
 	if (!dev->ctx[0]) {
-		cal_info(dev, "CSI2 Core 0 Registers @ 0x%08x:\n",
-			 dev->ctx[0]->cc->res->start);
+		cal_info(dev, "CSI2 Core 0 Registers @ %pa:\n",
+			 &dev->ctx[0]->cc->res->start);
 		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
 			       dev->ctx[0]->cc->base,
 			       (dev->ctx[0]->cc->res->end -
@@ -639,8 +639,8 @@ static void cal_quickdump_regs(struct cal_dev *dev)
 	}
 
 	if (!dev->ctx[1]) {
-		cal_info(dev, "CSI2 Core 1 Registers @ 0x%08x:\n",
-			 dev->ctx[1]->cc->res->start);
+		cal_info(dev, "CSI2 Core 1 Registers @ %pa:\n",
+			 &dev->ctx[1]->cc->res->start);
 		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
 			       dev->ctx[1]->cc->base,
 			       (dev->ctx[1]->cc->res->end -
@@ -648,8 +648,8 @@ static void cal_quickdump_regs(struct cal_dev *dev)
 			       false);
 	}
 
-	cal_info(dev, "CAMERRX_Control Registers @ 0x%08x:\n",
-		 dev->cm->res->start);
+	cal_info(dev, "CAMERRX_Control Registers @ %pa:\n",
+		 &dev->cm->res->start);
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
 		       dev->cm->base,
 		       (dev->cm->res->end - dev->cm->res->start + 1), false);
@@ -2121,8 +2121,8 @@ static int cal_probe(struct platform_device *pdev)
 
 	dev->res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"cal_top");
-	cal_dbg(1, dev, "ioresource %s at  %x - %x\n",
-		dev->res->name, dev->res->start, dev->res->end);
+	cal_dbg(1, dev, "ioresource %s at  %pa - %pa\n",
+		dev->res->name, &dev->res->start, &dev->res->end);
 
 	dev->base = devm_ioremap(&pdev->dev, dev->res->start, SZ_32K);
 	if (!dev->base) {
