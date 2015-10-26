@@ -257,6 +257,11 @@ struct tps65217 {
 	unsigned long id;
 	struct regulator_desc desc[TPS65217_NUM_REGULATOR];
 	struct regmap *regmap;
+
+	/* Power button and IRQ handling */
+	int irq_gpio;	/* might not be set */
+	int irq;
+	struct input_dev *pwr_but;
 };
 
 static inline struct tps65217 *dev_to_tps65217(struct device *dev)
