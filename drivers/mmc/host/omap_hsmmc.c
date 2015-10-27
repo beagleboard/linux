@@ -2537,6 +2537,16 @@ omap_hsmmc_pinctrl_lookup_state(struct omap_hsmmc_host *host, char *mode)
 	return state;
 }
 
+#define OMAP_HSMMC_SETUP_PINCTRL(capvar, capmask, pinctrl) 	\
+	do {							\
+		if (mmc->capvar & (capmask)) {				\
+			host->pinctrl##_pinctrl_state = 		\
+				omap_hsmmc_pinctrl_lookup_state(host, #pinctrl);\
+			if (IS_ERR(host->pinctrl##_pinctrl_state))	\
+				mmc->caps &= ~(capmask);		\
+		}							\
+	} while (0)
+
 static int omap_hsmmc_get_iodelay_pinctrl_state(struct omap_hsmmc_host *host)
 {
 	struct mmc_host *mmc = host->mmc;
@@ -2555,44 +2565,17 @@ static int omap_hsmmc_get_iodelay_pinctrl_state(struct omap_hsmmc_host *host)
 	if (IS_ERR(host->default_pinctrl_state))
 		return PTR_ERR(host->default_pinctrl_state);
 
-	host->sdr104_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host,
-								     "sdr104");
-	if (IS_ERR(host->sdr104_pinctrl_state))
-		mmc->caps &= ~MMC_CAP_UHS_SDR104;
-
-	host->hs200_1_8v_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host,
-								    "hs200_1_8v");
-	if (IS_ERR(host->hs200_1_8v_pinctrl_state))
-		mmc->caps2 &= ~MMC_CAP2_HS200_1_8V_SDR;
-
-	host->ddr50_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host,
-								    "ddr50");
-	if (IS_ERR(host->ddr50_pinctrl_state))
-		mmc->caps &= ~MMC_CAP_UHS_DDR50;
-
-	host->sdr50_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host,
-								    "sdr50");
-	if (IS_ERR(host->sdr50_pinctrl_state))
-		mmc->caps &= ~MMC_CAP_UHS_SDR50;
-
-	host->sdr25_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host,
-								    "sdr25");
-	if (IS_ERR(host->sdr25_pinctrl_state))
-		mmc->caps &= ~MMC_CAP_UHS_SDR25;
-
-	host->sdr12_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host,
-								    "sdr12");
-	if (IS_ERR(host->sdr12_pinctrl_state))
-		mmc->caps &= ~MMC_CAP_UHS_SDR12;
-
-	host->hs_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host, "hs");
-	if (IS_ERR(host->hs_pinctrl_state))
-		mmc->caps &= ~(MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED);
-
-	host->ddr_1_8v_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host,
-								   "ddr_1_8v");
-	if (IS_ERR(host->ddr_1_8v_pinctrl_state))
-		mmc->caps &= ~MMC_CAP_1_8V_DDR;
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_SDR104,	sdr104);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_DDR50,	ddr50);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_SDR50,	sdr50);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_SDR25,	sdr25);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_SDR12,	sdr12);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_1_8V_DDR,	ddr_1_8v);
+	OMAP_HSMMC_SETUP_PINCTRL(caps,
+				 MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED,
+				 hs);
+	OMAP_HSMMC_SETUP_PINCTRL(caps2,	MMC_CAP2_HS200_1_8V_SDR,
+				 hs200_1_8v);
 
 	host->pinctrl_state = host->default_pinctrl_state;
 
