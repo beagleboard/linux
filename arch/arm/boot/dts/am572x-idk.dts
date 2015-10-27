@@ -17,4 +17,13 @@
 	model = "TI AM572x IDK";
 	compatible = "ti,am572x-idk", "ti,am5728", "ti,dra742", "ti,dra74", \
 			"ti,dra7";
+
+	extcon_usb2: extcon_usb2 {
+		compatible = "linux,extcon-usb-gpio";
+		id-gpio = <&gpio3 16 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&omap_dwc3_2 {
+	extcon = <&extcon_usb2>;
 };
