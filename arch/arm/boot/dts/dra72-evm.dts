@@ -188,13 +188,6 @@
 };
 
 &dra7_pmx_core {
-	i2c5_pins: pinmux_i2c5_pins {
-		pinctrl-single,pins = <
-			0x2b4 (PIN_INPUT | MUX_MODE10) /* mcasp1_axr0.i2c5_sda */
-			0x2b8 (PIN_INPUT | MUX_MODE10) /* mcasp1_axr1.i2c5_scl */
-		>;
-	};
-
 	mmc1_pins_default: mmc1_pins_default {
 		pinctrl-single,pins = <
 			0x36c (PIN_INPUT | MUX_MODE14)	/* mmc1sdcd.gpio219 */
@@ -414,8 +407,6 @@
 
 &i2c5 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c5_pins>;
 	clock-frequency = <400000>;
 
 	pcf_hdmi: pcf8575@26 {
