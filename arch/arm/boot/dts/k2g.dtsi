@@ -375,5 +375,14 @@
 				interrupts = <GIC_SPI 324 IRQ_TYPE_EDGE_RISING>;
 			};
 		};
+
+		pmmc: pmmc {
+			compatible = "ti,k2g-sci";
+			mbox-names = "rx", "tx";
+			mboxes= <&msgmgr &msgmgr_proxy_pmmc_rx>,
+				<&msgmgr &msgmgr_proxy_pmmc_tx_prio0>;
+			reg-names = "debug_messages";
+			reg = <0x02921800 0x800>;
+		};
 	};
 };
