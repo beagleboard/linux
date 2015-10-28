@@ -58,7 +58,7 @@
 
 		dsp2_cma_pool: dsp2_cma@9f000000 {
 			compatible = "shared-dma-pool";
-			reg = <0x0 0x9f000000 0x0 0x800000>;
+			reg = <0x0 0x9f000000 0x0 0x1000000>;
 			reusable;
 			status = "okay";
 		};
