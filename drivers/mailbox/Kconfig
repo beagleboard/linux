@@ -54,6 +54,17 @@ config PCC
 	  states). Select this driver if your platform implements the
 	  PCC clients mentioned above.
 
+config TI_MESSAGE_MANAGER
+	bool "Texas Instruments MessageManager Driver"
+	depends on ARCH_KEYSTONE
+	help
+	  An implementation of Message Manager slave driver for Keystone
+	  architecture SoCs from Texas Instruments. Message Manager is a
+	  communication entity found on few of Texas Instrument's keystone
+	  architecture SoCs. These may be used for communication between
+	  multiple processors within the SoC. Select this driver if your
+	  platform has support for the hardware block.
+
 config ALTERA_MBOX
 	tristate "Altera Mailbox"
 	help
