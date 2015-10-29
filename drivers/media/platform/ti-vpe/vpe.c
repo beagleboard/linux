@@ -1902,6 +1902,90 @@ static int vpe_s_selection(struct file *file, void *fh,
 	return set_srcdst_params(ctx);
 }
 
+static int __vpe_try_crop(struct vpe_ctx *ctx, struct v4l2_crop *cr)
+{
+	struct vpe_q_data *q_data;
+
+	q_data = get_q_data(ctx, cr->type);
+	if (!q_data)
+		return -EINVAL;
+
+	/* we don't support crop on capture plane */
+	if (cr->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		cr->c.top = cr->c.left = 0;
+		cr->c.width = q_data->width;
+		cr->c.height = q_data->height;
+		return 0;
+	}
+
+	if (cr->c.top < 0 || cr->c.left < 0) {
+		vpe_err(ctx->dev, "negative values for top and left\n");
+		cr->c.top = cr->c.left = 0;
+	}
+
+	v4l_bound_align_image(&cr->c.width, MIN_W, q_data->width, 1,
+		&cr->c.height, MIN_H, q_data->height, H_ALIGN, S_ALIGN);
+
+	/* adjust left/top if cropping rectangle is out of bounds */
+	if (cr->c.left + cr->c.width > q_data->width)
+		cr->c.left = q_data->width - cr->c.width;
+	if (cr->c.top + cr->c.height > q_data->height)
+		cr->c.top = q_data->height - cr->c.height;
+
+	return 0;
+}
+
+static int vpe_cropcap(struct file *file, void *priv, struct v4l2_cropcap *cr)
+{
+	struct vpe_ctx *ctx = file2ctx(file);
+	struct vpe_q_data *q_data;
+
+	q_data = get_q_data(ctx, cr->type);
+	if (!q_data)
+		return -EINVAL;
+
+	cr->bounds.left = 0;
+	cr->bounds.top = 0;
+	cr->bounds.width = q_data->width;
+	cr->bounds.height = q_data->height;
+	cr->defrect = cr->bounds;
+
+	return 0;
+}
+
+static int vpe_g_crop(struct file *file, void *fh, struct v4l2_crop *cr)
+{
+	struct vpe_ctx *ctx = file2ctx(file);
+	struct vpe_q_data *q_data;
+
+	q_data = get_q_data(ctx, cr->type);
+	if (!q_data)
+		return -EINVAL;
+
+	cr->c = q_data->c_rect;
+
+	return 0;
+}
+
+static int vpe_s_crop(struct file *file, void *priv,
+		const struct v4l2_crop *crop)
+{
+	struct vpe_ctx *ctx = file2ctx(file);
+	struct vpe_q_data *q_data;
+	struct v4l2_crop cr = *crop;
+	int ret;
+
+	ret = __vpe_try_crop(ctx, &cr);
+	if (ret)
+		return ret;
+
+	q_data = get_q_data(ctx, cr.type);
+
+	q_data->c_rect = cr.c;
+
+	return set_srcdst_params(ctx);
+}
+
 /*
  * defines number of buffers/frames a context can process with VPE before
  * switching to a different context. default value is 1 buffer per context
@@ -1945,6 +2029,10 @@ static const struct v4l2_ioctl_ops vpe_ioctl_ops = {
 
 	.vidioc_g_selection		= vpe_g_selection,
 	.vidioc_s_selection		= vpe_s_selection,
+
+	.vidioc_cropcap			= vpe_cropcap,
+	.vidioc_g_crop			= vpe_g_crop,
+	.vidioc_s_crop			= vpe_s_crop,
 
 	.vidioc_reqbufs			= v4l2_m2m_ioctl_reqbufs,
 	.vidioc_querybuf		= v4l2_m2m_ioctl_querybuf,
