@@ -347,8 +347,14 @@ static int __fill_vb2_buffer(struct vb2_buffer *vb,
 				struct vb2_plane *pdst = &planes[plane];
 				struct v4l2_plane *psrc = &b->m.planes[plane];
 
-				if (psrc->bytesused == 0)
-					vb2_warn_zero_bytesused(vb);
+				/*
+				 * Suppress the warning for zero bytesused.
+				 * The warning will go away after proper
+				 * fix is done for "HACK: vb2: Remove the V4L2
+				 * check for DMABUF"
+				 */
+				/*if (psrc->bytesused == 0)
+					vb2_warn_zero_bytesused(vb);*/
 
 				if (vb->vb2_queue->allow_zero_bytesused)
 					pdst->bytesused = psrc->bytesused;
