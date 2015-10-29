@@ -21,7 +21,8 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
-#include <linux/omap-dma.h>
+#include <linux/omap-dmaengine.h>
+#include <linux/edma.h>
 #include <linux/platform_device.h>
 #include <linux/err.h>
 #include <linux/clk.h>
@@ -39,7 +40,7 @@ struct ti_qspi_regs {
 };
 
 struct ti_qspi {
-	struct completion       transfer_complete;
+	struct completion	transfer_complete;
 
 	/* list synchronization */
 	struct mutex            list_lock;
@@ -50,8 +51,12 @@ struct ti_qspi {
 	void __iomem            *mmap_base;
 	struct clk		*fclk;
 	struct device           *dev;
-
 	struct ti_qspi_regs     ctx_reg;
+
+	dma_addr_t		mmap_phys_base;
+	dma_addr_t		rx_bb_dma_addr;
+	void			*rx_bb_addr;
+	struct dma_chan		*rx_chan;
 
 	u32 spi_max_frequency;
 	u32 cmd;
@@ -62,10 +67,6 @@ struct ti_qspi {
 
 #define QSPI_PID			(0x0)
 #define QSPI_SYSCONFIG			(0x10)
-#define QSPI_INTR_STATUS_RAW_SET	(0x20)
-#define QSPI_INTR_STATUS_ENABLED_CLEAR	(0x24)
-#define QSPI_INTR_ENABLE_SET_REG	(0x28)
-#define QSPI_INTR_ENABLE_CLEAR_REG	(0x2c)
 #define QSPI_SPI_CLOCK_CNTRL_REG	(0x40)
 #define QSPI_SPI_DC_REG			(0x44)
 #define QSPI_SPI_CMD_REG		(0x48)
@@ -94,7 +95,6 @@ struct ti_qspi {
 #define QSPI_RD_DUAL			(3 << 16)
 #define QSPI_RD_QUAD			(7 << 16)
 #define QSPI_INVAL			(4 << 16)
-#define QSPI_WC_CMD_INT_EN			(1 << 14)
 #define QSPI_FLEN(n)			((n - 1) << 0)
 #define QSPI_WLEN_MAX_BITS		128
 #define QSPI_WLEN_MAX_BYTES		16
@@ -102,10 +102,6 @@ struct ti_qspi {
 /* STATUS REGISTER */
 #define BUSY				0x01
 #define WC				0x02
-
-/* INTERRUPT REGISTER */
-#define QSPI_WC_INT_EN				(1 << 1)
-#define QSPI_WC_INT_DISABLE			(1 << 1)
 
 /* Device Control */
 #define QSPI_DD(m, n)			(m << (3 + n * 8))
@@ -126,6 +122,8 @@ struct ti_qspi {
 #define QSPI_SETUP_RD_QUAD		(0x3 << 12)
 #define QSPI_SETUP_ADDR_SHIFT		8
 #define QSPI_SETUP_DUMMY_SHIFT		10
+
+#define QSPI_DMA_BUFFER_SIZE		131072U
 
 static inline unsigned long ti_qspi_read(struct ti_qspi *qspi,
 		unsigned long reg)
@@ -224,6 +222,24 @@ static inline u32 qspi_is_busy(struct ti_qspi *qspi)
 	return stat & BUSY;
 }
 
+static inline int ti_qspi_poll_wc(struct ti_qspi *qspi)
+{
+	u32 stat;
+	unsigned long timeout = jiffies + QSPI_COMPLETION_TIMEOUT;
+
+	do {
+		stat = ti_qspi_read(qspi, QSPI_SPI_STATUS_REG);
+		if (stat & WC)
+			return 0;
+		cpu_relax();
+	} while (time_after(timeout, jiffies));
+
+	stat = ti_qspi_read(qspi, QSPI_SPI_STATUS_REG);
+	if (stat & WC)
+		return 0;
+	return  -ETIMEDOUT;
+}
+
 static int qspi_write_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 {
 	int wlen, count, xfer_len;
@@ -282,8 +298,7 @@ static int qspi_write_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 		}
 
 		ti_qspi_write(qspi, cmd, QSPI_SPI_CMD_REG);
-		if (!wait_for_completion_timeout(&qspi->transfer_complete,
-						 QSPI_COMPLETION_TIMEOUT)) {
+		if (ti_qspi_poll_wc(qspi)) {
 			dev_err(qspi->dev, "write timed out\n");
 			return -ETIMEDOUT;
 		}
@@ -322,8 +337,7 @@ static int qspi_read_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 			return -EBUSY;
 
 		ti_qspi_write(qspi, cmd, QSPI_SPI_CMD_REG);
-		if (!wait_for_completion_timeout(&qspi->transfer_complete,
-						 QSPI_COMPLETION_TIMEOUT)) {
+		if (ti_qspi_poll_wc(qspi)) {
 			dev_err(qspi->dev, "read timed out\n");
 			return -ETIMEDOUT;
 		}
@@ -366,6 +380,59 @@ static int qspi_transfer_msg(struct ti_qspi *qspi, struct spi_transfer *t)
 	}
 
 	return 0;
+}
+
+static void qspi_dma_callback(void *param)
+{
+	struct ti_qspi *qspi = param;
+
+	complete(&qspi->transfer_complete);
+}
+
+static int qspi_dma_transfer(struct ti_qspi *qspi, dma_addr_t dma_dst,
+			     dma_addr_t dma_src, size_t len)
+{
+	struct dma_chan *chan = qspi->rx_chan;
+	struct dma_device *dma_dev = chan->device;
+	dma_cookie_t cookie;
+	enum dma_ctrl_flags flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
+	struct dma_async_tx_descriptor *tx = NULL;
+	int ret;
+
+	tx = dma_dev->device_prep_dma_memcpy(chan, dma_dst, dma_src,
+					     len, flags);
+	if (!tx) {
+		dev_err(qspi->dev, "device_prep_dma_memcpy error\n");
+		ret = -EIO;
+		goto err;
+	}
+
+	tx->callback = qspi_dma_callback;
+	tx->callback_param = qspi;
+	cookie = tx->tx_submit(tx);
+
+	ret = dma_submit_error(cookie);
+	if (ret) {
+		dev_err(qspi->dev, "dma_submit_error %d\n", cookie);
+		goto err;
+	}
+
+	dma_async_issue_pending(chan);
+
+	ret = wait_for_completion_timeout(&qspi->transfer_complete,
+					  msecs_to_jiffies(len));
+	if (ret <= 0) {
+		dmaengine_terminate_all(chan);
+		dev_err(qspi->dev, "DMA wait_for_completion_timeout\n");
+		if (!ret)
+			ret = -ETIMEDOUT;
+		goto err;
+	}
+
+	ret = 0;
+
+err:
+	return ret;
 }
 
 static void ti_qspi_enable_memory_map(struct spi_device *spi)
@@ -445,8 +512,6 @@ static int ti_qspi_mmap_read(struct spi_master *master,
 
 	mutex_lock(&qspi->list_lock);
 
-	/* disable WC interrupt during memcpy */
-	ti_qspi_write(qspi, QSPI_WC_INT_DISABLE, QSPI_INTR_ENABLE_CLEAR_REG);
 	ti_qspi_enable_memory_map(spi);
 	list_for_each_entry(t, &m->transfers, transfer_list) {
 		if (t->tx_buf) {
@@ -467,7 +532,27 @@ static int ti_qspi_mmap_read(struct spi_master *master,
 		status = -EBUSY;
 		goto err;
 	}
-	memcpy((void *)to, qspi->mmap_base + from, len);
+	if (qspi->rx_chan) {
+		/*
+		 * Use bounce buffer as FS like jffs2, ubifs do not
+		 * provide kmalloc'd buffers.
+		 */
+		size_t readsize = len;
+		dma_addr_t dma_src = qspi->mmap_phys_base + from;
+
+		while (readsize != 0) {
+			size_t xfer_len = min(QSPI_DMA_BUFFER_SIZE, readsize);
+
+			qspi_dma_transfer(qspi, qspi->rx_bb_dma_addr,
+					  dma_src, xfer_len);
+			memcpy((void *)to, qspi->rx_bb_addr, xfer_len);
+			readsize -= xfer_len;
+			dma_src += xfer_len;
+			to += xfer_len;
+		}
+	} else {
+		memcpy_fromio((void *)to, qspi->mmap_base + from, len);
+	}
 
 err:
 	ti_qspi_disable_memory_map(spi);
@@ -508,9 +593,7 @@ static int ti_qspi_start_transfer_one(struct spi_master *master,
 	qspi->cmd = 0;
 	qspi->cmd |= QSPI_EN_CS(spi->chip_select);
 	qspi->cmd |= QSPI_FLEN(frame_length);
-	qspi->cmd |= QSPI_WC_CMD_INT_EN;
 
-	ti_qspi_write(qspi, QSPI_WC_INT_EN, QSPI_INTR_ENABLE_SET_REG);
 	ti_qspi_write(qspi, qspi->dc, QSPI_SPI_DC_REG);
 
 	mutex_lock(&qspi->list_lock);
@@ -538,31 +621,6 @@ static int ti_qspi_start_transfer_one(struct spi_master *master,
 	return status;
 }
 
-static irqreturn_t ti_qspi_isr(int irq, void *dev_id)
-{
-	struct ti_qspi *qspi = dev_id;
-	u16 int_stat;
-	u32 stat;
-
-	irqreturn_t ret = IRQ_HANDLED;
-
-	int_stat = ti_qspi_read(qspi, QSPI_INTR_STATUS_ENABLED_CLEAR);
-	stat = ti_qspi_read(qspi, QSPI_SPI_STATUS_REG);
-
-	if (!int_stat) {
-		dev_dbg(qspi->dev, "No IRQ triggered\n");
-		ret = IRQ_NONE;
-		goto out;
-	}
-
-	ti_qspi_write(qspi, QSPI_WC_INT_DISABLE,
-				QSPI_INTR_STATUS_ENABLED_CLEAR);
-	if (stat & WC)
-		complete(&qspi->transfer_complete);
-out:
-	return ret;
-}
-
 static int ti_qspi_runtime_resume(struct device *dev)
 {
 	struct ti_qspi      *qspi;
@@ -586,6 +644,7 @@ static int ti_qspi_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	struct resource         *r, *res_ctrl, *res_mmap;
 	struct device_node *np = pdev->dev.of_node;
+	dma_cap_mask_t mask;
 	u32 max_freq;
 	int ret = 0, num_cs, irq;
 
@@ -664,6 +723,7 @@ static int ti_qspi_probe(struct platform_device *pdev)
 	}
 
 	if (res_mmap) {
+		qspi->mmap_phys_base = (dma_addr_t)res_mmap->start;
 		qspi->mmap_base = devm_ioremap_resource(&pdev->dev, res_mmap);
 		if (IS_ERR(qspi->mmap_base)) {
 			ret = PTR_ERR(qspi->mmap_base);
@@ -671,21 +731,11 @@ static int ti_qspi_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = devm_request_irq(&pdev->dev, irq, ti_qspi_isr, 0,
-			dev_name(&pdev->dev), qspi);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Failed to register ISR for IRQ %d\n",
-				irq);
-		goto free_master;
-	}
-
 	qspi->fclk = devm_clk_get(&pdev->dev, "fck");
 	if (IS_ERR(qspi->fclk)) {
 		ret = PTR_ERR(qspi->fclk);
 		dev_err(&pdev->dev, "could not get clk: %d\n", ret);
 	}
-
-	init_completion(&qspi->transfer_complete);
 
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, QSPI_AUTOSUSPEND_TIMEOUT);
@@ -698,10 +748,29 @@ static int ti_qspi_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_master;
 
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_MEMCPY, mask);
+
+	qspi->rx_chan = dma_request_channel(mask, NULL, NULL);
+	if (!qspi->rx_chan) {
+		dev_err(qspi->dev,
+			"No Rx DMA available, using PIO mode\n");
+		ret = 0;
+		goto no_dma;
+	}
+	qspi->rx_bb_addr = dma_alloc_coherent(qspi->dev,
+					      QSPI_DMA_BUFFER_SIZE,
+					      &qspi->rx_bb_dma_addr,
+					      GFP_KERNEL | GFP_DMA);
+	if (!qspi->rx_bb_addr)
+		dev_err(qspi->dev,
+			"dma_alloc_coherent falied, using PIO mode\n");
+	init_completion(&qspi->transfer_complete);
 	return 0;
 
 free_master:
 	spi_master_put(master);
+no_dma:
 	return ret;
 }
 
@@ -716,7 +785,8 @@ static int ti_qspi_remove(struct platform_device *pdev)
 		return ret;
 	}
 
-	ti_qspi_write(qspi, QSPI_WC_INT_DISABLE, QSPI_INTR_ENABLE_CLEAR_REG);
+	dma_free_coherent(qspi->dev, QSPI_DMA_BUFFER_SIZE,
+			  qspi->rx_bb_addr, qspi->rx_bb_dma_addr);
 
 	pm_runtime_put(qspi->dev);
 	pm_runtime_disable(&pdev->dev);

@@ -87,6 +87,24 @@ extern int in_serving_softirq(void);
 #endif
 
 /*
+ * The preempt_count offset after preempt_disable();
+ */
+#if defined(CONFIG_PREEMPT_COUNT)
+# define PREEMPT_DISABLE_OFFSET	PREEMPT_OFFSET
+#else
+# define PREEMPT_DISABLE_OFFSET	0
+#endif
+
+/*
+ * The preempt_count offset after spin_lock()
+ */
+#if defined(CONFIG_PREEMPT_COUNT) && !defined(CONFIG_PREEMPT_RT_FULL)
+#define PREEMPT_LOCK_OFFSET	PREEMPT_OFFSET
+#else
+#define PREEMPT_LOCK_OFFSET	0
+#endif
+
+/*
  * The preempt_count offset needed for things like:
  *
  *  spin_lock_bh()
@@ -99,7 +117,7 @@ extern int in_serving_softirq(void);
  *
  * Work as expected.
  */
-#define SOFTIRQ_LOCK_OFFSET (SOFTIRQ_DISABLE_OFFSET + PREEMPT_CHECK_OFFSET)
+#define SOFTIRQ_LOCK_OFFSET (SOFTIRQ_DISABLE_OFFSET + PREEMPT_LOCK_OFFSET)
 
 /*
  * Are we running in atomic context?  WARNING: this macro cannot
@@ -115,7 +133,7 @@ extern int in_serving_softirq(void);
  * (used by the scheduler, *after* releasing the kernel lock)
  */
 #define in_atomic_preempt_off() \
-		((preempt_count() & ~PREEMPT_ACTIVE) != PREEMPT_CHECK_OFFSET)
+		((preempt_count() & ~PREEMPT_ACTIVE) != PREEMPT_DISABLE_OFFSET)
 
 #ifdef CONFIG_PREEMPT_COUNT
 # define preemptible()	(preempt_count() == 0 && !irqs_disabled())
