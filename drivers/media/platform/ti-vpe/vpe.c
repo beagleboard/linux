@@ -2111,6 +2111,18 @@ static int vpe_buf_prepare(struct vb2_buffer *vb)
 	for (i = 0; i < num_planes; i++)
 		vb2_set_plane_payload(vb, i, q_data->sizeimage[i]);
 
+	if (num_planes) {
+		if (vb->planes[0].m.fd ==
+		    vb->planes[1].m.fd) {
+			/*
+			 * So it appears we are in a single memory buffer
+			 * with 2 plane case. Then we need to also set the
+			 * data_offset properly
+			 */
+			vb->planes[1].data_offset =
+				vb2_get_plane_payload(vb, 0);
+		}
+	}
 	return 0;
 }
 
