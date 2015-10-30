@@ -18,6 +18,7 @@ bpf-direct-objs := bpf-direct.o
 
 # Try to match the kernel target.
 ifndef CONFIG_64BIT
+ifndef CONFIG_ARM
 
 # s390 has -m31 flag to build 31 bit binaries
 ifndef CONFIG_S390
@@ -35,4 +36,5 @@ HOSTLDLIBS_bpf-fancy += $(MFLAG)
 HOSTLDLIBS_dropper += $(MFLAG)
 endif
 always := $(hostprogs-m)
+endif
 endif
