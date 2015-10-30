@@ -20,6 +20,7 @@ bpf-direct-objs := bpf-direct.o
 # Try to match the kernel target.
 ifndef CROSS_COMPILE
 ifndef CONFIG_64BIT
+ifndef CONFIG_ARM
 
 # s390 has -m31 flag to build 31 bit binaries
 ifndef CONFIG_S390
@@ -44,5 +45,6 @@ else
 # is MIPS but the host isn't.
 ifndef CONFIG_MIPS
 always := $(hostprogs-m)
+endif
 endif
 endif
