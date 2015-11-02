@@ -804,8 +804,6 @@ static void drm_dp_destroy_mst_branch_device(struct kref *kref)
 	struct drm_dp_mst_port *port, *tmp;
 	bool wake_tx = false;
 
-	cancel_work_sync(&mstb->mgr->work);
-
 	/*
 	 * destroy all ports - don't need lock
 	 * as there are no more references to the mst branch
@@ -1977,6 +1975,8 @@ void drm_dp_mst_topology_mgr_suspend(struct drm_dp_mst_topology_mgr *mgr)
 	drm_dp_dpcd_writeb(mgr->aux, DP_MSTM_CTRL,
 			   DP_MST_EN | DP_UPSTREAM_IS_SRC);
 	mutex_unlock(&mgr->lock);
+	flush_work(&mgr->work);
+	flush_work(&mgr->destroy_connector_work);
 }
 EXPORT_SYMBOL(drm_dp_mst_topology_mgr_suspend);
 
@@ -2730,6 +2730,7 @@ EXPORT_SYMBOL(drm_dp_mst_topology_mgr_init);
  */
 void drm_dp_mst_topology_mgr_destroy(struct drm_dp_mst_topology_mgr *mgr)
 {
+	flush_work(&mgr->work);
 	flush_work(&mgr->destroy_connector_work);
 	mutex_lock(&mgr->payload_lock);
 	kfree(mgr->payloads);
@@ -2765,12 +2766,13 @@ static int drm_dp_mst_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs
 	if (msgs[num - 1].flags & I2C_M_RD)
 		reading = true;
 
-	if (!reading) {
+	if (!reading || (num - 1 > DP_REMOTE_I2C_READ_MAX_TRANSACTIONS)) {
 		DRM_DEBUG_KMS("Unsupported I2C transaction for MST device\n");
 		ret = -EIO;
 		goto out;
 	}
 
+	memset(&msg, 0, sizeof(msg));
 	msg.req_type = DP_REMOTE_I2C_READ;
 	msg.u.i2c_read.num_transactions = num - 1;
 	msg.u.i2c_read.port_number = port->port_num;

@@ -101,13 +101,13 @@ static __always_inline bool __preempt_count_dec_and_test(void)
 /*
  * Returns true when we need to resched and can (barring IRQ state).
  */
-static __always_inline bool should_resched(void)
+static __always_inline bool should_resched(int preempt_offset)
 {
 #ifdef CONFIG_PREEMPT_LAZY
-	return unlikely(!raw_cpu_read_4(__preempt_count) || \
+	return unlikely(raw_cpu_read_4(__preempt_count) == preempt_offset ||
 			test_thread_flag(TIF_NEED_RESCHED_LAZY));
 #else
-	return unlikely(!raw_cpu_read_4(__preempt_count));
+	return unlikely(raw_cpu_read_4(__preempt_count) == preempt_offset);
 #endif
 }
 
