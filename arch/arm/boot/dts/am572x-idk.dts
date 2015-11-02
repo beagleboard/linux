@@ -17,4 +17,9 @@
 	model = "TI AM572x IDK";
 	compatible = "ti,am572x-idk", "ti,am5728", "ti,dra742", "ti,dra74", \
 			"ti,dra7";
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
 };

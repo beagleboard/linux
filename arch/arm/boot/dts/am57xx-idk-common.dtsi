@@ -12,11 +12,6 @@
 		rtc1 = &rtc;
 	};
 
-	memory {
-		device_type = "memory";
-		reg = <0x0 0x80000000 0x0 0x80000000>;
-	};
-
 	vmain: fixedregulator-vmain {
 		compatible = "regulator-fixed";
 		regulator-name = "VMAIN";
