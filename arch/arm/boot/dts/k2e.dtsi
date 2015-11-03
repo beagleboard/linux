@@ -89,11 +89,12 @@
 			gpio,syscon-dev = <&devctrl 0x240>;
 		};
 
-		pcie1_phy: pciephy@2326000 {
+		pcie1_phy: phy@2326000 {
 			#phy-cells = <0>;
-			compatible = "ti,keystone-serdes-phy";
+			compatible = "ti,keystone-serdes-pcie";
 			reg = <0x02326000 0x4000>;
-			reg-names = "reg_serdes";
+			link-rate-kbps = <5000000>;
+			num-lanes = <2>;
 			status = "disabled";
 		};
 
@@ -110,10 +111,7 @@
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <2>;
-
-			/* PCIE phy */
 			phys = <&pcie1_phy>;
-			phy-names = "pcie-phy";
 
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 7>;
