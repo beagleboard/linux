@@ -46,9 +46,11 @@ static int tpd_connect(struct omap_dss_device *dssdev,
 	dst->src = dssdev;
 	dssdev->dst = dst;
 
-	gpiod_set_value_cansleep(ddata->ct_cp_hpd_gpio, 1);
-	/* DC-DC converter needs at max 300us to get to 90% of 5V */
-	udelay(300);
+	if (ddata->ct_cp_hpd_gpio) {
+		gpiod_set_value_cansleep(ddata->ct_cp_hpd_gpio, 1);
+		/* DC-DC converter needs at max 300us to get to 90% of 5V */
+		udelay(300);
+	}
 
 	return 0;
 }
@@ -64,7 +66,8 @@ static void tpd_disconnect(struct omap_dss_device *dssdev,
 	if (dst != dssdev->dst)
 		return;
 
-	gpiod_set_value_cansleep(ddata->ct_cp_hpd_gpio, 0);
+	if (ddata->ct_cp_hpd_gpio)
+		gpiod_set_value_cansleep(ddata->ct_cp_hpd_gpio, 0);
 
 	dst->src = NULL;
 	dssdev->dst = NULL;
@@ -240,7 +243,7 @@ static int tpd_probe(struct platform_device *pdev)
 	}
 
 
-	gpio = devm_gpiod_get_index(&pdev->dev, NULL, 0,
+	gpio = devm_gpiod_get_index_optional(&pdev->dev, NULL, 0,
 		 GPIOD_OUT_LOW);
 	if (IS_ERR(gpio))
 		goto err_gpio;
