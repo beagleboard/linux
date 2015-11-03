@@ -150,6 +150,38 @@ gbe_subsys: subsys@2090000 {
 	reg = <0x02090000 0x100>;
 };
 
+gbe_serdes: phy@232a000 {
+	status			= "disabled";
+	#phy-cells		= <0>;
+	compatible		= "ti,keystone-serdes-gbe";
+	reg			= <0x0232a000 0x2000>;
+	link-rate-kbps		= <1250000>;
+	num-lanes		= <4>;
+	/*rx-force-enable;*/
+	lanes {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		lane@0 {
+			/*loopback;*/
+			reg		= <0>;
+			control-rate	= <2>; /* quart */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <0 0 0 12 4>;
+			       /* c1 c2 cm att vreg */
+		};
+		lane@1 {
+			/*loopback;*/
+			reg		= <1>;
+			control-rate	= <2>; /* quart */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <0 0 0 12 4>;
+			       /* c1 c2 cm att vreg */
+		};
+	};
+};
+
 netcp: netcp@2000000 {
 	reg = <0x2620110 0x8>;
 	reg-names = "efuse";
@@ -170,12 +202,10 @@ netcp: netcp@2000000 {
 	ti,navigator-dma-names = "netrx0", "netrx1", "nettx";
 
 	netcp-devices {
-		ranges;
 		#address-cells = <1>;
 		#size-cells = <1>;
+		ranges;
 		gbe@90000 { /* ETHSS */
-			#address-cells = <1>;
-			#size-cells = <1>;
 			label = "netcp-gbe";
 			compatible = "ti,netcp-gbe";
 			syscon-subsys = <&gbe_subsys>;
@@ -183,6 +213,7 @@ netcp: netcp@2000000 {
 			/* enable-ale; */
 			tx-queue = <648>;
 			tx-channel = "nettx";
+			phys = <&gbe_serdes>;
 
 			interfaces {
 				gbe0: interface-0 {
