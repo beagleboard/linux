@@ -15,6 +15,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/genpd/k2g.h>
+#include <dt-bindings/clock/k2g.h>
 #include "skeleton.dtsi"
 
 / {
@@ -405,6 +406,12 @@
 				<&msgmgr &msgmgr_proxy_pmmc_tx_prio0>;
 			reg-names = "debug_messages";
 			reg = <0x02921c00 0x400>;
+		};
+
+		k2g_clks: k2g_clks {
+			compatible = "ti,sci-clk";
+			ti,sci = <&pmmc>;
+			#clock-cells = <2>;
 		};
 
 		k2g_pds: k2g_pds {
