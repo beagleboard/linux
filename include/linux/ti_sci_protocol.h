@@ -42,7 +42,7 @@ struct ti_sci_handle {
 	struct ti_sci_version_info version;
 };
 
-#ifdef CONFIG_TI_SCI_PROTOCOL
+#if IS_ENABLED(CONFIG_TI_SCI_PROTOCOL)
 const struct ti_sci_handle *ti_sci_get_handle(struct device *dev);
 int ti_sci_put_handle(const struct ti_sci_handle *handle);
 const struct ti_sci_handle *devm_ti_sci_get_handle(struct device *dev);
