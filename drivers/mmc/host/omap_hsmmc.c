@@ -115,6 +115,7 @@
 #define TC_EN			(1 << 1)
 #define BWR_EN			(1 << 4)
 #define BRR_EN			(1 << 5)
+#define CIRQ_EN                 (1 << 8)
 #define ERR_EN			(1 << 15)
 #define CTO_EN			(1 << 16)
 #define CCRC_EN			(1 << 17)
@@ -170,6 +171,8 @@
 #define SD_SDR50_MAX_FREQ	104000000
 
 #define AUTO_CMD23		(1 << 1)	/* Auto CMD23 support */
+#define CLKEXTFREE_ENABLED	(1 << 2)        /* CLKEXTFREE enabled */
+
 /*
  * One controller can have multiple slots, like on some omap boards using
  * omap.c controller driver. Luckily this is not currently done on any known
@@ -650,8 +653,8 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 {
 	unsigned int irq_mask;
 
-	if ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
-	    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200))
+	if (cmd && ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
+	    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200)))
 		/*
 		 * OMAP5/DRA74X/DRA72x Errata i802:
 		 * DCRC error interrupts (MMCHS_STAT[21] DCRC=0x1) can occur
@@ -665,8 +668,11 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 		irq_mask = INT_EN_MASK;
 
 	/* Disable timeout for erases or when using software timeout */
-	if (cmd->opcode == MMC_ERASE || host->need_i834_errata)
+	if (cmd && (cmd->opcode == MMC_ERASE || host->need_i834_errata))
 		irq_mask &= ~DTO_EN;
+
+	if (host->flags & CLKEXTFREE_ENABLED)
+		irq_mask |= CIRQ_EN;
 
 	OMAP_HSMMC_WRITE(host->base, STAT, STAT_CLEAR);
 	OMAP_HSMMC_WRITE(host->base, ISE, irq_mask);
@@ -2303,12 +2309,17 @@ static int omap_hsmmc_card_busy_low(struct omap_hsmmc_host *host)
 
 static int omap_hsmmc_card_busy_high(struct omap_hsmmc_host *host)
 {
+	int ret = true;
 	u32 value;
 	unsigned long timeout;
 
 	value = OMAP_HSMMC_READ(host->base, CON);
 	value |= CLKEXTFREE;
 	OMAP_HSMMC_WRITE(host->base, CON, value);
+
+	host->flags |= CLKEXTFREE_ENABLED;
+	disable_irq(host->irq);
+	omap_hsmmc_enable_irq(host, NULL);
 
 	timeout = jiffies + msecs_to_jiffies(1);
 	do {
@@ -2318,15 +2329,21 @@ static int omap_hsmmc_card_busy_high(struct omap_hsmmc_host *host)
 			value &= ~(CLKEXTFREE | PADEN);
 			OMAP_HSMMC_WRITE(host->base, CON,
 					 (value & ~(CLKEXTFREE | PADEN)));
-			return false;
+			ret = false;
+			goto disable_irq;
 		}
 
 		usleep_range(100, 200);
 	} while (!time_after(jiffies, timeout));
 
-	dev_dbg(mmc_dev(host->mmc), "timeout : i/o high 0x%x\n", value);
+	dev_err(mmc_dev(host->mmc), "timeout : i/o high 0x%x\n", value);
 
-	return true;
+disable_irq:
+	  omap_hsmmc_disable_irq(host);
+	  enable_irq(host->irq);
+	  host->flags &= ~CLKEXTFREE_ENABLED;
+
+	  return ret;
 }
 
 static int omap_hsmmc_card_busy(struct mmc_host *mmc)
