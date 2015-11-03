@@ -219,7 +219,6 @@ struct omap_hsmmc_host {
 	int			vqmmc_enabled;
 	resource_size_t		mapbase;
 	spinlock_t		irq_lock; /* Prevent races with irq handler */
-	struct completion	buf_ready;
 	unsigned int		dma_len;
 	unsigned int		dma_sg_idx;
 	unsigned char		bus_mode;
@@ -257,9 +256,6 @@ struct omap_hsmmc_host {
 	unsigned long		data_timeout;
 	unsigned int		need_i834_errata:1;
 
-	u32			*tuning_data;
-	int			tuning_size;
-
 	struct pinctrl		*pinctrl;
 	struct pinctrl_state	*pinctrl_state;
 	struct pinctrl_state	*default_pinctrl_state;
@@ -286,36 +282,6 @@ struct omap_hsmmc_host {
 struct omap_mmc_of_data {
 	u32 reg_offset;
 	u8 controller_flags;
-};
-
-static const u8 ref_tuning_4bits[] = {
-	0xff, 0x0f, 0xff, 0x00, 0xff, 0xcc, 0xc3, 0xcc,
-	0xc3, 0x3c, 0xcc, 0xff, 0xfe, 0xff, 0xfe, 0xef,
-	0xff, 0xdf, 0xff, 0xdd, 0xff, 0xfb, 0xff, 0xfb,
-	0xbf, 0xff, 0x7f, 0xff, 0x77, 0xf7, 0xbd, 0xef,
-	0xff, 0xf0, 0xff, 0xf0, 0x0f, 0xfc, 0xcc, 0x3c,
-	0xcc, 0x33, 0xcc, 0xcf, 0xff, 0xef, 0xff, 0xee,
-	0xff, 0xfd, 0xff, 0xfd, 0xdf, 0xff, 0xbf, 0xff,
-	0xbb, 0xff, 0xf7, 0xff, 0xf7, 0x7f, 0x7b, 0xde,
-};
-
-static const u8 ref_tuning_8bits[] = {
-	0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00,
-	0xff, 0xff, 0xcc, 0xcc, 0xcc, 0x33, 0xcc, 0xcc,
-	0xcc, 0x33, 0x33, 0xcc, 0xcc, 0xcc, 0xff, 0xff,
-	0xff, 0xee, 0xff, 0xff, 0xff, 0xee, 0xee, 0xff,
-	0xff, 0xff, 0xdd, 0xff, 0xff, 0xff, 0xdd, 0xdd,
-	0xff, 0xff, 0xff, 0xbb, 0xff, 0xff, 0xff, 0xbb,
-	0xbb, 0xff, 0xff, 0xff, 0x77, 0xff, 0xff, 0xff,
-	0x77, 0x77, 0xff, 0x77, 0xbb, 0xdd, 0xee, 0xff,
-	0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0x00,
-	0x00, 0xff, 0xff, 0xcc, 0xcc, 0xcc, 0x33, 0xcc,
-	0xcc, 0xcc, 0x33, 0x33, 0xcc, 0xcc, 0xcc, 0xff,
-	0xff, 0xff, 0xee, 0xff, 0xff, 0xff, 0xee, 0xee,
-	0xff, 0xff, 0xff, 0xdd, 0xff, 0xff, 0xff, 0xdd,
-	0xdd, 0xff, 0xff, 0xff, 0xbb, 0xff, 0xff, 0xff,
-	0xbb, 0xbb, 0xff, 0xff, 0xff, 0x77, 0xff, 0xff,
-	0xff, 0x77, 0x77, 0xff, 0x77, 0xbb, 0xdd, 0xee,
 };
 
 static void omap_hsmmc_start_dma_transfer(struct omap_hsmmc_host *host);
@@ -681,7 +647,7 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 	is_tuning = (cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
 		    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200);
 
-	if (is_tuning) {
+	if (is_tuning)
 		/*
 		 * OMAP5/DRA74X/DRA72x Errata i802:
 		 * DCRC error interrupts (MMCHS_STAT[21] DCRC=0x1) can occur
@@ -689,9 +655,9 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 		 * tuning procedure.
 		 */
 		irq_mask &= ~DCRC_EN;
-	} else if (host->use_dma) {
+
+	if (host->use_dma)
 		irq_mask &= ~(BRR_EN | BWR_EN);
-	}
 
 	/* Disable timeout for erases or when using software timeout */
 	if (cmd->opcode == MMC_ERASE || host->need_i834_errata)
@@ -1056,7 +1022,8 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 	if ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
 	    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200))
 		cmdreg |= DP_SELECT | DDIR;
-	else if (host->use_dma)
+
+	if (host->use_dma)
 		cmdreg |= DMAE;
 
 	host->req_in_progress = 1;
@@ -1307,7 +1274,6 @@ static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 	struct mmc_data *data;
 	int end_cmd = 0, end_trans = 0;
 	int error = 0;
-	int i;
 
 	data = host->data;
 	dev_vdbg(mmc_dev(host->mmc), "IRQ Status is %x\n", status);
@@ -1341,13 +1307,6 @@ static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 			}
 			dev_dbg(mmc_dev(host->mmc), "AC12 err: 0x%x\n", ac12);
 		}
-	}
-
-	if (status & BRR_EN) {
-		for (i = 0; i < host->tuning_size / 4; i++)
-			host->tuning_data[i] =
-				OMAP_HSMMC_READ(host->base, DATA);
-		complete(&host->buf_ready);
 	}
 
 	OMAP_HSMMC_WRITE(host->base, STAT, status);
@@ -2236,11 +2195,8 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	u32 phase_delay = 0;
 	u32 start_window = 0, max_window = 0;
 	u32 length = 0, max_len = 0;
-	const u8 *tuning_ref;
 	struct mmc_ios *ios = &mmc->ios;
 	struct omap_hsmmc_host *host;
-	struct mmc_command cmd = {0};
-	struct mmc_request mrq = {NULL};
 
 	/* clock tuning is not needed for upto 52MHz */
 	if (ios->clock <= OMAP_MMC_MAX_CLOCK)
@@ -2252,23 +2208,6 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	if (ios->timing == MMC_TIMING_UHS_SDR50 && !(val & CAPA2_TSDR50))
 		return 0;
 
-	switch (ios->bus_width) {
-	case MMC_BUS_WIDTH_8:
-		tuning_ref = ref_tuning_8bits;
-		host->tuning_size = sizeof(ref_tuning_8bits);
-		break;
-	case MMC_BUS_WIDTH_4:
-		tuning_ref = ref_tuning_4bits;
-		host->tuning_size = sizeof(ref_tuning_4bits);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	host->tuning_data = kzalloc(host->tuning_size, GFP_KERNEL);
-	if (!host->tuning_data)
-		return -ENOMEM;
-
 	val = OMAP_HSMMC_READ(host->base, DLL);
 	val |= DLL_SWT;
 	OMAP_HSMMC_WRITE(host->base, DLL, val);
@@ -2276,38 +2215,8 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	while (phase_delay <= MAX_PHASE_DELAY) {
 		omap_hsmmc_set_dll(host, phase_delay);
 
-		cmd.opcode = opcode;
-		cmd.arg = 0;
-		cmd.flags = MMC_RSP_R1 | MMC_CMD_ADTC;
-		cmd.retries = 0;
-		cmd.data = NULL;
-		cmd.error = 0;
+		cur_match = !mmc_send_tuning(mmc);
 
-		mrq.cmd = &cmd;
-		host->mrq = &mrq;
-		OMAP_HSMMC_WRITE(host->base, BLK, host->tuning_size);
-
-		/*
-		 * Tuning should use a 150ms timeout per section 25.4.13
-		 * "Sampling Clock Tuning" of DRA74x TRM revised February 2015.
-		 */
-		set_data_timeout(host, 150000000U, 0);
-		omap_hsmmc_start_command(host, &cmd, NULL);
-		host->cmd = NULL;
-		host->mrq = NULL;
-
-		ret = wait_for_completion_timeout(&host->buf_ready,
-						  msecs_to_jiffies(5000));
-		if (ret == 0) {
-			dev_err(mmc_dev(host->mmc), "Tuning buffer read ready timeout");
-			ret = -ETIMEDOUT;
-			goto tuning_error;
-		}
-
-		host->req_in_progress = false;
-
-		cur_match = !memcmp(host->tuning_data, tuning_ref,
-				    host->tuning_size);
 		if (cur_match) {
 			if (prev_match) {
 				length++;
@@ -2344,7 +2253,6 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	omap_hsmmc_reset_controller_fsm(host, SRD);
 	omap_hsmmc_reset_controller_fsm(host, SRC);
 
-	kfree(host->tuning_data);
 	return 0;
 
 tuning_error:
@@ -2355,7 +2263,6 @@ tuning_error:
 	omap_hsmmc_reset_controller_fsm(host, SRD);
 	omap_hsmmc_reset_controller_fsm(host, SRC);
 
-	kfree(host->tuning_data);
 	return ret;
 }
 
@@ -2670,7 +2577,6 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		mmc->f_max = OMAP_MMC_MAX_CLOCK;
 
 	spin_lock_init(&host->irq_lock);
-	init_completion(&host->buf_ready);
 	setup_timer(&host->timer, omap_hsmmc_soft_timeout,
 		    (unsigned long)host);
 
