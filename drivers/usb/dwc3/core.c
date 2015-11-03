@@ -1523,8 +1523,6 @@ static int dwc3_suspend(struct device *dev)
 		dwc3_otg_mask_irq(dwc);
 	}
 
-	dwc3_event_buffers_cleanup(dwc);
-
 	dwc->gctl = dwc3_readl(dwc->regs, DWC3_GCTL);
 
 	switch (dwc->dr_mode) {
@@ -1550,6 +1548,8 @@ static int dwc3_suspend(struct device *dev)
 		/* nothing */
 		break;
 	}
+
+	dwc3_event_buffers_cleanup(dwc);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	usb_phy_shutdown(dwc->usb3_phy);
