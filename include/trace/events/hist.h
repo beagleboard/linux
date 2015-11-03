@@ -9,6 +9,7 @@
 
 #if !defined(CONFIG_PREEMPT_OFF_HIST) && !defined(CONFIG_INTERRUPT_OFF_HIST)
 #define trace_preemptirqsoff_hist(a, b)
+#define trace_preemptirqsoff_hist_rcuidle(a, b)
 #else
 TRACE_EVENT(preemptirqsoff_hist,
 
@@ -33,6 +34,7 @@ TRACE_EVENT(preemptirqsoff_hist,
 
 #ifndef CONFIG_MISSED_TIMER_OFFSETS_HIST
 #define trace_hrtimer_interrupt(a, b, c, d)
+#define trace_hrtimer_interrupt_rcuidle(a, b, c, d)
 #else
 TRACE_EVENT(hrtimer_interrupt,
 

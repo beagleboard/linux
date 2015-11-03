@@ -6,12 +6,34 @@
 
 #ifdef CONFIG_PREEMPT_RT_FULL
 
-extern void local_bh_disable(void);
+extern void __local_bh_disable(void);
 extern void _local_bh_enable(void);
-extern void local_bh_enable(void);
-extern void local_bh_enable_ip(unsigned long ip);
-extern void __local_bh_disable_ip(unsigned long ip, unsigned int cnt);
-extern void __local_bh_enable_ip(unsigned long ip, unsigned int cnt);
+extern void __local_bh_enable(void);
+
+static inline void local_bh_disable(void)
+{
+	__local_bh_disable();
+}
+
+static inline void __local_bh_disable_ip(unsigned long ip, unsigned int cnt)
+{
+	__local_bh_disable();
+}
+
+static inline void local_bh_enable(void)
+{
+	__local_bh_enable();
+}
+
+static inline void __local_bh_enable_ip(unsigned long ip, unsigned int cnt)
+{
+	__local_bh_enable();
+}
+
+static inline void local_bh_enable_ip(unsigned long ip)
+{
+	__local_bh_enable();
+}
 
 #else
 

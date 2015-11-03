@@ -554,26 +554,14 @@ static void do_current_softirqs(void)
 	}
 }
 
-static void __local_bh_disable(void)
+void __local_bh_disable(void)
 {
 	if (++current->softirq_nestcnt == 1)
 		migrate_disable();
 }
+EXPORT_SYMBOL(__local_bh_disable);
 
-void local_bh_disable(void)
-{
-	__local_bh_disable();
-}
-EXPORT_SYMBOL(local_bh_disable);
-
-void __local_bh_disable_ip(unsigned long ip, unsigned int cnt)
-{
-	__local_bh_disable();
-	if (cnt & PREEMPT_CHECK_OFFSET)
-		preempt_disable();
-}
-
-static void __local_bh_enable(void)
+void __local_bh_enable(void)
 {
 	if (WARN_ON(current->softirq_nestcnt == 0))
 		return;
@@ -586,25 +574,7 @@ static void __local_bh_enable(void)
 	if (--current->softirq_nestcnt == 0)
 		migrate_enable();
 }
-
-void local_bh_enable(void)
-{
-	__local_bh_enable();
-}
-EXPORT_SYMBOL(local_bh_enable);
-
-extern void __local_bh_enable_ip(unsigned long ip, unsigned int cnt)
-{
-	__local_bh_enable();
-	if (cnt & PREEMPT_CHECK_OFFSET)
-		preempt_enable();
-}
-
-void local_bh_enable_ip(unsigned long ip)
-{
-	local_bh_enable();
-}
-EXPORT_SYMBOL(local_bh_enable_ip);
+EXPORT_SYMBOL(__local_bh_enable);
 
 void _local_bh_enable(void)
 {
