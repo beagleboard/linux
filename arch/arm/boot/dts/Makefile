@@ -426,6 +426,7 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-boneblack-emmc-overlay.dtb \
 	am335x-boneblack-bbb-exp-r.dtb \
 	am335x-boneblack-bbb-exp-c.dtb \
+	am335x-abbbi.dtb \
 	am335x-arduino-tre.dtb \
 	am335x-evm.dtb \
 	am335x-evmsk.dtb \
