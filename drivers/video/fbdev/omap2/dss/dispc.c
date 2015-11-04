@@ -1272,7 +1272,6 @@ void dispc_ovl_set_fifo_threshold(enum omap_plane plane, u32 low, u32 high)
 			plane != OMAP_DSS_WB)
 		dispc_write_reg(DISPC_OVL_PRELOAD(plane), min(high, 0xfffu));
 }
-EXPORT_SYMBOL(dispc_ovl_set_fifo_threshold);
 
 void dispc_enable_fifomerge(bool enable)
 {
@@ -1331,7 +1330,6 @@ void dispc_ovl_compute_fifo_thresholds(enum omap_plane plane,
 		*fifo_high = total_fifo_size - buf_unit;
 	}
 }
-EXPORT_SYMBOL(dispc_ovl_compute_fifo_thresholds);
 
 static void dispc_ovl_set_mflag(enum omap_plane plane, bool enable)
 {
