@@ -955,11 +955,11 @@ static int omap2_mcspi_request_dma(struct spi_device *spi)
 	dma_cap_set(DMA_SLAVE, mask);
 	sig = mcspi_dma->dma_rx_sync_dev;
 
-	mcspi_dma->dma_rx =
-		dma_request_slave_channel_compat(mask, omap_dma_filter_fn,
-						 &sig, &master->dev,
-						 mcspi_dma->dma_rx_ch_name);
-	if (!mcspi_dma->dma_rx)
+	//mcspi_dma->dma_rx =
+	//	dma_request_slave_channel_compat(mask, omap_dma_filter_fn,
+	//					 &sig, &master->dev,
+	//					 mcspi_dma->dma_rx_ch_name);
+	//if (!mcspi_dma->dma_rx)
 		goto no_dma;
 
 	sig = mcspi_dma->dma_tx_sync_dev;
