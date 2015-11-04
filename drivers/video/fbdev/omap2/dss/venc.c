@@ -463,7 +463,7 @@ static int venc_power_on(struct omap_dss_device *dssdev)
 	if (r)
 		goto err1;
 
-	r = dss_mgr_enable(mgr);
+	r = dss_mgr_enable(mgr->id);
 	if (r)
 		goto err2;
 
