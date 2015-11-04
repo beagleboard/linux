@@ -32,7 +32,7 @@
 
 #include "sta321mp.h"
 
-#define STA321MP_RATES		(SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_176400)
+#define STA321MP_RATES		(SNDRV_PCM_RATE_48000)
 #define STA321MP_FORMAT		(SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S32_LE)
 
 static const struct reg_default sta321mp_reg_defaults[] = {
@@ -146,7 +146,7 @@ static void sta321mp_write_ram(struct snd_soc_codec *codec, unsigned int address
 static void sta321mp_mixer(struct snd_soc_codec *codec, int mix, int ch_out, int ch_in, unsigned int value)
 {
   unsigned int address = 0x1A0 + 64*(mix-1) + 8*(ch_out-1) + (ch_in-1);
-  printk("Mixer address: %x\n", address);
+  //printk("Mixer address: %x\n", address);
   sta321mp_write_ram(codec, address, value);
 }
 
@@ -192,6 +192,34 @@ static void sta321mp_biquad(struct snd_soc_codec *codec, int channel, int biquad
 static int sta321mp_set_bits(struct snd_soc_codec *codec)
 {
 
+//#define NEWBOARD
+#ifdef NEWBOARD
+
+  printk("sta321mp: newboard config.\n");
+  snd_soc_write(codec, STA321MP_CONFA, 0x9b);
+  //snd_soc_write(codec, STA321MP_CONFC, 0x20); // with decimation by 4
+  snd_soc_write(codec, STA321MP_CONFC, 0x00); // without decimation by 4
+
+  snd_soc_write(codec, STA321MP_CONFE, 0x0c);
+  snd_soc_write(codec, STA321MP_CONFF, 0x18); /* use all biquad identical to channel 1 */
+  snd_soc_write(codec, STA321MP_CONFH, 0x7a);
+  snd_soc_write(codec, STA321MP_CONFI, 0x80);
+  snd_soc_write(codec, STA321MP_MVOL, 0x00);
+
+  snd_soc_write(codec, STA321MP_C1VOL, 0x36);
+  snd_soc_write(codec, STA321MP_C2VOL, 0x36);
+  snd_soc_write(codec, STA321MP_C3VOL, 0x36);
+  snd_soc_write(codec, STA321MP_C4VOL, 0x36);
+  snd_soc_write(codec, STA321MP_C5VOL, 0x36);
+  snd_soc_write(codec, STA321MP_C6VOL, 0x36);
+  snd_soc_write(codec, STA321MP_C7VOL, 0x36);
+  snd_soc_write(codec, STA321MP_C8VOL, 0x36);
+
+  snd_soc_write(codec, 0x5d, 0x01);
+  snd_soc_write(codec, 0x81, 0x09);
+
+#else
+
   snd_soc_write(codec, STA321MP_CONFA, 0x9b);
 
   snd_soc_write(codec, STA321MP_CONFE, 0x0c);
@@ -209,44 +237,8 @@ static int sta321mp_set_bits(struct snd_soc_codec *codec)
   snd_soc_write(codec, STA321MP_C7VOL, 0x36);
   snd_soc_write(codec, STA321MP_C8VOL, 0x36);
 
-  /*
-  snd_soc_write(codec, STA321MP_C12IM, 0x10);
-  snd_soc_write(codec, STA321MP_C34IM, 0x32);
-  snd_soc_write(codec, STA321MP_C56IM, 0x54);
-  snd_soc_write(codec, STA321MP_C78IM, 0x76);
-  */
-
-#if 0
-  snd_soc_write(codec, 0x2a, 0xFF); /* EQ bypass */
-  snd_soc_write(codec, 0x2b, 0xFF); /* Tone bypass */
-#endif
-
   snd_soc_write(codec, 0x5d, 0x01);
   snd_soc_write(codec, 0x81, 0x09);
-
-
-  /*
-  sta321mp_mixer(codec, 1, 1, 1, 0x7FFFFF);
-  sta321mp_mixer(codec, 1, 2, 2, 0x7FFFFF);
-  sta321mp_mixer(codec, 2, 1, 1, 0x7FFFFF);
-  sta321mp_mixer(codec, 2, 2, 2, 0x7FFFFF);
-
-  // High-pass filter 
-  sta321mp_biquad(codec, 1, 1, -16739988/2, 8369994, -(-16739946)/2, -(8351421), 8369994/2);
-  */
-
-  // Low-pass filter butter(2, 0.25)
-  /*
-  sta321mp_biquad(codec, 1, 2, 1631911/2, 815955, -(-7927639)/2, -(2802852), 815955/2);
-  sta321mp_biquad(codec, 1, 3, 1631911/2, 815955, -(-7927639)/2, -(2802852), 815955/2);
-  sta321mp_biquad(codec, 1, 4, 1631911/2, 815955, -(-7927639)/2, -(2802852), 815955/2);
-  sta321mp_biquad(codec, 1, 5, 1631911/2, 815955, -(-7927639)/2, -(2802852), 815955/2);
-  sta321mp_biquad(codec, 1, 6, 1631911/2, 815955, -(-7927639)/2, -(2802852), 815955/2);
-  sta321mp_biquad(codec, 1, 7, 1631911/2, 815955, -(-7927639)/2, -(2802852), 815955/2);
-  sta321mp_biquad(codec, 1, 8, 1631911/2, 815955, -(-7927639)/2, -(2802852), 815955/2);
-  sta321mp_biquad(codec, 1, 9, 1631911/2, 815955, -(-7927639)/2, -(2802852), 815955/2);
-  sta321mp_biquad(codec, 1, 10, 1631911/2, 815955, -(-7927639)/2, -(2802852), 815955/2);
-  */
 
   /* Butter order 18 */
   sta321mp_biquad(codec, 1, 2,  0xb1aac, 0xb1aac, 0x5ba67f, -0x7233c3, 0x58d56);
@@ -270,6 +262,7 @@ static int sta321mp_set_bits(struct snd_soc_codec *codec)
   sta321mp_biquad(codec, 1, 9,  0x1d9de9, 0x438e60, 0xdf4bb,  -0xd2641,  0x21c730);
   sta321mp_biquad(codec, 1, 10, 0x3dd3f0, 0x438e60, 0x46f00,  -0x1a75e,  0x21c730);
   */
+#endif
 
   // set pwm output
 #if 1
@@ -319,13 +312,16 @@ static int sta321mp_hw_params(struct snd_pcm_substream *substream,
 	switch (params_format(params)) {
   case SNDRV_PCM_FORMAT_S32_LE:
   case SNDRV_PCM_FORMAT_S24_LE:
+    printk("4 bytes\n");
     fmt |= I2S_S24_LE;
 		break;
   case SNDRV_PCM_FORMAT_S24_3LE:
     fmt |= I2S_S24_3LE;
+    printk("3 bytes\n");
 		break;
   case SNDRV_PCM_FORMAT_S16_LE:
     fmt |= I2S_S16_LE;
+    printk("2 bytes\n");
     break;
 	default:
 		dev_err(codec->dev, "Unsupported format\n");
@@ -334,10 +330,11 @@ static int sta321mp_hw_params(struct snd_pcm_substream *substream,
   fmt |= I2S_MSB_1ST;
 
 	switch (params_rate(params)) {
-  case 176400:
-    fmt |= I2S_DIV_1;
-    break;
-	case 44100:
+  //case 48000:
+    //fmt |= I2S_DIV_1;
+    //break;
+	case 48000:
+    printk("Div4\n");
     fmt |= I2S_DIV_4;
 		break;
 	default:
@@ -345,10 +342,12 @@ static int sta321mp_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-  snd_soc_write(codec, STA321MP_CONFC, fmt);
+  printk("FMT conf byte: %x\n", fmt);
 
   printk("sta321mp_hw_params: setting codec bits.\n");
   sta321mp_set_bits(codec);
+  //snd_soc_write(codec, STA321MP_CONFC, fmt);
+  snd_soc_write(codec, STA321MP_CONFC, fmt);
 
 	return 0;
 }
@@ -417,7 +416,7 @@ static int sta321mp_probe(struct snd_soc_codec *codec)
 	//sta321mp_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
   /* set the update bits */
-#if 1
+#if 0
 	snd_soc_update_bits(codec, STA321MP_CONFA,  0xFF, PDM_I_EN );       /* R0  0x9B - PDM interface enable */
 	snd_soc_update_bits(codec, STA321MP_CONFC,  0xFF, FS_XTI_256 );     /* R2  0x20 - FS = XTI/256 */
 	snd_soc_update_bits(codec, STA321MP_CONFE,  0xFF, CH78_BIN );       /* R4  0xC0 - Ch4/5 binary */
@@ -456,7 +455,9 @@ static int sta321mp_probe(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, 0x4c, 0xFF, 0x01 );  /* =                                         */
 	snd_soc_update_bits(codec, STA321MP_RCTR1,  0xFF, MIC_MODE );       /* R5D 0x01 - Microphone mode */
 	snd_soc_update_bits(codec, STA321MP_CFR129,  0xFF, I2S_OUT );       /* R81 0x09 - Output I2S i/f pins set as output */
-#else
+#endif
+
+#if 0
   snd_soc_write(codec, 0x00, 0x9b);
   snd_soc_write(codec, 0x02, 0x20);
   snd_soc_write(codec, 0x04, 0x0c);

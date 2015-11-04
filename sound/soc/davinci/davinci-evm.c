@@ -31,8 +31,6 @@
 #include "davinci-pcm.h"
 #include "davinci-i2s.h"
 
-#include "sta321mp.h"
-
 #define STA321MP_AUDIO_FORMAT (SND_SOC_DAIFMT_CBM_CFM | \
     SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF)
 #define STA321MP_BCLK_LRCLK_RATIO 64
@@ -127,7 +125,8 @@ static int evm_sta321mp_hw_params(struct snd_pcm_substream *substream,
   printk("sysclk: %d\n", (int)sysclk);
   printk("bclk: %d\n", (int)bclk_freq);
 
-  ret = snd_soc_dai_set_clkdiv(cpu_dai, 1, sysclk/bclk_freq);
+  ret = snd_soc_dai_set_clkdiv(cpu_dai, 1, 24000000/bclk_freq);
+  //ret = snd_soc_dai_set_clkdiv(cpu_dai, 2, 64);
   if (ret < 0) {
     dev_err(&pdev->dev, "can't set CPU DAI clock divider %d\n",
         ret);
