@@ -105,6 +105,8 @@ struct dispc_features {
 
 	/* PIXEL_INC is not added to the last pixel of a line */
 	bool last_pixel_inc_missing:1;
+
+	bool has_writeback:1;
 };
 
 #define DISPC_MAX_NR_FIFOS 5
@@ -712,7 +714,6 @@ static void dispc_setup_color_conv_coef(void)
 {
 	int i;
 	int num_ovl = dss_feat_get_num_ovls();
-	int num_wb = dss_feat_get_num_wbs();
 	const struct color_conv_coef ctbl_bt601_5_ovl = {
 		298, 409, 0, 298, -208, -100, 298, 0, 517, 0,
 	};
@@ -723,8 +724,8 @@ static void dispc_setup_color_conv_coef(void)
 	for (i = 1; i < num_ovl; i++)
 		dispc_ovl_write_color_conv_coef(i, &ctbl_bt601_5_ovl);
 
-	for (; i < num_wb; i++)
-		dispc_ovl_write_color_conv_coef(i, &ctbl_bt601_5_wb);
+	if (dispc.feat->has_writeback)
+		dispc_ovl_write_color_conv_coef(OMAP_DSS_WB, &ctbl_bt601_5_wb);
 }
 
 static void dispc_ovl_set_ba0(enum omap_plane plane, u32 paddr)
@@ -3567,7 +3568,7 @@ static void dispc_dump_regs(struct seq_file *s)
 			DUMPREG(i, DISPC_OVL_ATTRIBUTES2);
 	}
 
-	if (dss_feat_get_num_wbs()) {
+	if (dispc.feat->has_writeback) {
 		i = OMAP_DSS_WB;
 		DUMPREG(i, DISPC_OVL_BA0);
 		DUMPREG(i, DISPC_OVL_BA1);
@@ -3900,6 +3901,7 @@ static const struct dispc_features omap44xx_dispc_feats __initconst = {
 	.gfx_fifo_workaround	=	true,
 	.set_max_preload	=	true,
 	.alt_clk_dsi_pll	=	true,
+	.has_writeback		=	true,
 };
 
 static const struct dispc_features omap54xx_dispc_feats __initconst = {
@@ -3922,6 +3924,7 @@ static const struct dispc_features omap54xx_dispc_feats __initconst = {
 	.mstandby_workaround	=	true,
 	.set_max_preload	=	true,
 	.alt_clk_dsi_pll	=	true,
+	.has_writeback		=	true,
 };
 
 static const struct dispc_features dra7xx_dispc_feats __initconst = {
@@ -3945,6 +3948,7 @@ static const struct dispc_features dra7xx_dispc_feats __initconst = {
 	.set_max_preload	=	true,
 	.alt_clk_dsi_pll	=	false,
 	.has_ctrl_core_sma_sw_1	=	true,
+	.has_writeback		=	true,
 };
 
 static int __init dispc_init_features(struct platform_device *pdev)
