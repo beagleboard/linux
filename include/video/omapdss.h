@@ -865,12 +865,6 @@ void videomode_to_omap_video_timings(const struct videomode *vm,
 void omap_video_timings_to_videomode(const struct omap_video_timings *ovt,
 		struct videomode *vm);
 
-int dss_feat_get_num_mgrs(void);
-int dss_feat_get_num_ovls(void);
-enum omap_color_mode dss_feat_get_supported_color_modes(enum omap_plane plane);
-
-
-
 int omap_dss_get_num_overlay_managers(void);
 struct omap_overlay_manager *omap_dss_get_overlay_manager(int num);
 
@@ -910,6 +904,9 @@ void dispc_free_irq(void *dev_id);
 int dispc_runtime_get(void);
 void dispc_runtime_put(void);
 
+int dispc_get_num_ovls(void);
+int dispc_get_num_mgrs(void);
+
 enum omap_dss_output_id dispc_mgr_get_supported_outputs(enum omap_channel channel);
 void dispc_mgr_enable(enum omap_channel channel, bool enable);
 bool dispc_mgr_is_enabled(enum omap_channel channel);
@@ -924,6 +921,7 @@ void dispc_mgr_set_timings(enum omap_channel channel,
 		const struct omap_video_timings *timings);
 void dispc_mgr_setup(enum omap_channel channel,
 		const struct omap_overlay_manager_info *info);
+enum omap_dss_output_id dispc_mgr_get_supported_outputs(enum omap_channel channel);
 
 int dispc_ovl_check(enum omap_plane plane, enum omap_channel channel,
 		const struct omap_overlay_info *oi,
@@ -937,6 +935,7 @@ void dispc_ovl_set_channel_out(enum omap_plane plane,
 int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
 		bool replication, const struct omap_video_timings *mgr_timings,
 		bool mem_to_mem);
+enum omap_color_mode dispc_ovl_get_color_modes(enum omap_plane plane);
 
 int omapdss_compat_init(void);
 void omapdss_compat_uninit(void);
