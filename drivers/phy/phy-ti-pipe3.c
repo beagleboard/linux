@@ -91,6 +91,8 @@ struct pipe3_dpll_map {
 
 struct ti_pipe3 {
 	void __iomem		*pll_ctrl_base;
+	void __iomem		*phy_rx;
+	void __iomem		*phy_tx;
 	struct device		*dev;
 	struct device		*control_dev;
 	struct clk		*wkupclk;
@@ -544,6 +546,27 @@ static int ti_pipe3_get_pll_base(struct ti_pipe3 *phy)
 	return 0;
 }
 
+static int ti_pipe3_get_rx_tx_base(struct ti_pipe3 *phy)
+{
+	struct resource *res;
+	struct device *dev = phy->dev;
+	struct platform_device *pdev = to_platform_device(dev);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "phy_rx");
+	phy->phy_rx = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(phy->phy_rx))
+		return PTR_ERR(phy->phy_rx);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "phy_tx");
+	phy->phy_tx = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(phy->phy_tx))
+		return PTR_ERR(phy->phy_tx);
+
+	return 0;
+}
+
 static int ti_pipe3_probe(struct platform_device *pdev)
 {
 	struct ti_pipe3 *phy;
@@ -560,6 +583,10 @@ static int ti_pipe3_probe(struct platform_device *pdev)
 	phy->dev		= dev;
 
 	ret = ti_pipe3_get_pll_base(phy);
+	if (ret)
+		return ret;
+
+	ret = ti_pipe3_get_rx_tx_base(phy);
 	if (ret)
 		return ret;
 
