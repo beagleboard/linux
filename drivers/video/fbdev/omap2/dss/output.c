@@ -179,7 +179,12 @@ struct omap_overlay_manager *omapdss_find_mgr_from_display(struct omap_dss_devic
 	if (out == NULL)
 		return NULL;
 
-	mgr = out->manager;
+	if (!out->dispc_channel_connected) {
+		omap_dss_put_device(out);
+		return NULL;
+	}
+
+	mgr = omap_dss_get_overlay_manager(out->dispc_channel);
 
 	omap_dss_put_device(out);
 
