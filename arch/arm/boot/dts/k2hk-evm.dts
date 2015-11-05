@@ -53,6 +53,11 @@
 				clock-output-names = "refclk-ddr3b";
 			};
 		};
+
+		mpm_mem: dspmem {
+			compatible = "ti,keystone-dsp-mem";
+			reg = <0x0c000000 0x00600000>;
+		};
 	};
 
 	leds {
