@@ -129,6 +129,29 @@ struct omap_overlay_manager *omap_dss_get_overlay_manager(int num)
 }
 EXPORT_SYMBOL(omap_dss_get_overlay_manager);
 
+struct omap_overlay_manager *omapdss_find_mgr_from_display(struct omap_dss_device *dssdev)
+{
+	struct omap_dss_device *out;
+	struct omap_overlay_manager *mgr;
+
+	out = omapdss_find_output_from_display(dssdev);
+
+	if (out == NULL)
+		return NULL;
+
+	if (!out->dispc_channel_connected) {
+		omap_dss_put_device(out);
+		return NULL;
+	}
+
+	mgr = omap_dss_get_overlay_manager(out->dispc_channel);
+
+	omap_dss_put_device(out);
+
+	return mgr;
+}
+EXPORT_SYMBOL(omapdss_find_mgr_from_display);
+
 int dss_mgr_simple_check(struct omap_overlay_manager *mgr,
 		const struct omap_overlay_manager_info *info)
 {
