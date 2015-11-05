@@ -513,7 +513,7 @@ static int dpi_check_timings(struct omap_dss_device *dssdev,
 	struct dpi_clk_calc_ctx ctx;
 	bool ok;
 
-	if (mgr && !dispc_mgr_timings_ok(mgr->id, timings))
+	if (!dispc_mgr_timings_ok(mgr->id, timings))
 		return -EINVAL;
 
 	if (timings->pixelclock == 0)
