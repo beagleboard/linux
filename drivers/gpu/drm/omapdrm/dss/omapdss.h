@@ -20,6 +20,8 @@
 
 #include <video/omapdss.h>
 
+void omapdss_set_is_initialized(bool set);
+
 u32 dispc_read_irqstatus(void);
 void dispc_clear_irqstatus(u32 mask);
 u32 dispc_read_irqenable(void);
