@@ -41,8 +41,8 @@ static void omap_irq_update(struct drm_device *dev)
 
 	DBG("irqmask=%08x", irqmask);
 
-	dispc_write_irqenable(irqmask);
-	dispc_read_irqenable();        /* flush posted write */
+	priv->dispc_ops->write_irqenable(irqmask);
+	priv->dispc_ops->read_irqenable();        /* flush posted write */
 }
 
 void __omap_irq_register(struct drm_device *dev, struct omap_drm_irq *irq)
@@ -63,11 +63,13 @@ void __omap_irq_register(struct drm_device *dev, struct omap_drm_irq *irq)
 
 void omap_irq_register(struct drm_device *dev, struct omap_drm_irq *irq)
 {
-	dispc_runtime_get();
+	struct omap_drm_private *priv = dev->dev_private;
+
+	priv->dispc_ops->runtime_get();
 
 	__omap_irq_register(dev, irq);
 
-	dispc_runtime_put();
+	priv->dispc_ops->runtime_put();
 }
 
 void __omap_irq_unregister(struct drm_device *dev, struct omap_drm_irq *irq)
@@ -87,11 +89,13 @@ void __omap_irq_unregister(struct drm_device *dev, struct omap_drm_irq *irq)
 
 void omap_irq_unregister(struct drm_device *dev, struct omap_drm_irq *irq)
 {
-	dispc_runtime_get();
+	struct omap_drm_private *priv = dev->dev_private;
+
+	priv->dispc_ops->runtime_get();
 
 	__omap_irq_unregister(dev, irq);
 
-	dispc_runtime_put();
+	priv->dispc_ops->runtime_put();
 }
 
 struct omap_irq_wait {
@@ -192,9 +196,9 @@ static irqreturn_t omap_irq_handler(int irq, void *arg)
 	unsigned int id;
 	u32 irqstatus;
 
-	irqstatus = dispc_read_irqstatus();
-	dispc_clear_irqstatus(irqstatus);
-	dispc_read_irqstatus();        /* flush posted write */
+	irqstatus = priv->dispc_ops->read_irqstatus();
+	priv->dispc_ops->clear_irqstatus(irqstatus);
+	priv->dispc_ops->read_irqstatus();        /* flush posted write */
 
 	VERB("irqs: %08x", irqstatus);
 
@@ -233,11 +237,11 @@ int omap_drm_irq_install(struct drm_device *dev)
 
 	INIT_LIST_HEAD(&priv->irq_list);
 
-	dispc_runtime_get();
-	dispc_clear_irqstatus(0xffffffff);
-	dispc_runtime_put();
+	priv->dispc_ops->runtime_get();
+	priv->dispc_ops->clear_irqstatus(0xffffffff);
+	priv->dispc_ops->runtime_put();
 
-	ret = dispc_request_irq(omap_irq_handler, dev);
+	ret = priv->dispc_ops->request_irq(omap_irq_handler, dev);
 	if (ret < 0)
 		return ret;
 
@@ -258,6 +262,7 @@ int omap_drm_irq_install(struct drm_device *dev)
 
 void omap_drm_irq_uninstall(struct drm_device *dev)
 {
+	struct omap_drm_private *priv = dev->dev_private;
 	unsigned long irqflags;
 	int i;
 
@@ -278,5 +283,5 @@ void omap_drm_irq_uninstall(struct drm_device *dev)
 		spin_unlock_irqrestore(&dev->vbl_lock, irqflags);
 	}
 
-	dispc_free_irq(dev);
+	priv->dispc_ops->free_irq(dev);
 }
