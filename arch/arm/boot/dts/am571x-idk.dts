@@ -5,30 +5,20 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
 /dts-v1/;
 
-#include "dra74x.dtsi"
+#include "dra72x.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "am57xx-idk-common.dtsi"
 
 / {
-	model = "TI AM572x IDK";
-	compatible = "ti,am572x-idk", "ti,am5728", "ti,dra742", "ti,dra74", \
-			"ti,dra7";
+	model = "TI AM571x IDK";
+	compatible = "ti,am571x-idk", "ti,am5718", "ti,dra722", \
+			"ti,dra72", "ti,dra7";
 
 	memory {
 		device_type = "memory";
-		reg = <0x0 0x80000000 0x0 0x80000000>;
+		reg = <0x0 0x80000000 0x0 0x40000000>;
 	};
-
-	extcon_usb2: extcon_usb2 {
-		compatible = "linux,extcon-usb-gpio";
-		id-gpio = <&gpio3 16 GPIO_ACTIVE_HIGH>;
-	};
-};
-
-&omap_dwc3_2 {
-	extcon = <&extcon_usb2>;
 };
