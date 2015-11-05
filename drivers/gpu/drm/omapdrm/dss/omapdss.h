@@ -36,6 +36,9 @@ void dispc_free_irq(void *dev_id);
 int dispc_runtime_get(void);
 void dispc_runtime_put(void);
 
+int dispc_get_num_ovls(void);
+int dispc_get_num_mgrs(void);
+
 void dispc_mgr_enable(enum omap_channel channel, bool enable);
 bool dispc_mgr_is_enabled(enum omap_channel channel);
 u32 dispc_mgr_get_vsync_irq(enum omap_channel channel);
@@ -49,6 +52,7 @@ void dispc_mgr_set_timings(enum omap_channel channel,
 		const struct omap_video_timings *timings);
 void dispc_mgr_setup(enum omap_channel channel,
 		const struct omap_overlay_manager_info *info);
+enum omap_dss_output_id dispc_mgr_get_supported_outputs(enum omap_channel channel);
 
 int dispc_ovl_enable(enum omap_plane plane, bool enable);
 bool dispc_ovl_enabled(enum omap_plane plane);
@@ -57,6 +61,7 @@ void dispc_ovl_set_channel_out(enum omap_plane plane,
 int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
 		bool replication, const struct omap_video_timings *mgr_timings,
 		bool mem_to_mem);
+enum omap_color_mode dispc_ovl_get_color_modes(enum omap_plane plane);
 
 enum omap_dss_output_id dispc_mgr_get_supported_outputs(enum omap_channel channel);
 
@@ -97,9 +102,5 @@ int dss_mgr_register_framedone_handler(enum omap_channel channel,
 		void (*handler)(void *), void *data);
 void dss_mgr_unregister_framedone_handler(enum omap_channel channel,
 		void (*handler)(void *), void *data);
-
-int dss_feat_get_num_mgrs(void);
-int dss_feat_get_num_ovls(void);
-enum omap_color_mode dss_feat_get_supported_color_modes(enum omap_plane plane);
 
 #endif /* __OMAP_DRM_DSS_H */
