@@ -1,12 +1,12 @@
 obj-$(CONFIG_OMAP2_DSS_INIT) += omapdss-boot-init.o
 
 obj-$(CONFIG_OMAP_DSS_BASE) += omapdss-base.o
-omapdss-base-y := base.o
+omapdss-base-y := base.o display.o dss-of.o output.o
 
 obj-$(CONFIG_OMAP2_DSS) += omapdss.o
 # Core DSS files
-omapdss-y := core.o dss.o dss_features.o dispc.o dispc_coefs.o display.o \
-	output.o dss-of.o pll.o video-pll.o
+omapdss-y := core.o dss.o dss_features.o dispc.o dispc_coefs.o \
+	pll.o video-pll.o
 # DSS compat layer files
 omapdss-$(CONFIG_OMAP2_DSS_COMPAT_SUPPORT) += manager.o manager-sysfs.o \
 	overlay.o overlay-sysfs.o apply.o dispc-compat.o display-sysfs.o

@@ -3,4 +3,7 @@
 
 void omapdss_set_is_initialized(bool set);
 
+struct device_node *dss_of_port_get_parent_device(struct device_node *port);
+u32 dss_of_port_get_port_number(struct device_node *port);
+
 #endif
