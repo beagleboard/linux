@@ -91,6 +91,8 @@ Optional properties:
    register that contains the SATA_PLL_SOFT_RESET bit. Only valid for sata_phy.
  - syscon-pcs : phandle/offset pair. Phandle to the system control module and the
    register offset to write the PCS delay value.
+ - "ti,configure-as-pcie" : property to indicate if the PHY should be
+   configured as PCIE PHY.
 
 Deprecated properties:
  - ctrl-module : phandle of the control module used by PHY driver to power on
