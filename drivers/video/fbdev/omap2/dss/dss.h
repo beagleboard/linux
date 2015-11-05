@@ -25,6 +25,8 @@
 
 #include <linux/interrupt.h>
 
+#include "dss-common.h"
+
 #ifdef pr_fmt
 #undef pr_fmt
 #endif
