@@ -25,6 +25,11 @@
 				clock-output-names = "refclk-sys";
 			};
 		};
+
+		mpm_mem: dspmem {
+			compatible = "ti,keystone-dsp-mem";
+			reg = <0x0c000000 0x00200000>;
+		};
 	};
 };
 
