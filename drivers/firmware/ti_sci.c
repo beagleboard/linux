@@ -429,15 +429,6 @@ static inline int ti_sci_do_xfer(struct ti_sci_info *info,
 	if (ret < 0)
 		return ret;
 
-	/*
-	 * NOTE: we don't need the mailbox ticker to manage the transfer
-	 * queueing since the protocol layer queues things by itself. So,
-	 * kick it once we are done with current transmit. This forces
-	 * the mailbox framework to submit next message allowing for
-	 * transmission of next message to occur in parallel to processing
-	 * in TISCI entity and subsequent response of the current message.
-	 */
-	mbox_client_txdone(info->chan_tx, 0);
 	ret = 0;
 
 	/* And we wait for the response. */
@@ -447,6 +438,13 @@ static inline int ti_sci_do_xfer(struct ti_sci_info *info,
 			(void *)_RET_IP_);
 		ret = -ETIMEDOUT;
 	}
+	/*
+	 * NOTE: we might prefer not to need the mailbox ticker to manage the
+	 * transfer queueing since the protocol layer queues things by itself.
+	 * Unfortunately, we have to kick the mailbox framework after we have
+	 * received our message.
+	 */
+	mbox_client_txdone(info->chan_tx, ret);
 
 	return ret;
 }
@@ -629,8 +627,9 @@ EXPORT_SYMBOL_GPL(devm_ti_sci_get_handle);
 /* Description for K2G */
 static const struct ti_sci_desc ti_sci_pmmc_k2g_desc = {
 	.host_id = 2,
-	.max_rx_timeout_ms = 200,
-	.max_msgs = 128,
+	.max_rx_timeout_ms = 1000,
+	/* Limited by MBOX_TX_QUEUE_LEN!!!! K2G can handle upto 128! */
+	.max_msgs = 20,
 	.max_msg_size = 64,
 };
 
