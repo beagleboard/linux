@@ -847,6 +847,8 @@ omapdss_of_find_source_for_first_ep(struct device_node *node);
 struct device_node *omapdss_of_get_endpoint(struct device_node *parent,
 	int port_index, int ep_index);
 
+void omapdss_set_is_initialized(bool set);
+
 u32 dispc_read_irqstatus(void);
 void dispc_clear_irqstatus(u32 mask);
 u32 dispc_read_irqenable(void);
