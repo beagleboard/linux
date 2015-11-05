@@ -23,7 +23,7 @@
 
 #include <video/omapdss.h>
 
-#include "dss.h"
+#include "omapdss.h"
 
 static LIST_HEAD(output_list);
 static DEFINE_MUTEX(output_lock);

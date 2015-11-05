@@ -20,8 +20,6 @@
 
 #include <video/omapdss.h>
 
-#include "dss.h"
-
 struct device_node *
 omapdss_of_get_next_port(const struct device_node *parent,
 			 struct device_node *prev)
@@ -111,6 +109,7 @@ struct device_node *dss_of_port_get_parent_device(struct device_node *port)
 
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(dss_of_port_get_parent_device);
 
 u32 dss_of_port_get_port_number(struct device_node *port)
 {
@@ -123,6 +122,7 @@ u32 dss_of_port_get_port_number(struct device_node *port)
 
 	return reg;
 }
+EXPORT_SYMBOL_GPL(dss_of_port_get_port_number);
 
 static struct device_node *omapdss_of_get_remote_port(const struct device_node *node)
 {
