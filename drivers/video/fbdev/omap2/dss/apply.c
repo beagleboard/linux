@@ -1208,6 +1208,8 @@ static int dss_mgr_set_output(struct omap_overlay_manager *mgr,
 		goto err;
 	}
 
+	output->dispc_channel_connected = true;
+
 	output->manager = mgr;
 	mgr->output = output;
 
@@ -1242,6 +1244,8 @@ static int dss_mgr_unset_output(struct omap_overlay_manager *mgr)
 	}
 
 	spin_unlock_irqrestore(&data_lock, flags);
+
+	mgr->output->dispc_channel_connected = false;
 
 	mgr->output->manager = NULL;
 	mgr->output = NULL;
