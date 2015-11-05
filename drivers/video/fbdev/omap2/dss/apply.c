@@ -1210,7 +1210,6 @@ static int dss_mgr_set_output(struct omap_overlay_manager *mgr,
 
 	output->dispc_channel_connected = true;
 
-	output->manager = mgr;
 	mgr->output = output;
 
 	mutex_unlock(&apply_lock);
@@ -1247,7 +1246,6 @@ static int dss_mgr_unset_output(struct omap_overlay_manager *mgr)
 
 	mgr->output->dispc_channel_connected = false;
 
-	mgr->output->manager = NULL;
 	mgr->output = NULL;
 
 	mutex_unlock(&apply_lock);

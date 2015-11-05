@@ -781,8 +781,6 @@ struct omap_dss_device {
 	int port_num;
 
 	/* dynamic fields */
-	struct omap_overlay_manager *manager;
-
 	struct omap_dss_device *dst;
 };
 
