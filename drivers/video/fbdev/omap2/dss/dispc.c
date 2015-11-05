@@ -534,7 +534,6 @@ int dispc_runtime_get(void)
 	WARN_ON(r < 0);
 	return r < 0 ? r : 0;
 }
-EXPORT_SYMBOL(dispc_runtime_get);
 
 void dispc_runtime_put(void)
 {
@@ -545,13 +544,11 @@ void dispc_runtime_put(void)
 	r = pm_runtime_put_sync(&dispc.pdev->dev);
 	WARN_ON(r < 0 && r != -ENOSYS);
 }
-EXPORT_SYMBOL(dispc_runtime_put);
 
 u32 dispc_mgr_get_vsync_irq(enum omap_channel channel)
 {
 	return mgr_desc[channel].vsync_irq;
 }
-EXPORT_SYMBOL(dispc_mgr_get_vsync_irq);
 
 u32 dispc_mgr_get_framedone_irq(enum omap_channel channel)
 {
@@ -560,13 +557,11 @@ u32 dispc_mgr_get_framedone_irq(enum omap_channel channel)
 
 	return mgr_desc[channel].framedone_irq;
 }
-EXPORT_SYMBOL(dispc_mgr_get_framedone_irq);
 
 u32 dispc_mgr_get_sync_lost_irq(enum omap_channel channel)
 {
 	return mgr_desc[channel].sync_lost_irq;
 }
-EXPORT_SYMBOL(dispc_mgr_get_sync_lost_irq);
 
 u32 dispc_wb_get_framedone_irq(void)
 {
@@ -577,7 +572,6 @@ bool dispc_mgr_go_busy(enum omap_channel channel)
 {
 	return mgr_fld_read(channel, DISPC_MGR_FLD_GO) == 1;
 }
-EXPORT_SYMBOL(dispc_mgr_go_busy);
 
 void dispc_mgr_go(enum omap_channel channel)
 {
@@ -588,7 +582,6 @@ void dispc_mgr_go(enum omap_channel channel)
 
 	mgr_fld_write(channel, DISPC_MGR_FLD_GO, 1);
 }
-EXPORT_SYMBOL(dispc_mgr_go);
 
 bool dispc_wb_go_busy(void)
 {
@@ -997,7 +990,6 @@ void dispc_ovl_set_channel_out(enum omap_plane plane, enum omap_channel channel)
 	}
 	dispc_write_reg(DISPC_OVL_ATTRIBUTES(plane), val);
 }
-EXPORT_SYMBOL(dispc_ovl_set_channel_out);
 
 static enum omap_channel dispc_ovl_get_channel_out(enum omap_plane plane)
 {
@@ -1079,13 +1071,11 @@ enum omap_color_mode dispc_ovl_get_color_modes(enum omap_plane plane)
 {
 	return dss_feat_get_supported_color_modes(plane);
 }
-EXPORT_SYMBOL(dispc_ovl_get_color_modes);
 
 int dispc_get_num_ovls(void)
 {
 	return dss_feat_get_num_ovls();
 }
-EXPORT_SYMBOL(dispc_get_num_ovls);
 
 void dispc_enable_gamma_table(bool enable)
 {
@@ -2603,7 +2593,6 @@ int dispc_ovl_check(enum omap_plane plane, enum omap_channel channel,
 			&five_taps, x_predecim, y_predecim, pos_x,
 			oi->rotation_type, false);
 }
-EXPORT_SYMBOL(dispc_ovl_check);
 
 static int dispc_ovl_setup_common(enum omap_plane plane,
 		enum omap_overlay_caps caps, u32 paddr, u32 p_uv_addr,
@@ -2824,7 +2813,6 @@ int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
 
 	return r;
 }
-EXPORT_SYMBOL(dispc_ovl_setup);
 
 int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 		bool mem_to_mem, const struct omap_video_timings *mgr_timings)
@@ -2902,19 +2890,16 @@ int dispc_ovl_enable(enum omap_plane plane, bool enable)
 
 	return 0;
 }
-EXPORT_SYMBOL(dispc_ovl_enable);
 
 bool dispc_ovl_enabled(enum omap_plane plane)
 {
 	return REG_GET(DISPC_OVL_ATTRIBUTES(plane), 0, 0);
 }
-EXPORT_SYMBOL(dispc_ovl_enabled);
 
 enum omap_dss_output_id dispc_mgr_get_supported_outputs(enum omap_channel channel)
 {
 	return dss_feat_get_supported_outputs(channel);
 }
-EXPORT_SYMBOL(dispc_mgr_get_supported_outputs);
 
 void dispc_mgr_enable(enum omap_channel channel, bool enable)
 {
@@ -2922,13 +2907,11 @@ void dispc_mgr_enable(enum omap_channel channel, bool enable)
 	/* flush posted write */
 	mgr_fld_read(channel, DISPC_MGR_FLD_ENABLE);
 }
-EXPORT_SYMBOL(dispc_mgr_enable);
 
 bool dispc_mgr_is_enabled(enum omap_channel channel)
 {
 	return !!mgr_fld_read(channel, DISPC_MGR_FLD_ENABLE);
 }
-EXPORT_SYMBOL(dispc_mgr_is_enabled);
 
 void dispc_wb_enable(bool enable)
 {
@@ -2968,7 +2951,6 @@ int dispc_get_num_mgrs(void)
 {
 	return dss_feat_get_num_mgrs();
 }
-EXPORT_SYMBOL(dispc_get_num_mgrs);
 
 static void dispc_mgr_enable_fifohandcheck(enum omap_channel channel, bool enable)
 {
@@ -3031,7 +3013,6 @@ void dispc_mgr_setup(enum omap_channel channel,
 		dispc_mgr_set_cpr_coef(channel, &info->cpr_coefs);
 	}
 }
-EXPORT_SYMBOL(dispc_mgr_setup);
 
 static void dispc_mgr_set_tft_data_lines(enum omap_channel channel, u8 data_lines)
 {
@@ -3108,7 +3089,6 @@ void dispc_mgr_set_lcd_config(enum omap_channel channel,
 
 	dispc_mgr_set_lcd_type_tft(channel);
 }
-EXPORT_SYMBOL(dispc_mgr_set_lcd_config);
 
 static bool _dispc_mgr_size_ok(u16 width, u16 height)
 {
@@ -3315,7 +3295,6 @@ void dispc_mgr_set_timings(enum omap_channel channel,
 
 	dispc_mgr_set_size(channel, t.x_res, t.y_res);
 }
-EXPORT_SYMBOL(dispc_mgr_set_timings);
 
 static void dispc_mgr_set_lcd_divisor(enum omap_channel channel, u16 lck_div,
 		u16 pck_div)
@@ -3822,19 +3801,16 @@ u32 dispc_read_irqstatus(void)
 {
 	return dispc_read_reg(DISPC_IRQSTATUS);
 }
-EXPORT_SYMBOL(dispc_read_irqstatus);
 
 void dispc_clear_irqstatus(u32 mask)
 {
 	dispc_write_reg(DISPC_IRQSTATUS, mask);
 }
-EXPORT_SYMBOL(dispc_clear_irqstatus);
 
 u32 dispc_read_irqenable(void)
 {
 	return dispc_read_reg(DISPC_IRQENABLE);
 }
-EXPORT_SYMBOL(dispc_read_irqenable);
 
 void dispc_write_irqenable(u32 mask)
 {
@@ -3845,7 +3821,6 @@ void dispc_write_irqenable(u32 mask)
 
 	dispc_write_reg(DISPC_IRQENABLE, mask);
 }
-EXPORT_SYMBOL(dispc_write_irqenable);
 
 void dispc_enable_sidle(void)
 {
@@ -4078,7 +4053,6 @@ int dispc_request_irq(irq_handler_t handler, void *dev_id)
 
 	return r;
 }
-EXPORT_SYMBOL(dispc_request_irq);
 
 void dispc_free_irq(void *dev_id)
 {
@@ -4087,7 +4061,6 @@ void dispc_free_irq(void *dev_id)
 	dispc.user_handler = NULL;
 	dispc.user_data = NULL;
 }
-EXPORT_SYMBOL(dispc_free_irq);
 
 static const struct dispc_ops dispc_ops = {
 	.read_irqstatus = dispc_read_irqstatus,
