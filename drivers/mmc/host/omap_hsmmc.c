@@ -243,6 +243,7 @@ struct omap_hsmmc_host {
 	unsigned int		flags;
 #define AUTO_CMD23		(1 << 0)        /* Auto CMD23 support */
 #define HSMMC_SDIO_IRQ_ENABLED	(1 << 1)        /* SDIO irq enabled */
+#define CLKEXTFREE_ENABLED	(1 << 2)        /* CLKEXTFREE enabled */
 	struct omap_hsmmc_next	next_data;
 	struct	omap_hsmmc_platform_data	*pdata;
 	/*
@@ -644,8 +645,8 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 	unsigned long flags;
 	bool is_tuning;
 
-	is_tuning = (cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
-		    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200);
+	is_tuning = cmd && ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
+		    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200));
 
 	if (is_tuning)
 		/*
@@ -660,8 +661,11 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 		irq_mask &= ~(BRR_EN | BWR_EN);
 
 	/* Disable timeout for erases or when using software timeout */
-	if (cmd->opcode == MMC_ERASE || host->need_i834_errata)
+	if (cmd && (cmd->opcode == MMC_ERASE || host->need_i834_errata))
 		irq_mask &= ~DTO_EN;
+
+	if (host->flags & CLKEXTFREE_ENABLED)
+		irq_mask |= CIRQ_EN;
 
 	spin_lock_irqsave(&host->irq_lock, flags);
 	OMAP_HSMMC_WRITE(host->base, STAT, STAT_CLEAR);
@@ -2113,10 +2117,15 @@ static int omap_hsmmc_card_busy_high(struct omap_hsmmc_host *host)
 {
 	int i;
 	u32 val;
+	int ret = true;
 
 	val = OMAP_HSMMC_READ(host->base, CON);
 	val |= CLKEXTFREE;
 	OMAP_HSMMC_WRITE(host->base, CON, val);
+
+	host->flags |= CLKEXTFREE_ENABLED;
+	disable_irq(host->irq);
+	omap_hsmmc_enable_irq(host, NULL);
 
 	/* By observation, card busy status reflects in 100 - 200us */
 	for (i = 0; i < 5; i++) {
@@ -2125,15 +2134,21 @@ static int omap_hsmmc_card_busy_high(struct omap_hsmmc_host *host)
 			val = OMAP_HSMMC_READ(host->base, CON);
 			val &= ~(CON_CLKEXTFREE | CON_PADEN);
 			OMAP_HSMMC_WRITE(host->base, CON, val);
-			return false;
+			ret = false;
+			goto disable_irq;
 		}
 
 		usleep_range(100, 200);
 	}
 
-	dev_dbg(mmc_dev(host->mmc), "card busy\n");
+	dev_err(mmc_dev(host->mmc), "card busy\n");
 
-	return true;
+disable_irq:
+	omap_hsmmc_disable_irq(host);
+	enable_irq(host->irq);
+	host->flags &= ~CLKEXTFREE_ENABLED;
+
+	return ret;
 }
 
 static int omap_hsmmc_card_busy(struct mmc_host *mmc)

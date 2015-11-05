@@ -2914,12 +2914,25 @@ void dwc3_gadget_exit(struct dwc3 *dwc)
 
 int dwc3_gadget_suspend(struct dwc3 *dwc)
 {
+	int num_endpoints = dwc->num_in_eps + dwc->num_out_eps;
+	int i;
+
 	if (!dwc->gadget_driver)
 		return 0;
 
 	if (dwc->pullups_connected) {
 		dwc3_gadget_disable_irq(dwc);
 		dwc3_gadget_run_stop(dwc, true, true);
+	}
+
+	for (i = 0; i < num_endpoints; i++) {
+		struct dwc3_ep *dep = dwc->eps[i];
+
+		if (!dep)
+			continue;
+
+		dep->resource_index = 0;
+		dep->flags &= ~DWC3_EP_BUSY;
 	}
 
 	__dwc3_gadget_ep_disable(dwc->eps[0]);
