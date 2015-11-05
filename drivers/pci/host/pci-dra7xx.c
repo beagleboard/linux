@@ -22,8 +22,11 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/of_platform.h>
 #include <linux/resource.h>
 #include <linux/types.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 #include <linux/platform_data/pci-dra7xx.h>
 
@@ -65,12 +68,20 @@
 #define	PCIECTRL_DRA7XX_CONF_PHY_CS			0x010C
 #define	LINK_UP						BIT(16)
 
+#define PCIE_1LANE_2LANE_SELECTION			BIT(13)
+#define PCIE_B1C0_MODE_SEL				BIT(2)
+
 struct dra7xx_pcie {
 	void __iomem		*base;
+	u32			*b1c0_mask;
 	struct phy		**phy;
 	int			lanes;
 	struct device		*dev;
 	struct pcie_port	pp;
+};
+
+struct dra7xx_pcie_data {
+	u32	b1co_mode_sel_mask;
 };
 
 #define to_dra7xx_pcie(x)	container_of((x), struct dra7xx_pcie, pp)
@@ -373,6 +384,57 @@ static int dra7xx_pcie_reset(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_dra7xx_pcie_match[];
+
+static int dra7xx_pcie_configure_two_lane(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct regmap *pcie_syscon;
+	unsigned int pcie_reg;
+	struct dra7xx_pcie_data *data;
+	const struct of_device_id *match;
+
+	match = of_match_device(of_dra7xx_pcie_match, dev);
+	if (!match)
+		return -EINVAL;
+
+	data = (struct dra7xx_pcie_data *)match->data;
+	if (!data) {
+		dev_err(dev, "no b1c0 mask data\n");
+		return -EINVAL;
+	}
+
+	pcie_syscon = syscon_regmap_lookup_by_phandle(np, "syscon-lane-conf");
+	if (IS_ERR(pcie_syscon)) {
+		dev_err(dev, "unable to get syscon-lane-conf\n");
+		return -EINVAL;
+	}
+
+	if (of_property_read_u32_index(np, "syscon-lane-conf", 1, &pcie_reg)) {
+		dev_err(dev, "couldn't get lane configuration reg offset\n");
+		return -EINVAL;
+	}
+
+	regmap_update_bits(pcie_syscon, pcie_reg, PCIE_1LANE_2LANE_SELECTION,
+			   PCIE_1LANE_2LANE_SELECTION);
+
+	pcie_syscon = syscon_regmap_lookup_by_phandle(np, "syscon-lane-sel");
+	if (IS_ERR(pcie_syscon)) {
+		dev_err(dev, "unable to get syscon-lane-sel\n");
+		return -EINVAL;
+	}
+
+	if (of_property_read_u32_index(np, "syscon-lane-sel", 1, &pcie_reg)) {
+		dev_err(dev, "couldn't get lane selection reg offset\n");
+		return -EINVAL;
+	}
+
+	regmap_update_bits(pcie_syscon, pcie_reg, data->b1co_mode_sel_mask,
+			   PCIE_B1C0_MODE_SEL);
+
+	return 0;
+}
+
 static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 {
 	u32 reg;
@@ -439,6 +501,12 @@ static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 			phy_exit(phy[i]);
 			goto err_phy;
 		}
+	}
+
+	if (lanes == 2) {
+		ret = dra7xx_pcie_configure_two_lane(dev);
+		if (ret < 0)
+			goto err_phy;
 	}
 
 	dra7xx->base = base;
@@ -586,8 +654,18 @@ static const struct dev_pm_ops dra7xx_pcie_pm_ops = {
 				      dra7xx_pcie_resume_noirq)
 };
 
+static const struct dra7xx_pcie_data dra746_pcie_data = {
+	.b1co_mode_sel_mask = BIT(2),
+};
+
+static const struct dra7xx_pcie_data dra726_pcie_data = {
+	.b1co_mode_sel_mask = GENMASK(3, 2),
+};
+
 static const struct of_device_id of_dra7xx_pcie_match[] = {
-	{ .compatible = "ti,dra7-pcie", },
+	{ .compatible = "ti,dra7-pcie", .data = &dra746_pcie_data },
+	{ .compatible = "ti,dra746-pcie", .data = &dra746_pcie_data },
+	{ .compatible = "ti,dra726-pcie", .data = &dra726_pcie_data },
 	{},
 };
 MODULE_DEVICE_TABLE(of, of_dra7xx_pcie_match);
