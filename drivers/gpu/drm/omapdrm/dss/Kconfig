@@ -137,3 +137,11 @@ config OMAP2_DSS_SLEEP_AFTER_VENC_RESET
 	  disable the sleep if it doesn't cause problems on your platform.
 
 endif
+
+config TI_DSS6
+	tristate "TI DSS6 support"
+	select OMAP_DSS_BASE
+	select VIDEOMODE_HELPERS
+	select OMAP2_DSS_INIT
+	help
+	  Enable support for Texas Instruments DSS6 IP.
