@@ -302,8 +302,25 @@ static int __init dra7xx_add_pcie_port(struct dra7xx_pcie *dra7xx,
 		return -EINVAL;
 	}
 
+	/*
+	 * Mark dra7xx_pcie_msi IRQ as IRQF_NO_THREAD
+	 * On -RT and if kernel is booting with "threadirqs" cmd line parameter
+	 * the dra7xx_pcie_msi_irq_handler() will be forced threaded but,
+	 * in the same time, it's IRQ dispatcher and calls generic_handle_irq(),
+	 * which, in turn, will be resolved to handle_simple_irq() call.
+	 * The handle_simple_irq() expected to be called with IRQ disabled, as
+	 * result kernle will display warning:
+	 * "irq XXX handler YYY+0x0/0x14 enabled interrupts".
+	 *
+	 * Current DRA7 PCIe hw configuration supports 32 interrupts,
+	 * which cannot change because it's hardwired in silicon, and can assume
+	 * that only a few (most of the time it will be exactly ONE) of those
+	 * interrupts are pending at the same time. So, It's sane way to dial
+	 * with above issue by marking dra7xx_pcie_msi IRQ as IRQF_NO_THREAD.
+	 */
 	ret = devm_request_irq(&pdev->dev, pp->irq,
-			       dra7xx_pcie_msi_irq_handler, IRQF_SHARED,
+			       dra7xx_pcie_msi_irq_handler,
+			       IRQF_SHARED | IRQF_NO_THREAD,
 			       "dra7-pcie-msi",	pp);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to request irq\n");
