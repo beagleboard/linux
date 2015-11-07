@@ -42,6 +42,8 @@ struct uart_8250_dma {
 	size_t			rx_size;
 	size_t			tx_size;
 
+	unsigned int		rx_pos;
+
 	unsigned char		tx_running;
 	unsigned char		tx_err;
 	unsigned char		rx_running;
