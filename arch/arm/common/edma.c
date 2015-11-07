@@ -998,6 +998,23 @@ void edma_set_dest(unsigned slot, dma_addr_t dest_port,
 }
 EXPORT_SYMBOL(edma_set_dest);
 
+#define EDMA_CCSTAT_ACTV	BIT(4)
+
+/**
+ * edma_is_active - report if any transfer requests are active
+ * @slot: parameter RAM slot being examined
+ *
+ * Returns true if any transfer requests are active on the slot
+ */
+bool edma_is_active(unsigned slot)
+{
+	u32 ctlr = EDMA_CTLR(slot);
+	unsigned int ccstat;
+
+	ccstat = edma_read(ctlr, EDMA_CCSTAT);
+	return (ccstat & EDMA_CCSTAT_ACTV);
+}
+
 /**
  * edma_get_position - returns the current transfer point
  * @slot: parameter RAM slot being examined
