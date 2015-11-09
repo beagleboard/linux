@@ -428,6 +428,7 @@ enum rproc_crash_type {
  * @table_csum: checksum of the resource table
  * @fw_version: human readable version information extracted from f/w
  * @has_iommu: flag to indicate if remote processor is behind an MMU
+ * @use_userspace_loader: flag to denote if remoteproc is loaded by userspace
  */
 struct rproc {
 	struct list_head node;
@@ -463,6 +464,7 @@ struct rproc {
 	u32 table_csum;
 	char *fw_version;
 	bool has_iommu;
+	bool use_userspace_loader;
 };
 
 /* we currently support only two vrings per rvdev */
@@ -522,6 +524,8 @@ struct rproc *rproc_vdev_to_rproc_safe(struct virtio_device *vdev);
 int rproc_get_alias_id(struct rproc *rproc);
 int rproc_pa_to_da(struct rproc *rproc, phys_addr_t pa, u64 *da);
 void *rproc_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags);
+void rproc_add_vdevs_direct(struct rproc *rproc);
+void rproc_remove_vdevs_direct(struct rproc *rproc);
 
 static inline struct rproc_vdev *vdev_to_rvdev(struct virtio_device *vdev)
 {
