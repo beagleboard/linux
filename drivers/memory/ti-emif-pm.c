@@ -158,6 +158,7 @@ static const struct of_device_id ti_emif_of_match[] = {
 	{},
 };
 
+#ifdef CONFIG_PM_SLEEP
 static int ti_emif_resume(struct device *dev)
 {
 	unsigned long tmp =  __raw_readl(ti_emif_sram_virt);
@@ -175,6 +176,7 @@ static int ti_emif_resume(struct device *dev)
 
 	return 0;
 }
+#endif /* CONFIG_PM_SLEEP */
 
 static int ti_emif_probe(struct platform_device *pdev)
 {
