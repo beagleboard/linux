@@ -2167,7 +2167,10 @@ static void genpd_dev_pm_sync(struct device *dev)
  * Both generic and legacy Samsung-specific DT bindings are supported to keep
  * backwards compatibility with existing DTBs.
  *
- * Returns 0 on successfully attached PM domain or negative error code.
+ * Returns 0 on successfully attached PM domain or negative error code. Note
+ * that if a power-domain exists for the device, but it cannot be found or
+ * turned on, then return -EPROBE_DEFER to ensure that the device is not
+ * probed and to re-try again later.
  */
 int genpd_dev_pm_attach(struct device *dev)
 {
@@ -2203,7 +2206,7 @@ int genpd_dev_pm_attach(struct device *dev)
 		dev_dbg(dev, "%s() failed to find PM domain: %ld\n",
 			__func__, PTR_ERR(pd));
 		of_node_put(dev->of_node);
-		return PTR_ERR(pd);
+		return -EPROBE_DEFER;
 	}
 
 	dev_dbg(dev, "adding to PM domain %s\n", pd->name);
@@ -2219,14 +2222,15 @@ int genpd_dev_pm_attach(struct device *dev)
 		dev_err(dev, "failed to add to PM domain %s: %d",
 			pd->name, ret);
 		of_node_put(dev->of_node);
-		return ret;
+		goto out;
 	}
 
 	dev->pm_domain->detach = genpd_dev_pm_detach;
 	dev->pm_domain->sync = genpd_dev_pm_sync;
-	pm_genpd_poweron(pd);
+	ret = pm_genpd_poweron(pd);
 
-	return 0;
+out:
+	return ret ? -EPROBE_DEFER : 0;
 }
 EXPORT_SYMBOL_GPL(genpd_dev_pm_attach);
 #endif /* CONFIG_PM_GENERIC_DOMAINS_OF */
