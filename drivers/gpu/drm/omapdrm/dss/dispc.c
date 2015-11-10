@@ -614,7 +614,7 @@ static u32 dispc_mgr_get_sync_lost_irq(enum omap_channel channel)
 	return mgr_desc[channel].sync_lost_irq;
 }
 
-u32 dispc_wb_get_framedone_irq(void)
+static u32 dispc_wb_get_framedone_irq(void)
 {
 	return DISPC_IRQ_FRAMEDONEWB;
 }
@@ -646,12 +646,12 @@ static void dispc_mgr_go(enum omap_channel channel)
 	mgr_fld_write(channel, DISPC_MGR_FLD_GO, 1);
 }
 
-bool dispc_wb_go_busy(void)
+static bool dispc_wb_go_busy(void)
 {
 	return REG_GET(DISPC_CONTROL2, 6, 6) == 1;
 }
 
-void dispc_wb_go(void)
+static void dispc_wb_go(void)
 {
 	enum omap_plane plane = OMAP_DSS_WB;
 	bool enable, go;
@@ -1094,7 +1094,7 @@ static enum omap_channel dispc_ovl_get_channel_out(enum omap_plane plane)
 	}
 }
 
-void dispc_wb_set_channel_in(enum dss_writeback_channel channel)
+static void dispc_wb_set_channel_in(enum dss_writeback_channel channel)
 {
 	enum omap_plane plane = OMAP_DSS_WB;
 
@@ -2828,7 +2828,7 @@ static int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info
 	return r;
 }
 
-int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
+static int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 		bool mem_to_mem, const struct videomode *vm)
 {
 	int r;
@@ -2894,6 +2894,11 @@ int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	}
 
 	return r;
+}
+
+static bool dispc_has_writeback(void)
+{
+	return dispc.feat->has_writeback;
 }
 
 static int dispc_ovl_enable(enum omap_plane plane, bool enable)
@@ -4360,6 +4365,13 @@ static const struct dispc_ops dispc_ops = {
 	.ovl_set_channel_out = dispc_ovl_set_channel_out,
 	.ovl_setup = dispc_ovl_setup,
 	.ovl_get_color_modes = dispc_ovl_get_color_modes,
+
+	.wb_get_framedone_irq = dispc_wb_get_framedone_irq,
+	.wb_set_channel_in = dispc_wb_set_channel_in,
+	.wb_setup = dispc_wb_setup,
+	.has_writeback = dispc_has_writeback,
+	.wb_go_busy = dispc_wb_go_busy,
+	.wb_go = dispc_wb_go,
 };
 
 /* DISPC HW IP initialisation */

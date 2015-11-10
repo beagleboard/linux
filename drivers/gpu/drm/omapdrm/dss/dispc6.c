@@ -1125,6 +1125,11 @@ static enum omap_color_mode dispc6_ovl_get_color_modes(enum omap_plane plane)
 	return formats;
 }
 
+static bool dispc6_has_writeback(void)
+{
+	return false;
+}
+
 static int dispc6_get_num_ovls(void)
 {
 	return 1;
@@ -1264,6 +1269,8 @@ static const struct dispc_ops dispc6_ops = {
 	.ovl_set_channel_out = dispc6_ovl_set_channel_out,
 	.ovl_setup = dispc6_ovl_setup,
 	.ovl_get_color_modes = dispc6_ovl_get_color_modes,
+
+	.has_writeback = dispc6_has_writeback,
 };
 
 static int dispc6_iomap_resource(struct platform_device *pdev, const char *name,
