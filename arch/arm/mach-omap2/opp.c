@@ -28,7 +28,7 @@
 /* Temp variable to allow multiple calls */
 static u8 __initdata omap_table_init;
 
-/*
+/**
  * opp_def_list_enable_opp() - enable opp by hwmod_name and frequency
  * @list:	opp default list for this silicon
  * @size:	number of opp entries for this silicon
