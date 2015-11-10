@@ -1472,7 +1472,8 @@ static void serial8250_enable_ms(struct uart_port *port)
  * by this Rx routine.
  */
 unsigned char
-serial8250_rx_chars(struct uart_8250_port *up, unsigned char lsr)
+serial8250_rx_chars(struct uart_8250_port *up, unsigned char lsr,
+		    spinlock_t *flip_lock)
 {
 	struct uart_port *port = &up->port;
 	unsigned char ch;
@@ -1539,7 +1540,11 @@ ignore_char:
 		lsr = serial_in(up, UART_LSR);
 	} while ((lsr & (UART_LSR_DR | UART_LSR_BI)) && (--max_count > 0));
 	spin_unlock(&port->lock);
+	if (flip_lock)
+		spin_lock(flip_lock);
 	tty_flip_buffer_push(&port->state->port);
+	if (flip_lock)
+		spin_unlock(flip_lock);
 	spin_lock(&port->lock);
 	return lsr;
 }
@@ -1645,7 +1650,7 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 			dma_err = up->dma->rx_dma(up, iir);
 
 		if (!up->dma || dma_err)
-			status = serial8250_rx_chars(up, status);
+			status = serial8250_rx_chars(up, status, NULL);
 	}
 	serial8250_modem_status(up);
 	if ((!up->dma || (up->dma && up->dma->tx_err)) &&
