@@ -32,6 +32,8 @@ struct omap_plane {
 	struct drm_plane base;
 	enum omap_plane_id id;
 	const char *name;
+
+	bool reserved_wb;
 };
 
 static int omap_plane_prepare_fb(struct drm_plane *plane,
@@ -107,6 +109,10 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 				   struct drm_plane_state *state)
 {
 	struct drm_crtc_state *crtc_state;
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+
+	if (omap_plane->reserved_wb)
+		return -EBUSY;
 
 	if (!state->fb)
 		return 0;
@@ -305,4 +311,47 @@ error:
 
 	kfree(omap_plane);
 	return NULL;
+}
+
+enum omap_plane_id omap_plane_id(struct drm_plane *plane)
+{
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+
+	return omap_plane->id;
+}
+
+struct drm_plane *omap_plane_reserve_wb(struct drm_device *dev)
+{
+	struct omap_drm_private *priv = dev->dev_private;
+	int i;
+
+	/*
+	 * Look from the last plane to the first to lessen chances of the
+	 * display side trying to use the same plane as writeback.
+	 */
+	for (i = priv->num_planes - 1; i >= 0; --i) {
+		struct drm_plane *plane = priv->planes[i];
+		struct omap_plane *omap_plane = to_omap_plane(plane);
+
+		if (plane->crtc || plane->fb)
+			continue;
+
+		if (omap_plane->reserved_wb)
+			continue;
+
+		omap_plane->reserved_wb = true;
+
+		return plane;
+	}
+
+	return NULL;
+}
+
+void omap_plane_release_wb(struct drm_plane *plane)
+{
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+
+	WARN_ON(!omap_plane->reserved_wb);
+
+	omap_plane->reserved_wb = false;
 }
