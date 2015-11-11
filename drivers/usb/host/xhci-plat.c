@@ -155,6 +155,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (pdata && pdata->quirk_port_broken_pe)
 		xhci->quirks |= XHCI_BROKEN_PORT_PE;
 
+	if (pdata && pdata->quirk_broken_stop_endpoint_fsls_dev)
+		xhci->quirks |= XHCI_STOP_EP_FSLS_DEV_HS_HUB;
+
 	if (HCC_MAX_PSA(xhci->hcc_params) >= 4)
 		xhci->shared_hcd->can_do_streams = 1;
 
