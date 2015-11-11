@@ -803,6 +803,14 @@ static int dev_load(struct drm_device *dev, unsigned long flags)
 
 	drm_kms_helper_poll_init(dev);
 
+	if (priv->dispc_ops->has_writeback()) {
+		ret = wbm2m_init(dev);
+		if (ret)
+			dev_warn(dev->dev, "failed to initialize writeback\n");
+		else
+			priv->wb_initialized = true;
+	}
+
 #if IS_ENABLED(CONFIG_DRM_OMAP_SGX_PLUGIN)
 	drm_device = dev;
 
@@ -827,6 +835,9 @@ static int dev_unload(struct drm_device *dev)
 
 	drm_loaded = false;
 #endif
+
+	if (priv->wb_initialized)
+		wbm2m_cleanup(dev);
 
 	drm_kms_helper_poll_fini(dev);
 
