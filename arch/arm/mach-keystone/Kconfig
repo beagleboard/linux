@@ -14,6 +14,7 @@ config ARCH_KEYSTONE
 	select KEYSTONE2_DMA_COHERENT
 	select PINCTRL
 	select PM_GENERIC_DOMAINS if PM
+	select OMAP_GPMC
 	help
 	  Support for boards based on the Texas Instruments Keystone family of
 	  SoCs.
