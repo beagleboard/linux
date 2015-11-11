@@ -1023,6 +1023,7 @@ struct dispc_ops {
 	void (*wb_set_channel_in)(enum dss_writeback_channel channel);
 	int (*wb_setup)(const struct omap_dss_writeback_info *wi,
 		bool mem_to_mem, const struct omap_video_timings *mgr_timings);
+	bool (*has_writeback)(void);
 };
 
 const struct dispc_ops *dispc_get_ops(void);

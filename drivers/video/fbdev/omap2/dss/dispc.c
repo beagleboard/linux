@@ -2882,6 +2882,11 @@ static int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	return r;
 }
 
+static bool dispc_has_writeback(void)
+{
+	return dispc.feat->has_writeback;
+}
+
 int dispc_ovl_enable(enum omap_plane plane, bool enable)
 {
 	DSSDBG("dispc_enable_plane %d, %d\n", plane, enable);
@@ -4089,6 +4094,7 @@ static const struct dispc_ops dispc_ops = {
 	.wb_get_framedone_irq = dispc_wb_get_framedone_irq,
 	.wb_set_channel_in = dispc_wb_set_channel_in,
 	.wb_setup = dispc_wb_setup,
+	.has_writeback = dispc_has_writeback,
 };
 
 /* DISPC HW IP initialisation */
