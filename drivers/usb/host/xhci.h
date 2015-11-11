@@ -1570,6 +1570,11 @@ struct xhci_hcd {
 #define XHCI_PME_STUCK_QUIRK	(1 << 20)
 /* For controller with a broken Port Disable implementation */
 #define XHCI_BROKEN_PORT_PE	(1 << 21)
+/*
+ * For controller with Stop Endpoint issues when connected to FS/LS behind an HS
+ * hub
+ */
+#define XHCI_STOP_EP_FSLS_DEV_HS_HUB (1 << 22)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
