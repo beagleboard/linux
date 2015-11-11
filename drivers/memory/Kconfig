@@ -43,6 +43,8 @@ config TI_EMIF
 
 config OMAP_GPMC
 	bool
+	select GPIOLIB_IRQCHIP
+	depends on (ARCH_OMAP2PLUS || ARCH_KEYSTONE)
 	help
 	  This driver is for the General Purpose Memory Controller (GPMC)
 	  present on Texas Instruments SoCs (e.g. OMAP2+). GPMC allows
