@@ -63,6 +63,21 @@ int dwc3_host_init(struct dwc3 *dwc)
 	if (dwc->revision <= DWC3_REVISION_300A)
 		pdata.quirk_port_broken_pe = true;
 
+	/**
+	 * WORKAROUND: dwc3 revisions <=3.00a have a limitation where Stop
+	 * Endpoint commands won't work for FS/LS devices sitting behing an HS
+	 * hub.
+	 *
+	 * The suggested workaround is that we avoid using Stop Endpoint and
+	 * rely on Disable Slot instead.
+	 *
+	 * This following flag tells XHCI to do just that.
+	 *
+	 * Refers to STARS#9000925244 - STOP Endpoint Command Does Not Complete
+	 */
+	if (dwc->revision <= DWC3_REVISION_300A)
+		pdata.quirk_broken_stop_endpoint_fsls_dev = true;
+
 	ret = platform_device_add_data(xhci, &pdata, sizeof(pdata));
 	if (ret) {
 		dev_err(dwc->dev, "couldn't add platform data to xHCI device\n");
