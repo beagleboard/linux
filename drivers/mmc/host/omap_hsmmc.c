@@ -2171,10 +2171,8 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 	if (host->use_reg)
 		omap_hsmmc_reg_put(host);
 
-	if (host->tx_chan)
-		dma_release_channel(host->tx_chan);
-	if (host->rx_chan)
-		dma_release_channel(host->rx_chan);
+	dma_release_channel(host->tx_chan);
+	dma_release_channel(host->rx_chan);
 
 	pm_runtime_put_sync(host->dev);
 	pm_runtime_disable(host->dev);
