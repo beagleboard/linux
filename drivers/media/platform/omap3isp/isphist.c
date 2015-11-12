@@ -499,14 +499,20 @@ int omap3isp_hist_init(struct isp_device *isp)
 		if (res)
 			sig = res->start;
 
-		hist->dma_ch = dma_request_slave_channel_compat(mask,
+		hist->dma_ch = dma_request_slave_channel_compat_reason(mask,
 				omap_dma_filter_fn, &sig, isp->dev, "hist");
-		if (!hist->dma_ch)
+		if (IS_ERR(hist->dma_ch)) {
+			ret = PTR_ERR(hist->dma_ch);
+			if (ret == -EPROBE_DEFER)
+				return ret;
+
+			hist->dma_ch = NULL;
 			dev_warn(isp->dev,
 				 "hist: DMA channel request failed, using PIO\n");
-		else
+		} else {
 			dev_dbg(isp->dev, "hist: using DMA channel %s\n",
 				dma_chan_name(hist->dma_ch));
+		}
 	}
 
 	hist->ops = &hist_ops;
