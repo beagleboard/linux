@@ -187,6 +187,26 @@
 	};
 };
 
+&dpll_dsp_ck {
+	assigned-clock-rates = <700000000>;
+};
+
+&dpll_dsp_m2_ck {
+	assigned-clock-rates = <700000000>;
+};
+
+&dpll_dsp_m3x2_ck {
+	assigned-clock-rates = <466666667>;
+};
+
+&dpll_iva_ck {
+	assigned-clock-rates = <1064000000>;
+};
+
+&dpll_iva_m2_ck {
+	assigned-clock-rates = <532000000>;
+};
+
 &dra7_pmx_core {
 	mmc1_pins_default: mmc1_pins_default {
 		pinctrl-single,pins = <

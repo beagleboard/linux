@@ -123,6 +123,19 @@ config COMMON_CLK_KEYSTONE
           Supports clock drivers for Keystone based SOCs. These SOCs have local
 	  a power sleep control module that gate the clock to the IPs and PLLs.
 
+if COMMON_CLK_KEYSTONE
+
+config TI_SCI_CLK
+	tristate "TI System Control Interface clock drivers"
+	depends on TI_SCI_PROTOCOL || COMPILE_TEST
+	default y
+	help
+	  This adds the clock driver support over TI System Control Interface.
+	  If you wish to use clock resources from the PMMC firmware, say Y.
+	  Otherwise, say N.
+
+endif # COMMON_CLK_KEYSTONE
+
 config COMMON_CLK_PALMAS
 	tristate "Clock driver for TI Palmas devices"
 	depends on MFD_PALMAS
