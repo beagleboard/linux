@@ -944,6 +944,7 @@ static int omap2_mcspi_request_dma(struct spi_device *spi)
 	struct omap2_mcspi_dma	*mcspi_dma;
 	dma_cap_mask_t mask;
 	unsigned sig;
+	int ret = 0;
 
 	mcspi = spi_master_get_devdata(master);
 	mcspi_dma = mcspi->dma_channels + spi->chip_select;
@@ -955,30 +956,35 @@ static int omap2_mcspi_request_dma(struct spi_device *spi)
 	dma_cap_set(DMA_SLAVE, mask);
 	sig = mcspi_dma->dma_rx_sync_dev;
 
-	mcspi_dma->dma_rx =
-		dma_request_slave_channel_compat(mask, omap_dma_filter_fn,
-						 &sig, &master->dev,
-						 mcspi_dma->dma_rx_ch_name);
-	if (!mcspi_dma->dma_rx)
-		goto no_dma;
-
-	sig = mcspi_dma->dma_tx_sync_dev;
-	mcspi_dma->dma_tx =
-		dma_request_slave_channel_compat(mask, omap_dma_filter_fn,
-						 &sig, &master->dev,
-						 mcspi_dma->dma_tx_ch_name);
-
-	if (!mcspi_dma->dma_tx) {
-		dma_release_channel(mcspi_dma->dma_rx);
+	mcspi_dma->dma_rx = dma_request_slave_channel_compat_reason(mask,
+					omap_dma_filter_fn, &sig, &master->dev,
+					mcspi_dma->dma_rx_ch_name);
+	if (IS_ERR(mcspi_dma->dma_rx)) {
+		ret = PTR_ERR(mcspi_dma->dma_rx);
 		mcspi_dma->dma_rx = NULL;
+		if (ret != -EPROBE_DEFER)
+			ret = -EAGAIN;
 		goto no_dma;
 	}
 
-	return 0;
+	sig = mcspi_dma->dma_tx_sync_dev;
+	mcspi_dma->dma_tx = dma_request_slave_channel_compat_reason(mask,
+					omap_dma_filter_fn, &sig, &master->dev,
+					mcspi_dma->dma_tx_ch_name);
+
+	if (IS_ERR(mcspi_dma->dma_tx)) {
+		ret = PTR_ERR(mcspi_dma->dma_tx);
+		mcspi_dma->dma_tx = NULL;
+		dma_release_channel(mcspi_dma->dma_rx);
+		mcspi_dma->dma_rx = NULL;
+		if (ret != -EPROBE_DEFER)
+			ret = -EAGAIN;
+	}
 
 no_dma:
-	dev_warn(&spi->dev, "not using DMA for McSPI\n");
-	return -EAGAIN;
+	if (ret && ret != -EPROBE_DEFER)
+		dev_warn(&spi->dev, "not using DMA for McSPI\n");
+	return ret;
 }
 
 static int omap2_mcspi_setup(struct spi_device *spi)
