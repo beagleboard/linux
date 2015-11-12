@@ -1906,7 +1906,7 @@ static struct platform_driver edma_driver = {
 
 static int __init edma_init(void)
 {
-	return platform_driver_probe(&edma_driver, edma_probe);
+	return platform_driver_register(&edma_driver);
 }
 arch_initcall(edma_init);
 
