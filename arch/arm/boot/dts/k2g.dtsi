@@ -92,7 +92,7 @@
 			compatible = "pinctrl-single";
 			reg = <0x02621000 0x410>;
 			pinctrl-single,register-width = <32>;
-			pinctrl-single,function-mask = <0x00070007>;
+			pinctrl-single,function-mask = <0x001b0007>;
 		};
 
 		uart0: serial@02530c00 {
