@@ -136,6 +136,21 @@ config QCOM_SCM
 	bool
 	depends on ARM || ARM64
 
+config TI_SCI_PROTOCOL
+	tristate "TI System Control Interface (TISCI) Message Protocol"
+	depends on TI_MESSAGE_MANAGER
+	help
+	  TI System Control Interface(TISCI) Message Protocol is used to manage
+	  compute systems such as ARM, DSP etc with the system controller in
+	  complex System on Chip(SoC) such as those found on certain keystone
+	  generation SoC from TI.
+
+	  System controller provides various facilities including power
+	  management function support.
+
+	  This protocol library is used by client drivers to use the features
+	  provided by the system controller.
+
 source "drivers/firmware/google/Kconfig"
 source "drivers/firmware/efi/Kconfig"
 
