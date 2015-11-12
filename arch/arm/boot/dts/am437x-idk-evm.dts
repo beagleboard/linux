@@ -404,6 +404,7 @@
 
 &cpu {
 	cpu0-supply = <&tps>;
+	ti,opp-disable-exception = <300000>;
 };
 
 &sgx {
