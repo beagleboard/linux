@@ -180,7 +180,6 @@
 			dmas = <&edma 24>, <&edma 25>;
 			dma-names = "tx", "rx";
 			bus-width = <4>;
-			voltage-ranges = <3300 3300>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_MMCHS0>;
 		};
@@ -192,7 +191,6 @@
 			dmas = <&edma 26>, <&edma 27>;
 			dma-names = "tx", "rx";
 			bus-width = <8>;
-			voltage-ranges = <1800 1800>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_MMCHS1>;
 		};
