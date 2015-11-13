@@ -221,6 +221,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_SPI0>;
+			clocks = <&k2g_clks K2G_DEV_SPI0 0>;
+			clock-names = "fck";
 		};
 
 		spi1: spi@21805800 {
@@ -233,6 +235,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_SPI1>;
+			clocks = <&k2g_clks K2G_DEV_SPI1 0>;
+			clock-names = "fck";
 		};
 
 		spi2: spi@21805c00 {
@@ -245,6 +249,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_SPI2>;
+			clocks = <&k2g_clks K2G_DEV_SPI2 0>;
+			clock-names = "fck";
 		};
 
 		spi3: spi@21806000 {
@@ -257,6 +263,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_SPI3>;
+			clocks = <&k2g_clks K2G_DEV_SPI3 0>;
+			clock-names = "fck";
 		};
 
 		usb0_phy: usb-phy@0 {
