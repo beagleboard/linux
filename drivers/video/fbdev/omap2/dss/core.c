@@ -165,6 +165,56 @@ int dss_debugfs_create_file(const char *name, void (*write)(struct seq_file *))
 #endif /* CONFIG_OMAP2_DSS_DEBUGFS */
 
 /* PLATFORM DEVICE */
+
+static int dss_suspend_all_devices(void)
+{
+	struct omap_dss_device *dssdev = NULL;
+
+	for_each_dss_dev(dssdev) {
+		if (!dssdev->driver)
+			continue;
+
+		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
+			dssdev->driver->disable(dssdev);
+			dssdev->activate_after_resume = true;
+		} else {
+			dssdev->activate_after_resume = false;
+		}
+	}
+
+	return 0;
+}
+
+static int dss_resume_all_devices(void)
+{
+	struct omap_dss_device *dssdev = NULL;
+
+	for_each_dss_dev(dssdev) {
+		if (!dssdev->driver)
+			continue;
+
+		if (dssdev->activate_after_resume) {
+			dssdev->driver->enable(dssdev);
+			dssdev->activate_after_resume = false;
+		}
+	}
+
+	return 0;
+}
+
+static void dss_disable_all_devices(void)
+{
+	struct omap_dss_device *dssdev = NULL;
+
+	for_each_dss_dev(dssdev) {
+		if (!dssdev->driver)
+			continue;
+
+		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
+			dssdev->driver->disable(dssdev);
+	}
+}
+
 static int omap_dss_pm_notif(struct notifier_block *b, unsigned long v, void *d)
 {
 	DSSDBG("pm notif %lu\n", v);

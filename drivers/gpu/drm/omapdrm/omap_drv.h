@@ -69,6 +69,8 @@ int omap_irq_wait(struct drm_device *dev, struct omap_irq_wait *wait,
 struct omap_drm_private {
 	uint32_t omaprev;
 
+	const struct dispc_ops *dispc_ops;
+
 	unsigned int num_crtcs;
 	struct drm_crtc *crtcs[8];
 
@@ -108,6 +110,9 @@ struct omap_drm_private {
 	struct list_head irq_list;    /* list of omap_drm_irq */
 	uint32_t vblank_mask;         /* irq bits set for userspace vblank */
 	struct omap_drm_irq error_handler;
+
+	void *wb_private;	      /* Write-back private data */
+	bool wb_initialized;
 
 	/* atomic commit */
 	struct {
@@ -155,6 +160,9 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 		int id, enum drm_plane_type type);
 void omap_plane_install_properties(struct drm_plane *plane,
 		struct drm_mode_object *obj);
+int omap_plane_id(struct drm_plane *plane);
+struct drm_plane *omap_plane_reserve_wb(struct drm_device *dev);
+void omap_plane_release_wb(struct drm_plane *plane);
 
 struct drm_encoder *omap_encoder_init(struct drm_device *dev,
 		struct omap_dss_device *dssdev);
@@ -270,6 +278,18 @@ fail:
 
 	return -ENOENT;
 }
+
+#if IS_ENABLED(CONFIG_DRM_OMAP_WB_M2M)
+
+int wbm2m_init(struct drm_device *drmdev);
+void wbm2m_cleanup(struct drm_device *drmdev);
+
+#else
+
+static inline int wbm2m_init(struct drm_device *drmdev) { return 0; }
+static inline void wbm2m_cleanup(struct drm_device *drmdev) { }
+
+#endif
 
 #if IS_ENABLED(CONFIG_DRM_OMAP_SGX_PLUGIN)
 

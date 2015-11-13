@@ -805,20 +805,23 @@ static void mgr_clear_shadow_dirty(struct omap_overlay_manager *mgr)
 	}
 }
 
-static int dss_mgr_connect_compat(struct omap_overlay_manager *mgr,
+static int dss_mgr_connect_compat(enum omap_channel channel,
 		struct omap_dss_device *dst)
 {
+	struct omap_overlay_manager *mgr = omap_dss_get_overlay_manager(channel);
 	return mgr->set_output(mgr, dst);
 }
 
-static void dss_mgr_disconnect_compat(struct omap_overlay_manager *mgr,
+static void dss_mgr_disconnect_compat(enum omap_channel channel,
 		struct omap_dss_device *dst)
 {
+	struct omap_overlay_manager *mgr = omap_dss_get_overlay_manager(channel);
 	mgr->unset_output(mgr);
 }
 
-static void dss_mgr_start_update_compat(struct omap_overlay_manager *mgr)
+static void dss_mgr_start_update_compat(enum omap_channel channel)
 {
+	struct omap_overlay_manager *mgr = omap_dss_get_overlay_manager(channel);
 	struct mgr_priv_data *mp = get_mgr_priv(mgr);
 	unsigned long flags;
 	int r;
@@ -1072,8 +1075,9 @@ static void dss_setup_fifos(void)
 	}
 }
 
-static int dss_mgr_enable_compat(struct omap_overlay_manager *mgr)
+static int dss_mgr_enable_compat(enum omap_channel channel)
 {
+	struct omap_overlay_manager *mgr = omap_dss_get_overlay_manager(channel);
 	struct mgr_priv_data *mp = get_mgr_priv(mgr);
 	unsigned long flags;
 	int r;
@@ -1122,8 +1126,9 @@ err:
 	return r;
 }
 
-static void dss_mgr_disable_compat(struct omap_overlay_manager *mgr)
+static void dss_mgr_disable_compat(enum omap_channel channel)
 {
+	struct omap_overlay_manager *mgr = omap_dss_get_overlay_manager(channel);
 	struct mgr_priv_data *mp = get_mgr_priv(mgr);
 	unsigned long flags;
 
@@ -1203,7 +1208,8 @@ static int dss_mgr_set_output(struct omap_overlay_manager *mgr,
 		goto err;
 	}
 
-	output->manager = mgr;
+	output->dispc_channel_connected = true;
+
 	mgr->output = output;
 
 	mutex_unlock(&apply_lock);
@@ -1238,7 +1244,8 @@ static int dss_mgr_unset_output(struct omap_overlay_manager *mgr)
 
 	spin_unlock_irqrestore(&data_lock, flags);
 
-	mgr->output->manager = NULL;
+	mgr->output->dispc_channel_connected = false;
+
 	mgr->output = NULL;
 
 	mutex_unlock(&apply_lock);
@@ -1261,9 +1268,10 @@ static void dss_apply_mgr_timings(struct omap_overlay_manager *mgr,
 	mp->extra_info_dirty = true;
 }
 
-static void dss_mgr_set_timings_compat(struct omap_overlay_manager *mgr,
+static void dss_mgr_set_timings_compat(enum omap_channel channel,
 		const struct omap_video_timings *timings)
 {
+	struct omap_overlay_manager *mgr = omap_dss_get_overlay_manager(channel);
 	unsigned long flags;
 	struct mgr_priv_data *mp = get_mgr_priv(mgr);
 
@@ -1289,9 +1297,10 @@ static void dss_apply_mgr_lcd_config(struct omap_overlay_manager *mgr,
 	mp->extra_info_dirty = true;
 }
 
-static void dss_mgr_set_lcd_config_compat(struct omap_overlay_manager *mgr,
+static void dss_mgr_set_lcd_config_compat(enum omap_channel channel,
 		const struct dss_lcd_mgr_config *config)
 {
+	struct omap_overlay_manager *mgr = omap_dss_get_overlay_manager(channel);
 	unsigned long flags;
 	struct mgr_priv_data *mp = get_mgr_priv(mgr);
 
@@ -1554,9 +1563,10 @@ err:
 	return r;
 }
 
-static int dss_mgr_register_framedone_handler_compat(struct omap_overlay_manager *mgr,
+static int dss_mgr_register_framedone_handler_compat(enum omap_channel channel,
 		void (*handler)(void *), void *data)
 {
+	struct omap_overlay_manager *mgr = omap_dss_get_overlay_manager(channel);
 	struct mgr_priv_data *mp = get_mgr_priv(mgr);
 
 	if (mp->framedone_handler)
@@ -1568,9 +1578,10 @@ static int dss_mgr_register_framedone_handler_compat(struct omap_overlay_manager
 	return 0;
 }
 
-static void dss_mgr_unregister_framedone_handler_compat(struct omap_overlay_manager *mgr,
+static void dss_mgr_unregister_framedone_handler_compat(enum omap_channel channel,
 		void (*handler)(void *), void *data)
 {
+	struct omap_overlay_manager *mgr = omap_dss_get_overlay_manager(channel);
 	struct mgr_priv_data *mp = get_mgr_priv(mgr);
 
 	WARN_ON(mp->framedone_handler != handler ||
@@ -1607,6 +1618,7 @@ int omapdss_compat_init(void)
 
 	apply_init_priv();
 
+	dss_init_overlay_managers();
 	dss_init_overlay_managers_sysfs(pdev);
 	dss_init_overlays(pdev);
 
@@ -1671,6 +1683,7 @@ err_disp_sysfs:
 
 err_mgr_ops:
 	dss_uninit_overlay_managers_sysfs(pdev);
+	dss_uninit_overlay_managers();
 	dss_uninit_overlays(pdev);
 
 	compat_refcnt--;
@@ -1699,6 +1712,7 @@ void omapdss_compat_uninit(void)
 	dss_uninstall_mgr_ops();
 
 	dss_uninit_overlay_managers_sysfs(pdev);
+	dss_uninit_overlay_managers();
 	dss_uninit_overlays(pdev);
 out:
 	mutex_unlock(&compat_init_lock);

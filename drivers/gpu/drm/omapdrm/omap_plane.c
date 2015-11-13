@@ -45,6 +45,8 @@ struct omap_plane {
 	uint32_t formats[32];
 
 	struct omap_drm_irq error_irq;
+
+	bool reserved_wb;
 };
 
 struct omap_plane_state {
@@ -78,6 +80,7 @@ static void omap_plane_cleanup_fb(struct drm_plane *plane,
 static void omap_plane_atomic_update(struct drm_plane *plane,
 				     struct drm_plane_state *old_state)
 {
+	struct omap_drm_private *priv = plane->dev->dev_private;
 	struct omap_plane *omap_plane = to_omap_plane(plane);
 	struct drm_plane_state *state = plane->state;
 	struct omap_plane_state *omap_state = to_omap_plane_state(state);
@@ -130,23 +133,24 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	DBG("%d,%d %pad %pad", info.pos_x, info.pos_y,
 			&info.paddr, &info.p_uv_addr);
 
-	dispc_ovl_set_channel_out(omap_plane->id,
+	priv->dispc_ops->ovl_set_channel_out(omap_plane->id,
 				  omap_crtc_channel(state->crtc));
 
 	/* and finally, update omapdss: */
-	ret = dispc_ovl_setup(omap_plane->id, &info, false,
+	ret = priv->dispc_ops->ovl_setup(omap_plane->id, &info, false,
 			      omap_crtc_timings(state->crtc), false);
 	if (WARN_ON(ret)) {
-		dispc_ovl_enable(omap_plane->id, false);
+		priv->dispc_ops->ovl_enable(omap_plane->id, false);
 		return;
 	}
 
-	dispc_ovl_enable(omap_plane->id, true);
+	priv->dispc_ops->ovl_enable(omap_plane->id, true);
 }
 
 static void omap_plane_atomic_disable(struct drm_plane *plane,
 				      struct drm_plane_state *old_state)
 {
+	struct omap_drm_private *priv = plane->dev->dev_private;
 	struct omap_plane_state *omap_state = to_omap_plane_state(plane->state);
 	struct omap_plane *omap_plane = to_omap_plane(plane);
 
@@ -154,13 +158,17 @@ static void omap_plane_atomic_disable(struct drm_plane *plane,
 	omap_state->zorder = plane->type == DRM_PLANE_TYPE_PRIMARY
 			   ? 0 : omap_plane->id;
 
-	dispc_ovl_enable(omap_plane->id, false);
+	priv->dispc_ops->ovl_enable(omap_plane->id, false);
 }
 
 static int omap_plane_atomic_check(struct drm_plane *plane,
 				   struct drm_plane_state *state)
 {
 	struct drm_crtc_state *crtc_state;
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+
+	if (omap_plane->reserved_wb)
+		return -EBUSY;
 
 	if (!state->crtc)
 		return 0;
@@ -374,7 +382,7 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 
 	omap_plane->nformats = omap_framebuffer_get_formats(
 			omap_plane->formats, ARRAY_SIZE(omap_plane->formats),
-			dss_feat_get_supported_color_modes(id));
+			priv->dispc_ops->ovl_get_color_modes(id));
 	omap_plane->id = id;
 	omap_plane->name = plane_names[id];
 
@@ -400,4 +408,47 @@ error:
 	omap_irq_unregister(plane->dev, &omap_plane->error_irq);
 	kfree(omap_plane);
 	return NULL;
+}
+
+int omap_plane_id(struct drm_plane *plane)
+{
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+
+	return omap_plane->id;
+}
+
+struct drm_plane *omap_plane_reserve_wb(struct drm_device *dev)
+{
+	struct omap_drm_private *priv = dev->dev_private;
+	int i;
+
+	/*
+	 * Look from the last plane to the first to lessen chances of the
+	 * display side trying to use the same plane as writeback.
+	 */
+	for (i = priv->num_planes - 1; i >= 0; --i) {
+		struct drm_plane *plane = priv->planes[i];
+		struct omap_plane *omap_plane = to_omap_plane(plane);
+
+		if (plane->crtc || plane->fb)
+			continue;
+
+		if (omap_plane->reserved_wb)
+			continue;
+
+		omap_plane->reserved_wb = true;
+
+		return plane;
+	}
+
+	return NULL;
+}
+
+void omap_plane_release_wb(struct drm_plane *plane)
+{
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+
+	WARN_ON(!omap_plane->reserved_wb);
+
+	omap_plane->reserved_wb = false;
 }
