@@ -103,9 +103,10 @@
 			reg-io-width = <4>;
 			reg = <0x02530c00 0x100>;
 			interrupts = <GIC_SPI 164 IRQ_TYPE_EDGE_RISING>;
-			clock-frequency = <200000000>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_UART0>;
+			clocks = <&k2g_clks K2G_DEV_UART0 0>;
+			clock-names = "fck";
 		};
 
 		uart1: serial@02531000 {
