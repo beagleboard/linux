@@ -188,6 +188,8 @@
 			bus-width = <4>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_MMCHS0>;
+			clocks = <&k2g_clks K2G_DEV_MMCHS0 0>;
+			clock-names = "fck";
 		};
 
 		mmc1: mmc@23100000 {
@@ -199,6 +201,8 @@
 			bus-width = <8>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_MMCHS1>;
+			clocks = <&k2g_clks K2G_DEV_MMCHS1 0>;
+			clock-names = "fck";
 		};
 
 		spi0: spi@21805400 {
