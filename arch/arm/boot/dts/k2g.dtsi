@@ -380,6 +380,9 @@
 			reg = <0x021c8000 0x2000>;
 			interrupts = <GIC_SPI 197 IRQ_TYPE_EDGE_RISING>;
 			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_ELM0>;
+			clocks = <&k2g_clks K2G_DEV_ELM0 0>;
+			clock-names = "fck";
 		};
 
 		msgmgr: msgmgr@02a00000 {
