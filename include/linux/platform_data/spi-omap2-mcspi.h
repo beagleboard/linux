@@ -9,11 +9,13 @@
 
 #define MCSPI_PINDIR_D0_IN_D1_OUT	0
 #define MCSPI_PINDIR_D0_OUT_D1_IN	1
+#define MCSPI_PIO_MODE 1
 
 struct omap2_mcspi_platform_config {
 	unsigned short	num_cs;
 	unsigned int regs_offset;
 	unsigned int pin_dir:1;
+	unsigned int pio_mode:1;
 };
 
 struct omap2_mcspi_dev_attr {
