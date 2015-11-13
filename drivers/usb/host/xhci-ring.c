@@ -3936,10 +3936,44 @@ int xhci_queue_evaluate_context(struct xhci_hcd *xhci, struct xhci_command *cmd,
 int xhci_queue_stop_endpoint(struct xhci_hcd *xhci, struct xhci_command *cmd,
 			     int slot_id, unsigned int ep_index, int suspend)
 {
+	struct xhci_virt_device *dev = xhci->devs[slot_id];
+	struct usb_device *udev = dev->udev;
+
 	u32 trb_slot_id = SLOT_ID_FOR_TRB(slot_id);
 	u32 trb_ep_index = EP_ID_FOR_TRB(ep_index);
 	u32 type = TRB_TYPE(TRB_STOP_RING);
 	u32 trb_suspend = SUSPEND_PORT_FOR_TRB(suspend);
+
+	/*
+	 * Some XHCI host controllers have a bug where a stop endpoint for a
+	 * non-responsive FS/LS device sitting behind a HS hub might not work in
+	 * all cases.
+	 *
+	 * One such case is with Synopsys DWC USB3 controller when working in
+	 * host role (DRD or host-only). All revisions up to, and including,
+	 * 3.00a will fail if, after issuing SetAddress() command, the host
+	 * receives a NYET response from the HS Hub for the CSPLIT SETUP token
+	 * and after several retries, the host stack decides to issue a Stop
+	 * Endpoint Command. That command will never complete.
+	 *
+	 * Synopsys suggested workaround is to issue a Disable Slot command
+	 * instead of issuing Stop Endpoint command.
+	 *
+	 * To summarize we need to make sure that:
+	 *
+	 * a) this device is FS or LS; and
+	 * b) this device is _NOT_ attached straight to root hub.
+	 * c) XHCI_STOP_EP_FSLS_DEV_HS_HUB is set
+	 *
+	 * If all those conditions are true, we will avoid using Stop Endpoint
+	 * and use Disable Slot instead.
+	 */
+	if (udev->speed <= USB_SPEED_FULL && udev->level > 1 &&
+			(xhci->quirks & XHCI_STOP_EP_FSLS_DEV_HS_HUB)) {
+		xhci_dbg(xhci, "Stop Endpoint failure, using Disable Slot\n");
+		return xhci_queue_slot_control(xhci, cmd, TRB_DISABLE_SLOT,
+					       slot_id);
+	}
 
 	return queue_command(xhci, cmd, 0, 0, 0,
 			trb_slot_id | trb_ep_index | type | trb_suspend, false);

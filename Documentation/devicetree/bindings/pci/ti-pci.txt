@@ -1,7 +1,9 @@
 TI PCI Controllers
 
 PCIe Designware Controller
- - compatible: Should be "ti,dra7-pcie""
+ - compatible: "ti,dra7-pcie" is deprecated
+	       Should be "ti,dra746-pcie" for DRA74x
+	       Should be "ti,dra726-pcie" for DRA72x
  - reg : Two register ranges as listed in the reg-names property
  - reg-names : The first entry must be "ti-conf" for the TI specific registers
 	       The second entry must be "rc-dbics" for the designware pcie
@@ -14,6 +16,10 @@ PCIe Designware Controller
 	       where <X> is the instance number of the pcie from the HW spec.
  - interrupts : Two interrupt entries must be specified. The first one is for
 		main interrupt line and the second for MSI interrupt line.
+ - syscon-lane-conf : phandle/offset pair. Phandle to the system control module and the
+   register offset to specify 1 lane or 2 lane.
+ - syscon-lane-sel : phandle/offset pair. Phandle to the system control module and the
+   register offset to specify lane selection.
  - #address-cells,
    #size-cells,
    #interrupt-cells,
