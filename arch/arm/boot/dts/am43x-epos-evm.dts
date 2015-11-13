@@ -17,7 +17,7 @@
 
 / {
 	model = "TI AM43x EPOS EVM";
-	compatible = "ti,am43x-epos-evm","ti,am4372","ti,am43";
+	compatible = "ti,am43x-epos-evm","ti,am438x","ti,am43";
 
 	aliases {
 		display0 = &lcd0;
@@ -73,6 +73,8 @@
 		compatible = "gpio-matrix-keypad";
 		debounce-delay-ms = <5>;
 		col-scan-delay-us = <2>;
+
+		linux,wakeup;
 
 		row-gpios = <&gpio0 12 GPIO_ACTIVE_HIGH		/* Bank0, pin12 */
 			     &gpio0 13 GPIO_ACTIVE_HIGH		/* Bank0, pin13 */
@@ -318,6 +320,32 @@
 				0x1fc (DS0_PULL_UP_DOWN_EN | INPUT_EN | MUX_MODE7)
 				0x200 (DS0_PULL_UP_DOWN_EN | INPUT_EN | MUX_MODE7)
 				0x204 (DS0_PULL_UP_DOWN_EN | INPUT_EN | MUX_MODE7)
+			>;
+		};
+
+		matrix_keypad_default: matrix_keypad_default {
+			pinctrl-single,pins = <
+				0x12c (PIN_OUTPUT | MUX_MODE7)		/* mii1_tx_clk.gpio3_9 */
+				0x130 (PIN_OUTPUT | MUX_MODE7)		/* mii1_rx_clk.gpio3_10 */
+				0x134 (PIN_OUTPUT | MUX_MODE7)		/* mii1_rxd3.gpio2_18 */
+				0x138 (PIN_OUTPUT | MUX_MODE7)		/* mii1_rxd2.gpio2_19 */
+				0x178 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* uart1_ctsn.gpio0_12 */
+				0x17C (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* uart1_rtsn.gpio0_13 */
+				0x180 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* uart1_rxd.gpio0_14 */
+				0x184 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* uart1_txd.gpio0_15 */
+			>;
+		};
+
+		matrix_keypad_sleep: matrix_keypad_sleep {
+			pinctrl-single,pins = <
+				0x12c (PIN_INPUT_PULLUP | MUX_MODE7)
+				0x130 (PIN_INPUT_PULLUP | MUX_MODE7)
+				0x134 (PIN_INPUT_PULLUP | MUX_MODE7)
+				0x138 (PIN_INPUT_PULLUP | MUX_MODE7)
+				0x178 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x17C (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x180 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+				0x184 (PIN_INPUT_PULLDOWN | MUX_MODE7)
 			>;
 		};
 };
@@ -685,4 +713,12 @@
 			vsync-active = <0>;
 		};
 	};
+};
+
+&wkup_m3_ipc {
+	ti,scale-data-fw = "am43x-evm-scale-data.bin";
+};
+
+&cpu {
+	cpu0-supply = <&dcdc2>;
 };

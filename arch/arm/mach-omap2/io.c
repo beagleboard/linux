@@ -49,6 +49,7 @@
 #include "cm44xx.h"
 #include "prm.h"
 #include "cm.h"
+#include "pm.h"
 #include "prcm_mpu44xx.h"
 #include "prminst44xx.h"
 #include "prm2xxx.h"
@@ -236,7 +237,7 @@ static struct map_desc omap44xx_io_desc[] __initdata = {
 };
 #endif
 
-#if defined(CONFIG_SOC_OMAP5) || defined(CONFIG_SOC_DRA7XX)
+#ifdef CONFIG_SOC_OMAP5
 static struct map_desc omap54xx_io_desc[] __initdata = {
 	{
 		.virtual	= L3_54XX_VIRT,
@@ -260,6 +261,53 @@ static struct map_desc omap54xx_io_desc[] __initdata = {
 		.virtual	= L4_PER_54XX_VIRT,
 		.pfn		= __phys_to_pfn(L4_PER_54XX_PHYS),
 		.length		= L4_PER_54XX_SIZE,
+		.type		= MT_DEVICE,
+	},
+};
+#endif
+
+#ifdef CONFIG_SOC_DRA7XX
+static struct map_desc dra7xx_io_desc[] __initdata = {
+	{
+		.virtual	= L4_CFG_MPU_DRA7XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_CFG_MPU_DRA7XX_PHYS),
+		.length		= L4_CFG_MPU_DRA7XX_SIZE,
+		.type		= MT_DEVICE,
+	},
+	{
+		.virtual	= L3_MAIN_SN_DRA7XX_VIRT,
+		.pfn		= __phys_to_pfn(L3_MAIN_SN_DRA7XX_PHYS),
+		.length		= L3_MAIN_SN_DRA7XX_SIZE,
+		.type		= MT_DEVICE,
+	},
+	{
+		.virtual	= L4_PER1_DRA7XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_PER1_DRA7XX_PHYS),
+		.length		= L4_PER1_DRA7XX_SIZE,
+		.type		= MT_DEVICE,
+	},
+	{
+		.virtual	= L4_PER2_DRA7XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_PER2_DRA7XX_PHYS),
+		.length		= L4_PER2_DRA7XX_SIZE,
+		.type		= MT_DEVICE,
+	},
+	{
+		.virtual	= L4_PER3_DRA7XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_PER3_DRA7XX_PHYS),
+		.length		= L4_PER3_DRA7XX_SIZE,
+		.type		= MT_DEVICE,
+	},
+	{
+		.virtual	= L4_CFG_DRA7XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_CFG_DRA7XX_PHYS),
+		.length		= L4_CFG_DRA7XX_SIZE,
+		.type		= MT_DEVICE,
+	},
+	{
+		.virtual	= L4_WKUP_DRA7XX_VIRT,
+		.pfn		= __phys_to_pfn(L4_WKUP_DRA7XX_PHYS),
+		.length		= L4_WKUP_DRA7XX_SIZE,
 		.type		= MT_DEVICE,
 	},
 };
@@ -306,13 +354,22 @@ void __init am33xx_map_io(void)
 void __init omap4_map_io(void)
 {
 	iotable_init(omap44xx_io_desc, ARRAY_SIZE(omap44xx_io_desc));
+	omap_barriers_init();
 }
 #endif
 
-#if defined(CONFIG_SOC_OMAP5) ||  defined(CONFIG_SOC_DRA7XX)
+#ifdef CONFIG_SOC_OMAP5
 void __init omap5_map_io(void)
 {
 	iotable_init(omap54xx_io_desc, ARRAY_SIZE(omap54xx_io_desc));
+	omap_barriers_init();
+}
+#endif
+
+#ifdef CONFIG_SOC_DRA7XX
+void __init dra7xx_map_io(void)
+{
+	iotable_init(dra7xx_io_desc, ARRAY_SIZE(dra7xx_io_desc));
 }
 #endif
 /*
@@ -597,7 +654,9 @@ void __init am33xx_init_early(void)
 
 void __init am33xx_init_late(void)
 {
+	am33xx_opp_init();
 	omap_common_late_init();
+	amx3_common_pm_init();
 }
 #endif
 
@@ -620,7 +679,10 @@ void __init am43xx_init_early(void)
 
 void __init am43xx_init_late(void)
 {
+	am43xx_opp_init();
 	omap_common_late_init();
+	omap2_clk_enable_autoidle_all();
+	amx3_common_pm_init();
 }
 #endif
 
@@ -696,6 +758,7 @@ void __init dra7xx_init_early(void)
 
 void __init dra7xx_init_late(void)
 {
+	dra7xx_opp_init();
 	omap_common_late_init();
 	omap4_pm_init();
 	omap2_clk_enable_autoidle_all();

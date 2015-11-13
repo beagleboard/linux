@@ -23,6 +23,7 @@ Optional properties:
   during suspend.
 - ti,no-reset-on-init: When present, the module should not be reset at init
 - ti,no-idle-on-init: When present, the module should not be idled at init
+- ti,no-idle: When present, the module is never allowed to idle.
 
 Example:
 
@@ -100,6 +101,9 @@ SoCs:
 - AM4372
   compatible = "ti,am4372", "ti,am43"
 
+- AM438x
+  compatible = "ti,am438x", "ti,am43"
+
 Boards:
 
 - OMAP3 BeagleBoard : Low cost community board
@@ -152,3 +156,9 @@ Boards:
 
 - DRA722 EVM: Software Development Board for DRA722
   compatible = "ti,dra72-evm", "ti,dra722", "ti,dra72", "ti,dra7"
+
+- AM571x IDK: Industrial Development Kit for AM5718
+  compatible = "ti,am571x-idk", "ti,am5718", "ti,dra722", "ti,dra72", "ti,dra7"
+
+- AM572x IDK: Industrial Development Kit for AM5728
+  compatible = "ti,am572x-idk", "ti,am5728", "ti,dra742", "ti,dra74","ti,dra7"

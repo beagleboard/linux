@@ -24,6 +24,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/ratelimit.h>
+#include <linux/printk.h>
 #include <linux/of.h>
 
 #include <linux/platform_data/edma.h>
@@ -300,8 +302,7 @@ static int edma_dma_pause(struct dma_chan *chan)
 {
 	struct edma_chan *echan = to_edma_chan(chan);
 
-	/* Pause/Resume only allowed with cyclic mode */
-	if (!echan->edesc || !echan->edesc->cyclic)
+	if (!echan->edesc)
 		return -EINVAL;
 
 	edma_pause(echan->ch_num);
@@ -311,10 +312,6 @@ static int edma_dma_pause(struct dma_chan *chan)
 static int edma_dma_resume(struct dma_chan *chan)
 {
 	struct edma_chan *echan = to_edma_chan(chan);
-
-	/* Pause/Resume only allowed with cyclic mode */
-	if (!echan->edesc->cyclic)
-		return -EINVAL;
 
 	edma_resume(echan->ch_num);
 	return 0;
@@ -333,17 +330,15 @@ static int edma_dma_resume(struct dma_chan *chan)
  */
 static int edma_config_pset(struct dma_chan *chan, struct edma_pset *epset,
 	dma_addr_t src_addr, dma_addr_t dst_addr, u32 burst,
-	enum dma_slave_buswidth dev_width, unsigned int dma_length,
+	unsigned int acnt, unsigned int dma_length,
 	enum dma_transfer_direction direction)
 {
 	struct edma_chan *echan = to_edma_chan(chan);
 	struct device *dev = chan->device->dev;
 	struct edmacc_param *param = &epset->param;
-	int acnt, bcnt, ccnt, cidx;
+	int bcnt, ccnt, cidx;
 	int src_bidx, dst_bidx, src_cidx, dst_cidx;
 	int absync;
-
-	acnt = dev_width;
 
 	/* src/dst_maxburst == 0 is the same case as src/dst_maxburst == 1 */
 	if (!burst)
@@ -546,36 +541,93 @@ static struct dma_async_tx_descriptor *edma_prep_dma_memcpy(
 	struct dma_chan *chan, dma_addr_t dest, dma_addr_t src,
 	size_t len, unsigned long tx_flags)
 {
-	int ret;
+	int ret, nslots;
 	struct edma_desc *edesc;
 	struct device *dev = chan->device->dev;
 	struct edma_chan *echan = to_edma_chan(chan);
+	unsigned int width, pset_len;
 
 	if (unlikely(!echan || !len))
 		return NULL;
 
-	edesc = kzalloc(sizeof(*edesc) + sizeof(edesc->pset[0]), GFP_ATOMIC);
+	if (len < SZ_64K) {
+		/*
+		 * Transfer size less than 64K can be handled with one paRAM
+		 * slot. ACNT = length
+		 */
+		width = len;
+		pset_len = len;
+		nslots = 1;
+	} else {
+		/*
+		 * Transfer size bigger than 64K will be handled with maximum of
+		 * two paRAM slots.
+		 * slot1: ACNT = 32767, length1: (length / 32767)
+		 * slot2: the remaining amount of data.
+		 */
+		width = SZ_32K - 1;
+		pset_len = rounddown(len, width);
+		/* One slot is enough for lengths multiple of (SZ_32K -1) */
+		if (unlikely(pset_len == len))
+			nslots = 1;
+		else
+			nslots = 2;
+	}
+
+	edesc = kzalloc(sizeof(*edesc) + nslots * sizeof(edesc->pset[0]),
+			GFP_ATOMIC);
 	if (!edesc) {
 		dev_dbg(dev, "Failed to allocate a descriptor\n");
 		return NULL;
 	}
 
-	edesc->pset_nr = 1;
+	edesc->pset_nr = nslots;
+	edesc->residue = edesc->residue_stat = len;
+	edesc->direction = DMA_MEM_TO_MEM;
+	edesc->echan = echan;
 
 	ret = edma_config_pset(chan, &edesc->pset[0], src, dest, 1,
-			       DMA_SLAVE_BUSWIDTH_4_BYTES, len, DMA_MEM_TO_MEM);
-	if (ret < 0)
+			       width, pset_len, DMA_MEM_TO_MEM);
+	if (ret < 0) {
+		kfree(edesc);
 		return NULL;
+	}
 
 	edesc->absync = ret;
 
-	/*
-	 * Enable intermediate transfer chaining to re-trigger channel
-	 * on completion of every TR, and enable transfer-completion
-	 * interrupt on completion of the whole transfer.
-	 */
 	edesc->pset[0].param.opt |= ITCCHEN;
-	edesc->pset[0].param.opt |= TCINTEN;
+	if (nslots == 1) {
+		/* Enable transfer complete interrupt */
+		edesc->pset[0].param.opt |= TCINTEN;
+	} else {
+		/* Enable transfer complete chaining for the first slot */
+		edesc->pset[0].param.opt |= TCCHEN;
+
+		if (echan->slot[1] < 0) {
+			echan->slot[1] =
+				edma_alloc_slot(EDMA_CTLR(echan->ch_num),
+						EDMA_SLOT_ANY);
+			if (echan->slot[1] < 0) {
+				kfree(edesc);
+				dev_err(dev, "%s: Failed to allocate slot\n",
+					__func__);
+				return NULL;
+			}
+		}
+		dest += pset_len;
+		src += pset_len;
+		pset_len = width = len % (SZ_32K - 1);
+
+		ret = edma_config_pset(chan, &edesc->pset[1], src, dest, 1,
+				       width, pset_len, DMA_MEM_TO_MEM);
+		if (ret < 0) {
+			kfree(edesc);
+			return NULL;
+		}
+
+		edesc->pset[1].param.opt |= ITCCHEN;
+		edesc->pset[1].param.opt |= TCINTEN;
+	}
 
 	return vchan_tx_prep(&echan->vchan, &edesc->vdesc, tx_flags);
 }
@@ -590,6 +642,7 @@ static struct dma_async_tx_descriptor *edma_prep_dma_cyclic(
 	struct edma_desc *edesc;
 	dma_addr_t src_addr, dst_addr;
 	enum dma_slave_buswidth dev_width;
+	bool use_intermediate = false;
 	u32 burst;
 	int i, ret, nslots;
 
@@ -631,8 +684,21 @@ static struct dma_async_tx_descriptor *edma_prep_dma_cyclic(
 	 * but the synchronization is difficult to achieve with Cyclic and
 	 * cannot be guaranteed, so we error out early.
 	 */
-	if (nslots > MAX_NR_SG)
-		return NULL;
+	if (nslots > MAX_NR_SG) {
+		/*
+		 * If the burst and period sizes are the same, we can put
+		 * the full buffer into a single period and activate
+		 * intermediate interrupts. This will produce interrupts
+		 * after each burst, which is also after each desired period.
+		 */
+		if (burst == period_len) {
+			period_len = buf_len;
+			nslots = 2;
+			use_intermediate = true;
+		} else {
+			return NULL;
+		}
+	}
 
 	edesc = kzalloc(sizeof(*edesc) + nslots *
 		sizeof(edesc->pset[0]), GFP_ATOMIC);
@@ -711,8 +777,13 @@ static struct dma_async_tx_descriptor *edma_prep_dma_cyclic(
 		/*
 		 * Enable period interrupt only if it is requested
 		 */
-		if (tx_flags & DMA_PREP_INTERRUPT)
+		if (tx_flags & DMA_PREP_INTERRUPT) {
 			edesc->pset[i].param.opt |= TCINTEN;
+
+			/* Also enable intermediate interrupts if necessary */
+			if (use_intermediate)
+				edesc->pset[i].param.opt |= ITCINTEN;
+		}
 	}
 
 	/* Place the cyclic channel to highest priority queue */
@@ -882,18 +953,53 @@ static void edma_issue_pending(struct dma_chan *chan)
 	spin_unlock_irqrestore(&echan->vchan.lock, flags);
 }
 
+/*
+ * This limit exists to avoid a possible infinite loop when waiting
+ * for confirmation that a particular transfer is completed. However,
+ * large bursts to/from slow devices might actually require many
+ * loops (in which case busy waiting is bad anyway). On an AM335x
+ * transferring 48 bytes from the UART RX-FIFO, as many as 55 loops
+ * have been seen.
+ */
+#define EDMA_MAX_TR_WAIT_LOOPS 10000
+
 static u32 edma_residue(struct edma_desc *edesc)
 {
 	bool dst = edesc->direction == DMA_DEV_TO_MEM;
 	struct edma_pset *pset = edesc->pset;
+	struct edma_chan *echan = edesc->echan;
 	dma_addr_t done, pos;
+	int loop_count = EDMA_MAX_TR_WAIT_LOOPS;
 	int i;
 
 	/*
 	 * We always read the dst/src position from the first RamPar
 	 * pset. That's the one which is active now.
 	 */
-	pos = edma_get_position(edesc->echan->slot[0], dst);
+	pos = edma_get_position(echan->slot[0], dst);
+
+	/*
+	 * "pos" may represent a transfer request that is still being
+	 * processed by the EDMACC or EDMATC. We will busy wait until
+	 * one of the situations occurs:
+	 *   1. no transfer requests are active
+	 *   2. a different transfer request is being processed
+	 *   3. we hit the loop limit
+	 */
+	while (edma_is_active(echan->slot[0])) {
+		/* check if a different transfer request is active */
+		if (edma_get_position(echan->slot[0], dst) != pos)
+			break;
+
+		if (!--loop_count) {
+			dev_dbg_ratelimited(echan->vchan.chan.device->dev,
+				"%s: timeout waiting for PaRAM update\n",
+				__func__);
+			break;
+		}
+
+		cpu_relax();
+	}
 
 	/*
 	 * Cyclic is simple. Just subtract pset[0].addr from pos.
@@ -984,7 +1090,8 @@ static void edma_dma_init(struct edma_cc *ecc, struct dma_device *dma,
 {
 	dma->device_prep_slave_sg = edma_prep_slave_sg;
 	dma->device_prep_dma_cyclic = edma_prep_dma_cyclic;
-	dma->device_prep_dma_memcpy = edma_prep_dma_memcpy;
+	if (!of_machine_is_compatible("ti,dra7"))
+		dma->device_prep_dma_memcpy = edma_prep_dma_memcpy;
 	dma->device_alloc_chan_resources = edma_alloc_chan_resources;
 	dma->device_free_chan_resources = edma_free_chan_resources;
 	dma->device_issue_pending = edma_issue_pending;
@@ -1000,12 +1107,6 @@ static void edma_dma_init(struct edma_cc *ecc, struct dma_device *dma,
 	dma->residue_granularity = DMA_RESIDUE_GRANULARITY_BURST;
 
 	dma->dev = dev;
-
-	/*
-	 * code using dma memcpy must make sure alignment of
-	 * length is at dma->copy_align boundary.
-	 */
-	dma->copy_align = DMA_SLAVE_BUSWIDTH_4_BYTES;
 
 	INIT_LIST_HEAD(&dma->channels);
 }
@@ -1035,7 +1136,8 @@ static int edma_probe(struct platform_device *pdev)
 	dma_cap_zero(ecc->dma_slave.cap_mask);
 	dma_cap_set(DMA_SLAVE, ecc->dma_slave.cap_mask);
 	dma_cap_set(DMA_CYCLIC, ecc->dma_slave.cap_mask);
-	dma_cap_set(DMA_MEMCPY, ecc->dma_slave.cap_mask);
+	if (!of_machine_is_compatible("ti,dra7"))
+		dma_cap_set(DMA_MEMCPY, ecc->dma_slave.cap_mask);
 
 	edma_dma_init(ecc, &ecc->dma_slave, &pdev->dev);
 

@@ -304,15 +304,6 @@ void __init sanity_check_meminfo(void)
 }
 
 /*
- * early_paging_init() recreates boot time page table setup, allowing machines
- * to switch over to a high (>4G) address space on LPAE systems
- */
-void __init early_paging_init(const struct machine_desc *mdesc,
-			      struct proc_info_list *procinfo)
-{
-}
-
-/*
  * paging_init() sets up the page tables, initialises the zone memory
  * maps, and sets up the zero page, bad page and bad page tables.
  */
@@ -372,6 +363,13 @@ void __iomem *__arm_ioremap(phys_addr_t phys_addr, size_t size,
 	return (void __iomem *)phys_addr;
 }
 EXPORT_SYMBOL(__arm_ioremap);
+
+void __iomem *__arm_ioremap_exec(phys_addr_t phys_addr, size_t size,
+				 bool cached)
+{
+	return (void __iomem *)phys_addr;
+}
+EXPORT_SYMBOL(__arm_ioremap_exec);
 
 void __iomem * (*arch_ioremap_caller)(phys_addr_t, size_t, unsigned int, void *);
 

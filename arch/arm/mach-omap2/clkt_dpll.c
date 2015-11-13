@@ -299,6 +299,9 @@ long omap2_dpll_round_rate(struct clk_hw *hw, unsigned long target_rate,
 
 	dd = clk->dpll_data;
 
+	if (dd->max_rate && target_rate > dd->max_rate)
+		target_rate = dd->max_rate;
+
 	ref_rate = __clk_get_rate(dd->clk_ref);
 	clk_name = __clk_get_name(hw->clk);
 	pr_debug("clock: %s: starting DPLL round_rate, target rate %lu\n",

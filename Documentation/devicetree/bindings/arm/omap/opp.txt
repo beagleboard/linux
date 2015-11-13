@@ -1,0 +1,28 @@
+OMAP OPP Exception Bindings
+===========================
+
+Certain boards may want to enable or disable OPPs for the MPU or other
+devices based on the capabilities of the board itself. These bindings
+allow any device node that has an operating-points property set or
+receives its OPPs from elsewhere to selectively enable or disable
+OPPs from a board dts.
+
+Optional Properties
+-------------------
+- ti,opp-enable-exception: List of frequencies that represent valid
+			   existing OPPs to be enabled regardless of
+			   other conditions indicating that they should
+			   be disabled.
+- ti,opp-disable-exception: List of frequencies that represent valid
+			    existing OPPs to be disabled regardless of
+			    other conditions indicating that they should
+			    be enabled.
+
+Example
+-------
+
+/* From am437x-idk-evm.dts */
+&cpu {
+        cpu0-supply = <&tps>;
+        ti,opp-disable-exception = <300000>;
+};

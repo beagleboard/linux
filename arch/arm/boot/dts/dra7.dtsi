@@ -15,8 +15,8 @@
 #define MAX_SOURCES 400
 
 / {
-	#address-cells = <1>;
-	#size-cells = <1>;
+	#address-cells = <2>;
+	#size-cells = <2>;
 
 	compatible = "ti,dra7xx";
 	interrupt-parent = <&crossbar_mpu>;
@@ -56,10 +56,10 @@
 		compatible = "arm,cortex-a15-gic";
 		interrupt-controller;
 		#interrupt-cells = <3>;
-		reg = <0x48211000 0x1000>,
-		      <0x48212000 0x1000>,
-		      <0x48214000 0x2000>,
-		      <0x48216000 0x2000>;
+		reg = <0x0 0x48211000 0x0 0x1000>,
+		      <0x0 0x48212000 0x0 0x1000>,
+		      <0x0 0x48214000 0x0 0x2000>,
+		      <0x0 0x48216000 0x0 0x2000>;
 		interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(2) | IRQ_TYPE_LEVEL_HIGH)>;
 		interrupt-parent = <&gic>;
 	};
@@ -68,7 +68,7 @@
 		compatible = "ti,omap5-wugen-mpu", "ti,omap4-wugen-mpu";
 		interrupt-controller;
 		#interrupt-cells = <3>;
-		reg = <0x48281000 0x1000>;
+		reg = <0x0 0x48281000 0x0 0x1000>;
 		interrupt-parent = <&gic>;
 	};
 
@@ -95,10 +95,10 @@
 		compatible = "ti,dra7-l3-noc", "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges;
+		ranges = <0x0 0x0 0x0 0xc0000000>;
 		ti,hwmods = "l3_main_1", "l3_main_2";
-		reg = <0x44000000 0x1000000>,
-		      <0x45000000 0x1000>;
+		reg = <0x0 0x44000000 0x0 0x1000000>,
+		      <0x0 0x45000000 0x0 0x1000>;
 		interrupts-extended = <&crossbar_mpu GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
 				      <&wakeupgen GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
 
@@ -296,6 +296,13 @@
 			reg = <0x4a002e00 0x7c>;
 		};
 
+		dra7_iodelay_core: padconf@4844a000 {
+			compatible = "ti,dra7-iodelay";
+			reg = <0x4844a000 0x0d1c>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
 		sdma: dma-controller@4a056000 {
 			compatible = "ti,omap4430-sdma";
 			reg = <0x4a056000 0x1000>;
@@ -315,6 +322,26 @@
 			dma-requests = <205>;
 			ti,dma-safe-map = <0>;
 			dma-masters = <&sdma>;
+		};
+
+		edma: edma-controller@43300000 {
+			compatible = "ti,edma3";
+			reg = <0x43300000 0x801c>;
+			interrupts = <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+			ti,hwmods = "tpcc", "tptc0", "tptc1";
+			dma-requests = <64>;
+		};
+
+		edma_xbar: dma-router@4a002c78 {
+			compatible = "ti,dra7-dma-crossbar";
+			reg = <0x4a002c78 0x7c>;
+			#dma-cells = <1>;
+			dma-requests = <204>;
+			ti,dma-safe-map = <0>;
+			dma-masters = <&edma>;
 		};
 
 		gpio1: gpio@4ae10000 {
@@ -766,6 +793,16 @@
 			ti,hwmods = "timer11";
 		};
 
+		timer12: timer@4ae20000 {
+			compatible = "ti,omap5430-timer";
+			reg = <0x4ae20000 0x80>;
+			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "timer12";
+			ti,timer-alwon;
+			ti,timer-secure;
+			status = "disabled";
+		};
+
 		timer13: timer@48828000 {
 			compatible = "ti,omap5430-timer";
 			reg = <0x48828000 0x80>;
@@ -1047,6 +1084,73 @@
 			>;
 		};
 
+		voltdm_mpu: voltdm@4a003b20 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_mpu>;
+			reg = <0x4a003b20 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1060000 0x0
+			1160000 0x4
+			1210000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_ivahd: voltdm@4a0025cc {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_ivahd>;
+			reg = <0x4a0025cc 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_dspeve: voltdm@4a0025e0 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_dspeve>;
+			reg = <0x4a0025e0 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_gpu: voltdm@4a003b08 {
+			compatible = "ti,omap5-voltdm";
+			#voltdm-cells = <0>;
+			vbb-supply = <&abb_gpu>;
+			reg = <0x4a003b08 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			1210000 0x4
+			1280000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		voltdm_core: voltdm@4a0025f4 {
+			compatible = "ti,omap5-core-voltdm";
+			#voltdm-cells = <0>;
+			reg = <0x4a0025f4 0x4>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
 		mcspi1: spi@48098000 {
 			compatible = "ti,omap4-mcspi";
 			reg = <0x48098000 0x200>;
@@ -1224,6 +1328,7 @@
 				     <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "rtcss";
 			clocks = <&sys_32k_ck>;
+			status = "disabled";
 		};
 
 		omap_control_usb2phy1: control-phy@4a002300 {

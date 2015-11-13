@@ -72,6 +72,8 @@ struct pinmux_ops {
 	int (*gpio_request_enable) (struct pinctrl_dev *pctldev,
 				    struct pinctrl_gpio_range *range,
 				    unsigned offset);
+	int (*save_context)(struct pinctrl_dev *pctldev);
+	void (*restore_context)(struct pinctrl_dev *pctldev);
 	void (*gpio_disable_free) (struct pinctrl_dev *pctldev,
 				   struct pinctrl_gpio_range *range,
 				   unsigned offset);
@@ -80,6 +82,20 @@ struct pinmux_ops {
 				   unsigned offset,
 				   bool input);
 };
+
+int pinmux_save_context(struct pinctrl_dev *pctldev, const char *function);
+void pinmux_restore_context(struct pinctrl_dev *pctldev, const char *function);
+
+#else /* !CONFIG_PINMUX */
+
+static inline int pinmux_save_context(struct pinctrl_dev *pctldev,
+				      const char *function)
+{
+	return 0;
+}
+
+static inline void pinmux_restore_context(struct pinctrl_dev *pctldev,
+					  const char *function) {}
 
 #endif /* CONFIG_PINMUX */
 

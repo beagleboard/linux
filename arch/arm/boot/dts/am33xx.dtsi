@@ -45,18 +45,6 @@
 			device_type = "cpu";
 			reg = <0>;
 
-			/*
-			 * To consider voltage drop between PMIC and SoC,
-			 * tolerance value is reduced to 2% from 4% and
-			 * voltage value is increased as a precaution.
-			 */
-			operating-points = <
-				/* kHz    uV */
-				720000  1285000
-				600000  1225000
-				500000  1125000
-				275000  1125000
-			>;
 			voltage-tolerance = <2>; /* 2 percentage */
 
 			clocks = <&dpll_mpu_ck>;
@@ -80,6 +68,7 @@
 		mpu {
 			compatible = "ti,omap3-mpu";
 			ti,hwmods = "mpu";
+			sram = <&ocmcram>;
 		};
 	};
 
@@ -153,6 +142,14 @@
 					};
 				};
 
+				wkup_m3_ipc: wkup_m3_ipc@1324 {
+					compatible = "ti,am3352-wkup-m3-ipc";
+					reg = <0x1324 0x24>;
+					interrupts = <78>;
+					ti,rproc = <&wkup_m3>;
+					mboxes = <&mailbox &mbox_wkupm3>;
+				};
+
 				scm_clockdomains: clockdomains {
 				};
 			};
@@ -172,6 +169,12 @@
 				<0x44e10f90 0x40>;
 			interrupts = <12 13 14>;
 			#dma-cells = <1>;
+		};
+
+		emif: emif@4c000000 {
+			compatible = "ti,emif-am3352";
+			reg =	<0x4C000000 0x1000>;
+			sram = <&ocmcram>;
 		};
 
 		gpio0: gpio@44e07000 {
@@ -778,6 +781,7 @@
 		ocmcram: ocmcram@40300000 {
 			compatible = "mmio-sram";
 			reg = <0x40300000 0x10000>; /* 64k */
+			map-exec;
 		};
 
 		elm: elm@48080000 {

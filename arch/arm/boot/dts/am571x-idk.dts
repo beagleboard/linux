@@ -1,0 +1,44 @@
+/*
+ * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "dra72x.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "am57xx-idk-common.dtsi"
+
+/ {
+	model = "TI AM571x IDK";
+	compatible = "ti,am571x-idk", "ti,am5718", "ti,dra722", \
+			"ti,dra72", "ti,dra7";
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x40000000>;
+	};
+};
+
+&dpll_dsp_ck {
+	assigned-clock-rates = <700000000>;
+};
+
+&dpll_dsp_m2_ck {
+	assigned-clock-rates = <700000000>;
+};
+
+&dpll_dsp_m3x2_ck {
+	assigned-clock-rates = <466666667>;
+};
+
+&dpll_iva_ck {
+	assigned-clock-rates = <1064000000>;
+};
+
+&dpll_iva_m2_ck {
+	assigned-clock-rates = <532000000>;
+};

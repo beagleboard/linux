@@ -435,8 +435,11 @@ static irqreturn_t dma_ccerr_handler(int irq, void *data)
 	if ((edma_read_array(ctlr, EDMA_EMR, 0) == 0) &&
 	    (edma_read_array(ctlr, EDMA_EMR, 1) == 0) &&
 	    (edma_read(ctlr, EDMA_QEMR) == 0) &&
-	    (edma_read(ctlr, EDMA_CCERR) == 0))
+	    (edma_read(ctlr, EDMA_CCERR) == 0)) {
+		dev_err(data, "%s: unmanaged event occurred\n", __func__);
+		edma_write(ctlr, EDMA_EEVAL, 1);
 		return IRQ_NONE;
+	}
 
 	while (1) {
 		int j = -1;
@@ -995,6 +998,23 @@ void edma_set_dest(unsigned slot, dma_addr_t dest_port,
 }
 EXPORT_SYMBOL(edma_set_dest);
 
+#define EDMA_CCSTAT_ACTV	BIT(4)
+
+/**
+ * edma_is_active - report if any transfer requests are active
+ * @slot: parameter RAM slot being examined
+ *
+ * Returns true if any transfer requests are active on the slot
+ */
+bool edma_is_active(unsigned slot)
+{
+	u32 ctlr = EDMA_CTLR(slot);
+	unsigned int ccstat;
+
+	ccstat = edma_read(ctlr, EDMA_CCSTAT);
+	return (ccstat & EDMA_CCSTAT_ACTV);
+}
+
 /**
  * edma_get_position - returns the current transfer point
  * @slot: parameter RAM slot being examined
@@ -1350,6 +1370,9 @@ void edma_stop(unsigned channel)
 		edma_shadow0_write_array(ctlr, SH_SECR, j, mask);
 		edma_write_array(ctlr, EDMA_EMCR, j, mask);
 
+		/* clear possibly pending completion interrupt */
+		edma_shadow0_write_array(ctlr, SH_ICR, j, mask);
+
 		pr_debug("EDMA: EER%d %08x\n", j,
 				edma_shadow0_read_array(ctlr, SH_EER, j));
 
@@ -1579,6 +1602,18 @@ static struct of_dma_filter_info edma_filter_info = {
 	.filter_fn = edma_filter_fn,
 };
 
+struct dma_chan *edma_of_xlate(struct of_phandle_args *dma_spec,
+			       struct of_dma *ofdma)
+{
+	struct dma_chan *chan = of_dma_simple_xlate(dma_spec, ofdma);
+
+	if (chan)
+		clear_bit(EDMA_CHAN_SLOT(dma_spec->args[0]),
+			  edma_cc[0]->edma_unused);
+
+	return chan;
+}
+
 static struct edma_soc_info *edma_setup_info_from_dt(struct device *dev,
 						      struct device_node *node)
 {
@@ -1595,8 +1630,12 @@ static struct edma_soc_info *edma_setup_info_from_dt(struct device *dev,
 
 	dma_cap_set(DMA_SLAVE, edma_filter_info.dma_cap);
 	dma_cap_set(DMA_CYCLIC, edma_filter_info.dma_cap);
-	of_dma_controller_register(dev->of_node, of_dma_simple_xlate,
-				   &edma_filter_info);
+	if (of_machine_is_compatible("ti,dra7"))
+		of_dma_controller_register(dev->of_node, edma_of_xlate,
+					   &edma_filter_info);
+	else
+		of_dma_controller_register(dev->of_node, of_dma_simple_xlate,
+					   &edma_filter_info);
 
 	return info;
 }
@@ -1867,7 +1906,7 @@ static struct platform_driver edma_driver = {
 
 static int __init edma_init(void)
 {
-	return platform_driver_probe(&edma_driver, edma_probe);
+	return platform_driver_register(&edma_driver);
 }
 arch_initcall(edma_init);
 

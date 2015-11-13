@@ -395,6 +395,7 @@
 
 &rtc {
 	status = "okay";
+	ext-clk-src;
 };
 
 &wdt {
@@ -403,4 +404,5 @@
 
 &cpu {
 	cpu0-supply = <&tps>;
+	ti,opp-disable-exception = <300000>;
 };

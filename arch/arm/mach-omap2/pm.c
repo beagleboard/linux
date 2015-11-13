@@ -108,7 +108,7 @@ static void __init omap2_init_processor_devices(void)
 	}
 }
 
-int __init omap_pm_clkdms_setup(struct clockdomain *clkdm, void *unused)
+int omap_pm_clkdms_setup(struct clockdomain *clkdm, void *unused)
 {
 	/* XXX The usecount test is racy */
 	if ((clkdm->flags & CLKDM_CAN_ENABLE_AUTO) &&
@@ -282,7 +282,15 @@ static inline void omap_init_cpufreq(void)
 	if (!of_have_populated_dt())
 		devinfo.name = "omap-cpufreq";
 	else
-		devinfo.name = "cpufreq-dt";
+		devinfo.name = "cpufreq-voltdm";
+	platform_device_register_full(&devinfo);
+}
+
+void __init amx3_common_pm_init(void)
+{
+	struct platform_device_info devinfo = { };
+
+	devinfo.name = "pm33xx";
 	platform_device_register_full(&devinfo);
 }
 

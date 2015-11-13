@@ -20,6 +20,7 @@
 #include <linux/property.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/pinctrl/consumer.h>
 
 struct gpio_led_data {
 	struct led_classdev cdev;
@@ -287,12 +288,33 @@ static int gpio_led_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int gpio_led_suspend(struct device *dev)
+{
+	/* Select sleep pin state */
+	pinctrl_pm_select_sleep_state(dev);
+
+	return 0;
+}
+
+static int gpio_led_resume(struct device *dev)
+{
+	/* Select default pin state */
+	pinctrl_pm_select_default_state(dev);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(gpio_led_pm_ops, gpio_led_suspend, gpio_led_resume);
+
 static struct platform_driver gpio_led_driver = {
 	.probe		= gpio_led_probe,
 	.remove		= gpio_led_remove,
 	.driver		= {
 		.name	= "leds-gpio",
 		.of_match_table = of_gpio_leds_match,
+		.pm	= &gpio_led_pm_ops,
 	},
 };
 
