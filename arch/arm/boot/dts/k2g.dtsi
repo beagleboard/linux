@@ -144,6 +144,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_I2C0>;
+			clocks = <&k2g_clks K2G_DEV_I2C0 0>;
+			clock-names = "fck";
 		};
 
 		i2c1: i2c@2530400 {
@@ -155,6 +157,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_I2C1>;
+			clocks = <&k2g_clks K2G_DEV_I2C1 0>;
+			clock-names = "fck";
 		};
 
 		i2c2: i2c@2530800 {
@@ -166,6 +170,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_I2C2>;
+			clocks = <&k2g_clks K2G_DEV_I2C2 0>;
+			clock-names = "fck";
 		};
 
 		edma: edma@02728000 {
