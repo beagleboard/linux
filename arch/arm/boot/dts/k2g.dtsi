@@ -282,6 +282,9 @@
 			dma-coherent;
 			dma-ranges;
 			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_USB0>;
+			clocks = <&k2g_clks K2G_DEV_USB0 0>;
+			clock-names = "usb";
 
 			usb0: usb@2690000 {
 				compatible = "synopsys,dwc3";
@@ -291,7 +294,6 @@
 				dr_mode = "otg";
 				usb-phy = <&usb0_phy>;
 				status = "disabled";
-				power-domains = <&k2g_pds K2G_DEV_USB0>;
 			};
 		};
 
@@ -310,6 +312,9 @@
 			dma-coherent;
 			dma-ranges;
 			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_USB1>;
+			clocks = <&k2g_clks K2G_DEV_USB1 0>;
+			clock-names = "usb";
 
 			usb1: usb@2690000 {
 				compatible = "synopsys,dwc3";
@@ -319,8 +324,8 @@
 				dr_mode = "otg";
 				usb-phy = <&usb1_phy>;
 				status = "disabled";
-				power-domains = <&k2g_pds K2G_DEV_USB1>;
 			};
+
 		};
 
 		wdt: wdt@02260000 {
