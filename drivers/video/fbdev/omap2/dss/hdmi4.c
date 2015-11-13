@@ -165,7 +165,7 @@ static int hdmi_power_on_full(struct omap_dss_device *dssdev)
 {
 	int r;
 	struct omap_video_timings *p;
-	struct omap_overlay_manager *mgr = hdmi.output.manager;
+	enum omap_channel channel = dssdev->dispc_channel;
 	struct hdmi_wp_data *wp = &hdmi.wp;
 	struct dss_pll_clock_info hdmi_cinfo = { 0 };
 
@@ -212,9 +212,9 @@ static int hdmi_power_on_full(struct omap_dss_device *dssdev)
 	dispc_enable_gamma_table(0);
 
 	/* tv size */
-	dss_mgr_set_timings(mgr, p);
+	dss_mgr_set_timings(channel, p);
 
-	r = dss_mgr_enable(mgr);
+	r = dss_mgr_enable(channel);
 	if (r)
 		goto err_mgr_enable;
 
@@ -228,7 +228,7 @@ static int hdmi_power_on_full(struct omap_dss_device *dssdev)
 	return 0;
 
 err_vid_enable:
-	dss_mgr_disable(mgr);
+	dss_mgr_disable(channel);
 err_mgr_enable:
 	hdmi_wp_set_phy_pwr(&hdmi.wp, HDMI_PHYPWRCMD_OFF);
 err_phy_pwr:
@@ -242,13 +242,13 @@ err_pll_enable:
 
 static void hdmi_power_off_full(struct omap_dss_device *dssdev)
 {
-	struct omap_overlay_manager *mgr = hdmi.output.manager;
+	enum omap_channel channel = dssdev->dispc_channel;
 
 	hdmi_wp_clear_irqenable(&hdmi.wp, 0xffffffff);
 
 	hdmi_wp_video_stop(&hdmi.wp);
 
-	dss_mgr_disable(mgr);
+	dss_mgr_disable(channel);
 
 	hdmi_wp_set_phy_pwr(&hdmi.wp, HDMI_PHYPWRCMD_OFF);
 
@@ -260,9 +260,7 @@ static void hdmi_power_off_full(struct omap_dss_device *dssdev)
 static int hdmi_display_check_timing(struct omap_dss_device *dssdev,
 					struct omap_video_timings *timings)
 {
-	struct omap_dss_device *out = &hdmi.output;
-
-	if (!dispc_mgr_timings_ok(out->dispc_channel, timings))
+	if (!dispc_mgr_timings_ok(dssdev->dispc_channel, timings))
 		return -EINVAL;
 
 	return 0;
@@ -343,7 +341,7 @@ static int hdmi_display_enable(struct omap_dss_device *dssdev)
 
 	mutex_lock(&hdmi.lock);
 
-	if (out->manager == NULL) {
+	if (!out->dispc_channel_connected) {
 		DSSERR("failed to enable display: no output/manager\n");
 		r = -ENODEV;
 		goto err0;
@@ -433,18 +431,14 @@ static void hdmi_core_disable(struct omap_dss_device *dssdev)
 static int hdmi_connect(struct omap_dss_device *dssdev,
 		struct omap_dss_device *dst)
 {
-	struct omap_overlay_manager *mgr;
+	enum omap_channel channel = dssdev->dispc_channel;
 	int r;
 
 	r = hdmi_init_regulator();
 	if (r)
 		return r;
 
-	mgr = omap_dss_get_overlay_manager(dssdev->dispc_channel);
-	if (!mgr)
-		return -ENODEV;
-
-	r = dss_mgr_connect(mgr, dssdev);
+	r = dss_mgr_connect(channel, dssdev);
 	if (r)
 		return r;
 
@@ -452,7 +446,7 @@ static int hdmi_connect(struct omap_dss_device *dssdev,
 	if (r) {
 		DSSERR("failed to connect output to new device: %s\n",
 				dst->name);
-		dss_mgr_disconnect(mgr, dssdev);
+		dss_mgr_disconnect(channel, dssdev);
 		return r;
 	}
 
@@ -462,6 +456,8 @@ static int hdmi_connect(struct omap_dss_device *dssdev,
 static void hdmi_disconnect(struct omap_dss_device *dssdev,
 		struct omap_dss_device *dst)
 {
+	enum omap_channel channel = dssdev->dispc_channel;
+
 	WARN_ON(dst != dssdev->dst);
 
 	if (dst != dssdev->dst)
@@ -469,8 +465,7 @@ static void hdmi_disconnect(struct omap_dss_device *dssdev,
 
 	omapdss_output_unset_device(dssdev);
 
-	if (dssdev->manager)
-		dss_mgr_disconnect(dssdev->manager, dssdev);
+	dss_mgr_disconnect(channel, dssdev);
 }
 
 static int hdmi_read_edid(struct omap_dss_device *dssdev,

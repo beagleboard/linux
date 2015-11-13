@@ -29,8 +29,7 @@
 #include <linux/of.h>
 
 #include <video/omapdss.h>
-#include "dss.h"
-#include "dss_features.h"
+#include "dss-common.h"
 
 void omapdss_default_get_resolution(struct omap_dss_device *dssdev,
 			u16 *xres, u16 *yres)
@@ -55,10 +54,10 @@ int omapdss_default_get_recommended_bpp(struct omap_dss_device *dssdev)
 		else
 			return 16;
 	case OMAP_DISPLAY_TYPE_DSI:
-		if (dsi_get_pixel_size(dssdev->panel.dsi_pix_fmt) > 16)
-			return 24;
-		else
+		if (dssdev->panel.dsi_pix_fmt == OMAP_DSS_DSI_FMT_RGB565)
 			return 16;
+		else
+			return 24;
 	case OMAP_DISPLAY_TYPE_VENC:
 	case OMAP_DISPLAY_TYPE_SDI:
 	case OMAP_DISPLAY_TYPE_HDMI:
@@ -77,55 +76,6 @@ void omapdss_default_get_timings(struct omap_dss_device *dssdev,
 	*timings = dssdev->panel.timings;
 }
 EXPORT_SYMBOL(omapdss_default_get_timings);
-
-int dss_suspend_all_devices(void)
-{
-	struct omap_dss_device *dssdev = NULL;
-
-	for_each_dss_dev(dssdev) {
-		if (!dssdev->driver)
-			continue;
-
-		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-			dssdev->driver->disable(dssdev);
-			dssdev->activate_after_resume = true;
-		} else {
-			dssdev->activate_after_resume = false;
-		}
-	}
-
-	return 0;
-}
-
-int dss_resume_all_devices(void)
-{
-	struct omap_dss_device *dssdev = NULL;
-
-	for_each_dss_dev(dssdev) {
-		if (!dssdev->driver)
-			continue;
-
-		if (dssdev->activate_after_resume) {
-			dssdev->driver->enable(dssdev);
-			dssdev->activate_after_resume = false;
-		}
-	}
-
-	return 0;
-}
-
-void dss_disable_all_devices(void)
-{
-	struct omap_dss_device *dssdev = NULL;
-
-	for_each_dss_dev(dssdev) {
-		if (!dssdev->driver)
-			continue;
-
-		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE)
-			dssdev->driver->disable(dssdev);
-	}
-}
 
 static LIST_HEAD(panel_list);
 static DEFINE_MUTEX(panel_list_mutex);

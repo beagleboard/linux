@@ -104,7 +104,7 @@ static void omap_atomic_complete(struct omap_atomic_state_commit *commit)
 	struct drm_atomic_state *old_state = commit->state;
 
 	/* Apply the atomic update. */
-	dispc_runtime_get();
+	priv->dispc_ops->runtime_get();
 
 	drm_atomic_helper_commit_modeset_disables(dev, old_state);
 	drm_atomic_helper_commit_planes(dev, old_state);
@@ -114,7 +114,7 @@ static void omap_atomic_complete(struct omap_atomic_state_commit *commit)
 
 	drm_atomic_helper_cleanup_planes(dev, old_state);
 
-	dispc_runtime_put();
+	priv->dispc_ops->runtime_put();
 
 	drm_atomic_state_free(old_state);
 
@@ -403,8 +403,8 @@ static int omap_modeset_init(struct drm_device *dev)
 {
 	struct omap_drm_private *priv = dev->dev_private;
 	struct omap_dss_device *dssdev = NULL;
-	int num_ovls = dss_feat_get_num_ovls();
-	int num_mgrs = dss_feat_get_num_mgrs();
+	int num_ovls = priv->dispc_ops->get_num_ovls();
+	int num_mgrs = priv->dispc_ops->get_num_mgrs();
 	int num_crtcs;
 	int i, id = 0;
 	int ret;
@@ -431,7 +431,7 @@ static int omap_modeset_init(struct drm_device *dev)
 		struct drm_connector *connector;
 		struct drm_encoder *encoder;
 		enum omap_channel channel;
-		struct omap_overlay_manager *mgr;
+		struct omap_dss_device *out;
 
 		if (!omapdss_device_is_connected(dssdev))
 			continue;
@@ -478,8 +478,10 @@ static int omap_modeset_init(struct drm_device *dev)
 		 * not considered.
 		 */
 
-		mgr = omapdss_find_mgr_from_display(dssdev);
-		channel = mgr->id;
+		out = omapdss_find_output_from_display(dssdev);
+		channel = out->dispc_channel;
+		omap_dss_put_device(out);
+
 		/*
 		 * if this channel hasn't already been taken by a previously
 		 * allocated crtc, we create a new crtc for it
@@ -760,6 +762,8 @@ static int dev_load(struct drm_device *dev, unsigned long flags)
 
 	priv->omaprev = pdata->omaprev;
 
+	priv->dispc_ops = dispc_get_ops();
+
 	dev->dev_private = priv;
 
 	priv->wq = alloc_ordered_workqueue("omapdrm", 0);
@@ -799,6 +803,14 @@ static int dev_load(struct drm_device *dev, unsigned long flags)
 
 	drm_kms_helper_poll_init(dev);
 
+	if (priv->dispc_ops->has_writeback()) {
+		ret = wbm2m_init(dev);
+		if (ret)
+			dev_warn(dev->dev, "failed to initialize writeback\n");
+		else
+			priv->wb_initialized = true;
+	}
+
 #if IS_ENABLED(CONFIG_DRM_OMAP_SGX_PLUGIN)
 	drm_device = dev;
 
@@ -823,6 +835,9 @@ static int dev_unload(struct drm_device *dev)
 
 	drm_loaded = false;
 #endif
+
+	if (priv->wb_initialized)
+		wbm2m_cleanup(dev);
 
 	drm_kms_helper_poll_fini(dev);
 

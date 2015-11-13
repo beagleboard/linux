@@ -25,6 +25,8 @@
 
 #include <linux/interrupt.h>
 
+#include "dss-common.h"
+
 #ifdef pr_fmt
 #undef pr_fmt
 #endif
@@ -87,17 +89,6 @@ enum dss_hdmi_venc_clk_source_select {
 enum dss_dsi_content_type {
 	DSS_DSI_CONTENT_DCS,
 	DSS_DSI_CONTENT_GENERIC,
-};
-
-enum dss_writeback_channel {
-	DSS_WB_LCD1_MGR =	0,
-	DSS_WB_LCD2_MGR =	1,
-	DSS_WB_TV_MGR =		2,
-	DSS_WB_OVL0 =		3,
-	DSS_WB_OVL1 =		4,
-	DSS_WB_OVL2 =		5,
-	DSS_WB_OVL3 =		6,
-	DSS_WB_LCD3_MGR =	7,
 };
 
 enum dss_pll_id {
@@ -208,10 +199,6 @@ void dss_install_pm_handler(void);
 void dss_uninstall_pm_handler(void);
 
 /* display */
-int dss_suspend_all_devices(void);
-int dss_resume_all_devices(void);
-void dss_disable_all_devices(void);
-
 int display_init_sysfs(struct platform_device *pdev);
 void display_uninit_sysfs(struct platform_device *pdev);
 
@@ -276,10 +263,6 @@ struct dss_pll *dss_video_pll_init(struct platform_device *pdev, int id,
 	struct regulator *regulator);
 void dss_video_pll_uninit(struct dss_pll *pll);
 
-/* dss-of */
-struct device_node *dss_of_port_get_parent_device(struct device_node *port);
-u32 dss_of_port_get_port_number(struct device_node *port);
-
 #if defined(CONFIG_OMAP2_DSS_DEBUGFS)
 void dss_debug_dump_clocks(struct seq_file *s);
 #endif
@@ -340,14 +323,7 @@ void dsi_uninit_platform_driver(void);
 void dsi_dump_clocks(struct seq_file *s);
 
 void dsi_irq_handler(void);
-u8 dsi_get_pixel_size(enum omap_dss_dsi_pixel_format fmt);
 
-#else
-static inline u8 dsi_get_pixel_size(enum omap_dss_dsi_pixel_format fmt)
-{
-	WARN("%s: DSI not compiled in, returning pixel_size as 0\n", __func__);
-	return 0;
-}
 #endif
 
 /* DPI */
@@ -404,14 +380,52 @@ int dispc_mgr_get_clock_div(enum omap_channel channel,
 		struct dispc_clock_info *cinfo);
 void dispc_set_tv_pclk(unsigned long pclk);
 
-u32 dispc_wb_get_framedone_irq(void);
 bool dispc_wb_go_busy(void);
 void dispc_wb_go(void);
-void dispc_wb_enable(bool enable);
-bool dispc_wb_is_enabled(void);
-void dispc_wb_set_channel_in(enum dss_writeback_channel channel);
-int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
-		bool mem_to_mem, const struct omap_video_timings *timings);
+
+u32 dispc_read_irqstatus(void);
+void dispc_clear_irqstatus(u32 mask);
+u32 dispc_read_irqenable(void);
+void dispc_write_irqenable(u32 mask);
+
+int dispc_request_irq(irq_handler_t handler, void *dev_id);
+void dispc_free_irq(void *dev_id);
+
+int dispc_runtime_get(void);
+void dispc_runtime_put(void);
+
+int dispc_get_num_ovls(void);
+int dispc_get_num_mgrs(void);
+
+enum omap_dss_output_id dispc_mgr_get_supported_outputs(enum omap_channel channel);
+void dispc_mgr_enable(enum omap_channel channel, bool enable);
+bool dispc_mgr_is_enabled(enum omap_channel channel);
+u32 dispc_mgr_get_vsync_irq(enum omap_channel channel);
+u32 dispc_mgr_get_framedone_irq(enum omap_channel channel);
+u32 dispc_mgr_get_sync_lost_irq(enum omap_channel channel);
+bool dispc_mgr_go_busy(enum omap_channel channel);
+void dispc_mgr_go(enum omap_channel channel);
+void dispc_mgr_set_lcd_config(enum omap_channel channel,
+		const struct dss_lcd_mgr_config *config);
+void dispc_mgr_set_timings(enum omap_channel channel,
+		const struct omap_video_timings *timings);
+void dispc_mgr_setup(enum omap_channel channel,
+		const struct omap_overlay_manager_info *info);
+enum omap_dss_output_id dispc_mgr_get_supported_outputs(enum omap_channel channel);
+
+int dispc_ovl_check(enum omap_plane plane, enum omap_channel channel,
+		const struct omap_overlay_info *oi,
+		const struct omap_video_timings *timings,
+		int *x_predecim, int *y_predecim);
+
+int dispc_ovl_enable(enum omap_plane plane, bool enable);
+bool dispc_ovl_enabled(enum omap_plane plane);
+void dispc_ovl_set_channel_out(enum omap_plane plane,
+		enum omap_channel channel);
+int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
+		bool replication, const struct omap_video_timings *mgr_timings,
+		bool mem_to_mem);
+enum omap_color_mode dispc_ovl_get_color_modes(enum omap_plane plane);
 
 /* VENC */
 int venc_init_platform_driver(void) __init;
