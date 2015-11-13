@@ -62,6 +62,12 @@
 			reusable;
 			status = "okay";
 		};
+
+		cmem_block_mem_0: cmem_block_mem@a0000000 {
+			reg = <0x0 0xa0000000 0x0 0x0a000000>;
+			no-map;
+			status = "okay";
+		};
 	};
 
 	vdd_3v3: fixedregulator-vdd_3v3 {
@@ -203,6 +209,22 @@
 		sound0_master: simple-audio-card,codec {
 			sound-dai = <&tlv320aic3104>;
 			clocks = <&clkout2_clk>;
+		};
+	};
+
+	cmem {
+		compatible = "ti,cmem";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		#pool-size-cells = <2>;
+
+		status = "okay";
+
+		cmem_block_0: cmem_block@0 {
+			reg = <0>;
+			memory-region = <&cmem_block_mem_0>;
+			cmem-buf-pools = <1 0x0 0x0a000000>;
 		};
 	};
 };
