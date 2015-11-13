@@ -28,7 +28,7 @@
 /* Temp variable to allow multiple calls */
 static u8 __initdata omap_table_init;
 
-/*
+/**
  * opp_def_list_enable_opp() - enable opp by hwmod_name and frequency
  * @list:	opp default list for this silicon
  * @size:	number of opp entries for this silicon
@@ -88,6 +88,70 @@ int __init opp_def_list_update_opp_voltage(struct omap_opp_def *list,
 	return -EINVAL;
 }
 
+static int __init of_omap_set_opp_exceptions(struct omap_opp_def *list,
+					     unsigned int size,
+					     const char *hwmod_name,
+					     struct device_node *np,
+					     const char *of_prop_name,
+					     unsigned long freq,
+					     bool state)
+{
+	const __be32 *val;
+	const struct property *prop;
+	int nr;
+
+	prop = of_find_property(np, of_prop_name, NULL);
+	if (!prop)
+		return -ENODEV;
+	if (!prop->value)
+		return -ENODATA;
+
+	/*
+	 * Each OPP is a a single frequency value in kHz.
+	 */
+	nr = prop->length / sizeof(u32);
+
+	val = prop->value;
+	while (nr) {
+		unsigned long exception_freq = be32_to_cpup(val++) * 1000;
+
+		if (exception_freq == freq) {
+			if (opp_def_list_enable_opp(list, size, hwmod_name,
+						    freq, state))
+				return -EINVAL;
+			else
+				return 0;
+		}
+		nr--;
+	}
+
+	return 0;
+}
+
+static int __init of_omap_check_opp_exceptions(struct device *dev,
+					       struct omap_opp_def *list,
+					       unsigned int size,
+					       const char *hwmod_name,
+					       unsigned long freq)
+
+{
+	struct device_node *np;
+
+	np = of_node_get(dev->of_node);
+	if (!np)
+		return  -ENOENT;
+
+	of_omap_set_opp_exceptions(list, size, hwmod_name, np,
+				   "ti,opp-enable-exception",
+				   freq, true);
+
+	of_omap_set_opp_exceptions(list, size, hwmod_name, np,
+				   "ti,opp-disable-exception",
+				   freq, false);
+
+	of_node_put(np);
+	return 0;
+}
 /**
  * omap_init_opp_table() - Initialize opp table as per the CPU type
  * @opp_def:		opp default list for this silicon
@@ -141,6 +205,10 @@ int __init omap_init_opp_table(struct omap_opp_def *opp_def,
 			}
 			dev = &oh->od->pdev->dev;
 		}
+
+		of_omap_check_opp_exceptions(dev, opp_def, opp_def_size,
+					     opp_def->hwmod_name,
+					     opp_def->freq);
 
 		r = dev_pm_opp_add(dev, opp_def->freq, opp_def->u_volt);
 		if (r) {
