@@ -1,0 +1,27 @@
+TI Keystone DSP Memory Mapping Device
+=====================================
+
+Binding status: Unstable - ABI compatibility may be broken in the future
+
+The Keystone DSP Memory Mapping Device is a device node used to represent
+the memory regions that can be mapped into userspace for providing direct
+user-mode access to regions for the purposes of shared memory communication
+with the DSP remote processor devices on the SoC. It can also be used for
+supporting user-space based loading of the DSP remoteproc devices.
+
+Required properties:
+--------------------
+- compatible : Should be "ti,keystone-dsp-mem"
+- reg        : An array of memory regions, each region represented by a tuple
+               of the region's start address and the size of the region.
+
+Example:
+--------
+	/* K2HK EVM */
+	soc {
+		mpm_mem: dspmem {
+			compatible = "ti,keystone-dsp-mem";
+			reg  = <0x0c000000 0x00600000>, /* MSMC Memory */
+			       <0xa0000000 0x20000000>; /* DDR Memory */
+		};
+	};
