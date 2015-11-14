@@ -4883,7 +4883,7 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	xhci->hcc_params = readl(&xhci->cap_regs->hcc_params);
 	xhci_print_registers(xhci);
 
-	xhci->quirks = quirks;
+	xhci->quirks |= quirks;
 
 	get_quirks(dev, xhci);
 

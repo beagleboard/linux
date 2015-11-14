@@ -73,18 +73,6 @@
 	clock-names = "fck", "video1_clk";
 };
 
-&mmc1 {
-	compatible = "ti,omap4-hsmmc";
-};
-
-&mmc2 {
-	compatible = "ti,omap4-hsmmc";
-};
-
-&mmc3 {
-	compatible = "ti,omap4-hsmmc";
-};
-
 &mmc4 {
 	compatible = "ti,omap4-hsmmc";
 };

@@ -18,11 +18,14 @@
  *
  * @usb3_lpm_capable:	determines if this xhci platform supports USB3
  *			LPM capability
+ * @quirk_broken_stop_endpoint_fsls_dev: If true, XHCI will not use Stop
+ *			Endpoint for FS/LS devices behind an HS hub.
  * @quirk_port_broken_pe: If true, XHCI will not use Port Disable.
  *
  */
 struct usb_xhci_pdata {
 	unsigned	usb3_lpm_capable:1;
+	unsigned	quirk_broken_stop_endpoint_fsls_dev:1;
 	unsigned	quirk_port_broken_pe:1;
 };
 
