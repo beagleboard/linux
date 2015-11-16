@@ -68,6 +68,7 @@ config SOC_AM43XX
 	select OMAP_INTERCONNECT
 	select OMAP_INTERCONNECT_BARRIER
 	select PM_OPP if PM
+	select ARM_CPU_SUSPEND if PM
 
 config SOC_DRA7XX
 	bool "TI DRA7XX"
