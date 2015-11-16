@@ -43,6 +43,10 @@
 		};
 	};
 
+	aliases {
+		rproc0 = &dsp0;
+	};
+
 	soc {
 		/include/ "k2e-clocks.dtsi"
 
@@ -96,6 +100,21 @@
 			link-rate-kbps = <5000000>;
 			num-lanes = <2>;
 			status = "disabled";
+		};
+
+		dsp0: dsp0 {
+			compatible = "ti,k2e-dsp";
+			reg = <0x10800000 0x00080000>,
+			      <0x10e00000 0x00008000>,
+			      <0x10f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			clocks = <&clkgem0>;
+			ti,syscon-dev = <&devctrl 0x844>;
+			ti,syscon-psc = <&psc 0xa3c 0x83c>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <0 8>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio0 27 0>;
 		};
 
 		pcie1: pcie@21020000 {
