@@ -80,7 +80,8 @@
 				};
 
 				smps45_reg: smps45 {
-					/* VDD_DSPEVE */
+					/* VDD_DSPEVE on AM572 */
+					/* VDD_IVA + VDD_DSP on AM571 */
 					vin-supply = <&vmain>;
 					regulator-name = "smps45";
 					regulator-min-microvolt = <850000>;
@@ -103,8 +104,8 @@
 					/* VDD_CORE */
 					vin-supply = <&vmain>;
 					regulator-name = "smps7";
-					regulator-min-microvolt = <1020000>;
-					regulator-max-microvolt = <1160000>;
+					regulator-min-microvolt = <850000>;
+					regulator-max-microvolt = <1150000>;
 					regulator-always-on;
 					regulator-boot-on;
 				};
@@ -114,10 +115,6 @@
 					/* 5718 - N.C. test point */
 					vin-supply = <&vmain>;
 					regulator-name = "smps8";
-					regulator-min-microvolt = <850000>;
-					regulator-max-microvolt = <1250000>;
-					regulator-always-on;
-					regulator-boot-on;
 				};
 
 				smps9_reg: smps9 {
@@ -132,11 +129,13 @@
 
 				ldo1_reg: ldo1 {
 					/* VDDSHV8 - VSDMMC  */
+					/* NOTE: on rev 1.3a, data supply */
 					vin-supply = <&vmain>;
 					regulator-name = "ldo1";
 					regulator-min-microvolt = <3300000>;
 					regulator-max-microvolt = <3300000>;
 					regulator-boot-on;
+					regulator-always-on;
 				};
 
 				ldo2_reg: ldo2 {
@@ -150,9 +149,9 @@
 				};
 
 				ldo3_reg: ldo3 {
-					/* VDDA_SATA */
-					/* AM572x-idk VDDA_USB1,2,3 */
-					/* AM571x-idk VDDA_USB1,2 */
+					/* R1.2a 572x V1_8PHY: USB1,2,3, SATA, PCIE, HDMI */
+					/* R1.3a 572x V1_8PHY_LDO3: USB, SATA */
+					/* R1.2a 571x V1_8PHY_LDO3: USB1,2, CSI; V1_8PHYA: SATA */
 					vin-supply = <&vmain>;
 					regulator-name = "ldo3";
 					regulator-min-microvolt = <1800000>;
@@ -162,16 +161,21 @@
 				};
 
 				ldo4_reg: ldo4 {
-					/* VDDA_HDMI VDDA_PCIe */
-					/* AM571x-idk - VDDA_USB3 */
+					/* R1.2a 572x - unused */
+					/* R1.3a 572x V1_8PHY_LDO4: PCIE, HDMI */
+					/* R1.2a 571x V1_8PHY_LDO4: V1_8PHYB: USB3, PCIE, HDMI */
 					vin-supply = <&vmain>;
 					regulator-name = "ldo4";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+					regulator-boot-on;
 				};
 
+				/* LDO5-8 unused */
+
 				ldo9_reg: ldo9 {
-					/* VDD_RTC */
+					/* VDD_RTC (unused in rev 1.3a am572x-idk) */
 					vin-supply = <&vmain>;
 					regulator-name = "ldo9";
 					regulator-min-microvolt = <840000>;
@@ -196,11 +200,12 @@
 					regulator-name = "ldousb";
 					regulator-min-microvolt = <3300000>;
 					regulator-max-microvolt = <3300000>;
+					regulator-always-on;
 					regulator-boot-on;
 				};
 
 				ldortc_reg: ldortc {
-					/* VDDA_RTC */
+					/* VDDA_RTC  (unused on rev am572x 1.3a) */
 					vin-supply = <&vmain>;
 					regulator-name = "ldortc";
 					regulator-min-microvolt = <1800000>;

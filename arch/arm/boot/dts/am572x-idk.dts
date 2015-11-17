@@ -24,6 +24,14 @@
 	};
 };
 
+&smps8_reg {
+	/* 5728 - VDD_IVAHD */
+	regulator-min-microvolt = <850000>;
+	regulator-max-microvolt = <1250000>;
+	regulator-always-on;
+	regulator-boot-on;
+};
+
 &dpll_dsp_ck {
 	assigned-clock-rates = <750000000>;
 };
