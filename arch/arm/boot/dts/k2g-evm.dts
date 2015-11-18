@@ -106,6 +106,100 @@
 			K2G_CORE_IOPAD(0x1228) (BUFFER_CLASS_B | PIN_PULLDOWN  | MUX_MODE1) /* qspicsn3.dcan1rx */
 		>;
 	};
+
+	nand_pins: pinmux_nand_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1000) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad0.gpmc_ad0 */
+			K2G_CORE_IOPAD(0x1004) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad1.gpmc_ad1 */
+			K2G_CORE_IOPAD(0x1008) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad2.gpmc_ad2 */
+			K2G_CORE_IOPAD(0x100c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad3.gpmc_ad3 */
+			K2G_CORE_IOPAD(0x1010) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad4.gpmc_ad4 */
+			K2G_CORE_IOPAD(0x1014) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad5.gpmc_ad5 */
+			K2G_CORE_IOPAD(0x1018) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad6.gpmc_ad6 */
+			K2G_CORE_IOPAD(0x101c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad7.gpmc_ad7 */
+			K2G_CORE_IOPAD(0x1020) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad8.gpmc_ad8 */
+			K2G_CORE_IOPAD(0x1024) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad9.gpmc_ad9 */
+			K2G_CORE_IOPAD(0x1028) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad10.gpmc_ad10 */
+			K2G_CORE_IOPAD(0x102c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad11.gpmc_ad11 */
+			K2G_CORE_IOPAD(0x1030) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad12.gpmc_ad12 */
+			K2G_CORE_IOPAD(0x1034) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad13.gpmc_ad13 */
+			K2G_CORE_IOPAD(0x1038) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad14.gpmc_ad14 */
+			K2G_CORE_IOPAD(0x103c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_ad15.gpmc_ad15 */
+			K2G_CORE_IOPAD(0x1044) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_advnale.gpmc_advnale */
+			K2G_CORE_IOPAD(0x1048) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_oenren.gpmc_oenren */
+			K2G_CORE_IOPAD(0x104c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_wen.gpmc_wen */
+			K2G_CORE_IOPAD(0x1050) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_beoncle.gpmc_beoncle */
+			K2G_CORE_IOPAD(0x1058) (BUFFER_CLASS_B | PIN_PULLUP   | MUX_MODE0)	/* gpmc_wait0.gpmc_wait0 */
+			K2G_CORE_IOPAD(0x1060) (BUFFER_CLASS_B | PIN_PULLUP   | MUX_MODE0)	/* gpmc_wpn.gpmc_wpn */
+			K2G_CORE_IOPAD(0x1068) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_csn0.gpmc_csn0 */
+		>;
+	};
+};
+
+&elm {
+	status = "okay";
+};
+
+&gpmc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&nand_pins>;
+	status = "okay";
+	ranges = <0 0 0x30000000 0x01000000>;	/* CS0 space. Min partition = 16MB */
+	nand@0,0 {
+		compatible = "ti,omap2-nand";
+		reg = <0 0 4>;			/* CS0, I/O window 4 bytes */
+		interrupts = <GIC_SPI 196 IRQ_TYPE_EDGE_RISING>;
+		ti,nand-ecc-opt = "bch16";
+		ti,elm-id = <&elm>;
+		nand-bus-width = <16>;
+		gpmc,device-width = <2>;
+		gpmc,sync-clk-ps = <0>;
+		gpmc,cs-on-ns = <0>;
+		gpmc,cs-rd-off-ns = <40>;
+		gpmc,cs-wr-off-ns = <40>;
+		gpmc,adv-on-ns = <0>;
+		gpmc,adv-rd-off-ns = <25>;
+		gpmc,adv-wr-off-ns = <25>;
+		gpmc,we-on-ns = <0>;
+		gpmc,we-off-ns = <20>;
+		gpmc,oe-on-ns = <3>;
+		gpmc,oe-off-ns = <30>;
+		gpmc,access-ns = <30>;
+		gpmc,rd-cycle-ns = <40>;
+		gpmc,wr-cycle-ns = <40>;
+		gpmc,wait-pin = <0>;
+		gpmc,bus-turnaround-ns = <0>;
+		gpmc,cycle2cycle-delay-ns = <0>;
+		gpmc,clk-activation-ns = <0>;
+		gpmc,wait-monitoring-ns = <0>;
+		gpmc,wr-access-ns = <40>;
+		gpmc,wr-data-mux-bus-ns = <0>;
+		/* MTD partition table */
+		/* All SPL-* partitions are sized to minimal length
+		 * which can be independently programmable. For
+		 * NAND flash this is equal to size of erase-block
+		 */
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		nand-on-flash-bbt;
+		/* MT29F2G16ABAFAWP - 256MB */
+		partition@0 {
+			label = "u-boot";
+			reg = <0x0 0x100000>;
+			read-only;
+		};
+
+		partition@100000 {
+			label = "params";
+			reg = <0x100000 0x80000>;
+		};
+
+		partition@180000 {
+			label = "ubifs";
+			reg = <0x180000 0xfe80000>;
+		};
+	};
 };
 
 &uart0 {
