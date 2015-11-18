@@ -283,3 +283,15 @@
 	dr_mode = "host";
 	status = "okay";
 };
+
+&mdio {
+	status = "okay";
+	ethphy0: ethernet-phy@0 {
+		reg = <0>;
+		phy-mode = "rgmii-id";
+	};
+};
+
+&gbe0 {
+	phy-handle = <&ethphy0>;
+};
