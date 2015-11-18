@@ -102,6 +102,8 @@ static int evm_sta321mp_hw_params(struct snd_pcm_substream *substream,
   unsigned sysclk = ((struct snd_soc_card_drvdata_davinci *)
       snd_soc_card_get_drvdata(soc_card))->sysclk;
   int ret = 0;
+
+  printk("evm_sta321mp_hw_params: Starting operations.\n");
   printk("bclk (from params): %d\n", (int)bclk_freq);
 
   bclk_freq = 1;
@@ -132,9 +134,6 @@ static int evm_sta321mp_hw_params(struct snd_pcm_substream *substream,
         ret);
     return ret;
   }
-
-
-  printk("evm_sta321mp_hw_params: Starting operations.\n");
 
 	/* set cpu DAI configuration */
   /*

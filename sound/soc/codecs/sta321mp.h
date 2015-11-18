@@ -93,7 +93,9 @@
 
 #define I2S_S24_LE  0x00
 #define I2S_S24_3LE 0x0E
+//#define I2S_S24_3LE 0x02
 #define I2S_S16_LE  0x07
+//#define I2S_S16_LE  0x05
 #define I2S_MSB_1ST 0x00
 #define I2S_LSB_1ST 0x10
 #define I2S_DIV_4   0x20
