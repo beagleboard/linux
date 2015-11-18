@@ -1,7 +1,7 @@
 config OMAP2_VRFB
 	bool
 
-if ARCH_OMAP2PLUS
+if ARCH_OMAP2PLUS || ARCH_KEYSTONE
 
 menu "OMAP DSS"
 
