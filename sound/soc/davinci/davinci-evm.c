@@ -31,8 +31,6 @@
 #include "davinci-pcm.h"
 #include "davinci-i2s.h"
 
-#include "sta321mp.h"
-
 #define STA321MP_AUDIO_FORMAT (SND_SOC_DAIFMT_CBM_CFM | \
     SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF)
 #define STA321MP_BCLK_LRCLK_RATIO 64
@@ -104,6 +102,8 @@ static int evm_sta321mp_hw_params(struct snd_pcm_substream *substream,
   unsigned sysclk = ((struct snd_soc_card_drvdata_davinci *)
       snd_soc_card_get_drvdata(soc_card))->sysclk;
   int ret = 0;
+
+  printk("evm_sta321mp_hw_params: Starting operations.\n");
   printk("bclk (from params): %d\n", (int)bclk_freq);
 
   bclk_freq = 1;
@@ -133,9 +133,6 @@ static int evm_sta321mp_hw_params(struct snd_pcm_substream *substream,
         ret);
     return ret;
   }
-
-
-  printk("evm_sta321mp_hw_params: Starting operations.\n");
 
 	/* set cpu DAI configuration */
   /*
