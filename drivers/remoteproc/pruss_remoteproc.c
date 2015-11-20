@@ -857,8 +857,8 @@ static int pru_rproc_probe(struct platform_device *pdev)
 			ret = PTR_ERR(pru->mem_va[i]);
 			goto free_rproc;
 		}
-		dev_dbg(dev, "memory %8s: pa 0x%llx size 0x%x va %p\n",
-			mem_names[i], (unsigned long long)pru->mem_pa[i],
+		dev_dbg(dev, "memory %8s: pa %pa size 0x%x va %p\n",
+			mem_names[i], &pru->mem_pa[i],
 			pru->mem_size[i], pru->mem_va[i]);
 	}
 
@@ -1085,8 +1085,8 @@ static int pruss_probe(struct platform_device *pdev)
 				i, mem_names[i]);
 			return PTR_ERR(pruss->mem_va[i]);
 		}
-		dev_dbg(dev, "memory %8s: pa 0x%llx size 0x%x va %p\n",
-			mem_names[i], (unsigned long long)pruss->mem_pa[i],
+		dev_dbg(dev, "memory %8s: pa %pa size 0x%x va %p\n",
+			mem_names[i], &pruss->mem_pa[i],
 			pruss->mem_size[i], pruss->mem_va[i]);
 	}
 
