@@ -41,8 +41,6 @@
 #define KEYSTONE_RPROC_MAX_RSC_TABLE		SZ_1K
 #define KEYSTONE_RPROC_LOCAL_ADDRESS_MASK	(SZ_16M - 1)
 
-#define MD_CTRL_LRST		BIT(8)
-
 /*
  * XXX: make this a sysfs param so that the switch between userspace
  * and remoteproc core loaders can be controlled per device.
@@ -98,7 +96,6 @@ struct keystone_rproc {
 	struct keystone_rproc_mem *mem;
 	int num_mems;
 	struct regmap *dev_ctrl;
-	struct regmap *psc_ctrl;
 	struct reset_control *reset;
 	u32 boot_offset;
 	u32 mdctl_offset;
@@ -278,14 +275,7 @@ static int keystone_rproc_set_loaded_rsc_table(struct keystone_rproc *ksproc,
 /* Put the DSP processor into reset */
 static void keystone_rproc_dsp_reset(struct keystone_rproc *ksproc)
 {
-	u32 val = 0;
-	u32 mask = MD_CTRL_LRST;
-
-	if (!IS_ERR_OR_NULL(ksproc->reset))
-		reset_control_assert(ksproc->reset);
-	else
-		regmap_update_bits(ksproc->psc_ctrl, ksproc->mdctl_offset, mask,
-				   val);
+	reset_control_assert(ksproc->reset);
 }
 
 /* Configure the boot address and boot the DSP processor */
@@ -293,7 +283,6 @@ static int keystone_rproc_dsp_boot(struct keystone_rproc *ksproc,
 				   uint32_t boot_addr)
 {
 	int ret;
-	u32 mask = MD_CTRL_LRST;
 
 	if (boot_addr & (SZ_1K - 1)) {
 		dev_err(ksproc->dev, "invalid boot address 0x%x, must be aligned on a 1KB boundary\n",
@@ -308,11 +297,7 @@ static int keystone_rproc_dsp_boot(struct keystone_rproc *ksproc,
 		return ret;
 	}
 
-	if (!IS_ERR_OR_NULL(ksproc->reset))
-		reset_control_deassert(ksproc->reset);
-	else
-		regmap_update_bits(ksproc->psc_ctrl, ksproc->mdctl_offset, mask,
-				   mask);
+	reset_control_deassert(ksproc->reset);
 
 	return 0;
 }
@@ -810,40 +795,6 @@ static int keystone_rproc_of_get_dev_syscon(struct platform_device *pdev,
 	return 0;
 }
 
-static int keystone_rproc_of_get_psc_syscon(struct platform_device *pdev,
-					    struct keystone_rproc *ksproc)
-{
-	struct device_node *np = pdev->dev.of_node;
-	struct device *dev = &pdev->dev;
-	int ret;
-
-	if (!of_property_read_bool(np, "ti,syscon-psc")) {
-		dev_err(dev, "ti,syscon-psc property is absent\n");
-		return -EINVAL;
-	}
-
-	ksproc->psc_ctrl =
-		syscon_regmap_lookup_by_phandle(np, "ti,syscon-psc");
-	if (IS_ERR(ksproc->psc_ctrl)) {
-		ret = PTR_ERR(ksproc->psc_ctrl);
-		return ret;
-	}
-
-	if (of_property_read_u32_index(np, "ti,syscon-psc", 1,
-				       &ksproc->mdctl_offset)) {
-		dev_err(dev, "couldn't read the module control register offset\n");
-		return -EINVAL;
-	}
-
-	if (of_property_read_u32_index(np, "ti,syscon-psc", 2,
-				       &ksproc->mdstat_offset)) {
-		dev_err(dev, "couldn't read the module status register offset\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int keystone_rproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -902,16 +853,10 @@ static int keystone_rproc_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	ksproc->reset = devm_reset_control_get_optional(dev, NULL);
-	if (IS_ERR(ksproc->reset) && PTR_ERR(ksproc->reset) == -EPROBE_DEFER) {
-		ret = -EPROBE_DEFER;
-		goto free_rproc;
-	}
-	/* fallback to syscon reset */
+	ksproc->reset = devm_reset_control_get(dev, NULL);
 	if (IS_ERR(ksproc->reset)) {
-		ret = keystone_rproc_of_get_psc_syscon(pdev, ksproc);
-		if (ret)
-			goto free_rproc;
+		ret = PTR_ERR(ksproc->reset);
+		goto free_rproc;
 	}
 
 	ksproc->clk = devm_clk_get(dev, NULL);
