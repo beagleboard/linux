@@ -29,6 +29,7 @@
 #include <linux/remoteproc.h>
 #include <linux/miscdevice.h>
 #include <linux/uio_driver.h>
+#include <linux/reset.h>
 
 #include <uapi/linux/keystone_remoteproc.h>
 
@@ -72,6 +73,7 @@ struct keystone_rproc_mem {
  * @num_mems: number of internal memory regions
  * @dev_ctrl: device control regmap handle
  * @psc_ctrl: power sleep controller regmap handle
+ * @reset: reset control handle
  * @boot_offset: boot register offset in @dev_ctrl regmap
  * @mdctl_offset: module control register offset in @psc_ctrl regmap
  * @mdstat_offset: module status register offset in @psc_ctrl regmap
@@ -97,6 +99,7 @@ struct keystone_rproc {
 	int num_mems;
 	struct regmap *dev_ctrl;
 	struct regmap *psc_ctrl;
+	struct reset_control *reset;
 	u32 boot_offset;
 	u32 mdctl_offset;
 	u32 mdstat_offset;
@@ -278,7 +281,11 @@ static void keystone_rproc_dsp_reset(struct keystone_rproc *ksproc)
 	u32 val = 0;
 	u32 mask = MD_CTRL_LRST;
 
-	regmap_update_bits(ksproc->psc_ctrl, ksproc->mdctl_offset, mask, val);
+	if (!IS_ERR_OR_NULL(ksproc->reset))
+		reset_control_assert(ksproc->reset);
+	else
+		regmap_update_bits(ksproc->psc_ctrl, ksproc->mdctl_offset, mask,
+				   val);
 }
 
 /* Configure the boot address and boot the DSP processor */
@@ -301,7 +308,11 @@ static int keystone_rproc_dsp_boot(struct keystone_rproc *ksproc,
 		return ret;
 	}
 
-	regmap_update_bits(ksproc->psc_ctrl, ksproc->mdctl_offset, mask, mask);
+	if (!IS_ERR_OR_NULL(ksproc->reset))
+		reset_control_deassert(ksproc->reset);
+	else
+		regmap_update_bits(ksproc->psc_ctrl, ksproc->mdctl_offset, mask,
+				   mask);
 
 	return 0;
 }
@@ -891,9 +902,17 @@ static int keystone_rproc_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	ret = keystone_rproc_of_get_psc_syscon(pdev, ksproc);
-	if (ret)
+	ksproc->reset = devm_reset_control_get_optional(dev, NULL);
+	if (IS_ERR(ksproc->reset) && PTR_ERR(ksproc->reset) == -EPROBE_DEFER) {
+		ret = -EPROBE_DEFER;
 		goto free_rproc;
+	}
+	/* fallback to syscon reset */
+	if (IS_ERR(ksproc->reset)) {
+		ret = keystone_rproc_of_get_psc_syscon(pdev, ksproc);
+		if (ret)
+			goto free_rproc;
+	}
 
 	ksproc->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(ksproc->clk)) {

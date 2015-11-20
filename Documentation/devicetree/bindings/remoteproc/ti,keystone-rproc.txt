@@ -46,10 +46,16 @@ The following are the mandatory properties:
 			State Control node, and the register offset of the DSP
 			boot address register within that node's address space.
 
-- ti,syscon-psc:	Should contain the phandle to the Keystone Power and
-			Sleep Controller (PSC) node, followed by two register
-			offsets within the PSC module to the DSP's module
-			control (MDCTL) and module status (MDSTAT) registers.
+- resets:		Should contain the phandle to the reset controller node
+			managing the resets for this device, and an array of
+			cells for the reset argument specifier as defined by
+			the selected reset controller node's binding. Please
+			also refer to the reset bindings for the reset argument
+			specifier details. This is defined in,
+			Documentation/devicetree/bindings/reset/reset/syscon-reset.txt
+
+			This property replaces the 'ti,syscon-psc' property,
+			which is now deprecated.
 
 - interrupt-parent:	Should contain a phandle to the Keystone 2 IRQ controller
 			IP node that is used by the ARM CorePac processor to
@@ -74,6 +80,18 @@ The following are the mandatory properties:
 			and should be defined as per the bindings in,
 			Documentation/devicetree/bindings/gpio/gpio.txt
 
+Deprecated properties:
+----------------------
+
+- ti,syscon-psc:	Should contain the phandle to the Keystone Power and
+			Sleep Controller (PSC) node, followed by two register
+			offsets within the PSC module to the DSP's module
+			control (MDCTL) and module status (MDSTAT) registers.
+
+			This property is maintained _only_ during the transition
+			of the DSP device nodes from 'ti,syscon-psc' to 'resets'
+			property.
+
 Optional properties:
 --------------------
 
@@ -97,7 +115,7 @@ Example:
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem0>;
 			ti,syscon-dev = <&devctrl 0x40>;
-			ti,syscon-psc = <&psc 0xa3c 0x83c>;
+			resets = < &pscrst 0xa3c 8 0 0x83c 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <0 8>;
 			interrupt-names = "vring", "exception";
