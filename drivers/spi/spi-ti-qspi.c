@@ -572,7 +572,7 @@ static int ti_qspi_start_transfer_one(struct spi_master *master,
 	int status = 0, ret;
 	int frame_length;
 
-	if (m->use_mmap_mode)
+	if (m->use_mmap_mode && (qspi->mmap_base || qspi->rx_chan))
 		return ti_qspi_mmap_read(master, m);
 
 	/* setup device control reg */
@@ -721,15 +721,6 @@ static int ti_qspi_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (res_mmap) {
-		qspi->mmap_phys_base = (dma_addr_t)res_mmap->start;
-		qspi->mmap_base = devm_ioremap_resource(&pdev->dev, res_mmap);
-		if (IS_ERR(qspi->mmap_base)) {
-			ret = PTR_ERR(qspi->mmap_base);
-			goto free_master;
-		}
-	}
-
 	qspi->fclk = devm_clk_get(&pdev->dev, "fck");
 	if (IS_ERR(qspi->fclk)) {
 		ret = PTR_ERR(qspi->fclk);
@@ -753,7 +744,7 @@ static int ti_qspi_probe(struct platform_device *pdev)
 	qspi->rx_chan = dma_request_channel(mask, NULL, NULL);
 	if (!qspi->rx_chan) {
 		dev_err(qspi->dev,
-			"No Rx DMA available, using PIO mode\n");
+			"No Rx DMA available, trying mmap mode\n");
 		ret = 0;
 		goto no_dma;
 	}
@@ -765,11 +756,23 @@ static int ti_qspi_probe(struct platform_device *pdev)
 		dev_err(qspi->dev,
 			"dma_alloc_coherent falied, using PIO mode\n");
 	init_completion(&qspi->transfer_complete);
+	if (res_mmap)
+		qspi->mmap_phys_base = (dma_addr_t)res_mmap->start;
+
+no_dma:
+	if (!qspi->rx_chan && res_mmap) {
+		qspi->mmap_base = devm_ioremap_resource(&pdev->dev, res_mmap);
+		if (IS_ERR(qspi->mmap_base)) {
+			dev_info(&pdev->dev,
+				 "mmap failed with error %ld using PIO mode\n",
+				 PTR_ERR(qspi->mmap_base));
+			qspi->mmap_base = NULL;
+		}
+	}
 	return 0;
 
 free_master:
 	spi_master_put(master);
-no_dma:
 	return ret;
 }
 
