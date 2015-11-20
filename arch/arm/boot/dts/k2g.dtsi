@@ -450,7 +450,7 @@
 				ti,queue-id = <5>;
 				ti,proxy-id = <2>;
 				interrupt-names = "rx";
-				interrupts = <GIC_SPI 324 IRQ_TYPE_EDGE_RISING>;
+				interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>;
 			};
 		};
 
