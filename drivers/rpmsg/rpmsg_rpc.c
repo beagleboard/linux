@@ -86,8 +86,8 @@ phys_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
 	} else {
 		ret = rproc_pa_to_da(rproc, pa, &da);
 		if (ret) {
-			dev_err(dev, "error from rproc_pa_to_da, rproc = %p, pa = 0x%x ret = %d\n",
-				rproc, pa, ret);
+			dev_err(dev, "error from rproc_pa_to_da, rproc = %p, pa = %pa ret = %d\n",
+				rproc, &pa, ret);
 			da = 0;
 		}
 	}

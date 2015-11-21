@@ -449,8 +449,8 @@ phys_addr_t rppc_buffer_lookup(struct rppc_instance *rpc, virt_addr_t uva,
 	rda = rppc_local_to_remote_da(rpc, lpa);
 
 out:
-	dev_dbg(dev, "host uva %p == host pa %p => remote da %p (fd %d)\n",
-		(void *)uva, (void *)lpa, (void *)rda, fd);
+	dev_dbg(dev, "host uva %p == host pa %pa => remote da %p (fd %d)\n",
+		(void *)uva, &lpa, (void *)rda, fd);
 	return rda;
 }
 
