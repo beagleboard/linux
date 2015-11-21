@@ -907,6 +907,16 @@ static int keystone_rproc_probe(struct platform_device *pdev)
 	if (rproc_get_alias_id(rproc) < 0)
 		dev_warn(&pdev->dev, "device does not have an alias id\n");
 
+	/* ensure the DSP is in reset before loading firmware */
+	ret = reset_control_status(ksproc->reset);
+	if (ret < 0) {
+		dev_err(dev, "failed to get reset status, status = %d\n", ret);
+		goto release_mem;
+	} else if (ret == 0) {
+		WARN(1, "device is not in reset\n");
+		keystone_rproc_dsp_reset(ksproc);
+	}
+
 	ret = rproc_add(rproc);
 	if (ret) {
 		dev_err(dev, "failed to add register device with remoteproc core, status = %d\n",
