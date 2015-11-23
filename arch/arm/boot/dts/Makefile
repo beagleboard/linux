@@ -446,6 +446,7 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra72-evm.dtb \
 	am57xx-evm.dtb \
 	am572x-idk.dtb \
+	am572x-idk-lcd-osd.dtb \
 	am571x-idk.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-lacie-d2-network.dtb \
