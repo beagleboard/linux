@@ -381,8 +381,9 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 
 	ks_pcie->serdes_phy = devm_of_phy_get(dev, node, NULL);
 	if (IS_ERR(ks_pcie->serdes_phy)) {
-		dev_err(dev, "No %s serdes driver found: %ld\n",
-			node->name, PTR_ERR(ks_pcie->serdes_phy));
+		ret = PTR_ERR(ks_pcie->serdes_phy);
+		dev_err(dev, "No %s serdes driver found: %d\n",
+			node->name, ret);
 		goto fail_clk;
 	}
 
@@ -392,12 +393,14 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 
 	ret = ks_add_pcie_port(ks_pcie, pdev);
 	if (ret < 0)
-		goto fail_clk;
+		goto fail_phy;
 
 	return 0;
+
+fail_phy:
+	phy_exit(ks_pcie->serdes_phy);
 fail_clk:
 	clk_disable_unprepare(ks_pcie->clk);
-	phy_exit(ks_pcie->serdes_phy);
 	return ret;
 }
 
