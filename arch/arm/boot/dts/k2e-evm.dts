@@ -189,7 +189,3 @@
 &dsp0 {
 	memory-region = <&dsp_common_cma_pool>;
 };
-
-&gbe_serdes0 {
-	status = "okay";
-};

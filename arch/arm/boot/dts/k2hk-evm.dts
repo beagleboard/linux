@@ -237,7 +237,3 @@
 &dsp7 {
 	memory-region = <&dsp_common_cma_pool>;
 };
-
-&gbe_serdes {
-	status = "okay";
-};
