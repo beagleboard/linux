@@ -108,11 +108,7 @@ struct ti_sci_msg_resp_version {
  * struct ti_sci_msg_req_set_device_state - Set the desired state of the device
  * @hdr:		Generic header
  * @id:	Indicates which device to modify
- * @resets: A bit field of resets for the device. The meaning, behavior,
- *	and usage of the reset flags are device specific. Setting of resets
- *	cannot be performed on a device that is in AUTO_OFF and will result in a
- *	NACK. Additionally, depending on the device setting of resets may only
- *	be allowed when transitioning from off to on.
+ * @reserved: Reserved space in message, must be 0 for backward compatibility
  * @state: The desired state of the device.
  *
  * Certain flags can also be set to alter the device state:
@@ -137,7 +133,7 @@ struct ti_sci_msg_req_set_device_state {
 #define MSG_FLAG_DEVICE_EXCLUSIVE	TISCI_MSG_FLAG(10)
 	struct ti_sci_msg_hdr hdr;
 	u32 id;
-	u32 resets;
+	u32 reserved;
 
 #define MSG_DEVICE_SW_STATE_AUTO_OFF	0
 #define MSG_DEVICE_SW_STATE_RETENTION	1

@@ -38,7 +38,6 @@ struct ti_sci_handle;
 /**
  * struct ti_sci_dev_ops - Device control operations
  * @get_device: Command to request for device managed by TISCI
- *		-reset_state: Device specific reset bit field
  *		Returns 0 for successful exclusive request, else returns
  *		corresponding error message.
  * @idle_device: Command to idle a device managed by TISCI
@@ -86,8 +85,7 @@ struct ti_sci_handle;
  * managed by driver for that purpose.
  */
 struct ti_sci_dev_ops {
-	int (*get_device)(const struct ti_sci_handle *handle, u32 id,
-			  u32 reset_state);
+	int (*get_device)(const struct ti_sci_handle *handle, u32 id);
 	int (*idle_device)(const struct ti_sci_handle *handle, u32 id);
 	int (*put_device)(const struct ti_sci_handle *handle, u32 id);
 	int (*is_valid)(const struct ti_sci_handle *handle, u32 id);
