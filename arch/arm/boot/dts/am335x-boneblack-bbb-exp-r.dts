@@ -8,7 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
+#include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone Black";
@@ -29,12 +29,16 @@
 	status = "okay";
 };
 
-/* EMMC in reset */
-&gpio1 {
-	emmc_rst {
-		gpio-hog;
-		gpios = <20 0>;
-		output-high;
-		line-name = "EMMC ResetN";
-	};
+&am33xx_pinmux {
+	pinctrl-names = "default";
+	pinctrl-0 = <&clkout2_pin>;
 };
+
+#include "am335x-peripheral-emmc.dtsi"
+#include "am335x-bone-pinmux-emmc.dtsi"
+/* #include "am335x-bone-emmc-in-reset.dtsi" */
+
+/* #include "am335x-peripheral-nxp-hdmi.dtsi" */
+/* #include "am335x-bone-pinmux-nxp-hdmi.dtsi" */
+
+#include "am335x-cape-bbb-exp-r.dtsi"
