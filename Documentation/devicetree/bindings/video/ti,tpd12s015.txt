@@ -2,7 +2,9 @@ TPD12S015 HDMI level shifter and ESD protection chip
 ====================================================
 
 Required properties:
-- compatible: "ti,tpd12s015"
+- compatible:
+	for tpd12s015: "ti,tpd12s015"
+	for tpd12s016: "ti,tpd12s016", "ti,tpd12s015"
 - gpios: CT CP HPD (optional), LS OE (optional) and HPD gpios
 
 Required nodes:

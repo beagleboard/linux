@@ -513,13 +513,12 @@ static inline bool tis_sci_is_response_ack(void *r)
  * @handle:	pointer to TI SCI handle
  * @id:		Device identifier
  * @flags:	flags to setup for the device
- * @resets:	resets to setup for the device
  * @state:	State to move the device to
  *
  * Return: 0 if all went well, else returns appropriate error value.
  */
 static int ti_sci_set_device_state(const struct ti_sci_handle *handle,
-				   u32 id, u32 flags, u32 resets, u8 state)
+				   u32 id, u32 flags, u8 state)
 {
 	struct ti_sci_info *info;
 	struct ti_sci_msg_req_set_device_state *req;
@@ -547,7 +546,6 @@ static int ti_sci_set_device_state(const struct ti_sci_handle *handle,
 	req = (struct ti_sci_msg_req_set_device_state *)xfer->xfer_buf;
 	req->id = id;
 	req->state = state;
-	req->resets = resets;
 
 	ret = ti_sci_do_xfer(info, xfer);
 	if (ret) {
@@ -639,7 +637,6 @@ fail:
  * ti_sci_cmd_get_device() - command to request for device managed by TISCI
  * @handle:	Pointer to TISCI handle as retrieved by *ti_sci_get_handle
  * @id:		Device Identifier
- * @reset_state: Device specific reset bit field
  *
  * Request for the device - NOTE: the client MUST maintain integrity of
  * usage count by balancing get_device with put_device. No refcounting is
@@ -649,12 +646,11 @@ fail:
  *
  * Return: 0 if all went fine, else return appropriate error.
  */
-static int ti_sci_cmd_get_device(const struct ti_sci_handle *handle, u32 id,
-				 u32 reset_state)
+static int ti_sci_cmd_get_device(const struct ti_sci_handle *handle, u32 id)
 {
 	return ti_sci_set_device_state(handle, id,
 				       MSG_FLAG_DEVICE_EXCLUSIVE,
-				       reset_state, MSG_DEVICE_SW_STATE_ON);
+				       MSG_DEVICE_SW_STATE_ON);
 }
 
 /**
@@ -672,7 +668,7 @@ static int ti_sci_cmd_idle_device(const struct ti_sci_handle *handle, u32 id)
 {
 	return ti_sci_set_device_state(handle, id,
 				       MSG_FLAG_DEVICE_EXCLUSIVE,
-				       0, MSG_DEVICE_SW_STATE_RETENTION);
+				       MSG_DEVICE_SW_STATE_RETENTION);
 }
 
 /**
@@ -689,7 +685,7 @@ static int ti_sci_cmd_idle_device(const struct ti_sci_handle *handle, u32 id)
 static int ti_sci_cmd_put_device(const struct ti_sci_handle *handle, u32 id)
 {
 	return ti_sci_set_device_state(handle, id,
-				       0, 0, MSG_DEVICE_SW_STATE_AUTO_OFF);
+				       0, MSG_DEVICE_SW_STATE_AUTO_OFF);
 }
 
 /**
@@ -834,6 +830,77 @@ static int ti_sci_cmd_dev_is_trans(const struct ti_sci_handle *handle, u32 id,
 	*curr_state = (state == MSG_DEVICE_HW_STATE_TRANS);
 
 	return 0;
+}
+
+/**
+ * ti_sci_cmd_set_device_resets() - command to set resets for device managed
+ *				    by TISCI
+ * @handle:	Pointer to TISCI handle as retrieved by *ti_sci_get_handle
+ * @id:		Device Identifier
+ * @reset_state: Device specific reset bit field
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_set_device_resets(const struct ti_sci_handle *handle,
+					u32 id, u32 reset_state)
+{
+	struct ti_sci_info *info;
+	struct ti_sci_msg_req_set_device_resets *req;
+	struct ti_sci_msg_hdr *resp;
+	struct ti_sci_xfer *xfer;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_SET_DEVICE_RESETS,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_req_set_device_resets *)xfer->xfer_buf;
+	req->id = id;
+	req->resets = reset_state;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
+
+	ret = tis_sci_is_response_ack(resp) ? 0 : -ENODEV;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+/**
+ * ti_sci_cmd_get_device_resets() - Get reset state for device managed
+ *				    by TISCI
+ * @handle:		Pointer to TISCI handle
+ * @id:			Device Identifier
+ * @reset_state:	Pointer to reset state to populate
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_get_device_resets(const struct ti_sci_handle *handle,
+					u32 id, u32 *reset_state)
+{
+	return ti_sci_get_device_state(handle, id, NULL, reset_state, NULL,
+				       NULL);
 }
 
 /**
@@ -1525,6 +1592,8 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 	dops->is_stop = ti_sci_cmd_dev_is_stop;
 	dops->is_on = ti_sci_cmd_dev_is_on;
 	dops->is_transitioning = ti_sci_cmd_dev_is_trans;
+	dops->set_device_resets = ti_sci_cmd_set_device_resets;
+	dops->get_device_resets = ti_sci_cmd_get_device_resets;
 
 	cops->get_clock = ti_sci_cmd_get_clock;
 	cops->idle_clock = ti_sci_cmd_idle_clock;

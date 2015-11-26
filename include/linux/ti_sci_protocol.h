@@ -38,7 +38,6 @@ struct ti_sci_handle;
 /**
  * struct ti_sci_dev_ops - Device control operations
  * @get_device: Command to request for device managed by TISCI
- *		-reset_state: Device specific reset bit field
  *		Returns 0 for successful exclusive request, else returns
  *		corresponding error message.
  * @idle_device: Command to idle a device managed by TISCI
@@ -75,6 +74,15 @@ struct ti_sci_handle;
  * @is_transitioning: Reports back if the device is in the middle of transition
  *		of state.
  *		-current_state: Returns 'true' if currently transitioning.
+ * @set_device_resets: Command to configure resets for device managed by TISCI.
+ *		-reset_state: Device specific reset bit field
+ *		Returns 0 for successful request, else returns
+ *		corresponding error message.
+ * @get_device_resets: Command to read state of resets for device managed
+ *		by TISCI.
+ *		-reset_state: pointer to u32 which will retrieve resets
+ *		Returns 0 for successful request, else returns
+ *		corresponding error message.
  *
  * NOTE: for all these functions, the following parameters are generic in
  * nature:
@@ -86,8 +94,7 @@ struct ti_sci_handle;
  * managed by driver for that purpose.
  */
 struct ti_sci_dev_ops {
-	int (*get_device)(const struct ti_sci_handle *handle, u32 id,
-			  u32 reset_state);
+	int (*get_device)(const struct ti_sci_handle *handle, u32 id);
 	int (*idle_device)(const struct ti_sci_handle *handle, u32 id);
 	int (*put_device)(const struct ti_sci_handle *handle, u32 id);
 	int (*is_valid)(const struct ti_sci_handle *handle, u32 id);
@@ -101,6 +108,10 @@ struct ti_sci_dev_ops {
 		     bool *req_state, bool *current_state);
 	int (*is_transitioning)(const struct ti_sci_handle *handle, u32 id,
 				bool *current_state);
+	int (*set_device_resets)(const struct ti_sci_handle *handle, u32 id,
+				 u32 reset_state);
+	int (*get_device_resets)(const struct ti_sci_handle *handle, u32 id,
+				 u32 *reset_state);
 };
 
 /**
