@@ -133,6 +133,12 @@ struct knav_dma_chan {
 			ch->channel : ch->flow)
 
 static struct knav_dma_pool_device *kdev;
+static bool device_ready;
+
+bool knav_dma_device_ready(void)
+{
+	return device_ready;
+}
 
 static bool check_config(struct knav_dma_chan *chan, struct knav_dma_cfg *cfg)
 {
@@ -773,6 +779,7 @@ static int knav_dma_probe(struct platform_device *pdev)
 	debugfs_create_file("knav_dma", S_IFREG | S_IRUGO, NULL, NULL,
 			    &knav_dma_debug_ops);
 
+	device_ready = true;
 	return ret;
 }
 
