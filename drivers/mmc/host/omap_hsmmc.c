@@ -168,7 +168,6 @@
 #define ACNE	(1 << 0)
 
 #define MMC_AUTOSUSPEND_DELAY	100
-#define MMC_SOFT_TIMER_SLACK	1000000		/* ns */
 #define MMC_TIMEOUT_MS		20		/* 20 mSec */
 #define MMC_TIMEOUT_US		20000		/* 20000 micro Sec */
 #define OMAP_MMC_MIN_CLOCK	400000
@@ -1356,8 +1355,19 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 static void omap_hsmmc_soft_timeout(unsigned long data)
 {
 	struct omap_hsmmc_host *host = (struct omap_hsmmc_host *)data;
+	bool end_trans;
+
+	omap_hsmmc_disable_irq(host);
+	if (host->data || host->response_busy) {
+		host->response_busy = 0;
+		end_trans = 1;
+	}
 
 	hsmmc_command_incomplete(host, -ETIMEDOUT, 0);
+	if (end_trans && host->mrq)
+		omap_hsmmc_xfer_done(host, host->data);
+	else if (host->cmd)
+		omap_hsmmc_cmd_done(host, host->cmd);
 }
 
 static void set_sd_bus_power(struct omap_hsmmc_host *host)
@@ -1609,12 +1619,16 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 
 		/*
 		 * We should really be using just timeout_ns + delta,
-		 * however we have no control over when DMA will
-		 * actually start transferring; due to that we will add
-		 * an extra slack to make sure we don't expire too
-		 * early.
+		 * however during the experiments observed that the transfer
+		 * complete happens after really long time (roughly 3 times
+		 * of the advertised timeout value). With the eMMC card in
+		 * DRA72 EVM, the card advertised 960ms but the (worst case)
+		 * transfer complete came after 2.6 seconds.
 		 */
-		host->data_timeout = timeout_ns + delta + MMC_SOFT_TIMER_SLACK;
+		host->data_timeout = 3 * (timeout_ns + delta);
+		if (host->data_timeout < MMC_TIMEOUT_MS)
+			host->data_timeout = MMC_TIMEOUT_MS;
+
 		return;
 	}
 
