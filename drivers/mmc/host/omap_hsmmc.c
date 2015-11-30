@@ -1357,6 +1357,7 @@ static void omap_hsmmc_soft_timeout(unsigned long data)
 {
 	struct omap_hsmmc_host *host = (struct omap_hsmmc_host *)data;
 
+	omap_hsmmc_disable_irq(host);
 	hsmmc_command_incomplete(host, -ETIMEDOUT, 0);
 }
 
