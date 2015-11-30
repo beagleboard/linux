@@ -1356,9 +1356,19 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 static void omap_hsmmc_soft_timeout(unsigned long data)
 {
 	struct omap_hsmmc_host *host = (struct omap_hsmmc_host *)data;
+	bool end_trans;
 
 	omap_hsmmc_disable_irq(host);
+	if (host->data || host->response_busy) {
+		host->response_busy = 0;
+		end_trans = 1;
+	}
+
 	hsmmc_command_incomplete(host, -ETIMEDOUT, 0);
+	if (end_trans && host->mrq)
+		omap_hsmmc_xfer_done(host, host->data);
+	else if (host->cmd)
+		omap_hsmmc_cmd_done(host, host->cmd);
 }
 
 static void set_sd_bus_power(struct omap_hsmmc_host *host)
