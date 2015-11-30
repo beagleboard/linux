@@ -12,3 +12,8 @@
 / {
 	model = "TI AM572x IDK-LCD-OSD-Display";
 };
+
+&touchscreen {
+	interrupt-parent = <&gpio3>;
+	interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+};
