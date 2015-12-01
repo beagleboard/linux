@@ -40,6 +40,13 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
+
+	soc {
+		mpm_mem: dspmem {
+			compatible = "ti,keystone-dsp-mem";
+			reg = <0x0c000000 0x00100000>;
+		};
+	};
 };
 
 &k2g_pinctrl {
