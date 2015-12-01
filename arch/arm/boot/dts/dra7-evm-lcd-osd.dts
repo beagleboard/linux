@@ -8,3 +8,8 @@
 
 #include "dra7-evm.dts"
 #include "dra7x-evm-lcd-osd.dtsi"
+
+&touchscreen {
+	interrupt-parent = <&gpio1>;
+	interrupts = <2 IRQ_TYPE_EDGE_FALLING>;
+};
