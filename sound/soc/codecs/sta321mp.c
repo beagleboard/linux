@@ -39,6 +39,7 @@ static const struct reg_default sta321mp_reg_defaults[] = {
 	{ STA321MP_CONFA,  PDM_I_EN },       /* R0  0x9B - PDM interface enable */
 	{ STA321MP_CONFC,  FS_XTI_256 },     /* R2  0x20 - FS = XTI/256 */
 	{ STA321MP_CONFE,  CH78_BIN },       /* R4  0xC0 - Ch4/5 binary */
+	{ STA321MP_CONFF,  0x18 },           /* R5  0x18 - all biquads identical to ch1 */
 	{ STA321MP_CONFH,  RM_SOFT_VOL },    /* R7  0x7A - Remove soft volume */
 	{ STA321MP_CONFI,  BRG_PWR_UP },     /* R8  0x80 - Bridge power-up */
 	{ STA321MP_MVOL,   MST_VOL_0DB },    /* RA  0x00 - Master volume 0 dB */
@@ -48,30 +49,9 @@ static const struct reg_default sta321mp_reg_defaults[] = {
 	{ STA321MP_C4VOL,  0x36 },     	     /* RE  0x36 - Ch4: +30dB */
 	{ STA321MP_C5VOL,  0x36 },     	     /* RF  0x36 - Ch5: +30dB */
 	{ STA321MP_C6VOL,  0x36 },     	     /* R10 0x36 - Ch6: +30dB */
-	{ 0x3b, 0x01 },	 /* Setting channel 7, Mixer 1, channe 1 on   */
-	{ 0x3c, 0xD0 },  /* |                                         */
-	{ 0x3d, 0x7F },  /* |                                         */
-	{ 0x3e, 0xFF },  /* |                                         */
-	{ 0x3f, 0xFF },  /* |                                         */
-	{ 0x4c, 0x01 },  /* =                                         */
-	{ 0x3b, 0x01 },  /* Setting channel 7, Mixer 1, channel 7 off */
-	{ 0x3c, 0xD6 },  /* |                                         */
-	{ 0x3d, 0x00 },  /* |                                         */
-	{ 0x3e, 0x00 },  /* |                                         */
-	{ 0x3f, 0x00 },  /* |                                         */
-	{ 0x4c, 0x01 },  /* =                                         */
-	{ 0x3b, 0x01 },  /* Setting channel 8, Mixer 1, channel 2 on  */
-	{ 0x3c, 0xD9 },  /* |                                         */
-	{ 0x3d, 0x7F },  /* |                                         */
-	{ 0x3e, 0xFF },  /* |                                         */
-	{ 0x3f, 0xFF },  /* |                                         */
-	{ 0x4c, 0x01 },  /* =                                         */
-	{ 0x3b, 0x01 },  /* Setting channel 8, Mixer 1, channel 8 off */
-	{ 0x3c, 0xDF },  /* |                                         */
-	{ 0x3d, 0x00 },  /* |                                         */
-	{ 0x3e, 0x00 },  /* |                                         */
-	{ 0x3f, 0x00 },  /* |                                         */
-	{ 0x4c, 0x01 },  /* =                                         */
+	{ STA321MP_C7VOL,  0x36 },     	     /* R11 0x36 - Ch7: +30dB */
+	{ STA321MP_C8VOL,  0x36 },     	     /* R12 0x36 - Ch8: +30dB */
+  { STA321MP_TONEBP, 0xFF },           /* R2B 0x77 - Tone control bypass enabled */
 	{ STA321MP_RCTR1,  MIC_MODE },       /* R5D 0x01 - Microphone mode */
 	{ STA321MP_CFR129,  I2S_OUT },       /* R81 0x09 - Output I2S i/f pins set as output */
 };
@@ -101,11 +81,11 @@ static bool sta321mp_readable(struct device *dev, unsigned int reg)
 	case STA321MP_TONEBP:
 	case STA321MP_RCTR1:
 	case STA321MP_CFR129:
+		return true;
 	case 0x3d:
 	case 0x3e:
 	case 0x3f:
 	case 0x4c:
-		return true;
 	default:
 		return false;
 	}
@@ -116,20 +96,6 @@ static const DECLARE_TLV_DB_SCALE(chvol_tlv, -7950, 50, 1);
 static const struct snd_kcontrol_new sta321mp_snd_controls[] = {
 SOC_SINGLE("Master Switch", STA321MP_MMUTE, 0, 1, 1),
 SOC_SINGLE_TLV("Master Volume", STA321MP_MVOL, 0, 0xff, 1, mvol_tlv),
-/*
-SOC_SINGLE("Ch1 Switch", STA321MP_C1VTMB, 7, 1, 1),
-SOC_SINGLE("Ch2 Switch", STA321MP_C2VTMB, 7, 1, 1),
-SOC_SINGLE("Ch3 Switch", STA321MP_C3VTMB, 7, 1, 1),
-SOC_SINGLE("Ch4 Switch", STA321MP_C4VTMB, 7, 1, 1),
-SOC_SINGLE("Ch5 Switch", STA321MP_C5VTMB, 7, 1, 1),
-SOC_SINGLE("Ch6 Switch", STA321MP_C6VTMB, 7, 1, 1),
-SOC_SINGLE_TLV("Ch1 Volume", STA321MP_C1VOL, 0, 0xff, 1, chvol_tlv),
-SOC_SINGLE_TLV("Ch2 Volume", STA321MP_C2VOL, 0, 0xff, 1, chvol_tlv),
-SOC_SINGLE_TLV("Ch3 Volume", STA321MP_C3VOL, 0, 0xff, 1, chvol_tlv),
-SOC_SINGLE_TLV("Ch4 Volume", STA321MP_C4VOL, 0, 0xff, 1, chvol_tlv),
-SOC_SINGLE_TLV("Ch5 Volume", STA321MP_C5VOL, 0, 0xff, 1, chvol_tlv),
-SOC_SINGLE_TLV("Ch6 Volume", STA321MP_C6VOL, 0, 0xff, 1, chvol_tlv),
-*/
 SOC_DOUBLE_R("Ch1 Capture Switch", STA321MP_C1VTMB, STA321MP_C2VTMB, 7, 1, 1),
 SOC_DOUBLE_R("Ch2 Capture Switch", STA321MP_C3VTMB, STA321MP_C4VTMB, 7, 1, 1),
 SOC_DOUBLE_R("Ch3 Capture Switch", STA321MP_C5VTMB, STA321MP_C6VTMB, 7, 1, 1),
@@ -250,13 +216,30 @@ static int sta321mp_LP_48kHz(struct snd_soc_codec *codec)
   return 0;
 }
 
+static void sta321mp_dump_bits(struct snd_soc_codec *codec)
+{
+  int r = 0;
+  int ret = 0;
+
+  printk("Reg dump:\n");
+  for (r = 0x00 ; r < STA321MP_MAX_REGISTER ; r++)
+  {
+    ret = snd_soc_read(codec, r);
+    if (ret == -1)
+      printk("  %02x error while reading.\n", r);
+    else
+      ret = printk("  %02x %02x\n", r, ret);
+  }
+
+}
+
 static int sta321mp_set_bits(struct snd_soc_codec *codec)
 {
 
   printk("sta321mp: newboard config.\n");
   snd_soc_write(codec, STA321MP_CONFA, 0x9b);
 
-  snd_soc_write(codec, STA321MP_CONFE, 0x0c);
+  snd_soc_write(codec, STA321MP_CONFE, 0xc0);
   snd_soc_write(codec, STA321MP_CONFF, 0x18); /* use all biquad identical to channel 1 */
   snd_soc_write(codec, STA321MP_CONFH, 0x7a);
   snd_soc_write(codec, STA321MP_CONFI, 0x80);
@@ -271,17 +254,10 @@ static int sta321mp_set_bits(struct snd_soc_codec *codec)
   snd_soc_write(codec, STA321MP_C7VOL, 0x36);
   snd_soc_write(codec, STA321MP_C8VOL, 0x36);
 
-  /*
-  snd_soc_write(codec, STA321MP_C12IM, 0x10);
-  snd_soc_write(codec, STA321MP_C34IM, 0x32);
-  snd_soc_write(codec, STA321MP_C56IM, 0x54);
-  snd_soc_write(codec, STA321MP_C78IM, 0x76);
-  */
+  snd_soc_write(codec, STA321MP_TONEBP, 0xFF); /* Tone bypass */
 
-  snd_soc_write(codec, 0x2b, 0xFF); /* Tone bypass */
-
-  snd_soc_write(codec, 0x5d, 0x01); /* microphone mode, sets PDM clock */
-  snd_soc_write(codec, 0x81, 0x09); /* I2S out normal, no pop-up removal */
+  snd_soc_write(codec, STA321MP_RCTR1, 0x01);  /* microphone mode, sets PDM clock */
+  snd_soc_write(codec, STA321MP_CFR129, 0x09); /* I2S out normal, no pop-up removal */
 
   // set pwm output
   sta321mp_mixer(codec, 1, 7, 1, 0x7FFFFF); /* Setting channel 7, Mixer 1, channel 1 on  */
@@ -344,6 +320,8 @@ static int sta321mp_hw_params(struct snd_pcm_substream *substream,
 
   printk("sta321mp: Started at %d Hz.\n", params_rate(params));
 
+  sta321mp_dump_bits(codec);
+
 	return 0;
 }
 
@@ -375,6 +353,8 @@ static int sta321mp_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);
 		return ret;
 	}
+
+  sta321mp_dump_bits(codec);
 
   sta321mp_set_bits(codec);
   sta321mp_add_widgets(codec);
