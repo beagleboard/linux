@@ -1,7 +1,7 @@
 TI Keystone DSP devices
 =======================
 
-Binding status: Unstable - Subject to changes for Keystone2 Galileo SoCs
+Binding status: Unstable - Subject to changes for using common shared memories
 
 The TI Keystone 2 family of SoCs usually have one or more (upto 8) TI DSP Core
 sub-systems that are used to offload some of the processor-intensive tasks or
@@ -27,6 +27,7 @@ The following are the mandatory properties:
 			    "ti,k2hk-dsp" for DSPs on Keystone2 Hawking/Kepler SoCs
 			    "ti,k2l-dsp" for DSPs on Keystone2 Lamarr SoCs
 			    "ti,k2e-dsp" for DSPs on Keystone2 Edison SoCs
+			    "ti,k2g-dsp" for DSPs on Keystone2 Galileo SoCs
 
 - reg:			Should contain an entry for each value in 'reg-names'.
 			Each entry should have the memory region's start address
@@ -41,6 +42,9 @@ The following are the mandatory properties:
 - clocks: 		Should contain the device's input clock, and should be
 			defined as per the bindings in,
 			Documentation/devicetree/bindings/clock/keystone-gate.txt
+			    for K2HK/K2L/K2E SoCs or,
+			Documentation/devicetree/bindings/clock/ti,sci-clk.txt
+			    for K2G SoC
 
 - ti,syscon-dev:	Should be a pair of the phandle to the Keystone Device
 			State Control node, and the register offset of the DSP
@@ -50,9 +54,12 @@ The following are the mandatory properties:
 			managing the resets for this device, and an array of
 			cells for the reset argument specifier as defined by
 			the selected reset controller node's binding. Please
-			also refer to the reset bindings for the reset argument
-			specifier details. This is defined in,
+			also refer to either of the following reset bindings
+			for the reset argument specifier as per SoC,
 			Documentation/devicetree/bindings/reset/reset/syscon-reset.txt
+			    for K2HK/K2L/K2E SoCs or,
+			Documentation/devicetree/bindings/reset/reset/ti,sci-reset.txt
+			    for K2G SoC
 
 - interrupt-parent:	Should contain a phandle to the Keystone 2 IRQ controller
 			IP node that is used by the ARM CorePac processor to
@@ -80,6 +87,11 @@ The following are the mandatory properties:
 Optional properties:
 --------------------
 
+- power-domains :	_required_ property only for Keystone 2 Galileo SoC.
+			Should contain a phandle to a PM domain provider node,
+			and a PM domain specifier as defined by the binding,
+			Documentation/devicetree/bindings/soc/ti/sci-pm-domain.txt
+
 - memory-region	:	phandle to the reserved memory node to be associated
 			with the remoteproc device. The reserved memory node
 			can be a CMA memory node, and should be defined as
@@ -87,9 +99,10 @@ Optional properties:
 			Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
 
 
-Example:
---------
+Examples:
+---------
 
+1.
 	/* K2HK DSP node in SoC DTS file */
 	soc {
 		dsp0: dsp0 {
@@ -110,6 +123,32 @@ Example:
 	};
 
 	/* K2HK EVM Board file */
+	&dsp0 {
+		memory-region = <&dsp_common_cma_pool>;
+	};
+
+2.
+	/* K2G DSP node in SoC DTS file */
+	soc {
+		dsp0: dsp0 {
+			compatible = "ti,k2g-dsp";
+			reg = <0x10800000 0x00100000>,
+			      <0x10e00000 0x00008000>,
+			      <0x10f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			power-domains = <&k2g_pds K2G_DEV_CGEM0>;
+			clocks = <&k2g_clks K2G_DEV_CGEM0 0>;
+			ti,syscon-dev = <&devctrl 0x40>;
+			resets = <&k2g_reset K2G_DEV_CGEM0 K2G_DEV_CGEM0_DSP0_RESET>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <0 8>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio0 27 0>;
+		};
+
+	};
+
+	/* K2G EVM Board file */
 	&dsp0 {
 		memory-region = <&dsp_common_cma_pool>;
 	};
