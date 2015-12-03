@@ -82,6 +82,10 @@
 #define  STA321MP_RCTR12	0x69
 #define  STA321MP_RCTR13	0x6A
 
+#define STA321MP_CBQ1     0x77
+#define STA321MP_CBQ2     0x78
+#define STA321MP_CBQ3     0x79
+
 #define  STA321MP_DPT		0x80
 #define  STA321MP_CFR129	0x81
 #define  STA321MP_TSDLY1	0x82

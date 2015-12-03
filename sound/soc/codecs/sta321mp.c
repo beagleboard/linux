@@ -42,6 +42,7 @@ static const struct reg_default sta321mp_reg_defaults[] = {
 	{ STA321MP_CONFF,  0x18 },           /* R5  0x18 - all biquads identical to ch1 */
 	{ STA321MP_CONFH,  RM_SOFT_VOL },    /* R7  0x7A - Remove soft volume */
 	{ STA321MP_CONFI,  BRG_PWR_UP },     /* R8  0x80 - Bridge power-up */
+  { STA321MP_MMUTE,  0x00 },           /* R9  0x00 - Master mute */
 	{ STA321MP_MVOL,   MST_VOL_0DB },    /* RA  0x00 - Master volume 0 dB */
 	{ STA321MP_C1VOL,  0x36 },     	     /* RB  0x36 - Ch1: +30dB */
 	{ STA321MP_C2VOL,  0x36 },     	     /* RC  0x36 - Ch2: +30dB */
@@ -52,14 +53,46 @@ static const struct reg_default sta321mp_reg_defaults[] = {
 	{ STA321MP_C7VOL,  0x36 },     	     /* R11 0x36 - Ch7: +30dB */
 	{ STA321MP_C8VOL,  0x36 },     	     /* R12 0x36 - Ch8: +30dB */
   { STA321MP_TONEBP, 0xFF },           /* R2B 0x77 - Tone control bypass enabled */
-	{ STA321MP_RCTR1,  MIC_MODE },       /* R5D 0x01 - Microphone mode */
 	{ STA321MP_CFR129,  I2S_OUT },       /* R81 0x09 - Output I2S i/f pins set as output */
+	{ STA321MP_RCTR1,  MIC_MODE },       /* R5D 0x01 - Microphone mode */
+};
+
+static const struct reg_default sta321mp_reg_defaults_2[] = {
+  { 0x00, 0x9b }, { 0x01, 0x00 }, { 0x02, 0x00 }, { 0x03, 0xfe }, { 0x04, 0xc0 }, { 0x05, 0x18 }, 
+  { 0x06, 0x00 }, { 0x07, 0x7a }, { 0x08, 0x80 }, { 0x09, 0x00 }, { 0x0a, 0x00 }, { 0x0b, 0x36 }, 
+  { 0x0c, 0x36 }, { 0x0d, 0x36 }, { 0x0e, 0x36 }, { 0x0f, 0x36 }, { 0x10, 0x36 }, { 0x11, 0x36 }, 
+  { 0x12, 0x36 }, { 0x13, 0x10 }, { 0x14, 0x10 }, { 0x15, 0x10 }, { 0x16, 0x10 }, { 0x17, 0x10 }, 
+  { 0x18, 0x10 }, { 0x19, 0x10 }, { 0x1a, 0x10 }, { 0x1b, 0x10 }, { 0x1c, 0x32 }, { 0x1d, 0x54 }, 
+  { 0x1e, 0x76 }, { 0x1f, 0x00 }, { 0x20, 0x80 }, { 0x21, 0x01 }, { 0x22, 0xa0 }, { 0x23, 0x0f }, 
+  { 0x24, 0x0f }, { 0x25, 0x0f }, { 0x26, 0x0f }, { 0x27, 0x0f }, { 0x28, 0x00 }, { 0x29, 0x00 }, 
+  { 0x2a, 0x00 }, { 0x2b, 0xff }, { 0x2c, 0x77 }, { 0x2d, 0x00 }, { 0x2e, 0x00 }, { 0x2f, 0x6a }, 
+  { 0x30, 0x69 }, { 0x31, 0x6a }, { 0x32, 0x69 }, { 0x33, 0x40 }, { 0x34, 0x62 }, { 0x35, 0x51 }, 
+  { 0x36, 0x73 }, { 0x37, 0x10 }, { 0x38, 0x32 }, { 0x39, 0x54 }, { 0x3a, 0x76 }, { 0x4d, 0x2d }, 
+  { 0x4e, 0xc0 }, { 0x4f, 0xf3 }, { 0x50, 0x33 }, { 0x51, 0x00 }, { 0x52, 0x0f }, { 0x53, 0xff }, 
+  { 0x54, 0x00 }, { 0x55, 0xda }, { 0x56, 0xda }, { 0x57, 0x00 }, { 0x58, 0x00 }, { 0x59, 0x00 }, 
+  { 0x5a, 0x00 }, { 0x5b, 0x00 }, { 0x5c, 0x00 }, { 0x5d, 0x01 }, { 0x5e, 0x00 }, { 0x5f, 0x20 }, 
+  { 0x60, 0x20 }, { 0x61, 0x20 }, { 0x62, 0x60 }, { 0x63, 0x60 }, { 0x64, 0x60 }, { 0x65, 0x33 }, 
+  { 0x66, 0x33 }, { 0x67, 0x33 }, { 0x68, 0x1b }, { 0x69, 0x1b }, { 0x6a, 0x1b }, { 0x6b, 0x30 }, 
+  { 0x6c, 0x30 }, { 0x6d, 0x2f }, { 0x6e, 0x2f }, { 0x6f, 0x00 }, { 0x70, 0x00 }, { 0x71, 0x00 }, 
+  { 0x72, 0x00 }, { 0x73, 0x00 }, { 0x74, 0x00 }, { 0x75, 0x00 }, { 0x76, 0x02 }, { 0x77, 0x00 }, 
+  { 0x78, 0x00 }, { 0x79, 0x10 }, { 0x7a, 0x06 }, { 0x7b, 0xbe }, { 0x7c, 0x06 }, { 0x7d, 0xcb }, 
+  { 0x7e, 0xc0 }, { 0x7f, 0xf3 }, { 0x80, 0x18 }, { 0x81, 0x09 }, { 0x82, 0x00 }, 
 };
 
 struct sta321mp {
 	struct regmap *regmap;
 };
 
+static bool sta321mp_reg_is_volatile(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+    case 0x3B ... 0x4C:
+      return 1;
+	}
+	return 0;
+}
+
+/*
 static bool sta321mp_readable(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
@@ -67,6 +100,7 @@ static bool sta321mp_readable(struct device *dev, unsigned int reg)
 	case STA321MP_CONFA:
 	case STA321MP_CONFC:
 	case STA321MP_CONFE:
+  case STA321MP_CONFF:
 	case STA321MP_CONFH:
 	case STA321MP_CONFI:
 	case STA321MP_MVOL:
@@ -76,20 +110,31 @@ static bool sta321mp_readable(struct device *dev, unsigned int reg)
 	case STA321MP_C4VOL:
 	case STA321MP_C5VOL:
 	case STA321MP_C6VOL:
+	case STA321MP_C7VOL:
+	case STA321MP_C8VOL:
 	case STA321MP_C78IM:
 	case STA321MP_EQBP:
 	case STA321MP_TONEBP:
 	case STA321MP_RCTR1:
 	case STA321MP_CFR129:
-		return true;
+  case STA321MP_C1VTMB:
+  case STA321MP_C2VTMB:
+  case STA321MP_C3VTMB:
+  case STA321MP_C4VTMB:
+  case STA321MP_C5VTMB:
+  case STA321MP_C6VTMB:
+  case STA321MP_MMUTE:
 	case 0x3d:
 	case 0x3e:
 	case 0x3f:
-	case 0x4c:
+		return true;
+
 	default:
 		return false;
 	}
 }
+*/
+
 static const DECLARE_TLV_DB_SCALE(mvol_tlv, -12700, 50, 1);
 static const DECLARE_TLV_DB_SCALE(chvol_tlv, -7950, 50, 1);
 
@@ -104,35 +149,42 @@ SOC_DOUBLE_R_TLV("Ch2 Capture Volume", STA321MP_C3VOL, STA321MP_C4VOL, 0, 0xff, 
 SOC_DOUBLE_R_TLV("Ch3 Capture Volume", STA321MP_C5VOL, STA321MP_C6VOL, 0, 0xff, 1, chvol_tlv),
 };
 
-static const struct snd_soc_dapm_widget sta321mp_dapm_widgets[] = {
-	SND_SOC_DAPM_INPUT("MIC1"),
-	SND_SOC_DAPM_INPUT("MIC2"),
-	SND_SOC_DAPM_INPUT("MIC3"),
-	SND_SOC_DAPM_INPUT("MIC4"),
-	SND_SOC_DAPM_INPUT("MIC5"),
-	SND_SOC_DAPM_INPUT("MIC6"),
-};
-
-static int sta321mp_add_widgets(struct snd_soc_codec *codec)
+static unsigned int sta321mp_read_ram(struct snd_soc_codec *codec, unsigned int address)
 {
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
+  unsigned int val = 0x0;
+  unsigned int ret = 0x0;
 
-	snd_soc_dapm_new_controls(dapm, sta321mp_dapm_widgets,
-				  ARRAY_SIZE(sta321mp_dapm_widgets));
+	snd_soc_write(codec, 0x3B, (address >> 8) & 0x03 );	/* writing top 2 bits of address */
+	snd_soc_write(codec, 0x3C, address & 0xFF );        /* writing bottom 8 bits of address */
 
-	/* set up audio path interconnects */
-	//snd_soc_dapm_add_routes(dapm, intercon, ARRAY_SIZE(intercon));
+  ret = snd_soc_read(codec, 0x3D);
+  if (ret == -1)
+    printk("  %02x error while reading.\n", address);
+  else
+    val = ((0xFF & ret) << 16);
 
-	return 0;
+  ret = snd_soc_read(codec, 0x3E);
+  if (ret == -1)
+    printk("  %02x error while reading.\n", address);
+  else
+    val |= ((0xFF & ret) << 8);
+
+  ret = snd_soc_read(codec, 0x3F);
+  if (ret == -1)
+    printk("  %02x error while reading.\n", address);
+  else
+    val |= 0xFF & ret;
+
+  return val;
 }
 
 static void sta321mp_write_ram(struct snd_soc_codec *codec, unsigned int address, unsigned int value)
 {
 	snd_soc_write(codec, 0x3B, (address >> 8) & 0x03 );	/* writing top 2 bits of address */
-	snd_soc_write(codec, 0x3C, address & 0x0F );        /* writing bottom 8 bits of address */
-	snd_soc_write(codec, 0x3D, 0x0F & (value >> 16) );
-	snd_soc_write(codec, 0x3E, 0x0F & (value >> 8) );
-	snd_soc_write(codec, 0x3F, 0x0F & value );
+	snd_soc_write(codec, 0x3C, address & 0xFF );        /* writing bottom 8 bits of address */
+	snd_soc_write(codec, 0x3D, 0xFF & (value >> 16) );
+	snd_soc_write(codec, 0x3E, 0xFF & (value >> 8) );
+	snd_soc_write(codec, 0x3F, 0xFF & value );
 	snd_soc_write(codec, 0x4C, 0x01); /* Finished writing 1 value */
 }
 
@@ -181,10 +233,19 @@ static void sta321mp_biquad(struct snd_soc_codec *codec, int channel, unsigned i
 
 }
 
-static int sta321mp_LP_192kHz(struct snd_soc_codec *codec)
+static void sta321mp_HP_192kHz(struct snd_soc_codec *codec)
 {
   /*
-   * This function sets the biquads as a 9th order butterworth
+   * This function sets the first biquad as a 2nd order chebychev
+   * Low pass filter with cutoff at 40kHz
+   */
+  sta321mp_biquad(codec, 1, 1, 0x80505a, 0x7fafac, 0x7faf8d, 0x80a075,0x3fd7d6);
+}
+
+static void sta321mp_LP_192kHz(struct snd_soc_codec *codec)
+{
+  /*
+   * This function sets the biquads as a 18th order butterworth
    * Low pass filter with cutoff at 40kHz
    */
   sta321mp_biquad(codec, 1, 2, 0x34417a, 0x34417a, 0x10e211, 0xfd899c,0x1a20bd);
@@ -196,13 +257,14 @@ static int sta321mp_LP_192kHz(struct snd_soc_codec *codec)
   sta321mp_biquad(codec, 1, 8, 0x1be34f, 0x1be34f, 0x17867e, 0xca35c0,0xdf1a7);
   sta321mp_biquad(codec, 1, 9, 0x1be34f, 0x1be34f, 0x1a80c9, 0xb33334,0xdf1a7);
   sta321mp_biquad(codec, 1, 10, 0x1be34f, 0x1be34f, 0x1e8e71, 0x93e0cf,0xdf1a7);
-
-  return 0;
 }
 
-static int sta321mp_LP_48kHz(struct snd_soc_codec *codec)
+static void sta321mp_LP_48kHz(struct snd_soc_codec *codec)
 {
-
+  /*
+   * This function sets the biquads as a 14th order elliptic
+   * Low pass filter with cutoff at 40kHz
+   */
   sta321mp_biquad(codec, 1, 2, 0x2d7d5e, 0x3faa84, 0x6599c4, 0xad9ed1,0x1fd542);
   sta321mp_biquad(codec, 1, 3, 0xfcec16, 0x177b7b, 0x63c973, 0xa4b499,0xbbdbd);
   sta321mp_biquad(codec, 1, 4, 0xf4caac, 0x177b7b, 0x616997, 0x98a93a,0xbbdbd);
@@ -212,8 +274,42 @@ static int sta321mp_LP_48kHz(struct snd_soc_codec *codec)
   sta321mp_biquad(codec, 1, 8, 0x0, 0x0, 0x0, 0x0, 0x400000);
   sta321mp_biquad(codec, 1, 9, 0x0, 0x0, 0x0, 0x0, 0x400000);
   sta321mp_biquad(codec, 1, 10, 0x0, 0x0, 0x0, 0x0, 0x400000);
+}
 
-  return 0;
+static void sta321mp_dump_RAM_ch1(struct snd_soc_codec *codec)
+{
+  unsigned int r = 4;
+  unsigned int val = 0x0;
+
+  printk("sta321mp: Channel 1 biquads:\n");
+  for (r = 0 ; r < 50 ; r++)
+  {
+      val = sta321mp_read_ram(codec, r);
+      printk("  %02x %06x\n", r, val);
+  }
+
+  printk("sta321mp: Channel 1 pre-scale.\n");
+  val = sta321mp_read_ram(codec, 400);
+  printk("  %02x %06x\n", 400, val);
+
+  printk("sta321mp: Channel 1 post-scale.\n");
+  val = sta321mp_read_ram(codec, 408);
+  printk("  %02x %06x\n", 408, val);
+
+  printk("sta321mp: Channel 1 mix 1:\n");
+  for (r = 416 ; r < 424 ; r++)
+  {
+      val = sta321mp_read_ram(codec, r);
+      printk("  %02x %06x\n", r, val);
+  }
+
+  printk("sta321mp: Channel 1 mix 2:\n");
+  for (r = 480 ; r < 488 ; r++)
+  {
+      val = sta321mp_read_ram(codec, r);
+      printk("  %02x %06x\n", r, val);
+  }
+
 }
 
 static void sta321mp_dump_bits(struct snd_soc_codec *codec)
@@ -235,6 +331,8 @@ static void sta321mp_dump_bits(struct snd_soc_codec *codec)
 
 static int sta321mp_set_bits(struct snd_soc_codec *codec)
 {
+	struct sta321mp *sta321mp = snd_soc_codec_get_drvdata(codec);
+  int channel, mixer, input;
 
   printk("sta321mp: newboard config.\n");
   snd_soc_write(codec, STA321MP_CONFA, 0x9b);
@@ -256,14 +354,39 @@ static int sta321mp_set_bits(struct snd_soc_codec *codec)
 
   snd_soc_write(codec, STA321MP_TONEBP, 0xFF); /* Tone bypass */
 
+  snd_soc_write(codec, STA321MP_CBQ1, 0x00); /* Biquad coeff range */
+  snd_soc_write(codec, STA321MP_CBQ2, 0x00); /* Biquad coeff range */
+  snd_soc_write(codec, STA321MP_CBQ3, 0x10); /* Biquad coeff range, noise shaping on */
+
   snd_soc_write(codec, STA321MP_RCTR1, 0x01);  /* microphone mode, sets PDM clock */
   snd_soc_write(codec, STA321MP_CFR129, 0x09); /* I2S out normal, no pop-up removal */
 
-  // set pwm output
+  // initialize HP filter
+  //sta321mp_HP_192kHz(codec);
+
+  // Initialize all the mixers
+  for (mixer = 1 ; mixer <= 2 ; mixer++)
+    for (channel = 1 ; channel <= 8 ; channel++)
+      for (input = 1 ; input <= 8 ; input++)
+        if (input == channel)
+          sta321mp_mixer(codec, mixer, channel, input, 0x7FFFFF); /* Setting channel 7, Mixer 1, channel 1 on  */
+        else
+          sta321mp_mixer(codec, mixer, channel, input, 0x000000); /* Setting channel 7, Mixer 1, channel 1 on  */
+
+  // initialize all the post-scale (channel 1)
+  for (channel = 1 ; channel <= 8 ; channel++)
+  {
+    sta321mp_prescale(codec, channel, 0x7FFFFF); 
+    sta321mp_postscale(codec, channel, 0x7FFFFF); 
+  }
+
+  // set pwm output (channels 1/2 to pwm 7/8)
   sta321mp_mixer(codec, 1, 7, 1, 0x7FFFFF); /* Setting channel 7, Mixer 1, channel 1 on  */
   sta321mp_mixer(codec, 1, 7, 7, 0x000000); /* Setting channel 7, Mixer 1, channel 7 off */
   sta321mp_mixer(codec, 1, 8, 2, 0x7FFFFF); /* Setting channel 8, Mixer 1, channel 2 on  */
   sta321mp_mixer(codec, 1, 8, 8, 0x000000); /* Setting channel 8, Mixer 1, channel 8 off */
+
+	regcache_sync(sta321mp->regmap);
 
   return 0;
 }
@@ -277,6 +400,8 @@ static int sta321mp_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
   int fmt = 0x00; // format register
 
+  // set all the codec bits
+  sta321mp_set_bits(codec);
 
   // configure the output format
 	switch (params_format(params)) {
@@ -315,12 +440,13 @@ static int sta321mp_hw_params(struct snd_pcm_substream *substream,
 	}
 
   // Initialize sta321mp
+  printk("sta321mp: setting fmt bits to %02x\n", fmt);
   snd_soc_write(codec, STA321MP_CONFC, fmt);
-  sta321mp_set_bits(codec);
 
   printk("sta321mp: Started at %d Hz.\n", params_rate(params));
 
   sta321mp_dump_bits(codec);
+  sta321mp_dump_RAM_ch1(codec);
 
 	return 0;
 }
@@ -355,9 +481,9 @@ static int sta321mp_probe(struct snd_soc_codec *codec)
 	}
 
   sta321mp_dump_bits(codec);
+  sta321mp_dump_RAM_ch1(codec);
 
   sta321mp_set_bits(codec);
-  sta321mp_add_widgets(codec);
 
   printk("sta321mp: probing.\n");
 
@@ -394,11 +520,13 @@ static const struct regmap_config sta321mp_regmap = {
 	.val_bits = 8,
 
 	.max_register = STA321MP_MAX_REGISTER,
-	.readable_reg = sta321mp_readable,
+	//.readable_reg = sta321mp_readable,
+  .volatile_reg = sta321mp_reg_is_volatile,
 
+	//.cache_type = REGCACHE_NONE,
 	.cache_type = REGCACHE_RBTREE,
-	.reg_defaults = sta321mp_reg_defaults,
-	.num_reg_defaults = ARRAY_SIZE(sta321mp_reg_defaults),
+	.reg_defaults = sta321mp_reg_defaults_2,
+	.num_reg_defaults = ARRAY_SIZE(sta321mp_reg_defaults_2),
 };
 
 static int sta321mp_i2c_probe(struct i2c_client *i2c,
