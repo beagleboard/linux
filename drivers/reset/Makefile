@@ -5,3 +5,4 @@ obj-$(CONFIG_ARCH_SUNXI) += reset-sunxi.o
 obj-$(CONFIG_ARCH_STI) += sti/
 
 obj-$(CONFIG_SYSCON_RESET) += reset-syscon.o
+obj-$(CONFIG_TI_SCI_RESET) += reset-ti-sci.o
