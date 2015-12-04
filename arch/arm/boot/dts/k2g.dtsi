@@ -17,6 +17,7 @@
 #include <dt-bindings/pinctrl/keystone.h>
 #include <dt-bindings/genpd/k2g.h>
 #include <dt-bindings/clock/k2g.h>
+#include <dt-bindings/reset/k2g.h>
 #include "skeleton.dtsi"
 
 / {
@@ -88,6 +89,11 @@
 		compatible = "ti,keystone","simple-bus";
 		ranges = <0x0 0x0 0x0 0xc0000000>;
 		dma-ranges = <0x80000000 0x8 0x00000000 0x80000000>;
+
+		devctrl: device-state-control@02620000 {
+			compatible = "ti,keystone-devctrl", "syscon";
+			reg = <0x02620000 0x1000>;
+		};
 
 		k2g_pinctrl: pinmux@02621000 {
 			compatible = "pinctrl-single";
@@ -473,6 +479,27 @@
 			compatible = "ti,sci-pm-domains";
 			#power-domain-cells = <1>;
 			ti,sci = <&pmmc>;
+		};
+
+		k2g_reset: k2g_reset {
+			compatible = "ti,sci-reset";
+			ti,sci = <&pmmc>;
+			#reset-cells = <2>;
+		};
+
+		kirq0: keystone_irq@026202a0 {
+			compatible = "ti,keystone-irq";
+			interrupts = <GIC_SPI 1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			ti,syscon-dev = <&devctrl 0x2a0>;
+		};
+
+		dspgpio0: keystone_dsp_gpio@02620240 {
+			compatible = "ti,keystone-dsp-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio,syscon-dev = <&devctrl 0x240>;
 		};
 
 		mdio: mdio@4200f00 {
