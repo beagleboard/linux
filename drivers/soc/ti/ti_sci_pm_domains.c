@@ -89,8 +89,7 @@ static int pd_power_on(struct generic_pm_domain *domain)
 	const struct ti_sci_handle *ti_sci = ti_sci_pd->parent->ti_sci;
 
 	return ti_sci->ops.dev_ops.get_device(ti_sci,
-					      ti_sci_pd->idx,
-					      0);
+					      ti_sci_pd->idx);
 }
 
 /**

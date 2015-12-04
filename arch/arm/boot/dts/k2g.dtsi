@@ -14,8 +14,10 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/keystone.h>
 #include <dt-bindings/genpd/k2g.h>
 #include <dt-bindings/clock/k2g.h>
+#include <dt-bindings/reset/k2g.h>
 #include "skeleton.dtsi"
 
 / {
@@ -88,11 +90,16 @@
 		ranges = <0x0 0x0 0x0 0xc0000000>;
 		dma-ranges = <0x80000000 0x8 0x00000000 0x80000000>;
 
+		devctrl: device-state-control@02620000 {
+			compatible = "ti,keystone-devctrl", "syscon";
+			reg = <0x02620000 0x1000>;
+		};
+
 		k2g_pinctrl: pinmux@02621000 {
 			compatible = "pinctrl-single";
 			reg = <0x02621000 0x410>;
 			pinctrl-single,register-width = <32>;
-			pinctrl-single,function-mask = <0x00070007>;
+			pinctrl-single,function-mask = <0x001b0007>;
 		};
 
 		uart0: serial@02530c00 {
@@ -102,9 +109,10 @@
 			reg-io-width = <4>;
 			reg = <0x02530c00 0x100>;
 			interrupts = <GIC_SPI 164 IRQ_TYPE_EDGE_RISING>;
-			clock-frequency = <200000000>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_UART0>;
+			clocks = <&k2g_clks K2G_DEV_UART0 0>;
+			clock-names = "fck";
 		};
 
 		uart1: serial@02531000 {
@@ -116,6 +124,8 @@
 			interrupts = <GIC_SPI 165 IRQ_TYPE_EDGE_RISING>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_UART1>;
+			clocks = <&k2g_clks K2G_DEV_UART1 0>;
+			clock-names = "fck";
 		};
 
 		uart2: serial@02531400 {
@@ -127,6 +137,8 @@
 			interrupts = <GIC_SPI 166 IRQ_TYPE_EDGE_RISING>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_UART2>;
+			clocks = <&k2g_clks K2G_DEV_UART2 0>;
+			clock-names = "fck";
 		};
 
 		i2c0: i2c@2530000 {
@@ -138,6 +150,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_I2C0>;
+			clocks = <&k2g_clks K2G_DEV_I2C0 0>;
+			clock-names = "fck";
 		};
 
 		i2c1: i2c@2530400 {
@@ -149,6 +163,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_I2C1>;
+			clocks = <&k2g_clks K2G_DEV_I2C1 0>;
+			clock-names = "fck";
 		};
 
 		i2c2: i2c@2530800 {
@@ -160,6 +176,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_I2C2>;
+			clocks = <&k2g_clks K2G_DEV_I2C2 0>;
+			clock-names = "fck";
 		};
 
 		edma: edma@02728000 {
@@ -182,6 +200,8 @@
 			bus-width = <4>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_MMCHS0>;
+			clocks = <&k2g_clks K2G_DEV_MMCHS0 0>;
+			clock-names = "fck";
 		};
 
 		mmc1: mmc@23100000 {
@@ -193,6 +213,8 @@
 			bus-width = <8>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_MMCHS1>;
+			clocks = <&k2g_clks K2G_DEV_MMCHS1 0>;
+			clock-names = "fck";
 		};
 
 		spi0: spi@21805400 {
@@ -205,6 +227,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_SPI0>;
+			clocks = <&k2g_clks K2G_DEV_SPI0 0>;
+			clock-names = "fck";
 		};
 
 		spi1: spi@21805800 {
@@ -217,6 +241,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_SPI1>;
+			clocks = <&k2g_clks K2G_DEV_SPI1 0>;
+			clock-names = "fck";
 		};
 
 		spi2: spi@21805c00 {
@@ -229,6 +255,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_SPI2>;
+			clocks = <&k2g_clks K2G_DEV_SPI2 0>;
+			clock-names = "fck";
 		};
 
 		spi3: spi@21806000 {
@@ -241,6 +269,8 @@
 			#size-cells = <0>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_SPI3>;
+			clocks = <&k2g_clks K2G_DEV_SPI3 0>;
+			clock-names = "fck";
 		};
 
 		usb0_phy: usb-phy@0 {
@@ -258,6 +288,9 @@
 			dma-coherent;
 			dma-ranges;
 			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_USB0>;
+			clocks = <&k2g_clks K2G_DEV_USB0 0>;
+			clock-names = "usb";
 
 			usb0: usb@2690000 {
 				compatible = "synopsys,dwc3";
@@ -267,7 +300,6 @@
 				dr_mode = "otg";
 				usb-phy = <&usb0_phy>;
 				status = "disabled";
-				power-domains = <&k2g_pds K2G_DEV_USB0>;
 			};
 		};
 
@@ -286,6 +318,9 @@
 			dma-coherent;
 			dma-ranges;
 			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_USB1>;
+			clocks = <&k2g_clks K2G_DEV_USB1 0>;
+			clock-names = "usb";
 
 			usb1: usb@2690000 {
 				compatible = "synopsys,dwc3";
@@ -295,8 +330,8 @@
 				dr_mode = "otg";
 				usb-phy = <&usb1_phy>;
 				status = "disabled";
-				power-domains = <&k2g_pds K2G_DEV_USB1>;
 			};
+
 		};
 
 		wdt: wdt@02260000 {
@@ -350,6 +385,8 @@
 			interrupts = <GIC_SPI 190 IRQ_TYPE_EDGE_RISING>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_DCAN0>;
+			clocks = <&k2g_clks K2G_DEV_DCAN0 0>;
+			clock-names = "fck";
 		};
 
 		dcan1: can@0260B400 {
@@ -358,6 +395,32 @@
 			interrupts = <GIC_SPI 193 IRQ_TYPE_EDGE_RISING>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_DCAN1>;
+			clocks = <&k2g_clks K2G_DEV_DCAN1 0>;
+			clock-names = "fck";
+		};
+
+		gpmc: gpmc@21818000 {
+			compatible = "ti,am3352-gpmc";
+			#address-cells = <2>;
+			#size-cells = <1>;
+			reg = <0x21818000 0x400>;
+			interrupts = <GIC_SPI 196 IRQ_TYPE_EDGE_RISING>;
+			gpmc,num-cs = <4>;
+			gpmc,num-waitpins = <2>;
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_GPMC0>;
+			clocks = <&k2g_clks K2G_DEV_GPMC0 0>;
+			clock-names = "fck";
+		};
+
+		elm: elm@021c8000 {
+			compatible = "ti,am3352-elm";
+			reg = <0x021c8000 0x2000>;
+			interrupts = <GIC_SPI 197 IRQ_TYPE_EDGE_RISING>;
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_ELM0>;
+			clocks = <&k2g_clks K2G_DEV_ELM0 0>;
+			clock-names = "fck";
 		};
 
 		msgmgr: msgmgr@02a00000 {
@@ -393,7 +456,7 @@
 				ti,queue-id = <5>;
 				ti,proxy-id = <2>;
 				interrupt-names = "rx";
-				interrupts = <GIC_SPI 324 IRQ_TYPE_EDGE_RISING>;
+				interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>;
 			};
 		};
 
@@ -416,6 +479,27 @@
 			compatible = "ti,sci-pm-domains";
 			#power-domain-cells = <1>;
 			ti,sci = <&pmmc>;
+		};
+
+		k2g_reset: k2g_reset {
+			compatible = "ti,sci-reset";
+			ti,sci = <&pmmc>;
+			#reset-cells = <2>;
+		};
+
+		kirq0: keystone_irq@026202a0 {
+			compatible = "ti,keystone-irq";
+			interrupts = <GIC_SPI 1 IRQ_TYPE_EDGE_RISING>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			ti,syscon-dev = <&devctrl 0x2a0>;
+		};
+
+		dspgpio0: keystone_dsp_gpio@02620240 {
+			compatible = "ti,keystone-dsp-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio,syscon-dev = <&devctrl 0x240>;
 		};
 	};
 };

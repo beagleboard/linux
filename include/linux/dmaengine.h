@@ -1120,4 +1120,26 @@ static inline struct dma_chan
 
 	return __dma_request_channel(mask, fn, fn_param);
 }
+
+#define dma_request_slave_channel_compat_reason(mask, x, y, dev, name) \
+	__dma_request_slave_channel_compat_reason(&(mask), x, y, dev, name)
+
+static inline struct dma_chan
+*__dma_request_slave_channel_compat_reason(const dma_cap_mask_t *mask,
+				  dma_filter_fn fn, void *fn_param,
+				  struct device *dev, char *name)
+{
+	struct dma_chan *chan;
+
+	chan = dma_request_slave_channel_reason(dev, name);
+	/* Try via legacy API if not requesting for deferred probing */
+	if (IS_ERR(chan) && PTR_ERR(chan) != -EPROBE_DEFER)
+		chan = __dma_request_channel(mask, fn, fn_param);
+
+	if (!chan)
+		chan = ERR_PTR(-ENODEV);
+
+	return chan;
+}
+
 #endif /* DMAENGINE_H */
