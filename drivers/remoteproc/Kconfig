@@ -112,6 +112,7 @@ config PRUSS_REMOTEPROC
 config KEYSTONE_REMOTEPROC
 	tristate "Keystone Remoteproc support"
 	depends on ARCH_KEYSTONE
+	depends on RESET_CONTROLLER
 	depends on UIO
 	select REMOTEPROC
 	select RPMSG
