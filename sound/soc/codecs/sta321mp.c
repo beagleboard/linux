@@ -378,9 +378,6 @@ static int sta321mp_hw_params(struct snd_pcm_substream *substream,
 
   printk("sta321mp: Started at %d Hz.\n", params_rate(params));
 
-  sta321mp_dump_bits(codec);
-  sta321mp_dump_RAM_ch1(codec);
-
 	return 0;
 }
 
@@ -412,9 +409,6 @@ static int sta321mp_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);
 		return ret;
 	}
-
-  sta321mp_dump_bits(codec);
-  sta321mp_dump_RAM_ch1(codec);
 
   sta321mp_set_bits(codec);
 
