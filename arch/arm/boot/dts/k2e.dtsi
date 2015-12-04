@@ -101,7 +101,7 @@
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem0>;
 			ti,syscon-dev = <&devctrl 0x844>;
-			ti,syscon-psc = <&psc 0xa3c 0x83c>;
+			resets = <&pscrst 0xa3c 8 0 0x83c 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <0 8>;
 			interrupt-names = "vring", "exception";

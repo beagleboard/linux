@@ -2069,23 +2069,21 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
 
-	host->rx_chan =
-		dma_request_slave_channel_compat(mask, omap_dma_filter_fn,
-						 &rx_req, &pdev->dev, "rx");
+	host->rx_chan = dma_request_slave_channel_compat_reason(mask,
+				omap_dma_filter_fn, &rx_req, &pdev->dev, "rx");
 
-	if (!host->rx_chan) {
+	if (IS_ERR(host->rx_chan)) {
 		dev_err(mmc_dev(host->mmc), "unable to obtain RX DMA engine channel %u\n", rx_req);
-		ret = -ENXIO;
+		ret = PTR_ERR(host->rx_chan);
 		goto err_irq;
 	}
 
-	host->tx_chan =
-		dma_request_slave_channel_compat(mask, omap_dma_filter_fn,
-						 &tx_req, &pdev->dev, "tx");
+	host->tx_chan = dma_request_slave_channel_compat_reason(mask,
+				omap_dma_filter_fn, &tx_req, &pdev->dev, "tx");
 
-	if (!host->tx_chan) {
+	if (IS_ERR(host->tx_chan)) {
 		dev_err(mmc_dev(host->mmc), "unable to obtain TX DMA engine channel %u\n", tx_req);
-		ret = -ENXIO;
+		ret = PTR_ERR(host->tx_chan);
 		goto err_irq;
 	}
 
@@ -2147,9 +2145,9 @@ err_slot_name:
 	if (host->use_reg)
 		omap_hsmmc_reg_put(host);
 err_irq:
-	if (host->tx_chan)
+	if (!IS_ERR_OR_NULL(host->tx_chan))
 		dma_release_channel(host->tx_chan);
-	if (host->rx_chan)
+	if (!IS_ERR_OR_NULL(host->rx_chan))
 		dma_release_channel(host->rx_chan);
 	pm_runtime_put_sync(host->dev);
 	pm_runtime_disable(host->dev);
@@ -2171,10 +2169,8 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 	if (host->use_reg)
 		omap_hsmmc_reg_put(host);
 
-	if (host->tx_chan)
-		dma_release_channel(host->tx_chan);
-	if (host->rx_chan)
-		dma_release_channel(host->rx_chan);
+	dma_release_channel(host->tx_chan);
+	dma_release_channel(host->rx_chan);
 
 	pm_runtime_put_sync(host->dev);
 	pm_runtime_disable(host->dev);
