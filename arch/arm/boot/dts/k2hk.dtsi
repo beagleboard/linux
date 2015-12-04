@@ -133,7 +133,7 @@
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem0>;
 			ti,syscon-dev = <&devctrl 0x40>;
-			ti,syscon-psc = <&psc 0xa3c 0x83c>;
+			resets = <&pscrst 0xa3c 8 0 0x83c 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <0 8>;
 			interrupt-names = "vring", "exception";
@@ -148,7 +148,7 @@
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem1>;
 			ti,syscon-dev = <&devctrl 0x44>;
-			ti,syscon-psc = <&psc 0xa40 0x840>;
+			resets = <&pscrst 0xa40 8 0 0x840 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <1 9>;
 			interrupt-names = "vring", "exception";
@@ -163,7 +163,7 @@
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem2>;
 			ti,syscon-dev = <&devctrl 0x48>;
-			ti,syscon-psc = <&psc 0xa44 0x844>;
+			resets = <&pscrst 0xa44 8 0 0x844 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <2 10>;
 			interrupt-names = "vring", "exception";
@@ -178,7 +178,7 @@
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem3>;
 			ti,syscon-dev = <&devctrl 0x4c>;
-			ti,syscon-psc = <&psc 0xa48 0x848>;
+			resets = <&pscrst 0xa48 8 0 0x848 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <3 11>;
 			interrupt-names = "vring", "exception";
@@ -193,7 +193,7 @@
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem4>;
 			ti,syscon-dev = <&devctrl 0x50>;
-			ti,syscon-psc = <&psc 0xa4c 0x84c>;
+			resets = <&pscrst 0xa4c 8 0 0x84c 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <4 12>;
 			interrupt-names = "vring", "exception";
@@ -208,7 +208,7 @@
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem5>;
 			ti,syscon-dev = <&devctrl 0x54>;
-			ti,syscon-psc = <&psc 0xa50 0x850>;
+			resets = <&pscrst 0xa50 8 0 0x850 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <5 13>;
 			interrupt-names = "vring", "exception";
@@ -223,7 +223,7 @@
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem6>;
 			ti,syscon-dev = <&devctrl 0x58>;
-			ti,syscon-psc = <&psc 0xa54 0x854>;
+			resets = <&pscrst 0xa54 8 0 0x854 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <6 14>;
 			interrupt-names = "vring", "exception";
@@ -238,7 +238,7 @@
 			reg-names = "l2sram", "l1pram", "l1dram";
 			clocks = <&clkgem7>;
 			ti,syscon-dev = <&devctrl 0x5c>;
-			ti,syscon-psc = <&psc 0xa58 0x858>;
+			resets = <&pscrst 0xa58 8 0 0x858 8 0>;
 			interrupt-parent = <&kirq0>;
 			interrupts = <7 15>;
 			interrupt-names = "vring", "exception";
