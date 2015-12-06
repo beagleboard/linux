@@ -1,0 +1,189 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-som-common.dtsi"
+
+/ {
+	model = "Olimex AM335x SOM";
+	compatible = "olimex,am335x-olimex-som", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&am33xx_pinmux {
+	lcd_pins_default: lcd_pins_default {
+		pinctrl-single,pins = <
+		0x20 0x01 /* gpmc_ad8.lcd_data16, OUTPUT | MODE1 */
+		0x24 0x01 /* gpmc_ad9.lcd_data17, OUTPUT | MODE1 */
+		0x28 0x01 /* gpmc_ad10.lcd_data18, OUTPUT | MODE1 */
+		0x2c 0x01 /* gpmc_ad11.lcd_data19, OUTPUT | MODE1 */
+		0x30 0x01 /* gpmc_ad12.lcd_data20, OUTPUT | MODE1 */
+		0x34 0x01 /* gpmc_ad13.lcd_data21, OUTPUT | MODE1 */
+		0x38 0x01 /* gpmc_ad14.lcd_data22, OUTPUT | MODE1 */
+		0x3c 0x01 /* gpmc_ad15.lcd_data23, OUTPUT | MODE1 */
+		0xa0 0x00 /* lcd_data0.lcd_data0, OUTPUT | MODE0 */
+		0xa4 0x00 /* lcd_data1.lcd_data1, OUTPUT | MODE0 */
+		0xa8 0x00 /* lcd_data2.lcd_data2, OUTPUT | MODE0 */
+		0xac 0x00 /* lcd_data3.lcd_data3, OUTPUT | MODE0 */
+		0xb0 0x00 /* lcd_data4.lcd_data4, OUTPUT | MODE0 */
+		0xb4 0x00 /* lcd_data5.lcd_data5, OUTPUT | MODE0 */
+		0xb8 0x00 /* lcd_data6.lcd_data6, OUTPUT | MODE0 */
+		0xbc 0x00 /* lcd_data7.lcd_data7, OUTPUT | MODE0 */
+		0xc0 0x00 /* lcd_data8.lcd_data8, OUTPUT | MODE0 */
+		0xc4 0x00 /* lcd_data9.lcd_data9, OUTPUT | MODE0 */
+		0xc8 0x00 /* lcd_data10.lcd_data10, OUTPUT | MODE0 */
+		0xcc 0x00 /* lcd_data11.lcd_data11, OUTPUT | MODE0 */
+		0xd0 0x00 /* lcd_data12.lcd_data12, OUTPUT | MODE0 */
+		0xd4 0x00 /* lcd_data13.lcd_data13, OUTPUT | MODE0 */
+		0xd8 0x00 /* lcd_data14.lcd_data14, OUTPUT | MODE0 */
+		0xdc 0x00 /* lcd_data15.lcd_data15, OUTPUT | MODE0 */
+		0xe0 0x00 /* lcd_vsync.lcd_vsync, OUTPUT | MODE0 */
+		0xe4 0x00 /* lcd_hsync.lcd_hsync, OUTPUT | MODE0 */
+		0xe8 0x00 /* lcd_pclk.lcd_pclk, OUTPUT | MODE0 */
+		0xec 0x00 /* lcd_ac_bias_en.lcd_ac_bias_en, OUTPUT | MODE0 */
+		>;
+	};
+
+	lcd_pins_sleep: lcd_pins_sleep {
+		pinctrl-single,pins = <
+		0x20 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad8.lcd_data16 */
+		0x24 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad9.lcd_data17 */
+		0x28 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad10.lcd_data18 */
+		0x2c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad11.lcd_data19 */
+		0x30 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad12.lcd_data20 */
+		0x34 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad13.lcd_data21 */
+		0x38 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad14.lcd_data22 */
+		0x3c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* gpmc_ad15.lcd_data23 */
+		0xa0 (PULL_DISABLE | MUX_MODE7) /* lcd_data0.lcd_data0 */
+		0xa4 (PULL_DISABLE | MUX_MODE7) /* lcd_data1.lcd_data1 */
+		0xa8 (PULL_DISABLE | MUX_MODE7) /* lcd_data2.lcd_data2 */
+		0xac (PULL_DISABLE | MUX_MODE7) /* lcd_data3.lcd_data3 */
+		0xb0 (PULL_DISABLE | MUX_MODE7) /* lcd_data4.lcd_data4 */
+		0xb4 (PULL_DISABLE | MUX_MODE7) /* lcd_data5.lcd_data5 */
+		0xb8 (PULL_DISABLE | MUX_MODE7) /* lcd_data6.lcd_data6 */
+		0xbc (PULL_DISABLE | MUX_MODE7) /* lcd_data7.lcd_data7 */
+		0xc0 (PULL_DISABLE | MUX_MODE7) /* lcd_data8.lcd_data8 */
+		0xc4 (PULL_DISABLE | MUX_MODE7) /* lcd_data9.lcd_data9 */
+		0xc8 (PULL_DISABLE | MUX_MODE7) /* lcd_data10.lcd_data10 */
+		0xcc (PULL_DISABLE | MUX_MODE7) /* lcd_data11.lcd_data11 */
+		0xd0 (PULL_DISABLE | MUX_MODE7) /* lcd_data12.lcd_data12 */
+		0xd4 (PULL_DISABLE | MUX_MODE7) /* lcd_data13.lcd_data13 */
+		0xd8 (PULL_DISABLE | MUX_MODE7) /* lcd_data14.lcd_data14 */
+		0xdc (PULL_DISABLE | MUX_MODE7) /* lcd_data15.lcd_data15 */
+		/* lcd_vsync.lcd_vsync,OUTPUT | MODE0 */
+		0xe0 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+		0xe4 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* lcd_hsync.lcd_hsync */
+		0xe8 (PIN_INPUT_PULLDOWN | MUX_MODE7) /* lcd_pclk.lcd_pclk */
+		/* lcd_ac_bias_en.lcd_ac_bias_en */
+		0xec (PIN_INPUT_PULLDOWN | MUX_MODE7)
+		>;
+	};
+
+};
+
+&lcdc {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&lcd_pins_default>;
+	pinctrl-1 = <&lcd_pins_sleep>;
+	status = "okay";
+	/*        display-timings {
+	 480x272 {
+	 hactive         = <480>;
+	 vactive         = <272>;
+	 hback-porch     = <43>;
+	 hfront-porch    = <8>;
+	 hsync-len       = <4>;
+	 vback-porch     = <12>;
+	 vfront-porch    = <4>;
+	 vsync-len       = <10>;
+	 clock-frequency = <9000000>;
+	 hsync-active    = <0>;
+	 vsync-active    = <0>;
+	 };
+	 };*/
+
+	display-timings {
+		native-mode = <&vga1024x768>;
+		lcd4: 480x272 {
+			clock-frequency = <9000000>;
+			hactive = <480>;
+			vactive = <272>;
+			hfront-porch = <3>;
+			hback-porch = <40>;
+			vback-porch = <8>;
+			vfront-porch = <7>;
+			hsync-len = <2>;
+			vsync-len = <1>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+		};
+		lcd7: 800x480 {
+			clock-frequency = <33300000>;
+			hactive = <800>;
+			vactive = <480>;
+			hfront-porch = <210>;
+			hback-porch = <40>;
+			vback-porch = <23>;
+			vfront-porch = <20>;
+			hsync-len = <6>;
+			vsync-len = <2>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+		};
+		lcd10: 1024x600 {
+			clock-frequency = <51200000>;
+			hactive = <1024>;
+			vactive = <600>;
+			hfront-porch = <160>;
+			hback-porch = <140>;
+			vback-porch = <20>;
+			vfront-porch = <12>;
+			hsync-len = <20>;
+			vsync-len = <3>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+		};
+
+		vga800x600: 800x600 {
+			clock-frequency = <40000000>;
+			hactive = <800>;
+			vactive = <600>;
+			hfront-porch = <40>;
+			hback-porch = <88>;
+			vfront-porch = <1>;
+			vback-porch = <23>;
+			hsync-len = <128>;
+			vsync-len = <4>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+		};
+		vga1024x768: 1024x768 {
+			clock-frequency = <65000000>;
+			hactive = <1024>;
+			hfront-porch = <24>;
+			hback-porch = <160>;
+			hsync-len = <136>;
+			vactive = <768>;
+			vfront-porch = <3>;
+			vback-porch = <29>;
+			vsync-len = <6>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+		};
+	};
+};
