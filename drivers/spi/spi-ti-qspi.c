@@ -752,9 +752,11 @@ static int ti_qspi_probe(struct platform_device *pdev)
 					      QSPI_DMA_BUFFER_SIZE,
 					      &qspi->rx_bb_dma_addr,
 					      GFP_KERNEL | GFP_DMA);
-	if (!qspi->rx_bb_addr)
+	if (!qspi->rx_bb_addr) {
 		dev_err(qspi->dev,
 			"dma_alloc_coherent falied, using PIO mode\n");
+		dma_release_channel(qspi->rx_chan);
+	}
 	init_completion(&qspi->transfer_complete);
 	if (res_mmap)
 		qspi->mmap_phys_base = (dma_addr_t)res_mmap->start;
@@ -787,8 +789,12 @@ static int ti_qspi_remove(struct platform_device *pdev)
 		return ret;
 	}
 
-	dma_free_coherent(qspi->dev, QSPI_DMA_BUFFER_SIZE,
-			  qspi->rx_bb_addr, qspi->rx_bb_dma_addr);
+	if (qspi->rx_bb_addr)
+		dma_free_coherent(qspi->dev, QSPI_DMA_BUFFER_SIZE,
+				  qspi->rx_bb_addr,
+				  qspi->rx_bb_dma_addr);
+	if (qspi->rx_chan)
+		dma_release_channel(qspi->rx_chan);
 
 	pm_runtime_put(qspi->dev);
 	pm_runtime_disable(&pdev->dev);
