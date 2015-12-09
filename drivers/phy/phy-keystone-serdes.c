@@ -125,7 +125,7 @@
 	((MOD_VER(serdes) == 0x4eb9) || (MOD_VER(serdes) == 0x4ebd))
 
 #define MAX_COMPARATORS			5
-#define DFE_OFFSET_SAMPLES		100
+#define OFFSET_SAMPLES		100
 
 /* yes comparator starts from 1 */
 #define for_each_comparator(i)	\
@@ -234,7 +234,7 @@ struct kserdes_fw_config {
 	u32				lane_seeds;
 	u32				fast_train;
 	u32				active_lane;
-	u32				c1, c2, cm, attn, boost, dlpf, cdrcal;
+	u32				c1, c2, cm, attn, boost, dlpf, rxcal;
 	u32				lane_config[KSERDES_MAX_LANES];
 };
 
@@ -263,7 +263,7 @@ struct kserdes_dev {
 	struct kserdes_config sc;
 };
 
-struct kserdes_comparator_tap_ofs {
+struct kserdes_cmp_tap_ofs {
 	u32 cmp;
 	u32 tap1;
 	u32 tap2;
@@ -273,7 +273,7 @@ struct kserdes_comparator_tap_ofs {
 };
 
 struct kserdes_lane_offsets {
-	struct kserdes_comparator_tap_ofs ct_ofs[MAX_COMPARATORS];
+	struct kserdes_cmp_tap_ofs ct_ofs[MAX_COMPARATORS];
 };
 
 struct kserdes_offsets {
@@ -934,7 +934,7 @@ static void kserdes_set_tx_terminations(struct kserdes_config *sc, u32 term)
 /* lane is 0-based */
 static void
 _kserdes_get_cmp_tap_offsets_xge(void __iomem *sregs, u32 lane, u32 cmp,
-				 struct kserdes_comparator_tap_ofs *ofs)
+				 struct kserdes_cmp_tap_ofs *ofs)
 {
 	/* set comparator number */
 	FINSR(sregs, CML_REG(0x8c), 23, 21, cmp);
@@ -963,8 +963,8 @@ _kserdes_get_cmp_tap_offsets_xge(void __iomem *sregs, u32 lane, u32 cmp,
 static void kserdes_add_offsets_xge(struct kserdes_config *sc,
 				    struct kserdes_offsets *sofs)
 {
-	struct kserdes_comparator_tap_ofs *ctofs;
-	struct kserdes_comparator_tap_ofs sample;
+	struct kserdes_cmp_tap_ofs *ctofs;
+	struct kserdes_cmp_tap_ofs sample;
 	struct kserdes_lane_offsets *lofs;
 	u32 lane, cmp;
 
@@ -989,7 +989,7 @@ static void kserdes_add_offsets_xge(struct kserdes_config *sc,
 /* lane is 0-based */
 static void
 kserdes_get_cmp_tap_offsets_non_xge(void __iomem *sregs, u32 lane, u32 cmp,
-				    struct kserdes_comparator_tap_ofs *ofs)
+				    struct kserdes_cmp_tap_ofs *ofs)
 {
 	/* set comparator number */
 	FINSR(sregs, CML_REG(0x8c), 23, 21, cmp);
@@ -1002,8 +1002,8 @@ kserdes_get_cmp_tap_offsets_non_xge(void __iomem *sregs, u32 lane, u32 cmp,
 static void kserdes_add_offsets_non_xge(struct kserdes_config *sc,
 					struct kserdes_offsets *sofs)
 {
-	struct kserdes_comparator_tap_ofs *ctofs;
-	struct kserdes_comparator_tap_ofs sample;
+	struct kserdes_cmp_tap_ofs *ctofs;
+	struct kserdes_cmp_tap_ofs sample;
 	struct kserdes_lane_offsets *lofs;
 	u32 lane, cmp;
 
@@ -1023,7 +1023,7 @@ static void kserdes_add_offsets_non_xge(struct kserdes_config *sc,
 static void kserdes_get_average_offsets(struct kserdes_config *sc, u32 samples,
 					struct kserdes_offsets *sofs)
 {
-	struct kserdes_comparator_tap_ofs *ctofs;
+	struct kserdes_cmp_tap_ofs *ctofs;
 	struct kserdes_lane_offsets *lofs;
 	u32 i, lane, cmp;
 	int ret;
@@ -1067,7 +1067,7 @@ static void kserdes_get_average_offsets(struct kserdes_config *sc, u32 samples,
 
 static void
 _kserdes_override_cmp_tap_offsets(void __iomem *sregs, u32 lane, u32 cmp,
-				  struct kserdes_comparator_tap_ofs *ofs)
+				  struct kserdes_cmp_tap_ofs *ofs)
 {
 	FINSR(sregs, CML_REG(0xf0), 27, 26, (lane + 1));
 
@@ -1120,7 +1120,7 @@ _kserdes_override_tap_offset_cdfe(void __iomem *sregs, u32 lane,
 
 static void
 _kserdes_override_cmp_tap_offsets_cdfe(void __iomem *sregs, u32 lane, u32 cmp,
-				       struct kserdes_comparator_tap_ofs *ofs)
+				       struct kserdes_cmp_tap_ofs *ofs)
 {
 	FINSR(sregs, LANEX_REG(lane, 0x58), 16, 16, 0x1);
 	FINSR(sregs, LANEX_REG(lane, 0x48), 16, 16, 0x1);
@@ -1144,7 +1144,7 @@ _kserdes_override_cmp_tap_offsets_cdfe(void __iomem *sregs, u32 lane, u32 cmp,
 static void kserdes_set_offsets_xge(struct kserdes_config *sc,
 				    struct kserdes_offsets *sofs)
 {
-	struct kserdes_comparator_tap_ofs *ctofs;
+	struct kserdes_cmp_tap_ofs *ctofs;
 	struct kserdes_lane_offsets *lofs;
 	u32 lane, cmp;
 
@@ -1163,7 +1163,7 @@ static void kserdes_set_offsets_xge(struct kserdes_config *sc,
 static void kserdes_set_offsets_non_xge(struct kserdes_config *sc,
 					struct kserdes_offsets *sofs)
 {
-	struct kserdes_comparator_tap_ofs *ctofs;
+	struct kserdes_cmp_tap_ofs *ctofs;
 	struct kserdes_lane_offsets *lofs;
 	u32 lane, cmp;
 
@@ -1198,7 +1198,7 @@ static void kserdes_dfe_offset_calibration(struct kserdes_config *sc,
 	usleep_range(10, 20);
 
 	/* Get offset */
-	kserdes_get_average_offsets(sc, DFE_OFFSET_SAMPLES, sofs);
+	kserdes_get_average_offsets(sc, OFFSET_SAMPLES, sofs);
 	kserdes_set_offsets(sc, sofs);
 	/* amount of time to sleep is by experiment */
 	usleep_range(10, 20);
@@ -1771,7 +1771,7 @@ static inline void kserdes_xfw_get_lane_params(struct kserdes_config *sc,
 	fw->dlpf = (val_0 >> 2) & 0x3ff;
 
 	val_0 = _kserdes_read_select_tbus(sc->regs, lane + 1, 0x6);
-	fw->cdrcal = (val_0 >> 3) & 0xff;
+	fw->rxcal = (val_0 >> 3) & 0xff;
 }
 
 static inline void kserdes_xfw_mem_init(struct kserdes_config *sc)
