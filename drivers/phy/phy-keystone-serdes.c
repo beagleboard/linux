@@ -438,16 +438,6 @@ static inline void kserdes_cdfe_force_calibration_enable(
 	FINSR(sc->regs, LANEX_REG(lane, 0x98), 0, 0, 0x1);
 }
 
-static void kserdes_phya_lane_patch(struct kserdes_config *sc, u32 lane)
-{
-	FINSR(sc->regs, LANEX_REG(lane, 0x18), 25, 24, 0x2);
-	FINSR(sc->regs, LANEX_REG(lane, 0x18), 27, 26, 0x2);
-	FINSR(sc->regs, LANEX_REG(lane, 0x14), 15, 13, 0x1);
-	FINSR(sc->regs, LANEX_REG(lane, 0x4c), 19, 16, 0xf);
-	FINSR(sc->regs, LANEX_REG(lane, 0x4c), 23, 20, 0xa);
-	FINSR(sc->regs, LANEX_REG(lane, 0x78), 30, 24, 0x7f);
-}
-
 static void kserdes_phyb_patch(struct kserdes_config *sc)
 {
 	int lane;
@@ -481,19 +471,11 @@ static void kserdes_phy_patch(struct kserdes_config *sc)
 
 	if (sc->phy_type == KSERDES_PHY_XGE) {
 		kserdes_phyb_patch(sc);
-	} else if (sc->link_rate >= KSERDES_LINK_RATE_9P8304G) {
-		for_each_enable_lane(sc, lane)
-			kserdes_phya_lane_patch(sc, lane);
 	}
 
 	/* Set ATT and BOOST start values for each lane */
 	for_each_enable_lane(sc, lane)
 		kserdes_set_lane_starts(sc, lane);
-}
-
-static inline void _kserdes_set_training_pattern(void __iomem *sregs)
-{
-	FINSR(sregs, CML_REG(0xc8), 5, 0, 0x0f);
 }
 
 static void kserdes_set_lane_overrides(struct kserdes_config *sc, u32 lane)
@@ -1229,90 +1211,6 @@ static void kserdes_dfe_offset_calibration(struct kserdes_config *sc,
 	usleep_range(10, 20);
 }
 
-static void kserdes_override_tap_offsets(struct kserdes_config *sc, u32 lane)
-{
-	u32 tap1val, tap2val, tap3val, tap4val, tap5val;
-	void __iomem *sregs = sc->regs;
-	u32 cmp, tap1_ofs;
-
-	for_each_comparator(cmp) {
-		/*
-		 * adjust taps only for center comparators of
-		 * of conparator 1 and 3
-		 */
-		if (!(cmp & 0x1))
-			continue;
-
-		/* set comparator number */
-		FINSR(sregs, CML_REG(0x8c), 23, 21, cmp);
-
-		/* read offsets */
-		FINSR(sregs, CMU0_REG(0x8), 31, 24, ((lane + 1) << 5) + 0x12);
-		tap1_ofs = (_kserdes_read_tbus_val(sregs) & 0x000f) << 3;
-
-		FINSR(sregs, CMU0_REG(0x8), 31, 24, ((lane + 1) << 5) + 0x13);
-		tap1_ofs |= (_kserdes_read_tbus_val(sregs) & 0x0e00) >> 9;
-
-		tap1val = tap1_ofs - 14;
-		tap2val = 31;
-		tap3val = 31;
-		tap4val = 31;
-		tap5val = 31;
-
-		/* set dfe_shadow_lane_sel */
-		FINSR(sregs, CML_REG(0xf0), 27, 26, lane + 1);
-		/* Set rxeq_ovr_en to 0x1 */
-		FINSR(sregs, LANEX_REG(lane, 0x2c), 2, 2, 0x1);
-		/* set rxeq_dfe_cmp_sel_ovr to comp_no */
-		FINSR(sregs, LANEX_REG(lane, 0x30), 7, 5, cmp);
-		/* set dfe_tap_ovr_en to 1 */
-		FINSR(sregs, LANEX_REG(lane, 0x5c), 31, 31, 0x1);
-
-		/* set tap overrides */
-		FINSR(sregs, LANEX_REG(lane, 0x58), 30, 24, tap1val);
-		FINSR(sregs, LANEX_REG(lane, 0x5c),  6,  0, tap2val);
-		FINSR(sregs, LANEX_REG(lane, 0x5c), 13,  8, tap3val);
-		FINSR(sregs, LANEX_REG(lane, 0x5c), 21, 16, tap4val);
-		FINSR(sregs, LANEX_REG(lane, 0x5c), 29, 24, tap5val);
-
-		/* set rxeq_ovr_latch_o = 0x1 */
-		FINSR(sregs, LANEX_REG(lane, 0x2c), 10, 10, 0x1);
-		/* set rxeq_ovr_latch_o = 0x0 */
-		FINSR(sregs, LANEX_REG(lane, 0x2c), 10, 10, 0x0);
-
-		/* set rxeq_ovr_en to 0 */
-		FINSR(sregs, LANEX_REG(lane, 0x2c), 2, 2, 0x0);
-		/* set dfe_tap_ovr_en to 0 */
-		FINSR(sregs, LANEX_REG(lane, 0x5c), 31, 31, 0x0);
-
-		/*
-		 * This part of code will latch in offsets to
-		 * tap adaptation logic so that if adaptation
-		 * occurs, it will pick these offsets
-		 */
-		/* enable overrides */
-		FINSR(sregs, LANEX_REG(lane, 0x58), 16, 16, 0x1);
-		FINSR(sregs, LANEX_REG(lane, 0x48), 16, 16, 0x1);
-
-		/* set gcfsm_cmp_sel to comp_no */
-		FINSR(sregs, LANEX_REG(lane, 0x4c), 5, 2, (0x1 << (cmp - 1)));
-		/* enable tap offset calibrate */
-		FINSR(sregs, LANEX_REG(lane, 0x58), 17, 17, 0x1);
-
-		/* enable taps */
-		_kserdes_override_tap_offset_cdfe(sregs, lane, 1, 7, tap1val);
-		_kserdes_override_tap_offset_cdfe(sregs, lane, 2, 6, tap2val);
-		_kserdes_override_tap_offset_cdfe(sregs, lane, 3, 6, tap3val);
-		_kserdes_override_tap_offset_cdfe(sregs, lane, 4, 6, tap4val);
-		_kserdes_override_tap_offset_cdfe(sregs, lane, 5, 6, tap5val);
-
-		/* Disable overrides */
-		FINSR(sregs, LANEX_REG(lane, 0x58), 16, 16, 0x0);
-		FINSR(sregs, LANEX_REG(lane, 0x48), 16, 16, 0x0);
-		FINSR(sregs, LANEX_REG(lane, 0x58), 17, 17, 0x0);
-	}
-}
-
 static int kserdes_wait_lane_rx_valid(struct kserdes_config *sc, u32 lane)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(500);
@@ -1520,9 +1418,6 @@ static int kserdes_sgmii_lanes_enable(struct kserdes_config *sc)
 	for_each_enable_lane(sc, i)
 		lanes_enable |= (1 << i);
 
-	if (sc->link_rate >= KSERDES_LINK_RATE_9P8304G)
-		kserdes_tap1_patch(sc);
-
 	/*
 	 * disable transmitter on all lanes to prevent
 	 * receiver from adapting
@@ -1532,9 +1427,6 @@ static int kserdes_sgmii_lanes_enable(struct kserdes_config *sc)
 
 	/* apply highspeed config for link rates greater than 8Gbaud */
 	kserdes_phy_patch(sc);
-
-	if (sc->phy_type == KSERDES_PHY_HYPERLINK)
-		_kserdes_set_training_pattern(sc->regs);
 
 	/* assert serdes reset */
 	kserdes_assert_reset(sc);
@@ -1570,11 +1462,6 @@ static int kserdes_sgmii_lanes_enable(struct kserdes_config *sc)
 
 	/* Apply tx termination */
 	kserdes_set_tx_terminations(sc, val);
-
-	if (sc->link_rate >= KSERDES_LINK_RATE_9P8304G) {
-		for_each_enable_lane(sc, i)
-			kserdes_override_tap_offsets(sc, i);
-	}
 
 	/* enable transmitter on all lanes */
 	for_each_enable_lane(sc, i)
