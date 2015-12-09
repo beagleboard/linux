@@ -404,7 +404,7 @@ static u32 _kserdes_read_select_tbus(void __iomem *sregs, int select, int ofs)
 	return _kserdes_read_tbus_val(sregs);
 }
 
-static inline void kserdes_tap1_patch(struct kserdes_config *sc)
+static inline void kserdes_highspeed_cfg1(struct kserdes_config *sc)
 {
 	FINSR(sc->regs, CML_REG(0xbc), 28, 24, 0x1e);
 }
@@ -438,7 +438,7 @@ static inline void kserdes_cdfe_force_calibration_enable(
 	FINSR(sc->regs, LANEX_REG(lane, 0x98), 0, 0, 0x1);
 }
 
-static void kserdes_phyb_patch(struct kserdes_config *sc)
+static void kserdes_phyb_cfg(struct kserdes_config *sc)
 {
 	int lane;
 
@@ -465,12 +465,12 @@ static inline void kserdes_set_lane_starts(struct kserdes_config *sc, u32 lane)
 	      sc->lane[lane].rx_start.boost);
 }
 
-static void kserdes_phy_patch(struct kserdes_config *sc)
+static void kserdes_highspeed_cfg(struct kserdes_config *sc)
 {
 	int lane;
 
 	if (sc->phy_type == KSERDES_PHY_XGE) {
-		kserdes_phyb_patch(sc);
+		kserdes_phyb_cfg(sc);
 	}
 
 	/* Set ATT and BOOST start values for each lane */
@@ -933,7 +933,7 @@ static void kserdes_set_tx_terminations(struct kserdes_config *sc, u32 term)
 
 /* lane is 0-based */
 static void
-_kserdes_get_cmp_tap_offsets_xge(void __iomem *sregs, u32 lane, u32 cmp,
+_kserdes_write_offsets_xge(void __iomem *sregs, u32 lane, u32 cmp,
 				 struct kserdes_cmp_tap_ofs *ofs)
 {
 	/* set comparator number */
@@ -973,7 +973,7 @@ static void kserdes_add_offsets_xge(struct kserdes_config *sc,
 		for_each_comparator(cmp) {
 			ctofs = &lofs->ct_ofs[cmp];
 
-			_kserdes_get_cmp_tap_offsets_xge(sc->regs, lane,
+			_kserdes_write_offsets_xge(sc->regs, lane,
 							 cmp, &sample);
 
 			ctofs->cmp  += sample.cmp;
@@ -1186,7 +1186,7 @@ static void kserdes_set_offsets(struct kserdes_config *sc,
 		kserdes_set_offsets_non_xge(sc, sofs);
 }
 
-static void kserdes_dfe_offset_calibration(struct kserdes_config *sc,
+static void kserdes_phyb_init_cfg(struct kserdes_config *sc,
 					   struct kserdes_offsets *sofs)
 {
 	int lane;
@@ -1231,7 +1231,7 @@ static int kserdes_wait_lane_rx_valid(struct kserdes_config *sc, u32 lane)
 	} while (true);
 }
 
-static int kserdes_att_boost_phya_macro_patch(struct kserdes_config *sc)
+static int kserdes_att_phya_cfg(struct kserdes_config *sc)
 {
 	u32 i, att_read[KSERDES_MAX_LANES], att_start[KSERDES_MAX_LANES];
 	int ret;
@@ -1280,7 +1280,7 @@ static int kserdes_att_boost_phya_macro_patch(struct kserdes_config *sc)
 	return 0;
 }
 
-static int kserdes_att_boost_phya_lane_patch(struct kserdes_config *sc,
+static int kserdes_boost_phya_cfg(struct kserdes_config *sc,
 					     u32 lane)
 {
 	u32 boost_read;
@@ -1315,17 +1315,17 @@ static int kserdes_att_boost_phya_lane_patch(struct kserdes_config *sc,
 	return 0;
 }
 
-static inline void kserdes_att_boost_phya_patch(struct kserdes_config *sc)
+static inline void kserdes_rx_att_boost_phya_cfg(struct kserdes_config *sc)
 {
 	int lane;
 
-	kserdes_att_boost_phya_macro_patch(sc);
+	kserdes_att_phya_cfg(sc);
 
 	for_each_enable_lane(sc, lane)
-		kserdes_att_boost_phya_lane_patch(sc, lane);
+		kserdes_boost_phya_cfg(sc, lane);
 }
 
-static void kserdes_att_boost_phyb_lane_patch(struct kserdes_config *sc,
+static void kserdes_rx_att_boost_phyb_cfg(struct kserdes_config *sc,
 					      u32 lane)
 {
 	u32 tbus_ofs, rxeq_init_reg_ofs, rxeq_ln_reg_ofs, rxeq_ln_force_bit;
@@ -1392,15 +1392,15 @@ static void kserdes_att_boost_phyb_lane_patch(struct kserdes_config *sc,
 	FINSR(sregs, CML_REG(0x8c), 24, 24, 0x1);
 }
 
-static void kserdes_att_boost_phy_patch(struct kserdes_config *sc)
+static void kserdes_rx_att_boost_cfg(struct kserdes_config *sc)
 {
 	int lane;
 
 	if (sc->phy_type != KSERDES_PHY_XGE) {
-		kserdes_att_boost_phya_patch(sc);
+		kserdes_rx_att_boost_phya_cfg(sc);
 	} else {
 		for_each_lane(sc, lane)
-			kserdes_att_boost_phyb_lane_patch(sc, lane);
+			kserdes_rx_att_boost_phyb_cfg(sc, lane);
 	}
 }
 
@@ -1420,7 +1420,7 @@ static int kserdes_sgmii_lanes_enable(struct kserdes_config *sc)
 		kserdes_set_tx_idle(sc, i);
 
 	/* apply highspeed config for link rates greater than 8Gbaud */
-	kserdes_phy_patch(sc);
+	kserdes_highspeed_cfg(sc);
 
 	/* assert serdes reset */
 	kserdes_assert_reset(sc);
@@ -1477,7 +1477,7 @@ static int kserdes_sgmii_lanes_enable(struct kserdes_config *sc)
 
 	/* Apply Attenuation and Boost config if rx force flag is set */
 	if (!sc->rx_force_enable)
-		kserdes_att_boost_phy_patch(sc);
+		kserdes_rx_att_boost_cfg(sc);
 
 	/* Enable MAC RX to allow MAC to take control */
 	_kserdes_clear_wait_after(sc->regs);
@@ -1559,7 +1559,7 @@ static inline void _kserdes_enable_xgmii_port(struct regmap *peripheral_regmap,
 			   GENMASK(port, port), BIT(port));
 }
 
-static inline void _kserdes_reset_cdr(void __iomem *sregs, int lane)
+static inline void _kserdes_reset_rx(void __iomem *sregs, int lane)
 {
 	/* toggle signal detect */
 	_kserdes_force_signal_detect_low(sregs, lane);
@@ -1612,7 +1612,7 @@ static int kserdes_check_link_status(struct kserdes_config *sc,
 						"XGE PCSR Recover Lane: %d\n",
 						i);
 
-					_kserdes_reset_cdr(sc->regs, i);
+					_kserdes_reset_rx(sc->regs, i);
 				}
 			}
 			break;
@@ -1631,7 +1631,7 @@ static int kserdes_check_link_status(struct kserdes_config *sc,
 				 * Lost the block lock, reset rx
 				 * and go back to sync state
 				 */
-				_kserdes_reset_cdr(sc->regs, i);
+				_kserdes_reset_rx(sc->regs, i);
 				current_state[i] = 0;
 			}
 			break;
@@ -1714,7 +1714,7 @@ static int kserdes_xge_lanes_enable(struct kserdes_config *sc)
 		return 0;
 	}
 
-	kserdes_phy_patch(sc);
+	kserdes_highspeed_cfg(sc);
 	kserdes_xge_pll_enable(sc);
 
 	for_each_lane(sc, i)
@@ -1727,7 +1727,7 @@ static int kserdes_xge_lanes_enable(struct kserdes_config *sc)
 		return ret;
 	}
 
-	kserdes_dfe_offset_calibration(sc, &sofs);
+	kserdes_phyb_init_cfg(sc, &sofs);
 
 	for_each_lane(sc, i)
 		_kserdes_enable_xgmii_port(sc->peripheral_regmap, i);
