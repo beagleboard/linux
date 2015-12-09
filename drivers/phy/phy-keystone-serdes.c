@@ -1392,12 +1392,6 @@ static void kserdes_att_boost_phyb_lane_patch(struct kserdes_config *sc,
 	FINSR(sregs, CML_REG(0x8c), 24, 24, 0x1);
 }
 
-static inline void kserdes_att_boost_phyb_patch(struct kserdes_config *sc,
-						u32 lane)
-{
-	kserdes_att_boost_phyb_lane_patch(sc, lane);
-}
-
 static void kserdes_att_boost_phy_patch(struct kserdes_config *sc)
 {
 	int lane;
@@ -1406,7 +1400,7 @@ static void kserdes_att_boost_phy_patch(struct kserdes_config *sc)
 		kserdes_att_boost_phya_patch(sc);
 	} else {
 		for_each_lane(sc, lane)
-			kserdes_att_boost_phyb_patch(sc, lane);
+			kserdes_att_boost_phyb_lane_patch(sc, lane);
 	}
 }
 
