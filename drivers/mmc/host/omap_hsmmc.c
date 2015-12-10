@@ -2479,7 +2479,7 @@ omap_hsmmc_pinctrl_lookup_state(struct omap_hsmmc_host *host, char *mode)
 			host->pinctrl##_pinctrl_state = 		\
 				omap_hsmmc_pinctrl_lookup_state(host, #pinctrl);\
 			if (IS_ERR(host->pinctrl##_pinctrl_state))	\
-				mmc->caps &= ~(capmask);		\
+				mmc->capvar &= ~(capmask);		\
 		}							\
 	} while (0)
 
