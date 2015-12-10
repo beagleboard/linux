@@ -1107,6 +1107,11 @@ static int vip_calc_format_size(struct vip_port *port,
 	return 0;
 }
 
+static inline bool vip_is_size_dma_aligned(uint32_t bpp, uint32_t width)
+{
+	return ((width * bpp) == ALIGN(width * bpp, VPDMA_STRIDE_ALIGN));
+}
+
 static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 			       struct v4l2_format *f)
 {
@@ -1115,6 +1120,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	struct vip_dev *dev = port->dev;
 	struct v4l2_subdev_frame_size_enum fse;
 	struct vip_fmt *fmt;
+	uint32_t best_width, best_height;
 	int ret, found;
 
 	vip_dbg(3, dev, "try_fmt fourcc:%s size: %dx%d\n",
@@ -1135,6 +1141,8 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	/* check for/find a valid width/height */
 	ret = 0;
 	found = false;
+	best_width = 0;
+	best_height = 0;
 	fse.pad = 0;
 	fse.code = fmt->code;
 	fse.which = V4L2_SUBDEV_FORMAT_ACTIVE;
@@ -1144,23 +1152,36 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		if (ret)
 			break;
 
-		if ((f->fmt.pix.width == fse.max_width) &&
-		    (f->fmt.pix.height == fse.max_height)) {
-			found = true;
-			break;
-		} else if ((f->fmt.pix.width >= fse.min_width) &&
-			 (f->fmt.pix.width <= fse.max_width) &&
-			 (f->fmt.pix.height >= fse.min_height) &&
-			 (f->fmt.pix.height <= fse.max_height)) {
-			found = true;
-			break;
+		if (vip_is_size_dma_aligned(fmt->vpdma_fmt[0]->depth >> 3,
+					    fse.max_width)) {
+			if (abs(best_width - f->fmt.pix.width) >
+			    abs(fse.max_width - f->fmt.pix.width)) {
+				best_width = fse.max_width;
+				best_height = fse.max_height;
+			}
+			if ((f->fmt.pix.width == fse.max_width) &&
+			    (f->fmt.pix.height == fse.max_height)) {
+				found = true;
+				break;
+			} else if ((f->fmt.pix.width >= fse.min_width) &&
+				 (f->fmt.pix.width <= fse.max_width) &&
+				 (f->fmt.pix.height >= fse.min_height) &&
+				 (f->fmt.pix.height <= fse.max_height)) {
+				found = true;
+				break;
+			}
 		}
 	}
 
 	if (!found) {
-		/* use existing values as default */
-		f->fmt.pix.width = port->mbus_framefmt.width;
-		f->fmt.pix.height =  port->mbus_framefmt.height;
+		if (best_width) {
+			f->fmt.pix.width = best_width;
+			f->fmt.pix.height =  best_height;
+		} else {
+			/* use existing values as default */
+			f->fmt.pix.width = port->mbus_framefmt.width;
+			f->fmt.pix.height =  port->mbus_framefmt.height;
+		}
 	}
 
 	/* That we have a fmt calculate imagesize and bytesperline */
