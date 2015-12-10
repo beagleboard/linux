@@ -245,6 +245,21 @@ static struct vip_fmt *find_port_format_by_pix(struct vip_port *port,
 	return NULL;
 }
 
+static struct vip_fmt *find_port_format_by_code(struct vip_port *port,
+						u32 code)
+{
+	struct vip_fmt *fmt;
+	unsigned int k;
+
+	for (k = 0; k < port->num_active_fmt; k++) {
+		fmt = port->active_fmt[k];
+		if (fmt->code == code)
+			return fmt;
+	}
+
+	return NULL;
+}
+
 inline struct vip_port *notifier_to_vip_port(struct v4l2_async_notifier *n)
 {
 	return container_of(n, struct vip_port, notifier);
@@ -1618,7 +1633,7 @@ static int vip_init_port(struct vip_port *port)
 		vip_dbg(1, dev, "init_port get_fmt failed in subdev\n");
 
 	/* try to find one that matches */
-	fmt = find_port_format_by_pix(port, mbus_fmt->code);
+	fmt = find_port_format_by_code(port, mbus_fmt->code);
 	if (!fmt) {
 		vip_dbg(1, dev, "subdev default mbus_fmt %04x is not matched.\n",
 			mbus_fmt->code);
