@@ -965,7 +965,7 @@ static void team_port_disable(struct team *team,
 	team_mcast_rejoin(team);
 }
 
-#define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
+#define TEAM_VLAN_FEATURES (NETIF_F_HW_CSUM | NETIF_F_SG | \
 			    NETIF_F_FRAGLIST | NETIF_F_ALL_TSO | \
 			    NETIF_F_HIGHDMA | NETIF_F_LRO)
 
@@ -2078,7 +2078,6 @@ static void team_setup(struct net_device *dev)
 			   NETIF_F_HW_VLAN_CTAG_RX |
 			   NETIF_F_HW_VLAN_CTAG_FILTER;
 
-	dev->hw_features &= ~(NETIF_F_ALL_CSUM & ~NETIF_F_HW_CSUM);
 	dev->features |= dev->hw_features;
 }
 
