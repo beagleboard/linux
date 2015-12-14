@@ -36,6 +36,8 @@
 
 #define MODULE_NAME     "omapdrm"
 
+struct omap_drm_usergart;
+
 /* parameters which describe (unrotated) coordinates of scanout within a fb: */
 struct omap_drm_window {
 	uint32_t rotation;
@@ -93,6 +95,7 @@ struct omap_drm_private {
 	/* list of GEM objects: */
 	struct list_head obj_list;
 
+	struct omap_drm_usergart *usergart;
 	bool has_dmm;
 
 	/* plane properties */
