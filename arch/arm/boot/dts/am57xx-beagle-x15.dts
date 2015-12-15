@@ -384,6 +384,7 @@
 		interrupt-controller;
 
 		ti,system-power-controller;
+		ti,mux-pad1 = <8>;
 
 		tps659038_pmic {
 			compatible = "ti,tps659038-pmic";
