@@ -106,6 +106,8 @@ static int __init omap_iommu_dev_init(struct omap_hwmod *oh, void *unused)
 		pdata->assert_reset = omap_device_assert_hardreset;
 		pdata->deassert_reset = omap_device_deassert_hardreset;
 	}
+	pdata->device_enable = omap_device_enable,
+	pdata->device_idle = omap_device_idle,
 
 	pdev = omap_device_build("omap-iommu", i, oh, pdata, sizeof(*pdata));
 
