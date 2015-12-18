@@ -103,6 +103,8 @@ static struct iommu_platform_data omap3_iommu_pdata = {
 	.reset_name = "mmu",
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
 };
 
 static int omap3_sbc_t3730_twl_callback(struct device *dev,
@@ -429,6 +431,8 @@ static struct iommu_platform_data omap4_iommu_pdata = {
 	.reset_name = "mmu_cache",
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
 };
 #endif
 
@@ -451,6 +455,8 @@ static struct iommu_platform_data dra7_ipu1_dsp_iommu_pdata = {
 	.reset_name = "mmu_cache",
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
+	.device_enable = omap_device_enable,
+	.device_idle = omap_device_idle,
 	.set_pwrdm_constraint = omap_iommu_set_pwrdm_constraint,
 };
 
