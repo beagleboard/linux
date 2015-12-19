@@ -383,7 +383,8 @@ struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a100040, "4a100040.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,omap4-padconf", 0x4a31e040, "4a31e040.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,omap4-rproc-dsp", 0, "dsp", &omap4_ipu_dsp_pdata),
-	OF_DEV_AUXDATA("ti,omap4-rproc-ipu", 0, "ipu", &omap4_ipu_dsp_pdata),
+	OF_DEV_AUXDATA("ti,omap4-rproc-ipu", 0x55020000, "ipu",
+		       &omap4_ipu_dsp_pdata),
 #endif
 #ifdef CONFIG_SOC_OMAP5
 	OF_DEV_AUXDATA("ti,omap5-padconf", 0x4a002840, "4a002840.pinmux", &pcs_pdata),
