@@ -1065,8 +1065,11 @@
 			      <0x4b202000 0x2000>,
 			      <0x4b210000 0x8000>,
 			      <0x4b220000 0x2000>,
-			      <0x4b226000 0x2000>;
-			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
+			      <0x4b226000 0x2000>,
+			      <0x4b22e000 0x31c>,
+			      <0x4b232000 0x58>;
+			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg",
+				    "iep", "mii_rt";
 			interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>,
@@ -1106,8 +1109,11 @@
 			      <0x4b282000 0x2000>,
 			      <0x4b290000 0x8000>,
 			      <0x4b2a0000 0x2000>,
-			      <0x4b2a6000 0x2000>;
-			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
+			      <0x4b2a6000 0x2000>,
+			      <0x4b2ae000 0x31c>,
+			      <0x4b2b2000 0x58>;
+			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg",
+				    "iep", "mii_rt";
 			interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>,
