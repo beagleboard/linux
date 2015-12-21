@@ -12,7 +12,7 @@
 
 / {
 	model = "Olimex AM335x SOM";
-	compatible = "ti,am33xx";
+	compatible = "ti,am335x-olimex-som", "ti,am33xx";
 };
 
 &ldo3_reg {
