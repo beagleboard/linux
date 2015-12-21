@@ -14,6 +14,7 @@
  */
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/of.h>
 
 #include "control.h"
 #include "omap_opp_data.h"
@@ -80,6 +81,9 @@ int __init am33xx_opp_init(void)
 	u32 rev, val, max_freq;
 
 	if (WARN(!soc_is_am33xx(), "Cannot init OPPs: unsupported SoC.\n"))
+		return r;
+
+	if (of_machine_is_compatible("ti,am335x-olimex-som"))
 		return r;
 
 	rev = omap_rev();
