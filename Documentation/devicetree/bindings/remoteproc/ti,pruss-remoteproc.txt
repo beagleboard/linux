@@ -138,6 +138,17 @@ used in TI Davinci SoCs. Please refer to the corresponding binding document,
 Documentation/devicetree/bindings/net/davinci-mdio.txt for details.
 
 
+Application/User Nodes
+=======================
+The PRUSS device node will typically get used by application/user nodes that
+define/represent a PRU application. Each application/client node would need a
+reference to the PRUSS node or directly the PRU nodes in general.
+
+Optional Properties:
+--------------------
+- pruss          : phandle to a PRUSS node
+
+
 Example:
 ========
 	/* AM33xx PRU-ICSS */

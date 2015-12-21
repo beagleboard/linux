@@ -25,6 +25,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 #include <linux/virtio.h>
+#include <linux/pruss.h>
 
 #include <linux/platform_data/remoteproc-pruss.h>
 
@@ -50,6 +51,65 @@ struct pruss_match_private_data {
 	const char *device_name;
 	struct pruss_private_data *priv_data;
 };
+
+static DEFINE_MUTEX(pruss_list_mutex);
+static LIST_HEAD(pruss_list);
+
+/**
+ * pruss_get() - get the pruss for the given device
+ * @dev: device interested in the pruss
+ *
+ * Finds the pruss device referenced by the "pruss" property in the
+ * requesting (client) device's device node.
+ *
+ * This function increments the pruss device's refcount, so always
+ * use pruss_put() to decrement it back once pruss isn't needed anymore.
+ *
+ * Returns the pruss handle on success, and NULL on failure.
+ */
+struct pruss *pruss_get(struct device *dev)
+{
+	struct pruss *pruss = NULL, *p;
+	struct device_node *np;
+
+	if (!dev)
+		return NULL;
+
+	np = of_parse_phandle(dev->of_node, "pruss", 0);
+	if (!np)
+		return NULL;
+
+	mutex_lock(&pruss_list_mutex);
+	list_for_each_entry(p, &pruss_list, node) {
+		if (p->dev->of_node == np) {
+			pruss = p;
+			get_device(pruss->dev);
+			break;
+		}
+	}
+
+	mutex_unlock(&pruss_list_mutex);
+	of_node_put(np);
+
+	return pruss;
+}
+EXPORT_SYMBOL_GPL(pruss_get);
+
+/**
+ * pruss_put() - decrement pruss device's usecount
+ * @pruss: pruss handle
+ *
+ * Complimentary function for pruss_get(). Needs to be called
+ * after the PRUSS is used, and only if the pruss_get() succeeds.
+ */
+void pruss_put(struct pruss *pruss)
+{
+	if (!pruss)
+		return;
+
+	put_device(pruss->dev);
+}
+EXPORT_SYMBOL_GPL(pruss_put);
 
 static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
 {
@@ -517,6 +577,10 @@ static int pruss_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pruss);
 
+	mutex_lock(&pruss_list_mutex);
+	list_add_tail(&pruss->node, &pruss_list);
+	mutex_unlock(&pruss_list_mutex);
+
 	dev_info(&pdev->dev, "creating PRU cores and other child platform devices\n");
 	ret = of_platform_populate(node, NULL, data->aux_data, &pdev->dev);
 	if (ret) {
@@ -527,6 +591,10 @@ static int pruss_probe(struct platform_device *pdev)
 	return 0;
 
 err_of_fail:
+	mutex_lock(&pruss_list_mutex);
+	list_del(&pruss->node);
+	mutex_unlock(&pruss_list_mutex);
+
 	pruss_disable_module(pruss);
 err_rpm_fail:
 	pm_runtime_disable(dev);
@@ -544,6 +612,10 @@ static int pruss_remove(struct platform_device *pdev)
 
 	dev_info(dev, "remove PRU cores and other child platform devices\n");
 	of_platform_depopulate(dev);
+
+	mutex_lock(&pruss_list_mutex);
+	list_del(&pruss->node);
+	mutex_unlock(&pruss_list_mutex);
 
 	pruss_disable_module(pruss);
 	pm_runtime_disable(dev);
