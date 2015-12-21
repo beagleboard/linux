@@ -55,6 +55,17 @@ struct pruss_mem_region {
 	size_t size;
 };
 
+/**
+ * enum pruss_pru_id - PRUSS GPI configuration modes, used
+ *		       to program the PRUSS_GPCFG0/1 registers
+ */
+enum pruss_gpi_mode {
+	PRUSS_GPI_MODE_DIRECT = 0,
+	PRUSS_GPI_MODE_PARALLEL,
+	PRUSS_GPI_MODE_28BIT_SHIFT,
+	PRUSS_GPI_MODE_MII,
+};
+
 struct pruss;
 
 #if IS_ENABLED(CONFIG_PRUSS_REMOTEPROC)
@@ -78,6 +89,10 @@ int pruss_intc_sysevent_irqenable(struct pruss *pruss,
 bool pruss_intc_sysevent_check(struct pruss *pruss, unsigned short sysevent);
 int pruss_intc_sysevent_clear(struct pruss *pruss, unsigned short sysevent);
 int pruss_host_to_mpu_irq(struct pruss *pruss, unsigned int host_irq);
+int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
+		      enum pruss_gpi_mode mode);
+void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable);
+void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable);
 
 #else
 
@@ -148,6 +163,16 @@ static inline int pruss_host_to_mpu_irq(struct pruss *pruss,
 {
 	return ERR_PTR(-ENOTSUPP);
 }
+
+static inline int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
+				    enum pruss_gpi_mode mode)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable) { }
+
+static inline void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable) { }
 
 #endif /* CONFIG_PRUSS_REMOTEPROC */
 
