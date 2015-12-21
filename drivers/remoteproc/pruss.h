@@ -99,11 +99,13 @@ struct pruss_intc_config {
 
 /**
  * struct pruss - PRUSS parent structure
+ * @node: list node of this object
  * @dev: pruss device pointer
  * @mem_regions: data for each of the PRUSS memory regions
  * @host_mask: indicate which HOST IRQs are enabled
  */
 struct pruss {
+	struct list_head node;
 	struct device *dev;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	u32 host_mask;
