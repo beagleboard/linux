@@ -246,6 +246,91 @@ void pruss_rproc_put(struct pruss *pruss, struct rproc *rproc)
 }
 EXPORT_SYMBOL(pruss_rproc_put);
 
+/**
+ * pruss_rproc_boot() - boot the specified PRU with specified firmware
+ * @rproc: the rproc instance of the PRU
+ * @fw_name: path of the firmware blob
+ *
+ * Boot the specified PRU with the firmware blob in the specified path.
+ * Shouldn't be called from IRQ context.
+ *
+ * Returns 0 on success. Non-zero on failure e.g.
+ * -EBUSY if PRU is already reserved by someone else
+ * -ENODEV if not yet available.
+ * -EINVAL if invalid parameters or boot failed.
+ */
+int pruss_rproc_boot(struct pruss *pruss, struct rproc *rproc,
+		     const char *fw_name)
+{
+	int ret, pru_id;
+
+	if (!pruss || !rproc || !fw_name)
+		return -EINVAL;
+
+	mutex_lock(&pruss->lock);
+
+	pru_id = pruss_rproc_to_pru_id(pruss, rproc);
+	if (pru_id < 0) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	/* is PRU already running */
+	if (pruss->pru_running[pru_id]) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	rproc->firmware = fw_name;
+	ret = rproc_boot(rproc);
+	if (ret) {
+		dev_err(pruss->dev, "rproc_boot failed: %d\n", ret);
+		ret = -EINVAL;
+		goto unlock;
+	}
+	pruss->pru_running[pru_id] = true;
+
+unlock:
+	mutex_unlock(&pruss->lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pruss_rproc_boot);
+
+/**
+ * pruss_rproc_halt() - halt the specified PRU
+ * @pruss: the pruss instance
+ * @rproc: the rproc instance of the PRU to halt
+ *
+ * Halt the specified PRU if running. The rproc structure is used
+ * here instead of PRU id to avoid unrelated users to halt a PRU
+ * that was not booted by them.
+ */
+void pruss_rproc_halt(struct pruss *pruss, struct rproc *rproc)
+{
+	int pru_id;
+
+	if (!pruss || !rproc)
+		return;
+
+	mutex_lock(&pruss->lock);
+
+	/* Find which pru_id the rproc is */
+	pru_id = pruss_rproc_to_pru_id(pruss, rproc);
+	if (pru_id < 0)
+		goto out;
+
+	if (!pruss->pru_running[pru_id])
+		goto out;
+
+	/* halt the processor */
+	rproc_shutdown(rproc);
+	pruss->pru_running[pru_id] = false;
+
+out:
+	mutex_unlock(&pruss->lock);
+}
+EXPORT_SYMBOL_GPL(pruss_rproc_halt);
+
 static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
 {
 	return readl_relaxed(pruss->mem_regions[PRUSS_MEM_INTC].va + reg);

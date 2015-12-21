@@ -35,6 +35,9 @@ void pruss_put(struct pruss *pruss);
 struct rproc *pruss_rproc_get(struct pruss *pruss,
 			      enum pruss_pru_id pru_id);
 void pruss_rproc_put(struct pruss *pruss, struct rproc *rproc);
+int pruss_rproc_boot(struct pruss *pruss, struct rproc *rproc,
+		     const char *fw_name);
+void pruss_rproc_halt(struct pruss *pruss, struct rproc *rproc);
 
 #else
 
@@ -52,6 +55,16 @@ static inline struct rproc *pruss_rproc_get(struct pruss *pruss,
 }
 
 static inline void pruss_rproc_put(struct pruss *pruss, struct rproc *rproc) { }
+
+static inline int pruss_rproc_boot(struct pruss *pruss, struct rproc *rproc,
+				   const char *fw_name)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline void pruss_rproc_halt(struct pruss *pruss, struct rproc *rproc)
+{
+}
 
 #endif /* CONFIG_PRUSS_REMOTEPROC */
 
