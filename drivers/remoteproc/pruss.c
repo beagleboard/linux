@@ -111,6 +111,140 @@ void pruss_put(struct pruss *pruss)
 }
 EXPORT_SYMBOL_GPL(pruss_put);
 
+/*
+ * get the rproc phandle corresponding to a pru_id.
+ * Caller must call rproc_put() when done with rproc.
+ */
+static struct rproc *__pruss_rproc_get(struct pruss *pruss,
+				       enum pruss_pru_id pru_id)
+{
+	struct device_node *rproc_np;
+	struct platform_device *pdev;
+	struct rproc *rproc;
+
+	/* get rproc corresponding to pru_id */
+	switch (pru_id) {
+	case PRUSS_PRU0:
+		rproc_np = of_get_child_by_name(pruss->dev->of_node, "pru0");
+		break;
+	case PRUSS_PRU1:
+		rproc_np = of_get_child_by_name(pruss->dev->of_node, "pru1");
+		break;
+	default:
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (!rproc_np)
+		return ERR_PTR(-ENODEV);
+
+	pdev = of_find_device_by_node(rproc_np);
+	of_node_put(rproc_np);
+
+	if (!pdev)
+		/* probably PRU not yet probed */
+		return ERR_PTR(-EPROBE_DEFER);
+
+	rproc = platform_get_drvdata(pdev);
+	get_device(&rproc->dev);
+
+	return rproc;
+}
+
+/**
+ * pruss_rproc_get() - Get the rproc instance corresponding to pru_id
+ * @pruss: the pruss instance
+ * @pru_id: the PRU id of which we need the rproc instance
+ *
+ * Allows only one user to own the rproc resource at a time.
+ * Caller must call pruss_put_rproc() when done with using the rproc.
+ *
+ * Returns rproc handle on success. ERR_PTR on failure e.g.
+ * -EBUSY if PRU is already reserved by someone else
+ * -ENODEV if not yet available.
+ * -EINVAL if invalid parameters.
+ */
+struct rproc *pruss_rproc_get(struct pruss *pruss,
+			      enum pruss_pru_id pru_id)
+{
+	struct rproc *rproc;
+	int ret;
+
+	if (!pruss)
+		return ERR_PTR(-EINVAL);
+
+	rproc = __pruss_rproc_get(pruss, pru_id);
+	if (IS_ERR(rproc))
+		return rproc;
+
+	mutex_lock(&pruss->lock);
+
+	if (pruss->pru_in_use[pru_id]) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	pruss->pru_in_use[pru_id] = rproc;
+
+	mutex_unlock(&pruss->lock);
+
+	return rproc;
+
+unlock:
+	mutex_unlock(&pruss->lock);
+	rproc_put(rproc);
+
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL_GPL(pruss_rproc_get);
+
+/* find out PRU ID from the rproc instance */
+static enum pruss_pru_id pruss_rproc_to_pru_id(struct pruss *pruss,
+					       struct rproc *rproc)
+{
+	enum pruss_pru_id pru_id;
+
+	for (pru_id = PRUSS_PRU0; pru_id < PRUSS_NUM_PRUS; pru_id++)
+		if (pruss->pru_in_use[pru_id] == rproc)
+			return pru_id;
+
+	return -1;
+}
+
+/**
+ * pruss_rproc_put() - release the PRU rproc resource
+ * @pruss: the pruss instance
+ * @rproc: the rproc resource to release
+ *
+ * Releases the rproc resource and makes it available to other
+ * users.
+ */
+void pruss_rproc_put(struct pruss *pruss, struct rproc *rproc)
+{
+	int pru_id;
+
+	if (!pruss || !rproc)
+		return;
+
+	mutex_lock(&pruss->lock);
+
+	pru_id = pruss_rproc_to_pru_id(pruss, rproc);
+	if (pru_id < 0) {
+		mutex_unlock(&pruss->lock);
+		return;
+	}
+
+	if (!pruss->pru_in_use[pru_id]) {
+		mutex_unlock(&pruss->lock);
+		return;
+	}
+	pruss->pru_in_use[pru_id] = NULL;
+
+	mutex_unlock(&pruss->lock);
+
+	rproc_put(rproc);
+}
+EXPORT_SYMBOL(pruss_rproc_put);
+
 static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
 {
 	return readl_relaxed(pruss->mem_regions[PRUSS_MEM_INTC].va + reg);
@@ -533,6 +667,7 @@ static int pruss_probe(struct platform_device *pdev)
 
 	pruss->dev = dev;
 	pruss->data = data;
+	mutex_init(&pruss->lock);
 	mutex_init(&pruss->intc_lock);
 
 	for (i = 0; i < ARRAY_SIZE(pruss->intc_config.sysev_to_ch); i++)

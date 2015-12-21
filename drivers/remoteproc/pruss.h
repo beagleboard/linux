@@ -17,6 +17,11 @@
 #ifndef _PRUSS_H_
 #define _PRUSS_H_
 
+/* number of PRUs within a PRUSS */
+#ifndef PRUSS_NUM_PRUS
+#define PRUSS_NUM_PRUS		2
+#endif
+
 /* maximum number of system events */
 #define MAX_PRU_SYS_EVENTS	64
 
@@ -139,6 +144,9 @@ struct pru_rproc;
  * @data: pointer to store PRUSS instance private data
  * @intc_config: local INTC configuration data
  * @host_mask: indicate which HOST IRQs are enabled
+ * @pru_running: flag to indicate if PRU is running
+ * @pru_in_use: flag to indicate if PRU is used
+ * @lock: mutex to serialize access to resources
  * @intc_lock: mutex to serialize access to INTC
  * @in_standby: flag for storing standby status
  */
@@ -149,6 +157,9 @@ struct pruss {
 	const struct pruss_private_data *data;
 	struct pruss_intc_config intc_config;
 	u32 host_mask;
+	bool pru_running[PRUSS_NUM_PRUS];
+	struct rproc *pru_in_use[PRUSS_NUM_PRUS];
+	struct mutex lock; /* PRU resource lock */
 	struct mutex intc_lock; /* PRUSS INTC lock */
 	bool in_standby;
 };

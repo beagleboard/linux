@@ -17,12 +17,24 @@
 #ifndef __LINUX_PRUSS_H
 #define __LINUX_PRUSS_H
 
+/**
+ * enum pruss_pru_id - PRU core identifiers
+ */
+enum pruss_pru_id {
+	PRUSS_PRU0 = 0,
+	PRUSS_PRU1,
+	PRUSS_NUM_PRUS,
+};
+
 struct pruss;
 
 #if IS_ENABLED(CONFIG_PRUSS_REMOTEPROC)
 
 struct pruss *pruss_get(struct device *dev);
 void pruss_put(struct pruss *pruss);
+struct rproc *pruss_rproc_get(struct pruss *pruss,
+			      enum pruss_pru_id pru_id);
+void pruss_rproc_put(struct pruss *pruss, struct rproc *rproc);
 
 #else
 
@@ -32,6 +44,14 @@ static inline struct pruss *pruss_get(struct device *dev)
 }
 
 static inline void pruss_put(struct pruss *pruss) { }
+
+static inline struct rproc *pruss_rproc_get(struct pruss *pruss,
+					    enum pruss_pru_id pru_id)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline void pruss_rproc_put(struct pruss *pruss, struct rproc *rproc) { }
 
 #endif /* CONFIG_PRUSS_REMOTEPROC */
 
