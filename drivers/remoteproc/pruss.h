@@ -109,6 +109,9 @@ struct pru_rproc;
  * @irqs: pointer to an array of interrupts to the host processor
  * @intc_config: local INTC configuration data
  * @host_mask: indicate which HOST IRQs are enabled
+ * @pru_running: flag to indicate if PRU is running
+ * @pru_in_use: flag to indicate if PRU is used
+ * @lock: mutex to serialize access to resources
  * @intc_lock: mutex to serialize access to INTC
  */
 struct pruss {
@@ -119,6 +122,9 @@ struct pruss {
 	int *irqs;
 	struct pruss_intc_config intc_config;
 	u32 host_mask;
+	bool pru_running[PRUSS_NUM_PRUS];
+	struct rproc *pru_in_use[PRUSS_NUM_PRUS];
+	struct mutex lock; /* PRU resource lock */
 	struct mutex intc_lock; /* PRUSS INTC lock */
 };
 
