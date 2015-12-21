@@ -63,6 +63,20 @@ enum pruss_gpi_mode {
 	PRUSS_GPI_MODE_MII,
 };
 
+/**
+ * enum pru_ctable_idx - Configurable Constant table index identifiers
+ */
+enum pru_ctable_idx {
+	PRU_C24 = 0,
+	PRU_C25,
+	PRU_C26,
+	PRU_C27,
+	PRU_C28,
+	PRU_C29,
+	PRU_C30,
+	PRU_C31,
+};
+
 struct pruss;
 
 #if IS_ENABLED(CONFIG_PRUSS_REMOTEPROC)
@@ -80,6 +94,7 @@ int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
 		      enum pruss_gpi_mode mode);
 void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable);
 void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable);
+int pru_rproc_set_ctable(struct rproc *rproc, enum pru_ctable_idx c, u32 addr);
 
 #else
 
@@ -120,6 +135,12 @@ static inline int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
 static inline void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable) { }
 
 static inline void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable) { }
+
+static inline int pru_rproc_set_ctable(struct rproc *rproc,
+				       enum pru_ctable_idx c, u32 addr)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
 
 #endif /* CONFIG_PRUSS_REMOTEPROC */
 
