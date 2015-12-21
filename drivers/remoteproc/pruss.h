@@ -102,6 +102,7 @@ struct pru_rproc;
 
 /**
  * struct pruss - PRUSS parent structure
+ * @node: list node of this object
  * @dev: pruss device pointer
  * @mem_regions: data for each of the PRUSS memory regions
  * @data: pointer to store PRUSS instance private data
@@ -111,6 +112,7 @@ struct pru_rproc;
  * @intc_lock: mutex to serialize access to INTC
  */
 struct pruss {
+	struct list_head node;
 	struct device *dev;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	const struct pruss_private_data *data;

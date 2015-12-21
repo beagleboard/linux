@@ -109,6 +109,16 @@ MDIO module used within the PRU-ICSS is an instance of the MDIO Controller
 used in TI Davinci SoCs. Please refer to the corresponding binding document,
 Documentation/devicetree/bindings/net/davinci-mdio.txt
 
+Additional Child Nodes/User Nodes
+=================================
+The PRUSS device node can have additional child nodes for various PRU
+applications. Each application/client node would need a reference to the
+PRUSS node or directly the PRU nodes in general.
+
+Optional Properties:
+--------------------
+- pruss          : phandle to a PRUSS node
+
 
 Example:
 ========
