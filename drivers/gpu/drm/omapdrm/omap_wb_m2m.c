@@ -343,6 +343,9 @@ static void job_abort(void *priv)
 
 	/* Will cancel the transaction in the next interrupt handler */
 	ctx->aborting = 1;
+
+	log_dbg(ctx->dev, "Aborting transaction\n");
+	v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
 }
 
 /*
