@@ -2519,7 +2519,8 @@ static int dispc_ovl_calc_scaling_44xx(unsigned long pclk, unsigned long lclk,
 #define DIV_FRAC(dividend, divisor) \
 	((dividend) * 100 / (divisor) - ((dividend) / (divisor) * 100))
 
-static int dispc_ovl_calc_scaling(unsigned long pclk, unsigned long lclk,
+static int dispc_ovl_calc_scaling(enum omap_plane plane,
+		unsigned long pclk, unsigned long lclk,
 		enum omap_overlay_caps caps,
 		const struct videomode *vm,
 		u16 width, u16 height, u16 out_width, u16 out_height,
@@ -2527,7 +2528,8 @@ static int dispc_ovl_calc_scaling(unsigned long pclk, unsigned long lclk,
 		int *x_predecim, int *y_predecim, u16 pos_x,
 		enum omap_dss_rotation_type rotation_type, bool mem_to_mem)
 {
-	const int maxdownscale = dss_feat_get_param_max(FEAT_PARAM_DOWNSCALE);
+	int maxhdownscale = dss_feat_get_param_max(FEAT_PARAM_DOWNSCALE);
+	int maxvdownscale = dss_feat_get_param_max(FEAT_PARAM_DOWNSCALE);
 	const int max_decim_limit = 16;
 	unsigned long core_clk = 0;
 	int decim_x, decim_y, ret;
@@ -2535,6 +2537,20 @@ static int dispc_ovl_calc_scaling(unsigned long pclk, unsigned long lclk,
 	if (width == out_width && height == out_height)
 		return 0;
 
+	if (plane == OMAP_DSS_WB) {
+		switch (color_mode) {
+		case OMAP_DSS_COLOR_NV12:
+			maxhdownscale = maxvdownscale = 2;
+			break;
+		case OMAP_DSS_COLOR_YUV2:
+		case OMAP_DSS_COLOR_UYVY:
+			maxhdownscale = 2;
+			maxvdownscale = 4;
+			break;
+		default:
+			break;
+		}
+	}
 	if (!mem_to_mem && (pclk == 0 || vm->pixelclock == 0)) {
 		DSSERR("cannot calculate scaling settings: pclk is zero\n");
 		return -EINVAL;
@@ -2562,8 +2578,8 @@ static int dispc_ovl_calc_scaling(unsigned long pclk, unsigned long lclk,
 		return 0;
 	}
 
-	decim_x = DIV_ROUND_UP(DIV_ROUND_UP(width, out_width), maxdownscale);
-	decim_y = DIV_ROUND_UP(DIV_ROUND_UP(height, out_height), maxdownscale);
+	decim_x = DIV_ROUND_UP(DIV_ROUND_UP(width, out_width), maxhdownscale);
+	decim_y = DIV_ROUND_UP(DIV_ROUND_UP(height, out_height), maxvdownscale);
 
 	if (decim_x > *x_predecim || out_width > width * 8)
 		return -EINVAL;
@@ -2667,7 +2683,7 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 	if (!dss_feat_color_mode_supported(plane, color_mode))
 		return -EINVAL;
 
-	r = dispc_ovl_calc_scaling(pclk, lclk, caps, vm, in_width,
+	r = dispc_ovl_calc_scaling(plane, pclk, lclk, caps, vm, in_width,
 			in_height, out_width, out_height, color_mode,
 			&five_taps, &x_predecim, &y_predecim, pos_x,
 			rotation_type, mem_to_mem);
