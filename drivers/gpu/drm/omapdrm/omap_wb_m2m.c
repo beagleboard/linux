@@ -392,7 +392,7 @@ static void device_run(void *priv)
 	if (ctx->q_data[Q_DATA_SRC].fmt->coplanar)
 		src_dma_addr[1] = vb2_dma_addr_plus_data_offset(ctx->src_vb, 1);
 	if (!src_dma_addr[0]) {
-		log_err(ctx->dev,
+		log_err(dev,
 			"acquiring source buffer(%d) dma_addr failed\n",
 			ctx->src_vb->v4l2_buf.index);
 		return;
@@ -402,7 +402,7 @@ static void device_run(void *priv)
 	if (ctx->q_data[Q_DATA_DST].fmt->coplanar)
 		dst_dma_addr[1] = vb2_dma_addr_plus_data_offset(ctx->dst_vb, 1);
 	if (!dst_dma_addr[0]) {
-		log_err(ctx->dev,
+		log_err(dev,
 			"acquiring destination buffer(%d) dma_addr failed\n",
 			ctx->dst_vb->v4l2_buf.index);
 		return;
@@ -451,7 +451,18 @@ static void device_run(void *priv)
 		wb_info.height, wb_info.buf_width);
 
 	ok = wbm2m_convert(dev, omap_plane_id(dev->plane), &src_info, &wb_info);
-	WARN_ON(!ok);
+	if (!ok) {
+		log_err(dev,
+			"Conversion setup failed, check source and destination parameters\n"
+			);
+		log_err(dev, "\tSRC: %dx%d, fmt: %s sw %d\n", src_info.width,
+			src_info.height, fourcc_to_str(s_q_data->fmt->fourcc),
+			src_info.screen_width);
+		log_err(dev, "\tDST: %dx%d, fmr: %s sw %d\n", wb_info.width,
+			wb_info.height, fourcc_to_str(d_q_data->fmt->fourcc),
+			wb_info.buf_width);
+		return;
+	}
 }
 
 static void wbm2m_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
