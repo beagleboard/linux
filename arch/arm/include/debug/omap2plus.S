@@ -58,11 +58,18 @@
 
 #define UART_OFFSET(addr)	((addr) & 0x00ffffff)
 
+#if defined(ZIMAGE)
+	omap_uart_phys:	.word	0
+	omap_uart_virt:	.word	0
+	omap_uart_lsr:	.word	0
+#else
+
 		.pushsection .data
-omap_uart_phys:	.word	0
-omap_uart_virt:	.word	0
-omap_uart_lsr:	.word	0
+	omap_uart_phys:	.word	0
+	omap_uart_virt:	.word	0
+	omap_uart_lsr:	.word	0
 		.popsection
+#endif
 
 		.macro	addruart, rp, rv, tmp
 
