@@ -206,7 +206,7 @@ static int nand_davinci_correct_1bit(struct mtd_info *mtd, u_char *dat,
 				dat[diff >> (12 + 3)] ^= BIT((diff >> 12) & 7);
 				return 1;
 			} else {
-				return -1;
+				return -EBADMSG;
 			}
 		} else if (!(diff & (diff - 1))) {
 			/* Single bit ECC error in the ECC itself,
@@ -214,7 +214,7 @@ static int nand_davinci_correct_1bit(struct mtd_info *mtd, u_char *dat,
 			return 1;
 		} else {
 			/* Uncorrectable error */
-			return -1;
+			return -EBADMSG;
 		}
 
 	}
@@ -390,7 +390,7 @@ compare:
 			return 0;
 		case 1:		/* five or more errors detected */
 			davinci_nand_readl(info, NAND_ERR_ERRVAL1_OFFSET);
-			return -EIO;
+			return -EBADMSG;
 		case 2:		/* error addresses computed */
 		case 3:
 			num_errors = 1 + ((fsr >> 16) & 0x03);
