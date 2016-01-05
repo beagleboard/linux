@@ -745,9 +745,18 @@ void omap_gem_dma_sync(struct drm_gem_object *obj,
 
 		for (i = 0; i < npages; i++) {
 			if (!omap_obj->addrs[i]) {
-				omap_obj->addrs[i] = dma_map_page(dev->dev, pages[i], 0,
+				dma_addr_t addr;
+
+				addr = dma_map_page(dev->dev, pages[i], 0,
 						PAGE_SIZE, DMA_BIDIRECTIONAL);
+
+				if (dma_mapping_error(dev->dev, addr)) {
+					dev_warn(dev->dev, "omap_gem_dma_sync: dma_map_page failed\n");
+					break;
+				}
+
 				dirty = true;
+				omap_obj->addrs[i] = addr;
 			}
 		}
 
