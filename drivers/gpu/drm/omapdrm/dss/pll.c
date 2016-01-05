@@ -175,7 +175,7 @@ bool dss_pll_calc(const struct dss_pll *pll, unsigned long clkin,
 
 	pll_max = pll_max ? pll_max : ULONG_MAX;
 
-	for (n = n_start; n <= n_stop; ++n) {
+	for (n = n_stop; n >= n_start; --n) {
 		fint = clkin / n;
 
 		m_start = max(DIV_ROUND_UP(DIV_ROUND_UP(pll_min, fint), 2),
@@ -184,7 +184,7 @@ bool dss_pll_calc(const struct dss_pll *pll, unsigned long clkin,
 				(unsigned)(pll_hw_max / fint / 2),
 				hw->m_max);
 
-		for (m = m_start; m <= m_stop; ++m) {
+		for (m = m_stop; m >= m_start; --m) {
 			clkdco = 2 * m * fint;
 
 			if (func(n, m, fint, clkdco, data))
