@@ -31,6 +31,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/spi/spi.h>
 #include <linux/timer.h>
@@ -1137,6 +1138,8 @@ static int cqspi_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 	cqspi_wait_idle(cqspi);
 	cqspi_controller_init(cqspi);
 	cqspi->current_cs = -1;
@@ -1146,6 +1149,8 @@ static int cqspi_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "Cadence QSPI NOR probe failed %d\n", ret);
 		cqspi_controller_disable(cqspi);
+		pm_runtime_put_sync(&pdev->dev);
+		pm_runtime_disable(&pdev->dev);
 	}
 
 	return ret;
@@ -1157,6 +1162,8 @@ static int cqspi_remove(struct platform_device *pdev)
 	int i;
 
 	cqspi_controller_disable(cqspi);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 
 	for (i = 0; i < CQSPI_MAX_CHIPSELECT; i++)
 		if (cqspi->f_pdata[i].mtd.name)
@@ -1171,6 +1178,7 @@ static int cqspi_suspend(struct device *dev)
 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
 
 	cqspi_controller_disable(cqspi);
+	pm_runtime_put_sync(dev);
 	return 0;
 }
 
@@ -1178,6 +1186,7 @@ static int cqspi_resume(struct device *dev)
 {
 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
 
+	pm_runtime_get_sync(dev);
 	cqspi_controller_enable(cqspi);
 	return 0;
 }
