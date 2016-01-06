@@ -442,7 +442,7 @@ fi
 
 # There is only one file passed in via command line
 if [ -z "$DEFCONFIG_EXTRAS_FILE" ]; then
-	echo "Only appending $DEFCONFIG_EXTRAS_FILE"
+	echo "Only appending $APPENDED_CONFIG"
 	$KERNEL_DIR/scripts/kconfig/merge_config.sh -m -r -O $LOGGING_DIRECTORY $LOGGING_DIRECTORY/base_config $APPENDED_CONFIG
 	if [ $? -ne 0 ]; then
 		echo "Failed to merge config $APPENDED_CONFIG"
