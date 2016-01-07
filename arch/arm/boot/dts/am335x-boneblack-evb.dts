@@ -1,0 +1,182 @@
+/*
+ * Device tree for BeagleBone Black + FatcatLabs EVB + ev3dev
+ *
+ * Copyright (C) 2016 David Lechner <david@lechnology.com>
+ *
+ * Based on am335x-boneblack-overlay.dts (HDMI Audio/Video and eMMC disabled)
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common-no-capemgr.dtsi"
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/* This section is default BeagleBone Black stuff */
+
+/ {
+    model = "TI AM335x BeagleBone Black";
+    compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+    regulator-min-microvolt = <1800000>;
+    regulator-max-microvolt = <1800000>;
+    regulator-always-on;
+};
+
+&mmc1 {
+    vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&sgx {
+    status = "okay";
+};
+
+/* EMMC in reset so that it does not interfere with EVB cape */
+&gpio1 {
+    emmc_rst {
+        gpio-hog;
+        gpios = <20 0>;
+        output-high;
+        line-name = "EMMC ResetN";
+    };
+};
+
+/* This section is EVB-specific stuff */
+
+&am33xx_pinmux {
+    /* Input port 1 */
+
+    uart4_pins: pinmux_uart4_pins {
+        pinctrl-single,pins = <
+            BONE_P9_13 (PIN_OUTPUT_PULLDOWN | MUX_MODE6) /* uart4_txd.uart4_txd */
+            BONE_P9_11 (PIN_INPUT_PULLUP | MUX_MODE6)    /* uart4_rxd.uart4_rxd */
+        >;
+    };
+
+    /* Input port 2 */
+
+    uart2_pins: pinmux_uart2_pins {
+        pinctrl-single,pins = <
+            BONE_P9_21 (PIN_OUTPUT_PULLDOWN | MUX_MODE1) /* uart2_txd.uart2_txd */
+            BONE_P9_22 (PIN_INPUT_PULLUP | MUX_MODE1)    /* uart2_rxd.uart2_rxd */
+        >;
+    };
+
+    /* Input port 3 */
+
+    uart1_pins: pinmux_uart1_pins {
+        pinctrl-single,pins = <
+            BONE_P9_24 (PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* uart1_txd.uart1_txd */
+            BONE_P9_26 (PIN_INPUT_PULLUP | MUX_MODE0)    /* uart1_rxd.uart1_rxd */
+        >;
+    };
+
+    /* Input port 4 */
+
+    uart5_pins: pinmux_uart5_pins {
+        pinctrl-single,pins = <
+            BONE_P8_37 (PIN_OUTPUT_PULLDOWN | MUX_MODE4) /* uart5_txd.uart5_txd */
+            BONE_P8_38 (PIN_INPUT_PULLUP | MUX_MODE4)    /* uart5_rxd.uart5_rxd */
+        >;
+    };
+
+    /* Display */
+
+    spi1_pins: pinmux_spi1_pins {
+        pinctrl-single,pins = <
+            BONE_P9_31 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_sclk.spi1_sclk */
+            BONE_P9_30 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_d1.spi1_d1 */
+            BONE_P9_28 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_cs0.spi1_cs0 */
+            BONE_P8_33 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* DC */
+            BONE_P8_35 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* Reset */
+        >;
+    };
+
+    display_gpio0_pins: pinmux_display_gpio0_pins {
+        pinctrl-single,pins = <
+            BONE_P8_33 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* DC */
+            BONE_P8_35 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* Reset */
+        >;
+    };
+};
+
+&uart1 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart1_pins>;
+
+    status = "okay";
+};
+
+&uart2 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart2_pins>;
+
+    status = "okay";
+};
+
+&uart4 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart4_pins>;
+
+    status = "okay";
+};
+
+&uart5 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart5_pins>;
+
+    status = "okay";
+};
+
+&spi1 {
+    status = "okay";
+
+    evb_display: evb_display@0 {
+        compatible = "ilitek,ili9225";
+        reg = <0>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&spi1_pins>;
+
+        rotate = <270>;
+        spi-max-frequency = <12000000>;
+        bgr;
+        reset-gpios = <&gpio0 8 0>;
+        dc-gpios = <&gpio0 9 0>;
+        debug = <0>;
+
+        init = <
+            0x1000001 0x01 0x1C
+            0x1000002 0x01 0x00
+            0x1000008 0x08 0x08
+            0x100000C 0x00 0x00
+            0x100000F 0x0E 0x01
+            0x2000032
+            0x1000010 0x09 0x00
+            0x1000011 0x10 0x38
+            0x2000032
+            0x1000012 0x11 0x21
+            0x1000013 0x00 0x65
+            0x1000014 0x50 0x58
+            0x1000030 0x00 0x00
+            0x1000031 0x00 0xDB
+            0x1000032 0x00 0x00
+            0x1000033 0x00 0x00
+            0x1000034 0x00 0xDB
+            0x1000035 0x00 0x00
+            0x1000036 0x00 0xAF
+            0x1000037 0x00 0x00
+            0x1000038 0x00 0xDB
+            0x1000039 0x00 0x00
+            0x2000032
+            0x1000007 0x10 0x17
+            0x2000032
+        >;
+    };
+};
