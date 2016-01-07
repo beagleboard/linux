@@ -1,0 +1,2 @@
+use-kernel-config=omap2plus_defconfig
+config-fragment=ti_config_fragments/real_time.cfg

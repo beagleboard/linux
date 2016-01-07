@@ -1,0 +1,4 @@
+use-kernel-config=omap2plus_defconfig
+config-fragment=ti_config_fragments/real_time.cfg
+config-fragment=ti_config_fragments/debug_options.cfg
+config-fragment=ti_config_fragments/system_test.cfg
