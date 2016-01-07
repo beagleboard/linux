@@ -1167,61 +1167,42 @@ int pwrdm_get_context_loss_count(struct powerdomain *pwrdm)
 }
 
 /**
- * pwrdm_save_context - save powerdomain registers
+ * pwrdm_can_ever_lose_context - can this powerdomain ever lose context?
+ * @pwrdm: struct powerdomain *
  *
- * Register state is going to be lost due to a suspend or hibernate
- * event. Save the powerdomain registers.
+ * Given a struct powerdomain * @pwrdm, returns 1 if the powerdomain
+ * can lose either memory or logic context or if @pwrdm is invalid, or
+ * returns 0 otherwise.  This function is not concerned with how the
+ * powerdomain registers are programmed (i.e., to go off or not); it's
+ * concerned with whether it's ever possible for this powerdomain to
+ * go off while some other part of the chip is active.  This function
+ * assumes that every powerdomain can go to either ON or INACTIVE.
  */
-static int pwrdm_save_context(struct powerdomain *pwrdm, void *unused)
+bool pwrdm_can_ever_lose_context(struct powerdomain *pwrdm)
 {
-	if (arch_pwrdm && arch_pwrdm->pwrdm_save_context)
-		arch_pwrdm->pwrdm_save_context(pwrdm);
-	return 0;
-}
+	int i;
 
-/**
- * pwrdm_save_context - restore powerdomain registers
- *
- * Restore powerdomain control registers after a suspend or resume
- * event.
- */
-static int pwrdm_restore_context(struct powerdomain *pwrdm, void *unused)
-{
-	if (arch_pwrdm && arch_pwrdm->pwrdm_restore_context)
-		arch_pwrdm->pwrdm_restore_context(pwrdm);
-	return 0;
-}
-
-static int pwrdm_lost_power(struct powerdomain *pwrdm, void *unused)
-{
-	int state;
-
-	/*
-	 * Power has been lost across all powerdomains, increment the
-	 * counter.
-	 */
-
-	state = pwrdm_read_pwrst(pwrdm);
-	if (state != PWRDM_POWER_OFF) {
-		pwrdm->state_counter[state]++;
-		pwrdm->state_counter[PWRDM_POWER_OFF]++;
+	if (!pwrdm) {
+		pr_debug("powerdomain: %s: invalid powerdomain pointer\n",
+			 __func__);
+		return 1;
 	}
-	pwrdm->state = state;
+
+	if (pwrdm->pwrsts & PWRSTS_OFF)
+		return 1;
+
+	if (pwrdm->pwrsts & PWRSTS_RET) {
+		if (pwrdm->pwrsts_logic_ret & PWRSTS_OFF)
+			return 1;
+
+		for (i = 0; i < pwrdm->banks; i++)
+			if (pwrdm->pwrsts_mem_ret[i] & PWRSTS_OFF)
+				return 1;
+	}
+
+	for (i = 0; i < pwrdm->banks; i++)
+		if (pwrdm->pwrsts_mem_on[i] & PWRSTS_OFF)
+			return 1;
 
 	return 0;
-}
-
-void pwrdms_save_context(void)
-{
-	pwrdm_for_each(pwrdm_save_context, NULL);
-}
-
-void pwrdms_restore_context(void)
-{
-	pwrdm_for_each(pwrdm_restore_context, NULL);
-}
-
-void pwrdms_lost_power(void)
-{
-	pwrdm_for_each(pwrdm_lost_power, NULL);
 }
