@@ -5,6 +5,9 @@
 # Rewritten to use lists instead of if-statements.
 #
 
+# ev3dev extras
+obj-y				+= lego/
+
 obj-y				+= irqchip/
 obj-y				+= bus/
 

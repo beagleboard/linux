@@ -1,5 +1,7 @@
 menu "Device Drivers"
 
+source "drivers/lego/Kconfig"
+
 source "drivers/amba/Kconfig"
 
 source "drivers/base/Kconfig"
