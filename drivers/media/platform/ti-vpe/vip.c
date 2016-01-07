@@ -127,26 +127,6 @@ static struct vip_srce_info srce_info[5] = {
 
 static struct vip_fmt vip_formats[] = {
 	{
-		.name		= "NV24 YUV 444 co-planar",
-		.fourcc		= V4L2_PIX_FMT_NV24,
-		.code		= MEDIA_BUS_FMT_UYVY8_2X8,
-		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
-		.coplanar	= 1,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_Y444],
-				    &vpdma_yuv_fmts[VPDMA_DATA_FMT_C444],
-				  },
-	},
-	{
-		.name		= "NV16 YUV 422 co-planar",
-		.fourcc		= V4L2_PIX_FMT_NV16,
-		.code		= MEDIA_BUS_FMT_UYVY8_2X8,
-		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
-		.coplanar	= 1,
-		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_Y422],
-				    &vpdma_yuv_fmts[VPDMA_DATA_FMT_C422],
-				  },
-	},
-	{
 		.name		= "NV12 YUV 420 co-planar",
 		.fourcc		= V4L2_PIX_FMT_NV12,
 		.code		= MEDIA_BUS_FMT_UYVY8_2X8,

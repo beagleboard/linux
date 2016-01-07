@@ -1208,7 +1208,7 @@ static int wbm2m_open(struct file *file)
 		if (!dev->plane) {
 			log_dbg(dev, "Could not reserve plane!\n");
 			ret = -EBUSY;
-			goto free_fh;
+			goto free_dec;
 		}
 	}
 
@@ -1219,8 +1219,10 @@ static int wbm2m_open(struct file *file)
 
 	return 0;
 
-free_fh:
+free_dec:
+	atomic_dec_return(&dev->num_instances);
 	v4l2_fh_del(&ctx->fh);
+	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 exit_fh:
 	v4l2_ctrl_handler_free(hdl);
 	v4l2_fh_exit(&ctx->fh);
