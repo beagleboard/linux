@@ -144,7 +144,6 @@ struct powerdomain {
 	s64 timer;
 	s64 state_timer[PWRDM_MAX_PWRSTS];
 #endif
-	u32 context;
 };
 
 /**
@@ -199,8 +198,6 @@ struct pwrdm_ops {
 	int	(*pwrdm_set_lowpwrstchange)(struct powerdomain *pwrdm);
 	int	(*pwrdm_wait_transition)(struct powerdomain *pwrdm);
 	int	(*pwrdm_has_voltdm)(void);
-	void	(*pwrdm_save_context)(struct powerdomain *pwrdm);
-	void	(*pwrdm_restore_context)(struct powerdomain *pwrdm);
 };
 
 int pwrdm_register_platform_funcs(struct pwrdm_ops *custom_funcs);
@@ -247,6 +244,7 @@ int pwrdm_state_switch(struct powerdomain *pwrdm);
 int pwrdm_pre_transition(struct powerdomain *pwrdm);
 int pwrdm_post_transition(struct powerdomain *pwrdm);
 int pwrdm_get_context_loss_count(struct powerdomain *pwrdm);
+bool pwrdm_can_ever_lose_context(struct powerdomain *pwrdm);
 
 extern int omap_set_pwrdm_state(struct powerdomain *pwrdm, u8 state);
 
@@ -275,8 +273,4 @@ extern struct powerdomain gfx_omap2_pwrdm;
 extern void pwrdm_lock(struct powerdomain *pwrdm);
 extern void pwrdm_unlock(struct powerdomain *pwrdm);
 
-extern void pwrdms_save_context(void);
-extern void pwrdms_restore_context(void);
-
-extern void pwrdms_lost_power(void);
 #endif
