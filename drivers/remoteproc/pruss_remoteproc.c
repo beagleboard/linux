@@ -549,24 +549,6 @@ static int pruss_configure_intc(struct pruss *pruss)
 	return 0;
 }
 
-static void pru_trigger_interrupt(struct rproc *rproc, int sysint)
-{
-	struct pru_rproc *pru = rproc->priv;
-	struct pruss *pruss = pru->pruss;
-	struct device *dev = &rproc->dev;
-
-	if (sysint < 0) {
-		dev_err(dev, "invalid sysint %d\n", sysint);
-		return;
-	}
-
-	dev_dbg(dev, "triggering sysint %d on PRU %d\n", sysint, pru->id);
-	if (sysint < 32)
-		pruss_intc_write_reg(pruss, PRU_INTC_SRSR0, 1 << sysint);
-	else
-		pruss_intc_write_reg(pruss, PRU_INTC_SRSR1, 1 << (sysint - 32));
-}
-
 /**
  * pru_rproc_mbox_callback() - inbound mailbox message handler
  * @client: mailbox client pointer used for requesting the mailbox channel
@@ -904,9 +886,6 @@ static int pru_rproc_probe(struct platform_device *pdev)
 			goto del_rproc;
 		}
 	}
-
-	/* suppress unused function warning */
-	(void)pru_trigger_interrupt;
 
 	dev_info(dev, "PRU rproc node %s probed successfully\n", np->full_name);
 
