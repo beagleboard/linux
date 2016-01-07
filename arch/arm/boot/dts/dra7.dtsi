@@ -891,8 +891,10 @@
 
 		dsp1: dsp@40800000 {
 			compatible = "ti,dra7-rproc-dsp";
-			reg = <0x40800000 0x48000>;
-			reg-names = "l2ram";
+			reg = <0x40800000 0x48000>,
+			      <0x40e00000 0x8000>,
+			      <0x40f00000 0x8000>;
+			reg-names = "l2ram", "l1pram", "l1dram";
 			ti,hwmods = "dsp1";
 			syscon-bootreg = <&scm_conf 0x55c>;
 			iommus = <&mmu0_dsp1>, <&mmu1_dsp1>;

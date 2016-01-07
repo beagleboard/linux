@@ -64,13 +64,21 @@ depending on the configuration of the firmware image to be executed on the
 remote processor. The conditions are mentioned for each property.
 
 The following are the optional properties:
-- reg:			Address space for any remoteproc memories. These are
-			mandatory for DRA7xx to differentiate multiple instances
-			of the DSPs or IPUs, but are optional on OMAP4/OMAP5
-			SoCs
+- reg:			Address space for any remoteproc memories present on
+			the SoC. Should contain an entry for each value in
+			'reg-names'. These are mandatory for all DSP and IPU
+			processors that have them (OMAP4 DSPs do not have any
+			RAMs)
 
-- reg-names:		Optional names for the address spaces defined in the
-			'reg' property, one per reg specifier.
+- reg-names:		Required names for each of the address spaces defined in
+			the 'reg' property. Should contain a string from among
+			the following names, each representing the corresponding
+			internal RAM memory region,
+			   "l2ram" for L2 RAM,
+			   "l1pram" for L1 Program RAM Memory/Cache,
+			   "l1dram" for L1 Data RAM Memory/Cache,
+
+			All devices may not have all the above memories.
 
 - syscon-bootreg:	Should be a pair of the phandle to the System Control
 			Configuration region that contains the boot address

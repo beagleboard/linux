@@ -831,8 +831,10 @@
 			status = "disabled";
 		};
 
-		ipu: ipu {
+		ipu: ipu@55020000 {
 			compatible = "ti,omap5-rproc-ipu";
+			reg = <0x55020000 0x10000>;
+			reg-names = "l2ram";
 			ti,hwmods = "ipu";
 			iommus = <&mmu_ipu>;
 			mboxes = <&mailbox &mbox_ipu>;
