@@ -198,6 +198,7 @@ struct omap_gpio_platform_data {
 	int bank_width;		/* GPIO bank width */
 	int bank_stride;	/* Only needed for omap1 MPUIO */
 	bool dbck_flag;		/* dbck required or not - True for OMAP3&4 */
+	bool loses_context;	/* whether the bank would ever lose context */
 	bool is_mpuio;		/* whether the bank is of type MPUIO */
 	u32 non_wakeup_gpios;
 
@@ -207,17 +208,9 @@ struct omap_gpio_platform_data {
 	int (*get_context_loss_count)(struct device *dev);
 };
 
-#if IS_BUILTIN(CONFIG_GPIO_OMAP)
 extern void omap2_gpio_prepare_for_idle(int off_mode);
 extern void omap2_gpio_resume_after_idle(void);
-#else
-static inline void omap2_gpio_prepare_for_idle(int off_mode)
-{
-}
-
-static inline void omap2_gpio_resume_after_idle(void)
-{
-}
-#endif
+extern void omap_set_gpio_debounce(int gpio, int enable);
+extern void omap_set_gpio_debounce_time(int gpio, int enable);
 
 #endif
