@@ -1,7 +1,7 @@
 /*
  * OMAP Remote Processor driver
  *
- * Copyright (C) 2011-2015 Texas Instruments, Inc.
+ * Copyright (C) 2011-2016 Texas Instruments, Inc.
  * Copyright (C) 2011 Google, Inc.
  *
  * Ohad Ben-Cohen <ohad@wizery.com>
@@ -25,6 +25,7 @@
 #include <linux/module.h>
 #include <linux/err.h>
 #include <linux/of_device.h>
+#include <linux/of_address.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -40,6 +41,9 @@
 #include "omap_remoteproc.h"
 #include "remoteproc_internal.h"
 
+#define OMAP_RPROC_DSP_LOCAL_MEM_OFFSET		(0x00800000)
+#define OMAP_RPROC_IPU_L2RAM_DEV_ADDR		(0x20000000)
+
 /**
  * struct omap_rproc_boot_data - boot data structure for the DSP omap rprocs
  * @syscon: regmap handle for the system control configuration module
@@ -51,6 +55,20 @@ struct omap_rproc_boot_data {
 	struct regmap *syscon;
 	unsigned int boot_reg;
 	unsigned int boot_reg_shift;
+};
+
+/**
+ * struct omap_rproc_mem - internal memory structure
+ * @cpu_addr: MPU virtual address of the memory region
+ * @bus_addr: bus address used to access the memory region
+ * @dev_addr: device address of the memory region from DSP view
+ * @size: size of the memory region
+ */
+struct omap_rproc_mem {
+	void __iomem *cpu_addr;
+	phys_addr_t bus_addr;
+	u32 dev_addr;
+	size_t size;
 };
 
 /**
@@ -68,6 +86,8 @@ struct omap_rproc_timers_info {
  * @mbox: mailbox channel handle
  * @client: mailbox client to request the mailbox channel
  * @boot_data: boot data structure for setting processor boot address
+ * @mem: internal memory regions data
+ * @num_mems: number of internal memory regions
  * @num_timers: number of rproc timer(s)
  * @num_wd_timers: number of rproc watchdog timers
  * @timers: timer(s) info used by rproc
@@ -77,6 +97,8 @@ struct omap_rproc {
 	struct mbox_chan *mbox;
 	struct mbox_client client;
 	struct omap_rproc_boot_data *boot_data;
+	struct omap_rproc_mem *mem;
+	int num_mems;
 	int num_timers;
 	int num_wd_timers;
 	struct omap_rproc_timers_info *timers;
@@ -442,10 +464,46 @@ static int omap_rproc_stop(struct rproc *rproc)
 	return 0;
 }
 
+/*
+ * Internal Memory translation helper
+ *
+ * Custom function implementing the rproc .da_to_va ops to provide address
+ * translation (device address to kernel virtual address) for internal RAMs
+ * present in a DSP or IPU device). The translated addresses can be used
+ * either by the remoteproc core for loading, or by any rpmsg bus drivers.
+ */
+static void *omap_rproc_da_to_va(struct rproc *rproc, u64 da, int len,
+				 u32 flags)
+{
+	struct omap_rproc *oproc = rproc->priv;
+	void *va = NULL;
+	int i;
+	u32 offset;
+
+	if (len <= 0)
+		return NULL;
+
+	if (!oproc->num_mems)
+		return NULL;
+
+	for (i = 0; i < oproc->num_mems; i++) {
+		if (da >= oproc->mem[i].dev_addr && da + len <=
+		    oproc->mem[i].dev_addr +  oproc->mem[i].size) {
+			offset = da -  oproc->mem[i].dev_addr;
+			/* __force to make sparse happy with type conversion */
+			va = (__force void *)(oproc->mem[i].cpu_addr + offset);
+			break;
+		}
+	}
+
+	return va;
+}
+
 static struct rproc_ops omap_rproc_ops = {
 	.start		= omap_rproc_start,
 	.stop		= omap_rproc_stop,
 	.kick		= omap_rproc_kick,
+	.da_to_va	= omap_rproc_da_to_va,
 };
 
 static const struct omap_rproc_dev_data omap4_dsp_dev_data = {
@@ -586,6 +644,69 @@ static int omap_rproc_get_boot_data(struct platform_device *pdev,
 	return 0;
 }
 
+static int omap_rproc_of_get_internal_memories(struct platform_device *pdev,
+					       struct rproc *rproc)
+{
+	static const char * const mem_names[] = {"l2ram"};
+	struct device_node *np = pdev->dev.of_node;
+	struct omap_rproc *oproc = rproc->priv;
+	struct device *dev = &pdev->dev;
+	struct resource *res;
+	int num_mems = 0;
+	const __be32 *addrp;
+	u32 l4_offset = 0;
+	u64 size;
+	int i;
+
+	/* OMAP4 and OMAP5 DSPs does not have support for flat SRAM */
+	if (of_device_is_compatible(np, "ti,omap4-rproc-dsp") ||
+	    of_device_is_compatible(np, "ti,omap5-rproc-dsp"))
+		return 0;
+
+	/* XXX: add support for DRA7 DSP L1 RAMs if needed */
+	num_mems = ARRAY_SIZE(mem_names);
+	oproc->mem = devm_kcalloc(dev, num_mems, sizeof(*oproc->mem),
+				  GFP_KERNEL);
+	if (!oproc->mem)
+		return -ENOMEM;
+
+	for (i = 0; i < num_mems; i++) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						   mem_names[i]);
+		oproc->mem[i].cpu_addr = devm_ioremap_resource(dev, res);
+		if (IS_ERR(oproc->mem[i].cpu_addr)) {
+			dev_err(dev, "failed to parse and map %s memory\n",
+				mem_names[i]);
+			return PTR_ERR(oproc->mem[i].cpu_addr);
+		}
+		oproc->mem[i].bus_addr = res->start;
+
+		/*
+		 * The DSPs have the internal memories starting at a fixed
+		 * offset of 0x800000 from address 0, and this corresponds to
+		 * L2RAM. The L3 address view has the L2RAM bus address as the
+		 * starting address for the IP, so the L2RAM memory region needs
+		 * to be processed first, and the device addresses for each
+		 * memory region can be computed using the relative offset
+		 * from this base address.
+		 */
+		if (of_device_is_compatible(np, "ti,dra7-rproc-dsp") &&
+		    !strcmp(mem_names[i], "l2ram")) {
+			addrp = of_get_address(dev->of_node, i, &size, NULL);
+			l4_offset = be32_to_cpu(*addrp);
+		}
+		oproc->mem[i].dev_addr =
+			of_device_is_compatible(np, "ti,dra7-rproc-dsp") ?
+				res->start - l4_offset +
+				OMAP_RPROC_DSP_LOCAL_MEM_OFFSET :
+				OMAP_RPROC_IPU_L2RAM_DEV_ADDR;
+		oproc->mem[i].size = resource_size(res);
+	}
+	oproc->num_mems = num_mems;
+
+	return 0;
+}
+
 static int omap_rproc_probe(struct platform_device *pdev)
 {
 	struct omap_rproc_pdata *pdata = pdev->dev.platform_data;
@@ -626,6 +747,10 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	oproc->rproc = rproc;
 	/* All existing OMAP IPU and DSP processors have an MMU */
 	rproc->has_iommu = true;
+
+	ret = omap_rproc_of_get_internal_memories(pdev, rproc);
+	if (ret)
+		goto free_rproc;
 
 	ret = omap_rproc_get_boot_data(pdev, rproc);
 	if (ret)
