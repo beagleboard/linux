@@ -259,6 +259,18 @@ static int omap_gem_attach_pages(struct drm_gem_object *obj)
 		for (i = 0; i < npages; i++) {
 			addrs[i] = dma_map_page(dev->dev, pages[i],
 					0, PAGE_SIZE, DMA_BIDIRECTIONAL);
+
+			if (dma_mapping_error(dev->dev, addrs[i])) {
+				dev_warn(dev->dev, "omap_gem_attach_pages: dma_map_page failed\n");
+
+				for (i = i - 1; i >= 0; --i) {
+					dma_unmap_page(dev->dev, addrs[i],
+						PAGE_SIZE, DMA_BIDIRECTIONAL);
+				}
+
+				ret = -ENOMEM;
+				goto free_addrs;
+			}
 		}
 	} else {
 		addrs = kzalloc(npages * sizeof(*addrs), GFP_KERNEL);
@@ -272,6 +284,8 @@ static int omap_gem_attach_pages(struct drm_gem_object *obj)
 	omap_obj->pages = pages;
 
 	return 0;
+free_addrs:
+	kfree(addrs);
 
 free_pages:
 	drm_gem_put_pages(obj, pages, true, false);
@@ -731,9 +745,18 @@ void omap_gem_dma_sync(struct drm_gem_object *obj,
 
 		for (i = 0; i < npages; i++) {
 			if (!omap_obj->addrs[i]) {
-				omap_obj->addrs[i] = dma_map_page(dev->dev, pages[i], 0,
+				dma_addr_t addr;
+
+				addr = dma_map_page(dev->dev, pages[i], 0,
 						PAGE_SIZE, DMA_BIDIRECTIONAL);
+
+				if (dma_mapping_error(dev->dev, addr)) {
+					dev_warn(dev->dev, "omap_gem_dma_sync: dma_map_page failed\n");
+					break;
+				}
+
 				dirty = true;
+				omap_obj->addrs[i] = addr;
 			}
 		}
 

@@ -62,8 +62,7 @@ MODULE_PARM_DESC(wbdebug, "activates debug info");
 
 /* required alignments */
 #define S_ALIGN		0	/* multiple of 1 */
-#define H_ALIGN		1	/* multiple of 2 */
-#define DESC_ALIGN	16      /* 16-byte descriptor alignment */
+#define H_ALIGN		0	/* multiple of 2 */
 
 /* used as plane indices */
 #define MAX_PLANES	2
@@ -344,6 +343,9 @@ static void job_abort(void *priv)
 
 	/* Will cancel the transaction in the next interrupt handler */
 	ctx->aborting = 1;
+
+	log_dbg(ctx->dev, "Aborting transaction\n");
+	v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
 }
 
 /*
@@ -392,7 +394,7 @@ static void device_run(void *priv)
 	if (ctx->q_data[Q_DATA_SRC].fmt->coplanar)
 		src_dma_addr[1] = vb2_dma_addr_plus_data_offset(ctx->src_vb, 1);
 	if (!src_dma_addr[0]) {
-		log_err(ctx->dev,
+		log_err(dev,
 			"acquiring source buffer(%d) dma_addr failed\n",
 			ctx->src_vb->v4l2_buf.index);
 		return;
@@ -402,7 +404,7 @@ static void device_run(void *priv)
 	if (ctx->q_data[Q_DATA_DST].fmt->coplanar)
 		dst_dma_addr[1] = vb2_dma_addr_plus_data_offset(ctx->dst_vb, 1);
 	if (!dst_dma_addr[0]) {
-		log_err(ctx->dev,
+		log_err(dev,
 			"acquiring destination buffer(%d) dma_addr failed\n",
 			ctx->dst_vb->v4l2_buf.index);
 		return;
@@ -451,7 +453,18 @@ static void device_run(void *priv)
 		wb_info.height, wb_info.buf_width);
 
 	ok = wbm2m_convert(dev, omap_plane_id(dev->plane), &src_info, &wb_info);
-	WARN_ON(!ok);
+	if (!ok) {
+		log_err(dev,
+			"Conversion setup failed, check source and destination parameters\n"
+			);
+		log_err(dev, "\tSRC: %dx%d, fmt: %s sw %d\n", src_info.width,
+			src_info.height, fourcc_to_str(s_q_data->fmt->fourcc),
+			src_info.screen_width);
+		log_err(dev, "\tDST: %dx%d, fmr: %s sw %d\n", wb_info.width,
+			wb_info.height, fourcc_to_str(d_q_data->fmt->fourcc),
+			wb_info.buf_width);
+		return;
+	}
 }
 
 static void wbm2m_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
@@ -623,31 +636,23 @@ static int wbm2m_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	depth = fmt->depth[LUMA_PLANE];
 
 	/*
-	 * the line stride should 16 byte aligned for VPDMA to work, based on
-	 * the bytes per pixel, figure out how much the width should be aligned
-	 * to make sure line stride is 16 byte aligned
+	 * The line stride needs to be even is even.
+	 * Special case is with YUV422 interleaved format an even number
+	 * of pixels is required also.
 	 */
 	depth_bytes = depth >> 3;
 
-	if (depth_bytes == 3)
-		/*
-		 * if bpp is 3(as in some RGB formats), the pixel width doesn't
-		 * really help in ensuring line stride is 16 byte aligned
-		 */
-		w_align = 4;
-	else
-		/*
-		 * for the remainder bpp(4, 2 and 1), the pixel width alignment
-		 * can ensure a line stride alignment of 16 bytes. For example,
-		 * if bpp is 2, then the line stride can be 16 byte aligned if
-		 * the width is 8 byte aligned
-		 */
-		w_align = order_base_2(DESC_ALIGN / depth_bytes);
+	w_align = 0;
+	if ((depth_bytes == 3) || (depth_bytes == 1))
+		w_align = 1;
+	else if ((depth_bytes == 2) &&
+		 (fmt->fourcc == V4L2_PIX_FMT_YUYV ||
+		  fmt->fourcc == V4L2_PIX_FMT_UYVY))
+		w_align = 1;
 
 	v4l_bound_align_image(&pix->width, MIN_W, MAX_W, w_align,
 			      &pix->height, MIN_H, MAX_H, H_ALIGN,
 			      S_ALIGN);
-
 	pix->num_planes = fmt->coplanar ? 2 : 1;
 	pix->pixelformat = fmt->fourcc;
 
@@ -757,6 +762,8 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 				 struct v4l2_selection *s)
 {
 	struct wbm2m_q_data *q_data;
+	unsigned int w_align;
+	int depth_bytes;
 
 	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
 	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
@@ -797,7 +804,17 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 		s->r.left = 0;
 	}
 
-	v4l_bound_align_image(&s->r.width, MIN_W, q_data->width, 1,
+	depth_bytes = q_data->fmt->depth[LUMA_PLANE] >> 3;
+
+	w_align = 0;
+	if ((depth_bytes == 3) || (depth_bytes == 1))
+		w_align = 1;
+	else if ((depth_bytes == 2) &&
+		 (q_data->fmt->fourcc == V4L2_PIX_FMT_YUYV ||
+		  q_data->fmt->fourcc == V4L2_PIX_FMT_UYVY))
+		w_align = 1;
+
+	v4l_bound_align_image(&s->r.width, MIN_W, q_data->width, w_align,
 			      &s->r.height, MIN_H, q_data->height,
 			      H_ALIGN, S_ALIGN);
 
