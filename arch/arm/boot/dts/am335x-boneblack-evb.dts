@@ -205,4 +205,10 @@
         io-channels = <&adc1 1>;
         io-channel-names = "voltage";
     };
+
+    evb-system-info {
+        compatible = "ev3dev,evb-system-info";
+        nvmem-cells = <&baseboard_data>;
+        nvmem-cell-names = "baseboard";
+    };
 };
