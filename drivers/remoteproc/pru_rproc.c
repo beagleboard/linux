@@ -709,13 +709,17 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	 * present, manually boot the PRU remoteproc, but only after
 	 * the remoteproc core is done with loading the firmware image.
 	 */
-	wait_for_completion(&pru->rproc->firmware_loading_complete);
-	if (list_empty(&pru->rproc->rvdevs)) {
-		dev_info(dev, "booting the PRU core manually\n");
-		ret = rproc_boot(pru->rproc);
-		if (ret) {
-			dev_err(dev, "rproc_boot failed\n");
-			goto del_rproc;
+	if (!of_machine_is_compatible("ti,am437x-idk-evm") &&
+	    !of_machine_is_compatible("ti,am571x-idk") &&
+	    !of_machine_is_compatible("ti,am572x-idk")) {
+		wait_for_completion(&pru->rproc->firmware_loading_complete);
+		if (list_empty(&pru->rproc->rvdevs)) {
+			dev_info(dev, "booting the PRU core manually\n");
+			ret = rproc_boot(pru->rproc);
+			if (ret) {
+				dev_err(dev, "rproc_boot failed\n");
+				goto del_rproc;
+			}
 		}
 	}
 
@@ -740,9 +744,13 @@ static int pru_rproc_remove(struct platform_device *pdev)
 
 	dev_info(dev, "%s: removing rproc %s\n", __func__, rproc->name);
 
-	if (list_empty(&pru->rproc->rvdevs)) {
-		dev_info(dev, "stopping the manually booted PRU core\n");
-		rproc_shutdown(pru->rproc);
+	if (!of_machine_is_compatible("ti,am437x-idk-evm") &&
+	    !of_machine_is_compatible("ti,am571x-idk") &&
+	    !of_machine_is_compatible("ti,am572x-idk")) {
+		if (list_empty(&pru->rproc->rvdevs)) {
+			dev_info(dev, "stopping the manually booted PRU core\n");
+			rproc_shutdown(pru->rproc);
+		}
 	}
 
 	mbox_free_channel(pru->mbox);
