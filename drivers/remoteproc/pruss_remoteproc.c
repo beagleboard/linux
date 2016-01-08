@@ -169,14 +169,24 @@ struct pruss_match_private_data {
 	struct pruss_private_data *priv_data;
 };
 
+/**
+ * struct pruss_mem_region - PRUSS memory region structure
+ * @va: kernel virtual address of the PRUSS memory region
+ * @pa: physical (bus) address of the PRUSS memory region
+ * @size: size of the PRUSS memory region
+ */
+struct pruss_mem_region {
+	void __iomem *va;
+	phys_addr_t pa;
+	size_t size;
+};
+
 struct pru_rproc;
 
 /**
  * struct pruss - PRUSS parent structure
  * @pdev: platform device
- * @mem_va: kernel virtual addresses for each of the PRUSS memory regions
- * @mem_pa: physical addresses for each of the PRUSS memory regions
- * @mem_size: size of each of the PRUSS memory regions
+ * @mem_regions: data for each of the PRUSS memory regions
  * @data: pointer to store PRUSS instance private data
  * @irqs: pointer to an array of interrupts to the host processor
  * @sysev_to_ch: system events to channel mapping information
@@ -184,9 +194,7 @@ struct pru_rproc;
  */
 struct pruss {
 	struct platform_device *pdev;
-	void __iomem *mem_va[PRUSS_MEM_MAX];
-	phys_addr_t mem_pa[PRUSS_MEM_MAX];
-	size_t mem_size[PRUSS_MEM_MAX];
+	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	const struct pruss_private_data *data;
 	int *irqs;
 	int sysev_to_ch[MAX_PRU_SYS_EVENTS];
@@ -200,9 +208,7 @@ struct pruss {
  * @rproc: remoteproc pointer for this PRU core
  * @mbox: mailbox channel handle used for vring signalling with MPU
  * @client: mailbox client to request the mailbox channel
- * @mem_va: kernel virtual addresses for each of the PRU memory regions
- * @mem_pa: physical addresses for each of the PRU memory regions
- * @mem_size: size of each of the PRU memory regions
+ * @mem_regions: data for each of the PRU memory regions
  * @iram_da: device address of Instruction RAM for this PRU
  * @pdram_da: device address of primary Data RAM for this PRU
  * @sdram_da: device address of secondary Data RAM for this PRU
@@ -217,9 +223,7 @@ struct pru_rproc {
 	struct rproc *rproc;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
-	void __iomem *mem_va[PRU_MEM_MAX];
-	phys_addr_t mem_pa[PRU_MEM_MAX];
-	size_t mem_size[PRU_MEM_MAX];
+	struct pruss_mem_region mem_regions[PRU_MEM_MAX];
 	u32 iram_da;
 	u32 pdram_da;
 	u32 sdram_da;
@@ -231,35 +235,35 @@ struct pru_rproc {
 
 static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
 {
-	return readl_relaxed(pruss->mem_va[PRUSS_MEM_INTC] + reg);
+	return readl_relaxed(pruss->mem_regions[PRUSS_MEM_INTC].va + reg);
 }
 
 static inline
 void pruss_intc_write_reg(struct pruss *pruss, unsigned int reg, u32 val)
 {
-	writel_relaxed(val, pruss->mem_va[PRUSS_MEM_INTC] + reg);
+	writel_relaxed(val, pruss->mem_regions[PRUSS_MEM_INTC].va + reg);
 }
 
 static inline u32 pru_control_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
-	return readl_relaxed(pru->mem_va[PRU_MEM_CTRL] + reg);
+	return readl_relaxed(pru->mem_regions[PRU_MEM_CTRL].va + reg);
 }
 
 static inline
 void pru_control_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
 {
-	writel_relaxed(val, pru->mem_va[PRU_MEM_CTRL] + reg);
+	writel_relaxed(val, pru->mem_regions[PRU_MEM_CTRL].va + reg);
 }
 
 static inline u32 pru_debug_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
-	return readl_relaxed(pru->mem_va[PRU_MEM_DEBUG] + reg);
+	return readl_relaxed(pru->mem_regions[PRU_MEM_DEBUG].va + reg);
 }
 
 static inline
 void pru_debug_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
 {
-	writel_relaxed(val, pru->mem_va[PRU_MEM_DEBUG] + reg);
+	writel_relaxed(val, pru->mem_regions[PRU_MEM_DEBUG].va + reg);
 }
 
 /*
@@ -273,33 +277,35 @@ void pru_debug_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
  */
 static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len)
 {
+	struct pruss_mem_region dram0, dram1, shrd_ram;
 	struct pruss *pruss = pru->pruss;
 	u32 offset;
-	u32 index;
-	size_t dram_sz = pruss->mem_size[PRUSS_MEM_DRAM0];
-	size_t shrd_ram_sz = pruss->mem_size[PRUSS_MEM_SHRD_RAM2];
-
-	WARN_ON(pruss->mem_size[PRUSS_MEM_DRAM0] !=
-		pruss->mem_size[PRUSS_MEM_DRAM1]);
+	void *va = NULL;
 
 	if (len <= 0)
 		return NULL;
 
-	if (da >= pru->pdram_da && da + len <= pru->pdram_da + dram_sz) {
+	dram0 = pruss->mem_regions[PRUSS_MEM_DRAM0];
+	dram1 = pruss->mem_regions[PRUSS_MEM_DRAM1];
+	/* PRU1 has its local RAM addresses reversed */
+	if (pru->id == 1)
+		swap(dram0, dram1);
+	shrd_ram = pruss->mem_regions[PRUSS_MEM_SHRD_RAM2];
+
+	if (da >= pru->pdram_da && da + len <= pru->pdram_da + dram0.size) {
 		offset = da - pru->pdram_da;
-		index = pru->id % 2;
-	} else if (da >= pru->sdram_da && da + len <= pru->sdram_da + dram_sz) {
+		va = (__force void *)(dram0.va + offset);
+	} else if (da >= pru->sdram_da &&
+		   da + len <= pru->sdram_da + dram1.size) {
 		offset = da - pru->sdram_da;
-		index = (pru->id + 1) % 2;
+		va = (__force void *)(dram1.va + offset);
 	} else if (da >= pru->shrdram_da &&
-		   da + len <= pru->shrdram_da + shrd_ram_sz) {
+		   da + len <= pru->shrdram_da + shrd_ram.size) {
 		offset = da - pru->shrdram_da;
-		index = 2;
-	} else {
-		return NULL;
+		va = (__force void *)(shrd_ram.va + offset);
 	}
 
-	return (__force void *)(pruss->mem_va[index] + offset);
+	return va;
 }
 
 /*
@@ -312,14 +318,19 @@ static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len)
 static void *pru_i_da_to_va(struct pru_rproc *pru, u32 da, int len)
 {
 	u32 offset;
+	void *va = NULL;
 
-	if (len > 0 && da >= pru->iram_da &&
-	    da + len <= pru->iram_da + pru->mem_size[PRU_MEM_IRAM]) {
+	if (len <= 0)
+		return NULL;
+
+	if (da >= pru->iram_da &&
+	    da + len <= pru->iram_da + pru->mem_regions[PRU_MEM_IRAM].size) {
 		offset = da - pru->iram_da;
-		return (__force void *)(pru->mem_va[PRU_MEM_IRAM] + offset);
+		va = (__force void *)(pru->mem_regions[PRU_MEM_IRAM].va +
+				      offset);
 	}
 
-	return NULL;
+	return va;
 }
 
 static int pru_rproc_debug_read_regs(struct seq_file *s, void *data)
@@ -833,19 +844,19 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(mem_names); i++) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
-		pru->mem_va[i] = devm_ioremap_resource(dev, res);
-		if (IS_ERR(pru->mem_va[i])) {
+		pru->mem_regions[i].va = devm_ioremap_resource(dev, res);
+		if (IS_ERR(pru->mem_regions[i].va)) {
 			dev_err(dev, "failed to parse and map memory resource %d %s\n",
 				i, mem_names[i]);
-			ret = PTR_ERR(pru->mem_va[i]);
+			ret = PTR_ERR(pru->mem_regions[i].va);
 			goto free_rproc;
 		}
-		pru->mem_pa[i] = res->start;
-		pru->mem_size[i] = resource_size(res);
+		pru->mem_regions[i].pa = res->start;
+		pru->mem_regions[i].size = resource_size(res);
 
 		dev_dbg(dev, "memory %8s: pa %pa size 0x%x va %p\n",
-			mem_names[i], &pru->mem_pa[i],
-			pru->mem_size[i], pru->mem_va[i]);
+			mem_names[i], &pru->mem_regions[i].pa,
+			pru->mem_regions[i].size, pru->mem_regions[i].va);
 	}
 
 	platform_set_drvdata(pdev, rproc);
@@ -1055,18 +1066,18 @@ static int pruss_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(mem_names); i++) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
-		pruss->mem_va[i] = devm_ioremap_resource(dev, res);
-		if (IS_ERR(pruss->mem_va[i])) {
+		pruss->mem_regions[i].va = devm_ioremap_resource(dev, res);
+		if (IS_ERR(pruss->mem_regions[i].va)) {
 			dev_err(dev, "failed to parse and map memory resource %d %s\n",
 				i, mem_names[i]);
-			return PTR_ERR(pruss->mem_va[i]);
+			return PTR_ERR(pruss->mem_regions[i].va);
 		}
-		pruss->mem_pa[i] = res->start;
-		pruss->mem_size[i] = resource_size(res);
+		pruss->mem_regions[i].pa = res->start;
+		pruss->mem_regions[i].size = resource_size(res);
 
 		dev_dbg(dev, "memory %8s: pa %pa size 0x%x va %p\n",
-			mem_names[i], &pruss->mem_pa[i],
-			pruss->mem_size[i], pruss->mem_va[i]);
+			mem_names[i], &pruss->mem_regions[i].pa,
+			pruss->mem_regions[i].size, pruss->mem_regions[i].va);
 	}
 
 	if (data->has_reset) {
