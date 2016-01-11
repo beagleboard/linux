@@ -688,6 +688,48 @@ int pruss_intc_sysevent_clear(struct pruss *pruss, unsigned short sysevent)
 }
 EXPORT_SYMBOL_GPL(pruss_intc_sysevent_clear);
 
+/**
+ * pruss_host_to_mpu_irq() - Return MPU_IRQ of the given HOST_IRQ
+ * @pruss: the pruss instance
+ * @host_irq: the host irq number
+ *
+ * The HOST_IRQ is independent of the SoC but the MPU_IRQ is
+ * specific to the SoC. HOST_IRQ 0 and 1 go to the PRU and not the
+ * MPU so they don't map to any MPU_IRQ and the function will return
+ * error. Not all of the remaining HOST_IRQs reach the MPU on all
+ * SoCs.
+ *
+ * Returns the MPU_IRQ number for the given HOST_IRQ, or an error
+ * value upon failure
+ */
+int pruss_host_to_mpu_irq(struct pruss *pruss, unsigned int host_irq)
+{
+	int host_events;
+	int irq = 0;
+
+	if (!pruss)
+		return -EINVAL;
+
+	if (host_irq < MIN_PRU_HOST_INT || host_irq >= MAX_PRU_HOST_INT)
+		return -EINVAL;
+
+	/* check whether the interrupt can reach MPU */
+	host_events = pruss->data->host_events;
+	if (!(host_events & BIT(host_irq)))
+		return -EINVAL;
+
+	/* no need to process the first two host interrupts connected to PRU */
+	host_events >>= MIN_PRU_HOST_INT;
+	host_irq -= MIN_PRU_HOST_INT;
+	while (host_irq--) {
+		irq += (host_events & BIT(0));
+		host_events >>= 1;
+	}
+
+	return pruss->irqs[irq];
+}
+EXPORT_SYMBOL_GPL(pruss_host_to_mpu_irq);
+
 static void pruss_intc_init(struct pruss *pruss)
 {
 	int i;
@@ -707,43 +749,6 @@ static void pruss_intc_init(struct pruss *pruss)
 	/* clear all host interrupt map registers */
 	for (i = PRU_INTC_HMR(0); i <= PRU_INTC_HMR(2); i += 4)
 		pruss_intc_write_reg(pruss, i, 0);
-}
-
-/*
- * Interrupt Handler for all PRUSS MPU interrupts
- * XXX: Enhance with event listener notifications
- */
-static irqreturn_t pruss_handler(int irq, void *data)
-{
-	struct pruss *pruss = data;
-	u32 sys_evt, val;
-	int intr_bit = irq - pruss->irqs[0] + MIN_PRU_HOST_INT;
-	int intr_mask = (1 << intr_bit);
-	static int evt_mask = MAX_PRU_SYS_EVENTS - 1;
-
-	/* check whether the interrupt can reach MPU */
-	if (!(intr_mask & pruss->data->host_events))
-		return IRQ_NONE;
-
-	/* check whether the specific host interrupt is enabled */
-	val = pruss_intc_read_reg(pruss, PRU_INTC_HIER);
-	if (!(val & intr_mask))
-		return IRQ_NONE;
-
-	/* check non-pending bit of specific host interrupt */
-	val = pruss_intc_read_reg(pruss, PRU_INTC_HIPIR(intr_bit));
-	if (val & INTC_HIPIR_NONE_HINT)
-		return IRQ_NONE;
-
-	/* clear system event */
-	sys_evt = val & evt_mask;
-	if (sys_evt < 32)
-		pruss_intc_write_reg(pruss, PRU_INTC_SECR0, 1 << sys_evt);
-	else
-		pruss_intc_write_reg(pruss, PRU_INTC_SECR1,
-				     1 << (sys_evt - 32));
-
-	return IRQ_HANDLED;
 }
 
 static const struct of_device_id pruss_of_match[];
@@ -779,7 +784,7 @@ static int pruss_probe(struct platform_device *pdev)
 	int ret;
 	struct pruss *pruss;
 	struct resource *res;
-	int err, i, irq, num_irqs;
+	int err, i, num_irqs;
 	struct pruss_platform_data *pdata = dev_get_platdata(dev);
 	const struct pruss_private_data *data;
 	const char *mem_names[PRUSS_MEM_MAX] = { "dram0", "dram1", "shrdram2",
@@ -878,16 +883,6 @@ static int pruss_probe(struct platform_device *pdev)
 
 	pruss_intc_init(pruss);
 
-	for (i = 0; i < num_irqs; i++) {
-		irq = pruss->irqs[i];
-		err = devm_request_irq(dev, irq, pruss_handler, 0,
-				       dev_name(dev), pruss);
-		if (err) {
-			dev_err(dev, "failed to register irq %d\n", irq);
-			goto err_irq_fail;
-		}
-	}
-
 	platform_set_drvdata(pdev, pruss);
 
 	mutex_lock(&pruss_list_mutex);
@@ -907,7 +902,7 @@ err_of_fail:
 	mutex_lock(&pruss_list_mutex);
 	list_del(&pruss->node);
 	mutex_unlock(&pruss_list_mutex);
-err_irq_fail:
+
 	pm_runtime_put_sync(dev);
 err_rpm_fail:
 	pm_runtime_disable(dev);

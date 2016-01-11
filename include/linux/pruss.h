@@ -77,6 +77,7 @@ int pruss_intc_sysevent_irqenable(struct pruss *pruss,
 				  unsigned short sysevent);
 bool pruss_intc_sysevent_check(struct pruss *pruss, unsigned short sysevent);
 int pruss_intc_sysevent_clear(struct pruss *pruss, unsigned short sysevent);
+int pruss_host_to_mpu_irq(struct pruss *pruss, unsigned int host_irq);
 
 #else
 
@@ -138,6 +139,12 @@ static inline bool pruss_intc_sysevent_check(struct pruss *pruss,
 
 static inline int pruss_intc_sysevent_clear(struct pruss *pruss,
 					    unsigned short sysevent)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline int pruss_host_to_mpu_irq(struct pruss *pruss,
+					unsigned int host_irq)
 {
 	return ERR_PTR(-ENOTSUPP);
 }
