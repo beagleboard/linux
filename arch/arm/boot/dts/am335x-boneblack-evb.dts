@@ -51,6 +51,39 @@
 
 /* This section is EVB-specific stuff */
 
+/ {
+	evb-buttons {
+		compatible = "ev3dev,evb-input";
+		io-channels = <&adc1 0>;
+		io-channel-names = "voltage";
+	};
+
+	evb-battery {
+		pinctrl-names = "default";
+		pinctrl-0 = <&evb_battery_pins>;
+
+		compatible = "ev3dev,evb-battery";
+		io-channels = <&adc1 1>;
+		io-channel-names = "voltage";
+	};
+
+	evb-sound {
+		pinctrl-names = "default";
+		pinctrl-0 = <&evb_sound_pins>;
+
+		compatible = "ev3dev,evb-sound";
+		enable-gpios = <&gpio0 20 0>;
+		pwms = <&ecap0 0 0 PWM_POLARITY_INVERTED>;
+		pwm-names = "speaker";
+	};
+
+	evb-system-info {
+		compatible = "ev3dev,evb-system-info";
+		nvmem-cells = <&baseboard_data>;
+		nvmem-cell-names = "baseboard";
+	};
+};
+
 &am33xx_pinmux {
 	/* Input port 1 */
 
@@ -207,37 +240,4 @@
 &ecap0 {
 	/* Used for sound PWM */
 	status = "okay";
-};
-
-/ {
-	evb-buttons {
-		compatible = "ev3dev,evb-input";
-		io-channels = <&adc1 0>;
-		io-channel-names = "voltage";
-	};
-
-	evb-battery {
-		pinctrl-names = "default";
-		pinctrl-0 = <&evb_battery_pins>;
-
-		compatible = "ev3dev,evb-battery";
-		io-channels = <&adc1 1>;
-		io-channel-names = "voltage";
-	};
-
-	evb-system-info {
-		compatible = "ev3dev,evb-system-info";
-		nvmem-cells = <&baseboard_data>;
-		nvmem-cell-names = "baseboard";
-	};
-
-	evb-sound {
-		pinctrl-names = "default";
-		pinctrl-0 = <&evb_sound_pins>;
-
-		compatible = "ev3dev,evb-sound";
-		enable-gpios = <&gpio0 20 0>;
-		pwms = <&ecap0 0 0 PWM_POLARITY_INVERTED>;
-		pwm-names = "speaker";
-	};
 };
