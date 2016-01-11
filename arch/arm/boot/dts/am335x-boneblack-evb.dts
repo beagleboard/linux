@@ -21,223 +21,223 @@
 /* This section is default BeagleBone Black stuff */
 
 / {
-    model = "TI AM335x BeagleBone Black";
-    compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
 &ldo3_reg {
-    regulator-min-microvolt = <1800000>;
-    regulator-max-microvolt = <1800000>;
-    regulator-always-on;
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
 };
 
 &mmc1 {
-    vmmc-supply = <&vmmcsd_fixed>;
+	vmmc-supply = <&vmmcsd_fixed>;
 };
 
 &sgx {
-    status = "okay";
+	status = "okay";
 };
 
 /* EMMC in reset so that it does not interfere with EVB cape */
 &gpio1 {
-    emmc_rst {
-        gpio-hog;
-        gpios = <20 0>;
-        output-high;
-        line-name = "EMMC ResetN";
-    };
+	emmc_rst {
+		gpio-hog;
+		gpios = <20 0>;
+		output-high;
+		line-name = "EMMC ResetN";
+	};
 };
 
 /* This section is EVB-specific stuff */
 
 &am33xx_pinmux {
-    /* Input port 1 */
+	/* Input port 1 */
 
-    uart4_pins: pinmux_uart4_pins {
-        pinctrl-single,pins = <
-            BONE_P9_13 (PIN_OUTPUT | MUX_MODE6) /* uart4_txd - TXINA */
-            BONE_P9_11 (PIN_INPUT  | MUX_MODE6) /* uart4_rxd - RXINA */
-        >;
-    };
+	uart4_pins: pinmux_uart4_pins {
+		pinctrl-single,pins = <
+			BONE_P9_13 (PIN_OUTPUT | MUX_MODE6) /* uart4_txd - TXINA */
+			BONE_P9_11 (PIN_INPUT  | MUX_MODE6) /* uart4_rxd - RXINA */
+		>;
+	};
 
-    /* Input port 2 */
+	/* Input port 2 */
 
-    uart2_pins: pinmux_uart2_pins {
-        pinctrl-single,pins = <
-            BONE_P9_21 (PIN_OUTPUT | MUX_MODE1) /* uart2_txd - TXINB */
-            BONE_P9_22 (PIN_INPUT  | MUX_MODE1) /* uart2_rxd - RXINB */
-        >;
-    };
+	uart2_pins: pinmux_uart2_pins {
+		pinctrl-single,pins = <
+			BONE_P9_21 (PIN_OUTPUT | MUX_MODE1) /* uart2_txd - TXINB */
+			BONE_P9_22 (PIN_INPUT  | MUX_MODE1) /* uart2_rxd - RXINB */
+		>;
+	};
 
-    /* Input port 3 */
+	/* Input port 3 */
 
-    uart1_pins: pinmux_uart1_pins {
-        pinctrl-single,pins = <
-            BONE_P9_24 (PIN_OUTPUT | MUX_MODE0) /* uart1_txd - TXINC */
-            BONE_P9_26 (PIN_INPUT  | MUX_MODE0) /* uart1_rxd - RXINC */
-        >;
-    };
+	uart1_pins: pinmux_uart1_pins {
+		pinctrl-single,pins = <
+			BONE_P9_24 (PIN_OUTPUT | MUX_MODE0) /* uart1_txd - TXINC */
+			BONE_P9_26 (PIN_INPUT  | MUX_MODE0) /* uart1_rxd - RXINC */
+		>;
+	};
 
-    /* Input port 4 */
+	/* Input port 4 */
 
-    uart5_pins: pinmux_uart5_pins {
-        pinctrl-single,pins = <
-            BONE_P8_37 (PIN_OUTPUT | MUX_MODE4) /* uart5_txd - RXIND */
-            BONE_P8_38 (PIN_INPUT  | MUX_MODE4) /* uart5_rxd - TXIND */
-        >;
-    };
+	uart5_pins: pinmux_uart5_pins {
+		pinctrl-single,pins = <
+			BONE_P8_37 (PIN_OUTPUT | MUX_MODE4) /* uart5_txd - RXIND */
+			BONE_P8_38 (PIN_INPUT  | MUX_MODE4) /* uart5_rxd - TXIND */
+		>;
+	};
 
-    /* Display */
+	/* Display */
 
-    spi1_pins: pinmux_spi1_pins {
-        pinctrl-single,pins = <
-            BONE_P9_31 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_sclk - FBCLK  */
-            BONE_P9_30 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_d1   - FBMOSI */
-            BONE_P9_28 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_cs0  - FBCS   */
-            BONE_P8_33 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpio0[9]  - FBDC   */
-            BONE_P8_35 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpio0[8]  - FBRST  */
-        >;
-    };
+	spi1_pins: pinmux_spi1_pins {
+		pinctrl-single,pins = <
+			BONE_P9_31 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_sclk - FBCLK  */
+			BONE_P9_30 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_d1   - FBMOSI */
+			BONE_P9_28 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_cs0  - FBCS   */
+			BONE_P8_33 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpio0[9]  - FBDC   */
+			BONE_P8_35 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpio0[8]  - FBRST  */
+		>;
+	};
 
-    evb_battery_pins: evb_pinmux_battery_pins {
-        pinctrl-single,pins = <
-            BONE_P8_23 (PIN_OUTPUT | MUX_MODE7) /* gpio1[4] - ADCBATEN */
-        >;
-    };
+	evb_battery_pins: evb_pinmux_battery_pins {
+		pinctrl-single,pins = <
+			BONE_P8_23 (PIN_OUTPUT | MUX_MODE7) /* gpio1[4] - ADCBATEN */
+		>;
+	};
 
-    evb_sound_pins: pinmux_evb_sound_pins {
-        pinctrl-single,pins = <
-            BONE_P9_41A (PIN_OUTPUT | MUX_MODE7) /* gpio0[20]  - SOUNDEN   */
-            BONE_P9_41B (PIN_INPUT  | MUX_MODE7) /* gpio3[20]  - SOUNDEN   */
-            BONE_P9_42A (PIN_OUTPUT | MUX_MODE0) /* ecap0_pwm0 - SOUNDARMA */
-            BONE_P9_42B (PIN_INPUT  | MUX_MODE7) /* gpio3[18]  - SOUNDARMA */
-        >;
-    };
+	evb_sound_pins: pinmux_evb_sound_pins {
+		pinctrl-single,pins = <
+			BONE_P9_41A (PIN_OUTPUT | MUX_MODE7) /* gpio0[20]  - SOUNDEN   */
+			BONE_P9_41B (PIN_INPUT  | MUX_MODE7) /* gpio3[20]  - SOUNDEN   */
+			BONE_P9_42A (PIN_OUTPUT | MUX_MODE0) /* ecap0_pwm0 - SOUNDARMA */
+			BONE_P9_42B (PIN_INPUT  | MUX_MODE7) /* gpio3[18]  - SOUNDARMA */
+		>;
+	};
 };
 
 &uart1 {
-    pinctrl-names = "default";
-    pinctrl-0 = <&uart1_pins>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
 
-    status = "okay";
+	status = "okay";
 };
 
 &uart2 {
-    pinctrl-names = "default";
-    pinctrl-0 = <&uart2_pins>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
 
-    status = "okay";
+	status = "okay";
 };
 
 &uart4 {
-    pinctrl-names = "default";
-    pinctrl-0 = <&uart4_pins>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart4_pins>;
 
-    status = "okay";
+	status = "okay";
 };
 
 &uart5 {
-    pinctrl-names = "default";
-    pinctrl-0 = <&uart5_pins>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart5_pins>;
 
-    status = "okay";
+	status = "okay";
 };
 
 &spi1 {
-    status = "okay";
+	status = "okay";
 
-    evb_display: evb_display@0 {
-        compatible = "ilitek,ili9225";
-        reg = <0>;
-        pinctrl-names = "default";
-        pinctrl-0 = <&spi1_pins>;
+	evb_display: evb_display@0 {
+		compatible = "ilitek,ili9225";
+		reg = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&spi1_pins>;
 
-        rotate = <270>;
-        spi-max-frequency = <12000000>;
-        bgr;
-        reset-gpios = <&gpio0 8 0>;
-        dc-gpios = <&gpio0 9 0>;
-        debug = <0>;
+		rotate = <270>;
+		spi-max-frequency = <12000000>;
+		bgr;
+		reset-gpios = <&gpio0 8 0>;
+		dc-gpios = <&gpio0 9 0>;
+		debug = <0>;
 
-        init = <
-            0x1000001 0x01 0x1C
-            0x1000002 0x01 0x00
-            0x1000008 0x08 0x08
-            0x100000C 0x00 0x00
-            0x100000F 0x0E 0x01
-            0x2000032
-            0x1000010 0x09 0x00
-            0x1000011 0x10 0x38
-            0x2000032
-            0x1000012 0x11 0x21
-            0x1000013 0x00 0x65
-            0x1000014 0x50 0x58
-            0x1000030 0x00 0x00
-            0x1000031 0x00 0xDB
-            0x1000032 0x00 0x00
-            0x1000033 0x00 0x00
-            0x1000034 0x00 0xDB
-            0x1000035 0x00 0x00
-            0x1000036 0x00 0xAF
-            0x1000037 0x00 0x00
-            0x1000038 0x00 0xDB
-            0x1000039 0x00 0x00
-            0x2000032
-            0x1000007 0x10 0x17
-            0x2000032
-        >;
-    };
+		init = <
+			0x1000001 0x01 0x1C
+			0x1000002 0x01 0x00
+			0x1000008 0x08 0x08
+			0x100000C 0x00 0x00
+			0x100000F 0x0E 0x01
+			0x2000032
+			0x1000010 0x09 0x00
+			0x1000011 0x10 0x38
+			0x2000032
+			0x1000012 0x11 0x21
+			0x1000013 0x00 0x65
+			0x1000014 0x50 0x58
+			0x1000030 0x00 0x00
+			0x1000031 0x00 0xDB
+			0x1000032 0x00 0x00
+			0x1000033 0x00 0x00
+			0x1000034 0x00 0xDB
+			0x1000035 0x00 0x00
+			0x1000036 0x00 0xAF
+			0x1000037 0x00 0x00
+			0x1000038 0x00 0xDB
+			0x1000039 0x00 0x00
+			0x2000032
+			0x1000007 0x10 0x17
+			0x2000032
+		>;
+	};
 };
 
 &tscadc {
-    status = "okay";
-    adc1: adc {
-        /* AIN0: buttons */
-        /* AIN1: battery */
-        ti,adc-channels = <0 1>;
-    };
+	status = "okay";
+	adc1: adc {
+		/* AIN0: buttons */
+		/* AIN1: battery */
+		ti,adc-channels = <0 1>;
+	};
 };
 
 &epwmss0 {
-    /* Used for ecap0 */
-    status = "okay";
+	/* Used for ecap0 */
+	status = "okay";
 };
 
 &ecap0 {
-    /* Used for sound PWM */
-    status = "okay";
+	/* Used for sound PWM */
+	status = "okay";
 };
 
 / {
-    evb-buttons {
-        compatible = "ev3dev,evb-input";
-        io-channels = <&adc1 0>;
-        io-channel-names = "voltage";
-    };
+	evb-buttons {
+		compatible = "ev3dev,evb-input";
+		io-channels = <&adc1 0>;
+		io-channel-names = "voltage";
+	};
 
-    evb-battery {
-        pinctrl-names = "default";
-        pinctrl-0 = <&evb_battery_pins>;
+	evb-battery {
+		pinctrl-names = "default";
+		pinctrl-0 = <&evb_battery_pins>;
 
-        compatible = "ev3dev,evb-battery";
-        io-channels = <&adc1 1>;
-        io-channel-names = "voltage";
-    };
+		compatible = "ev3dev,evb-battery";
+		io-channels = <&adc1 1>;
+		io-channel-names = "voltage";
+	};
 
-    evb-system-info {
-        compatible = "ev3dev,evb-system-info";
-        nvmem-cells = <&baseboard_data>;
-        nvmem-cell-names = "baseboard";
-    };
+	evb-system-info {
+		compatible = "ev3dev,evb-system-info";
+		nvmem-cells = <&baseboard_data>;
+		nvmem-cell-names = "baseboard";
+	};
 
-    evb-sound {
-        pinctrl-names = "default";
-        pinctrl-0 = <&evb_sound_pins>;
+	evb-sound {
+		pinctrl-names = "default";
+		pinctrl-0 = <&evb_sound_pins>;
 
-        compatible = "ev3dev,evb-sound";
-        enable-gpios = <&gpio0 20 0>;
-        pwms = <&ecap0 0 0 PWM_POLARITY_INVERTED>;
-        pwm-names = "speaker";
-    };
+		compatible = "ev3dev,evb-sound";
+		enable-gpios = <&gpio0 20 0>;
+		pwms = <&ecap0 0 0 PWM_POLARITY_INVERTED>;
+		pwm-names = "speaker";
+	};
 };
