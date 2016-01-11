@@ -9,6 +9,8 @@
 #ifndef _PRUSS_DRIVER_H_
 #define _PRUSS_DRIVER_H_
 
+#include <linux/pruss.h>
+
 /* maximum number of system events */
 #define MAX_PRU_SYS_EVENTS	64
 
@@ -20,28 +22,6 @@
 
 /* maximum number of host interrupts */
 #define MAX_PRU_HOST_INT	10
-
-/**
- * enum pruss_mem - PRUSS memory range identifiers
- */
-enum pruss_mem {
-	PRUSS_MEM_DRAM0 = 0,
-	PRUSS_MEM_DRAM1,
-	PRUSS_MEM_SHRD_RAM2,
-	PRUSS_MEM_MAX,
-};
-
-/**
- * struct pruss_mem_region - PRUSS memory region structure
- * @va: kernel virtual address of the PRUSS memory region
- * @pa: physical (bus) address of the PRUSS memory region
- * @size: size of the PRUSS memory region
- */
-struct pruss_mem_region {
-	void __iomem *va;
-	phys_addr_t pa;
-	size_t size;
-};
 
 /**
  * struct pruss_intc_config - INTC configuration info
@@ -60,6 +40,8 @@ struct pruss_intc_config {
  * @iep: regmap for IEP sub-module
  * @mii_rt: regmap for MII_RT sub-module
  * @mem_regions: data for each of the PRUSS memory regions
+ * @mem_in_use: to indicate if memory resource is in use
+ * @lock: mutex to serialize access to resources
  */
 struct pruss {
 	struct device *dev;
@@ -67,6 +49,8 @@ struct pruss {
 	struct regmap *iep;
 	struct regmap *mii_rt;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
+	struct pruss_mem_region *mem_in_use[PRUSS_MEM_MAX];
+	struct mutex lock; /* PRU resource lock */
 };
 
 int pruss_intc_configure(struct pruss *pruss,
