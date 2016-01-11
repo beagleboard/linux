@@ -1,0 +1,36 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+/*
+ * This file should be essentially the same as am335x-bone.dts except that
+ * eMMC is disabled and it includes the file for FatcatLab EVB instead of
+ * am33xx.dtsi/am335x-bone-common.dtsi.
+ */
+
+#include "am335x-bone-evb.dtsi"
+#include "am335x-bone-emmc-in-reset.dtsi"
+
+/ {
+	model = "TI AM335x BeagleBone";
+	compatible = "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <3300000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&ldo3_reg>;
+};
+
+&sgx {
+	status = "okay";
+};
