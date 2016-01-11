@@ -532,10 +532,10 @@ static int pruss_configure_intc(struct pruss *pruss)
 		 sysevt_mask, ch_mask, host_mask);
 
 	/* enable system events */
-	pruss_intc_write_reg(pruss, PRU_INTC_ESR0, sysevt_mask);
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, sysevt_mask);
-	pruss_intc_write_reg(pruss, PRU_INTC_ESR1, (sysevt_mask >> 32));
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, (sysevt_mask >> 32));
+	pruss_intc_write_reg(pruss, PRU_INTC_ESR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_ESR1, upper_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
 
 	/* enable host interrupts */
 	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
