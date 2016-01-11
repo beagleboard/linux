@@ -68,31 +68,6 @@
 #define INTC_HIPIR_NONE_HINT	0x80000000
 
 /**
- * enum pruss_mem - PRUSS memory range identifiers
- */
-enum pruss_mem {
-	PRUSS_MEM_DRAM0 = 0,
-	PRUSS_MEM_DRAM1,
-	PRUSS_MEM_SHRD_RAM2,
-	PRUSS_MEM_CFG,
-	PRUSS_MEM_IEP,
-	PRUSS_MEM_MII_RT,
-	PRUSS_MEM_MAX,
-};
-
-/**
- * struct pruss_mem_region - PRUSS memory region structure
- * @va: kernel virtual address of the PRUSS memory region
- * @pa: physical (bus) address of the PRUSS memory region
- * @size: size of the PRUSS memory region
- */
-struct pruss_mem_region {
-	void __iomem *va;
-	phys_addr_t pa;
-	size_t size;
-};
-
-/**
  * struct pruss_intc_config - INTC configuration info
  * @sysev_to_ch: system events to channel mapping information
  * @ch_to_host: interrupt channel to host interrupt information
@@ -107,6 +82,7 @@ struct pruss_intc_config {
  * @node: list node of this object
  * @dev: pruss device pointer
  * @mem_regions: data for each of the PRUSS memory regions
+ * @mem_in_use: to indicate if memory resource is in use
  * @host_mask: indicate which HOST IRQs are enabled
  * @pru_running: flag to indicate if PRU is running
  * @pru_in_use: flag to indicate if PRU is used
@@ -116,6 +92,7 @@ struct pruss {
 	struct list_head node;
 	struct device *dev;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
+	struct pruss_mem_region *mem_in_use[PRUSS_MEM_MAX];
 	u32 host_mask;
 	bool pru_running[PRUSS_NUM_PRUS];
 	struct rproc *pru_in_use[PRUSS_NUM_PRUS];
