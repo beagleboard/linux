@@ -610,6 +610,84 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 }
 EXPORT_SYMBOL_GPL(pruss_intc_unconfigure);
 
+static int pruss_intc_check_write(struct pruss *pruss, unsigned int reg,
+				  unsigned int sysevent)
+{
+	if (!pruss)
+		return -EINVAL;
+
+	if (sysevent >= MAX_PRU_SYS_EVENTS)
+		return -EINVAL;
+
+	pruss_intc_write_reg(pruss, reg, sysevent);
+
+	return 0;
+}
+
+/**
+ * pruss_intc_sysevent_irqdisable() - disable the INTC sysevent IRQ
+ * @pruss: the pruss instance
+ * @sysevent: sysevent number
+ */
+int pruss_intc_sysevent_irqdisable(struct pruss *pruss,
+				   unsigned short sysevent)
+{
+	return pruss_intc_check_write(pruss, PRU_INTC_EICR, sysevent);
+}
+EXPORT_SYMBOL(pruss_intc_sysevent_irqdisable);
+
+/**
+ * pruss_intc_sysevent_irqenable() - enable the INTC sysevent IRQ
+ * @pruss: the pruss instance
+ * @sysevent: sysevent number
+ */
+int pruss_intc_sysevent_irqenable(struct pruss *pruss, unsigned short sysevent)
+{
+	return pruss_intc_check_write(pruss, PRU_INTC_EISR, sysevent);
+}
+EXPORT_SYMBOL(pruss_intc_sysevent_irqenable);
+
+/**
+ * pruss_intc_sysevent_check() - check the system event interrupt
+ * @pruss: the pruss instance
+ * @sysevent: sysevent number
+ *
+ * Returns true if sysevent is pending, false otherwise
+ */
+bool pruss_intc_sysevent_check(struct pruss *pruss, unsigned short sysevent)
+{
+	u64 reg;
+
+	if (!pruss)
+		return false;
+
+	if (sysevent >= MAX_PRU_SYS_EVENTS)
+		return false;
+
+	if (sysevent < 32) {
+		reg = pruss_intc_read_reg(pruss, PRU_INTC_SRSR0);
+	} else {
+		reg = pruss_intc_read_reg(pruss, PRU_INTC_SRSR1);
+		sysevent -= 32;
+	}
+
+	return reg & BIT(sysevent);
+}
+EXPORT_SYMBOL_GPL(pruss_intc_sysevent_check);
+
+/**
+ * pruss_intc_sysevent_clear() - clear the system event interrupt
+ * @pruss: the pruss instance
+ * @sysevent: sysevent number
+ *
+ * Returns 0 on success or -EVINVAL on invalid pruss/sysevent.
+ */
+int pruss_intc_sysevent_clear(struct pruss *pruss, unsigned short sysevent)
+{
+	return pruss_intc_check_write(pruss, PRU_INTC_SICR, sysevent);
+}
+EXPORT_SYMBOL_GPL(pruss_intc_sysevent_clear);
+
 static void pruss_intc_init(struct pruss *pruss)
 {
 	int i;

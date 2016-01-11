@@ -17,6 +17,9 @@
 #ifndef __LINUX_PRUSS_H
 #define __LINUX_PRUSS_H
 
+/* maximum number of system events */
+#define MAX_PRU_SYS_EVENTS 64
+
 /**
  * enum pruss_pru_id - PRU core identifiers
  */
@@ -68,6 +71,12 @@ int pruss_request_mem_region(struct pruss *pruss, enum pruss_mem mem_id,
 			     struct pruss_mem_region *region);
 int pruss_release_mem_region(struct pruss *pruss,
 			     struct pruss_mem_region *region);
+int pruss_intc_sysevent_irqdisable(struct pruss *pruss,
+				   unsigned short sysevent);
+int pruss_intc_sysevent_irqenable(struct pruss *pruss,
+				  unsigned short sysevent);
+bool pruss_intc_sysevent_check(struct pruss *pruss, unsigned short sysevent);
+int pruss_intc_sysevent_clear(struct pruss *pruss, unsigned short sysevent);
 
 #else
 
@@ -105,6 +114,30 @@ static inline int pruss_request_mem_region(struct pruss *pruss,
 
 static inline int pruss_release_mem_region(struct pruss *pruss,
 					   struct pruss_mem_region *region)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline int pruss_intc_sysevent_irqdisable(struct pruss *pruss,
+						 unsigned short sysevent)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline int pruss_intc_sysevent_irqenable(struct pruss *pruss,
+						unsigned short sysevent)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline bool pruss_intc_sysevent_check(struct pruss *pruss,
+					     unsigned short sysevent)
+{
+	return false;
+}
+
+static inline int pruss_intc_sysevent_clear(struct pruss *pruss,
+					    unsigned short sysevent)
 {
 	return ERR_PTR(-ENOTSUPP);
 }
