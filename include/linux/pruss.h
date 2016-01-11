@@ -26,6 +26,32 @@ enum pruss_pru_id {
 	PRUSS_NUM_PRUS,
 };
 
+/**
+ * enum pruss_mem - PRUSS memory range identifiers
+ */
+enum pruss_mem {
+	PRUSS_MEM_DRAM0 = 0,
+	PRUSS_MEM_DRAM1,
+	PRUSS_MEM_SHRD_RAM2,
+	PRUSS_MEM_INTC,
+	PRUSS_MEM_CFG,
+	PRUSS_MEM_IEP,
+	PRUSS_MEM_MII_RT,
+	PRUSS_MEM_MAX,
+};
+
+/**
+ * struct pruss_mem_region - PRUSS memory region structure
+ * @va: kernel virtual address of the PRUSS memory region
+ * @pa: physical (bus) address of the PRUSS memory region
+ * @size: size of the PRUSS memory region
+ */
+struct pruss_mem_region {
+	void __iomem *va;
+	phys_addr_t pa;
+	size_t size;
+};
+
 struct pruss;
 
 #if IS_ENABLED(CONFIG_PRUSS_REMOTEPROC)
@@ -38,6 +64,10 @@ void pruss_rproc_put(struct pruss *pruss, struct rproc *rproc);
 int pruss_rproc_boot(struct pruss *pruss, struct rproc *rproc,
 		     const char *fw_name);
 void pruss_rproc_halt(struct pruss *pruss, struct rproc *rproc);
+int pruss_request_mem_region(struct pruss *pruss, enum pruss_mem mem_id,
+			     struct pruss_mem_region *region);
+int pruss_release_mem_region(struct pruss *pruss,
+			     struct pruss_mem_region *region);
 
 #else
 
@@ -64,6 +94,19 @@ static inline int pruss_rproc_boot(struct pruss *pruss, struct rproc *rproc,
 
 static inline void pruss_rproc_halt(struct pruss *pruss, struct rproc *rproc)
 {
+}
+
+static inline int pruss_request_mem_region(struct pruss *pruss,
+					   enum pruss_mem mem_id,
+					   struct pruss_mem_region *region)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline int pruss_release_mem_region(struct pruss *pruss,
+					   struct pruss_mem_region *region)
+{
+	return ERR_PTR(-ENOTSUPP);
 }
 
 #endif /* CONFIG_PRUSS_REMOTEPROC */
