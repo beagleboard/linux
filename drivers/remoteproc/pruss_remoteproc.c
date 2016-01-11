@@ -181,6 +181,16 @@ struct pruss_mem_region {
 	size_t size;
 };
 
+/**
+ * struct pruss_intc_config - INTC configuration info
+ * @sysev_to_ch: system events to channel mapping information
+ * @ch_to_host: interrupt channel to host interrupt information
+ */
+struct pruss_intc_config {
+	int sysev_to_ch[MAX_PRU_SYS_EVENTS];
+	int ch_to_host[MAX_PRU_CHANNELS];
+};
+
 struct pru_rproc;
 
 /**
@@ -189,16 +199,14 @@ struct pru_rproc;
  * @mem_regions: data for each of the PRUSS memory regions
  * @data: pointer to store PRUSS instance private data
  * @irqs: pointer to an array of interrupts to the host processor
- * @sysev_to_ch: system events to channel mapping information
- * @ch_to_host: interrupt channel to host interrupt information
+ * @intc_config: local INTC configuration data
  */
 struct pruss {
 	struct platform_device *pdev;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	const struct pruss_private_data *data;
 	int *irqs;
-	int sysev_to_ch[MAX_PRU_SYS_EVENTS];
-	int ch_to_host[MAX_PRU_CHANNELS];
+	struct pruss_intc_config intc_config;
 };
 
 /**
@@ -499,8 +507,8 @@ static int pruss_configure_intc(struct pruss *pruss)
 	 * for 4 events, with each event occupying the lower nibble in
 	 * a register byte address in little-endian fashion
 	 */
-	for (i = 0; i < ARRAY_SIZE(pruss->sysev_to_ch); i++) {
-		ch = pruss->sysev_to_ch[i];
+	for (i = 0; i < ARRAY_SIZE(pruss->intc_config.sysev_to_ch); i++) {
+		ch = pruss->intc_config.sysev_to_ch[i];
 		if (ch < 0)
 			continue;
 
@@ -521,8 +529,8 @@ static int pruss_configure_intc(struct pruss *pruss)
 	 * 4 channels, with each channel occupying the lower nibble in
 	 * a register byte address in little-endian fashion
 	 */
-	for (i = 0; i < ARRAY_SIZE(pruss->ch_to_host); i++) {
-		host = pruss->ch_to_host[i];
+	for (i = 0; i < ARRAY_SIZE(pruss->intc_config.ch_to_host); i++) {
+		host = pruss->intc_config.ch_to_host[i];
 		if (host < 0)
 			continue;
 
@@ -689,12 +697,13 @@ static int pru_handle_custom_intrmap(struct rproc *rproc,
 			return -EINVAL;
 		}
 
-		if (pruss->sysev_to_ch[sys_evt] != -1) {
+		if (pruss->intc_config.sysev_to_ch[sys_evt] != -1) {
 			dev_err(dev, "[%d] event %d already assigned to channel %d\n",
-				i, sys_evt, pruss->sysev_to_ch[sys_evt]);
+				i, sys_evt,
+				pruss->intc_config.sysev_to_ch[sys_evt]);
 			return -EEXIST;
 		}
-		pruss->sysev_to_ch[sys_evt] = chnl;
+		pruss->intc_config.sysev_to_ch[sys_evt] = chnl;
 		dev_dbg(dev, "sysevt-to-ch[%d] -> %d\n", sys_evt, chnl);
 	}
 
@@ -712,12 +721,12 @@ static int pru_handle_custom_intrmap(struct rproc *rproc,
 			return -EINVAL;
 		}
 
-		if (pruss->ch_to_host[i] != -1) {
+		if (pruss->intc_config.ch_to_host[i] != -1) {
 			dev_err(dev, "channel %d already assigned to intr_no %d\n",
-				i, pruss->ch_to_host[i]);
+				i, pruss->intc_config.ch_to_host[i]);
 			return -EEXIST;
 		}
-		pruss->ch_to_host[i] = intr_no;
+		pruss->intc_config.ch_to_host[i] = intr_no;
 		dev_dbg(dev, "chnl-to-host[%d] -> %d\n", i, intr_no);
 	}
 
@@ -1047,11 +1056,11 @@ static int pruss_probe(struct platform_device *pdev)
 	for (i = 0; i < num_irqs; i++)
 		pruss->irqs[i] = -1;
 
-	for (i = 0; i < ARRAY_SIZE(pruss->sysev_to_ch); i++)
-		pruss->sysev_to_ch[i] = -1;
+	for (i = 0; i < ARRAY_SIZE(pruss->intc_config.sysev_to_ch); i++)
+		pruss->intc_config.sysev_to_ch[i] = -1;
 
-	for (i = 0; i < ARRAY_SIZE(pruss->ch_to_host); i++)
-		pruss->ch_to_host[i] = -1;
+	for (i = 0; i < ARRAY_SIZE(pruss->intc_config.ch_to_host); i++)
+		pruss->intc_config.ch_to_host[i] = -1;
 
 	for (i = 0; i < num_irqs; i++) {
 		pruss->irqs[i] = platform_get_irq(pdev, i);
