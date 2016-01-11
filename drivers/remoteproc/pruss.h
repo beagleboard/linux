@@ -57,28 +57,6 @@
 #define INTC_HIPIR_NONE_HINT	0x80000000
 
 /**
- * enum pruss_mem - PRUSS memory range identifiers
- */
-enum pruss_mem {
-	PRUSS_MEM_DRAM0 = 0,
-	PRUSS_MEM_DRAM1,
-	PRUSS_MEM_SHRD_RAM2,
-	PRUSS_MEM_MAX,
-};
-
-/**
- * struct pruss_mem_region - PRUSS memory region structure
- * @va: kernel virtual address of the PRUSS memory region
- * @pa: physical (bus) address of the PRUSS memory region
- * @size: size of the PRUSS memory region
- */
-struct pruss_mem_region {
-	void __iomem *va;
-	phys_addr_t pa;
-	size_t size;
-};
-
-/**
  * struct pruss_intc_config - INTC configuration info
  * @sysev_to_ch: system events to channel mapping information
  * @ch_to_host: interrupt channel to host interrupt information
@@ -95,7 +73,9 @@ struct pruss_intc_config {
  * @iep: regmap for IEP sub-module
  * @mii_rt: regmap for MII_RT sub-module
  * @mem_regions: data for each of the PRUSS memory regions
+ * @mem_in_use: to indicate if memory resource is in use
  * @host_mask: indicate which HOST IRQs are enabled
+ * @lock: mutex to serialize access to resources
  */
 struct pruss {
 	struct device *dev;
@@ -103,7 +83,9 @@ struct pruss {
 	struct regmap *iep;
 	struct regmap *mii_rt;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
+	struct pruss_mem_region *mem_in_use[PRUSS_MEM_MAX];
 	u32 host_mask;
+	struct mutex lock; /* PRU resource lock */
 };
 
 int pruss_intc_configure(struct pruss *pruss,
