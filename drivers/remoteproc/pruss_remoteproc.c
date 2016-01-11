@@ -478,9 +478,9 @@ static int pruss_configure_intc(struct pruss *pruss)
 {
 	struct device *dev = &pruss->pdev->dev;
 	int i, idx, ch, host;
-	uint64_t sysevt_mask = 0;
-	uint32_t ch_mask = 0;
-	uint32_t host_mask = 0;
+	u64 sysevt_mask = 0;
+	u32 ch_mask = 0;
+	u32 host_mask = 0;
 	u32 val;
 
 	/*
@@ -495,7 +495,7 @@ static int pruss_configure_intc(struct pruss *pruss)
 
 		idx = i / 4;
 		val  = pruss_intc_read_reg(pruss, PRU_INTC_CMR(idx));
-		val |= (u32)ch << ((i & 3) * 8);
+		val |= ch << ((i & 3) * 8);
 		pruss_intc_write_reg(pruss, PRU_INTC_CMR(idx), val);
 
 		sysevt_mask |= 1LLU << i;
@@ -518,7 +518,7 @@ static int pruss_configure_intc(struct pruss *pruss)
 		idx = i / 4;
 
 		val  = pruss_intc_read_reg(pruss, PRU_INTC_HMR(idx));
-		val |= (u32)host << ((i & 3) * 8);
+		val |= host << ((i & 3) * 8);
 		pruss_intc_write_reg(pruss, PRU_INTC_HMR(idx), val);
 
 		ch_mask |= 1U << i;
@@ -532,10 +532,10 @@ static int pruss_configure_intc(struct pruss *pruss)
 		 sysevt_mask, ch_mask, host_mask);
 
 	/* enable system events */
-	pruss_intc_write_reg(pruss, PRU_INTC_ESR0, (u32)sysevt_mask);
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, (u32)sysevt_mask);
-	pruss_intc_write_reg(pruss, PRU_INTC_ESR1, (u32)(sysevt_mask >> 32));
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, (u32)(sysevt_mask >> 32));
+	pruss_intc_write_reg(pruss, PRU_INTC_ESR0, sysevt_mask);
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, sysevt_mask);
+	pruss_intc_write_reg(pruss, PRU_INTC_ESR1, (sysevt_mask >> 32));
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, (sysevt_mask >> 32));
 
 	/* enable host interrupts */
 	for (i = 0; i < MAX_PRU_HOST_INT; i++) {

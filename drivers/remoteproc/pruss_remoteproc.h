@@ -61,8 +61,8 @@ enum pruss_rsc_types {
  *
  */
 struct pruss_event_chnl {
-	int8_t event;
-	int8_t chnl;
+	s8 event;
+	s8 chnl;
 };
 
 /**
@@ -84,9 +84,9 @@ struct pruss_event_chnl {
  * specifies to which host, if any, a channel is mapped.
  */
 struct fw_rsc_custom_intrmap {
-	uint16_t version;
-	int8_t chnl_host_intr_map[10];
-	uint32_t event_chnl_map_size;
+	u16 version;
+	s8 chnl_host_intr_map[10];
+	u32 event_chnl_map_size;
 	struct pruss_event_chnl *event_chnl_map;
 };
 
