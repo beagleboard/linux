@@ -293,10 +293,16 @@ static int palmas_usb_probe(struct platform_device *pdev)
 	}
 
 	if (palmas_usb->enable_vbus_detection) {
+		int irq = platform_get_irq(pdev, 0);
+
+		if (irq < 0)
+			irq = regmap_irq_get_virq(palmas->irq_data,
+						  PALMAS_VBUS_IRQ);
+
+		palmas_usb->vbus_irq = irq;
+
 		palmas_usb->vbus_otg_irq = regmap_irq_get_virq(palmas->irq_data,
 						       PALMAS_VBUS_OTG_IRQ);
-		palmas_usb->vbus_irq = regmap_irq_get_virq(palmas->irq_data,
-							   PALMAS_VBUS_IRQ);
 		status = devm_request_threaded_irq(palmas_usb->dev,
 				palmas_usb->vbus_irq, NULL,
 				palmas_vbus_irq_handler,

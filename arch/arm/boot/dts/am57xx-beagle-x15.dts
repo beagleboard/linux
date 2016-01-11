@@ -384,6 +384,7 @@
 		interrupt-controller;
 
 		ti,system-power-controller;
+		ti,mux-pad1 = <8>;
 
 		tps659038_pmic {
 			compatible = "ti,tps659038-pmic";
@@ -533,8 +534,7 @@
 		extcon_usb2: tps659038_usb {
 			compatible = "ti,palmas-usb-vid";
 			ti,enable-vbus-detection;
-			ti,enable-id-detection;
-			id-gpios = <&gpio7 24 GPIO_ACTIVE_HIGH>;
+			interrupts-extended = <&gpio4 21 IRQ_TYPE_EDGE_RISING>;
 		};
 
 	};
