@@ -1,7 +1,7 @@
 /*
  * PRUSS Remote Processor specific types
  *
- * Copyright(c) 2014-2015 Texas Instruments, Inc.
+ * Copyright (C) 2014-2016 Texas Instruments Incorporated - http://www.ti.com/
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,8 +31,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _PRUSS_REMOTEPROC_H_
-#define _PRUSS_REMOTEPROC_H_
+#ifndef _PRU_REMOTEPROC_H_
+#define _PRU_REMOTEPROC_H_
 
 /**
  * enum pruss_rsc_types - PRU specific resource types
@@ -90,4 +90,4 @@ struct fw_rsc_custom_intrmap {
 	struct pruss_event_chnl *event_chnl_map;
 };
 
-#endif	/* _PRUSS_REMOTEPROC_H_ */
+#endif	/* _PRU_REMOTEPROC_H_ */
