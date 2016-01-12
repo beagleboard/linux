@@ -121,6 +121,7 @@ struct edma_chan {
 };
 
 struct edma_cc {
+	struct edma			*cc;
 	int				ctlr;
 	struct dma_device		dma_slave;
 	struct edma_chan		slave_chans[EDMA_CHANS];
@@ -152,6 +153,7 @@ static void edma_desc_free(struct virt_dma_desc *vdesc)
 /* Dispatch a queued descriptor to the controller (caller holds lock) */
 static void edma_execute(struct edma_chan *echan)
 {
+	struct edma *cc = echan->ecc->cc;
 	struct virt_dma_desc *vdesc;
 	struct edma_desc *edesc;
 	struct device *dev = echan->vchan.chan.device->dev;
@@ -176,7 +178,7 @@ static void edma_execute(struct edma_chan *echan)
 	/* Write descriptor PaRAM set(s) */
 	for (i = 0; i < nslots; i++) {
 		j = i + edesc->processed;
-		edma_write_slot(echan->slot[i], &edesc->pset[j].param);
+		edma_write_slot(cc, echan->slot[i], &edesc->pset[j].param);
 		edesc->sg_len += edesc->pset[j].len;
 		dev_vdbg(echan->vchan.chan.device->dev,
 			"\n pset[%d]:\n"
@@ -201,7 +203,7 @@ static void edma_execute(struct edma_chan *echan)
 			edesc->pset[j].param.link_bcntrld);
 		/* Link to the previous slot if not the last set */
 		if (i != (nslots - 1))
-			edma_link(echan->slot[i], echan->slot[i+1]);
+			edma_link(cc, echan->slot[i], echan->slot[i+1]);
 	}
 
 	edesc->processed += nslots;
@@ -213,9 +215,9 @@ static void edma_execute(struct edma_chan *echan)
 	 */
 	if (edesc->processed == edesc->pset_nr) {
 		if (edesc->cyclic)
-			edma_link(echan->slot[nslots-1], echan->slot[1]);
+			edma_link(cc, echan->slot[nslots-1], echan->slot[1]);
 		else
-			edma_link(echan->slot[nslots-1],
+			edma_link(cc, echan->slot[nslots-1],
 				  echan->ecc->dummy_slot);
 	}
 
@@ -226,19 +228,19 @@ static void edma_execute(struct edma_chan *echan)
 		 * transfers of MAX_NR_SG
 		 */
 		dev_dbg(dev, "missed event on channel %d\n", echan->ch_num);
-		edma_clean_channel(echan->ch_num);
-		edma_stop(echan->ch_num);
-		edma_start(echan->ch_num);
-		edma_trigger_channel(echan->ch_num);
+		edma_clean_channel(cc, echan->ch_num);
+		edma_stop(cc, echan->ch_num);
+		edma_start(cc, echan->ch_num);
+		edma_trigger_channel(cc, echan->ch_num);
 		echan->missed = 0;
 	} else if (edesc->processed <= MAX_NR_SG) {
 		dev_dbg(dev, "first transfer starting on channel %d\n",
 			echan->ch_num);
-		edma_start(echan->ch_num);
+		edma_start(cc, echan->ch_num);
 	} else {
 		dev_dbg(dev, "chan: %d: completed %d elements, resuming\n",
 			echan->ch_num, edesc->processed);
-		edma_resume(echan->ch_num);
+		edma_resume(cc, echan->ch_num);
 	}
 }
 
@@ -256,10 +258,11 @@ static int edma_terminate_all(struct dma_chan *chan)
 	 * echan->edesc is NULL and exit.)
 	 */
 	if (echan->edesc) {
-		edma_stop(echan->ch_num);
+		edma_stop(echan->ecc->cc, echan->ch_num);
 		/* Move the cyclic channel back to default queue */
 		if (echan->edesc->cyclic)
-			edma_assign_channel_eventq(echan->ch_num,
+			edma_assign_channel_eventq(echan->ecc->cc,
+						   echan->ch_num,
 						   EVENTQ_DEFAULT);
 		/*
 		 * free the running request descriptor
@@ -297,7 +300,7 @@ static int edma_dma_pause(struct dma_chan *chan)
 	if (!echan->edesc)
 		return -EINVAL;
 
-	edma_pause(echan->ch_num);
+	edma_pause(echan->ecc->cc, echan->ch_num);
 	return 0;
 }
 
@@ -305,7 +308,7 @@ static int edma_dma_resume(struct dma_chan *chan)
 {
 	struct edma_chan *echan = to_edma_chan(chan);
 
-	edma_resume(echan->ch_num);
+	edma_resume(echan->ecc->cc, echan->ch_num);
 	return 0;
 }
 
@@ -485,8 +488,7 @@ static struct dma_async_tx_descriptor *edma_prep_slave_sg(
 	for (i = 0; i < nslots; i++) {
 		if (echan->slot[i] < 0) {
 			echan->slot[i] =
-				edma_alloc_slot(EDMA_CTLR(echan->ch_num),
-						EDMA_SLOT_ANY);
+				edma_alloc_slot(echan->ecc->cc, EDMA_SLOT_ANY);
 			if (echan->slot[i] < 0) {
 				kfree(edesc);
 				dev_err(dev, "%s: Failed to allocate slot\n",
@@ -597,8 +599,7 @@ static struct dma_async_tx_descriptor *edma_prep_dma_memcpy(
 
 		if (echan->slot[1] < 0) {
 			echan->slot[1] =
-				edma_alloc_slot(EDMA_CTLR(echan->ch_num),
-						EDMA_SLOT_ANY);
+				edma_alloc_slot(echan->ecc->cc, EDMA_SLOT_ANY);
 			if (echan->slot[1] < 0) {
 				kfree(edesc);
 				dev_err(dev, "%s: Failed to allocate slot\n",
@@ -712,8 +713,7 @@ static struct dma_async_tx_descriptor *edma_prep_dma_cyclic(
 		/* Allocate a PaRAM slot, if needed */
 		if (echan->slot[i] < 0) {
 			echan->slot[i] =
-				edma_alloc_slot(EDMA_CTLR(echan->ch_num),
-						EDMA_SLOT_ANY);
+				edma_alloc_slot(echan->ecc->cc, EDMA_SLOT_ANY);
 			if (echan->slot[i] < 0) {
 				kfree(edesc);
 				dev_err(dev, "%s: Failed to allocate slot\n",
@@ -779,7 +779,7 @@ static struct dma_async_tx_descriptor *edma_prep_dma_cyclic(
 	}
 
 	/* Place the cyclic channel to highest priority queue */
-	edma_assign_channel_eventq(echan->ch_num, EVENTQ_0);
+	edma_assign_channel_eventq(echan->ecc->cc, echan->ch_num, EVENTQ_0);
 
 	return vchan_tx_prep(&echan->vchan, &edesc->vdesc, tx_flags);
 }
@@ -787,6 +787,7 @@ static struct dma_async_tx_descriptor *edma_prep_dma_cyclic(
 static void edma_callback(unsigned ch_num, u16 ch_status, void *data)
 {
 	struct edma_chan *echan = data;
+	struct edma *cc = echan->ecc->cc;
 	struct device *dev = echan->vchan.chan.device->dev;
 	struct edma_desc *edesc;
 	struct edmacc_param p;
@@ -803,13 +804,13 @@ static void edma_callback(unsigned ch_num, u16 ch_status, void *data)
 			} else if (edesc->processed == edesc->pset_nr) {
 				dev_dbg(dev, "Transfer complete, stopping channel %d\n", ch_num);
 				edesc->residue = 0;
-				edma_stop(echan->ch_num);
+				edma_stop(cc, echan->ch_num);
 				vchan_cookie_complete(&edesc->vdesc);
 				echan->edesc = NULL;
 			} else {
 				dev_dbg(dev, "Intermediate transfer complete on channel %d\n", ch_num);
 
-				edma_pause(echan->ch_num);
+				edma_pause(cc, echan->ch_num);
 
 				/* Update statistics for tx_status */
 				edesc->residue -= edesc->sg_len;
@@ -820,7 +821,7 @@ static void edma_callback(unsigned ch_num, u16 ch_status, void *data)
 		}
 		break;
 	case EDMA_DMA_CC_ERROR:
-		edma_read_slot(EDMA_CHAN_SLOT(echan->slot[0]), &p);
+		edma_read_slot(cc, echan->slot[0], &p);
 
 		/*
 		 * Issue later based on missed flag which will be sure
@@ -843,10 +844,10 @@ static void edma_callback(unsigned ch_num, u16 ch_status, void *data)
 			 * missed, so its safe to issue it here.
 			 */
 			dev_dbg(dev, "Error occurred but slot is non-null, TRIGGERING\n");
-			edma_clean_channel(echan->ch_num);
-			edma_stop(echan->ch_num);
-			edma_start(echan->ch_num);
-			edma_trigger_channel(echan->ch_num);
+			edma_clean_channel(cc, echan->ch_num);
+			edma_stop(cc, echan->ch_num);
+			edma_start(cc, echan->ch_num);
+			edma_trigger_channel(cc, echan->ch_num);
 		}
 		break;
 	default:
@@ -865,8 +866,8 @@ static int edma_alloc_chan_resources(struct dma_chan *chan)
 	int a_ch_num;
 	LIST_HEAD(descs);
 
-	a_ch_num = edma_alloc_channel(echan->ch_num, edma_callback,
-					echan, EVENTQ_DEFAULT);
+	a_ch_num = edma_alloc_channel(echan->ecc->cc, echan->ch_num,
+				      edma_callback, echan, EVENTQ_DEFAULT);
 
 	if (a_ch_num < 0) {
 		ret = -ENODEV;
@@ -890,7 +891,7 @@ static int edma_alloc_chan_resources(struct dma_chan *chan)
 	return 0;
 
 err_wrong_chan:
-	edma_free_channel(a_ch_num);
+	edma_free_channel(echan->ecc->cc, a_ch_num);
 err_no_chan:
 	return ret;
 }
@@ -903,21 +904,21 @@ static void edma_free_chan_resources(struct dma_chan *chan)
 	int i;
 
 	/* Terminate transfers */
-	edma_stop(echan->ch_num);
+	edma_stop(echan->ecc->cc, echan->ch_num);
 
 	vchan_free_chan_resources(&echan->vchan);
 
 	/* Free EDMA PaRAM slots */
 	for (i = 1; i < EDMA_MAX_SLOTS; i++) {
 		if (echan->slot[i] >= 0) {
-			edma_free_slot(echan->slot[i]);
+			edma_free_slot(echan->ecc->cc, echan->slot[i]);
 			echan->slot[i] = -1;
 		}
 	}
 
 	/* Free EDMA channel */
 	if (echan->alloced) {
-		edma_free_channel(echan->ch_num);
+		edma_free_channel(echan->ecc->cc, echan->ch_num);
 		echan->alloced = false;
 	}
 
@@ -951,6 +952,7 @@ static u32 edma_residue(struct edma_desc *edesc)
 	bool dst = edesc->direction == DMA_DEV_TO_MEM;
 	struct edma_pset *pset = edesc->pset;
 	struct edma_chan *echan = edesc->echan;
+	struct edma *cc = echan->ecc->cc;
 	dma_addr_t done, pos;
 	int loop_count = EDMA_MAX_TR_WAIT_LOOPS;
 	int i;
@@ -959,7 +961,7 @@ static u32 edma_residue(struct edma_desc *edesc)
 	 * We always read the dst/src position from the first RamPar
 	 * pset. That's the one which is active now.
 	 */
-	pos = edma_get_position(echan->slot[0], dst);
+	pos = edma_get_position(cc, echan->slot[0], dst);
 
 	/*
 	 * "pos" may represent a transfer request that is still being
@@ -969,9 +971,9 @@ static u32 edma_residue(struct edma_desc *edesc)
 	 *   2. a different transfer request is being processed
 	 *   3. we hit the loop limit
 	 */
-	while (edma_is_active(echan->slot[0])) {
+	while (edma_is_active(cc, echan->slot[0])) {
 		/* check if a different transfer request is active */
-		if (edma_get_position(echan->slot[0], dst) != pos)
+		if (edma_get_position(cc, echan->slot[0], dst) != pos)
 			break;
 
 		if (!--loop_count) {
@@ -1114,8 +1116,12 @@ static int edma_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	ecc->cc = edma_get_data(pdev->dev.parent);
+	if (!ecc->cc)
+		return -ENODEV;
+
 	ecc->ctlr = pdev->id;
-	ecc->dummy_slot = edma_alloc_slot(ecc->ctlr, EDMA_SLOT_ANY);
+	ecc->dummy_slot = edma_alloc_slot(ecc->cc, EDMA_SLOT_ANY);
 	if (ecc->dummy_slot < 0) {
 		dev_err(&pdev->dev, "Can't allocate PaRAM dummy slot\n");
 		return ecc->dummy_slot;
@@ -1149,7 +1155,7 @@ static int edma_probe(struct platform_device *pdev)
 	return 0;
 
 err_reg1:
-	edma_free_slot(ecc->dummy_slot);
+	edma_free_slot(ecc->cc, ecc->dummy_slot);
 	return ret;
 }
 
@@ -1162,7 +1168,7 @@ static int edma_remove(struct platform_device *pdev)
 	if (parent_node)
 		of_dma_controller_free(parent_node);
 	dma_async_device_unregister(&ecc->dma_slave);
-	edma_free_slot(ecc->dummy_slot);
+	edma_free_slot(ecc->cc, ecc->dummy_slot);
 
 	return 0;
 }
