@@ -571,6 +571,7 @@ CONFIG_LEGO_DRIVERS=m
 # CONFIG_NXT_I2C_SENSORS is not set
 CONFIG_WEDO=m
 CONFIG_FATCATLAB_EVB=m
+CONFIG_TI_ADS79XX=m
 CONFIG_DEVTMPFS=y
 CONFIG_DEVTMPFS_MOUNT=y
 CONFIG_EXTRA_FIRMWARE="am335x-pm-firmware.elf am335x-bone-scale-data.bin am335x-evm-scale-data.bin am43x-evm-scale-data.bin"

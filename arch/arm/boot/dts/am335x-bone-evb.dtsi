@@ -18,9 +18,42 @@
 #include <dt-bindings/pwm/pwm.h>
 
 / {
+	evb_adc_reg: evb-adc-regulator {
+		compatible = "regulator-fixed";
+		/* This "regulator" is just a voltage divider on the main 5V supply */
+		regulator-name = "evb-adc-regulator";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
+
+	spi2: evb-bitbang-spi {
+		pinctrl-names = "default";
+		pinctrl-0 = <&spi2_pins>;
+
+		compatible = "spi-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gpio-sck = <&gpio2 23 0>;
+		gpio-miso = <&gpio2 22 0>;
+		gpio-mosi = <&gpio2 24 0>;
+		cs-gpios = <&gpio2 25 0>;
+		num-chipselects = <1>;
+
+		evb_adc: adc@0 {
+			compatible = "ti-ads7957";
+			reg = <0>;
+			spi-max-frequency = <100000>;
+			refin-supply = <&evb_adc_reg>;
+
+			#io-channel-cells = <1>;
+		};
+	};
+
 	evb-buttons {
 		compatible = "ev3dev,evb-input";
-		io-channels = <&adc1 0>;
+		io-channels = <&am335x_adc 0>;
 		io-channel-names = "voltage";
 	};
 
@@ -29,8 +62,56 @@
 		pinctrl-0 = <&evb_battery_pins>;
 
 		compatible = "ev3dev,evb-battery";
-		io-channels = <&adc1 1>;
+		io-channels = <&am335x_adc 1>;
 		io-channel-names = "voltage";
+	};
+
+	evb-ports {
+		compatible = "ev3dev,evb-ports";
+
+		in1: in@0 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&in1_pins>;
+
+			compatible = "ev3dev,evb-input-port";
+		};
+
+		in2: in@1 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&in2_pins>;
+
+			compatible = "ev3dev,evb-input-port";
+		};
+
+		in3: in@2 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&in3_pins>;
+
+			compatible = "ev3dev,evb-input-port";
+		};
+
+		in4: in@3 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&in4_pins>;
+
+			compatible = "ev3dev,evb-input-port";
+		};
+
+		outA: out@0 {
+			compatible = "ev3dev,evb-output-port";
+		};
+
+		outB: out@1 {
+			compatible = "ev3dev,evb-output-port";
+		};
+
+		outC: out@2 {
+			compatible = "ev3dev,evb-output-port";
+		};
+
+		outD: out@3 {
+			compatible = "ev3dev,evb-output-port";
+		};
 	};
 
 	evb-sound {
@@ -53,6 +134,14 @@
 &am33xx_pinmux {
 	/* Input port 1 */
 
+	in1_pins: pinmux_in1_pins {
+		pinctrl-single,pins = <
+			BONE_P9_12 (PIN_OUTPUT | MUX_MODE7) /* gpio1[28] - DIGIA0 */
+			BONE_P9_14 (PIN_OUTPUT | MUX_MODE7) /* gpio1[18] - DIGIA1 */
+			BONE_P9_16 (PIN_OUTPUT | MUX_MODE7) /* gpio1[19] - BUFDISA */
+		>;
+	};
+
 	uart4_pins: pinmux_uart4_pins {
 		pinctrl-single,pins = <
 			BONE_P9_13 (PIN_OUTPUT | MUX_MODE6) /* uart4_txd - TXINA */
@@ -61,6 +150,14 @@
 	};
 
 	/* Input port 2 */
+
+	in2_pins: pinmux_in2_pins {
+		pinctrl-single,pins = <
+			BONE_P9_15 (PIN_OUTPUT | MUX_MODE7) /* gpio1[16] - DIGIB0 */
+			BONE_P9_17 (PIN_OUTPUT | MUX_MODE7) /* gpio0[5]  - DIGIB1 */
+			BONE_P9_18 (PIN_OUTPUT | MUX_MODE7) /* gpio0[5]  - BUFDISB */
+		>;
+	};
 
 	uart2_pins: pinmux_uart2_pins {
 		pinctrl-single,pins = <
@@ -71,6 +168,14 @@
 
 	/* Input port 3 */
 
+	in3_pins: pinmux_in3_pins {
+		pinctrl-single,pins = <
+			BONE_P9_20 (PIN_OUTPUT | MUX_MODE7) /* gpio0[12] - DIGIC0 */
+			BONE_P9_19 (PIN_OUTPUT | MUX_MODE7) /* gpio0[13] - DIGIC1 */
+			BONE_P9_27 (PIN_OUTPUT | MUX_MODE7) /* gpio3[19] - BUFDISC */
+		>;
+	};
+
 	uart1_pins: pinmux_uart1_pins {
 		pinctrl-single,pins = <
 			BONE_P9_24 (PIN_OUTPUT | MUX_MODE0) /* uart1_txd - TXINC */
@@ -79,6 +184,14 @@
 	};
 
 	/* Input port 4 */
+
+	in4_pins: pinmux_in4_pins {
+		pinctrl-single,pins = <
+			BONE_P9_25 (PIN_OUTPUT | MUX_MODE7) /* gpio3[21] - DIGID0 */
+			BONE_P9_23 (PIN_OUTPUT | MUX_MODE7) /* gpio1[17] - DIGID1 */
+			BONE_P9_29 (PIN_OUTPUT | MUX_MODE7) /* gpio3[5]  - BUFDISD */
+		>;
+	};
 
 	uart5_pins: pinmux_uart5_pins {
 		pinctrl-single,pins = <
@@ -96,6 +209,18 @@
 			BONE_P9_28 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi1_cs0  - FBCS   */
 			BONE_P8_33 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpio0[9]  - FBDC   */
 			BONE_P8_35 (PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpio0[8]  - FBRST  */
+		>;
+	};
+
+	/* ADC */
+
+	spi2_pins: pinmux_spi2_pins {
+		pinctrl-single,pins = <
+			BONE_P8_25 (PIN_OUTPUT          | MUX_MODE7) /* gpio1[0]  - ADCACK  */
+			BONE_P8_27 (PIN_INPUT_PULLUP    | MUX_MODE7) /* gpio2[22] - ADCMISO */
+			BONE_P8_28 (PIN_OUTPUT_PULLDOWN | MUX_MODE7) /* gpio2[24] - ADCMOSI */
+			BONE_P8_29 (PIN_OUTPUT_PULLDOWN | MUX_MODE7) /* gpio2[23] - ADCCLK  */
+			BONE_P8_30 (PIN_OUTPUT_PULLUP   | MUX_MODE7) /* gpio2[25] - ADCCS   */
 		>;
 	};
 
@@ -190,12 +315,14 @@
 };
 
 &tscadc {
+	/* Used for analog inputs */
 	status = "okay";
-	adc1: adc {
-		/* AIN0: buttons */
-		/* AIN1: battery */
-		ti,adc-channels = <0 1>;
-	};
+};
+
+&am335x_adc {
+	/* AIN0: buttons */
+	/* AIN1: battery */
+	ti,adc-channels = <0 1>;
 };
 
 &epwmss0 {
