@@ -252,7 +252,7 @@ static int bf5xx_nand_correct_data_256(struct mtd_info *mtd, u_char *dat,
 	 */
 	if (hweight32(syndrome[0]) == 1) {
 		dev_err(info->device, "ECC data was incorrect!\n");
-		return 1;
+		return -EBADMSG;
 	}
 
 	syndrome[1] = (calced & 0x7FF) ^ (stored & 0x7FF);
@@ -285,7 +285,7 @@ static int bf5xx_nand_correct_data_256(struct mtd_info *mtd, u_char *dat,
 		data = data ^ (0x1 << failing_bit);
 		*(dat + failing_byte) = data;
 
-		return 0;
+		return 1;
 	}
 
 	/*
