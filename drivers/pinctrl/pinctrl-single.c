@@ -498,7 +498,7 @@ static int pcs_save_context(struct pinctrl_dev *pctldev)
 	pcs = pinctrl_dev_get_drvdata(pctldev);
 
 	if (!pcs->saved_vals)
-		pcs->saved_vals = devm_kzalloc(pcs->dev, pcs->size, GFP_KERNEL);
+		pcs->saved_vals = devm_kzalloc(pcs->dev, pcs->size, GFP_ATOMIC);
 
 	switch (pcs->width) {
 	case 32:
