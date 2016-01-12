@@ -1747,9 +1747,14 @@ static int edma_probe(struct platform_device *pdev)
 			memcpy_toio(edmacc_regs_base[j] + PARM_OFFSET(i),
 					&dummy_paramset, PARM_SIZE);
 
-		/* Mark all channels as unused */
-		memset(edma_cc[j]->edma_unused, 0xff,
-			sizeof(edma_cc[j]->edma_unused));
+		/* HACK: For dra7 family leave all channels as used, meaning
+		 * that they can be used for HW synchronized transfers. We have
+		 * memcpy disabled for dra7 anyways.
+		 * Otherwise mark all channels as unused
+		 */
+		if (!of_machine_is_compatible("ti,dra7"))
+			memset(edma_cc[j]->edma_unused, 0xff,
+			       sizeof(edma_cc[j]->edma_unused));
 
 		if (info[j]->rsv) {
 
