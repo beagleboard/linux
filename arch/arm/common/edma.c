@@ -1604,18 +1604,6 @@ static struct of_dma_filter_info edma_filter_info = {
 	.filter_fn = edma_filter_fn,
 };
 
-struct dma_chan *edma_of_xlate(struct of_phandle_args *dma_spec,
-			       struct of_dma *ofdma)
-{
-	struct dma_chan *chan = of_dma_simple_xlate(dma_spec, ofdma);
-
-	if (chan)
-		clear_bit(EDMA_CHAN_SLOT(dma_spec->args[0]),
-			  edma_cc[0]->edma_unused);
-
-	return chan;
-}
-
 static struct edma_soc_info *edma_setup_info_from_dt(struct device *dev,
 						      struct device_node *node)
 {
@@ -1632,12 +1620,8 @@ static struct edma_soc_info *edma_setup_info_from_dt(struct device *dev,
 
 	dma_cap_set(DMA_SLAVE, edma_filter_info.dma_cap);
 	dma_cap_set(DMA_CYCLIC, edma_filter_info.dma_cap);
-	if (of_machine_is_compatible("ti,dra7"))
-		of_dma_controller_register(dev->of_node, edma_of_xlate,
-					   &edma_filter_info);
-	else
-		of_dma_controller_register(dev->of_node, of_dma_simple_xlate,
-					   &edma_filter_info);
+	of_dma_controller_register(dev->of_node, of_dma_simple_xlate,
+				   &edma_filter_info);
 
 	return info;
 }
