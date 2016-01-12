@@ -135,10 +135,7 @@ static int am33xx_pm_suspend(suspend_state_t suspend_state)
 
 	if (suspend_state == PM_SUSPEND_MEM &&
 	    pm_ops->check_off_mode_enable()) {
-		rtc_only_idle = 1;
 		pm_ops->prepare_rtc_suspend();
-		rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG,
-				  rtc_magic_val);
 		pm_ops->save_context();
 		suspend_wfi_flags |= WFI_FLAG_RTC_ONLY;
 		ret = pm_ops->soc_suspend(suspend_state, am33xx_rtc_only_idle,
@@ -207,6 +204,14 @@ static int am33xx_pm_begin(suspend_state_t state)
 	int ret = -EINVAL;
 
 	cpu_idle_poll_ctrl(true);
+
+	if (state == PM_SUSPEND_MEM && pm_ops->check_off_mode_enable()) {
+		rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG,
+				  rtc_magic_val);
+		rtc_only_idle = 1;
+	} else {
+		rtc_only_idle = 0;
+	}
 
 	switch (state) {
 	case PM_SUSPEND_MEM:
