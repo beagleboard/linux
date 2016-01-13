@@ -292,7 +292,7 @@ static ssize_t at24_bin_read(struct file *filp, struct kobject *kobj,
 {
 	struct at24_data *at24;
 
-	at24 = dev_get_drvdata(container_of(kobj, struct device, kobj));
+	at24 = dev_get_drvdata(kobj_to_dev(kobj));
 	return at24_read(at24, buf, off, count);
 }
 
@@ -426,7 +426,7 @@ static ssize_t at24_bin_write(struct file *filp, struct kobject *kobj,
 {
 	struct at24_data *at24;
 
-	at24 = dev_get_drvdata(container_of(kobj, struct device, kobj));
+	at24 = dev_get_drvdata(kobj_to_dev(kobj));
 	return at24_write(at24, buf, off, count);
 }
 
