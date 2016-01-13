@@ -282,10 +282,6 @@ static void hdmi_power_off_full(struct omap_dss_device *dssdev)
 static int hdmi_display_check_timing(struct omap_dss_device *dssdev,
 					struct omap_video_timings *timings)
 {
-	/* TODO: proper interlace support */
-	if (timings->interlace)
-		return -EINVAL;
-
 	if (!dispc_mgr_timings_ok(dssdev->dispc_channel, timings))
 		return -EINVAL;
 
