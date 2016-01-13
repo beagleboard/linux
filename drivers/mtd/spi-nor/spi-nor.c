@@ -995,7 +995,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name, enum read_mode mode)
 	struct flash_info		*info;
 	struct device *dev = nor->dev;
 	struct mtd_info *mtd = nor->mtd;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = nor->flash_node;
 	int ret;
 	int i;
 

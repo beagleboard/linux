@@ -877,6 +877,7 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 
 		nor->mtd = mtd;
 		nor->dev = dev;
+		nor->flash_node = np;
 		nor->priv = q;
 		mtd->priv = nor;
 

@@ -224,24 +224,6 @@ static int jz_nand_correct_ecc_rs(struct mtd_info *mtd, uint8_t *dat,
 	uint32_t t;
 	unsigned int timeout = 1000;
 
-	t = read_ecc[0];
-
-	if (t == 0xff) {
-		for (i = 1; i < 9; ++i)
-			t &= read_ecc[i];
-
-		t &= dat[0];
-		t &= dat[nand->chip.ecc.size / 2];
-		t &= dat[nand->chip.ecc.size - 1];
-
-		if (t == 0xff) {
-			for (i = 1; i < nand->chip.ecc.size - 1; ++i)
-				t &= dat[i];
-			if (t == 0xff)
-				return 0;
-		}
-	}
-
 	for (i = 0; i < 9; ++i)
 		writeb(read_ecc[i], nand->base + JZ_REG_NAND_PAR0 + i);
 
@@ -254,7 +236,7 @@ static int jz_nand_correct_ecc_rs(struct mtd_info *mtd, uint8_t *dat,
 	} while (!(status & JZ_NAND_STATUS_DEC_FINISH) && --timeout);
 
 	if (timeout == 0)
-	    return -1;
+		return -ETIMEDOUT;
 
 	reg = readl(nand->base + JZ_REG_NAND_ECC_CTRL);
 	reg &= ~JZ_NAND_ECC_CTRL_ENABLE;
@@ -262,7 +244,7 @@ static int jz_nand_correct_ecc_rs(struct mtd_info *mtd, uint8_t *dat,
 
 	if (status & JZ_NAND_STATUS_ERROR) {
 		if (status & JZ_NAND_STATUS_UNCOR_ERROR)
-			return -1;
+			return -EBADMSG;
 
 		error_count = (status & JZ_NAND_STATUS_ERR_COUNT) >> 29;
 
@@ -444,6 +426,7 @@ static int jz_nand_probe(struct platform_device *pdev)
 	chip->ecc.size		= 512;
 	chip->ecc.bytes		= 9;
 	chip->ecc.strength	= 4;
+	chip->ecc.options	= NAND_ECC_GENERIC_ERASED_CHECK;
 
 	if (pdata)
 		chip->ecc.layout = pdata->ecc_layout;

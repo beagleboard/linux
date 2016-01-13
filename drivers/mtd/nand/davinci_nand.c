@@ -206,7 +206,7 @@ static int nand_davinci_correct_1bit(struct mtd_info *mtd, u_char *dat,
 				dat[diff >> (12 + 3)] ^= BIT((diff >> 12) & 7);
 				return 1;
 			} else {
-				return -1;
+				return -EBADMSG;
 			}
 		} else if (!(diff & (diff - 1))) {
 			/* Single bit ECC error in the ECC itself,
@@ -214,7 +214,7 @@ static int nand_davinci_correct_1bit(struct mtd_info *mtd, u_char *dat,
 			return 1;
 		} else {
 			/* Uncorrectable error */
-			return -1;
+			return -EBADMSG;
 		}
 
 	}
@@ -316,14 +316,6 @@ static int nand_davinci_correct_4bit(struct mtd_info *mtd,
 	unsigned num_errors, corrected;
 	unsigned long timeo;
 
-	/* All bytes 0xff?  It's an erased page; ignore its ECC. */
-	for (i = 0; i < 10; i++) {
-		if (ecc_code[i] != 0xff)
-			goto compare;
-	}
-	return 0;
-
-compare:
 	/* Unpack ten bytes into eight 10 bit values.  We know we're
 	 * little-endian, and use type punning for less shifting/masking.
 	 */
@@ -390,7 +382,7 @@ compare:
 			return 0;
 		case 1:		/* five or more errors detected */
 			davinci_nand_readl(info, NAND_ERR_ERRVAL1_OFFSET);
-			return -EIO;
+			return -EBADMSG;
 		case 2:		/* error addresses computed */
 		case 3:
 			num_errors = 1 + ((fsr >> 16) & 0x03);
@@ -748,6 +740,7 @@ static int nand_davinci_probe(struct platform_device *pdev)
 			info->chip.ecc.correct = nand_davinci_correct_4bit;
 			info->chip.ecc.hwctl = nand_davinci_hwctl_4bit;
 			info->chip.ecc.bytes = 10;
+			info->chip.ecc.options = NAND_ECC_GENERIC_ERASED_CHECK;
 		} else {
 			info->chip.ecc.calculate = nand_davinci_calculate_1bit;
 			info->chip.ecc.correct = nand_davinci_correct_1bit;
