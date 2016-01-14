@@ -5,6 +5,9 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+
+#include "am335x-cape-rtc-ds1307.dtsi"
+
 / {
 	ocp {
 		P8_07_pinmux {
@@ -45,6 +48,7 @@
 		};
 	};
 };
+
 / {
 	argus-ups {
 		compatible = "argus-ups";

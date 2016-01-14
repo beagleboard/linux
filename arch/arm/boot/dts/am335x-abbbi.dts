@@ -10,6 +10,7 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
+#include "am33xx-overlay-edma-fix.dtsi"
 
 / {
 	model = "Arrow BeagleBone Black Industrial";
@@ -31,10 +32,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&emmc_pins>;
 	bus-width = <8>;
-	status = "okay";
-};
-
-&sgx {
 	status = "okay";
 };
 

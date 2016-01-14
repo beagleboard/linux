@@ -8,32 +8,34 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-#include "am33xx-overlay-edma-fix.dtsi"
+#include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
-	model = "TI AM335x BeagleBone Green";
-	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+	model = "TI AM335x BeagleBone";
+	compatible = "ti,am335x-bone", "ti,am33xx";
 };
 
 &ldo3_reg {
 	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
+	regulator-max-microvolt = <3300000>;
 	regulator-always-on;
 };
 
 &mmc1 {
-	vmmc-supply = <&vmmcsd_fixed>;
+	vmmc-supply = <&ldo3_reg>;
 };
 
-&mmc2 {
-	vmmc-supply = <&vmmcsd_fixed>;
+&am33xx_pinmux {
 	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_pins>;
-	bus-width = <8>;
+	/* pinctrl-0 = <&clkout2_pin>; */
+};
+
+&sham {
 	status = "okay";
 };
 
-&rtc {
-	system-power-controller;
+&aes {
+	status = "okay";
 };
+
+#include "am335x-bone-argus.dtsi"

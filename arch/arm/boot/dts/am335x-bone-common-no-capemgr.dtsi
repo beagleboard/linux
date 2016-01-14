@@ -62,9 +62,6 @@
 };
 
 &am33xx_pinmux {
-	pinctrl-names = "default";
-	pinctrl-0 = <&clkout2_pin>;
-
 	user_leds_s0: user_leds_s0 {
 		pinctrl-single,pins = <
 			0x54 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a5.gpio1_21 */
@@ -241,55 +238,6 @@
 	};
 };
 
-&i2c2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c2_pins>;
-
-	status = "okay";
-	clock-frequency = <100000>;
-
-	cape_eeprom0: cape_eeprom0@54 {
-		compatible = "at,24c256";
-		reg = <0x54>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape0_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-
-	cape_eeprom1: cape_eeprom1@55 {
-		compatible = "at,24c256";
-		reg = <0x55>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape1_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-
-	cape_eeprom2: cape_eeprom2@56 {
-		compatible = "at,24c256";
-		reg = <0x56>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape2_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-
-	cape_eeprom3: cape_eeprom3@57 {
-		compatible = "at,24c256";
-		reg = <0x57>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape3_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-};
-
-
 /include/ "tps65217.dtsi"
 
 &tps {
@@ -386,7 +334,8 @@
 	bus-width = <0x4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc1_pins>;
-	cd-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+	cd-inverted;
 };
 
 &aes {
@@ -395,29 +344,4 @@
 
 &sham {
 	status = "okay";
-};
-
-/* the cape manager */
-/ {
-	bone_capemgr {
-		compatible = "ti,bone-capemgr";
-		status = "okay";
-
-		nvmem-cells = <&baseboard_data &cape0_data &cape1_data &cape2_data &cape3_data>;
-		nvmem-cell-names = "baseboard", "slot0", "slot1", "slot2", "slot3";
-		#slots = <4>;
-
-		/* map board revisions to compatible definitions */
-		baseboardmaps {
-			baseboard_beaglebone: board@0 {
-				board-name = "A335BONE";
-				compatible-name = "ti,beaglebone";
-			};
-
-			baseboard_beaglebone_black: board@1 {
-				board-name = "A335BNLT";
-				compatible-name = "ti,beaglebone-black";
-			};
-		};
-	};
 };
