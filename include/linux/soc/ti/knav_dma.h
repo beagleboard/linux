@@ -173,7 +173,7 @@ static inline void *knav_dma_open_channel(struct device *dev, const char *name,
 }
 static inline void knav_dma_close_channel(void *channel)
 {}
-bool knav_dma_device_ready(void)
+static inline bool knav_dma_device_ready(void)
 {
 	return false;
 }
