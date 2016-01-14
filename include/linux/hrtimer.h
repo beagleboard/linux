@@ -102,6 +102,11 @@ struct hrtimer {
 	enum hrtimer_restart		(*function)(struct hrtimer *);
 	struct hrtimer_clock_base	*base;
 	unsigned long			state;
+	struct list_head		cb_entry;
+	int				irqsafe;
+#ifdef CONFIG_MISSED_TIMER_OFFSETS_HIST
+	ktime_t				praecox;
+#endif
 #ifdef CONFIG_TIMER_STATS
 	int				start_pid;
 	void				*start_site;
@@ -121,11 +126,7 @@ struct hrtimer_sleeper {
 	struct task_struct *task;
 };
 
-#ifdef CONFIG_64BIT
 # define HRTIMER_CLOCK_BASE_ALIGN	64
-#else
-# define HRTIMER_CLOCK_BASE_ALIGN	32
-#endif
 
 /**
  * struct hrtimer_clock_base - the timer base for a specific clock
@@ -142,6 +143,7 @@ struct hrtimer_clock_base {
 	int			index;
 	clockid_t		clockid;
 	struct timerqueue_head	active;
+	struct list_head	expired;
 	ktime_t			(*get_time)(void);
 	ktime_t			offset;
 } __attribute__((__aligned__(HRTIMER_CLOCK_BASE_ALIGN)));
@@ -185,6 +187,7 @@ struct hrtimer_cpu_base {
 	raw_spinlock_t			lock;
 	seqcount_t			seq;
 	struct hrtimer			*running;
+	struct hrtimer			*running_soft;
 	unsigned int			cpu;
 	unsigned int			active_bases;
 	unsigned int			clock_was_set_seq;
@@ -200,6 +203,9 @@ struct hrtimer_cpu_base {
 	unsigned int			nr_retries;
 	unsigned int			nr_hangs;
 	unsigned int			max_hang_time;
+#endif
+#ifdef CONFIG_PREEMPT_RT_BASE
+	wait_queue_head_t		wait;
 #endif
 	struct hrtimer_clock_base	clock_base[HRTIMER_MAX_CLOCK_BASES];
 } ____cacheline_aligned;
@@ -389,6 +395,13 @@ static inline void hrtimer_restart(struct hrtimer *timer)
 	hrtimer_start_expires(timer, HRTIMER_MODE_ABS);
 }
 
+/* Softirq preemption could deadlock timer removal */
+#ifdef CONFIG_PREEMPT_RT_BASE
+  extern void hrtimer_wait_for_timer(const struct hrtimer *timer);
+#else
+# define hrtimer_wait_for_timer(timer)	do { cpu_relax(); } while (0)
+#endif
+
 /* Query timers: */
 extern ktime_t hrtimer_get_remaining(const struct hrtimer *timer);
 
@@ -408,7 +421,7 @@ static inline int hrtimer_is_queued(struct hrtimer *timer)
  * Helper function to check, whether the timer is running the callback
  * function
  */
-static inline int hrtimer_callback_running(struct hrtimer *timer)
+static inline int hrtimer_callback_running(const struct hrtimer *timer)
 {
 	return timer->base->cpu_base->running == timer;
 }
