@@ -105,6 +105,16 @@ config TI_KEYSTONE_NETCP_ETHSS
 	  To compile this driver as a module, choose M here: the module
 	  will be called keystone_netcp_ethss.
 
+config TI_KEYSTONE_NETCP_PA_CORE
+	depends on TI_KEYSTONE_NETCP
+	tristate "TI Keystone NETCP PA core driver"
+	---help---
+
+	  This driver provides core functions required to implement the
+	  Packet Accelarator (PA) netcp module for Keystone 2 SoCs.
+	  To compile this driver as a module, choose M here: the module
+	  will be called netcp_pa_core.
+
 config TLAN
 	tristate "TI ThunderLAN support"
 	depends on (PCI || EISA)
