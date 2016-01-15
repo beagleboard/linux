@@ -78,12 +78,16 @@
 ENTRY(am43xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
 
-	str	r0, wfi_flags
+ARM(	str	r0, wfi_flags )
+THUMB(	adr	r1, wfi_flags )
+THUMB(	str	r0, [r1] )
 
 	/* Retrieve l2 cache virt address BEFORE we shut off EMIF */
 	ldr	r1, get_l2cache_base
 	blx	r1
-	str	r0, l2_base_virt
+ARM(	str	r0, l2_base_virt )
+THUMB(	adr	r1, l2_base_virt )
+THUMB(	str	r0, [r1] )
 
 	/*
 	 * Flush all data from the L1 and L2 data cache before disabling
