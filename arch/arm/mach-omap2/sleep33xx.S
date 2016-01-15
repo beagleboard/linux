@@ -36,7 +36,9 @@
 ENTRY(am33xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
 
-	str	r0, wfi_flags
+ARM(	str	r0, wfi_flags )
+THUMB(	adr	r2, wfi_flags )
+THUMB(	str	r0, [r2] )
 
 	/* Only necessary if PER is losing context */
 	ldr	r2, wfi_flags
@@ -200,7 +202,9 @@ wait_emif_enable1:
 	cmp	r1, r2
 	bne	wait_emif_enable1
 
-	adr	sp, temp_stack
+ARM(	adr	sp, temp_stack )
+THUMB(	adr	r1, temp_stack )
+THUMB(	mov	sp, r1 )
 
 	ldr	r1, ti_emif_restore_context
 	blx	r1
