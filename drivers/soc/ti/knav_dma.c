@@ -533,6 +533,28 @@ void knav_dma_close_channel(void *channel)
 }
 EXPORT_SYMBOL_GPL(knav_dma_close_channel);
 
+/**
+ * knav_dma_get_flow() - retrieve flow Id from a given channel handle
+ * @channel     dma channel handle
+ *
+ * Returns corresponding flow Id on success or -EINVAL in case of error
+ */
+int knav_dma_get_flow(void *channel)
+{
+	struct knav_dma_chan *chan = channel;
+
+	if (!chan)
+		return -EINVAL;
+
+	if (!kdev) {
+		pr_err("keystone-navigator-dma driver not registered\n");
+		return -EINVAL;
+	}
+
+	return chan->flow;
+}
+EXPORT_SYMBOL_GPL(knav_dma_get_flow);
+
 static void __iomem *pktdma_get_regs(struct knav_dma_device *dma,
 				struct device_node *node,
 				unsigned index, resource_size_t *_size)
