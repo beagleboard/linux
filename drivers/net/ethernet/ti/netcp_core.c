@@ -452,6 +452,7 @@ int netcp_register_rxhook(struct netcp_intf *netcp_priv, int order,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(netcp_register_rxhook);
 
 int netcp_unregister_rxhook(struct netcp_intf *netcp_priv, int order,
 			    netcp_hook_rtn *hook_rtn, void *hook_data)
@@ -474,6 +475,7 @@ int netcp_unregister_rxhook(struct netcp_intf *netcp_priv, int order,
 
 	return -ENOENT;
 }
+EXPORT_SYMBOL_GPL(netcp_unregister_rxhook);
 
 static void netcp_frag_free(bool is_frag, void *ptr)
 {
