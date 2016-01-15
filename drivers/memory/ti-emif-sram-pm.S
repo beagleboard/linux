@@ -51,54 +51,95 @@ ENTRY(ti_emif_save_context)
 
 	/* Save EMIF configuration */
 	ldr	r1, [r0, #EMIF_SDRAM_CONFIG]
-	str	r1, emif_sdcfg_val
+ARM(	str	r1, emif_sdcfg_val )
+THUMB(	adr	r2, emif_sdcfg_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_SDRAM_REFRESH_CONTROL]
-	str	r1, emif_ref_ctrl_val
+ARM(	str	r1, emif_ref_ctrl_val )
+THUMB(	adr	r2, emif_ref_ctrl_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_SDRAM_TIMING_1]
-	str	r1, emif_timing1_val
+ARM(	str	r1, emif_timing1_val )
+THUMB(	adr	r2, emif_timing1_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_SDRAM_TIMING_2]
-	str	r1, emif_timing2_val
+ARM(	str	r1, emif_timing2_val )
+THUMB(	adr	r2, emif_timing2_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_SDRAM_TIMING_3]
-	str	r1, emif_timing3_val
+ARM(	str	r1, emif_timing3_val )
+THUMB(	adr	r2, emif_timing3_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_POWER_MANAGEMENT_CONTROL]
-	str	r1, emif_pmcr_val
+ARM(	str	r1, emif_pmcr_val )
+THUMB(	adr	r2, emif_pmcr_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_POWER_MANAGEMENT_CTRL_SHDW]
-	str	r1, emif_pmcr_shdw_val
+ARM(	str	r1, emif_pmcr_shdw_val )
+THUMB(	adr	r2, emif_pmcr_shdw_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_SDRAM_OUTPUT_IMPEDANCE_CALIBRATION_CONFIG]
-	str	r1, emif_zqcfg_val
+ARM(	str	r1, emif_zqcfg_val )
+THUMB(	adr	r2, emif_zqcfg_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_DDR_PHY_CTRL_1]
-	str	r1, emif_ddr_phy_ctlr_1
+ARM(	str	r1, emif_ddr_phy_ctlr_1 )
+THUMB(	adr	r2, emif_ddr_phy_ctlr_1 )
+THUMB(	str	r1, [r2] )
 
 	ldr	r2, ti_emif_sram_config
 	cmp	r2, #EMIF_SRAM_AM43_REG_LAYOUT
 	bne	emif_skip_save_extra_regs
 
 	ldr	r1, [r0, #EMIF_READ_WRITE_LEVELING_RAMP_CONTROL]
-	str	r1, emif_rd_wr_level_ramp_ctrl
+ARM(	str	r1, emif_rd_wr_level_ramp_ctrl )
+THUMB(	adr	r2, emif_rd_wr_level_ramp_ctrl )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_READ_WRITE_EXECUTION_THRESHOLD]
-	str	r1, emif_rd_wr_exec_thresh
+ARM(	str	r1, emif_rd_wr_exec_thresh )
+THUMB(	adr	r2, emif_rd_wr_exec_thresh )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_COS_CONFIG]
-	str	r1, emif_cos_config
+ARM(	str	r1, emif_cos_config )
+THUMB(	adr	r2, emif_cos_config )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_PRIORITY_TO_CLASS_OF_SERVICE_MAPPING]
-	str	r1, emif_priority_to_cos_mapping
+ARM(	str	r1, emif_priority_to_cos_mapping )
+THUMB(	adr	r2, emif_priority_to_cos_mapping )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_1_MAPPING]
-	str	r1, emif_connect_id_serv_1_map
+ARM(	str	r1, emif_connect_id_serv_1_map )
+THUMB(	adr	r2, emif_connect_id_serv_1_map )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_2_MAPPING]
-	str	r1, emif_connect_id_serv_2_map
+ARM(	str	r1, emif_connect_id_serv_2_map )
+THUMB(	adr	r2, emif_connect_id_serv_2_map )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_LPDDR2_NVM_TIMING]
-	str	r1, emif_lpddr2_nvm_tim
+ARM(	str	r1, emif_lpddr2_nvm_tim )
+THUMB(	adr	r2, emif_lpddr2_nvm_tim )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_LPDDR2_NVM_TIMING_SHDW]
-	str	r1, emif_lpddr2_nvm_tim_shdw
+ARM(	str	r1, emif_lpddr2_nvm_tim_shdw )
+THUMB(	adr	r2, emif_lpddr2_nvm_tim_shdw )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_OCP_CONFIG]
-	str	r1, emif_ocp_config_val
+ARM(	str	r1, emif_ocp_config_val )
+THUMB(	adr	r2, emif_ocp_config_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_DLL_CALIB_CTRL]
-	str	r1, emif_dll_calib_ctrl_val
+ARM(	str	r1, emif_dll_calib_ctrl_val )
+THUMB(	adr	r2, emif_dll_calib_ctrl_val )
+THUMB(	str	r1, [r2] )
 	ldr	r1, [r0, #EMIF_DLL_CALIB_CTRL_SHDW]
-	str	r1, emif_dll_calib_ctrl_val_shdw
+ARM(	str	r1, emif_dll_calib_ctrl_val_shdw )
+THUMB(	adr	r2, emif_dll_calib_ctrl_val_shdw )
+THUMB(	str	r1, [r2] )
 
 	/* Loop and save entire block of emif phy regs */
 	mov	r2, #0x0
-	adrl	r4, emif_ext_phy_ctrl_vals
+ARM(	adrl	r4, emif_ext_phy_ctrl_vals )
+THUMB(	adr	r4, emif_ext_phy_ctrl_vals )
 	add	r3, r0, #EMIF_EXT_PHY_CTRL_1
 ddr_phy_ctrl_save:
 	ldr	r1, [r3, r2]
@@ -175,7 +216,8 @@ ENTRY(ti_emif_restore_context)
 
 	/* Loop and restore entire block of emif phy regs */
 	mov	r2, #0x0
-	adrl	r3, emif_ext_phy_ctrl_vals
+ARM(	adrl	r3, emif_ext_phy_ctrl_vals )
+THUMB(	adr	r3, emif_ext_phy_ctrl_vals )
 	add	r4, r0, #EMIF_EXT_PHY_CTRL_1
 ddr_phy_ctrl_restore:
 	ldr	r1, [r3, r2]
