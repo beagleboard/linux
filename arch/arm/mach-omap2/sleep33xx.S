@@ -165,7 +165,9 @@ wait_emif_enable1:
 	cmp	r1, r2
 	bne	wait_emif_enable1
 
-	adr	sp, temp_stack
+ARM(	adr	sp, temp_stack )
+THUMB(	adr	r1, temp_stack )
+THUMB(	mov	sp, r1 )
 
 	ldr	r1, ti_emif_restore_context
 	blx	r1
