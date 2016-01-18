@@ -135,6 +135,9 @@ int asoc_simple_card_parse_clk(struct device_node *node,
 			return -EINVAL;
 	}
 
+	if (!of_property_read_u32(node, "system-clock-id", &val))
+		simple_dai->sysclk_id = val;
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(asoc_simple_card_parse_clk);
@@ -182,7 +185,8 @@ int asoc_simple_card_init_dai(struct snd_soc_dai *dai,
 	int ret;
 
 	if (simple_dai->sysclk) {
-		ret = snd_soc_dai_set_sysclk(dai, 0, simple_dai->sysclk,
+		ret = snd_soc_dai_set_sysclk(dai, simple_dai->sysclk_id,
+					     simple_dai->sysclk,
 					     simple_dai->sysclk_dir);
 		if (ret && ret != -ENOTSUPP) {
 			dev_err(dai->dev, "simple-card: set_sysclk error\n");
