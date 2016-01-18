@@ -1087,7 +1087,7 @@
 				#interrupt-cells = <1>;
 			};
 
-			pru1_0: pru@4b234000 {
+			pru1_0: pru0@4b234000 {
 				compatible = "ti,am5728-pru";
 				reg = <0x4b234000 0x3000>,
 				      <0x4b222000 0x400>,
@@ -1096,7 +1096,7 @@
 				status = "disabled";
 			};
 
-			pru1_1: pru@4b238000 {
+			pru1_1: pru1@4b238000 {
 				compatible = "ti,am5728-pru";
 				reg = <0x4b238000 0x3000>,
 				      <0x4b224000 0x400>,
@@ -1151,7 +1151,7 @@
 				#interrupt-cells = <1>;
 			};
 
-			pru2_0: pru@4b2b4000 {
+			pru2_0: pru0@4b2b4000 {
 				compatible = "ti,am5728-pru";
 				reg = <0x4b2b4000 0x3000>,
 				      <0x4b2a2000 0x400>,
@@ -1160,7 +1160,7 @@
 				status = "disabled";
 			};
 
-			pru2_1: pru@4b2b8000 {
+			pru2_1: pru1@4b2b8000 {
 				compatible = "ti,am5728-pru";
 				reg = <0x4b2b8000 0x3000>,
 				      <0x4b2a4000 0x400>,

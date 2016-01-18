@@ -895,7 +895,7 @@
 				#interrupt-cells = <1>;
 			};
 
-			pru1_0: pru@54434000 {
+			pru1_0: pru0@54434000 {
 				compatible = "ti,am4372-pru";
 				reg = <0x54434000 0x3000>,
 				      <0x54422000 0x400>,
@@ -904,7 +904,7 @@
 				mboxes = <&mailbox &mbox_pru1_0>;
 			};
 
-			pru1_1: pru@54438000 {
+			pru1_1: pru1@54438000 {
 				compatible = "ti,am4372-pru";
 				reg = <0x54438000 0x3000>,
 				      <0x54424000 0x400>,
