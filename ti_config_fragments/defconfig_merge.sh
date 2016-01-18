@@ -27,13 +27,23 @@ prepare_for_exit()
 
 check_for_compiler()
 {
-	COMPILER_COMMAND=`which $CROSS_COMPILE"gcc"`
+	COMPILER_COMMAND=$(which $CROSS_COMPILE"gcc")
 	if [ -x "$COMPILER_COMMAND" ]; then
-		return 0
+		echo "Found " "$CROSS_COMPILE"
 	else
 		echo "Invalid or non-existent compiler $COMPILER_COMMAND" > build_failure.txt
 		return 1
 	fi
+
+        CCACHE_INSTALLED=$(which ccache)
+        if [ -z "$CCACHE_INSTALLED" ]; then
+		echo "To decrease build time install ccache"
+        else
+		CCACHE="ccache"
+        fi
+
+	CROSS_COMPILE=""$CCACHE" "$CROSS_COMPILE""
+	echo "Cross compile command is ""$CROSS_COMPILE"
 }
 
 build_the_defconfig()
@@ -266,7 +276,7 @@ set_original_directory()
 
 cross_make()
 {
-	make -C$KERNEL_DIR -j$BUILD_THREADS ARCH=arm CROSS_COMPILE=$CROSS_COMPILE $*
+	make -C$KERNEL_DIR -j$BUILD_THREADS ARCH=arm $*
 }
 
 usage()
