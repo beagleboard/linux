@@ -1006,11 +1006,6 @@ struct dispc_ops {
 			const struct omap_overlay_manager_info *info);
 	enum omap_dss_output_id (*mgr_get_supported_outputs)(enum omap_channel channel);
 
-	int (*ovl_check)(enum omap_plane plane, enum omap_channel channel,
-			const struct omap_overlay_info *oi,
-			const struct omap_video_timings *timings,
-			int *x_predecim, int *y_predecim);
-
 	int (*ovl_enable)(enum omap_plane plane, bool enable);
 	bool (*ovl_enabled)(enum omap_plane plane);
 	void (*ovl_set_channel_out)(enum omap_plane plane,
