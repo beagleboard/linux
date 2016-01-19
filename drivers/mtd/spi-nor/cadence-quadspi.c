@@ -602,7 +602,13 @@ static int cqspi_indirect_write_execute(struct spi_nor *nor,
 	reinit_completion(&cqspi->transfer_complete);
 	writel(CQSPI_REG_INDIRECTWR_START_MASK,
 	       reg_base + CQSPI_REG_INDIRECTWR);
-
+	/*
+	 * As per 66AK2G02 TRM SPRUHY8 section 11.14.5.3 Indirect Access
+	 * Controller programming sequence, couple of cycles of
+	 * QSPI_REF_CLK delay is required for the above bit to
+	 * be internally synchronized by the QSPI module.
+	 */
+	ndelay(10);
 	while (remaining > 0) {
 		write_bytes = remaining > page_size ? page_size : remaining;
 		writesl(cqspi->ahb_base, txbuf, DIV_ROUND_UP(write_bytes, 4));
