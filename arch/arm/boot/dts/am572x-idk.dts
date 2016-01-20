@@ -22,6 +22,40 @@
 		device_type = "memory";
 		reg = <0x0 0x80000000 0x0 0x80000000>;
 	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		ipu2_cma_pool: ipu2_cma@95800000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x95800000 0x0 0x3800000>;
+			reusable;
+			status = "disabled";
+		};
+
+		dsp1_cma_pool: dsp1_cma@99000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x99000000 0x0 0x4000000>;
+			reusable;
+			status = "disabled";
+		};
+
+		ipu1_cma_pool: ipu1_cma@9d000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x9d000000 0x0 0x2000000>;
+			reusable;
+			status = "disabled";
+		};
+
+		dsp2_cma_pool: dsp2_cma@9f000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x9f000000 0x0 0x800000>;
+			reusable;
+			status = "disabled";
+		};
+	};
 };
 
 &smps8_reg {
@@ -94,4 +128,20 @@
 
 &mmu_ipu2 {
 	status = "okay";
+};
+
+&ipu2 {
+	memory-region = <&ipu2_cma_pool>;
+};
+
+&ipu1 {
+	memory-region = <&ipu1_cma_pool>;
+};
+
+&dsp1 {
+	memory-region = <&dsp1_cma_pool>;
+};
+
+&dsp2 {
+	memory-region = <&dsp2_cma_pool>;
 };
