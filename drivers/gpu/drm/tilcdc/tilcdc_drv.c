@@ -123,6 +123,8 @@ static int tilcdc_unload(struct drm_device *dev)
 {
 	struct tilcdc_drm_private *priv = dev->dev_private;
 
+	tilcdc_crtc_dpms(priv->crtc, DRM_MODE_DPMS_OFF);
+
 	drm_fbdev_cma_fini(priv->fbdev);
 	drm_kms_helper_poll_fini(dev);
 	drm_mode_config_cleanup(dev);
@@ -235,7 +237,6 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 	DBG("Maximum Pixel Clock Value %dKHz", priv->max_pixelclock);
 
 	pm_runtime_enable(dev->dev);
-	pm_runtime_irq_safe(dev->dev);
 
 	/*
 	 * disable creation of new console during suspend.
@@ -372,14 +373,14 @@ static int tilcdc_irq_postinstall(struct drm_device *dev)
 	struct tilcdc_drm_private *priv = dev->dev_private;
 
 	/* enable FIFO underflow irq: */
-	if (priv->rev == 1)
+	if (priv->rev == 1) {
 		tilcdc_set(dev, LCDC_RASTER_CTRL_REG, LCDC_V1_UNDERFLOW_INT_ENA);
-	else
-		tilcdc_set(dev, LCDC_INT_ENABLE_SET_REG,
+	} else {
+		tilcdc_write(dev, LCDC_INT_ENABLE_SET_REG,
 			   LCDC_V2_UNDERFLOW_INT_ENA |
 			   LCDC_V2_END_OF_FRAME0_INT_ENA |
-			   LCDC_V2_END_OF_FRAME1_INT_ENA |
-			   LCDC_FRAME_DONE);
+			   LCDC_FRAME_DONE | LCDC_SYNC_LOST);
+	}
 
 	return 0;
 }
@@ -394,10 +395,10 @@ static void tilcdc_irq_uninstall(struct drm_device *dev)
 				LCDC_V1_UNDERFLOW_INT_ENA | LCDC_V1_PL_INT_ENA);
 		tilcdc_clear(dev, LCDC_DMA_CTRL_REG, LCDC_V1_END_OF_FRAME_INT_ENA);
 	} else {
-		tilcdc_clear(dev, LCDC_INT_ENABLE_SET_REG,
+		tilcdc_write(dev, LCDC_INT_ENABLE_CLR_REG,
 			LCDC_V2_UNDERFLOW_INT_ENA | LCDC_V2_PL_INT_ENA |
-			LCDC_V2_END_OF_FRAME0_INT_ENA | LCDC_V2_END_OF_FRAME1_INT_ENA |
-			LCDC_FRAME_DONE);
+			LCDC_V2_END_OF_FRAME0_INT_ENA |
+			LCDC_FRAME_DONE | LCDC_SYNC_LOST);
 	}
 }
 
@@ -435,11 +436,10 @@ static const struct {
 		/* new in revision 2: */
 		REG(2, false, LCDC_RAW_STAT_REG),
 		REG(2, false, LCDC_MASKED_STAT_REG),
-		REG(2, false, LCDC_INT_ENABLE_SET_REG),
+		REG(2, true, LCDC_INT_ENABLE_SET_REG),
 		REG(2, false, LCDC_INT_ENABLE_CLR_REG),
 		REG(2, false, LCDC_END_OF_INT_IND_REG),
 		REG(2, true,  LCDC_CLK_ENABLE_REG),
-		REG(2, true,  LCDC_INT_ENABLE_SET_REG),
 #undef REG
 };
 
