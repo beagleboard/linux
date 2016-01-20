@@ -9,14 +9,12 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
-#include "am335x-bonegreen-wl1835.dtsi"
-
+#include "am33xx-overlay-edma-fix.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone Green";
 	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
-
 
 &ldo3_reg {
 	regulator-min-microvolt = <1800000>;
@@ -28,25 +26,16 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-&mmc2 {
-	vmmc-supply = <&vmmcsd_fixed>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_pins>;
-	bus-width = <8>;
-	status = "okay";
-};
-&uart3 {
-	status = "okay";
-};
-
-&mmc3 {
-	status = "okay";
-};
-
-&mac {
-	status = "disabled";
-};
-
 &sgx {
 	status = "okay";
+};
+
+/* EMMC in reset */
+&gpio1 {
+	emmc_rst {
+		gpio-hog;
+		gpios = <20 0>;
+		output-high;
+		line-name = "EMMC ResetN";
+	};
 };
