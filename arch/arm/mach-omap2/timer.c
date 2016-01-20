@@ -746,6 +746,16 @@ void __init omap4_local_timer_init(void)
 #endif /* CONFIG_HAVE_ARM_TWD */
 #endif /* CONFIG_ARCH_OMAP4 */
 
+#if defined(CONFIG_SOC_AM43XX)
+void __init am43xx_gptimer_timer_init(void)
+{
+	omap3_gptimer_timer_init();
+	if (of_have_populated_dt()) {
+		clocksource_of_init();
+	}
+}
+#endif
+
 #if defined(CONFIG_SOC_OMAP5) || defined(CONFIG_SOC_DRA7XX)
 void __init omap5_realtime_timer_init(void)
 {
