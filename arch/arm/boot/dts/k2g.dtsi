@@ -181,14 +181,68 @@
 			clock-names = "fck";
 		};
 
-		edma: edma@02728000 {
-			compatible = "ti,edma3";
-			reg =	<0x02728000 0x10000>;
+		edma0: edma@02700000 {
+			compatible = "ti,edma3-tpcc";
+			reg =	<0x02700000 0x8000>;
+			reg-names = "edma3_cc";
+			interrupts = <GIC_SPI 218 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 216 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 217 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "edma3_ccint", "emda3_mperr",
+					  "edma3_ccerrint";
+			dma-requests = <64>;
+			#dma-cells = <2>;
+
+			ti,tptcs = <&edma0_tptc0 7>, <&edma1_tptc0 0>;
+
+			ti,edma-memcpy-channels = <32 33 34 35>;
+
+			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
+		};
+
+		edma1: edma@02728000 {
+			compatible = "ti,edma3-tpcc";
+			reg =	<0x02728000 0x8000>;
+			reg-names = "edma3_cc";
 			interrupts = <GIC_SPI 221 IRQ_TYPE_EDGE_RISING>,
 					<GIC_SPI 219 IRQ_TYPE_EDGE_RISING>,
 					<GIC_SPI 220 IRQ_TYPE_EDGE_RISING>;
-			#dma-cells = <1>;
-			status = "okay";
+			interrupt-names = "edma3_ccint", "emda3_mperr",
+					  "edma3_ccerrint";
+			dma-requests = <64>;
+			#dma-cells = <2>;
+
+			ti,tptcs = <&edma1_tptc0 7>, <&edma1_tptc1 0>;
+
+			/*
+			 * memcpy is disabled, can be enabled with:
+			 * ti,edma-memcpy-channels = <12 13 14 15>;
+			 * for example.
+			 */
+			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
+		};
+
+		edma0_tptc0: tptc@02760000 {
+			compatible = "ti,edma3-tptc";
+			reg =	<0x02760000 0x400>;
+			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
+		};
+
+		edma0_tptc1: tptc@02768000 {
+			compatible = "ti,edma3-tptc";
+			reg =	<0x02768000 0x400>;
+			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
+		};
+
+		edma1_tptc0: tptc@027b0000 {
+			compatible = "ti,edma3-tptc";
+			reg =	<0x027b0000 0x400>;
+			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
+		};
+
+		edma1_tptc1: tptc@027b8000 {
+			compatible = "ti,edma3-tptc";
+			reg =	<0x027b8000 0x400>;
 			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
 		};
 
@@ -196,7 +250,7 @@
 			compatible = "ti,omap4-hsmmc";
 			reg = <0x23000000 0x400>;
 			interrupts = <GIC_SPI 96 IRQ_TYPE_EDGE_RISING>;
-			dmas = <&edma 24>, <&edma 25>;
+			dmas = <&edma1 24 0>, <&edma1 25 0>;
 			dma-names = "tx", "rx";
 			bus-width = <4>;
 			status = "disabled";
@@ -209,7 +263,7 @@
 			compatible = "ti,omap4-hsmmc";
 			reg = <0x23100000 0x400>;
 			interrupts = <GIC_SPI 97 IRQ_TYPE_EDGE_RISING>;
-			dmas = <&edma 26>, <&edma 27>;
+			dmas = <&edma1 26 0>, <&edma1 27 0>;
 			dma-names = "tx", "rx";
 			bus-width = <8>;
 			status = "disabled";
