@@ -70,6 +70,7 @@ config SOC_AM43XX
 	select PM_OPP if PM
 	select ARM_CPU_SUSPEND if PM
 	select GENERIC_CLOCKEVENTS_BROADCAST
+	select HAVE_ARM_TWD
 
 config SOC_DRA7XX
 	bool "TI DRA7XX"
