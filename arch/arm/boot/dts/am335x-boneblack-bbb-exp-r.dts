@@ -8,12 +8,11 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-#include "am33xx-overlay-edma-fix.dtsi"
+#include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
-	model = "TI AM335x BeagleBone Green";
-	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
 &ldo3_reg {
@@ -26,14 +25,20 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-&mmc2 {
-	vmmc-supply = <&vmmcsd_fixed>;
+&am33xx_pinmux {
 	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_pins>;
-	bus-width = <8>;
-	status = "okay";
+	pinctrl-0 = <&clkout2_pin>;
 };
+
+#include "am335x-peripheral-emmc.dtsi"
+#include "am335x-bone-pinmux-emmc.dtsi"
+/* #include "am335x-bone-emmc-in-reset.dtsi" */
+
+/* #include "am335x-peripheral-nxp-hdmi.dtsi" */
+/* #include "am335x-bone-pinmux-nxp-hdmi.dtsi" */
 
 &rtc {
 	system-power-controller;
 };
+
+#include "am335x-cape-bbb-exp-r.dtsi"

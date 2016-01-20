@@ -14,14 +14,15 @@
 	};
 
 	tibt {
-	        compatible = "tibt";
-	        nshutdown_gpio = <60>;
-	        dev_name = "/dev/ttyO3";
-	        flow_cntrl = <1>;
-	        baud_rate = <3000000>;
+		compatible = "tibt";
+		nshutdown_gpio = <60>;
+		dev_name = "/dev/ttyS3";
+		flow_cntrl = <1>;
+		baud_rate = <3000000>;
 	};
+
 	btwilink {
-	        compatible = "btwilink";
+		compatible = "btwilink";
 	};
 };
 
@@ -92,9 +93,13 @@
 	};
 };
 
+&edma {
+	ti,edma-xbar-event-map = /bits/ 16 <1 12 2 13>;
+};
+
 &mmc3 {
 	dmas = <&edma 12
-			&edma 13>;
+		&edma 13>;
 	dma-names = "tx", "rx";
 	status = "okay";
 	//vmmc-supply = <&wlan_en_reg>;
@@ -117,9 +122,6 @@
 		interrupts = <27 IRQ_TYPE_LEVEL_HIGH>;
 	};
 };
-&edma {
-	ti,edma-xbar-event-map = /bits/ 16 <1 12 2 13>;
-};
 
 &gpio0 {
 	wl_en {
@@ -129,7 +131,6 @@
 		line-name = "WL_EN";
 	};
 };
-
 
 &uart3 {
 	pinctrl-names = "default", "sleep";
