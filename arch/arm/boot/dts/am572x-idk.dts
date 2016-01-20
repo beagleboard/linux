@@ -133,19 +133,23 @@
 &ipu2 {
 	memory-region = <&ipu2_cma_pool>;
 	mboxes = <&mailbox6 &mbox_ipu2_ipc3x>;
+	timers = <&timer3>;
 };
 
 &ipu1 {
 	memory-region = <&ipu1_cma_pool>;
 	mboxes = <&mailbox5 &mbox_ipu1_ipc3x>;
+	timers = <&timer11>;
 };
 
 &dsp1 {
 	memory-region = <&dsp1_cma_pool>;
 	mboxes = <&mailbox5 &mbox_dsp1_ipc3x>;
+	timers = <&timer5>;
 };
 
 &dsp2 {
 	memory-region = <&dsp2_cma_pool>;
 	mboxes = <&mailbox6 &mbox_dsp2_ipc3x>;
+	timers = <&timer6>;
 };
