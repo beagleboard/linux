@@ -105,12 +105,15 @@
 
 &ipu2 {
 	memory-region = <&ipu2_cma_pool>;
+	mboxes = <&mailbox6 &mbox_ipu2_ipc3x>;
 };
 
 &ipu1 {
 	memory-region = <&ipu1_cma_pool>;
+	mboxes = <&mailbox5 &mbox_ipu1_ipc3x>;
 };
 
 &dsp1 {
 	memory-region = <&dsp1_cma_pool>;
+	mboxes = <&mailbox5 &mbox_dsp1_ipc3x>;
 };
