@@ -1,0 +1,9 @@
+use-kernel-config=keystone_defconfig
+config-fragment=ti_config_fragments/real_time.cfg
+config-fragment=ti_config_fragments/baseport.cfg
+config-fragment=ti_config_fragments/ipc.cfg
+config-fragment=ti_config_fragments/audio_display.cfg
+config-fragment=ti_config_fragments/connectivity.cfg
+config-fragment=ti_config_fragments/debug_options.cfg
+config-fragment=ti_config_fragments/system_test.cfg
+
