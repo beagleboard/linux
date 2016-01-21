@@ -1689,7 +1689,7 @@
 			ti,hwmods = "aes1";
 			reg = <0x4b500000 0xa0>;
 			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma_xbar 111>, <&sdma_xbar 110>;
+			dmas = <&edma_xbar 111 0>, <&edma_xbar 110 0>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1700,7 +1700,7 @@
 			ti,hwmods = "aes2";
 			reg = <0x4b700000 0xa0>;
 			interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma_xbar 114>, <&sdma_xbar 113>;
+			dmas = <&edma_xbar 114 0>, <&edma_xbar 113 0>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
