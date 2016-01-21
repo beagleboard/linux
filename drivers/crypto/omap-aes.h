@@ -104,7 +104,7 @@ struct omap_aes_reqctx {
 	unsigned long mode;
 };
 
-#define OMAP_AES_QUEUE_LENGTH	1
+#define OMAP_AES_QUEUE_LENGTH	10
 #define OMAP_AES_CACHE_SIZE	0
 
 struct omap_aes_algs_info {
