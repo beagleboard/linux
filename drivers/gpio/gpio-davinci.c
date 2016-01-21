@@ -455,6 +455,26 @@ static struct irq_chip *keystone_gpio_get_irq_chip(unsigned int irq)
 
 static const struct of_device_id davinci_gpio_ids[];
 
+struct gpio_driver_data {
+	gpio_get_irq_chip_cb_t gpio_get_irq_chip;
+	bool clk_optional;
+};
+
+static struct gpio_driver_data davinci_data = {
+	.gpio_get_irq_chip = davinci_gpio_get_irq_chip,
+	.clk_optional = false,
+};
+
+static struct gpio_driver_data keystone_data = {
+	.gpio_get_irq_chip = keystone_gpio_get_irq_chip,
+	.clk_optional = false,
+};
+
+static struct gpio_driver_data k2g_data = {
+	.gpio_get_irq_chip = keystone_gpio_get_irq_chip,
+	.clk_optional = true,
+};
+
 /*
  * NOTE:  for suspend/resume, probably best to make a platform_device with
  * suspend_late/resume_resume calls hooking into results of the set_wake()
@@ -478,6 +498,7 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 	struct irq_domain	*irq_domain = NULL;
 	const struct of_device_id *match;
 	struct irq_chip *irq_chip;
+	struct gpio_driver_data *driver_data = NULL;
 	gpio_get_irq_chip_cb_t gpio_get_irq_chip;
 
 	/*
@@ -486,8 +507,10 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 	gpio_get_irq_chip = davinci_gpio_get_irq_chip;
 	match = of_match_device(of_match_ptr(davinci_gpio_ids),
 				dev);
-	if (match)
-		gpio_get_irq_chip = (gpio_get_irq_chip_cb_t)match->data;
+	if (match) {
+		driver_data = (struct gpio_driver_data *)match->data;
+		gpio_get_irq_chip = driver_data->gpio_get_irq_chip;
+	}
 
 	ngpio = pdata->ngpio;
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
@@ -503,6 +526,9 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	if (driver_data && driver_data->clk_optional)
+		goto skip_clk_handling;
+
 	clk = devm_clk_get(dev, "gpio");
 	if (IS_ERR(clk)) {
 		printk(KERN_ERR "Error %ld getting gpio clock?\n",
@@ -511,6 +537,7 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 	}
 	clk_prepare_enable(clk);
 
+skip_clk_handling:
 	if (!pdata->gpio_unbanked) {
 		irq = irq_alloc_descs(-1, 0, ngpio, 0);
 		if (irq < 0) {
@@ -612,8 +639,18 @@ done:
 
 #if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id davinci_gpio_ids[] = {
-	{ .compatible = "ti,keystone-gpio", keystone_gpio_get_irq_chip},
-	{ .compatible = "ti,dm6441-gpio", davinci_gpio_get_irq_chip},
+	{
+		.compatible = "ti,keystone-gpio",
+		.data = &keystone_data,
+	},
+	{
+		.compatible = "ti,dm6441-gpio",
+		.data = &davinci_data,
+	},
+	{
+		.compatible = "ti,k2g-gpio",
+		.data = &k2g_data,
+	},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, davinci_gpio_ids);
