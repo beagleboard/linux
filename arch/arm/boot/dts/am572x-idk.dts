@@ -1,0 +1,53 @@
+/*
+ * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include "dra74x.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "am57xx-idk-common.dtsi"
+
+/ {
+	model = "TI AM572x IDK";
+	compatible = "ti,am572x-idk", "ti,am5728", "ti,dra742", "ti,dra74", \
+			"ti,dra7";
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+};
+
+&smps8_reg {
+	/* 5728 - VDD_IVAHD */
+	regulator-min-microvolt = <850000>;
+	regulator-max-microvolt = <1250000>;
+	regulator-always-on;
+	regulator-boot-on;
+};
+
+&dpll_dsp_ck {
+	assigned-clock-rates = <750000000>;
+};
+
+&dpll_dsp_m2_ck {
+	assigned-clock-rates = <750000000>;
+};
+
+&dpll_dsp_m3x2_ck {
+	assigned-clock-rates = <500000000>;
+};
+
+&dpll_iva_ck {
+	assigned-clock-rates = <1064000000>;
+};
+
+&dpll_iva_m2_ck {
+	assigned-clock-rates = <532000000>;
+};

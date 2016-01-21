@@ -10,4 +10,6 @@ obj-$(CONFIG_OMAP2PLUS_MBOX)	+= omap-mailbox.o
 
 obj-$(CONFIG_PCC)		+= pcc.o
 
+obj-$(CONFIG_TI_MESSAGE_MANAGER) += ti-msgmgr.o
+
 obj-$(CONFIG_ALTERA_MBOX)	+= mailbox-altera.o

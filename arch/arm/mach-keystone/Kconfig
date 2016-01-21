@@ -5,6 +5,7 @@ config ARCH_KEYSTONE
 	select ARM_GIC
 	select HAVE_ARM_ARCH_TIMER
 	select CLKSRC_MMIO
+	select ARCH_HAS_RESET_CONTROLLER
 	select ARM_ERRATA_798181 if SMP
 	select COMMON_CLK_KEYSTONE
 	select ARCH_SUPPORTS_BIG_ENDIAN
@@ -12,6 +13,8 @@ config ARCH_KEYSTONE
 	select MIGHT_HAVE_PCI
 	select PCI_DOMAINS if PCI
 	select KEYSTONE2_DMA_COHERENT
+	select PINCTRL
+	select PM_GENERIC_DOMAINS if PM
 	help
 	  Support for boards based on the Texas Instruments Keystone family of
 	  SoCs.

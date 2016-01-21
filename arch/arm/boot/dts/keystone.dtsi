@@ -12,6 +12,7 @@
 #include "skeleton.dtsi"
 
 / {
+	compatible = "ti,keystone";
 	model = "Texas Instruments Keystone 2 SoC";
 	#address-cells = <2>;
 	#size-cells = <2>;
@@ -71,6 +72,11 @@
 			reg = <0x02310000 0x200>;
 		};
 
+		psc: power-sleep-controller@02350000 {
+			compatible = "syscon";
+			reg = <0x02350000 0x1000>;
+		};
+
 		devctrl: device-state-control@02620000 {
 			compatible = "ti,keystone-devctrl", "syscon";
 			reg = <0x02620000 0x1000>;
@@ -81,6 +87,12 @@
 			ti,syscon-pll = <&pllctrl 0xe4>;
 			ti,syscon-dev = <&devctrl 0x328>;
 			ti,wdt-list = <0>;
+		};
+
+		pscrst: psc-reset {
+			compatible = "syscon-reset";
+			syscon = <&psc>;
+			#reset-cells = <6>;
 		};
 
 		/include/ "keystone-clocks.dtsi"

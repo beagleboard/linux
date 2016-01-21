@@ -1390,20 +1390,32 @@ static int mmc_omap_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_DMA, "tx");
 	if (res)
 		sig = res->start;
-	host->dma_tx = dma_request_slave_channel_compat(mask,
+	host->dma_tx = dma_request_slave_channel_compat_reason(mask,
 				omap_dma_filter_fn, &sig, &pdev->dev, "tx");
-	if (!host->dma_tx)
+	if (IS_ERR(host->dma_tx)) {
+		ret = PTR_ERR(host->dma_tx);
+		if (ret == -EPROBE_DEFER)
+			goto err_free_dma;
+
+		host->dma_tx = NULL;
 		dev_warn(host->dev, "unable to obtain TX DMA engine channel %u\n",
 			sig);
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_DMA, "rx");
 	if (res)
 		sig = res->start;
-	host->dma_rx = dma_request_slave_channel_compat(mask,
+	host->dma_rx = dma_request_slave_channel_compat_reason(mask,
 				omap_dma_filter_fn, &sig, &pdev->dev, "rx");
-	if (!host->dma_rx)
+	if (IS_ERR(host->dma_rx)) {
+		ret = PTR_ERR(host->dma_rx);
+		if (ret == -EPROBE_DEFER)
+			goto err_free_dma;
+
+		host->dma_rx = NULL;
 		dev_warn(host->dev, "unable to obtain RX DMA engine channel %u\n",
 			sig);
+	}
 
 	ret = request_irq(host->irq, mmc_omap_irq, 0, DRIVER_NAME, host);
 	if (ret)

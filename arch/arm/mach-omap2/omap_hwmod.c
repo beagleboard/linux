@@ -4096,7 +4096,7 @@ static int omap_hwmod_restore_context(struct omap_hwmod *oh, void *unused)
 	for (i = 0; i < oh->rst_lines_cnt; i++)
 		if (oh->rst_lines[i].context)
 			_assert_hardreset(oh, oh->rst_lines[i].name);
-		else if (oh->_state == _HWMOD_STATE_ENABLED)
+		else
 			_deassert_hardreset(oh, oh->rst_lines[i].name);
 
 	if (oh->_state == _HWMOD_STATE_ENABLED) {

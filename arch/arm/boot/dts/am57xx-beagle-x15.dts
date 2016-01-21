@@ -23,7 +23,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x80000000>;
+		reg = <0x0 0x80000000 0x0 0x80000000>;
 	};
 
 	vdd_3v3: fixedregulator-vdd_3v3 {
@@ -96,6 +96,26 @@
 		compatible = "linux,extcon-usb-gpio";
 		id-gpio = <&gpio7 24 GPIO_ACTIVE_HIGH>;
 	};
+};
+
+&dpll_dsp_ck {
+	assigned-clock-rates = <750000000>;
+};
+
+&dpll_dsp_m2_ck {
+	assigned-clock-rates = <750000000>;
+};
+
+&dpll_dsp_m3x2_ck {
+	assigned-clock-rates = <500000000>;
+};
+
+&dpll_iva_ck {
+	assigned-clock-rates = <1064000000>;
+};
+
+&dpll_iva_m2_ck {
+	assigned-clock-rates = <532000000>;
 };
 
 &dra7_pmx_core {
@@ -196,11 +216,12 @@
 				/* SMPS9 unused */
 
 				ldo1_reg: ldo1 {
-					/* VDD_SD  */
+					/* VDD_SD / VDDSHV8  */
 					regulator-name = "ldo1";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <3300000>;
 					regulator-boot-on;
+					regulator-always-on;
 				};
 
 				ldo2_reg: ldo2 {
@@ -213,8 +234,17 @@
 				};
 
 				ldo3_reg: ldo3 {
-					/* VDDA_1V8_PHY */
+					/* VDDA_1V8_PHYA */
 					regulator-name = "ldo3";
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <1800000>;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				ldo4_reg: ldo4 {
+					/* VDDA_1V8_PHYB */
+					regulator-name = "ldo4";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <1800000>;
 					regulator-always-on;
@@ -448,6 +478,11 @@
 			};
 		};
        };
+};
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
 };
 
 &mmu0_dsp1 {

@@ -22,6 +22,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/platform_device.h>
 #include <linux/sizes.h>
 #include <linux/suspend.h>
 #include <linux/ti-emif-sram.h>
@@ -54,6 +55,8 @@ static void __iomem *gic_dist_base;
 static struct am33xx_pm_sram_addr *pm_sram;
 
 static unsigned long suspend_wfi_flags;
+
+#ifdef CONFIG_SUSPEND
 static int rtc_only_idle;
 static int retrigger_irq;
 
@@ -68,6 +71,7 @@ static struct wkup_m3_wakeup_src rtc_alarm_wakeup = {
 static struct wkup_m3_wakeup_src rtc_ext_wakeup = {
 	.irq_nr = 0, .src = "Ext wakeup",
 };
+#endif
 
 /*
  * Push the minimal suspend-resume code to SRAM
@@ -131,10 +135,7 @@ static int am33xx_pm_suspend(suspend_state_t suspend_state)
 
 	if (suspend_state == PM_SUSPEND_MEM &&
 	    pm_ops->check_off_mode_enable()) {
-		rtc_only_idle = 1;
 		pm_ops->prepare_rtc_suspend();
-		rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG,
-				  rtc_magic_val);
 		pm_ops->save_context();
 		suspend_wfi_flags |= WFI_FLAG_RTC_ONLY;
 		ret = pm_ops->soc_suspend(suspend_state, am33xx_rtc_only_idle,
@@ -203,6 +204,14 @@ static int am33xx_pm_begin(suspend_state_t state)
 	int ret = -EINVAL;
 
 	cpu_idle_poll_ctrl(true);
+
+	if (state == PM_SUSPEND_MEM && pm_ops->check_off_mode_enable()) {
+		rtc_write_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG,
+				  rtc_magic_val);
+		rtc_only_idle = 1;
+	} else {
+		rtc_only_idle = 0;
+	}
 
 	switch (state) {
 	case PM_SUSPEND_MEM:
@@ -327,6 +336,11 @@ static int am33xx_pm_rtc_setup(void)
 
 	if (of_device_is_available(np)) {
 		omap_rtc = rtc_class_open("rtc0");
+		if (!omap_rtc) {
+			pr_warn("PM: rtc0 not available");
+			return -EPROBE_DEFER;
+		}
+
 		rtc_read_scratch(omap_rtc, RTC_SCRATCH_MAGIC_REG,
 				 &rtc_magic_val);
 
@@ -344,7 +358,7 @@ static int am33xx_pm_rtc_setup(void)
 	return 0;
 }
 
-int am33xx_pm_init(void)
+static int am33xx_pm_probe(struct platform_device *pdev)
 {
 	int ret;
 
@@ -374,7 +388,10 @@ int am33xx_pm_init(void)
 	if (ret)
 		return ret;
 
-	am33xx_pm_rtc_setup();
+	ret = am33xx_pm_rtc_setup();
+	if (ret)
+		return ret;
+
 	am33xx_push_sram_idle();
 
 	am33xx_pm_set_ipc_ops();
@@ -398,14 +415,23 @@ int am33xx_pm_init(void)
 	return 0;
 }
 
-void am33xx_pm_exit(void)
+static int am33xx_pm_remove(struct platform_device *pdev)
 {
 	suspend_set_ops(NULL);
 	gen_pool_free(sram_pool, ocmcram_location, *pm_sram->do_wfi_sz);
+	return 0;
 }
 
-late_initcall(am33xx_pm_init);
-module_exit(am33xx_pm_exit);
+static struct platform_driver am33xx_pm_driver = {
+	.driver = {
+		.name   = "pm33xx",
+	},
+	.probe = am33xx_pm_probe,
+	.remove = am33xx_pm_remove,
+};
 
+module_platform_driver(am33xx_pm_driver);
+
+MODULE_ALIAS("platform:pm33xx");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("am33xx power management driver");

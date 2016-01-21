@@ -364,6 +364,13 @@ void __iomem *__arm_ioremap(phys_addr_t phys_addr, size_t size,
 }
 EXPORT_SYMBOL(__arm_ioremap);
 
+void __iomem *__arm_ioremap_exec(phys_addr_t phys_addr, size_t size,
+				 bool cached)
+{
+	return (void __iomem *)phys_addr;
+}
+EXPORT_SYMBOL(__arm_ioremap_exec);
+
 void __iomem * (*arch_ioremap_caller)(phys_addr_t, size_t, unsigned int, void *);
 
 void __iomem *__arm_ioremap_caller(phys_addr_t phys_addr, size_t size,

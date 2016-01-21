@@ -16,7 +16,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x60000000>; /* 1536 MB */
+		reg = <0x0 0x80000000 0x0 0x60000000>; /* 1536 MB */
 	};
 
 	mmc2_3v3: fixedregulator-mmc2 {
@@ -48,6 +48,26 @@
 		vin-supply = <&sysen2>;
 		gpio = <&gpio7 11 GPIO_ACTIVE_HIGH>;
 	};
+};
+
+&dpll_dsp_ck {
+	assigned-clock-rates = <750000000>;
+};
+
+&dpll_dsp_m2_ck {
+	assigned-clock-rates = <750000000>;
+};
+
+&dpll_dsp_m3x2_ck {
+	assigned-clock-rates = <500000000>;
+};
+
+&dpll_iva_ck {
+	assigned-clock-rates = <1064000000>;
+};
+
+&dpll_iva_m2_ck {
+	assigned-clock-rates = <532000000>;
 };
 
 &dra7_pmx_core {
@@ -153,6 +173,7 @@
 					regulator-max-microvolt = <1050000>;
 					regulator-always-on;
 					regulator-boot-on;
+					regulator-allow-bypass;
 				};
 
 				ldoln_reg: ldoln {
@@ -476,6 +497,11 @@
 
 &dcan1 {
 	status = "ok";
+};
+
+&rtc {
+	status = "okay";
+	ext-clk-src;
 };
 
 &mmu0_dsp1 {

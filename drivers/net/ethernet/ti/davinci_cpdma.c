@@ -81,7 +81,7 @@ struct cpdma_desc {
 };
 
 struct cpdma_desc_pool {
-	phys_addr_t		phys;
+	dma_addr_t		phys;
 	u32			hw_addr;
 	void __iomem		*iomap;		/* ioremap map */
 	void			*cpumap;	/* dma_alloc map */

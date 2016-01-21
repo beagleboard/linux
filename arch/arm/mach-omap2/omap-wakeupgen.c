@@ -56,7 +56,10 @@ static unsigned int irq_target_cpu[MAX_IRQS];
 static unsigned int irq_banks = DEFAULT_NR_REG_BANKS;
 static unsigned int max_irqs = DEFAULT_IRQS;
 static unsigned int omap_secure_apis;
+
+#ifdef CONFIG_CPU_PM
 static unsigned int wakeupgen_context[MAX_NR_REG_BANKS];
+#endif
 
 struct omap_wakeupgen_ops {
 	void (*save_context)(void);
@@ -340,6 +343,26 @@ static void irq_save_secure_context(void)
 	if (ret != API_HAL_RET_VALUE_OK)
 		pr_err("GIC and Wakeupgen context save failed\n");
 }
+
+/* Define ops for context save and restore for each SoC */
+static struct omap_wakeupgen_ops omap4_wakeupgen_ops = {
+	.save_context = omap4_irq_save_context,
+	.restore_context = irq_sar_clear,
+};
+
+static struct omap_wakeupgen_ops omap5_wakeupgen_ops = {
+	.save_context = omap5_irq_save_context,
+	.restore_context = irq_sar_clear,
+};
+
+static struct omap_wakeupgen_ops am43xx_wakeupgen_ops = {
+	.save_context = am43xx_irq_save_context,
+	.restore_context = am43xx_irq_restore_context,
+};
+#else
+static struct omap_wakeupgen_ops omap4_wakeupgen_ops = {};
+static struct omap_wakeupgen_ops omap5_wakeupgen_ops = {};
+static struct omap_wakeupgen_ops am43xx_wakeupgen_ops = {};
 #endif
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -421,6 +444,7 @@ static struct irq_chip wakeupgen_chip = {
 	.irq_mask		= wakeupgen_mask,
 	.irq_unmask		= wakeupgen_unmask,
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
+	.irq_set_type		= irq_chip_set_type_parent,
 	.flags			= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_MASK_ON_SUSPEND,
 #ifdef CONFIG_SMP
 	.irq_set_affinity	= irq_chip_set_affinity_parent,
@@ -477,23 +501,6 @@ static struct irq_domain_ops wakeupgen_domain_ops = {
 	.xlate	= wakeupgen_domain_xlate,
 	.alloc	= wakeupgen_domain_alloc,
 	.free	= irq_domain_free_irqs_common,
-};
-
-/* Define ops for context save and restore for each SoC */
-
-static struct omap_wakeupgen_ops omap4_wakeupgen_ops = {
-	.save_context = omap4_irq_save_context,
-	.restore_context = irq_sar_clear,
-};
-
-static struct omap_wakeupgen_ops omap5_wakeupgen_ops = {
-	.save_context = omap5_irq_save_context,
-	.restore_context = irq_sar_clear,
-};
-
-static struct omap_wakeupgen_ops am43xx_wakeupgen_ops = {
-	.save_context = am43xx_irq_save_context,
-	.restore_context = am43xx_irq_restore_context,
 };
 
 /*

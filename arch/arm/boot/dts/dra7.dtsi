@@ -15,8 +15,8 @@
 #define MAX_SOURCES 400
 
 / {
-	#address-cells = <1>;
-	#size-cells = <1>;
+	#address-cells = <2>;
+	#size-cells = <2>;
 
 	compatible = "ti,dra7xx";
 	interrupt-parent = <&crossbar_mpu>;
@@ -56,10 +56,10 @@
 		compatible = "arm,cortex-a15-gic";
 		interrupt-controller;
 		#interrupt-cells = <3>;
-		reg = <0x48211000 0x1000>,
-		      <0x48212000 0x1000>,
-		      <0x48214000 0x2000>,
-		      <0x48216000 0x2000>;
+		reg = <0x0 0x48211000 0x0 0x1000>,
+		      <0x0 0x48212000 0x0 0x1000>,
+		      <0x0 0x48214000 0x0 0x2000>,
+		      <0x0 0x48216000 0x0 0x2000>;
 		interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(2) | IRQ_TYPE_LEVEL_HIGH)>;
 		interrupt-parent = <&gic>;
 	};
@@ -68,7 +68,7 @@
 		compatible = "ti,omap5-wugen-mpu", "ti,omap4-wugen-mpu";
 		interrupt-controller;
 		#interrupt-cells = <3>;
-		reg = <0x48281000 0x1000>;
+		reg = <0x0 0x48281000 0x0 0x1000>;
 		interrupt-parent = <&gic>;
 	};
 
@@ -95,10 +95,10 @@
 		compatible = "ti,dra7-l3-noc", "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges;
+		ranges = <0x0 0x0 0x0 0xc0000000>;
 		ti,hwmods = "l3_main_1", "l3_main_2";
-		reg = <0x44000000 0x1000000>,
-		      <0x45000000 0x1000>;
+		reg = <0x0 0x44000000 0x0 0x1000000>,
+		      <0x0 0x45000000 0x0 0x1000>;
 		interrupts-extended = <&crossbar_mpu GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
 				      <&wakeupgen GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
 
@@ -148,6 +148,24 @@
 					interrupt-controller;
 					pinctrl-single,register-width = <32>;
 					pinctrl-single,function-mask = <0x3fffffff>;
+				};
+
+				sdma_xbar: dma-router@b78 {
+					compatible = "ti,dra7-dma-crossbar";
+					reg = <0xb78 0xfc>;
+					#dma-cells = <1>;
+					dma-requests = <205>;
+					ti,dma-safe-map = <0>;
+					dma-masters = <&sdma>;
+				};
+
+				edma_xbar: dma-router@c78 {
+					compatible = "ti,dra7-dma-crossbar";
+					reg = <0xc78 0x7c>;
+					#dma-cells = <2>;
+					dma-requests = <204>;
+					ti,dma-safe-map = <0>;
+					dma-masters = <&edma>;
 				};
 			};
 
@@ -320,13 +338,43 @@
 			dma-requests = <127>;
 		};
 
-		sdma_xbar: dma-router@4a002b78 {
-			compatible = "ti,dra7-dma-crossbar";
-			reg = <0x4a002b78 0xfc>;
-			#dma-cells = <1>;
-			dma-requests = <205>;
-			ti,dma-safe-map = <0>;
-			dma-masters = <&sdma>;
+		edma: edma@43300000 {
+			compatible = "ti,edma3-tpcc";
+			ti,hwmods = "tpcc";
+			reg = <0x43300000 0x100000>;
+			reg-names = "edma3_cc";
+			interrupts = <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma3_ccint", "emda3_mperr",
+					  "edma3_ccerrint";
+			dma-requests = <64>;
+			#dma-cells = <2>;
+
+			ti,tptcs = <&edma_tptc0 7>, <&edma_tptc1 0>;
+
+			/*
+			 * memcpy is disabled, can be enabled with:
+			 * ti,edma-memcpy-channels = <20 21>;
+			 * for example. Note that these channels need to be
+			 * masked in the xbar as well.
+			 */
+		};
+
+		edma_tptc0: tptc@43400000 {
+			compatible = "ti,edma3-tptc";
+			ti,hwmods = "tptc0";
+			reg =	<0x43400000 0x100000>;
+			interrupts = <GIC_SPI 370 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma3_tcerrint";
+		};
+
+		edma_tptc1: tptc@43500000 {
+			compatible = "ti,edma3-tptc";
+			ti,hwmods = "tptc1";
+			reg =	<0x43500000 0x100000>;
+			interrupts = <GIC_SPI 371 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma3_tcerrint";
 		};
 
 		gpio1: gpio@4ae10000 {
@@ -1353,6 +1401,7 @@
 				     <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "rtcss";
 			clocks = <&sys_32k_ck>;
+			status = "disabled";
 		};
 
 		omap_control_usb2phy1: control-phy@4a002300 {
@@ -1503,6 +1552,8 @@
 			ti,hwmods = "gpmc";
 			reg = <0x50000000 0x37c>;      /* device IO registers */
 			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+			dmas = <&edma_xbar 4 0>;
+			dma-names = "rxtx";
 			gpmc,num-cs = <8>;
 			gpmc,num-waitpins = <2>;
 			#address-cells = <2>;

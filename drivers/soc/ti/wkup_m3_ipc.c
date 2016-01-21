@@ -183,7 +183,7 @@ static int wkup_m3_init_scale_data(struct device *dev)
 		return ret;
 
 	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
-				      m3_ipc_state.sd_fw_name, dev, GFP_KERNEL,
+				      m3_ipc_state.sd_fw_name, dev, GFP_ATOMIC,
 				      dev, wkup_m3_scale_data_fw_cb);
 
 	return ret;
@@ -644,7 +644,7 @@ static int wkup_m3_ipc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int wkup_m3_ipc_resume(struct device *dev)
 {
 	if (m3_ipc_state.is_rtc_only) {
@@ -656,11 +656,11 @@ static int wkup_m3_ipc_resume(struct device *dev)
 
 	return 0;
 }
+#endif /* CONFIG_PM_SLEEP */
 
 static const struct dev_pm_ops wkup_m3_ipc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(NULL, wkup_m3_ipc_resume)
 };
-#endif
 
 static const struct of_device_id wkup_m3_ipc_of_match[] = {
 	{ .compatible = "ti,am3352-wkup-m3-ipc", },
@@ -674,9 +674,7 @@ static struct platform_driver wkup_m3_ipc_driver = {
 	.driver = {
 		.name = "wkup_m3_ipc",
 		.of_match_table = wkup_m3_ipc_of_match,
-#ifdef CONFIG_PM
 		.pm = &wkup_m3_ipc_pm_ops,
-#endif
 	},
 };
 
@@ -685,3 +683,4 @@ module_platform_driver(wkup_m3_ipc_driver);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("wkup m3 remote processor ipc driver");
 MODULE_AUTHOR("Dave Gerlach <d-gerlach@ti.com>");
+MODULE_DEVICE_TABLE(of, wkup_m3_ipc_of_match);

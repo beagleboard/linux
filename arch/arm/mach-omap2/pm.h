@@ -167,7 +167,8 @@ static inline void enable_omap3630_toggle_l2_on_restore(void) { }
 #define PM_OMAP4_ROM_SMP_BOOT_ERRATUM_GICD	(1 << 0)
 #define PM_OMAP4_CPU_OSWR_DISABLE		(1 << 1)
 
-#if defined(CONFIG_PM) && defined(CONFIG_ARCH_OMAP4)
+#if defined(CONFIG_PM) && (defined(CONFIG_ARCH_OMAP4) ||\
+	   defined(CONFIG_SOC_OMAP5) || defined (CONFIG_SOC_DRA7XX))
 extern u16 pm44xx_errata;
 #define IS_PM44XX_ERRATUM(id)		(pm44xx_errata & (id))
 #else
@@ -205,10 +206,12 @@ static inline int omap4_twl_init(void)
 extern void omap_pm_setup_oscillator(u32 tstart, u32 tshut);
 extern void omap_pm_get_oscillator(u32 *tstart, u32 *tshut);
 extern void omap_pm_setup_sr_i2c_pcb_length(u32 mm);
+void amx3_common_pm_init(void);
 #else
 static inline void omap_pm_setup_oscillator(u32 tstart, u32 tshut) { }
 static inline void omap_pm_get_oscillator(u32 *tstart, u32 *tshut) { *tstart = *tshut = 0; }
 static inline void omap_pm_setup_sr_i2c_pcb_length(u32 mm) { }
+static inline void amx3_common_pm_init(void) { }
 #endif
 
 #ifdef CONFIG_SUSPEND
