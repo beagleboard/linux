@@ -3,8 +3,12 @@ config OMAP2_VRFB
 
 if ARCH_OMAP2PLUS
 
+menu "OMAP DSS"
+
 source "drivers/video/fbdev/omap2/dss/Kconfig"
 source "drivers/video/fbdev/omap2/omapfb/Kconfig"
 source "drivers/video/fbdev/omap2/displays-new/Kconfig"
+
+endmenu
 
 endif
