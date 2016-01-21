@@ -179,7 +179,7 @@ static int davinci_gpio_of_xlate(struct gpio_chip *gc,
 
 static int davinci_gpio_probe(struct platform_device *pdev)
 {
-	int i, base;
+	int i, base, temp_ctrl_base;
 	unsigned ngpio, nbank;
 	struct davinci_gpio_controller *chips;
 	struct davinci_gpio_platform_data *pdata;
@@ -222,6 +222,8 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 	if (IS_ERR(gpio_base))
 		return PTR_ERR(gpio_base);
 
+	temp_ctrl_base = bank_base;
+
 	for (i = 0, base = 0; base < ngpio; i++, base += 32) {
 		chips[i].chip.label = "DaVinci";
 
@@ -231,10 +233,13 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 		chips[i].chip.set = davinci_gpio_set;
 
 		chips[i].chip.base = bank_base;
+		chips[i].ctrl_base = temp_ctrl_base;
 		bank_base += 32;
 		chips[i].chip.ngpio = ngpio - base;
 		if (chips[i].chip.ngpio > 32)
 			chips[i].chip.ngpio = 32;
+		else
+			bank_base = ngpio;
 
 #ifdef CONFIG_OF_GPIO
 		chips[i].chip.of_gpio_n_cells = 2;
@@ -330,6 +335,7 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	while (1) {
 		u32		status;
 		int		bit;
+		irq_hw_number_t hw_irq;
 
 		/* ack any irqs */
 		status = readl_relaxed(&g->intstat) & mask;
@@ -342,9 +348,13 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 		while (status) {
 			bit = __ffs(status);
 			status &= ~BIT(bit);
+			/* Max number of gpios per controller is 144 so
+			 * hw_irq will be in [0..143]
+			 */
+			hw_irq = (d->chip.base - d->ctrl_base) + bit;
+
 			generic_handle_irq(
-				irq_find_mapping(d->irq_domain,
-						 d->chip.base + bit));
+				irq_find_mapping(d->irq_domain, hw_irq));
 		}
 	}
 	chained_irq_exit(irq_desc_get_chip(desc), desc);
@@ -354,11 +364,17 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 static int gpio_to_irq_banked(struct gpio_chip *chip, unsigned offset)
 {
 	struct davinci_gpio_controller *d = chip2controller(chip);
+	irq_hw_number_t hw_irq;
 
-	if (d->irq_domain)
-		return irq_create_mapping(d->irq_domain, d->chip.base + offset);
-	else
+	if (d->irq_domain) {
+		/* Max number of gpios per controller is 144 so
+		 * hw_irq will be in [0..143]
+		 */
+		hw_irq = (d->chip.base - d->ctrl_base) + offset;
+		return irq_create_mapping(d->irq_domain, hw_irq);
+	} else {
 		return -ENXIO;
+	}
 }
 
 static int gpio_to_irq_unbanked(struct gpio_chip *chip, unsigned offset)
