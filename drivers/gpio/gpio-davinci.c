@@ -327,7 +327,7 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	g = (struct davinci_gpio_regs __iomem *)d->regs;
 
 	/* we only care about one bank */
-	if (irq & 1)
+	if (irq == d->birq2)
 		mask <<= 16;
 
 	/* temporarily mask (level sensitive) parent IRQ */
@@ -580,6 +580,12 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 		g = chips[bank / 2].regs;
 		writel_relaxed(~0, &g->clr_falling);
 		writel_relaxed(~0, &g->clr_rising);
+
+		bank_irq = platform_get_irq(pdev, bank);
+		if (bank % 1)
+			chips[bank / 2].birq2 = bank_irq;
+		else
+			chips[bank / 2].birq1 = bank_irq;
 
 		/* set up all irqs in this bank */
 		irq_set_chained_handler(bank_irq, gpio_irq_handler);
