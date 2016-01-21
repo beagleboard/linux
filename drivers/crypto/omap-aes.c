@@ -402,8 +402,6 @@ int omap_aes_crypt_dma_stop(struct omap_aes_dev *dd)
 
 	omap_aes_dma_stop(dd);
 
-	dmaengine_terminate_all(dd->dma_lch_in);
-	dmaengine_terminate_all(dd->dma_lch_out);
 
 	return err;
 }
