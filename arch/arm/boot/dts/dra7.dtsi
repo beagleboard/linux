@@ -1722,7 +1722,7 @@
 			ti,hwmods = "sham";
 			reg = <0x4b101000 0x300>;
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma_xbar 119>;
+			dmas = <&edma_xbar 119 0>;
 			dma-names = "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
