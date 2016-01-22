@@ -184,6 +184,7 @@ static const struct of_device_id ti_sci_pm_domain_matches[] = {
 	{ .compatible = "ti,sci-pm-domains", },
 	{ },
 };
+MODULE_DEVICE_TABLE(of, ti_sci_pm_domain_matches);
 
 static int ti_sci_pm_domains_probe(struct platform_device *pdev)
 {
@@ -219,4 +220,3 @@ module_platform_driver(ti_sci_pm_domains_driver);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("TI System Control Interface(SCI) Power Domain driver");
 MODULE_AUTHOR("Dave Gerlach");
-MODULE_ALIAS("platform:ti-sci-pm-domains");
