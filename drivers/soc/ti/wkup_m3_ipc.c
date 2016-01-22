@@ -683,3 +683,4 @@ module_platform_driver(wkup_m3_ipc_driver);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("wkup m3 remote processor ipc driver");
 MODULE_AUTHOR("Dave Gerlach <d-gerlach@ti.com>");
+MODULE_DEVICE_TABLE(of, wkup_m3_ipc_of_match);
