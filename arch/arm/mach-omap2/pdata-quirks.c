@@ -27,6 +27,8 @@
 #include <linux/platform_data/wkup_m3.h>
 #include <linux/platform_data/remoteproc-pruss.h>
 #include <linux/platform_data/sgx-omap.h>
+#include <linux/platform_data/pwm_omap_dmtimer.h>
+#include <plat/dmtimer.h>
 
 #include "common.h"
 #include "common-board-devices.h"
@@ -516,6 +518,24 @@ void omap_auxdata_legacy_init(struct device *dev)
 	dev->platform_data = &twl_gpio_auxdata;
 }
 
+/* Dual mode timer PWM callbacks platdata */
+#if IS_ENABLED(CONFIG_OMAP_DM_TIMER)
+struct pwm_omap_dmtimer_pdata pwm_dmtimer_pdata = {
+	.request_by_node = omap_dm_timer_request_by_node,
+	.free = omap_dm_timer_free,
+	.enable = omap_dm_timer_enable,
+	.disable = omap_dm_timer_disable,
+	.get_fclk = omap_dm_timer_get_fclk,
+	.start = omap_dm_timer_start,
+	.stop = omap_dm_timer_stop,
+	.set_load = omap_dm_timer_set_load,
+	.set_match = omap_dm_timer_set_match,
+	.set_pwm = omap_dm_timer_set_pwm,
+	.set_prescaler = omap_dm_timer_set_prescaler,
+	.write_counter = omap_dm_timer_write_counter,
+};
+#endif
+
 /*
  * Few boards still need auxdata populated before we populate
  * the dev entries in of_platform_populate().
@@ -608,6 +628,9 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       "54426000.pruss_wrapper", &pruss_pdata),
 	OF_DEV_AUXDATA("ti,am4376-sgx530", 0x56000000, "56000000.sgx",
 		       &sgx_pdata),
+#endif
+#if IS_ENABLED(CONFIG_OMAP_DM_TIMER)
+	OF_DEV_AUXDATA("ti,omap-dmtimer-pwm", 0, NULL, &pwm_dmtimer_pdata),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
