@@ -218,6 +218,25 @@
 		nvmem-cells = <&baseboard_data>;
 		nvmem-cell-names = "baseboard";
 	};
+
+	leds {
+		/* Take over a couple LEDS for ev3dev use */
+
+		/*
+		 * FIXME: The underlying definitions use green for color, but
+		 * newer models are actually blue.
+		 */
+
+		led@2 {
+			label = "beaglebone:usr0:green:ev3dev";
+			linux,default-trigger = "none";
+		};
+
+		led@5 {
+			label = "beaglebone:usr3:green:ev3dev";
+			linux,default-trigger = "none";
+		};
+	};
 };
 
 &am33xx_pinmux {
