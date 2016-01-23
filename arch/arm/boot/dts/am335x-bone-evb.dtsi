@@ -44,10 +44,27 @@
 		evb_adc: adc@0 {
 			compatible = "ti-ads7957";
 			reg = <0>;
-			spi-max-frequency = <100000>;
+			spi-max-frequency = <10000000>;
 			refin-supply = <&evb_adc_reg>;
 
 			#io-channel-cells = <1>;
+
+			/* CH0:  ADCMA		(outA pin5)		*/
+			/* CH1:  ADCMB		(outB pin5)		*/
+			/* CH2:  ADCMC		(outC pin5)		*/
+			/* CH3:  ADCMD		(outD pin5)		*/
+			/* CH4:  N/C					*/
+			/* CH5:  N/C					*/
+			/* CH6:  ADC_I		(battery current)	*/
+			/* CH7:  ADCBATROW	(battery voltage)	*/
+			/* CH8:  ADC_D1		(in4 pin6)		*/
+			/* CH9:  ADC_D0		(in4 pin1)		*/
+			/* CH10: ADC_C1		(in3 pin6)		*/
+			/* CH11: ADC_C0		(in3 pin1)		*/
+			/* CH12: ADC_B0		(in2 pin1)		*/
+			/* CH13: ADC_B1		(in2 pin6)		*/
+			/* CH14: ADC_A0		(in1 pin1)		*/
+			/* CH15: ADC_A1		(in1 pin6)		*/
 		};
 	};
 
@@ -69,48 +86,120 @@
 	evb-ports {
 		compatible = "ev3dev,evb-ports";
 
-		in1: in@0 {
+		in1 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&in1_pins>;
 
 			compatible = "ev3dev,evb-input-port";
+			io-channels = <&evb_adc 14>, <&evb_adc 15>;
+			io-channel-names = "pin1", "pin6";
+			pin5-gpios = <&gpio1 28 0>;
+			pin6-gpios = <&gpio1 18 0>;
+			buf-ena-gpios = <&gpio1 19 GPIO_ACTIVE_LOW>;
+			ev3dev,tty-name = "ttyS4";
 		};
 
-		in2: in@1 {
+		in2 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&in2_pins>;
 
 			compatible = "ev3dev,evb-input-port";
+			io-channels = <&evb_adc 12>, <&evb_adc 13>;
+			io-channel-names = "pin1", "pin6";
+			pin5-gpios = <&gpio1 16 0>;
+			pin6-gpios = <&gpio0 5 0>;
+			buf-ena-gpios = <&gpio0 4 GPIO_ACTIVE_LOW>;
+			ev3dev,tty-name = "ttyS2";
 		};
 
-		in3: in@2 {
+		in3 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&in3_pins>;
 
 			compatible = "ev3dev,evb-input-port";
+			io-channels = <&evb_adc 11>, <&evb_adc 10>;
+			io-channel-names = "pin1", "pin6";
+			pin5-gpios = <&gpio0 12 0>;
+			pin6-gpios = <&gpio0 13 0>;
+			buf-ena-gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;
+			ev3dev,tty-name = "ttyS1";
 		};
 
-		in4: in@3 {
+		in4 {
 			pinctrl-names = "default";
 			pinctrl-0 = <&in4_pins>;
 
 			compatible = "ev3dev,evb-input-port";
+			io-channels = <&evb_adc 9>, <&evb_adc 8>;
+			io-channel-names = "pin1", "pin6";
+			pin5-gpios = <&gpio3 21 0>;
+			pin6-gpios = <&gpio1 17 0>;
+			buf-ena-gpios = <&gpio3 5 GPIO_ACTIVE_LOW>;
+			ev3dev,tty-name = "ttyS5";
 		};
 
-		outA: out@0 {
+		outA {
+			pinctrl-names = "default";
+			pinctrl-0 = <&outA_pins>;
+
 			compatible = "ev3dev,evb-output-port";
+			io-channels = <&evb_adc 0>;
+			io-channel-names = "pin5";
+			pin1-gpios = <&gpio2 2 0>;
+			pin2-gpios = <&gpio2 5 0>;
+			pin5-det-gpios = <&gpio1 7 0>;
+			pin5-gpios = <&gpio2 3 0>;
+			pin6-gpios = <&gpio2 4 0>;
+			pwms = <&ehrpwm2 1 0 PWM_POLARITY_INVERTED>;
+			pwm-names = "motor";
 		};
 
-		outB: out@1 {
+		outB {
+			pinctrl-names = "default";
+			pinctrl-0 = <&outB_pins>;
+
 			compatible = "ev3dev,evb-output-port";
+			io-channels = <&evb_adc 1>;
+			io-channel-names = "pin5";
+			pin1-gpios = <&gpio1 13 0>;
+			pin2-gpios = <&gpio1 15 0>;
+			pin5-det-gpios = <&gpio1 3 0>;
+			pin5-gpios = <&gpio1 12 0>;
+			pin6-gpios = <&gpio0 26 0>;
+			pwms = <&ehrpwm2 0 0 PWM_POLARITY_INVERTED>;
+			pwm-names = "motor";
 		};
 
-		outC: out@2 {
+		outC {
+			pinctrl-names = "default";
+			pinctrl-0 = <&outC_pins>;
+
 			compatible = "ev3dev,evb-output-port";
+			io-channels = <&evb_adc 2>;
+			io-channel-names = "pin5";
+			pin1-gpios = <&gpio2 12 0>;
+			pin2-gpios = <&gpio2 13 0>;
+			pin5-det-gpios = <&gpio1 29 0>;
+			pin5-gpios = <&gpio1 31 0>;
+			pin6-gpios = <&gpio0 27 0>;
+			pwms = <&ehrpwm1 1 0 PWM_POLARITY_INVERTED>;
+			pwm-names = "motor";
 		};
 
-		outD: out@3 {
+		outD {
+			pinctrl-names = "default";
+			pinctrl-0 = <&outD_pins>;
+
 			compatible = "ev3dev,evb-output-port";
+			io-channels = <&evb_adc 3>;
+			io-channel-names = "pin5";
+			pin1-gpios = <&gpio2 8 0>;
+			pin2-gpios = <&gpio2 7 0>;
+			pin5-det-gpios = <&gpio2 10 0>;
+			pin5-gpios = <&gpio2 9 0>;
+			pin6-gpios = <&gpio2 11 0>;
+			pwms = <&ehrpwm1 0 0 PWM_POLARITY_INVERTED>;
+			pwm-names = "motor";
 		};
 	};
 
@@ -136,8 +225,8 @@
 
 	in1_pins: pinmux_in1_pins {
 		pinctrl-single,pins = <
-			BONE_P9_12 (PIN_OUTPUT | MUX_MODE7) /* gpio1[28] - DIGIA0 */
-			BONE_P9_14 (PIN_OUTPUT | MUX_MODE7) /* gpio1[18] - DIGIA1 */
+			BONE_P9_12 (PIN_INPUT  | MUX_MODE7) /* gpio1[28] - DIGIA0 */
+			BONE_P9_14 (PIN_INPUT  | MUX_MODE7) /* gpio1[18] - DIGIA1 */
 			BONE_P9_16 (PIN_OUTPUT | MUX_MODE7) /* gpio1[19] - BUFDISA */
 		>;
 	};
@@ -153,8 +242,8 @@
 
 	in2_pins: pinmux_in2_pins {
 		pinctrl-single,pins = <
-			BONE_P9_15 (PIN_OUTPUT | MUX_MODE7) /* gpio1[16] - DIGIB0 */
-			BONE_P9_17 (PIN_OUTPUT | MUX_MODE7) /* gpio0[5]  - DIGIB1 */
+			BONE_P9_15 (PIN_INPUT  | MUX_MODE7) /* gpio1[16] - DIGIB0 */
+			BONE_P9_17 (PIN_INPUT  | MUX_MODE7) /* gpio0[5]  - DIGIB1 */
 			BONE_P9_18 (PIN_OUTPUT | MUX_MODE7) /* gpio0[5]  - BUFDISB */
 		>;
 	};
@@ -170,8 +259,8 @@
 
 	in3_pins: pinmux_in3_pins {
 		pinctrl-single,pins = <
-			BONE_P9_20 (PIN_OUTPUT | MUX_MODE7) /* gpio0[12] - DIGIC0 */
-			BONE_P9_19 (PIN_OUTPUT | MUX_MODE7) /* gpio0[13] - DIGIC1 */
+			BONE_P9_20 (PIN_INPUT  | MUX_MODE7) /* gpio0[12] - DIGIC0 */
+			BONE_P9_19 (PIN_INPUT  | MUX_MODE7) /* gpio0[13] - DIGIC1 */
 			BONE_P9_27 (PIN_OUTPUT | MUX_MODE7) /* gpio3[19] - BUFDISC */
 		>;
 	};
@@ -187,8 +276,8 @@
 
 	in4_pins: pinmux_in4_pins {
 		pinctrl-single,pins = <
-			BONE_P9_25 (PIN_OUTPUT | MUX_MODE7) /* gpio3[21] - DIGID0 */
-			BONE_P9_23 (PIN_OUTPUT | MUX_MODE7) /* gpio1[17] - DIGID1 */
+			BONE_P9_25 (PIN_INPUT  | MUX_MODE7) /* gpio3[21] - DIGID0 */
+			BONE_P9_23 (PIN_INPUT  | MUX_MODE7) /* gpio1[17] - DIGID1 */
 			BONE_P9_29 (PIN_OUTPUT | MUX_MODE7) /* gpio3[5]  - BUFDISD */
 		>;
 	};
@@ -197,6 +286,58 @@
 		pinctrl-single,pins = <
 			BONE_P8_37 (PIN_OUTPUT | MUX_MODE4) /* uart5_txd - RXIND */
 			BONE_P8_38 (PIN_INPUT  | MUX_MODE4) /* uart5_rxd - TXIND */
+		>;
+	};
+
+	/* Output port A */
+
+	outA_pins: pinmux_outA_pins {
+		pinctrl-single,pins = <
+			BONE_P8_07 (PIN_OUTPUT | MUX_MODE7) /* gpio2[2] - MAIN0 */
+			BONE_P8_09 (PIN_OUTPUT | MUX_MODE7) /* gpio2[5] - MAIN1 */
+			BONE_P8_04 (PIN_OUTPUT | MUX_MODE7) /* gpio1[7] - DETA  */
+			BONE_P8_08 (PIN_INPUT  | MUX_MODE7) /* gpio2[3] - INTA  */
+			BONE_P8_10 (PIN_INPUT  | MUX_MODE7) /* gpio2[4] - DIRA  */
+			BONE_P8_13 (PIN_OUTPUT | MUX_MODE4) /* ehrpwm2B - MAPWM */
+		>;
+	};
+
+	/* Output port B */
+
+	outB_pins: pinmux_outB_pins {
+		pinctrl-single,pins = <
+			BONE_P8_11 (PIN_OUTPUT | MUX_MODE7) /* gpio1[13] - MBIN0 */
+			BONE_P8_15 (PIN_OUTPUT | MUX_MODE7) /* gpio1[15] - MBIN1 */
+			BONE_P8_06 (PIN_OUTPUT | MUX_MODE7) /* gpio1[3]  - DETB  */
+			BONE_P8_12 (PIN_INPUT  | MUX_MODE7) /* gpio1[12] - INTB  */
+			BONE_P8_14 (PIN_INPUT  | MUX_MODE7) /* gpio0[26] - DIRB  */
+			BONE_P8_19 (PIN_OUTPUT | MUX_MODE4) /* ehrpwm2A  - MBPWM */
+		>;
+	};
+
+	/* Output port C */
+
+	outC_pins: pinmux_outC_pins {
+		pinctrl-single,pins = <
+			BONE_P8_39 (PIN_OUTPUT | MUX_MODE7) /* gpio2[12] - MCIN0 */
+			BONE_P8_40 (PIN_OUTPUT | MUX_MODE7) /* gpio2[13] - MCIN1 */
+			BONE_P8_26 (PIN_OUTPUT | MUX_MODE7) /* gpio1[29] - DETC  */
+			BONE_P8_20 (PIN_INPUT  | MUX_MODE7) /* gpio1[31] - INTC  */
+			BONE_P8_17 (PIN_INPUT  | MUX_MODE7) /* gpio0[27] - DIRC  */
+			BONE_P8_34 (PIN_OUTPUT | MUX_MODE2) /* ehrpwm1B  - MCPWM */
+		>;
+	};
+
+	/* Output port D */
+
+	outD_pins: pinmux_outD_pins {
+		pinctrl-single,pins = <
+			BONE_P8_43 (PIN_OUTPUT | MUX_MODE7) /* gpio2[8]  - MDIN0 */
+			BONE_P8_46 (PIN_OUTPUT | MUX_MODE7) /* gpio2[7]  - MDIN1 */
+			BONE_P8_41 (PIN_OUTPUT | MUX_MODE7) /* gpio2[10] - DETD  */
+			BONE_P8_44 (PIN_INPUT  | MUX_MODE7) /* gpio2[0]  - INTD  */
+			BONE_P8_42 (PIN_INPUT  | MUX_MODE7) /* gpio2[11] - DIRD  */
+			BONE_P8_36 (PIN_OUTPUT | MUX_MODE2) /* ehrpwm1A  - MDPWM */
 		>;
 	};
 
@@ -224,6 +365,8 @@
 		>;
 	};
 
+	/* Other */
+
 	evb_battery_pins: evb_pinmux_battery_pins {
 		pinctrl-single,pins = <
 			BONE_P8_23 (PIN_OUTPUT | MUX_MODE7) /* gpio1[4] - ADCBATEN */
@@ -232,10 +375,15 @@
 
 	evb_sound_pins: pinmux_evb_sound_pins {
 		pinctrl-single,pins = <
+			/*
+			 * The *B pins are actually not used, but they are physically
+			 * connected to the *A pins, so must be configured to not
+			 * interfere.
+			 */
 			BONE_P9_41A (PIN_OUTPUT | MUX_MODE7) /* gpio0[20]  - SOUNDEN   */
-			BONE_P9_41B (PIN_INPUT  | MUX_MODE7) /* gpio3[20]  - SOUNDEN   */
+			BONE_P9_41B (PIN_OUTPUT | MUX_MODE7) /* gpio3[20]  - SOUNDEN   */
 			BONE_P9_42A (PIN_OUTPUT | MUX_MODE0) /* ecap0_pwm0 - SOUNDARMA */
-			BONE_P9_42B (PIN_INPUT  | MUX_MODE7) /* gpio3[18]  - SOUNDARMA */
+			BONE_P9_42B (PIN_OUTPUT | MUX_MODE7) /* gpio3[18]  - SOUNDARMA */
 		>;
 	};
 };
@@ -332,5 +480,25 @@
 
 &ecap0 {
 	/* Used for sound PWM */
+	status = "okay";
+};
+
+&epwmss1 {
+	/* Used for ehrpwm1 */
+	status = "okay";
+};
+
+&ehrpwm1 {
+	/* Used for motor PWM */
+	status = "okay";
+};
+
+&epwmss2 {
+	/* Used for ehrpwm2 */
+	status = "okay";
+};
+
+&ehrpwm2 {
+	/* Used for motor PWM */
 	status = "okay";
 };
