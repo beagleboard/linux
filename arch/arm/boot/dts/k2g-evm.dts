@@ -14,6 +14,7 @@
  */
 /dts-v1/;
 
+#include <dt-bindings/sound/ti-mcasp.h>
 #include "k2g.dtsi"
 
 / {
@@ -74,6 +75,33 @@
 			compatible = "ti,keystone-dsp-mem";
 			reg = <0x0c000000 0x00100000>,
 			      <0xa0000000 0x20000000>;
+		};
+	};
+
+	sound0: sound@0 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "K2G-EVM";
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Line", "Line In";
+		simple-audio-card,routing =
+			"Headphone Jack",       "HPLOUT",
+			"Headphone Jack",       "HPROUT",
+			"LINE1L",               "Line In",
+			"LINE1R",               "Line In";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&sound0_master>;
+		simple-audio-card,frame-master = <&sound0_master>;
+
+		sound0_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp2>;
+			system-clock-frequency = <22579200>;
+			system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&tlv320aic3106>;
+			system-clock-frequency = <12288000>;
 		};
 	};
 };
@@ -175,6 +203,15 @@
 			K2G_CORE_IOPAD(0x1058) (BUFFER_CLASS_B | PIN_PULLUP   | MUX_MODE0)	/* gpmc_wait0.gpmc_wait0 */
 			K2G_CORE_IOPAD(0x1060) (BUFFER_CLASS_B | PIN_PULLUP   | MUX_MODE0)	/* gpmc_wpn.gpmc_wpn */
 			K2G_CORE_IOPAD(0x1068) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_csn0.gpmc_csn0 */
+		>;
+	};
+
+	mcasp2_pins: pinmux_mcasp2_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1234) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE4)	/* pr0_pru_gpo2.mcasp2_axr2 */
+			K2G_CORE_IOPAD(0x1238) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE4)	/* pr0_pru_gpo3.mcasp2_axr3 */
+			K2G_CORE_IOPAD(0x1254) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE4)	/* pr0_pru_gpo10.mcasp2_afsx */
+			K2G_CORE_IOPAD(0x125c) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE4)	/* pr0_pru_gpo12.mcasp2_aclkx */
 		>;
 	};
 };
@@ -405,4 +442,25 @@
 			reg = <0x009C0000 0x3640000>;
 		};
 	};
+};
+
+&mcasp2 {
+	#sound-dai-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp2_pins>;
+
+	assigned-clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK>;
+	assigned-clock-parents = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK_PARENT_AUDIO_OSC>;
+
+	status = "okay";
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	/* 6 serializer */
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+		0 0 1 2 0 0 // AXR2: TX, AXR3: rx
+	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
 };
