@@ -13,7 +13,12 @@
 #ifndef _OMAP_IOMMU_H_
 #define _OMAP_IOMMU_H_
 
+struct iommu_domain;
+
 extern void omap_iommu_save_ctx(struct device *dev);
 extern void omap_iommu_restore_ctx(struct device *dev);
+
+int omap_iommu_domain_deactivate(struct iommu_domain *domain);
+int omap_iommu_domain_activate(struct iommu_domain *domain);
 
 #endif
