@@ -37,6 +37,7 @@
 #include <sound/soc.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/omap-pcm.h>
+#include <dt-bindings/sound/ti-mcasp.h>
 
 #include "edma-pcm.h"
 #include "davinci-mcasp.h"
@@ -552,14 +553,14 @@ static int __davinci_mcasp_set_clkdiv(struct snd_soc_dai *dai, int div_id,
 
 	pm_runtime_get_sync(mcasp->dev);
 	switch (div_id) {
-	case 0:		/* MCLK divider */
+	case MCASP_CLKDIV_AUXCLK:			/* MCLK divider */
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG,
 			       AHCLKXDIV(div - 1), AHCLKXDIV_MASK);
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG,
 			       AHCLKRDIV(div - 1), AHCLKRDIV_MASK);
 		break;
 
-	case 1:		/* BCLK divider */
+	case MCASP_CLKDIV_BCLK:			/* BCLK divider */
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_ACLKXCTL_REG,
 			       ACLKXDIV(div - 1), ACLKXDIV_MASK);
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_ACLKRCTL_REG,
@@ -568,7 +569,7 @@ static int __davinci_mcasp_set_clkdiv(struct snd_soc_dai *dai, int div_id,
 			mcasp->bclk_div = div;
 		break;
 
-	case 2:		/* BCLK/LRCLK ratio */
+	case MCASP_CLKDIV_BCLK_FS_RATIO:	/* BCLK/LRCLK ratio */
 		mcasp->bclk_lrclk_ratio = div;
 		break;
 
