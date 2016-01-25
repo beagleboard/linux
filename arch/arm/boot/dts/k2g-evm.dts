@@ -52,6 +52,15 @@
 		regulator-always-on;
 	};
 
+	/* This is actually coming from TPS659118:LDO2_1V8 */
+	vcc1v8_aud_reg: fixedregulator-vcc1v8-aud {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc1v8_aud_fixed";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
 	mmc1_reg: fixedregulator-mmc1 {
 		compatible = "regulator-fixed";
 		regulator-name = "mmc1_fixed";
@@ -81,6 +90,13 @@
 		pinctrl-single,pins = <
 			K2G_CORE_IOPAD(0x137c) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c0_scl.i2c0_scl */
 			K2G_CORE_IOPAD(0x1380) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c0_sda.i2c0_sda */
+		>;
+	};
+
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1384) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c1_scl.i2c1_scl */
+			K2G_CORE_IOPAD(0x1388) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c1_sda.i2c1_sda */
 		>;
 	};
 
@@ -255,6 +271,26 @@
 	eeprom@50 {
 		compatible = "at,24c1024";
 		reg = <0x50>;
+	};
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+	clock-frequency = <400000>;
+
+	tlv320aic3106: tlv320aic3106@1b {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3106";
+		reg = <0x1b>;
+		status = "okay";
+
+		/* Regulators */
+		AVDD-supply = <&vcc3v3_dcin_reg>;
+		IOVDD-supply = <&vcc3v3_dcin_reg>;
+		DRVDD-supply = <&vcc3v3_dcin_reg>;
+		DVDD-supply = <&vcc1v8_aud_reg>;
 	};
 };
 
