@@ -44,9 +44,9 @@
 		};
 	};
 
-	mmc0_reg: fixedregulator-mmc0 {
+	vcc3v3_dcin_reg: fixedregulator-vcc3v3-dcin {
 		compatible = "regulator-fixed";
-		regulator-name = "mmc0_fixed";
+		regulator-name = "vcc3v3_dcin_fixed";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
@@ -261,7 +261,7 @@
 &mmc0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc0_pins>;
-	vmmc-supply = <&mmc0_reg>;
+	vmmc-supply = <&vcc3v3_dcin_reg>;
 	status = "okay";
 };
 
