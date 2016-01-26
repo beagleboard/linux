@@ -126,7 +126,7 @@ static int __asoc_simple_card_dai_init(struct snd_soc_dai *dai,
 	int ret;
 
 	if (set->sysclk) {
-		ret = snd_soc_dai_set_sysclk(dai, 0, set->sysclk,
+		ret = snd_soc_dai_set_sysclk(dai, set->sysclk_id, set->sysclk,
 					     set->sysclk_dir);
 		if (ret && ret != -ENOTSUPP) {
 			dev_err(dai->dev, "simple-card: set_sysclk error\n");
@@ -268,6 +268,9 @@ asoc_simple_card_sub_parse_of(struct device_node *np,
 		if (!IS_ERR(clk))
 			dai->sysclk = clk_get_rate(clk);
 	}
+
+	if (!of_property_read_u32(np, "system-clock-id", &val))
+		dai->sysclk_id = val;
 
 	return 0;
 }

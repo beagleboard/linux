@@ -1655,8 +1655,6 @@ static int edma_alloc_chan_resources(struct dma_chan *chan)
 		EDMA_CHAN_SLOT(echan->ch_num), chan->chan_id,
 		echan->hw_triggered ? "HW" : "SW");
 
-	edma_tc_set_pm_state(echan->tc, true);
-
 	return 0;
 
 err_slot:
@@ -1693,7 +1691,6 @@ static void edma_free_chan_resources(struct dma_chan *chan)
 		echan->alloced = false;
 	}
 
-	edma_tc_set_pm_state(echan->tc, false);
 	echan->tc = NULL;
 	echan->hw_triggered = false;
 
@@ -2357,6 +2354,7 @@ static int edma_probe(struct platform_device *pdev)
 				lowest_priority = queue_priority_mapping[i][1];
 				info->default_queue = i;
 			}
+			edma_tc_set_pm_state(&ecc->tc_list[i], true);
 		}
 	}
 
@@ -2434,10 +2432,8 @@ static int edma_pm_suspend(struct device *dev)
 	int i;
 
 	for (i = 0; i < ecc->num_channels; i++) {
-		if (echan[i].alloced) {
+		if (echan[i].alloced)
 			edma_setup_interrupt(&echan[i], false);
-			edma_tc_set_pm_state(echan[i].tc, false);
-		}
 	}
 
 	return 0;
@@ -2467,8 +2463,6 @@ static int edma_pm_resume(struct device *dev)
 
 			/* Set up channel -> slot mapping for the entry slot */
 			edma_set_chmap(&echan[i], echan[i].slot[0]);
-
-			edma_tc_set_pm_state(echan[i].tc, true);
 		}
 	}
 

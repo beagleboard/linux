@@ -17,6 +17,7 @@
 #include <dt-bindings/pinctrl/keystone.h>
 #include <dt-bindings/genpd/k2g.h>
 #include <dt-bindings/clock/k2g.h>
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/reset/k2g.h>
 #include "skeleton.dtsi"
 
@@ -244,6 +245,44 @@
 			compatible = "ti,edma3-tptc";
 			reg =	<0x027b8000 0x400>;
 			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
+		};
+
+		gpio0: gpio@2603000 {
+			compatible = "ti,k2g-gpio";
+			reg = <0x02603000 0x100>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <GIC_SPI 432 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 433 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 434 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 435 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 436 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 437 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 438 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 439 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 440 IRQ_TYPE_EDGE_RISING>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			ti,ngpio = <144>;
+			ti,davinci-gpio-unbanked = <0>;
+			power-domains = <&k2g_pds K2G_DEV_GPIO0>;
+		};
+
+		gpio1: gpio@260a000 {
+			compatible = "ti,k2g-gpio";
+			reg = <0x0260a000 0x100>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <GIC_SPI 442 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 443 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 444 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 445 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 446 IRQ_TYPE_EDGE_RISING>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			ti,ngpio = <68>;
+			ti,davinci-gpio-unbanked = <0>;
+			power-domains = <&k2g_pds K2G_DEV_GPIO1>;
 		};
 
 		mmc0: mmc@23000000 {
@@ -603,6 +642,54 @@
 			reg = <0x04200f00 0x100>;
 			status = "disabled";
 			bus_freq = <2500000>;
+		};
+
+		mcasp0: mcasp@02340000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02340000 0x2000>,
+			      <0x21804000 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma0 24 1>, <&edma0 25 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_MCASP0>;
+			clocks = <&k2g_clks K2G_DEV_MCASP0 K2G_DEV_MCASP_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		mcasp1: mcasp@02342000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02342000 0x2000>,
+			      <0x21804400 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma1 48 1>, <&edma1 49 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_MCASP1>;
+			clocks = <&k2g_clks K2G_DEV_MCASP1 K2G_DEV_MCASP_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		mcasp2: mcasp@02344000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02344000 0x2000>,
+			      <0x21804800 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma1 50 1>, <&edma1 51 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_MCASP2>;
+			clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_VBUS_CLK>;
+			clock-names = "fck";
 		};
 
 		#include "k2g-netcp.dtsi"

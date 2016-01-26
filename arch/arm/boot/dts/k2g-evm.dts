@@ -14,6 +14,7 @@
  */
 /dts-v1/;
 
+#include <dt-bindings/sound/ti-mcasp.h>
 #include "k2g.dtsi"
 
 / {
@@ -44,11 +45,20 @@
 		};
 	};
 
-	mmc0_reg: fixedregulator-mmc0 {
+	vcc3v3_dcin_reg: fixedregulator-vcc3v3-dcin {
 		compatible = "regulator-fixed";
-		regulator-name = "mmc0_fixed";
+		regulator-name = "vcc3v3_dcin_fixed";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	/* This is actually coming from TPS659118:LDO2_1V8 */
+	vcc1v8_aud_reg: fixedregulator-vcc1v8-aud {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc1v8_aud_fixed";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
 		regulator-always-on;
 	};
 
@@ -67,6 +77,33 @@
 			      <0xa0000000 0x20000000>;
 		};
 	};
+
+	sound0: sound@0 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "K2G-EVM";
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Line", "Line In";
+		simple-audio-card,routing =
+			"Headphone Jack",       "HPLOUT",
+			"Headphone Jack",       "HPROUT",
+			"LINE1L",               "Line In",
+			"LINE1R",               "Line In";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&sound0_master>;
+		simple-audio-card,frame-master = <&sound0_master>;
+
+		sound0_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp2>;
+			system-clock-frequency = <22579200>;
+			system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&tlv320aic3106>;
+			system-clock-frequency = <12288000>;
+		};
+	};
 };
 
 &k2g_pinctrl {
@@ -81,6 +118,13 @@
 		pinctrl-single,pins = <
 			K2G_CORE_IOPAD(0x137c) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c0_scl.i2c0_scl */
 			K2G_CORE_IOPAD(0x1380) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c0_sda.i2c0_sda */
+		>;
+	};
+
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1384) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c1_scl.i2c1_scl */
+			K2G_CORE_IOPAD(0x1388) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c1_sda.i2c1_sda */
 		>;
 	};
 
@@ -159,6 +203,15 @@
 			K2G_CORE_IOPAD(0x1058) (BUFFER_CLASS_B | PIN_PULLUP   | MUX_MODE0)	/* gpmc_wait0.gpmc_wait0 */
 			K2G_CORE_IOPAD(0x1060) (BUFFER_CLASS_B | PIN_PULLUP   | MUX_MODE0)	/* gpmc_wpn.gpmc_wpn */
 			K2G_CORE_IOPAD(0x1068) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_csn0.gpmc_csn0 */
+		>;
+	};
+
+	mcasp2_pins: pinmux_mcasp2_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1234) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE4)	/* pr0_pru_gpo2.mcasp2_axr2 */
+			K2G_CORE_IOPAD(0x1238) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE4)	/* pr0_pru_gpo3.mcasp2_axr3 */
+			K2G_CORE_IOPAD(0x1254) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE4)	/* pr0_pru_gpo10.mcasp2_afsx */
+			K2G_CORE_IOPAD(0x125c) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE4)	/* pr0_pru_gpo12.mcasp2_aclkx */
 		>;
 	};
 };
@@ -258,10 +311,30 @@
 	};
 };
 
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+	clock-frequency = <400000>;
+
+	tlv320aic3106: tlv320aic3106@1b {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3106";
+		reg = <0x1b>;
+		status = "okay";
+
+		/* Regulators */
+		AVDD-supply = <&vcc3v3_dcin_reg>;
+		IOVDD-supply = <&vcc3v3_dcin_reg>;
+		DRVDD-supply = <&vcc3v3_dcin_reg>;
+		DVDD-supply = <&vcc1v8_aud_reg>;
+	};
+};
+
 &mmc0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc0_pins>;
-	vmmc-supply = <&mmc0_reg>;
+	vmmc-supply = <&vcc3v3_dcin_reg>;
 	status = "okay";
 };
 
@@ -369,4 +442,25 @@
 			reg = <0x009C0000 0x3640000>;
 		};
 	};
+};
+
+&mcasp2 {
+	#sound-dai-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp2_pins>;
+
+	assigned-clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK>;
+	assigned-clock-parents = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK_PARENT_AUDIO_OSC>;
+
+	status = "okay";
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	/* 6 serializer */
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+		0 0 1 2 0 0 // AXR2: TX, AXR3: rx
+	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
 };

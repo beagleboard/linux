@@ -72,6 +72,27 @@
 		interrupt-parent = <&gic>;
 	};
 
+	scu: scu@48240000 {
+		compatible = "arm,cortex-a9-scu";
+		reg = <0x48240000 0x100>;
+	};
+
+	global_timer: timer@48240200 {
+		compatible = "arm,cortex-a9-global-timer";
+		reg = <0x48240200 0x100>;
+		interrupts = <GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&mpu_periphclk>;
+	};
+
+	local_timer: timer@48240600 {
+		compatible = "arm,cortex-a9-twd-timer";
+		reg = <0x48240600 0x100>;
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&mpu_periphclk>;
+	};
+
 	wakeupgen: interrupt-controller@48281000 {
 		compatible = "ti,omap4-wugen-mpu";
 		interrupt-controller;

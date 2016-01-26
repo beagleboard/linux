@@ -1711,7 +1711,7 @@
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "tx", "rx";
-			dmas = <&edma_xbar 133>, <&edma_xbar 132>;
+			dmas = <&edma_xbar 133 1>, <&edma_xbar 132 1>;
 			dma-names = "tx", "rx";
 			clocks = <&mcasp3_ahclkx_mux>;
 			clock-names = "fck";
@@ -1957,7 +1957,7 @@
 			ti,hwmods = "aes1";
 			reg = <0x4b500000 0xa0>;
 			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma_xbar 111>, <&sdma_xbar 110>;
+			dmas = <&edma_xbar 111 0>, <&edma_xbar 110 0>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1968,7 +1968,7 @@
 			ti,hwmods = "aes2";
 			reg = <0x4b700000 0xa0>;
 			interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma_xbar 114>, <&sdma_xbar 113>;
+			dmas = <&edma_xbar 114 0>, <&edma_xbar 113 0>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1990,7 +1990,7 @@
 			ti,hwmods = "sham";
 			reg = <0x4b101000 0x300>;
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma_xbar 119>;
+			dmas = <&edma_xbar 119 0>;
 			dma-names = "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";

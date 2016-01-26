@@ -258,6 +258,9 @@ config CRYPTO_DEV_OMAP_AES
 	depends on ARCH_OMAP2 || ARCH_OMAP3 || ARCH_OMAP2PLUS
 	select CRYPTO_AES
 	select CRYPTO_BLKCIPHER2
+	select CRYPTO_CBC
+	select CRYPTO_ECB
+	select CRYPTO_CTR
 	help
 	  OMAP processors have AES module accelerator. Select this if you
 	  want to use the OMAP module for AES algorithms.
