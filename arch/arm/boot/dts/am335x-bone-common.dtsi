@@ -264,7 +264,7 @@
 	pinctrl-0 = <&i2c2_pins>;
 
 	status = "okay";
-	clock-frequency = <100000>;
+	clock-frequency = <400000>;
 
 	cape_eeprom0: cape_eeprom0@54 {
 		compatible = "at,24c256";
