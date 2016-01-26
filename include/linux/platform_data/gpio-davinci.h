@@ -38,6 +38,9 @@ struct davinci_gpio_controller {
 	void __iomem		*in_data;
 	int			gpio_unbanked;
 	unsigned		gpio_irq;
+	unsigned		ctrl_base;
+	unsigned		birq1;
+	unsigned		birq2;
 };
 
 /*
