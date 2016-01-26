@@ -956,16 +956,6 @@ static void adihdmi_encoder_mode_set(struct drm_encoder *encoder,
 			adihdmi->f_tmds = mode->clock;
 }
 
-static void adihdmi_encoder_restore(struct drm_encoder *encoder)
-{
-	pr_debug("%s - %d\n", __FUNCTION__, __LINE__);
-}
-
-static void adihdmi_encoder_save(struct drm_encoder *encoder)
-{
-	pr_debug("%s - %d\n", __FUNCTION__, __LINE__);
-}
-
 static void adihdmi_encoder_prepare(struct drm_encoder *encoder)
 {
 	adihdmi_encoder_dpms(encoder, DRM_MODE_DPMS_OFF);
@@ -978,8 +968,6 @@ static void adihdmi_encoder_commit(struct drm_encoder *encoder)
 
 static struct drm_encoder_helper_funcs adihdmi_encoder_helper_funcs = {
 	.dpms		= adihdmi_encoder_dpms,
-	.save		= adihdmi_encoder_save,
-	.restore	= adihdmi_encoder_restore,
 	.mode_fixup	= adihdmi_encoder_mode_fixup,
 	.prepare	= adihdmi_encoder_prepare,
 	.commit		= adihdmi_encoder_commit,
@@ -1049,8 +1037,6 @@ static struct drm_encoder_slave_funcs adihdmi_encoder_slave_funcs = {
 	.mode_fixup         = adihdmi_encoder_mode_fixup,
 	.mode_set           = adihdmi_encoder_mode_set,
 	.mode_valid         = adihdmi_encoder_mode_valid,
-	.restore            = adihdmi_encoder_restore,
-	.save               = adihdmi_encoder_save,
 	.set_config         = adihdmi_encoder_slave_set_config,
 	.set_property       = adihdmi_encoder_set_property,
 };
