@@ -1711,7 +1711,7 @@
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "tx", "rx";
-			dmas = <&edma_xbar 133>, <&edma_xbar 132>;
+			dmas = <&edma_xbar 133 1>, <&edma_xbar 132 1>;
 			dma-names = "tx", "rx";
 			clocks = <&mcasp3_ahclkx_mux>;
 			clock-names = "fck";
