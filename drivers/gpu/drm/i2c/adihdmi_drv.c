@@ -1133,7 +1133,7 @@ static int adihdmi_bind(struct device *dev, struct device *master, void *data)
 
 	drm_encoder_helper_add(&priv->encoder, &adihdmi_encoder_helper_funcs);
 	ret = drm_encoder_init(drm, &priv->encoder, &adihdmi_encoder_funcs,
-			DRM_MODE_ENCODER_TMDS);
+			DRM_MODE_ENCODER_TMDS, NULL);
 	if (ret)
 		goto err_encoder;
 
