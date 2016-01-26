@@ -42,6 +42,12 @@
 	};
 };
 
+&k2g_clks {
+	/* on the board 22.5792MHz is connected to AUDOSC_IN */
+	assigned-clocks = <&k2g_clks K2G_DEV_BOARD0 K2G_DEV_BOARD_AUDIO_OSCIN>;
+	assigned-clock-rates = <22579200>;
+};
+
 &k2g_pinctrl {
 	uart0_pins: pinmux_uart0_pins {
 		pinctrl-single,pins = <
