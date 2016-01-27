@@ -89,6 +89,7 @@ bool knav_qmss_device_ready(void)
 {
 	return device_ready;
 }
+EXPORT_SYMBOL_GPL(knav_qmss_device_ready);
 
 /**
  * knav_queue_notify: qmss queue notfier call

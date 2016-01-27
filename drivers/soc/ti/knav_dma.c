@@ -139,6 +139,7 @@ bool knav_dma_device_ready(void)
 {
 	return device_ready;
 }
+EXPORT_SYMBOL_GPL(knav_dma_device_ready);
 
 static bool check_config(struct knav_dma_chan *chan, struct knav_dma_cfg *cfg)
 {
