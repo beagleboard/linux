@@ -23,6 +23,7 @@
 #include <linux/firmware.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/net_tstamp.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/byteorder/generic.h>
@@ -44,6 +45,7 @@
 /*  The Sub-system did not respond after restart */
 #define PA_STATE_ENABLE_FAILED			3
 #define PAFRM_SRAM_SIZE				0x2000
+#define PAFRM_SYS_TIMESTAMP_ADDR		0x6460
 /* PDSP Versions */
 #define PAFRM_PDSP_VERSION_BASE			0x7F04
 #define DEVICE_PA_REGION_SIZE			0x48000
@@ -73,6 +75,8 @@
 
 #define PA_CONTEXT_MASK				0xffff0000
 #define PA_CONTEXT_CONFIG			0xdead0000
+#define	PA_CONTEXT_TSTAMP			0xbeef0000
+#define	TSTAMP_TIMEOUT	(HZ * 5)	/* 5 seconds (arbitrary) */
 
 static struct pa_core_ops *core_ops = &netcp_pa_core_ops;
 
@@ -366,6 +370,22 @@ static void pa_reset(struct pa_core_device *core_dev)
 	}
 }
 
+/* Convert a raw PA timer count to nanoseconds
+ */
+static inline u64 tstamp_raw_to_ns(struct pa_core_device *core_dev, u32 lo,
+				   u32 hi)
+{
+	u32 mult = core_dev->timestamp_info.mult;
+	u32 shift = core_dev->timestamp_info.shift;
+	u64 result;
+
+	/* Minimize overflow errors by doing this in pieces */
+	result  = ((u64)lo * mult) >> shift;
+	result += ((u64)hi << (32 - shift)) * mult;
+
+	return result;
+}
+
 static int pa_pdsp_run(struct pa_device *pa_dev, int pdsp)
 {
 	struct pa_pdsp_control_regs __iomem *ctrl_reg =
@@ -521,6 +541,106 @@ static int pa_set_firmware(struct pa_core_device *core_dev,
 	return 0;
 }
 
+struct tstamp_pending {
+	struct list_head list;
+	u32 context;
+	struct sk_buff *skb;
+	struct pa_device *pa_dev;
+	struct timer_list timeout;
+};
+
+static spinlock_t tstamp_lock;
+static atomic_t	tstamp_sequence = ATOMIC_INIT(0);
+static struct list_head tstamp_pending = LIST_HEAD_INIT(tstamp_pending);
+
+static struct tstamp_pending *tstamp_remove_pending(u32 context)
+{
+	struct tstamp_pending	*pend;
+
+	spin_lock(&tstamp_lock);
+	list_for_each_entry(pend, &tstamp_pending, list) {
+		if (pend->context == context) {
+			del_timer(&pend->timeout);
+			list_del(&pend->list);
+			spin_unlock(&tstamp_lock);
+			return pend;
+		}
+	}
+	spin_unlock(&tstamp_lock);
+
+	return NULL;
+}
+
+static void tstamp_complete(u32 context, struct pa_packet *p_info)
+{
+	struct skb_shared_hwtstamps *shhwtstamps;
+	struct pa_core_device *core_dev;
+	struct tstamp_pending *pend;
+	struct pa_device *pa_dev;
+	struct sk_buff *skb;
+	u64 pa_ns;
+
+	pend = tstamp_remove_pending(context);
+	if (!pend)
+		return;
+
+	pa_dev = pend->pa_dev;
+	core_dev = &pa_dev->core_dev;
+	skb = pend->skb;
+
+	shhwtstamps = skb_hwtstamps(skb);
+	memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+	if (!p_info) {
+		dev_warn(core_dev->dev, "%s: Timestamp completion timeout\n",
+			 __func__);
+	} else {
+		pa_ns = tstamp_raw_to_ns(core_dev,
+					 p_info->epib[0], p_info->epib[2]);
+		shhwtstamps->hwtstamp = ns_to_ktime(pa_ns);
+	}
+	skb_complete_tx_timestamp(skb, shhwtstamps);
+	kfree(pend);
+}
+
+static void pa_tstamp_purge_pending(struct pa_core_device *core_dev)
+{
+	struct tstamp_pending *pend;
+	struct pa_device *pa_dev = to_pa(core_dev);
+	bool found;
+
+	do {
+		found = false;
+		spin_lock(&tstamp_lock);
+		list_for_each_entry(pend, &tstamp_pending, list) {
+			if (pend->pa_dev == pa_dev) {
+				found = true;
+				break;
+			}
+		}
+		spin_unlock(&tstamp_lock);
+		if (found)
+			tstamp_complete(pend->context, NULL);
+	} while (found);
+}
+
+static void tstamp_timeout(unsigned long context)
+{
+	tstamp_complete((u32)context, NULL);
+}
+
+static void tstamp_add_pending(struct tstamp_pending *pend)
+{
+	init_timer(&pend->timeout);
+	pend->timeout.expires = jiffies + TSTAMP_TIMEOUT;
+	pend->timeout.function = tstamp_timeout;
+	pend->timeout.data = (unsigned long)pend->context;
+
+	spin_lock(&tstamp_lock);
+	add_timer(&pend->timeout);
+	list_add_tail(&pend->list, &tstamp_pending);
+	spin_unlock(&tstamp_lock);
+}
+
 static void pa_rx_packet_handler(void *param)
 {
 	struct pa_packet *p_info = param;
@@ -549,6 +669,10 @@ static void pa_rx_packet_handler(void *param)
 				fcmd->reply_dest);
 		}
 		dev_dbg(core_dev->dev, "command response complete\n");
+		break;
+
+	case PA_CONTEXT_TSTAMP:
+		tstamp_complete(p_info->epib[1], p_info);
 		break;
 
 	default:
@@ -885,6 +1009,7 @@ static int pa_fmtcmd_next_route(struct netcp_packet *p_info, int eth_port)
 {
 	u8 ps_flags = (eth_port & GENMASK(2, 0))
 				<< PAFRM_ETH_PS_FLAGS_PORT_SHIFT;
+
 	struct paho_next_route *nr;
 
 	nr = (struct paho_next_route *)netcp_push_psdata(p_info, sizeof(*nr));
@@ -910,6 +1035,28 @@ static int pa_fmtcmd_next_route(struct netcp_packet *p_info, int eth_port)
 	return sizeof(*nr);
 }
 
+static inline int
+pa_fmtcmd_tx_timestamp(struct netcp_packet *p_info,
+		       const struct pa_cmd_tx_timestamp *tx_ts)
+{
+	struct paho_report_timestamp	*rt_info;
+	int				 size;
+
+	size = sizeof(*rt_info);
+	rt_info =
+	(struct paho_report_timestamp *)netcp_push_psdata(p_info, size);
+	if (!rt_info)
+		return -ENOMEM;
+
+	rt_info->word0 = 0;
+	PAHO_SET_CMDID(rt_info, PAHO_PAMOD_REPORT_TIMESTAMP);
+	PAHO_SET_REPORT_FLOW(rt_info, (u8)tx_ts->flow_id);
+	PAHO_SET_REPORT_QUEUE(rt_info, tx_ts->dest_queue);
+	rt_info->sw_info0 = tx_ts->sw_info0;
+
+	return size;
+}
+
 static int pa_fmtcmd_align(struct netcp_packet *p_info,
 			   const unsigned bytes)
 {
@@ -931,6 +1078,65 @@ static int pa_fmtcmd_align(struct netcp_packet *p_info,
 	return bytes;
 }
 
+static void pa_rx_timestamp_hook(struct pa_intf *pa_intf,
+				 struct netcp_packet *p_info)
+{
+	struct pa_core_device *core_dev = pa_intf->core_dev;
+	struct skb_shared_hwtstamps *sh_hw_tstamps;
+	struct sk_buff *skb = p_info->skb;
+	u64 pa_ns;
+
+	if (!pa_intf->rx_timestamp_enable)
+		return;
+
+	if (p_info->rxtstamp_complete)
+		return;
+
+	pa_ns = tstamp_raw_to_ns(core_dev, p_info->epib[0], p_info->psdata[6]);
+	sh_hw_tstamps = skb_hwtstamps(skb);
+	memset(sh_hw_tstamps, 0, sizeof(*sh_hw_tstamps));
+	sh_hw_tstamps->hwtstamp = ns_to_ktime(pa_ns);
+
+	p_info->rxtstamp_complete = true;
+}
+
+static int pa_do_tx_timestamp(struct pa_core_device *core_dev,
+			      struct netcp_packet *p_info)
+{
+	struct pa_device *pa_dev = to_pa(core_dev);
+	struct sk_buff *skb = p_info->skb;
+	struct pa_cmd_tx_timestamp tx_ts;
+	struct tstamp_pending *pend;
+	void *saved_sp;
+
+	pend = kzalloc(sizeof(*pend), GFP_ATOMIC);
+	if (unlikely(!pend))
+		return -ENOMEM;
+
+	/* The SA module may have reused skb->sp */
+	saved_sp = skb->sp;
+	skb->sp = NULL;
+	pend->skb = skb_clone_sk(skb);
+	skb->sp = saved_sp;
+
+	if (unlikely(!pend->skb)) {
+		kfree(pend);
+		return -ENOMEM;
+	}
+
+	pend->pa_dev = pa_dev;
+	pend->context =  PA_CONTEXT_TSTAMP | (~PA_CONTEXT_MASK &
+			 atomic_inc_return(&tstamp_sequence));
+	tstamp_add_pending(pend);
+
+	memset(&tx_ts, 0, sizeof(tx_ts));
+	tx_ts.dest_queue = core_dev->cmd_queue_num;
+	tx_ts.flow_id    = core_dev->cmd_flow_num;
+	tx_ts.sw_info0   = pend->context;
+
+	return pa_fmtcmd_tx_timestamp(p_info, &tx_ts);
+}
+
 /*  The NETCP sub-system performs IPv4 header checksum, UDP/TCP checksum and
  *  SCTP CRC-32c checksum autonomously.
  *  The checksum and CRC verification results are recorded at the 4-bit error
@@ -950,6 +1156,44 @@ static void pa_rx_checksum_hook(struct netcp_packet *p_info)
 		if (likely(!((p_info->eflags >> 2) & GENMASK(1, 0))))
 			p_info->skb->ip_summed = CHECKSUM_UNNECESSARY;
 	}
+}
+
+static int pa_hwtstamp_ioctl(struct pa_intf *pa_intf,
+			     struct ifreq *ifr, int cmd)
+{
+	struct hwtstamp_config cfg;
+	struct pa_core_device *core_dev = pa_intf->core_dev;
+
+	if (core_dev->disable_hw_tstamp)
+		return -EOPNOTSUPP;
+
+	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
+		return -EFAULT;
+
+	if (cfg.flags)
+		return -EINVAL;
+
+	switch (cfg.tx_type) {
+	case HWTSTAMP_TX_OFF:
+		pa_intf->tx_timestamp_enable = false;
+		break;
+	case HWTSTAMP_TX_ON:
+		pa_intf->tx_timestamp_enable = true;
+		break;
+	default:
+		return -ERANGE;
+	}
+
+	switch (cfg.rx_filter) {
+	case HWTSTAMP_FILTER_NONE:
+		pa_intf->rx_timestamp_enable = false;
+		break;
+	default:
+		pa_intf->rx_timestamp_enable = true;
+		break;
+	}
+
+	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
 }
 
 static u32 pa_get_streaming_switch(struct pa_core_device *core_dev, int port)
@@ -1065,11 +1309,13 @@ unmap:	pa_unmap_resources(core_dev);
 }
 
 static struct pa_hw netcp_pa_hw = {
-	.features = PA_RX_CHECKSUM,
+	.features = (PA_RX_CHECKSUM | PA_TIMESTAMP),
 	.fmtcmd_next_route = pa_fmtcmd_next_route,
+	.do_tx_timestamp = pa_do_tx_timestamp,
 	.fmtcmd_tx_csum = pa_fmtcmd_tx_csum,
 	.fmtcmd_align = pa_fmtcmd_align,
 	.rx_checksum_hook = pa_rx_checksum_hook,
+	.rx_timestamp_hook = pa_rx_timestamp_hook,
 	.num_clusters = PA_NUM_CLUSTERS,
 	.num_pdsps = PA_NUM_PDSPS,
 	.ingress_l2_cluster_id = PA_CLUSTER_0,
@@ -1086,6 +1332,7 @@ static struct pa_hw netcp_pa_hw = {
 	.config_exception_route = pa_config_exception_route,
 	.set_streaming_switch = pa_set_streaming_switch,
 	.get_streaming_switch = pa_get_streaming_switch,
+	.cleanup = pa_tstamp_purge_pending,
 	.add_ip_proto = pa_add_ip_proto,
 };
 
@@ -1110,11 +1357,18 @@ static int pa_probe(struct netcp_device *netcp_device,
 		return ret;
 	*inst_priv = pa_dev;
 
+	spin_lock_init(&tstamp_lock);
+
 	return ret;
 }
 
 static int pa_ioctl(void *intf_priv, struct ifreq *req, int cmd)
 {
+	struct pa_intf *pa_intf = intf_priv;
+
+	if (cmd == SIOCSHWTSTAMP)
+		return pa_hwtstamp_ioctl(pa_intf, req, cmd);
+
 	return -EOPNOTSUPP;
 }
 

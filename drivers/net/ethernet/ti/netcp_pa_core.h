@@ -34,6 +34,12 @@ enum pa_lut_type {
 	PA_LUT_IP
 };
 
+struct pa_timestamp_info {
+	u32	mult;
+	u32	shift;
+	u64	system_offset;
+};
+
 struct pa_lut_entry {
 	int			index;
 	bool			valid, in_use;
@@ -46,6 +52,8 @@ struct pa_lut_entry {
 struct pa_intf {
 	struct pa_core_device	*core_dev;
 	struct net_device	*net_device;
+	bool			tx_timestamp_enable;
+	bool			rx_timestamp_enable;
 	struct netcp_tx_pipe	tx_pipe;
 	unsigned		data_flow_num;
 	unsigned		data_queue_num;
@@ -85,9 +93,13 @@ struct pa_cluster_config {
 struct pa_hw {
 	/* hw functions implemented by PA hw driver module */
 	int (*fmtcmd_next_route)(struct netcp_packet *p_info, int eth_port);
+	int (*do_tx_timestamp)(struct pa_core_device *core_dev,
+			       struct netcp_packet *p_info);
 	int (*fmtcmd_tx_csum)(struct netcp_packet *p_info);
 	int (*fmtcmd_align)(struct netcp_packet *p_info, const unsigned size);
 	void (*rx_checksum_hook)(struct netcp_packet *p_info);
+	void (*rx_timestamp_hook)(struct pa_intf *pa_intf,
+				  struct netcp_packet *p_info);
 	int (*map_resources)(struct pa_core_device *core_dev,
 			     struct device_node *node);
 	void (*unmap_resources)(struct pa_core_device *core_dev);
@@ -110,6 +122,7 @@ struct pa_hw {
 
 	/* hw features */
 #define PA_RX_CHECKSUM		BIT(0)
+#define PA_TIMESTAMP		BIT(1)
 	u32 features;
 	int num_clusters;
 	int num_pdsps;
@@ -122,6 +135,8 @@ struct pa_hw {
 };
 
 struct pa_core_device {
+	bool disable_hw_tstamp;
+	struct pa_timestamp_info timestamp_info;
 	struct netcp_tx_pipe tx_pipe;
 	struct netcp_device *netcp_device;
 	struct device *dev;
