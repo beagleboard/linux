@@ -1,11 +1,15 @@
-                   Keystone NETCP Packet Accelarator Device Driver
-                   -----------------------------------------------
+                   Keystone NETCP Packet Accelarator (PA and PA2) Device Driver
+                   ------------------------------------------------------------
 
 This document describes the Keystone NetCP PA device driver. To Know more
 details on the hardware, please refers to the following hardware documents:-
 
 Packet Accelerator (PA) for KeyStone Devices User's Guide
 http://www.ti.com/lit/ug/sprugs4a/sprugs4a.pdf
+
+KeyStone Architecture II Packet Accelerator 2 (PA2) for K2E and K2L Devices
+User's Guide
+http://www.ti.com/lit/ug/spruhz2/spruhz2.pdf
 
 Here is a description of the PA hardware as given in the above UG.
 
@@ -158,6 +162,135 @@ Egress
                           Keystone NETCP PA Device for K2E/L
 			(resource map and packet flow diagram)
 
+===============================================================================
+                   Keystone NETCP PA Device Driver for K2E/L SoC
+                      (Resource map and Packet flow diagram)
+                   ---------------------------------------------
+
+	           Packet flow                    ---------------------------
+                                                  |  Linux NetCP PA device  |
+                    Ingress (CPSW port x)         ---------------------------
+                       |                                    |    |  |    |  |
+                       V                                    |    |  |    |  |
+                     CPSW                                   |    |  |    |  |
+                       |                   commands         |    |  |    ----
+                       |            Packet parse to LUT1    |    ----      ^
+                       V                                    |      ^       |
+        --------cluster 0 ---------------                   |      |     Queue
+        | Ingress 0                     |    |---------     |      |      for
+        |-------------------------------|    | Chan 8       |      |    flow 31
+        | PDSP0 | LUT1_0 (MAC classify) | <--| Queue 904<---|      |   (Command
+        | PDSP1 | LUT1_1 (Outer IP ACL) |    ---------      |      |   Response)
+        |       |                       |                   |      |
+        ---------------------------------                   |      |
+               Match   |   | fail route to flow( 22 to 29)  |      |
+                       |   ---->                            |      |
+                       |               commands             |      |
+                       |      exception route to cluster 5  |      |
+                       |         Packet Parse to L3 Ingress |      |
+                       V         1, LUT1_0                  |   Per port Queues
+        --------cluster 1 ---------------                   |   Mapped to flows
+        | Ingress 1                      |                  |    22..30
+        |--------------------------------|                  |        (data)
+        | PDSP0 | LUT1_0 (Outer IP       |    ------------  |
+        |       |         classify,      |    | Chan 9      |
+        | PDSP1 |         Custom header) |<---| Queue 905<--|
+        |       | LUT1_1 (IPSEC NAT-T)   |    ------------  |
+        |       |        (IPSEC classify |                  |
+        |       |          first pass)   |                  |
+        ---------------------------------                   |
+               Match   |                                    |
+                       V                                    |
+        --------Cluster 2 --------------|                   |
+        | Ingress 2                     |                   |
+        |-------------------------------|                   |
+        | PDSP0 | LUT1_0 (IPSEC classify|                   |
+        |       |         second pass)  |                   |
+        ---------------------------------                   |
+                       |                                    |
+                       V                                    |
+        --------Cluster 3----------------                   |
+        | Ingress 3                     |                   |
+        |--------------------------------                   |
+        | PDSP0 |  LUT1_0(Inner IP      |                   |
+        |       |       firewall (ACL)  |                   |
+        |       |       Reassembly Prep)|                   |
+        |       |       L3/L4 Header    |                   |
+        |       |       Parse           |                   |
+        ---------------------------------                   |
+                       |                                    |
+                       V                                    |
+        --------Cluster 4----------------                   |
+        | Ingress 4                     |                   |
+        |--------------------------------                   |
+        | PDSP0 |  LUT1_0(Inner IP      |                   |
+        |       |    classify,L4        |                   |
+        |       |    checksum)          |                   |
+        | PDSP1 |  LUT2                 |                   |
+        |       |    (TCP/UDP)          |                   |
+        ---------------------------------                   |
+                       |                                    |
+                       V                                    |
+        --------Cluster 5----------------                   |
+        | Post Classification           |                   |
+        |--------------------------------                   |
+        | PDSP0 |   Packet patch        |                   |
+        |       |                       |                   |
+        |       |                       |                   |
+        | PDSP1 |   Packet patch        |                   |
+        |       |                       |                   |
+        ---------------------------------                   |
+                                                            |
+                                             ------------   |
+                                             | Chan 14      |
+                       |---------------------| Queue 910<---|
+                       V                     -----------
+        ---------Cluster 6--------------|
+        | Egress 0                      |
+        |-------------------------------|
+        | PDSP0 |  Flow Cache lookup    |
+        |       |  using L3/L4 header   |
+        | PDSP1 |  Inner L3/L4 header   |
+        |       |  Update (Checksum)    |
+        |       |  Tx command processing|
+        | PDSP2 |  Outer IP update      |
+        |       |  IPSec pre-process    |
+        |       |  Inner IP Fragment    |
+        |       |  Tx command processing|
+        ---------------------------------
+                        |
+                        |
+                        V
+        ---------Cluster 7--------------|
+        | Egress 1                      |
+        |-------------------------------|
+        | PDSP0 |  NAT-T header insert  |
+        |       |  second IPSEC         |
+        |       |  pre-processing       |
+        ---------------------------------
+                        |
+                        |
+                        V
+        ---------Cluster 8--------------|
+        | Egress 2                      |
+        |-------------------------------|
+        | PDSP0 |  L2 header insertion  |
+        |       |  /update and Outer IP |
+        |       |  fragmentation        |
+        ---------------------------------
+                        |
+                        V
+                       CPSW
+                        |
+                        V
+                      Egress (CPSW port x)
+
+
+HW Queues 904-912 are for PA cluster 0-8
+Tx chan 8-16 are associated with the above queues
+Rx flows 31 for command response
+Rx flows 22-25, 27-30 for rx data from each ethernet port
+
 driver files and functional description
 ==========================================
 drivers/net/ethernet/ti/netcp_pa_core.{c|h}
@@ -186,6 +319,12 @@ drivers/net/ethernet/ti/netcp_pa_fw.h
 	- PA firmware interface definitions. All command message structures
 	  are defined in this file. These are to be kept in sync with
 	  TI's PA Low Level Design (LLD).
+drivers/net/ethernet/ti/netcp_pa2_host.h
+	- PA2 specific message header format definitions/macros
+drivers/net/ethernet/ti/netcp_pa2_fw.h
+	- PA2 firmware interface definitions
+drivers/net/ethernet/ti/netcp_pa2.c
+	- PA2 driver module
 
 Firmware required by the drivers
 ================================
@@ -200,6 +339,22 @@ PA firmwares:-
 	ks2_pa_pdsp3_classify2.bin
 	ks2_pa_pdsp4_pam.bin
 	ks2_pa_pdsp5_pam.bin
+PA2 firmwares:-
+	ks2_pa_in0_pdsp0.bin
+	ks2_pa_in0_pdsp1.bin
+	ks2_pa_in1_pdsp0.bin
+	ks2_pa_in1_pdsp1.bin
+	ks2_pa_in2_pdsp0.bin
+	ks2_pa_in3_pdsp0.bin
+	ks2_pa_in4_pdsp0.bin
+	ks2_pa_in4_pdsp1.bin
+	ks2_pa_post_pdsp0.bin
+	ks2_pa_post_pdsp1.bin
+	ks2_pa_eg0_pdsp0.bin
+	ks2_pa_eg0_pdsp1.bin
+	ks2_pa_eg0_pdsp2.bin
+	ks2_pa_eg1_pdsp0.bin
+	ks2_pa_eg2_pdsp0.bin
 
 Format:
 	The firmware image file contains firmware blob with a header.
@@ -208,6 +363,8 @@ Format:
 	|   16 chars of version string	   |
 	+----------------------------------+
 	|    4 Constants(32 bits) for PA   |
+	|		OR		   |
+	|   32 Constants(32 bits) for PA2  |
 	+----------------------------------+
 	|	Firmware blob		   |
 	+----------------------------------+
