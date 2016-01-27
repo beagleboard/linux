@@ -1118,7 +1118,7 @@ int try_to_del_timer_sync(struct timer_list *timer)
 }
 EXPORT_SYMBOL(try_to_del_timer_sync);
 
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT_RT_FULL)
 /**
  * del_timer_sync - deactivate a timer and wait for the handler to finish.
  * @timer: the timer to be deactivated
@@ -1453,7 +1453,7 @@ u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
 	 * the base lock to check when the next timer is pending and so
 	 * we assume the next jiffy.
 	 */
-	return basej;
+	return basem + TICK_NSEC;
 #endif
 	spin_lock(&base->lock);
 	if (base->active_timers) {

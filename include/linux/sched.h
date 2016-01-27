@@ -1475,14 +1475,15 @@ struct task_struct {
 	/* Used for emulating ABI behavior of previous Linux versions */
 	unsigned int personality;
 
-	unsigned in_execve:1;	/* Tell the LSMs that the process is doing an
-				 * execve */
-	unsigned in_iowait:1;
-
-	/* Revert to default priority/policy when forking */
+	/* scheduler bits, serialized by scheduler locks */
 	unsigned sched_reset_on_fork:1;
 	unsigned sched_contributes_to_load:1;
 	unsigned sched_migrated:1;
+	unsigned :0; /* force alignment to the next boundary */
+
+	/* unserialized, strictly 'current' */
+	unsigned in_execve:1; /* bit to tell LSMs we're in execve */
+	unsigned in_iowait:1;
 #ifdef CONFIG_MEMCG
 	unsigned memcg_may_oom:1;
 #endif
@@ -1857,6 +1858,9 @@ struct task_struct {
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
 	unsigned long	task_state_change;
 #endif
+#ifdef CONFIG_PREEMPT_RT_FULL
+	int xmit_recursion;
+#endif
 	int pagefault_disabled;
 /* CPU-specific state of this task */
 	struct thread_struct thread;
@@ -2045,7 +2049,8 @@ static inline int pid_alive(const struct task_struct *p)
 }
 
 /**
- * is_global_init - check if a task structure is init
+ * is_global_init - check if a task structure is init. Since init
+ * is free to have sub-threads we need to check tgid.
  * @tsk: Task structure to be checked.
  *
  * Check if a task structure is the first user space task the kernel created.
@@ -2054,7 +2059,7 @@ static inline int pid_alive(const struct task_struct *p)
  */
 static inline int is_global_init(struct task_struct *tsk)
 {
-	return tsk->pid == 1;
+	return task_tgid_nr(tsk) == 1;
 }
 
 extern struct pid *cad_pid;
@@ -3278,12 +3283,17 @@ static inline int __migrate_disabled(struct task_struct *p)
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 static inline const struct cpumask *tsk_cpus_allowed(struct task_struct *p)
 {
-#ifdef CONFIG_PREEMPT_RT_FULL
-	if (p->migrate_disable)
+	if (__migrate_disabled(p))
 		return cpumask_of(task_cpu(p));
-#endif
 
 	return &p->cpus_allowed;
+}
+
+static inline int tsk_nr_cpus_allowed(struct task_struct *p)
+{
+	if (__migrate_disabled(p))
+		return 1;
+	return p->nr_cpus_allowed;
 }
 
 extern long sched_setaffinity(pid_t pid, const struct cpumask *new_mask);

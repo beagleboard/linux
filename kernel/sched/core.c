@@ -1209,15 +1209,6 @@ void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_ma
 	p->nr_cpus_allowed = cpumask_weight(new_mask);
 }
 
-#if defined(CONFIG_PREEMPT_RT_FULL) && defined(CONFIG_SMP)
-#define MIGRATE_DISABLE_SET_AFFIN	(1<<30) /* Can't make a negative */
-#define migrate_disabled_updated(p)	((p)->migrate_disable & MIGRATE_DISABLE_SET_AFFIN)
-#define migrate_disable_count(p)	((p)->migrate_disable & ~MIGRATE_DISABLE_SET_AFFIN)
-#else
-static inline void update_migrate_disable(struct task_struct *p) { }
-#define migrate_disabled_updated(p)		0
-#endif
-
 void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
 {
 	struct rq *rq = task_rq(p);
@@ -1225,7 +1216,7 @@ void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
 
 	lockdep_assert_held(&p->pi_lock);
 
-	if (migrate_disabled_updated(p)) {
+	if (__migrate_disabled(p)) {
 		cpumask_copy(&p->cpus_allowed, new_mask);
 		return;
 	}
@@ -1774,7 +1765,7 @@ int select_task_rq(struct task_struct *p, int cpu, int sd_flags, int wake_flags)
 {
 	lockdep_assert_held(&p->pi_lock);
 
-	if (p->nr_cpus_allowed > 1)
+	if (tsk_nr_cpus_allowed(p) > 1)
 		cpu = p->sched_class->select_task_rq(p, cpu, sd_flags, wake_flags);
 
 	/*
@@ -3162,38 +3153,6 @@ static inline void schedule_debug(struct task_struct *prev)
 
 #if defined(CONFIG_PREEMPT_RT_FULL) && defined(CONFIG_SMP)
 
-static inline void update_migrate_disable(struct task_struct *p)
-{
-	const struct cpumask *mask;
-
-	if (likely(!p->migrate_disable))
-		return;
-
-	/* Did we already update affinity? */
-	if (unlikely(migrate_disabled_updated(p)))
-		return;
-
-	/*
-	 * Since this is always current we can get away with only locking
-	 * rq->lock, the ->cpus_allowed value can normally only be changed
-	 * while holding both p->pi_lock and rq->lock, but seeing that this
-	 * is current, we cannot actually be waking up, so all code that
-	 * relies on serialization against p->pi_lock is out of scope.
-	 *
-	 * Having rq->lock serializes us against things like
-	 * set_cpus_allowed_ptr() that can still happen concurrently.
-	 */
-	mask = tsk_cpus_allowed(p);
-
-	if (p->sched_class->set_cpus_allowed)
-		p->sched_class->set_cpus_allowed(p, mask);
-	/* mask==cpumask_of(task_cpu(p)) which has a cpumask_weight==1 */
-	p->nr_cpus_allowed = 1;
-
-	/* Let migrate_enable know to fix things back up */
-	p->migrate_disable |= MIGRATE_DISABLE_SET_AFFIN;
-}
-
 void migrate_disable(void)
 {
 	struct task_struct *p = current;
@@ -3221,6 +3180,7 @@ void migrate_disable(void)
 	preempt_lazy_disable();
 	pin_current_cpu();
 	p->migrate_disable = 1;
+	p->nr_cpus_allowed = 1;
 	preempt_enable();
 }
 EXPORT_SYMBOL(migrate_disable);
@@ -3228,9 +3188,6 @@ EXPORT_SYMBOL(migrate_disable);
 void migrate_enable(void)
 {
 	struct task_struct *p = current;
-	const struct cpumask *mask;
-	unsigned long flags;
-	struct rq *rq;
 
 	if (in_atomic()) {
 #ifdef CONFIG_SCHED_DEBUG
@@ -3247,33 +3204,17 @@ void migrate_enable(void)
 #endif
 	WARN_ON_ONCE(p->migrate_disable <= 0);
 
-	if (migrate_disable_count(p) > 1) {
+	if (p->migrate_disable > 1) {
 		p->migrate_disable--;
 		return;
 	}
 
 	preempt_disable();
-	if (unlikely(migrate_disabled_updated(p))) {
-		/*
-		 * Undo whatever update_migrate_disable() did, also see there
-		 * about locking.
-		 */
-		rq = this_rq();
-		raw_spin_lock_irqsave(&current->pi_lock, flags);
-		raw_spin_lock(&rq->lock);
-
-		/*
-		 * Clearing migrate_disable causes tsk_cpus_allowed to
-		 * show the tasks original cpu affinity.
-		 */
-		p->migrate_disable = 0;
-		mask = tsk_cpus_allowed(p);
-		do_set_cpus_allowed(p, mask);
-
-		raw_spin_unlock(&rq->lock);
-		raw_spin_unlock_irqrestore(&current->pi_lock, flags);
-	} else
-		p->migrate_disable = 0;
+	/*
+	 * Clearing migrate_disable causes tsk_cpus_allowed to
+	 * show the tasks original cpu affinity.
+	 */
+	p->migrate_disable = 0;
 
 	unpin_current_cpu();
 	preempt_enable();
@@ -3396,8 +3337,6 @@ static void __sched notrace __schedule(bool preempt)
 	smp_mb__before_spinlock();
 	raw_spin_lock_irq(&rq->lock);
 	lockdep_pin_lock(&rq->lock);
-
-	update_migrate_disable(prev);
 
 	rq->clock_skip_update <<= 1; /* promote REQ to ACT */
 
@@ -3525,6 +3464,30 @@ static void __sched notrace preempt_schedule_common(void)
 	} while (need_resched());
 }
 
+#ifdef CONFIG_PREEMPT_LAZY
+/*
+ * If TIF_NEED_RESCHED is then we allow to be scheduled away since this is
+ * set by a RT task. Oterwise we try to avoid beeing scheduled out as long as
+ * preempt_lazy_count counter >0.
+ */
+static int preemptible_lazy(void)
+{
+	if (test_thread_flag(TIF_NEED_RESCHED))
+		return 1;
+	if (current_thread_info()->preempt_lazy_count)
+		return 0;
+	return 1;
+}
+
+#else
+
+static int preemptible_lazy(void)
+{
+	return 1;
+}
+
+#endif
+
 #ifdef CONFIG_PREEMPT
 /*
  * this is the entry point to schedule() from in-kernel preemption
@@ -3538,6 +3501,8 @@ asmlinkage __visible void __sched notrace preempt_schedule(void)
 	 * we do not want to preempt the current task. Just return..
 	 */
 	if (likely(!preemptible()))
+		return;
+	if (!preemptible_lazy())
 		return;
 
 	preempt_schedule_common();
@@ -3565,15 +3530,9 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
 
 	if (likely(!preemptible()))
 		return;
-
-#ifdef CONFIG_PREEMPT_LAZY
-	/*
-	 * Check for lazy preemption
-	 */
-	if (current_thread_info()->preempt_lazy_count &&
-	    !test_thread_flag(TIF_NEED_RESCHED))
+	if (!preemptible_lazy())
 		return;
-#endif
+
 	do {
 		preempt_disable_notrace();
 		/*

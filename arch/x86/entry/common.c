@@ -220,7 +220,7 @@ long syscall_trace_enter(struct pt_regs *regs)
 
 #define EXIT_TO_USERMODE_LOOP_FLAGS				\
 	(_TIF_SIGPENDING | _TIF_NOTIFY_RESUME | _TIF_UPROBE |	\
-	 _TIF_NEED_RESCHED | _TIF_USER_RETURN_NOTIFY)
+	 _TIF_NEED_RESCHED_MASK | _TIF_USER_RETURN_NOTIFY)
 
 static void exit_to_usermode_loop(struct pt_regs *regs, u32 cached_flags)
 {
@@ -428,7 +428,7 @@ __visible long do_fast_syscall_32(struct pt_regs *regs)
 	regs->ip = landing_pad;
 
 	/*
-	 * Fetch ECX from where the vDSO stashed it.
+	 * Fetch EBP from where the vDSO stashed it.
 	 *
 	 * WARNING: We are in CONTEXT_USER and RCU isn't paying attention!
 	 */
@@ -439,10 +439,10 @@ __visible long do_fast_syscall_32(struct pt_regs *regs)
 		 * Micro-optimization: the pointer we're following is explicitly
 		 * 32 bits, so it can't be out of range.
 		 */
-		__get_user(*(u32 *)&regs->cx,
+		__get_user(*(u32 *)&regs->bp,
 			    (u32 __user __force *)(unsigned long)(u32)regs->sp)
 #else
-		get_user(*(u32 *)&regs->cx,
+		get_user(*(u32 *)&regs->bp,
 			 (u32 __user __force *)(unsigned long)(u32)regs->sp)
 #endif
 		) {
