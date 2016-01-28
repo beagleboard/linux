@@ -828,6 +828,7 @@
 			syscon-bootreg = <&scm_conf 0x304>;
 			iommus = <&mmu_dsp>;
 			mboxes = <&mailbox &mbox_dsp>;
+			ti,rproc-standby-info = <0x4a004420>;
 			status = "disabled";
 		};
 
@@ -838,6 +839,7 @@
 			ti,hwmods = "ipu";
 			iommus = <&mmu_ipu>;
 			mboxes = <&mailbox &mbox_ipu>;
+			ti,rproc-standby-info = <0x4a008920>;
 			status = "disabled";
 		};
 
