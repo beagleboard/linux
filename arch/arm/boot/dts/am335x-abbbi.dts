@@ -11,6 +11,7 @@
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am33xx-overlay-edma-fix.dtsi"
+#include "am335x-bbb-broken-voltdm.dtsi"
 
 / {
 	model = "Arrow BeagleBone Black Industrial";
