@@ -15,6 +15,7 @@
 /dts-v1/;
 
 #include <dt-bindings/sound/ti-mcasp.h>
+#include <dt-bindings/sound/sii9022-audio.h>
 #include "k2g.dtsi"
 
 / {
@@ -105,6 +106,25 @@
 
 		simple-audio-card,codec {
 			sound-dai = <&tlv320aic3106>;
+			system-clock-frequency = <12288000>;
+		};
+	};
+
+	sound1: sound@1 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HDMI";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&sound1_master>;
+		simple-audio-card,frame-master = <&sound1_master>;
+
+		sound1_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp2>;
+			system-clock-frequency = <22579200>;
+			system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&sii9022>;
 			system-clock-frequency = <12288000>;
 		};
 	};
@@ -382,8 +402,16 @@
 	};
 
 	sii9022: sii9022@3b {
+		#sound-dai-cells = <0>;
 		compatible = "sil,sii9022";
 		reg = <0x3b>;
+
+		i2s-fifo-routing = <
+			(ENABLE_BIT|CONNECT_SD0)
+			0
+			0
+			0
+		>;
 
 		ports {
 			#address-cells = <1>;
