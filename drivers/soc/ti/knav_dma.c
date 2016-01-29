@@ -402,7 +402,7 @@ static int of_channel_match_helper(struct device_node *np, const char *name,
 
 	if (of_parse_phandle_with_fixed_args(np, "ti,navigator-dmas",
 					1, index, &args)) {
-		dev_err(kdev->dev, "Missing the pahndle args name %s\n", name);
+		dev_err(kdev->dev, "Missing the phandle args name %s\n", name);
 		return -ENODEV;
 	}
 
@@ -443,7 +443,7 @@ void *knav_dma_open_channel(struct device *dev, const char *name,
 	}
 
 	dev_dbg(kdev->dev, "initializing %s channel %d from DMA %s\n",
-		  config->direction == DMA_MEM_TO_DEV   ? "transmit" :
+		  config->direction == DMA_MEM_TO_DEV ? "transmit" :
 		  config->direction == DMA_DEV_TO_MEM ? "receive"  :
 		  "unknown", chan_num, instance);
 
@@ -532,6 +532,28 @@ void knav_dma_close_channel(void *channel)
 			chan->channel, chan->flow, chan->dma->name);
 }
 EXPORT_SYMBOL_GPL(knav_dma_close_channel);
+
+/**
+ * knav_dma_get_flow() - retrieve flow Id from a given channel handle
+ * @channel     dma channel handle
+ *
+ * Returns corresponding flow Id on success or -EINVAL in case of error
+ */
+int knav_dma_get_flow(void *channel)
+{
+	struct knav_dma_chan *chan = channel;
+
+	if (!chan)
+		return -EINVAL;
+
+	if (!kdev) {
+		pr_err("keystone-navigator-dma driver not registered\n");
+		return -EINVAL;
+	}
+
+	return chan->flow;
+}
+EXPORT_SYMBOL_GPL(knav_dma_get_flow);
 
 static void __iomem *pktdma_get_regs(struct knav_dma_device *dma,
 				struct device_node *node,

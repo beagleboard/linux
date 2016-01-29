@@ -225,10 +225,45 @@ netcp: netcp@24000000 {
 	clock-names = "pa_clk", "ethss_clk", "cpts_rft_clk";
 	dma-coherent;
 
-	ti,navigator-dmas = <&dma_gbe 0>,
-			<&dma_gbe 8>,
-			<&dma_gbe 0>;
-	ti,navigator-dma-names = "netrx0", "netrx1", "nettx";
+	ti,navigator-dmas =	<&dma_gbe 0>,
+				<&dma_gbe 8>,
+				<&dma_gbe 0>,
+				<&dma_gbe 22>,
+				<&dma_gbe 23>,
+				<&dma_gbe 24>,
+				<&dma_gbe 25>,
+				<&dma_gbe 27>,
+				<&dma_gbe 28>,
+				<&dma_gbe 29>,
+				<&dma_gbe 30>,
+				<&dma_gbe 8>,
+				<&dma_gbe 9>,
+				<&dma_gbe 10>,
+				<&dma_gbe 11>,
+				<&dma_gbe 12>,
+				<&dma_gbe 13>,
+				<&dma_gbe 14>, /* for egress cluster */
+				<&dma_gbe 31>;
+
+	ti,navigator-dma-names = "netrx0",
+				 "netrx1",
+				 "nettx",
+				 "netrx0-pa",
+				 "netrx1-pa",
+				 "netrx2-pa",
+				 "netrx3-pa",
+				 "netrx4-pa",
+				 "netrx5-pa",
+				 "netrx6-pa",
+				 "netrx7-pa",
+				 "pa-cl0",
+				 "pa-cl1",
+				 "pa-cl2",
+				 "pa-cl3",
+				 "pa-cl4",
+				 "pa-cl5",
+				 "pa-cl6",
+				 "pa-cmd-rsp";
 
 	netcp-devices {
 		#address-cells = <1>;
@@ -284,6 +319,73 @@ netcp: netcp@24000000 {
 				};
 			};
 		};
+
+		pa@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "netcp-pa2";
+			compatible = "ti,netcp-pa2";
+
+			reg = <0 0x100>,		/* Mailbox */
+				<0x400 0x40>,		/* RA bridge */
+				<0x500 0x80>,		/* thread mapper */
+				<0x800 0x1000>,		/* RA */
+				<0x6000 0x100>,		/* Statistics regs */
+				<0x8000 0x100>,		/* Statistics block */
+				<0x400000 0x900000>;	/* cluster memory */
+
+			mac-lut-ranges		= <0 43 56 63>;
+			/* Static reservation in LUT-1 (outer IP)
+			 * used by driver to add IP rules for Rx checksum
+			 * offload.
+			 */
+			rx-route		= <528 22>;
+			tx-cmd-pool		= <256 12>;
+			/* rx command pool */
+			rx-cmd-rsp-pool		= <256 12>;
+			/* rx channel name for command response */
+			rx-cmd-rsp-chan		= "pa-cmd-rsp";
+			rx-cmd-rsp-queue-depth	= <128 32 0 0>;
+			rx-cmd-rsp-buffer-size	= <128 512 0 0>;
+
+			/* rx channels get overridden for the interface
+			 * when PA is enabled
+			 */
+			interfaces {
+				pa0: interface-0 {
+					slave-port	= <0>;
+					rx-channel	= "netrx0-pa";
+				};
+
+				pa1: interface-1 {
+					slave-port	= <1>;
+					rx-channel	= "netrx1-pa";
+				};
+			};
+
+			/* PA clusters that does packet processing */
+			clusters {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				cluster@0 {
+					reg = <0>;
+					tx-queue = <904>;
+					tx-channel = "pa-cl0";
+				};
+
+				cluster@1 {
+					reg = <1>;
+					tx-queue = <905>;
+					tx-channel = "pa-cl1";
+				};
+
+				cluster@6 {
+					reg = <6>;
+					tx-queue = <910>;
+					tx-channel = "pa-cl6";
+				};
+			};
+		};
 	};
 
 	netcp-interfaces {
@@ -297,6 +399,7 @@ netcp: netcp@24000000 {
 			tx-completion-queue = <530>;
 			efuse-mac = <1>;
 			netcp-gbe = <&gbe0>;
+			netcp-pa2 = <&pa0>;
 
 		};
 		interface-1 {
@@ -310,6 +413,7 @@ netcp: netcp@24000000 {
 			efuse-mac = <0>;
 			local-mac-address = [02 18 31 7e 3e 00];
 			netcp-gbe = <&gbe1>;
+			netcp-pa2 = <&pa1>;
 		};
 	};
 };
