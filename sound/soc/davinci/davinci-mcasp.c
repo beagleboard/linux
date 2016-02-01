@@ -1128,11 +1128,13 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 		word_length = 16;
 		break;
 
-	case SNDRV_PCM_FORMAT_U24_3LE:
-	case SNDRV_PCM_FORMAT_S24_3LE:
-		word_length = 24;
+	case SNDRV_PCM_FORMAT_U20_3LE:
+	case SNDRV_PCM_FORMAT_S20_3LE:
+		word_length = 20;
 		break;
 
+	case SNDRV_PCM_FORMAT_U24_3LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
 	case SNDRV_PCM_FORMAT_U24_LE:
 	case SNDRV_PCM_FORMAT_S24_LE:
 		word_length = 24;
