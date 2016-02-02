@@ -385,17 +385,6 @@
 		>;
 	};
 
-	mmc1_pins_ddr50: pinmux_mmc1_ddr50_pins {
-		pinctrl-single,pins = <
-			0x354 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_clk.clk */
-			0x358 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_cmd.cmd */
-			0x35c (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat0.dat0 */
-			0x360 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat1.dat1 */
-			0x364 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat2.dat2 */
-			0x368 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat3.dat3 */
-		>;
-	};
-
 	mmc1_pins_sdr104: pinmux_mmc1_sdr104_pins {
 		pinctrl-single,pins = <
 			0x354 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_clk.clk */
