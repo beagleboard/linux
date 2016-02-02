@@ -692,6 +692,14 @@ static int _sii9022_read_edid(struct panel_drv_data *ddata,
 
 	/* if there are extensions, read second block */
 	if (len > EDID_LENGTH && edid[0x7e] > 0) {
+		/*
+		 * XXX the magical sleep that makes things work. Without this
+		 * we easily get a failed read. A few us seems to be too short,
+		 * 100 us seems to be ok, but to be sure, lets sleep for a bit
+		 * longer as this is a slow code path anyway.
+		 */
+		msleep(10);
+
 		l = min(EDID_LENGTH, len - EDID_LENGTH);
 
 		r = sii9022_ddc_read(client->adapter, edid + EDID_LENGTH,
