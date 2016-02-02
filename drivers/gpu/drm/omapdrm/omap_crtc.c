@@ -90,7 +90,7 @@ int omap_crtc_wait_pending(struct drm_crtc *crtc)
 
 	return wait_event_timeout(omap_crtc->pending_wait,
 				  !omap_crtc->pending,
-				  msecs_to_jiffies(50));
+				  msecs_to_jiffies(250));
 }
 
 /* -----------------------------------------------------------------------------

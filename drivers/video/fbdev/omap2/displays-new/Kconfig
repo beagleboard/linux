@@ -1,5 +1,5 @@
 menu "OMAP Display Device Drivers (new device model)"
-        depends on OMAP2_DSS
+        depends on OMAP_DSS_BASE
 
 config DISPLAY_ENCODER_OPA362
 	tristate "OPA362 external analog amplifier"
@@ -28,6 +28,7 @@ config DISPLAY_DRA7EVM_ENCODER_TPD12S015
 config DISPLAY_ENCODER_SII9022
 	tristate "SiI9022 HDMI Encoder"
 	depends on I2C
+	select REGMAP_I2C
 	help
 	  Driver for Silicon Image SiI9022 HDMI encoder.
 	  A brief about SiI9022 can be found here:
@@ -44,6 +45,7 @@ config DISPLAY_ENCODER_SII9022_AUDIO_CODEC
 config DISPLAY_ENCODER_TC358768
 	tristate "Toshiba TC358768/TC358778 DPI to DSI encoder"
 	depends on I2C
+	select REGMAP_I2C
 	help
 	  Driver for Toshiba TC358768/TC358778 DPI to DSI encoder.
 
@@ -115,6 +117,7 @@ config DISPLAY_PANEL_NEC_NL8048HL11
 config DISPLAY_PANEL_TLC59108
 	tristate "TLC59108 based DPI driver"
 	depends on I2C
+	select REGMAP_I2C
 	help
 		Driver for DPI panels powered by TLC59108 pwm/gpio expander
 		chips. These are found on the LCD daughter boards of DRA7 and
