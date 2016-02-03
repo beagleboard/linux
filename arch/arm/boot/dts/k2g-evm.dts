@@ -100,7 +100,7 @@
 
 		sound0_master: simple-audio-card,cpu {
 			sound-dai = <&mcasp2>;
-			system-clock-frequency = <22579200>;
+			clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK>;
 			system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
 		};
 
@@ -119,7 +119,7 @@
 
 		sound1_master: simple-audio-card,cpu {
 			sound-dai = <&mcasp2>;
-			system-clock-frequency = <22579200>;
+			clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK>;
 			system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
 		};
 
