@@ -1631,7 +1631,8 @@ static int vip_init_port(struct vip_port *port)
 	sd_fmt.pad = 0;
 	ret = v4l2_subdev_call(port->subdev, pad, get_fmt, NULL, &sd_fmt);
 	if (ret)
-		vip_dbg(1, dev, "init_port get_fmt failed in subdev\n");
+		vip_dbg(1, dev, "init_port get_fmt failed in subdev: (%d)\n",
+			ret);
 
 	/* try to find one that matches */
 	fmt = find_port_format_by_code(port, mbus_fmt->code);
@@ -1647,7 +1648,8 @@ static int vip_init_port(struct vip_port *port)
 		ret = v4l2_subdev_call(port->subdev, pad, set_fmt,
 				       NULL, &sd_fmt);
 		if (ret)
-			vip_dbg(1, dev, "init_port set_fmt failed in subdev\n");
+			vip_dbg(1, dev, "init_port set_fmt failed in subdev: (%d)\n",
+				ret);
 	}
 
 	/* Assign current format */
@@ -2163,6 +2165,8 @@ static int vip_create_streams(struct vip_port *port,
 	if (get_subdev_active_format(port, subdev))
 		return -ENODEV;
 
+	port->subdev = subdev;
+
 	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL) {
 		port->flags |= FLAG_MULT_PORT;
 		alloc_stream(port, 0, VFL_TYPE_GRABBER);
@@ -2212,8 +2216,6 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 	ret = vip_create_streams(port, subdev);
 	if (ret)
 		return ret;
-
-	port->subdev = subdev;
 
 	return 0;
 }
