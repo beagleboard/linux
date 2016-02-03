@@ -29,6 +29,8 @@
 
 	aliases {
 		display0 = &hdmi;
+		sound0 = &sound0;
+		sound1 = &sound1;
 	};
 
 	reserved-memory {
