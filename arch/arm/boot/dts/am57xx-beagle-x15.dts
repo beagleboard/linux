@@ -782,7 +782,6 @@
 
 &rtc {
 	status = "okay";
-	ext-clk-src;
 };
 
 &mailbox3 {
