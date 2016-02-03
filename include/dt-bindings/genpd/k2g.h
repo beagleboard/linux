@@ -72,4 +72,5 @@
 #define K2G_DEV_CGEM0			0x0046
 #define K2G_DEV_MSMC0			0x0047
 #define K2G_DEV_CBASS0			0x0049
+#define K2G_DEV_BOARD0			0x004c
 #endif
