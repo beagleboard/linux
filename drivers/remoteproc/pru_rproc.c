@@ -64,10 +64,12 @@ enum pru_mem {
  * struct pru_private_data - PRU core private data
  * @id: PRU index
  * @fw_name: firmware name to be used for the PRU core
+ * @eth_fw_name: firmware name to be used for PRUSS ethernet usecases on IDKs
  */
 struct pru_private_data {
 	u32 id;
 	const char *fw_name;
+	const char *eth_fw_name;
 };
 
 /**
@@ -628,6 +630,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret;
 	const char *mem_names[PRU_MEM_MAX] = { "iram", "control", "debug" };
+	bool is_idk = false;
 
 	if (!np) {
 		dev_err(dev, "Non-DT platform device not supported\n");
@@ -640,7 +643,14 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	rproc = rproc_alloc(dev, pdev->name, &pru_rproc_ops, pdata->fw_name,
+	/* use a different firmware name for IDKs supporting PRUSS ethernet */
+	if (of_machine_is_compatible("ti,am437x-idk-evm") ||
+	    of_machine_is_compatible("ti,am572x-idk") ||
+	    of_machine_is_compatible("ti,am571x-idk"))
+		is_idk = true;
+
+	rproc = rproc_alloc(dev, pdev->name, &pru_rproc_ops,
+			    (is_idk ? pdata->eth_fw_name : pdata->fw_name),
 			    sizeof(*pru));
 	if (!rproc) {
 		dev_err(dev, "rproc_alloc failed\n");
@@ -776,33 +786,39 @@ static struct pru_private_data am335x_pru1_rproc_pdata = {
 static struct pru_private_data am437x_pru1_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am437x-pru1_0-fw",
+	.eth_fw_name = "prueth-pru0-firmware.elf"
 };
 
 static struct pru_private_data am437x_pru1_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am437x-pru1_1-fw",
+	.eth_fw_name = "prueth-pru1-firmware.elf"
 };
 
 /* AM57xx PRUSS1 PRU core-specific private data */
 static struct pru_private_data am57xx_pru1_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am57xx-pru1_0-fw",
+	.eth_fw_name = "prueth-pru0-firmware.elf"
 };
 
 static struct pru_private_data am57xx_pru1_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am57xx-pru1_1-fw",
+	.eth_fw_name = "prueth-pru1-firmware.elf"
 };
 
 /* AM57xx PRUSS2 PRU core-specific private data */
 static struct pru_private_data am57xx_pru2_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am57xx-pru2_0-fw",
+	.eth_fw_name = "prueth-pru0-firmware.elf"
 };
 
 static struct pru_private_data am57xx_pru2_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am57xx-pru2_1-fw",
+	.eth_fw_name = "prueth-pru1-firmware.elf"
 };
 
 /* AM33xx SoC-specific PRU Device data */
