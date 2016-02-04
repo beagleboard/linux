@@ -2,6 +2,7 @@
 
 Required properties:
 - compatible : Should be "cdns,qspi-nor".
+	       TI K2G platform must contain "ti,k2g-qspi".
 - reg : Contains two entries, each of which is a tuple consisting of a
 	physical address and length. The first entry is the address and
 	length of the controller register set. The second entry is the
