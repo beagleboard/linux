@@ -371,3 +371,14 @@ Format:
 
 DT Specifications at
 <file:Documentation/devicetree/bindings/net/keystone-netcp.txt>
+
+Limitations
+==========
+
+Currently when PA driver is built as a dynamically loadable module,
+autoprobe doesn't work correctly. A Work around is to blacklist the
+PA modules in the filesystem and then load them manually using
+the following steps:-
+ - Bring down the interface (if interface is already up)
+ - insmod PA module .ko file
+ - Bring up the interface.
