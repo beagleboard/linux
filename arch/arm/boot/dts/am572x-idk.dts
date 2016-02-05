@@ -395,7 +395,8 @@
 	pinctrl-4 = <&mmc1_pins_sdr50>;
 	pinctrl-5 = <&mmc1_pins_ddr50 &mmc1_iodelay_ddr50_conf>;
 	pinctrl-6 = <&mmc1_pins_sdr104 &mmc1_iodelay_sdr104_conf>;
-	vmmc-supply = <&ldo1_reg>;
+	vmmc-supply = <&v3_3d>;
+	vmmc_aux-supply = <&ldo1_reg>;
 	bus-width = <4>;
 	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
 	max-frequency = <192000000>;
