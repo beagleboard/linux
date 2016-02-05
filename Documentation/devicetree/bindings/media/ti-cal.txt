@@ -7,10 +7,13 @@ processing capability to connect CSI2 image-sensor modules to the
 DRA72x device.
 
 Required properties:
-- compatible: must be "ti,cal"
-- reg:	physical base address and length of the registers set for the 4
-	memory regions required;
-- reg-names: name associated with the memory regions described is <reg>;
+- compatible:
+	Should be "ti,dra72-cal", for dra72 device
+	Should be "ti,dra72-pre-es2-cal", for dra72 device pre ES2.0
+- reg: CAL Top level, Receiver Core #0, Receiver Core #1 and Camera RX
+       control address space
+- reg-names: cal_top, cal_rx_core0, cal_rx_core1, and camerrx_control
+	     registers
 - interrupts: should contain IRQ line for the CAL;
 
 CAL supports 2 camera port nodes on MIPI bus. Each CSI2 camera port nodes
@@ -20,7 +23,7 @@ Documentation/devicetree/bindings/media/video-interfaces.txt.
 
 Example:
 	cal: cal@4845b000 {
-		compatible = "ti,cal";
+		compatible = "ti,dra72-cal";
 		ti,hwmods = "cal";
 		reg = <0x4845B000 0x400>,
 		      <0x4845B800 0x40>,
@@ -34,19 +37,20 @@ Example:
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		csi2_0: port@0 {
+		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0>;
-			endpoint {
-				slave-mode;
-				remote-endpoint = <&ar0330_1>;
+
+			csi2_0: port@0 {
+				reg = <0>;
+				endpoint {
+					slave-mode;
+					remote-endpoint = <&ar0330_1>;
+				};
 			};
-		};
-		csi2_1: port@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <1>;
+			csi2_1: port@1 {
+				reg = <1>;
+			};
 		};
 	};
 
