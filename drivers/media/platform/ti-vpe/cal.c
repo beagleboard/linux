@@ -628,7 +628,7 @@ static void cal_quickdump_regs(struct cal_dev *dev)
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
 		       dev->base, (dev->res->end - dev->res->start + 1), false);
 
-	if (!dev->ctx[0]) {
+	if (dev->ctx[0]) {
 		cal_info(dev, "CSI2 Core 0 Registers @ %pa:\n",
 			 &dev->ctx[0]->cc->res->start);
 		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
@@ -638,7 +638,7 @@ static void cal_quickdump_regs(struct cal_dev *dev)
 			       false);
 	}
 
-	if (!dev->ctx[1]) {
+	if (dev->ctx[1]) {
 		cal_info(dev, "CSI2 Core 1 Registers @ %pa:\n",
 			 &dev->ctx[1]->cc->res->start);
 		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
