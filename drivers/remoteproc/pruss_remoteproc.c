@@ -990,7 +990,6 @@ static int pruss_probe(struct platform_device *pdev)
 	struct device_node *node = dev->of_node;
 	int ret;
 	struct pruss *pruss;
-	struct rproc *rproc = NULL;
 	struct resource *res;
 	int err, i, irq, num_irqs;
 	struct pruss_platform_data *pdata = dev_get_platdata(dev);
@@ -1111,9 +1110,6 @@ err_rpm_fail:
 	pm_runtime_disable(dev);
 	if (data->has_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
-
-	if (rproc)
-		rproc_put(rproc);
 err_fail:
 	return err;
 }
