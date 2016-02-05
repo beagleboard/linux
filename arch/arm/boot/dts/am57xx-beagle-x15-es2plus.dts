@@ -1,0 +1,20 @@
+/*
+ * Copyright (C) 2016 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "am57xx-beagle-x15.dts"
+/ {
+	model = "TI AM5728 BeagleBoard-X15 ES2+";
+};
+
+&tpd12s015 {
+		gpios = <&gpio7 10 GPIO_ACTIVE_HIGH>,	/* gpio7_10, CT CP HPD */
+			<&gpio2 30 GPIO_ACTIVE_HIGH>,	/* gpio2_30, LS OE (for new boards) */
+			<&gpio7 12 GPIO_ACTIVE_HIGH>;	/* gpio7_12/sp1_cs2, HPD */
+};
+
+/* TBD: MMC configuration for HS200 and dual voltage support */
