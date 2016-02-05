@@ -1,7 +1,7 @@
 /*
  * PRU-ICSS remoteproc driver for various TI SoCs
  *
- * Copyright (C) 2014 Texas Instruments, Inc.
+ * Copyright (C) 2014-2016 Texas Instruments, Inc.
  *
  * Suman Anna <s-anna@ti.com>
  *
@@ -1008,7 +1008,6 @@ static int pruss_probe(struct platform_device *pdev)
 	struct device_node *node = dev->of_node;
 	int ret;
 	struct pruss *pruss;
-	struct rproc *rproc = NULL;
 	struct resource *res;
 	int err, i, irq, num_irqs;
 	struct pruss_platform_data *pdata = dev_get_platdata(dev);
@@ -1132,9 +1131,6 @@ err_rpm_fail:
 	pm_runtime_disable(dev);
 	if (data->has_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
-
-	if (rproc)
-		rproc_put(rproc);
 err_fail:
 	return err;
 }
