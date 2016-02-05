@@ -76,6 +76,17 @@
 		>;
 	};
 
+	mmc1_pins_sdr12: pinmux_mmc1_sdr12_pins {
+		pinctrl-single,pins = <
+			0x354 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc1_clk.clk */
+			0x358 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc1_cmd.cmd */
+			0x35c (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc1_dat0.dat0 */
+			0x360 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc1_dat1.dat1 */
+			0x364 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc1_dat2.dat2 */
+			0x368 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc1_dat3.dat3 */
+		>;
+	};
+
 	mmc1_pins_hs: mmc1_pins_hs {
 		pinctrl-single,pins = <
 			0x354 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0) /* mmc1_clk.clk */
@@ -84,6 +95,50 @@
 			0x360 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0) /* mmc1_dat1.dat1 */
 			0x364 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0) /* mmc1_dat2.dat2 */
 			0x368 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0) /* mmc1_dat3.dat3 */
+		>;
+	};
+
+	mmc1_pins_sdr25: pinmux_mmc1_sdr25_pins {
+		pinctrl-single,pins = <
+			0x354 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_clk.clk */
+			0x358 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_cmd.cmd */
+			0x35c (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_dat0.dat0 */
+			0x360 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_dat1.dat1 */
+			0x364 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_dat2.dat2 */
+			0x368 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)	/* mmc1_dat3.dat3 */
+		>;
+	};
+
+	mmc1_pins_sdr50: pinmux_mmc1_sdr50_pins {
+		pinctrl-single,pins = <
+			0x354 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0)	/* mmc1_clk.clk */
+			0x358 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0)	/* mmc1_cmd.cmd */
+			0x35c (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0)	/* mmc1_dat0.dat0 */
+			0x360 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0)	/* mmc1_dat1.dat1 */
+			0x364 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0)	/* mmc1_dat2.dat2 */
+			0x368 (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0)	/* mmc1_dat3.dat3 */
+		>;
+	};
+
+	mmc1_pins_ddr50: pinmux_mmc1_ddr50_pins {
+		pinctrl-single,pins = <
+			0x354 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_clk.clk */
+			0x358 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_cmd.cmd */
+			0x35c (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat0.dat0 */
+			0x360 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat1.dat1 */
+			0x364 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat2.dat2 */
+			0x368 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat3.dat3 */
+		>;
+	};
+
+	mmc1_pins_sdr104: pinmux_mmc1_sdr104_pins {
+		pinctrl-single,pins = <
+			0x354 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_clk.clk */
+			0x358 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_cmd.cmd */
+			0x35c (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat0.dat0 */
+			0x360 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat1.dat1 */
+			0x364 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat2.dat2 */
+			0x368 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat3.dat3 */
 		>;
 	};
 
@@ -116,6 +171,48 @@
 			0x98 (PIN_INPUT_PULLUP | MUX_MODE1) /* gpmc_a22.mmc2_dat7 */
 		>;
 	};
+};
+
+&dra7_iodelay_core {
+
+	mmc1_iodelay_ddr50_conf: mmc1_iodelay_ddr50_conf {
+		pinctrl-single,pins = <
+			0x618 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_CLK_IN */
+			0x620 (A_DELAY(1271) | G_DELAY(0))	/* CFG_MMC1_CLK_OUT */
+			0x624 (A_DELAY(229) | G_DELAY(0))	/* CFG_MMC1_CMD_IN */
+			0x628 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_CMD_OEN */
+			0x62C (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_CMD_OUT */
+			0x630 (A_DELAY(850) | G_DELAY(0))	/* CFG_MMC1_DAT0_IN */
+			0x634 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_DAT0_OEN */
+			0x638 (A_DELAY(20) | G_DELAY(0))	/* CFG_MMC1_DAT0_OUT */
+			0x63C (A_DELAY(468) | G_DELAY(0))	/* CFG_MMC1_DAT1_IN */
+			0x640 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_DAT1_OEN */
+			0x644 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_DAT1_OUT */
+			0x648 (A_DELAY(466) | G_DELAY(0))	/* CFG_MMC1_DAT2_IN */
+			0x64C (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_DAT2_OEN */
+			0x650 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_DAT2_OUT */
+			0x654 (A_DELAY(399) | G_DELAY(0))	/* CFG_MMC1_DAT3_IN */
+			0x658 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_DAT3_OEN */
+			0x65C (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC1_DAT3_OUT */
+		>;
+	};
+
+	mmc1_iodelay_sdr104_conf: mmc1_iodelay_sdr104_conf {
+		pinctrl-single,pins = <
+			0x620 (A_DELAY(1063) | G_DELAY(17))     /* CFG_MMC1_CLK_OUT */
+			0x628 (A_DELAY(0) | G_DELAY(0))         /* CFG_MMC1_CMD_OEN */
+			0x62c (A_DELAY(23) | G_DELAY(0))        /* CFG_MMC1_CMD_OUT */
+			0x634 (A_DELAY(0) | G_DELAY(0))         /* CFG_MMC1_DAT0_OEN */
+			0x638 (A_DELAY(0) | G_DELAY(0))         /* CFG_MMC1_DAT0_OUT */
+			0x640 (A_DELAY(0) | G_DELAY(0))         /* CFG_MMC1_DAT1_OEN */
+			0x644 (A_DELAY(2) | G_DELAY(0))         /* CFG_MMC1_DAT1_OUT */
+			0x64c (A_DELAY(0) | G_DELAY(0))         /* CFG_MMC1_DAT2_OEN */
+			0x650 (A_DELAY(0) | G_DELAY(0))         /* CFG_MMC1_DAT2_OUT */
+			0x658 (A_DELAY(0) | G_DELAY(0))         /* CFG_MMC1_DAT3_OEN */
+			0x65c (A_DELAY(0) | G_DELAY(0))         /* CFG_MMC1_DAT3_OUT */
+		>;
+	};
+
 };
 
 &omap_dwc3_2 {
@@ -242,16 +339,16 @@
 
 &mmc1 {
 	status = "okay";
-	pinctrl-names = "default", "hs";
+	pinctrl-names = "default", "hs", "sdr12", "sdr25", "sdr50", "ddr50", "sdr104";
 	pinctrl-0 = <&mmc1_pins_default>;
 	pinctrl-1 = <&mmc1_pins_hs>;
+	pinctrl-2 = <&mmc1_pins_sdr12>;
+	pinctrl-3 = <&mmc1_pins_sdr25>;
+	pinctrl-4 = <&mmc1_pins_sdr50>;
+	pinctrl-5 = <&mmc1_pins_ddr50 &mmc1_iodelay_ddr50_conf>;
+	pinctrl-6 = <&mmc1_pins_sdr104 &mmc1_iodelay_sdr104_conf>;
 	vmmc-supply = <&ldo1_reg>;
 	bus-width = <4>;
 	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
-	max-frequency = <96000000>;
-	/delete-property/ sd-uhs-sdr104;
-	/delete-property/ sd-uhs-sdr50;
-	/delete-property/ sd-uhs-ddr50;
-	/delete-property/ sd-uhs-sdr25;
-	/delete-property/ sd-uhs-sdr12;
+	max-frequency = <192000000>;
 };
