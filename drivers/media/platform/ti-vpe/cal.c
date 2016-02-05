@@ -603,6 +603,30 @@ static void cal_get_hwinfo(struct cal_dev *dev)
 }
 
 /*
+
+static inline int cal_runtime_get(struct cal_dev *dev)
+{
+	int r;
+
+	cal_dbg(3, dev, "cal_runtime_get\n");
+
+	r = pm_runtime_get_sync(&dev->pdev->dev);
+	WARN_ON(r < 0);
+
+	return r < 0 ? r : 0;
+}
+
+static inline void cal_runtime_put(struct cal_dev *dev)
+{
+	int r;
+
+	cal_dbg(3, dev, "cal_runtime_put\n");
+
+	r = pm_runtime_put_sync(&dev->pdev->dev);
+	WARN_ON(r < 0 && r != -ENOSYS);
+}
+
+/*
  * Soft-Reset the Main Cal module. Not sure if this is needed.
  */
 /*
@@ -1586,6 +1610,8 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 	if (ret < 0)
 		return ret;
 
+	cal_runtime_get(ctx->dev);
+
 	enable_irqs(ctx);
 	camerarx_phy_enable(ctx);
 	csi2_init(ctx);
@@ -1600,6 +1626,7 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 	if (ctx->sensor) {
 		if (v4l2_subdev_call(ctx->sensor, video, s_stream, 1)) {
 			ctx_err(ctx, "stream on failed in subdev\n");
+			cal_runtime_put(ctx->dev);
 			return -EINVAL;
 		}
 	}
@@ -1656,6 +1683,8 @@ static void cal_stop_streaming(struct vb2_queue *vq)
 	}
 	ctx->cur_frm = NULL;
 	ctx->next_frm = NULL;
+
+	cal_runtime_put(ctx->dev);
 
 	ctx_dbg(3, ctx, "returning from %s\n", __func__);
 }
@@ -2104,7 +2133,7 @@ static int cal_probe(struct platform_device *pdev)
 {
 	struct cal_dev *dev;
 	int ret;
-	int irq, func;
+	int irq;
 
 	dev_info(&pdev->dev, "Probing %s\n",
 		 CAL_MODULE_NAME);
@@ -2139,23 +2168,10 @@ static int cal_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dev);
 
-	pm_runtime_enable(&pdev->dev);
-
-	ret = pm_runtime_get_sync(&pdev->dev);
-	if (ret)
-		goto just_exit;
-
-	/* Just check we can actually access the module */
-	cal_get_hwinfo(dev);
-
-	func = cal_read_field(dev, CAL_HL_REVISION, CAL_HL_REVISION_FUNC_MASK,
-			      CAL_HL_REVISION_FUNC_SHIFT);
-	cal_dbg(1, dev, "CAL HL_REVISION function %x\n", func);
-
 	dev->cm = cm_create(dev);
 	if (IS_ERR(dev->cm)) {
 		ret = PTR_ERR(dev->cm);
-		goto runtime_put;
+		goto just_exit;
 	}
 	dev->ctx[0] = NULL;
 	dev->ctx[1] = NULL;
@@ -2168,15 +2184,25 @@ static int cal_probe(struct platform_device *pdev)
 		goto free_ctx;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+
+	ret = cal_runtime_get(dev);
+	if (ret)
+		goto runtime_put;
+
+	/* Just check we can actually access the module */
+	cal_get_hwinfo(dev);
+
+	cal_runtime_put(dev);
+
 	return 0;
 
+runtime_put:
+	pm_runtime_disable(&pdev->dev);
 free_ctx:
 	kfree(dev->ctx[0]);
 	kfree(dev->ctx[1]);
 	kfree(dev->cm);
-runtime_put:
-	pm_runtime_put_sync(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
 just_exit:
 	return ret;
 }
@@ -2188,6 +2214,8 @@ static int cal_remove(struct platform_device *pdev)
 
 	cal_info(dev, "Removing %s\n", CAL_MODULE_NAME);
 
+	cal_runtime_get(dev);
+
 	cal_release(dev);
 
 	/* disable csi2 phy */
@@ -2197,7 +2225,7 @@ static int cal_remove(struct platform_device *pdev)
 		camerarx_phy_disable(dev->ctx[1]);
 	kfree(dev->cm);
 
-	pm_runtime_put_sync(&pdev->dev);
+	cal_runtime_put(dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;
