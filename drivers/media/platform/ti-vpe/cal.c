@@ -327,7 +327,10 @@ struct cal_dev {
 	struct platform_device	*pdev;
 	struct v4l2_device	v4l2_dev;
 
-	struct cm_data		*cm;		/* Control Module handle */
+	/* Control Module handle */
+	struct cm_data		*cm;
+	/* Camera Core Module handle */
+	struct cc_data		*cc[CAL_NUM_CSI2_PORTS];
 
 	struct cal_ctx		*ctx[CAL_NUM_CONTEXT];
 };
@@ -2096,16 +2099,12 @@ static struct cal_ctx *cal_create_instance(struct cal_dev *dev, int inst)
 	ret = v4l2_ctrl_handler_init(hdl, 11);
 	if (ret) {
 		ctx_err(ctx, "Failed to init ctrl handler\n");
-		goto free_hdl;
+		goto unreg_dev;
 	}
 	ctx->v4l2_dev.ctrl_handler = hdl;
 
 	/* Make sure Camera Core H/W register area is available */
-	ctx->cc = cc_create(dev, inst);
-	if (IS_ERR(ctx->cc)) {
-		ret = PTR_ERR(ctx->cc);
-		goto unreg_dev;
-	}
+	ctx->cc = dev->cc[inst];
 
 	/* Store the instance id */
 	ctx->csi2_port = inst + 1;
@@ -2114,12 +2113,10 @@ static struct cal_ctx *cal_create_instance(struct cal_dev *dev, int inst)
 	if (ret) {
 		ctx_dbg(1, ctx, "Error scanning cal instance: %d\n", inst);
 		ret = -EINVAL;
-		goto free_cc;
+		goto free_hdl;
 	}
 	return ctx;
 
-free_cc:
-	kfree(ctx->cc);
 free_hdl:
 	v4l2_ctrl_handler_free(hdl);
 unreg_dev:
@@ -2173,6 +2170,19 @@ static int cal_probe(struct platform_device *pdev)
 		ret = PTR_ERR(dev->cm);
 		goto just_exit;
 	}
+
+	dev->cc[0] = cc_create(dev, 0);
+	if (IS_ERR(dev->cc[0])) {
+		ret = PTR_ERR(dev->cc[0]);
+		goto free_cm;
+	}
+
+	dev->cc[1] = cc_create(dev, 1);
+	if (IS_ERR(dev->cc[1])) {
+		ret = PTR_ERR(dev->cc[1]);
+		goto free_cc0;
+	}
+
 	dev->ctx[0] = NULL;
 	dev->ctx[1] = NULL;
 
@@ -2202,6 +2212,9 @@ runtime_put:
 free_ctx:
 	kfree(dev->ctx[0]);
 	kfree(dev->ctx[1]);
+free_cc0:
+	kfree(dev->cc[0]);
+free_cm:
 	kfree(dev->cm);
 just_exit:
 	return ret;
