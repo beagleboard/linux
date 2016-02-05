@@ -449,9 +449,10 @@
 
 &mmc2 {
 	status = "okay";
-	pinctrl-names = "default", "hs";
+	pinctrl-names = "default", "hs", "ddr_1_8v";
 	pinctrl-0 = <&mmc2_pins_default>;
 	pinctrl-1 = <&mmc2_pins_hs>;
+	pinctrl-2 = <&mmc2_pins_ddr_1_8v &mmc2_iodelay_ddr_1_8v_conf>;
 	vmmc-supply = <&v3_3d>;
 	bus-width = <8>;
 	ti,non-removable;
