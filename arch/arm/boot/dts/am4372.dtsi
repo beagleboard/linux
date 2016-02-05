@@ -851,8 +851,11 @@
 			      <0x54402000 0x2000>,
 			      <0x54410000 0x8000>,
 			      <0x54420000 0x2000>,
-			      <0x54426000 0x2000>;
-			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg";
+			      <0x54426000 0x2000>,
+			      <0x5442e000 0x31c>,
+			      <0x54432000 0x58>;
+			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg",
+				    "iep", "mii_rt";
 			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH
 				      GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH
 				      GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH
