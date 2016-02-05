@@ -198,7 +198,7 @@
 					/* NOTE: on rev 1.3a, data supply */
 					vin-supply = <&vmain>;
 					regulator-name = "ldo1";
-					regulator-min-microvolt = <3300000>;
+					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <3300000>;
 					regulator-boot-on;
 					regulator-always-on;
