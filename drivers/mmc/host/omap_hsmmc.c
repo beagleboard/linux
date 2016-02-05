@@ -2426,12 +2426,15 @@ MODULE_DEVICE_TABLE(of, omap_mmc_of_match);
 
 static struct omap_hsmmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 {
-	struct omap_hsmmc_platform_data *pdata;
+	struct omap_hsmmc_platform_data *pdata = dev->platform_data;
 	struct device_node *np = dev->of_node;
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
-		return ERR_PTR(-ENOMEM); /* out of memory */
+	/* no pdata quirks! */
+	if (!pdata) {
+		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return ERR_PTR(-ENOMEM); /* out of memory */
+	}
 
 	if (of_find_property(np, "ti,dual-volt", NULL))
 		pdata->controller_flags |= OMAP_HSMMC_SUPPORTS_DUAL_VOLT;
@@ -2461,26 +2464,33 @@ static inline struct omap_hsmmc_platform_data
 }
 #endif
 
-static struct pinctrl_state *
-omap_hsmmc_pinctrl_lookup_state(struct omap_hsmmc_host *host, char *mode)
-{
-	struct pinctrl_state *state;
-
-	state = pinctrl_lookup_state(host->pinctrl, mode);
-	if (IS_ERR(state))
-		dev_err(mmc_dev(host->mmc),
-			"no pinctrl state for %s mode\n", mode);
-	return state;
-}
-
-#define OMAP_HSMMC_SETUP_PINCTRL(capvar, capmask, pinctrl) 	\
-	do {							\
-		if (mmc->capvar & (capmask)) {				\
-			host->pinctrl##_pinctrl_state = 		\
-				omap_hsmmc_pinctrl_lookup_state(host, #pinctrl);\
-			if (IS_ERR(host->pinctrl##_pinctrl_state))	\
-				mmc->capvar &= ~(capmask);		\
+#define OMAP_HSMMC_SETUP_PINCTRL(capvar, capmask, mode)			\
+	do {								\
+		struct pinctrl_state *s = ERR_PTR(-ENODEV);		\
+		char str[20];						\
+		char *version = host->pdata->version;			\
+									\
+		if (!(mmc->capvar & (capmask)))				\
+			break;						\
+									\
+		if (host->pdata->version) {				\
+			sprintf(str, "%s-%s", #mode, version);		\
+			s = pinctrl_lookup_state(host->pinctrl, str);	\
 		}							\
+									\
+		if (IS_ERR(s)) {					\
+			sprintf(str, "%s", #mode);			\
+			s = pinctrl_lookup_state(host->pinctrl, str);	\
+		}							\
+									\
+		if (IS_ERR(s)) {					\
+			dev_err(host->dev, "no pinctrl state for %s "	\
+				"mode\n", #mode);			\
+			mmc->capvar &= ~(capmask);			\
+		} else {						\
+			host->mode##_pinctrl_state = s;			\
+		}							\
+									\
 	} while (0)
 
 static int omap_hsmmc_get_iodelay_pinctrl_state(struct omap_hsmmc_host *host)
@@ -2496,10 +2506,13 @@ static int omap_hsmmc_get_iodelay_pinctrl_state(struct omap_hsmmc_host *host)
 		return PTR_ERR(host->pinctrl);
 	}
 
-	host->default_pinctrl_state = omap_hsmmc_pinctrl_lookup_state(host,
-								     "default");
-	if (IS_ERR(host->default_pinctrl_state))
+	host->default_pinctrl_state = pinctrl_lookup_state(host->pinctrl,
+							   "default");
+	if (IS_ERR(host->default_pinctrl_state)) {
+		dev_err(host->dev,
+			"no pinctrl state for default mode\n");
 		return PTR_ERR(host->default_pinctrl_state);
+	}
 
 	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_SDR104,	sdr104);
 	OMAP_HSMMC_SETUP_PINCTRL(caps,	MMC_CAP_UHS_DDR50,	ddr50);
