@@ -1315,10 +1315,6 @@ static int ov2659_detect(struct v4l2_subdev *sd)
 	}
 	usleep_range(1000, 2000);
 
-	ret = ov2659_init(sd, 0);
-	if (ret < 0)
-		return ret;
-
 	/* Check sensor revision */
 	ret = ov2659_read(client, REG_SC_CHIP_ID_H, &pid);
 	if (!ret)
@@ -1335,6 +1331,7 @@ static int ov2659_detect(struct v4l2_subdev *sd)
 			ret = -ENODEV;
 		} else {
 			dev_info(&client->dev, "Found OV%04X sensor\n", id);
+			ret = ov2659_init(sd, 0);
 		}
 	}
 

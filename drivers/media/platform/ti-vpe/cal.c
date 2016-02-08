@@ -327,7 +327,13 @@ struct cal_dev {
 	struct platform_device	*pdev;
 	struct v4l2_device	v4l2_dev;
 
-	struct cm_data		*cm;		/* Control Module handle */
+	/* Controller flags for special cases */
+	unsigned int		flags;
+
+	/* Control Module handle */
+	struct cm_data		*cm;
+	/* Camera Core Module handle */
+	struct cc_data		*cc[CAL_NUM_CSI2_PORTS];
 
 	struct cal_ctx		*ctx[CAL_NUM_CONTEXT];
 };
@@ -381,6 +387,10 @@ struct cal_ctx {
 	struct cal_buffer	*cur_frm;
 	/* Pointer pointing to next v4l2_buffer */
 	struct cal_buffer	*next_frm;
+};
+
+struct cal_of_data {
+	unsigned int flags;
 };
 
 static inline struct cal_ctx *notifier_to_ctx(struct v4l2_async_notifier *n)
@@ -603,6 +613,67 @@ static void cal_get_hwinfo(struct cal_dev *dev)
 }
 
 /*
+ *   Errata i913: CSI2 LDO Needs to be disabled when module is powered on
+ *
+ *   Enabling CSI2 LDO shorts it to core supply. It is crucial the 2 CSI2
+ *   LDOs on the device are disabled if CSI-2 module is powered on
+ *   (0x4845 B304 | 0x4845 B384 [28:27] = 0x1) or in ULPS (0x4845 B304
+ *   | 0x4845 B384 [28:27] = 0x2) mode. Common concerns include: high
+ *   current draw on the module supply in active mode.
+ *
+ *   Errata does not apply when CSI-2 module is powered off
+ *   (0x4845 B304 | 0x4845 B384 [28:27] = 0x0).
+ *
+ * SW Workaround:
+ *	Set the following register bits to disable the LDO,
+ *	which is essentially CSI2 REG10 bit 6:
+ *
+ *		Core 0:  0x4845 B828 = 0x0000 0040
+ *		Core 1:  0x4845 B928 = 0x0000 0040
+ */
+static void i913_errata(struct cal_dev *dev, unsigned int port)
+{
+	u32 reg10 = cc_read(dev->cc[port], CAL_CSI2_PHY_REG10);
+
+	write_field(&reg10, CAL_CSI2_PHY_REG0_HSCLOCKCONFIG_DISABLE,
+		    CAL_CSI2_PHY_REG10_I933_LDO_DISABLE_MASK,
+		    CAL_CSI2_PHY_REG10_I933_LDO_DISABLE_SHIFT);
+
+	cal_dbg(1, dev, "CSI2_%d_REG10 = 0x%08x\n", port, reg10);
+	cc_write(dev->cc[port], CAL_CSI2_PHY_REG10, reg10);
+}
+
+static inline int cal_runtime_get(struct cal_dev *dev)
+{
+	int r;
+
+	cal_dbg(3, dev, "cal_runtime_get\n");
+
+	r = pm_runtime_get_sync(&dev->pdev->dev);
+	WARN_ON(r < 0);
+
+	if (dev->flags & DRA72_CAL_PRE_ES2_LDO_DISABLE) {
+		/*
+		 * Apply errata on both paort eveytime we (re-)enable
+		 * the clock
+		 */
+		i913_errata(dev, 0);
+		i913_errata(dev, 1);
+	}
+	return r < 0 ? r : 0;
+}
+
+static inline void cal_runtime_put(struct cal_dev *dev)
+{
+	int r;
+
+	cal_dbg(3, dev, "cal_runtime_put\n");
+
+	r = pm_runtime_put_sync(&dev->pdev->dev);
+	WARN_ON(r < 0 && r != -ENOSYS);
+}
+
+/*
  * Soft-Reset the Main Cal module. Not sure if this is needed.
  */
 /*
@@ -628,7 +699,7 @@ static void cal_quickdump_regs(struct cal_dev *dev)
 	print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
 		       dev->base, (dev->res->end - dev->res->start + 1), false);
 
-	if (!dev->ctx[0]) {
+	if (dev->ctx[0]) {
 		cal_info(dev, "CSI2 Core 0 Registers @ %pa:\n",
 			 &dev->ctx[0]->cc->res->start);
 		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
@@ -638,7 +709,7 @@ static void cal_quickdump_regs(struct cal_dev *dev)
 			       false);
 	}
 
-	if (!dev->ctx[1]) {
+	if (dev->ctx[1]) {
 		cal_info(dev, "CSI2 Core 1 Registers @ %pa:\n",
 			 &dev->ctx[1]->cc->res->start);
 		print_hex_dump(KERN_INFO, "", DUMP_PREFIX_OFFSET, 16, 4,
@@ -1586,6 +1657,8 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 	if (ret < 0)
 		return ret;
 
+	cal_runtime_get(ctx->dev);
+
 	enable_irqs(ctx);
 	camerarx_phy_enable(ctx);
 	csi2_init(ctx);
@@ -1600,6 +1673,7 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 	if (ctx->sensor) {
 		if (v4l2_subdev_call(ctx->sensor, video, s_stream, 1)) {
 			ctx_err(ctx, "stream on failed in subdev\n");
+			cal_runtime_put(ctx->dev);
 			return -EINVAL;
 		}
 	}
@@ -1657,6 +1731,8 @@ static void cal_stop_streaming(struct vb2_queue *vq)
 	ctx->cur_frm = NULL;
 	ctx->next_frm = NULL;
 
+	cal_runtime_put(ctx->dev);
+
 	ctx_dbg(3, ctx, "returning from %s\n", __func__);
 }
 
@@ -1693,6 +1769,7 @@ static const struct v4l2_ioctl_ops cal_ioctl_ops = {
 	.vidioc_querybuf      = vb2_ioctl_querybuf,
 	.vidioc_qbuf          = vb2_ioctl_qbuf,
 	.vidioc_dqbuf         = vb2_ioctl_dqbuf,
+	.vidioc_expbuf        = vb2_ioctl_expbuf,
 	.vidioc_enum_input    = cal_enum_input,
 	.vidioc_g_input       = cal_g_input,
 	.vidioc_s_input       = cal_s_input,
@@ -2067,16 +2144,12 @@ static struct cal_ctx *cal_create_instance(struct cal_dev *dev, int inst)
 	ret = v4l2_ctrl_handler_init(hdl, 11);
 	if (ret) {
 		ctx_err(ctx, "Failed to init ctrl handler\n");
-		goto free_hdl;
+		goto unreg_dev;
 	}
 	ctx->v4l2_dev.ctrl_handler = hdl;
 
 	/* Make sure Camera Core H/W register area is available */
-	ctx->cc = cc_create(dev, inst);
-	if (IS_ERR(ctx->cc)) {
-		ret = PTR_ERR(ctx->cc);
-		goto unreg_dev;
-	}
+	ctx->cc = dev->cc[inst];
 
 	/* Store the instance id */
 	ctx->csi2_port = inst + 1;
@@ -2085,12 +2158,10 @@ static struct cal_ctx *cal_create_instance(struct cal_dev *dev, int inst)
 	if (ret) {
 		ctx_dbg(1, ctx, "Error scanning cal instance: %d\n", inst);
 		ret = -EINVAL;
-		goto free_cc;
+		goto free_hdl;
 	}
 	return ctx;
 
-free_cc:
-	kfree(ctx->cc);
 free_hdl:
 	v4l2_ctrl_handler_free(hdl);
 unreg_dev:
@@ -2100,11 +2171,15 @@ free_ctx:
 	return 0;
 }
 
+static const struct of_device_id cal_of_match[];
+
 static int cal_probe(struct platform_device *pdev)
 {
 	struct cal_dev *dev;
+	const struct of_device_id *match;
+	const struct cal_of_data *data;
 	int ret;
-	int irq, func;
+	int irq;
 
 	dev_info(&pdev->dev, "Probing %s\n",
 		 CAL_MODULE_NAME);
@@ -2112,6 +2187,14 @@ static int cal_probe(struct platform_device *pdev)
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
+
+	match = of_match_device(of_match_ptr(cal_of_match), &pdev->dev);
+	if (match) {
+		if (match->data) {
+			data = match->data;
+			dev->flags = data->flags;
+		}
+	}
 
 	/* set pseudo v4l2 device name so we can use v4l2_printk */
 	strcpy(dev->v4l2_dev.name, CAL_MODULE_NAME);
@@ -2139,24 +2222,24 @@ static int cal_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dev);
 
-	pm_runtime_enable(&pdev->dev);
-
-	ret = pm_runtime_get_sync(&pdev->dev);
-	if (ret)
-		goto just_exit;
-
-	/* Just check we can actually access the module */
-	cal_get_hwinfo(dev);
-
-	func = cal_read_field(dev, CAL_HL_REVISION, CAL_HL_REVISION_FUNC_MASK,
-			      CAL_HL_REVISION_FUNC_SHIFT);
-	cal_dbg(1, dev, "CAL HL_REVISION function %x\n", func);
-
 	dev->cm = cm_create(dev);
 	if (IS_ERR(dev->cm)) {
 		ret = PTR_ERR(dev->cm);
-		goto runtime_put;
+		goto just_exit;
 	}
+
+	dev->cc[0] = cc_create(dev, 0);
+	if (IS_ERR(dev->cc[0])) {
+		ret = PTR_ERR(dev->cc[0]);
+		goto free_cm;
+	}
+
+	dev->cc[1] = cc_create(dev, 1);
+	if (IS_ERR(dev->cc[1])) {
+		ret = PTR_ERR(dev->cc[1]);
+		goto free_cc0;
+	}
+
 	dev->ctx[0] = NULL;
 	dev->ctx[1] = NULL;
 
@@ -2168,15 +2251,28 @@ static int cal_probe(struct platform_device *pdev)
 		goto free_ctx;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+
+	ret = cal_runtime_get(dev);
+	if (ret)
+		goto runtime_put;
+
+	/* Just check we can actually access the module */
+	cal_get_hwinfo(dev);
+
+	cal_runtime_put(dev);
+
 	return 0;
 
+runtime_put:
+	pm_runtime_disable(&pdev->dev);
 free_ctx:
 	kfree(dev->ctx[0]);
 	kfree(dev->ctx[1]);
+free_cc0:
+	kfree(dev->cc[0]);
+free_cm:
 	kfree(dev->cm);
-runtime_put:
-	pm_runtime_put_sync(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
 just_exit:
 	return ret;
 }
@@ -2188,6 +2284,8 @@ static int cal_remove(struct platform_device *pdev)
 
 	cal_info(dev, "Removing %s\n", CAL_MODULE_NAME);
 
+	cal_runtime_get(dev);
+
 	cal_release(dev);
 
 	/* disable csi2 phy */
@@ -2197,15 +2295,29 @@ static int cal_remove(struct platform_device *pdev)
 		camerarx_phy_disable(dev->ctx[1]);
 	kfree(dev->cm);
 
-	pm_runtime_put_sync(&pdev->dev);
+	cal_runtime_put(dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
 
 #if defined(CONFIG_OF)
+static const struct cal_of_data dra72_pre_es2_cal_of_data = {
+	/*
+	 * See DRA72x Errata: i913: CSI2 LDO Needs to be disabled
+	 * when module is powered on.
+	 */
+	.flags = DRA72_CAL_PRE_ES2_LDO_DISABLE,
+};
+
 static const struct of_device_id cal_of_match[] = {
-	{ .compatible = "ti,cal", },
+	{
+		.compatible = "ti,dra72-cal",
+	},
+	{
+		.compatible = "ti,dra72-pre-es2-cal",
+		.data = &dra72_pre_es2_cal_of_data,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, cal_of_match);
