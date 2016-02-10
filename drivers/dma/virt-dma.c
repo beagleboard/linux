@@ -61,11 +61,13 @@ static void vchan_complete(unsigned long arg)
 	struct virt_dma_chan *vc = (struct virt_dma_chan *)arg;
 	struct virt_dma_desc *vd;
 	dma_async_tx_callback cb = NULL;
+	bool terminated;
 	void *cb_data = NULL;
 	LIST_HEAD(head);
 
 	spin_lock_irq(&vc->lock);
 	list_splice_tail_init(&vc->desc_completed, &head);
+	terminated = vc->terminated;
 	vd = vc->cyclic;
 	if (vd) {
 		vc->cyclic = NULL;
@@ -74,7 +76,7 @@ static void vchan_complete(unsigned long arg)
 	}
 	spin_unlock_irq(&vc->lock);
 
-	if (cb)
+	if (cb && !terminated)
 		cb(cb_data);
 
 	while (!list_empty(&head)) {
@@ -86,7 +88,7 @@ static void vchan_complete(unsigned long arg)
 
 		vc->desc_free(vd);
 
-		if (cb)
+		if (cb && !terminated)
 			cb(cb_data);
 	}
 }
