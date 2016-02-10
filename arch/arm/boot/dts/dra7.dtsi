@@ -1104,6 +1104,17 @@
 				reg-names = "iram", "control", "debug";
 				status = "disabled";
 			};
+
+			pruss1_mdio: mdio@4b232400 {
+				compatible = "ti,davinci_mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				clocks = <&dpll_gmac_h13x2_ck>;
+				clock-names = "fck";
+				bus_freq = <1000000>;
+				reg = <0x4b232400 0x90>;
+				status = "disabled";
+			};
 		};
 
 		pruss2: pruss@4b280000 {
@@ -1155,6 +1166,17 @@
 				      <0x4b2a4000 0x400>,
 				      <0x4b2a4400 0x100>;
 				reg-names = "iram", "control", "debug";
+				status = "disabled";
+			};
+
+			pruss2_mdio: mdio@4b2b2400 {
+				compatible = "ti,davinci_mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				clocks = <&dpll_gmac_h13x2_ck>;
+				clock-names = "fck";
+				bus_freq = <1000000>;
+				reg = <0x4b2b2400 0x90>;
 				status = "disabled";
 			};
 		};
