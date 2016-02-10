@@ -912,6 +912,17 @@
 				reg-names = "iram", "control", "debug";
 				mboxes = <&mailbox &mbox_pru1_1>;
 			};
+
+			pruss1_mdio: mdio@54432400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0x54432400 0x90>;
+				clocks = <&dpll_core_m4_ck>;
+				clock-names = "fck";
+				bus_freq = <1000000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
 		};
 
 		mcasp0: mcasp@48038000 {
