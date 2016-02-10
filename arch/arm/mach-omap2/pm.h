@@ -17,6 +17,7 @@
 
 #ifdef CONFIG_CPU_IDLE
 extern int am33xx_idle_init(bool ddr3, void (*do_idle)(u32 wfi_flags));
+extern void am33xx_idle_deinit(void);
 extern int am437x_idle_init(void);
 extern int __init omap3_idle_init(void);
 extern int __init omap4_idle_init(void);
@@ -112,6 +113,7 @@ extern void (*omap3_do_wfi_sram)(void);
 /* for sharing core pm ops with amx3 pm modules */
 struct am33xx_pm_ops {
 	int	(*init)(void (*do_sram_cpuidle)(u32 wfi_flags));
+	int	(*deinit)(void);
 	int	(*soc_suspend)(unsigned int state, int (*fn)(unsigned long),
 			       unsigned long args);
 	int	(*cpu_suspend)(int (*fn)(unsigned long), unsigned long args);
