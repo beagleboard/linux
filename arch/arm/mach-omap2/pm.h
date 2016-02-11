@@ -28,6 +28,11 @@ static inline int am33xx_idle_init(bool ddr3, void (*do_sram_cpuidle)
 	return 0;
 }
 
+static inline int am33xxx_idle_deinit(void)
+{
+	return 0;
+}
+
 static inline int am437x_idle_init(void)
 {
 	return 0;
