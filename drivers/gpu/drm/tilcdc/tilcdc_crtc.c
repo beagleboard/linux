@@ -728,7 +728,7 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 	}
 
 	if (stat & LCDC_SYNC_LOST) {
-		dev_err_ratelimited(dev->dev, "%s(0x%08x): Sync lost",
+		dev_info_ratelimited(dev->dev, "%s(0x%08x): Sync lost",
 				    __func__, stat);
 		tilcdc_crtc->frame_intact = false;
 		if (tilcdc_crtc->sync_lost_count++ > SYNC_LOST_COUNT_LIMIT) {
@@ -741,7 +741,7 @@ irqreturn_t tilcdc_crtc_irq(struct drm_crtc *crtc)
 	}
 
 	if (stat & LCDC_FIFO_UNDERFLOW)
-		dev_err_ratelimited(dev->dev, "%s(0x%08x): FIFO underfow",
+		dev_info_ratelimited(dev->dev, "%s(0x%08x): FIFO underfow",
 				    __func__, stat);
 
 	return IRQ_HANDLED;
