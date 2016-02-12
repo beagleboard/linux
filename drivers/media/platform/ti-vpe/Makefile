@@ -1,6 +1,7 @@
 obj-$(CONFIG_VIDEO_TI_VPE) += ti-vpe.o
 obj-$(CONFIG_VIDEO_TI_VIP) += ti-vip.o
-obj-$(CONFIG_VIDEO_TI_VPDMA_HELPER) += ti-vpdma.o
+obj-$(CONFIG_VIDEO_TI_VPE) += ti-vpdma.o
+obj-$(CONFIG_VIDEO_TI_VIP) += ti-vpdma.o
 
 ifdef CONFIG_VIDEO_TI_VPE_DEBUG
 CFLAGS_vpe.o := -DDEBUG
