@@ -14,6 +14,7 @@
 
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
@@ -26,6 +27,8 @@ void sc_dump_regs(struct sc_data *sc)
 
 #define DUMPREG(r) dev_dbg(dev, "%-35s %08x\n", #r, \
 	ioread32(sc->base + CFG_##r))
+
+	dev_dbg(dev, "SC Registers @ %pa:\n", &sc->res->start);
 
 	DUMPREG(SC0);
 	DUMPREG(SC1);
@@ -52,6 +55,7 @@ void sc_dump_regs(struct sc_data *sc)
 
 #undef DUMPREG
 }
+EXPORT_SYMBOL(sc_dump_regs);
 
 /*
  * set the horizontal scaler coefficients according to the ratio of output to
@@ -100,6 +104,7 @@ void sc_set_hs_coeffs(struct sc_data *sc, void *addr, unsigned int src_w,
 
 	sc->load_coeff_h = true;
 }
+EXPORT_SYMBOL(sc_set_hs_coeffs);
 
 /*
  * set the vertical scaler coefficients according to the ratio of output to
@@ -140,6 +145,7 @@ void sc_set_vs_coeffs(struct sc_data *sc, void *addr, unsigned int src_h,
 
 	sc->load_coeff_v = true;
 }
+EXPORT_SYMBOL(sc_set_vs_coeffs);
 
 void sc_config_scaler(struct sc_data *sc, u32 *sc_reg0, u32 *sc_reg8,
 		u32 *sc_reg17, unsigned int src_w, unsigned int src_h,
@@ -267,6 +273,7 @@ void sc_config_scaler(struct sc_data *sc, u32 *sc_reg0, u32 *sc_reg8,
 
 	*sc_reg24 = (src_w << CFG_ORG_W_SHIFT) | (src_h << CFG_ORG_H_SHIFT);
 }
+EXPORT_SYMBOL(sc_config_scaler);
 
 struct sc_data *sc_create(struct platform_device *pdev)
 {
@@ -296,3 +303,40 @@ struct sc_data *sc_create(struct platform_device *pdev)
 
 	return sc;
 }
+EXPORT_SYMBOL(sc_create);
+
+struct sc_data *sc_create_inst(struct platform_device *pdev, unsigned int instance)
+{
+	struct sc_data *sc;
+
+	dev_dbg(&pdev->dev, "sc_create_inst\n");
+
+	sc = devm_kzalloc(&pdev->dev, sizeof(*sc), GFP_KERNEL);
+	if (!sc) {
+		dev_err(&pdev->dev, "couldn't alloc sc_data\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	sc->pdev = pdev;
+
+	sc->res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					       (instance == 0) ?
+					       "sc0" : "sc1");
+	if (!sc->res) {
+		dev_err(&pdev->dev, "missing platform resources data\n");
+		return ERR_PTR(-ENODEV);
+	}
+
+	sc->base = devm_ioremap_resource(&pdev->dev, sc->res);
+	if (IS_ERR(sc->base)) {
+		dev_err(&pdev->dev, "failed to ioremap\n");
+		return ERR_CAST(sc->base);
+	}
+
+	return sc;
+}
+EXPORT_SYMBOL(sc_create_inst);
+
+MODULE_DESCRIPTION("TI VIP/VPE Scaler");
+MODULE_AUTHOR("Texas Instruments Inc.");
+MODULE_LICENSE("GPL v2");

@@ -417,6 +417,8 @@ static int am33xx_pm_probe(struct platform_device *pdev)
 
 static int am33xx_pm_remove(struct platform_device *pdev)
 {
+	if (pm_ops->deinit)
+		pm_ops->deinit();
 	suspend_set_ops(NULL);
 	gen_pool_free(sram_pool, ocmcram_location, *pm_sram->do_wfi_sz);
 	return 0;

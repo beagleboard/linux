@@ -126,6 +126,12 @@ static int am43xx_suspend_init(void (*do_sram_cpuidle)(u32 wfi_flags))
 	return ret;
 }
 
+static int am33xx_pm_deinit(void)
+{
+	am33xx_idle_deinit();
+	return 0;
+}
+
 static void amx3_pre_suspend_common(void)
 {
 	omap_set_pwrdm_state(gfx_pwrdm, PWRDM_POWER_OFF);
@@ -260,6 +266,7 @@ void __iomem *am43xx_get_rtc_base_addr(void)
 
 static struct am33xx_pm_ops am33xx_ops = {
 	.init = am33xx_suspend_init,
+	.deinit = am33xx_pm_deinit,
 	.soc_suspend = am33xx_suspend,
 	.cpu_suspend = am33xx_cpu_suspend,
 	.save_context = am33xx_save_context,
