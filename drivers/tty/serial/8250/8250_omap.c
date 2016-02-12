@@ -679,7 +679,7 @@ static void omap_8250_shutdown(struct uart_port *port)
 	if (dma) {
 		dmaengine_pause(dma->rxchan);
 		dma_rx_copy_buffer(up);
-		dmaengine_terminate_all(dma->rxchan);
+		dmaengine_terminate_sync(dma->rxchan);
 	}
 
 	pm_runtime_get_sync(port->dev);
@@ -1403,7 +1403,7 @@ static int omap8250_runtime_suspend(struct device *dev)
 	if (up->dma && up->dma->rxchan) {
 		dmaengine_pause(up->dma->rxchan);
 		dma_rx_copy_buffer(up);
-		dmaengine_terminate_all(up->dma->rxchan);
+		dmaengine_terminate_sync(up->dma->rxchan);
 	}
 
 	priv->latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
