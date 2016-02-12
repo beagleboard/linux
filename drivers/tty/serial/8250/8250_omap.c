@@ -737,7 +737,7 @@ static void __dma_rx_do_complete(struct uart_8250_port *p, bool error)
 
 	dma->rx_running = 0;
 	dmaengine_tx_status(dma->rxchan, dma->rx_cookie, &state);
-	dmaengine_terminate_all(dma->rxchan);
+	dmaengine_terminate_sync(dma->rxchan);
 
 	count = dma->rx_size - state.residue;
 
