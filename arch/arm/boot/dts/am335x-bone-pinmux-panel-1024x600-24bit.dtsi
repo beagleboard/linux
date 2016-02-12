@@ -1,0 +1,151 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include "am335x-peripheral-panel-1024x600-24bit.dtsi"
+
+/* cape universal */
+
+/*
+ *&ocp {
+ *	P8_27_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_28_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_29_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_30_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_31_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_32_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_33_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_34_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_35_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_36_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_37_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_38_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_39_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_40_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_41_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_42_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_43_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_44_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_45_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_46_pinmux {
+ *		state = "disabled";
+ *	};
+ *};
+ */
+
+/* standard */
+
+&am33xx_pinmux {
+	lcd_24bit_pins: pinmux_lcd_24bit_pins {
+		pinctrl-single,pins = <
+
+			/* P8_45: lcd_data0.lcd_data0 */
+			BONE_P8_45 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_46: lcd_data1.lcd_data1 */
+			BONE_P8_46 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_43: lcd_data2.lcd_data2 */
+			BONE_P8_43 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_44: lcd_data3.lcd_data3 */
+			BONE_P8_44 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_41: lcd_data4.lcd_data4 */
+			BONE_P8_41 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_42: lcd_data5.lcd_data5 */
+			BONE_P8_42 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_39: lcd_data6.lcd_data6 */
+			BONE_P8_39 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_40: lcd_data7.lcd_data7 */
+			BONE_P8_40 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_37: lcd_data8.lcd_data8 */
+			BONE_P8_37 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_38: lcd_data9.lcd_data9 */
+			BONE_P8_38 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_36: lcd_data10.lcd_data10 */
+			BONE_P8_36 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_34: lcd_data11.lcd_data11 */
+			BONE_P8_34 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_35: lcd_data12.lcd_data12 */
+			BONE_P8_35 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_33: lcd_data13.lcd_data13 */
+			BONE_P8_33 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_31: lcd_data14.lcd_data14 */
+			BONE_P8_31 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_32: lcd_data15.lcd_data15 */
+			BONE_P8_32 (PIN_OUTPUT | MUX_MODE0)
+
+			/* gpmc_ad15.lcd_data16 */
+			BONE_P8_15 (PIN_OUTPUT | MUX_MODE1)
+			/* gpmc_ad14.lcd_data17 */
+			BONE_P8_16 (PIN_OUTPUT | MUX_MODE1)
+			/* gpmc_ad13.lcd_data18 */
+			BONE_P8_11 (PIN_OUTPUT | MUX_MODE1)
+			/* gpmc_ad12.lcd_data19 */
+			BONE_P8_12 (PIN_OUTPUT | MUX_MODE1)
+			/* gpmc_ad11.lcd_data20 */
+			BONE_P8_17 (PIN_OUTPUT | MUX_MODE1)
+			/* gpmc_ad10.lcd_data21 */
+			BONE_P8_14 (PIN_OUTPUT | MUX_MODE1)
+			/* gpmc_ad9.lcd_data22 */
+			BONE_P8_13 (PIN_OUTPUT | MUX_MODE1)
+			/* gpmc_ad8.lcd_data23 */
+			BONE_P8_19 (PIN_OUTPUT | MUX_MODE1)
+
+			/* P8_27: lcd_vsync.lcd_vsync */
+			BONE_P8_27 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_29: lcd_hsync.lcd_hsync */
+			BONE_P8_29 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_28: lcd_pclk.lcd_pclk*/
+			BONE_P8_28 (PIN_OUTPUT | MUX_MODE0)
+			/* P8_30: lcd_ac_bias_en.lcd_ac_bias_en */
+			BONE_P8_30 (PIN_OUTPUT | MUX_MODE0)
+		>;
+	};
+};
+
+/ {
+	panel {
+		pinctrl-0 = <&lcd_24bit_pins>;
+	};
+};
