@@ -195,14 +195,14 @@ struct pru_rproc;
 
 /**
  * struct pruss - PRUSS parent structure
- * @pdev: platform device
+ * @dev: pruss device pointer
  * @mem_regions: data for each of the PRUSS memory regions
  * @data: pointer to store PRUSS instance private data
  * @irqs: pointer to an array of interrupts to the host processor
  * @intc_config: local INTC configuration data
  */
 struct pruss {
-	struct platform_device *pdev;
+	struct device *dev;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	const struct pruss_private_data *data;
 	int *irqs;
@@ -495,7 +495,7 @@ static void pruss_init_intc(struct pruss *pruss)
  */
 static int pruss_configure_intc(struct pruss *pruss)
 {
-	struct device *dev = &pruss->pdev->dev;
+	struct device *dev = pruss->dev;
 	int i, idx, ch, host;
 	u64 sysevt_mask = 0;
 	u32 ch_mask = 0;
@@ -1044,7 +1044,7 @@ static int pruss_probe(struct platform_device *pdev)
 	if (!pruss)
 		return -ENOMEM;
 
-	pruss->pdev = pdev;
+	pruss->dev = dev;
 	pruss->data = data;
 
 	num_irqs = data->num_irqs;
