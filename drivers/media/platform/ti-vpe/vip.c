@@ -285,6 +285,9 @@ static inline void write_vreg(struct vip_dev *dev, int offset, u32 value)
 	iowrite32(value, dev->base + offset);
 }
 
+#define reg_read(dev, offset) ioread32(dev->base + offset)
+#define reg_write(dev, offset, val) iowrite32(val, dev->base + offset)
+
 /*
  * Insert a masked field into a 32-bit field
  */
@@ -407,46 +410,20 @@ static void vip_set_pclk_invert(struct vip_port *port)
 				1 << offset, 1 << offset);
 }
 
-static inline uint32_t vip_parser_field(struct vip_port *port, int offset)
-{
-	uint32_t reg = offset;
-
-	if (port->dev->slice_id == VIP_SLICE1)
-		reg += VIP1_PARSER_REG_OFFSET;
-	else
-		reg += VIP2_PARSER_REG_OFFSET;
-
-	if (offset == 0) {
-		if (port->port_id == VIP_PORTA)
-			reg += VIP_PARSER_PORTA_0;
-		else
-			reg += VIP_PARSER_PORTB_0;
-	} else if (offset == 1) {
-		if (port->port_id == VIP_PORTA)
-			reg += VIP_PARSER_PORTA_1;
-		else
-			reg += VIP_PARSER_PORTB_1;
-	}
-
-	return reg;
-}
+#define VIP_PARSER_PORT(p)	(VIP_PARSER_PORTA_0 + (p * 0x8U))
+#define VIP_PARSER_EXTRA_PORT(p)	(VIP_PARSER_PORTA_1 + (p * 0x8U))
+#define VIP_PARSER_CROP_H_PORT(p)	(VIP_PARSER_PORTA_EXTRA4 + (p * 0x10U))
+#define VIP_PARSER_CROP_V_PORT(p)	(VIP_PARSER_PORTA_EXTRA5 + (p * 0x10U))
 
 static void vip_set_data_interface(struct vip_port *port,
 				   enum data_interface_modes mode)
 {
 	u32 val = 0;
 
-	if (port->dev->slice_id == VIP_SLICE1) {
-		insert_field(&val, mode, VIP_DATA_INTERFACE_MODE_MASK,
-			     VIP_DATA_INTERFACE_MODE_SHFT);
+	insert_field(&val, mode, VIP_DATA_INTERFACE_MODE_MASK,
+		     VIP_DATA_INTERFACE_MODE_SHFT);
 
-		write_vreg(port->dev, VIP1_PARSER_REG_OFFSET, val);
-	} else if (port->dev->slice_id == VIP_SLICE2) {
-		insert_field(&val, mode, VIP_DATA_INTERFACE_MODE_MASK,
-			     VIP_DATA_INTERFACE_MODE_SHFT);
-
-		write_vreg(port->dev, VIP2_PARSER_REG_OFFSET, val);
-	}
+	reg_write(port->dev->parser, VIP_PARSER_MAIN_CFG, val);
 }
 
 static void vip_set_slice_path(struct vip_dev *dev,
@@ -1737,17 +1714,18 @@ static void vip_release_dev(struct vip_dev *dev)
 static int vip_setup_parser(struct vip_port *port)
 {
 	struct vip_dev *dev = port->dev;
+	struct vip_parser_data *parser = dev->parser;
 	struct v4l2_of_endpoint *endpoint = port->endpoint;
 	int iface, sync_type;
 	uint32_t flags = 0, config0;
 
 	/* Reset the port */
-	write_vreg(port->dev, vip_parser_field(port, 0), VIP_SW_RESET);
+	reg_write(parser, VIP_PARSER_PORT(port->port_id), VIP_SW_RESET);
 	usleep_range(200, 250);
-	write_vreg(port->dev, vip_parser_field(port, 0), 0x00000000);
+	reg_write(parser, VIP_PARSER_PORT(port->port_id), 0x00000000);
 
-	write_vreg(port->dev, vip_parser_field(port, 0), VIP_PORT_ENABLE);
-	config0 = read_vreg(port->dev, vip_parser_field(port, 0));
+	reg_write(parser, VIP_PARSER_PORT(port->port_id), VIP_PORT_ENABLE);
+	config0 = reg_read(parser, VIP_PARSER_PORT(port->port_id));
 
 	if (endpoint->bus_type == V4L2_MBUS_BT656) {
 		flags = endpoint->bus.parallel.flags;
@@ -1824,7 +1802,7 @@ static int vip_setup_parser(struct vip_port *port)
 	}
 
 	config0 |= ((sync_type & VIP_SYNC_TYPE_MASK) << VIP_SYNC_TYPE_SHFT);
-	write_vreg(port->dev, vip_parser_field(port, 0), config0);
+	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
 
 	vip_set_data_interface(port, iface);
 
@@ -2403,6 +2381,7 @@ static int vip_probe(struct platform_device *pdev)
 {
 	struct vip_dev *dev;
 	struct vip_shared *shared;
+	struct vip_parser_data *parser;
 	const struct of_device_id *of_dev_id;
 	struct pinctrl *pinctrl;
 	int ret, slice = VIP_SLICE1;
@@ -2503,6 +2482,24 @@ static int vip_probe(struct platform_device *pdev)
 
 		vip_top_reset(dev);
 		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT);
+
+		parser = devm_kzalloc(&pdev->dev, sizeof(*dev->parser),
+				      GFP_KERNEL);
+		if (!parser)
+			return PTR_ERR(parser);
+
+		parser->res = platform_get_resource_byname(pdev,
+							   IORESOURCE_MEM,
+							   (slice == 0) ?
+							   "parser0" :
+							   "parser1");
+		parser->base = devm_ioremap_resource(&pdev->dev, parser->res);
+		if (IS_ERR(parser->base)) {
+			ret = PTR_ERR(parser->base);
+			goto dev_unreg;
+		}
+		parser->pdev = pdev;
+		dev->parser = parser;
 	}
 
 	shared->vpdma = &shared->vpdma_data;

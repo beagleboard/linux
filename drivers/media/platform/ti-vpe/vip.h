@@ -85,6 +85,18 @@ struct vip_fmt {
 	const struct vpdma_data_format *vpdma_fmt[VIP_MAX_PLANES];
 };
 
+/*
+ * The vip_parser_data structures contains the memory mapped
+ * info to access the parser registers.
+ */
+struct vip_parser_data {
+	void __iomem		*base;
+	struct resource		*res;
+
+	int			slice_id;
+
+	struct platform_device *pdev;
+};
 
 /*
  * The vip_shared structure contains data that is shared by both
@@ -133,6 +145,8 @@ struct vip_dev {
 	struct vip_port		*ports[VIP_NUM_PORTS];
 
 	const char		*vip_name;
+	/* parser data handle */
+	struct vip_parser_data	*parser;
 };
 
 /*
