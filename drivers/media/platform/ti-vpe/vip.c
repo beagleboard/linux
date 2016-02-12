@@ -2523,7 +2523,7 @@ static int vip_probe(struct platform_device *pdev)
 		parser->base = devm_ioremap_resource(&pdev->dev, parser->res);
 		if (IS_ERR(parser->base)) {
 			ret = PTR_ERR(parser->base);
-			goto dev_unreg;
+			goto ctx_clean;
 		}
 		parser->pdev = pdev;
 		dev->parser = parser;
@@ -2533,11 +2533,12 @@ static int vip_probe(struct platform_device *pdev)
 	ret = vpdma_create(pdev, shared->vpdma, vip_vpdma_fw_cb);
 	if (ret) {
 		dev_err(&pdev->dev, "Creating VPDMA failed");
-		goto dev_unreg;
+		goto ctx_clean;
 	}
 
 	return 0;
-
+ctx_clean:
+	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
 dev_unreg:
 	v4l2_device_unregister(&dev->v4l2_dev);
 free_shared:
