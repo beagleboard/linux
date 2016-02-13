@@ -899,6 +899,17 @@
 					interrupt-names = "vring", "kick";
 					status = "disabled";
 				};
+
+				pruss_mdio: mdio@4a332400 {
+					compatible = "ti,davinci_mdio";
+					reg = <0x4a332400 0x90>;
+					clocks = <&dpll_core_m4_ck>;
+					clock-names = "fck";
+					bus_freq = <1000000>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					status = "disabled";
+				};
 			};
 		};
 
