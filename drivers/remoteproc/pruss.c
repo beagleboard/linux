@@ -15,6 +15,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
@@ -774,6 +775,66 @@ static inline void pruss_set_reg(struct pruss *pruss, enum pruss_mem region,
 	pruss_write_reg(pruss, region, reg, val);
 }
 
+/* firmware must be idle when calling this function */
+static void pruss_disable_module(struct pruss *pruss)
+{
+	/* configure Smart Standby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_MODE_MASK,
+		      PRUSS_SYSCFG_STANDBY_MODE_SMART);
+
+	/* initiate MStandby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_INIT,
+		      PRUSS_SYSCFG_STANDBY_INIT);
+
+	/* tell PRCM to initiate IDLE request */
+	pm_runtime_put_sync(pruss->dev);
+}
+
+static int pruss_enable_module(struct pruss *pruss)
+{
+	int ret;
+	int i;
+	bool ready;
+
+	/* tell PRCM to de-assert IDLE request */
+	ret = pm_runtime_get_sync(pruss->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(pruss->dev);
+		return ret;
+	}
+
+	/* configure for smart idle & smart standby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_IDLE_MODE_MASK,
+		      PRUSS_SYSCFG_IDLE_MODE_SMART);
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_MODE_MASK,
+		      PRUSS_SYSCFG_STANDBY_MODE_SMART);
+
+	/* enable OCP master ports/disable MStandby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_INIT, 0);
+
+	/* XXX: wait till we are ready for transaction?? */
+	for (i = 0; i < 10; i++) {
+		ready = !(pruss_read_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG)
+			  & PRUSS_SYSCFG_SUB_MWAIT_READY);
+		if (ready)
+			break;
+		udelay(10);
+	}
+
+	if (!ready) {
+		dev_err(pruss->dev, "timeout waiting for SUB_MWAIT_READY\n");
+		pruss_disable_module(pruss);
+		return -1;
+	}
+
+	return 0;
+}
+
 /**
  * pruss_cfg_gpimode() - set the GPI mode of the PRU
  * @pruss: the pruss instance handle
@@ -968,10 +1029,9 @@ static int pruss_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
-	err = pm_runtime_get_sync(dev);
+	err = pruss_enable_module(pruss);
 	if (err < 0) {
-		pm_runtime_put_noidle(dev);
-		dev_err(dev, "pm_runtime_get_sync failed\n");
+		dev_err(dev, "couldn't enable pruss\n");
 		goto err_rpm_fail;
 	}
 
@@ -997,7 +1057,7 @@ err_of_fail:
 	list_del(&pruss->node);
 	mutex_unlock(&pruss_list_mutex);
 
-	pm_runtime_put_sync(dev);
+	pruss_disable_module(pruss);
 err_rpm_fail:
 	pm_runtime_disable(dev);
 	if (data->has_reset)
@@ -1019,7 +1079,7 @@ static int pruss_remove(struct platform_device *pdev)
 	list_del(&pruss->node);
 	mutex_unlock(&pruss_list_mutex);
 
-	pm_runtime_put_sync(dev);
+	pruss_disable_module(pruss);
 	pm_runtime_disable(dev);
 	if (pruss->data->has_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
