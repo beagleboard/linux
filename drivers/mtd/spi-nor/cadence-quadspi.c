@@ -72,6 +72,7 @@ struct cqspi_st {
 	u32			fifo_depth;
 	u32			fifo_width;
 	u32			trigger_address;
+	u32			wr_delay;
 	struct cqspi_flash_pdata f_pdata[CQSPI_MAX_CHIPSELECT];
 };
 
@@ -608,7 +609,8 @@ static int cqspi_indirect_write_execute(struct spi_nor *nor,
 	 * QSPI_REF_CLK delay is required for the above bit to
 	 * be internally synchronized by the QSPI module.
 	 */
-	ndelay(10);
+	ndelay(cqspi->wr_delay);
+
 	while (remaining > 0) {
 		write_bytes = remaining > page_size ? page_size : remaining;
 		writesl(cqspi->ahb_base, txbuf, DIV_ROUND_UP(write_bytes, 4));
@@ -1111,6 +1113,9 @@ static int cqspi_probe(struct platform_device *pdev)
 	}
 
 	cqspi->master_ref_clk_hz = clk_get_rate(cqspi->clk);
+	if (of_device_is_compatible(dev->of_node, "ti,k2g-qspi"))
+		cqspi->wr_delay = 3 * DIV_ROUND_UP(1000000000U,
+						   cqspi->master_ref_clk_hz);
 
 	/* Obtain and remap controller address. */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1209,6 +1214,7 @@ static const struct dev_pm_ops cqspi__dev_pm_ops = {
 
 static struct of_device_id const cqspi_dt_ids[] = {
 	{.compatible = "cdns,qspi-nor",},
+	{.compatible = "ti,k2g-qspi",},
 	{ /* end of table */ }
 };
 
