@@ -1,1 +1,2 @@
 use-kernel-config=keystone_defconfig
+config-fragment=ti_config_fragments/baseport.cfg
