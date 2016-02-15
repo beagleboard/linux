@@ -1,9 +1,8 @@
 /*
  * PRU-ICSS remoteproc driver for various TI SoCs
  *
- * Copyright (C) 2014-2015 Texas Instruments, Inc.
- *
- * Suman Anna <s-anna@ti.com>
+ * Copyright (C) 2014-2016 Texas Instruments Incorporated - http://www.ti.com/
+ *	Suman Anna <s-anna@ti.com>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,37 +14,17 @@
  * GNU General Public License for more details.
  */
 
-#define DEBUG
-#define pr_fmt(fmt)    "%s: " fmt, __func__
-
-#include <linux/module.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
-#include <linux/of_device.h>
-#include <linux/interrupt.h>
-#include <linux/pm_runtime.h>
-#include <linux/virtio.h>
-#include <linux/dma-mapping.h>
-#include <linux/remoteproc.h>
 #include <linux/mailbox_client.h>
-#include <linux/omap-mailbox.h>
-
-#include <linux/platform_data/remoteproc-pruss.h>
+#include <linux/module.h>
+#include <linux/of_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/remoteproc.h>
 
 #include "remoteproc_internal.h"
-#include "pruss_remoteproc.h"
-
-/* maximum number of system events */
-#define MAX_PRU_SYS_EVENTS     64
-
-/* maximum number of interrupt channels */
-#define MAX_PRU_CHANNELS       10
-
-/* minimum starting host interrupt number for MPU */
-#define MIN_PRU_HOST_INT       2
-
-/* maximum number of host interrupts */
-#define MAX_PRU_HOST_INT       10
+#include "pruss.h"
+#include "pru_rproc.h"
 
 /* PRU_ICSS_PRU_CTRL registers */
 #define PRU_CTRL_CTRL		0x0000
@@ -69,51 +48,6 @@
 /* PRU_ICSS_PRU_DEBUG registers */
 #define PRU_DEBUG_GPREG(x)	(0x0000 + (x) * 4)
 #define PRU_DEBUG_CT_REG(x)	(0x0080 + (x) * 4)
-
-/* PRU_ICSS_INTC registers */
-#define PRU_INTC_REVID		0x0000
-#define PRU_INTC_CR		0x0004
-#define PRU_INTC_GER		0x0010
-#define PRU_INTC_GNLR		0x001C
-#define PRU_INTC_SISR		0x0020
-#define PRU_INTC_SICR		0x0024
-#define PRU_INTC_EISR		0x0028
-#define PRU_INTC_EICR		0x002C
-#define PRU_INTC_HIEISR		0x0034
-#define PRU_INTC_HIDISR		0x0038
-#define PRU_INTC_GPIR		0x0080
-#define PRU_INTC_SRSR0		0x0200
-#define PRU_INTC_SRSR1		0x0204
-#define PRU_INTC_SECR0		0x0280
-#define PRU_INTC_SECR1		0x0284
-#define PRU_INTC_ESR0		0x0300
-#define PRU_INTC_ESR1		0x0304
-#define PRU_INTC_ECR0		0x0380
-#define PRU_INTC_ECR1		0x0384
-#define PRU_INTC_CMR(x)		(0x0400 + (x) * 4)
-#define PRU_INTC_HMR(x)		(0x0800 + (x) * 4)
-#define PRU_INTC_HIPIR(x)	(0x0900 + (x) * 4)
-#define PRU_INTC_SIPR0		0x0D00
-#define PRU_INTC_SIPR1		0x0D04
-#define PRU_INTC_SITR0		0x0D80
-#define PRU_INTC_SITR1		0x0D84
-#define PRU_INTC_HINLR(x)	(0x1100 + (x) * 4)
-#define PRU_INTC_HIER		0x1500
-
-/* HIPIR register bit-fields */
-#define INTC_HIPIR_NONE_HINT	0x80000000
-
-/**
- * enum pruss_mem - PRUSS memory range identifiers
- */
-enum pruss_mem {
-	PRUSS_MEM_DRAM0 = 0,
-	PRUSS_MEM_DRAM1,
-	PRUSS_MEM_SHRD_RAM2,
-	PRUSS_MEM_INTC,
-	PRUSS_MEM_CFG,
-	PRUSS_MEM_MAX,
-};
 
 /**
  * enum pru_mem - PRU core memory range identifiers
@@ -146,63 +80,14 @@ struct pru_match_private_data {
 };
 
 /**
- * struct pruss_private_data - PRUSS driver private data
- * @num_irqs: number of interrupts to MPU
- * @host_events: bit mask of PRU host interrupts that are routed to MPU
- * @aux_data: auxiliary data used for creating the child nodes
- * @has_reset: flag to indicate the presence of global module reset
- */
-struct pruss_private_data {
-	int num_irqs;
-	int host_events;
-	struct of_dev_auxdata *aux_data;
-	bool has_reset;
-};
-
-/**
- * struct pruss_match_private_data - match private data to handle multiple instances
- * @device_name: device name of the PRUSS instance
- * @priv_data: PRUSS driver private data for this PRUSS instance
- */
-struct pruss_match_private_data {
-	const char *device_name;
-	struct pruss_private_data *priv_data;
-};
-
-struct pru_rproc;
-
-/**
- * struct pruss - PRUSS parent structure
- * @pdev: platform device
- * @mem_va: kernel virtual addresses for each of the PRUSS memory regions
- * @mem_pa: physical addresses for each of the PRUSS memory regions
- * @mem_size: size of each of the PRUSS memory regions
- * @data: pointer to store PRUSS instance private data
- * @irqs: pointer to an array of interrupts to the host processor
- * @sysev_to_ch: system events to channel mapping information
- * @ch_to_host: interrupt channel to host interrupt information
- */
-struct pruss {
-	struct platform_device *pdev;
-	void __iomem *mem_va[PRUSS_MEM_MAX];
-	phys_addr_t mem_pa[PRUSS_MEM_MAX];
-	size_t mem_size[PRUSS_MEM_MAX];
-	const struct pruss_private_data *data;
-	int *irqs;
-	int sysev_to_ch[MAX_PRU_SYS_EVENTS];
-	int ch_to_host[MAX_PRU_CHANNELS];
-};
-
-/**
  * struct pru_rproc: PRU remoteproc structure
  * @id: id of the PRU core within the PRUSS
  * @pruss: back-reference to parent PRUSS structure
  * @rproc: remoteproc pointer for this PRU core
  * @mbox: mailbox channel handle used for vring signalling with MPU
  * @client: mailbox client to request the mailbox channel
- * @mem_va: kernel virtual addresses for each of the PRU memory regions
- * @mem_pa: physical addresses for each of the PRU memory regions
- * @mem_size: size of each of the PRU memory regions
+ * @mem_regions: data for each of the PRU memory regions
+ * @intc_config: PRU INTC configuration data
  * @iram_da: device address of Instruction RAM for this PRU
  * @pdram_da: device address of primary Data RAM for this PRU
  * @sdram_da: device address of secondary Data RAM for this PRU
@@ -217,9 +102,8 @@ struct pru_rproc {
 	struct rproc *rproc;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
-	void __iomem *mem_va[PRU_MEM_MAX];
-	phys_addr_t mem_pa[PRU_MEM_MAX];
-	size_t mem_size[PRU_MEM_MAX];
+	struct pruss_mem_region mem_regions[PRU_MEM_MAX];
+	struct pruss_intc_config intc_config;
 	u32 iram_da;
 	u32 pdram_da;
 	u32 sdram_da;
@@ -229,37 +113,26 @@ struct pru_rproc {
 	u32 dbg_continuous;
 };
 
-static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
-{
-	return readl_relaxed(pruss->mem_va[PRUSS_MEM_INTC] + reg);
-}
-
-static inline
-void pruss_intc_write_reg(struct pruss *pruss, unsigned int reg, u32 val)
-{
-	writel_relaxed(val, pruss->mem_va[PRUSS_MEM_INTC] + reg);
-}
-
 static inline u32 pru_control_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
-	return readl_relaxed(pru->mem_va[PRU_MEM_CTRL] + reg);
+	return readl_relaxed(pru->mem_regions[PRU_MEM_CTRL].va + reg);
 }
 
 static inline
 void pru_control_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
 {
-	writel_relaxed(val, pru->mem_va[PRU_MEM_CTRL] + reg);
+	writel_relaxed(val, pru->mem_regions[PRU_MEM_CTRL].va + reg);
 }
 
 static inline u32 pru_debug_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
-	return readl_relaxed(pru->mem_va[PRU_MEM_DEBUG] + reg);
+	return readl_relaxed(pru->mem_regions[PRU_MEM_DEBUG].va + reg);
 }
 
 static inline
 void pru_debug_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
 {
-	writel_relaxed(val, pru->mem_va[PRU_MEM_DEBUG] + reg);
+	writel_relaxed(val, pru->mem_regions[PRU_MEM_DEBUG].va + reg);
 }
 
 /*
@@ -273,33 +146,35 @@ void pru_debug_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
  */
 static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len)
 {
+	struct pruss_mem_region dram0, dram1, shrd_ram;
 	struct pruss *pruss = pru->pruss;
 	u32 offset;
-	u32 index;
-	size_t dram_sz = pruss->mem_size[PRUSS_MEM_DRAM0];
-	size_t shrd_ram_sz = pruss->mem_size[PRUSS_MEM_SHRD_RAM2];
-
-	WARN_ON(pruss->mem_size[PRUSS_MEM_DRAM0] !=
-		pruss->mem_size[PRUSS_MEM_DRAM1]);
+	void *va = NULL;
 
 	if (len <= 0)
 		return NULL;
 
-	if (da >= pru->pdram_da && da + len <= pru->pdram_da + dram_sz) {
+	dram0 = pruss->mem_regions[PRUSS_MEM_DRAM0];
+	dram1 = pruss->mem_regions[PRUSS_MEM_DRAM1];
+	/* PRU1 has its local RAM addresses reversed */
+	if (pru->id == 1)
+		swap(dram0, dram1);
+	shrd_ram = pruss->mem_regions[PRUSS_MEM_SHRD_RAM2];
+
+	if (da >= pru->pdram_da && da + len <= pru->pdram_da + dram0.size) {
 		offset = da - pru->pdram_da;
-		index = pru->id % 2;
-	} else if (da >= pru->sdram_da && da + len <= pru->sdram_da + dram_sz) {
+		va = (__force void *)(dram0.va + offset);
+	} else if (da >= pru->sdram_da &&
+		   da + len <= pru->sdram_da + dram1.size) {
 		offset = da - pru->sdram_da;
-		index = (pru->id + 1) % 2;
+		va = (__force void *)(dram1.va + offset);
 	} else if (da >= pru->shrdram_da &&
-		   da + len <= pru->shrdram_da + shrd_ram_sz) {
+		   da + len <= pru->shrdram_da + shrd_ram.size) {
 		offset = da - pru->shrdram_da;
-		index = 2;
-	} else {
-		return NULL;
+		va = (__force void *)(shrd_ram.va + offset);
 	}
 
-	return (__force void *)(pruss->mem_va[index] + offset);
+	return va;
 }
 
 /*
@@ -312,14 +187,19 @@ static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len)
 static void *pru_i_da_to_va(struct pru_rproc *pru, u32 da, int len)
 {
 	u32 offset;
+	void *va = NULL;
 
-	if (len > 0 && da >= pru->iram_da &&
-	    da + len <= pru->iram_da + pru->mem_size[PRU_MEM_IRAM]) {
+	if (len <= 0)
+		return NULL;
+
+	if (da >= pru->iram_da &&
+	    da + len <= pru->iram_da + pru->mem_regions[PRU_MEM_IRAM].size) {
 		offset = da - pru->iram_da;
-		return (__force void *)(pru->mem_va[PRU_MEM_IRAM] + offset);
+		va = (__force void *)(pru->mem_regions[PRU_MEM_IRAM].va +
+				      offset);
 	}
 
-	return NULL;
+	return va;
 }
 
 static int pru_rproc_debug_read_regs(struct seq_file *s, void *data)
@@ -449,124 +329,6 @@ static void pru_rproc_create_debug_entries(struct rproc *rproc)
 			    rproc, &pru_rproc_debug_ss_fops);
 }
 
-static void pruss_init_intc(struct pruss *pruss)
-{
-	int i;
-
-	/* configure polarity to active high for all system interrupts */
-	pruss_intc_write_reg(pruss, PRU_INTC_SIPR0, 0xffffffff);
-	pruss_intc_write_reg(pruss, PRU_INTC_SIPR1, 0xffffffff);
-
-	/* configure type to pulse interrupt for all system interrupts */
-	pruss_intc_write_reg(pruss, PRU_INTC_SITR0, 0);
-	pruss_intc_write_reg(pruss, PRU_INTC_SITR1, 0);
-
-	/* clear all interrupt channel map registers */
-	for (i = PRU_INTC_CMR(0); i <= PRU_INTC_CMR(15); i += 4)
-		pruss_intc_write_reg(pruss, i, 0);
-
-	/* clear all host interrupt map registers */
-	for (i = PRU_INTC_HMR(0); i <= PRU_INTC_HMR(2); i += 4)
-		pruss_intc_write_reg(pruss, i, 0);
-}
-
-/*
- * Configure the PRUSS INTC appropriately
- * XXX: change the life-cycle management to per PRU core
- */
-static int pruss_configure_intc(struct pruss *pruss)
-{
-	struct device *dev = &pruss->pdev->dev;
-	int i, idx, ch, host;
-	uint64_t sysevt_mask = 0;
-	uint32_t ch_mask = 0;
-	uint32_t host_mask = 0;
-	u32 val;
-
-	/*
-	 * configure channel map registers - each register holds map info
-	 * for 4 events, with each event occupying the lower nibble in
-	 * a register byte address in little-endian fashion
-	 */
-	for (i = 0; i < ARRAY_SIZE(pruss->sysev_to_ch); i++) {
-		ch = pruss->sysev_to_ch[i];
-		if (ch < 0)
-			continue;
-
-		idx = i / 4;
-		val  = pruss_intc_read_reg(pruss, PRU_INTC_CMR(idx));
-		val |= (u32)ch << ((i & 3) * 8);
-		pruss_intc_write_reg(pruss, PRU_INTC_CMR(idx), val);
-
-		sysevt_mask |= 1LLU << i;
-		ch_mask |= 1U << ch;
-
-		dev_dbg(dev, "SYSEV%d -> CH%d (CMR%d 0x%08x)\n", i, ch, idx,
-			pruss_intc_read_reg(pruss, PRU_INTC_CMR(idx)));
-	}
-
-	/*
-	 * set host map registers - each register holds map info for
-	 * 4 channels, with each channel occupying the lower nibble in
-	 * a register byte address in little-endian fashion
-	 */
-	for (i = 0; i < ARRAY_SIZE(pruss->ch_to_host); i++) {
-		host = pruss->ch_to_host[i];
-		if (host < 0)
-			continue;
-
-		idx = i / 4;
-
-		val  = pruss_intc_read_reg(pruss, PRU_INTC_HMR(idx));
-		val |= (u32)host << ((i & 3) * 8);
-		pruss_intc_write_reg(pruss, PRU_INTC_HMR(idx), val);
-
-		ch_mask |= 1U << i;
-		host_mask |= 1U << host;
-
-		dev_dbg(dev, "CH%d -> HOST%d (HMR%d 0x%08x)\n", i, host, idx,
-			pruss_intc_read_reg(pruss, PRU_INTC_HMR(idx)));
-	}
-
-	dev_info(dev, "configured system_events = 0x%016llx intr_channels = 0x%08x host_intr = 0x%08x\n",
-		 sysevt_mask, ch_mask, host_mask);
-
-	/* enable system events */
-	pruss_intc_write_reg(pruss, PRU_INTC_ESR0, (u32)sysevt_mask);
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, (u32)sysevt_mask);
-	pruss_intc_write_reg(pruss, PRU_INTC_ESR1, (u32)(sysevt_mask >> 32));
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, (u32)(sysevt_mask >> 32));
-
-	/* enable host interrupts */
-	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
-		if ((host_mask & (1 << i)))
-			pruss_intc_write_reg(pruss, PRU_INTC_HIEISR, i);
-	}
-
-	/* global interrupt enable */
-	pruss_intc_write_reg(pruss, PRU_INTC_GER, 1);
-
-	return 0;
-}
-
-static void pru_trigger_interrupt(struct rproc *rproc, int sysint)
-{
-	struct pru_rproc *pru = rproc->priv;
-	struct pruss *pruss = pru->pruss;
-	struct device *dev = &rproc->dev;
-
-	if (sysint < 0) {
-		dev_err(dev, "invalid sysint %d\n", sysint);
-		return;
-	}
-
-	dev_dbg(dev, "triggering sysint %d on PRU %d\n", sysint, pru->id);
-	if (sysint < 32)
-		pruss_intc_write_reg(pruss, PRU_INTC_SRSR0, 1 << sysint);
-	else
-		pruss_intc_write_reg(pruss, PRU_INTC_SRSR1, 1 << (sysint - 32));
-}
-
 /**
  * pru_rproc_mbox_callback() - inbound mailbox message handler
  * @client: mailbox client pointer used for requesting the mailbox channel
@@ -638,6 +400,9 @@ static int pru_rproc_stop(struct rproc *rproc)
 	val &= ~CTRL_CTRL_EN;
 	pru_control_write_reg(pru, PRU_CTRL_CTRL, val);
 
+	/* undo INTC config */
+	pruss_intc_unconfigure(pru->pruss, &pru->intc_config);
+
 	return 0;
 }
 
@@ -682,6 +447,13 @@ static int pru_handle_custom_intrmap(struct rproc *rproc,
 		return -EINVAL;
 	}
 
+	/* init intc_config to defaults */
+	for (i = 0; i < ARRAY_SIZE(pru->intc_config.sysev_to_ch); i++)
+		pru->intc_config.sysev_to_ch[i] = -1;
+
+	for (i = 0; i < ARRAY_SIZE(pru->intc_config.ch_to_host); i++)
+		pru->intc_config.ch_to_host[i] = -1;
+
 	/* parse and fill in system event to interrupt channel mapping */
 	for (i = 0; i < intr_rsc->event_chnl_map_size; i++) {
 		sys_evt = event_chnl_map[i].event;
@@ -696,12 +468,7 @@ static int pru_handle_custom_intrmap(struct rproc *rproc,
 			return -EINVAL;
 		}
 
-		if (pruss->sysev_to_ch[sys_evt] != -1) {
-			dev_err(dev, "[%d] event %d already assigned to channel %d\n",
-				i, sys_evt, pruss->sysev_to_ch[sys_evt]);
-			return -EEXIST;
-		}
-		pruss->sysev_to_ch[sys_evt] = chnl;
+		pru->intc_config.sysev_to_ch[sys_evt] = chnl;
 		dev_dbg(dev, "sysevt-to-ch[%d] -> %d\n", sys_evt, chnl);
 	}
 
@@ -719,16 +486,11 @@ static int pru_handle_custom_intrmap(struct rproc *rproc,
 			return -EINVAL;
 		}
 
-		if (pruss->ch_to_host[i] != -1) {
-			dev_err(dev, "channel %d already assigned to intr_no %d\n",
-				i, pruss->ch_to_host[i]);
-			return -EEXIST;
-		}
-		pruss->ch_to_host[i] = intr_no;
+		pru->intc_config.ch_to_host[i] = intr_no;
 		dev_dbg(dev, "chnl-to-host[%d] -> %d\n", i, intr_no);
 	}
 
-	ret = pruss_configure_intc(pruss);
+	ret = pruss_intc_configure(pruss, &pru->intc_config);
 	if (ret)
 		dev_err(dev, "failed to configure pruss intc %d\n", ret);
 
@@ -851,18 +613,19 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(mem_names); i++) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
-		pru->mem_va[i] = devm_ioremap_resource(dev, res);
-		pru->mem_pa[i] = res->start;
-		pru->mem_size[i] = resource_size(res);
-		if (IS_ERR(pru->mem_va[i])) {
+		pru->mem_regions[i].va = devm_ioremap_resource(dev, res);
+		if (IS_ERR(pru->mem_regions[i].va)) {
 			dev_err(dev, "failed to parse and map memory resource %d %s\n",
 				i, mem_names[i]);
-			ret = PTR_ERR(pru->mem_va[i]);
+			ret = PTR_ERR(pru->mem_regions[i].va);
 			goto free_rproc;
 		}
+		pru->mem_regions[i].pa = res->start;
+		pru->mem_regions[i].size = resource_size(res);
+
 		dev_dbg(dev, "memory %8s: pa %pa size 0x%x va %p\n",
-			mem_names[i], &pru->mem_pa[i],
-			pru->mem_size[i], pru->mem_va[i]);
+			mem_names[i], &pru->mem_regions[i].pa,
+			pru->mem_regions[i].size, pru->mem_regions[i].va);
 	}
 
 	platform_set_drvdata(pdev, rproc);
@@ -904,9 +667,6 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* suppress unused function warning */
-	(void)pru_trigger_interrupt;
-
 	dev_info(dev, "PRU rproc node %s probed successfully\n", np->full_name);
 
 	return 0;
@@ -937,219 +697,6 @@ static int pru_rproc_remove(struct platform_device *pdev)
 
 	rproc_del(rproc);
 	rproc_put(rproc);
-
-	return 0;
-}
-
-/*
- * Interrupt Handler for all PRUSS MPU interrupts
- * XXX: Enhance with event listener notifications
- */
-static irqreturn_t pruss_handler(int irq, void *data)
-{
-	struct pruss *pruss = data;
-	u32 sys_evt, val;
-	int intr_bit = irq - pruss->irqs[0] + MIN_PRU_HOST_INT;
-	int intr_mask = (1 << intr_bit);
-	static int evt_mask = MAX_PRU_SYS_EVENTS - 1;
-
-	/* check whether the interrupt can reach MPU */
-	if (!(intr_mask & pruss->data->host_events))
-		return IRQ_NONE;
-
-	/* check whether the specific host interrupt is enabled */
-	val = pruss_intc_read_reg(pruss, PRU_INTC_HIER);
-	if (!(val & intr_mask))
-		return IRQ_NONE;
-
-	/* check non-pending bit of specific host interrupt */
-	val = pruss_intc_read_reg(pruss, PRU_INTC_HIPIR(intr_bit));
-	if (val & INTC_HIPIR_NONE_HINT)
-		return IRQ_NONE;
-
-	/* clear system event */
-	sys_evt = val & evt_mask;
-	if (sys_evt < 32)
-		pruss_intc_write_reg(pruss, PRU_INTC_SECR0, 1 << sys_evt);
-	else
-		pruss_intc_write_reg(pruss, PRU_INTC_SECR1,
-				     1 << (sys_evt - 32));
-
-	return IRQ_HANDLED;
-}
-
-static const struct of_device_id pruss_of_match[];
-
-static const
-struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
-{
-	struct device_node *np = pdev->dev.of_node;
-	const struct pruss_match_private_data *data;
-	const struct of_device_id *match;
-
-	match = of_match_device(pruss_of_match, &pdev->dev);
-	if (!match)
-		return ERR_PTR(-ENODEV);
-
-	if (of_device_is_compatible(np, "ti,am3352-pruss") ||
-	    of_device_is_compatible(np, "ti,am4372-pruss"))
-		return match->data;
-
-	data = match->data;
-	for (; data && data->device_name; data++) {
-		if (!strcmp(dev_name(&pdev->dev), data->device_name))
-			return data->priv_data;
-	}
-
-	return NULL;
-}
-
-static int pruss_probe(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	struct device_node *node = dev->of_node;
-	int ret;
-	struct pruss *pruss;
-	struct rproc *rproc = NULL;
-	struct resource *res;
-	int err, i, irq, num_irqs;
-	struct pruss_platform_data *pdata = dev_get_platdata(dev);
-	const struct pruss_private_data *data;
-	const char *mem_names[PRUSS_MEM_MAX] = {
-				"dram0", "dram1", "shrdram2", "intc", "cfg" };
-
-	if (!node) {
-		dev_err(dev, "Non-DT platform device not supported\n");
-		return -ENODEV;
-	}
-
-	data = pruss_get_private_data(pdev);
-	if (IS_ERR_OR_NULL(data)) {
-		dev_err(dev, "missing private data\n");
-		return -ENODEV;
-	}
-
-	if (data->has_reset && (!pdata || !pdata->deassert_reset ||
-				!pdata->assert_reset || !pdata->reset_name)) {
-		dev_err(dev, "platform data (reset configuration information) missing\n");
-		return -ENODEV;
-	}
-
-	err = dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
-	if (err) {
-		dev_err(dev, "dma_set_coherent_mask: %d\n", err);
-		return err;
-	}
-
-	pruss = devm_kzalloc(dev, sizeof(*pruss), GFP_KERNEL);
-	if (!pruss)
-		return -ENOMEM;
-
-	pruss->pdev = pdev;
-	pruss->data = data;
-
-	num_irqs = data->num_irqs;
-	pruss->irqs = devm_kzalloc(dev, sizeof(*pruss->irqs) * num_irqs,
-				   GFP_KERNEL);
-	if (!pruss->irqs)
-		return -ENOMEM;
-
-	for (i = 0; i < num_irqs; i++)
-		pruss->irqs[i] = -1;
-
-	for (i = 0; i < ARRAY_SIZE(pruss->sysev_to_ch); i++)
-		pruss->sysev_to_ch[i] = -1;
-
-	for (i = 0; i < ARRAY_SIZE(pruss->ch_to_host); i++)
-		pruss->ch_to_host[i] = -1;
-
-	for (i = 0; i < num_irqs; i++) {
-		pruss->irqs[i] = platform_get_irq(pdev, i);
-		if (pruss->irqs[i] < 0) {
-			dev_err(dev, "failed to get irq #%d ret = %d\n",
-				i, pruss->irqs[i]);
-			return pruss->irqs[i];
-		}
-	}
-	dev_dbg(dev, "%d PRU interrupts parsed\n", num_irqs);
-
-	for (i = 0; i < ARRAY_SIZE(mem_names); i++) {
-		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						   mem_names[i]);
-		pruss->mem_va[i] = devm_ioremap_resource(dev, res);
-		pruss->mem_pa[i] = res->start;
-		pruss->mem_size[i] = resource_size(res);
-		if (IS_ERR(pruss->mem_va[i])) {
-			dev_err(dev, "failed to parse and map memory resource %d %s\n",
-				i, mem_names[i]);
-			return PTR_ERR(pruss->mem_va[i]);
-		}
-		dev_dbg(dev, "memory %8s: pa %pa size 0x%x va %p\n",
-			mem_names[i], &pruss->mem_pa[i],
-			pruss->mem_size[i], pruss->mem_va[i]);
-	}
-
-	if (data->has_reset) {
-		err = pdata->deassert_reset(pdev, pdata->reset_name);
-		if (err) {
-			dev_err(dev, "deassert_reset failed: %d\n", err);
-			goto err_fail;
-		}
-	}
-
-	pm_runtime_enable(dev);
-	err = pm_runtime_get_sync(dev);
-	if (err < 0) {
-		pm_runtime_put_noidle(dev);
-		dev_err(dev, "pm_runtime_get_sync failed\n");
-		goto err_rpm_fail;
-	}
-
-	pruss_init_intc(pruss);
-
-	for (i = 0; i < num_irqs; i++) {
-		irq = pruss->irqs[i];
-		err = devm_request_irq(dev, irq, pruss_handler, 0,
-				       dev_name(dev), pruss);
-		if (err) {
-			dev_err(dev, "failed to register irq %d\n", irq);
-			goto err_irq_fail;
-		}
-	}
-
-	platform_set_drvdata(pdev, pruss);
-
-	dev_info(&pdev->dev, "creating platform devices for PRU cores\n");
-	ret = of_platform_populate(node, NULL, data->aux_data, &pdev->dev);
-
-	return ret;
-
-err_irq_fail:
-	pm_runtime_put_sync(dev);
-err_rpm_fail:
-	pm_runtime_disable(dev);
-	if (data->has_reset)
-		pdata->assert_reset(pdev, pdata->reset_name);
-
-	if (rproc)
-		rproc_put(rproc);
-err_fail:
-	return err;
-}
-
-static int pruss_remove(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	struct pruss_platform_data *pdata = dev_get_platdata(dev);
-	struct pruss *pruss = platform_get_drvdata(pdev);
-
-	dev_info(dev, "remove platform devices for PRU cores\n");
-	of_platform_depopulate(dev);
-
-	pm_runtime_put_sync(dev);
-	pm_runtime_disable(dev);
-	if (pruss->data->has_reset)
-		pdata->assert_reset(pdev, pdata->reset_name);
 
 	return 0;
 }
@@ -1267,144 +814,8 @@ static struct platform_driver pru_rproc_driver = {
 	.probe  = pru_rproc_probe,
 	.remove = pru_rproc_remove,
 };
+module_platform_driver(pru_rproc_driver);
 
-/*
- * auxdata lookup table for giving specific device names to PRU platform
- * devices. The device names are used in the driver to find private data
- * specific to a PRU-core such as an id and a firmware name etc, especially
- * needed when there are multiple PRUSS instances present on a SoC.
- * XXX: The auxdata in general is not a recommended usage, and this should
- *      eventually be eliminated. The current usage allows us to define the
- *      PRU device names with an identifier like xxxxxxxx.pru0 instead of a
- *      generic xxxxxxxx.pru.
- */
-static struct of_dev_auxdata am335x_pruss_rproc_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("ti,am3352-pru-rproc", 0x4a334000, "4a334000.pru0",
-		       NULL),
-	OF_DEV_AUXDATA("ti,am3352-pru-rproc", 0x4a338000, "4a338000.pru1",
-		       NULL),
-	{ /* sentinel */ },
-};
-
-static struct of_dev_auxdata am437x_pruss1_rproc_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("ti,am4372-pru-rproc", 0x54434000, "54434000.pru0",
-		       NULL),
-	OF_DEV_AUXDATA("ti,am4372-pru-rproc", 0x54438000, "54438000.pru1",
-		       NULL),
-	{ /* sentinel */ },
-};
-
-static struct of_dev_auxdata am57xx_pruss1_rproc_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("ti,am5728-pru-rproc", 0x4b234000, "4b234000.pru0",
-		       NULL),
-	OF_DEV_AUXDATA("ti,am5728-pru-rproc", 0x4b238000, "4b238000.pru1",
-		       NULL),
-	{ /* sentinel */ },
-};
-
-static struct of_dev_auxdata am57xx_pruss2_rproc_auxdata_lookup[] = {
-	OF_DEV_AUXDATA("ti,am5728-pru-rproc", 0x4b2b4000, "4b2b4000.pru0",
-		       NULL),
-	OF_DEV_AUXDATA("ti,am5728-pru-rproc", 0x4b2b8000, "4b2b8000.pru1",
-		       NULL),
-	{ /* sentinel */ },
-};
-
-/*
- * There is a one-to-one relation between PRU Host interrupts
- * and the PRU Host events. The interrupts are expected to be
- * in the increasing order of PRU Host events.
- */
-static struct pruss_private_data am335x_priv_data = {
-	.num_irqs = 8,
-	.host_events = (BIT(2) | BIT(3) | BIT(4) | BIT(5) |
-			BIT(6) | BIT(7) | BIT(8) | BIT(9)),
-	.aux_data = am335x_pruss_rproc_auxdata_lookup,
-	.has_reset = true,
-};
-
-static struct pruss_private_data am437x_priv_data = {
-	.num_irqs = 7,
-	.host_events = (BIT(2) | BIT(3) | BIT(4) | BIT(5) |
-			BIT(6) | BIT(8) | BIT(9)),
-	.aux_data = am437x_pruss1_rproc_auxdata_lookup,
-	.has_reset = true,
-};
-
-static struct pruss_private_data am57xx_pruss1_priv_data = {
-	.num_irqs = 8,
-	.host_events = (BIT(2) | BIT(3) | BIT(4) | BIT(5) |
-			BIT(6) | BIT(7) | BIT(8) | BIT(9)),
-	.aux_data = am57xx_pruss1_rproc_auxdata_lookup,
-};
-
-static struct pruss_private_data am57xx_pruss2_priv_data = {
-	.num_irqs = 8,
-	.host_events = (BIT(2) | BIT(3) | BIT(4) | BIT(5) |
-			BIT(6) | BIT(7) | BIT(8) | BIT(9)),
-	.aux_data = am57xx_pruss2_rproc_auxdata_lookup,
-};
-
-static struct pruss_match_private_data am57xx_match_data[] = {
-	{
-		.device_name	= "4b200000.pruss",
-		.priv_data	= &am57xx_pruss1_priv_data,
-	},
-	{
-		.device_name	= "4b280000.pruss",
-		.priv_data	= &am57xx_pruss2_priv_data,
-	},
-	{
-		/* sentinel */
-	},
-};
-
-static const struct of_device_id pruss_of_match[] = {
-	{ .compatible = "ti,am3352-pruss", .data = &am335x_priv_data, },
-	{ .compatible = "ti,am4372-pruss", .data = &am437x_priv_data, },
-	{ .compatible = "ti,am5728-pruss", .data = &am57xx_match_data, },
-	{},
-};
-MODULE_DEVICE_TABLE(of, pruss_of_match);
-
-static struct platform_driver pruss_driver = {
-	.driver = {
-		.name   = "pruss-rproc",
-		.of_match_table = of_match_ptr(pruss_of_match),
-	},
-	.probe  = pruss_probe,
-	.remove = pruss_remove,
-};
-
-static int __init pruss_init(void)
-{
-	int ret;
-
-	ret = platform_driver_register(&pruss_driver);
-	if (ret) {
-		pr_err("platform driver register failed for pruss_driver, %d\n",
-		       ret);
-		return ret;
-	}
-
-	ret = platform_driver_register(&pru_rproc_driver);
-	if (ret) {
-		pr_err("platform driver register failed for pru_rproc_driver, %d\n",
-		       ret);
-		platform_driver_unregister(&pruss_driver);
-	}
-
-	return ret;
-}
-module_init(pruss_init);
-
-static void __exit pruss_exit(void)
-{
-	platform_driver_unregister(&pru_rproc_driver);
-	platform_driver_unregister(&pruss_driver);
-}
-module_exit(pruss_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("PRU-ICSS Remote Processor driver");
 MODULE_AUTHOR("Suman Anna <s-anna@ti.com>");
+MODULE_DESCRIPTION("PRU-ICSS Remote Processor Driver");
+MODULE_LICENSE("GPL v2");
