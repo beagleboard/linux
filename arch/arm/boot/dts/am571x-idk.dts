@@ -128,7 +128,6 @@
 &dra7_pmx_core {
 	mmc1_pins_default: mmc1_pins_default {
 		pinctrl-single,pins = <
-			0x36c (PIN_INPUT | MUX_MODE14)	/* mmc1sdcd.gpio219 */
 			0x354 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc1_clk.clk */
 			0x358 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc1_cmd.cmd */
 			0x35c (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc1_dat0.dat0 */
@@ -262,4 +261,21 @@
 	/delete-property/ sd-uhs-ddr50;
 	/delete-property/ sd-uhs-sdr25;
 	/delete-property/ sd-uhs-sdr12;
+};
+
+&mcspi3 {
+	status = "okay";
+	ti,pindir-d0-out-d1-in;
+
+	gpio@0 {
+		compatible = "pisosr-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		load-gpios = <&gpio2 23 GPIO_ACTIVE_LOW>;
+
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+	};
 };

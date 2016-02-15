@@ -326,7 +326,6 @@
 			0x360 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc1_dat1.dat1 */
 			0x364 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc1_dat2.dat2 */
 			0x368 (PIN_INPUT_PULLUP | MUX_MODE0)	/* mmc1_dat3.dat3 */
-			0x36c (PIN_INPUT | MUX_MODE14)		/* mmc1sdcd.gpio187 */
 		>;
 	};
 
