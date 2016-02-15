@@ -105,6 +105,8 @@ struct pru_rproc;
  * @data: pointer to store PRUSS instance private data
  * @irqs: pointer to an array of interrupts to the host processor
  * @intc_config: local INTC configuration data
+ * @host_mask: indicate which HOST IRQs are enabled
+ * @intc_lock: mutex to serialize access to INTC
  */
 struct pruss {
 	struct device *dev;
@@ -112,8 +114,13 @@ struct pruss {
 	const struct pruss_private_data *data;
 	int *irqs;
 	struct pruss_intc_config intc_config;
+	u32 host_mask;
+	struct mutex intc_lock; /* PRUSS INTC lock */
 };
 
-int pruss_configure_intc(struct pruss *pruss);
+int pruss_intc_configure(struct pruss *pruss,
+			 struct pruss_intc_config *intc_config);
+int pruss_intc_unconfigure(struct pruss *pruss,
+			   struct pruss_intc_config *intc_config);
 
 #endif	/* _PRUSS_H_ */

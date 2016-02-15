@@ -87,6 +87,7 @@ struct pru_match_private_data {
  * @mbox: mailbox channel handle used for vring signalling with MPU
  * @client: mailbox client to request the mailbox channel
  * @mem_regions: data for each of the PRU memory regions
+ * @intc_config: PRU INTC configuration data
  * @iram_da: device address of Instruction RAM for this PRU
  * @pdram_da: device address of primary Data RAM for this PRU
  * @sdram_da: device address of secondary Data RAM for this PRU
@@ -102,6 +103,7 @@ struct pru_rproc {
 	struct mbox_chan *mbox;
 	struct mbox_client client;
 	struct pruss_mem_region mem_regions[PRU_MEM_MAX];
+	struct pruss_intc_config intc_config;
 	u32 iram_da;
 	u32 pdram_da;
 	u32 sdram_da;
@@ -398,6 +400,9 @@ static int pru_rproc_stop(struct rproc *rproc)
 	val &= ~CTRL_CTRL_EN;
 	pru_control_write_reg(pru, PRU_CTRL_CTRL, val);
 
+	/* undo INTC config */
+	pruss_intc_unconfigure(pru->pruss, &pru->intc_config);
+
 	return 0;
 }
 
@@ -442,6 +447,13 @@ static int pru_handle_custom_intrmap(struct rproc *rproc,
 		return -EINVAL;
 	}
 
+	/* init intc_config to defaults */
+	for (i = 0; i < ARRAY_SIZE(pru->intc_config.sysev_to_ch); i++)
+		pru->intc_config.sysev_to_ch[i] = -1;
+
+	for (i = 0; i < ARRAY_SIZE(pru->intc_config.ch_to_host); i++)
+		pru->intc_config.ch_to_host[i] = -1;
+
 	/* parse and fill in system event to interrupt channel mapping */
 	for (i = 0; i < intr_rsc->event_chnl_map_size; i++) {
 		sys_evt = event_chnl_map[i].event;
@@ -456,13 +468,7 @@ static int pru_handle_custom_intrmap(struct rproc *rproc,
 			return -EINVAL;
 		}
 
-		if (pruss->intc_config.sysev_to_ch[sys_evt] != -1) {
-			dev_err(dev, "[%d] event %d already assigned to channel %d\n",
-				i, sys_evt,
-				pruss->intc_config.sysev_to_ch[sys_evt]);
-			return -EEXIST;
-		}
-		pruss->intc_config.sysev_to_ch[sys_evt] = chnl;
+		pru->intc_config.sysev_to_ch[sys_evt] = chnl;
 		dev_dbg(dev, "sysevt-to-ch[%d] -> %d\n", sys_evt, chnl);
 	}
 
@@ -480,16 +486,11 @@ static int pru_handle_custom_intrmap(struct rproc *rproc,
 			return -EINVAL;
 		}
 
-		if (pruss->intc_config.ch_to_host[i] != -1) {
-			dev_err(dev, "channel %d already assigned to intr_no %d\n",
-				i, pruss->intc_config.ch_to_host[i]);
-			return -EEXIST;
-		}
-		pruss->intc_config.ch_to_host[i] = intr_no;
+		pru->intc_config.ch_to_host[i] = intr_no;
 		dev_dbg(dev, "chnl-to-host[%d] -> %d\n", i, intr_no);
 	}
 
-	ret = pruss_configure_intc(pruss);
+	ret = pruss_intc_configure(pruss, &pru->intc_config);
 	if (ret)
 		dev_err(dev, "failed to configure pruss intc %d\n", ret);
 
