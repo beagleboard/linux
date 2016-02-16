@@ -1393,7 +1393,7 @@ static int wl18xx_load_conf_file(struct device *dev, struct wlcore_conf *conf,
 
 	ret = request_firmware(&fw, WL18XX_CONF_FILE_NAME, dev);
 	if (ret < 0) {
-		wl1271_error("could not get configuration binary %s: %d",
+		wl1271_info("could not get configuration binary %s: %d",
 			     WL18XX_CONF_FILE_NAME, ret);
 		return ret;
 	}
