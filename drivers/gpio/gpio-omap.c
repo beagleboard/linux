@@ -672,6 +672,7 @@ static int omap_gpio_request(struct gpio_chip *chip, unsigned offset)
 		pm_runtime_get_sync(bank->dev);
 
 	raw_spin_lock_irqsave(&bank->lock, flags);
+
 	/* Set trigger to none. You need to enable the desired trigger with
 	 * request_irq() or set_irq_type(). Only do this if the IRQ line has
 	 * not already been requested.
