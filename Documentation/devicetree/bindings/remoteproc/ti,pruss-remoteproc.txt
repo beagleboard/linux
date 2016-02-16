@@ -78,6 +78,9 @@ Each PRUSS has dual PRU cores, so at most there can be 2 active PRU child nodes.
 Each node can optionally be rendered inactive by using the standard DT string
 property, "status".
 
+Each PRU child node must either be named "pru0" or "pru1", for the first and
+and second PRUs respectively.
+
 Required Properties:
 --------------------
 - compatible     : should be
@@ -109,6 +112,16 @@ MDIO module used within the PRU-ICSS is an instance of the MDIO Controller
 used in TI Davinci SoCs. Please refer to the corresponding binding document,
 Documentation/devicetree/bindings/net/davinci-mdio.txt
 
+Additional Child Nodes/User Nodes
+=================================
+The PRUSS device node can have additional child nodes for various PRU
+applications. Each application/client node would need a reference to the
+PRUSS node or directly the PRU nodes in general.
+
+Optional Properties:
+--------------------
+- pruss          : phandle to a PRUSS node
+
 
 Example:
 ========
@@ -130,7 +143,7 @@ Example:
 		#size-cells = <1>;
 		ranges;
 
-		pru0: pru@4a334000 {
+		pru0: pru0@4a334000 {
 			compatible = "ti,am3352-pru-rproc";
 			reg = <0x4a334000 0x2000>,
 			      <0x4a322000 0x400>,
@@ -139,7 +152,7 @@ Example:
 			mboxes = <&mailbox &mbox_pru0>;
 		};
 
-		pru1: pru@4a338000 {
+		pru1: pru1@4a338000 {
 			compatible = "ti,am3352-pru-rproc";
 			reg = <0x4a338000 0x2000>,
 			      <0x4a324000 0x400>,

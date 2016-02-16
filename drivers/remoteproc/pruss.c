@@ -15,6 +15,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
@@ -22,6 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 #include <linux/virtio.h>
+#include <linux/pruss.h>
 
 #include <linux/platform_data/remoteproc-pruss.h>
 
@@ -51,6 +53,363 @@ struct pruss_match_private_data {
 	const char *device_name;
 	struct pruss_private_data *priv_data;
 };
+
+static DEFINE_MUTEX(pruss_list_mutex);
+static LIST_HEAD(pruss_list);
+
+/**
+ * pruss_get() - get the pruss for the given device
+ * @dev: device interested in the pruss
+ *
+ * Finds the pruss device referenced by the "pruss" property in the
+ * requesting (client) device's device node.
+ *
+ * This function increments the pruss device's refcount, so always
+ * use pruss_put() to decrement it back once pruss isn't needed anymore.
+ *
+ * Returns the pruss handle on success, and NULL on failure.
+ */
+struct pruss *pruss_get(struct device *dev)
+{
+	struct pruss *pruss = NULL, *p;
+	struct device_node *np;
+
+	if (!dev)
+		return NULL;
+
+	np = of_parse_phandle(dev->of_node, "pruss", 0);
+	if (!np)
+		return NULL;
+
+	mutex_lock(&pruss_list_mutex);
+	list_for_each_entry(p, &pruss_list, node) {
+		if (p->dev->of_node == np) {
+			pruss = p;
+			get_device(pruss->dev);
+			break;
+		}
+	}
+
+	mutex_unlock(&pruss_list_mutex);
+	of_node_put(np);
+
+	return pruss;
+}
+EXPORT_SYMBOL_GPL(pruss_get);
+
+/**
+ * pruss_put() - decrement pruss device's usecount
+ * @pruss: pruss handle
+ *
+ * Complimentary function for pruss_get(). Needs to be called
+ * after the PRUSS is used, and only if the pruss_get() succeeds.
+ */
+void pruss_put(struct pruss *pruss)
+{
+	if (!pruss)
+		return;
+
+	put_device(pruss->dev);
+}
+EXPORT_SYMBOL_GPL(pruss_put);
+
+/*
+ * get the rproc phandle corresponding to a pru_id.
+ * Caller must call rproc_put() when done with rproc.
+ */
+static struct rproc *__pruss_rproc_get(struct pruss *pruss,
+				       enum pruss_pru_id pru_id)
+{
+	struct device_node *rproc_np;
+	struct platform_device *pdev;
+	struct rproc *rproc;
+
+	/* get rproc corresponding to pru_id */
+	switch (pru_id) {
+	case PRUSS_PRU0:
+		rproc_np = of_get_child_by_name(pruss->dev->of_node, "pru0");
+		break;
+	case PRUSS_PRU1:
+		rproc_np = of_get_child_by_name(pruss->dev->of_node, "pru1");
+		break;
+	default:
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (!rproc_np)
+		return ERR_PTR(-ENODEV);
+
+	pdev = of_find_device_by_node(rproc_np);
+	of_node_put(rproc_np);
+
+	if (!pdev)
+		/* probably PRU not yet probed */
+		return ERR_PTR(-EPROBE_DEFER);
+
+	rproc = platform_get_drvdata(pdev);
+	get_device(&rproc->dev);
+
+	return rproc;
+}
+
+/**
+ * pruss_rproc_get() - Get the rproc instance corresponding to pru_id
+ * @pruss: the pruss instance
+ * @pru_id: the PRU id of which we need the rproc instance
+ *
+ * Allows only one user to own the rproc resource at a time.
+ * Caller must call pruss_put_rproc() when done with using the rproc.
+ *
+ * Returns rproc handle on success. ERR_PTR on failure e.g.
+ * -EBUSY if PRU is already reserved by someone else
+ * -ENODEV if not yet available.
+ * -EINVAL if invalid parameters.
+ */
+struct rproc *pruss_rproc_get(struct pruss *pruss,
+			      enum pruss_pru_id pru_id)
+{
+	struct rproc *rproc;
+	int ret;
+
+	if (!pruss)
+		return ERR_PTR(-EINVAL);
+
+	rproc = __pruss_rproc_get(pruss, pru_id);
+	if (IS_ERR(rproc))
+		return rproc;
+
+	mutex_lock(&pruss->lock);
+
+	if (pruss->pru_in_use[pru_id]) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	pruss->pru_in_use[pru_id] = rproc;
+
+	mutex_unlock(&pruss->lock);
+
+	return rproc;
+
+unlock:
+	mutex_unlock(&pruss->lock);
+	rproc_put(rproc);
+
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL_GPL(pruss_rproc_get);
+
+/* find out PRU ID from the rproc instance */
+static enum pruss_pru_id pruss_rproc_to_pru_id(struct pruss *pruss,
+					       struct rproc *rproc)
+{
+	enum pruss_pru_id pru_id;
+
+	for (pru_id = PRUSS_PRU0; pru_id < PRUSS_NUM_PRUS; pru_id++)
+		if (pruss->pru_in_use[pru_id] == rproc)
+			return pru_id;
+
+	return -1;
+}
+
+/**
+ * pruss_rproc_put() - release the PRU rproc resource
+ * @pruss: the pruss instance
+ * @rproc: the rproc resource to release
+ *
+ * Releases the rproc resource and makes it available to other
+ * users.
+ */
+void pruss_rproc_put(struct pruss *pruss, struct rproc *rproc)
+{
+	int pru_id;
+
+	if (!pruss || !rproc)
+		return;
+
+	mutex_lock(&pruss->lock);
+
+	pru_id = pruss_rproc_to_pru_id(pruss, rproc);
+	if (pru_id < 0) {
+		mutex_unlock(&pruss->lock);
+		return;
+	}
+
+	if (!pruss->pru_in_use[pru_id]) {
+		mutex_unlock(&pruss->lock);
+		return;
+	}
+	pruss->pru_in_use[pru_id] = NULL;
+
+	mutex_unlock(&pruss->lock);
+
+	rproc_put(rproc);
+}
+EXPORT_SYMBOL(pruss_rproc_put);
+
+/**
+ * pruss_rproc_boot() - boot the specified PRU with specified firmware
+ * @rproc: the rproc instance of the PRU
+ * @fw_name: path of the firmware blob
+ *
+ * Boot the specified PRU with the firmware blob in the specified path.
+ * Shouldn't be called from IRQ context.
+ *
+ * Returns 0 on success. Non-zero on failure e.g.
+ * -EBUSY if PRU is already reserved by someone else
+ * -ENODEV if not yet available.
+ * -EINVAL if invalid parameters or boot failed.
+ */
+int pruss_rproc_boot(struct pruss *pruss, struct rproc *rproc,
+		     const char *fw_name)
+{
+	int ret, pru_id;
+
+	if (!pruss || !rproc || !fw_name)
+		return -EINVAL;
+
+	mutex_lock(&pruss->lock);
+
+	pru_id = pruss_rproc_to_pru_id(pruss, rproc);
+	if (pru_id < 0) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	/* is PRU already running */
+	if (pruss->pru_running[pru_id]) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	rproc->firmware = fw_name;
+	ret = rproc_boot(rproc);
+	if (ret) {
+		dev_err(pruss->dev, "rproc_boot failed: %d\n", ret);
+		ret = -EINVAL;
+		goto unlock;
+	}
+	pruss->pru_running[pru_id] = true;
+
+unlock:
+	mutex_unlock(&pruss->lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pruss_rproc_boot);
+
+/**
+ * pruss_rproc_halt() - halt the specified PRU
+ * @pruss: the pruss instance
+ * @rproc: the rproc instance of the PRU to halt
+ *
+ * Halt the specified PRU if running. The rproc structure is used
+ * here instead of PRU id to avoid unrelated users to halt a PRU
+ * that was not booted by them.
+ */
+void pruss_rproc_halt(struct pruss *pruss, struct rproc *rproc)
+{
+	int pru_id;
+
+	if (!pruss || !rproc)
+		return;
+
+	mutex_lock(&pruss->lock);
+
+	/* Find which pru_id the rproc is */
+	pru_id = pruss_rproc_to_pru_id(pruss, rproc);
+	if (pru_id < 0)
+		goto out;
+
+	if (!pruss->pru_running[pru_id])
+		goto out;
+
+	/* halt the processor */
+	rproc_shutdown(rproc);
+	pruss->pru_running[pru_id] = false;
+
+out:
+	mutex_unlock(&pruss->lock);
+}
+EXPORT_SYMBOL_GPL(pruss_rproc_halt);
+
+/**
+ * pruss_request_mem_region() - request a memory resource
+ * @pruss: the pruss instance
+ * @mem_id: the memory resource id
+ * @region: pointer to memory region structure to be filled in
+ *
+ * This function allows a client driver to requests a memory resource,
+ * and if successful, will let the client driver own the particular
+ * memory region until released using the pruss_release_mem_region()
+ * API.
+ *
+ * Returns the memory region if requested resource is available, an
+ * error otherwise
+ */
+int pruss_request_mem_region(struct pruss *pruss, enum pruss_mem mem_id,
+			     struct pruss_mem_region *region)
+{
+	if (!pruss || !region)
+		return -EINVAL;
+
+	if (mem_id >= PRUSS_MEM_MAX)
+		return -EINVAL;
+
+	mutex_lock(&pruss->lock);
+
+	if (pruss->mem_in_use[mem_id]) {
+		mutex_unlock(&pruss->lock);
+		return -EBUSY;
+	}
+
+	*region = pruss->mem_regions[mem_id];
+	pruss->mem_in_use[mem_id] = region;
+
+	mutex_unlock(&pruss->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_request_mem_region);
+
+/**
+ * pruss_release_mem_region() - release a memory resource
+ * @pruss: the pruss instance
+ * @region: the memory region to release
+ *
+ * This function is the complimentary function to
+ * pruss_request_mem_region(), and allows the client drivers to
+ * release back a memory resource.
+ *
+ * Returns 0 on success, an error code otherwise
+ */
+int pruss_release_mem_region(struct pruss *pruss,
+			     struct pruss_mem_region *region)
+{
+	int id;
+
+	if (!pruss || !region)
+		return -EINVAL;
+
+	mutex_lock(&pruss->lock);
+
+	/* find out the memory region being released */
+	for (id = 0; id < PRUSS_MEM_MAX; id++) {
+		if (pruss->mem_in_use[id] == region)
+			break;
+	}
+
+	if (id == PRUSS_MEM_MAX) {
+		mutex_unlock(&pruss->lock);
+		return -EINVAL;
+	}
+
+	pruss->mem_in_use[id] = NULL;
+
+	mutex_unlock(&pruss->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_release_mem_region);
 
 static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
 {
@@ -252,6 +611,126 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 }
 EXPORT_SYMBOL_GPL(pruss_intc_unconfigure);
 
+static int pruss_intc_check_write(struct pruss *pruss, unsigned int reg,
+				  unsigned int sysevent)
+{
+	if (!pruss)
+		return -EINVAL;
+
+	if (sysevent >= MAX_PRU_SYS_EVENTS)
+		return -EINVAL;
+
+	pruss_intc_write_reg(pruss, reg, sysevent);
+
+	return 0;
+}
+
+/**
+ * pruss_intc_sysevent_irqdisable() - disable the INTC sysevent IRQ
+ * @pruss: the pruss instance
+ * @sysevent: sysevent number
+ */
+int pruss_intc_sysevent_irqdisable(struct pruss *pruss,
+				   unsigned short sysevent)
+{
+	return pruss_intc_check_write(pruss, PRU_INTC_EICR, sysevent);
+}
+EXPORT_SYMBOL(pruss_intc_sysevent_irqdisable);
+
+/**
+ * pruss_intc_sysevent_irqenable() - enable the INTC sysevent IRQ
+ * @pruss: the pruss instance
+ * @sysevent: sysevent number
+ */
+int pruss_intc_sysevent_irqenable(struct pruss *pruss, unsigned short sysevent)
+{
+	return pruss_intc_check_write(pruss, PRU_INTC_EISR, sysevent);
+}
+EXPORT_SYMBOL(pruss_intc_sysevent_irqenable);
+
+/**
+ * pruss_intc_sysevent_check() - check the system event interrupt
+ * @pruss: the pruss instance
+ * @sysevent: sysevent number
+ *
+ * Returns true if sysevent is pending, false otherwise
+ */
+bool pruss_intc_sysevent_check(struct pruss *pruss, unsigned short sysevent)
+{
+	u64 reg;
+
+	if (!pruss)
+		return false;
+
+	if (sysevent >= MAX_PRU_SYS_EVENTS)
+		return false;
+
+	if (sysevent < 32) {
+		reg = pruss_intc_read_reg(pruss, PRU_INTC_SRSR0);
+	} else {
+		reg = pruss_intc_read_reg(pruss, PRU_INTC_SRSR1);
+		sysevent -= 32;
+	}
+
+	return reg & BIT(sysevent);
+}
+EXPORT_SYMBOL_GPL(pruss_intc_sysevent_check);
+
+/**
+ * pruss_intc_sysevent_clear() - clear the system event interrupt
+ * @pruss: the pruss instance
+ * @sysevent: sysevent number
+ *
+ * Returns 0 on success or -EVINVAL on invalid pruss/sysevent.
+ */
+int pruss_intc_sysevent_clear(struct pruss *pruss, unsigned short sysevent)
+{
+	return pruss_intc_check_write(pruss, PRU_INTC_SICR, sysevent);
+}
+EXPORT_SYMBOL_GPL(pruss_intc_sysevent_clear);
+
+/**
+ * pruss_host_to_mpu_irq() - Return MPU_IRQ of the given HOST_IRQ
+ * @pruss: the pruss instance
+ * @host_irq: the host irq number
+ *
+ * The HOST_IRQ is independent of the SoC but the MPU_IRQ is
+ * specific to the SoC. HOST_IRQ 0 and 1 go to the PRU and not the
+ * MPU so they don't map to any MPU_IRQ and the function will return
+ * error. Not all of the remaining HOST_IRQs reach the MPU on all
+ * SoCs.
+ *
+ * Returns the MPU_IRQ number for the given HOST_IRQ, or an error
+ * value upon failure
+ */
+int pruss_host_to_mpu_irq(struct pruss *pruss, unsigned int host_irq)
+{
+	int host_events;
+	int irq = 0;
+
+	if (!pruss)
+		return -EINVAL;
+
+	if (host_irq < MIN_PRU_HOST_INT || host_irq >= MAX_PRU_HOST_INT)
+		return -EINVAL;
+
+	/* check whether the interrupt can reach MPU */
+	host_events = pruss->data->host_events;
+	if (!(host_events & BIT(host_irq)))
+		return -EINVAL;
+
+	/* no need to process the first two host interrupts connected to PRU */
+	host_events >>= MIN_PRU_HOST_INT;
+	host_irq -= MIN_PRU_HOST_INT;
+	while (host_irq--) {
+		irq += (host_events & BIT(0));
+		host_events >>= 1;
+	}
+
+	return pruss->irqs[irq];
+}
+EXPORT_SYMBOL_GPL(pruss_host_to_mpu_irq);
+
 static void pruss_intc_init(struct pruss *pruss)
 {
 	int i;
@@ -273,42 +752,158 @@ static void pruss_intc_init(struct pruss *pruss)
 		pruss_intc_write_reg(pruss, i, 0);
 }
 
-/*
- * Interrupt Handler for all PRUSS MPU interrupts
- * XXX: Enhance with event listener notifications
- */
-static irqreturn_t pruss_handler(int irq, void *data)
+static inline u32 pruss_read_reg(struct pruss *pruss, enum pruss_mem region,
+				 unsigned int reg)
 {
-	struct pruss *pruss = data;
-	u32 sys_evt, val;
-	int intr_bit = irq - pruss->irqs[0] + MIN_PRU_HOST_INT;
-	int intr_mask = (1 << intr_bit);
-	static int evt_mask = MAX_PRU_SYS_EVENTS - 1;
-
-	/* check whether the interrupt can reach MPU */
-	if (!(intr_mask & pruss->data->host_events))
-		return IRQ_NONE;
-
-	/* check whether the specific host interrupt is enabled */
-	val = pruss_intc_read_reg(pruss, PRU_INTC_HIER);
-	if (!(val & intr_mask))
-		return IRQ_NONE;
-
-	/* check non-pending bit of specific host interrupt */
-	val = pruss_intc_read_reg(pruss, PRU_INTC_HIPIR(intr_bit));
-	if (val & INTC_HIPIR_NONE_HINT)
-		return IRQ_NONE;
-
-	/* clear system event */
-	sys_evt = val & evt_mask;
-	if (sys_evt < 32)
-		pruss_intc_write_reg(pruss, PRU_INTC_SECR0, 1 << sys_evt);
-	else
-		pruss_intc_write_reg(pruss, PRU_INTC_SECR1,
-				     1 << (sys_evt - 32));
-
-	return IRQ_HANDLED;
+	return readl_relaxed(pruss->mem_regions[region].va + reg);
 }
+
+static inline void pruss_write_reg(struct pruss *pruss, enum pruss_mem region,
+				   unsigned int reg, u32 val)
+{
+	writel_relaxed(val, pruss->mem_regions[region].va + reg);
+}
+
+static inline void pruss_set_reg(struct pruss *pruss, enum pruss_mem region,
+				 unsigned int reg, u32 mask, u32 set)
+{
+	u32 val;
+
+	val = pruss_read_reg(pruss, region, reg);
+	val &= ~mask;
+	val |= (set & mask);
+	pruss_write_reg(pruss, region, reg, val);
+}
+
+/* firmware must be idle when calling this function */
+static void pruss_disable_module(struct pruss *pruss)
+{
+	/* configure Smart Standby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_MODE_MASK,
+		      PRUSS_SYSCFG_STANDBY_MODE_SMART);
+
+	/* initiate MStandby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_INIT,
+		      PRUSS_SYSCFG_STANDBY_INIT);
+
+	/* tell PRCM to initiate IDLE request */
+	pm_runtime_put_sync(pruss->dev);
+}
+
+static int pruss_enable_module(struct pruss *pruss)
+{
+	int ret;
+	int i;
+	bool ready;
+
+	/* tell PRCM to de-assert IDLE request */
+	ret = pm_runtime_get_sync(pruss->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(pruss->dev);
+		return ret;
+	}
+
+	/* configure for smart idle & smart standby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_IDLE_MODE_MASK,
+		      PRUSS_SYSCFG_IDLE_MODE_SMART);
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_MODE_MASK,
+		      PRUSS_SYSCFG_STANDBY_MODE_SMART);
+
+	/* enable OCP master ports/disable MStandby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_INIT, 0);
+
+	/* XXX: wait till we are ready for transaction?? */
+	for (i = 0; i < 10; i++) {
+		ready = !(pruss_read_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG)
+			  & PRUSS_SYSCFG_SUB_MWAIT_READY);
+		if (ready)
+			break;
+		udelay(10);
+	}
+
+	if (!ready) {
+		dev_err(pruss->dev, "timeout waiting for SUB_MWAIT_READY\n");
+		pruss_disable_module(pruss);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * pruss_cfg_gpimode() - set the GPI mode of the PRU
+ * @pruss: the pruss instance handle
+ * @rproc: the rproc instance handle of the PRU
+ * @mode: GPI mode to set
+ *
+ * Sets the GPI mode for a given PRU by programming the
+ * corresponding PRUSS_CFG_GPCFGx register
+ *
+ * Returns 0 on success, or an error code otherwise
+ */
+int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
+		      enum pruss_gpi_mode mode)
+{
+	u32 reg;
+	int pru_id;
+
+	pru_id = pruss_rproc_to_pru_id(pruss, rproc);
+	if (pru_id < 0 || pru_id >= PRUSS_NUM_PRUS) {
+		dev_err(pruss->dev, "%s: PRU id not found, %d\n",
+			__func__, pru_id);
+		return -EINVAL;
+	}
+
+	reg = PRUSS_CFG_GPCFG0 + (0x4 * pru_id);
+
+	mutex_lock(&pruss->cfg_lock);
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, reg,
+		      PRUSS_GPCFG_PRU_GPI_MODE_MASK,
+		      mode << PRUSS_GPCFG_PRU_GPI_MODE_SHIFT);
+	mutex_unlock(&pruss->cfg_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_cfg_gpimode);
+
+/**
+ * pruss_cfg_miirt_enable() - Enable/disable MII RT Events
+ * @pruss: the pruss instance
+ * @enable: enable/disable
+ *
+ * Enable/disable the MII RT Events for the PRUSS.
+ */
+void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable)
+{
+	u32 set = enable ? PRUSS_MII_RT_EVENT_EN : 0;
+
+	mutex_lock(&pruss->cfg_lock);
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_MII_RT,
+		      PRUSS_MII_RT_EVENT_EN, set);
+	mutex_unlock(&pruss->cfg_lock);
+}
+EXPORT_SYMBOL_GPL(pruss_cfg_miirt_enable);
+
+/**
+ * pruss_cfg_xfr_enable() - Enable/disable XIN XOUT shift functionality
+ * @pruss: the pruss instance
+ * @enable: enable/disable
+ */
+void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable)
+{
+	u32 set = enable ? PRUSS_SPP_XFER_SHIFT_EN : 0;
+
+	mutex_lock(&pruss->cfg_lock);
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SPP,
+		      PRUSS_SPP_XFER_SHIFT_EN, set);
+	mutex_unlock(&pruss->cfg_lock);
+}
+EXPORT_SYMBOL_GPL(pruss_cfg_xfr_enable);
 
 static const struct of_device_id pruss_of_match[];
 
@@ -343,7 +938,7 @@ static int pruss_probe(struct platform_device *pdev)
 	int ret;
 	struct pruss *pruss;
 	struct resource *res;
-	int err, i, irq, num_irqs;
+	int err, i, num_irqs;
 	struct pruss_platform_data *pdata = dev_get_platdata(dev);
 	const struct pruss_private_data *data;
 	const char *mem_names[PRUSS_MEM_MAX] = { "dram0", "dram1", "shrdram2",
@@ -379,7 +974,9 @@ static int pruss_probe(struct platform_device *pdev)
 
 	pruss->dev = dev;
 	pruss->data = data;
+	mutex_init(&pruss->lock);
 	mutex_init(&pruss->intc_lock);
+	mutex_init(&pruss->cfg_lock);
 
 	num_irqs = data->num_irqs;
 	pruss->irqs = devm_kzalloc(dev, sizeof(*pruss->irqs) * num_irqs,
@@ -432,34 +1029,35 @@ static int pruss_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
-	err = pm_runtime_get_sync(dev);
+	err = pruss_enable_module(pruss);
 	if (err < 0) {
-		pm_runtime_put_noidle(dev);
-		dev_err(dev, "pm_runtime_get_sync failed\n");
+		dev_err(dev, "couldn't enable pruss\n");
 		goto err_rpm_fail;
 	}
 
 	pruss_intc_init(pruss);
 
-	for (i = 0; i < num_irqs; i++) {
-		irq = pruss->irqs[i];
-		err = devm_request_irq(dev, irq, pruss_handler, 0,
-				       dev_name(dev), pruss);
-		if (err) {
-			dev_err(dev, "failed to register irq %d\n", irq);
-			goto err_irq_fail;
-		}
-	}
-
 	platform_set_drvdata(pdev, pruss);
+
+	mutex_lock(&pruss_list_mutex);
+	list_add_tail(&pruss->node, &pruss_list);
+	mutex_unlock(&pruss_list_mutex);
 
 	dev_info(&pdev->dev, "creating platform devices for PRU cores\n");
 	ret = of_platform_populate(node, NULL, data->aux_data, &pdev->dev);
+	if (err) {
+		dev_err(dev, "of_platform_populate failed\n");
+		goto err_of_fail;
+	}
 
-	return ret;
+	return 0;
 
-err_irq_fail:
-	pm_runtime_put_sync(dev);
+err_of_fail:
+	mutex_lock(&pruss_list_mutex);
+	list_del(&pruss->node);
+	mutex_unlock(&pruss_list_mutex);
+
+	pruss_disable_module(pruss);
 err_rpm_fail:
 	pm_runtime_disable(dev);
 	if (data->has_reset)
@@ -477,7 +1075,11 @@ static int pruss_remove(struct platform_device *pdev)
 	dev_info(dev, "remove platform devices for PRU cores\n");
 	of_platform_depopulate(dev);
 
-	pm_runtime_put_sync(dev);
+	mutex_lock(&pruss_list_mutex);
+	list_del(&pruss->node);
+	mutex_unlock(&pruss_list_mutex);
+
+	pruss_disable_module(pruss);
 	pm_runtime_disable(dev);
 	if (pruss->data->has_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
