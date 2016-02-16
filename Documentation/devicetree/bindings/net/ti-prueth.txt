@@ -1,0 +1,39 @@
+Texas Instruments PRUSS Ethernet MAC
+
+Required properties:
+- compatible	: Should be "ti,prueth"
+- pruss		: Must point to the parent pruss device node
+- sram		: pHandle to OCMC SRAM node
+
+Must contain children, one for each of the MAC ports.
+Required properties for children:
+- phy-handle	: See ethernet.txt file in the same directory.
+- phy-mode	: See ethernet.txt file in the same directory.
+- sysevent-rx	: PRUSS Sysevent number for the RX event.
+
+Optional properties for children:
+- local-mac-address	: mac address for the port.
+
+Example (am572x-idk board):
+
+	pruss2_eth {
+		compatible = "ti,prueth";
+		pruss = <&pruss2>;
+		sram = <&ocmcram1>;
+
+		pruss2_emac0: ethernet-mii0 {
+			phy-handle = <&pruss2_eth0_phy>;
+			phy-mode = "mii";
+			sysevent-rx = <20>;	/* PRU_ARM_EVENT0 */
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+
+		pruss2_emac1: ethernet-mii1 {
+			phy-handle = <&pruss2_eth1_phy>;
+			phy-mode = "mii";
+			sysevent-rx = <21>;	/* PRU_ARM_EVENT1 */
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
