@@ -869,6 +869,13 @@ static int edma_terminate_all(struct dma_chan *chan)
 	return 0;
 }
 
+static void edma_synchronize(struct dma_chan *chan)
+{
+	struct edma_chan *echan = to_edma_chan(chan);
+
+	vchan_synchronize(&echan->vchan);
+}
+
 static int edma_slave_config(struct dma_chan *chan,
 	struct dma_slave_config *cfg)
 {
@@ -1808,6 +1815,7 @@ static void edma_dma_init(struct edma_cc *ecc, bool legacy_mode)
 	s_ddev->device_pause = edma_dma_pause;
 	s_ddev->device_resume = edma_dma_resume;
 	s_ddev->device_terminate_all = edma_terminate_all;
+	s_ddev->device_synchronize = edma_synchronize;
 
 	s_ddev->src_addr_widths = EDMA_DMA_BUSWIDTHS;
 	s_ddev->dst_addr_widths = EDMA_DMA_BUSWIDTHS;
@@ -1833,6 +1841,7 @@ static void edma_dma_init(struct edma_cc *ecc, bool legacy_mode)
 		m_ddev->device_pause = edma_dma_pause;
 		m_ddev->device_resume = edma_dma_resume;
 		m_ddev->device_terminate_all = edma_terminate_all;
+		m_ddev->device_synchronize = edma_synchronize;
 
 		m_ddev->src_addr_widths = EDMA_DMA_BUSWIDTHS;
 		m_ddev->dst_addr_widths = EDMA_DMA_BUSWIDTHS;
