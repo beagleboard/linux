@@ -55,10 +55,14 @@ struct hdmi_codec_params {
 
 struct hdmi_codec_ops {
 	/*
-	 * Called when ASoC starts an audio stream setup.
+	 * Called when ASoC starts an audio stream setup. The call
+	 * provides an audio abort callback for stoping an ongoing
+	 * stream from video side driver if the HDMI audio becomes
+	 * unavailable.
 	 * Optional
 	 */
-	int (*audio_startup)(struct device *dev);
+	int (*audio_startup)(struct device *dev,
+			     void (*abort_cb)(struct device *dev));
 
 	/*
 	 * Configures HDMI-encoder for audio stream.

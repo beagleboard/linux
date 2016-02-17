@@ -47,6 +47,23 @@ enum {
 	DAI_ID_SPDIF,
 };
 
+static void hdmi_codec_abort(struct device *dev)
+{
+	struct hdmi_codec_priv *hcp = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s()\n", __func__);
+
+	mutex_lock(&hcp->current_stream_lock);
+	if (hcp->current_stream && hcp->current_stream->runtime &&
+	    snd_pcm_running(hcp->current_stream)) {
+		dev_info(dev, "HDMI audio playback aborted\n");
+		snd_pcm_stream_lock_irq(hcp->current_stream);
+		snd_pcm_stop(hcp->current_stream, SNDRV_PCM_STATE_DISCONNECTED);
+		snd_pcm_stream_unlock_irq(hcp->current_stream);
+	}
+	mutex_unlock(&hcp->current_stream_lock);
+}
+
 static int hdmi_codec_new_stream(struct snd_pcm_substream *substream,
 				 struct snd_soc_dai *dai)
 {
@@ -78,7 +95,8 @@ static int hdmi_codec_startup(struct snd_pcm_substream *substream,
 		return ret;
 
 	if (hcp->hcd.ops->audio_startup) {
-		ret = hcp->hcd.ops->audio_startup(dai->dev->parent);
+		ret = hcp->hcd.ops->audio_startup(dai->dev->parent,
+						  hdmi_codec_abort);
 		if (ret) {
 			mutex_lock(&hcp->current_stream_lock);
 			hcp->current_stream = NULL;
