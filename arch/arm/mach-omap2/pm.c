@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/platform_data/pm33xx.h>
 #include <linux/pm_opp.h>
 #include <linux/export.h>
 #include <linux/suspend.h>
@@ -283,6 +284,18 @@ static inline void omap_init_cpufreq(void)
 		devinfo.name = "omap-cpufreq";
 	else
 		devinfo.name = "cpufreq-dt";
+	platform_device_register_full(&devinfo);
+}
+
+void __init amx3_common_pm_init(void)
+{
+	struct platform_device_info devinfo = { };
+	struct am33xx_pm_platform_data *pdata;
+
+	pdata = am33xx_pm_get_pdata();
+	devinfo.name = "pm33xx";
+	devinfo.data = pdata;
+	devinfo.size_data = sizeof(*pdata);
 	platform_device_register_full(&devinfo);
 }
 
