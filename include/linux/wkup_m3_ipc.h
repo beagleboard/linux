@@ -42,12 +42,18 @@ struct wkup_m3_ipc {
 	struct wkup_m3_ipc_ops *ops;
 };
 
+struct wkup_m3_wakeup_src {
+	int irq_nr;
+	char src[10];
+};
+
 struct wkup_m3_ipc_ops {
 	void (*set_mem_type)(struct wkup_m3_ipc *m3_ipc, int mem_type);
 	void (*set_resume_address)(struct wkup_m3_ipc *m3_ipc, void *addr);
 	int (*prepare_low_power)(struct wkup_m3_ipc *m3_ipc, int state);
 	int (*finish_low_power)(struct wkup_m3_ipc *m3_ipc);
 	int (*request_pm_status)(struct wkup_m3_ipc *m3_ipc);
+	const char *(*request_wake_src)(struct wkup_m3_ipc *m3_ipc);
 };
 
 struct wkup_m3_ipc *wkup_m3_ipc_get(void);
