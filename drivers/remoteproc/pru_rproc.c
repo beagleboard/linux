@@ -786,39 +786,39 @@ static struct pru_private_data am335x_pru1_rproc_pdata = {
 static struct pru_private_data am437x_pru1_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am437x-pru1_0-fw",
-	.eth_fw_name = "prueth-pru0-firmware.elf"
+	.eth_fw_name = "ti-pruss/am437x-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data am437x_pru1_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am437x-pru1_1-fw",
-	.eth_fw_name = "prueth-pru1-firmware.elf"
+	.eth_fw_name = "ti-pruss/am437x-pru1-prueth-fw.elf"
 };
 
 /* AM57xx PRUSS1 PRU core-specific private data */
 static struct pru_private_data am57xx_pru1_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am57xx-pru1_0-fw",
-	.eth_fw_name = "prueth-pru0-firmware.elf"
+	.eth_fw_name = "ti-pruss/am57xx-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data am57xx_pru1_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am57xx-pru1_1-fw",
-	.eth_fw_name = "prueth-pru1-firmware.elf"
+	.eth_fw_name = "ti-pruss/am57xx-pru1-prueth-fw.elf"
 };
 
 /* AM57xx PRUSS2 PRU core-specific private data */
 static struct pru_private_data am57xx_pru2_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am57xx-pru2_0-fw",
-	.eth_fw_name = "prueth-pru0-firmware.elf"
+	.eth_fw_name = "ti-pruss/am57xx-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data am57xx_pru2_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am57xx-pru2_1-fw",
-	.eth_fw_name = "prueth-pru1-firmware.elf"
+	.eth_fw_name = "ti-pruss/am57xx-pru1-prueth-fw.elf"
 };
 
 /* AM33xx SoC-specific PRU Device data */
