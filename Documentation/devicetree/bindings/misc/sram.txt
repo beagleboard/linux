@@ -39,6 +39,8 @@ Optional properties in the area nodes:
            of the kernel, e.g. by bootloader or userspace
 - label : the name for the reserved partition, if omitted, the label
           is taken from the node name excluding the unit address.
+- map-exec : map range to allow code execution
+- map-exec-nocache : map range to allow code execution and also non-cached
 
 Example:
 
