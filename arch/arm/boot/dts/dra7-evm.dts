@@ -904,6 +904,11 @@
 	rx-num-evt = <32>;
 };
 
+&mcasp8 {
+	/* not used for audio. only the AXR2 pin is used as GPIO */
+	status = "okay";
+};
+
 &mailbox5 {
 	status = "okay";
 	mbox_ipu1_ipc3x: mbox_ipu1_ipc3x {
