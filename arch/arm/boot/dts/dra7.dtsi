@@ -155,6 +155,15 @@
 					compatible = "syscon";
 					reg = <0x1c04 0x0020>;
 				};
+
+				sdma_xbar: dma-router@b78 {
+					compatible = "ti,dra7-dma-crossbar";
+					reg = <0xb78 0xfc>;
+					#dma-cells = <1>;
+					dma-requests = <205>;
+					ti,dma-safe-map = <0>;
+					dma-masters = <&sdma>;
+				};
 			};
 
 			cm_core_aon: cm_core_aon@5000 {
@@ -307,15 +316,6 @@
 			#dma-cells = <1>;
 			dma-channels = <32>;
 			dma-requests = <127>;
-		};
-
-		sdma_xbar: dma-router@4a002b78 {
-			compatible = "ti,dra7-dma-crossbar";
-			reg = <0x4a002b78 0xfc>;
-			#dma-cells = <1>;
-			dma-requests = <205>;
-			ti,dma-safe-map = <0>;
-			dma-masters = <&sdma>;
 		};
 
 		gpio1: gpio@4ae10000 {
