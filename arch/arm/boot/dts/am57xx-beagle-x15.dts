@@ -583,13 +583,17 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&clkout2_pins_default>;
 		pinctrl-1 = <&clkout2_pins_sleep>;
-		status = "okay";
-		adc-settle-ms = <40>;
 
+		assigned-clocks = <&clkoutmux2_clk_mux>;
+		assigned-clock-parents = <&sys_clk2_dclk_div>;
+
+		adc-settle-ms = <40>;
 		AVDD-supply = <&vdd_3v3>;
 		IOVDD-supply = <&vdd_3v3>;
 		DRVDD-supply = <&vdd_3v3>;
 		DVDD-supply = <&aic_dvdd>;
+
+		status = "okay";
 	};
 };
 
@@ -796,6 +800,8 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&mcasp3_pins_default>;
 	pinctrl-1 = <&mcasp3_pins_sleep>;
+	assigned-clocks = <&mcasp3_ahclkx_mux>;
+	assigned-clock-parents = <&sys_clkin2>;
 	status = "okay";
 
 	op-mode = <0>;	/* MCASP_IIS_MODE */
@@ -804,6 +810,8 @@
 	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
 	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
 };
 
 &mailbox5 {
