@@ -1697,7 +1697,7 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->mem[PRUETH_MEM_OCMC].pa =
 			gen_pool_virt_to_phys(prueth->sram_pool,
 			(unsigned long)prueth->mem[PRUETH_MEM_OCMC].va);
-	prueth->mem[PRUETH_MEM_OCMC].size = SWITCH_SPECIFIC_SRAM_USAGE_SIZE;
+	prueth->mem[PRUETH_MEM_OCMC].size = SZ_64K;
 	dev_dbg(dev, "ocmc: pa %pa va %p size %#x\n",
 		&prueth->mem[PRUETH_MEM_OCMC].pa,
 		prueth->mem[PRUETH_MEM_OCMC].va,
@@ -1787,8 +1787,7 @@ netdev_exit:
 
 free_pool:
 	gen_pool_free(prueth->sram_pool,
-		      (unsigned long)prueth->mem[PRUETH_MEM_OCMC].va,
-		      SWITCH_SPECIFIC_SRAM_USAGE_SIZE);
+		      (unsigned long)prueth->mem[PRUETH_MEM_OCMC].va, SZ_64K);
 
 put_mem:
 	for (i = PRUETH_MEM_DRAM0; i < PRUETH_MEM_OCMC; i++) {
@@ -1828,8 +1827,7 @@ static int prueth_remove(struct platform_device *pdev)
 	}
 
 	gen_pool_free(prueth->sram_pool,
-		      (unsigned long)prueth->mem[PRUETH_MEM_OCMC].va,
-		      SWITCH_SPECIFIC_SRAM_USAGE_SIZE);
+		      (unsigned long)prueth->mem[PRUETH_MEM_OCMC].va, SZ_64K);
 
 	for (i = PRUETH_MEM_DRAM0; i < PRUETH_MEM_OCMC; i++) {
 		if (prueth->mem[i].va)
