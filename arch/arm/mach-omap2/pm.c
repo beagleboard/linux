@@ -287,18 +287,6 @@ static inline void omap_init_cpufreq(void)
 	platform_device_register_full(&devinfo);
 }
 
-void __init amx3_common_pm_init(void)
-{
-	struct platform_device_info devinfo = { };
-	struct am33xx_pm_platform_data *pdata;
-
-	pdata = am33xx_pm_get_pdata();
-	devinfo.name = "pm33xx";
-	devinfo.data = pdata;
-	devinfo.size_data = sizeof(*pdata);
-	platform_device_register_full(&devinfo);
-}
-
 static int __init omap2_common_pm_init(void)
 {
 	if (!of_have_populated_dt())
