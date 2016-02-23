@@ -1,7 +1,10 @@
 Texas Instruments PRUSS Ethernet MAC
 
 Required properties:
-- compatible	: Should be "ti,prueth"
+- compatible	: Should be one of the following,
+		    "ti,am57-prueth" for AM57xx SoCs
+		    "ti,am4372-prueth" for AM437x SoCs
+		    "ti,am3359-prueth" for AM335x SoCs
 - pruss		: Must point to the parent pruss device node
 - sram		: pHandle to OCMC SRAM node
 
@@ -17,7 +20,7 @@ Optional properties for children:
 Example (am572x-idk board):
 
 	pruss2_eth {
-		compatible = "ti,prueth";
+		compatible = "ti,am57-prueth";
 		pruss = <&pruss2>;
 		sram = <&ocmcram1>;
 

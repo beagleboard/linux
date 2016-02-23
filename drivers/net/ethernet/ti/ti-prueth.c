@@ -34,8 +34,6 @@
 
 #define PRUETH_MODULE_VERSION "0.1"
 #define PRUETH_MODULE_DESCRIPTION "PRUSS Ethernet driver"
-#define PRU0_FIRMWARE "prueth-pru0-firmware.elf"
-#define PRU1_FIRMWARE "prueth-pru1-firmware.elf"
 
 /* TX Minimum Inter packet gap */
 #define TX_MIN_IPG		0xb8
@@ -130,6 +128,14 @@ static enum pruss_mem pruss_mem_ids[] = { PRUSS_MEM_DRAM0, PRUSS_MEM_DRAM1,
 					  PRUSS_MEM_SHRD_RAM2, PRUSS_MEM_IEP,
 					  PRUSS_MEM_MII_RT };
 
+/**
+ * struct prueth_match_data - match data to handle SoC integration
+ * @pru_fw_names: array of firmware names to use for each PRU core
+ */
+struct prueth_match_data {
+	const char *pru_fw_names[PRUSS_NUM_PRUS];
+};
+
 /* data for each emac port */
 struct prueth_emac {
 	struct prueth *prueth;
@@ -163,6 +169,7 @@ struct prueth_emac {
  * @pruss: pruss handle
  * @pru0: rproc instance to PRU0
  * @pru1: rproc instance to PRU1
+ * @data: device specific private data
  * @mem: PRUSS memory resources we need to access
  * @sram_pool: OCMC ram pool for buffers
  *
@@ -174,6 +181,7 @@ struct prueth {
 	struct device *dev;
 	struct pruss *pruss;
 	struct rproc *pru0, *pru1;
+	const struct prueth_match_data *data;
 	struct pruss_mem_region mem[PRUETH_MEM_MAX];
 	struct gen_pool *sram_pool;
 
@@ -1099,14 +1107,16 @@ static int emac_ndo_open(struct net_device *ndev)
 	prueth_emac_config(prueth, emac);
 	switch (emac->port_id) {
 	case PRUETH_PORT_MII0:
-		ret = pruss_rproc_boot(pruss, prueth->pru0, PRU0_FIRMWARE);
+		ret = pruss_rproc_boot(pruss, prueth->pru0,
+				       prueth->data->pru_fw_names[PRUSS_PRU0]);
 		if (ret) {
 			netdev_err(ndev, "failed to boot PRU0: %d\n", ret);
 			goto free_irq;
 		}
 		break;
 	case PRUETH_PORT_MII1:
-		ret = pruss_rproc_boot(pruss, prueth->pru1, PRU1_FIRMWARE);
+		ret = pruss_rproc_boot(pruss, prueth->pru1,
+				       prueth->data->pru_fw_names[PRUSS_PRU1]);
 		if (ret) {
 			netdev_err(ndev, "failed to boot PRU1: %d\n", ret);
 			goto free_irq;
@@ -1587,11 +1597,14 @@ static void prueth_netdev_exit(struct prueth *prueth,
 	prueth->emac[port] = NULL;
 }
 
+static const struct of_device_id prueth_dt_match[];
+
 static int prueth_probe(struct platform_device *pdev)
 {
 	struct prueth *prueth;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	const struct of_device_id *match;
 	struct device_node *eth_node;
 	struct pruss *pruss;
 	int rx0_irq, rx1_irq;
@@ -1601,6 +1614,12 @@ static int prueth_probe(struct platform_device *pdev)
 	if (!np)
 		return -ENODEV;	/* we don't support non DT */
 
+	match = of_match_device(prueth_dt_match, &pdev->dev);
+	if (!match || !match->data) {
+		dev_err(dev, "device does not have any match data\n");
+		return -ENODEV;
+	}
+
 	prueth = devm_kzalloc(dev, sizeof(*prueth), GFP_KERNEL);
 	if (!prueth)
 		return -ENOMEM;
@@ -1608,6 +1627,7 @@ static int prueth_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, prueth);
 
 	prueth->dev = dev;
+	prueth->data = match->data;
 
 	pruss = pruss_get(dev);
 	if (!pruss) {
@@ -1823,8 +1843,27 @@ static int prueth_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/* match data for AM437x SoCs, applies to PRUSS1 only */
+static struct prueth_match_data am437x_prueth_match_data = {
+	.pru_fw_names = { "ti-pruss/am437x-pru0-prueth-fw.elf",
+			  "ti-pruss/am437x-pru1-prueth-fw.elf", },
+};
+
+/* match data (common) for AM571x and AM572x SoCs, for both PRUSS instances */
+static struct prueth_match_data am57xx_prueth_match_data = {
+	.pru_fw_names = { "ti-pruss/am57xx-pru0-prueth-fw.elf",
+			  "ti-pruss/am57xx-pru1-prueth-fw.elf", },
+};
+
 static const struct of_device_id prueth_dt_match[] = {
-	{ .compatible = "ti,prueth", },
+	{
+		.compatible = "ti,am57-prueth",
+		.data = &am57xx_prueth_match_data,
+	},
+	{
+		.compatible = "ti,am4372-prueth",
+		.data = &am437x_prueth_match_data,
+	},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, prueth_dt_match);
