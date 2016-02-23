@@ -605,7 +605,7 @@
 
 	/* Dual mac ethernet application node on icss2 */
 	pruss2_eth {
-		compatible = "ti,prueth";
+		compatible = "ti,am57-prueth";
 		pruss = <&pruss2>;
 		sram = <&ocmcram1>;
 
