@@ -68,12 +68,12 @@ static struct rproc *rpdev_to_rproc(struct rpmsg_channel *rpdev)
  * device addresses (virtual addresses that a code on remote processor can use
  * directly.
  */
-phys_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
+dev_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
 {
 	int ret;
 	struct rproc *rproc;
 	u64 da;
-	phys_addr_t rda;
+	dev_addr_t rda;
 	struct device *dev = rpc->dev;
 
 	if (mutex_lock_interruptible(&rpc->rppcdev->lock))
@@ -91,7 +91,7 @@ phys_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
 			da = 0;
 		}
 	}
-	rda = (phys_addr_t) da;
+	rda = (dev_addr_t)da;
 
 	mutex_unlock(&rpc->rppcdev->lock);
 
