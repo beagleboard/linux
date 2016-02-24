@@ -68,8 +68,10 @@ choose_processor() {
 	while true;
 	do
 		cat "$PROCESSOR_FILE"
-		read -p "Please choose which processor to build for: " REPLY
-		if [ "$REPLY" -gt '0' -a "$REPLY" -le "$NUM_OF_PROC" ]; then
+		read -p "Please choose which processor to build for or 'q' to exit: " REPLY
+		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
+			prepare_for_exit
+		elif [ "$REPLY" -gt '0' -a "$REPLY" -le "$NUM_OF_PROC" ]; then
 			CHOOSEN_PROCESSOR=$(grep -w "$REPLY" "$PROCESSOR_FILE" | awk '{print$2}')
 			break
 		else
@@ -136,8 +138,10 @@ choose_build_type() {
 	while true;
 	do
 		cat "$BUILD_TYPE_FILE"
-		read -p "Please choose which build: " REPLY
-		if [ "$REPLY" -gt '0' -a "$REPLY" -le "$NUM_OF_BUILDS" ]; then
+		read -p "Please choose which build or 'q' to exit: " REPLY
+		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
+			prepare_for_exit
+		elif [ "$REPLY" -gt '0' -a "$REPLY" -le "$NUM_OF_BUILDS" ]; then
 			CHOOSEN_BUILD_TYPE=$(grep -w "$REPLY" "$BUILD_TYPE_FILE" | awk '{print$2}')
 			break
 		else

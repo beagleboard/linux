@@ -360,7 +360,15 @@ static int sram_probe(struct platform_device *pdev)
 		return -EBUSY;
 	}
 
-	sram->virt_base = devm_ioremap_wc(sram->dev, res->start, size);
+	if (of_get_property(pdev->dev.of_node, "map-exec", NULL))
+		sram->virt_base = devm_ioremap_exec(sram->dev, res->start,
+						    size);
+	else if (of_get_property(pdev->dev.of_node, "map-exec-nocache", NULL))
+		sram->virt_base = devm_ioremap_exec_nocache(sram->dev,
+							    res->start, size);
+	else
+		sram->virt_base = devm_ioremap_wc(sram->dev, res->start, size);
+
 	if (IS_ERR(sram->virt_base))
 		return PTR_ERR(sram->virt_base);
 

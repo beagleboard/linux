@@ -504,6 +504,7 @@
 					regulator-max-microvolt = <1050000>;
 					regulator-always-on;
 					regulator-boot-on;
+					regulator-allow-bypass;
 				};
 
 				ldoln_reg: ldoln {
@@ -900,6 +901,13 @@
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
 		1 2 0 0
 	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
+};
+
+&mcasp8 {
+	/* not used for audio. only the AXR2 pin is used as GPIO */
+	status = "okay";
 };
 
 &mailbox5 {
