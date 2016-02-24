@@ -1,7 +1,7 @@
 /*
  * Remote Processor Procedure Call Driver
  *
- * Copyright(c) 2012-2014 Texas Instruments. All rights reserved.
+ * Copyright(c) 2012-2016 Texas Instruments. All rights reserved.
  *
  * Erik Rainey <erik.rainey@ti.com>
  * Suman Anna <s-anna@ti.com>
@@ -86,8 +86,8 @@ phys_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
 	} else {
 		ret = rproc_pa_to_da(rproc, pa, &da);
 		if (ret) {
-			dev_err(dev, "error from rproc_pa_to_da, rproc = %p, pa = 0x%x ret = %d\n",
-				rproc, pa, ret);
+			dev_err(dev, "error from rproc_pa_to_da, rproc = %p, pa = %pa ret = %d\n",
+				rproc, &pa, ret);
 			da = 0;
 		}
 	}

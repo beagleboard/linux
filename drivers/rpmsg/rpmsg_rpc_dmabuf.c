@@ -1,7 +1,7 @@
 /*
  * Remote Processor Procedure Call Driver
  *
- * Copyright(c) 2012-2014 Texas Instruments. All rights reserved.
+ * Copyright(c) 2012-2016 Texas Instruments. All rights reserved.
  *
  * Erik Rainey <erik.rainey@ti.com>
  * Suman Anna <s-anna@ti.com>
@@ -449,8 +449,8 @@ phys_addr_t rppc_buffer_lookup(struct rppc_instance *rpc, virt_addr_t uva,
 	rda = rppc_local_to_remote_da(rpc, lpa);
 
 out:
-	dev_dbg(dev, "host uva %p == host pa %p => remote da %p (fd %d)\n",
-		(void *)uva, (void *)lpa, (void *)rda, fd);
+	dev_dbg(dev, "host uva %p == host pa %pa => remote da %p (fd %d)\n",
+		(void *)uva, &lpa, (void *)rda, fd);
 	return rda;
 }
 
