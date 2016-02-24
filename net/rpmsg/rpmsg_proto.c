@@ -1,7 +1,7 @@
 /*
  * AF_RPMSG: Remote processor messaging sockets
  *
- * Copyright (C) 2011-2014 Texas Instruments, Inc.
+ * Copyright (C) 2011-2016 Texas Instruments, Inc.
  *
  * Ohad Ben-Cohen <ohad@wizery.com>
  * Robert Tivy <rtivy@ti.com>
@@ -798,4 +798,5 @@ module_exit(rpmsg_proto_exit);
 
 MODULE_DESCRIPTION("Remote processor messaging protocol");
 MODULE_LICENSE("GPL v2");
+MODULE_ALIAS("rpmsg:rpmsg-proto");
 MODULE_ALIAS_NETPROTO(AF_RPMSG);
