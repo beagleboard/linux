@@ -2990,7 +2990,8 @@ int dwc3_gadget_suspend(struct dwc3 *dwc)
 
 	if (dwc->pullups_connected) {
 		dwc3_gadget_disable_irq(dwc);
-		dwc3_gadget_run_stop(dwc, true, true);
+		dwc3_gadget_run_stop(dwc, false, true);
+		dwc->start_on_resume = true;
 	}
 
 	for (i = 0; i < num_endpoints; i++) {
@@ -3040,7 +3041,8 @@ int dwc3_gadget_resume(struct dwc3 *dwc)
 
 	dwc3_writel(dwc->regs, DWC3_DCFG, dwc->dcfg);
 
-	if (dwc->pullups_connected) {
+	if (dwc->start_on_resume) {
+		dwc->start_on_resume = false;
 		dwc3_gadget_enable_irq(dwc);
 		dwc3_gadget_run_stop(dwc, true, false);
 	}
