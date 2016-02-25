@@ -1,9 +1,9 @@
 #ifndef __DRM_I2C_TDA998X_H__
 #define __DRM_I2C_TDA998X_H__
 
+#include <dt-bindings/display/tda998x.h>
+
 #define AFMT_UNUSED	0
-#define AFMT_SPDIF	1
-#define AFMT_I2S	2
 
 struct tda998x_audio_params {
 	u8 config;
