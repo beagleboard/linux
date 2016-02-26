@@ -811,7 +811,7 @@ static int prueth_tx_enqueue(struct prueth_emac *emac, struct sk_buff *skb,
 		src_addr += bytes;
 		remaining = pktlen - bytes;
 		dst_addr = ocmc_ram + txqueue->buffer_offset;
-		memcpy_fromio(dst_addr, src_addr, remaining);
+		memcpy_toio(dst_addr, src_addr, remaining);
 	} else {
 		memcpy_toio(dst_addr, src_addr, pktlen);
 	}
