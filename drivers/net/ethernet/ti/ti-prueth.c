@@ -775,7 +775,7 @@ static int prueth_tx_enqueue(struct prueth_emac *emac, struct sk_buff *skb,
 		free_blocks = txqueue->buffer_desc_count - write_block;
 		free_blocks += read_block;
 	} else if (write_block < read_block) {
-		free_blocks = write_block - read_block;
+		free_blocks = read_block - write_block;
 	} else { /* they are all free */
 		free_blocks = txqueue->buffer_desc_count;
 	}
