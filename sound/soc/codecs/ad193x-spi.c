@@ -33,13 +33,29 @@ static int ad193x_spi_remove(struct spi_device *spi)
 	return 0;
 }
 
+static const struct spi_device_id ad193x_spi_id[] = {
+	{ "ad1938", },
+	{ "ad1939", },
+	{ },
+};
+MODULE_DEVICE_TABLE(spi, ad193x_spi_id);
+
+static const struct of_device_id ad193x_of_match[] = {
+	{ .compatible = "analog,ad1938", },
+	{ .compatible = "analog,ad1939", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, ad193x_of_match);
+
 static struct spi_driver ad193x_spi_driver = {
 	.driver = {
 		.name	= "ad193x",
 		.owner	= THIS_MODULE,
+		.of_match_table = ad193x_of_match,
 	},
 	.probe		= ad193x_spi_probe,
 	.remove		= ad193x_spi_remove,
+	.id_table	= ad193x_spi_id
 };
 module_spi_driver(ad193x_spi_driver);
 

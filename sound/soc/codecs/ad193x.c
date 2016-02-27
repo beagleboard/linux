@@ -247,7 +247,7 @@ static int ad193x_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params,
 		struct snd_soc_dai *dai)
 {
-	int word_len = 0, master_rate = 0;
+	int word_len = 0, master_rate = 0, sample_rate = 0;
 	struct snd_soc_codec *codec = dai->codec;
 	struct ad193x_priv *ad193x = snd_soc_codec_get_drvdata(codec);
 
@@ -265,6 +265,22 @@ static int ad193x_hw_params(struct snd_pcm_substream *substream,
 		break;
 	}
 
+	/* sample rate */
+	switch(params_rate(params)){
+	case 48000:
+		sample_rate = 0;
+		break;
+	case 96000:
+		sample_rate = 1;
+		break;
+	case 192000:
+		sample_rate = 2;
+		break;
+	default:
+		sample_rate = 0; //48 kHz
+		break;
+	}
+
 	switch (ad193x->sysclk) {
 	case 12288000:
 		master_rate = AD193X_PLL_INPUT_256;
@@ -279,6 +295,12 @@ static int ad193x_hw_params(struct snd_pcm_substream *substream,
 		master_rate = AD193X_PLL_INPUT_768;
 		break;
 	}
+
+	regmap_update_bits(ad193x->regmap, AD193X_DAC_CTRL0,
+				0x06, sample_rate << 1);
+
+	regmap_update_bits(ad193x->regmap, AD193X_ADC_CTRL0,
+				0xC0, sample_rate << 6);
 
 	regmap_update_bits(ad193x->regmap, AD193X_PLL_CLK_CTRL0,
 			    AD193X_PLL_INPUT_MASK, master_rate);
@@ -308,7 +330,7 @@ static struct snd_soc_dai_driver ad193x_dai = {
 		.stream_name = "Playback",
 		.channels_min = 2,
 		.channels_max = 8,
-		.rates = SNDRV_PCM_RATE_48000,
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000,
 		.formats = SNDRV_PCM_FMTBIT_S32_LE | SNDRV_PCM_FMTBIT_S16_LE |
 			SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S24_LE,
 	},
@@ -316,7 +338,7 @@ static struct snd_soc_dai_driver ad193x_dai = {
 		.stream_name = "Capture",
 		.channels_min = 2,
 		.channels_max = 4,
-		.rates = SNDRV_PCM_RATE_48000,
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000,
 		.formats = SNDRV_PCM_FMTBIT_S32_LE | SNDRV_PCM_FMTBIT_S16_LE |
 			SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S24_LE,
 	},
@@ -327,21 +349,26 @@ static int ad193x_codec_probe(struct snd_soc_codec *codec)
 {
 	struct ad193x_priv *ad193x = snd_soc_codec_get_drvdata(codec);
 
-	/* default setting for ad193x */
+	/* modified settings for ad193x */
 
-	/* unmute dac channels */
-	regmap_write(ad193x->regmap, AD193X_DAC_CHNL_MUTE, 0x0);
-	/* de-emphasis: 48kHz, powedown dac */
+	// pll input 256: mclki/xi, xtal oscillator enabled
+	regmap_write(ad193x->regmap, AD193X_PLL_CLK_CTRL0, 0x80);
+	// adc / dac clock source: mclk
+	regmap_write(ad193x->regmap, AD193X_PLL_CLK_CTRL1, 0x00);
+	// dac in tdm mode, sdata delay: 1, 48kHz sample rate
+	regmap_write(ad193x->regmap, AD193X_DAC_CTRL0, AD193X_DAC_SERFMT_TDM);
+	// DAC bclk and lcr slave, 256 bclk per frame
+	regmap_write(ad193x->regmap, AD193X_DAC_CTRL1, 0x04);
+	// word width: 16, de-emphasis: 48kHz, powedown dac
 	regmap_write(ad193x->regmap, AD193X_DAC_CTRL2, 0x1A);
-	/* dac in tdm mode */
-	regmap_write(ad193x->regmap, AD193X_DAC_CTRL0, 0x40);
-	/* high-pass filter enable */
-	regmap_write(ad193x->regmap, AD193X_ADC_CTRL0, 0x3);
-	/* sata delay=1, adc aux mode */
-	regmap_write(ad193x->regmap, AD193X_ADC_CTRL1, 0x43);
-	/* pll input: mclki/xi */
-	regmap_write(ad193x->regmap, AD193X_PLL_CLK_CTRL0, 0x99); /* mclk=24.576Mhz: 0x9D; mclk=12.288Mhz: 0x99 */
-	regmap_write(ad193x->regmap, AD193X_PLL_CLK_CTRL1, 0x04);
+	// unmute dac channels
+	regmap_write(ad193x->regmap, AD193X_DAC_CHNL_MUTE, 0x0);
+	// high-pass filter enable
+	regmap_write(ad193x->regmap, AD193X_ADC_CTRL0, 0x02);
+	// sdata delay=1, adc tdm mode, word width: 16
+	regmap_write(ad193x->regmap, AD193X_ADC_CTRL1, AD193X_ADC_SERFMT_TDM | 0x03);
+	// 256 bclks per frame
+	regmap_write(ad193x->regmap, AD193X_ADC_CTRL2, 0x20); //0x02
 
 	return 0;
 }
