@@ -100,3 +100,9 @@ config  SND_DA850_SOC_EVM
 	  Say Y if you want to add support for SoC audio on TI
 	  DA850/OMAP-L138 EVM
 
+config	SND_DAVINCI_SOC_CTAG_FACE_2_4
+	tristate "SoC Audio Support for CTAG face-2-4 (AD1938)"
+	depends on SND_DAVINCI_SOC_MCASP
+	select SND_SOC_AD193X_SPI
+	help
+	  Say Y if you want to add support for SoC audio on CTAG face-2-4.
