@@ -1,7 +1,7 @@
 /*
- * ASoC machine driver for Davinci platform (BBG) and ad1938 audio codec.
+ * ASoC machine driver for CTAG face2|4 Audio Card
  *
- * Author:	Henrik Langer <henrik.langer@student.fh-kiel.de>
+ * Author:	Henrik Langer <henni19790@googlemail.com>
  *        	based on
  * 				ASoC driver for TI DAVINCI EVM platform by
  *				Vladimir Barinov <vbarinov@embeddedalley.com>
