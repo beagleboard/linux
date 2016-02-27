@@ -1,7 +1,7 @@
 /*
- * Base device tree of BeagleBone Green with AD1938 AudioCard
+ * Base device tree for BeagleBone Green with CTAG face2|4 Audio Card
  *
- * Author:  Henrik Langer <henrik.langer@student.fh-kiel.de>
+ * Author:  Henrik Langer <henni19790@googlemail.com>
  *			based on
 				BeagleBone Black and BeagleBone Green device tree
  *
