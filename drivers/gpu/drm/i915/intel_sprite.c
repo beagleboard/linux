@@ -37,6 +37,7 @@
 #include "intel_drv.h"
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
+#include <linux/locallock.h>
 
 static bool
 format_is_yuv(uint32_t format)
@@ -60,6 +61,8 @@ static int usecs_to_scanlines(const struct drm_display_mode *mode, int usecs)
 
 	return DIV_ROUND_UP(usecs * mode->crtc_clock, 1000 * mode->crtc_htotal);
 }
+
+static DEFINE_LOCAL_IRQ_LOCK(pipe_update_lock);
 
 /**
  * intel_pipe_update_start() - start update of a set of display registers
@@ -101,7 +104,7 @@ bool intel_pipe_update_start(struct intel_crtc *crtc, uint32_t *start_vbl_count)
 	if (WARN_ON(drm_crtc_vblank_get(&crtc->base)))
 		return false;
 
-	local_irq_disable();
+	local_lock_irq(pipe_update_lock);
 
 	trace_i915_pipe_update_start(crtc, min, max);
 
@@ -123,11 +126,11 @@ bool intel_pipe_update_start(struct intel_crtc *crtc, uint32_t *start_vbl_count)
 			break;
 		}
 
-		local_irq_enable();
+		local_unlock_irq(pipe_update_lock);
 
 		timeout = schedule_timeout(timeout);
 
-		local_irq_disable();
+		local_lock_irq(pipe_update_lock);
 	}
 
 	finish_wait(wq, &wait);
@@ -158,7 +161,7 @@ void intel_pipe_update_end(struct intel_crtc *crtc, u32 start_vbl_count)
 
 	trace_i915_pipe_update_end(crtc, end_vbl_count);
 
-	local_irq_enable();
+	local_unlock_irq(pipe_update_lock);
 
 	if (start_vbl_count != end_vbl_count)
 		DRM_ERROR("Atomic update failure on pipe %c (start=%u end=%u)\n",
