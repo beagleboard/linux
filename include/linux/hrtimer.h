@@ -106,12 +106,12 @@ struct hrtimer {
 	ktime_t				_softexpires;
 	enum hrtimer_restart		(*function)(struct hrtimer *);
 	struct hrtimer_clock_base	*base;
+	u8				state;
 	struct list_head		cb_entry;
 	int				irqsafe;
 #ifdef CONFIG_MISSED_TIMER_OFFSETS_HIST
 	ktime_t				praecox;
 #endif
-	u8				state;
 	u8				is_rel;
 #ifdef CONFIG_TIMER_STATS
 	int				start_pid;
