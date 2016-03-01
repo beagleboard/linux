@@ -265,6 +265,9 @@ static struct rpmsg_endpoint *__rpmsg_create_ept(struct virtproc_info *vrp,
 		goto free_ept;
 	}
 	ept->addr = id;
+	ept->cb_lockdep_class = ((ept->addr == RPMSG_NS_ADDR) ?
+				 RPMSG_LOCKDEP_SUBCLASS_NS :
+				 RPMSG_LOCKDEP_SUBCLASS_NORMAL);
 
 	mutex_unlock(&vrp->endpoints_lock);
 
@@ -342,7 +345,7 @@ __rpmsg_destroy_ept(struct virtproc_info *vrp, struct rpmsg_endpoint *ept)
 	mutex_unlock(&vrp->endpoints_lock);
 
 	/* make sure in-flight inbound messages won't invoke cb anymore */
-	mutex_lock(&ept->cb_lock);
+	mutex_lock_nested(&ept->cb_lock, ept->cb_lockdep_class);
 	ept->cb = NULL;
 	mutex_unlock(&ept->cb_lock);
 
@@ -913,7 +916,7 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 
 	if (ept) {
 		/* make sure ept->cb doesn't go away while we use it */
-		mutex_lock(&ept->cb_lock);
+		mutex_lock_nested(&ept->cb_lock, ept->cb_lockdep_class);
 
 		if (ept->cb)
 			ept->cb(ept->rpdev, msg->data, msg->len, ept->priv,
@@ -1092,8 +1095,8 @@ static int rpmsg_probe(struct virtio_device *vdev)
 		goto vqs_del;
 	}
 
-	dev_dbg(&vdev->dev, "buffers: va %p, dma 0x%llx\n", bufs_va,
-					(unsigned long long)vrp->bufs_dma);
+	dev_dbg(&vdev->dev, "buffers: va %p, dma %pad\n", bufs_va,
+		&vrp->bufs_dma);
 
 	/* half of the buffers is dedicated for RX */
 	vrp->rbufs = bufs_va;

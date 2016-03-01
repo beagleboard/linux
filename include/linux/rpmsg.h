@@ -44,6 +44,10 @@
 /* The feature bitmap for virtio rpmsg */
 #define VIRTIO_RPMSG_F_NS	0 /* RP supports name service notifications */
 
+/* lockdep subclasses for use with ept cb_lock mutex nested calls */
+#define RPMSG_LOCKDEP_SUBCLASS_NORMAL   0 /* regular ept cb_lock */
+#define RPMSG_LOCKDEP_SUBCLASS_NS       1 /* name service ept cb_lock */
+
 /**
  * struct rpmsg_hdr - common header for all rpmsg messages
  * @src: source address
@@ -129,6 +133,7 @@ typedef void (*rpmsg_rx_cb_t)(struct rpmsg_channel *, void *, int, void *, u32);
  * @refcount: when this drops to zero, the ept is deallocated
  * @cb: rx callback handler
  * @cb_lock: must be taken before accessing/changing @cb
+ * @cb_lockdep_class: mutex lockdep class to be used with @cb_lock
  * @addr: local rpmsg address
  * @priv: private data for the driver's use
  *
@@ -151,6 +156,7 @@ struct rpmsg_endpoint {
 	struct kref refcount;
 	rpmsg_rx_cb_t cb;
 	struct mutex cb_lock;
+	int cb_lockdep_class;
 	u32 addr;
 	void *priv;
 };

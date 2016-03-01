@@ -1,7 +1,7 @@
 /*
  * Remote Processor Procedure Call Driver
  *
- * Copyright(c) 2012-2014 Texas Instruments. All rights reserved.
+ * Copyright(c) 2012-2016 Texas Instruments. All rights reserved.
  *
  * Erik Rainey <erik.rainey@ti.com>
  * Suman Anna <s-anna@ti.com>
@@ -418,10 +418,11 @@ static void rppc_unmap_page(struct rppc_instance *rpc, u32 offset,
  * Return: remote processor device address, 0 on failure (implies invalid
  *	   arguments)
  */
-phys_addr_t rppc_buffer_lookup(struct rppc_instance *rpc, virt_addr_t uva,
-					virt_addr_t buva, int fd)
+dev_addr_t rppc_buffer_lookup(struct rppc_instance *rpc, virt_addr_t uva,
+			      virt_addr_t buva, int fd)
 {
-	phys_addr_t lpa = 0, rda = 0;
+	phys_addr_t lpa = 0;
+	dev_addr_t rda = 0;
 	long uoff = uva - buva;
 	struct device *dev = rpc->dev;
 	struct rppc_dma_buf *buf;
@@ -449,8 +450,8 @@ phys_addr_t rppc_buffer_lookup(struct rppc_instance *rpc, virt_addr_t uva,
 	rda = rppc_local_to_remote_da(rpc, lpa);
 
 out:
-	dev_dbg(dev, "host uva %p == host pa %p => remote da %p (fd %d)\n",
-		(void *)uva, (void *)lpa, (void *)rda, fd);
+	dev_dbg(dev, "host uva %p == host pa %pa => remote da %p (fd %d)\n",
+		(void *)uva, &lpa, (void *)rda, fd);
 	return rda;
 }
 
@@ -480,7 +481,7 @@ int rppc_xlate_buffers(struct rppc_instance *rpc, struct rppc_function *func,
 	uint32_t ptr_idx, pri_offset, sec_offset, offset, pg_offset, size;
 	int i, limit, inc = 1;
 	virt_addr_t kva, uva, buva;
-	phys_addr_t rda;
+	dev_addr_t rda;
 	int ret = 0, final_ret = 0;
 	int xlate_fd;
 
