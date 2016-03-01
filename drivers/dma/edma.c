@@ -883,6 +883,13 @@ static int edma_terminate_all(struct dma_chan *chan)
 	return 0;
 }
 
+static void edma_synchronize(struct dma_chan *chan)
+{
+	struct edma_chan *echan = to_edma_chan(chan);
+
+	vchan_synchronize(&echan->vchan);
+}
+
 static int edma_slave_config(struct dma_chan *chan,
 	struct dma_slave_config *cfg)
 {
@@ -1392,36 +1399,36 @@ static struct dma_async_tx_descriptor *edma_prep_dma_cyclic(
 static void edma_completion_handler(struct edma_chan *echan)
 {
 	struct device *dev = echan->vchan.chan.device->dev;
-	struct edma_desc *edesc = echan->edesc;
-
-	if (!edesc)
-		return;
+	struct edma_desc *edesc;
 
 	spin_lock(&echan->vchan.lock);
-	if (edesc->cyclic) {
-		vchan_cyclic_callback(&edesc->vdesc);
-		spin_unlock(&echan->vchan.lock);
-		return;
-	} else if (edesc->processed == edesc->pset_nr) {
-		edesc->residue = 0;
-		edma_stop(echan);
-		vchan_cookie_complete(&edesc->vdesc);
-		echan->edesc = NULL;
+	edesc = echan->edesc;
+	if (edesc) {
+		if (edesc->cyclic) {
+			vchan_cyclic_callback(&edesc->vdesc);
+			spin_unlock(&echan->vchan.lock);
+			return;
+		} else if (edesc->processed == edesc->pset_nr) {
+			edesc->residue = 0;
+			edma_stop(echan);
+			vchan_cookie_complete(&edesc->vdesc);
+			echan->edesc = NULL;
 
-		dev_dbg(dev, "Transfer completed on channel %d\n",
-			echan->ch_num);
-	} else {
-		dev_dbg(dev, "Sub transfer completed on channel %d\n",
-			echan->ch_num);
+			dev_dbg(dev, "Transfer completed on channel %d\n",
+				echan->ch_num);
+		} else {
+			dev_dbg(dev, "Sub transfer completed on channel %d\n",
+				echan->ch_num);
 
-		edma_pause(echan);
+			edma_pause(echan);
 
-		/* Update statistics for tx_status */
-		edesc->residue -= edesc->sg_len;
-		edesc->residue_stat = edesc->residue;
-		edesc->processed_stat = edesc->processed;
+			/* Update statistics for tx_status */
+			edesc->residue -= edesc->sg_len;
+			edesc->residue_stat = edesc->residue;
+			edesc->processed_stat = edesc->processed;
+		}
+		edma_execute(echan);
 	}
-	edma_execute(echan);
 
 	spin_unlock(&echan->vchan.lock);
 }
@@ -1655,8 +1662,6 @@ static int edma_alloc_chan_resources(struct dma_chan *chan)
 		EDMA_CHAN_SLOT(echan->ch_num), chan->chan_id,
 		echan->hw_triggered ? "HW" : "SW");
 
-	edma_tc_set_pm_state(echan->tc, true);
-
 	return 0;
 
 err_slot:
@@ -1693,7 +1698,6 @@ static void edma_free_chan_resources(struct dma_chan *chan)
 		echan->alloced = false;
 	}
 
-	edma_tc_set_pm_state(echan->tc, false);
 	echan->tc = NULL;
 	echan->hw_triggered = false;
 
@@ -1867,6 +1871,7 @@ static void edma_dma_init(struct edma_cc *ecc, bool legacy_mode)
 	s_ddev->device_pause = edma_dma_pause;
 	s_ddev->device_resume = edma_dma_resume;
 	s_ddev->device_terminate_all = edma_terminate_all;
+	s_ddev->device_synchronize = edma_synchronize;
 
 	s_ddev->src_addr_widths = EDMA_DMA_BUSWIDTHS;
 	s_ddev->dst_addr_widths = EDMA_DMA_BUSWIDTHS;
@@ -1892,6 +1897,7 @@ static void edma_dma_init(struct edma_cc *ecc, bool legacy_mode)
 		m_ddev->device_pause = edma_dma_pause;
 		m_ddev->device_resume = edma_dma_resume;
 		m_ddev->device_terminate_all = edma_terminate_all;
+		m_ddev->device_synchronize = edma_synchronize;
 
 		m_ddev->src_addr_widths = EDMA_DMA_BUSWIDTHS;
 		m_ddev->dst_addr_widths = EDMA_DMA_BUSWIDTHS;
@@ -2357,6 +2363,7 @@ static int edma_probe(struct platform_device *pdev)
 				lowest_priority = queue_priority_mapping[i][1];
 				info->default_queue = i;
 			}
+			edma_tc_set_pm_state(&ecc->tc_list[i], true);
 		}
 	}
 
@@ -2434,10 +2441,8 @@ static int edma_pm_suspend(struct device *dev)
 	int i;
 
 	for (i = 0; i < ecc->num_channels; i++) {
-		if (echan[i].alloced) {
+		if (echan[i].alloced)
 			edma_setup_interrupt(&echan[i], false);
-			edma_tc_set_pm_state(echan[i].tc, false);
-		}
 	}
 
 	return 0;
@@ -2467,8 +2472,6 @@ static int edma_pm_resume(struct device *dev)
 
 			/* Set up channel -> slot mapping for the entry slot */
 			edma_set_chmap(&echan[i], echan[i].slot[0]);
-
-			edma_tc_set_pm_state(echan[i].tc, true);
 		}
 	}
 

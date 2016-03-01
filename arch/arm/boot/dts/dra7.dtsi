@@ -292,6 +292,53 @@
 			};
 		};
 
+		ocmcram1: ocmcram@40300000 {
+			compatible = "mmio-sram";
+			reg = <0x40300000 0x80000>;
+			ranges = <0x0 0x40300000 0x80000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			/*
+			 * This is a placeholder for an optional reserved
+			 * region for use by secure software. The size
+			 * of this region is not known until runtime so it
+			 * is set as zero to either be updated to reserve
+			 * space or left unchanged to leave all SRAM for use.
+			 * On HS parts that that require the reserved region
+			 * either the bootloader can update the size to
+			 * the required amount or the node can be overriden
+			 * from the board dts file for the secure platform.
+			 */
+			sram-hs@0 {
+				compatible = "ti,secure-ram";
+				reg = <0x0 0x0>;
+			};
+		};
+
+		/*
+		 * NOTE: ocmcram2 and ocmcram3 are not available on all
+		 * DRA7xx and AM57xx variants. Confirm availability in
+		 * the data manual for the exact part number in use
+		 * before enabling these nodes in the board dts file.
+		 */
+		ocmcram2: ocmcram@40400000 {
+			status = "disabled";
+			compatible = "mmio-sram";
+			reg = <0x40400000 0x100000>;
+			ranges = <0x0 0x40400000 0x100000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+		};
+
+		ocmcram3: ocmcram@40500000 {
+			status = "disabled";
+			compatible = "mmio-sram";
+			reg = <0x40500000 0x100000>;
+			ranges = <0x0 0x40500000 0x100000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+		};
+
 		bandgap: bandgap@4a0021e0 {
 			reg = <0x4a0021e0 0xc
 				0x4a00232c 0xc
@@ -1877,7 +1924,7 @@
 			ti,hwmods = "aes1";
 			reg = <0x4b500000 0xa0>;
 			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma_xbar 111>, <&sdma_xbar 110>;
+			dmas = <&edma_xbar 111 0>, <&edma_xbar 110 0>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1888,7 +1935,7 @@
 			ti,hwmods = "aes2";
 			reg = <0x4b700000 0xa0>;
 			interrupts = <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma_xbar 114>, <&sdma_xbar 113>;
+			dmas = <&edma_xbar 114 0>, <&edma_xbar 113 0>;
 			dma-names = "tx", "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1910,7 +1957,7 @@
 			ti,hwmods = "sham";
 			reg = <0x4b101000 0x300>;
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&sdma_xbar 119>;
+			dmas = <&edma_xbar 119 0>;
 			dma-names = "rx";
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
@@ -1930,6 +1977,8 @@
 		#include "omap4-cpu-thermal.dtsi"
 		#include "omap5-gpu-thermal.dtsi"
 		#include "omap5-core-thermal.dtsi"
+		#include "dra7-dspeve-thermal.dtsi"
+		#include "dra7-iva-thermal.dtsi"
 	};
 
 };
