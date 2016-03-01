@@ -1135,6 +1135,7 @@ static void __spi_pump_messages(struct spi_master *master, bool in_kthread)
 		}
 	}
 
+	mutex_lock(&master->bus_lock_mutex);
 	trace_spi_message_start(master->cur_msg);
 
 	if (master->prepare_message) {
@@ -1144,6 +1145,7 @@ static void __spi_pump_messages(struct spi_master *master, bool in_kthread)
 				"failed to prepare message: %d\n", ret);
 			master->cur_msg->status = ret;
 			spi_finalize_current_message(master);
+			mutex_unlock(&master->bus_lock_mutex);
 			return;
 		}
 		master->cur_msg_prepared = true;
@@ -1153,6 +1155,7 @@ static void __spi_pump_messages(struct spi_master *master, bool in_kthread)
 	if (ret) {
 		master->cur_msg->status = ret;
 		spi_finalize_current_message(master);
+		mutex_unlock(&master->bus_lock_mutex);
 		return;
 	}
 
@@ -1160,8 +1163,10 @@ static void __spi_pump_messages(struct spi_master *master, bool in_kthread)
 	if (ret) {
 		dev_err(&master->dev,
 			"failed to transfer one message from queue\n");
+		mutex_unlock(&master->bus_lock_mutex);
 		return;
 	}
+	mutex_unlock(&master->bus_lock_mutex);
 }
 
 /**
@@ -2328,6 +2333,46 @@ int spi_async_locked(struct spi_device *spi, struct spi_message *message)
 }
 EXPORT_SYMBOL_GPL(spi_async_locked);
 
+
+int spi_flash_read(struct spi_device *spi,
+		   struct spi_flash_read_message *msg)
+
+{
+	struct spi_master *master = spi->master;
+	int ret;
+
+	if ((msg->opcode_nbits == SPI_NBITS_DUAL ||
+	     msg->addr_nbits == SPI_NBITS_DUAL) &&
+	    !(spi->mode & (SPI_TX_DUAL | SPI_TX_QUAD)))
+		return -EINVAL;
+	if ((msg->opcode_nbits == SPI_NBITS_QUAD ||
+	     msg->addr_nbits == SPI_NBITS_QUAD) &&
+	    !(spi->mode & SPI_TX_QUAD))
+		return -EINVAL;
+	if (msg->data_nbits == SPI_NBITS_DUAL &&
+	    !(spi->mode & (SPI_RX_DUAL | SPI_RX_QUAD)))
+		return -EINVAL;
+	if (msg->data_nbits == SPI_NBITS_QUAD &&
+	    !(spi->mode &  SPI_RX_QUAD))
+		return -EINVAL;
+
+	if (master->auto_runtime_pm) {
+		ret = pm_runtime_get_sync(master->dev.parent);
+		if (ret < 0) {
+			dev_err(&master->dev, "Failed to power device: %d\n",
+				ret);
+			return ret;
+		}
+	}
+	mutex_lock(&master->bus_lock_mutex);
+	ret = master->spi_flash_read(spi, msg);
+	mutex_unlock(&master->bus_lock_mutex);
+	if (master->auto_runtime_pm)
+		pm_runtime_put(master->dev.parent);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(spi_flash_read);
 
 /*-------------------------------------------------------------------------*/
 
