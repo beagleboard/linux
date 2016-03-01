@@ -37,6 +37,7 @@ static struct cpuidle_driver am437x_idle_driver = {
 			.enter = am43xx_enter_idle,
 			.name = "C1",
 			.desc = "Bypass MPU PLL",
+			.flags = CPUIDLE_FLAG_TIMER_STOP,
 		},
 	},
 	.state_count	= 2,

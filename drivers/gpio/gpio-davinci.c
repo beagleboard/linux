@@ -45,25 +45,7 @@ typedef struct irq_chip *(*gpio_get_irq_chip_cb_t)(unsigned int irq);
 	container_of(chip, struct davinci_gpio_controller, chip)
 
 static void __iomem *gpio_base;
-
-static struct davinci_gpio_regs __iomem *gpio2regs(unsigned gpio)
-{
-	void __iomem *ptr;
-
-	if (gpio < 32 * 1)
-		ptr = gpio_base + 0x10;
-	else if (gpio < 32 * 2)
-		ptr = gpio_base + 0x38;
-	else if (gpio < 32 * 3)
-		ptr = gpio_base + 0x60;
-	else if (gpio < 32 * 4)
-		ptr = gpio_base + 0x88;
-	else if (gpio < 32 * 5)
-		ptr = gpio_base + 0xb0;
-	else
-		ptr = NULL;
-	return ptr;
-}
+static unsigned offset_array[5] = {0x10, 0x38, 0x60, 0x88, 0xb0};
 
 static inline struct davinci_gpio_regs __iomem *irq2regs(int irq)
 {
@@ -197,13 +179,14 @@ static int davinci_gpio_of_xlate(struct gpio_chip *gc,
 
 static int davinci_gpio_probe(struct platform_device *pdev)
 {
-	int i, base;
-	unsigned ngpio;
+	int i, base, temp_ctrl_base;
+	unsigned ngpio, nbank;
 	struct davinci_gpio_controller *chips;
 	struct davinci_gpio_platform_data *pdata;
 	struct davinci_gpio_regs __iomem *regs;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
+	static int bank_base;
 
 	pdata = davinci_gpio_get_pdata(pdev);
 	if (!pdata) {
@@ -227,8 +210,9 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 	if (WARN_ON(ARCH_NR_GPIOS < ngpio))
 		ngpio = ARCH_NR_GPIOS;
 
+	nbank = DIV_ROUND_UP(ngpio, 32);
 	chips = devm_kzalloc(dev,
-			     ngpio * sizeof(struct davinci_gpio_controller),
+			     nbank * sizeof(struct davinci_gpio_controller),
 			     GFP_KERNEL);
 	if (!chips)
 		return -ENOMEM;
@@ -238,6 +222,8 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 	if (IS_ERR(gpio_base))
 		return PTR_ERR(gpio_base);
 
+	temp_ctrl_base = bank_base;
+
 	for (i = 0, base = 0; base < ngpio; i++, base += 32) {
 		chips[i].chip.label = "DaVinci";
 
@@ -246,10 +232,14 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 		chips[i].chip.direction_output = davinci_direction_out;
 		chips[i].chip.set = davinci_gpio_set;
 
-		chips[i].chip.base = base;
+		chips[i].chip.base = bank_base;
+		chips[i].ctrl_base = temp_ctrl_base;
+		bank_base += 32;
 		chips[i].chip.ngpio = ngpio - base;
 		if (chips[i].chip.ngpio > 32)
 			chips[i].chip.ngpio = 32;
+		else
+			bank_base = ngpio;
 
 #ifdef CONFIG_OF_GPIO
 		chips[i].chip.of_gpio_n_cells = 2;
@@ -259,7 +249,7 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 #endif
 		spin_lock_init(&chips[i].lock);
 
-		regs = gpio2regs(base);
+		regs = gpio_base + offset_array[i];
 		chips[i].regs = regs;
 		chips[i].set_data = &regs->set_data;
 		chips[i].clr_data = &regs->clr_data;
@@ -337,7 +327,7 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	g = (struct davinci_gpio_regs __iomem *)d->regs;
 
 	/* we only care about one bank */
-	if (irq & 1)
+	if (irq == d->birq2)
 		mask <<= 16;
 
 	/* temporarily mask (level sensitive) parent IRQ */
@@ -345,6 +335,7 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	while (1) {
 		u32		status;
 		int		bit;
+		irq_hw_number_t hw_irq;
 
 		/* ack any irqs */
 		status = readl_relaxed(&g->intstat) & mask;
@@ -357,9 +348,13 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 		while (status) {
 			bit = __ffs(status);
 			status &= ~BIT(bit);
+			/* Max number of gpios per controller is 144 so
+			 * hw_irq will be in [0..143]
+			 */
+			hw_irq = (d->chip.base - d->ctrl_base) + bit;
+
 			generic_handle_irq(
-				irq_find_mapping(d->irq_domain,
-						 d->chip.base + bit));
+				irq_find_mapping(d->irq_domain, hw_irq));
 		}
 	}
 	chained_irq_exit(irq_desc_get_chip(desc), desc);
@@ -369,11 +364,17 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 static int gpio_to_irq_banked(struct gpio_chip *chip, unsigned offset)
 {
 	struct davinci_gpio_controller *d = chip2controller(chip);
+	irq_hw_number_t hw_irq;
 
-	if (d->irq_domain)
-		return irq_create_mapping(d->irq_domain, d->chip.base + offset);
-	else
+	if (d->irq_domain) {
+		/* Max number of gpios per controller is 144 so
+		 * hw_irq will be in [0..143]
+		 */
+		hw_irq = (d->chip.base - d->ctrl_base) + offset;
+		return irq_create_mapping(d->irq_domain, hw_irq);
+	} else {
 		return -ENXIO;
+	}
 }
 
 static int gpio_to_irq_unbanked(struct gpio_chip *chip, unsigned offset)
@@ -415,7 +416,9 @@ static int
 davinci_gpio_irq_map(struct irq_domain *d, unsigned int irq,
 		     irq_hw_number_t hw)
 {
-	struct davinci_gpio_regs __iomem *g = gpio2regs(hw);
+	struct davinci_gpio_controller *chips =
+				(struct davinci_gpio_controller *)d->host_data;
+	struct davinci_gpio_regs __iomem *g = chips[hw / 32].regs;
 
 	irq_set_chip_and_handler_name(irq, &gpio_irqchip, handle_simple_irq,
 				"davinci_gpio");
@@ -452,6 +455,26 @@ static struct irq_chip *keystone_gpio_get_irq_chip(unsigned int irq)
 
 static const struct of_device_id davinci_gpio_ids[];
 
+struct gpio_driver_data {
+	gpio_get_irq_chip_cb_t gpio_get_irq_chip;
+	bool clk_optional;
+};
+
+static struct gpio_driver_data davinci_data = {
+	.gpio_get_irq_chip = davinci_gpio_get_irq_chip,
+	.clk_optional = false,
+};
+
+static struct gpio_driver_data keystone_data = {
+	.gpio_get_irq_chip = keystone_gpio_get_irq_chip,
+	.clk_optional = false,
+};
+
+static struct gpio_driver_data k2g_data = {
+	.gpio_get_irq_chip = keystone_gpio_get_irq_chip,
+	.clk_optional = true,
+};
+
 /*
  * NOTE:  for suspend/resume, probably best to make a platform_device with
  * suspend_late/resume_resume calls hooking into results of the set_wake()
@@ -475,6 +498,7 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 	struct irq_domain	*irq_domain = NULL;
 	const struct of_device_id *match;
 	struct irq_chip *irq_chip;
+	struct gpio_driver_data *driver_data = NULL;
 	gpio_get_irq_chip_cb_t gpio_get_irq_chip;
 
 	/*
@@ -483,8 +507,10 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 	gpio_get_irq_chip = davinci_gpio_get_irq_chip;
 	match = of_match_device(of_match_ptr(davinci_gpio_ids),
 				dev);
-	if (match)
-		gpio_get_irq_chip = (gpio_get_irq_chip_cb_t)match->data;
+	if (match) {
+		driver_data = (struct gpio_driver_data *)match->data;
+		gpio_get_irq_chip = driver_data->gpio_get_irq_chip;
+	}
 
 	ngpio = pdata->ngpio;
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
@@ -500,6 +526,9 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	if (driver_data && driver_data->clk_optional)
+		goto skip_clk_handling;
+
 	clk = devm_clk_get(dev, "gpio");
 	if (IS_ERR(clk)) {
 		printk(KERN_ERR "Error %ld getting gpio clock?\n",
@@ -508,6 +537,7 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 	}
 	clk_prepare_enable(clk);
 
+skip_clk_handling:
 	if (!pdata->gpio_unbanked) {
 		irq = irq_alloc_descs(-1, 0, ngpio, 0);
 		if (irq < 0) {
@@ -515,7 +545,7 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 			return irq;
 		}
 
-		irq_domain = irq_domain_add_legacy(NULL, ngpio, irq, 0,
+		irq_domain = irq_domain_add_legacy(dev->of_node, ngpio, irq, 0,
 							&davinci_gpio_irq_ops,
 							chips);
 		if (!irq_domain) {
@@ -554,7 +584,7 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 		irq_chip->irq_set_type = gpio_irq_type_unbanked;
 
 		/* default trigger: both edges */
-		g = gpio2regs(0);
+		g = chips[0].regs;
 		writel_relaxed(~0, &g->set_falling);
 		writel_relaxed(~0, &g->set_rising);
 
@@ -574,9 +604,15 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 	 */
 	for (gpio = 0, bank = 0; gpio < ngpio; bank++, bank_irq++, gpio += 16) {
 		/* disabled by default, enabled only as needed */
-		g = gpio2regs(gpio);
+		g = chips[bank / 2].regs;
 		writel_relaxed(~0, &g->clr_falling);
 		writel_relaxed(~0, &g->clr_rising);
+
+		bank_irq = platform_get_irq(pdev, bank);
+		if (bank % 1)
+			chips[bank / 2].birq2 = bank_irq;
+		else
+			chips[bank / 2].birq1 = bank_irq;
 
 		/* set up all irqs in this bank */
 		irq_set_chained_handler(bank_irq, gpio_irq_handler);
@@ -603,8 +639,18 @@ done:
 
 #if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id davinci_gpio_ids[] = {
-	{ .compatible = "ti,keystone-gpio", keystone_gpio_get_irq_chip},
-	{ .compatible = "ti,dm6441-gpio", davinci_gpio_get_irq_chip},
+	{
+		.compatible = "ti,keystone-gpio",
+		.data = &keystone_data,
+	},
+	{
+		.compatible = "ti,dm6441-gpio",
+		.data = &davinci_data,
+	},
+	{
+		.compatible = "ti,k2g-gpio",
+		.data = &k2g_data,
+	},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, davinci_gpio_ids);

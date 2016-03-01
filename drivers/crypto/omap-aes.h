@@ -98,13 +98,14 @@ struct omap_aes_ctx {
 	u32		auth_tag[AES_BLOCK_SIZE / sizeof(u32)];
 	u8		iv[AES_BLOCK_SIZE];
 	unsigned long	flags;
+	struct crypto_ablkcipher	*fallback;
 };
 
 struct omap_aes_reqctx {
 	unsigned long mode;
 };
 
-#define OMAP_AES_QUEUE_LENGTH	1
+#define OMAP_AES_QUEUE_LENGTH	10
 #define OMAP_AES_CACHE_SIZE	0
 
 struct omap_aes_algs_info {

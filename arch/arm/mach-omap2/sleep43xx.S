@@ -165,6 +165,20 @@ sync:
 	bne	sync
 #endif
 
+	/*
+	 * If we are trying to enter RTC+DDR mode we must perform
+	 * a read from the rtc address space to ensure translation
+	 * presence in the TLB to avoid page table walk after DDR
+	 * is unavailable.
+	 */
+	ldr	r1, wfi_flags
+	tst	r1, #WFI_FLAG_RTC_ONLY
+	beq	skip_rtc_va_refresh
+
+	ldr	r1, rtc_base_virt
+	ldr	r0, [r1]
+
+skip_rtc_va_refresh:
 	mov	r0, #0x1
 	ldr	r1, ti_emif_save_context
 	blx	r1

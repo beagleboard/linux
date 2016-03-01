@@ -118,3 +118,8 @@ int am33xx_idle_init(bool ddr3, void (*do_idle)(u32 wfi_flags))
 	}
 	return cpuidle_register(&am33xx_idle_driver, NULL);
 }
+
+void am33xx_idle_deinit(void)
+{
+	cpuidle_unregister(&am33xx_idle_driver);
+}
