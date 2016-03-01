@@ -129,6 +129,14 @@ typedef enum {
 /* Enable Hardware ECC before syndrome is read back from flash */
 #define NAND_ECC_READSYN	2
 
+/*
+ * Enable generic NAND 'page erased' check. This check is only done when
+ * ecc.correct() returns -EBADMSG.
+ * Set this flag if your implementation does not fix bitflips in erased
+ * pages and you want to rely on the default implementation.
+ */
+#define NAND_ECC_GENERIC_ERASED_CHECK	BIT(0)
+
 /* Bit mask for flags passed to do_nand_read_ecc */
 #define NAND_GET_DEVICE		0x80
 
@@ -451,12 +459,19 @@ struct nand_hw_control {
  * @total:	total number of ECC bytes per page
  * @prepad:	padding information for syndrome based ECC generators
  * @postpad:	padding information for syndrome based ECC generators
+ * @options:	ECC specific options (see NAND_ECC_XXX flags defined above)
  * @layout:	ECC layout control struct pointer
  * @priv:	pointer to private ECC control data
  * @hwctl:	function to control hardware ECC generator. Must only
  *		be provided if an hardware ECC is available
  * @calculate:	function for ECC calculation or readback from ECC hardware
- * @correct:	function for ECC correction, matching to ECC generator (sw/hw)
+ * @correct:	function for ECC correction, matching to ECC generator (sw/hw).
+ *		Should return a positive number representing the number of
+ *		corrected bitflips, -EBADMSG if the number of bitflips exceed
+ *		ECC strength, or any other error code if the error is not
+ *		directly related to correction.
+ *		If -EBADMSG is returned the input buffers should be left
+ *		untouched.
  * @read_page_raw:	function to read a raw page without ECC. This function
  *			should hide the specific layout used by the ECC
  *			controller and always return contiguous in-band and
@@ -494,6 +509,7 @@ struct nand_ecc_ctrl {
 	int strength;
 	int prepad;
 	int postpad;
+	unsigned int options;
 	struct nand_ecclayout	*layout;
 	void *priv;
 	void (*hwctl)(struct mtd_info *mtd, int mode);
