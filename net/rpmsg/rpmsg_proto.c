@@ -660,6 +660,7 @@ static int rpmsg_proto_probe(struct rpmsg_channel *rpdev)
 	if (ret) {
 		dev_err(dev, "failed to add rpmsg addr %d: %d\n", dst, ret);
 		kfree(sock_list);
+		goto out;
 	}
 	rpdev->ept->priv = sock_list;
 
