@@ -114,6 +114,7 @@ struct omap_hwmod;
  * @wkdep_srcs: Clockdomains that can be told to wake this powerdomain up
  * @sleepdep_srcs: Clockdomains that can be told to keep this clkdm from inact
  * @usecount: Usecount tracking
+ * @noidlecount: Noidle count tracking. Domain won't be auto idled this is > 0.
  * @node: list_head to link all clockdomains together
  *
  * @prcm_partition should be a macro from mach-omap2/prcm44xx.h (OMAP4 only)
@@ -138,6 +139,7 @@ struct clockdomain {
 	struct clkdm_dep *wkdep_srcs;
 	struct clkdm_dep *sleepdep_srcs;
 	int usecount;
+	int noidlecount;
 	struct list_head node;
 };
 
@@ -211,6 +213,9 @@ int clkdm_clk_enable(struct clockdomain *clkdm, struct clk *clk);
 int clkdm_clk_disable(struct clockdomain *clkdm, struct clk *clk);
 int clkdm_hwmod_enable(struct clockdomain *clkdm, struct omap_hwmod *oh);
 int clkdm_hwmod_disable(struct clockdomain *clkdm, struct omap_hwmod *oh);
+int clkdm_hwmod_prevent_hwauto(struct clockdomain *clkdm, struct omap_hwmod *oh);
+int clkdm_hwmod_allow_hwauto(struct clockdomain *clkdm, struct omap_hwmod *oh);
+int clkdm_hwmod_hwauto(struct clockdomain *clkdm, struct omap_hwmod *oh);
 
 extern void __init omap242x_clockdomains_init(void);
 extern void __init omap243x_clockdomains_init(void);

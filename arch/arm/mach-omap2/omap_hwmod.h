@@ -549,6 +549,7 @@ struct omap_hwmod_omap4_prcm {
 #define HWMOD_OPT_CLKS_NEEDED			(1 << 14)
 #define HWMOD_NO_IDLE				(1 << 15)
 #define HWMOD_NEEDS_REIDLE			(1 << 16)
+#define HWMOD_CLKDM_NOAUTO			(1 << 17)
 
 /*
  * omap_hwmod._int_flags definitions

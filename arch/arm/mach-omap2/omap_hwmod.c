@@ -2164,12 +2164,15 @@ static int _enable(struct omap_hwmod *oh)
 	r = (soc_ops.wait_target_ready) ? soc_ops.wait_target_ready(oh) :
 		-EINVAL;
 	if (!r) {
+		if (oh->clkdm && (oh->flags & HWMOD_CLKDM_NOAUTO))
+			clkdm_hwmod_prevent_hwauto(oh->clkdm, oh);
+
 		/*
 		 * Set the clockdomain to HW_AUTO only if the target is ready,
 		 * assuming that the previous state was HW_AUTO
 		 */
 		if (oh->clkdm && hwsup)
-			clkdm_allow_idle(oh->clkdm);
+			clkdm_hwmod_hwauto(oh->clkdm, oh);
 
 		oh->_state = _HWMOD_STATE_ENABLED;
 
@@ -2236,8 +2239,15 @@ static int _idle(struct omap_hwmod *oh)
 	 * transition to complete properly.
 	 */
 	_disable_clocks(oh);
-	if (oh->clkdm)
+
+	if (oh->clkdm) {
+		if (oh->flags & HWMOD_CLKDM_NOAUTO) {
+			clkdm_hwmod_allow_hwauto(oh->clkdm, oh);
+			clkdm_hwmod_hwauto(oh->clkdm, oh);
+		}
+
 		clkdm_hwmod_disable(oh->clkdm, oh);
+	}
 
 	/* Mux pins for device idle if populated */
 	if (oh->mux && oh->mux->pads_dynamic) {
