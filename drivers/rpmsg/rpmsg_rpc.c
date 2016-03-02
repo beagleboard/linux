@@ -67,17 +67,22 @@ static struct rproc *rpdev_to_rproc(struct rpmsg_channel *rpdev)
  * A wrapper function to translate local physical addresses to the remote core
  * device addresses (virtual addresses that a code on remote processor can use
  * directly.
+ *
+ * XXX: Fix this to return negative values on errors to follow normal kernel
+ *      conventions, and since 0 can also be a valid remote processor address
+ *
+ * Returns a remote processor device address on success, 0 otherwise
  */
 dev_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
 {
 	int ret;
 	struct rproc *rproc;
-	u64 da;
+	u64 da = 0;
 	dev_addr_t rda;
 	struct device *dev = rpc->dev;
 
 	if (mutex_lock_interruptible(&rpc->rppcdev->lock))
-		return -EINTR;
+		return 0;
 
 	rproc = rpdev_to_rproc(rpc->rppcdev->rpdev);
 	if (!rproc) {
@@ -88,7 +93,6 @@ dev_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
 		if (ret) {
 			dev_err(dev, "error from rproc_pa_to_da, rproc = %p, pa = %pa ret = %d\n",
 				rproc, &pa, ret);
-			da = 0;
 		}
 	}
 	rda = (dev_addr_t)da;
