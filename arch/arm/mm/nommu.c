@@ -380,6 +380,20 @@ void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size)
 }
 EXPORT_SYMBOL(ioremap_wc);
 
+void __iomem *ioremap_exec(resource_size_t res_cookie, size_t size)
+{
+	return __arm_ioremap_caller(res_cookie, size, 0,
+				    __builtin_return_address(0));
+}
+EXPORT_SYMBOL(ioremap_exec);
+
+void __iomem *ioremap_exec_nocache(resource_size_t res_cookie, size_t size)
+{
+	return __arm_ioremap_caller(res_cookie, size, 0,
+				    __builtin_return_address(0));
+}
+EXPORT_SYMBOL(ioremap_exec_nocache);
+
 void __iounmap(volatile void __iomem *addr)
 {
 }
