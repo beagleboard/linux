@@ -51,39 +51,39 @@
 
 	leds {
 		compatible = "gpio-leds";
-		led@0 {
+		led@8 {
 			label = "status0:red:cpu0";
 			gpios = <&gpio2 25 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 			linux,default-trigger = "cpu0";
 		};
 
-		led@1 {
+		led@9 {
 			label = "status0:green:usr";
 			gpios = <&gpio2 26 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
-		led@2 {
+		led@10 {
 			label = "status0:blue:heartbeat";
 			gpios = <&gpio2 27 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 			linux,default-trigger = "heartbeat";
 		};
 
-		led@3 {
+		led@11 {
 			label = "status1:red:usr";
 			gpios = <&gpio2 28 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
-		led@4 {
+		led@12 {
 			label = "status1:green:usr";
 			gpios = <&gpio2 21 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
-		led@5 {
+		led@13 {
 			label = "status1:blue:mmc0";
 			gpios = <&gpio2 19 GPIO_ACTIVE_HIGH>;
 			default-state = "off";

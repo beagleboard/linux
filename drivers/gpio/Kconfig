@@ -649,6 +649,7 @@ config GPIO_SX150X
 
 config GPIO_TPIC2810
 	tristate "TPIC2810 8-Bit I2C GPO expander"
+	select REGMAP_I2C
 	help
 	  Say yes here to enable the GPO driver for the TI TPIC2810 chip.
 
