@@ -98,4 +98,8 @@ int dss_mgr_register_framedone_handler(enum omap_channel channel,
 void dss_mgr_unregister_framedone_handler(enum omap_channel channel,
 		void (*handler)(void *), void *data);
 
+int dss_feat_get_num_mgrs(void);
+int dss_feat_get_num_ovls(void);
+enum omap_color_mode dss_feat_get_supported_color_modes(enum omap_plane plane);
+
 #endif /* __OMAP_DRM_DSS_H */
