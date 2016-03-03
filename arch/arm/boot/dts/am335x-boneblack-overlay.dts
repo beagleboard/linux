@@ -9,15 +9,12 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
+#include "am33xx-overlay-edma-fix.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone Black";
 	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
-
-/* Max Core Speed */
-#include "am335x-boneblack-1ghz.dtsi"
-/* #include "am335x-boneblack-800mhz.dtsi" */
 
 &ldo3_reg {
 	regulator-min-microvolt = <1800000>;
@@ -27,4 +24,18 @@
 
 &mmc1 {
 	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&sgx {
+	status = "okay";
+};
+
+/* EMMC in reset */
+&gpio1 {
+	emmc_rst {
+		gpio-hog;
+		gpios = <20 0>;
+		output-high;
+		line-name = "EMMC ResetN";
+	};
 };
