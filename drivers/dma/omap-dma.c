@@ -696,12 +696,6 @@ static enum dma_status omap_dma_tx_status(struct dma_chan *chan,
 	if (ret == DMA_COMPLETE || !txstate)
 		return ret;
 
-	if (c->start_no_delay) {
-		uint32_t val = omap_dma_chan_read(c, CCR);
-		if (!(val & CCR_ENABLE))
-			return DMA_COMPLETE;
-	}
-
 	spin_lock_irqsave(&c->vc.lock, flags);
 	vd = vchan_find_desc(&c->vc, cookie);
 	if (vd) {
