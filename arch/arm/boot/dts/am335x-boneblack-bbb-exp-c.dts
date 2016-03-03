@@ -8,15 +8,12 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-#include "am335x-bonegreen-wl1835.dtsi"
-
+#include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
-	model = "TI AM335x BeagleBone Green Wireless";
-	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
-
 
 &ldo3_reg {
 	regulator-min-microvolt = <1800000>;
@@ -28,25 +25,15 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-&mmc2 {
-	vmmc-supply = <&vmmcsd_fixed>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_pins>;
-	bus-width = <8>;
-	status = "okay";
-};
-&uart3 {
-	status = "okay";
-};
-
-&mmc3 {
-	status = "okay";
-};
-
-&mac {
-	status = "disabled";
-};
-
 &sgx {
 	status = "okay";
 };
+
+#include "am335x-peripheral-emmc.dtsi"
+#include "am335x-bone-pinmux-emmc.dtsi"
+/* #include "am335x-bone-emmc-in-reset.dtsi" */
+
+/* #include "am335x-peripheral-nxp-hdmi.dtsi" */
+/* #include "am335x-bone-pinmux-nxp-hdmi.dtsi" */
+
+#include "am335x-cape-bbb-exp-c.dtsi"
