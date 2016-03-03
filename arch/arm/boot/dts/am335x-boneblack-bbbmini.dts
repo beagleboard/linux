@@ -1,0 +1,197 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *                    Modified by Mirko Denecke <mirkix@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+#include "am33xx-overlay-edma-fix.dtsi"
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/ {
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&mmc2 {
+	vmmc-supply = <&vmmcsd_fixed>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&emmc_pins>;
+	bus-width = <8>;
+	status = "okay";
+};
+
+&am33xx_pinmux {
+	dcan1_pins: pinmux_dcan1_pins {
+		pinctrl-single,pins = <
+			/* P9_26: uart1_rxd.d_can1_tx */
+			BONE_P9_26 (PIN_OUTPUT_PULLUP | MUX_MODE2)
+			/* P9_24: uart1_txd.d_can1_rx */
+			BONE_P9_24 (PIN_INPUT_PULLUP | MUX_MODE2)
+		>;
+	};
+
+	pru_pins: pinmux_pru_pins {
+		pinctrl-single,pins = <
+			0x03c 0x35	/* ecap0_in_pwm0_out.pr1_ecap0_ecap_capin, MODE5 | INPUT_PULLUP | PRU, PPM-sum, SBUS, DSM  */
+
+			0x0e8 0x25	/* lcd_pclk.pr1_pru1_pru_r30_10, MODE5 | OUTPUT | PRU, CH_1 */
+			0x0e0 0x25	/* lcd_vsync.pr1_pru1_pru_r30_8, MODE5 | OUTPUT | PRU, CH_2 */
+			0x0ec 0x25	/* lcd_ac_bias_en.pr1_pru1_pru_r30_11, MODE5 | OUTPUT | PRU, CH_3 */
+			0x0e4 0x25	/* lcd_hsync.pr1_pru1_pru_r30_9, MODE5 | OUTPUT | PRU, CH_4 */
+			0x0bc 0x25	/* lcd_data7.pr1_pru1_pru_r30_7, MODE5 | OUTPUT | PRU, CH_5 */
+			0x0b8 0x25	/* lcd_data6.pr1_pru1_pru_r30_6, MODE5 | OUTPUT | PRU, CH_6 */
+			0x0b4 0x25	/* lcd_data5.pr1_pru1_pru_r30_5, MODE5 | OUTPUT | PRU, CH_7 */
+			0x0b0 0x25	/* lcd_data4.pr1_pru1_pru_r30_4, MODE5 | OUTPUT | PRU, CH_8 */
+			0x0ac 0x25	/* lcd_data3.pr1_pru1_pru_r30_3, MODE5 | OUTPUT | PRU, CH_9 */
+			0x0a8 0x25	/* lcd_data2.pr1_pru1_pru_r30_2, MODE5 | OUTPUT | PRU, CH_10 */
+			0x0a4 0x25	/* lcd_data1.pr1_pru1_pru_r30_1, MODE5 | OUTPUT | PRU, CH_11 */
+			0x0a0 0x25	/* lcd_data0.pr1_pru1_pru_r30_0, MODE5 | OUTPUT | PRU, CH_12 */
+
+			BONE_P8_12 (PIN_OUTPUT_PULLDOWN | MUX_MODE6) /* HC-SR04 TRIG */
+			BONE_P8_16 (PIN_INPUT_PULLDOWN | MUX_MODE6) /* HC-SR04 ECHO */
+
+			BONE_P9_25 (PIN_INPUT_PULLDOWN | MUX_MODE6) /* MPU9250 INT */
+		>;
+	};
+
+	spi0_pins: pinmux_spi0_pins {
+		pinctrl-single,pins = <
+			/* P9_22: spi0_sclk.spi0_sclk */
+			BONE_P9_22 (PIN_INPUT_PULLUP | MUX_MODE0)
+			/* P9_21: spi0_d0.spi0_d0 */
+			BONE_P9_21 (PIN_INPUT_PULLUP | MUX_MODE0)
+			/* P9_18: spi0_d1.spi0_d1 */
+			BONE_P9_18 (PIN_OUTPUT_PULLUP | MUX_MODE0)
+			/* P9_17: spi0_cs0.spi0_cs0 */
+			BONE_P9_17 (PIN_OUTPUT_PULLUP | MUX_MODE0)
+		>;
+	};
+
+	spi1_pins: pinmux_spi1_pins {
+		pinctrl-single,pins = <
+			/* P9_31: mcasp0_aclkx.spi1_sclk */
+			BONE_P9_31 (PIN_INPUT_PULLUP | MUX_MODE3)
+
+			/* P9_29: mcasp0_fsx.spi1_d0 */
+			BONE_P9_29 (PIN_INPUT_PULLUP | MUX_MODE3)
+
+			/* P9_30: mcasp0_axr0.spi1_d1 */
+			BONE_P9_30 (PIN_OUTPUT_PULLUP | MUX_MODE3)
+
+			/* P9_28: mcasp0_ahclkr.spi1_cs0 */
+			BONE_P9_28 (PIN_OUTPUT_PULLUP | MUX_MODE3)
+
+			/* P9_19: uart1_rtsn.spi1_cs1 */
+/*			BONE_P9_19 (PIN_OUTPUT_PULLUP | MUX_MODE4)*/
+
+			/* P9_42: ecap0_in_pwm0_out.spi1_cs1 */
+			BONE_P9_42A (PIN_OUTPUT_PULLUP | MUX_MODE2)
+		>;
+	};
+
+	uart4_pins: pinmux_uart4_pins {
+		pinctrl-single,pins = <
+			/* P9_11: gpmc_wait0.uart4_rxd_mux2 */
+			BONE_P9_11 (PIN_INPUT_PULLUP | MUX_MODE6)
+			/* P9_13: gpmc_wpn.uart4_txd_mux2  */
+			BONE_P9_13 (PIN_OUTPUT_PULLDOWN | MUX_MODE6)
+		>;
+	};
+
+	uart5_pins: pinmux_uart5_pins {
+		pinctrl-single,pins = <
+			/* P8_38: lcd_data9.uart5_rxd */
+			BONE_P8_38 (PIN_INPUT_PULLUP | MUX_MODE4)
+			/* P8_37: lcd_data8.uart5_txd */
+			BONE_P8_37 (PIN_OUTPUT_PULLDOWN | MUX_MODE4)
+		>;
+	};
+};
+
+&dcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dcan1_pins>;
+	status = "okay";
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins>;
+	status = "okay";
+
+	spi0_0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		spi-max-frequency = <24000000>;
+		reg = <0>;
+		compatible = "spidev";
+	};
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+	status = "okay";
+
+	spi1_0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+		spi-max-frequency = <24000000>;
+		compatible = "spidev";
+	};
+
+	spi1_1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+		spi-max-frequency = <24000000>;
+		compatible = "spidev";
+	};
+};
+
+&tscadc {
+	adc {
+		ti,adc-channels = <0 1>;
+	};
+};
+
+&pruss {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pru_pins>;
+	status = "okay";
+};
+
+&uart4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart4_pins>;
+	status = "okay";
+};
+
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart5_pins>;
+	status = "okay";
+};
