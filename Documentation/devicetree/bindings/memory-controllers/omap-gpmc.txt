@@ -32,6 +32,9 @@ Required properties:
 			bootloader) are used for the physical address decoding.
 			As this will change in the future, filling correct
 			values here is a requirement.
+ - gpio-controller:	The GPMC driver implements a GPIO controller for the
+			GPMC WAIT pins that can be used as general purpose inputs.
+			0 maps to GPMC_WAIT0 pin.
 
 Timing properties for child nodes. All are optional and default to 0.
 
