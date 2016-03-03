@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
- * Copyright 2015 Konsulko Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -13,8 +12,8 @@
 #include "am33xx-overlay-edma-fix.dtsi"
 
 / {
-	model = "Arrow BeagleBone Black Industrial";
-	compatible = "arrow,am335x-abbbi", "ti,am335x-bone", "ti,am33xx";
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
 &ldo3_reg {
@@ -40,7 +39,7 @@
 };
 
 &am33xx_pinmux {
-	adi_hdmi_bbbi_pins: adi_hdmi_bbbi_pins {
+	nxp_hdmi_bonelt_pins: nxp_hdmi_bonelt_pins {
 		pinctrl-single,pins = <
 			0x1b0 0x03      /* xdma_event_intr0, OMAP_MUX_MODE3 | AM33XX_PIN_OUTPUT */
 			0xa0 0x08       /* lcd_data0.lcd_data0, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
@@ -65,7 +64,7 @@
 			0xec 0x00       /* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 		>;
 	};
-	adi_hdmi_bbbi_off_pins: adi_hdmi_bbbi_off_pins {
+	nxp_hdmi_bonelt_off_pins: nxp_hdmi_bonelt_off_pins {
 		pinctrl-single,pins = <
 			0x1b0 0x03      /* xdma_event_intr0, OMAP_MUX_MODE3 | AM33XX_PIN_OUTPUT */
 		>;
@@ -90,6 +89,15 @@
 			0x06c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a11.GPIO1_27 */
 		>;
 	};
+
+	bb_spi0_pins: pinmux_bb_spi0_pins {
+		pinctrl-single,pins = <
+			0x150 0x30	/* spi0_sclk.spi0_sclk, INPUT_PULLUP | MODE0 */
+			0x154 0x30	/* spi0_d0.spi0_d0, INPUT_PULLUP | MODE0 */
+			0x158 0x10	/* spi0_d1.spi0_d1, OUTPUT_PULLUP | MODE0 */
+			0x15c 0x10	/* spi0_cs0.spi0_cs0, OUTPUT_PULLUP | MODE0 */
+		>;
+	};
 };
 
 &lcdc {
@@ -102,12 +110,12 @@
 };
 
 &i2c0 {
-	adv7511w {
-		compatible = "adi,adv7511w";
-		reg = <0x39>;
+	tda19988 {
+		compatible = "nxp,tda998x";
+		reg = <0x70>;
 		pinctrl-names = "default", "off";
-		pinctrl-0 = <&adi_hdmi_bbbi_pins>;
-		pinctrl-1 = <&adi_hdmi_bbbi_off_pins>;
+		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
+		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 		port {
 			hdmi_0: endpoint@0 {
 				remote-endpoint = <&lcdc_0>;
@@ -128,6 +136,25 @@
 		>;
 	tx-num-evt = <1>;
 	rx-num-evt = <1>;
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_spi0_pins>;
+	status = "okay";
+
+	channel@0 {
+		compatible = "spidev";
+		spi-max-frequency = <16000000>;
+		reg = <0>;
+		spi-cpha;
+	};
+
+	channel@1 {
+		compatible = "spidev";
+		spi-max-frequency = <16000000>;
+		reg = <1>;
+	};
 };
 
 / {

@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
- * Copyright 2015 Konsulko Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -13,8 +12,8 @@
 #include "am33xx-overlay-edma-fix.dtsi"
 
 / {
-	model = "Arrow BeagleBone Black Industrial";
-	compatible = "arrow,am335x-abbbi", "ti,am335x-bone", "ti,am33xx";
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
 &ldo3_reg {
@@ -27,20 +26,22 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-&mmc2 {
-	vmmc-supply = <&vmmcsd_fixed>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_pins>;
-	bus-width = <8>;
-	status = "okay";
-};
-
 &sgx {
 	status = "okay";
 };
 
+/* EMMC in reset */
+&gpio1 {
+	emmc_rst {
+		gpio-hog;
+		gpios = <20 0>;
+		output-high;
+		line-name = "EMMC ResetN";
+	};
+};
+
 &am33xx_pinmux {
-	adi_hdmi_bbbi_pins: adi_hdmi_bbbi_pins {
+	nxp_hdmi_bonelt_pins: nxp_hdmi_bonelt_pins {
 		pinctrl-single,pins = <
 			0x1b0 0x03      /* xdma_event_intr0, OMAP_MUX_MODE3 | AM33XX_PIN_OUTPUT */
 			0xa0 0x08       /* lcd_data0.lcd_data0, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT | AM33XX_PULL_DISA */
@@ -65,29 +66,9 @@
 			0xec 0x00       /* lcd_ac_bias_en.lcd_ac_bias_en, OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT */
 		>;
 	};
-	adi_hdmi_bbbi_off_pins: adi_hdmi_bbbi_off_pins {
+	nxp_hdmi_bonelt_off_pins: nxp_hdmi_bonelt_off_pins {
 		pinctrl-single,pins = <
 			0x1b0 0x03      /* xdma_event_intr0, OMAP_MUX_MODE3 | AM33XX_PIN_OUTPUT */
-		>;
-	};
-
-	mcasp0_pins: mcasp0_pins {
-		pinctrl-single,pins = <
-			0x1ac (PIN_INPUT_PULLUP | MUX_MODE0)	/* mcasp0_ahclkx.mcasp0_ahclkx */
-			0x19c (PIN_OUTPUT_PULLDOWN | MUX_MODE2) /* mcasp0_ahclkr.mcasp0_axr2 */
-			0x194 (PIN_OUTPUT_PULLUP | MUX_MODE0)	/* mcasp0_fsx.mcasp0_fsx */
-			0x190 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp0_aclkx.mcasp0_aclkx */
-			0x06c (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a11.GPIO1_27 */
-		>;
-	};
-
-	mcasp0_pins_sleep: mcasp0_pins_sleep {
-		pinctrl-single,pins = <
-			0x1ac (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* mcasp0_ahclkx.mcasp0_ahclkx */
-			0x19c (PIN_INPUT_PULLDOWN | MUX_MODE7) /* mcasp0_ahclkr.mcasp0_axr2 */
-			0x194 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* mcasp0_fsx.mcasp0_fsx */
-			0x190 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* mcasp0_aclkx.mcasp0_aclkx */
-			0x06c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a11.GPIO1_27 */
 		>;
 	};
 };
@@ -102,61 +83,16 @@
 };
 
 &i2c0 {
-	adv7511w {
-		compatible = "adi,adv7511w";
-		reg = <0x39>;
+	tda19988 {
+		compatible = "nxp,tda998x";
+		reg = <0x70>;
 		pinctrl-names = "default", "off";
-		pinctrl-0 = <&adi_hdmi_bbbi_pins>;
-		pinctrl-1 = <&adi_hdmi_bbbi_off_pins>;
+		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
+		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 		port {
 			hdmi_0: endpoint@0 {
 				remote-endpoint = <&lcdc_0>;
 			};
 		};
-	};
-};
-
-&mcasp0	{
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&mcasp0_pins>;
-	pinctrl-1 = <&mcasp0_pins_sleep>;
-	status = "okay";
-	op-mode = <0>;	/* MCASP_IIS_MODE */
-	tdm-slots = <2>;
-	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
-			0 0 1 0
-		>;
-	tx-num-evt = <1>;
-	rx-num-evt = <1>;
-};
-
-/ {
-	clk_mcasp0_fixed: clk_mcasp0_fixed {
-	      #clock-cells = <0>;
-	      compatible = "fixed-clock";
-	      clock-frequency = <24576000>;
-	};
-
-	clk_mcasp0: clk_mcasp0 {
-	      #clock-cells = <0>;
-	      compatible = "gpio-gate-clock";
-	      clocks = <&clk_mcasp0_fixed>;
-	      enable-gpios = <&gpio1 27 0>; /* BeagleBone Black Clk enable on GPIO1_27 */
-	};
-
-	hdmi_audio: hdmi_audio@0 {
-	       compatible = "linux,hdmi-audio";
-	       status = "okay";
-	};
-
-	sound {
-		compatible = "ti,beaglebone-black-audio";
-		ti,model = "TI BeagleBone Black";
-		ti,audio-codec = <&hdmi_audio>;
-		ti,mcasp-controller = <&mcasp0>;
-		ti,audio-routing =
-			"HDMI Out",	"TX";
-		clocks = <&clk_mcasp0>;
-		clock-names = "mclk";
 	};
 };
