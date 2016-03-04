@@ -1,7 +1,7 @@
 /*
  * TI Keystone DSP remoteproc driver
  *
- * Copyright (C) 2015 Texas Instruments, Inc.
+ * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://www.ti.com/
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -87,6 +87,7 @@ struct keystone_rproc_mem {
  * @rsc_table: resource table pointer copied from userspace
  * @rsc_table_size: size of resource table
  * @loaded_rsc_table: kernel pointer of loaded resource table
+ * @boot_addr: remote processor boot address used with userspace loader
  * @open_count: fops open reference counter
  */
 struct keystone_rproc {
@@ -112,6 +113,7 @@ struct keystone_rproc {
 	struct resource_table *rsc_table;
 	int rsc_table_size;
 	void *loaded_rsc_table;
+	u32 boot_addr;
 	int open_count;
 };
 
@@ -150,27 +152,50 @@ static int keystone_rproc_uio_irqcontrol(struct uio_info *uio, s32 irq_on)
 	return 0;
 }
 
+/* Reset previously set rsc table variables */
+static void keystone_rproc_reset_rsc_table(struct keystone_rproc *ksproc)
+{
+	kfree(ksproc->rsc_table);
+	ksproc->rsc_table = NULL;
+	ksproc->loaded_rsc_table = NULL;
+	ksproc->rsc_table_size = 0;
+}
+
 /*
  * Create/delete the virtio devices in kernel once the user-space loading is
- * complete, and configure the remoteproc states appropriately. The resource
- * table should have been published through the KEYSTONE_RPROC_IOC_SET_RSC_TABLE
- * and KEYSTONE_RPROC_IOC_SET_LOADED_RSC_TABLE ioctls before invoking this.
+ * complete, configure the remoteproc states appropriately, and boot or reset
+ * the remote processor. The resource table should have been published through
+ * KEYSTONE_RPROC_IOC_SET_RSC_TABLE & KEYSTONE_RPROC_IOC_SET_LOADED_RSC_TABLE
+ * ioctls before invoking this. The boot address is passed through the
+ * KEYSTONE_RPROC_IOC_SET_STATE ioctl when setting the KEYSTONE_RPROC_RUNNING
+ * state.
  *
- * XXX: Note that this is currently not really booting or resetting the
- * DSP devices. They are handled through KEYSTONE_RPROC_IOC_DSP_RESET and
- * KEYSTONE_RPROC_IOC_DSP_BOOT ioctls, and it needs to be evaluated if
- * there is a real need for those ioctls.
+ * NOTE:
+ * The ioctls KEYSTONE_RPROC_IOC_DSP_RESET and KEYSTONE_RPROC_IOC_DSP_BOOT
+ * are now restricted to support the booting or resetting the DSP devices
+ * only for firmware images without any resource table.
  */
 static int keystone_rproc_set_state(struct keystone_rproc *ksproc,
-				    enum keystone_rproc_state state)
+				    void __user *argp)
 {
 	struct rproc *rproc = ksproc->rproc;
+	struct keystone_rproc_set_state_params set_state_params;
 	int ret = 0;
 
-	switch (state) {
+	if (copy_from_user(&set_state_params, argp, sizeof(set_state_params)))
+		return -EFAULT;
+
+	switch (set_state_params.state) {
 	case KEYSTONE_RPROC_RUNNING:
 		if (!ksproc->rsc_table || !ksproc->loaded_rsc_table)
 			return -EINVAL;
+
+		/*
+		 * store boot address for .get_boot_addr() rproc fw ops
+		 * XXX: validate the boot address so it is not set to a
+		 * random address
+		 */
+		ksproc->boot_addr = set_state_params.boot_addr;
 
 		/*
 		 * add virtio devices, rproc_boot will be invoked by remoteproc
@@ -196,6 +221,10 @@ static int keystone_rproc_set_state(struct keystone_rproc *ksproc,
 			rproc_shutdown(rproc);
 
 		rproc_remove_vdevs_direct(rproc);
+
+		mutex_lock(&ksproc->mlock);
+		keystone_rproc_reset_rsc_table(ksproc);
+		mutex_unlock(&ksproc->mlock);
 
 		break;
 
@@ -322,7 +351,7 @@ keystone_rproc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case KEYSTONE_RPROC_IOC_SET_STATE:
-		ret = keystone_rproc_set_state(ksproc, arg);
+		ret = keystone_rproc_set_state(ksproc, argp);
 		break;
 
 	case KEYSTONE_RPROC_IOC_SET_RSC_TABLE:
@@ -334,10 +363,20 @@ keystone_rproc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case KEYSTONE_RPROC_IOC_DSP_RESET:
+		if (ksproc->rsc_table) {
+			ret = -EINVAL;
+			break;
+		}
+
 		keystone_rproc_dsp_reset(ksproc);
 		break;
 
 	case KEYSTONE_RPROC_IOC_DSP_BOOT:
+		if (ksproc->rsc_table) {
+			ret = -EINVAL;
+			break;
+		}
+
 		ret = keystone_rproc_dsp_boot(ksproc, arg);
 		break;
 
@@ -446,10 +485,7 @@ static int keystone_rproc_release(struct inode *inode, struct file *filp)
 		WARN_ON(rproc->state != RPROC_OFFLINE);
 	}
 
-	kfree(ksproc->rsc_table);
-	ksproc->rsc_table = NULL;
-	ksproc->loaded_rsc_table = NULL;
-	ksproc->rsc_table_size = 0;
+	keystone_rproc_reset_rsc_table(ksproc);
 
 end:
 	clk_disable_unprepare(ksproc->clk);
@@ -509,12 +545,28 @@ keystone_rproc_find_loaded_rsc_table(struct rproc *rproc,
 }
 
 /*
+ * Used only with userspace loader/boot mechanism, the boot address
+ * is published to the kernel-level through an ioctl call and is
+ * stored in a local variable in the keystone_rproc device structure.
+ * Return this address to the remoteproc core through the .get_boot_addr()
+ * remoteproc firmware ops
+ */
+static u32 keystone_rproc_get_boot_addr(struct rproc *rproc,
+					const struct firmware *fw)
+{
+	struct keystone_rproc *ksproc = rproc->priv;
+
+	return ksproc->boot_addr;
+}
+
+/*
  * Used only with userspace loader/boot mechanism, otherwise the remoteproc
  * core elf loader's functions are relied on.
  */
 static struct rproc_fw_ops keystone_rproc_fw_ops = {
 	.find_rsc_table		= keystone_rproc_find_rsc_table,
 	.find_loaded_rsc_table  = keystone_rproc_find_loaded_rsc_table,
+	.get_boot_addr		= keystone_rproc_get_boot_addr,
 };
 
 /*
@@ -609,15 +661,15 @@ static int keystone_rproc_start(struct rproc *rproc)
 		goto out;
 	}
 
-	if (rproc->use_userspace_loader)
-		goto out;
-
-	ret = request_irq(ksproc->irq_fault, keystone_rproc_exception_interrupt,
-			  IRQF_ONESHOT, dev_name(ksproc->dev), ksproc);
-	if (ret) {
-		dev_err(ksproc->dev, "failed to enable exception interrupt, ret = %d\n",
-			ret);
-		goto free_vring_irq;
+	if (!rproc->use_userspace_loader) {
+		ret = request_irq(ksproc->irq_fault,
+				  keystone_rproc_exception_interrupt,
+				  IRQF_ONESHOT, dev_name(ksproc->dev), ksproc);
+		if (ret) {
+			dev_err(ksproc->dev, "failed to enable exception interrupt, ret = %d\n",
+				ret);
+			goto free_vring_irq;
+		}
 	}
 
 	ret = keystone_rproc_dsp_boot(ksproc, rproc->bootaddr);
