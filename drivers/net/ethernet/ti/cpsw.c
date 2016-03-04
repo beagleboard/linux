@@ -35,6 +35,7 @@
 #include <linux/of_net.h>
 #include <linux/of_device.h>
 #include <linux/if_vlan.h>
+#include <linux/net_switch_config.h>
 
 #include <linux/pinctrl/consumer.h>
 
@@ -1571,6 +1572,75 @@ static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
 
 #endif /*CONFIG_TI_CPTS*/
 
+static int cpsw_switch_config_ioctl(struct net_device *ndev,
+				    struct ifreq *ifrq, int cmd)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	struct net_switch_config config;
+	int ret = -EINVAL;
+
+	if (priv->data.dual_emac) {
+		dev_err(priv->dev, "CPSW not in switch mode\n");
+		return -ENOTSUPP;
+	}
+
+	/* Only SIOCSWITCHCONFIG is used as cmd argument and hence, there is no
+	 * switch statement required.
+	 * Function calls are based on switch_config.cmd
+	 */
+
+	if (copy_from_user(&config, (ifrq->ifr_data), sizeof(config)))
+		return -EFAULT;
+
+	if (config.vid > 4095) {
+		dev_err(priv->dev, "Invalid VLAN id Arguments for cmd %d\n",
+			config.cmd);
+		return ret;
+	}
+
+	switch (config.cmd) {
+	case CONFIG_SWITCH_ADD_MULTICAST:
+		if ((config.port > 0) && (config.port <= 7) &&
+		    is_multicast_ether_addr(config.addr)) {
+			ret = cpsw_ale_add_mcast(priv->ale, config.addr,
+						 config.port, ALE_VLAN,
+						 config.vid, 0);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments for cmd %d\n",
+				config.cmd);
+		}
+		break;
+	case CONFIG_SWITCH_DEL_MULTICAST:
+		if (is_multicast_ether_addr(config.addr)) {
+			ret = cpsw_ale_del_mcast(priv->ale, config.addr,
+						 0, ALE_VLAN, config.vid);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments for cmd %d\n",
+				config.cmd);
+		}
+		break;
+	case CONFIG_SWITCH_ADD_VLAN:
+		if ((config.port > 0) && (config.port <= 7)) {
+			ret = cpsw_ale_add_vlan(priv->ale, config.vid,
+						config.port,
+						config.untag_port,
+						config.reg_multi,
+						config.unreg_multi);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments for cmd %d\n",
+				config.cmd);
+		}
+		break;
+	case CONFIG_SWITCH_DEL_VLAN:
+		ret = cpsw_ale_del_vlan(priv->ale, config.vid, 0);
+		break;
+	default:
+		ret = -EOPNOTSUPP;
+	}
+
+	return ret;
+}
+
 static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
 	struct cpsw_priv *priv = netdev_priv(dev);
@@ -1586,6 +1656,8 @@ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 	case SIOCGHWTSTAMP:
 		return cpsw_hwtstamp_get(dev, req);
 #endif
+	case SIOCSWITCHCONFIG:
+		return cpsw_switch_config_ioctl(dev, req, cmd);
 	}
 
 	if (!priv->slaves[slave_no].phy)
