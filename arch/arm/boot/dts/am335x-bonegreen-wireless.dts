@@ -13,7 +13,7 @@
 
 
 / {
-	model = "TI AM335x BeagleBone Green";
+	model = "TI AM335x BeagleBone Green Wireless";
 	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
