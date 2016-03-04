@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Texas Instruments Incorporated
+ * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://www.ti.com/
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -30,6 +30,18 @@ enum keystone_rproc_state {
 	KEYSTONE_RPROC_RUNNING,
 };
 
+/**
+ * struct keystone_rproc_set_state_params - keystone remoteproc set state
+ *					    parameters structure
+ *
+ * @state: enumerated state value to set
+ * @boot_addr: boot address/entry point for the remote processor
+ */
+struct keystone_rproc_set_state_params {
+	enum keystone_rproc_state state;
+	uint32_t boot_addr;
+};
+
 /* Macros used within mmap function */
 #define KEYSTONE_RPROC_UIO_MAP_INDEX_MASK	(0x7)
 #define KEYSTONE_RPROC_UIO_MAP_OFFSET_SHIFT	(3)
@@ -38,8 +50,9 @@ enum keystone_rproc_state {
 #define KEYSTONE_RPROC_IOC_MAGIC		'I'
 #define KEYSTONE_RPROC_IOC_SET_RSC_TABLE	_IOW(KEYSTONE_RPROC_IOC_MAGIC, \
 						0, void *)
-#define KEYSTONE_RPROC_IOC_SET_STATE		_IOW(KEYSTONE_RPROC_IOC_MAGIC, \
-						1, enum keystone_rproc_state)
+#define KEYSTONE_RPROC_IOC_SET_STATE	_IOW(KEYSTONE_RPROC_IOC_MAGIC, \
+					1, \
+					struct keystone_rproc_set_state_params)
 #define KEYSTONE_RPROC_IOC_SET_LOADED_RSC_TABLE _IOW(KEYSTONE_RPROC_IOC_MAGIC, \
 						2, uint32_t)
 #define KEYSTONE_RPROC_IOC_DSP_RESET		_IO(KEYSTONE_RPROC_IOC_MAGIC, 3)
