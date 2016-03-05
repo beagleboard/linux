@@ -397,3 +397,7 @@
 &wkup_m3_ipc {
 	ti,scale-data-fw = "am335x-bone-scale-data.bin";
 };
+
+&rtc {
+	system-power-controller;
+};
