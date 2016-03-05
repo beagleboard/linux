@@ -151,6 +151,7 @@ struct clk_hw_omap {
 	const char		*clkdm_name;
 	struct clockdomain	*clkdm;
 	const struct clk_hw_omap_ops	*ops;
+	u32			context;
 };
 
 /*
@@ -292,6 +293,12 @@ struct ti_clk_features {
 
 void ti_clk_setup_features(struct ti_clk_features *features);
 const struct ti_clk_features *ti_clk_get_features(void);
+
+int omap3_noncore_dpll_save_context(struct clk_hw *hw);
+void omap3_noncore_dpll_restore_context(struct clk_hw *hw);
+
+int omap3_core_dpll_save_context(struct clk_hw *hw);
+void omap3_core_dpll_restore_context(struct clk_hw *hw);
 
 extern const struct clk_hw_omap_ops clkhwops_omap2xxx_dpll;
 
