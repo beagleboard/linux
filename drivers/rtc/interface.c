@@ -939,4 +939,52 @@ void rtc_timer_cancel(struct rtc_device *rtc, struct rtc_timer *timer)
 	mutex_unlock(&rtc->ops_lock);
 }
 
+/* rtc_read_scratch - Read from RTC scratch register
+ * @ rtc: rtc device to be used
+ * @ index: index of scratch register
+ * @ value: returned value read
+ *
+ * Kernel interface read from an RTC scratch register
+ */
+int rtc_read_scratch(struct rtc_device *rtc, unsigned index, u32 *value)
+{
+	int err;
 
+	mutex_lock(&rtc->ops_lock);
+	if (!rtc->ops)
+		err = -ENODEV;
+	else if (index >= rtc->ops->scratch_size || !rtc->ops->read_scratch)
+		err = -EINVAL;
+	else
+		err = rtc->ops->read_scratch(rtc->dev.parent, index, value);
+	mutex_unlock(&rtc->ops_lock);
+	return err;
+}
+EXPORT_SYMBOL_GPL(rtc_read_scratch);
+
+/* rtc_write_scratch - Write to RTC scratch register
+ * @ rtc: rtc device to be used
+ * @ index: index of scratch register
+ * @ value: value to write
+ *
+ * Kernel interface write to an RTC scratch register
+ */
+int rtc_write_scratch(struct rtc_device *rtc, unsigned index, u32 value)
+{
+	int err;
+
+	mutex_lock(&rtc->ops_lock);
+
+	if (!rtc->ops)
+		err = -ENODEV;
+	else if (index >= rtc->ops->scratch_size ||
+		 !rtc->ops->write_scratch)
+		err = -EINVAL;
+	else
+		err = rtc->ops->write_scratch(rtc->dev.parent, index, value);
+
+	mutex_unlock(&rtc->ops_lock);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(rtc_write_scratch);

@@ -66,6 +66,10 @@
 #define OMAP_RTC_COMP_MSB_REG		0x50
 #define OMAP_RTC_OSC_REG		0x54
 
+#define OMAP_RTC_SCRATCH0_REG		0x60
+#define OMAP_RTC_SCRATCH1_REG		0x64
+#define OMAP_RTC_SCRATCH2_REG		0x68
+
 #define OMAP_RTC_KICK0_REG		0x6c
 #define OMAP_RTC_KICK1_REG		0x70
 
@@ -405,6 +409,32 @@ static int omap_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 
 static struct omap_rtc *omap_rtc_power_off_rtc;
 
+static const u32 omap_rtc_scratch_regs[] = {
+	OMAP_RTC_SCRATCH0_REG,
+	OMAP_RTC_SCRATCH1_REG,
+	OMAP_RTC_SCRATCH2_REG,
+};
+
+static int omap_rtc_read_scratch(struct device *dev, unsigned index, u32 *value)
+{
+	*value = readl(omap_rtc_power_off_rtc->base +
+		       omap_rtc_scratch_regs[index]);
+
+	return 0;
+}
+
+static int omap_rtc_write_scratch(struct device *dev, unsigned index, u32 value)
+{
+	struct omap_rtc *rtc = dev_get_drvdata(dev);
+
+	rtc->type->unlock(rtc);
+	writel(value, omap_rtc_power_off_rtc->base +
+	       omap_rtc_scratch_regs[index]);
+	rtc->type->lock(rtc);
+
+	return 0;
+}
+
 /*
  * omap_rtc_poweroff: RTC-controlled power off
  *
@@ -475,6 +505,9 @@ static struct rtc_class_ops omap_rtc_ops = {
 	.read_alarm	= omap_rtc_read_alarm,
 	.set_alarm	= omap_rtc_set_alarm,
 	.alarm_irq_enable = omap_rtc_alarm_irq_enable,
+	.read_scratch	= omap_rtc_read_scratch,
+	.write_scratch	= omap_rtc_write_scratch,
+	.scratch_size	= ARRAY_SIZE(omap_rtc_scratch_regs),
 };
 
 static const struct omap_rtc_device_type omap_rtc_default_type = {
