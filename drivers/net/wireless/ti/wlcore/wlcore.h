@@ -353,6 +353,11 @@ struct wl1271 {
 	/* in dBm */
 	int power_level;
 
+#ifdef CONFIG_HAS_WAKELOCK
+	struct wake_lock wake_lock;
+	struct wake_lock rx_wake;
+	struct wake_lock recovery_wake;
+#endif
 	struct wl1271_stats stats;
 
 	__le32 *buffer_32;

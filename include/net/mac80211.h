@@ -1662,6 +1662,9 @@ struct ieee80211_sta_rates {
  * @supp_rates: Bitmap of supported rates (per band)
  * @ht_cap: HT capabilities of this STA; restricted to our own capabilities
  * @vht_cap: VHT capabilities of this STA; restricted to our own capabilities
+ * @max_rx_aggregation_subframes: restriction on rx buff size for this active
+ *	link. Initially set to local->hw.max_rx_aggregation_subframes but can
+ *	be modified by driver.
  * @wme: indicates whether the STA supports QoS/WME (if local devices does,
  *	otherwise always false)
  * @drv_priv: data area for driver use, will always be aligned to
@@ -1688,6 +1691,7 @@ struct ieee80211_sta {
 	u16 aid;
 	struct ieee80211_sta_ht_cap ht_cap;
 	struct ieee80211_sta_vht_cap vht_cap;
+	u8 max_rx_aggregation_subframes;
 	bool wme;
 	u8 uapsd_queues;
 	u8 max_sp;
@@ -5064,6 +5068,23 @@ void ieee80211_remain_on_channel_expired(struct ieee80211_hw *hw);
 void ieee80211_stop_rx_ba_session(struct ieee80211_vif *vif, u16 ba_rx_bitmap,
 				  const u8 *addr);
 
+/**
+ * ieee80211_change_rx_ba_max_subframes - callback to change
+ *	sta.max_rx_aggregation_subframes and stop existing BA sessions
+ *
+ * This capability is usefull in cases of IOP, i.e. cases where peer sta
+ * or ap doesn't respect the max subframes in a single-frame and uses the
+ * max window size instead. In these cases the driver/chip may recover by
+ * decreasing the max_rx_aggregation_subframes to use the single frame
+ * limitation.
+ *
+ * @vif: &struct ieee80211_vif pointer from the add_interface callback.
+ * @addr: & to bssid mac address
+ * @max_subframes: new max_rx_aggregation_subframes for this sta
+ */
+void ieee80211_change_rx_ba_max_subframes(struct ieee80211_vif *vif,
+					  const u8 *addr,
+					  u8 max_subframes);
 /**
  * ieee80211_send_bar - send a BlockAckReq frame
  *
