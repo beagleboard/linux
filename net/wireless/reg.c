@@ -271,6 +271,10 @@ static char user_alpha2[2];
 module_param(ieee80211_regdom, charp, 0444);
 MODULE_PARM_DESC(ieee80211_regdom, "IEEE 802.11 regulatory domain code");
 
+static unsigned int dfs_cac_time_ms = IEEE80211_DFS_MIN_CAC_TIME_MS;
+module_param(dfs_cac_time_ms, uint, 0644);
+MODULE_PARM_DESC(dfs_cac_time_ms, "DFS CAC time (in ms)");
+
 static void reg_free_request(struct regulatory_request *request)
 {
 	if (request == &core_request_world)
@@ -1287,7 +1291,16 @@ static void handle_channel(struct wiphy *wiphy,
 		if (reg_rule->dfs_cac_ms)
 			chan->dfs_cac_ms = reg_rule->dfs_cac_ms;
 		else
-			chan->dfs_cac_ms = IEEE80211_DFS_MIN_CAC_TIME_MS;
+			chan->dfs_cac_ms = dfs_cac_time_ms;
+
+		/*
+		 * workaround: use 10 minutes CAC for channel 120,124 and 128
+		 * in case of ETSI dfs region
+		 */
+		if (regd->dfs_region == NL80211_DFS_ETSI &&
+		    chan->band == IEEE80211_BAND_5GHZ &&
+		    chan->center_freq >= 5600 && chan->center_freq <= 5640)
+			chan->dfs_cac_ms = 10 * 60 * 1000;
 	}
 
 	if (chan->orig_mpwr) {

@@ -112,12 +112,18 @@ static int wlcore_smart_config_decode_event(struct wl1271 *wl,
 	return 0;
 }
 
-static void wlcore_event_time_sync(struct wl1271 *wl, u16 tsf_msb, u16 tsf_lsb)
+static void wlcore_event_time_sync(struct wl1271 *wl,
+				   u16 tsf_high_msb, u16 tsf_high_lsb,
+				   u16 tsf_low_msb, u16 tsf_low_lsb)
 {
-	u32 clock;
-	/* convert the MSB+LSB to a u32 TSF value */
-	clock = (tsf_msb << 16) | tsf_lsb;
-	wl1271_info("TIME_SYNC_EVENT_ID: clock %u", clock);
+        u32 clock_low;
+        u32 clock_high;
+
+        clock_high = (tsf_high_msb << 16) | tsf_high_lsb;
+        clock_low = (tsf_low_msb << 16) | tsf_low_lsb;
+
+        wl1271_info("TIME_SYNC_EVENT_ID: clock_high %u, clock low %u",
+                    clock_high, clock_low);
 }
 
 int wl18xx_process_mailbox_events(struct wl1271 *wl)
@@ -138,8 +144,10 @@ int wl18xx_process_mailbox_events(struct wl1271 *wl)
 
 	if (vector & TIME_SYNC_EVENT_ID)
 		wlcore_event_time_sync(wl,
-				mbox->time_sync_tsf_msb,
-				mbox->time_sync_tsf_lsb);
+			mbox->time_sync_tsf_high_msb,
+			mbox->time_sync_tsf_high_lsb,
+			mbox->time_sync_tsf_low_msb,
+			mbox->time_sync_tsf_low_lsb);
 
 	if (vector & RADAR_DETECTED_EVENT_ID) {
 		wl1271_info("radar event: channel %d type %s",
@@ -186,11 +194,11 @@ int wl18xx_process_mailbox_events(struct wl1271 *wl)
 	 */
 	if (vector & MAX_TX_FAILURE_EVENT_ID)
 		wlcore_event_max_tx_failure(wl,
-				le32_to_cpu(mbox->tx_retry_exceeded_bitmap));
+				le16_to_cpu(mbox->tx_retry_exceeded_bitmap));
 
 	if (vector & INACTIVE_STA_EVENT_ID)
 		wlcore_event_inactive_sta(wl,
-				le32_to_cpu(mbox->inactive_sta_bitmap));
+				le16_to_cpu(mbox->inactive_sta_bitmap));
 
 	if (vector & REMAIN_ON_CHANNEL_COMPLETE_EVENT_ID)
 		wlcore_event_roc_complete(wl);
@@ -205,6 +213,67 @@ int wl18xx_process_mailbox_events(struct wl1271 *wl)
 						 mbox->sc_ssid,
 						 mbox->sc_pwd_len,
 						 mbox->sc_pwd);
+
+	if (vector & RX_BA_WIN_SIZE_CHANGE_EVENT_ID) {
+		struct wl12xx_vif *wlvif;
+		struct ieee80211_vif *vif;
+		u8 role_id = mbox->rx_ba_role_id;
+		u8 link_id = mbox->rx_ba_link_id;
+		u8 win_size = mbox->rx_ba_win_size;
+		int prev_win_size;
+
+		wl1271_debug(DEBUG_EVENT,
+			     "%s. role_id=%u link_id=%u win_size=%u",
+			     "RX_BA_WIN_SIZE_CHANGE_EVENT_ID",
+			     role_id, link_id, win_size);
+
+		wlvif = wl->links[link_id].wlvif;
+		if (unlikely(!wlvif)) {
+			wl1271_error("%s. link_id wlvif is null",
+				     "RX_BA_WIN_SIZE_CHANGE_EVENT_ID");
+
+			goto out_event;
+		}
+
+		if (unlikely(wlvif->role_id != role_id)) {
+			wl1271_error("%s. wlvif has different role_id=%d",
+				     "RX_BA_WIN_SIZE_CHANGE_EVENT_ID",
+				     wlvif->role_id);
+
+			goto out_event;
+		}
+
+		prev_win_size = wlcore_rx_ba_max_subframes(wl, link_id);
+		if (unlikely(prev_win_size < 0)) {
+			wl1271_error("%s. cannot get link rx_ba_max_subframes",
+				     "RX_BA_WIN_SIZE_CHANGE_EVENT_ID");
+
+			goto out_event;
+		}
+
+		if ((u8) prev_win_size <= win_size) {
+			/* This not supposed to happen unless a FW bug */
+			wl1271_error("%s. prev_win_size(%d) <= win_size(%d)",
+				       "RX_BA_WIN_SIZE_CHANGE_EVENT_ID",
+					prev_win_size, win_size);
+
+			goto out_event;
+		}
+
+		/*
+		 * Call MAC routine to update win_size and stop all link active
+		 * BA sessions. This routine returns 0 on failure or previous
+		 * win_size on success
+		 */
+		vif = wl12xx_wlvif_to_vif(wlvif);
+		ieee80211_change_rx_ba_max_subframes(vif,
+			(wlvif->bss_type != BSS_TYPE_AP_BSS ?
+				vif->bss_conf.bssid :
+				wl->links[link_id].addr),
+			win_size);
+	}
+
+out_event:
 
 	return 0;
 }
