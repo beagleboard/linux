@@ -455,7 +455,7 @@ static bool is_bss(struct cfg80211_bss *a, const u8 *bssid,
 	if (bssid && !ether_addr_equal(a->bssid, bssid))
 		return false;
 
-	if (!ssid)
+	if ( (!ssid) || (!ssid_len) )
 		return true;
 
 	ies = rcu_access_pointer(a->ies);
