@@ -206,12 +206,21 @@ static int _omap_device_notifier_call(struct notifier_block *nb,
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct omap_device *od;
-	int err;
+	int i, err;
 
 	switch (event) {
 	case BUS_NOTIFY_REMOVED_DEVICE:
-		if (pdev->archdata.od)
-			omap_device_delete(pdev->archdata.od);
+		od = to_omap_device(pdev);
+		if (!od)
+			break;
+
+		for (i = 0; i < od->hwmods_cnt; i++) {
+			/* shutdown hwmods */
+			omap_hwmod_shutdown(od->hwmods[i]);
+			/* we don't remove clocks cause there's no API to do so */
+			/* no harm done, since they will not be created next time */
+		}
+		omap_device_delete(od);
 		break;
 	case BUS_NOTIFY_UNBOUND_DRIVER:
 		od = to_omap_device(pdev);
@@ -785,6 +794,8 @@ int omap_device_idle(struct platform_device *pdev)
 	struct omap_device *od;
 
 	od = to_omap_device(pdev);
+	if (!od)
+		return 0;
 
 	if (od->_state != OMAP_DEVICE_STATE_ENABLED) {
 		dev_warn(&pdev->dev,
