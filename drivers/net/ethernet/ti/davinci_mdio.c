@@ -40,6 +40,9 @@
 #include <linux/of_device.h>
 #include <linux/of_mdio.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
+#include <linux/of_gpio.h>
 
 /*
  * This timeout definition is a worst-case ultra defensive measure against
@@ -52,6 +55,8 @@
 #define PHY_ID_MASK		0x1f
 
 #define DEF_OUT_FREQ		2200000		/* 2.2 MHz */
+
+#define DEFAULT_GPIO_RESET_DELAY	10	/* in microseconds */
 
 struct davinci_mdio_regs {
 	u32	version;
@@ -100,7 +105,24 @@ struct davinci_mdio_data {
 	 * if MDIO bus is registered from DT.
 	 */
 	bool		skip_scan;
+	struct gpio_desc **gpio_reset;
+	int		num_gpios;
+	int		reset_delay_us;
 };
+
+static void __davinci_gpio_reset(struct davinci_mdio_data *data)
+{
+	int i;
+
+	for (i = 0; i < data->num_gpios; i++) {
+		if (!data->gpio_reset[i])
+			continue;
+
+		gpiod_set_value_cansleep(data->gpio_reset[i], 1);
+		udelay(data->reset_delay_us);
+		gpiod_set_value_cansleep(data->gpio_reset[i], 0);
+	}
+}
 
 static void __davinci_mdio_reset(struct davinci_mdio_data *data)
 {
@@ -301,20 +323,50 @@ static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
 }
 
 #if IS_ENABLED(CONFIG_OF)
-static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
-			 struct platform_device *pdev)
+static int davinci_mdio_probe_dt(struct davinci_mdio_data *data,
+				 struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	u32 prop;
-
-	if (!node)
-		return -EINVAL;
+	int error;
+	int i;
+	struct gpio_desc *gpiod;
 
 	if (of_property_read_u32(node, "bus_freq", &prop)) {
 		dev_err(&pdev->dev, "Missing bus_freq property in the DT.\n");
-		return -EINVAL;
+		data->pdata = default_pdata;
+	} else {
+		data->pdata.bus_freq = prop;
 	}
-	data->bus_freq = prop;
+
+	i = of_gpio_named_count(node, "reset-gpios");
+	if (i > 0) {
+		data->num_gpios = i;
+		data->gpio_reset = devm_kcalloc(&pdev->dev, i,
+						sizeof(struct gpio_desc *),
+						GFP_KERNEL);
+		if (!data->gpio_reset)
+			return -ENOMEM;
+
+		for (i = 0; i < data->num_gpios; i++) {
+			gpiod = devm_gpiod_get_index(&pdev->dev, "reset", i,
+						     GPIOD_OUT_LOW);
+			if (IS_ERR(gpiod)) {
+				error = PTR_ERR(gpiod);
+				if (error == -ENOENT)
+					continue;
+				else
+					return error;
+			}
+			data->gpio_reset[i] = gpiod;
+		}
+
+		if (of_property_read_u32(node, "reset-delay-us",
+					 &data->reset_delay_us))
+			data->reset_delay_us = DEFAULT_GPIO_RESET_DELAY;
+
+		__davinci_gpio_reset(data);
+	}
 
 	return 0;
 }
@@ -340,8 +392,9 @@ static int davinci_mdio_probe(struct platform_device *pdev)
 	}
 
 	if (dev->of_node) {
-		if (davinci_mdio_probe_dt(&data->pdata, pdev))
-			data->pdata = default_pdata;
+		ret = davinci_mdio_probe_dt(data, pdev);
+		if (ret)
+			return ret;
 		snprintf(data->bus->id, MII_BUS_ID_SIZE, "%s", pdev->name);
 	} else {
 		data->pdata = pdata ? (*pdata) : default_pdata;

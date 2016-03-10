@@ -9,6 +9,8 @@ Required properties:
 
 Optional properties:
 - ti,hwmods		: Must be "davinci_mdio"
+- reset-gpios		: array of GPIO specifier for PHY hardware reset control
+- reset-delay-us	: reset assertion time [in microseconds]
 
 Note: "ti,hwmods" field is used to fetch the base address and irq
 resources from TI, omap hwmod data base during device registration.
