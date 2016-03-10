@@ -21,6 +21,10 @@
 		reg = <0x0 0x80000000 0x0 0x60000000>; /* 1536 MB */
 	};
 
+	aliases {
+		display0 = &hdmi0;
+	};
+
 	evm_3v3_sd: fixedregulator-sd {
 		compatible = "regulator-fixed";
 		regulator-name = "evm_3v3_sd";
@@ -148,6 +152,55 @@
 			gpios = <&pcf_lcd 3 GPIO_ACTIVE_LOW>;
 		};
 	};
+
+	hdmi0: connector@1 {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&tpd12s015_out>;
+			};
+		};
+	};
+
+	tpd12s015: encoder@1 {
+		compatible = "ti,dra7evm-tpd12s015";
+
+		pinctrl-names = "i2c", "ddc";
+		pinctrl-0 = <&hdmi_i2c_sel_pin &hdmi_i2c_pins_i2c>;
+		pinctrl-1 = <&hdmi_i2c_sel_pin &hdmi_i2c_pins_ddc>;
+
+		ddc-i2c-bus = <&i2c2>;
+		mcasp-gpio = <&mcasp8>;
+
+		gpios = <&pcf_hdmi 4 0>,	/* P4, CT CP HPD */
+			<&pcf_hdmi 5 0>,	/* P5, LS OE */
+			<&gpio7 12 0>;	/* gpio7_12/sp1_cs2, HPD */
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				tpd12s015_in: endpoint@0 {
+					remote-endpoint = <&hdmi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				tpd12s015_out: endpoint@0 {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
 };
 
 &dra7_pmx_core {
@@ -165,6 +218,26 @@
 		>;
 	};
 
+	hdmi_i2c_sel_pin: pinmux_hdmi_i2c_sel_pin {
+		pinctrl-single,pins = <
+			/* this pin is used as a GPIO via mcasp */
+			0x2fc   (PIN_OUTPUT | MUX_MODE1) /* mcasp8_axr2 */
+		>;
+	};
+
+	hdmi_i2c_pins_i2c: pinmux_hdmi_i2c_pins_default {
+		pinctrl-single,pins = <
+			0x408   (PIN_INPUT | MUX_MODE0) /* i2c2_sda.i2c2_sda */
+			0x40c   (PIN_INPUT | MUX_MODE0) /* i2c2_scl.i2c2_scl */
+		>;
+	};
+
+	hdmi_i2c_pins_ddc: pinmux_hdmi_i2c_pins_ddc {
+		pinctrl-single,pins = <
+			0x408   (PIN_INPUT | MUX_MODE1) /* i2c2_sda.hdmi1_ddc_scl */
+			0x40c   (PIN_INPUT | MUX_MODE1) /* i2c2_scl.hdmi1_ddc_sda */
+		>;
+	};
 };
 
 &i2c1 {
@@ -679,5 +752,22 @@
 	};
 	mbox_dsp2_ipc3x: mbox_dsp2_ipc3x {
 		status = "okay";
+	};
+};
+
+&dss {
+	status = "ok";
+
+	vdda_video-supply = <&ldoln_reg>;
+};
+
+&hdmi {
+	status = "ok";
+	vdda-supply = <&ldo3_reg>;
+
+	port {
+		hdmi_out: endpoint {
+			remote-endpoint = <&tpd12s015_in>;
+		};
 	};
 };
