@@ -37,6 +37,7 @@
 #include <sound/soc.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/omap-pcm.h>
+#include <dt-bindings/sound/ti-mcasp.h>
 
 #include "edma-pcm.h"
 #include "davinci-mcasp.h"
@@ -77,6 +78,7 @@ struct davinci_mcasp {
 	u32 fifo_base;
 	struct device *dev;
 	struct snd_pcm_substream *substreams[2];
+	unsigned int dai_fmt;
 
 	/* McASP specific data */
 	int	tdm_slots;
@@ -109,6 +111,10 @@ struct davinci_mcasp {
 
 	struct davinci_mcasp_ruledata ruledata[2];
 	struct snd_pcm_hw_constraint_list chconstr[2];
+#if IS_ENABLED(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015)
+	bool	is_mcasp8;
+	u8	hdmi_sel_gpio;
+#endif
 };
 
 static inline void mcasp_set_bits(struct davinci_mcasp *mcasp, u32 offset,
@@ -398,6 +404,9 @@ static int davinci_mcasp_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	bool fs_pol_rising;
 	bool inv_fs = false;
 
+	if (!fmt)
+		return 0;
+
 	pm_runtime_get_sync(mcasp->dev);
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_DSP_A:
@@ -529,6 +538,8 @@ static int davinci_mcasp_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_TXFMCTL_REG, FSXPOL);
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_RXFMCTL_REG, FSRPOL);
 	}
+
+	mcasp->dai_fmt = fmt;
 out:
 	pm_runtime_put(mcasp->dev);
 	return ret;
@@ -541,14 +552,14 @@ static int __davinci_mcasp_set_clkdiv(struct snd_soc_dai *dai, int div_id,
 
 	pm_runtime_get_sync(mcasp->dev);
 	switch (div_id) {
-	case 0:		/* MCLK divider */
+	case MCASP_CLKDIV_AUXCLK:			/* MCLK divider */
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG,
 			       AHCLKXDIV(div - 1), AHCLKXDIV_MASK);
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG,
 			       AHCLKRDIV(div - 1), AHCLKRDIV_MASK);
 		break;
 
-	case 1:		/* BCLK divider */
+	case MCASP_CLKDIV_BCLK:			/* BCLK divider */
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_ACLKXCTL_REG,
 			       ACLKXDIV(div - 1), ACLKXDIV_MASK);
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_ACLKRCTL_REG,
@@ -557,7 +568,8 @@ static int __davinci_mcasp_set_clkdiv(struct snd_soc_dai *dai, int div_id,
 			mcasp->bclk_div = div;
 		break;
 
-	case 2:	/*
+	case MCASP_CLKDIV_BCLK_FS_RATIO:
+		/*
 		 * BCLK/LRCLK ratio descries how many bit-clock cycles
 		 * fit into one frame. The clock ratio is given for a
 		 * full period of data (for I2S format both left and
@@ -594,18 +606,38 @@ static int davinci_mcasp_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 	struct davinci_mcasp *mcasp = snd_soc_dai_get_drvdata(dai);
 
 	pm_runtime_get_sync(mcasp->dev);
-	if (dir == SND_SOC_CLOCK_OUT) {
+
+	if (dir == SND_SOC_CLOCK_IN) {
+		switch (clk_id) {
+		case MCASP_CLK_HCLK_AHCLK:
+			mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG,
+				       AHCLKXE);
+			mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG,
+				       AHCLKRE);
+			mcasp_clr_bits(mcasp, DAVINCI_MCASP_PDIR_REG, AHCLKX);
+			break;
+		case MCASP_CLK_HCLK_AUXCLK:
+			mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG,
+				       AHCLKXE);
+			mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG,
+				       AHCLKRE);
+			break;
+		default:
+			dev_err(mcasp->dev, "Invalid clk id: %d\n", clk_id);
+			goto out;
+		}
+	} else {
+		/* Select AUXCLK as HCLK */
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG, AHCLKXE);
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG, AHCLKRE);
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_PDIR_REG, AHCLKX);
-	} else {
-		mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG, AHCLKXE);
-		mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG, AHCLKRE);
-		mcasp_clr_bits(mcasp, DAVINCI_MCASP_PDIR_REG, AHCLKX);
 	}
-
+	/*
+	 * When AHCLK X/R is selected to be output it means that the HCLK is
+	 * the same clock - coming via AUXCLK.
+	 */
 	mcasp->sysclk_freq = freq;
-
+out:
 	pm_runtime_put(mcasp->dev);
 	return 0;
 }
@@ -1098,7 +1130,7 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 	if (mcasp->op_mode == DAVINCI_MCASP_IIS_MODE)
 		mcasp->channels = channels;
 
-	return 0;
+	return davinci_mcasp_set_dai_fmt(cpu_dai, mcasp->dai_fmt);
 }
 
 static int davinci_mcasp_trigger(struct snd_pcm_substream *substream,
@@ -1517,6 +1549,8 @@ static int mcasp_reparent_fck(struct platform_device *pdev)
 	if (!parent_name)
 		return 0;
 
+	dev_warn(&pdev->dev, "Update the bindings to use assigned-clocks!\n");
+
 	gfclk = clk_get(&pdev->dev, "fck");
 	if (IS_ERR(gfclk)) {
 		dev_err(&pdev->dev, "failed to get fck\n");
@@ -1696,6 +1730,101 @@ static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 	return PCM_EDMA;
 }
 
+#if IS_ENABLED(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015)
+#define DRA7_MCASP_HDMI_SEL_GPIO	(1 << 2)
+int dra7_mcasp_hdmi_gpio_get(struct platform_device *pdev)
+{
+	struct davinci_mcasp *mcasp;
+
+	if (!pdev)
+		return -EPROBE_DEFER;
+
+	mcasp = dev_get_drvdata(&pdev->dev);
+	if (!mcasp)
+		return -EPROBE_DEFER;
+
+	if (!mcasp->is_mcasp8)
+		return 0;
+
+	pm_runtime_get_sync(mcasp->dev);
+
+	/* First set the direction to output */
+	mcasp_set_bits(mcasp, DAVINCI_MCASP_PDIR_REG,
+		       DRA7_MCASP_HDMI_SEL_GPIO);
+	/* then set the PDOUT */
+	if (mcasp->hdmi_sel_gpio)
+		mcasp_set_bits(mcasp, DAVINCI_MCASP_PDOUT_REG,
+			       DRA7_MCASP_HDMI_SEL_GPIO);
+	else
+		mcasp_clr_bits(mcasp, DAVINCI_MCASP_PDOUT_REG,
+			       DRA7_MCASP_HDMI_SEL_GPIO);
+	/* at last, change the function to GPIO mode */
+	mcasp_set_bits(mcasp, DAVINCI_MCASP_PFUNC_REG,
+		       DRA7_MCASP_HDMI_SEL_GPIO);
+
+	return 0;
+}
+EXPORT_SYMBOL(dra7_mcasp_hdmi_gpio_get);
+
+int dra7_mcasp_hdmi_gpio_put(struct platform_device *pdev)
+{
+	struct davinci_mcasp *mcasp;
+
+	if (!pdev)
+		return -EPROBE_DEFER;
+
+	mcasp = dev_get_drvdata(&pdev->dev);
+	if (!mcasp)
+		return -EPROBE_DEFER;
+
+	if (!mcasp->is_mcasp8)
+		return 0;
+
+	/* Set the pin as McASP pin */
+	mcasp_clr_bits(mcasp, DAVINCI_MCASP_PFUNC_REG,
+		       DRA7_MCASP_HDMI_SEL_GPIO);
+
+	pm_runtime_put_sync(mcasp->dev);
+
+	return 0;
+}
+EXPORT_SYMBOL(dra7_mcasp_hdmi_gpio_put);
+
+int dra7_mcasp_hdmi_gpio_set(struct platform_device *pdev, bool high)
+{
+	struct davinci_mcasp *mcasp;
+
+	if (!pdev)
+		return -EPROBE_DEFER;
+
+	mcasp = dev_get_drvdata(&pdev->dev);
+	if (!mcasp)
+		return -EPROBE_DEFER;
+
+	if (!mcasp->is_mcasp8)
+		return 0;
+
+	if (!pm_runtime_active(mcasp->dev)) {
+		dev_warn(mcasp->dev, "mcasp8 is not enabled!\n");
+		return -ENODEV;
+	}
+
+	if (mcasp->hdmi_sel_gpio == high)
+		return 0;
+
+	mcasp->hdmi_sel_gpio = high;
+	if (mcasp->hdmi_sel_gpio)
+		mcasp_set_bits(mcasp, DAVINCI_MCASP_PDOUT_REG,
+			       DRA7_MCASP_HDMI_SEL_GPIO);
+	else
+		mcasp_clr_bits(mcasp, DAVINCI_MCASP_PDOUT_REG,
+			       DRA7_MCASP_HDMI_SEL_GPIO);
+
+	return 0;
+}
+EXPORT_SYMBOL(dra7_mcasp_hdmi_gpio_set);
+#endif /* CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015 */
+
 static int davinci_mcasp_probe(struct platform_device *pdev)
 {
 	struct snd_dmaengine_dai_dma_data *dma_data;
@@ -1733,6 +1862,11 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 			return -ENODEV;
 		}
 	}
+
+#if IS_ENABLED(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015)
+	if (pdata->version == MCASP_VERSION_4 && mem->start == 0x4847c000)
+		mcasp->is_mcasp8 = true;
+#endif
 
 	mcasp->base = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(mcasp->base))
@@ -1897,6 +2031,31 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, mcasp);
 
 	mcasp_reparent_fck(pdev);
+
+	if (mcasp->version == MCASP_VERSION_4) {
+		u32 rev;
+
+		pm_runtime_get_sync(mcasp->dev);
+		rev = mcasp_get_reg(mcasp, DAVINCI_MCASP_PID_REG) &
+				    MCASP_V4_REV_MASK;
+		pm_runtime_put(mcasp->dev);
+
+		if (rev < MCASP_V4_REV(3, 3)) {
+			/*
+			 * ERRATA i868: to avoid race condition between DMA and
+			 * AFIFO events the R/WNUMEVT need to be set to be
+			 * less-than-equal to 32 words.
+			 */
+			if (mcasp->txnumevt)
+				mcasp->txnumevt = 32;
+			if (mcasp->rxnumevt)
+				mcasp->rxnumevt = 32;
+
+			if (mcasp->txnumevt || mcasp->rxnumevt)
+				dev_info(&pdev->dev,
+					 "ERRATA i868 workaround is enabled\n");
+		}
+	}
 
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					&davinci_mcasp_component,
