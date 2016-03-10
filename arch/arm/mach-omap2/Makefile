@@ -258,3 +258,5 @@ smsc911x-$(CONFIG_SMSC911X)		:= gpmc-smsc911x.o
 obj-y					+= $(smsc911x-m) $(smsc911x-y)
 
 obj-y					+= common-board-devices.o twl-common.o dss-common.o
+
+obj-$(CONFIG_OMAP_IOMMU)		+= omap-iommu.o
