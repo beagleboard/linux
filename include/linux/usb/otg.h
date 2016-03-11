@@ -74,6 +74,7 @@ struct otg_timer {
  * @work: otg state machine work
  * @wq: otg state machine work queue
  * @fsm_running: state machine running/stopped indicator
+ * @flags: to track if host/gadget is running
  * @drd_only: dual-role mode. no otg features.
  */
 struct usb_otg {
@@ -102,6 +103,9 @@ struct usb_otg {
 	struct work_struct work;
 	struct workqueue_struct *wq;
 	bool fsm_running;
+	u32 flags;
+#define OTG_FLAG_GADGET_RUNNING (1 << 0)
+#define OTG_FLAG_HOST_RUNNING (1 << 1)
 	/* use otg->fsm.lock for serializing access */
 	bool drd_only;
 

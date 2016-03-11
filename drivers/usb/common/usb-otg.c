@@ -472,6 +472,11 @@ int usb_otg_start_host(struct otg_fsm *fsm, int on)
 	}
 
 	if (on) {
+		if (otgd->flags & OTG_FLAG_HOST_RUNNING)
+			return 0;
+
+		otgd->flags |= OTG_FLAG_HOST_RUNNING;
+
 		/* start host */
 		hcd_ops = otgd->primary_hcd.ops;
 		hcd_ops->add(otgd->primary_hcd.hcd, otgd->primary_hcd.irqnum,
@@ -483,6 +488,11 @@ int usb_otg_start_host(struct otg_fsm *fsm, int on)
 				     otgd->shared_hcd.irqflags);
 		}
 	} else {
+		if (!(otgd->flags & OTG_FLAG_HOST_RUNNING))
+			return 0;
+
+		otgd->flags &= ~OTG_FLAG_HOST_RUNNING;
+
 		/* stop host */
 		if (otgd->shared_hcd.hcd) {
 			hcd_ops = otgd->shared_hcd.ops;
@@ -510,10 +520,19 @@ int usb_otg_start_gadget(struct otg_fsm *fsm, int on)
 		return 0;
 	}
 
-	if (on)
+	if (on) {
+		if (otgd->flags & OTG_FLAG_GADGET_RUNNING)
+			return 0;
+
+		otgd->flags |= OTG_FLAG_GADGET_RUNNING;
 		otgd->gadget_ops->start(fsm->otg->gadget);
-	else
+	} else {
+		if (!(otgd->flags & OTG_FLAG_GADGET_RUNNING))
+			return 0;
+
+		otgd->flags &= ~OTG_FLAG_GADGET_RUNNING;
 		otgd->gadget_ops->stop(fsm->otg->gadget);
+	}
 
 	return 0;
 }
