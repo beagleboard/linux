@@ -26,6 +26,7 @@
 #include <linux/regmap.h>
 #include <linux/if_vlan.h>
 #include <linux/ethtool.h>
+#include <linux/phy/phy.h>
 
 #include "cpsw_ale.h"
 #include "netcp.h"
@@ -172,6 +173,7 @@
 
 #define HOST_TX_PRI_MAP_DEFAULT			0x00000000
 
+#define MAX_NUM_SERDES				2
 #define SGMII_MODULE_SIZE			0x100
 
 struct xgbe_ss_regs {
@@ -649,6 +651,7 @@ struct gbe_priv {
 	u8				max_num_slaves;
 	u8				max_num_ports; /* max_num_slaves + 1 */
 	u8				num_stats_mods;
+	u8				num_serdeses;
 	struct netcp_tx_pipe		tx_pipe;
 
 	int				host_port;
@@ -684,6 +687,7 @@ struct gbe_priv {
 	int				num_et_stats;
 	/*  Lock for updating the hwstats */
 	spinlock_t			hw_stats_lock;
+	struct phy			*serdes_phy[MAX_NUM_SERDES];
 };
 
 struct gbe_intf {
@@ -2723,6 +2727,8 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
 	void __iomem *regs;
 	int ret, i;
 
+	gbe_dev->num_serdeses = 1;
+
 	gbe_dev->ss_regmap = syscon_regmap_lookup_by_phandle(node,
 							     "syscon-subsys");
 
@@ -2871,6 +2877,8 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
 	void __iomem *regs;
 	int i, ret;
 
+	gbe_dev->num_serdeses = 1;
+
 	if (gbe_dev->ss_regs) {
 		gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
 					   GBE13_SGMII_MODULE_OFFSET;
@@ -2988,6 +2996,7 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
 	void __iomem *regs;
 	int i, ret;
 
+	gbe_dev->num_serdeses = 2;
 	gbe_dev->num_stats_mods = gbe_dev->max_num_ports;
 	gbe_dev->et_stats = gbenu_et_stats;
 
@@ -3100,6 +3109,7 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 	struct device_node *secondary_ports;
 	struct cpsw_ale_params ale_params;
 	struct gbe_priv *gbe_dev;
+	struct phy *phy;
 	u32 slave_num;
 	int i, ret = 0;
 
@@ -3180,6 +3190,21 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 	if (ret)
 		return ret;
 
+	for (i = 0; i < gbe_dev->num_serdeses; i++) {
+		phy = devm_of_phy_get_by_index(dev, node, i);
+		if (IS_ERR(phy)) {
+			/* this one may be disabled, quietly skip */
+			dev_dbg(dev, "No %s serdes driver found: %ld\n",
+				node->name, PTR_ERR(phy));
+			continue;
+		}
+
+		gbe_dev->serdes_phy[i] = phy;
+		ret = phy_init(phy);
+		if (ret < 0)
+			goto exit_phys;
+	}
+
 	interfaces = of_get_child_by_name(node, "interfaces");
 	if (!interfaces)
 		dev_err(dev, "could not find interfaces\n");
@@ -3187,11 +3212,11 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 	ret = netcp_txpipe_init(&gbe_dev->tx_pipe, netcp_device,
 				gbe_dev->dma_chan_name, gbe_dev->tx_queue_id);
 	if (ret)
-		return ret;
+		goto exit_phys;
 
 	ret = netcp_txpipe_open(&gbe_dev->tx_pipe);
 	if (ret)
-		return ret;
+		goto exit_phys;
 
 	/* Create network interfaces */
 	INIT_LIST_HEAD(&gbe_dev->gbe_intf_head);
@@ -3261,10 +3286,14 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 	gbe_dev->timer.expires	 = jiffies + GBE_TIMER_INTERVAL;
 	add_timer(&gbe_dev->timer);
 	*inst_priv = gbe_dev;
+	dev_dbg(dev, "probed");
 	return 0;
 
 free_sec_ports:
 	free_secondary_ports(gbe_dev);
+exit_phys:
+	for (i = 0; i < gbe_dev->num_serdeses; i++)
+		phy_exit(gbe_dev->serdes_phy[i]);
 	return ret;
 }
 
@@ -3329,12 +3358,16 @@ static int gbe_release(void *intf_priv)
 static int gbe_remove(struct netcp_device *netcp_device, void *inst_priv)
 {
 	struct gbe_priv *gbe_dev = inst_priv;
+	int i;
 
 	del_timer_sync(&gbe_dev->timer);
 	cpsw_ale_stop(gbe_dev->ale);
 	cpsw_ale_destroy(gbe_dev->ale);
 	netcp_txpipe_close(&gbe_dev->tx_pipe);
 	free_secondary_ports(gbe_dev);
+
+	for (i = 0; i < gbe_dev->num_serdeses; i++)
+		phy_exit(gbe_dev->serdes_phy[i]);
 
 	if (!list_empty(&gbe_dev->gbe_intf_head))
 		dev_alert(gbe_dev->dev,
