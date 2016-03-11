@@ -48,6 +48,11 @@ enum otg_fsm_timer {
 /**
  * struct otg_fsm - OTG state machine according to the OTG spec
  *
+ * DRD mode hardware Inputs
+ *
+ * @id:		TRUE for B-device, FALSE for A-device.
+ * @b_sess_vld:	VBUS voltage in regulation.
+ *
  * OTG hardware Inputs
  *
  *	Common inputs for A and B device

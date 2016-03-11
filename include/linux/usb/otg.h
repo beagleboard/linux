@@ -74,6 +74,7 @@ struct otg_timer {
  * @work: otg state machine work
  * @wq: otg state machine work queue
  * @fsm_running: state machine running/stopped indicator
+ * @drd_only: dual-role mode. no otg features.
  */
 struct usb_otg {
 	u8			default_a;
@@ -102,6 +103,7 @@ struct usb_otg {
 	struct workqueue_struct *wq;
 	bool fsm_running;
 	/* use otg->fsm.lock for serializing access */
+	bool drd_only;
 
 /*------------- deprecated interface -----------------------------*/
 	/* bind/unbind the host controller */
