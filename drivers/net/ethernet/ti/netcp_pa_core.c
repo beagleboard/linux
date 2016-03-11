@@ -13,6 +13,8 @@
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <linux/clk.h>
+#include <linux/clocksource.h>
 #include <linux/if_vlan.h>
 #include <linux/io.h>
 #include <linux/ip.h>
@@ -219,6 +221,16 @@ static int pa_core_get_dt_bindings(struct pa_core_device *core_dev,
 	if (ret) {
 		dev_err(dev, "missing \"rx-cmd-rsp-buffer-size\" parameter\n");
 		return ret;
+	}
+
+	if (of_device_is_compatible(node, "ti,netcp-pa2")) {
+		core_dev->disable_hw_tstamp = true;
+	} else {
+		core_dev->disable_hw_tstamp = false;
+		if (of_property_read_bool(node, "disable-hw-timestamp")) {
+			core_dev->disable_hw_tstamp = true;
+			dev_warn(dev, "No PA timestamping\n");
+		}
 	}
 
 	ret = pa_core_parse_lut_range(core_dev, node, true);
@@ -584,8 +596,9 @@ static void pa_rx_compl_work_handler(unsigned long data)
 		}
 		/* Release chained descriptors. only data in the first
 		 * descriptor buffer needs to be processed based on current
-		 * response types supported. This will change if more response
-		 * types are supported in future.
+		 * response types supported (status of commands and timestamp.
+		 * This will change if more response types are supported in
+		 * future.
 		 */
 		pa_free_rx_desc_chain(core_dev, hwdesc);
 		knav_dma_get_pad_info((u32 *)&org_buf_ptr, &org_buf_len,
@@ -887,6 +900,12 @@ static int pa_core_tx_hook(int order, void *data, struct netcp_packet *p_info)
 		return size;
 
 	total += size;
+	/* If TX Timestamp required, request it */
+	if (unlikely(pa_intf->tx_timestamp_enable &&
+		     !core_dev->disable_hw_tstamp &&
+		     (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+		     !(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)))
+		total += hw->do_tx_timestamp(core_dev, p_info);
 
 	/* If checksum offload required, request it */
 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
@@ -938,6 +957,12 @@ static int pa_core_rx_hook(int order, void *data, struct netcp_packet *p_info)
 	struct pa_core_device *core_dev = pa_intf->core_dev;
 	struct pa_hw *hw = core_dev->hw;
 
+	dev_dbg(core_dev->dev, "pa_rx_hook, pa_dev->disable_hw_tstamp %d\n",
+		core_dev->disable_hw_tstamp);
+	/* Timestamping on Rx packets */
+	if (!unlikely(core_dev->disable_hw_tstamp))
+		hw->rx_timestamp_hook(pa_intf, p_info);
+
 	/* Checksum offload on Rx packets */
 	if (core_dev->netif_features & NETIF_F_RXCSUM)
 		hw->rx_checksum_hook(p_info);
@@ -956,7 +981,8 @@ int pa_core_close(void *intf_priv,
 	netcp_unregister_txhook(netcp_priv, PA_TXHOOK_ORDER,
 				pa_core_tx_hook, pa_intf);
 
-	if (core_dev->netif_features & NETIF_F_RXCSUM)
+	if ((core_dev->netif_features & NETIF_F_RXCSUM) ||
+	    (!core_dev->disable_hw_tstamp))
 		netcp_unregister_rxhook(netcp_priv, PA_RXHOOK_ORDER,
 					pa_core_rx_hook, pa_intf);
 
@@ -1052,7 +1078,8 @@ int pa_core_open(void *intf_priv,
 	netcp_register_txhook(netcp_priv, PA_TXHOOK_ORDER,
 			      pa_core_tx_hook, pa_intf);
 
-	if (core_dev->netif_features & NETIF_F_RXCSUM)
+	if ((!core_dev->disable_hw_tstamp) ||
+	    (core_dev->netif_features & NETIF_F_RXCSUM))
 		netcp_register_rxhook(netcp_priv, PA_RXHOOK_ORDER,
 				      pa_core_rx_hook, pa_intf);
 	return 0;
@@ -1072,6 +1099,8 @@ static void *pa_core_init(struct netcp_device *netcp_device,
 			  const char *firmwares[][PA_MAX_FIRMWARES])
 {
 	struct pa_core_device *core_dev;
+	unsigned long pa_rate;
+	u64 max_sec;
 
 	core_dev = kzalloc(size, GFP_KERNEL);
 	if (!core_dev) {
@@ -1108,6 +1137,31 @@ static void *pa_core_init(struct netcp_device *netcp_device,
 	*error = hw->map_resources(core_dev, node);
 	if (*error < 0)
 		goto cleanup;
+
+	if (hw->features & PA_TIMESTAMP) {
+		core_dev->clk = clk_get(core_dev->dev, "pa_clk");
+		if (IS_ERR(core_dev->clk)) {
+			*error = PTR_ERR(core_dev->clk);
+			goto cleanup;
+		}
+
+		pa_rate = clk_get_rate(core_dev->clk) / 2;
+		clk_put(core_dev->clk);
+		/* calculate the multiplier/shift to
+		 * convert PA counter ticks to ns.
+		 */
+		max_sec = ((1ULL << 48) - 1) + (pa_rate - 1);
+		do_div(max_sec, pa_rate);
+
+		clocks_calc_mult_shift(&core_dev->timestamp_info.mult,
+				       &core_dev->timestamp_info.shift, pa_rate,
+				       NSEC_PER_SEC, max_sec);
+
+		core_dev->timestamp_info.system_offset = 0;
+		dev_info(core_dev->dev, "pa_clk_rate(%lu HZ),mult(%u),shift(%u)\n",
+			 pa_rate, core_dev->timestamp_info.mult,
+			 core_dev->timestamp_info.shift);
+	}
 
 	hw->pre_init(core_dev);
 	*error = pa_core_load_n_start_pdsps(core_dev, firmwares);
