@@ -19,3 +19,4 @@ obj-$(CONFIG_TI_KEYSTONE_NETCP) += keystone_netcp.o
 keystone_netcp-y := netcp_core.o
 obj-$(CONFIG_TI_KEYSTONE_NETCP_ETHSS) += keystone_netcp_ethss.o
 keystone_netcp_ethss-y := netcp_ethss.o netcp_sgmii.o
+obj-$(CONFIG_TI_KEYSTONE_NETCP_PA_CORE) += netcp_pa_core.o
