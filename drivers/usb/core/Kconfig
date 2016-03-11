@@ -42,7 +42,7 @@ config USB_DYNAMIC_MINORS
 	  If you are unsure about this, say N here.
 
 config USB_OTG
-	bool "OTG support"
+	bool "OTG/Dual-role support"
 	depends on PM
 	default n
 	help
@@ -74,14 +74,6 @@ config USB_OTG_BLACKLIST_HUB
 	  external hubs.  OTG hosts are allowed to reduce hardware
 	  and software costs by not supporting external hubs.  So
 	  are "Embedded Hosts" that don't offer OTG support.
-
-config USB_OTG_FSM
-	tristate "USB 2.0 OTG FSM implementation"
-	depends on USB && USB_OTG
-	select USB_PHY
-	help
-	  Implements OTG Finite State Machine as specified in On-The-Go
-	  and Embedded Host Supplement to the USB Revision 2.0 Specification.
 
 config USB_ULPI_BUS
 	tristate "USB ULPI PHY interface support"
