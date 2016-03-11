@@ -31,6 +31,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 #include <linux/ulpi/interface.h>
+#include <linux/usb/otg-fsm.h>
 
 #include <linux/phy/phy.h>
 
@@ -751,6 +752,12 @@ struct dwc3_scratchpad_array {
  * @maximum_speed: maximum speed requested (mainly for testing purposes)
  * @revision: revision register contents
  * @dr_mode: requested mode of operation
+ * @fsm: otg state machine
+ * @otg_config: otg controller configuration
+ * @otg_prevent_sync: flag to block events to otg fsm
+ * @otg_protocol: saved copy of otg state during suspend
+ * @current_mode: current mode of operation written to PRTCAPDIR
+ * @oevt: cached OEVT register during OTG irq
  * @xhci_irq: IRQ number for XHCI IRQs
  * @gadget_irq: IRQ number for Peripheral IRQs
  * @otg_irq: IRQ number for OTG IRQs
@@ -761,6 +768,8 @@ struct dwc3_scratchpad_array {
  * @ulpi: pointer to ulpi interface
  * @dcfg: saved contents of DCFG register
  * @gctl: saved contents of GCTL register
+ * @ocfg: saved contents of OCFG register
+ * @octl: saved contents of OCTL register
  * @isoch_delay: wValue from Set Isochronous Delay request;
  * @u2sel: parameter from Set SEL request.
  * @u2pel: parameter from Set SEL request.
@@ -857,6 +866,12 @@ struct dwc3 {
 	size_t			regs_size;
 
 	enum usb_dr_mode	dr_mode;
+	struct otg_fsm		*fsm;
+	struct usb_otg_config	otg_config;
+	bool			otg_prevent_sync;
+	int			otg_protocol;
+	u32			current_mode;
+	u32			oevt;
 
 	int			gadget_irq;
 	int			xhci_irq;
@@ -865,6 +880,8 @@ struct dwc3 {
 	/* used for suspend/resume */
 	u32			dcfg;
 	u32			gctl;
+	u32			ocfg;
+	u32			octl;
 
 	u32			nr_scratch;
 	u32			num_event_buffers;
