@@ -62,7 +62,9 @@ Optional properties:
 		big endian mode with the DSP in little endian.
 
 NetCP device properties: Device specification for NetCP sub-modules.
+
 1Gb/10Gb (gbe/xgbe) ethernet switch sub-module specifications.
+===================================================================
 Required properties:
 - label:	Must be "netcp-gbe" for 1Gb & "netcp-xgbe" for 10Gb.
 - compatible:	Must be one of below:-
@@ -387,3 +389,146 @@ netcpx: netcpx@2f00000 {
 		};
 	};
 };
+
+Packet Accelarator sub-module specifications.
+=============================================
+
+Note: The bindings are experimental and may change while feature development
+is in progress. However attempt will be made to make changes backward
+compatible if possible.
+
+Required properties:
+- label:	Must be "netcp-pa" for PA on K2H/K SoC
+		Must be "netcp-pa2" for PA2 on K2L/E SoCs
+
+- compatible:	Must be one of below:-
+		"ti,netcp-pa" for PA
+		"ti,netcp-pa2" for PA2
+
+- reg:		register location and the size for the following register
+		regions in the specified order.
+
+		Packet Accelarator (PA)
+		- Mailbox
+		- Packet ID
+		- LUT2
+		- streaming switch
+		- Control
+		- Timers
+		- Statistics
+		- IRAM
+		- SRAM
+
+		Packet Accelarator 2 (PA2)
+		- Mailbox
+		- RA bridge
+		- Thread mapper
+		- RA
+		- Statistics regs
+		- Statistics block
+		- cluster memory
+
+- clusters:	Contain cluster specific configuration
+		reg:		 cluster ID
+		tx-queue:	 Queue for sending commands/data to a cluster
+		tx-channel:	 knav Tx channel associated with the queue
+
+- tx-cmd-pool:	specifies the number of descriptors to be used & the region-id
+		for creating the tx descriptor pool for tx channnels.
+- rx-cmd-rsp-chan:		rx channel name for receiving responses from
+				PDSPs
+- rx-cmd-rsp-pool:		specifies the number of descriptors to be used
+				& the region-id for creating the rx descriptor
+				pool for rx rsp channel.
+- rx-cmd-rsp-queue-depth:	number of descriptors in each of the free
+				descriptor queue (FDQ) for the pktdma Rx flow.
+				There can be at present a maximum of 4 queues
+				per Rx flow.
+- rx-cmd-rsp-buffer-size:	Size of the buffers allocated for the desc
+				in each rx response FDQs.
+- mac-lut-ranges:		LUT range of index used by PA device for MAC
+				rules. LUT is shared across different software
+				components in the system and this range is
+				reserved for PA device.
+- rx-route:			Rx Queue / Flow base used by PA. They should
+				match with rx-channel queue / flow for netcp
+				ethernet interface when PA is in the rx path.
+- netcp-interfaces:		interface specific configuration for PA.
+	slave-port		cpsw slave port number for the interface
+Optional properties:-
+
+- ip-lut-ranges:		LUT range of index reserved for PA device.
+				Used for rx checksum handling.
+- netcp-interfaces:		interface specific configuration for PA.
+		rx-channel:	rx channel name for ethernet interface when PA
+				is in the rx path for data. Uses a different
+				flow id when PA is added to the rx path.
+- disable-hw-timestamp:	Disable hw timestamp feature.
+
+Example:
+
+PA is a netcp device and appears under netcp-devices node. Example bindings for
+PA device is provided below.
+
+	netcp-devices {
+
+		<other netcp devices>
+
+		pa@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "netcp-pa";
+			compatible = "ti,netcp-pa";
+
+			reg = <0 0x60>,			/* Mailbox */
+				<0x400 0x10>,		/* Packet ID */
+				<0x500 0x40>,		/* LUT2 */
+				<0x604 0x4>,		/* streaming switch */
+				<0x1000 0x600>,		/* Control */
+				<0x3000 0x600>,		/* Timers */
+				<0x6000 0x100>,		/* Statistics */
+				<0x10000 0x30000>,	/* Iram */
+				<0x40000 0x8000>;	/* Sram */
+
+			mac-lut-ranges		= <0 43 56 63>;
+			/* Static reservation in LUT-1 (outer IP)
+			 * used by driver to add IP rules for Rx checksum
+			 * offload.
+			 */
+			ip-lut-ranges		= <61 63>;
+			/* base queue, base flow. Should match with that
+			 * for netrx0
+			 */
+			rx-route		= <8704 22>;
+			tx-cmd-pool		= <256 12>;
+			/* rx command pool */
+			rx-cmd-rsp-pool		= <256 12>;
+			/* rx channel name for command response */
+			rx-cmd-rsp-chan		= "pa-cmd-rsp";
+			rx-cmd-rsp-queue-depth	= <128 32 0 0>;
+			rx-cmd-rsp-buffer-size	= <128 512 0 0>;
+
+			/* PA clusters that does packet processing */
+			clusters {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				cluster@0 {
+					reg = <0>;
+					tx-queue = <640>;
+					tx-channel = "pa-cl0";
+				};
+
+				cluster@1 {
+					reg = <1>;
+					tx-queue = <641>;
+					tx-channel = "pa-cl1";
+				};
+
+				cluster@5 {
+					reg = <5>;
+					tx-queue = <645>;
+					tx-channel = "pa-cl5";
+				};
+			};
+		};
+	};
