@@ -614,9 +614,6 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
 		knav_pool_desc_put(netcp->rx_pool, ndesc);
 	}
 
-	/* Free the primary descriptor */
-	knav_pool_desc_put(netcp->rx_pool, desc);
-
 	/* check for packet len and warn */
 	if (unlikely(pkt_sz != accum_sz))
 		dev_dbg(netcp->ndev_dev, "mismatch in packet size(%d) & sum of fragments(%d)\n",
@@ -628,6 +625,11 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
 	/* Call each of the RX hooks */
 	p_info.skb = skb;
 	p_info.rxtstamp_complete = false;
+	knav_dma_get_desc_info(&tmp, &p_info.eflags, desc);
+	p_info.epib = desc->epib;
+	p_info.psdata = desc->psdata;
+	p_info.eflags = ((p_info.eflags >> KNAV_DMA_DESC_EFLAGS_SHIFT) &
+			 KNAV_DMA_DESC_EFLAGS_MASK);
 	list_for_each_entry(rx_hook, &netcp->rxhook_list_head, list) {
 		int ret;
 
@@ -637,10 +639,14 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
 			dev_err(netcp->ndev_dev, "RX hook %d failed: %d\n",
 				rx_hook->order, ret);
 			netcp->ndev->stats.rx_errors++;
+			/* Free the primary descriptor */
+			knav_pool_desc_put(netcp->rx_pool, desc);
 			dev_kfree_skb(skb);
 			return 0;
 		}
 	}
+	/* Free the primary descriptor */
+	knav_pool_desc_put(netcp->rx_pool, desc);
 
 	netcp->ndev->stats.rx_packets++;
 	netcp->ndev->stats.rx_bytes += skb->len;
