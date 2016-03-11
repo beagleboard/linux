@@ -831,6 +831,32 @@ static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)
 }
 
 /* --------------------- Dual-Role management ------------------------------- */
+static void dwc3_drd_fsm_sync(struct dwc3 *dwc)
+{
+	int id, vbus;
+
+	/*
+	 * calling usb_otg_sync_inputs() during resume breaks host
+	 * if adapter was removed during suspend as xhci driver
+	 * is not prepared to see hcd removal before xhci_resume.
+	 */
+	if (dwc->otg_prevent_sync)
+		return;
+
+	/* get ID */
+	id = extcon_get_cable_state(dwc->edev, "USB-HOST");
+	/* Host means ID == 0 */
+	id = !id;
+
+	/* get VBUS */
+	vbus = extcon_get_cable_state(dwc->edev, "USB");
+	dev_dbg(dwc->dev, "id %d vbus %d\n", id, vbus);
+
+	dwc->fsm->id = id;
+	dwc->fsm->b_sess_vld = vbus;
+	usb_otg_sync_inputs(dwc->fsm);
+}
+
 static int dwc3_drd_start_host(struct otg_fsm *fsm, int on)
 {
 	struct device *dev = usb_otg_fsm_to_dev(fsm);
@@ -838,6 +864,19 @@ static int dwc3_drd_start_host(struct otg_fsm *fsm, int on)
 	u32 reg;
 
 	dev_dbg(dwc->dev, "%s: %d\n", __func__, on);
+
+	if (dwc->edev) {
+		if (on) {
+			dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
+			/* start the HCD */
+			usb_otg_start_host(fsm, true);
+		} else {
+			/* stop the HCD */
+			usb_otg_start_host(fsm, false);
+		}
+
+		return 0;
+	}
 
 	/* switch OTG core */
 	if (on) {
@@ -886,6 +925,19 @@ static int dwc3_drd_start_gadget(struct otg_fsm *fsm, int on)
 	if (on)
 		dwc3_event_buffers_setup(dwc);
 
+	if (dwc->edev) {
+		if (on) {
+			dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+			/* start the UDC */
+			usb_otg_start_gadget(fsm, true);
+		} else {
+			/* stop the UDC */
+			usb_otg_start_gadget(fsm, false);
+		}
+
+		return 0;
+	}
+
 	/* switch OTG core */
 	if (on) {
 		/* OCTL.PeriMode = 1 */
@@ -923,6 +975,16 @@ static struct otg_fsm_ops dwc3_drd_ops = {
 	.start_gadget = dwc3_drd_start_gadget,
 };
 
+static int dwc3_drd_notifier(struct notifier_block *nb,
+		unsigned long event, void *ptr)
+{
+	struct dwc3 *dwc = container_of(nb, struct dwc3, otg_nb);
+
+	dwc3_drd_fsm_sync(dwc);
+
+	return NOTIFY_DONE;
+}
+
 static int dwc3_drd_register(struct dwc3 *dwc)
 {
 	int ret;
@@ -948,12 +1010,58 @@ static int dwc3_drd_init(struct dwc3 *dwc)
 	struct usb_otg_caps *otgcaps = &dwc->otg_config.otg_caps;
 	u32 reg;
 	unsigned long flags;
+	int id, vbus;
 
 	otgcaps->otg_rev = 0;
 	otgcaps->hnp_support = false;
 	otgcaps->srp_support = false;
 	otgcaps->adp_support = false;
 	dwc->otg_config.fsm_ops = &dwc3_drd_ops;
+
+	/* If extcon device is present we don't rely on OTG core for ID event */
+	if (dwc->edev) {
+		dwc->otg_nb.notifier_call = dwc3_drd_notifier;
+		ret = extcon_register_notifier(dwc->edev, EXTCON_USB,
+					       &dwc->otg_nb);
+		if (ret < 0) {
+			dev_err(dwc->dev, "Couldn't register USB cable notifier\n");
+			return -ENODEV;
+		}
+
+		ret = extcon_register_notifier(dwc->edev, EXTCON_USB_HOST,
+					       &dwc->otg_nb);
+		if (ret < 0) {
+			dev_err(dwc->dev, "Couldn't register USB-HOST cable notifier\n");
+			ret = -ENODEV;
+			goto extcon_fail;
+		}
+
+		/* sanity check id & vbus states */
+		id = extcon_get_cable_state(dwc->edev, "USB-HOST");
+		vbus = extcon_get_cable_state(dwc->edev, "USB");
+		if (id < 0 || vbus < 0) {
+			dev_err(dwc->dev, "Invalid USB cable state. id %d, vbus %d\n",
+				id, vbus);
+			ret = -ENODEV;
+			goto fail;
+		}
+
+		ret = dwc3_drd_register(dwc);
+		if (ret)
+			goto fail;
+
+		dwc3_drd_fsm_sync(dwc);
+
+		return 0;
+
+fail:
+		extcon_unregister_notifier(dwc->edev, EXTCON_USB_HOST,
+					   &dwc->otg_nb);
+extcon_fail:
+		extcon_unregister_notifier(dwc->edev, EXTCON_USB, &dwc->otg_nb);
+
+		return ret;
+	}
 
 	ret = dwc3_drd_register(dwc);
 	if (ret)
@@ -1015,6 +1123,8 @@ error:
 static void dwc3_drd_exit(struct dwc3 *dwc)
 {
 	usb_otg_unregister(dwc->dev);
+	extcon_unregister_notifier(dwc->edev, EXTCON_USB_HOST, &dwc->otg_nb);
+	extcon_unregister_notifier(dwc->edev, EXTCON_USB, &dwc->otg_nb);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1258,6 +1368,18 @@ static int dwc3_probe(struct platform_device *pdev)
 
 		dwc->hsphy_interface = pdata->hsphy_interface;
 		fladj = pdata->fladj_value;
+	}
+
+	if (dev->of_node) {
+		if (of_property_read_bool(dev->of_node, "extcon"))
+			dwc->edev = extcon_get_edev_by_phandle(dev, 0);
+		else if (of_property_read_bool(dev->parent->of_node, "extcon"))
+			dwc->edev = extcon_get_edev_by_phandle(dev->parent, 0);
+
+		if (IS_ERR(dwc->edev)) {
+			dev_vdbg(dev, "couldn't get extcon device\n");
+			return -EPROBE_DEFER;
+		}
 	}
 
 	/* default to superspeed if no maximum_speed passed */

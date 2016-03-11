@@ -34,6 +34,7 @@
 #include <linux/usb/otg-fsm.h>
 
 #include <linux/phy/phy.h>
+#include <linux/extcon.h>
 
 #define DWC3_MSG_MAX	500
 
@@ -758,6 +759,8 @@ struct dwc3_scratchpad_array {
  * @otg_protocol: saved copy of otg state during suspend
  * @current_mode: current mode of operation written to PRTCAPDIR
  * @oevt: cached OEVT register during OTG irq
+ * @edev: extcon dev for USB cable events ID & VBUS
+ * @otg_nb: notifier for USB cable events
  * @xhci_irq: IRQ number for XHCI IRQs
  * @gadget_irq: IRQ number for Peripheral IRQs
  * @otg_irq: IRQ number for OTG IRQs
@@ -872,6 +875,8 @@ struct dwc3 {
 	int			otg_protocol;
 	u32			current_mode;
 	u32			oevt;
+	struct extcon_dev	*edev;
+	struct notifier_block	otg_nb;
 
 	int			gadget_irq;
 	int			xhci_irq;
