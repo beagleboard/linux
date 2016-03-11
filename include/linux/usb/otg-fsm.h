@@ -18,23 +18,9 @@
 #ifndef __LINUX_USB_OTG_FSM_H
 #define __LINUX_USB_OTG_FSM_H
 
+#include <linux/device.h>
 #include <linux/mutex.h>
 #include <linux/errno.h>
-
-#undef VERBOSE
-
-#ifdef VERBOSE
-#define VDBG(fmt, args...) pr_debug("[%s]  " fmt , \
-				 __func__, ## args)
-#else
-#define VDBG(stuff...)	do {} while (0)
-#endif
-
-#ifdef VERBOSE
-#define MPC_LOC printk("Current Location [%s]:[%d]\n", __FILE__, __LINE__)
-#else
-#define MPC_LOC do {} while (0)
-#endif
 
 #define PROTO_UNDEF	(0)
 #define PROTO_HOST	(1)
@@ -196,6 +182,9 @@ struct otg_fsm {
 	int protocol;
 	struct mutex lock;
 	bool state_changed;
+
+	/* for debug prints */
+	struct device *dev;
 };
 
 struct otg_fsm_ops {
