@@ -1377,6 +1377,7 @@ static struct omap_hwmod_class dra7xx_mcasp_hwmod_class = {
 /* mcasp1 */
 static struct omap_hwmod_opt_clk mcasp1_opt_clks[] = {
 	{ .role = "ahclkx", .clk = "mcasp1_ahclkx_mux" },
+	{ .role = "ahclkr", .clk = "mcasp1_ahclkr_mux" },
 };
 
 static struct omap_hwmod dra7xx_mcasp1_hwmod = {
@@ -1384,7 +1385,7 @@ static struct omap_hwmod dra7xx_mcasp1_hwmod = {
 	.class		= &dra7xx_mcasp_hwmod_class,
 	.clkdm_name	= "ipu_clkdm",
 	.main_clk	= "mcasp1_aux_gfclk_mux",
-	.flags		= HWMOD_SWSUP_SIDLE,
+	.flags		= HWMOD_OPT_CLKS_NEEDED,
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_IPU_MCASP1_CLKCTRL_OFFSET,
@@ -1399,6 +1400,7 @@ static struct omap_hwmod dra7xx_mcasp1_hwmod = {
 /* mcasp2 */
 static struct omap_hwmod_opt_clk mcasp2_opt_clks[] = {
 	{ .role = "ahclkx", .clk = "mcasp2_ahclkx_mux" },
+	{ .role = "ahclkr", .clk = "mcasp2_ahclkr_mux" },
 };
 
 static struct omap_hwmod dra7xx_mcasp2_hwmod = {
@@ -1406,7 +1408,7 @@ static struct omap_hwmod dra7xx_mcasp2_hwmod = {
 	.class		= &dra7xx_mcasp_hwmod_class,
 	.clkdm_name	= "l4per2_clkdm",
 	.main_clk	= "mcasp2_aux_gfclk_mux",
-	.flags		= HWMOD_SWSUP_SIDLE,
+	.flags		= HWMOD_OPT_CLKS_NEEDED,
 	.prcm = {
 		.omap4 = {
 			.clkctrl_offs = DRA7XX_CM_L4PER2_MCASP2_CLKCTRL_OFFSET,
@@ -1861,6 +1863,8 @@ static struct omap_hwmod_class_sysconfig dra7xx_rtcss_sysc = {
 static struct omap_hwmod_class dra7xx_rtcss_hwmod_class = {
 	.name	= "rtcss",
 	.sysc	= &dra7xx_rtcss_sysc,
+	.unlock	= &omap_hwmod_rtc_unlock,
+	.lock	= &omap_hwmod_rtc_lock,
 };
 
 /* rtcss */
