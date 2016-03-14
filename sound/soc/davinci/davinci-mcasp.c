@@ -1051,6 +1051,10 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 	int period_size = params_period_size(params);
 	int ret;
 
+	ret = davinci_mcasp_set_dai_fmt(cpu_dai, mcasp->dai_fmt);
+	if (ret)
+		return ret;
+
 	/*
 	 * If mcasp is BCLK master, and a BCLK divider was not provided by
 	 * the machine driver, we need to calculate the ratio.
@@ -1123,7 +1127,7 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 	if (mcasp->op_mode == DAVINCI_MCASP_IIS_MODE)
 		mcasp->channels = channels;
 
-	return davinci_mcasp_set_dai_fmt(cpu_dai, mcasp->dai_fmt);
+	return 0;
 }
 
 static int davinci_mcasp_trigger(struct snd_pcm_substream *substream,
