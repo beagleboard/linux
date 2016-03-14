@@ -499,7 +499,7 @@
 			interrupts = <GIC_SPI 190 IRQ_TYPE_EDGE_RISING>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_DCAN0>;
-			clocks = <&k2g_clks K2G_DEV_DCAN0 0>;
+			clocks = <&k2g_clks K2G_DEV_DCAN0 K2G_DEV_DCAN_CAN_CLK>;
 			clock-names = "fck";
 		};
 
@@ -509,7 +509,7 @@
 			interrupts = <GIC_SPI 193 IRQ_TYPE_EDGE_RISING>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_DCAN1>;
-			clocks = <&k2g_clks K2G_DEV_DCAN1 0>;
+			clocks = <&k2g_clks K2G_DEV_DCAN1 K2G_DEV_DCAN_CAN_CLK>;
 			clock-names = "fck";
 		};
 
