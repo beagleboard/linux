@@ -988,3 +988,15 @@ int rtc_write_scratch(struct rtc_device *rtc, unsigned index, u32 value)
 	return err;
 }
 EXPORT_SYMBOL_GPL(rtc_write_scratch);
+
+/**
+ * rtc_power_off_program - Some of the rtc are hooked on to PMIC_EN
+ * line and can be used to power off the SoC.
+ *
+ * Kernel interface to program rtc to power off
+ */
+void rtc_power_off_program(struct rtc_device *rtc)
+{
+	rtc->ops->power_off_program(rtc->dev.parent);
+}
+EXPORT_SYMBOL_GPL(rtc_power_off_program);
