@@ -1517,8 +1517,9 @@
 			interrupt-names = "tx", "rx";
 			dmas = <&edma_xbar 129 1>, <&edma_xbar 128 1>;
 			dma-names = "tx", "rx";
-			clocks = <&mcasp1_aux_gfclk_mux>, <&mcasp1_ahclkx_mux>;
-			clock-names = "fck", "ahclkx";
+			clocks = <&mcasp1_aux_gfclk_mux>, <&mcasp1_ahclkx_mux>,
+				 <&mcasp1_ahclkr_mux>;
+			clock-names = "fck", "ahclkx", "ahclkr";
 			status = "disabled";
 		};
 
@@ -1533,8 +1534,9 @@
 			interrupt-names = "tx", "rx";
 			dmas = <&edma_xbar 131 1>, <&edma_xbar 130 1>;
 			dma-names = "tx", "rx";
-			clocks = <&mcasp2_aux_gfclk_mux>, <&mcasp2_ahclkx_mux>;
-			clock-names = "fck", "ahclkx";
+			clocks = <&mcasp2_aux_gfclk_mux>, <&mcasp2_ahclkx_mux>,
+				 <&mcasp2_ahclkr_mux>;
+			clock-names = "fck", "ahclkx", "ahclkr";
 			status = "disabled";
 		};
 
