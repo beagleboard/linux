@@ -1,3 +1,8 @@
+processor: SDK_release type: ti_sdk_am3x_release defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/am33xx_only.cfg
+processor: SDK_release type: ti_sdk_am4x_release defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/am43xx_only.cfg
+processor: SDK_release type: ti_sdk_dra7x_release defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/dra7_only.cfg
+processor: SDK_release type: ti_sdk_omap2_release defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs:
+processor: SDK_release type: ti_sdk_keystone_release defconfig: keystone_defconfig config_file: defconfig_fragment extra_configs:
 processor: AM33xx type: am335x_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/am33xx_only.cfg
 processor: AM33xx type: am335x_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/am33xx_only.cfg 
 processor: AM33xx type: am335x_lsk_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf ti_config_fragments/am33xx_only.cfg
