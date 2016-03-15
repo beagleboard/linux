@@ -12,12 +12,12 @@ processor: AM43xx type: am43x_lsk_debug_only defconfig: omap2plus_defconfig conf
 processor: AM43xx type: am43x_rt_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/am43xx_only.cfg
 processor: AM43xx type: am43x_rt_debug_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/am43xx_only.cfg
 
-processor: DRA7x type: dra7xx_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/dra7x_only.cfg
-processor: DRA7x type: dra7xx_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/dra7x_only.cfg
-processor: DRA7x type: dra7xx_lsk_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf ti_config_fragments/dra7x_only.cfg
-processor: DRA7x type: dra7xx_lsk_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg linaro/configs/linaro-base.conf ti_config_fragments/dra7x_only.cfg
-processor: DRA7x type: dra7xx_rt_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/dra7x_only.cfg
-processor: DRA7x type: dra7xx_rt_debug_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/dra7x_only.cfg
+processor: DRA7x type: dra7xx_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/dra7_only.cfg
+processor: DRA7x type: dra7xx_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/dra7_only.cfg
+processor: DRA7x type: dra7xx_lsk_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf ti_config_fragments/dra7_only.cfg
+processor: DRA7x type: dra7xx_lsk_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg linaro/configs/linaro-base.conf ti_config_fragments/dra7_only.cfg
+processor: DRA7x type: dra7xx_rt_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/dra7_only.cfg
+processor: DRA7x type: dra7xx_rt_debug_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/dra7_only.cfg
 
 processor: Keystone2 type: base_keystone_debug defconfig: keystone_defconfig config_file: None extra_configs: ti_config_fragments/debug_options.cfg
 processor: Keystone2 type: ti_keystone defconfig: keystone_defconfig config_file: multi_core_defconfig_fragment extra_configs:
