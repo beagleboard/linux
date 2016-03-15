@@ -142,6 +142,7 @@
 #include <linux/cpu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/suspend.h>
 
 #include <asm/system_misc.h>
 
@@ -207,6 +208,9 @@ static struct omap_hwmod_soc_ops soc_ops;
 
 /* omap_hwmod_list contains all registered struct omap_hwmods */
 static LIST_HEAD(omap_hwmod_list);
+
+/* oh_reidle_list contains all omap_hwmods with HWMOD_NEEDS_REIDLE set */
+LIST_HEAD(oh_reidle_list);
 
 /* mpu_oh: used to add/remove MPU initiator from sleepdep list */
 static struct omap_hwmod *mpu_oh;
@@ -2160,12 +2164,15 @@ static int _enable(struct omap_hwmod *oh)
 	r = (soc_ops.wait_target_ready) ? soc_ops.wait_target_ready(oh) :
 		-EINVAL;
 	if (!r) {
+		if (oh->clkdm && (oh->flags & HWMOD_CLKDM_NOAUTO))
+			clkdm_hwmod_prevent_hwauto(oh->clkdm, oh);
+
 		/*
 		 * Set the clockdomain to HW_AUTO only if the target is ready,
 		 * assuming that the previous state was HW_AUTO
 		 */
 		if (oh->clkdm && hwsup)
-			clkdm_allow_idle(oh->clkdm);
+			clkdm_hwmod_hwauto(oh->clkdm, oh);
 
 		oh->_state = _HWMOD_STATE_ENABLED;
 
@@ -2200,6 +2207,11 @@ static int _enable(struct omap_hwmod *oh)
  */
 static int _idle(struct omap_hwmod *oh)
 {
+	if (oh->flags & HWMOD_NO_IDLE) {
+		oh->_int_flags |= _HWMOD_SKIP_ENABLE;
+		return 0;
+	}
+
 	pr_debug("omap_hwmod: %s: idling\n", oh->name);
 
 	if (oh->_state != _HWMOD_STATE_ENABLED) {
@@ -2227,8 +2239,15 @@ static int _idle(struct omap_hwmod *oh)
 	 * transition to complete properly.
 	 */
 	_disable_clocks(oh);
-	if (oh->clkdm)
+
+	if (oh->clkdm) {
+		if (oh->flags & HWMOD_CLKDM_NOAUTO) {
+			clkdm_hwmod_allow_hwauto(oh->clkdm, oh);
+			clkdm_hwmod_hwauto(oh->clkdm, oh);
+		}
+
 		clkdm_hwmod_disable(oh->clkdm, oh);
+	}
 
 	/* Mux pins for device idle if populated */
 	if (oh->mux && oh->mux->pads_dynamic) {
@@ -2383,6 +2402,28 @@ static int of_dev_hwmod_lookup(struct device_node *np,
 }
 
 /**
+ * _setup_reidle- check hwmod @oh and add to reidle list
+ * @oh: struct omap_hwmod *
+ * @n: (unused)
+ *
+ * Check hwmod for HWMOD_NEEDS_REIDLE flag and add to list if
+ * necessary. Return 0 on success.
+ */
+static int _setup_reidle(struct omap_hwmod *oh, void *data)
+{
+	int ret;
+
+	if (oh->flags & HWMOD_NEEDS_REIDLE) {
+		ret = omap_hwmod_enable_reidle(oh);
+
+		if (!ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+/**
  * _init_mpu_rt_base - populate the virtual address for a hwmod
  * @oh: struct omap_hwmod * to locate the virtual address
  * @data: (unused, caller should pass NULL)
@@ -2504,6 +2545,8 @@ static int __init _init(struct omap_hwmod *oh, void *data)
 			oh->flags |= HWMOD_INIT_NO_RESET;
 		if (of_find_property(np, "ti,no-idle-on-init", NULL))
 			oh->flags |= HWMOD_INIT_NO_IDLE;
+		if (of_find_property(np, "ti,no-idle", NULL))
+			oh->flags |= HWMOD_NO_IDLE;
 	}
 
 	oh->_state = _HWMOD_STATE_INITIALIZED;
@@ -2630,7 +2673,7 @@ static void __init _setup_postsetup(struct omap_hwmod *oh)
 	 * XXX HWMOD_INIT_NO_IDLE does not belong in hwmod data -
 	 * it should be set by the core code as a runtime flag during startup
 	 */
-	if ((oh->flags & HWMOD_INIT_NO_IDLE) &&
+	if ((oh->flags & (HWMOD_INIT_NO_IDLE | HWMOD_NO_IDLE)) &&
 	    (postsetup_state == _HWMOD_STATE_IDLE)) {
 		oh->_int_flags |= _HWMOD_SKIP_ENABLE;
 		postsetup_state = _HWMOD_STATE_ENABLED;
@@ -3105,6 +3148,54 @@ static int _am33xx_deassert_hardreset(struct omap_hwmod *oh,
 					   oh->prcm.omap4.rstst_offs);
 }
 
+/**
+ * _reidle - enable then idle a single hwmod
+ *
+ * enables and then immediately reidles an hwmod, as certain hwmods may
+ * not have their sysconfig registers programmed in an idle friendly state
+ * by default
+ */
+static void _reidle(struct omap_hwmod *oh)
+{
+	pr_debug("omap_hwmod: %s: %s\n", oh->name, __func__);
+
+	omap_hwmod_enable(oh);
+	omap_hwmod_softreset(oh);
+	omap_hwmod_idle(oh);
+}
+
+/**
+ * _reidle_all - enable then idle all hwmods in oh_reidle_list
+ *
+ * Called by pm_notifier to make sure flagged modules do not block suspend
+ * after context loss.
+ */
+static int _reidle_all(void)
+{
+	struct omap_hwmod_list *oh_list_item = NULL;
+
+	list_for_each_entry(oh_list_item, &oh_reidle_list, oh_list) {
+		_reidle(oh_list_item->oh);
+	}
+
+	return 0;
+}
+
+static int _omap_device_pm_notifier(struct notifier_block *self,
+				    unsigned long action, void *dev)
+{
+	switch (action) {
+	case PM_POST_SUSPEND:
+		_reidle_all();
+	}
+
+	return NOTIFY_DONE;
+}
+
+struct notifier_block pm_nb = {
+	.notifier_call = _omap_device_pm_notifier,
+};
+
 /* Public functions */
 
 u32 omap_hwmod_read(struct omap_hwmod *oh, u16 reg_offs)
@@ -3314,6 +3405,52 @@ static int __init omap_hwmod_setup_all(void)
 	return 0;
 }
 omap_core_initcall(omap_hwmod_setup_all);
+
+/**
+ * omap_hwmod_enable_reidle - add an omap_hwmod to reidle list
+ * @oh: struct omap_hwmod *
+ *
+ * Adds the omap_hwmod to the oh_reidle_list so it will gets enabled then idled
+ * after each suspend cycle. Returns 0 on success.
+ */
+int omap_hwmod_enable_reidle(struct omap_hwmod *oh)
+{
+	struct omap_hwmod_list *oh_list_item = NULL;
+
+	oh_list_item = kzalloc(sizeof(*oh_list_item), GFP_KERNEL);
+
+	if (!oh_list_item)
+		return -ENOMEM;
+
+	oh_list_item->oh = oh;
+	list_add(&oh_list_item->oh_list, &oh_reidle_list);
+
+	pr_debug("omap_hwmod: %s: added to reidle list\n", oh->name);
+
+	return 0;
+}
+
+/**
+ * omap_hwmod_disable_reidle - remove an omap_hwmod from reidle list
+ * @oh: struct omap_hwmod *
+ *
+ * Remove the omap_hwmod from the oh_reidle_list. Returns 0 on success.
+ */
+int omap_hwmod_disable_reidle(struct omap_hwmod *oh)
+{
+	struct omap_hwmod_list *li, *oh_list_item = NULL;
+
+	list_for_each_entry_safe(oh_list_item, li, &oh_reidle_list, oh_list) {
+		if (oh_list_item->oh == oh) {
+			list_del(&oh_list_item->oh_list);
+			pr_debug("omap_hwmod: %s: removed from reidle list\n",
+				 oh->name);
+			kfree(oh_list_item);
+		}
+	}
+
+	return 0;
+}
 
 /**
  * omap_hwmod_enable - enable an omap_hwmod
@@ -3923,6 +4060,21 @@ void __init omap_hwmod_init(void)
 }
 
 /**
+ * omap_hwmod_setup_reidle - add hwmods to reidle list and register notifier
+ *
+ * Returns 0 on success.
+ */
+int omap_hwmod_setup_reidle(void)
+{
+	omap_hwmod_for_each(_setup_reidle, NULL);
+
+	if (!list_empty(&oh_reidle_list))
+		register_pm_notifier(&pm_nb);
+
+	return 0;
+}
+
+/**
  * omap_hwmod_get_main_clk - get pointer to main clock name
  * @oh: struct omap_hwmod *
  *
@@ -3935,4 +4087,71 @@ const char *omap_hwmod_get_main_clk(struct omap_hwmod *oh)
 		return NULL;
 
 	return oh->main_clk;
+}
+
+/**
+ * omap_hwmod_save_context - Saves the HW reset line state of submodules
+ * @oh: struct omap_hwmod *
+ * @unused: (unused, caller should pass NULL)
+ *
+ * Saves the HW reset line state of all the submodules in the hwmod
+ */
+static int omap_hwmod_save_context(struct omap_hwmod *oh, void *unused)
+{
+	int i;
+
+	for (i = 0; i < oh->rst_lines_cnt; i++)
+		oh->rst_lines[i].context =
+				_read_hardreset(oh, oh->rst_lines[i].name);
+	return 0;
+}
+
+/**
+ * omap_hwmod_restore_context - Restores the HW reset line state of submodules
+ * @oh: struct omap_hwmod *
+ * @unused: (unused, caller should pass NULL)
+ *
+ * Restores the HW reset line state of all the submodules in the hwmod
+ */
+static int omap_hwmod_restore_context(struct omap_hwmod *oh, void *unused)
+{
+	int i;
+
+	for (i = 0; i < oh->rst_lines_cnt; i++)
+		if (oh->rst_lines[i].context)
+			_assert_hardreset(oh, oh->rst_lines[i].name);
+		else if (oh->_state == _HWMOD_STATE_ENABLED)
+			_deassert_hardreset(oh, oh->rst_lines[i].name);
+
+	if (oh->_state == _HWMOD_STATE_ENABLED) {
+		if (soc_ops.enable_module)
+			soc_ops.enable_module(oh);
+	} else {
+		if (oh->flags & HWMOD_NEEDS_REIDLE)
+			_reidle(oh);
+		else if (soc_ops.disable_module)
+			soc_ops.disable_module(oh);
+	}
+
+	return 0;
+}
+
+/**
+ * omap_hwmods_save_context - Saves the HW reset line state for all hwmods
+ *
+ * Saves the HW reset line state of all the registered hwmods
+ */
+void omap_hwmods_save_context(void)
+{
+	omap_hwmod_for_each(omap_hwmod_save_context, NULL);
+}
+
+/**
+ * omap_hwmods_restore_context - Restores the HW reset line state for all hwmods
+ *
+ * Restores the HW reset line state of all the registered hwmods
+ */
+void omap_hwmods_restore_context(void)
+{
+	omap_hwmod_for_each(omap_hwmod_restore_context, NULL);
 }

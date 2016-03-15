@@ -1213,6 +1213,86 @@ ccd_exit:
 }
 
 /**
+ * clkdm_hwmod_prevent_hwauto - prevent a future hwauto on a clock domain.
+ * @clkdm: struct clockdomain *
+ * @oh: struct omap_hwmod * of the enabled downstream hwmod
+ *
+ * Prevent future hwauto for this clkdm. This will only prevent future hwauto
+ * but not bring it out of hwauto.
+ */
+int clkdm_hwmod_prevent_hwauto(struct clockdomain *clkdm, struct omap_hwmod *oh)
+{
+	/* The clkdm attribute does not exist yet prior OMAP4 */
+	if (cpu_is_omap24xx() || cpu_is_omap34xx())
+		return 0;
+
+	if (!clkdm || !oh || !arch_clkdm || !arch_clkdm->clkdm_clk_disable)
+		return -EINVAL;
+
+	pwrdm_lock(clkdm->pwrdm.ptr);
+	clkdm->noidlecount++;
+	pwrdm_unlock(clkdm->pwrdm.ptr);
+
+	return 0;
+}
+
+/**
+ * clkdm_hwmod_allow_hwauto - allow future hwauto for this clkdm
+ * @clkdm: struct clockdomain *
+ * @oh: struct omap_hwmod * of the enabled downstream hwmod
+ *
+ * Allow future hwauto for this clkdm. It won't put clkdm into hwauto.
+ * use clkdm_hwmod_hwauto() for that.
+ */
+int clkdm_hwmod_allow_hwauto(struct clockdomain *clkdm, struct omap_hwmod *oh)
+{
+	/* The clkdm attribute does not exist yet prior OMAP4 */
+	if (cpu_is_omap24xx() || cpu_is_omap34xx())
+		return 0;
+
+	if (!clkdm || !oh || !arch_clkdm || !arch_clkdm->clkdm_clk_disable)
+		return -EINVAL;
+
+	pwrdm_lock(clkdm->pwrdm.ptr);
+
+	if (clkdm->noidlecount == 0) {
+		pwrdm_unlock(clkdm->pwrdm.ptr);
+		WARN_ON(1); /* underflow */
+		return -ERANGE;
+	}
+
+	clkdm->noidlecount--;
+	pwrdm_unlock(clkdm->pwrdm.ptr);
+
+	return 0;
+}
+
+/**
+ * clkdm_hwmod_hwauto - put clkdm in hwauto
+ * @clkdm: struct clockdomain *
+ * @oh: struct omap_hwmod * of the enabled downstream hwmod
+ *
+ * Put clkdm in hwauto if we can. Checks noidlecount to see if we can.
+ */
+int clkdm_hwmod_hwauto(struct clockdomain *clkdm, struct omap_hwmod *oh)
+{
+	/* The clkdm attribute does not exist yet prior OMAP4 */
+	if (cpu_is_omap24xx() || cpu_is_omap34xx())
+		return 0;
+
+	if (!clkdm || !oh || !arch_clkdm || !arch_clkdm->clkdm_clk_disable)
+		return -EINVAL;
+
+	pwrdm_lock(clkdm->pwrdm.ptr);
+	if (clkdm->noidlecount == 0)
+		clkdm_allow_idle_nolock(clkdm);
+
+	pwrdm_unlock(clkdm->pwrdm.ptr);
+
+	return 0;
+}
+
+/**
  * clkdm_hwmod_enable - add an enabled downstream hwmod to this clkdm
  * @clkdm: struct clockdomain *
  * @oh: struct omap_hwmod * of the enabled downstream hwmod
@@ -1295,3 +1375,49 @@ int clkdm_hwmod_disable(struct clockdomain *clkdm, struct omap_hwmod *oh)
 	return 0;
 }
 
+/**
+ * _clkdm_save_context - save the context for the control of this clkdm
+ *
+ * Due to a suspend or hibernation operation, the state of the registers
+ * controlling this clkdm will be lost, save their context.
+ */
+static int _clkdm_save_context(struct clockdomain *clkdm, void *ununsed)
+{
+	if (!arch_clkdm || !arch_clkdm->clkdm_save_context)
+		return -EINVAL;
+
+	return arch_clkdm->clkdm_save_context(clkdm);
+}
+
+/**
+ * _clkdm_restore_context - restore context for control of this clkdm
+ *
+ * Restore the register values for this clockdomain.
+ */
+static int _clkdm_restore_context(struct clockdomain *clkdm, void *ununsed)
+{
+	if (!arch_clkdm || !arch_clkdm->clkdm_restore_context)
+		return -EINVAL;
+
+	return arch_clkdm->clkdm_restore_context(clkdm);
+}
+
+/**
+ * clkdm_save_context - Saves the context for each registered clkdm
+ *
+ * Save the context for each registered clockdomain.
+ */
+void clkdm_save_context(void)
+{
+	clkdm_for_each(_clkdm_save_context, NULL);
+}
+
+/**
+ * clkdm_restore_context - Restores the context for each registered clkdm
+ *
+ * Restore the context for each registered clockdomain.
+ */
+void clkdm_restore_context(void)
+{
+	clkdm_for_each(_clkdm_restore_context, NULL);
+}

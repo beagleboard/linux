@@ -399,6 +399,20 @@ EXPORT_SYMBOL(ioremap_wc);
  * clocks that would affect normal memory for example. Please see
  * CONFIG_GENERIC_ALLOCATOR for allocating external memory.
  */
+void __iomem *ioremap_exec(resource_size_t res_cookie, size_t size)
+{
+	return arch_ioremap_caller(res_cookie, size, MT_MEMORY_RWX,
+				   __builtin_return_address(0));
+}
+EXPORT_SYMBOL(ioremap_exec);
+
+void __iomem *ioremap_exec_nocache(resource_size_t res_cookie, size_t size)
+{
+	return arch_ioremap_caller(res_cookie, size, MT_MEMORY_RWX_NONCACHED,
+				   __builtin_return_address(0));
+}
+EXPORT_SYMBOL(ioremap_exec_nocache);
+
 void __iomem *
 __arm_ioremap_exec(phys_addr_t phys_addr, size_t size, bool cached)
 {
