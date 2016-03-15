@@ -29,6 +29,7 @@
 #include <sound/omap-pcm.h>
 #include <sound/omap-hdmi-audio.h>
 #include <video/omapdss.h>
+#include <sound/initval.h>
 
 #define DRV_NAME "omap-hdmi-audio"
 
@@ -322,10 +323,18 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 	struct snd_soc_dai_driver *dai_drv;
 	struct snd_soc_card *card;
 	int ret;
+	int id = SNDRV_DEFAULT_IDX1;
 
 	if (!ha) {
 		dev_err(dev, "No platform data\n");
 		return -EINVAL;
+	}
+
+	/* Get the id of the parent (the HDMI HW IP) */
+	if (ha->dev->of_node) {
+		id = of_alias_get_id(ha->dev->of_node, "sound");
+		if (id < 0)
+			id = SNDRV_DEFAULT_IDX1;
 	}
 
 	ad = devm_kzalloc(dev, sizeof(*ad), GFP_KERNEL);
@@ -345,6 +354,7 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 		dai_drv = &omap4_hdmi_dai;
 		break;
 	case OMAPDSS_VER_OMAP5:
+	case OMAPDSS_VER_DRA7xx:
 		dai_drv = &omap5_hdmi_dai;
 		break;
 	default:
@@ -365,9 +375,12 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 
 	card->name = devm_kasprintf(dev, GFP_KERNEL,
 				    "HDMI %s", dev_name(ad->dssdev));
+	card->id_hint = id;
 	card->owner = THIS_MODULE;
 	card->dai_link =
 		devm_kzalloc(dev, sizeof(*(card->dai_link)), GFP_KERNEL);
+	if (!card->dai_link)
+		return -ENOMEM;
 	card->dai_link->name = card->name;
 	card->dai_link->stream_name = card->name;
 	card->dai_link->cpu_dai_name = dev_name(ad->dssdev);

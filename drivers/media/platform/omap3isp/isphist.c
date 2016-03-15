@@ -18,7 +18,6 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dmaengine.h>
-#include <linux/omap-dmaengine.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
@@ -486,27 +485,19 @@ int omap3isp_hist_init(struct isp_device *isp)
 	hist->isp = isp;
 
 	if (HIST_CONFIG_DMA) {
-		struct platform_device *pdev = to_platform_device(isp->dev);
-		struct resource *res;
-		unsigned int sig = 0;
-		dma_cap_mask_t mask;
+		hist->dma_ch = dma_request_chan(isp->dev, "hist");
+		if (IS_ERR(hist->dma_ch)) {
+			ret = PTR_ERR(hist->dma_ch);
+			if (ret == -EPROBE_DEFER)
+				return ret;
 
-		dma_cap_zero(mask);
-		dma_cap_set(DMA_SLAVE, mask);
-
-		res = platform_get_resource_byname(pdev, IORESOURCE_DMA,
-						   "hist");
-		if (res)
-			sig = res->start;
-
-		hist->dma_ch = dma_request_slave_channel_compat(mask,
-				omap_dma_filter_fn, &sig, isp->dev, "hist");
-		if (!hist->dma_ch)
+			hist->dma_ch = NULL;
 			dev_warn(isp->dev,
 				 "hist: DMA channel request failed, using PIO\n");
-		else
+		} else {
 			dev_dbg(isp->dev, "hist: using DMA channel %s\n",
 				dma_chan_name(hist->dma_ch));
+		}
 	}
 
 	hist->ops = &hist_ops;
