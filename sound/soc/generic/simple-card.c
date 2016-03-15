@@ -100,7 +100,7 @@ static int asoc_simple_card_hw_params(struct snd_pcm_substream *substream,
 		if (ret && ret != -ENOTSUPP)
 			goto err;
 	}
-
+	return 0;
 err:
 	return ret;
 }
@@ -143,7 +143,8 @@ static int __asoc_simple_card_dai_init(struct snd_soc_dai *dai,
 	int ret;
 
 	if (set->sysclk) {
-		ret = snd_soc_dai_set_sysclk(dai, 0, set->sysclk, 0);
+		ret = snd_soc_dai_set_sysclk(dai, set->sysclk_id, set->sysclk,
+					     set->sysclk_dir);
 		if (ret && ret != -ENOTSUPP) {
 			dev_err(dai->dev, "simple-card: set_sysclk error\n");
 			goto err;
@@ -222,6 +223,7 @@ asoc_simple_card_sub_parse_of(struct device_node *np,
 {
 	struct of_phandle_args args;
 	struct clk *clk;
+	const char *str;
 	u32 val;
 	int ret;
 
@@ -251,6 +253,16 @@ asoc_simple_card_sub_parse_of(struct device_node *np,
 	if (ret)
 		return ret;
 
+	ret = of_property_read_string(np, "system-clock-direction", &str);
+	if (ret == 0) {
+		if (!strcmp(str, "out"))
+			dai->sysclk_dir = SND_SOC_CLOCK_OUT;
+		else if (!strcmp(str, "in"))
+			dai->sysclk_dir = SND_SOC_CLOCK_IN;
+		else
+			return -EINVAL;
+	}
+
 	/*
 	 * Parse dai->sysclk come from "clocks = <&xxx>"
 	 * (if system has common clock)
@@ -273,6 +285,9 @@ asoc_simple_card_sub_parse_of(struct device_node *np,
 		if (!IS_ERR(clk))
 			dai->sysclk = clk_get_rate(clk);
 	}
+
+	if (!of_property_read_u32(np, "system-clock-id", &val))
+		dai->sysclk_id = val;
 
 	return 0;
 }
