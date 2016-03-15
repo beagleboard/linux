@@ -158,6 +158,24 @@ static const struct of_device_id ti_emif_of_match[] = {
 	{},
 };
 
+static int ti_emif_resume(struct device *dev)
+{
+	unsigned long tmp =  __raw_readl(ti_emif_sram_virt);
+
+	/*
+	 * Check to see if what we are copying is already present in the
+	 * first byte at the destination, only copy if it is not which
+	 * indicates we have lost context and sram no longer contains
+	 * the PM code
+	 */
+	if (tmp != ti_emif_sram)
+		fncpy((void *)ocmcram_location,
+		      &ti_emif_sram,
+		      ti_emif_sram_sz);
+
+	return 0;
+}
+
 static int ti_emif_probe(struct platform_device *pdev)
 {
 	int ret = -ENODEV;
@@ -215,12 +233,17 @@ static int ti_emif_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct dev_pm_ops ti_emif_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(NULL, ti_emif_resume)
+};
+
 static struct platform_driver ti_emif_driver = {
 	.probe = ti_emif_probe,
 	.remove = ti_emif_remove,
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.of_match_table = of_match_ptr(ti_emif_of_match),
+		.pm = &ti_emif_pm_ops,
 	},
 };
 

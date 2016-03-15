@@ -63,11 +63,22 @@
 #define AM43XX_CM_PER_EMIF_CLKCTRL_OFFSET 0x0720
 #define AM43XX_PRM_EMIF_CTRL_OFFSET    0x30
 
+#define RTC_SECONDS_REG					0x0
+#define RTC_PMIC_REG					0x98
+#define RTC_PMIC_POWER_EN				(1 << 16)
+#define RTC_PMIC_EXT_WAKEUP_STS				(1 << 12)
+#define RTC_PMIC_EXT_WAKEUP_POL				(1 << 4)
+#define RTC_PMIC_EXT_WAKEUP_EN				(1 << 0)
+
+#define WFI_FLAG_RTC_ONLY		(1 << 8)
+
 	.text
 	.align 3
 
 ENTRY(am43xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
+
+	str	r0, wfi_flags
 
 	/* Retrieve l2 cache virt address BEFORE we shut off EMIF */
 	ldr	r1, get_l2cache_base
@@ -154,12 +165,31 @@ sync:
 	bne	sync
 #endif
 
+	/*
+	 * If we are trying to enter RTC+DDR mode we must perform
+	 * a read from the rtc address space to ensure translation
+	 * presence in the TLB to avoid page table walk after DDR
+	 * is unavailable.
+	 */
+	ldr	r1, wfi_flags
+	tst	r1, #WFI_FLAG_RTC_ONLY
+	beq	skip_rtc_va_refresh
+
+	ldr	r1, rtc_base_virt
+	ldr	r0, [r1]
+
+skip_rtc_va_refresh:
 	mov	r0, #0x1
 	ldr	r1, ti_emif_save_context
 	blx	r1
 
 	ldr	r1, ti_emif_enter_sr
 	blx	r1
+
+	mov	r1, #EMIF_POWER_MGMT_DELAY_PERIOD
+wait_self_refresh:
+	subs	r1, r1, #1
+	bne	wait_self_refresh
 
 	/* Disable EMIF */
 	ldr	r1, am43xx_virt_emif_clkctrl
@@ -173,6 +203,34 @@ wait_emif_disable:
 	cmp	r2, r3
 	bne	wait_emif_disable
 
+	ldr	r1, wfi_flags
+
+	tst	r1, #WFI_FLAG_RTC_ONLY
+	beq	am43xx_deep_sleep_suspend
+
+	ldr	r1, rtc_base_virt
+
+	ldr	r0, [r1, #RTC_PMIC_REG]
+	orr	r0, r0, #RTC_PMIC_POWER_EN
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_STS
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_EN
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_POL
+	str	r0, [r1, #RTC_PMIC_REG]
+	ldr	r0, [r1, #RTC_PMIC_REG]
+	/* Wait for 2 seconds to lose power */
+	mov	r3, #2
+	ldr	r2, [r1, #RTC_SECONDS_REG]
+rtc_loop:
+	ldr	r0, [r1, #RTC_SECONDS_REG]
+	cmp	r0, r2
+	beq	rtc_loop
+	mov	r2, r0
+	subs	r3, r3, #1
+	bne	rtc_loop
+
+	b	re_enable_emif
+
+am43xx_deep_sleep_suspend:
 	/*
 	 * For the MPU WFI to be registered as an interrupt
 	 * to WKUP_M3, MPU_CLKCTRL.MODULEMODE needs to be set
@@ -234,6 +292,7 @@ wait_emif_disable:
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
 	str	r2, [r1]
 
+re_enable_emif:
 	/* Re-enable EMIF */
 	ldr	r1, am43xx_virt_emif_clkctrl
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
@@ -362,14 +421,15 @@ ENDPROC(am43xx_resume_from_deep_sleep)
  * Local variables
  */
 	.align
-resume_addr:
-	.word	cpu_resume - PAGE_OFFSET + 0x80000000
 get_l2cache_base:
 	.word	omap4_get_l2cache_base
 kernel_flush:
 	.word   v7_flush_dcache_all
 ddr_start:
 	.word	PAGE_OFFSET
+
+wfi_flags:
+	.word	0
 
 cke_override_virt:
 	.word	0xDEADBEEF
@@ -434,6 +494,10 @@ ENTRY(am43xx_pm_sram)
 .word am43xx_do_wfi_sz
 .word am43xx_resume_offset
 .word am43xx_emif_sram_table
+rtc_base_virt:
+.word 0xdeadbeef
+resume_addr:
+.word cpu_resume - PAGE_OFFSET + 0x80000000
 
 ENTRY(am43xx_do_wfi_sz)
 	.word	. - am43xx_do_wfi

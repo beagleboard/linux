@@ -325,6 +325,28 @@ static int pinmux_func_name_to_selector(struct pinctrl_dev *pctldev,
 	return -EINVAL;
 }
 
+int pinmux_save_context(struct pinctrl_dev *pctldev, const char *function)
+{
+	const struct pinmux_ops *pmxops = pctldev->desc->pmxops;
+
+	if (!pmxops || !pmxops->save_context)
+		return -EINVAL;
+
+	return pmxops->save_context(pctldev);
+}
+EXPORT_SYMBOL(pinmux_save_context);
+
+void pinmux_restore_context(struct pinctrl_dev *pctldev, const char *function)
+{
+	const struct pinmux_ops *pmxops = pctldev->desc->pmxops;
+
+	if (!pmxops || !pmxops->restore_context)
+		return;
+
+	pmxops->restore_context(pctldev);
+}
+EXPORT_SYMBOL(pinmux_restore_context);
+
 int pinmux_map_to_setting(struct pinctrl_map const *map,
 			  struct pinctrl_setting *setting)
 {
