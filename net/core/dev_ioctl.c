@@ -331,6 +331,7 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
 		    cmd == SIOCBRDELIF ||
 		    cmd == SIOCSHWTSTAMP ||
 		    cmd == SIOCGHWTSTAMP ||
+		    cmd == SIOCSWITCHCONFIG ||
 		    cmd == SIOCWANDEV) {
 			err = -EOPNOTSUPP;
 			if (ops->ndo_do_ioctl) {
@@ -541,6 +542,15 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
 		 * Not applicable in our case */
 	case SIOCSIFLINK:
 		return -ENOTTY;
+
+	case SIOCSWITCHCONFIG:
+		dev_load(net, ifr.ifr_name);
+		rtnl_lock();
+		ret = dev_ifsioc(net, &ifr, cmd);
+		rtnl_unlock();
+		if (!ret && copy_to_user(arg, &ifr, sizeof(struct ifreq)))
+			ret = -EFAULT;
+		return ret;
 
 	/*
 	 *	Unknown or private ioctl.
