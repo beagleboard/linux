@@ -510,6 +510,8 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &omap4_ipu_dsp_pdata),
 	OF_DEV_AUXDATA("ti,dra7-dsp", 0x40800000, "40800000.dsp",
 		       &omap4_ipu_dsp_pdata),
+	OF_DEV_AUXDATA("ti,dra7-dsp", 0x41000000, "41000000.dsp",
+		       &omap4_ipu_dsp_pdata),
 #endif
 #ifdef CONFIG_SOC_AM43XX
 	OF_DEV_AUXDATA("ti,am437-padconf", 0x44e10800, "44e10800.pinmux", &pcs_pdata),
