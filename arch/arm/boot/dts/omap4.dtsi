@@ -109,11 +109,6 @@
 			sram = <&ocmcram>;
 		};
 
-		dsp {
-			compatible = "ti,omap3-c64";
-			ti,hwmods = "dsp";
-		};
-
 		iva {
 			compatible = "ti,ivahd";
 			ti,hwmods = "iva";
@@ -460,6 +455,15 @@
 			ti,timer-dsp;
 			clocks = <&abe_clkctrl OMAP4_TIMER8_CLKCTRL 24>;
 			clock-names = "fck";
+		};
+
+		dsp: dsp {
+			compatible = "ti,omap4-dsp";
+			ti,hwmods = "dsp";
+			syscon-bootreg = <&scm_conf 0x304>;
+			iommus = <&mmu_dsp>;
+			mboxes = <&mailbox &mbox_dsp>;
+			status = "disabled";
 		};
 
 		aes1: aes@4b501000 {
