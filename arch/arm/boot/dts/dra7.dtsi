@@ -1058,6 +1058,36 @@
 			ti,hwmods = "dmm";
 		};
 
+		ipu1: ipu@58820000 {
+			compatible = "ti,dra7-ipu";
+			reg = <0x58820000 0x10000>;
+			reg-names = "l2ram";
+			ti,hwmods = "ipu1";
+			iommus = <&mmu_ipu1>;
+			status = "disabled";
+		};
+
+		ipu2: ipu@55020000 {
+			compatible = "ti,dra7-ipu";
+			reg = <0x55020000 0x10000>;
+			reg-names = "l2ram";
+			ti,hwmods = "ipu2";
+			iommus = <&mmu_ipu2>;
+			status = "disabled";
+		};
+
+		dsp1: dsp@40800000 {
+			compatible = "ti,dra7-dsp";
+			reg = <0x40800000 0x48000>,
+			      <0x40e00000 0x8000>,
+			      <0x40f00000 0x8000>;
+			reg-names = "l2ram", "l1pram", "l1dram";
+			ti,hwmods = "dsp1";
+			syscon-bootreg = <&scm_conf 0x55c>;
+			iommus = <&mmu0_dsp1>, <&mmu1_dsp1>;
+			status = "disabled";
+		};
+
 		i2c1: i2c@48070000 {
 			compatible = "ti,omap4-i2c";
 			reg = <0x48070000 0x100>;
