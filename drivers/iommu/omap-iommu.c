@@ -470,22 +470,14 @@ static void flush_iotlb_all(struct omap_iommu *obj)
  */
 static void flush_iopgd_range(u32 *first, u32 *last)
 {
-	/* FIXME: L2 cache should be taken care of if it exists */
-	do {
-		asm("mcr	p15, 0, %0, c7, c10, 1 @ flush_pgd"
-		    : : "r" (first));
-		first += L1_CACHE_BYTES / sizeof(*first);
-	} while (first <= last);
+	dmac_flush_range(first, last);
+	outer_flush_range(virt_to_phys(first), virt_to_phys(last));
 }
 
 static void flush_iopte_range(u32 *first, u32 *last)
 {
-	/* FIXME: L2 cache should be taken care of if it exists */
-	do {
-		asm("mcr	p15, 0, %0, c7, c10, 1 @ flush_pte"
-		    : : "r" (first));
-		first += L1_CACHE_BYTES / sizeof(*first);
-	} while (first <= last);
+	dmac_flush_range(first, last);
+	outer_flush_range(virt_to_phys(first), virt_to_phys(last));
 }
 
 static void iopte_free(u32 *iopte)
@@ -515,7 +507,7 @@ static u32 *iopte_alloc(struct omap_iommu *obj, u32 *iopgd, u32 da)
 			return ERR_PTR(-ENOMEM);
 
 		*iopgd = virt_to_phys(iopte) | IOPGD_TABLE;
-		flush_iopgd_range(iopgd, iopgd);
+		flush_iopgd_range(iopgd, iopgd + 1);
 
 		dev_vdbg(obj->dev, "%s: a new pte:%p\n", __func__, iopte);
 	} else {
@@ -544,7 +536,7 @@ static int iopgd_alloc_section(struct omap_iommu *obj, u32 da, u32 pa, u32 prot)
 	}
 
 	*iopgd = (pa & IOSECTION_MASK) | prot | IOPGD_SECTION;
-	flush_iopgd_range(iopgd, iopgd);
+	flush_iopgd_range(iopgd, iopgd + 1);
 	return 0;
 }
 
@@ -561,7 +553,7 @@ static int iopgd_alloc_super(struct omap_iommu *obj, u32 da, u32 pa, u32 prot)
 
 	for (i = 0; i < 16; i++)
 		*(iopgd + i) = (pa & IOSUPER_MASK) | prot | IOPGD_SUPER;
-	flush_iopgd_range(iopgd, iopgd + 15);
+	flush_iopgd_range(iopgd, iopgd + 16);
 	return 0;
 }
 
@@ -574,7 +566,7 @@ static int iopte_alloc_page(struct omap_iommu *obj, u32 da, u32 pa, u32 prot)
 		return PTR_ERR(iopte);
 
 	*iopte = (pa & IOPAGE_MASK) | prot | IOPTE_SMALL;
-	flush_iopte_range(iopte, iopte);
+	flush_iopte_range(iopte, iopte + 1);
 
 	dev_vdbg(obj->dev, "%s: da:%08x pa:%08x pte:%p *pte:%08x\n",
 		 __func__, da, pa, iopte, *iopte);
@@ -599,7 +591,7 @@ static int iopte_alloc_large(struct omap_iommu *obj, u32 da, u32 pa, u32 prot)
 
 	for (i = 0; i < 16; i++)
 		*(iopte + i) = (pa & IOLARGE_MASK) | prot | IOPTE_LARGE;
-	flush_iopte_range(iopte, iopte + 15);
+	flush_iopte_range(iopte, iopte + 16);
 	return 0;
 }
 
@@ -628,9 +620,11 @@ iopgtable_store_entry_core(struct omap_iommu *obj, struct iotlb_entry *e)
 		break;
 	default:
 		fn = NULL;
-		BUG();
 		break;
 	}
+
+	if (WARN_ON(!fn))
+		return -EINVAL;
 
 	prot = get_iopte_attr(e);
 
@@ -768,7 +762,7 @@ static void iopgtable_clear_entry_all(struct omap_iommu *obj)
 			iopte_free(iopte_offset(iopgd, 0));
 
 		*iopgd = 0;
-		flush_iopgd_range(iopgd, iopgd);
+		flush_iopgd_range(iopgd, iopgd + 1);
 	}
 
 	flush_iotlb_all(obj);
@@ -798,7 +792,7 @@ static irqreturn_t iommu_fault_handler(int irq, void *data)
 	if (!report_iommu_fault(domain, obj->dev, da, 0))
 		return IRQ_HANDLED;
 
-	iommu_disable(obj);
+	iommu_write_reg(obj, 0, MMU_IRQENABLE);
 
 	iopgd = iopgd_offset(obj, da);
 
@@ -987,7 +981,6 @@ static int omap_iommu_remove(struct platform_device *pdev)
 {
 	struct omap_iommu *obj = platform_get_drvdata(pdev);
 
-	iopgtable_clear_entry_all(obj);
 	omap_iommu_debugfs_remove(obj);
 
 	pm_runtime_disable(obj->dev);
@@ -1102,7 +1095,8 @@ omap_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto out;
 	}
 
-	omap_domain->iommu_dev = arch_data->iommu_dev = oiommu;
+	omap_domain->iommu_dev = oiommu;
+	arch_data->iommu_dev = oiommu;
 	omap_domain->dev = dev;
 	oiommu->domain = domain;
 
@@ -1127,7 +1121,8 @@ static void _omap_iommu_detach_dev(struct omap_iommu_domain *omap_domain,
 
 	omap_iommu_detach(oiommu);
 
-	omap_domain->iommu_dev = arch_data->iommu_dev = NULL;
+	omap_domain->iommu_dev = NULL;
+	arch_data->iommu_dev = NULL;
 	omap_domain->dev = NULL;
 	oiommu->domain = NULL;
 }
@@ -1161,7 +1156,8 @@ static struct iommu_domain *omap_iommu_domain_alloc(unsigned type)
 	 * should never fail, but please keep this around to ensure
 	 * we keep the hardware happy
 	 */
-	BUG_ON(!IS_ALIGNED((long)omap_domain->pgtable, IOPGD_TABLE_SIZE));
+	if (WARN_ON(!IS_ALIGNED((long)omap_domain->pgtable, IOPGD_TABLE_SIZE)))
+		goto fail_align;
 
 	clean_dcache_area(omap_domain->pgtable, IOPGD_TABLE_SIZE);
 	spin_lock_init(&omap_domain->lock);
@@ -1172,6 +1168,8 @@ static struct iommu_domain *omap_iommu_domain_alloc(unsigned type)
 
 	return &omap_domain->domain;
 
+fail_align:
+	kfree(omap_domain->pgtable);
 fail_nomem:
 	kfree(omap_domain);
 out:
