@@ -612,6 +612,18 @@ static struct regulator_ops palmas_ops_ldo = {
 	.map_voltage		= regulator_map_voltage_linear,
 };
 
+static struct regulator_ops palmas_ops_ldo9 = {
+	.is_enabled		= palmas_is_enabled_ldo,
+	.enable			= regulator_enable_regmap,
+	.disable		= regulator_disable_regmap,
+	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
+	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
+	.list_voltage		= regulator_list_voltage_linear,
+	.map_voltage		= regulator_map_voltage_linear,
+	.set_bypass		= regulator_set_bypass_regmap,
+	.get_bypass		= regulator_get_bypass_regmap,
+};
+
 static struct regulator_ops palmas_ops_ext_control_ldo = {
 	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
 	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
@@ -637,6 +649,19 @@ static struct regulator_ops tps65917_ops_ldo = {
 	.list_voltage		= regulator_list_voltage_linear,
 	.map_voltage		= regulator_map_voltage_linear,
 	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
+};
+
+static struct regulator_ops tps65917_ops_ldo_1_2 = {
+	.is_enabled		= palmas_is_enabled_ldo,
+	.enable			= regulator_enable_regmap,
+	.disable		= regulator_disable_regmap,
+	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
+	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
+	.list_voltage		= regulator_list_voltage_linear,
+	.map_voltage		= regulator_map_voltage_linear,
+	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
+	.set_bypass		= regulator_set_bypass_regmap,
+	.get_bypass		= regulator_get_bypass_regmap,
 };
 
 static int palmas_regulator_config_external(struct palmas *palmas, int id,
@@ -915,6 +940,13 @@ static int palmas_ldo_registration(struct palmas_pmic *pmic,
 			if (pdata && pdata->ldo6_vibrator &&
 			    (id == PALMAS_REG_LDO6))
 				desc->enable_time = 2000;
+
+			if (id == PALMAS_REG_LDO9) {
+				desc->ops = &palmas_ops_ldo9;
+				desc->bypass_reg = desc->enable_reg;
+				desc->bypass_mask =
+						PALMAS_LDO9_CTRL_LDO_BYPASS_EN;
+			}
 		} else {
 			if (!ddata->has_regen3 && id == PALMAS_REG_REGEN3)
 				continue;
@@ -979,6 +1011,7 @@ static int tps65917_ldo_registration(struct palmas_pmic *pmic,
 	struct palmas_reg_init *reg_init;
 	struct palmas_regs_info *rinfo;
 	struct regulator_desc *desc;
+	unsigned int reg;
 
 	for (id = ddata->ldo_begin; id < ddata->max_reg; id++) {
 		if (pdata && pdata->reg_init[id])
@@ -1019,6 +1052,36 @@ static int tps65917_ldo_registration(struct palmas_pmic *pmic,
 			 * It is of the order of ~60mV/uS.
 			 */
 			desc->ramp_delay = 2500;
+			if (id == TPS65917_REG_LDO1 ||
+			    id == TPS65917_REG_LDO2) {
+				desc->ops = &tps65917_ops_ldo_1_2;
+				desc->bypass_reg = desc->enable_reg;
+				desc->bypass_mask =
+						TPS65917_LDO1_CTRL_BYPASS_EN;
+
+				/*
+				 * OTP Values are set to bypass enable.
+				 * Switch to disable so that use count
+				 * does not go negative while directly
+				 * disabling bypass.
+				 */
+				ret = palmas_ldo_read(pmic->palmas,
+						      rinfo->ctrl_addr, &reg);
+				if (ret) {
+					dev_err(pmic->dev,
+						"Error reading ldo1 reg\n");
+					return ret;
+				}
+				reg &= ~TPS65917_LDO1_CTRL_BYPASS_EN;
+				ret = palmas_ldo_write(pmic->palmas,
+						       rinfo->ctrl_addr, reg);
+				if (ret) {
+					dev_err(pmic->dev,
+						"Error writing ldo1 reg\n");
+					return ret;
+				}
+
+			}
 		} else {
 			desc->n_voltages = 1;
 			if (reg_init && reg_init->roof_floor)

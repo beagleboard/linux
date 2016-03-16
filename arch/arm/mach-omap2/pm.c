@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/err.h>
+#include <linux/platform_data/pm33xx.h>
 #include <linux/pm_opp.h>
 #include <linux/export.h>
 #include <linux/suspend.h>
@@ -108,7 +109,7 @@ static void __init omap2_init_processor_devices(void)
 	}
 }
 
-int __init omap_pm_clkdms_setup(struct clockdomain *clkdm, void *unused)
+int omap_pm_clkdms_setup(struct clockdomain *clkdm, void *unused)
 {
 	/* XXX The usecount test is racy */
 	if ((clkdm->flags & CLKDM_CAN_ENABLE_AUTO) &&

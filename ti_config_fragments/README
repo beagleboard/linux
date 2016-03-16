@@ -1,0 +1,143 @@
+
+			     TI defconfig Fragments
+
+Description
+===========
+
+The Linux kernel contains a script that takes a base defconfig and merges
+defconfig fragment files into a final buildable configuration for your target.
+
+TI Defconfig Merge Script Usage
+===============================
+
+1.0 Script contents
+-------------------
+
+This script will either take in a single defconfig fragment file or a file with
+multiple fragments defined.  With either file the base defconfig will initially
+be built, copied to a working directory, and the kernels merge_config script
+will be called for each config file fragment.  Each config file fragment will
+be appended to the base config and then the final output will be copied back to
+the kernels working directory.
+
+A copy of both the base config and the final config is stored in the scripts
+logging directory.
+
+Single fragment command line example:
+-------------------------------------
+
+	$ defconfig_merge.sh -c <path to the compiler>	\
+		-o <output directory and file name>	\
+		-e <path to single fragment file>	\
+		-w <path to kernel's working directory>
+
+"use-kernel-config=" - Is required to be defined.  This is the base defconfig
+that the config fragments will be appended to.  This defconfig should be in the
+Linux kernel path in arch/arm/configs.
+
+	use-kernel-config= < defconfig base to start appending fragments >
+
+"config-fragment=" - Is required to be defined.  There should be at least one
+entry per config fragment.
+
+	config-fragment= < path to the defconfig fragment file 1>
+
+Multiple fragment command line example:
+---------------------------------------
+
+	export CROSS_COMPILE=~/linux_kernel/docs/toolchain/linaro-4.7/bin/arm-linux-gnueabihf-
+
+	./ti_config_fragments/defconfig_merge.sh -o ~/Desktop/kernel/notes/kernel.txt
+	-f ~/linux_kernel/lcpd_kernel/ti_config_fragments/defconfig_fragment -m
+	-w ~/linux_kernel/lcpd_kernel/ -c $CROSS_COMPILE
+
+
+Example:
+use-kernel-config=omap2plus_defconfig
+config-fragment=baseport.cfg
+config-fragment=power.cfg
+config-fragment=connectivity.cfg
+config-fragment=ipc.cfg
+config-fragment=audio_display.cfg
+config-fragment=system_test.cfg
+
+
+OPTIONS:
+	Setup Options:
+	-c  The path to the desired compiler
+	-d  The defconfig to use as a base
+	-e  Single defconfig fragment to append
+	-j  How many build threads to use
+	-o  Output log
+	-l  uImage load address if different from 0x80008000 for no load address use ""
+
+	Build Options:
+	-n  Do not pre-build the defconfig just use the existing .config
+	-m  MAKE the kernel, modules and dtb files based on the new config
+	-w  Linux kernel path directory
+
+	-f  Path to file with multiple defconfig options
+
+2.0 Config Fragment File
+------------------------
+
+The config fragment file contains the CONFIG options that will need to be
+turned on or off based on a base defconfig.
+
+To turn on a config flag you merely create a file of any name and populate it
+with CONFIG_BAR=y
+
+Of course if CONFIG_BAR has a parent dependency, say CONFIG_FOO you will need
+to turn that CONFIG option on as well so your file will need to look like this
+
+CONFIG_FOO=y
+CONFIG_BAR=y
+
+You may want to disable a certain config option.  Normally in the config file
+it is custumary to have an entry like this
+
+# CONFIG_FOO is not set
+
+Well the merge_config.sh within the kernel strips out all comments from the
+passed in Config fragment file.  So in order to turn off a config option you
+will need to explicitly state
+
+CONFIG_FOO=n
+
+Linux Kernel Script Location:
+=============================
+
+scripts/Kconfig/merge_config.sh
+
+Linux Kernel Script Usage
+=========================
+
+To have the latest script usage information displayed please use the
+command below in any linux kernel.
+
+./scripts/Kconfig/merge_config.sh -h
+
+Example:
+
+./scripts/kconfig/merge_config.sh -m -r -O <LOGGING_DIRECTORY> <APPENDED_CONFIGs>
+
+In this example:
+-m  =  only merge the fragments, do not execute the make command
+-n  =  use allnoconfig instead of alldefconfig
+-r  =  list redundant entries when merging fragments
+-O  =  dir to put generated output files
+
+TI Configuration files
+======================
+
+Below is a list of configuration files for each domain within TI.
+
+These files contain configuration flags that are not currently set in the
+omap2plus_defconfig but these features are available within the TI integration
+kernel.
+
+TI Baseport - baseport.cfg
+TI Connectivity - connectivity.cfg
+TI Audio and Display - audio_display.cfg
+TI Power - power.cfg
+TI System Test add-ons - system_test.cfg
