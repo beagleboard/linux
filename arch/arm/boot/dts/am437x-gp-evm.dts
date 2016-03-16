@@ -149,8 +149,14 @@
 
 &am43xx_pinmux {
 	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&wlan_pins_default>;
+	pinctrl-0 = <&wlan_pins_default &ddr3_vtt_toggle_default>;
 	pinctrl-1 = <&wlan_pins_sleep>;
+
+	ddr3_vtt_toggle_default: ddr_vtt_toggle_default {
+		pinctrl-single,pins = <
+			0x25C (DS0_PULL_UP_DOWN_EN | PIN_OUTPUT_PULLUP | DS0_FORCE_OFF_MODE | MUX_MODE7) /* spi0_cs0.gpio5_7 */
+		>;
+	};
 
 	i2c0_pins: i2c0_pins {
 		pinctrl-single,pins = <
@@ -537,7 +543,14 @@
 			regulator-max-microvolt = <1500000>;
 			regulator-boot-on;
 			regulator-always-on;
+			regulator-state-mem {
+				regulator-on-in-suspend;
+			};
+			regulator-state-disk {
+				regulator-off-in-suspend;
+			};
 		};
+
 		dcdc5: regulator-dcdc5 {
 			compatible = "ti,tps65218-dcdc5";
 			regulator-name = "v1_0bat";
@@ -545,6 +558,9 @@
 			regulator-max-microvolt = <1000000>;
 			regulator-boot-on;
 			regulator-always-on;
+			regulator-state-mem {
+				regulator-on-in-suspend;
+			};
 		};
 
 		dcdc6: regulator-dcdc6 {
@@ -554,6 +570,9 @@
 			regulator-max-microvolt = <1800000>;
 			regulator-boot-on;
 			regulator-always-on;
+			regulator-state-mem {
+				regulator-on-in-suspend;
+			};
 		};
 
 		ldo1: regulator-ldo1 {
@@ -734,8 +753,8 @@
 	status = "okay";
 	/* these are on the crossbar and are outlined in the
 	   xbar-event-map element */
-	dmas = <&edma 30
-		&edma 31>;
+	dmas = <&edma_xbar 30 0 1>,
+		<&edma_xbar 31 0 2>;
 	dma-names = "tx", "rx";
 	vmmc-supply = <&vmmcwl_fixed>;
 	bus-width = <4>;
@@ -754,11 +773,6 @@
 		interrupt-parent = <&gpio1>;
 		interrupts = <23 IRQ_TYPE_LEVEL_HIGH>;
 	};
-};
-
-&edma {
-	ti,edma-xbar-event-map = /bits/ 16 <1 30
-					    2 31>;
 };
 
 &uart3 {
@@ -978,4 +992,9 @@
 	clocks = <&clk_32k_rtc>, <&clk_32768_ck>;
 	clock-names = "ext-clk", "int-clk";
 	status = "okay";
+};
+
+&wkup_m3_ipc {
+	ti,set-io-isolation;
+	ti,scale-data-fw = "am43x-evm-scale-data.bin";
 };
