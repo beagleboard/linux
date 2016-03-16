@@ -384,7 +384,8 @@ static void __init omap3_pandora_legacy_init(void)
 }
 #endif /* CONFIG_ARCH_OMAP3 */
 
-#if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
+#if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5) || \
+	defined(CONFIG_SOC_DRA7XX)
 static struct omap_rproc_timer_ops omap_rproc_dmtimer_ops = {
 	.request_timer = omap_rproc_request_timer,
 	.release_timer = omap_rproc_release_timer,
@@ -399,10 +400,7 @@ static struct omap_rproc_pdata omap4_ipu_dsp_pdata = {
 	.device_shutdown = omap_rproc_device_shutdown,
 	.timer_ops = &omap_rproc_dmtimer_ops,
 };
-#endif
 
-#if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5) || \
-	defined(CONFIG_SOC_DRA7XX)
 static struct iommu_platform_data omap4_iommu_pdata = {
 	.reset_name = "mmu_cache",
 	.assert_reset = omap_device_assert_hardreset,
@@ -506,6 +504,12 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &omap4_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x58882000, "58882000.mmu",
 		       &omap4_iommu_pdata),
+	OF_DEV_AUXDATA("ti,dra7-ipu", 0x55020000, "55020000.ipu",
+		       &omap4_ipu_dsp_pdata),
+	OF_DEV_AUXDATA("ti,dra7-ipu", 0x58820000, "58820000.ipu",
+		       &omap4_ipu_dsp_pdata),
+	OF_DEV_AUXDATA("ti,dra7-dsp", 0x40800000, "40800000.dsp",
+		       &omap4_ipu_dsp_pdata),
 #endif
 #ifdef CONFIG_SOC_AM43XX
 	OF_DEV_AUXDATA("ti,am437-padconf", 0x44e10800, "44e10800.pinmux", &pcs_pdata),
