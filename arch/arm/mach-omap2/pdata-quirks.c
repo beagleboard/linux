@@ -24,6 +24,7 @@
 #include <linux/platform_data/pinctrl-single.h>
 #include <linux/platform_data/hsmmc-omap.h>
 #include <linux/platform_data/iommu-omap.h>
+#include <linux/platform_data/remoteproc-omap.h>
 #include <linux/platform_data/ti-sysc.h>
 #include <linux/platform_data/ti-pruss.h>
 #include <linux/platform_data/wkup_m3.h>
@@ -36,6 +37,7 @@
 #include "omap-secure.h"
 #include "soc.h"
 #include "hsmmc.h"
+#include "remoteproc.h"
 
 static struct omap_hsmmc_platform_data __maybe_unused mmc_pdata[2];
 
@@ -411,6 +413,13 @@ static void __init omap3_pandora_legacy_init(void)
 }
 #endif /* CONFIG_ARCH_OMAP3 */
 
+#ifdef CONFIG_ARCH_OMAP4
+static struct omap_rproc_pdata omap4_ipu_dsp_pdata = {
+	.device_enable = omap_rproc_device_enable,
+	.device_shutdown = omap_rproc_device_shutdown,
+};
+#endif
+
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5) || \
 	defined(CONFIG_SOC_DRA7XX)
 static struct iommu_platform_data omap4_iommu_pdata = {
@@ -584,6 +593,10 @@ static struct of_dev_auxdata omap_auxdata_lookup[] = {
 		       &wkup_m3_data),
 	OF_DEV_AUXDATA("ti,am4376-pruss-soc-bus", 0x54426004,
 		       "54426004.pruss_soc_bus", &pruss_pdata),
+#endif
+#ifdef CONFIG_ARCH_OMAP4
+	OF_DEV_AUXDATA("ti,omap4-dsp", 0, "dsp", &omap4_ipu_dsp_pdata),
+	OF_DEV_AUXDATA("ti,omap4-ipu", 0x55020000, "ipu", &omap4_ipu_dsp_pdata),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
