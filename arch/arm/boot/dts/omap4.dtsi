@@ -466,6 +466,16 @@
 			status = "disabled";
 		};
 
+		ipu: ipu@55020000 {
+			compatible = "ti,omap4-ipu";
+			reg = <0x55020000 0x10000>;
+			reg-names = "l2ram";
+			ti,hwmods = "ipu";
+			iommus = <&mmu_ipu>;
+			mboxes = <&mailbox &mbox_ipu>;
+			status = "disabled";
+		};
+
 		aes1: aes@4b501000 {
 			compatible = "ti,omap4-aes";
 			ti,hwmods = "aes1";
