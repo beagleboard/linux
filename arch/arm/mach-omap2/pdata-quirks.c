@@ -603,6 +603,8 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &omap4_ipu_dsp_pdata),
 	OF_DEV_AUXDATA("ti,dra7-dsp", 0x40800000, "40800000.dsp",
 		       &omap4_ipu_dsp_pdata),
+	OF_DEV_AUXDATA("ti,dra7-dsp", 0x41000000, "41000000.dsp",
+		       &omap4_ipu_dsp_pdata),
 #endif
 	/* Common auxdata */
 	OF_DEV_AUXDATA("pinctrl-single", 0, NULL, &pcs_pdata),
