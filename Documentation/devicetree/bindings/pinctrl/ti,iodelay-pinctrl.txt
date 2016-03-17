@@ -1,0 +1,86 @@
+Texas Instruments I/O Delay module configuration pinctrl definition
+
+Used in conjunction with Documentation/devicetree/bindings/pinctrl/ti,omap-pinctrl.txt
+
+Required Properties:
+- compatible: Should be:
+  "ti,dra7-iodelay" - I/O delay configuration for DRA7
+- reg	- must be the register address range of IODelay module
+- #address-cells = <1>;
+- #size-cells = <0>;
+
+Important note: Use of "ti,dra7-iodelay" compatible definition need to be
+carefully evaluated due to the expectation of glitch during configuration.
+
+Example:
+
+dra7_iodelay_core: padconf@4844a000 {
+	compatible = "ti,dra7-iodelay";
+	reg = <0x4844a000 0x0d1c>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+};
+
+Configuration definition follows similar model as the pinctrl-single:
+The groups of pin configuration are defined under "pinctrl-single,pins"
+
+&dra7_iodelay_core {
+	mmc2_iodelay_3v3_conf: mmc2_iodelay_3v3_conf {
+		pinctrl-single,pins = <
+			0x18c (A_DELAY(0) | G_DELAY(120))	/* CFG_GPMC_A19_IN */
+			0x1a4 (A_DELAY(265) | G_DELAY(360))	/* CFG_GPMC_A20_IN */
+			0x1b0 (A_DELAY(0) | G_DELAY(120))	/* CFG_GPMC_A21_IN */
+			0x1bc (A_DELAY(0) | G_DELAY(120))	/* CFG_GPMC_A22_IN */
+			0x1c8 (A_DELAY(287) | G_DELAY(420))	/* CFG_GPMC_A23_IN */
+			0x1d4 (A_DELAY(144) | G_DELAY(240))	/* CFG_GPMC_A24_IN */
+			0x1e0 (A_DELAY(0) | G_DELAY(0))		/* CFG_GPMC_A25_IN */
+			0x1ec (A_DELAY(120) | G_DELAY(0))	/* CFG_GPMC_A26_IN */
+			0x1f8 (A_DELAY(120) | G_DELAY(180))	/* CFG_GPMC_A27_IN */
+			0x360 (A_DELAY(0) | G_DELAY(0))		/* CFG_GPMC_CS1_IN */
+		>;
+	};
+};
+
+Usage in conjunction with pinctrl single:
+
+For a complete description of the pins both the regular muxing as well as the
+iodelay configuration is necessary. For example:
+
+&dra7_pmx_core {
+	mmc2_pins_default: mmc2_pins_default {
+		pinctrl-single,pins = <
+			0x9c (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a23.mmc2_clk */
+			0xb0 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_cs1.mmc2_cmd */
+			0xa0 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a24.mmc2_dat0 */
+			0xa4 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a25.mmc2_dat1 */
+			0xa8 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a26.mmc2_dat2 */
+			0xac (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a27.mmc2_dat3 */
+			0x8c (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a19.mmc2_dat4 */
+			0x90 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a20.mmc2_dat5 */
+			0x94 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a21.mmc2_dat6 */
+			0x98 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE1) /* gpmc_a22.mmc2_dat7 */
+		>;
+	};
+};
+
+&dra7_iodelay_core {
+	mmc2_iodelay_3v3_conf: mmc2_iodelay_3v3_conf {
+		pinctrl-single,pins = <
+			0x18c (A_DELAY(0) | G_DELAY(120))	/* CFG_GPMC_A19_IN */
+			0x1a4 (A_DELAY(265) | G_DELAY(360))	/* CFG_GPMC_A20_IN */
+			0x1b0 (A_DELAY(0) | G_DELAY(120))	/* CFG_GPMC_A21_IN */
+			0x1bc (A_DELAY(0) | G_DELAY(120))	/* CFG_GPMC_A22_IN */
+			0x1c8 (A_DELAY(287) | G_DELAY(420))	/* CFG_GPMC_A23_IN */
+			0x1d4 (A_DELAY(144) | G_DELAY(240))	/* CFG_GPMC_A24_IN */
+			0x1e0 (A_DELAY(0) | G_DELAY(0))		/* CFG_GPMC_A25_IN */
+			0x1ec (A_DELAY(120) | G_DELAY(0))	/* CFG_GPMC_A26_IN */
+			0x1f8 (A_DELAY(120) | G_DELAY(180))	/* CFG_GPMC_A27_IN */
+			0x360 (A_DELAY(0) | G_DELAY(0))		/* CFG_GPMC_CS1_IN */
+		>;
+	};
+};
+
+&mmc2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc2_pins_default &mmc2_iodelay_3v3_conf>;
+};
