@@ -150,7 +150,8 @@ dtb-$(CONFIG_ARCH_INTEGRATOR) += \
 dtb-$(CONFIG_ARCH_KEYSTONE) += \
 	keystone-k2hk-evm.dtb \
 	keystone-k2l-evm.dtb \
-	keystone-k2e-evm.dtb
+	keystone-k2e-evm.dtb \
+	keystone-k2g-evm.dtb
 dtb-$(CONFIG_MACH_KIRKWOOD) += \
 	kirkwood-b3.dtb \
 	kirkwood-blackarmor-nas220.dtb \
