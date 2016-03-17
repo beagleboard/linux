@@ -40,6 +40,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/suspend.h>
 #include <linux/component.h>
+#include <linux/pinctrl/consumer.h>
 
 #include <video/omapdss.h>
 
@@ -111,14 +112,6 @@ static const char * const dss_generic_clk_source_names[] = {
 	[OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DISPC]	= "DSI_PLL2_HSDIV_DISPC",
 	[OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DSI]	= "DSI_PLL2_HSDIV_DSI",
 };
-
-static bool dss_initialized;
-
-bool omapdss_is_initialized(void)
-{
-	return dss_initialized;
-}
-EXPORT_SYMBOL(omapdss_is_initialized);
 
 static inline void dss_write_reg(const struct dss_reg idx, u32 val)
 {
@@ -1169,7 +1162,7 @@ static int dss_bind(struct device *dev)
 
 	pm_set_vt_switch(0);
 
-	dss_initialized = true;
+	omapdss_set_is_initialized(true);
 
 	return 0;
 
@@ -1193,7 +1186,7 @@ static void dss_unbind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 
-	dss_initialized = false;
+	omapdss_set_is_initialized(false);
 
 	component_unbind_all(&pdev->dev, NULL);
 
