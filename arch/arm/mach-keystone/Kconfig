@@ -12,6 +12,7 @@ config ARCH_KEYSTONE
 	select MIGHT_HAVE_PCI
 	select PCI_DOMAINS if PCI
 	select KEYSTONE2_DMA_COHERENT
+	select PM_GENERIC_DOMAINS if PM
 	help
 	  Support for boards based on the Texas Instruments Keystone family of
 	  SoCs.
