@@ -186,6 +186,7 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 	struct davinci_gpio_regs __iomem *regs;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
+	static int bank_base;
 
 	pdata = davinci_gpio_get_pdata(pdev);
 	if (!pdata) {
@@ -229,7 +230,8 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 		chips[i].chip.direction_output = davinci_direction_out;
 		chips[i].chip.set = davinci_gpio_set;
 
-		chips[i].chip.base = base;
+		chips[i].chip.base = bank_base;
+		bank_base += 32;
 		chips[i].chip.ngpio = ngpio - base;
 		if (chips[i].chip.ngpio > 32)
 			chips[i].chip.ngpio = 32;
