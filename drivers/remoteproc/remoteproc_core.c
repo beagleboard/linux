@@ -40,6 +40,7 @@
 #include <linux/crc32.h>
 #include <linux/virtio_ids.h>
 #include <linux/virtio_ring.h>
+#include <linux/of.h>
 #include <asm/byteorder.h>
 
 #include "remoteproc_internal.h"
@@ -301,6 +302,61 @@ void rproc_free_vring(struct rproc_vring *rvring)
 }
 
 /**
+ * rproc_pa_to_da() - lookup the rproc device address for a physical address
+ * @rproc: handle of a remote processor
+ * @pa: physical address of the buffer to translate
+ * @da: device address to return
+ *
+ * Communication clients of remote processors usually would need a means to
+ * convert a host buffer pointer to an equivalent device virtual address pointer
+ * that the code running on the remote processor can operate on. These buffer
+ * pointers can either be from the physically contiguous memory regions (or
+ * "carveouts") or can be some memory-mapped Device IO memory. This function
+ * provides a means to translate a given physical address to its associated
+ * device address.
+ *
+ * The function looks through both the carveouts and the device memory mappings
+ * since both of them are stored in separate lists.
+ *
+ * Returns 0 on success, or an appropriate error code otherwise. The translated
+ * device address is returned through the appropriate function argument.
+ */
+int rproc_pa_to_da(struct rproc *rproc, phys_addr_t pa, u64 *da)
+{
+	int ret = -EINVAL;
+	struct rproc_mem_entry *maps = NULL;
+
+	if (!rproc || !da)
+		return -EINVAL;
+
+	if (mutex_lock_interruptible(&rproc->lock))
+		return -EINTR;
+
+	if (rproc->state == RPROC_RUNNING || rproc->state == RPROC_SUSPENDED) {
+		/* Look in the mappings first */
+		list_for_each_entry(maps, &rproc->mappings, node) {
+			if (pa >= maps->dma && pa < (maps->dma + maps->len)) {
+				*da = maps->da + (pa - maps->dma);
+				ret = 0;
+				goto exit;
+			}
+		}
+		/* If not, check in the carveouts */
+		list_for_each_entry(maps, &rproc->carveouts, node) {
+			if (pa >= maps->dma && pa < (maps->dma + maps->len)) {
+				*da = maps->da + (pa - maps->dma);
+				ret = 0;
+				break;
+			}
+		}
+	}
+exit:
+	mutex_unlock(&rproc->lock);
+	return ret;
+}
+EXPORT_SYMBOL(rproc_pa_to_da);
+
+/**
  * rproc_handle_vdev() - handle a vdev fw resource
  * @rproc: the remote processor
  * @rsc: the vring resource descriptor
@@ -523,6 +579,7 @@ static int rproc_handle_devmem(struct rproc *rproc, struct fw_rsc_devmem *rsc,
 	 * We can't trust the remote processor not to change the resource
 	 * table, so we must maintain this info independently.
 	 */
+	mapping->dma = rsc->pa;
 	mapping->da = rsc->da;
 	mapping->len = rsc->len;
 	list_add_tail(&mapping->node, &rproc->mappings);
@@ -1028,6 +1085,27 @@ static void rproc_crash_handler_work(struct work_struct *work)
 }
 
 /**
+ * rproc_get_alias_id() - return the alias id for the rproc device
+ * @rproc: handle of a remote processor
+ *
+ * Each rproc device is associated with a platform device, but since the
+ * devices are created from device tree, they do not have a valid platform
+ * device id. This function returns an alternate DT-based alias id, and is
+ * useful for clients needing to know an id for a processor. It is assumed
+ * that the devices were given proper alias ids.
+ *
+ * Return: alias id associated with the rproc
+ */
+int rproc_get_alias_id(struct rproc *rproc)
+{
+	struct device *dev = rproc->dev.parent;
+	struct device_node *np = dev->of_node;
+
+	return of_alias_get_id(np, "rproc");
+}
+EXPORT_SYMBOL(rproc_get_alias_id);
+
+/**
  * rproc_boot() - boot a remote processor
  * @rproc: handle of a remote processor
  *
@@ -1281,7 +1359,7 @@ static void rproc_type_release(struct device *dev)
 	kfree(rproc);
 }
 
-static struct device_type rproc_type = {
+struct device_type rproc_type = {
 	.name		= "remoteproc",
 	.release	= rproc_type_release,
 };
