@@ -15,6 +15,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/genpd/k2g.h>
+#include <dt-bindings/clock/k2g.h>
 #include "skeleton.dtsi"
 
 / {
@@ -83,7 +84,9 @@
 			reg-io-width = <4>;
 			reg = <0x02530c00 0x100>;
 			interrupts = <GIC_SPI 164 IRQ_TYPE_EDGE_RISING>;
-			clock-frequency = <200000000>;
+			clocks = <&k2g_clks K2G_DEV_UART0 0>;
+			clock-names = "fck";
+
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_UART0>;
 		};
@@ -107,6 +110,12 @@
 				<&msgmgr 0 0>;
 			reg-names = "debug_messages";
 			reg = <0x02921c00 0x400>;
+		};
+
+		k2g_clks: k2g_clks {
+			compatible = "ti,sci-clk";
+			ti,sci = <&pmmc>;
+			#clock-cells = <2>;
 		};
 
 		k2g_pds: k2g_pds {
