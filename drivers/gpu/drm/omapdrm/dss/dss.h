@@ -67,19 +67,6 @@
 	printk(KERN_WARNING "omapdss: " format, ## __VA_ARGS__)
 #endif
 
-/* OMAP TRM gives bitfields as start:end, where start is the higher bit
-   number. For example 7:0 */
-#define FLD_MASK(start, end)	(((1 << ((start) - (end) + 1)) - 1) << (end))
-#define FLD_VAL(val, start, end) (((val) << (end)) & FLD_MASK(start, end))
-#define FLD_GET(val, start, end) (((val) & FLD_MASK(start, end)) >> (end))
-#define FLD_MOD(orig, val, start, end) \
-	(((orig) & ~FLD_MASK(start, end)) | FLD_VAL(val, start, end))
-
-enum dss_io_pad_mode {
-	DSS_IO_PAD_MODE_RESET,
-	DSS_IO_PAD_MODE_RFBI,
-	DSS_IO_PAD_MODE_BYPASS,
-};
 
 enum dss_hdmi_venc_clk_source_select {
 	DSS_VENC_TV_CLK = 0,
@@ -89,17 +76,6 @@ enum dss_hdmi_venc_clk_source_select {
 enum dss_dsi_content_type {
 	DSS_DSI_CONTENT_DCS,
 	DSS_DSI_CONTENT_GENERIC,
-};
-
-enum dss_writeback_channel {
-	DSS_WB_LCD1_MGR =	0,
-	DSS_WB_LCD2_MGR =	1,
-	DSS_WB_TV_MGR =		2,
-	DSS_WB_OVL0 =		3,
-	DSS_WB_OVL1 =		4,
-	DSS_WB_OVL2 =		5,
-	DSS_WB_OVL3 =		6,
-	DSS_WB_LCD3_MGR =	7,
 };
 
 enum dss_pll_id {
@@ -174,29 +150,6 @@ struct dss_pll {
 	struct dss_pll_clock_info cinfo;
 };
 
-struct dispc_clock_info {
-	/* rates that we get with dividers below */
-	unsigned long lck;
-	unsigned long pck;
-
-	/* dividers */
-	u16 lck_div;
-	u16 pck_div;
-};
-
-struct dss_lcd_mgr_config {
-	enum dss_io_pad_mode io_pad_mode;
-
-	bool stallmode;
-	bool fifohandcheck;
-
-	struct dispc_clock_info clock_info;
-
-	int video_port_width;
-
-	int lcden_sig_polarity;
-};
-
 struct seq_file;
 struct platform_device;
 
@@ -234,10 +187,6 @@ void dss_dump_clocks(struct seq_file *s);
 struct dss_pll *dss_video_pll_init(struct platform_device *pdev, int id,
 	struct regulator *regulator);
 void dss_video_pll_uninit(struct dss_pll *pll);
-
-/* dss-of */
-struct device_node *dss_of_port_get_parent_device(struct device_node *port);
-u32 dss_of_port_get_port_number(struct device_node *port);
 
 #if defined(CONFIG_OMAP2_DSS_DEBUGFS)
 void dss_debug_dump_clocks(struct seq_file *s);
@@ -299,15 +248,7 @@ void dsi_uninit_platform_driver(void);
 void dsi_dump_clocks(struct seq_file *s);
 
 void dsi_irq_handler(void);
-u8 dsi_get_pixel_size(enum omap_dss_dsi_pixel_format fmt);
 
-#else
-static inline u8 dsi_get_pixel_size(enum omap_dss_dsi_pixel_format fmt)
-{
-	WARN(1, "%s: DSI not compiled in, returning pixel_size as 0\n",
-	     __func__);
-	return 0;
-}
 #endif
 
 /* DPI */
@@ -332,6 +273,9 @@ static inline void dpi_uninit_port(struct device_node *port)
 int dispc_init_platform_driver(void) __init;
 void dispc_uninit_platform_driver(void);
 void dispc_dump_clocks(struct seq_file *s);
+
+int dispc_runtime_get(void);
+void dispc_runtime_put(void);
 
 void dispc_enable_sidle(void);
 void dispc_disable_sidle(void);
@@ -364,14 +308,8 @@ int dispc_mgr_get_clock_div(enum omap_channel channel,
 		struct dispc_clock_info *cinfo);
 void dispc_set_tv_pclk(unsigned long pclk);
 
-u32 dispc_wb_get_framedone_irq(void);
 bool dispc_wb_go_busy(void);
 void dispc_wb_go(void);
-void dispc_wb_enable(bool enable);
-bool dispc_wb_is_enabled(void);
-void dispc_wb_set_channel_in(enum dss_writeback_channel channel);
-int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
-		bool mem_to_mem, const struct omap_video_timings *timings);
 
 /* VENC */
 int venc_init_platform_driver(void) __init;

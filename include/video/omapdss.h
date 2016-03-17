@@ -858,11 +858,6 @@ void videomode_to_omap_video_timings(const struct videomode *vm,
 void omap_video_timings_to_videomode(const struct omap_video_timings *ovt,
 		struct videomode *vm);
 
-int dss_feat_get_num_mgrs(void);
-int dss_feat_get_num_ovls(void);
-enum omap_color_mode dss_feat_get_supported_color_modes(enum omap_plane plane);
-
-
 
 int omap_dss_get_num_overlay_managers(void);
 struct omap_overlay_manager *omap_dss_get_overlay_manager(int num);
@@ -918,5 +913,8 @@ omapdss_of_get_first_endpoint(const struct device_node *parent);
 
 struct omap_dss_device *
 omapdss_of_find_source_for_first_ep(struct device_node *node);
+
+struct device_node *omapdss_of_get_endpoint(struct device_node *parent,
+	int port_index, int ep_index);
 
 #endif

@@ -1,0 +1,67 @@
+Silicon Image SiI9022 HDMI Encoder
+==================================
+
+Silicon Image SiI9022 is an HDMI encoder that encodes parallel RGB
+signal to HDMI signal. The SiI9022 is controlled with i2c command, and
+it has a single reset pin and single interrupt pin.
+
+Required properties:
+- compatible: "sil,sii9022"
+
+Optional properties:
+- reset-gpio: reset gpio
+- interrupts: interrupt line
+
+Required for HDMI audio:
+- i2s-fifo-routing:
+  - Array of exactly 4 integers indicating i2s pins to audio fifo routing
+  - First integer defines routing to fifo 0 and second to fifo 1, etc.
+  - Integers can be filled with definitions from:
+    include/dt-bindings/sound/sii9022-audio.h
+
+Required nodes:
+- Video port 0 for parallel video input
+- Video port 1 for HDMI output
+
+Example
+-------
+
+&i2c2 {
+	sii9022: sii9022@3b {
+		compatible = "sil,sii9022";
+		reg = <0x3b>;
+
+		i2s-fifo-routing = <
+			(ENABLE_BIT|CONNECT_SD0)
+			0
+			0
+			0
+		>;
+
+		reset-gpio = <&gpio2 1 GPIO_ACTIVE_LOW>;
+
+		interrupt-parent = <&gpio1>;
+		interrupts = <18 IRQ_TYPE_LEVEL_LOW>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				sii9022_in: endpoint {
+					remote-endpoint = <&dpi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				sii9022_out: endpoint {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
+};
