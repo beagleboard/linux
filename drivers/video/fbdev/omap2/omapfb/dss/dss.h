@@ -543,4 +543,8 @@ int dss_mgr_register_framedone_handler(struct omap_overlay_manager *mgr,
 void dss_mgr_unregister_framedone_handler(struct omap_overlay_manager *mgr,
 		void (*handler)(void *), void *data);
 
+int dss_feat_get_num_mgrs(void);
+int dss_feat_get_num_ovls(void);
+enum omap_color_mode dss_feat_get_supported_color_modes(enum omap_plane plane);
+
 #endif

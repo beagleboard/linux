@@ -182,6 +182,7 @@ static const struct of_device_id omapdss_of_match[] __initconst = {
 	{ .compatible = "ti,omap4-dss", },
 	{ .compatible = "ti,omap5-dss", },
 	{ .compatible = "ti,dra7-dss", },
+	{ .compatible = "ti,k2g-dss", },
 	{},
 };
 

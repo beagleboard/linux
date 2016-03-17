@@ -23,7 +23,7 @@
 
 #include <video/omapdss.h>
 
-#include "dss.h"
+#include "omapdss.h"
 
 static LIST_HEAD(output_list);
 static DEFINE_MUTEX(output_lock);
@@ -36,14 +36,15 @@ int omapdss_output_set_device(struct omap_dss_device *out,
 	mutex_lock(&output_lock);
 
 	if (out->dst) {
-		DSSERR("output already has device %s connected to it\n",
+		dev_err(out->dev,
+			"output already has device %s connected to it\n",
 			out->dst->name);
 		r = -EINVAL;
 		goto err;
 	}
 
 	if (out->output_type != dssdev->type) {
-		DSSERR("output type and display type don't match\n");
+		dev_err(out->dev, "output type and display type don't match\n");
 		r = -EINVAL;
 		goto err;
 	}
@@ -68,14 +69,16 @@ int omapdss_output_unset_device(struct omap_dss_device *out)
 	mutex_lock(&output_lock);
 
 	if (!out->dst) {
-		DSSERR("output doesn't have a device connected to it\n");
+		dev_err(out->dev,
+			"output doesn't have a device connected to it\n");
 		r = -EINVAL;
 		goto err;
 	}
 
 	if (out->dst->state != OMAP_DSS_DISPLAY_DISABLED) {
-		DSSERR("device %s is not disabled, cannot unset device\n",
-				out->dst->name);
+		dev_err(out->dev,
+			"device %s is not disabled, cannot unset device\n",
+			out->dst->name);
 		r = -EINVAL;
 		goto err;
 	}

@@ -73,6 +73,8 @@ int omap_irq_wait(struct drm_device *dev, struct omap_irq_wait *wait,
 struct omap_drm_private {
 	uint32_t omaprev;
 
+	const struct dispc_ops *dispc_ops;
+
 	unsigned int num_crtcs;
 	struct drm_crtc *crtcs[8];
 
@@ -98,8 +100,16 @@ struct omap_drm_private {
 	struct omap_drm_usergart *usergart;
 	bool has_dmm;
 
-	/* properties: */
+	/* plane properties */
 	struct drm_property *zorder_prop;
+	struct drm_property *global_alpha_prop;
+	struct drm_property *pre_mult_alpha_prop;
+
+	/* crtc properties */
+	struct drm_property *trans_key_mode_prop;
+	struct drm_property *trans_key_prop;
+	struct drm_property *background_color_prop;
+	struct drm_property *alpha_blender_prop;
 
 	/* irq handling: */
 	struct list_head irq_list;    /* list of omap_drm_irq */
@@ -162,6 +172,9 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 		int id, enum drm_plane_type type);
 void omap_plane_install_properties(struct drm_plane *plane,
 		struct drm_mode_object *obj);
+int omap_plane_id(struct drm_plane *plane);
+struct drm_plane *omap_plane_reserve_wb(struct drm_device *dev);
+void omap_plane_release_wb(struct drm_plane *plane);
 
 struct drm_encoder *omap_encoder_init(struct drm_device *dev,
 		struct omap_dss_device *dssdev);
