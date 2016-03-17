@@ -399,6 +399,11 @@ void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size);
 #define ioremap_wc ioremap_wc
 #define ioremap_wt ioremap_wc
 
+void __iomem *ioremap_exec(resource_size_t res_cookie, size_t size);
+void __iomem *ioremap_exec_nocache(resource_size_t res_cookie, size_t size);
+#define ioremap_exec ioremap_exec
+#define ioremap_exec_nocache ioremap_exec_nocache
+
 void iounmap(volatile void __iomem *iomem_cookie);
 #define iounmap iounmap
 

@@ -25,7 +25,6 @@
 #include <linux/usb/phy_companion.h>
 #include <linux/clk.h>
 #include <linux/err.h>
-#include <linux/pm_runtime.h>
 #include <linux/delay.h>
 #include <linux/phy/omap_control_phy.h>
 #include <linux/phy/phy.h>
@@ -115,10 +114,48 @@ static int omap_usb_power_on(struct phy *x)
 	return 0;
 }
 
+static int omap_usb2_disable_clocks(struct omap_usb *phy)
+{
+	clk_disable(phy->wkupclk);
+	if (!IS_ERR(phy->optclk))
+		clk_disable(phy->optclk);
+
+	return 0;
+}
+
+static int omap_usb2_enable_clocks(struct omap_usb *phy)
+{
+	int ret;
+
+	ret = clk_enable(phy->wkupclk);
+	if (ret < 0) {
+		dev_err(phy->dev, "Failed to enable wkupclk %d\n", ret);
+		goto err0;
+	}
+
+	if (!IS_ERR(phy->optclk)) {
+		ret = clk_enable(phy->optclk);
+		if (ret < 0) {
+			dev_err(phy->dev, "Failed to enable optclk %d\n", ret);
+			goto err1;
+		}
+	}
+
+	return 0;
+
+err1:
+	clk_disable(phy->wkupclk);
+
+err0:
+	return ret;
+}
+
 static int omap_usb_init(struct phy *x)
 {
 	struct omap_usb *phy = phy_get_drvdata(x);
 	u32 val;
+
+	omap_usb2_enable_clocks(phy);
 
 	if (phy->flags & OMAP_USB2_CALIBRATE_FALSE_DISCONNECT) {
 		/*
@@ -137,8 +174,16 @@ static int omap_usb_init(struct phy *x)
 	return 0;
 }
 
+static int omap_usb_exit(struct phy *x)
+{
+	struct omap_usb *phy = phy_get_drvdata(x);
+
+	return omap_usb2_disable_clocks(phy);
+}
+
 static const struct phy_ops ops = {
 	.init		= omap_usb_init,
+	.exit		= omap_usb_exit,
 	.power_on	= omap_usb_power_on,
 	.power_off	= omap_usb_power_off,
 	.owner		= THIS_MODULE,
@@ -252,11 +297,9 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	otg->usb_phy		= &phy->phy;
 
 	platform_set_drvdata(pdev, phy);
-	pm_runtime_enable(phy->dev);
 
 	generic_phy = devm_phy_create(phy->dev, NULL, &ops);
 	if (IS_ERR(generic_phy)) {
-		pm_runtime_disable(phy->dev);
 		return PTR_ERR(generic_phy);
 	}
 
@@ -265,7 +308,6 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	phy_provider = devm_of_phy_provider_register(phy->dev,
 			of_phy_simple_xlate);
 	if (IS_ERR(phy_provider)) {
-		pm_runtime_disable(phy->dev);
 		return PTR_ERR(phy_provider);
 	}
 
@@ -275,7 +317,6 @@ static int omap_usb2_probe(struct platform_device *pdev)
 		phy->wkupclk = devm_clk_get(phy->dev, "usb_phy_cm_clk32k");
 		if (IS_ERR(phy->wkupclk)) {
 			dev_err(&pdev->dev, "unable to get usb_phy_cm_clk32k\n");
-			pm_runtime_disable(phy->dev);
 			return PTR_ERR(phy->wkupclk);
 		} else {
 			dev_warn(&pdev->dev,
@@ -313,70 +354,15 @@ static int omap_usb2_remove(struct platform_device *pdev)
 	if (!IS_ERR(phy->optclk))
 		clk_unprepare(phy->optclk);
 	usb_remove_phy(&phy->phy);
-	pm_runtime_disable(phy->dev);
 
 	return 0;
 }
-
-#ifdef CONFIG_PM
-
-static int omap_usb2_runtime_suspend(struct device *dev)
-{
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct omap_usb	*phy = platform_get_drvdata(pdev);
-
-	clk_disable(phy->wkupclk);
-	if (!IS_ERR(phy->optclk))
-		clk_disable(phy->optclk);
-
-	return 0;
-}
-
-static int omap_usb2_runtime_resume(struct device *dev)
-{
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct omap_usb	*phy = platform_get_drvdata(pdev);
-	int ret;
-
-	ret = clk_enable(phy->wkupclk);
-	if (ret < 0) {
-		dev_err(phy->dev, "Failed to enable wkupclk %d\n", ret);
-		goto err0;
-	}
-
-	if (!IS_ERR(phy->optclk)) {
-		ret = clk_enable(phy->optclk);
-		if (ret < 0) {
-			dev_err(phy->dev, "Failed to enable optclk %d\n", ret);
-			goto err1;
-		}
-	}
-
-	return 0;
-
-err1:
-	clk_disable(phy->wkupclk);
-
-err0:
-	return ret;
-}
-
-static const struct dev_pm_ops omap_usb2_pm_ops = {
-	SET_RUNTIME_PM_OPS(omap_usb2_runtime_suspend, omap_usb2_runtime_resume,
-		NULL)
-};
-
-#define DEV_PM_OPS     (&omap_usb2_pm_ops)
-#else
-#define DEV_PM_OPS     NULL
-#endif
 
 static struct platform_driver omap_usb2_driver = {
 	.probe		= omap_usb2_probe,
 	.remove		= omap_usb2_remove,
 	.driver		= {
 		.name	= "omap-usb2",
-		.pm	= DEV_PM_OPS,
 		.of_match_table = omap_usb2_id_table,
 	},
 };

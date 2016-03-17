@@ -305,8 +305,9 @@ static void _lookup_sddiv(struct clk_hw_omap *clk, u8 *sd_div, u16 m, u8 n)
 static int omap3_noncore_dpll_program(struct clk_hw_omap *clk, u16 freqsel)
 {
 	struct dpll_data *dd = clk->dpll_data;
-	u8 dco, sd_div;
+	u8 dco, sd_div, ai = 0;
 	u32 v;
+	bool errata_i810;
 
 	/* 3430 ES2 TRM: 4.7.6.9 DPLL Programming Sequence */
 	_omap3_noncore_dpll_bypass(clk);
@@ -350,6 +351,25 @@ static int omap3_noncore_dpll_program(struct clk_hw_omap *clk, u16 freqsel)
 		v |= sd_div << __ffs(dd->sddiv_mask);
 	}
 
+	/*
+	 * Errata i810 - DPLL controller can get stuck while transitioning
+	 * to a power saving state. Software must ensure the DPLL can not
+	 * transition to a low power state while changing M/N values.
+	 * Easiest way to accomplish this is to prevent DPLL autoidle
+	 * before doing the M/N re-program.
+	 */
+	errata_i810 = ti_clk_get_features()->flags & TI_CLK_ERRATA_I810;
+
+	if (errata_i810) {
+		ai = omap3_dpll_autoidle_read(clk);
+		if (ai) {
+			omap3_dpll_deny_idle(clk);
+
+			/* OCP barrier */
+			omap3_dpll_autoidle_read(clk);
+		}
+	}
+
 	ti_clk_ll_ops->clk_writel(v, dd->mult_div1_reg);
 
 	/* Set 4X multiplier and low-power mode */
@@ -378,6 +398,9 @@ static int omap3_noncore_dpll_program(struct clk_hw_omap *clk, u16 freqsel)
 	/* REVISIT: Set ramp-up delay? */
 
 	_omap3_noncore_dpll_lock(clk);
+
+	if (errata_i810 && ai)
+		omap3_dpll_allow_idle(clk);
 
 	return 0;
 }
@@ -757,6 +780,130 @@ unsigned long omap3_clkoutx2_recalc(struct clk_hw *hw,
 	else
 		rate = parent_rate * 2;
 	return rate;
+}
+
+/**
+ * omap3_core_dpll_save_context - Save the m and n values of the divider
+ * @hw: pointer  struct clk_hw
+ *
+ * Before the dpll registers are lost save the last rounded rate m and n
+ * and the enable mask.
+ */
+int omap3_core_dpll_save_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	struct dpll_data *dd;
+	u32 v;
+
+	dd = clk->dpll_data;
+
+	v = ti_clk_ll_ops->clk_readl(dd->control_reg);
+	clk->context = (v & dd->enable_mask) >> __ffs(dd->enable_mask);
+
+	if (clk->context == DPLL_LOCKED) {
+		v = ti_clk_ll_ops->clk_readl(dd->mult_div1_reg);
+		dd->last_rounded_m = (v & dd->mult_mask) >>
+						__ffs(dd->mult_mask);
+		dd->last_rounded_n = ((v & dd->div1_mask) >>
+						__ffs(dd->div1_mask)) + 1;
+	}
+
+	return 0;
+}
+
+/**
+ * omap3_core_dpll_restore_context - restore the m and n values of the divider
+ * @hw: pointer  struct clk_hw
+ *
+ * Restore the last rounded rate m and n
+ * and the enable mask.
+ */
+void omap3_core_dpll_restore_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	const struct dpll_data *dd;
+	u32 v;
+
+	dd = clk->dpll_data;
+
+	if (clk->context == DPLL_LOCKED) {
+		_omap3_dpll_write_clken(clk, 0x4);
+		_omap3_wait_dpll_status(clk, 0);
+
+		v = ti_clk_ll_ops->clk_readl(dd->mult_div1_reg);
+		v &= ~(dd->mult_mask | dd->div1_mask);
+		v |= dd->last_rounded_m << __ffs(dd->mult_mask);
+		v |= (dd->last_rounded_n - 1) << __ffs(dd->div1_mask);
+		ti_clk_ll_ops->clk_writel(v, dd->mult_div1_reg);
+
+		_omap3_dpll_write_clken(clk, DPLL_LOCKED);
+		_omap3_wait_dpll_status(clk, 1);
+	} else {
+		_omap3_dpll_write_clken(clk, clk->context);
+	}
+}
+
+/**
+ * omap3_non_core_dpll_save_context - Save the m and n values of the divider
+ * @hw: pointer  struct clk_hw
+ *
+ * Before the dpll registers are lost save the last rounded rate m and n
+ * and the enable mask.
+ */
+int omap3_noncore_dpll_save_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	struct dpll_data *dd;
+	u32 v;
+
+	dd = clk->dpll_data;
+
+	v = ti_clk_ll_ops->clk_readl(dd->control_reg);
+	clk->context = (v & dd->enable_mask) >> __ffs(dd->enable_mask);
+
+	if (clk->context == DPLL_LOCKED) {
+		v = ti_clk_ll_ops->clk_readl(dd->mult_div1_reg);
+		dd->last_rounded_m = (v & dd->mult_mask) >>
+						__ffs(dd->mult_mask);
+		dd->last_rounded_n = ((v & dd->div1_mask) >>
+						__ffs(dd->div1_mask)) + 1;
+	}
+
+	return 0;
+}
+
+/**
+ * omap3_core_dpll_restore_context - restore the m and n values of the divider
+ * @hw: pointer  struct clk_hw
+ *
+ * Restore the last rounded rate m and n
+ * and the enable mask.
+ */
+void omap3_noncore_dpll_restore_context(struct clk_hw *hw)
+{
+	struct clk_hw_omap *clk = to_clk_hw_omap(hw);
+	const struct dpll_data *dd;
+	u32 ctrl, mult_div1;
+
+	dd = clk->dpll_data;
+
+	ctrl = ti_clk_ll_ops->clk_readl(dd->control_reg);
+	mult_div1 = ti_clk_ll_ops->clk_readl(dd->mult_div1_reg);
+
+	if (clk->context == ((ctrl & dd->enable_mask) >>
+			     __ffs(dd->enable_mask)) &&
+	    dd->last_rounded_m == ((mult_div1 & dd->mult_mask) >>
+				   __ffs(dd->mult_mask)) &&
+	    dd->last_rounded_n == ((mult_div1 & dd->div1_mask) >>
+				   __ffs(dd->div1_mask)) + 1) {
+		/* nothing to be done */
+		return;
+	}
+
+	if (clk->context == DPLL_LOCKED)
+		omap3_noncore_dpll_program(clk, 0);
+	else
+		_omap3_dpll_write_clken(clk, clk->context);
 }
 
 /* OMAP3/4 non-CORE DPLL clkops */

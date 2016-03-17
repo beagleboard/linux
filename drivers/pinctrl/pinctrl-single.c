@@ -175,6 +175,7 @@ struct pcs_soc_data {
  * struct pcs_device - pinctrl device instance
  * @res:	resources
  * @base:	virtual address of the controller
+ * @saved_vals: saved values for the controller
  * @size:	size of the ioremapped area
  * @dev:	device entry
  * @pctl:	pin controller device
@@ -206,6 +207,7 @@ struct pcs_soc_data {
 struct pcs_device {
 	struct resource *res;
 	void __iomem *base;
+	void *saved_vals;
 	unsigned size;
 	struct device *dev;
 	struct pinctrl_dev *pctl;
@@ -488,6 +490,52 @@ static int pcs_set_mux(struct pinctrl_dev *pctldev, unsigned fselector,
 	return 0;
 }
 
+static int pcs_save_context(struct pinctrl_dev *pctldev)
+{
+	struct pcs_device *pcs;
+	int i;
+
+	pcs = pinctrl_dev_get_drvdata(pctldev);
+
+	if (!pcs->saved_vals)
+		pcs->saved_vals = devm_kzalloc(pcs->dev, pcs->size, GFP_ATOMIC);
+
+	switch (pcs->width) {
+	case 32:
+		for (i = 0; i < pcs->size; i += 4)
+			*(u32 *)(pcs->saved_vals + i) =
+				pcs->read(pcs->base + i);
+		break;
+	case 16:
+		for (i = 0; i < pcs->size; i += 2)
+			*(u16 *)(pcs->saved_vals + i) =
+				pcs->read(pcs->base + i);
+		break;
+	}
+	return 0;
+}
+
+static void pcs_restore_context(struct pinctrl_dev *pctldev)
+{
+	struct pcs_device *pcs;
+	int i;
+
+	pcs = pinctrl_dev_get_drvdata(pctldev);
+
+	switch (pcs->width) {
+	case 32:
+		for (i = 0; i < pcs->size; i += 4)
+			pcs->write(*(u32 *)(pcs->saved_vals + i),
+				pcs->base + i);
+		break;
+	case 16:
+		for (i = 0; i < pcs->size; i += 2)
+			pcs->write(*(u16 *)(pcs->saved_vals + i),
+				pcs->base + i);
+		break;
+	}
+}
+
 static int pcs_request_gpio(struct pinctrl_dev *pctldev,
 			    struct pinctrl_gpio_range *range, unsigned pin)
 {
@@ -520,6 +568,8 @@ static const struct pinmux_ops pcs_pinmux_ops = {
 	.get_function_name = pcs_get_function_name,
 	.get_function_groups = pcs_get_function_groups,
 	.set_mux = pcs_set_mux,
+	.save_context = pcs_save_context,
+	.restore_context = pcs_restore_context,
 	.gpio_request_enable = pcs_request_gpio,
 };
 
