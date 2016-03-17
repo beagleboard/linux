@@ -16,6 +16,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/genpd/k2g.h>
 #include <dt-bindings/clock/k2g.h>
+#include <dt-bindings/reset/k2g.h>
 #include "skeleton.dtsi"
 
 / {
@@ -122,6 +123,12 @@
 			compatible = "ti,sci-pm-domains";
 			#power-domain-cells = <1>;
 			ti,sci = <&pmmc>;
+		};
+
+		k2g_reset: k2g_reset {
+			compatible = "ti,sci-reset";
+			ti,sci = <&pmmc>;
+			#reset-cells = <2>;
 		};
 	};
 };
