@@ -1,0 +1,68 @@
+Texas Instruments System Control Interface (TI-SCI) Reset Controller
+=====================================================================
+
+Some TI SoCs contain a system controller (like the Power Management Micro
+Controller (PMMC) on Keystone 2 Galileo SoC) that are responsible for
+controlling the state of the various hardware modules present on the SoC.
+Communication between the host processor running an OS and the system
+controller happens through a protocol called TI System Control Interface
+(TI-SCI protocol). For TI SCI details, please refer to the document,
+Documentation/devicetree/bindings/arm/keystone/ti,sci.txt
+
+TI-SCI Reset Controller Node
+============================
+This reset controller node uses the TI SCI protocol to perform the reset
+management of various hardware modules present on the SoC.
+
+Required properties:
+--------------------
+ - compatible	: Should be "ti,sci-reset"
+ - ti,sci	: phandle to the TI SCI device to use for managing resets
+ - #reset-cells	: Should be 2. Please see the reset consumer node below for
+		  usage details.
+
+TI-SCI Reset Consumer Nodes
+===========================
+Each of the reset consumer nodes should have the following properties,
+in addition to their own properties.
+
+Required properties:
+--------------------
+ - resets	: A phandle and reset specifier pair, one pair for each reset
+		  signal that affects the device, or that the device manages.
+		  The phandle should point to the TI-SCI reset controller node,
+		  and the reset specifier should have 2 cell-values. The first
+		  cell should contain the device ID, the values of which are
+		  specified in the <dt-bindings/genpd/<soc>.h> include file.
+		  The second cell should contain the reset mask value used by
+		  system controller, the values of which are specified in the
+		  include file <dt-bindings/reset/<soc>.h>, where <soc> is the
+		  name of the SoC involved, for example 'k2g'.
+
+Please also refer to Documentation/devicetree/bindings/reset/reset.txt for
+common reset controller usage by consumers.
+
+
+Example:
+--------
+The following example demonstrates both a TI-SCI reset controller node and a
+consumer (a DSP device) on the Keystone 2 Galileo SoC.
+
+#include <dt-bindings/genpd/k2g.h>
+#include <dt-bindings/reset/k2g.h>
+
+/ {
+	soc {
+		k2g_reset: k2g_reset {
+			compatible = "ti,sci-reset";
+			ti,sci = <&pmmc>;
+			#reset-cells = <2>;
+		};
+
+		dsp0: dsp0 {
+			...
+			resets = <&k2g_reset K2G_DEV_CGEM0 K2G_DEV_CGEM0_DSP0_RESET>;
+			...
+		};
+	};
+};
