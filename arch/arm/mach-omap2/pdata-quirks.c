@@ -415,7 +415,7 @@ static void __init omap3_pandora_legacy_init(void)
 }
 #endif /* CONFIG_ARCH_OMAP3 */
 
-#ifdef CONFIG_ARCH_OMAP4
+#if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 static struct omap_rproc_timer_ops omap_rproc_dmtimer_ops = {
 	.request_timer = omap_rproc_request_timer,
 	.release_timer = omap_rproc_release_timer,
@@ -576,6 +576,10 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 #ifdef CONFIG_ARCH_OMAP4
 	OF_DEV_AUXDATA("ti,omap4-dsp", 0, "dsp", &omap4_ipu_dsp_pdata),
 	OF_DEV_AUXDATA("ti,omap4-ipu", 0x55020000, "ipu", &omap4_ipu_dsp_pdata),
+#endif
+#ifdef CONFIG_SOC_OMAP5
+	OF_DEV_AUXDATA("ti,omap5-dsp", 0, "dsp", &omap4_ipu_dsp_pdata),
+	OF_DEV_AUXDATA("ti,omap5-ipu", 0x55020000, "ipu", &omap4_ipu_dsp_pdata),
 #endif
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 	OF_DEV_AUXDATA("ti,omap4-iommu", 0x4a066000, "4a066000.mmu",
