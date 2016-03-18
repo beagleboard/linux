@@ -2189,6 +2189,14 @@ int serial8250_do_startup(struct uart_port *port)
 	 */
 	enable_rsa(up);
 #endif
+
+#ifdef CONFIG_SERIAL_8250_KEYSTONE
+	/*
+	 * Enable Keystone SOCs UART transmitter and receiver
+	 */
+	keystone_serial8250_init(port);
+#endif
+
 	/*
 	 * Clear the FIFO buffers and disable them.
 	 * (they will be reenabled in set_termios())
