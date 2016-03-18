@@ -461,7 +461,7 @@ static struct wlcore_conf wl18xx_conf = {
 	},
 	.fwlog = {
 		.mode                         = WL12XX_FWLOG_CONTINUOUS,
-		.mem_blocks                   = 2,
+		.mem_blocks                   = 0,
 		.severity                     = 0,
 		.timestamp                    = WL12XX_FWLOG_TIMESTAMP_DISABLED,
 		.output                       = WL12XX_FWLOG_OUTPUT_DBG_PINS,
@@ -584,7 +584,7 @@ static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
 		.mem  = { .start = 0x00A00000, .size  = 0x00012000 },
 		.reg  = { .start = 0x00807000, .size  = 0x00005000 },
 		.mem2 = { .start = 0x00800000, .size  = 0x0000B000 },
-		.mem3 = { .start = 0x00000000, .size  = 0x00000000 },
+		.mem3 = { .start = 0x00401594, .size  = 0x00001020 },
 	},
 	[PART_DOWN] = {
 		.mem  = { .start = 0x00000000, .size  = 0x00014000 },
@@ -602,7 +602,7 @@ static const struct wlcore_partition_set wl18xx_ptable[PART_TABLE_LEN] = {
 		.mem  = { .start = 0x00800000, .size  = 0x000050FC },
 		.reg  = { .start = 0x00B00404, .size  = 0x00001000 },
 		.mem2 = { .start = 0x00C00000, .size  = 0x00000400 },
-		.mem3 = { .start = 0x00000000, .size  = 0x00000000 },
+		.mem3 = { .start = 0x00401594, .size  = 0x00001020 },
 	},
 	[PART_PHY_INIT] = {
 		.mem  = { .start = WL18XX_PHY_INIT_MEM_ADDR,
@@ -1030,7 +1030,8 @@ static int wl18xx_boot(struct wl1271 *wl)
 		SMART_CONFIG_SYNC_EVENT_ID |
 		SMART_CONFIG_DECODE_EVENT_ID |
 		RX_BA_WIN_SIZE_CHANGE_EVENT_ID |
-		TIME_SYNC_EVENT_ID;
+		TIME_SYNC_EVENT_ID |
+		FW_LOGGER_INDICATION;
 
 	wl->ap_event_mask = MAX_TX_FAILURE_EVENT_ID;
 
@@ -1174,6 +1175,13 @@ static int wl18xx_hw_init(struct wl1271 *wl)
 	}
 
 	return ret;
+}
+
+static int wl18xx_init_vif(struct wl1271 *wl, struct wl12xx_vif *wlvif)
+{
+	return wlcore_cmd_generic_cfg(wl, wlvif,
+				      WLCORE_CFG_FEATURE_DIVERSITY_MODE,
+				      wl->diversity_mode, 0);
 }
 
 static void wl18xx_convert_fw_status(struct wl1271 *wl, void *raw_fw_status,
@@ -1384,24 +1392,24 @@ out:
 
 #define WL18XX_CONF_FILE_NAME "ti-connectivity/wl18xx-conf.bin"
 
-static int wl18xx_load_conf_file(struct device *dev, struct wlcore_conf *conf,
-				 struct wl18xx_priv_conf *priv_conf)
+static struct wlcore_conf_file *
+wl18xx_load_conf_file(struct device *dev, const struct firmware **_fw)
 {
 	struct wlcore_conf_file *conf_file;
 	const struct firmware *fw;
 	int ret;
 
-	ret = request_firmware(&fw, WL18XX_CONF_FILE_NAME, dev);
+	ret = request_firmware(_fw, WL18XX_CONF_FILE_NAME, dev);
 	if (ret < 0) {
-		wl1271_error("could not get configuration binary %s: %d",
+		wl1271_info("could not get configuration binary %s: %d",
 			     WL18XX_CONF_FILE_NAME, ret);
-		return ret;
+		return NULL;
 	}
 
+	fw = *_fw;
 	if (fw->size != WL18XX_CONF_SIZE) {
-		wl1271_error("configuration binary file size is wrong, expected %zu got %zu",
+		wl1271_info("configuration binary file size is wrong, expected %zu got %zu",
 			     WL18XX_CONF_SIZE, fw->size);
-		ret = -EINVAL;
 		goto out_release;
 	}
 
@@ -1411,7 +1419,6 @@ static int wl18xx_load_conf_file(struct device *dev, struct wlcore_conf *conf,
 		wl1271_error("configuration binary file magic number mismatch, "
 			     "expected 0x%0x got 0x%0x", WL18XX_CONF_MAGIC,
 			     conf_file->header.magic);
-		ret = -EINVAL;
 		goto out_release;
 	}
 
@@ -1419,27 +1426,32 @@ static int wl18xx_load_conf_file(struct device *dev, struct wlcore_conf *conf,
 		wl1271_error("configuration binary file version not supported, "
 			     "expected 0x%08x got 0x%08x",
 			     WL18XX_CONF_VERSION, conf_file->header.version);
-		ret = -EINVAL;
 		goto out_release;
 	}
 
-	memcpy(conf, &conf_file->core, sizeof(*conf));
-	memcpy(priv_conf, &conf_file->priv, sizeof(*priv_conf));
+	return conf_file;
 
 out_release:
 	release_firmware(fw);
-	return ret;
+	return NULL;
 }
 
 static int wl18xx_conf_init(struct wl1271 *wl, struct device *dev)
 {
 	struct wl18xx_priv *priv = wl->priv;
+	struct wlcore_conf_file *conf_file;
+	const struct firmware *fw;
 
-	if (wl18xx_load_conf_file(dev, &wl->conf, &priv->conf) < 0) {
+	conf_file = wl18xx_load_conf_file(dev, &fw);
+	if (conf_file) {
+		memcpy(&wl->conf, &conf_file->core, sizeof(wl18xx_conf));
+		memcpy(&priv->conf, &conf_file->priv, sizeof(priv->conf));
+		release_firmware(fw);
+	} else {
 		wl1271_warning("falling back to default config");
 
 		/* apply driver default configuration */
-		memcpy(&wl->conf, &wl18xx_conf, sizeof(wl->conf));
+		memcpy(&wl->conf, &wl18xx_conf, sizeof(wl18xx_conf));
 		/* apply default private configuration */
 		memcpy(&priv->conf, &wl18xx_default_priv_conf,
 		       sizeof(priv->conf));
@@ -1713,6 +1725,7 @@ static struct wlcore_ops wl18xx_ops = {
 	.tx_immediate_compl = wl18xx_tx_immediate_completion,
 	.tx_delayed_compl = NULL,
 	.hw_init	= wl18xx_hw_init,
+	.init_vif	= wl18xx_init_vif,
 	.convert_fw_status = wl18xx_convert_fw_status,
 	.set_tx_desc_csum = wl18xx_set_tx_desc_csum,
 	.get_pg_ver	= wl18xx_get_pg_ver,
@@ -1886,6 +1899,28 @@ wl18xx_iface_combinations[] = {
 					BIT(NL80211_CHAN_HT20) |
 					BIT(NL80211_CHAN_HT40MINUS) |
 					BIT(NL80211_CHAN_HT40PLUS),
+	},
+	{
+		.max_interfaces = 3,
+		.limits = wl18xx_iface_ap_cl_limits,
+		.n_limits = ARRAY_SIZE(wl18xx_iface_ap_cl_limits),
+		.num_different_channels = 2,
+	},
+	{
+		.max_interfaces = 3,
+		.limits = wl18xx_iface_ap_cl_limits,
+		.n_limits = ARRAY_SIZE(wl18xx_iface_ap_cl_limits),
+		.num_different_channels = 1,
+		.radar_detect_widths =  BIT(NL80211_CHAN_NO_HT) |
+					BIT(NL80211_CHAN_HT20) |
+					BIT(NL80211_CHAN_HT40MINUS) |
+					BIT(NL80211_CHAN_HT40PLUS),
+	},
+	{
+		.max_interfaces = 3,
+		.limits = wl18xx_iface_ap_go_limits,
+		.n_limits = ARRAY_SIZE(wl18xx_iface_ap_go_limits),
+		.num_different_channels = 1,
 	}
 };
 
@@ -2005,10 +2040,8 @@ static int wl18xx_setup(struct wl1271 *wl)
 				  &wl18xx_siso20_ht_cap);
 	}
 
-	if (!checksum_param) {
+	if (!checksum_param)
 		wl18xx_ops.set_rx_csum = NULL;
-		wl18xx_ops.init_vif = NULL;
-	}
 
 	/* Enable 11a Band only if we have 5G antennas */
 	wl->enable_11a = (priv->conf.phy.number_of_assembled_ant5 != 0);
