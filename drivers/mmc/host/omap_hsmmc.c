@@ -728,8 +728,10 @@ static inline void omap_hsmmc_save_dll(struct omap_hsmmc_host *host)
 }
 
 static int omap_hsmmc_pinctrl_set_state(struct omap_hsmmc_host *host,
-					char *mode)
+					const char *mode)
 {
+	struct pinctrl_state *s = ERR_PTR(-ENODEV);
+	const char *version = host->pdata->version;
 	int ret;
 
 	if (IS_ERR(host->pinctrl)) {
@@ -743,10 +745,25 @@ static int omap_hsmmc_pinctrl_set_state(struct omap_hsmmc_host *host,
 		return -EINVAL;
 	}
 
-	host->pinctrl_state = pinctrl_lookup_state(host->pinctrl, mode);
-	if (IS_ERR(host->pinctrl_state)) {
-		dev_err(mmc_dev(host->mmc),
-			"no pinctrl state for %s mode\n", mode);
+	if (version) {
+		char str[20];
+		snprintf(str, sizeof(str), "%s-%s", mode, version);
+		s = pinctrl_lookup_state(host->pinctrl, str);
+	}
+	if (IS_ERR(s))
+		s = pinctrl_lookup_state(host->pinctrl, mode);
+
+	host->pinctrl_state = s;
+
+	if (IS_ERR(s)) {
+		if (version)
+			dev_err(mmc_dev(host->mmc),
+				"no pinctrl state for %s or %s-%s mode\n",
+				mode, mode, version);
+		else
+			dev_err(mmc_dev(host->mmc),
+				"no pinctrl state for %s\n", mode);
+
 		return PTR_ERR(host->pinctrl_state);
 	}
 
@@ -2493,6 +2510,9 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	pdata->nr_slots = 1;
 	pdata->slots[0].switch_pin = cd_gpio;
 	pdata->slots[0].gpio_wp = wp_gpio;
+
+	if (of_property_read_string(np, "ti,hsmmc-rev", &pdata->version) < 0)
+		pdata->version = NULL;
 
 	if (of_find_property(np, "ti,non-removable", NULL)) {
 		pdata->slots[0].nonremovable = true;

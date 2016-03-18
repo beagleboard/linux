@@ -148,4 +148,7 @@ struct omap_mmc_platform_data {
 		unsigned int ban_openended:1;
 
 	} slots[OMAP_MMC_MAX_SLOTS];
+
+	/* string specifying a particular variant of hardware */
+	const char *version;
 };
