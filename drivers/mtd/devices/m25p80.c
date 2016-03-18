@@ -547,6 +547,7 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	flash->command[0] = opcode;
 	m25p_addr2cmd(flash, from, flash->command);
 
+	m.use_mmap_mode = true;
 	spi_sync(flash->spi, &m);
 
 	*retlen = m.actual_length - m25p_cmdsz(flash) - dummy;
