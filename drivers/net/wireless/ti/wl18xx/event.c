@@ -146,7 +146,8 @@ int wl18xx_process_mailbox_events(struct wl1271 *wl)
 			    mbox->radar_channel,
 			    wl18xx_radar_type_decode(mbox->radar_type));
 
-		ieee80211_radar_detected(wl->hw);
+		if (!wl->radar_debug_mode)
+			ieee80211_radar_detected(wl->hw);
 	}
 
 	if (vector & PERIODIC_SCAN_REPORT_EVENT_ID) {
@@ -264,6 +265,9 @@ int wl18xx_process_mailbox_events(struct wl1271 *wl)
 				wl->links[link_id].addr),
 			win_size);
 	}
+	if (vector & FW_LOGGER_INDICATION)
+		wlcore_event_fw_logger(wl);
+
 
 out_event:
 
