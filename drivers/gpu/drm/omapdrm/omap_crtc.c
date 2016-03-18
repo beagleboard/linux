@@ -60,6 +60,9 @@ to_omap_crtc_state(struct drm_crtc_state *state)
 	return container_of(state, struct omap_crtc_state, base);
 }
 
+static void omap_crtc_atomic_destroy_state(struct drm_crtc *crtc,
+					   struct drm_crtc_state *state);
+
 /* -----------------------------------------------------------------------------
  * Helper Functions
  */
@@ -382,9 +385,7 @@ static void omap_crtc_reset(struct drm_crtc *crtc)
 	struct omap_crtc_state *omap_state;
 
 	if (crtc->state) {
-		__drm_atomic_helper_crtc_destroy_state(crtc, crtc->state);
-
-		kfree(crtc->state);
+		omap_crtc_atomic_destroy_state(crtc, crtc->state);
 		crtc->state = NULL;
 	}
 
