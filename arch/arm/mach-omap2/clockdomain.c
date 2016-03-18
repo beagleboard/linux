@@ -465,10 +465,7 @@ int clkdm_complete_init(void)
 		return -EACCES;
 
 	list_for_each_entry(clkdm, &clkdm_list, node) {
-		if (clkdm->flags & CLKDM_CAN_FORCE_WAKEUP)
-			clkdm_wakeup(clkdm);
-		else if (clkdm->flags & CLKDM_CAN_DISABLE_AUTO)
-			clkdm_deny_idle(clkdm);
+		clkdm_deny_idle(clkdm);
 
 		_resolve_clkdm_deps(clkdm, clkdm->wkdep_srcs);
 		clkdm_clear_all_wkdeps(clkdm);
@@ -925,11 +922,20 @@ void clkdm_allow_idle_nolock(struct clockdomain *clkdm)
 	if (!clkdm)
 		return;
 
-	if (!(clkdm->flags & CLKDM_CAN_ENABLE_AUTO)) {
-		pr_debug("clock: %s: automatic idle transitions cannot be enabled\n",
-			 clkdm->name);
+	if (!WARN_ON(!clkdm->forcewake_count))
+		clkdm->forcewake_count--;
+
+	if (clkdm->forcewake_count)
 		return;
-	}
+
+	if (!clkdm->usecount && (clkdm->flags & CLKDM_CAN_FORCE_SLEEP))
+		clkdm_sleep_nolock(clkdm);
+
+	if (!(clkdm->flags & CLKDM_CAN_ENABLE_AUTO))
+		return;
+
+	if (clkdm->flags & CLKDM_MISSING_IDLE_REPORTING)
+		return;
 
 	if (!arch_clkdm || !arch_clkdm->clkdm_allow_idle)
 		return;
@@ -974,11 +980,17 @@ void clkdm_deny_idle_nolock(struct clockdomain *clkdm)
 	if (!clkdm)
 		return;
 
-	if (!(clkdm->flags & CLKDM_CAN_DISABLE_AUTO)) {
-		pr_debug("clockdomain: %s: automatic idle transitions cannot be disabled\n",
-			 clkdm->name);
+	if (clkdm->forcewake_count++)
 		return;
-	}
+
+	if (clkdm->flags & CLKDM_CAN_FORCE_WAKEUP)
+		clkdm_wakeup_nolock(clkdm);
+
+	if (!(clkdm->flags & CLKDM_CAN_DISABLE_AUTO))
+		return;
+
+	if (clkdm->flags & CLKDM_MISSING_IDLE_REPORTING)
+		return;
 
 	if (!arch_clkdm || !arch_clkdm->clkdm_deny_idle)
 		return;
@@ -1207,86 +1219,6 @@ int clkdm_clk_disable(struct clockdomain *clkdm, struct clk *clk)
 	pr_debug("clockdomain: %s: disabled\n", clkdm->name);
 
 ccd_exit:
-	pwrdm_unlock(clkdm->pwrdm.ptr);
-
-	return 0;
-}
-
-/**
- * clkdm_hwmod_prevent_hwauto - prevent a future hwauto on a clock domain.
- * @clkdm: struct clockdomain *
- * @oh: struct omap_hwmod * of the enabled downstream hwmod
- *
- * Prevent future hwauto for this clkdm. This will only prevent future hwauto
- * but not bring it out of hwauto.
- */
-int clkdm_hwmod_prevent_hwauto(struct clockdomain *clkdm, struct omap_hwmod *oh)
-{
-	/* The clkdm attribute does not exist yet prior OMAP4 */
-	if (cpu_is_omap24xx() || cpu_is_omap34xx())
-		return 0;
-
-	if (!clkdm || !oh || !arch_clkdm || !arch_clkdm->clkdm_clk_disable)
-		return -EINVAL;
-
-	pwrdm_lock(clkdm->pwrdm.ptr);
-	clkdm->noidlecount++;
-	pwrdm_unlock(clkdm->pwrdm.ptr);
-
-	return 0;
-}
-
-/**
- * clkdm_hwmod_allow_hwauto - allow future hwauto for this clkdm
- * @clkdm: struct clockdomain *
- * @oh: struct omap_hwmod * of the enabled downstream hwmod
- *
- * Allow future hwauto for this clkdm. It won't put clkdm into hwauto.
- * use clkdm_hwmod_hwauto() for that.
- */
-int clkdm_hwmod_allow_hwauto(struct clockdomain *clkdm, struct omap_hwmod *oh)
-{
-	/* The clkdm attribute does not exist yet prior OMAP4 */
-	if (cpu_is_omap24xx() || cpu_is_omap34xx())
-		return 0;
-
-	if (!clkdm || !oh || !arch_clkdm || !arch_clkdm->clkdm_clk_disable)
-		return -EINVAL;
-
-	pwrdm_lock(clkdm->pwrdm.ptr);
-
-	if (clkdm->noidlecount == 0) {
-		pwrdm_unlock(clkdm->pwrdm.ptr);
-		WARN_ON(1); /* underflow */
-		return -ERANGE;
-	}
-
-	clkdm->noidlecount--;
-	pwrdm_unlock(clkdm->pwrdm.ptr);
-
-	return 0;
-}
-
-/**
- * clkdm_hwmod_hwauto - put clkdm in hwauto
- * @clkdm: struct clockdomain *
- * @oh: struct omap_hwmod * of the enabled downstream hwmod
- *
- * Put clkdm in hwauto if we can. Checks noidlecount to see if we can.
- */
-int clkdm_hwmod_hwauto(struct clockdomain *clkdm, struct omap_hwmod *oh)
-{
-	/* The clkdm attribute does not exist yet prior OMAP4 */
-	if (cpu_is_omap24xx() || cpu_is_omap34xx())
-		return 0;
-
-	if (!clkdm || !oh || !arch_clkdm || !arch_clkdm->clkdm_clk_disable)
-		return -EINVAL;
-
-	pwrdm_lock(clkdm->pwrdm.ptr);
-	if (clkdm->noidlecount == 0)
-		clkdm_allow_idle_nolock(clkdm);
-
 	pwrdm_unlock(clkdm->pwrdm.ptr);
 
 	return 0;
