@@ -42,7 +42,7 @@
 		/include/ "k2l-clocks.dtsi"
 
 		uart2: serial@02348400 {
-			compatible = "ns16550a";
+			compatible = "ti,keystone-uart", "ns16550a";
 			current-speed = <115200>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -52,7 +52,7 @@
 		};
 
 		uart3:	serial@02348800 {
-			compatible = "ns16550a";
+			compatible = "ti,keystone-uart", "ns16550a";
 			current-speed = <115200>;
 			reg-shift = <2>;
 			reg-io-width = <4>;

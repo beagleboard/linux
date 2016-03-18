@@ -1,0 +1,23 @@
+Keystone UART controller
+
+Required properties:
+- compatible : should be "ti,keystone-uart" for K2G, K2E, K2L and K2HL
+               controllers
+
+See Documentation/devicetree/bindings/serial/8250.txt for other required
+and optional properties.
+
+Example:
+
+	uart1: serial@02531000 {
+		compatible = "ti,keystone-uart", "ns16550a";
+		current-speed = <115200>;
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		reg = <0x02531000 0x100>;
+		interrupts = <GIC_SPI 165 IRQ_TYPE_EDGE_RISING>;
+		status = "disabled";
+		power-domains = <&k2g_pds K2G_DEV_UART1>;
+		clocks = <&k2g_clks K2G_DEV_UART1 0>;
+		clock-names = "fck";
+	};
