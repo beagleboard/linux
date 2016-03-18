@@ -534,8 +534,7 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 {
 	struct drm_device *dev = crtc->dev;
 	struct omap_drm_private *priv = dev->dev_private;
-	struct omap_crtc_state *omap_state =
-		to_omap_crtc_state(crtc->state);
+	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 
 	if (omap_crtc_is_plane_prop(dev, property)) {
 		struct drm_plane_state *plane_state;
@@ -576,7 +575,7 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct omap_drm_private *priv = dev->dev_private;
 	const struct omap_crtc_state *omap_state =
-		to_omap_crtc_state(crtc->state);
+		container_of(state, const struct omap_crtc_state, base);
 
 	if (omap_crtc_is_plane_prop(dev, property)) {
 		/*
