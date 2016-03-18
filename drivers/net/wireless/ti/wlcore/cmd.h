@@ -626,7 +626,6 @@ struct wl12xx_cmd_remove_peer {
  */
 enum wl12xx_fwlogger_log_mode {
 	WL12XX_FWLOG_CONTINUOUS,
-	WL12XX_FWLOG_ON_DEMAND
 };
 
 /* Include/exclude timestamps from the log messages */
@@ -655,6 +654,7 @@ struct wl12xx_cmd_regdomain_dfs_config {
 } __packed;
 
 enum wlcore_generic_cfg_feature {
+	WLCORE_CFG_FEATURE_DIVERSITY_MODE = 1,
 	WLCORE_CFG_FEATURE_RADAR_DEBUG = 2,
 };
 
