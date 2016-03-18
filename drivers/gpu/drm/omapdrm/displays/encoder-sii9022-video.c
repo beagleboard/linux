@@ -23,6 +23,7 @@
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/of_gpio.h>
