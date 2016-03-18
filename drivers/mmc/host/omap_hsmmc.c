@@ -783,7 +783,7 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 	unsigned long regval;
 	unsigned long timeout;
 	unsigned long clkdiv;
-	char *mode;
+	const char *mode;
 
 	dev_vdbg(mmc_dev(host->mmc), "Set clock to %uHz\n", ios->clock);
 
@@ -807,28 +807,28 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 
 	switch (ios->timing) {
 	case MMC_TIMING_UHS_SDR104:
-		mode = kstrdup("sdr104", GFP_KERNEL);
+		mode = "sdr104";
 		host->need_i834_errata = true;
 		break;
 	case MMC_TIMING_UHS_DDR50:
-		mode = kstrdup("ddr50", GFP_KERNEL);
+		mode = "ddr50";
 		break;
 	case MMC_TIMING_UHS_SDR50:
-		mode = kstrdup("sdr50", GFP_KERNEL);
+		mode = "sdr50";
 		break;
 	case MMC_TIMING_SD_HS:
 	case MMC_TIMING_MMC_HS:
-		mode = kstrdup("hs", GFP_KERNEL);
+		mode = "hs";
 		break;
 	case MMC_TIMING_UHS_SDR25:
-		mode = kstrdup("sdr25", GFP_KERNEL);
+		mode = "sdr25";
 		break;
 	case MMC_TIMING_UHS_SDR12:
-		mode = kstrdup("sdr12", GFP_KERNEL);
+		mode = "sdr12";
 		break;
 	case MMC_TIMING_MMC_HS200:
 		host->need_i834_errata = true;
-		mode = kstrdup("hs200_1_8v", GFP_KERNEL);
+		mode = "hs200_1_8v";
 		break;
 	default:
 		dev_dbg(mmc_dev(host->mmc), "no io delay setting\n");
@@ -837,7 +837,6 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 
 	omap_hsmmc_pinctrl_set_state(host, mode);
 	host->pinctrl_default_state = false;
-	kfree(mode);
 
 no_io_delay:
 	regval = OMAP_HSMMC_READ(host->base, SYSCTL);
