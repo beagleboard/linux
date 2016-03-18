@@ -827,8 +827,8 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 		mode = kstrdup("sdr12", GFP_KERNEL);
 		break;
 	case MMC_TIMING_MMC_HS200:
-		mode = kstrdup("hs200", GFP_KERNEL);
 		host->need_i834_errata = true;
+		mode = kstrdup("hs200_1_8v", GFP_KERNEL);
 		break;
 	default:
 		dev_dbg(mmc_dev(host->mmc), "no io delay setting\n");
