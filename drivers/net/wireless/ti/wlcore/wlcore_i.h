@@ -31,6 +31,9 @@
 #include <linux/list.h>
 #include <linux/bitops.h>
 #include <net/mac80211.h>
+#ifdef CONFIG_HAS_WAKELOCK
+#include <linux/wakelock.h>
+#endif
 
 #include "conf.h"
 #include "ini.h"
@@ -228,6 +231,7 @@ enum wl12xx_flags {
 	WL1271_FLAG_TX_PENDING,
 	WL1271_FLAG_IN_ELP,
 	WL1271_FLAG_ELP_REQUESTED,
+	WL1271_FLAG_WAKE_LOCK,
 	WL1271_FLAG_IRQ_RUNNING,
 	WL1271_FLAG_FW_TX_BUSY,
 	WL1271_FLAG_DUMMY_PACKET_PENDING,
