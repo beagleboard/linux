@@ -189,9 +189,6 @@ struct sc_data {
 	bool			load_coeff_h;	/* have new h SC coeffs */
 	bool			load_coeff_v;	/* have new v SC coeffs */
 
-	unsigned int		hs_index;	/* h SC coeffs selector */
-	unsigned int		vs_index;	/* v SC coeffs selector */
-
 	struct platform_device *pdev;
 };
 
@@ -204,5 +201,6 @@ void sc_config_scaler(struct sc_data *sc, u32 *sc_reg0, u32 *sc_reg8,
 		u32 *sc_reg17, unsigned int src_w, unsigned int src_h,
 		unsigned int dst_w, unsigned int dst_h);
 struct sc_data *sc_create(struct platform_device *pdev);
+struct sc_data *sc_create_inst(struct platform_device *pdev, unsigned int instance);
 
 #endif

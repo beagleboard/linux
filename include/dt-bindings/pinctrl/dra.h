@@ -67,5 +67,18 @@
 #define PIN_INPUT_PULLUP	(PULL_ENA | INPUT_EN | PULL_UP)
 #define PIN_INPUT_PULLDOWN	(PULL_ENA | INPUT_EN)
 
+/* DRA72 VIP MUX selection parameters */
+#define VIP_VIN3A		(0x0 << 4)
+#define VIP_VIN5A		(0x1 << 4)
+#define VIP_VIN6A		(0x2 << 4)
+
+#define VIP_VIN4B		(0x0 << 3)
+
+#define VIP_VIN2A		(0x0 << 1)
+#define VIP_VIN4A		(0x1 << 1)
+
+#define VIP_VIN3B		(0x0 << 0)
+#define VIP_VIN2B		(0x1 << 0)
+
 #endif
 
