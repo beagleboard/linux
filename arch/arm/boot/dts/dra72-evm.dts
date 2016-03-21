@@ -357,6 +357,22 @@
 			line-name = "vin6_sel_s0";
 		};
 	};
+
+	ov10633@37 {
+		compatible = "ovti,ov10633";
+		reg = <0x37>;
+
+		mux-gpios = <&pcf_hdmi 2	GPIO_ACTIVE_HIGH>, /* VIN2_S0 */
+			    <&pcf_hdmi 6	GPIO_ACTIVE_LOW>; /* VIN2_S2 */
+		port {
+			onboardLI: endpoint {
+				remote-endpoint = <&vin2a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
 };
 
 &uart1 {
@@ -647,5 +663,17 @@
 	status = "okay";
 	mbox_ipu2_ipc3x: mbox_ipu2_ipc3x {
 		status = "okay";
+	};
+};
+
+&vip1 {
+	status = "okay";
+};
+
+&vin2a {
+	status = "okay";
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
 	};
 };

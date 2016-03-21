@@ -82,18 +82,13 @@ static int __verify_length(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 
 	if (V4L2_TYPE_IS_MULTIPLANAR(b->type)) {
 		for (plane = 0; plane < vb->num_planes; ++plane) {
-			length = (b->memory == VB2_MEMORY_USERPTR ||
-				  b->memory == VB2_MEMORY_DMABUF)
+			length = (b->memory == VB2_MEMORY_USERPTR)
 			       ? b->m.planes[plane].length
 				: vb->planes[plane].length;
 			bytesused = b->m.planes[plane].bytesused
 				  ? b->m.planes[plane].bytesused : length;
 
 			if (b->m.planes[plane].bytesused > length)
-				return -EINVAL;
-
-			if (b->m.planes[plane].data_offset > 0 &&
-			    b->m.planes[plane].data_offset >= bytesused)
 				return -EINVAL;
 		}
 	} else {
@@ -352,8 +347,14 @@ static int __fill_vb2_buffer(struct vb2_buffer *vb,
 				struct vb2_plane *pdst = &planes[plane];
 				struct v4l2_plane *psrc = &b->m.planes[plane];
 
-				if (psrc->bytesused == 0)
-					vb2_warn_zero_bytesused(vb);
+				/*
+				 * Suppress the warning for zero bytesused.
+				 * The warning will go away after proper
+				 * fix is done for "HACK: vb2: Remove the V4L2
+				 * check for DMABUF"
+				 */
+				/*if (psrc->bytesused == 0)
+					vb2_warn_zero_bytesused(vb);*/
 
 				if (vb->vb2_queue->allow_zero_bytesused)
 					pdst->bytesused = psrc->bytesused;
