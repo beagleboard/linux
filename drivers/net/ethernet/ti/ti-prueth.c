@@ -651,10 +651,10 @@ static void emac_adjust_link(struct net_device *ndev)
 		emac->duplex = DUPLEX_FULL; /* half duplex may not be supported by f/w */
 	}
 
-	if (new_state) {
-		emac_update_phystatus(emac);
+	emac_update_phystatus(emac);
+
+	if (new_state)
 		phy_print_status(phydev);
-	}
 
 	if (emac->link) {
 		/* link ON */
