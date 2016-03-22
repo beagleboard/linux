@@ -1019,6 +1019,10 @@ int serial8250_register_8250_port(struct uart_8250_port *up)
 		if (up->port.flags & UPF_FIXED_TYPE)
 			uart->port.type = up->port.type;
 
+		uart->gpios = mctrl_gpio_init(&uart->port, 0);
+		if (IS_ERR(uart->gpios))
+			dev_dbg(uart->port.dev, "Failed to init mctrl_gpio\n");
+
 		serial8250_set_defaults(uart);
 
 		/* Possibly override default I/O functions.  */
