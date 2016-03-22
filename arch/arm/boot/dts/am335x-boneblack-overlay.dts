@@ -35,7 +35,3 @@
 		line-name = "EMMC ResetN";
 	};
 };
-
-&rtc {
-	system-power-controller;
-};

@@ -25,10 +25,6 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-&rtc {
-	system-power-controller;
-};
-
 /* EMMC in reset */
 &gpio1 {
 	emmc_rst {
