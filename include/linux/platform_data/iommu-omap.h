@@ -29,15 +29,6 @@ struct omap_iommu_arch_data {
 	struct omap_iommu *iommu_dev;
 };
 
-/**
- * struct omap_mmu_dev_attr - OMAP mmu device attributes for omap_hwmod
- * @nr_tlb_entries:	number of entries supported by the translation
- *			look-aside buffer (TLB).
- */
-struct omap_mmu_dev_attr {
-	int nr_tlb_entries;
-};
-
 struct iommu_platform_data {
 	const char *name;
 	const char *reset_name;
@@ -45,4 +36,6 @@ struct iommu_platform_data {
 
 	int (*assert_reset)(struct platform_device *pdev, const char *name);
 	int (*deassert_reset)(struct platform_device *pdev, const char *name);
+	int (*set_pwrdm_constraint)(struct platform_device *pdev, bool request,
+				    u8 *pwrst);
 };

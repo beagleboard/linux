@@ -44,6 +44,13 @@
 		};
 	};
 
+	aliases {
+		rproc0 = &ipu1;
+		rproc1 = &ipu2;
+		rproc2 = &dsp1;
+		rproc3 = &dsp2;
+	};
+
 	pmu {
 		compatible = "arm,cortex-a15-pmu";
 		interrupt-parent = <&wakeupgen>;
@@ -99,6 +106,18 @@
 			ti,hwmods = "mmu1_dsp2";
 			#iommu-cells = <0>;
 			ti,syscon-mmuconfig = <&dsp2_system 0x1>;
+			status = "disabled";
+		};
+
+		dsp2: dsp@41000000 {
+			compatible = "ti,dra7-dsp";
+			reg = <0x41000000 0x48000>,
+			      <0x41600000 0x8000>,
+			      <0x41700000 0x8000>;
+			reg-names = "l2ram", "l1pram", "l1dram";
+			ti,hwmods = "dsp2";
+			syscon-bootreg = <&scm_conf 0x560>;
+			iommus = <&mmu0_dsp2>, <&mmu1_dsp2>;
 			status = "disabled";
 		};
 
