@@ -491,6 +491,8 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra7-evm.dtb \
 	am57xx-beagle-x15.dtb \
 	am57xx-beagle-x15-revb1.dtb \
+	am57xx-evm.dtb \
+	am57xx-evm-reva3.dtb \
 	dra72-evm.dtb \
 	dra72-evm-revc.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += \
