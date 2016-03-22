@@ -50,10 +50,17 @@ struct mctrl_gpios;
 void mctrl_gpio_set(struct mctrl_gpios *gpios, unsigned int mctrl);
 
 /*
- * Get state of the modem control output lines from GPIOs.
+ * Get state of the modem control input lines from GPIOs.
  * The mctrl flags are updated and returned.
  */
 unsigned int mctrl_gpio_get(struct mctrl_gpios *gpios, unsigned int *mctrl);
+
+/*
+ * Get state of the modem control output lines from GPIOs.
+ * The mctrl flags are updated and returned.
+ */
+unsigned int
+mctrl_gpio_get_outputs(struct mctrl_gpios *gpios, unsigned int *mctrl);
 
 /*
  * Returns the associated struct gpio_desc to the modem line gidx
@@ -105,6 +112,12 @@ void mctrl_gpio_set(struct mctrl_gpios *gpios, unsigned int mctrl)
 
 static inline
 unsigned int mctrl_gpio_get(struct mctrl_gpios *gpios, unsigned int *mctrl)
+{
+	return *mctrl;
+}
+
+static inline unsigned int
+mctrl_gpio_get_outputs(struct mctrl_gpios *gpios, unsigned int *mctrl)
 {
 	return *mctrl;
 }
