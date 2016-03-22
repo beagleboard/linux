@@ -49,6 +49,8 @@ obj-$(CONFIG_WL_MEDIATEK)	+= mediatek/
 
 obj-$(CONFIG_P54_COMMON)	+= p54/
 
+obj-$(CONFIG_ACC1340)		+= acc1340/
+
 obj-$(CONFIG_ATH_CARDS)		+= ath/
 
 obj-$(CONFIG_MAC80211_HWSIM)	+= mac80211_hwsim.o
