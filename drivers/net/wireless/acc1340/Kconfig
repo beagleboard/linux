@@ -1,0 +1,30 @@
+config ACC1340
+	tristate "ACC1340 WLAN support"
+	depends on MAC80211 && CFG80211
+	help
+	  This is a driver for the Amp'ed RF ACC1340 WLAN chipsets.
+	  This option just enables the driver core, see below for
+	  specific bus support.
+
+if ACC1340
+
+config ACC1340_WLAN_SDIO
+	tristate "Support SDIO platforms"
+	depends on ACC1340 && MMC
+	help
+	  Enable support for the ACC1340 connected via an SDIO bus.
+	  By default this driver only supports the Sagrad SG901-1091/1098 EVK
+	  and similar designs that utilize a hardware reset circuit. To
+	  support different ACC1340 SDIO designs you will need to override
+	  the default platform data by calling cw1200_sdio_set_platform_data()
+	  in your board setup file.
+
+config ACC1340_WLAN_SPI
+	tristate "Support SPI platforms"
+	depends on ACC1340 && SPI
+	help
+	  Enables support for the ACC1340 connected via a SPI bus.  You will
+	  need to add appropriate platform data glue in your board setup
+	  file.
+
+endif
