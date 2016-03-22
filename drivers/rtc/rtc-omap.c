@@ -749,9 +749,10 @@ static int omap_rtc_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, true);
 
+	omap_rtc_power_off_rtc = rtc;
+
 	if (rtc->is_pmic_controller) {
 		if (!pm_power_off) {
-			omap_rtc_power_off_rtc = rtc;
 			pm_power_off = omap_rtc_power_off;
 		}
 	}
