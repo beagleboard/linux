@@ -379,14 +379,18 @@ enum rproc_state {
 /**
  * enum rproc_crash_type - remote processor crash types
  * @RPROC_MMUFAULT:	iommu fault
+ * @RPROC_WATCHDOG:	watchdog error
+ * @RPROC_EXCEPTION:	generic device exception
  *
- * Each element of the enum is used as an array index. So that, the value of
+ * Each element of the enum is used as an array index. So, the value of
  * the elements should be always something sane.
  *
  * Feel free to add more types when needed.
  */
 enum rproc_crash_type {
 	RPROC_MMUFAULT,
+	RPROC_WATCHDOG,
+	RPROC_EXCEPTION,
 };
 
 /**
@@ -405,6 +409,8 @@ enum rproc_crash_type {
  * @dbg_dir: debugfs directory of this rproc device
  * @traces: list of trace buffers
  * @num_traces: number of trace buffers
+ * @last_traces: list of last trace buffers
+ * @num_last_traces: number of last trace buffers
  * @carveouts: list of physically contiguous memory allocations
  * @mappings: list of iommu mappings we initiated, needed on shutdown
  * @firmware_loading_complete: marks e/o asynchronous firmware loading
@@ -420,6 +426,7 @@ enum rproc_crash_type {
  * @table_ptr: pointer to the resource table in effect
  * @cached_table: copy of the resource table
  * @table_csum: checksum of the resource table
+ * @fw_version: human readable version information extracted from f/w
  * @has_iommu: flag to indicate if remote processor is behind an MMU
  */
 struct rproc {
@@ -437,6 +444,8 @@ struct rproc {
 	struct dentry *dbg_dir;
 	struct list_head traces;
 	int num_traces;
+	struct list_head last_traces;
+	int num_last_traces;
 	struct list_head carveouts;
 	struct list_head mappings;
 	struct completion firmware_loading_complete;
@@ -452,6 +461,7 @@ struct rproc {
 	struct resource_table *table_ptr;
 	struct resource_table *cached_table;
 	u32 table_csum;
+	char *fw_version;
 	bool has_iommu;
 };
 
@@ -499,8 +509,8 @@ struct rproc_vdev {
 
 struct rproc *rproc_get_by_phandle(phandle phandle);
 struct rproc *rproc_alloc(struct device *dev, const char *name,
-				const struct rproc_ops *ops,
-				const char *firmware, int len);
+			  const struct rproc_ops *ops,
+			  const char *firmware, int len);
 void rproc_put(struct rproc *rproc);
 int rproc_add(struct rproc *rproc);
 int rproc_del(struct rproc *rproc);
@@ -508,6 +518,9 @@ int rproc_del(struct rproc *rproc);
 int rproc_boot(struct rproc *rproc);
 void rproc_shutdown(struct rproc *rproc);
 void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type);
+struct rproc *rproc_vdev_to_rproc_safe(struct virtio_device *vdev);
+int rproc_get_alias_id(struct rproc *rproc);
+int rproc_pa_to_da(struct rproc *rproc, phys_addr_t pa, u64 *da);
 void *rproc_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags);
 
 static inline struct rproc_vdev *vdev_to_rvdev(struct virtio_device *vdev)

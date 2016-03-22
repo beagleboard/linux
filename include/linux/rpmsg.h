@@ -44,6 +44,10 @@
 /* The feature bitmap for virtio rpmsg */
 #define VIRTIO_RPMSG_F_NS	0 /* RP supports name service notifications */
 
+/* lockdep subclasses for use with ept cb_lock mutex nested calls */
+#define RPMSG_LOCKDEP_SUBCLASS_NORMAL   0 /* regular ept cb_lock */
+#define RPMSG_LOCKDEP_SUBCLASS_NS       1 /* name service ept cb_lock */
+
 /**
  * struct rpmsg_hdr - common header for all rpmsg messages
  * @src: source address
@@ -66,7 +70,8 @@ struct rpmsg_hdr {
 
 /**
  * struct rpmsg_ns_msg - dynamic name service announcement message
- * @name: name of remote service that is published
+ * @name: name of remote service that is being published
+ * @desc: description of remote service
  * @addr: address of remote service that is published
  * @flags: indicates whether service is created or destroyed
  *
@@ -78,6 +83,7 @@ struct rpmsg_hdr {
  */
 struct rpmsg_ns_msg {
 	char name[RPMSG_NAME_SIZE];
+	char desc[RPMSG_NAME_SIZE];
 	u32 addr;
 	u32 flags;
 } __packed;
@@ -102,6 +108,7 @@ struct virtproc_info;
  * @vrp: the remote processor this channel belongs to
  * @dev: the device struct
  * @id: device id (used to match between rpmsg drivers and devices)
+ * @desc: description of remote service
  * @src: local address
  * @dst: destination address
  * @ept: the rpmsg endpoint of this channel
@@ -111,6 +118,7 @@ struct rpmsg_channel {
 	struct virtproc_info *vrp;
 	struct device dev;
 	struct rpmsg_device_id id;
+	char desc[RPMSG_NAME_SIZE];
 	u32 src;
 	u32 dst;
 	struct rpmsg_endpoint *ept;
@@ -125,6 +133,7 @@ typedef void (*rpmsg_rx_cb_t)(struct rpmsg_channel *, void *, int, void *, u32);
  * @refcount: when this drops to zero, the ept is deallocated
  * @cb: rx callback handler
  * @cb_lock: must be taken before accessing/changing @cb
+ * @cb_lockdep_class: mutex lockdep class to be used with @cb_lock
  * @addr: local rpmsg address
  * @priv: private data for the driver's use
  *
@@ -147,6 +156,7 @@ struct rpmsg_endpoint {
 	struct kref refcount;
 	rpmsg_rx_cb_t cb;
 	struct mutex cb_lock;
+	int cb_lockdep_class;
 	u32 addr;
 	void *priv;
 };
@@ -176,6 +186,7 @@ struct rpmsg_endpoint *rpmsg_create_ept(struct rpmsg_channel *,
 				rpmsg_rx_cb_t cb, void *priv, u32 addr);
 int
 rpmsg_send_offchannel_raw(struct rpmsg_channel *, u32, u32, void *, int, bool);
+struct virtio_device *rpmsg_get_virtio_dev(struct rpmsg_channel *rpdev);
 
 /**
  * rpmsg_send() - send a message across to the remote processor

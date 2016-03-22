@@ -1,66 +1,88 @@
 /*
- * omap iommu: omap device registration
+ * OMAP IOMMU quirks for various TI SoCs
  *
- * Copyright (C) 2008-2009 Nokia Corporation
+ * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://www.ti.com/
+ *      Suman Anna <s-anna@ti.com>
  *
- * Written by Hiroshi DOYU <Hiroshi.DOYU@nokia.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
-#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/err.h>
-#include <linux/slab.h>
 
-#include <linux/platform_data/iommu-omap.h>
-#include "soc.h"
 #include "omap_hwmod.h"
 #include "omap_device.h"
+#include "clockdomain.h"
+#include "powerdomain.h"
 
-static int __init omap_iommu_dev_init(struct omap_hwmod *oh, void *unused)
+static void omap_iommu_dra7_emu_swsup_config(struct platform_device *pdev,
+					     bool enable)
 {
-	struct platform_device *pdev;
-	struct iommu_platform_data *pdata;
-	struct omap_mmu_dev_attr *a = (struct omap_mmu_dev_attr *)oh->dev_attr;
-	static int i;
+	static struct clockdomain *emu_clkdm;
+	static DEFINE_SPINLOCK(emu_lock);
+	static atomic_t count;
+	struct device_node *np = pdev->dev.of_node;
 
-	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
-		return -ENOMEM;
+	if (!of_device_is_compatible(np, "ti,dra7-dsp-iommu"))
+		return;
 
-	pdata->name = oh->name;
-	pdata->nr_tlb_entries = a->nr_tlb_entries;
-
-	if (oh->rst_lines_cnt == 1) {
-		pdata->reset_name = oh->rst_lines->name;
-		pdata->assert_reset = omap_device_assert_hardreset;
-		pdata->deassert_reset = omap_device_deassert_hardreset;
+	if (!emu_clkdm) {
+		emu_clkdm = clkdm_lookup("emu_clkdm");
+		if (WARN_ON_ONCE(!emu_clkdm))
+			return;
 	}
 
-	pdev = omap_device_build("omap-iommu", i, oh, pdata, sizeof(*pdata));
+	spin_lock(&emu_lock);
 
-	kfree(pdata);
+	if (enable && (atomic_inc_return(&count) == 1))
+		clkdm_deny_idle(emu_clkdm);
+	else if (!enable && (atomic_dec_return(&count) == 0))
+		clkdm_allow_idle(emu_clkdm);
 
-	if (IS_ERR(pdev)) {
-		pr_err("%s: device build err: %ld\n", __func__, PTR_ERR(pdev));
-		return PTR_ERR(pdev);
-	}
-
-	i++;
-
-	return 0;
+	spin_unlock(&emu_lock);
 }
 
-static int __init omap_iommu_init(void)
+int omap_iommu_set_pwrdm_constraint(struct platform_device *pdev, bool request,
+				    u8 *pwrst)
 {
-	/* If dtb is there, the devices will be created dynamically */
-	if (of_have_populated_dt())
+	struct powerdomain *pwrdm;
+	struct omap_device *od;
+	u8 next_pwrst;
+	int ret = 0;
+
+	od = to_omap_device(pdev);
+	if (!od)
 		return -ENODEV;
 
-	return omap_hwmod_for_each_by_class("mmu", omap_iommu_dev_init, NULL);
+	if (od->hwmods_cnt != 1)
+		return -EINVAL;
+
+	pwrdm = omap_hwmod_get_pwrdm(od->hwmods[0]);
+	if (!pwrdm)
+		return -EINVAL;
+
+	if (request) {
+		*pwrst = pwrdm_read_next_pwrst(pwrdm);
+		omap_iommu_dra7_emu_swsup_config(pdev, true);
+	}
+
+	if (*pwrst > PWRDM_POWER_RET)
+		goto out;
+
+	next_pwrst = request ? PWRDM_POWER_ON : *pwrst;
+
+	ret = pwrdm_set_next_pwrst(pwrdm, next_pwrst);
+
+out:
+	if (!request)
+		omap_iommu_dra7_emu_swsup_config(pdev, false);
+
+	return ret;
 }
-omap_subsys_initcall(omap_iommu_init);
-/* must be ready before omap3isp is probed */
