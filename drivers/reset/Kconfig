@@ -12,4 +12,13 @@ menuconfig RESET_CONTROLLER
 
 	  If unsure, say no.
 
+config TI_SCI_RESET
+	tristate "TI System Control Interface (TI-SCI) reset driver"
+	depends on RESET_CONTROLLER
+	depends on TI_SCI_PROTOCOL
+	help
+	  This enables the reset driver support over TI System Control Interface
+	  for TI's Keystone family of SoCs. If you wish to use reset resources
+	  managed by the TI System Controller, say Y here. Otherwise, say N.
+
 source "drivers/reset/sti/Kconfig"
