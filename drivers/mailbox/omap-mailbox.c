@@ -2,7 +2,7 @@
  * OMAP mailbox driver
  *
  * Copyright (C) 2006-2009 Nokia Corporation. All rights reserved.
- * Copyright (C) 2013-2014 Texas Instruments Inc.
+ * Copyright (C) 2013-2016 Texas Instruments Incorporated - http://www.ti.com
  *
  * Contact: Hiroshi DOYU <Hiroshi.DOYU@nokia.com>
  *          Suman Anna <s-anna@ti.com>
@@ -85,8 +85,10 @@ struct omap_mbox_device {
 	struct device *dev;
 	struct mutex cfg_lock;
 	void __iomem *mbox_base;
+	u32 *irq_ctx;
 	u32 num_users;
 	u32 num_fifos;
+	u32 intr_type;
 	struct omap_mbox **mboxes;
 	struct mbox_controller controller;
 	struct list_head elem;
@@ -646,6 +648,52 @@ static const struct mbox_chan_ops omap_mbox_chan_ops = {
 	.shutdown       = omap_mbox_chan_shutdown,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int omap_mbox_suspend(struct device *dev)
+{
+	struct omap_mbox_device *mdev = dev_get_drvdata(dev);
+	u32 usr, fifo, reg;
+
+	if (pm_runtime_status_suspended(dev))
+		return 0;
+
+	for (fifo = 0; fifo < mdev->num_fifos; fifo++) {
+		if (mbox_read_reg(mdev, MAILBOX_MSGSTATUS(fifo))) {
+			dev_err(mdev->dev, "fifo %d has unexpected unread messages\n",
+				fifo);
+			return -EBUSY;
+		}
+	}
+
+	for (usr = 0; usr < mdev->num_users; usr++) {
+		reg = MAILBOX_IRQENABLE(mdev->intr_type, usr);
+		mdev->irq_ctx[usr] = mbox_read_reg(mdev, reg);
+	}
+
+	return 0;
+}
+
+static int omap_mbox_resume(struct device *dev)
+{
+	struct omap_mbox_device *mdev = dev_get_drvdata(dev);
+	u32 usr, reg;
+
+	if (pm_runtime_status_suspended(dev))
+		return 0;
+
+	for (usr = 0; usr < mdev->num_users; usr++) {
+		reg = MAILBOX_IRQENABLE(mdev->intr_type, usr);
+		mbox_write_reg(mdev, mdev->irq_ctx[usr], reg);
+	}
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops omap_mbox_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(omap_mbox_suspend, omap_mbox_resume)
+};
+
 static const struct of_device_id omap_mailbox_of_match[] = {
 	{
 		.compatible	= "ti,omap2-mailbox",
@@ -795,6 +843,11 @@ static int omap_mbox_probe(struct platform_device *pdev)
 	if (IS_ERR(mdev->mbox_base))
 		return PTR_ERR(mdev->mbox_base);
 
+	mdev->irq_ctx = devm_kzalloc(&pdev->dev, num_users * sizeof(u32),
+				     GFP_KERNEL);
+	if (!mdev->irq_ctx)
+		return -ENOMEM;
+
 	/* allocate one extra for marking end of list */
 	list = devm_kzalloc(&pdev->dev, (info_count + 1) * sizeof(*list),
 			    GFP_KERNEL);
@@ -847,6 +900,7 @@ static int omap_mbox_probe(struct platform_device *pdev)
 	mdev->dev = &pdev->dev;
 	mdev->num_users = num_users;
 	mdev->num_fifos = num_fifos;
+	mdev->intr_type = intr_type;
 	mdev->mboxes = list;
 
 	/* OMAP does not have a Tx-Done IRQ, but rather a Tx-Ready IRQ */
@@ -904,6 +958,7 @@ static struct platform_driver omap_mbox_driver = {
 	.remove	= omap_mbox_remove,
 	.driver	= {
 		.name = "omap-mailbox",
+		.pm = &omap_mbox_pm_ops,
 		.of_match_table = of_match_ptr(omap_mailbox_of_match),
 	},
 };
