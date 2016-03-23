@@ -129,3 +129,7 @@
 		reg = <1>;
 	};
 };
+
+&gbe_serdes0 {
+	status = "okay";
+};

@@ -152,3 +152,15 @@
 		reg = <1>;
 	};
 };
+
+&gbe_serdes0 {
+	status = "okay";
+};
+
+&pcie1_phy {
+	status = "okay";
+};
+
+&pcie1 {
+	status = "okay";
+};

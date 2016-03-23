@@ -276,6 +276,15 @@
 			ti,syscon-dev = <&devctrl 0x2a0>;
 		};
 
+		pcie0_phy: phy@2320000 {
+			#phy-cells = <0>;
+			compatible = "ti,keystone-serdes-pcie";
+			reg = <0x02320000 0x4000>;
+			link-rate-kbps = <5000000>;
+			num-lanes = <2>;
+			status = "disabled";
+		};
+
 		pcie0: pcie@21800000 {
 			compatible = "ti,keystone-pcie", "snps,dw-pcie";
 			clocks = <&clkpcie>;
@@ -289,6 +298,7 @@
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <2>;
+			phys = <&pcie0_phy>;
 
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 7>;
