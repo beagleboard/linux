@@ -2288,6 +2288,9 @@ static int usb_enumerate_device_otg(struct usb_device *udev)
 				dev_err(&udev->dev, "can't set HNP mode: %d\n",
 									err);
 				bus->b_hnp_enable = 0;
+			} else {
+				/* notify OTG fsm about a_set_b_hnp_enable */
+				usb_otg_kick_fsm(udev->bus->controller);
 			}
 		} else if (desc->bLength == sizeof
 				(struct usb_otg_descriptor)) {
@@ -2298,10 +2301,14 @@ static int usb_enumerate_device_otg(struct usb_device *udev)
 				USB_DEVICE_A_ALT_HNP_SUPPORT,
 				0, NULL, 0,
 				USB_CTRL_SET_TIMEOUT);
-			if (err < 0)
+			if (err < 0) {
 				dev_err(&udev->dev,
 					"set a_alt_hnp_support failed: %d\n",
 					err);
+			} else {
+				/* notify OTG fsm about a_set_b_hnp_enable */
+				usb_otg_kick_fsm(udev->bus->controller);
+			}
 		}
 	}
 #endif
@@ -4288,8 +4295,13 @@ hub_port_init(struct usb_hub *hub, struct usb_device *udev, int port1,
 	 */
 	if (!hdev->parent) {
 		delay = HUB_ROOT_RESET_TIME;
-		if (port1 == hdev->bus->otg_port)
+		if (port1 == hdev->bus->otg_port) {
 			hdev->bus->b_hnp_enable = 0;
+#ifdef CONFIG_USB_OTG
+			/* notify OTG fsm about a_set_b_hnp_enable change */
+			usb_otg_kick_fsm(hdev->bus->controller);
+#endif
+		}
 	}
 
 	/* Some low speed devices have problems with the quick delay, so */

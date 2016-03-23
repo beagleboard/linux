@@ -46,7 +46,7 @@ qmss: qmss@2a40000 {
 			qpend-1 {
 				qrange = <528 16>;
 				interrupts = <0 48 0xf04 0 49 0xf04 0 50 0xf04
-					      0 51 0xf04 0 52 0xf04 0 53 0xf04
+					      0 51 0xf04 0 52 0x104 0 53 0x204
 					      0 54 0xf04 0 55 0xf04 0 56 0xf04
 					      0 57 0xf04 0 58 0xf04 0 59 0xf04
 					      0 60 0xf04 0 61 0xf04 0 62 0xf04
@@ -71,6 +71,10 @@ qmss: qmss@2a40000 {
 				qrange = <896 128>;
 				qalloc-by-id;
 			};
+			netcpx-tx {
+				qrange = <692 8>;
+				qalloc-by-id;
+			};
 		};
 		accumulator {
 			acc-low-0 {
@@ -89,7 +93,7 @@ qmss: qmss@2a40000 {
 		ranges;
 		region-12 {
 			id = <12>;
-			region-spec = <8192 128>;	/* num_desc desc_size */
+			region-spec = <10240 128>;	/* num_desc desc_size */
 			link-index = <0x4000>;
 		};
 	};
@@ -126,6 +130,85 @@ knav_dmas: knav_dmas@0 {
 		reg-names = "global", "txchan", "rxchan",
 				"txsched", "rxflow";
 	};
+
+	dma_xgbe: dma_xgbe@0 {
+		reg = <0x2fa1000 0x100>,
+			<0x2fa1400 0x200>,
+			<0x2fa1800 0x200>,
+			<0x2fa1c00 0x200>,
+			<0x2fa2000 0x400>;
+		reg-names = "global", "txchan", "rxchan",
+				"txsched", "rxflow";
+	};
+};
+
+gbe_subsys: subsys@24200000 {
+	compatible = "syscon";
+	reg = <0x24200000 0x100>;
+};
+
+gbe_serdes0: phy@232a000 {
+	status			= "disabled";
+	#phy-cells		= <0>;
+	compatible		= "ti,keystone-serdes-gbe";
+	reg			= <0x0232a000 0x2000>;
+	link-rate-kbps		= <1250000>;
+	num-lanes		= <4>;
+	/*rx-force-enable;*/
+	lanes {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		lane@0 {
+			/*loopback;*/
+			reg		= <0>;
+			control-rate	= <2>; /* quart */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <0 0 0 12 4>;
+			       /* c1 c2 cm att vreg */
+		};
+		lane@1 {
+			/*loopback;*/
+			reg		= <1>;
+			control-rate	= <2>; /* quart */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <0 0 0 12 4>;
+			       /* c1 c2 cm att vreg */
+		};
+	};
+};
+
+gbe_serdes1: phy@2324000 {
+	status			= "disabled";
+	#phy-cells		= <0>;
+	compatible		= "ti,keystone-serdes-gbe";
+	reg			= <0x02324000 0x2000>;
+	link-rate-kbps		= <1250000>;
+	num-lanes		= <4>;
+	/*rx-force-enable;*/
+	lanes {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		lane@0 {
+			/*loopback;*/
+			reg		= <0>;
+			control-rate	= <2>; /* quart */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <0 0 0 12 4>;
+			       /* c1 c2 cm att vreg */
+		};
+		lane@1 {
+			/*loopback;*/
+			reg		= <1>;
+			control-rate	= <2>; /* quart */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <0 0 0 12 4>;
+			       /* c1 c2 cm att vreg */
+		};
+	};
 };
 
 netcp: netcp@24000000 {
@@ -138,13 +221,49 @@ netcp: netcp@24000000 {
 	/* NetCP address range */
 	ranges = <0 0x24000000 0x1000000>;
 
-	clocks = <&papllclk>, <&clkcpgmac>, <&chipclk12>;
+	clocks = <&clkpa>, <&clkcpgmac>, <&chipclk12>;
+	clock-names = "pa_clk", "ethss_clk", "cpts_rft_clk";
 	dma-coherent;
 
-	ti,navigator-dmas = <&dma_gbe 0>,
-			<&dma_gbe 8>,
-			<&dma_gbe 0>;
-	ti,navigator-dma-names = "netrx0", "netrx1", "nettx";
+	ti,navigator-dmas =	<&dma_gbe 0>,
+				<&dma_gbe 8>,
+				<&dma_gbe 0>,
+				<&dma_gbe 22>,
+				<&dma_gbe 23>,
+				<&dma_gbe 24>,
+				<&dma_gbe 25>,
+				<&dma_gbe 27>,
+				<&dma_gbe 28>,
+				<&dma_gbe 29>,
+				<&dma_gbe 30>,
+				<&dma_gbe 8>,
+				<&dma_gbe 9>,
+				<&dma_gbe 10>,
+				<&dma_gbe 11>,
+				<&dma_gbe 12>,
+				<&dma_gbe 13>,
+				<&dma_gbe 14>, /* for egress cluster */
+				<&dma_gbe 31>;
+
+	ti,navigator-dma-names = "netrx0",
+				 "netrx1",
+				 "nettx",
+				 "netrx0-pa",
+				 "netrx1-pa",
+				 "netrx2-pa",
+				 "netrx3-pa",
+				 "netrx4-pa",
+				 "netrx5-pa",
+				 "netrx6-pa",
+				 "netrx7-pa",
+				 "pa-cl0",
+				 "pa-cl1",
+				 "pa-cl2",
+				 "pa-cl3",
+				 "pa-cl4",
+				 "pa-cl5",
+				 "pa-cl6",
+				 "pa-cmd-rsp";
 
 	netcp-devices {
 		#address-cells = <1>;
@@ -153,10 +272,12 @@ netcp: netcp@24000000 {
 		gbe@200000 { /* ETHSS */
 			label = "netcp-gbe";
 			compatible = "ti,netcp-gbe-9";
-			reg = <0x200000 0x900>, <0x220000 0x20000>;
+			syscon-subsys = <&gbe_subsys>;
+			reg = <0x200100 0x800>, <0x220000 0x20000>;
 			/* enable-ale; */
 			tx-queue = <896>;
 			tx-channel = "nettx";
+			phys = <&gbe_serdes0>, <&gbe_serdes1>;
 
 			interfaces {
 				gbe0: interface-0 {
@@ -198,6 +319,73 @@ netcp: netcp@24000000 {
 				};
 			};
 		};
+
+		pa@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "netcp-pa2";
+			compatible = "ti,netcp-pa2";
+
+			reg = <0 0x100>,		/* Mailbox */
+				<0x400 0x40>,		/* RA bridge */
+				<0x500 0x80>,		/* thread mapper */
+				<0x800 0x1000>,		/* RA */
+				<0x6000 0x100>,		/* Statistics regs */
+				<0x8000 0x100>,		/* Statistics block */
+				<0x400000 0x900000>;	/* cluster memory */
+
+			mac-lut-ranges		= <0 43 56 63>;
+			/* Static reservation in LUT-1 (outer IP)
+			 * used by driver to add IP rules for Rx checksum
+			 * offload.
+			 */
+			rx-route		= <528 22>;
+			tx-cmd-pool		= <256 12>;
+			/* rx command pool */
+			rx-cmd-rsp-pool		= <256 12>;
+			/* rx channel name for command response */
+			rx-cmd-rsp-chan		= "pa-cmd-rsp";
+			rx-cmd-rsp-queue-depth	= <128 32 0 0>;
+			rx-cmd-rsp-buffer-size	= <128 512 0 0>;
+
+			/* rx channels get overridden for the interface
+			 * when PA is enabled
+			 */
+			interfaces {
+				pa0: interface-0 {
+					slave-port	= <0>;
+					rx-channel	= "netrx0-pa";
+				};
+
+				pa1: interface-1 {
+					slave-port	= <1>;
+					rx-channel	= "netrx1-pa";
+				};
+			};
+
+			/* PA clusters that does packet processing */
+			clusters {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				cluster@0 {
+					reg = <0>;
+					tx-queue = <904>;
+					tx-channel = "pa-cl0";
+				};
+
+				cluster@1 {
+					reg = <1>;
+					tx-queue = <905>;
+					tx-channel = "pa-cl1";
+				};
+
+				cluster@6 {
+					reg = <6>;
+					tx-queue = <910>;
+					tx-channel = "pa-cl6";
+				};
+			};
+		};
 	};
 
 	netcp-interfaces {
@@ -211,6 +399,7 @@ netcp: netcp@24000000 {
 			tx-completion-queue = <530>;
 			efuse-mac = <1>;
 			netcp-gbe = <&gbe0>;
+			netcp-pa2 = <&pa0>;
 
 		};
 		interface-1 {
@@ -224,6 +413,125 @@ netcp: netcp@24000000 {
 			efuse-mac = <0>;
 			local-mac-address = [02 18 31 7e 3e 00];
 			netcp-gbe = <&gbe1>;
+			netcp-pa2 = <&pa1>;
+		};
+	};
+};
+
+xgbe_subsys: subsys@2f00000 {
+	status		= "disabled";
+	compatible	= "syscon";
+	reg		= <0x02f00000 0x100>;
+};
+
+xgbe_pcsr: pcsr@2f00600 {
+	status		= "disabled";
+	compatible	= "syscon";
+	reg		= <0x02f00600 0x100>;
+};
+
+xgbe_serdes: phy@231e000 {
+	status			= "disabled";
+	#phy-cells		= <0>;
+	compatible		= "ti,keystone-serdes-xgbe";
+	reg			= <0x0231e000 0x2000>;
+	link-rate-kbps		= <10312500>;
+	num-lanes		= <2>;
+	syscon-peripheral	= <&xgbe_subsys>;
+	syscon-link		= <&xgbe_pcsr>;
+	/*rx-force-enable;*/
+	lanes {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		lane@0 {
+			/*loopback;*/
+			reg		= <0>;
+			control-rate	= <0>; /* full */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <2 0 0 12 4>;
+				/* c1 c2 cm att vreg */
+		};
+		lane@1 {
+			/*loopback;*/
+			reg		= <1>;
+			control-rate	= <0>; /* full */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <2 0 0 12 4>;
+				/* c1 c2 cm att vreg */
+		};
+	};
+};
+
+netcpx: netcpx@2f00000 {
+	status		= "disabled";
+	compatible	= "ti,netcp-1.0";
+	#address-cells	= <1>;
+	#size-cells	= <1>;
+	ranges;
+
+	clocks		= <&clkxge>;
+	clock-names	= "xge_clk";
+	dma-coherent;
+	/* big-endian; */
+
+	ti,navigator-dmas = <&dma_xgbe 0>,
+			<&dma_xgbe 8>,
+			<&dma_xgbe 0>;
+	ti,navigator-dma-names = "xnetrx0", "xnetrx1", "xnettx";
+
+	netcp-devices {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		xgbe@2f00000 {
+			label = "netcp-xgbe";
+			compatible = "ti,netcp-xgbe";
+			syscon-subsys = <&xgbe_subsys>;
+			syscon-pcsr = <&xgbe_pcsr>;
+			reg = <0x02f00100 0x200>, <0x02f01000 0xb00>;
+			/* enable-ale; */
+			tx-queue = <692>;
+			tx-channel = "xnettx";
+			phys = <&xgbe_serdes>;
+
+			interfaces {
+				xgbe0: interface-0 {
+					slave-port = <0>;
+					link-interface	= <11>; /* MAC_MAC */
+				};
+				xgbe1: interface-1 {
+					slave-port = <1>;
+					link-interface	= <11>;
+				};
+			};
+		};
+	};
+
+	netcp-interfaces {
+		interface-0 {
+			rx-channel = "xnetrx0";
+			rx-pool = <2048 12>; /* num_desc region-id */
+			tx-pool = <1024 12>; /* num_desc region-id */
+			rx-queue-depth = <1024 1024 0 0>;
+			rx-buffer-size = <1536 4096 0 0>;
+			rx-queue = <532>;
+			tx-completion-queue = <534>;
+			efuse-mac = <0>;
+			netcp-xgbe = <&xgbe0>;
+
+		};
+		interface-1 {
+			rx-channel = "xnetrx1";
+			rx-pool = <2048 12>; /* num_desc region-id */
+			tx-pool = <1024 12>; /* num_desc region-id */
+			rx-queue-depth = <1024 1024 0 0>;
+			rx-buffer-size = <1536 4096 0 0>;
+			rx-queue = <533>;
+			tx-completion-queue = <535>;
+			efuse-mac = <0>;
+			netcp-xgbe = <&xgbe1>;
 		};
 	};
 };

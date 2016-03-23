@@ -62,7 +62,9 @@ Optional properties:
 		big endian mode with the DSP in little endian.
 
 NetCP device properties: Device specification for NetCP sub-modules.
+
 1Gb/10Gb (gbe/xgbe) ethernet switch sub-module specifications.
+===================================================================
 Required properties:
 - label:	Must be "netcp-gbe" for 1Gb & "netcp-xgbe" for 10Gb.
 - compatible:	Must be one of below:-
@@ -72,22 +74,27 @@ Required properties:
 		"ti,netcp-gbe-2" for 1GbE N NetCP 1.5 (N=2)
 		"ti,netcp-xgbe" for 10 GbE
 
+- syscon-subsys:	phandle to syscon node of the switch
+			subsystem registers.
+
+- syscon-pcsr:		(10gbe only) phandle to syscon node of the
+			switch PCSR registers.
+
 - reg:		register location and the size for the following register
 		regions in the specified order.
 		- switch subsystem registers
+		- sgmii module registers
 		- sgmii port3/4 module registers (only for NetCP 1.4)
 		- switch module registers
-		- serdes registers (only for 10G)
 
 		NetCP 1.4 ethss, here is the order
-			index #0 - switch subsystem registers
+			index #0 - sgmii module registers
 			index #1 - sgmii port3/4 module registers
 			index #2 - switch module registers
 
 		NetCP 1.5 ethss 9 port, 5 port and 2 port
-			index #0 - switch subsystem registers
+			index #0 - sgmii module registers
 			index #1 - switch module registers
-			index #2 - serdes registers
 
 - tx-channel:	the navigator packet dma channel name for tx.
 - tx-queue:	the navigator queue number associated with the tx dma channel.
@@ -112,6 +119,10 @@ Optional properties:
 				registered as a network interface. NetCP driver
 				will only initialize these ports and attach PHY
 				driver to them if needed.
+
+- phys:		phandles to serdes devices
+		see Documentation/devicetree/bindings/phy/ti-phy.txt
+		for Keystone SerDes device specificcations.
 
 NetCP interface properties: Interface specification for NetCP sub-modules.
 Required properties:
@@ -145,6 +156,43 @@ Optional properties:
 
 Example binding:
 
+gbe_subsys: subsys@2090000 {
+	compatible = "syscon";
+	reg = <0x02090000 0x100>;
+};
+
+gbe_serdes: phy@232a000 {
+	status			= "ok";
+	#phy-cells		= <0>;
+	compatible		= "ti,keystone-serdes-gbe";
+	reg			= <0x0232a000 0x2000>;
+	link-rate-kbps		= <1250000>;
+	num-lanes		= <4>;
+	/*rx-force-enable;*/
+	lanes {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		lane@0 {
+			/*loopback;*/
+			reg		= <0>;
+			control-rate	= <2>; /* quart */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <0 0 0 12 4>;
+			       /* c1 c2 cm att vreg */
+		};
+		lane@1 {
+			/*loopback;*/
+			reg		= <1>;
+			control-rate	= <2>; /* quart */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <0 0 0 12 4>;
+			       /* c1 c2 cm att vreg */
+		};
+	};
+};
+
 netcp: netcp@2000000 {
 	reg = <0x2620110 0x8>;
 	reg-names = "efuse";
@@ -163,10 +211,12 @@ netcp: netcp@2000000 {
 		ranges;
 		gbe@90000 {
 			label = "netcp-gbe";
-			reg = <0x90000 0x300>, <0x90400 0x400>, <0x90800 0x700>;
+			syscon-subsys = <&gbe_subsys>;
+			reg = <0x90100 0x200>, <0x90400 0x200>, <0x90800 0x700>;
 			/* enable-ale; */
 			tx-queue = <648>;
 			tx-channel = <8>;
+			phys = <&gbe_serdes>;
 
 			interfaces {
 				gbe0: interface-0 {
@@ -219,3 +269,266 @@ netcp: netcp@2000000 {
 		};
 	};
 };
+
+Example bindings (10gbe):
+
+xgbe_subsys: subsys@2f00000 {
+	status		= "disabled";
+	compatible	= "syscon";
+	reg		= <0x02f00000 0x100>;
+};
+
+xgbe_pcsr: pcsr@2f00600 {
+	status		= "disabled";
+	compatible	= "syscon";
+	reg		= <0x02f00600 0x100>;
+};
+
+xgbe_serdes: phy@231e000 {
+	status			= "disabled";
+	#phy-cells		= <0>;
+	compatible		= "ti,keystone-serdes-xgbe";
+	reg			= <0x0231e000 0x2000>;
+	link-rate-kbps		= <10312500>;
+	num-lanes		= <2>;
+	syscon-peripheral	= <&xgbe_subsys>;
+	syscon-link		= <&xgbe_pcsr>;
+	/*rx-force-enable;*/
+	lanes {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		lane@0 {
+			/*loopback;*/
+			reg		= <0>;
+			control-rate	= <0>; /* full */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <2 0 0 12 4>;
+				/* c1 c2 cm att vreg */
+		};
+		lane@1 {
+			/*loopback;*/
+			reg		= <1>;
+			control-rate	= <0>; /* full */
+			rx-start	= <7 5>;
+			rx-force	= <1 1>;
+			tx-coeff	= <2 0 0 12 4>;
+				/* c1 c2 cm att vreg */
+		};
+	};
+};
+
+netcpx: netcpx@2f00000 {
+	status		= "disabled";
+	compatible	= "ti,netcp-1.0";
+	#address-cells	= <1>;
+	#size-cells	= <1>;
+	ranges;
+
+	clocks		= <&clkxge>;
+	clock-names	= "clk_xge";
+	dma-coherent;
+	/* big-endian; */
+
+	ti,navigator-dmas = <&dma_xgbe 0>,
+			<&dma_xgbe 8>,
+			<&dma_xgbe 0>;
+	ti,navigator-dma-names = "xnetrx0", "xnetrx1", "xnettx";
+
+	netcp-devices {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		xgbe@2f00000 {
+			label = "netcp-xgbe";
+			compatible = "ti,netcp-xgbe";
+			syscon-subsys = <&xgbe_subsys>;
+			syscon-pcsr = <&xgbe_pcsr>;
+			reg = <0x02f00100 0x200>, <0x02f01000 0xb00>;
+			/* enable-ale; */
+			tx-queue = <692>;
+			tx-channel = "xnettx";
+			phys = <&xgbe_serdes>;
+
+			interfaces {
+				xgbe0: interface-0 {
+					slave-port = <0>;
+					link-interface	= <11>; /* MAC_MAC */
+				};
+				xgbe1: interface-1 {
+					slave-port = <1>;
+					link-interface	= <11>;
+				};
+			};
+		};
+	};
+
+	netcp-interfaces {
+		interface-0 {
+			rx-channel = "xnetrx0";
+			rx-pool = <2048 12>; /* num_desc region-id */
+			tx-pool = <1024 12>; /* num_desc region-id */
+			rx-queue-depth = <1024 1024 0 0>;
+			rx-buffer-size = <1536 4096 0 0>;
+			rx-queue = <532>;
+			tx-completion-queue = <534>;
+			efuse-mac = <0>;
+			netcp-xgbe = <&xgbe0>;
+
+		};
+		interface-1 {
+			rx-channel = "xnetrx1";
+			rx-pool = <2048 12>; /* num_desc region-id */
+			tx-pool = <1024 12>; /* num_desc region-id */
+			rx-queue-depth = <1024 1024 0 0>;
+			rx-buffer-size = <1536 4096 0 0>;
+			rx-queue = <533>;
+			tx-completion-queue = <535>;
+			efuse-mac = <0>;
+			netcp-xgbe = <&xgbe1>;
+		};
+	};
+};
+
+Packet Accelarator sub-module specifications.
+=============================================
+
+Note: The bindings are experimental and may change while feature development
+is in progress. However attempt will be made to make changes backward
+compatible if possible.
+
+Required properties:
+- label:	Must be "netcp-pa" for PA on K2H/K SoC
+		Must be "netcp-pa2" for PA2 on K2L/E SoCs
+
+- compatible:	Must be one of below:-
+		"ti,netcp-pa" for PA
+		"ti,netcp-pa2" for PA2
+
+- reg:		register location and the size for the following register
+		regions in the specified order.
+
+		Packet Accelarator (PA)
+		- Mailbox
+		- Packet ID
+		- LUT2
+		- streaming switch
+		- Control
+		- Timers
+		- Statistics
+		- IRAM
+		- SRAM
+
+		Packet Accelarator 2 (PA2)
+		- Mailbox
+		- RA bridge
+		- Thread mapper
+		- RA
+		- Statistics regs
+		- Statistics block
+		- cluster memory
+
+- clusters:	Contain cluster specific configuration
+		reg:		 cluster ID
+		tx-queue:	 Queue for sending commands/data to a cluster
+		tx-channel:	 knav Tx channel associated with the queue
+
+- tx-cmd-pool:	specifies the number of descriptors to be used & the region-id
+		for creating the tx descriptor pool for tx channnels.
+- rx-cmd-rsp-chan:		rx channel name for receiving responses from
+				PDSPs
+- rx-cmd-rsp-pool:		specifies the number of descriptors to be used
+				& the region-id for creating the rx descriptor
+				pool for rx rsp channel.
+- rx-cmd-rsp-queue-depth:	number of descriptors in each of the free
+				descriptor queue (FDQ) for the pktdma Rx flow.
+				There can be at present a maximum of 4 queues
+				per Rx flow.
+- rx-cmd-rsp-buffer-size:	Size of the buffers allocated for the desc
+				in each rx response FDQs.
+- mac-lut-ranges:		LUT range of index used by PA device for MAC
+				rules. LUT is shared across different software
+				components in the system and this range is
+				reserved for PA device.
+- rx-route:			Rx Queue / Flow base used by PA. They should
+				match with rx-channel queue / flow for netcp
+				ethernet interface when PA is in the rx path.
+- netcp-interfaces:		interface specific configuration for PA.
+	slave-port		cpsw slave port number for the interface
+Optional properties:-
+
+- ip-lut-ranges:		LUT range of index reserved for PA device.
+				Used for rx checksum handling.
+- netcp-interfaces:		interface specific configuration for PA.
+		rx-channel:	rx channel name for ethernet interface when PA
+				is in the rx path for data. Uses a different
+				flow id when PA is added to the rx path.
+- disable-hw-timestamp:	Disable hw timestamp feature.
+
+Example:
+
+PA is a netcp device and appears under netcp-devices node. Example bindings for
+PA device is provided below.
+
+	netcp-devices {
+
+		<other netcp devices>
+
+		pa@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "netcp-pa";
+			compatible = "ti,netcp-pa";
+
+			reg = <0 0x60>,			/* Mailbox */
+				<0x400 0x10>,		/* Packet ID */
+				<0x500 0x40>,		/* LUT2 */
+				<0x604 0x4>,		/* streaming switch */
+				<0x1000 0x600>,		/* Control */
+				<0x3000 0x600>,		/* Timers */
+				<0x6000 0x100>,		/* Statistics */
+				<0x10000 0x30000>,	/* Iram */
+				<0x40000 0x8000>;	/* Sram */
+
+			mac-lut-ranges		= <0 43 56 63>;
+			/* Static reservation in LUT-1 (outer IP)
+			 * used by driver to add IP rules for Rx checksum
+			 * offload.
+			 */
+			ip-lut-ranges		= <61 63>;
+			/* base queue, base flow. Should match with that
+			 * for netrx0
+			 */
+			rx-route		= <8704 22>;
+			tx-cmd-pool		= <256 12>;
+			/* rx command pool */
+			rx-cmd-rsp-pool		= <256 12>;
+			/* rx channel name for command response */
+			rx-cmd-rsp-chan		= "pa-cmd-rsp";
+			rx-cmd-rsp-queue-depth	= <128 32 0 0>;
+			rx-cmd-rsp-buffer-size	= <128 512 0 0>;
+
+			/* PA clusters that does packet processing */
+			clusters {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				cluster@0 {
+					reg = <0>;
+					tx-queue = <640>;
+					tx-channel = "pa-cl0";
+				};
+
+				cluster@1 {
+					reg = <1>;
+					tx-queue = <641>;
+					tx-channel = "pa-cl1";
+				};
+
+				cluster@5 {
+					reg = <5>;
+					tx-queue = <645>;
+					tx-channel = "pa-cl5";
+				};
+			};
+		};
+	};

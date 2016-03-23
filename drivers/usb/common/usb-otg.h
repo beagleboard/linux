@@ -1,20 +1,24 @@
-/*
- * Copyright (C) 2014 Freescale Semiconductor, Inc.
+/**
+ * drivers/usb/common/usb-otg.h - USB OTG core local header
  *
- * Author: Jun Li
+ * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com
+ * Author: Roger Quadros <rogerq@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
-#ifndef __DRIVERS_USB_CHIPIDEA_OTG_FSM_H
-#define __DRIVERS_USB_CHIPIDEA_OTG_FSM_H
-
-#include <linux/usb/otg-fsm.h>
+#ifndef __DRIVERS_USB_COMMON_USB_OTG_H
+#define __DRIVERS_USB_COMMON_USB_OTG_H
 
 /*
- *  A-DEVICE timing  constants
+ *  A-DEVICE timing constants
  */
 
 /* Wait for VBUS Rise  */
@@ -62,41 +66,6 @@
 /* SSEND time before SRP */
 #define TB_SSEND_SRP         (1500)	/* minimum 1.5 sec, section:5.1.2 */
 
-#ifdef CONFIG_USB_OTG
+#define TB_SESS_VLD          (1000)
 
-int ci_hdrc_otg_fsm_init(struct ci_hdrc *ci);
-int ci_otg_fsm_work(struct ci_hdrc *ci);
-irqreturn_t ci_otg_fsm_irq(struct ci_hdrc *ci);
-void ci_hdrc_otg_fsm_start(struct ci_hdrc *ci);
-void ci_hdrc_otg_fsm_remove(struct ci_hdrc *ci);
-
-#else
-
-static inline int ci_hdrc_otg_fsm_init(struct ci_hdrc *ci)
-{
-	return 0;
-}
-
-static inline int ci_otg_fsm_work(struct ci_hdrc *ci)
-{
-	return -ENXIO;
-}
-
-static inline irqreturn_t ci_otg_fsm_irq(struct ci_hdrc *ci)
-{
-	return IRQ_NONE;
-}
-
-static inline void ci_hdrc_otg_fsm_start(struct ci_hdrc *ci)
-{
-
-}
-
-static inline void ci_hdrc_otg_fsm_remove(struct ci_hdrc *ci)
-{
-
-}
-
-#endif
-
-#endif /* __DRIVERS_USB_CHIPIDEA_OTG_FSM_H */
+#endif /* __DRIVERS_USB_COMMON_USB_OTG_H */
