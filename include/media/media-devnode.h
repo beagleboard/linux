@@ -80,24 +80,24 @@ struct media_devnode {
 	unsigned long flags;		/* Use bitops to access flags */
 
 	/* callbacks */
-	void (*release)(struct media_devnode *mdev);
+	void (*release)(struct media_devnode *devnode);
 };
 
 /* dev to media_devnode */
 #define to_media_devnode(cd) container_of(cd, struct media_devnode, dev)
 
-int __must_check media_devnode_register(struct media_devnode *mdev,
+int __must_check media_devnode_register(struct media_devnode *devnode,
 					struct module *owner);
-void media_devnode_unregister(struct media_devnode *mdev);
+void media_devnode_unregister(struct media_devnode *devnode);
 
 static inline struct media_devnode *media_devnode_data(struct file *filp)
 {
 	return filp->private_data;
 }
 
-static inline int media_devnode_is_registered(struct media_devnode *mdev)
+static inline int media_devnode_is_registered(struct media_devnode *devnode)
 {
-	return test_bit(MEDIA_FLAG_REGISTERED, &mdev->flags);
+	return test_bit(MEDIA_FLAG_REGISTERED, &devnode->flags);
 }
 
 #endif /* _MEDIA_DEVNODE_H */
