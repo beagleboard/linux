@@ -148,9 +148,10 @@ dtb-$(CONFIG_ARCH_INTEGRATOR) += \
 	integratorap.dtb \
 	integratorcp.dtb
 dtb-$(CONFIG_ARCH_KEYSTONE) += \
-	k2hk-evm.dtb \
-	k2l-evm.dtb \
-	k2e-evm.dtb
+	keystone-k2hk-evm.dtb \
+	keystone-k2l-evm.dtb \
+	keystone-k2e-evm.dtb \
+	keystone-k2g-evm.dtb
 dtb-$(CONFIG_MACH_KIRKWOOD) += \
 	kirkwood-b3.dtb \
 	kirkwood-blackarmor-nas220.dtb \
@@ -489,7 +490,13 @@ dtb-$(CONFIG_SOC_OMAP5) += \
 dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra7-evm.dtb \
 	am57xx-beagle-x15.dtb \
-	dra72-evm.dtb
+	am57xx-beagle-x15-revb1.dtb \
+	am571x-idk.dtb \
+	am572x-idk.dtb \
+	am57xx-evm.dtb \
+	am57xx-evm-reva3.dtb \
+	dra72-evm.dtb \
+	dra72-evm-revc.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-lacie-d2-network.dtb \
 	orion5x-lacie-ethernet-disk-mini-v2.dtb \

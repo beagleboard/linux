@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Texas Instruments Incorporated - http://www.ti.com/
+ * Copyright (C) 2016 Texas Instruments Incorporated - http://www.ti.com/
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -8,7 +8,7 @@
 #include "am57xx-beagle-x15-common.dtsi"
 
 / {
-	model = "TI AM5728 BeagleBoard-X15";
+	model = "TI AM5728 BeagleBoard-X15 rev B1";
 };
 
 &tpd12s015 {
@@ -18,5 +18,6 @@
 };
 
 &mmc1 {
-	vmmc-supply = <&ldo1_reg>;
+	vmmc-supply = <&vdd_3v3>;
+	vmmc-aux-supply = <&ldo1_reg>;
 };
