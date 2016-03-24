@@ -692,6 +692,46 @@ choice
 		depends on ARCH_OMAP2PLUS
 		select DEBUG_OMAP2PLUS_UART
 
+	config DEBUG_AM33XXUART2
+		bool "Kernel low-level debugging messages via AM33XX/AM43XX UART2"
+		depends on ARCH_OMAP2PLUS
+		select DEBUG_OMAP2PLUS_UART
+		help
+		  Say Y here if you want kernel low-level debugging support
+		  on AM33xx and AM43xx based platforms on the UART2.
+
+	config DEBUG_AM33XXUART3
+		bool "Kernel low-level debugging messages via AM33XX/AM43XX UART3"
+		depends on ARCH_OMAP2PLUS
+		select DEBUG_OMAP2PLUS_UART
+		help
+		  Say Y here if you want kernel low-level debugging support
+		  on AM33xx and AM43xx based platforms on the UART3.
+
+	config DEBUG_AM33XXUART4
+		bool "Kernel low-level debugging messages via AM33XX/AM43XX UART4"
+		depends on ARCH_OMAP2PLUS
+		select DEBUG_OMAP2PLUS_UART
+		help
+		  Say Y here if you want kernel low-level debugging support
+		  on AM33xx and AM43xx based platforms on the UART4.
+
+	config DEBUG_AM33XXUART5
+		bool "Kernel low-level debugging messages via AM33XX/AM43XX UART5"
+		depends on ARCH_OMAP2PLUS
+		select DEBUG_OMAP2PLUS_UART
+		help
+		  Say Y here if you want kernel low-level debugging support
+		  on AM33xx and AM43xx based platforms on the UART5.
+
+	config DEBUG_AM33XXUART6
+		bool "Kernel low-level debugging messages via AM33XX/AM43XX UART6"
+		depends on ARCH_OMAP2PLUS
+		select DEBUG_OMAP2PLUS_UART
+		help
+		  Say Y here if you want kernel low-level debugging support
+		  on AM33xx and AM43xx based platforms on the UART6.
+
 	config DEBUG_ZOOM_UART
 		bool "Kernel low-level debugging messages via Zoom2/3 UART"
 		depends on ARCH_OMAP2PLUS
