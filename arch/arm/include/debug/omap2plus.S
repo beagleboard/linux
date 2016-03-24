@@ -40,6 +40,11 @@
 
 /* AM33XX serial port */
 #define AM33XX_UART1_BASE	0x44E09000
+#define AM33XX_UART2_BASE	0x48022000
+#define AM33XX_UART3_BASE	0x48024000
+#define AM33XX_UART4_BASE	0x481a6000
+#define AM33XX_UART5_BASE	0x481a8000
+#define AM33XX_UART6_BASE	0x481aa000
 
 /* OMAP5 serial ports */
 #define OMAP5_UART1_BASE	OMAP2_UART1_BASE
@@ -127,6 +132,29 @@ omap_uart_lsr:	.word	0
 		ldr	\rp, =AM33XX_UART1_BASE
 		and	\rp, \rp, #0x00ffffff
 		b	97f
+#endif
+#ifdef CONFIG_DEBUG_AM33XXUART2
+		mov	\rp, #UART_OFFSET(AM33XX_UART2_BASE)
+		b	98f
+#endif
+#ifdef CONFIG_DEBUG_AM33XXUART3
+		mov	\rp, #UART_OFFSET(AM33XX_UART3_BASE)
+		b	98f
+#endif
+#ifdef CONFIG_DEBUG_AM33XXUART4
+		ldr	\rp, =AM33XX_UART4_BASE
+		and	\rp, \rp, #0x00ffffff
+		b	98f
+#endif
+#ifdef CONFIG_DEBUG_AM33XXUART5
+		ldr	\rp, =AM33XX_UART5_BASE
+		and	\rp, \rp, #0x00ffffff
+		b	98f
+#endif
+#ifdef CONFIG_DEBUG_AM33XXUART6
+		ldr	\rp, =AM33XX_UART6_BASE
+		and	\rp, \rp, #0x00ffffff
+		b	98f
 #endif
 #ifdef CONFIG_DEBUG_ZOOM_UART
 		ldr	\rp, =ZOOM_UART_BASE
