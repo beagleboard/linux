@@ -61,6 +61,7 @@ static struct am33xx_pm_sram_addr *pm_sram;
 
 static struct wkup_m3_ipc *m3_ipc;
 
+#ifdef CONFIG_SUSPEND
 static int rtc_only_idle;
 static int retrigger_irq;
 
@@ -77,6 +78,7 @@ static struct wkup_m3_wakeup_src rtc_alarm_wakeup = {
 static struct wkup_m3_wakeup_src rtc_ext_wakeup = {
 	.irq_nr = 0, .src = "Ext wakeup",
 };
+#endif /* CONFIG_SUSPEND */
 
 static u32 sram_suspend_address(unsigned long addr)
 {
@@ -469,7 +471,6 @@ static int am33xx_pm_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&am33xx_pm_ops);
-#endif /* CONFIG_SUSPEND */
 
 	/*
 	 * For a system suspend we must flush the caches, we want
@@ -481,6 +482,7 @@ static int am33xx_pm_probe(struct platform_device *pdev)
 	suspend_wfi_flags |= WFI_FLAG_SELF_REFRESH;
 	suspend_wfi_flags |= WFI_FLAG_SAVE_EMIF;
 	suspend_wfi_flags |= WFI_FLAG_WAKE_M3;
+#endif /* CONFIG_SUSPEND */
 
 	ret = pm_ops->init(am33xx_do_sram_idle);
 	if (ret) {
