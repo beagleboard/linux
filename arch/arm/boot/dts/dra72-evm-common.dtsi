@@ -347,7 +347,7 @@
 
 &gpmc {
 	status = "okay";
-	ranges = <0 0 0 0x01000000>;	/* minimum GPMC partition = 16MB */
+	ranges = <0 0 0x08000000 0x01000000>;	/* minimum GPMC partition = 16MB */
 	nand@0,0 {
 		/* To use NAND, DIP switch SW5 must be set like so:
 		 * SW5.1 (NAND_SELn) = ON (LOW)
@@ -444,7 +444,7 @@
 };
 
 &usb1 {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
 };
 
 &usb2 {
