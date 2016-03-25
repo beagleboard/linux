@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 #include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
@@ -23,10 +24,6 @@
 
 &mmc1 {
 	vmmc-supply = <&vmmcsd_fixed>;
-};
-
-&rtc {
-	system-power-controller;
 };
 
 /* EMMC in reset */
