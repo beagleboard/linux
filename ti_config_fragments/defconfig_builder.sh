@@ -134,6 +134,11 @@ choose_build_type() {
 	done
 
 	NUM_OF_BUILDS=$(wc -l "$BUILD_TYPE_FILE" | awk '{print$1}')
+	if [ "$NUM_OF_BUILDS" -eq 0 ]; then
+		echo "Sorry no build targets for this configuration.  Are you on the right branch?"
+		prepare_for_exit
+	fi
+
 	# Force the user to answer.  Maybe the user does not want to continue
 	while true;
 	do
