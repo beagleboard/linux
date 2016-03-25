@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 #include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
@@ -31,10 +32,6 @@
 	pinctrl-0 = <&emmc_pins>;
 	bus-width = <8>;
 	status = "okay";
-};
-
-&rtc {
-	system-power-controller;
 };
 
 #include "am335x-cape-bbb-exp-c.dtsi"
