@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am33xx-overlay-edma-fix.dtsi"
 
@@ -32,23 +33,4 @@
 	pinctrl-0 = <&emmc_pins>;
 	bus-width = <8>;
 	status = "okay";
-};
-
-&am33xx_pinmux {
-	uart2_pins: uart2_pins {
-		pinctrl-single,pins = <
-			0x150 (PIN_INPUT | MUX_MODE1)	/* spi0_sclk.uart2_rxd */
-			0x154 (PIN_OUTPUT | MUX_MODE1)	/* spi0_d0.uart2_txd */
-		>;
-	};
-};
-
-&uart2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_pins>;
-	status = "okay";
-};
-
-&rtc {
-	system-power-controller;
 };
