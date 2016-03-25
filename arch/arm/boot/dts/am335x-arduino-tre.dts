@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 
 / {
 	model = "TI AM335x Arduino Tre";

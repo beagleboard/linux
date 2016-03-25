@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am335x-bonegreen-wl1835.dtsi"
 
