@@ -25,6 +25,18 @@
 		reg = <0x00000008 0x00000000 0x00000000 0x80000000>;
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		dsp_common_cma_pool: dsp_common_cma_pool@81f800000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000008 0x1f800000 0x00000000 0x800000>;
+			reusable;
+			status = "okay";
+		};
+	};
 };
 
 &k2g_pinctrl {
@@ -44,4 +56,8 @@
 
 &ddr3edac {
 	status = "okay";
+};
+
+&dsp0 {
+	memory-region = <&dsp_common_cma_pool>;
 };
