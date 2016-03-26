@@ -12,6 +12,17 @@ menuconfig RESET_CONTROLLER
 
 	  If unsure, say no.
 
+config SYSCON_RESET
+	tristate "SYSCON Reset Driver"
+	depends on RESET_CONTROLLER
+	depends on HAS_IOMEM
+	select MFD_SYSCON
+	help
+	  This enables the reset driver support for devices with memory-mapped
+	  reset registers as part of a syscon device node. If you wish to use
+	  the reset framework for such memory-mapped devices, say Y here.
+	  Otherwise, say N.
+
 config TI_SCI_RESET
 	tristate "TI System Control Interface (TI-SCI) reset driver"
 	depends on RESET_CONTROLLER
