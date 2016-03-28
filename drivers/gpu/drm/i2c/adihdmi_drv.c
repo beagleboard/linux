@@ -60,7 +60,7 @@ struct adihdmi2 {
 };
 
 /* ADI recommended values for proper operation. */
-static const struct reg_default adihdmi_fixed_registers[] = {
+static const struct reg_sequence adihdmi_fixed_registers[] = {
 	{ 0x98, 0x03 },
 	{ 0x9a, 0xe0 },
 	{ 0x9c, 0x30 },
