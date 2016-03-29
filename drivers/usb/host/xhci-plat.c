@@ -159,6 +159,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			(pdata && pdata->usb3_lpm_capable))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
 
+	if (pdata && pdata->quirk_port_broken_pe)
+		xhci->quirks |= XHCI_BROKEN_PORT_PE;
+
 	if (HCC_MAX_PSA(xhci->hcc_params) >= 4)
 		xhci->shared_hcd->can_do_streams = 1;
 
