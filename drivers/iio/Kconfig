@@ -49,6 +49,7 @@ config IIO_CONSUMERS_PER_TRIGGER
 config IIO_SW_TRIGGER
 	tristate "Enable software triggers support"
 	select IIO_CONFIGFS
+	depends on BROKEN
 	help
 	 Provides IIO core support for software triggers. A software
 	 trigger can be created via configfs or directly by a driver

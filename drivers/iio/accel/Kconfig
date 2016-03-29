@@ -24,6 +24,7 @@ config BMC150_ACCEL
 	select REGMAP
 	select BMC150_ACCEL_I2C if I2C
 	select BMC150_ACCEL_SPI if SPI
+	depends on BROKEN
 	help
 	  Say yes here to build support for the following Bosch accelerometers:
 	  BMC150, BMI055, BMA250E, BMA222E, BMA255, BMA280.
@@ -141,6 +142,7 @@ config MMA8452
 	depends on I2C
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
+	depends on BROKEN
 	help
 	  Say yes here to build support for the following Freescale 3-axis
 	  accelerometers: MMA8451Q, MMA8452Q, MMA8453Q, MMA8652FC, MMA8653FC.
