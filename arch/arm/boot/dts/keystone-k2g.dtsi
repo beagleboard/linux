@@ -119,7 +119,7 @@
 		};
 
 		uart0: serial@02530c00 {
-			compatible = "ns16550a";
+			compatible = "ti,keystone-uart", "ns16550a";
 			current-speed = <115200>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
