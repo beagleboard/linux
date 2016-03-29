@@ -331,6 +331,7 @@ config NAU7802
 config PALMAS_GPADC
 	tristate "TI Palmas General Purpose ADC"
 	depends on MFD_PALMAS
+	depends on BROKEN
 	help
 	  Palmas series pmic chip by Texas Instruments (twl6035/6037)
 	  is used in smartphones and tablets and supports a 16 channel
