@@ -1845,6 +1845,13 @@ int serial8250_do_startup(struct uart_port *port)
 	enable_rsa(up);
 #endif
 
+#ifdef CONFIG_SERIAL_8250_KEYSTONE
+	/*
+	 * Enable Keystone SOCs UART transmitter and receiver
+	 */
+	keystone_serial8250_init(port);
+#endif
+
 	if (port->type == PORT_XR17V35X) {
 		/*
 		 * First enable access to IER [7:5], ISR [5:4], FCR [5:4],
