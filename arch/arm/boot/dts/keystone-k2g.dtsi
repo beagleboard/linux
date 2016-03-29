@@ -84,6 +84,13 @@
 			reg = <0x02620000 0x1000>;
 		};
 
+		k2g_pinctrl: pinmux@02621000 {
+			compatible = "pinctrl-single";
+			reg = <0x02621000 0x410>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0x001b0007>;
+		};
+
 		uart0: serial@02530c00 {
 			compatible = "ns16550a";
 			current-speed = <115200>;
