@@ -10,6 +10,7 @@
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am33xx-overlay-edma-fix.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	model = "SanCloud BeagleBone Enhanced";
@@ -184,15 +185,18 @@
 
 	lps331ap: lps331ap@5C {
 		compatible = "st,lps331ap";
+		st,drdy-int-pin = <1>;
 		reg = <0x5C>;
-		interrupts = <0>, <1>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <27 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	mpu6050: mpu6050@68 {
-		compatible = "inv,mpu6050";
+		compatible = "invensense,mpu6050";
 		reg = <0x68>;
-		orientation = <0xff 0 0 0 1 0 0 0 0xff>;
-		interrupts = <2 1>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <2 IRQ_TYPE_EDGE_RISING>;
+		//orientation = <0xff 0 0 0 1 0 0 0 0xff>;
 	};
 };
 
