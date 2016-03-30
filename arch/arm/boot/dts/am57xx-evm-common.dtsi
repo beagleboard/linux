@@ -83,6 +83,16 @@
 			};
 		};
 	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&ehrpwm1 0 50000 0>;
+
+		/* Anything lower than 241 is no longer visible */
+		brightness-levels = <0 243 245 247 249 251 252 253 255>;
+
+		default-brightness-level = <8>;
+	};
 };
 
 &dss {
@@ -142,4 +152,12 @@
 
 &pcie1 {
 	gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&ehrpwm1 {
+	status = "okay";
 };
