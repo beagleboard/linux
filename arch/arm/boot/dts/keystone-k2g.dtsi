@@ -14,6 +14,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/keystone.h>
 #include <dt-bindings/genpd/k2g.h>
 #include <dt-bindings/clock/k2g.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -29,6 +30,7 @@
 
 	aliases {
 		serial0 = &uart0;
+		rproc0 = &dsp0;
 	};
 
 	cpus {
@@ -82,6 +84,13 @@
 		devctrl: device-state-control@02620000 {
 			compatible = "ti,keystone-devctrl", "syscon";
 			reg = <0x02620000 0x1000>;
+		};
+
+		k2g_pinctrl: pinmux@02621000 {
+			compatible = "pinctrl-single";
+			reg = <0x02621000 0x410>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0x001b0007>;
 		};
 
 		uart0: serial@02530c00 {
@@ -194,6 +203,22 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio,syscon-dev = <&devctrl 0x240>;
+		};
+
+		dsp0: dsp0 {
+			compatible = "ti,k2g-dsp";
+			reg = <0x10800000 0x00100000>,
+			      <0x10e00000 0x00008000>,
+			      <0x10f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			power-domains = <&k2g_pds K2G_DEV_CGEM0>;
+			clocks = <&k2g_clks K2G_DEV_CGEM0 0>;
+			ti,syscon-dev = <&devctrl 0x844>;
+			resets = <&k2g_reset K2G_DEV_CGEM0 K2G_DEV_CGEM0_DSP0_RESET>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <0 8>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio0 27 0>;
 		};
 	};
 };

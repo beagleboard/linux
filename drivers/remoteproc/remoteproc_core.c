@@ -1014,7 +1014,11 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	if (ret)
 		return ret;
 
-	dev_info(dev, "Booting fw image %s, size %zd\n", name, fw->size);
+	if (!rproc->use_userspace_loader)
+		dev_info(dev, "Booting fw image %s, size %zd\n",
+			 name, fw->size);
+	else
+		dev_info(dev, "Booting unspecified pre-loaded fw image\n");
 
 	/*
 	 * if enabling an IOMMU isn't relevant for this rproc, this is
@@ -1058,11 +1062,14 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 		}
 	}
 
-	/* load the ELF segments to memory */
-	ret = rproc_load_segments(rproc, fw);
-	if (ret) {
-		dev_err(dev, "Failed to load program segments: %d\n", ret);
-		goto clean_up;
+	if (!rproc->use_userspace_loader) {
+		/* load the ELF segments to memory */
+		ret = rproc_load_segments(rproc, fw);
+		if (ret) {
+			dev_err(dev, "Failed to load program segments: %d\n",
+				ret);
+			goto clean_up;
+		}
 	}
 
 	/*
@@ -1154,13 +1161,64 @@ static void rproc_fw_config_virtio(const struct firmware *fw, void *context)
 
 out:
 	release_firmware(fw);
-	/* allow rproc_del() contexts, if any, to proceed */
-	complete_all(&rproc->firmware_loading_complete);
+	if (!rproc->use_userspace_loader) {
+		/* allow rproc_del() contexts, if any, to proceed */
+		complete_all(&rproc->firmware_loading_complete);
+	}
 }
+
+/**
+ * rproc_add_vdevs_direct() - add virtio devices directly from a resource table
+ * @rproc: handle of a remote processor
+ *
+ * This function is added to support remoteproc drivers using userspace loaders
+ * to process a published resource table directly and add the virtio devices for
+ * supporting the virtio rpmsg infrastructure. The firmwares are not looked up
+ * and processed by the remoteproc core for such drivers.
+ *
+ * The remoteproc drivers are expected to undo the addition using the
+ * @rproc_remove_vdevs_direct() function.
+ */
+void rproc_add_vdevs_direct(struct rproc *rproc)
+{
+	if (!rproc->use_userspace_loader) {
+		dev_err(&rproc->dev, "cannot be called on rprocs supporting in-kernel loader!\n");
+		return;
+	}
+
+	rproc_fw_config_virtio(NULL, (void *)rproc);
+}
+EXPORT_SYMBOL(rproc_add_vdevs_direct);
+
+/**
+ * rproc_remove_vdevs_direct() - remove virtio devices directly
+ * @rproc: handle of a remote processor
+ *
+ * This function is added to support remoteproc drivers using userspace
+ * loaders to remove any directly added virtio devices through the
+ * @rproc_add_vdevs_direct() function.
+ */
+void rproc_remove_vdevs_direct(struct rproc *rproc)
+{
+	struct rproc_vdev *rvdev, *tmp;
+
+	if (!rproc->use_userspace_loader) {
+		dev_err(&rproc->dev, "cannot be called on rprocs supporting in-kernel loader!\n");
+		return;
+	}
+
+	list_for_each_entry_safe(rvdev, tmp, &rproc->rvdevs, node)
+		rproc_remove_virtio_dev(rvdev);
+}
+EXPORT_SYMBOL(rproc_remove_vdevs_direct);
 
 static int rproc_add_virtio_devices(struct rproc *rproc)
 {
 	int ret;
+
+	/* nothing to do if relying on external userspace loader */
+	if (rproc->use_userspace_loader)
+		return 0;
 
 	/* rproc_del() calls must wait until async loader completes */
 	init_completion(&rproc->firmware_loading_complete);
@@ -1280,7 +1338,7 @@ EXPORT_SYMBOL(rproc_get_alias_id);
  */
 int rproc_boot(struct rproc *rproc)
 {
-	const struct firmware *firmware_p;
+	const struct firmware *firmware_p = NULL;
 	struct device *dev;
 	int ret;
 
@@ -1319,16 +1377,19 @@ int rproc_boot(struct rproc *rproc)
 
 	dev_info(dev, "powering up %s\n", rproc->name);
 
-	/* load firmware */
-	ret = request_firmware(&firmware_p, rproc->firmware, dev);
-	if (ret < 0) {
-		dev_err(dev, "request_firmware failed: %d\n", ret);
-		goto downref_rproc;
+	if (!rproc->use_userspace_loader) {
+		/* load firmware */
+		ret = request_firmware(&firmware_p, rproc->firmware, dev);
+		if (ret < 0) {
+			dev_err(dev, "request_firmware failed: %d\n", ret);
+			goto downref_rproc;
+		}
 	}
 
 	ret = rproc_fw_boot(rproc, firmware_p);
 
-	release_firmware(firmware_p);
+	if (!rproc->use_userspace_loader)
+		release_firmware(firmware_p);
 
 downref_rproc:
 	if (ret) {
@@ -1669,8 +1730,10 @@ int rproc_del(struct rproc *rproc)
 	if (!rproc)
 		return -EINVAL;
 
-	/* if rproc is just being registered, wait */
-	wait_for_completion(&rproc->firmware_loading_complete);
+	if (!rproc->use_userspace_loader) {
+		/* if rproc is just being registered, wait */
+		wait_for_completion(&rproc->firmware_loading_complete);
+	}
 
 	/* clean up remote vdev entries */
 	list_for_each_entry_safe(rvdev, tmp, &rproc->rvdevs, node)
