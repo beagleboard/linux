@@ -33,6 +33,7 @@
 #include <linux/of.h>
 #include <linux/of_graph.h>
 #include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/videodev2.h>
