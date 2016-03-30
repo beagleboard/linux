@@ -46,7 +46,7 @@ struct axp288_adc_info {
 	struct regmap *regmap;
 };
 
-static const struct iio_chan_spec const axp288_adc_channels[] = {
+static const struct iio_chan_spec axp288_adc_channels[] = {
 	{
 		.indexed = 1,
 		.type = IIO_TEMP,
@@ -238,7 +238,7 @@ static int axp288_adc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_device_id axp288_adc_id_table[] = {
+static const struct platform_device_id axp288_adc_id_table[] = {
 	{ .name = "axp288_adc" },
 	{},
 };
