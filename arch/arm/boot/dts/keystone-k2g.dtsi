@@ -30,6 +30,7 @@
 
 	aliases {
 		serial0 = &uart0;
+		rproc0 = &dsp0;
 	};
 
 	cpus {
@@ -229,6 +230,24 @@
 			gpio,syscon-dev = <&devctrl 0x240>;
 		};
 
+		#include "keystone-k2g-netcp.dtsi"
+
+		dsp0: dsp0 {
+			compatible = "ti,k2g-dsp";
+			reg = <0x10800000 0x00100000>,
+			      <0x10e00000 0x00008000>,
+			      <0x10f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			power-domains = <&k2g_pds K2G_DEV_CGEM0>;
+			clocks = <&k2g_clks K2G_DEV_CGEM0 0>;
+			ti,syscon-dev = <&devctrl 0x844>;
+			resets = <&k2g_reset K2G_DEV_CGEM0 K2G_DEV_CGEM0_DSP0_RESET>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <0 8>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio0 27 0>;
+		};
+
 		mdio: mdio@4200f00 {
 			compatible	= "ti,keystone_mdio", "ti,davinci_mdio";
 			#address-cells = <1>;
@@ -240,7 +259,5 @@
 			status = "disabled";
 			bus_freq = <2500000>;
 		};
-
-		#include "keystone-k2g-netcp.dtsi"
 	};
 };

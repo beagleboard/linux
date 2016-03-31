@@ -89,4 +89,19 @@ config DA8XX_REMOTEPROC
 	  It's safe to say n here if you're not interested in multimedia
 	  offloading.
 
+config KEYSTONE_REMOTEPROC
+	tristate "Keystone Remoteproc support"
+	depends on ARCH_KEYSTONE
+	depends on RESET_CONTROLLER
+	depends on UIO
+	select REMOTEPROC
+	select RPMSG
+	help
+	  Say y here here to support Keystone remote processors (DSP)
+	  via the remote processor framework. The drivers support a user-land driven
+	  interface to the remoteprocessor download
+
+	  It's safe to say n here if you're not interested in multimedia
+	  offloading or just want a bare minimum kernel.
+
 endmenu
