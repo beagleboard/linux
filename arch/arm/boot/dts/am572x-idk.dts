@@ -436,3 +436,7 @@
 &pcie1 {
 	gpios = <&gpio3 23 GPIO_ACTIVE_HIGH>;
 };
+
+&sn65hvs882 {
+	load-gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;
+};
