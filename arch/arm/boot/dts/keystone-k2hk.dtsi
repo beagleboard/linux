@@ -46,6 +46,58 @@
 	soc {
 		/include/ "keystone-k2hk-clocks.dtsi"
 
+		psc: power-sleep-controller@02350000 {
+			pscrst: psc-reset {
+				dsp@0 {
+					reg = <0>;
+					reset-control = <0xa3c 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x83c 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@1 {
+					reg = <1>;
+					reset-control = <0xa40 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x840 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@2 {
+					reg = <2>;
+					reset-control = <0xa44 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x844 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@3 {
+					reg = <3>;
+					reset-control = <0xa48 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x848 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@4 {
+					reg = <4>;
+					reset-control = <0xa4c 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x84c 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@5 {
+					reg = <5>;
+					reset-control = <0xa50 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x850 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@6 {
+					reg = <6>;
+					reset-control = <0xa54 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x854 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@7 {
+					reg = <7>;
+					reset-control = <0xa58 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x858 8 RESET_ASSERT_CLEAR>;
+				};
+			};
+		};
+
 		dspgpio0: keystone_dsp_gpio@02620240 {
 			compatible = "ti,keystone-dsp-gpio";
 			gpio-controller;

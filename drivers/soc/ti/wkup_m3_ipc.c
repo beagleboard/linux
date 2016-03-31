@@ -661,7 +661,7 @@ static int wkup_m3_ipc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int wkup_m3_ipc_resume(struct device *dev)
 {
 	if (m3_ipc_state->is_rtc_only) {
@@ -673,11 +673,11 @@ static int wkup_m3_ipc_resume(struct device *dev)
 
 	return 0;
 }
+#endif /* CONFIG_PM_SLEEP */
 
 static const struct dev_pm_ops wkup_m3_ipc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(NULL, wkup_m3_ipc_resume)
 };
-#endif
 
 static const struct of_device_id wkup_m3_ipc_of_match[] = {
 	{ .compatible = "ti,am3352-wkup-m3-ipc", },
@@ -692,9 +692,7 @@ static struct platform_driver wkup_m3_ipc_driver = {
 	.driver = {
 		.name = "wkup_m3_ipc",
 		.of_match_table = wkup_m3_ipc_of_match,
-#ifdef CONFIG_PM
 		.pm = &wkup_m3_ipc_pm_ops,
-#endif
 	},
 };
 
