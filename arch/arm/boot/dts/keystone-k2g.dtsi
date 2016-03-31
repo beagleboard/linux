@@ -14,6 +14,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/keystone.h>
 #include <dt-bindings/genpd/k2g.h>
 #include <dt-bindings/clock/k2g.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -107,6 +108,13 @@
 		devctrl: device-state-control@02620000 {
 			compatible = "ti,keystone-devctrl", "syscon";
 			reg = <0x02620000 0x1000>;
+		};
+
+		k2g_pinctrl: pinmux@02621000 {
+			compatible = "pinctrl-single";
+			reg = <0x02621000 0x410>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0x001b0007>;
 		};
 
 		uart0: serial@02530c00 {

@@ -7,3 +7,4 @@ obj-$(CONFIG_ARCH_STI) += sti/
 obj-$(CONFIG_TI_SCI_RESET) += reset-ti-sci.o
 obj-$(CONFIG_ARCH_ZYNQ) += reset-zynq.o
 obj-$(CONFIG_ATH79) += reset-ath79.o
+obj-$(CONFIG_SYSCON_RESET) += reset-syscon.o

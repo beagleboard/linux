@@ -1,0 +1,110 @@
+SysCon Reset Controller
+=======================
+
+Almost all SoCs have hardware modules that require reset control in addition
+to clock and power control for their functionality. The reset control is
+typically provided by means of memory-mapped I/O registers. These registers are
+sometimes a part of a larger register space region implementing various
+functionalities. This register range is best represented as a syscon node to
+allow multiple entities to access their relevant registers in the common
+register space.
+
+A SysCon Reset Controller node defines a device that uses a syscon node
+and provides reset management functionality for various hardware modules
+present on the SoC.
+
+SysCon Reset Controller Node
+============================
+Each of the reset provider/controller nodes should be a child of a syscon
+node and have the following properties.
+
+Required properties:
+--------------------
+ - compatible		: Should be "syscon-reset"
+ - #reset-cells		: Should be 1. Please see the reset consumer node below
+			  for usage details
+ - #address-cells	: Should be 1
+ - #size-cells		: Should be 0
+
+SysCon Reset Child Node
+============================
+Each reset provider/controller node should have a child node for each reset
+it would like to expose to consumers.
+
+Required properties:
+--------------------
+ - reg			: Reset's logical number, this value will be used by
+			  consumers of this reset as their reset specifier value
+ - reset-control	: Contains the reset control register information,
+			  Should contain 3 cells defined as:
+			    Cell #1 : register offset of the reset
+			              control/status register from the syscon
+			              register base
+			    Cell #2 : bit shift value for the reset in the
+			              respective reset control/status register
+			    Cell #3 : polarity of the reset bit, should use the
+				      definitions defined in the DT include file
+					include/dt-bindings/reset/syscon.h
+				      Should be RESET_ASSERT_SET for resets
+				      that are asserted when the bit is set,
+				      and RESET_ASSERT_CLEAR for resets that
+				      are asserted when the bit is cleared.
+
+Optional properties:
+--------------------
+ - reset-status		: Contains the reset status register information. The
+			  contents of this property are the equivalent to
+			  reset-control as defined above. If this property is
+			  not present and the toggle flag is not set, the
+			  reset register is assumed to be the same as the
+			  control register
+ - toggle		: Mark this reset as a toggle only reset, this is used
+			  when no status register is available.
+
+SysCon Reset Consumer Nodes
+===========================
+Each of the reset consumer nodes should have the following properties,
+in addition to their own properties.
+
+Required properties:
+--------------------
+ - resets	: A phandle and a reset specifier, the reset specifier should
+		  be a numerical address matching the desired reset as set
+		  by the reg property defined above.
+
+Please also refer to Documentation/devicetree/bindings/reset/reset.txt for
+common reset controller usage by consumers.
+
+Example:
+--------
+The following example demonstrates a syscon node, the reset controller node
+using the syscon node, and a consumer (a DSP device) on the TI Keystone 2
+Edison SoC.
+
+/ {
+	soc {
+		psc: power-sleep-controller@02350000 {
+			compatible = "syscon", "simple-mfd";
+			reg = <0x02350000 0x1000>;
+
+			pscrst: psc-reset {
+				compatible = "syscon-reset";
+				#reset-cells = <1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				dsp@0 {
+					reg = <0>;
+					reset-control = <0xa3c 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x83c 8 RESET_ASSERT_CLEAR>;
+				};
+			};
+		};
+
+		dsp0: dsp0 {
+			...
+			resets = <&pscrst 0>;
+			...
+		};
+	};
+};

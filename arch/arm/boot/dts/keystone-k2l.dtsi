@@ -54,6 +54,34 @@
 			interrupts = <GIC_SPI 435 IRQ_TYPE_EDGE_RISING>;
 		};
 
+		psc: power-sleep-controller@02350000 {
+			pscrst: psc-reset {
+				dsp@0 {
+					reg = <0>;
+					reset-control = <0xa3c 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x83c 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@1 {
+					reg = <1>;
+					reset-control = <0xa40 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x840 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@2 {
+					reg = <2>;
+					reset-control = <0xa44 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x844 8 RESET_ASSERT_CLEAR>;
+				};
+
+				dsp@3 {
+					reg = <3>;
+					reset-control = <0xa48 8 RESET_ASSERT_CLEAR>;
+					reset-status = <0x848 8 RESET_ASSERT_CLEAR>;
+				};
+			};
+		};
+
 		dspgpio0: keystone_dsp_gpio@02620240 {
 			compatible = "ti,keystone-dsp-gpio";
 			gpio-controller;
