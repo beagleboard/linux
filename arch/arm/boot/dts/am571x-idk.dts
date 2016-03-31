@@ -170,3 +170,7 @@
 &vip1 {
 	status = "okay";
 };
+
+&sn65hvs882 {
+	load-gpios = <&gpio2 23 GPIO_ACTIVE_LOW>;
+};
