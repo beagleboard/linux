@@ -115,6 +115,7 @@
 #define TC_EN			(1 << 1)
 #define BWR_EN			(1 << 4)
 #define BRR_EN			(1 << 5)
+#define CIRQ_EN                 (1 << 8)
 #define ERR_EN			(1 << 15)
 #define CTO_EN			(1 << 16)
 #define CCRC_EN			(1 << 17)
@@ -170,6 +171,8 @@
 #define SD_SDR50_MAX_FREQ	104000000
 
 #define AUTO_CMD23		(1 << 1)	/* Auto CMD23 support */
+#define CLKEXTFREE_ENABLED	(1 << 2)        /* CLKEXTFREE enabled */
+
 /*
  * One controller can have multiple slots, like on some omap boards using
  * omap.c controller driver. Luckily this is not currently done on any known
@@ -650,8 +653,8 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 {
 	unsigned int irq_mask;
 
-	if ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
-	    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200))
+	if (cmd && ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
+	    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200)))
 		/*
 		 * OMAP5/DRA74X/DRA72x Errata i802:
 		 * DCRC error interrupts (MMCHS_STAT[21] DCRC=0x1) can occur
@@ -665,8 +668,11 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 		irq_mask = INT_EN_MASK;
 
 	/* Disable timeout for erases or when using software timeout */
-	if (cmd->opcode == MMC_ERASE || host->need_i834_errata)
+	if (cmd && (cmd->opcode == MMC_ERASE || host->need_i834_errata))
 		irq_mask &= ~DTO_EN;
+
+	if (host->flags & CLKEXTFREE_ENABLED)
+		irq_mask |= CIRQ_EN;
 
 	OMAP_HSMMC_WRITE(host->base, STAT, STAT_CLEAR);
 	OMAP_HSMMC_WRITE(host->base, ISE, irq_mask);
@@ -722,8 +728,10 @@ static inline void omap_hsmmc_save_dll(struct omap_hsmmc_host *host)
 }
 
 static int omap_hsmmc_pinctrl_set_state(struct omap_hsmmc_host *host,
-					char *mode)
+					const char *mode)
 {
+	struct pinctrl_state *s = ERR_PTR(-ENODEV);
+	const char *version = host->pdata->version;
 	int ret;
 
 	if (IS_ERR(host->pinctrl)) {
@@ -737,10 +745,25 @@ static int omap_hsmmc_pinctrl_set_state(struct omap_hsmmc_host *host,
 		return -EINVAL;
 	}
 
-	host->pinctrl_state = pinctrl_lookup_state(host->pinctrl, mode);
-	if (IS_ERR(host->pinctrl_state)) {
-		dev_err(mmc_dev(host->mmc),
-			"no pinctrl state for %s mode\n", mode);
+	if (version) {
+		char str[20];
+		snprintf(str, sizeof(str), "%s-%s", mode, version);
+		s = pinctrl_lookup_state(host->pinctrl, str);
+	}
+	if (IS_ERR(s))
+		s = pinctrl_lookup_state(host->pinctrl, mode);
+
+	host->pinctrl_state = s;
+
+	if (IS_ERR(s)) {
+		if (version)
+			dev_err(mmc_dev(host->mmc),
+				"no pinctrl state for %s or %s-%s mode\n",
+				mode, mode, version);
+		else
+			dev_err(mmc_dev(host->mmc),
+				"no pinctrl state for %s\n", mode);
+
 		return PTR_ERR(host->pinctrl_state);
 	}
 
@@ -760,7 +783,7 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 	unsigned long regval;
 	unsigned long timeout;
 	unsigned long clkdiv;
-	char *mode;
+	const char *mode;
 
 	dev_vdbg(mmc_dev(host->mmc), "Set clock to %uHz\n", ios->clock);
 
@@ -784,28 +807,28 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 
 	switch (ios->timing) {
 	case MMC_TIMING_UHS_SDR104:
-		mode = kstrdup("sdr104", GFP_KERNEL);
+		mode = "sdr104";
 		host->need_i834_errata = true;
 		break;
 	case MMC_TIMING_UHS_DDR50:
-		mode = kstrdup("ddr50", GFP_KERNEL);
+		mode = "ddr50";
 		break;
 	case MMC_TIMING_UHS_SDR50:
-		mode = kstrdup("sdr50", GFP_KERNEL);
+		mode = "sdr50";
 		break;
 	case MMC_TIMING_SD_HS:
 	case MMC_TIMING_MMC_HS:
-		mode = kstrdup("hs", GFP_KERNEL);
+		mode = "hs";
 		break;
 	case MMC_TIMING_UHS_SDR25:
-		mode = kstrdup("sdr25", GFP_KERNEL);
+		mode = "sdr25";
 		break;
 	case MMC_TIMING_UHS_SDR12:
-		mode = kstrdup("sdr12", GFP_KERNEL);
+		mode = "sdr12";
 		break;
 	case MMC_TIMING_MMC_HS200:
-		mode = kstrdup("hs200", GFP_KERNEL);
 		host->need_i834_errata = true;
+		mode = "hs200_1_8v";
 		break;
 	default:
 		dev_dbg(mmc_dev(host->mmc), "no io delay setting\n");
@@ -814,7 +837,6 @@ static void omap_hsmmc_set_clock(struct omap_hsmmc_host *host)
 
 	omap_hsmmc_pinctrl_set_state(host, mode);
 	host->pinctrl_default_state = false;
-	kfree(mode);
 
 no_io_delay:
 	regval = OMAP_HSMMC_READ(host->base, SYSCTL);
@@ -2100,15 +2122,15 @@ static int omap_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	 * and for SDR50 mode when Use Tuning for SDR50 is set in
 	 * Capabilities register.
 	 */
-	if (ios->clock <= SD_SDR50_MAX_FREQ) {
-		if (!(capa2 & CAPA2_TSDR50))
-			return 0;
-		ac12 |= AC12_UHSMC_SDR50;
-	} else {
+	if ((ios->timing == MMC_TIMING_UHS_SDR50) && (capa2 & CAPA2_TSDR50))
+		ac12 = AC12_UHSMC_SDR50;
+	else if (ios->timing == MMC_TIMING_UHS_SDR104)
 		ac12 |= AC12_UHSMC_SDR104;
+	else {
+		omap_hsmmc_start_clock(host);
+		return 0;
 	}
 
-	ac12 |= AC12_UHSMC_SDR104;
 	ac12 |= V1V8_SIGEN;
 
 	/* Enable SDR50/SDR104 mode */
@@ -2303,12 +2325,17 @@ static int omap_hsmmc_card_busy_low(struct omap_hsmmc_host *host)
 
 static int omap_hsmmc_card_busy_high(struct omap_hsmmc_host *host)
 {
+	int ret = true;
 	u32 value;
 	unsigned long timeout;
 
 	value = OMAP_HSMMC_READ(host->base, CON);
 	value |= CLKEXTFREE;
 	OMAP_HSMMC_WRITE(host->base, CON, value);
+
+	host->flags |= CLKEXTFREE_ENABLED;
+	disable_irq(host->irq);
+	omap_hsmmc_enable_irq(host, NULL);
 
 	timeout = jiffies + msecs_to_jiffies(1);
 	do {
@@ -2318,15 +2345,21 @@ static int omap_hsmmc_card_busy_high(struct omap_hsmmc_host *host)
 			value &= ~(CLKEXTFREE | PADEN);
 			OMAP_HSMMC_WRITE(host->base, CON,
 					 (value & ~(CLKEXTFREE | PADEN)));
-			return false;
+			ret = false;
+			goto disable_irq;
 		}
 
 		usleep_range(100, 200);
 	} while (!time_after(jiffies, timeout));
 
-	dev_dbg(mmc_dev(host->mmc), "timeout : i/o high 0x%x\n", value);
+	dev_err(mmc_dev(host->mmc), "timeout : i/o high 0x%x\n", value);
 
-	return true;
+disable_irq:
+	  omap_hsmmc_disable_irq(host);
+	  enable_irq(host->irq);
+	  host->flags &= ~CLKEXTFREE_ENABLED;
+
+	  return ret;
 }
 
 static int omap_hsmmc_card_busy(struct mmc_host *mmc)
@@ -2476,6 +2509,9 @@ static struct omap_mmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 	pdata->nr_slots = 1;
 	pdata->slots[0].switch_pin = cd_gpio;
 	pdata->slots[0].gpio_wp = wp_gpio;
+
+	if (of_property_read_string(np, "ti,hsmmc-rev", &pdata->version) < 0)
+		pdata->version = NULL;
 
 	if (of_find_property(np, "ti,non-removable", NULL)) {
 		pdata->slots[0].nonremovable = true;

@@ -371,7 +371,7 @@ static void omap_dma_start_sg(struct omap_chan *c, struct omap_desc *d,
 	struct omap_sg *sg = d->sg + idx;
 	unsigned cxsa, cxei, cxfi;
 
-	if (d->dir == DMA_DEV_TO_MEM) {
+	if (d->dir == DMA_DEV_TO_MEM || d->dir == DMA_MEM_TO_MEM) {
 		cxsa = CDSA;
 		cxei = CDEI;
 		cxfi = CDFI;
@@ -417,7 +417,7 @@ static void omap_dma_start_desc(struct omap_chan *c)
 	if (dma_omap1())
 		omap_dma_chan_write(c, CCR2, d->ccr >> 16);
 
-	if (d->dir == DMA_DEV_TO_MEM) {
+	if (d->dir == DMA_DEV_TO_MEM || d->dir == DMA_MEM_TO_MEM) {
 		cxsa = CSSA;
 		cxei = CSEI;
 		cxfi = CSFI;
@@ -972,6 +972,51 @@ static struct dma_async_tx_descriptor *omap_dma_prep_dma_cyclic(
 	return vchan_tx_prep(&c->vc, &d->vd, flags);
 }
 
+static struct dma_async_tx_descriptor *omap_dma_prep_dma_memcpy(
+	struct dma_chan *chan, dma_addr_t dest, dma_addr_t src,
+	size_t len, unsigned long tx_flags)
+{
+	struct omap_chan *c = to_omap_dma_chan(chan);
+	struct omap_desc *d;
+	uint8_t data_type;
+
+	d = kzalloc(sizeof(*d) + sizeof(d->sg[0]), GFP_ATOMIC);
+	if (!d)
+		return NULL;
+
+	data_type = __ffs((src | dest | len));
+	if (data_type > CSDP_DATA_TYPE_32)
+		data_type = CSDP_DATA_TYPE_32;
+
+	d->dir = DMA_MEM_TO_MEM;
+	d->dev_addr = src;
+	d->fi = 0;
+	d->es = data_type;
+	d->sg[0].en = len / BIT(data_type);
+	d->sg[0].fn = 1;
+	d->sg[0].addr = dest;
+	d->sglen = 1;
+	d->ccr = c->ccr;
+	d->ccr |= CCR_DST_AMODE_POSTINC | CCR_SRC_AMODE_POSTINC;
+
+	d->cicr = CICR_DROP_IE;
+	if (tx_flags & DMA_PREP_INTERRUPT)
+		d->cicr |= CICR_FRAME_IE;
+
+	d->csdp = data_type;
+
+	if (dma_omap1()) {
+		d->cicr |= CICR_TOUT_IE;
+		d->csdp |= CSDP_DST_PORT_EMIFF | CSDP_SRC_PORT_EMIFF;
+	} else {
+		d->csdp |= CSDP_DST_PACKED | CSDP_SRC_PACKED;
+		d->cicr |= CICR_MISALIGNED_ERR_IE | CICR_TRANS_ERR_IE;
+		d->csdp |= CSDP_DST_BURST_64 | CSDP_SRC_BURST_64;
+	}
+
+	return vchan_tx_prep(&c->vc, &d->vd, tx_flags);
+}
+
 static int omap_dma_slave_config(struct omap_chan *c, struct dma_slave_config *cfg)
 {
 	if (cfg->src_addr_width == DMA_SLAVE_BUSWIDTH_8_BYTES ||
@@ -1186,6 +1231,7 @@ static int omap_dma_probe(struct platform_device *pdev)
 
 	dma_cap_set(DMA_SLAVE, od->ddev.cap_mask);
 	dma_cap_set(DMA_CYCLIC, od->ddev.cap_mask);
+	dma_cap_set(DMA_MEMCPY, od->ddev.cap_mask);
 	od->ddev.device_alloc_chan_resources = omap_dma_alloc_chan_resources;
 	od->ddev.device_free_chan_resources = omap_dma_free_chan_resources;
 	od->ddev.device_tx_status = omap_dma_tx_status;
@@ -1193,6 +1239,7 @@ static int omap_dma_probe(struct platform_device *pdev)
 	od->ddev.device_prep_slave_sg = omap_dma_prep_slave_sg;
 	od->ddev.device_prep_dma_cyclic = omap_dma_prep_dma_cyclic;
 	od->ddev.device_control = omap_dma_control;
+	od->ddev.device_prep_dma_memcpy = omap_dma_prep_dma_memcpy;
 	od->ddev.device_slave_caps = omap_dma_device_slave_caps;
 	od->ddev.dev = &pdev->dev;
 	INIT_LIST_HEAD(&od->ddev.channels);

@@ -108,7 +108,6 @@ struct m25p {
 	u8			read_opcode;
 	u8			program_opcode;
 	u8			*command;
-	void __iomem            *mem_addr;
 	enum read_type		flash_read;
 };
 
@@ -501,24 +500,6 @@ static inline unsigned int m25p80_rx_nbits(const struct m25p *flash)
 }
 
 /*
- * This API can be used to transfer flash information to
- * SPI controller which needs some of its registers to get
- * configured on flash.
- */
-static void m25p80_fill_flash_information(struct m25p *flash)
-{
-	struct spi_master *master = flash->spi->master;
-	u8 info[4];
-
-	info[0] = flash->read_opcode;
-	info[1] = flash->program_opcode;
-	info[2] = flash->addr_width;
-	info[3] = m25p80_dummy_cycles_read(flash);
-
-	master->configure_from_slave(flash->spi, info);
-}
-
-/*
  * Read an address range from the flash chip.  The address range
  * may be any size provided it is within the physical boundaries.
  */
@@ -526,8 +507,6 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	size_t *retlen, u_char *buf)
 {
 	struct m25p *flash = mtd_to_m25p(mtd);
-	struct spi_master *master = flash->spi->master;
-
 	struct spi_transfer t[2];
 	struct spi_message m;
 	uint8_t opcode;
@@ -535,20 +514,6 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 
 	pr_debug("%s: %s from 0x%08x, len %zd\n", dev_name(&flash->spi->dev),
 			__func__, (u32)from, len);
-
-	if (master->mmap) {
-		mutex_lock(&flash->lock);
-		if (wait_till_ready(flash)) {
-			/* REVISIT status return?? */
-			mutex_unlock(&flash->lock);
-			return 1;
-		}
-		flash->mem_addr = master->get_buf(master);
-		memcpy(buf, flash->mem_addr + from, len);
-		master->put_buf(master);
-		*retlen = len;
-		goto out;
-	}
 
 	spi_message_init(&m);
 	memset(t, 0, (sizeof t));
@@ -582,11 +547,11 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	flash->command[0] = opcode;
 	m25p_addr2cmd(flash, from, flash->command);
 
+	m.use_mmap_mode = true;
 	spi_sync(flash->spi, &m);
 
 	*retlen = m.actual_length - m25p_cmdsz(flash) - dummy;
 
-out:
 	mutex_unlock(&flash->lock);
 
 	return 0;
@@ -1317,9 +1282,6 @@ static int m25p_probe(struct spi_device *spi)
 	} else {
 		flash->addr_width = 3;
 	}
-
-	if (spi->master->configure_from_slave)
-		m25p80_fill_flash_information(flash);
 
 	dev_info(&spi->dev, "%s (%lld Kbytes)\n", id->name,
 			(long long)flash->mtd.size >> 10);
