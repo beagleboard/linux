@@ -153,3 +153,20 @@
 	mboxes = <&mailbox5 &mbox_dsp1_ipc3x>;
 	timers = <&timer5>;
 };
+
+&ov2659_1 {
+	remote-endpoint = <&vin1b>;
+};
+
+&vin1b {
+	status = "okay";
+
+	endpoint@2 {
+		slave-mode;
+		remote-endpoint = <&ov2659_1>;
+	};
+};
+
+&vip1 {
+	status = "okay";
+};
