@@ -297,7 +297,8 @@ static void irq_save_context(void)
 {
 	if (!sar_base)
 		sar_base = omap4_get_sar_ram_base();
-	wakeupgen_ops->save_context();
+	if (wakeupgen_ops && wakeupgen_ops->save_context)
+		wakeupgen_ops->save_context();
 }
 
 /*
@@ -326,7 +327,8 @@ static void am43xx_irq_restore_context(void)
 
 static void irq_restore_context(void)
 {
-	wakeupgen_ops->restore_context();
+	if (wakeupgen_ops && wakeupgen_ops->restore_context)
+		wakeupgen_ops->restore_context();
 }
 
 /*

@@ -259,5 +259,131 @@
 			status = "disabled";
 			bus_freq = <2500000>;
 		};
+
+		edma0: edma@02700000 {
+			compatible = "ti,edma3-tpcc";
+			reg =	<0x02700000 0x8000>;
+			reg-names = "edma3_cc";
+			interrupts = <GIC_SPI 200 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 216 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 217 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "edma3_ccint", "emda3_mperr",
+					  "edma3_ccerrint";
+			dma-requests = <64>;
+			#dma-cells = <2>;
+
+			ti,tptcs = <&edma0_tptc0 7>, <&edma0_tptc1 0>;
+
+			ti,edma-memcpy-channels = <32 33 34 35>;
+
+			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
+			clocks = <&k2g_clks K2G_DEV_EDMA0 K2G_DEV_EDMA_TPCC_CLK>;
+			clock-names = "fck";
+		};
+
+		edma0_tptc0: tptc@02760000 {
+			compatible = "ti,edma3-tptc";
+			reg =	<0x02760000 0x400>;
+			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
+			clocks = <&k2g_clks K2G_DEV_EDMA0 K2G_DEV_EDMA_TPTC_CLK>;
+			clock-names = "fck";
+		};
+
+		edma0_tptc1: tptc@02768000 {
+			compatible = "ti,edma3-tptc";
+			reg =	<0x02768000 0x400>;
+			power-domains = <&k2g_pds K2G_DEV_EDMA0>;
+			clocks = <&k2g_clks K2G_DEV_EDMA0 K2G_DEV_EDMA_TPTC_CLK>;
+			clock-names = "fck";
+		};
+
+		edma1: edma@02728000 {
+			compatible = "ti,edma3-tpcc";
+			reg =	<0x02728000 0x8000>;
+			reg-names = "edma3_cc";
+			interrupts = <GIC_SPI 208 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 219 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 220 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "edma3_ccint", "emda3_mperr",
+					  "edma3_ccerrint";
+			dma-requests = <64>;
+			#dma-cells = <2>;
+
+			ti,tptcs = <&edma1_tptc0 7>, <&edma1_tptc1 0>;
+
+			/*
+			 * memcpy is disabled, can be enabled with:
+			 * ti,edma-memcpy-channels = <12 13 14 15>;
+			 * for example.
+			 */
+
+			power-domains = <&k2g_pds K2G_DEV_EDMA1>;
+			clocks = <&k2g_clks K2G_DEV_EDMA1 K2G_DEV_EDMA_TPCC_CLK>;
+			clock-names = "fck";
+		};
+
+		edma1_tptc0: tptc@027b0000 {
+			compatible = "ti,edma3-tptc";
+			reg =	<0x027b0000 0x400>;
+			power-domains = <&k2g_pds K2G_DEV_EDMA1>;
+			clocks = <&k2g_clks K2G_DEV_EDMA1 K2G_DEV_EDMA_TPTC_CLK>;
+			clock-names = "fck";
+		};
+
+		edma1_tptc1: tptc@027b8000 {
+			compatible = "ti,edma3-tptc";
+			reg =	<0x027b8000 0x400>;
+			power-domains = <&k2g_pds K2G_DEV_EDMA1>;
+			clocks = <&k2g_clks K2G_DEV_EDMA1 K2G_DEV_EDMA_TPTC_CLK>;
+			clock-names = "fck";
+		};
+
+		mcasp0: mcasp@02340000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02340000 0x2000>,
+			      <0x21804000 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma0 24 1>, <&edma0 25 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_MCASP0>;
+			clocks = <&k2g_clks K2G_DEV_MCASP0 K2G_DEV_MCASP_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		mcasp1: mcasp@02342000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02342000 0x2000>,
+			      <0x21804400 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma1 48 1>, <&edma1 49 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_MCASP1>;
+			clocks = <&k2g_clks K2G_DEV_MCASP1 K2G_DEV_MCASP_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		mcasp2: mcasp@02344000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02344000 0x2000>,
+			      <0x21804800 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma1 50 1>, <&edma1 51 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_MCASP2>;
+			clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_VBUS_CLK>;
+			clock-names = "fck";
+		};
 	};
 };
