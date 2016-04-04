@@ -378,3 +378,11 @@ config SERIAL_8250_MID
 	  Selecting this option will enable handling of the extra features
 	  present on the UART found on Intel Medfield SOC and various other
 	  Intel platforms.
+
+config SERIAL_8250_KEYSTONE
+	bool "TI Keystone serial port support"
+	depends on SERIAL_8250 && ARCH_KEYSTONE
+	default y
+	help
+	  If you have a TI Keystone based board and want to use the
+	  serial port, say Y to this option. If unsure, say N.

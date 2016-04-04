@@ -525,53 +525,16 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 }
 
 /**
- * dwc3_core_init - Low-level initialization of DWC3 Core
+ * dwc3_get_gctl_quirks - Prepare GCTL register content with quirks
+ * and workarounds.
  * @dwc: Pointer to our controller context structure
  *
- * Returns 0 on success otherwise negative errno.
+ * Returns 32-bit content that must be written into GCTL by caller.
  */
-static int dwc3_core_init(struct dwc3 *dwc)
+static u32 dwc3_get_gctl_quirks(struct dwc3 *dwc)
 {
-	u32			hwparams4 = dwc->hwparams.hwparams4;
-	u32			reg;
-	int			ret;
-
-	reg = dwc3_readl(dwc->regs, DWC3_GSNPSID);
-	/* This should read as U3 followed by revision number */
-	if ((reg & DWC3_GSNPSID_MASK) == 0x55330000) {
-		/* Detected DWC_usb3 IP */
-		dwc->revision = reg;
-	} else if ((reg & DWC3_GSNPSID_MASK) == 0x33310000) {
-		/* Detected DWC_usb31 IP */
-		dwc->revision = dwc3_readl(dwc->regs, DWC3_VER_NUMBER);
-		dwc->revision |= DWC3_REVISION_IS_DWC31;
-	} else {
-		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
-		ret = -ENODEV;
-		goto err0;
-	}
-
-	/*
-	 * Write Linux Version Code to our GUID register so it's easy to figure
-	 * out which kernel version a bug was found.
-	 */
-	dwc3_writel(dwc->regs, DWC3_GUID, LINUX_VERSION_CODE);
-
-	/* Handle USB2.0-only core configuration */
-	if (DWC3_GHWPARAMS3_SSPHY_IFC(dwc->hwparams.hwparams3) ==
-			DWC3_GHWPARAMS3_SSPHY_IFC_DIS) {
-		if (dwc->maximum_speed == USB_SPEED_SUPER)
-			dwc->maximum_speed = USB_SPEED_HIGH;
-	}
-
-	/* issue device SoftReset too */
-	ret = dwc3_soft_reset(dwc);
-	if (ret)
-		goto err0;
-
-	ret = dwc3_core_soft_reset(dwc);
-	if (ret)
-		goto err0;
+	u32 reg;
+	u32 hwparams4 = dwc->hwparams.hwparams4;
 
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
@@ -638,6 +601,59 @@ static int dwc3_core_init(struct dwc3 *dwc)
 	if (dwc->revision < DWC3_REVISION_190A)
 		reg |= DWC3_GCTL_U2RSTECN;
 
+	return reg;
+}
+
+/**
+ * dwc3_core_init - Low-level initialization of DWC3 Core
+ * @dwc: Pointer to our controller context structure
+ *
+ * Returns 0 on success otherwise negative errno.
+ */
+static int dwc3_core_init(struct dwc3 *dwc)
+{
+	u32			reg;
+	int			ret;
+
+	reg = dwc3_readl(dwc->regs, DWC3_GSNPSID);
+	/* This should read as U3 followed by revision number */
+	if ((reg & DWC3_GSNPSID_MASK) == 0x55330000) {
+		/* Detected DWC_usb3 IP */
+		dwc->revision = reg;
+	} else if ((reg & DWC3_GSNPSID_MASK) == 0x33310000) {
+		/* Detected DWC_usb31 IP */
+		dwc->revision = dwc3_readl(dwc->regs, DWC3_VER_NUMBER);
+		dwc->revision |= DWC3_REVISION_IS_DWC31;
+	} else {
+		dev_err(dwc->dev, "this is not a DesignWare USB3 DRD Core\n");
+		ret = -ENODEV;
+		goto err0;
+	}
+
+	/*
+	 * Write Linux Version Code to our GUID register so it's easy to figure
+	 * out which kernel version a bug was found.
+	 */
+	dwc3_writel(dwc->regs, DWC3_GUID, LINUX_VERSION_CODE);
+
+	/* Handle USB2.0-only core configuration */
+	if (DWC3_GHWPARAMS3_SSPHY_IFC(dwc->hwparams.hwparams3) ==
+			DWC3_GHWPARAMS3_SSPHY_IFC_DIS) {
+		if (dwc->maximum_speed == USB_SPEED_SUPER)
+			dwc->maximum_speed = USB_SPEED_HIGH;
+	}
+
+	/* issue device SoftReset too */
+	ret = dwc3_soft_reset(dwc);
+	if (ret)
+		goto err0;
+
+	ret = dwc3_core_soft_reset(dwc);
+	if (ret)
+		goto err0;
+
+	reg = dwc3_get_gctl_quirks(dwc);
+
 	dwc3_core_num_eps(dwc);
 
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
@@ -662,6 +678,45 @@ err1:
 	phy_exit(dwc->usb3_generic_phy);
 
 err0:
+	return ret;
+}
+
+/**
+ * dwc3_device_reinit - Reset device controller and re-initialize.
+ * Can currently be called only if dwc->current_mode == USB_DR_MODE_PERIPHERAL
+ * @dwc: Pointer to our controller context structure
+ *
+ * Returns 0 on success otherwise negative errno.
+ */
+int dwc3_device_reinit(struct dwc3 *dwc)
+{
+	u32			reg;
+	int			ret;
+
+	if (dwc->current_mode != DWC3_GCTL_PRTCAP_DEVICE) {
+		dev_err(dwc->dev, "%s can't be used for current_mode %d\n",
+			__func__, dwc->current_mode);
+		return -EINVAL;
+	}
+
+	dwc3_free_scratch_buffers(dwc);
+
+	ret = dwc3_soft_reset(dwc);
+	if (ret)
+		return ret;
+
+	reg = dwc3_get_gctl_quirks(dwc);
+	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+
+	ret = dwc3_event_buffers_setup(dwc);
+	if (ret) {
+		dev_err(dwc->dev, "failed to setup event buffers\n");
+		return ret;
+	}
+
+	/* Set portcap. For now we support device only */
+	dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+
 	return ret;
 }
 

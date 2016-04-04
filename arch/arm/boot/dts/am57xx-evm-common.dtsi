@@ -88,3 +88,7 @@
 		remote-endpoint = <&cam>;
 	};
 };
+
+&pcie1 {
+	gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+};

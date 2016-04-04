@@ -30,6 +30,8 @@
 
 	aliases {
 		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
 		rproc0 = &dsp0;
 	};
 
@@ -119,7 +121,7 @@
 		};
 
 		uart0: serial@02530c00 {
-			compatible = "ns16550a";
+			compatible = "ti,keystone-uart", "ns16550a";
 			current-speed = <115200>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
@@ -130,6 +132,32 @@
 
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_UART0>;
+		};
+
+		uart1: serial@02531000 {
+			compatible = "ti,keystone-uart", "ns16550a";
+			current-speed = <115200>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			reg = <0x02531000 0x100>;
+			interrupts = <GIC_SPI 165 IRQ_TYPE_EDGE_RISING>;
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_UART1>;
+			clocks = <&k2g_clks K2G_DEV_UART1 K2G_DEV_UART_CBA_CLK_PI>;
+			clock-names = "fck";
+		};
+
+		uart2: serial@02531400 {
+			compatible = "ti,keystone-uart", "ns16550a";
+			current-speed = <115200>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			reg = <0x02531400 0x100>;
+			interrupts = <GIC_SPI 166 IRQ_TYPE_EDGE_RISING>;
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_UART2>;
+			clocks = <&k2g_clks K2G_DEV_UART2 K2G_DEV_UART_CBA_CLK_PI>;
+			clock-names = "fck";
 		};
 
 		msgmgr: msgmgr@02a00000 {
@@ -383,6 +411,39 @@
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_MCASP2>;
 			clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		mmc0: mmc@23000000 {
+			compatible = "ti,omap4-hsmmc";
+			reg = <0x23000000 0x400>;
+			interrupts = <GIC_SPI 96 IRQ_TYPE_EDGE_RISING>;
+			dmas = <&edma1 24 0>, <&edma1 25 0>;
+			dma-names = "tx", "rx";
+			bus-width = <4>;
+			ti,needs-special-reset;
+			max-frequency = <96000000>;
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_MMCHS0>;
+			clocks = <&k2g_clks K2G_DEV_MMCHS0 K2G_DEV_MMCHS_CLK_ADPI>,
+				  <&k2g_clks K2G_DEV_MMCHS0 K2G_DEV_MMCHS_CLK32K>;
+			clock-names = "fck", "mmchsdb_fck";
+		};
+
+		mmc1: mmc@23100000 {
+			compatible = "ti,omap4-hsmmc";
+			reg = <0x23100000 0x400>;
+			interrupts = <GIC_SPI 97 IRQ_TYPE_EDGE_RISING>;
+			dmas = <&edma1 26 0>, <&edma1 27 0>;
+			dma-names = "tx", "rx";
+			bus-width = <8>;
+			ti,needs-special-reset;
+			ti,non-removable;
+			max-frequency = <96000000>;
+			status = "disabled";
+			power-domains = <&k2g_pds K2G_DEV_MMCHS1>;
+			clocks = <&k2g_clks K2G_DEV_MMCHS1 K2G_DEV_MMCHS_CLK_ADPI>,
+				  <&k2g_clks K2G_DEV_MMCHS1 K2G_DEV_MMCHS_CLK32K>;
 			clock-names = "fck";
 		};
 	};
