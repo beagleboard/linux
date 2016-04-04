@@ -411,6 +411,10 @@
 	status = "okay";
 };
 
+&rtc {
+	system-power-controller;
+};
+
 /* the cape manager */
 / {
 	bone_capemgr {
