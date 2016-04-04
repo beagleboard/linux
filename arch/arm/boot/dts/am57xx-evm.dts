@@ -8,6 +8,7 @@
 
 #include "am57xx-beagle-x15.dts"
 #include "am57xx-evm-common.dtsi"
+#include "am57xx-commercial-grade.dtsi"
 
 / {
 	model = "TI AM5728 EVM";
