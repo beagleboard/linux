@@ -1467,9 +1467,8 @@ serial8250_rx_chars(struct uart_8250_port *up, unsigned char lsr)
 ignore_char:
 		lsr = serial_in(up, UART_LSR);
 	} while ((lsr & (UART_LSR_DR | UART_LSR_BI)) && (--max_count > 0));
-	spin_unlock(&port->lock);
+
 	tty_flip_buffer_push(&port->state->port);
-	spin_lock(&port->lock);
 	return lsr;
 }
 EXPORT_SYMBOL_GPL(serial8250_rx_chars);
@@ -1845,6 +1844,13 @@ int serial8250_do_startup(struct uart_port *port)
 	 * higher speed clock.
 	 */
 	enable_rsa(up);
+#endif
+
+#ifdef CONFIG_SERIAL_8250_KEYSTONE
+	/*
+	 * Enable Keystone SOCs UART transmitter and receiver
+	 */
+	keystone_serial8250_init(port);
 #endif
 
 	if (port->type == PORT_XR17V35X) {

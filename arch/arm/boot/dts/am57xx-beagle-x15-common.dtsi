@@ -581,10 +581,6 @@
 	};
 };
 
-&pcie1 {
-	gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
-};
-
 &mcasp3 {
 	#sound-dai-cells = <0>;
 	assigned-clocks = <&mcasp3_ahclkx_mux>;
