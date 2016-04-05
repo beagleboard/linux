@@ -724,6 +724,7 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_PM_SLEEP
 static int omap_rproc_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -811,6 +812,7 @@ out:
 	mutex_unlock(&rproc->lock);
 	return ret;
 }
+#endif /* CONFIG_PM_SLEEP */
 
 static int omap_rproc_runtime_suspend(struct device *dev)
 {
