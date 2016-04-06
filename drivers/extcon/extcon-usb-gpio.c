@@ -192,6 +192,7 @@ static int usb_extcon_resume(struct device *dev)
 	}
 
 	enable_irq(info->id_irq);
+	usb_extcon_detect_cable(&info->wq_detcable.work);
 
 	return ret;
 }
