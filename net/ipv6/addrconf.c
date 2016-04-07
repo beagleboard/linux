@@ -3146,6 +3146,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 			   void *ptr)
 {
 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+	struct netdev_notifier_changeupper_info *info;
 	struct inet6_dev *idev = __in6_dev_get(dev);
 	struct net *net = dev_net(dev);
 	int run_pending = 0;
@@ -3307,6 +3308,15 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 	case NETDEV_POST_TYPE_CHANGE:
 		addrconf_type_change(dev, event);
 		break;
+
+	case NETDEV_CHANGEUPPER:
+		info = ptr;
+
+		/* flush all routes if dev is linked to or unlinked from
+		 * an L3 master device (e.g., VRF)
+		 */
+		if (info->upper_dev && netif_is_l3_master(info->upper_dev))
+			addrconf_ifdown(dev, 0);
 	}
 
 	return NOTIFY_OK;
