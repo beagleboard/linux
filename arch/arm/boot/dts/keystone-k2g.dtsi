@@ -492,7 +492,7 @@
 		};
 
 		mdio: mdio@4200f00 {
-			compatible	= "ti,keystone_mdio", "ti,davinci_mdio";
+			compatible = "ti,keystone_mdio", "ti,davinci_mdio";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			power-domains = <&k2g_pds K2G_DEV_NSS0>;

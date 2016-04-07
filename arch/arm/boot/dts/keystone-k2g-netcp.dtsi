@@ -17,8 +17,8 @@ qmss: qmss@4020000 {
 	clocks = <&k2g_clks K2G_DEV_NSS0 K2G_DEV_NSS_VCLK>;
 	clock-names = "nss_vclk";
 	ranges;
-	queue-range	= <0 0x80>;
-	linkram0	= <0x4020000 0x7ff>;
+	queue-range = <0 0x80>;
+	linkram0 = <0x4020000 0x7ff>;
 
 	qmgrs {
 		#address-cells = <1>;
@@ -80,12 +80,12 @@ knav_dmas: knav_dmas@0 {
 
 	dma_gbe: dma_gbe@0 {
 		reg = <0x4010000 0x100>,
-			  <0x4011000 0x2a0>, /* 21 Tx channels */
-			  <0x4012000 0x400>, /* 32 Rx channels */
-			  <0x4010100 0x80>,
-			  <0x4013000 0x400>; /* 32 Rx flows */
+		      <0x4011000 0x2a0>, /* 21 Tx channels */
+		      <0x4012000 0x400>, /* 32 Rx channels */
+		      <0x4010100 0x80>,
+		      <0x4013000 0x400>; /* 32 Rx flows */
 		reg-names = "global", "txchan", "rxchan",
-				"txsched", "rxflow";
+			    "txsched", "rxflow";
 	};
 
 };
