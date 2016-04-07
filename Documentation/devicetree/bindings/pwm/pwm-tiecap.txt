@@ -19,7 +19,6 @@ ecap0: ecap@0 { /* ECAP on am33xx */
 	compatible = "ti,am33xx-ecap";
 	#pwm-cells = <3>;
 	reg = <0x48300100 0x80>;
-	ti,hwmods = "ecap0";
 };
 
 ecap0: ecap@0 { /* ECAP on da850 */
