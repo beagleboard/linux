@@ -696,6 +696,8 @@
 				#pwm-cells = <3>;
 				reg = <0x48300200 0x80>;
 				ti,hwmods = "ehrpwm0";
+				clocks = <&ehrpwm0_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -722,6 +724,8 @@
 				#pwm-cells = <3>;
 				reg = <0x48302200 0x80>;
 				ti,hwmods = "ehrpwm1";
+				clocks = <&ehrpwm1_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -748,6 +752,8 @@
 				#pwm-cells = <3>;
 				reg = <0x48304200 0x80>;
 				ti,hwmods = "ehrpwm2";
+				clocks = <&ehrpwm2_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -766,6 +772,8 @@
 				#pwm-cells = <3>;
 				reg = <0x48306200 0x80>;
 				ti,hwmods = "ehrpwm3";
+				clocks = <&ehrpwm3_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -784,6 +792,8 @@
 				#pwm-cells = <3>;
 				reg = <0x48308200 0x80>;
 				ti,hwmods = "ehrpwm4";
+				clocks = <&ehrpwm4_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -802,6 +812,8 @@
 				#pwm-cells = <3>;
 				reg = <0x4830a200 0x80>;
 				ti,hwmods = "ehrpwm5";
+				clocks = <&ehrpwm5_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};

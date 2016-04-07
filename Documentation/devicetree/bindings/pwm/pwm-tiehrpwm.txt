@@ -12,6 +12,8 @@ Required properties:
 Optional properties:
 - ti,hwmods: Name of the hwmod associated to the EHRPWM:
   "ehrpwm<x>", <x> being the 0-based instance number from the HW spec
+- clocks: Reference to the ehrpwm's tb clock
+- clock-names : must contain "tbclk"
 
 Example:
 
@@ -19,6 +21,8 @@ ehrpwm0: ehrpwm@0 { /* EHRPWM on am33xx */
 	compatible = "ti,am33xx-ehrpwm";
 	#pwm-cells = <3>;
 	reg = <0x48300200 0x100>;
+	clocks = <&ehrpwm0_tbclk>;
+	clock-names = "tbclk";
 	ti,hwmods = "ehrpwm0";
 };
 
