@@ -661,5 +661,32 @@
 				  <&k2g_clks K2G_DEV_MMCHS1 K2G_DEV_MMCHS_CLK32K>;
 			clock-names = "fck";
 		};
+
+		dss: dss@02540000 {
+			compatible = "ti,k2g-dss","simple-bus";
+			reg = <0x02540000 0x400>;
+			clocks = <&k2g_clks K2G_DEV_DSS0 K2G_DEV_DSS_PI_DSS_OCP_CLK>;
+			clock-names = "fck";
+			power-domains = <&k2g_pds K2G_DEV_DSS0>;
+			status = "disabled";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			dispc@02550000 {
+				compatible = "ti,k2g-dispc";
+				reg = <0x02550000 0x1000>,
+				      <0x02557000 0x1000>,
+				      <0x0255a800 0x100>,
+				      <0x0255ac00 0x100>;
+				reg-names = "common", "vid1", "ovr1", "vp1";
+
+				interrupts = <GIC_SPI 247 IRQ_TYPE_EDGE_RISING>;
+
+				clocks = <&k2g_clks K2G_DEV_DSS0 K2G_DEV_DSS_PI_DSS_OCP_CLK>,
+					<&k2g_clks K2G_DEV_DSS0 K2G_DEV_DSS_PI_DSS_VP_CLK>;
+				clock-names = "fck", "vp";
+			};
+		};
 	};
 };
