@@ -133,14 +133,14 @@ void copy_timings_drm_to_omap(struct omap_video_timings *timings,
 		timings->data_pclk_edge = OMAPDSS_DRIVE_SIG_FALLING_EDGE;
 
 	if (mode->flags & OMAP_DRM_MODE_FLAG_SYNC_RISING)
-		timings->de_level = OMAPDSS_SIG_ACTIVE_HIGH;
-	else
-		timings->de_level = OMAPDSS_SIG_ACTIVE_LOW;
-
-	if (mode->flags & OMAP_DRM_MODE_FLAG_PDE)
 		timings->sync_pclk_edge = OMAPDSS_DRIVE_SIG_RISING_EDGE;
 	else
 		timings->sync_pclk_edge = OMAPDSS_DRIVE_SIG_FALLING_EDGE;
+
+	if (mode->flags & OMAP_DRM_MODE_FLAG_PDE)
+		timings->de_level = OMAPDSS_SIG_ACTIVE_HIGH;
+	else
+		timings->de_level = OMAPDSS_SIG_ACTIVE_LOW;
 }
 
 static enum drm_connector_status omap_connector_detect(
