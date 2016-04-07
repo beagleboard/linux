@@ -209,7 +209,7 @@ static int ecap_pwm_probe(struct platform_device *pdev)
 	if (!pc)
 		return -ENOMEM;
 
-	clk = devm_clk_get(&pdev->dev, "fck");
+	clk = devm_clk_get(pdev->dev.parent, "fck");
 	if (IS_ERR(clk)) {
 		dev_err(&pdev->dev, "failed to get clock\n");
 		return PTR_ERR(clk);
