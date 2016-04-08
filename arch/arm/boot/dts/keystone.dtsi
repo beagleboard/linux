@@ -342,5 +342,13 @@
 					<GIC_SPI 29 IRQ_TYPE_EDGE_RISING>;
 			};
 		};
+
+		ddr3edac: edac@21010000 {
+			compatible = "ti,keystone-ddr3-mc-edac";
+			reg = <0x21010000 0x200>;
+			interrupts = <GIC_SPI 448 IRQ_TYPE_EDGE_RISING>;
+			interrupt-parent = <&gic>;
+			status = "disabled";
+		};
 	};
 };
