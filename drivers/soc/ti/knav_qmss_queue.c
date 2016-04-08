@@ -1192,7 +1192,12 @@ static int knav_queue_setup_link_ram(struct knav_device *kdev)
 		dev_dbg(kdev->dev, "linkram0: phys:%x, virt:%p, size:%x\n",
 			block->phys, block->virt, block->size);
 		writel_relaxed(block->phys, &qmgr->reg_config->link_ram_base0);
-		writel_relaxed(block->size, &qmgr->reg_config->link_ram_size0);
+		if (kdev->version == QMSS_LITE)
+			writel_relaxed(block->size,
+				       &qmgr->reg_config->link_ram_size0);
+		else
+			writel_relaxed(block->size - 1,
+				       &qmgr->reg_config->link_ram_size0);
 
 		block++;
 		if (!block->size)
