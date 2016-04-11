@@ -2066,9 +2066,9 @@ static int vip_set_crop_parser(struct vip_port *port)
 		     VIP_ACT_USE_NUMPIX_MASK, VIP_ACT_USE_NUMPIX_SHFT);
 	reg_write(parser, VIP_PARSER_CROP_H_PORT(port->port_id), hcrop);
 
-	insert_field(&hcrop, 0, VIP_ACT_SKIP_NUMLINES_MASK,
+	insert_field(&vcrop, 0, VIP_ACT_SKIP_NUMLINES_MASK,
 		     VIP_ACT_SKIP_NUMLINES_SHFT);
-	insert_field(&hcrop, port->mbus_framefmt.width,
+	insert_field(&vcrop, port->mbus_framefmt.height,
 		     VIP_ACT_USE_NUMLINES_MASK, VIP_ACT_USE_NUMLINES_SHFT);
 	reg_write(parser, VIP_PARSER_CROP_V_PORT(port->port_id), vcrop);
 
