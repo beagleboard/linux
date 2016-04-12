@@ -1608,8 +1608,12 @@ static void dwc3_complete(struct device *dev)
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc->otg_prevent_sync = false;
 	spin_unlock_irqrestore(&dwc->lock, flags);
-	if (dwc->dr_mode == USB_DR_MODE_OTG)
-		dwc3_otg_fsm_sync(dwc);
+	if (dwc->dr_mode == USB_DR_MODE_OTG) {
+		if (dwc->current_mode == DWC3_GCTL_PRTCAP_OTG)
+			dwc3_otg_fsm_sync(dwc);
+		else
+			dwc3_drd_fsm_sync(dwc);
+	}
 }
 
 static int dwc3_suspend(struct device *dev)

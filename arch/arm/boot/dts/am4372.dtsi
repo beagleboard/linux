@@ -687,15 +687,15 @@
 				compatible = "ti,am4372-ecap","ti,am33xx-ecap";
 				#pwm-cells = <3>;
 				reg = <0x48300100 0x80>;
-				ti,hwmods = "ecap0";
 				status = "disabled";
 			};
 
-			ehrpwm0: ehrpwm@48300200 {
+			ehrpwm0: pwm@48300200 {
 				compatible = "ti,am4372-ehrpwm","ti,am33xx-ehrpwm";
 				#pwm-cells = <3>;
 				reg = <0x48300200 0x80>;
-				ti,hwmods = "ehrpwm0";
+				clocks = <&ehrpwm0_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -713,15 +713,15 @@
 				compatible = "ti,am4372-ecap","ti,am33xx-ecap";
 				#pwm-cells = <3>;
 				reg = <0x48302100 0x80>;
-				ti,hwmods = "ecap1";
 				status = "disabled";
 			};
 
-			ehrpwm1: ehrpwm@48302200 {
+			ehrpwm1: pwm@48302200 {
 				compatible = "ti,am4372-ehrpwm","ti,am33xx-ehrpwm";
 				#pwm-cells = <3>;
 				reg = <0x48302200 0x80>;
-				ti,hwmods = "ehrpwm1";
+				clocks = <&ehrpwm1_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -739,15 +739,15 @@
 				compatible = "ti,am4372-ecap","ti,am33xx-ecap";
 				#pwm-cells = <3>;
 				reg = <0x48304100 0x80>;
-				ti,hwmods = "ecap2";
 				status = "disabled";
 			};
 
-			ehrpwm2: ehrpwm@48304200 {
+			ehrpwm2: pwm@48304200 {
 				compatible = "ti,am4372-ehrpwm","ti,am33xx-ehrpwm";
 				#pwm-cells = <3>;
 				reg = <0x48304200 0x80>;
-				ti,hwmods = "ehrpwm2";
+				clocks = <&ehrpwm2_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -761,11 +761,12 @@
 			ti,hwmods = "epwmss3";
 			status = "disabled";
 
-			ehrpwm3: ehrpwm@48306200 {
+			ehrpwm3: pwm@48306200 {
 				compatible = "ti,am4372-ehrpwm","ti,am33xx-ehrpwm";
 				#pwm-cells = <3>;
 				reg = <0x48306200 0x80>;
-				ti,hwmods = "ehrpwm3";
+				clocks = <&ehrpwm3_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -779,11 +780,12 @@
 			ti,hwmods = "epwmss4";
 			status = "disabled";
 
-			ehrpwm4: ehrpwm@48308200 {
+			ehrpwm4: pwm@48308200 {
 				compatible = "ti,am4372-ehrpwm","ti,am33xx-ehrpwm";
 				#pwm-cells = <3>;
 				reg = <0x48308200 0x80>;
-				ti,hwmods = "ehrpwm4";
+				clocks = <&ehrpwm4_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};
@@ -797,11 +799,12 @@
 			ti,hwmods = "epwmss5";
 			status = "disabled";
 
-			ehrpwm5: ehrpwm@4830a200 {
+			ehrpwm5: pwm@4830a200 {
 				compatible = "ti,am4372-ehrpwm","ti,am33xx-ehrpwm";
 				#pwm-cells = <3>;
 				reg = <0x4830a200 0x80>;
-				ti,hwmods = "ehrpwm5";
+				clocks = <&ehrpwm5_tbclk>;
+				clock-names = "tbclk";
 				status = "disabled";
 			};
 		};

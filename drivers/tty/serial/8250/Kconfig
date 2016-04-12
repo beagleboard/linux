@@ -380,9 +380,9 @@ config SERIAL_8250_MID
 	  Intel platforms.
 
 config SERIAL_8250_KEYSTONE
-	bool "TI Keystone serial port support"
+	tristate "TI Keystone serial port support"
 	depends on SERIAL_8250 && ARCH_KEYSTONE
-	default y
+	default SERIAL_8250
 	help
 	  If you have a TI Keystone based board and want to use the
 	  serial port, say Y to this option. If unsure, say N.
