@@ -77,6 +77,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_MC13783 if MFD_MC13XXX
 	select SND_SOC_ML26124 if I2C
 	select SND_SOC_HDMI_CODEC
+	select SND_SOC_WILINK8_BT
 	select SND_SOC_PCM1681 if I2C
 	select SND_SOC_PCM1792A if SPI_MASTER
 	select SND_SOC_PCM3008
@@ -436,6 +437,8 @@ config SND_SOC_DMIC
 
 config SND_SOC_HDMI_CODEC
        tristate "HDMI stub CODEC"
+config SND_SOC_WILINK8_BT
+		tristate "WILINK8 bluetooth audio"
 
 config SND_SOC_ES8328
 	tristate "Everest Semi ES8328 CODEC"
