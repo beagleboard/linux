@@ -45,7 +45,13 @@ config SND_AM33XX_SOC_EVM
 	  boards using McASP and TLV320AIC3X codec. For example AM335X-EVM,
 	  AM335X-EVMSK, and BeagelBone with AudioCape boards have this
 	  setup.
-
+config SND_AM33XX_SOC_WILINK8_BT
+	tristate "SoC Audio support for WILINK8 PCM on Beaglebone Green Wrieless"
+	depends on SND_DAVINCI_SOC_GENERIC_EVM && SOC_AM33XX
+	select SND_SOC_WILINK8_BT
+	help
+	  Say Y or M if you want to add support for SoC audio on AM33XX
+	  evm board using McASP and WILINK8_BT.
 config SND_DAVINCI_SOC_EVM
 	tristate "SoC Audio support for DaVinci DM6446, DM355 or DM365 EVM"
 	depends on SND_EDMA_SOC && I2C
