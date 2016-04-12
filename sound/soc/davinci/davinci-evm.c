@@ -31,15 +31,16 @@ struct snd_soc_card_drvdata_davinci {
 
 static int evm_startup(struct snd_pcm_substream *substream)
 {
+	int ret = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *soc_card = rtd->card;
 	struct snd_soc_card_drvdata_davinci *drvdata =
 		snd_soc_card_get_drvdata(soc_card);
 
 	if (drvdata->mclk)
-		return clk_prepare_enable(drvdata->mclk);
+		ret = clk_prepare_enable(drvdata->mclk);
 
-	return 0;
+	return ret;
 }
 
 static void evm_shutdown(struct snd_pcm_substream *substream)
@@ -76,6 +77,80 @@ static int evm_hw_params(struct snd_pcm_substream *substream,
 
 	return 0;
 }
+static int wilink8_bt_hw_params(struct snd_pcm_substream *substream,
+				 struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_card *soc_card = rtd->card;
+	struct platform_device *pdev = to_platform_device(soc_card->dev);
+	unsigned sysclk = ((struct snd_soc_card_drvdata_davinci *)
+			   snd_soc_card_get_drvdata(soc_card))->sysclk;
+	int ret = 0;
+	int rate = params_rate(params);
+
+	if (rate == 16000) {
+		/*
+		 * Works with tdm-slots set to 5 in the DT:
+		 * 5 slots each with a word-length of 20 gives us 100
+		 * bits/frame.
+		 */
+		/* MCLK divider 24/3=8MHz */
+		ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, 3);
+		/* BCLK divider 8/5=1.6MHz */
+		ret = snd_soc_dai_set_clkdiv(cpu_dai, 1, 5);
+		/* BCLK/FS ratio 1.6/100=16kHz FS */
+		ret = snd_soc_dai_set_clkdiv(cpu_dai, 2, 100);
+
+		/*
+		 * Works with tdm-slots set to 2 in the DT:
+		 * 2 slots each with a word-length of 30 gives us 60
+		 * bits/frame.
+		 *
+		 * ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, 3);
+		 * ret = snd_soc_dai_set_clkdiv(cpu_dai, 1, 5);
+		 * ret = snd_soc_dai_set_clkdiv(cpu_dai, 2, 100);
+		 */
+	}
+	else if (rate == 8000) {
+		/*
+		* Works with tdm-slots set to 5 in the DT:
+		* 5 slots each with a word-length of 20 gives us 100
+		* bits/frame.
+		*/
+		/* MCLK divider 24/3=8MHz */
+		ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, 3);
+		/* BCLK divider 8/10=800kHz */
+		ret = snd_soc_dai_set_clkdiv(cpu_dai, 1, 10);
+		/* BCLK/FS ratio 800/100=8kHz FS */
+		ret = snd_soc_dai_set_clkdiv(cpu_dai, 2, 100);
+	}
+	else if (rate == 48000) {
+		/*
+		 * Works with tdm-slots set to 5 in the DT:
+		 * 5 slots each with a word-length of 20 gives us 100
+		 * bits/frame.
+		 */
+		/* MCLK divider 24/1=24MHz */
+		ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, 1);
+		/* BCLK divider 24/5=4.8MHz */
+		ret = snd_soc_dai_set_clkdiv(cpu_dai, 1, 5);
+		/* BCLK/FS ratio 4.8/100=48kHz FS */
+		ret = snd_soc_dai_set_clkdiv(cpu_dai, 2, 100);
+	} else {
+		dev_err(&pdev->dev, "Unsupported rate\n");
+	}
+
+	if (ret < 0) {
+		dev_err(&pdev->dev, "can't set CPU DAI clock divider %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, sysclk, SND_SOC_CLOCK_OUT);
+
+	return ret;
+}
 
 static struct snd_soc_ops evm_ops = {
 	.startup = evm_startup,
@@ -111,6 +186,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINE2L", NULL, "Line In"},
 	{"LINE1R", NULL, "Line In"},
 	{"LINE2R", NULL, "Line In"},
+};
+static struct snd_soc_ops wilink8_bt_ops = {
+	.startup = evm_startup,
+	.shutdown = evm_shutdown,
+	.hw_params = wilink8_bt_hw_params,
 };
 
 /* Logic for a aic3x as connected on a davinci-evm */
@@ -340,10 +420,23 @@ static struct snd_soc_dai_link evm_dai_tlv320aic3x = {
 		   SND_SOC_DAIFMT_IB_NF,
 };
 
+static struct snd_soc_dai_link evm_dai_wilink8_bt = {
+	.name		= "WILINK8_BT",
+	.stream_name	= "WILINK8",
+	.codec_dai_name	= "wilink8_bt-hifi",
+	.ops            = &wilink8_bt_ops,
+	.dai_fmt = (SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_NB_IF |
+			SND_SOC_DAIFMT_DSP_A),
+};
+
 static const struct of_device_id davinci_evm_dt_ids[] = {
 	{
 		.compatible = "ti,da830-evm-audio",
 		.data = (void *) &evm_dai_tlv320aic3x,
+	},
+	{
+		.compatible = "ti,wilink8-bt-audio",
+		.data = (void *) &evm_dai_wilink8_bt,
 	},
 	{ /* sentinel */ }
 };
