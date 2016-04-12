@@ -24,6 +24,19 @@
 	btwilink {
 		compatible = "btwilink";
 	};
+
+	wilink8_pcm: wilink8_pcm {
+		compatible = "ti,wilink8_bt";
+		status = "okay";
+	};
+
+	sound{
+		compatible = "ti,wilink8-bt-audio";
+		ti,model = "WILINK8_BT";
+		ti,audio-codec = <&wilink8_pcm>;
+		ti,mcasp-controller = <&mcasp0>;
+		ti,codec-clock-rate = <24000000>;
+	};
 };
 
 &am33xx_pinmux {
@@ -91,6 +104,24 @@
 
 		>;
 	};
+	bt_audio_pins: bt_audio_pins {
+		pinctrl-single,pins = <
+			0x190 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp0_aclkx - COM_AUD_CLK */
+			0x194 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp0_fsx - COM_AUD_FSYNC */
+			0x198 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp0_axr0 - COM_AUD_IN */
+			0x19c (PIN_OUTPUT_PULLDOWN | MUX_MODE2)	/* MCASP0_AHCLKR -> MCASP0_AXR2 (I2S_DATA_OUT) -out */
+		>;
+	};
+
+	bt_audio_pins_sleep: audio_pins_sleep {
+		pinctrl-single,pins = <
+			0x190 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x194 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x198 (PIN_INPUT_PULLDOWN | MUX_MODE7)
+			0x19c (PIN_INPUT_PULLDOWN | MUX_MODE7)
+		>;
+	};
+
 };
 
 &mmc3 {
@@ -123,4 +154,21 @@
 	pinctrl-0 = <&uart3_pins_default>;
 	pinctrl-1 = <&uart3_pins_sleep>;
 	status = "okay";
+};
+
+&mcasp0 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&bt_audio_pins>;
+	pinctrl-1 = <&bt_audio_pins_sleep>;
+
+	status = "okay";
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <5>;
+	/* 4 serializers */
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+		1 2 0 0
+	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
 };
