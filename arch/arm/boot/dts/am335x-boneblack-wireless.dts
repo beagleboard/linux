@@ -10,10 +10,11 @@
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am33xx-overlay-edma-fix.dtsi"
+#include "am335x-boneblack-wl1835.dtsi"
 /* #include "am335x-bone-jtag.dtsi" */
 
 / {
-	model = "TI AM335x BeagleBone Black";
+	model = "TI AM335x BeagleBone Black Wirelss";
 	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
@@ -33,6 +34,18 @@
 	pinctrl-0 = <&emmc_pins>;
 	bus-width = <8>;
 	status = "okay";
+};
+
+&uart3 {
+	status = "okay";
+};
+
+&mmc3 {
+	status = "okay";
+};
+
+&mac {
+	status = "disabled";
 };
 
 &sgx {
