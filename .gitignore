@@ -110,3 +110,5 @@ all.config
 # dtb objects
 *.dtb
 *.dtbo
+build
+build.sh
