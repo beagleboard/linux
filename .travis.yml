@@ -13,5 +13,6 @@ addons:
     - sbuild
 script:
   - make bb.org_defconfig
+  - bash -ex gcc_too_old.sh
   - make -j4 CROSS_COMPILE=arm-linux-gnueabihf-
   - bash -ex build_deb_in_arm_chroot.sh 
