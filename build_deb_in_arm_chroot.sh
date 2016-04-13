@@ -4,8 +4,14 @@ VERSION=jessie
 CHROOT_ARCH=armhf
 MIRROR=http://httpredir.debian.org/debian
 GUEST_DEPENDENCIES="build-essential git sudo"
+DEBOOT="1.0.80"
 
 function setup_arm_chroot {
+	wget -c https://rcn-ee.net/mirror/debootstrap/debootstrap_${DEBOOT}_all.deb
+	if [ -f debootstrap_${DEBOOT}_all.deb ] ; then
+		sudo dpkg -i debootstrap_${DEBOOT}_all.deb
+		rm -rf debootstrap_${DEBOOT}_all.deb
+	fi
 	sudo mkdir ${CHROOT_DIR}
 	sudo debootstrap --foreign --no-check-gpg --include=fakeroot,build-essential \
 		--arch=${CHROOT_ARCH} ${VERSION} ${CHROOT_DIR} ${MIRROR}
