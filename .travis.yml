@@ -1,9 +1,7 @@
 language: c
 compiler: gcc
 env:
-  - ARCH=arm
-  - CROSS_COMPILE=arm-linux-gnueabihf-
-  - LOCALVERSION=-git$TRAVIS_COMMIT
+  - ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- LOCALVERSION=-git$TRAVIS_COMMIT
 addons:
   apt:
     packages:
