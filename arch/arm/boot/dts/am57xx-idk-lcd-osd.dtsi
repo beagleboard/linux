@@ -1,0 +1,87 @@
+/*
+ * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/ {
+	aliases {
+		display1 = &lcd;
+	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&ecap0 0 50000 1>;
+		brightness-levels = <0 51 53 56 62 75 101 152 255>;
+		default-brightness-level = <8>;
+	};
+
+	lcd: display {
+		/*
+		 * TODO: Not a DPI panel, but a dummy DSI video mode panel.
+		 * This needs to be changed later when we can support DSI VM
+		 * panels properly.
+		 */
+		compatible = "osd,osd101t2045-53ts", "panel-dpi";
+
+		label = "lcd";
+
+		panel-timing {
+			clock-frequency = <154000000>;
+			hactive = <1920>;
+			vactive = <1200>;
+
+			hfront-porch = <112>;
+			hback-porch = <32>;
+			hsync-len = <16>;
+
+			vfront-porch = <16>;
+			vback-porch = <16>;
+			vsync-len = <2>;
+
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+		};
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&tc358778_out>;
+			};
+		};
+	};
+};
+
+&tc358778 {
+	status = "okay";
+};
+
+&tc358778_out {
+	remote-endpoint = <&lcd_in>;
+	lanes = <0 1 2 3 4 5 6 7 8 9>;
+};
+
+&epwmss0 {
+	status = "okay";
+};
+
+&ecap0 {
+	status = "okay";
+};
+
+&i2c1 {
+	touchscreen: edt-ft5506@38 {
+		status = "okay";
+		compatible = "edt,edt-ft5506", "edt,edt-ft5x06";
+
+		reg = <0x38>;
+
+		reset-gpios = <&gpio6 15 GPIO_ACTIVE_LOW>;
+
+		touchscreen-size-x = <1920>;
+		touchscreen-size-y = <1200>;
+	};
+};
