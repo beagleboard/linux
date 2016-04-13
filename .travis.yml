@@ -4,4 +4,7 @@ addons:
   apt:
     packages:
     - gcc-arm-linux-gnueabihf
-script: ARCH=arm make bb.org_defconfig && make -j4 CROSS_COMPILE=arm-linux-gnueabihf- && make KBUILD_DEBARCH=armhf KDEB_SOURCENAME=linux KDEB_CHANGELOG_DIST=unstable LOCALVERSION=-git$TRAVIS_COMMIT
+script:
+  - make ARCH=arm bb.org_defconfig
+  - make -j4 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+  - make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- KBUILD_DEBARCH=armhf KDEB_SOURCENAME=linux KDEB_CHANGELOG_DIST=unstable LOCALVERSION=-git$TRAVIS_COMMIT
