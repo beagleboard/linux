@@ -855,6 +855,7 @@ static rproc_handle_resource_t rproc_loading_handlers[RSC_LAST] = {
 	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
 	[RSC_DEVMEM] = (rproc_handle_resource_t)rproc_handle_devmem,
 	[RSC_TRACE] = (rproc_handle_resource_t)rproc_handle_trace,
+	[RSC_INTMEM] = NULL, /* deprecated resource type, ignore silently */
 	[RSC_VDEV] = NULL, /* VDEVs were handled upon registrarion */
 };
 
