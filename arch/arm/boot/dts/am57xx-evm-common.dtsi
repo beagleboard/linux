@@ -48,6 +48,67 @@
 			gpios = <&gpio2 20 GPIO_ACTIVE_LOW>;
 		};
 	};
+
+	aliases {
+		display0 = &lcd0;
+		display1 = &hdmi0;
+	};
+
+	lcd0: display {
+		compatible = "osddisplays,osd070t1718-19ts", "panel-dpi";
+
+		label = "lcd";
+
+		enable-gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
+
+		panel-timing {
+			clock-frequency = <33000000>;
+			hactive = <800>;
+			vactive = <480>;
+			hfront-porch = <210>;
+			hback-porch = <16>;
+			hsync-len = <30>;
+			vback-porch = <10>;
+			vfront-porch = <22>;
+			vsync-len = <13>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+		};
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&ehrpwm1 0 50000 0>;
+
+		/* Anything lower than 241 is no longer visible */
+		brightness-levels = <0 243 245 247 249 251 252 253 255>;
+
+		default-brightness-level = <8>;
+	};
+};
+
+&dss {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				remote-endpoint = <&lcd_in>;
+				data-lines = <24>;
+			};
+		};
+	};
 };
 
 &i2c5 {
@@ -91,4 +152,30 @@
 
 &pcie1 {
 	gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&ehrpwm1 {
+	status = "okay";
+};
+
+&i2c5 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	pixcir_ts@5c {
+		compatible = "pixcir,pixcir_tangoc";
+		reg = <0x5c>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <4 0>;
+
+		attb-gpio = <&gpio2 4 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&gpio2 6 GPIO_ACTIVE_HIGH>;
+
+		touchscreen-size-x = <1024>;
+		touchscreen-size-y = <600>;
+	};
 };
