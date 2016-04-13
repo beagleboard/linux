@@ -1,0 +1,7 @@
+language: c
+compiler: gcc
+addons:
+  apt:
+    packages:
+    - arm-linux-gnueabihf-gcc
+script: make bb.org_defconfig && make -j4 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- && make ARCH=arm KBUILD_DEBARCH=armhf KDEB_SOURCENAME=linux KDEB_CHANGELOG_DIST=unstable LOCALVERSION=-git$TRAVIS_COMMIT
