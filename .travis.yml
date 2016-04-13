@@ -1,5 +1,6 @@
 language: c
 compiler: gcc
+cache: ccache
 env:
   - ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- LOCALVERSION=-git$TRAVIS_COMMIT
 addons:
