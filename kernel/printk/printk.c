@@ -2339,10 +2339,10 @@ skip:
 		call_console_drivers(level, text, len);
 		start_critical_timings();
 		local_irq_restore(flags);
+#endif
 
 		if (do_cond_resched)
 			cond_resched();
-#endif
 	}
 	console_locked = 0;
 
