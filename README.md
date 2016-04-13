@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/beagleboard/linux.svg?branch=master)](https://travis-ci.org/beagleboard/linux)
+[![Build Status](https://travis-ci.org/beagleboard/linux.svg?branch=4.1-bbbw)](https://travis-ci.org/beagleboard/linux)
 
         Linux kernel release 4.x <http://kernel.org/>
 
