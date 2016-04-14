@@ -41,8 +41,6 @@ function setup_arm_chroot {
 	sudo rsync -a ${TRAVIS_BUILD_DIR}/ ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}/
 	
 	sudo touch ${CHROOT_DIR}/.chroot_is_done
-	run_build
-	sudo chroot ${CHROOT_DIR} bash -c "cd ${TRAVIS_BUILD_DIR} && ./build_deb_in_arm_chroot.sh"
 }
 
 if [ -e "/.chroot_is_done" ]; then
@@ -52,4 +50,5 @@ else
 	echo "Setting up chrooted ARM environment"
 	setup_arm_chroot
 	run_build
+	sudo chroot ${CHROOT_DIR} bash -c "cd ${TRAVIS_BUILD_DIR} && bash -ex build_deb_in_arm_chroot.sh"
 fi
