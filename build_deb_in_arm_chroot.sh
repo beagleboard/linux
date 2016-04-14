@@ -6,6 +6,16 @@ MIRROR=http://httpredir.debian.org/debian
 GUEST_DEPENDENCIES="build-essential git sudo lzop"
 DEBOOT="1.0.80"
 
+function run_build {
+	cd ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}
+	make bb.org_defconfig
+	make -s -j4 CROSS_COMPILE=arm-linux-gnueabihf-
+}
+
+function run_package {
+	make KBUILD_DEBARCH=armhf KDEB_SOURCENAME=linux KDEB_CHANGELOG_DIST=unstable
+}
+
 function setup_arm_chroot {
 	wget -c https://rcn-ee.net/mirror/debootstrap/debootstrap_${DEBOOT}_all.deb
 	if [ -f debootstrap_${DEBOOT}_all.deb ] ; then
@@ -28,20 +38,18 @@ function setup_arm_chroot {
 	sudo chroot ${CHROOT_DIR} apt-get --allow-unauthenticated install \
 		-qq -y ${GUEST_DEPENDENCIES}
 	sudo mkdir -p ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}
-	sudo rsync -av ${TRAVIS_BUILD_DIR}/ ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}/
+	sudo rsync -a ${TRAVIS_BUILD_DIR}/ ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}/
 	
 	sudo touch ${CHROOT_DIR}/.chroot_is_done
+	run_build
 	sudo chroot ${CHROOT_DIR} bash -c "cd ${TRAVIS_BUILD_DIR} && ./build_deb_in_arm_chroot.sh"
-}
-
-function run_build {
-	make KBUILD_DEBARCH=armhf KDEB_SOURCENAME=linux KDEB_CHANGELOG_DIST=unstable
 }
 
 if [ -e "/.chroot_is_done" ]; then
 	. ./envvars.sh
-	run_build
+	run_package
 else
 	echo "Setting up chrooted ARM environment"
 	setup_arm_chroot
+	run_build
 fi
