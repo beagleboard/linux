@@ -1,0 +1,14 @@
+dist: trusty
+language: c
+compiler: gcc
+cache: ccache
+env:
+  - ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- LOCALVERSION=-git$TRAVIS_COMMIT
+addons:
+  apt:
+    packages:
+    - gcc-arm-linux-gnueabihf
+    - lzop
+script:
+  - make bb.org_defconfig
+  - make -j4 CROSS_COMPILE="ccache arm-linux-gnueabihf-" zImage modules dtbs
