@@ -39,9 +39,15 @@ qmss: qmss@4020000 {
 		qpend {
 			qpend-0 {
 				qrange = <77 8>;
-				interrupts =<0 308 0xf04 0 309 0xf04 0 310 0xf04
-					     0 311 0xf04 0 312 0xf04 0 313 0xf04
-					     0 314 0xf04 0 315 0xf04>;
+				interrupts =
+					<GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 311 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 312 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 313 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 314 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>;
 				qalloc-by-id;
 			};
 		};
