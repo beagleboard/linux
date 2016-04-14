@@ -15,5 +15,5 @@ addons:
     - lzop
 script:
   - make bb.org_defconfig
-  - make -j4 CROSS_COMPILE=arm-linux-gnueabihf-
+  - make -s -j4 CROSS_COMPILE=arm-linux-gnueabihf-
   - bash -ex build_deb_in_arm_chroot.sh 
