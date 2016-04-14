@@ -12,6 +12,7 @@ addons:
     - qemu-user-static
     - binfmt-support
     - sbuild
+    - lzop
 script:
   - make bb.org_defconfig
   - make -j4 CROSS_COMPILE=arm-linux-gnueabihf-
