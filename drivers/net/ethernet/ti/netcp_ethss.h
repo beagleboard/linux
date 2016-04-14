@@ -23,6 +23,7 @@
 
 #include <linux/device.h>
 #include <linux/netdevice.h>
+#include <linux/if_vlan.h>
 #include <linux/io.h>
 #include <linux/kobject.h>
 #include <linux/list.h>
@@ -130,6 +131,12 @@ struct gbe_priv {
 	/*  Lock for updating the hwstats */
 	spinlock_t			hw_stats_lock;
 	struct phy			*serdes_phy[MAX_NUM_SERDES];
+
+	struct kobject			kobj;
+	struct kobject			tx_pri_kobj;
+	struct kobject			pvlan_kobj;
+	struct kobject			port_ts_kobj[MAX_SLAVES];
+	struct kobject			stats_kobj;
 };
 
 struct gbe_slave {
@@ -158,6 +165,11 @@ struct gbe_intf {
 	struct list_head	gbe_intf_list;
 	unsigned long		active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
 };
+
+int gbe_create_sysfs_entries(struct gbe_priv *gbe_dev);
+void gbe_remove_sysfs_entries(struct gbe_priv *gbe_dev);
+void gbe_reset_mod_stats(struct gbe_priv *gbe_dev, int stats_mod);
+void gbe_reset_mod_stats_ver14(struct gbe_priv *gbe_dev, int stats_mod);
 
 #define for_each_intf(i, priv) \
 	list_for_each_entry((i), &(priv)->gbe_intf_head, gbe_intf_list)
