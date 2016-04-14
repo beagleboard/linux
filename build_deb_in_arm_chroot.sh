@@ -3,7 +3,7 @@ CHROOT_DIR=/tmp/arm-chroot
 VERSION=jessie
 CHROOT_ARCH=armhf
 MIRROR=http://httpredir.debian.org/debian
-GUEST_DEPENDENCIES="build-essential git sudo"
+GUEST_DEPENDENCIES="build-essential git sudo lzop"
 DEBOOT="1.0.80"
 
 function setup_arm_chroot {
