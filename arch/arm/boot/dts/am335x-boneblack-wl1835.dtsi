@@ -29,47 +29,51 @@
 &am33xx_pinmux {
 	bt_pins: pinmux_bt_pins {
 		pinctrl-single,pins = <
-  		0x128 ( PIN_INPUT | MUX_MODE7 ) /* (K17) gmii1_txd0.gpio0[28] - BT_EN */
+  			0x128 ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (K17) gmii1_txd0.gpio0[28] - BT_EN */
+		>;
+	};
+
+	wl1835_buf_pins: pinmux_wl1835_buf_pins {
+		pinctrl-single,pins = <
+	  		0x130 ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (L18) gmii1_rxclk.gpio3[10] - Buffer_EN */
 		>;
 	};
 
 	mmc3_pins: pinmux_mmc3_pins {
 		pinctrl-single,pins = <
-		  0x13c ( PIN_INPUT | MUX_MODE6 ) /* (L15) gmii1_rxd1.mmc2_clk */
-		  0x114 ( PIN_OUTPUT | MUX_MODE6 ) /* (J16) gmii1_txen.mmc2_cmd */
-		  0x118 ( PIN_INPUT | MUX_MODE5 ) /* (J17) gmii1_rxdv.mmc2_dat0 */
-		  0x11c ( PIN_INPUT | MUX_MODE5 ) /* (J18) gmii1_txd3.mmc2_dat1 */
-		  0x120 ( PIN_INPUT | MUX_MODE5 ) /* (K15) gmii1_txd2.mmc2_dat2 */
-		  0x108 ( PIN_INPUT | MUX_MODE5 ) /* (H16) gmii1_col.mmc2_dat3 */
+			0x13c ( PIN_INPUT | MUX_MODE6 ) /* (L15) gmii1_rxd1.mmc2_clk */
+			0x114 ( PIN_OUTPUT | MUX_MODE6 ) /* (J16) gmii1_txen.mmc2_cmd */
+			0x118 ( PIN_INPUT | MUX_MODE5 ) /* (J17) gmii1_rxdv.mmc2_dat0 */
+			0x11c ( PIN_INPUT | MUX_MODE5 ) /* (J18) gmii1_txd3.mmc2_dat1 */
+			0x120 ( PIN_INPUT | MUX_MODE5 ) /* (K15) gmii1_txd2.mmc2_dat2 */
+			0x108 ( PIN_INPUT | MUX_MODE5 ) /* (H16) gmii1_col.mmc2_dat3 */
 		>;
 	};
 
 	mmc3_pins_sleep: pinmux_mmc3_pins_sleep {
 		pinctrl-single,pins = <
-  		0x13c ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (L15) gmii1_rxd1.mmc2_clk */
-  		0x114 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (J16) gmii1_txen.mmc2_cmd */
-  		0x118 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (J17) gmii1_rxdv.mmc2_dat0 */
-  		0x11c ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (J18) gmii1_txd3.mmc2_dat1 */
-  		0x120 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (K15) gmii1_txd2.mmc2_dat2 */
-  		0x108 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (H16) gmii1_col.mmc2_dat3 */
+			0x13c ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (L15) gmii1_rxd1.mmc2_clk */
+			0x114 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (J16) gmii1_txen.mmc2_cmd */
+			0x118 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (J17) gmii1_rxdv.mmc2_dat0 */
+			0x11c ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (J18) gmii1_txd3.mmc2_dat1 */
+			0x120 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (K15) gmii1_txd2.mmc2_dat2 */
+			0x108 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (H16) gmii1_col.mmc2_dat3 */
 		>;
 	};
 
 	/* wl18xx card enable/irq GPIOs. */
 	wlan_pins: pinmux_wlan_pins {
 		pinctrl-single,pins = <
-  		0x144 ( PIN_INPUT_PULLUP | MUX_MODE7 )  /* (H18) rmii1_refclk.gpio0[29] - WL_IRQ */
-  		0x12c ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
-	  	0x130 ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (L18) gmii1_rxclk.gpio3[10] - Cape_Buffer_EN */
+			0x144 ( PIN_INPUT_PULLUP | MUX_MODE7 )  /* (H18) rmii1_refclk.gpio0[29] - WL_IRQ */
+			0x12c ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
 		>;
 	};
 
 	/* wl18xx card enable/irq GPIOs. */
 	wlan_pins_sleep: pinmux_wlan_pins_sleep {
 		pinctrl-single,pins = <
-  		0x144 ( PIN_INPUT_PULLUP | MUX_MODE7 )  /* (H18) rmii1_refclk.gpio0[29] - WL_IRQ */
-  		0x12c ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
-	  	0x130 ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (L18) gmii1_rxclk.gpio3[10] - Cape_Buffer_EN */
+			0x144 ( PIN_INPUT_PULLUP | MUX_MODE7 )  /* (H18) rmii1_refclk.gpio0[29] - WL_IRQ */
+			0x12c ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
 		>;
 	};
 
@@ -77,8 +81,8 @@
 		pinctrl-single,pins = <
 			0x134 ( PIN_INPUT_PULLUP | MUX_MODE1 ) 		/* (L17) gmii1_rxd3.uart3_rxd */
 			0x138 ( PIN_OUTPUT_PULLDOWN | MUX_MODE1 )	/* (L16) gmii1_rxd2.uart3_txd */
-			0x148 ( PIN_INPUT | MUX_MODE3 ) 			    /* (M17) mdio_data.uart3_ctsn */
-			0x14c ( PIN_OUTPUT_PULLDOWN | MUX_MODE3 ) /* (M18) mdio_clk.uart3_rtsn */
+			0x148 ( PIN_INPUT | MUX_MODE3 ) 		/* (M17) mdio_data.uart3_ctsn */
+			0x14c ( PIN_OUTPUT_PULLDOWN | MUX_MODE3 )	/* (M18) mdio_clk.uart3_rtsn */
 		>;
 	};
 
@@ -88,7 +92,6 @@
 			0x138 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (L16) gmii1_rxd2.uart3_txd */
 			0x148 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (M17) mdio_data.uart3_ctsn */
 			0x14c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (M18) mdio_clk.uart3_rtsn */
-
 		>;
 	};
 };
@@ -123,4 +126,48 @@
 	pinctrl-0 = <&uart3_pins_default>;
 	pinctrl-1 = <&uart3_pins_sleep>;
 	status = "okay";
+};
+
+&ocp {
+	BT_EN_pinmux_helper {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_pins>;
+	};
+
+	BT_EN_gpio_helper {
+		compatible = "gpio-of-helper";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <>;
+
+		BT_EN {
+			gpio-name = "BT_EN";
+			gpio = <&gpio0 28 0>;
+			output;
+			dir-changeable;
+		};
+	};
+
+	WL1835_BUF_EN_pinmux_helper {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wl1835_buf_pins>;
+	};
+
+	WL1835_BUF_EN_gpio_helper {
+		compatible = "gpio-of-helper";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <>;
+
+		WL1835_BUF_EN {
+			gpio-name = "WL1835_BUF_EN";
+			gpio = <&gpio3 10 0>;
+			output;
+			dir-changeable;
+		};
+	};
 };
