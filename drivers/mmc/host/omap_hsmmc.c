@@ -130,9 +130,13 @@
 
 #define V1V8_SIGEN             (1 << 19)
 #define AC12_SCLK_SEL          (1 << 23)
-#define AC12_UHSMC_MASK                (7 << 16)
-#define AC12_UHSMC_SDR50       (2 << 16)
-#define AC12_UHSMC_SDR104      (3 << 16)
+#define AC12_UHSMC_MASK		(7 << 16)
+#define AC12_UHSMC_SDR12	(0 << 16)
+#define AC12_UHSMC_SDR25	(1 << 16)
+#define AC12_UHSMC_SDR50	(2 << 16)
+#define AC12_UHSMC_SDR104	(3 << 16)
+#define AC12_UHSMC_DDR50	(4 << 16)
+#define AC12_UHSMC_RES		(0x7 << 16)
 #define DLL_LOCK               (1 << 0)
 #define DLL_CALIB              (1 << 1)
 #define DLL_UNLOCK_STICKY      (1 << 2)
@@ -2109,31 +2113,43 @@ static int omap_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	if (ios->clock <= EMMC_HSDDR_SD_SDR25_MAX)
 		return 0;
 
+	capa2 = OMAP_HSMMC_READ(host->base, CAPA2);
+	if (ios->timing == MMC_TIMING_UHS_SDR50 && !(capa2 & CAPA2_TSDR50))
+		return 0;
+
 	omap_hsmmc_stop_clock(host);
 
 	ac12 = OMAP_HSMMC_READ(host->base, AC12);
-	capa2 = OMAP_HSMMC_READ(host->base, CAPA2);
 
 	ac12 &= ~AC12_UHSMC_MASK;
-	OMAP_HSMMC_WRITE(host->base, AC12, ac12);
 
-	/*
-	 * Host Controller needs tuning only in case of SDR104 mode
-	 * and for SDR50 mode when Use Tuning for SDR50 is set in
-	 * Capabilities register.
-	 */
-	if ((ios->timing == MMC_TIMING_UHS_SDR50) && (capa2 & CAPA2_TSDR50))
-		ac12 = AC12_UHSMC_SDR50;
-	else if (ios->timing == MMC_TIMING_UHS_SDR104)
+	switch (ios->timing) {
+	case MMC_TIMING_MMC_HS200:
+	case MMC_TIMING_UHS_SDR104:
 		ac12 |= AC12_UHSMC_SDR104;
-	else {
-		omap_hsmmc_start_clock(host);
-		return 0;
+		break;
+	case MMC_TIMING_UHS_DDR50:
+		ac12 |= AC12_UHSMC_DDR50;
+		break;
+	case MMC_TIMING_UHS_SDR50:
+		ac12 |= AC12_UHSMC_SDR50;
+		break;
+	case MMC_TIMING_UHS_SDR25:
+		ac12 |= AC12_UHSMC_SDR25;
+		break;
+	case MMC_TIMING_UHS_SDR12:
+		ac12 |= AC12_UHSMC_SDR12;
+		break;
+	case MMC_TIMING_MMC_DDR52:
+	case MMC_TIMING_SD_HS:
+	case MMC_TIMING_MMC_HS:
+	default:
+		ac12 |= AC12_UHSMC_RES;
+		break;
 	}
 
 	ac12 |= V1V8_SIGEN;
 
-	/* Enable SDR50/SDR104 mode */
 	OMAP_HSMMC_WRITE(host->base, AC12, ac12);
 	omap_hsmmc_start_clock(host);
 
