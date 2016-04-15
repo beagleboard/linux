@@ -254,6 +254,7 @@ static int pa_core_get_dt_bindings(struct pa_core_device *core_dev,
 	return ret;
 
 release_of_node:
+	of_node_put(child);
 	of_node_put(clusters);
 	return ret;
 }
