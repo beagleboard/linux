@@ -1,0 +1,16 @@
+dist: trusty
+language: c
+compiler: gcc
+cache: ccache
+env:
+  - ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- LOCALVERSION=-git$TRAVIS_COMMIT
+addons:
+  apt:
+    packages:
+    - gcc-arm-linux-gnueabihf
+    - lzop
+script:
+  - make bb.org_defconfig
+  - sed -i -e 's:# CONFIG_CC_STACKPROTECTOR_REGULAR is not set:CONFIG_CC_STACKPROTECTOR_REGULAR=y:g' .config
+  - sed -i -e 's:CONFIG_CC_STACKPROTECTOR_STRONG=y:# CONFIG_CC_STACKPROTECTOR_STRONG is not set:g' .config
+  - make -j4 CROSS_COMPILE="ccache arm-linux-gnueabihf-" zImage modules dtbs
