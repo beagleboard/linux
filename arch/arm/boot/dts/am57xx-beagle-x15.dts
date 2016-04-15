@@ -20,4 +20,9 @@
 
 &mmc1 {
 	vmmc-supply = <&ldo1_reg>;
+	/delete-property/ sd-uhs-sdr104;
+	/delete-property/ sd-uhs-sdr50;
+	/delete-property/ sd-uhs-ddr50;
+	/delete-property/ sd-uhs-sdr25;
+	/delete-property/ sd-uhs-sdr12;
 };
