@@ -17,6 +17,25 @@ function run_package {
 }
 
 function setup_arm_chroot {
+	sudo mkdir ${CHROOT_DIR}
+	wget -c https://beagleboard.org/static/arm_debian_jessie.rootfs.tgz
+
+	tar xzf arm_debian_jessie.rootfs.tgz ${CHROOT_DIR}
+
+	echo "export ARCH=${ARCH}" > envvars.sh
+	echo "export TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR}" >> envvars.sh
+	chmod a+x envvars.sh
+
+	sudo chroot ${CHROOT_DIR} apt-get update
+	sudo chroot ${CHROOT_DIR} apt-get --allow-unauthenticated install \
+		-qq -y ${GUEST_DEPENDENCIES}
+	sudo mkdir -p ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}
+	sudo rsync -a ${TRAVIS_BUILD_DIR}/ ${CHROOT_DIR}/${TRAVIS_BUILD_DIR}/
+
+	sudo touch ${CHROOT_DIR}/.chroot_is_done
+}
+
+function setup_arm_chroot_orig {
 	wget -c https://rcn-ee.net/mirror/debootstrap/debootstrap_${DEBOOT}_all.deb
 	if [ -f debootstrap_${DEBOOT}_all.deb ] ; then
 		sudo dpkg -i debootstrap_${DEBOOT}_all.deb
