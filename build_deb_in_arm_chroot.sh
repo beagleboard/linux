@@ -17,10 +17,12 @@ function run_package {
 }
 
 function setup_arm_chroot {
-	sudo mkdir ${CHROOT_DIR}
-	wget -c https://beagleboard.org/static/arm_debian_jessie.rootfs.tgz
+	pushd /tmp
+	wget https://beagleboard.org/static/arm-debian-jessie.rootfs.tgz
+	popd
 
-	tar xzf arm_debian_jessie.rootfs.tgz -C ${CHROOT_DIR}
+	sudo mkdir ${CHROOT_DIR}
+	tar xzf /tmp/arm-debian-jessie.rootfs.tgz -C ${CHROOT_DIR}
 
 	echo "export ARCH=${ARCH}" > envvars.sh
 	echo "export TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR}" >> envvars.sh
