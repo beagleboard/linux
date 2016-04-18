@@ -13,7 +13,7 @@ function run_build {
 }
 
 function run_package {
-	#make KBUILD_DEBARCH=armhf KDEB_SOURCENAME=linux KDEB_CHANGELOG_DIST=unstable
+	make KBUILD_DEBARCH=armhf KDEB_SOURCENAME=linux KDEB_CHANGELOG_DIST=unstable
 }
 
 function setup_arm_chroot {
