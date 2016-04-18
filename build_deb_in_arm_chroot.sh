@@ -13,7 +13,7 @@ function run_build {
 }
 
 function run_package {
-if [ true ] ; then
+if [ ! true ] ; then
 	make KBUILD_DEBARCH=armhf KDEB_SOURCENAME=linux KDEB_CHANGELOG_DIST=unstable
 else
 	echo "Not running this time"
