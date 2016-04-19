@@ -396,7 +396,7 @@ static void __init hsmmc_update_prop_string(struct device_node *node,
 	hsmmc_update_prop(node, name, value, strlen(value) + 1);
 }
 
-static void dra7_hsmmc_quirks(void)
+static void __init dra7_hsmmc_quirks(void)
 {
 	struct device_node *np = NULL;
 	static const struct mmc_max_freq *settings;
@@ -453,7 +453,7 @@ static void dra7_hsmmc_quirks(void)
 	}
 }
 
-static void dra7_evm_quirks(void)
+static void __init dra7_evm_quirks(void)
 {
 	dra7_hsmmc_quirks();
 }
