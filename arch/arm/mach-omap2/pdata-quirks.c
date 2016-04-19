@@ -365,6 +365,98 @@ static struct pci_dra7xx_platform_data dra7xx_pci_pdata = {
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
 };
+
+static void __init hsmmc_update_prop(struct device_node *node, char *name,
+				     void *value, int len)
+{
+	struct property *prop;
+
+	prop = kzalloc(sizeof(*prop) + len, GFP_KERNEL);
+	if (!prop)
+		return;
+
+	prop->name = name;
+	prop->value = prop + 1;
+	prop->length = len;
+	memcpy(prop->value, value, len);
+
+	of_update_property(node, prop);
+}
+
+static void __init hsmmc_update_prop_u32(struct device_node *node,
+					 char *name, u32 value)
+{
+	u32 be32_value =  cpu_to_be32(value);
+	hsmmc_update_prop(node, name, &be32_value, sizeof(u32));
+}
+
+static void __init hsmmc_update_prop_string(struct device_node *node,
+					    char *name, char *value)
+{
+	hsmmc_update_prop(node, name, value, strlen(value) + 1);
+}
+
+static void __init dra7_hsmmc_quirks(void)
+{
+	struct device_node *np = NULL;
+	static const struct mmc_max_freq *settings;
+	char *rev_str = NULL;
+	struct mmc_max_freq {
+	  const char *hwmod;
+	  u32 max_freq;
+	};
+	static const struct mmc_max_freq rev_1_1_settings[] = {
+	  {"mmc1", 96000000},
+	  {"mmc2", 48000000},
+	  {"mmc3", 48000000},
+	  {} /*sentinel */
+	};
+	static const struct mmc_max_freq rev_2_0_settings[] = {
+	  {"mmc1", 192000000},
+	  {"mmc2", 192000000},
+	  {"mmc3",  96000000},
+	  {} /*sentinel */
+	};
+
+	switch (omap_rev()) {
+	case DRA752_REV_ES1_1:
+	case DRA752_REV_ES1_0:
+		settings = rev_1_1_settings;
+		rev_str = "rev11";
+		break;
+	default:
+		settings = rev_2_0_settings;
+		rev_str = "rev20";
+		break;
+	}
+
+	while ((np = of_find_compatible_node(np, NULL, "ti,dra7-hsmmc"))) {
+		u32 freq;
+		const char *hwmod;
+		const struct mmc_max_freq *p = settings;
+
+		hsmmc_update_prop_string(np, "ti,hsmmc-rev", rev_str);
+
+		if (!of_property_read_string(np, "ti,hwmods", &hwmod)) {
+			while (p->hwmod) {
+				if (strcmp(p->hwmod, hwmod) == 0)
+					break;
+				p++;
+			}
+		}
+		if (p->hwmod == NULL)
+			continue;
+
+		if ((of_property_read_u32(np, "max-frequency", &freq)) ||
+		    (freq > p->max_freq))
+			hsmmc_update_prop_u32(np, "max-frequency", p->max_freq);
+	}
+}
+
+static void __init dra7_evm_quirks(void)
+{
+	dra7_hsmmc_quirks();
+}
 #endif
 
 static struct pcs_pdata pcs_pdata;
@@ -516,6 +608,9 @@ static struct pdata_init pdata_quirks[] __initdata = {
 #ifdef CONFIG_SOC_AM43XX
 	{ "ti,am437x-gp-evm", am437x_gp_evm_legacy_init, },
 	{ "ti,am43x-epos-evm", am43x_epos_evm_legacy_init, },
+#endif
+#ifdef CONFIG_SOC_DRA7XX
+	{ "ti,dra7-evm", dra7_evm_quirks, },
 #endif
 	{ /* sentinel */ },
 };
