@@ -305,6 +305,14 @@
 				ti,mbox-tx = <0 0 0>;
 				ti,mbox-rx = <0 0 3>;
 			};
+			mbox_pru1_0: mbox_pru1_0 {
+				ti,mbox-tx = <2 0 0>;
+				ti,mbox-rx = <3 0 0>;
+			};
+			mbox_pru1_1: mbox_pru1_1 {
+				ti,mbox-tx = <4 0 0>;
+				ti,mbox-rx = <5 0 0>;
+			};
 		};
 
 		timer1: timer@44e31000 {
