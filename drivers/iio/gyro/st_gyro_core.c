@@ -131,6 +131,7 @@ static const struct iio_chan_spec st_gyro_16bit_channels[] = {
 static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 	{
 		.wai = ST_GYRO_1_WAI_EXP,
+		.wai_addr = ST_SENSORS_DEFAULT_WAI_ADDRESS,
 		.sensors_supported = {
 			[0] = L3G4200D_GYRO_DEV_NAME,
 			[1] = LSM330DL_GYRO_DEV_NAME,
@@ -184,12 +185,18 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 		.drdy_irq = {
 			.addr = ST_GYRO_1_DRDY_IRQ_ADDR,
 			.mask_int2 = ST_GYRO_1_DRDY_IRQ_INT2_MASK,
+			/*
+			 * The sensor has IHL (active low) and open
+			 * drain settings, but only for INT1 and not
+			 * for the DRDY line on INT2.
+			 */
 		},
 		.multi_read_bit = ST_GYRO_1_MULTIREAD_BIT,
 		.bootime = 2,
 	},
 	{
 		.wai = ST_GYRO_2_WAI_EXP,
+		.wai_addr = ST_SENSORS_DEFAULT_WAI_ADDRESS,
 		.sensors_supported = {
 			[0] = L3GD20_GYRO_DEV_NAME,
 			[1] = LSM330D_GYRO_DEV_NAME,
@@ -246,12 +253,18 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 		.drdy_irq = {
 			.addr = ST_GYRO_2_DRDY_IRQ_ADDR,
 			.mask_int2 = ST_GYRO_2_DRDY_IRQ_INT2_MASK,
+			/*
+			 * The sensor has IHL (active low) and open
+			 * drain settings, but only for INT1 and not
+			 * for the DRDY line on INT2.
+			 */
 		},
 		.multi_read_bit = ST_GYRO_2_MULTIREAD_BIT,
 		.bootime = 2,
 	},
 	{
 		.wai = ST_GYRO_3_WAI_EXP,
+		.wai_addr = ST_SENSORS_DEFAULT_WAI_ADDRESS,
 		.sensors_supported = {
 			[0] = L3GD20_GYRO_DEV_NAME,
 		},
@@ -304,6 +317,11 @@ static const struct st_sensor_settings st_gyro_sensors_settings[] = {
 		.drdy_irq = {
 			.addr = ST_GYRO_3_DRDY_IRQ_ADDR,
 			.mask_int2 = ST_GYRO_3_DRDY_IRQ_INT2_MASK,
+			/*
+			 * The sensor has IHL (active low) and open
+			 * drain settings, but only for INT1 and not
+			 * for the DRDY line on INT2.
+			 */
 		},
 		.multi_read_bit = ST_GYRO_3_MULTIREAD_BIT,
 		.bootime = 2,
@@ -380,6 +398,7 @@ static const struct iio_info gyro_info = {
 	.attrs = &st_gyro_attribute_group,
 	.read_raw = &st_gyro_read_raw,
 	.write_raw = &st_gyro_write_raw,
+	.debugfs_reg_access = &st_sensors_debugfs_reg_access,
 };
 
 #ifdef CONFIG_IIO_TRIGGER
