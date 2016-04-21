@@ -49,4 +49,9 @@
 	pinctrl-1 = <&mmc1_pins_hs>;
 
 	vmmc-supply = <&ldo1_reg>;
+	max-frequency = <96000000>;
+};
+
+&mmc2 {
+	max-frequency = <96000000>;
 };
