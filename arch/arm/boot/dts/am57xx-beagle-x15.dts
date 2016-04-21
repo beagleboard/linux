@@ -12,6 +12,31 @@
 	model = "TI AM5728 BeagleBoard-X15";
 };
 
+&dra7_pmx_core {
+
+	mmc1_pins_default: mmc1_pins_default {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3754, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_clk.clk */
+			DRA7XX_CORE_IOPAD(0x3758, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_cmd.cmd */
+			DRA7XX_CORE_IOPAD(0x375c, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_dat0.dat0 */
+			DRA7XX_CORE_IOPAD(0x3760, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_dat1.dat1 */
+			DRA7XX_CORE_IOPAD(0x3764, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_dat2.dat2 */
+			DRA7XX_CORE_IOPAD(0x3768, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_dat3.dat3 */
+		>;
+	};
+
+	mmc1_pins_hs: pinmux_mmc1_hs_pins {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3754, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)) /* mmc1_clk.clk */
+			DRA7XX_CORE_IOPAD(0x3758, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)) /* mmc1_cmd.cmd */
+			DRA7XX_CORE_IOPAD(0x375c, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)) /* mmc1_dat0.dat0 */
+			DRA7XX_CORE_IOPAD(0x3760, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)) /* mmc1_dat1.dat1 */
+			DRA7XX_CORE_IOPAD(0x3764, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)) /* mmc1_dat2.dat2 */
+			DRA7XX_CORE_IOPAD(0x3768, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0)) /* mmc1_dat3.dat3 */
+		>;
+	};
+};
+
 &tpd12s015 {
 	gpios = <&gpio7 10 GPIO_ACTIVE_HIGH>,	/* gpio7_10, CT CP HPD */
 		<&gpio6 28 GPIO_ACTIVE_HIGH>,	/* gpio6_28, LS OE */
@@ -19,5 +44,9 @@
 };
 
 &mmc1 {
+	pinctrl-names = "default", "hs";
+	pinctrl-0 = <&mmc1_pins_default>;
+	pinctrl-1 = <&mmc1_pins_hs>;
+
 	vmmc-supply = <&ldo1_reg>;
 };
