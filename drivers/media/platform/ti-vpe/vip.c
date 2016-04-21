@@ -1387,7 +1387,6 @@ static void set_fmt_params(struct vip_stream *stream)
 {
 	struct vip_dev *dev = stream->port->dev;
 	struct vip_port *port = stream->port;
-	struct vip_mmr_adb *mmr_adb = port->mmr_adb.addr;
 	int data_path_reg;
 
 	stream->sequence = 0;
@@ -1468,22 +1467,6 @@ static void set_fmt_params(struct vip_stream *stream)
 
 	vip_dbg(3, dev, "%s: DATA_PATH_SELECT(%08X): %08X\n", __func__,
 		data_path_reg, reg_read(dev, data_path_reg));
-
-	if (port->scaler) {
-		sc_set_hs_coeffs(dev->sc, port->sc_coeff_h.addr,
-				 port->mbus_framefmt.width,
-				 port->c_rect.width);
-		sc_set_vs_coeffs(dev->sc, port->sc_coeff_v.addr,
-				 port->mbus_framefmt.height,
-				 port->c_rect.height);
-		sc_config_scaler(dev->sc, &mmr_adb->sc_regs0[0],
-				 &mmr_adb->sc_regs8[0], &mmr_adb->sc_regs17[0],
-				 port->mbus_framefmt.width,
-				 port->mbus_framefmt.height,
-				 port->c_rect.width,
-				 port->c_rect.height);
-		port->load_mmrs = true;
-	}
 }
 
 static int vip_g_selection(struct file *file, void *fh,
@@ -1544,8 +1527,6 @@ static int vip_s_selection(struct file *file, void *fh,
 
 	s->r = r;
 	stream->port->c_rect = r;
-
-	set_fmt_params(stream);
 
 	vip_dbg(1, port->dev, "cropped (%d,%d)/%dx%d of %dx%d\n",
 		r.left, r.top, r.width, r.height,
@@ -1668,12 +1649,28 @@ static int vip_setup_scaler(struct vip_stream *stream)
 	struct vip_dev *dev = port->dev;
 	struct sc_data *sc = dev->sc;
 	struct vpdma_data *vpdma = dev->shared->vpdma;
+	struct vip_mmr_adb *mmr_adb = port->mmr_adb.addr;
 	int list_num = stream->list_num;
 	int timeout = 500;
 
 	/* if scaler not associated with this port then skip */
-	if (!port->scaler)
+	if (!port->scaler) {
 		return 0;
+	} else {
+		sc_set_hs_coeffs(sc, port->sc_coeff_h.addr,
+				 port->mbus_framefmt.width,
+				 port->c_rect.width);
+		sc_set_vs_coeffs(sc, port->sc_coeff_v.addr,
+				 port->mbus_framefmt.height,
+				 port->c_rect.height);
+		sc_config_scaler(sc, &mmr_adb->sc_regs0[0],
+				 &mmr_adb->sc_regs8[0], &mmr_adb->sc_regs17[0],
+				 port->mbus_framefmt.width,
+				 port->mbus_framefmt.height,
+				 port->c_rect.width,
+				 port->c_rect.height);
+		port->load_mmrs = true;
+	}
 
 	/* If coeff are already loaded then skip */
 	if (!sc->load_coeff_v && !sc->load_coeff_h)
@@ -1754,10 +1751,18 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	unsigned long flags;
 	int ret;
 
+	vip_setup_scaler(stream);
+
+	/*
+	 * Make sure the scaler is configured before the datapath is
+	 * enabled. The scaler can only load the coefficient
+	 * parameters when it is idle. If the scaler path is enabled
+	 * and video data is being received then the VPDMA transfer will
+	 * stall indefinetely.
+	 */
 	set_fmt_params(stream);
 	vip_setup_parser(port);
 
-	vip_setup_scaler(stream);
 
 	buf = list_entry(stream->vidq.next,
 			 struct vip_buffer, list);
