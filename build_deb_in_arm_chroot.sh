@@ -27,6 +27,7 @@ function setup_arm_chroot {
 
 	sudo mkdir ${CHROOT_DIR}
 	sudo tar xzf /tmp/arm-debian-jessie.rootfs.tgz -C ${CHROOT_DIR}
+	sudo cp -v /etc/resolv.conf ${CHROOT_DIR}/etc/resolv.conf
 
 	echo "export ARCH=${ARCH}" > envvars.sh
 	echo "export TRAVIS_BUILD_DIR=${TRAVIS_BUILD_DIR}" >> envvars.sh
