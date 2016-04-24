@@ -8,14 +8,15 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am33xx-es2.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am335x-bonegreen-wl1835.dtsi"
+
 
 / {
 	model = "TI AM335x BeagleBone Green Wireless";
 	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
+
 
 &ldo3_reg {
 	regulator-min-microvolt = <1800000>;
@@ -34,7 +35,6 @@
 	bus-width = <8>;
 	status = "okay";
 };
-
 &uart3 {
 	status = "okay";
 };
@@ -46,3 +46,7 @@
 &mac {
 	status = "disabled";
 };
+/*
+&sgx {
+	status = "okay";
+};*/
