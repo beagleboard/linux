@@ -25,6 +25,7 @@
 #include <linux/usb/phy_companion.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <linux/pm_runtime.h>
 #include <linux/delay.h>
 #include <linux/phy/omap_control_phy.h>
 #include <linux/phy/phy.h>
@@ -354,9 +355,11 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	otg->usb_phy		= &phy->phy;
 
 	platform_set_drvdata(pdev, phy);
+	pm_runtime_enable(phy->dev);
 
 	generic_phy = devm_phy_create(phy->dev, NULL, &ops);
 	if (IS_ERR(generic_phy)) {
+		pm_runtime_disable(phy->dev);
 		return PTR_ERR(generic_phy);
 	}
 
@@ -366,6 +369,7 @@ static int omap_usb2_probe(struct platform_device *pdev)
 	phy_provider = devm_of_phy_provider_register(phy->dev,
 			of_phy_simple_xlate);
 	if (IS_ERR(phy_provider)) {
+		pm_runtime_disable(phy->dev);
 		return PTR_ERR(phy_provider);
 	}
 
@@ -375,6 +379,7 @@ static int omap_usb2_probe(struct platform_device *pdev)
 		phy->wkupclk = devm_clk_get(phy->dev, "usb_phy_cm_clk32k");
 		if (IS_ERR(phy->wkupclk)) {
 			dev_err(&pdev->dev, "unable to get usb_phy_cm_clk32k\n");
+			pm_runtime_disable(phy->dev);
 			return PTR_ERR(phy->wkupclk);
 		} else {
 			dev_warn(&pdev->dev,
@@ -412,6 +417,7 @@ static int omap_usb2_remove(struct platform_device *pdev)
 	if (!IS_ERR(phy->optclk))
 		clk_unprepare(phy->optclk);
 	usb_remove_phy(&phy->phy);
+	pm_runtime_disable(phy->dev);
 
 	return 0;
 }
