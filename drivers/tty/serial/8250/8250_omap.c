@@ -1055,6 +1055,48 @@ static bool the_no_dma_filter_fn(struct dma_chan *chan, void *param)
 	return false;
 }
 
+enum {
+	UART_EDMA,
+	UART_SDMA,
+};
+
+static const char *sdma_prefix = "ti,omap";
+
+static int omap_8250_get_dma_type(struct uart_port *port)
+{
+	struct dma_chan *chan;
+	const char *tmp;
+	int ret = UART_EDMA;
+
+	if (!port->dev->of_node)
+		return ret;
+
+	chan = dma_request_slave_channel_reason(port->dev, "rx");
+	if (IS_ERR(chan)) {
+		if (PTR_ERR(chan) != -EPROBE_DEFER)
+			dev_err(port->dev,
+				"Can't verify DMA configuration (%ld)\n",
+				PTR_ERR(chan));
+		return PTR_ERR(chan);
+	}
+	BUG_ON(!chan->device || !chan->device->dev);
+
+	if (chan->device->dev->of_node)
+		ret = of_property_read_string(chan->device->dev->of_node,
+					      "compatible", &tmp);
+	else
+		dev_err(port->dev, "DMA controller has no of-node\n");
+
+	dma_release_channel(chan);
+	if (ret)
+		return ret;
+
+	dev_dbg(port->dev, "DMA controller compatible = \"%s\"\n", tmp);
+	if (!strncmp(tmp, sdma_prefix, strlen(sdma_prefix)))
+		return UART_SDMA;
+
+	return UART_EDMA;
+}
 #else
 
 static inline int omap_8250_rx_dma(struct uart_8250_port *p, unsigned int iir)
@@ -1218,9 +1260,12 @@ static int omap8250_probe(struct platform_device *pdev)
 				priv->habit |= OMAP_DMA_TX_KICK;
 			/*
 			 * pause is currently not supported atleast on omap-sdma
-			 * and edma on most earlier kernels.
+			 * whereas edma supports pause feature.
 			 */
-			priv->rx_dma_broken = true;
+			if (omap_8250_get_dma_type(&up.port) != UART_EDMA)
+				priv->rx_dma_broken = true;
+			else
+				priv->habit |= OMAP_DMA_TX_KICK;
 		}
 	}
 #endif
