@@ -96,6 +96,7 @@ struct omap_aes_ctx {
 	u8		nonce[4];
 	unsigned long	flags;
 	struct crypto_skcipher *ctr;
+	struct crypto_ablkcipher	*fallback;
 };
 
 struct omap_aes_reqctx {
