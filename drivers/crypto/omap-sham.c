@@ -360,14 +360,6 @@ static void omap_sham_copy_ready_hash(struct ahash_request *req)
 
 static int omap_sham_hw_init(struct omap_sham_dev *dd)
 {
-	int err;
-
-	err = pm_runtime_get_sync(dd->dev);
-	if (err < 0) {
-		dev_err(dd->dev, "failed to get sync: %d\n", err);
-		return err;
-	}
-
 	if (!test_bit(FLAGS_INIT, &dd->flags)) {
 		set_bit(FLAGS_INIT, &dd->flags);
 		dd->err = 0;
@@ -999,8 +991,6 @@ static void omap_sham_finish_req(struct ahash_request *req, int err)
 	dd->flags &= ~(BIT(FLAGS_BUSY) | BIT(FLAGS_FINAL) | BIT(FLAGS_CPU) |
 			BIT(FLAGS_DMA_READY) | BIT(FLAGS_OUTPUT_READY));
 
-	pm_runtime_put(dd->dev);
-
 	if (req->base.complete)
 		req->base.complete(&req->base, err);
 
@@ -1239,6 +1229,7 @@ static int omap_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 {
 	struct omap_sham_ctx *tctx = crypto_tfm_ctx(tfm);
 	const char *alg_name = crypto_tfm_alg_name(tfm);
+	struct omap_sham_dev *dd;
 
 	/* Allocate a fallback and abort if it failed. */
 	tctx->fallback = crypto_alloc_shash(alg_name, 0,
@@ -1266,6 +1257,13 @@ static int omap_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 
 	}
 
+	spin_lock_bh(&sham.lock);
+	list_for_each_entry(dd, &sham.dev_list, list) {
+		break;
+	}
+	spin_unlock_bh(&sham.lock);
+
+	pm_runtime_get_sync(dd->dev);
 	return 0;
 }
 
@@ -1307,6 +1305,7 @@ static int omap_sham_cra_sha512_init(struct crypto_tfm *tfm)
 static void omap_sham_cra_exit(struct crypto_tfm *tfm)
 {
 	struct omap_sham_ctx *tctx = crypto_tfm_ctx(tfm);
+	struct omap_sham_dev *dd;
 
 	crypto_free_shash(tctx->fallback);
 	tctx->fallback = NULL;
@@ -1315,6 +1314,14 @@ static void omap_sham_cra_exit(struct crypto_tfm *tfm)
 		struct omap_sham_hmac_ctx *bctx = tctx->base;
 		crypto_free_shash(bctx->shash);
 	}
+
+	spin_lock_bh(&sham.lock);
+	list_for_each_entry(dd, &sham.dev_list, list) {
+		break;
+	}
+	spin_unlock_bh(&sham.lock);
+
+	pm_runtime_get_sync(dd->dev);
 }
 
 static struct ahash_alg algs_sha1_md5[] = {
