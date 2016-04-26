@@ -2250,7 +2250,7 @@ static int omap_hsmmc_card_busy_low(struct omap_hsmmc_host *host)
 		usleep_range(100, 200);
 	}
 
-	dev_err(mmc_dev(host->mmc), "card busy\n");
+	dev_dbg(mmc_dev(host->mmc), "card busy\n");
 
 	return false;
 }
