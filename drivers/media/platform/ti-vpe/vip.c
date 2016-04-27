@@ -1380,6 +1380,31 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	return 0;
 }
 
+static void vip_disable_sc_path(struct vip_stream *stream)
+{
+	struct vip_dev *dev = stream->port->dev;
+	struct vip_port *port = stream->port;
+	int data_path_reg;
+	u32 val;
+
+	vip_dbg(3, dev, "%s:\n", __func__);
+
+	data_path_reg = VIP_VIP1_DATA_PATH_SELECT + 4 * dev->slice_id;
+	val = reg_read(dev, data_path_reg);
+
+	if (port->scaler) {
+		insert_field(&val, 0, VIP_SC_SRC_SELECT_MASK,
+			     VIP_SC_SRC_SELECT_SHFT);
+		vip_dbg(3, dev, "%s: DATA_PATH_SELECT(%08X): %08X\n", __func__,
+			data_path_reg, val);
+		reg_write(dev, data_path_reg, val);
+	}
+	usleep_range(200, 250);
+
+	vip_dbg(3, dev, "%s: DATA_PATH_SELECT(%08X): %08X\n", __func__,
+		data_path_reg, reg_read(dev, data_path_reg));
+}
+
 /*
  * Set the registers that are modified when the video format changes.
  */
@@ -1830,6 +1855,8 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 	int ret;
 
 	vip_dbg(2, dev, "%s:\n", __func__);
+
+	vip_disable_sc_path(stream);
 
 	if (port->subdev) {
 		ret = v4l2_subdev_call(port->subdev, video, s_stream, 0);
