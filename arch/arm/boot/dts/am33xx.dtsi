@@ -824,8 +824,13 @@
 
 		ocmcram: ocmcram@40300000 {
 			compatible = "mmio-sram";
-			reg = <0x40300000 0x10000>; /* 64k */
+			reg = <0x40300000 0x2000>; /* 8k */
 			map-exec;
+		};
+
+		ocmcram_nocache: ocmcram_nocache@40302000 {
+			compatible = "mmio-sram";
+			reg = <0x40302000 0xe000>; /* 64k - 8k */
 		};
 
 		elm: elm@48080000 {
