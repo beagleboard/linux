@@ -1,5 +1,5 @@
 /*
- * Texas Instruments 3-Port Ethernet Switch Address Lookup Engine APIs
+ * Texas Instruments N-Port Ethernet Switch Address Lookup Engine APIs
  *
  * Copyright (C) 2012 Texas Instruments
  *
@@ -21,6 +21,7 @@ struct cpsw_ale_params {
 	unsigned long		ale_ageout;	/* in secs */
 	unsigned long		ale_entries;
 	unsigned long		ale_ports;
+	u32			major_ver_mask;
 };
 
 struct cpsw_ale {
@@ -28,6 +29,7 @@ struct cpsw_ale {
 	struct timer_list	timer;
 	unsigned long		ageout;
 	int			allmulti;
+	u32			version;
 };
 
 enum cpsw_ale_control {
