@@ -18,8 +18,7 @@ set_working_directory()
 {
 	# Sanity checkup kernel build location.
 	if [ ! -d "$WORKING_PATH" ]; then
-		echo "Kernel working dir $WORKING_PATH is not a directory/ does not exist! exiting.."
-		exit 1
+		WORKING_PATH=$(pwd)
 	fi
 
 	ORIGINAL_DIR=$(pwd)
