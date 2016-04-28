@@ -709,6 +709,17 @@ static struct pru_private_data am335x_pru1_rproc_pdata = {
 	.fw_name = "am335x-pru1-fw",
 };
 
+/* AM437x PRUSS1 PRU core-specific private data */
+static struct pru_private_data am437x_pru1_0_rproc_pdata = {
+	.id = 0,
+	.fw_name = "am437x-pru1_0-fw",
+};
+
+static struct pru_private_data am437x_pru1_1_rproc_pdata = {
+	.id = 1,
+	.fw_name = "am437x-pru1_1-fw",
+};
+
 /* AM33xx SoC-specific PRU Device data */
 static struct pru_match_private_data am335x_pru_match_data[] = {
 	{
@@ -724,8 +735,24 @@ static struct pru_match_private_data am335x_pru_match_data[] = {
 	},
 };
 
+/* AM43xx SoC-specific PRU Device data */
+static struct pru_match_private_data am437x_pru_match_data[] = {
+	{
+		.device_name	= "54434000.pru0",
+		.priv_data	= &am437x_pru1_0_rproc_pdata,
+	},
+	{
+		.device_name	= "54438000.pru1",
+		.priv_data	= &am437x_pru1_1_rproc_pdata,
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id pru_rproc_match[] = {
 	{ .compatible = "ti,am3352-pru", .data = am335x_pru_match_data, },
+	{ .compatible = "ti,am4372-pru", .data = am437x_pru_match_data, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pru_rproc_match);

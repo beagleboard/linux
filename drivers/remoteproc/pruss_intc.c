@@ -19,6 +19,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 
 #include "pruss.h"
@@ -27,6 +28,14 @@
 
 static const char * const irq_names[] = {
 	"host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9",
+};
+
+/**
+ * struct pruss_intc_match_data - match data to handle SoC variations
+ * @no_host7_intr: flag denoting the absence of host7 interrupt into MPU
+ */
+struct pruss_intc_match_data {
+	bool no_host7_intr;
 };
 
 /**
@@ -159,6 +168,8 @@ err:
 	chained_irq_exit(chip, desc);
 }
 
+static const struct of_device_id pruss_intc_of_match[];
+
 static int pruss_intc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -166,6 +177,11 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	struct pruss_intc *intc;
 	struct irq_chip *irqchip;
 	int i, irq;
+	const struct pruss_intc_match_data *data;
+	bool skip_host7;
+
+	data = of_match_device(pruss_intc_of_match, dev)->data;
+	skip_host7 = data ? data->no_host7_intr : false;
 
 	intc = devm_kzalloc(dev, sizeof(*intc), GFP_KERNEL);
 	if (!intc)
@@ -194,6 +210,9 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	for (i = 0; i < MAX_HOST_NUM_IRQS; i++) {
 		irq = platform_get_irq_byname(pdev, irq_names[i]);
 		if (irq < 0) {
+			if (!strcmp(irq_names[i], "host7") && !!skip_host7)
+				continue;
+
 			dev_err(dev, "platform_ger_irq_byname failed for %s : %d\n",
 				irq_names[i], irq);
 			goto fail_irq;
@@ -221,8 +240,19 @@ static int pruss_intc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct pruss_intc_match_data am437x_pruss_intc_data = {
+	.no_host7_intr = true,
+};
+
 static const struct of_device_id pruss_intc_of_match[] = {
-	{ .compatible = "ti,am3352-pruss-intc", },
+	{
+		.compatible = "ti,am3352-pruss-intc",
+		.data = NULL,
+	},
+	{
+		.compatible = "ti,am4372-pruss-intc",
+		.data = &am437x_pruss_intc_data,
+	},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_intc_of_match);
