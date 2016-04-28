@@ -1,0 +1,402 @@
+/*
+ * PRU-ICSS platform driver for various TI SoCs
+ *
+ * Copyright (C) 2014-2016 Texas Instruments Incorporated - http://www.ti.com/
+ *	Suman Anna <s-anna@ti.com>
+ *	Andrew F. Davis <afd@ti.com>
+ *	Roger Quadros <rogerq@ti.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/bitops.h>
+#include <linux/dma-mapping.h>
+#include <linux/interrupt.h>
+#include <linux/module.h>
+#include <linux/of_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/remoteproc.h>
+#include <linux/virtio.h>
+
+#include <linux/platform_data/remoteproc-pruss.h>
+
+#include "remoteproc_internal.h"
+#include "pruss.h"
+
+static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
+{
+	return readl_relaxed(pruss->mem_regions[PRUSS_MEM_INTC].va + reg);
+}
+
+static inline void pruss_intc_write_reg(struct pruss *pruss, unsigned int reg,
+					u32 val)
+{
+	writel_relaxed(val, pruss->mem_regions[PRUSS_MEM_INTC].va + reg);
+}
+
+/**
+ * pruss_intc_configure() - configure the PRUSS INTC
+ * @pruss: the pruss instance
+ * @intc_config: PRU core-specific INTC configuration
+ *
+ * Configures the PRUSS INTC with the provided configuration from
+ * a PRU core. Any existing event to channel mappings or channel to
+ * host interrupt mappings are checked to make sure there are no
+ * conflicting configuration between both the PRU cores. The function
+ * is intended to be only used by the PRU remoteproc driver.
+ *
+ * Returns 0 on success, or a suitable error code otherwise
+ */
+int pruss_intc_configure(struct pruss *pruss,
+			 struct pruss_intc_config *intc_config)
+{
+	struct device *dev = pruss->dev;
+	int i, idx, ch, host, ret;
+	u64 sysevt_mask = 0;
+	u32 ch_mask = 0;
+	u32 host_mask = 0;
+	u32 val;
+
+	mutex_lock(&pruss->intc_lock);
+
+	/*
+	 * configure channel map registers - each register holds map info
+	 * for 4 events, with each event occupying the lower nibble in
+	 * a register byte address in little-endian fashion
+	 */
+	for (i = 0; i < ARRAY_SIZE(intc_config->sysev_to_ch); i++) {
+		ch = intc_config->sysev_to_ch[i];
+		if (ch < 0)
+			continue;
+
+		/* check if sysevent already assigned */
+		if (pruss->intc_config.sysev_to_ch[i] != -1) {
+			dev_err(dev, "event %d (req. channel %d) already assigned to channel %d\n",
+				i, ch, pruss->intc_config.sysev_to_ch[i]);
+			ret = -EEXIST;
+			goto unlock;
+		}
+
+		pruss->intc_config.sysev_to_ch[i] = ch;
+
+		idx = i / 4;
+		val = pruss_intc_read_reg(pruss, PRU_INTC_CMR(idx));
+		val |= ch << ((i & 3) * 8);
+		pruss_intc_write_reg(pruss, PRU_INTC_CMR(idx), val);
+
+		sysevt_mask |= BIT_ULL(i);
+		ch_mask |= BIT(ch);
+
+		dev_dbg(dev, "SYSEV%d -> CH%d (CMR%d 0x%08x)\n", i, ch, idx,
+			pruss_intc_read_reg(pruss, PRU_INTC_CMR(idx)));
+	}
+
+	/*
+	 * set host map registers - each register holds map info for
+	 * 4 channels, with each channel occupying the lower nibble in
+	 * a register byte address in little-endian fashion
+	 */
+	for (i = 0; i < ARRAY_SIZE(intc_config->ch_to_host); i++) {
+		host = intc_config->ch_to_host[i];
+		if (host < 0)
+			continue;
+
+		/* check if channel already assigned */
+		if (pruss->intc_config.ch_to_host[i] != -1) {
+			dev_err(dev, "channel %d (req. intr_no %d) already assigned to intr_no %d\n",
+				i, host, pruss->intc_config.ch_to_host[i]);
+			ret = -EEXIST;
+			goto unlock;
+		}
+
+		/* check if host intr is already in use by other PRU */
+		if (pruss->host_mask & (1U << host)) {
+			dev_err(dev, "%s: host intr %d already in use\n",
+				__func__, host);
+			ret = -EEXIST;
+			goto unlock;
+		}
+
+		pruss->intc_config.ch_to_host[i] = host;
+
+		idx = i / 4;
+
+		val = pruss_intc_read_reg(pruss, PRU_INTC_HMR(idx));
+		val |= host << ((i & 3) * 8);
+		pruss_intc_write_reg(pruss, PRU_INTC_HMR(idx), val);
+
+		ch_mask |= BIT(i);
+		host_mask |= BIT(host);
+
+		dev_dbg(dev, "CH%d -> HOST%d (HMR%d 0x%08x)\n", i, host, idx,
+			pruss_intc_read_reg(pruss, PRU_INTC_HMR(idx)));
+	}
+
+	dev_info(dev, "configured system_events = 0x%016llx intr_channels = 0x%08x host_intr = 0x%08x\n",
+		 sysevt_mask, ch_mask, host_mask);
+
+	/* enable system events, writing 0 has no-effect */
+	pruss_intc_write_reg(pruss, PRU_INTC_ESR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_ESR1, upper_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
+
+	/* enable host interrupts */
+	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
+		if (host_mask & BIT(i))
+			pruss_intc_write_reg(pruss, PRU_INTC_HIEISR, i);
+	}
+
+	/* global interrupt enable */
+	pruss_intc_write_reg(pruss, PRU_INTC_GER, 1);
+
+	pruss->host_mask |= host_mask;
+
+	mutex_unlock(&pruss->intc_lock);
+	return 0;
+
+unlock:
+	mutex_unlock(&pruss->intc_lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pruss_intc_configure);
+
+/**
+ * pruss_intc_unconfigure() - unconfigure the PRUSS INTC
+ * @pruss: the pruss instance
+ * @intc_config: PRU core specific INTC configuration
+ *
+ * Undo whatever was done in pruss_intc_configure() for a PRU core.
+ * It should be sufficient to just mark the resources free in the
+ * global map and disable the host interrupts and sysevents.
+ */
+int pruss_intc_unconfigure(struct pruss *pruss,
+			   struct pruss_intc_config *intc_config)
+{
+	struct device *dev = pruss->dev;
+	int i, ch, host;
+	u64 sysevt_mask = 0;
+	u32 host_mask = 0;
+
+	mutex_lock(&pruss->intc_lock);
+
+	for (i = 0; i < ARRAY_SIZE(intc_config->sysev_to_ch); i++) {
+		ch = intc_config->sysev_to_ch[i];
+		if (ch < 0)
+			continue;
+
+		/* mark sysevent free in global map */
+		pruss->intc_config.sysev_to_ch[i] = -1;
+		sysevt_mask |= BIT_ULL(i);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(intc_config->ch_to_host); i++) {
+		host = intc_config->ch_to_host[i];
+		if (host < 0)
+			continue;
+
+		/* mark channel free in global map */
+		pruss->intc_config.ch_to_host[i] = -1;
+		host_mask |= BIT(host);
+	}
+
+	dev_info(dev, "unconfigured system_events = 0x%016llx host_intr = 0x%08x\n",
+		 sysevt_mask, host_mask);
+
+	/* disable system events, writing 0 has no-effect */
+	pruss_intc_write_reg(pruss, PRU_INTC_ECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_ECR1, upper_32_bits(sysevt_mask));
+	/* clear any pending status */
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
+
+	/* disable host interrupts */
+	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
+		if (host_mask & BIT(i))
+			pruss_intc_write_reg(pruss, PRU_INTC_HIDISR, i);
+	}
+
+	pruss->host_mask &= ~host_mask;
+	mutex_unlock(&pruss->intc_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_intc_unconfigure);
+
+static void pruss_intc_init(struct pruss *pruss)
+{
+	int i;
+
+	/* configure polarity to active high for all system interrupts */
+	pruss_intc_write_reg(pruss, PRU_INTC_SIPR0, 0xffffffff);
+	pruss_intc_write_reg(pruss, PRU_INTC_SIPR1, 0xffffffff);
+
+	/* configure type to pulse interrupt for all system interrupts */
+	pruss_intc_write_reg(pruss, PRU_INTC_SITR0, 0);
+	pruss_intc_write_reg(pruss, PRU_INTC_SITR1, 0);
+
+	/* clear all 16 interrupt channel map registers */
+	for (i = 0; i < 16; i++)
+		pruss_intc_write_reg(pruss, PRU_INTC_CMR(i), 0);
+
+	/* clear all 3 host interrupt map registers */
+	for (i = 0; i < 3; i++)
+		pruss_intc_write_reg(pruss, PRU_INTC_HMR(i), 0);
+}
+
+static struct of_dev_auxdata pruss_rproc_auxdata_lookup[];
+static const struct of_device_id pruss_of_match[];
+
+static int pruss_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
+	struct pruss *pruss;
+	struct resource *res;
+	int ret, i;
+	struct pruss_platform_data *pdata = dev_get_platdata(dev);
+	const char *mem_names[PRUSS_MEM_MAX] = { "dram0", "dram1", "shrdram2",
+						 "intc", "cfg", "iep",
+						 "mii_rt" };
+
+	if (!node) {
+		dev_err(dev, "Non-DT platform device not supported\n");
+		return -ENODEV;
+	}
+
+	if (!pdata || !pdata->deassert_reset || !pdata->assert_reset ||
+	    !pdata->reset_name) {
+		dev_err(dev, "platform data (reset configuration information) missing\n");
+		return -ENODEV;
+	}
+
+	ret = dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(dev, "dma_set_coherent_mask: %d\n", ret);
+		return ret;
+	}
+
+	pruss = devm_kzalloc(dev, sizeof(*pruss), GFP_KERNEL);
+	if (!pruss)
+		return -ENOMEM;
+
+	pruss->dev = dev;
+	mutex_init(&pruss->intc_lock);
+
+	for (i = 0; i < ARRAY_SIZE(pruss->intc_config.sysev_to_ch); i++)
+		pruss->intc_config.sysev_to_ch[i] = -1;
+
+	for (i = 0; i < ARRAY_SIZE(pruss->intc_config.ch_to_host); i++)
+		pruss->intc_config.ch_to_host[i] = -1;
+
+	for (i = 0; i < ARRAY_SIZE(mem_names); i++) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						   mem_names[i]);
+		pruss->mem_regions[i].va = devm_ioremap_resource(dev, res);
+		if (IS_ERR(pruss->mem_regions[i].va)) {
+			dev_err(dev, "failed to parse and map memory resource %d %s\n",
+				i, mem_names[i]);
+			return PTR_ERR(pruss->mem_regions[i].va);
+		}
+		pruss->mem_regions[i].pa = res->start;
+		pruss->mem_regions[i].size = resource_size(res);
+
+		dev_dbg(dev, "memory %8s: pa %pa size 0x%x va %p\n",
+			mem_names[i], &pruss->mem_regions[i].pa,
+			pruss->mem_regions[i].size, pruss->mem_regions[i].va);
+	}
+
+	ret = pdata->deassert_reset(pdev, pdata->reset_name);
+	if (ret) {
+		dev_err(dev, "deassert_reset failed: %d\n", ret);
+		goto err_fail;
+	}
+
+	pm_runtime_enable(dev);
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(dev);
+		dev_err(dev, "pm_runtime_get_sync failed\n");
+		goto err_rpm_fail;
+	}
+
+	pruss_intc_init(pruss);
+
+	platform_set_drvdata(pdev, pruss);
+
+	dev_info(&pdev->dev, "creating PRU cores and other child platform devices\n");
+	ret = of_platform_populate(node, NULL, pruss_rproc_auxdata_lookup,
+				   &pdev->dev);
+	if (ret) {
+		dev_err(dev, "of_platform_populate failed\n");
+		goto err_of_fail;
+	}
+
+	return 0;
+
+err_of_fail:
+	pm_runtime_put_sync(dev);
+err_rpm_fail:
+	pm_runtime_disable(dev);
+	pdata->assert_reset(pdev, pdata->reset_name);
+err_fail:
+	return ret;
+}
+
+static int pruss_remove(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct pruss_platform_data *pdata = dev_get_platdata(dev);
+
+	dev_info(dev, "remove PRU cores and other child platform devices\n");
+	of_platform_depopulate(dev);
+
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
+	pdata->assert_reset(pdev, pdata->reset_name);
+
+	return 0;
+}
+
+/*
+ * auxdata lookup table for giving specific device names to PRU platform
+ * devices. The device names are used in the driver to find private data
+ * specific to a PRU-core such as an id and a firmware name etc, especially
+ * needed when there are multiple PRUSS instances present on a SoC.
+ * XXX: The auxdata in general is not a recommended usage, and this should
+ *      eventually be eliminated. The current usage allows us to define the
+ *      PRU device names with an identifier like xxxxxxxx.pru0 agnostic of
+ *      name defined in device tree.
+ */
+static struct of_dev_auxdata pruss_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,am3352-pru", 0x4a334000, "4a334000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,am3352-pru", 0x4a338000, "4a338000.pru1", NULL),
+	{ /* sentinel */ },
+};
+
+static const struct of_device_id pruss_of_match[] = {
+	{ .compatible = "ti,am3352-pruss", },
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, pruss_of_match);
+
+static struct platform_driver pruss_driver = {
+	.driver = {
+		.name = "ti-pruss",
+		.of_match_table = pruss_of_match,
+	},
+	.probe  = pruss_probe,
+	.remove = pruss_remove,
+};
+module_platform_driver(pruss_driver);
+
+MODULE_AUTHOR("Suman Anna <s-anna@ti.com>");
+MODULE_DESCRIPTION("PRU-ICSS Subsystem Driver");
+MODULE_LICENSE("GPL v2");
