@@ -60,6 +60,10 @@
 			};
 		};
 
+		ddr3edac: edac@21010000 {
+			status = "ok";
+		};
+
 		mpm_mem: dspmem {
 			compatible = "ti,keystone-dsp-mem";
 			reg = <0x0c000000 0x00200000>,
