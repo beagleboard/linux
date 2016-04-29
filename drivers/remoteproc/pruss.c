@@ -33,9 +33,21 @@
 /**
  * struct pruss_private_data - PRUSS driver private data
  * @aux_data: auxiliary data used for creating the child nodes
+ * @has_reset: flag to indicate the presence of global module reset
  */
 struct pruss_private_data {
 	struct of_dev_auxdata *aux_data;
+	bool has_reset;
+};
+
+/**
+ * struct pruss_match_private_data - private data to handle multiple instances
+ * @device_name: device name of the PRUSS instance
+ * @priv_data: PRUSS driver private data for this PRUSS instance
+ */
+struct pruss_match_private_data {
+	const char *device_name;
+	struct pruss_private_data *priv_data;
 };
 
 static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
@@ -261,6 +273,30 @@ static void pruss_intc_init(struct pruss *pruss)
 
 static const struct of_device_id pruss_of_match[];
 
+static const
+struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	const struct pruss_match_private_data *data;
+	const struct of_device_id *match;
+
+	match = of_match_device(pruss_of_match, &pdev->dev);
+	if (!match)
+		return ERR_PTR(-ENODEV);
+
+	if (of_device_is_compatible(np, "ti,am3352-pruss") ||
+	    of_device_is_compatible(np, "ti,am4372-pruss"))
+		return match->data;
+
+	data = match->data;
+	for (; data && data->device_name; data++) {
+		if (!strcmp(dev_name(&pdev->dev), data->device_name))
+			return data->priv_data;
+	}
+
+	return NULL;
+}
+
 static int pruss_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -279,15 +315,15 @@ static int pruss_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	if (!pdata || !pdata->deassert_reset || !pdata->assert_reset ||
-	    !pdata->reset_name) {
-		dev_err(dev, "platform data (reset configuration information) missing\n");
+	data = pruss_get_private_data(pdev);
+	if (IS_ERR_OR_NULL(data)) {
+		dev_err(dev, "missing private data\n");
 		return -ENODEV;
 	}
 
-	data = of_match_device(pruss_of_match, dev)->data;
-	if (!data) {
-		dev_err(dev, "missing private data\n");
+	if (data->has_reset && (!pdata || !pdata->deassert_reset ||
+				!pdata->assert_reset || !pdata->reset_name)) {
+		dev_err(dev, "platform data (reset configuration information) missing\n");
 		return -ENODEV;
 	}
 
@@ -328,10 +364,12 @@ static int pruss_probe(struct platform_device *pdev)
 			pruss->mem_regions[i].size, pruss->mem_regions[i].va);
 	}
 
-	ret = pdata->deassert_reset(pdev, pdata->reset_name);
-	if (ret) {
-		dev_err(dev, "deassert_reset failed: %d\n", ret);
-		goto err_fail;
+	if (data->has_reset) {
+		ret = pdata->deassert_reset(pdev, pdata->reset_name);
+		if (ret) {
+			dev_err(dev, "deassert_reset failed: %d\n", ret);
+			goto err_fail;
+		}
 	}
 
 	pm_runtime_enable(dev);
@@ -359,7 +397,8 @@ err_of_fail:
 	pm_runtime_put_sync(dev);
 err_rpm_fail:
 	pm_runtime_disable(dev);
-	pdata->assert_reset(pdev, pdata->reset_name);
+	if (data->has_reset)
+		pdata->assert_reset(pdev, pdata->reset_name);
 err_fail:
 	return ret;
 }
@@ -368,13 +407,15 @@ static int pruss_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct pruss_platform_data *pdata = dev_get_platdata(dev);
+	struct pruss *pruss = platform_get_drvdata(pdev);
 
 	dev_info(dev, "remove PRU cores and other child platform devices\n");
 	of_platform_depopulate(dev);
 
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
-	pdata->assert_reset(pdev, pdata->reset_name);
+	if (pruss->data->has_reset)
+		pdata->assert_reset(pdev, pdata->reset_name);
 
 	return 0;
 }
@@ -401,18 +442,55 @@ static struct of_dev_auxdata am437x_pruss1_rproc_auxdata_lookup[] = {
 	{ /* sentinel */ },
 };
 
+static struct of_dev_auxdata am57xx_pruss1_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b234000, "4b234000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b238000, "4b238000.pru1", NULL),
+	{ /* sentinel */ },
+};
+
+static struct of_dev_auxdata am57xx_pruss2_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b2b4000, "4b2b4000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b2b8000, "4b2b8000.pru1", NULL),
+	{ /* sentinel */ },
+};
+
 /* instance-specific driver private data */
 static struct pruss_private_data am335x_priv_data = {
 	.aux_data = am335x_pruss_rproc_auxdata_lookup,
+	.has_reset = true,
 };
 
 static struct pruss_private_data am437x_priv_data = {
 	.aux_data = am437x_pruss1_rproc_auxdata_lookup,
+	.has_reset = true,
+};
+
+static struct pruss_private_data am57xx_pruss1_priv_data = {
+	.aux_data = am57xx_pruss1_rproc_auxdata_lookup,
+};
+
+static struct pruss_private_data am57xx_pruss2_priv_data = {
+	.aux_data = am57xx_pruss2_rproc_auxdata_lookup,
+};
+
+static struct pruss_match_private_data am57xx_match_data[] = {
+	{
+		.device_name	= "4b200000.pruss",
+		.priv_data	= &am57xx_pruss1_priv_data,
+	},
+	{
+		.device_name	= "4b280000.pruss",
+		.priv_data	= &am57xx_pruss2_priv_data,
+	},
+	{
+		/* sentinel */
+	},
 };
 
 static const struct of_device_id pruss_of_match[] = {
 	{ .compatible = "ti,am3352-pruss", .data = &am335x_priv_data, },
 	{ .compatible = "ti,am4372-pruss", .data = &am437x_priv_data, },
+	{ .compatible = "ti,am5728-pruss", .data = &am57xx_match_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
