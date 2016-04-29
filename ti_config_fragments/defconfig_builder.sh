@@ -13,6 +13,8 @@
 PROCESSOR_TAG="processor:"
 BUILD_TYPE_TAG="type:"
 CONFIG_FRAGMENT_TAG="config-fragment="
+SDK_ENTRY_TAG="SDK_release"
+DISCLAIMER="\n*Please be advised that the Advanced Option defconfigs are\nfor test purposes only and have only been compiled tested.\n"
 
 set_working_directory()
 {
@@ -49,10 +51,19 @@ get_processors() {
 		if [ -z "$PROCESSOR_TEMP" ]; then
 			break
 		fi
-		if ! grep -qc "$PROCESSOR_TEMP" "$PROCESSOR_FILE"; then
-			y=$((y+1))
-			echo -e '\t'"$y". "$PROCESSOR_TEMP" >> "$PROCESSOR_FILE"
+
+		if [ "$PROCESSOR_TEMP" = "$DEFCONFIG_FILTER" ]; then
+			if ! grep -qc "$PROCESSOR_TEMP" "$PROCESSOR_FILE"; then
+				y=$((y+1))
+				echo -e '\t'"$y". "$PROCESSOR_TEMP" >> "$PROCESSOR_FILE"
+			fi
+		elif [ -z "$DEFCONFIG_FILTER" -a  "$PROCESSOR_TEMP" != "$SDK_ENTRY_TAG" ]; then
+			if ! grep -qc "$PROCESSOR_TEMP" "$PROCESSOR_FILE"; then
+				y=$((y+1))
+				echo -e '\t'"$y". "$PROCESSOR_TEMP" >> "$PROCESSOR_FILE"
+			fi
 		fi
+
 		sed -i "1d" "$TEMP_PROC_FILE"
 	done
 
@@ -210,6 +221,30 @@ get_build_details() {
 	done
 }
 
+choose_defconfig_type() {
+
+	echo -e '\t' "1. SDK Defconfigs"
+	echo -e '\t' "2. Advanced Options"
+
+	while true;
+	do
+		read -p "Please choose which defconfig type to build for or 'q' to exit: " REPLY
+		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
+			prepare_for_exit
+		elif [ "$REPLY" -gt '0' -a "$REPLY" -le '2' ]; then
+			if [ "$REPLY" -eq '1' ]; then
+				DEFCONFIG_FILTER="$SDK_ENTRY_TAG"
+			else
+				DEFCONFIG_FILTER=
+				echo -e "$DISCLAIMER"
+			fi
+			break
+		else
+			echo -e "\nThis is not a choice try again!\n"
+		fi
+	done
+}
+
 build_defconfig() {
 
 	if [ ! -z "$CONFIG_FILE" -a -e "$TI_WORKING_PATH/$CONFIG_FILE" ]; then
@@ -289,7 +324,14 @@ if [ ! -z "$CHOOSEN_BUILD_TYPE" ]; then
 	exit 0
 fi
 
-choose_processor
+choose_defconfig_type
+
+if [ -z "$DEFCONFIG_FILTER" ]; then
+	choose_processor
+else
+	CHOOSEN_PROCESSOR="$SDK_ENTRY_TAG"
+fi
+
 choose_build_type
 get_build_details
 
