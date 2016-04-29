@@ -128,6 +128,15 @@
 			clocks = <&atl_clkin2_ck>;
 		};
 	};
+
+	vmmcwl_fixed: fixedregulator-mmcwl {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmcwl_fixed";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio5 8 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 };
 
 &dra7_pmx_core {
@@ -168,6 +177,24 @@
 		pinctrl-single,pins = <
 			0x3d0   (MUX_MODE15 | PULL_UP)	/* dcan1_tx.off */
 			0x418   (MUX_MODE15 | PULL_UP)	/* wakeup0.off */
+		>;
+	};
+
+	wlan_pins: pinmux_wlan_pins {
+		pinctrl-single,pins = <
+			0x3e8 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart1_ctsn.mmc4_clk */
+			0x3ec (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart1_rtsn.mmc4_cmd */
+			0x3f0 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart2_rxd.mmc4_dat0 */
+			0x3f4 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart2_txd.mmc4_dat1 */
+			0x3f8 (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart2_ctsn.mmc4_dat2 */
+			0x3fc (PIN_INPUT_PULLUP | MUX_MODE3)	/* uart2_rtsn.mmc4_dat3 */
+			0x2cc (PIN_OUTPUT | MUX_MODE14)		/* mcasp1_axr6.gpio5_8 - WLAN_EN */
+		>;
+	};
+
+	wlirq_pins: pinmux_wlirq_pins {
+		pinctrl-single,pins = <
+			0x2c8 (PIN_INPUT_PULLUP | WAKEUP_EN | MUX_MODE14 ) /* mcasp1_axr5.gpio5_7 - WLAN_IRQ */
 		>;
 	};
 };
@@ -342,6 +369,11 @@
 			      <&dra7_pmx_core 0x3e0>;
 };
 
+&uart3 {
+	status = "okay";
+	gpios = <&pcf_gpio_21 14 GPIO_ACTIVE_LOW>;
+};
+
 &elm {
 	status = "okay";
 };
@@ -487,6 +519,26 @@
 	bus-width = <8>;
 	ti,non-removable;
 	max-frequency = <192000000>;
+};
+
+&mmc4 {
+	status = "okay";
+	vmmc-supply = <&vmmcwl_fixed>;
+	bus-width = <4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wlan_pins &wlirq_pins>;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	ti,non-removable;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@0 {
+		compatible = "ti,wl1835";
+		reg = <2>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
+	};
 };
 
 &mac {
