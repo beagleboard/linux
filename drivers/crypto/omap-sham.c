@@ -173,7 +173,7 @@ struct omap_sham_ctx {
 	struct omap_sham_hmac_ctx base[0];
 };
 
-#define OMAP_SHAM_QUEUE_LENGTH	1
+#define OMAP_SHAM_QUEUE_LENGTH	10
 
 struct omap_sham_algs_info {
 	struct ahash_alg	*algs_list;
@@ -239,6 +239,8 @@ static struct omap_sham_drv sham = {
 	.dev_list = LIST_HEAD_INIT(sham.dev_list),
 	.lock = __SPIN_LOCK_UNLOCKED(sham.lock),
 };
+
+static void omap_sham_done_task(unsigned long data);
 
 static inline u32 omap_sham_read(struct omap_sham_dev *dd, u32 offset)
 {
@@ -360,14 +362,6 @@ static void omap_sham_copy_ready_hash(struct ahash_request *req)
 
 static int omap_sham_hw_init(struct omap_sham_dev *dd)
 {
-	int err;
-
-	err = pm_runtime_get_sync(dd->dev);
-	if (err < 0) {
-		dev_err(dd->dev, "failed to get sync: %d\n", err);
-		return err;
-	}
-
 	if (!test_bit(FLAGS_INIT, &dd->flags)) {
 		set_bit(FLAGS_INIT, &dd->flags);
 		dd->err = 0;
@@ -813,7 +807,6 @@ static int omap_sham_update_dma_stop(struct omap_sham_dev *dd)
 {
 	struct omap_sham_reqctx *ctx = ahash_request_ctx(dd->req);
 
-	dmaengine_terminate_all(dd->dma_lch);
 
 	if (ctx->flags & BIT(FLAGS_SG)) {
 		dma_unmap_sg(dd->dev, ctx->sg, 1, DMA_TO_DEVICE);
@@ -999,13 +992,11 @@ static void omap_sham_finish_req(struct ahash_request *req, int err)
 	dd->flags &= ~(BIT(FLAGS_BUSY) | BIT(FLAGS_FINAL) | BIT(FLAGS_CPU) |
 			BIT(FLAGS_DMA_READY) | BIT(FLAGS_OUTPUT_READY));
 
-	pm_runtime_put(dd->dev);
-
 	if (req->base.complete)
 		req->base.complete(&req->base, err);
 
 	/* handle new request */
-	tasklet_schedule(&dd->done_task);
+	omap_sham_done_task((unsigned long)dd);
 }
 
 static int omap_sham_handle_queue(struct omap_sham_dev *dd,
@@ -1093,7 +1084,7 @@ static int omap_sham_update(struct ahash_request *req)
 	ctx->offset = 0;
 
 	if (ctx->flags & BIT(FLAGS_FINUP)) {
-		if ((ctx->digcnt + ctx->bufcnt + ctx->total) < 9) {
+		if ((ctx->digcnt + ctx->bufcnt + ctx->total) < 240) {
 			/*
 			* OMAP HW accel works only with buffers >= 9
 			* will switch to bypass in final()
@@ -1149,9 +1140,13 @@ static int omap_sham_final(struct ahash_request *req)
 	if (ctx->flags & BIT(FLAGS_ERROR))
 		return 0; /* uncompleted hash is not needed */
 
-	/* OMAP HW accel works only with buffers >= 9 */
-	/* HMAC is always >= 9 because ipad == block size */
-	if ((ctx->digcnt + ctx->bufcnt) < 9)
+	/*
+	 * OMAP HW accel works only with buffers >= 9.
+	 * HMAC is always >= 9 because ipad == block size.
+	 * If buffersize is less than 240, we use fallback SW encoding,
+	 * as using DMA + HW in this case doesn't provide any benefit.
+	 */
+	if ((ctx->digcnt + ctx->bufcnt) < 240)
 		return omap_sham_final_shash(req);
 	else if (ctx->bufcnt)
 		return omap_sham_enqueue(req, OP_FINAL);
@@ -1239,6 +1234,7 @@ static int omap_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 {
 	struct omap_sham_ctx *tctx = crypto_tfm_ctx(tfm);
 	const char *alg_name = crypto_tfm_alg_name(tfm);
+	struct omap_sham_dev *dd;
 
 	/* Allocate a fallback and abort if it failed. */
 	tctx->fallback = crypto_alloc_shash(alg_name, 0,
@@ -1266,6 +1262,13 @@ static int omap_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 
 	}
 
+	spin_lock_bh(&sham.lock);
+	list_for_each_entry(dd, &sham.dev_list, list) {
+		break;
+	}
+	spin_unlock_bh(&sham.lock);
+
+	pm_runtime_get_sync(dd->dev);
 	return 0;
 }
 
@@ -1307,6 +1310,7 @@ static int omap_sham_cra_sha512_init(struct crypto_tfm *tfm)
 static void omap_sham_cra_exit(struct crypto_tfm *tfm)
 {
 	struct omap_sham_ctx *tctx = crypto_tfm_ctx(tfm);
+	struct omap_sham_dev *dd;
 
 	crypto_free_shash(tctx->fallback);
 	tctx->fallback = NULL;
@@ -1315,6 +1319,42 @@ static void omap_sham_cra_exit(struct crypto_tfm *tfm)
 		struct omap_sham_hmac_ctx *bctx = tctx->base;
 		crypto_free_shash(bctx->shash);
 	}
+
+	spin_lock_bh(&sham.lock);
+	list_for_each_entry(dd, &sham.dev_list, list) {
+		break;
+	}
+	spin_unlock_bh(&sham.lock);
+
+	pm_runtime_get_sync(dd->dev);
+}
+
+static int omap_sham_export(struct ahash_request *req, void *out)
+{
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct omap_sham_reqctx *rctx = ahash_request_ctx(req);
+	struct omap_sham_ctx *ctx = crypto_ahash_ctx(tfm);
+	struct omap_sham_hmac_ctx *bctx = ctx->base;
+
+	memcpy(out, rctx, sizeof(*rctx));
+	memcpy(out + sizeof(*rctx), ctx, sizeof(*ctx));
+	memcpy(out + sizeof(*rctx) + sizeof(*ctx), bctx, sizeof(*bctx));
+
+	return 0;
+}
+
+static int omap_sham_import(struct ahash_request *req, const void *in)
+{
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct omap_sham_reqctx *rctx = ahash_request_ctx(req);
+	struct omap_sham_ctx *ctx = crypto_ahash_ctx(tfm);
+	struct omap_sham_hmac_ctx *bctx = ctx->base;
+
+	memcpy(rctx, in, sizeof(*rctx));
+	memcpy(ctx, in + sizeof(*rctx), sizeof(*ctx));
+	memcpy(bctx, in + sizeof(*rctx) + sizeof(*ctx), sizeof(*bctx));
+
+	return 0;
 }
 
 static struct ahash_alg algs_sha1_md5[] = {
@@ -1968,8 +2008,15 @@ static int omap_sham_probe(struct platform_device *pdev)
 
 	for (i = 0; i < dd->pdata->algs_info_size; i++) {
 		for (j = 0; j < dd->pdata->algs_info[i].size; j++) {
-			err = crypto_register_ahash(
-					&dd->pdata->algs_info[i].algs_list[j]);
+			struct ahash_alg *alg;
+
+			alg = &dd->pdata->algs_info[i].algs_list[j];
+			alg->export = omap_sham_export;
+			alg->import = omap_sham_import;
+			alg->halg.statesize = sizeof(struct omap_sham_reqctx) +
+				sizeof(struct omap_sham_ctx) +
+				sizeof(struct omap_sham_hmac_ctx);
+			err = crypto_register_ahash(alg);
 			if (err)
 				goto err_algs;
 
