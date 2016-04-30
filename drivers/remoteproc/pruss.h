@@ -62,6 +62,37 @@
 /* HIPIR register bit-fields */
 #define INTC_HIPIR_NONE_HINT	0x80000000
 
+/* PRU_ICSS_CFG registers */
+#define PRUSS_CFG_REVID		0x00
+#define PRUSS_CFG_SYSCFG	0x04
+#define PRUSS_CFG_GPCFG0	0x08
+#define PRUSS_CFG_GPCFG1	0x0C
+#define PRUSS_CFG_CGR		0x10
+#define PRUSS_CFG_ISRP		0x14
+#define PRUSS_CFG_ISP		0x18
+#define PRUSS_CFG_IESP		0x1C
+#define PRUSS_CFG_IECP		0x20
+#define PRUSS_CFG_SCRP		0x24
+#define PRUSS_CFG_PMAO		0x28
+#define PRUSS_CFG_MII_RT	0x2C
+#define PRUSS_CFG_IEPCLK	0x30
+#define PRUSS_CFG_SPP		0x34
+#define PRUSS_CFG_PIN_MX	0x40
+
+/* PRUSS_SYSCFG register bits */
+#define PRUSS_SYSCFG_SUB_MWAIT_READY	BIT(5)
+#define PRUSS_SYSCFG_STANDBY_INIT	BIT(4)
+
+#define PRUSS_SYSCFG_STANDBY_MODE_FORCE	(0 << 2)
+#define PRUSS_SYSCFG_STANDBY_MODE_NO	(1 << 2)
+#define PRUSS_SYSCFG_STANDBY_MODE_SMART	(2 << 2)
+#define PRUSS_SYSCFG_STANDBY_MODE_MASK	(3 << 2)
+
+#define PRUSS_SYSCFG_IDLE_MODE_FORCE	0
+#define PRUSS_SYSCFG_IDLE_MODE_NO	1
+#define PRUSS_SYSCFG_IDLE_MODE_SMART	2
+#define PRUSS_SYSCFG_IDLE_MODE_MASK	3
+
 /**
  * enum pruss_mem - PRUSS memory range identifiers
  */
@@ -108,6 +139,7 @@ struct pru_rproc;
  * @intc_config: local INTC configuration data
  * @host_mask: indicate which HOST IRQs are enabled
  * @intc_lock: mutex to serialize access to INTC
+ * @in_standby: flag for storing standby status
  */
 struct pruss {
 	struct device *dev;
@@ -116,6 +148,7 @@ struct pruss {
 	struct pruss_intc_config intc_config;
 	u32 host_mask;
 	struct mutex intc_lock; /* PRUSS INTC lock */
+	bool in_standby;
 };
 
 int pruss_intc_configure(struct pruss *pruss,
