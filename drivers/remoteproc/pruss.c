@@ -295,6 +295,23 @@ static inline void pruss_set_reg(struct pruss *pruss, enum pruss_mem region,
 	pruss_write_reg(pruss, region, reg, val);
 }
 
+/* firmware must be idle when calling this function */
+static void pruss_disable_module(struct pruss *pruss)
+{
+	/* configure Smart Standby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_MODE_MASK,
+		      PRUSS_SYSCFG_STANDBY_MODE_SMART);
+
+	/* initiate MStandby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_INIT,
+		      PRUSS_SYSCFG_STANDBY_INIT);
+
+	/* tell PRCM to initiate IDLE request */
+	pm_runtime_put_sync(pruss->dev);
+}
+
 /*
  * This function programs the PRUSS_SYSCFG.STANDBY_INIT bit to achieve dual
  * functionalities - one is to deassert the MStandby signal to the device
@@ -325,6 +342,33 @@ static int pruss_enable_ocp_master_ports(struct pruss *pruss)
 	}
 
 	return 0;
+}
+
+static int pruss_enable_module(struct pruss *pruss)
+{
+	int ret;
+
+	/* tell PRCM to de-assert IDLE request */
+	ret = pm_runtime_get_sync(pruss->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(pruss->dev);
+		return ret;
+	}
+
+	/* configure for smart idle & smart standby */
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_IDLE_MODE_MASK,
+		      PRUSS_SYSCFG_IDLE_MODE_SMART);
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+		      PRUSS_SYSCFG_STANDBY_MODE_MASK,
+		      PRUSS_SYSCFG_STANDBY_MODE_SMART);
+
+	/* enable OCP master ports/disable MStandby */
+	ret = pruss_enable_ocp_master_ports(pruss);
+	if (ret)
+		pruss_disable_module(pruss);
+
+	return ret;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -463,10 +507,9 @@ static int pruss_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
-	ret = pm_runtime_get_sync(dev);
+	ret = pruss_enable_module(pruss);
 	if (ret < 0) {
-		pm_runtime_put_noidle(dev);
-		dev_err(dev, "pm_runtime_get_sync failed\n");
+		dev_err(dev, "couldn't enable pruss\n");
 		goto err_rpm_fail;
 	}
 
@@ -484,7 +527,7 @@ static int pruss_probe(struct platform_device *pdev)
 	return 0;
 
 err_of_fail:
-	pm_runtime_put_sync(dev);
+	pruss_disable_module(pruss);
 err_rpm_fail:
 	pm_runtime_disable(dev);
 	if (data->has_reset)
@@ -502,7 +545,7 @@ static int pruss_remove(struct platform_device *pdev)
 	dev_info(dev, "remove PRU cores and other child platform devices\n");
 	of_platform_depopulate(dev);
 
-	pm_runtime_put_sync(dev);
+	pruss_disable_module(pruss);
 	pm_runtime_disable(dev);
 	if (pruss->data->has_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
