@@ -52,6 +52,17 @@ struct pruss_mem_region {
 	size_t size;
 };
 
+/**
+ * enum pruss_pru_id - PRUSS GPI configuration modes, used
+ *		       to program the PRUSS_GPCFG0/1 registers
+ */
+enum pruss_gpi_mode {
+	PRUSS_GPI_MODE_DIRECT = 0,
+	PRUSS_GPI_MODE_PARALLEL,
+	PRUSS_GPI_MODE_28BIT_SHIFT,
+	PRUSS_GPI_MODE_MII,
+};
+
 struct pruss;
 
 #if IS_ENABLED(CONFIG_PRUSS_REMOTEPROC)
@@ -65,6 +76,10 @@ int pruss_request_mem_region(struct pruss *pruss, enum pruss_mem mem_id,
 			     struct pruss_mem_region *region);
 int pruss_release_mem_region(struct pruss *pruss,
 			     struct pruss_mem_region *region);
+int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
+		      enum pruss_gpi_mode mode);
+void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable);
+void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable);
 
 #else
 
@@ -95,6 +110,16 @@ static inline int pruss_release_mem_region(struct pruss *pruss,
 {
 	return ERR_PTR(-ENOTSUPP);
 }
+
+static inline int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
+				    enum pruss_gpi_mode mode)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable) { }
+
+static inline void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable) { }
 
 #endif /* CONFIG_PRUSS_REMOTEPROC */
 

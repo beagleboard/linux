@@ -644,6 +644,76 @@ static int pruss_enable_module(struct pruss *pruss)
 	return ret;
 }
 
+/**
+ * pruss_cfg_gpimode() - set the GPI mode of the PRU
+ * @pruss: the pruss instance handle
+ * @rproc: the rproc instance handle of the PRU
+ * @mode: GPI mode to set
+ *
+ * Sets the GPI mode for a given PRU by programming the
+ * corresponding PRUSS_CFG_GPCFGx register
+ *
+ * Returns 0 on success, or an error code otherwise
+ */
+int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
+		      enum pruss_gpi_mode mode)
+{
+	u32 reg;
+	int pru_id;
+
+	pru_id = pruss_rproc_to_pru_id(pruss, rproc);
+	if (pru_id < 0 || pru_id >= PRUSS_NUM_PRUS) {
+		dev_err(pruss->dev, "%s: PRU id not found, %d\n",
+			__func__, pru_id);
+		return -EINVAL;
+	}
+
+	reg = PRUSS_CFG_GPCFG0 + (0x4 * pru_id);
+
+	mutex_lock(&pruss->cfg_lock);
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, reg,
+		      PRUSS_GPCFG_PRU_GPI_MODE_MASK,
+		      mode << PRUSS_GPCFG_PRU_GPI_MODE_SHIFT);
+	mutex_unlock(&pruss->cfg_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_cfg_gpimode);
+
+/**
+ * pruss_cfg_miirt_enable() - Enable/disable MII RT Events
+ * @pruss: the pruss instance
+ * @enable: enable/disable
+ *
+ * Enable/disable the MII RT Events for the PRUSS.
+ */
+void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable)
+{
+	u32 set = enable ? PRUSS_MII_RT_EVENT_EN : 0;
+
+	mutex_lock(&pruss->cfg_lock);
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_MII_RT,
+		      PRUSS_MII_RT_EVENT_EN, set);
+	mutex_unlock(&pruss->cfg_lock);
+}
+EXPORT_SYMBOL_GPL(pruss_cfg_miirt_enable);
+
+/**
+ * pruss_cfg_xfr_enable() - Enable/disable XIN XOUT shift functionality
+ * @pruss: the pruss instance
+ * @enable: enable/disable
+ */
+void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable)
+{
+	u32 set = enable ? PRUSS_SPP_XFER_SHIFT_EN : 0;
+
+	mutex_lock(&pruss->cfg_lock);
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SPP,
+		      PRUSS_SPP_XFER_SHIFT_EN, set);
+	mutex_unlock(&pruss->cfg_lock);
+}
+EXPORT_SYMBOL_GPL(pruss_cfg_xfr_enable);
+
 #ifdef CONFIG_PM_SLEEP
 static int pruss_suspend(struct device *dev)
 {
@@ -748,6 +818,7 @@ static int pruss_probe(struct platform_device *pdev)
 	pruss->data = data;
 	mutex_init(&pruss->lock);
 	mutex_init(&pruss->intc_lock);
+	mutex_init(&pruss->cfg_lock);
 
 	for (i = 0; i < ARRAY_SIZE(pruss->intc_config.sysev_to_ch); i++)
 		pruss->intc_config.sysev_to_ch[i] = -1;
