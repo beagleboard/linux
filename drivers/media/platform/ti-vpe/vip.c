@@ -258,6 +258,9 @@ static void free_port(struct vip_port *);
 static int vip_setup_parser(struct vip_port *port);
 static int vip_setup_scaler(struct vip_stream *stream);
 static void stop_dma(struct vip_stream *stream);
+static inline bool is_scaler_available(struct vip_port *port);
+static inline bool allocate_scaler(struct vip_port *port);
+static inline void free_scaler(struct vip_port *port);
 
 #define reg_read(dev, offset) ioread32(dev->base + offset)
 #define reg_write(dev, offset, val) iowrite32(val, dev->base + offset)
@@ -1212,6 +1215,8 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	if (found) {
 		port->try_mbus_framefmt.width = f->fmt.pix.width;
 		port->try_mbus_framefmt.height = f->fmt.pix.height;
+		/* No need to check for scaling */
+		goto calc_size;
 	} else if (f->fmt.pix.width > largest_width) {
 		port->try_mbus_framefmt.width = largest_width;
 		port->try_mbus_framefmt.height = largest_height;
@@ -1226,7 +1231,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		port->try_mbus_framefmt.width,
 		port->try_mbus_framefmt.height);
 
-	if (port->scaler &&
+	if (is_scaler_available(port) &&
 	    f->fmt.pix.height <= port->try_mbus_framefmt.height) {
 		/* scaling up is allowed only horizontally */
 		unsigned int hratio, vratio, width_align, height_align;
@@ -1267,6 +1272,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		f->fmt.pix.height = port->try_mbus_framefmt.height;
 	}
 
+calc_size:
 	/* That we have a fmt calculate imagesize and bytesperline */
 	return vip_calc_format_size(port, fmt, f);
 }
@@ -1326,6 +1332,22 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 		vip_err(dev, "%s queue busy\n", __func__);
 		return -EBUSY;
 	}
+
+	/*
+	 * Check if we need the scaler or not
+	 *
+	 * Since on previous S_FMT call the scaler might have been
+	 * allocated if it is not needed in this instance we will
+	 * attempt to free it just in case.
+	 *
+	 * free_scaler() is harmless unless the current port
+	 * allocated it.
+	 */
+	if (f->fmt.pix.width == port->try_mbus_framefmt.width &&
+	    f->fmt.pix.height == port->try_mbus_framefmt.height)
+		free_scaler(port);
+	else
+		allocate_scaler(port);
 
 	port->fmt = find_port_format_by_pix(port,
 					    f->fmt.pix.pixelformat);
@@ -1917,13 +1939,34 @@ done:
 	return 0;
 }
 
-static bool is_scaler_available(struct vip_port *port)
+static inline bool is_scaler_available(struct vip_port *port)
 {
 	if (port->num_streams_configured == 1)
 		if (port->dev->sc_assigned == VIP_NOT_ASSIGNED ||
 		    port->dev->sc_assigned == port->port_id)
 			return true;
 	return false;
+}
+
+static inline bool allocate_scaler(struct vip_port *port)
+{
+	if (port->num_streams_configured == 1) {
+		if (port->dev->sc_assigned == VIP_NOT_ASSIGNED ||
+		    port->dev->sc_assigned == port->port_id) {
+			port->dev->sc_assigned = port->port_id;
+			port->scaler = true;
+			return true;
+		}
+	}
+	return false;
+}
+
+static inline void free_scaler(struct vip_port *port)
+{
+	if (port->dev->sc_assigned == port->port_id) {
+		port->dev->sc_assigned = VIP_NOT_ASSIGNED;
+		port->scaler = false;
+	}
 }
 
 static int vip_init_port(struct vip_port *port)
@@ -2000,12 +2043,6 @@ static int vip_init_port(struct vip_port *port)
 
 	init_adb_hdrs(port);
 
-	port->load_mmrs = true;
-
-	if (is_scaler_available(port)) {
-		port->dev->sc_assigned = port->port_id;
-		port->scaler = true;
-	}
 done:
 	port->num_streams++;
 	return 0;
@@ -2227,11 +2264,6 @@ static void vip_release_port(struct vip_port *port)
 	vip_dbg(1, dev, "%s: port instance %pa\n",
 		__func__, &port);
 
-	if (port->dev->sc_assigned == port->port_id) {
-		port->dev->sc_assigned = VIP_NOT_ASSIGNED;
-		port->scaler = false;
-	}
-
 	vpdma_free_desc_buf(&port->mmr_adb);
 	vpdma_free_desc_buf(&port->sc_coeff_h);
 	vpdma_free_desc_buf(&port->sc_coeff_v);
@@ -2306,6 +2338,8 @@ static int vip_release(struct file *file)
 
 	/* the release helper will cleanup any on-going streaming */
 	ret = _vb2_fop_release(file, NULL);
+
+	free_scaler(port);
 
 	/*
 	 * If this is the last open file.
