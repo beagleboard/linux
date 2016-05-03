@@ -24,6 +24,7 @@
 #include <video/omapdss.h>
 #include <video/omap-panel-data.h>
 #include <video/of_display_timing.h>
+#include <video/mipi_display.h>
 
 #define TC358768_NAME		"tc358768"
 
@@ -200,6 +201,21 @@ static int tc358768_update_bits(struct tc358768_drv_data *ddata,
 		ret = tc358768_write(ddata, reg, tmp);
 
 	return ret;
+}
+
+static int tc358768_dsi_xfer_short(struct tc358768_drv_data *ddata,
+	u8 data_id, u8 data0, u8 data1)
+{
+	const u8 packet_type = 0x10; /* DSI Short Packet */
+	const u8 word_count = 0;
+
+	tc358768_write(ddata, TC358768_DSICMD_TYPE,
+		(packet_type << 8) | data_id);
+	tc358768_write(ddata, TC358768_DSICMD_WC, (word_count & 0xf));
+	tc358768_write(ddata, TC358768_DSICMD_WD0, (data1 << 8) | data0);
+	tc358768_write(ddata, TC358768_DSICMD_TX, 1); /* start transfer */
+
+	return 0;
 }
 
 static void tc358768_sw_reset(struct tc358768_drv_data *ddata)
@@ -501,6 +517,9 @@ static int tc358768_enable(struct omap_dss_device *dssdev)
 	usleep_range(1000, 2000);
 
 	tc358768_power_on(ddata);
+
+	/* enable panel */
+	tc358768_dsi_xfer_short(ddata, MIPI_DSI_TURN_ON_PERIPHERAL, 0, 0);
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
