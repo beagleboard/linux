@@ -236,7 +236,9 @@ static int omap_connect_dssdevs(void)
 {
 	int r;
 	struct omap_dss_device *dssdev = NULL;
-	bool no_displays = true;
+
+	if (!omapdss_stack_is_ready())
+		return -EPROBE_DEFER;
 
 	for_each_dss_dev(dssdev) {
 		r = dssdev->driver->connect(dssdev);
@@ -246,13 +248,8 @@ static int omap_connect_dssdevs(void)
 		} else if (r) {
 			dev_warn(dssdev->dev, "could not connect display: %s\n",
 				dssdev->name);
-		} else {
-			no_displays = false;
 		}
 	}
-
-	if (no_displays)
-		return -EPROBE_DEFER;
 
 	return 0;
 
