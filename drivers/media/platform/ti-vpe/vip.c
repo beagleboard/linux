@@ -474,46 +474,63 @@ static void vip_set_data_interface(struct vip_port *port,
 }
 
 static void vip_set_slice_path(struct vip_dev *dev,
-			       enum data_path_select data_path)
+			       enum data_path_select data_path, u32 path_val)
 {
 	u32 val = 0;
+	int data_path_reg;
+
+	vip_dbg(3, dev, "%s:\n", __func__);
+
+	data_path_reg = VIP_VIP1_DATA_PATH_SELECT + 4 * dev->slice_id;
 
 	switch (data_path) {
-	case VIP_MULTI_CHANNEL_DATA_SELECT:
-		if (dev->slice_id == VIP_SLICE1) {
-			val |= VIP_MULTI_CHANNEL_SELECT;
-			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
-				     VIP_DATAPATH_SELECT_SHFT);
-
-			reg_write(dev, VIP_VIP1_DATA_PATH_SELECT, val);
-		} else if (dev->slice_id == VIP_SLICE2) {
-			val |= VIP_MULTI_CHANNEL_SELECT;
-			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
-				     VIP_DATAPATH_SELECT_SHFT);
-
-			reg_write(dev, VIP_VIP2_DATA_PATH_SELECT, val);
-		}
+	case ALL_FIELDS_DATA_SELECT:
+		val |= path_val;
+		break;
+	case VIP_CSC_SRC_DATA_SELECT:
+		insert_field(&val, path_val, VIP_CSC_SRC_SELECT_MASK,
+			     VIP_CSC_SRC_SELECT_SHFT);
+		break;
+	case VIP_SC_SRC_DATA_SELECT:
+		insert_field(&val, path_val, VIP_SC_SRC_SELECT_MASK,
+			     VIP_SC_SRC_SELECT_SHFT);
+		break;
+	case VIP_RGB_SRC_DATA_SELECT:
+		val |= (path_val) ? VIP_RGB_SRC_SELECT : 0;
 		break;
 	case VIP_RGB_OUT_LO_DATA_SELECT:
-		if (dev->slice_id == VIP_SLICE1) {
-			val |= VIP_RGB_OUT_LO_SRC_SELECT;
-			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
-				     VIP_DATAPATH_SELECT_SHFT);
-
-			reg_write(dev, VIP_VIP1_DATA_PATH_SELECT, val);
-		} else if (dev->slice_id == VIP_SLICE2) {
-			val |= VIP_RGB_OUT_LO_SRC_SELECT;
-			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
-				     VIP_DATAPATH_SELECT_SHFT);
-
-			reg_write(dev, VIP_VIP2_DATA_PATH_SELECT, val);
-		}
+		val |= (path_val) ? VIP_RGB_OUT_LO_SRC_SELECT : 0;
+		break;
+	case VIP_RGB_OUT_HI_DATA_SELECT:
+		val |= (path_val) ? VIP_RGB_OUT_LO_SRC_SELECT : 0;
+		break;
+	case VIP_CHR_DS_1_SRC_DATA_SELECT:
+		insert_field(&val, path_val, VIP_DS1_SRC_SELECT_MASK,
+			     VIP_DS1_SRC_SELECT_SHFT);
+		break;
+	case VIP_CHR_DS_2_SRC_DATA_SELECT:
+		insert_field(&val, path_val, VIP_DS2_SRC_SELECT_MASK,
+			     VIP_DS2_SRC_SELECT_SHFT);
+		break;
+	case VIP_MULTI_CHANNEL_DATA_SELECT:
+		val |= (path_val) ? VIP_MULTI_CHANNEL_SELECT : 0;
+		break;
+	case VIP_CHR_DS_1_DATA_BYPASS:
+		val |= (path_val) ? VIP_DS1_BYPASS : 0;
+		break;
+	case VIP_CHR_DS_2_DATA_BYPASS:
+		val |= (path_val) ? VIP_DS2_BYPASS : 0;
 		break;
 	default:
 		vip_err(dev, "%s: data_path 0x%x is not valid\n",
 			__func__, data_path);
 		return;
 	}
+	insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
+		     VIP_DATAPATH_SELECT_SHFT);
+	reg_write(dev, data_path_reg, val);
+	vip_dbg(3, dev, "%s: DATA_PATH_SELECT(%08X): %08X\n", __func__,
+		data_path_reg, reg_read(dev, data_path_reg));
 }
 
 /*
@@ -1406,25 +1423,15 @@ static void vip_disable_sc_path(struct vip_stream *stream)
 {
 	struct vip_dev *dev = stream->port->dev;
 	struct vip_port *port = stream->port;
-	int data_path_reg;
-	u32 val;
 
 	vip_dbg(3, dev, "%s:\n", __func__);
 
-	data_path_reg = VIP_VIP1_DATA_PATH_SELECT + 4 * dev->slice_id;
-	val = reg_read(dev, data_path_reg);
+	if (!port->scaler)
+		return;
 
-	if (port->scaler) {
-		insert_field(&val, 0, VIP_SC_SRC_SELECT_MASK,
-			     VIP_SC_SRC_SELECT_SHFT);
-		vip_dbg(3, dev, "%s: DATA_PATH_SELECT(%08X): %08X\n", __func__,
-			data_path_reg, val);
-		reg_write(dev, data_path_reg, val);
-	}
+	vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 0);
+
 	usleep_range(200, 250);
-
-	vip_dbg(3, dev, "%s: DATA_PATH_SELECT(%08X): %08X\n", __func__,
-		data_path_reg, reg_read(dev, data_path_reg));
 }
 
 /*
@@ -1434,13 +1441,12 @@ static void set_fmt_params(struct vip_stream *stream)
 {
 	struct vip_dev *dev = stream->port->dev;
 	struct vip_port *port = stream->port;
-	int data_path_reg;
 
 	stream->sequence = 0;
 	stream->field = V4L2_FIELD_TOP;
 
 	if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB) {
-		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT);
+		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 1);
 		/* Set alpha component in background color */
 		vpdma_set_bg_color(dev->shared->vpdma,
 				   (struct vpdma_data_format *)
@@ -1448,7 +1454,6 @@ static void set_fmt_params(struct vip_stream *stream)
 				   0xff);
 	}
 
-	data_path_reg = VIP_VIP1_DATA_PATH_SELECT + 4 * dev->slice_id;
 	if (port->scaler && port->fmt->coplanar) {
 		port->flags &= ~FLAG_MULT_PORT;
 		if (port->port_id == VIP_PORTA) {
@@ -1459,7 +1464,8 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * CHR_DS_1_SRC_SELECT  = 1
 			 * CHR_DS_2_BYPASS      = 1
 			 */
-			reg_write(dev, data_path_reg, 0x20210);
+			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+					   0x20210);
 		} else {
 			/*
 			 * Input B: YUV422
@@ -1468,7 +1474,8 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * CHR_DS_2_SRC_SELECT  = 1
 			 * CHR_DS_2_BYPASS      = 0
 			 */
-			reg_write(dev, data_path_reg, 0x01018);
+			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+					   0x01018);
 		}
 	} else if (port->scaler) {
 		port->flags &= ~FLAG_MULT_PORT;
@@ -1481,7 +1488,8 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * CHR_DS_1_BYPASS      = 1
 			 * CHR_DS_2_BYPASS      = 1?
 			 */
-			reg_write(dev, data_path_reg, 0x10210);
+			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+					   0x10210);
 		} else {
 			/*
 			 * Input B: YUV422
@@ -1491,7 +1499,8 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * CHR_DS_1_BYPASS      = 1
 			 * CHR_DS_2_BYPASS      = 1
 			 */
-			reg_write(dev, data_path_reg, 0x31018);
+			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+					   0x31018);
 		}
 	} else if (port->fmt->coplanar) {
 		port->flags &= ~FLAG_MULT_PORT;
@@ -1501,7 +1510,8 @@ static void set_fmt_params(struct vip_stream *stream)
 		 * CHR_DS_1_SRC_SELECT  = 3
 		 * CHR_DS_2_SRC_SELECT  = 4
 		 */
-		reg_write(dev, data_path_reg, 0x4600);
+		vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+				   0x4600);
 	} else {
 		port->flags |= FLAG_MULT_PORT;
 		/*
@@ -1509,11 +1519,9 @@ static void set_fmt_params(struct vip_stream *stream)
 		 * Output: Y_LO: YUV422 - UV_LO: YUV422
 		 * MULTI_CHANNEL_SELECT = 1
 		 */
-		reg_write(dev, data_path_reg, 0x8000);
+		vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+				   0x8000);
 	}
-
-	vip_dbg(3, dev, "%s: DATA_PATH_SELECT(%08X): %08X\n", __func__,
-		data_path_reg, reg_read(dev, data_path_reg));
 }
 
 static int vip_g_selection(struct file *file, void *fh,
@@ -2949,7 +2957,7 @@ static int vip_probe(struct platform_device *pdev)
 		}
 
 		vip_top_reset(dev);
-		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT);
+		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT, 1);
 
 		parser = devm_kzalloc(&pdev->dev, sizeof(*dev->parser),
 				      GFP_KERNEL);
