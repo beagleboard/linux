@@ -258,6 +258,9 @@ static void free_port(struct vip_port *);
 static int vip_setup_parser(struct vip_port *port);
 static int vip_setup_scaler(struct vip_stream *stream);
 static void stop_dma(struct vip_stream *stream);
+static inline bool is_scaler_available(struct vip_port *port);
+static inline bool allocate_scaler(struct vip_port *port);
+static inline void free_scaler(struct vip_port *port);
 
 #define reg_read(dev, offset) ioread32(dev->base + offset)
 #define reg_write(dev, offset, val) iowrite32(val, dev->base + offset)
@@ -471,46 +474,63 @@ static void vip_set_data_interface(struct vip_port *port,
 }
 
 static void vip_set_slice_path(struct vip_dev *dev,
-			       enum data_path_select data_path)
+			       enum data_path_select data_path, u32 path_val)
 {
 	u32 val = 0;
+	int data_path_reg;
+
+	vip_dbg(3, dev, "%s:\n", __func__);
+
+	data_path_reg = VIP_VIP1_DATA_PATH_SELECT + 4 * dev->slice_id;
 
 	switch (data_path) {
-	case VIP_MULTI_CHANNEL_DATA_SELECT:
-		if (dev->slice_id == VIP_SLICE1) {
-			val |= VIP_MULTI_CHANNEL_SELECT;
-			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
-				     VIP_DATAPATH_SELECT_SHFT);
-
-			reg_write(dev, VIP_VIP1_DATA_PATH_SELECT, val);
-		} else if (dev->slice_id == VIP_SLICE2) {
-			val |= VIP_MULTI_CHANNEL_SELECT;
-			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
-				     VIP_DATAPATH_SELECT_SHFT);
-
-			reg_write(dev, VIP_VIP2_DATA_PATH_SELECT, val);
-		}
+	case ALL_FIELDS_DATA_SELECT:
+		val |= path_val;
+		break;
+	case VIP_CSC_SRC_DATA_SELECT:
+		insert_field(&val, path_val, VIP_CSC_SRC_SELECT_MASK,
+			     VIP_CSC_SRC_SELECT_SHFT);
+		break;
+	case VIP_SC_SRC_DATA_SELECT:
+		insert_field(&val, path_val, VIP_SC_SRC_SELECT_MASK,
+			     VIP_SC_SRC_SELECT_SHFT);
+		break;
+	case VIP_RGB_SRC_DATA_SELECT:
+		val |= (path_val) ? VIP_RGB_SRC_SELECT : 0;
 		break;
 	case VIP_RGB_OUT_LO_DATA_SELECT:
-		if (dev->slice_id == VIP_SLICE1) {
-			val |= VIP_RGB_OUT_LO_SRC_SELECT;
-			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
-				     VIP_DATAPATH_SELECT_SHFT);
-
-			reg_write(dev, VIP_VIP1_DATA_PATH_SELECT, val);
-		} else if (dev->slice_id == VIP_SLICE2) {
-			val |= VIP_RGB_OUT_LO_SRC_SELECT;
-			insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
-				     VIP_DATAPATH_SELECT_SHFT);
-
-			reg_write(dev, VIP_VIP2_DATA_PATH_SELECT, val);
-		}
+		val |= (path_val) ? VIP_RGB_OUT_LO_SRC_SELECT : 0;
+		break;
+	case VIP_RGB_OUT_HI_DATA_SELECT:
+		val |= (path_val) ? VIP_RGB_OUT_LO_SRC_SELECT : 0;
+		break;
+	case VIP_CHR_DS_1_SRC_DATA_SELECT:
+		insert_field(&val, path_val, VIP_DS1_SRC_SELECT_MASK,
+			     VIP_DS1_SRC_SELECT_SHFT);
+		break;
+	case VIP_CHR_DS_2_SRC_DATA_SELECT:
+		insert_field(&val, path_val, VIP_DS2_SRC_SELECT_MASK,
+			     VIP_DS2_SRC_SELECT_SHFT);
+		break;
+	case VIP_MULTI_CHANNEL_DATA_SELECT:
+		val |= (path_val) ? VIP_MULTI_CHANNEL_SELECT : 0;
+		break;
+	case VIP_CHR_DS_1_DATA_BYPASS:
+		val |= (path_val) ? VIP_DS1_BYPASS : 0;
+		break;
+	case VIP_CHR_DS_2_DATA_BYPASS:
+		val |= (path_val) ? VIP_DS2_BYPASS : 0;
 		break;
 	default:
 		vip_err(dev, "%s: data_path 0x%x is not valid\n",
 			__func__, data_path);
 		return;
 	}
+	insert_field(&val, data_path, VIP_DATAPATH_SELECT_MASK,
+		     VIP_DATAPATH_SELECT_SHFT);
+	reg_write(dev, data_path_reg, val);
+	vip_dbg(3, dev, "%s: DATA_PATH_SELECT(%08X): %08X\n", __func__,
+		data_path_reg, reg_read(dev, data_path_reg));
 }
 
 /*
@@ -1212,6 +1232,8 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	if (found) {
 		port->try_mbus_framefmt.width = f->fmt.pix.width;
 		port->try_mbus_framefmt.height = f->fmt.pix.height;
+		/* No need to check for scaling */
+		goto calc_size;
 	} else if (f->fmt.pix.width > largest_width) {
 		port->try_mbus_framefmt.width = largest_width;
 		port->try_mbus_framefmt.height = largest_height;
@@ -1226,7 +1248,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		port->try_mbus_framefmt.width,
 		port->try_mbus_framefmt.height);
 
-	if (port->scaler &&
+	if (is_scaler_available(port) &&
 	    f->fmt.pix.height <= port->try_mbus_framefmt.height) {
 		/* scaling up is allowed only horizontally */
 		unsigned int hratio, vratio, width_align, height_align;
@@ -1267,6 +1289,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		f->fmt.pix.height = port->try_mbus_framefmt.height;
 	}
 
+calc_size:
 	/* That we have a fmt calculate imagesize and bytesperline */
 	return vip_calc_format_size(port, fmt, f);
 }
@@ -1327,6 +1350,22 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 		return -EBUSY;
 	}
 
+	/*
+	 * Check if we need the scaler or not
+	 *
+	 * Since on previous S_FMT call the scaler might have been
+	 * allocated if it is not needed in this instance we will
+	 * attempt to free it just in case.
+	 *
+	 * free_scaler() is harmless unless the current port
+	 * allocated it.
+	 */
+	if (f->fmt.pix.width == port->try_mbus_framefmt.width &&
+	    f->fmt.pix.height == port->try_mbus_framefmt.height)
+		free_scaler(port);
+	else
+		allocate_scaler(port);
+
 	port->fmt = find_port_format_by_pix(port,
 					    f->fmt.pix.pixelformat);
 	stream->width		= f->fmt.pix.width;
@@ -1380,6 +1419,21 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	return 0;
 }
 
+static void vip_disable_sc_path(struct vip_stream *stream)
+{
+	struct vip_dev *dev = stream->port->dev;
+	struct vip_port *port = stream->port;
+
+	vip_dbg(3, dev, "%s:\n", __func__);
+
+	if (!port->scaler)
+		return;
+
+	vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 0);
+
+	usleep_range(200, 250);
+}
+
 /*
  * Set the registers that are modified when the video format changes.
  */
@@ -1387,14 +1441,12 @@ static void set_fmt_params(struct vip_stream *stream)
 {
 	struct vip_dev *dev = stream->port->dev;
 	struct vip_port *port = stream->port;
-	struct vip_mmr_adb *mmr_adb = port->mmr_adb.addr;
-	int data_path_reg;
 
 	stream->sequence = 0;
 	stream->field = V4L2_FIELD_TOP;
 
 	if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB) {
-		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT);
+		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 1);
 		/* Set alpha component in background color */
 		vpdma_set_bg_color(dev->shared->vpdma,
 				   (struct vpdma_data_format *)
@@ -1402,7 +1454,6 @@ static void set_fmt_params(struct vip_stream *stream)
 				   0xff);
 	}
 
-	data_path_reg = VIP_VIP1_DATA_PATH_SELECT + 4 * dev->slice_id;
 	if (port->scaler && port->fmt->coplanar) {
 		port->flags &= ~FLAG_MULT_PORT;
 		if (port->port_id == VIP_PORTA) {
@@ -1413,7 +1464,8 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * CHR_DS_1_SRC_SELECT  = 1
 			 * CHR_DS_2_BYPASS      = 1
 			 */
-			reg_write(dev, data_path_reg, 0x20210);
+			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+					   0x20210);
 		} else {
 			/*
 			 * Input B: YUV422
@@ -1422,7 +1474,8 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * CHR_DS_2_SRC_SELECT  = 1
 			 * CHR_DS_2_BYPASS      = 0
 			 */
-			reg_write(dev, data_path_reg, 0x01018);
+			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+					   0x01018);
 		}
 	} else if (port->scaler) {
 		port->flags &= ~FLAG_MULT_PORT;
@@ -1435,7 +1488,8 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * CHR_DS_1_BYPASS      = 1
 			 * CHR_DS_2_BYPASS      = 1?
 			 */
-			reg_write(dev, data_path_reg, 0x10210);
+			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+					   0x10210);
 		} else {
 			/*
 			 * Input B: YUV422
@@ -1445,7 +1499,8 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * CHR_DS_1_BYPASS      = 1
 			 * CHR_DS_2_BYPASS      = 1
 			 */
-			reg_write(dev, data_path_reg, 0x31018);
+			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+					   0x31018);
 		}
 	} else if (port->fmt->coplanar) {
 		port->flags &= ~FLAG_MULT_PORT;
@@ -1455,7 +1510,8 @@ static void set_fmt_params(struct vip_stream *stream)
 		 * CHR_DS_1_SRC_SELECT  = 3
 		 * CHR_DS_2_SRC_SELECT  = 4
 		 */
-		reg_write(dev, data_path_reg, 0x4600);
+		vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+				   0x4600);
 	} else {
 		port->flags |= FLAG_MULT_PORT;
 		/*
@@ -1463,26 +1519,8 @@ static void set_fmt_params(struct vip_stream *stream)
 		 * Output: Y_LO: YUV422 - UV_LO: YUV422
 		 * MULTI_CHANNEL_SELECT = 1
 		 */
-		reg_write(dev, data_path_reg, 0x8000);
-	}
-
-	vip_dbg(3, dev, "%s: DATA_PATH_SELECT(%08X): %08X\n", __func__,
-		data_path_reg, reg_read(dev, data_path_reg));
-
-	if (port->scaler) {
-		sc_set_hs_coeffs(dev->sc, port->sc_coeff_h.addr,
-				 port->mbus_framefmt.width,
-				 port->c_rect.width);
-		sc_set_vs_coeffs(dev->sc, port->sc_coeff_v.addr,
-				 port->mbus_framefmt.height,
-				 port->c_rect.height);
-		sc_config_scaler(dev->sc, &mmr_adb->sc_regs0[0],
-				 &mmr_adb->sc_regs8[0], &mmr_adb->sc_regs17[0],
-				 port->mbus_framefmt.width,
-				 port->mbus_framefmt.height,
-				 port->c_rect.width,
-				 port->c_rect.height);
-		port->load_mmrs = true;
+		vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
+				   0x8000);
 	}
 }
 
@@ -1544,8 +1582,6 @@ static int vip_s_selection(struct file *file, void *fh,
 
 	s->r = r;
 	stream->port->c_rect = r;
-
-	set_fmt_params(stream);
 
 	vip_dbg(1, port->dev, "cropped (%d,%d)/%dx%d of %dx%d\n",
 		r.left, r.top, r.width, r.height,
@@ -1668,12 +1704,28 @@ static int vip_setup_scaler(struct vip_stream *stream)
 	struct vip_dev *dev = port->dev;
 	struct sc_data *sc = dev->sc;
 	struct vpdma_data *vpdma = dev->shared->vpdma;
+	struct vip_mmr_adb *mmr_adb = port->mmr_adb.addr;
 	int list_num = stream->list_num;
 	int timeout = 500;
 
 	/* if scaler not associated with this port then skip */
-	if (!port->scaler)
+	if (!port->scaler) {
 		return 0;
+	} else {
+		sc_set_hs_coeffs(sc, port->sc_coeff_h.addr,
+				 port->mbus_framefmt.width,
+				 port->c_rect.width);
+		sc_set_vs_coeffs(sc, port->sc_coeff_v.addr,
+				 port->mbus_framefmt.height,
+				 port->c_rect.height);
+		sc_config_scaler(sc, &mmr_adb->sc_regs0[0],
+				 &mmr_adb->sc_regs8[0], &mmr_adb->sc_regs17[0],
+				 port->mbus_framefmt.width,
+				 port->mbus_framefmt.height,
+				 port->c_rect.width,
+				 port->c_rect.height);
+		port->load_mmrs = true;
+	}
 
 	/* If coeff are already loaded then skip */
 	if (!sc->load_coeff_v && !sc->load_coeff_h)
@@ -1754,10 +1806,18 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	unsigned long flags;
 	int ret;
 
+	vip_setup_scaler(stream);
+
+	/*
+	 * Make sure the scaler is configured before the datapath is
+	 * enabled. The scaler can only load the coefficient
+	 * parameters when it is idle. If the scaler path is enabled
+	 * and video data is being received then the VPDMA transfer will
+	 * stall indefinetely.
+	 */
 	set_fmt_params(stream);
 	vip_setup_parser(port);
 
-	vip_setup_scaler(stream);
 
 	buf = list_entry(stream->vidq.next,
 			 struct vip_buffer, list);
@@ -1826,6 +1886,8 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 
 	vip_dbg(2, dev, "%s:\n", __func__);
 
+	vip_disable_sc_path(stream);
+
 	if (port->subdev) {
 		ret = v4l2_subdev_call(port->subdev, video, s_stream, 0);
 		if (ret)
@@ -1885,13 +1947,34 @@ done:
 	return 0;
 }
 
-static bool is_scaler_available(struct vip_port *port)
+static inline bool is_scaler_available(struct vip_port *port)
 {
 	if (port->num_streams_configured == 1)
 		if (port->dev->sc_assigned == VIP_NOT_ASSIGNED ||
 		    port->dev->sc_assigned == port->port_id)
 			return true;
 	return false;
+}
+
+static inline bool allocate_scaler(struct vip_port *port)
+{
+	if (port->num_streams_configured == 1) {
+		if (port->dev->sc_assigned == VIP_NOT_ASSIGNED ||
+		    port->dev->sc_assigned == port->port_id) {
+			port->dev->sc_assigned = port->port_id;
+			port->scaler = true;
+			return true;
+		}
+	}
+	return false;
+}
+
+static inline void free_scaler(struct vip_port *port)
+{
+	if (port->dev->sc_assigned == port->port_id) {
+		port->dev->sc_assigned = VIP_NOT_ASSIGNED;
+		port->scaler = false;
+	}
 }
 
 static int vip_init_port(struct vip_port *port)
@@ -1968,12 +2051,6 @@ static int vip_init_port(struct vip_port *port)
 
 	init_adb_hdrs(port);
 
-	port->load_mmrs = true;
-
-	if (is_scaler_available(port)) {
-		port->dev->sc_assigned = port->port_id;
-		port->scaler = true;
-	}
 done:
 	port->num_streams++;
 	return 0;
@@ -2066,9 +2143,9 @@ static int vip_set_crop_parser(struct vip_port *port)
 		     VIP_ACT_USE_NUMPIX_MASK, VIP_ACT_USE_NUMPIX_SHFT);
 	reg_write(parser, VIP_PARSER_CROP_H_PORT(port->port_id), hcrop);
 
-	insert_field(&hcrop, 0, VIP_ACT_SKIP_NUMLINES_MASK,
+	insert_field(&vcrop, 0, VIP_ACT_SKIP_NUMLINES_MASK,
 		     VIP_ACT_SKIP_NUMLINES_SHFT);
-	insert_field(&hcrop, port->mbus_framefmt.width,
+	insert_field(&vcrop, port->mbus_framefmt.height,
 		     VIP_ACT_USE_NUMLINES_MASK, VIP_ACT_USE_NUMLINES_SHFT);
 	reg_write(parser, VIP_PARSER_CROP_V_PORT(port->port_id), vcrop);
 
@@ -2195,11 +2272,6 @@ static void vip_release_port(struct vip_port *port)
 	vip_dbg(1, dev, "%s: port instance %pa\n",
 		__func__, &port);
 
-	if (port->dev->sc_assigned == port->port_id) {
-		port->dev->sc_assigned = VIP_NOT_ASSIGNED;
-		port->scaler = false;
-	}
-
 	vpdma_free_desc_buf(&port->mmr_adb);
 	vpdma_free_desc_buf(&port->sc_coeff_h);
 	vpdma_free_desc_buf(&port->sc_coeff_v);
@@ -2274,6 +2346,8 @@ static int vip_release(struct file *file)
 
 	/* the release helper will cleanup any on-going streaming */
 	ret = _vb2_fop_release(file, NULL);
+
+	free_scaler(port);
 
 	/*
 	 * If this is the last open file.
@@ -2883,7 +2957,7 @@ static int vip_probe(struct platform_device *pdev)
 		}
 
 		vip_top_reset(dev);
-		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT);
+		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT, 1);
 
 		parser = devm_kzalloc(&pdev->dev, sizeof(*dev->parser),
 				      GFP_KERNEL);
