@@ -1,0 +1,34 @@
+Texas Instruments SGX 3D Graphics Processing Unit
+
+SGX is a 3D Graphics Processing Unit from Imagination Technologies. SGX is
+codename for 5th generation / Series 5 of PowerVR chipset family. This binding
+describes PowerVR SGX GPU integrated in Texas Instrument SoCs.
+
+Required properties:
+ - compatible : value should take the following format:
+	"ti,<soc>-<gpuversion>", "img,<gpuversion>"
+
+   accepted values:
+	(a) "ti,dra7-sgx544", "img,sgx544" for TI DRA7xx / AM57x
+	(b) "ti,am4376-sgx530", "img,sgx530" for TI AM43x
+	(c) "ti,am3352-sgx530", "img,sgx530" for TI AM33x
+ - reg: base address and length of the SGX registers
+ - interrupts : SGX interrupt number
+ - ti,hwmods: Name of the hwmod associated with the SGX
+ - clocks : from SoC clock binding
+
+Optional properties:
+ - reg-names : names of registers listed in reg property in same order
+ - clock-names : names of clocks listed in clocks property in the same order
+
+Example:
+	sgx@0x56000000 {
+		compatible = "ti,dra7-sgx544", "img,sgx544";
+		reg = <0x5600fe00 0x200>;
+		reg-names = "gpu_ocp_base";
+		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+		ti,hwmods = "gpu";
+		clocks = <&l3_iclk_div>, <&gpu_core_gclk_mux>,
+			 <&gpu_hyd_gclk_mux>;
+		clock-names = "iclk", "fclk1", "fclk2";
+	};
