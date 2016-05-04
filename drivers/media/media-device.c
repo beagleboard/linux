@@ -396,16 +396,16 @@ int __must_check __media_device_register(struct media_device *mdev,
 	devnode->release = media_device_release;
 	ret = media_devnode_register(mdev, devnode, owner);
 	if (ret < 0) {
+		/* devnode free is handled in media_devnode_*() */
 		mdev->devnode = NULL;
-		kfree(devnode);
 		return ret;
 	}
 
 	ret = device_create_file(&devnode->dev, &dev_attr_model);
 	if (ret < 0) {
+		/* devnode free is handled in media_devnode_*() */
 		mdev->devnode = NULL;
 		media_devnode_unregister(devnode);
-		kfree(devnode);
 		return ret;
 	}
 
@@ -430,6 +430,8 @@ void media_device_unregister(struct media_device *mdev)
 	if (media_devnode_is_registered(mdev->devnode)) {
 		device_remove_file(&mdev->devnode->dev, &dev_attr_model);
 		media_devnode_unregister(mdev->devnode);
+		/* devnode free is handled in media_devnode_*() */
+		mdev->devnode = NULL;
 	}
 }
 EXPORT_SYMBOL_GPL(media_device_unregister);
