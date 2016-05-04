@@ -302,6 +302,9 @@ wait_emif_enable:
 	cmp	r2, r3
 	bne	wait_emif_enable
 
+	ldr	r1, ti_emif_abort_sr
+	blx	r1
+
 	/*
 	 * Set SCTLR.C bit to allow data cache allocation
 	 */
@@ -309,9 +312,6 @@ wait_emif_enable:
 	orr	r0, r0, #(1 << 2)	@ Enable the C bit
 	mcr	p15, 0, r0, c1, c0, 0
 	isb
-
-	ldr	r1, ti_emif_abort_sr
-	blx	r1
 
 	/* EMIF needs some time before read/write possible */
 	mov r0, #EMIF_POWER_MGMT_DELAY_PERIOD
