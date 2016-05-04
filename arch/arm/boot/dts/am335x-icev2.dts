@@ -189,6 +189,17 @@
 			AM33XX_IOPAD(0x938, PIN_OUTPUT_PULLUP | MUX_MODE1) /* (L16) gmii1_rxd2.uart3_txd */
 		>;
 	};
+
+	pruss_mdio_default: pruss_mdio_default {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x88c, (PIN_OUTPUT | MUX_MODE5))		/* gpmc_clk.pr1_mdio_mdclk */
+			AM33XX_IOPAD(0x888, (PIN_INPUT  | MUX_MODE5))		/* gpmc_csn3.pr1_mdio_data */
+			AM33XX_IOPAD(0x89c, (PIN_INPUT_PULLUP | MUX_MODE7))	/* gpmc_ben0_cle.gpio2_5 */
+			/* disable CPSW MDIO */
+			AM33XX_IOPAD(0x948, (PIN_INPUT_PULLUP | MUX_MODE7))	/* mdio_data.gpio0_0 */
+			AM33XX_IOPAD(0x94c, (PIN_INPUT_PULLUP | MUX_MODE7))	/* mdio_clk.gpio0_1 */
+		>;
+	};
 };
 
 &i2c0 {
@@ -330,4 +341,18 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins_default>;
 	status = "okay";
+};
+
+&pruss_mdio {
+	pinctrl-0 = <&pruss_mdio_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	pruss_eth0_phy: ethernet-phy@1 {
+		 reg = <1>;
+	 };
+
+	pruss_eth1_phy: ethernet-phy@3 {
+		 reg = <3>;
+	 };
 };
