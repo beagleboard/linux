@@ -110,16 +110,16 @@
 
 	mmc2_pins_hs: pinmux_mmc2_hs_pins {
 		pinctrl-single,pins = <
-			0x08C	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_a19.mmc2_dat4 */
-			0x090	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_a20.mmc2_dat5 */
-			0x094	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_a21.mmc2_dat6 */
-			0x098	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_a22.mmc2_dat7 */
-			0x09C	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_a23.mmc2_clk */
-			0x0A0	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_a24.mmc2_dat0 */
-			0x0A4	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_a25.mmc2_dat1 */
-			0x0A8	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_a26.mmc2_dat2 */
-			0x0AC	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_a27.mmc2_dat3 */
-			0x0B0	(PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE13 | MUX_MODE1)	/* gpmc_cs1.mmc2_cmd */
+			0x08C	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a19.mmc2_dat4 */
+			0x090	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a20.mmc2_dat5 */
+			0x094	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a21.mmc2_dat6 */
+			0x098	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a22.mmc2_dat7 */
+			0x09C	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a23.mmc2_clk */
+			0x0A0	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a24.mmc2_dat0 */
+			0x0A4	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a25.mmc2_dat1 */
+			0x0A8	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a26.mmc2_dat2 */
+			0x0AC	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a27.mmc2_dat3 */
+			0x0B0	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_cs1.mmc2_cmd */
 		>;
 	};
 
