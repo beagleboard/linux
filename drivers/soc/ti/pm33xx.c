@@ -73,6 +73,19 @@ static struct wkup_m3_wakeup_src rtc_ext_wakeup = {
 };
 #endif /* CONFIG_SUSPEND */
 
+static int am33xx_do_sram_idle(u32 wfi_flags)
+{
+	int ret = 0;
+
+	if (!m3_ipc || !pm_ops)
+		return 0;
+
+	if (wfi_flags & WFI_FLAG_WAKE_M3)
+		ret = m3_ipc->ops->prepare_low_power(m3_ipc, WKUP_M3_IDLE);
+
+	return pm_ops->cpu_suspend(am33xx_do_wfi_sram, wfi_flags);
+}
+
 /*
  * Push the minimal suspend-resume code to SRAM
  */
@@ -413,7 +426,7 @@ static int am33xx_pm_probe(struct platform_device *pdev)
 	suspend_wfi_flags |= WFI_FLAG_SAVE_EMIF;
 	suspend_wfi_flags |= WFI_FLAG_WAKE_M3;
 
-	ret = pm_ops->init(NULL);
+	ret = pm_ops->init(am33xx_do_sram_idle);
 	if (ret) {
 		pr_err("Unable to call core pm init!\n");
 		ret = -ENODEV;
@@ -432,6 +445,8 @@ err_free_sram:
 
 static int am33xx_pm_remove(struct platform_device *pdev)
 {
+	if (pm_ops->deinit)
+		pm_ops->deinit();
 	suspend_set_ops(NULL);
 	wkup_m3_ipc_put(m3_ipc);
 	gen_pool_free(sram_pool, ocmcram_location, *pm_sram->do_wfi_sz);
