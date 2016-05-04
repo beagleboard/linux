@@ -1162,6 +1162,7 @@ static int dss_bind(struct device *dev)
 
 	pm_set_vt_switch(0);
 
+	omapdss_gather_components(dev);
 	omapdss_set_is_initialized(true);
 
 	return 0;
