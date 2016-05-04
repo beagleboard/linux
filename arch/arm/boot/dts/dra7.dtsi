@@ -520,7 +520,7 @@
 			ti,hwmods = "uart1";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma_xbar 49>, <&sdma_xbar 50>;
+			dmas = <&edma_xbar 49 0>, <&edma_xbar 50 0>;
 			dma-names = "tx", "rx";
 		};
 
@@ -531,7 +531,7 @@
 			ti,hwmods = "uart2";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma_xbar 51>, <&sdma_xbar 52>;
+			dmas = <&edma_xbar 51 0>, <&edma_xbar 52 0>;
 			dma-names = "tx", "rx";
 		};
 
@@ -542,7 +542,7 @@
 			ti,hwmods = "uart3";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma_xbar 53>, <&sdma_xbar 54>;
+			dmas = <&edma_xbar 53 0>, <&edma_xbar 54 0>;
 			dma-names = "tx", "rx";
 		};
 
@@ -553,7 +553,7 @@
 			ti,hwmods = "uart4";
 			clock-frequency = <48000000>;
                         status = "disabled";
-			dmas = <&sdma_xbar 55>, <&sdma_xbar 56>;
+			dmas = <&edma_xbar 55 0>, <&edma_xbar 56 0>;
 			dma-names = "tx", "rx";
 		};
 
@@ -564,7 +564,7 @@
 			ti,hwmods = "uart5";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma_xbar 63>, <&sdma_xbar 64>;
+			dmas = <&edma_xbar 63 0>, <&edma_xbar 64 0>;
 			dma-names = "tx", "rx";
 		};
 
@@ -575,7 +575,7 @@
 			ti,hwmods = "uart6";
 			clock-frequency = <48000000>;
 			status = "disabled";
-			dmas = <&sdma_xbar 79>, <&sdma_xbar 80>;
+			dmas = <&edma_xbar 79 0>, <&edma_xbar 80 0>;
 			dma-names = "tx", "rx";
 		};
 
