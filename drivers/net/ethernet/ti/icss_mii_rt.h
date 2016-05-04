@@ -1,0 +1,91 @@
+/*
+ * PRU-ICSS MII_RT register definitions
+ *
+ * Copyright (C) 2016 Texas Instruments Incorporated - http://www.ti.com
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef __NET_PRUSS_MII_RT_H__
+#define __NET_PRUSS_MII_RT_H__
+
+/* PRUSS_MII_RT Registers */
+#define PRUSS_MII_RT_RXCFG0		(0x0)
+#define PRUSS_MII_RT_RXCFG1		(0x4)
+#define PRUSS_MII_RT_TXCFG0		(0x10)
+#define PRUSS_MII_RT_TXCFG1		(0x14)
+#define PRUSS_MII_RT_TX_CRC0		(0x20)
+#define PRUSS_MII_RT_TX_CRC1		(0x24)
+#define PRUSS_MII_RT_TX_IPG0		(0x30)
+#define PRUSS_MII_RT_TX_IPG1		(0x34)
+#define PRUSS_MII_RT_PRS0		(0x38)
+#define PRUSS_MII_RT_PRS1		(0x3c)
+#define PRUSS_MII_RT_RX_FRMS0		(0x40)
+#define PRUSS_MII_RT_RX_FRMS1		(0x44)
+#define PRUSS_MII_RT_RX_PCNT0		(0x48)
+#define PRUSS_MII_RT_RX_PCNT1		(0x4c)
+#define PRUSS_MII_RT_RX_ERR0		(0x50)
+#define PRUSS_MII_RT_RX_ERR1		(0x54)
+
+/* PRUSS_MII_RT_RXCFG0/1 bits */
+#define PRUSS_MII_RT_RXCFG_RX_ENABLE		BIT(0)
+#define PRUSS_MII_RT_RXCFG_RX_DATA_RDY_MODE_DIS	BIT(1)
+#define PRUSS_MII_RT_RXCFG_RX_CUT_PREAMBLE	BIT(2)
+#define PRUSS_MII_RT_RXCFG_RX_MUX_SEL		BIT(3)
+#define PRUSS_MII_RT_RXCFG_RX_L2_EN		BIT(4)
+#define PRUSS_MII_RT_RXCFG_RX_BYTE_SWAP		BIT(5)
+#define PRUSS_MII_RT_RXCFG_RX_AUTO_FWD_PRE	BIT(6)
+#define PRUSS_MII_RT_RXCFG_RX_L2_EOF_SCLR_DIS	BIT(9)
+
+/* PRUSS_MII_RT_TXCFG0/1 bits */
+#define PRUSS_MII_RT_TXCFG_TX_ENABLE		BIT(0)
+#define PRUSS_MII_RT_TXCFG_TX_AUTO_PREAMBLE	BIT(1)
+#define PRUSS_MII_RT_TXCFG_TX_EN_MODE		BIT(2)
+#define PRUSS_MII_RT_TXCFG_TX_BYTE_SWAP		BIT(3)
+#define PRUSS_MII_RT_TXCFG_TX_MUX_SEL		BIT(8)
+#define PRUSS_MII_RT_TXCFG_PRE_TX_AUTO_SEQUENCE	BIT(9)
+#define PRUSS_MII_RT_TXCFG_PRE_TX_AUTO_ESC_ERR	BIT(10)
+#define PRUSS_MII_RT_TXCFG_TX_32_MODE_EN	BIT(11)
+
+#define PRUSS_MII_RT_TXCFG_TX_START_DELAY_SHIFT	16
+#define PRUSS_MII_RT_TXCFG_TX_START_DELAY_MASK	GENMASK(25, 16)
+
+#define PRUSS_MII_RT_TXCFG_TX_CLK_DELAY_SHIFT	28
+#define PRUSS_MII_RT_TXCFG_TX_CLK_DELAY_MASK	GENMASK(30, 28)
+
+/* PRUSS_MII_RT_TX_IPG0/1 bits */
+#define PRUSS_MII_RT_TX_IPG_IPG_SHIFT	0
+#define PRUSS_MII_RT_TX_IPG_IPG_MASK	GENMASK(9, 0)
+
+/* PRUSS_MII_RT_PRS0/1 bits */
+#define PRUSS_MII_RT_PRS_COL	BIT(0)
+#define PRUSS_MII_RT_PRS_CRS	BIT(1)
+
+/* PRUSS_MII_RT_RX_FRMS0/1 bits */
+#define PRUSS_MII_RT_RX_FRMS_MIN_FRM_SHIFT	0
+#define PRUSS_MII_RT_RX_FRMS_MIN_FRM_MASK	GENMASK(15, 0)
+
+#define PRUSS_MII_RT_RX_FRMS_MAX_FRM_SHIFT	16
+#define PRUSS_MII_RT_RX_FRMS_MAX_FRM_MASK	GENMASK(31, 16)
+
+/* PRUSS_MII_RT_RX_PCNT0/1 bits */
+#define PRUSS_MII_RT_RX_PCNT_MIN_PCNT_SHIFT	0
+#define PRUSS_MII_RT_RX_PCNT_MIN_PCNT_MASK	GENMASK(3, 0)
+
+#define PRUSS_MII_RT_RX_PCNT_MAX_PCNT_SHIFT	4
+#define PRUSS_MII_RT_RX_PCNT_MAX_PCNT_MASK	GENMASK(7, 4)
+
+/* PRUSS_MII_RT_RX_ERR0/1 bits */
+#define PRUSS_MII_RT_RX_ERR_MIN_PCNT_ERR	BIT(0)
+#define PRUSS_MII_RT_RX_ERR_MAX_PCNT_ERR	BIT(1)
+#define PRUSS_MII_RT_RX_ERR_MIN_FRM_ERR		BIT(2)
+#define PRUSS_MII_RT_RX_ERR_MAX_FRM_ERR		BIT(3)
+
+#endif /* __NET_PRUSS_MII_RT_H__ */
