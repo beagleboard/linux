@@ -825,3 +825,7 @@
 	assigned-clocks = <&mux_synctimer32k_ck>;
 	assigned-clock-parents = <&clkdiv32k_ick>;
 };
+
+&sgx {
+	status = "okay";
+};
