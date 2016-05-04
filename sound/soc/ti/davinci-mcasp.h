@@ -302,11 +302,6 @@
 #define NUMEVT(x)	(((x) & 0xFF) << 8)
 #define NUMDMA_MASK	(0xFF)
 
-/* clock divider IDs */
-#define MCASP_CLKDIV_AUXCLK		0 /* HCLK divider from AUXCLK */
-#define MCASP_CLKDIV_BCLK		1 /* BCLK divider from HCLK */
-#define MCASP_CLKDIV_BCLK_FS_RATIO	2 /* to set BCLK FS ration */
-
 #if IS_ENABLED(CONFIG_SND_SOC_DAVINCI_MCASP)
 int davinci_mcasp_set_serializer_dir(struct snd_soc_dai *dai, u8 num_serializer,
 				     u8 *serial_dir);

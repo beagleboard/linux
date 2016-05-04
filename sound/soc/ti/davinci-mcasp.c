@@ -36,6 +36,7 @@
 #include <sound/initval.h>
 #include <sound/soc.h>
 #include <sound/dmaengine_pcm.h>
+#include <dt-bindings/sound/ti-mcasp.h>
 
 #include "edma-pcm.h"
 #include "sdma-pcm.h"
