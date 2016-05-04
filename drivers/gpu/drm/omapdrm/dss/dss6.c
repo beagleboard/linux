@@ -249,6 +249,7 @@ static int dss6_bind(struct device *dev)
 	if (r)
 		goto err_component;
 
+	omapdss_gather_components(dev);
 	omapdss_set_is_initialized(true);
 
 	return 0;

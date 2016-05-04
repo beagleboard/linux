@@ -725,3 +725,7 @@
 &lcdc {
       status = "okay";
 };
+
+&sgx {
+	status = "okay";
+};
