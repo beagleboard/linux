@@ -409,7 +409,7 @@ static int am33xx_pm_probe(struct platform_device *pdev)
 	suspend_wfi_flags |= WFI_FLAG_SAVE_EMIF;
 	suspend_wfi_flags |= WFI_FLAG_WAKE_M3;
 
-	ret = pm_ops->init();
+	ret = pm_ops->init(NULL);
 	if (ret) {
 		pr_err("Unable to call core pm init!\n");
 		ret = -ENODEV;
