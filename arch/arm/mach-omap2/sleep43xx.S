@@ -313,12 +313,6 @@ wait_emif_enable:
 	mcr	p15, 0, r0, c1, c0, 0
 	isb
 
-	/* EMIF needs some time before read/write possible */
-	mov r0, #EMIF_POWER_MGMT_DELAY_PERIOD
-wait_abt:
-	subs   r0, r0, #1
-	bne wait_abt
-
 	/* Let the suspend code know about the abort */
 	mov	r0, #1
 	ldmfd	sp!, {r4 - r11, pc}	@ restore regs and return
