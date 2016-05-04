@@ -304,6 +304,14 @@
 		>;
 	};
 
+	pruss1_mdio_default: pruss1_mdio_default {
+		pinctrl-single,pins = <
+			AM4372_IOPAD(0x88c, (PIN_OUTPUT | MUX_MODE5))		/* gpmc_clk.pr1_mdio_mdclk */
+			AM4372_IOPAD(0xa70, (PIN_INPUT  | MUX_MODE8))		/* xdma_event_intr0.pr1_mdio_data */
+			AM4372_IOPAD(0xa00, (PIN_INPUT_PULLUP | MUX_MODE7))	/* cam1_data6.gpio4_20 */
+		>;
+	};
+
 	qspi_pins_default: qspi_pins_default {
 		pinctrl-single,pins = <
 			0x7c (PIN_OUTPUT_PULLUP | MUX_MODE3)	/* gpmc_csn0.qspi_csn */
@@ -517,4 +525,18 @@
 
 &sgx {
 	status = "okay";
+};
+
+&pruss1_mdio {
+	pinctrl-0 = <&pruss1_mdio_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	pruss1_eth0_phy: ethernet-phy@0 {
+		reg = <0>;
+	};
+
+	pruss1_eth1_phy: ethernet-phy@1 {
+		reg = <1>;
+	};
 };
