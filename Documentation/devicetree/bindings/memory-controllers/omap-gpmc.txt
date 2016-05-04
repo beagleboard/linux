@@ -44,6 +44,10 @@ Required properties:
 			2 - GPMC_WAIT0 pin edge
 			3 - GPMC_WAIT1 pin edge, and so on.
 
+Required properties when using NAND prefetch dma:
+ - dmas			GPMC NAND prefetch dma channel
+ - dma-names		Must be set to "rxtx"
+
 Timing properties for child nodes. All are optional and default to 0.
 
  - gpmc,sync-clk-ps:	Minimum clock period for synchronous mode, in picoseconds
@@ -130,7 +134,8 @@ Example for an AM33xx board:
 		ti,hwmods = "gpmc";
 		reg = <0x50000000 0x2000>;
 		interrupts = <100>;
-
+		dmas = <&edma 52 0>;
+		dma-names = "rxtx";
 		gpmc,num-cs = <8>;
 		gpmc,num-waitpins = <2>;
 		#address-cells = <2>;
