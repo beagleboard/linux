@@ -22,6 +22,7 @@
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
+#include <linux/pruss.h>
 
 #include "remoteproc_internal.h"
 #include "pruss.h"
@@ -50,6 +51,9 @@
 #define PRU_DEBUG_GPREG(x)	(0x0000 + (x) * 4)
 #define PRU_DEBUG_CT_REG(x)	(0x0080 + (x) * 4)
 
+/* Bit-field definitions for PRU functional capabilities */
+#define PRU_FUNC_CAPS_ETHERNET	BIT(0)
+
 /**
  * enum pru_mem - PRU core memory range identifiers
  */
@@ -63,11 +67,15 @@ enum pru_mem {
 /**
  * struct pru_private_data - PRU core private data
  * @id: PRU index
+ * @caps: functional capabilities the PRU core can support
  * @fw_name: firmware name to be used for the PRU core
+ * @eth_fw_name: firmware name to be used for PRUSS ethernet usecases on IDKs
  */
 struct pru_private_data {
 	u32 id;
+	const int caps;
 	const char *fw_name;
+	const char *eth_fw_name;
 };
 
 /**
@@ -89,6 +97,7 @@ struct pru_match_private_data {
  * @client: mailbox client to request the mailbox channel
  * @mem_regions: data for each of the PRU memory regions
  * @intc_config: PRU INTC configuration data
+ * @rmw_lock: lock for read, modify, write operations on registers
  * @iram_da: device address of Instruction RAM for this PRU
  * @pdram_da: device address of primary Data RAM for this PRU
  * @sdram_da: device address of secondary Data RAM for this PRU
@@ -96,6 +105,7 @@ struct pru_match_private_data {
  * @fw_name: name of firmware image used during loading
  * @dbg_single_step: debug state variable to set PRU into single step mode
  * @dbg_continuous: debug state variable to restore PRU execution mode
+ * @use_eth: flag to indicate ethernet usecase functionality
  */
 struct pru_rproc {
 	int id;
@@ -105,6 +115,7 @@ struct pru_rproc {
 	struct mbox_client client;
 	struct pruss_mem_region mem_regions[PRU_MEM_MAX];
 	struct pruss_intc_config intc_config;
+	spinlock_t rmw_lock; /* register access lock */
 	u32 iram_da;
 	u32 pdram_da;
 	u32 sdram_da;
@@ -112,7 +123,12 @@ struct pru_rproc {
 	const char *fw_name;
 	u32 dbg_single_step;
 	u32 dbg_continuous;
+	bool use_eth;
 };
+
+static bool use_eth_fw = true; /* ignored for non-IDK platforms */
+module_param(use_eth_fw, bool, S_IRUGO);
+MODULE_PARM_DESC(use_eth_fw, "Use Ethernet firmware on applicable PRUs");
 
 static inline u32 pru_control_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
@@ -124,6 +140,54 @@ void pru_control_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
 {
 	writel_relaxed(val, pru->mem_regions[PRU_MEM_CTRL].va + reg);
 }
+
+static inline
+void pru_control_set_reg(struct pru_rproc *pru, unsigned int reg,
+			 u32 mask, u32 set)
+{
+	u32 val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&pru->rmw_lock, flags);
+
+	val = pru_control_read_reg(pru, reg);
+	val &= ~mask;
+	val |= (set & mask);
+	pru_control_write_reg(pru, reg, val);
+
+	spin_unlock_irqrestore(&pru->rmw_lock, flags);
+}
+
+/**
+ * pru_rproc_set_ctable() - set the constant table index for the PRU
+ * @rproc: the rproc instance of the PRU
+ * @c: constant table index to set
+ * @addr: physical address to set it to
+ */
+int pru_rproc_set_ctable(struct rproc *rproc, enum pru_ctable_idx c, u32 addr)
+{
+	struct pru_rproc *pru = rproc->priv;
+	unsigned reg;
+	u32 mask, set;
+	u16 idx;
+	u16 idx_mask;
+
+	/* pointer is 16 bit and index is 8-bit so mask out the rest */
+	idx_mask = (c >= PRU_C28) ? 0xFFFF : 0xFF;
+
+	/* ctable uses bit 8 and upwards only */
+	idx = (addr >> 8) & idx_mask;
+
+	/* configurable ctable (i.e. C24) starts at PRU_CTRL_CTBIR0 */
+	reg = PRU_CTRL_CTBIR0 + 4 * (c >> 1);
+	mask = idx_mask << (16 * (c & 1));
+	set = idx << (16 * (c & 1));
+
+	pru_control_set_reg(pru, reg, mask, set);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pru_rproc_set_ctable);
 
 static inline u32 pru_debug_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
@@ -574,6 +638,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret;
 	const char *mem_names[PRU_MEM_MAX] = { "iram", "control", "debug" };
+	bool use_eth = false;
 
 	if (!np) {
 		dev_err(dev, "Non-DT platform device not supported\n");
@@ -586,7 +651,20 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	rproc = rproc_alloc(dev, pdev->name, &pru_rproc_ops, pdata->fw_name,
+	/*
+	 * use a different firmware name for PRU cores supporting
+	 * PRUSS ethernet on specific boards
+	 */
+	if (of_machine_is_compatible("ti,am3359-icev2") ||
+	    of_machine_is_compatible("ti,am437x-idk-evm") ||
+	    of_machine_is_compatible("ti,am5728-idk") ||
+	    of_machine_is_compatible("ti,am5718-idk")) {
+		if (use_eth_fw && (pdata->caps & PRU_FUNC_CAPS_ETHERNET))
+			use_eth = true;
+	}
+
+	rproc = rproc_alloc(dev, pdev->name, &pru_rproc_ops,
+			    (use_eth ? pdata->eth_fw_name : pdata->fw_name),
 			    sizeof(*pru));
 	if (!rproc) {
 		dev_err(dev, "rproc_alloc failed\n");
@@ -599,7 +677,9 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	pru->id = pdata->id;
 	pru->pruss = platform_get_drvdata(ppdev);
 	pru->rproc = rproc;
-	pru->fw_name = pdata->fw_name;
+	pru->fw_name = use_eth ? pdata->eth_fw_name : pdata->fw_name;
+	pru->use_eth = use_eth;
+	spin_lock_init(&pru->rmw_lock);
 
 	/* XXX: get this from match data if different in the future */
 	pru->iram_da = 0;
@@ -654,13 +734,15 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	 * present, manually boot the PRU remoteproc, but only after
 	 * the remoteproc core is done with loading the firmware image.
 	 */
-	wait_for_completion(&pru->rproc->firmware_loading_complete);
-	if (list_empty(&pru->rproc->rvdevs)) {
-		dev_info(dev, "booting the PRU core manually\n");
-		ret = rproc_boot(pru->rproc);
-		if (ret) {
-			dev_err(dev, "rproc_boot failed\n");
-			goto del_rproc;
+	if (!pru->use_eth) {
+		wait_for_completion(&pru->rproc->firmware_loading_complete);
+		if (list_empty(&pru->rproc->rvdevs)) {
+			dev_info(dev, "booting the PRU core manually\n");
+			ret = rproc_boot(pru->rproc);
+			if (ret) {
+				dev_err(dev, "rproc_boot failed\n");
+				goto del_rproc;
+			}
 		}
 	}
 
@@ -685,9 +767,11 @@ static int pru_rproc_remove(struct platform_device *pdev)
 
 	dev_info(dev, "%s: removing rproc %s\n", __func__, rproc->name);
 
-	if (list_empty(&pru->rproc->rvdevs)) {
-		dev_info(dev, "stopping the manually booted PRU core\n");
-		rproc_shutdown(pru->rproc);
+	if (!pru->use_eth) {
+		if (list_empty(&pru->rproc->rvdevs)) {
+			dev_info(dev, "stopping the manually booted PRU core\n");
+			rproc_shutdown(pru->rproc);
+		}
 	}
 
 	mbox_free_channel(pru->mbox);
@@ -701,45 +785,59 @@ static int pru_rproc_remove(struct platform_device *pdev)
 /* AM33xx PRU core-specific private data */
 static struct pru_private_data am335x_pru0_rproc_pdata = {
 	.id = 0,
+	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am335x-pru0-fw",
+	.eth_fw_name = "ti-pruss/am335x-pru0-prueth-fw.elf",
 };
 
 static struct pru_private_data am335x_pru1_rproc_pdata = {
 	.id = 1,
+	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am335x-pru1-fw",
+	.eth_fw_name = "ti-pruss/am335x-pru1-prueth-fw.elf",
 };
 
 /* AM437x PRUSS1 PRU core-specific private data */
 static struct pru_private_data am437x_pru1_0_rproc_pdata = {
 	.id = 0,
+	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am437x-pru1_0-fw",
+	.eth_fw_name = "ti-pruss/am437x-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data am437x_pru1_1_rproc_pdata = {
 	.id = 1,
+	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am437x-pru1_1-fw",
+	.eth_fw_name = "ti-pruss/am437x-pru1-prueth-fw.elf"
 };
 
 /* AM57xx PRUSS1 PRU core-specific private data */
 static struct pru_private_data am57xx_pru1_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am57xx-pru1_0-fw",
+	.eth_fw_name = "ti-pruss/am57xx-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data am57xx_pru1_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am57xx-pru1_1-fw",
+	.eth_fw_name = "ti-pruss/am57xx-pru1-prueth-fw.elf"
 };
 
 /* AM57xx PRUSS2 PRU core-specific private data */
 static struct pru_private_data am57xx_pru2_0_rproc_pdata = {
 	.id = 0,
+	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am57xx-pru2_0-fw",
+	.eth_fw_name = "ti-pruss/am57xx-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data am57xx_pru2_1_rproc_pdata = {
 	.id = 1,
+	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am57xx-pru2_1-fw",
+	.eth_fw_name = "ti-pruss/am57xx-pru1-prueth-fw.elf"
 };
 
 /* AM33xx SoC-specific PRU Device data */

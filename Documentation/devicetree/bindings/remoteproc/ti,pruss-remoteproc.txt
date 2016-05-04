@@ -102,6 +102,9 @@ Each PRUSS has dual PRU cores, each represented by a PRU child node. Each node
 can optionally be rendered inactive by using the standard DT string property,
 "status".
 
+Each PRU child node must either be named "pru0" or "pru1", for the first and
+and second PRUs respectively.
+
 Required Properties:
 --------------------
 - compatible     : should be
@@ -138,6 +141,17 @@ used in TI Davinci SoCs. Please refer to the corresponding binding document,
 Documentation/devicetree/bindings/net/davinci-mdio.txt for details.
 
 
+Application/User Nodes
+=======================
+The PRUSS device node will typically get used by application/user nodes that
+define/represent a PRU application. Each application/client node would need a
+reference to the PRUSS node or directly the PRU nodes in general.
+
+Optional Properties:
+--------------------
+- pruss          : phandle to a PRUSS node
+
+
 Example:
 ========
 	/* AM33xx PRU-ICSS */
@@ -167,7 +181,7 @@ Example:
 			#interrupt-cells = <1>;
 		};
 
-		pru0: pru@4a334000 {
+		pru0: pru0@4a334000 {
 			compatible = "ti,am3352-pru";
 			reg = <0x4a334000 0x2000>,
 			      <0x4a322000 0x400>,
@@ -176,7 +190,7 @@ Example:
 			mboxes = <&mailbox &mbox_pru0>;
 		};
 
-		pru1: pru@4a338000 {
+		pru1: pru1@4a338000 {
 			compatible = "ti,am3352-pru";
 			reg = <0x4a338000 0x2000>,
 			      <0x4a324000 0x400>,
