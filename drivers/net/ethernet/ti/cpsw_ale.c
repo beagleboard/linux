@@ -40,7 +40,7 @@
 #define ALE_TABLE		0x34
 #define ALE_PORTCTL		0x40
 
-/* ALE Rev 1.4 (NU switch) Specific Registers */
+/* ALE NetCP NU switch specific Registers */
 #define ALE_UNKNOWNVLAN_MEMBER			0x90
 #define ALE_UNKNOWNVLAN_UNREG_MCAST_FLOOD	0x94
 #define ALE_UNKNOWNVLAN_REG_MCAST_FLOOD		0x98
@@ -736,15 +736,14 @@ void cpsw_ale_start(struct cpsw_ale *ale)
 	ale->version =
 		(ALE_VERSION_MAJOR(rev, ale->params.major_ver_mask) << 8) |
 		 ALE_VERSION_MINOR(rev);
-	dev_dbg(ale->params.dev, "initialized cpsw ale version %d.%d\n",
-		ALE_VERSION_MAJOR(rev, ale->params.major_ver_mask),
-		ALE_VERSION_MINOR(rev));
+	dev_info(ale->params.dev, "initialized cpsw ale version %d.%d\n",
+		 ALE_VERSION_MAJOR(rev, ale->params.major_ver_mask),
+		 ALE_VERSION_MINOR(rev));
 
-	switch (ale->version) {
-	case ALE_VERSION_1R4:
-		/* Separate registers for unknown vlan configuration. Also
-		 * there are N bits, where N is number of ale ports and
-		 * shift value should be 0
+	if (ale->params.nu_switch_ale) {
+		/* Separate registers for unknown vlan configuration.
+		 * Also there are N bits, where N is number of ale
+		 * ports and shift value should be 0
 		 */
 		ale_controls[ALE_PORT_UNKNOWN_VLAN_MEMBER].bits =
 					ale->params.ale_ports;
@@ -765,10 +764,6 @@ void cpsw_ale_start(struct cpsw_ale *ale)
 		ale_controls[ALE_PORT_UNTAGGED_EGRESS].shift = 0;
 		ale_controls[ALE_PORT_UNTAGGED_EGRESS].offset =
 					ALE_UNKNOWNVLAN_FORCE_UNTAG_EGRESS;
-		break;
-		/* Do nothing */
-	default:
-		break;
 	}
 
 	cpsw_ale_control_set(ale, 0, ALE_ENABLE, 1);
