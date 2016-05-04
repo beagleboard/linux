@@ -1,0 +1,51 @@
+Texas Instruments PRUSS Ethernet MAC
+====================================
+
+Required properties:
+- compatible       : Should be one of the following,
+                        "ti,am3359-prueth" for AM335x SoCs
+                        "ti,am4372-prueth" for AM437x SoCs
+                        "ti,am57-prueth" for AM57xx SoCs
+
+- pruss            : Must point to a pruss device node
+- sram	           : pHandle to OCMC SRAM node
+- interrupt-parent : pHandle to the PRUSS INTC node
+
+Must contain children, one for each of the MAC ports.
+Required properties for children:
+- phy-handle       : See ethernet.txt file in the same directory.
+- phy-mode         : See ethernet.txt file in the same directory.
+- interrupt-names  : should be "rx" and "tx"
+- interrupts       : should contain an array of PRUSS system event
+                     numbers used as the interrupt sources for Rx
+                     and Tx respectively.
+
+Optional properties for children:
+- local-mac-address	: mac address for the port.
+
+Example (am572x-idk board):
+===========================
+	pruss2_eth {
+		compatible = "ti,am57-prueth";
+		pruss = <&pruss2>;
+		sram = <&ocmcram1>;
+		interrupt-parent = <&pruss2_intc>;
+
+		pruss2_emac0: ethernet-mii0 {
+			phy-handle = <&pruss2_eth0_phy>;
+			phy-mode = "mii";
+			interrupts = <20>, <22>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+
+		pruss2_emac1: ethernet-mii1 {
+			phy-handle = <&pruss2_eth1_phy>;
+			phy-mode = "mii";
+			interrupts = <21>, <23>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
