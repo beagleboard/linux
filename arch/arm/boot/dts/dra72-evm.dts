@@ -108,6 +108,17 @@
 		>;
 	};
 
+	mmc1_pins_sdr104: pinmux_mmc1_sdr104_pins {
+		pinctrl-single,pins = <
+			0x354	(PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_clk.mmc1_clk */
+			0x358	(PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_cmd.mmc1_cmd */
+			0x35C	(PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat0.mmc1_dat0 */
+			0x360	(PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat1.mmc1_dat1 */
+			0x364	(PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat2.mmc1_dat2 */
+			0x368	(PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)	/* mmc1_dat3.mmc1_dat3 */
+		>;
+	};
+
 	mmc2_pins_hs: pinmux_mmc2_hs_pins {
 		pinctrl-single,pins = <
 			0x08C	(PIN_INPUT_PULLUP | MUX_MODE1)	/* gpmc_a19.mmc2_dat4 */
@@ -155,6 +166,22 @@
 };
 
 &dra7_iodelay_core {
+
+	mmc1_iodelay_sdr104_conf: mmc1_iodelay_sdr104_conf {
+		pinctrl-single,pins = <
+			0x620 (A_DELAY(560) | G_DELAY(365))	/* CFG_MMC1_CLK_OUT */
+			0x62C (A_DELAY(0)   | G_DELAY(0))	/* CFG_MMC1_CMD_OUT */
+			0x638 (A_DELAY(29)  | G_DELAY(0))	/* CFG_MMC1_DAT0_OUT */
+			0x644 (A_DELAY(0)   | G_DELAY(0))	/* CFG_MMC1_DAT1_OUT */
+			0x650 (A_DELAY(47)  | G_DELAY(0))	/* CFG_MMC1_DAT2_OUT */
+			0x65C (A_DELAY(30)  | G_DELAY(0))	/* CFG_MMC1_DAT3_OUT */
+			0x628 (A_DELAY(125) | G_DELAY(0))	/* CFG_MMC1_CMD_OEN */
+			0x634 (A_DELAY(43)  | G_DELAY(0))	/* CFG_MMC1_DAT0_OEN */
+			0x640 (A_DELAY(433) | G_DELAY(0))	/* CFG_MMC1_DAT1_OEN */
+			0x64C (A_DELAY(287) | G_DELAY(0))	/* CFG_MMC1_DAT2_OEN */
+			0x658 (A_DELAY(351) | G_DELAY(0))	/* CFG_MMC1_DAT3_OEN */
+		>;
+	};
 
 	mmc2_iodelay_hs200_1_8v_conf: mmc2_iodelay_hs200_1_8v_conf {
 		pinctrl-single,pins = <
@@ -218,13 +245,14 @@
 };
 
 &mmc1 {
-	pinctrl-names = "default", "hs", "sdr12", "sdr25", "sdr50", "ddr50";
+	pinctrl-names = "default", "hs", "sdr12", "sdr25", "sdr50", "ddr50", "sdr104";
 	pinctrl-0 = <&mmc1_pins_default>;
 	pinctrl-1 = <&mmc1_pins_hs>;
 	pinctrl-2 = <&mmc1_pins_sdr12>;
 	pinctrl-3 = <&mmc1_pins_sdr25>;
 	pinctrl-4 = <&mmc1_pins_sdr50>;
 	pinctrl-5 = <&mmc1_pins_ddr50>;
+	pinctrl-6 = <&mmc1_pins_sdr104 &mmc1_iodelay_sdr104_conf>;
 };
 
 &mmc2 {
