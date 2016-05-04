@@ -177,6 +177,32 @@ static int am43xx_suspend(unsigned int state, int (*fn)(unsigned long),
 	return ret;
 }
 
+static int am33xx_cpu_suspend(int (*fn)(unsigned long), unsigned long args)
+{
+	int ret = 0;
+
+	if (omap_irq_pending() || need_resched())
+		return ret;
+
+	ret = cpu_suspend(args, fn);
+
+	return ret;
+}
+
+static int am43xx_cpu_suspend(int (*fn)(unsigned long), unsigned long args)
+{
+	int ret = 0;
+
+	if (!scu_base)
+		return 0;
+
+	scu_power_mode(scu_base, SCU_PM_DORMANT);
+	ret = cpu_suspend(args, fn);
+	scu_power_mode(scu_base, SCU_PM_NORMAL);
+
+	return ret;
+}
+
 static void common_save_context(void)
 {
 	omap2_gpio_prepare_for_idle(1);
@@ -249,6 +275,7 @@ void __iomem *am43xx_get_rtc_base_addr(void)
 static struct am33xx_pm_platform_data am33xx_pdata = {
 	.init = am33xx_suspend_init,
 	.soc_suspend = am33xx_suspend,
+	.cpu_suspend = am33xx_cpu_suspend,
 	.pm_sram_addr = &am33xx_pm_sram,
 	.save_context = am33xx_save_context,
 	.restore_context = am33xx_restore_context,
@@ -261,6 +288,7 @@ static struct am33xx_pm_platform_data am33xx_pdata = {
 static struct am33xx_pm_platform_data am43xx_pdata = {
 	.init = am43xx_suspend_init,
 	.soc_suspend = am43xx_suspend,
+	.cpu_suspend = am43xx_cpu_suspend,
 	.pm_sram_addr = &am43xx_pm_sram,
 	.save_context = am43xx_save_context,
 	.restore_context = am43xx_restore_context,

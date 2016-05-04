@@ -55,6 +55,7 @@ struct am33xx_pm_platform_data {
 	int	(*init)(void);
 	int	(*soc_suspend)(unsigned int state, int (*fn)(unsigned long),
 			       unsigned long args);
+	int	(*cpu_suspend)(int (*fn)(unsigned long), unsigned long args);
 	struct  am33xx_pm_sram_addr *pm_sram_addr;
 	void (*save_context)(void);
 	void (*restore_context)(void);
