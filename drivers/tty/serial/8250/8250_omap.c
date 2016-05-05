@@ -318,8 +318,7 @@ static void omap_8250_set_termios(struct uart_port *port,
 				  struct ktermios *termios,
 				  struct ktermios *old)
 {
-	struct uart_8250_port *up =
-		container_of(port, struct uart_8250_port, port);
+	struct uart_8250_port *up = up_to_u8250p(port);
 	struct omap8250_priv *priv = up->port.private_data;
 	unsigned char cval = 0;
 	unsigned int baud;
@@ -682,9 +681,8 @@ static void omap_8250_shutdown(struct uart_port *port)
 
 static void omap_8250_throttle(struct uart_port *port)
 {
+	struct uart_8250_port *up = up_to_u8250p(port);
 	unsigned long flags;
-	struct uart_8250_port *up =
-		container_of(port, struct uart_8250_port, port);
 
 	pm_runtime_get_sync(port->dev);
 
@@ -697,11 +695,40 @@ static void omap_8250_throttle(struct uart_port *port)
 	pm_runtime_put_autosuspend(port->dev);
 }
 
+static int omap_8250_rs485_config(struct uart_port *port,
+				  struct serial_rs485 *rs485)
+{
+	struct uart_8250_port *up = up_to_u8250p(port);
+
+	/* Clamp the delays to [0, 100ms] */
+	rs485->delay_rts_before_send = min(rs485->delay_rts_before_send, 100U);
+	rs485->delay_rts_after_send  = min(rs485->delay_rts_after_send, 100U);
+
+	port->rs485 = *rs485;
+
+	/*
+	 * Both serial8250_em485_init and serial8250_em485_destroy
+	 * are idempotent
+	 */
+	if (rs485->flags & SER_RS485_ENABLED) {
+		int ret = serial8250_em485_init(up);
+
+		if (ret) {
+			rs485->flags &= ~SER_RS485_ENABLED;
+			port->rs485.flags &= ~SER_RS485_ENABLED;
+		}
+		return ret;
+	}
+
+	serial8250_em485_destroy(up);
+
+	return 0;
+}
+
 static void omap_8250_unthrottle(struct uart_port *port)
 {
+	struct uart_8250_port *up = up_to_u8250p(port);
 	unsigned long flags;
-	struct uart_8250_port *up =
-		container_of(port, struct uart_8250_port, port);
 
 	pm_runtime_get_sync(port->dev);
 
@@ -737,7 +764,7 @@ static void __dma_rx_do_complete(struct uart_8250_port *p, bool error)
 
 	dma->rx_running = 0;
 	dmaengine_tx_status(dma->rxchan, dma->rx_cookie, &state);
-	dmaengine_terminate_async(dma->rxchan);
+	dmaengine_terminate_all(dma->rxchan);
 
 	count = dma->rx_size - state.residue;
 
@@ -1055,48 +1082,6 @@ static bool the_no_dma_filter_fn(struct dma_chan *chan, void *param)
 	return false;
 }
 
-enum {
-	UART_EDMA,
-	UART_SDMA,
-};
-
-static const char *sdma_prefix = "ti,omap";
-
-static int omap_8250_get_dma_type(struct uart_port *port)
-{
-	struct dma_chan *chan;
-	const char *tmp;
-	int ret = UART_EDMA;
-
-	if (!port->dev->of_node)
-		return ret;
-
-	chan = dma_request_slave_channel_reason(port->dev, "rx");
-	if (IS_ERR(chan)) {
-		if (PTR_ERR(chan) != -EPROBE_DEFER)
-			dev_err(port->dev,
-				"Can't verify DMA configuration (%ld)\n",
-				PTR_ERR(chan));
-		return PTR_ERR(chan);
-	}
-	BUG_ON(!chan->device || !chan->device->dev);
-
-	if (chan->device->dev->of_node)
-		ret = of_property_read_string(chan->device->dev->of_node,
-					      "compatible", &tmp);
-	else
-		dev_err(port->dev, "DMA controller has no of-node\n");
-
-	dma_release_channel(chan);
-	if (ret)
-		return ret;
-
-	dev_dbg(port->dev, "DMA controller compatible = \"%s\"\n", tmp);
-	if (!strncmp(tmp, sdma_prefix, strlen(sdma_prefix)))
-		return UART_SDMA;
-
-	return UART_EDMA;
-}
 #else
 
 static inline int omap_8250_rx_dma(struct uart_8250_port *p, unsigned int iir)
@@ -1188,6 +1173,7 @@ static int omap8250_probe(struct platform_device *pdev)
 	up.port.shutdown = omap_8250_shutdown;
 	up.port.throttle = omap_8250_throttle;
 	up.port.unthrottle = omap_8250_unthrottle;
+	up.port.rs485_config = omap_8250_rs485_config;
 
 	if (pdev->dev.of_node) {
 		const struct of_device_id *id;
@@ -1260,12 +1246,9 @@ static int omap8250_probe(struct platform_device *pdev)
 				priv->habit |= OMAP_DMA_TX_KICK;
 			/*
 			 * pause is currently not supported atleast on omap-sdma
-			 * whereas edma supports pause feature.
+			 * and edma on most earlier kernels.
 			 */
-			if (omap_8250_get_dma_type(&up.port) != UART_EDMA)
-				priv->rx_dma_broken = true;
-			else
-				priv->habit |= OMAP_DMA_TX_KICK;
+			priv->rx_dma_broken = true;
 		}
 	}
 #endif
