@@ -1953,7 +1953,6 @@ static int kserdes_of_parse(struct platform_device *pdev,
 				of_node_put(lanes_np);
 				return ret;
 			}
-			of_node_put(child);
 		}
 		of_node_put(lanes_np);
 	}
