@@ -9,6 +9,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 #include "am335x-bone-common.dtsi"
 
 #include <dt-bindings/board/am335x-bbw-bbb-base.h>
@@ -34,6 +35,10 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&emmc_pins>;
 	bus-width = <8>;
+	status = "okay";
+};
+
+&sgx {
 	status = "okay";
 };
 
@@ -177,12 +182,6 @@
 	};
 };
 
-
-
-
-
-
-
 &uart4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart4_pins>;
@@ -193,8 +192,4 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_pins>;
 	status = "okay";
-};
-
-&rtc {
-	system-power-controller;
 };

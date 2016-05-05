@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am33xx-overlay-edma-fix.dtsi"
 #include <dt-bindings/display/tda998x.h>
@@ -35,6 +36,10 @@
 		output-high;
 		line-name = "EMMC ResetN";
 	};
+};
+
+&sgx {
+	status = "okay";
 };
 
 &am33xx_pinmux {
@@ -109,10 +114,6 @@
 			};
 		};
 	};
-};
-
-&rtc {
-	system-power-controller;
 };
 
 &mcasp0	{

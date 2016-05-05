@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 #include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
@@ -33,8 +34,8 @@
 	status = "okay";
 };
 
-&rtc {
-	system-power-controller;
+&sgx {
+	status = "okay";
 };
 
 #include "am335x-cape-bbb-exp-c.dtsi"
