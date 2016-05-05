@@ -13,6 +13,8 @@
 PROCESSOR_TAG="processor:"
 BUILD_TYPE_TAG="type:"
 CONFIG_FRAGMENT_TAG="config-fragment="
+SDK_ENTRY_TAG="SDK_release"
+DISCLAIMER="\n*Please be advised that the Advanced Option defconfigs are\nfor test purposes only and have only been compiled tested.\n"
 
 set_working_directory()
 {
@@ -49,10 +51,19 @@ get_processors() {
 		if [ -z "$PROCESSOR_TEMP" ]; then
 			break
 		fi
-		if ! grep -qc "$PROCESSOR_TEMP" "$PROCESSOR_FILE"; then
-			y=$((y+1))
-			echo -e '\t'"$y". "$PROCESSOR_TEMP" >> "$PROCESSOR_FILE"
+
+		if [ "$PROCESSOR_TEMP" = "$DEFCONFIG_FILTER" ]; then
+			if ! grep -qc "$PROCESSOR_TEMP" "$PROCESSOR_FILE"; then
+				y=$((y+1))
+				echo -e '\t'"$y". "$PROCESSOR_TEMP" >> "$PROCESSOR_FILE"
+			fi
+		elif [ -z "$DEFCONFIG_FILTER" -a  "$PROCESSOR_TEMP" != "$SDK_ENTRY_TAG" ]; then
+			if ! grep -qc "$PROCESSOR_TEMP" "$PROCESSOR_FILE"; then
+				y=$((y+1))
+				echo -e '\t'"$y". "$PROCESSOR_TEMP" >> "$PROCESSOR_FILE"
+			fi
 		fi
+
 		sed -i "1d" "$TEMP_PROC_FILE"
 	done
 
@@ -79,6 +90,42 @@ choose_processor() {
 	done
 }
 
+check_for_config_existance() {
+	# Check to make sure that the config fragments exist
+	TEMP_EXTRA_CONFIG_FILE=$(echo "$BUILD_DETAILS" | cut -d: -f6)
+	if [ -z "$TEMP_EXTRA_CONFIG_FILE" ]; then
+		CONFIG_FRAGMENTS=
+	else
+		for CONFIG_FRAG in $TEMP_EXTRA_CONFIG_FILE;
+		do
+			if [ ! -e "$CONFIG_FRAG" ]; then
+				CONFIG_FRAGMENTS="N/A"
+			fi
+		done
+	fi
+
+	if ! grep -qc "$BT_TEMP" "$BUILD_TYPE_FILE"; then
+		# If the config file and config fragments are available
+		# add it to the list.
+		CONFIG_FILE=$(echo "$BUILD_DETAILS" | awk '{print$8}')
+		if [ "$CONFIG_FILE" = "None" ]; then
+			CONFIG_FILE=
+		else
+			if [ -e "$TI_WORKING_PATH""/""$CONFIG_FILE" ]; then
+				CONFIG_FILE=
+			fi
+		fi
+		# If the check for the config file and the config fragments
+		# pass then these two variables should be empty.  If
+		# they fail then they should be N/A.
+		if [ -z "$CONFIG_FILE" -a -z "$CONFIG_FRAGMENTS" ]; then
+			y=$((y+1))
+			echo -e '\t'"$y". "$BT_TEMP" >> "$BUILD_TYPE_FILE"
+		fi
+	fi
+}
+
+
 choose_build_type() {
 	TEMP_BT_FILE=$(mktemp)
 	TEMP_BUILD_FILE=$(mktemp)
@@ -96,39 +143,7 @@ choose_build_type() {
 			break
 		fi
 		BUILD_DETAILS=$(grep -w "$BT_TEMP" "$DEFCONFIG_MAP_FILE")
-
-		# Check to make sure that the config fragments exist
-		TEMP_EXTRA_CONFIG_FILE=$(echo "$BUILD_DETAILS" | cut -d: -f6)
-		if [ -z "$TEMP_EXTRA_CONFIG_FILE" ]; then
-			CONFIG_FRAGMENTS=
-		else
-			for CONFIG_FRAG in $TEMP_EXTRA_CONFIG_FILE;
-			do
-				if [ ! -e "$CONFIG_FRAG" ]; then
-					CONFIG_FRAGMENTS="N/A"
-				fi
-			done
-		fi
-
-		if ! grep -qc "$BT_TEMP" "$BUILD_TYPE_FILE"; then
-			# If the config file and config fragments are available
-			# add it to the list.
-			CONFIG_FILE=$(echo "$BUILD_DETAILS" | awk '{print$8}')
-			if [ "$CONFIG_FILE" = "None" ]; then
-				CONFIG_FILE=
-			else
-				if [ -e "$TI_WORKING_PATH""/""$CONFIG_FILE" ]; then
-					CONFIG_FILE=
-				fi
-			fi
-			# If the check for the config file and the config fragments
-			# pass then these two variables should be empty.  If
-			# they fail then they should be N/A.
-			if [ -z "$CONFIG_FILE" -a -z "$CONFIG_FRAGMENTS" ]; then
-				y=$((y+1))
-				echo -e '\t'"$y". "$BT_TEMP" >> "$BUILD_TYPE_FILE"
-			fi
-		fi
+		check_for_config_existance
 		sed -i "1d" "$TEMP_BUILD_FILE"
 	done
 
@@ -159,6 +174,29 @@ choose_build_type() {
 get_build_details() {
 
 	BUILD_DETAILS=$(grep -w "$CHOOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE")
+	if [ -z "$BUILD_DETAILS" ]; then
+		echo "Cannot find the build type $CHOOSEN_BUILD_TYPE"
+		echo "How about one of the following?"
+		TEMP_BUILD_FILE=$(mktemp)
+		grep "$CHOOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE" > "$TEMP_BUILD_FILE"
+		while true;
+		do
+			CONFIG_FILE=
+			CONFIG_FRAGMENTS=
+
+			BT_TEMP=$(head -n 1 "$TEMP_BUILD_FILE")
+			if [ -z "$BT_TEMP" ]; then
+				break
+			fi
+			BUILD_DETAILS=$(grep -w "$BT_TEMP" "$DEFCONFIG_MAP_FILE")
+			check_for_config_existance
+			sed -i "1d" "$TEMP_BUILD_FILE"
+		done
+		rm -rf "$TEMP_BUILD_FILE"
+		grep "$CHOOSEN_BUILD_TYPE" "$BUILD_TYPE_FILE" | awk '{print$5}'
+		return 1
+	fi
+
 	DEFCONFIG=$(echo "$BUILD_DETAILS" | awk '{print$6}')
 	DEFCONFIG="$DEFCONFIG_KERNEL_PATH""/""$DEFCONFIG"
 	CONFIG_FILE=$(echo "$BUILD_DETAILS" | awk '{print$8}')
@@ -166,6 +204,12 @@ get_build_details() {
 	if [ "$CONFIG_FILE" = "None" ]; then
 		CONFIG_FILE=
 	fi
+
+	if [ ! -e "$TI_WORKING_PATH/$CONFIG_FILE" ]; then
+		echo "$TI_WORKING_PATH/$CONFIG_FILE does not exist"
+		return 1
+	fi
+
 	TEMP_EXTRA_CONFIG_FILE=$(echo "$BUILD_DETAILS" | cut -d: -f6)
 	for CONFIG_FRAG in $TEMP_EXTRA_CONFIG_FILE;
 	do
@@ -175,6 +219,46 @@ get_build_details() {
 			echo "$CONFIG_FRAG" does not exist
 		fi
 	done
+}
+
+choose_defconfig_type() {
+
+	echo -e '\t' "1. SDK Defconfigs"
+	echo -e '\t' "2. Advanced Options"
+
+	while true;
+	do
+		read -p "Please choose which defconfig type to build for or 'q' to exit: " REPLY
+		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
+			prepare_for_exit
+		elif [ "$REPLY" -gt '0' -a "$REPLY" -le '2' ]; then
+			if [ "$REPLY" -eq '1' ]; then
+				DEFCONFIG_FILTER="$SDK_ENTRY_TAG"
+			else
+				DEFCONFIG_FILTER=
+				echo -e "$DISCLAIMER"
+			fi
+			break
+		else
+			echo -e "\nThis is not a choice try again!\n"
+		fi
+	done
+}
+
+build_defconfig() {
+
+	if [ ! -z "$CONFIG_FILE" -a -e "$TI_WORKING_PATH/$CONFIG_FILE" ]; then
+		CONFIGS=$(grep "$CONFIG_FRAGMENT_TAG" "$TI_WORKING_PATH/$CONFIG_FILE" | cut -d= -f2)
+	fi
+
+	STATUS=$("$WORKING_PATH"/scripts/kconfig/merge_config.sh -m -r "$DEFCONFIG" "$CONFIGS" "$EXTRA_CONFIG_FILE")
+	if [ "$?" = "0" ];then
+		echo "Creating defconfig file ""$WORKING_PATH""/arch/arm/configs/""$CHOOSEN_BUILD_TYPE"_defconfig
+		cp .config "$DEFCONFIG_KERNEL_PATH"/"$CHOOSEN_BUILD_TYPE"_defconfig
+	else
+		echo "Defconfig creation failed"
+		return 1
+	fi
 }
 
 usage()
@@ -202,11 +286,13 @@ EOF
 #########################################
 # Script Start
 #########################################
-while getopts "w:" OPTION
+while getopts "w:t:" OPTION
 do
 	case $OPTION in
 		w)
 			WORKING_PATH=$OPTARG;;
+		t)
+			CHOOSEN_BUILD_TYPE=$OPTARG;;
 		?)
 			usage
 			exit;;
@@ -225,18 +311,28 @@ fi
 PROCESSOR_FILE=$(mktemp)
 BUILD_TYPE_FILE=$(mktemp)
 
-choose_processor
+if [ ! -z "$CHOOSEN_BUILD_TYPE" ]; then
+	get_build_details
+	if [ "$?" -gt 0 ]; then
+		exit 1
+	fi
+
+	build_defconfig
+	if [ "$?" -gt 0 ]; then
+		exit 1
+	fi
+	exit 0
+fi
+
+choose_defconfig_type
+
+if [ -z "$DEFCONFIG_FILTER" ]; then
+	choose_processor
+else
+	CHOOSEN_PROCESSOR="$SDK_ENTRY_TAG"
+fi
+
 choose_build_type
 get_build_details
 
-if [ ! -z "$CONFIG_FILE" -a -e "$TI_WORKING_PATH/$CONFIG_FILE" ]; then
-	CONFIGS=$(grep "$CONFIG_FRAGMENT_TAG" "$TI_WORKING_PATH/$CONFIG_FILE" | cut -d= -f2)
-fi
-
-STATUS=$("$WORKING_PATH"/scripts/kconfig/merge_config.sh -m -r "$DEFCONFIG" "$CONFIGS" "$EXTRA_CONFIG_FILE")
-if [ "$?" = "0" ];then
-	echo "Creating defconfig file ""$WORKING_PATH""/arch/arm/configs/""$CHOOSEN_BUILD_TYPE"_defconfig
-	cp .config "$DEFCONFIG_KERNEL_PATH"/"$CHOOSEN_BUILD_TYPE"_defconfig
-else
-	echo "Defconfig creation failed"
-fi
+build_defconfig
