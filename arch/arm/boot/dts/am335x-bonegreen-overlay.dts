@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am33xx-overlay-edma-fix.dtsi"
 
@@ -26,6 +27,10 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
+&sgx {
+	status = "okay";
+};
+
 /* EMMC in reset */
 &gpio1 {
 	emmc_rst {
@@ -34,8 +39,4 @@
 		output-high;
 		line-name = "EMMC ResetN";
 	};
-};
-
-&rtc {
-	system-power-controller;
 };

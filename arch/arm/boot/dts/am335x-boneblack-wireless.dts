@@ -35,6 +35,10 @@
 	status = "okay";
 };
 
+&sgx {
+	status = "okay";
+};
+
 &uart3 {
 	status = "okay";
 };

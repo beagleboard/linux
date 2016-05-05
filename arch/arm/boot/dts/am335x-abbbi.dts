@@ -9,6 +9,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
+#include "am33xx-es2.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am33xx-overlay-edma-fix.dtsi"
 
@@ -32,6 +33,10 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&emmc_pins>;
 	bus-width = <8>;
+	status = "okay";
+};
+
+&sgx {
 	status = "okay";
 };
 
@@ -129,16 +134,16 @@
 
 / {
 	clk_mcasp0_fixed: clk_mcasp0_fixed {
-	      #clock-cells = <0>;
-	      compatible = "fixed-clock";
-	      clock-frequency = <24576000>;
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24576000>;
 	};
 
 	clk_mcasp0: clk_mcasp0 {
-	      #clock-cells = <0>;
-	      compatible = "gpio-gate-clock";
-	      clocks = <&clk_mcasp0_fixed>;
-	      enable-gpios = <&gpio1 27 0>; /* BeagleBone Black Clk enable on GPIO1_27 */
+		#clock-cells = <0>;
+		compatible = "gpio-gate-clock";
+		clocks = <&clk_mcasp0_fixed>;
+		enable-gpios = <&gpio1 27 0>; /* BeagleBone Black Clk enable on GPIO1_27 */
 	};
 
 	hdmi_audio: hdmi_audio@0 {
@@ -156,8 +161,4 @@
 		clocks = <&clk_mcasp0>;
 		clock-names = "mclk";
 	};
-};
-
-&rtc {
-	system-power-controller;
 };
