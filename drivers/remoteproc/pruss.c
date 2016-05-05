@@ -535,17 +535,12 @@ static const struct of_device_id pruss_of_match[];
 static const
 struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	const struct pruss_match_private_data *data;
 	const struct of_device_id *match;
 
 	match = of_match_device(pruss_of_match, &pdev->dev);
 	if (!match)
 		return ERR_PTR(-ENODEV);
-
-	if (of_device_is_compatible(np, "ti,am3352-pruss") ||
-	    of_device_is_compatible(np, "ti,am4372-pruss"))
-		return match->data;
 
 	data = match->data;
 	for (; data && data->device_name; data++) {
@@ -717,12 +712,12 @@ static struct of_dev_auxdata am57xx_pruss2_rproc_auxdata_lookup[] = {
 };
 
 /* instance-specific driver private data */
-static struct pruss_private_data am335x_priv_data = {
+static struct pruss_private_data am335x_pruss_priv_data = {
 	.aux_data = am335x_pruss_rproc_auxdata_lookup,
 	.has_reset = true,
 };
 
-static struct pruss_private_data am437x_priv_data = {
+static struct pruss_private_data am437x_pruss1_priv_data = {
 	.aux_data = am437x_pruss1_rproc_auxdata_lookup,
 	.has_reset = true,
 };
@@ -733,6 +728,26 @@ static struct pruss_private_data am57xx_pruss1_priv_data = {
 
 static struct pruss_private_data am57xx_pruss2_priv_data = {
 	.aux_data = am57xx_pruss2_rproc_auxdata_lookup,
+};
+
+static struct pruss_match_private_data am335x_match_data[] = {
+	{
+		.device_name	= "4a300000.pruss",
+		.priv_data	= &am335x_pruss_priv_data,
+	},
+	{
+		/* sentinel */
+	},
+};
+
+static struct pruss_match_private_data am437x_match_data[] = {
+	{
+		.device_name	= "54400000.pruss",
+		.priv_data	= &am437x_pruss1_priv_data,
+	},
+	{
+		/* sentinel */
+	},
 };
 
 static struct pruss_match_private_data am57xx_match_data[] = {
@@ -750,8 +765,8 @@ static struct pruss_match_private_data am57xx_match_data[] = {
 };
 
 static const struct of_device_id pruss_of_match[] = {
-	{ .compatible = "ti,am3352-pruss", .data = &am335x_priv_data, },
-	{ .compatible = "ti,am4372-pruss", .data = &am437x_priv_data, },
+	{ .compatible = "ti,am3352-pruss", .data = &am335x_match_data, },
+	{ .compatible = "ti,am4372-pruss", .data = &am437x_match_data, },
 	{ .compatible = "ti,am5728-pruss", .data = &am57xx_match_data, },
 	{ /* sentinel */ },
 };
