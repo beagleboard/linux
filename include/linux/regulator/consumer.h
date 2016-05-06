@@ -230,6 +230,10 @@ unsigned int regulator_get_linear_step(struct regulator *regulator);
 int regulator_set_voltage(struct regulator *regulator, int min_uV, int max_uV);
 int regulator_set_voltage_time(struct regulator *regulator,
 			       int old_uV, int new_uV);
+int regulator_set_voltage_time_triplet(struct regulator *regulator,
+				       int old_uV, int old_uV_min,
+				       int old_uV_max, int new_uV,
+				       int new_uV_min, int new_uV_max);
 int regulator_get_voltage(struct regulator *regulator);
 int regulator_sync_voltage(struct regulator *regulator);
 int regulator_set_current_limit(struct regulator *regulator,
@@ -446,6 +450,15 @@ static inline int regulator_set_voltage(struct regulator *regulator,
 
 static inline int regulator_set_voltage_time(struct regulator *regulator,
 					     int old_uV, int new_uV)
+{
+	return 0;
+}
+
+static inline
+int regulator_set_voltage_time_triplet(struct regulator *regulator,
+				       int old_uV, int old_uV_min,
+				       int old_uV_max, int new_uV,
+				       int new_uV_min, int new_uV_max)
 {
 	return 0;
 }

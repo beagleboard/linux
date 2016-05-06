@@ -3046,6 +3046,50 @@ int regulator_set_voltage_time_sel(struct regulator_dev *rdev,
 EXPORT_SYMBOL_GPL(regulator_set_voltage_time_sel);
 
 /**
+ * regulator_set_voltage_time_triplet - get raise/fall time of voltages in range
+ * @regulator: regulator source
+ * @old_uV: starting voltage in microvolts
+ * @old_uV_min: minimum acceptable starting voltage in microvolts
+ * @old_uV_max: maximum acceptable starting voltage in microvolts
+ * @new_uV: target voltage in microvolts
+ * @new_uV_min: minimum acceptable target voltage in microvolts
+ * @new_uV_max: maximum acceptable target voltage in microvolts
+ *
+ * Provided with the starting and ending voltage, this function attempts to
+ * calculate the time in microseconds required to rise or fall to this new
+ * voltage, but will also choose an acceptable voltage for the starting or
+ * ending voltage if found in between the min and max values passed.
+ */
+int regulator_set_voltage_time_triplet(struct regulator *regulator,
+				       int old_uV, int old_uV_min,
+				       int old_uV_max, int new_uV,
+				       int new_uV_min, int new_uV_max)
+{
+	struct regulator_dev *rdev = regulator->rdev;
+	const struct regulator_ops *ops = rdev->desc->ops;
+	int old_sel = -1;
+	int new_sel = -1;
+
+	/* Currently requires operations to do this */
+	if (!ops->set_voltage_time_sel)
+		return -EINVAL;
+
+	old_sel = regulator_map_voltage(rdev, old_uV, old_uV_max);
+	if (old_sel < 0)
+		old_sel = regulator_map_voltage(rdev, old_uV_min, old_uV_max);
+
+	new_sel = regulator_map_voltage(rdev, new_uV, new_uV_max);
+	if (new_sel < 0)
+		new_sel = regulator_map_voltage(rdev, new_uV_min, new_uV_max);
+
+	if (old_sel < 0 || new_sel < 0)
+		return -EINVAL;
+
+	return ops->set_voltage_time_sel(rdev, old_sel, new_sel);
+}
+EXPORT_SYMBOL_GPL(regulator_set_voltage_time_triplet);
+
+/**
  * regulator_sync_voltage - re-apply last regulator output voltage
  * @regulator: regulator source
  *
