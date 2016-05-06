@@ -228,8 +228,6 @@ int regulator_is_supported_voltage(struct regulator *regulator,
 				   int min_uV, int max_uV);
 unsigned int regulator_get_linear_step(struct regulator *regulator);
 int regulator_set_voltage(struct regulator *regulator, int min_uV, int max_uV);
-int regulator_set_voltage_time(struct regulator *regulator,
-			       int old_uV, int new_uV);
 int regulator_set_voltage_time_triplet(struct regulator *regulator,
 				       int old_uV, int old_uV_min,
 				       int old_uV_max, int new_uV,
@@ -448,12 +446,6 @@ static inline int regulator_set_voltage(struct regulator *regulator,
 	return 0;
 }
 
-static inline int regulator_set_voltage_time(struct regulator *regulator,
-					     int old_uV, int new_uV)
-{
-	return 0;
-}
-
 static inline
 int regulator_set_voltage_time_triplet(struct regulator *regulator,
 				       int old_uV, int old_uV_min,
@@ -597,6 +589,14 @@ static inline int regulator_is_supported_voltage_tol(struct regulator *regulator
 	return regulator_is_supported_voltage(regulator,
 					      target_uV - tol_uV,
 					      target_uV + tol_uV);
+}
+
+static inline int regulator_set_voltage_time(struct regulator *regulator,
+					     int old_uV, int new_uV)
+{
+	return regulator_set_voltage_time_triplet(regulator,
+						  old_uV, old_uV, old_uV,
+						  new_uV, new_uV, new_uV);
 }
 
 #endif
