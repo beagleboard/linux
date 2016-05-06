@@ -113,6 +113,12 @@
 			opp-microvolt = <1160000 1137000 1183000>;
 			opp-supported-hw = <0xFF 0x02>;
 		};
+
+		opp_high@1500000000 {
+			opp-hz = /bits/ 64 <1500000000>;
+			opp-microvolt = <1210000 1186000 1234000>;
+			opp-supported-hw = <0xFF 0x04>;
+		};
 	};
 
 	/*
