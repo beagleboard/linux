@@ -615,3 +615,28 @@
 		status = "okay";
 	};
 };
+
+&cpu0 {
+	cpu-opp-domain = <&oppdm_mpu>;
+	voltage-tolerance = <1>;
+};
+
+&oppdm_mpu {
+	vdd-supply = <&smps1_reg>;
+};
+
+&oppdm_core {
+	vdd-supply = <&smps2_reg>;
+};
+
+&oppdm_dspeve {
+	vdd-supply = <&smps3_reg>;
+};
+
+&oppdm_gpu {
+	vdd-supply = <&smps3_reg>;
+};
+
+&oppdm_ivahd {
+	vdd-supply = <&smps3_reg>;
+};
