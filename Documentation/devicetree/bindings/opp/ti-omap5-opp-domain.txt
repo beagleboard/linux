@@ -1,0 +1,77 @@
+Texas Instruments OMAP compatible OPP domain description
+
+This binding uses the "<supply-name>-opp-domain" binding documented at [1]
+and describes the OPP domain devices typically used on Texas Instruments
+OMAP compatible SoC family of processors.
+
+OMAP5, DRA7, and AM57 family of SoCs have Class0 AVS eFuse registers which
+contain data that can be used to adjust voltages programmed for some of their
+supplies for more efficient operation. These are provided to the OPP domain
+driver so that when a voltage transition is requested by the OPP core, we can
+make an adjustment to the voltage before setting the supply.
+
+Also, some supplies may have an associated vbb-supply which is an Adaptive Body
+Bias regulator which much be transitioned in a specific sequence with regards
+to the vdd-supply and clk when making an OPP transition, and this driver handles
+that sequencing.
+
+[1] Documentation/devicetree/bindings/opp/opp.txt
+
+Required Properties:
+- compatible: Should be one of:
+	"ti,omap-oppdm" - basic OPP domain controlling VDD and VBB
+	"ti,omap5-oppdm" - OMAP5+ optimized voltages in efuse(class0)VDD
+			    along with VBB
+	"ti,omap5-core-oppdm" - OMAP5+ optimized voltages in efuse(class0) VDD
+			    but no VBB.
+- vdd-supply: phandle to regulator controlling VDD supply
+- vbb-supply: phandle to regulator controlling Body Bias supply (optional if
+  "ti,omap5-core-oppdm")
+  (Usually Adaptive Body Bias regulator)
+- #oppdm-cells: shall be <0>
+- reg: Address and length of the efuse register set for the device (mandatory
+	only for "ti,omap5-oppdm")
+- ti,efuse-settings: An array of u32 tuple items providing information about
+	optimized efuse configuration. Each item consists of the following:
+	volt: voltage in uV - reference voltage (OPP voltage)
+	efuse_offseet: efuse offset from reg where the optimized voltage is stored.
+
+Optional Properties:
+- ti,absolute-max-voltage-uv: absolute maximum voltage for the OPP domain.
+
+Example:
+
+/* Basic OMAP OPP Domain with no Class0 support */
+oppdm_mpu: oppdm@1 {
+	compatible = "ti,omap-oppdm";
+	#oppdm-cells = <0>;
+
+	vdd-supply = <&vcc>;
+	vbb-supply = <&abb_mpu>;
+};
+
+/* OMAP OPP Domain with Class0 registers */
+oppdm_mpu: oppdm@4a003b20 {
+	compatible = "ti,omap5-oppdm";
+	#oppdm-cells = <0>;
+	vdd-supply = <&vcc>;
+	vbb-supply = <&abb_mpu>;
+	reg = <0x4a003b20 0x8>;
+	ti,efuse-settings = <
+	/* uV   offset */
+	1060000 0x0
+	1160000 0x4
+	1210000 0x8
+	>;
+};
+
+oppdm_core: oppdm@4a003d20 {
+	compatible = "ti,omap5-core-oppdm";
+	#oppdm-cells = <0>;
+	vdd-supply = <&smps4>;
+	reg = <0x4a003b20 0x4>;
+	ti,efuse-settings = <
+	/* uV   offset */
+	1060000 0x0
+	>;
+};
