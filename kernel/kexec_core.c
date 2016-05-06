@@ -48,6 +48,31 @@
 
 DEFINE_MUTEX(kexec_mutex);
 
+#include "../mach-keystone/memory.h"
+#define IDMAP_ADDR_OFFSET \
+	(KEYSTONE_HIGH_PHYS_START - KEYSTONE_LOW_PHYS_START)
+#define IDMAP_PFN_OFFSET (IDMAP_ADDR_OFFSET >> PAGE_SHIFT)
+
+static unsigned long page_to_boot_pfn(struct page *page)
+{
+	return page_to_pfn(page) - IDMAP_PFN_OFFSET;
+}
+
+static struct page *boot_pfn_to_page(unsigned long boot_pfn)
+{
+	return pfn_to_page(boot_pfn + IDMAP_PFN_OFFSET);
+}
+
+static unsigned long virt_to_boot_phys(void *addr)
+{
+	return phys_to_idmap(__pa((unsigned long)addr));
+}
+
+static void *boot_phys_to_virt(unsigned long entry)
+{
+	return phys_to_virt(idmap_to_phys(entry));
+}
+
 /* Per cpu memory for storing cpu states in case of system crash. */
 note_buf_t __percpu *crash_notes;
 
@@ -167,6 +192,8 @@ int sanity_check_segment_list(struct kimage *image)
 
 		mstart = image->segment[i].mem;
 		mend   = mstart + image->segment[i].memsz;
+		if (mstart > mend)
+			return result;
 		if ((mstart & ~PAGE_MASK) || (mend & ~PAGE_MASK))
 			return result;
 		if (mend >= KEXEC_DESTINATION_MEMORY_LIMIT)
@@ -225,8 +252,8 @@ int sanity_check_segment_list(struct kimage *image)
 			mstart = image->segment[i].mem;
 			mend = mstart + image->segment[i].memsz - 1;
 			/* Ensure we are within the crash kernel limits */
-			if ((mstart < crashk_res.start) ||
-			    (mend > crashk_res.end))
+			if ((mstart < phys_to_idmap(crashk_res.start)) ||
+			    (mend > phys_to_idmap(crashk_res.end)))
 				return result;
 		}
 	}
@@ -353,7 +380,7 @@ static struct page *kimage_alloc_normal_control_pages(struct kimage *image,
 		pages = kimage_alloc_pages(KEXEC_CONTROL_MEMORY_GFP, order);
 		if (!pages)
 			break;
-		pfn   = page_to_pfn(pages);
+		pfn   = page_to_boot_pfn(pages);
 		epfn  = pfn + count;
 		addr  = pfn << PAGE_SHIFT;
 		eaddr = epfn << PAGE_SHIFT;
@@ -479,7 +506,7 @@ static int kimage_add_entry(struct kimage *image, kimage_entry_t entry)
 			return -ENOMEM;
 
 		ind_page = page_address(page);
-		*image->entry = virt_to_phys(ind_page) | IND_INDIRECTION;
+		*image->entry = virt_to_boot_phys(ind_page) | IND_INDIRECTION;
 		image->entry = ind_page;
 		image->last_entry = ind_page +
 				      ((PAGE_SIZE/sizeof(kimage_entry_t)) - 1);
@@ -534,13 +561,13 @@ void kimage_terminate(struct kimage *image)
 #define for_each_kimage_entry(image, ptr, entry) \
 	for (ptr = &image->head; (entry = *ptr) && !(entry & IND_DONE); \
 		ptr = (entry & IND_INDIRECTION) ? \
-			phys_to_virt((entry & PAGE_MASK)) : ptr + 1)
+			boot_phys_to_virt((entry & PAGE_MASK)) : ptr + 1)
 
 static void kimage_free_entry(kimage_entry_t entry)
 {
 	struct page *page;
 
-	page = pfn_to_page(entry >> PAGE_SHIFT);
+	page = boot_pfn_to_page(entry >> PAGE_SHIFT);
 	kimage_free_pages(page);
 }
 
@@ -634,7 +661,7 @@ static struct page *kimage_alloc_page(struct kimage *image,
 	 * have a match.
 	 */
 	list_for_each_entry(page, &image->dest_pages, lru) {
-		addr = page_to_pfn(page) << PAGE_SHIFT;
+		addr = page_to_boot_pfn(page) << PAGE_SHIFT;
 		if (addr == destination) {
 			list_del(&page->lru);
 			return page;
@@ -649,12 +676,12 @@ static struct page *kimage_alloc_page(struct kimage *image,
 		if (!page)
 			return NULL;
 		/* If the page cannot be used file it away */
-		if (page_to_pfn(page) >
+		if (page_to_boot_pfn(page) >
 				(KEXEC_SOURCE_MEMORY_LIMIT >> PAGE_SHIFT)) {
 			list_add(&page->lru, &image->unusable_pages);
 			continue;
 		}
-		addr = page_to_pfn(page) << PAGE_SHIFT;
+		addr = page_to_boot_pfn(page) << PAGE_SHIFT;
 
 		/* If it is the destination page we want use it */
 		if (addr == destination)
@@ -677,7 +704,7 @@ static struct page *kimage_alloc_page(struct kimage *image,
 			struct page *old_page;
 
 			old_addr = *old & PAGE_MASK;
-			old_page = pfn_to_page(old_addr >> PAGE_SHIFT);
+			old_page = boot_pfn_to_page(old_addr >> PAGE_SHIFT);
 			copy_highpage(page, old_page);
 			*old = addr | (*old & ~PAGE_MASK);
 
@@ -733,7 +760,7 @@ static int kimage_load_normal_segment(struct kimage *image,
 			result  = -ENOMEM;
 			goto out;
 		}
-		result = kimage_add_page(image, page_to_pfn(page)
+		result = kimage_add_page(image, page_to_boot_pfn(page)
 								<< PAGE_SHIFT);
 		if (result < 0)
 			goto out;
@@ -794,7 +821,7 @@ static int kimage_load_crash_segment(struct kimage *image,
 		char *ptr;
 		size_t uchunk, mchunk;
 
-		page = pfn_to_page(maddr >> PAGE_SHIFT);
+		page = boot_pfn_to_page(maddr >> PAGE_SHIFT);
 		if (!page) {
 			result  = -ENOMEM;
 			goto out;
@@ -893,7 +920,7 @@ void __weak crash_free_reserved_phys_range(unsigned long begin,
 	unsigned long addr;
 
 	for (addr = begin; addr < end; addr += PAGE_SIZE)
-		free_reserved_page(pfn_to_page(addr >> PAGE_SHIFT));
+		free_reserved_page(boot_pfn_to_page(addr >> PAGE_SHIFT));
 }
 
 int crash_shrink_memory(unsigned long new_size)
@@ -1348,7 +1375,7 @@ void vmcoreinfo_append_str(const char *fmt, ...)
 void __weak arch_crash_save_vmcoreinfo(void)
 {}
 
-unsigned long __weak paddr_vmcoreinfo_note(void)
+phys_addr_t __weak paddr_vmcoreinfo_note(void)
 {
 	return __pa((unsigned long)(char *)&vmcoreinfo_note);
 }

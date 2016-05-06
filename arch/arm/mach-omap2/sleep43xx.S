@@ -18,6 +18,7 @@
 #include <linux/linkage.h>
 #include <asm/memory.h>
 #include <asm/assembler.h>
+#include <linux/platform_data/pm33xx.h>
 
 #include "iomap.h"
 #include "cm33xx.h"
@@ -28,6 +29,9 @@
 #include "omap-secure.h"
 #include "omap44xx.h"
 #include <asm/hardware/cache-l2x0.h>
+
+/* replicated define because linux/bitops.h cannot be included in assembly */
+#define BIT(nr)			(1 << (nr))
 
 #define EMIF_POWER_MGMT_SR_TIMER_MASK			0x00f0
 
@@ -70,15 +74,19 @@
 #define RTC_PMIC_EXT_WAKEUP_POL				(1 << 4)
 #define RTC_PMIC_EXT_WAKEUP_EN				(1 << 0)
 
-#define WFI_FLAG_RTC_ONLY		(1 << 8)
-
 	.text
 	.align 3
 
 ENTRY(am43xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
 
+	/* Save wfi_flags argument and move to a preserved register */
 	str	r0, wfi_flags
+	mov	r4, r0
+
+	/* Only flush cache is we know we are losing MPU context */
+	tst	r4, #WFI_FLAG_FLUSH_CACHE
+	beq	cache_skip_flush
 
 	/* Retrieve l2 cache virt address BEFORE we shut off EMIF */
 	ldr	r1, get_l2cache_base
@@ -108,6 +116,9 @@ ENTRY(am43xx_do_wfi)
 	 */
 	ldr	r1, kernel_flush
 	blx	r1
+
+	/* v7_flush_dcache_all doesn't preserve registers so reload wfi_flags*/
+	ldr	r4, wfi_flags
 
 	/*
 	 * The kernel doesn't interwork: v7_flush_dcache_all in particluar will
@@ -165,23 +176,36 @@ sync:
 	bne	sync
 #endif
 
+cache_skip_flush:
 	/*
 	 * If we are trying to enter RTC+DDR mode we must perform
 	 * a read from the rtc address space to ensure translation
 	 * presence in the TLB to avoid page table walk after DDR
 	 * is unavailable.
 	 */
-	ldr	r1, wfi_flags
-	tst	r1, #WFI_FLAG_RTC_ONLY
+	tst	r4, #WFI_FLAG_RTC_ONLY
 	beq	skip_rtc_va_refresh
 
 	ldr	r1, rtc_base_virt
 	ldr	r0, [r1]
 
 skip_rtc_va_refresh:
+	/* Only necessary if PER is losing context */
+	tst	r4, #WFI_FLAG_SAVE_EMIF
+	beq	emif_skip_save
+
 	mov	r0, #0x1
 	ldr	r1, ti_emif_save_context
 	blx	r1
+
+emif_skip_save:
+	/*
+	 * Check if we want self refresh, if so enter SR and disable EMIF.
+	 * We can jump to am43xx_deep_sleep_suspend if this isn't required
+	 * as RTC+DDR mode will always need DDR self-refresh
+	 */
+	tst	r4, #WFI_FLAG_SELF_REFRESH
+	beq	am43xx_deep_sleep_suspend
 
 	ldr	r1, ti_emif_enter_sr
 	blx	r1
@@ -203,9 +227,8 @@ wait_emif_disable:
 	cmp	r2, r3
 	bne	wait_emif_disable
 
-	ldr	r1, wfi_flags
-
-	tst	r1, #WFI_FLAG_RTC_ONLY
+	/* Check if we are entering RTC mode */
+	tst	r4, #WFI_FLAG_RTC_ONLY
 	beq	am43xx_deep_sleep_suspend
 
 	ldr	r1, rtc_base_virt
@@ -231,6 +254,10 @@ rtc_loop:
 	b	re_enable_emif
 
 am43xx_deep_sleep_suspend:
+	/* Check if we want to invoke the wkup_m3 */
+	tst	r4, #WFI_FLAG_WAKE_M3
+	beq	wkup_m3_skip
+
 	/*
 	 * For the MPU WFI to be registered as an interrupt
 	 * to WKUP_M3, MPU_CLKCTRL.MODULEMODE needs to be set
@@ -248,6 +275,7 @@ am43xx_deep_sleep_suspend:
 	mov	r2, #AM43XX_CM_CLKSTCTRL_CLKTRCTRL_SW_SLEEP
 	str	r2, [r1]
 
+wkup_m3_skip:
 	/*
 	 * Execute a barrier instruction to ensure that all cache,
 	 * TLB and branch predictor maintenance operations issued
@@ -292,6 +320,10 @@ am43xx_deep_sleep_suspend:
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
 	str	r2, [r1]
 
+	/* Only necessary if PER is losing context */
+	tst	r4, #WFI_FLAG_SELF_REFRESH
+	beq	emif_skip_exit_sr_abt
+
 re_enable_emif:
 	/* Re-enable EMIF */
 	ldr	r1, am43xx_virt_emif_clkctrl
@@ -302,6 +334,14 @@ wait_emif_enable:
 	cmp	r2, r3
 	bne	wait_emif_enable
 
+	ldr	r1, ti_emif_abort_sr
+	blx	r1
+
+emif_skip_exit_sr_abt:
+	/* Check if we must restore cache */
+	tst	r4, #WFI_FLAG_FLUSH_CACHE
+	beq	cache_skip_restore
+
 	/*
 	 * Set SCTLR.C bit to allow data cache allocation
 	 */
@@ -310,15 +350,7 @@ wait_emif_enable:
 	mcr	p15, 0, r0, c1, c0, 0
 	isb
 
-	ldr	r1, ti_emif_abort_sr
-	blx	r1
-
-	/* EMIF needs some time before read/write possible */
-	mov r0, #EMIF_POWER_MGMT_DELAY_PERIOD
-wait_abt:
-	subs   r0, r0, #1
-	bne wait_abt
-
+cache_skip_restore:
 	/* Let the suspend code know about the abort */
 	mov	r0, #1
 	ldmfd	sp!, {r4 - r11, pc}	@ restore regs and return
