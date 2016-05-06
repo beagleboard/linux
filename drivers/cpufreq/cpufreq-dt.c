@@ -119,7 +119,7 @@ static int resources_available(void)
 	clk_put(cpu_clk);
 
 	name = find_supply_name(cpu_dev);
-	/* Platform doesn't require regulator */
+	/* Platform doesn't require supply */
 	if (!name)
 		return 0;
 
@@ -181,14 +181,14 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 	}
 
 	/*
-	 * OPP layer will be taking care of regulators now, but it needs to know
-	 * the name of the regulator first.
+	 * OPP layer will be taking care of supplies now, but it needs to know
+	 * the name of the supply first.
 	 */
 	name = find_supply_name(cpu_dev);
 	if (name) {
-		ret = dev_pm_opp_set_regulator(cpu_dev, name);
+		ret = dev_pm_opp_set_supply(cpu_dev, name);
 		if (ret) {
-			dev_err(cpu_dev, "Failed to set regulator for cpu%d: %d\n",
+			dev_err(cpu_dev, "Failed to set supply for cpu%d: %d\n",
 				policy->cpu, ret);
 			goto out_put_clk;
 		}
@@ -288,7 +288,7 @@ out_free_priv:
 out_free_opp:
 	dev_pm_opp_of_cpumask_remove_table(policy->cpus);
 	if (name)
-		dev_pm_opp_put_regulator(cpu_dev);
+		dev_pm_opp_put_supply(cpu_dev);
 out_put_clk:
 	clk_put(cpu_clk);
 
@@ -303,7 +303,7 @@ static int cpufreq_exit(struct cpufreq_policy *policy)
 	dev_pm_opp_free_cpufreq_table(priv->cpu_dev, &policy->freq_table);
 	dev_pm_opp_of_cpumask_remove_table(policy->related_cpus);
 	if (priv->reg_name)
-		dev_pm_opp_put_regulator(priv->cpu_dev);
+		dev_pm_opp_put_supply(priv->cpu_dev);
 
 	clk_put(policy->clk);
 	kfree(priv);
@@ -363,7 +363,7 @@ static int dt_cpufreq_probe(struct platform_device *pdev)
 	/*
 	 * All per-cluster (CPUs sharing clock/voltages) initialization is done
 	 * from ->init(). In probe(), we just need to make sure that clk and
-	 * regulators are available. Else defer probe and retry.
+	 * supplies are available. Else defer probe and retry.
 	 *
 	 * FIXME: Is checking this only for CPU0 sufficient ?
 	 */

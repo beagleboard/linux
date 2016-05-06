@@ -1433,12 +1433,12 @@ unlock:
 EXPORT_SYMBOL_GPL(dev_pm_opp_put_prop_name);
 
 /**
- * dev_pm_opp_set_regulator() - Set regulator name for the device
- * @dev: Device for which regulator name is being set.
- * @name: Name of the regulator.
+ * dev_pm_opp_set_supply() - Set supply name for the device
+ * @dev: Device for which supply name is being set.
+ * @name: Name of the supply.
  *
  * In order to support OPP switching, OPP layer needs to know the name of the
- * device's regulator, as the core would be required to switch voltages as well.
+ * device's supply, as the core would be required to switch voltages as well.
  *
  * This must be called before any OPPs are initialized for the device.
  *
@@ -1448,7 +1448,7 @@ EXPORT_SYMBOL_GPL(dev_pm_opp_put_prop_name);
  * that this function is *NOT* called under RCU protection or in contexts where
  * mutex cannot be locked.
  */
-int dev_pm_opp_set_regulator(struct device *dev, const char *name)
+int dev_pm_opp_set_supply(struct device *dev, const char *name)
 {
 	struct opp_table *opp_table;
 	struct regulator *reg;
@@ -1495,11 +1495,11 @@ unlock:
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(dev_pm_opp_set_regulator);
+EXPORT_SYMBOL_GPL(dev_pm_opp_set_supply);
 
 /**
- * dev_pm_opp_put_regulator() - Releases resources blocked for regulator
- * @dev: Device for which regulator was set.
+ * dev_pm_opp_put_supply() - Releases resources blocked for supply
+ * @dev: Device for which supply was set.
  *
  * Locking: The internal opp_table and opp structures are RCU protected.
  * Hence this function internally uses RCU updater strategy with mutex locks
@@ -1507,7 +1507,7 @@ EXPORT_SYMBOL_GPL(dev_pm_opp_set_regulator);
  * that this function is *NOT* called under RCU protection or in contexts where
  * mutex cannot be locked.
  */
-void dev_pm_opp_put_regulator(struct device *dev)
+void dev_pm_opp_put_supply(struct device *dev)
 {
 	struct opp_table *opp_table;
 
@@ -1538,7 +1538,7 @@ void dev_pm_opp_put_regulator(struct device *dev)
 unlock:
 	mutex_unlock(&opp_table_lock);
 }
-EXPORT_SYMBOL_GPL(dev_pm_opp_put_regulator);
+EXPORT_SYMBOL_GPL(dev_pm_opp_put_supply);
 
 static bool _opp_is_supported(struct device *dev, struct opp_table *opp_table,
 			      struct device_node *np)
