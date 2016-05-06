@@ -16,6 +16,20 @@
 #include <linux/err.h>
 #include <linux/pm_opp.h>
 
+struct pm_opp_domain_desc;
+
+/**
+ * struct pm_opp_domain_dev - internal representation of opp domain devices
+ * @dev:	voltage domain device
+ * @node:	list to remaining voltage domain devices
+ * @node:	mutex to control data structure modifications and serialize ops
+ */
+struct pm_opp_domain_dev {
+	const struct pm_opp_domain_desc *desc;
+	struct device *dev;
+	struct list_head node;
+};
+
 /**
  * struct pm_opp_domain - Structure to maintain opp domain info
  * @dev:        device for which we scale clk and supply
@@ -27,6 +41,7 @@ struct pm_opp_domain {
 	struct device *dev;
 	struct clk *clk;
 	struct regulator *reg;
+	struct pm_opp_domain_dev *oppdm_dev;
 	void *data;
 };
 
