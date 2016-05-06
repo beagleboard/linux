@@ -13,16 +13,15 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/clk.h>
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/of.h>
 #include <linux/export.h>
-#include <linux/regulator/consumer.h>
 
 #include "opp.h"
+#include "domain.h"
 
 /*
  * The root of the list of all opp-tables. All opp_table structures branch off
@@ -243,7 +242,7 @@ unsigned long dev_pm_opp_get_max_volt_latency(struct device *dev)
 {
 	struct opp_table *opp_table;
 	struct dev_pm_opp *opp, *min_opp = NULL, *max_opp = NULL;
-	struct regulator *reg;
+	struct pm_opp_domain *pod;
 	unsigned long latency_ns = 0;
 	unsigned long old_min_uV, old_uV, old_max_uV;
 	unsigned long new_min_uV, new_uV, new_max_uV;
@@ -253,16 +252,6 @@ unsigned long dev_pm_opp_get_max_volt_latency(struct device *dev)
 
 	opp_table = _find_opp_table(dev);
 	if (IS_ERR(opp_table)) {
-		rcu_read_unlock();
-		return 0;
-	}
-
-	reg = opp_table->regulator;
-	if (IS_ERR(reg)) {
-		/* Regulator may not be required for device */
-		if (reg)
-			dev_err(dev, "%s: Invalid regulator (%ld)\n", __func__,
-				PTR_ERR(reg));
 		rcu_read_unlock();
 		return 0;
 	}
@@ -290,18 +279,20 @@ unsigned long dev_pm_opp_get_max_volt_latency(struct device *dev)
 	new_uV = max_opp->u_volt;
 	new_max_uV = max_opp->u_volt_max;
 
+	pod = opp_table->opp_domain;
+
 	rcu_read_unlock();
 
 	/*
-	 * The caller needs to ensure that opp_table (and hence the regulator)
+	 * The caller needs to ensure that opp_table (and hence the opp_domain)
 	 * isn't freed, while we are executing this routine.
 	 */
-	ret = regulator_set_voltage_time_triplet(reg, old_uV,
-						 old_min_uV,
-						 old_max_uV,
-						 new_uV,
-						 new_min_uV,
-						 new_max_uV);
+	ret = dev_pm_opp_domain_get_latency(pod, old_uV,
+					    old_min_uV,
+					    old_max_uV,
+					    new_uV,
+					    new_min_uV,
+					    new_max_uV);
 
 	if (ret > 0)
 		latency_ns = ret * 1000;
@@ -550,59 +541,6 @@ struct dev_pm_opp *dev_pm_opp_find_freq_floor(struct device *dev,
 }
 EXPORT_SYMBOL_GPL(dev_pm_opp_find_freq_floor);
 
-/*
- * The caller needs to ensure that opp_table (and hence the clk) isn't freed,
- * while clk returned here is used.
- */
-static struct clk *_get_opp_clk(struct device *dev)
-{
-	struct opp_table *opp_table;
-	struct clk *clk;
-
-	rcu_read_lock();
-
-	opp_table = _find_opp_table(dev);
-	if (IS_ERR(opp_table)) {
-		dev_err(dev, "%s: device opp doesn't exist\n", __func__);
-		clk = ERR_CAST(opp_table);
-		goto unlock;
-	}
-
-	clk = opp_table->clk;
-	if (IS_ERR(clk))
-		dev_err(dev, "%s: No clock available for the device\n",
-			__func__);
-
-unlock:
-	rcu_read_unlock();
-	return clk;
-}
-
-static int _set_opp_voltage(struct device *dev, struct regulator *reg,
-			    unsigned long u_volt, unsigned long u_volt_min,
-			    unsigned long u_volt_max)
-{
-	int ret;
-
-	/* Regulator not available for device */
-	if (IS_ERR(reg)) {
-		dev_dbg(dev, "%s: regulator not available: %ld\n", __func__,
-			PTR_ERR(reg));
-		return 0;
-	}
-
-	dev_dbg(dev, "%s: voltages (mV): %lu %lu %lu\n", __func__, u_volt_min,
-		u_volt, u_volt_max);
-
-	ret = regulator_set_voltage_triplet(reg, u_volt_min, u_volt,
-					    u_volt_max);
-	if (ret)
-		dev_err(dev, "%s: failed to set voltage (%lu %lu %lu mV): %d\n",
-			__func__, u_volt_min, u_volt, u_volt_max, ret);
-
-	return ret;
-}
-
 /**
  * dev_pm_opp_set_rate() - Configure new OPP based on frequency
  * @dev:	 device for which we do this operation
@@ -616,36 +554,7 @@ static int _set_opp_voltage(struct device *dev, struct regulator *reg,
 int dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq)
 {
 	struct opp_table *opp_table;
-	struct dev_pm_opp *old_opp, *opp;
-	struct regulator *reg;
-	struct clk *clk;
-	unsigned long freq, old_freq;
-	unsigned long u_volt, u_volt_min, u_volt_max;
-	unsigned long ou_volt, ou_volt_min, ou_volt_max;
-	int ret;
-
-	if (unlikely(!target_freq)) {
-		dev_err(dev, "%s: Invalid target frequency %lu\n", __func__,
-			target_freq);
-		return -EINVAL;
-	}
-
-	clk = _get_opp_clk(dev);
-	if (IS_ERR(clk))
-		return PTR_ERR(clk);
-
-	freq = clk_round_rate(clk, target_freq);
-	if ((long)freq <= 0)
-		freq = target_freq;
-
-	old_freq = clk_get_rate(clk);
-
-	/* Return early if nothing to do */
-	if (old_freq == freq) {
-		dev_dbg(dev, "%s: old/new frequencies (%lu Hz) are same, nothing to do\n",
-			__func__, freq);
-		return 0;
-	}
+	struct pm_opp_domain *pod;
 
 	rcu_read_lock();
 
@@ -656,73 +565,11 @@ int dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq)
 		return PTR_ERR(opp_table);
 	}
 
-	old_opp = dev_pm_opp_find_freq_ceil(dev, &old_freq);
-	if (!IS_ERR(old_opp)) {
-		ou_volt = old_opp->u_volt;
-		ou_volt_min = old_opp->u_volt_min;
-		ou_volt_max = old_opp->u_volt_max;
-	} else {
-		dev_err(dev, "%s: failed to find current OPP for freq %lu (%ld)\n",
-			__func__, old_freq, PTR_ERR(old_opp));
-	}
-
-	opp = dev_pm_opp_find_freq_ceil(dev, &freq);
-	if (IS_ERR(opp)) {
-		ret = PTR_ERR(opp);
-		dev_err(dev, "%s: failed to find OPP for freq %lu (%d)\n",
-			__func__, freq, ret);
-		rcu_read_unlock();
-		return ret;
-	}
-
-	u_volt = opp->u_volt;
-	u_volt_min = opp->u_volt_min;
-	u_volt_max = opp->u_volt_max;
-
-	reg = opp_table->regulator;
+	pod = opp_table->opp_domain;
 
 	rcu_read_unlock();
 
-	/* Scaling up? Scale voltage before frequency */
-	if (freq > old_freq) {
-		ret = _set_opp_voltage(dev, reg, u_volt, u_volt_min,
-				       u_volt_max);
-		if (ret)
-			goto restore_voltage;
-	}
-
-	/* Change frequency */
-
-	dev_dbg(dev, "%s: switching OPP: %lu Hz --> %lu Hz\n",
-		__func__, old_freq, freq);
-
-	ret = clk_set_rate(clk, freq);
-	if (ret) {
-		dev_err(dev, "%s: failed to set clock rate: %d\n", __func__,
-			ret);
-		goto restore_voltage;
-	}
-
-	/* Scaling down? Scale voltage after frequency */
-	if (freq < old_freq) {
-		ret = _set_opp_voltage(dev, reg, u_volt, u_volt_min,
-				       u_volt_max);
-		if (ret)
-			goto restore_freq;
-	}
-
-	return 0;
-
-restore_freq:
-	if (clk_set_rate(clk, old_freq))
-		dev_err(dev, "%s: failed to restore old-freq (%lu Hz)\n",
-			__func__, old_freq);
-restore_voltage:
-	/* This shouldn't harm even if the voltages weren't updated earlier */
-	if (!IS_ERR(old_opp))
-		_set_opp_voltage(dev, reg, ou_volt, ou_volt_min, ou_volt_max);
-
-	return ret;
+	return dev_pm_opp_domain_set_rate(pod, target_freq);
 }
 EXPORT_SYMBOL_GPL(dev_pm_opp_set_rate);
 
@@ -819,13 +666,9 @@ static struct opp_table *_add_opp_table(struct device *dev)
 		of_node_put(np);
 	}
 
-	/* Set regulator to a non-NULL error value */
-	opp_table->regulator = ERR_PTR(-ENXIO);
-
-	/* Find clk for the device */
-	opp_table->clk = clk_get(dev, NULL);
-	if (IS_ERR(opp_table->clk)) {
-		ret = PTR_ERR(opp_table->clk);
+	opp_table->opp_domain = dev_pm_opp_domain_get(dev);
+	if (IS_ERR(opp_table->opp_domain)) {
+		ret = PTR_ERR(opp_table->opp_domain);
 		if (ret != -EPROBE_DEFER)
 			dev_dbg(dev, "%s: Couldn't find clock: %d\n", __func__,
 				ret);
@@ -870,12 +713,8 @@ static void _remove_opp_table(struct opp_table *opp_table)
 	if (opp_table->prop_name)
 		return;
 
-	if (!IS_ERR(opp_table->regulator))
+	if (dev_pm_opp_domain_put(opp_table->opp_domain))
 		return;
-
-	/* Release clk */
-	if (!IS_ERR(opp_table->clk))
-		clk_put(opp_table->clk);
 
 	opp_dev = list_first_entry(&opp_table->dev_list, struct opp_device,
 				   node);
@@ -999,17 +838,16 @@ static struct dev_pm_opp *_allocate_opp(struct device *dev,
 static bool _opp_supported_by_regulators(struct dev_pm_opp *opp,
 					 struct opp_table *opp_table)
 {
-	struct regulator *reg = opp_table->regulator;
+	bool sup;
 
-	if (!IS_ERR(reg) &&
-	    !regulator_is_supported_voltage(reg, opp->u_volt_min,
-					    opp->u_volt_max)) {
+	sup = dev_pm_opp_domain_opp_supported_by_supply(opp_table->opp_domain,
+							opp->u_volt_min,
+							opp->u_volt_max);
+	if (!sup)
 		pr_warn("%s: OPP minuV: %lu maxuV: %lu, not supported by regulator\n",
 			__func__, opp->u_volt_min, opp->u_volt_max);
-		return false;
-	}
 
-	return true;
+	return sup;
 }
 
 static int _opp_add(struct device *dev, struct dev_pm_opp *new_opp,
@@ -1451,7 +1289,6 @@ EXPORT_SYMBOL_GPL(dev_pm_opp_put_prop_name);
 int dev_pm_opp_set_supply(struct device *dev, const char *name)
 {
 	struct opp_table *opp_table;
-	struct regulator *reg;
 	int ret;
 
 	mutex_lock(&opp_table_lock);
@@ -1468,22 +1305,9 @@ int dev_pm_opp_set_supply(struct device *dev, const char *name)
 		goto err;
 	}
 
-	/* Already have a regulator set */
-	if (WARN_ON(!IS_ERR(opp_table->regulator))) {
-		ret = -EBUSY;
+	ret = dev_pm_opp_domain_get_supply(opp_table->opp_domain, name);
+	if (ret)
 		goto err;
-	}
-	/* Allocate the regulator */
-	reg = regulator_get_optional(dev, name);
-	if (IS_ERR(reg)) {
-		ret = PTR_ERR(reg);
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "%s: no regulator (%s) found: %d\n",
-				__func__, name, ret);
-		goto err;
-	}
-
-	opp_table->regulator = reg;
 
 	mutex_unlock(&opp_table_lock);
 	return 0;
@@ -1521,16 +1345,10 @@ void dev_pm_opp_put_supply(struct device *dev)
 		goto unlock;
 	}
 
-	if (IS_ERR(opp_table->regulator)) {
-		dev_err(dev, "%s: Doesn't have regulator set\n", __func__);
-		goto unlock;
-	}
-
 	/* Make sure there are no concurrent readers while updating opp_table */
 	WARN_ON(!list_empty(&opp_table->opp_list));
 
-	regulator_put(opp_table->regulator);
-	opp_table->regulator = ERR_PTR(-ENXIO);
+	dev_pm_opp_domain_put_supply(opp_table->opp_domain);
 
 	/* Try freeing opp_table if this was the last blocking resource */
 	_remove_opp_table(opp_table);
