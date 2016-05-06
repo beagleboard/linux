@@ -283,7 +283,7 @@ static inline void omap_init_cpufreq(void)
 	if (!of_have_populated_dt())
 		devinfo.name = "omap-cpufreq";
 	else
-		devinfo.name = "cpufreq-dt";
+		devinfo.name = "ti-cpufreq";
 	platform_device_register_full(&devinfo);
 }
 
