@@ -1647,7 +1647,7 @@ capemgr_probe(struct platform_device *pdev)
 	ret = bone_baseboard_scan(bbrd);
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Failed to scan baseboard eeprom\n");
-		goto err_exit;
+		// goto err_exit; -- Does this default to the .override values, such as "Board Name"?
 	}
 
 	dev_info(&pdev->dev, "Baseboard: '%s'\n", bbrd->text_id);
