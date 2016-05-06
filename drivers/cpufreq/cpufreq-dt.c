@@ -25,7 +25,6 @@
 #include <linux/of.h>
 #include <linux/pm_opp.h>
 #include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
 
@@ -90,7 +89,6 @@ node_put:
 static int resources_available(void)
 {
 	struct device *cpu_dev;
-	struct regulator *cpu_reg;
 	struct clk *cpu_clk;
 	int ret = 0;
 	const char *name;
@@ -123,22 +121,27 @@ static int resources_available(void)
 	if (!name)
 		return 0;
 
-	cpu_reg = regulator_get_optional(cpu_dev, name);
-	ret = PTR_ERR_OR_ZERO(cpu_reg);
-	if (ret) {
-		/*
-		 * If cpu's regulator supply node is present, but regulator is
-		 * not yet registered, we should try defering probe.
-		 */
-		if (ret == -EPROBE_DEFER)
-			dev_dbg(cpu_dev, "cpu0 regulator not ready, retry\n");
-		else
-			dev_dbg(cpu_dev, "no regulator for cpu0: %d\n", ret);
+	name = find_supply_name(cpu_dev);
+	if (name) {
+		ret = dev_pm_opp_set_supply(cpu_dev, name);
+		if (ret) {
+			/*
+			 * If cpu's supply node is present, but supply is
+			 * not yet registered, we should try defering probe.
+			 */
+			if (ret == -EPROBE_DEFER)
+				dev_dbg(cpu_dev, "cpu0 supply not ready, retry\n");
+			else
+				dev_dbg(cpu_dev, "no supply for cpu0: %d\n",
+					ret);
 
-		return ret;
+			return ret;
+		}
+
 	}
 
-	regulator_put(cpu_reg);
+	dev_pm_opp_put_supply(cpu_dev);
+
 	return 0;
 }
 
