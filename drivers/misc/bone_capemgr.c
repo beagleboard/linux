@@ -397,11 +397,28 @@ static int bone_baseboard_scan(struct bone_baseboard *bbrd)
 {
 	struct capemgr_info *info = container_of(bbrd,
 			struct capemgr_info, baseboard);
-	const u8 *p;
+	u8 *p;
 	int ret;
 	size_t len;
 
 	p = nvmem_cell_read(bbrd->nvmem_cell, &len);
+	
+	p[0] = 0xaa;
+	p[1] = 0x55;
+	p[2] = 0x33;
+	p[3] = 0xee;
+
+
+	p[4] = 0x41;
+	p[5] = 0x33;
+	p[6] = 0x33;
+	p[7] = 0x35;
+
+	p[8] = 0x42;
+	p[9] = 0x4e;
+	p[10] = 0x4c;
+	p[11] = 0x54;
+
 	if (IS_ERR(p)) {
 		ret = PTR_ERR(p);
 		dev_err(&info->pdev->dev,
@@ -415,11 +432,37 @@ static int bone_baseboard_scan(struct bone_baseboard *bbrd)
 		return -EINVAL;
 	}
 	memcpy(bbrd->signature, p, sizeof(bbrd->signature));
+	dev_err(&info->pdev->dev, "p[0] '%x'\n",
+		p[0]);	
+	dev_err(&info->pdev->dev, "p[1] '%x'\n",
+		p[1]);
+	dev_err(&info->pdev->dev, "p[2] '%x'\n",
+		p[2]);
+	dev_err(&info->pdev->dev, "p[3] '%x'\n",
+		p[3]);
+
+	dev_err(&info->pdev->dev, "p[4] '%x'\n",
+		p[4]);	
+	dev_err(&info->pdev->dev, "p[5] '%x'\n",
+		p[5]);
+	dev_err(&info->pdev->dev, "p[6] '%x'\n",
+		p[6]);
+	dev_err(&info->pdev->dev, "p[7] '%x'\n",
+		p[7]);
+
+	dev_err(&info->pdev->dev, "p[8] '%x'\n",
+		p[8]);	
+	dev_err(&info->pdev->dev, "p[9] '%x'\n",
+		p[9]);
+	dev_err(&info->pdev->dev, "p[10] '%x'\n",
+		p[10]);
+	dev_err(&info->pdev->dev, "p[11] '%x'\n",
+		p[11]);
 
 	p = bbrd->signature;
 	if (EE_FIELD_MAKE_HEADER(p) != EE_FIELD_HEADER_VALID) {
 		dev_err(&info->pdev->dev, "Invalid board signature '%08x'\n",
-			EE_FIELD_MAKE_HEADER(p));
+			p);
 		return -ENODEV;
 	}
 
@@ -460,6 +503,8 @@ static int bone_slot_scan(struct bone_cape_slot *slot)
 	if (!slot->override) {
 
 		p = nvmem_cell_read(slot->nvmem_cell, &len);
+
+
 		if (IS_ERR(p)) {
 			r = PTR_ERR(p);
 			slot->probe_failed = 1;
