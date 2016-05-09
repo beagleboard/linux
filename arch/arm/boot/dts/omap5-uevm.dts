@@ -66,6 +66,23 @@
 	};
 };
 
+&cpu0 {
+	cpu-opp-domain = <&oppdm_mpu>;
+	voltage-tolerance = <1>;
+};
+
+&oppdm_mpu {
+	vdd-supply = <&smps123_reg>;
+};
+
+&oppdm_mm {
+	vdd-supply = <&smps45_reg>;
+};
+
+&oppdm_core {
+	vdd-supply = <&smps6_reg>;
+};
+
 &tpd12s015 {
 	gpios = <&gpio9 0 GPIO_ACTIVE_HIGH>,	/* TCA6424A P01, CT CP HPD */
 		<&gpio9 1 GPIO_ACTIVE_HIGH>,	/* TCA6424A P00, LS OE */

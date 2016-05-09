@@ -25,7 +25,6 @@
 #include <linux/of.h>
 #include <linux/pm_opp.h>
 #include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
 
@@ -56,7 +55,7 @@ static int set_target(struct cpufreq_policy *policy, unsigned int index)
 static const char *find_supply_name(struct device *dev)
 {
 	struct device_node *np;
-	struct property *pp;
+	struct property *pp_reg, *pp_vdm;
 	int cpu = dev->id;
 	const char *name = NULL;
 
@@ -68,20 +67,22 @@ static const char *find_supply_name(struct device *dev)
 
 	/* Try "cpu0" for older DTs */
 	if (!cpu) {
-		pp = of_find_property(np, "cpu0-supply", NULL);
-		if (pp) {
+		pp_reg = of_find_property(np, "cpu0-supply", NULL);
+		if (pp_reg) {
 			name = "cpu0";
 			goto node_put;
 		}
 	}
 
-	pp = of_find_property(np, "cpu-supply", NULL);
-	if (pp) {
+	pp_reg = of_find_property(np, "cpu-supply", NULL);
+	pp_vdm = of_find_property(np, "cpu-opp-domain", NULL);
+	if (pp_reg || pp_vdm) {
 		name = "cpu";
 		goto node_put;
 	}
 
 	dev_dbg(dev, "no regulator for cpu%d\n", cpu);
+
 node_put:
 	of_node_put(np);
 	return name;
@@ -90,7 +91,6 @@ node_put:
 static int resources_available(void)
 {
 	struct device *cpu_dev;
-	struct regulator *cpu_reg;
 	struct clk *cpu_clk;
 	int ret = 0;
 	const char *name;
@@ -119,26 +119,31 @@ static int resources_available(void)
 	clk_put(cpu_clk);
 
 	name = find_supply_name(cpu_dev);
-	/* Platform doesn't require regulator */
+	/* Platform doesn't require supply */
 	if (!name)
 		return 0;
 
-	cpu_reg = regulator_get_optional(cpu_dev, name);
-	ret = PTR_ERR_OR_ZERO(cpu_reg);
-	if (ret) {
-		/*
-		 * If cpu's regulator supply node is present, but regulator is
-		 * not yet registered, we should try defering probe.
-		 */
-		if (ret == -EPROBE_DEFER)
-			dev_dbg(cpu_dev, "cpu0 regulator not ready, retry\n");
-		else
-			dev_dbg(cpu_dev, "no regulator for cpu0: %d\n", ret);
+	name = find_supply_name(cpu_dev);
+	if (name) {
+		ret = dev_pm_opp_set_supply(cpu_dev, name);
+		if (ret) {
+			/*
+			 * If cpu's supply node is present, but supply is
+			 * not yet registered, we should try defering probe.
+			 */
+			if (ret == -EPROBE_DEFER)
+				dev_dbg(cpu_dev, "cpu0 supply not ready, retry\n");
+			else
+				dev_dbg(cpu_dev, "no supply for cpu0: %d\n",
+					ret);
 
-		return ret;
+			return ret;
+		}
+
 	}
 
-	regulator_put(cpu_reg);
+	dev_pm_opp_put_supply(cpu_dev);
+
 	return 0;
 }
 
@@ -181,14 +186,14 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 	}
 
 	/*
-	 * OPP layer will be taking care of regulators now, but it needs to know
-	 * the name of the regulator first.
+	 * OPP layer will be taking care of supplies now, but it needs to know
+	 * the name of the supply first.
 	 */
 	name = find_supply_name(cpu_dev);
 	if (name) {
-		ret = dev_pm_opp_set_regulator(cpu_dev, name);
+		ret = dev_pm_opp_set_supply(cpu_dev, name);
 		if (ret) {
-			dev_err(cpu_dev, "Failed to set regulator for cpu%d: %d\n",
+			dev_err(cpu_dev, "Failed to set supply for cpu%d: %d\n",
 				policy->cpu, ret);
 			goto out_put_clk;
 		}
@@ -288,7 +293,7 @@ out_free_priv:
 out_free_opp:
 	dev_pm_opp_of_cpumask_remove_table(policy->cpus);
 	if (name)
-		dev_pm_opp_put_regulator(cpu_dev);
+		dev_pm_opp_put_supply(cpu_dev);
 out_put_clk:
 	clk_put(cpu_clk);
 
@@ -303,7 +308,7 @@ static int cpufreq_exit(struct cpufreq_policy *policy)
 	dev_pm_opp_free_cpufreq_table(priv->cpu_dev, &policy->freq_table);
 	dev_pm_opp_of_cpumask_remove_table(policy->related_cpus);
 	if (priv->reg_name)
-		dev_pm_opp_put_regulator(priv->cpu_dev);
+		dev_pm_opp_put_supply(priv->cpu_dev);
 
 	clk_put(policy->clk);
 	kfree(priv);
@@ -363,7 +368,7 @@ static int dt_cpufreq_probe(struct platform_device *pdev)
 	/*
 	 * All per-cluster (CPUs sharing clock/voltages) initialization is done
 	 * from ->init(). In probe(), we just need to make sure that clk and
-	 * regulators are available. Else defer probe and retry.
+	 * supplies are available. Else defer probe and retry.
 	 *
 	 * FIXME: Is checking this only for CPU0 sufficient ?
 	 */

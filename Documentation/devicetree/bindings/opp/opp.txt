@@ -49,6 +49,18 @@ If required, this can be extended for SoC vendor specfic bindings. Such bindings
 should be documented as Documentation/devicetree/bindings/power/<vendor>-opp.txt
 and should have a compatible description like: "operating-points-v2-<vendor>".
 
+* Property: <supply-name>-opp-domain
+
+Devices requiring control beyond a single regulator can provide a
+"<supply-name>-opp-domain" pointing to an OPP domain node that has registered
+itself with the OPP core using the devm_opp_domain_register API that is part
+of the OPP domain core. Providing this phandle allows a platform OPP domain
+driver to override the standard OPP domain controls and control platform
+specific regulator topologies.
+
+NOTE: This property is optional, without this the standard single regulator
+"<supply-name>-supply" and single clock will be scaled during OPP transitions.
+
 * OPP Table Node
 
 This describes the OPPs belonging to a device. This node can have following

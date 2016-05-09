@@ -49,6 +49,14 @@ config AMX3_PM
 	  c-states on AM335x. Also required for rtc and ddr in self-refresh low
 	  power mode on AM437x platforms.
 
+config OPP_DOMAIN_TI
+	tristate "TI OMAP OPP domain driver"
+	depends on PM_OPP
+	help
+	  OPP domain support for OMAP platforms which need vdd regulator,
+	  Adaptive Body Bias(ABB) regulator, and/or Class0 SmartReflex
+	  support.
+
 config WKUP_M3_IPC
 	tristate "TI AMx3 Wkup-M3 IPC Driver"
 	depends on WKUP_M3_RPROC
