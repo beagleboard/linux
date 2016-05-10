@@ -71,3 +71,16 @@ config DRA752_THERMAL
 
 	  This includes alert interrupts generation and also the TSHUT
 	  support.
+
+config TI_THERMAL_EMERGENCY_POWEROFF_DELAY_MS
+	int "Emergency poweroff delay in milli-seconds"
+	depends on TI_SOC_THERMAL
+	default 0
+	help
+	  The number of milliseconds to delay before emergency
+	  poweroff kicks in. The delay should be carefully profiled
+	  so as to give adequate time for orderly_poweroff. In case
+	  of failure of an orderly_poweroff the emergency poweroff
+	  kicks in after the delay has elapsed and shuts down the system.
+
+	  If set to 0 poweroff will happen immediately.
