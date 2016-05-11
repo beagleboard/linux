@@ -215,9 +215,15 @@
 		>;
 	};
 
-	pixcir_ts_pins: pixcir_ts_pins {
+	pixcir_ts_pins_default: pixcir_ts_pins_default {
 		pinctrl-single,pins = <
 			0x264 (PIN_INPUT_PULLUP | MUX_MODE7)  /* spi2_d0.gpio3_22 */
+		>;
+	};
+
+	pixcir_ts_pins_sleep: pixcir_ts_pins_sleep {
+		pinctrl-single,pins = <
+			0x264 (PIN_INPUT | PULL_DISABLE | MUX_MODE7)  /* spi2_d0.gpio3_22 */
 		>;
 	};
 
@@ -675,8 +681,9 @@
 	pinctrl-0 = <&i2c1_pins>;
 	pixcir_ts@5c {
 		compatible = "pixcir,pixcir_tangoc";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pixcir_ts_pins>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&pixcir_ts_pins_default>;
+		pinctrl-1 = <&pixcir_ts_pins_sleep>;
 		reg = <0x5c>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <22 0>;
