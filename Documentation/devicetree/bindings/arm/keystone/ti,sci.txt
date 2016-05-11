@@ -31,6 +31,7 @@ Optional Properties:
 - reg-names:
 	debug_messages - Map the Debug message region
 - reg:  register space corresponding to the debug_messages
+- ti,system-reboot-controller: If system reboot can be triggered by SoC reboot
 
 Example (K2G):
 --------

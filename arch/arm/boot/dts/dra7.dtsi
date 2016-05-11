@@ -72,6 +72,55 @@
 		interrupt-parent = <&gic>;
 	};
 
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a15";
+			reg = <0>;
+
+			operating-points-v2 = <&cpu0_opp_table>;
+			ti,syscon-efuse = <&scm_wkup 0x20c 0xf80000 19>;
+			ti,syscon-rev = <&scm_wkup 0x204>;
+
+			clocks = <&dpll_mpu_ck>;
+			clock-names = "cpu";
+
+			clock-latency = <300000>; /* From omap-cpufreq driver */
+
+			/* cooling options */
+			cooling-min-level = <0>;
+			cooling-max-level = <2>;
+			#cooling-cells = <2>; /* min followed by max */
+		};
+	};
+
+	cpu0_opp_table: opp_table0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp_nom@1000000000 {
+			opp-hz = /bits/ 64 <1000000000>;
+			opp-microvolt = <1060000 1039000 1082000>;
+			opp-supported-hw = <0xFF 0x01>;
+			opp-suspend;
+		};
+
+		opp_od@1176000000 {
+			opp-hz = /bits/ 64 <1176000000>;
+			opp-microvolt = <1160000 1137000 1183000>;
+			opp-supported-hw = <0xFF 0x02>;
+		};
+
+		opp_high@1500000000 {
+			opp-hz = /bits/ 64 <1500000000>;
+			opp-microvolt = <1210000 1186000 1234000>;
+			opp-supported-hw = <0xFF 0x04>;
+		};
+	};
+
 	/*
 	 * The soc node represents the soc top level view. It is used for IPs
 	 * that are not memory mapped in the MPU view or for the MPU itself.
@@ -231,6 +280,11 @@
 
 				prm_clockdomains: clockdomains {
 				};
+			};
+
+			scm_wkup: scm_conf@c000 {
+				compatible = "syscon";
+				reg = <0xc000 0x1000>;
 			};
 		};
 
@@ -1388,6 +1442,73 @@
 			1210000		0	0x4	0 0x02000000 0x01F00000
 			1280000		0	0x8	0 0x02000000 0x01F00000
 			>;
+		};
+
+		oppdm_mpu: oppdm@4a003b20 {
+			compatible = "ti,omap5-oppdm";
+			#oppdm-cells = <0>;
+			vbb-supply = <&abb_mpu>;
+			reg = <0x4a003b20 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1060000 0x0
+			1160000 0x4
+			1210000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		oppdm_ivahd: oppdm@4a0025cc {
+			compatible = "ti,omap5-oppdm";
+			#oppdm-cells = <0>;
+			vbb-supply = <&abb_ivahd>;
+			reg = <0x4a0025cc 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		oppdm_dspeve: oppdm@4a0025e0 {
+			compatible = "ti,omap5-oppdm";
+			#oppdm-cells = <0>;
+			vbb-supply = <&abb_dspeve>;
+			reg = <0x4a0025e0 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1055000 0x0
+			1150000 0x4
+			1250000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		oppdm_gpu: oppdm@4a003b08 {
+			compatible = "ti,omap5-oppdm";
+			#oppdm-cells = <0>;
+			vbb-supply = <&abb_gpu>;
+			reg = <0x4a003b08 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			1210000 0x4
+			1280000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
+		oppdm_core: oppdm@4a0025f4 {
+			compatible = "ti,omap5-core-oppdm";
+			#oppdm-cells = <0>;
+			reg = <0x4a0025f4 0x4>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1090000 0x0
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		mcspi1: spi@48098000 {

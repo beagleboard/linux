@@ -231,6 +231,15 @@ config ARM_TEGRA124_CPUFREQ
 	help
 	  This adds the CPUFreq driver support for Tegra124 SOCs.
 
+config ARM_TI_CPUFREQ
+	tristate "Texas Instruments CPUFreq support"
+	select PM_OPP
+	help
+	  This driver enables valid OPPs on the running platform based
+	  on values contained within the SoC in use. Enable this in order
+	  to use the cpufreq-dt driver on all Texas Instruments platforms
+	  that provide dt based OPP tables.
+
 config ARM_PXA2xx_CPUFREQ
 	tristate "Intel PXA2xx CPUfreq driver"
 	depends on PXA27x || PXA25x

@@ -2960,50 +2960,6 @@ int regulator_set_voltage(struct regulator *regulator, int min_uV, int max_uV)
 }
 EXPORT_SYMBOL_GPL(regulator_set_voltage);
 
-/**
- * regulator_set_voltage_time - get raise/fall time
- * @regulator: regulator source
- * @old_uV: starting voltage in microvolts
- * @new_uV: target voltage in microvolts
- *
- * Provided with the starting and ending voltage, this function attempts to
- * calculate the time in microseconds required to rise or fall to this new
- * voltage.
- */
-int regulator_set_voltage_time(struct regulator *regulator,
-			       int old_uV, int new_uV)
-{
-	struct regulator_dev *rdev = regulator->rdev;
-	const struct regulator_ops *ops = rdev->desc->ops;
-	int old_sel = -1;
-	int new_sel = -1;
-	int voltage;
-	int i;
-
-	/* Currently requires operations to do this */
-	if (!ops->list_voltage || !ops->set_voltage_time_sel
-	    || !rdev->desc->n_voltages)
-		return -EINVAL;
-
-	for (i = 0; i < rdev->desc->n_voltages; i++) {
-		/* We only look for exact voltage matches here */
-		voltage = regulator_list_voltage(regulator, i);
-		if (voltage < 0)
-			return -EINVAL;
-		if (voltage == 0)
-			continue;
-		if (voltage == old_uV)
-			old_sel = i;
-		if (voltage == new_uV)
-			new_sel = i;
-	}
-
-	if (old_sel < 0 || new_sel < 0)
-		return -EINVAL;
-
-	return ops->set_voltage_time_sel(rdev, old_sel, new_sel);
-}
-EXPORT_SYMBOL_GPL(regulator_set_voltage_time);
 
 /**
  * regulator_set_voltage_time_sel - get raise/fall time
@@ -3044,6 +3000,50 @@ int regulator_set_voltage_time_sel(struct regulator_dev *rdev,
 	return DIV_ROUND_UP(abs(new_volt - old_volt), ramp_delay);
 }
 EXPORT_SYMBOL_GPL(regulator_set_voltage_time_sel);
+
+/**
+ * regulator_set_voltage_time_triplet - get raise/fall time of voltages in range
+ * @regulator: regulator source
+ * @old_uV: starting voltage in microvolts
+ * @old_uV_min: minimum acceptable starting voltage in microvolts
+ * @old_uV_max: maximum acceptable starting voltage in microvolts
+ * @new_uV: target voltage in microvolts
+ * @new_uV_min: minimum acceptable target voltage in microvolts
+ * @new_uV_max: maximum acceptable target voltage in microvolts
+ *
+ * Provided with the starting and ending voltage, this function attempts to
+ * calculate the time in microseconds required to rise or fall to this new
+ * voltage, but will also choose an acceptable voltage for the starting or
+ * ending voltage if found in between the min and max values passed.
+ */
+int regulator_set_voltage_time_triplet(struct regulator *regulator,
+				       int old_uV, int old_uV_min,
+				       int old_uV_max, int new_uV,
+				       int new_uV_min, int new_uV_max)
+{
+	struct regulator_dev *rdev = regulator->rdev;
+	const struct regulator_ops *ops = rdev->desc->ops;
+	int old_sel = -1;
+	int new_sel = -1;
+
+	/* Currently requires operations to do this */
+	if (!ops->set_voltage_time_sel)
+		return -EINVAL;
+
+	old_sel = regulator_map_voltage(rdev, old_uV, old_uV_max);
+	if (old_sel < 0)
+		old_sel = regulator_map_voltage(rdev, old_uV_min, old_uV_max);
+
+	new_sel = regulator_map_voltage(rdev, new_uV, new_uV_max);
+	if (new_sel < 0)
+		new_sel = regulator_map_voltage(rdev, new_uV_min, new_uV_max);
+
+	if (old_sel < 0 || new_sel < 0)
+		return -EINVAL;
+
+	return ops->set_voltage_time_sel(rdev, old_sel, new_sel);
+}
+EXPORT_SYMBOL_GPL(regulator_set_voltage_time_triplet);
 
 /**
  * regulator_sync_voltage - re-apply last regulator output voltage

@@ -1009,7 +1009,10 @@
 	ti,scale-data-fw = "am43x-evm-scale-data.bin";
 };
 
-
 &sgx {
 	status = "okay";
+};
+
+&cpu {
+	cpu0-supply = <&dcdc2>;
 };

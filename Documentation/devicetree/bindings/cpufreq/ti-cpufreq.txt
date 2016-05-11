@@ -1,0 +1,89 @@
+Bindings for TI's CPUFreq driver
+================================
+
+The ti-cpufreq driver works with the operating-points-v2 binding described
+at [../opp/opp.txt] to make sure the proper OPPs for a platform get enabled
+and then creates a "cpufreq-dt" platform device to leverage the cpufreq-dt
+driver described in [cpufreq-dt.txt].
+
+The ti-cpufreq driver uses the revision and an efuse value from an SoC to
+provide the OPP framework with supported hardware information that is used
+to determine which OPPs from the operating-points-v2 table get enabled. If
+this information is not provided the driver simply skips providing it
+but still creates the "cpufreq-dt" platform device, and if a different
+operating-points table has been provided the system will use that and
+function as normal, otherwise it is likely no OPPs will be available due
+to the system being unable to determine safe values.
+
+Required properties:
+--------------------
+In 'cpus' nodes:
+- operating-points-v2: Phandle to the operating-points-v2 table to use
+- ti,syscon-efuse: Syscon phandle, offset to efuse register, efuse register
+		   mask, and efuse register shift to get the relevant bits
+		   that describe OPP availability
+- ti,syscon-rev: Syscon and offset used to look up revision value on SoC
+
+In 'operating-points-v2' table:
+- opp-supported-hw: Two bitfields indicating:
+	1. Which revision of the SoC the OPP is supported by
+	2. Which eFuse bits indicate this OPP is available
+
+	A bitwise and is performed against these values and if any bit
+	matches, the OPP gets enabled.
+
+NOTE: Without the above, platform-device for "cpufreq-dt" is still created
+      but no determination of which OPPs should be available is done, but this
+      allows for use of a v1 operating-points table or operating-points-v2
+      with no opp-supported-hw values set.
+
+Example:
+--------
+
+/* From arch/arm/boot/dts/am4372.dtsi */
+cpus {
+	cpu: cpu@0 {
+		...
+
+		operating-points-v2 = <&cpu0_opp_table>;
+
+		ti,syscon-efuse = <&scm_conf 0x610 0x3f 0>;
+		ti,syscon-rev = <&scm_conf 0x600>;
+
+		...
+	};
+};
+
+cpu0_opp_table: opp_table0 {
+	compatible = "operating-points-v2";
+	opp50@300000000 {
+		opp-hz = /bits/ 64 <300000000>;
+		opp-microvolt = <950000>;
+		opp-supported-hw = <0xFF 0x01>;
+		opp-suspend;
+	};
+
+	opp100@600000000 {
+		opp-hz = /bits/ 64 <600000000>;
+		opp-microvolt = <1100000>;
+		opp-supported-hw = <0xFF 0x04>;
+	};
+
+	opp120@720000000 {
+		opp-hz = /bits/ 64 <720000000>;
+		opp-microvolt = <1200000>;
+		opp-supported-hw = <0xFF 0x08>;
+	};
+
+	oppturbo@800000000 {
+		opp-hz = /bits/ 64 <800000000>;
+		opp-microvolt = <1260000>;
+		opp-supported-hw = <0xFF 0x10>;
+	};
+
+	oppnitro@1000000000 {
+		opp-hz = /bits/ 64 <1000000000>;
+		opp-microvolt = <1325000>;
+		opp-supported-hw = <0xFF 0x20>;
+	};
+};
