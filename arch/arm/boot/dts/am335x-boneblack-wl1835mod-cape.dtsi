@@ -19,16 +19,16 @@
 		enable-active-high;
 	};
 
-	kim {
-	        compatible = "kim";
-	        nshutdown_gpio = <44>; /* Bank1, pin12 */
-	        dev_name = "/dev/ttyO4";
-	        flow_cntrl = <1>;
-	        baud_rate = <3000000>;
+	tibt {
+		compatible = "kim";
+		nshutdown_gpio = <44>; /* Bank1, pin12 */
+		dev_name = "/dev/ttyS4";
+		flow_cntrl = <1>;
+		baud_rate = <3000000>;
 	};
 
 	btwilink {
-	        compatible = "btwilink";
+		compatible = "btwilink";
 	};
 };
 
