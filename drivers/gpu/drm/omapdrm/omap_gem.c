@@ -892,12 +892,11 @@ fail:
  * reference-counted, the actualy unpin will only be performed when the number
  * of calls to this function matches the number of calls to omap_gem_pin().
  */
-void omap_gem_unpin(struct drm_gem_object *obj)
+static void omap_gem_unpin_locked(struct drm_gem_object *obj)
 {
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
 	int ret;
 
-	mutex_lock(&obj->dev->struct_mutex);
 	if (omap_obj->dma_addr_cnt > 0) {
 		omap_obj->dma_addr_cnt--;
 		if (omap_obj->dma_addr_cnt == 0) {
@@ -915,7 +914,12 @@ void omap_gem_unpin(struct drm_gem_object *obj)
 			omap_obj->block = NULL;
 		}
 	}
+}
 
+void omap_gem_unpin(struct drm_gem_object *obj)
+{
+	mutex_lock(&obj->dev->struct_mutex);
+	omap_gem_unpin_locked(obj);
 	mutex_unlock(&obj->dev->struct_mutex);
 }
 
