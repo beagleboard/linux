@@ -403,10 +403,6 @@
 	ti,no-idle-on-init;
 };
 
-&cpu0 {
-	cpu-supply = <&smps12_reg>;
-};
-
 &uart3 {
 	status = "okay";
 	interrupts-extended = <&crossbar_mpu GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
@@ -588,8 +584,7 @@
 };
 
 &cpu0 {
-	cpu0-opp-domain = <&oppdm_mpu>;
-	voltage-tolerance = <1>;
+	cpu-opp-domain = <&oppdm_mpu>;
 };
 
 &oppdm_mpu {
