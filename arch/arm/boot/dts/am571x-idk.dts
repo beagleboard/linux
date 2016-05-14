@@ -99,6 +99,30 @@
 	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
 };
 
+&cpu0 {
+	cpu-opp-domain = <&oppdm_mpu>;
+};
+
+&oppdm_mpu {
+	vdd-supply = <&smps12_reg>;
+};
+
+&oppdm_dspeve {
+	vdd-supply = <&smps45_reg>;
+};
+
+&oppdm_gpu {
+	vdd-supply = <&smps6_reg>;
+};
+
+&oppdm_ivahd {
+	vdd-supply = <&smps45_reg>;
+};
+
+&oppdm_core {
+	vdd-supply = <&smps7_reg>;
+};
+
 &mailbox5 {
 	status = "okay";
 	mbox_ipu1_ipc3x: mbox_ipu1_ipc3x {
