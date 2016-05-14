@@ -446,3 +446,27 @@
 		      <&gpio5 9 GPIO_ACTIVE_LOW>;
 	reset-delay-us = <2>;	/* PHY datasheet states 1uS min */
 };
+
+&cpu0 {
+	cpu-opp-domain = <&oppdm_mpu>;
+};
+
+&oppdm_mpu {
+	vdd-supply = <&smps12_reg>;
+};
+
+&oppdm_dspeve {
+	vdd-supply = <&smps45_reg>;
+};
+
+&oppdm_gpu {
+	vdd-supply = <&smps6_reg>;
+};
+
+&oppdm_ivahd {
+	vdd-supply = <&smps8_reg>;
+};
+
+&oppdm_core {
+	vdd-supply = <&smps7_reg>;
+};

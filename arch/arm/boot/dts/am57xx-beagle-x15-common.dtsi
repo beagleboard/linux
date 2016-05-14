@@ -414,10 +414,6 @@
 	ti,no-idle-on-init;
 };
 
-&cpu0 {
-	cpu-supply = <&smps12_reg>;
-};
-
 &uart3 {
 	status = "okay";
 	interrupts-extended = <&crossbar_mpu GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
@@ -633,6 +629,10 @@
 	mbox_dsp2_ipc3x: mbox_dsp2_ipc3x {
 		status = "okay";
 	};
+};
+
+&cpu0 {
+	cpu-opp-domain = <&oppdm_mpu>;
 };
 
 &mmu0_dsp1 {
