@@ -1055,3 +1055,69 @@ int __of_changeset_add_update_property_string_list(
 	return ret;
 }
 EXPORT_SYMBOL_GPL(__of_changeset_add_update_property_string_list);
+
+static struct device_node *
+__of_changeset_node_move_one(struct of_changeset *ocs,
+		struct device_node *np, struct device_node *new_parent)
+{
+	struct device_node *np2;
+	const char *unitname;
+	int err;
+
+	err = of_changeset_detach_node(ocs, np);
+	if (err)
+		return ERR_PTR(err);
+
+	unitname = strrchr(np->full_name, '/');
+	if (!unitname)
+		unitname = np->full_name;
+
+	np2 = __of_node_dup(np, "%s/%s",
+			new_parent->full_name, unitname);
+	if (!np2)
+		return ERR_PTR(-ENOMEM);
+	np2->parent = new_parent;
+
+	err = of_changeset_attach_node(ocs, np2);
+	if (err)
+		return ERR_PTR(err);
+
+	return np2;
+}
+
+/**
+ * of_changeset_node_move_to - Moves a subtree to a new place in
+ *                             the tree
+ *
+ * @ocs:	changeset pointer
+ * @np:		device node pointer to be moved
+ * @to:		device node of the new parent
+ *
+ * Moves a subtree to a new place in the tree.
+ * Note that a move is a safe operation because the phandles
+ * remain valid.
+ *
+ * Returns zero on success, a negative error value otherwise.
+ */
+int of_changeset_node_move(struct of_changeset *ocs,
+		struct device_node *np, struct device_node *new_parent)
+{
+	struct device_node *npc, *nppc;
+
+	/* move the root first */
+	nppc = __of_changeset_node_move_one(ocs, np, new_parent);
+	if (IS_ERR(nppc))
+		return PTR_ERR(nppc);
+
+	/* move the subtrees next */
+	for_each_child_of_node(np, npc) {
+		nppc = __of_changeset_node_move_one(ocs, npc, nppc);
+		if (IS_ERR(nppc)) {
+			of_node_put(npc);
+			return PTR_ERR(nppc);
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(of_changeset_node_move);
