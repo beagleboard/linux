@@ -1006,6 +1006,8 @@ struct dispc_ops {
 		bool mem_to_mem, const struct omap_video_timings *mgr_timings,
 		enum dss_writeback_channel channel_in);
 	bool (*has_writeback)(void);
+	bool (*wb_go_busy)(void);
+	void (*wb_go)(void);
 };
 
 void dispc_set_ops(const struct dispc_ops *o);

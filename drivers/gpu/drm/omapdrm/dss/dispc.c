@@ -634,12 +634,12 @@ static void dispc_mgr_go(enum omap_channel channel)
 	mgr_fld_write(channel, DISPC_MGR_FLD_GO, 1);
 }
 
-bool dispc_wb_go_busy(void)
+static bool dispc_wb_go_busy(void)
 {
 	return REG_GET(DISPC_CONTROL2, 6, 6) == 1;
 }
 
-void dispc_wb_go(void)
+static void dispc_wb_go(void)
 {
 	enum omap_plane plane = OMAP_DSS_WB;
 	bool enable, go;
@@ -4238,6 +4238,8 @@ static const struct dispc_ops dispc_ops = {
 	.wb_get_framedone_irq = dispc_wb_get_framedone_irq,
 	.wb_setup = dispc_wb_setup,
 	.has_writeback = dispc_has_writeback,
+	.wb_go_busy = dispc_wb_go_busy,
+	.wb_go = dispc_wb_go,
 };
 
 /*
