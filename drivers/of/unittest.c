@@ -25,6 +25,9 @@
 
 #include <linux/bitops.h>
 
+#include <linux/timekeeping.h>
+#include <linux/random.h>
+
 #include "of_private.h"
 
 static struct unittest_results {
@@ -2645,6 +2648,70 @@ static inline __init void of_unittest_overlay_high_level(void) {}
 
 #endif
 
+#define PHANDLE_LOOKUPS	1000
+
+static void __init of_unittest_phandle_hash(void)
+{
+	struct device_node *node;
+	phandle max_phandle;
+	u32 ph;
+	unsigned long flags;
+	int i, j, total;
+	ktime_t start, end;
+	s64 dur[2];
+	int dec, frac;
+
+	/* test only available when hashing is available */
+	if (!of_phandle_ht_available()) {
+		pr_warn("phandle hash test requires hash to be initialized\n");
+		return;
+	}
+
+	/* find the maximum phandle of the tree */
+	raw_spin_lock_irqsave(&devtree_lock, flags);
+	max_phandle = 0;
+	total = 0;
+	for_each_of_allnodes(node) {
+		if (node->phandle != (phandle)-1U &&
+				node->phandle > max_phandle)
+			max_phandle = node->phandle;
+		total++;
+	}
+	raw_spin_unlock_irqrestore(&devtree_lock, flags);
+	max_phandle++;
+
+	pr_debug("phandle: max-phandle #%u, #%d total nodes\n",
+			(u32)max_phandle, total);
+
+	/* perform random lookups using the hash */
+	for (j = 0; j < 2; j++) {
+
+		/* disabled for pass #0, enabled for pass #1 */
+		of_phandle_ht_is_disabled = j == 0;
+
+		start = ktime_get_raw();
+		for (i = 0; i < PHANDLE_LOOKUPS; i++) {
+			ph = prandom_u32() % max_phandle;
+			node = of_find_node_by_phandle(ph);
+			of_node_put(node);
+		}
+		end = ktime_get_raw();
+
+		dur[j] = ktime_to_us(end) - ktime_to_us(start);
+		pr_debug("#%d lookups in %lld us (%s)\n",
+				PHANDLE_LOOKUPS, dur[j],
+				j == 0 ? "original" : "hashed");
+	}
+
+	unittest(dur[0] > dur[1], "Non hashing phandles are faster!?");
+
+	dec = (int)div64_s64(dur[0] * 10 + 5, dur[1]);
+	frac = dec % 10;
+	dec /= 10;
+	pr_info("the hash method is %d.%d times faster than the original\n",
+			dec, frac);
+}
+
 static int __init of_unittest(void)
 {
 	struct device_node *np;
@@ -2680,6 +2747,7 @@ static int __init of_unittest(void)
 	of_unittest_match_node();
 	of_unittest_platform_populate();
 	of_unittest_overlay();
+	of_unittest_phandle_hash();
 
 	/* Double check linkage after removing testcase data */
 	of_unittest_check_tree_linkage();
