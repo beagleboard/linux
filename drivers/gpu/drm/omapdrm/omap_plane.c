@@ -141,8 +141,10 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	/* and finally, update omapdss: */
 	ret = priv->dispc_ops->ovl_setup(omap_plane->id, &info, false,
 			      omap_crtc_timings(state->crtc), false);
-	if (WARN_ON(ret)) {
+	if (ret) {
 		priv->dispc_ops->ovl_enable(omap_plane->id, false);
+		dev_err(plane->dev->dev, "Failed to setup plane %s\n",
+			omap_plane->name);
 		return;
 	}
 
