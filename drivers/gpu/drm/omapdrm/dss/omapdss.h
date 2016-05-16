@@ -19,6 +19,7 @@
 #define __OMAP_DRM_DSS_H
 
 #include <video/omapdss.h>
+#include <uapi/drm/drm_mode.h>
 
 /* OMAP TRM gives bitfields as start:end, where start is the higher bit
    number. For example 7:0 */
@@ -142,6 +143,10 @@ struct dispc_ops {
 	void (*mgr_setup)(enum omap_channel channel,
 			const struct omap_overlay_manager_info *info);
 	enum omap_dss_output_id (*mgr_get_supported_outputs)(enum omap_channel channel);
+	u32 (*mgr_gamma_size)(enum omap_channel channel);
+	void (*mgr_set_gamma)(enum omap_channel channel,
+			      const struct drm_color_lut *lut,
+			      unsigned int length);
 
 	int (*ovl_enable)(enum omap_plane plane, bool enable);
 	bool (*ovl_enabled)(enum omap_plane plane);

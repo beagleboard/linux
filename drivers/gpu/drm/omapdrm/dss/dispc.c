@@ -113,9 +113,12 @@ struct dispc_features {
 	 * never both, we can just use this flag for now.
 	 */
 	bool reverse_ilace_field_order:1;
+
+	bool has_gamma_table:1;
 };
 
 #define DISPC_MAX_NR_FIFOS 5
+#define DISPC_MAX_CHANNEL_GAMMA 4
 
 static struct {
 	struct platform_device *pdev;
@@ -134,6 +137,8 @@ static struct {
 
 	bool		ctx_valid;
 	u32		ctx[DISPC_SZ_REGS / sizeof(u32)];
+
+	u32 *gamma_table[DISPC_MAX_CHANNEL_GAMMA];
 
 	const struct dispc_features *feat;
 
@@ -178,11 +183,19 @@ struct dispc_reg_field {
 	u8 low;
 };
 
+struct dispc_gamma_desc {
+	u32 len;
+	u32 bits;
+	u16 reg;
+	bool has_index;
+};
+
 static const struct {
 	const char *name;
 	u32 vsync_irq;
 	u32 framedone_irq;
 	u32 sync_lost_irq;
+	struct dispc_gamma_desc gamma;
 	struct dispc_reg_field reg_desc[DISPC_MGR_FLD_NUM];
 } mgr_desc[] = {
 	[OMAP_DSS_CHANNEL_LCD] = {
@@ -190,6 +203,12 @@ static const struct {
 		.vsync_irq	= DISPC_IRQ_VSYNC,
 		.framedone_irq	= DISPC_IRQ_FRAMEDONE,
 		.sync_lost_irq	= DISPC_IRQ_SYNC_LOST,
+		.gamma		= {
+			.len	= 256,
+			.bits	= 8,
+			.reg	= DISPC_GAMMA_TABLE0,
+			.has_index = true,
+		},
 		.reg_desc	= {
 			[DISPC_MGR_FLD_ENABLE]		= { DISPC_CONTROL,  0,  0 },
 			[DISPC_MGR_FLD_STNTFT]		= { DISPC_CONTROL,  3,  3 },
@@ -207,6 +226,12 @@ static const struct {
 		.vsync_irq	= DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_EVSYNC_EVEN,
 		.framedone_irq	= DISPC_IRQ_FRAMEDONETV,
 		.sync_lost_irq	= DISPC_IRQ_SYNC_LOST_DIGIT,
+		.gamma		= {
+			.len	= 1024,
+			.bits	= 10,
+			.reg	= DISPC_GAMMA_TABLE2,
+			.has_index = false,
+		},
 		.reg_desc	= {
 			[DISPC_MGR_FLD_ENABLE]		= { DISPC_CONTROL,  1,  1 },
 			[DISPC_MGR_FLD_STNTFT]		= { },
@@ -224,6 +249,12 @@ static const struct {
 		.vsync_irq	= DISPC_IRQ_VSYNC2,
 		.framedone_irq	= DISPC_IRQ_FRAMEDONE2,
 		.sync_lost_irq	= DISPC_IRQ_SYNC_LOST2,
+		.gamma		= {
+			.len	= 256,
+			.bits	= 8,
+			.reg	= DISPC_GAMMA_TABLE1,
+			.has_index = true,
+		},
 		.reg_desc	= {
 			[DISPC_MGR_FLD_ENABLE]		= { DISPC_CONTROL2,  0,  0 },
 			[DISPC_MGR_FLD_STNTFT]		= { DISPC_CONTROL2,  3,  3 },
@@ -241,6 +272,12 @@ static const struct {
 		.vsync_irq	= DISPC_IRQ_VSYNC3,
 		.framedone_irq	= DISPC_IRQ_FRAMEDONE3,
 		.sync_lost_irq	= DISPC_IRQ_SYNC_LOST3,
+		.gamma		= {
+			.len	= 256,
+			.bits	= 8,
+			.reg	= DISPC_GAMMA_TABLE3,
+			.has_index = true,
+		},
 		.reg_desc	= {
 			[DISPC_MGR_FLD_ENABLE]		= { DISPC_CONTROL3,  0,  0 },
 			[DISPC_MGR_FLD_STNTFT]		= { DISPC_CONTROL3,  3,  3 },
@@ -1088,20 +1125,6 @@ static enum omap_color_mode dispc_ovl_get_color_modes(enum omap_plane plane)
 static int dispc_get_num_ovls(void)
 {
 	return dss_feat_get_num_ovls();
-}
-
-void dispc_enable_gamma_table(bool enable)
-{
-	/*
-	 * This is partially implemented to support only disabling of
-	 * the gamma table.
-	 */
-	if (enable) {
-		DSSWARN("Gamma table enabling for TV not yet supported");
-		return;
-	}
-
-	REG_FLD_MOD(DISPC_CONFIG, enable, 9, 9);
 }
 
 static void dispc_mgr_enable_cpr(enum omap_channel channel, bool enable)
@@ -3802,6 +3825,137 @@ void dispc_disable_sidle(void)
 	REG_FLD_MOD(DISPC_SYSCONFIG, 1, 4, 3);	/* SIDLEMODE: no idle */
 }
 
+static u32 dispc_mgr_gamma_size(enum omap_channel channel)
+{
+	const struct dispc_gamma_desc *gdesc = &mgr_desc[channel].gamma;
+
+	if (!dispc.feat->has_gamma_table)
+		return 0;
+
+	return gdesc->len;
+}
+
+static void dispc_mgr_write_gamma_table(enum omap_channel channel)
+{
+	const struct dispc_gamma_desc *gdesc = &mgr_desc[channel].gamma;
+	u32 *table = dispc.gamma_table[channel];
+	unsigned int i;
+
+	DSSDBG("%s: channel %d\n", __func__, channel);
+
+	for (i = 0; i < gdesc->len; ++i) {
+		u32 v = table[i];
+
+		if (gdesc->has_index)
+			v |= i << 24;
+		else if (i == 0)
+			v |= 1 << 31;
+
+		dispc_write_reg(gdesc->reg, v);
+	}
+}
+
+static void dispc_restore_gamma_tables(void)
+{
+	DSSDBG("%s()\n", __func__);
+
+	if (!dispc.feat->has_gamma_table)
+		return;
+
+	dispc_mgr_write_gamma_table(OMAP_DSS_CHANNEL_LCD);
+
+	dispc_mgr_write_gamma_table(OMAP_DSS_CHANNEL_DIGIT);
+
+	if (dss_has_feature(FEAT_MGR_LCD2))
+		dispc_mgr_write_gamma_table(OMAP_DSS_CHANNEL_LCD2);
+
+	if (dss_has_feature(FEAT_MGR_LCD3))
+		dispc_mgr_write_gamma_table(OMAP_DSS_CHANNEL_LCD3);
+}
+
+static const struct drm_color_lut dispc_mgr_gamma_default_lut[] = {
+	{ .red = 0, .green = 0, .blue = 0, },
+	{ .red = U16_MAX, .green = U16_MAX, .blue = U16_MAX, },
+};
+
+static void dispc_mgr_set_gamma(enum omap_channel channel,
+			 const struct drm_color_lut *lut,
+			 unsigned int length)
+{
+	const struct dispc_gamma_desc *gdesc = &mgr_desc[channel].gamma;
+	u32 *table = dispc.gamma_table[channel];
+	uint i;
+
+	DSSDBG("%s: channel %d, lut len %u, hw len %u\n", __func__,
+	       channel, length, gdesc->len);
+
+	if (!dispc.feat->has_gamma_table)
+		return;
+
+	if (lut == NULL || length < 2) {
+		lut = dispc_mgr_gamma_default_lut;
+		length = ARRAY_SIZE(dispc_mgr_gamma_default_lut);
+	}
+
+	for (i = 0; i < length - 1; ++i) {
+		uint first = i * (gdesc->len - 1) / (length - 1);
+		uint last = (i + 1) * (gdesc->len - 1) / (length - 1);
+		uint w = last - first;
+		u16 r, g, b;
+		uint j;
+
+		if (w == 0)
+			continue;
+
+		for (j = 0; j <= w; j++) {
+			r = (lut[i].red * (w - j) + lut[i+1].red * j) / w;
+			g = (lut[i].green * (w - j) + lut[i+1].green * j) / w;
+			b = (lut[i].blue * (w - j) + lut[i+1].blue * j) / w;
+
+			r >>= 16 - gdesc->bits;
+			g >>= 16 - gdesc->bits;
+			b >>= 16 - gdesc->bits;
+
+			table[first + j] = (r << (gdesc->bits * 2)) |
+				(g << gdesc->bits) | b;
+		}
+	}
+
+	if (dispc.is_enabled)
+		dispc_mgr_write_gamma_table(channel);
+}
+
+static int dispc_init_gamma_tables(void)
+{
+	int channel;
+
+	if (!dispc.feat->has_gamma_table)
+		return 0;
+
+	for (channel = 0; channel < ARRAY_SIZE(dispc.gamma_table); channel++) {
+		const struct dispc_gamma_desc *gdesc = &mgr_desc[channel].gamma;
+		u32 *gt;
+
+		if (channel == OMAP_DSS_CHANNEL_LCD2 &&
+		    !dss_has_feature(FEAT_MGR_LCD2))
+			continue;
+
+		if (channel == OMAP_DSS_CHANNEL_LCD3 &&
+		    !dss_has_feature(FEAT_MGR_LCD3))
+			continue;
+
+		gt = devm_kmalloc_array(&dispc.pdev->dev, gdesc->len,
+					   sizeof(u32), GFP_KERNEL);
+		if (!gt)
+			return -ENOMEM;
+
+		dispc.gamma_table[channel] = gt;
+
+		dispc_mgr_set_gamma(channel, NULL, 0);
+	}
+	return 0;
+}
+
 static void _omap_dispc_initial_config(void)
 {
 	u32 l;
@@ -3817,8 +3971,15 @@ static void _omap_dispc_initial_config(void)
 		dispc.core_clk_rate = dispc_fclk_rate();
 	}
 
-	/* FUNCGATED */
-	if (dss_has_feature(FEAT_FUNCGATED))
+	/* Use gamma table mode, instead of palette mode */
+	if (dispc.feat->has_gamma_table)
+		REG_FLD_MOD(DISPC_CONFIG, 1, 3, 3);
+
+	/* For older DSS versions (FEAT_FUNCGATED) this enables
+	 * func-clock auto-gating. For newer versions
+	 * (dispc.feat->has_gamma_table) this enables tv-out gamma tables.
+	 */
+	if (dss_has_feature(FEAT_FUNCGATED) || dispc.feat->has_gamma_table)
 		REG_FLD_MOD(DISPC_CONFIG, 1, 9, 9);
 
 	dispc_setup_color_conv_coef();
@@ -3922,6 +4083,7 @@ static const struct dispc_features omap44xx_dispc_feats = {
 	.has_writeback		=	true,
 	.supports_double_pixel	=	true,
 	.reverse_ilace_field_order =	true,
+	.has_gamma_table	=	true,
 };
 
 static const struct dispc_features omap54xx_dispc_feats = {
@@ -3947,6 +4109,7 @@ static const struct dispc_features omap54xx_dispc_feats = {
 	.has_writeback		=	true,
 	.supports_double_pixel	=	true,
 	.reverse_ilace_field_order =	true,
+	.has_gamma_table	=	true,
 };
 
 static int dispc_init_features(struct platform_device *pdev)
@@ -4062,6 +4225,8 @@ static const struct dispc_ops dispc_ops = {
 	.mgr_set_timings = dispc_mgr_set_timings,
 	.mgr_setup = dispc_mgr_setup,
 	.mgr_get_supported_outputs = dispc_mgr_get_supported_outputs,
+	.mgr_gamma_size = dispc_mgr_gamma_size,
+	.mgr_set_gamma = dispc_mgr_set_gamma,
 
 	.ovl_enable = dispc_ovl_enable,
 	.ovl_enabled = dispc_ovl_enabled,
@@ -4124,6 +4289,10 @@ static int dispc_bind(struct device *dev, struct device *master, void *data)
 			return -EINVAL;
 		}
 	}
+
+	r = dispc_init_gamma_tables();
+	if (r)
+		return r;
 
 	pm_runtime_enable(&pdev->dev);
 
@@ -4199,6 +4368,8 @@ static int dispc_runtime_resume(struct device *dev)
 		_omap_dispc_initial_config();
 
 		dispc_restore_context();
+
+		dispc_restore_gamma_tables();
 	}
 
 	dispc.is_enabled = true;
