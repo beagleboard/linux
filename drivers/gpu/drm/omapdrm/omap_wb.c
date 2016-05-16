@@ -85,6 +85,9 @@ static void wb_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 {
 	struct wb_dev *dev = container_of(irq, struct wb_dev, wb_irq);
 
+	if (!dev->irq_enabled)
+		return;
+
 	switch (dev->mode) {
 	case OMAP_WB_NOT_CONFIGURED:
 		break;
@@ -95,6 +98,7 @@ static void wb_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 		/* To be added */
 		break;
 	case OMAP_WB_CAPTURE_MGR:
+		wbcap_irq(dev->cap, irqstatus);
 		break;
 	default:
 		WARN_ONCE(1, "WB: unknown WB mode: 0x%x\n", dev->mode);
@@ -130,21 +134,34 @@ int wb_init(struct drm_device *drmdev)
 
 	dev->wb_irq.irqmask = DISPC_IRQ_FRAMEDONEWB |
 			      DISPC_IRQ_WBBUFFEROVERFLOW |
-			      DISPC_IRQ_WBUNCOMPLETEERROR;
+			      DISPC_IRQ_WBUNCOMPLETEERROR |
+			      DISPC_IRQ_VSYNC |
+			      DISPC_IRQ_VSYNC2 |
+			      DISPC_IRQ_VSYNC3 |
+			      DISPC_IRQ_EVSYNC_EVEN |
+			      DISPC_IRQ_EVSYNC_ODD;
 	dev->wb_irq.irq = wb_irq;
 	omap_irq_register(drmdev, &dev->wb_irq);
 
 	dev->mode = OMAP_WB_NOT_CONFIGURED;
 
+	ret = wbcap_init(dev);
+	if (ret) {
+		log_err(dev, "Failed to initialize wb capture\n");
+		goto free_irq;
+	}
+
 	ret = wbm2m_init(dev);
 	if (ret) {
 		log_err(dev, "Failed to initialize wb m2m\n");
-		goto free_irq;
+		goto free_cap;
 	}
 
 	log_dbg(dev, "WB loaded\n");
 	return 0;
 
+free_cap:
+	wbcap_cleanup(dev);
 free_irq:
 	omap_irq_unregister(drmdev, &dev->wb_irq);
 	return ret;
@@ -159,6 +176,7 @@ void wb_cleanup(struct drm_device *drmdev)
 
 	omap_irq_unregister(drmdev, &dev->wb_irq);
 
+	wbcap_cleanup(dev);
 	wbm2m_cleanup(dev);
 }
 
