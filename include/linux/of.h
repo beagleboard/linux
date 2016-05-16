@@ -1281,6 +1281,9 @@ int __of_changeset_add_update_property_string_list(
 		struct of_changeset *ocs, struct device_node *np,
 		const char *name, const char **strs, int count, bool update);
 
+int of_changeset_node_move(struct of_changeset *ocs,
+	struct device_node *np, struct device_node *new_parent);
+
 #else /* CONFIG_OF_DYNAMIC */
 static inline int of_reconfig_notifier_register(struct notifier_block *nb)
 {
@@ -1339,6 +1342,12 @@ static inline int of_changeset_update_property_stringf(
 static inline int __of_changeset_add_update_property_string_list(
 		struct of_changeset *ocs, struct device_node *np,
 		const char *name, const char **strs, int count, bool update)
+{
+	return -EINVAL;
+}
+
+static inline int of_changeset_node_move(struct of_changeset *ocs,
+		struct device_node *np, struct device_node *new_parent)
 {
 	return -EINVAL;
 }
