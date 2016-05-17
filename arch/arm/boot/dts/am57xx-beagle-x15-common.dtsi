@@ -534,8 +534,7 @@
 };
 
 &cpu0 {
-	cpu0-opp-domain = <&oppdm_mpu>;
-	voltage-tolerance = <1>;
+	cpu-opp-domain = <&oppdm_mpu>;
 };
 
 &oppdm_mpu {
@@ -629,10 +628,6 @@
 	mbox_dsp2_ipc3x: mbox_dsp2_ipc3x {
 		status = "okay";
 	};
-};
-
-&cpu0 {
-	cpu-opp-domain = <&oppdm_mpu>;
 };
 
 &mmu0_dsp1 {
