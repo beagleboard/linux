@@ -45,12 +45,16 @@ struct pruss_intc_match_data {
  * @irqs: kernel irq numbers corresponding to PRUSS host interrupts
  * @irqchip: irq chip for this interrupt controller
  * @domain: irq domain for this interrupt controller
+ * @config_map: stored INTC configuration mapping data
+ * @lock: mutex to serialize access to INTC
  */
 struct pruss_intc {
 	struct pruss *pruss;
 	unsigned int irqs[MAX_HOST_NUM_IRQS];
 	struct irq_chip *irqchip;
 	struct irq_domain *domain;
+	struct pruss_intc_config config_map;
+	struct mutex lock; /* PRUSS INTC lock */
 };
 
 static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
@@ -76,6 +80,248 @@ static int pruss_intc_check_write(struct pruss *pruss, unsigned int reg,
 	pruss_intc_write_reg(pruss, reg, sysevent);
 
 	return 0;
+}
+
+static struct pruss_intc *to_pruss_intc(struct pruss *pruss)
+{
+	struct device_node *parent = pruss->dev->of_node;
+	struct device_node *np;
+	struct platform_device *pdev;
+	struct pruss_intc *intc = NULL;
+
+	np = of_get_child_by_name(parent, "intc");
+	if (!np) {
+		dev_err(pruss->dev, "pruss does not have an intc node\n");
+		return NULL;
+	}
+
+	pdev = of_find_device_by_node(np);
+	if (!pdev) {
+		dev_err(pruss->dev, "no associated platform device\n");
+		goto out;
+	}
+
+	intc = platform_get_drvdata(pdev);
+out:
+	of_node_put(np);
+	return intc;
+}
+
+/**
+ * pruss_intc_configure() - configure the PRUSS INTC
+ * @pruss: the pruss instance
+ * @intc_config: PRU core-specific INTC configuration
+ *
+ * Configures the PRUSS INTC with the provided configuration from
+ * a PRU core. Any existing event to channel mappings or channel to
+ * host interrupt mappings are checked to make sure there are no
+ * conflicting configuration between both the PRU cores. The function
+ * is intended to be only used by the PRU remoteproc driver.
+ *
+ * Returns 0 on success, or a suitable error code otherwise
+ */
+int pruss_intc_configure(struct pruss *pruss,
+			 struct pruss_intc_config *intc_config)
+{
+	struct device *dev = pruss->dev;
+	struct pruss_intc *intc = to_pruss_intc(pruss);
+	int i, idx, ch, host, ret;
+	u64 sysevt_mask = 0;
+	u32 ch_mask = 0;
+	u32 host_mask = 0;
+	u32 val;
+
+	if (!intc)
+		return -EINVAL;
+
+	mutex_lock(&intc->lock);
+
+	/*
+	 * configure channel map registers - each register holds map info
+	 * for 4 events, with each event occupying the lower nibble in
+	 * a register byte address in little-endian fashion
+	 */
+	for (i = 0; i < ARRAY_SIZE(intc_config->sysev_to_ch); i++) {
+		ch = intc_config->sysev_to_ch[i];
+		if (ch < 0)
+			continue;
+
+		/* check if sysevent already assigned */
+		if (intc->config_map.sysev_to_ch[i] != -1) {
+			dev_err(dev, "event %d (req. channel %d) already assigned to channel %d\n",
+				i, ch, intc->config_map.sysev_to_ch[i]);
+			ret = -EEXIST;
+			goto unlock;
+		}
+
+		intc->config_map.sysev_to_ch[i] = ch;
+
+		idx = i / 4;
+		val = pruss_intc_read_reg(pruss, PRU_INTC_CMR(idx));
+		val |= ch << ((i & 3) * 8);
+		pruss_intc_write_reg(pruss, PRU_INTC_CMR(idx), val);
+		sysevt_mask |= BIT_ULL(i);
+		ch_mask |= BIT(ch);
+
+		dev_dbg(dev, "SYSEV%d -> CH%d (CMR%d 0x%08x)\n", i, ch, idx,
+			pruss_intc_read_reg(pruss, PRU_INTC_CMR(idx)));
+	}
+
+	/*
+	 * set host map registers - each register holds map info for
+	 * 4 channels, with each channel occupying the lower nibble in
+	 * a register byte address in little-endian fashion
+	 */
+	for (i = 0; i < ARRAY_SIZE(intc_config->ch_to_host); i++) {
+		host = intc_config->ch_to_host[i];
+		if (host < 0)
+			continue;
+
+		/* check if channel already assigned */
+		if (intc->config_map.ch_to_host[i] != -1) {
+			dev_err(dev, "channel %d (req. intr_no %d) already assigned to intr_no %d\n",
+				i, host, intc->config_map.ch_to_host[i]);
+			ret = -EEXIST;
+			goto unlock;
+		}
+
+		/* check if host intr is already in use by other PRU */
+		if (pruss->host_mask & (1U << host)) {
+			dev_err(dev, "%s: host intr %d already in use\n",
+				__func__, host);
+			ret = -EEXIST;
+			goto unlock;
+		}
+
+		intc->config_map.ch_to_host[i] = host;
+
+		idx = i / 4;
+
+		val = pruss_intc_read_reg(pruss, PRU_INTC_HMR(idx));
+		val |= host << ((i & 3) * 8);
+		pruss_intc_write_reg(pruss, PRU_INTC_HMR(idx), val);
+
+		ch_mask |= BIT(i);
+		host_mask |= BIT(host);
+
+		dev_dbg(dev, "CH%d -> HOST%d (HMR%d 0x%08x)\n", i, host, idx,
+			pruss_intc_read_reg(pruss, PRU_INTC_HMR(idx)));
+	}
+
+	dev_info(dev, "configured system_events = 0x%016llx intr_channels = 0x%08x host_intr = 0x%08x\n",
+		 sysevt_mask, ch_mask, host_mask);
+
+	/* enable system events, writing 0 has no-effect */
+	pruss_intc_write_reg(pruss, PRU_INTC_ESR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_ESR1, upper_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
+
+	/* enable host interrupts */
+	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
+		if (host_mask & BIT(i))
+			pruss_intc_write_reg(pruss, PRU_INTC_HIEISR, i);
+	}
+
+	/* global interrupt enable */
+	pruss_intc_write_reg(pruss, PRU_INTC_GER, 1);
+
+	pruss->host_mask |= host_mask;
+
+	mutex_unlock(&intc->lock);
+	return 0;
+
+unlock:
+	mutex_unlock(&intc->lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pruss_intc_configure);
+
+/**
+ * pruss_intc_unconfigure() - unconfigure the PRUSS INTC
+ * @pruss: the pruss instance
+ * @intc_config: PRU core specific INTC configuration
+ *
+ * Undo whatever was done in pruss_intc_configure() for a PRU core.
+ * It should be sufficient to just mark the resources free in the
+ * global map and disable the host interrupts and sysevents.
+ */
+int pruss_intc_unconfigure(struct pruss *pruss,
+			   struct pruss_intc_config *intc_config)
+{
+	struct device *dev = pruss->dev;
+	struct pruss_intc *intc = to_pruss_intc(pruss);
+	int i, ch, host;
+	u64 sysevt_mask = 0;
+	u32 host_mask = 0;
+
+	if (!intc)
+		return -EINVAL;
+
+	mutex_lock(&intc->lock);
+
+	for (i = 0; i < ARRAY_SIZE(intc_config->sysev_to_ch); i++) {
+		ch = intc_config->sysev_to_ch[i];
+		if (ch < 0)
+			continue;
+
+		/* mark sysevent free in global map */
+		intc->config_map.sysev_to_ch[i] = -1;
+		sysevt_mask |= BIT_ULL(i);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(intc_config->ch_to_host); i++) {
+		host = intc_config->ch_to_host[i];
+		if (host < 0)
+			continue;
+
+		/* mark channel free in global map */
+		intc->config_map.ch_to_host[i] = -1;
+		host_mask |= BIT(host);
+	}
+
+	dev_info(dev, "unconfigured system_events = 0x%016llx host_intr = 0x%08x\n",
+		 sysevt_mask, host_mask);
+
+	/* disable system events, writing 0 has no-effect */
+	pruss_intc_write_reg(pruss, PRU_INTC_ECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_ECR1, upper_32_bits(sysevt_mask));
+	/* clear any pending status */
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
+
+	/* disable host interrupts */
+	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
+		if (host_mask & BIT(i))
+			pruss_intc_write_reg(pruss, PRU_INTC_HIDISR, i);
+	}
+
+	pruss->host_mask &= ~host_mask;
+	mutex_unlock(&intc->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_intc_unconfigure);
+
+static void pruss_intc_init(struct pruss *pruss)
+{
+	int i;
+
+	/* configure polarity to active high for all system interrupts */
+	pruss_intc_write_reg(pruss, PRU_INTC_SIPR0, 0xffffffff);
+	pruss_intc_write_reg(pruss, PRU_INTC_SIPR1, 0xffffffff);
+
+	/* configure type to pulse interrupt for all system interrupts */
+	pruss_intc_write_reg(pruss, PRU_INTC_SITR0, 0);
+	pruss_intc_write_reg(pruss, PRU_INTC_SITR1, 0);
+
+	/* clear all 16 interrupt channel map registers */
+	for (i = 0; i < 16; i++)
+		pruss_intc_write_reg(pruss, PRU_INTC_CMR(i), 0);
+
+	/* clear all 3 host interrupt map registers */
+	for (i = 0; i < 3; i++)
+		pruss_intc_write_reg(pruss, PRU_INTC_HMR(i), 0);
 }
 
 static void pruss_intc_irq_ack(struct irq_data *data)
@@ -209,7 +455,16 @@ static int pruss_intc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, intc);
 
+	mutex_init(&intc->lock);
+
+	for (i = 0; i < ARRAY_SIZE(intc->config_map.sysev_to_ch); i++)
+		intc->config_map.sysev_to_ch[i] = -1;
+
+	for (i = 0; i < ARRAY_SIZE(intc->config_map.ch_to_host); i++)
+		intc->config_map.ch_to_host[i] = -1;
+
 	intc->pruss = platform_get_drvdata(ppdev);
+	pruss_intc_init(intc->pruss);
 
 	irqchip = devm_kzalloc(dev, sizeof(*irqchip), GFP_KERNEL);
 	if (!irqchip)

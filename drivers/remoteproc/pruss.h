@@ -152,12 +152,10 @@ struct pru_rproc;
  * @mem_regions: data for each of the PRUSS memory regions
  * @mem_in_use: to indicate if memory resource is in use
  * @data: pointer to store PRUSS instance private data
- * @intc_config: local INTC configuration data
  * @host_mask: indicate which HOST IRQs are enabled
  * @pru_running: flag to indicate if PRU is running
  * @pru_in_use: flag to indicate if PRU is used
  * @lock: mutex to serialize access to resources
- * @intc_lock: mutex to serialize access to INTC
  * @cfg_lock: mutex to serialize access to CFG
  * @in_standby: flag for storing standby status
  */
@@ -167,12 +165,10 @@ struct pruss {
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	struct pruss_mem_region *mem_in_use[PRUSS_MEM_MAX];
 	const struct pruss_private_data *data;
-	struct pruss_intc_config intc_config;
 	u32 host_mask;
 	bool pru_running[PRUSS_NUM_PRUS];
 	struct rproc *pru_in_use[PRUSS_NUM_PRUS];
 	struct mutex lock; /* PRU resource lock */
-	struct mutex intc_lock; /* PRUSS INTC lock */
 	struct mutex cfg_lock; /* PRUSS CFG register access lock */
 	bool in_standby;
 };
