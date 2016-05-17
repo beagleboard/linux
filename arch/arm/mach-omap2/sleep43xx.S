@@ -76,6 +76,7 @@
 
 	.text
 	.align 3
+	.arm
 
 ENTRY(am43xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
