@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
 #include <linux/console.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/pm_qos.h>
 #include <linux/pm_wakeirq.h>
 #include <linux/dma-mapping.h>
@@ -1417,6 +1418,8 @@ static int omap8250_runtime_suspend(struct device *dev)
 	priv->latency = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE;
 	schedule_work(&priv->qos_work);
 
+	pinctrl_pm_select_sleep_state(dev);
+
 	return 0;
 }
 
@@ -1429,6 +1432,8 @@ static int omap8250_runtime_resume(struct device *dev)
 	/* In case runtime-pm tries this before we are setup */
 	if (!priv)
 		return 0;
+
+	pinctrl_pm_select_default_state(dev);
 
 	up = serial8250_get_port(priv->line);
 	loss_cntx = omap8250_lost_context(up);
