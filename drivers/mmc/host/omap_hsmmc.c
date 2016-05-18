@@ -42,6 +42,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm_runtime.h>
 #include <linux/platform_data/mmc-omap.h>
+#include <linux/mmc/sd.h>
 
 /* OMAP HSMMC Host Controller Registers */
 #define OMAP_HSMMC_SYSSTATUS	0x0014
@@ -177,6 +178,8 @@
 #define AUTO_CMD23		(1 << 1)	/* Auto CMD23 support */
 #define CLKEXTFREE_ENABLED	(1 << 2)        /* CLKEXTFREE enabled */
 
+#define PSTATE_DLEV_DAT0	(0x1 << 20)
+
 #define MMC_BLOCK_TRANSFER_TIME_NS(blksz, bus_width, freq)		\
 				   ((unsigned long long)		\
 				   (2 * (((blksz) * NSEC_PER_SEC *	\
@@ -208,6 +211,7 @@ struct omap_hsmmc_host {
 	struct	mmc_host	*mmc;
 	struct	mmc_request	*mrq;
 	struct	mmc_command	*cmd;
+	u32			last_cmd;
 	struct	mmc_data	*data;
 	struct	clk		*fclk;
 	struct	clk		*dbclk;
@@ -1135,6 +1139,7 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 			(cmdtype << 22) | DP_SELECT | DDIR;
 	}
 	host->req_in_progress = 1;
+	host->last_cmd = cmd->opcode;
 
 	OMAP_HSMMC_WRITE(host->base, ARG, cmd->arg);
 	OMAP_HSMMC_WRITE(host->base, CMD, cmdreg);
@@ -2395,8 +2400,15 @@ static int omap_hsmmc_card_busy(struct mmc_host *mmc)
 	int ret;
 
 	host  = mmc_priv(mmc);
-	value = OMAP_HSMMC_READ(host->base, AC12);
 
+	if (host->last_cmd != SD_SWITCH_VOLTAGE) {
+		value = OMAP_HSMMC_READ(host->base, PSTATE);
+		if (value & PSTATE_DLEV_DAT0)
+			return true;
+		return false;
+	}
+
+	value = OMAP_HSMMC_READ(host->base, AC12);
 	if (value & V1V8_SIGEN)
 		ret = omap_hsmmc_card_busy_high(host);
 	else
