@@ -251,6 +251,15 @@ static int ti_oppdm_do_transition(struct device *dev,
 	do_abb_first = clk_notifier_flags == PM_OPPDM_VOLT_ABORTRATE ||
 	    clk_notifier_flags == PM_OPPDM_VOLT_POSTRATE;
 
+	vdd_uv = oppdm_get_optimal_vdd_voltage(dev, data, uv);
+
+	if (vdd_uv > uv_max || vdd_uv < uv_min || uv_min > uv_max) {
+		dev_warn(dev,
+			 "Invalid range voltages [Min:%d target:%d Max:%d]\n",
+			 uv_min, vdd_uv, uv_max);
+		return -EINVAL;
+	}
+
 	if (do_abb_first && !IS_ERR(data->vbb_reg)) {
 		dev_dbg(dev, "vbb pre %duV[min %duV max %duV]\n", uv, uv_min,
 			uv_max);
@@ -264,7 +273,6 @@ static int ti_oppdm_do_transition(struct device *dev,
 		}
 	}
 
-	vdd_uv = oppdm_get_optimal_vdd_voltage(dev, data, uv);
 	dev_dbg(dev, "vdd for voltage %duV(ref=%duV)[min %duV max %duV] MAX=%duV\n",
 		vdd_uv, uv, uv_min, uv_max, data->vdd_absolute_max_voltage_uv);
 
