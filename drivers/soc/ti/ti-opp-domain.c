@@ -247,6 +247,16 @@ static int ti_oppdm_do_transition(struct device *dev,
 			 data->vdd_absolute_max_voltage_uv);
 		uv_max = data->vdd_absolute_max_voltage_uv;
 	}
+	/*
+	 * If we do have an absolute max voltage specified, then we should
+	 * use that voltage instead to allow for cases where the voltage rails
+	 * are ganged (example if we set the max for an opp as 1.12v, and
+	 * the absolute max is 1.5v, for another rail to get 1.25v, it cannot
+	 * be achieved if the regulator is constrainted to max of 1.12v, even
+	 * if it can function at 1.25v
+	 */
+	if (data->vdd_absolute_max_voltage_uv)
+		uv_max = data->vdd_absolute_max_voltage_uv;
 
 	do_abb_first = clk_notifier_flags == PM_OPPDM_VOLT_ABORTRATE ||
 	    clk_notifier_flags == PM_OPPDM_VOLT_POSTRATE;
