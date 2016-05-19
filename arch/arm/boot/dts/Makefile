@@ -497,8 +497,10 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-beagle-x15-revb1.dtb \
 	am571x-idk.dtb \
 	am571x-idk-lcd-osd.dtb \
+	am571x-idk-lcd-osd101t2587.dtb \
 	am572x-idk.dtb \
 	am572x-idk-lcd-osd.dtb \
+	am572x-idk-lcd-osd101t2587.dtb \
 	am57xx-evm.dtb \
 	am57xx-evm-reva3.dtb \
 	dra72-evm.dtb \
