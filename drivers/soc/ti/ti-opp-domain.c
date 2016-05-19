@@ -247,9 +247,28 @@ static int ti_oppdm_do_transition(struct device *dev,
 			 data->vdd_absolute_max_voltage_uv);
 		uv_max = data->vdd_absolute_max_voltage_uv;
 	}
+	/*
+	 * If we do have an absolute max voltage specified, then we should
+	 * use that voltage instead to allow for cases where the voltage rails
+	 * are ganged (example if we set the max for an opp as 1.12v, and
+	 * the absolute max is 1.5v, for another rail to get 1.25v, it cannot
+	 * be achieved if the regulator is constrainted to max of 1.12v, even
+	 * if it can function at 1.25v
+	 */
+	if (data->vdd_absolute_max_voltage_uv)
+		uv_max = data->vdd_absolute_max_voltage_uv;
 
 	do_abb_first = clk_notifier_flags == PM_OPPDM_VOLT_ABORTRATE ||
 	    clk_notifier_flags == PM_OPPDM_VOLT_POSTRATE;
+
+	vdd_uv = oppdm_get_optimal_vdd_voltage(dev, data, uv);
+
+	if (vdd_uv > uv_max || vdd_uv < uv_min || uv_min > uv_max) {
+		dev_warn(dev,
+			 "Invalid range voltages [Min:%d target:%d Max:%d]\n",
+			 uv_min, vdd_uv, uv_max);
+		return -EINVAL;
+	}
 
 	if (do_abb_first && !IS_ERR(data->vbb_reg)) {
 		dev_dbg(dev, "vbb pre %duV[min %duV max %duV]\n", uv, uv_min,
@@ -264,7 +283,6 @@ static int ti_oppdm_do_transition(struct device *dev,
 		}
 	}
 
-	vdd_uv = oppdm_get_optimal_vdd_voltage(dev, data, uv);
 	dev_dbg(dev, "vdd for voltage %duV(ref=%duV)[min %duV max %duV] MAX=%duV\n",
 		vdd_uv, uv, uv_min, uv_max, data->vdd_absolute_max_voltage_uv);
 
