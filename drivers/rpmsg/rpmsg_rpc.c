@@ -1360,7 +1360,6 @@ static struct rpmsg_device_id rppc_id_table[] = {
 
 static struct rpmsg_driver rppc_driver = {
 	.drv.name = KBUILD_MODNAME,
-	.drv.owner = THIS_MODULE,
 	.id_table = rppc_id_table,
 	.probe = rppc_probe,
 	.remove = rppc_remove,
