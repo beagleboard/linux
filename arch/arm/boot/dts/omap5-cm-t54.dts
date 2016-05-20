@@ -635,10 +635,6 @@
        vbus-supply = <&smps10_out1_reg>;
 };
 
-&cpu0 {
-	cpu-opp-domain = <&oppdm_mpu>;
-};
-
 &oppdm_mpu {
 	vdd-supply = <&smps123_reg>;
 };

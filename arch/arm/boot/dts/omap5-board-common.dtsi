@@ -693,10 +693,6 @@
 	};
 };
 
-&cpu0 {
-	cpu-opp-domain = <&oppdm_mpu>;
-};
-
 &oppdm_mpu {
 	vdd-supply = <&smps123_reg>;
 };

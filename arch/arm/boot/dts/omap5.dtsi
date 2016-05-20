@@ -48,6 +48,7 @@
 				1000000 1060000
 				1500000 1250000
 			>;
+			cpu-opp-domain = <&oppdm_mpu>;
 
 			clocks = <&dpll_mpu_ck>;
 			clock-names = "cpu";
