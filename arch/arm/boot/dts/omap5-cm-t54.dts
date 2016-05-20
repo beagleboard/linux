@@ -636,7 +636,19 @@
 };
 
 &cpu0 {
-	cpu0-supply = <&smps123_reg>;
+	cpu-opp-domain = <&oppdm_mpu>;
+};
+
+&oppdm_mpu {
+	vdd-supply = <&smps123_reg>;
+};
+
+&oppdm_mm {
+	vdd-supply = <&smps45_reg>;
+};
+
+&oppdm_core {
+	vdd-supply = <&smps8_reg>;
 };
 
 &dss {
