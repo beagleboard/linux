@@ -122,6 +122,14 @@ static int oppdm_store_optimized_voltages(struct device *dev,
 		goto out;
 	}
 
+	ret = of_property_read_u32(dev->of_node, "ti,absolute-max-voltage-uv",
+				   &data->vdd_absolute_max_voltage_uv);
+	if (ret) {
+		dev_err(dev, "ti,absolute-max-voltage-uv is missing\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	table = kzalloc(sizeof(*data->vdd_table) *
 				  data->num_vdd_table, GFP_KERNEL);
 	if (!table) {
@@ -160,10 +168,6 @@ static int oppdm_store_optimized_voltages(struct device *dev,
 			table->optimized_uv = table->reference_uv;
 		}
 	}
-
-	of_property_read_u32(dev->of_node, "ti,absolute-max-voltage-uv",
-			     &data->vdd_absolute_max_voltage_uv);
-
 out:
 	iounmap(base);
 out_map:
