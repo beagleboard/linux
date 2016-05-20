@@ -749,7 +749,6 @@ MODULE_DEVICE_TABLE(rpmsg, rpmsg_proto_id_table);
 
 static struct rpmsg_driver rpmsg_proto_driver = {
 	.drv.name	= KBUILD_MODNAME,
-	.drv.owner	= THIS_MODULE,
 	.id_table	= rpmsg_proto_id_table,
 	.probe		= rpmsg_proto_probe,
 	.callback	= rpmsg_proto_cb,
