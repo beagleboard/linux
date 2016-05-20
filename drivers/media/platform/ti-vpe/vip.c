@@ -1510,6 +1510,11 @@ static int vip_calc_format_size(struct vip_port *port,
 	return 0;
 }
 
+static inline bool vip_is_size_dma_aligned(uint32_t bpp, uint32_t width)
+{
+	return (width * bpp) == ALIGN(width * bpp, VPDMA_STRIDE_ALIGN);
+}
+
 static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 			       struct v4l2_format *f)
 {
@@ -1518,6 +1523,8 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	struct vip_dev *dev = port->dev;
 	struct v4l2_frmsizeenum fsize;
 	struct vip_fmt *fmt;
+	uint32_t fmt_depth;
+	uint32_t best_width, best_height;
 	int ret, found;
 
 	vip_dbg(3, dev, "try_fmt fourcc:%s size: %dx%d\n",
@@ -1538,20 +1545,38 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	/* check for/find a valid width/height */
 	ret = 0;
 	found = false;
+	best_width = 0;
+	best_height = 0;
+	fmt_depth = fmt->vpdma_fmt[0]->depth;
+
 	for (fsize.index = 0; ; fsize.index++) {
 		ret = v4l2_subdev_call(dev->sensor, video,
 					enum_framesizes, &fsize);
 		if (ret)
 			break;
 
-		if (fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+		if ((fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) &&
+		    vip_is_size_dma_aligned(fmt_depth >> 3,
+					    fsize.discrete.width)) {
+			if (abs(best_width - f->fmt.pix.width) >
+			    abs(fsize.discrete.width - f->fmt.pix.width)) {
+				best_width = fsize.discrete.width;
+				best_height = fsize.discrete.height;
+			}
 			if ((f->fmt.pix.width == fsize.discrete.width) &&
 			    (f->fmt.pix.height == fsize.discrete.height)) {
 				found = true;
 				break;
 			}
-		} else if ((fsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS) ||
-			   (fsize.type == V4L2_FRMSIZE_TYPE_STEPWISE)) {
+		} else if (((fsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS) ||
+			   (fsize.type == V4L2_FRMSIZE_TYPE_STEPWISE)) &&
+			   vip_is_size_dma_aligned(fmt_depth >> 3,
+						   fsize.stepwise.max_width)) {
+			if (abs(best_width - f->fmt.pix.width) >
+			    abs(fsize.stepwise.max_width - f->fmt.pix.width)) {
+				best_width = fsize.stepwise.max_width;
+				best_height = fsize.discrete.height;
+			}
 			if ((f->fmt.pix.width >= fsize.stepwise.min_width) &&
 			    (f->fmt.pix.width <= fsize.stepwise.max_width) &&
 			    (f->fmt.pix.height >= fsize.stepwise.min_height) &&
@@ -1563,11 +1588,16 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	}
 
 	if (!found) {
-		/* use existing values as default */
-		f->fmt.pix.width = port->mbus_framefmt.width;
-		f->fmt.pix.height =  port->mbus_framefmt.height;
+		if (best_width) {
+			/* use best matching values as default */
+			f->fmt.pix.width = best_width;
+			f->fmt.pix.height =  best_height;
+		} else {
+			/* use existing values as default */
+			f->fmt.pix.width = port->mbus_framefmt.width;
+			f->fmt.pix.height =  port->mbus_framefmt.height;
+		}
 	}
-
 	/* That we have a fmt calculate imagesize and bytesperline */
 	return vip_calc_format_size(port, fmt, f);
 }
