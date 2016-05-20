@@ -82,6 +82,7 @@
 			reg = <0>;
 
 			operating-points-v2 = <&cpu0_opp_table>;
+			cpu-opp-domain = <&oppdm_mpu>;
 			ti,syscon-efuse = <&scm_wkup 0x20c 0xf80000 19>;
 			ti,syscon-rev = <&scm_wkup 0x204>;
 
