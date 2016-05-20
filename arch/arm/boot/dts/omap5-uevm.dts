@@ -48,7 +48,6 @@
 
 &cpu0 {
 	cpu-opp-domain = <&oppdm_mpu>;
-	voltage-tolerance = <1>;
 };
 
 &oppdm_mpu {
