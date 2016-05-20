@@ -605,3 +605,11 @@
 	tx-num-evt = <32>;
 	rx-num-evt = <32>;
 };
+
+&pcie0_phy {
+	status = "okay";
+};
+
+&pcie0 {
+	status = "okay";
+};
