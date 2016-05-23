@@ -55,7 +55,7 @@
 #ifndef __ASSEMBLY__
 
 struct fdt_header {
-	fdt32_t magic;			 /* magic word FDT_MAGIC */
+	fdt32_t magic;			 /* magic word FDT_MAGIC[|_DTBO] */
 	fdt32_t totalsize;		 /* total size of DT block */
 	fdt32_t off_dt_struct;		 /* offset to structure */
 	fdt32_t off_dt_strings;		 /* offset to strings */
@@ -93,6 +93,7 @@ struct fdt_property {
 #endif /* !__ASSEMBLY */
 
 #define FDT_MAGIC	0xd00dfeed	/* 4: version, 4: total size */
+#define FDT_MAGIC_DTBO	0xd00dfdb0	/* DTBO magic */
 #define FDT_TAGSIZE	sizeof(fdt32_t)
 
 #define FDT_BEGIN_NODE	0x1		/* Start node: full name */
