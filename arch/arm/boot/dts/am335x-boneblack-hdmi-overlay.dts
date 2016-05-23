@@ -27,22 +27,13 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-&mmc2 {
-	vmmc-supply = <&vmmcsd_fixed>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_pins>;
-	bus-width = <8>;
-	status = "okay";
-};
-
-&cpu0_opp_table {
-	/*
-	 * All PG 2.0 silicon may not support 1GHz but some of the early
-	 * BeagleBone Blacks have PG 2.0 silicon which is guaranteed
-	 * to support 1GHz OPP so enable it for PG 2.0 on this board.
-	 */
-	oppnitro@1000000000 {
-		opp-supported-hw = <0x06 0x0100>;
+/* EMMC in reset */
+&gpio1 {
+	emmc_rst {
+		gpio-hog;
+		gpios = <20 0>;
+		output-high;
+		line-name = "EMMC ResetN";
 	};
 };
 
@@ -91,14 +82,6 @@
 
 &lcdc {
 	status = "okay";
-
-	/* If you want to get 24 bit RGB and 16 BGR mode instead of
-	 * current 16 bit RGB and 24 BGR modes, set the propety
-	 * below to "crossed" and uncomment the video-ports -property
-	 * in tda19988 node.
-	 */
-	blue-and-red-wiring = "straight";
-
 	port {
 		lcdc_0: endpoint@0 {
 			remote-endpoint = <&hdmi_0>;
@@ -114,9 +97,6 @@
 		pinctrl-names = "default", "off";
 		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
 		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
-
-		/* Convert 24bit BGR to RGB, e.g. cross red and blue wiring */
-		/* video-ports = <0x234501>; */
 
 		#sound-dai-cells = <0>;
 		audio-ports = <	AFMT_I2S	0x03>;
@@ -147,10 +127,6 @@
 		>;
 	tx-num-evt = <32>;
 	rx-num-evt = <32>;
-};
-
-&sgx {
-	status = "okay";
 };
 
 / {
