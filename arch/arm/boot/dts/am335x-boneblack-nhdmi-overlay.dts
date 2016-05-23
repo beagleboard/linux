@@ -27,22 +27,13 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
-&mmc2 {
-	vmmc-supply = <&vmmcsd_fixed>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_pins>;
-	bus-width = <8>;
-	status = "okay";
-};
-
-&cpu0_opp_table {
-	/*
-	 * All PG 2.0 silicon may not support 1GHz but some of the early
-	 * BeagleBone Blacks have PG 2.0 silicon which is guaranteed
-	 * to support 1GHz OPP so enable it for PG 2.0 on this board.
-	 */
-	oppnitro@1000000000 {
-		opp-supported-hw = <0x06 0x0100>;
+/* EMMC in reset */
+&gpio1 {
+	emmc_rst {
+		gpio-hog;
+		gpios = <20 0>;
+		output-high;
+		line-name = "EMMC ResetN";
 	};
 };
 
@@ -77,16 +68,6 @@
 			AM33XX_IOPAD(0x9b0, PIN_OUTPUT_PULLDOWN | MUX_MODE3)	/* xdma_event_intr0 */
 		>;
 	};
-
-	mcasp0_pins: mcasp0_pins {
-		pinctrl-single,pins = <
-			AM33XX_IOPAD(0x9ac, PIN_INPUT_PULLUP | MUX_MODE0) /* mcasp0_ahcklx.mcasp0_ahclkx */
-			AM33XX_IOPAD(0x99c, PIN_OUTPUT_PULLDOWN | MUX_MODE2) /* mcasp0_ahclkr.mcasp0_axr2*/
-			AM33XX_IOPAD(0x994, PIN_OUTPUT_PULLUP | MUX_MODE0) /* mcasp0_fsx.mcasp0_fsx */
-			AM33XX_IOPAD(0x990, PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* mcasp0_aclkx.mcasp0_aclkx */
-			AM33XX_IOPAD(0x86c, PIN_OUTPUT_PULLDOWN | MUX_MODE7) /* gpmc_a11.GPIO1_27 */
-		>;
-	};
 };
 
 &lcdc {
@@ -107,9 +88,6 @@
 		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
 		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 
-		#sound-dai-cells = <0>;
-		audio-ports = <	AFMT_I2S	0x03>;
-
 		ports {
 			port@0 {
 				hdmi_0: endpoint@0 {
@@ -122,54 +100,4 @@
 
 &rtc {
 	system-power-controller;
-};
-
-&mcasp0	{
-	#sound-dai-cells = <0>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&mcasp0_pins>;
-	status = "okay";
-	op-mode = <0>;	/* MCASP_IIS_MODE */
-	tdm-slots = <2>;
-	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
-			0 0 1 0
-		>;
-	tx-num-evt = <32>;
-	rx-num-evt = <32>;
-};
-
-&sgx {
-	status = "okay";
-};
-
-/ {
-	clk_mcasp0_fixed: clk_mcasp0_fixed {
-		#clock-cells = <0>;
-		compatible = "fixed-clock";
-		clock-frequency = <24576000>;
-	};
-
-	clk_mcasp0: clk_mcasp0 {
-		#clock-cells = <0>;
-		compatible = "gpio-gate-clock";
-		clocks = <&clk_mcasp0_fixed>;
-		enable-gpios = <&gpio1 27 0>; /* BeagleBone Black Clk enable on GPIO1_27 */
-	};
-
-	sound {
-		compatible = "simple-audio-card";
-		simple-audio-card,name = "TI BeagleBone Black";
-		simple-audio-card,format = "i2s";
-		simple-audio-card,bitclock-master = <&dailink0_master>;
-		simple-audio-card,frame-master = <&dailink0_master>;
-
-		dailink0_master: simple-audio-card,cpu {
-			sound-dai = <&mcasp0>;
-			clocks = <&clk_mcasp0>;
-		};
-
-		simple-audio-card,codec {
-			sound-dai = <&tda19988>;
-		};
-	};
 };
