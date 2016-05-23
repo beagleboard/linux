@@ -490,8 +490,12 @@ static void fixup_phandle_references(struct check *c, struct node *dt,
 
 		refnode = get_node_by_ref(dt, m->ref);
 		if (! refnode) {
-			FAIL(c, "Reference to non-existent node or label \"%s\"\n",
-			     m->ref);
+			if (!(tree_get_versionflags(dt) & VF_PLUGIN))
+				FAIL(c, "Reference to non-existent node or "
+						"label \"%s\"\n", m->ref);
+			else /* mark the entry as unresolved */
+				*((cell_t *)(prop->val.val + m->offset)) =
+					cpu_to_fdt32(0xffffffff);
 			continue;
 		}
 
