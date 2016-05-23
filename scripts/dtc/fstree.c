@@ -86,6 +86,6 @@ struct boot_info *dt_from_fs(const char *dirname)
 	tree = read_fstree(dirname);
 	tree = name_node(tree, "");
 
-	return build_boot_info(NULL, tree, guess_boot_cpuid(tree));
+	return build_boot_info(VF_DT_V1, NULL, tree, guess_boot_cpuid(tree));
 }
 
