@@ -19,6 +19,7 @@
  */
 %{
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "dtc.h"
 #include "srcpos.h"
@@ -52,9 +53,11 @@ extern bool treesource_error;
 	struct node *nodelist;
 	struct reserve_info *re;
 	uint64_t integer;
+	unsigned int flags;
 }
 
 %token DT_V1
+%token DT_PLUGIN
 %token DT_MEMRESERVE
 %token DT_LSHIFT DT_RSHIFT DT_LE DT_GE DT_EQ DT_NE DT_AND DT_OR
 %token DT_BITS
@@ -71,6 +74,9 @@ extern bool treesource_error;
 
 %type <data> propdata
 %type <data> propdataprefix
+%type <flags> versioninfo
+%type <flags> plugindecl
+%type <flags> oldplugindecl
 %type <re> memreserve
 %type <re> memreserves
 %type <array> arrayprefix
@@ -101,10 +107,39 @@ extern bool treesource_error;
 %%
 
 sourcefile:
-	  DT_V1 ';' memreserves devicetree
+	  versioninfo ';' oldplugindecl memreserves devicetree
 		{
-			the_boot_info = build_boot_info($3, $4,
-							guess_boot_cpuid($4));
+			the_boot_info = build_boot_info($1 | $3, $4, $5,
+							guess_boot_cpuid($5));
+		}
+	;
+
+versioninfo:
+	DT_V1 plugindecl
+		{
+			$$ = VF_DT_V1 | $2;
+		}
+	;
+
+plugindecl:
+	DT_PLUGIN
+		{
+			$$ = VF_PLUGIN;
+		}
+	| /* empty */
+		{
+			$$ = 0;
+		}
+	;
+
+oldplugindecl:
+	DT_PLUGIN ';'
+		{
+			$$ = VF_PLUGIN;
+		}
+	| /* empty */
+		{
+			$$ = 0;
 		}
 	;
 
@@ -156,10 +191,14 @@ devicetree:
 		{
 			struct node *target = get_node_by_ref($1, $2);
 
-			if (target)
+			if (target) {
 				merge_nodes(target, $3);
-			else
-				ERROR(&@2, "Label or path %s not found", $2);
+			} else {
+				if (symbol_fixup_support)
+					add_orphan_node($1, $3, $2);
+				else
+					ERROR(&@2, "Label or path %s not found", $2);
+			}
 			$$ = $1;
 		}
 	| devicetree DT_DEL_NODE DT_REF ';'
@@ -173,6 +212,11 @@ devicetree:
 
 
 			$$ = $1;
+		}
+	| /* empty */
+		{
+			/* build empty node */
+			$$ = name_node(build_node(NULL, NULL), "");
 		}
 	;
 
