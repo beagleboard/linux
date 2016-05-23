@@ -57,7 +57,7 @@
 
 int fdt_check_header(const void *fdt)
 {
-	if (fdt_magic(fdt) == FDT_MAGIC) {
+	if (fdt_magic(fdt) == FDT_MAGIC || fdt_magic(fdt) == FDT_MAGIC_DTBO) {
 		/* Complete tree */
 		if (fdt_version(fdt) < FDT_FIRST_SUPPORTED_VERSION)
 			return -FDT_ERR_BADVERSION;
