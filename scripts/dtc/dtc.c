@@ -31,6 +31,8 @@ int reservenum;		/* Number of memory reservation slots */
 int minsize;		/* Minimum blob size */
 int padsize;		/* Additional padding to blob */
 int phandle_format = PHANDLE_BOTH;	/* Use linux,phandle or phandle properties */
+int symbol_fixup_support;
+int auto_label_aliases;
 
 static void fill_fullpaths(struct node *tree, const char *prefix)
 {
@@ -53,7 +55,7 @@ static void fill_fullpaths(struct node *tree, const char *prefix)
 #define FDT_VERSION(version)	_FDT_VERSION(version)
 #define _FDT_VERSION(version)	#version
 static const char usage_synopsis[] = "dtc [options] <input file>";
-static const char usage_short_opts[] = "qI:O:o:V:d:R:S:p:fb:i:H:sW:E:hv";
+static const char usage_short_opts[] = "qI:O:o:V:d:R:S:p:fb:i:H:sW:E:@Ahv";
 static struct option const usage_long_opts[] = {
 	{"quiet",            no_argument, NULL, 'q'},
 	{"in-format",         a_argument, NULL, 'I'},
@@ -71,6 +73,8 @@ static struct option const usage_long_opts[] = {
 	{"phandle",           a_argument, NULL, 'H'},
 	{"warning",           a_argument, NULL, 'W'},
 	{"error",             a_argument, NULL, 'E'},
+	{"symbols",	     no_argument, NULL, '@'},
+	{"auto-alias",       no_argument, NULL, 'A'},
 	{"help",             no_argument, NULL, 'h'},
 	{"version",          no_argument, NULL, 'v'},
 	{NULL,               no_argument, NULL, 0x0},
@@ -101,6 +105,8 @@ static const char * const usage_opts_help[] = {
 	 "\t\tboth   - Both \"linux,phandle\" and \"phandle\" properties",
 	"\n\tEnable/disable warnings (prefix with \"no-\")",
 	"\n\tEnable/disable errors (prefix with \"no-\")",
+	"\n\tEnable symbols/fixup support",
+	"\n\tEnable auto-alias of labels",
 	"\n\tPrint this help and exit",
 	"\n\tPrint version and exit",
 	NULL,
@@ -117,6 +123,8 @@ static const char *guess_type_by_name(const char *fname, const char *fallback)
 		return "dts";
 	if (!strcasecmp(s, ".dtb"))
 		return "dtb";
+	if (!strcasecmp(s, ".dtbo"))
+		return "dtbo";
 	return fallback;
 }
 
@@ -147,6 +155,8 @@ static const char *guess_input_format(const char *fname, const char *fallback)
 	magic = fdt32_to_cpu(magic);
 	if (magic == FDT_MAGIC)
 		return "dtb";
+	if (magic == FDT_MAGIC_DTBO)
+		return "dtbo";
 
 	return guess_type_by_name(fname, fallback);
 }
@@ -233,7 +243,12 @@ int main(int argc, char *argv[])
 		case 'E':
 			parse_checks_option(false, true, optarg);
 			break;
-
+		case '@':
+			symbol_fixup_support = 1;
+			break;
+		case 'A':
+			auto_label_aliases = 1;
+			break;
 		case 'h':
 			usage(NULL);
 		default:
@@ -275,7 +290,7 @@ int main(int argc, char *argv[])
 		bi = dt_from_source(arg);
 	else if (streq(inform, "fs"))
 		bi = dt_from_fs(arg);
-	else if(streq(inform, "dtb"))
+	else if(streq(inform, "dtb") || streq(inform, "dtbo"))
 		bi = dt_from_blob(arg);
 	else
 		die("Unknown input format \"%s\"\n", inform);
@@ -294,6 +309,14 @@ int main(int argc, char *argv[])
 	if (sort)
 		sort_tree(bi);
 
+	if (auto_label_aliases)
+		generate_label_tree(bi->dt, "aliases", false);
+
+	if (symbol_fixup_support) {
+		generate_label_tree(bi->dt, "__symbols__", true);
+		generate_fixups_tree(bi->dt);
+	}
+
 	if (streq(outname, "-")) {
 		outf = stdout;
 	} else {
@@ -306,9 +329,13 @@ int main(int argc, char *argv[])
 	if (streq(outform, "dts")) {
 		dt_to_source(outf, bi);
 	} else if (streq(outform, "dtb")) {
-		dt_to_blob(outf, bi, outversion);
+		dt_to_blob(outf, bi, FDT_MAGIC, outversion);
+	} else if (streq(outform, "dtbo")) {
+		dt_to_blob(outf, bi, FDT_MAGIC_DTBO, outversion);
 	} else if (streq(outform, "asm")) {
-		dt_to_asm(outf, bi, outversion);
+		dt_to_asm(outf, bi, FDT_MAGIC, outversion);
+	} else if (streq(outform, "asmo")) {
+		dt_to_asm(outf, bi, FDT_MAGIC_DTBO, outversion);
 	} else if (streq(outform, "null")) {
 		/* do nothing */
 	} else {
