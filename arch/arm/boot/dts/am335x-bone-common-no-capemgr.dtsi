@@ -19,9 +19,8 @@
 	};
 
 	leds {
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&user_leds_default>;
-		pinctrl-1 = <&user_leds_sleep>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&user_leds_s0>;
 
 		compatible = "gpio-leds";
 
@@ -63,21 +62,12 @@
 };
 
 &am33xx_pinmux {
-	user_leds_default: user_leds_default {
+	user_leds_s0: user_leds_s0 {
 		pinctrl-single,pins = <
 			AM33XX_IOPAD(0x854, PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a5.gpio1_21 */
 			AM33XX_IOPAD(0x858, PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_a6.gpio1_22 */
 			AM33XX_IOPAD(0x85c, PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a7.gpio1_23 */
 			AM33XX_IOPAD(0x860, PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_a8.gpio1_24 */
-		>;
-	};
-
-	user_leds_sleep: user_leds_sleep {
-		pinctrl-single,pins = <
-			AM33XX_IOPAD(0x854, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a5.gpio1_21 */
-			AM33XX_IOPAD(0x858, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a6.gpio1_22 */
-			AM33XX_IOPAD(0x85c, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a7.gpio1_23 */
-			AM33XX_IOPAD(0x860, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_a8.gpio1_24 */
 		>;
 	};
 
@@ -242,55 +232,6 @@
 	};
 };
 
-&i2c2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c2_pins>;
-
-	status = "okay";
-	clock-frequency = <100000>;
-
-	cape_eeprom0: cape_eeprom0@54 {
-		compatible = "at,24c256";
-		reg = <0x54>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape0_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-
-	cape_eeprom1: cape_eeprom1@55 {
-		compatible = "at,24c256";
-		reg = <0x55>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape1_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-
-	cape_eeprom2: cape_eeprom2@56 {
-		compatible = "at,24c256";
-		reg = <0x56>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape2_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-
-	cape_eeprom3: cape_eeprom3@57 {
-		compatible = "at,24c256";
-		reg = <0x57>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		cape3_data: cape_data@0 {
-			reg = <0 0x100>;
-		};
-	};
-};
-
-
 /include/ "tps65217.dtsi"
 
 &tps {
@@ -326,7 +267,7 @@
 			/* VDD_MPU voltage limits 0.95V - 1.26V with +/-4% tolerance */
 			regulator-name = "vdd_mpu";
 			regulator-min-microvolt = <925000>;
-			regulator-max-microvolt = <1351500>;
+			regulator-max-microvolt = <1325000>;
 			regulator-boot-on;
 			regulator-always-on;
 		};
@@ -407,32 +348,5 @@
 };
 
 &rtc {
-	clocks = <&clk_32768_ck>, <&clkdiv32k_ick>;
-	clock-names = "ext-clk", "int-clk";
 	system-power-controller;
-};
-
-/* the cape manager */
-/ {
-	bone_capemgr {
-		compatible = "ti,bone-capemgr";
-		status = "okay";
-
-		nvmem-cells = <&baseboard_data &cape0_data &cape1_data &cape2_data &cape3_data>;
-		nvmem-cell-names = "baseboard", "slot0", "slot1", "slot2", "slot3";
-		#slots = <4>;
-
-		/* map board revisions to compatible definitions */
-		baseboardmaps {
-			baseboard_beaglebone: board@0 {
-				board-name = "A335BONE";
-				compatible-name = "ti,beaglebone";
-			};
-
-			baseboard_beaglebone_black: board@1 {
-				board-name = "A335BNLT";
-				compatible-name = "ti,beaglebone-black";
-			};
-		};
-	};
 };
