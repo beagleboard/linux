@@ -698,12 +698,16 @@
 &pruss1 {
 	status = "okay";
 	pru1_0: pru0@4b234000 {
-		mboxes = <&mailbox3 &mbox_pru1_0>;
+		interrupt-parent = <&pruss1_intc>;
+		interrupts = <16>, <17>;
+		interrupt-names = "vring", "kick";
 		status = "okay";
 	};
 
 	pru1_1: pru1@4b238000 {
-		mboxes = <&mailbox3 &mbox_pru1_1>;
+		interrupt-parent = <&pruss1_intc>;
+		interrupts = <18>, <19>;
+		interrupt-names = "vring", "kick";
 		status = "okay";
 	};
 };
@@ -711,12 +715,16 @@
 &pruss2 {
 	status = "okay";
 	pru2_0: pru0@4b2b4000 {
-		mboxes = <&mailbox4 &mbox_pru2_0>;
+		interrupt-parent = <&pruss2_intc>;
+		interrupts = <16>, <17>;
+		interrupt-names = "vring", "kick";
 		status = "okay";
 	};
 
 	pru2_1: pru1@4b2b8000 {
-		mboxes = <&mailbox4 &mbox_pru2_1>;
+		interrupt-parent = <&pruss2_intc>;
+		interrupts = <18>, <19>;
+		interrupt-names = "vring", "kick";
 		status = "okay";
 	};
 };
