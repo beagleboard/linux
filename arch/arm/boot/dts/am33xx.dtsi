@@ -869,7 +869,9 @@
 				      <0x4a322000 0x400>,
 				      <0x4a322400 0x100>;
 				reg-names = "iram", "control", "debug";
-				mboxes = <&mailbox &mbox_pru0>;
+				interrupt-parent = <&pruss_intc>;
+				interrupts = <16>, <17>;
+				interrupt-names = "vring", "kick";
 			};
 
 			pru1: pru1@4a338000 {
@@ -878,7 +880,9 @@
 				      <0x4a324000 0x400>,
 				      <0x4a324400 0x100>;
 				reg-names = "iram", "control", "debug";
-				mboxes = <&mailbox &mbox_pru1>;
+				interrupt-parent = <&pruss_intc>;
+				interrupts = <18>, <19>;
+				interrupt-names = "vring", "kick";
 			};
 
 			pruss_mdio: mdio@4a332400 {
