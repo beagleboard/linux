@@ -1196,7 +1196,6 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 fail_tx:
 	/* error */
 	ndev->stats.tx_dropped++;
-	netif_stop_queue(ndev);
 
 	return NETDEV_TX_BUSY;
 }
