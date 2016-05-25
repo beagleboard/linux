@@ -533,10 +533,6 @@
        };
 };
 
-&cpu0 {
-	cpu-opp-domain = <&oppdm_mpu>;
-};
-
 &oppdm_mpu {
 	vdd-supply = <&smps12_reg>;
 };
