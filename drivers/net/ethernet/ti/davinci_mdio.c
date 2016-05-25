@@ -98,6 +98,7 @@ struct davinci_mdio_data {
 	struct clk	*clk;
 	struct device	*dev;
 	struct mii_bus	*bus;
+	bool            active_in_suspend;
 	unsigned long	access_time; /* jiffies */
 	/* Indicates that driver shouldn't modify phy_mask in case
 	 * if MDIO bus is registered from DT.
@@ -163,8 +164,13 @@ static int davinci_mdio_reset(struct mii_bus *bus)
 {
 	struct davinci_mdio_data *data = bus->priv;
 	u32 phy_mask, ver;
+	int ret;
 
-	davinci_mdio_enable(data);
+	ret = pm_runtime_get_sync(data->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(data->dev);
+		return ret;
+	}
 
 	/* wait for scan logic to settle */
 	msleep(PHY_MAX_ADDR * data->access_time);
@@ -175,7 +181,7 @@ static int davinci_mdio_reset(struct mii_bus *bus)
 		 (ver >> 8) & 0xff, ver & 0xff);
 
 	if (data->skip_scan)
-		return 0;
+		goto done;
 
 	/* get phy mask from the alive register */
 	phy_mask = __raw_readl(&data->regs->alive);
@@ -189,6 +195,10 @@ static int davinci_mdio_reset(struct mii_bus *bus)
 		phy_mask = 0;
 	}
 	data->bus->phy_mask = phy_mask;
+
+done:
+	pm_runtime_mark_last_busy(data->dev);
+	pm_runtime_put_autosuspend(data->dev);
 
 	return 0;
 }
@@ -250,6 +260,12 @@ static int davinci_mdio_read(struct mii_bus *bus, int phy_id, int phy_reg)
 	if (phy_reg & ~PHY_REG_MASK || phy_id & ~PHY_ID_MASK)
 		return -EINVAL;
 
+	ret = pm_runtime_get_sync(data->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(data->dev);
+		return ret;
+	}
+
 	reg = (USERACCESS_GO | USERACCESS_READ | (phy_reg << 21) |
 	       (phy_id << 16));
 
@@ -273,6 +289,8 @@ static int davinci_mdio_read(struct mii_bus *bus, int phy_id, int phy_reg)
 		break;
 	}
 
+	pm_runtime_mark_last_busy(data->dev);
+	pm_runtime_put_autosuspend(data->dev);
 	return ret;
 }
 
@@ -285,6 +303,12 @@ static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
 
 	if (phy_reg & ~PHY_REG_MASK || phy_id & ~PHY_ID_MASK)
 		return -EINVAL;
+
+	ret = pm_runtime_get_sync(data->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(data->dev);
+		return ret;
+	}
 
 	reg = (USERACCESS_GO | USERACCESS_WRITE | (phy_reg << 21) |
 		   (phy_id << 16) | (phy_data & USERACCESS_DATA));
@@ -304,7 +328,10 @@ static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
 		break;
 	}
 
-	return 0;
+	pm_runtime_mark_last_busy(data->dev);
+	pm_runtime_put_autosuspend(data->dev);
+
+	return ret;
 }
 
 #if IS_ENABLED(CONFIG_OF)
@@ -410,8 +437,9 @@ static int davinci_mdio_probe(struct platform_device *pdev)
 
 	davinci_mdio_init_clk(data);
 
+	pm_runtime_set_autosuspend_delay(&pdev->dev, -1);
+	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&pdev->dev);
 
 	/* register the mii bus
 	 * Create PHYs from DT only in case if PHY child nodes are explicitly
@@ -440,9 +468,8 @@ static int davinci_mdio_probe(struct platform_device *pdev)
 	return 0;
 
 bail_out:
-	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
-
 	return ret;
 }
 
@@ -453,7 +480,7 @@ static int davinci_mdio_remove(struct platform_device *pdev)
 	if (data->bus)
 		mdiobus_unregister(data->bus);
 
-	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;
@@ -489,7 +516,9 @@ static int davinci_mdio_suspend(struct device *dev)
 	struct davinci_mdio_data *data = dev_get_drvdata(dev);
 	int ret = 0;
 
-	ret = pm_runtime_force_suspend(dev);
+	data->active_in_suspend = !pm_runtime_status_suspended(dev);
+	if (data->active_in_suspend)
+		ret = pm_runtime_force_suspend(dev);
 	if (ret < 0)
 		return ret;
 
@@ -506,7 +535,8 @@ static int davinci_mdio_resume(struct device *dev)
 	/* Select default pin state */
 	pinctrl_pm_select_default_state(dev);
 
-	pm_runtime_force_resume(dev);
+	if (data->active_in_suspend)
+		pm_runtime_force_resume(dev);
 
 	return 0;
 }
