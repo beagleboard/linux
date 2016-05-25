@@ -709,11 +709,6 @@
 	timers = <&timer5>;
 };
 
-&cpu0 {
-	cpu-opp-domain = <&oppdm_mpu>;
-	voltage-tolerance = <1>;
-};
-
 &oppdm_mpu {
 	vdd-supply = <&smps1_reg>;
 };

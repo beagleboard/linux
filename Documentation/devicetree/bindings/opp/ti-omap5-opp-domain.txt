@@ -35,8 +35,6 @@ Required Properties:
 	optimized efuse configuration. Each item consists of the following:
 	volt: voltage in uV - reference voltage (OPP voltage)
 	efuse_offseet: efuse offset from reg where the optimized voltage is stored.
-
-Optional Properties:
 - ti,absolute-max-voltage-uv: absolute maximum voltage for the OPP domain.
 
 Example:
@@ -63,6 +61,7 @@ oppdm_mpu: oppdm@4a003b20 {
 	1160000 0x4
 	1210000 0x8
 	>;
+	ti,absolute-max-voltage-uv = <1500000>;
 };
 
 oppdm_core: oppdm@4a003d20 {

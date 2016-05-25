@@ -707,10 +707,6 @@
 	pinctrl-0 = <&uart5_pins>;
 };
 
-&cpu0 {
-	cpu0-supply = <&smps123_reg>;
-};
-
 &dss {
 	status = "ok";
 };
@@ -728,4 +724,16 @@
 			remote-endpoint = <&tpd12s015_in>;
 		};
 	};
+};
+
+&oppdm_mpu {
+	vdd-supply = <&smps123_reg>;
+};
+
+&oppdm_mm {
+	vdd-supply = <&smps45_reg>;
+};
+
+&oppdm_core {
+	vdd-supply = <&smps6_reg>;
 };

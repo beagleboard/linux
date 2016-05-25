@@ -99,10 +99,6 @@
 	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
 };
 
-&cpu0 {
-	cpu-opp-domain = <&oppdm_mpu>;
-};
-
 &oppdm_mpu {
 	vdd-supply = <&smps12_reg>;
 };
