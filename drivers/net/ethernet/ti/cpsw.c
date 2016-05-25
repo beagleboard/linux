@@ -940,6 +940,13 @@ static int cpsw_set_coalesce(struct net_device *ndev,
 	u32 prescale = 0;
 	u32 addnl_dvdr = 1;
 	u32 coal_intvl = 0;
+	int ret;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return ret;
+	}
 
 	coal_intvl = coal->rx_coalesce_usecs;
 
@@ -994,6 +1001,8 @@ update_return:
 		priv->coal_intvl = coal_intvl;
 	}
 
+	pm_runtime_put(&priv->pdev->dev);
+
 	return 0;
 }
 
@@ -1031,7 +1040,13 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
 	struct cpdma_chan_stats tx_stats;
 	u32 val;
 	u8 *p;
-	int i;
+	int i, ret;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return;
+	}
 
 	/* Collect Davinci CPDMA stats for Rx and Tx Channel */
 	cpdma_chan_get_stats(priv->rxch, &rx_stats);
@@ -1058,6 +1073,8 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
 			break;
 		}
 	}
+
+	pm_runtime_put(&priv->pdev->dev);
 }
 
 static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
@@ -2069,11 +2086,20 @@ static void cpsw_get_regs(struct net_device *ndev,
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	u32 *reg = p;
+	int ret;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return;
+	}
 
 	/* update CPSW IP version */
 	regs->version = priv->version;
 
 	cpsw_ale_dump(priv->ale, reg);
+
+	pm_runtime_put(&priv->pdev->dev);
 }
 
 static void cpsw_get_drvinfo(struct net_device *ndev,
@@ -2191,12 +2217,20 @@ static int cpsw_set_pauseparam(struct net_device *ndev,
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	bool link;
+	int ret;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return ret;
+	}
 
 	priv->rx_pause = pause->rx_pause ? true : false;
 	priv->tx_pause = pause->tx_pause ? true : false;
 
 	for_each_slave(priv, _cpsw_adjust_link, priv, &link);
 
+	pm_runtime_put(&priv->pdev->dev);
 	return 0;
 }
 
