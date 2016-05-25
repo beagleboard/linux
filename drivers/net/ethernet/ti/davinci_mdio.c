@@ -106,6 +106,7 @@ struct davinci_mdio_data {
 	struct gpio_desc **gpio_reset;
 	int		num_gpios;
 	int		reset_delay_us;
+	u32		clk_div;
 };
 
 static void __davinci_gpio_reset(struct davinci_mdio_data *data)
@@ -122,7 +123,7 @@ static void __davinci_gpio_reset(struct davinci_mdio_data *data)
 	}
 }
 
-static void __davinci_mdio_reset(struct davinci_mdio_data *data)
+static void davinci_mdio_init_clk(struct davinci_mdio_data *data)
 {
 	u32 mdio_in, div, mdio_out_khz, access_time;
 
@@ -131,9 +132,7 @@ static void __davinci_mdio_reset(struct davinci_mdio_data *data)
 	if (div > CONTROL_MAX_DIV)
 		div = CONTROL_MAX_DIV;
 
-	/* set enable and clock divider */
-	__raw_writel(div | CONTROL_ENABLE, &data->regs->control);
-
+	data->clk_div = div;
 	/*
 	 * One mdio transaction consists of:
 	 *	32 bits of preamble
@@ -154,12 +153,18 @@ static void __davinci_mdio_reset(struct davinci_mdio_data *data)
 		data->access_time = 1;
 }
 
+static void davinci_mdio_enable(struct davinci_mdio_data *data)
+{
+	/* set enable and clock divider */
+	__raw_writel(data->clk_div | CONTROL_ENABLE, &data->regs->control);
+}
+
 static int davinci_mdio_reset(struct mii_bus *bus)
 {
 	struct davinci_mdio_data *data = bus->priv;
 	u32 phy_mask, ver;
 
-	__davinci_mdio_reset(data);
+	davinci_mdio_enable(data);
 
 	/* wait for scan logic to settle */
 	msleep(PHY_MAX_ADDR * data->access_time);
@@ -210,7 +215,7 @@ static inline int wait_for_user_access(struct davinci_mdio_data *data)
 		 * operation
 		 */
 		dev_warn(data->dev, "resetting idled controller\n");
-		__davinci_mdio_reset(data);
+		davinci_mdio_enable(data);
 		return -EAGAIN;
 	}
 
@@ -403,6 +408,8 @@ static int davinci_mdio_probe(struct platform_device *pdev)
 	if (IS_ERR(data->regs))
 		return PTR_ERR(data->regs);
 
+	davinci_mdio_init_clk(data);
+
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
@@ -478,7 +485,7 @@ static int davinci_mdio_resume(struct device *dev)
 	pinctrl_pm_select_default_state(dev);
 
 	/* restart the scan state machine */
-	__davinci_mdio_reset(data);
+	davinci_mdio_enable(data);
 
 	return 0;
 }
