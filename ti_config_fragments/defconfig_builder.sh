@@ -308,6 +308,11 @@ if [ ! -e "$DEFCONFIG_MAP_FILE" ]; then
 	exit 1
 fi
 
+echo "***********************************************************************"
+echo "THIS SCRIPT IS EXPERIMENTAL AND MAY NOT PRODUCE A BOOTABLE KERNEL IMAGE"
+echo "***********************************************************************"
+echo ""
+
 PROCESSOR_FILE=$(mktemp)
 BUILD_TYPE_FILE=$(mktemp)
 

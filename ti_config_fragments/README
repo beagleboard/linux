@@ -1,143 +1,147 @@
+##################################
+THIS SCRIPT IS EXPERIMENTAL AND MAY NOT PRODUCE A BOOTABLE KERNEL IMAGE
+##################################
 
-			     TI defconfig Fragments
+##################################
+# Introduction
+##################################
 
-Description
-===========
+Using config fragments in the Linux kernel is a supported model in the
+Linux kernel main line.  TI has taken advantage of this model to be able
+to take a base defconfig and add or remove configuration flags based contained
+within a config fragment.  This allows the base defconfig to be left in tact
+and helps facilitate and understanding of what config flags can be enabled
+or disabled.  The config fragments drastically reduces the number of merge
+conflicts when the Linux stable dot release (LTS) is merged back to the
+integration point as well as merges for TI domain trees.
 
-The Linux kernel contains a script that takes a base defconfig and merges
-defconfig fragment files into a final buildable configuration for your target.
+But alas this creates another issue as with the config fragments there is no
+direct defconfig for customers to build just many, many, many options.
 
-TI Defconfig Merge Script Usage
-===============================
+Therefore the defconfig_builder script was derived to take a defconfig map file
+and present a command line interface to the customer to to create a standard
+defconfig based off the TI integration branches.  The customer is walked through
+steps and if successful a defconfig will be created in the arch/arm/configs directory
+that can be built.
 
-1.0 Script contents
--------------------
+##################################
+# Usage
+##################################
 
-This script will either take in a single defconfig fragment file or a file with
-multiple fragments defined.  With either file the base defconfig will initially
-be built, copied to a working directory, and the kernels merge_config script
-will be called for each config file fragment.  Each config file fragment will
-be appended to the base config and then the final output will be copied back to
-the kernels working directory.
+There is only one option for this script.  This option defines the working
+path to where the Linux kernel resides.
 
-A copy of both the base config and the final config is stored in the scripts
-logging directory.
+	-w - Location of the TI Linux kernel
 
-Single fragment command line example:
--------------------------------------
+Command line Example if building from the working Linux kernel
+top level directory:
+	ti_config_fragments/defconfig_builder.sh -w .
 
-	$ defconfig_merge.sh -c <path to the compiler>	\
-		-o <output directory and file name>	\
-		-e <path to single fragment file>	\
-		-w <path to kernel's working directory>
+Command line Example if building from the ti_config_fragments directory:
+	defconfig_builder.sh -w ../.
 
-"use-kernel-config=" - Is required to be defined.  This is the base defconfig
-that the config fragments will be appended to.  This defconfig should be in the
-Linux kernel path in arch/arm/configs.
+##################################
+# Defconfig Map File
+##################################
 
-	use-kernel-config= < defconfig base to start appending fragments >
+The defconfig map file contains the mapping of the defconfig options and the
+assembly instructions for the defconfig to be created.
 
-"config-fragment=" - Is required to be defined.  There should be at least one
-entry per config fragment.
+The file contains keywords and all are *required* to be filled out.
 
-	config-fragment= < path to the defconfig fragment file 1>
-
-Multiple fragment command line example:
----------------------------------------
-
-	export CROSS_COMPILE=~/linux_kernel/docs/toolchain/linaro-4.7/bin/arm-linux-gnueabihf-
-
-	./ti_config_fragments/defconfig_merge.sh -o ~/Desktop/kernel/notes/kernel.txt
-	-f ~/linux_kernel/lcpd_kernel/ti_config_fragments/defconfig_fragment -m
-	-w ~/linux_kernel/lcpd_kernel/ -c $CROSS_COMPILE
-
-
-Example:
-use-kernel-config=omap2plus_defconfig
-config-fragment=baseport.cfg
-config-fragment=power.cfg
-config-fragment=connectivity.cfg
-config-fragment=ipc.cfg
-config-fragment=audio_display.cfg
-config-fragment=system_test.cfg
-
-
-OPTIONS:
-	Setup Options:
-	-c  The path to the desired compiler
-	-d  The defconfig to use as a base
-	-e  Single defconfig fragment to append
-	-j  How many build threads to use
-	-o  Output log
-	-l  uImage load address if different from 0x80008000 for no load address use ""
-
-	Build Options:
-	-n  Do not pre-build the defconfig just use the existing .config
-	-m  MAKE the kernel, modules and dtb files based on the new config
-	-w  Linux kernel path directory
-
-	-f  Path to file with multiple defconfig options
-
-2.0 Config Fragment File
-------------------------
-
-The config fragment file contains the CONFIG options that will need to be
-turned on or off based on a base defconfig.
-
-To turn on a config flag you merely create a file of any name and populate it
-with CONFIG_BAR=y
-
-Of course if CONFIG_BAR has a parent dependency, say CONFIG_FOO you will need
-to turn that CONFIG option on as well so your file will need to look like this
-
-CONFIG_FOO=y
-CONFIG_BAR=y
-
-You may want to disable a certain config option.  Normally in the config file
-it is custumary to have an entry like this
-
-# CONFIG_FOO is not set
-
-Well the merge_config.sh within the kernel strips out all comments from the
-passed in Config fragment file.  So in order to turn off a config option you
-will need to explicitly state
-
-CONFIG_FOO=n
-
-Linux Kernel Script Location:
-=============================
-
-scripts/Kconfig/merge_config.sh
-
-Linux Kernel Script Usage
-=========================
-
-To have the latest script usage information displayed please use the
-command below in any linux kernel.
-
-./scripts/Kconfig/merge_config.sh -h
+processor: - Defines the processor type if the defconfig is to be processor specific
+type: - Defines the type of build.  Like debug build, LSK build or RT build
+defconfig: - Defines the base defconfig config to append the config fragments to
+config_file: - Defines a file that contains a list of config fragments.  If there is not a list then declare "None" for this field.
+extra_configs: - These are individual config fragments that can be appended to the defconfig by themselves or in addition to
+        the config_file.
 
 Example:
 
-./scripts/kconfig/merge_config.sh -m -r -O <LOGGING_DIRECTORY> <APPENDED_CONFIGs>
+This is an example of an AM335x entry that will create a defconfig only for AM335x
+processors, based on the omap2plus_defconfig.  The defconfig_fragment file adds features 
+that have been enabled in the TI integrated kernel.  The extra_configs will add in the
+debug options as well as undefine all processors that are not AM335x.
 
-In this example:
--m  =  only merge the fragments, do not execute the make command
--n  =  use allnoconfig instead of alldefconfig
--r  =  list redundant entries when merging fragments
--O  =  dir to put generated output files
+processor: AM33xx type: am335x_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/am33xx_only.cfg 
 
-TI Configuration files
-======================
+##################################
+# Defconfig Mapping
+##################################
 
-Below is a list of configuration files for each domain within TI.
+#Processor Specific Defconfig options
 
-These files contain configuration flags that are not currently set in the
-omap2plus_defconfig but these features are available within the TI integration
-kernel.
+These defconfig options enable the Linux kernel for the targer processor only.  Other processor platforms
+are disabled.  The base for each of these defconfigs is the omap2plus_defconfig contained
+in the arch/arm/configs directory of the kernel.
 
-TI Baseport - baseport.cfg
-TI Connectivity - connectivity.cfg
-TI Audio and Display - audio_display.cfg
-TI Power - power.cfg
-TI System Test add-ons - system_test.cfg
+	TI Base Integrated Kernel:
+		am335x_only - Adds the configs from the files contained in the defconfig_fragment file.
+		am335x_debug_only - Adds the configs from the files contained in the defconfig_fragment file and adds in the debug options from the debug_options.cfg
+		am43x_only - Adds the configs from the files contained in the defconfig_fragment file.
+		am43x_debug_only - Adds the configs from the files contained in the defconfig_fragment file and adds in the debug options from the debug_options.cfg
+		dra7xx_only - Adds the configs from the files contained in the defconfig_fragment file.
+		dra7xx_debug_only - Adds the configs from the files contained in the defconfig_fragment file and adds in the debug options from the debug_options.cfg
+
+	Linaro Stable Kernel builds: (These configurations are only available on the TI LSK branch.)
+		am335x_lsk_only - Adds the configs from the files contained in the defconfig_fragment file and adds in the linaro options from the linaro/configs directory
+		am335x_lsk_debug_only - Adds the configs from the files contained in the defconfig_fragment file and adds in the debug options from the debug_options.cfg as
+		       well as the linaro options from the linaro/configs directory
+		am43x_lsk_only - Adds the configs from the files contained in the defconfig_fragment file and adds in the linaro options from the linaro/configs directory
+		am43x_lsk_debug_only - Adds the configs from the files contained in the defconfig_fragment file and adds in the debug options from the debug_options.cfg as
+		       well as the linaro options from the linaro/configs directory
+		dra7xx_lsk_only - Adds the configs from the files contained in the defconfig_fragment file and adds in the linaro options from the linaro/configs directory
+		dra7xx_lsk_debug_only - Adds the configs from the files contained in the defconfig_fragment file and adds in the debug options from the debug_options.cfg as
+		       well as the linaro options from the linaro/configs directory
+
+	TI Based Real Time Kernel: (These configurations are only available on the TI RT branch.)
+		am335x_rt_only - Adds the configs from the files contained in the rt_defconfig_fragment file.
+		am335x_rt_debug_only - Adds the configs from the files contained in the rt_defconfig_fragment file and adds in the debug options from the debug_options.cfg.
+		am43x_rt_only - Adds the configs from the files contained in the rt_defconfig_fragment file.
+		am43x_rt_debug_only - Adds the configs from the files contained in the rt_defconfig_fragment file and adds in the debug options from the debug_options.cfg.
+		dra7xx_rt_only - Adds the configs from the files contained in the rt_defconfig_fragment file.
+		dra7xx_rt_debug_only - Adds the configs from the files contained in the rt_defconfig_fragment file and adds in the debug options from the debug_options.cfg.
+
+#OMAP2+ Defconfig Options
+
+These defconfig options use the omap2plus_defconfig in the arch/arm/configs directory as the base defconfig.
+These options do not disable any processor's or platforms but add additional features that
+
+	TI Base Integrated Kernel:
+		omap2plus_debug - Takes the omap2plus_defconfig and only adds the debug options from the debug_options.cfg.
+		ti_omap2plus - Adds the configs from the files contained in the defconfig_fragment file.
+		ti_omap2plus_debug - Adds the configs from the files contained in the defconfig_fragment file and adds in the debug options from the debug_options.cfg
+
+	Linaro Stable Kernel builds: (These configurations are only available on the TI LSK branch.)
+		ti_lsk_omap2plus - Adds the configs from the files contained in the defconfig_fragment file and adds in the linaro options from the linaro/configs directory.
+		ti_lsk_omap2plus_debug - Adds the configs from the files contained in the defconfig_fragment file and adds in the debug options from the debug_options.cfg as
+		       well as the linaro options from the linaro/configs directory
+
+	TI Based Real Time Kernel: (These configurations are only available on the TI RT branch.)
+		ti_rt_omap2plus - Adds the configs from the files contained in the rt_defconfig_fragment file.
+		ti_rt_omap2plus_debug - Adds the configs from the files contained in the rt_defconfig_fragment file and adds in the debug options from the debug_options.cfg.
+
+#Keystone Defconfig Options
+
+These defconfig options use the keystone_defconfig in the arch/arm/configs directory as the base defconfig.
+These options do not disable any processor's or platforms but add additional features that
+
+	TI Base Integrated Kernel:
+		base_keystone_debug - Takes the keystone_defconfig and only adds the debug options from the debug_options.cfg.
+		ti_keystone defconfig - Adds the configs from the files contained in the multi_core_defconfig_fragment file.
+		ti_keystone_debug - Adds the configs from the files contained in the multi_core_defconfig_fragment file and
+                       adds in the debug options from the debug_options.cfg.
+
+	Linaro Stable Kernel builds: (These configurations are only available on the TI LSK branch.)
+		ti_lsk_keystone  - Adds the configs from the files contained in the multi_core_defconfig_fragment file and adds in the
+                       linaro options from the linaro/configs directory
+		ti_lsk_keystone_debug_only - Adds the configs from the files contained in the multi_core_defconfig_fragment file and adds in the
+                       debug options from the debug_options.cfg as well as the linaro options from the linaro/configs directory
+
+	TI Based Real Time Kernel: (These configurations are only available on the TI RT branch.)
+		ti_rt_keystone - Adds the configs from the files contained in the rt_defconfig_fragment file.
+		ti_rt_keystone_debug  - Adds the configs from the files contained in the rt_defconfig_fragment file and adds in the debug options from the debug_options.cfg.
+
+
+
+
