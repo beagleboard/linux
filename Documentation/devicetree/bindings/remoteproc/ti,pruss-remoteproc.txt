@@ -123,16 +123,27 @@ Required Properties:
 
 Optional Properties:
 --------------------
-- mboxes     : OMAP Mailbox specifier denoting the sub-mailbox, if using a
-               mailbox for IPC signalling between host and a PRU core. This
-               property is currently _required_ to support virtio based
-               communication (will be made truly optional in the future to
-               choose between either PRUSS system events or mailboxes for
-               signalling). The specifier format is as per the bindings,
-                   Documentation/devicetree/bindings/mailbox/omap-mailbox.txt
-               This property should match with the sub-mailbox node used in
-               the corresponding firmware image.
+The virtio based communication between the MPU and a PRU core _requires_
+either the 'mboxes' property to be defined, or the set of 'interrupt-parent',
+'interrupts' and 'interrupt-names' properties to be defined.
 
+- mboxes           : OMAP Mailbox specifier denoting the sub-mailbox, if using
+                     a mailbox for IPC signalling between host and a PRU core.
+                     The specifier format is as per the bindings,
+                         Documentation/devicetree/bindings/mailbox/omap-mailbox.txt
+                     This property should match with the sub-mailbox node used
+                     in the corresponding firmware image.
+- interrupt-parent : phandle to the PRUSS INTC node. Should be defined if
+                     interrupts property is to be used.
+- interrupts       : array of interrupt specifiers if using PRU system events
+                     for IPC signalling between host and a PRU core. This
+                     property should match with the PRU system event used in
+                     the corresponding firmware image.
+- interrupt-names  : should use one of the following names for each interrupt,
+                     the name should match the corresponding PRU system event
+                     number,
+                         "vring" - for PRU to HOST virtqueue signalling
+                         "kick"  - for HOST to PRU virtqueue signalling
 
 MDIO Child Node
 ================
@@ -198,7 +209,9 @@ Example:
 			      <0x4a324000 0x400>,
 			      <0x4a324400 0x100>;
 			reg-names = "iram", "control", "debug";
-			mboxes = <&mailbox &mbox_pru1>;
+			interrupt-parent = <&pruss_intc>;
+			interrupts = <18>, <19>;
+			interrupt-names = "vring", "kick";
 		};
 
 		pruss_mdio: mdio@4a332400 {
