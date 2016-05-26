@@ -1538,8 +1538,9 @@ static struct davinci_mcasp_pdata am33xx_mcasp_pdata = {
 };
 
 static struct davinci_mcasp_pdata dra7_mcasp_pdata = {
-	.tx_dma_offset = 0x200,
-	.rx_dma_offset = 0x284,
+	/* The CFG port offset will be calculated if it is needed */
+	.tx_dma_offset = 0,
+	.rx_dma_offset = 0,
 	.version = MCASP_VERSION_4,
 };
 
@@ -1757,6 +1758,52 @@ static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 		return PCM_SDMA;
 
 	return PCM_EDMA;
+}
+
+static u32 davinci_mcasp_txdma_offset(struct davinci_mcasp_pdata *pdata)
+{
+	int i;
+	u32 offset = 0;
+
+	if (pdata->version != MCASP_VERSION_4)
+		return pdata->tx_dma_offset;
+
+	for (i = 0; i < pdata->num_serializer; i++) {
+		if (pdata->serial_dir[i] == TX_MODE) {
+			if (!offset) {
+				offset = DAVINCI_MCASP_TXBUF_REG(i);
+			} else {
+				pr_err("%s: Only one serializer allowed!\n",
+				       __func__);
+				break;
+			}
+		}
+	}
+
+	return offset;
+}
+
+static u32 davinci_mcasp_rxdma_offset(struct davinci_mcasp_pdata *pdata)
+{
+	int i;
+	u32 offset = 0;
+
+	if (pdata->version != MCASP_VERSION_4)
+		return pdata->rx_dma_offset;
+
+	for (i = 0; i < pdata->num_serializer; i++) {
+		if (pdata->serial_dir[i] == RX_MODE) {
+			if (!offset) {
+				offset = DAVINCI_MCASP_RXBUF_REG(i);
+			} else {
+				pr_err("%s: Only one serializer allowed!\n",
+				       __func__);
+				break;
+			}
+		}
+	}
+
+	return offset;
 }
 
 #if IS_ENABLED(CONFIG_DISPLAY_DRA7EVM_ENCODER_TPD12S015)
@@ -1987,7 +2034,7 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	if (dat)
 		dma_data->addr = dat->start;
 	else
-		dma_data->addr = mem->start + pdata->tx_dma_offset;
+		dma_data->addr = mem->start + davinci_mcasp_txdma_offset(pdata);
 
 	dma = &mcasp->dma_request[SNDRV_PCM_STREAM_PLAYBACK];
 	res = platform_get_resource(pdev, IORESOURCE_DMA, 0);
@@ -2008,7 +2055,8 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		if (dat)
 			dma_data->addr = dat->start;
 		else
-			dma_data->addr = mem->start + pdata->rx_dma_offset;
+			dma_data->addr =
+				mem->start + davinci_mcasp_rxdma_offset(pdata);
 
 		dma = &mcasp->dma_request[SNDRV_PCM_STREAM_CAPTURE];
 		res = platform_get_resource(pdev, IORESOURCE_DMA, 1);
