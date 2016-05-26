@@ -100,7 +100,6 @@ config ARCH_OMAP2PLUS
 	select MEMORY
 	select MFD_SYSCON
 	select OMAP_DM_TIMER
-	select OMAP_GPMC
 	select PINCTRL
 	select SOC_BUS
 	select OMAP_IRQCHIP
