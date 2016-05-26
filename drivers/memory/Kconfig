@@ -51,6 +51,7 @@ config TI_EMIF
 
 config OMAP_GPMC
 	bool
+	default y
 	select GPIOLIB
 	depends on (ARCH_OMAP2PLUS || ARCH_KEYSTONE)
 	help
