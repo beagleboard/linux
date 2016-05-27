@@ -256,7 +256,8 @@ build_defconfig() {
 		CONFIGS=$(grep "$CONFIG_FRAGMENT_TAG" "$TI_WORKING_PATH/$CONFIG_FILE" | cut -d= -f2)
 	fi
 
-	STATUS=$("$WORKING_PATH"/scripts/kconfig/merge_config.sh -m -r "$DEFCONFIG" "$CONFIGS" "$EXTRA_CONFIG_FILE")
+	"$WORKING_PATH"/scripts/kconfig/merge_config.sh -m -r "$DEFCONFIG" \
+		"$CONFIGS" "$EXTRA_CONFIG_FILE" > /dev/null
 	if [ "$?" = "0" ];then
 		echo "Creating defconfig file ""$WORKING_PATH""/arch/arm/configs/""$CHOOSEN_BUILD_TYPE"_defconfig
 		cp .config "$DEFCONFIG_KERNEL_PATH"/"$CHOOSEN_BUILD_TYPE"_defconfig
