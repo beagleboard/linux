@@ -117,19 +117,19 @@ static inline int pruss_request_mem_region(struct pruss *pruss,
 					   enum pruss_mem mem_id,
 					   struct pruss_mem_region *region)
 {
-	return ERR_PTR(-ENOTSUPP);
+	return -ENOTSUPP;
 }
 
 static inline int pruss_release_mem_region(struct pruss *pruss,
 					   struct pruss_mem_region *region)
 {
-	return ERR_PTR(-ENOTSUPP);
+	return -ENOTSUPP;
 }
 
 static inline int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
 				    enum pruss_gpi_mode mode)
 {
-	return ERR_PTR(-ENOTSUPP);
+	return -ENOTSUPP;
 }
 
 static inline void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable) { }
@@ -139,7 +139,7 @@ static inline void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable) { }
 static inline int pru_rproc_set_ctable(struct rproc *rproc,
 				       enum pru_ctable_idx c, u32 addr)
 {
-	return ERR_PTR(-ENOTSUPP);
+	return -ENOTSUPP;
 }
 
 #endif /* CONFIG_PRUSS_REMOTEPROC */
