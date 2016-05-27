@@ -45,7 +45,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm_wakeirq.h>
 #include <linux/platform_data/hsmmc-omap.h>
-#include <linux/mmc/sd.h>
 
 /* OMAP HSMMC Host Controller Registers */
 #define OMAP_HSMMC_SYSSTATUS	0x0014
@@ -183,7 +182,6 @@
 #define CON_PADEN		(1 << 15)
 #define PSTATE_CLEV		(1 << 24)
 #define PSTATE_DLEV		(0xF << 20)
-#define PSTATE_DLEV_DAT0	(0x1 << 20)
 
 #define MMC_BLOCK_TRANSFER_TIME_NS(blksz, bus_width, freq)		\
 				   ((unsigned long long)		\
@@ -216,7 +214,6 @@ struct omap_hsmmc_host {
 	struct	mmc_host	*mmc;
 	struct	mmc_request	*mrq;
 	struct	mmc_command	*cmd;
-	u32			last_cmd;
 	struct	mmc_data	*data;
 	struct	clk		*fclk;
 	struct	clk		*dbclk;
@@ -1020,7 +1017,6 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 		cmdreg |= DMAE;
 
 	host->req_in_progress = 1;
-	host->last_cmd = cmd->opcode;
 
 	OMAP_HSMMC_WRITE(host->base, ARG, cmd->arg);
 	OMAP_HSMMC_WRITE(host->base, CMD, cmdreg);
@@ -2117,13 +2113,6 @@ static int omap_hsmmc_card_busy(struct mmc_host *mmc)
 	int ret;
 
 	host  = mmc_priv(mmc);
-
-	if (host->last_cmd != SD_SWITCH_VOLTAGE) {
-		val = OMAP_HSMMC_READ(host->base, PSTATE);
-		if (val & PSTATE_DLEV_DAT0)
-			return true;
-		return false;
-	}
 
 	val = OMAP_HSMMC_READ(host->base, AC12);
 	if (val & AC12_V1V8_SIGEN)
