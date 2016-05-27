@@ -94,7 +94,7 @@ choose_processor() {
 		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
 			prepare_for_exit
 		elif [ "$REPLY" -gt '0' -a "$REPLY" -le "$NUM_OF_PROC" ]; then
-			CHOOSEN_PROCESSOR=$(grep -w "$REPLY" "$PROCESSOR_FILE" | awk '{print$2}')
+			CHOSEN_PROCESSOR=$(grep -w "$REPLY" "$PROCESSOR_FILE" | awk '{print$2}')
 			break
 		else
 			echo -e "\nThis is not a choice try again!\n"
@@ -142,7 +142,7 @@ choose_build_type() {
 	TEMP_BT_FILE=$(mktemp -t $TMP_TEMPLATE)
 	TEMP_BUILD_FILE=$(mktemp -t $TMP_TEMPLATE)
 
-	grep "$CHOOSEN_PROCESSOR" "$DEFCONFIG_MAP_FILE" | grep "$BUILD_TYPE_TAG" | awk '{print$4}' > "$TEMP_BUILD_FILE"
+	grep "$CHOSEN_PROCESSOR" "$DEFCONFIG_MAP_FILE" | grep "$BUILD_TYPE_TAG" | awk '{print$4}' > "$TEMP_BUILD_FILE"
 
 	y=0
 	while true;
@@ -173,7 +173,7 @@ choose_build_type() {
 		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
 			prepare_for_exit
 		elif [ "$REPLY" -gt '0' -a "$REPLY" -le "$NUM_OF_BUILDS" ]; then
-			CHOOSEN_BUILD_TYPE=$(grep -w "$REPLY" "$BUILD_TYPE_FILE" | awk '{print$2}')
+			CHOSEN_BUILD_TYPE=$(grep -w "$REPLY" "$BUILD_TYPE_FILE" | awk '{print$2}')
 			break
 		else
 			echo -e "\nThis is not a choice try again!\n"
@@ -185,12 +185,12 @@ choose_build_type() {
 
 get_build_details() {
 
-	BUILD_DETAILS=$(grep -w "$CHOOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE")
+	BUILD_DETAILS=$(grep -w "$CHOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE")
 	if [ -z "$BUILD_DETAILS" ]; then
-		echo "Cannot find the build type $CHOOSEN_BUILD_TYPE"
+		echo "Cannot find the build type $CHOSEN_BUILD_TYPE"
 		echo "How about one of the following?"
 		TEMP_BUILD_FILE=$(mktemp -t $TMP_TEMPLATE)
-		grep "$CHOOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE" > "$TEMP_BUILD_FILE"
+		grep "$CHOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE" > "$TEMP_BUILD_FILE"
 		while true;
 		do
 			CONFIG_FILE=
@@ -205,7 +205,7 @@ get_build_details() {
 			sed -i "1d" "$TEMP_BUILD_FILE"
 		done
 		rm -rf "$TEMP_BUILD_FILE"
-		grep "$CHOOSEN_BUILD_TYPE" "$BUILD_TYPE_FILE" | awk '{print$5}'
+		grep "$CHOSEN_BUILD_TYPE" "$BUILD_TYPE_FILE" | awk '{print$5}'
 		return 1
 	fi
 
@@ -266,8 +266,8 @@ build_defconfig() {
 	"$WORKING_PATH"/scripts/kconfig/merge_config.sh -m -r "$DEFCONFIG" \
 		"$CONFIGS" "$EXTRA_CONFIG_FILE" > /dev/null
 	if [ "$?" = "0" ];then
-		echo "Creating defconfig file ""$WORKING_PATH""/arch/arm/configs/""$CHOOSEN_BUILD_TYPE"_defconfig
-		mv .config "$DEFCONFIG_KERNEL_PATH"/"$CHOOSEN_BUILD_TYPE"_defconfig
+		echo "Creating defconfig file ""$WORKING_PATH""/arch/arm/configs/""$CHOSEN_BUILD_TYPE"_defconfig
+		mv .config "$DEFCONFIG_KERNEL_PATH"/"$CHOSEN_BUILD_TYPE"_defconfig
 	else
 		echo "Defconfig creation failed"
 		return 1
@@ -305,7 +305,7 @@ do
 		w)
 			WORKING_PATH=$OPTARG;;
 		t)
-			CHOOSEN_BUILD_TYPE=$OPTARG;;
+			CHOSEN_BUILD_TYPE=$OPTARG;;
 		?)
 			usage
 			exit;;
@@ -329,7 +329,7 @@ echo ""
 PROCESSOR_FILE=$(mktemp -t $TMP_TEMPLATE)
 BUILD_TYPE_FILE=$(mktemp -t $TMP_TEMPLATE)
 
-if [ ! -z "$CHOOSEN_BUILD_TYPE" ]; then
+if [ ! -z "$CHOSEN_BUILD_TYPE" ]; then
 	get_build_details
 	if [ "$?" -gt 0 ]; then
 		exit 1
@@ -347,7 +347,7 @@ choose_defconfig_type
 if [ -z "$DEFCONFIG_FILTER" ]; then
 	choose_processor
 else
-	CHOOSEN_PROCESSOR="$SDK_ENTRY_TAG"
+	CHOSEN_PROCESSOR="$SDK_ENTRY_TAG"
 fi
 
 choose_build_type
