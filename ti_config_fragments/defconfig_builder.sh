@@ -243,7 +243,7 @@ choose_defconfig_type() {
 		read -p "Please choose which defconfig type to build for or 'q' to exit: " REPLY
 		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
 			prepare_for_exit
-		elif [ "$REPLY" -gt '0' -a "$REPLY" -le '2' ]; then
+		elif [ "$REPLY" -ge '1' -a "$REPLY" -le '2' ]; then
 			if [ "$REPLY" -eq '1' ]; then
 				DEFCONFIG_FILTER="$SDK_ENTRY_TAG"
 			else
