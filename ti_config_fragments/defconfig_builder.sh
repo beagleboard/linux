@@ -7,6 +7,11 @@
 #
 #  For more information type defconfig_builder.sh -h
 #
+# IMPORTANT NOTE: All modifications to this script must be verified by running
+# 'shellcheck --shell=bash defconfig_builder.sh' See 'Installing' section in:
+# https://github.com/koalaman/shellcheck/blob/master/README.md
+# Also note that shellcheck must be at least at revision 0.3.3
+#
 #  Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
 #  ALL RIGHTS RESERVED
 
