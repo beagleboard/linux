@@ -111,8 +111,15 @@ check_for_config_existance() {
 	if [ -z "$TEMP_EXTRA_CONFIG_FILE" ]; then
 		CONFIG_FRAGMENTS=
 	else
-		for CONFIG_FRAG in $TEMP_EXTRA_CONFIG_FILE;
+		for CONFIG_FRAGMENT_FILE in $TEMP_EXTRA_CONFIG_FILE;
 		do
+			# If we do already point to existing file, we are good.
+			if [ -e "$CONFIG_FRAGMENT_FILE" ]; then
+				CONFIG_FRAG="$CONFIG_FRAGMENT_FILE"
+			else
+				# Assume it is present in TI working path
+				CONFIG_FRAG="$TI_WORKING_PATH/$CONFIG_FRAGMENT_FILE"
+			fi
 			if [ ! -e "$CONFIG_FRAG" ]; then
 				CONFIG_FRAGMENTS="N/A"
 			fi
@@ -226,8 +233,15 @@ get_build_details() {
 	fi
 
 	TEMP_EXTRA_CONFIG_FILE=$(echo "$BUILD_DETAILS" | cut -d: -f6)
-	for CONFIG_FRAG in $TEMP_EXTRA_CONFIG_FILE;
+	for CONFIG_FRAGMENT_FILE in $TEMP_EXTRA_CONFIG_FILE;
 	do
+		# If we do already point to existing file, we are good.
+		if [ -e "$CONFIG_FRAGMENT_FILE" ]; then
+			CONFIG_FRAG="$CONFIG_FRAGMENT_FILE"
+		else
+			# Assume it is present in TI working path
+			CONFIG_FRAG="$TI_WORKING_PATH/$CONFIG_FRAGMENT_FILE"
+		fi
 		if [ -e "$CONFIG_FRAG" ]; then
 			EXTRA_CONFIG_FILE="$EXTRA_CONFIG_FILE $CONFIG_FRAG"
 		else
