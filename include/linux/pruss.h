@@ -129,7 +129,7 @@ static inline int pruss_release_mem_region(struct pruss *pruss,
 static inline int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
 				    enum pruss_gpi_mode mode)
 {
-	return ERR_PTR(-ENOTSUPP);
+	return -ENOTSUPP;
 }
 
 static inline void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable) { }
