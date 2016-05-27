@@ -47,6 +47,9 @@ prepare_for_exit() {
 	D=$(dirname "$PROCESSOR_FILE")
 	rm -f "$PROCESSOR_FILE"
 	rm -f "$BUILD_TYPE_FILE"
+	if [ -f "$OLD_CONFIG" ]; then
+		mv "$OLD_CONFIG" "$WORKING_PATH"/.config
+	fi
 	# Clean everyone else up if we missed any
 	rm -f "$D"/"$TMP_PREFIX"*.tmp
 	exit
@@ -328,6 +331,10 @@ echo ""
 
 PROCESSOR_FILE=$(mktemp -t $TMP_TEMPLATE)
 BUILD_TYPE_FILE=$(mktemp -t $TMP_TEMPLATE)
+OLD_CONFIG=$(mktemp -t $TMP_TEMPLATE)
+if [ -f "$WORKING_PATH"/.config ]; then
+	mv "$WORKING_PATH"/.config "$OLD_CONFIG"
+fi
 
 if [ ! -z "$CHOSEN_BUILD_TYPE" ]; then
 	get_build_details
