@@ -305,7 +305,7 @@ do
      esac
 done
 
-trap prepare_for_exit EXIT SIGINT SIGTERM
+trap prepare_for_exit SIGHUP EXIT SIGINT SIGTERM
 
 set_working_directory
 
