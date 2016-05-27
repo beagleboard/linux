@@ -42,8 +42,7 @@
 #include <linux/component.h>
 #include <linux/pinctrl/consumer.h>
 
-#include <video/omapdss.h>
-
+#include "omapdss.h"
 #include "dss.h"
 #include "dss_features.h"
 

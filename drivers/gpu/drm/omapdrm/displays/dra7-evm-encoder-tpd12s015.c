@@ -22,7 +22,7 @@
 #include <linux/of_platform.h>
 #include <linux/pinctrl/consumer.h>
 
-#include <video/omapdss.h>
+#include "../dss/omapdss.h"
 
 #define SEL_I2C2	0
 #define SEL_HDMI	1

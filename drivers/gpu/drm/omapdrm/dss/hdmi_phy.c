@@ -15,8 +15,7 @@
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 
-#include <video/omapdss.h>
-
+#include "omapdss.h"
 #include "dss.h"
 #include "hdmi.h"
 

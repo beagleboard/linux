@@ -18,7 +18,7 @@
 #include <linux/of.h>
 #include <linux/seq_file.h>
 
-#include <video/omapdss.h>
+#include "omapdss.h"
 
 struct device_node *
 omapdss_of_get_next_port(const struct device_node *parent,

@@ -27,7 +27,6 @@
 #include <linux/videodev2.h>
 #include <linux/log2.h>
 #include <linux/sizes.h>
-#include <video/omapdss.h>
 #include <drm/drm_fourcc.h>
 
 #include <media/v4l2-common.h>
@@ -39,6 +38,7 @@
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
 
+#include "dss/omapdss.h"
 #include "omap_drv.h"
 
 #define WBM2M_MODULE_NAME "omapwb-m2m"

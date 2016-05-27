@@ -17,7 +17,7 @@
 
 #include <drm/drm_edid.h>
 
-#include <video/omapdss.h>
+#include "../dss/omapdss.h"
 
 static const struct omap_video_timings hdmic_default_timings = {
 	.x_res		= 640,

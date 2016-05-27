@@ -21,8 +21,7 @@
 #include <linux/pm_runtime.h>
 #include <drm/drm_fourcc.h>
 
-#include <video/omapdss.h>
-
+#include "omapdss.h"
 #include "dss6.h"
 #include "dispc6.h"
 
