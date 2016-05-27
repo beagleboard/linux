@@ -267,7 +267,7 @@ build_defconfig() {
 		"$CONFIGS" "$EXTRA_CONFIG_FILE" > /dev/null
 	if [ "$?" = "0" ];then
 		echo "Creating defconfig file ""$WORKING_PATH""/arch/arm/configs/""$CHOOSEN_BUILD_TYPE"_defconfig
-		cp .config "$DEFCONFIG_KERNEL_PATH"/"$CHOOSEN_BUILD_TYPE"_defconfig
+		mv .config "$DEFCONFIG_KERNEL_PATH"/"$CHOOSEN_BUILD_TYPE"_defconfig
 	else
 		echo "Defconfig creation failed"
 		return 1
