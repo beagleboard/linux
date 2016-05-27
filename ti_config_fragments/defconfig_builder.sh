@@ -21,6 +21,10 @@ CONFIG_FRAGMENT_TAG="config-fragment="
 SDK_ENTRY_TAG="SDK_release"
 DISCLAIMER="\n*Please be advised that the Advanced Option defconfigs are\nfor test purposes only and have only been compiled tested.\n"
 
+# Template for temporary build files.. use PID to differentiate
+TMP_PREFIX=ti_defconfig_builder_$$
+TMP_TEMPLATE="$TMP_PREFIX"_XXXXX.tmp
+
 set_working_directory()
 {
 	# Sanity checkup kernel build location.
@@ -40,13 +44,16 @@ set_working_directory()
 }
 
 prepare_for_exit() {
+	D=$(dirname "$PROCESSOR_FILE")
 	rm -f "$PROCESSOR_FILE"
 	rm -f "$BUILD_TYPE_FILE"
+	# Clean everyone else up if we missed any
+	rm -f "$D"/"$TMP_PREFIX"*.tmp
 	exit
 }
 
 get_processors() {
-	TEMP_PROC_FILE=$(mktemp)
+	TEMP_PROC_FILE=$(mktemp -t $TMP_TEMPLATE)
 	cat "$DEFCONFIG_MAP_FILE" > "$TEMP_PROC_FILE"
 
 	y=0
@@ -132,8 +139,8 @@ check_for_config_existance() {
 
 
 choose_build_type() {
-	TEMP_BT_FILE=$(mktemp)
-	TEMP_BUILD_FILE=$(mktemp)
+	TEMP_BT_FILE=$(mktemp -t $TMP_TEMPLATE)
+	TEMP_BUILD_FILE=$(mktemp -t $TMP_TEMPLATE)
 
 	grep "$CHOOSEN_PROCESSOR" "$DEFCONFIG_MAP_FILE" | grep "$BUILD_TYPE_TAG" | awk '{print$4}' > "$TEMP_BUILD_FILE"
 
@@ -182,7 +189,7 @@ get_build_details() {
 	if [ -z "$BUILD_DETAILS" ]; then
 		echo "Cannot find the build type $CHOOSEN_BUILD_TYPE"
 		echo "How about one of the following?"
-		TEMP_BUILD_FILE=$(mktemp)
+		TEMP_BUILD_FILE=$(mktemp -t $TMP_TEMPLATE)
 		grep "$CHOOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE" > "$TEMP_BUILD_FILE"
 		while true;
 		do
@@ -319,8 +326,8 @@ echo "THIS SCRIPT IS EXPERIMENTAL AND MAY NOT PRODUCE A BOOTABLE KERNEL IMAGE"
 echo "***********************************************************************"
 echo ""
 
-PROCESSOR_FILE=$(mktemp)
-BUILD_TYPE_FILE=$(mktemp)
+PROCESSOR_FILE=$(mktemp -t $TMP_TEMPLATE)
+BUILD_TYPE_FILE=$(mktemp -t $TMP_TEMPLATE)
 
 if [ ! -z "$CHOOSEN_BUILD_TYPE" ]; then
 	get_build_details
