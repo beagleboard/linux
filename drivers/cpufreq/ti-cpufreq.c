@@ -36,6 +36,10 @@
 
 #define VERSION_COUNT				2
 
+#define AM33XX_800M_ARM_MPU_MAX_FREQ		0x1E2F
+#define AM43XX_600M_ARM_MPU_MAX_FREQ		0xFFA
+#define AM335X_REV_2_0				0x2
+
 static struct ti_cpufreq_data {
 	struct device *cpu;
 	struct regmap *opp_efuse;
@@ -43,16 +47,36 @@ static struct ti_cpufreq_data {
 } opp_data;
 
 static struct ti_cpufreq_soc_data {
-	unsigned long (*efuse_xlate)(unsigned long efuse);
+	unsigned long (*efuse_xlate)(unsigned long efuse, u32 rev);
 } *soc_data;
 
-static unsigned long amx3_efuse_xlate(unsigned long efuse)
+static unsigned long am33_efuse_xlate(unsigned long efuse, u32 rev)
 {
-	/* AM335x and AM437x use "OPP disable" bits, so invert */
+	/*
+	 * If efuse register reads 0 then assign a default
+	 * value as 800 MHz ARM MPU Maximum frequency
+	 */
+	if (!efuse && rev == AM335X_REV_2_0)
+		efuse = AM33XX_800M_ARM_MPU_MAX_FREQ;
+
+	/* AM335x use "OPP disable" bits, so invert */
 	return ~efuse;
 }
 
-static unsigned long dra7_efuse_xlate(unsigned long efuse)
+static unsigned long am43_efuse_xlate(unsigned long efuse, u32 rev)
+{
+	/*
+	 * If efuse register reads 0 then assign a default
+	 * value as 600 MHz ARM MPU Maximum frequency
+	 */
+	if (!efuse)
+		efuse = AM43XX_600M_ARM_MPU_MAX_FREQ;
+
+	/* AM437x use "OPP disable" bits, so invert */
+	return ~efuse;
+}
+
+static unsigned long dra7_efuse_xlate(unsigned long efuse, u32 rev)
 {
 	unsigned long calculated_efuse = DRA7_EFUSE_NOM_MPU_OPP;
 
@@ -72,8 +96,12 @@ static unsigned long dra7_efuse_xlate(unsigned long efuse)
 	return calculated_efuse;
 }
 
-static struct ti_cpufreq_soc_data amx3_soc_data = {
-	.efuse_xlate = amx3_efuse_xlate,
+static struct ti_cpufreq_soc_data am33_soc_data = {
+	.efuse_xlate = am33_efuse_xlate,
+};
+
+static struct ti_cpufreq_soc_data am43_soc_data = {
+	.efuse_xlate = am43_efuse_xlate,
 };
 
 static struct ti_cpufreq_soc_data dra7_soc_data = {
@@ -86,7 +114,7 @@ static struct ti_cpufreq_soc_data dra7_soc_data = {
  *
  * Returns error code if efuse not read properly.
  */
-static int ti_cpufreq_get_efuse(u32 *efuse_value)
+static int ti_cpufreq_get_efuse(u32 *efuse_value, u32 rev)
 {
 	struct device *dev = opp_data.cpu;
 	struct device_node *np = dev->of_node;
@@ -123,7 +151,7 @@ static int ti_cpufreq_get_efuse(u32 *efuse_value)
 
 	efuse = (efuse & efuse_mask) >> efuse_shift;
 
-	*efuse_value = soc_data->efuse_xlate(efuse);
+	*efuse_value = soc_data->efuse_xlate(efuse, rev);
 
 	return 0;
 }
@@ -188,9 +216,10 @@ static int ti_cpufreq_setup_syscon_registers(void)
 
 static struct ti_cpufreq_soc_data *ti_cpufreq_get_soc_data(void)
 {
-	if (of_machine_is_compatible("ti,am33xx") ||
-	    of_machine_is_compatible("ti,am4372"))
-		return &amx3_soc_data;
+	if (of_machine_is_compatible("ti,am33xx"))
+		return &am33_soc_data;
+	else if (of_machine_is_compatible("ti,am4372"))
+		return &am43_soc_data;
 	else if (of_machine_is_compatible("ti,dra7"))
 		return &dra7_soc_data;
 	else
@@ -234,7 +263,7 @@ static int ti_cpufreq_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = ti_cpufreq_get_efuse(&version[1]);
+	ret = ti_cpufreq_get_efuse(&version[1], version[0]);
 	if (ret)
 		return ret;
 
