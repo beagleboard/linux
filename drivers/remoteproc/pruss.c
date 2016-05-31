@@ -145,6 +145,9 @@ static struct rproc *__pruss_rproc_get(struct pruss *pruss,
 		return ERR_PTR(-EPROBE_DEFER);
 
 	rproc = platform_get_drvdata(pdev);
+	if (!rproc)
+		return ERR_PTR(-EPROBE_DEFER);
+
 	get_device(&rproc->dev);
 
 	return rproc;
