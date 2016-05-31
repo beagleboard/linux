@@ -21,7 +21,6 @@
 #include <linux/of_device.h>
 
 #include <video/omapdss.h>
-#include <video/omap-panel-data.h>
 #include <video/of_display_timing.h>
 
 #define TLC_NAME		"tlc59108"

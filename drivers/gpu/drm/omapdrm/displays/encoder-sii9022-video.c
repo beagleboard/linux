@@ -32,7 +32,6 @@
 #include <linux/hdmi.h>
 
 #include <video/omapdss.h>
-#include <video/omap-panel-data.h>
 
 #include <drm/drm_edid.h>
 
