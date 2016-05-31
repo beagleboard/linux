@@ -2397,15 +2397,25 @@ static int omap_hsmmc_card_busy(struct mmc_host *mmc)
 {
 	struct omap_hsmmc_host *host;
 	u32 value;
+	u32 reg;
 	int ret;
 
 	host  = mmc_priv(mmc);
 
 	if (host->last_cmd != SD_SWITCH_VOLTAGE) {
+		/*
+		 * PADEN should be set for DLEV to reflect the correct
+		 * state of data lines at least for MMC1 on AM57x.
+		 */
+		reg = OMAP_HSMMC_READ(host->base, CON);
+		reg |= PADEN;
+		OMAP_HSMMC_WRITE(host->base, CON, reg);
 		value = OMAP_HSMMC_READ(host->base, PSTATE);
+		reg &= ~PADEN;
+		OMAP_HSMMC_WRITE(host->base, CON, reg);
 		if (value & PSTATE_DLEV_DAT0)
-			return true;
-		return false;
+			return false;
+		return true;
 	}
 
 	value = OMAP_HSMMC_READ(host->base, AC12);
