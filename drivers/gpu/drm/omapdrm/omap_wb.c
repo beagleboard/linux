@@ -1,0 +1,164 @@
+/*
+ * linux/drivers/gpu/drm/omapdrm/omap_wb.c
+ *
+ * Copyright (C) 2016 Texas Instruments Incorporated - http://www.ti.com/
+ * Author: Benoit Parrot, <bparrot@ti.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation version 2.
+ *
+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+ * kind, whether express or implied; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/module.h>
+#include <linux/init.h>
+
+#include "omap_wb.h"
+
+unsigned wbdebug;
+module_param(wbdebug, uint, 0644);
+MODULE_PARM_DESC(wbdebug, "activates debug info");
+
+struct wb_fmt wb_formats[] = {
+	{
+		.fourcc		= V4L2_PIX_FMT_NV12,
+		.coplanar	= 1,
+		.depth		= {8, 4},
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_YUYV,
+		.coplanar	= 0,
+		.depth		= {16, 0},
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_UYVY,
+		.coplanar	= 0,
+		.depth		= {16, 0},
+	},
+	{
+		/* "XR24", DRM_FORMAT_XRGB8888 */
+		.fourcc		= V4L2_PIX_FMT_XBGR32,
+		.coplanar	= 0,
+		.depth		= {32, 0},
+	},
+};
+
+unsigned int num_wb_formats = ARRAY_SIZE(wb_formats);
+
+/* find our format description corresponding to the passed v4l2_format */
+struct wb_fmt *find_format(struct v4l2_format *f)
+{
+	struct wb_fmt *fmt;
+	unsigned int k;
+
+	for (k = 0; k < num_wb_formats; k++) {
+		fmt = &wb_formats[k];
+		if (fmt->fourcc == f->fmt.pix_mp.pixelformat)
+			return fmt;
+	}
+
+	return NULL;
+}
+
+enum omap_color_mode fourcc_to_dss(u32 fourcc)
+{
+	switch (fourcc) {
+	case DRM_FORMAT_XRGB8888:
+		return OMAP_DSS_COLOR_RGB24U;
+
+	case DRM_FORMAT_NV12:
+		return OMAP_DSS_COLOR_NV12;
+	case DRM_FORMAT_YUYV:
+		return OMAP_DSS_COLOR_YUV2;
+	case DRM_FORMAT_UYVY:
+	default:
+		WARN_ONCE(1, "WB: unsupported fourcc code: 0x%x\n", fourcc);
+		return OMAP_DSS_COLOR_UYVY;
+	}
+}
+
+static void wb_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
+{
+	struct wb_dev *dev = container_of(irq, struct wb_dev, wb_irq);
+
+	switch (dev->mode) {
+	case OMAP_WB_NOT_CONFIGURED:
+		break;
+	case OMAP_WB_MEM2MEM_OVL:
+		wbm2m_irq(dev->m2m, irqstatus);
+		break;
+	case OMAP_WB_MEM2MEM_MGR:
+		/* To be added */
+		break;
+	case OMAP_WB_CAPTURE_MGR:
+		break;
+	default:
+		WARN_ONCE(1, "WB: unknown WB mode: 0x%x\n", dev->mode);
+		break;
+	}
+}
+
+/*
+ * The initial setup of this device instance. Note that the initial state of
+ * the driver should be complete. So the initial format, standard, timings
+ * and video input should all be initialized to some reasonable value.
+ */
+int wb_init(struct drm_device *drmdev)
+{
+	struct omap_drm_private *priv = drmdev->dev_private;
+	struct wb_dev *dev;
+	int ret = 0;
+
+	/* Allocate a new instance */
+	dev = devm_kzalloc(drmdev->dev, sizeof(*dev), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	dev->drm_dev = drmdev;
+
+	/* set pseudo v4l2 device name so we can use v4l2_printk */
+	strlcpy(dev->v4l2_dev.name, WB_MODULE_NAME,
+		sizeof(dev->v4l2_dev.name));
+
+	priv->wb_private = dev;
+
+	mutex_init(&dev->lock);
+
+	dev->wb_irq.irqmask = DISPC_IRQ_FRAMEDONEWB |
+			      DISPC_IRQ_WBBUFFEROVERFLOW |
+			      DISPC_IRQ_WBUNCOMPLETEERROR;
+	dev->wb_irq.irq = wb_irq;
+	omap_irq_register(drmdev, &dev->wb_irq);
+
+	dev->mode = OMAP_WB_NOT_CONFIGURED;
+
+	ret = wbm2m_init(dev);
+	if (ret) {
+		log_err(dev, "Failed to initialize wb m2m\n");
+		goto free_irq;
+	}
+
+	log_dbg(dev, "WB loaded\n");
+	return 0;
+
+free_irq:
+	omap_irq_unregister(drmdev, &dev->wb_irq);
+	return ret;
+}
+
+void wb_cleanup(struct drm_device *drmdev)
+{
+	struct omap_drm_private *priv = drmdev->dev_private;
+	struct wb_dev *dev = priv->wb_private;
+
+	log_dbg(dev, "Cleanup WB\n");
+
+	omap_irq_unregister(drmdev, &dev->wb_irq);
+
+	wbm2m_cleanup(dev);
+}
+

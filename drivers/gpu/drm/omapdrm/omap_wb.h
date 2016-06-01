@@ -34,6 +34,7 @@
 #include "dss/omapdss.h"
 #include "omap_drv.h"
 
+#define WB_MODULE_NAME "omapwb"
 #define WBM2M_MODULE_NAME "omapwb-m2m"
 
 extern unsigned wbdebug;
@@ -60,6 +61,16 @@ extern unsigned wbdebug;
 #define MAX_PLANES	2
 #define LUMA_PLANE	0
 #define CHROMA_PLANE	1
+
+enum omap_wb_mode {
+	OMAP_WB_NOT_CONFIGURED = 0,
+	/* mem2mem from single ovl to wb */
+	OMAP_WB_MEM2MEM_OVL = 1,
+	/* mem2mem from N overlays via single mgr to wb */
+	OMAP_WB_MEM2MEM_MGR = 2,
+	/* capture from single mgr to wb */
+	OMAP_WB_CAPTURE_MGR = 3
+};
 
 /* driver info for each of the supported video formats */
 struct wb_fmt {
@@ -104,6 +115,7 @@ struct wb_dev {
 	/* v4l2_ioctl mutex */
 	struct mutex		lock;
 
+	enum omap_wb_mode	mode;
 	struct wbm2m_dev	*m2m;
 };
 
@@ -152,5 +164,9 @@ static inline dma_addr_t vb2_dma_addr_plus_data_offset(struct vb2_buffer *vb,
 }
 
 enum omap_color_mode fourcc_to_dss(u32 fourcc);
+
+void wbm2m_irq(struct wbm2m_dev *dev, uint32_t irqstatus);
+int wbm2m_init(struct wb_dev *dev);
+void wbm2m_cleanup(struct wb_dev *dev);
 
 #endif /* __OMAP_WB_H__ */

@@ -22,56 +22,12 @@ MODULE_DESCRIPTION("TI OMAP WB M2M driver");
 MODULE_AUTHOR("Benoit Parrot <bparrot@ti.com>");
 MODULE_LICENSE("GPL v2");
 
-unsigned wbdebug;
-module_param(wbdebug, uint, 0644);
-MODULE_PARM_DESC(wbdebug, "activates debug info");
-
-
-struct wb_fmt wb_formats[] = {
-	{
-		.fourcc		= V4L2_PIX_FMT_NV12,
-		.coplanar	= 1,
-		.depth		= {8, 4},
-	},
-	{
-		.fourcc		= V4L2_PIX_FMT_YUYV,
-		.coplanar	= 0,
-		.depth		= {16, 0},
-	},
-	{
-		.fourcc		= V4L2_PIX_FMT_UYVY,
-		.coplanar	= 0,
-		.depth		= {16, 0},
-	},
-	{
-		/* "XR24", DRM_FORMAT_XRGB8888 */
-		.fourcc		= V4L2_PIX_FMT_XBGR32,
-		.coplanar	= 0,
-		.depth		= {32, 0},
-	},
-};
-
-/* find our format description corresponding to the passed v4l2_format */
-struct wb_fmt *find_format(struct v4l2_format *f)
-{
-	struct wb_fmt *fmt;
-	unsigned int k;
-
-	for (k = 0; k < ARRAY_SIZE(wb_formats); k++) {
-		fmt = &wb_formats[k];
-		if (fmt->fourcc == f->fmt.pix.pixelformat)
-			return fmt;
-	}
-
-	return NULL;
-}
-
 /*
  * M2M devices get 2 queues.
  * Return the queue given the type.
  */
 static struct wb_q_data *get_q_data(struct wbm2m_ctx *ctx,
-				       enum v4l2_buf_type type)
+				    enum v4l2_buf_type type)
 {
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
@@ -84,22 +40,6 @@ static struct wb_q_data *get_q_data(struct wbm2m_ctx *ctx,
 		return NULL;
 	}
 	return NULL;
-}
-
-enum omap_color_mode fourcc_to_dss(u32 fourcc)
-{
-	switch (fourcc) {
-	case DRM_FORMAT_XRGB8888:
-		return OMAP_DSS_COLOR_RGB24U;
-
-	case DRM_FORMAT_NV12:
-		return OMAP_DSS_COLOR_NV12;
-	case DRM_FORMAT_YUYV:
-		return OMAP_DSS_COLOR_YUV2;
-	case DRM_FORMAT_UYVY:
-	default:
-		return OMAP_DSS_COLOR_UYVY;
-	}
 }
 
 static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane src_plane,
@@ -315,27 +255,13 @@ static void device_run(void *priv)
 	}
 }
 
-static void wbm2m_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
+void wbm2m_irq(struct wbm2m_dev *wbm2m, u32 irqstatus)
 {
-	struct wb_dev *dev = container_of(irq, struct wb_dev, wb_irq);
-	struct wbm2m_dev *wbm2m = dev->m2m;
 	struct wbm2m_ctx *ctx;
 	struct wb_q_data *d_q_data;
 	struct wb_q_data *s_q_data;
 	struct vb2_v4l2_buffer *s_vb, *d_vb;
 	unsigned long flags;
-	bool wb_done = false;
-
-	ctx = v4l2_m2m_get_curr_priv(wbm2m->m2m_dev);
-	if (!ctx) {
-		log_err(wbm2m, "instance released before end of transaction\n");
-		goto handled;
-	}
-
-	if (irqstatus & DISPC_IRQ_FRAMEDONEWB) {
-		log_dbg(wbm2m, "WB: FRAMEDONE\n");
-		wb_done = true;
-	}
 
 	if (irqstatus & DISPC_IRQ_WBBUFFEROVERFLOW)
 		log_err(wbm2m, "WB: UNDERFLOW\n");
@@ -343,8 +269,17 @@ static void wbm2m_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 	if (irqstatus & DISPC_IRQ_WBUNCOMPLETEERROR)
 		log_err(wbm2m, "WB: DISPC_IRQ_WBUNCOMPLETEERROR\n");
 
-	if (!wb_done)
+	/* If DISPC_IRQ_FRAMEDONEWB is not set then we are done */
+	if (!(irqstatus & DISPC_IRQ_FRAMEDONEWB))
 		goto handled;
+
+	log_dbg(wbm2m, "WB: FRAMEDONE\n");
+
+	ctx = v4l2_m2m_get_curr_priv(wbm2m->m2m_dev);
+	if (!ctx) {
+		log_err(wbm2m, "instance released before end of transaction\n");
+		goto handled;
+	}
 
 	if (ctx->aborting)
 		goto finished;
@@ -413,7 +348,7 @@ static int wbm2m_querycap(struct file *file, void *priv,
 static int wbm2m_enum_fmt(struct file *file, void *priv,
 			  struct v4l2_fmtdesc *f)
 {
-	if (f->index >= ARRAY_SIZE(wb_formats))
+	if (f->index >= num_wb_formats)
 		return -EINVAL;
 
 	f->pixelformat = wb_formats[f->index].fourcc;
@@ -1129,24 +1064,17 @@ static struct v4l2_m2m_ops m2m_ops = {
 	.job_abort	= job_abort,
 };
 
-int wbm2m_init(struct drm_device *drmdev)
+int wbm2m_init(struct wb_dev *dev)
 {
-	struct omap_drm_private *priv = drmdev->dev_private;
 	struct wbm2m_dev *wbm2m;
 	struct video_device *vfd;
-	struct wb_dev *dev;
-	int ret, irq;
+	int ret;
 
-	irq = 0;
-
-	dev = devm_kzalloc(drmdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
 
-	dev->drm_dev = drmdev;
-
 	/* Allocate a new instance */
-	wbm2m = devm_kzalloc(drmdev->dev, sizeof(*wbm2m), GFP_KERNEL);
+	wbm2m = devm_kzalloc(dev->drm_dev->dev, sizeof(*wbm2m), GFP_KERNEL);
 	if (!wbm2m)
 		return -ENOMEM;
 
@@ -1157,15 +1085,11 @@ int wbm2m_init(struct drm_device *drmdev)
 
 	snprintf(wbm2m->v4l2_dev.name, sizeof(wbm2m->v4l2_dev.name),
 		 "%s", WBM2M_MODULE_NAME);
-	ret = v4l2_device_register(drmdev->dev, &wbm2m->v4l2_dev);
+	ret = v4l2_device_register(dev->drm_dev->dev, &wbm2m->v4l2_dev);
 	if (ret)
 		return ret;
 
-	priv->wb_private = dev;
-
-	mutex_init(&dev->lock);
-
-	wbm2m->alloc_ctx = vb2_dma_contig_init_ctx(drmdev->dev);
+	wbm2m->alloc_ctx = vb2_dma_contig_init_ctx(dev->drm_dev->dev);
 	if (IS_ERR(wbm2m->alloc_ctx)) {
 		log_err(wbm2m, "Failed to alloc vb2 context\n");
 		ret = PTR_ERR(wbm2m->alloc_ctx);
@@ -1179,16 +1103,13 @@ int wbm2m_init(struct drm_device *drmdev)
 		goto rel_ctx;
 	}
 
-	dev->wb_irq.irqmask = DISPC_IRQ_FRAMEDONEWB |
-			      DISPC_IRQ_WBBUFFEROVERFLOW |
-			      DISPC_IRQ_WBUNCOMPLETEERROR;
-	dev->wb_irq.irq = wbm2m_irq;
-	omap_irq_register(drmdev, &dev->wb_irq);
-
 	vfd = &wbm2m->vfd;
 	*vfd = wbm2m_videodev;
 	vfd->lock = &dev->lock;
 	vfd->v4l2_dev = &wbm2m->v4l2_dev;
+
+	/* Force mode for now */
+	dev->mode = OMAP_WB_MEM2MEM_OVL;
 
 	ret = video_register_device(vfd, VFL_TYPE_GRABBER, 10);
 	if (ret) {
@@ -1204,7 +1125,6 @@ int wbm2m_init(struct drm_device *drmdev)
 	return 0;
 
 rel_m2m:
-	omap_irq_unregister(drmdev, &dev->wb_irq);
 	v4l2_m2m_release(wbm2m->m2m_dev);
 rel_ctx:
 	vb2_dma_contig_cleanup_ctx(wbm2m->alloc_ctx);
@@ -1214,14 +1134,9 @@ v4l2_dev_unreg:
 	return ret;
 }
 
-void wbm2m_cleanup(struct drm_device *drmdev)
+void wbm2m_cleanup(struct wb_dev *dev)
 {
-	struct omap_drm_private *priv = drmdev->dev_private;
-	struct wb_dev *dev = priv->wb_private;
-
-	log_dbg(dev->m2m, "Cleanup WB\n");
-
-	omap_irq_unregister(drmdev, &dev->wb_irq);
+	log_dbg(dev->m2m, "Cleanup WB M2M\n");
 
 	v4l2_m2m_release(dev->m2m->m2m_dev);
 	video_unregister_device(&dev->m2m->vfd);
