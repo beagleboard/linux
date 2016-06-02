@@ -106,7 +106,7 @@ qmss: qmss@2a40000 {
 		ranges;
 		region-12 {
 			id = <12>;
-			region-spec = <10240 128>;	/* num_desc desc_size */
+			region-spec = <11264 128>;	/* num_desc desc_size */
 			link-index = <0x4000>;
 		};
 	};
