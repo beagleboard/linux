@@ -430,6 +430,10 @@ static int ssd1307fb_init(struct ssd1307fb_par *par)
 	if (ret < 0)
 		return ret;
 
+	/* Clear the screen if we could not give reset at probe time */
+	if (!par->reset)
+		ssd1307fb_update_display(par);
+
 	/* Turn on the display */
 	ret = ssd1307fb_write_cmd(par->client, SSD1307FB_DISPLAY_ON);
 	if (ret < 0)
@@ -553,7 +557,8 @@ static int ssd1307fb_probe(struct i2c_client *client,
 	par->device_info = (struct ssd1307fb_deviceinfo *)of_match_device(
 			ssd1307fb_of_match, &client->dev)->data;
 
-	par->reset = devm_gpiod_get(&client->dev, "reset", GPIOD_OUT_LOW);
+	par->reset = devm_gpiod_get_optional(&client->dev, "reset",
+					     GPIOD_OUT_LOW);
 	if (IS_ERR(par->reset)) {
 		dev_err(&client->dev, "failed to get reset gpio: %ld\n",
 			PTR_ERR(par->reset));
@@ -637,11 +642,13 @@ static int ssd1307fb_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, info);
 
-	/* Reset the screen */
-	gpiod_set_value(par->reset, 0);
-	udelay(4);
-	gpiod_set_value(par->reset, 1);
-	udelay(4);
+	if (par->reset) {
+		/* Reset the screen */
+		gpiod_set_value(par->reset, 0);
+		udelay(4);
+		gpiod_set_value(par->reset, 1);
+		udelay(4);
+	}
 
 	ret = ssd1307fb_init(par);
 	if (ret)
