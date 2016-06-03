@@ -1002,9 +1002,9 @@ struct dispc_ops {
 	enum omap_color_mode (*ovl_get_color_modes)(enum omap_plane plane);
 
 	u32 (*wb_get_framedone_irq)(void);
-	void (*wb_set_channel_in)(enum dss_writeback_channel channel);
 	int (*wb_setup)(const struct omap_dss_writeback_info *wi,
-		bool mem_to_mem, const struct omap_video_timings *mgr_timings);
+		bool mem_to_mem, const struct omap_video_timings *mgr_timings,
+		enum dss_writeback_channel channel_in);
 	bool (*has_writeback)(void);
 };
 

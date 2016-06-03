@@ -278,12 +278,6 @@ static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane src_plane,
 
 	/* configure output */
 
-	r = priv->dispc_ops->wb_setup(wb_info, true, &t);
-	if (r) {
-		priv->dispc_ops->ovl_enable(src_plane, false);
-		return false;
-	}
-
 	switch (src_plane) {
 	case OMAP_DSS_GFX:
 		wb_channel = DSS_WB_OVL0; break;
@@ -302,7 +296,11 @@ static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane src_plane,
 		wb_channel = DSS_WB_OVL3; break;
 	}
 
-	priv->dispc_ops->wb_set_channel_in(wb_channel);
+	r = priv->dispc_ops->wb_setup(wb_info, true, &t, wb_channel);
+	if (r) {
+		priv->dispc_ops->ovl_enable(src_plane, false);
+		return false;
+	}
 
 	priv->dispc_ops->ovl_enable(OMAP_DSS_WB, true);
 
