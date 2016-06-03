@@ -110,6 +110,19 @@ static int pruss_intc_irq_retrigger(struct irq_data *data)
 	return pruss_intc_check_write(intc->pruss, PRU_INTC_SISR, hwirq);
 }
 
+static int pruss_intc_irq_reqres(struct irq_data *data)
+{
+	if (!try_module_get(THIS_MODULE))
+		return -ENODEV;
+
+	return 0;
+}
+
+static void pruss_intc_irq_relres(struct irq_data *data)
+{
+	module_put(THIS_MODULE);
+}
+
 static int pruss_intc_irq_domain_map(struct irq_domain *d, unsigned int virq,
 				     irq_hw_number_t hw)
 {
@@ -206,6 +219,8 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	irqchip->irq_mask = pruss_intc_irq_mask;
 	irqchip->irq_unmask = pruss_intc_irq_unmask;
 	irqchip->irq_retrigger = pruss_intc_irq_retrigger;
+	irqchip->irq_request_resources = pruss_intc_irq_reqres;
+	irqchip->irq_release_resources = pruss_intc_irq_relres;
 	irqchip->name = dev_name(dev);
 	intc->irqchip = irqchip;
 
