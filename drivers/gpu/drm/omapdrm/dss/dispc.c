@@ -2885,8 +2885,11 @@ static int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	} else {
 		int wbdelay;
 
-		wbdelay = min(mgr_timings->vfp + mgr_timings->vsw +
-			mgr_timings->vbp, 255);
+		if (channel_in == DSS_WB_TV_MGR)
+			wbdelay = min(mgr_timings->vsw + mgr_timings->vbp, 255);
+		else
+			wbdelay = min(mgr_timings->vfp + mgr_timings->vsw +
+				mgr_timings->vbp, 255);
 
 		/* WBDELAYCOUNT */
 		REG_FLD_MOD(DISPC_OVL_ATTRIBUTES2(plane), wbdelay, 7, 0);
