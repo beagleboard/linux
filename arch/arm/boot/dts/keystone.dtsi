@@ -211,7 +211,7 @@
 			dma-ranges;
 			status = "disabled";
 
-			dwc3@2690000 {
+			dwc0: dwc3@2690000 {
 				compatible = "synopsys,dwc3";
 				reg = <0x2690000 0x70000>;
 				interrupts = <GIC_SPI 393 IRQ_TYPE_EDGE_RISING>;
