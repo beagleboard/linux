@@ -121,9 +121,16 @@ static int pruss_intc_irq_domain_map(struct irq_domain *d, unsigned int virq,
 	return 0;
 }
 
+static void pruss_intc_irq_domain_unmap(struct irq_domain *d, unsigned int virq)
+{
+	irq_set_chip_and_handler(virq, NULL, NULL);
+	irq_set_chip_data(virq, NULL);
+}
+
 static const struct irq_domain_ops pruss_intc_irq_domain_ops = {
 	.xlate	= irq_domain_xlate_onecell,
 	.map	= pruss_intc_irq_domain_map,
+	.unmap	= pruss_intc_irq_domain_unmap,
 };
 
 static void pruss_intc_irq_handler(struct irq_desc *desc)
@@ -234,9 +241,14 @@ fail_irq:
 static int pruss_intc_remove(struct platform_device *pdev)
 {
 	struct pruss_intc *intc = platform_get_drvdata(pdev);
+	unsigned int hwirq;
 
-	if (intc->domain)
+	if (intc->domain) {
+		for (hwirq = 0; hwirq < MAX_PRU_SYS_EVENTS; hwirq++)
+			irq_dispose_mapping(irq_find_mapping(intc->domain,
+							     hwirq));
 		irq_domain_remove(intc->domain);
+	}
 
 	return 0;
 }
