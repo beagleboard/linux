@@ -350,25 +350,6 @@ static void job_abort(void *priv)
 	v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
 }
 
-/*
- * Lock access to the device
- */
-static void wbm2m_lock(void *priv)
-{
-	struct wbm2m_ctx *ctx = priv;
-	struct wbm2m_dev *dev = ctx->dev;
-
-	mutex_lock(&dev->dev_mutex);
-}
-
-static void wbm2m_unlock(void *priv)
-{
-	struct wbm2m_ctx *ctx = priv;
-	struct wbm2m_dev *dev = ctx->dev;
-
-	mutex_unlock(&dev->dev_mutex);
-}
-
 /* device_run() - prepares and starts the device
  *
  * This function is only called when both the source and destination
@@ -1288,8 +1269,6 @@ static struct v4l2_m2m_ops m2m_ops = {
 	.device_run	= device_run,
 	.job_ready	= job_ready,
 	.job_abort	= job_abort,
-	.lock		= wbm2m_lock,
-	.unlock		= wbm2m_unlock,
 };
 
 int wbm2m_init(struct drm_device *drmdev)
