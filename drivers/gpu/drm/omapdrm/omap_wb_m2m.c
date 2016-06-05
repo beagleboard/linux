@@ -933,6 +933,13 @@ static int wbm2m_open(struct file *file)
 		goto free_ctx;
 	}
 
+	if ((dev->dev->mode != OMAP_WB_NOT_CONFIGURED) &&
+	    (dev->dev->mode != OMAP_WB_MEM2MEM_OVL)) {
+		/* WB is already open for other modes */
+		ret = -EBUSY;
+		goto unlock;
+	}
+
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
 	file->private_data = &ctx->fh;
 
@@ -986,6 +993,8 @@ static int wbm2m_open(struct file *file)
 			ret = -EBUSY;
 			goto free_fh;
 		}
+
+		dev->dev->mode = OMAP_WB_MEM2MEM_OVL;
 	}
 
 	log_dbg(dev, "created instance %pa, m2m_ctx: %pa\n",
@@ -1001,6 +1010,7 @@ free_fh:
 exit_fh:
 	v4l2_ctrl_handler_free(hdl);
 	v4l2_fh_exit(&ctx->fh);
+unlock:
 	mutex_unlock(&dev->dev->lock);
 free_ctx:
 	kfree(ctx);
@@ -1033,6 +1043,7 @@ static int wbm2m_release(struct file *file)
 		drm_modeset_lock_all(dev->dev->drm_dev);
 		omap_plane_release_wb(dev->plane);
 		drm_modeset_unlock_all(dev->dev->drm_dev);
+		dev->dev->mode = OMAP_WB_NOT_CONFIGURED;
 	}
 
 	mutex_unlock(&dev->dev->lock);
@@ -1107,9 +1118,6 @@ int wbm2m_init(struct wb_dev *dev)
 	*vfd = wbm2m_videodev;
 	vfd->lock = &dev->lock;
 	vfd->v4l2_dev = &wbm2m->v4l2_dev;
-
-	/* Force mode for now */
-	dev->mode = OMAP_WB_MEM2MEM_OVL;
 
 	ret = video_register_device(vfd, VFL_TYPE_GRABBER, 10);
 	if (ret) {
