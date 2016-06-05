@@ -177,8 +177,6 @@ struct wbm2m_dev {
 
 	struct omap_drm_irq	wb_irq;
 
-	/* count of driver instances */
-	atomic_t		num_instances;
 	/* v4l2_ioctl mutex */
 	struct mutex		dev_mutex;
 	/* v4l2 buffers lock */
@@ -1184,7 +1182,7 @@ static int wbm2m_open(struct file *file)
 
 	v4l2_fh_add(&ctx->fh);
 
-	if (atomic_inc_return(&dev->num_instances) == 1) {
+	if (v4l2_fh_is_singular_file(file)) {
 		log_dbg(dev, "first instance created\n");
 
 		drm_modeset_lock_all(dev->drm_dev);
@@ -1194,7 +1192,7 @@ static int wbm2m_open(struct file *file)
 		if (!dev->plane) {
 			log_dbg(dev, "Could not reserve plane!\n");
 			ret = -EBUSY;
-			goto free_dec;
+			goto free_fh;
 		}
 	}
 
@@ -1205,8 +1203,7 @@ static int wbm2m_open(struct file *file)
 
 	return 0;
 
-free_dec:
-	atomic_dec_return(&dev->num_instances);
+free_fh:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 exit_fh:
@@ -1222,10 +1219,14 @@ static int wbm2m_release(struct file *file)
 {
 	struct wbm2m_dev *dev = video_drvdata(file);
 	struct wbm2m_ctx *ctx = file2ctx(file);
+	bool fh_singular;
 
 	log_dbg(dev, "releasing instance %pa\n", &ctx);
 
 	mutex_lock(&dev->dev_mutex);
+
+	/* Save the singular status before we call the clean-up helper */
+	fh_singular = v4l2_fh_is_singular_file(file);
 
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
@@ -1234,7 +1235,7 @@ static int wbm2m_release(struct file *file)
 
 	kfree(ctx);
 
-	if (atomic_dec_return(&dev->num_instances) == 0) {
+	if (fh_singular) {
 		log_dbg(dev, "last instance released\n");
 
 		drm_modeset_lock_all(dev->drm_dev);
@@ -1296,7 +1297,6 @@ int wbm2m_init(struct drm_device *drmdev)
 
 	priv->wb_private = dev;
 
-	atomic_set(&dev->num_instances, 0);
 	mutex_init(&dev->dev_mutex);
 
 	dev->alloc_ctx = vb2_dma_contig_init_ctx(drmdev->dev);
