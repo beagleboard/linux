@@ -371,6 +371,27 @@
 		spi-max-frequency = <1000000>;
 		spi-cpol;
 	};
+
+	spi_nor: flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q64", "jedec,spi-nor";
+		spi-max-frequency = <80000000>;
+		m25p,fast-read;
+		reg = <0>;
+
+		partition@0 {
+			label = "u-boot-spl";
+			reg = <0x0 0x100000>;
+			read-only;
+		};
+
+		partition@1 {
+			label = "misc";
+			reg = <0x100000 0x600000>;
+		};
+	};
+
 };
 
 &tscadc {
