@@ -15,11 +15,8 @@
 #  Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
 #  ALL RIGHTS RESERVED
 
-PROCESSOR_TAG="processor:"
 BUILD_TYPE_TAG="type:"
 CONFIG_FRAGMENT_TAG="config-fragment="
-SDK_ENTRY_TAG="SDK_release"
-DISCLAIMER="\n*Please be advised that the Advanced Option defconfigs are\nfor test purposes only and have only been compiled tested.\n"
 
 # Template for temporary build files.. use PID to differentiate
 TMP_PREFIX=ti_defconfig_builder_$$
@@ -53,56 +50,6 @@ prepare_for_exit() {
 	# Clean everyone else up if we missed any
 	rm -f "$D"/"$TMP_PREFIX"*.tmp
 	exit
-}
-
-get_processors() {
-	TEMP_PROC_FILE=$(mktemp -t $TMP_TEMPLATE)
-	cat "$DEFCONFIG_MAP_FILE" > "$TEMP_PROC_FILE"
-
-	y=0
-	while true;
-	do
-		PROCESSOR_TEMP=$(grep "$PROCESSOR_TAG" "$TEMP_PROC_FILE" | awk '{print$2}' | head -n 1)
-		if [ -z "$PROCESSOR_TEMP" ]; then
-			break
-		fi
-
-		if [ "$PROCESSOR_TEMP" = "$DEFCONFIG_FILTER" ]; then
-			if ! grep -qc "$PROCESSOR_TEMP" "$PROCESSOR_FILE"; then
-				y=$((y+1))
-				echo -e '\t'"$y". "$PROCESSOR_TEMP" >> "$PROCESSOR_FILE"
-			fi
-		elif [ -z "$DEFCONFIG_FILTER" -a  "$PROCESSOR_TEMP" != "$SDK_ENTRY_TAG" ]; then
-			if ! grep -qc "$PROCESSOR_TEMP" "$PROCESSOR_FILE"; then
-				y=$((y+1))
-				echo -e '\t'"$y". "$PROCESSOR_TEMP" >> "$PROCESSOR_FILE"
-			fi
-		fi
-
-		sed -i "1d" "$TEMP_PROC_FILE"
-	done
-
-	rm "$TEMP_PROC_FILE"
-}
-
-choose_processor() {
-	get_processors
-
-	NUM_OF_PROC=$(wc -l "$PROCESSOR_FILE" | awk '{print$1}')
-	# Force the user to answer.  Maybe the user does not want to continue
-	while true;
-	do
-		cat "$PROCESSOR_FILE"
-		read -p "Please choose which processor to build for or 'q' to exit: " REPLY
-		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
-			prepare_for_exit
-		elif [ "$REPLY" -gt '0' -a "$REPLY" -le "$NUM_OF_PROC" ]; then
-			CHOSEN_PROCESSOR=$(grep -w "$REPLY" "$PROCESSOR_FILE" | awk '{print$2}')
-			break
-		else
-			echo -e "\nThis is not a choice try again!\n"
-		fi
-	done
 }
 
 check_for_config_existance() {
@@ -178,8 +125,10 @@ choose_build_type() {
 	# Force the user to answer.  Maybe the user does not want to continue
 	while true;
 	do
+		echo -e "Available defconfig build options:\n"
 		cat "$BUILD_TYPE_FILE"
-		read -p "Please choose which build or 'q' to exit: " REPLY
+		echo ""
+		read -p "Please choose which defconfig to build or 'q' to exit: " REPLY
 		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
 			prepare_for_exit
 		elif [ "$REPLY" -gt '0' -a "$REPLY" -le "$NUM_OF_BUILDS" ]; then
@@ -250,30 +199,6 @@ get_build_details() {
 	done
 }
 
-choose_defconfig_type() {
-
-	echo -e '\t' "1. SDK Defconfigs"
-	echo -e '\t' "2. Advanced Options"
-
-	while true;
-	do
-		read -p "Please choose which defconfig type to build for or 'q' to exit: " REPLY
-		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
-			prepare_for_exit
-		elif [ "$REPLY" -ge '1' -a "$REPLY" -le '2' ]; then
-			if [ "$REPLY" -eq '1' ]; then
-				DEFCONFIG_FILTER="$SDK_ENTRY_TAG"
-			else
-				DEFCONFIG_FILTER=
-				echo -e "$DISCLAIMER"
-			fi
-			break
-		else
-			echo -e "\nThis is not a choice try again!\n"
-		fi
-	done
-}
-
 build_defconfig() {
 
 	if [ ! -z "$CONFIG_FILE" -a -e "$TI_WORKING_PATH/$CONFIG_FILE" ]; then
@@ -282,6 +207,7 @@ build_defconfig() {
 
 	"$WORKING_PATH"/scripts/kconfig/merge_config.sh -m -r "$DEFCONFIG" \
 		"$CONFIGS" "$EXTRA_CONFIG_FILE" > /dev/null
+
 	if [ "$?" = "0" ];then
 		echo "Creating defconfig file ""$WORKING_PATH""/arch/arm/configs/""$CHOSEN_BUILD_TYPE"_defconfig
 		mv .config "$DEFCONFIG_KERNEL_PATH"/"$CHOSEN_BUILD_TYPE"_defconfig
@@ -364,14 +290,6 @@ if [ ! -z "$CHOSEN_BUILD_TYPE" ]; then
 		exit 1
 	fi
 	exit 0
-fi
-
-choose_defconfig_type
-
-if [ -z "$DEFCONFIG_FILTER" ]; then
-	choose_processor
-else
-	CHOSEN_PROCESSOR="$SDK_ENTRY_TAG"
 fi
 
 choose_build_type
