@@ -301,11 +301,14 @@ platforms.
 There is only one option for this script.  This option defines the working
 path to where the Linux kernel resides.
 
+Optional:
 	-w - Location of the TI Linux kernel
+	-t - Indicates the type of defconfig to build.  This will force the
+	     defconfig to build without user interaction.
 
 Command line Example if building from the working Linux kernel
 top level directory:
-	ti_config_fragments/defconfig_builder.sh -w .
+	ti_config_fragments/defconfig_builder.sh -w . -t ti_sdk_am3x_release
 
 Command line Example if building from the ti_config_fragments directory:
 	defconfig_builder.sh -w ../.
