@@ -842,11 +842,10 @@
 			reg = <0x4a300000 0x2000>,
 			      <0x4a302000 0x2000>,
 			      <0x4a310000 0x3000>,
-			      <0x4a320000 0x2000>,
 			      <0x4a326000 0x2000>,
 			      <0x4a32e000 0x31c>,
 			      <0x4a332000 0x58>;
-			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg",
+			reg-names = "dram0", "dram1", "shrdram2", "cfg",
 				    "iep", "mii_rt";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -854,6 +853,8 @@
 
 			pruss_intc: intc@4a320000 {
 				compatible = "ti,am3352-pruss-intc";
+				reg = <0x4a320000 0x2000>;
+				reg-names = "intc";
 				interrupts = <20 21 22 23 24 25 26 27>;
 				interrupt-names = "host2", "host3", "host4",
 						  "host5", "host6", "host7",

@@ -43,6 +43,7 @@ struct pruss_intc_match_data {
  * struct pruss_intc: PRUSS interrupt controller structure
  * @pruss: back-reference to parent PRUSS structure
  * @irqs: kernel irq numbers corresponding to PRUSS host interrupts
+ * @mem: kernel-mapping data for the INTC register space
  * @irqchip: irq chip for this interrupt controller
  * @domain: irq domain for this interrupt controller
  * @config_map: stored INTC configuration mapping data
@@ -51,33 +52,34 @@ struct pruss_intc_match_data {
 struct pruss_intc {
 	struct pruss *pruss;
 	unsigned int irqs[MAX_HOST_NUM_IRQS];
+	struct pruss_mem_region mem;
 	struct irq_chip *irqchip;
 	struct irq_domain *domain;
 	struct pruss_intc_config config_map;
 	struct mutex lock; /* PRUSS INTC lock */
 };
 
-static inline u32 pruss_intc_read_reg(struct pruss *pruss, unsigned int reg)
+static inline u32 pruss_intc_read_reg(struct pruss_intc *intc, unsigned int reg)
 {
-	return readl_relaxed(pruss->mem_regions[PRUSS_MEM_INTC].va + reg);
+	return readl_relaxed(intc->mem.va + reg);
 }
 
-static inline void pruss_intc_write_reg(struct pruss *pruss, unsigned int reg,
-					u32 val)
+static inline void pruss_intc_write_reg(struct pruss_intc *intc,
+					unsigned int reg, u32 val)
 {
-	writel_relaxed(val, pruss->mem_regions[PRUSS_MEM_INTC].va + reg);
+	writel_relaxed(val, intc->mem.va + reg);
 }
 
-static int pruss_intc_check_write(struct pruss *pruss, unsigned int reg,
+static int pruss_intc_check_write(struct pruss_intc *intc, unsigned int reg,
 				  unsigned int sysevent)
 {
-	if (!pruss)
+	if (!intc)
 		return -EINVAL;
 
 	if (sysevent >= MAX_PRU_SYS_EVENTS)
 		return -EINVAL;
 
-	pruss_intc_write_reg(pruss, reg, sysevent);
+	pruss_intc_write_reg(intc, reg, sysevent);
 
 	return 0;
 }
@@ -157,14 +159,14 @@ int pruss_intc_configure(struct pruss *pruss,
 		intc->config_map.sysev_to_ch[i] = ch;
 
 		idx = i / 4;
-		val = pruss_intc_read_reg(pruss, PRU_INTC_CMR(idx));
+		val = pruss_intc_read_reg(intc, PRU_INTC_CMR(idx));
 		val |= ch << ((i & 3) * 8);
-		pruss_intc_write_reg(pruss, PRU_INTC_CMR(idx), val);
+		pruss_intc_write_reg(intc, PRU_INTC_CMR(idx), val);
 		sysevt_mask |= BIT_ULL(i);
 		ch_mask |= BIT(ch);
 
 		dev_dbg(dev, "SYSEV%d -> CH%d (CMR%d 0x%08x)\n", i, ch, idx,
-			pruss_intc_read_reg(pruss, PRU_INTC_CMR(idx)));
+			pruss_intc_read_reg(intc, PRU_INTC_CMR(idx)));
 	}
 
 	/*
@@ -197,34 +199,34 @@ int pruss_intc_configure(struct pruss *pruss,
 
 		idx = i / 4;
 
-		val = pruss_intc_read_reg(pruss, PRU_INTC_HMR(idx));
+		val = pruss_intc_read_reg(intc, PRU_INTC_HMR(idx));
 		val |= host << ((i & 3) * 8);
-		pruss_intc_write_reg(pruss, PRU_INTC_HMR(idx), val);
+		pruss_intc_write_reg(intc, PRU_INTC_HMR(idx), val);
 
 		ch_mask |= BIT(i);
 		host_mask |= BIT(host);
 
 		dev_dbg(dev, "CH%d -> HOST%d (HMR%d 0x%08x)\n", i, host, idx,
-			pruss_intc_read_reg(pruss, PRU_INTC_HMR(idx)));
+			pruss_intc_read_reg(intc, PRU_INTC_HMR(idx)));
 	}
 
 	dev_info(dev, "configured system_events = 0x%016llx intr_channels = 0x%08x host_intr = 0x%08x\n",
 		 sysevt_mask, ch_mask, host_mask);
 
 	/* enable system events, writing 0 has no-effect */
-	pruss_intc_write_reg(pruss, PRU_INTC_ESR0, lower_32_bits(sysevt_mask));
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
-	pruss_intc_write_reg(pruss, PRU_INTC_ESR1, upper_32_bits(sysevt_mask));
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
+	pruss_intc_write_reg(intc, PRU_INTC_ESR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(intc, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(intc, PRU_INTC_ESR1, upper_32_bits(sysevt_mask));
+	pruss_intc_write_reg(intc, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
 
 	/* enable host interrupts */
 	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
 		if (host_mask & BIT(i))
-			pruss_intc_write_reg(pruss, PRU_INTC_HIEISR, i);
+			pruss_intc_write_reg(intc, PRU_INTC_HIEISR, i);
 	}
 
 	/* global interrupt enable */
-	pruss_intc_write_reg(pruss, PRU_INTC_GER, 1);
+	pruss_intc_write_reg(intc, PRU_INTC_GER, 1);
 
 	pruss->host_mask |= host_mask;
 
@@ -284,16 +286,16 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 		 sysevt_mask, host_mask);
 
 	/* disable system events, writing 0 has no-effect */
-	pruss_intc_write_reg(pruss, PRU_INTC_ECR0, lower_32_bits(sysevt_mask));
-	pruss_intc_write_reg(pruss, PRU_INTC_ECR1, upper_32_bits(sysevt_mask));
+	pruss_intc_write_reg(intc, PRU_INTC_ECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(intc, PRU_INTC_ECR1, upper_32_bits(sysevt_mask));
 	/* clear any pending status */
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
-	pruss_intc_write_reg(pruss, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
+	pruss_intc_write_reg(intc, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
+	pruss_intc_write_reg(intc, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
 
 	/* disable host interrupts */
 	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
 		if (host_mask & BIT(i))
-			pruss_intc_write_reg(pruss, PRU_INTC_HIDISR, i);
+			pruss_intc_write_reg(intc, PRU_INTC_HIDISR, i);
 	}
 
 	pruss->host_mask &= ~host_mask;
@@ -303,25 +305,25 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 }
 EXPORT_SYMBOL_GPL(pruss_intc_unconfigure);
 
-static void pruss_intc_init(struct pruss *pruss)
+static void pruss_intc_init(struct pruss_intc *intc)
 {
 	int i;
 
 	/* configure polarity to active high for all system interrupts */
-	pruss_intc_write_reg(pruss, PRU_INTC_SIPR0, 0xffffffff);
-	pruss_intc_write_reg(pruss, PRU_INTC_SIPR1, 0xffffffff);
+	pruss_intc_write_reg(intc, PRU_INTC_SIPR0, 0xffffffff);
+	pruss_intc_write_reg(intc, PRU_INTC_SIPR1, 0xffffffff);
 
 	/* configure type to pulse interrupt for all system interrupts */
-	pruss_intc_write_reg(pruss, PRU_INTC_SITR0, 0);
-	pruss_intc_write_reg(pruss, PRU_INTC_SITR1, 0);
+	pruss_intc_write_reg(intc, PRU_INTC_SITR0, 0);
+	pruss_intc_write_reg(intc, PRU_INTC_SITR1, 0);
 
 	/* clear all 16 interrupt channel map registers */
 	for (i = 0; i < 16; i++)
-		pruss_intc_write_reg(pruss, PRU_INTC_CMR(i), 0);
+		pruss_intc_write_reg(intc, PRU_INTC_CMR(i), 0);
 
 	/* clear all 3 host interrupt map registers */
 	for (i = 0; i < 3; i++)
-		pruss_intc_write_reg(pruss, PRU_INTC_HMR(i), 0);
+		pruss_intc_write_reg(intc, PRU_INTC_HMR(i), 0);
 }
 
 static void pruss_intc_irq_ack(struct irq_data *data)
@@ -329,7 +331,7 @@ static void pruss_intc_irq_ack(struct irq_data *data)
 	struct pruss_intc *intc = irq_data_get_irq_chip_data(data);
 	unsigned int hwirq = data->hwirq;
 
-	pruss_intc_check_write(intc->pruss, PRU_INTC_SICR, hwirq);
+	pruss_intc_check_write(intc, PRU_INTC_SICR, hwirq);
 }
 
 static void pruss_intc_irq_mask(struct irq_data *data)
@@ -337,7 +339,7 @@ static void pruss_intc_irq_mask(struct irq_data *data)
 	struct pruss_intc *intc = irq_data_get_irq_chip_data(data);
 	unsigned int hwirq = data->hwirq;
 
-	pruss_intc_check_write(intc->pruss, PRU_INTC_EICR, hwirq);
+	pruss_intc_check_write(intc, PRU_INTC_EICR, hwirq);
 }
 
 static void pruss_intc_irq_unmask(struct irq_data *data)
@@ -345,7 +347,7 @@ static void pruss_intc_irq_unmask(struct irq_data *data)
 	struct pruss_intc *intc = irq_data_get_irq_chip_data(data);
 	unsigned int hwirq = data->hwirq;
 
-	pruss_intc_check_write(intc->pruss, PRU_INTC_EISR, hwirq);
+	pruss_intc_check_write(intc, PRU_INTC_EISR, hwirq);
 }
 
 static int pruss_intc_irq_retrigger(struct irq_data *data)
@@ -353,7 +355,7 @@ static int pruss_intc_irq_retrigger(struct irq_data *data)
 	struct pruss_intc *intc = irq_data_get_irq_chip_data(data);
 	unsigned int hwirq = data->hwirq;
 
-	return pruss_intc_check_write(intc->pruss, PRU_INTC_SISR, hwirq);
+	return pruss_intc_check_write(intc, PRU_INTC_SISR, hwirq);
 }
 
 static int pruss_intc_irq_reqres(struct irq_data *data)
@@ -413,7 +415,7 @@ static void pruss_intc_irq_handler(struct irq_desc *desc)
 	i += MIN_PRU_HOST_INT;
 
 	/* get highest priority pending PRUSS system event */
-	hipir = pruss_intc_read_reg(intc->pruss, PRU_INTC_HIPIR(i));
+	hipir = pruss_intc_read_reg(intc, PRU_INTC_HIPIR(i));
 	while (!(hipir & BIT(31))) {
 		hwirq = hipir & GENMASK(9, 0);
 		virq = irq_linear_revmap(intc->domain, hwirq);
@@ -423,13 +425,12 @@ static void pruss_intc_irq_handler(struct irq_desc *desc)
 		 * handler mapped yet
 		 */
 		if (unlikely(!virq))
-			pruss_intc_check_write(intc->pruss, PRU_INTC_SICR,
-					       hwirq);
+			pruss_intc_check_write(intc, PRU_INTC_SICR, hwirq);
 		else
 			generic_handle_irq(virq);
 
 		/* get next system event */
-		hipir = pruss_intc_read_reg(intc->pruss, PRU_INTC_HIPIR(i));
+		hipir = pruss_intc_read_reg(intc, PRU_INTC_HIPIR(i));
 	}
 err:
 	chained_irq_exit(chip, desc);
@@ -442,6 +443,7 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct platform_device *ppdev = to_platform_device(dev->parent);
 	struct pruss_intc *intc;
+	struct resource *res;
 	struct irq_chip *irqchip;
 	int i, irq;
 	const struct pruss_intc_match_data *data;
@@ -455,6 +457,18 @@ static int pruss_intc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, intc);
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "intc");
+	intc->mem.va = devm_ioremap_resource(dev, res);
+	if (IS_ERR(intc->mem.va)) {
+		dev_err(dev, "failed to parse and map intc memory resource\n");
+		return PTR_ERR(intc->mem.va);
+	}
+	intc->mem.pa = res->start;
+	intc->mem.size = resource_size(res);
+
+	dev_dbg(dev, "intc memory: pa %pa size 0x%x va %p\n", &intc->mem.pa,
+		intc->mem.size, intc->mem.va);
+
 	mutex_init(&intc->lock);
 
 	for (i = 0; i < ARRAY_SIZE(intc->config_map.sysev_to_ch); i++)
@@ -464,7 +478,7 @@ static int pruss_intc_probe(struct platform_device *pdev)
 		intc->config_map.ch_to_host[i] = -1;
 
 	intc->pruss = platform_get_drvdata(ppdev);
-	pruss_intc_init(intc->pruss);
+	pruss_intc_init(intc);
 
 	irqchip = devm_kzalloc(dev, sizeof(*irqchip), GFP_KERNEL);
 	if (!irqchip)

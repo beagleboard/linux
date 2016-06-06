@@ -566,8 +566,7 @@ static int pruss_probe(struct platform_device *pdev)
 	struct pruss_platform_data *pdata = dev_get_platdata(dev);
 	const struct pruss_private_data *data;
 	const char *mem_names[PRUSS_MEM_MAX] = { "dram0", "dram1", "shrdram2",
-						 "intc", "cfg", "iep",
-						 "mii_rt" };
+						 "cfg", "iep", "mii_rt" };
 
 	if (!node) {
 		dev_err(dev, "Non-DT platform device not supported\n");
