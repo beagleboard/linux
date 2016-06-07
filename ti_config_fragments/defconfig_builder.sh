@@ -22,8 +22,7 @@ CONFIG_FRAGMENT_TAG="config-fragment="
 TMP_PREFIX=ti_defconfig_builder_$$
 TMP_TEMPLATE="$TMP_PREFIX"_XXXXX.tmp
 
-set_working_directory()
-{
+set_working_directory() {
 	# Sanity checkup kernel build location.
 	if [ ! -d "$WORKING_PATH" ]; then
 		WORKING_PATH=$(pwd)
@@ -93,7 +92,6 @@ check_for_config_existance() {
 		fi
 	fi
 }
-
 
 choose_build_type() {
 	TEMP_BT_FILE=$(mktemp -t $TMP_TEMPLATE)
@@ -217,8 +215,7 @@ build_defconfig() {
 	fi
 }
 
-usage()
-{
+usage() {
 cat << EOF
 
 This script utilizes a map file to create defconfigs for multiple TI
