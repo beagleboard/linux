@@ -63,7 +63,7 @@ processors, based on the omap2plus_defconfig.  The defconfig_fragment file adds 
 that have been enabled in the TI integrated kernel.  The extra_configs will add in the
 debug options as well as undefine all processors that are not AM335x.
 
-processor: AM33xx type: am335x_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/am33xx_only.cfg 
+processor: AM33xx type: am335x_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg am33xx_only.cfg
 
 ##################################
 # Defconfig Mapping

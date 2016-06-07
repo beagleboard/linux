@@ -1,8 +1,0 @@
-use-kernel-config=multi_v7_defconfig
-config-fragment=ti_config_fragments/multi_v7_prune.cfg
-config-fragment=ti_config_fragments/lpae.cfg
-config-fragment=ti_config_fragments/keystone.cfg
-config-fragment=ti_config_fragments/baseport.cfg
-config-fragment=ti_config_fragments/audio_display.cfg
-config-fragment=ti_config_fragments/connectivity.cfg
-config-fragment=ti_config_fragments/ipc.cfg
