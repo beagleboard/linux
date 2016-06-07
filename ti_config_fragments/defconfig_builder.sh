@@ -5,7 +5,7 @@
 #  This will perform a merged based on a file that contains information in the
 #  repos to be merged.
 #
-#  For more information type defconfig_builder.sh -h
+#  For more information type defconfig_builder.sh -?
 #
 # IMPORTANT NOTE: All modifications to this script must be verified by running
 # 'shellcheck --shell=bash defconfig_builder.sh' See 'Installing' section in:
@@ -242,7 +242,7 @@ EOF
 #########################################
 # Script Start
 #########################################
-while getopts "w:t:" OPTION
+while getopts "?w:t:" OPTION
 do
 	case $OPTION in
 		w)
