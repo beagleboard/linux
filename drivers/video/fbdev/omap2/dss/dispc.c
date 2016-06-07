@@ -2884,6 +2884,11 @@ int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	return r;
 }
 
+bool dispc_has_writeback(void)
+{
+	return dispc.feat->has_writeback;
+}
+
 int dispc_ovl_enable(enum omap_plane plane, bool enable)
 {
 	DSSDBG("dispc_enable_plane %d, %d\n", plane, enable);
