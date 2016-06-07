@@ -31,6 +31,7 @@
 #include <linux/cpumask.h>
 #include <linux/cpu_cooling.h>
 #include <linux/of.h>
+#include <linux/reboot.h>
 
 #include "ti-thermal.h"
 #include "ti-bandgap.h"
@@ -286,6 +287,47 @@ static int ti_thermal_get_crit_temp(struct thermal_zone_device *thermal,
 	return ti_thermal_get_trip_temp(thermal, OMAP_TRIP_NUMBER - 1, temp);
 }
 
+/**
+ * emergency_poweroff_func - emergency poweroff work after a known delay
+ * @work: work_struct associated with the emergency poweroff function
+ *
+ * This function is called in very critical situations to force
+ * a kernel poweroff after a configurable timeout value.
+ */
+static void emergency_poweroff_func(struct work_struct *work)
+{
+	pr_warn("Attempting kernel_power_off\n");
+	kernel_power_off();
+
+	pr_warn("kernel_power_off has failed! Attempting emergency_restart\n");
+	emergency_restart();
+}
+
+static DECLARE_DELAYED_WORK(emergency_poweroff_work, emergency_poweroff_func);
+
+/**
+ * emergency_poweroff - Trigger an emergency system poweroff
+ *
+ * This may be called from any critical situation to trigger a system shutdown
+ * after a known period of time. By default the delay is 0 millisecond
+ */
+void ti_thermal_emergency_poweroff(void)
+{
+	schedule_delayed_work(&emergency_poweroff_work,
+			      msecs_to_jiffies(CONFIG_TI_THERMAL_EMERGENCY_POWEROFF_DELAY_MS));
+}
+
+static int ti_thermal_notify(struct thermal_zone_device *thermal, int temp,
+			     enum thermal_trip_type type)
+{
+	if (type == THERMAL_TRIP_CRITICAL) {
+		pr_warn("critical temperature %d reached", temp);
+		ti_thermal_emergency_poweroff();
+	}
+
+	return 0;
+}
+
 static const struct thermal_zone_of_device_ops ti_of_thermal_ops = {
 	.get_temp = __ti_thermal_get_temp,
 	.get_trend = __ti_thermal_get_trend,
@@ -301,6 +343,7 @@ static struct thermal_zone_device_ops ti_thermal_ops = {
 	.get_trip_type = ti_thermal_get_trip_type,
 	.get_trip_temp = ti_thermal_get_trip_temp,
 	.get_crit_temp = ti_thermal_get_crit_temp,
+	.notify = ti_thermal_notify,
 };
 
 static struct ti_thermal_data
