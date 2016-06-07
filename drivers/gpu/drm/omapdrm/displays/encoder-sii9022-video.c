@@ -31,11 +31,9 @@
 #include <linux/of_irq.h>
 #include <linux/hdmi.h>
 
-#include <video/omapdss.h>
-#include <video/omap-panel-data.h>
-
 #include <drm/drm_edid.h>
 
+#include "../dss/omapdss.h"
 #include "encoder-sii9022.h"
 
 static const struct regmap_config sii9022_regmap_config = {

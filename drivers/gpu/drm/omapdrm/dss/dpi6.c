@@ -14,8 +14,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 
-#include <video/omapdss.h>
-
+#include "omapdss.h"
 #include "dss6.h"
 
 struct dpi_data {

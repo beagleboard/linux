@@ -3,6 +3,7 @@
 #include <linux/of.h>
 #include <linux/of_graph.h>
 #include <linux/list.h>
+
 #include "omapdss.h"
 
 static bool dss_initialized;

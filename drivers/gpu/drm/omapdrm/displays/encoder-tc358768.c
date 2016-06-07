@@ -21,10 +21,10 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 
-#include <video/omapdss.h>
-#include <video/omap-panel-data.h>
 #include <video/of_display_timing.h>
 #include <video/mipi_display.h>
+
+#include "../dss/omapdss.h"
 
 #define TC358768_NAME		"tc358768"
 
