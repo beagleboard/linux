@@ -18,4 +18,6 @@ omapdrm-y := omap_drv.o \
 	omap_dmm_tiler.o \
 	tcm-sita.o
 
+omapdrm-$(CONFIG_DRM_OMAP_WB_M2M) += omap_wb_m2m.o
+
 obj-$(CONFIG_DRM_OMAP)	+= omapdrm.o

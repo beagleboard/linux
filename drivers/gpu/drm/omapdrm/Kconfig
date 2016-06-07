@@ -24,3 +24,15 @@ config DRM_OMAP_NUM_CRTCS
 	  Select the number of video overlays which can be used as framebuffers.
 	  The remaining overlays are reserved for video.
 
+
+config DRM_OMAP_WB_M2M
+	bool "Enable writeback support for OMAP DRM driver"
+	depends on DRM_OMAP
+	depends on (VIDEO_V4L2 = y) || (VIDEO_V4L2 = m && DRM_OMAP = m)
+	depends on VIDEO_DEV
+	select VIDEOBUF2_CORE
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_MEM2MEM_DEV
+	default n
+	help
+	  Select this to enable memory-to-memory writeback support.

@@ -126,6 +126,9 @@ struct omap_drm_private {
 	struct list_head irq_list;    /* list of omap_drm_irq */
 	uint32_t vblank_mask;         /* irq bits set for userspace vblank */
 	struct omap_drm_irq error_handler;
+	void *wb_private;	      /* Write-back private data */
+	bool wb_initialized;
+
 };
 
 /* this should probably be in drm-core to standardize amongst drivers */
@@ -313,5 +316,17 @@ fail:
 
 	return -ENOENT;
 }
+
+#if IS_ENABLED(CONFIG_DRM_OMAP_WB_M2M)
+
+int wbm2m_init(struct drm_device *drmdev);
+void wbm2m_cleanup(struct drm_device *drmdev);
+
+#else
+
+static inline int wbm2m_init(struct drm_device *drmdev) { return 0; }
+static inline void wbm2m_cleanup(struct drm_device *drmdev) { }
+
+#endif
 
 #endif /* __OMAP_DRV_H__ */
