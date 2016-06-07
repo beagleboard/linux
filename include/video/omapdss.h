@@ -90,6 +90,17 @@ enum omap_channel {
 	OMAP_DSS_CHANNEL_WB	= 4,
 };
 
+enum dss_writeback_channel {
+	DSS_WB_LCD1_MGR =	0,
+	DSS_WB_LCD2_MGR =	1,
+	DSS_WB_TV_MGR =		2,
+	DSS_WB_OVL0 =		3,
+	DSS_WB_OVL1 =		4,
+	DSS_WB_OVL2 =		5,
+	DSS_WB_OVL3 =		6,
+	DSS_WB_LCD3_MGR =	7,
+};
+
 enum omap_color_mode {
 	OMAP_DSS_COLOR_CLUT1	= 1 << 0,  /* BITMAP 1 */
 	OMAP_DSS_COLOR_CLUT2	= 1 << 1,  /* BITMAP 2 */
@@ -945,6 +956,11 @@ void dispc_ovl_set_channel_out(enum omap_plane plane,
 int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
 		bool replication, const struct omap_video_timings *mgr_timings,
 		bool mem_to_mem);
+
+bool dispc_has_writeback(void);
+int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
+		bool mem_to_mem, const struct omap_video_timings *timings);
+void dispc_wb_set_channel_in(enum dss_writeback_channel channel);
 
 int omapdss_compat_init(void);
 void omapdss_compat_uninit(void);

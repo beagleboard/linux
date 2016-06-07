@@ -1047,6 +1047,7 @@ void dispc_wb_set_channel_in(enum dss_writeback_channel channel)
 
 	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), channel, 18, 16);
 }
+EXPORT_SYMBOL(dispc_wb_set_channel_in);
 
 static void dispc_ovl_set_burst_size(enum omap_plane plane,
 		enum omap_burst_size burst_size)
@@ -2883,11 +2884,13 @@ int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 
 	return r;
 }
+EXPORT_SYMBOL(dispc_wb_setup);
 
 bool dispc_has_writeback(void)
 {
 	return dispc.feat->has_writeback;
 }
+EXPORT_SYMBOL(dispc_has_writeback);
 
 int dispc_ovl_enable(enum omap_plane plane, bool enable)
 {
