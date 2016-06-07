@@ -1,56 +1,57 @@
-processor: SDK_release type: ti_sdk_am3x_release defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/multi_v7_prune.cfg ti_config_fragments/am33xx_only.cfg
-processor: SDK_release type: ti_sdk_am4x_release defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/multi_v7_prune.cfg ti_config_fragments/am43xx_only.cfg
-processor: SDK_release type: ti_sdk_dra7x_release defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/multi_v7_prune.cfg ti_config_fragments/dra7_only.cfg
-processor: SDK_release type: ti_sdk_omap2_release defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/multi_v7_prune.cfg
-processor: SDK_release type: ti_sdk_keystone_release defconfig: multi_v7_defconfig config_file: multi_core_defconfig_fragment extra_configs: ti_config_fragments/multi_v7_prune.cfg ti_config_fragments/lpae.cfg
-processor: AM33xx type: am335x_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/am33xx_only.cfg
-processor: AM33xx type: am335x_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/am33xx_only.cfg 
-processor: AM33xx type: am335x_lsk_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf ti_config_fragments/am33xx_only.cfg
-processor: AM33xx type: am335x_lsk_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg linaro/configs/linaro-base.conf ti_config_fragments/am33xx_only.cfg
-processor: AM33xx type: am335x_rt_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/am33xx_only.cfg
-processor: AM33xx type: am335x_rt_debug_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/am33xx_only.cfg
+processor: SDK_release type: ti_sdk_am3x_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg omap_soc.cfg am33xx_only.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg
+processor: SDK_release type: ti_sdk_am4x_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg omap_soc.cfg am43xx_only.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg
+processor: SDK_release type: ti_sdk_dra7x_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg omap_soc.cfg dra7_only.cfg lpae.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg
+processor: SDK_release type: ti_sdk_omap2_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg omap_soc.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg
+processor: SDK_release type: ti_sdk_k2g_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg keystone.cfg k2g_only.cfg lpae.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg
+processor: SDK_release type: ti_sdk_keystone_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg lpae.cfg keystone.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg
+processor: AM33xx type: am335x_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: am33xx_only.cfg
+processor: AM33xx type: am335x_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg am33xx_only.cfg
+processor: AM33xx type: am335x_lsk_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf am33xx_only.cfg
+processor: AM33xx type: am335x_lsk_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg linaro/configs/linaro-base.conf am33xx_only.cfg
+processor: AM33xx type: am335x_rt_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: am33xx_only.cfg
+processor: AM33xx type: am335x_rt_debug_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: debug_options.cfg am33xx_only.cfg
 
-processor: AM43xx type: am43x_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/am43xx_only.cfg
-processor: AM43xx type: am43x_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/am43xx_only.cfg
-processor: AM43xx type: am43x_lsk_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf ti_config_fragments/am43xx_only.cfg
-processor: AM43xx type: am43x_lsk_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg linaro/configs/linaro-base.conf ti_config_fragments/am43xx_only.cfg
-processor: AM43xx type: am43x_rt_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/am43xx_only.cfg
-processor: AM43xx type: am43x_rt_debug_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/am43xx_only.cfg
+processor: AM43xx type: am43x_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: am43xx_only.cfg
+processor: AM43xx type: am43x_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg am43xx_only.cfg
+processor: AM43xx type: am43x_lsk_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf am43xx_only.cfg
+processor: AM43xx type: am43x_lsk_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg linaro/configs/linaro-base.conf am43xx_only.cfg
+processor: AM43xx type: am43x_rt_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: am43xx_only.cfg
+processor: AM43xx type: am43x_rt_debug_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: debug_options.cfg am43xx_only.cfg
 
-processor: DRA7x type: dra7xx_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/dra7_only.cfg
-processor: DRA7x type: dra7xx_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/dra7_only.cfg
-processor: DRA7x type: dra7xx_lsk_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf ti_config_fragments/dra7_only.cfg
-processor: DRA7x type: dra7xx_lsk_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg linaro/configs/linaro-base.conf ti_config_fragments/dra7_only.cfg
-processor: DRA7x type: dra7xx_rt_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/dra7_only.cfg
-processor: DRA7x type: dra7xx_rt_debug_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/dra7_only.cfg
-processor: DRA7x type: dra7xx_android_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/dra7_only.cfg  android/configs/android-base.cfg android/configs/android-recommended.cfg
-processor: DRA7x type: dra7xx_android_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg ti_config_fragments/dra7_only.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
+processor: DRA7x type: dra7xx_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: dra7_only.cfg
+processor: DRA7x type: dra7xx_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg dra7_only.cfg
+processor: DRA7x type: dra7xx_lsk_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf dra7_only.cfg
+processor: DRA7x type: dra7xx_lsk_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg linaro/configs/linaro-base.conf dra7_only.cfg
+processor: DRA7x type: dra7xx_rt_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: dra7_only.cfg
+processor: DRA7x type: dra7xx_rt_debug_only defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: debug_options.cfg dra7_only.cfg
+processor: DRA7x type: dra7xx_android_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: dra7_only.cfg  android/configs/android-base.cfg android/configs/android-recommended.cfg
+processor: DRA7x type: dra7xx_android_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg dra7_only.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
 
-processor: Keystone2 type: base_keystone_debug defconfig: keystone_defconfig config_file: None extra_configs: ti_config_fragments/debug_options.cfg
+processor: Keystone2 type: base_keystone_debug defconfig: keystone_defconfig config_file: None extra_configs: debug_options.cfg
 processor: Keystone2 type: ti_keystone defconfig: keystone_defconfig config_file: multi_core_defconfig_fragment extra_configs:
-processor: Keystone2 type: ti_keystone_debug defconfig: keystone_defconfig config_file: multi_core_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg
+processor: Keystone2 type: ti_keystone_debug defconfig: keystone_defconfig config_file: multi_core_defconfig_fragment extra_configs: debug_options.cfg
 processor: Keystone2 type: ti_lsk_keystone defconfig: keystone_defconfig config_file: multi_core_defconfig_fragment extra_configs: linaro/configs/linaro-base.conf
-processor: Keystone2 type: ti_lsk_keystone_debug_only defconfig: keystone_defconfig config_file: multi_core_defconfig_fragment extra_configs: linaro/configs/linaro-base.conf ti_config_fragments/debug_options.cfg
+processor: Keystone2 type: ti_lsk_keystone_debug_only defconfig: keystone_defconfig config_file: multi_core_defconfig_fragment extra_configs: linaro/configs/linaro-base.conf debug_options.cfg
 processor: Keystone2 type: ti_rt_keystone defconfig: keystone_defconfig config_file: rt_defconfig_fragment extra_configs:
-processor: Keystone2 type: ti_rt_keystone_debug defconfig: keystone_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg
+processor: Keystone2 type: ti_rt_keystone_debug defconfig: keystone_defconfig config_file: rt_defconfig_fragment extra_configs: debug_options.cfg
 
-processor: OMAP2+ type: omap2plus_debug defconfig: omap2plus_defconfig config_file: None extra_configs: ti_config_fragments/debug_options.cfg
+processor: OMAP2+ type: omap2plus_debug defconfig: omap2plus_defconfig config_file: None extra_configs: debug_options.cfg
 processor: OMAP2+ type: ti_omap2plus defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs:
-processor: OMAP2+ type: ti_omap2plus_debug defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg
+processor: OMAP2+ type: ti_omap2plus_debug defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg
 processor: OMAP2+ type: ti_lsk_omap2plus defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf
-processor: OMAP2+ type: ti_lsk_omap2plus_debug defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf ti_config_fragments/debug_options.cfg
+processor: OMAP2+ type: ti_lsk_omap2plus_debug defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf debug_options.cfg
 processor: OMAP2+ type: ti_rt_omap2plus defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs:
-processor: OMAP2+ type: ti_rt_omap2plus_debug defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg
+processor: OMAP2+ type: ti_rt_omap2plus_debug defconfig: omap2plus_defconfig config_file: rt_defconfig_fragment extra_configs: debug_options.cfg
 processor: OMAP2+ type: ti_android_omap2plus defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: android/configs/android-base.cfg android/configs/android-recommended.cfg
-processor: OMAP2+ type: ti_android_omap2plus_debug defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
+processor: OMAP2+ type: ti_android_omap2plus_debug defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
 
-processor: MULTI_v7 type: multi_v7_debug defconfig: multi_v7_defconfig config_file: None extra_configs: ti_config_fragments/debug_options.cfg
+processor: MULTI_v7 type: multi_v7_debug defconfig: multi_v7_defconfig config_file: None extra_configs: debug_options.cfg
 processor: MULTI_v7 type: ti_multi_v7 defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs:
-processor: MULTI_v7 type: ti_multi_v7_debug defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg
+processor: MULTI_v7 type: ti_multi_v7_debug defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg
 processor: MULTI_v7 type: ti_lsk_multi_v7 defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf
-processor: MULTI_v7 type: ti_lsk_multi_v7_debug defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf ti_config_fragments/debug_options.cfg
+processor: MULTI_v7 type: ti_lsk_multi_v7_debug defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: linaro/configs/linaro-base.conf debug_options.cfg
 processor: MULTI_v7 type: ti_rt_multi_v7 defconfig: multi_v7_defconfig config_file: rt_defconfig_fragment extra_configs:
-processor: MULTI_v7 type: ti_rt_multi_v7_debug defconfig: multi_v7_defconfig config_file: rt_defconfig_fragment extra_configs: ti_config_fragments/debug_options.cfg
-processor: MULTI_v7 type: multi_v7_android_debug defconfig: multi_v7_defconfig config_file: None extra_configs: ti_config_fragments/multi_v7_prune.cfg ti_config_fragments/debug_options.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
-processor: MULTI_v7 type: ti_multi_android_v7 defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/multi_v7_prune.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
-processor: MULTI_v7 type: ti_multi_v7_android_debug defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: ti_config_fragments/multi_v7_prune.cfg ti_config_fragments/debug_options.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
+processor: MULTI_v7 type: ti_rt_multi_v7_debug defconfig: multi_v7_defconfig config_file: rt_defconfig_fragment extra_configs: debug_options.cfg
+processor: MULTI_v7 type: multi_v7_android_debug defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg debug_options.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
+processor: MULTI_v7 type: ti_multi_android_v7 defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: multi_v7_prune.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
+processor: MULTI_v7 type: ti_multi_v7_android_debug defconfig: multi_v7_defconfig config_file: defconfig_fragment extra_configs: multi_v7_prune.cfg debug_options.cfg android/configs/android-base.cfg android/configs/android-recommended.cfg
