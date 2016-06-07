@@ -300,10 +300,11 @@
 
 		};
 
-		wdt: wdt@02260000 {
+		wdt: wdt@02250000 {
 			compatible = "ti,keystone-wdt","ti,davinci-wdt";
-			reg = <0x02260000 0x80>;
-			status = "disabled";
+			reg = <0x02250000 0x80>;
+			power-domains = <&k2g_pds K2G_DEV_TIMER64_5>;
+			clocks = <&k2g_clks K2G_DEV_TIMER64_5 0>;
 		};
 
 		dcan0: can@0260B200 {
