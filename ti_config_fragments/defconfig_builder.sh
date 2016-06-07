@@ -145,7 +145,7 @@ get_build_details() {
 	BUILD_DETAILS=$(grep -w "$CHOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE")
 	if [ -z "$BUILD_DETAILS" ]; then
 		echo "Cannot find the build type $CHOSEN_BUILD_TYPE"
-		echo "How about one of the following?"
+		echo "Did you mean any of the following?"
 		TEMP_BUILD_FILE=$(mktemp -t $TMP_TEMPLATE)
 		grep "$CHOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE" > "$TEMP_BUILD_FILE"
 		while true;
@@ -162,7 +162,14 @@ get_build_details() {
 			sed -i "1d" "$TEMP_BUILD_FILE"
 		done
 		rm -rf "$TEMP_BUILD_FILE"
-		grep "$CHOSEN_BUILD_TYPE" "$BUILD_TYPE_FILE" | awk '{print$5}'
+
+		NUM_OF_BUILDS=$(wc -l "$BUILD_TYPE_FILE" | awk '{print$1}')
+		if [ "$NUM_OF_BUILDS" -eq 0 ]; then
+			grep -i "type:" "$DEFCONFIG_MAP_FILE" | awk '{print$4}'
+		else
+			grep "$CHOSEN_BUILD_TYPE" "$BUILD_TYPE_FILE" | awk '{print$5}'
+		fi
+
 		return 1
 	fi
 
