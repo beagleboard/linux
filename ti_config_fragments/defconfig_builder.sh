@@ -239,24 +239,25 @@ build_defconfig() {
 usage() {
 cat << EOF
 
-This script utilizes a map file to create defconfigs for multiple TI
-platforms.
-
-There is only one option for this script.  This option defines the working
-path to where the Linux kernel resides.
+This script will perform a merge of config fragment files into a defconfig
+based on a map file.  The map file defines the defconfig options that have
+been tested by TI to boot and compile.
 
 Optional:
 	-w - Location of the TI Linux kernel
 	-t - Indicates the type of defconfig to build.  This will force the
 	     defconfig to build without user interaction.
 
-Command line Example if building from the working Linux kernel
-top level directory:
-	ti_config_fragments/defconfig_builder.sh -w . -t ti_sdk_am3x_release
+Command line example to generate the TI SDK AM335x processor defconfig automatically
+without user interaction:
+
+	ti_config_fragments/defconfig_builder.sh -t ti_sdk_am3x_release
 
 Command line Example if building from the ti_config_fragments directory:
 	defconfig_builder.sh -w ../.
 
+User interactive command line example:
+	ti_config_fragments/defconfig_builder.sh
 EOF
 }
 
