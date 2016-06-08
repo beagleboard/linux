@@ -2,8 +2,21 @@
 #
 #  defconfig_builder.sh
 #
-#  This will perform a merged based on a file that contains information in the
-#  repos to be merged.
+#  Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
+#  ALL RIGHTS RESERVED
+#
+#  This script will perform a merge of config fragment files into a defconfig
+#  based on a map file.  The map file defines the defconfig options that have
+#  been tested by TI to boot and compile.
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
 #  For more information type defconfig_builder.sh -?
 #
@@ -11,9 +24,6 @@
 # 'shellcheck --shell=bash defconfig_builder.sh' See 'Installing' section in:
 # https://github.com/koalaman/shellcheck/blob/master/README.md
 # Also note that shellcheck must be at least at revision 0.3.3
-#
-#  Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com/
-#  ALL RIGHTS RESERVED
 
 BUILD_TYPE_TAG="type:"
 CONFIG_FRAGMENT_TAG="config-fragment="
