@@ -43,7 +43,7 @@ prepare_for_exit() {
 	D=$(dirname "$PROCESSOR_FILE")
 	rm -f "$PROCESSOR_FILE"
 	rm -f "$BUILD_TYPE_FILE"
-	if [ -f "$OLD_CONFIG" ]; then
+	if [ -s "$OLD_CONFIG" ]; then
 		mv "$OLD_CONFIG" "$WORKING_PATH"/.config
 	fi
 	# Clean everyone else up if we missed any
