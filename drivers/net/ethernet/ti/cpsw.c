@@ -940,6 +940,13 @@ static int cpsw_set_coalesce(struct net_device *ndev,
 	u32 prescale = 0;
 	u32 addnl_dvdr = 1;
 	u32 coal_intvl = 0;
+	int ret;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return ret;
+	}
 
 	coal_intvl = coal->rx_coalesce_usecs;
 
@@ -994,6 +1001,8 @@ update_return:
 		priv->coal_intvl = coal_intvl;
 	}
 
+	pm_runtime_put(&priv->pdev->dev);
+
 	return 0;
 }
 
@@ -1031,7 +1040,13 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
 	struct cpdma_chan_stats tx_stats;
 	u32 val;
 	u8 *p;
-	int i;
+	int i, ret;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return;
+	}
 
 	/* Collect Davinci CPDMA stats for Rx and Tx Channel */
 	cpdma_chan_get_stats(priv->rxch, &rx_stats);
@@ -1058,6 +1073,8 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
 			break;
 		}
 	}
+
+	pm_runtime_put(&priv->pdev->dev);
 }
 
 static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
@@ -1256,6 +1273,7 @@ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
 	slave->phy = NULL;
 	cpsw_ale_control_set(priv->ale, slave_port,
 			     ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
+	soft_reset_slave(slave);
 }
 
 static int cpsw_ndo_open(struct net_device *ndev)
@@ -1264,7 +1282,11 @@ static int cpsw_ndo_open(struct net_device *ndev)
 	int i, ret;
 	u32 reg;
 
-	pm_runtime_get_sync(&priv->pdev->dev);
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return ret;
+	}
 
 	if (!cpsw_common_res_usage_state(priv))
 		cpsw_intr_disable(priv);
@@ -1900,9 +1922,16 @@ static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
 	struct sockaddr *addr = (struct sockaddr *)p;
 	int flags = 0;
 	u16 vid = 0;
+	int ret;
 
 	if (!is_valid_ether_addr(addr->sa_data))
 		return -EADDRNOTAVAIL;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return ret;
+	}
 
 	if (priv->data.dual_emac) {
 		vid = priv->slaves[priv->emac_port].port_vlan;
@@ -1917,6 +1946,8 @@ static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
 	memcpy(priv->mac_addr, addr->sa_data, ETH_ALEN);
 	memcpy(ndev->dev_addr, priv->mac_addr, ETH_ALEN);
 	for_each_slave(priv, cpsw_set_slave_mac, priv);
+
+	pm_runtime_put(&priv->pdev->dev);
 
 	return 0;
 }
@@ -1982,9 +2013,16 @@ static int cpsw_ndo_vlan_rx_add_vid(struct net_device *ndev,
 				    __be16 proto, u16 vid)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
+	int ret;
 
 	if (vid == priv->data.default_vlan)
 		return 0;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return ret;
+	}
 
 	if (priv->data.dual_emac) {
 		/* In dual EMAC, reserved VLAN id should not be used for
@@ -2000,7 +2038,10 @@ static int cpsw_ndo_vlan_rx_add_vid(struct net_device *ndev,
 	}
 
 	dev_info(priv->dev, "Adding vlanid %d to vlan filter\n", vid);
-	return cpsw_add_vlan_ale_entry(priv, vid);
+	ret = cpsw_add_vlan_ale_entry(priv, vid);
+
+	pm_runtime_put(&priv->pdev->dev);
+	return ret;
 }
 
 static int cpsw_ndo_vlan_rx_kill_vid(struct net_device *ndev,
@@ -2011,6 +2052,12 @@ static int cpsw_ndo_vlan_rx_kill_vid(struct net_device *ndev,
 
 	if (vid == priv->data.default_vlan)
 		return 0;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return ret;
+	}
 
 	if (priv->data.dual_emac) {
 		int i;
@@ -2031,8 +2078,10 @@ static int cpsw_ndo_vlan_rx_kill_vid(struct net_device *ndev,
 	if (ret != 0)
 		return ret;
 
-	return cpsw_ale_del_mcast(priv->ale, priv->ndev->broadcast,
-				  0, ALE_VLAN, vid);
+	ret = cpsw_ale_del_mcast(priv->ale, priv->ndev->broadcast,
+				 0, ALE_VLAN, vid);
+	pm_runtime_put(&priv->pdev->dev);
+	return ret;
 }
 
 static const struct net_device_ops cpsw_netdev_ops = {
@@ -2064,11 +2113,20 @@ static void cpsw_get_regs(struct net_device *ndev,
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	u32 *reg = p;
+	int ret;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return;
+	}
 
 	/* update CPSW IP version */
 	regs->version = priv->version;
 
 	cpsw_ale_dump(priv->ale, reg);
+
+	pm_runtime_put(&priv->pdev->dev);
 }
 
 static void cpsw_get_drvinfo(struct net_device *ndev,
@@ -2186,12 +2244,20 @@ static int cpsw_set_pauseparam(struct net_device *ndev,
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	bool link;
+	int ret;
+
+	ret = pm_runtime_get_sync(&priv->pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&priv->pdev->dev);
+		return ret;
+	}
 
 	priv->rx_pause = pause->rx_pause ? true : false;
 	priv->tx_pause = pause->tx_pause ? true : false;
 
 	for_each_slave(priv, _cpsw_adjust_link, priv, &link);
 
+	pm_runtime_put(&priv->pdev->dev);
 	return 0;
 }
 
@@ -2612,7 +2678,11 @@ static int cpsw_probe(struct platform_device *pdev)
 	/* Need to enable clocks with runtime PM api to access module
 	 * registers
 	 */
-	pm_runtime_get_sync(&pdev->dev);
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(&pdev->dev);
+		goto clean_runtime_disable_ret;
+	}
 	priv->version = readl(&priv->regs->id_ver);
 	pm_runtime_put_sync(&pdev->dev);
 
@@ -2849,15 +2919,11 @@ static int cpsw_suspend(struct device *dev)
 		for (i = 0; i < priv->data.slaves; i++) {
 			if (netif_running(priv->slaves[i].ndev))
 				cpsw_ndo_stop(priv->slaves[i].ndev);
-			soft_reset_slave(priv->slaves + i);
 		}
 	} else {
 		if (netif_running(ndev))
 			cpsw_ndo_stop(ndev);
-		for_each_slave(priv, soft_reset_slave);
 	}
-
-	pm_runtime_put_sync(&pdev->dev);
 
 	/* Select sleep pin state */
 	pinctrl_pm_select_sleep_state(&pdev->dev);
@@ -2870,8 +2936,6 @@ static int cpsw_resume(struct device *dev)
 	struct platform_device	*pdev = to_platform_device(dev);
 	struct net_device	*ndev = platform_get_drvdata(pdev);
 	struct cpsw_priv	*priv = netdev_priv(ndev);
-
-	pm_runtime_get_sync(&pdev->dev);
 
 	/* Select default pin state */
 	pinctrl_pm_select_default_state(&pdev->dev);

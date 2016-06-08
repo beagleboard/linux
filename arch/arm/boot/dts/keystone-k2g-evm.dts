@@ -483,6 +483,19 @@
 	status = "okay";
 };
 
+&keystone_usb1 {
+	status = "okay";
+};
+
+&usb1_phy {
+	status = "okay";
+};
+
+&usb1 {
+	dr_mode = "peripheral";
+	status = "okay";
+};
+
 &mdio {
 	status = "okay";
 	ethphy0: ethernet-phy@0 {
@@ -591,4 +604,12 @@
 	>;
 	tx-num-evt = <32>;
 	rx-num-evt = <32>;
+};
+
+&pcie0_phy {
+	status = "okay";
+};
+
+&pcie0 {
+	status = "okay";
 };
