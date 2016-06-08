@@ -126,9 +126,13 @@ choose_build_type() {
 		echo -e "Available defconfig build options:\n"
 		cat "$BUILD_TYPE_FILE"
 		echo ""
-		read -p "Please choose which defconfig to build or 'q' to exit: " REPLY
+		read -p "Please enter the number of the defconfig to build or 'q' to exit: " REPLY
+
 		if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
 			prepare_for_exit
+		elif ! [[ "$REPLY" =~ ^[0-9]+$ ]]; then
+			echo -e "\n$REPLY is not a number of the defconfig.  Please try again!\n"
+			continue
 		elif [ "$REPLY" -gt '0' -a "$REPLY" -le "$NUM_OF_BUILDS" ]; then
 			CHOSEN_BUILD_TYPE=$(grep -w "$REPLY" "$BUILD_TYPE_FILE" | awk '{print$2}')
 			break
