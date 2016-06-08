@@ -21,9 +21,10 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 
-#include <video/omapdss.h>
-#include <video/omap-panel-data.h>
 #include <video/of_display_timing.h>
+#include <video/mipi_display.h>
+
+#include "../dss/omapdss.h"
 
 #define TC358768_NAME		"tc358768"
 
@@ -202,6 +203,21 @@ static int tc358768_update_bits(struct tc358768_drv_data *ddata,
 	return ret;
 }
 
+static int tc358768_dsi_xfer_short(struct tc358768_drv_data *ddata,
+	u8 data_id, u8 data0, u8 data1)
+{
+	const u8 packet_type = 0x10; /* DSI Short Packet */
+	const u8 word_count = 0;
+
+	tc358768_write(ddata, TC358768_DSICMD_TYPE,
+		(packet_type << 8) | data_id);
+	tc358768_write(ddata, TC358768_DSICMD_WC, (word_count & 0xf));
+	tc358768_write(ddata, TC358768_DSICMD_WD0, (data1 << 8) | data0);
+	tc358768_write(ddata, TC358768_DSICMD_TX, 1); /* start transfer */
+
+	return 0;
+}
+
 static void tc358768_sw_reset(struct tc358768_drv_data *ddata)
 {
 	/* Assert Reset */
@@ -210,55 +226,101 @@ static void tc358768_sw_reset(struct tc358768_drv_data *ddata)
 	tc358768_write(ddata, TC358768_SYSCTL, 0);
 }
 
+static u32 tc358768_pll_to_pclk(struct tc358768_drv_data *ddata, u32 pll)
+{
+	u32 byteclk;
+
+	byteclk = pll / 2 / 4;
+
+	return (u32)div_u64((u64)byteclk * 8 * ddata->dsi_ndl,
+		ddata->dpi_ndl);
+}
+
+static u32 tc358768_pclk_to_pll(struct tc358768_drv_data *ddata, u32 pclk)
+{
+	u32 byteclk;
+
+	byteclk = (u32)div_u64((u64)pclk * ddata->dpi_ndl,
+		8 * ddata->dsi_ndl);
+
+	return byteclk * 4 * 2;
+}
+
 static int tc358768_calc_pll(struct tc358768_drv_data *ddata)
 {
+	const unsigned frs_limits[] = {
+		1000000000, 500000000, 250000000, 125000000, 62500000
+	};
 	unsigned fbd, prd, frs;
-	u32 pll;
-	u32 target;
-	bool found;
+	u32 target_pll;
 	unsigned long refclk;
+	unsigned i;
+	u32 max_pll, min_pll;
 
-	/* target byteclk */
-	target = ddata->videomode.pixelclock * ddata->dpi_ndl / 8 / ddata->dsi_ndl;
-	/* target pll clk */
-	target = target * 4 * 2;
+	u32 best_diff, best_pll, best_prd, best_fbd;
+
+	target_pll = tc358768_pclk_to_pll(ddata, ddata->videomode.pixelclock);
 
 	/* pll_clk = RefClk * [(FBD + 1)/ (PRD + 1)] * [1 / (2^FRS)] */
 
-	if (target >= 500000000)
-		frs = 0;
-	else if (target >= 250000000)
-		frs = 1;
-	else if (target >= 125000000)
-		frs = 2;
-	else if (target >= 62500000)
-		frs = 3;
-	else
-		return -EINVAL;
+	frs = UINT_MAX;
 
-	found = false;
-
-	refclk = clk_get_rate(ddata->refclk);
-
-	for (prd = 0; prd < 16; ++prd) {
-		for (fbd = 0; fbd < 512; ++fbd) {
-			pll = (u32)div_u64((u64)refclk * (fbd + 1),
-				(prd + 1) * (1 << frs));
-
-			if (pll == target) {
-				ddata->fbd = fbd;
-				ddata->prd = prd;
-				ddata->frs = frs;
-				ddata->bitclk = pll / 2;
-
-				return 0;
-			}
+	for (i = 0; i < ARRAY_SIZE(frs_limits) - 1; ++i) {
+		if (target_pll < frs_limits[i] && target_pll >= frs_limits[i + 1]) {
+			frs = i;
+			max_pll = frs_limits[i];
+			min_pll = frs_limits[i + 1];
+			break;
 		}
 	}
 
-	dev_err(ddata->dev, "could not find suitable PLL setup\n");
+	if (frs == UINT_MAX)
+		return -EINVAL;
 
-	return -EINVAL;
+	refclk = clk_get_rate(ddata->refclk);
+
+	best_pll = best_prd = best_fbd = 0;
+	best_diff = UINT_MAX;
+
+	for (prd = 0; prd < 16; ++prd) {
+		u32 divisor = (prd + 1) * (1 << frs);
+
+		for (fbd = 0; fbd < 512; ++fbd) {
+			u32 pll, diff;
+
+			pll = (u32)div_u64((u64)refclk * (fbd + 1), divisor);
+
+			if (pll >= max_pll || pll < min_pll)
+				continue;
+
+			diff = max(pll, target_pll) - min(pll, target_pll);
+
+			if (diff < best_diff) {
+				best_diff = diff;
+				best_pll = pll;
+				best_prd = prd;
+				best_fbd = fbd;
+			}
+
+			if (best_diff == 0)
+				break;
+		}
+
+		if (best_diff == 0)
+			break;
+	}
+
+	if (best_diff == UINT_MAX) {
+		dev_err(ddata->dev, "could not find suitable PLL setup\n");
+		return -EINVAL;
+	}
+
+	ddata->fbd = best_fbd;
+	ddata->prd = best_prd;
+	ddata->frs = frs;
+	ddata->bitclk = best_pll / 2;
+
+	return 0;
 }
 
 static void tc358768_setup_pll(struct tc358768_drv_data *ddata)
@@ -272,8 +334,9 @@ static void tc358768_setup_pll(struct tc358768_drv_data *ddata)
 	dev_dbg(ddata->dev, "PLL: refclk %lu, fbd %u, prd %u, frs %u\n",
 		clk_get_rate(ddata->refclk), fbd, prd, frs);
 
-	dev_dbg(ddata->dev, "PLL: %u MHz, BitClk %u MHz, ByteClk %u MHz\n",
-		ddata->bitclk * 2, ddata->bitclk, ddata->bitclk / 4);
+	dev_dbg(ddata->dev, "PLL: %u, BitClk %u, ByteClk %u, pclk %u\n",
+		ddata->bitclk * 2, ddata->bitclk, ddata->bitclk / 4,
+		tc358768_pll_to_pclk(ddata, ddata->bitclk * 2));
 
 	/* PRD[15:12] FBD[8:0] */
 	tc358768_write(ddata, TC358768_PLLCTL0, (prd << 12) | fbd);
@@ -454,6 +517,9 @@ static int tc358768_enable(struct omap_dss_device *dssdev)
 	usleep_range(1000, 2000);
 
 	tc358768_power_on(ddata);
+
+	/* enable panel */
+	tc358768_dsi_xfer_short(ddata, MIPI_DSI_TURN_ON_PERIPHERAL, 0, 0);
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 

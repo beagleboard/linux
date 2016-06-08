@@ -493,17 +493,21 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra7-evm.dtb \
 	dra7-evm-lcd-lg.dtb \
 	dra7-evm-lcd-osd.dtb \
+	dra7-evm-lcd-osd101t2587.dtb \
 	am57xx-beagle-x15.dtb \
 	am57xx-beagle-x15-revb1.dtb \
 	am571x-idk.dtb \
 	am571x-idk-lcd-osd.dtb \
+	am571x-idk-lcd-osd101t2587.dtb \
 	am572x-idk.dtb \
 	am572x-idk-lcd-osd.dtb \
+	am572x-idk-lcd-osd101t2587.dtb \
 	am57xx-evm.dtb \
 	am57xx-evm-reva3.dtb \
 	dra72-evm.dtb \
 	dra72-evm-lcd-lg.dtb \
 	dra72-evm-lcd-osd.dtb \
+	dra72-evm-lcd-osd101t2587.dtb \
 	dra72-evm-revc.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-lacie-d2-network.dtb \

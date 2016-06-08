@@ -23,8 +23,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_data/omap_drm.h>
 
-#include <video/omapdss.h>
-
+#include "omapdss.h"
 #include "dss6.h"
 
 #define DSS_REVISION	0x00
