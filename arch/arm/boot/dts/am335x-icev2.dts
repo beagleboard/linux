@@ -195,7 +195,6 @@
 			AM33XX_IOPAD(0x8fc, PIN_INPUT_PULLUP | MUX_MODE0) /* (G16) mmc0_dat0.mmc0_dat0 */
 			AM33XX_IOPAD(0x900, PIN_INPUT_PULLUP | MUX_MODE0) /* (G17) mmc0_clk.mmc0_clk */
 			AM33XX_IOPAD(0x904, PIN_INPUT_PULLUP | MUX_MODE0) /* (G18) mmc0_cmd.mmc0_cmd */
-			AM33XX_IOPAD(0x960, PIN_INPUT_PULLUP | MUX_MODE5) /* (C15) spi0_cs1.mmc0_sdcd */
 		>;
 	};
 
@@ -352,6 +351,19 @@
 		reg = <0x60>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	/* osd9616p0899-10 */
+	display@3c {
+		compatible = "solomon,ssd1306fb-i2c";
+		reg = <0x3c>;
+		solomon,height = <16>;
+		solomon,width = <96>;
+		solomon,com-seq;
+		solomon,com-invdir;
+		solomon,page-offset = <0>;
+		solomon,prechargep1 = <2>;
+		solomon,prechargep2 = <13>;
 	};
 };
 

@@ -20,8 +20,6 @@
 #include <linux/device.h>
 #include <linux/regmap.h>
 
-#include <video/omapdss.h>
-
 #include <drm/drm_edid.h>
 
 #include <linux/hdmi.h>
@@ -32,6 +30,7 @@
 
 #include <dt-bindings/sound/sii9022-audio.h>
 
+#include "../dss/omapdss.h"
 #include "encoder-sii9022.h"
 
 struct sii9022_audio {

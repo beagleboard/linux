@@ -28,7 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 
-#include <video/omapdss.h>
+#include "omapdss.h"
 
 void omapdss_default_get_resolution(struct omap_dss_device *dssdev,
 			u16 *xres, u16 *yres)

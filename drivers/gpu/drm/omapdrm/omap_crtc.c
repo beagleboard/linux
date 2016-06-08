@@ -463,6 +463,20 @@ static void omap_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	copy_timings_drm_to_omap(&omap_crtc->timings, mode);
 }
 
+static int omap_crtc_atomic_check(struct drm_crtc *crtc,
+				struct drm_crtc_state *state)
+{
+	if (state->color_mgmt_changed && state->gamma_lut) {
+		uint length = state->gamma_lut->length /
+			sizeof(struct drm_color_lut);
+
+		if (length < 2)
+			return -EINVAL;
+	}
+
+	return 0;
+}
+
 static void omap_crtc_atomic_begin(struct drm_crtc *crtc,
                                   struct drm_crtc_state *old_crtc_state)
 {
@@ -477,6 +491,19 @@ static void omap_crtc_atomic_flush(struct drm_crtc *crtc,
 	WARN_ON(omap_crtc->vblank_irq.registered);
 
 	omap_crtc_write_crtc_properties(crtc);
+
+	if (crtc->state->color_mgmt_changed) {
+		struct drm_color_lut *lut = NULL;
+		uint length = 0;
+
+		if (crtc->state->gamma_lut) {
+			lut = (struct drm_color_lut *)
+				crtc->state->gamma_lut->data;
+			length = crtc->state->gamma_lut->length /
+				sizeof(*lut);
+		}
+		priv->dispc_ops->mgr_set_gamma(omap_crtc->channel, lut, length);
+	}
 
 	if (priv->dispc_ops->mgr_is_enabled(omap_crtc->channel)) {
 
@@ -607,6 +634,7 @@ static const struct drm_crtc_funcs omap_crtc_funcs = {
 	.set_config = drm_atomic_helper_set_config,
 	.destroy = omap_crtc_destroy,
 	.page_flip = drm_atomic_helper_page_flip,
+	.gamma_set = drm_atomic_helper_legacy_gamma_set,
 	.set_property = drm_atomic_helper_crtc_set_property,
 	.atomic_duplicate_state = omap_crtc_atomic_duplicate_state,
 	.atomic_destroy_state = omap_crtc_atomic_destroy_state,
@@ -619,6 +647,7 @@ static const struct drm_crtc_helper_funcs omap_crtc_helper_funcs = {
 	.mode_set_nofb = omap_crtc_mode_set_nofb,
 	.disable = omap_crtc_disable,
 	.enable = omap_crtc_enable,
+	.atomic_check = omap_crtc_atomic_check,
 	.atomic_begin = omap_crtc_atomic_begin,
 	.atomic_flush = omap_crtc_atomic_flush,
 };
@@ -697,6 +726,21 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 	drm_crtc_helper_add(crtc, &omap_crtc_helper_funcs);
 
 	omap_crtc_install_properties(crtc);
+
+	/* The dispc API adapts to what ever size, but the HW supports
+	 * 256 element gamma table for LCDs and 1024 element table for
+	 * OMAP_DSS_CHANNEL_DIGIT. X server assumes 256 element gamma
+	 * tables so lets use that. Size of HW gamma table can be
+	 * extracted with dispc_mgr_gamma_size(). If it returns 0
+	 * gamma table is not supprted.
+	 */
+	if (priv->dispc_ops->mgr_gamma_size(channel)) {
+		uint gamma_lut_size = 256;
+
+		drm_crtc_enable_color_mgmt(crtc, 0, false, gamma_lut_size);
+		drm_mode_crtc_set_gamma_size(crtc, gamma_lut_size);
+	}
+
 	omap_plane_install_properties(crtc->primary, &crtc->base);
 
 	omap_crtcs[channel] = omap_crtc;

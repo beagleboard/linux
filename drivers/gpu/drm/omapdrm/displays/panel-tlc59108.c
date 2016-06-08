@@ -20,9 +20,9 @@
 #include <linux/delay.h>
 #include <linux/of_device.h>
 
-#include <video/omapdss.h>
-#include <video/omap-panel-data.h>
 #include <video/of_display_timing.h>
+
+#include "../dss/omapdss.h"
 
 #define TLC_NAME		"tlc59108"
 #define TLC_I2C_ADDR		0x40
