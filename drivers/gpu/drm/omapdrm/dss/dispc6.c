@@ -1145,6 +1145,17 @@ static int dispc6_get_num_mgrs(void)
 	return 1;
 }
 
+static u32 dispc6_mgr_gamma_size(enum omap_channel channel)
+{
+	return 0;
+}
+
+static void dispc6_mgr_set_gamma(enum omap_channel channel,
+			 const struct drm_color_lut *lut,
+			 unsigned int length)
+{
+}
+
 static const struct dispc_ops dispc6_ops = {
 	.read_irqstatus = dispc6_read_legacy_irqstatus,
 	.clear_irqstatus = dispc6_clear_legacy_irqstatus,
@@ -1171,6 +1182,8 @@ static const struct dispc_ops dispc6_ops = {
 	.mgr_set_timings = dispc6_mgr_set_timings,
 	.mgr_setup = dispc6_mgr_setup,
 	.mgr_get_supported_outputs = dispc6_mgr_get_supported_outputs,
+	.mgr_gamma_size = dispc6_mgr_gamma_size,
+	.mgr_set_gamma = dispc6_mgr_set_gamma,
 
 	.ovl_enable = dispc6_ovl_enable,
 	.ovl_enabled = dispc6_ovl_enabled,
