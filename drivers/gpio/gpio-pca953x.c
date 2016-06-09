@@ -777,6 +777,7 @@ static const struct of_device_id pca953x_dt_ids[] = {
 	{ .compatible = "maxim,max7315", },
 
 	{ .compatible = "ti,pca6107", },
+	{ .compatible = "ti,pca9536", },
 	{ .compatible = "ti,tca6408", },
 	{ .compatible = "ti,tca6416", },
 	{ .compatible = "ti,tca6424", },
