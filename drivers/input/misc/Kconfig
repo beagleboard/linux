@@ -566,6 +566,17 @@ config INPUT_GPIO_ROTARY_ENCODER
 	  To compile this driver as a module, choose M here: the
 	  module will be called rotary_encoder.
 
+config INPUT_GPIO_ROTARY_ENCODER_POLL_MODE_SUPPORT
+	bool "Polling mode support for rotary encoder"
+	depends on INPUT_GPIO_ROTARY_ENCODER
+	select INPUT_POLLDEV
+	help
+	  Say Y here to enable polling mode support for rotary encoders
+	  connected to GPIO lines that do have interrupt capability and
+	  report rotary encoder position as absolute value over GPIO
+	  lines. Check file: Documentation/input/rotary-encoder.txt for
+	  more information.
+
 config INPUT_RB532_BUTTON
 	tristate "Mikrotik Routerboard 532 button interface"
 	depends on MIKROTIK_RB532

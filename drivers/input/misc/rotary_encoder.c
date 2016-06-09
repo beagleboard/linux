@@ -25,24 +25,29 @@
 #include <linux/of.h>
 #include <linux/pm.h>
 #include <linux/property.h>
+#include <linux/input-polldev.h>
 
 #define DRV_NAME "rotary-encoder"
 
 struct rotary_encoder {
 	struct input_dev *input;
-
+#ifdef CONFIG_INPUT_GPIO_ROTARY_ENCODER_POLL_MODE_SUPPORT
+	struct input_polled_dev *poll_dev;
+#endif
 	struct mutex access_mutex;
 
 	u32 steps;
 	u32 axis;
 	bool relative_axis;
 	bool rollover;
+	bool absolute_encoder;
 
 	unsigned int pos;
 
 	struct gpio_descs *gpios;
+	struct device *dev;
 
-	unsigned int *irq;
+	int *irq;
 
 	bool armed;
 	signed char dir;	/* 1 - clockwise, -1 - CCW */
@@ -65,6 +70,21 @@ static unsigned int rotary_encoder_get_state(struct rotary_encoder *encoder)
 	}
 
 	return ret & 3;
+}
+
+static unsigned int rotary_encoder_get_gpios_state(struct rotary_encoder
+						   *encoder)
+{
+	int i;
+	unsigned int ret = 0;
+
+	for (i = 0; i < encoder->gpios->ndescs; ++i) {
+		int val = gpiod_get_value_cansleep(encoder->gpios->desc[i]);
+
+		ret = ret << 1 | val;
+	}
+
+	return ret;
 }
 
 static void rotary_encoder_report_event(struct rotary_encoder *encoder)
@@ -178,6 +198,72 @@ out:
 	return IRQ_HANDLED;
 }
 
+static void rotary_encoder_setup_input_params(struct rotary_encoder  *encoder)
+{
+	struct input_dev *input = encoder->input;
+	struct platform_device *pdev = to_platform_device(encoder->dev);
+
+	input->name = pdev->name;
+	input->id.bustype = BUS_HOST;
+	input->dev.parent = encoder->dev;
+
+	if (encoder->relative_axis)
+		input_set_capability(input, EV_REL, encoder->axis);
+	else
+		input_set_abs_params(input,
+				     encoder->axis, 0, encoder->steps, 0, 1);
+}
+
+static irqreturn_t rotary_absolute_encoder_irq(int irq, void *dev_id)
+{
+	struct rotary_encoder *encoder = dev_id;
+	unsigned int state;
+
+	mutex_lock(&encoder->access_mutex);
+
+	state = rotary_encoder_get_gpios_state(encoder);
+	if (state != encoder->last_stable) {
+		input_report_abs(encoder->input, encoder->axis, state);
+		input_sync(encoder->input);
+		encoder->last_stable = state;
+	}
+
+	mutex_lock(&encoder->access_mutex);
+
+	return IRQ_HANDLED;
+}
+
+#ifdef CONFIG_INPUT_GPIO_ROTARY_ENCODER_POLL_MODE_SUPPORT
+static void rotary_encoder_poll_gpios(struct input_polled_dev *poll_dev)
+{
+	struct rotary_encoder *encoder = poll_dev->private;
+	unsigned int state = rotary_encoder_get_gpios_state(encoder);
+
+	if (state != encoder->last_stable) {
+		input_report_abs(encoder->input, encoder->axis, state);
+		input_sync(encoder->input);
+		encoder->last_stable = state;
+	}
+}
+
+static int rotary_encoder_register_poll_device(struct rotary_encoder
+		*encoder)
+{
+	struct input_polled_dev *poll_dev =
+		devm_input_allocate_polled_device(encoder->dev);
+
+	if (!poll_dev)
+		return -ENOMEM;
+	poll_dev->private = encoder;
+	poll_dev->poll = rotary_encoder_poll_gpios;
+	encoder->input = poll_dev->input;
+	rotary_encoder_setup_input_params(encoder);
+	encoder->poll_dev = poll_dev;
+
+	return input_register_polled_device(poll_dev);
+}
+#endif
+
 static int rotary_encoder_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -227,38 +313,32 @@ static int rotary_encoder_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	input = devm_input_allocate_device(dev);
-	if (!input)
-		return -ENOMEM;
-
-	encoder->input = input;
-
-	input->name = pdev->name;
-	input->id.bustype = BUS_HOST;
-	input->dev.parent = dev;
-
-	if (encoder->relative_axis)
-		input_set_capability(input, EV_REL, encoder->axis);
-	else
-		input_set_abs_params(input,
-				     encoder->axis, 0, encoder->steps, 0, 1);
-
-	switch (steps_per_period >> (encoder->gpios->ndescs - 2)) {
-	case 4:
-		handler = &rotary_encoder_quarter_period_irq;
-		encoder->last_stable = rotary_encoder_get_state(encoder);
-		break;
-	case 2:
-		handler = &rotary_encoder_half_period_irq;
-		encoder->last_stable = rotary_encoder_get_state(encoder);
-		break;
-	case 1:
-		handler = &rotary_encoder_irq;
-		break;
-	default:
-		dev_err(dev, "'%d' is not a valid steps-per-period value\n",
-			steps_per_period);
-		return -EINVAL;
+	encoder->dev = dev;
+	encoder->absolute_encoder =
+		device_property_read_bool(dev,
+					  "rotary-encoder,absolute-encoder");
+	if (encoder->absolute_encoder) {
+		handler = rotary_absolute_encoder_irq;
+	} else {
+		switch (steps_per_period >> (encoder->gpios->ndescs - 2)) {
+		case 4:
+			handler = &rotary_encoder_quarter_period_irq;
+			encoder->last_stable =
+				rotary_encoder_get_state(encoder);
+			break;
+		case 2:
+			handler = &rotary_encoder_half_period_irq;
+			encoder->last_stable =
+				rotary_encoder_get_state(encoder);
+			break;
+		case 1:
+			handler = &rotary_encoder_irq;
+			break;
+		default:
+			dev_err(dev, "'%d' is not a valid steps-per-period value\n",
+				steps_per_period);
+			return -EINVAL;
+		}
 	}
 
 	encoder->irq =
@@ -271,6 +351,18 @@ static int rotary_encoder_probe(struct platform_device *pdev)
 	for (i = 0; i < encoder->gpios->ndescs; ++i) {
 		encoder->irq[i] = gpiod_to_irq(encoder->gpios->desc[i]);
 
+#ifdef CONFIG_INPUT_GPIO_ROTARY_ENCODER_POLL_MODE_SUPPORT
+		if (encoder->irq[i] < 0 && encoder->absolute_encoder) {
+			dev_info(dev, "Using poll mode\n");
+			err = rotary_encoder_register_poll_device(encoder);
+			if (err) {
+				dev_err(dev, "failed to register poll dev\n");
+				return err;
+			}
+			platform_set_drvdata(pdev, encoder);
+			return 0;
+		}
+#endif
 		err = devm_request_threaded_irq(dev, encoder->irq[i],
 				NULL, handler,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
@@ -283,6 +375,11 @@ static int rotary_encoder_probe(struct platform_device *pdev)
 		}
 	}
 
+	input = devm_input_allocate_device(dev);
+	if (!input)
+		return -ENOMEM;
+	encoder->input = input;
+	rotary_encoder_setup_input_params(encoder);
 	err = input_register_device(input);
 	if (err) {
 		dev_err(dev, "failed to register input device\n");
