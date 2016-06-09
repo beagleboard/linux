@@ -64,12 +64,15 @@
 #define	LINK_UP						BIT(16)
 #define	DRA7XX_CPU_TO_BUS_ADDR				0x0FFFFFFF
 
+#define EXP_CAP_ID_OFFSET				0x70
+
 struct dra7xx_pcie {
 	void __iomem		*base;
 	struct phy		**phy;
 	int			phy_count;
 	struct device		*dev;
 	struct pcie_port	pp;
+	bool			is_gen1;
 };
 
 #define to_dra7xx_pcie(x)	container_of((x), struct dra7xx_pcie, pp)
@@ -109,10 +112,31 @@ static int dra7xx_pcie_establish_link(struct pcie_port *pp)
 	struct dra7xx_pcie *dra7xx = to_dra7xx_pcie(pp);
 	u32 reg;
 	unsigned int retries;
+	u32 exp_cap_off = EXP_CAP_ID_OFFSET;
 
 	if (dw_pcie_link_up(pp)) {
 		dev_err(pp->dev, "link is already up\n");
 		return 0;
+	}
+
+	if (dra7xx->is_gen1) {
+		dw_pcie_cfg_read(pp->dbi_base + exp_cap_off + PCI_EXP_LNKCAP,
+				 4, &reg);
+		if ((reg & PCI_EXP_LNKCAP_SLS) != PCI_EXP_LNKCAP_SLS_2_5GB) {
+			reg &= ~((u32)PCI_EXP_LNKCAP_SLS);
+			reg |= PCI_EXP_LNKCAP_SLS_2_5GB;
+			dw_pcie_cfg_write(pp->dbi_base + exp_cap_off +
+					  PCI_EXP_LNKCAP, 4, reg);
+		}
+
+		dw_pcie_cfg_read(pp->dbi_base + exp_cap_off + PCI_EXP_LNKCTL2,
+				 2, &reg);
+		if ((reg & PCI_EXP_LNKCAP_SLS) != PCI_EXP_LNKCAP_SLS_2_5GB) {
+			reg &= ~((u32)PCI_EXP_LNKCAP_SLS);
+			reg |= PCI_EXP_LNKCAP_SLS_2_5GB;
+			dw_pcie_cfg_write(pp->dbi_base + exp_cap_off +
+					  PCI_EXP_LNKCTL2, 2, reg);
+		}
 	}
 
 	reg = dra7xx_pcie_readl(dra7xx, PCIECTRL_DRA7XX_CONF_DEVICE_CMD);
@@ -417,6 +441,9 @@ static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 	reg = dra7xx_pcie_readl(dra7xx, PCIECTRL_DRA7XX_CONF_DEVICE_CMD);
 	reg &= ~LTSSM_EN;
 	dra7xx_pcie_writel(dra7xx, PCIECTRL_DRA7XX_CONF_DEVICE_CMD, reg);
+
+	if (of_property_read_bool(np, "ti,pcie-is-gen1"))
+		dra7xx->is_gen1 = true;
 
 	platform_set_drvdata(pdev, dra7xx);
 
