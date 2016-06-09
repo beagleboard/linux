@@ -365,6 +365,13 @@
 		solomon,prechargep1 = <2>;
 		solomon,prechargep2 = <13>;
 	};
+
+	pca9536: gpio@41 {
+		compatible = "ti,pca9536";
+		reg = <0x41>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &spi0 {
