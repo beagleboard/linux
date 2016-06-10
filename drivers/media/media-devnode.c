@@ -302,17 +302,7 @@ cdev_add_error:
 	return ret;
 }
 
-/**
- * media_devnode_unregister - unregister a media device node
- * @devnode: the device node to unregister
- *
- * This unregisters the passed device. Future open calls will be met with
- * errors.
- *
- * This function can safely be called if the device node has never been
- * registered or has already been unregistered.
- */
-void media_devnode_unregister(struct media_devnode *devnode)
+void media_devnode_unregister_prepare(struct media_devnode *devnode)
 {
 	/* Check if devnode was ever registered at all */
 	if (!media_devnode_is_registered(devnode))
@@ -320,6 +310,21 @@ void media_devnode_unregister(struct media_devnode *devnode)
 
 	mutex_lock(&media_devnode_lock);
 	clear_bit(MEDIA_FLAG_REGISTERED, &devnode->flags);
+	mutex_unlock(&media_devnode_lock);
+}
+
+/**
+ * media_devnode_unregister - unregister a media device node
+ * @devnode: the device node to unregister
+ *
+ * This unregisters the passed device. Future open calls will be met with
+ * errors.
+ *
+ * Should be called after media_devnode_unregister_prepare()
+ */
+void media_devnode_unregister(struct media_devnode *devnode)
+{
+	mutex_lock(&media_devnode_lock);
 	/* Delete the cdev on this minor as well */
 	cdev_del(&devnode->cdev);
 	mutex_unlock(&media_devnode_lock);

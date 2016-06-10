@@ -93,6 +93,20 @@ struct media_devnode {
 int __must_check media_devnode_register(struct media_device *mdev,
 					struct media_devnode *devnode,
 					struct module *owner);
+
+/**
+ * media_devnode_unregister_prepare - clear the media device node register bit
+ * @devnode: the device node to prepare for unregister
+ *
+ * This clears the passed device register bit. Future open calls will be met
+ * with errors. Should be called before media_devnode_unregister() to avoid
+ * races with unregister and device file open calls.
+ *
+ * This function can safely be called if the device node has never been
+ * registered or has already been unregistered.
+ */
+void media_devnode_unregister_prepare(struct media_devnode *devnode);
+
 void media_devnode_unregister(struct media_devnode *devnode);
 
 static inline struct media_devnode *media_devnode_data(struct file *filp)
