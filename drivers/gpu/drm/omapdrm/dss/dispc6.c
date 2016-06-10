@@ -79,6 +79,7 @@ static struct {
 	bool ctx_valid;
 	u32 ctx_vid1[0x400];
 
+	u32 gamma_table[256];
 } dispc;
 
 static void dispc6_write(u16 reg, u32 val)
@@ -1093,10 +1094,17 @@ static void dispc6_mflag_setup(void)
 	dispc6_vid_set_mflag_threshold(plane, low, high);
 }
 
+static void dispc6_vp_setup(void)
+{
+	/* Enable the gamma Shadow bit-field */
+	VP_REG_FLD_MOD(0, DISPC_VP_CONFIG, 1, 2, 2);
+}
+
 static void dispc6_initial_config(void)
 {
 	dispc6_vid_csc_setup();
 	dispc6_mflag_setup();
+	dispc6_vp_setup();
 }
 
 static int dispc6_init_features(struct platform_device *pdev)
@@ -1147,13 +1155,88 @@ static int dispc6_get_num_mgrs(void)
 
 static u32 dispc6_mgr_gamma_size(enum omap_channel channel)
 {
-	return 0;
+	return ARRAY_SIZE(dispc.gamma_table);
 }
+
+static void dispc6_mgr_write_gamma_table(enum omap_channel channel)
+{
+	u32 *table = dispc.gamma_table;
+	uint hwlen = ARRAY_SIZE(dispc.gamma_table);
+	unsigned int i;
+
+	dev_dbg(&dispc.pdev->dev, "%s: channel %d\n", __func__, channel);
+
+	for (i = 0; i < hwlen; ++i) {
+		u32 v = table[i];
+
+		v |= i << 24;
+
+		dispc6_vp_write(channel, DISPC_VP_GAMMA_TABLE, v);
+	}
+}
+
+static void dispc6_restore_gamma_tables(void)
+{
+	dev_dbg(&dispc.pdev->dev, "%s()\n", __func__);
+
+	dispc6_mgr_write_gamma_table(0);
+}
+
+static const struct drm_color_lut dispc6_mgr_gamma_default_lut[] = {
+	{ .red = 0, .green = 0, .blue = 0, },
+	{ .red = U16_MAX, .green = U16_MAX, .blue = U16_MAX, },
+};
 
 static void dispc6_mgr_set_gamma(enum omap_channel channel,
 			 const struct drm_color_lut *lut,
 			 unsigned int length)
 {
+	u32 *table = dispc.gamma_table;
+	uint hwlen = ARRAY_SIZE(dispc.gamma_table);
+	static const uint hwbits = 8;
+	uint i;
+
+	dev_dbg(&dispc.pdev->dev, "%s: channel %d, lut len %u, hw len %u\n",
+		__func__, channel, length, hwlen);
+
+	if (lut == NULL || length < 2) {
+		lut = dispc6_mgr_gamma_default_lut;
+		length = ARRAY_SIZE(dispc6_mgr_gamma_default_lut);
+	}
+
+	for (i = 0; i < length - 1; ++i) {
+		uint first = i * (hwlen - 1) / (length - 1);
+		uint last = (i + 1) * (hwlen - 1) / (length - 1);
+		uint w = last - first;
+		u16 r, g, b;
+		uint j;
+
+		if (w == 0)
+			continue;
+
+		for (j = 0; j <= w; j++) {
+			r = (lut[i].red * (w - j) + lut[i+1].red * j) / w;
+			g = (lut[i].green * (w - j) + lut[i+1].green * j) / w;
+			b = (lut[i].blue * (w - j) + lut[i+1].blue * j) / w;
+
+			r >>= 16 - hwbits;
+			g >>= 16 - hwbits;
+			b >>= 16 - hwbits;
+
+			table[first + j] = (r << (hwbits * 2)) |
+				(g << hwbits) | b;
+		}
+	}
+
+	if (dispc.is_enabled)
+		dispc6_mgr_write_gamma_table(channel);
+}
+
+static int dispc6_init_gamma_tables(void)
+{
+	dispc6_mgr_set_gamma(0, NULL, 0);
+
+	return 0;
 }
 
 static const struct dispc_ops dispc6_ops = {
@@ -1262,6 +1345,10 @@ static int dispc6_bind(struct device *dev, struct device *master, void *data)
 		return PTR_ERR(dispc.vp_clk);
 	}
 
+	r = dispc6_init_gamma_tables();
+	if (r)
+		return r;
+
 	pm_runtime_enable(&pdev->dev);
 
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 200);
@@ -1327,6 +1414,8 @@ static int dispc6_runtime_resume(struct device *dev)
 	dispc6_initial_config();
 
 	dispc6_restore_context();
+
+	dispc6_restore_gamma_tables();
 
 	dispc.is_enabled = true;
 	/* ensure the dispc6_irq_handler sees the is_enabled value */
