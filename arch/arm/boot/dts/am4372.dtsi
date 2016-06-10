@@ -869,11 +869,10 @@
 			reg = <0x54400000 0x2000>,
 			      <0x54402000 0x2000>,
 			      <0x54410000 0x8000>,
-			      <0x54420000 0x2000>,
 			      <0x54426000 0x2000>,
 			      <0x5442e000 0x31c>,
 			      <0x54432000 0x58>;
-			reg-names = "dram0", "dram1", "shrdram2", "intc", "cfg",
+			reg-names = "dram0", "dram1", "shrdram2", "cfg",
 				    "iep", "mii_rt";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -881,6 +880,8 @@
 
 			pruss1_intc: intc@54420000 {
 				compatible = "ti,am4372-pruss-intc";
+				reg = <0x54420000 0x2000>;
+				reg-names = "intc";
 				interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH
 					      GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH
 					      GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH
@@ -901,7 +902,9 @@
 				      <0x54422000 0x400>,
 				      <0x54422400 0x100>;
 				reg-names = "iram", "control", "debug";
-				mboxes = <&mailbox &mbox_pru1_0>;
+				interrupt-parent = <&pruss1_intc>;
+				interrupts = <16>, <17>;
+				interrupt-names = "vring", "kick";
 			};
 
 			pru1_1: pru1@54438000 {
@@ -910,7 +913,9 @@
 				      <0x54424000 0x400>,
 				      <0x54424400 0x100>;
 				reg-names = "iram", "control", "debug";
-				mboxes = <&mailbox &mbox_pru1_1>;
+				interrupt-parent = <&pruss1_intc>;
+				interrupts = <18>, <19>;
+				interrupt-names = "vring", "kick";
 			};
 
 			pruss1_mdio: mdio@54432400 {
