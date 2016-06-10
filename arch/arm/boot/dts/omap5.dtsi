@@ -1166,6 +1166,7 @@
 			1060000 0x0
 			1250000 0x4
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		oppdm_mm: oppdm@4a0021a4 {
@@ -1178,6 +1179,7 @@
 			1025000 0x0
 			1120000 0x4
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
 		oppdm_core: oppdm@4a0021d8 {
@@ -1188,6 +1190,7 @@
 			/* uV   offset */
 			1050000 0x0
 			>;
+			ti,absolute-max-voltage-uv = <1500000>;
 		};
 	};
 };
