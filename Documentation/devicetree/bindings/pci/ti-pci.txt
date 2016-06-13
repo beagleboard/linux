@@ -25,6 +25,7 @@ PCIe Designware Controller
 
 Optional Property:
  - gpios : Should be added if a gpio line is required to drive PERST# line
+ - ti,pcie-is-gen1 : Force the PCIe controller to work in GEN1 (2.5 GT/s).
 
 Example:
 axi {

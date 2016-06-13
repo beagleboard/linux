@@ -36,6 +36,15 @@ The phase diagram of these two outputs look like this:
                 |<>|
 	          one step (quarter-period mode)
 
+
+In some encoders, the value pointed by rotary encoders switch is directly
+reflected by status of the GPIOs connecting rotary encoder to CPU. For
+example, if rotary encoder dial points to 9, then the four GPIOs
+conncting rotary encoder will read HLLH(1001b = 9). Such encoders are
+supported by defining devictree binding "rotary-encoder,absolute-encoder".
+These encoders are also supported without need for event(IRQ) generation
+using Input subsytem's polling mode support.
+
 For more information, please see
 	https://en.wikipedia.org/wiki/Rotary_encoder
 

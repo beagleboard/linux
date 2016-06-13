@@ -12,6 +12,10 @@ Optional properties:
 - rotary-encoder,relative-axis: register a relative axis rather than an
   absolute one. Relative axis will only generate +1/-1 events on the input
   device, hence no steps need to be passed.
+- rotary-encoder,absolute-encoder: support encoders where GPIO lines
+  reflect the actual position of the rotary encoder dial. For example,
+  if dial points to 9, then four GPIO lines read HLLH(1001b = 9).
+  In this case, rotary-encoder,steps-per-period needed not be defined.
 - rotary-encoder,rollover: Automatic rollove when the rotary value becomes
   greater than the specified steps or smaller than 0. For absolute axis only.
 - rotary-encoder,steps-per-period: Number of steps (stable states) per period.

@@ -1600,10 +1600,6 @@ try:
 		if (devspd == DWC3_DCFG_SUPERSPEED)
 			goto done;
 
-		/* get link state */
-		ltssm = dwc3_readl(dwc->regs, DWC3_GDBGLTSSM);
-		ltssm = (ltssm >> 22) & 0xf;
-
 		/**
 		 * Need to wait for 100ms and check if ltssm != 4 to detect
 		 * metastability issue. If we got a reset event then we are
@@ -1613,6 +1609,10 @@ try:
 						msecs_to_jiffies(100));
 		if (t)
 			goto done;
+
+		/* get link state */
+		ltssm = dwc3_readl(dwc->regs, DWC3_GDBGLTSSM);
+		ltssm = (ltssm >> 22) & 0xf;
 
 		/**
 		 * If link state != 4 we've hit the metastability issue, soft reset.
