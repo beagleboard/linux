@@ -11,32 +11,23 @@
  * the Free Software Foundation
  */
 
-#include <linux/delay.h>
-#include <linux/dma-mapping.h>
-#include <linux/err.h>
-#include <linux/fs.h>
-#include <linux/interrupt.h>
-#include <linux/io.h>
-#include <linux/ioctl.h>
 #include <linux/module.h>
-#include <linux/of.h>
-#include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
-#include <linux/sched.h>
-#include <linux/slab.h>
-#include <linux/videodev2.h>
-#include <linux/log2.h>
-#include <linux/sizes.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/mutex.h>
 #include <drm/drm_fourcc.h>
 
-#include <media/v4l2-common.h>
-#include <media/v4l2-ctrls.h>
+#include <linux/videodev2.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-event.h>
+#include <media/v4l2-dev.h>
 #include <media/v4l2-ioctl.h>
-#include <media/v4l2-mem2mem.h>
-#include <media/videobuf2-core.h>
+#include <media/v4l2-ctrls.h>
+#include <media/v4l2-event.h>
+#include <media/videobuf2-v4l2.h>
 #include <media/videobuf2-dma-contig.h>
+#include <media/v4l2-mem2mem.h>
 
 #include "dss/omapdss.h"
 #include "omap_drv.h"
