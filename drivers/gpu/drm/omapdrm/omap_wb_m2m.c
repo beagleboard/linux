@@ -135,6 +135,18 @@ static struct wb_fmt *find_format(struct v4l2_format *f)
 	return NULL;
 }
 
+struct wb_dev {
+	struct v4l2_device	v4l2_dev;
+	struct drm_device	*drm_dev;
+
+	struct omap_drm_irq	wb_irq;
+
+	/* v4l2_ioctl mutex */
+	struct mutex		lock;
+
+	struct wbm2m_dev	*m2m;
+};
+
 /*
  * there is one wbm2m_dev structure in the driver, it is shared by
  * all instances.
@@ -143,13 +155,9 @@ struct wbm2m_dev {
 	struct v4l2_device	v4l2_dev;
 	struct video_device	vfd;
 	struct v4l2_m2m_dev	*m2m_dev;
-	struct drm_device	*drm_dev;
+	struct wb_dev		*dev;
 	struct drm_plane	*plane;
 
-	struct omap_drm_irq	wb_irq;
-
-	/* v4l2_ioctl mutex */
-	struct mutex		dev_mutex;
 	/* v4l2 buffers lock */
 	spinlock_t		lock;
 
@@ -224,7 +232,7 @@ static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane src_plane,
 			  const struct omap_overlay_info *src_info,
 			  const struct omap_dss_writeback_info *wb_info)
 {
-	struct omap_drm_private *priv = dev->drm_dev->dev_private;
+	struct omap_drm_private *priv = dev->dev->drm_dev->dev_private;
 	enum dss_writeback_channel wb_channel;
 	struct omap_video_timings t = { 0 };
 	int r;
@@ -435,7 +443,8 @@ static void device_run(void *priv)
 
 static void wbm2m_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 {
-	struct wbm2m_dev *dev =	container_of(irq, struct wbm2m_dev, wb_irq);
+	struct wb_dev *dev = container_of(irq, struct wb_dev, wb_irq);
+	struct wbm2m_dev *wbm2m = dev->m2m;
 	struct wbm2m_ctx *ctx;
 	struct wb_q_data *d_q_data;
 	struct wb_q_data *s_q_data;
@@ -443,22 +452,22 @@ static void wbm2m_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 	unsigned long flags;
 	bool wb_done = false;
 
-	ctx = v4l2_m2m_get_curr_priv(dev->m2m_dev);
+	ctx = v4l2_m2m_get_curr_priv(wbm2m->m2m_dev);
 	if (!ctx) {
-		log_err(dev, "instance released before end of transaction\n");
+		log_err(wbm2m, "instance released before end of transaction\n");
 		goto handled;
 	}
 
 	if (irqstatus & DISPC_IRQ_FRAMEDONEWB) {
-		log_dbg(dev, "WB: FRAMEDONE\n");
+		log_dbg(wbm2m, "WB: FRAMEDONE\n");
 		wb_done = true;
 	}
 
 	if (irqstatus & DISPC_IRQ_WBBUFFEROVERFLOW)
-		log_err(dev, "WB: UNDERFLOW\n");
+		log_err(wbm2m, "WB: UNDERFLOW\n");
 
 	if (irqstatus & DISPC_IRQ_WBUNCOMPLETEERROR)
-		log_err(dev, "WB: DISPC_IRQ_WBUNCOMPLETEERROR\n");
+		log_err(wbm2m, "WB: DISPC_IRQ_WBUNCOMPLETEERROR\n");
 
 	if (!wb_done)
 		goto handled;
@@ -483,14 +492,14 @@ static void wbm2m_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
 
-	spin_lock_irqsave(&dev->lock, flags);
+	spin_lock_irqsave(&wbm2m->lock, flags);
 
 	if (s_vb)
 		v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
 
 	v4l2_m2m_buf_done(d_vb, VB2_BUF_STATE_DONE);
 
-	spin_unlock_irqrestore(&dev->lock, flags);
+	spin_unlock_irqrestore(&wbm2m->lock, flags);
 
 	/*
 	 * Since the vb2_buf_done has already been called for therse
@@ -505,7 +514,7 @@ static void wbm2m_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 finished:
 	log_dbg(ctx->dev, "finishing transaction\n");
 	ctx->bufs_completed = 0;
-	v4l2_m2m_job_finish(dev->m2m_dev, ctx->fh.m2m_ctx);
+	v4l2_m2m_job_finish(wbm2m->m2m_dev, ctx->fh.m2m_ctx);
 handled:
 	return;
 }
@@ -978,7 +987,7 @@ static void wbm2m_buf_queue(struct vb2_buffer *vb)
 static int wbm2m_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(q);
-	struct omap_drm_private *priv = ctx->dev->drm_dev->dev_private;
+	struct omap_drm_private *priv = ctx->dev->dev->drm_dev->dev_private;
 
 	log_dbg(ctx->dev, "queue: %s\n",
 		V4L2_TYPE_IS_OUTPUT(q->type) ? "OUTPUT" : "CAPTURE");
@@ -993,7 +1002,7 @@ static int wbm2m_start_streaming(struct vb2_queue *q, unsigned int count)
 static void wbm2m_stop_streaming(struct vb2_queue *q)
 {
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(q);
-	struct omap_drm_private *priv = ctx->dev->drm_dev->dev_private;
+	struct omap_drm_private *priv = ctx->dev->dev->drm_dev->dev_private;
 	struct vb2_v4l2_buffer *vb;
 	unsigned long flags;
 
@@ -1071,7 +1080,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->ops = &wbm2m_qops;
 	src_vq->mem_ops = &vb2_dma_contig_memops;
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-	src_vq->lock = &dev->dev_mutex;
+	src_vq->lock = &dev->dev->lock;
 
 	ret = vb2_queue_init(src_vq);
 	if (ret)
@@ -1085,7 +1094,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->ops = &wbm2m_qops;
 	dst_vq->mem_ops = &vb2_dma_contig_memops;
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-	dst_vq->lock = &dev->dev_mutex;
+	dst_vq->lock = &dev->dev->lock;
 
 	return vb2_queue_init(dst_vq);
 }
@@ -1110,7 +1119,7 @@ static int wbm2m_open(struct file *file)
 
 	ctx->dev = dev;
 
-	if (mutex_lock_interruptible(&dev->dev_mutex)) {
+	if (mutex_lock_interruptible(&dev->dev->lock)) {
 		ret = -ERESTARTSYS;
 		goto free_ctx;
 	}
@@ -1159,9 +1168,9 @@ static int wbm2m_open(struct file *file)
 	if (v4l2_fh_is_singular_file(file)) {
 		log_dbg(dev, "first instance created\n");
 
-		drm_modeset_lock_all(dev->drm_dev);
-		dev->plane = omap_plane_reserve_wb(dev->drm_dev);
-		drm_modeset_unlock_all(dev->drm_dev);
+		drm_modeset_lock_all(dev->dev->drm_dev);
+		dev->plane = omap_plane_reserve_wb(dev->dev->drm_dev);
+		drm_modeset_unlock_all(dev->dev->drm_dev);
 
 		if (!dev->plane) {
 			log_dbg(dev, "Could not reserve plane!\n");
@@ -1173,7 +1182,7 @@ static int wbm2m_open(struct file *file)
 	log_dbg(dev, "created instance %pa, m2m_ctx: %pa\n",
 		&ctx, &ctx->fh.m2m_ctx);
 
-	mutex_unlock(&dev->dev_mutex);
+	mutex_unlock(&dev->dev->lock);
 
 	return 0;
 
@@ -1183,7 +1192,7 @@ free_fh:
 exit_fh:
 	v4l2_ctrl_handler_free(hdl);
 	v4l2_fh_exit(&ctx->fh);
-	mutex_unlock(&dev->dev_mutex);
+	mutex_unlock(&dev->dev->lock);
 free_ctx:
 	kfree(ctx);
 	return ret;
@@ -1197,7 +1206,7 @@ static int wbm2m_release(struct file *file)
 
 	log_dbg(dev, "releasing instance %pa\n", &ctx);
 
-	mutex_lock(&dev->dev_mutex);
+	mutex_lock(&dev->dev->lock);
 
 	/* Save the singular status before we call the clean-up helper */
 	fh_singular = v4l2_fh_is_singular_file(file);
@@ -1212,12 +1221,12 @@ static int wbm2m_release(struct file *file)
 	if (fh_singular) {
 		log_dbg(dev, "last instance released\n");
 
-		drm_modeset_lock_all(dev->drm_dev);
+		drm_modeset_lock_all(dev->dev->drm_dev);
 		omap_plane_release_wb(dev->plane);
-		drm_modeset_unlock_all(dev->drm_dev);
+		drm_modeset_unlock_all(dev->dev->drm_dev);
 	}
 
-	mutex_unlock(&dev->dev_mutex);
+	mutex_unlock(&dev->dev->lock);
 
 	return 0;
 }
@@ -1249,8 +1258,9 @@ static struct v4l2_m2m_ops m2m_ops = {
 int wbm2m_init(struct drm_device *drmdev)
 {
 	struct omap_drm_private *priv = drmdev->dev_private;
-	struct wbm2m_dev *dev;
+	struct wbm2m_dev *wbm2m;
 	struct video_device *vfd;
+	struct wb_dev *dev;
 	int ret, irq;
 
 	irq = 0;
@@ -1261,29 +1271,37 @@ int wbm2m_init(struct drm_device *drmdev)
 
 	dev->drm_dev = drmdev;
 
-	spin_lock_init(&dev->lock);
+	/* Allocate a new instance */
+	wbm2m = devm_kzalloc(drmdev->dev, sizeof(*wbm2m), GFP_KERNEL);
+	if (!wbm2m)
+		return -ENOMEM;
 
-	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
+	dev->m2m = wbm2m;
+	wbm2m->dev = dev;
+
+	spin_lock_init(&wbm2m->lock);
+
+	snprintf(wbm2m->v4l2_dev.name, sizeof(wbm2m->v4l2_dev.name),
 		 "%s", WBM2M_MODULE_NAME);
-	ret = v4l2_device_register(drmdev->dev, &dev->v4l2_dev);
+	ret = v4l2_device_register(drmdev->dev, &wbm2m->v4l2_dev);
 	if (ret)
 		return ret;
 
 	priv->wb_private = dev;
 
-	mutex_init(&dev->dev_mutex);
+	mutex_init(&dev->lock);
 
-	dev->alloc_ctx = vb2_dma_contig_init_ctx(drmdev->dev);
-	if (IS_ERR(dev->alloc_ctx)) {
-		log_err(dev, "Failed to alloc vb2 context\n");
-		ret = PTR_ERR(dev->alloc_ctx);
+	wbm2m->alloc_ctx = vb2_dma_contig_init_ctx(drmdev->dev);
+	if (IS_ERR(wbm2m->alloc_ctx)) {
+		log_err(wbm2m, "Failed to alloc vb2 context\n");
+		ret = PTR_ERR(wbm2m->alloc_ctx);
 		goto v4l2_dev_unreg;
 	}
 
-	dev->m2m_dev = v4l2_m2m_init(&m2m_ops);
-	if (IS_ERR(dev->m2m_dev)) {
-		log_err(dev, "Failed to init mem2mem device\n");
-		ret = PTR_ERR(dev->m2m_dev);
+	wbm2m->m2m_dev = v4l2_m2m_init(&m2m_ops);
+	if (IS_ERR(wbm2m->m2m_dev)) {
+		log_err(wbm2m, "Failed to init mem2mem device\n");
+		ret = PTR_ERR(wbm2m->m2m_dev);
 		goto rel_ctx;
 	}
 
@@ -1293,31 +1311,31 @@ int wbm2m_init(struct drm_device *drmdev)
 	dev->wb_irq.irq = wbm2m_irq;
 	omap_irq_register(drmdev, &dev->wb_irq);
 
-	vfd = &dev->vfd;
+	vfd = &wbm2m->vfd;
 	*vfd = wbm2m_videodev;
-	vfd->lock = &dev->dev_mutex;
-	vfd->v4l2_dev = &dev->v4l2_dev;
+	vfd->lock = &dev->lock;
+	vfd->v4l2_dev = &wbm2m->v4l2_dev;
 
 	ret = video_register_device(vfd, VFL_TYPE_GRABBER, 10);
 	if (ret) {
-		log_err(dev, "Failed to register video device\n");
+		log_err(wbm2m, "Failed to register video device\n");
 		goto rel_m2m;
 	}
 
-	video_set_drvdata(vfd, dev);
+	video_set_drvdata(vfd, wbm2m);
 	snprintf(vfd->name, sizeof(vfd->name), "%s", wbm2m_videodev.name);
-	log_dbg(dev, "Device registered as %s\n",
+	log_dbg(wbm2m, "Device registered as %s\n",
 		video_device_node_name(vfd));
 
 	return 0;
 
 rel_m2m:
 	omap_irq_unregister(drmdev, &dev->wb_irq);
-	v4l2_m2m_release(dev->m2m_dev);
+	v4l2_m2m_release(wbm2m->m2m_dev);
 rel_ctx:
-	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+	vb2_dma_contig_cleanup_ctx(wbm2m->alloc_ctx);
 v4l2_dev_unreg:
-	v4l2_device_unregister(&dev->v4l2_dev);
+	v4l2_device_unregister(&wbm2m->v4l2_dev);
 
 	return ret;
 }
@@ -1325,14 +1343,14 @@ v4l2_dev_unreg:
 void wbm2m_cleanup(struct drm_device *drmdev)
 {
 	struct omap_drm_private *priv = drmdev->dev_private;
-	struct wbm2m_dev *dev = priv->wb_private;
+	struct wb_dev *dev = priv->wb_private;
 
-	log_dbg(dev, "Cleanup WB\n");
+	log_dbg(dev->m2m, "Cleanup WB\n");
 
 	omap_irq_unregister(drmdev, &dev->wb_irq);
 
-	v4l2_m2m_release(dev->m2m_dev);
-	video_unregister_device(&dev->vfd);
-	v4l2_device_unregister(&dev->v4l2_dev);
-	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+	v4l2_m2m_release(dev->m2m->m2m_dev);
+	video_unregister_device(&dev->m2m->vfd);
+	v4l2_device_unregister(&dev->m2m->v4l2_dev);
+	vb2_dma_contig_cleanup_ctx(dev->m2m->alloc_ctx);
 }
