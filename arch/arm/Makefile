@@ -13,7 +13,12 @@
 # Ensure linker flags are correct
 LDFLAGS		:=
 
-LDFLAGS_vmlinux	:=-p --no-undefined -X --pic-veneer
+GCCVERSIONISGTE5 := $(shell expr `$(HOSTCC) -dumpversion | cut -f1 -d.` \>= 5)
+ifeq  "$(GCCVERSIONISGTE5)" "1"
+LDFLAGS_vmlinux :=-p --no-undefined -X
+else
+LDFLAGS_vmlinux :=-p --no-undefined -X --pic-veneer
+endif
 ifeq ($(CONFIG_CPU_ENDIAN_BE8),y)
 LDFLAGS_vmlinux	+= --be8
 LDFLAGS_MODULE	+= --be8
