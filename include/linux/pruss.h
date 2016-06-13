@@ -33,7 +33,6 @@ enum pruss_mem {
 	PRUSS_MEM_DRAM0 = 0,
 	PRUSS_MEM_DRAM1,
 	PRUSS_MEM_SHRD_RAM2,
-	PRUSS_MEM_INTC,
 	PRUSS_MEM_CFG,
 	PRUSS_MEM_IEP,
 	PRUSS_MEM_MII_RT,
@@ -95,6 +94,7 @@ int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
 void pruss_cfg_miirt_enable(struct pruss *pruss, bool enable);
 void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable);
 int pru_rproc_set_ctable(struct rproc *rproc, enum pru_ctable_idx c, u32 addr);
+int pruss_intc_trigger(unsigned int irq);
 
 #else
 
@@ -138,6 +138,11 @@ static inline void pruss_cfg_xfr_enable(struct pruss *pruss, bool enable) { }
 
 static inline int pru_rproc_set_ctable(struct rproc *rproc,
 				       enum pru_ctable_idx c, u32 addr)
+{
+	return -ENOTSUPP;
+}
+
+static inline int pruss_intc_trigger(unsigned int irq)
 {
 	return -ENOTSUPP;
 }
