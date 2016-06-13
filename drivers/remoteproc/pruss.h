@@ -67,7 +67,10 @@
 /* HIPIR register bit-fields */
 #define INTC_HIPIR_NONE_HINT	0x80000000
 
-/* PRU_ICSS_CFG registers */
+/*
+ * PRU_ICSS_CFG registers
+ * SYSCFG, ISRP, ISP, IESP, IECP, SCRP applicable on AMxxxx devices only
+ */
 #define PRUSS_CFG_REVID		0x00
 #define PRUSS_CFG_SYSCFG	0x04
 #define PRUSS_CFG_GPCFG0	0x08
@@ -158,6 +161,7 @@ struct pru_rproc;
  * @lock: mutex to serialize access to resources
  * @cfg_lock: mutex to serialize access to CFG
  * @in_standby: flag for storing standby status
+ * @skip_syscfg: flag to indicate if PRCM master standby/slave idle is needed
  */
 struct pruss {
 	struct list_head node;
@@ -171,6 +175,7 @@ struct pruss {
 	struct mutex lock; /* PRU resource lock */
 	struct mutex cfg_lock; /* PRUSS CFG register access lock */
 	bool in_standby;
+	bool skip_syscfg;
 };
 
 int pruss_intc_configure(struct pruss *pruss,
