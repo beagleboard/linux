@@ -118,17 +118,8 @@ static char *fourcc_to_str(u32 fmt)
  * there is one source queue and one destination queue for each m2m context.
  */
 struct wb_q_data {
-	/* frame width */
-	unsigned int		width;
-	/* frame height */
-	unsigned int		height;
-	/* bytes per line in memory */
-	unsigned int		bytesperline[MAX_PLANES];
-	enum v4l2_colorspace	colorspace;
-	/* supported field value */
-	enum v4l2_field		field;
-	/* image size in memory */
-	unsigned int		sizeimage[MAX_PLANES];
+	/* format info */
+	struct v4l2_format	format;
 	/* crop/compose rectangle */
 	struct v4l2_rect	c_rect;
 	/* format info */
@@ -355,6 +346,7 @@ static void device_run(void *priv)
 	dma_addr_t dst_dma_addr[2] = {0, 0};
 	struct omap_overlay_info src_info = { 0 };
 	struct omap_dss_writeback_info wb_info = { 0 };
+	struct v4l2_pix_format_mplane *spix, *dpix;
 	bool ok;
 
 	ctx->src_vb = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
@@ -365,8 +357,9 @@ static void device_run(void *priv)
 	WARN_ON(!ctx->dst_vb);
 	d_vb = &ctx->dst_vb->vb2_buf;
 
+	spix = &s_q_data->format.fmt.pix_mp;
 	src_dma_addr[0] = vb2_dma_addr_plus_data_offset(s_vb, 0);
-	if (ctx->q_data[Q_DATA_SRC].fmt->coplanar)
+	if (spix->num_planes == 2)
 		src_dma_addr[1] = vb2_dma_addr_plus_data_offset(s_vb, 1);
 	if (!src_dma_addr[0]) {
 		log_err(dev,
@@ -375,8 +368,9 @@ static void device_run(void *priv)
 		return;
 	}
 
+	dpix = &d_q_data->format.fmt.pix_mp;
 	dst_dma_addr[0] = vb2_dma_addr_plus_data_offset(d_vb, 0);
-	if (ctx->q_data[Q_DATA_DST].fmt->coplanar)
+	if (dpix->num_planes == 2)
 		dst_dma_addr[1] = vb2_dma_addr_plus_data_offset(d_vb, 1);
 	if (!dst_dma_addr[0]) {
 		log_err(dev,
@@ -389,18 +383,18 @@ static void device_run(void *priv)
 	src_info.paddr = (u32)src_dma_addr[0];
 	src_info.p_uv_addr = (u32)src_dma_addr[1];
 
-	src_info.screen_width = s_q_data->bytesperline[0] /
+	src_info.screen_width = spix->plane_fmt[0].bytesperline /
 				(s_q_data->fmt->depth[0] / 8);
 
-	src_info.width = s_q_data->width;
-	src_info.height = s_q_data->height;
+	src_info.width = spix->width;
+	src_info.height = spix->height;
 
 	src_info.pos_x = 0;
 	src_info.pos_y = 0;
-	src_info.out_width = s_q_data->width;
-	src_info.out_height = s_q_data->height;
+	src_info.out_width = spix->width;
+	src_info.out_height = spix->height;
 
-	src_info.color_mode = fourcc_to_dss(s_q_data->fmt->fourcc);
+	src_info.color_mode = fourcc_to_dss(spix->pixelformat);
 	src_info.global_alpha = 0xff;
 
 	src_info.rotation = OMAP_DSS_ROT_0;
@@ -413,12 +407,12 @@ static void device_run(void *priv)
 	wb_info.paddr = (u32)dst_dma_addr[0];
 	wb_info.p_uv_addr = (u32)dst_dma_addr[1];
 
-	wb_info.buf_width = d_q_data->bytesperline[0] /
+	wb_info.buf_width = dpix->plane_fmt[0].bytesperline /
 			    (d_q_data->fmt->depth[0] / 8);
 
-	wb_info.width = d_q_data->width;
-	wb_info.height = d_q_data->height;
-	wb_info.color_mode = fourcc_to_dss(d_q_data->fmt->fourcc);
+	wb_info.width = dpix->width;
+	wb_info.height = dpix->height;
+	wb_info.color_mode = fourcc_to_dss(dpix->pixelformat);
 	wb_info.pre_mult_alpha = 1;
 
 	wb_info.rotation = OMAP_DSS_ROT_0;
@@ -433,10 +427,10 @@ static void device_run(void *priv)
 			"Conversion setup failed, check source and destination parameters\n"
 			);
 		log_err(dev, "\tSRC: %dx%d, fmt: %s sw %d\n", src_info.width,
-			src_info.height, fourcc_to_str(s_q_data->fmt->fourcc),
+			src_info.height, fourcc_to_str(spix->pixelformat),
 			src_info.screen_width);
 		log_err(dev, "\tDST: %dx%d, fmr: %s sw %d\n", wb_info.width,
-			wb_info.height, fourcc_to_str(d_q_data->fmt->fourcc),
+			wb_info.height, fourcc_to_str(dpix->pixelformat),
 			wb_info.buf_width);
 		return;
 	}
@@ -548,11 +542,9 @@ static int wbm2m_enum_fmt(struct file *file, void *priv,
 
 static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
-	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct wbm2m_ctx *ctx = file2ctx(file);
 	struct vb2_queue *vq;
 	struct wb_q_data *q_data;
-	int i;
 
 	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
 	if (!vq)
@@ -560,27 +552,16 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 
 	q_data = get_q_data(ctx, f->type);
 
-	pix->width = q_data->width;
-	pix->height = q_data->height;
-	pix->pixelformat = q_data->fmt->fourcc;
-	pix->field = q_data->field;
+	*f = q_data->format;
 
-	if (V4L2_TYPE_IS_OUTPUT(f->type)) {
-		pix->colorspace = q_data->colorspace;
-	} else {
+	if (!V4L2_TYPE_IS_OUTPUT(f->type)) {
 		struct wb_q_data *s_q_data;
 
 		/* get colorspace from the source queue */
 		s_q_data = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 
-		pix->colorspace = s_q_data->colorspace;
-	}
-
-	pix->num_planes = q_data->fmt->coplanar ? 2 : 1;
-
-	for (i = 0; i < pix->num_planes; i++) {
-		pix->plane_fmt[i].bytesperline = q_data->bytesperline[i];
-		pix->plane_fmt[i].sizeimage = q_data->sizeimage[i];
+		f->fmt.pix_mp.colorspace =
+			s_q_data->format.fmt.pix_mp.colorspace;
 	}
 
 	return 0;
@@ -665,10 +646,8 @@ static int wbm2m_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 static int __wbm2m_s_fmt(struct wbm2m_ctx *ctx, struct v4l2_format *f)
 {
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
-	struct v4l2_plane_pix_format *plane_fmt;
 	struct wb_q_data *q_data;
 	struct vb2_queue *vq;
-	int i;
 
 	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
 	if (!vq)
@@ -683,31 +662,21 @@ static int __wbm2m_s_fmt(struct wbm2m_ctx *ctx, struct v4l2_format *f)
 	if (!q_data)
 		return -EINVAL;
 
-	q_data->fmt		= find_format(f);
-	q_data->width		= pix->width;
-	q_data->height		= pix->height;
-	q_data->colorspace	= pix->colorspace;
-	q_data->field		= pix->field;
-
-	for (i = 0; i < pix->num_planes; i++) {
-		plane_fmt = &pix->plane_fmt[i];
-
-		q_data->bytesperline[i]	= plane_fmt->bytesperline;
-		q_data->sizeimage[i]	= plane_fmt->sizeimage;
-	}
+	q_data->fmt = find_format(f);
+	q_data->format = *f;
 
 	q_data->c_rect.left	= 0;
 	q_data->c_rect.top	= 0;
-	q_data->c_rect.width	= q_data->width;
-	q_data->c_rect.height	= q_data->height;
+	q_data->c_rect.width	= pix->width;
+	q_data->c_rect.height	= pix->height;
 
 	log_dbg(ctx->dev, "Setting format for type %d, %dx%d, fmt: %s bpl_y %d",
-		f->type, q_data->width, q_data->height,
-		fourcc_to_str(q_data->fmt->fourcc),
-		q_data->bytesperline[LUMA_PLANE]);
-	if (q_data->fmt->coplanar)
+		f->type, pix->width, pix->height,
+		fourcc_to_str(pix->pixelformat),
+		pix->plane_fmt[LUMA_PLANE].bytesperline);
+	if (pix->num_planes == 2)
 		log_dbg(ctx->dev, " bpl_uv %d\n",
-			q_data->bytesperline[CHROMA_PLANE]);
+			pix->plane_fmt[CHROMA_PLANE].bytesperline);
 
 	return 0;
 }
@@ -734,6 +703,7 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 				 struct v4l2_selection *s)
 {
 	struct wb_q_data *q_data;
+	struct v4l2_pix_format_mplane *pix;
 	unsigned int w_align;
 	int depth_bytes;
 
@@ -744,6 +714,8 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 	q_data = get_q_data(ctx, s->type);
 	if (!q_data)
 		return -EINVAL;
+
+	pix = &q_data->format.fmt.pix_mp;
 
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE:
@@ -782,19 +754,19 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 	if ((depth_bytes == 3) || (depth_bytes == 1))
 		w_align = 1;
 	else if ((depth_bytes == 2) &&
-		 (q_data->fmt->fourcc == V4L2_PIX_FMT_YUYV ||
-		  q_data->fmt->fourcc == V4L2_PIX_FMT_UYVY))
+		 (pix->pixelformat == V4L2_PIX_FMT_YUYV ||
+		  pix->pixelformat == V4L2_PIX_FMT_UYVY))
 		w_align = 1;
 
-	v4l_bound_align_image(&s->r.width, MIN_W, q_data->width, w_align,
-			      &s->r.height, MIN_H, q_data->height,
+	v4l_bound_align_image(&s->r.width, MIN_W, pix->width, w_align,
+			      &s->r.height, MIN_H, pix->height,
 			      H_ALIGN, S_ALIGN);
 
 	/* adjust left/top if cropping rectangle is out of bounds */
-	if (s->r.left + s->r.width > q_data->width)
-		s->r.left = q_data->width - s->r.width;
-	if (s->r.top + s->r.height > q_data->height)
-		s->r.top = q_data->height - s->r.height;
+	if (s->r.left + s->r.width > pix->width)
+		s->r.left = pix->width - s->r.width;
+	if (s->r.top + s->r.height > pix->height)
+		s->r.top = pix->height - s->r.height;
 
 	return 0;
 }
@@ -804,6 +776,7 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 {
 	struct wbm2m_ctx *ctx = file2ctx(file);
 	struct wb_q_data *q_data;
+	struct v4l2_pix_format_mplane *pix;
 	bool use_c_rect = false;
 
 	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
@@ -813,6 +786,8 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 	q_data = get_q_data(ctx, s->type);
 	if (!q_data)
 		return -EINVAL;
+
+	pix = &q_data->format.fmt.pix_mp;
 
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
@@ -852,8 +827,8 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 		 */
 		s->r.left = 0;
 		s->r.top = 0;
-		s->r.width = q_data->width;
-		s->r.height = q_data->height;
+		s->r.width = pix->width;
+		s->r.height = pix->height;
 	}
 
 	return 0;
@@ -933,16 +908,16 @@ static int wbm2m_queue_setup(struct vb2_queue *vq,
 
 	q_data = get_q_data(ctx, vq->type);
 
-	*nplanes = q_data->fmt->coplanar ? 2 : 1;
+	*nplanes = q_data->format.fmt.pix_mp.num_planes;
 
 	for (i = 0; i < *nplanes; i++) {
-		sizes[i] = q_data->sizeimage[i];
+		sizes[i] = q_data->format.fmt.pix_mp.plane_fmt[i].sizeimage;
 		alloc_ctxs[i] = ctx->dev->alloc_ctx;
 	}
 
 	log_dbg(ctx->dev, "get %d buffer(s) of size %d\n", *nbuffers,
 		sizes[LUMA_PLANE]);
-	if (q_data->fmt->coplanar)
+	if (*nplanes == 2)
 		log_dbg(ctx->dev, " and %d\n", sizes[CHROMA_PLANE]);
 
 	return 0;
@@ -953,30 +928,31 @@ static int wbm2m_buf_prepare(struct vb2_buffer *vb)
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	struct wb_q_data *q_data;
+	struct v4l2_pix_format_mplane *mp;
 	int i, num_planes;
 
 	log_dbg(ctx->dev, "type: %d\n", vb->vb2_queue->type);
 
 	q_data = get_q_data(ctx, vb->vb2_queue->type);
-	num_planes = q_data->fmt->coplanar ? 2 : 1;
 
 	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		vbuf->field = V4L2_FIELD_NONE;
 
+	num_planes = q_data->format.fmt.pix_mp.num_planes;
+
 	for (i = 0; i < num_planes; i++) {
-		if (vb2_plane_size(vb, i) < q_data->sizeimage[i]) {
+		mp = &q_data->format.fmt.pix_mp;
+		if (vb2_plane_size(vb, i) < mp->plane_fmt[i].sizeimage) {
 			log_err(ctx->dev,
 				"data will not fit into plane (%lu < %lu)\n",
 				vb2_plane_size(vb, i),
-				(long)q_data->sizeimage[i]);
+				(long)mp->plane_fmt[i].sizeimage);
 			return -EINVAL;
 		}
+		vb2_set_plane_payload(vb, i, mp->plane_fmt[i].sizeimage);
 	}
 
-	for (i = 0; i < num_planes; i++)
-		vb2_set_plane_payload(vb, i, q_data->sizeimage[i]);
-
-	if (num_planes) {
+	if (num_planes == 2) {
 		if (vb->planes[0].m.fd ==
 		    vb->planes[1].m.fd) {
 			/*
@@ -1123,6 +1099,7 @@ static int wbm2m_open(struct file *file)
 	struct wb_q_data *s_q_data;
 	struct v4l2_ctrl_handler *hdl;
 	struct wbm2m_ctx *ctx;
+	struct v4l2_pix_format_mplane *pix;
 	int ret;
 
 	log_dbg(dev, "enter\n");
@@ -1147,20 +1124,26 @@ static int wbm2m_open(struct file *file)
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
 	s_q_data->fmt = &wb_formats[1];
-	s_q_data->width = 1920;
-	s_q_data->height = 1080;
-	s_q_data->bytesperline[LUMA_PLANE] = (s_q_data->width *
+	pix = &s_q_data->format.fmt.pix_mp;
+	pix->pixelformat = s_q_data->fmt->fourcc;
+	s_q_data->format.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	pix->width = 1920;
+	pix->height = 1080;
+	pix->plane_fmt[LUMA_PLANE].bytesperline = (pix->width *
 			s_q_data->fmt->depth[LUMA_PLANE]) >> 3;
-	s_q_data->sizeimage[LUMA_PLANE] = (s_q_data->bytesperline[LUMA_PLANE] *
-			s_q_data->height);
-	s_q_data->colorspace = V4L2_COLORSPACE_REC709;
-	s_q_data->field = V4L2_FIELD_NONE;
+	pix->plane_fmt[LUMA_PLANE].sizeimage =
+			pix->plane_fmt[LUMA_PLANE].bytesperline *
+			pix->height;
+	pix->colorspace = V4L2_COLORSPACE_REC709;
+	pix->field = V4L2_FIELD_NONE;
 	s_q_data->c_rect.left = 0;
 	s_q_data->c_rect.top = 0;
-	s_q_data->c_rect.width = s_q_data->width;
-	s_q_data->c_rect.height = s_q_data->height;
+	s_q_data->c_rect.width = pix->width;
+	s_q_data->c_rect.height = pix->height;
 
 	ctx->q_data[Q_DATA_DST] = *s_q_data;
+	ctx->q_data[Q_DATA_DST].format.type =
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 
 	ctx->sequence = 0;
 
