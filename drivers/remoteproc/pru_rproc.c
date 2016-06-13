@@ -17,6 +17,7 @@
 
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
+#include <linux/interrupt.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -95,6 +96,8 @@ struct pru_match_private_data {
  * @rproc: remoteproc pointer for this PRU core
  * @mbox: mailbox channel handle used for vring signalling with MPU
  * @client: mailbox client to request the mailbox channel
+ * @irq_ring: IRQ number to use for processing vring buffers
+ * @irq_kick: IRQ number to use to perform virtio kick
  * @mem_regions: data for each of the PRU memory regions
  * @intc_config: PRU INTC configuration data
  * @rmw_lock: lock for read, modify, write operations on registers
@@ -113,6 +116,8 @@ struct pru_rproc {
 	struct rproc *rproc;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
+	int irq_vring;
+	int irq_kick;
 	struct pruss_mem_region mem_regions[PRU_MEM_MAX];
 	struct pruss_intc_config intc_config;
 	spinlock_t rmw_lock; /* register access lock */
@@ -418,6 +423,31 @@ static void pru_rproc_mbox_callback(struct mbox_client *client, void *data)
 		dev_dbg(dev, "no message was found in vqid %d\n", msg);
 }
 
+/**
+ * pru_rproc_vring_interrupt() - interrupt handler for processing vrings
+ * @irq: irq number associated with the PRU event MPU is listening on
+ * @data: interrupt handler data, will be a PRU rproc structure
+ *
+ * This handler is used by the PRU remoteproc driver when using PRU system
+ * events for processing the virtqueues. Unlike the mailbox IP, there is
+ * no payload associated with an interrupt, so either a unique event is
+ * used for each virtqueue kick, or a both virtqueues are processed on
+ * a single event. The latter is chosen to conserve the usable PRU system
+ * events.
+ */
+static irqreturn_t pru_rproc_vring_interrupt(int irq, void *data)
+{
+	struct pru_rproc *pru = data;
+
+	dev_dbg(&pru->rproc->dev, "got vring irq\n");
+
+	/* process incoming buffers on both the Rx and Tx vrings */
+	rproc_vq_interrupt(pru->rproc, 0);
+	rproc_vq_interrupt(pru->rproc, 1);
+
+	return IRQ_HANDLED;
+}
+
 /* kick a virtqueue */
 static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 {
@@ -427,10 +457,19 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 
 	dev_dbg(dev, "kicking vqid %d on PRU%d\n", vq_id, pru->id);
 
-	/* send the index of the triggered virtqueue in the mailbox payload */
-	ret = mbox_send_message(pru->mbox, (void *)vq_id);
-	if (ret < 0)
-		dev_err(dev, "mbox_send_message failed: %d\n", ret);
+	if (pru->mbox) {
+		/*
+		 * send the index of the triggered virtqueue in the mailbox
+		 * payload
+		 */
+		ret = mbox_send_message(pru->mbox, (void *)vq_id);
+		if (ret < 0)
+			dev_err(dev, "mbox_send_message failed: %d\n", ret);
+	} else if (pru->irq_kick > 0) {
+		ret = pruss_intc_trigger(pru->irq_kick);
+		if (ret < 0)
+			dev_err(dev, "pruss_intc_trigger failed: %d\n", ret);
+	}
 }
 
 /* start a PRU core */
@@ -439,14 +478,39 @@ static int pru_rproc_start(struct rproc *rproc)
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
 	u32 val;
+	int ret;
 
 	dev_dbg(dev, "starting PRU%d: entry-point = 0x%x\n",
 		pru->id, (rproc->bootaddr >> 2));
+
+	if (!list_empty(&pru->rproc->rvdevs)) {
+		if (!pru->mbox && (pru->irq_vring <= 0 || pru->irq_kick <= 0)) {
+			dev_err(dev, "virtio vring interrupt mechanisms are not provided\n");
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		if (!pru->mbox && pru->irq_vring > 0) {
+			ret = request_threaded_irq(pru->irq_vring, NULL,
+						   pru_rproc_vring_interrupt,
+						   IRQF_ONESHOT, dev_name(dev),
+						   pru);
+			if (ret) {
+				dev_err(dev, "failed to enable vring interrupt, ret = %d\n",
+					ret);
+				goto fail;
+			}
+		}
+	}
 
 	val = CTRL_CTRL_EN | ((rproc->bootaddr >> 2) << 16);
 	pru_control_write_reg(pru, PRU_CTRL_CTRL, val);
 
 	return 0;
+
+fail:
+	pruss_intc_unconfigure(pru->pruss, &pru->intc_config);
+	return ret;
 }
 
 /* stop/disable a PRU core */
@@ -461,6 +525,10 @@ static int pru_rproc_stop(struct rproc *rproc)
 	val = pru_control_read_reg(pru, PRU_CTRL_CTRL);
 	val &= ~CTRL_CTRL_EN;
 	pru_control_write_reg(pru, PRU_CTRL_CTRL, val);
+
+	if (!list_empty(&pru->rproc->rvdevs) &&
+	    !pru->mbox && pru->irq_vring > 0)
+		free_irq(pru->irq_vring, pru);
 
 	/* undo INTC config */
 	pruss_intc_unconfigure(pru->pruss, &pru->intc_config);
@@ -716,9 +784,30 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	pru->mbox = mbox_request_channel(client, 0);
 	if (IS_ERR(pru->mbox)) {
 		ret = PTR_ERR(pru->mbox);
-		dev_err(dev, "mbox_request_channel failed: %d\n", ret);
-		goto free_rproc;
+		pru->mbox = NULL;
+		dev_dbg(dev, "mbox_request_channel failed: %d\n", ret);
 	}
+
+	pru->irq_vring = platform_get_irq_byname(pdev, "vring");
+	if (pru->irq_vring <= 0) {
+		ret = pru->irq_vring;
+		if (ret == -EPROBE_DEFER)
+			goto free_rproc;
+		dev_dbg(dev, "unable to get vring interrupt, status = %d\n",
+			ret);
+	}
+
+	pru->irq_kick = platform_get_irq_byname(pdev, "kick");
+	if (pru->irq_kick <= 0) {
+		ret = pru->irq_kick;
+		if (ret == -EPROBE_DEFER)
+			goto free_rproc;
+		dev_dbg(dev, "unable to get kick interrupt, status = %d\n",
+			ret);
+	}
+
+	if (pru->mbox && (pru->irq_vring > 0 || pru->irq_kick > 0))
+		dev_warn(dev, "both mailbox and vring/kick system events defined\n");
 
 	ret = rproc_add(pru->rproc);
 	if (ret) {
