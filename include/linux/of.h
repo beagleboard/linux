@@ -23,6 +23,7 @@
 #include <linux/spinlock.h>
 #include <linux/topology.h>
 #include <linux/notifier.h>
+#include <linux/slab.h>
 #include <linux/property.h>
 #include <linux/list.h>
 #include <linux/rhashtable.h>
