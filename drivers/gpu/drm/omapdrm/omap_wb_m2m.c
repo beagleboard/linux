@@ -69,13 +69,13 @@ MODULE_PARM_DESC(wbdebug, "activates debug info");
 		v4l2_info(&dev->v4l2_dev, fmt, ## arg)
 
 /* driver info for each of the supported video formats */
-struct wbm2m_fmt {
+struct wb_fmt {
 	u32	fourcc;			/* standard format identifier */
 	u8	coplanar;		/* set for unpacked Luma and Chroma */
 	u8	depth[MAX_PLANES];	/* Bits per pixel per plane*/
 };
 
-static struct wbm2m_fmt wbm2m_formats[] = {
+static struct wb_fmt wb_formats[] = {
 	{
 		.fourcc		= V4L2_PIX_FMT_NV12,
 		.coplanar	= 1,
@@ -132,7 +132,7 @@ struct wbm2m_q_data {
 	/* crop/compose rectangle */
 	struct v4l2_rect	c_rect;
 	/* format info */
-	struct wbm2m_fmt	*fmt;
+	struct wb_fmt		*fmt;
 };
 
 enum {
@@ -141,13 +141,13 @@ enum {
 };
 
 /* find our format description corresponding to the passed v4l2_format */
-static struct wbm2m_fmt *find_format(struct v4l2_format *f)
+static struct wb_fmt *find_format(struct v4l2_format *f)
 {
-	struct wbm2m_fmt *fmt;
+	struct wb_fmt *fmt;
 	unsigned int k;
 
-	for (k = 0; k < ARRAY_SIZE(wbm2m_formats); k++) {
-		fmt = &wbm2m_formats[k];
+	for (k = 0; k < ARRAY_SIZE(wb_formats); k++) {
+		fmt = &wb_formats[k];
 		if (fmt->fourcc == f->fmt.pix.pixelformat)
 			return fmt;
 	}
@@ -539,10 +539,10 @@ static int wbm2m_querycap(struct file *file, void *priv,
 static int wbm2m_enum_fmt(struct file *file, void *priv,
 			  struct v4l2_fmtdesc *f)
 {
-	if (f->index >= ARRAY_SIZE(wbm2m_formats))
+	if (f->index >= ARRAY_SIZE(wb_formats))
 		return -EINVAL;
 
-	f->pixelformat = wbm2m_formats[f->index].fourcc;
+	f->pixelformat = wb_formats[f->index].fourcc;
 	return 0;
 }
 
@@ -589,7 +589,7 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 static int wbm2m_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct wbm2m_ctx *ctx = file2ctx(file);
-	struct wbm2m_fmt *fmt = find_format(f);
+	struct wb_fmt *fmt = find_format(f);
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct v4l2_plane_pix_format *plane_fmt;
 	unsigned int w_align;
@@ -1146,7 +1146,7 @@ static int wbm2m_open(struct file *file)
 	ctx->fh.ctrl_handler = hdl;
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
-	s_q_data->fmt = &wbm2m_formats[1];
+	s_q_data->fmt = &wb_formats[1];
 	s_q_data->width = 1920;
 	s_q_data->height = 1080;
 	s_q_data->bytesperline[LUMA_PLANE] = (s_q_data->width *
