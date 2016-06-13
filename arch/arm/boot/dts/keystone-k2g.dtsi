@@ -205,6 +205,34 @@
 			gpio,syscon-dev = <&devctrl 0x240>;
 		};
 
+		prussgpio0: keystone_dsp_gpio@0262026c {
+			compatible = "ti,keystone-dsp-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio,syscon-dev = <&devctrl 0x26c>;
+		};
+
+		prussgpio1: keystone_dsp_gpio@02620270 {
+			compatible = "ti,keystone-dsp-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio,syscon-dev = <&devctrl 0x270>;
+		};
+
+		prussgpio2: keystone_dsp_gpio@02620274 {
+			compatible = "ti,keystone-dsp-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio,syscon-dev = <&devctrl 0x274>;
+		};
+
+		prussgpio3: keystone_dsp_gpio@02620278 {
+			compatible = "ti,keystone-dsp-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio,syscon-dev = <&devctrl 0x278>;
+		};
+
 		dsp0: dsp0 {
 			compatible = "ti,k2g-dsp";
 			reg = <0x10800000 0x00100000>,
