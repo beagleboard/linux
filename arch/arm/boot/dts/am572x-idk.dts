@@ -104,6 +104,11 @@
 			linux,default-trigger = "mmc0";
 		};
 	};
+
+	extcon_usb2: extcon_usb2 {
+	     compatible = "linux,extcon-usb-gpio";
+	     id-gpio = <&gpio3 16 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &dra7_pmx_core {
@@ -449,4 +454,8 @@
 
 &oppdm_core {
 	vdd-supply = <&smps7_reg>;
+};
+
+&omap_dwc3_2 {
+	extcon = <&extcon_usb2>;
 };
