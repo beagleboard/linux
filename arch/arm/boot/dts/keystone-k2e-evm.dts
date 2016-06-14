@@ -80,12 +80,20 @@
 	status = "okay";
 };
 
+&dwc0 {
+	dr_mode = "host";
+};
+
 &usb1_phy {
 	status = "okay";
 };
 
 &usb1 {
 	status = "okay";
+};
+
+&dwc1 {
+	dr_mode = "peripheral";
 };
 
 &i2c0 {

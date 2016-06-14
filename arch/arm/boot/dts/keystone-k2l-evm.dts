@@ -65,6 +65,10 @@
 	status = "okay";
 };
 
+&dwc0 {
+	dr_mode = "host";
+};
+
 &i2c0 {
 	dtt@50 {
 		compatible = "at,24c1024";
