@@ -490,7 +490,7 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_pins>;
-	clock-frequency = <400000>;
+	clock-frequency = <100000>;
 
 	tps@24 {
 		compatible = "ti,tps65218";
@@ -703,8 +703,8 @@
 	/* these are on the crossbar and are outlined in the
 	 * xbar-event-map element
 	 */
-	dmas = <&edma 30
-		&edma 31>;
+	dmas = <&edma_xbar 30 0 1>,
+		<&edma_xbar 31 0 2>;
 	dma-names = "tx", "rx";
 	vmmc-supply = <&vmmcwl_fixed>;
 	bus-width = <4>;
