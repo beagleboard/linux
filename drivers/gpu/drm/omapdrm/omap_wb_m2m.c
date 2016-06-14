@@ -99,19 +99,8 @@ static struct wb_fmt wb_formats[] = {
 	},
 };
 
-/*  Print Four-character-code (FOURCC) */
-static char *fourcc_to_str(u32 fmt)
-{
-	static char code[5];
-
-	code[0] = (unsigned char)(fmt & 0xff);
-	code[1] = (unsigned char)((fmt >> 8) & 0xff);
-	code[2] = (unsigned char)((fmt >> 16) & 0xff);
-	code[3] = (unsigned char)((fmt >> 24) & 0xff);
-	code[4] = '\0';
-
-	return code;
-}
+/* Return a specific unsigned byte from an unsigned int */
+#define GET_BYTE(c, b) ((c >> (b * 8)) & 0xff)
 
 /*
  * per-queue, driver-specific private data.
@@ -426,11 +415,19 @@ static void device_run(void *priv)
 		log_err(dev,
 			"Conversion setup failed, check source and destination parameters\n"
 			);
-		log_err(dev, "\tSRC: %dx%d, fmt: %s sw %d\n", src_info.width,
-			src_info.height, fourcc_to_str(spix->pixelformat),
+		log_err(dev, "\tSRC: %dx%d, fmt: %c%c%c%c sw %d\n",
+			src_info.width, src_info.height,
+			GET_BYTE(spix->pixelformat, 0),
+			GET_BYTE(spix->pixelformat, 1),
+			GET_BYTE(spix->pixelformat, 2),
+			GET_BYTE(spix->pixelformat, 3),
 			src_info.screen_width);
-		log_err(dev, "\tDST: %dx%d, fmr: %s sw %d\n", wb_info.width,
-			wb_info.height, fourcc_to_str(dpix->pixelformat),
+		log_err(dev, "\tDST: %dx%d, fmt: %c%c%c%c sw %d\n",
+			wb_info.width, wb_info.height,
+			GET_BYTE(dpix->pixelformat, 0),
+			GET_BYTE(dpix->pixelformat, 1),
+			GET_BYTE(dpix->pixelformat, 2),
+			GET_BYTE(dpix->pixelformat, 3),
 			wb_info.buf_width);
 		return;
 	}
@@ -670,9 +667,12 @@ static int __wbm2m_s_fmt(struct wbm2m_ctx *ctx, struct v4l2_format *f)
 	q_data->c_rect.width	= pix->width;
 	q_data->c_rect.height	= pix->height;
 
-	log_dbg(ctx->dev, "Setting format for type %d, %dx%d, fmt: %s bpl_y %d",
+	log_dbg(ctx->dev, "Setting format for type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
 		f->type, pix->width, pix->height,
-		fourcc_to_str(pix->pixelformat),
+		GET_BYTE(pix->pixelformat, 0),
+		GET_BYTE(pix->pixelformat, 1),
+		GET_BYTE(pix->pixelformat, 2),
+		GET_BYTE(pix->pixelformat, 3),
 		pix->plane_fmt[LUMA_PLANE].bytesperline);
 	if (pix->num_planes == 2)
 		log_dbg(ctx->dev, " bpl_uv %d\n",
