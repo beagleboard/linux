@@ -277,7 +277,7 @@ static int ti_oppdm_do_transition(struct device *dev,
 	if (do_abb_first && !IS_ERR(data->vbb_reg)) {
 		dev_dbg(dev, "vbb pre %duV[min %duV max %duV]\n", uv, uv_min,
 			uv_max);
-		ret = regulator_set_voltage_triplet(data->vdd_reg, uv_min,
+		ret = regulator_set_voltage_triplet(data->vbb_reg, uv_min,
 						    uv, uv_max);
 		if (ret) {
 			dev_err(dev,
@@ -302,7 +302,7 @@ static int ti_oppdm_do_transition(struct device *dev,
 	if (!do_abb_first && !IS_ERR(data->vbb_reg)) {
 		dev_dbg(dev, "vbb post %duV[min %duV max %duV]\n", uv, uv_min,
 			uv_max);
-		ret = regulator_set_voltage_triplet(data->vdd_reg, uv_min,
+		ret = regulator_set_voltage_triplet(data->vbb_reg, uv_min,
 						    uv, uv_max);
 		if (ret) {
 			dev_err(dev,
