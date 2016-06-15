@@ -711,6 +711,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	int i, ret;
 	const char *mem_names[PRU_MEM_MAX] = { "iram", "control", "debug" };
 	bool use_eth = false;
+	u32 mux_sel;
 
 	if (!np) {
 		dev_err(dev, "Non-DT platform device not supported\n");
@@ -828,12 +829,28 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		goto put_mbox;
 	}
 
+	if (of_machine_is_compatible("ti,am5718-idk") && pru->use_eth &&
+	    !of_property_read_u32(np, "ti,pruss-gp-mux-sel", &mux_sel)) {
+		if (mux_sel < PRUSS_GP_MUX_SEL_GP ||
+		    mux_sel >= PRUSS_GP_MUX_MAX) {
+			dev_err(dev, "invalid gp_mux_sel %d\n", mux_sel);
+			ret = -EINVAL;
+			goto del_rproc;
+		}
+
+		ret = pruss_cfg_set_gpmux(pru->pruss, pru->id, mux_sel);
+		if (ret)
+			goto del_rproc;
+	}
+
 	pru_rproc_create_debug_entries(rproc);
 
 	dev_info(dev, "PRU rproc node %s probed successfully\n", np->full_name);
 
 	return 0;
 
+del_rproc:
+	rproc_del(rproc);
 put_mbox:
 	mbox_free_channel(pru->mbox);
 free_rproc:
@@ -850,6 +867,9 @@ static int pru_rproc_remove(struct platform_device *pdev)
 	dev_info(dev, "%s: removing rproc %s\n", __func__, rproc->name);
 
 	mbox_free_channel(pru->mbox);
+
+	if (of_machine_is_compatible("ti,am5718-idk") && pru->use_eth)
+		pruss_cfg_set_gpmux(pru->pruss, pru->id, PRUSS_GP_MUX_SEL_GP);
 
 	rproc_del(rproc);
 	rproc_free(rproc);
