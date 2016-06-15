@@ -214,6 +214,17 @@ static void __ept_release(struct kref *kref)
 	kfree(ept);
 }
 
+static inline void rpmsg_sg_init_one(struct virtproc_info *vrp,
+				     struct scatterlist *sg,
+				     void *msg, unsigned int len)
+{
+	unsigned long offset = msg - vrp->rbufs;
+
+	sg_init_table(sg, 1);
+	sg_dma_address(sg) = vrp->bufs_dma + offset;
+	sg_dma_len(sg) = len;
+}
+
 /* for more info, see below documentation of rpmsg_create_ept() */
 static struct rpmsg_endpoint *__rpmsg_create_ept(struct virtproc_info *vrp,
 		struct rpmsg_channel *rpdev, rpmsg_rx_cb_t cb,
@@ -254,6 +265,9 @@ static struct rpmsg_endpoint *__rpmsg_create_ept(struct virtproc_info *vrp,
 		goto free_ept;
 	}
 	ept->addr = id;
+	ept->cb_lockdep_class = ((ept->addr == RPMSG_NS_ADDR) ?
+				 RPMSG_LOCKDEP_SUBCLASS_NS :
+				 RPMSG_LOCKDEP_SUBCLASS_NORMAL);
 
 	mutex_unlock(&vrp->endpoints_lock);
 
@@ -331,7 +345,7 @@ __rpmsg_destroy_ept(struct virtproc_info *vrp, struct rpmsg_endpoint *ept)
 	mutex_unlock(&vrp->endpoints_lock);
 
 	/* make sure in-flight inbound messages won't invoke cb anymore */
-	mutex_lock(&ept->cb_lock);
+	mutex_lock_nested(&ept->cb_lock, ept->cb_lockdep_class);
 	ept->cb = NULL;
 	mutex_unlock(&ept->cb_lock);
 
@@ -824,12 +838,12 @@ int rpmsg_send_offchannel_raw(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 					msg, sizeof(*msg) + msg->len, true);
 #endif
 
-	sg_init_one(&sg, msg, sizeof(*msg) + len);
+	rpmsg_sg_init_one(vrp, &sg, msg, sizeof(*msg) + len);
 
 	mutex_lock(&vrp->tx_lock);
 
 	/* add message to the remote processor's virtqueue */
-	err = virtqueue_add_outbuf(vrp->svq, &sg, 1, msg, GFP_KERNEL);
+	err = virtqueue_add_outbuf_rpmsg(vrp->svq, &sg, 1, msg, GFP_KERNEL);
 	if (err) {
 		/*
 		 * need to reclaim the buffer here, otherwise it's lost
@@ -902,7 +916,7 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 
 	if (ept) {
 		/* make sure ept->cb doesn't go away while we use it */
-		mutex_lock(&ept->cb_lock);
+		mutex_lock_nested(&ept->cb_lock, ept->cb_lockdep_class);
 
 		if (ept->cb)
 			ept->cb(ept->rpdev, msg->data, msg->len, ept->priv,
@@ -916,10 +930,10 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 		dev_warn(dev, "msg received with no recipient\n");
 
 	/* publish the real size of the buffer */
-	sg_init_one(&sg, msg, RPMSG_BUF_SIZE);
+	rpmsg_sg_init_one(vrp, &sg, msg, RPMSG_BUF_SIZE);
 
 	/* add the buffer back to the remote processor's virtqueue */
-	err = virtqueue_add_inbuf(vrp->rvq, &sg, 1, msg, GFP_KERNEL);
+	err = virtqueue_add_inbuf_rpmsg(vrp->rvq, &sg, 1, msg, GFP_KERNEL);
 	if (err < 0) {
 		dev_err(dev, "failed to add a virtqueue buffer: %d\n", err);
 		return err;
@@ -1081,8 +1095,8 @@ static int rpmsg_probe(struct virtio_device *vdev)
 		goto vqs_del;
 	}
 
-	dev_dbg(&vdev->dev, "buffers: va %p, dma 0x%llx\n", bufs_va,
-					(unsigned long long)vrp->bufs_dma);
+	dev_dbg(&vdev->dev, "buffers: va %p, dma %pad\n", bufs_va,
+		&vrp->bufs_dma);
 
 	/* half of the buffers is dedicated for RX */
 	vrp->rbufs = bufs_va;
@@ -1095,10 +1109,10 @@ static int rpmsg_probe(struct virtio_device *vdev)
 		struct scatterlist sg;
 		void *cpu_addr = vrp->rbufs + i * RPMSG_BUF_SIZE;
 
-		sg_init_one(&sg, cpu_addr, RPMSG_BUF_SIZE);
+		rpmsg_sg_init_one(vrp, &sg, cpu_addr, RPMSG_BUF_SIZE);
 
-		err = virtqueue_add_inbuf(vrp->rvq, &sg, 1, cpu_addr,
-								GFP_KERNEL);
+		err = virtqueue_add_inbuf_rpmsg(vrp->rvq, &sg, 1, cpu_addr,
+						GFP_KERNEL);
 		WARN_ON(err); /* sanity check; this can't really happen */
 	}
 

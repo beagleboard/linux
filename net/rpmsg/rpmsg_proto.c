@@ -1,7 +1,7 @@
 /*
  * AF_RPMSG: Remote processor messaging sockets
  *
- * Copyright (C) 2011-2014 Texas Instruments, Inc.
+ * Copyright (C) 2011-2016 Texas Instruments, Inc.
  *
  * Ohad Ben-Cohen <ohad@wizery.com>
  * Robert Tivy <rtivy@ti.com>
@@ -27,7 +27,6 @@
 #include <linux/list.h>
 #include <linux/errno.h>
 #include <linux/skbuff.h>
-#include <linux/rwlock.h>
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/rpmsg.h>
@@ -43,6 +42,11 @@
  * Must match value as in drivers/rpmsg/virtio_rpmsg_bus.c:
  */
 #define RPMSG_RESERVED_ADDRESSES     (1024)
+
+/* Maximum buffer size supported by virtio rpmsg transport.
+ * Must match value as in drivers/rpmsg/virtio_rpmsg_bus.c
+ */
+#define RPMSG_BUF_SIZE               (512)
 
 struct rpmsg_socket {
 	struct sock sk;
@@ -189,7 +193,7 @@ static int rpmsg_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 {
 	struct sock *sk = sock->sk;
 	struct rpmsg_socket *rpsk;
-	char payload[512];/* todo: sane payload length methodology */
+	char payload[RPMSG_BUF_SIZE];/* todo: sane payload length methodology */
 	int err;
 
 	/* XXX check for sock_error as well ? */
@@ -200,6 +204,10 @@ static int rpmsg_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 	/* no payload ? */
 	if (msg->msg_iov->iov_base == NULL)
 		return -EINVAL;
+
+	/* make sure the length is valid for copying into kernel buffer */
+	if (len > RPMSG_BUF_SIZE - sizeof(struct rpmsg_hdr))
+		return -EMSGSIZE;
 
 	lock_sock(sk);
 
@@ -224,7 +232,6 @@ static int rpmsg_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (err)
 		goto out;
 
-	/* XXX add length validation */
 	err = rpmsg_send(rpsk->rpdev, payload, len);
 	if (err)
 		pr_err("rpmsg_send failed: %d\n", err);
@@ -653,6 +660,7 @@ static int rpmsg_proto_probe(struct rpmsg_channel *rpdev)
 	if (ret) {
 		dev_err(dev, "failed to add rpmsg addr %d: %d\n", dst, ret);
 		kfree(sock_list);
+		goto out;
 	}
 	rpdev->ept->priv = sock_list;
 
@@ -791,4 +799,5 @@ module_exit(rpmsg_proto_exit);
 
 MODULE_DESCRIPTION("Remote processor messaging protocol");
 MODULE_LICENSE("GPL v2");
+MODULE_ALIAS("rpmsg:rpmsg-proto");
 MODULE_ALIAS_NETPROTO(AF_RPMSG);
