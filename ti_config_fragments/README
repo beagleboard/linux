@@ -56,6 +56,20 @@ config_file: - Defines a file that contains a list of config fragments.  If ther
 extra_configs: - These are individual config fragments that can be appended to the defconfig by themselves or in addition to
         the config_file.
 
+A Note on ordering of "extra_configs":
+
+In general, config fragments should be listed such that the fragment
+with more restrictive options goes towards the end of the list. This
+makes sure that those options are not inadvertently overridden by more
+generically applicable options. More concretely, the following ordering
+is recommended:
+
+1) Pruning of non-TI features
+2) Introduce domain specific features
+3) Optimize for an SoC family
+4) Optimize for a particular SoC
+5) Introduce distribution specific features. (example: Android)
+
 Example:
 
 This is an example of an AM335x entry that will create a defconfig only for AM335x
@@ -63,7 +77,7 @@ processors, based on the omap2plus_defconfig.  The defconfig_fragment file adds 
 that have been enabled in the TI integrated kernel.  The extra_configs will add in the
 debug options as well as undefine all processors that are not AM335x.
 
-processor: AM33xx type: am335x_debug_only defconfig: omap2plus_defconfig config_file: defconfig_fragment extra_configs: debug_options.cfg am33xx_only.cfg
+processor: SDK_release type: ti_sdk_am3x_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg omap_soc.cfg am33xx_only.cfg systemd.cfg
 
 ##################################
 # Defconfig Mapping
