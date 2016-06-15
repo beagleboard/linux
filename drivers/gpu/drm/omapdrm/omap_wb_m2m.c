@@ -1353,8 +1353,8 @@ int wbm2m_init(struct drm_device *drmdev)
 
 	video_set_drvdata(vfd, dev);
 	snprintf(vfd->name, sizeof(vfd->name), "%s", wbm2m_videodev.name);
-	log_info(dev, "Device registered as %s\n",
-		 video_device_node_name(vfd));
+	log_dbg(dev, "Device registered as %s\n",
+		video_device_node_name(vfd));
 
 	return 0;
 
