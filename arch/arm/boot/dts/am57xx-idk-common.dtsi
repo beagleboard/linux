@@ -13,8 +13,6 @@
 		rtc1 = &rtc;
 		display0 = &hdmi0;
 		sound0 = &hdmi;
-		ethernet2 = &pruss2_emac0;
-		ethernet3 = &pruss2_emac1;
 	};
 
 	vmain: fixedregulator-vmain {
