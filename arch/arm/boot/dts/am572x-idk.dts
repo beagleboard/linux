@@ -310,7 +310,6 @@
 };
 
 &mmc1 {
-	status = "okay";
 	pinctrl-names = "default", "hs", "sdr12", "sdr25", "sdr50", "ddr50", "sdr104";
 	pinctrl-0 = <&mmc1_pins_default>;
 	pinctrl-1 = <&mmc1_pins_hs>;
@@ -319,28 +318,13 @@
 	pinctrl-4 = <&mmc1_pins_sdr50>;
 	pinctrl-5 = <&mmc1_pins_ddr50 &mmc1_iodelay_ddr50_conf>;
 	pinctrl-6 = <&mmc1_pins_sdr104 &mmc1_iodelay_sdr104_conf>;
-	vmmc-supply = <&v3_3d>;
-	vmmc_aux-supply = <&ldo1_reg>;
-	bus-width = <4>;
-	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
-	max-frequency = <192000000>;
 };
 
 &mmc2 {
-	status = "okay";
 	pinctrl-names = "default", "hs", "ddr_1_8v";
 	pinctrl-0 = <&mmc2_pins_default>;
 	pinctrl-1 = <&mmc2_pins_hs>;
 	pinctrl-2 = <&mmc2_pins_ddr_1_8v &mmc2_iodelay_ddr_1_8v_conf>;
-	vmmc-supply = <&v3_3d>;
-	bus-width = <8>;
-	ti,non-removable;
-	max-frequency = <96000000>;
-	/*
-	 * eMMC on AM572x IDK cannot support HS200 mode because
-	 * the IO voltage is tied to 3.3V
-	 */
-	/delete-property/ mmc-hs200-1_8v;
 };
 
 &mailbox5 {

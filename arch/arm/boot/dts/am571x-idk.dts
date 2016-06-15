@@ -92,13 +92,6 @@
 	};
 };
 
-&mmc1 {
-	status = "okay";
-	vmmc-supply = <&ldo1_reg>;
-	bus-width = <4>;
-	cd-gpios = <&gpio6 27 0>; /* gpio 219 */
-};
-
 &oppdm_mpu {
 	vdd-supply = <&smps12_reg>;
 };
