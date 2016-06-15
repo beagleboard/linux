@@ -148,6 +148,9 @@ property is not applicable for K2G SoC.
                      number,
                          "vring" - for PRU to HOST virtqueue signalling
                          "kick"  - for HOST to PRU virtqueue signalling
+- ti,pruss-gp-mux-sel : integer value of the GP MUX mode needed by an
+                        application to be run on a PRU. Currently to be used
+                        _only_ for PRU Ethernet usecase on AM571x IDK board.
 
 MDIO Child Node
 ================
