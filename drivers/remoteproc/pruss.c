@@ -353,6 +353,9 @@ static inline void pruss_set_reg(struct pruss *pruss, enum pruss_mem region,
 /* firmware must be idle when calling this function */
 static void pruss_disable_module(struct pruss *pruss)
 {
+	if (pruss->skip_syscfg)
+		goto put_sync;
+
 	/* configure Smart Standby */
 	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
 		      PRUSS_SYSCFG_STANDBY_MODE_MASK,
@@ -363,6 +366,7 @@ static void pruss_disable_module(struct pruss *pruss)
 		      PRUSS_SYSCFG_STANDBY_INIT,
 		      PRUSS_SYSCFG_STANDBY_INIT);
 
+put_sync:
 	/* tell PRCM to initiate IDLE request */
 	pm_runtime_put_sync(pruss->dev);
 }
@@ -409,6 +413,9 @@ static int pruss_enable_module(struct pruss *pruss)
 		pm_runtime_put_noidle(pruss->dev);
 		return ret;
 	}
+
+	if (pruss->skip_syscfg)
+		return ret;
 
 	/* configure for smart idle & smart standby */
 	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
@@ -500,8 +507,12 @@ EXPORT_SYMBOL_GPL(pruss_cfg_xfr_enable);
 static int pruss_suspend(struct device *dev)
 {
 	struct pruss *pruss = dev_get_drvdata(dev);
-	u32 syscfg_val = pruss_read_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG);
+	u32 syscfg_val;
 
+	if (pruss->skip_syscfg)
+		return 0;
+
+	syscfg_val = pruss_read_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG);
 	pruss->in_standby = syscfg_val & PRUSS_SYSCFG_STANDBY_INIT;
 
 	/* initiate MStandby, undo the MStandby config in probe */
@@ -520,7 +531,7 @@ static int pruss_resume(struct device *dev)
 	int ret = 0;
 
 	/* re-enable OCP master ports/disable MStandby */
-	if (!pruss->in_standby) {
+	if (!pruss->skip_syscfg && !pruss->in_standby) {
 		ret = pruss_enable_ocp_master_ports(pruss);
 		if (ret)
 			dev_err(dev, "%s failed\n", __func__);
@@ -535,17 +546,12 @@ static const struct of_device_id pruss_of_match[];
 static const
 struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
 	const struct pruss_match_private_data *data;
 	const struct of_device_id *match;
 
 	match = of_match_device(pruss_of_match, &pdev->dev);
 	if (!match)
 		return ERR_PTR(-ENODEV);
-
-	if (of_device_is_compatible(np, "ti,am3352-pruss") ||
-	    of_device_is_compatible(np, "ti,am4372-pruss"))
-		return match->data;
 
 	data = match->data;
 	for (; data && data->device_name; data++) {
@@ -597,6 +603,7 @@ static int pruss_probe(struct platform_device *pdev)
 
 	pruss->dev = dev;
 	pruss->data = data;
+	pruss->skip_syscfg = !!of_device_is_compatible(node, "ti,k2g-pruss");
 	mutex_init(&pruss->lock);
 	mutex_init(&pruss->cfg_lock);
 
@@ -716,13 +723,25 @@ static struct of_dev_auxdata am57xx_pruss2_rproc_auxdata_lookup[] = {
 	{ /* sentinel */ },
 };
 
+static struct of_dev_auxdata k2g_pruss0_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,k2g-pru", 0x20ab4000, "20ab4000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,k2g-pru", 0x20ab8000, "20ab8000.pru1", NULL),
+	{ /* sentinel */ },
+};
+
+static struct of_dev_auxdata k2g_pruss1_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,k2g-pru", 0x20af4000, "20af4000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,k2g-pru", 0x20af8000, "20af8000.pru1", NULL),
+	{ /* sentinel */ },
+};
+
 /* instance-specific driver private data */
-static struct pruss_private_data am335x_priv_data = {
+static struct pruss_private_data am335x_pruss_priv_data = {
 	.aux_data = am335x_pruss_rproc_auxdata_lookup,
 	.has_reset = true,
 };
 
-static struct pruss_private_data am437x_priv_data = {
+static struct pruss_private_data am437x_pruss1_priv_data = {
 	.aux_data = am437x_pruss1_rproc_auxdata_lookup,
 	.has_reset = true,
 };
@@ -733,6 +752,34 @@ static struct pruss_private_data am57xx_pruss1_priv_data = {
 
 static struct pruss_private_data am57xx_pruss2_priv_data = {
 	.aux_data = am57xx_pruss2_rproc_auxdata_lookup,
+};
+
+static struct pruss_private_data k2g_pruss0_priv_data = {
+	.aux_data = k2g_pruss0_rproc_auxdata_lookup,
+};
+
+static struct pruss_private_data k2g_pruss1_priv_data = {
+	.aux_data = k2g_pruss1_rproc_auxdata_lookup,
+};
+
+static struct pruss_match_private_data am335x_match_data[] = {
+	{
+		.device_name	= "4a300000.pruss",
+		.priv_data	= &am335x_pruss_priv_data,
+	},
+	{
+		/* sentinel */
+	},
+};
+
+static struct pruss_match_private_data am437x_match_data[] = {
+	{
+		.device_name	= "54400000.pruss",
+		.priv_data	= &am437x_pruss1_priv_data,
+	},
+	{
+		/* sentinel */
+	},
 };
 
 static struct pruss_match_private_data am57xx_match_data[] = {
@@ -749,10 +796,25 @@ static struct pruss_match_private_data am57xx_match_data[] = {
 	},
 };
 
+static struct pruss_match_private_data k2g_match_data[] = {
+	{
+		.device_name	= "20a80000.pruss",
+		.priv_data	= &k2g_pruss0_priv_data,
+	},
+	{
+		.device_name	= "20ac0000.pruss",
+		.priv_data	= &k2g_pruss1_priv_data,
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id pruss_of_match[] = {
-	{ .compatible = "ti,am3352-pruss", .data = &am335x_priv_data, },
-	{ .compatible = "ti,am4372-pruss", .data = &am437x_priv_data, },
+	{ .compatible = "ti,am3352-pruss", .data = &am335x_match_data, },
+	{ .compatible = "ti,am4372-pruss", .data = &am437x_match_data, },
 	{ .compatible = "ti,am5728-pruss", .data = &am57xx_match_data, },
+	{ .compatible = "ti,k2g-pruss", .data = &k2g_match_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
