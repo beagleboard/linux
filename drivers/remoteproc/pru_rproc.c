@@ -929,6 +929,27 @@ static struct pru_private_data am57xx_pru2_1_rproc_pdata = {
 	.eth_fw_name = "ti-pruss/am57xx-pru1-prueth-fw.elf"
 };
 
+/* K2G PRUSS0 PRU core-specific private data */
+static struct pru_private_data k2g_pru0_0_rproc_pdata = {
+	.id = 0,
+	.fw_name = "k2g-pru0_0-fw",
+};
+
+static struct pru_private_data k2g_pru0_1_rproc_pdata = {
+	.id = 1,
+	.fw_name = "k2g-pru0_1-fw",
+};
+
+static struct pru_private_data k2g_pru1_0_rproc_pdata = {
+	.id = 0,
+	.fw_name = "k2g-pru1_0-fw",
+};
+
+static struct pru_private_data k2g_pru1_1_rproc_pdata = {
+	.id = 1,
+	.fw_name = "k2g-pru1_1-fw",
+};
+
 /* AM33xx SoC-specific PRU Device data */
 static struct pru_match_private_data am335x_pru_match_data[] = {
 	{
@@ -982,10 +1003,34 @@ static struct pru_match_private_data am57xx_pru_match_data[] = {
 	},
 };
 
+/* K2G SoC-specific PRU Device data */
+static struct pru_match_private_data k2g_pru_match_data[] = {
+	{
+		.device_name	= "20ab4000.pru0",
+		.priv_data	= &k2g_pru0_0_rproc_pdata,
+	},
+	{
+		.device_name	= "20ab8000.pru1",
+		.priv_data	= &k2g_pru0_1_rproc_pdata,
+	},
+	{
+		.device_name	= "20af4000.pru0",
+		.priv_data	= &k2g_pru1_0_rproc_pdata,
+	},
+	{
+		.device_name	= "20af8000.pru1",
+		.priv_data	= &k2g_pru1_1_rproc_pdata,
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id pru_rproc_match[] = {
 	{ .compatible = "ti,am3352-pru", .data = am335x_pru_match_data, },
 	{ .compatible = "ti,am4372-pru", .data = am437x_pru_match_data, },
 	{ .compatible = "ti,am5728-pru", .data = am57xx_pru_match_data, },
+	{ .compatible = "ti,k2g-pru", .data = k2g_pru_match_data, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pru_rproc_match);

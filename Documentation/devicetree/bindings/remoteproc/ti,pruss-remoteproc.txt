@@ -40,6 +40,7 @@ Required Properties:
                        "ti,am3352-pruss" for AM335x family of SoCs
                        "ti,am4372-pruss" for AM437x family of SoCs
                        "ti,am5728-pruss" for AM57xx family of SoCs
+                       "ti,k2g-pruss" for K2G SoC
 - ti,hwmods      : name of the hwmod associated with the PRUSS instance
 - reg            : base address and size for each of the sub-modules as
                    mentioned in reg-names, and in the same order as the
@@ -77,6 +78,7 @@ Required Properties:
                              "ti,am3352-pruss-intc" for AM335x family of SoCs
                              "ti,am4372-pruss-intc" for AM437x family of SoCs
                              "ti,am5728-pruss-intc" for AM57xx family of SoCs
+                             "ti,k2g-pruss-intc" for K2G SoC
 - reg                  : base address and size for the PRUSS INTC sub-module
 - reg-names            : should contain the string "intc"
 - interrupts           : all the interrupts generated towards the main host
@@ -88,7 +90,7 @@ Required Properties:
                          host interrupt number,
                              "host2", "host3", "host4", "host5", "host6",
                              "host7", "host8" or "host9"
-                         NOTE: AM437x SoCs do not have "host7" interrupt
+                         NOTE: AM437x and K2G SoCs do not have "host7" interrupt
                                connected to MPU
 - interrupt-controller : mark this node as an interrupt controller
 - #interrupt-cells     : should be 1. Client users shall use the PRU System
@@ -112,6 +114,7 @@ Required Properties:
                        "ti,am3352-pru" for AM335x family of SoCs
                        "ti,am4372-pru" for AM437x family of SoCs
                        "ti,am5728-pru" for AM57xx family of SoCs
+                       "ti,k2g-pru" for K2G SoC
 - reg            : base address and size for each of the 3 sub-module address
                    spaces as mentioned in reg-names, and in the same order as
                    the reg-names
@@ -125,7 +128,8 @@ Optional Properties:
 --------------------
 The virtio based communication between the MPU and a PRU core _requires_
 either the 'mboxes' property to be defined, or the set of 'interrupt-parent',
-'interrupts' and 'interrupt-names' properties to be defined.
+'interrupts' and 'interrupt-names' properties to be defined. The 'mboxes'
+property is not applicable for K2G SoC.
 
 - mboxes           : OMAP Mailbox specifier denoting the sub-mailbox, if using
                      a mailbox for IPC signalling between host and a PRU core.
