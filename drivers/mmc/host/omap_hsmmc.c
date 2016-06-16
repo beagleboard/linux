@@ -45,6 +45,9 @@
 #include <linux/mmc/sd.h>
 
 /* OMAP HSMMC Host Controller Registers */
+#define OMAP_HSMMC_HL_REV	0x0000
+#define OMAP_HSMMC_HL_HWINFO	0x0004
+#define OMAP_HSMMC_HL_SYSCONFIG	0x0010
 #define OMAP_HSMMC_SYSSTATUS	0x0014
 #define OMAP_HSMMC_CON		0x002C
 #define OMAP_HSMMC_DLL		0x0034
@@ -66,7 +69,10 @@
 #define OMAP_HSMMC_AC12		0x013C
 #define OMAP_HSMMC_CAPA		0x0140
 #define OMAP_HSMMC_CAPA2	0x0144
+#define OMAP_HSMMC_ADMAES	0x0154
+#define OMAP_HSMMC_ADMASAL	0x0158
 
+#define MADMA_EN		(1 << 0)
 #define VS18			(1 << 26)
 #define VS30			(1 << 25)
 #define HSS			(1 << 21)
@@ -76,6 +82,7 @@
 #define SDVS_MASK		0x00000E00
 #define SDVSCLR			0xFFFFF1FF
 #define SDVSDET			0x00000400
+#define DMA_SELECT		(2 << 3)
 #define AUTOIDLE		0x1
 #define SDBP			(1 << 8)
 #define DTO			0xe
@@ -96,6 +103,7 @@
 #define BCE			(1 << 1)
 #define FOUR_BIT		(1 << 1)
 #define HSPE			(1 << 2)
+#define DMA_MASTER		(1 << 20)
 #define DDR			(1 << 19)
 #define CLKEXTFREE		(1 << 16)
 #define PADEN			(1 << 15)
@@ -126,6 +134,7 @@
 #define DCRC_EN			(1 << 21)
 #define DEB_EN			(1 << 22)
 #define ACE_EN			(1 << 24)
+#define ADMAE_EN		(1 << 24)
 #define CERR_EN			(1 << 28)
 #define BADA_EN			(1 << 29)
 
@@ -147,7 +156,7 @@
 #define DLL_FORCE_VALUE                (1 << 12)
 #define DLL_RESET              (1 << 31)
 
-#define INT_EN_MASK (BADA_EN | CERR_EN | ACE_EN | DEB_EN | DCRC_EN |\
+#define INT_EN_MASK (BADA_EN | CERR_EN | ADMAE_EN | ACE_EN | DEB_EN | DCRC_EN |\
 		DTO_EN | CIE_EN | CEB_EN | CCRC_EN | CTO_EN | \
 		BRR_EN | BWR_EN | TC_EN | CC_EN)
 
@@ -201,6 +210,31 @@
 #define OMAP_HSMMC_WRITE(base, reg, val) \
 	__raw_writel((val), (base) + OMAP_HSMMC_##reg)
 
+struct omap_hsmmc_adma_desc {
+	u8 attr;
+	u8 reserved;
+	u16 len;
+	u32 addr;
+} __packed;
+
+#define ADMA_MAX_LEN			65532
+
+/* Decriptor table defines */
+#define ADMA_DESC_ATTR_VALID		BIT(0)
+#define ADMA_DESC_ATTR_END		BIT(1)
+#define ADMA_DESC_ATTR_INT		BIT(2)
+#define ADMA_DESC_ATTR_ACT1		BIT(4)
+#define ADMA_DESC_ATTR_ACT2		BIT(5)
+
+#define ADMA_DESC_TRANSFER_DATA		ADMA_DESC_ATTR_ACT2
+#define ADMA_DESC_LINK_DESC	(ADMA_DESC_ATTR_ACT1 | ADMA_DESC_ATTR_ACT2)
+
+/* ADMA error status */
+#define AES_MASK		0x3
+#define ST_FDS			0x0
+#define ST_STOP			0x1
+#define ST_TFR			0x3
+
 struct omap_hsmmc_next {
 	unsigned int	dma_len;
 	s32		cookie;
@@ -241,6 +275,7 @@ struct omap_hsmmc_host {
 	u32			capa;
 	int			irq;
 	int			dma_ch;
+	int			use_adma;
 	struct dma_chan		*tx_chan;
 	struct dma_chan		*rx_chan;
 	int			slot_id;
@@ -273,6 +308,10 @@ struct omap_hsmmc_host {
 	 * transfer
 	 */
 	bool			transfer_incomplete;
+
+	struct omap_hsmmc_adma_desc *adma_desc_table;
+	dma_addr_t              adma_desc_table_addr;
+
 	struct omap_hsmmc_next	next_data;
 	struct	omap_mmc_platform_data	*pdata;
 	struct timer_list	timer;
@@ -1260,13 +1299,17 @@ static void omap_hsmmc_dma_cleanup(struct omap_hsmmc_host *host, int errno)
 	host->dma_ch = -1;
 	spin_unlock_irqrestore(&host->irq_lock, flags);
 
-	if (dma_ch != -1) {
-		struct dma_chan *chan = omap_hsmmc_get_dma_chan(host, host->data);
-
+	if (host->use_adma) {
+		dma_unmap_sg(host->dev, host->data->sg, host->data->sg_len,
+			     omap_hsmmc_get_dma_dir(host, host->data));
+		host->data->host_cookie = 0;
+	} else if (dma_ch != -1) {
+		struct dma_chan *chan = omap_hsmmc_get_dma_chan(host,
+								host->data);
 		dmaengine_terminate_all(chan);
 		dma_unmap_sg(chan->device->dev,
-			host->data->sg, host->data->sg_len,
-			omap_hsmmc_get_dma_dir(host, host->data));
+			     host->data->sg, host->data->sg_len,
+		omap_hsmmc_get_dma_dir(host, host->data));
 
 		host->data->host_cookie = 0;
 	}
@@ -1361,6 +1404,35 @@ static void hsmmc_command_incomplete(struct omap_hsmmc_host *host,
 		host->mrq->cmd->error = err;
 }
 
+static void omap_hsmmc_adma_err(struct omap_hsmmc_host *host)
+{
+	u32 admaes, admasal;
+
+	admaes = OMAP_HSMMC_READ(host->base, ADMAES);
+	admasal = OMAP_HSMMC_READ(host->base, ADMASAL);
+
+	switch (admaes & AES_MASK) {
+	case ST_FDS:
+		dev_err(mmc_dev(host->mmc),
+			"ADMA err: ST_FDS, erroneous desc at 0x%08x\n",
+			admasal);
+		break;
+	case ST_STOP:
+		dev_err(mmc_dev(host->mmc),
+			"ADMA err: ST_STOP, desc at 0x%08x follows the erroneous one\n",
+			admasal);
+		break;
+	case ST_TFR:
+		dev_err(mmc_dev(host->mmc),
+			"ADMA err: ST_TFR, desc at 0x%08x follows the erroneous one\n",
+			admasal);
+		break;
+	default:
+		dev_warn(mmc_dev(host->mmc), "Unexpected ADMA error state\n");
+		break;
+	}
+}
+
 static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 {
 	struct mmc_data *data;
@@ -1399,6 +1471,12 @@ static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 				hsmmc_command_incomplete(host, error, end_cmd);
 			}
 			dev_dbg(mmc_dev(host->mmc), "AC12 err: 0x%x\n", ac12);
+		}
+
+		if (status & ADMAE_EN) {
+			omap_hsmmc_adma_err(host);
+			end_trans = 1;
+			data->error = -EIO;
 		}
 	}
 
@@ -1665,6 +1743,7 @@ static int omap_hsmmc_pre_dma_transfer(struct omap_hsmmc_host *host,
 				       struct dma_chan *chan)
 {
 	int dma_len;
+	struct device *dev;
 
 	if (!next && data->host_cookie &&
 	    data->host_cookie != host->next_data.cookie) {
@@ -1674,9 +1753,14 @@ static int omap_hsmmc_pre_dma_transfer(struct omap_hsmmc_host *host,
 		data->host_cookie = 0;
 	}
 
+	if (chan)
+		dev = chan->device->dev;
+	else
+		dev = mmc_dev(host->mmc);
+
 	/* Check if next job is already prepared */
 	if (next || data->host_cookie != host->next_data.cookie) {
-		dma_len = dma_map_sg(chan->device->dev, data->sg, data->sg_len,
+		dma_len = dma_map_sg(dev, data->sg, data->sg_len,
 				     omap_hsmmc_get_dma_dir(host, data));
 
 	} else {
@@ -1846,9 +1930,57 @@ static void omap_hsmmc_start_dma_transfer(struct omap_hsmmc_host *host)
 				| (req->data->blocks << 16));
 	set_data_timeout(host, req->data->timeout_ns,
 				req->data->timeout_clks);
-	chan = omap_hsmmc_get_dma_chan(host, req->data);
-	dma_async_issue_pending(chan);
 
+	if (host->use_adma) {
+		OMAP_HSMMC_WRITE(host->base, ADMASAL,
+				 (u32)host->adma_desc_table_addr);
+	} else {
+		chan = omap_hsmmc_get_dma_chan(host, req->data);
+		dma_async_issue_pending(chan);
+	}
+}
+
+static int omap_hsmmc_write_adma_desc(struct omap_hsmmc_host *host, void *desc,
+				      dma_addr_t addr, u16 len, u8 attr)
+{
+	struct omap_hsmmc_adma_desc *dma_desc = desc;
+
+	dma_desc->len = len;
+	dma_desc->addr = (u32)addr;
+	dma_desc->reserved = 0;
+	dma_desc->attr = attr;
+
+	return 0;
+}
+
+static int omap_hsmmc_setup_adma_transfer(struct omap_hsmmc_host *host,
+					  struct mmc_request *req)
+{
+	struct mmc_data *data = req->data;
+	struct scatterlist *sg;
+	int i;
+	int len;
+	int ret;
+	dma_addr_t addr;
+	struct omap_hsmmc_adma_desc *dma_desc;
+
+	ret = omap_hsmmc_pre_dma_transfer(host, data, NULL, NULL);
+	if (ret)
+		return ret;
+
+	dma_desc = host->adma_desc_table;
+	for_each_sg(data->sg, sg, host->dma_len, i) {
+		addr = sg_dma_address(sg);
+		len = sg_dma_len(sg);
+		WARN_ON(len > ADMA_MAX_LEN);
+		omap_hsmmc_write_adma_desc(host, dma_desc, addr, len,
+					   ADMA_DESC_ATTR_VALID |
+					   ADMA_DESC_TRANSFER_DATA);
+		dma_desc++;
+	}
+	omap_hsmmc_write_adma_desc(host, dma_desc, 0, 0, ADMA_DESC_ATTR_END);
+
+	return 0;
 }
 
 /*
@@ -1879,10 +2011,18 @@ omap_hsmmc_prepare_data(struct omap_hsmmc_host *host, struct mmc_request *req)
 		return 0;
 	}
 
-	ret = omap_hsmmc_setup_dma_transfer(host, req);
-	if (ret != 0) {
-		dev_err(mmc_dev(host->mmc), "MMC start dma failure\n");
-		return ret;
+	if (host->use_adma) {
+		ret = omap_hsmmc_setup_adma_transfer(host, req);
+		if (ret != 0) {
+			dev_err(mmc_dev(host->mmc), "MMC adma setup failed\n");
+			return ret;
+		}
+	} else {
+		ret = omap_hsmmc_setup_dma_transfer(host, req);
+		if (ret != 0) {
+			dev_err(mmc_dev(host->mmc), "MMC start dma failure\n");
+			return ret;
+		}
 	}
 	return 0;
 }
@@ -1892,11 +2032,18 @@ static void omap_hsmmc_post_req(struct mmc_host *mmc, struct mmc_request *mrq,
 {
 	struct omap_hsmmc_host *host = mmc_priv(mmc);
 	struct mmc_data *data = mrq->data;
+	struct device *dev;
+	struct dma_chan *c;
 
 	if (data->host_cookie) {
-		struct dma_chan *c = omap_hsmmc_get_dma_chan(host, data);
+		if (host->use_adma) {
+			dev = mmc_dev(mmc);
+		} else {
+			c = omap_hsmmc_get_dma_chan(host, mrq->data);
+			dev = c->device->dev;
+		}
 
-		dma_unmap_sg(c->device->dev, data->sg, data->sg_len,
+		dma_unmap_sg(dev, data->sg, data->sg_len,
 			     omap_hsmmc_get_dma_dir(host, data));
 		data->host_cookie = 0;
 	}
@@ -1913,7 +2060,8 @@ static void omap_hsmmc_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
 		return ;
 	}
 
-	c = omap_hsmmc_get_dma_chan(host, mrq->data);
+	if (!host->use_adma)
+		c = omap_hsmmc_get_dma_chan(host, mrq->data);
 
 	if (omap_hsmmc_pre_dma_transfer(host, mrq->data,
 					&host->next_data, c))
@@ -2518,6 +2666,7 @@ static const struct omap_mmc_of_data omap3_pre_es3_mmc_of_data = {
 
 static const struct omap_mmc_of_data omap4_mmc_of_data = {
 	.reg_offset = 0x100,
+	.controller_flags = OMAP_HSMMC_HAS_HWPARAM,
 };
 
 static const struct of_device_id omap_mmc_of_match[] = {
@@ -2611,6 +2760,92 @@ static inline struct omap_mmc_platform_data
 }
 #endif
 
+static int omap_hsmmc_adma_init(struct omap_hsmmc_host *host)
+{
+	struct mmc_host *mmc = host->mmc;
+	u32 val;
+
+	host->adma_desc_table = dma_alloc_coherent(host->dev, mmc->max_segs + 1,
+						   &host->adma_desc_table_addr,
+						   GFP_KERNEL);
+	if (!host->adma_desc_table) {
+		dev_err(host->dev, "failed to allocate adma desc table\n");
+		return -ENOMEM;
+	}
+
+	val = OMAP_HSMMC_READ(host->base, HCTL);
+	val |= DMA_SELECT;
+	OMAP_HSMMC_WRITE(host->base, HCTL, val);
+
+	val = OMAP_HSMMC_READ(host->base, CON);
+	val |= DMA_MASTER;
+	OMAP_HSMMC_WRITE(host->base, CON, val);
+
+	return 0;
+}
+
+static void omap_hsmmc_adma_exit(struct omap_hsmmc_host *host)
+{
+	struct mmc_host *mmc = host->mmc;
+
+	dma_free_coherent(host->dev, mmc->max_segs + 1,
+			  host->adma_desc_table, host->adma_desc_table_addr);
+}
+
+static int omap_hsmmc_dma_init(struct platform_device *pdev,
+			       struct omap_hsmmc_host *host)
+{
+	dma_cap_mask_t mask;
+	unsigned tx_req, rx_req;
+	struct resource *res;
+
+	if (!pdev->dev.of_node) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_DMA, "tx");
+		if (!res) {
+			dev_err(mmc_dev(host->mmc), "cannot get DMA TX channel\n");
+			return -ENXIO;
+		}
+		tx_req = res->start;
+
+		res = platform_get_resource_byname(pdev, IORESOURCE_DMA, "rx");
+		if (!res) {
+			dev_err(mmc_dev(host->mmc), "cannot get DMA RX channel\n");
+			return -ENXIO;
+		}
+		rx_req = res->start;
+	}
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE, mask);
+
+	host->rx_chan = dma_request_slave_channel_compat(mask,
+				omap_dma_filter_fn, &rx_req, &pdev->dev, "rx");
+	if (!host->rx_chan) {
+		dev_err(mmc_dev(host->mmc),
+			"unable to obtain RX DMA engine channel %u\n", rx_req);
+		return -ENXIO;
+	}
+
+	host->tx_chan = dma_request_slave_channel_compat(mask,
+				omap_dma_filter_fn, &tx_req, &pdev->dev, "tx");
+
+	if (!host->tx_chan) {
+		dev_err(mmc_dev(host->mmc),
+			"unable to obtain TX DMA engine channel %u\n", tx_req);
+		return -ENXIO;
+	}
+
+	return 0;
+}
+
+static void omap_hsmmc_dma_exit(struct omap_hsmmc_host *host)
+{
+	if (host->tx_chan)
+		dma_release_channel(host->tx_chan);
+	if (host->rx_chan)
+		dma_release_channel(host->rx_chan);
+}
+
 static int omap_hsmmc_probe(struct platform_device *pdev)
 {
 	struct omap_mmc_platform_data *pdata = pdev->dev.platform_data;
@@ -2620,9 +2855,8 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	struct omap_hsmmc_host *host = NULL;
 	struct resource *res;
 	int ret, irq;
+	u32 val;
 	const struct of_device_id *match;
-	dma_cap_mask_t mask;
-	unsigned tx_req, rx_req;
 	const struct omap_mmc_of_data *data;
 	void __iomem *base;
 
@@ -2682,6 +2916,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	host->next_data.cookie = 1;
 	host->pbias_enabled = 0;
 	host->regulator_enabled = 0;
+	host->use_adma	= false;
 	setup_timer(&host->timer, omap_hsmmc_soft_timeout,
 		    (unsigned long) host);
 
@@ -2740,6 +2975,12 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		host->dbclk = NULL;
 	}
 
+	if (host->pdata->controller_flags & OMAP_HSMMC_HAS_HWPARAM) {
+		val = OMAP_HSMMC_READ(base, HL_HWINFO);
+		if (val & MADMA_EN)
+			host->use_adma = true;
+	}
+
 	/* Since we do only SG emulation, we can have as many segs
 	 * as we want. */
 	mmc->max_segs = 1024;
@@ -2747,7 +2988,10 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	mmc->max_blk_size = 512;       /* Block Length at max can be 1024 */
 	mmc->max_blk_count = 0xFFFF;    /* No. of Blocks is 16 bits */
 	mmc->max_req_size = mmc->max_blk_size * mmc->max_blk_count;
-	mmc->max_seg_size = mmc->max_req_size;
+	if (host->use_adma)
+		mmc->max_seg_size = ADMA_MAX_LEN;
+	else
+		mmc->max_seg_size = mmc->max_req_size;
 
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED |
 		     MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_ERASE;
@@ -2779,46 +3023,14 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 
 	omap_hsmmc_conf_bus_power(host);
 
-	if (!pdev->dev.of_node) {
-		res = platform_get_resource_byname(pdev, IORESOURCE_DMA, "tx");
-		if (!res) {
-			dev_err(mmc_dev(host->mmc), "cannot get DMA TX channel\n");
-			ret = -ENXIO;
-			goto err_irq;
-		}
-		tx_req = res->start;
+	if (host->use_adma)
+		ret = omap_hsmmc_adma_init(host);
+	else
+		ret = omap_hsmmc_dma_init(pdev, host);
+	if (ret)
 
-		res = platform_get_resource_byname(pdev, IORESOURCE_DMA, "rx");
-		if (!res) {
-			dev_err(mmc_dev(host->mmc), "cannot get DMA RX channel\n");
-			ret = -ENXIO;
-			goto err_irq;
-		}
-		rx_req = res->start;
-	}
 
-	dma_cap_zero(mask);
-	dma_cap_set(DMA_SLAVE, mask);
-
-	host->rx_chan =
-		dma_request_slave_channel_compat(mask, omap_dma_filter_fn,
-						 &rx_req, &pdev->dev, "rx");
-
-	if (!host->rx_chan) {
-		dev_err(mmc_dev(host->mmc), "unable to obtain RX DMA engine channel %u\n", rx_req);
-		ret = -ENXIO;
 		goto err_irq;
-	}
-
-	host->tx_chan =
-		dma_request_slave_channel_compat(mask, omap_dma_filter_fn,
-						 &tx_req, &pdev->dev, "tx");
-
-	if (!host->tx_chan) {
-		dev_err(mmc_dev(host->mmc), "unable to obtain TX DMA engine channel %u\n", tx_req);
-		ret = -ENXIO;
-		goto err_irq;
-	}
 
 	/* Request IRQ for MMC operations */
 	ret = devm_request_irq(&pdev->dev, host->irq, omap_hsmmc_irq, 0,
@@ -2897,10 +3109,10 @@ err_reg:
 	if (host->pdata->cleanup)
 		host->pdata->cleanup(&pdev->dev);
 err_irq:
-	if (host->tx_chan)
-		dma_release_channel(host->tx_chan);
-	if (host->rx_chan)
-		dma_release_channel(host->rx_chan);
+	if (host->use_adma)
+		omap_hsmmc_adma_exit(host);
+	else
+		omap_hsmmc_dma_exit(host);
 	pm_runtime_put_sync(host->dev);
 	pm_runtime_disable(host->dev);
 	if (host->dbclk)
@@ -2924,10 +3136,10 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 	if (host->pdata->cleanup)
 		host->pdata->cleanup(&pdev->dev);
 
-	if (host->tx_chan)
-		dma_release_channel(host->tx_chan);
-	if (host->rx_chan)
-		dma_release_channel(host->rx_chan);
+	if (host->use_adma)
+		omap_hsmmc_adma_exit(host);
+	else
+		omap_hsmmc_dma_exit(host);
 
 	del_timer_sync(&host->timer);
 
