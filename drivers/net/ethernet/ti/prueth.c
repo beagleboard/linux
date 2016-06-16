@@ -156,6 +156,8 @@ struct prueth_emac {
 	struct prueth_queue_desc __iomem *rx_queue_descs;
 	struct prueth_queue_desc __iomem *tx_queue_descs;
 
+	struct port_statistics stats; /* stats holder when i/f is down */
+
 	spinlock_t lock;	/* serialize access */
 };
 
@@ -413,6 +415,10 @@ static int prueth_hostinit(struct prueth *prueth)
 
 	/* Clear OCMC RAM */
 	prueth_clearmem(prueth, PRUETH_MEM_OCMC);
+
+	/* Clear data RAMs */
+	prueth_clearmem(prueth, PRUETH_MEM_DRAM0);
+	prueth_clearmem(prueth, PRUETH_MEM_DRAM1);
 
 	/* Initialize host queues in shared RAM */
 	prueth_hostconfig(prueth);
@@ -995,6 +1001,20 @@ static void emac_get_stats(struct prueth_emac *emac,
 	memcpy_fromio(pstats, dram + STATISTICS_OFFSET, sizeof(*pstats));
 }
 
+/* set PRU firmware statistics */
+static void emac_set_stats(struct prueth_emac *emac,
+			   struct port_statistics *pstats)
+{
+	void __iomem *dram;
+
+	if (emac->port_id == PRUETH_PORT_MII0)
+		dram = emac->prueth->mem[PRUETH_MEM_DRAM0].va;
+	else
+		dram = emac->prueth->mem[PRUETH_MEM_DRAM1].va;
+
+	memcpy_fromio(dram + STATISTICS_OFFSET, pstats, sizeof(*pstats));
+}
+
 /**
  * emac_napi_poll - EMAC NAPI Poll function
  * @ndev: EMAC network adapter
@@ -1059,6 +1079,8 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	/* reset and start PRU firmware */
 	prueth_emac_config(prueth, emac);
+	/* restore stats */
+	emac_set_stats(emac, &emac->stats);
 	switch (emac->port_id) {
 	case PRUETH_PORT_MII0:
 		ret = rproc_boot(prueth->pru0);
@@ -1136,6 +1158,8 @@ static int emac_ndo_stop(struct net_device *ndev)
 		netdev_err(ndev, "invalid port\n");
 	}
 
+	/* save stats */
+	emac_get_stats(emac, &emac->stats);
 	/* disable and free rx and tx interrupts */
 	disable_irq(emac->tx_irq);
 	disable_irq(emac->rx_irq);
@@ -1782,6 +1806,63 @@ static int prueth_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int prueth_suspend(struct device *dev)
+{
+	struct prueth *prueth = dev_get_drvdata(dev);
+	struct net_device *ndev;
+	int i, ret;
+
+	for (i = 0; i < PRUETH_PORT_MAX; i++) {
+		ndev = prueth->registered_netdevs[i];
+
+		if (!ndev)
+			continue;
+
+		if (netif_running(ndev)) {
+			netif_device_detach(ndev);
+			ret = emac_ndo_stop(ndev);
+			if (ret < 0) {
+				netdev_err(ndev, "failed to stop: %d", ret);
+				return ret;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int prueth_resume(struct device *dev)
+{
+	struct prueth *prueth = dev_get_drvdata(dev);
+	struct net_device *ndev;
+	int i, ret;
+
+	for (i = 0; i < PRUETH_PORT_MAX; i++) {
+		ndev = prueth->registered_netdevs[i];
+
+		if (!ndev)
+			continue;
+
+		if (netif_running(ndev)) {
+			ret = emac_ndo_open(ndev);
+			if (ret < 0) {
+				netdev_err(ndev, "failed to start: %d", ret);
+				return ret;
+			}
+			netif_device_attach(ndev);
+		}
+	}
+
+	return 0;
+}
+
+#endif /* CONFIG_PM_SLEEP */
+
+static const struct dev_pm_ops prueth_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(prueth_suspend, prueth_resume)
+};
+
 static const struct of_device_id prueth_dt_match[] = {
 	{ .compatible = "ti,am57-prueth", },
 	{ .compatible = "ti,am4372-prueth", },
@@ -1796,6 +1877,7 @@ static struct platform_driver prueth_driver = {
 	.driver = {
 		.name = "prueth",
 		.of_match_table = prueth_dt_match,
+		.pm = &prueth_dev_pm_ops,
 	},
 };
 module_platform_driver(prueth_driver);
