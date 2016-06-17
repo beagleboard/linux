@@ -28,6 +28,7 @@
 #define OMAP_HSMMC_BROKEN_MULTIBLOCK_READ	BIT(1)
 #define OMAP_HSMMC_SWAKEUP_MISSING		BIT(2)
 #define OMAP_HSMMC_REQUIRE_IODELAY		BIT(3)
+#define OMAP_HSMMC_HAS_HWPARAM			BIT(4)
 
 struct omap_hsmmc_dev_attr {
 	u8 flags;
