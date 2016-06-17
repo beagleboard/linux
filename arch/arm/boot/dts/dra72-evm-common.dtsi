@@ -496,8 +496,7 @@
 
 &mmc1 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc1_pins_default>;
+
 	vmmc-supply = <&evm_3v3_sd>;
 	vmmc_aux-supply = <&ldo1_reg>;
 	bus-width = <4>;
@@ -512,8 +511,6 @@
 &mmc2 {
 	/* SW5-3 in ON position */
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc2_pins_default>;
 
 	vmmc-supply = <&evm_3v3_sw>;
 	bus-width = <8>;
