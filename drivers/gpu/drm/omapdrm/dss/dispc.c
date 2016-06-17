@@ -634,12 +634,12 @@ static void dispc_mgr_go(enum omap_channel channel)
 	mgr_fld_write(channel, DISPC_MGR_FLD_GO, 1);
 }
 
-bool dispc_wb_go_busy(void)
+static bool dispc_wb_go_busy(void)
 {
 	return REG_GET(DISPC_CONTROL2, 6, 6) == 1;
 }
 
-void dispc_wb_go(void)
+static void dispc_wb_go(void)
 {
 	enum omap_plane plane = OMAP_DSS_WB;
 	bool enable, go;
@@ -1080,13 +1080,6 @@ static enum omap_channel dispc_ovl_get_channel_out(enum omap_plane plane)
 	case 3:
 		return OMAP_DSS_CHANNEL_WB;
 	}
-}
-
-static void dispc_wb_set_channel_in(enum dss_writeback_channel channel)
-{
-	enum omap_plane plane = OMAP_DSS_WB;
-
-	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), channel, 18, 16);
 }
 
 static void dispc_ovl_set_burst_size(enum omap_plane plane,
@@ -2632,6 +2625,10 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 	unsigned long pclk = dispc_plane_pclk_rate(plane);
 	unsigned long lclk = dispc_plane_lclk_rate(plane);
 
+	/* when setting up WB, dispc_plane_pclk_rate() returns 0 */
+	if (plane == OMAP_DSS_WB)
+		pclk = mgr_timings->pixelclock;
+
 	if (paddr == 0 && rotation_type != OMAP_DSS_ROT_TILER)
 		return -EINVAL;
 
@@ -2833,7 +2830,8 @@ static int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info
 }
 
 static int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
-		bool mem_to_mem, const struct omap_video_timings *mgr_timings)
+		bool mem_to_mem, const struct omap_video_timings *mgr_timings,
+		enum dss_writeback_channel channel_in)
 {
 	int r;
 	u32 l;
@@ -2877,6 +2875,7 @@ static int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	/* setup extra DISPC_WB_ATTRIBUTES */
 	l = dispc_read_reg(DISPC_OVL_ATTRIBUTES(plane));
 	l = FLD_MOD(l, truncation, 10, 10);	/* TRUNCATIONENABLE */
+	l = FLD_MOD(l, channel_in, 18, 16);	/* CHANNELIN */
 	l = FLD_MOD(l, mem_to_mem, 19, 19);	/* WRITEBACKMODE */
 	if (mem_to_mem)
 		l = FLD_MOD(l, 1, 26, 24);	/* CAPTUREMODE */
@@ -2890,8 +2889,11 @@ static int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	} else {
 		int wbdelay;
 
-		wbdelay = min(mgr_timings->vfp + mgr_timings->vsw +
-			mgr_timings->vbp, 255);
+		if (channel_in == DSS_WB_TV_MGR)
+			wbdelay = min(mgr_timings->vsw + mgr_timings->vbp, 255);
+		else
+			wbdelay = min(mgr_timings->vfp + mgr_timings->vsw +
+				mgr_timings->vbp, 255);
 
 		/* WBDELAYCOUNT */
 		REG_FLD_MOD(DISPC_OVL_ATTRIBUTES2(plane), wbdelay, 7, 0);
@@ -4238,9 +4240,10 @@ static const struct dispc_ops dispc_ops = {
 	.ovl_get_color_modes = dispc_ovl_get_color_modes,
 
 	.wb_get_framedone_irq = dispc_wb_get_framedone_irq,
-	.wb_set_channel_in = dispc_wb_set_channel_in,
 	.wb_setup = dispc_wb_setup,
 	.has_writeback = dispc_has_writeback,
+	.wb_go_busy = dispc_wb_go_busy,
+	.wb_go = dispc_wb_go,
 };
 
 /*
