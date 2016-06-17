@@ -1,7 +1,7 @@
 /*
  * Remote Processor Procedure Call Driver
  *
- * Copyright(c) 2012-2014 Texas Instruments. All rights reserved.
+ * Copyright(c) 2012-2016 Texas Instruments. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,11 +40,8 @@
 #include <linux/skbuff.h>
 #include <linux/rpmsg.h>
 
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-typedef u64 virt_addr_t;
-#else
 typedef u32 virt_addr_t;
-#endif
+typedef u32 dev_addr_t;
 
 /**
  * struct rppc_device - The per-device (server) data
@@ -402,15 +399,15 @@ struct rppc_msg_header {
 
 
 /* from rpmsg_rpc.c */
-phys_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa);
+dev_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa);
 
 /* from rpmsg_rpc_dmabuf.c */
 struct rppc_dma_buf *rppc_alloc_dmabuf(struct rppc_instance *rpc,
 					int fd, bool autoreg);
 struct rppc_dma_buf *rppc_find_dmabuf(struct rppc_instance *rpc, int fd);
 int rppc_free_dmabuf(int id, void *p, void *data);
-phys_addr_t rppc_buffer_lookup(struct rppc_instance *rpc, virt_addr_t uva,
-				virt_addr_t buva, int fd);
+dev_addr_t rppc_buffer_lookup(struct rppc_instance *rpc, virt_addr_t uva,
+			      virt_addr_t buva, int fd);
 int rppc_xlate_buffers(struct rppc_instance *rpc, struct rppc_function *func,
 			int direction);
 

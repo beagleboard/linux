@@ -1,7 +1,7 @@
 /*
  * PRU-ICSS remoteproc driver for various TI SoCs
  *
- * Copyright (C) 2014 Texas Instruments, Inc.
+ * Copyright (C) 2014-2016 Texas Instruments, Inc.
  *
  * Suman Anna <s-anna@ti.com>
  *
@@ -849,16 +849,17 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
 		pru->mem_va[i] = devm_ioremap_resource(dev, res);
-		pru->mem_pa[i] = res->start;
-		pru->mem_size[i] = resource_size(res);
 		if (IS_ERR(pru->mem_va[i])) {
 			dev_err(dev, "failed to parse and map memory resource %d %s\n",
 				i, mem_names[i]);
 			ret = PTR_ERR(pru->mem_va[i]);
 			goto free_rproc;
 		}
-		dev_dbg(dev, "memory %8s: pa 0x%llx size 0x%x va %p\n",
-			mem_names[i], (unsigned long long)pru->mem_pa[i],
+		pru->mem_pa[i] = res->start;
+		pru->mem_size[i] = resource_size(res);
+
+		dev_dbg(dev, "memory %8s: pa %pa size 0x%x va %p\n",
+			mem_names[i], &pru->mem_pa[i],
 			pru->mem_size[i], pru->mem_va[i]);
 	}
 
@@ -1008,7 +1009,6 @@ static int pruss_probe(struct platform_device *pdev)
 	struct device_node *node = dev->of_node;
 	int ret;
 	struct pruss *pruss;
-	struct rproc *rproc = NULL;
 	struct resource *res;
 	int err, i, irq, num_irqs;
 	struct pruss_platform_data *pdata = dev_get_platdata(dev);
@@ -1079,15 +1079,16 @@ static int pruss_probe(struct platform_device *pdev)
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
 		pruss->mem_va[i] = devm_ioremap_resource(dev, res);
-		pruss->mem_pa[i] = res->start;
-		pruss->mem_size[i] = resource_size(res);
 		if (IS_ERR(pruss->mem_va[i])) {
 			dev_err(dev, "failed to parse and map memory resource %d %s\n",
 				i, mem_names[i]);
 			return PTR_ERR(pruss->mem_va[i]);
 		}
-		dev_dbg(dev, "memory %8s: pa 0x%llx size 0x%x va %p\n",
-			mem_names[i], (unsigned long long)pruss->mem_pa[i],
+		pruss->mem_pa[i] = res->start;
+		pruss->mem_size[i] = resource_size(res);
+
+		dev_dbg(dev, "memory %8s: pa %pa size 0x%x va %p\n",
+			mem_names[i], &pruss->mem_pa[i],
 			pruss->mem_size[i], pruss->mem_va[i]);
 	}
 
@@ -1132,9 +1133,6 @@ err_rpm_fail:
 	pm_runtime_disable(dev);
 	if (data->has_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
-
-	if (rproc)
-		rproc_put(rproc);
 err_fail:
 	return err;
 }

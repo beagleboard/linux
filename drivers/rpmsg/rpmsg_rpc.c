@@ -1,7 +1,7 @@
 /*
  * Remote Processor Procedure Call Driver
  *
- * Copyright(c) 2012-2014 Texas Instruments. All rights reserved.
+ * Copyright(c) 2012-2016 Texas Instruments. All rights reserved.
  *
  * Erik Rainey <erik.rainey@ti.com>
  * Suman Anna <s-anna@ti.com>
@@ -67,17 +67,22 @@ static struct rproc *rpdev_to_rproc(struct rpmsg_channel *rpdev)
  * A wrapper function to translate local physical addresses to the remote core
  * device addresses (virtual addresses that a code on remote processor can use
  * directly.
+ *
+ * XXX: Fix this to return negative values on errors to follow normal kernel
+ *      conventions, and since 0 can also be a valid remote processor address
+ *
+ * Returns a remote processor device address on success, 0 otherwise
  */
-phys_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
+dev_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
 {
 	int ret;
 	struct rproc *rproc;
-	u64 da;
-	phys_addr_t rda;
+	u64 da = 0;
+	dev_addr_t rda;
 	struct device *dev = rpc->dev;
 
 	if (mutex_lock_interruptible(&rpc->rppcdev->lock))
-		return -EINTR;
+		return 0;
 
 	rproc = rpdev_to_rproc(rpc->rppcdev->rpdev);
 	if (!rproc) {
@@ -86,12 +91,11 @@ phys_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
 	} else {
 		ret = rproc_pa_to_da(rproc, pa, &da);
 		if (ret) {
-			dev_err(dev, "error from rproc_pa_to_da, rproc = %p, pa = 0x%x ret = %d\n",
-				rproc, pa, ret);
-			da = 0;
+			dev_err(dev, "error from rproc_pa_to_da, rproc = %p, pa = %pa ret = %d\n",
+				rproc, &pa, ret);
 		}
 	}
-	rda = (phys_addr_t) da;
+	rda = (dev_addr_t)da;
 
 	mutex_unlock(&rpc->rppcdev->lock);
 
