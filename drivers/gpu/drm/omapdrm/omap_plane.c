@@ -141,8 +141,10 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	/* and finally, update omapdss: */
 	ret = priv->dispc_ops->ovl_setup(omap_plane->id, &info, false,
 			      omap_crtc_timings(state->crtc), false);
-	if (WARN_ON(ret)) {
+	if (ret) {
 		priv->dispc_ops->ovl_enable(omap_plane->id, false);
+		dev_err(plane->dev->dev, "Failed to setup plane %s\n",
+			omap_plane->name);
 		return;
 	}
 
@@ -172,12 +174,20 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 	if (omap_plane->reserved_wb)
 		return -EBUSY;
 
-	if (!state->crtc)
+	if (!state->fb)
 		return 0;
 
-	crtc_state = drm_atomic_get_crtc_state(state->state, state->crtc);
-	if (IS_ERR(crtc_state))
-		return PTR_ERR(crtc_state);
+	/* crtc should only be NULL when disabling (i.e., !state->fb) */
+	if (WARN_ON(!state->crtc))
+		return 0;
+
+	crtc_state = drm_atomic_get_existing_crtc_state(state->state, state->crtc);
+	/* we should have a crtc state if the plane is attached to a crtc */
+	if (WARN_ON(!crtc_state))
+		return 0;
+
+	if (!crtc_state->enable)
+		return 0;
 
 	if (state->src_w == 0 || state->src_h == 0)
 		return -EINVAL;
@@ -194,11 +204,9 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 	if (state->crtc_y + state->crtc_h > crtc_state->adjusted_mode.vdisplay)
 		return -EINVAL;
 
-	if (state->fb) {
-		if (state->rotation != BIT(DRM_ROTATE_0) &&
-		    !omap_framebuffer_supports_rotation(state->fb))
-			return -EINVAL;
-	}
+	if (state->rotation != BIT(DRM_ROTATE_0) &&
+	    !omap_framebuffer_supports_rotation(state->fb))
+		return -EINVAL;
 
 	return 0;
 }

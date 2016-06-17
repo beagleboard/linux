@@ -327,9 +327,6 @@ int dispc_mgr_get_clock_div(enum omap_channel channel,
 		struct dispc_clock_info *cinfo);
 void dispc_set_tv_pclk(unsigned long pclk);
 
-bool dispc_wb_go_busy(void);
-void dispc_wb_go(void);
-
 /* VENC */
 int venc_init_platform_driver(void) __init;
 void venc_uninit_platform_driver(void);
