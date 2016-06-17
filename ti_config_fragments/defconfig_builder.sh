@@ -110,7 +110,7 @@ choose_build_type() {
 	TEMP_BT_FILE=$(mktemp -t $TMP_TEMPLATE)
 	TEMP_BUILD_FILE=$(mktemp -t $TMP_TEMPLATE)
 
-	grep "$DEFCONFIG_FILTER" "$DEFCONFIG_MAP_FILE" | grep "^processor:" | awk '{print$4}' > "$TEMP_BUILD_FILE"
+	grep "$DEFCONFIG_FILTER" "$DEFCONFIG_MAP_FILE" | grep "^classification:" | awk '{print$4}' > "$TEMP_BUILD_FILE"
 
 	max_configs=0
 	while true;
