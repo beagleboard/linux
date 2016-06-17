@@ -470,6 +470,39 @@ int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *rproc,
 EXPORT_SYMBOL_GPL(pruss_cfg_gpimode);
 
 /**
+ * pruss_cfg_set_gpmux() - set the GP_MUX mode of the PRU
+ * @pruss: the pruss instance handle
+ * @pru_id: the PRU id for which the GP_MUX mode is to be set
+ * @mux_sel: GP mux sel value to set
+ *
+ * Sets the GP MUX mode for a given PRU by programming the
+ * corresponding PRUSS_CFG_GPCFGx register. This API is currently
+ * limited to be invoked only by the pru_rproc driver
+ *
+ * Returns 0 on success, or an error code otherwise
+ */
+int pruss_cfg_set_gpmux(struct pruss *pruss, enum pruss_pru_id pru_id,
+			enum pruss_gp_mux_sel mux_sel)
+{
+	u32 reg, val, mask;
+
+	if (pru_id < 0 || pru_id >= PRUSS_NUM_PRUS) {
+		dev_err(pruss->dev, "%s: invalid PRU id, %d\n",
+			__func__, pru_id);
+		return -EINVAL;
+	}
+
+	reg = PRUSS_CFG_GPCFG0 + (0x4 * pru_id);
+	val = mux_sel << PRUSS_GPCFG_PRU_MUX_SEL_SHIFT;
+	mask = PRUSS_GPCFG_PRU_MUX_SEL_MASK;
+
+	pruss_set_reg(pruss, PRUSS_MEM_CFG, reg, mask, val);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_cfg_set_gpmux);
+
+/**
  * pruss_cfg_miirt_enable() - Enable/disable MII RT Events
  * @pruss: the pruss instance
  * @enable: enable/disable

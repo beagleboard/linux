@@ -74,7 +74,7 @@ enum pru_mem {
  */
 struct pru_private_data {
 	u32 id;
-	const int caps;
+	int caps;
 	const char *fw_name;
 	const char *eth_fw_name;
 };
@@ -681,6 +681,7 @@ static const struct pru_private_data *pru_rproc_get_private_data(
 {
 	const struct pru_match_private_data *data;
 	const struct of_device_id *match;
+	struct pru_private_data *pdata = NULL;
 
 	match = of_match_device(pru_rproc_match, &pdev->dev);
 	if (!match)
@@ -688,10 +689,14 @@ static const struct pru_private_data *pru_rproc_get_private_data(
 
 	for (data = match->data; data && data->device_name; data++) {
 		if (!strcmp(dev_name(&pdev->dev), data->device_name))
-			return data->priv_data;
+			pdata = data->priv_data;
 	}
 
-	return NULL;
+	/* fixup PRU capability differences between AM571x and AM572x IDKs */
+	if (pdata && of_machine_is_compatible("ti,am5718-idk"))
+		pdata->caps = PRU_FUNC_CAPS_ETHERNET;
+
+	return pdata;
 }
 
 static int pru_rproc_probe(struct platform_device *pdev)
@@ -707,6 +712,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	int i, ret;
 	const char *mem_names[PRU_MEM_MAX] = { "iram", "control", "debug" };
 	bool use_eth = false;
+	u32 mux_sel;
 
 	if (!np) {
 		dev_err(dev, "Non-DT platform device not supported\n");
@@ -815,6 +821,20 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		goto put_mbox;
 	}
 
+	if (of_machine_is_compatible("ti,am5718-idk") && pru->use_eth &&
+	    !of_property_read_u32(np, "ti,pruss-gp-mux-sel", &mux_sel)) {
+		if (mux_sel < PRUSS_GP_MUX_SEL_GP ||
+		    mux_sel >= PRUSS_GP_MUX_MAX) {
+			dev_err(dev, "invalid gp_mux_sel %d\n", mux_sel);
+			ret = -EINVAL;
+			goto del_rproc;
+		}
+
+		ret = pruss_cfg_set_gpmux(pru->pruss, pru->id, mux_sel);
+		if (ret)
+			goto del_rproc;
+	}
+
 	pru_rproc_create_debug_entries(rproc);
 
 	/*
@@ -864,6 +884,9 @@ static int pru_rproc_remove(struct platform_device *pdev)
 	}
 
 	mbox_free_channel(pru->mbox);
+
+	if (of_machine_is_compatible("ti,am5718-idk") && pru->use_eth)
+		pruss_cfg_set_gpmux(pru->pruss, pru->id, PRUSS_GP_MUX_SEL_GP);
 
 	rproc_del(rproc);
 	rproc_put(rproc);
