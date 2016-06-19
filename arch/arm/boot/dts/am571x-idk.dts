@@ -17,6 +17,13 @@
 	compatible = "ti,am5718-idk", "ti,am5718", "ti,dra722",
 		     "ti,dra72", "ti,dra7";
 
+	aliases {
+		ethernet2 = &pruss1_emac0;
+		ethernet3 = &pruss1_emac1;
+		ethernet4 = &pruss2_emac0;
+		ethernet5 = &pruss2_emac1;
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0x0 0x80000000 0x0 0x40000000>;
@@ -95,6 +102,34 @@
 	     compatible = "linux,extcon-usb-gpio";
 	     id-gpio = <&gpio5 7 GPIO_ACTIVE_HIGH>;
 	};
+
+	/* Dual mac ethernet application node on icss2 */
+	pruss1_eth: pruss1_eth {
+		status = "okay";
+		compatible = "ti,am57-prueth";
+		pruss = <&pruss1>;
+		sram = <&ocmcram1>;
+		interrupt-parent = <&pruss1_intc>;
+
+		pruss1_emac0: ethernet-mii0 {
+			phy-handle = <&pruss1_eth0_phy>;
+			phy-mode = "mii";
+			interrupts = <20>, <22>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+
+		pruss1_emac1: ethernet-mii1 {
+			phy-handle = <&pruss1_eth1_phy>;
+			phy-mode = "mii";
+			interrupts = <21>, <23>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
+
 };
 
 &dra7_pmx_core {
@@ -410,9 +445,38 @@
 	load-gpios = <&gpio2 23 GPIO_ACTIVE_LOW>;
 };
 
+&pruss1_mdio {
+	status = "okay";
+	reset-gpios = <&gpio5 8 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <2>;   /* PHY datasheet states 1uS min */
+	pruss1_eth0_phy: ethernet-phy@0 {
+		reg = <0>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <28 IRQ_TYPE_EDGE_FALLING>;
+	};
+
+	pruss1_eth1_phy: ethernet-phy@1 {
+		reg = <1>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
 &pruss2_mdio {
 	reset-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
 	reset-delay-us = <2>;   /* PHY datasheet states 1uS min */
+};
+
+&pru1_1 {
+	ti,pruss-gp-mux-sel = <4>;	/* MII2, needed for PRUSS1_MII1 */
+};
+
+&pru2_0 {
+	ti,pruss-gp-mux-sel = <4>;	/* MII2, needed for PRUSS1_MII0 */
+};
+
+&pru2_1 {
+	ti,pruss-gp-mux-sel = <4>;	/* MII2, needed for PRUSS1_MII1 */
 };
 
 &omap_dwc3_2 {
