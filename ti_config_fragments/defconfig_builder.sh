@@ -100,8 +100,8 @@ check_for_config_existance() {
 		# pass then these two variables should be empty.  If
 		# they fail then they should be N/A.
 		if [ -z "$CONFIG_FILE" -a -z "$CONFIG_FRAGMENTS" ]; then
-			y=$((y+1))
-			echo -e '\t'"$y". "$BT_TEMP" >> "$BUILD_TYPE_FILE"
+			max_configs=$((max_configs+1))
+			echo -e '\t'"$max_configs". "$BT_TEMP" >> "$BUILD_TYPE_FILE"
 		fi
 	fi
 }
@@ -110,9 +110,9 @@ choose_build_type() {
 	TEMP_BT_FILE=$(mktemp -t $TMP_TEMPLATE)
 	TEMP_BUILD_FILE=$(mktemp -t $TMP_TEMPLATE)
 
-	grep "$DEFCONFIG_FILTER" "$DEFCONFIG_MAP_FILE" | grep "^processor:" | awk '{print$4}' > "$TEMP_BUILD_FILE"
+	grep "$DEFCONFIG_FILTER" "$DEFCONFIG_MAP_FILE" | grep "^classification:" | awk '{print$4}' > "$TEMP_BUILD_FILE"
 
-	y=0
+	max_configs=0
 	while true;
 	do
 		CONFIG_FILE=
@@ -150,7 +150,8 @@ choose_build_type() {
 			CHOSEN_BUILD_TYPE=$(grep -w "$REPLY" "$BUILD_TYPE_FILE" | awk '{print$2}')
 			break
 		else
-			echo -e "\nThis is not a choice try again!\n"
+			echo -e "\n'$REPLY' is not a valid choice. Please \
+choose a value between '1' and '$max_configs':\n"
 		fi
 	done
 	rm "$TEMP_BT_FILE"
@@ -327,11 +328,6 @@ if [ ! -e "$DEFCONFIG_MAP_FILE" ]; then
 	echo "No defconfig map file found"
 	exit 1
 fi
-
-echo "***********************************************************************"
-echo "THIS SCRIPT IS EXPERIMENTAL AND MAY NOT PRODUCE A BOOTABLE KERNEL IMAGE"
-echo "***********************************************************************"
-echo ""
 
 PROCESSOR_FILE=$(mktemp -t $TMP_TEMPLATE)
 BUILD_TYPE_FILE=$(mktemp -t $TMP_TEMPLATE)
