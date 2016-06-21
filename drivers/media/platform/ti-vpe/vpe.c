@@ -614,7 +614,8 @@ static void free_vbs(struct vpe_ctx *ctx)
 	spin_lock_irqsave(&dev->lock, flags);
 	if (ctx->src_vbs[2]) {
 		v4l2_m2m_buf_done(ctx->src_vbs[2], VB2_BUF_STATE_DONE);
-		v4l2_m2m_buf_done(ctx->src_vbs[1], VB2_BUF_STATE_DONE);
+		if (ctx->src_vbs[1] && (ctx->src_vbs[1] != ctx->src_vbs[2]))
+			v4l2_m2m_buf_done(ctx->src_vbs[1], VB2_BUF_STATE_DONE);
 		ctx->src_vbs[2] = NULL;
 		ctx->src_vbs[1] = NULL;
 	}
@@ -2175,18 +2176,22 @@ static void vpe_stop_streaming(struct vb2_queue *q)
 	 */
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
 		spin_lock_irqsave(&ctx->dev->lock, flags);
-		if (ctx->src_vbs[2]) {
+
+		if (ctx->src_vbs[2])
 			v4l2_m2m_buf_done(ctx->src_vbs[2], VB2_BUF_STATE_ERROR);
-			ctx->src_vbs[2] = NULL;
-		}
-		if (ctx->src_vbs[1]) {
+
+		if (ctx->src_vbs[1] && (ctx->src_vbs[1] != ctx->src_vbs[2]))
 			v4l2_m2m_buf_done(ctx->src_vbs[1], VB2_BUF_STATE_ERROR);
-			ctx->src_vbs[1] = NULL;
-		}
-		if (ctx->src_vbs[0]) {
+
+		if (ctx->src_vbs[0] &&
+		    (ctx->src_vbs[0] != ctx->src_vbs[1]) &&
+		    (ctx->src_vbs[0] != ctx->src_vbs[2]))
 			v4l2_m2m_buf_done(ctx->src_vbs[0], VB2_BUF_STATE_ERROR);
-			ctx->src_vbs[0] = NULL;
-		}
+
+		ctx->src_vbs[2] = NULL;
+		ctx->src_vbs[1] = NULL;
+		ctx->src_vbs[0] = NULL;
+
 		spin_unlock_irqrestore(&ctx->dev->lock, flags);
 	} else {
 		if (ctx->dst_vb) {
