@@ -964,6 +964,7 @@ static int wbm2m_open(struct file *file)
 	pix->plane_fmt[LUMA_PLANE].sizeimage =
 			pix->plane_fmt[LUMA_PLANE].bytesperline *
 			pix->height;
+	pix->num_planes = s_q_data->fmt->coplanar ? 2 : 1;
 	pix->colorspace = V4L2_COLORSPACE_REC709;
 	pix->field = V4L2_FIELD_NONE;
 	s_q_data->c_rect.left = 0;
