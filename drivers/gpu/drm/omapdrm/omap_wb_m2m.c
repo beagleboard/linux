@@ -893,6 +893,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->mem_ops = &vb2_dma_contig_memops;
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock = &dev->dev->lock;
+	src_vq->min_buffers_needed = 1;
 
 	ret = vb2_queue_init(src_vq);
 	if (ret)
@@ -907,6 +908,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->mem_ops = &vb2_dma_contig_memops;
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock = &dev->dev->lock;
+	dst_vq->min_buffers_needed = 1;
 
 	return vb2_queue_init(dst_vq);
 }
