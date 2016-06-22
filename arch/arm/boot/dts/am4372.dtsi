@@ -1253,11 +1253,13 @@
 		 * such as AM4378 and AM4379. The status should be overwritten
 		 * as "OK" at the corresponding board.dts.
 		 */
-		sgx: sgx@0x56000000 {
+		sgx: sgx@56000000 {
 			compatible = "ti,am4376-sgx530", "img,sgx530";
 			ti,hwmods = "gfx";
-			reg = <0x56000000 0x1000000>;
+			reg = <0x56000000 0x10000>;
 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&gfx_fck_div_ck>;
+			clock-names = "fclk";
 			status = "disabled";
 		};
 	};

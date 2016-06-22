@@ -1024,9 +1024,9 @@
 			status = "disabled";
 		};
 
-		sgx: sgx@0x56000000 {
+		gpu: gpu@56000000 {
 			compatible = "ti,dra7-sgx544", "img,sgx544";
-			reg = <0x5600fe00 0x200>;
+			reg = <0x56000000 0x10000>;
 			reg-names = "gpu_ocp_base";
 			interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "gpu";
