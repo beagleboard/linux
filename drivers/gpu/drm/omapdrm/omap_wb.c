@@ -75,6 +75,7 @@ enum omap_color_mode fourcc_to_dss(u32 fourcc)
 	case DRM_FORMAT_YUYV:
 		return OMAP_DSS_COLOR_YUV2;
 	case DRM_FORMAT_UYVY:
+		return OMAP_DSS_COLOR_UYVY;
 	default:
 		WARN_ONCE(1, "WB: unsupported fourcc code: 0x%x\n", fourcc);
 		return OMAP_DSS_COLOR_UYVY;

@@ -2855,6 +2855,8 @@ static int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 		wi->height, wi->color_mode, wi->rotation, wi->mirror, zorder,
 		wi->pre_mult_alpha, global_alpha, wi->rotation_type,
 		replication, mgr_timings, mem_to_mem);
+	if (r)
+		return r;
 
 	switch (wi->color_mode) {
 	case OMAP_DSS_COLOR_RGB16:
@@ -2899,7 +2901,7 @@ static int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 		REG_FLD_MOD(DISPC_OVL_ATTRIBUTES2(plane), wbdelay, 7, 0);
 	}
 
-	return r;
+	return 0;
 }
 
 static bool dispc_has_writeback(void)

@@ -2038,10 +2038,13 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		mcasp->dat_port = true;
 
 	dma_data = &mcasp->dma_data[SNDRV_PCM_STREAM_PLAYBACK];
-	if (dat)
+	if (dat) {
 		dma_data->addr = dat->start;
-	else
+	} else {
 		dma_data->addr = mem->start + davinci_mcasp_txdma_offset(pdata);
+		/* WFIFO is not accessible from CFG port */
+		mcasp->txnumevt = 0;
+	}
 
 	dma = &mcasp->dma_request[SNDRV_PCM_STREAM_PLAYBACK];
 	res = platform_get_resource(pdev, IORESOURCE_DMA, 0);
@@ -2059,11 +2062,14 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	/* RX is not valid in DIT mode */
 	if (mcasp->op_mode != DAVINCI_MCASP_DIT_MODE) {
 		dma_data = &mcasp->dma_data[SNDRV_PCM_STREAM_CAPTURE];
-		if (dat)
+		if (dat) {
 			dma_data->addr = dat->start;
-		else
+		} else {
 			dma_data->addr =
 				mem->start + davinci_mcasp_rxdma_offset(pdata);
+			/* RFIFO is not accessible from CFG port */
+			mcasp->rxnumevt = 0;
+		}
 
 		dma = &mcasp->dma_request[SNDRV_PCM_STREAM_CAPTURE];
 		res = platform_get_resource(pdev, IORESOURCE_DMA, 1);
