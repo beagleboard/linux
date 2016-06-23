@@ -2,11 +2,11 @@ Texas Instruments System Control Interface (TI-SCI) Reset Controller
 =====================================================================
 
 Some TI SoCs contain a system controller (like the Power Management Micro
-Controller (PMMC) on Keystone 2 Galileo SoC) that are responsible for
-controlling the state of the various hardware modules present on the SoC.
-Communication between the host processor running an OS and the system
-controller happens through a protocol called TI System Control Interface
-(TI-SCI protocol). For TI SCI details, please refer to the document,
+Controller (PMMC) on Keystone K2G SoC) that are responsible for controlling
+the state of the various hardware modules present on the SoC. Communication
+between the host processor running an OS and the system controller happens
+through a protocol called TI System Control Interface (TI-SCI protocol).
+For TI SCI details, please refer to the document,
 Documentation/devicetree/bindings/arm/keystone/ti,sci.txt
 
 TI-SCI Reset Controller Node
@@ -46,7 +46,7 @@ common reset controller usage by consumers.
 Example:
 --------
 The following example demonstrates both a TI-SCI reset controller node and a
-consumer (a DSP device) on the Keystone 2 Galileo SoC.
+consumer (a DSP device) on the K2G SoC.
 
 #include <dt-bindings/genpd/k2g.h>
 #include <dt-bindings/reset/k2g.h>
