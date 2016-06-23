@@ -553,9 +553,9 @@ static int wbcap_fill_pix_format(struct wbcap_dev *wbcap,
 	int i, depth, depth_bytes;
 
 	if (!fmt) {
-		log_err(wbcap, "Fourcc format (0x%08x) invalid.\n",
+		log_dbg(wbcap, "Fourcc format (0x%08x) invalid.\n",
 			pix->pixelformat);
-		return -EINVAL;
+		fmt = &wb_formats[1];
 	}
 
 	/* we only allow V4L2_FIELD_NONE */
