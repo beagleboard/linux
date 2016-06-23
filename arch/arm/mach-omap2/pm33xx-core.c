@@ -386,7 +386,7 @@ static int amx3_idle_enter(unsigned long index)
 	if (idle_fn)
 		idle_fn(idle_state->wfi_flags);
 
-	return index;
+	return 0;
 }
 
 static struct cpuidle_ops amx3_cpuidle_ops __initdata = {
