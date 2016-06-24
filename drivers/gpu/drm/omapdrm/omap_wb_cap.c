@@ -593,20 +593,10 @@ static int wbcap_fill_pix_format(struct wbcap_dev *wbcap,
 	pix->num_planes = fmt->coplanar ? 2 : 1;
 	pix->pixelformat = fmt->fourcc;
 
-	/* Probably need something better here */
-	if (!pix->colorspace) {
-		if (fmt->fourcc == V4L2_PIX_FMT_RGB24 ||
-		    fmt->fourcc == V4L2_PIX_FMT_BGR24 ||
-		    fmt->fourcc == V4L2_PIX_FMT_RGB32 ||
-		    fmt->fourcc == V4L2_PIX_FMT_BGR32) {
-			pix->colorspace = V4L2_COLORSPACE_SRGB;
-		} else {
-			if (pix->height > 1280)	/* HD */
-				pix->colorspace = V4L2_COLORSPACE_REC709;
-			else			/* SD */
-				pix->colorspace = V4L2_COLORSPACE_SMPTE170M;
-		}
-	}
+	pix->colorspace = V4L2_COLORSPACE_SRGB;
+	pix->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+	pix->quantization = V4L2_QUANTIZATION_DEFAULT;
+	pix->xfer_func = V4L2_XFER_FUNC_DEFAULT;
 
 	memset(pix->reserved, 0, sizeof(pix->reserved));
 	for (i = 0; i < pix->num_planes; i++) {
