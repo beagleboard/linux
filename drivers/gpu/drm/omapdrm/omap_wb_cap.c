@@ -748,8 +748,8 @@ static int wbcap_s_input(struct file *file, void *priv, unsigned int i)
 
 	wbcap->input = i;
 
-	/* Update the internal format */
-	wbcap_fill_pix_format(wbcap, &q_data->format);
+	/* Update the internal format to match the selected input */
+	wbcap_try_fmt_vid_cap(file, priv, &q_data->format);
 	return 0;
 }
 
