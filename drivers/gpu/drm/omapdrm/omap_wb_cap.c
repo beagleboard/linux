@@ -342,18 +342,26 @@ static int queue_setup(struct vb2_queue *vq, const void *parg,
 		       unsigned int *nbuffers, unsigned int *nplanes,
 		       unsigned int sizes[], void *alloc_ctxs[])
 {
+	const struct v4l2_format *fmt = parg;
 	int i;
 	struct wbcap_dev *wbcap = vb2_get_drv_priv(vq);
 	struct wb_q_data *q_data;
 
 	q_data = get_q_data(wbcap, vq->type);
 
-	if (vq->num_buffers + *nbuffers < 3)
-		*nbuffers = 3 - vq->num_buffers;
+	if (!q_data)
+		return -EINVAL;
+
+	if (vq->num_buffers + *nbuffers < 2)
+		*nbuffers = 2 - vq->num_buffers;
 
 	*nplanes = q_data->format.fmt.pix_mp.num_planes;
 
 	for (i = 0; i < *nplanes; i++) {
+		if (fmt && fmt->fmt.pix_mp.plane_fmt[i].sizeimage <
+		    q_data->format.fmt.pix_mp.plane_fmt[i].sizeimage)
+			return -EINVAL;
+
 		sizes[i] = q_data->format.fmt.pix_mp.plane_fmt[i].sizeimage;
 		alloc_ctxs[i] = wbcap->alloc_ctx;
 	}
