@@ -722,15 +722,22 @@ static int wbm2m_queue_setup(struct vb2_queue *vq,
 			     unsigned int *nbuffers, unsigned int *nplanes,
 			     unsigned int sizes[], void *alloc_ctxs[])
 {
+	const struct v4l2_format *fmt = parg;
 	int i;
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(vq);
 	struct wb_q_data *q_data;
 
 	q_data = get_q_data(ctx, vq->type);
+	if (!q_data)
+		return -EINVAL;
 
 	*nplanes = q_data->format.fmt.pix_mp.num_planes;
 
 	for (i = 0; i < *nplanes; i++) {
+		if (fmt && fmt->fmt.pix_mp.plane_fmt[i].sizeimage <
+		    q_data->format.fmt.pix_mp.plane_fmt[i].sizeimage)
+			return -EINVAL;
+
 		sizes[i] = q_data->format.fmt.pix_mp.plane_fmt[i].sizeimage;
 		alloc_ctxs[i] = ctx->dev->alloc_ctx;
 	}
@@ -762,14 +769,28 @@ static int wbm2m_buf_prepare(struct vb2_buffer *vb)
 
 	for (i = 0; i < num_planes; i++) {
 		mp = &q_data->format.fmt.pix_mp;
-		if (vb2_plane_size(vb, i) < mp->plane_fmt[i].sizeimage) {
-			log_err(ctx->dev,
-				"data will not fit into plane (%lu < %lu)\n",
-				vb2_plane_size(vb, i),
-				(long)mp->plane_fmt[i].sizeimage);
-			return -EINVAL;
+
+		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			if (vb2_get_plane_payload(vb, i) <
+			    mp->plane_fmt[i].sizeimage) {
+				log_dbg(ctx->dev,
+					"the payload is too small for plane plane (%lu < %lu)\n",
+					vb2_get_plane_payload(vb, i),
+					(long)mp->plane_fmt[i].sizeimage);
+				return -EINVAL;
+			}
+		} else {
+			if (vb2_plane_size(vb, i) <
+			    mp->plane_fmt[i].sizeimage) {
+				log_dbg(ctx->dev,
+					"data will not fit into plane (%lu < %lu)\n",
+					vb2_plane_size(vb, i),
+					(long)mp->plane_fmt[i].sizeimage);
+				return -EINVAL;
+			}
+			vb2_set_plane_payload(vb, i,
+					      mp->plane_fmt[i].sizeimage);
 		}
-		vb2_set_plane_payload(vb, i, mp->plane_fmt[i].sizeimage);
 	}
 
 	if (num_planes == 2) {
