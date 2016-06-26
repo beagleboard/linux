@@ -914,7 +914,6 @@ static int wbm2m_open(struct file *file)
 {
 	struct wbm2m_dev *dev = video_drvdata(file);
 	struct wb_q_data *s_q_data;
-	struct v4l2_ctrl_handler *hdl;
 	struct wbm2m_ctx *ctx;
 	struct v4l2_pix_format_mplane *pix;
 	int ret;
@@ -941,10 +940,6 @@ static int wbm2m_open(struct file *file)
 
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
 	file->private_data = &ctx->fh;
-
-	hdl = &ctx->hdl;
-	v4l2_ctrl_handler_init(hdl, 1);
-	ctx->fh.ctrl_handler = hdl;
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
 	s_q_data->fmt = &wb_formats[1];
@@ -1008,7 +1003,6 @@ free_fh:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 exit_fh:
-	v4l2_ctrl_handler_free(hdl);
 	v4l2_fh_exit(&ctx->fh);
 unlock:
 	mutex_unlock(&dev->dev->lock);
@@ -1032,7 +1026,6 @@ static int wbm2m_release(struct file *file)
 
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
-	v4l2_ctrl_handler_free(&ctx->hdl);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 
 	kfree(ctx);
