@@ -291,6 +291,9 @@ void wbm2m_irq(struct wbm2m_dev *wbm2m, u32 irqstatus)
 		d_vb->timecode = s_vb->timecode;
 
 	d_vb->sequence = ctx->sequence;
+	s_vb->sequence = ctx->sequence;
+	log_dbg(wbm2m, "ctx %pa sequence %d\n",
+		&ctx, ctx->sequence);
 
 	d_q_data = &ctx->q_data[Q_DATA_DST];
 	d_vb->field = V4L2_FIELD_NONE;
