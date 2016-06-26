@@ -205,13 +205,9 @@ struct wbm2m_ctx {
 	unsigned int		sequence;
 	/* abort after next irq */
 	unsigned int		aborting;
-	/* bufs done in this batch */
-	unsigned int		bufs_completed;
 
 	/* src & dst queue data */
 	struct wb_q_data	q_data[2];
-	struct vb2_v4l2_buffer	*src_vb;
-	struct vb2_v4l2_buffer	*dst_vb;
 };
 
 static inline struct wb_buffer *to_wb_buffer(struct vb2_buffer *vb2)
