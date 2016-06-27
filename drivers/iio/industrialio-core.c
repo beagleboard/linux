@@ -1076,6 +1076,7 @@ struct device_type iio_device_type = {
 	.name = "iio_device",
 	.release = iio_dev_release,
 };
+EXPORT_SYMBOL_GPL(iio_device_type);
 
 /**
  * iio_device_alloc() - allocate an iio_dev from a driver
