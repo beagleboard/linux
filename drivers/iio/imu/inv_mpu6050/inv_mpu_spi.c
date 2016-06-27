@@ -17,11 +17,6 @@
 #include <linux/iio/iio.h>
 #include "inv_mpu_iio.h"
 
-static const struct regmap_config inv_mpu_regmap_config = {
-	.reg_bits = 8,
-	.val_bits = 8,
-};
-
 static int inv_mpu_i2c_disable(struct iio_dev *indio_dev)
 {
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);

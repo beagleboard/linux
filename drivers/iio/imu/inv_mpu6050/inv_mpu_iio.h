@@ -43,6 +43,7 @@
  *  @int_pin_cfg;	Controls interrupt pin configuration.
  *  @accl_offset:	Controls the accelerometer calibration offset.
  *  @gyro_offset:	Controls the gyroscope calibration offset.
+ *  @mst_status:	secondary I2C master interrupt source status
  */
 struct inv_mpu6050_reg_map {
 	u8 sample_rate_div;
@@ -62,6 +63,7 @@ struct inv_mpu6050_reg_map {
 	u8 int_pin_cfg;
 	u8 accl_offset;
 	u8 gyro_offset;
+	u8 mst_status;
 };
 
 /*device enum */
@@ -81,6 +83,7 @@ enum inv_devices {
  *  @enable:		master enable state.
  *  @accl_fifo_enable:	enable accel data output
  *  @gyro_fifo_enable:	enable gyro data output
+ *  @user_ctrl:		The non-volatile bits of user_ctrl
  *  @fifo_rate:		FIFO update rate.
  */
 struct inv_mpu6050_chip_config {
@@ -90,6 +93,7 @@ struct inv_mpu6050_chip_config {
 	unsigned int enable:1;
 	unsigned int accl_fifo_enable:1;
 	unsigned int gyro_fifo_enable:1;
+	u8 user_ctrl;
 	u16 fifo_rate;
 };
 
@@ -105,6 +109,45 @@ struct inv_mpu6050_hw {
 	u8 *name;
 	const struct inv_mpu6050_reg_map *reg;
 	const struct inv_mpu6050_chip_config *config;
+};
+
+/* Maximum external sensors */
+/* These are SLV0-3 in HW, SLV4 is reserved for i2c master */
+#define INV_MPU6050_MAX_EXT_SENSORS 4
+
+/* Number of internal channels */
+#define INV_MPU6050_NUM_INT_CHAN 8
+
+/* Number of internal scan elements (channels with scan_index >= 0) */
+#define INV_MPU6050_NUM_INT_SCAN_ELEMENTS 7
+
+/* Specification for an external sensor */
+struct inv_mpu_ext_sens_spec {
+	unsigned short addr;
+	u8 reg, len;
+
+	int num_ext_channels;
+	int *ext_channels;
+};
+
+/* Driver state for each external sensor */
+struct inv_mpu_ext_sens_state {
+	struct iio_dev *orig_dev;
+
+	/* Mask of all channels in this sensor */
+	unsigned long scan_mask;
+};
+
+/* Driver state for each external channel */
+struct inv_mpu_ext_chan_state {
+	/* Index inside state->ext_sens */
+	int ext_sens_index;
+
+	/* Index inside orig_dev->channels */
+	int orig_chan_index;
+
+	/* Relative to first offset for this slave */
+	int data_offset;
 };
 
 /*
@@ -138,6 +181,25 @@ struct inv_mpu6050_state {
 	DECLARE_KFIFO(timestamps, long long, TIMESTAMP_FIFO_SIZE);
 	struct regmap *map;
 	int irq;
+
+	/* if the MPU connects to aux devices as a master */
+	bool i2c_aux_master_mode;
+
+#ifdef CONFIG_I2C
+	/* I2C adapter for talking to aux sensors in "master" mode */
+	struct i2c_adapter aux_master_adapter;
+	struct completion slv4_done;
+	/* Value of I2C_MST_STATUS after slv4_done */
+	u8 slv4_done_status;
+#endif
+
+	unsigned int *scan_offsets;
+	unsigned int *scan_lengths;
+	bool realign_required;
+
+	struct inv_mpu_ext_sens_spec ext_sens_spec[INV_MPU6050_MAX_EXT_SENSORS];
+	struct inv_mpu_ext_sens_state ext_sens[INV_MPU6050_MAX_EXT_SENSORS];
+	struct inv_mpu_ext_chan_state *ext_chan;
 };
 
 /*register and associated bit definition*/
@@ -152,10 +214,51 @@ struct inv_mpu6050_state {
 #define INV_MPU6050_REG_FIFO_EN             0x23
 #define INV_MPU6050_BIT_ACCEL_OUT           0x08
 #define INV_MPU6050_BITS_GYRO_OUT           0x70
+#define INV_MPU6050_BIT_SLV0_FIFO_EN        0x01
+#define INV_MPU6050_BIT_SLV1_FIFO_EN        0x02
+#define INV_MPU6050_BIT_SLV2_FIFO_EN        0x04
+#define INV_MPU6050_BIT_SLV2_FIFO_EN        0x04
+
+/* SLV3 fifo enabling is not in REG_FIFO_EN */
+#define INV_MPU6050_REG_MST_CTRL	    0x24
+#define INV_MPU6050_BIT_SLV3_FIFO_EN        0x20
+
+/* For slaves 0-3 */
+#define INV_MPU6050_REG_I2C_SLV_ADDR(i)     (0x25 + 3 * (i))
+#define INV_MPU6050_REG_I2C_SLV_REG(i)      (0x26 + 3 * (i))
+#define INV_MPU6050_REG_I2C_SLV_CTRL(i)     (0x27 + 3 * (i))
+#define INV_MPU6050_BIT_I2C_SLV_RW          0x80
+#define INV_MPU6050_BIT_I2C_SLV_EN          0x80
+#define INV_MPU6050_BIT_I2C_SLV_BYTE_SW     0x40
+#define INV_MPU6050_BIT_I2C_SLV_REG_DIS     0x20
+#define INV_MPU6050_BIT_I2C_SLV_REG_GRP     0x10
+
+#define INV_MPU6050_REG_I2C_SLV4_ADDR       0x31
+#define INV_MPU6050_BIT_I2C_SLV4_R          0x80
+#define INV_MPU6050_BIT_I2C_SLV4_W          0x00
+
+#define INV_MPU6050_REG_I2C_SLV4_REG        0x32
+#define INV_MPU6050_REG_I2C_SLV4_DO         0x33
+#define INV_MPU6050_REG_I2C_SLV4_CTRL       0x34
+
+#define INV_MPU6050_BIT_SLV4_EN             0x80
+#define INV_MPU6050_BIT_SLV4_INT_EN         0x40
+#define INV_MPU6050_BIT_SLV4_REG_DIS        0x20
+
+#define INV_MPU6050_REG_I2C_SLV4_DI         0x35
+
+#define INV_MPU6050_REG_I2C_MST_STATUS      0x36
+#define INV_MPU6050_BIT_I2C_SLV4_DONE       0x40
+#define INV_MPU6050_BIT_I2C_LOST_ARB        0x20
+#define INV_MPU6050_BIT_I2C_SLV4_NACK       0x10
 
 #define INV_MPU6050_REG_INT_ENABLE          0x38
 #define INV_MPU6050_BIT_DATA_RDY_EN         0x01
 #define INV_MPU6050_BIT_DMP_INT_EN          0x02
+#define INV_MPU6050_BIT_MST_INT_EN          0x08
+
+#define INV_MPU6050_REG_INT_STATUS          0x3A
+#define INV_MPU6050_BIT_MST_INT             0x08
 
 #define INV_MPU6050_REG_RAW_ACCEL           0x3B
 #define INV_MPU6050_REG_TEMPERATURE         0x41
@@ -205,8 +308,8 @@ struct inv_mpu6050_state {
 #define INV_MPU6050_GYRO_CONFIG_FSR_SHIFT    3
 #define INV_MPU6050_ACCL_CONFIG_FSR_SHIFT    3
 
-/* 6 + 6 round up and plus 8 */
-#define INV_MPU6050_OUTPUT_DATA_SIZE         24
+/* max is 3*2 accel + 3*2 gyro + 24 external + 8 ts */
+#define INV_MPU6050_OUTPUT_DATA_SIZE         44
 
 #define INV_MPU6050_REG_INT_PIN_CFG	0x37
 #define INV_MPU6050_BIT_BYPASS_EN	0x2
@@ -218,6 +321,9 @@ struct inv_mpu6050_state {
 #define INV_MPU6050_MAX_FIFO_RATE            1000
 #define INV_MPU6050_MIN_FIFO_RATE            4
 #define INV_MPU6050_ONE_K_HZ                 1000
+
+#define INV_MPU6050_REG_EXT_SENS_DATA_00	0x49
+#define INV_MPU6050_CNT_EXT_SENS_DATA		24
 
 #define INV_MPU6050_REG_WHOAMI			117
 
@@ -236,6 +342,9 @@ enum inv_mpu6050_scan {
 	INV_MPU6050_SCAN_GYRO_Z,
 	INV_MPU6050_SCAN_TIMESTAMP,
 };
+
+#define INV_MPU6050_SCAN_MASK_ACCEL    0x07
+#define INV_MPU6050_SCAN_MASK_GYRO     0x38
 
 enum inv_mpu6050_filter_e {
 	INV_MPU6050_FILTER_256HZ_NOLPF2 = 0,
@@ -283,6 +392,7 @@ int inv_mpu6050_probe_trigger(struct iio_dev *indio_dev);
 void inv_mpu6050_remove_trigger(struct inv_mpu6050_state *st);
 int inv_reset_fifo(struct iio_dev *indio_dev);
 int inv_mpu6050_switch_engine(struct inv_mpu6050_state *st, bool en, u32 mask);
+int inv_mpu_slave_enable_mask(struct inv_mpu6050_state *st, const unsigned long mask);
 int inv_mpu6050_write_reg(struct inv_mpu6050_state *st, int reg, u8 val);
 int inv_mpu6050_set_power_itg(struct inv_mpu6050_state *st, bool power_on);
 int inv_mpu_acpi_create_mux_client(struct i2c_client *client);
@@ -292,3 +402,4 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 int inv_mpu_core_remove(struct device *dev);
 int inv_mpu6050_set_power_itg(struct inv_mpu6050_state *st, bool power_on);
 extern const struct dev_pm_ops inv_mpu_pmops;
+extern const struct regmap_config inv_mpu_regmap_config;
