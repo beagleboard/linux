@@ -19,10 +19,6 @@
 #include <linux/module.h>
 #include "inv_mpu_iio.h"
 
-static const struct regmap_config inv_mpu_regmap_config = {
-	.reg_bits = 8,
-	.val_bits = 8,
-};
 
 static int inv_mpu6050_select_bypass(struct i2c_mux_core *muxc, u32 chan_id)
 {
