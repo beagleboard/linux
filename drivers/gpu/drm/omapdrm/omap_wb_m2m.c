@@ -56,10 +56,6 @@ static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane src_plane,
 
 	/* configure input */
 
-	log_dbg(dev, "WB IN plane %d, %dx%d -> %dx%d\n", src_plane,
-		src_info->width, src_info->height,
-		src_info->out_width, src_info->out_height);
-
 	r = priv->dispc_ops->ovl_setup(src_plane, src_info, 0, &t, 1);
 	if (r)
 		return false;
@@ -209,8 +205,9 @@ static void device_run(void *priv)
 	src_info.rotation = OMAP_DSS_ROT_0;
 	src_info.rotation_type = OMAP_DSS_ROT_DMA;
 
-	log_dbg(dev, "SRC: %dx%d, sw %d\n", src_info.width,
-		src_info.height, src_info.screen_width);
+	log_dbg(dev, "SRC: ctx %pa buf_index %d %dx%d, sw %d\n",
+		&ctx, s_vb->index,
+		src_info.width, src_info.height, src_info.screen_width);
 
 	/* fill WB DSS info */
 	wb_info.paddr = (u32)dst_dma_addr[0];
@@ -227,8 +224,9 @@ static void device_run(void *priv)
 	wb_info.rotation = OMAP_DSS_ROT_0;
 	wb_info.rotation_type = OMAP_DSS_ROT_DMA;
 
-	log_dbg(dev, "DST: %dx%d, sw %d\n", wb_info.width,
-		wb_info.height, wb_info.buf_width);
+	log_dbg(dev, "DST: ctx %pa buf_index %d %dx%d, sw %d\n",
+		&ctx, d_vb->index,
+		wb_info.width, wb_info.height, wb_info.buf_width);
 
 	ok = wbm2m_convert(dev, omap_plane_id(dev->plane), &src_info, &wb_info);
 	if (!ok) {
@@ -345,6 +343,7 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	struct wbm2m_ctx *ctx = file2ctx(file);
 	struct vb2_queue *vq;
 	struct wb_q_data *q_data;
+	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 
 	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
 	if (!vq)
@@ -363,6 +362,17 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		f->fmt.pix_mp.colorspace =
 			s_q_data->format.fmt.pix_mp.colorspace;
 	}
+
+	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+		&ctx, f->type, pix->width, pix->height,
+		GET_BYTE(pix->pixelformat, 0),
+		GET_BYTE(pix->pixelformat, 1),
+		GET_BYTE(pix->pixelformat, 2),
+		GET_BYTE(pix->pixelformat, 3),
+		pix->plane_fmt[LUMA_PLANE].bytesperline);
+	if (pix->num_planes == 2)
+		log_dbg(ctx->dev, " bpl_uv %d\n",
+			pix->plane_fmt[CHROMA_PLANE].bytesperline);
 
 	return 0;
 }
@@ -470,8 +480,8 @@ static int __wbm2m_s_fmt(struct wbm2m_ctx *ctx, struct v4l2_format *f)
 	q_data->c_rect.width	= pix->width;
 	q_data->c_rect.height	= pix->height;
 
-	log_dbg(ctx->dev, "Setting format for type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
-		f->type, pix->width, pix->height,
+	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+		&ctx, f->type, pix->width, pix->height,
 		GET_BYTE(pix->pixelformat, 0),
 		GET_BYTE(pix->pixelformat, 1),
 		GET_BYTE(pix->pixelformat, 2),
@@ -798,6 +808,10 @@ static void wbm2m_buf_queue(struct vb2_buffer *vb)
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 
+	log_dbg(ctx->dev, "queueing buffer: %s index %d\n",
+		V4L2_TYPE_IS_OUTPUT(vb->type) ? "OUTPUT" : "CAPTURE",
+		vb->index);
+
 	v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 }
 
@@ -806,7 +820,7 @@ static int wbm2m_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(q);
 	struct omap_drm_private *priv = ctx->dev->dev->drm_dev->dev_private;
 
-	log_dbg(ctx->dev, "queue: %s\n",
+	log_dbg(ctx->dev, "ctx %pa queue: %s\n", &ctx,
 		V4L2_TYPE_IS_OUTPUT(q->type) ? "OUTPUT" : "CAPTURE");
 
 	ctx->sequence = 0;
@@ -824,7 +838,7 @@ static void wbm2m_stop_streaming(struct vb2_queue *q)
 	struct vb2_v4l2_buffer *vb;
 	unsigned long flags;
 
-	log_dbg(ctx->dev, "queue: %s\n",
+	log_dbg(ctx->dev, "ctx %pa queue: %s\n", &ctx,
 		V4L2_TYPE_IS_OUTPUT(q->type) ? "OUTPUT" : "CAPTURE");
 
 	atomic_dec(&ctx->dev->dev->irq_enabled);
@@ -836,6 +850,8 @@ static void wbm2m_stop_streaming(struct vb2_queue *q)
 			vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 		if (!vb)
 			break;
+		log_dbg(ctx->dev, "returning from queue: buffer index %d\n",
+			vb->vb2_buf.index);
 		spin_lock_irqsave(&ctx->dev->lock, flags);
 		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
 		spin_unlock_irqrestore(&ctx->dev->lock, flags);
