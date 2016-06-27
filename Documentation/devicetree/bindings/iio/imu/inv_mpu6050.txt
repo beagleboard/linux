@@ -1,12 +1,56 @@
 InvenSense MPU-6050 Six-Axis (Gyro + Accelerometer) MEMS MotionTracking Device
 
-http://www.invensense.com/mems/gyro/mpu6050.html
-
 Required properties:
- - compatible : should be "invensense,mpu6050"
- - reg : the I2C address of the sensor
+ - compatible : one of "invensense,mpu6000", "invensense,mpu6050",
+	"invensense,mpu6000" or "invensense,mpu9150"
+ - reg : the I2C or SPI address of the sensor
  - interrupt-parent : should be the phandle for the interrupt controller
  - interrupts : interrupt mapping for GPIO IRQ
+
+Optional properties:
+ - mount-matrix: an optional 3x3 mounting rotation matrix
+ - invensense,i2c-aux-master: operate aux i2c in "master" mode (default is bypass).
+
+It is possible to attach auxiliary sensors to the MPU and have them be handled
+by linux. Those auxiliary sensors are described as an i2c bus.
+
+It is possible to interact with aux devices in "bypass" or "master" mode. In
+"bypass" mode the auxiliary SDA/SCL lines are connected directly to the main i2c
+interface. In "master" mode access to aux devices is done by instructing the
+MPU to read or write i2c bytes.
+
+In "bypass" mode aux devices are listed behind a "i2c@0" node with reg = <0>;
+In "master" mode aux devices are listed behind a "i2c@1" node with reg = <1>;
+
+The master and bypass modes are not supported at the same time. The
+"invensense,i2c-aux-master" property must be set to activate master mode.
+Bypass mode is generally faster but master mode also works when the MPU is
+connected via SPI. Enabling master mode is required for automated external
+readings.
+
+
+It is possible to configure the MPU to automatically fetch reading for
+devices connected on the auxiliary i2c bus without CPU intervention. When this
+is done the driver will present the channels of the slaved devices as if they
+belong to the MPU device itself.
+
+Reads and write to config values (like scaling factors) are forwarded to the
+other driver while data reads are handled from MPU registers. The channels are
+also available through the MPU's iio triggered buffer mechanism. This feature
+can allow sampling up to 24 bytes from 4 slaves at a much higher rate.
+
+This is specified in device tree as an "invensense,external-sensors" node with
+children indexed by slave ids 0 to 3. The child nodes identifying each external
+sensor reading have the following properties:
+ - reg: 0 to 3 slave index
+ - invensense,addr : the I2C address to read from
+ - invensense,reg : the I2C register to read from
+ - invensense,len : read length from the device
+ - invensense,external-channels : list of slaved channels specified by scan_index.
+
+The sum of storagebits for external channels must equal the read length. Only
+16bit channels are currently supported.
+
 
 Example:
 	mpu6050@68 {
@@ -14,4 +58,62 @@ Example:
 		reg = <0x68>;
 		interrupt-parent = <&gpio1>;
 		interrupts = <18 1>;
+	};
+
+Example describing mpu9150 (which includes an ak9875 on chip):
+	mpu9150@68 {
+		compatible = "invensense,mpu9150";
+		reg = <0x68>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <18 1>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ak8975@0c {
+				compatible = "ak,ak8975";
+				reg = <0x0c>;
+			};
+		};
+	};
+
+Example describing a mpu6500 via SPI with an hmc5883l on aux i2c configured for
+automatic external readings as slave 0:
+	mpu6500@0 {
+		compatible = "invensense,mpu6500";
+		reg = <0x0>;
+		spi-max-frequency = <1000000>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <31 1>;
+
+		invensense,i2c-aux-master;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			hmc5883l@1e {
+				compatible = "honeywell,hmc5883l";
+				reg = <0x1e>;
+			};
+		};
+
+		invensense,external-sensors {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			hmc5833l@0 {
+				reg = <0>;
+				invensense,addr = <0x1e>;
+				invensense,reg = <3>;
+				invensense,len = <6>;
+				invensense,external-channels = <0 1 2>;
+			};
+		};
 	};
