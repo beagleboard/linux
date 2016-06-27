@@ -3367,11 +3367,6 @@ static void drm_mode_rmfb_work_fn(struct work_struct *w)
 	}
 }
 
-static inline uint32_t drm_framebuffer_read_refcount(struct drm_framebuffer *fb)
-{
-	return atomic_read(&fb->refcount.refcount);
-}
-
 /**
  * drm_mode_rmfb - remove an FB from the configuration
  * @dev: drm device for the ioctl
@@ -3419,7 +3414,7 @@ int drm_mode_rmfb(struct drm_device *dev,
 	 * so run this in a separate stack as there's no way to correctly
 	 * handle this after the fb is already removed from the lookup table.
 	 */
-	if (drm_framebuffer_read_refcount(fb) > 1) {
+	if (atomic_read(&fb->refcount.refcount) > 1) {
 		struct drm_mode_rmfb_work arg;
 
 		INIT_WORK_ONSTACK(&arg.work, drm_mode_rmfb_work_fn);
@@ -3612,7 +3607,7 @@ void drm_fb_release(struct drm_file *priv)
 	 * at it any more.
 	 */
 	list_for_each_entry_safe(fb, tfb, &priv->fbs, filp_head) {
-		if (drm_framebuffer_read_refcount(fb) > 1) {
+		if (atomic_read(&fb->refcount.refcount) > 1) {
 			list_move_tail(&fb->filp_head, &arg.fbs);
 		} else {
 			list_del_init(&fb->filp_head);
