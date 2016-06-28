@@ -51,6 +51,7 @@
 #define DISPC_IRQ_FRAMEDONEWB		(1 << 23)
 #define DISPC_IRQ_FRAMEDONETV		(1 << 24)
 #define DISPC_IRQ_WBBUFFEROVERFLOW	(1 << 25)
+#define DISPC_IRQ_WBUNCOMPLETEERROR	(1 << 26)
 #define DISPC_IRQ_SYNC_LOST3		(1 << 27)
 #define DISPC_IRQ_VSYNC3		(1 << 28)
 #define DISPC_IRQ_ACBIAS_COUNT_STAT3	(1 << 29)
@@ -87,6 +88,18 @@ enum omap_channel {
 	OMAP_DSS_CHANNEL_DIGIT	= 1,
 	OMAP_DSS_CHANNEL_LCD2	= 2,
 	OMAP_DSS_CHANNEL_LCD3	= 3,
+	OMAP_DSS_CHANNEL_WB	= 4,
+};
+
+enum dss_writeback_channel {
+	DSS_WB_LCD1_MGR =	0,
+	DSS_WB_LCD2_MGR =	1,
+	DSS_WB_TV_MGR =		2,
+	DSS_WB_OVL0 =		3,
+	DSS_WB_OVL1 =		4,
+	DSS_WB_OVL2 =		5,
+	DSS_WB_OVL3 =		6,
+	DSS_WB_LCD3_MGR =	7,
 };
 
 enum omap_color_mode {
@@ -875,8 +888,6 @@ void omap_video_timings_to_videomode(const struct omap_video_timings *ovt,
 
 int dss_feat_get_num_mgrs(void);
 int dss_feat_get_num_ovls(void);
-enum omap_display_type dss_feat_get_supported_displays(enum omap_channel channel);
-enum omap_dss_output_id dss_feat_get_supported_outputs(enum omap_channel channel);
 enum omap_color_mode dss_feat_get_supported_color_modes(enum omap_plane plane);
 
 
@@ -946,6 +957,11 @@ void dispc_ovl_set_channel_out(enum omap_plane plane,
 int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
 		bool replication, const struct omap_video_timings *mgr_timings,
 		bool mem_to_mem);
+
+bool dispc_has_writeback(void);
+int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
+		bool mem_to_mem, const struct omap_video_timings *timings);
+void dispc_wb_set_channel_in(enum dss_writeback_channel channel);
 
 int omapdss_compat_init(void);
 void omapdss_compat_uninit(void);

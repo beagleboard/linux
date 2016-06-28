@@ -534,6 +534,14 @@ static int dev_load(struct drm_device *dev, unsigned long flags)
 
 	drm_kms_helper_poll_init(dev);
 
+	if (dispc_has_writeback()) {
+		ret = wbm2m_init(dev);
+		if (ret)
+			dev_warn(dev->dev, "failed to initialize writeback\n");
+		else
+			priv->wb_initialized = true;
+	}
+
 	return 0;
 }
 
@@ -544,6 +552,9 @@ static int dev_unload(struct drm_device *dev)
 
 	DBG("unload: dev=%p", dev);
 
+
+	if (priv->wb_initialized)
+		wbm2m_cleanup(dev);
 	drm_kms_helper_poll_fini(dev);
 
 	if (priv->fbdev)

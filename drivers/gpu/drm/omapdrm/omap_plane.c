@@ -58,6 +58,8 @@ struct omap_plane {
 
 	struct omap_drm_irq error_irq;
 
+	bool reserved_wb;
+
 	/* for deferring bo unpin's until next post_apply(): */
 	struct drm_flip_work unpin_work;
 
@@ -273,6 +275,9 @@ static int omap_plane_update(struct drm_plane *plane,
 	struct omap_plane *omap_plane = to_omap_plane(plane);
 	struct drm_framebuffer *old_fb;
 	int r;
+
+	if (omap_plane->reserved_wb)
+		return -EBUSY;
 
 	omap_plane->enabled = true;
 
@@ -530,4 +535,47 @@ fail:
 		omap_plane_destroy(plane);
 
 	return NULL;
+}
+
+int omap_plane_id(struct drm_plane *plane)
+{
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+
+	return omap_plane->id;
+}
+
+struct drm_plane *omap_plane_reserve_wb(struct drm_device *dev)
+{
+	struct omap_drm_private *priv = dev->dev_private;
+	int i;
+
+	/*
+	 * Look from the last plane to the first to lessen chances of the
+	 * display side trying to use the same plane as writeback.
+	 */
+	for (i = priv->num_planes - 1; i >= 0; --i) {
+		struct drm_plane *plane = priv->planes[i];
+		struct omap_plane *omap_plane = to_omap_plane(plane);
+
+		if (plane->crtc || plane->fb)
+			continue;
+
+		if (omap_plane->reserved_wb)
+			continue;
+
+		omap_plane->reserved_wb = true;
+
+		return plane;
+	}
+
+	return NULL;
+}
+
+void omap_plane_release_wb(struct drm_plane *plane)
+{
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+
+	WARN_ON(!omap_plane->reserved_wb);
+
+	omap_plane->reserved_wb = false;
 }
