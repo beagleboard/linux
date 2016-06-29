@@ -271,6 +271,17 @@ static void __i2c_dw_enable(struct dw_i2c_dev *dev, bool enable)
 		 enable ? "en" : "dis");
 }
 
+static unsigned long i2c_dw_clk_rate(struct dw_i2c_dev *dev)
+{
+	/*
+	 * Clock is not necessary if we got LCNT/HCNT values directly from
+	 * the platform code.
+	 */
+	if (WARN_ON_ONCE(!dev->get_clk_rate_khz))
+		return 0;
+	return dev->get_clk_rate_khz(dev);
+}
+
 /**
  * i2c_dw_init() - initialize the designware i2c master hardware
  * @dev: device private data
@@ -281,7 +292,6 @@ static void __i2c_dw_enable(struct dw_i2c_dev *dev, bool enable)
  */
 int i2c_dw_init(struct dw_i2c_dev *dev)
 {
-	u32 input_clock_khz;
 	u32 hcnt, lcnt;
 	u32 reg;
 	u32 sda_falling_time, scl_falling_time;
@@ -294,8 +304,6 @@ int i2c_dw_init(struct dw_i2c_dev *dev)
 			return ret;
 		}
 	}
-
-	input_clock_khz = dev->get_clk_rate_khz(dev);
 
 	reg = dw_readl(dev, DW_IC_COMP_TYPE);
 	if (reg == ___constant_swab32(DW_IC_COMP_TYPE_VALUE)) {
@@ -325,12 +333,12 @@ int i2c_dw_init(struct dw_i2c_dev *dev)
 		hcnt = dev->ss_hcnt;
 		lcnt = dev->ss_lcnt;
 	} else {
-		hcnt = i2c_dw_scl_hcnt(input_clock_khz,
+		hcnt = i2c_dw_scl_hcnt(i2c_dw_clk_rate(dev),
 					4000,	/* tHD;STA = tHIGH = 4.0 us */
 					sda_falling_time,
 					0,	/* 0: DW default, 1: Ideal */
 					0);	/* No offset */
-		lcnt = i2c_dw_scl_lcnt(input_clock_khz,
+		lcnt = i2c_dw_scl_lcnt(i2c_dw_clk_rate(dev),
 					4700,	/* tLOW = 4.7 us */
 					scl_falling_time,
 					0);	/* No offset */
@@ -344,12 +352,12 @@ int i2c_dw_init(struct dw_i2c_dev *dev)
 		hcnt = dev->fs_hcnt;
 		lcnt = dev->fs_lcnt;
 	} else {
-		hcnt = i2c_dw_scl_hcnt(input_clock_khz,
+		hcnt = i2c_dw_scl_hcnt(i2c_dw_clk_rate(dev),
 					600,	/* tHD;STA = tHIGH = 0.6 us */
 					sda_falling_time,
 					0,	/* 0: DW default, 1: Ideal */
 					0);	/* No offset */
-		lcnt = i2c_dw_scl_lcnt(input_clock_khz,
+		lcnt = i2c_dw_scl_lcnt(i2c_dw_clk_rate(dev),
 					1300,	/* tLOW = 1.3 us */
 					scl_falling_time,
 					0);	/* No offset */
@@ -626,7 +634,6 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 
 	dev_dbg(dev->dev, "%s: msgs: %d\n", __func__, num);
 
-	mutex_lock(&dev->lock);
 	pm_runtime_get_sync(dev->dev);
 
 	reinit_completion(&dev->cmd_complete);
@@ -665,11 +672,12 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	}
 
 	/*
-	 * We must disable the adapter before unlocking the &dev->lock mutex
-	 * below. Otherwise the hardware might continue generating interrupts
-	 * which in turn causes a race condition with the following transfer.
-	 * Needs some more investigation if the additional interrupts are
-	 * a hardware bug or this driver doesn't handle them correctly yet.
+	 * We must disable the adapter before returning and signaling the end
+	 * of the current transfer. Otherwise the hardware might continue
+	 * generating interrupts which in turn causes a race condition with
+	 * the following transfer.  Needs some more investigation if the
+	 * additional interrupts are a hardware bug or this driver doesn't
+	 * handle them correctly yet.
 	 */
 	__i2c_dw_enable(dev, false);
 
@@ -698,7 +706,6 @@ done:
 done_nolock:
 	pm_runtime_mark_last_busy(dev->dev);
 	pm_runtime_put_autosuspend(dev->dev);
-	mutex_unlock(&dev->lock);
 
 	return ret;
 }
@@ -852,7 +859,6 @@ int i2c_dw_probe(struct dw_i2c_dev *dev)
 	int r;
 
 	init_completion(&dev->cmd_complete);
-	mutex_init(&dev->lock);
 
 	r = i2c_dw_init(dev);
 	if (r)
@@ -860,12 +866,14 @@ int i2c_dw_probe(struct dw_i2c_dev *dev)
 
 	snprintf(adap->name, sizeof(adap->name),
 		 "Synopsys DesignWare I2C adapter");
+	adap->retries = 3;
 	adap->algo = &i2c_dw_algo;
 	adap->dev.parent = dev->dev;
 	i2c_set_adapdata(adap, dev);
 
 	i2c_dw_disable_int(dev);
-	r = devm_request_irq(dev->dev, dev->irq, i2c_dw_isr, IRQF_SHARED,
+	r = devm_request_irq(dev->dev, dev->irq, i2c_dw_isr,
+			     IRQF_SHARED | IRQF_COND_SUSPEND,
 			     dev_name(dev->dev), dev);
 	if (r) {
 		dev_err(dev->dev, "failure requesting irq %i: %d\n",
@@ -873,9 +881,17 @@ int i2c_dw_probe(struct dw_i2c_dev *dev)
 		return r;
 	}
 
+	/*
+	 * Increment PM usage count during adapter registration in order to
+	 * avoid possible spurious runtime suspend when adapter device is
+	 * registered to the device core and immediate resume in case bus has
+	 * registered I2C slaves that do I2C transfers in their probe.
+	 */
+	pm_runtime_get_noresume(dev->dev);
 	r = i2c_add_numbered_adapter(adap);
 	if (r)
 		dev_err(dev->dev, "failure adding adapter: %d\n", r);
+	pm_runtime_put_noidle(dev->dev);
 
 	return r;
 }
