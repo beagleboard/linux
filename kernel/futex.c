@@ -2473,6 +2473,10 @@ retry:
 			goto retry;
 		}
 
+		/*
+		 * wake_futex_pi has detected invalid state. Tell user
+		 * space.
+		 */
 		goto out_unlock;
 	}
 
