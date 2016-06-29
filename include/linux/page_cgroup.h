@@ -24,6 +24,9 @@ enum {
  */
 struct page_cgroup {
 	unsigned long flags;
+#ifdef CONFIG_PREEMPT_RT_BASE
+	spinlock_t pcg_lock;
+#endif
 	struct mem_cgroup *mem_cgroup;
 };
 
@@ -74,12 +77,20 @@ static inline void lock_page_cgroup(struct page_cgroup *pc)
 	 * Don't take this lock in IRQ context.
 	 * This lock is for pc->mem_cgroup, USED, MIGRATION
 	 */
+#ifndef CONFIG_PREEMPT_RT_BASE
 	bit_spin_lock(PCG_LOCK, &pc->flags);
+#else
+	spin_lock(&pc->pcg_lock);
+#endif
 }
 
 static inline void unlock_page_cgroup(struct page_cgroup *pc)
 {
+#ifndef CONFIG_PREEMPT_RT_BASE
 	bit_spin_unlock(PCG_LOCK, &pc->flags);
+#else
+	spin_unlock(&pc->pcg_lock);
+#endif
 }
 
 #else /* CONFIG_MEMCG */
@@ -99,6 +110,10 @@ static inline void page_cgroup_init(void)
 }
 
 static inline void __init page_cgroup_init_flatmem(void)
+{
+}
+
+static inline void page_cgroup_lock_init(struct page_cgroup *pc)
 {
 }
 
