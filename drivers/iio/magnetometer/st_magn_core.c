@@ -175,6 +175,8 @@
 #define ST_MAGN_3_BDU_MASK			0x10
 #define ST_MAGN_3_DRDY_IRQ_ADDR			0x62
 #define ST_MAGN_3_DRDY_INT_MASK			0x01
+#define ST_MAGN_3_IHL_IRQ_ADDR			0x63
+#define ST_MAGN_3_IHL_IRQ_MASK			0x04
 #define ST_MAGN_3_FS_AVL_15000_GAIN		1500
 #define ST_MAGN_3_MULTIREAD_BIT			false
 #define ST_MAGN_3_OUT_X_L_ADDR			0x68
@@ -480,6 +482,9 @@ static const struct st_sensor_settings st_magn_sensors_settings[] = {
 		.drdy_irq = {
 			.addr = ST_MAGN_3_DRDY_IRQ_ADDR,
 			.mask_int1 = ST_MAGN_3_DRDY_INT_MASK,
+			.addr_ihl = ST_MAGN_3_IHL_IRQ_ADDR,
+			.mask_ihl = ST_MAGN_3_IHL_IRQ_MASK,
+			.addr_stat_drdy = ST_SENSORS_DEFAULT_STAT_ADDR,
 		},
 		.multi_read_bit = ST_MAGN_3_MULTIREAD_BIT,
 		.bootime = 2,
@@ -567,6 +572,7 @@ static const struct iio_info magn_info = {
 static const struct iio_trigger_ops st_magn_trigger_ops = {
 	.owner = THIS_MODULE,
 	.set_trigger_state = ST_MAGN_TRIGGER_SET_STATE,
+	.validate_device = st_sensors_validate_device,
 };
 #define ST_MAGN_TRIGGER_OPS (&st_magn_trigger_ops)
 #else
