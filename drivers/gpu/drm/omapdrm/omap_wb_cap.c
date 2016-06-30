@@ -283,7 +283,7 @@ static enum hrtimer_restart wbcap_wbgo_timer(struct hrtimer *timer)
 			wbcap_process_buffer_complete(dev);
 
 		dev->state = WB_STATE_STOPPED;
-		dev->dev->irq_enabled = false;
+		atomic_dec(&dev->dev->irq_enabled);
 		dev->stopping = false;
 		wake_up(&dev->event);
 		break;
@@ -478,7 +478,7 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 	}
 
 	wbcap->state = WB_STATE_FIRST_FRAME;
-	wbcap->dev->irq_enabled = true;
+	atomic_inc(&wbcap->dev->irq_enabled);
 	return 0;
 }
 

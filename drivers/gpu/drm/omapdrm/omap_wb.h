@@ -129,7 +129,7 @@ struct wb_dev {
 	struct drm_device	*drm_dev;
 
 	struct omap_drm_irq	wb_irq;
-	bool			irq_enabled;
+	atomic_t		irq_enabled;
 
 	/* v4l2_ioctl mutex */
 	struct mutex		lock;

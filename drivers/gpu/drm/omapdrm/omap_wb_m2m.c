@@ -812,7 +812,7 @@ static int wbm2m_start_streaming(struct vb2_queue *q, unsigned int count)
 	ctx->sequence = 0;
 
 	priv->dispc_ops->runtime_get();
-	ctx->dev->dev->irq_enabled = true;
+	atomic_inc(&ctx->dev->dev->irq_enabled);
 
 	return 0;
 }
@@ -827,7 +827,7 @@ static void wbm2m_stop_streaming(struct vb2_queue *q)
 	log_dbg(ctx->dev, "queue: %s\n",
 		V4L2_TYPE_IS_OUTPUT(q->type) ? "OUTPUT" : "CAPTURE");
 
-	ctx->dev->dev->irq_enabled = false;
+	atomic_dec(&ctx->dev->dev->irq_enabled);
 
 	for (;;) {
 		if (V4L2_TYPE_IS_OUTPUT(q->type))

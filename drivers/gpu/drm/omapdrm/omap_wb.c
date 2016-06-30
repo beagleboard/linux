@@ -86,7 +86,7 @@ static void wb_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 {
 	struct wb_dev *dev = container_of(irq, struct wb_dev, wb_irq);
 
-	if (!dev->irq_enabled)
+	if (!atomic_read(&dev->irq_enabled))
 		return;
 
 	switch (dev->mode) {
@@ -132,6 +132,8 @@ int wb_init(struct drm_device *drmdev)
 	priv->wb_private = dev;
 
 	mutex_init(&dev->lock);
+
+	atomic_set(&dev->irq_enabled, 0);
 
 	dev->wb_irq.irqmask = DISPC_IRQ_FRAMEDONEWB |
 			      DISPC_IRQ_WBBUFFEROVERFLOW |
