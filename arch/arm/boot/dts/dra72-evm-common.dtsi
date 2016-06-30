@@ -641,9 +641,11 @@
 &ipu1 {
 	mboxes = <&mailbox5 &mbox_ipu1_ipc3x>;
 	timers = <&timer11>;
+	watchdog-timers = <&timer7>, <&timer8>;
 };
 
 &dsp1 {
 	mboxes = <&mailbox5 &mbox_dsp1_ipc3x>;
 	timers = <&timer5>;
+	watchdog-timers = <&timer10>;
 };
