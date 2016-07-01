@@ -413,3 +413,28 @@
 	clock-names = "ext-clk", "int-clk";
 	system-power-controller;
 };
+
+/* the cape manager */
+/ {
+	bone_capemgr {
+		compatible = "ti,bone-capemgr";
+		status = "okay";
+
+		nvmem-cells = <&baseboard_data &cape0_data &cape1_data &cape2_data &cape3_data>;
+		nvmem-cell-names = "baseboard", "slot0", "slot1", "slot2", "slot3";
+		#slots = <4>;
+
+		/* map board revisions to compatible definitions */
+		baseboardmaps {
+			baseboard_beaglebone: board@0 {
+				board-name = "A335BONE";
+				compatible-name = "ti,beaglebone";
+			};
+
+			baseboard_beaglebone_black: board@1 {
+				board-name = "A335BNLT";
+				compatible-name = "ti,beaglebone-black";
+			};
+		};
+	};
+};
