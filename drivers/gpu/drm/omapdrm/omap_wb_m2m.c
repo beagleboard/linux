@@ -56,10 +56,6 @@ static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane src_plane,
 
 	/* configure input */
 
-	log_dbg(dev, "WB IN plane %d, %dx%d -> %dx%d\n", src_plane,
-		src_info->width, src_info->height,
-		src_info->out_width, src_info->out_height);
-
 	r = priv->dispc_ops->ovl_setup(src_plane, src_info, 0, &t, 1);
 	if (r)
 		return false;
@@ -136,9 +132,6 @@ static void job_abort(void *priv)
 
 	/* Will cancel the transaction in the next interrupt handler */
 	ctx->aborting = 1;
-
-	log_dbg(ctx->dev, "Aborting transaction\n");
-	v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
 }
 
 /* device_run() - prepares and starts the device
@@ -153,6 +146,7 @@ static void device_run(void *priv)
 	struct wb_q_data *d_q_data = &ctx->q_data[Q_DATA_DST];
 	struct wb_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
 	struct vb2_buffer *s_vb, *d_vb;
+	struct vb2_v4l2_buffer *src_vb, *dst_vb;
 	dma_addr_t src_dma_addr[2] = {0, 0};
 	dma_addr_t dst_dma_addr[2] = {0, 0};
 	struct omap_overlay_info src_info = { 0 };
@@ -160,13 +154,13 @@ static void device_run(void *priv)
 	struct v4l2_pix_format_mplane *spix, *dpix;
 	bool ok;
 
-	ctx->src_vb = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
-	WARN_ON(!ctx->src_vb);
-	s_vb = &ctx->src_vb->vb2_buf;
+	src_vb = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
+	WARN_ON(!src_vb);
+	s_vb = &src_vb->vb2_buf;
 
-	ctx->dst_vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
-	WARN_ON(!ctx->dst_vb);
-	d_vb = &ctx->dst_vb->vb2_buf;
+	dst_vb = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
+	WARN_ON(!dst_vb);
+	d_vb = &dst_vb->vb2_buf;
 
 	spix = &s_q_data->format.fmt.pix_mp;
 	src_dma_addr[0] = vb2_dma_addr_plus_data_offset(s_vb, 0);
@@ -211,8 +205,9 @@ static void device_run(void *priv)
 	src_info.rotation = OMAP_DSS_ROT_0;
 	src_info.rotation_type = OMAP_DSS_ROT_DMA;
 
-	log_dbg(dev, "SRC: %dx%d, sw %d\n", src_info.width,
-		src_info.height, src_info.screen_width);
+	log_dbg(dev, "SRC: ctx %pa buf_index %d %dx%d, sw %d\n",
+		&ctx, s_vb->index,
+		src_info.width, src_info.height, src_info.screen_width);
 
 	/* fill WB DSS info */
 	wb_info.paddr = (u32)dst_dma_addr[0];
@@ -229,8 +224,9 @@ static void device_run(void *priv)
 	wb_info.rotation = OMAP_DSS_ROT_0;
 	wb_info.rotation_type = OMAP_DSS_ROT_DMA;
 
-	log_dbg(dev, "DST: %dx%d, sw %d\n", wb_info.width,
-		wb_info.height, wb_info.buf_width);
+	log_dbg(dev, "DST: ctx %pa buf_index %d %dx%d, sw %d\n",
+		&ctx, d_vb->index,
+		wb_info.width, wb_info.height, wb_info.buf_width);
 
 	ok = wbm2m_convert(dev, omap_plane_id(dev->plane), &src_info, &wb_info);
 	if (!ok) {
@@ -281,11 +277,10 @@ void wbm2m_irq(struct wbm2m_dev *wbm2m, u32 irqstatus)
 		goto handled;
 	}
 
-	if (ctx->aborting)
-		goto finished;
+	log_dbg(ctx->dev, "ctx %pa\n", &ctx);
 
-	s_vb = ctx->src_vb;
-	d_vb = ctx->dst_vb;
+	s_vb = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
+	d_vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 
 	d_vb->flags = s_vb->flags;
 
@@ -294,6 +289,9 @@ void wbm2m_irq(struct wbm2m_dev *wbm2m, u32 irqstatus)
 		d_vb->timecode = s_vb->timecode;
 
 	d_vb->sequence = ctx->sequence;
+	s_vb->sequence = ctx->sequence;
+	log_dbg(wbm2m, "ctx %pa sequence %d\n",
+		&ctx, ctx->sequence);
 
 	d_q_data = &ctx->q_data[Q_DATA_DST];
 	d_vb->field = V4L2_FIELD_NONE;
@@ -303,26 +301,11 @@ void wbm2m_irq(struct wbm2m_dev *wbm2m, u32 irqstatus)
 
 	spin_lock_irqsave(&wbm2m->lock, flags);
 
-	if (s_vb)
-		v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
-
+	v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
 	v4l2_m2m_buf_done(d_vb, VB2_BUF_STATE_DONE);
 
 	spin_unlock_irqrestore(&wbm2m->lock, flags);
 
-	/*
-	 * Since the vb2_buf_done has already been called for therse
-	 * buffer we can now NULL them out so that we won't try
-	 * to clean out stray pointer later on.
-	 */
-	ctx->src_vb = NULL;
-	ctx->dst_vb = NULL;
-
-	ctx->bufs_completed++;
-
-finished:
-	log_dbg(ctx->dev, "finishing transaction\n");
-	ctx->bufs_completed = 0;
 	v4l2_m2m_job_finish(wbm2m->m2m_dev, ctx->fh.m2m_ctx);
 handled:
 	return;
@@ -360,6 +343,7 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	struct wbm2m_ctx *ctx = file2ctx(file);
 	struct vb2_queue *vq;
 	struct wb_q_data *q_data;
+	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 
 	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
 	if (!vq)
@@ -378,6 +362,17 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		f->fmt.pix_mp.colorspace =
 			s_q_data->format.fmt.pix_mp.colorspace;
 	}
+
+	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+		&ctx, f->type, pix->width, pix->height,
+		GET_BYTE(pix->pixelformat, 0),
+		GET_BYTE(pix->pixelformat, 1),
+		GET_BYTE(pix->pixelformat, 2),
+		GET_BYTE(pix->pixelformat, 3),
+		pix->plane_fmt[LUMA_PLANE].bytesperline);
+	if (pix->num_planes == 2)
+		log_dbg(ctx->dev, " bpl_uv %d\n",
+			pix->plane_fmt[CHROMA_PLANE].bytesperline);
 
 	return 0;
 }
@@ -485,8 +480,8 @@ static int __wbm2m_s_fmt(struct wbm2m_ctx *ctx, struct v4l2_format *f)
 	q_data->c_rect.width	= pix->width;
 	q_data->c_rect.height	= pix->height;
 
-	log_dbg(ctx->dev, "Setting format for type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
-		f->type, pix->width, pix->height,
+	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+		&ctx, f->type, pix->width, pix->height,
 		GET_BYTE(pix->pixelformat, 0),
 		GET_BYTE(pix->pixelformat, 1),
 		GET_BYTE(pix->pixelformat, 2),
@@ -525,8 +520,8 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 	unsigned int w_align;
 	int depth_bytes;
 
-	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
-	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
+	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
+	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE))
 		return -EINVAL;
 
 	q_data = get_q_data(ctx, s->type);
@@ -541,7 +536,7 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 		 * COMPOSE target is only valid for capture buffer type, return
 		 * error for output buffer type
 		 */
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			return -EINVAL;
 		break;
 	case V4L2_SEL_TGT_CROP:
@@ -549,7 +544,7 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 		 * CROP target is only valid for output buffer type, return
 		 * error for capture buffer type
 		 */
-		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			return -EINVAL;
 		break;
 	/*
@@ -597,8 +592,8 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 	struct v4l2_pix_format_mplane *pix;
 	bool use_c_rect = false;
 
-	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
-	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
+	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
+	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE))
 		return -EINVAL;
 
 	q_data = get_q_data(ctx, s->type);
@@ -610,21 +605,21 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
 	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			return -EINVAL;
 		break;
 	case V4L2_SEL_TGT_CROP_BOUNDS:
 	case V4L2_SEL_TGT_CROP_DEFAULT:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 			return -EINVAL;
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			return -EINVAL;
 		use_c_rect = true;
 		break;
 	case V4L2_SEL_TGT_CROP:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 			return -EINVAL;
 		use_c_rect = true;
 		break;
@@ -701,6 +696,8 @@ static const struct v4l2_ioctl_ops wbm2m_ioctl_ops = {
 	.vidioc_s_selection		= wbm2m_s_selection,
 
 	.vidioc_reqbufs			= v4l2_m2m_ioctl_reqbufs,
+	.vidioc_create_bufs		= v4l2_m2m_ioctl_create_bufs,
+	.vidioc_prepare_buf		= v4l2_m2m_ioctl_prepare_buf,
 	.vidioc_querybuf		= v4l2_m2m_ioctl_querybuf,
 	.vidioc_qbuf			= v4l2_m2m_ioctl_qbuf,
 	.vidioc_dqbuf			= v4l2_m2m_ioctl_dqbuf,
@@ -720,15 +717,22 @@ static int wbm2m_queue_setup(struct vb2_queue *vq,
 			     unsigned int *nbuffers, unsigned int *nplanes,
 			     unsigned int sizes[], void *alloc_ctxs[])
 {
+	const struct v4l2_format *fmt = parg;
 	int i;
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(vq);
 	struct wb_q_data *q_data;
 
 	q_data = get_q_data(ctx, vq->type);
+	if (!q_data)
+		return -EINVAL;
 
 	*nplanes = q_data->format.fmt.pix_mp.num_planes;
 
 	for (i = 0; i < *nplanes; i++) {
+		if (fmt && fmt->fmt.pix_mp.plane_fmt[i].sizeimage <
+		    q_data->format.fmt.pix_mp.plane_fmt[i].sizeimage)
+			return -EINVAL;
+
 		sizes[i] = q_data->format.fmt.pix_mp.plane_fmt[i].sizeimage;
 		alloc_ctxs[i] = ctx->dev->alloc_ctx;
 	}
@@ -760,14 +764,28 @@ static int wbm2m_buf_prepare(struct vb2_buffer *vb)
 
 	for (i = 0; i < num_planes; i++) {
 		mp = &q_data->format.fmt.pix_mp;
-		if (vb2_plane_size(vb, i) < mp->plane_fmt[i].sizeimage) {
-			log_err(ctx->dev,
-				"data will not fit into plane (%lu < %lu)\n",
-				vb2_plane_size(vb, i),
-				(long)mp->plane_fmt[i].sizeimage);
-			return -EINVAL;
+
+		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			if (vb2_get_plane_payload(vb, i) <
+			    mp->plane_fmt[i].sizeimage) {
+				log_dbg(ctx->dev,
+					"the payload is too small for plane plane (%lu < %lu)\n",
+					vb2_get_plane_payload(vb, i),
+					(long)mp->plane_fmt[i].sizeimage);
+				return -EINVAL;
+			}
+		} else {
+			if (vb2_plane_size(vb, i) <
+			    mp->plane_fmt[i].sizeimage) {
+				log_dbg(ctx->dev,
+					"data will not fit into plane (%lu < %lu)\n",
+					vb2_plane_size(vb, i),
+					(long)mp->plane_fmt[i].sizeimage);
+				return -EINVAL;
+			}
+			vb2_set_plane_payload(vb, i,
+					      mp->plane_fmt[i].sizeimage);
 		}
-		vb2_set_plane_payload(vb, i, mp->plane_fmt[i].sizeimage);
 	}
 
 	if (num_planes == 2) {
@@ -790,6 +808,10 @@ static void wbm2m_buf_queue(struct vb2_buffer *vb)
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 
+	log_dbg(ctx->dev, "queueing buffer: %s index %d\n",
+		V4L2_TYPE_IS_OUTPUT(vb->type) ? "OUTPUT" : "CAPTURE",
+		vb->index);
+
 	v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 }
 
@@ -798,13 +820,13 @@ static int wbm2m_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(q);
 	struct omap_drm_private *priv = ctx->dev->dev->drm_dev->dev_private;
 
-	log_dbg(ctx->dev, "queue: %s\n",
+	log_dbg(ctx->dev, "ctx %pa queue: %s\n", &ctx,
 		V4L2_TYPE_IS_OUTPUT(q->type) ? "OUTPUT" : "CAPTURE");
 
 	ctx->sequence = 0;
 
 	priv->dispc_ops->runtime_get();
-	ctx->dev->dev->irq_enabled = true;
+	atomic_inc(&ctx->dev->dev->irq_enabled);
 
 	return 0;
 }
@@ -816,10 +838,10 @@ static void wbm2m_stop_streaming(struct vb2_queue *q)
 	struct vb2_v4l2_buffer *vb;
 	unsigned long flags;
 
-	log_dbg(ctx->dev, "queue: %s\n",
+	log_dbg(ctx->dev, "ctx %pa queue: %s\n", &ctx,
 		V4L2_TYPE_IS_OUTPUT(q->type) ? "OUTPUT" : "CAPTURE");
 
-	ctx->dev->dev->irq_enabled = false;
+	atomic_dec(&ctx->dev->dev->irq_enabled);
 
 	for (;;) {
 		if (V4L2_TYPE_IS_OUTPUT(q->type))
@@ -828,6 +850,8 @@ static void wbm2m_stop_streaming(struct vb2_queue *q)
 			vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 		if (!vb)
 			break;
+		log_dbg(ctx->dev, "returning from queue: buffer index %d\n",
+			vb->vb2_buf.index);
 		spin_lock_irqsave(&ctx->dev->lock, flags);
 		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
 		spin_unlock_irqrestore(&ctx->dev->lock, flags);
@@ -848,20 +872,6 @@ static void wbm2m_stop_streaming(struct vb2_queue *q)
 		priv->dispc_ops->ovl_enable(OMAP_DSS_WB, true);
 		priv->dispc_ops->ovl_enable(OMAP_DSS_WB, false);
 
-		if (ctx->src_vb) {
-			spin_lock_irqsave(&ctx->dev->lock, flags);
-			v4l2_m2m_buf_done(ctx->src_vb, VB2_BUF_STATE_ERROR);
-			ctx->src_vb = NULL;
-			spin_unlock_irqrestore(&ctx->dev->lock, flags);
-		}
-	} else {
-		if (ctx->dst_vb) {
-			spin_lock_irqsave(&ctx->dev->lock, flags);
-
-			v4l2_m2m_buf_done(ctx->dst_vb, VB2_BUF_STATE_ERROR);
-			ctx->dst_vb = NULL;
-			spin_unlock_irqrestore(&ctx->dev->lock, flags);
-		}
 	}
 
 	priv->dispc_ops->runtime_put();
@@ -920,7 +930,6 @@ static int wbm2m_open(struct file *file)
 {
 	struct wbm2m_dev *dev = video_drvdata(file);
 	struct wb_q_data *s_q_data;
-	struct v4l2_ctrl_handler *hdl;
 	struct wbm2m_ctx *ctx;
 	struct v4l2_pix_format_mplane *pix;
 	int ret;
@@ -947,10 +956,6 @@ static int wbm2m_open(struct file *file)
 
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
 	file->private_data = &ctx->fh;
-
-	hdl = &ctx->hdl;
-	v4l2_ctrl_handler_init(hdl, 1);
-	ctx->fh.ctrl_handler = hdl;
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
 	s_q_data->fmt = &wb_formats[1];
@@ -1014,7 +1019,6 @@ free_fh:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 exit_fh:
-	v4l2_ctrl_handler_free(hdl);
 	v4l2_fh_exit(&ctx->fh);
 unlock:
 	mutex_unlock(&dev->dev->lock);
@@ -1038,7 +1042,6 @@ static int wbm2m_release(struct file *file)
 
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
-	v4l2_ctrl_handler_free(&ctx->hdl);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 
 	kfree(ctx);
