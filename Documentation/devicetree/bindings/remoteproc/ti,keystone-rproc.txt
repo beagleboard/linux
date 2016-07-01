@@ -27,7 +27,7 @@ The following are the mandatory properties:
 			    "ti,k2hk-dsp" for DSPs on Keystone2 Hawking/Kepler SoCs
 			    "ti,k2l-dsp" for DSPs on Keystone2 Lamarr SoCs
 			    "ti,k2e-dsp" for DSPs on Keystone2 Edison SoCs
-			    "ti,k2g-dsp" for DSPs on Keystone2 Galileo SoCs
+			    "ti,k2g-dsp" for DSPs on Keystone K2G SoCs
 
 - reg:			Should contain an entry for each value in 'reg-names'.
 			Each entry should have the memory region's start address
@@ -85,9 +85,9 @@ The following are the mandatory properties:
 Optional properties:
 --------------------
 
-- power-domains:	_required_ property only for Keystone 2 Galileo SoC.
-			Should contain a phandle to a PM domain provider node,
-			and a PM domain specifier as defined by the binding,
+- power-domains:	_required_ property only for K2G SoCs. Should contain a
+			phandle to a PM domain provider node, and a PM domain
+			specifier as defined by the binding,
 			Documentation/devicetree/bindings/soc/ti/sci-pm-domain.txt
 
 - memory-region:	phandle to the reserved memory node to be associated
