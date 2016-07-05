@@ -1249,7 +1249,9 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		port->try_mbus_framefmt.height);
 
 	if (is_scaler_available(port) &&
-	    f->fmt.pix.height <= port->try_mbus_framefmt.height) {
+	    f->fmt.pix.height <= port->try_mbus_framefmt.height &&
+	    port->try_mbus_framefmt.height <= SC_MAX_PIXEL_HEIGHT &&
+	    port->try_mbus_framefmt.width <= SC_MAX_PIXEL_WIDTH) {
 		/* scaling up is allowed only horizontally */
 		unsigned int hratio, vratio, width_align, height_align;
 		u32 bpp = fmt->vpdma_fmt[0]->depth >> 3;

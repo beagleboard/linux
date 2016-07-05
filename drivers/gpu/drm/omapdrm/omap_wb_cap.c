@@ -283,7 +283,7 @@ static enum hrtimer_restart wbcap_wbgo_timer(struct hrtimer *timer)
 			wbcap_process_buffer_complete(dev);
 
 		dev->state = WB_STATE_STOPPED;
-		dev->dev->irq_enabled = false;
+		atomic_dec(&dev->dev->irq_enabled);
 		dev->stopping = false;
 		wake_up(&dev->event);
 		break;
@@ -342,18 +342,26 @@ static int queue_setup(struct vb2_queue *vq, const void *parg,
 		       unsigned int *nbuffers, unsigned int *nplanes,
 		       unsigned int sizes[], void *alloc_ctxs[])
 {
+	const struct v4l2_format *fmt = parg;
 	int i;
 	struct wbcap_dev *wbcap = vb2_get_drv_priv(vq);
 	struct wb_q_data *q_data;
 
 	q_data = get_q_data(wbcap, vq->type);
 
-	if (vq->num_buffers + *nbuffers < 3)
-		*nbuffers = 3 - vq->num_buffers;
+	if (!q_data)
+		return -EINVAL;
+
+	if (vq->num_buffers + *nbuffers < 2)
+		*nbuffers = 2 - vq->num_buffers;
 
 	*nplanes = q_data->format.fmt.pix_mp.num_planes;
 
 	for (i = 0; i < *nplanes; i++) {
+		if (fmt && fmt->fmt.pix_mp.plane_fmt[i].sizeimage <
+		    q_data->format.fmt.pix_mp.plane_fmt[i].sizeimage)
+			return -EINVAL;
+
 		sizes[i] = q_data->format.fmt.pix_mp.plane_fmt[i].sizeimage;
 		alloc_ctxs[i] = wbcap->alloc_ctx;
 	}
@@ -470,7 +478,7 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 	}
 
 	wbcap->state = WB_STATE_FIRST_FRAME;
-	wbcap->dev->irq_enabled = true;
+	atomic_inc(&wbcap->dev->irq_enabled);
 	return 0;
 }
 
@@ -585,20 +593,10 @@ static int wbcap_fill_pix_format(struct wbcap_dev *wbcap,
 	pix->num_planes = fmt->coplanar ? 2 : 1;
 	pix->pixelformat = fmt->fourcc;
 
-	/* Probably need something better here */
-	if (!pix->colorspace) {
-		if (fmt->fourcc == V4L2_PIX_FMT_RGB24 ||
-		    fmt->fourcc == V4L2_PIX_FMT_BGR24 ||
-		    fmt->fourcc == V4L2_PIX_FMT_RGB32 ||
-		    fmt->fourcc == V4L2_PIX_FMT_BGR32) {
-			pix->colorspace = V4L2_COLORSPACE_SRGB;
-		} else {
-			if (pix->height > 1280)	/* HD */
-				pix->colorspace = V4L2_COLORSPACE_REC709;
-			else			/* SD */
-				pix->colorspace = V4L2_COLORSPACE_SMPTE170M;
-		}
-	}
+	pix->colorspace = V4L2_COLORSPACE_SRGB;
+	pix->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+	pix->quantization = V4L2_QUANTIZATION_DEFAULT;
+	pix->xfer_func = V4L2_XFER_FUNC_DEFAULT;
 
 	memset(pix->reserved, 0, sizeof(pix->reserved));
 	for (i = 0; i < pix->num_planes; i++) {
@@ -750,8 +748,8 @@ static int wbcap_s_input(struct file *file, void *priv, unsigned int i)
 
 	wbcap->input = i;
 
-	/* Update the internal format */
-	wbcap_fill_pix_format(wbcap, &q_data->format);
+	/* Update the internal format to match the selected input */
+	wbcap_try_fmt_vid_cap(file, priv, &q_data->format);
 	return 0;
 }
 
@@ -848,6 +846,7 @@ static const struct v4l2_ioctl_ops wbcap_ioctl_ops = {
 
 	.vidioc_reqbufs = vb2_ioctl_reqbufs,
 	.vidioc_create_bufs = vb2_ioctl_create_bufs,
+	.vidioc_prepare_buf = vb2_ioctl_prepare_buf,
 	.vidioc_querybuf = vb2_ioctl_querybuf,
 	.vidioc_qbuf = vb2_ioctl_qbuf,
 	.vidioc_dqbuf = vb2_ioctl_dqbuf,
