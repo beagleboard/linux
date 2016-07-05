@@ -634,9 +634,9 @@ static int tilcdc_pm_resume(struct device *dev)
 			    (priv->rev >= registers[i].rev))
 				tilcdc_write(ddev, registers[i].reg,
 					     priv->saved_register[n++]);
-	}
 
-	tilcdc_crtc_dpms(priv->crtc, priv->saved_dpms_state);
+		tilcdc_crtc_dpms(priv->crtc, priv->saved_dpms_state);
+	}
 
 	drm_kms_helper_poll_enable(ddev);
 
