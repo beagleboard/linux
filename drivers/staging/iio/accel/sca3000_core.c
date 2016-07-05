@@ -216,8 +216,7 @@ static int sca3000_read_ctrl_reg(struct sca3000_state *st,
 	ret = sca3000_read_data_short(st, SCA3000_REG_ADDR_CTRL_DATA, 1);
 	if (ret)
 		goto error_ret;
-	else
-		return st->rx[0];
+	return st->rx[0];
 error_ret:
 	return ret;
 }
@@ -595,7 +594,7 @@ static ssize_t sca3000_read_frequency(struct device *dev,
 		goto error_ret_mut;
 	ret = sca3000_read_ctrl_reg(st, SCA3000_REG_CTRL_SEL_OUT_CTRL);
 	mutex_unlock(&st->lock);
-	if (ret)
+	if (ret < 0)
 		goto error_ret;
 	val = ret;
 	if (base_freq > 0)
