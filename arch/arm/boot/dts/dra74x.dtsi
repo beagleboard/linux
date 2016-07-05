@@ -36,6 +36,12 @@
 	};
 
 	ocp {
+		debugss {
+			compatible = "ti,dra7xx-debugss";
+			clocks = <0xe>;
+			clock-names = "sysclockin1";
+		};
+
 		dsp2_system: dsp_system@41500000 {
 			compatible = "syscon";
 			reg = <0x41500000 0x100>;
