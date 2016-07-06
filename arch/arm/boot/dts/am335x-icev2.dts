@@ -412,13 +412,25 @@
 
 		partition@0 {
 			label = "u-boot-spl";
-			reg = <0x0 0x100000>;
+			reg = <0x0 0x80000>;
 			read-only;
 		};
 
 		partition@1 {
+			label = "u-boot";
+			reg = <0x80000 0x100000>;
+			read-only;
+		};
+
+		partition@2 {
+			label = "u-boot-env";
+			reg = <0x180000 0x20000>;
+			read-only;
+		};
+
+		partition@3 {
 			label = "misc";
-			reg = <0x100000 0x600000>;
+			reg = <0x1A0000 0x660000>;
 		};
 	};
 
