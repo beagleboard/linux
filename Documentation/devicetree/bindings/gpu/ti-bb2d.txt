@@ -1,0 +1,23 @@
+* Texas Instruments BB2D blitter module
+
+This binding describes the 2D BitBlit (BB2D) graphics accelerator
+subsystem based on the GC320 core from Vivante Corporation available
+in Texas Instruments SoCs.
+
+Required properties:
+  - compatible: should be "ti,dra7-bb2d" for TI DRA7xx/AM57xx SoCs
+  - reg : base address and length of BB2D IP registers
+  - interrupts : BB2D interrupt line number
+  - ti,hwmods : name of the hwmod associated with BB2D module
+  - clocks : handle to BB2D functional clock
+  - clock-names : fck
+
+Example:
+        bb2d: bb2d@59000000 {
+            compatible = "ti,dra7-bb2d";
+            reg = <0x59000000 0x0700>;
+            interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+            ti,hwmods = "bb2d";
+            clocks = <&dss_clkctrl DRA7_BB2D_CLKCTRL 0>;
+            clock-names = "fck";
+        };
