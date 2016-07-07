@@ -2176,6 +2176,16 @@
 			status = "disabled";
 		};
 
+		bb2d: bb2d@59000000 {
+			compatible = "ti,dra7-bb2d";
+			reg = <0x59000000 0x0700>;
+			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "bb2d";
+			clocks = <&dss_clkctrl DRA7_BB2D_CLKCTRL 0>;
+			clock-names = "fck";
+			status = "disabled";
+		};
+
 		dss: dss@58000000 {
 			compatible = "ti,dra7-dss";
 			/* 'reg' defined in dra72x.dtsi and dra74x.dtsi */
