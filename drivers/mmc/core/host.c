@@ -344,6 +344,8 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 {
 	int err;
 	struct mmc_host *host;
+	int mindynidx = max(0, of_alias_get_highest_id("mmc") + 1);
+	int reqidx = dev->of_node ? of_alias_get_id(dev->of_node, "mmc") : -1;
 
 	host = kzalloc(sizeof(struct mmc_host) + extra, GFP_KERNEL);
 	if (!host)
@@ -359,7 +361,16 @@ again:
 	}
 
 	spin_lock(&mmc_host_lock);
-	err = ida_get_new(&mmc_host_ida, &host->index);
+	if (reqidx >= 0) {
+		err = ida_get_new_above(&mmc_host_ida, reqidx, &host->index);
+		if (!err && host->index != reqidx) {
+			// requested index in use, fall back to dynamic
+			ida_remove(&mmc_host_ida, host->index);
+			reqidx = -1;
+		}
+	}
+	if (reqidx < 0)
+		err = ida_get_new_above(&mmc_host_ida, mindynidx, &host->index);
 	spin_unlock(&mmc_host_lock);
 
 	if (err == -EAGAIN) {
