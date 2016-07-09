@@ -36,6 +36,7 @@
 #include <linux/compat.h>
 #include <linux/pm_runtime.h>
 #include <linux/idr.h>
+#include <linux/of.h>
 
 #include <linux/mmc/ioctl.h>
 #include <linux/mmc/card.h>
@@ -2219,13 +2220,20 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
 {
 	struct mmc_blk_data *md;
 	int devidx, ret;
+	int mindynidx = max(0, of_alias_get_highest_id("mmc") + 1);
+	int reqidx = card->host->index;
 
 again:
 	if (!ida_pre_get(&mmc_blk_ida, GFP_KERNEL))
 		return ERR_PTR(-ENOMEM);
 
 	spin_lock(&mmc_blk_lock);
-	ret = ida_get_new(&mmc_blk_ida, &devidx);
+	ret = ida_get_new_above(&mmc_blk_ida, reqidx, &devidx);
+	if (!ret && devidx < mindynidx && devidx != reqidx) {
+		// requested index in use, fall back to dynamic
+		ida_remove(&mmc_blk_ida, devidx);
+		ret = ida_get_new_above(&mmc_blk_ida, mindynidx, &devidx);
+	}
 	spin_unlock(&mmc_blk_lock);
 
 	if (ret == -EAGAIN)
