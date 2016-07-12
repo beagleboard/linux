@@ -464,7 +464,6 @@
 			ti,hwmods = "rtc";
 			clocks = <&clk_32768_ck>;
 			clock-names = "int-clk";
-			system-power-controller;
 			status = "disabled";
 		};
 
