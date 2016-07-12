@@ -1336,9 +1336,6 @@ int gbe_create_sysfs_entries(struct gbe_priv *gbe_dev)
 		kobjs = &gbe_sw_ver14_kobjs[0];
 		break;
 	default:
-		/* we don't support 2U switch */
-		if (!IS_SS_ID_NU(gbe_dev))
-			return 0;
 		kobjs = &gbe_sw_nu_kobjs[0];
 	}
 
