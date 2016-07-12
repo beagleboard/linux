@@ -21,6 +21,17 @@ steps and if successful a defconfig will be created in the arch/arm/configs dire
 that can be built.
 
 ##################################
+# Requirements
+##################################
+
+* awk v1.2 or greater.
+* bash shell 4.3.11(1)-release or greater.
+* Coreutils package v8.1 or greater.
+* grep (GNU grep) v2.16 or greater.
+* Linux kernel with merge_config script.
+* sed (GNU sed) v4.2.2 or greater.
+
+##################################
 # Usage
 ##################################
 
