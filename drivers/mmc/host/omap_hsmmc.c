@@ -1640,54 +1640,51 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 	cycle_ns = 1000000000 / (host->clk_rate / clkd);
 	timeout = timeout_ns / cycle_ns;
 	timeout += timeout_clks;
-
-	if (!timeout)
-		goto out;
-
-	while ((timeout & 0x80000000) == 0) {
-		dto += 1;
+	if (timeout) {
+		while ((timeout & 0x80000000) == 0) {
+			dto += 1;
+			timeout <<= 1;
+		}
+		dto = 31 - dto;
 		timeout <<= 1;
-	}
-	dto = 31 - dto;
-	timeout <<= 1;
-	if (timeout && dto)
-		dto += 1;
-	if (dto >= 13)
-		dto -= 13;
-	else
-		dto = 0;
-	if (dto > 14) {
-		/*
-		 * DRA7 Errata No i834: When using high speed HS200 and
-		 * SDR104 cards, the functional clock for MMC module
-		 * will be 192MHz. At this frequency, the maximum
-		 * obtainable timeout (DTO =0xE) in hardware is
-		 * (1/192MHz)*2^27 = 700ms. Commands taking longer than
-		 * 700ms will be affected by this small window frame
-		 * and will be timing out frequently even without a
-		 * genuine timeout from the card. Workaround for
-		 * this errata is use a software timer instead of
-		 * hardware timer to provide the timeout requested
-		 * by the upper layer.
-		 *
-		 * The timeout from the upper layer denotes the delay
-		 * between the end bit of the read command and the
-		 * start bit of the data block and in the case of
-		 * multiple-read operation, they also define the
-		 * typical delay between the end bit of a data
-		 * block and the start bit of next data block.
-		 *
-		 * Calculate the total timeout value for the entire
-		 * transfer to complete from the timeout value given
-		 * by the upper layer.
-		 */
-		host->data_timeout = (data->blocks *
-				     (timeout_ns + MMC_BLOCK_TRANSFER_TIME_NS(
-				      data->blksz, ios->bus_width,
-				      ios->clock)));
+		if (timeout && dto)
+			dto += 1;
+		if (dto >= 13)
+			dto -= 13;
+		else
+			dto = 0;
+		if (dto > 14) {
+			/*
+			 * DRA7 Errata No i834: When using high speed HS200 and
+			 * SDR104 cards, the functional clock for MMC module
+			 * will be 192MHz. At this frequency, the maximum
+			 * obtainable timeout (DTO =0xE) in hardware is
+			 * (1/192MHz)*2^27 = 700ms. Commands taking longer than
+			 * 700ms will be affected by this small window frame
+			 * and will be timing out frequently even without a
+			 * genuine timeout from the card. Workaround for
+			 * this errata is use a software timer instead of
+			 * hardware timer to provide the timeout requested
+			 * by the upper layer.
+			 *
+			 * The timeout from the upper layer denotes the delay
+			 * between the end bit of the read command and the
+			 * start bit of the data block and in the case of
+			 * multiple-read operation, they also define the
+			 * typical delay between the end bit of a data
+			 * block and the start bit of next data block.
+			 *
+			 * Calculate the total timeout value for the entire
+			 * transfer to complete from the timeout value given
+			 * by the upper layer.
+			 */
+			host->data_timeout = (data->blocks * (timeout_ns +
+					      MMC_BLOCK_TRANSFER_TIME_NS(
+					      data->blksz, ios->bus_width,
+					      ios->clock)));
+		}
 	}
 
-out:
 	reg &= ~DTO_MASK;
 	reg |= dto << DTO_SHIFT;
 	OMAP_HSMMC_WRITE(host->base, SYSCTL, reg);
