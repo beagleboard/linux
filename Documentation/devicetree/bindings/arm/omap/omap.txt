@@ -24,6 +24,8 @@ Optional properties:
 - ti,no-reset-on-init: When present, the module should not be reset at init
 - ti,no-idle-on-init: When present, the module should not be idled at init
 - ti,no-idle: When present, the module is never allowed to idle.
+- ti,deassert-hard-reset: list of hwmod and hardware reset line name pairs
+  (ascii strings) to be deasserted upon device instantiation.
 
 Example:
 
