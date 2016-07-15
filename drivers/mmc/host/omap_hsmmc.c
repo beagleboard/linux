@@ -1681,13 +1681,10 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 		 * transfer to complete from the timeout value given
 		 * by the upper layer.
 		 */
-		if (data)
-			host->data_timeout = (data->blocks *
-					      (timeout_ns +
-					      MMC_BLOCK_TRANSFER_TIME_NS(
-					      data->blksz, ios->bus_width,
-					      ios->clock)));
-		dto = 14;
+		host->data_timeout = (data->blocks *
+				     (timeout_ns + MMC_BLOCK_TRANSFER_TIME_NS(
+				      data->blksz, ios->bus_width,
+				      ios->clock)));
 	}
 
 out:
