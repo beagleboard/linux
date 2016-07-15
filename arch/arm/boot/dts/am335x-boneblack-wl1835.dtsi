@@ -2,17 +2,6 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	wlan_en_reg: fixedregulator@2 {
-		compatible = "regulator-fixed";
-		regulator-name = "wlan-en-regulator";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-
-		/* WL_EN */
-//		gpio = <&gpio3 9 0>;
-//		enable-active-high;
-	};
-
 	tibt {
 		compatible = "tibt";
 		nshutdown_gpio = <28>;
@@ -27,6 +16,12 @@
 };
 
 &am33xx_pinmux {
+	wlbtbuf_pin: pinmux_wlbtbuf_pin {
+		pinctrl-single,pins = <
+			0x130 ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (L18) gmii1_rxclk.gpio3[10] - LS_BUF_EN */
+		>;
+	};
+
 	bt_pins: pinmux_bt_pins {
 		pinctrl-single,pins = <
 			0x128 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* (K17) gmii1_txd0.gpio0[28] - BT_EN */
@@ -44,32 +39,11 @@
 		>;
 	};
 
-	mmc3_pins_sleep: pinmux_mmc3_pins_sleep {
-		pinctrl-single,pins = <
-			0x13c ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (L15) gmii1_rxd1.mmc2_clk */
-			0x114 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (J16) gmii1_txen.mmc2_cmd */
-			0x118 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (J17) gmii1_rxdv.mmc2_dat0 */
-			0x11c ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (J18) gmii1_txd3.mmc2_dat1 */
-			0x120 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (K15) gmii1_txd2.mmc2_dat2 */
-			0x108 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) /* (H16) gmii1_col.mmc2_dat3 */
-		>;
-	};
-
 	/* wl18xx card enable/irq GPIOs. */
 	wlan_pins: pinmux_wlan_pins {
 		pinctrl-single,pins = <
 			0x12c ( PIN_OUTPUT_PULLDOWN | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
 			0x144 ( PIN_INPUT_PULLUP | MUX_MODE7 )  /* (H18) rmii1_refclk.gpio0[29] - WL_IRQ */
-			0x130 ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (L18) gmii1_rxclk.gpio3[10] - Cape_Buffer_EN */
-		>;
-	};
-
-	/* wl18xx card enable/irq GPIOs. */
-	wlan_pins_sleep: pinmux_wlan_pins_sleep {
-			pinctrl-single,pins = <
-			0x12c ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
-			0x144 ( PIN_INPUT_PULLUP | MUX_MODE7 )  /* (H18) rmii1_refclk.gpio0[29] - WL_IRQ */
-			0x130 ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (L18) gmii1_rxclk.gpio3[10] - Cape_Buffer_EN */
 		>;
 	};
 
@@ -81,16 +55,6 @@
 			0x14c ( PIN_OUTPUT_PULLDOWN | MUX_MODE3 ) 	/* (M18) mdio_clk.uart3_rtsn */
 		>;
 	};
-
-	uart3_pins_sleep: pinmux_uart3_pins_sleep {
-		pinctrl-single,pins = <
-			0x134 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (L17) gmii1_rxd3.uart3_rxd */
-			0x138 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (L16) gmii1_rxd2.uart3_txd */
-			0x148 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (M17) mdio_data.uart3_ctsn */
-			0x14c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (M18) mdio_clk.uart3_rtsn */
-
-		>;
-	};
 };
 
 &mmc3 {
@@ -98,20 +62,20 @@
 		&edma_xbar 13 0 2>;
 	dma-names = "tx", "rx";
 	status = "okay";
-//	vmmc-supply = <&wlan_en_reg>;
 	vmmc-supply = <&vmmcsd_fixed>;
 	bus-width = <4>;
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&mmc3_pins &wlan_pins>;
-	pinctrl-1 = <&mmc3_pins_sleep &wlan_pins_sleep>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc3_pins &wlan_pins &wlbtbuf_pin>;
 	ti,non-removable;
 	ti,needs-special-hs-handling;
+	//ti,dual-volt;
 	cap-power-off-card;
 	keep-power-in-suspend;
+	//broken-cd;
 
 	#address-cells = <1>;
 	#size-cells = <0>;
-	wlcore: wlcore@2 {
+	wlcore: wlcore@0 {
 		compatible = "ti,wl1835";
 		reg = <2>;
 		interrupt-parent = <&gpio0>;
@@ -120,17 +84,32 @@
 };
 
 &gpio0 {
+	bt_en {
+		output;
+		gpios = <28 0>;
+		dir-changeable;
+		line-name = "BT_EN";
+	};
+};
+
+&gpio3 {
 	wl_en {
 		gpio-hog;
-		gpios = <26 GPIO_ACTIVE_HIGH>;
+		gpios = <9 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "WL_EN";
+	};
+
+	ls_buf_en {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "LS_BUF_EN";
 	};
 };
 
 &uart3 {
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&uart3_pins_default>;
-	pinctrl-1 = <&uart3_pins_sleep>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_pins_default &bt_pins>;
 	status = "okay";
 };
