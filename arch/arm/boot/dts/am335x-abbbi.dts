@@ -55,6 +55,17 @@
 	status = "okay";
 };
 
+&cpu0_opp_table {
+	/*
+	 * All PG 2.0 silicon may not support 1GHz but some of the early
+	 * BeagleBone Blacks have PG 2.0 silicon which is guaranteed
+	 * to support 1GHz OPP so enable it for PG 2.0 on this board.
+	 */
+	oppnitro@1000000000 {
+		opp-supported-hw = <0x06 0x0100>;
+	};
+};
+
 &am33xx_pinmux {
 	adi_hdmi_bbbi_pins: adi_hdmi_bbbi_pins {
 		pinctrl-single,pins = <
@@ -149,16 +160,16 @@
 
 / {
 	clk_mcasp0_fixed: clk_mcasp0_fixed {
-	      #clock-cells = <0>;
-	      compatible = "fixed-clock";
-	      clock-frequency = <24576000>;
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24576000>;
 	};
 
 	clk_mcasp0: clk_mcasp0 {
-	      #clock-cells = <0>;
-	      compatible = "gpio-gate-clock";
-	      clocks = <&clk_mcasp0_fixed>;
-	      enable-gpios = <&gpio1 27 0>; /* BeagleBone Black Clk enable on GPIO1_27 */
+		#clock-cells = <0>;
+		compatible = "gpio-gate-clock";
+		clocks = <&clk_mcasp0_fixed>;
+		enable-gpios = <&gpio1 27 0>; /* BeagleBone Black Clk enable on GPIO1_27 */
 	};
 
 	hdmi_audio: hdmi_audio@0 {
@@ -176,8 +187,4 @@
 		clocks = <&clk_mcasp0>;
 		clock-names = "mclk";
 	};
-};
-
-&rtc {
-	system-power-controller;
 };
