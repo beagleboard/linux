@@ -516,7 +516,7 @@ config I2C_EFM32
 
 config I2C_EG20T
 	tristate "Intel EG20T PCH/LAPIS Semicon IOH(ML7213/ML7223/ML7831) I2C"
-	depends on PCI && (X86_32 || COMPILE_TEST)
+	depends on PCI && (X86_32 || MIPS || COMPILE_TEST)
 	help
 	  This driver is for PCH(Platform controller Hub) I2C of EG20T which
 	  is an IOH(Input/Output Hub) for x86 embedded processor.
@@ -532,6 +532,7 @@ config I2C_EG20T
 config I2C_EMEV2
 	tristate "EMMA Mobile series I2C adapter"
 	depends on HAVE_CLK
+	select I2C_SLAVE
 	help
 	  If you say yes to this option, support will be included for the
 	  I2C interface on the Renesas Electronics EM/EV family of processors.
@@ -662,7 +663,7 @@ config I2C_MT65XX
 
 config I2C_MV64XXX
 	tristate "Marvell mv64xxx I2C Controller"
-	depends on MV64X60 || PLAT_ORION || ARCH_SUNXI
+	depends on MV64X60 || PLAT_ORION || ARCH_SUNXI || ARCH_MVEBU
 	help
 	  If you say yes to this option, support will be included for the
 	  built-in I2C interface on the Marvell 64xxx line of host bridges.
@@ -788,7 +789,7 @@ config I2C_QUP
 
 config I2C_RIIC
 	tristate "Renesas RIIC adapter"
-	depends on ARCH_SHMOBILE || COMPILE_TEST
+	depends on ARCH_RENESAS || COMPILE_TEST
 	help
 	  If you say yes to this option, support will be included for the
 	  Renesas RIIC I2C interface.
@@ -832,7 +833,7 @@ config I2C_SH7760
 config I2C_SH_MOBILE
 	tristate "SuperH Mobile I2C Controller"
 	depends on HAS_DMA
-	depends on SUPERH || ARCH_SHMOBILE || COMPILE_TEST
+	depends on SUPERH || ARCH_RENESAS || COMPILE_TEST
 	help
 	  If you say yes to this option, support will be included for the
 	  built-in I2C interface on the Renesas SH-Mobile processor.
@@ -907,7 +908,7 @@ config I2C_TEGRA
 
 config I2C_UNIPHIER
 	tristate "UniPhier FIFO-less I2C controller"
-	depends on ARCH_UNIPHIER
+	depends on ARCH_UNIPHIER || COMPILE_TEST
 	help
 	  If you say yes to this option, support will be included for
 	  the UniPhier FIFO-less I2C interface embedded in PH1-LD4, PH1-sLD8,
@@ -915,7 +916,7 @@ config I2C_UNIPHIER
 
 config I2C_UNIPHIER_F
 	tristate "UniPhier FIFO-builtin I2C controller"
-	depends on ARCH_UNIPHIER
+	depends on ARCH_UNIPHIER || COMPILE_TEST
 	help
 	  If you say yes to this option, support will be included for
 	  the UniPhier FIFO-builtin I2C interface embedded in PH1-Pro4,
@@ -963,28 +964,29 @@ config I2C_XILINX
 	  will be called xilinx_i2c.
 
 config I2C_XLR
-	tristate "XLR I2C support"
-	depends on CPU_XLR
+	tristate "Netlogic XLR and Sigma Designs I2C support"
+	depends on CPU_XLR || ARCH_TANGO
 	help
 	  This driver enables support for the on-chip I2C interface of
-	  the Netlogic XLR/XLS MIPS processors.
+	  the Netlogic XLR/XLS MIPS processors and Sigma Designs SOCs.
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-xlr.
 
 config I2C_XLP9XX
 	tristate "XLP9XX I2C support"
-	depends on CPU_XLP || COMPILE_TEST
+	depends on CPU_XLP || ARCH_VULCAN || COMPILE_TEST
 	help
 	  This driver enables support for the on-chip I2C interface of
-	  the Broadcom XLP9xx/XLP5xx MIPS processors.
+	  the Broadcom XLP9xx/XLP5xx MIPS and Vulcan ARM64 processors.
 
 	  This driver can also be built as a module.  If so, the module will
 	  be called i2c-xlp9xx.
 
 config I2C_RCAR
 	tristate "Renesas R-Car I2C Controller"
-	depends on ARCH_SHMOBILE || COMPILE_TEST
+	depends on HAS_DMA
+	depends on ARCH_RENESAS || COMPILE_TEST
 	select I2C_SLAVE
 	help
 	  If you say yes to this option, support will be included for the
