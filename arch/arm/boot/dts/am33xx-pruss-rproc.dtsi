@@ -1,0 +1,75 @@
+/*
+ * Device Tree Source for AM33XX SoC
+ *
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This file is licensed under the terms of the GNU General Public License
+ * version 2.  This program is licensed "as is" without any warranty of any
+ * kind, whether express or implied.
+ */
+
+/ {
+	ocp {
+		pruss: pruss@4a300000 {
+			status = "okay";
+			compatible = "ti,am3352-pruss";
+			ti,hwmods = "pruss";
+			reg = <0x4a300000 0x2000>,
+			      <0x4a302000 0x2000>,
+			      <0x4a310000 0x3000>,
+			      <0x4a326000 0x2000>,
+			      <0x4a32e000 0x31c>,
+			      <0x4a332000 0x58>;
+			reg-names = "dram0", "dram1", "shrdram2", "cfg",
+				    "iep", "mii_rt";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			pruss_intc: intc@4a320000 {
+				compatible = "ti,am3352-pruss-intc";
+				reg = <0x4a320000 0x2000>;
+				reg-names = "intc";
+				interrupts = <20 21 22 23 24 25 26 27>;
+				interrupt-names = "host2", "host3", "host4",
+						  "host5", "host6", "host7",
+						  "host8", "host9";
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
+
+			pru0: pru0@4a334000 {
+				compatible = "ti,am3352-pru";
+				reg = <0x4a334000 0x2000>,
+				      <0x4a322000 0x400>,
+				      <0x4a322400 0x100>;
+				reg-names = "iram", "control", "debug";
+				interrupt-parent = <&pruss_intc>;
+				interrupts = <16>, <17>;
+				interrupt-names = "vring", "kick";
+			};
+
+			pru1: pru1@4a338000 {
+				compatible = "ti,am3352-pru";
+				reg = <0x4a338000 0x2000>,
+				      <0x4a324000 0x400>,
+				      <0x4a324400 0x100>;
+				reg-names = "iram", "control", "debug";
+				interrupt-parent = <&pruss_intc>;
+				interrupts = <18>, <19>;
+				interrupt-names = "vring", "kick";
+			};
+
+			pruss_mdio: mdio@4a332400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0x4a332400 0x90>;
+				clocks = <&dpll_core_m4_ck>;
+				clock-names = "fck";
+				bus_freq = <1000000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+		};
+	};
+};
