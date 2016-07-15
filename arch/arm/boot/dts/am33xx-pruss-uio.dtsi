@@ -1,0 +1,23 @@
+/*
+ * Device Tree Source for AM33XX SoC
+ *
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This file is licensed under the terms of the GNU General Public License
+ * version 2.  This program is licensed "as is" without any warranty of any
+ * kind, whether express or implied.
+ */
+
+/ {
+	ocp {
+		pruss: pruss@4a300000 {
+			status = "okay";
+			compatible = "ti,pruss-v2";
+			ti,deassert-hard-reset = "pruss", "pruss";
+			reg = <0x4a300000 0x080000>;
+			ti,pintc-offset = <0x20000>;
+			interrupt-parent = <&intc>;
+			interrupts = <20 21 22 23 24 25 26 27>;
+		};
+	};
+};
