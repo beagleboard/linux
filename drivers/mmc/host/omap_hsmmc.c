@@ -867,6 +867,9 @@ static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 		else
 			hctl = SDVS30;
 		capa = VS30 | VS18;
+	} else if (host->pdata->controller_flags & OMAP_HSMMC_NO_1_8_V) {
+		hctl = SDVS30;
+		capa = VS30;
 	} else {
 		hctl = SDVS18;
 		capa = VS18;
@@ -2124,11 +2127,14 @@ static void omap_hsmmc_set_capabilities(struct omap_hsmmc_host *host)
 
 	val = OMAP_HSMMC_READ(host->base, CAPA);
 
-	/* Only MMC1 supports 3.0V */
-	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT)
+	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT) {
 		val |= (VS30 | VS18);
-	else
+	} else if (host->pdata->controller_flags & OMAP_HSMMC_NO_1_8_V) {
+		val |= VS30;
+		val &= ~VS18;
+	} else {
 		val |= VS18;
+	}
 
 	OMAP_HSMMC_WRITE(host->base, CAPA, val);
 }
@@ -2559,6 +2565,9 @@ static struct omap_hsmmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 
 	if (of_find_property(np, "ti,dual-volt", NULL))
 		pdata->controller_flags |= OMAP_HSMMC_SUPPORTS_DUAL_VOLT;
+
+	if (of_find_property(np, "no-1-8-v", NULL))
+		pdata->controller_flags |= OMAP_HSMMC_NO_1_8_V;
 
 	pdata->gpio_cd = -EINVAL;
 	pdata->gpio_cod = -EINVAL;
