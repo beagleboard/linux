@@ -4310,9 +4310,7 @@ static void bnxt_tx_disable(struct bnxt *bp)
 			bnapi = bp->bnapi[i];
 			txr = &bnapi->tx_ring;
 			txq = netdev_get_tx_queue(bp->dev, i);
-			__netif_tx_lock(txq, smp_processor_id());
 			txr->dev_state = BNXT_DEV_STATE_CLOSING;
-			__netif_tx_unlock(txq);
 		}
 	}
 	/* Stop all TX queues */
