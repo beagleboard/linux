@@ -896,6 +896,18 @@ static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 	OMAP_HSMMC_WRITE(host->base, IE, 0);
 	OMAP_HSMMC_WRITE(host->base, STAT, STAT_CLEAR);
 
+	if (host->use_adma) {
+		u32 val;
+
+		val = OMAP_HSMMC_READ(host->base, CON);
+		val |= DMA_MASTER;
+		OMAP_HSMMC_WRITE(host->base, CON, val);
+
+		val = OMAP_HSMMC_READ(host->base, HCTL);
+		val |= DMA_SELECT;
+		OMAP_HSMMC_WRITE(host->base, HCTL, val);
+	}
+
 	/* Do not initialize card-specific things if the power is off */
 	if (host->power_mode == MMC_POWER_OFF)
 		goto out;
