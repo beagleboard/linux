@@ -58,15 +58,16 @@
  *				separate buffer - only needed of PTCP runs on
  *				host
  * 16..17	Port		different meaning for ingress and egress,
- *				ingress Port=0 inidcates phy port 1 and Port = 1
- *				indicates phy port 2. Egress: 0 sends on phy
- *				port 1 and 1 sends on phy port 2. Port = 2 goes
- *				over MAC table look-up
+ *				Ingress: Port = 0 indicates phy port 1 and
+ *				Port = 1 indicates phy port 2.
+ *				Egress: 0 sends on phy port 1 and 1 sends on
+ *				phy port 2. Port = 2 goes over MAC table
+ *				look-up
  * 18..28	Length		11 bit of total packet length which is put into
  *				first BD only so that host access only one BD
  * 29		VlanTag		indicates that packet has Length/Type field of
  *				0x08100 with VLAN tag in following byte
- * 30		Broadcast	inidcates that packet goes out on both physical
+ * 30		Broadcast	indicates that packet goes out on both physical
  *				ports,  there will be two bd but only one buffer
  * 31		Error		indicates there was an error in the packet
  */
