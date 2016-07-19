@@ -466,6 +466,25 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-base0033.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-vsc8531bbb.dtb \
+	am335x-sancloud-bbe.dtb \
+	am335x-boneblack-audio.dtb \
+	am335x-boneblack-bbb-exp-r.dtb \
+	am335x-boneblack-bbb-exp-c.dtb \
+	am335x-boneblack-bbbmini.dtb \
+	am335x-boneblack-wireless.dtb \
+	am335x-boneblack-wl1835mod.dtb \
+	am335x-boneblack-cape-bone-argus.dtb \
+	am335x-bone-cape-bone-argus.dtb \
+	am335x-arduino-tre.dtb \
+	am335x-bonegreen-wireless.dtb \
+	am335x-olimex-som.dtb \
+	am335x-abbbi.dtb \
+	am335x-bonegreen-overlay.dtb \
+	am335x-boneblack-overlay.dtb \
+	am335x-boneblack-nhdmi-overlay.dtb \
+	am335x-boneblack-hdmi-overlay.dtb \
+	am335x-boneblack-emmc-overlay.dtb \
 	am335x-bonegreen.dtb \
 	am335x-sl50.dtb \
 	am335x-evm.dtb \
