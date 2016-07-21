@@ -767,6 +767,7 @@
 			dma-names = "tx", "rx";
 			bus-width = <4>;
 			ti,needs-special-reset;
+			no-1-8-v;
 			max-frequency = <96000000>;
 			status = "disabled";
 			power-domains = <&k2g_pds K2G_DEV_MMCHS0>;

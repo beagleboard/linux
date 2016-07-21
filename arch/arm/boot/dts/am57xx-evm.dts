@@ -13,3 +13,84 @@
 / {
 	model = "TI AM5728 EVM";
 };
+
+&dra7_pmx_core {
+	mmc3_pins_default: mmc3_pins_default {
+		pinctrl-single,pins = <
+			0x37c (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_clk.mmc3_clk */
+			0x380 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
+			0x384 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
+			0x388 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
+			0x38c (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat2.mmc3_dat2 */
+			0x390 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat3.mmc3_dat3 */
+		>;
+	};
+
+	mmc3_pins_hs: mmc3_pins_hs {
+		pinctrl-single,pins = <
+			0x37c (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_clk.mmc3_clk */
+			0x380 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
+			0x384 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
+			0x388 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
+			0x38c (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat2.mmc3_dat2 */
+			0x390 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat3.mmc3_dat3 */
+		>;
+	};
+
+	mmc3_pins_sdr12: mmc3_pins_sdr12 {
+		pinctrl-single,pins = <
+			0x37c (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_clk.mmc3_clk */
+			0x380 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
+			0x384 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
+			0x388 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
+			0x38c (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat2.mmc3_dat2 */
+			0x390 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat3.mmc3_dat3 */
+		>;
+	};
+
+	mmc3_pins_sdr25: mmc3_pins_sdr25 {
+		pinctrl-single,pins = <
+			0x37c (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_clk.mmc3_clk */
+			0x380 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
+			0x384 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
+			0x388 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
+			0x38c (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat2.mmc3_dat2 */
+			0x390 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat3.mmc3_dat3 */
+		>;
+	};
+
+	mmc3_pins_sdr50: mmc3_pins_sdr50 {
+		pinctrl-single,pins = <
+			0x37c (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0) /* mmc3_clk.mmc3_clk */
+			0x380 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
+			0x384 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
+			0x388 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
+			0x38c (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0) /* mmc3_dat2.mmc3_dat2 */
+			0x390 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0) /* mmc3_dat3.mmc3_dat3 */
+		>;
+	};
+};
+
+&dra7_iodelay_core {
+	mmc3_iodelay_manual1_conf: mmc3_iodelay_manual1_conf {
+		pinctrl-single,pins = <
+			0x678 (A_DELAY(621) | G_DELAY(14))	/* CFG_MMC3_CLK_IN */
+			0x680 (A_DELAY(1342) | G_DELAY(288))	/* CFG_MMC3_CLK_OUT */
+			0x684 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC3_CMD_IN */
+			0x688 (A_DELAY(708) | G_DELAY(0))	/* CFG_MMC3_CMD_OEN */
+			0x68c (A_DELAY(564) | G_DELAY(0))	/* CFG_MMC3_CMD_OUT */
+			0x690 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC3_DAT0_IN */
+			0x694 (A_DELAY(911) | G_DELAY(0))	/* CFG_MMC3_DAT0_OEN */
+			0x698 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC3_DAT0_OUT */
+			0x69c (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC3_DAT1_IN */
+			0x6a0 (A_DELAY(899) | G_DELAY(0))	/* CFG_MMC3_DAT1_OEN */
+			0x6a4 (A_DELAY(210) | G_DELAY(0))	/* CFG_MMC3_DAT1_OUT */
+			0x6a8 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC3_DAT2_IN */
+			0x6ac (A_DELAY(942) | G_DELAY(0))	/* CFG_MMC3_DAT2_OEN */
+			0x6b0 (A_DELAY(0) | G_DELAY(147))	/* CFG_MMC3_DAT2_OUT */
+			0x6b4 (A_DELAY(0) | G_DELAY(0))		/* CFG_MMC3_DAT3_IN */
+			0x6b8 (A_DELAY(1080) | G_DELAY(0))	/* CFG_MMC3_DAT3_OEN */
+			0x6bc (A_DELAY(486) | G_DELAY(0))	/* CFG_MMC3_DAT3_OUT */
+		>;
+	};
+};

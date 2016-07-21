@@ -372,6 +372,7 @@ config SPI_OMAP24XX
 	depends on HAS_DMA
 	depends on ARM || ARM64 || AVR32 || HEXAGON || MIPS || SUPERH
 	depends on ARCH_OMAP2PLUS || COMPILE_TEST
+	select SG_SPLIT
 	help
 	  SPI master controller for OMAP24XX and later Multichannel SPI
 	  (McSPI) modules.
