@@ -1304,6 +1304,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
 
 	if (!cpsw_common_res_usage_state(priv)) {
 		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(priv, 0);
+		int buf_num;
 
 		/* setup tx dma to fixed prio and zero offset */
 		cpdma_control_set(priv->dma, CPDMA_TX_PRIO_FIXED, 1);
@@ -1331,10 +1332,8 @@ static int cpsw_ndo_open(struct net_device *ndev)
 			enable_irq(priv->irqs_table[0]);
 		}
 
-		if (WARN_ON(!priv->data.rx_descs))
-			priv->data.rx_descs = 128;
-
-		for (i = 0; i < priv->data.rx_descs; i++) {
+		buf_num = cpdma_chan_get_rx_buf_num(priv->dma);
+		for (i = 0; i < buf_num; i++) {
 			struct sk_buff *skb;
 
 			ret = -ENOMEM;
@@ -2345,12 +2344,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
 	}
 	data->bd_ram_size = prop;
 
-	if (of_property_read_u32(node, "rx_descs", &prop)) {
-		dev_err(&pdev->dev, "Missing rx_descs property in the DT.\n");
-		return -EINVAL;
-	}
-	data->rx_descs = prop;
-
 	if (of_property_read_u32(node, "mac_control", &prop)) {
 		dev_err(&pdev->dev, "Missing mac_control property in the DT.\n");
 		return -EINVAL;
@@ -2853,8 +2846,6 @@ static int cpsw_probe(struct platform_device *pdev)
 clean_ale_ret:
 	cpsw_ale_destroy(priv->ale);
 clean_dma_ret:
-	cpdma_chan_destroy(priv->txch);
-	cpdma_chan_destroy(priv->rxch);
 	cpdma_ctlr_destroy(priv->dma);
 clean_runtime_disable_ret:
 	pm_runtime_disable(&pdev->dev);
@@ -2882,8 +2873,6 @@ static int cpsw_remove(struct platform_device *pdev)
 	unregister_netdev(ndev);
 
 	cpsw_ale_destroy(priv->ale);
-	cpdma_chan_destroy(priv->txch);
-	cpdma_chan_destroy(priv->rxch);
 	cpdma_ctlr_destroy(priv->dma);
 	pm_runtime_disable(&pdev->dev);
 	device_for_each_child(&pdev->dev, NULL, cpsw_remove_child_device);

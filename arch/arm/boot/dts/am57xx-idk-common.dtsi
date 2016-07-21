@@ -539,6 +539,7 @@
 	vmmc-supply = <&v3_3d>;
 	bus-width = <8>;
 	ti,non-removable;
+	no-1-8-v;
 	max-frequency = <96000000>;
 	/*
 	 * eMMC on AM57xx IDK boards cannot support HS200 mode because
