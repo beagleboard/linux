@@ -551,6 +551,10 @@
 	status = "ok";
 };
 
+&bb2d {
+	status = "okay";
+};
+
 &hdmi {
 	status = "ok";
 
