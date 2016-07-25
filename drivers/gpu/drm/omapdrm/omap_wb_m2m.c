@@ -116,7 +116,7 @@ static char *fourcc_to_str(u32 fmt)
  * per-queue, driver-specific private data.
  * there is one source queue and one destination queue for each m2m context.
  */
-struct wbm2m_q_data {
+struct wb_q_data {
 	/* frame width */
 	unsigned int		width;
 	/* frame height */
@@ -191,7 +191,7 @@ struct wbm2m_ctx {
 	unsigned int		bufs_completed;
 
 	/* src & dst queue data */
-	struct wbm2m_q_data	q_data[2];
+	struct wb_q_data	q_data[2];
 	struct vb2_buffer	*src_vb;
 	struct vb2_buffer	*dst_vb;
 };
@@ -200,7 +200,7 @@ struct wbm2m_ctx {
  * M2M devices get 2 queues.
  * Return the queue given the type.
  */
-static struct wbm2m_q_data *get_q_data(struct wbm2m_ctx *ctx,
+static struct wb_q_data *get_q_data(struct wbm2m_ctx *ctx,
 				       enum v4l2_buf_type type)
 {
 	switch (type) {
@@ -347,8 +347,8 @@ static void device_run(void *priv)
 {
 	struct wbm2m_ctx *ctx = priv;
 	struct wbm2m_dev *dev = ctx->dev;
-	struct wbm2m_q_data *d_q_data = &ctx->q_data[Q_DATA_DST];
-	struct wbm2m_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
+	struct wb_q_data *d_q_data = &ctx->q_data[Q_DATA_DST];
+	struct wb_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
 	dma_addr_t src_dma_addr[2] = {0, 0};
 	dma_addr_t dst_dma_addr[2] = {0, 0};
 	struct omap_overlay_info src_info = { 0 };
@@ -442,8 +442,8 @@ static void wbm2m_irq(struct omap_drm_irq *irq, uint32_t irqstatus)
 {
 	struct wbm2m_dev *dev =	container_of(irq, struct wbm2m_dev, wb_irq);
 	struct wbm2m_ctx *ctx;
-	struct wbm2m_q_data *d_q_data;
-	struct wbm2m_q_data *s_q_data;
+	struct wb_q_data *d_q_data;
+	struct wb_q_data *s_q_data;
 	struct vb2_buffer *s_vb, *d_vb;
 	struct v4l2_buffer *s_buf, *d_buf;
 	unsigned long flags;
@@ -550,7 +550,7 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct wbm2m_ctx *ctx = file2ctx(file);
 	struct vb2_queue *vq;
-	struct wbm2m_q_data *q_data;
+	struct wb_q_data *q_data;
 	int i;
 
 	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
@@ -567,7 +567,7 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	if (V4L2_TYPE_IS_OUTPUT(f->type)) {
 		pix->colorspace = q_data->colorspace;
 	} else {
-		struct wbm2m_q_data *s_q_data;
+		struct wb_q_data *s_q_data;
 
 		/* get colorspace from the source queue */
 		s_q_data = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
@@ -665,7 +665,7 @@ static int __wbm2m_s_fmt(struct wbm2m_ctx *ctx, struct v4l2_format *f)
 {
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct v4l2_plane_pix_format *plane_fmt;
-	struct wbm2m_q_data *q_data;
+	struct wb_q_data *q_data;
 	struct vb2_queue *vq;
 	int i;
 
@@ -732,7 +732,7 @@ static int wbm2m_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 				 struct v4l2_selection *s)
 {
-	struct wbm2m_q_data *q_data;
+	struct wb_q_data *q_data;
 	unsigned int w_align;
 	int depth_bytes;
 
@@ -802,7 +802,7 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 			     struct v4l2_selection *s)
 {
 	struct wbm2m_ctx *ctx = file2ctx(file);
-	struct wbm2m_q_data *q_data;
+	struct wb_q_data *q_data;
 	bool use_c_rect = false;
 
 	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
@@ -862,7 +862,7 @@ static int wbm2m_s_selection(struct file *file, void *fh,
 			     struct v4l2_selection *s)
 {
 	struct wbm2m_ctx *ctx = file2ctx(file);
-	struct wbm2m_q_data *q_data;
+	struct wb_q_data *q_data;
 	struct v4l2_selection sel = *s;
 	int ret;
 
@@ -928,7 +928,7 @@ static int wbm2m_queue_setup(struct vb2_queue *vq,
 {
 	int i;
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(vq);
-	struct wbm2m_q_data *q_data;
+	struct wb_q_data *q_data;
 
 	q_data = get_q_data(ctx, vq->type);
 
@@ -950,7 +950,7 @@ static int wbm2m_queue_setup(struct vb2_queue *vq,
 static int wbm2m_buf_prepare(struct vb2_buffer *vb)
 {
 	struct wbm2m_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
-	struct wbm2m_q_data *q_data;
+	struct wb_q_data *q_data;
 	int i, num_planes;
 
 	log_dbg(ctx->dev, "type: %d\n", vb->vb2_queue->type);
@@ -1116,7 +1116,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 static int wbm2m_open(struct file *file)
 {
 	struct wbm2m_dev *dev = video_drvdata(file);
-	struct wbm2m_q_data *s_q_data;
+	struct wb_q_data *s_q_data;
 	struct v4l2_ctrl_handler *hdl;
 	struct wbm2m_ctx *ctx;
 	int ret;
