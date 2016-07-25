@@ -136,9 +136,6 @@ static void job_abort(void *priv)
 
 	/* Will cancel the transaction in the next interrupt handler */
 	ctx->aborting = 1;
-
-	log_dbg(ctx->dev, "Aborting transaction\n");
-	v4l2_m2m_job_finish(ctx->dev->m2m_dev, ctx->fh.m2m_ctx);
 }
 
 /* device_run() - prepares and starts the device
@@ -152,6 +149,7 @@ static void device_run(void *priv)
 	struct wbm2m_dev *dev = ctx->dev;
 	struct wb_q_data *d_q_data = &ctx->q_data[Q_DATA_DST];
 	struct wb_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
+	struct vb2_buffer *src_vb, *dst_vb;
 	dma_addr_t src_dma_addr[2] = {0, 0};
 	dma_addr_t dst_dma_addr[2] = {0, 0};
 	struct omap_overlay_info src_info = { 0 };
@@ -159,31 +157,31 @@ static void device_run(void *priv)
 	struct v4l2_pix_format_mplane *spix, *dpix;
 	bool ok;
 
-	ctx->src_vb = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
-	WARN_ON(!ctx->src_vb);
+	src_vb = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
+	WARN_ON(!src_vb);
 
-	ctx->dst_vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
-	WARN_ON(!ctx->dst_vb);
+	dst_vb = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
+	WARN_ON(!dst_vb);
 
 	spix = &s_q_data->format.fmt.pix_mp;
-	src_dma_addr[0] = vb2_dma_addr_plus_data_offset(ctx->src_vb, 0);
+	src_dma_addr[0] = vb2_dma_addr_plus_data_offset(src_vb, 0);
 	if (spix->num_planes == 2)
-		src_dma_addr[1] = vb2_dma_addr_plus_data_offset(ctx->src_vb, 1);
+		src_dma_addr[1] = vb2_dma_addr_plus_data_offset(src_vb, 1);
 	if (!src_dma_addr[0]) {
 		log_err(dev,
 			"acquiring source buffer(%d) dma_addr failed\n",
-			ctx->src_vb->v4l2_buf.index);
+			src_vb->v4l2_buf.index);
 		return;
 	}
 
 	dpix = &d_q_data->format.fmt.pix_mp;
-	dst_dma_addr[0] = vb2_dma_addr_plus_data_offset(ctx->dst_vb, 0);
+	dst_dma_addr[0] = vb2_dma_addr_plus_data_offset(dst_vb, 0);
 	if (dpix->num_planes == 2)
-		dst_dma_addr[1] = vb2_dma_addr_plus_data_offset(ctx->dst_vb, 1);
+		dst_dma_addr[1] = vb2_dma_addr_plus_data_offset(dst_vb, 1);
 	if (!dst_dma_addr[0]) {
 		log_err(dev,
 			"acquiring destination buffer(%d) dma_addr failed\n",
-			ctx->dst_vb->v4l2_buf.index);
+			dst_vb->v4l2_buf.index);
 		return;
 	}
 
@@ -279,11 +277,10 @@ void wbm2m_irq(struct wbm2m_dev *wbm2m, u32 irqstatus)
 		goto handled;
 	}
 
-	if (ctx->aborting)
-		goto finished;
+	log_dbg(ctx->dev, "ctx %pa\n", &ctx);
 
-	s_vb = ctx->src_vb;
-	d_vb = ctx->dst_vb;
+	s_vb = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
+	d_vb = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 	s_buf = &s_vb->v4l2_buf;
 	d_buf = &d_vb->v4l2_buf;
 
@@ -303,26 +300,11 @@ void wbm2m_irq(struct wbm2m_dev *wbm2m, u32 irqstatus)
 
 	spin_lock_irqsave(&wbm2m->lock, flags);
 
-	if (s_vb)
-		v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
-
+	v4l2_m2m_buf_done(s_vb, VB2_BUF_STATE_DONE);
 	v4l2_m2m_buf_done(d_vb, VB2_BUF_STATE_DONE);
 
 	spin_unlock_irqrestore(&wbm2m->lock, flags);
 
-	/*
-	 * Since the vb2_buf_done has already been called for therse
-	 * buffer we can now NULL them out so that we won't try
-	 * to clean out stray pointer later on.
-	 */
-	ctx->src_vb = NULL;
-	ctx->dst_vb = NULL;
-
-	ctx->bufs_completed++;
-
-finished:
-	log_dbg(ctx->dev, "finishing transaction\n");
-	ctx->bufs_completed = 0;
 	v4l2_m2m_job_finish(wbm2m->m2m_dev, ctx->fh.m2m_ctx);
 handled:
 	return;
@@ -841,20 +823,6 @@ static int wbm2m_stop_streaming(struct vb2_queue *q)
 		dispc_ovl_enable(OMAP_DSS_WB, true);
 		dispc_ovl_enable(OMAP_DSS_WB, false);
 
-		if (ctx->src_vb) {
-			spin_lock_irqsave(&ctx->dev->lock, flags);
-			v4l2_m2m_buf_done(ctx->src_vb, VB2_BUF_STATE_ERROR);
-			ctx->src_vb = NULL;
-			spin_unlock_irqrestore(&ctx->dev->lock, flags);
-		}
-	} else {
-		if (ctx->dst_vb) {
-			spin_lock_irqsave(&ctx->dev->lock, flags);
-
-			v4l2_m2m_buf_done(ctx->dst_vb, VB2_BUF_STATE_ERROR);
-			ctx->dst_vb = NULL;
-			spin_unlock_irqrestore(&ctx->dev->lock, flags);
-		}
 	}
 
 	dispc_runtime_put();
