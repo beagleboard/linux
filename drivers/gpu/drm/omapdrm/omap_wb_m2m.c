@@ -392,9 +392,9 @@ static int wbm2m_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	int i, depth, depth_bytes;
 
 	if (!fmt) {
-		log_err(ctx->dev, "Fourcc format (0x%08x) invalid.\n",
+		log_dbg(ctx->dev, "Fourcc format (0x%08x) invalid.\n",
 			pix->pixelformat);
-		return -EINVAL;
+		fmt = &wb_formats[1];
 	}
 
 	/* we only allow V4L2_FIELD_NONE */
