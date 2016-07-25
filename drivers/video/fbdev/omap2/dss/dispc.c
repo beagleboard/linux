@@ -107,6 +107,13 @@ struct dispc_features {
 	bool last_pixel_inc_missing:1;
 
 	bool has_writeback:1;
+
+	/*
+	 * Field order for VENC is different than HDMI. We should handle this in
+	 * some intelligent manner, but as the SoCs have either HDMI or VENC,
+	 * never both, we can just use this flag for now.
+	 */
+	bool reverse_ilace_field_order:1;
 };
 
 #define DISPC_MAX_NR_FIFOS 5
@@ -2765,6 +2772,9 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 
 	dispc_ovl_configure_burst_type(plane, rotation_type);
 
+	if (dispc.feat->reverse_ilace_field_order)
+		swap(offset0, offset1);
+
 	dispc_ovl_set_ba0(plane, paddr + offset0);
 	dispc_ovl_set_ba1(plane, paddr + offset1);
 
@@ -3987,6 +3997,7 @@ static const struct dispc_features omap44xx_dispc_feats __initconst = {
 	.set_max_preload	=	true,
 	.alt_clk_dsi_pll	=	true,
 	.has_writeback		=	true,
+	.reverse_ilace_field_order =	true,
 };
 
 static const struct dispc_features omap54xx_dispc_feats __initconst = {
@@ -4010,6 +4021,7 @@ static const struct dispc_features omap54xx_dispc_feats __initconst = {
 	.set_max_preload	=	true,
 	.alt_clk_dsi_pll	=	true,
 	.has_writeback		=	true,
+	.reverse_ilace_field_order =	true,
 };
 
 static const struct dispc_features dra7xx_dispc_feats __initconst = {
@@ -4034,6 +4046,7 @@ static const struct dispc_features dra7xx_dispc_feats __initconst = {
 	.alt_clk_dsi_pll	=	false,
 	.has_ctrl_core_sma_sw_1	=	true,
 	.has_writeback		=	true,
+	.reverse_ilace_field_order =	true,
 };
 
 static int __init dispc_init_features(struct platform_device *pdev)
