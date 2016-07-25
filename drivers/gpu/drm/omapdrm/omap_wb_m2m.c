@@ -278,12 +278,6 @@ static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane src_plane,
 
 	/* configure output */
 
-	r = dispc_wb_setup(wb_info, true, &t);
-	if (r) {
-		dispc_ovl_enable(src_plane, false);
-		return false;
-	}
-
 	switch (src_plane) {
 	case OMAP_DSS_GFX:
 		wb_channel = DSS_WB_OVL0; break;
@@ -294,10 +288,19 @@ static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane src_plane,
 	case OMAP_DSS_VIDEO3:
 		wb_channel = DSS_WB_OVL3; break;
 	default:
-		BUG();
+		/*
+		 * if src_plane is not valid it should have been flagged
+		 * during the ovl_setup() step above. Let's set a default
+		 * at any rate.
+		 */
+		wb_channel = DSS_WB_OVL3; break;
 	}
 
-	dispc_wb_set_channel_in(wb_channel);
+	r = dispc_wb_setup(wb_info, true, &t, wb_channel);
+	if (r) {
+		dispc_ovl_enable(src_plane, false);
+		return false;
+	}
 
 	dispc_ovl_enable(OMAP_DSS_WB, true);
 
