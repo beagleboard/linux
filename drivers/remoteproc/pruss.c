@@ -36,10 +36,12 @@
  * struct pruss_private_data - PRUSS driver private data
  * @aux_data: auxiliary data used for creating the child nodes
  * @has_reset: flag to indicate the presence of global module reset
+ * @has_no_syscfg: flag to indicate the absence of PRUSS_SYSCFG functionality
  */
 struct pruss_private_data {
 	struct of_dev_auxdata *aux_data;
 	bool has_reset;
+	bool has_no_syscfg;
 };
 
 /**
@@ -353,7 +355,7 @@ static inline void pruss_set_reg(struct pruss *pruss, enum pruss_mem region,
 /* firmware must be idle when calling this function */
 static void pruss_disable_module(struct pruss *pruss)
 {
-	if (pruss->skip_syscfg)
+	if (pruss->data->has_no_syscfg)
 		goto put_sync;
 
 	/* configure Smart Standby */
@@ -414,7 +416,7 @@ static int pruss_enable_module(struct pruss *pruss)
 		return ret;
 	}
 
-	if (pruss->skip_syscfg)
+	if (pruss->data->has_no_syscfg)
 		return ret;
 
 	/* configure for smart idle & smart standby */
@@ -542,7 +544,7 @@ static int pruss_suspend(struct device *dev)
 	struct pruss *pruss = dev_get_drvdata(dev);
 	u32 syscfg_val;
 
-	if (pruss->skip_syscfg)
+	if (pruss->data->has_no_syscfg)
 		return 0;
 
 	syscfg_val = pruss_read_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG);
@@ -564,7 +566,7 @@ static int pruss_resume(struct device *dev)
 	int ret = 0;
 
 	/* re-enable OCP master ports/disable MStandby */
-	if (!pruss->skip_syscfg && !pruss->in_standby) {
+	if (!pruss->data->has_no_syscfg && !pruss->in_standby) {
 		ret = pruss_enable_ocp_master_ports(pruss);
 		if (ret)
 			dev_err(dev, "%s failed\n", __func__);
@@ -636,7 +638,6 @@ static int pruss_probe(struct platform_device *pdev)
 
 	pruss->dev = dev;
 	pruss->data = data;
-	pruss->skip_syscfg = !!of_device_is_compatible(node, "ti,k2g-pruss");
 	mutex_init(&pruss->lock);
 	mutex_init(&pruss->cfg_lock);
 
@@ -789,10 +790,12 @@ static struct pruss_private_data am57xx_pruss2_priv_data = {
 
 static struct pruss_private_data k2g_pruss0_priv_data = {
 	.aux_data = k2g_pruss0_rproc_auxdata_lookup,
+	.has_no_syscfg = true,
 };
 
 static struct pruss_private_data k2g_pruss1_priv_data = {
 	.aux_data = k2g_pruss1_rproc_auxdata_lookup,
+	.has_no_syscfg = true,
 };
 
 static struct pruss_match_private_data am335x_match_data[] = {
