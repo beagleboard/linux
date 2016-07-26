@@ -37,12 +37,14 @@
  * @aux_data: auxiliary data used for creating the child nodes
  * @has_reset: flag to indicate the presence of global module reset
  * @has_no_syscfg: flag to indicate the absence of PRUSS_SYSCFG functionality
+ * @has_no_sharedram: flag to indicate the absence of PRUSS Shared Data RAM
  * @uses_wrapper: flag to indicate the dependence on PRUSS syscfg wrapper module
  */
 struct pruss_private_data {
 	struct of_dev_auxdata *aux_data;
 	bool has_reset;
 	bool has_no_syscfg;
+	bool has_no_sharedram;
 	bool uses_wrapper;
 };
 
@@ -650,6 +652,8 @@ static int pruss_probe(struct platform_device *pdev)
 	mutex_init(&pruss->cfg_lock);
 
 	for (i = 0; i < ARRAY_SIZE(mem_names); i++) {
+		if (data->has_no_sharedram && !strcmp(mem_names[i], "shrdram2"))
+			continue;
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
 		pruss->mem_regions[i].va = devm_ioremap_resource(dev, res);
@@ -753,6 +757,12 @@ static struct of_dev_auxdata am437x_pruss1_rproc_auxdata_lookup[] = {
 	{ /* sentinel */ },
 };
 
+static struct of_dev_auxdata am437x_pruss0_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,am4372-pru", 0x54474000, "54474000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,am4372-pru", 0x54478000, "54478000.pru1", NULL),
+	{ /* sentinel */ },
+};
+
 static struct of_dev_auxdata am57xx_pruss1_rproc_auxdata_lookup[] = {
 	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b234000, "4b234000.pru0", NULL),
 	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b238000, "4b238000.pru1", NULL),
@@ -789,6 +799,14 @@ static struct pruss_private_data am437x_pruss1_priv_data = {
 	.uses_wrapper = true,
 };
 
+static struct pruss_private_data am437x_pruss0_priv_data = {
+	.aux_data = am437x_pruss0_rproc_auxdata_lookup,
+	.has_reset = false, /* handled by parent wrapper */
+	.has_no_syscfg = true,
+	.has_no_sharedram = true,
+	.uses_wrapper = true,
+};
+
 static struct pruss_private_data am57xx_pruss1_priv_data = {
 	.aux_data = am57xx_pruss1_rproc_auxdata_lookup,
 };
@@ -821,6 +839,10 @@ static struct pruss_match_private_data am437x_match_data[] = {
 	{
 		.device_name	= "54400000.pruss",
 		.priv_data	= &am437x_pruss1_priv_data,
+	},
+	{
+		.device_name	= "54440000.pruss",
+		.priv_data	= &am437x_pruss0_priv_data,
 	},
 	{
 		/* sentinel */
