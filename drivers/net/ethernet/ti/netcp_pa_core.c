@@ -32,6 +32,9 @@
 #include "netcp.h"
 #include "netcp_pa_core.h"
 
+#define mcast_filter_attr_to_pa(attr)	\
+	container_of(attr, struct pa_core_device, mcast_filter_attr)
+
 static struct pa_lut_entry *pa_core_lut_alloc(struct pa_core_device *core_dev,
 					      enum pa_lut_type type,
 					      bool backwards)
@@ -798,7 +801,8 @@ int pa_core_remove(struct netcp_device *netcp_device, void *inst_priv)
 	pa_core_cleanup_ingress_tx_resources(core_dev, false);
 	/* clean up common rx resources */
 	pa_core_cleanup_common_rx_resources(core_dev);
-
+	device_remove_file(core_dev->dev,
+			   &core_dev->mcast_filter_attr);
 	kfree(core_dev->cluster_config);
 	kfree(core_dev->fw);
 	kfree(core_dev->lut);
@@ -890,10 +894,28 @@ static inline int extract_l4_proto(struct netcp_packet *p_info)
 static int pa_core_tx_hook(int order, void *data, struct netcp_packet *p_info)
 {
 	struct pa_intf *pa_intf = data;
+	struct netcp_intf *netcp_intf = pa_intf->netcp_intf;
 	struct pa_core_device *core_dev = pa_intf->core_dev;
 	struct pa_hw *hw = core_dev->hw;
 	struct sk_buff *skb = p_info->skb;
 	int size, total = 0;
+
+	/* HACK!!! If the upper 24 bits of the skb mark match with match
+	 * filter pattern, then drop the packet if the port bit is not
+	 * set in the lower 8 bits. This is a hack to prevent multiple
+	 * copies of multicast packets in the tx path to switch when
+	 * interface is part of a bridge and switch is enabled through sysfs.
+	 * In this usecase switch will replicate multicast packets to each
+	 * of its slave ports. So avoid duplication before the switch
+	 * using this hack. It is expected to be handled in future by
+	 * enhancing the driver to support switch device.
+	 */
+	if (netcp_intf->bridged &&
+	    core_dev->enable_mcast_filter && skb->mark &&
+	    ((skb->mark & core_dev->mask) == core_dev->match) &&
+	    ((skb->mark & BIT(pa_intf->eth_port - 1)) == 0)) {
+		return NETCP_TX_DROP;
+	}
 
 	/* Generate the next route command */
 	size = hw->fmtcmd_next_route(p_info, pa_intf->eth_port);
@@ -1092,6 +1114,44 @@ fail:
 }
 EXPORT_SYMBOL_GPL(pa_core_open);
 
+static ssize_t mcast_filter_show(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct pa_core_device *pa_core_dev = mcast_filter_attr_to_pa(attr);
+	int len = 0;
+
+	if (!pa_core_dev->match && !pa_core_dev->mask)
+		return len;
+
+	len = snprintf(buf, SZ_4K, "0x%x, 0x%x\n", pa_core_dev->match,
+		       pa_core_dev->mask);
+	return len;
+}
+
+static ssize_t mcast_filter_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct pa_core_device *pa_core_dev = mcast_filter_attr_to_pa(attr);
+	int len;
+
+	len = sscanf(buf, "%8x %8x", &pa_core_dev->match, &pa_core_dev->mask);
+	if (len != 2)
+		return -EINVAL;
+
+	if (!pa_core_dev->mask && !pa_core_dev->match) {
+		pa_core_dev->enable_mcast_filter = false;
+		return count;
+	}
+	pa_core_dev->enable_mcast_filter = true;
+
+	return count;
+}
+
+DEVICE_ATTR(mcast_filter, S_IRUGO | S_IWUSR,
+	    mcast_filter_show, mcast_filter_store);
+
 static void *pa_core_init(struct netcp_device *netcp_device,
 			  struct device *dev,
 			  struct device_node *node,
@@ -1112,6 +1172,16 @@ static void *pa_core_init(struct netcp_device *netcp_device,
 	core_dev->netcp_device = netcp_device;
 	core_dev->dev = dev;
 	core_dev->hw = hw;
+
+	core_dev->mcast_filter_attr = dev_attr_mcast_filter;
+	sysfs_attr_init(&core_dev->mcast_filter_attr.attr);
+
+	*error = device_create_file(core_dev->dev,
+				    &core_dev->mcast_filter_attr);
+	if (*error) {
+		kfree(core_dev);
+		return NULL;
+	}
 
 	core_dev->netif_features = (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
 	if (hw->features & PA_RX_CHECKSUM)
