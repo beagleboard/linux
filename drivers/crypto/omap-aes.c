@@ -43,6 +43,8 @@
 static LIST_HEAD(dev_list);
 static DEFINE_SPINLOCK(list_lock);
 
+static int aes_fallback_sz = 200;
+
 #ifdef DEBUG
 #define omap_aes_read(dd, offset)				\
 ({								\
@@ -583,7 +585,7 @@ static int omap_aes_crypt(struct ablkcipher_request *req, unsigned long mode)
 		  !!(mode & FLAGS_ENCRYPT),
 		  !!(mode & FLAGS_CBC));
 
-	if (req->nbytes < 200) {
+	if (req->nbytes < aes_fallback_sz) {
 		ablkcipher_request_set_tfm(req, ctx->fallback);
 
 		if (mode & FLAGS_ENCRYPT)
@@ -1103,6 +1105,44 @@ err:
 	return err;
 }
 
+static ssize_t fallback_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	return sprintf(buf, "%d\n", aes_fallback_sz);
+}
+
+static ssize_t fallback_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	ssize_t status;
+	long value;
+
+	status = kstrtol(buf, 0, &value);
+	if (status)
+		return status;
+
+	/* HW accelerator only works with buffers > 9 */
+	if (value < 9) {
+		dev_err(dev, "minimum fallback size 9\n");
+		return -EINVAL;
+	}
+
+	aes_fallback_sz = value;
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(fallback);
+
+static struct attribute *omap_aes_attrs[] = {
+	&dev_attr_fallback.attr,
+	NULL,
+};
+
+static struct attribute_group omap_aes_attr_group = {
+	.attrs = omap_aes_attrs,
+};
+
 static int omap_aes_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1215,6 +1255,12 @@ static int omap_aes_probe(struct platform_device *pdev)
 
 			dd->pdata->aead_algs_info->registered++;
 		}
+	}
+
+	err = sysfs_create_group(&dev->kobj, &omap_aes_attr_group);
+	if (err) {
+		dev_err(dev, "could not create sysfs device attrs\n");
+		goto err_aead_algs;
 	}
 
 	return 0;
