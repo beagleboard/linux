@@ -618,3 +618,7 @@
 &pcie0 {
 	status = "okay";
 };
+
+&ddr3edac {
+	status = "okay";
+};
