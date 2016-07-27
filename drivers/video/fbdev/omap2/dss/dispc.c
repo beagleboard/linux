@@ -107,6 +107,13 @@ struct dispc_features {
 	bool last_pixel_inc_missing:1;
 
 	bool has_writeback:1;
+
+	/*
+	 * Field order for VENC is different than HDMI. We should handle this in
+	 * some intelligent manner, but as the SoCs have either HDMI or VENC,
+	 * never both, we can just use this flag for now.
+	 */
+	bool reverse_ilace_field_order:1;
 };
 
 #define DISPC_MAX_NR_FIFOS 5
@@ -1040,14 +1047,6 @@ static enum omap_channel dispc_ovl_get_channel_out(enum omap_plane plane)
 		return OMAP_DSS_CHANNEL_WB;
 	}
 }
-
-void dispc_wb_set_channel_in(enum dss_writeback_channel channel)
-{
-	enum omap_plane plane = OMAP_DSS_WB;
-
-	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), channel, 18, 16);
-}
-EXPORT_SYMBOL(dispc_wb_set_channel_in);
 
 static void dispc_ovl_set_burst_size(enum omap_plane plane,
 		enum omap_burst_size burst_size)
@@ -2638,6 +2637,10 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 	unsigned long pclk = dispc_plane_pclk_rate(plane);
 	unsigned long lclk = dispc_plane_lclk_rate(plane);
 
+	/* when setting up WB, dispc_plane_pclk_rate() returns 0 */
+	if (plane == OMAP_DSS_WB)
+		pclk = mgr_timings->pixelclock;
+
 	if (paddr == 0 && rotation_type != OMAP_DSS_ROT_TILER)
 		return -EINVAL;
 
@@ -2769,6 +2772,9 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 
 	dispc_ovl_configure_burst_type(plane, rotation_type);
 
+	if (dispc.feat->reverse_ilace_field_order)
+		swap(offset0, offset1);
+
 	dispc_ovl_set_ba0(plane, paddr + offset0);
 	dispc_ovl_set_ba1(plane, paddr + offset1);
 
@@ -2837,7 +2843,8 @@ int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
 EXPORT_SYMBOL(dispc_ovl_setup);
 
 int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
-		bool mem_to_mem, const struct omap_video_timings *mgr_timings)
+		bool mem_to_mem, const struct omap_video_timings *mgr_timings,
+		enum dss_writeback_channel channel_in)
 {
 	int r;
 	u32 l;
@@ -2881,6 +2888,7 @@ int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	/* setup extra DISPC_WB_ATTRIBUTES */
 	l = dispc_read_reg(DISPC_OVL_ATTRIBUTES(plane));
 	l = FLD_MOD(l, truncation, 10, 10);	/* TRUNCATIONENABLE */
+	l = FLD_MOD(l, channel_in, 18, 16);	/* CHANNELIN */
 	l = FLD_MOD(l, mem_to_mem, 19, 19);	/* WRITEBACKMODE */
 	if (mem_to_mem)
 		l = FLD_MOD(l, 1, 26, 24);	/* CAPTUREMODE */
@@ -2894,8 +2902,11 @@ int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	} else {
 		int wbdelay;
 
-		wbdelay = min(mgr_timings->vfp + mgr_timings->vsw +
-			mgr_timings->vbp, 255);
+		if (channel_in == DSS_WB_TV_MGR)
+			wbdelay = min(mgr_timings->vsw + mgr_timings->vbp, 255);
+		else
+			wbdelay = min(mgr_timings->vfp + mgr_timings->vsw +
+				mgr_timings->vbp, 255);
 
 		/* WBDELAYCOUNT */
 		REG_FLD_MOD(DISPC_OVL_ATTRIBUTES2(plane), wbdelay, 7, 0);
@@ -3986,6 +3997,7 @@ static const struct dispc_features omap44xx_dispc_feats __initconst = {
 	.set_max_preload	=	true,
 	.alt_clk_dsi_pll	=	true,
 	.has_writeback		=	true,
+	.reverse_ilace_field_order =	true,
 };
 
 static const struct dispc_features omap54xx_dispc_feats __initconst = {
@@ -4009,6 +4021,7 @@ static const struct dispc_features omap54xx_dispc_feats __initconst = {
 	.set_max_preload	=	true,
 	.alt_clk_dsi_pll	=	true,
 	.has_writeback		=	true,
+	.reverse_ilace_field_order =	true,
 };
 
 static const struct dispc_features dra7xx_dispc_feats __initconst = {
@@ -4033,6 +4046,7 @@ static const struct dispc_features dra7xx_dispc_feats __initconst = {
 	.alt_clk_dsi_pll	=	false,
 	.has_ctrl_core_sma_sw_1	=	true,
 	.has_writeback		=	true,
+	.reverse_ilace_field_order =	true,
 };
 
 static int __init dispc_init_features(struct platform_device *pdev)

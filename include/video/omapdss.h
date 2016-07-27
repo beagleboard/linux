@@ -960,8 +960,8 @@ int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
 
 bool dispc_has_writeback(void);
 int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
-		bool mem_to_mem, const struct omap_video_timings *timings);
-void dispc_wb_set_channel_in(enum dss_writeback_channel channel);
+		bool mem_to_mem, const struct omap_video_timings *timings,
+		enum dss_writeback_channel channel_in);
 
 int omapdss_compat_init(void);
 void omapdss_compat_uninit(void);
