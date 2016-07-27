@@ -37,11 +37,13 @@
  * @aux_data: auxiliary data used for creating the child nodes
  * @has_reset: flag to indicate the presence of global module reset
  * @has_no_syscfg: flag to indicate the absence of PRUSS_SYSCFG functionality
+ * @uses_wrapper: flag to indicate the dependence on PRUSS syscfg wrapper module
  */
 struct pruss_private_data {
 	struct of_dev_auxdata *aux_data;
 	bool has_reset;
 	bool has_no_syscfg;
+	bool uses_wrapper;
 };
 
 /**
@@ -364,9 +366,11 @@ static void pruss_disable_module(struct pruss *pruss)
 		      PRUSS_SYSCFG_STANDBY_MODE_SMART);
 
 	/* initiate MStandby */
-	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
-		      PRUSS_SYSCFG_STANDBY_INIT,
-		      PRUSS_SYSCFG_STANDBY_INIT);
+	if (!pruss->data->uses_wrapper) {
+		pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
+			      PRUSS_SYSCFG_STANDBY_INIT,
+			      PRUSS_SYSCFG_STANDBY_INIT);
+	}
 
 put_sync:
 	/* tell PRCM to initiate IDLE request */
@@ -384,6 +388,10 @@ static int pruss_enable_ocp_master_ports(struct pruss *pruss)
 {
 	int i;
 	bool ready;
+
+	/* SYSCFG programming STANDBY_INIT programming handled by wrapper */
+	if (pruss->data->uses_wrapper)
+		return 0;
 
 	pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
 		      PRUSS_SYSCFG_STANDBY_INIT, 0);
@@ -551,7 +559,7 @@ static int pruss_suspend(struct device *dev)
 	pruss->in_standby = syscfg_val & PRUSS_SYSCFG_STANDBY_INIT;
 
 	/* initiate MStandby, undo the MStandby config in probe */
-	if (!pruss->in_standby) {
+	if (!pruss->in_standby && !pruss->data->uses_wrapper) {
 		pruss_set_reg(pruss, PRUSS_MEM_CFG, PRUSS_CFG_SYSCFG,
 			      PRUSS_SYSCFG_STANDBY_INIT,
 			      PRUSS_SYSCFG_STANDBY_INIT);
@@ -777,7 +785,8 @@ static struct pruss_private_data am335x_pruss_priv_data = {
 
 static struct pruss_private_data am437x_pruss1_priv_data = {
 	.aux_data = am437x_pruss1_rproc_auxdata_lookup,
-	.has_reset = true,
+	.has_reset = false, /* handled by parent wrapper */
+	.uses_wrapper = true,
 };
 
 static struct pruss_private_data am57xx_pruss1_priv_data = {
