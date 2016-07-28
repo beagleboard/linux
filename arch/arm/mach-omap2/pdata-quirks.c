@@ -604,8 +604,8 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,am437-padconf", 0x44e10800, "44e10800.pinmux", &pcs_pdata),
 	OF_DEV_AUXDATA("ti,am4372-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
 		       &wkup_m3_data),
-	OF_DEV_AUXDATA("ti,am4372-pruss", 0x54400000, "54400000.pruss",
-		       &pruss_pdata),
+	OF_DEV_AUXDATA("ti,am4372-pruss-wrapper", 0x54426000,
+		       "54426000.pruss_wrapper", &pruss_pdata),
 	OF_DEV_AUXDATA("ti,am4376-sgx530", 0x56000000, "56000000.sgx",
 		       &sgx_pdata),
 #endif
