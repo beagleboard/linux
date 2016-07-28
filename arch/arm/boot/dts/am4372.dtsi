@@ -863,70 +863,136 @@
 			dma-names = "tx", "rx";
 		};
 
-		pruss1: pruss@54400000 {
-			compatible = "ti,am4372-pruss";
+		pruss_wrapper: pruss_wrapper@54426000 {
+			compatible = "ti,am4372-pruss-wrapper";
+			reg = <0x54426000 0x2000>;
 			ti,hwmods = "pruss";
-			reg = <0x54400000 0x2000>,
-			      <0x54402000 0x2000>,
-			      <0x54410000 0x8000>,
-			      <0x54426000 0x2000>,
-			      <0x5442e000 0x31c>,
-			      <0x54432000 0x58>;
-			reg-names = "dram0", "dram1", "shrdram2", "cfg",
-				    "iep", "mii_rt";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges;
 
-			pruss1_intc: intc@54420000 {
-				compatible = "ti,am4372-pruss-intc";
-				reg = <0x54420000 0x2000>;
-				reg-names = "intc";
-				interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH
-					      GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH
-					      GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH
-					      GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH
-					      GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH
-					      GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH
-					      GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "host2", "host3", "host4",
-						  "host5", "host6", "host8",
-						  "host9";
-				interrupt-controller;
-				#interrupt-cells = <1>;
-			};
-
-			pru1_0: pru0@54434000 {
-				compatible = "ti,am4372-pru";
-				reg = <0x54434000 0x3000>,
-				      <0x54422000 0x400>,
-				      <0x54422400 0x100>;
-				reg-names = "iram", "control", "debug";
-				interrupt-parent = <&pruss1_intc>;
-				interrupts = <16>, <17>;
-				interrupt-names = "vring", "kick";
-			};
-
-			pru1_1: pru1@54438000 {
-				compatible = "ti,am4372-pru";
-				reg = <0x54438000 0x3000>,
-				      <0x54424000 0x400>,
-				      <0x54424400 0x100>;
-				reg-names = "iram", "control", "debug";
-				interrupt-parent = <&pruss1_intc>;
-				interrupts = <18>, <19>;
-				interrupt-names = "vring", "kick";
-			};
-
-			pruss1_mdio: mdio@54432400 {
-				compatible = "ti,davinci_mdio";
-				reg = <0x54432400 0x90>;
-				clocks = <&dpll_core_m4_ck>;
-				clock-names = "fck";
-				bus_freq = <1000000>;
+			pruss1: pruss@54400000 {
+				compatible = "ti,am4372-pruss";
+				reg = <0x54400000 0x2000>,
+				      <0x54402000 0x2000>,
+				      <0x54410000 0x8000>,
+				      <0x54426000 0x2000>,
+				      <0x5442e000 0x31c>,
+				      <0x54432000 0x58>;
+				reg-names = "dram0", "dram1", "shrdram2", "cfg",
+					    "iep", "mii_rt";
 				#address-cells = <1>;
-				#size-cells = <0>;
-				status = "disabled";
+				#size-cells = <1>;
+				ranges;
+
+				pruss1_intc: intc@54420000 {
+					compatible = "ti,am4372-pruss-intc";
+					reg = <0x54420000 0x2000>;
+					reg-names = "intc";
+					interrupts =
+					    <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+					interrupt-names = "host2", "host3",
+							  "host4", "host5",
+							  "host6", "host8",
+							  "host9";
+					interrupt-controller;
+					#interrupt-cells = <1>;
+				};
+
+				pru1_0: pru0@54434000 {
+					compatible = "ti,am4372-pru";
+					reg = <0x54434000 0x3000>,
+					      <0x54422000 0x400>,
+					      <0x54422400 0x100>;
+					reg-names = "iram", "control", "debug";
+					interrupt-parent = <&pruss1_intc>;
+					interrupts = <16>, <17>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pru1_1: pru1@54438000 {
+					compatible = "ti,am4372-pru";
+					reg = <0x54438000 0x3000>,
+					      <0x54424000 0x400>,
+					      <0x54424400 0x100>;
+					reg-names = "iram", "control", "debug";
+					interrupt-parent = <&pruss1_intc>;
+					interrupts = <18>, <19>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pruss1_mdio: mdio@54432400 {
+					compatible = "ti,davinci_mdio";
+					reg = <0x54432400 0x90>;
+					clocks = <&dpll_core_m4_ck>;
+					clock-names = "fck";
+					bus_freq = <1000000>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					status = "disabled";
+				};
+			};
+
+			pruss0: pruss@54440000 {
+				compatible = "ti,am4372-pruss";
+				reg = <0x54440000 0x1000>,
+				      <0x54442000 0x1000>,
+				      <0x54466000 0x2000>,
+				      <0x5446e000 0x31c>,
+				      <0x54472000 0x58>;
+				reg-names = "dram0", "dram1", "cfg",
+					    "iep", "mii_rt";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+
+				pruss0_intc: intc@54460000 {
+					compatible = "ti,am4372-pruss-intc";
+					reg = <0x54460000 0x2000>;
+					reg-names = "intc";
+					interrupts =
+					    <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH
+					     GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
+					interrupt-names = "host2", "host3",
+							  "host4", "host5",
+							  "host6", "host8",
+							  "host9";
+					interrupt-controller;
+					#interrupt-cells = <1>;
+				};
+
+				pru0_0: pru0@54474000 {
+					compatible = "ti,am4372-pru";
+					reg = <0x54474000 0x1000>,
+					      <0x54462000 0x400>,
+					      <0x54462400 0x100>;
+					reg-names = "iram", "control", "debug";
+					interrupt-parent = <&pruss0_intc>;
+					interrupts = <16>, <17>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pru0_1: pru1@54478000 {
+					compatible = "ti,am4372-pru";
+					reg = <0x54478000 0x1000>,
+					      <0x54464000 0x400>,
+					      <0x54464400 0x100>;
+					reg-names = "iram", "control", "debug";
+					interrupt-parent = <&pruss0_intc>;
+					interrupts = <18>, <19>;
+					interrupt-names = "vring", "kick";
+				};
 			};
 		};
 
