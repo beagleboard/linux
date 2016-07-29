@@ -536,3 +536,23 @@ netcpx: netcpx@2f00000 {
 		};
 	};
 };
+
+sa_subsys: subsys@24080000 {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0 24080000 0x40000>;
+	compatible = "simple-bus";
+
+	sa_config: subsys@0 {
+		compatible      = "syscon";
+		reg             = <0x0 0x100>;
+	};
+
+	hwrng@24000 {
+		compatible = "ti,keystone-rng";
+		ti,syscon-sa-cfg = <&sa_config>;
+		clocks = <&clksa>;
+		clock-names = "fck";
+		reg = <0x24000 0x1000>;
+	};
+};
