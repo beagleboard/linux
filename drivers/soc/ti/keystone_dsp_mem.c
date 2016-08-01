@@ -219,9 +219,10 @@ static int keystone_dsp_mem_probe(struct platform_device *pdev)
 	struct keystone_dsp_mem_info *dsp_mem;
 	struct miscdevice *misc;
 	struct resource *res, temp_res;
+	struct device_node *sram_np;
 	char *name;
 	int ret, i;
-	int num_maps = 0;
+	int num_maps = 0, num_sram = 0;
 
 	if (!np) {
 		dev_err(dev, "only DT-based devices are supported\n");
@@ -239,11 +240,19 @@ static int keystone_dsp_mem_probe(struct platform_device *pdev)
 	 */
 	while (of_address_to_resource(np, num_maps, &temp_res) == 0)
 		num_maps++;
-	if (!num_maps || num_maps > KEYSTONE_DSP_MEM_MAP_INDEX_MASK)
+
+	for_each_compatible_node(sram_np, NULL, "ti,keystone-dsp-msm-ram") {
+		if (!of_device_is_available(sram_np))
+			continue;
+		num_sram++;
+	}
+
+	if ((!num_maps && !num_sram) ||
+	    (num_maps + num_sram > KEYSTONE_DSP_MEM_MAP_INDEX_MASK))
 		return -EINVAL;
 
-	dsp_mem->mem = devm_kcalloc(dev, num_maps, sizeof(*dsp_mem->mem),
-				    GFP_KERNEL);
+	dsp_mem->mem = devm_kcalloc(dev, num_maps + num_sram,
+				    sizeof(*dsp_mem->mem), GFP_KERNEL);
 	if (!dsp_mem->mem)
 		return -ENOMEM;
 
@@ -256,6 +265,22 @@ static int keystone_dsp_mem_probe(struct platform_device *pdev)
 	}
 	dsp_mem->num_maps = num_maps;
 	dsp_mem->dev = dev;
+
+	if (num_sram) {
+		for_each_compatible_node(sram_np, NULL,
+					 "ti,keystone-dsp-msm-ram") {
+			if (!of_device_is_available(sram_np))
+				continue;
+
+			ret = of_address_to_resource(sram_np, 0, &temp_res);
+			if (ret)
+				return -EINVAL;
+			dsp_mem->mem[i].addr = temp_res.start;
+			dsp_mem->mem[i].size = resource_size(&temp_res);
+			i++;
+			dsp_mem->num_maps++;
+		}
+	}
 
 	/*
 	 * construct a user-friendly device name by discarding any prefixes
