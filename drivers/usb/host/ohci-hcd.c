@@ -864,9 +864,13 @@ static irqreturn_t ohci_irq (struct usb_hcd *hcd)
 	}
 
 	if (ints & OHCI_INTR_WDH) {
-		spin_lock (&ohci->lock);
-		dl_done_list (ohci);
-		spin_unlock (&ohci->lock);
+		if (ohci->hcca->done_head == 0) {
+			ints &= ~OHCI_INTR_WDH;
+		} else {
+			spin_lock (&ohci->lock);
+			dl_done_list (ohci);
+			spin_unlock (&ohci->lock);
+		}
 	}
 
 	if (quirk_zfmicro(ohci) && (ints & OHCI_INTR_SF)) {

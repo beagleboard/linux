@@ -30,7 +30,11 @@ static void __blk_mq_run_hw_queue(struct blk_mq_hw_ctx *hctx);
 static struct blk_mq_ctx *__blk_mq_get_ctx(struct request_queue *q,
 					   unsigned int cpu)
 {
-	return per_cpu_ptr(q->queue_ctx, cpu);
+	struct blk_mq_ctx *ctx;
+
+	ctx = per_cpu_ptr(q->queue_ctx, cpu);
+	spin_lock(&ctx->cpu_lock);
+	return ctx;
 }
 
 /*
@@ -41,12 +45,18 @@ static struct blk_mq_ctx *__blk_mq_get_ctx(struct request_queue *q,
  */
 static struct blk_mq_ctx *blk_mq_get_ctx(struct request_queue *q)
 {
-	return __blk_mq_get_ctx(q, get_cpu());
+	return __blk_mq_get_ctx(q, get_cpu_light());
+}
+
+static void __blk_mq_put_ctx(struct blk_mq_ctx *ctx)
+{
+	spin_unlock(&ctx->cpu_lock);
 }
 
 static void blk_mq_put_ctx(struct blk_mq_ctx *ctx)
 {
-	put_cpu();
+	__blk_mq_put_ctx(ctx);
+	put_cpu_light();
 }
 
 /*
@@ -897,7 +907,9 @@ static void blk_mq_make_request(struct request_queue *q, struct bio *bio)
 			if (list_empty(&plug->mq_list))
 				trace_block_plug(q);
 			else if (request_count >= BLK_MAX_REQUEST_COUNT) {
+				spin_unlock(&ctx->cpu_lock);
 				blk_flush_plug_list(plug, false);
+				spin_lock(&ctx->cpu_lock);
 				trace_block_plug(q);
 			}
 			list_add_tail(&rq->queuelist, &plug->mq_list);
@@ -959,7 +971,7 @@ static void blk_mq_hctx_notify(void *data, unsigned long action,
 	struct blk_mq_ctx *ctx;
 	LIST_HEAD(tmp);
 
-	if (action != CPU_DEAD && action != CPU_DEAD_FROZEN)
+	if (action != CPU_POST_DEAD && action != CPU_POST_DEAD)
 		return;
 
 	/*
@@ -973,6 +985,7 @@ static void blk_mq_hctx_notify(void *data, unsigned long action,
 		clear_bit(ctx->index_hw, hctx->ctx_map);
 	}
 	spin_unlock(&ctx->lock);
+	__blk_mq_put_ctx(ctx);
 
 	if (list_empty(&tmp))
 		return;
@@ -1212,6 +1225,7 @@ static void blk_mq_init_cpu_queues(struct request_queue *q,
 		memset(__ctx, 0, sizeof(*__ctx));
 		__ctx->cpu = i;
 		spin_lock_init(&__ctx->lock);
+		spin_lock_init(&__ctx->cpu_lock);
 		INIT_LIST_HEAD(&__ctx->rq_list);
 		__ctx->queue = q;
 

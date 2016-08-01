@@ -44,7 +44,11 @@ static inline void rcu_virt_note_context_switch(int cpu)
 	rcu_note_context_switch(cpu);
 }
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+# define synchronize_rcu_bh	synchronize_rcu
+#else
 void synchronize_rcu_bh(void);
+#endif
 void synchronize_sched_expedited(void);
 void synchronize_rcu_expedited(void);
 
@@ -72,17 +76,19 @@ static inline void synchronize_rcu_bh_expedited(void)
 }
 
 void rcu_barrier(void);
+#ifdef CONFIG_PREEMPT_RT_FULL
+# define rcu_barrier_bh		rcu_barrier
+#else
 void rcu_barrier_bh(void);
+#endif
 void rcu_barrier_sched(void);
 
 extern unsigned long rcutorture_testseq;
 extern unsigned long rcutorture_vernum;
 long rcu_batches_completed(void);
-long rcu_batches_completed_bh(void);
 long rcu_batches_completed_sched(void);
 
 void rcu_force_quiescent_state(void);
-void rcu_bh_force_quiescent_state(void);
 void rcu_sched_force_quiescent_state(void);
 
 void exit_rcu(void);
@@ -91,5 +97,13 @@ void rcu_scheduler_starting(void);
 extern int rcu_scheduler_active __read_mostly;
 
 bool rcu_is_watching(void);
+
+#ifndef CONFIG_PREEMPT_RT_FULL
+void rcu_bh_force_quiescent_state(void);
+long rcu_batches_completed_bh(void);
+#else
+# define rcu_bh_force_quiescent_state	rcu_force_quiescent_state
+# define rcu_batches_completed_bh	rcu_batches_completed
+#endif
 
 #endif /* __LINUX_RCUTREE_H */

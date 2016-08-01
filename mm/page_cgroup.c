@@ -13,6 +13,14 @@
 
 static unsigned long total_usage;
 
+static void page_cgroup_lock_init(struct page_cgroup *pc, int nr_pages)
+{
+#ifdef CONFIG_PREEMPT_RT_BASE
+	for (; nr_pages; nr_pages--, pc++)
+		spin_lock_init(&pc->pcg_lock);
+#endif
+}
+
 #if !defined(CONFIG_SPARSEMEM)
 
 
@@ -61,6 +69,7 @@ static int __init alloc_node_page_cgroup(int nid)
 		return -ENOMEM;
 	NODE_DATA(nid)->node_page_cgroup = base;
 	total_usage += table_size;
+	page_cgroup_lock_init(base, nr_pages);
 	return 0;
 }
 
@@ -150,6 +159,8 @@ static int __meminit init_section_page_cgroup(unsigned long pfn, int nid)
 		printk(KERN_ERR "page cgroup allocation failure\n");
 		return -ENOMEM;
 	}
+
+	page_cgroup_lock_init(base, PAGES_PER_SECTION);
 
 	/*
 	 * The passed "pfn" may not be aligned to SECTION.  For the calculation

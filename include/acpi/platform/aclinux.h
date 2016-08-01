@@ -73,6 +73,7 @@
 
 #define acpi_cache_t                        struct kmem_cache
 #define acpi_spinlock                       spinlock_t *
+#define acpi_raw_spinlock		    raw_spinlock_t *
 #define acpi_cpu_flags                      unsigned long
 
 #else				/* !__KERNEL__ */
@@ -209,6 +210,19 @@ static inline acpi_thread_id acpi_os_get_thread_id(void)
 		lock ? AE_OK : AE_NO_MEMORY; \
 	})
 #define ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_create_lock
+
+#define acpi_os_create_raw_lock(__handle)			\
+({								\
+	raw_spinlock_t *lock = ACPI_ALLOCATE(sizeof(*lock));	\
+								\
+	if (lock) {						\
+		*(__handle) = lock;				\
+		raw_spin_lock_init(*(__handle));		\
+	}							\
+	lock ? AE_OK : AE_NO_MEMORY;				\
+})
+
+#define acpi_os_delete_raw_lock(__handle)	kfree(__handle)
 
 void __iomem *acpi_os_map_memory(acpi_physical_address where, acpi_size length);
 #define ACPI_USE_ALTERNATE_PROTOTYPE_acpi_os_map_memory

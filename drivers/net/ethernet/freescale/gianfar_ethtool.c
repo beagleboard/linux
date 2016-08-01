@@ -500,7 +500,7 @@ static int gfar_sringparam(struct net_device *dev,
 		/* Halt TX and RX, and process the frames which
 		 * have already been received
 		 */
-		local_irq_save(flags);
+		local_irq_save_nort(flags);
 		lock_tx_qs(priv);
 		lock_rx_qs(priv);
 
@@ -508,7 +508,7 @@ static int gfar_sringparam(struct net_device *dev,
 
 		unlock_rx_qs(priv);
 		unlock_tx_qs(priv);
-		local_irq_restore(flags);
+		local_irq_restore_nort(flags);
 
 		for (i = 0; i < priv->num_rx_queues; i++)
 			gfar_clean_rx_ring(priv->rx_queue[i],
@@ -623,7 +623,7 @@ int gfar_set_features(struct net_device *dev, netdev_features_t features)
 		/* Halt TX and RX, and process the frames which
 		 * have already been received
 		 */
-		local_irq_save(flags);
+		local_irq_save_nort(flags);
 		lock_tx_qs(priv);
 		lock_rx_qs(priv);
 
@@ -631,7 +631,7 @@ int gfar_set_features(struct net_device *dev, netdev_features_t features)
 
 		unlock_tx_qs(priv);
 		unlock_rx_qs(priv);
-		local_irq_restore(flags);
+		local_irq_restore_nort(flags);
 
 		for (i = 0; i < priv->num_rx_queues; i++)
 			gfar_clean_rx_ring(priv->rx_queue[i],
