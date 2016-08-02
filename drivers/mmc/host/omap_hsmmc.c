@@ -1774,7 +1774,8 @@ static int omap_hsmmc_setup_adma_transfer(struct omap_hsmmc_host *host,
 					   ADMA_DESC_TRANSFER_DATA);
 		dma_desc++;
 	}
-	omap_hsmmc_write_adma_desc(host, dma_desc, 0, 0, ADMA_DESC_ATTR_END);
+	omap_hsmmc_write_adma_desc(host, dma_desc, 0, 0, ADMA_DESC_ATTR_END |
+				   ADMA_DESC_ATTR_VALID);
 
 	return 0;
 }
