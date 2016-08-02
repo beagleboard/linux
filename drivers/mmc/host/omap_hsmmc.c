@@ -161,7 +161,7 @@
 #define DCRC_EN			(1 << 21)
 #define DEB_EN			(1 << 22)
 #define ACE_EN			(1 << 24)
-#define ADMAE_EN		(1 << 24)
+#define ADMAE_EN		(1 << 25)
 #define CERR_EN			(1 << 28)
 #define BADA_EN			(1 << 29)
 
