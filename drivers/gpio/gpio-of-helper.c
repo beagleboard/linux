@@ -139,7 +139,9 @@ gpio_of_entry_create(struct gpio_of_helper_info *info,
 	/* get the type of the node first */
 	if (of_property_read_bool(node, "input"))
 		type = GPIO_TYPE_INPUT;
-	else if (of_property_read_bool(node, "output"))
+	else if (of_property_read_bool(node, "output")
+			|| of_property_read_bool(node, "init-low")
+			|| of_property_read_bool(node, "init-high"))
 		type = GPIO_TYPE_OUTPUT;
 	else {
 		dev_err(dev, "Not valid gpio node type\n");
@@ -148,11 +150,9 @@ gpio_of_entry_create(struct gpio_of_helper_info *info,
 	}
 
 	/* get the name */
-	err = of_property_read_string(node, "gpio-name", &name);
-	if (err != 0) {
-		dev_err(dev, "Failed to get name property\n");
-		goto err_bad_node;
-	}
+	if (of_property_read_string(node, "line-name", &name))
+		if (of_property_read_string(node, "gpio-name", &name))
+			name = node->name;
 
 	err = of_get_named_gpio_flags(node, "gpio", 0, &gpio_flags);
 	if (IS_ERR_VALUE(err)) {
