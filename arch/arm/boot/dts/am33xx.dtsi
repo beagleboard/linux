@@ -39,6 +39,8 @@
 		mmc0 = &mmc1;
 		mmc1 = &mmc2;
 		mmc2 = &mmc3;
+		spi0 = &spi0;
+		spi1 = &spi1;
 	};
 
 	cpus {
