@@ -161,7 +161,7 @@
 #define DCRC_EN			(1 << 21)
 #define DEB_EN			(1 << 22)
 #define ACE_EN			(1 << 24)
-#define ADMAE_EN		(1 << 24)
+#define ADMAE_EN		(1 << 25)
 #define CERR_EN			(1 << 28)
 #define BADA_EN			(1 << 29)
 
@@ -1133,6 +1133,10 @@ omap_hsmmc_xfer_done(struct omap_hsmmc_host *host, struct mmc_data *data)
 		return;
 	}
 
+	if (host->use_adma && !data->host_cookie)
+		dma_unmap_sg(host->dev, data->sg, data->sg_len,
+			     omap_hsmmc_get_dma_dir(host, data));
+
 	host->data = NULL;
 
 	if (!data->error)
@@ -1770,7 +1774,8 @@ static int omap_hsmmc_setup_adma_transfer(struct omap_hsmmc_host *host,
 					   ADMA_DESC_TRANSFER_DATA);
 		dma_desc++;
 	}
-	omap_hsmmc_write_adma_desc(host, dma_desc, 0, 0, ADMA_DESC_ATTR_END);
+	omap_hsmmc_write_adma_desc(host, dma_desc, 0, 0, ADMA_DESC_ATTR_END |
+				   ADMA_DESC_ATTR_VALID);
 
 	return 0;
 }
