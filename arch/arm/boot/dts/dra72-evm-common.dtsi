@@ -16,6 +16,9 @@
 
 	aliases {
 		display0 = &hdmi0;
+
+		sound0 = &sound0;
+		sound1 = &hdmi;
 	};
 
 	evm_3v3_sw: fixedregulator-evm_3v3 {
