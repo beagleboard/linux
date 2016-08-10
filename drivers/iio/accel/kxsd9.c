@@ -81,7 +81,7 @@ static int kxsd9_write_scale(struct iio_dev *indio_dev, int micro)
 
 	mutex_lock(&st->buf_lock);
 	ret = spi_w8r8(st->us, KXSD9_READ(KXSD9_REG_CTRL_C));
-	if (ret)
+	if (ret < 0)
 		goto error_ret;
 	st->tx[0] = KXSD9_WRITE(KXSD9_REG_CTRL_C);
 	st->tx[1] = (ret & ~KXSD9_FS_MASK) | i;
@@ -163,7 +163,7 @@ static int kxsd9_read_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_SCALE:
 		ret = spi_w8r8(st->us, KXSD9_READ(KXSD9_REG_CTRL_C));
-		if (ret)
+		if (ret < 0)
 			goto error_ret;
 		*val2 = kxsd9_micro_scales[ret & KXSD9_FS_MASK];
 		ret = IIO_VAL_INT_PLUS_MICRO;
@@ -263,7 +263,6 @@ MODULE_DEVICE_TABLE(spi, kxsd9_id);
 static struct spi_driver kxsd9_driver = {
 	.driver = {
 		.name = "kxsd9",
-		.owner = THIS_MODULE,
 	},
 	.probe = kxsd9_probe,
 	.remove = kxsd9_remove,
