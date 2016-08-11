@@ -611,6 +611,10 @@
 	vdda_video-supply = <&ldo5_reg>;
 };
 
+&bb2d {
+	status = "okay";
+};
+
 &hdmi {
 	status = "ok";
 
