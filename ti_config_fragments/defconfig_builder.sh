@@ -312,6 +312,7 @@ Optional:
 	-w - Location of the TI Linux kernel
 	-t - Indicates the type of defconfig to build.  This will force the
 	     defconfig to build without user interaction.
+	-l - List all buildable defconfig options
 
 Command line example to generate the TI SDK AM335x processor defconfig automatically
 without user interaction:
@@ -329,13 +330,15 @@ EOF
 #########################################
 # Script Start
 #########################################
-while getopts "?w:t:" OPTION
+while getopts "?w:t:l" OPTION
 do
 	case $OPTION in
 		w)
 			WORKING_PATH=$OPTARG;;
 		t)
 			CHOSEN_BUILD_TYPE=$OPTARG;;
+		l)
+			LIST_TARGETS="y";;
 		?)
 			usage
 			exit;;
@@ -351,8 +354,15 @@ if [ ! -e "$DEFCONFIG_MAP_FILE" ]; then
 	exit 1
 fi
 
-PROCESSOR_FILE=$(mktemp -t $TMP_TEMPLATE)
 BUILD_TYPE_FILE=$(mktemp -t $TMP_TEMPLATE)
+
+if [ ! -z "$LIST_TARGETS" ]; then
+	echo "The following are a list of buildable defconfigs:"
+	list_all_targets
+	exit 0
+fi
+
+PROCESSOR_FILE=$(mktemp -t $TMP_TEMPLATE)
 OLD_CONFIG=$(mktemp -t $TMP_TEMPLATE)
 if [ -f "$WORKING_PATH"/.config ]; then
 	mv "$WORKING_PATH"/.config "$OLD_CONFIG"
