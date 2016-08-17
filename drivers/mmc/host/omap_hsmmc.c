@@ -1133,7 +1133,7 @@ omap_hsmmc_xfer_done(struct omap_hsmmc_host *host, struct mmc_data *data)
 		return;
 	}
 
-	if (host->use_adma && !data->host_cookie)
+	if (host->use_adma && host->data && !data->host_cookie)
 		dma_unmap_sg(host->dev, data->sg, data->sg_len,
 			     omap_hsmmc_get_dma_dir(host, data));
 
