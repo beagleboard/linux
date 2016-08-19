@@ -557,7 +557,8 @@ static bool dispc6_lcd_timings_ok(int hsw, int hfp, int hbp,
 bool dispc6_mgr_timings_ok(enum omap_channel channel,
 			   const struct omap_video_timings *timings)
 {
-	if (timings->pixelclock < dispc.feat->min_pclk)
+	if (timings->pixelclock < dispc.feat->min_pclk &&
+		timings->pixelclock != 9000000)
 		return false;
 
 	if (timings->pixelclock > dispc.feat->max_pclk)
