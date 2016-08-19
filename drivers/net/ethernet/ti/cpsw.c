@@ -761,7 +761,7 @@ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
 		priv->tx_irq_disabled = true;
 	}
 
-	napi_schedule(&priv->napi_tx);
+	napi_schedule_irqoff(&priv->napi_tx);
 	return IRQ_HANDLED;
 }
 
@@ -777,7 +777,7 @@ static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
 		priv->rx_irq_disabled = true;
 	}
 
-	napi_schedule(&priv->napi_rx);
+	napi_schedule_irqoff(&priv->napi_rx);
 	return IRQ_HANDLED;
 }
 
@@ -2785,7 +2785,7 @@ static int cpsw_probe(struct platform_device *pdev)
 
 	priv->irqs_table[0] = irq;
 	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
-			       0, dev_name(&pdev->dev), priv);
+			       IRQF_NO_THREAD, dev_name(&pdev->dev), priv);
 	if (ret < 0) {
 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
 		goto clean_ale_ret;
@@ -2800,7 +2800,7 @@ static int cpsw_probe(struct platform_device *pdev)
 
 	priv->irqs_table[1] = irq;
 	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
-			       0, dev_name(&pdev->dev), priv);
+			       IRQF_NO_THREAD, dev_name(&pdev->dev), priv);
 	if (ret < 0) {
 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
 		goto clean_ale_ret;
