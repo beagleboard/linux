@@ -79,7 +79,7 @@
 
 		mpm_mem: dspmem {
 			compatible = "ti,keystone-dsp-mem";
-			reg = <0x0c000000 0x00600000>,
+			reg = <0x0c000000 0x005f0000>,
 			      <0xa0000000 0x20000000>;
 		};
 	};
