@@ -871,7 +871,6 @@
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <1>;
-			phys = <&pcie0_phy>;
 			dma-coherent;
 
 			/* error interrupt */
