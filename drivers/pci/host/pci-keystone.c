@@ -371,7 +371,6 @@ static int __exit ks_pcie_remove(struct platform_device *pdev)
 {
 	struct keystone_pcie *ks_pcie = platform_get_drvdata(pdev);
 
-	phy_exit(ks_pcie->serdes_phy);
 	clk_disable_unprepare(ks_pcie->clk);
 
 	return 0;
@@ -379,7 +378,6 @@ static int __exit ks_pcie_remove(struct platform_device *pdev)
 
 static int __init ks_pcie_probe(struct platform_device *pdev)
 {
-	struct device_node *node = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
 	struct keystone_pcie *ks_pcie;
 	struct pcie_port *pp;
@@ -415,26 +413,12 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ks_pcie->serdes_phy = devm_of_phy_get(dev, node, NULL);
-	if (IS_ERR(ks_pcie->serdes_phy)) {
-		ret = PTR_ERR(ks_pcie->serdes_phy);
-		dev_err(dev, "No %s serdes driver found: %d\n",
-			node->name, ret);
-		goto fail_clk;
-	}
-
-	ret = phy_init(ks_pcie->serdes_phy);
-	if (ret < 0)
-		goto fail_clk;
-
 	ret = ks_add_pcie_port(ks_pcie, pdev);
 	if (ret < 0)
-		goto fail_phy;
+		goto fail_clk;
 
 	return 0;
 
-fail_phy:
-	phy_exit(ks_pcie->serdes_phy);
 fail_clk:
 	clk_disable_unprepare(ks_pcie->clk);
 	return ret;
