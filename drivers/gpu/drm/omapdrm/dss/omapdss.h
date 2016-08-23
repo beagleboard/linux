@@ -25,6 +25,7 @@
 #include <video/videomode.h>
 #include <linux/platform_data/omapdss.h>
 #include <uapi/drm/drm_mode.h>
+#include <drm/drm_crtc.h>
 
 #define DISPC_IRQ_FRAMEDONE		(1 << 0)
 #define DISPC_IRQ_VSYNC			(1 << 1)
@@ -555,6 +556,12 @@ struct omapdss_hdmi_ops {
 	int (*read_edid)(struct omap_dss_device *dssdev, u8 *buf, int len);
 	bool (*detect)(struct omap_dss_device *dssdev);
 
+	int (*enable_hpd)(struct omap_dss_device *dssdev,
+			   void (*cb)(void *cb_data,
+				      enum drm_connector_status status),
+			   void *cb_data);
+	void (*disable_hpd)(struct omap_dss_device *dssdev);
+
 	int (*set_hdmi_mode)(struct omap_dss_device *dssdev, bool hdmi_mode);
 	int (*set_infoframe)(struct omap_dss_device *dssdev,
 		const struct hdmi_avi_infoframe *avi);
@@ -760,6 +767,12 @@ struct omap_dss_driver {
 
 	int (*read_edid)(struct omap_dss_device *dssdev, u8 *buf, int len);
 	bool (*detect)(struct omap_dss_device *dssdev);
+
+	int (*enable_hpd)(struct omap_dss_device *dssdev,
+			   void (*cb)(void *cb_data,
+				      enum drm_connector_status status),
+			   void *cb_data);
+	void (*disable_hpd)(struct omap_dss_device *dssdev);
 
 	int (*set_hdmi_mode)(struct omap_dss_device *dssdev, bool hdmi_mode);
 	int (*set_hdmi_infoframe)(struct omap_dss_device *dssdev,
