@@ -16,6 +16,10 @@
 
 #include <linux/atomic.h>
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+#include <linux/rwsem_rt.h>
+#else /* PREEMPT_RT_FULL */
+
 struct rw_semaphore;
 
 #ifdef CONFIG_RWSEM_GENERIC_SPINLOCK
@@ -159,5 +163,7 @@ extern void up_read_non_owner(struct rw_semaphore *sem);
 # define down_read_non_owner(sem)		down_read(sem)
 # define up_read_non_owner(sem)			up_read(sem)
 #endif
+
+#endif /* !PREEMPT_RT_FULL */
 
 #endif /* _LINUX_RWSEM_H */

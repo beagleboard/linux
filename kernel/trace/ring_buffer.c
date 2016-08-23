@@ -1695,28 +1695,22 @@ int ring_buffer_resize(struct ring_buffer *buffer, unsigned long size,
 		 * We can't schedule on offline CPUs, but it's not necessary
 		 * since we can change their buffer sizes without any race.
 		 */
+		migrate_disable();
 		for_each_buffer_cpu(buffer, cpu) {
 			cpu_buffer = buffer->buffers[cpu];
 			if (!cpu_buffer->nr_pages_to_update)
 				continue;
 
 			/* The update must run on the CPU that is being updated. */
-			preempt_disable();
 			if (cpu == smp_processor_id() || !cpu_online(cpu)) {
 				rb_update_pages(cpu_buffer);
 				cpu_buffer->nr_pages_to_update = 0;
 			} else {
-				/*
-				 * Can not disable preemption for schedule_work_on()
-				 * on PREEMPT_RT.
-				 */
-				preempt_enable();
 				schedule_work_on(cpu,
 						&cpu_buffer->update_pages_work);
-				preempt_disable();
 			}
-			preempt_enable();
 		}
+		migrate_enable();
 
 		/* wait for all the updates to complete */
 		for_each_buffer_cpu(buffer, cpu) {
@@ -1753,22 +1747,16 @@ int ring_buffer_resize(struct ring_buffer *buffer, unsigned long size,
 
 		get_online_cpus();
 
-		preempt_disable();
+		migrate_disable();
 		/* The update must run on the CPU that is being updated. */
 		if (cpu_id == smp_processor_id() || !cpu_online(cpu_id))
 			rb_update_pages(cpu_buffer);
 		else {
-			/*
-			 * Can not disable preemption for schedule_work_on()
-			 * on PREEMPT_RT.
-			 */
-			preempt_enable();
 			schedule_work_on(cpu_id,
 					 &cpu_buffer->update_pages_work);
 			wait_for_completion(&cpu_buffer->update_done);
-			preempt_disable();
 		}
-		preempt_enable();
+		migrate_enable();
 
 		cpu_buffer->nr_pages_to_update = 0;
 		put_online_cpus();

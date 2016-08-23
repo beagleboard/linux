@@ -1243,7 +1243,9 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 			goto err;
 	}
 
+#ifndef CONFIG_PREEMPT_RT_BASE
 	trace_i915_gem_ring_dispatch(ring, intel_ring_get_seqno(ring), flags);
+#endif
 
 	i915_gem_execbuffer_move_to_active(&eb->vmas, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);

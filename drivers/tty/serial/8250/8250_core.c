@@ -37,6 +37,7 @@
 #include <linux/nmi.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <linux/kdb.h>
 #include <linux/pm_runtime.h>
 #ifdef CONFIG_SPARC
 #include <linux/sunserialcore.h>
@@ -80,7 +81,16 @@ static unsigned int skip_txen_test; /* force skip of txen test at init time */
 #define DEBUG_INTR(fmt...)	do { } while (0)
 #endif
 
-#define PASS_LIMIT	512
+/*
+ * On -rt we can have a more delays, and legitimately
+ * so - so don't drop work spuriously and spam the
+ * syslog:
+ */
+#ifdef CONFIG_PREEMPT_RT_FULL
+# define PASS_LIMIT	1000000
+#else
+# define PASS_LIMIT	512
+#endif
 
 #define BOTH_EMPTY 	(UART_LSR_TEMT | UART_LSR_THRE)
 
@@ -739,16 +749,22 @@ static int size_fifo(struct uart_8250_port *up)
  */
 static unsigned int autoconfig_read_divisor_id(struct uart_8250_port *p)
 {
-	unsigned char old_lcr;
-	unsigned int id, old_dl;
+	unsigned char old_dll, old_dlm, old_lcr;
+	unsigned int id;
 
 	old_lcr = serial_in(p, UART_LCR);
 	serial_out(p, UART_LCR, UART_LCR_CONF_MODE_A);
-	old_dl = serial_dl_read(p);
-	serial_dl_write(p, 0);
-	id = serial_dl_read(p);
-	serial_dl_write(p, old_dl);
 
+	old_dll = serial_in(p, UART_DLL);
+	old_dlm = serial_in(p, UART_DLM);
+
+	serial_out(p, UART_DLL, 0);
+	serial_out(p, UART_DLM, 0);
+
+	id = serial_in(p, UART_DLL) | serial_in(p, UART_DLM) << 8;
+
+	serial_out(p, UART_DLL, old_dll);
+	serial_out(p, UART_DLM, old_dlm);
 	serial_out(p, UART_LCR, old_lcr);
 
 	return id;
@@ -3157,7 +3173,7 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 
 	serial8250_rpm_get(up);
 
-	if (port->sysrq || oops_in_progress)
+	if (port->sysrq || oops_in_progress || in_kdb_printk())
 		locked = spin_trylock_irqsave(&port->lock, flags);
 	else
 		spin_lock_irqsave(&port->lock, flags);

@@ -7,6 +7,7 @@ struct blk_mq_ctx {
 		struct list_head	rq_list;
 	}  ____cacheline_aligned_in_smp;
 
+	spinlock_t		cpu_lock;
 	unsigned int		cpu;
 	unsigned int		index_hw;
 	unsigned int		ipi_redirect;
