@@ -618,8 +618,11 @@ static int rpmsg_proto_probe(struct rpmsg_channel *rpdev)
 		dev_err(dev, "id %d already associated to different vrp\n",
 			id);
 
-	if (dst == RPMSG_ADDR_ANY)
+	if (dst == RPMSG_ADDR_ANY) {
+		/* do not announce bound sockets to remote processor */
+		rpdev->announce = false;
 		return 0;
+	}
 
 	/* associate id/vrp for later lookup in rpmsg_sock_bind() */
 	if (!vrp) {
