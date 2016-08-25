@@ -5,6 +5,7 @@ obj-$(CONFIG_VIDEO_TI_VPE) += ti-csc.o
 obj-$(CONFIG_VIDEO_TI_VIP) += ti-vip.o
 obj-$(CONFIG_VIDEO_TI_VIP) += ti-vpdma.o
 obj-$(CONFIG_VIDEO_TI_VIP) += ti-sc.o
+obj-$(CONFIG_VIDEO_TI_VIP) += ti-csc.o
 
 ti-vpe-y := vpe.o
 ti-vpdma-y := vpdma.o
