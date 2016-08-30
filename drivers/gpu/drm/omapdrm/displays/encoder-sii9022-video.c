@@ -508,10 +508,8 @@ static int sii9022_connect(struct omap_dss_device *dssdev,
 
 	ddata->htplg_state = ddata->rxsense_state = false;
 
+	/* Read initial HPD and RXsense status */
 	sii9022_handle_hpd(ddata);
-
-	regmap_write(ddata->regmap, SII9022_IRQ_ENABLE_REG,
-		     SII9022_IRQ_HPE | SII9022_IRQ_RXSENSE);
 
 	if (ddata->use_polling) {
 		INIT_DELAYED_WORK(&ddata->work, sii9022_poll);
@@ -525,6 +523,10 @@ static int sii9022_connect(struct omap_dss_device *dssdev,
 			dev_err(dev, "failed to request irq\n");
 			goto err_irq;
 		}
+
+		/* Enable HPD and RXsense interrupts */
+		regmap_write(ddata->regmap, SII9022_IRQ_ENABLE_REG,
+			     SII9022_IRQ_HPE | SII9022_IRQ_RXSENSE);
 	}
 
 	dst->src = dssdev;
