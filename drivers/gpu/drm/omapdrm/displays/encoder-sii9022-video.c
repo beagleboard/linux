@@ -429,22 +429,13 @@ static void sii9022_handle_hpd(struct panel_drv_data *ddata)
 	bool htplg, rxsense;
 	bool htplg_ev, rxsense_ev;
 
-	htplg_ev = rxsense_ev = false;
-
 	r = regmap_read(ddata->regmap, SII9022_IRQ_STATUS_REG, &stat);
 
-	if (stat & (SII9022_IRQ_HPE | SII9022_IRQ_RXSENSE)) {
-		if (stat & SII9022_IRQ_HPE)
-			htplg_ev = true;
-		if (stat & SII9022_IRQ_RXSENSE)
-			rxsense_ev = true;
+	htplg_ev = !!(stat & SII9022_IRQ_HPE);
+	rxsense_ev = !!(stat & SII9022_IRQ_RXSENSE);
 
-		regmap_write(ddata->regmap, SII9022_IRQ_STATUS_REG,
-			     SII9022_IRQ_HPE | SII9022_IRQ_RXSENSE);
-	}
-
-	htplg = stat & SII9022_IRQ_HP_STATE;
-	rxsense = stat & SII9022_IRQ_RXSENSE_STATE;
+	htplg = !!(stat & SII9022_IRQ_HP_STATE);
+	rxsense = !!(stat & SII9022_IRQ_RXSENSE_STATE);
 
 	if (ddata->htplg_state != htplg || htplg_ev) {
 		dev_dbg(dev, "hotplug %sconnect\n", htplg ? "" : "dis");
@@ -455,6 +446,9 @@ static void sii9022_handle_hpd(struct panel_drv_data *ddata)
 		dev_dbg(dev, "rxsense %sconnect\n", rxsense ? "" : "dis");
 		ddata->rxsense_state = rxsense;
 	}
+
+	/* Clear interrupts */
+	regmap_write(ddata->regmap, SII9022_IRQ_STATUS_REG, stat);
 }
 
 static irqreturn_t sii9022_irq_handler(int irq, void *arg)
