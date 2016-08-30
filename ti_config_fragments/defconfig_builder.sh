@@ -158,12 +158,32 @@ choose a value between '1' and '$max_configs':\n"
 	rm "$TEMP_BUILD_FILE"
 }
 
+list_all_targets() {
+
+	TMP_MAP=$(mktemp -t $TMP_TEMPLATE)
+	cat "$DEFCONFIG_MAP_FILE" > "$TMP_MAP"
+	while true;
+	do
+		CONFIG_FILE=
+		CONFIG_FRAGMENTS=
+
+		BT_TEMP=$(head -n 1 "$TMP_MAP" | awk '{print$4}')
+		BUILD_DETAILS=$(head -n 1 "$TMP_MAP")
+		if [ -z "$BUILD_DETAILS" ]; then
+			break
+		fi
+		check_for_config_existance
+		sed -i "1d" "$TMP_MAP"
+	done
+	rm "$TMP_MAP"
+	cat "$BUILD_TYPE_FILE"
+}
+
 get_build_details() {
 
 	BUILD_DETAILS=$(grep -w "$CHOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE")
 	if [ -z "$BUILD_DETAILS" ]; then
-		echo "Cannot find the build type $CHOSEN_BUILD_TYPE"
-		echo "Did you mean any of the following?"
+		echo "Cannot find the build type or a match for $CHOSEN_BUILD_TYPE"
 		TEMP_BUILD_FILE=$(mktemp -t $TMP_TEMPLATE)
 		grep "$CHOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE" > "$TEMP_BUILD_FILE"
 		while true;
@@ -171,7 +191,7 @@ get_build_details() {
 			CONFIG_FILE=
 			CONFIG_FRAGMENTS=
 
-			BT_TEMP=$(head -n 1 "$TEMP_BUILD_FILE")
+			BT_TEMP=$(head -n 1 "$TEMP_BUILD_FILE" | awk '{print$4}')
 			if [ -z "$BT_TEMP" ]; then
 				break
 			fi
@@ -183,9 +203,11 @@ get_build_details() {
 
 		NUM_OF_BUILDS=$(wc -l "$BUILD_TYPE_FILE" | awk '{print$1}')
 		if [ "$NUM_OF_BUILDS" -eq 0 ]; then
-			awk '{if ($2 == "$BUILD_TYPE_TAG") print $4;}' "$DEFCONFIG_MAP_FILE"
+			echo "Maybe try one of the following:"
+			list_all_targets
 		else
-			awk '{print $5}' "$BUILD_TYPE_FILE"
+			echo "Did you mean any of the following?"
+			cat "$BUILD_TYPE_FILE"
 		fi
 
 		return 1
@@ -290,6 +312,7 @@ Optional:
 	-w - Location of the TI Linux kernel
 	-t - Indicates the type of defconfig to build.  This will force the
 	     defconfig to build without user interaction.
+	-l - List all buildable defconfig options
 
 Command line example to generate the TI SDK AM335x processor defconfig automatically
 without user interaction:
@@ -307,13 +330,15 @@ EOF
 #########################################
 # Script Start
 #########################################
-while getopts "?w:t:" OPTION
+while getopts "?w:t:l" OPTION
 do
 	case $OPTION in
 		w)
 			WORKING_PATH=$OPTARG;;
 		t)
 			CHOSEN_BUILD_TYPE=$OPTARG;;
+		l)
+			LIST_TARGETS="y";;
 		?)
 			usage
 			exit;;
@@ -329,8 +354,15 @@ if [ ! -e "$DEFCONFIG_MAP_FILE" ]; then
 	exit 1
 fi
 
-PROCESSOR_FILE=$(mktemp -t $TMP_TEMPLATE)
 BUILD_TYPE_FILE=$(mktemp -t $TMP_TEMPLATE)
+
+if [ ! -z "$LIST_TARGETS" ]; then
+	echo "The following are a list of buildable defconfigs:"
+	list_all_targets
+	exit 0
+fi
+
+PROCESSOR_FILE=$(mktemp -t $TMP_TEMPLATE)
 OLD_CONFIG=$(mktemp -t $TMP_TEMPLATE)
 if [ -f "$WORKING_PATH"/.config ]; then
 	mv "$WORKING_PATH"/.config "$OLD_CONFIG"
