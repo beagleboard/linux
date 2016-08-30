@@ -502,7 +502,7 @@ static void vip_set_slice_path(struct vip_dev *dev,
 		val |= (path_val) ? VIP_RGB_OUT_LO_SRC_SELECT : 0;
 		break;
 	case VIP_RGB_OUT_HI_DATA_SELECT:
-		val |= (path_val) ? VIP_RGB_OUT_LO_SRC_SELECT : 0;
+		val |= (path_val) ? VIP_RGB_OUT_HI_SRC_SELECT : 0;
 		break;
 	case VIP_CHR_DS_1_SRC_DATA_SELECT:
 		insert_field(&val, path_val, VIP_DS1_SRC_SELECT_MASK,
