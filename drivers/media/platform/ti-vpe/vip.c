@@ -812,12 +812,21 @@ static void add_stream_dtds(struct vip_stream *stream)
 		add_out_dtd(stream, VIP_SRCE_CHROMA);
 }
 
+#define PARSER_IRQ_MASK (VIP_PORTA_OUTPUT_FIFO_YUV | \
+			 VIP_PORTB_OUTPUT_FIFO_YUV)
+
 static void enable_irqs(struct vip_dev *dev, int irq_num, int list_num)
 {
+	struct vip_parser_data *parser = dev->parser;
 	u32 reg_addr = VIP_INT0_ENABLE0_SET +
 			VIP_INTC_INTX_OFFSET * irq_num;
+	u32 irq_val = (1 << (list_num * 2)) |
+		      (VIP_VIP1_PARSER_INT << (irq_num * 1));
 
-	reg_write(dev->shared, reg_addr, 1 << (list_num * 2));
+	/* Enable Parser Interrupt */
+	reg_write(parser, VIP_PARSER_FIQ_MASK, ~PARSER_IRQ_MASK);
+
+	reg_write(dev->shared, reg_addr, irq_val);
 
 	vpdma_enable_list_complete_irq(dev->shared->vpdma,
 				       irq_num, list_num, true);
@@ -825,10 +834,16 @@ static void enable_irqs(struct vip_dev *dev, int irq_num, int list_num)
 
 static void disable_irqs(struct vip_dev *dev, int irq_num, int list_num)
 {
+	struct vip_parser_data *parser = dev->parser;
 	u32 reg_addr = VIP_INT0_ENABLE0_CLR +
 			VIP_INTC_INTX_OFFSET * irq_num;
+	u32 irq_val = (1 << (list_num * 2)) |
+		      (VIP_VIP1_PARSER_INT << (irq_num * 1));
 
-	reg_write(dev->shared, reg_addr, 1 << (list_num * 2));
+	/* Disable all Parser Interrupt */
+	reg_write(parser, VIP_PARSER_FIQ_MASK, 0xffffffff);
+
+	reg_write(dev->shared, reg_addr, irq_val);
 
 	vpdma_enable_list_complete_irq(dev->shared->vpdma,
 				       irq_num, list_num, false);
@@ -836,10 +851,17 @@ static void disable_irqs(struct vip_dev *dev, int irq_num, int list_num)
 
 static void clear_irqs(struct vip_dev *dev, int irq_num, int list_num)
 {
+	struct vip_parser_data *parser = dev->parser;
 	u32 reg_addr = VIP_INT0_STATUS0_CLR +
 			VIP_INTC_INTX_OFFSET * irq_num;
+	u32 irq_val = (1 << (list_num * 2)) |
+		      (VIP_VIP1_PARSER_INT << (irq_num * 1));
 
-	reg_write(dev->shared, reg_addr, 1 << (list_num * 2));
+	/* Clear all Parser Interrupt */
+	reg_write(parser, VIP_PARSER_FIQ_CLR, 0xffffffff);
+	reg_write(parser, VIP_PARSER_FIQ_CLR, 0x0);
+
+	reg_write(dev->shared, reg_addr, irq_val);
 
 	vpdma_clear_list_stat(dev->shared->vpdma, irq_num, dev->slice_id);
 }
@@ -990,6 +1012,57 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 	stream->sequence++;
 }
 
+static void handle_parser_irqs(struct vip_dev *dev)
+{
+	struct vip_parser_data *parser = dev->parser;
+	u32 irq_stat = reg_read(parser, VIP_PARSER_FIQ_STATUS);
+
+	/* Clear all Parser Interrupt */
+	reg_write(parser, VIP_PARSER_FIQ_CLR, irq_stat);
+	reg_write(parser, VIP_PARSER_FIQ_CLR, 0x0);
+
+	if (irq_stat & VIP_PORTA_VDET)
+		vip_dbg(3, dev, "VIP_PORTA_VDET\n");
+	if (irq_stat & VIP_PORTB_VDET)
+		vip_dbg(3, dev, "VIP_PORTB_VDET\n");
+	if (irq_stat & VIP_PORTA_ASYNC_FIFO_OF)
+		vip_err(dev, "VIP_PORTA_ASYNC_FIFO_OF\n");
+	if (irq_stat & VIP_PORTB_ASYNC_FIFO_OF)
+		vip_err(dev, "VIP_PORTB_ASYNC_FIFO_OF\n");
+	if (irq_stat & VIP_PORTA_OUTPUT_FIFO_YUV)
+		vip_err(dev, "VIP_PORTA_OUTPUT_FIFO_YUV\n");
+	if (irq_stat & VIP_PORTA_OUTPUT_FIFO_ANC)
+		vip_err(dev, "VIP_PORTA_OUTPUT_FIFO_ANC\n");
+	if (irq_stat & VIP_PORTB_OUTPUT_FIFO_YUV)
+		vip_err(dev, "VIP_PORTB_OUTPUT_FIFO_YUV\n");
+	if (irq_stat & VIP_PORTB_OUTPUT_FIFO_ANC)
+		vip_err(dev, "VIP_PORTB_OUTPUT_FIFO_ANC\n");
+	if (irq_stat & VIP_PORTA_CONN)
+		vip_dbg(3, dev, "VIP_PORTA_CONN\n");
+	if (irq_stat & VIP_PORTA_DISCONN)
+		vip_dbg(3, dev, "VIP_PORTA_DISCONN\n");
+	if (irq_stat & VIP_PORTB_CONN)
+		vip_dbg(3, dev, "VIP_PORTB_CONN\n");
+	if (irq_stat & VIP_PORTB_DISCONN)
+		vip_dbg(3, dev, "VIP_PORTB_DISCONN\n");
+	if (irq_stat & VIP_PORTA_SRC0_SIZE)
+		vip_dbg(3, dev, "VIP_PORTA_SRC0_SIZE\n");
+	if (irq_stat & VIP_PORTB_SRC0_SIZE)
+		vip_dbg(3, dev, "VIP_PORTB_SRC0_SIZE\n");
+	if (irq_stat & VIP_PORTA_YUV_PROTO_VIOLATION)
+		vip_dbg(3, dev, "VIP_PORTA_YUV_PROTO_VIOLATION\n");
+	if (irq_stat & VIP_PORTA_ANC_PROTO_VIOLATION)
+		vip_dbg(3, dev, "VIP_PORTA_ANC_PROTO_VIOLATION\n");
+	if (irq_stat & VIP_PORTB_YUV_PROTO_VIOLATION)
+		vip_dbg(3, dev, "VIP_PORTB_YUV_PROTO_VIOLATION\n");
+	if (irq_stat & VIP_PORTB_ANC_PROTO_VIOLATION)
+		vip_dbg(3, dev, "VIP_PORTB_ANC_PROTO_VIOLATION\n");
+	if (irq_stat & VIP_PORTA_CFG_DISABLE_COMPLETE)
+		vip_dbg(3, dev, "VIP_PORTA_CFG_DISABLE_COMPLETE\n");
+	if (irq_stat & VIP_PORTB_CFG_DISABLE_COMPLETE)
+		vip_dbg(3, dev, "VIP_PORTB_CFG_DISABLE_COMPLETE\n");
+}
+
 static irqreturn_t vip_irq(int irq_vip, void *data)
 {
 	struct vip_dev *dev = (struct vip_dev *)data;
@@ -1012,6 +1085,11 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 		reg_addr = VIP_INT0_STATUS0_CLR +
 			VIP_INTC_INTX_OFFSET * irq_num;
 		reg_write(dev->shared, reg_addr, irqst);
+
+		if (irqst & (VIP_VIP1_PARSER_INT << (irq_num * 1))) {
+			irqst &= ~(VIP_VIP1_PARSER_INT << (irq_num * 1));
+			handle_parser_irqs(dev);
+		}
 
 		for (list_num = 0; list_num < 8;  list_num++) {
 			/* Check for LIST_COMPLETE IRQ */
