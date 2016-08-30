@@ -433,17 +433,18 @@ static void sii9022_handle_hpd(struct panel_drv_data *ddata)
 
 	r = regmap_read(ddata->regmap, SII9022_IRQ_STATUS_REG, &stat);
 
-	if (stat & 0x3) {
-		if (stat & 1)
+	if (stat & (SII9022_IRQ_HPE | SII9022_IRQ_RXSENSE)) {
+		if (stat & SII9022_IRQ_HPE)
 			htplg_ev = true;
-		if (stat & 2)
+		if (stat & SII9022_IRQ_RXSENSE)
 			rxsense_ev = true;
 
-		regmap_write(ddata->regmap, SII9022_IRQ_STATUS_REG, 0x3);
+		regmap_write(ddata->regmap, SII9022_IRQ_STATUS_REG,
+			     SII9022_IRQ_HPE | SII9022_IRQ_RXSENSE);
 	}
 
-	htplg = stat & (1 << 2);
-	rxsense = stat & (1 << 3);
+	htplg = stat & SII9022_IRQ_HP_STATE;
+	rxsense = stat & SII9022_IRQ_RXSENSE_STATE;
 
 	if (ddata->htplg_state != htplg || htplg_ev) {
 		dev_dbg(dev, "hotplug %sconnect\n", htplg ? "" : "dis");
@@ -509,7 +510,8 @@ static int sii9022_connect(struct omap_dss_device *dssdev,
 
 	sii9022_handle_hpd(ddata);
 
-	regmap_write(ddata->regmap, SII9022_IRQ_ENABLE_REG, 0x3);
+	regmap_write(ddata->regmap, SII9022_IRQ_ENABLE_REG,
+		     SII9022_IRQ_HPE | SII9022_IRQ_RXSENSE);
 
 	if (ddata->use_polling) {
 		INIT_DELAYED_WORK(&ddata->work, sii9022_poll);
