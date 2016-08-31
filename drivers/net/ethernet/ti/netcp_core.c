@@ -71,6 +71,7 @@ struct netcp_device {
 	struct list_head	interface_head;
 	struct list_head	modpriv_head;
 	struct device		*device;
+	struct notifier_block	nb;
 };
 
 struct netcp_inst_modpriv {
@@ -1076,12 +1077,8 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
 	list_for_each_entry(tx_hook, &netcp->txhook_list_head, list) {
 		ret = tx_hook->hook_rtn(tx_hook->order, tx_hook->hook_data,
 					&p_info);
-		if (unlikely(ret != 0)) {
-			dev_err(netcp->ndev_dev, "TX hook %d rejected the packet with reason(%d)\n",
-				tx_hook->order, ret);
-			ret = (ret < 0) ? ret : NETDEV_TX_OK;
+		if (unlikely(ret != 0))
 			goto out;
-		}
 	}
 
 	/* Make sure some TX hook claimed the packet */
@@ -1169,8 +1166,10 @@ static int netcp_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	}
 
 	ret = netcp_tx_submit_skb(netcp, skb, desc);
-	if (ret)
+	if (ret) {
+		ret = (ret < 0) ? ret : NETDEV_TX_OK;
 		goto drop;
+	}
 
 	ndev->trans_start = jiffies;
 
@@ -1183,7 +1182,8 @@ static int netcp_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	return NETDEV_TX_OK;
 
 drop:
-	tx_stats->tx_dropped++;
+	if (ret != NETDEV_TX_OK)
+		tx_stats->tx_dropped++;
 	if (desc)
 		netcp_free_tx_desc_chain(netcp, desc, sizeof(*desc));
 	dev_kfree_skb(skb);
@@ -2015,6 +2015,34 @@ static void netcp_delete_interface(struct netcp_device *netcp_device,
 	free_netdev(ndev);
 }
 
+static int netcp_netdevice_event(struct notifier_block *unused,
+				 unsigned long event, void *ptr)
+{
+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+	struct netdev_notifier_changeupper_info *info;
+	struct netcp_intf *netcp = netdev_priv(dev);
+	struct net_device *upper_dev;
+	int ret = NOTIFY_DONE;
+
+	if (dev->netdev_ops != &netcp_netdev_ops)
+		return ret;
+
+	switch (event) {
+	case NETDEV_CHANGEUPPER:
+		info = ptr;
+		upper_dev = info->upper_dev;
+		if (info->master &&
+		    netif_is_bridge_master(upper_dev)) {
+			if (info->linking)
+				netcp->bridged = true;
+			else
+				netcp->bridged = false;
+		}
+		break;
+	}
+	return ret;
+}
+
 static int netcp_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -2081,6 +2109,11 @@ static int netcp_probe(struct platform_device *pdev)
 			dev_err(dev, "module(%s) probe failed\n", module->name);
 	}
 	mutex_unlock(&netcp_modules_lock);
+	netcp_device->nb.notifier_call = netcp_netdevice_event;
+	if (register_netdevice_notifier(&netcp_device->nb)) {
+		netcp_device->nb.notifier_call = NULL;
+		dev_err(dev, "Failed to create notifier\n");
+	}
 	return 0;
 
 probe_quit_interface:
@@ -2123,6 +2156,8 @@ static int netcp_remove(struct platform_device *pdev)
 	WARN(!list_empty(&netcp_device->interface_head),
 	     "%s interface list not empty!\n", pdev->name);
 
+	if (netcp_device->nb.notifier_call)
+		unregister_netdevice_notifier(&netcp_device->nb);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);

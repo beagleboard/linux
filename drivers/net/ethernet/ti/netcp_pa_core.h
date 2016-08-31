@@ -136,11 +136,20 @@ struct pa_hw {
 
 struct pa_core_device {
 	bool disable_hw_tstamp;
+	/* mask to be used to extract valid mark bit for checking */
+	u32 mask;
+	/* match pattern to use for comparison to mark value  */
+	u32 match;
+	/* bool to enable/disable special filtering based on above
+	 * mask, match values
+	 */
+	bool enable_mcast_filter;
 	struct pa_timestamp_info timestamp_info;
 	struct netcp_tx_pipe tx_pipe;
 	struct netcp_device *netcp_device;
 	struct device *dev;
 	struct clk *clk;
+	struct device_attribute mcast_filter_attr;
 
 	/* rx side */
 	void *rx_cmd_rsp_chan;
