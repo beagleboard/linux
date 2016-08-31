@@ -170,6 +170,10 @@ struct panel_drv_data {
 	struct sii9022_audio *audio;
 	struct mutex lock;
 
+	void (*hpd_cb)(void *cb_data, enum drm_connector_status status);
+	void *hpd_cb_data;
+	struct mutex hpd_lock;
+
 	int irq;
 	bool use_polling;
 

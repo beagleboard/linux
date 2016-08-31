@@ -449,6 +449,7 @@ static irqreturn_t sii9022_irq_handler(int irq, void *arg)
 	struct panel_drv_data *ddata = arg;
 	struct device *dev = &ddata->i2c_client->dev;
 	unsigned int stat;
+	bool hpd_changed = false;
 	int r;
 
 	mutex_lock(&ddata->lock);
@@ -456,6 +457,7 @@ static irqreturn_t sii9022_irq_handler(int irq, void *arg)
 	r = regmap_read(ddata->regmap, SII9022_IRQ_STATUS_REG, &stat);
 
 	if (stat & SII9022_IRQ_HPE) {
+		hpd_changed = true;
 		ddata->htplg_state = !!(stat & SII9022_IRQ_HP_STATE);
 		dev_dbg(dev, "hotplug %sconnect\n",
 			ddata->htplg_state ? "" : "dis");
@@ -476,6 +478,19 @@ static irqreturn_t sii9022_irq_handler(int irq, void *arg)
 	regmap_write(ddata->regmap, SII9022_IRQ_STATUS_REG, stat);
 
 	mutex_unlock(&ddata->lock);
+
+	mutex_lock(&ddata->hpd_lock);
+	if (ddata->hpd_cb && hpd_changed) {
+		enum drm_connector_status status;
+
+		if (ddata->htplg_state)
+			status = connector_status_connected;
+		else
+			status = connector_status_disconnected;
+
+		ddata->hpd_cb(ddata->hpd_cb_data, status);
+	}
+	mutex_unlock(&ddata->hpd_lock);
 
 	return IRQ_HANDLED;
 }
@@ -802,6 +817,29 @@ static bool sii9022_detect(struct omap_dss_device *dssdev)
 	return hpd;
 }
 
+static int sii9022_enable_hpd(struct omap_dss_device *dssdev,
+			   void (*cb)(void *cb_data,
+				      enum drm_connector_status status),
+			   void *cb_data)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+	if (!ddata->use_polling) {
+		mutex_lock(&ddata->hpd_lock);
+		ddata->hpd_cb = cb;
+		ddata->hpd_cb_data = cb_data;
+		mutex_unlock(&ddata->hpd_lock);
+		return 0;
+	}
+
+	return -ENOTSUPP;
+}
+
+static void sii9022_disable_hpd(struct omap_dss_device *dssdev)
+{
+	sii9022_enable_hpd(dssdev, NULL, NULL);
+}
+
 static int sii9022_set_infoframe(struct omap_dss_device *dssdev,
 	const struct hdmi_avi_infoframe *infoframe)
 {
@@ -835,6 +873,8 @@ static const struct omapdss_hdmi_ops sii9022_hdmi_ops = {
 
 	.read_edid		= sii9022_read_edid,
 	.detect			= sii9022_detect,
+	.enable_hpd		= sii9022_enable_hpd,
+	.disable_hpd		= sii9022_disable_hpd,
 	.set_hdmi_mode		= sii9022_set_hdmi_mode,
 	.set_infoframe		= sii9022_set_infoframe,
 };
@@ -891,6 +931,7 @@ static int sii9022_probe(struct i2c_client *client,
 	dev_set_drvdata(&client->dev, ddata);
 
 	mutex_init(&ddata->lock);
+	mutex_init(&ddata->hpd_lock);
 
 	if (client->dev.of_node) {
 		r = sii9022_probe_of(client);
