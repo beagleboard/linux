@@ -527,7 +527,7 @@ static const struct cpsw_stats cpsw_gstrings_stats[] = {
 		if (priv->data.dual_emac) {				\
 			struct cpsw_slave *slave = priv->slaves +	\
 						priv->emac_port;	\
-			int slave_port = cpsw_get_slave_port(priv,	\
+			int slave_port = cpsw_get_slave_port(		\
 						slave->slave_num);	\
 			cpsw_ale_add_mcast(priv->ale, addr,		\
 				1 << slave_port | ALE_PORT_HOST,	\
@@ -539,7 +539,7 @@ static const struct cpsw_stats cpsw_gstrings_stats[] = {
 		}							\
 	} while (0)
 
-static inline int cpsw_get_slave_port(struct cpsw_priv *priv, u32 slave_num)
+static inline int cpsw_get_slave_port(u32 slave_num)
 {
 	return slave_num + 1;
 }
@@ -850,7 +850,7 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
 	if (!phy)
 		return;
 
-	slave_port = cpsw_get_slave_port(priv, slave->slave_num);
+	slave_port = cpsw_get_slave_port(slave->slave_num);
 
 	if (phy->link) {
 		mac_control = priv->data.mac_control;
@@ -1122,7 +1122,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
 
 	slave->mac_control = 0;	/* no link yet */
 
-	slave_port = cpsw_get_slave_port(priv, slave->slave_num);
+	slave_port = cpsw_get_slave_port(slave->slave_num);
 	priv->port_state[slave_port] = ALE_PORT_STATE_FORWARD;
 
 	if (priv->data.dual_emac)
@@ -1226,7 +1226,7 @@ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
 {
 	u32 slave_port;
 
-	slave_port = cpsw_get_slave_port(priv, slave->slave_num);
+	slave_port = cpsw_get_slave_port(slave->slave_num);
 
 	if (!slave->phy)
 		return;
