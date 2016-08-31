@@ -259,6 +259,14 @@ static void *pru_i_da_to_va(struct pru_rproc *pru, u32 da, int len)
 	u32 offset;
 	void *va = NULL;
 
+	/* GNU binutils do not support multiple address spaces. The
+	 * default linker script from the unofficial GNU pru-ld places
+	 * IRAM at an arbitrary high offset, in order to differentiate it
+	 * from DRAM. Hence we need to strip the artificial offset
+	 * from the IRAM address.
+	 */
+	da &= ~0xf0000000u;
+
 	if (len <= 0)
 		return NULL;
 
