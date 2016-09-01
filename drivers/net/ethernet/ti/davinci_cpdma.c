@@ -131,10 +131,10 @@ struct cpdma_chan {
 
 /* various accessors */
 #define dma_reg_read(ctlr, ofs)		__raw_readl((ctlr)->dmaregs + (ofs))
-#define chan_read(chan, fld)		__raw_readl((chan)->fld)
+#define chan_read(chan, fld)		readl((chan)->fld)
 #define desc_read(desc, fld)		__raw_readl(&(desc)->fld)
 #define dma_reg_write(ctlr, ofs, v)	__raw_writel(v, (ctlr)->dmaregs + (ofs))
-#define chan_write(chan, fld, v)	__raw_writel(v, (chan)->fld)
+#define chan_write(chan, fld, v)	writel(v, (chan)->fld)
 #define desc_write(desc, fld, v)	__raw_writel((u32)(v), &(desc)->fld)
 
 #define cpdma_desc_to_port(chan, mode, directed)			\
@@ -699,6 +699,7 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
 	desc_write(desc, sw_token,  token);
 	desc_write(desc, sw_buffer, buffer);
 	desc_write(desc, sw_len,    len);
+	desc_read(desc, sw_len);
 
 	__cpdma_chan_submit(chan, desc);
 
