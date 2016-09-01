@@ -25,7 +25,6 @@ Required properties:
 
 Optional properties:
 - ti,hwmods		: Must be "cpgmac0"
-- no_bd_ram		: Must be 0 or 1
 - dual_emac		: Specifies Switch to act as Dual EMAC
 - syscon		: Phandle to the system control device node, which is
 			  the control module device of the am33x
