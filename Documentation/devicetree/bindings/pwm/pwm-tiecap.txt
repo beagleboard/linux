@@ -5,7 +5,7 @@ Required properties:
   for am33xx - compatible = "ti,am3352-ecap", "ti,am33xx-ecap";
   for am4372 - compatible = "ti,am4372-ecap", "ti,am3352-ecap", "ti,am33xx-ecap";
   for da850  - compatible = "ti,da850-ecap", "ti,am3352-ecap", "ti,am33xx-ecap";
-  for dra746 - compatible = "ti,dra746-ecap", "ti,am3352-ecap";
+  for dra746 - compatible = "ti,dra746-ecap", "ti,am3352-ecap", "ti,am33xx-ecap";
 - #pwm-cells: should be 3. See pwm.txt in this directory for a description of
   the cells format. The PWM channel index ranges from 0 to 4. The only third
   cell flag supported by this binding is PWM_POLARITY_INVERTED.
@@ -29,7 +29,6 @@ ecap0: ecap@48300100 { /* ECAP on am4372 */
 	compatible = "ti,am4372-ecap", "ti,am3352-ecap", "ti,am33xx-ecap";
 	#pwm-cells = <3>;
 	reg = <0x48300100 0x80>;
-	ti,hwmods = "ecap0";
 	clocks = <&l4ls_gclk>;
 	clock-names = "fck";
 };
@@ -40,7 +39,7 @@ ecap0: ecap@1f06000 { /* ECAP on da850 */
 	reg = <0x1f06000 0x80>;
 };
 
-ecap0: ecap@4843e100 {
+ecap0: ecap@4843e100 { /* ECAP on dra746 */
 	compatible = "ti,dra746-ecap", "ti,am3352-ecap";
 	#pwm-cells = <3>;
 	reg = <0x4843e100 0x80>;
