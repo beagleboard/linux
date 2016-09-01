@@ -163,33 +163,53 @@ gbe_subsys: subsys@2090000 {
 
 gbe_serdes: phy@232a000 {
 	status			= "disabled";
-	#phy-cells		= <0>;
 	compatible		= "ti,keystone-serdes-gbe";
 	reg			= <0x0232a000 0x2000>;
 	link-rate-kbps		= <1250000>;
 	num-lanes		= <4>;
 	/*rx-force-enable;*/
-	lanes {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		lane@0 {
-			/*loopback;*/
-			reg		= <0>;
-			control-rate	= <2>; /* quart */
-			rx-start	= <7 5>;
-			rx-force	= <1 1>;
-			tx-coeff	= <0 0 0 12 4>;
-			       /* c1 c2 cm att vreg */
-		};
-		lane@1 {
-			/*loopback;*/
-			reg		= <1>;
-			control-rate	= <2>; /* quart */
-			rx-start	= <7 5>;
-			rx-force	= <1 1>;
-			tx-coeff	= <0 0 0 12 4>;
-			       /* c1 c2 cm att vreg */
-		};
+	#address-cells	= <1>;
+	#size-cells	= <0>;
+
+	serdes_lane0: lane@0 {
+		status		= "ok";
+		/*loopback;*/
+		#phy-cells	= <0>;
+		reg		= <0>;
+		control-rate	= <2>; /* quart */
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>; /* c1 c2 cm att vreg */
+	};
+	serdes_lane1: lane@1 {
+		status		= "ok";
+		/*loopback;*/
+		#phy-cells	= <0>;
+		reg		= <1>;
+		control-rate	= <2>; /* quart */
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>; /* c1 c2 cm att vreg */
+	};
+	serdes_lane2: lane@2 {
+		status		= "disabled";
+		/*loopback;*/
+		#phy-cells	= <0>;
+		reg		= <2>;
+		control-rate	= <2>; /* quart */
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>; /* c1 c2 cm att vreg */
+	};
+	serdes_lane3: lane@3 {
+		status		= "disabled";
+		/*loopback;*/
+		#phy-cells	= <0>;
+		reg		= <3>;
+		control-rate	= <2>; /* quart */
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>; /* c1 c2 cm att vreg */
 	};
 };
 
@@ -244,15 +264,16 @@ netcp: netcp@2000000 {
 			/* enable-ale; */
 			tx-queue = <648>;
 			tx-channel = "nettx";
-			phys = <&gbe_serdes>;
 
 			interfaces {
 				gbe0: interface-0 {
+					phys = <&serdes_lane0>;
 					slave-port = <0>;
 					link-interface = <1>;
 					phy-handle = <&ethphy0>;
 				};
 				gbe1: interface-1 {
+					phys = <&serdes_lane1>;
 					slave-port = <1>;
 					link-interface = <1>;
 					phy-handle = <&ethphy1>;
@@ -261,10 +282,12 @@ netcp: netcp@2000000 {
 
 			secondary-slave-ports {
 				port-2 {
+					phys = <&serdes_lane2>;
 					slave-port = <2>;
 					link-interface	= <2>;
 				};
 				port-3 {
+					phys = <&serdes_lane3>;
 					slave-port = <3>;
 					link-interface	= <2>;
 				};
@@ -384,7 +407,6 @@ xgbe_pcsr: pcsr@2f00600 {
 
 xgbe_serdes: phy@231e000 {
 	status			= "disabled";
-	#phy-cells		= <0>;
 	compatible		= "ti,keystone-serdes-xgbe";
 	reg			= <0x0231e000 0x2000>;
 	link-rate-kbps		= <10312500>;
@@ -392,27 +414,28 @@ xgbe_serdes: phy@231e000 {
 	syscon-peripheral	= <&xgbe_subsys>;
 	syscon-link		= <&xgbe_pcsr>;
 	/*rx-force-enable;*/
-	lanes {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		lane@0 {
-			/*loopback;*/
-			reg		= <0>;
-			control-rate	= <0>; /* full */
-			rx-start	= <7 5>;
-			rx-force	= <1 1>;
-			tx-coeff	= <2 0 0 12 4>;
-				/* c1 c2 cm att vreg */
-		};
-		lane@1 {
-			/*loopback;*/
-			reg		= <1>;
-			control-rate	= <0>; /* full */
-			rx-start	= <7 5>;
-			rx-force	= <1 1>;
-			tx-coeff	= <2 0 0 12 4>;
-				/* c1 c2 cm att vreg */
-		};
+	#address-cells	= <1>;
+	#size-cells	= <0>;
+
+	xserdes_lane0: lane@0 {
+		status		= "ok";
+		/*loopback;*/
+		#phy-cells	= <0>;
+		reg		= <0>;
+		control-rate	= <0>; /* full */
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <2 0 0 12 4>; /* c1 c2 cm att vreg */
+	};
+	xserdes_lane1: lane@1 {
+		status		= "ok";
+		/*loopback;*/
+		#phy-cells	= <0>;
+		reg		= <1>;
+		control-rate	= <0>; /* full */
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <2 0 0 12 4>; /* c1 c2 cm att vreg */
 	};
 };
 
@@ -446,14 +469,15 @@ netcpx: netcp@2f00000 {
 			/* enable-ale; */
 			tx-queue = <8752>;
 			tx-channel = "xnettx";
-			phys = <&xgbe_serdes>;
 
 			interfaces {
 				xgbe0: interface-0 {
+					phys = <&xserdes_lane0>;
 					slave-port = <0>;
 					link-interface	= <11>; /* MAC_MAC */
 				};
 				xgbe1: interface-1 {
+					phys = <&xserdes_lane1>;
 					slave-port = <1>;
 					link-interface	= <11>;
 				};

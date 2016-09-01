@@ -27,6 +27,8 @@
 
 /* Maximum Ethernet frame size supported by Keystone switch */
 #define NETCP_MAX_FRAME_SIZE		9504
+/* to indicate netcp core should drop the packet */
+#define NETCP_TX_DROP			1
 
 #define SGMII_LINK_MAC_MAC_AUTONEG	0
 #define SGMII_LINK_MAC_PHY		1
@@ -91,6 +93,7 @@ struct netcp_intf {
 	struct device		*ndev_dev;
 	struct net_device	*ndev;
 	bool			big_endian;
+	bool			bridged;
 	unsigned int		tx_compl_qid;
 	void			*tx_pool;
 	struct list_head	txhook_list_head;
