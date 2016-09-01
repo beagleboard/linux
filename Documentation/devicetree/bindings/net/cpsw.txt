@@ -35,6 +35,11 @@ Optional properties:
 			  For example in dra72x-evm, pcf gpio has to be
 			  driven low so that cpsw slave 0 and phy data
 			  lines are connected via mux.
+- descs_pool_size	: total number of CPDMA CPPI descriptors to be used for
+			  both ingress/egress packets processing. if not
+			  specified the default value 256 will be used which
+			  will allow to place descriptors pool into the
+			  internal CPPI RAM.
 
 
 Slave Properties:
