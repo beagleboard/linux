@@ -1119,7 +1119,7 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 			handle_parser_irqs(dev);
 		}
 
-		for (list_num = 0; list_num < 8;  list_num++) {
+		for (list_num = 0; irqst && (list_num < 8);  list_num++) {
 			/* Check for LIST_COMPLETE IRQ */
 			if (!(irqst & (1 << list_num * 2)))
 				continue;
