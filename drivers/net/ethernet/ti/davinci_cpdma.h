@@ -43,6 +43,7 @@ struct cpdma_params {
 	u32			desc_hw_addr;
 	int			desc_mem_size;
 	int			desc_align;
+	u32			descs_pool_size;
 
 	/*
 	 * Some instances of embedded cpdma controllers have extra control and
