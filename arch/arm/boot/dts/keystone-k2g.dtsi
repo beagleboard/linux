@@ -871,7 +871,6 @@
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <1>;
-			phys = <&pcie0_phy>;
 			dma-coherent;
 
 			/* error interrupt */
@@ -912,6 +911,26 @@
 			compatible = "ti,keystone-ddr3-mc-edac";
 			reg = <0x21010000 0x200>;
 			interrupts = <GIC_SPI 123 IRQ_TYPE_EDGE_RISING>;
+			status = "disabled";
+		};
+
+		ecap0: ecap@21d1800 {
+			compatible = "ti,k2g-ecap", "ti,am3352-ecap";
+			#pwm-cells = <3>;
+			reg = <0x021d1800 0x60>;
+			power-domains = <&k2g_pds K2G_DEV_ECAP0>;
+			clocks = <&k2g_clks K2G_DEV_ECAP0 K2G_DEV_ECAP_VBUS_CLK>;
+			clock-names = "fck";
+			status = "disabled";
+		};
+
+		ecap1: ecap@21d1c00 {
+			compatible = "ti,k2g-ecap", "ti,am3352-ecap";
+			#pwm-cells = <3>;
+			reg = <0x021d1c00 0x60>;
+			power-domains = <&k2g_pds K2G_DEV_ECAP1>;
+			clocks = <&k2g_clks K2G_DEV_ECAP1 K2G_DEV_ECAP_VBUS_CLK>;
+			clock-names = "fck";
 			status = "disabled";
 		};
 	};

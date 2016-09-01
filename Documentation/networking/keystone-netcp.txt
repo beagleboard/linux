@@ -1,0 +1,60 @@
+Linux Driver for Keystone NetCP Ethernet Network Connection
+===========================================================
+
+Keystone netcp driver files are located at drivers/net/ethernet/ti/netcp*
+
+sysfs entry to configure special packet handling
+================================================
+mcast_filter
+------------
+This is a hack solution to implement special packet processing
+for specific marked packets. The intended use is:
+
+      1. Ethernet interfaces are part of a bridge
+      2. The switch is enabled (by default it is not) through sysfs command
+      3. ALE is enabled through sysfs command
+      4. Bridge forwarding is disabled  Bridge forwarding disabled via
+         "ebtables -P FORWARD DROP
+
+In this rather odd situation, the bridge will transmit multicast packets
+(and broadcast) by sending one on each of the slaved interfaces.
+This results in multiple packets through QoS, which is considered "bad".
+To avoid this, multicast/broadcast packets can be marked via ebtables for
+special processing in the NetCP PA module before the packets are queued
+for transmission. Packets thus recognized are NOT marked for egress via a
+specific slave port, and thus will be transmitted through all slave ports
+by the ALE in NetCP switch.
+
+As part of the pa tx hook in netcp driver, it checks if the interface is
+bridged. If true, it checks if special processing is needed by looking
+at the skb->mark field, it bitwise-ANDs the skb->mark value with the
+"mask" value and then compares the result with the "match" value. If
+these do not match, the mark is ignored and the packet is processed
+normally.
+
+However, if the "match" value matches, then the low-order 8 bits of the
+skb->mark field is used as a bitmask to determine whether the packet
+should be dropped. If the packet would normally have been directed to
+slave port 1, then bit 0 of skb->mark is checked; slave port 2 checks
+bit 1, etc. If the bit is set, then the packet is enqueued; If the bit
+is NOT set, the packet is silently dropped.
+
+   An example...
+
+     User enter
+       echo "12345600 ffffff00" >
+       /sys/devices/platform/soc/2620110.netcp/mcast_filter
+
+  The runtime configuration scripts execute this command:
+
+     ebtables -A OUTPUT -d Multicast -j mark \
+                    --mark-set 0x12345601 --mark-target ACCEPT
+
+When the bridge attempts to send multicast packet, it will send
+one packet to each of the slave interfaces. The packet sent by the bridge
+to slave interface eth0 (ethss slave port 1) will be passed to the NetCP
+switch, and the ALE will send this packet on all slave ports. The packets
+sent by the bridge to other slave interfaces (eth1, NetCP switch slave
+port 2) will be silently dropped.
+
+NOTE: This works only when PA is used in the netcp data path
