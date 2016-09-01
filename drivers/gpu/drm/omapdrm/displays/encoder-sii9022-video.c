@@ -421,43 +421,59 @@ static int sii9022_hw_disable(struct omap_dss_device *dssdev)
 	return 0;
 }
 
-static void sii9022_handle_hpd(struct panel_drv_data *ddata)
+static void sii9022_read_connection_state(struct panel_drv_data *ddata)
 {
 	struct device *dev = &ddata->i2c_client->dev;
 	unsigned int stat;
 	int r;
 	bool htplg, rxsense;
-	bool htplg_ev, rxsense_ev;
 
 	r = regmap_read(ddata->regmap, SII9022_IRQ_STATUS_REG, &stat);
-
-	htplg_ev = !!(stat & SII9022_IRQ_HPE);
-	rxsense_ev = !!(stat & SII9022_IRQ_RXSENSE);
 
 	htplg = !!(stat & SII9022_IRQ_HP_STATE);
 	rxsense = !!(stat & SII9022_IRQ_RXSENSE_STATE);
 
-	if (ddata->htplg_state != htplg || htplg_ev) {
+	if (ddata->htplg_state != htplg) {
 		dev_dbg(dev, "hotplug %sconnect\n", htplg ? "" : "dis");
 		ddata->htplg_state = htplg;
 	}
 
-	if (ddata->rxsense_state != rxsense || rxsense_ev) {
+	if (ddata->rxsense_state != rxsense) {
 		dev_dbg(dev, "rxsense %sconnect\n", rxsense ? "" : "dis");
 		ddata->rxsense_state = rxsense;
 	}
-
-	/* Clear interrupts */
-	regmap_write(ddata->regmap, SII9022_IRQ_STATUS_REG, stat);
 }
 
 static irqreturn_t sii9022_irq_handler(int irq, void *arg)
 {
 	struct panel_drv_data *ddata = arg;
+	struct device *dev = &ddata->i2c_client->dev;
+	unsigned int stat;
+	int r;
 
 	mutex_lock(&ddata->lock);
 
-	sii9022_handle_hpd(ddata);
+	r = regmap_read(ddata->regmap, SII9022_IRQ_STATUS_REG, &stat);
+
+	if (stat & SII9022_IRQ_HPE) {
+		ddata->htplg_state = !!(stat & SII9022_IRQ_HP_STATE);
+		dev_dbg(dev, "hotplug %sconnect\n",
+			ddata->htplg_state ? "" : "dis");
+	}
+	if (stat & SII9022_IRQ_RXSENSE) {
+		ddata->rxsense_state = !!(stat & SII9022_IRQ_RXSENSE_STATE);
+		dev_dbg(dev, "rxsense %sconnect\n",
+			ddata->rxsense_state ? "" : "dis");
+	}
+	if (stat & SII9022_IRQ_AUDIO_ERROR)
+		dev_dbg(dev, "Audio Error Event\n");
+	if (stat & SII9022_IRQ_SEC_STATUS_CHANGE)
+		dev_dbg(dev, "Security Status Change\n");
+	if (stat & SII9022_IRQ_HDCP_AUTH_CHANGE)
+		dev_dbg(dev, "HDCP Authentication Status Change\n");
+
+	/* Clear interrupts */
+	regmap_write(ddata->regmap, SII9022_IRQ_STATUS_REG, stat);
 
 	mutex_unlock(&ddata->lock);
 
@@ -472,7 +488,7 @@ static void sii9022_poll(struct work_struct *work)
 
 	mutex_lock(&ddata->lock);
 
-	sii9022_handle_hpd(ddata);
+	sii9022_read_connection_state(ddata);
 
 	mutex_unlock(&ddata->lock);
 
@@ -503,12 +519,16 @@ static int sii9022_connect(struct omap_dss_device *dssdev,
 	ddata->htplg_state = ddata->rxsense_state = false;
 
 	/* Read initial HPD and RXsense status */
-	sii9022_handle_hpd(ddata);
+	sii9022_read_connection_state(ddata);
 
 	if (ddata->use_polling) {
 		INIT_DELAYED_WORK(&ddata->work, sii9022_poll);
 		schedule_delayed_work(&ddata->work, msecs_to_jiffies(250));
 	} else {
+		/* Clear interrupts */
+		regmap_write(ddata->regmap, SII9022_IRQ_STATUS_REG,
+			     SII9022_IRQ_MASK);
+
 		r = devm_request_threaded_irq(dev, ddata->irq,
 			NULL, sii9022_irq_handler,
 			IRQF_TRIGGER_LOW | IRQF_ONESHOT,
@@ -728,7 +748,7 @@ static int sii9022_read_edid(struct omap_dss_device *dssdev,
 	mutex_lock(&ddata->lock);
 
 	if (ddata->use_polling)
-		sii9022_handle_hpd(ddata);
+		sii9022_read_connection_state(ddata);
 
 	if (ddata->htplg_state == false) {
 		r = -ENODEV;
@@ -773,7 +793,7 @@ static bool sii9022_detect(struct omap_dss_device *dssdev)
 	mutex_lock(&ddata->lock);
 
 	if (ddata->use_polling)
-		sii9022_handle_hpd(ddata);
+		sii9022_read_connection_state(ddata);
 
 	hpd = ddata->htplg_state;
 
