@@ -39,6 +39,8 @@
 #include <crypto/internal/aead.h>
 #include "omap-aes.h"
 
+#define DEFAULT_AUTOSUSPEND_DELAY	1000
+
 /* keep registered devices data here */
 static LIST_HEAD(dev_list);
 static DEFINE_SPINLOCK(list_lock);
@@ -96,9 +98,17 @@ static void omap_aes_write_n(struct omap_aes_dev *dd, u32 offset,
 
 static int omap_aes_hw_init(struct omap_aes_dev *dd)
 {
+	int err;
+
 	if (!(dd->flags & FLAGS_INIT)) {
 		dd->flags |= FLAGS_INIT;
 		dd->err = 0;
+	}
+
+	err = pm_runtime_get_sync(dd->dev);
+	if (err < 0) {
+		dev_err(dd->dev, "failed to get sync: %d\n", err);
+		return err;
 	}
 
 	return 0;
@@ -388,6 +398,9 @@ static void omap_aes_finish_req(struct omap_aes_dev *dd, int err)
 	dd->flags &= ~FLAGS_BUSY;
 
 	req->base.complete(&req->base, err);
+
+	pm_runtime_mark_last_busy(dd->dev);
+	pm_runtime_put_autosuspend(dd->dev);
 }
 
 int omap_aes_crypt_dma_stop(struct omap_aes_dev *dd)
@@ -664,22 +677,10 @@ static int omap_aes_ctr_decrypt(struct ablkcipher_request *req)
 
 static int omap_aes_cra_init(struct crypto_tfm *tfm)
 {
-	struct omap_aes_dev *dd = NULL;
-	int err;
 	const char *name = crypto_tfm_alg_name(tfm);
 	const u32 flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK;
 	struct omap_aes_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct crypto_ablkcipher *blk;
-
-
-	list_for_each_entry(dd, &dev_list, list) {
-		err = pm_runtime_get_sync(dd->dev);
-		if (err < 0) {
-			dev_err(dd->dev, "%s: failed to get_sync(%d)\n",
-				__func__, err);
-			return err;
-		}
-	}
 
 	blk = crypto_alloc_ablkcipher(name, 0, flags);
 	if (IS_ERR(blk))
@@ -694,18 +695,7 @@ static int omap_aes_cra_init(struct crypto_tfm *tfm)
 
 static int omap_aes_gcm_cra_init(struct crypto_aead *tfm)
 {
-	struct omap_aes_dev *dd = NULL;
 	struct omap_aes_ctx *ctx = crypto_aead_ctx(tfm);
-	int err;
-
-	list_for_each_entry(dd, &dev_list, list) {
-		err = pm_runtime_get_sync(dd->dev);
-		if (err < 0) {
-			dev_err(dd->dev, "%s: failed to get_sync(%d)\n",
-				__func__, err);
-			return err;
-		}
-	}
 
 	tfm->reqsize = sizeof(struct omap_aes_reqctx);
 	ctx->ctr = crypto_alloc_skcipher("ecb(aes)", 0, 0);
@@ -719,12 +709,7 @@ static int omap_aes_gcm_cra_init(struct crypto_aead *tfm)
 
 static void omap_aes_cra_exit(struct crypto_tfm *tfm)
 {
-	struct omap_aes_dev *dd = NULL;
 	struct omap_aes_ctx *ctx = crypto_tfm_ctx(tfm);
-
-	list_for_each_entry(dd, &dev_list, list) {
-		pm_runtime_put_sync(dd->dev);
-	}
 
 	if (ctx->fallback)
 		crypto_free_ablkcipher(ctx->fallback);
@@ -1219,6 +1204,9 @@ static int omap_aes_probe(struct platform_device *pdev)
 		goto err_res;
 	}
 	dd->phys_base = res.start;
+
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_set_autosuspend_delay(dev, DEFAULT_AUTOSUSPEND_DELAY);
 
 	pm_runtime_enable(dev);
 	err = pm_runtime_get_sync(dev);
