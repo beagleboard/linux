@@ -996,7 +996,7 @@ struct dispc_ops {
 	void (*ovl_set_channel_out)(enum omap_plane plane,
 			enum omap_channel channel);
 	int (*ovl_setup)(enum omap_plane plane, const struct omap_overlay_info *oi,
-			bool replication, const struct omap_video_timings *mgr_timings,
+			const struct omap_video_timings *mgr_timings,
 			bool mem_to_mem);
 
 	enum omap_color_mode (*ovl_get_color_modes)(enum omap_plane plane);
