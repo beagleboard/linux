@@ -1015,7 +1015,10 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 static void handle_parser_irqs(struct vip_dev *dev)
 {
 	struct vip_parser_data *parser = dev->parser;
+	struct vip_port *porta = dev->ports[VIP_PORTA];
+	struct vip_port *portb = dev->ports[VIP_PORTB];
 	u32 irq_stat = reg_read(parser, VIP_PARSER_FIQ_STATUS);
+	int i;
 
 	/* Clear all Parser Interrupt */
 	reg_write(parser, VIP_PARSER_FIQ_CLR, irq_stat);
@@ -1061,6 +1064,31 @@ static void handle_parser_irqs(struct vip_dev *dev)
 		vip_dbg(3, dev, "VIP_PORTA_CFG_DISABLE_COMPLETE\n");
 	if (irq_stat & VIP_PORTB_CFG_DISABLE_COMPLETE)
 		vip_dbg(3, dev, "VIP_PORTB_CFG_DISABLE_COMPLETE\n");
+
+	if (irq_stat & (VIP_PORTA_ASYNC_FIFO_OF |
+			VIP_PORTA_OUTPUT_FIFO_YUV |
+			VIP_PORTA_OUTPUT_FIFO_ANC)) {
+		for (i = 0; i < VIP_CAP_STREAMS_PER_PORT; i++)
+			if (porta->cap_streams[i] &&
+			    porta->cap_streams[i]->port->port_id ==
+			    porta->port_id) {
+				disable_irqs(dev, dev->slice_id,
+					     porta->cap_streams[i]->list_num);
+				return;
+			}
+	}
+	if (irq_stat & (VIP_PORTB_ASYNC_FIFO_OF |
+			VIP_PORTB_OUTPUT_FIFO_YUV |
+			VIP_PORTB_OUTPUT_FIFO_ANC)) {
+		for (i = 0; i < VIP_CAP_STREAMS_PER_PORT; i++)
+			if (portb->cap_streams[i] &&
+			    portb->cap_streams[i]->port->port_id ==
+			    portb->port_id) {
+				disable_irqs(dev, dev->slice_id,
+					     portb->cap_streams[i]->list_num);
+				return;
+			}
+	}
 }
 
 static irqreturn_t vip_irq(int irq_vip, void *data)
