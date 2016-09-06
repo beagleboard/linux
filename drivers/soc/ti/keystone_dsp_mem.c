@@ -28,11 +28,15 @@
  * struct keystone_dsp_mem - internal memory structure
  * @addr: physical address on the bus to access the memory region
  * @size: size of the memory region
+ * @kobj: kobject for the sysfs directory file
  */
 struct keystone_dsp_mem {
 	phys_addr_t addr;
 	resource_size_t size;
+	struct kobject kobj;
 };
+
+#define to_dsp_mem(obj) container_of(obj, struct keystone_dsp_mem, kobj)
 
 /**
  * struct keystone_dsp_mem_info - Keystone DSP Memory device structure
@@ -49,6 +53,95 @@ struct keystone_dsp_mem_info {
 };
 
 #define to_dsp_mem_info(m) container_of(m, struct keystone_dsp_mem_info, misc)
+
+static ssize_t mem_addr_show(struct keystone_dsp_mem *mem, char *buf)
+{
+	return sprintf(buf, "%pa\n", &mem->addr);
+}
+
+static ssize_t mem_size_show(struct keystone_dsp_mem *mem, char *buf)
+{
+	return sprintf(buf, "%pa\n", &mem->size);
+}
+
+struct mem_sysfs_entry {
+	struct attribute attr;
+	ssize_t (*show)(struct keystone_dsp_mem *, char *);
+	ssize_t (*store)(struct keystone_dsp_mem *, const char *, size_t);
+};
+
+static struct mem_sysfs_entry addr_attribute =
+	__ATTR(addr, S_IRUGO, mem_addr_show, NULL);
+static struct mem_sysfs_entry size_attribute =
+	__ATTR(size, S_IRUGO, mem_size_show, NULL);
+
+static struct attribute *attrs[] = {
+	&addr_attribute.attr,
+	&size_attribute.attr,
+	NULL,	/* sentinel */
+};
+
+static ssize_t mem_type_show(struct kobject *kobj, struct attribute *attr,
+			     char *buf)
+{
+	struct keystone_dsp_mem *mem = to_dsp_mem(kobj);
+	struct mem_sysfs_entry *entry;
+
+	entry = container_of(attr, struct mem_sysfs_entry, attr);
+	if (!entry->show)
+		return -EIO;
+
+	return entry->show(mem, buf);
+}
+
+static const struct sysfs_ops mem_sysfs_ops = {
+	.show = mem_type_show,
+};
+
+static struct kobj_type mem_attr_type = {
+	.sysfs_ops	= &mem_sysfs_ops,
+	.default_attrs	= attrs,
+};
+
+static int keystone_dsp_mem_add_attrs(struct keystone_dsp_mem_info *dsp_mem)
+{
+	int i, ret;
+	struct keystone_dsp_mem *mem;
+	struct kobject *kobj_parent = &dsp_mem->misc.this_device->kobj;
+
+	for (i = 0; i < dsp_mem->num_maps; i++) {
+		mem = &dsp_mem->mem[i];
+		kobject_init(&mem->kobj, &mem_attr_type);
+		ret = kobject_add(&mem->kobj, kobj_parent, "memory%d", i);
+		if (ret)
+			goto err_add_kobj;
+		ret = kobject_uevent(&mem->kobj, KOBJ_ADD);
+		if (ret)
+			goto err_event;
+	}
+
+	return 0;
+
+err_event:
+	i--;
+err_add_kobj:
+	for (; i >= 0; i--) {
+		mem = &dsp_mem->mem[i];
+		kobject_put(&mem->kobj);
+	}
+	return ret;
+}
+
+static void keystone_dsp_mem_del_attrs(struct keystone_dsp_mem_info *dsp_mem)
+{
+	int i;
+	struct keystone_dsp_mem *mem;
+
+	for (i = 0; i < dsp_mem->num_maps; i++) {
+		mem = &dsp_mem->mem[i];
+		kobject_put(&mem->kobj);
+	}
+}
 
 static int keystone_dsp_mem_check_addr(struct keystone_dsp_mem_info *dsp_mem,
 				       int mask, size_t size)
@@ -186,6 +279,13 @@ static int keystone_dsp_mem_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dsp_mem);
 
+	ret = keystone_dsp_mem_add_attrs(dsp_mem);
+	if (ret) {
+		dev_err(dsp_mem->dev, "error creating sysfs files (%d)\n", ret);
+		misc_deregister(&dsp_mem->misc);
+		return ret;
+	}
+
 	dev_info(dev, "registered misc device %s\n", name);
 
 	return 0;
@@ -194,6 +294,8 @@ static int keystone_dsp_mem_probe(struct platform_device *pdev)
 static int keystone_dsp_mem_remove(struct platform_device *pdev)
 {
 	struct keystone_dsp_mem_info *dsp_mem = platform_get_drvdata(pdev);
+
+	keystone_dsp_mem_del_attrs(dsp_mem);
 
 	misc_deregister(&dsp_mem->misc);
 
