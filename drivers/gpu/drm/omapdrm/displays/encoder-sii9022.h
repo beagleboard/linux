@@ -137,6 +137,20 @@
 #define TPI_I2S_SCK_EDGE_FALLING		(0 << 7)
 #define TPI_I2S_SCK_EDGE_RISING			(1 << 7)
 
+/* SII9022_IRQ_ENABLE_REG / SII9022_IRQ_STATUS_REG */
+#define SII9022_IRQ_HPE				(1 << 0)
+#define SII9022_IRQ_RXSENSE			(1 << 1)
+#define SII9022_IRQ_HP_STATE			(1 << 2)
+#define SII9022_IRQ_RXSENSE_STATE		(1 << 3)
+#define SII9022_IRQ_AUDIO_ERROR			(1 << 4)
+#define SII9022_IRQ_SEC_STATUS_CHANGE		(1 << 5)
+#define SII9022_IRQ_HDCP_AUTH_CHANGE		(1 << 7)
+#define SII9022_IRQ_MASK	(SII9022_IRQ_HPE | SII9022_IRQ_RXSENSE | \
+				 SII9022_IRQ_AUDIO_ERROR | \
+				 SII9022_IRQ_SEC_STATUS_CHANGE | \
+				 SII9022_IRQ_HDCP_AUTH_CHANGE)
+
+
 enum sii9022_power_state {
 	SII9022_POWER_STATE_D0,
 	SII9022_POWER_STATE_D2,
@@ -155,6 +169,10 @@ struct panel_drv_data {
 	struct delayed_work work;
 	struct sii9022_audio *audio;
 	struct mutex lock;
+
+	void (*hpd_cb)(void *cb_data, enum drm_connector_status status);
+	void *hpd_cb_data;
+	struct mutex hpd_lock;
 
 	int irq;
 	bool use_polling;

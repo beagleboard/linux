@@ -104,9 +104,9 @@
 
 		simple-audio-card,dai-link@0 {
 			format = "i2s";
-			bitclock-master = <&sound0_master>;
-			frame-master = <&sound0_master>;
-			sound0_master: cpu {
+			bitclock-master = <&sound0_0_master>;
+			frame-master = <&sound0_0_master>;
+			sound0_0_master: cpu {
 				sound-dai = <&mcasp2>;
 				clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK>;
 				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
@@ -120,9 +120,9 @@
 
 		simple-audio-card,dai-link@1 {
 			format = "i2s";
-			bitclock-master = <&sound1_master>;
-			frame-master = <&sound1_master>;
-			sound1_master: cpu {
+			bitclock-master = <&sound0_1_master>;
+			frame-master = <&sound0_1_master>;
+			sound0_1_master: cpu {
 				sound-dai = <&mcasp2>;
 				clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK>;
 				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;

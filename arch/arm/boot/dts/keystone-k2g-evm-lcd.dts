@@ -1,0 +1,103 @@
+#include "keystone-k2g-evm.dts"
+
+/ {
+	aliases {
+		display0 = &lcd0;
+		sound0 = &sound1;
+	};
+
+	lcd0: display {
+		compatible = "newhaven,nhd-4.3-480272ef-atxl", "panel-dpi";
+		label = "lcd";
+
+		panel-timing {
+			clock-frequency = <9000000>;
+			hactive = <480>;
+			vactive = <272>;
+			hfront-porch = <2>;
+			hback-porch = <2>;
+			hsync-len = <41>;
+			vfront-porch = <2>;
+			vback-porch = <2>;
+			vsync-len = <10>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+		};
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
+
+	sound1: sound@1 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "K2G-EVM-LCD";
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Line", "Line In";
+		simple-audio-card,routing =
+			"Headphone Jack",       "HPLOUT",
+			"Headphone Jack",       "HPROUT",
+			"LINE1L",               "Line In",
+			"LINE1R",               "Line In";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&sound1_master>;
+		simple-audio-card,frame-master = <&sound1_master>;
+
+		sound1_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp2>;
+			clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK>;
+			system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&tlv320aic3106>;
+			system-clock-frequency = <12288000>;
+		};
+	};
+};
+
+&i2c1 {
+	edt-ft5306@38 {
+		status = "okay";
+		compatible = "edt,edt-ft5306", "edt,edt-ft5x06";
+		reg = <0x38>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&edt_ft5306_ts_pins>;
+
+		interrupt-parent = <&gpio1>;
+		interrupts = <42 IRQ_TYPE_EDGE_FALLING>;
+
+		touchscreen-size-x = <480>;
+		touchscreen-size-y = <272>;
+	};
+};
+
+&k2g_pinctrl {
+	edt_ft5306_ts_pins: edt_ft5306_ts_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1364) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE3)	/* pr1_pru1_gpo16.gpio1_42 */
+		>;
+	};
+};
+
+&dpi_out {
+	remote-endpoint = <&lcd_in>;
+};
+
+&hdmi {
+	status = "disabled";
+};
+
+&sii9022 {
+	status = "disabled";
+};
+
+&sound0 {
+	status = "disabled";
+};
