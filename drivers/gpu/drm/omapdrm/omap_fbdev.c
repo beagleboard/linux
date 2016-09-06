@@ -280,7 +280,9 @@ struct drm_fb_helper *omap_fbdev_init(struct drm_device *dev)
 		goto fail;
 	}
 
-	ret = drm_fb_helper_single_add_all_connectors(helper);
+	drm_modeset_lock_all(dev);
+	ret = drm_fb_helper_add_one_connector(helper, priv->connectors[0]);
+	drm_modeset_unlock_all(dev);
 	if (ret)
 		goto fini;
 
