@@ -156,7 +156,6 @@ struct vip_dev {
 	spinlock_t		lock; /* used in videobuf2 callback */
 
 	int			irq;
-	int			num_skip_irq;
 	void __iomem		*base;
 
 	struct vb2_alloc_ctx	*alloc_ctx;

@@ -384,6 +384,7 @@ static void vip_enable_parser(struct vip_port *port, bool on);
 static void vip_reset_parser(struct vip_port *port, bool on);
 static void vip_parser_stop_imm(struct vip_port *port, bool on);
 static void stop_dma(struct vip_stream *stream, bool clear_list);
+static int vip_load_vpdma_list_fifo(struct vip_stream *stream);
 static inline bool is_scaler_available(struct vip_port *port);
 static inline bool allocate_scaler(struct vip_port *port);
 static inline void free_scaler(struct vip_port *port);
@@ -946,24 +947,12 @@ static void vip_schedule_next_buffer(struct vip_stream *stream)
 		buf->drop = true;
 		list_move_tail(&buf->list, &stream->post_bufs);
 		buf = NULL;
-	} else if (vb2_is_streaming(&stream->vb_vidq)) {
+	} else {
 		buf = list_entry(stream->vidq.next,
 				 struct vip_buffer, list);
 		buf->drop = false;
 		list_move_tail(&buf->list, &stream->post_bufs);
 		vip_dbg(4, dev, "added next buffer\n");
-	} else {
-		vip_err(dev, "IRQ occurred when not streaming\n");
-		if (list_empty(&stream->dropq)) {
-			vip_err(dev, "No dropq buffer left!");
-			spin_unlock_irqrestore(&dev->slock, flags);
-			return;
-		}
-		buf = list_entry(stream->dropq.next,
-				 struct vip_buffer, list);
-		buf->drop = true;
-		list_move_tail(&buf->list, &stream->post_bufs);
-		buf = NULL;
 	}
 
 	spin_unlock_irqrestore(&dev->slock, flags);
@@ -1139,12 +1128,10 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 
 			vpdma_clear_list_stat(vpdma, irq_num, list_num);
 
-			if (dev->num_skip_irq)
-				dev->num_skip_irq--;
-			else
-				vip_process_buffer_complete(stream);
+			vip_process_buffer_complete(stream);
 
 			vip_schedule_next_buffer(stream);
+
 			irqst &= ~((1 << list_num * 2));
 		}
 	}
@@ -2312,13 +2299,55 @@ static int vip_setup_scaler(struct vip_stream *stream)
 	return 0;
 }
 
+static int vip_load_vpdma_list_fifo(struct vip_stream *stream)
+{
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	struct vpdma_data *vpdma = dev->shared->vpdma;
+	int list_num = stream->list_num;
+	struct vip_buffer *buf;
+	unsigned long flags;
+	int timeout, i;
+
+	if (vpdma_list_busy(dev->shared->vpdma, stream->list_num))
+		return -EBUSY;
+
+	for (i = 0; i < VIP_VPDMA_FIFO_SIZE; i++) {
+		spin_lock_irqsave(&dev->slock, flags);
+		if (list_empty(&stream->vidq)) {
+			vip_err(dev, "No buffer left!");
+			spin_unlock_irqrestore(&dev->slock, flags);
+			return -EINVAL;
+		}
+
+		buf = list_entry(stream->vidq.next,
+				 struct vip_buffer, list);
+		buf->drop = false;
+
+		list_move_tail(&buf->list, &stream->post_bufs);
+		spin_unlock_irqrestore(&dev->slock, flags);
+
+		vip_dbg(2, dev, "%s: start_dma vb2 buf idx:%d\n",
+			__func__, buf->vb.vb2_buf.index);
+		start_dma(stream, buf);
+
+		timeout = 500;
+		while (vpdma_list_busy(vpdma, list_num) && timeout--)
+			usleep_range(1000, 1100);
+
+		if (timeout <= 0) {
+			vip_err(dev, "Timed out loading VPDMA list fifo\n");
+			return -EBUSY;
+		}
+	}
+	return 0;
+}
+
 static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct vip_stream *stream = vb2_get_drv_priv(vq);
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
-	struct vip_buffer *buf;
-	unsigned long flags;
 	int ret;
 
 	vip_setup_scaler(stream);
@@ -2341,50 +2370,19 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 		}
 	}
 
-	buf = list_entry(stream->vidq.next,
-			 struct vip_buffer, list);
-
-	vip_dbg(2, dev, "start_streaming: buf 0x%x %d\n",
-		(unsigned int)buf, count);
-	buf->drop = false;
 	stream->sequence = 0;
 	stream->field = V4L2_FIELD_TOP;
 	populate_desc_list(stream);
 
-	/* The first few VPDMA ListComplete interrupts fire pretty quiclky
-	 * until the internal VPDMA descriptor fifo is full.
-	 * The subsequent ListComplete interrupts will fire at the actual
-	 * capture frame rate. The first few interrupts are therefore used
-	 * only to queue up descriptors, and then they will also be used
-	 * as End of Frame (EOF) event
-	 */
-	dev->num_skip_irq = VIP_VPDMA_FIFO_SIZE;
+	ret = vip_load_vpdma_list_fifo(stream);
+	if (ret)
+		return ret;
 
-	spin_lock_irqsave(&dev->slock, flags);
-	if (vpdma_list_busy(dev->shared->vpdma, stream->list_num)) {
-		spin_unlock_irqrestore(&dev->slock, flags);
-		vpdma_unmap_desc_buf(dev->shared->vpdma,
-				     &stream->desc_list.buf);
-		vpdma_reset_desc_list(&stream->desc_list);
-		return -EBUSY;
-	}
-
-	list_move_tail(&buf->list, &stream->post_bufs);
-	spin_unlock_irqrestore(&dev->slock, flags);
+	stream->num_recovery = 0;
 
 	clear_irqs(dev, dev->slice_id, stream->list_num);
-
-	vip_dbg(2, dev, "start_streaming: start_dma buf 0x%x\n",
-		(unsigned int)buf);
-	start_dma(stream, buf);
-
-	/* We enable the irq after posting the vpdma descriptor
-	 * to prevent sprurious interrupt coming in before the
-	 * vb2 layer is completely ready to handle them
-	 * otherwise the vb2_streaming test would fail early on
-	  */
 	enable_irqs(dev, dev->slice_id, stream->list_num);
-
+	vip_schedule_next_buffer(stream);
 	vip_parser_stop_imm(port, false);
 	vip_enable_parser(port, true);
 
