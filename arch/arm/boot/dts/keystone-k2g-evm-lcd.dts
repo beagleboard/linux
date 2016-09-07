@@ -1,4 +1,5 @@
 #include "keystone-k2g-evm.dts"
+#include <dt-bindings/pwm/pwm.h>
 
 / {
 	aliases {
@@ -31,6 +32,13 @@
 				remote-endpoint = <&dpi_out>;
 			};
 		};
+	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&ecap0 0 50000 PWM_POLARITY_INVERTED>;
+		brightness-levels = <0 32 64 96 128 160 192 224 255>;
+		default-brightness-level = <8>;
 	};
 
 	sound1: sound@1 {
