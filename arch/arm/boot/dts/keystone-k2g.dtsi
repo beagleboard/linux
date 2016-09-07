@@ -102,6 +102,11 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
+			sram-mpm@0 {
+				compatible = "ti,keystone-dsp-msm-ram";
+				reg = <0x0 0x80000>;
+			};
+
 			sram-bm@f7000 {
 				reg = <0x000f7000 0x8000>;
 			};
