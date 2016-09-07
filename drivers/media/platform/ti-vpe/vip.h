@@ -65,7 +65,7 @@
  * vip_formats[].
  * When vip_formats[] is modified make sure to adjust this value also.
  */
-#define VIP_MAX_ACTIVE_FMT		11
+#define VIP_MAX_ACTIVE_FMT		15
 /*
  * Colorspace conversion unit can be in one of 3 modes:
  * NA  - Not Available on this port
