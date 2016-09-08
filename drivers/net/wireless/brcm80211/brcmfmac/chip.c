@@ -603,6 +603,7 @@ static void brcmf_chip_socram_ramsize(struct brcmf_core_priv *sr, u32 *ramsize,
 
 	/* hardcoded save&restore memory sizes */
 	switch (sr->chip->pub.chip) {
+	case BRCM_CC_43341_CHIP_ID:
 	case BRCM_CC_4334_CHIP_ID:
 		if (sr->chip->pub.chiprev < 2)
 			*srsize = (32 * 1024);
