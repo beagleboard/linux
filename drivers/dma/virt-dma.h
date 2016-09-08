@@ -27,6 +27,7 @@ struct virt_dma_chan {
 	void (*desc_free)(struct virt_dma_desc *);
 
 	spinlock_t lock;
+	bool terminated;
 
 	/* protected by vc.lock */
 	struct list_head desc_submitted;
@@ -72,6 +73,7 @@ static inline struct dma_async_tx_descriptor *vchan_tx_prep(struct virt_dma_chan
 static inline bool vchan_issue_pending(struct virt_dma_chan *vc)
 {
 	list_splice_tail_init(&vc->desc_submitted, &vc->desc_issued);
+	vc->terminated = false;
 	return !list_empty(&vc->desc_issued);
 }
 
@@ -105,6 +107,17 @@ static inline void vchan_cyclic_callback(struct virt_dma_desc *vd)
 
 	vc->cyclic = vd;
 	tasklet_schedule(&vc->task);
+}
+
+/**
+ * vchan_terminate - set the virtual channel as terminated
+ * vc: virtual channel to update
+ *
+ * vc.lock must be held by caller
+ */
+static inline void vchan_terminate(struct virt_dma_chan *vc)
+{
+	vc->terminated = true;
 }
 
 /**
