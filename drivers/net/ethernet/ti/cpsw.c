@@ -2244,10 +2244,11 @@ static int cpsw_phy_read_reg(struct net_device *ndev,
 			     struct ethtool_phy_reg *data)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
-	int slave_no = cpsw_slave_index(priv);
+	struct cpsw_common *cpsw = priv->cpsw;
+	int slave_no = cpsw_slave_index(cpsw, priv);
 
-	if (priv->slaves[slave_no].phy)
-		phy_ethtool_read_reg(priv->slaves[slave_no].phy, data);
+	if (cpsw->slaves[slave_no].phy)
+		phy_ethtool_read_reg(cpsw->slaves[slave_no].phy, data);
 	return 0;
 }
 
@@ -2255,10 +2256,11 @@ static int cpsw_phy_write_reg(struct net_device *ndev,
 			      struct ethtool_phy_reg *data)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
-	int slave_no = cpsw_slave_index(priv);
+	struct cpsw_common *cpsw = priv->cpsw;
+	int slave_no = cpsw_slave_index(cpsw, priv);
 
-	if (priv->slaves[slave_no].phy)
-		phy_ethtool_write_reg(priv->slaves[slave_no].phy, data);
+	if (cpsw->slaves[slave_no].phy)
+		phy_ethtool_write_reg(cpsw->slaves[slave_no].phy, data);
 	return 0;
 }
 
@@ -2266,10 +2268,11 @@ static int cpsw_phy_mac_if_set(struct net_device *ndev,
 			       struct ethtool_phy_cmd *data)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
-	int slave_no = cpsw_slave_index(priv);
+	struct cpsw_common *cpsw = priv->cpsw;
+	int slave_no = cpsw_slave_index(cpsw, priv);
 
-	if (priv->slaves[slave_no].phy)
-		phy_ethtool_mac_if_set(priv->slaves[slave_no].phy, data);
+	if (cpsw->slaves[slave_no].phy)
+		phy_ethtool_mac_if_set(cpsw->slaves[slave_no].phy, data);
 	return 0;
 }
 
@@ -2277,30 +2280,33 @@ static int cpsw_phy_mac_if_get(struct net_device *ndev,
 			       struct ethtool_phy_cmd *data)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
-	int slave_no = cpsw_slave_index(priv);
+	struct cpsw_common *cpsw = priv->cpsw;
+	int slave_no = cpsw_slave_index(cpsw, priv);
 
-	if (priv->slaves[slave_no].phy)
-		phy_ethtool_mac_if_get(priv->slaves[slave_no].phy, data);
+	if (cpsw->slaves[slave_no].phy)
+		phy_ethtool_mac_if_get(cpsw->slaves[slave_no].phy, data);
 	return 0;
 }
 
 static int cpsw_phy_edge_rate_set(struct net_device *ndev, u8 *rate)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
-	int slave_no = cpsw_slave_index(priv);
+	struct cpsw_common *cpsw = priv->cpsw;
+	int slave_no = cpsw_slave_index(cpsw, priv);
 
-	if (priv->slaves[slave_no].phy)
-		phy_ethtool_edge_rate_set(priv->slaves[slave_no].phy, rate);
+	if (cpsw->slaves[slave_no].phy)
+		phy_ethtool_edge_rate_set(cpsw->slaves[slave_no].phy, rate);
 	return 0;
 }
 
 static int cpsw_phy_edge_rate_get(struct net_device *ndev, u8 *rate)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
-	int slave_no = cpsw_slave_index(priv);
+	struct cpsw_common *cpsw = priv->cpsw;
+	int slave_no = cpsw_slave_index(cpsw, priv);
 
-	if (priv->slaves[slave_no].phy)
-		phy_ethtool_edge_rate_get(priv->slaves[slave_no].phy, rate);
+	if (cpsw->slaves[slave_no].phy)
+		phy_ethtool_edge_rate_get(cpsw->slaves[slave_no].phy, rate);
 	return 0;
 }
 
