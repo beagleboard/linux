@@ -54,21 +54,13 @@
 	status = "okay";
 };
 
-&am33xx_pinmux {
-	uart2_pins: uart2_pins {
-		pinctrl-single,pins = <
-			0x150 (PIN_INPUT | MUX_MODE1)	/* spi0_sclk.uart2_rxd */
-			0x154 (PIN_OUTPUT | MUX_MODE1)	/* spi0_d0.uart2_txd */
-		>;
+&cpu0_opp_table {
+	/*
+	 * All PG 2.0 silicon may not support 1GHz but some of the early
+	 * BeagleBone Blacks have PG 2.0 silicon which is guaranteed
+	 * to support 1GHz OPP so enable it for PG 2.0 on this board.
+	 */
+	oppnitro@1000000000 {
+		opp-supported-hw = <0x06 0x0100>;
 	};
-};
-
-&uart2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_pins>;
-	status = "okay";
-};
-
-&rtc {
-	system-power-controller;
 };
