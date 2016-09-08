@@ -2434,6 +2434,98 @@ static int ethtool_set_per_queue(struct net_device *dev, void __user *useraddr)
 	};
 }
 
+static int ethtool_phy_read_reg(struct net_device *dev, char __user *useraddr)
+{
+	struct ethtool_phy_reg data;
+
+	if (!dev->ethtool_ops->phy_read_reg)
+		return -EOPNOTSUPP;
+
+	if (copy_from_user(&data, useraddr, sizeof(data)))
+		return -EFAULT;
+	dev->ethtool_ops->phy_read_reg(dev, &data);
+	if (copy_to_user(useraddr, &data, sizeof(data)))
+		return -EFAULT;
+
+return 0;
+}
+
+static int ethtool_phy_write_reg(struct net_device *dev, char __user *useraddr)
+{
+	struct ethtool_phy_reg data;
+
+	if (!dev->ethtool_ops->phy_write_reg)
+		return -EOPNOTSUPP;
+
+	if (copy_from_user(&data, useraddr, sizeof(data)))
+		return -EFAULT;
+	dev->ethtool_ops->phy_write_reg(dev, &data);
+
+	return 0;
+}
+
+static int ethtool_phy_mac_if_set(struct net_device *dev, char __user *useraddr)
+{
+	struct ethtool_phy_cmd data;
+
+	if (!dev->ethtool_ops->phy_mac_if_set)
+		return -EOPNOTSUPP;
+
+	if (copy_from_user(&data, useraddr, sizeof(data)))
+		return -EFAULT;
+	dev->ethtool_ops->phy_mac_if_set(dev, &data);
+
+	return 0;
+}
+
+static int ethtool_phy_mac_if_get(struct net_device *dev, char __user *useraddr)
+{
+	struct ethtool_phy_cmd data;
+
+	if (!dev->ethtool_ops->phy_mac_if_get)
+		return -EOPNOTSUPP;
+
+	dev->ethtool_ops->phy_mac_if_get(dev, &data);
+	if (copy_to_user(useraddr, &data, sizeof(data)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int ethtool_phy_edge_rate_set(struct net_device *dev,
+				     char __user *useraddr)
+{
+	struct ethtool_phy_cmd data;
+	u8 edge_rate;
+
+	if (!dev->ethtool_ops->phy_edge_rate_set)
+		return -EOPNOTSUPP;
+
+	if (copy_from_user(&data, useraddr, sizeof(data)))
+		return -EFAULT;
+	edge_rate = data.val;
+	dev->ethtool_ops->phy_edge_rate_set(dev, &edge_rate);
+
+	return 0;
+}
+
+static int ethtool_phy_edge_rate_get(struct net_device *dev,
+				     char __user *useraddr)
+{
+	u8 edge_rate;
+	struct ethtool_phy_cmd data;
+
+	if (!dev->ethtool_ops->phy_edge_rate_get)
+		return -EOPNOTSUPP;
+
+	dev->ethtool_ops->phy_edge_rate_get(dev, &edge_rate);
+	data.val = edge_rate;
+	if (copy_to_user(useraddr, &data, sizeof(data)))
+		return -EFAULT;
+
+	return 0;
+}
+
 /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
 
 int dev_ethtool(struct net *net, struct ifreq *ifr)
@@ -2491,6 +2583,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
 	case ETHTOOL_GET_TS_INFO:
 	case ETHTOOL_GEEE:
 	case ETHTOOL_GTUNABLE:
+	case ETHTOOL_PHY_READ_REG:
+	case ETHTOOL_PHY_WRITE_REG:
+	case ETHTOOL_PHY_MAC_IF_SET:
+	case ETHTOOL_PHY_MAC_IF_GET:
+	case ETHTOOL_PHY_EDGE_RATE_SET:
+	case ETHTOOL_PHY_EDGE_RATE_GET:
 		break;
 	default:
 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
@@ -2695,6 +2793,23 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
 		break;
 	case ETHTOOL_SLINKSETTINGS:
 		rc = ethtool_set_link_ksettings(dev, useraddr);
+	case ETHTOOL_PHY_READ_REG:
+		rc = ethtool_phy_read_reg(dev, useraddr);
+		break;
+	case ETHTOOL_PHY_WRITE_REG:
+		rc = ethtool_phy_write_reg(dev, useraddr);
+		break;
+	case ETHTOOL_PHY_MAC_IF_SET:
+		rc = ethtool_phy_mac_if_set(dev, useraddr);
+		break;
+	case ETHTOOL_PHY_MAC_IF_GET:
+		rc = ethtool_phy_mac_if_get(dev, useraddr);
+		break;
+	case ETHTOOL_PHY_EDGE_RATE_SET:
+		rc = ethtool_phy_edge_rate_set(dev, useraddr);
+		break;
+	case ETHTOOL_PHY_EDGE_RATE_GET:
+		rc = ethtool_phy_edge_rate_get(dev, useraddr);
 		break;
 	default:
 		rc = -EOPNOTSUPP;
