@@ -37,6 +37,7 @@
 #include <linux/atomic.h>
 
 #include <asm/irq.h>
+#include <linux/mscc.h>
 
 static const char *phy_speed_to_str(int speed)
 {
@@ -1264,3 +1265,117 @@ void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
 		phydev->drv->get_wol(phydev, wol);
 }
 EXPORT_SYMBOL(phy_ethtool_get_wol);
+
+int phy_ethtool_edge_rate_set(struct phy_device *phydev,
+			      u8 *rate)
+{
+	struct phy_features_t features;
+
+	if (phydev->drv->phy_features_set) {
+		features.cmd = PHY_EDGE_RATE_CONTROL;
+		features.rate = *rate;
+		phydev->priv = &features;
+		phydev->drv->phy_features_set(phydev);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(phy_ethtool_edge_rate_set);
+
+int phy_ethtool_edge_rate_get(struct phy_device *phydev,
+			      u8 *rate)
+{
+	struct phy_features_t features;
+
+	if (phydev->drv->phy_features_set) {
+		features.cmd = PHY_EDGE_RATE_CONTROL;
+		phydev->priv = &features;
+		phydev->drv->phy_features_get(phydev);
+		*rate = features.rate;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(phy_ethtool_edge_rate_get);
+
+int phy_ethtool_mac_if_set(struct phy_device *phydev,
+			   struct ethtool_phy_cmd *data)
+{
+	struct phy_features_t features;
+
+	if (phydev->drv->phy_features_set) {
+		features.cmd = PHY_MAC_IF;
+		if (data->val == 2)
+			features.mac_if = PHY_INTERFACE_MODE_RGMII;
+		else if (data->val == 1)
+			features.mac_if = PHY_INTERFACE_MODE_RMII;
+		else
+			features.mac_if = PHY_INTERFACE_MODE_GMII;
+		phydev->priv = &features;
+		phydev->drv->phy_features_set(phydev);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(phy_ethtool_mac_if_set);
+
+int phy_ethtool_mac_if_get(struct phy_device *phydev,
+			   struct ethtool_phy_cmd *data)
+{
+	struct phy_features_t features;
+
+	if (phydev->drv->phy_features_get) {
+		features.cmd = PHY_MAC_IF;
+		phydev->priv = &features;
+		phydev->drv->phy_features_get(phydev);
+		if (features.mac_if == PHY_INTERFACE_MODE_RGMII)
+			data->val = 2;
+		else if (features.mac_if == PHY_INTERFACE_MODE_RMII)
+			data->val = 1;
+		else
+			data->val = 0;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(phy_ethtool_mac_if_get);
+
+int phy_ethtool_read_reg(struct phy_device *phydev,
+			 struct ethtool_phy_reg *data)
+{
+	struct phy_features_t features;
+	struct ethtool_phy_reg reg_data;
+
+	if (phydev->drv->phy_features_set) {
+		features.cmd = PHY_READ_REG;
+		reg_data.reg = data->reg;
+		reg_data.pg = data->pg;
+		features.data = &reg_data;
+		phydev->priv = &features;
+		phydev->drv->phy_features_get(phydev);
+			data->val = reg_data.val;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(phy_ethtool_read_reg);
+
+int phy_ethtool_write_reg(struct phy_device *phydev,
+			  struct ethtool_phy_reg *data)
+{
+	struct phy_features_t features;
+	struct ethtool_phy_reg reg_data;
+
+	if (phydev->drv->phy_features_set) {
+		features.cmd = PHY_WRITE_REG;
+		reg_data.reg = data->reg;
+		reg_data.val = data->val;
+		reg_data.pg = data->pg;
+		features.data = &reg_data;
+		phydev->priv = &features;
+		phydev->drv->phy_features_set(phydev);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(phy_ethtool_write_reg);
