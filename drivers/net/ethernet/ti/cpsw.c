@@ -2240,6 +2240,70 @@ static void cpsw_ethtool_op_complete(struct net_device *ndev)
 		cpsw_err(priv, drv, "ethtool complete failed %d\n", ret);
 }
 
+static int cpsw_phy_read_reg(struct net_device *ndev,
+			     struct ethtool_phy_reg *data)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int slave_no = cpsw_slave_index(priv);
+
+	if (priv->slaves[slave_no].phy)
+		phy_ethtool_read_reg(priv->slaves[slave_no].phy, data);
+	return 0;
+}
+
+static int cpsw_phy_write_reg(struct net_device *ndev,
+			      struct ethtool_phy_reg *data)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int slave_no = cpsw_slave_index(priv);
+
+	if (priv->slaves[slave_no].phy)
+		phy_ethtool_write_reg(priv->slaves[slave_no].phy, data);
+	return 0;
+}
+
+static int cpsw_phy_mac_if_set(struct net_device *ndev,
+			       struct ethtool_phy_cmd *data)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int slave_no = cpsw_slave_index(priv);
+
+	if (priv->slaves[slave_no].phy)
+		phy_ethtool_mac_if_set(priv->slaves[slave_no].phy, data);
+	return 0;
+}
+
+static int cpsw_phy_mac_if_get(struct net_device *ndev,
+			       struct ethtool_phy_cmd *data)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int slave_no = cpsw_slave_index(priv);
+
+	if (priv->slaves[slave_no].phy)
+		phy_ethtool_mac_if_get(priv->slaves[slave_no].phy, data);
+	return 0;
+}
+
+static int cpsw_phy_edge_rate_set(struct net_device *ndev, u8 *rate)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int slave_no = cpsw_slave_index(priv);
+
+	if (priv->slaves[slave_no].phy)
+		phy_ethtool_edge_rate_set(priv->slaves[slave_no].phy, rate);
+	return 0;
+}
+
+static int cpsw_phy_edge_rate_get(struct net_device *ndev, u8 *rate)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	int slave_no = cpsw_slave_index(priv);
+
+	if (priv->slaves[slave_no].phy)
+		phy_ethtool_edge_rate_get(priv->slaves[slave_no].phy, rate);
+	return 0;
+}
+
 static const struct ethtool_ops cpsw_ethtool_ops = {
 	.get_drvinfo	= cpsw_get_drvinfo,
 	.get_msglevel	= cpsw_get_msglevel,
@@ -2261,6 +2325,12 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
 	.get_regs	= cpsw_get_regs,
 	.begin		= cpsw_ethtool_op_begin,
 	.complete	= cpsw_ethtool_op_complete,
+	.phy_read_reg   = cpsw_phy_read_reg,
+	.phy_write_reg  = cpsw_phy_write_reg,
+	.phy_mac_if_set = cpsw_phy_mac_if_set,
+	.phy_mac_if_get = cpsw_phy_mac_if_get,
+	.phy_edge_rate_set = cpsw_phy_edge_rate_set,
+	.phy_edge_rate_get = cpsw_phy_edge_rate_get,
 };
 
 static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_common *cpsw,
