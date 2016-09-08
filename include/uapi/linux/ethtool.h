@@ -200,10 +200,10 @@ struct ethtool_drvinfo {
  *	is set in @wolopts.
  */
 struct ethtool_wolinfo {
-	__u32	cmd;
-	__u32	supported;
-	__u32	wolopts;
-	__u8	sopass[SOPASS_MAX];
+	__u32   cmd;
+	__u32   supported;
+	__u32   wolopts;
+	__u8    sopass[SOPASS_MAX]; /* SecureOn(tm) password */
 };
 
 /* for passing single values */
@@ -1143,6 +1143,30 @@ enum ethtool_sfeatures_retval_bits {
 	ETHTOOL_F_COMPAT__BIT,
 };
 
+/**
+ * struct ethtool_phy_reg - holds a device's read or write operations
+ * @cmd: command number = %ETHTOOL_PHY_READ_REG or %ETHTOOL_PHY_WRITE_REG
+ * @reg: register address
+ * @val: register value
+ * @pg: page number
+ */
+struct ethtool_phy_reg {
+	__u32   cmd;
+	__u16   reg;
+	__u16   val;
+	__u8    pg;
+};
+
+/**
+ * struct ethtool_phy_cmd - holds a device's command's value
+ * @cmd: command number = %ETHTOOL_MAC_IF_GET or %ETHTOOL_MAC_IF_SET
+ * @val: either configuration value or configured value
+ */
+struct ethtool_phy_cmd {
+	__u32   cmd;
+	__u8    val;
+};
+
 #define ETHTOOL_F_UNSUPPORTED   (1 << ETHTOOL_F_UNSUPPORTED__BIT)
 #define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
 #define ETHTOOL_F_COMPAT        (1 << ETHTOOL_F_COMPAT__BIT)
@@ -1253,7 +1277,12 @@ struct ethtool_per_queue_op {
 
 #define ETHTOOL_GLINKSETTINGS	0x0000004c /* Get ethtool_link_settings */
 #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
-
+#define ETHTOOL_PHY_READ_REG    0x0000004e /* Read PHY register */
+#define ETHTOOL_PHY_WRITE_REG   0x0000004f /* Write PHY register */
+#define ETHTOOL_PHY_MAC_IF_SET  0x00000050 /* Set PHY MAC Interface */
+#define ETHTOOL_PHY_MAC_IF_GET  0x00000051 /* Get PHY MAC Interface */
+#define ETHTOOL_PHY_EDGE_RATE_SET  0x00000052 /* Set PHY Edge rate control */
+#define ETHTOOL_PHY_EDGE_RATE_GET  0x00000053 /* Get PHY Edge rate control */
 
 /* compatibility with older code */
 #define SPARC_ETH_GSET		ETHTOOL_GSET
