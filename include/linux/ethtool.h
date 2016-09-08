@@ -369,5 +369,13 @@ struct ethtool_ops {
 				      struct ethtool_link_ksettings *);
 	int	(*set_link_ksettings)(struct net_device *,
 				      const struct ethtool_link_ksettings *);
+	int     (*phy_mac_if_set)(struct net_device *,
+				  struct ethtool_phy_cmd *);
+	int     (*phy_mac_if_get)(struct net_device *,
+				  struct ethtool_phy_cmd *);
+	int     (*phy_edge_rate_set)(struct net_device *, u8 *);
+	int     (*phy_edge_rate_get)(struct net_device *, u8 *);
+	int     (*phy_read_reg)(struct net_device *, struct ethtool_phy_reg *);
+	int     (*phy_write_reg)(struct net_device *, struct ethtool_phy_reg *);
 };
 #endif /* _LINUX_ETHTOOL_H */
