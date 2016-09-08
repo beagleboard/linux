@@ -595,6 +595,9 @@ struct phy_driver {
 	void (*get_stats)(struct phy_device *dev,
 			  struct ethtool_stats *stats, u64 *data);
 
+	int (*phy_features_set)(struct phy_device *dev);
+	int (*phy_features_get)(struct phy_device *dev);
+
 	struct device_driver driver;
 };
 #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
@@ -822,6 +825,16 @@ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data);
 int phy_ethtool_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol);
 void phy_ethtool_get_wol(struct phy_device *phydev,
 			 struct ethtool_wolinfo *wol);
+int phy_ethtool_mac_if_set(struct phy_device *phydev,
+			   struct ethtool_phy_cmd *data);
+int phy_ethtool_mac_if_get(struct phy_device *phydev,
+			   struct ethtool_phy_cmd *data);
+int phy_ethtool_edge_rate_set(struct phy_device *phydev, u8 *rate);
+int phy_ethtool_edge_rate_get(struct phy_device *phydev, u8 *rate);
+int phy_ethtool_read_reg(struct phy_device *phydev,
+			 struct ethtool_phy_reg *data);
+int phy_ethtool_write_reg(struct phy_device *phydev,
+			  struct ethtool_phy_reg *data);
 
 int __init mdio_bus_init(void);
 void mdio_bus_exit(void);
