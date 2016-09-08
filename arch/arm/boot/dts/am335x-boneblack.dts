@@ -11,6 +11,7 @@
 #include "am335x-bone-common.dtsi"
 #include "am33xx-overlay-edma-fix.dtsi"
 #include <dt-bindings/display/tda998x.h>
+/* #include "am335x-bone-jtag.dtsi" */
 
 /* pruss: pick one: */
 
@@ -151,10 +152,6 @@
 	};
 };
 
-&rtc {
-	system-power-controller;
-};
-
 &mcasp0	{
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
@@ -167,10 +164,6 @@
 		>;
 	tx-num-evt = <32>;
 	rx-num-evt = <32>;
-};
-
-&sgx {
-	status = "okay";
 };
 
 / {
