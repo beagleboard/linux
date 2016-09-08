@@ -145,6 +145,7 @@ do {								\
 		((cpsw->data.dual_emac) ? priv->emac_port :	\
 		cpsw->data.active_slave)
 #define IRQ_NUM			2
+#define CPSW_CPDMA_DESCS_POOL_SIZE_DEFAULT 256
 
 static int debug_level;
 module_param(debug_level, int, 0);
@@ -2343,6 +2344,9 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
 	if (of_property_read_bool(node, "dual_emac"))
 		data->dual_emac = 1;
 
+	data->descs_pool_size = CPSW_CPDMA_DESCS_POOL_SIZE_DEFAULT;
+	of_property_read_u32(node, "descs_pool_size", &data->descs_pool_size);
+
 	/*
 	 * Populate all the child nodes here...
 	 */
@@ -2704,6 +2708,7 @@ static int cpsw_probe(struct platform_device *pdev)
 	dma_params.desc_align		= 16;
 	dma_params.has_ext_regs		= true;
 	dma_params.desc_hw_addr         = dma_params.desc_mem_phys;
+	dma_params.descs_pool_size	= cpsw->data.descs_pool_size;
 
 	cpsw->dma = cpdma_ctlr_create(&dma_params);
 	if (!cpsw->dma) {
