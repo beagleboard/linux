@@ -604,6 +604,8 @@
 			ti,hwmods = "rtc";
 			clocks = <&clkdiv32k_ick>;
 			clock-names = "int-clk";
+			ti,no-reset-on-init;
+			ti,no-idle-on-init;
 		};
 
 		spi0: spi@48030000 {
