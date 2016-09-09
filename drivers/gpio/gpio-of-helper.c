@@ -262,7 +262,7 @@ gpio_of_entry_create(struct gpio_of_helper_info *info,
 		goto err_fail_idr;
 	}
 
-	dev_info(dev, "Allocated GPIO id=%d\n", entry->id);
+	dev_dbg(dev, "Allocated GPIO id=%d name='%s'\n", entry->id, name);
 
 	return entry;
 
@@ -283,7 +283,7 @@ static int gpio_of_entry_destroy(struct gpio_of_entry *entry)
 	struct platform_device *pdev = info->pdev;
 	struct device *dev = &pdev->dev;
 
-	dev_info(dev, "Destroying GPIO id=%d\n", entry->id);
+	dev_dbg(dev, "Destroying GPIO id=%d\n", entry->id);
 
 	/* remove from the IDR */
 	idr_remove(&info->idr, entry->id);
