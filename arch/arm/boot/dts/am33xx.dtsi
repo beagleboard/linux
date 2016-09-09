@@ -508,6 +508,8 @@
 			interrupts = <75
 				      76>;
 			ti,hwmods = "rtc";
+			ti,no-reset-on-init;
+			ti,no-idle-on-init;
 		};
 
 		spi0: spi@48030000 {
