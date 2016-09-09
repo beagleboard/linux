@@ -59,6 +59,8 @@
 
 		label = "lcd";
 
+		backlight = <&lcd_bl>;
+
 		enable-gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
 
 		panel-timing {
@@ -84,7 +86,7 @@
 		};
 	};
 
-	backlight {
+	lcd_bl: backlight {
 		compatible = "pwm-backlight";
 		pwms = <&ehrpwm1 0 50000 0>;
 
