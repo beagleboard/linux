@@ -248,7 +248,9 @@ static int edma_terminate_all(struct edma_chan *echan)
 	unsigned long flags;
 	LIST_HEAD(head);
 
+	tasklet_disable(&echan->vchan.task);
 	spin_lock_irqsave(&echan->vchan.lock, flags);
+	vchan_terminate(&echan->vchan);
 
 	/*
 	 * Stop DMA activity: we assume the callback will not be called
@@ -274,6 +276,7 @@ static int edma_terminate_all(struct edma_chan *echan)
 	vchan_get_all_descriptors(&echan->vchan, &head);
 	spin_unlock_irqrestore(&echan->vchan.lock, flags);
 	vchan_dma_desc_free_list(&echan->vchan, &head);
+	tasklet_enable(&echan->vchan.task);
 
 	return 0;
 }
