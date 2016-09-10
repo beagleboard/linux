@@ -35,10 +35,10 @@ static DEFINE_MUTEX(sysfs_lock);
 /*
  * /sys/class/gpio/gpioN... only for GPIOs that are exported
  *   /direction
- *      * MAY BE OMITTED if kernel won't allow direction changes
  *      * is read/write as "in" or "out"
  *      * may also be written as "high" or "low", initializing
  *        output value as specified ("out" implies "low")
+ *      * read-only if kernel won't allow direction changes
  *   /value
  *      * always readable, subject to hardware behavior
  *      * may be writable, as zero/nonzero
@@ -83,7 +83,9 @@ static ssize_t direction_store(struct device *dev,
 
 	mutex_lock(&data->mutex);
 
-	if (sysfs_streq(buf, "high"))
+	if (!data->direction_can_change)
+		status = -EPERM;
+	else if (sysfs_streq(buf, "high"))
 		status = gpiod_direction_output_raw(desc, 1);
 	else if (sysfs_streq(buf, "out") || sysfs_streq(buf, "low"))
 		status = gpiod_direction_output_raw(desc, 0);
@@ -380,12 +382,15 @@ static umode_t gpio_is_visible(struct kobject *kobj, struct attribute *attr,
 
 	if (attr == &dev_attr_direction.attr) {
 		if (!show_direction)
-			mode = 0;
+			mode &= 0444;
 	} else if (attr == &dev_attr_edge.attr) {
 		if (gpiod_to_irq(desc) < 0)
 			mode = 0;
 		if (!show_direction && test_bit(FLAG_IS_OUT, &desc->flags))
 			mode = 0;
+	} else if (attr == &dev_attr_value.attr) {
+		if (!show_direction && !test_bit(FLAG_IS_OUT, &desc->flags))
+			mode &= 0444;
 	}
 
 	return mode;
