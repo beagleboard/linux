@@ -57,7 +57,6 @@ struct gpio_of_entry {
 	struct device_node *node;
 	enum gpio_type type;
 	int gpio;
-	enum of_gpio_flags gpio_flags;
 	int irq;
 	const char *name;
 	atomic64_t counter;
@@ -183,6 +182,14 @@ gpio_of_entry_create(struct gpio_of_helper_info *info,
 	}
 	if (of_property_read_bool(node, "dir-changeable"))
 		req_flags |= GPIOF_EXPORT_CHANGEABLE;
+	if (gpio_flags & OF_GPIO_ACTIVE_LOW)
+		req_flags |= GPIOF_ACTIVE_LOW;
+	if (gpio_flags & OF_GPIO_SINGLE_ENDED) {
+		if (gpio_flags & OF_GPIO_ACTIVE_LOW)
+			req_flags |= GPIOF_OPEN_DRAIN;
+		else
+			req_flags |= GPIOF_OPEN_SOURCE;
+	}
 
 	/* request the gpio */
 	err = devm_gpio_request_one(dev, gpio, req_flags, name);
@@ -228,7 +235,6 @@ gpio_of_entry_create(struct gpio_of_helper_info *info,
 	entry->node = of_node_get(node);	/* get node reference */
 	entry->type = type;
 	entry->gpio = gpio;
-	entry->gpio_flags = gpio_flags;
 	entry->irq = irq;
 	entry->name = name;
 
