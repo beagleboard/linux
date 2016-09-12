@@ -73,10 +73,9 @@
 			};
 		};
 
-		mpm_mem: dspmem {
+		mpm_mem: dspmem@a0000000 {
 			compatible = "ti,keystone-dsp-mem";
-			reg = <0x0c000000 0x005f0000>,
-			      <0xa0000000 0x20000000>;
+			reg = <0xa0000000 0x20000000>;
 		};
 	};
 

@@ -86,6 +86,23 @@
 			reg = <0x02620000 0x1000>;
 		};
 
+		msm_ram: msmram@0c000000 {
+			compatible = "mmio-sram";
+			reg = <0x0c000000 0x100000>;
+			ranges = <0x0 0x0c000000 0x100000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			sram-mpm@0 {
+				compatible = "ti,keystone-dsp-msm-ram";
+				reg = <0x0 0x80000>;
+			};
+
+			sram-bm@f7000 {
+				reg = <0x000f7000 0x8000>;
+			};
+		};
+
 		k2g_pinctrl: pinmux@02621000 {
 			compatible = "pinctrl-single";
 			reg = <0x02621000 0x410>;
