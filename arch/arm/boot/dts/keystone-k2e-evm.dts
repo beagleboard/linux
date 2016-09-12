@@ -64,11 +64,9 @@
 			status = "ok";
 		};
 
-		mpm_mem: dspmem {
+		mpm_mem: dspmem@a0000000 {
 			compatible = "ti,keystone-dsp-mem";
-			reg = <0x0c000000 0x00140000>,
-			      <0x0c150000 0x000b0000>,
-			      <0xa0000000 0x20000000>;
+			reg = <0xa0000000 0x20000000>;
 		};
 	};
 };
