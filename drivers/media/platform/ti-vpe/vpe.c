@@ -44,6 +44,7 @@
 #include <media/videobuf2-dma-contig.h>
 
 #include "vpdma.h"
+#include "vpdma_priv.h"
 #include "vpe_regs.h"
 #include "sc.h"
 #include "csc.h"
@@ -1074,9 +1075,12 @@ static void add_out_dtd(struct vpe_ctx *ctx, int port)
 	if (q_data->flags & Q_DATA_MODE_TILED)
 		flags |= VPDMA_DATA_MODE_TILED;
 
+	vpdma_set_max_size(ctx->dev->vpdma, VPDMA_MAX_SIZE1,
+			   SC_MAX_PIXEL_WIDTH,  SC_MAX_PIXEL_HEIGHT);
+
 	vpdma_add_out_dtd(&ctx->desc_list, q_data->width, &q_data->c_rect,
-		vpdma_fmt, dma_addr, MAX_OUT_WIDTH_1920, MAX_OUT_HEIGHT_1080,
-		p_data->channel, flags);
+			  vpdma_fmt, dma_addr, MAX_OUT_WIDTH_REG1,
+			  MAX_OUT_HEIGHT_REG1, p_data->channel, flags);
 }
 
 static void add_in_dtd(struct vpe_ctx *ctx, int port)
