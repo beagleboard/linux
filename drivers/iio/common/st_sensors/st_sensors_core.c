@@ -18,16 +18,15 @@
 #include <asm/unaligned.h>
 #include <linux/iio/common/st_sensors.h>
 
-
-#define ST_SENSORS_WAI_ADDRESS		0x0f
+#include "st_sensors_core.h"
 
 static inline u32 st_sensors_get_unaligned_le24(const u8 *p)
 {
 	return (s32)((p[0] | p[1] << 8 | p[2] << 16) << 8) >> 8;
 }
 
-static int st_sensors_write_data_with_mask(struct iio_dev *indio_dev,
-						u8 reg_addr, u8 mask, u8 data)
+int st_sensors_write_data_with_mask(struct iio_dev *indio_dev,
+				    u8 reg_addr, u8 mask, u8 data)
 {
 	int err;
 	u8 new_data;
@@ -302,6 +301,14 @@ static int st_sensors_set_drdy_int_pin(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
+	if (pdata->open_drain) {
+		if (!sdata->sensor_settings->drdy_irq.addr_od)
+			dev_err(&indio_dev->dev,
+				"open drain requested but unsupported.\n");
+		else
+			sdata->int_pin_open_drain = true;
+	}
+
 	return 0;
 }
 
@@ -321,6 +328,8 @@ static struct st_sensors_platform_data *st_sensors_of_probe(struct device *dev,
 		pdata->drdy_int_pin = (u8) val;
 	else
 		pdata->drdy_int_pin = defdata ? defdata->drdy_int_pin : 0;
+
+	pdata->open_drain = of_property_read_bool(np, "drive-open-drain");
 
 	return pdata;
 }
@@ -354,6 +363,11 @@ int st_sensors_init_sensor(struct iio_dev *indio_dev,
 	if (err < 0)
 		return err;
 
+	/* Disable DRDY, this might be still be enabled after reboot. */
+	err = st_sensors_set_dataready_irq(indio_dev, false);
+	if (err < 0)
+		return err;
+
 	if (sdata->current_fullscale) {
 		err = st_sensors_set_fullscale(indio_dev,
 						sdata->current_fullscale->num);
@@ -371,6 +385,16 @@ int st_sensors_init_sensor(struct iio_dev *indio_dev,
 		err = st_sensors_write_data_with_mask(indio_dev,
 					sdata->sensor_settings->bdu.addr,
 					sdata->sensor_settings->bdu.mask, true);
+		if (err < 0)
+			return err;
+	}
+
+	if (sdata->int_pin_open_drain) {
+		dev_info(&indio_dev->dev,
+			 "set interrupt line to open drain mode\n");
+		err = st_sensors_write_data_with_mask(indio_dev,
+				sdata->sensor_settings->drdy_irq.addr_od,
+				sdata->sensor_settings->drdy_irq.mask_od, 1);
 		if (err < 0)
 			return err;
 	}
@@ -404,6 +428,9 @@ int st_sensors_set_dataready_irq(struct iio_dev *indio_dev, bool enable)
 		drdy_mask = sdata->sensor_settings->drdy_irq.mask_int1;
 	else
 		drdy_mask = sdata->sensor_settings->drdy_irq.mask_int2;
+
+	/* Flag to the poll function that the hardware trigger is in use */
+	sdata->hw_irq_trigger = enable;
 
 	/* Enable/Disable the interrupt generator for data ready. */
 	err = st_sensors_write_data_with_mask(indio_dev,
