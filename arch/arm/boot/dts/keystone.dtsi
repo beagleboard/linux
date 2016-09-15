@@ -304,6 +304,8 @@
 			link-rate-kbps = <5000000>;
 			num-lanes = <2>;
 			status = "disabled";
+			clocks = <&clkpcie>;
+			clock-names = "fck";
 		};
 
 		pcie0: pcie@21800000 {
