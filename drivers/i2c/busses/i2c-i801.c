@@ -94,6 +94,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/itco_wdt.h>
+#include <linux/pm_runtime.h>
 
 #if (defined CONFIG_I2C_MUX_GPIO || defined CONFIG_I2C_MUX_GPIO_MODULE) && \
 		defined CONFIG_DMI
@@ -184,7 +185,7 @@
 
 /* Older devices have their ID defined in <linux/pci_ids.h> */
 #define PCI_DEVICE_ID_INTEL_BAYTRAIL_SMBUS		0x0f12
-#define PCI_DEVICE_ID_INTEL_BRASWELL_SMBUS		0x2292
+#define PCI_DEVICE_ID_INTEL_DNV_SMBUS			0x19df
 #define PCI_DEVICE_ID_INTEL_COUGARPOINT_SMBUS		0x1c22
 #define PCI_DEVICE_ID_INTEL_PATSBURG_SMBUS		0x1d22
 /* Patsburg also has three 'Integrated Device Function' SMBus controllers */
@@ -193,9 +194,11 @@
 #define PCI_DEVICE_ID_INTEL_PATSBURG_SMBUS_IDF2		0x1d72
 #define PCI_DEVICE_ID_INTEL_PANTHERPOINT_SMBUS		0x1e22
 #define PCI_DEVICE_ID_INTEL_AVOTON_SMBUS		0x1f3c
+#define PCI_DEVICE_ID_INTEL_BRASWELL_SMBUS		0x2292
 #define PCI_DEVICE_ID_INTEL_DH89XXCC_SMBUS		0x2330
 #define PCI_DEVICE_ID_INTEL_COLETOCREEK_SMBUS		0x23b0
 #define PCI_DEVICE_ID_INTEL_5_3400_SERIES_SMBUS		0x3b30
+#define PCI_DEVICE_ID_INTEL_BROXTON_SMBUS		0x5ad4
 #define PCI_DEVICE_ID_INTEL_LYNXPOINT_SMBUS		0x8c22
 #define PCI_DEVICE_ID_INTEL_WILDCATPOINT_SMBUS		0x8ca2
 #define PCI_DEVICE_ID_INTEL_WELLSBURG_SMBUS		0x8d22
@@ -204,10 +207,8 @@
 #define PCI_DEVICE_ID_INTEL_WELLSBURG_SMBUS_MS2		0x8d7f
 #define PCI_DEVICE_ID_INTEL_LYNXPOINT_LP_SMBUS		0x9c22
 #define PCI_DEVICE_ID_INTEL_WILDCATPOINT_LP_SMBUS	0x9ca2
-#define PCI_DEVICE_ID_INTEL_SUNRISEPOINT_H_SMBUS	0xa123
 #define PCI_DEVICE_ID_INTEL_SUNRISEPOINT_LP_SMBUS	0x9d23
-#define PCI_DEVICE_ID_INTEL_DNV_SMBUS			0x19df
-#define PCI_DEVICE_ID_INTEL_BROXTON_SMBUS		0x5ad4
+#define PCI_DEVICE_ID_INTEL_SUNRISEPOINT_H_SMBUS	0xa123
 #define PCI_DEVICE_ID_INTEL_LEWISBURG_SMBUS		0xa1a3
 #define PCI_DEVICE_ID_INTEL_LEWISBURG_SSKU_SMBUS	0xa223
 
@@ -730,6 +731,8 @@ static s32 i801_access(struct i2c_adapter *adap, u16 addr,
 		return -EBUSY;
 	}
 
+	pm_runtime_get_sync(&priv->pci_dev->dev);
+
 	hwpec = (priv->features & FEATURE_SMBUS_PEC) && (flags & I2C_CLIENT_PEC)
 		&& size != I2C_SMBUS_QUICK
 		&& size != I2C_SMBUS_I2C_BLOCK_DATA;
@@ -828,6 +831,8 @@ static s32 i801_access(struct i2c_adapter *adap, u16 addr,
 	}
 
 out:
+	pm_runtime_mark_last_busy(&priv->pci_dev->dev);
+	pm_runtime_put_autosuspend(&priv->pci_dev->dev);
 	mutex_unlock(&priv->acpi_lock);
 	return ret;
 }
@@ -1287,6 +1292,12 @@ i801_acpi_io_handler(u32 function, acpi_physical_address address, u32 bits,
 
 		dev_warn(&pdev->dev, "BIOS is accessing SMBus registers\n");
 		dev_warn(&pdev->dev, "Driver SMBus register access inhibited\n");
+
+		/*
+		 * BIOS is accessing the host controller so prevent it from
+		 * suspending automatically from now on.
+		 */
+		pm_runtime_get_sync(&pdev->dev);
 	}
 
 	if ((function & ACPI_IO_MASK) == ACPI_READ)
@@ -1326,6 +1337,11 @@ static void i801_acpi_remove(struct i801_priv *priv)
 
 	acpi_remove_address_space_handler(adev->handle,
 		ACPI_ADR_SPACE_SYSTEM_IO, i801_acpi_io_handler);
+
+	mutex_lock(&priv->acpi_lock);
+	if (priv->acpi_reserved)
+		pm_runtime_put(&priv->pci_dev->dev);
+	mutex_unlock(&priv->acpi_lock);
 }
 #else
 static inline int i801_acpi_probe(struct i801_priv *priv) { return 0; }
@@ -1497,12 +1513,20 @@ static int i801_probe(struct pci_dev *dev, const struct pci_device_id *id)
 
 	pci_set_drvdata(dev, priv);
 
+	pm_runtime_set_autosuspend_delay(&dev->dev, 1000);
+	pm_runtime_use_autosuspend(&dev->dev);
+	pm_runtime_put_autosuspend(&dev->dev);
+	pm_runtime_allow(&dev->dev);
+
 	return 0;
 }
 
 static void i801_remove(struct pci_dev *dev)
 {
 	struct i801_priv *priv = pci_get_drvdata(dev);
+
+	pm_runtime_forbid(&dev->dev);
+	pm_runtime_get_noresume(&dev->dev);
 
 	i801_del_mux(priv);
 	i2c_del_adapter(&priv->adapter);
@@ -1518,34 +1542,32 @@ static void i801_remove(struct pci_dev *dev)
 }
 
 #ifdef CONFIG_PM
-static int i801_suspend(struct pci_dev *dev, pm_message_t mesg)
+static int i801_suspend(struct device *dev)
 {
-	struct i801_priv *priv = pci_get_drvdata(dev);
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct i801_priv *priv = pci_get_drvdata(pci_dev);
 
-	pci_save_state(dev);
-	pci_write_config_byte(dev, SMBHSTCFG, priv->original_hstcfg);
-	pci_set_power_state(dev, pci_choose_state(dev, mesg));
+	pci_write_config_byte(pci_dev, SMBHSTCFG, priv->original_hstcfg);
 	return 0;
 }
 
-static int i801_resume(struct pci_dev *dev)
+static int i801_resume(struct device *dev)
 {
-	pci_set_power_state(dev, PCI_D0);
-	pci_restore_state(dev);
 	return 0;
 }
-#else
-#define i801_suspend NULL
-#define i801_resume NULL
 #endif
+
+static UNIVERSAL_DEV_PM_OPS(i801_pm_ops, i801_suspend,
+			    i801_resume, NULL);
 
 static struct pci_driver i801_driver = {
 	.name		= "i801_smbus",
 	.id_table	= i801_ids,
 	.probe		= i801_probe,
 	.remove		= i801_remove,
-	.suspend	= i801_suspend,
-	.resume		= i801_resume,
+	.driver		= {
+		.pm	= &i801_pm_ops,
+	},
 };
 
 static int __init i2c_i801_init(void)
