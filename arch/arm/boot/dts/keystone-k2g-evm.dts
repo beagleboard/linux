@@ -616,7 +616,7 @@
 	rx-num-evt = <32>;
 };
 
-&pcie0_phy {
+&pcie0_serdes {
 	status = "okay";
 };
 
