@@ -157,6 +157,8 @@ gbe_serdes0: phy@232a000 {
 	/*rx-force-enable;*/
 	#address-cells	= <1>;
 	#size-cells	= <0>;
+	clocks = <&clkcpgmac>;
+	clock-names = "fck";
 
 	serdes0_lane0: lane@0 {
 		status		= "ok";
@@ -209,6 +211,8 @@ gbe_serdes1: phy@2324000 {
 	/*rx-force-enable;*/
 	#address-cells	= <1>;
 	#size-cells	= <0>;
+	clocks = <&clkcpgmac>;
+	clock-names = "fck";
 
 	serdes1_lane0: lane@0 {
 		status		= "disabled";
@@ -490,6 +494,8 @@ xgbe_serdes: phy@231e000 {
 	/*rx-force-enable;*/
 	#address-cells	= <1>;
 	#size-cells	= <0>;
+	clocks		= <&clkxge>;
+	clock-names	= "fck";
 
 	xserdes_lane0: lane@0 {
 		status		= "ok";
