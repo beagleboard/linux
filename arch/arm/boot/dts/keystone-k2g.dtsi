@@ -862,13 +862,18 @@
 			status = "disabled";
 		};
 
-		pcie0_phy: phy@2320000 {
+		pcie0_serdes: phy@2320000 {
 			#phy-cells = <0>;
 			compatible = "ti,keystone-serdes-pcie";
 			reg = <0x02320000 0x4000>;
 			link-rate-kbps = <5000000>;
 			num-lanes = <1>;
 			status = "disabled";
+
+			power-domains = <&k2g_pds K2G_DEV_PCIE0>;
+			clocks = <&k2g_clks
+					K2G_DEV_PCIE0 K2G_DEV_PCIE_VBUS_CLK>;
+			clock-names = "fck";
 		};
 
 		pcie0: pcie@21800000 {
