@@ -170,6 +170,8 @@ gbe_serdes: phy@232a000 {
 	/*rx-force-enable;*/
 	#address-cells	= <1>;
 	#size-cells	= <0>;
+	clocks = <&clkcpgmac>;
+	clock-names = "fck";
 
 	serdes_lane0: lane@0 {
 		status		= "ok";
@@ -413,6 +415,8 @@ xgbe_serdes: phy@231e000 {
 	num-lanes		= <2>;
 	syscon-peripheral	= <&xgbe_subsys>;
 	syscon-link		= <&xgbe_pcsr>;
+	clocks		= <&clkxge>;
+	clock-names	= "fck";
 	/*rx-force-enable;*/
 	#address-cells	= <1>;
 	#size-cells	= <0>;
