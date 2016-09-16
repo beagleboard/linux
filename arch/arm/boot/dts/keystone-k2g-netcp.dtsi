@@ -128,7 +128,7 @@ netcp: netcp@4000000 {
 			compatible = "ti,netcp-gbe-2";
 			syscon-subsys = <&gbe_subsys>;
 			reg = <0x200100 0xe00>, <0x220000 0x20000>;
-			/* enable-ale; */
+			enable-ale;
 			tx-queue = <5>;
 			tx-channel = "nettx";
 
