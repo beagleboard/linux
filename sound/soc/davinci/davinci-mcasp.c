@@ -151,6 +151,8 @@ static void mcasp_set_ctl_reg(struct davinci_mcasp *mcasp, u32 ctl_reg, u32 val)
 	mcasp_set_bits(mcasp, ctl_reg, val);
 
 	/* programming GBLCTL needs to read back from GBLCTL and verfiy */
+	ctl_reg = DAVINCI_MCASP_GBLCTL_REG;
+
 	/* loop count is to avoid the lock-up */
 	for (i = 0; i < 1000; i++) {
 		if ((mcasp_get_reg(mcasp, ctl_reg) & val) == val)
@@ -572,6 +574,12 @@ static int __davinci_mcasp_set_clkdiv(struct davinci_mcasp *mcasp, int div_id,
 		 * tdm_slot width by dividing the the ratio by the
 		 * number of configured tdm slots.
 		 */
+		if (mcasp->op_mode == DAVINCI_MCASP_DIT_MODE) {
+			if (div != 128)
+				dev_warn(mcasp->dev,
+					"%s(): BCLK/LRCLK %d requested, must be 128 for DIT mode", __func__, div);
+			break;
+		}
 		mcasp->slot_width = div / mcasp->tdm_slots;
 		if (div % mcasp->tdm_slots)
 			dev_warn(mcasp->dev,
@@ -696,56 +704,59 @@ static int davinci_mcasp_set_tdm_slot(struct snd_soc_dai *dai,
 }
 
 static int davinci_config_channel_size(struct davinci_mcasp *mcasp,
-				       int sample_width)
+				       u32 sample_width)
 {
-	u32 fmt;
-	u32 tx_rotate = (sample_width / 4) & 0x7;
-	u32 mask = (1ULL << sample_width) - 1;
-	u32 slot_width = sample_width;
+	u32 mask, tx_rotate, rx_rotate;
+	u32 slot_width, fmt;
 
 	/*
-	 * For captured data we should not rotate, inversion and masking is
-	 * enoguh to get the data to the right position:
-	 * Format	  data from bus		after reverse (XRBUF)
-	 * S16_LE:	|LSB|MSB|xxx|xxx|	|xxx|xxx|MSB|LSB|
-	 * S24_3LE:	|LSB|DAT|MSB|xxx|	|xxx|MSB|DAT|LSB|
-	 * S24_LE:	|LSB|DAT|MSB|xxx|	|xxx|MSB|DAT|LSB|
-	 * S32_LE:	|LSB|DAT|DAT|MSB|	|MSB|DAT|DAT|LSB|
+	 * Sample data is always right-justified.  Apply mask and rotate right
+	 * to left-justified.  For receive the steps are in reverse order (but
+	 * still rotates right).
 	 */
-	u32 rx_rotate = 0;
+	mask = GENMASK(sample_width, 0);
+	mcasp_set_reg(mcasp, DAVINCI_MCASP_TXMASK_REG, mask);
+	mcasp_set_reg(mcasp, DAVINCI_MCASP_RXMASK_REG, mask);
+
+	tx_rotate = sample_width;
+	rx_rotate = -sample_width;
 
 	/*
-	 * Setting the tdm slot width either with set_clkdiv() or
-	 * set_tdm_slot() allows us to for example send 32 bits per
-	 * channel to the codec, while only 16 of them carry audio
-	 * payload.
+	 * For big-endian formats (everything except DIT), McASP needs the slot
+	 * data to be left-aligned for transmit, whereas received slot data is
+	 * delivered right-aligned:
+	 *
+	 *   +-----------------------------------------------+---------------+
+	 * <--shift-out-         slot data                   |               |
+	 *   +-----------------------------------------------+---------------+
+	 *
+	 *   +---------------+-----------------------------------------------+
+	 *   |               |                   slot data        <--shift-in--
+	 *   +---------------+-----------------------------------------------+
+	 *
+	 * For little-endian formats (DIT only) the reverse is true.
 	 */
-	if (mcasp->slot_width) {
-		/*
-		 * When we have more bclk then it is needed for the
-		 * data, we need to use the rotation to move the
-		 * received samples to have correct alignment.
-		 */
-		slot_width = mcasp->slot_width;
-		rx_rotate = (slot_width - sample_width) / 4;
+	if (mcasp->op_mode == DAVINCI_MCASP_DIT_MODE) {
+		tx_rotate -= 24;
+		slot_width = 32;
+		fmt = 0;  /* little endian */
+	} else {
+		slot_width = mcasp->slot_width ?: sample_width;
+		rx_rotate += slot_width;
+		fmt = TXORD;  /* big endian */
 	}
 
 	/* mapping of the XSSZ bit-field as described in the datasheet */
-	fmt = (slot_width >> 1) - 1;
+	fmt |= TXSSZ((slot_width >> 1) - 1);
 
-	if (mcasp->op_mode != DAVINCI_MCASP_DIT_MODE) {
-		mcasp_mod_bits(mcasp, DAVINCI_MCASP_RXFMT_REG, RXSSZ(fmt),
-			       RXSSZ(0x0F));
-		mcasp_mod_bits(mcasp, DAVINCI_MCASP_TXFMT_REG, TXSSZ(fmt),
-			       TXSSZ(0x0F));
-		mcasp_mod_bits(mcasp, DAVINCI_MCASP_TXFMT_REG, TXROT(tx_rotate),
-			       TXROT(7));
-		mcasp_mod_bits(mcasp, DAVINCI_MCASP_RXFMT_REG, RXROT(rx_rotate),
-			       RXROT(7));
-		mcasp_set_reg(mcasp, DAVINCI_MCASP_RXMASK_REG, mask);
-	}
+	tx_rotate = TXROT((tx_rotate & 31) >> 2);
+	rx_rotate = TXROT((rx_rotate & 31) >> 2);
 
-	mcasp_set_reg(mcasp, DAVINCI_MCASP_TXMASK_REG, mask);
+	if (!mcasp->dat_port)
+		fmt |= TXSEL;
+
+	mcasp_mod_bits(mcasp, DAVINCI_MCASP_TXFMT_REG, fmt | tx_rotate, 0xffff);
+	mcasp_mod_bits(mcasp, DAVINCI_MCASP_RXFMT_REG, fmt | rx_rotate, 0xffff);
 
 	return 0;
 }
@@ -866,7 +877,6 @@ static int mcasp_i2s_hw_param(struct davinci_mcasp *mcasp, int stream,
 	int total_slots;
 	int active_serializers;
 	u32 mask = 0;
-	u32 busel = 0;
 
 	total_slots = mcasp->tdm_slots;
 
@@ -902,17 +912,12 @@ static int mcasp_i2s_hw_param(struct davinci_mcasp *mcasp, int stream,
 	}
 	mcasp_clr_bits(mcasp, DAVINCI_MCASP_ACLKXCTL_REG, TX_ASYNC);
 
-	if (!mcasp->dat_port)
-		busel = TXSEL;
-
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		mcasp_set_reg(mcasp, DAVINCI_MCASP_TXTDM_REG, mask);
-		mcasp_set_bits(mcasp, DAVINCI_MCASP_TXFMT_REG, busel | TXORD);
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_TXFMCTL_REG,
 			       FSXMOD(total_slots), FSXMOD(0x1FF));
 	} else if (stream == SNDRV_PCM_STREAM_CAPTURE) {
 		mcasp_set_reg(mcasp, DAVINCI_MCASP_RXTDM_REG, mask);
-		mcasp_set_bits(mcasp, DAVINCI_MCASP_RXFMT_REG, busel | RXORD);
 		mcasp_mod_bits(mcasp, DAVINCI_MCASP_RXFMCTL_REG,
 			       FSRMOD(total_slots), FSRMOD(0x1FF));
 		/*
@@ -935,23 +940,13 @@ static int mcasp_dit_hw_param(struct davinci_mcasp *mcasp,
 	u32 cs_value = 0;
 	u8 *cs_bytes = (u8*) &cs_value;
 
-	/* Set the TX format : 24 bit right rotation, 32 bit slot, Pad 0
-	   and LSB first */
-	mcasp_set_bits(mcasp, DAVINCI_MCASP_TXFMT_REG, TXROT(6) | TXSSZ(15));
-
 	/* Set TX frame synch : DIT Mode, 1 bit width, internal, rising edge */
 	mcasp_set_reg(mcasp, DAVINCI_MCASP_TXFMCTL_REG, AFSXE | FSXMOD(0x180));
 
 	/* Set the TX tdm : for all the slots */
 	mcasp_set_reg(mcasp, DAVINCI_MCASP_TXTDM_REG, 0xFFFFFFFF);
 
-	/* Set the TX clock controls : div = 1 and internal */
-	mcasp_set_bits(mcasp, DAVINCI_MCASP_ACLKXCTL_REG, ACLKXE | TX_ASYNC);
-
-	mcasp_clr_bits(mcasp, DAVINCI_MCASP_XEVTCTL_REG, TXDATADMADIS);
-
-	/* Only 44100 and 48000 are valid, both have the same setting */
-	mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG, AHCLKXDIV(3));
+	mcasp_set_bits(mcasp, DAVINCI_MCASP_ACLKXCTL_REG, TX_ASYNC);
 
 	/* Enable the DIT */
 	mcasp_set_bits(mcasp, DAVINCI_MCASP_TXDITCTL_REG, DITEN);
@@ -1049,6 +1044,15 @@ static int davinci_mcasp_calc_clk_div(struct davinci_mcasp *mcasp,
 	return error_ppm;
 }
 
+static uint mcasp_clocks_per_slot(struct davinci_mcasp *mcasp, uint width)
+{
+	if (mcasp->op_mode == DAVINCI_MCASP_DIT_MODE)
+		return 64;
+	if (mcasp->slot_width)
+		return mcasp->slot_width;
+	return width;
+}
+
 static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 					struct snd_pcm_hw_params *params,
 					struct snd_soc_dai *cpu_dai)
@@ -1068,12 +1072,9 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 	 * the machine driver, we need to calculate the ratio.
 	 */
 	if (mcasp->bclk_master && mcasp->bclk_div == 0 && mcasp->sysclk_freq) {
-		int slots = mcasp->tdm_slots;
-		int rate = params_rate(params);
-		int sbits = params_width(params);
-
-		if (mcasp->slot_width)
-			sbits = mcasp->slot_width;
+		uint slots = mcasp->tdm_slots;
+		uint rate = params_rate(params);
+		uint sbits = mcasp_clocks_per_slot(mcasp, params_width(params));
 
 		davinci_mcasp_calc_clk_div(mcasp, rate * sbits * slots, true);
 	}
@@ -1171,13 +1172,10 @@ static int davinci_mcasp_hw_rule_rate(struct snd_pcm_hw_params *params,
 	struct davinci_mcasp_ruledata *rd = rule->private;
 	struct snd_interval *ri =
 		hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
-	int sbits = params_width(params);
-	int slots = rd->mcasp->tdm_slots;
+	uint sbits = mcasp_clocks_per_slot(rd->mcasp, params_width(params));
+	uint slots = rd->mcasp->tdm_slots;
 	struct snd_interval range;
 	int i;
-
-	if (rd->mcasp->slot_width)
-		sbits = rd->mcasp->slot_width;
 
 	snd_interval_any(&range);
 	range.empty = 1;
@@ -1225,8 +1223,7 @@ static int davinci_mcasp_hw_rule_format(struct snd_pcm_hw_params *params,
 			uint sbits = snd_pcm_format_width(i);
 			int ppm;
 
-			if (rd->mcasp->slot_width)
-				sbits = rd->mcasp->slot_width;
+			sbits = mcasp_clocks_per_slot(rd->mcasp, sbits);
 
 			ppm = davinci_mcasp_calc_clk_div(rd->mcasp,
 							 sbits * slots * rate,
@@ -1836,7 +1833,9 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 
 	mcasp->op_mode = pdata->op_mode;
 	/* sanity check for tdm slots parameter */
-	if (mcasp->op_mode == DAVINCI_MCASP_IIS_MODE) {
+	if (mcasp->op_mode == DAVINCI_MCASP_DIT_MODE) {
+		mcasp->tdm_slots = 2;
+	} else {
 		if (pdata->tdm_slots < 2) {
 			dev_err(&pdev->dev, "invalid tdm slots: %d\n",
 				pdata->tdm_slots);
