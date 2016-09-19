@@ -82,12 +82,12 @@
 /* Serializer n Control Register */
 #define DAVINCI_MCASP_XRSRCTL_BASE_REG	0x180
 #define DAVINCI_MCASP_XRSRCTL_REG(n)	(DAVINCI_MCASP_XRSRCTL_BASE_REG + \
-						(n << 2))
+						((n) << 2))
 
 /* Transmit Buffer for Serializer n */
-#define DAVINCI_MCASP_TXBUF_REG(n)	(0x200 + (n << 2))
+#define DAVINCI_MCASP_TXBUF_REG(n)	(0x200 + ((n) << 2))
 /* Receive Buffer for Serializer n */
-#define DAVINCI_MCASP_RXBUF_REG(n)	(0x280 + (n << 2))
+#define DAVINCI_MCASP_RXBUF_REG(n)	(0x280 + ((n) << 2))
 
 /* McASP FIFO Registers */
 #define DAVINCI_MCASP_V2_AFIFO_BASE	(0x1010)
@@ -109,7 +109,7 @@
 /*
  * DAVINCI_MCASP_PFUNC_REG - Pin Function / GPIO Enable Register Bits
  */
-#define AXR(n)		(1<<n)
+#define AXR(n)		(1<<(n))
 #define PFUNC_AMUTE	BIT(25)
 #define ACLKX		BIT(26)
 #define AHCLKX		BIT(27)
@@ -121,7 +121,7 @@
 /*
  * DAVINCI_MCASP_PDIR_REG - Pin Direction Register Bits
  */
-#define AXR(n)		(1<<n)
+#define AXR(n)		(1<<(n))
 #define PDIR_AMUTE	BIT(25)
 #define ACLKX		BIT(26)
 #define AHCLKX		BIT(27)
@@ -142,22 +142,22 @@
  */
 #define TXROT(val)	(val)
 #define TXSEL		BIT(3)
-#define TXSSZ(val)	(val<<4)
-#define TXPBIT(val)	(val<<8)
-#define TXPAD(val)	(val<<13)
+#define TXSSZ(val)	((val)<<4)
+#define TXPBIT(val)	((val)<<8)
+#define TXPAD(val)	((val)<<13)
 #define TXORD		BIT(15)
-#define FSXDLY(val)	(val<<16)
+#define FSXDLY(val)	((val)<<16)
 
 /*
  * DAVINCI_MCASP_RXFMT_REG - Receive Bitstream Format Register Bits
  */
 #define RXROT(val)	(val)
 #define RXSEL		BIT(3)
-#define RXSSZ(val)	(val<<4)
-#define RXPBIT(val)	(val<<8)
-#define RXPAD(val)	(val<<13)
+#define RXSSZ(val)	((val)<<4)
+#define RXPBIT(val)	((val)<<8)
+#define RXPAD(val)	((val)<<13)
 #define RXORD		BIT(15)
-#define FSRDLY(val)	(val<<16)
+#define FSRDLY(val)	((val)<<16)
 
 /*
  * DAVINCI_MCASP_TXFMCTL_REG -  Transmit Frame Control Register Bits
@@ -165,7 +165,7 @@
 #define FSXPOL		BIT(0)
 #define AFSXE		BIT(1)
 #define FSXDUR		BIT(4)
-#define FSXMOD(val)	(val<<7)
+#define FSXMOD(val)	((val)<<7)
 
 /*
  * DAVINCI_MCASP_RXFMCTL_REG - Receive Frame Control Register Bits
@@ -173,7 +173,7 @@
 #define FSRPOL		BIT(0)
 #define AFSRE		BIT(1)
 #define FSRDUR		BIT(4)
-#define FSRMOD(val)	(val<<7)
+#define FSRMOD(val)	((val)<<7)
 
 /*
  * DAVINCI_MCASP_ACLKXCTL_REG - Transmit Clock Control Register Bits
@@ -229,17 +229,17 @@
  */
 #define LBEN		BIT(0)
 #define LBORD		BIT(1)
-#define LBGENMODE(val)	(val<<2)
+#define LBGENMODE(val)	((val)<<2)
 
 /*
  * DAVINCI_MCASP_TXTDMSLOT_REG - Transmit TDM Slot Register configuration
  */
-#define TXTDMS(n)	(1<<n)
+#define TXTDMS(n)	(1<<(n))
 
 /*
  * DAVINCI_MCASP_RXTDMSLOT_REG - Receive TDM Slot Register configuration
  */
-#define RXTDMS(n)	(1<<n)
+#define RXTDMS(n)	(1<<(n))
 
 /*
  * DAVINCI_MCASP_GBLCTL_REG -  Global Control Register Bits
