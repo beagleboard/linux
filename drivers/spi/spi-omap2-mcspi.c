@@ -136,6 +136,7 @@ struct omap2_mcspi {
 	struct omap2_mcspi_regs ctx;
 	int			fifo_depth;
 	unsigned int		pin_dir:1;
+	unsigned int		pio_mode:1;
 };
 
 struct omap2_mcspi_cs {
@@ -1001,6 +1002,9 @@ static int omap2_mcspi_request_dma(struct spi_device *spi)
 	init_completion(&mcspi_dma->dma_rx_completion);
 	init_completion(&mcspi_dma->dma_tx_completion);
 
+	if (mcspi->pio_mode == MCSPI_PIO_MODE)
+		goto no_dma;
+
 	mcspi_dma->dma_rx = dma_request_chan(&master->dev,
 					     mcspi_dma->dma_rx_ch_name);
 	if (IS_ERR(mcspi_dma->dma_rx)) {
@@ -1366,6 +1370,8 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 	mcspi = spi_master_get_devdata(master);
 	mcspi->master = master;
 
+	mcspi->pio_mode = 0;
+
 	match = of_match_device(omap_mcspi_of_match, &pdev->dev);
 	if (match) {
 		u32 num_cs = 1; /* default number of chipselect */
@@ -1376,6 +1382,8 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 		master->bus_num = bus_num++;
 		if (of_get_property(node, "ti,pindir-d0-out-d1-in", NULL))
 			mcspi->pin_dir = MCSPI_PINDIR_D0_OUT_D1_IN;
+		if (of_get_property(node, "ti,pio-mode", NULL))
+			mcspi->pio_mode = MCSPI_PIO_MODE;
 	} else {
 		pdata = dev_get_platdata(&pdev->dev);
 		master->num_chipselect = pdata->num_cs;
