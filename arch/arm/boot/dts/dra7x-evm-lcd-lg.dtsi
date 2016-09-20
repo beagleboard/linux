@@ -6,24 +6,81 @@
  * published by the Free Software Foundation.
  */
 
+#include <dt-bindings/gpio/gpio.h>
+
 / {
 	aliases {
 		display0 = &tlc59108;
 		display1 = &hdmi0;
+	};
+
+	backlight {
+		compatible = "led-backlight";
+		leds = <&backlight_led>;
+		brightness-levels = <0 243 245 247 248 249 251 252 255>;
+		default-brightness-level = <8>;
+
+		enable-gpios = <&tlc59108 0 GPIO_ACTIVE_HIGH>;
+	};
+
+	lcd: display {
+		/*
+		 * This is not really a dpi panel, but panel-dpi driver
+		 * works as dummy panel driver.
+		 */
+		compatible = "lg,lp101wx2", "panel-dpi";
+
+		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
+
+		label = "lcd";
+
+		panel-timing {
+			clock-frequency = <69300404>;
+			hactive = <1280>;
+			vactive = <800>;
+
+			hfront-porch = <48>;
+			hback-porch = <44>;
+			hsync-len = <32>;
+
+			vfront-porch = <4>;
+			vback-porch = <7>;
+			vsync-len = <12>;
+
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+		};
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
 	};
 };
 
 &i2c1 {
 	/* TLC chip for LCD panel power and backlight */
 	tlc59108: tlc59108@40 {
-		compatible = "ti,tlc59108-lp101";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ti,tlc59108";
 		reg = <0x40>;
-		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
+		gpio-controller;
+		#gpio-cells = <2>;
 
-		port {
-			tlc_in: endpoint {
-				remote-endpoint = <&dpi_out>;
-			};
+		backlight_led: bl@2 {
+			label = "backlight";
+			reg = <0x2>;
+		};
+
+		p7 {
+			gpio-hog;
+			gpios = <7 GPIO_ACTIVE_HIGH>;
+			output-high; /* = pull down */
+			line-name = "LVDS_CLKSel";
 		};
 	};
 };
@@ -37,7 +94,7 @@
 			reg = <0>;
 
 			dpi_out: endpoint {
-				remote-endpoint = <&tlc_in>;
+				remote-endpoint = <&lcd_in>;
 				data-lines = <24>;
 			};
 		};
