@@ -64,7 +64,7 @@
  * vip_formats[].
  * When vip_formats[] is modified make sure to adjust this value also.
  */
-#define VIP_MAX_ACTIVE_FMT		10
+#define VIP_MAX_ACTIVE_FMT		7
 
 /* buffer for one video frame */
 struct vip_buffer {

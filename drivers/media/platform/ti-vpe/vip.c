@@ -125,7 +125,7 @@ static struct vip_srce_info srce_info[5] = {
 	},
 };
 
-static struct vip_fmt vip_formats[] = {
+static struct vip_fmt vip_formats[VIP_MAX_ACTIVE_FMT] = {
 	{
 		.fourcc		= V4L2_PIX_FMT_NV12,
 		.code		= MEDIA_BUS_FMT_UYVY8_2X8,
