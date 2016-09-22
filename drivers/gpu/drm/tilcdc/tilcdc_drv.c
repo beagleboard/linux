@@ -192,7 +192,9 @@ static int tilcdc_unload(struct drm_device *dev)
 	drm_mode_config_cleanup(dev);
 	drm_vblank_cleanup(dev);
 
+	pm_runtime_get_sync(dev->dev);
 	drm_irq_uninstall(dev);
+	pm_runtime_put_sync(dev->dev);
 
 #ifdef CONFIG_CPU_FREQ
 	cpufreq_unregister_notifier(&priv->freq_transition,
@@ -348,7 +350,9 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 		goto fail_external_cleanup;
 	}
 
+	pm_runtime_get_sync(dev->dev);
 	ret = drm_irq_install(dev, platform_get_irq(dev->platformdev, 0));
+	pm_runtime_put_sync(dev->dev);
 	if (ret < 0) {
 		dev_err(dev->dev, "failed to install IRQ handler\n");
 		goto fail_vblank_cleanup;
@@ -376,7 +380,9 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 	return 0;
 
 fail_irq_uninstall:
+	pm_runtime_get_sync(dev->dev);
 	drm_irq_uninstall(dev);
+	pm_runtime_put_sync(dev->dev);
 
 fail_vblank_cleanup:
 	drm_vblank_cleanup(dev);
@@ -432,6 +438,45 @@ static irqreturn_t tilcdc_irq(int irq, void *arg)
 	struct drm_device *dev = arg;
 	struct tilcdc_drm_private *priv = dev->dev_private;
 	return tilcdc_crtc_irq(priv->crtc);
+}
+
+static void tilcdc_irq_preinstall(struct drm_device *dev)
+{
+	tilcdc_clear_irqstatus(dev, 0xffffffff);
+}
+
+static int tilcdc_irq_postinstall(struct drm_device *dev)
+{
+	struct tilcdc_drm_private *priv = dev->dev_private;
+
+	/* enable FIFO underflow irq: */
+	if (priv->rev == 1) {
+		tilcdc_set(dev, LCDC_RASTER_CTRL_REG, LCDC_V1_UNDERFLOW_INT_ENA);
+	} else {
+		tilcdc_write(dev, LCDC_INT_ENABLE_SET_REG,
+			   LCDC_V2_UNDERFLOW_INT_ENA |
+			   LCDC_V2_END_OF_FRAME0_INT_ENA |
+			   LCDC_FRAME_DONE | LCDC_SYNC_LOST);
+	}
+
+	return 0;
+}
+
+static void tilcdc_irq_uninstall(struct drm_device *dev)
+{
+	struct tilcdc_drm_private *priv = dev->dev_private;
+
+	/* disable irqs that we might have enabled: */
+	if (priv->rev == 1) {
+		tilcdc_clear(dev, LCDC_RASTER_CTRL_REG,
+				LCDC_V1_UNDERFLOW_INT_ENA | LCDC_V1_PL_INT_ENA);
+		tilcdc_clear(dev, LCDC_DMA_CTRL_REG, LCDC_V1_END_OF_FRAME_INT_ENA);
+	} else {
+		tilcdc_write(dev, LCDC_INT_ENABLE_CLR_REG,
+			LCDC_V2_UNDERFLOW_INT_ENA | LCDC_V2_PL_INT_ENA |
+			LCDC_V2_END_OF_FRAME0_INT_ENA |
+			LCDC_FRAME_DONE | LCDC_SYNC_LOST);
+	}
 }
 
 static int tilcdc_enable_vblank(struct drm_device *dev, unsigned int pipe)
@@ -578,6 +623,9 @@ static struct drm_driver tilcdc_driver = {
 	.lastclose          = tilcdc_lastclose,
 	.set_busid          = drm_platform_set_busid,
 	.irq_handler        = tilcdc_irq,
+	.irq_preinstall     = tilcdc_irq_preinstall,
+	.irq_postinstall    = tilcdc_irq_postinstall,
+	.irq_uninstall      = tilcdc_irq_uninstall,
 	.get_vblank_counter = drm_vblank_no_hw_counter,
 	.enable_vblank      = tilcdc_enable_vblank,
 	.disable_vblank     = tilcdc_disable_vblank,
