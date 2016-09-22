@@ -365,8 +365,6 @@ static int tilcdc_load(struct drm_device *dev, unsigned long flags)
 			break;
 	}
 
-	drm_mode_config_reset(dev);
-
 	priv->fbdev = drm_fbdev_cma_init(dev, bpp,
 			dev->mode_config.num_crtc,
 			dev->mode_config.num_connector);
