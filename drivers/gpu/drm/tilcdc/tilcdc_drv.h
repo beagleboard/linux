@@ -74,6 +74,7 @@ struct tilcdc_drm_private {
 
 #ifdef CONFIG_CPU_FREQ
 	struct notifier_block freq_transition;
+	unsigned int lcd_fck_rate;
 #endif
 
 	struct workqueue_struct *wq;
