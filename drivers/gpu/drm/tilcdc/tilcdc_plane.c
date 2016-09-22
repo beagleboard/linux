@@ -101,9 +101,10 @@ static void tilcdc_plane_atomic_update(struct drm_plane *plane,
 	if (WARN_ON(!state->fb || !state->crtc->state))
 		return;
 
-	tilcdc_crtc_update_fb(state->crtc,
+	tilcdc_crtc_page_flip(state->crtc,
 			      state->fb,
-			      state->crtc->state->event);
+			      state->crtc->state->event,
+			      0);
 }
 
 static const struct drm_plane_helper_funcs plane_helper_funcs = {
