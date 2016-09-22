@@ -599,7 +599,7 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	/* This is just for initialization purposes.
 	 * The actual dma_addr will be configured in vpdma_update_dma_addr
 	 */
-	dma_addr = (dma_addr_t)NULL;
+	dma_addr = 0;
 
 	/*
 	 * Use VPDMA_MAX_SIZE1 or VPDMA_MAX_SIZE2 register for slice0/1
@@ -723,10 +723,10 @@ static void start_dma(struct vip_stream *stream, struct vip_buffer *buf)
 	if (buf) {
 		dma_addr = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
 		drop_data = 0;
-		vip_dbg(4, dev, "start_dma: buf:0x%08x, vb:0x%08x, dma_addr:0x%08x\n",
-			(unsigned int)buf, (unsigned int)&buf->vb, dma_addr);
+		vip_dbg(4, dev, "start_dma: buf:%pa, vb:%pa, dma_addr:%pad\n",
+			&buf, &buf->vb, &dma_addr);
 	} else {
-		dma_addr = (dma_addr_t)NULL;
+		dma_addr = 0;
 		drop_data = 1;
 		vip_dbg(4, dev, "start_dma: dropped\n");
 	}
