@@ -20,7 +20,6 @@
 #include <linux/of_gpio.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/consumer.h>
-#include <drm/drm_atomic_helper.h>
 
 #include "tilcdc_drv.h"
 
@@ -210,12 +209,9 @@ static struct drm_encoder *tfp410_connector_best_encoder(
 
 static const struct drm_connector_funcs tfp410_connector_funcs = {
 	.destroy            = tfp410_connector_destroy,
-	.dpms               = drm_atomic_helper_connector_dpms,
+	.dpms               = drm_helper_connector_dpms,
 	.detect             = tfp410_connector_detect,
 	.fill_modes         = drm_helper_probe_single_connector_modes,
-	.reset              = drm_atomic_helper_connector_reset,
-	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
-	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
 static const struct drm_connector_helper_funcs tfp410_connector_helper_funcs = {
