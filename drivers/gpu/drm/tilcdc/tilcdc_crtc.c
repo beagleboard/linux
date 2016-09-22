@@ -474,32 +474,6 @@ static void tilcdc_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	crtc->hwmode = crtc->state->adjusted_mode;
 }
 
-static int tilcdc_crtc_atomic_check(struct drm_crtc *crtc,
-				    struct drm_crtc_state *state)
-{
-	struct drm_display_mode *mode = &state->mode;
-	int ret;
-
-	/* If we are not active we don't care */
-	if (!state->active)
-		return 0;
-
-	if (state->state->planes[0] != crtc->primary ||
-	    state->state->plane_states[0] == NULL ||
-	    state->state->plane_states[0]->crtc != crtc) {
-		dev_dbg(crtc->dev->dev, "CRTC primary plane must be present");
-		return -EINVAL;
-	}
-
-	ret = tilcdc_crtc_mode_valid(crtc, mode);
-	if (ret) {
-		dev_dbg(crtc->dev->dev, "Mode \"%s\" not valid", mode->name);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int tilcdc_crtc_mode_set(struct drm_crtc *crtc,
 		struct drm_display_mode *mode,
 		struct drm_display_mode *adjusted_mode,
@@ -716,7 +690,6 @@ static const struct drm_crtc_helper_funcs tilcdc_crtc_helper_funcs = {
 		.commit         = tilcdc_crtc_commit,
 		.mode_set       = tilcdc_crtc_mode_set,
 		.mode_set_base  = tilcdc_crtc_mode_set_base,
-		.atomic_check	= tilcdc_crtc_atomic_check,
 		.mode_set_nofb	= tilcdc_crtc_mode_set_nofb,
 };
 
