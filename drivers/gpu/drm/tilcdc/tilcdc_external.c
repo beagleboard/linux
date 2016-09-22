@@ -52,7 +52,7 @@ static int tilcdc_external_mode_valid(struct drm_connector *connector,
 	return MODE_OK;
 }
 
-static int tilcdc_add_external_encoder(struct drm_device *dev,
+static int tilcdc_add_external_encoder(struct drm_device *dev, int *bpp,
 				       struct drm_connector *connector)
 {
 	struct tilcdc_drm_private *priv = dev->dev_private;
@@ -64,6 +64,7 @@ static int tilcdc_add_external_encoder(struct drm_device *dev,
 	/* Only tda998x is supported at the moment. */
 	tilcdc_crtc_set_simulate_vesa_sync(priv->crtc, true);
 	tilcdc_crtc_set_panel_info(priv->crtc, &panel_info_tda998x);
+	*bpp = panel_info_tda998x.bpp;
 
 	connector_funcs = devm_kzalloc(dev->dev, sizeof(*connector_funcs),
 				       GFP_KERNEL);
@@ -93,7 +94,7 @@ static int tilcdc_add_external_encoder(struct drm_device *dev,
 	return 0;
 }
 
-int tilcdc_add_external_encoders(struct drm_device *dev)
+int tilcdc_add_external_encoders(struct drm_device *dev, int *bpp)
 {
 	struct tilcdc_drm_private *priv = dev->dev_private;
 	struct drm_connector *connector;
@@ -107,7 +108,7 @@ int tilcdc_add_external_encoders(struct drm_device *dev)
 			if (connector == priv->connectors[i])
 				found = true;
 		if (!found) {
-			ret = tilcdc_add_external_encoder(dev, connector);
+			ret = tilcdc_add_external_encoder(dev, bpp, connector);
 			if (ret)
 				return ret;
 		}
