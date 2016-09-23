@@ -21,7 +21,6 @@
 #ifndef __KMEMLEAK_H
 #define __KMEMLEAK_H
 
-#include <linux/mm.h>
 #include <linux/slab.h>
 
 #ifdef CONFIG_DEBUG_KMEMLEAK
@@ -39,6 +38,11 @@ extern void kmemleak_not_leak(const void *ptr) __ref;
 extern void kmemleak_ignore(const void *ptr) __ref;
 extern void kmemleak_scan_area(const void *ptr, size_t size, gfp_t gfp) __ref;
 extern void kmemleak_no_scan(const void *ptr) __ref;
+extern void kmemleak_alloc_phys(phys_addr_t phys, size_t size, int min_count,
+				gfp_t gfp) __ref;
+extern void kmemleak_free_part_phys(phys_addr_t phys, size_t size) __ref;
+extern void kmemleak_not_leak_phys(phys_addr_t phys) __ref;
+extern void kmemleak_ignore_phys(phys_addr_t phys) __ref;
 
 static inline void kmemleak_alloc_recursive(const void *ptr, size_t size,
 					    int min_count, unsigned long flags,
@@ -107,32 +111,20 @@ static inline void kmemleak_erase(void **ptr)
 static inline void kmemleak_no_scan(const void *ptr)
 {
 }
-
-#endif	/* CONFIG_DEBUG_KMEMLEAK */
-
 static inline void kmemleak_alloc_phys(phys_addr_t phys, size_t size,
 				       int min_count, gfp_t gfp)
 {
-	if (!IS_ENABLED(CONFIG_HIGHMEM) || phys < __pa(high_memory))
-		kmemleak_alloc(__va(phys), size, min_count, gfp);
 }
-
 static inline void kmemleak_free_part_phys(phys_addr_t phys, size_t size)
 {
-	if (!IS_ENABLED(CONFIG_HIGHMEM) || phys < __pa(high_memory))
-		kmemleak_free_part(__va(phys), size);
 }
-
 static inline void kmemleak_not_leak_phys(phys_addr_t phys)
 {
-	if (!IS_ENABLED(CONFIG_HIGHMEM) || phys < __pa(high_memory))
-		kmemleak_not_leak(__va(phys));
 }
-
 static inline void kmemleak_ignore_phys(phys_addr_t phys)
 {
-	if (!IS_ENABLED(CONFIG_HIGHMEM) || phys < __pa(high_memory))
-		kmemleak_ignore(__va(phys));
 }
+
+#endif	/* CONFIG_DEBUG_KMEMLEAK */
 
 #endif	/* __KMEMLEAK_H */
