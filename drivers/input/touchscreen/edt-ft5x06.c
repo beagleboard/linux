@@ -1102,6 +1102,10 @@ static struct i2c_driver edt_ft5x06_ts_driver = {
 
 module_i2c_driver(edt_ft5x06_ts_driver);
 
+MODULE_ALIAS("i2c:edt-ft5206");
+MODULE_ALIAS("i2c:edt-ft5306");
+MODULE_ALIAS("i2c:edt-ft5406");
+MODULE_ALIAS("i2c:edt-ft5506");
 MODULE_AUTHOR("Simon Budig <simon.budig@kernelconcepts.de>");
 MODULE_DESCRIPTION("EDT FT5x06 I2C Touchscreen Driver");
 MODULE_LICENSE("GPL");
