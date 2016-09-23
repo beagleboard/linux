@@ -122,6 +122,12 @@
 		enable-active-high;
 	};
 
+	soc {
+		mpm_mem: dspmem {
+			compatible = "ti,keystone-dsp-mem";
+		};
+	};
+
 	rotary-in0 {
 		compatible = "rotary-encoder";
 		gpios = <&pca9536 3 GPIO_ACTIVE_HIGH>,
