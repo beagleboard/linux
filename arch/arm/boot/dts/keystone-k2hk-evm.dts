@@ -248,3 +248,9 @@
 &dsp7 {
 	memory-region = <&dsp_common_cma_pool>;
 };
+
+&gbe {
+	/* custom mult/shift values for rftclk = 600000000 */
+	cpts_clock_mult = <3579139414>;
+	cpts_clock_shift = <31>;
+};
