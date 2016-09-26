@@ -389,18 +389,54 @@ void cpts_unregister(struct cpts *cpts)
 	clk_disable(cpts->refclk);
 }
 
+static void cpts_calc_mult_shift(struct cpts *cpts)
+{
+	u64 frac, maxsec, ns;
+	u32 freq, mult, shift;
+
+	freq = clk_get_rate(cpts->refclk);
+
+	/* Calc the maximum number of seconds which we can run before
+	 * wrapping around.
+	 */
+	maxsec = cpts->cc.mask;
+	do_div(maxsec, freq);
+	if (maxsec > 600 && cpts->cc.mask > UINT_MAX)
+		maxsec = 600;
+
+	if (cpts->cc_mult || cpts->cc.shift)
+		return;
+
+	clocks_calc_mult_shift(&mult, &shift, freq, NSEC_PER_SEC, maxsec);
+
+	cpts->cc_mult = mult;
+	cpts->cc.mult = mult;
+	cpts->cc.shift = shift;
+
+	frac = 0;
+	ns = cyclecounter_cyc2ns(&cpts->cc, freq, cpts->cc.mask, &frac);
+
+	dev_info(cpts->dev,
+		 "CPTS: ref_clk_freq:%u calc_mult:%u calc_shift:%u error:%lld nsec/sec\n",
+		 freq, cpts->cc_mult, cpts->cc.shift, (ns - NSEC_PER_SEC));
+}
+
 static int cpts_of_parse(struct cpts *cpts, struct device_node *node)
 {
 	int ret = -EINVAL;
 	u32 prop;
 
-	if (of_property_read_u32(node, "cpts_clock_mult", &prop))
-		goto  of_error;
-	cpts->cc_mult = prop;
+	cpts->cc_mult = 0;
+	if (!of_property_read_u32(node, "cpts_clock_mult", &prop))
+		cpts->cc_mult = prop;
 
-	if (of_property_read_u32(node, "cpts_clock_shift", &prop))
-		goto  of_error;
-	cpts->cc.shift = prop;
+	cpts->cc.shift = 0;
+	if (!of_property_read_u32(node, "cpts_clock_shift", &prop))
+		cpts->cc.shift = prop;
+
+	if ((cpts->cc_mult && !cpts->cc.shift) ||
+	    (!cpts->cc_mult && cpts->cc.shift))
+		goto of_error;
 
 	return 0;
 
@@ -441,6 +477,8 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
 
 	cpts->cc.read = cpts_systim_read;
 	cpts->cc.mask = CLOCKSOURCE_MASK(32);
+
+	cpts_calc_mult_shift(cpts);
 
 	return cpts;
 }
