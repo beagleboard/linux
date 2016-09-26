@@ -25,6 +25,11 @@ and also the generic series names
 
 Optional properties:
 - ti,ldo6-vibrator : ldo6 is in vibrator mode
+- xxx-supply: Input voltage supply regulator.
+	      xxx should match the supply_name populated in the driver.
+	      These entries are required if regulators are enabled for a
+	      device. Missing of these properties can cause the regulator
+	      registration fails.
 
 Optional nodes:
 - regulators : Must contain a sub-node per regulator from the list below.
@@ -67,6 +72,9 @@ pmic {
 	ti,ldo6-vibrator;
 
 	ti,system-power-controller;
+
+	smps1-in-supply = <&vmain>;
+	ldo1-in-supply = <&vmain>;
 
 	regulators {
 		smps12_reg : smps12 {
