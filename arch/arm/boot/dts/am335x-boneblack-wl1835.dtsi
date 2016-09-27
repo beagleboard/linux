@@ -7,6 +7,12 @@
 		pinctrl-0 = <&wl18xx_pins>;
 		compatible = "gpio-leds";
 
+		wl18xx_wl_en {
+			label = "wl18xx_wl_en";
+			gpios = <&gpio3 9 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
 		wl18xx_bt_en {
 			label = "wl18xx_bt_en";
 			gpios = <&gpio0 28 GPIO_ACTIVE_HIGH>;
@@ -31,6 +37,7 @@
 	wl18xx_pins: pinmux_wl18xx_pins {
 		pinctrl-single,pins = <
 			0x128 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* (K17) gmii1_txd0.gpio0[28] - BT_EN */
+			0x12c (PIN_OUTPUT_PULLDOWN | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
 		>;
 	};
 
@@ -54,7 +61,6 @@
 	/* wl18xx card enable/irq GPIOs. */
 	wlan_pins: pinmux_wlan_pins {
 		pinctrl-single,pins = <
-			0x12c ( PIN_OUTPUT_PULLDOWN | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
 			0x144 ( PIN_INPUT_PULLUP | MUX_MODE7 )  /* (H18) rmii1_refclk.gpio0[29] - WL_IRQ */
 		>;
 	};
@@ -96,13 +102,6 @@
 };
 
 &gpio3 {
-	wl_en {
-		gpio-hog;
-		gpios = <9 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "WL_EN";
-	};
-
 	ls_buf_en {
 		gpio-hog;
 		gpios = <10 GPIO_ACTIVE_HIGH>;
