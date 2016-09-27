@@ -8,7 +8,8 @@
 
 / {
 	aliases {
-		display1 = &lcd;
+		display0 = &lcd;
+		display1 = &hdmi0;
 	};
 
 	backlight {
