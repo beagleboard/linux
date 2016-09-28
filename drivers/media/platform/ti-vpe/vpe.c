@@ -1125,6 +1125,20 @@ static void add_in_dtd(struct vpe_ctx *ctx, int port)
 			dma_addr = vb2_dma_contig_plane_dma_addr(vb, plane);
 			/* Use address as is, no offset */
 			offset = 0;
+
+			/*
+			 * Special case when dealing with DMABUF buffers
+			 * coming from the g-streamer vpe-plugin.
+			 * Those DMABUF buffers look like they are 2 planes
+			 * but realistically both plane fd are the same.
+			 * So they are actually single plane buffer
+			 */
+			if (plane && vb->memory == V4L2_MEMORY_DMABUF &&
+			    vb->planes[0].m.fd == vb->planes[1].m.fd) {
+				offset = q_data->bytesperline[0] *
+					 q_data->height;
+				WARN_ONCE(1, "HACK: DMABUF multi planes using single fd!!");
+			}
 		}
 		if (!dma_addr) {
 			vpe_err(ctx->dev,
