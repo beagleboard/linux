@@ -2,27 +2,27 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	wlan_en_reg: fixedregulator@2 {
-		compatible = "regulator-fixed";
-		regulator-name = "wlan-en-regulator";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-
-		/* WL_EN */
-		gpio = <&gpio0 26 0>;
-		enable-active-high;
-	};
+//	wlan_en_reg: fixedregulator@2 {
+//		compatible = "regulator-fixed";
+//		regulator-name = "wlan-en-regulator";
+//		regulator-min-microvolt = <1800000>;
+//		regulator-max-microvolt = <1800000>;
+//
+//		/* WL_EN */
+//		gpio = <&gpio0 26 0>;
+//		enable-active-high;
+//	};
 
 	leds {
 		pinctrl-names = "default";
 		pinctrl-0 = <&wl18xx_pins>;
 		compatible = "gpio-leds";
 
-//		wl18xx_wl_en {
-//			label = "wl18xx_wl_en";
-//			gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;
-//			default-state = "on";
-//		};
+		wl18xx_wl_en {
+			label = "wl18xx_wl_en";
+			gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
 
 		wl18xx_bt_en {
 			label = "wl18xx_bt_en";
@@ -61,7 +61,7 @@
 	wl18xx_pins: pinmux_wl18xx_pins {
 		pinctrl-single,pins = <
 			0x78 (PIN_OUTPUT_PULLUP | MUX_MODE7)    /* gpmc_ad12.gpio1_28 BT_EN*/
-//			0x28 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)  /* gpmc_ad10.gpio0_26 WL_EN*/
+			0x28 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)  /* gpmc_ad10.gpio0_26 WL_EN*/
 		>;
 	};
 
@@ -96,7 +96,7 @@
 	/* wl18xx card enable/irq GPIOs. */
 	wlan_pins: pinmux_wlan_pins {
 		pinctrl-single,pins = <
-			0x28 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad10.gpio0_26 WL_EN*/
+//			0x28 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad10.gpio0_26 WL_EN*/
 			0x2C (PIN_INPUT_PULLUP | MUX_MODE7)	    /* gpmc_ad11.gpio0_27 WL_IRQ*/
 			0x7C  (PIN_OUTPUT_PULLUP   | MUX_MODE0) /* gpmc_csn0.gpio1_29 Cape_Buffer_EN*/
 		>;
@@ -105,7 +105,7 @@
 	/* wl18xx card enable/irq GPIOs. */
 	wlan_pins_sleep: pinmux_wlan_pins_sleep {
 		pinctrl-single,pins = <
-			0x28 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_ad10.gpio0_26 WL_EN*/
+//			0x28 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_ad10.gpio0_26 WL_EN*/
 			0x2C (PIN_INPUT_PULLUP | MUX_MODE7)	    /* gpmc_ad11.gpio0_27 WL_IRQ*/
 			0x7C  (PIN_OUTPUT_PULLUP   | MUX_MODE0) /* gpmc_csn0.gpio1_29 Cape_Buffer_EN*/
 		>;
@@ -153,8 +153,8 @@
 		&edma_xbar 13 0 2>;
 	dma-names = "tx", "rx";
 	status = "okay";
-	vmmc-supply = <&wlan_en_reg>;
-//	vmmc-supply = <&vmmcsd_fixed>;
+//	vmmc-supply = <&wlan_en_reg>;
+	vmmc-supply = <&vmmcsd_fixed>;
 	bus-width = <4>;
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&mmc3_pins &wlan_pins>;
