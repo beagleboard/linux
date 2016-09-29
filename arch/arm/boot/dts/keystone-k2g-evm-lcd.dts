@@ -11,6 +11,8 @@
 		compatible = "newhaven,nhd-4.3-480272ef-atxl", "panel-dpi";
 		label = "lcd";
 
+		backlight = <&lcd_bl>;
+
 		panel-timing {
 			clock-frequency = <9000000>;
 			hactive = <480>;
@@ -34,7 +36,7 @@
 		};
 	};
 
-	backlight {
+	lcd_bl: backlight {
 		compatible = "pwm-backlight";
 		pwms = <&ecap0 0 50000 PWM_POLARITY_INVERTED>;
 		brightness-levels = <0 32 64 96 128 160 192 224 255>;
