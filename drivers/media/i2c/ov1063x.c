@@ -31,6 +31,7 @@
 #include <linux/videodev2.h>
 #include <linux/pm_runtime.h>
 #include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/of_device.h>
 
 #include <linux/v4l2-mediabus.h>
@@ -110,6 +111,12 @@ struct ov1063x_priv {
 
 	/* Sensor reference clock */
 	struct clk			*xvclk;
+
+	bool				power;
+
+	/* GPIOs */
+	struct gpio_desc		*reset_gpio;
+	struct gpio_desc		*powerdown_gpio;
 };
 
 static int ov1063x_init_gpios(struct i2c_client *client);
@@ -835,12 +842,62 @@ done:
 	return ret;
 }
 
+static int ov1063x_init_cam_gpios(struct i2c_client *client)
+{
+	struct ov1063x_priv *priv = to_ov1063x(client);
+	struct gpio_desc *gpio;
+
+	gpio = devm_gpiod_get_optional(&client->dev, "reset",
+				       GPIOD_OUT_LOW);
+	if (IS_ERR(gpio))
+		return PTR_ERR(gpio);
+	priv->reset_gpio = gpio;
+
+	gpio = devm_gpiod_get_optional(&client->dev, "powerdown",
+				       GPIOD_OUT_LOW);
+	if (IS_ERR(gpio))
+		return PTR_ERR(gpio);
+	priv->powerdown_gpio = gpio;
+
+	return 0;
+}
+
+static void ov1063x_set_power(struct i2c_client *client, bool on)
+{
+	struct ov1063x_priv *priv = to_ov1063x(client);
+
+	dev_dbg(&client->dev, "%s: on: %d\n", __func__, on);
+
+	if (priv->power == on)
+		return;
+
+	if (on) {
+		if (priv->powerdown_gpio) {
+			gpiod_set_value_cansleep(priv->powerdown_gpio, 1);
+			usleep_range(1000, 1200);
+		}
+		if (priv->reset_gpio) {
+			gpiod_set_value_cansleep(priv->reset_gpio, 1);
+			usleep_range(250000, 260000);
+		}
+	} else {
+		if (priv->powerdown_gpio)
+			gpiod_set_value_cansleep(priv->powerdown_gpio, 0);
+		if (priv->reset_gpio)
+			gpiod_set_value_cansleep(priv->reset_gpio, 0);
+	}
+
+	priv->power = on;
+}
+
 static int ov1063x_video_probe(struct i2c_client *client)
 {
 	struct ov1063x_priv *priv = to_ov1063x(client);
 	u8 pid, ver;
 	u16 id;
 	int ret;
+
+	ov1063x_set_power(client, true);
 
 	ret = ov1063x_set_regs(client, ov1063x_regs_default,
 			       ARRAY_SIZE(ov1063x_regs_default));
@@ -1028,9 +1085,15 @@ static int ov1063x_probe(struct i2c_client *client,
 
 	mutex_init(&priv->lock);
 
+	ret = ov1063x_init_cam_gpios(client);
+	if (ret) {
+		dev_err(&client->dev, "Failed to request cam gpios");
+		goto err;
+	}
+
 	ret = ov1063x_init_gpios(client);
 	if (ret) {
-		dev_err(&client->dev, "Failed to request gpios");
+		dev_err(&client->dev, "Failed to request mux gpios");
 		goto err;
 	}
 
@@ -1059,6 +1122,7 @@ static int ov1063x_remove(struct i2c_client *client)
 
 	v4l2_device_unregister_subdev(&priv->subdev);
 	v4l2_ctrl_handler_free(&priv->hdl);
+	ov1063x_set_power(client, false);
 	clk_disable_unprepare(priv->xvclk);
 	pm_runtime_disable(&client->dev);
 
