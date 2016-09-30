@@ -1324,8 +1324,18 @@ static void omap8250_complete(struct device *dev)
 static int omap8250_suspend(struct device *dev)
 {
 	struct omap8250_priv *priv = dev_get_drvdata(dev);
+	struct uart_8250_port *up = serial8250_get_port(priv->line);
 
 	serial8250_suspend_port(priv->line);
+
+	pm_runtime_get_sync(dev);
+	if (device_may_wakeup(dev))
+		serial_out(up, UART_OMAP_WER, priv->wer);
+	else
+		serial_out(up, UART_OMAP_WER, 0);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+
 	flush_work(&priv->qos_work);
 	return 0;
 }
@@ -1405,6 +1415,8 @@ static int omap8250_runtime_suspend(struct device *dev)
 	}
 
 	if (priv->habit & UART_ERRATA_CLOCK_DISABLE) {
+		/* Save module level wakeup register */
+		u32 wer = serial_in(up, UART_OMAP_WER);
 		int ret;
 
 		ret = omap8250_soft_reset(dev);
@@ -1413,6 +1425,8 @@ static int omap8250_runtime_suspend(struct device *dev)
 
 		/* Restore to UART mode after reset (for wakeup) */
 		omap8250_update_mdr1(up, priv);
+		/* Restore module level wakeup register */
+		serial_out(up, UART_OMAP_WER, wer);
 	}
 
 	if (up->dma && up->dma->rxchan)
