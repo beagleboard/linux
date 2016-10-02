@@ -1,0 +1,85 @@
+/*
+ * Device tree for BeagleBoard-X15 with CTAG face2|4 Audio Card
+ *
+ * Author:  Henrik Langer <henni19790@googlemail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "am57xx-beagle-x15.dts"
+
+/ {
+	sound2: sound@2 {
+		compatible = "ctag,face-2-4";
+		model = "CTAG face-2-4 8CH";
+		audio-codec = <&ad193x>;
+		mcasp-controller = <&mcasp2>;
+		audiocard-tdm-slots = <8>;
+		codec-clock-rate = <24576000>;
+		bb-device = <1>; //0 = BBB/BBG, 1 = BB-X15
+		cpu-clock-rate = <22579200>;
+		audio-routing =
+			"Line Out",             "DAC1OUT",
+			"Line Out",             "DAC2OUT",
+			"Line Out",             "DAC3OUT",
+			"Line Out",             "DAC4OUT",
+			"ADC1IN",               "Line In",
+			"ADC2IN",               "Line In";
+	};
+};
+
+&dra7_pmx_core {
+	mcasp2_pins_default: mcasp2_pins_default {
+		pinctrl-single,pins = <
+			0x2F8 (PIN_INPUT_PULLDOWN | MUX_MODE0) /* mcasp2_fsx 	 | P17.52 */
+			0x2F4 (PIN_INPUT_PULLDOWN | MUX_MODE0) /* mcasp2_aclkx | P17.21 */
+			0x300 (PIN_INPUT_PULLDOWN | MUX_MODE0) /* mcasp2_fsr 	 | P17.57 */
+			0x2FC (PIN_INPUT_PULLDOWN | MUX_MODE0) /* mcasp2_aclkr | P17.44 */
+			0x30C (PIN_OUTPUT_PULLDOWN | MUX_MODE0) /* mcasp2_axr2 | P17.18 */
+			0x304 (PIN_INPUT_PULLDOWN | MUX_MODE0) /* mcasp2_axr0  | P17.54 */
+		>;
+	};
+
+	mcspi3_pins_default: mcspi3_pins_default {
+		pinctrl-single,pins = <
+			0x2E0 (PIN_OUTPUT_PULLUP | MUX_MODE3) /* spi3_cs0  | P16.3 */
+			0x2D4 (PIN_INPUT_PULLUP | MUX_MODE3)  /* spi3_sclk | P16.34 */
+			0x2DC (PIN_INPUT_PULLUP | MUX_MODE3)  /* spi3_d0   | P16.33 */
+			0x2D8 (PIN_OUTPUT_PULLDOWN | MUX_MODE3) /* spi3_d1   | P16.4 */
+		>;
+	};
+};
+
+&mcspi3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcspi3_pins_default>;
+	status = "okay";
+
+	ad193x: ad193x@0{
+		compatible = "analog,ad1938";
+		reg = <0>;
+		status = "okay";
+		spi-max-frequency = <100000>;
+	};
+};
+
+&mcasp2 {
+	#sound-dai-cells = <0>;
+	//assigned-clocks = <&mcasp2_ahclkx_mux>, <&mcasp2_ahclkr_mux>;
+	assigned-clocks = <&mcasp2_ahclkx_mux>;
+	assigned-clock-parents = <&sys_clkin2>; /* 22579200 Hz (see dra7xx-clocks.dtsi) */
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp2_pins_default>;
+	status = "okay";
+
+	op-mode = <0>;	/* MCASP_IIS_MODE */
+	tdm-slots = <8>;
+	/* 4 serializers */
+	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
+		2 0 1 0
+	>;
+	tx-num-evt = <8>;
+	rx-num-evt = <8>;
+};
