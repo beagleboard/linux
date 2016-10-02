@@ -477,6 +477,7 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-boneblack-cape-bone-argus.dtb \
 	am335x-bone-cape-bone-argus.dtb \
 	am335x-arduino-tre.dtb \
+	am335x-bonegreen-ctag-face.dtb \
 	am335x-bonegreen-wireless-led-hack.dtb \
 	am335x-bonegreen-wireless.dtb \
 	am335x-olimex-som.dtb \
