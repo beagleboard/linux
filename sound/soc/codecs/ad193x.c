@@ -6,6 +6,8 @@
  * Licensed under the GPL-2 or later.
  */
 
+#define DEBUG 1
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -274,7 +276,7 @@ static int ad193x_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params,
 		struct snd_soc_dai *dai)
 {
-	int word_len = 0, master_rate = 0;
+	int word_len = 0, master_rate = 0, sample_rate = 0, i, ret;
 	struct snd_soc_codec *codec = dai->codec;
 	struct ad193x_priv *ad193x = snd_soc_codec_get_drvdata(codec);
 
@@ -289,6 +291,22 @@ static int ad193x_hw_params(struct snd_pcm_substream *substream,
 	case 24:
 	case 32:
 		word_len = 0;
+		break;
+	}
+
+	/* sample rate */
+	switch(params_rate(params)){
+	case 48000:
+		sample_rate = 0;
+		break;
+	case 96000:
+		sample_rate = 1;
+		break;
+	case 192000:
+		sample_rate = 2;
+		break;
+	default:
+		sample_rate = 0; //48 kHz
 		break;
 	}
 
@@ -307,6 +325,12 @@ static int ad193x_hw_params(struct snd_pcm_substream *substream,
 		break;
 	}
 
+	regmap_update_bits(ad193x->regmap, AD193X_DAC_CTRL0,
+				0x06, sample_rate << 1);
+
+	regmap_update_bits(ad193x->regmap, AD193X_ADC_CTRL0,
+				0xC0, sample_rate << 6);
+
 	regmap_update_bits(ad193x->regmap, AD193X_PLL_CLK_CTRL0,
 			    AD193X_PLL_INPUT_MASK, master_rate);
 
@@ -317,6 +341,11 @@ static int ad193x_hw_params(struct snd_pcm_substream *substream,
 	if (ad193x_has_adc(ad193x))
 		regmap_update_bits(ad193x->regmap, AD193X_ADC_CTRL1,
 				   AD193X_ADC_WORD_LEN_MASK, word_len);
+
+	for(i=0; i<=16; i++){
+		regmap_read(ad193x->regmap , i, &ret) ;
+		dev_dbg(codec->dev, "AD193X register %d:\t0x%x", i, ret);
+	}
 
 	return 0;
 }
@@ -372,11 +401,14 @@ static int ad193x_codec_probe(struct snd_soc_codec *codec)
 		regmap_write(ad193x->regmap, AD193X_ADC_CTRL0, 0x3);
 		/* sata delay=1, adc aux mode */
 		regmap_write(ad193x->regmap, AD193X_ADC_CTRL1, 0x43);
+		/* 256 bclks per frame */
+		regmap_write(ad193x->regmap, AD193X_ADC_CTRL2, 0x20);
 	}
 
-	/* pll input: mclki/xi */
-	regmap_write(ad193x->regmap, AD193X_PLL_CLK_CTRL0, 0x99); /* mclk=24.576Mhz: 0x9D; mclk=12.288Mhz: 0x99 */
-	regmap_write(ad193x->regmap, AD193X_PLL_CLK_CTRL1, 0x04);
+	/* pll input: mclki/xi, xtal oscillator enabled */
+	regmap_write(ad193x->regmap, AD193X_PLL_CLK_CTRL0, 0x80); /* mclk=24.576Mhz: 0x9D; mclk=12.288Mhz: 0x99 */
+	/* adc / dac clock source: mclk */
+	regmap_write(ad193x->regmap, AD193X_PLL_CLK_CTRL1, 0x00);
 
 	/* adc only */
 	if (ad193x_has_adc(ad193x)) {
