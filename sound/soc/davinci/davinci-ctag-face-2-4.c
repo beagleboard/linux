@@ -237,7 +237,8 @@ static int snd_davinci_audiocard_probe(struct platform_device *pdev)
 	struct snd_soc_dai_link *dai = (struct snd_soc_dai_link *) match->data;
 	struct snd_soc_card_drvdata_davinci *drvdata = NULL;
 	struct clk *mclk;
-	int ret = 0;
+	int ret = 0, bb_device = 0;
+	
 
 	snd_davinci_audiocard.dai_link = dai;
 
@@ -279,25 +280,40 @@ static int snd_davinci_audiocard_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	ret = of_property_read_u32(np, "bb-device", &bb_device);
+	if (ret < 0){
+		dev_warn(&pdev->dev, "No BeagleBoard device specified (0=BBB/BBG, 1=BB-X15).\n\
+			Using BeagleBone Black/Green as default device.\n");
+		bb_device = 0;
+	}
+
 	/*
-		Configure internal 24,576 MHz oscillator as master clock for McASP
+		Configure CPU DAI clock of specific BeagleBoard SBC
 	*/
-	ret = of_property_read_u32(np, "cpu-clock-rate", &drvdata->sysclk);
-	if (ret < 0) {
-		if (!drvdata->mclk) {
-			dev_err(&pdev->dev,
-				"No clock or clock rate defined.\n");
-			return -EINVAL;
+	if (bb_device == 0){ //BeagleBone Black/Green
+		/*
+			Configure internal 24,576 MHz oscillator as master clock for McASP
+		*/
+		ret = of_property_read_u32(np, "cpu-clock-rate", &drvdata->sysclk);
+		if (ret < 0) {
+			if (!drvdata->mclk) {
+				dev_err(&pdev->dev, "No clock or clock rate defined.\n");
+				return -EINVAL;
+			}
+			drvdata->sysclk = clk_get_rate(drvdata->mclk);
+		} else if (drvdata->mclk) {
+			unsigned int requestd_rate = drvdata->sysclk;
+			clk_set_rate(drvdata->mclk, drvdata->sysclk);
+			drvdata->sysclk = clk_get_rate(drvdata->mclk);
+			if (drvdata->sysclk != requestd_rate)
+				dev_warn(&pdev->dev, "Could not get requested rate %u using %u.\n",
+				 	requestd_rate, drvdata->sysclk);
 		}
-		drvdata->sysclk = clk_get_rate(drvdata->mclk);
-	} else if (drvdata->mclk) {
-		unsigned int requestd_rate = drvdata->sysclk;
-		clk_set_rate(drvdata->mclk, drvdata->sysclk);
-		drvdata->sysclk = clk_get_rate(drvdata->mclk);
-		if (drvdata->sysclk != requestd_rate)
-			dev_warn(&pdev->dev,
-				 "Could not get requested rate %u using %u.\n",
-				 requestd_rate, drvdata->sysclk);
+	}
+	else if (bb_device == 1){ //BeagleBoard-X15
+		/*
+			Nothing to do (CPU DAI clock is configured in dra7.dtsi)
+		*/
 	}
 
 	/*
@@ -319,12 +335,12 @@ static int snd_davinci_audiocard_remove(struct platform_device *pdev)
 
 /* Sound card platform driver */
 static struct platform_driver snd_davinci_audiocard_driver = {
-	.probe          = snd_davinci_audiocard_probe,
 	.driver = {
 		.name   = "snd_ctag_face_2_4",
 		.pm = &snd_soc_pm_ops,
 		.of_match_table = of_match_ptr(snd_davinci_audiocard_dt_ids),
 	},
+	.probe = snd_davinci_audiocard_probe,
 	.remove = snd_davinci_audiocard_remove,
 };
 

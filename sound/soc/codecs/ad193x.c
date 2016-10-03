@@ -247,7 +247,7 @@ static int ad193x_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params,
 		struct snd_soc_dai *dai)
 {
-	int word_len = 0, master_rate = 0, sample_rate = 0;
+	int word_len = 0, master_rate = 0, sample_rate = 0, i, ret;
 	struct snd_soc_codec *codec = dai->codec;
 	struct ad193x_priv *ad193x = snd_soc_codec_get_drvdata(codec);
 
@@ -311,6 +311,11 @@ static int ad193x_hw_params(struct snd_pcm_substream *substream,
 
 	regmap_update_bits(ad193x->regmap, AD193X_ADC_CTRL1,
 			    AD193X_ADC_WORD_LEN_MASK, word_len);
+
+	for(i=0; i<=16; i++){
+		regmap_read(ad193x->regmap , i, &ret) ;
+		dev_dbg(codec->dev, "AD193X register %d:\t0x%x", i, ret);
+	}
 
 	return 0;
 }
