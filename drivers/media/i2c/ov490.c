@@ -19,6 +19,7 @@
 #include <linux/v4l2-mediabus.h>
 #include <linux/videodev2.h>
 #include <linux/mutex.h>
+#include <linux/delay.h>
 
 #include <media/soc_camera.h>
 #include <media/v4l2-async.h>
@@ -214,9 +215,13 @@ static int ov490_s_stream(struct v4l2_subdev *sd, int enable)
 		if (ret)
 			goto unlock;
 	}
-	usleep_range(100, 200);
 
-	val = priv->num_lanes == 2 ? 0x03 : priv->num_lanes == 4 ? 0x06 : 0x06;
+	/* These register updates triggers a routine to configure ISP
+	 * Wait for a while before any more changes are done
+	 */
+	mdelay(5);
+
+	val = priv->num_lanes == 2 ? 0x03 : priv->num_lanes == 4 ? 0x0F : 0x0F;
 	dev_info(&client->dev, "Using %d data lanes\n", priv->num_lanes);
 	ov490_reg_write32(client, OV490_MIPI_TX_LANE_CTRL2, val);
 
