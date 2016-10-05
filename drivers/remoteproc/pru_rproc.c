@@ -821,7 +821,8 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		goto put_mbox;
 	}
 
-	if (of_machine_is_compatible("ti,am5718-idk") && pru->use_eth &&
+	if ((of_machine_is_compatible("ti,am5718-idk") ||
+	     of_machine_is_compatible("ti,k2g-ice")) && pru->use_eth &&
 	    !of_property_read_u32(np, "ti,pruss-gp-mux-sel", &mux_sel)) {
 		if (mux_sel < PRUSS_GP_MUX_SEL_GP ||
 		    mux_sel >= PRUSS_GP_MUX_MAX) {
@@ -885,7 +886,8 @@ static int pru_rproc_remove(struct platform_device *pdev)
 
 	mbox_free_channel(pru->mbox);
 
-	if (of_machine_is_compatible("ti,am5718-idk") && pru->use_eth)
+	if ((of_machine_is_compatible("ti,am5718-idk") ||
+	     of_machine_is_compatible("ti,k2g-ice")) && pru->use_eth)
 		pruss_cfg_set_gpmux(pru->pruss, pru->id, PRUSS_GP_MUX_SEL_GP);
 
 	rproc_del(rproc);
