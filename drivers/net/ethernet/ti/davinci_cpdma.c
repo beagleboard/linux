@@ -21,7 +21,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/delay.h>
-
+#include <linux/genalloc.h>
 #include "davinci_cpdma.h"
 
 /* DMA Registers */
@@ -86,10 +86,9 @@ struct cpdma_desc_pool {
 	void __iomem		*iomap;		/* ioremap map */
 	void			*cpumap;	/* dma_alloc map */
 	int			desc_size, mem_size;
-	int			num_desc, used_desc;
-	unsigned long		*bitmap;
+	int			num_desc;
 	struct device		*dev;
-	spinlock_t		lock;
+	struct gen_pool		*gen_pool;
 };
 
 enum cpdma_state {
@@ -117,6 +116,7 @@ struct cpdma_chan {
 	int				chan_num;
 	spinlock_t			lock;
 	int				count;
+	u32				desc_num;
 	u32				mask;
 	cpdma_handler_fn		handler;
 	enum dma_data_direction		dir;
@@ -131,10 +131,10 @@ struct cpdma_chan {
 
 /* various accessors */
 #define dma_reg_read(ctlr, ofs)		__raw_readl((ctlr)->dmaregs + (ofs))
-#define chan_read(chan, fld)		__raw_readl((chan)->fld)
+#define chan_read(chan, fld)		readl((chan)->fld)
 #define desc_read(desc, fld)		__raw_readl(&(desc)->fld)
 #define dma_reg_write(ctlr, ofs, v)	__raw_writel(v, (ctlr)->dmaregs + (ofs))
-#define chan_write(chan, fld, v)	__raw_writel(v, (chan)->fld)
+#define chan_write(chan, fld, v)	writel(v, (chan)->fld)
 #define desc_write(desc, fld, v)	__raw_writel((u32)(v), &(desc)->fld)
 
 #define cpdma_desc_to_port(chan, mode, directed)			\
@@ -145,64 +145,95 @@ struct cpdma_chan {
 				 (directed << CPDMA_TO_PORT_SHIFT));	\
 	} while (0)
 
+static void cpdma_desc_pool_destroy(struct cpdma_ctlr *ctlr)
+{
+	struct cpdma_desc_pool *pool = ctlr->pool;
+
+	if (!pool)
+		return;
+
+	WARN(gen_pool_size(pool->gen_pool) != gen_pool_avail(pool->gen_pool),
+	     "cpdma_desc_pool size %d != avail %d",
+	     gen_pool_size(pool->gen_pool),
+	     gen_pool_avail(pool->gen_pool));
+	if (pool->cpumap)
+		dma_free_coherent(ctlr->dev, pool->mem_size, pool->cpumap,
+				  pool->phys);
+}
+
 /*
  * Utility constructs for a cpdma descriptor pool.  Some devices (e.g. davinci
  * emac) have dedicated on-chip memory for these descriptors.  Some other
  * devices (e.g. cpsw switches) use plain old memory.  Descriptor pools
  * abstract out these details
  */
-static struct cpdma_desc_pool *
-cpdma_desc_pool_create(struct device *dev, u32 phys, dma_addr_t hw_addr,
-				int size, int align)
+int cpdma_desc_pool_create(struct cpdma_ctlr *ctlr)
 {
-	int bitmap_size;
+	struct cpdma_params *cpdma_params = &ctlr->params;
 	struct cpdma_desc_pool *pool;
+	int ret = 0;
 
-	pool = devm_kzalloc(dev, sizeof(*pool), GFP_KERNEL);
+	pool = devm_kzalloc(ctlr->dev, sizeof(*pool), GFP_KERNEL);
 	if (!pool)
-		goto fail;
+		goto gen_pool_create_fail;
+	ctlr->pool = pool;
 
-	spin_lock_init(&pool->lock);
+	pool->mem_size	= cpdma_params->desc_mem_size;
+	pool->desc_size	= ALIGN(sizeof(struct cpdma_desc),
+				cpdma_params->desc_align);
+	pool->num_desc	= pool->mem_size / pool->desc_size;
 
-	pool->dev	= dev;
-	pool->mem_size	= size;
-	pool->desc_size	= ALIGN(sizeof(struct cpdma_desc), align);
-	pool->num_desc	= size / pool->desc_size;
+	if (cpdma_params->descs_pool_size) {
+		/* recalculate memory size required cpdma descriptor pool
+		 * basing on number of descriptors specified by user and
+		 * if memory size > CPPI internal RAM size (desc_mem_size)
+		 * then switch to use DDR
+		 */
+		pool->num_desc = cpdma_params->descs_pool_size;
+		pool->mem_size = pool->desc_size * pool->num_desc;
+		if (pool->mem_size > cpdma_params->desc_mem_size)
+			cpdma_params->desc_mem_phys = 0;
+	}
 
-	bitmap_size  = (pool->num_desc / BITS_PER_LONG) * sizeof(long);
-	pool->bitmap = devm_kzalloc(dev, bitmap_size, GFP_KERNEL);
-	if (!pool->bitmap)
-		goto fail;
+	pool->gen_pool = devm_gen_pool_create(ctlr->dev, ilog2(pool->desc_size),
+					      -1, "cpdma");
+	if (IS_ERR(pool->gen_pool)) {
+		ret = PTR_ERR(pool->gen_pool);
+		dev_err(ctlr->dev, "pool create failed %d\n", ret);
+		goto gen_pool_create_fail;
+	}
 
-	if (phys) {
-		pool->phys  = phys;
-		pool->iomap = ioremap(phys, size); /* should be memremap? */
-		pool->hw_addr = hw_addr;
+	if (cpdma_params->desc_mem_phys) {
+		pool->phys  = cpdma_params->desc_mem_phys;
+		pool->iomap = devm_ioremap(ctlr->dev, pool->phys,
+					   pool->mem_size);
+		pool->hw_addr = cpdma_params->desc_hw_addr;
 	} else {
-		pool->cpumap = dma_alloc_coherent(dev, size, &pool->hw_addr,
-						  GFP_KERNEL);
+		pool->cpumap = dma_alloc_coherent(ctlr->dev,  pool->mem_size,
+						  &pool->hw_addr, GFP_KERNEL);
 		pool->iomap = (void __iomem __force *)pool->cpumap;
 		pool->phys = pool->hw_addr; /* assumes no IOMMU, don't use this value */
 	}
 
-	if (pool->iomap)
-		return pool;
-fail:
-	return NULL;
-}
-
-static void cpdma_desc_pool_destroy(struct cpdma_desc_pool *pool)
-{
-	if (!pool)
-		return;
-
-	WARN_ON(pool->used_desc);
-	if (pool->cpumap) {
-		dma_free_coherent(pool->dev, pool->mem_size, pool->cpumap,
-				  pool->phys);
-	} else {
-		iounmap(pool->iomap);
+	if (!pool->iomap) {
+		ret = -ENOMEM;
+		goto gen_pool_create_fail;
 	}
+
+	ret = gen_pool_add_virt(pool->gen_pool, (unsigned long)pool->iomap,
+				pool->phys, pool->mem_size, -1);
+	if (ret < 0) {
+		dev_err(ctlr->dev, "pool add failed %d\n", ret);
+		goto gen_pool_add_virt_fail;
+	}
+
+	return 0;
+
+gen_pool_add_virt_fail:
+	cpdma_desc_pool_destroy(ctlr);
+gen_pool_create_fail:
+	ctlr->pool = NULL;
+	return ret;
 }
 
 static inline dma_addr_t desc_phys(struct cpdma_desc_pool *pool,
@@ -220,47 +251,16 @@ desc_from_phys(struct cpdma_desc_pool *pool, dma_addr_t dma)
 }
 
 static struct cpdma_desc __iomem *
-cpdma_desc_alloc(struct cpdma_desc_pool *pool, int num_desc, bool is_rx)
+cpdma_desc_alloc(struct cpdma_desc_pool *pool)
 {
-	unsigned long flags;
-	int index;
-	int desc_start;
-	int desc_end;
-	struct cpdma_desc __iomem *desc = NULL;
-
-	spin_lock_irqsave(&pool->lock, flags);
-
-	if (is_rx) {
-		desc_start = 0;
-		desc_end = pool->num_desc/2;
-	 } else {
-		desc_start = pool->num_desc/2;
-		desc_end = pool->num_desc;
-	}
-
-	index = bitmap_find_next_zero_area(pool->bitmap,
-				desc_end, desc_start, num_desc, 0);
-	if (index < desc_end) {
-		bitmap_set(pool->bitmap, index, num_desc);
-		desc = pool->iomap + pool->desc_size * index;
-		pool->used_desc++;
-	}
-
-	spin_unlock_irqrestore(&pool->lock, flags);
-	return desc;
+	return (struct cpdma_desc __iomem *)
+		gen_pool_alloc(pool->gen_pool, pool->desc_size);
 }
 
 static void cpdma_desc_free(struct cpdma_desc_pool *pool,
 			    struct cpdma_desc __iomem *desc, int num_desc)
 {
-	unsigned long flags, index;
-
-	index = ((unsigned long)desc - (unsigned long)pool->iomap) /
-		pool->desc_size;
-	spin_lock_irqsave(&pool->lock, flags);
-	bitmap_clear(pool->bitmap, index, num_desc);
-	pool->used_desc--;
-	spin_unlock_irqrestore(&pool->lock, flags);
+	gen_pool_free(pool->gen_pool, (unsigned long)desc, pool->desc_size);
 }
 
 struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
@@ -276,12 +276,7 @@ struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
 	ctlr->dev = params->dev;
 	spin_lock_init(&ctlr->lock);
 
-	ctlr->pool = cpdma_desc_pool_create(ctlr->dev,
-					    ctlr->params.desc_mem_phys,
-					    ctlr->params.desc_hw_addr,
-					    ctlr->params.desc_mem_size,
-					    ctlr->params.desc_align);
-	if (!ctlr->pool)
+	if (cpdma_desc_pool_create(ctlr))
 		return NULL;
 
 	if (WARN_ON(ctlr->num_chan > CPDMA_MAX_CHANNELS))
@@ -442,21 +437,18 @@ EXPORT_SYMBOL_GPL(cpdma_ctlr_dump);
 
 int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
 {
-	unsigned long flags;
 	int ret = 0, i;
 
 	if (!ctlr)
 		return -EINVAL;
 
-	spin_lock_irqsave(&ctlr->lock, flags);
 	if (ctlr->state != CPDMA_STATE_IDLE)
 		cpdma_ctlr_stop(ctlr);
 
 	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++)
 		cpdma_chan_destroy(ctlr->channels[i]);
 
-	cpdma_desc_pool_destroy(ctlr->pool);
-	spin_unlock_irqrestore(&ctlr->lock, flags);
+	cpdma_desc_pool_destroy(ctlr);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
@@ -516,6 +508,7 @@ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
 	chan->state	= CPDMA_STATE_IDLE;
 	chan->chan_num	= chan_num;
 	chan->handler	= handler;
+	chan->desc_num = ctlr->pool->num_desc / 2;
 
 	if (is_rx_chan(chan)) {
 		chan->hdp	= ctlr->params.rxhdp + offset;
@@ -542,6 +535,12 @@ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
 	return chan;
 }
 EXPORT_SYMBOL_GPL(cpdma_chan_create);
+
+int cpdma_chan_get_rx_buf_num(struct cpdma_ctlr *ctlr)
+{
+	return ctlr->pool->num_desc / 2;
+}
+EXPORT_SYMBOL_GPL(cpdma_chan_get_rx_buf_num);
 
 int cpdma_chan_destroy(struct cpdma_chan *chan)
 {
@@ -675,7 +674,13 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
 		goto unlock_ret;
 	}
 
-	desc = cpdma_desc_alloc(ctlr->pool, 1, is_rx_chan(chan));
+	if (chan->count >= chan->desc_num)	{
+		chan->stats.desc_alloc_fail++;
+		ret = -ENOMEM;
+		goto unlock_ret;
+	}
+
+	desc = cpdma_desc_alloc(ctlr->pool);
 	if (!desc) {
 		chan->stats.desc_alloc_fail++;
 		ret = -ENOMEM;
@@ -705,6 +710,7 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
 	desc_write(desc, sw_token,  token);
 	desc_write(desc, sw_buffer, buffer);
 	desc_write(desc, sw_len,    len);
+	desc_read(desc, sw_len);
 
 	__cpdma_chan_submit(chan, desc);
 
@@ -721,24 +727,16 @@ EXPORT_SYMBOL_GPL(cpdma_chan_submit);
 
 bool cpdma_check_free_tx_desc(struct cpdma_chan *chan)
 {
-	unsigned long flags;
-	int index;
-	bool ret;
 	struct cpdma_ctlr	*ctlr = chan->ctlr;
 	struct cpdma_desc_pool	*pool = ctlr->pool;
+	bool			free_tx_desc;
+	unsigned long		flags;
 
-	spin_lock_irqsave(&pool->lock, flags);
-
-	index = bitmap_find_next_zero_area(pool->bitmap,
-				pool->num_desc, pool->num_desc/2, 1, 0);
-
-	if (index < pool->num_desc)
-		ret = true;
-	else
-		ret = false;
-
-	spin_unlock_irqrestore(&pool->lock, flags);
-	return ret;
+	spin_lock_irqsave(&chan->lock, flags);
+	free_tx_desc = (chan->count < chan->desc_num) &&
+			 gen_pool_avail(pool->gen_pool);
+	spin_unlock_irqrestore(&chan->lock, flags);
+	return free_tx_desc;
 }
 EXPORT_SYMBOL_GPL(cpdma_check_free_tx_desc);
 
@@ -800,7 +798,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
 	chan->count--;
 	chan->stats.good_dequeue++;
 
-	if (status & CPDMA_DESC_EOQ) {
+	if ((status & CPDMA_DESC_EOQ) && chan->head) {
 		chan->stats.requeue++;
 		chan_write(chan, hdp, desc_phys(pool, chan->head));
 	}

@@ -69,10 +69,9 @@
 	};
 
 	soc {
-		mpm_mem: dspmem {
+		mpm_mem: dspmem@a0000000 {
 			compatible = "ti,keystone-dsp-mem";
-			reg = <0x0c000000 0x00100000>,
-			      <0xa0000000 0x20000000>;
+			reg = <0xa0000000 0x20000000>;
 		};
 	};
 
@@ -103,9 +102,9 @@
 
 		simple-audio-card,dai-link@0 {
 			format = "i2s";
-			bitclock-master = <&sound0_master>;
-			frame-master = <&sound0_master>;
-			sound0_master: cpu {
+			bitclock-master = <&sound0_0_master>;
+			frame-master = <&sound0_0_master>;
+			sound0_0_master: cpu {
 				sound-dai = <&mcasp2>;
 				clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK>;
 				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
@@ -119,9 +118,9 @@
 
 		simple-audio-card,dai-link@1 {
 			format = "i2s";
-			bitclock-master = <&sound1_master>;
-			frame-master = <&sound1_master>;
-			sound1_master: cpu {
+			bitclock-master = <&sound0_1_master>;
+			frame-master = <&sound0_1_master>;
+			sound0_1_master: cpu {
 				sound-dai = <&mcasp2>;
 				clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_AUX_CLK>;
 				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
@@ -142,6 +141,12 @@
 };
 
 &k2g_pinctrl {
+	ecap0_pins: ecap0_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1374) (BUFFER_CLASS_B | MUX_MODE4)	/* pr1_mdio_data.ecap0_in_apwm0_out */
+		>;
+	};
+
 	uart0_pins: pinmux_uart0_pins {
 		pinctrl-single,pins = <
 			K2G_CORE_IOPAD(0x11cc) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* uart0_rxd.uart0_rxd */
@@ -164,7 +169,7 @@
 			K2G_CORE_IOPAD(0x130c) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE2)	/* mmc0_dat0.mmc0_dat0 */
 			K2G_CORE_IOPAD(0x1310) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE2)	/* mmc0_clk.mmc0_clk */
 			K2G_CORE_IOPAD(0x1314) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE2)	/* mmc0_cmd.mmc0_cmd */
-			K2G_CORE_IOPAD(0x12ec) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE2)	/* mmc0_sdcd.mmc0_sdcd */
+			K2G_CORE_IOPAD(0x12ec) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* mmc0_sdcd.gpio1_12 */
 		>;
 	};
 
@@ -558,10 +563,15 @@
 	status = "okay";
 };
 
+&gpio1 {
+	status = "okay";
+};
+
 &mmc0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc0_pins>;
 	vmmc-supply = <&vcc3v3_dcin_reg>;
+	cd-gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
 
@@ -606,10 +616,20 @@
 	rx-num-evt = <32>;
 };
 
-&pcie0_phy {
+&pcie0_serdes {
 	status = "okay";
 };
 
 &pcie0 {
 	status = "okay";
+};
+
+&ddr3edac {
+	status = "okay";
+};
+
+&ecap0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&ecap0_pins>;
 };

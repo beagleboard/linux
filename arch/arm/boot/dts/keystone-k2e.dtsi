@@ -96,6 +96,23 @@
 			};
 		};
 
+		msm_ram: msmram@0c000000 {
+			compatible = "mmio-sram";
+			reg = <0x0c000000 0x200000>;
+			ranges = <0x0 0x0c000000 0x200000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			sram-mpm@0 {
+				compatible = "ti,keystone-dsp-msm-ram";
+				reg = <0x0 0x80000>;
+			};
+
+			sram-bm@1f0000 {
+				reg = <0x001f0000 0x8000>;
+			};
+		};
+
 		dspgpio0: keystone_dsp_gpio@02620240 {
 			compatible = "ti,keystone-dsp-gpio";
 			gpio-controller;
@@ -125,6 +142,8 @@
 			link-rate-kbps = <5000000>;
 			num-lanes = <2>;
 			status = "disabled";
+			clocks = <&clkpcie1>;
+			clock-names = "fck";
 		};
 
 		pcie1: pcie@21020000 {
@@ -140,7 +159,6 @@
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <2>;
-			phys = <&pcie1_phy>;
 
 			/* error interrupt */
 			interrupts = <GIC_SPI 385 IRQ_TYPE_EDGE_RISING>;

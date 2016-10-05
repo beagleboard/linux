@@ -92,6 +92,11 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 
 	DBG("%s, crtc=%p fb=%p", omap_plane->name, state->crtc, state->fb);
 
+	if (!state->crtc->state->enable) {
+		priv->dispc_ops->ovl_enable(omap_plane->id, false);
+		return;
+	}
+
 	memset(&info, 0, sizeof(info));
 	info.rotation_type = OMAP_DSS_ROT_DMA;
 	info.rotation = OMAP_DSS_ROT_0;
@@ -139,7 +144,7 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 				  omap_crtc_channel(state->crtc));
 
 	/* and finally, update omapdss: */
-	ret = priv->dispc_ops->ovl_setup(omap_plane->id, &info, false,
+	ret = priv->dispc_ops->ovl_setup(omap_plane->id, &info,
 			      omap_crtc_timings(state->crtc), false);
 	if (ret) {
 		priv->dispc_ops->ovl_enable(omap_plane->id, false);

@@ -304,6 +304,8 @@
 			link-rate-kbps = <5000000>;
 			num-lanes = <2>;
 			status = "disabled";
+			clocks = <&clkpcie>;
+			clock-names = "fck";
 		};
 
 		pcie0: pcie@21800000 {
@@ -319,7 +321,6 @@
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <2>;
-			phys = <&pcie0_phy>;
 
 			/* error interrupt */
 			interrupts = <GIC_SPI 38 IRQ_TYPE_EDGE_RISING>;

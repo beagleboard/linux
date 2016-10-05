@@ -16,6 +16,9 @@
 
 	aliases {
 		display0 = &hdmi0;
+
+		sound0 = &sound0;
+		sound1 = &hdmi;
 	};
 
 	evm_3v3_sw: fixedregulator-evm_3v3 {
@@ -551,15 +554,19 @@
 
 &dcan1 {
 	status = "ok";
+	pinctrl-names = "default", "sleep", "active";
+	pinctrl-0 = <&dcan1_pins_sleep>;
+	pinctrl-1 = <&dcan1_pins_sleep>;
+	pinctrl-2 = <&dcan1_pins_default>;
 };
 
 &qspi {
 	status = "okay";
 
-	spi-max-frequency = <64000000>;
+	spi-max-frequency = <76800000>;
 	m25p80@0 {
 		compatible = "s25fl256s1";
-		spi-max-frequency = <64000000>;
+		spi-max-frequency = <76800000>;
 		reg = <0>;
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <4>;
@@ -606,6 +613,10 @@
 	status = "ok";
 
 	vdda_video-supply = <&ldo5_reg>;
+};
+
+&bb2d {
+	status = "okay";
 };
 
 &hdmi {

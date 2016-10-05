@@ -1340,23 +1340,6 @@ static const struct {
 	{"rxUcast", PRUETH_STAT_OFFSET(rx_ucast)},
 	{"rxOctets", PRUETH_STAT_OFFSET(rx_octets)},
 
-	{"lateColl", PRUETH_STAT_OFFSET(late_coll)},
-	{"singleColl", PRUETH_STAT_OFFSET(single_coll)},
-	{"multiColl", PRUETH_STAT_OFFSET(multi_coll)},
-	{"excessColl", PRUETH_STAT_OFFSET(excess_coll)},
-
-	{"txHWQOverFlow", PRUETH_STAT_OFFSET(tx_hwq_overflow)},
-	{"rxMisAlignmentFrames", PRUETH_STAT_OFFSET(rx_misalignment_frames)},
-	{"stormPrevCounter", PRUETH_STAT_OFFSET(stormprev_counter)},
-	{"macRxError", PRUETH_STAT_OFFSET(mac_rxerror)},
-	{"SFDError", PRUETH_STAT_OFFSET(sfd_error)},
-	{"defTx", PRUETH_STAT_OFFSET(def_tx)},
-	{"macTxError", PRUETH_STAT_OFFSET(mac_txerror)},
-	{"rxOverSizedFrames", PRUETH_STAT_OFFSET(rx_oversized_frames)},
-	{"rxUnderSizedFrames", PRUETH_STAT_OFFSET(rx_undersized_frames)},
-	{"rxCRCFrames", PRUETH_STAT_OFFSET(rx_crc_frames)},
-	{"droppedPackets", PRUETH_STAT_OFFSET(dropped_packets)},
-
 	{"tx64byte", PRUETH_STAT_OFFSET(tx64byte)},
 	{"tx65_127byte", PRUETH_STAT_OFFSET(tx65_127byte)},
 	{"tx128_255byte", PRUETH_STAT_OFFSET(tx128_255byte)},
@@ -1370,7 +1353,24 @@ static const struct {
 	{"rx512_1023byte", PRUETH_STAT_OFFSET(rx512_1023byte)},
 	{"rx1024byte", PRUETH_STAT_OFFSET(rx1024byte)},
 
-	{"sqeTestError", PRUETH_STAT_OFFSET(sqe_test_error)},
+	{"lateColl", PRUETH_STAT_OFFSET(late_coll)},
+	{"singleColl", PRUETH_STAT_OFFSET(single_coll)},
+	{"multiColl", PRUETH_STAT_OFFSET(multi_coll)},
+	{"excessColl", PRUETH_STAT_OFFSET(excess_coll)},
+
+	{"rxMisAlignmentFrames", PRUETH_STAT_OFFSET(rx_misalignment_frames)},
+	{"stormPrevCounter", PRUETH_STAT_OFFSET(stormprev_counter)},
+	{"macRxError", PRUETH_STAT_OFFSET(mac_rxerror)},
+	{"SFDError", PRUETH_STAT_OFFSET(sfd_error)},
+	{"defTx", PRUETH_STAT_OFFSET(def_tx)},
+	{"macTxError", PRUETH_STAT_OFFSET(mac_txerror)},
+	{"rxOverSizedFrames", PRUETH_STAT_OFFSET(rx_oversized_frames)},
+	{"rxUnderSizedFrames", PRUETH_STAT_OFFSET(rx_undersized_frames)},
+	{"rxCRCFrames", PRUETH_STAT_OFFSET(rx_crc_frames)},
+	{"droppedPackets", PRUETH_STAT_OFFSET(dropped_packets)},
+
+	{"txHWQOverFlow", PRUETH_STAT_OFFSET(tx_hwq_overflow)},
+	{"txHWQUnderFlow", PRUETH_STAT_OFFSET(tx_hwq_underflow)},
 };
 
 static int emac_get_sset_count(struct net_device *ndev, int stringset)

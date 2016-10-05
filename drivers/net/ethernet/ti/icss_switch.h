@@ -58,15 +58,16 @@
  *				separate buffer - only needed of PTCP runs on
  *				host
  * 16..17	Port		different meaning for ingress and egress,
- *				ingress Port=0 inidcates phy port 1 and Port = 1
- *				indicates phy port 2. Egress: 0 sends on phy
- *				port 1 and 1 sends on phy port 2. Port = 2 goes
- *				over MAC table look-up
+ *				Ingress: Port = 0 indicates phy port 1 and
+ *				Port = 1 indicates phy port 2.
+ *				Egress: 0 sends on phy port 1 and 1 sends on
+ *				phy port 2. Port = 2 goes over MAC table
+ *				look-up
  * 18..28	Length		11 bit of total packet length which is put into
  *				first BD only so that host access only one BD
  * 29		VlanTag		indicates that packet has Length/Type field of
  *				0x08100 with VLAN tag in following byte
- * 30		Broadcast	inidcates that packet goes out on both physical
+ * 30		Broadcast	indicates that packet goes out on both physical
  *				ports,  there will be two bd but only one buffer
  * 31		Error		indicates there was an error in the packet
  */
@@ -96,7 +97,7 @@
  */
 /* base statistics offset */
 #define STATISTICS_OFFSET	0x1F00
-#define STAT_SIZE		0x8c
+#define STAT_SIZE		0x90
 
 /* Offset for storing
  * 1. Storm Prevention Params
@@ -153,7 +154,11 @@
 #define HOST_Q4_RX_CONTEXT_OFFSET	(HOST_Q3_RX_CONTEXT_OFFSET + 8)
 #define HOST_Q3_RX_CONTEXT_OFFSET	(HOST_Q2_RX_CONTEXT_OFFSET + 8)
 #define HOST_Q2_RX_CONTEXT_OFFSET	(HOST_Q1_RX_CONTEXT_OFFSET + 8)
-#define HOST_Q1_RX_CONTEXT_OFFSET	EOF_48K_BUFFER_BD
+#define HOST_Q1_RX_CONTEXT_OFFSET	(ICSS_EMAC_FIRMWARE_RELEASE_2_OFFSET + 4)
+
+/* EMAC Firmware Version Information */
+#define ICSS_EMAC_FIRMWARE_RELEASE_2_OFFSET	(ICSS_EMAC_FIRMWARE_RELEASE_1_OFFSET + 4)
+#define ICSS_EMAC_FIRMWARE_RELEASE_1_OFFSET	EOF_48K_BUFFER_BD
 
 /* allow for max 48k buffer which spans the descriptors up to 0x1800 6kB */
 #define EOF_48K_BUFFER_BD	(P0_BUFFER_DESC_OFFSET + HOST_BD_SIZE + PORT_BD_SIZE)

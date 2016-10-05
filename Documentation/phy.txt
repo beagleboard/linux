@@ -155,3 +155,11 @@ void phy_remove_lookup(struct phy *phy, const char *con_id, const char *dev_id);
 
 The documentation for PHY dt binding can be found @
 Documentation/devicetree/bindings/phy/phy-bindings.txt
+
+10. Resetting a PHY
+
+At runtime, it may happen that a PHY needs to be reset without being shutdown
+completely and then restart in order to get in sync again with remote
+partner. The framework provides the following reset API for this purpose.
+
+int phy_reset(struct phy *phy);

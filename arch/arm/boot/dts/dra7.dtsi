@@ -945,7 +945,6 @@
 			reg = <0x48828000 0x80>;
 			interrupts = <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer13";
-			status = "disabled";
 		};
 
 		timer14: timer@4882a000 {
@@ -953,7 +952,6 @@
 			reg = <0x4882a000 0x80>;
 			interrupts = <GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer14";
-			status = "disabled";
 		};
 
 		timer15: timer@4882c000 {
@@ -961,7 +959,6 @@
 			reg = <0x4882c000 0x80>;
 			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer15";
-			status = "disabled";
 		};
 
 		timer16: timer@4882e000 {
@@ -969,7 +966,6 @@
 			reg = <0x4882e000 0x80>;
 			interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer16";
-			status = "disabled";
 		};
 
 		wdt2: wdt@4ae14000 {
@@ -1035,6 +1031,16 @@
 			clocks = <&l3_iclk_div>, <&gpu_core_gclk_mux>,
 				 <&gpu_hyd_gclk_mux>;
 			clock-names = "iclk", "fclk1", "fclk2";
+		};
+
+		bb2d: bb2d@59000000 {
+			compatible = "ti,dra7-bb2d";
+			reg = <0x59000000 0x0700>;
+			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "bb2d";
+			clocks = <&dpll_core_h24x2_ck>;
+			clock-names = "fclk";
+			status = "disabled";
 		};
 
 		i2c1: i2c@48070000 {
@@ -1994,17 +2000,15 @@
 		mac: ethernet@48484000 {
 			compatible = "ti,dra7-cpsw","ti,cpsw";
 			ti,hwmods = "gmac";
-			clocks = <&dpll_gmac_ck>, <&gmac_gmii_ref_clk_div>;
+			clocks = <&gmac_main_clk>, <&gmac_rft_clk_mux>;
 			clock-names = "fck", "cpts";
 			cpdma_channels = <8>;
 			ale_entries = <1024>;
 			bd_ram_size = <0x2000>;
-			no_bd_ram = <0>;
-			rx_descs = <64>;
 			mac_control = <0x20>;
 			slaves = <2>;
 			active_slave = <0>;
-			cpts_clock_mult = <0x80000000>;
+			cpts_clock_mult = <0x784CFE14>;
 			cpts_clock_shift = <29>;
 			reg = <0x48484000 0x1000
 			       0x48485200 0x2E00>;
@@ -2199,7 +2203,7 @@
 		};
 
 		epwmss0: epwmss@4843e000 {
-			compatible = "ti,dra7xx-pwmss", "ti,am33xx-pwmss";
+			compatible = "ti,dra746-pwmss", "ti,am33xx-pwmss";
 			reg = <0x4843e000 0x30>;
 			ti,hwmods = "epwmss0";
 			#address-cells = <1>;
@@ -2208,26 +2212,30 @@
 			ranges;
 
 			ehrpwm0: pwm@4843e200 {
-				compatible = "ti,dra7xx-ehrpwm",
+				compatible = "ti,dra746-ehrpwm",
+					     "ti,am3352-ehrpwm",
 					     "ti,am33xx-ehrpwm";
 				#pwm-cells = <3>;
 				reg = <0x4843e200 0x80>;
-				clocks = <&ehrpwm0_tbclk>;
-				clock-names = "tbclk";
+				clocks = <&ehrpwm0_tbclk>, <&l4_root_clk_div>;
+				clock-names = "tbclk", "fck";
 				status = "disabled";
 			};
 
 			ecap0: ecap@4843e100 {
-				compatible = "ti,dra7xx-ecap",
+				compatible = "ti,dra746-ecap",
+					     "ti,am3352-ecap",
 					     "ti,am33xx-ecap";
 				#pwm-cells = <3>;
 				reg = <0x4843e100 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
 				status = "disabled";
 			};
 		};
 
 		epwmss1: epwmss@48440000 {
-			compatible = "ti,dra7xx-pwmss", "ti,am33xx-pwmss";
+			compatible = "ti,dra746-pwmss", "ti,am33xx-pwmss";
 			reg = <0x48440000 0x30>;
 			ti,hwmods = "epwmss1";
 			#address-cells = <1>;
@@ -2236,26 +2244,30 @@
 			ranges;
 
 			ehrpwm1: pwm@48440200 {
-				compatible = "ti,dra7xx-ehrpwm",
+				compatible = "ti,dra746-ehrpwm",
+					     "ti,am3352-ehrpwm",
 					     "ti,am33xx-ehrpwm";
 				#pwm-cells = <3>;
 				reg = <0x48440200 0x80>;
-				clocks = <&ehrpwm1_tbclk>;
-				clock-names = "tbclk";
+				clocks = <&ehrpwm1_tbclk>, <&l4_root_clk_div>;
+				clock-names = "tbclk", "fck";
 				status = "disabled";
 			};
 
 			ecap1: ecap@48440100 {
-				compatible = "ti,dra7xx-ecap",
+				compatible = "ti,dra746-ecap",
+					     "ti,am3352-ecap",
 					     "ti,am33xx-ecap";
 				#pwm-cells = <3>;
 				reg = <0x48440100 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
 				status = "disabled";
 			};
 		};
 
 		epwmss2: epwmss@48442000 {
-			compatible = "ti,dra7xx-pwmss", "ti,am33xx-pwmss";
+			compatible = "ti,dra746-pwmss", "ti,am33xx-pwmss";
 			reg = <0x48442000 0x30>;
 			ti,hwmods = "epwmss2";
 			#address-cells = <1>;
@@ -2264,20 +2276,24 @@
 			ranges;
 
 			ehrpwm2: pwm@48442200 {
-				compatible = "ti,dra7xx-ehrpwm",
+				compatible = "ti,dra746-ehrpwm",
+					     "ti,am3352-ehrpwm",
 					     "ti,am33xx-ehrpwm";
 				#pwm-cells = <3>;
 				reg = <0x48442200 0x80>;
-				clocks = <&ehrpwm2_tbclk>;
-				clock-names = "tbclk";
+				clocks = <&ehrpwm2_tbclk>, <&l4_root_clk_div>;
+				clock-names = "tbclk", "fck";
 				status = "disabled";
 			};
 
 			ecap2: ecap@48442100 {
-				compatible = "ti,dra7xx-ecap",
+				compatible = "ti,dra746-ecap",
+					     "ti,am3352-ecap",
 					     "ti,am33xx-ecap";
 				#pwm-cells = <3>;
 				reg = <0x48442100 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
 				status = "disabled";
 			};
 		};

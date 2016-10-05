@@ -163,8 +163,8 @@ static unsigned long sci_clk_recalc_rate(struct clk_hw *hw,
  * Determines a suitable clock rate and parent for a TI SCI clock.
  * The parent handling is un-used, as generally the parent clock rates
  * are not known by the kernel; instead these are internally handled
- * by the firmware. Returns the new clock rate that can be set for the
- * clock, or 0 in failure.
+ * by the firmware. Returns 0 and sets the new rate in the req->rate field
+ * on success, returns < 0 on failure.
  */
 static int sci_clk_determine_rate(struct clk_hw *hw,
 				  struct clk_rate_request *req)
@@ -184,10 +184,12 @@ static int sci_clk_determine_rate(struct clk_hw *hw,
 		dev_err(clk->provider->dev,
 			"determine-rate failed for dev=%d, clk=%d, ret=%d\n",
 			clk->dev_id, clk->clk_id, ret);
-		return 0;
+		return ret;
 	}
 
-	return (int)new_rate;
+	req->rate = new_rate;
+
+	return 0;
 }
 
 /**

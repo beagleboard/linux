@@ -27,6 +27,24 @@ by both the PRU cores. The Interrupt Controller (INTC) and a CFG module are
 common to both the PRU cores. Each PRU core also has a private instruction RAM,
 and specific register spaces for Control and Debug functionalities.
 
+PRU-ICSS SYSCFG wrapper Parent Node
+====================================
+This node is _required only_ for AM437x SoCs due to the chained SYSCFG
+integration. The PRU-ICSS parent nodes are defined as child nodes of
+this node on AM437x SoCs in addition to the following properties.
+
+Required Properties:
+--------------------
+- compatible     : should be,
+                       "ti,am4372-pruss-wrapper" for AM437x family of SoCs
+- ti,hwmods      : name of the hwmod associated with the PRUSS instance
+- reg            : base address and size of the PRUSS1 CFG sub-module
+- #address-cells : should be 1
+- #size-cells    : should be 1
+- ranges         : no specific range translations required, child nodes have the
+                   same address view as the parent, so should be mentioned without
+                   any value for the property
+
 
 PRU-ICSS Parent Node
 =====================
@@ -42,6 +60,7 @@ Required Properties:
                        "ti,am5728-pruss" for AM57xx family of SoCs
                        "ti,k2g-pruss" for K2G SoC
 - ti,hwmods      : name of the hwmod associated with the PRUSS instance
+                   (does not apply for AM437x and K2G SoCs)
 - reg            : base address and size for each of the sub-modules as
                    mentioned in reg-names, and in the same order as the
                    reg-names
@@ -173,7 +192,7 @@ Optional Properties:
 
 Example:
 ========
-	/* AM33xx PRU-ICSS */
+1.	/* AM33xx PRU-ICSS */
 	pruss: pruss@4a300000 {
 		compatible = "ti,am3352-pruss";
 		ti,hwmods = "pruss";
@@ -229,5 +248,83 @@ Example:
 			bus_freq = <1000000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+		};
+	};
+
+2.	/* AM43xx PRU-ICSS with PRUSS1 node (PRUSS0 not shown) */
+	pruss_wrapper: pruss_wrapper@54426000 {
+		compatible = "ti,am4372-pruss-wrapper";
+		reg = <0x54426000 0x2000>;
+		ti,hwmods = "pruss";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		pruss1: pruss@54400000 {
+			compatible = "ti,am4372-pruss";
+			reg = <0x54400000 0x2000>,
+			      <0x54402000 0x2000>,
+			      <0x54410000 0x8000>,
+			      <0x54426000 0x2000>,
+			      <0x5442e000 0x31c>,
+			      <0x54432000 0x58>;
+			reg-names = "dram0", "dram1", "shrdram2", "cfg",
+				    "iep", "mii_rt";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			pruss1_intc: intc@54420000 {
+				compatible = "ti,am4372-pruss-intc";
+				reg = <0x54420000 0x2000>;
+				reg-names = "intc";
+				interrupts =
+				    <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH
+				     GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH
+				     GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH
+				     GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH
+				     GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH
+				     GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH
+				     GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "host2", "host3",
+						  "host4", "host5",
+						  "host6", "host8",
+						  "host9";
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
+
+			pru1_0: pru0@54434000 {
+				compatible = "ti,am4372-pru";
+				reg = <0x54434000 0x3000>,
+				      <0x54422000 0x400>,
+				      <0x54422400 0x100>;
+				reg-names = "iram", "control", "debug";
+				interrupt-parent = <&pruss1_intc>;
+				interrupts = <16>, <17>;
+				interrupt-names = "vring", "kick";
+			};
+
+			pru1_1: pru1@54438000 {
+				compatible = "ti,am4372-pru";
+				reg = <0x54438000 0x3000>,
+				      <0x54424000 0x400>,
+				      <0x54424400 0x100>;
+				reg-names = "iram", "control", "debug";
+				interrupt-parent = <&pruss1_intc>;
+				interrupts = <18>, <19>;
+				interrupt-names = "vring", "kick";
+			};
+
+			pruss1_mdio: mdio@54432400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0x54432400 0x90>;
+				clocks = <&dpll_core_m4_ck>;
+				clock-names = "fck";
+				bus_freq = <1000000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
 		};
 	};

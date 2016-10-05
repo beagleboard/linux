@@ -62,6 +62,9 @@
 		compatible = "sil,sii9022";
 		reg = <0x3b>;
 
+		interrupt-parent = <&gpio3>;
+		interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
+
 		i2s-fifo-routing = <
 			(ENABLE_BIT|CONNECT_SD0)
 			0

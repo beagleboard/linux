@@ -430,9 +430,27 @@ static void palmas_power_off(void)
 {
 	unsigned int addr;
 	int ret, slave;
+	struct device_node *node;
+	bool override_powerhold;
 
 	if (!palmas_dev)
 		return;
+
+	node = palmas_dev->dev->of_node;
+	override_powerhold =
+		of_property_read_bool(node, "ti,palmas-override-powerhold");
+
+	if (override_powerhold) {
+		addr = PALMAS_BASE_TO_REG(PALMAS_PU_PD_OD_BASE,
+					  PALMAS_PRIMARY_SECONDARY_PAD2);
+		slave = PALMAS_BASE_TO_SLAVE(PALMAS_PU_PD_OD_BASE);
+
+		ret = regmap_update_bits(palmas_dev->regmap[slave], addr,
+					 PALMAS_PRIMARY_SECONDARY_PAD2_GPIO_7_MASK, 0);
+		if (ret)
+			pr_err("%s: Unable to write PALMAS_PRIMARY_SECONDARY_PAD2 %d\n",
+			       __func__, ret);
+	}
 
 	slave = PALMAS_BASE_TO_SLAVE(PALMAS_PMU_CONTROL_BASE);
 	addr = PALMAS_BASE_TO_REG(PALMAS_PMU_CONTROL_BASE, PALMAS_DEV_CTRL);

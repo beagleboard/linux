@@ -76,7 +76,7 @@ config OMAP_GPMC_DEBUG
 
 config TI_EMIF_SRAM
 	tristate "Texas Instruments EMIF SRAM driver"
-	depends on SOC_AM33XX || SOC_AM43XX || SRAM
+	depends on (SOC_AM33XX || SOC_AM43XX) && SRAM
 	help
 	  This driver is for the EMIF module available on Texas Instruments
 	  AM33XX SoCs and is required for PM. Certain parts of the EMIF PM

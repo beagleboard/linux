@@ -1,7 +1,7 @@
 /*
  * PRU Ethernet driver
  *
- * Copyright (C) 2015 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://www.ti.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -90,12 +90,25 @@ struct prueth_packet_info {
  *
  * @rx_octets:Number of Rx packets
  *
+ * @tx64byte:Number of 64 byte packets sent
+ * @tx65_127byte:Number of 65-127 byte packets sent
+ * @tx128_255byte:Number of 128-255 byte packets sent
+ * @tx256_511byte:Number of 256-511 byte packets sent
+ * @tx512_1023byte:Number of 512-1023 byte packets sent
+ * @tx1024byte:Number of 1024 and larger size packets sent
+ *
+ * @rx64byte:Number of 64 byte packets rcvd
+ * @rx65_127byte:Number of 65-127 byte packets rcvd
+ * @rx128_255byte:Number of 128-255 byte packets rcvd
+ * @rx256_511byte:Number of 256-511 byte packets rcvd
+ * @rx512_1023byte:Number of 512-1023 byte packets rcvd
+ * @rx1024byte:Number of 1024 and larger size packets rcvd
+ *
  * @late_coll:Number of late collisions(Half Duplex)
  * @single_coll:Number of single collisions (Half Duplex)
  * @multi_coll:Number of multiple collisions (Half Duplex)
  * @excess_coll:Number of excess collisions(Half Duplex)
  *
- * @tx_hwq_overflow:Hardware Tx Queue (on PRU) over flow count
  * @rx_misalignment_frames:Number of non multiple of 8 byte frames rcvd
  * @stormprev_counter:Number of packets dropped because of Storm Prevention
  * @mac_rxerror:Number of MAC receive errors
@@ -107,22 +120,11 @@ struct prueth_packet_info {
  * @rx_crc_frames:Number of CRC error frames rcvd
  * @dropped_packets:Number of packets dropped due to link down on opposite port
  *
- * @tx64byte:Number of 64 byte packets sent
- * @tx65_127byte:Number of 65-127 byte packets sent
- * @tx128_255byte:Number of 128-255 byte packets sent
- * @tx256_511byte:Number of 256-511 byte packets sent
- * @tx512_1023byte:Number of 512-1023 byte packets sent
- * @tx1024byte:Number of 1024 and larger size packets sent
-
- * @rx64byte:Number of 64 byte packets rcvd
- * @rx65_127byte:Number of 65-127 byte packets rcvd
- * @rx128_255byte:Number of 128-255 byte packets rcvd
- * @rx256_511byte:Number of 256-511 byte packets rcvd
- * @rx512_1023byte:Number of 512-1023 byte packets rcvd
- * @rx1024byte:Number of 1024 and larger size packets rcvd
+ * @tx_hwq_overflow:Hardware Tx Queue (on PRU) over flow count
+ * @tx_hwq_underflow:Hardware Tx Queue (on PRU) under flow count
  *
- * @sqe_test_error: Number of MAC receive errors
  * @u32 cs_error: Number of carrier sense errors
+ * @sqe_test_error: Number of MAC receive errors
  *
  * The fields here are aligned here so that it's consistent
  * with the memory layout in PRU DRAM, this is to facilitate easy
@@ -141,23 +143,6 @@ struct port_statistics {
 
 	u32 rx_octets;
 
-	u32 late_coll;
-	u32 single_coll;
-	u32 multi_coll;
-	u32 excess_coll;
-
-	u32 tx_hwq_overflow;
-	u32 rx_misalignment_frames;
-	u32 stormprev_counter;
-	u32 mac_rxerror;
-	u32 sfd_error;
-	u32 def_tx;
-	u32 mac_txerror;
-	u32 rx_oversized_frames;
-	u32 rx_undersized_frames;
-	u32 rx_crc_frames;
-	u32 dropped_packets;
-
 	u32 tx64byte;
 	u32 tx65_127byte;
 	u32 tx128_255byte;
@@ -172,9 +157,27 @@ struct port_statistics {
 	u32 rx512_1023byte;
 	u32 rx1024byte;
 
-	u32 sqe_test_error;
+	u32 late_coll;
+	u32 single_coll;
+	u32 multi_coll;
+	u32 excess_coll;
+
+	u32 rx_misalignment_frames;
+	u32 stormprev_counter;
+	u32 mac_rxerror;
+	u32 sfd_error;
+	u32 def_tx;
+	u32 mac_txerror;
+	u32 rx_oversized_frames;
+	u32 rx_undersized_frames;
+	u32 rx_crc_frames;
+	u32 dropped_packets;
+
+	u32 tx_hwq_overflow;
+	u32 tx_hwq_underflow;
 
 	u32 cs_error;
+	u32 sqe_test_error;
 } __packed;
 
 #endif /* __NET_TI_PRUETH_H */

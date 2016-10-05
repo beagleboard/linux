@@ -11,9 +11,36 @@
 
 / {
 	model = "TI AM571x IDK-LCD-OSD-Display";
+
+	aliases {
+		ethernet2 = &pruss2_emac0;
+		ethernet3 = &pruss2_emac1;
+		/delete-property/ ethernet4;
+		/delete-property/ ethernet5;
+	};
 };
 
 &touchscreen {
 	interrupt-parent = <&gpio5>;
 	interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+};
+
+&pruss1_mdio {
+	status = "disabled";
+};
+
+&pruss1_eth {
+	status = "disabled";
+};
+
+&pru1_1 {
+	/delete-property/ ti,pruss-gp-mux-sel;
+};
+
+&pru2_0 {
+	/delete-property/ ti,pruss-gp-mux-sel;
+};
+
+&pru2_1 {
+	/delete-property/ ti,pruss-gp-mux-sel;
 };

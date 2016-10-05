@@ -727,7 +727,7 @@ static ssize_t gbe_sw_port_tx_pri_map_store(struct gbe_priv *gbe_dev,
 
 	slave = gbe_port_num_get_slave(gbe_dev, port);
 	if (!slave)
-		return 0;
+		return -EINVAL;
 
 	ret = gbe_sw_attr_parse_set_command(gbe_dev, attr, buf, count, &res);
 	if (ret)
@@ -943,7 +943,7 @@ static ssize_t gbe_sw_port_vlan_store(struct gbe_priv *gbe_dev,
 
 	slave = gbe_port_num_get_slave(gbe_dev, port);
 	if (!slave)
-		return 0;
+		return -EINVAL;
 
 	/* Slave port */
 	reg = GBE_REG_ADDR(slave, port_regs, port_vlan);
@@ -1105,13 +1105,24 @@ static ssize_t gbe_sw_stats_mod_store(struct gbe_priv *gbe_dev,
 				      struct gbe_attribute *attr,
 				      const char *buf, size_t count)
 {
+	int stat_mod, max_ports;
 	unsigned long end;
-	int stat_mod;
 
 	if (kstrtoul(buf, 0, &end) != 0 || (end != 0))
 		return -EINVAL;
 
 	stat_mod = (int)(attr->context);
+
+	/* We have stats blocks for only slave ports on GBE_SS_VERSION_14
+	 * but also for host port for other variations. So check this
+	 * value accordingly
+	 */
+	max_ports = (gbe_dev->ss_version == GBE_SS_VERSION_14) ?
+		     gbe_dev->max_num_slaves : gbe_dev->max_num_ports;
+
+	if (stat_mod >= max_ports)
+		return -EINVAL;
+
 	spin_lock_bh(&gbe_dev->hw_stats_lock);
 	if (gbe_dev->ss_version == GBE_SS_VERSION_14)
 		gbe_reset_mod_stats_ver14(gbe_dev, stat_mod);
@@ -1336,9 +1347,6 @@ int gbe_create_sysfs_entries(struct gbe_priv *gbe_dev)
 		kobjs = &gbe_sw_ver14_kobjs[0];
 		break;
 	default:
-		/* we don't support 2U switch */
-		if (!IS_SS_ID_NU(gbe_dev))
-			return 0;
 		kobjs = &gbe_sw_nu_kobjs[0];
 	}
 

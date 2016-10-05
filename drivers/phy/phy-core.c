@@ -244,6 +244,38 @@ out:
 }
 EXPORT_SYMBOL_GPL(phy_init);
 
+/**
+ * phy_reset() - resets a PHY device without shutting down
+ * @phy - the phy to be reset
+ *
+ * During runtime, the PHY may need to be reset in order to
+ * re-establish connection etc without being shut down or exit.
+ */
+int phy_reset(struct phy *phy)
+{
+	int ret;
+
+	if (!phy)
+		return 0;
+
+	ret = phy_pm_runtime_get_sync(phy);
+	if (ret < 0 && ret != -ENOTSUPP)
+		return ret;
+	ret = 0; /* Override possible ret == -ENOTSUPP */
+
+	mutex_lock(&phy->mutex);
+	if (phy->ops->reset) {
+		ret = phy->ops->reset(phy);
+		if (ret < 0)
+			dev_dbg(&phy->dev, "phy reset failed --> %d\n", ret);
+	}
+
+	mutex_unlock(&phy->mutex);
+	phy_pm_runtime_put(phy);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(phy_reset);
+
 int phy_exit(struct phy *phy)
 {
 	int ret;

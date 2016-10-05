@@ -15,12 +15,16 @@
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
+#include <linux/spinlock.h>
 
 #include "../dss/omapdss.h"
 
 struct panel_drv_data {
 	struct omap_dss_device dssdev;
 	struct omap_dss_device *in;
+	void (*hpd_cb)(void *cb_data, enum drm_connector_status status);
+	void *hpd_cb_data;
+	struct mutex hpd_lock;
 
 	struct gpio_desc *ct_cp_hpd_gpio;
 	struct gpio_desc *ls_oe_gpio;
@@ -162,6 +166,26 @@ static bool tpd_detect(struct omap_dss_device *dssdev)
 	return gpiod_get_value_cansleep(ddata->hpd_gpio);
 }
 
+static int tpd_enable_hpd(struct omap_dss_device *dssdev,
+			   void (*cb)(void *cb_data,
+				      enum drm_connector_status status),
+			   void *cb_data)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+	mutex_lock(&ddata->hpd_lock);
+	ddata->hpd_cb = cb;
+	ddata->hpd_cb_data = cb_data;
+	mutex_unlock(&ddata->hpd_lock);
+
+	return 0;
+}
+
+static void tpd_disable_hpd(struct omap_dss_device *dssdev)
+{
+	tpd_enable_hpd(dssdev, NULL, NULL);
+}
+
 static int tpd_set_infoframe(struct omap_dss_device *dssdev,
 		const struct hdmi_avi_infoframe *avi)
 {
@@ -193,9 +217,31 @@ static const struct omapdss_hdmi_ops tpd_hdmi_ops = {
 
 	.read_edid		= tpd_read_edid,
 	.detect			= tpd_detect,
+	.enable_hpd		= tpd_enable_hpd,
+	.disable_hpd		= tpd_disable_hpd,
 	.set_infoframe		= tpd_set_infoframe,
 	.set_hdmi_mode		= tpd_set_hdmi_mode,
 };
+
+static irqreturn_t tpd_hpd_isr(int irq, void *data)
+{
+	struct panel_drv_data *ddata = data;
+
+	mutex_lock(&ddata->hpd_lock);
+	if (ddata->hpd_cb) {
+		enum drm_connector_status status;
+
+		if (tpd_detect(&ddata->dssdev))
+			status = connector_status_connected;
+		else
+			status = connector_status_disconnected;
+
+		ddata->hpd_cb(ddata->hpd_cb_data, status);
+	}
+	mutex_unlock(&ddata->hpd_lock);
+
+	return IRQ_HANDLED;
+}
 
 static int tpd_probe_of(struct platform_device *pdev)
 {
@@ -255,6 +301,15 @@ static int tpd_probe(struct platform_device *pdev)
 		goto err_gpio;
 
 	ddata->hpd_gpio = gpio;
+
+	mutex_init(&ddata->hpd_lock);
+
+	r = devm_request_threaded_irq(&pdev->dev, gpiod_to_irq(ddata->hpd_gpio),
+		NULL, tpd_hpd_isr,
+		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+		"tpd12s015 hpd", ddata);
+	if (r)
+		goto err_gpio;
 
 	dssdev = &ddata->dssdev;
 	dssdev->ops.hdmi = &tpd_hdmi_ops;
