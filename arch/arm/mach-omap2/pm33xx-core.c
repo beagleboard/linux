@@ -72,6 +72,15 @@ static int am33xx_check_off_mode_enable(void)
 
 static int am43xx_check_off_mode_enable(void)
 {
+	/*
+	 * Check for am437x-sk-evm which due to HW design cannot support
+	 * this mode reliably.
+	 */
+	if (of_machine_is_compatible("ti,am437x-sk-evm")) {
+		pr_warn("WARNING: This platform does not support off-mode, entering DeepSleep suspend.\n");
+		return 0;
+	}
+
 	return enable_off_mode;
 }
 
