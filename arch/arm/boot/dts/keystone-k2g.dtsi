@@ -305,7 +305,7 @@
 			clocks = <&k2g_clks K2G_DEV_USB1 K2G_DEV_USB_BUS_CLK>;
 			clock-names = "usb";
 
-			usb1: usb@2690000 {
+			usb1: usb@2590000 {
 				compatible = "synopsys,dwc3";
 				reg = <0x2590000 0x10000>;
 				interrupts = <GIC_SPI 144 IRQ_TYPE_EDGE_RISING>;
