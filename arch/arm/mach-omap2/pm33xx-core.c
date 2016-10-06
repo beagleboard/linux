@@ -64,6 +64,8 @@ static int __init am43xx_map_scu(void)
 
 static int am33xx_check_off_mode_enable(void)
 {
+	pr_warn("WARNING: This platform does not support off-mode, entering DeepSleep suspend.\n");
+
 	/* off mode not supported on am335x so return 0 always */
 	return 0;
 }
