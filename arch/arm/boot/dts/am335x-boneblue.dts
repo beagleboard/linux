@@ -16,25 +16,13 @@
 
 #define BLUE_IO(x, y) AM33XX_IOPAD((x)*4+0x800, (y))
 
-/* pruss: pick one: */
-
 /*
  * /etc/modprobe.d/pruss-blacklist.conf
  *
  * blacklist uio_pruss
  */
 
-/* #include "am33xx-pruss-rproc.dtsi" */
-
-/*
- * /etc/modprobe.d/pruss-blacklist.conf
- *
- * blacklist pruss
- * blacklist pruss_intc
- * blacklist pru-rproc
- */
-
-/* #include "am33xx-pruss-uio.dtsi" */
+#include "am33xx-pruss-rproc.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone Blue";
