@@ -1431,12 +1431,12 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 static void omap_hsmmc_soft_timeout(unsigned long data)
 {
 	struct omap_hsmmc_host *host = (struct omap_hsmmc_host *)data;
-	bool end_trans;
+	bool end_trans = false;
 
 	omap_hsmmc_disable_irq(host);
 	if (host->data || host->response_busy) {
 		host->response_busy = 0;
-		end_trans = 1;
+		end_trans = true;
 	}
 
 	hsmmc_command_incomplete(host, -ETIMEDOUT, 0);
