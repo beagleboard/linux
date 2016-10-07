@@ -1650,6 +1650,7 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 	uint32_t reg, clkd, dto = 0;
 	struct mmc_ios *ios = &host->mmc->ios;
 	struct mmc_data *data = host->mrq->data;
+	struct mmc_command *cmd = host->mrq->cmd;
 
 	reg = OMAP_HSMMC_READ(host->base, SYSCTL);
 	clkd = (reg & CLKD_MASK) >> CLKD_SHIFT;
@@ -1706,6 +1707,9 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 					      MMC_BLOCK_TRANSFER_TIME_NS(
 					      data->blksz, ios->bus_width,
 					      ios->clock)));
+		else if (cmd->flags & MMC_RSP_BUSY)
+			host->data_timeout = timeout_ns;
+
 		dto = 14;
 	}
 
