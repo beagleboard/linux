@@ -785,7 +785,8 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	 */
 	stream->vpdma_channels[channel] = 1;
 
-	vpdma_rawchan_add_out_dtd(&stream->desc_list, c_rect->width, c_rect,
+	vpdma_rawchan_add_out_dtd(&stream->desc_list, c_rect->width,
+				  stream->bytesperline, c_rect,
 				  fmt->vpdma_fmt[plane], dma_addr,
 				  max_width, max_height, channel, flags);
 
@@ -915,7 +916,7 @@ static void start_dma(struct vip_stream *stream, struct vip_buffer *buf)
 			      dma_addr, stream->write_desc, drop_data, 0);
 
 	if (stream->port->fmt->coplanar) {
-		dma_addr += stream->width * stream->height;
+		dma_addr += stream->bytesperline * stream->height;
 		vpdma_update_dma_addr(dev->shared->vpdma, &stream->desc_list,
 				      dma_addr, stream->write_desc + 1,
 				      drop_data, 1);
@@ -1480,6 +1481,7 @@ static int vip_calc_format_size(struct vip_port *port,
 {
 	struct vip_dev *dev = port->dev;
 	enum v4l2_field *field;
+	unsigned int stride;
 
 	if (!fmt) {
 		vip_dbg(2, dev,
@@ -1497,13 +1499,19 @@ static int vip_calc_format_size(struct vip_port *port,
 			      &f->fmt.pix.height, MIN_H, MAX_H, H_ALIGN,
 			      S_ALIGN);
 
-	f->fmt.pix.bytesperline = f->fmt.pix.width *
-				  (fmt->vpdma_fmt[0]->depth >> 3);
+	stride = f->fmt.pix.width * (fmt->vpdma_fmt[0]->depth >> 3);
+	if (stride > f->fmt.pix.bytesperline)
+		f->fmt.pix.bytesperline = stride;
 	f->fmt.pix.bytesperline = ALIGN(f->fmt.pix.bytesperline,
 					VPDMA_STRIDE_ALIGN);
-	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.width *
-		(fmt->vpdma_fmt[0]->depth +
-		 (fmt->coplanar ? fmt->vpdma_fmt[1]->depth : 0)) >> 3;
+
+	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.bytesperline;
+	if (fmt->coplanar) {
+		f->fmt.pix.sizeimage += f->fmt.pix.height *
+					f->fmt.pix.bytesperline *
+					fmt->vpdma_fmt[VIP_CHROMA]->depth >> 3;
+	}
+
 	f->fmt.pix.colorspace = fmt->colorspace;
 	f->fmt.pix.priv = 0;
 
@@ -1759,17 +1767,19 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	enum vip_csc_state csc_direction;
 	int ret;
 
-	vip_dbg(3, dev, "s_fmt input fourcc:%s size: %dx%d\n",
+	vip_dbg(3, dev, "s_fmt input fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
 		fourcc_to_str(f->fmt.pix.pixelformat),
-		f->fmt.pix.width, f->fmt.pix.height);
+		f->fmt.pix.width, f->fmt.pix.height,
+		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
 
 	ret = vip_try_fmt_vid_cap(file, priv, f);
 	if (ret)
 		return ret;
 
-	vip_dbg(3, dev, "s_fmt try_fmt fourcc:%s size: %dx%d\n",
+	vip_dbg(3, dev, "s_fmt try_fmt fourcc:%s size: %dx%d bpl:%d img_size:%d\n",
 		fourcc_to_str(f->fmt.pix.pixelformat),
-		f->fmt.pix.width, f->fmt.pix.height);
+		f->fmt.pix.width, f->fmt.pix.height,
+		f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
 
 	if (vb2_is_busy(&stream->vb_vidq)) {
 		vip_err(dev, "%s queue busy\n", __func__);
