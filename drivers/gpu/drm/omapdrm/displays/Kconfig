@@ -113,13 +113,4 @@ config DISPLAY_PANEL_NEC_NL8048HL11
 		This NEC NL8048HL11 panel is TFT LCD used in the
 		Zoom2/3/3630 sdp boards.
 
-config DISPLAY_PANEL_TLC59108
-	tristate "TLC59108 based DPI driver"
-	depends on I2C
-	select REGMAP_I2C
-	help
-		Driver for DPI panels powered by TLC59108 pwm/gpio expander
-		chips. These are found on the LCD daughter boards of DRA7 and
-		DRA72 EVMs.
-
 endmenu

@@ -14,6 +14,21 @@ LED sub-node properties:
 - label: (optional) name of LED
 - linux,default-trigger : (optional)
 
+Optional properties:
+- gpio-controller: Marks the device node as a GPIO controller.
+  - If present, all the led outputs are registered as gpio outputs, but
+    the gpio outputs configured as leds are reserved by the driver itself
+- #gpio-cells: Should be two.
+  - first cell is the pin number
+  - second cell is used for standard gpio bitfield specifiers [1]
+- ngpios: Number of gpio outputs added
+  - Should be <= number of leds lines on the chip, if present.
+
+The most other gpio related devicetree bindings - like gpio-hog - apply
+to the tlc591xx node if the gpio output functionality is enabled [1]. 
+
+[1] Documentation/devicetree/bindings/gpio/gpio.txt
+
 Examples:
 
 tlc59116@68 {
