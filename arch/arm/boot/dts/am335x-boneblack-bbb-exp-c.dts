@@ -33,8 +33,4 @@
 	status = "okay";
 };
 
-&rtc {
-	system-power-controller;
-};
-
 #include "am335x-cape-bbb-exp-c.dtsi"
