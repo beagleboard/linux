@@ -120,10 +120,6 @@
 	};
 };
 
-&rtc {
-	system-power-controller;
-};
-
 &mcasp0	{
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
