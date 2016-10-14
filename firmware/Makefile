@@ -214,6 +214,8 @@ fw-shipped-$(CONFIG_CAPE_BEAGLEBONE) += \
 	cape-univ-emmc-00A0.dtbo \
 	cape-universal-00A0.dtbo \
 	cape-universaln-00A0.dtbo \
+	cape-universala-00A0.dtbo \
+	cape-universalh-00A0.dtbo \
 	cape-univ-audio-00A0.dtbo \
 	cape-univ-hdmi-00A0.dtbo \
 	cape-bone-ibb-00A0.dtbo \
