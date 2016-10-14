@@ -22,7 +22,7 @@
 	compatible = "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green";
 
     /* identification */
-    part-number = "cape-bone-universal";
+    part-number = "cape-bone-universaln";
     version = "00A0";
 
     /* state the resources this cape uses */
@@ -281,6 +281,8 @@
                 pinctrl-single,pins = <0x03c  0x27>; };     /* Mode 7, Pull-Down, RxActive */
             P8_15_pruin_pin: pinmux_P8_15_pruin_pin {
                 pinctrl-single,pins = <0x03c  0x26>; };     /* Mode 6, Pull-Down, RxActive */
+            P8_15_pru_ecap_pin: pinmux_P8_15_pru_ecap_pin {
+                pinctrl-single,pins = <0x03c  0x25>; };     /* Mode 5, Pull-Down, RxActive */
             P8_15_qep_pin: pinmux_P8_15_qep_pin {
                 pinctrl-single,pins = <0x03c  0x24>; };     /* Mode 4, Pull-Down, RxActive */
 
@@ -471,6 +473,8 @@
                 pinctrl-single,pins = <0x15c  0x32>; };     /* Mode 2, Pull-Up, RxActive */
             P9_17_pwm_pin: pinmux_P9_17_pwm_pin {
                 pinctrl-single,pins = <0x15c  0x33>; };     /* Mode 3, Pull-Up, RxActive */
+            P9_17_pru_uart_pin: pinmux_P9_17_pru_uart_pin {
+                pinctrl-single,pins = <0x15c  0x34>; };     /* Mode 4, Pull-Up, RxActive */
 
             /* P9_18 (ZCZ ball B16) */
             P9_18_default_pin: pinmux_P9_18_default_pin {
@@ -487,6 +491,8 @@
                 pinctrl-single,pins = <0x158  0x32>; };     /* Mode 2, Pull-Up, RxActive */
             P9_18_pwm_pin: pinmux_P9_18_pwm_pin {
                 pinctrl-single,pins = <0x158  0x33>; };     /* Mode 3, Pull-Up, RxActive */
+            P9_18_pru_uart_pin: pinmux_P9_18_pru_uart_pin {
+                pinctrl-single,pins = <0x158  0x34>; };     /* Mode 4, Pull-Up, RxActive */
 
             // Leave the cape I2C EEPROM bus alone
             /* P9_19 (ZCZ ball D17) I2C     */
@@ -509,6 +515,8 @@
                 pinctrl-single,pins = <0x154  0x32>; };     /* Mode 2, Pull-Up, RxActive */
             P9_21_pwm_pin: pinmux_P9_21_pwm_pin {
                 pinctrl-single,pins = <0x154  0x33>; };     /* Mode 3, Pull-Up, RxActive */
+            P9_21_pru_uart_pin: pinmux_P9_21_pru_uart_pin {
+                pinctrl-single,pins = <0x154  0x34>; };     /* Mode 4, Pull-Up, RxActive */
 
             /* P9_22 (ZCZ ball A17) */
             P9_22_default_pin: pinmux_P9_22_default_pin {
@@ -527,6 +535,8 @@
                 pinctrl-single,pins = <0x150  0x32>; };     /* Mode 2, Pull-Up, RxActive */
             P9_22_pwm_pin: pinmux_P9_22_pwm_pin {
                 pinctrl-single,pins = <0x150  0x33>; };     /* Mode 3, Pull-Up, RxActive */
+            P9_22_pru_uart_pin: pinmux_P9_22_pru_uart_pin {
+                pinctrl-single,pins = <0x150  0x34>; };     /* Mode 4, Pull-Up, RxActive */
 
             /* P9_23 (ZCZ ball V14) */
             P9_23_default_pin: pinmux_P9_23_default_pin {
@@ -555,6 +565,8 @@
                 pinctrl-single,pins = <0x184  0x32>; };     /* Mode 2, Pull-Up, RxActive */
             P9_24_i2c_pin: pinmux_P9_24_i2c_pin {
                 pinctrl-single,pins = <0x184  0x33>; };     /* Mode 3, Pull-Up, RxActive */
+            P9_24_pru_uart_pin: pinmux_P9_24_pru_uart_pin {
+                pinctrl-single,pins = <0x184  0x35>; };     /* Mode 5, Pull-Up, RxActive */
             P9_24_pruin_pin: pinmux_P9_24_pruin_pin {
                 pinctrl-single,pins = <0x184  0x36>; };     /* Mode 6, Pull-Up, RxActive */
 
@@ -575,6 +587,8 @@
                 pinctrl-single,pins = <0x180  0x32>; };     /* Mode 2, Pull-Up, RxActive */
             P9_26_i2c_pin: pinmux_P9_26_i2c_pin {
                 pinctrl-single,pins = <0x180  0x33>; };     /* Mode 3, Pull-Up, RxActive */
+            P9_26_pru_uart_pin: pinmux_P9_26_pru_uart_pin {
+                pinctrl-single,pins = <0x180  0x35>; };     /* Mode 5, Pull-Up, RxActive */
             P9_26_pruin_pin: pinmux_P9_26_pruin_pin {
                 pinctrl-single,pins = <0x180  0x36>; };     /* Mode 6, Pull-Up, RxActive */
 
@@ -673,6 +687,8 @@
                 pinctrl-single,pins = <0x164  0x21>; };     /* Mode 1, Pull-Down, RxActive */
             P9_42_spics_pin: pinmux_P9_42_spics_pin {
                 pinctrl-single,pins = <0x164  0x22>; };     /* Mode 2, Pull-Down, RxActive */
+            P9_42_pru_ecap_pin: pinmux_P9_42_pru_ecap_pin {
+                pinctrl-single,pins = <0x164  0x23>; };     /* Mode 3, Pull-Down, RxActive */
             P9_42_spiclk_pin: pinmux_P9_42_spiclk_pin {
                 pinctrl-single,pins = <0x164  0x24>; };     /* Mode 4, Pull-Down, RxActive */
 
@@ -808,13 +824,14 @@
             P8_15_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruin", "qep";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruin", "pru_ecap", "qep";
                 pinctrl-0 = <&P8_15_default_pin>;
                 pinctrl-1 = <&P8_15_gpio_pin>;
                 pinctrl-2 = <&P8_15_gpio_pu_pin>;
                 pinctrl-3 = <&P8_15_gpio_pd_pin>;
                 pinctrl-4 = <&P8_15_pruin_pin>;
-                pinctrl-5 = <&P8_15_qep_pin>;
+                pinctrl-5 = <&P8_15_pru_ecap_pin>;
+                pinctrl-6 = <&P8_15_qep_pin>;
             };
 
             P8_16_pinmux {
@@ -944,7 +961,7 @@
             P9_17_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "i2c", "pwm";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "i2c", "pwm", "pru_uart";
                 pinctrl-0 = <&P9_17_default_pin>;
                 pinctrl-1 = <&P9_17_gpio_pin>;
                 pinctrl-2 = <&P9_17_gpio_pu_pin>;
@@ -952,12 +969,13 @@
                 pinctrl-4 = <&P9_17_spi_pin>;
                 pinctrl-5 = <&P9_17_i2c_pin>;
                 pinctrl-6 = <&P9_17_pwm_pin>;
+                pinctrl-7 = <&P9_17_pru_uart_pin>;
             };
 
             P9_18_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "i2c", "pwm";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "i2c", "pwm", "pru_uart";
                 pinctrl-0 = <&P9_18_default_pin>;
                 pinctrl-1 = <&P9_18_gpio_pin>;
                 pinctrl-2 = <&P9_18_gpio_pu_pin>;
@@ -965,6 +983,7 @@
                 pinctrl-4 = <&P9_18_spi_pin>;
                 pinctrl-5 = <&P9_18_i2c_pin>;
                 pinctrl-6 = <&P9_18_pwm_pin>;
+                pinctrl-7 = <&P9_18_pru_uart_pin>;
             };
 
             // I2C Pins
@@ -974,7 +993,7 @@
             P9_21_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm", "pru_uart";
                 pinctrl-0 = <&P9_21_default_pin>;
                 pinctrl-1 = <&P9_21_gpio_pin>;
                 pinctrl-2 = <&P9_21_gpio_pu_pin>;
@@ -983,12 +1002,13 @@
                 pinctrl-5 = <&P9_21_uart_pin>;
                 pinctrl-6 = <&P9_21_i2c_pin>;
                 pinctrl-7 = <&P9_21_pwm_pin>;
+                pinctrl-8 = <&P9_21_pru_uart_pin>;
             };
 
             P9_22_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm", "pru_uart";
                 pinctrl-0 = <&P9_22_default_pin>;
                 pinctrl-1 = <&P9_22_gpio_pin>;
                 pinctrl-2 = <&P9_22_gpio_pu_pin>;
@@ -997,6 +1017,7 @@
                 pinctrl-5 = <&P9_22_uart_pin>;
                 pinctrl-6 = <&P9_22_i2c_pin>;
                 pinctrl-7 = <&P9_22_pwm_pin>;
+                pinctrl-8 = <&P9_22_pru_uart_pin>;
             };
 
             P9_23_pinmux {
@@ -1013,7 +1034,7 @@
             P9_24_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c", "pruin";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c", "pru_uart", "pruin";
                 pinctrl-0 = <&P9_24_default_pin>;
                 pinctrl-1 = <&P9_24_gpio_pin>;
                 pinctrl-2 = <&P9_24_gpio_pu_pin>;
@@ -1021,7 +1042,8 @@
                 pinctrl-4 = <&P9_24_uart_pin>;
                 pinctrl-5 = <&P9_24_can_pin>;
                 pinctrl-6 = <&P9_24_i2c_pin>;
-                pinctrl-7 = <&P9_24_pruin_pin>;
+                pinctrl-7 = <&P9_24_pru_uart_pin>;
+                pinctrl-8 = <&P9_24_pruin_pin>;
             };
 
 
@@ -1031,7 +1053,7 @@
             P9_26_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c", "pruin";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c", "pru_uart", "pruin";
                 pinctrl-0 = <&P9_26_default_pin>;
                 pinctrl-1 = <&P9_26_gpio_pin>;
                 pinctrl-2 = <&P9_26_gpio_pu_pin>;
@@ -1039,7 +1061,8 @@
                 pinctrl-4 = <&P9_26_uart_pin>;
                 pinctrl-5 = <&P9_26_can_pin>;
                 pinctrl-6 = <&P9_26_i2c_pin>;
-                pinctrl-7 = <&P9_26_pruin_pin>;
+                pinctrl-7 = <&P9_26_pru_uart_pin>;
+                pinctrl-8 = <&P9_26_pruin_pin>;
             };
 
             P9_27_pinmux {
@@ -1104,7 +1127,7 @@
             P9_42_pinmux {
                 compatible = "bone-pinmux-helper";
                 status = "okay";
-                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "uart", "spics", "spiclk";
+                pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "uart", "spics", "pru_ecap", "spiclk";
                 pinctrl-0 = <&P9_42_default_pin>;
                 pinctrl-1 = <&P9_42_gpio_pin>;
                 pinctrl-2 = <&P9_42_gpio_pu_pin>;
@@ -1112,7 +1135,8 @@
                 pinctrl-4 = <&P9_42_pwm_pin>;
                 pinctrl-5 = <&P9_42_uart_pin>;
                 pinctrl-6 = <&P9_42_spics_pin>;
-                pinctrl-7 = <&P9_42_spiclk_pin>;
+                pinctrl-7 = <&P9_42_pru_ecap_pin>;
+                pinctrl-8 = <&P9_42_spiclk_pin>;
             };
 
             P9_92_pinmux {
