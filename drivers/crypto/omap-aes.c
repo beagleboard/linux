@@ -1176,6 +1176,8 @@ static struct attribute_group omap_aes_attr_group = {
 	.attrs = omap_aes_attrs,
 };
 
+static DEFINE_MUTEX(probe_lock);
+
 static int omap_aes_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1270,6 +1272,8 @@ static int omap_aes_probe(struct platform_device *pdev)
 	if (err)
 		goto err_engine;
 
+	mutex_lock(&probe_lock);
+
 	for (i = 0; i < dd->pdata->algs_info_size; i++) {
 		if (!dd->pdata->algs_info[i].registered) {
 			for (j = 0; j < dd->pdata->algs_info[i].size; j++) {
@@ -1279,8 +1283,10 @@ static int omap_aes_probe(struct platform_device *pdev)
 				INIT_LIST_HEAD(&algp->cra_list);
 
 				err = crypto_register_alg(algp);
-				if (err)
+				if (err) {
+					mutex_unlock(&probe_lock);
 					goto err_algs;
+				}
 
 				dd->pdata->algs_info[i].registered++;
 			}
@@ -1296,12 +1302,16 @@ static int omap_aes_probe(struct platform_device *pdev)
 			INIT_LIST_HEAD(&algp->cra_list);
 
 			err = crypto_register_aead(aalg);
-			if (err)
+			if (err) {
+				mutex_unlock(&probe_lock);
 				goto err_aead_algs;
+			}
 
 			dd->pdata->aead_algs_info->registered++;
 		}
 	}
+
+	mutex_unlock(&probe_lock);
 
 	err = sysfs_create_group(&dev->kobj, &omap_aes_attr_group);
 	if (err) {
