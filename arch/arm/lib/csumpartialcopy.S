@@ -49,6 +49,7 @@
 
 #define FN_ENTRY	ENTRY(csum_partial_copy_nocheck)
 #define FN_EXIT		ENDPROC(csum_partial_copy_nocheck)
-#define FN_EXPORT	EXPORT_SYMBOL(csum_partial_copy_nocheck)
 
 #include "csumpartialcopygeneric.S"
+
+EXPORT_SYMBOL(csum_partial_copy_nocheck)

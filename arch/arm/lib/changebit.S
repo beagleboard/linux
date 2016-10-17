@@ -13,3 +13,4 @@
                 .text
 
 bitop	_change_bit, eor
+EXPORT_SYMBOL(_change_bit)
