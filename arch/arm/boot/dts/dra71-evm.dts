@@ -564,3 +564,18 @@
 	/* Supplied by VDA_1V8_PHY */
 	vdda_video-supply = <&lp8732_ldo1_reg>;
 };
+
+&ipu2 {
+	status = "okay";
+	memory-region = <&ipu2_cma_pool>;
+};
+
+&ipu1 {
+	status = "okay";
+	memory-region = <&ipu1_cma_pool>;
+};
+
+&dsp1 {
+	status = "okay";
+	memory-region = <&dsp1_cma_pool>;
+};
