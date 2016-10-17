@@ -13,3 +13,4 @@
                 .text
 
 testop	_test_and_clear_bit, bicne, strne
+EXPORT_SYMBOL(_test_and_clear_bit)

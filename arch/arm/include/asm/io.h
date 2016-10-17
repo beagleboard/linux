@@ -312,11 +312,13 @@ extern void _memset_io(volatile void __iomem *, int, size_t);
 #define writesw(p,d,l)		__raw_writesw(p,d,l)
 #define writesl(p,d,l)		__raw_writesl(p,d,l)
 
+extern void mmioset(void *, unsigned int, size_t);
+extern void mmiocpy(void *, const void *, size_t);
+
 #ifndef __ARMBE__
 static inline void memset_io(volatile void __iomem *dst, unsigned c,
 	size_t count)
 {
-	extern void mmioset(void *, unsigned int, size_t);
 	mmioset((void __force *)dst, c, count);
 }
 #define memset_io(dst,c,count) memset_io(dst,c,count)
@@ -324,7 +326,6 @@ static inline void memset_io(volatile void __iomem *dst, unsigned c,
 static inline void memcpy_fromio(void *to, const volatile void __iomem *from,
 	size_t count)
 {
-	extern void mmiocpy(void *, const void *, size_t);
 	mmiocpy(to, (const void __force *)from, count);
 }
 #define memcpy_fromio(to,from,count) memcpy_fromio(to,from,count)
@@ -332,7 +333,6 @@ static inline void memcpy_fromio(void *to, const volatile void __iomem *from,
 static inline void memcpy_toio(volatile void __iomem *to, const void *from,
 	size_t count)
 {
-	extern void mmiocpy(void *, const void *, size_t);
 	mmiocpy((void __force *)to, from, count);
 }
 #define memcpy_toio(to,from,count) memcpy_toio(to,from,count)
