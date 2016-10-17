@@ -332,4 +332,3 @@ FN_ENTRY
 		mov	r5, r4, get_byte_1
 		b	.Lexit
 FN_EXIT
-FN_EXPORT
