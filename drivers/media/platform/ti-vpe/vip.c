@@ -120,12 +120,12 @@ static struct vip_srce_info srce_info[5] = {
 		.vb_part	= VIP_CHROMA,
 	},
 	[VIP_SRCE_RGB] = {
-		.base_channel	= VIP1_CHAN_NUM_PORT_B_RGB,
+		.base_channel	= VIP1_CHAN_NUM_PORT_A_RGB,
 		.vb_part	= VIP_LUMA,
 	},
 };
 
-static struct vip_fmt vip_formats[] = {
+static struct vip_fmt vip_formats[VIP_MAX_ACTIVE_FMT] = {
 	{
 		.fourcc		= V4L2_PIX_FMT_NV12,
 		.code		= MEDIA_BUS_FMT_UYVY8_2X8,
@@ -169,6 +169,38 @@ static struct vip_fmt vip_formats[] = {
 	},
 	{
 		.fourcc		= V4L2_PIX_FMT_RGB24,
+		.code		= MEDIA_BUS_FMT_UYVY8_2X8,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_RGB24],
+				  },
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_RGB32,
+		.code		= MEDIA_BUS_FMT_UYVY8_2X8,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_ARGB32],
+				  },
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_BGR24,
+		.code		= MEDIA_BUS_FMT_UYVY8_2X8,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_BGR24],
+				  },
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_BGR32,
+		.code		= MEDIA_BUS_FMT_UYVY8_2X8,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_ABGR32],
+				  },
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_RGB24,
 		.code		= MEDIA_BUS_FMT_RGB888_1X24,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.coplanar	= 0,
@@ -181,6 +213,38 @@ static struct vip_fmt vip_formats[] = {
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.coplanar	= 0,
 		.vpdma_fmt	= { &vpdma_rgb_fmts[VPDMA_DATA_FMT_ARGB32],
+				  },
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_SBGGR8,
+		.code		= MEDIA_BUS_FMT_SBGGR8_1X8,
+		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_raw_fmts[VPDMA_DATA_FMT_RAW8],
+				  },
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_SGBRG8,
+		.code		= MEDIA_BUS_FMT_SGBRG8_1X8,
+		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_raw_fmts[VPDMA_DATA_FMT_RAW8],
+				  },
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_SGRBG8,
+		.code		= MEDIA_BUS_FMT_SGRBG8_1X8,
+		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_raw_fmts[VPDMA_DATA_FMT_RAW8],
+				  },
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_SRGGB8,
+		.code		= MEDIA_BUS_FMT_SRGGB8_1X8,
+		.colorspace	= V4L2_COLORSPACE_SMPTE170M,
+		.coplanar	= 0,
+		.vpdma_fmt	= { &vpdma_raw_fmts[VPDMA_DATA_FMT_RAW8],
 				  },
 	},
 };
@@ -238,6 +302,65 @@ inline struct vip_port *notifier_to_vip_port(struct v4l2_async_notifier *n)
 	return container_of(n, struct vip_port, notifier);
 }
 
+static bool __maybe_unused vip_is_fmt_yuv(u32 fourcc)
+{
+	if (fourcc == V4L2_PIX_FMT_NV12 ||
+	    fourcc == V4L2_PIX_FMT_UYVY ||
+	    fourcc == V4L2_PIX_FMT_YUYV ||
+	    fourcc == V4L2_PIX_FMT_VYUY ||
+	    fourcc == V4L2_PIX_FMT_YVYU)
+		return true;
+
+	return false;
+}
+
+static bool vip_is_fmt_rgb(u32 fourcc)
+{
+	if (fourcc == V4L2_PIX_FMT_RGB24 ||
+	    fourcc == V4L2_PIX_FMT_BGR24 ||
+	    fourcc == V4L2_PIX_FMT_RGB32 ||
+	    fourcc == V4L2_PIX_FMT_BGR32)
+		return true;
+
+	return false;
+}
+
+static bool __maybe_unused vip_is_mbuscode_yuv(u32 code)
+{
+	return ((code & 0xFF00) == 0x2000);
+}
+
+static bool vip_is_mbuscode_rgb(u32 code)
+{
+	return ((code & 0xFF00) == 0x1000);
+}
+
+static enum  v4l2_colorspace vip_fourcc_to_colorspace(u32 fourcc)
+{
+	if (vip_is_fmt_rgb(fourcc))
+		return V4L2_COLORSPACE_SRGB;
+
+	return V4L2_COLORSPACE_SMPTE170M;
+}
+
+static enum  v4l2_colorspace vip_code_to_colorspace(u32 code)
+{
+	if (vip_is_mbuscode_rgb(code))
+		return V4L2_COLORSPACE_SRGB;
+
+	return V4L2_COLORSPACE_SMPTE170M;
+}
+
+static enum vip_csc_state vip_csc_direction(u32 src_code, u32 dst_fourcc)
+{
+	if (vip_is_mbuscode_yuv(src_code) && vip_is_fmt_rgb(dst_fourcc))
+		return VIP_CSC_Y2R;
+	else if (vip_is_mbuscode_rgb(src_code) && vip_is_fmt_yuv(dst_fourcc))
+		return VIP_CSC_R2Y;
+	else
+		return VIP_CSC_NA;
+}
+
 /*
  * port flag bits
  */
@@ -261,6 +384,10 @@ static void stop_dma(struct vip_stream *stream);
 static inline bool is_scaler_available(struct vip_port *port);
 static inline bool allocate_scaler(struct vip_port *port);
 static inline void free_scaler(struct vip_port *port);
+static bool is_csc_available(struct vip_port *port);
+static bool allocate_csc(struct vip_port *port,
+				enum vip_csc_state csc_direction);
+static void free_csc(struct vip_port *port);
 
 #define reg_read(dev, offset) ioread32(dev->base + offset)
 #define reg_write(dev, offset, val) iowrite32(val, dev->base + offset)
@@ -290,6 +417,9 @@ struct vip_mmr_adb {
 	struct vpdma_adb_hdr	sc_hdr17;
 	u32			sc_regs17[9];
 	u32			sc_pad17[3];
+	struct vpdma_adb_hdr	csc_hdr;
+	u32			csc_regs[6];
+	u32			csc_pad[2];
 };
 
 #define GET_OFFSET_TOP(port, obj, reg)	\
@@ -309,6 +439,9 @@ static void init_adb_hdrs(struct vip_port *port)
 			    GET_OFFSET_TOP(port, port->dev->sc, CFG_SC8));
 	VIP_SET_MMR_ADB_HDR(port, sc_hdr17, sc_regs17,
 			    GET_OFFSET_TOP(port, port->dev->sc, CFG_SC17));
+	VIP_SET_MMR_ADB_HDR(port, csc_hdr, csc_regs,
+			    GET_OFFSET_TOP(port, port->dev->csc, CSC_CSC00));
+
 };
 
 /*
@@ -502,7 +635,7 @@ static void vip_set_slice_path(struct vip_dev *dev,
 		val |= (path_val) ? VIP_RGB_OUT_LO_SRC_SELECT : 0;
 		break;
 	case VIP_RGB_OUT_HI_DATA_SELECT:
-		val |= (path_val) ? VIP_RGB_OUT_LO_SRC_SELECT : 0;
+		val |= (path_val) ? VIP_RGB_OUT_HI_SRC_SELECT : 0;
 		break;
 	case VIP_CHR_DS_1_SRC_DATA_SELECT:
 		insert_field(&val, path_val, VIP_DS1_SRC_SELECT_MASK,
@@ -583,7 +716,14 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 		flags = port->flags;
 		break;
 	case VIP_SRCE_RGB:
-		if (port->port_id == VIP_PORTB)
+		if ((port->port_id == VIP_PORTB) ||
+		    ((port->port_id == VIP_PORTA) &&
+		     (port->csc == VIP_CSC_NA) &&
+		     vip_is_fmt_rgb(port->fmt->fourcc)))
+			/*
+			 * RGB sensor only connect to Y_LO
+			 * channel i.e. port B channel.
+			 */
 			channel += VIP_CHAN_RGB_PORTB_OFFSET;
 		flags = port->flags;
 		break;
@@ -646,7 +786,7 @@ static void add_stream_dtds(struct vip_stream *stream)
 		srce_type = VIP_SRCE_MULT_PORT;
 	else if (port->flags & FLAG_MULT_ANC)
 		srce_type = VIP_SRCE_MULT_ANC;
-	else if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB)
+	else if (vip_is_fmt_rgb(port->fmt->fourcc))
 		srce_type = VIP_SRCE_RGB;
 	else
 		srce_type = VIP_SRCE_LUMA;
@@ -1139,6 +1279,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 	struct vip_fmt *fmt;
 	u32 best_width, best_height, largest_width, largest_height;
 	int ret, found;
+	enum vip_csc_state csc_direction;
 
 	vip_dbg(3, dev, "try_fmt fourcc:%s size: %dx%d\n",
 		fourcc_to_str(f->fmt.pix.pixelformat),
@@ -1155,7 +1296,32 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		f->fmt.pix.pixelformat = fmt->fourcc;
 	}
 
+	csc_direction =  vip_csc_direction(fmt->code, fmt->fourcc);
+	if (csc_direction != VIP_CSC_NA) {
+		if (!is_csc_available(port)) {
+			vip_dbg(2, dev,
+				"CSC not available for Fourcc format (0x%08x).\n",
+				f->fmt.pix.pixelformat);
+
+			/* Just get the first one enumerated */
+			fmt = port->active_fmt[0];
+			f->fmt.pix.pixelformat = fmt->fourcc;
+			/* re-evaluate the csc_direction here */
+			csc_direction =  vip_csc_direction(fmt->code,
+							   fmt->fourcc);
+		} else {
+			vip_dbg(3, dev, "CSC active on Port %c: going %s\n",
+				port->port_id == VIP_PORTA ? 'A' : 'B',
+				(csc_direction == VIP_CSC_Y2R) ? "Y2R" : "R2Y");
+		}
+	}
+
+	/*
+	 * Given that sensors might support multiple mbus code we need
+	 * to use the one that matches the requested pixel format
+	 */
 	port->try_mbus_framefmt = port->mbus_framefmt;
+	port->try_mbus_framefmt.code = fmt->code;
 
 	/* check for/find a valid width/height */
 	ret = 0;
@@ -1249,10 +1415,16 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 		port->try_mbus_framefmt.height);
 
 	if (is_scaler_available(port) &&
+	    csc_direction != VIP_CSC_Y2R &&
 	    f->fmt.pix.height <= port->try_mbus_framefmt.height &&
 	    port->try_mbus_framefmt.height <= SC_MAX_PIXEL_HEIGHT &&
 	    port->try_mbus_framefmt.width <= SC_MAX_PIXEL_WIDTH) {
-		/* scaling up is allowed only horizontally */
+		/*
+		 * Scaler is only accessible if the dst colorspace is YUV.
+		 * As the input to the scaler must be in YUV mode only.
+		 *
+		 * Scaling up is allowed only horizontally.
+		 */
 		unsigned int hratio, vratio, width_align, height_align;
 		u32 bpp = fmt->vpdma_fmt[0]->depth >> 3;
 
@@ -1333,6 +1505,7 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	struct vip_dev *dev = port->dev;
 	struct v4l2_subdev_format sfmt;
 	struct v4l2_mbus_framefmt *mf;
+	enum vip_csc_state csc_direction;
 	int ret;
 
 	vip_dbg(3, dev, "s_fmt input fourcc:%s size: %dx%d\n",
@@ -1381,6 +1554,22 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	port->c_rect.width	= stream->width;
 	port->c_rect.height	= stream->height;
 
+	/*
+	 * Check if we need the csc unit or not
+	 *
+	 * Since on previous S_FMT call, the csc might have been
+	 * allocated if it is not needed in this instance we will
+	 * attempt to free it just in case.
+	 *
+	 * free_csc() is harmless unless the current port
+	 * allocated it.
+	 */
+	csc_direction =  vip_csc_direction(port->fmt->code, port->fmt->fourcc);
+	if (csc_direction == VIP_CSC_NA)
+		free_csc(port);
+	else
+		allocate_csc(port, csc_direction);
+
 	if (stream->sup_field == V4L2_FIELD_ALTERNATE)
 		port->flags |= FLAG_INTERLACED;
 	else
@@ -1428,12 +1617,11 @@ static void vip_disable_sc_path(struct vip_stream *stream)
 
 	vip_dbg(3, dev, "%s:\n", __func__);
 
-	if (!port->scaler)
-		return;
+	if (port->scaler)
+		vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 0);
 
-	vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 0);
-
-	usleep_range(200, 250);
+	if (port->csc != VIP_CSC_NA)
+		vip_set_slice_path(dev, VIP_CSC_SRC_DATA_SELECT, 0);
 }
 
 /*
@@ -1447,13 +1635,167 @@ static void set_fmt_params(struct vip_stream *stream)
 	stream->sequence = 0;
 	stream->field = V4L2_FIELD_TOP;
 
-	if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB) {
-		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 1);
+	if (port->csc == VIP_CSC_Y2R) {
+		port->flags &= ~FLAG_MULT_PORT;
 		/* Set alpha component in background color */
 		vpdma_set_bg_color(dev->shared->vpdma,
 				   (struct vpdma_data_format *)
 				   port->fmt->vpdma_fmt[0],
 				   0xff);
+		if (port->port_id == VIP_PORTA) {
+			/*
+			 * Input A: YUV422
+			 * Output: Y_UP/UV_UP: RGB
+			 * CSC_SRC_SELECT       = 1
+			 * RGB_OUT_HI_SELECT    = 1
+			 * RGB_SRC_SELECT       = 1
+			 * MULTI_CHANNEL_SELECT = 0
+			 */
+			vip_set_slice_path(dev, VIP_CSC_SRC_DATA_SELECT, 1);
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 1);
+			vip_set_slice_path(dev, VIP_RGB_SRC_DATA_SELECT, 1);
+		} else {
+			/*
+			 * Input B: YUV422
+			 * Output: Y_UP/UV_UP: RGB
+			 * CSC_SRC_SELECT       = 2
+			 * RGB_OUT_LO_SELECT    = 1
+			 * MULTI_CHANNEL_SELECT = 0
+			 */
+			vip_set_slice_path(dev, VIP_CSC_SRC_DATA_SELECT, 2);
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 1);
+		}
+		/* We are done */
+		return;
+	} else if (port->csc == VIP_CSC_R2Y) {
+		port->flags &= ~FLAG_MULT_PORT;
+		if (port->scaler && port->fmt->coplanar) {
+			if (port->port_id == VIP_PORTA) {
+				/*
+				 * Input A: RGB
+				 * Output: Y_UP/UV_UP: Scaled YUV420
+				 * CSC_SRC_SELECT       = 4
+				 * SC_SRC_SELECT        = 1
+				 * CHR_DS_1_SRC_SELECT  = 1
+				 * CHR_DS_1_BYPASS      = 0
+				 * RGB_OUT_HI_SELECT    = 0
+				 */
+				vip_set_slice_path(dev,
+						   VIP_CSC_SRC_DATA_SELECT, 4);
+				vip_set_slice_path(dev,
+						   VIP_SC_SRC_DATA_SELECT, 1);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_SRC_DATA_SELECT,
+						   1);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_DATA_BYPASS, 0);
+				vip_set_slice_path(dev,
+						   VIP_RGB_OUT_HI_DATA_SELECT,
+						   0);
+			} else {
+				vip_err(dev, "RGB sensor can only be on Port A\n");
+			}
+		} else if (port->scaler) {
+			if (port->port_id == VIP_PORTA) {
+				/*
+				 * Input A: RGB
+				 * Output: Y_UP: Scaled YUV422
+				 * CSC_SRC_SELECT       = 4
+				 * SC_SRC_SELECT        = 1
+				 * CHR_DS_1_SRC_SELECT  = 1
+				 * CHR_DS_1_BYPASS      = 1
+				 * RGB_OUT_HI_SELECT    = 0
+				 */
+				vip_set_slice_path(dev,
+						   VIP_CSC_SRC_DATA_SELECT, 4);
+				vip_set_slice_path(dev,
+						   VIP_SC_SRC_DATA_SELECT, 1);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_SRC_DATA_SELECT,
+						   1);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_DATA_BYPASS, 1);
+				vip_set_slice_path(dev,
+						   VIP_RGB_OUT_HI_DATA_SELECT,
+						   0);
+			} else {
+				vip_err(dev, "RGB sensor can only be on Port A\n");
+			}
+		} else if (port->fmt->coplanar) {
+			if (port->port_id == VIP_PORTA) {
+				/*
+				 * Input A: RGB
+				 * Output: Y_UP/UV_UP: YUV420
+				 * CSC_SRC_SELECT       = 4
+				 * CHR_DS_1_SRC_SELECT  = 2
+				 * CHR_DS_1_BYPASS      = 0
+				 * RGB_OUT_HI_SELECT    = 0
+				 */
+				vip_set_slice_path(dev,
+						   VIP_CSC_SRC_DATA_SELECT, 4);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_SRC_DATA_SELECT,
+						   2);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_DATA_BYPASS, 0);
+				vip_set_slice_path(dev,
+						   VIP_RGB_OUT_HI_DATA_SELECT,
+						   0);
+			} else {
+				vip_err(dev, "RGB sensor can only be on Port A\n");
+			}
+		} else {
+			if (port->port_id == VIP_PORTA) {
+				/*
+				 * Input A: RGB
+				 * Output: Y_UP/UV_UP: YUV420
+				 * CSC_SRC_SELECT       = 4
+				 * CHR_DS_1_SRC_SELECT  = 2
+				 * CHR_DS_1_BYPASS      = 1
+				 * RGB_OUT_HI_SELECT    = 0
+				 */
+				vip_set_slice_path(dev,
+						   VIP_CSC_SRC_DATA_SELECT, 4);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_SRC_DATA_SELECT,
+						   2);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_DATA_BYPASS, 1);
+				vip_set_slice_path(dev,
+						   VIP_RGB_OUT_HI_DATA_SELECT,
+						   0);
+			} else {
+				vip_err(dev, "RGB sensor can only be on Port A\n");
+			}
+		}
+		/* We are done */
+		return;
+	} else if (vip_is_fmt_rgb(port->fmt->fourcc)) {
+		port->flags |= FLAG_MULT_PORT;
+		/* Set alpha component in background color */
+		vpdma_set_bg_color(dev->shared->vpdma,
+				   (struct vpdma_data_format *)
+				   port->fmt->vpdma_fmt[0],
+				   0xff);
+		if (port->port_id == VIP_PORTA) {
+			/*
+			 * Input A: RGB
+			 * Output: Y_LO/UV_LO: RGB
+			 * RGB_OUT_LO_SELECT    = 1
+			 * MULTI_CHANNEL_SELECT = 1
+			 */
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 1);
+			vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 1);
+		} else {
+			vip_err(dev, "RGB sensor can only be on Port A\n");
+		}
+		/* We are done */
+		return;
 	}
 
 	if (port->scaler && port->fmt->coplanar) {
@@ -1464,20 +1806,30 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * Output: Y_UP/UV_UP: Scaled YUV420
 			 * SC_SRC_SELECT        = 2
 			 * CHR_DS_1_SRC_SELECT  = 1
-			 * CHR_DS_2_BYPASS      = 1
+			 * CHR_DS_1_BYPASS      = 0
+			 * RGB_OUT_HI_SELECT    = 0
 			 */
-			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
-					   0x20210);
+			vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 2);
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_1_SRC_DATA_SELECT, 1);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 0);
 		} else {
 			/*
 			 * Input B: YUV422
 			 * Output: Y_LO/UV_LO: Scaled YUV420
 			 * SC_SRC_SELECT        = 3
 			 * CHR_DS_2_SRC_SELECT  = 1
-			 * CHR_DS_2_BYPASS      = 0
+			 * RGB_OUT_LO_SELECT    = 0
+			 * MULTI_CHANNEL_SELECT = 0
 			 */
-			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
-					   0x01018);
+			vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 3);
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_2_SRC_DATA_SELECT, 1);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 0);
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 0);
 		}
 	} else if (port->scaler) {
 		port->flags &= ~FLAG_MULT_PORT;
@@ -1488,10 +1840,13 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * SC_SRC_SELECT        = 2
 			 * CHR_DS_1_SRC_SELECT  = 1
 			 * CHR_DS_1_BYPASS      = 1
-			 * CHR_DS_2_BYPASS      = 1?
+			 * RGB_OUT_HI_SELECT    = 0
 			 */
-			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
-					   0x10210);
+			vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 2);
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_1_SRC_DATA_SELECT, 1);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 1);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 0);
 		} else {
 			/*
 			 * Input B: YUV422
@@ -1500,29 +1855,55 @@ static void set_fmt_params(struct vip_stream *stream)
 			 * CHR_DS_2_SRC_SELECT  = 1
 			 * CHR_DS_1_BYPASS      = 1
 			 * CHR_DS_2_BYPASS      = 1
+			 * RGB_OUT_HI_SELECT    = 0
 			 */
-			vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
-					   0x31018);
+			vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 3);
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_2_SRC_DATA_SELECT, 1);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 1);
+			vip_set_slice_path(dev, VIP_CHR_DS_2_DATA_BYPASS, 1);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 0);
 		}
 	} else if (port->fmt->coplanar) {
 		port->flags &= ~FLAG_MULT_PORT;
-		/*
-		 * Input A: YUV422 B: YUV422
-		 * Output: Y_UP/UV_UP: YUV420 Y_LO/UV_LO: YUV420
-		 * CHR_DS_1_SRC_SELECT  = 3
-		 * CHR_DS_2_SRC_SELECT  = 4
-		 */
-		vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
-				   0x4600);
+		if (port->port_id == VIP_PORTA) {
+			/*
+			 * Input A: YUV422
+			 * Output: Y_UP/UV_UP: YUV420
+			 * CHR_DS_1_SRC_SELECT  = 3
+			 * CHR_DS_1_BYPASS      = 0
+			 * RGB_OUT_HI_SELECT    = 0
+			 */
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_1_SRC_DATA_SELECT, 3);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 0);
+		} else {
+			/*
+			 * Input B: YUV422
+			 * Output: Y_LO/UV_LO: YUV420
+			 * CHR_DS_2_SRC_SELECT  = 4
+			 * CHR_DS_2_BYPASS      = 0
+			 * RGB_OUT_LO_SELECT    = 0
+			 * MULTI_CHANNEL_SELECT = 0
+			 */
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_2_SRC_DATA_SELECT, 4);
+			vip_set_slice_path(dev, VIP_CHR_DS_2_DATA_BYPASS, 0);
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 0);
+		}
 	} else {
 		port->flags |= FLAG_MULT_PORT;
 		/*
 		 * Input A/B: YUV422
 		 * Output: Y_LO: YUV422 - UV_LO: YUV422
 		 * MULTI_CHANNEL_SELECT = 1
+		 * RGB_OUT_LO_SELECT    = 0
 		 */
-		vip_set_slice_path(dev, ALL_FIELDS_DATA_SELECT,
-				   0x8000);
+		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT, 1);
+		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 0);
 	}
 }
 
@@ -1705,15 +2086,14 @@ static int vip_setup_scaler(struct vip_stream *stream)
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
 	struct sc_data *sc = dev->sc;
+	struct csc_data *csc = dev->csc;
 	struct vpdma_data *vpdma = dev->shared->vpdma;
 	struct vip_mmr_adb *mmr_adb = port->mmr_adb.addr;
 	int list_num = stream->list_num;
 	int timeout = 500;
 
 	/* if scaler not associated with this port then skip */
-	if (!port->scaler) {
-		return 0;
-	} else {
+	if (port->scaler) {
 		sc_set_hs_coeffs(sc, port->sc_coeff_h.addr,
 				 port->mbus_framefmt.width,
 				 port->c_rect.width);
@@ -1729,8 +2109,16 @@ static int vip_setup_scaler(struct vip_stream *stream)
 		port->load_mmrs = true;
 	}
 
+	/* if csc not associated with this port then skip */
+	if (port->csc) {
+		csc_set_coeff(csc, &mmr_adb->csc_regs[0],
+			      vip_code_to_colorspace(port->fmt->code),
+			      vip_fourcc_to_colorspace(port->fmt->fourcc));
+		port->load_mmrs = true;
+	}
+
 	/* If coeff are already loaded then skip */
-	if (!sc->load_coeff_v && !sc->load_coeff_h)
+	if (!sc->load_coeff_v && !sc->load_coeff_h && !port->load_mmrs)
 		return 0;
 
 	if (vpdma_list_busy(vpdma, list_num)) {
@@ -1861,6 +2249,8 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	list_move_tail(&buf->list, &stream->post_bufs);
 	spin_unlock_irqrestore(&dev->slock, flags);
 
+	clear_irqs(dev, dev->slice_id, stream->list_num);
+
 	vip_dbg(2, dev, "start_streaming: start_dma buf 0x%x\n",
 		(unsigned int)buf);
 	start_dma(stream, buf);
@@ -1976,6 +2366,41 @@ static inline void free_scaler(struct vip_port *port)
 	if (port->dev->sc_assigned == port->port_id) {
 		port->dev->sc_assigned = VIP_NOT_ASSIGNED;
 		port->scaler = false;
+	}
+}
+
+static bool is_csc_available(struct vip_port *port)
+{
+	if (port->num_streams_configured == 1)
+		if (port->dev->csc_assigned == VIP_NOT_ASSIGNED ||
+		    port->dev->csc_assigned == port->port_id)
+			return true;
+	return false;
+}
+
+static bool allocate_csc(struct vip_port *port,
+				enum vip_csc_state csc_direction)
+{
+	/* Is CSC needed? */
+	if (csc_direction != VIP_CSC_NA) {
+		if (is_csc_available(port)) {
+			port->dev->csc_assigned = port->port_id;
+			port->csc = csc_direction;
+			vip_dbg(1, port->dev, "%s: csc allocated: dir: %d\n",
+				__func__, csc_direction);
+			return true;
+		}
+	}
+	return false;
+}
+
+static void free_csc(struct vip_port *port)
+{
+	if (port->dev->csc_assigned == port->port_id) {
+		port->dev->csc_assigned = VIP_NOT_ASSIGNED;
+		port->csc = VIP_CSC_NA;
+		vip_dbg(1, port->dev, "%s: csc freed\n",
+			__func__);
 	}
 }
 
@@ -2124,6 +2549,7 @@ static void vip_release_dev(struct vip_dev *dev)
 	if (--dev->num_ports == 0) {
 		/* reset the scaler module */
 		vip_module_reset(dev, VIP_SC_RST);
+		vip_module_reset(dev, VIP_CSC_RST);
 		vip_set_clock_enable(dev, 0);
 	}
 }
@@ -2178,7 +2604,7 @@ static int vip_setup_parser(struct vip_port *port)
 		 * Ideally, this should come from subdev
 		 * port->fmt can be anything once CSC is enabled
 		 */
-		if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB) {
+		if (vip_is_mbuscode_rgb(port->fmt->code)) {
 			sync_type = EMBEDDED_SYNC_SINGLE_RGB_OR_YUV444;
 		} else {
 			switch (endpoint->bus.parallel.num_channels) {
@@ -2215,7 +2641,7 @@ static int vip_setup_parser(struct vip_port *port)
 			iface = DUAL_8B_INTERFACE;
 		}
 
-		if (port->fmt->colorspace == V4L2_COLORSPACE_SRGB)
+		if (vip_is_mbuscode_rgb(port->fmt->code))
 			sync_type = DISCRETE_SYNC_SINGLE_RGB_24B;
 		else
 			sync_type = DISCRETE_SYNC_SINGLE_YUV422;
@@ -2349,6 +2775,7 @@ static int vip_release(struct file *file)
 	/* the release helper will cleanup any on-going streaming */
 	ret = _vb2_fop_release(file, NULL);
 
+	free_csc(port);
 	free_scaler(port);
 
 	/*
@@ -2981,6 +3408,13 @@ static int vip_probe(struct platform_device *pdev)
 
 		dev->sc_assigned = VIP_NOT_ASSIGNED;
 		dev->sc = sc_create_inst(pdev, slice);
+		if (IS_ERR(dev->sc)) {
+			ret = PTR_ERR(dev->sc);
+			goto ctx_clean;
+		}
+
+		dev->csc_assigned = VIP_NOT_ASSIGNED;
+		dev->csc = csc_create(pdev, (slice == 0) ? "csc0" : "csc1");
 		if (IS_ERR(dev->sc)) {
 			ret = PTR_ERR(dev->sc);
 			goto ctx_clean;
