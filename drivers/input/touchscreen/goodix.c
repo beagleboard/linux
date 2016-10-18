@@ -904,6 +904,7 @@ static struct i2c_driver goodix_ts_driver = {
 };
 module_i2c_driver(goodix_ts_driver);
 
+MODULE_ALIAS("i2c:gt9271");
 MODULE_AUTHOR("Benjamin Tissoires <benjamin.tissoires@gmail.com>");
 MODULE_AUTHOR("Bastien Nocera <hadess@hadess.net>");
 MODULE_DESCRIPTION("Goodix touchscreen driver");
