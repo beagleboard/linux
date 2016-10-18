@@ -12,7 +12,7 @@
 		display1 = &hdmi0;
 	};
 
-	backlight {
+	lcd_bl: backlight {
 		compatible = "pwm-backlight";
 		pwms = <&ecap0 0 50000 1>;
 		brightness-levels = <0 51 53 56 62 75 101 152 255>;
@@ -26,6 +26,8 @@
 		 * panels properly.
 		 */
 		compatible = "osd,osd101t2045-53ts", "panel-dpi";
+
+		backlight = <&lcd_bl>;
 
 		label = "lcd";
 

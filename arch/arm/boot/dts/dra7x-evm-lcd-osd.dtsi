@@ -12,7 +12,7 @@
 		display1 = &hdmi0;
 	};
 
-	backlight {
+	lcd_bl: backlight {
 		compatible = "led-backlight";
 		leds = <&backlight_led>;
 		brightness-levels = <0 243 245 247 248 249 251 252 255>;
@@ -30,6 +30,8 @@
 		compatible = "osd,osd101t2045-53ts", "panel-dpi";
 
 		label = "lcd";
+
+		backlight = <&lcd_bl>;
 
 		panel-timing {
 			clock-frequency = <154000000>;

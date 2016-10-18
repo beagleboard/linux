@@ -7,6 +7,7 @@ Required properties:
 Optional properties:
 - label: a symbolic name for the panel
 - enable-gpios: panel enable gpio
+- backlight: phandle of the backlight device attached to the panel
 
 Required nodes:
 - "panel-timing" containing video timings

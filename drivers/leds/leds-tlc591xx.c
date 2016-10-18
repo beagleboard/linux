@@ -15,6 +15,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/gpio.h>
 
 #define TLC591XX_MAX_LEDS	16
 
@@ -50,12 +51,15 @@ struct tlc591xx_led {
 	struct led_classdev ldev;
 	struct work_struct work;
 	struct tlc591xx_priv *priv;
+	struct gpio_desc *own_gpiod;
+	u8 output_state;
 };
 
 struct tlc591xx_priv {
 	struct tlc591xx_led leds[TLC591XX_MAX_LEDS];
 	struct regmap *regmap;
 	unsigned int reg_ledout_offset;
+	struct gpio_chip gpo;
 };
 
 struct tlc591xx {
@@ -95,10 +99,13 @@ tlc591xx_set_ledout(struct tlc591xx_priv *priv, struct tlc591xx_led *led,
 	unsigned int i = (led->led_no % 4) * 2;
 	unsigned int mask = LEDOUT_MASK << i;
 	unsigned int addr = priv->reg_ledout_offset + (led->led_no >> 2);
+	int ret;
 
-	val = val << i;
+	ret = regmap_update_bits(priv->regmap, addr, mask, val << i);
+	if (ret == 0)
+		led->output_state = val;
 
-	return regmap_update_bits(priv->regmap, addr, mask, val);
+	return ret;
 }
 
 static int
@@ -145,6 +152,88 @@ tlc591xx_brightness_set(struct led_classdev *led_cdev,
 	schedule_work(&led->work);
 }
 
+static int tlc591xx_gpo_get(struct gpio_chip *chip, unsigned offset)
+{
+	struct tlc591xx_priv *priv = dev_get_drvdata(chip->dev);
+
+	if (priv->leds[offset].output_state == LEDOUT_OFF)
+		return 0;
+	else
+		return 1;
+}
+
+static void tlc591xx_gpo_set(struct gpio_chip *chip, unsigned offset, int value)
+{
+	struct tlc591xx_priv *priv = dev_get_drvdata(chip->dev);
+
+	if (WARN_ON(priv->leds[offset].active))
+		return;
+
+	tlc591xx_set_ledout(priv, &priv->leds[offset],
+			    value ? LEDOUT_ON : LEDOUT_OFF);
+}
+
+static int tlc591xx_gpo_get_direction(struct gpio_chip *chip, unsigned offset)
+{
+	struct tlc591xx_priv *priv = dev_get_drvdata(chip->dev);
+
+	if (priv->leds[offset].active)
+		return -EBUSY;
+
+	return GPIOF_DIR_OUT; /* only supported direction is out */
+}
+
+static int tlc591xx_gpo_direction_out(struct gpio_chip *chip, unsigned offset,
+				      int value)
+{
+	struct tlc591xx_priv *priv = dev_get_drvdata(chip->dev);
+
+	if (WARN_ON(priv->leds[offset].active))
+		return -EBUSY;
+
+	tlc591xx_set_ledout(priv, &priv->leds[offset],
+			    value ? LEDOUT_ON : LEDOUT_OFF);
+	return 0;
+}
+
+static int tlc591xx_gpochip_add(struct device *dev, u16 ngpo)
+{
+	struct tlc591xx_priv *priv = dev_get_drvdata(dev);
+	u32 ngpios;
+	int err;
+
+	if (of_property_read_u32(dev->of_node, "ngpios", &ngpios) == 0) {
+		if (ngpios > ngpo) {
+			dev_err(dev,
+				"Too big \"ngpios\" property value %u > %u\n",
+				ngpios, ngpo);
+			return -EINVAL;
+		}
+		ngpo = ngpios;
+	}
+
+	priv->gpo.label			= "tlc591xx-gpo";
+	priv->gpo.base			= -1;
+	priv->gpo.ngpio			= ngpo;
+	priv->gpo.dev			= dev;
+#ifdef CONFIG_OF_GPIO
+	priv->gpo.of_node		= dev->of_node;
+#endif
+	priv->gpo.owner			= THIS_MODULE;
+	priv->gpo.get			= tlc591xx_gpo_get;
+	priv->gpo.set			= tlc591xx_gpo_set;
+	priv->gpo.get_direction		= tlc591xx_gpo_get_direction;
+	priv->gpo.direction_output	= tlc591xx_gpo_direction_out;
+	priv->gpo.can_sleep		= true;
+
+	err = gpiochip_add(&priv->gpo);
+	if (err < 0) {
+		dev_err(dev, "could not register gpiochip, %d\n", err);
+		priv->gpo.ngpio = 0;
+	}
+	return err;
+}
+
 static void
 tlc591xx_destroy_devices(struct tlc591xx_priv *priv, unsigned int j)
 {
@@ -154,8 +243,12 @@ tlc591xx_destroy_devices(struct tlc591xx_priv *priv, unsigned int j)
 		if (priv->leds[i].active) {
 			led_classdev_unregister(&priv->leds[i].ldev);
 			cancel_work_sync(&priv->leds[i].work);
+			gpiochip_free_own_desc(priv->leds[i].own_gpiod);
 		}
 	}
+
+	if (priv->gpo.ngpio)
+		gpiochip_remove(&priv->gpo);
 }
 
 static int
@@ -183,6 +276,19 @@ tlc591xx_configure(struct device *dev,
 			dev_err(dev, "couldn't register LED %s\n",
 				led->ldev.name);
 			goto exit;
+		}
+
+		if (i < priv->gpo.ngpio) {
+			led->own_gpiod =
+				gpiochip_request_own_desc(&priv->gpo, i,
+							  led->ldev.name);
+			if (IS_ERR(led->own_gpiod)) {
+				err = PTR_ERR(led->own_gpiod);
+				dev_err(dev,
+					"Requesting own gpio for '%s'-led failed: %d\n",
+					led->ldev.name, err);
+				goto exit;
+			}
 		}
 	}
 
@@ -217,7 +323,7 @@ tlc591xx_probe(struct i2c_client *client,
 	const struct of_device_id *match;
 	const struct tlc591xx *tlc591xx;
 	struct tlc591xx_priv *priv;
-	int err, count, reg;
+	int err, reg;
 
 	match = of_match_device(of_tlc591xx_leds_match, dev);
 	if (!match)
@@ -226,10 +332,6 @@ tlc591xx_probe(struct i2c_client *client,
 	tlc591xx = match->data;
 	if (!np)
 		return -ENODEV;
-
-	count = of_get_child_count(np);
-	if (!count || count > tlc591xx->max_leds)
-		return -EINVAL;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -248,7 +350,7 @@ tlc591xx_probe(struct i2c_client *client,
 	for_each_child_of_node(np, child) {
 		err = of_property_read_u32(child, "reg", &reg);
 		if (err)
-			return err;
+			continue;
 		if (reg < 0 || reg >= tlc591xx->max_leds)
 			return -EINVAL;
 		if (priv->leds[reg].active)
@@ -259,6 +361,13 @@ tlc591xx_probe(struct i2c_client *client,
 		priv->leds[reg].ldev.default_trigger =
 			of_get_property(child, "linux,default-trigger", NULL);
 	}
+
+	if (of_property_read_bool(np, "gpio-controller")) {
+		err = tlc591xx_gpochip_add(dev, tlc591xx->max_leds);
+		if (err)
+			return err;
+	}
+
 	return tlc591xx_configure(dev, priv, tlc591xx);
 }
 

@@ -331,7 +331,7 @@ static int rppc_map_page(struct rppc_instance *rpc, int fd, u32 offset,
 		goto out;
 	}
 
-	ret = dma_buf_begin_cpu_access(dbuf, begin, end, DMA_BIDIRECTIONAL);
+	ret = dma_buf_begin_cpu_access(dbuf, DMA_BIDIRECTIONAL);
 	if (ret < 0) {
 		dev_err(dev, "failed to acquire cpu access to the dma buf fd = %d offset = 0x%x, ret = %d\n",
 			fd, offset, ret);
@@ -353,7 +353,7 @@ static int rppc_map_page(struct rppc_instance *rpc, int fd, u32 offset,
 	return 0;
 
 end_cpuaccess:
-	dma_buf_end_cpu_access(dbuf, begin, end, DMA_BIDIRECTIONAL);
+	dma_buf_end_cpu_access(dbuf, DMA_BIDIRECTIONAL);
 put_dmabuf:
 	dma_buf_put(dbuf);
 out:
@@ -389,7 +389,7 @@ static void rppc_unmap_page(struct rppc_instance *rpc, u32 offset,
 	dev_dbg(dev, "Unkmaping base_ptr = %p of buf = %p from %zu to %zu bytes\n",
 		base_ptr, dmabuf, begin, end);
 	dma_buf_kunmap(dmabuf, pg_num, base_ptr);
-	dma_buf_end_cpu_access(dmabuf, begin, end, DMA_BIDIRECTIONAL);
+	dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 	dma_buf_put(dmabuf);
 }
 
