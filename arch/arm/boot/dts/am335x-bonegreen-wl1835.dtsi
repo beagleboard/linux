@@ -159,10 +159,13 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&mmc3_pins &wlan_pins>;
 	pinctrl-1 = <&mmc3_pins_sleep &wlan_pins_sleep>;
-	ti,non-removable;
-	ti,needs-special-hs-handling;
-	cap-power-off-card;
-	keep-power-in-suspend;
+//      ti,non-removable;
+//      ti,needs-special-hs-handling;
+        max-frequency = <26000000>;
+//      cap-power-off-card;
+        sd-uhs-sdr25;
+//      keep-power-in-suspend;
+
 
 	#address-cells = <1>;
 	#size-cells = <0>;
