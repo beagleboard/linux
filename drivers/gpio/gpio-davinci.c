@@ -608,7 +608,7 @@ skip_clk_handling:
 		writel_relaxed(~0, &g->clr_rising);
 
 		bank_irq = platform_get_irq(pdev, bank);
-		if (bank % 1)
+		if (bank % 2)
 			chips[bank / 2].birq2 = bank_irq;
 		else
 			chips[bank / 2].birq1 = bank_irq;
