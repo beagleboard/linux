@@ -291,6 +291,7 @@ struct omap_hsmmc_host {
 
 	struct timer_list	timer;
 	unsigned long long	data_timeout;
+	bool			is_tuning;
 
 	struct pinctrl		*pinctrl;
 	struct pinctrl_state	*pinctrl_state;
@@ -686,19 +687,15 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 {
 	u32 irq_mask = INT_EN_MASK;
 	unsigned long flags;
-	bool is_tuning;
 
-	is_tuning = cmd && ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
-		    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200));
-
-	if (is_tuning)
+	if (host->is_tuning)
 		/*
 		 * OMAP5/DRA74X/DRA72x Errata i802:
 		 * DCRC error interrupts (MMCHS_STAT[21] DCRC=0x1) can occur
 		 * during the tuning procedure. So disable it during the
 		 * tuning procedure.
 		 */
-		irq_mask &= ~DCRC_EN;
+		irq_mask &= ~(DCRC_EN | DEB_EN);
 
 	/* BRR and BWR need not be enabled for DMA */
 	irq_mask &= ~(BRR_EN | BWR_EN);
@@ -2387,11 +2384,12 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	val |= DLL_SWT;
 	OMAP_HSMMC_WRITE(host->base, DLL, val);
 
+	host->is_tuning =  true;
+
 	while (phase_delay <= MAX_PHASE_DELAY) {
 		omap_hsmmc_set_dll(host, phase_delay);
 
 		cur_match = !mmc_send_tuning(mmc, opcode, NULL);
-
 		if (cur_match) {
 			if (prev_match) {
 				length++;
@@ -2409,6 +2407,8 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		prev_match = cur_match;
 		phase_delay += 4;
 	}
+
+	host->is_tuning = false;
 
 	if (!max_len) {
 		dev_err(mmc_dev(host->mmc), "Unable to find match\n");
