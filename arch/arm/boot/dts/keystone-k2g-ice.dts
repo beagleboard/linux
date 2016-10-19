@@ -1,0 +1,121 @@
+/*
+ * Copyright 2016 Texas Instruments, Inc.
+ *
+ * K2G Industrial Communication Engine device tree
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+#include "keystone-k2g.dtsi"
+
+/ {
+	compatible =  "ti,k2g-ice", "ti,k2g", "ti,keystone";
+	model = "Texas Instruments K2G Industrial Communication Engine";
+
+	memory {
+		device_type = "memory";
+		reg = <0x00000008 0x00000000 0x00000000 0x20000000>;
+	};
+
+	vmain: fixedregulator-vmain {
+		compatible = "regulator-fixed";
+		regulator-name = "vmain_fixed";
+		/* Actual range from 12 to 24v */
+		regulator-min-microvolt = <24000000>;
+		regulator-max-microvolt = <24000000>;
+		regulator-always-on;
+	};
+
+	v5_0: fixedregulator-v5_0 {
+		/* TPS54531 */
+		compatible = "regulator-fixed";
+		regulator-name = "v5_0_fixed";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		vin-supply = <&vmain>;
+		regulator-always-on;
+	};
+
+	vdd_3v3: fixedregulator-vdd_3v3 {
+		/* TLV62084 */
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_3v3_fixed";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&v5_0>;
+		regulator-always-on;
+	};
+
+	vdd_1v8: fixedregulator-vdd_1v8 {
+		/* TLV62084 */
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_1v8_fixed";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&v5_0>;
+		regulator-always-on;
+	};
+
+	vdds_ddr: fixedregulator-vdds_ddr {
+		/* TLV62080 */
+		compatible = "regulator-fixed";
+		regulator-name = "vdds_ddr_fixed";
+		regulator-min-microvolt = <1350000>;
+		regulator-max-microvolt = <1350000>;
+		vin-supply = <&v5_0>;
+		regulator-always-on;
+	};
+
+	vref_ddr: fixedregulator-vref_ddr {
+		/* LP2996A */
+		compatible = "regulator-fixed";
+		regulator-name = "vref_ddr_fixed";
+		regulator-min-microvolt = <675000>;
+		regulator-max-microvolt = <675000>;
+		vin-supply = <&vdd_3v3>;
+		regulator-always-on;
+	};
+
+	vtt_ddr: fixedregulator-vtt_ddr {
+		/* LP2996A */
+		compatible = "regulator-fixed";
+		regulator-name = "vtt_ddr_fixed";
+		regulator-min-microvolt = <675000>;
+		regulator-max-microvolt = <675000>;
+		vin-supply = <&vdd_3v3>;
+		regulator-always-on;
+	};
+
+	vdd_0v9: fixedregulator-vdd_0v9 {
+		/* TPS62180 */
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_0v9_fixed";
+		regulator-min-microvolt = <900000>;
+		regulator-max-microvolt = <900000>;
+		vin-supply = <&v5_0>;
+		regulator-always-on;
+	};
+
+};
+
+&k2g_pinctrl {
+
+	uart0_pins: pinmux_uart0_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x11cc) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* uart0_rxd.uart0_rxd */
+			K2G_CORE_IOPAD(0x11d0) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE0)	/* uart0_txd.uart0_txd */
+		>;
+	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pins>;
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
