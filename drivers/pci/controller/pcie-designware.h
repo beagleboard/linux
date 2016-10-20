@@ -18,6 +18,16 @@
 #include <linux/msi.h>
 #include <linux/pci.h>
 
+#include <linux/pci-epc.h>
+#include <linux/pci-epf.h>
+
+#define MSI_MESSAGE_CONTROL		0x52
+#define MSI_CAP_MMC_SHIFT		1
+#define MSI_CAP_MME_SHIFT		4
+#define MSI_CAP_MME_MASK		(7 << MSI_CAP_MME_SHIFT)
+#define MSI_MESSAGE_ADDR_L32		0x54
+#define MSI_MESSAGE_ADDR_U32		0x58
+
 /* Synopsis specific PCIE configuration registers */
 #define PCIE_PORT_LINK_CONTROL		0x710
 #define PORT_LINK_MODE_MASK		(0x3f << 16)
@@ -77,6 +87,13 @@
 
 struct dw_pcie;
 struct pcie_port;
+struct dw_pcie_ep;
+
+enum dw_pcie_region_type {
+	DW_PCIE_REGION_UNKNOWN,
+	DW_PCIE_REGION_INBOUND,
+	DW_PCIE_REGION_OUTBOUND,
+};
 
 enum dw_pcie_device_mode {
 	DW_PCIE_UNKNOWN_TYPE,
@@ -127,7 +144,33 @@ struct pcie_port {
 	DECLARE_BITMAP(msi_irq_in_use, MAX_MSI_IRQS);
 };
 
+enum dw_pcie_as_type {
+	DW_PCIE_AS_UNKNOWN,
+	DW_PCIE_AS_MEM,
+	DW_PCIE_AS_IO,
+};
+
+struct dw_pcie_ep_ops {
+	void	(*ep_init)(struct dw_pcie_ep *ep);
+	int	(*raise_irq)(struct dw_pcie_ep *ep, enum pci_epc_irq_type type,
+			     u8 interrupt_num);
+};
+
+struct dw_pcie_ep {
+	struct pci_epc		*epc;
+	struct dw_pcie_ep_ops	*ops;
+	phys_addr_t		phys_base;
+	size_t			addr_size;
+	u8			bar_to_atu[6];
+	phys_addr_t		*outbound_addr;
+	unsigned long		ib_window_map;
+	unsigned long		ob_window_map;
+	u32			num_ib_windows;
+	u32			num_ob_windows;
+};
+
 struct dw_pcie_ops {
+	u64	(*cpu_addr_fixup)(u64 cpu_addr);
 	void	(*read_dbi)(struct dw_pcie *pcie, void __iomem *base, int size,
 			    u32 *val);
 	void	(*write_dbi)(struct dw_pcie *pcie, void __iomem *base,
@@ -144,15 +187,23 @@ struct dw_pcie {
 	u32			lanes;
 	const struct dw_pcie_ops *ops;
 	struct pcie_port	pp;
+	struct dw_pcie_ep	ep;
 };
 
 #define to_dw_pcie_from_pp(port) container_of((port), struct dw_pcie, pp)
+
+#define to_dw_pcie_from_ep(endpoint)   \
+		container_of((endpoint), struct dw_pcie, ep)
 
 int dw_pcie_wait_for_link(struct dw_pcie *pci);
 int dw_pcie_link_up(struct dw_pcie *pci);
 void dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index,
 			       int type, u64 cpu_addr, u64 pci_addr,
 			       u32 size);
+int dw_pcie_prog_inbound_atu(struct dw_pcie *pci, int index, int bar,
+			     u64 cpu_addr, enum dw_pcie_as_type as_type);
+void dw_pcie_disable_atu(struct dw_pcie *pci, int index,
+			 enum dw_pcie_region_type type);
 int dw_pcie_read(void __iomem *addr, int size, u32 *val);
 int dw_pcie_write(void __iomem *addr, int size, u32 val);
 void dw_pcie_read_dbi(struct dw_pcie *pci, void __iomem *base,
@@ -160,6 +211,25 @@ void dw_pcie_read_dbi(struct dw_pcie *pci, void __iomem *base,
 void dw_pcie_write_dbi(struct dw_pcie *pci, void __iomem *base, u32 reg,
 		       int size, u32 val);
 void dw_pcie_setup(struct dw_pcie *pci);
+
+#ifdef CONFIG_PCIE_DW_EP
+void dw_pcie_ep_linkup(struct dw_pcie_ep *ep);
+int dw_pcie_ep_init(struct dw_pcie_ep *ep);
+void dw_pcie_ep_exit(struct dw_pcie_ep *ep);
+#else
+static inline void dw_pcie_ep_linkup(struct dw_pcie_ep *ep)
+{
+}
+
+static inline int dw_pcie_ep_init(struct dw_pcie_ep *ep)
+{
+	return 0;
+}
+
+static inline void dw_pcie_ep_exit(struct dw_pcie_ep *ep)
+{
+}
+#endif
 
 #ifdef CONFIG_PCIE_DW_HOST
 irqreturn_t dw_handle_msi_irq(struct pcie_port *pp);
