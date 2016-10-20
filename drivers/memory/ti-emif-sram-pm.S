@@ -68,6 +68,16 @@ ENTRY(ti_emif_save_context)
 	str	r1, emif_zqcfg_val
 	ldr	r1, [r0, #EMIF_DDR_PHY_CTRL_1]
 	str	r1, emif_ddr_phy_ctlr_1
+	ldr	r1, [r0, #EMIF_COS_CONFIG]
+	str	r1, emif_cos_config
+	ldr	r1, [r0, #EMIF_PRIORITY_TO_CLASS_OF_SERVICE_MAPPING]
+	str	r1, emif_priority_to_cos_mapping
+	ldr	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_1_MAPPING]
+	str	r1, emif_connect_id_serv_1_map
+	ldr	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_2_MAPPING]
+	str	r1, emif_connect_id_serv_2_map
+	ldr	r1, [r0, #EMIF_OCP_CONFIG]
+	str	r1, emif_ocp_config_val
 
 	ldr	r2, ti_emif_sram_config
 	cmp	r2, #EMIF_SRAM_AM43_REG_LAYOUT
@@ -77,20 +87,10 @@ ENTRY(ti_emif_save_context)
 	str	r1, emif_rd_wr_level_ramp_ctrl
 	ldr	r1, [r0, #EMIF_READ_WRITE_EXECUTION_THRESHOLD]
 	str	r1, emif_rd_wr_exec_thresh
-	ldr	r1, [r0, #EMIF_COS_CONFIG]
-	str	r1, emif_cos_config
-	ldr	r1, [r0, #EMIF_PRIORITY_TO_CLASS_OF_SERVICE_MAPPING]
-	str	r1, emif_priority_to_cos_mapping
-	ldr	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_1_MAPPING]
-	str	r1, emif_connect_id_serv_1_map
-	ldr	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_2_MAPPING]
-	str	r1, emif_connect_id_serv_2_map
 	ldr	r1, [r0, #EMIF_LPDDR2_NVM_TIMING]
 	str	r1, emif_lpddr2_nvm_tim
 	ldr	r1, [r0, #EMIF_LPDDR2_NVM_TIMING_SHDW]
 	str	r1, emif_lpddr2_nvm_tim_shdw
-	ldr	r1, [r0, #EMIF_OCP_CONFIG]
-	str	r1, emif_ocp_config_val
 	ldr	r1, [r0, #EMIF_DLL_CALIB_CTRL]
 	str	r1, emif_dll_calib_ctrl_val
 	ldr	r1, [r0, #EMIF_DLL_CALIB_CTRL_SHDW]
@@ -143,6 +143,16 @@ ENTRY(ti_emif_restore_context)
 	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CTRL_SHDW]
 	ldr	r1, emif_pmcr_shdw_val
 	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CTRL_SHDW]
+	ldr	r1, emif_cos_config
+	str	r1, [r0, #EMIF_COS_CONFIG]
+	ldr	r1, emif_priority_to_cos_mapping
+	str	r1, [r0, #EMIF_PRIORITY_TO_CLASS_OF_SERVICE_MAPPING]
+	ldr	r1, emif_connect_id_serv_1_map
+	str	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_1_MAPPING]
+	ldr	r1, emif_connect_id_serv_2_map
+	str	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_2_MAPPING]
+	ldr	r1, emif_ocp_config_val
+	str	r1, [r0, #EMIF_OCP_CONFIG]
 
 	ldr	r2, ti_emif_sram_config
 	cmp	r2, #EMIF_SRAM_AM43_REG_LAYOUT
@@ -152,20 +162,10 @@ ENTRY(ti_emif_restore_context)
 	str	r1, [r0, #EMIF_READ_WRITE_LEVELING_RAMP_CONTROL]
 	ldr	r1, emif_rd_wr_exec_thresh
 	str	r1, [r0, #EMIF_READ_WRITE_EXECUTION_THRESHOLD]
-	ldr	r1, emif_cos_config
-	str	r1, [r0, #EMIF_COS_CONFIG]
-	ldr	r1, emif_priority_to_cos_mapping
-	str	r1, [r0, #EMIF_PRIORITY_TO_CLASS_OF_SERVICE_MAPPING]
-	ldr	r1, emif_connect_id_serv_1_map
-	str	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_1_MAPPING]
-	ldr	r1, emif_connect_id_serv_2_map
-	str	r1, [r0, #EMIF_CONNECTION_ID_TO_CLASS_OF_SERVICE_2_MAPPING]
 	ldr	r1, emif_lpddr2_nvm_tim
 	str	r1, [r0, #EMIF_LPDDR2_NVM_TIMING]
 	ldr	r1, emif_lpddr2_nvm_tim_shdw
 	str	r1, [r0, #EMIF_LPDDR2_NVM_TIMING_SHDW]
-	ldr	r1, emif_ocp_config_val
-	str	r1, [r0, #EMIF_OCP_CONFIG]
 	ldr	r1, emif_dll_calib_ctrl_val
 	str	r1, [r0, #EMIF_DLL_CALIB_CTRL]
 	ldr	r1, emif_dll_calib_ctrl_val_shdw
