@@ -1084,6 +1084,10 @@
 	vdd-supply = <&smps7_reg>;
 };
 
+&pcie1_rc {
+	status = "okay";
+};
+
 &qspi {
 	status = "okay";
 

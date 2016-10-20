@@ -704,3 +704,7 @@
 	timers = <&timer5>;
 	watchdog-timers = <&timer10>;
 };
+
+&pcie1_rc {
+	status = "okay";
+};
