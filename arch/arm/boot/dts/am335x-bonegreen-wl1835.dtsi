@@ -7,36 +7,11 @@
 		regulator-name = "wlan-en-regulator";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
+		startup-delay-us= <70000>;
 
 		/* WL_EN */
 		gpio = <&gpio0 26 0>;
 		enable-active-high;
-	};
-
-	leds {
-		pinctrl-names = "default";
-		pinctrl-0 = <&wl18xx_pins>;
-		compatible = "gpio-leds";
-
-//		wl18xx_wl_en {
-//			label = "wl18xx_wl_en";
-//			gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;
-//			default-state = "on";
-//		};
-
-		wl18xx_bt_en {
-			label = "wl18xx_bt_en";
-			gpios = <&gpio1 28 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-	};
-
-	tibt {
-		compatible = "tibt";
-		nshutdown_gpio = <60>;
-		dev_name = "/dev/ttyS3";
-		flow_cntrl = <1>;
-		baud_rate = <3000000>;
 	};
 
 	btwilink {
@@ -58,16 +33,9 @@
 };
 
 &am33xx_pinmux {
-	wl18xx_pins: pinmux_wl18xx_pins {
-		pinctrl-single,pins = <
-			0x78 (PIN_OUTPUT_PULLUP | MUX_MODE7)    /* gpmc_ad12.gpio1_28 BT_EN*/
-//			0x28 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)  /* gpmc_ad10.gpio0_26 WL_EN*/
-		>;
-	};
-
 	bt_pins: pinmux_bt_pins {
 		pinctrl-single,pins = <
-			0x78 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_ad12.gpio1_28 BT_EN*/
+			0x78 (PIN_OUTPUT | MUX_MODE7)	/* gpmc_ad12.gpio1_28 BT_EN*/
 		>;
 	};
 
@@ -96,8 +64,8 @@
 	/* wl18xx card enable/irq GPIOs. */
 	wlan_pins: pinmux_wlan_pins {
 		pinctrl-single,pins = <
-			0x28 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad10.gpio0_26 WL_EN*/
-			0x2C (PIN_INPUT_PULLUP | MUX_MODE7)	    /* gpmc_ad11.gpio0_27 WL_IRQ*/
+			0x28 (PIN_OUTPUT_PULLDOWN| MUX_MODE7)		/* gpmc_ad10.gpio0_26 WL_EN*/
+			0x2C (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad11.gpio0_27 WL_IRQ*/
 			0x7C  (PIN_OUTPUT_PULLUP   | MUX_MODE0) /* gpmc_csn0.gpio1_29 Cape_Buffer_EN*/
 		>;
 	};
@@ -105,8 +73,8 @@
 	/* wl18xx card enable/irq GPIOs. */
 	wlan_pins_sleep: pinmux_wlan_pins_sleep {
 		pinctrl-single,pins = <
-			0x28 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* gpmc_ad10.gpio0_26 WL_EN*/
-			0x2C (PIN_INPUT_PULLUP | MUX_MODE7)	    /* gpmc_ad11.gpio0_27 WL_IRQ*/
+			0x28 (PIN_OUTPUT_PULLDOWN | MUX_MODE7)	/* gpmc_ad10.gpio0_26 WL_EN*/
+			0x2C (PIN_INPUT_PULLDOWN | MUX_MODE7)	    /* gpmc_ad11.gpio0_27 WL_IRQ*/
 			0x7C  (PIN_OUTPUT_PULLUP   | MUX_MODE0) /* gpmc_csn0.gpio1_29 Cape_Buffer_EN*/
 		>;
 	};
@@ -128,24 +96,6 @@
 			0x14c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (M18) mdio_clk.uart3_rtsn */
 		>;
 	};
-
-	bt_audio_pins: bt_audio_pins {
-		pinctrl-single,pins = <
-			0x190 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp0_aclkx - COM_AUD_CLK */
-			0x194 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp0_fsx - COM_AUD_FSYNC */
-			0x198 (PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* mcasp0_axr0 - COM_AUD_IN */
-			0x19c (PIN_OUTPUT_PULLDOWN | MUX_MODE2)	/* MCASP0_AHCLKR -> MCASP0_AXR2 (I2S_DATA_OUT) -out */
-		>;
-	};
-
-	bt_audio_pins_sleep: audio_pins_sleep {
-		pinctrl-single,pins = <
-			0x190 (PIN_INPUT_PULLDOWN | MUX_MODE7)
-			0x194 (PIN_INPUT_PULLDOWN | MUX_MODE7)
-			0x198 (PIN_INPUT_PULLDOWN | MUX_MODE7)
-			0x19c (PIN_INPUT_PULLDOWN | MUX_MODE7)
-		>;
-	};
 };
 
 &mmc3 {
@@ -154,18 +104,14 @@
 	dma-names = "tx", "rx";
 	status = "okay";
 	vmmc-supply = <&wlan_en_reg>;
-//	vmmc-supply = <&vmmcsd_fixed>;
 	bus-width = <4>;
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&mmc3_pins &wlan_pins>;
 	pinctrl-1 = <&mmc3_pins_sleep &wlan_pins_sleep>;
-//      ti,non-removable;
-//      ti,needs-special-hs-handling;
-        max-frequency = <26000000>;
-//      cap-power-off-card;
-        sd-uhs-sdr25;
-//      keep-power-in-suspend;
-
+	ti,non-removable;
+	ti,needs-special-hs-handling;
+	cap-power-off-card;
+	keep-power-in-suspend;
 
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -173,30 +119,30 @@
 		compatible = "ti,wl1835";
 		reg = <2>;
 		interrupt-parent = <&gpio0>;
-		interrupts = <27 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <27 IRQ_TYPE_EDGE_RISING>;
 	};
 };
 
 &uart3 {
 	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&uart3_pins_default>;
-	pinctrl-1 = <&uart3_pins_sleep>;
+	pinctrl-0 = <&uart3_pins_default &bt_pins>;
+	pinctrl-1 = <&uart3_pins_sleep &bt_pins>;
 	status = "okay";
 };
+ 
+/* BT_AUD_OUT from wl1835 has to be pulled low when WL_EN is activated.	*/
+/* in case it isn't, wilink8 ends up in one of the test modes that      */
+/* intruces various issues (elp wkaeup timeouts etc.)			*/
+/* On the BBGW this pin is routed through the level shifter (U21) that	*/ 
+/* introduces a pullup on the line and wilink8 ends up in a bad state.  */
+/* use a gpio hog to force this pin low. An alternative may be adding 	*/
+/* an external pulldown on U21 pin 4.					*/
 
-&mcasp0 {
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&bt_audio_pins>;
-	pinctrl-1 = <&bt_audio_pins_sleep>;
-
-	status = "okay";
-
-	op-mode = <0>;          /* MCASP_IIS_MODE */
-	tdm-slots = <5>;
-	/* 4 serializers */
-	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
-		1 2 0 0
-	>;
-	tx-num-evt = <32>;
-	rx-num-evt = <32>;
+&gpio3 {
+	bt_aud_in {
+		gpio-hog;
+		gpios = <16 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "MCASP0_AXR0";
+	};
 };
