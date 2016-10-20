@@ -2,13 +2,30 @@ menu "PCI controller drivers"
 
 config PCI_DRA7XX
 	bool "TI DRA7xx PCIe controller"
-	depends on PCI
-	select PCIE_DW
 	depends on OF && HAS_IOMEM && TI_PIPE3
 	help
-	 Enables support for the PCIe controller in the DRA7xx SoC.  There
-	 are two instances of PCIe controller in DRA7xx.  This controller can
-	 act both as EP and RC.  This reuses the Designware core.
+	 Enables support for the PCIe controller in the DRA7xx SoC. There
+	 are two instances of PCIe controller in DRA7xx. This controller can
+	 work either as EP or RC. In order to enable host specific features
+	 PCI_DRA7XX_HOST must be selected. This reuses the Designware core.
+
+if PCI_DRA7XX
+
+choice
+	bool "PCIe Mode"
+	default PCI_DRA7XX_HOST if PCI
+
+config PCI_DRA7XX_HOST
+	bool "Host Only Mode"
+	depends on PCI
+	select PCIE_DW_HOST
+	help
+	 Enables support for the PCIe controller in the DRA7xx SoC to work in
+	 host mode.
+
+endchoice
+
+endif
 
 config PCI_MVEBU
 	bool "Marvell EBU PCIe controller"
@@ -17,22 +34,26 @@ config PCI_MVEBU
 	depends on OF
 
 config PCIE_DW
-	depends on PCI
 	bool
+
+config PCIE_DW_HOST
+	bool
+	depends on PCI
+	select PCIE_DW
 
 config PCI_EXYNOS
 	bool "Samsung Exynos PCIe controller"
 	depends on PCI
-	depends on SOC_EXYNOS5440
+	depends on (SOC_EXYNOS5440 || COMPILE_TEST)
 	select PCIEPORTBUS
-	select PCIE_DW
+	select PCIE_DW_HOST
 
 config PCI_IMX6
 	bool "Freescale i.MX6 PCIe controller"
 	depends on PCI
-	depends on SOC_IMX6Q
+	depends on SOC_IMX6Q || COMPILE_TEST
 	select PCIEPORTBUS
-	select PCIE_DW
+	select PCIE_DW_HOST
 
 config PCI_TEGRA
 	bool "NVIDIA Tegra PCIe controller"
@@ -71,9 +92,9 @@ config PCI_HOST_GENERIC
 config PCIE_SPEAR13XX
 	bool "STMicroelectronics SPEAr PCIe controller"
 	depends on PCI
-	depends on ARCH_SPEAR13XX
+	depends on ARCH_SPEAR13XX || COMPILE_TEST
 	select PCIEPORTBUS
-	select PCIE_DW
+	select PCIE_DW_HOST
 	help
 	  Say Y here if you want PCIe support on SPEAr13XX SoCs.
 
@@ -81,7 +102,7 @@ config PCI_KEYSTONE
 	bool "TI Keystone PCIe controller"
 	depends on PCI
 	depends on ARCH_KEYSTONE
-	select PCIE_DW
+	select PCIE_DW_HOST
 	select PCIEPORTBUS
 	help
 	  Say Y here if you want to enable PCI controller support on Keystone
@@ -121,8 +142,8 @@ config PCI_XGENE_MSI
 config PCI_LAYERSCAPE
 	bool "Freescale Layerscape PCIe controller"
 	depends on PCI
-	depends on OF && (ARM || ARCH_LAYERSCAPE)
-	select PCIE_DW
+	depends on OF && (ARM || ARCH_LAYERSCAPE || COMPILE_TEST)
+	select PCIE_DW_HOST
 	select MFD_SYSCON
 	help
 	  Say Y here if you want PCIe controller support on Layerscape SoCs.
@@ -185,11 +206,11 @@ config PCIE_ALTERA_MSI
 	  This MSI driver supports Altera MSI to GIC controller IP.
 
 config PCI_HISI
-	depends on OF && ARM64
+	depends on OF && (ARM64 || COMPILE_TEST)
 	bool "HiSilicon SoC HIP05 PCIe controller"
 	depends on PCI
 	select PCIEPORTBUS
-	select PCIE_DW
+	select PCIE_DW_HOST
 	help
 	  Say Y here if you want PCIe controller support on HiSilicon HIP05 SoC
 

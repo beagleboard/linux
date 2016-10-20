@@ -18,7 +18,7 @@
 
 struct keystone_pcie {
 	struct	clk		*clk;
-	struct	pcie_port	pp;
+	struct dw_pcie		*pci;
 	/* PCI Device ID */
 	u32			device_id;
 	int			num_legacy_host_irqs;
@@ -38,6 +38,8 @@ struct keystone_pcie {
 	struct resource		app;
 };
 
+#define to_keystone_pcie(x)	dev_get_drvdata((x)->dev)
+
 /* Keystone DW specific MSI controller APIs/definitions */
 void ks_dw_pcie_handle_msi_irq(struct keystone_pcie *ks_pcie, int offset);
 phys_addr_t ks_dw_pcie_get_msi_addr(struct pcie_port *pp);
@@ -55,7 +57,7 @@ int ks_dw_pcie_wr_other_conf(struct pcie_port *pp, struct pci_bus *bus,
 int ks_dw_pcie_rd_other_conf(struct pcie_port *pp, struct pci_bus *bus,
 		unsigned int devfn, int where, int size, u32 *val);
 void ks_dw_pcie_setup_rc_app_regs(struct keystone_pcie *ks_pcie);
-int ks_dw_pcie_link_up(struct pcie_port *pp);
+int ks_dw_pcie_link_up(struct dw_pcie *pci);
 void ks_dw_pcie_initiate_link_train(struct keystone_pcie *ks_pcie);
 void ks_dw_pcie_msi_set_irq(struct pcie_port *pp, int irq);
 void ks_dw_pcie_msi_clear_irq(struct pcie_port *pp, int irq);
