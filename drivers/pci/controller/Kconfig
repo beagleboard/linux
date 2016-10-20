@@ -1,8 +1,8 @@
-menu "PCI host controller drivers"
-	depends on PCI
+menu "PCI controller drivers"
 
 config PCI_DRA7XX
 	bool "TI DRA7xx PCIe controller"
+	depends on PCI
 	select PCIE_DW
 	depends on OF && HAS_IOMEM && TI_PIPE3
 	help
@@ -12,26 +12,31 @@ config PCI_DRA7XX
 
 config PCI_MVEBU
 	bool "Marvell EBU PCIe controller"
+	depends on PCI
 	depends on ARCH_MVEBU || ARCH_DOVE
 	depends on OF
 
 config PCIE_DW
+	depends on PCI
 	bool
 
 config PCI_EXYNOS
 	bool "Samsung Exynos PCIe controller"
+	depends on PCI
 	depends on SOC_EXYNOS5440
 	select PCIEPORTBUS
 	select PCIE_DW
 
 config PCI_IMX6
 	bool "Freescale i.MX6 PCIe controller"
+	depends on PCI
 	depends on SOC_IMX6Q
 	select PCIEPORTBUS
 	select PCIE_DW
 
 config PCI_TEGRA
 	bool "NVIDIA Tegra PCIe controller"
+	depends on PCI
 	depends on ARCH_TEGRA && !ARM64
 	help
 	  Say Y here if you want support for the PCIe host controller found
@@ -39,6 +44,7 @@ config PCI_TEGRA
 
 config PCI_RCAR_GEN2
 	bool "Renesas R-Car Gen2 Internal PCI controller"
+	depends on PCI
 	depends on ARM
 	depends on ARCH_SHMOBILE || COMPILE_TEST
 	help
@@ -48,6 +54,7 @@ config PCI_RCAR_GEN2
 
 config PCI_RCAR_GEN2_PCIE
 	bool "Renesas R-Car PCIe controller"
+	depends on PCI
 	depends on ARM
 	depends on ARCH_SHMOBILE || COMPILE_TEST
 	help
@@ -55,6 +62,7 @@ config PCI_RCAR_GEN2_PCIE
 
 config PCI_HOST_GENERIC
 	bool "Generic PCI host controller"
+	depends on PCI
 	depends on (ARM || ARM64) && OF
 	help
 	  Say Y here if you want to support a simple generic PCI host
@@ -62,6 +70,7 @@ config PCI_HOST_GENERIC
 
 config PCIE_SPEAR13XX
 	bool "STMicroelectronics SPEAr PCIe controller"
+	depends on PCI
 	depends on ARCH_SPEAR13XX
 	select PCIEPORTBUS
 	select PCIE_DW
@@ -70,6 +79,7 @@ config PCIE_SPEAR13XX
 
 config PCI_KEYSTONE
 	bool "TI Keystone PCIe controller"
+	depends on PCI
 	depends on ARCH_KEYSTONE
 	select PCIE_DW
 	select PCIEPORTBUS
@@ -81,6 +91,7 @@ config PCI_KEYSTONE
 
 config PCIE_XILINX
 	bool "Xilinx AXI PCIe host bridge support"
+	depends on PCI
 	depends on ARCH_ZYNQ
 	help
 	  Say 'Y' here if you want kernel to support the Xilinx AXI PCIe
@@ -88,6 +99,7 @@ config PCIE_XILINX
 
 config PCI_XGENE
 	bool "X-Gene PCIe controller"
+	depends on PCI
 	depends on ARCH_XGENE
 	depends on OF
 	select PCIEPORTBUS
@@ -99,6 +111,7 @@ config PCI_XGENE
 
 config PCI_XGENE_MSI
 	bool "X-Gene v1 PCIe MSI feature"
+	depends on PCI
 	depends on PCI_XGENE && PCI_MSI
 	default y
 	help
@@ -107,6 +120,7 @@ config PCI_XGENE_MSI
 
 config PCI_LAYERSCAPE
 	bool "Freescale Layerscape PCIe controller"
+	depends on PCI
 	depends on OF && (ARM || ARCH_LAYERSCAPE)
 	select PCIE_DW
 	select MFD_SYSCON
@@ -115,10 +129,12 @@ config PCI_LAYERSCAPE
 
 config PCI_VERSATILE
 	bool "ARM Versatile PB PCI controller"
+	depends on PCI
 	depends on ARCH_VERSATILE
 
 config PCIE_IPROC
 	tristate "Broadcom iProc PCIe controller"
+	depends on PCI
 	depends on OF && (ARM || ARM64)
 	default n
 	help
@@ -128,6 +144,7 @@ config PCIE_IPROC
 
 config PCIE_IPROC_PLATFORM
 	tristate "Broadcom iProc PCIe platform bus driver"
+	depends on PCI
 	depends on ARCH_BCM_IPROC || (ARM && COMPILE_TEST)
 	depends on OF
 	select PCIE_IPROC
@@ -138,6 +155,7 @@ config PCIE_IPROC_PLATFORM
 
 config PCIE_IPROC_BCMA
 	tristate "Broadcom iProc PCIe BCMA bus driver"
+	depends on PCI
 	depends on ARM && (ARCH_BCM_IPROC || COMPILE_TEST)
 	select PCIE_IPROC
 	select BCMA
@@ -149,6 +167,7 @@ config PCIE_IPROC_BCMA
 
 config PCIE_ALTERA
 	bool "Altera PCIe controller"
+	depends on PCI
 	depends on ARM || NIOS2
 	depends on OF_PCI
 	select PCI_DOMAINS
@@ -158,6 +177,7 @@ config PCIE_ALTERA
 
 config PCIE_ALTERA_MSI
 	bool "Altera PCIe MSI feature"
+	depends on PCI
 	depends on PCIE_ALTERA && PCI_MSI
 	select PCI_MSI_IRQ_DOMAIN
 	help
@@ -167,6 +187,7 @@ config PCIE_ALTERA_MSI
 config PCI_HISI
 	depends on OF && ARM64
 	bool "HiSilicon SoC HIP05 PCIe controller"
+	depends on PCI
 	select PCIEPORTBUS
 	select PCIE_DW
 	help

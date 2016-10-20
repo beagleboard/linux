@@ -16,6 +16,9 @@ obj-y				+= gpio/
 obj-y				+= pwm/
 obj-$(CONFIG_PCI_ENDPOINT)	+= pci/endpoint/
 obj-$(CONFIG_PCI)		+= pci/
+# PCI controller drivers
+obj-y				+= pci/controller/
+
 obj-$(CONFIG_PARISC)		+= parisc/
 obj-$(CONFIG_RAPIDIO)		+= rapidio/
 obj-y				+= video/
