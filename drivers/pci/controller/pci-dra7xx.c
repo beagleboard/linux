@@ -88,6 +88,7 @@ struct dra7xx_pcie {
 	struct device		*dev;
 	struct dw_pcie		*pci;
 	bool			is_gen1;
+	struct irq_domain	*irq_domain;
 	enum dw_pcie_device_mode mode;
 };
 
@@ -185,13 +186,9 @@ static void dra7xx_pcie_enable_msi_interrupts(struct dra7xx_pcie *dra7xx)
 	dra7xx_pcie_writel(dra7xx, PCIECTRL_DRA7XX_CONF_IRQSTATUS_MSI,
 			   ~LEG_EP_INTERRUPTS & ~MSI);
 
-	if (IS_ENABLED(CONFIG_PCI_MSI))
-		dra7xx_pcie_writel(dra7xx,
-				   PCIECTRL_DRA7XX_CONF_IRQENABLE_SET_MSI, MSI);
-	else
-		dra7xx_pcie_writel(dra7xx,
-				   PCIECTRL_DRA7XX_CONF_IRQENABLE_SET_MSI,
-				   LEG_EP_INTERRUPTS);
+	dra7xx_pcie_writel(dra7xx,
+			   PCIECTRL_DRA7XX_CONF_IRQENABLE_SET_MSI,
+			   MSI | LEG_EP_INTERRUPTS);
 }
 
 static void dra7xx_pcie_enable_wrapper_interrupts(struct dra7xx_pcie *dra7xx)
@@ -221,8 +218,7 @@ static void dra7xx_pcie_host_init(struct pcie_port *pp)
 	pp->cfg0_base &= DRA7XX_CPU_TO_BUS_ADDR;
 	pp->cfg1_base &= DRA7XX_CPU_TO_BUS_ADDR;
 
-	if (IS_ENABLED(CONFIG_PCI_MSI))
-		dw_pcie_msi_init(pp);
+	dw_pcie_msi_init(pp);
 	dra7xx_pcie_enable_interrupts(dra7xx);
 
 	dra7xx_pcie_start_link(pci);
@@ -255,6 +251,7 @@ static const struct irq_domain_ops intx_domain_ops = {
 static int dra7xx_pcie_init_irq_domain(struct pcie_port *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct dra7xx_pcie *dra7xx = to_dra7xx_pcie(pci);
 	struct device *dev = pci->dev;
 	struct device_node *node = dev->of_node;
 	struct device_node *pcie_intc_node =  of_get_next_child(node, NULL);
@@ -264,11 +261,11 @@ static int dra7xx_pcie_init_irq_domain(struct pcie_port *pp)
 		return PTR_ERR(pcie_intc_node);
 	}
 
-	pp->irq_domain = irq_domain_add_linear(pcie_intc_node, 4,
+	dra7xx->irq_domain = irq_domain_add_linear(pcie_intc_node, 4,
 					       &intx_domain_ops, pp);
-	if (!pp->irq_domain) {
+	if (!dra7xx->irq_domain) {
 		dev_err(dev, "Failed to get a INTx IRQ domain\n");
-		return PTR_ERR(pp->irq_domain);
+		return PTR_ERR(dra7xx->irq_domain);
 	}
 
 	return 0;
@@ -291,7 +288,8 @@ static irqreturn_t dra7xx_pcie_msi_irq_handler(int irq, void *arg)
 	case INTB:
 	case INTC:
 	case INTD:
-		generic_handle_irq(irq_find_mapping(pp->irq_domain, ffs(reg)));
+		generic_handle_irq(irq_find_mapping
+				   (dra7xx->irq_domain, ffs(reg)));
 		break;
 	}
 
@@ -475,11 +473,9 @@ static int __init dra7xx_add_pcie_port(struct dra7xx_pcie *dra7xx,
 		return ret;
 	}
 
-	if (!IS_ENABLED(CONFIG_PCI_MSI)) {
-		ret = dra7xx_pcie_init_irq_domain(pp);
-		if (ret < 0)
-			return ret;
-	}
+	ret = dra7xx_pcie_init_irq_domain(pp);
+	if (ret < 0)
+		return ret;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rc_dbics");
 	pci->dbi_base = devm_ioremap(dev, res->start, resource_size(res));
@@ -732,7 +728,7 @@ static int __exit dra7xx_pcie_remove(struct platform_device *pdev)
 	switch (dra7xx->mode) {
 	case DW_PCIE_RC_TYPE:
 		if (pp->irq_domain)
-			irq_domain_remove(pp->irq_domain);
+			irq_domain_remove(dra7xx->irq_domain);
 		break;
 	case DW_PCIE_EP_TYPE:
 		dw_pcie_ep_exit(ep);
