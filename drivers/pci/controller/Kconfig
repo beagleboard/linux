@@ -23,6 +23,26 @@ config PCI_DRA7XX_HOST
 	 Enables support for the PCIe controller in the DRA7xx SoC to work in
 	 host mode.
 
+config PCI_DRA7XX_EP
+	bool "Endpoint Only Mode"
+	depends on PCI_ENDPOINT
+	select PCIE_DW_EP
+	help
+	 Enables support for the PCIe controller in the DRA7xx SoC to work in
+	 endpoint mode.
+
+config PCI_DRA7XX_HOST_EP
+	bool "Both Host and Endpoint Mode"
+	depends on PCI
+	depends on PCI_ENDPOINT
+	select PCIE_DW_HOST
+	select PCIE_DW_EP
+	help
+	 Enables support for the PCIe controller in the DRA7xx SoC to work in
+	 both endpoint mode and host mode. If the board has 2 PCIe ports and
+	 one of them has to work in host mode and the other has to work in
+	 EP mode then this option has to be enabled.
+
 endchoice
 
 endif
