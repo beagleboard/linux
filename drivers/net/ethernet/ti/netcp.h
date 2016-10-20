@@ -151,7 +151,7 @@ struct netcp_packet {
 	bool			rxtstamp_complete;
 	void			*ts_context;
 
-	int	(*txtstamp_complete)(void *ctx, struct netcp_packet *pkt);
+	void (*txtstamp)(void *ctx, struct sk_buff *skb);
 };
 
 static inline u32 *netcp_push_psdata(struct netcp_packet *p_info,
@@ -221,6 +221,7 @@ struct netcp_module {
 	int	(*add_vid)(void *intf_priv, int vid);
 	int	(*del_vid)(void *intf_priv, int vid);
 	int	(*ioctl)(void *intf_priv, struct ifreq *req, int cmd);
+	int	(*set_rx_mode)(void *intf_priv, bool promisc);
 
 	/* used internally */
 	struct list_head	module_list;

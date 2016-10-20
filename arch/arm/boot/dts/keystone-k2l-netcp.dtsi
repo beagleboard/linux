@@ -267,6 +267,7 @@ netcp: netcp@26000000 {
 			/* enable-ale; */
 			tx-queue = <896>;
 			tx-channel = "nettx";
+			cpts-rftclk-sel = <0>;
 
 			interfaces {
 				gbe0: interface-0 {

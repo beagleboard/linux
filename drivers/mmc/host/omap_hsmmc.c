@@ -291,6 +291,7 @@ struct omap_hsmmc_host {
 
 	struct timer_list	timer;
 	unsigned long long	data_timeout;
+	bool			is_tuning;
 
 	struct pinctrl		*pinctrl;
 	struct pinctrl_state	*pinctrl_state;
@@ -686,19 +687,15 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 {
 	u32 irq_mask = INT_EN_MASK;
 	unsigned long flags;
-	bool is_tuning;
 
-	is_tuning = cmd && ((cmd->opcode == MMC_SEND_TUNING_BLOCK) ||
-		    (cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200));
-
-	if (is_tuning)
+	if (host->is_tuning)
 		/*
 		 * OMAP5/DRA74X/DRA72x Errata i802:
 		 * DCRC error interrupts (MMCHS_STAT[21] DCRC=0x1) can occur
 		 * during the tuning procedure. So disable it during the
 		 * tuning procedure.
 		 */
-		irq_mask &= ~DCRC_EN;
+		irq_mask &= ~(DCRC_EN | DEB_EN);
 
 	/* BRR and BWR need not be enabled for DMA */
 	irq_mask &= ~(BRR_EN | BWR_EN);
@@ -1344,7 +1341,7 @@ static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 	if (status & ERR_EN) {
 		omap_hsmmc_dbg_report_irq(host, status);
 
-		if (status & (CTO_EN | CCRC_EN))
+		if (status & (CTO_EN | CCRC_EN | CEB_EN))
 			end_cmd = 1;
 		if (host->data || host->response_busy) {
 			end_trans = !end_cmd;
@@ -1431,12 +1428,12 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 static void omap_hsmmc_soft_timeout(unsigned long data)
 {
 	struct omap_hsmmc_host *host = (struct omap_hsmmc_host *)data;
-	bool end_trans;
+	bool end_trans = false;
 
 	omap_hsmmc_disable_irq(host);
 	if (host->data || host->response_busy) {
 		host->response_busy = 0;
-		end_trans = 1;
+		end_trans = true;
 	}
 
 	hsmmc_command_incomplete(host, -ETIMEDOUT, 0);
@@ -1650,6 +1647,7 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 	uint32_t reg, clkd, dto = 0;
 	struct mmc_ios *ios = &host->mmc->ios;
 	struct mmc_data *data = host->mrq->data;
+	struct mmc_command *cmd = host->mrq->cmd;
 
 	reg = OMAP_HSMMC_READ(host->base, SYSCTL);
 	clkd = (reg & CLKD_MASK) >> CLKD_SHIFT;
@@ -1706,6 +1704,9 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 					      MMC_BLOCK_TRANSFER_TIME_NS(
 					      data->blksz, ios->bus_width,
 					      ios->clock)));
+		else if (cmd->flags & MMC_RSP_BUSY)
+			host->data_timeout = timeout_ns;
+
 		dto = 14;
 	}
 
@@ -2383,11 +2384,12 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	val |= DLL_SWT;
 	OMAP_HSMMC_WRITE(host->base, DLL, val);
 
+	host->is_tuning =  true;
+
 	while (phase_delay <= MAX_PHASE_DELAY) {
 		omap_hsmmc_set_dll(host, phase_delay);
 
 		cur_match = !mmc_send_tuning(mmc, opcode, NULL);
-
 		if (cur_match) {
 			if (prev_match) {
 				length++;
@@ -2405,6 +2407,8 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		prev_match = cur_match;
 		phase_delay += 4;
 	}
+
+	host->is_tuning = false;
 
 	if (!max_len) {
 		dev_err(mmc_dev(host->mmc), "Unable to find match\n");

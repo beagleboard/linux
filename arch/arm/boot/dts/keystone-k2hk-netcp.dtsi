@@ -226,7 +226,7 @@ netcp: netcp@2000000 {
 	ranges  = <0 0x2000000 0x100000>;
 
 	clocks = <&clkpa>, <&clkcpgmac>, <&chipclk12>;
-	clock-names = "pa_clk", "ethss_clk", "cpts_rft_clk"	;
+	clock-names = "pa_clk", "ethss_clk", "cpts";
 	dma-coherent;
 
 	ti,navigator-dmas =	<&dma_gbe 22>,	/* rx flow for CPSW port 0 */
@@ -258,7 +258,7 @@ netcp: netcp@2000000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		gbe@90000 { /* ETHSS */
+		gbe: gbe@90000 { /* ETHSS */
 			label = "netcp-gbe";
 			compatible = "ti,netcp-gbe";
 			syscon-subsys = <&gbe_subsys>;
@@ -266,6 +266,7 @@ netcp: netcp@2000000 {
 			/* enable-ale; */
 			tx-queue = <648>;
 			tx-channel = "nettx";
+			cpts-rftclk-sel = <0>;
 
 			interfaces {
 				gbe0: interface-0 {
@@ -450,8 +451,8 @@ netcpx: netcp@2f00000 {
 	#size-cells	= <1>;
 	ranges;
 
-	clocks		= <&clkxge>;
-	clock-names	= "xge_clk";
+	clocks		= <&clkxge>, <&chipclk12>;
+	clock-names	= "xge_clk", "cpts";
 	dma-coherent;
 	/* big-endian; */
 
@@ -473,6 +474,7 @@ netcpx: netcp@2f00000 {
 			/* enable-ale; */
 			tx-queue = <8752>;
 			tx-channel = "xnettx";
+			cpts-rftclk-sel = <0>;
 
 			interfaces {
 				xgbe0: interface-0 {
