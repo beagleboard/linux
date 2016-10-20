@@ -14,6 +14,7 @@ obj-$(CONFIG_GENERIC_PHY)	+= phy/
 obj-$(CONFIG_PINCTRL)		+= pinctrl/
 obj-y				+= gpio/
 obj-y				+= pwm/
+obj-$(CONFIG_PCI_ENDPOINT)	+= pci/endpoint/
 obj-$(CONFIG_PCI)		+= pci/
 obj-$(CONFIG_PARISC)		+= parisc/
 obj-$(CONFIG_RAPIDIO)		+= rapidio/

@@ -119,3 +119,4 @@ config PCI_LABEL
 	select NLS
 
 source "drivers/pci/host/Kconfig"
+source "drivers/pci/endpoint/Kconfig"
