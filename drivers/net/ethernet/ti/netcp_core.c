@@ -88,6 +88,11 @@ struct netcp_intf_modpriv {
 	void			*module_priv;
 };
 
+struct netcp_tx_cb {
+	void	*ts_context;
+	void	(*txtstamp)(void *context, struct sk_buff *skb);
+};
+
 static LIST_HEAD(netcp_devices);
 static LIST_HEAD(netcp_modules);
 static DEFINE_MUTEX(netcp_modules_lock);
@@ -631,6 +636,7 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
 
 	/* Call each of the RX hooks */
 	p_info.skb = skb;
+	skb->dev = netcp->ndev;
 	p_info.rxtstamp_complete = false;
 	knav_dma_get_desc_info(&tmp, &p_info.eflags, desc);
 	p_info.epib = desc->epib;
@@ -892,6 +898,7 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
 {
 	struct netcp_stats *tx_stats = &netcp->stats;
 	struct knav_dma_desc *desc;
+	struct netcp_tx_cb *tx_cb;
 	struct sk_buff *skb;
 	unsigned int dma_sz;
 	dma_addr_t dma;
@@ -916,6 +923,10 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
 			tx_stats->tx_errors++;
 			continue;
 		}
+
+		tx_cb = (struct netcp_tx_cb *)skb->cb;
+		if (tx_cb->txtstamp)
+			tx_cb->txtstamp(tx_cb->ts_context, skb);
 
 		if (netif_subqueue_stopped(netcp->ndev, skb) &&
 		    netif_running(netcp->ndev) &&
@@ -1058,6 +1069,7 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
 	struct netcp_tx_pipe *tx_pipe = NULL;
 	struct netcp_hook_list *tx_hook;
 	struct netcp_packet p_info;
+	struct netcp_tx_cb *tx_cb;
 	unsigned int dma_sz;
 	dma_addr_t dma;
 	u32 tmp = 0;
@@ -1068,7 +1080,7 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
 	p_info.tx_pipe = NULL;
 	p_info.psdata_len = 0;
 	p_info.ts_context = NULL;
-	p_info.txtstamp_complete = NULL;
+	p_info.txtstamp = NULL;
 	p_info.epib = desc->epib;
 	p_info.psdata = desc->psdata;
 	memset(p_info.epib, 0, KNAV_DMA_NUM_EPIB_WORDS * sizeof(u32));
@@ -1088,6 +1100,10 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
 		ret = -ENXIO;
 		goto out;
 	}
+
+	tx_cb = (struct netcp_tx_cb *)skb->cb;
+	tx_cb->ts_context = p_info.ts_context;
+	tx_cb->txtstamp = p_info.txtstamp;
 
 	/* update descriptor */
 	if (p_info.psdata_len) {
@@ -1370,6 +1386,24 @@ static void netcp_addr_sweep_add(struct netcp_intf *netcp)
 	}
 }
 
+static int netcp_set_promiscuous(struct netcp_intf *netcp, bool promisc)
+{
+	struct netcp_intf_modpriv *priv;
+	struct netcp_module *module;
+	int error;
+
+	for_each_module(netcp, priv) {
+		module = priv->netcp_module;
+		if (!module->set_rx_mode)
+			continue;
+
+		error = module->set_rx_mode(priv->module_priv, promisc);
+		if (error)
+			return error;
+	}
+	return 0;
+}
+
 static void netcp_set_rx_mode(struct net_device *ndev)
 {
 	struct netcp_intf *netcp = netdev_priv(ndev);
@@ -1399,6 +1433,7 @@ static void netcp_set_rx_mode(struct net_device *ndev)
 	/* finally sweep and callout into modules */
 	netcp_addr_sweep_del(netcp);
 	netcp_addr_sweep_add(netcp);
+	netcp_set_promiscuous(netcp, promisc);
 	spin_unlock(&netcp->lock);
 }
 

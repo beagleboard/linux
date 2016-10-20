@@ -267,7 +267,7 @@ netcp: netcp@24000000 {
 	ranges = <0 0x24000000 0x1000000>;
 
 	clocks = <&clkpa>, <&clkcpgmac>, <&chipclk12>;
-	clock-names = "pa_clk", "ethss_clk", "cpts_rft_clk";
+	clock-names = "pa_clk", "ethss_clk", "cpts";
 	dma-coherent;
 
 	ti,navigator-dmas =	<&dma_gbe 0>,
@@ -322,6 +322,8 @@ netcp: netcp@24000000 {
 			/* enable-ale; */
 			tx-queue = <896>;
 			tx-channel = "nettx";
+			cpts-rftclk-sel = <0>;
+			cpts-ext-ts-inputs = <6>;
 
 			interfaces {
 				gbe0: interface-0 {
@@ -526,8 +528,8 @@ netcpx: netcp@2f00000 {
 	#size-cells	= <1>;
 	ranges;
 
-	clocks		= <&clkxge>;
-	clock-names	= "xge_clk";
+	clocks		= <&clkxge>, <&chipclk12>;
+	clock-names	= "xge_clk", "cpts";
 	dma-coherent;
 	/* big-endian; */
 
@@ -549,6 +551,7 @@ netcpx: netcp@2f00000 {
 			/* enable-ale; */
 			tx-queue = <692>;
 			tx-channel = "xnettx";
+			cpts-rftclk-sel = <0>;
 
 			interfaces {
 				xgbe0: interface-0 {

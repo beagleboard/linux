@@ -31,10 +31,13 @@
 
 #include "cpts.h"
 
-#ifdef CONFIG_TI_CPTS
+#define cpts_read32(c, r)	readl_relaxed(&c->reg->r)
+#define cpts_write32(c, v, r)	writel_relaxed(v, &c->reg->r)
 
-#define cpts_read32(c, r)	__raw_readl(&c->reg->r)
-#define cpts_write32(c, v, r)	__raw_writel(v, &c->reg->r)
+static int cpts_event_port(struct cpts_event *event)
+{
+	return (event->high >> PORT_NUMBER_SHIFT) & PORT_NUMBER_MASK;
+}
 
 static int event_expired(struct cpts_event *event)
 {
@@ -59,6 +62,26 @@ static int cpts_fifo_pop(struct cpts *cpts, u32 *high, u32 *low)
 	return -1;
 }
 
+static int cpts_purge_events(struct cpts *cpts)
+{
+	struct list_head *this, *next;
+	struct cpts_event *event;
+	int removed = 0;
+
+	list_for_each_safe(this, next, &cpts->events) {
+		event = list_entry(this, struct cpts_event, list);
+		if (event_expired(event)) {
+			list_del_init(&event->list);
+			list_add(&event->list, &cpts->pool);
+			++removed;
+		}
+	}
+
+	if (removed)
+		dev_dbg(cpts->dev, "cpts: event pool cleaned up %d\n", removed);
+	return removed ? 0 : -1;
+}
+
 /*
  * Returns zero if matching event type was found.
  */
@@ -71,16 +94,21 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
 	for (i = 0; i < CPTS_FIFO_DEPTH; i++) {
 		if (cpts_fifo_pop(cpts, &hi, &lo))
 			break;
-		if (list_empty(&cpts->pool)) {
-			pr_err("cpts: event pool is empty\n");
+
+		if (list_empty(&cpts->pool) && cpts_purge_events(cpts)) {
+			dev_err(cpts->dev, "cpts: event pool empty\n");
 			return -1;
 		}
+
 		event = list_first_entry(&cpts->pool, struct cpts_event, list);
-		event->tmo = jiffies + 2;
+		event->tmo = jiffies +
+			     msecs_to_jiffies(CPTS_EVENT_RX_TX_TIMEOUT);
 		event->high = hi;
 		event->low = lo;
 		type = event_type(event);
 		switch (type) {
+		case CPTS_EV_HW:
+			event->tmo = CPTS_EVENT_HWSTAMP_TIMEOUT;
 		case CPTS_EV_PUSH:
 		case CPTS_EV_RX:
 		case CPTS_EV_TX:
@@ -89,7 +117,6 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
 			break;
 		case CPTS_EV_ROLL:
 		case CPTS_EV_HALF:
-		case CPTS_EV_HW:
 			break;
 		default:
 			pr_err("cpts: unknown event type\n");
@@ -198,9 +225,83 @@ static int cpts_ptp_settime(struct ptp_clock_info *ptp,
 	return 0;
 }
 
+static int cpts_report_ts_events(struct cpts *cpts)
+{
+	struct list_head *this, *next;
+	struct ptp_clock_event pevent;
+	struct cpts_event *event;
+	int reported = 0, ev;
+
+	list_for_each_safe(this, next, &cpts->events) {
+		event = list_entry(this, struct cpts_event, list);
+		ev = event_type(event);
+		if (ev == CPTS_EV_HW) {
+			list_del_init(&event->list);
+			list_add(&event->list, &cpts->pool);
+			/* report the event */
+			pevent.timestamp =
+				timecounter_cyc2time(&cpts->tc, event->low);
+			pevent.type = PTP_CLOCK_EXTTS;
+			pevent.index = cpts_event_port(event) - 1;
+			ptp_clock_event(cpts->clock, &pevent);
+			++reported;
+			continue;
+		}
+	}
+	return reported;
+}
+
+/* HW TS */
+static int cpts_extts_enable(struct cpts *cpts, u32 index, int on)
+{
+	unsigned long flags;
+	u32 v;
+
+	if (index >= cpts->info.n_ext_ts)
+		return -ENXIO;
+
+	if (((cpts->hw_ts_enable & BIT(index)) >> index) == on)
+		return 0;
+
+	spin_lock_irqsave(&cpts->lock, flags);
+
+	v = cpts_read32(cpts, control);
+	if (on) {
+		v |= BIT(8 + index);
+		cpts->hw_ts_enable |= BIT(index);
+	} else {
+		v &= ~BIT(8 + index);
+		cpts->hw_ts_enable &= ~BIT(index);
+	}
+	cpts_write32(cpts, v, control);
+
+	spin_unlock_irqrestore(&cpts->lock, flags);
+
+	if (cpts->hw_ts_enable)
+		/* poll for events faster - evry 200 ms */
+		cpts->ov_check_period =
+			msecs_to_jiffies(CPTS_EVENT_RX_TX_TIMEOUT);
+	else
+		cpts->ov_check_period = cpts->ov_check_period_slow;
+
+	mod_delayed_work(system_wq, &cpts->overflow_work,
+			 cpts->ov_check_period);
+
+	return 0;
+}
+
 static int cpts_ptp_enable(struct ptp_clock_info *ptp,
 			   struct ptp_clock_request *rq, int on)
 {
+	struct cpts *cpts = container_of(ptp, struct cpts, info);
+
+	switch (rq->type) {
+	case PTP_CLK_REQ_EXTTS:
+		return cpts_extts_enable(cpts, rq->extts.index, on);
+	default:
+		break;
+	}
+
 	return -EOPNOTSUPP;
 }
 
@@ -220,32 +321,25 @@ static struct ptp_clock_info cpts_info = {
 
 static void cpts_overflow_check(struct work_struct *work)
 {
-	struct timespec64 ts;
 	struct cpts *cpts = container_of(work, struct cpts, overflow_work.work);
+	struct timespec64 ts;
+	unsigned long flags;
+	u32 v;
 
-	cpts_write32(cpts, CPTS_EN, control);
+	spin_lock_irqsave(&cpts->lock, flags);
+
+	v = cpts_read32(cpts, control);
+	cpts_write32(cpts, v | CPTS_EN, control);
 	cpts_write32(cpts, TS_PEND_EN, int_enable);
-	cpts_ptp_gettime(&cpts->info, &ts);
+
+	ts = ns_to_timespec64(timecounter_read(&cpts->tc));
+
+	spin_unlock_irqrestore(&cpts->lock, flags);
+
+	if (cpts->hw_ts_enable)
+		cpts_report_ts_events(cpts);
 	pr_debug("cpts overflow check at %lld.%09lu\n", ts.tv_sec, ts.tv_nsec);
-	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
-}
-
-static void cpts_clk_init(struct device *dev, struct cpts *cpts)
-{
-	if (!cpts->refclk) {
-		cpts->refclk = devm_clk_get(dev, "cpts");
-		if (IS_ERR(cpts->refclk)) {
-			dev_err(dev, "Failed to get cpts refclk\n");
-			cpts->refclk = NULL;
-			return;
-		}
-	}
-	clk_prepare_enable(cpts->refclk);
-}
-
-static void cpts_clk_release(struct cpts *cpts)
-{
-	clk_disable_unprepare(cpts->refclk);
+	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
 }
 
 static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
@@ -322,89 +416,223 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
 	return ns;
 }
 
-void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
 	u64 ns;
 	struct skb_shared_hwtstamps *ssh;
 
 	if (!cpts->rx_enable)
-		return;
+		return -EPERM;
 	ns = cpts_find_ts(cpts, skb, CPTS_EV_RX);
 	if (!ns)
-		return;
+		return -ENOENT;
 	ssh = skb_hwtstamps(skb);
 	memset(ssh, 0, sizeof(*ssh));
 	ssh->hwtstamp = ns_to_ktime(ns);
-}
 
-void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+	return 0;
+}
+EXPORT_SYMBOL_GPL(cpts_rx_timestamp);
+
+int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
 	u64 ns;
 	struct skb_shared_hwtstamps ssh;
 
 	if (!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
-		return;
+		return -EPERM;
 	ns = cpts_find_ts(cpts, skb, CPTS_EV_TX);
 	if (!ns)
-		return;
+		return -ENOENT;
 	memset(&ssh, 0, sizeof(ssh));
 	ssh.hwtstamp = ns_to_ktime(ns);
 	skb_tstamp_tx(skb, &ssh);
+
+	return 0;
 }
+EXPORT_SYMBOL_GPL(cpts_tx_timestamp);
 
-#endif /*CONFIG_TI_CPTS*/
-
-int cpts_register(struct device *dev, struct cpts *cpts,
-		  u32 mult, u32 shift)
+int cpts_register(struct cpts *cpts)
 {
-#ifdef CONFIG_TI_CPTS
 	int err, i;
-	unsigned long flags;
-
-	cpts->info = cpts_info;
-	cpts->clock = ptp_clock_register(&cpts->info, dev);
-	if (IS_ERR(cpts->clock)) {
-		err = PTR_ERR(cpts->clock);
-		cpts->clock = NULL;
-		return err;
-	}
-	spin_lock_init(&cpts->lock);
-
-	cpts->cc.read = cpts_systim_read;
-	cpts->cc.mask = CLOCKSOURCE_MASK(32);
-	cpts->cc_mult = mult;
-	cpts->cc.mult = mult;
-	cpts->cc.shift = shift;
 
 	INIT_LIST_HEAD(&cpts->events);
 	INIT_LIST_HEAD(&cpts->pool);
 	for (i = 0; i < CPTS_MAX_EVENTS; i++)
 		list_add(&cpts->pool_data[i].list, &cpts->pool);
 
-	cpts_clk_init(dev, cpts);
+	clk_enable(cpts->refclk);
+
 	cpts_write32(cpts, CPTS_EN, control);
 	cpts_write32(cpts, TS_PEND_EN, int_enable);
 
-	spin_lock_irqsave(&cpts->lock, flags);
+	cpts->cc.mult = cpts->cc_mult;
 	timecounter_init(&cpts->tc, &cpts->cc, ktime_to_ns(ktime_get_real()));
-	spin_unlock_irqrestore(&cpts->lock, flags);
 
-	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
-	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
-
+	cpts->clock = ptp_clock_register(&cpts->info, cpts->dev);
+	if (IS_ERR(cpts->clock)) {
+		err = PTR_ERR(cpts->clock);
+		cpts->clock = NULL;
+		goto err_ptp;
+	}
 	cpts->phc_index = ptp_clock_index(cpts->clock);
-#endif
+
+	schedule_delayed_work(&cpts->overflow_work, cpts->ov_check_period);
 	return 0;
+
+err_ptp:
+	clk_enable(cpts->refclk);
+	return err;
 }
+EXPORT_SYMBOL_GPL(cpts_register);
 
 void cpts_unregister(struct cpts *cpts)
 {
-#ifdef CONFIG_TI_CPTS
-	if (cpts->clock) {
-		ptp_clock_unregister(cpts->clock);
-		cancel_delayed_work_sync(&cpts->overflow_work);
-	}
-	if (cpts->refclk)
-		cpts_clk_release(cpts);
-#endif
+	if (WARN_ON(!cpts->clock))
+		return;
+
+	cancel_delayed_work_sync(&cpts->overflow_work);
+
+	ptp_clock_unregister(cpts->clock);
+	cpts->clock = NULL;
+
+	cpts_write32(cpts, 0, int_enable);
+	cpts_write32(cpts, 0, control);
+
+	clk_disable(cpts->refclk);
 }
+
+static void cpts_calc_mult_shift(struct cpts *cpts)
+{
+	u64 frac, maxsec, ns;
+	u32 freq, mult, shift;
+
+	freq = clk_get_rate(cpts->refclk);
+
+	/* Calc the maximum number of seconds which we can run before
+	 * wrapping around.
+	 */
+	maxsec = cpts->cc.mask;
+	do_div(maxsec, freq);
+	if (maxsec > 600 && cpts->cc.mask > UINT_MAX)
+		maxsec = 600;
+
+	/* Calc overflow check period (maxsec / 2) */
+	cpts->ov_check_period = (HZ * maxsec) / 2;
+	cpts->ov_check_period_slow = cpts->ov_check_period;
+
+	dev_info(cpts->dev, "cpts: overflow check period %lu\n",
+		 cpts->ov_check_period);
+
+	if (cpts->cc_mult || cpts->cc.shift)
+		return;
+
+	clocks_calc_mult_shift(&mult, &shift, freq, NSEC_PER_SEC, maxsec);
+
+	cpts->cc_mult = mult;
+	cpts->cc.mult = mult;
+	cpts->cc.shift = shift;
+
+	frac = 0;
+	ns = cyclecounter_cyc2ns(&cpts->cc, freq, cpts->cc.mask, &frac);
+
+	dev_info(cpts->dev,
+		 "CPTS: ref_clk_freq:%u calc_mult:%u calc_shift:%u error:%lld nsec/sec\n",
+		 freq, cpts->cc_mult, cpts->cc.shift, (ns - NSEC_PER_SEC));
+}
+
+static int cpts_of_parse(struct cpts *cpts, struct device_node *node)
+{
+	int ret = -EINVAL;
+	u32 prop;
+
+	cpts->cc_mult = 0;
+	if (!of_property_read_u32(node, "cpts_clock_mult", &prop))
+		cpts->cc_mult = prop;
+
+	cpts->cc.shift = 0;
+	if (!of_property_read_u32(node, "cpts_clock_shift", &prop))
+		cpts->cc.shift = prop;
+
+	if ((cpts->cc_mult && !cpts->cc.shift) ||
+	    (!cpts->cc_mult && cpts->cc.shift))
+		goto of_error;
+
+	if (!of_property_read_u32(node, "cpts-rftclk-sel", &prop)) {
+		if (prop & ~CPTS_RFTCLK_SEL_MASK) {
+			dev_err(cpts->dev, "cpts: invalid cpts_rftclk_sel.\n");
+			goto of_error;
+		}
+		cpts->caps |= CPTS_CAP_RFTCLK_SEL;
+		cpts->rftclk_sel = prop & CPTS_RFTCLK_SEL_MASK;
+	}
+
+	if (!of_property_read_u32(node, "cpts-ext-ts-inputs", &prop))
+		cpts->ext_ts_inputs = prop;
+
+	return 0;
+
+of_error:
+	dev_err(cpts->dev, "CPTS: Missing property in the DT.\n");
+	return ret;
+}
+
+struct cpts *cpts_create(struct device *dev, void __iomem *regs,
+			 struct device_node *node)
+{
+	struct cpts *cpts;
+	int ret;
+
+	if (!regs || !dev)
+		return ERR_PTR(-EINVAL);
+
+	cpts = devm_kzalloc(dev, sizeof(*cpts), GFP_KERNEL);
+	if (!cpts)
+		return ERR_PTR(-ENOMEM);
+
+	cpts->dev = dev;
+	cpts->reg = (struct cpsw_cpts __iomem *)regs;
+	spin_lock_init(&cpts->lock);
+	INIT_DELAYED_WORK(&cpts->overflow_work, cpts_overflow_check);
+
+	ret = cpts_of_parse(cpts, node);
+	if (ret)
+		return ERR_PTR(ret);
+
+	cpts->refclk = devm_clk_get(dev, "cpts");
+	if (IS_ERR(cpts->refclk)) {
+		dev_err(dev, "Failed to get cpts refclk\n");
+		return ERR_PTR(PTR_ERR(cpts->refclk));
+	}
+
+	clk_prepare(cpts->refclk);
+
+	if (cpts->caps & CPTS_CAP_RFTCLK_SEL)
+		cpts_write32(cpts, cpts->rftclk_sel, rftclk_sel);
+
+	cpts->cc.read = cpts_systim_read;
+	cpts->cc.mask = CLOCKSOURCE_MASK(32);
+	cpts->info = cpts_info;
+
+	if (cpts->ext_ts_inputs)
+		cpts->info.n_ext_ts = cpts->ext_ts_inputs;
+
+	cpts_calc_mult_shift(cpts);
+
+	return cpts;
+}
+
+void cpts_release(struct cpts *cpts)
+{
+	if (!cpts)
+		return;
+
+	if (WARN_ON(!cpts->clock))
+		return;
+
+	clk_unprepare(cpts->refclk);
+}
+EXPORT_SYMBOL_GPL(cpts_unregister);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("TI CPTS ALE driver");

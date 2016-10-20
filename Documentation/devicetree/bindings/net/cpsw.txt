@@ -20,8 +20,6 @@ Required properties:
 - slaves		: Specifies number for slaves
 - active_slave		: Specifies the slave to use for time stamping,
 			  ethtool and SIOCGMIIPHY
-- cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
-- cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
 
 Optional properties:
 - ti,hwmods		: Must be "cpgmac0"
@@ -39,7 +37,15 @@ Optional properties:
 			  specified the default value 256 will be used which
 			  will allow to place descriptors pool into the
 			  internal CPPI RAM.
-
+- cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
+- cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
+			  Mult and shift will be calculated basing on CPTS
+			  rftclk frequency if both cpts_clock_shift and
+			  cpts_clock_mult properties are not provided.
+- cpts-ext-ts-inputs	: The number of external time stamp channels.
+			  The different CPTS versions might support up 8
+			  external time stamp channels.
+			  if absent - unsupported.
 
 Slave Properties:
 Required properties:
