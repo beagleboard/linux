@@ -1,0 +1,73 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+/* #include "am33xx-overlay-edma-fix.dtsi" */
+/* #include <dt-bindings/display/tda998x.h> */
+#include "am335x-boneblack-wl1835.dtsi"
+/* #include "am335x-bone-jtag.dtsi" */
+
+/* pruss: pick one: */
+
+/*
+ * /etc/modprobe.d/pruss-blacklist.conf
+ *
+ * blacklist uio_pruss
+ */
+
+/* #include "am33xx-pruss-rproc.dtsi" */
+
+/*
+ * /etc/modprobe.d/pruss-blacklist.conf
+ *
+ * blacklist pruss
+ * blacklist pruss_intc
+ * blacklist pru-rproc
+ */
+
+/* #include "am33xx-pruss-uio.dtsi" */
+
+/ {
+	model = "TI AM335x BeagleBone Black Wireless";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&mmc2 {
+	vmmc-supply = <&vmmcsd_fixed>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&emmc_pins>;
+	bus-width = <8>;
+	status = "okay";
+};
+
+&mac {
+	status = "disabled";
+};
+
+&mmc3 {
+	status = "okay";
+};
+
+&cpu0_opp_table {
+	//osd335x
+	opp50@300000000 {
+		status = "disabled";
+	};
+};
