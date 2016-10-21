@@ -19,6 +19,25 @@
 		reg = <0x00000008 0x00000000 0x00000000 0x20000000>;
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		dsp_common_mpm_area: dsp_reserved_mpm_area {
+			compatible = "shared-dma-pool";
+			reg = <0x00000008 0x1e000000 0x00000000 0x1800000>;
+			no-map;
+			status = "okay";
+		};
+
+		dsp_common_cma_pool: dsp_common_cma_pool {
+			compatible = "shared-dma-pool";
+			reg = <0x00000008 0x1f800000 0x00000000 0x800000>;
+			reusable;
+		};
+	};
+
 	vmain: fixedregulator-vmain {
 		compatible = "regulator-fixed";
 		regulator-name = "vmain_fixed";
@@ -108,6 +127,13 @@
 
 		gpio = <&gpio1 53 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+	};
+
+	soc {
+		mpm_mem: dspmem@9e000000 {
+			compatible = "ti,keystone-dsp-mem";
+			reg = <0x9e000000 0x1800000>;
+		};
 	};
 
 	rotary-in0 {
@@ -390,4 +416,8 @@
 
 &gpio0 {
 	status = "okay";
+};
+
+&dsp0 {
+	memory-region = <&dsp_common_cma_pool>;
 };
