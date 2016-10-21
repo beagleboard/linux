@@ -1,0 +1,36 @@
+/*
+ * Copyright (C) 2016 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "dra71-evm.dts"
+#include "dra7x-evm-lcd-auo-g101evn01.0.dtsi"
+
+/ {
+	model = "TI DRA71 EVM-LCD-AUO-Display";
+};
+
+&dss_port {
+	reg = <2>;
+};
+
+&pcf_gpio_21 {
+	p0 {
+		/* SEL_GPMC_AD_VID_S0: Set for VOUT */
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "sel_gpmc_ad_vid_s0";
+	};
+
+	p7 {
+		/* SEL_GPMC_AD_VID_S2n: Set for VOUT */
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "sel_gpmc_ad_vid_s2";
+	};
+};
