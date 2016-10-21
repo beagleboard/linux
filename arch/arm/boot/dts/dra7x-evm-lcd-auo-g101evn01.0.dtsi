@@ -1,0 +1,96 @@
+/*
+ * Copyright (C) 2016 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Display panel details:
+ * The base display is Apollo UP-02-096.
+ * http://store.apollodisplays.com/store/Resources/en/ItemDocuments/UP_02_096/UP-02-096_Datasheet.pdf
+ */
+
+/ {
+	aliases {
+		display0 = &lcd;
+		display1 = &hdmi0;
+	};
+
+	backlight {
+		compatible = "led-backlight";
+		leds = <&backlight_led>;
+		brightness-levels = <0 2 38 74 110 146 182 218 255>;
+		default-brightness-level = <8>;
+
+		enable-gpios = <&pcf_display_board 0 GPIO_ACTIVE_LOW>;
+	};
+
+	lcd: display {
+		compatible = "auo,g101evn01.0", "panel-dpi";
+
+		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
+
+		label = "lcd";
+
+		panel-timing {
+			clock-frequency = <68930000>;
+			hactive = <1280>;
+			vactive = <800>;
+
+			hfront-porch = <48>;
+			hsync-len = <32>;
+			hback-porch = <48>;
+
+			vfront-porch = <4>;
+			vsync-len = <4>;
+			vback-porch = <8>;
+
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <1>;
+		};
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
+};
+
+&i2c1 {
+	pcf_display_board: gpio@27 {
+		compatible = "nxp,pcf8575";
+		reg = <0x27>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	/* TLC chip for LCD panel power and backlight */
+	tlc59108@40 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ti,tlc59108";
+		reg = <0x40>;
+
+		backlight_led: bl@2 {
+			label = "backlight";
+			reg = <0x2>;
+		};
+	};
+};
+
+&dss {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		dss_port: port {
+			dpi_out: endpoint {
+				remote-endpoint = <&lcd_in>;
+				data-lines = <24>;
+			};
+		};
+	};
+};
