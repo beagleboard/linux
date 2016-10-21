@@ -41,19 +41,20 @@
 struct ls_pcie_drvdata {
 	u32 lut_offset;
 	u32 ltssm_shift;
-	struct pcie_host_ops *ops;
+	struct dw_pcie_host_ops *ops;
+	const struct dw_pcie_ops *dw_ops;
 };
 
 struct ls_pcie {
 	void __iomem *dbi;
 	void __iomem *lut;
 	struct regmap *scfg;
-	struct pcie_port pp;
+	struct dw_pcie *pci;
 	const struct ls_pcie_drvdata *drvdata;
 	int index;
 };
 
-#define to_ls_pcie(x)	container_of(x, struct ls_pcie, pp)
+#define to_ls_pcie(x)	dev_get_drvdata((x)->dev)
 
 static bool ls_pcie_is_bridge(struct ls_pcie *pcie)
 {
@@ -77,10 +78,10 @@ static void ls_pcie_fix_class(struct ls_pcie *pcie)
 	iowrite16(PCI_CLASS_BRIDGE_PCI, pcie->dbi + PCI_CLASS_DEVICE);
 }
 
-static int ls1021_pcie_link_up(struct pcie_port *pp)
+static int ls1021_pcie_link_up(struct dw_pcie *pci)
 {
 	u32 state;
-	struct ls_pcie *pcie = to_ls_pcie(pp);
+	struct ls_pcie *pcie = to_ls_pcie(pci);
 
 	if (!pcie->scfg)
 		return 0;
@@ -96,18 +97,19 @@ static int ls1021_pcie_link_up(struct pcie_port *pp)
 
 static void ls1021_pcie_host_init(struct pcie_port *pp)
 {
-	struct ls_pcie *pcie = to_ls_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct ls_pcie *pcie = to_ls_pcie(pci);
 	u32 val, index[2];
 
-	pcie->scfg = syscon_regmap_lookup_by_phandle(pp->dev->of_node,
+	pcie->scfg = syscon_regmap_lookup_by_phandle(pci->dev->of_node,
 						     "fsl,pcie-scfg");
 	if (IS_ERR(pcie->scfg)) {
-		dev_err(pp->dev, "No syscfg phandle specified\n");
+		dev_err(pci->dev, "No syscfg phandle specified\n");
 		pcie->scfg = NULL;
 		return;
 	}
 
-	if (of_property_read_u32_array(pp->dev->of_node,
+	if (of_property_read_u32_array(pci->dev->of_node,
 				       "fsl,pcie-scfg", index, 2)) {
 		pcie->scfg = NULL;
 		return;
@@ -125,9 +127,9 @@ static void ls1021_pcie_host_init(struct pcie_port *pp)
 	iowrite32(val, pcie->dbi + PCIE_STRFMR1);
 }
 
-static int ls_pcie_link_up(struct pcie_port *pp)
+static int ls_pcie_link_up(struct dw_pcie *pci)
 {
-	struct ls_pcie *pcie = to_ls_pcie(pp);
+	struct ls_pcie *pcie = to_ls_pcie(pci);
 	u32 state;
 
 	state = (ioread32(pcie->lut + PCIE_LUT_DBG) >>
@@ -142,7 +144,8 @@ static int ls_pcie_link_up(struct pcie_port *pp)
 
 static void ls_pcie_host_init(struct pcie_port *pp)
 {
-	struct ls_pcie *pcie = to_ls_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct ls_pcie *pcie = to_ls_pcie(pci);
 
 	iowrite32(1, pcie->dbi + PCIE_DBI_RO_WR_EN);
 	ls_pcie_fix_class(pcie);
@@ -153,8 +156,9 @@ static void ls_pcie_host_init(struct pcie_port *pp)
 static int ls_pcie_msi_host_init(struct pcie_port *pp,
 				 struct msi_controller *chip)
 {
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct device_node *msi_node;
-	struct device_node *np = pp->dev->of_node;
+	struct device_node *np = pci->dev->of_node;
 
 	/*
 	 * The MSI domain is set by the generic of_msi_configure().  This
@@ -164,39 +168,48 @@ static int ls_pcie_msi_host_init(struct pcie_port *pp,
 	 */
 	msi_node = of_parse_phandle(np, "msi-parent", 0);
 	if (!msi_node) {
-		dev_err(pp->dev, "failed to find msi-parent\n");
+		dev_err(pci->dev, "failed to find msi-parent\n");
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static struct pcie_host_ops ls1021_pcie_host_ops = {
-	.link_up = ls1021_pcie_link_up,
+static struct dw_pcie_host_ops ls1021_pcie_host_ops = {
 	.host_init = ls1021_pcie_host_init,
 	.msi_host_init = ls_pcie_msi_host_init,
 };
 
-static struct pcie_host_ops ls_pcie_host_ops = {
-	.link_up = ls_pcie_link_up,
+static struct dw_pcie_host_ops ls_pcie_host_ops = {
 	.host_init = ls_pcie_host_init,
 	.msi_host_init = ls_pcie_msi_host_init,
 };
 
+static const struct dw_pcie_ops ls1021_dw_pcie_ops = {
+	.link_up = ls1021_pcie_link_up,
+};
+
+static const struct dw_pcie_ops ls_dw_pcie_ops = {
+	.link_up = ls_pcie_link_up,
+};
+
 static struct ls_pcie_drvdata ls1021_drvdata = {
 	.ops = &ls1021_pcie_host_ops,
+	.dw_ops = &ls1021_dw_pcie_ops,
 };
 
 static struct ls_pcie_drvdata ls1043_drvdata = {
 	.lut_offset = 0x10000,
 	.ltssm_shift = 24,
 	.ops = &ls_pcie_host_ops,
+	.dw_ops = &ls_dw_pcie_ops,
 };
 
 static struct ls_pcie_drvdata ls2080_drvdata = {
 	.lut_offset = 0x80000,
 	.ltssm_shift = 0,
 	.ops = &ls_pcie_host_ops,
+	.dw_ops = &ls_dw_pcie_ops,
 };
 
 static const struct of_device_id ls_pcie_of_match[] = {
@@ -211,15 +224,14 @@ static int __init ls_add_pcie_port(struct pcie_port *pp,
 				   struct platform_device *pdev)
 {
 	int ret;
-	struct ls_pcie *pcie = to_ls_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct ls_pcie *pcie = to_ls_pcie(pci);
 
-	pp->dev = &pdev->dev;
-	pp->dbi_base = pcie->dbi;
 	pp->ops = pcie->drvdata->ops;
 
 	ret = dw_pcie_host_init(pp);
 	if (ret) {
-		dev_err(pp->dev, "failed to initialize host\n");
+		dev_err(pci->dev, "failed to initialize host\n");
 		return ret;
 	}
 
@@ -229,6 +241,7 @@ static int __init ls_add_pcie_port(struct pcie_port *pp,
 static int __init ls_pcie_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *match;
+	struct dw_pcie *pci;
 	struct ls_pcie *pcie;
 	struct resource *dbi_base;
 	int ret;
@@ -241,6 +254,13 @@ static int __init ls_pcie_probe(struct platform_device *pdev)
 	if (!pcie)
 		return -ENOMEM;
 
+	pci = devm_kzalloc(&pdev->dev, sizeof(*pci), GFP_KERNEL);
+	if (!pci)
+		return -ENOMEM;
+
+	pci->dev = &pdev->dev;
+	pcie->pci = pci;
+
 	dbi_base = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs");
 	pcie->dbi = devm_ioremap_resource(&pdev->dev, dbi_base);
 	if (IS_ERR(pcie->dbi)) {
@@ -248,13 +268,15 @@ static int __init ls_pcie_probe(struct platform_device *pdev)
 		return PTR_ERR(pcie->dbi);
 	}
 
+	pci->dbi_base = pcie->dbi;
 	pcie->drvdata = match->data;
 	pcie->lut = pcie->dbi + pcie->drvdata->lut_offset;
+	pci->ops = pcie->drvdata->dw_ops;
 
 	if (!ls_pcie_is_bridge(pcie))
 		return -ENODEV;
 
-	ret = ls_add_pcie_port(&pcie->pp, pdev);
+	ret = ls_add_pcie_port(&pci->pp, pdev);
 	if (ret < 0)
 		return ret;
 

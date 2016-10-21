@@ -98,6 +98,7 @@
 		regulator-always-on;
 	};
 
+
 	vddb: fixedregulator-vddb {
 		/* TPS22945 */
 		compatible = "regulator-fixed";
@@ -107,6 +108,103 @@
 
 		gpio = <&gpio1 53 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+	};
+
+	rotary-in0 {
+		compatible = "rotary-encoder";
+		gpios = <&pca9536 3 GPIO_ACTIVE_HIGH>,
+			<&pca9536 2 GPIO_ACTIVE_HIGH>,
+			<&pca9536 1 GPIO_ACTIVE_HIGH>,
+			<&pca9536 0 GPIO_ACTIVE_HIGH>;
+		linux,axis = <0>; /* ABS_X */
+		rotary-encoder,steps = <10>;
+		rotary-encoder,absolute-encoder;
+	};
+
+	leds1 {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&user_leds>;
+
+		led0 {
+			label = "status0:red:cpu0";
+			gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "cpu0";
+		};
+
+		led1 {
+			label = "status0:green:usr";
+			gpios = <&gpio0 12 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led2 {
+			label = "status0:yellow:usr";
+			gpios = <&gpio0 13 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led3 {
+			label = "status1:red:mmc0";
+			gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "mmc0";
+		};
+
+		led4 {
+			label = "status1:green:usr";
+			gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led5 {
+			label = "status1:yellow:usr";
+			gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led6 {
+			label = "status2:red:usr";
+			gpios = <&gpio0 44 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led7 {
+			label = "status2:green:usr";
+			gpios = <&gpio0 43 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led8 {
+			label = "status2:yellow:usr";
+			gpios = <&gpio0 42 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led9 {
+			label = "status3:red:usr";
+			gpios = <&gpio0 41 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led10 {
+			label = "status3:green:usr";
+			gpios = <&gpio0 101 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led11 {
+			label = "status3:yellow:usr";
+			gpios = <&gpio0 102 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led12 {
+			label = "status4:green:heartbeat";
+			gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+		};
 	};
 };
 
@@ -133,10 +231,47 @@
 		>;
 	};
 
+	qspi_pins: pinmux_qspi_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1204) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_clk.qspi_clk */
+			K2G_CORE_IOPAD(0x1208) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_rclk.qspi_rclk */
+			K2G_CORE_IOPAD(0x120c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_d0.qspi_d0 */
+			K2G_CORE_IOPAD(0x1210) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_d1.qspi_d1 */
+			K2G_CORE_IOPAD(0x1214) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_d2.qspi_d2 */
+			K2G_CORE_IOPAD(0x1218) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_d3.qspi_d3 */
+			K2G_CORE_IOPAD(0x121c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_csn0.qspi_csn0 */
+		>;
+	};
+
+	i2c0_pins: pinmux_i2c0_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x137c) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c0_scl.i2c0_scl */
+			K2G_CORE_IOPAD(0x1380) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c0_sda.i2c0_sda */
+		>;
+	};
+
 	i2c1_pins: pinmux_i2c1_pins {
 		pinctrl-single,pins = <
 			K2G_CORE_IOPAD(0x1384) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c1_scl.i2c1_scl */
 			K2G_CORE_IOPAD(0x1388) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* i2c1_sda.i2c1_sda */
+		>;
+	};
+
+	user_leds: pinmux_user_leds {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x102c) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_ad11.gpio0_11 */
+			K2G_CORE_IOPAD(0x1030) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_ad12.gpio0_12 */
+			K2G_CORE_IOPAD(0x1034) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_ad13.gpio0_13 */
+			K2G_CORE_IOPAD(0x1038) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_ad14.gpio0_14 */
+			K2G_CORE_IOPAD(0x103c) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_ad15.gpio0_15 */
+			K2G_CORE_IOPAD(0x1040) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_clk.gpio0_16 */
+			K2G_CORE_IOPAD(0x104c) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_wen.gpio0_19 */
+			K2G_CORE_IOPAD(0x10b0) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* dss_data9.gpio0_44 */
+			K2G_CORE_IOPAD(0x10ac) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* dss_data10.gpio0_43 */
+			K2G_CORE_IOPAD(0x10a8) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* dss_data11.gpio0_42 */
+			K2G_CORE_IOPAD(0x10a4) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* dss_data12.gpio0_41 */
+			K2G_CORE_IOPAD(0x11b8) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* spi2_scsn0.gpio0_101 */
+			K2G_CORE_IOPAD(0x11bc) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* spi2_scsn1.gpio0_102 */
 		>;
 	};
 };
@@ -163,6 +298,67 @@
 	status = "okay";
 };
 
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&qspi_pins>;
+	status = "okay";
+
+	flash0: m25p80@0 {
+		compatible = "s25fl256s1", "jedec,spi-nor";
+		reg = <0>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <96000000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		cdns,read-delay = <2>;
+		cdns,tshsl-ns = <500>;
+		cdns,tsd2d-ns = <500>;
+		cdns,tchsh-ns = <119>;
+		cdns,tslch-ns = <119>;
+
+		partition@0 {
+			label = "QSPI.u-boot";
+			reg = <0x00000000 0x00100000>;
+		};
+		partition@1 {
+			label = "QSPI.u-boot-env";
+			reg = <0x00100000 0x00040000>;
+		};
+		partition@2 {
+			label = "QSPI.skern";
+			reg = <0x00140000 0x0040000>;
+		};
+		partition@3 {
+			label = "QSPI.pmmc-firmware";
+			reg = <0x00180000 0x0040000>;
+		};
+		partition@4 {
+			label = "QSPI.kernel";
+			reg = <0x001c0000 0x0800000>;
+		};
+		partition@5 {
+			label = "QSPI.u-boot-spl-os";
+			reg = <0x009c0000 0x0040000>;
+		};
+		partition@6 {
+			label = "QSPI.file-system";
+			reg = <0x00a00000 0x1600000>;
+		};
+	};
+};
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+	status = "okay";
+
+	eeprom@50 {
+		compatible = "atmel,24c256";
+		reg = <0x50>;
+	};
+};
+
 &i2c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_pins>;
@@ -183,4 +379,15 @@
 		solomon,prechargep1 = <2>;
 		solomon,prechargep2 = <13>;
 	};
+
+	pca9536: gpio@41 {
+		compatible = "ti,pca9536";
+		reg = <0x41>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&gpio0 {
+	status = "okay";
 };

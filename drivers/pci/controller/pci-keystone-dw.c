@@ -72,8 +72,6 @@
 /* Config space registers */
 #define DEBUG0				0x728
 
-#define to_keystone_pcie(x)	container_of(x, struct keystone_pcie, pp)
-
 static inline void update_reg_offset_bit_pos(u32 offset, u32 *reg_offset,
 					     u32 *bit_pos)
 {
@@ -83,14 +81,16 @@ static inline void update_reg_offset_bit_pos(u32 offset, u32 *reg_offset,
 
 phys_addr_t ks_dw_pcie_get_msi_addr(struct pcie_port *pp)
 {
-	struct keystone_pcie *ks_pcie = to_keystone_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 
 	return ks_pcie->app.start + MSI_IRQ;
 }
 
 void ks_dw_pcie_handle_msi_irq(struct keystone_pcie *ks_pcie, int offset)
 {
-	struct pcie_port *pp = &ks_pcie->pp;
+	struct dw_pcie *pci = ks_pcie->pci;
+	struct pcie_port *pp = &pci->pp;
 	u32 pending, vector;
 	int src, virq;
 
@@ -104,7 +104,7 @@ void ks_dw_pcie_handle_msi_irq(struct keystone_pcie *ks_pcie, int offset)
 		if (BIT(src) & pending) {
 			vector = offset + (src << 3);
 			virq = irq_linear_revmap(pp->irq_domain, vector);
-			dev_dbg(pp->dev, "irq: bit %d, vector %d, virq %d\n",
+			dev_dbg(pci->dev, "irq: bit %d, vector %d, virq %d\n",
 				src, vector, virq);
 			generic_handle_irq(virq);
 		}
@@ -116,11 +116,13 @@ static void ks_dw_pcie_msi_irq_ack(struct irq_data *d)
 	u32 offset, reg_offset, bit_pos;
 	struct keystone_pcie *ks_pcie;
 	struct msi_desc *msi;
+	struct dw_pcie *pci;
 	struct pcie_port *pp;
 
 	msi = irq_data_get_msi_desc(d);
 	pp = (struct pcie_port *) msi_desc_to_pci_sysdata(msi);
-	ks_pcie = to_keystone_pcie(pp);
+	pci = to_dw_pcie_from_pp(pp);
+	ks_pcie = to_keystone_pcie(pci);
 	offset = d->irq - irq_linear_revmap(pp->irq_domain, 0);
 	update_reg_offset_bit_pos(offset, &reg_offset, &bit_pos);
 
@@ -132,7 +134,8 @@ static void ks_dw_pcie_msi_irq_ack(struct irq_data *d)
 void ks_dw_pcie_msi_set_irq(struct pcie_port *pp, int irq)
 {
 	u32 reg_offset, bit_pos;
-	struct keystone_pcie *ks_pcie = to_keystone_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 
 	update_reg_offset_bit_pos(irq, &reg_offset, &bit_pos);
 	writel(BIT(bit_pos),
@@ -142,7 +145,8 @@ void ks_dw_pcie_msi_set_irq(struct pcie_port *pp, int irq)
 void ks_dw_pcie_msi_clear_irq(struct pcie_port *pp, int irq)
 {
 	u32 reg_offset, bit_pos;
-	struct keystone_pcie *ks_pcie = to_keystone_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 
 	update_reg_offset_bit_pos(irq, &reg_offset, &bit_pos);
 	writel(BIT(bit_pos),
@@ -153,12 +157,14 @@ static void ks_dw_pcie_msi_irq_mask(struct irq_data *d)
 {
 	struct keystone_pcie *ks_pcie;
 	struct msi_desc *msi;
+	struct dw_pcie *pci;
 	struct pcie_port *pp;
 	u32 offset;
 
 	msi = irq_data_get_msi_desc(d);
 	pp = (struct pcie_port *) msi_desc_to_pci_sysdata(msi);
-	ks_pcie = to_keystone_pcie(pp);
+	pci = to_dw_pcie_from_pp(pp);
+	ks_pcie = to_keystone_pcie(pci);
 	offset = d->irq - irq_linear_revmap(pp->irq_domain, 0);
 
 	/* Mask the end point if PVM implemented */
@@ -175,11 +181,13 @@ static void ks_dw_pcie_msi_irq_unmask(struct irq_data *d)
 	struct keystone_pcie *ks_pcie;
 	struct msi_desc *msi;
 	struct pcie_port *pp;
+	struct dw_pcie *pci;
 	u32 offset;
 
 	msi = irq_data_get_msi_desc(d);
 	pp = (struct pcie_port *) msi_desc_to_pci_sysdata(msi);
-	ks_pcie = to_keystone_pcie(pp);
+	pci = to_dw_pcie_from_pp(pp);
+	ks_pcie = to_keystone_pcie(pci);
 	offset = d->irq - irq_linear_revmap(pp->irq_domain, 0);
 
 	/* Mask the end point if PVM implemented */
@@ -214,7 +222,8 @@ static const struct irq_domain_ops ks_dw_pcie_msi_domain_ops = {
 
 int ks_dw_pcie_msi_host_init(struct pcie_port *pp, struct msi_controller *chip)
 {
-	struct keystone_pcie *ks_pcie = to_keystone_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 	int i;
 
 	pp->irq_domain = irq_domain_add_linear(ks_pcie->msi_intc_np,
@@ -222,7 +231,7 @@ int ks_dw_pcie_msi_host_init(struct pcie_port *pp, struct msi_controller *chip)
 					&ks_dw_pcie_msi_domain_ops,
 					chip);
 	if (!pp->irq_domain) {
-		dev_err(pp->dev, "irq domain init failed\n");
+		dev_err(pci->dev, "irq domain init failed\n");
 		return -ENXIO;
 	}
 
@@ -242,7 +251,7 @@ void ks_dw_pcie_enable_legacy_irqs(struct keystone_pcie *ks_pcie)
 
 void ks_dw_pcie_handle_legacy_irq(struct keystone_pcie *ks_pcie, int offset)
 {
-	struct pcie_port *pp = &ks_pcie->pp;
+	struct dw_pcie *pci = ks_pcie->pci;
 	u32 pending;
 	int virq;
 
@@ -250,7 +259,7 @@ void ks_dw_pcie_handle_legacy_irq(struct keystone_pcie *ks_pcie, int offset)
 
 	if (BIT(0) & pending) {
 		virq = irq_linear_revmap(ks_pcie->legacy_irq_domain, offset);
-		dev_dbg(pp->dev, ": irq: irq_offset %d, virq %d\n", offset,
+		dev_dbg(pci->dev, ": irq: irq_offset %d, virq %d\n", offset,
 			virq);
 		generic_handle_irq(virq);
 	}
@@ -354,14 +363,15 @@ static void ks_dw_pcie_clear_dbi_mode(void __iomem *reg_virt)
 
 void ks_dw_pcie_setup_rc_app_regs(struct keystone_pcie *ks_pcie)
 {
-	struct pcie_port *pp = &ks_pcie->pp;
+	struct dw_pcie *pci = ks_pcie->pci;
+	struct pcie_port *pp = &pci->pp;
 	u32 start = pp->mem->start, end = pp->mem->end;
 	int i, tr_size;
 
 	/* Disable BARs for inbound access */
 	ks_dw_pcie_set_dbi_mode(ks_pcie->va_app_base);
-	writel(0, pp->dbi_base + PCI_BASE_ADDRESS_0);
-	writel(0, pp->dbi_base + PCI_BASE_ADDRESS_1);
+	writel(0, pci->dbi_base + PCI_BASE_ADDRESS_0);
+	writel(0, pci->dbi_base + PCI_BASE_ADDRESS_1);
 	ks_dw_pcie_clear_dbi_mode(ks_pcie->va_app_base);
 
 	/* Set outbound translation size per window division */
@@ -402,11 +412,12 @@ static void __iomem *ks_pcie_cfg_setup(struct keystone_pcie *ks_pcie, u8 bus,
 				       unsigned int devfn)
 {
 	u8 device = PCI_SLOT(devfn), function = PCI_FUNC(devfn);
-	struct pcie_port *pp = &ks_pcie->pp;
+	struct dw_pcie *pci = ks_pcie->pci;
+	struct pcie_port *pp = &pci->pp;
 	u32 regval;
 
 	if (bus == 0)
-		return pp->dbi_base;
+		return pci->dbi_base;
 
 	regval = (bus << 16) | (device << 8) | function;
 
@@ -425,25 +436,27 @@ static void __iomem *ks_pcie_cfg_setup(struct keystone_pcie *ks_pcie, u8 bus,
 int ks_dw_pcie_rd_other_conf(struct pcie_port *pp, struct pci_bus *bus,
 			     unsigned int devfn, int where, int size, u32 *val)
 {
-	struct keystone_pcie *ks_pcie = to_keystone_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 	u8 bus_num = bus->number;
 	void __iomem *addr;
 
 	addr = ks_pcie_cfg_setup(ks_pcie, bus_num, devfn);
 
-	return dw_pcie_cfg_read(addr + where, size, val);
+	return dw_pcie_read(addr + where, size, val);
 }
 
 int ks_dw_pcie_wr_other_conf(struct pcie_port *pp, struct pci_bus *bus,
 			     unsigned int devfn, int where, int size, u32 val)
 {
-	struct keystone_pcie *ks_pcie = to_keystone_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 	u8 bus_num = bus->number;
 	void __iomem *addr;
 
 	addr = ks_pcie_cfg_setup(ks_pcie, bus_num, devfn);
 
-	return dw_pcie_cfg_write(addr + where, size, val);
+	return dw_pcie_write(addr + where, size, val);
 }
 
 /**
@@ -453,14 +466,15 @@ int ks_dw_pcie_wr_other_conf(struct pcie_port *pp, struct pci_bus *bus,
  */
 void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 {
-	struct keystone_pcie *ks_pcie = to_keystone_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 
 	/* Configure and set up BAR0 */
 	ks_dw_pcie_set_dbi_mode(ks_pcie->va_app_base);
 
 	/* Enable BAR0 */
-	writel(1, pp->dbi_base + PCI_BASE_ADDRESS_0);
-	writel(SZ_4K - 1, pp->dbi_base + PCI_BASE_ADDRESS_0);
+	writel(1, pci->dbi_base + PCI_BASE_ADDRESS_0);
+	writel(SZ_4K - 1, pci->dbi_base + PCI_BASE_ADDRESS_0);
 
 	ks_dw_pcie_clear_dbi_mode(ks_pcie->va_app_base);
 
@@ -468,15 +482,15 @@ void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 	  * For BAR0, just setting bus address for inbound writes (MSI) should
 	  * be sufficient.  Use physical address to avoid any conflicts.
 	  */
-	writel(ks_pcie->app.start, pp->dbi_base + PCI_BASE_ADDRESS_0);
+	writel(ks_pcie->app.start, pci->dbi_base + PCI_BASE_ADDRESS_0);
 }
 
 /**
  * ks_dw_pcie_link_up() - Check if link up
  */
-int ks_dw_pcie_link_up(struct pcie_port *pp)
+int ks_dw_pcie_link_up(struct dw_pcie *pci)
 {
-	u32 val = readl(pp->dbi_base + DEBUG0);
+	u32 val = readl(pci->dbi_base + DEBUG0);
 
 	return (val & LTSSM_STATE_MASK) == LTSSM_STATE_L0;
 }
@@ -505,26 +519,27 @@ void ks_dw_pcie_initiate_link_train(struct keystone_pcie *ks_pcie)
 int __init ks_dw_pcie_host_init(struct keystone_pcie *ks_pcie,
 				struct device_node *msi_intc_np)
 {
-	struct pcie_port *pp = &ks_pcie->pp;
-	struct platform_device *pdev = to_platform_device(pp->dev);
+	struct dw_pcie *pci = ks_pcie->pci;
+	struct pcie_port *pp = &pci->pp;
+	struct platform_device *pdev = to_platform_device(pci->dev);
 	struct resource *res;
 
 	/* Index 0 is the config reg. space address */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	pp->dbi_base = devm_ioremap_resource(pp->dev, res);
-	if (IS_ERR(pp->dbi_base))
-		return PTR_ERR(pp->dbi_base);
+	pci->dbi_base = devm_ioremap_resource(pci->dev, res);
+	if (IS_ERR(pci->dbi_base))
+		return PTR_ERR(pci->dbi_base);
 
 	/*
 	 * We set these same and is used in pcie rd/wr_other_conf
 	 * functions
 	 */
-	pp->va_cfg0_base = pp->dbi_base + SPACE0_REMOTE_CFG_OFFSET;
+	pp->va_cfg0_base = pci->dbi_base + SPACE0_REMOTE_CFG_OFFSET;
 	pp->va_cfg1_base = pp->va_cfg0_base;
 
 	/* Index 1 is the application reg. space address */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	ks_pcie->va_app_base = devm_ioremap_resource(pp->dev, res);
+	ks_pcie->va_app_base = devm_ioremap_resource(pci->dev, res);
 	if (IS_ERR(ks_pcie->va_app_base))
 		return PTR_ERR(ks_pcie->va_app_base);
 
@@ -537,7 +552,7 @@ int __init ks_dw_pcie_host_init(struct keystone_pcie *ks_pcie,
 					&ks_dw_pcie_legacy_irq_domain_ops,
 					NULL);
 	if (!ks_pcie->legacy_irq_domain) {
-		dev_err(pp->dev, "Failed to add irq domain for legacy irqs\n");
+		dev_err(pci->dev, "Failed to add irq domain for legacy irqs\n");
 		return -EINVAL;
 	}
 

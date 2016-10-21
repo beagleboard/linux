@@ -29,7 +29,7 @@ struct spear13xx_pcie {
 	void __iomem		*app_base;
 	struct phy		*phy;
 	struct clk		*clk;
-	struct pcie_port	pp;
+	struct dw_pcie		*pci;
 	bool			is_gen1;
 };
 
@@ -141,18 +141,19 @@ struct pcie_app_reg {
 
 #define EXP_CAP_ID_OFFSET			0x70
 
-#define to_spear13xx_pcie(x)	container_of(x, struct spear13xx_pcie, pp)
+#define to_spear13xx_pcie(x)	dev_get_drvdata((x)->dev)
 
-static int spear13xx_pcie_establish_link(struct pcie_port *pp)
+static int spear13xx_pcie_establish_link(struct dw_pcie *pci)
 {
 	u32 val;
-	struct spear13xx_pcie *spear13xx_pcie = to_spear13xx_pcie(pp);
+	struct spear13xx_pcie *spear13xx_pcie = to_spear13xx_pcie(pci);
+	struct pcie_port *pp = &pci->pp;
 	struct pcie_app_reg *app_reg = spear13xx_pcie->app_base;
 	u32 exp_cap_off = EXP_CAP_ID_OFFSET;
 	unsigned int retries;
 
-	if (dw_pcie_link_up(pp)) {
-		dev_err(pp->dev, "link already up\n");
+	if (dw_pcie_link_up(pci)) {
+		dev_err(pci->dev, "link already up\n");
 		return 0;
 	}
 
@@ -163,33 +164,33 @@ static int spear13xx_pcie_establish_link(struct pcie_port *pp)
 	 * default value in capability register is 512 bytes. So force
 	 * it to 128 here.
 	 */
-	dw_pcie_cfg_read(pp->dbi_base + exp_cap_off + PCI_EXP_DEVCTL, 2, &val);
+	dw_pcie_read(pci->dbi_base + exp_cap_off + PCI_EXP_DEVCTL, 2, &val);
 	val &= ~PCI_EXP_DEVCTL_READRQ;
-	dw_pcie_cfg_write(pp->dbi_base + exp_cap_off + PCI_EXP_DEVCTL, 2, val);
+	dw_pcie_write(pci->dbi_base + exp_cap_off + PCI_EXP_DEVCTL, 2, val);
 
-	dw_pcie_cfg_write(pp->dbi_base + PCI_VENDOR_ID, 2, 0x104A);
-	dw_pcie_cfg_write(pp->dbi_base + PCI_DEVICE_ID, 2, 0xCD80);
+	dw_pcie_write(pci->dbi_base + PCI_VENDOR_ID, 2, 0x104A);
+	dw_pcie_write(pci->dbi_base + PCI_DEVICE_ID, 2, 0xCD80);
 
 	/*
 	 * if is_gen1 is set then handle it, so that some buggy card
 	 * also works
 	 */
 	if (spear13xx_pcie->is_gen1) {
-		dw_pcie_cfg_read(pp->dbi_base + exp_cap_off + PCI_EXP_LNKCAP,
-					4, &val);
+		dw_pcie_read(pci->dbi_base + exp_cap_off + PCI_EXP_LNKCAP,
+			     4, &val);
 		if ((val & PCI_EXP_LNKCAP_SLS) != PCI_EXP_LNKCAP_SLS_2_5GB) {
 			val &= ~((u32)PCI_EXP_LNKCAP_SLS);
 			val |= PCI_EXP_LNKCAP_SLS_2_5GB;
-			dw_pcie_cfg_write(pp->dbi_base + exp_cap_off +
+			dw_pcie_write(pci->dbi_base + exp_cap_off +
 				PCI_EXP_LNKCAP, 4, val);
 		}
 
-		dw_pcie_cfg_read(pp->dbi_base + exp_cap_off + PCI_EXP_LNKCTL2,
-					2, &val);
+		dw_pcie_read(pci->dbi_base + exp_cap_off + PCI_EXP_LNKCTL2,
+			     2, &val);
 		if ((val & PCI_EXP_LNKCAP_SLS) != PCI_EXP_LNKCAP_SLS_2_5GB) {
 			val &= ~((u32)PCI_EXP_LNKCAP_SLS);
 			val |= PCI_EXP_LNKCAP_SLS_2_5GB;
-			dw_pcie_cfg_write(pp->dbi_base + exp_cap_off +
+			dw_pcie_write(pci->dbi_base + exp_cap_off +
 					PCI_EXP_LNKCTL2, 2, val);
 		}
 	}
@@ -202,21 +203,22 @@ static int spear13xx_pcie_establish_link(struct pcie_port *pp)
 
 	/* check if the link is up or not */
 	for (retries = 0; retries < 10; retries++) {
-		if (dw_pcie_link_up(pp)) {
-			dev_info(pp->dev, "link up\n");
+		if (dw_pcie_link_up(pci)) {
+			dev_info(pci->dev, "link up\n");
 			return 0;
 		}
 		mdelay(100);
 	}
 
-	dev_err(pp->dev, "link Fail\n");
+	dev_err(pci->dev, "link Fail\n");
 	return -EINVAL;
 }
 
 static irqreturn_t spear13xx_pcie_irq_handler(int irq, void *arg)
 {
-	struct pcie_port *pp = arg;
-	struct spear13xx_pcie *spear13xx_pcie = to_spear13xx_pcie(pp);
+	struct spear13xx_pcie *spear13xx_pcie = arg;
+	struct dw_pcie *pci = spear13xx_pcie->pci;
+	struct pcie_port *pp = &pci->pp;
 	struct pcie_app_reg *app_reg = spear13xx_pcie->app_base;
 	unsigned int status;
 
@@ -232,9 +234,10 @@ static irqreturn_t spear13xx_pcie_irq_handler(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
-static void spear13xx_pcie_enable_interrupts(struct pcie_port *pp)
+static void spear13xx_pcie_enable_interrupts(struct dw_pcie *pci)
 {
-	struct spear13xx_pcie *spear13xx_pcie = to_spear13xx_pcie(pp);
+	struct spear13xx_pcie *spear13xx_pcie = to_spear13xx_pcie(pci);
+	struct pcie_port *pp = &pci->pp;
 	struct pcie_app_reg *app_reg = spear13xx_pcie->app_base;
 
 	/* Enable MSI interrupt */
@@ -245,25 +248,15 @@ static void spear13xx_pcie_enable_interrupts(struct pcie_port *pp)
 	}
 }
 
-static int spear13xx_pcie_link_up(struct pcie_port *pp)
-{
-	struct spear13xx_pcie *spear13xx_pcie = to_spear13xx_pcie(pp);
-	struct pcie_app_reg *app_reg = spear13xx_pcie->app_base;
-
-	if (readl(&app_reg->app_status_1) & XMLH_LINK_UP)
-		return 1;
-
-	return 0;
-}
-
 static void spear13xx_pcie_host_init(struct pcie_port *pp)
 {
-	spear13xx_pcie_establish_link(pp);
-	spear13xx_pcie_enable_interrupts(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+
+	spear13xx_pcie_establish_link(pci);
+	spear13xx_pcie_enable_interrupts(pci);
 }
 
-static struct pcie_host_ops spear13xx_pcie_host_ops = {
-	.link_up = spear13xx_pcie_link_up,
+static struct dw_pcie_host_ops spear13xx_pcie_host_ops = {
 	.host_init = spear13xx_pcie_host_init,
 };
 
@@ -298,9 +291,25 @@ static int spear13xx_add_pcie_port(struct pcie_port *pp,
 	return 0;
 }
 
+static int spear13xx_pcie_link_up(struct dw_pcie *pci)
+{
+	struct spear13xx_pcie *spear13xx_pcie = to_spear13xx_pcie(pci);
+	struct pcie_app_reg *app_reg = spear13xx_pcie->app_base;
+
+	if (readl(&app_reg->app_status_1) & XMLH_LINK_UP)
+		return 1;
+
+	return 0;
+}
+
+static struct dw_pcie_ops spear13xx_dw_pcie_ops = {
+	.link_up = spear13xx_pcie_link_up,
+};
+
 static int spear13xx_pcie_probe(struct platform_device *pdev)
 {
 	struct spear13xx_pcie *spear13xx_pcie;
+	struct dw_pcie *pci;
 	struct pcie_port *pp;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = pdev->dev.of_node;
@@ -310,6 +319,13 @@ static int spear13xx_pcie_probe(struct platform_device *pdev)
 	spear13xx_pcie = devm_kzalloc(dev, sizeof(*spear13xx_pcie), GFP_KERNEL);
 	if (!spear13xx_pcie)
 		return -ENOMEM;
+
+	pci = devm_kzalloc(dev, sizeof(*pci), GFP_KERNEL);
+	if (!pci)
+		return -ENOMEM;
+
+	pci->dev = dev;
+	pci->ops = &spear13xx_dw_pcie_ops;
 
 	spear13xx_pcie->phy = devm_phy_get(dev, "pcie-phy");
 	if (IS_ERR(spear13xx_pcie->phy)) {
@@ -334,18 +350,16 @@ static int spear13xx_pcie_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	pp = &spear13xx_pcie->pp;
-
-	pp->dev = dev;
+	pp = &pci->pp;
 
 	dbi_base = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
-	pp->dbi_base = devm_ioremap_resource(dev, dbi_base);
-	if (IS_ERR(pp->dbi_base)) {
+	pci->dbi_base = devm_ioremap_resource(dev, dbi_base);
+	if (IS_ERR(pci->dbi_base)) {
 		dev_err(dev, "couldn't remap dbi base %p\n", dbi_base);
-		ret = PTR_ERR(pp->dbi_base);
+		ret = PTR_ERR(pci->dbi_base);
 		goto fail_clk;
 	}
-	spear13xx_pcie->app_base = pp->dbi_base + 0x2000;
+	spear13xx_pcie->app_base = pci->dbi_base + 0x2000;
 
 	if (of_property_read_bool(np, "st,pcie-is-gen1"))
 		spear13xx_pcie->is_gen1 = true;

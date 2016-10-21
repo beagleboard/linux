@@ -24,13 +24,13 @@
 #define PCIE_LTSSM_LINKUP_STATE                         0x11
 #define PCIE_LTSSM_STATE_MASK                           0x3F
 
-#define to_hisi_pcie(x)	container_of(x, struct hisi_pcie, pp)
+#define to_hisi_pcie(x)	dev_get_drvdata((x)->dev)
 
 struct hisi_pcie {
 	struct regmap *subctrl;
 	void __iomem *reg_base;
 	u32 port_id;
-	struct pcie_port pp;
+	struct dw_pcie *pci;
 };
 
 static inline void hisi_pcie_apb_writel(struct hisi_pcie *pcie,
@@ -50,7 +50,8 @@ static int hisi_pcie_cfg_read(struct pcie_port *pp, int where, int size,
 {
 	u32 reg;
 	u32 reg_val;
-	struct hisi_pcie *pcie = to_hisi_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct hisi_pcie *pcie = to_hisi_pcie(pci);
 	void *walker = &reg_val;
 
 	walker += (where & 0x3);
@@ -75,7 +76,8 @@ static int hisi_pcie_cfg_write(struct pcie_port *pp, int where, int  size,
 {
 	u32 reg_val;
 	u32 reg;
-	struct hisi_pcie *pcie = to_hisi_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct hisi_pcie *pcie = to_hisi_pcie(pci);
 	void *walker = &reg_val;
 
 	walker += (where & 0x3);
@@ -96,21 +98,9 @@ static int hisi_pcie_cfg_write(struct pcie_port *pp, int where, int  size,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static int hisi_pcie_link_up(struct pcie_port *pp)
-{
-	u32 val;
-	struct hisi_pcie *hisi_pcie = to_hisi_pcie(pp);
-
-	regmap_read(hisi_pcie->subctrl, PCIE_SUBCTRL_SYS_STATE4_REG +
-		    0x100 * hisi_pcie->port_id, &val);
-
-	return ((val & PCIE_LTSSM_STATE_MASK) == PCIE_LTSSM_LINKUP_STATE);
-}
-
-static struct pcie_host_ops hisi_pcie_host_ops = {
+static struct dw_pcie_host_ops hisi_pcie_host_ops = {
 	.rd_own_conf = hisi_pcie_cfg_read,
 	.wr_own_conf = hisi_pcie_cfg_write,
-	.link_up = hisi_pcie_link_up,
 };
 
 static int hisi_add_pcie_port(struct pcie_port *pp,
@@ -118,7 +108,8 @@ static int hisi_add_pcie_port(struct pcie_port *pp,
 {
 	int ret;
 	u32 port_id;
-	struct hisi_pcie *hisi_pcie = to_hisi_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct hisi_pcie *hisi_pcie = to_hisi_pcie(pci);
 
 	if (of_property_read_u32(pdev->dev.of_node, "port-id", &port_id)) {
 		dev_err(&pdev->dev, "failed to read port-id\n");
@@ -141,8 +132,24 @@ static int hisi_add_pcie_port(struct pcie_port *pp,
 	return 0;
 }
 
+static int hisi_pcie_link_up(struct dw_pcie *pci)
+{
+	u32 val;
+	struct hisi_pcie *hisi_pcie = to_hisi_pcie(pci);
+
+	regmap_read(hisi_pcie->subctrl, PCIE_SUBCTRL_SYS_STATE4_REG +
+		    0x100 * hisi_pcie->port_id, &val);
+
+	return ((val & PCIE_LTSSM_STATE_MASK) == PCIE_LTSSM_LINKUP_STATE);
+}
+
+static const struct dw_pcie_ops hisi_dw_pcie_ops = {
+	.link_up = hisi_pcie_link_up,
+};
+
 static int hisi_pcie_probe(struct platform_device *pdev)
 {
+	struct dw_pcie *pci;
 	struct hisi_pcie *hisi_pcie;
 	struct pcie_port *pp;
 	struct resource *reg;
@@ -152,24 +159,31 @@ static int hisi_pcie_probe(struct platform_device *pdev)
 	if (!hisi_pcie)
 		return -ENOMEM;
 
-	pp = &hisi_pcie->pp;
-	pp->dev = &pdev->dev;
+	pci = devm_kzalloc(&pdev->dev, sizeof(*pci), GFP_KERNEL);
+	if (!pci)
+		return -ENOMEM;
+
+	pci->dev = &pdev->dev;
+	pci->ops = &hisi_dw_pcie_ops;
+
+	pp = &pci->pp;
 
 	hisi_pcie->subctrl =
 	syscon_regmap_lookup_by_compatible("hisilicon,pcie-sas-subctrl");
 	if (IS_ERR(hisi_pcie->subctrl)) {
-		dev_err(pp->dev, "cannot get subctrl base\n");
+		dev_err(pci->dev, "cannot get subctrl base\n");
 		return PTR_ERR(hisi_pcie->subctrl);
 	}
 
 	reg = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rc_dbi");
 	hisi_pcie->reg_base = devm_ioremap_resource(&pdev->dev, reg);
 	if (IS_ERR(hisi_pcie->reg_base)) {
-		dev_err(pp->dev, "cannot get rc_dbi base\n");
+		dev_err(pci->dev, "cannot get rc_dbi base\n");
 		return PTR_ERR(hisi_pcie->reg_base);
 	}
 
-	hisi_pcie->pp.dbi_base = hisi_pcie->reg_base;
+	hisi_pcie->pci = pci;
+	hisi_pcie->pci->dbi_base = hisi_pcie->reg_base;
 
 	ret = hisi_add_pcie_port(pp, pdev);
 	if (ret)
@@ -177,7 +191,7 @@ static int hisi_pcie_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, hisi_pcie);
 
-	dev_warn(pp->dev, "only 32-bit config accesses supported; smaller writes may corrupt adjacent RW1C fields\n");
+	dev_warn(pci->dev, "only 32-bit config accesses supported; smaller writes may corrupt adjacent RW1C fields\n");
 
 	return 0;
 }
