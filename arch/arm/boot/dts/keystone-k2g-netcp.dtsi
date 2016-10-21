@@ -108,8 +108,9 @@ netcp: netcp@4000000 {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	power-domains = <&k2g_pds K2G_DEV_NSS0>;
-	clocks = <&k2g_clks K2G_DEV_NSS0 K2G_DEV_NSS_ESW_CLK>;
-	clock-names = "ethss_clk";
+	clocks = <&k2g_clks K2G_DEV_NSS0 K2G_DEV_NSS_ESW_CLK>,
+		 <&k2g_clks K2G_DEV_NSS0 K2G_DEV_NSS_CPTS_NSS_PLL>;
+	clock-names = "ethss_clk", "cpts";
 
 	/* NetCP address range */
 	ranges = <0 0x4000000 0x1000000>;
@@ -123,14 +124,16 @@ netcp: netcp@4000000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		gbe@200000 {
+		gbe: gbe@200000 {
 			label = "netcp-gbe";
 			compatible = "ti,netcp-gbe-2";
 			syscon-subsys = <&gbe_subsys>;
 			reg = <0x200100 0xe00>, <0x220000 0x20000>;
-			/* enable-ale; */
+			enable-ale;
 			tx-queue = <5>;
 			tx-channel = "nettx";
+			cpts-rftclk-sel = <0>;
+			cpts-ext-ts-inputs = <8>;
 
 			interfaces {
 				gbe0: interface-0 {

@@ -305,7 +305,7 @@
 			clocks = <&k2g_clks K2G_DEV_USB1 K2G_DEV_USB_BUS_CLK>;
 			clock-names = "usb";
 
-			usb1: usb@2690000 {
+			usb1: usb@2590000 {
 				compatible = "synopsys,dwc3";
 				reg = <0x2590000 0x10000>;
 				interrupts = <GIC_SPI 144 IRQ_TYPE_EDGE_RISING>;
@@ -353,6 +353,8 @@
 			gpmc,num-cs = <4>;
 			gpmc,num-waitpins = <2>;
 			status = "disabled";
+			dmas = <&edma1 31 0>;
+			dma-names = "rxtx";
 			power-domains = <&k2g_pds K2G_DEV_GPMC0>;
 			clocks = <&k2g_clks K2G_DEV_GPMC0 K2G_DEV_GPMC_GPMC_FCLK>;
 			clock-names = "fck";
@@ -576,6 +578,17 @@
 				interrupts = <18>, <19>;
 				interrupt-names = "vring", "kick";
 			};
+
+			pruss0_mdio: mdio@20ab2400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0x20ab2400 0x90>;
+				clocks = <&k2g_clks K2G_DEV_ICSS0 K2G_DEV_ICSS_CORE_CLK>;
+				clock-names = "fck";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				bus_freq = <2500000>;
+				status = "disabled";
+			};
 		};
 
 		pruss1: pruss@20ac0000 {
@@ -633,6 +646,17 @@
 				interrupt-parent = <&pruss1_intc>;
 				interrupts = <18>, <19>;
 				interrupt-names = "vring", "kick";
+			};
+
+			pruss1_mdio: mdio@20af2400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0x20af2400 0x90>;
+				clocks = <&k2g_clks K2G_DEV_ICSS1 K2G_DEV_ICSS_CORE_CLK>;
+				clock-names = "fck";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				bus_freq = <2500000>;
+				status = "disabled";
 			};
 		};
 

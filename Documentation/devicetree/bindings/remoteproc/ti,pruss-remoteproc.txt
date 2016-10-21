@@ -169,7 +169,8 @@ property is not applicable for K2G SoC.
                          "kick"  - for HOST to PRU virtqueue signalling
 - ti,pruss-gp-mux-sel : integer value of the GP MUX mode needed by an
                         application to be run on a PRU. Currently to be used
-                        _only_ for PRU Ethernet usecase on AM571x IDK board.
+                        _only_ for PRU Ethernet usecase on AM571x IDK board
+                        and K2G ICE EVM boards.
 
 MDIO Child Node
 ================

@@ -1844,9 +1844,9 @@ static int omap_nand_probe(struct platform_device *pdev)
 		sig = OMAP24XX_DMA_GPMC;
 		info->dma = dma_request_chan(pdev->dev.parent, "rxtx");
 
-		if (!info->dma) {
+		if (IS_ERR(info->dma)) {
 			dev_err(&pdev->dev, "DMA engine request failed\n");
-			err = -ENXIO;
+			err = PTR_ERR(info->dma);
 			goto return_error;
 		} else {
 			struct dma_slave_config cfg;
@@ -2149,7 +2149,7 @@ scan_tail:
 	return 0;
 
 return_error:
-	if (info->dma)
+	if (!IS_ERR_OR_NULL(info->dma))
 		dma_release_channel(info->dma);
 	if (nand_chip->ecc.priv) {
 		nand_bch_free(nand_chip->ecc.priv);

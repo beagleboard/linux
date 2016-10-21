@@ -1321,9 +1321,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
 		 */
 		cpsw_info(priv, ifup, "submitted %d rx descriptors\n", i);
 
-		if (cpts_register(cpsw->dev, cpsw->cpts,
-				  cpsw->data.cpts_clock_mult,
-				  cpsw->data.cpts_clock_shift))
+		if (cpts_register(cpsw->cpts))
 			dev_err(priv->dev, "error registering cpts device\n");
 
 	}
@@ -1391,7 +1389,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 	}
 
 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
-				cpsw->cpts->tx_enable)
+	    cpts_is_tx_enabled(cpsw->cpts))
 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 
 	skb_tx_timestamp(skb);
@@ -1415,14 +1413,15 @@ fail:
 	return NETDEV_TX_BUSY;
 }
 
-#ifdef CONFIG_TI_CPTS
+#if IS_ENABLED(CONFIG_TI_CPTS)
 
 static void cpsw_hwtstamp_v1(struct cpsw_common *cpsw)
 {
 	struct cpsw_slave *slave = &cpsw->slaves[cpsw->data.active_slave];
 	u32 ts_en, seq_id;
 
-	if (!cpsw->cpts->tx_enable && !cpsw->cpts->rx_enable) {
+	if (!cpts_is_tx_enabled(cpsw->cpts) &&
+	    !cpts_is_rx_enabled(cpsw->cpts)) {
 		slave_write(slave, 0, CPSW1_TS_CTL);
 		return;
 	}
@@ -1430,10 +1429,10 @@ static void cpsw_hwtstamp_v1(struct cpsw_common *cpsw)
 	seq_id = (30 << CPSW_V1_SEQ_ID_OFS_SHIFT) | ETH_P_1588;
 	ts_en = EVENT_MSG_BITS << CPSW_V1_MSG_TYPE_OFS;
 
-	if (cpsw->cpts->tx_enable)
+	if (cpts_is_tx_enabled(cpsw->cpts))
 		ts_en |= CPSW_V1_TS_TX_EN;
 
-	if (cpsw->cpts->rx_enable)
+	if (cpts_is_rx_enabled(cpsw->cpts))
 		ts_en |= CPSW_V1_TS_RX_EN;
 
 	slave_write(slave, ts_en, CPSW1_TS_CTL);
@@ -1456,20 +1455,20 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
 	case CPSW_VERSION_2:
 		ctrl &= ~CTRL_V2_ALL_TS_MASK;
 
-		if (cpsw->cpts->tx_enable)
+		if (cpts_is_tx_enabled(cpsw->cpts))
 			ctrl |= CTRL_V2_TX_TS_BITS;
 
-		if (cpsw->cpts->rx_enable)
+		if (cpts_is_rx_enabled(cpsw->cpts))
 			ctrl |= CTRL_V2_RX_TS_BITS;
 		break;
 	case CPSW_VERSION_3:
 	default:
 		ctrl &= ~CTRL_V3_ALL_TS_MASK;
 
-		if (cpsw->cpts->tx_enable)
+		if (cpts_is_tx_enabled(cpsw->cpts))
 			ctrl |= CTRL_V3_TX_TS_BITS;
 
-		if (cpsw->cpts->rx_enable)
+		if (cpts_is_rx_enabled(cpsw->cpts))
 			ctrl |= CTRL_V3_RX_TS_BITS;
 		break;
 	}
@@ -1505,7 +1504,7 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 
 	switch (cfg.rx_filter) {
 	case HWTSTAMP_FILTER_NONE:
-		cpts->rx_enable = 0;
+		cpts_rx_enable(cpts, 0);
 		break;
 	case HWTSTAMP_FILTER_ALL:
 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
@@ -1521,14 +1520,14 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
-		cpts->rx_enable = 1;
+		cpts_rx_enable(cpts, 1);
 		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
 		break;
 	default:
 		return -ERANGE;
 	}
 
-	cpts->tx_enable = cfg.tx_type == HWTSTAMP_TX_ON;
+	cpts_tx_enable(cpts, cfg.tx_type == HWTSTAMP_TX_ON);
 
 	switch (cpsw->version) {
 	case CPSW_VERSION_1:
@@ -1557,13 +1556,23 @@ static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
 		return -EOPNOTSUPP;
 
 	cfg.flags = 0;
-	cfg.tx_type = cpts->tx_enable ? HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
-	cfg.rx_filter = (cpts->rx_enable ?
+	cfg.tx_type = cpts_is_tx_enabled(cpts) ?
+		      HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
+	cfg.rx_filter = (cpts_is_rx_enabled(cpts) ?
 			 HWTSTAMP_FILTER_PTP_V2_EVENT : HWTSTAMP_FILTER_NONE);
 
 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
 }
+#else
+static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
+{
+	return -EOPNOTSUPP;
+}
 
+static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
+{
+	return -EOPNOTSUPP;
+}
 #endif /*CONFIG_TI_CPTS*/
 
 static int cpsw_set_port_state(struct cpsw_priv *priv, int port,
@@ -1851,12 +1860,10 @@ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 		return -EINVAL;
 
 	switch (cmd) {
-#ifdef CONFIG_TI_CPTS
 	case SIOCSHWTSTAMP:
 		return cpsw_hwtstamp_set(dev, req);
 	case SIOCGHWTSTAMP:
 		return cpsw_hwtstamp_get(dev, req);
-#endif
 	case SIOCSWITCHCONFIG:
 		return cpsw_switch_config_ioctl(dev, req, cmd);
 	}
@@ -2110,10 +2117,10 @@ static void cpsw_set_msglevel(struct net_device *ndev, u32 value)
 	priv->msg_enable = value;
 }
 
+#if IS_ENABLED(CONFIG_TI_CPTS)
 static int cpsw_get_ts_info(struct net_device *ndev,
 			    struct ethtool_ts_info *info)
 {
-#ifdef CONFIG_TI_CPTS
 	struct cpsw_common *cpsw = ndev_to_cpsw(ndev);
 
 	info->so_timestamping =
@@ -2130,7 +2137,12 @@ static int cpsw_get_ts_info(struct net_device *ndev,
 	info->rx_filters =
 		(1 << HWTSTAMP_FILTER_NONE) |
 		(1 << HWTSTAMP_FILTER_PTP_V2_EVENT);
+	return 0;
+}
 #else
+static int cpsw_get_ts_info(struct net_device *ndev,
+			    struct ethtool_ts_info *info)
+{
 	info->so_timestamping =
 		SOF_TIMESTAMPING_TX_SOFTWARE |
 		SOF_TIMESTAMPING_RX_SOFTWARE |
@@ -2138,9 +2150,10 @@ static int cpsw_get_ts_info(struct net_device *ndev,
 	info->phc_index = -1;
 	info->tx_types = 0;
 	info->rx_filters = 0;
-#endif
 	return 0;
 }
+#endif
+
 
 static int cpsw_get_settings(struct net_device *ndev,
 			     struct ethtool_cmd *ecmd)
@@ -2298,18 +2311,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
 		return -EINVAL;
 	}
 	data->active_slave = prop;
-
-	if (of_property_read_u32(node, "cpts_clock_mult", &prop)) {
-		dev_err(&pdev->dev, "Missing cpts_clock_mult property in the DT.\n");
-		return -EINVAL;
-	}
-	data->cpts_clock_mult = prop;
-
-	if (of_property_read_u32(node, "cpts_clock_shift", &prop)) {
-		dev_err(&pdev->dev, "Missing cpts_clock_shift property in the DT.\n");
-		return -EINVAL;
-	}
-	data->cpts_clock_shift = prop;
 
 	data->slave_data = devm_kzalloc(&pdev->dev, data->slaves
 					* sizeof(struct cpsw_slave_data),
@@ -2540,6 +2541,7 @@ static int cpsw_probe(struct platform_device *pdev)
 	struct cpdma_params		dma_params;
 	struct cpsw_ale_params		ale_params;
 	void __iomem			*ss_regs;
+	void __iomem			*cpts_regs;
 	struct resource			*res, *ss_res;
 	const struct of_device_id	*of_id;
 	struct gpio_descs		*mode;
@@ -2564,12 +2566,6 @@ static int cpsw_probe(struct platform_device *pdev)
 	priv->dev  = &ndev->dev;
 	priv->msg_enable = netif_msg_init(debug_level, CPSW_DEBUG);
 	cpsw->rx_packet_max = max(rx_packet_max, 128);
-	cpsw->cpts = devm_kzalloc(&pdev->dev, sizeof(struct cpts), GFP_KERNEL);
-	if (!cpsw->cpts) {
-		dev_err(&pdev->dev, "error allocating cpts\n");
-		ret = -ENOMEM;
-		goto clean_ndev_ret;
-	}
 
 	mode = devm_gpiod_get_array_optional(&pdev->dev, "mode", GPIOD_OUT_LOW);
 	if (IS_ERR(mode)) {
@@ -2656,7 +2652,7 @@ static int cpsw_probe(struct platform_device *pdev)
 	switch (cpsw->version) {
 	case CPSW_VERSION_1:
 		cpsw->host_port_regs = ss_regs + CPSW1_HOST_PORT_OFFSET;
-		cpsw->cpts->reg      = ss_regs + CPSW1_CPTS_OFFSET;
+		cpts_regs		= ss_regs + CPSW1_CPTS_OFFSET;
 		cpsw->hw_stats	     = ss_regs + CPSW1_HW_STATS;
 		dma_params.dmaregs   = ss_regs + CPSW1_CPDMA_OFFSET;
 		dma_params.txhdp     = ss_regs + CPSW1_STATERAM_OFFSET;
@@ -2670,7 +2666,7 @@ static int cpsw_probe(struct platform_device *pdev)
 	case CPSW_VERSION_3:
 	case CPSW_VERSION_4:
 		cpsw->host_port_regs = ss_regs + CPSW2_HOST_PORT_OFFSET;
-		cpsw->cpts->reg      = ss_regs + CPSW2_CPTS_OFFSET;
+		cpts_regs		= ss_regs + CPSW2_CPTS_OFFSET;
 		cpsw->hw_stats	     = ss_regs + CPSW2_HW_STATS;
 		dma_params.dmaregs   = ss_regs + CPSW2_CPDMA_OFFSET;
 		dma_params.txhdp     = ss_regs + CPSW2_STATERAM_OFFSET;
@@ -2738,6 +2734,12 @@ static int cpsw_probe(struct platform_device *pdev)
 		dev_err(priv->dev, "error initializing ale engine\n");
 		ret = -ENODEV;
 		goto clean_dma_ret;
+	}
+
+	cpsw->cpts = cpts_create(cpsw->dev, cpts_regs, cpsw->dev->of_node);
+	if (IS_ERR(cpsw->cpts)) {
+		ret = PTR_ERR(cpsw->cpts);
+		goto clean_ale_ret;
 	}
 
 	ndev->irq = platform_get_irq(pdev, 1);
@@ -2848,6 +2850,7 @@ static int cpsw_remove(struct platform_device *pdev)
 		unregister_netdev(cpsw->slaves[1].ndev);
 	unregister_netdev(ndev);
 
+	cpts_release(cpsw->cpts);
 	cpsw_ale_destroy(cpsw->ale);
 	cpdma_ctlr_destroy(cpsw->dma);
 	of_platform_depopulate(&pdev->dev);
