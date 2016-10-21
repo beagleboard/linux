@@ -6,6 +6,7 @@ Required properties:
                         "ti,am3359-prueth" for AM335x SoCs
                         "ti,am4372-prueth" for AM437x SoCs
                         "ti,am57-prueth" for AM57xx SoCs
+                        "ti,k2g-prueth" for 66AK2G SoCs
 
 - pruss            : Must point to a pruss device node
 - sram	           : pHandle to OCMC SRAM node

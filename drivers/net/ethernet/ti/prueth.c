@@ -1867,6 +1867,7 @@ static const struct of_device_id prueth_dt_match[] = {
 	{ .compatible = "ti,am57-prueth", },
 	{ .compatible = "ti,am4372-prueth", },
 	{ .compatible = "ti,am3359-prueth", },
+	{ .compatible = "ti,k2g-prueth", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, prueth_dt_match);

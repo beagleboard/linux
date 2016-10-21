@@ -1,0 +1,25 @@
+#
+# PCI Endpoint Support
+#
+
+menu "PCI Endpoint"
+
+config PCI_ENDPOINT
+	tristate "PCI Endpoint Support"
+	select CONFIGFS_FS
+	help
+	   Enable this configuration option to support configurable PCI
+	   endpoint. This should be enabled if the platform has a PCI
+	   controller that can operate in endpoint mode.
+
+	   Enabling this option will build the endpoint library, which
+	   includes endpoint controller library and endpoint function
+	   library. This will also enable the configfs entry required to
+	   configure the endpoint function and used to bind the
+	   function with a endpoint controller.
+
+	   If in doubt, say "N" to disable Endpoint support.
+
+source "drivers/pci/endpoint/functions/Kconfig"
+
+endmenu
