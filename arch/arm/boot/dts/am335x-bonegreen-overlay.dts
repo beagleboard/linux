@@ -9,7 +9,7 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
-#include "am33xx-overlay-edma-fix.dtsi"
+/* #include "am33xx-overlay-edma-fix.dtsi" */
 
 /* pruss: pick one: */
 
@@ -46,6 +46,17 @@
 	vmmc-supply = <&vmmcsd_fixed>;
 };
 
+&cpu0_opp_table {
+	/*
+	 * All PG 2.0 silicon may not support 1GHz but some of the early
+	 * BeagleBone Blacks have PG 2.0 silicon which is guaranteed
+	 * to support 1GHz OPP so enable it for PG 2.0 on this board.
+	 */
+	oppnitro@1000000000 {
+		opp-supported-hw = <0x06 0x0100>;
+	};
+};
+
 /* EMMC in reset */
 &gpio1 {
 	emmc_rst {
@@ -54,8 +65,4 @@
 		output-high;
 		line-name = "EMMC ResetN";
 	};
-};
-
-&rtc {
-	system-power-controller;
 };
