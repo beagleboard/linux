@@ -14,6 +14,16 @@
 #include <dt-bindings/board/am335x-bbw-bbb-base.h>
 #include <dt-bindings/pinctrl/am33xx.h>
 
+/*
+ * /etc/modprobe.d/pruss-blacklist.conf
+ *
+ * blacklist pruss
+ * blacklist pruss_intc
+ * blacklist pru-rproc
+ */
+
+#include "am33xx-pruss-uio.dtsi"
+
 / {
 	model = "TI AM335x BeagleBone Black";
 	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
