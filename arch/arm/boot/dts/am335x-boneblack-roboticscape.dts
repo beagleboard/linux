@@ -1,0 +1,445 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+ /******************************************************************************
+ * This device tree serves to replace the need for an overlay when using
+ * the RoboticsCape. It is similar to the boneblue tree but preserves
+ * pin config for the black.
+ ******************************************************************************/
+
+
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common-no-capemgr.dtsi"
+#include "am335x-bone-common-universal-pins.dtsi"
+#include "am33xx-pruss-rproc.dtsi"
+
+/ {
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&mmc2 {
+	vmmc-supply = <&vmmcsd_fixed>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&emmc_pins>;
+	bus-width = <8>;
+	status = "okay";
+};
+
+&cpu0_opp_table {
+	/*
+	 * All PG 2.0 silicon may not support 1GHz but some of the early
+	 * BeagleBone Blacks have PG 2.0 silicon which is guaranteed
+	 * to support 1GHz OPP so enable it for PG 2.0 on this board.
+	 */
+	oppnitro@1000000000 {
+		opp-supported-hw = <0x06 0x0100>;
+	};
+};
+
+/*******************************************************************************
+* Pin Muxing
+* Unlike Cape overlay, only a few GPIO pins are set up here. Therest are
+* configured by the remaining fragements as references to
+* am335x-bone-common-universal-pins.dtsi
+*******************************************************************************/
+&am33xx_pinmux {
+
+	mux_helper_pins: pins {
+		pinctrl-single,pins = <
+
+			/* GPIO Input Pullup */
+			0x09c 0x37	/*P8.9  T6  PAUSE_BTN */
+			0x098 0x37	/*P8.10 U6  MODE_BTN  */
+			0x1AC 0x37	/*P9.25 A14 IMU_INT   */
+
+			/* LEDs*/
+			0x090 0x0F	/* P8.7 R7 LED_RED */
+			0x094 0x0F	/* P8.8 T7 LED_GREEN */
+			0x028 0x0F	/*P8.14 T11 BATT_LED_4 */
+			0x02C 0x0F	/*P8.17 U12 BATT_LED_1 */
+			0x08c 0x0F	/*P8.18 V12 BATT_LED_2 */
+			0x07c 0x0F	/*P8.26 V6  BATT_LED_3 */
+		>;
+	};
+
+};
+
+
+/*******************************************************************************
+* Activate the above list of mux_help_pins
+* and enable userspace control of other pins we wish to be configurable
+*******************************************************************************/
+&ocp {
+
+	test_helper: helper {
+		compatible = "bone-pinmux-helper";
+		pinctrl-names = "default";
+		pinctrl-0 = <&mux_helper_pins>;
+
+		status = "okay";
+	};
+
+	/* DSM2 Pins */
+	P9_11_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart";
+
+		pinctrl-0 = <&P9_11_default_pin>;
+		pinctrl-1 = <&P9_11_gpio_pin>;
+		pinctrl-2 = <&P9_11_gpio_pu_pin>;
+		pinctrl-3 = <&P9_11_gpio_pd_pin>;
+		pinctrl-4 = <&P9_11_uart_pin>;
+	};
+
+	/* GPS UART header pins */
+	P9_21_pinmux {
+        compatible = "bone-pinmux-helper";
+        status = "okay";
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm";
+        pinctrl-0 = <&P9_21_default_pin>;
+        pinctrl-1 = <&P9_21_gpio_pin>;
+        pinctrl-2 = <&P9_21_gpio_pu_pin>;
+        pinctrl-3 = <&P9_21_gpio_pd_pin>;
+        pinctrl-4 = <&P9_21_spi_pin>;
+        pinctrl-5 = <&P9_21_uart_pin>;
+        pinctrl-6 = <&P9_21_i2c_pin>;
+        pinctrl-7 = <&P9_21_pwm_pin>;
+    };
+
+    P9_22_pinmux {
+        compatible = "bone-pinmux-helper";
+        status = "okay";
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm";
+        pinctrl-0 = <&P9_22_default_pin>;
+        pinctrl-1 = <&P9_22_gpio_pin>;
+        pinctrl-2 = <&P9_22_gpio_pu_pin>;
+        pinctrl-3 = <&P9_22_gpio_pd_pin>;
+        pinctrl-4 = <&P9_22_spi_pin>;
+        pinctrl-5 = <&P9_22_uart_pin>;
+        pinctrl-6 = <&P9_22_i2c_pin>;
+        pinctrl-7 = <&P9_22_pwm_pin>;
+    };
+
+    /* SPI Header Pins */
+	P9_28_pinmux {
+        compatible = "bone-pinmux-helper";
+        status = "okay";
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pwm2", "pruout", "pruin";
+        pinctrl-0 = <&P9_28_default_pin>;
+        pinctrl-1 = <&P9_28_gpio_pin>;
+        pinctrl-2 = <&P9_28_gpio_pu_pin>;
+        pinctrl-3 = <&P9_28_gpio_pd_pin>;
+        pinctrl-4 = <&P9_28_pwm_pin>;
+        pinctrl-5 = <&P9_28_spi_pin>;
+        pinctrl-6 = <&P9_28_pwm2_pin>;
+        pinctrl-7 = <&P9_28_pruout_pin>;
+        pinctrl-8 = <&P9_28_pruin_pin>;
+    };
+
+    P9_29_pinmux {
+        compatible = "bone-pinmux-helper";
+        status = "okay";
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pruout", "pruin";
+        pinctrl-0 = <&P9_29_default_pin>;
+        pinctrl-1 = <&P9_29_gpio_pin>;
+        pinctrl-2 = <&P9_29_gpio_pu_pin>;
+        pinctrl-3 = <&P9_29_gpio_pd_pin>;
+        pinctrl-4 = <&P9_29_pwm_pin>;
+        pinctrl-5 = <&P9_29_spi_pin>;
+        pinctrl-6 = <&P9_29_pruout_pin>;
+        pinctrl-7 = <&P9_29_pruin_pin>;
+    };
+
+    P9_30_pinmux {
+        compatible = "bone-pinmux-helper";
+        status = "okay";
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pruout", "pruin";
+        pinctrl-0 = <&P9_30_default_pin>;
+        pinctrl-1 = <&P9_30_gpio_pin>;
+        pinctrl-2 = <&P9_30_gpio_pu_pin>;
+        pinctrl-3 = <&P9_30_gpio_pd_pin>;
+        pinctrl-4 = <&P9_30_pwm_pin>;
+        pinctrl-5 = <&P9_30_spi_pin>;
+        pinctrl-6 = <&P9_30_pruout_pin>;
+        pinctrl-7 = <&P9_30_pruin_pin>;
+    };
+
+    P9_31_pinmux {
+        compatible = "bone-pinmux-helper";
+        status = "okay";
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pruout", "pruin";
+        pinctrl-0 = <&P9_31_default_pin>;
+        pinctrl-1 = <&P9_31_gpio_pin>;
+        pinctrl-2 = <&P9_31_gpio_pu_pin>;
+        pinctrl-3 = <&P9_31_gpio_pd_pin>;
+        pinctrl-4 = <&P9_31_pwm_pin>;
+        pinctrl-5 = <&P9_31_spi_pin>;
+        pinctrl-6 = <&P9_31_pruout_pin>;
+        pinctrl-7 = <&P9_31_pruin_pin>;
+    };
+
+    /* uart 1 / can */
+     P9_24_pinmux {
+        compatible = "bone-pinmux-helper";
+        status = "okay";
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c",  "pruin";
+        pinctrl-0 = <&P9_24_default_pin>;
+        pinctrl-1 = <&P9_24_gpio_pin>;
+        pinctrl-2 = <&P9_24_gpio_pu_pin>;
+        pinctrl-3 = <&P9_24_gpio_pd_pin>;
+        pinctrl-4 = <&P9_24_uart_pin>;
+        pinctrl-5 = <&P9_24_can_pin>;
+        pinctrl-6 = <&P9_24_i2c_pin>;
+        pinctrl-7 = <&P9_24_pruin_pin>;
+    };
+
+    P9_26_pinmux {
+        compatible = "bone-pinmux-helper";
+        status = "okay";
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c",  "pruin";
+        pinctrl-0 = <&P9_26_default_pin>;
+        pinctrl-1 = <&P9_26_gpio_pin>;
+        pinctrl-2 = <&P9_26_gpio_pu_pin>;
+        pinctrl-3 = <&P9_26_gpio_pd_pin>;
+        pinctrl-4 = <&P9_26_uart_pin>;
+        pinctrl-5 = <&P9_26_can_pin>;
+        pinctrl-6 = <&P9_26_i2c_pin>;
+        pinctrl-7 = <&P9_26_pruin_pin>;
+    };
+
+
+};
+
+
+/*******************************************************************************
+* PWMSS
+*******************************************************************************/
+&epwmss0 {
+	status = "okay";
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&epwmss2 {
+	status = "okay";
+};
+
+&ehrpwm0 {
+	status = "okay";
+};
+
+/*******************************************************************************
+* PWM and Motor GPIO Pins
+*******************************************************************************/
+&ehrpwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P9_14_pwm_pin /*PWM_1A*/
+		&P9_16_pwm_pin /*PWM_1B*/
+		&P9_12_gpio_pin	/*MDIR_1A*/
+		&P9_13_gpio_pin	/*MDIR_1B*/
+		&P9_14_gpio_pin	/*PWM_1A*/
+		&P9_15_gpio_pin	/*MDIR_2A*/
+		&P8_34_gpio_pin	/*MDIR_2B*/
+		&P9_41_gpio_pin	/*MOT_STBY*/
+	>;
+	status = "okay";
+};
+
+&ehrpwm2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P8_19_pwm_pin 	/*PWM_2A*/
+		&P8_13_pwm_pin  /*PWM_2B*/
+		&P8_43_gpio_pin	/*MDIR_3B*/
+		&P8_44_gpio_pin	/*MDIR_3A*/
+		&P8_45_gpio_pin	/*MDIR_4A*/
+		&P8_46_gpio_pin	/*MDIR_4B*/
+	>;
+	status = "okay";
+};
+
+/*******************************************************************************
+* EQEP
+*******************************************************************************/
+&eqep0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P9_92_qep_pin
+		&P9_27_qep_pin
+	>;
+
+	count_mode = <0>;  /* 0 - Quadrature mode, normal 90 phase offset cha & chb.  1 - Direction mode.  cha input = clock, chb input = direction */
+	swap_inputs = <0>; /* Are channel A and channel B swapped? (0 - no, 1 - yes) */
+	invert_qa = <1>;   /* Should we invert the channel A input?  */
+	invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
+	invert_qi = <0>;   /* Should we invert the index input? */
+	invert_qs = <0>;   /* Should we invert the strobe input? */
+
+	status = "okay";
+};
+
+&eqep1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P8_33_qep_pin
+		&P8_35_qep_pin
+	>;
+
+	count_mode = <0>;  /* 0 - Quadrature mode, normal 90 phase offset cha & chb.  1 - Direction mode.  cha input = clock, chb input = direction */
+	swap_inputs = <0>; /* Are channel A and channel B swapped? (0 - no, 1 - yes) */
+	invert_qa = <1>;   /* Should we invert the channel A input?  */
+	invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
+	invert_qi = <0>;   /* Should we invert the index input? */
+	invert_qs = <0>;   /* Should we invert the strobe input? */
+
+	status = "okay";
+};
+
+&eqep2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&P8_12_qep_pin &P8_11_qep_pin>;
+
+	count_mode = <0>;  /* 0 - Quadrature mode, normal 90 phase offset cha & chb.  1 - Direction mode.  cha input = clock, chb input = direction */
+	swap_inputs = <0>; /* Are channel A and channel B swapped? (0 - no, 1 - yes) */
+	invert_qa = <1>;   /* Should we invert the channel A input?  */
+	invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
+	invert_qi = <0>;   /* Should we invert the index input? */
+	invert_qs = <0>;   /* Should we invert the strobe input? */
+
+	status = "okay";
+};
+
+
+/*******************************************************************************
+* UART
+*******************************************************************************/
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P9_24_uart_pin	/* uart1_txd */
+		&P9_26_uart_pin	/* uart1_rxd */
+	>;
+	status = "okay";
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P9_21_uart_pin	/* uart2_txd */
+		&P9_22_uart_pin	/* uart2_rxd */
+	>;
+	status = "okay";
+};
+
+&uart4 {
+	status = "okay";
+};
+
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P8_37_uart_pin	/* uart5_txd */
+		&P8_38_uart_pin	/* uart5_rxd */
+	>;
+	status = "okay";
+};
+
+
+/*******************************************************************************
+* PRU Encoder and Servos
+*******************************************************************************/
+&pruss {
+	pinctrl-0 = <
+		&P8_15_pruin_pin 	/* PRU_ENCODER_B */
+		&P8_16_pruin_pin 	/* PRU_ENCODER_A */
+		&P8_27_pruout_pin	/* SERVO_1 */
+		&P8_28_pruout_pin	/* SERVO_2 */
+		&P8_29_pruout_pin	/* SERVO_3 */
+		&P8_30_pruout_pin	/* SERVO_4 */
+		&P8_39_pruout_pin	/* SERVO_5 */
+		&P8_40_pruout_pin	/* SERVO_6 */
+		&P8_41_pruout_pin	/* SERVO_7 */
+		&P8_42_pruout_pin	/* SERVO_8 */
+		&P8_36_gpio_pin		/* SERVO_PWR */
+	>;
+	status = "okay";
+};
+
+
+/*******************************************************************************
+* I2C
+*******************************************************************************/
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P9_17_i2c_pin
+		&P9_18_i2c_pin
+	>;
+	status = "okay";
+
+	/* this is the configuration part */
+	clock-frequency = <400000>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&P9_19_i2c_pin
+		&P9_20_i2c_pin
+	>;
+
+	status = "okay";
+	clock-frequency = <400000>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+};
+
+
+/*******************************************************************************
+* SPI
+*******************************************************************************/
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&P9_31_spi_pin	/* spi1_sclk */
+		&P9_29_spi_pin		/* spi1_d0 */
+		&P9_30_spi_pin		/* spi1_d1 */
+		&P9_23_gpio_pu_pin	/* gpio1.17 ss2 */
+		&P9_28_gpio_pu_pin	/* gpio3.17 ss1 */
+	>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	spidev@1 {
+		spi-max-frequency = <24000000>;
+		reg = <0>;
+		compatible = "linux,spidev";
+	};
+};
