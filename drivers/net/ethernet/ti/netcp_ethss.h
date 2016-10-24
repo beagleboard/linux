@@ -171,6 +171,7 @@ struct gbe_slave {
 					/* 0:NOT, > 0:recovering */
 	u32				link_recovering;
 	struct delayed_work		link_recover_work;
+	struct device_node		*node;
 	struct device_node		*phy_node;
 	struct ts_ctl			ts_ctl;
 	struct list_head		slave_list;
