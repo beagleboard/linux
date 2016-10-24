@@ -38,6 +38,13 @@
 		};
 	};
 
+	aliases {
+		ethernet1 = &pruss0_emac0;
+		ethernet2 = &pruss0_emac1;
+		ethernet3 = &pruss1_emac0;
+		ethernet4 = &pruss1_emac1;
+	};
+
 	vmain: fixedregulator-vmain {
 		compatible = "regulator-fixed";
 		regulator-name = "vmain_fixed";
@@ -232,6 +239,58 @@
 			linux,default-trigger = "heartbeat";
 		};
 	};
+
+	/* Dual-MAC Ethernet application node on PRU-ICSS0 */
+	pruss0_eth {
+		compatible = "ti,k2g-prueth";
+		pruss = <&pruss0>;
+		sram = <&msm_ram>;
+		interrupt-parent = <&pruss0_intc>;
+
+		pruss0_emac0: ethernet-mii0 {
+			phy-handle = <&pruss0_eth0_phy>;
+			phy-mode = "mii";
+			interrupts = <20>, <22>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+
+		pruss0_emac1: ethernet-mii1 {
+			phy-handle = <&pruss0_eth1_phy>;
+			phy-mode = "mii";
+			interrupts = <21>, <23>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
+
+	/* Dual-MAC Ethernet application node on PRU-ICSS1 */
+	pruss1_eth {
+		compatible = "ti,k2g-prueth";
+		pruss = <&pruss1>;
+		sram = <&msm_ram>;
+		interrupt-parent = <&pruss1_intc>;
+
+		pruss1_emac0: ethernet-mii0 {
+			phy-handle = <&pruss1_eth0_phy>;
+			phy-mode = "mii";
+			interrupts = <20>, <22>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+
+		pruss1_emac1: ethernet-mii1 {
+			phy-handle = <&pruss1_eth1_phy>;
+			phy-mode = "mii";
+			interrupts = <21>, <23>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
 };
 
 &k2g_pinctrl {
@@ -420,4 +479,58 @@
 
 &dsp0 {
 	memory-region = <&dsp_common_cma_pool>;
+};
+
+&pru0_0 {
+	ti,pruss-gp-mux-sel = <2>;	/* MII mux, needed for PR0_MII0 & PR0_MII1 */
+};
+
+&pru0_1 {
+	ti,pruss-gp-mux-sel = <2>;	/* MII mux, needed for PR0_MII1 & PR0_MII1 */
+};
+
+&pru1_0 {
+	ti,pruss-gp-mux-sel = <2>;	/* MII mux, needed for PR1_MII0 & PR1_MII1 */
+};
+
+&pru1_1 {
+	ti,pruss-gp-mux-sel = <2>;	/* MII mux, needed for PR1_MII1 & PR1_MII1 */
+};
+
+&pruss0_mdio {
+	status = "okay";
+	reset-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>,
+		      <&gpio0 21 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <20>;
+
+	pruss0_eth0_phy: ethernet-phy@4 {
+		reg = <4>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <28 IRQ_TYPE_EDGE_FALLING>;
+	};
+
+	pruss0_eth1_phy: ethernet-phy@5 {
+		reg = <5>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
+&pruss1_mdio {
+	status = "okay";
+	reset-gpios = <&gpio0 20 GPIO_ACTIVE_LOW>,
+		      <&gpio0 24 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <20>;
+
+	pruss1_eth0_phy: ethernet-phy@6 {
+		reg = <6>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <17 IRQ_TYPE_EDGE_FALLING>;
+	};
+
+	pruss1_eth1_phy: ethernet-phy@7 {
+		reg = <7>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
+	};
 };
