@@ -22,6 +22,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of_mdio.h>
+#include <linux/of_net.h>
 #include <linux/of_address.h>
 #include <linux/regmap.h>
 #include <linux/if_vlan.h>
@@ -2235,7 +2236,12 @@ static int gbe_slave_open(struct gbe_intf *gbe_intf)
 		slave->phy_port_t = PORT_MII;
 	} else if (slave->link_interface == RGMII_LINK_MAC_PHY) {
 		has_phy = true;
-		phy_mode = PHY_INTERFACE_MODE_RGMII;
+		phy_mode = of_get_phy_mode(slave->node);
+		/* if phy-mode is not present, default to
+		 * PHY_INTERFACE_MODE_RGMII
+		 */
+		if (phy_mode < 0)
+			phy_mode = PHY_INTERFACE_MODE_RGMII;
 		slave->phy_port_t = PORT_MII;
 	} else if (slave->link_interface == XGMII_LINK_MAC_PHY) {
 		has_phy = true;
@@ -2961,6 +2967,7 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 	}
 
 	slave->gbe_dev = gbe_dev;
+	slave->node = node;
 	slave->open = false;
 	if ((slave->link_interface == SGMII_LINK_MAC_PHY) ||
 	    (slave->link_interface == RGMII_LINK_MAC_PHY) ||
