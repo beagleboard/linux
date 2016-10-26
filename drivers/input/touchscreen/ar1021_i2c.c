@@ -17,11 +17,15 @@
 
 #define AR1021_MAX_X	4095
 #define AR1021_MAX_Y	4095
+#define AR1021_MAX_PRESSURE 255
 
 struct ar1021_i2c {
 	struct i2c_client *client;
 	struct input_dev *input;
 	u8 data[AR1021_TOCUH_PKG_SIZE];
+	bool invert_x;
+	bool invert_y;
+	bool swap_xy;
 };
 
 static irqreturn_t ar1021_i2c_irq(int irq, void *dev_id)
@@ -45,9 +49,22 @@ static irqreturn_t ar1021_i2c_irq(int irq, void *dev_id)
 	x = ((data[2] & 0x1f) << 7) | (data[1] & 0x7f);
 	y = ((data[4] & 0x1f) << 7) | (data[3] & 0x7f);
 
-	input_report_abs(input, ABS_X, x);
-	input_report_abs(input, ABS_Y, y);
+	if (ar1021->invert_x)
+		x = AR1021_MAX_X - x;
+
+	if (ar1021->invert_y)
+		y = AR1021_MAX_Y - y;
+
+	if (ar1021->swap_xy) {
+		input_report_abs(input, ABS_X, y);
+		input_report_abs(input, ABS_Y, x);
+	} else {
+		input_report_abs(input, ABS_X, x);
+		input_report_abs(input, ABS_Y, y);
+	}
+
 	input_report_key(input, BTN_TOUCH, button);
+	input_report_abs(input, ABS_PRESSURE, AR1021_MAX_PRESSURE);
 	input_sync(input);
 
 out:
@@ -101,9 +118,27 @@ static int ar1021_i2c_probe(struct i2c_client *client,
 	input->open = ar1021_i2c_open;
 	input->close = ar1021_i2c_close;
 
-	input_set_capability(input, EV_KEY, BTN_TOUCH);
-	input_set_abs_params(input, ABS_X, 0, AR1021_MAX_X, 0, 0);
-	input_set_abs_params(input, ABS_Y, 0, AR1021_MAX_Y, 0, 0);
+	ar1021->invert_x = device_property_read_bool(&client->dev, "touchscreen-inverted-x");
+	ar1021->invert_y = device_property_read_bool(&client->dev, "touchscreen-inverted-y");
+	ar1021->swap_xy = device_property_read_bool(&client->dev, "touchscreen-swapped-x-y");
+
+	//input_set_capability(input, EV_KEY, BTN_TOUCH);
+	input->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+
+	input->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+
+    if(ar1021->swap_xy)
+	{
+		input_set_abs_params(input, ABS_X, 0, AR1021_MAX_Y, 0, 0);
+		input_set_abs_params(input, ABS_Y, 0, AR1021_MAX_X, 0, 0);
+	}
+	else
+	{
+		input_set_abs_params(input, ABS_X, 0, AR1021_MAX_X, 0, 0);
+		input_set_abs_params(input, ABS_Y, 0, AR1021_MAX_Y, 0, 0);
+	}
+
+	input_set_abs_params(input, ABS_PRESSURE, 0, AR1021_MAX_PRESSURE, 0, 0);
 
 	input_set_drvdata(input, ar1021);
 
@@ -152,7 +187,7 @@ static int __maybe_unused ar1021_i2c_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(ar1021_i2c_pm, ar1021_i2c_suspend, ar1021_i2c_resume);
 
 static const struct i2c_device_id ar1021_i2c_id[] = {
-	{ "MICROCHIP_AR1021_I2C", 0 },
+	{ "ar1021-i2c", 0 },
 	{ },
 };
 MODULE_DEVICE_TABLE(i2c, ar1021_i2c_id);
@@ -167,7 +202,7 @@ static struct i2c_driver ar1021_i2c_driver = {
 	.driver	= {
 		.name	= "ar1021_i2c",
 		.pm	= &ar1021_i2c_pm,
-		.of_match_table = ar1021_i2c_of_match,
+		.of_match_table = of_match_ptr(ar1021_i2c_of_match),
 	},
 
 	.probe		= ar1021_i2c_probe,
