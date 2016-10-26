@@ -178,6 +178,8 @@ struct opp_table {
 	struct regulator **regulators;
 	unsigned int regulator_count;
 
+	struct dev_pm_set_opp_data *set_opp_data;
+
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dentry;
 	char dentry_name[NAME_MAX];
