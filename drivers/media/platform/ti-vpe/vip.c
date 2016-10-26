@@ -689,6 +689,7 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	int max_width, max_height;
 	dma_addr_t dma_addr;
 	u32 flags;
+	u32 width = stream->width;
 
 	channel = sinfo->base_channel;
 
@@ -741,19 +742,33 @@ static int add_out_dtd(struct vip_stream *stream, int srce_type)
 	 */
 	dma_addr = 0;
 
+	if (port->fmt->vpdma_fmt[0] == &vpdma_raw_fmts[VPDMA_DATA_FMT_RAW8]) {
+		/*
+		 * Special case since we are faking a YUV422 16bit format
+		 * to have the vpdma perform the needed byte swap
+		 * we need to adjust the pixel width accordingly
+		 * otherwise the parser will attempt to collect more pixels
+		 * then available and the vpdma transfer will exceed the
+		 * allocated frame buffer.
+		 */
+		width >>= 1;
+		vip_dbg(1, dev, "%s: 8 bit raw detected, adjusting width to %d\n",
+			__func__, width);
+	}
+
 	/*
 	 * Use VPDMA_MAX_SIZE1 or VPDMA_MAX_SIZE2 register for slice0/1
 	 */
 
 	if (dev->slice_id == VIP_SLICE1) {
 		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE1,
-				   stream->width, stream->height);
+				   width, stream->height);
 
 		max_width = MAX_OUT_WIDTH_REG1;
 		max_height = MAX_OUT_HEIGHT_REG1;
 	} else {
 		vpdma_set_max_size(dev->shared->vpdma, VPDMA_MAX_SIZE2,
-				   stream->width, stream->height);
+				   width, stream->height);
 
 		max_width = MAX_OUT_WIDTH_REG2;
 		max_height = MAX_OUT_HEIGHT_REG2;
@@ -2559,6 +2574,21 @@ static int vip_set_crop_parser(struct vip_port *port)
 	struct vip_dev *dev = port->dev;
 	struct vip_parser_data *parser = dev->parser;
 	u32 hcrop = 0, vcrop = 0;
+	u32 width = port->mbus_framefmt.width;
+
+	if (port->fmt->vpdma_fmt[0] == &vpdma_raw_fmts[VPDMA_DATA_FMT_RAW8]) {
+		/*
+		 * Special case since we are faking a YUV422 16bit format
+		 * to have the vpdma perform the needed byte swap
+		 * we need to adjust the pixel width accordingly
+		 * otherwise the parser will attempt to collect more pixels
+		 * then available and the vpdma transfer will exceed the
+		 * allocated frame buffer.
+		 */
+		width >>= 1;
+		vip_dbg(1, dev, "%s: 8 bit raw detected, adjusting width to %d\n",
+			__func__, width);
+	}
 
 	/*
 	 * Set Parser Crop parameters to source size otherwise
@@ -2567,7 +2597,7 @@ static int vip_set_crop_parser(struct vip_port *port)
 	hcrop = VIP_ACT_BYPASS;
 	insert_field(&hcrop, 0, VIP_ACT_SKIP_NUMPIX_MASK,
 		     VIP_ACT_SKIP_NUMPIX_SHFT);
-	insert_field(&hcrop, port->mbus_framefmt.width,
+	insert_field(&hcrop, width,
 		     VIP_ACT_USE_NUMPIX_MASK, VIP_ACT_USE_NUMPIX_SHFT);
 	reg_write(parser, VIP_PARSER_CROP_H_PORT(port->port_id), hcrop);
 
