@@ -501,6 +501,7 @@ void cpts_unregister(struct cpts *cpts)
 
 	clk_disable(cpts->refclk);
 }
+EXPORT_SYMBOL_GPL(cpts_unregister);
 
 static void cpts_calc_mult_shift(struct cpts *cpts)
 {
@@ -621,6 +622,7 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
 
 	return cpts;
 }
+EXPORT_SYMBOL_GPL(cpts_create);
 
 void cpts_release(struct cpts *cpts)
 {
@@ -632,7 +634,7 @@ void cpts_release(struct cpts *cpts)
 
 	clk_unprepare(cpts->refclk);
 }
-EXPORT_SYMBOL_GPL(cpts_unregister);
+EXPORT_SYMBOL_GPL(cpts_release);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("TI CPTS ALE driver");
