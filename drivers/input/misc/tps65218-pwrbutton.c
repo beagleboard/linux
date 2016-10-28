@@ -36,7 +36,7 @@ struct tps6521x_data {
 static const struct tps6521x_data tps65217_data = {
 	.reg_status = TPS65217_REG_STATUS,
 	.pb_mask = TPS65217_STATUS_PB,
-	.name = "tps65217_pwrbutton",
+	.name = "tps65217_pwr_but",
 };
 
 static const struct tps6521x_data tps65218_data = {
