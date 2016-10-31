@@ -3591,7 +3591,6 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 {
 	struct device_node *interfaces, *interface;
 	struct device_node *secondary_ports;
-	struct device_node *cpts_np;
 	struct cpsw_ale_params ale_params;
 	struct gbe_priv *gbe_dev;
 	struct phy *phy;
