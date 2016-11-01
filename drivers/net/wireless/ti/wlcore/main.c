@@ -6415,12 +6415,9 @@ static void wlcore_nvs_cb(const struct firmware *fw, void *context)
 			goto out;
 		}
 		wl->nvs_len = fw->size;
-	} else if (pdev_data->family->nvs_name) {
-		wl1271_debug(DEBUG_BOOT, "Could not get nvs file %s",
-			     pdev_data->family->nvs_name);
-		wl->nvs = NULL;
-		wl->nvs_len = 0;
 	} else {
+		wl1271_debug(DEBUG_BOOT, "Could not get nvs file %s",
+			     WL12XX_NVS_NAME);
 		wl->nvs = NULL;
 		wl->nvs_len = 0;
 	}
@@ -6515,29 +6512,21 @@ out:
 
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
 {
-	struct wlcore_platdev_data *pdev_data = dev_get_platdata(&pdev->dev);
-	const char *nvs_name;
-	int ret = 0;
+	int ret;
 
-	if (!wl->ops || !wl->ptable || !pdev_data)
+	if (!wl->ops || !wl->ptable)
 		return -EINVAL;
 
 	wl->dev = &pdev->dev;
 	wl->pdev = pdev;
 	platform_set_drvdata(pdev, wl);
 
-	if (pdev_data->family && pdev_data->family->nvs_name) {
-		nvs_name = pdev_data->family->nvs_name;
-		ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
-					      nvs_name, &pdev->dev, GFP_KERNEL,
-					      wl, wlcore_nvs_cb);
-		if (ret < 0) {
-			wl1271_error("request_firmware_nowait failed for %s: %d",
-				     nvs_name, ret);
-			complete_all(&wl->nvs_loading_complete);
-		}
-	} else {
-		wlcore_nvs_cb(NULL, wl);
+	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
+				      WL12XX_NVS_NAME, &pdev->dev, GFP_KERNEL,
+				      wl, wlcore_nvs_cb);
+	if (ret < 0) {
+		wl1271_error("request_firmware_nowait failed: %d", ret);
+		complete_all(&wl->nvs_loading_complete);
 	}
 
 	return ret;
@@ -6546,11 +6535,9 @@ EXPORT_SYMBOL_GPL(wlcore_probe);
 
 int wlcore_remove(struct platform_device *pdev)
 {
-	struct wlcore_platdev_data *pdev_data = dev_get_platdata(&pdev->dev);
 	struct wl1271 *wl = platform_get_drvdata(pdev);
 
-	if (pdev_data->family && pdev_data->family->nvs_name)
-		wait_for_completion(&wl->nvs_loading_complete);
+	wait_for_completion(&wl->nvs_loading_complete);
 	if (!wl->initialized)
 		return 0;
 
@@ -6587,3 +6574,4 @@ MODULE_PARM_DESC(no_recovery, "Prevent HW recovery. FW will remain stuck.");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
 MODULE_AUTHOR("Juuso Oikarinen <juuso.oikarinen@nokia.com>");
+MODULE_FIRMWARE(WL12XX_NVS_NAME);
