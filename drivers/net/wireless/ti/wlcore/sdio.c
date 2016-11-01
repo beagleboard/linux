@@ -391,6 +391,7 @@ static void wl1271_remove(struct sdio_func *func)
 	pm_runtime_get_noresume(&func->dev);
 
 	platform_device_unregister(glue->core);
+	kfree(glue);
 }
 
 #ifdef CONFIG_PM
