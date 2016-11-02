@@ -42,6 +42,7 @@ obj-y				+= ti-st/
 obj-y				+= lis3lv02d/
 obj-$(CONFIG_USB_SWITCH_FSA9480) += fsa9480.o
 obj-$(CONFIG_ALTERA_STAPL)	+=altera-stapl/
+obj-$(CONFIG_TIEQEP)		+= tieqep.o
 obj-$(CONFIG_BONE_CAPEMGR)	+= bone_capemgr.o
 obj-$(CONFIG_DEV_OVERLAYMGR)	+= devovmgr.o
 obj-$(CONFIG_INTEL_MEI)		+= mei/
