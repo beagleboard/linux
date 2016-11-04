@@ -1240,6 +1240,14 @@ static int dispc6_init_gamma_tables(void)
 	return 0;
 }
 
+static void dispc6_get_min_max_size(u32 *min_w, u32 *min_h, u32 *max_w, u32 *max_h)
+{
+	*min_w = 8;
+	*min_h = 2;
+	*max_w = 4096;
+	*max_h = 4096;
+}
+
 static const struct dispc_ops dispc6_ops = {
 	.read_irqstatus = dispc6_read_legacy_irqstatus,
 	.clear_irqstatus = dispc6_clear_legacy_irqstatus,
@@ -1254,6 +1262,7 @@ static const struct dispc_ops dispc6_ops = {
 
 	.get_num_ovls = dispc6_get_num_ovls,
 	.get_num_mgrs = dispc6_get_num_mgrs,
+	.get_min_max_size = dispc6_get_min_max_size,
 
 	.mgr_enable = dispc6_mgr_enable,
 	.mgr_is_enabled = dispc6_mgr_is_enabled,
