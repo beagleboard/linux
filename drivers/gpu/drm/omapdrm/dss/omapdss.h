@@ -984,6 +984,7 @@ struct dispc_ops {
 
 	int (*get_num_ovls)(void);
 	int (*get_num_mgrs)(void);
+	void (*get_min_max_size)(u32 *min_w, u32 *min_h, u32 *max_w, u32 *max_h);
 
 	void (*mgr_enable)(enum omap_channel channel, bool enable);
 	bool (*mgr_is_enabled)(enum omap_channel channel);

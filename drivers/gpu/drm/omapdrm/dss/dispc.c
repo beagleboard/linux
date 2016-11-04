@@ -4207,6 +4207,14 @@ static void dispc_free_irq(void *dev_id)
 	dispc.user_data = NULL;
 }
 
+static void dispc_get_min_max_size(u32 *min_w, u32 *min_h, u32 *max_w, u32 *max_h)
+{
+	*min_w = 8;
+	*min_h = 2;
+	*max_w = dispc.feat->mgr_width_max;
+	*max_h = dispc.feat->mgr_height_max;
+}
+
 static const struct dispc_ops dispc_ops = {
 	.read_irqstatus = dispc_read_irqstatus,
 	.clear_irqstatus = dispc_clear_irqstatus,
@@ -4221,6 +4229,7 @@ static const struct dispc_ops dispc_ops = {
 
 	.get_num_ovls = dispc_get_num_ovls,
 	.get_num_mgrs = dispc_get_num_mgrs,
+	.get_min_max_size = dispc_get_min_max_size,
 
 	.mgr_enable = dispc_mgr_enable,
 	.mgr_is_enabled = dispc_mgr_is_enabled,
