@@ -1959,6 +1959,11 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 		    (slave->link_interface != RGMII_LINK_MAC_PHY) &&
 		    (slave->link_interface != XGMII_LINK_MAC_PHY)))
 			netif_carrier_on(ndev);
+
+		if (phy)
+			phy_print_status(phy);
+		else
+			netdev_printk(KERN_INFO, ndev, "Link is Up\n");
 	} else {
 		writel(mac_control, GBE_REG_ADDR(slave, emac_regs,
 						 mac_control));
@@ -1970,13 +1975,11 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 		    (slave->link_interface != RGMII_LINK_MAC_PHY) &&
 		    (slave->link_interface != XGMII_LINK_MAC_PHY)))
 			netif_carrier_off(ndev);
+
+		netdev_printk(KERN_INFO, ndev, "Link is Down\n");
 	}
 
-	if (phy) {
-		phy_print_status(phy);
-	} else if (slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
-		netdev_printk(KERN_INFO, ndev,
-			      "Link is %s\n", (up ? "Up" : "Down"));
+	if (slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
 		if (up) {
 			if (slave->link_recover_thresh ||
 			    slave->link_recovering) {

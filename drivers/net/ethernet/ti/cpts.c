@@ -108,7 +108,8 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
 		type = event_type(event);
 		switch (type) {
 		case CPTS_EV_HW:
-			event->tmo = CPTS_EVENT_HWSTAMP_TIMEOUT;
+			event->tmo +=
+				msecs_to_jiffies(CPTS_EVENT_HWSTAMP_TIMEOUT);
 		case CPTS_EV_PUSH:
 		case CPTS_EV_RX:
 		case CPTS_EV_TX:
@@ -280,7 +281,7 @@ static int cpts_extts_enable(struct cpts *cpts, u32 index, int on)
 	if (cpts->hw_ts_enable)
 		/* poll for events faster - evry 200 ms */
 		cpts->ov_check_period =
-			msecs_to_jiffies(CPTS_EVENT_RX_TX_TIMEOUT);
+			msecs_to_jiffies(CPTS_EVENT_HWSTAMP_TIMEOUT);
 	else
 		cpts->ov_check_period = cpts->ov_check_period_slow;
 
