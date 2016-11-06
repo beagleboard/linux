@@ -19,10 +19,11 @@
 #include "am335x-bone-common-no-capemgr.dtsi"
 #include "am335x-bone-common-universal-pins.dtsi"
 #include "am33xx-pruss-rproc.dtsi"
+#include "am335x-boneblack-wl1835.dtsi"
 #include "am335x-roboticscape.dtsi"
 
 / {
-	model = "TI AM335x BeagleBone Black";
+	model = "TI AM335x BeagleBone Black Wireless";
 	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
