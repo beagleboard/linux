@@ -1,55 +1,11 @@
-/*
- * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- */
-
-/dts-v1/;
-
-#include "am33xx.dtsi"
-#include "am335x-bone-common-no-capemgr.dtsi"
-#include "am335x-bone-common-universal-pins.dtsi"
-#include "am335x-boneblue-wl1835.dtsi"
-#include "am33xx-pruss-rproc.dtsi"
-
-#define BLUE_IO(x, y) AM33XX_IOPAD((x)*4+0x800, (y)) /* not used anymore */
+/*******************************************************************************
+* pinmux and modules used by roboticscape
+* included in:
+* am335x-boneblack-roboticscape.dts
+* am335x-boneblack-wireless-roboticscape.dts
+*******************************************************************************/
 
 
-/ {
-	model = "TI AM335x BeagleBone Blue";
-	compatible = "ti,am335x-bone-blue", "ti,am335x-bone", "ti,am33xx";
-};
-
-&ldo3_reg {
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
-	regulator-always-on;
-};
-
-&mmc1 {
-	vmmc-supply = <&vmmcsd_fixed>;
-};
-
-&mmc2 {
-	vmmc-supply = <&vmmcsd_fixed>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_pins>;
-	bus-width = <8>;
-	status = "okay";
-};
-
-&mac {
-	status = "disabled";
-};
-
-&cpu0_opp_table {
-	//osd335x
-	opp50@300000000 {
-		status = "disabled";
-	};
-};
 
 /*******************************************************************************
 * Pin Muxing
@@ -62,29 +18,29 @@
 	mux_helper_pins: pins {
 		pinctrl-single,pins = <
 
-			/* GPIO Inputs */
-			0x09c 0x37	/*P8.9  Pause BUTTON, input pullup*/
-			0x098 0x37	/*P8.10 MODE BUTTON input pullup*/
-			0x1AC 0x37	/*P9.25 MPU-9150 INTERRUPT IN*/
+			/* GPIO Input Pullup */
+			0x09c 0x37	/*P8.9  T6  PAUSE_BTN */
+			0x098 0x37	/*P8.10 U6  MODE_BTN  */
+			0x1AC 0x37	/*P9.25 A14 IMU_INT   */
 
 			/* LEDs GPIO Out*/
 			0x090 0x0F	/* P8.7 R7 LED_RED */
 			0x094 0x0F	/* P8.8 T7 LED_GREEN */
-			0x02C 0x0F	/* P8.17 U12 BATT_LED_1 */
-			0x0DC 0x0F  /* P8.32 T5  BATT_LED_2 diff from cape! */
-			0x07c 0x0F	/* P8.26 V6  BATT_LED_3 */
-			0x028 0x0F	/* P8.14 T11 BATT_LED_4 */
+			0x028 0x0F	/*P8.14 T11 BATT_LED_4 */
+			0x02C 0x0F	/*P8.17 U12 BATT_LED_1 */
+			0x08c 0x0F	/*P8.18 V12 BATT_LED_2 */
+			0x07c 0x0F	/*P8.26 V6  BATT_LED_3 */
 
 			/* Motor Control GPIO Out*/
+			0x0cc 0x0F	/*P8.34 MDIR_2B different from blue!!*/
 			0x0a8 0x0F	/*P8.43 MDIR_3B*/
 			0x0ac 0x0F	/*P8.44 MDIR_3A*/
 			0x0a0 0x0F	/*P8.45 MDIR_4A*/
 			0x0a4 0x0F	/*P8.46 MDIR_4B*/
+			0x078 0x0F	/*P9.12 MDIR_1A different from blue!!*/
 			0x074 0x0F	/*P9.13 MDIR_1B*/
 			0x040 0x0F	/*P9.15 MDIR_2A*/
 			0x1b4 0x0F	/*P9.41 MOT_STBY*/
-			0x088 0x0F	/*T13   MDIR_1A different from cape! */
-			0x0D8 0x0F	/*P8.31 MDIR_2B different from cape! */
 
 			/* HRPWM 1 */
 			0x048  0x6 /* P9_14 | MODE 6 */
@@ -129,89 +85,15 @@
 			0x0C4 0x34	/* P8.38,uart5_rxd,MODE4 */
 			0x0C0 0x14	/* P8.37,uart5_txd,MODE4 */
 
-			/* WILINK 8 */
-			0x08c 0x0F	/*P8.18 V12 A2DP FSYNC */
-			0x078 0x0F	/*P9.12 A2DP_CLOCK*/
-
-			/* DCAN */
-			0x16c ( PIN_INPUT  | MUX_MODE2 ) /* (E17) uart0_rtsn.dcan1_rx */
-			0x168 ( PIN_OUTPUT | MUX_MODE2 ) /* (E18) uart0_ctsn.dcan1_tx */
 		>;
-
-		/***********************************************************************
-		* New configurable pinmux modes for pins not on Black headers
-		***********************************************************************/
-		/* H18 SPI1_SS1    */
-		H18_default_pin: pinmux_H18_default_pin {
-			pinctrl-single,pins = < 0x144 ( PIN_OUTPUT | MUX_MODE4 ) >; };
-		H18_gpio_pin: pinmux_H18_gpio_pin {
-			pinctrl-single,pins = < 0x144 ( PIN_OUTPUT | MUX_MODE7 ) >; };
-		H18_gpio_pu_pin: pinmux_H18_gpio_pu_pin {
-			pinctrl-single,pins = < 0x144 ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		H18_gpio_pd_pin: pinmux_H18_gpio_pd_pin {
-			pinctrl-single,pins = < 0x144 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) >; };
-		H18_spi_pin: pinmux_H18_spi_pin {
-			pinctrl-single,pins = < 0x144 ( PIN_OUTPUT | MUX_MODE2 ) >; };
-
-		/* C18 SPI1_SS2    */
-		C18_default_pin: pinmux_C18_default_pin {
-			pinctrl-single,pins = < 0x164 ( PIN_OUTPUT | MUX_MODE4 ) >; };
-		C18_gpio_pin: pinmux_C18_gpio_pin {
-			pinctrl-single,pins = < 0x164 ( PIN_OUTPUT | MUX_MODE7 ) >; };
-		C18_gpio_pu_pin: pinmux_C18_gpio_pu_pin {
-			pinctrl-single,pins = < 0x164 ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		C18_gpio_pd_pin: pinmux_C18_gpio_pd_pin {
-			pinctrl-single,pins = < 0x164 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) >; };
-		C18_spi_pin: pinmux_C18_spi_pin {
-			pinctrl-single,pins = < 0x164 ( PIN_OUTPUT | MUX_MODE2 ) >; };
-
-		/* U16 BLUE_GP0_PIN_3 gpio 1_25   */
-		U16_default_pin: pinmux_U16_default_pin {
-			pinctrl-single,pins = < 0x064 ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		U16_gpio_pin: pinmux_U16_gpio_pin {
-			pinctrl-single,pins = < 0x064 ( PIN_OUTPUT | MUX_MODE7 ) >; };
-		U16_gpio_pu_pin: pinmux_U16_gpio_pu_pin {
-			pinctrl-single,pins = < 0x064 ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		U16_gpio_pd_pin: pinmux_U16_gpio_pd_pin {
-			pinctrl-single,pins = < 0x064 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) >; };
-
-		/* D13 BLUE_GP0_PIN_5 gpio 3_20  */
-		D13_default_pin: pinmux_D13_default_pin {
-			pinctrl-single,pins = < 0x1A8 ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		D13_gpio_pin: pinmux_D13_gpio_pin {
-			pinctrl-single,pins = < 0x1A8 ( PIN_OUTPUT | MUX_MODE7 ) >; };
-		D13_gpio_pu_pin: pinmux_D13_gpio_pu_pin {
-			pinctrl-single,pins = < 0x1A8 ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		D13_gpio_pd_pin: pinmux_D13_gpio_pd_pin {
-			pinctrl-single,pins = < 0x1A8 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) >; };
-
-		/* J15 BLUE_GP1_PIN_3 gpio 3_2  */
-		J15_default_pin: pinmux_J15_default_pin {
-			pinctrl-single,pins = < 0x110 ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		J15_gpio_pin: pinmux_J15_gpio_pin {
-			pinctrl-single,pins = < 0x110 ( PIN_OUTPUT | MUX_MODE7 ) >; };
-		J15_gpio_pu_pin: pinmux_J15_gpio_pu_pin {
-			pinctrl-single,pins = < 0x110 ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		J15_gpio_pd_pin: pinmux_J15_gpio_pd_pin {
-			pinctrl-single,pins = < 0x110 ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) >; };
-
-		/* H17 BLUE_GP1_PIN_4 gpio 3_1  */
-		H17_default_pin: pinmux_H17_default_pin {
-			pinctrl-single,pins = < 0x10C ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		H17_gpio_pin: pinmux_H17_gpio_pin {
-			pinctrl-single,pins = < 0x10C ( PIN_OUTPUT | MUX_MODE7 ) >; };
-		H17_gpio_pu_pin: pinmux_H17_gpio_pu_pin {
-			pinctrl-single,pins = < 0x10C ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
-		H17_gpio_pd_pin: pinmux_H17_gpio_pd_pin {
-			pinctrl-single,pins = < 0x10C ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) >; };
 	};
 
 };
 
 
 /*******************************************************************************
-* apply static and dynamic pinmux modes listed above. Pins shared with the black
-* header pins get the modes from am335x-boneblack-common-universal-pins.dtsi
+* apply static and dynamic pinmux modes listed above. Configurable pins get the
+* modes from am335x-boneblack-common-universal-pins.dtsi
 *******************************************************************************/
 &ocp {
 	/* activate the static pinmux helper list of pin modes above */
@@ -310,28 +192,32 @@
         pinctrl-7 = <&P9_31_pruin_pin>;
     };
 
-     /* SPI SS1 */
-    H18_pinmux {
+    /* SPI SS1 GPIO3_17*/
+	P9_28_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi";
-        pinctrl-0 = <&H18_default_pin>;
-        pinctrl-1 = <&H18_gpio_pin>;
-        pinctrl-2 = <&H18_gpio_pu_pin>;
-        pinctrl-3 = <&H18_gpio_pd_pin>;
-        pinctrl-4 = <&H18_spi_pin>;
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pwm2", "pruout", "pruin";
+        pinctrl-0 = <&P9_28_default_pin>;
+        pinctrl-1 = <&P9_28_gpio_pin>;
+        pinctrl-2 = <&P9_28_gpio_pu_pin>;
+        pinctrl-3 = <&P9_28_gpio_pd_pin>;
+        pinctrl-4 = <&P9_28_pwm_pin>;
+        pinctrl-5 = <&P9_28_spi_pin>;
+        pinctrl-6 = <&P9_28_pwm2_pin>;
+        pinctrl-7 = <&P9_28_pruout_pin>;
+        pinctrl-8 = <&P9_28_pruin_pin>;
     };
 
-    /* SPI SS2 */
-    C18_pinmux {
+    /* SPI SS1  GPIO1_17*/
+    P9_23_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi";
-        pinctrl-0 = <&C18_default_pin>;
-        pinctrl-1 = <&C18_gpio_pin>;
-        pinctrl-2 = <&C18_gpio_pu_pin>;
-        pinctrl-3 = <&C18_gpio_pd_pin>;
-        pinctrl-4 = <&C18_spi_pin>;
+        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm";
+        pinctrl-0 = <&P9_23_default_pin>;
+        pinctrl-1 = <&P9_23_gpio_pin>;
+        pinctrl-2 = <&P9_23_gpio_pu_pin>;
+        pinctrl-3 = <&P9_23_gpio_pd_pin>;
+        pinctrl-4 = <&P9_23_pwm_pin>;
     };
 
     /* UART 1 TX */
@@ -364,86 +250,12 @@
         pinctrl-7 = <&P9_26_pruin_pin>;
     };
 
-    /* U16 BLUE_GP0_PIN_3 gpio 1_25*/
-    U16_pinmux {
-        compatible = "bone-pinmux-helper";
-        status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd";
-        pinctrl-0 = <&U16_default_pin>;
-        pinctrl-1 = <&U16_gpio_pin>;
-        pinctrl-2 = <&U16_gpio_pu_pin>;
-        pinctrl-3 = <&U16_gpio_pd_pin>;
-    };
-
-
-    /* BLUE_GP0_PIN_3 gpio1_17*/
-    P9_23_pinmux {
-        compatible = "bone-pinmux-helper";
-        status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm";
-        pinctrl-0 = <&P9_23_default_pin>;
-        pinctrl-1 = <&P9_23_gpio_pin>;
-        pinctrl-2 = <&P9_23_gpio_pu_pin>;
-        pinctrl-3 = <&P9_23_gpio_pd_pin>;
-        pinctrl-4 = <&P9_23_pwm_pin>;
-    };
-
-    /* BLUE_GP0_PIN_5 gpio3_20 */
-    D13_pinmux {
-        compatible = "bone-pinmux-helper";
-        status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd";
-        pinctrl-0 = <&D13_default_pin>;
-        pinctrl-1 = <&D13_gpio_pin>;
-        pinctrl-2 = <&D13_gpio_pu_pin>;
-        pinctrl-3 = <&D13_gpio_pd_pin>;
-    };
-
-    /* BLUE_GP0_PIN_6 gpio3_17 */
-    P9_28_pinmux {
-        compatible = "bone-pinmux-helper";
-        status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pwm2", "pruout", "pruin";
-        pinctrl-0 = <&P9_28_default_pin>;
-        pinctrl-1 = <&P9_28_gpio_pin>;
-        pinctrl-2 = <&P9_28_gpio_pu_pin>;
-        pinctrl-3 = <&P9_28_gpio_pd_pin>;
-        pinctrl-4 = <&P9_28_pwm_pin>;
-        pinctrl-5 = <&P9_28_spi_pin>;
-        pinctrl-6 = <&P9_28_pwm2_pin>;
-        pinctrl-7 = <&P9_28_pruout_pin>;
-        pinctrl-8 = <&P9_28_pruin_pin>;
-    };
-
-    /* BLUE_GP1_PIN_3 gpio3_2 */
-    J15_pinmux {
-        compatible = "bone-pinmux-helper";
-        status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd";
-        pinctrl-0 = <&J15_default_pin>;
-        pinctrl-1 = <&J15_gpio_pin>;
-        pinctrl-2 = <&J15_gpio_pu_pin>;
-        pinctrl-3 = <&J15_gpio_pd_pin>;
-    };
-
-    /* BLUE_GP1_PIN_4 gpio3_1 */
-    H17_pinmux {
-        compatible = "bone-pinmux-helper";
-        status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd";
-        pinctrl-0 = <&H17_default_pin>;
-        pinctrl-1 = <&H17_gpio_pin>;
-        pinctrl-2 = <&H17_gpio_pu_pin>;
-        pinctrl-3 = <&H17_gpio_pd_pin>;
-    };
-
-
 
 };
 
 
 /*******************************************************************************
-*	PWMSS
+* PWMSS
 *******************************************************************************/
 &epwmss0 {
 	status = "okay";
@@ -469,7 +281,6 @@
 	status = "okay";
 };
 
-
 /*******************************************************************************
 * EQEP
 *******************************************************************************/
@@ -480,6 +291,7 @@
 	invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
 	invert_qi = <0>;   /* Should we invert the index input? */
 	invert_qs = <0>;   /* Should we invert the strobe input? */
+
 	status = "okay";
 };
 
@@ -490,6 +302,7 @@
 	invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
 	invert_qi = <0>;   /* Should we invert the index input? */
 	invert_qs = <0>;   /* Should we invert the strobe input? */
+
 	status = "okay";
 };
 
@@ -500,14 +313,14 @@
 	invert_qb = <1>;   /* Should we invert the channel B input? I invert these because my encoder outputs drive transistors that pull down the pins */
 	invert_qi = <0>;   /* Should we invert the index input? */
 	invert_qs = <0>;   /* Should we invert the strobe input? */
+
 	status = "okay";
 };
 
 
 /*******************************************************************************
-	UART
+* UART
 *******************************************************************************/
-
 &uart1 {
 	status = "okay";
 };
@@ -526,7 +339,7 @@
 
 
 /*******************************************************************************
-	PRU
+* PRU Encoder and Servos
 *******************************************************************************/
 &pruss {
 	status = "okay";
@@ -534,24 +347,25 @@
 
 
 /*******************************************************************************
-	I2C
+* I2C
 *******************************************************************************/
 &i2c1 {
-	#address-cells = <1>;
-	#size-cells = <0>;
 	status = "okay";
 	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 };
 
 &i2c2 {
-	#address-cells = <1>;
-	#size-cells = <0>;
 	status = "okay";
 	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 };
 
+
 /*******************************************************************************
-	SPI
+* SPI
 *******************************************************************************/
 &spi1 {
 	#address-cells = <1>;
@@ -561,16 +375,21 @@
 	channel@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
 		compatible = "spidev";
+
 		reg = <0>;
-		spi-max-frequency = <24000000>;
+		spi-max-frequency = <16000000>;
+		spi-cpha;
 	};
 
 	channel@1 {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
 		compatible = "spidev";
+
 		reg = <1>;
-		spi-max-frequency = <24000000>;
+		spi-max-frequency = <16000000>;
 	};
 };
