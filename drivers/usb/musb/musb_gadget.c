@@ -1222,6 +1222,16 @@ void musb_ep_restart(struct musb *musb, struct musb_request *req)
 		rxstate(musb, req);
 }
 
+void musb_ep_restart_resume_work(struct musb *musb, void *data)
+{
+	struct musb_request *req = data;
+	unsigned long flags;
+
+	spin_lock_irqsave(&musb->lock, flags);
+	musb_ep_restart(musb, req);
+	spin_unlock_irqrestore(&musb->lock, flags);
+}
+
 static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 			gfp_t gfp_flags)
 {
@@ -1255,7 +1265,7 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 
 	map_dma_buffer(request, musb, musb_ep);
 
-	pm_runtime_get_sync(musb->controller);
+	pm_runtime_get(musb->controller);
 	spin_lock_irqsave(&musb->lock, lockflags);
 
 	/* don't queue if the ep is down */
@@ -1271,8 +1281,14 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 	list_add_tail(&request->list, &musb_ep->req_list);
 
 	/* it this is the head of the queue, start i/o ... */
-	if (!musb_ep->busy && &request->list == musb_ep->req_list.next)
-		musb_ep_restart(musb, request);
+	if (!musb_ep->busy && &request->list == musb_ep->req_list.next) {
+		if (pm_runtime_active(musb->controller))
+			musb_ep_restart(musb, request);
+		else
+			musb_queue_resume_work(musb,
+					       musb_ep_restart_resume_work,
+					       request);
+	}
 
 unlock:
 	spin_unlock_irqrestore(&musb->lock, lockflags);

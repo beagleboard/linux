@@ -1969,6 +1969,7 @@ static struct musb *allocate_instance(struct device *dev,
 	INIT_LIST_HEAD(&musb->control);
 	INIT_LIST_HEAD(&musb->in_bulk);
 	INIT_LIST_HEAD(&musb->out_bulk);
+	INIT_LIST_HEAD(&musb->pending_list);
 
 	musb->vbuserr_retry = VBUSERR_RETRY_COUNT;
 	musb->a_wait_bcon = OTG_TIME_A_WAIT_BCON;
@@ -2018,6 +2019,66 @@ static void musb_free(struct musb *musb)
 	musb_host_free(musb);
 }
 
+struct musb_pending_work {
+	void (*callback)(struct musb *musb, void *data);
+	void *data;
+	struct list_head node;
+};
+
+static void musb_pending_work(struct work_struct *work)
+{
+	struct musb *musb;
+	struct musb_pending_work *w;
+	unsigned long flags;
+	int error;
+
+	musb = container_of(work, struct musb, pending_resume_work.work);
+	error = pm_runtime_get_sync(musb->controller);
+	if (error < 0) {
+		dev_err(musb->controller, "failed resume for pending work: %i\n",
+			error);
+
+		return;
+	}
+	spin_lock_irqsave(&musb->list_lock, flags);
+	while (!list_empty(&musb->pending_list)) {
+		w = list_first_entry(&musb->pending_list,
+				     struct musb_pending_work,
+				     node);
+		list_del(&w->node);
+		spin_unlock_irqrestore(&musb->list_lock, flags);
+		if (w->callback)
+			w->callback(musb, w->data);
+		devm_kfree(musb->controller, w);
+		spin_lock_irqsave(&musb->list_lock, flags);
+	}
+	spin_unlock_irqrestore(&musb->list_lock, flags);
+	pm_runtime_mark_last_busy(musb->controller);
+	pm_runtime_put_autosuspend(musb->controller);
+}
+
+void musb_queue_resume_work(struct musb *musb,
+			    void (*callback)(struct musb *musb, void *data),
+			    void *data)
+{
+	struct musb_pending_work *w;
+	unsigned long flags;
+
+	if (WARN_ON(!callback))
+		return;
+
+	w = devm_kzalloc(musb->controller, sizeof(*w), GFP_ATOMIC);
+	if (!w)
+		return;
+
+	w->callback = callback;
+	w->data = data;
+	spin_lock_irqsave(&musb->list_lock, flags);
+	list_add_tail(&w->node, &musb->pending_list);
+	spin_unlock_irqrestore(&musb->list_lock, flags);
+}
+EXPORT_SYMBOL_GPL(musb_queue_resume_work);
+
 static void musb_deassert_reset(struct work_struct *work)
 {
 	struct musb *musb;
@@ -2065,6 +2126,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	}
 
 	spin_lock_init(&musb->lock);
+	spin_lock_init(&musb->list_lock);
 	musb->board_set_power = plat->set_power;
 	musb->min_power = plat->min_power;
 	musb->ops = plat->platform_ops;
@@ -2215,6 +2277,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	/* Init IRQ workqueue before request_irq */
 	INIT_WORK(&musb->irq_work, musb_irq_work);
 	INIT_DELAYED_WORK(&musb->deassert_reset_work, musb_deassert_reset);
+	INIT_DELAYED_WORK(&musb->pending_resume_work, musb_pending_work);
 	INIT_DELAYED_WORK(&musb->finish_resume_work, musb_host_finish_resume);
 
 	/* setup musb parts of the core (especially endpoints) */
@@ -2312,6 +2375,7 @@ fail4:
 fail3:
 	cancel_work_sync(&musb->irq_work);
 	cancel_delayed_work_sync(&musb->finish_resume_work);
+	cancel_delayed_work_sync(&musb->pending_resume_work);
 	cancel_delayed_work_sync(&musb->deassert_reset_work);
 	if (musb->dma_controller)
 		musb_dma_controller_destroy(musb->dma_controller);
@@ -2379,6 +2443,7 @@ static int musb_remove(struct platform_device *pdev)
 
 	cancel_work_sync(&musb->irq_work);
 	cancel_delayed_work_sync(&musb->finish_resume_work);
+	cancel_delayed_work_sync(&musb->pending_resume_work);
 	cancel_delayed_work_sync(&musb->deassert_reset_work);
 	pm_runtime_get_sync(musb->controller);
 	musb_host_cleanup(musb);
@@ -2604,6 +2669,9 @@ static int musb_resume(struct device *dev)
 	mask = MUSB_DEVCTL_BDEVICE | MUSB_DEVCTL_FSDEV | MUSB_DEVCTL_LSDEV;
 	if ((devctl & mask) != (musb->context.devctl & mask))
 		musb->port1_status = 0;
+
+	schedule_delayed_work(&musb->pending_resume_work, 0);
+
 	if (musb->need_finish_resume) {
 		musb->need_finish_resume = 0;
 		schedule_delayed_work(&musb->finish_resume_work,
@@ -2649,6 +2717,7 @@ static int musb_runtime_resume(struct device *dev)
 		return 0;
 
 	musb_restore_context(musb);
+	schedule_delayed_work(&musb->pending_resume_work, 0);
 
 	if (musb->need_finish_resume) {
 		musb->need_finish_resume = 0;
