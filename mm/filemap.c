@@ -150,7 +150,6 @@ static int page_cache_tree_insert(struct address_space *mapping,
 				     &node->private_list);
 			local_unlock(workingset_shadow_lock);
 		}
-
 	}
 	return 0;
 }
