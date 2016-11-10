@@ -77,6 +77,7 @@ struct gbe_host_port_regs_ofs {
 
 struct gbe_emac_regs_ofs {
 	u16	mac_control;
+	u16	mac_status;
 	u16	soft_reset;
 	u16	rx_maxlen;
 };
