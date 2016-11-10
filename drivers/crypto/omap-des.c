@@ -538,6 +538,10 @@ static bool omap_des_copy_needed(struct scatterlist *sg, int total)
 			return true;
 		if (!IS_ALIGNED(sg->length, DES_BLOCK_SIZE))
 			return true;
+#ifdef CONFIG_ZONE_DMA
+		if (page_zonenum(sg_page(sg)) != ZONE_DMA)
+			return true;
+#endif
 
 		len += sg->length;
 		sg = sg_next(sg);
