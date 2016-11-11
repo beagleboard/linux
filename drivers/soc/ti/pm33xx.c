@@ -224,10 +224,12 @@ static int am33xx_pm_suspend(suspend_state_t suspend_state)
 		/* print the wakeup reason */
 		if (rtc_only_idle) {
 		wakeup_src = rtc_wake_src();
-			pm_ops->prepare_rtc_resume();
 			pr_info("PM: Wakeup source %s\n", wakeup_src.src);
 		}
 	}
+
+	if (suspend_state == PM_SUSPEND_MEM && pm_ops->check_off_mode_enable())
+		pm_ops->prepare_rtc_resume();
 
 	return ret;
 }

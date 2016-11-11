@@ -413,18 +413,22 @@ int omap_aes_crypt_dma_stop(struct omap_aes_dev *dd)
 	return 0;
 }
 
-int omap_aes_check_aligned(struct scatterlist *sg, int total)
+bool omap_aes_copy_needed(struct scatterlist *sg, int total)
 {
 	int len = 0;
 
 	if (!IS_ALIGNED(total, AES_BLOCK_SIZE))
-		return -EINVAL;
+		return true;
 
 	while (sg) {
 		if (!IS_ALIGNED(sg->offset, 4))
-			return -1;
+			return true;
 		if (!IS_ALIGNED(sg->length, AES_BLOCK_SIZE))
-			return -1;
+			return true;
+#ifdef CONFIG_ZONE_DMA
+		if (page_zonenum(sg_page(sg)) != ZONE_DMA)
+			return true;
+#endif
 
 		len += sg->length;
 		sg = sg_next(sg);
@@ -434,9 +438,9 @@ int omap_aes_check_aligned(struct scatterlist *sg, int total)
 	}
 
 	if (len != total)
-		return -1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 static int omap_aes_copy_sgs(struct omap_aes_dev *dd)
@@ -507,8 +511,8 @@ static int omap_aes_handle_queue(struct omap_aes_dev *dd,
 	dd->in_sg = req->src;
 	dd->out_sg = req->dst;
 
-	if (omap_aes_check_aligned(dd->in_sg, dd->total) ||
-	    omap_aes_check_aligned(dd->out_sg, dd->total)) {
+	if (omap_aes_copy_needed(dd->in_sg, dd->total) ||
+	    omap_aes_copy_needed(dd->out_sg, dd->total)) {
 		if (omap_aes_copy_sgs(dd))
 			pr_err("Failed to copy SGs for unaligned cases\n");
 		dd->sgs_copied = 1;
