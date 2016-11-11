@@ -210,7 +210,7 @@ int omap_aes_gcm_decrypt(struct aead_request *req);
 int omap_aes_4106gcm_encrypt(struct aead_request *req);
 int omap_aes_4106gcm_decrypt(struct aead_request *req);
 int omap_aes_write_ctrl(struct omap_aes_dev *dd);
-int omap_aes_check_aligned(struct scatterlist *sg, int total);
+bool omap_aes_copy_needed(struct scatterlist *sg, int total);
 int omap_aes_crypt_dma_start(struct omap_aes_dev *dd);
 void omap_aes_gcm_dma_out_callback(void *data);
 int omap_aes_crypt_dma_stop(struct omap_aes_dev *dd);
