@@ -105,6 +105,8 @@
 #define DEVICE_EMACSL_RESET_POLL_COUNT		100
 #define GMACSL_RET_WARN_RESET_INCOMPLETE	-2
 
+#define MAC_STATUS_IDLE				BIT(31)
+
 #define MACSL_RX_ENABLE_CSF			BIT(23)
 #define MACSL_ENABLE_EXT_CTL			BIT(18)
 #define MACSL_XGMII_ENABLE			BIT(13)
@@ -1575,6 +1577,8 @@ static const struct netcp_ethtool_stat xgbe10_et_stats[] = {
 	list_first_entry(&priv->secondary_slaves, \
 			struct gbe_slave, slave_list)
 
+static int gbe_port_reset(struct gbe_slave *slave);
+
 static void keystone_get_drvinfo(struct net_device *ndev,
 				 struct ethtool_drvinfo *info)
 {
@@ -1935,9 +1939,37 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 					  int up)
 {
 	struct phy_device *phy = slave->phy;
+	u32 slave_port, stat_en, v, i;
 	u32 mac_control = 0;
 
+	slave_port = slave->port_num;
+	stat_en = readl(GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
+
 	if (up) {
+		if (IS_SS_ID_NU(gbe_dev)) {
+			gbe_port_reset(slave);
+
+			/* Wait for MAC to become idle */
+			for (i = 0; i < DEVICE_EMACSL_RESET_POLL_COUNT; i++) {
+				v = readl(GBE_REG_ADDR(slave, emac_regs,
+						       mac_status));
+
+				if (v & MAC_STATUS_IDLE)
+					break;
+
+				udelay(1);
+			}
+
+			if (i >= DEVICE_EMACSL_RESET_POLL_COUNT) {
+				WARN_ON(1);
+				return;
+			}
+
+			writel(stat_en | BIT(slave_port),
+			       GBE_REG_ADDR(gbe_dev, switch_regs,
+					    stat_port_en));
+		}
+
 		mac_control = slave->mac_control;
 		if (phy && (phy->speed == SPEED_1000)) {
 			mac_control |= MACSL_GIG_MODE;
@@ -1965,6 +1997,11 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 		else
 			netdev_printk(KERN_INFO, ndev, "Link is Up\n");
 	} else {
+		if (IS_SS_ID_NU(gbe_dev))
+			writel(stat_en & ~BIT(slave_port),
+			       GBE_REG_ADDR(gbe_dev, switch_regs,
+					    stat_port_en));
+
 		writel(mac_control, GBE_REG_ADDR(slave, emac_regs,
 						 mac_control));
 		cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
@@ -2211,6 +2248,7 @@ static int gbe_slave_open(struct gbe_intf *gbe_intf)
 	struct gbe_slave *slave = gbe_intf->slave;
 	phy_interface_t phy_mode;
 	bool has_phy = false;
+	u32 stat_en;
 
 	void (*hndlr)(struct net_device *) = gbe_adjust_link;
 
@@ -2269,6 +2307,10 @@ static int gbe_slave_open(struct gbe_intf *gbe_intf)
 			dev_name(&slave->phy->dev));
 		phy_start(slave->phy);
 		phy_read_status(slave->phy);
+	} else if (IS_SS_ID_NU(priv)) {
+		stat_en = readl(GBE_REG_ADDR(priv, switch_regs, stat_port_en));
+		stat_en |= BIT(slave->port_num);
+		writel(stat_en, GBE_REG_ADDR(priv, switch_regs, stat_port_en));
 	}
 	return 0;
 }
@@ -2872,9 +2914,17 @@ static int gbe_open(void *intf_priv, struct net_device *ndev)
 	}
 	writel(val, GBE_REG_ADDR(gbe_dev, switch_regs, control));
 
-	/* All statistics enabled and STAT AB visible by default */
-	writel(gbe_dev->stats_en_mask, GBE_REG_ADDR(gbe_dev, switch_regs,
-						    stat_port_en));
+	/* For device other than K2E&L, all statistics enabled
+	 * (if K2HK, STAT AB visible by default). For K2E&L,
+	 * enable HOST port stat once and forever and slave port
+	 * stat is en/disabled according to link up/down.
+	 */
+	if (!IS_SS_ID_NU(gbe_dev))
+		writel(gbe_dev->stats_en_mask,
+		       GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
+	else
+		writel(BIT(gbe_dev->host_port),
+		       GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
 
 	ret = gbe_slave_open(gbe_intf);
 	if (ret)
@@ -3049,6 +3099,7 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 
 		/* Initialize EMAC register offsets */
 		GBENU_SET_REG_OFS(slave, emac_regs, mac_control);
+		GBENU_SET_REG_OFS(slave, emac_regs, mac_status);
 		GBENU_SET_REG_OFS(slave, emac_regs, soft_reset);
 
 	} else if (gbe_dev->ss_version == XGBE_SS_VERSION_10) {
