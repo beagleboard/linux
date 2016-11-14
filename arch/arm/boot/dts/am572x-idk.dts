@@ -428,11 +428,11 @@
 };
 
 &pcie1_rc {
+	status = "okay";
 	gpios = <&gpio3 23 GPIO_ACTIVE_HIGH>;
 };
 
 &pcie1_ep {
-	status = "okay";
 	gpios = <&gpio3 23 GPIO_ACTIVE_HIGH>;
 };
 
