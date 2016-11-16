@@ -380,6 +380,9 @@ static int alloc_port(struct vip_dev *, int);
 static void free_port(struct vip_port *);
 static int vip_setup_parser(struct vip_port *port);
 static int vip_setup_scaler(struct vip_stream *stream);
+static void vip_enable_parser(struct vip_port *port, bool on);
+static void vip_reset_parser(struct vip_port *port, bool on);
+static void vip_parser_stop_imm(struct vip_port *port, bool on);
 static void stop_dma(struct vip_stream *stream);
 static inline bool is_scaler_available(struct vip_port *port);
 static inline bool allocate_scaler(struct vip_port *port);
@@ -594,6 +597,7 @@ static void vip_set_pclk_invert(struct vip_port *port)
 #define VIP_PARSER_EXTRA_PORT(p)	(VIP_PARSER_PORTA_1 + (p * 0x8U))
 #define VIP_PARSER_CROP_H_PORT(p)	(VIP_PARSER_PORTA_EXTRA4 + (p * 0x10U))
 #define VIP_PARSER_CROP_V_PORT(p)	(VIP_PARSER_PORTA_EXTRA5 + (p * 0x10U))
+#define VIP_PARSER_STOP_IMM_PORT(p)	(VIP_PARSER_PORTA_EXTRA6 + (p * 0x4U))
 
 static void vip_set_data_interface(struct vip_port *port,
 				   enum data_interface_modes mode)
@@ -2724,12 +2728,12 @@ static int vip_setup_parser(struct vip_port *port)
 	int iface, sync_type;
 	u32 flags = 0, config0;
 
+	vip_enable_parser(port, false);
 	/* Reset the port */
-	reg_write(parser, VIP_PARSER_PORT(port->port_id), VIP_SW_RESET);
+	vip_reset_parser(port, true);
 	usleep_range(200, 250);
-	reg_write(parser, VIP_PARSER_PORT(port->port_id), 0x00000000);
+	vip_reset_parser(port, false);
 
-	reg_write(parser, VIP_PARSER_PORT(port->port_id), VIP_PORT_ENABLE);
 	config0 = reg_read(parser, VIP_PARSER_PORT(port->port_id));
 
 	if (endpoint->bus_type == V4L2_MBUS_BT656) {
@@ -2809,12 +2813,64 @@ static int vip_setup_parser(struct vip_port *port)
 	}
 
 	config0 |= ((sync_type & VIP_SYNC_TYPE_MASK) << VIP_SYNC_TYPE_SHFT);
+
 	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
+	vip_enable_parser(port, true);
 
 	vip_set_data_interface(port, iface);
 	vip_set_crop_parser(port);
 
 	return 0;
+}
+
+static __maybe_unused void vip_enable_parser(struct vip_port *port, bool on)
+{
+	u32 config0;
+	struct vip_dev *dev = port->dev;
+	struct vip_parser_data *parser = dev->parser;
+
+	config0 = reg_read(parser, VIP_PARSER_PORT(port->port_id));
+
+	if (on) {
+		config0 |= VIP_PORT_ENABLE;
+		config0 &= ~(VIP_ASYNC_FIFO_RD | VIP_ASYNC_FIFO_WR);
+	} else {
+		config0 &= ~VIP_PORT_ENABLE;
+		config0 |= (VIP_ASYNC_FIFO_RD | VIP_ASYNC_FIFO_WR);
+	}
+	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
+}
+
+static __maybe_unused void vip_reset_parser(struct vip_port *port, bool on)
+{
+	u32 config0;
+	struct vip_dev *dev = port->dev;
+	struct vip_parser_data *parser = dev->parser;
+
+	config0 = reg_read(parser, VIP_PARSER_PORT(port->port_id));
+
+	if (on)
+		config0 |= VIP_SW_RESET;
+	else
+		config0 &= ~VIP_SW_RESET;
+
+	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
+}
+
+static __maybe_unused void vip_parser_stop_imm(struct vip_port *port, bool on)
+{
+	u32 config0;
+	struct vip_dev *dev = port->dev;
+	struct vip_parser_data *parser = dev->parser;
+
+	config0 = reg_read(parser, VIP_PARSER_STOP_IMM_PORT(port->port_id));
+
+	if (on)
+		config0 = 0xffffffff;
+	else
+		config0 = 0;
+
+	reg_write(parser, VIP_PARSER_STOP_IMM_PORT(port->port_id), config0);
 }
 
 static void vip_release_stream(struct vip_stream *stream)
