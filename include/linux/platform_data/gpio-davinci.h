@@ -39,6 +39,8 @@ struct davinci_gpio_controller {
 	int			gpio_unbanked;
 	unsigned		gpio_irq;
 	unsigned int		ctrl_base;
+	unsigned int		birq1;
+	unsigned int		birq2;
 };
 
 /*

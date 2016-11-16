@@ -326,7 +326,7 @@ static void gpio_irq_handler(struct irq_desc *desc)
 	g = (struct davinci_gpio_regs __iomem *)d->regs;
 
 	/* we only care about one bank */
-	if (irq & 1)
+	if (irq == d->birq2)
 		mask <<= 16;
 
 	/* temporarily mask (level sensitive) parent IRQ */
@@ -577,6 +577,12 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 		g = chips[bank / 2].regs;
 		writel_relaxed(~0, &g->clr_falling);
 		writel_relaxed(~0, &g->clr_rising);
+
+		bank_irq = platform_get_irq(pdev, bank);
+		if (bank % 2)
+			chips[bank / 2].birq2 = bank_irq;
+		else
+			chips[bank / 2].birq1 = bank_irq;
 
 		/*
 		 * Each chip handles 32 gpios, and each irq bank consists of 16
