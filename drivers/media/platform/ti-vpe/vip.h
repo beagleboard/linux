@@ -227,6 +227,8 @@ struct vip_stream {
 	int			stream_id;
 	int			list_num;
 	int			vfl_type;
+	struct work_struct	recovery_work;
+	int			num_recovery;
 	enum v4l2_field		field;		/* current field */
 	unsigned int		sequence;	/* current frame/field seq */
 	enum v4l2_field		sup_field;	/* supported field value */
