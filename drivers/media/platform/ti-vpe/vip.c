@@ -2333,6 +2333,13 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	set_fmt_params(stream);
 	vip_setup_parser(port);
 
+	if (port->subdev) {
+		ret = v4l2_subdev_call(port->subdev, video, s_stream, 1);
+		if (ret) {
+			vip_dbg(1, dev, "stream on failed in subdev\n");
+			return ret;
+		}
+	}
 
 	buf = list_entry(stream->vidq.next,
 			 struct vip_buffer, list);
@@ -2342,15 +2349,6 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	buf->drop = false;
 	stream->sequence = 0;
 	stream->field = V4L2_FIELD_TOP;
-
-	if (port->subdev) {
-		ret = v4l2_subdev_call(port->subdev, video, s_stream, 1);
-		if (ret) {
-			vip_dbg(1, dev, "stream on failed in subdev\n");
-			return ret;
-		}
-	}
-
 	populate_desc_list(stream);
 
 	/* The first few VPDMA ListComplete interrupts fire pretty quiclky
@@ -2387,6 +2385,9 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	  */
 	enable_irqs(dev, dev->slice_id, stream->list_num);
 
+	vip_parser_stop_imm(port, false);
+	vip_enable_parser(port, true);
+
 	return 0;
 }
 
@@ -2403,7 +2404,12 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 
 	vip_dbg(2, dev, "%s:\n", __func__);
 
+	vip_parser_stop_imm(port, true);
+	vip_enable_parser(port, false);
 	vip_disable_sc_path(stream);
+
+	disable_irqs(dev, dev->slice_id, stream->list_num);
+	clear_irqs(dev, dev->slice_id, stream->list_num);
 
 	if (port->subdev) {
 		ret = v4l2_subdev_call(port->subdev, video, s_stream, 0);
@@ -2411,8 +2417,6 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 			vip_dbg(1, dev, "stream on failed in subdev\n");
 	}
 
-	disable_irqs(dev, dev->slice_id, stream->list_num);
-	clear_irqs(dev, dev->slice_id, stream->list_num);
 	stop_dma(stream, true);
 
 	/* release all active buffers */
@@ -2603,6 +2607,7 @@ static int vip_init_port(struct vip_port *port)
 
 	init_adb_hdrs(port);
 
+	vip_enable_parser(port, false);
 done:
 	port->num_streams++;
 	return 0;
@@ -2728,7 +2733,6 @@ static int vip_setup_parser(struct vip_port *port)
 	int iface, sync_type;
 	u32 flags = 0, config0;
 
-	vip_enable_parser(port, false);
 	/* Reset the port */
 	vip_reset_parser(port, true);
 	usleep_range(200, 250);
@@ -2815,7 +2819,6 @@ static int vip_setup_parser(struct vip_port *port)
 	config0 |= ((sync_type & VIP_SYNC_TYPE_MASK) << VIP_SYNC_TYPE_SHFT);
 
 	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
-	vip_enable_parser(port, true);
 
 	vip_set_data_interface(port, iface);
 	vip_set_crop_parser(port);
