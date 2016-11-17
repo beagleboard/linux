@@ -383,7 +383,7 @@ static int vip_setup_scaler(struct vip_stream *stream);
 static void vip_enable_parser(struct vip_port *port, bool on);
 static void vip_reset_parser(struct vip_port *port, bool on);
 static void vip_parser_stop_imm(struct vip_port *port, bool on);
-static void stop_dma(struct vip_stream *stream);
+static void stop_dma(struct vip_stream *stream, bool clear_list);
 static inline bool is_scaler_available(struct vip_port *port);
 static inline bool allocate_scaler(struct vip_port *port);
 static inline void free_scaler(struct vip_port *port);
@@ -2413,7 +2413,7 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 
 	disable_irqs(dev, dev->slice_id, stream->list_num);
 	clear_irqs(dev, dev->slice_id, stream->list_num);
-	stop_dma(stream);
+	stop_dma(stream, true);
 
 	/* release all active buffers */
 	while (!list_empty(&stream->post_bufs)) {
@@ -2897,7 +2897,7 @@ static void vip_release_port(struct vip_port *port)
 	vpdma_free_desc_buf(&port->sc_coeff_v);
 }
 
-static void stop_dma(struct vip_stream *stream)
+static void stop_dma(struct vip_stream *stream, bool clear_list)
 {
 	struct vip_dev *dev = stream->port->dev;
 	int ch, size = 0;
@@ -2905,17 +2905,18 @@ static void stop_dma(struct vip_stream *stream)
 	/* Create a list of channels to be cleared */
 	for (ch = 0; ch < VPDMA_MAX_CHANNELS; ch++) {
 		if (stream->vpdma_channels[ch] == 1) {
-			stream->vpdma_channels[size++] = ch;
+			stream->vpdma_channels_to_abort[size++] = ch;
 			vip_dbg(2, dev, "Clear channel no: %d\n", ch);
 		}
 	}
 
 	/* Clear all the used channels for the list */
 	vpdma_list_cleanup(dev->shared->vpdma, stream->list_num,
-			   stream->vpdma_channels, size);
+			   stream->vpdma_channels_to_abort, size);
 
-	for (ch = 0; ch < VPDMA_MAX_CHANNELS; ch++)
-		stream->vpdma_channels[ch] = 0;
+	if (clear_list)
+		for (ch = 0; ch < VPDMA_MAX_CHANNELS; ch++)
+			stream->vpdma_channels[ch] = 0;
 }
 
 static int vip_open(struct file *file)

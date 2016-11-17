@@ -240,6 +240,7 @@ struct vip_stream {
 	struct list_head	post_bufs;	/* vip_bufs to be DMAed */
 	/* Maintain a list of used channels - Needed for VPDMA cleanup */
 	int			vpdma_channels[VPDMA_MAX_CHANNELS];
+	int			vpdma_channels_to_abort[VPDMA_MAX_CHANNELS];
 	struct vpdma_desc_list	desc_list;	/* DMA descriptor list */
 	struct vpdma_dtd	*write_desc;
 	/* next unused desc_list addr */
