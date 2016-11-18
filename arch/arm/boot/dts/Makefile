@@ -181,7 +181,8 @@ dtb-$(CONFIG_ARCH_KEYSTONE) += \
 	keystone-k2hk-evm.dtb \
 	keystone-k2l-evm.dtb \
 	keystone-k2e-evm.dtb \
-	keystone-k2g-evm.dtb
+	keystone-k2g-evm.dtb \
+	keystone-k2g-ice.dtb
 dtb-$(CONFIG_MACH_KIRKWOOD) += \
 	kirkwood-b3.dtb \
 	kirkwood-blackarmor-nas220.dtb \
@@ -590,7 +591,8 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	am572x-idk.dtb \
 	dra7-evm.dtb \
 	dra72-evm.dtb \
-	dra72-evm-revc.dtb
+	dra72-evm-revc.dtb \
+	dra71-evm.dtb
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-kuroboxpro.dtb \
 	orion5x-lacie-d2-network.dtb \

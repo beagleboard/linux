@@ -15,6 +15,9 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/pinctrl/keystone.h>
+#include <dt-bindings/genpd/k2g.h>
+#include <dt-bindings/clock/k2g.h>
+#include <dt-bindings/gpio/gpio.h>
 #include "skeleton.dtsi"
 
 / {
@@ -114,6 +117,52 @@
 			gpio,syscon-dev = <&devctrl 0x240>;
 		};
 
+		gpio0: gpio@2603000 {
+			compatible = "ti,k2g-gpio";
+			reg = <0x02603000 0x100>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <GIC_SPI 432 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 433 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 434 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 435 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 436 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 437 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 438 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 439 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 440 IRQ_TYPE_EDGE_RISING>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			ti,ngpio = <144>;
+			ti,davinci-gpio-unbanked = <0>;
+			power-domains = <&k2g_pds>;
+			ti,sci-id = <K2G_DEV_GPIO0>;
+			clocks = <&k2g_clks K2G_DEV_GPIO0
+					K2G_DEV_GPIO_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		gpio1: gpio@260a000 {
+			compatible = "ti,k2g-gpio";
+			reg = <0x0260a000 0x100>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <GIC_SPI 442 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 443 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 444 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 445 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 446 IRQ_TYPE_EDGE_RISING>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			ti,ngpio = <68>;
+			ti,davinci-gpio-unbanked = <0>;
+			power-domains = <&k2g_pds>;
+			ti,sci-id = <K2G_DEV_GPIO1>;
+			clocks = <&k2g_clks K2G_DEV_GPIO1
+					K2G_DEV_GPIO_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
 		msgmgr: msgmgr@02a00000 {
 			compatible = "ti,k2g-message-manager";
 			#mbox-cells = <2>;
@@ -124,6 +173,30 @@
 					  "rx_057";
 			interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		pmmc: pmmc {
+			compatible = "ti,k2g-sci";
+			/*
+			 * In case of rare platforms that does not use k2g as
+			 * system master, use /delete-property/
+			 */
+			ti,system-reboot-controller;
+			mbox-names = "rx", "tx";
+			mboxes= <&msgmgr 5 2>,
+				<&msgmgr 0 0>;
+			reg-names = "debug_messages";
+			reg = <0x02921c00 0x400>;
+
+			k2g_clks: k2g_clks {
+				compatible = "ti,k2g-sci-clk";
+				#clock-cells = <2>;
+			};
+
+			k2g_pds: k2g_pds {
+				compatible = "ti,sci-pm-domain";
+				#power-domain-cells = <0>;
+			};
 		};
 	};
 };

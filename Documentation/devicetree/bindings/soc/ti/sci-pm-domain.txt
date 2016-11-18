@@ -1,0 +1,54 @@
+Texas Instruments TI-SCI Generic Power Domain
+---------------------------------------------
+
+Some TI SoCs contain a system controller (like the PMMC, etc...) that is
+responsible for controlling the state of the IPs that are present.
+Communication between the host processor running an OS and the system
+controller happens through a protocol known as TI-SCI [1]. This pm domain
+implementation plugs into the generic pm domain framework and makes use of
+the TI SCI protocol power on and off each device when needed.
+
+[1] Documentation/devicetree/bindings/arm/keystone/ti,sci.txt
+
+PM Domain Node
+==============
+The PM domain node represents the global PM domain managed by the PMMC,
+which in this case is the single implementation as documented by the generic
+PM domain bindings in Documentation/devicetree/bindings/power/power_domain.txt.
+
+Required Properties:
+--------------------
+- compatible: should be "ti,sci-pm-domain"
+- #power-domain-cells: Must be 0.
+- ti,sci: Phandle to the TI SCI device to use for managing the devices.
+
+Example:
+--------------------
+k2g_pds: k2g_pds {
+        compatible = "ti,sci-pm-domain";
+        #power-domain-cells = <0>;
+        ti,sci = <&pmmc>;
+};
+
+PM Domain Consumers
+===================
+Hardware blocks that require SCI control over their state must provide
+a reference to the sci-pm-domain they are part of and a unique device
+specific ID that identifies the device.
+
+Required Properties:
+--------------------
+- power-domains: phandle pointing to the corresponding PM domain node.
+- ti,sci-id: index representing the device id to be passed oevr SCI to
+	     be used for device control.
+
+See dt-bindings/genpd/k2g.h for the list of valid identifiers for k2g.
+
+Example:
+--------------------
+uart0: serial@02530c00 {
+	compatible = "ns16550a";
+	...
+	power-domains = <&k2g_pds>;
+	ti,sci-id = <K2G_DEV_UART0>;
+};
