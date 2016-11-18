@@ -169,6 +169,15 @@ config COMMON_CLK_NXP
 	---help---
 	  Support for clock providers on NXP platforms.
 
+config TI_SCI_CLK
+	tristate "TI System Control Interface clock drivers"
+	depends on (TI_SCI_PROTOCOL && COMMON_CLK_KEYSTONE) || COMPILE_TEST
+	default TI_SCI_PROTOCOL
+	---help---
+	  This adds the clock driver support over TI System Control Interface.
+	  If you wish to use clock resources from the PMMC firmware, say Y.
+	  Otherwise, say N.
+
 config COMMON_CLK_PALMAS
 	tristate "Clock driver for TI Palmas devices"
 	depends on MFD_PALMAS
