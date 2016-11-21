@@ -18,6 +18,7 @@
 #include <dt-bindings/genpd/k2g.h>
 #include <dt-bindings/clock/k2g.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/reset/k2g.h>
 #include "skeleton.dtsi"
 
 / {
@@ -205,6 +206,11 @@
 			k2g_pds: k2g_pds {
 				compatible = "ti,sci-pm-domain";
 				#power-domain-cells = <0>;
+			};
+
+			k2g_reset: k2g_reset {
+				compatible = "ti,sci-reset";
+				#reset-cells = <2>;
 			};
 		};
 	};
