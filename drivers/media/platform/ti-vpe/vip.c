@@ -1091,22 +1091,19 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 	struct vip_stream *stream;
 	int list_num;
 	int irq_num = dev->slice_id;
-	u32 irqst, reg_addr;
+	u32 irqst, irqst_saved, reg_addr;
 
 	if (!dev->shared)
 		return IRQ_HANDLED;
 
 	reg_addr = VIP_INT0_STATUS0 +
 			VIP_INTC_INTX_OFFSET * irq_num;
-	irqst = reg_read(dev->shared, reg_addr);
+	irqst_saved = reg_read(dev->shared, reg_addr);
+	irqst = irqst_saved;
 
 	vip_dbg(8, dev, "IRQ %d VIP_INT%d_STATUS0 0x%x\n",
 		irq_vip, irq_num, irqst);
 	if (irqst) {
-		reg_addr = VIP_INT0_STATUS0_CLR +
-			VIP_INTC_INTX_OFFSET * irq_num;
-		reg_write(dev->shared, reg_addr, irqst);
-
 		if (irqst & (VIP_VIP1_PARSER_INT << (irq_num * 1))) {
 			irqst &= ~(VIP_VIP1_PARSER_INT << (irq_num * 1));
 			handle_parser_irqs(dev);
@@ -1135,6 +1132,14 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 			irqst &= ~((1 << list_num * 2));
 		}
 	}
+
+	/* Acknowledge that we are done with all interrupts */
+	reg_write(dev->shared, VIP_INTC_E0I, 1 << irq_num);
+
+	/* Clear handled events from status register */
+	reg_addr = VIP_INT0_STATUS0_CLR +
+		   VIP_INTC_INTX_OFFSET * irq_num;
+	reg_write(dev->shared, reg_addr, irqst_saved);
 
 	return IRQ_HANDLED;
 }
