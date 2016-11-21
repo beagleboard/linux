@@ -11927,6 +11927,7 @@ F:	include/dt-bindings/clock/k2g.h
 F:	drivers/clk/keystone/sci-clk.c
 F:	Documentation/devicetree/bindings/reset/ti,sci-reset.txt
 F:	include/dt-bindings/reset/k2g.h
+F:	drivers/reset/reset-ti-sci.c
 
 THANKO'S RAREMONO AM/FM/SW RADIO RECEIVER USB DRIVER
 M:	Hans Verkuil <hverkuil@xs4all.nl>
