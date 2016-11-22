@@ -159,6 +159,10 @@ struct drm_display_info {
 #define DRM_BUS_FLAG_PIXDATA_POSEDGE	(1<<2)
 /* drive data on neg. edge */
 #define DRM_BUS_FLAG_PIXDATA_NEGEDGE	(1<<3)
+/* drive sync on pos. edge */
+#define DRM_BUS_FLAG_SYNC_POSEDGE	(1<<4)
+/* drive sync on neg. edge */
+#define DRM_BUS_FLAG_SYNC_NEGEDGE	(1<<5)
 
 	/**
 	 * @bus_flags: Additional information (like pixel signal polarity) for
