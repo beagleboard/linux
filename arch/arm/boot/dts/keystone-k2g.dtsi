@@ -18,6 +18,7 @@
 #include <dt-bindings/genpd/k2g.h>
 #include <dt-bindings/clock/k2g.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/reset/k2g.h>
 #include "skeleton.dtsi"
 
 / {
@@ -117,6 +118,15 @@
 			gpio,syscon-dev = <&devctrl 0x240>;
 		};
 
+		clock_event: timer@2210000 {
+			compatible = "ti,keystone-timer";
+			reg = <0x02210000 0x50>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH
+					GIC_SPI 18 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&k2g_clks K2G_DEV_TIMER64_1
+					K2G_DEV_TIMER64_VBUS_CLK>;
+		};
+
 		gpio0: gpio@2603000 {
 			compatible = "ti,k2g-gpio";
 			reg = <0x02603000 0x100>;
@@ -196,6 +206,11 @@
 			k2g_pds: k2g_pds {
 				compatible = "ti,sci-pm-domain";
 				#power-domain-cells = <0>;
+			};
+
+			k2g_reset: k2g_reset {
+				compatible = "ti,sci-reset";
+				#reset-cells = <2>;
 			};
 		};
 	};
