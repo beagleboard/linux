@@ -160,8 +160,6 @@ static int omap_connector_mode_valid(struct drm_connector *connector,
 	int r, ret = MODE_BAD;
 
 	drm_display_mode_to_videomode(mode, &vm);
-	vm.flags |= DISPLAY_FLAGS_DE_HIGH | DISPLAY_FLAGS_PIXDATA_POSEDGE |
-		    DISPLAY_FLAGS_SYNC_NEGEDGE;
 	mode->vrefresh = drm_mode_vrefresh(mode);
 
 	/*
