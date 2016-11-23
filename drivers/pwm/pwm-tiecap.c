@@ -290,12 +290,14 @@ static int ecap_pwm_remove(struct platform_device *pdev)
 	return pwmchip_remove(&pc->chip);
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static void ecap_pwm_save_context(struct ecap_pwm_chip *pc)
 {
+	pm_runtime_get_sync(pc->chip.dev);
 	pc->ctx.ecctl2 = readw(pc->mmio_base + ECCTL2);
 	pc->ctx.cap4 = readl(pc->mmio_base + CAP4);
 	pc->ctx.cap3 = readl(pc->mmio_base + CAP3);
+	pm_runtime_put_sync(pc->chip.dev);
 }
 
 static void ecap_pwm_restore_context(struct ecap_pwm_chip *pc)
@@ -305,30 +307,12 @@ static void ecap_pwm_restore_context(struct ecap_pwm_chip *pc)
 	writew(pc->ctx.ecctl2, pc->mmio_base + ECCTL2);
 }
 
-static int ecap_pwm_runtime_suspend(struct device *dev)
-{
-	struct ecap_pwm_chip *pc = dev_get_drvdata(dev);
-
-	ecap_pwm_save_context(pc);
-
-	return 0;
-}
-
-static int ecap_pwm_runtime_resume(struct device *dev)
-{
-	struct ecap_pwm_chip *pc = dev_get_drvdata(dev);
-
-	ecap_pwm_restore_context(pc);
-
-	return 0;
-}
-#endif /* CONFIG_PM */
-
-#ifdef CONFIG_PM_SLEEP
 static int ecap_pwm_suspend(struct device *dev)
 {
 	struct ecap_pwm_chip *pc = dev_get_drvdata(dev);
 	struct pwm_device *pwm = pc->chip.pwms;
+
+	ecap_pwm_save_context(pc);
 
 	/* Disable explicitly if PWM is running */
 	if (pwm_is_enabled(pwm))
@@ -352,15 +336,12 @@ static int ecap_pwm_resume(struct device *dev)
 	if (pwm_is_enabled(pwm))
 		pm_runtime_get_sync(dev);
 
+	ecap_pwm_restore_context(pc);
 	return 0;
 }
-#endif /* CONFIG_PM_SLEEP */
+#endif
 
-static const struct dev_pm_ops ecap_pwm_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(ecap_pwm_suspend, ecap_pwm_resume)
-	SET_RUNTIME_PM_OPS(ecap_pwm_runtime_suspend,
-			   ecap_pwm_runtime_resume, NULL)
-};
+static SIMPLE_DEV_PM_OPS(ecap_pwm_pm_ops, ecap_pwm_suspend, ecap_pwm_resume);
 
 static struct platform_driver ecap_pwm_driver = {
 	.driver = {
