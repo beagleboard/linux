@@ -351,5 +351,12 @@
 			clock-names = "fck", "mmchsdb_fck";
 			status = "disabled";
 		};
+
+		wdt: wdt@02250000 {
+			compatible = "ti,keystone-wdt", "ti,davinci-wdt";
+			reg = <0x02250000 0x80>;
+			power-domains = <&k2g_pds 0x22>;
+			clocks = <&k2g_clks 0x22 0>;
+                };
 	};
 };
