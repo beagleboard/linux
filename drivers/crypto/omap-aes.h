@@ -30,11 +30,13 @@
 #define AES_REG_IV(dd, x)		((dd)->pdata->iv_ofs + ((x) * 0x04))
 
 #define AES_REG_CTRL(dd)		((dd)->pdata->ctrl_ofs)
+#define AES_REG_CTRL_CONTEXT_READY	BIT(31)
 #define AES_REG_CTRL_CTR_WIDTH_MASK	GENMASK(8, 7)
 #define AES_REG_CTRL_CTR_WIDTH_32	0
 #define AES_REG_CTRL_CTR_WIDTH_64	BIT(7)
 #define AES_REG_CTRL_CTR_WIDTH_96	BIT(8)
 #define AES_REG_CTRL_CTR_WIDTH_128	GENMASK(8, 7)
+#define AES_REG_CTRL_GCM		GENMASK(17, 16)
 #define AES_REG_CTRL_CTR		BIT(6)
 #define AES_REG_CTRL_CBC		BIT(5)
 #define AES_REG_CTRL_KEY_SIZE		GENMASK(4, 3)
@@ -43,7 +45,12 @@
 #define AES_REG_CTRL_OUTPUT_READY	BIT(0)
 #define AES_REG_CTRL_MASK		GENMASK(24, 2)
 
+#define AES_REG_C_LEN_0			0x54
+#define AES_REG_C_LEN_1			0x58
+#define AES_REG_A_LEN			0x5C
+
 #define AES_REG_DATA_N(dd, x)		((dd)->pdata->data_ofs + ((x) * 0x04))
+#define AES_REG_TAG_N(dd, x)		(0x70 + ((x) * 0x04))
 
 #define AES_REG_REV(dd)			((dd)->pdata->rev_ofs)
 
@@ -61,31 +68,46 @@
 #define AES_REG_IRQ_ENABLE(dd)         ((dd)->pdata->irq_enable_ofs)
 #define AES_REG_IRQ_DATA_IN            BIT(1)
 #define AES_REG_IRQ_DATA_OUT           BIT(2)
+
 #define DEFAULT_TIMEOUT		(5 * HZ)
 
 #define DEFAULT_AUTOSUSPEND_DELAY	1000
 
-#define FLAGS_MODE_MASK		0x000f
+#define FLAGS_MODE_MASK		0x001f
 #define FLAGS_ENCRYPT		BIT(0)
 #define FLAGS_CBC		BIT(1)
-#define FLAGS_GIV		BIT(2)
-#define FLAGS_CTR		BIT(3)
+#define FLAGS_CTR		BIT(2)
+#define FLAGS_GCM		BIT(3)
+#define FLAGS_RFC4106_GCM	BIT(4)
 
-#define FLAGS_INIT		BIT(4)
-#define FLAGS_FAST		BIT(5)
-#define FLAGS_BUSY		BIT(6)
+#define FLAGS_INIT		BIT(5)
+#define FLAGS_FAST		BIT(6)
+#define FLAGS_BUSY		BIT(7)
+
+#define AES_ASSOC_DATA_COPIED	BIT(0)
+#define AES_IN_DATA_COPIED	BIT(1)
+#define AES_OUT_DATA_COPIED	BIT(2)
 
 #define AES_BLOCK_WORDS		(AES_BLOCK_SIZE >> 2)
+
+struct omap_aes_gcm_result {
+	struct completion completion;
+	int err;
+};
 
 struct omap_aes_ctx {
 	int		keylen;
 	u32		key[AES_KEYSIZE_256 / sizeof(u32)];
+	u8		nonce[4];
 	struct crypto_skcipher	*fallback;
+	struct crypto_skcipher *ctr;
 };
 
 struct omap_aes_reqctx {
 	struct omap_aes_dev *dd;
 	unsigned long mode;
+	u8 iv[AES_BLOCK_SIZE];
+	u32 auth_tag[AES_BLOCK_SIZE / sizeof(u32)];
 };
 
 #define OMAP_AES_QUEUE_LENGTH	1
@@ -97,9 +119,16 @@ struct omap_aes_algs_info {
 	unsigned int		registered;
 };
 
+struct omap_aes_aead_algs {
+	struct aead_alg	*algs_list;
+	unsigned int	size;
+	unsigned int	registered;
+};
+
 struct omap_aes_pdata {
 	struct omap_aes_algs_info	*algs_info;
 	unsigned int	algs_info_size;
+	struct omap_aes_aead_algs	*aead_algs_info;
 
 	void		(*trigger)(struct omap_aes_dev *dd, int length);
 
@@ -132,8 +161,11 @@ struct omap_aes_dev {
 	int			err;
 
 	struct tasklet_struct	done_task;
+	struct aead_queue	aead_queue;
+	spinlock_t		lock;
 
 	struct ablkcipher_request	*req;
+	struct aead_request		*aead_req;
 	struct crypto_engine		*engine;
 
 	/*
@@ -142,19 +174,25 @@ struct omap_aes_dev {
 	 */
 	size_t				total;
 	size_t				total_save;
+	size_t				assoc_len;
+	size_t				authsize;
 
 	struct scatterlist		*in_sg;
+	struct scatterlist		*assoc_sg;
 	struct scatterlist		*out_sg;
 
 	/* Buffers for copying for unaligned cases */
-	struct scatterlist		in_sgl;
+	struct scatterlist		in_sgl[2];
 	struct scatterlist		out_sgl;
+	struct scatterlist		aead_sgl[2];
 	struct scatterlist		*orig_out;
 	int				sgs_copied;
 
 	struct scatter_walk		in_walk;
 	struct scatter_walk		out_walk;
+	int			dma_in;
 	struct dma_chan		*dma_lch_in;
+	int			dma_out;
 	struct dma_chan		*dma_lch_out;
 	int			in_sg_len;
 	int			out_sg_len;
@@ -165,9 +203,18 @@ struct omap_aes_dev {
 u32 omap_aes_read(struct omap_aes_dev *dd, u32 offset);
 void omap_aes_write(struct omap_aes_dev *dd, u32 offset, u32 value);
 struct omap_aes_dev *omap_aes_find_dev(struct omap_aes_reqctx *rctx);
+int omap_aes_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
+			unsigned int keylen);
+int omap_aes_4106gcm_setkey(struct crypto_aead *tfm, const u8 *key,
+			    unsigned int keylen);
+int omap_aes_gcm_encrypt(struct aead_request *req);
+int omap_aes_gcm_decrypt(struct aead_request *req);
+int omap_aes_4106gcm_encrypt(struct aead_request *req);
+int omap_aes_4106gcm_decrypt(struct aead_request *req);
 int omap_aes_write_ctrl(struct omap_aes_dev *dd);
 int omap_aes_check_aligned(struct scatterlist *sg, int total);
 int omap_aes_crypt_dma_start(struct omap_aes_dev *dd);
+void omap_aes_gcm_dma_out_callback(void *data);
 int omap_aes_crypt_dma_stop(struct omap_aes_dev *dd);
 
 #endif
