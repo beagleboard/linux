@@ -78,14 +78,13 @@
 #define AES_BLOCK_WORDS		(AES_BLOCK_SIZE >> 2)
 
 struct omap_aes_ctx {
-	struct omap_aes_dev *dd;
-
 	int		keylen;
 	u32		key[AES_KEYSIZE_256 / sizeof(u32)];
 	struct crypto_skcipher	*fallback;
 };
 
 struct omap_aes_reqctx {
+	struct omap_aes_dev *dd;
 	unsigned long mode;
 };
 
