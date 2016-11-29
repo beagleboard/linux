@@ -173,6 +173,14 @@
 			clock-names = "fck";
 		};
 
+		wdt: wdt@02250000 {
+			compatible = "ti,keystone-wdt", "ti,davinci-wdt";
+			reg = <0x02250000 0x80>;
+			power-domains = <&k2g_pds>;
+			ti,sci-id = <K2G_DEV_TIMER64_5>;
+			clocks = <&k2g_clks K2G_DEV_TIMER64_5 0>;
+		};
+
 		msgmgr: msgmgr@02a00000 {
 			compatible = "ti,k2g-message-manager";
 			#mbox-cells = <2>;
