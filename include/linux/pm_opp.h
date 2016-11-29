@@ -115,6 +115,8 @@ int dev_pm_opp_set_prop_name(struct device *dev, const char *name);
 void dev_pm_opp_put_prop_name(struct device *dev);
 int dev_pm_opp_set_regulators(struct device *dev, const char * const names[], unsigned int count);
 void dev_pm_opp_put_regulators(struct device *dev);
+int dev_pm_opp_register_set_opp_helper(struct device *dev, int (*set_opp)(struct dev_pm_set_opp_data *data));
+void dev_pm_opp_register_put_opp_helper(struct device *dev);
 int dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq);
 int dev_pm_opp_set_sharing_cpus(struct device *cpu_dev, const struct cpumask *cpumask);
 int dev_pm_opp_get_sharing_cpus(struct device *cpu_dev, struct cpumask *cpumask);
@@ -213,6 +215,14 @@ static inline int dev_pm_opp_set_supported_hw(struct device *dev,
 }
 
 static inline void dev_pm_opp_put_supported_hw(struct device *dev) {}
+
+static inline int dev_pm_opp_register_set_opp_helper(struct device *dev,
+			int (*set_opp)(struct dev_pm_set_opp_data *data))
+{
+	return -ENOTSUPP;
+}
+
+static inline void dev_pm_opp_register_put_opp_helper(struct device *dev) {}
 
 static inline int dev_pm_opp_set_prop_name(struct device *dev, const char *name)
 {
