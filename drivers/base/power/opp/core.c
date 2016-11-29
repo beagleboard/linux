@@ -748,7 +748,20 @@ int dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq)
 
 	/* Only frequency scaling */
 	if (!regulators) {
+		unsigned long u_volt = opp->supplies[0].u_volt;
+
 		rcu_read_unlock();
+
+		/*
+		 * DT contained supply ratings? Consider platform failed to set
+		 * regulators.
+		 */
+		if (unlikely(u_volt)) {
+			dev_err(dev, "%s: Regulator not registered with OPP core\n",
+				__func__);
+			return -EINVAL;
+		}
+
 		return _generic_set_opp_clk_only(dev, clk, old_freq, freq);
 	}
 
