@@ -1484,7 +1484,7 @@ int dev_pm_opp_set_regulators(struct device *dev, const char * const names[],
 	}
 
 	/* Already have regulators set */
-	if (WARN_ON(opp_table->regulators)) {
+	if (opp_table->regulators) {
 		ret = -EBUSY;
 		goto err;
 	}
