@@ -1241,7 +1241,7 @@ static int knav_setup_queue_range(struct knav_device *kdev,
 
 		range->num_irqs++;
 
-		if (IS_ENABLED(SMP) && oirq.args_count == 3)
+		if (IS_ENABLED(CONFIG_SMP) && oirq.args_count == 3)
 			range->irqs[i].cpu_map =
 				(oirq.args[2] & 0x0000ff00) >> 8;
 	}
