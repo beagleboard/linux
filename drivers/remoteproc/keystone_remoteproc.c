@@ -664,7 +664,7 @@ static int keystone_rproc_start(struct rproc *rproc)
 	if (!rproc->use_userspace_loader) {
 		ret = request_irq(ksproc->irq_fault,
 				  keystone_rproc_exception_interrupt,
-				  IRQF_ONESHOT, dev_name(ksproc->dev), ksproc);
+				  0, dev_name(ksproc->dev), ksproc);
 		if (ret) {
 			dev_err(ksproc->dev, "failed to enable exception interrupt, ret = %d\n",
 				ret);
