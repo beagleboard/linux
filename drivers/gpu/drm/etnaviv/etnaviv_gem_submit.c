@@ -19,6 +19,13 @@
 #include "etnaviv_gpu.h"
 #include "etnaviv_gem.h"
 
+
+#define u64_to_user_ptr(x) (            \
+ {                                       \
+         typecheck(u64, x);              \
+         (void __user *)(uintptr_t)x;    \
+ }                                       \
+)
 /*
  * Cmdstream submission:
  */

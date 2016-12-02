@@ -27,6 +27,8 @@
 #include "state_hi.xml.h"
 #include "cmdstream.xml.h"
 
+//#define PHYS_OFFSET 0x80000000
+
 static const struct platform_device_id gpu_ids[] = {
 	{ .name = "etnaviv-gpu,2d" },
 	{ },
@@ -1127,7 +1129,7 @@ struct etnaviv_cmdbuf *etnaviv_gpu_cmdbuf_new(struct etnaviv_gpu *gpu, u32 size,
 	if (gpu->mmu->version == ETNAVIV_IOMMU_V2)
 		size = ALIGN(size, SZ_4K);
 
-	cmdbuf->vaddr = dma_alloc_wc(gpu->dev, size, &cmdbuf->paddr,
+	cmdbuf->vaddr = dma_alloc_writecombine(gpu->dev, size, &cmdbuf->paddr,
 				     GFP_KERNEL);
 	if (!cmdbuf->vaddr) {
 		kfree(cmdbuf);
@@ -1143,7 +1145,7 @@ struct etnaviv_cmdbuf *etnaviv_gpu_cmdbuf_new(struct etnaviv_gpu *gpu, u32 size,
 void etnaviv_gpu_cmdbuf_free(struct etnaviv_cmdbuf *cmdbuf)
 {
 	etnaviv_iommu_put_cmdbuf_va(cmdbuf->gpu, cmdbuf);
-	dma_free_wc(cmdbuf->gpu->dev, cmdbuf->size, cmdbuf->vaddr,
+	dma_free_writecombine(cmdbuf->gpu->dev, cmdbuf->size, cmdbuf->vaddr,
 		    cmdbuf->paddr);
 	kfree(cmdbuf);
 }
@@ -1561,9 +1563,11 @@ static int etnaviv_gpu_bind(struct device *dev, struct device *master,
 	INIT_WORK(&gpu->recover_work, recover_worker);
 	init_waitqueue_head(&gpu->fence_event);
 
-	setup_deferrable_timer(&gpu->hangcheck_timer, hangcheck_handler,
+	setup_timer(&gpu->hangcheck_timer, hangcheck_handler,
+			(unsigned long)gpu);
+/*	setup_deferrable_timer(&gpu->hangcheck_timer, hangcheck_handler,
 			       (unsigned long)gpu);
-
+*/
 	priv->gpu[priv->num_gpus++] = gpu;
 
 	pm_runtime_mark_last_busy(gpu->dev);
