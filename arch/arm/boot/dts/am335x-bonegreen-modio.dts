@@ -1,0 +1,120 @@
+/*
+ * Copyright 2016 D.S. Ljungmark, Modio AB
+ *
+ * 	This program is free software; you can redistribute it and/or modify
+ * 	it under the terms of the GNU General Public License version 2 as
+ *	published by the Free Software Foundation.
+ *
+ *
+ */
+
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common-no-capemgr.dtsi"
+#include "am33xx-overlay-edma-fix.dtsi"
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+
+/ {
+	model = "TI AM335x BeagleBone Green";
+	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&mmc2 {
+	vmmc-supply = <&vmmcsd_fixed>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&emmc_pins>;
+	bus-width = <8>;
+	status = "okay";
+};
+
+&i2c2 {
+       status = "disabled";
+};
+
+&am33xx_pinmux {
+	uart1_pins: pinmux_uart1_pins {
+		pinctrl-single,pins = <
+			BONE_P9_24 (PIN_OUTPUT | MUX_MODE0)		// 	uart1_txd
+			BONE_P9_26 (PIN_INPUT  | MUX_MODE0)		// 	uart1_rxd
+			BONE_P9_19 (PIN_OUTPUT_PULLDOWN | MUX_MODE7) 	// uart1_rtsn, Hijacked as GPIO
+
+		>;
+	};
+
+	uart2_pins: pinmux_uart2_pins {
+		pinctrl-single,pins = <
+			BONE_P9_21 (PIN_OUTPUT | MUX_MODE1)	// spi0_d0.uart2_txd
+			BONE_P9_22 (PIN_INPUT  | MUX_MODE1)	// spi0_sclk.uart2_rxd
+		>;
+	};
+
+	uart4_pins: pinmux_uart4_pins {
+		pinctrl-single,pins = <
+			BONE_P9_13 (PIN_OUTPUT | MUX_MODE6)		// gpmc_wpn.uart4_txd_mux2
+			BONE_P9_11 (PIN_INPUT  | MUX_MODE6)		// gpmc_wait0.uart4_rxd_mux2
+			BONE_P8_33 (PIN_OUTPUT_PULLDOWN | MUX_MODE7) 	// UART4_RTSN, Hijacked as GPIO
+		>;
+	};
+
+	uart5_pins: pinmux_uart5_pins {
+		pinctrl-single,pins = <
+			BONE_P8_37 (PIN_OUTPUT | MUX_MODE4)	// lcd_data8.uart5_txd
+			BONE_P8_38 (PIN_INPUT  | MUX_MODE4)	// lcd_data9.uart5_rxd
+			BONE_P8_32 (PIN_OUTPUT_PULLDOWN | MUX_MODE7) // uart5_rtsn
+		>;
+	};
+
+};
+
+&uart1 {
+	status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart1_pins>;
+
+	rs485-rts-delay = <1 1>;
+	rts-gpio = <&gpio0 13 GPIO_ACTIVE_HIGH>;  // gpio0[13] == uart1_rts You pull signal LOW to request to send
+	rs485-rts-active-high;
+	linux,rs485-enabled-at-boot-time;
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
+};
+
+&uart4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart4_pins>;
+
+	rs485-rts-delay = <1 1>;
+	rts-gpio = <&gpio0 9 GPIO_ACTIVE_HIGH>;  //  gpio0[9] == uart4_rts You pull signal LOW to request to send
+	rs485-rts-active-high;
+	linux,rs485-enabled-at-boot-time;
+};
+
+&uart5 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart5_pins>;
+
+	rs485-rts-delay = <1 1>;
+	rts-gpio = <&gpio0 11 GPIO_ACTIVE_HIGH>;  //gpio0[11] uart5_rts  You pull signal LOW to request to send
+	rs485-rts-active-high;
+	linux,rs485-enabled-at-boot-time;
+};
