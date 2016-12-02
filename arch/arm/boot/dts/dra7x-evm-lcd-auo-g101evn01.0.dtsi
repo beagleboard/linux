@@ -67,6 +67,22 @@
 		#gpio-cells = <2>;
 	};
 
+	touchscreen: goodix-gt9271@14 {
+		status = "okay";
+		compatible = "goodix,gt9271";
+		reg = <0x14>;
+
+		interrupt-parent = <&gpio1>;
+		interrupts = <15 IRQ_TYPE_LEVEL_HIGH>;
+		touchscreen-size-x = <1280>;
+		touchscreen-size-y = <800>;
+		touchscreen-inverted-y;
+
+		/* Reset gpio line is inverted before going to touch panel */
+		reset-gpios = <&pcf_display_board 5 GPIO_ACTIVE_LOW>;
+		irq-gpios = <&pcf_display_board 6 GPIO_ACTIVE_HIGH>;
+	};
+
 	/* TLC chip for LCD panel power and backlight */
 	tlc59108@40 {
 		#address-cells = <1>;
