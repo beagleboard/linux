@@ -1019,6 +1019,12 @@ static void musb_generic_disable(struct musb *musb)
 
 	/* off */
 	musb_writeb(mbase, MUSB_DEVCTL, 0);
+
+	/*
+	 * only needed for host mode, but doesn't hurt device mode,
+	 * so no mode checking here.
+	 */
+	musb->port1_status &= ~USB_PORT_STAT_POWER;
 }
 
 /*
