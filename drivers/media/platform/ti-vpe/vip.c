@@ -23,6 +23,7 @@
 #include <linux/ioctl.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
+#include <linux/workqueue.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
@@ -380,7 +381,11 @@ static int alloc_port(struct vip_dev *, int);
 static void free_port(struct vip_port *);
 static int vip_setup_parser(struct vip_port *port);
 static int vip_setup_scaler(struct vip_stream *stream);
-static void stop_dma(struct vip_stream *stream);
+static void vip_enable_parser(struct vip_port *port, bool on);
+static void vip_reset_parser(struct vip_port *port, bool on);
+static void vip_parser_stop_imm(struct vip_port *port, bool on);
+static void stop_dma(struct vip_stream *stream, bool clear_list);
+static int vip_load_vpdma_list_fifo(struct vip_stream *stream);
 static inline bool is_scaler_available(struct vip_port *port);
 static inline bool allocate_scaler(struct vip_port *port);
 static inline void free_scaler(struct vip_port *port);
@@ -455,7 +460,7 @@ static void init_adb_hdrs(struct vip_port *port)
 #define VIP_DS0_RST	BIT(25)
 #define VIP_DS1_RST	BIT(27)
 
-static void vip_module_reset(struct vip_dev *dev, uint32_t module)
+static void vip_module_reset(struct vip_dev *dev, uint32_t module, bool on)
 {
 	u32 val = 0;
 
@@ -464,14 +469,11 @@ static void vip_module_reset(struct vip_dev *dev, uint32_t module)
 	if (dev->slice_id == VIP_SLICE2)
 		module <<= 1;
 
-	val |= module;
-	reg_write(dev, VIP_CLK_RESET, val);
+	if (on)
+		val |= module;
+	else
+		val &= ~module;
 
-	usleep_range(200, 250);
-
-	val = reg_read(dev, VIP_CLK_RESET);
-
-	val &= ~module;
 	reg_write(dev, VIP_CLK_RESET, val);
 }
 
@@ -594,6 +596,7 @@ static void vip_set_pclk_invert(struct vip_port *port)
 #define VIP_PARSER_EXTRA_PORT(p)	(VIP_PARSER_PORTA_1 + (p * 0x8U))
 #define VIP_PARSER_CROP_H_PORT(p)	(VIP_PARSER_PORTA_EXTRA4 + (p * 0x10U))
 #define VIP_PARSER_CROP_V_PORT(p)	(VIP_PARSER_PORTA_EXTRA5 + (p * 0x10U))
+#define VIP_PARSER_STOP_IMM_PORT(p)	(VIP_PARSER_PORTA_EXTRA6 + (p * 0x4U))
 
 static void vip_set_data_interface(struct vip_port *port,
 				   enum data_interface_modes mode)
@@ -812,12 +815,21 @@ static void add_stream_dtds(struct vip_stream *stream)
 		add_out_dtd(stream, VIP_SRCE_CHROMA);
 }
 
+#define PARSER_IRQ_MASK (VIP_PORTA_OUTPUT_FIFO_YUV | \
+			 VIP_PORTB_OUTPUT_FIFO_YUV)
+
 static void enable_irqs(struct vip_dev *dev, int irq_num, int list_num)
 {
+	struct vip_parser_data *parser = dev->parser;
 	u32 reg_addr = VIP_INT0_ENABLE0_SET +
 			VIP_INTC_INTX_OFFSET * irq_num;
+	u32 irq_val = (1 << (list_num * 2)) |
+		      (VIP_VIP1_PARSER_INT << (irq_num * 1));
 
-	reg_write(dev->shared, reg_addr, 1 << (list_num * 2));
+	/* Enable Parser Interrupt */
+	reg_write(parser, VIP_PARSER_FIQ_MASK, ~PARSER_IRQ_MASK);
+
+	reg_write(dev->shared, reg_addr, irq_val);
 
 	vpdma_enable_list_complete_irq(dev->shared->vpdma,
 				       irq_num, list_num, true);
@@ -825,10 +837,16 @@ static void enable_irqs(struct vip_dev *dev, int irq_num, int list_num)
 
 static void disable_irqs(struct vip_dev *dev, int irq_num, int list_num)
 {
+	struct vip_parser_data *parser = dev->parser;
 	u32 reg_addr = VIP_INT0_ENABLE0_CLR +
 			VIP_INTC_INTX_OFFSET * irq_num;
+	u32 irq_val = (1 << (list_num * 2)) |
+		      (VIP_VIP1_PARSER_INT << (irq_num * 1));
 
-	reg_write(dev->shared, reg_addr, 1 << (list_num * 2));
+	/* Disable all Parser Interrupt */
+	reg_write(parser, VIP_PARSER_FIQ_MASK, 0xffffffff);
+
+	reg_write(dev->shared, reg_addr, irq_val);
 
 	vpdma_enable_list_complete_irq(dev->shared->vpdma,
 				       irq_num, list_num, false);
@@ -836,10 +854,17 @@ static void disable_irqs(struct vip_dev *dev, int irq_num, int list_num)
 
 static void clear_irqs(struct vip_dev *dev, int irq_num, int list_num)
 {
+	struct vip_parser_data *parser = dev->parser;
 	u32 reg_addr = VIP_INT0_STATUS0_CLR +
 			VIP_INTC_INTX_OFFSET * irq_num;
+	u32 irq_val = (1 << (list_num * 2)) |
+		      (VIP_VIP1_PARSER_INT << (irq_num * 1));
 
-	reg_write(dev->shared, reg_addr, 1 << (list_num * 2));
+	/* Clear all Parser Interrupt */
+	reg_write(parser, VIP_PARSER_FIQ_CLR, 0xffffffff);
+	reg_write(parser, VIP_PARSER_FIQ_CLR, 0x0);
+
+	reg_write(dev->shared, reg_addr, irq_val);
 
 	vpdma_clear_list_stat(dev->shared->vpdma, irq_num, dev->slice_id);
 }
@@ -878,8 +903,8 @@ static void start_dma(struct vip_stream *stream, struct vip_buffer *buf)
 	if (buf) {
 		dma_addr = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
 		drop_data = 0;
-		vip_dbg(4, dev, "start_dma: buf:%pa, vb:%pa, dma_addr:%pad\n",
-			&buf, &buf->vb, &dma_addr);
+		vip_dbg(4, dev, "start_dma: vb2 buf idx:%d, dma_addr:0x%08x\n",
+			buf->vb.vb2_buf.index, dma_addr);
 	} else {
 		dma_addr = 0;
 		drop_data = 1;
@@ -920,24 +945,12 @@ static void vip_schedule_next_buffer(struct vip_stream *stream)
 		buf->drop = true;
 		list_move_tail(&buf->list, &stream->post_bufs);
 		buf = NULL;
-	} else if (vb2_is_streaming(&stream->vb_vidq)) {
+	} else {
 		buf = list_entry(stream->vidq.next,
 				 struct vip_buffer, list);
 		buf->drop = false;
 		list_move_tail(&buf->list, &stream->post_bufs);
 		vip_dbg(4, dev, "added next buffer\n");
-	} else {
-		vip_err(dev, "IRQ occurred when not streaming\n");
-		if (list_empty(&stream->dropq)) {
-			vip_err(dev, "No dropq buffer left!");
-			spin_unlock_irqrestore(&dev->slock, flags);
-			return;
-		}
-		buf = list_entry(stream->dropq.next,
-				 struct vip_buffer, list);
-		buf->drop = true;
-		list_move_tail(&buf->list, &stream->post_bufs);
-		buf = NULL;
 	}
 
 	spin_unlock_irqrestore(&dev->slock, flags);
@@ -990,6 +1003,221 @@ static void vip_process_buffer_complete(struct vip_stream *stream)
 	stream->sequence++;
 }
 
+static int vip_reset_vpdma(struct vip_stream *stream)
+{
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	struct vip_buffer *buf;
+	unsigned long flags;
+
+	stop_dma(stream, false);
+
+	spin_lock_irqsave(&dev->slock, flags);
+	/* requeue all active buffers in the opposite order */
+	while (!list_empty(&stream->post_bufs)) {
+		buf = list_last_entry(&stream->post_bufs,
+				      struct vip_buffer, list);
+		list_del(&buf->list);
+		if (buf->drop == 1) {
+			list_add_tail(&buf->list, &stream->dropq);
+			vip_dbg(4, dev, "requeueing drop buffer on dropq\n");
+		} else {
+			list_add(&buf->list, &stream->vidq);
+			vip_dbg(4, dev, "requeueing vb2 buf idx:%d on vidq\n",
+				buf->vb.vb2_buf.index);
+		}
+	}
+	spin_unlock_irqrestore(&dev->slock, flags);
+
+	/* Make sure the desc_list is unmapped */
+	vpdma_unmap_desc_buf(dev->shared->vpdma, &stream->desc_list.buf);
+
+	return 0;
+}
+
+static void vip_overflow_recovery_work(struct work_struct *work)
+{
+	struct vip_stream *stream = container_of(work, struct vip_stream,
+						 recovery_work);
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+
+	vip_err(dev, "%s: Port %c\n", __func__,
+		port->port_id == VIP_PORTA ? 'A' : 'B');
+
+	disable_irqs(dev, dev->slice_id, stream->list_num);
+	clear_irqs(dev, dev->slice_id, stream->list_num);
+
+	/* 1.	Set VIP_XTRA6_PORT_A[31:16] YUV_SRCNUM_STOP_IMMEDIATELY */
+	/* 2.	Set VIP_XTRA6_PORT_A[15:0] ANC_SRCNUM_STOP_IMMEDIATELY */
+	vip_parser_stop_imm(port, 1);
+
+	/* 3.	Clear VIP_PORT_A[8] ENABLE */
+	/*
+	 * 4.	Set VIP_PORT_A[7] CLR_ASYNC_FIFO_RD
+	 *      Set VIP_PORT_A[6] CLR_ASYNC_FIFO_WR
+	 */
+	vip_enable_parser(port, false);
+
+	/* 5.	Set VIP_PORT_A[23] SW_RESET */
+	vip_reset_parser(port, 1);
+
+	/*
+	 * 6.	Reset other VIP modules
+	 *	For each module used downstream of VIP_PARSER, write 1 to the
+	 *      bit location of the VIP_CLKC_RST register which is connected
+	 *      to VIP_PARSER
+	 */
+	vip_module_reset(dev, VIP_DP_RST, true);
+
+	usleep_range(200, 250);
+
+	/*
+	 * 7.	Abort VPDMA channels
+	 *	Write to list attribute to stop list 0
+	 *	Write to list address register location of abort list
+	 *	Write to list attribute register list 0 and size of abort list
+	 */
+	vip_reset_vpdma(stream);
+
+	/* 8.	Clear VIP_PORT_A[23] SW_RESET */
+	vip_reset_parser(port, 0);
+
+	/*
+	 * 9.	Un-reset other VIP modules
+	 *	For each module used downstream of VIP_PARSER, write 0 to
+	 *	the bit location of the VIP_CLKC_RST register which is
+	 *	connected to VIP_PARSER
+	 */
+	vip_module_reset(dev, VIP_DP_RST, false);
+
+	/* 10.	(Delay) */
+	/* 11.	SC coeff downloaded (if VIP_SCALER is being used) */
+	vip_setup_scaler(stream);
+
+	/* 12.	(Delay) */
+		/* the above are not needed here yet */
+
+	populate_desc_list(stream);
+	stream->num_recovery++;
+	if (stream->num_recovery < 5) {
+		/* Reload the vpdma */
+		vip_load_vpdma_list_fifo(stream);
+
+		enable_irqs(dev, dev->slice_id, stream->list_num);
+		vip_schedule_next_buffer(stream);
+
+		/* 13.	Clear VIP_XTRA6_PORT_A[31:16] YUV_SRCNUM_STOP_IMM */
+		/* 14.	Clear VIP_XTRA6_PORT_A[15:0] ANC_SRCNUM_STOP_IMM */
+
+		vip_parser_stop_imm(port, 0);
+
+		/* 15.	Set VIP_PORT_A[8] ENABLE */
+		/*
+		 * 16.	Clear VIP_PORT_A[7] CLR_ASYNC_FIFO_RD
+		 *	Clear VIP_PORT_A[6] CLR_ASYNC_FIFO_WR
+		 */
+		vip_enable_parser(port, true);
+	} else {
+		vip_err(dev, "%s: num_recovery limit exceeded leaving disabled\n",
+			__func__);
+	}
+}
+
+static void handle_parser_irqs(struct vip_dev *dev)
+{
+	struct vip_parser_data *parser = dev->parser;
+	struct vip_port *porta = dev->ports[VIP_PORTA];
+	struct vip_port *portb = dev->ports[VIP_PORTB];
+	struct vip_stream *stream = NULL;
+	u32 irq_stat = reg_read(parser, VIP_PARSER_FIQ_STATUS);
+	int i;
+
+	vip_dbg(3, dev, "%s: FIQ_STATUS: 0x%08x\n", __func__, irq_stat);
+
+	/* Clear all Parser Interrupt */
+	reg_write(parser, VIP_PARSER_FIQ_CLR, irq_stat);
+	reg_write(parser, VIP_PARSER_FIQ_CLR, 0x0);
+
+	if (irq_stat & VIP_PORTA_VDET)
+		vip_dbg(3, dev, "VIP_PORTA_VDET\n");
+	if (irq_stat & VIP_PORTB_VDET)
+		vip_dbg(3, dev, "VIP_PORTB_VDET\n");
+	if (irq_stat & VIP_PORTA_ASYNC_FIFO_OF)
+		vip_err(dev, "VIP_PORTA_ASYNC_FIFO_OF\n");
+	if (irq_stat & VIP_PORTB_ASYNC_FIFO_OF)
+		vip_err(dev, "VIP_PORTB_ASYNC_FIFO_OF\n");
+	if (irq_stat & VIP_PORTA_OUTPUT_FIFO_YUV)
+		vip_err(dev, "VIP_PORTA_OUTPUT_FIFO_YUV\n");
+	if (irq_stat & VIP_PORTA_OUTPUT_FIFO_ANC)
+		vip_err(dev, "VIP_PORTA_OUTPUT_FIFO_ANC\n");
+	if (irq_stat & VIP_PORTB_OUTPUT_FIFO_YUV)
+		vip_err(dev, "VIP_PORTB_OUTPUT_FIFO_YUV\n");
+	if (irq_stat & VIP_PORTB_OUTPUT_FIFO_ANC)
+		vip_err(dev, "VIP_PORTB_OUTPUT_FIFO_ANC\n");
+	if (irq_stat & VIP_PORTA_CONN)
+		vip_dbg(3, dev, "VIP_PORTA_CONN\n");
+	if (irq_stat & VIP_PORTA_DISCONN)
+		vip_dbg(3, dev, "VIP_PORTA_DISCONN\n");
+	if (irq_stat & VIP_PORTB_CONN)
+		vip_dbg(3, dev, "VIP_PORTB_CONN\n");
+	if (irq_stat & VIP_PORTB_DISCONN)
+		vip_dbg(3, dev, "VIP_PORTB_DISCONN\n");
+	if (irq_stat & VIP_PORTA_SRC0_SIZE)
+		vip_dbg(3, dev, "VIP_PORTA_SRC0_SIZE\n");
+	if (irq_stat & VIP_PORTB_SRC0_SIZE)
+		vip_dbg(3, dev, "VIP_PORTB_SRC0_SIZE\n");
+	if (irq_stat & VIP_PORTA_YUV_PROTO_VIOLATION)
+		vip_dbg(3, dev, "VIP_PORTA_YUV_PROTO_VIOLATION\n");
+	if (irq_stat & VIP_PORTA_ANC_PROTO_VIOLATION)
+		vip_dbg(3, dev, "VIP_PORTA_ANC_PROTO_VIOLATION\n");
+	if (irq_stat & VIP_PORTB_YUV_PROTO_VIOLATION)
+		vip_dbg(3, dev, "VIP_PORTB_YUV_PROTO_VIOLATION\n");
+	if (irq_stat & VIP_PORTB_ANC_PROTO_VIOLATION)
+		vip_dbg(3, dev, "VIP_PORTB_ANC_PROTO_VIOLATION\n");
+	if (irq_stat & VIP_PORTA_CFG_DISABLE_COMPLETE)
+		vip_dbg(3, dev, "VIP_PORTA_CFG_DISABLE_COMPLETE\n");
+	if (irq_stat & VIP_PORTB_CFG_DISABLE_COMPLETE)
+		vip_dbg(3, dev, "VIP_PORTB_CFG_DISABLE_COMPLETE\n");
+
+	if (irq_stat & (VIP_PORTA_ASYNC_FIFO_OF |
+			VIP_PORTA_OUTPUT_FIFO_YUV |
+			VIP_PORTA_OUTPUT_FIFO_ANC)) {
+		for (i = 0; i < VIP_CAP_STREAMS_PER_PORT; i++) {
+			if (porta->cap_streams[i] &&
+			    porta->cap_streams[i]->port->port_id ==
+			    porta->port_id) {
+				stream = porta->cap_streams[i];
+				break;
+			}
+		}
+		if (stream) {
+			disable_irqs(dev, dev->slice_id,
+				     stream->list_num);
+			schedule_work(&stream->recovery_work);
+			return;
+		}
+	}
+	if (irq_stat & (VIP_PORTB_ASYNC_FIFO_OF |
+			VIP_PORTB_OUTPUT_FIFO_YUV |
+			VIP_PORTB_OUTPUT_FIFO_ANC)) {
+		for (i = 0; i < VIP_CAP_STREAMS_PER_PORT; i++) {
+			if (portb->cap_streams[i] &&
+			    portb->cap_streams[i]->port->port_id ==
+			    portb->port_id) {
+				stream = portb->cap_streams[i];
+				break;
+			}
+		}
+		if (stream) {
+			disable_irqs(dev, dev->slice_id,
+				     stream->list_num);
+			schedule_work(&stream->recovery_work);
+			return;
+		}
+	}
+}
+
 static irqreturn_t vip_irq(int irq_vip, void *data)
 {
 	struct vip_dev *dev = (struct vip_dev *)data;
@@ -997,23 +1225,25 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 	struct vip_stream *stream;
 	int list_num;
 	int irq_num = dev->slice_id;
-	u32 irqst, reg_addr;
+	u32 irqst, irqst_saved, reg_addr;
 
 	if (!dev->shared)
 		return IRQ_HANDLED;
 
 	reg_addr = VIP_INT0_STATUS0 +
 			VIP_INTC_INTX_OFFSET * irq_num;
-	irqst = reg_read(dev->shared, reg_addr);
+	irqst_saved = reg_read(dev->shared, reg_addr);
+	irqst = irqst_saved;
 
 	vip_dbg(8, dev, "IRQ %d VIP_INT%d_STATUS0 0x%x\n",
 		irq_vip, irq_num, irqst);
 	if (irqst) {
-		reg_addr = VIP_INT0_STATUS0_CLR +
-			VIP_INTC_INTX_OFFSET * irq_num;
-		reg_write(dev->shared, reg_addr, irqst);
+		if (irqst & (VIP_VIP1_PARSER_INT << (irq_num * 1))) {
+			irqst &= ~(VIP_VIP1_PARSER_INT << (irq_num * 1));
+			handle_parser_irqs(dev);
+		}
 
-		for (list_num = 0; list_num < 8;  list_num++) {
+		for (list_num = 0; irqst && (list_num < 8);  list_num++) {
 			/* Check for LIST_COMPLETE IRQ */
 			if (!(irqst & (1 << list_num * 2)))
 				continue;
@@ -1029,15 +1259,21 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 
 			vpdma_clear_list_stat(vpdma, irq_num, list_num);
 
-			if (dev->num_skip_irq)
-				dev->num_skip_irq--;
-			else
-				vip_process_buffer_complete(stream);
+			vip_process_buffer_complete(stream);
 
 			vip_schedule_next_buffer(stream);
+
 			irqst &= ~((1 << list_num * 2));
 		}
 	}
+
+	/* Acknowledge that we are done with all interrupts */
+	reg_write(dev->shared, VIP_INTC_E0I, 1 << irq_num);
+
+	/* Clear handled events from status register */
+	reg_addr = VIP_INT0_STATUS0_CLR +
+		   VIP_INTC_INTX_OFFSET * irq_num;
+	reg_write(dev->shared, reg_addr, irqst_saved);
 
 	return IRQ_HANDLED;
 }
@@ -2202,13 +2438,55 @@ static int vip_setup_scaler(struct vip_stream *stream)
 	return 0;
 }
 
+static int vip_load_vpdma_list_fifo(struct vip_stream *stream)
+{
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	struct vpdma_data *vpdma = dev->shared->vpdma;
+	int list_num = stream->list_num;
+	struct vip_buffer *buf;
+	unsigned long flags;
+	int timeout, i;
+
+	if (vpdma_list_busy(dev->shared->vpdma, stream->list_num))
+		return -EBUSY;
+
+	for (i = 0; i < VIP_VPDMA_FIFO_SIZE; i++) {
+		spin_lock_irqsave(&dev->slock, flags);
+		if (list_empty(&stream->vidq)) {
+			vip_err(dev, "No buffer left!");
+			spin_unlock_irqrestore(&dev->slock, flags);
+			return -EINVAL;
+		}
+
+		buf = list_entry(stream->vidq.next,
+				 struct vip_buffer, list);
+		buf->drop = false;
+
+		list_move_tail(&buf->list, &stream->post_bufs);
+		spin_unlock_irqrestore(&dev->slock, flags);
+
+		vip_dbg(2, dev, "%s: start_dma vb2 buf idx:%d\n",
+			__func__, buf->vb.vb2_buf.index);
+		start_dma(stream, buf);
+
+		timeout = 500;
+		while (vpdma_list_busy(vpdma, list_num) && timeout--)
+			usleep_range(1000, 1100);
+
+		if (timeout <= 0) {
+			vip_err(dev, "Timed out loading VPDMA list fifo\n");
+			return -EBUSY;
+		}
+	}
+	return 0;
+}
+
 static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct vip_stream *stream = vb2_get_drv_priv(vq);
 	struct vip_port *port = stream->port;
 	struct vip_dev *dev = port->dev;
-	struct vip_buffer *buf;
-	unsigned long flags;
 	int ret;
 
 	vip_setup_scaler(stream);
@@ -2223,16 +2501,6 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 	set_fmt_params(stream);
 	vip_setup_parser(port);
 
-
-	buf = list_entry(stream->vidq.next,
-			 struct vip_buffer, list);
-
-	vip_dbg(2, dev, "start_streaming: buf 0x%x %d\n",
-		(unsigned int)buf, count);
-	buf->drop = false;
-	stream->sequence = 0;
-	stream->field = V4L2_FIELD_TOP;
-
 	if (port->subdev) {
 		ret = v4l2_subdev_call(port->subdev, video, s_stream, 1);
 		if (ret) {
@@ -2241,41 +2509,21 @@ static int vip_start_streaming(struct vb2_queue *vq, unsigned int count)
 		}
 	}
 
+	stream->sequence = 0;
+	stream->field = V4L2_FIELD_TOP;
 	populate_desc_list(stream);
 
-	/* The first few VPDMA ListComplete interrupts fire pretty quiclky
-	 * until the internal VPDMA descriptor fifo is full.
-	 * The subsequent ListComplete interrupts will fire at the actual
-	 * capture frame rate. The first few interrupts are therefore used
-	 * only to queue up descriptors, and then they will also be used
-	 * as End of Frame (EOF) event
-	 */
-	dev->num_skip_irq = VIP_VPDMA_FIFO_SIZE;
+	ret = vip_load_vpdma_list_fifo(stream);
+	if (ret)
+		return ret;
 
-	spin_lock_irqsave(&dev->slock, flags);
-	if (vpdma_list_busy(dev->shared->vpdma, stream->list_num)) {
-		spin_unlock_irqrestore(&dev->slock, flags);
-		vpdma_unmap_desc_buf(dev->shared->vpdma,
-				     &stream->desc_list.buf);
-		vpdma_reset_desc_list(&stream->desc_list);
-		return -EBUSY;
-	}
-
-	list_move_tail(&buf->list, &stream->post_bufs);
-	spin_unlock_irqrestore(&dev->slock, flags);
+	stream->num_recovery = 0;
 
 	clear_irqs(dev, dev->slice_id, stream->list_num);
-
-	vip_dbg(2, dev, "start_streaming: start_dma buf 0x%x\n",
-		(unsigned int)buf);
-	start_dma(stream, buf);
-
-	/* We enable the irq after posting the vpdma descriptor
-	 * to prevent sprurious interrupt coming in before the
-	 * vb2 layer is completely ready to handle them
-	 * otherwise the vb2_streaming test would fail early on
-	  */
 	enable_irqs(dev, dev->slice_id, stream->list_num);
+	vip_schedule_next_buffer(stream);
+	vip_parser_stop_imm(port, false);
+	vip_enable_parser(port, true);
 
 	return 0;
 }
@@ -2293,7 +2541,12 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 
 	vip_dbg(2, dev, "%s:\n", __func__);
 
+	vip_parser_stop_imm(port, true);
+	vip_enable_parser(port, false);
 	vip_disable_sc_path(stream);
+
+	disable_irqs(dev, dev->slice_id, stream->list_num);
+	clear_irqs(dev, dev->slice_id, stream->list_num);
 
 	if (port->subdev) {
 		ret = v4l2_subdev_call(port->subdev, video, s_stream, 0);
@@ -2301,9 +2554,7 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 			vip_dbg(1, dev, "stream on failed in subdev\n");
 	}
 
-	disable_irqs(dev, dev->slice_id, stream->list_num);
-	clear_irqs(dev, dev->slice_id, stream->list_num);
-	stop_dma(stream);
+	stop_dma(stream, true);
 
 	/* release all active buffers */
 	while (!list_empty(&stream->post_bufs)) {
@@ -2348,6 +2599,8 @@ static int vip_init_dev(struct vip_dev *dev)
 		goto done;
 
 	vip_set_clock_enable(dev, 1);
+	vip_module_reset(dev, VIP_SC_RST, false);
+	vip_module_reset(dev, VIP_CSC_RST, false);
 done:
 	dev->num_ports++;
 
@@ -2493,6 +2746,7 @@ static int vip_init_port(struct vip_port *port)
 
 	init_adb_hdrs(port);
 
+	vip_enable_parser(port, false);
 done:
 	port->num_streams++;
 	return 0;
@@ -2563,8 +2817,8 @@ static void vip_release_dev(struct vip_dev *dev)
 
 	if (--dev->num_ports == 0) {
 		/* reset the scaler module */
-		vip_module_reset(dev, VIP_SC_RST);
-		vip_module_reset(dev, VIP_CSC_RST);
+		vip_module_reset(dev, VIP_SC_RST, true);
+		vip_module_reset(dev, VIP_CSC_RST, true);
 		vip_set_clock_enable(dev, 0);
 	}
 }
@@ -2619,11 +2873,10 @@ static int vip_setup_parser(struct vip_port *port)
 	u32 flags = 0, config0;
 
 	/* Reset the port */
-	reg_write(parser, VIP_PARSER_PORT(port->port_id), VIP_SW_RESET);
+	vip_reset_parser(port, true);
 	usleep_range(200, 250);
-	reg_write(parser, VIP_PARSER_PORT(port->port_id), 0x00000000);
+	vip_reset_parser(port, false);
 
-	reg_write(parser, VIP_PARSER_PORT(port->port_id), VIP_PORT_ENABLE);
 	config0 = reg_read(parser, VIP_PARSER_PORT(port->port_id));
 
 	if (endpoint->bus_type == V4L2_MBUS_BT656) {
@@ -2703,12 +2956,63 @@ static int vip_setup_parser(struct vip_port *port)
 	}
 
 	config0 |= ((sync_type & VIP_SYNC_TYPE_MASK) << VIP_SYNC_TYPE_SHFT);
+
 	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
 
 	vip_set_data_interface(port, iface);
 	vip_set_crop_parser(port);
 
 	return 0;
+}
+
+static __maybe_unused void vip_enable_parser(struct vip_port *port, bool on)
+{
+	u32 config0;
+	struct vip_dev *dev = port->dev;
+	struct vip_parser_data *parser = dev->parser;
+
+	config0 = reg_read(parser, VIP_PARSER_PORT(port->port_id));
+
+	if (on) {
+		config0 |= VIP_PORT_ENABLE;
+		config0 &= ~(VIP_ASYNC_FIFO_RD | VIP_ASYNC_FIFO_WR);
+	} else {
+		config0 &= ~VIP_PORT_ENABLE;
+		config0 |= (VIP_ASYNC_FIFO_RD | VIP_ASYNC_FIFO_WR);
+	}
+	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
+}
+
+static __maybe_unused void vip_reset_parser(struct vip_port *port, bool on)
+{
+	u32 config0;
+	struct vip_dev *dev = port->dev;
+	struct vip_parser_data *parser = dev->parser;
+
+	config0 = reg_read(parser, VIP_PARSER_PORT(port->port_id));
+
+	if (on)
+		config0 |= VIP_SW_RESET;
+	else
+		config0 &= ~VIP_SW_RESET;
+
+	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
+}
+
+static __maybe_unused void vip_parser_stop_imm(struct vip_port *port, bool on)
+{
+	u32 config0;
+	struct vip_dev *dev = port->dev;
+	struct vip_parser_data *parser = dev->parser;
+
+	config0 = reg_read(parser, VIP_PARSER_STOP_IMM_PORT(port->port_id));
+
+	if (on)
+		config0 = 0xffffffff;
+	else
+		config0 = 0;
+
+	reg_write(parser, VIP_PARSER_STOP_IMM_PORT(port->port_id), config0);
 }
 
 static void vip_release_stream(struct vip_stream *stream)
@@ -2735,7 +3039,7 @@ static void vip_release_port(struct vip_port *port)
 	vpdma_free_desc_buf(&port->sc_coeff_v);
 }
 
-static void stop_dma(struct vip_stream *stream)
+static void stop_dma(struct vip_stream *stream, bool clear_list)
 {
 	struct vip_dev *dev = stream->port->dev;
 	int ch, size = 0;
@@ -2743,17 +3047,18 @@ static void stop_dma(struct vip_stream *stream)
 	/* Create a list of channels to be cleared */
 	for (ch = 0; ch < VPDMA_MAX_CHANNELS; ch++) {
 		if (stream->vpdma_channels[ch] == 1) {
-			stream->vpdma_channels[size++] = ch;
+			stream->vpdma_channels_to_abort[size++] = ch;
 			vip_dbg(2, dev, "Clear channel no: %d\n", ch);
 		}
 	}
 
 	/* Clear all the used channels for the list */
 	vpdma_list_cleanup(dev->shared->vpdma, stream->list_num,
-			   stream->vpdma_channels, size);
+			   stream->vpdma_channels_to_abort, size);
 
-	for (ch = 0; ch < VPDMA_MAX_CHANNELS; ch++)
-		stream->vpdma_channels[ch] = 0;
+	if (clear_list)
+		for (ch = 0; ch < VPDMA_MAX_CHANNELS; ch++)
+			stream->vpdma_channels[ch] = 0;
 }
 
 static int vip_open(struct file *file)
@@ -2893,6 +3198,8 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	ret = vb2_queue_init(q);
 	if (ret)
 		goto do_free_stream;
+
+	INIT_WORK(&stream->recovery_work, vip_overflow_recovery_work);
 
 	INIT_LIST_HEAD(&stream->vidq);
 
