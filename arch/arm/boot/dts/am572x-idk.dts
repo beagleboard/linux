@@ -62,11 +62,6 @@
 		};
 	};
 
-	extcon_usb2: extcon_usb2 {
-		compatible = "linux,extcon-usb-gpio";
-		id-gpio = <&gpio3 16 GPIO_ACTIVE_HIGH>;
-	};
-
 	leds@1 {
 		compatible = "gpio-leds";
 		led@0 {
@@ -108,11 +103,6 @@
 			default-state = "off";
 			linux,default-trigger = "mmc0";
 		};
-	};
-
-	extcon_usb2: extcon_usb2 {
-	     compatible = "linux,extcon-usb-gpio";
-	     id-gpio = <&gpio3 16 GPIO_ACTIVE_HIGH>;
 	};
 };
 
@@ -468,4 +458,9 @@
 
 &omap_dwc3_2 {
 	extcon = <&extcon_usb2>;
+};
+
+&extcon_usb2 {
+	id-gpio = <&gpio3 16 GPIO_ACTIVE_HIGH>;
+	vbus-gpio = <&gpio3 26 GPIO_ACTIVE_HIGH>;
 };
