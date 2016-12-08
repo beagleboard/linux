@@ -98,11 +98,6 @@
 		};
 	};
 
-	extcon_usb2: extcon_usb2 {
-	     compatible = "linux,extcon-usb-gpio";
-	     id-gpio = <&gpio5 7 GPIO_ACTIVE_HIGH>;
-	};
-
 	/* Dual mac ethernet application node on icss2 */
 	pruss1_eth: pruss1_eth {
 		status = "okay";
@@ -481,4 +476,9 @@
 
 &omap_dwc3_2 {
 	extcon = <&extcon_usb2>;
+};
+
+&extcon_usb2 {
+	id-gpio = <&gpio5 7 GPIO_ACTIVE_HIGH>;
+	vbus-gpio = <&gpio7 22 GPIO_ACTIVE_HIGH>;
 };
