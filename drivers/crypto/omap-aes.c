@@ -201,14 +201,14 @@ static void omap_aes_dma_stop(struct omap_aes_dev *dd)
 	omap_aes_write_mask(dd, AES_REG_MASK(dd), 0, mask);
 }
 
-struct omap_aes_dev *omap_aes_find_dev(struct omap_aes_ctx *ctx)
+struct omap_aes_dev *omap_aes_find_dev(struct omap_aes_reqctx *rctx)
 {
 	struct omap_aes_dev *dd;
 
 	spin_lock_bh(&list_lock);
 	dd = list_first_entry(&dev_list, struct omap_aes_dev, list);
 	list_move_tail(&dd->list, &dev_list);
-	ctx->dd = dd;
+	rctx->dd = dd;
 	spin_unlock_bh(&list_lock);
 
 	return dd;
@@ -531,7 +531,7 @@ static int omap_aes_handle_queue(struct omap_aes_dev *dd,
 	dd->flags = (dd->flags & ~FLAGS_MODE_MASK) | rctx->mode;
 
 	dd->ctx = ctx;
-	ctx->dd = dd;
+	rctx->dd = dd;
 
 	err = omap_aes_write_ctrl(dd);
 
@@ -612,7 +612,7 @@ static int omap_aes_crypt(struct ablkcipher_request *req, unsigned long mode)
 		ablkcipher_request_set_tfm(req, __crypto_ablkcipher_cast(tfm));
 		return ret;
 	}
-	dd = omap_aes_find_dev(ctx);
+	dd = omap_aes_find_dev(rctx);
 	if (!dd)
 		return -ENODEV;
 
