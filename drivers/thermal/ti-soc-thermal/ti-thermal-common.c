@@ -343,6 +343,7 @@ static const struct thermal_zone_of_device_ops ti_of_thermal_ops = {
 	.get_temp = __ti_thermal_get_temp,
 	.get_trend = __ti_thermal_get_trend,
 	.set_emul_temp = __ti_thermal_set_emul_temp,
+	.notify = ti_thermal_notify,
 };
 
 static struct thermal_zone_device_ops ti_thermal_ops = {
