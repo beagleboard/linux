@@ -303,7 +303,7 @@ static int omap_aes_gcm_handle_queue(struct omap_aes_dev *dd,
 	rctx = aead_request_ctx(req);
 
 	dd->ctx = ctx;
-	ctx->dd = dd;
+	rctx->dd = dd;
 	dd->aead_req = req;
 
 	rctx->mode &= FLAGS_MODE_MASK;
@@ -327,7 +327,6 @@ static int omap_aes_gcm_handle_queue(struct omap_aes_dev *dd,
 
 static int omap_aes_gcm_crypt(struct aead_request *req, unsigned long mode)
 {
-	struct omap_aes_ctx *ctx = crypto_aead_ctx(crypto_aead_reqtfm(req));
 	struct omap_aes_reqctx *rctx = aead_request_ctx(req);
 	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 	unsigned int authlen = crypto_aead_authsize(aead);
@@ -352,7 +351,7 @@ static int omap_aes_gcm_crypt(struct aead_request *req, unsigned long mode)
 		return 0;
 	}
 
-	dd = omap_aes_find_dev(ctx);
+	dd = omap_aes_find_dev(rctx);
 	if (!dd)
 		return -ENODEV;
 	rctx->mode = mode;

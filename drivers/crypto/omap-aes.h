@@ -89,8 +89,6 @@ struct omap_aes_gcm_result {
 };
 
 struct omap_aes_ctx {
-	struct omap_aes_dev *dd;
-
 	int		keylen;
 	u32		key[AES_KEYSIZE_256 / sizeof(u32)];
 	u8		nonce[4];
@@ -100,6 +98,7 @@ struct omap_aes_ctx {
 };
 
 struct omap_aes_reqctx {
+	struct omap_aes_dev *dd;
 	unsigned long mode;
 	u8 iv[AES_BLOCK_SIZE];
 	u32 auth_tag[AES_BLOCK_SIZE / sizeof(u32)];
@@ -200,7 +199,7 @@ struct omap_aes_dev {
 
 u32 omap_aes_read(struct omap_aes_dev *dd, u32 offset);
 void omap_aes_write(struct omap_aes_dev *dd, u32 offset, u32 value);
-struct omap_aes_dev *omap_aes_find_dev(struct omap_aes_ctx *ctx);
+struct omap_aes_dev *omap_aes_find_dev(struct omap_aes_reqctx *rctx);
 int omap_aes_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
 			unsigned int keylen);
 int omap_aes_4106gcm_setkey(struct crypto_aead *tfm, const u8 *key,
