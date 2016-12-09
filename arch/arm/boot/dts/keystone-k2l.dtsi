@@ -8,6 +8,8 @@
  * published by the Free Software Foundation.
  */
 
+#include <dt-bindings/reset/ti-syscon.h>
+
 / {
 	compatible = "ti,k2l", "ti,keystone";
 	model = "Texas Instruments Keystone 2 Lamarr SoC";
@@ -243,6 +245,20 @@
 				 * GPIO_EMIFA_SEL[0]: 0-EMIFA0, 1-GPIO32
 				 */
 					0x8 0x0 0xFFFF
+				>;
+			};
+		};
+
+		psc: power-sleep-controller@02350000 {
+			pscrst: psc-reset-controller {
+				compatible = "ti,k2l-pscrst", "ti,syscon-reset";
+				#reset-cells = <1>;
+
+				ti,reset-bits = <
+					0xa3c 8 0xa3c 8 0x83c 8 (ASSERT_CLEAR | DEASSERT_SET | STATUS_CLEAR) /* 0: dsp0 */
+					0xa40 8 0xa40 8 0x840 8 (ASSERT_CLEAR | DEASSERT_SET | STATUS_CLEAR) /* 1: dsp1 */
+					0xa44 8 0xa44 8 0x844 8 (ASSERT_CLEAR | DEASSERT_SET | STATUS_CLEAR) /* 2: dsp2 */
+					0xa48 8 0xa48 8 0x848 8 (ASSERT_CLEAR | DEASSERT_SET | STATUS_CLEAR) /* 3: dsp3 */
 				>;
 			};
 		};
