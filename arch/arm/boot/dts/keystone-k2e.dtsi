@@ -82,14 +82,6 @@
 			};
 		};
 
-		psc: power-sleep-controller@02350000 {
-			pscrst: psc-reset {
-				ti,reset-bits = <
-					0xa3c 8 0xa3c 8 0x83c 8 (ASSERT_SET|DEASSERT_CLEAR|STATUS_SET)   /* 0: pcrst-dsp0 */
-				>;
-			};
-		};
-
 		dspgpio0: keystone_dsp_gpio@02620240 {
 			compatible = "ti,keystone-dsp-gpio";
 			gpio-controller;
