@@ -247,17 +247,6 @@
 			};
 		};
 
-		psc: power-sleep-controller@02350000 {
-			pscrst: psc-reset {
-				ti,reset-bits = <
-					0xa3c 8 0xa3c 8 0x83c 8 (ASSERT_SET|DEASSERT_CLEAR|STATUS_SET)   /* 0: pcrst-dsp0 */
-					0xa40 8 0xa40 8 0x840 8 (ASSERT_SET|DEASSERT_CLEAR|STATUS_SET)   /* 1: pcrst-dsp1 */
-					0xa44 8 0xa44 8 0x844 8 (ASSERT_SET|DEASSERT_CLEAR|STATUS_SET)   /* 2: pcrst-dsp2 */
-					0xa48 8 0xa48 8 0x848 8 (ASSERT_SET|DEASSERT_CLEAR|STATUS_SET)   /* 3: pcrst-dsp3 */
-				>;
-			};
-		};
-
 		dspgpio0: keystone_dsp_gpio@02620240 {
 			compatible = "ti,keystone-dsp-gpio";
 			gpio-controller;
