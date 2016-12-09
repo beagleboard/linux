@@ -99,6 +99,9 @@
 
 		touchscreen-size-x = <1024>;
 		touchscreen-size-y = <600>;
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
+		touchscreen-swapped-x-y;
 	};
 
 	tlv320aic3x: tlv320aic3x@1b {
