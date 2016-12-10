@@ -27,7 +27,7 @@
 
 		dsp_common_mpm_area: dsp_reserved_mpm_area {
 			compatible = "shared-dma-pool";
-			reg = <0x00000008 0x1e000000 0x00000000 0x1800000>;
+			reg = <0x00000008 0x1f000000 0x00000000 0x800000>;
 			no-map;
 			status = "okay";
 		};
@@ -140,7 +140,7 @@
 	soc {
 		mpm_mem: dspmem@9e000000 {
 			compatible = "ti,keystone-dsp-mem";
-			reg = <0x9e000000 0x1800000>;
+			reg = <0x9f000000 0x800000>;
 		};
 	};
 
