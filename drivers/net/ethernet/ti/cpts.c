@@ -630,7 +630,7 @@ void cpts_release(struct cpts *cpts)
 	if (!cpts)
 		return;
 
-	if (WARN_ON(!cpts->clock))
+	if (WARN_ON(!cpts->refclk))
 		return;
 
 	clk_unprepare(cpts->refclk);
