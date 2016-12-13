@@ -56,6 +56,17 @@ Example:
 		};
 	};
 
+Support for I2C PMIC Voltage Scaling
+--------------------
+It is possible to pass the name of a binary file to laod to the CM3 firmware
+in order to provide I2C sequences for the CM3 to send out to the PMIC during
+low power mode entry.
+
+Optional properties:
+--------------------
+- scale-data-fw:	Name of the firmware binary in /lib/firmware to copy to m3
+			aux data.
+
 Support for VTT Toggle
 ==================================
 In order to enable the support for VTT toggle during Suspend/Resume
