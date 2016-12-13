@@ -28,6 +28,7 @@
 #include <asm/vdso_datapage.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <linux/kbuild.h>
+#include <linux/platform_data/pm33xx.h>
 #include <linux/ti-emif-sram.h>
 
 /*
@@ -187,6 +188,7 @@ int main(void)
 #if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)
   BLANK();
   ti_emif_offsets();
+  amx3_pm_asm_offsets();
 #endif
 
   return 0; 
