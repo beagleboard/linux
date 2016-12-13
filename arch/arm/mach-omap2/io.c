@@ -653,6 +653,7 @@ void __init am33xx_init_early(void)
 void __init am33xx_init_late(void)
 {
 	omap_common_late_init();
+	amx3_common_pm_init();
 }
 #endif
 
@@ -677,6 +678,7 @@ void __init am43xx_init_late(void)
 {
 	omap_common_late_init();
 	omap2_clk_enable_autoidle_all();
+	amx3_common_pm_init();
 }
 #endif
 
