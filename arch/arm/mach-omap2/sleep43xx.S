@@ -15,6 +15,7 @@
  */
 
 #include <linux/linkage.h>
+#include <linux/platform_data/pm33xx.h>
 #include <asm/memory.h>
 #include <asm/assembler.h>
 
@@ -52,16 +53,29 @@
 #define AM43XX_CM_PER_EMIF_CLKCTRL_OFFSET 0x0720
 #define AM43XX_PRM_EMIF_CTRL_OFFSET    0x30
 
+/* replicated define because linux/bitops.h cannot be included in assembly */
+#define BIT(nr)			(1 << (nr))
+
 	.data
 	.align 3
 
 ENTRY(am43xx_do_wfi)
 	stmfd	sp!, {r4 - r11, lr}	@ save registers on stack
 
+	/* Save wfi_flags arg to data space */
+	mov	r4, r0
+	adr	r3, am43xx_pm_ro_sram_data
+	ldr	r2, [r3, #AMX3_PM_RO_SRAM_DATA_VIRT_OFFSET]
+	str	r4, [r2, #AMX3_PM_WFI_FLAGS_OFFSET]
+
 	/* Retrieve l2 cache virt address BEFORE we shut off EMIF */
 	ldr	r1, get_l2cache_base
 	blx	r1
 	mov	r8, r0
+
+	/* Only flush cache is we know we are losing MPU context */
+	tst	r4, #WFI_FLAG_FLUSH_CACHE
+	beq	cache_skip_flush
 
 	/*
 	 * Flush all data from the L1 and L2 data cache before disabling
@@ -145,10 +159,27 @@ sync:
 	bne	sync
 #endif
 
+	/* Restore wfi_flags */
+	adr	r3, am43xx_pm_ro_sram_data
+	ldr	r2, [r3, #AMX3_PM_RO_SRAM_DATA_VIRT_OFFSET]
+	ldr	r4, [r2, #AMX3_PM_WFI_FLAGS_OFFSET]
+
+cache_skip_flush:
+	/* Only necessary if PER is losing context */
+	tst	r4, #WFI_FLAG_SAVE_EMIF
+	beq	emif_skip_save
+
 	adr     r9, am43xx_emif_sram_table
 
 	ldr     r3, [r9, #EMIF_PM_SAVE_CONTEXT_OFFSET]
 	blx     r3
+
+emif_skip_save:
+	/* Check if we want self refresh, if so enter SR and disable EMIF */
+	tst     r4, #WFI_FLAG_SELF_REFRESH
+	beq     emif_skip_enter_sr
+
+	adr	r9, am43xx_emif_sram_table
 
 	ldr     r3, [r9, #EMIF_PM_ENTER_SR_OFFSET]
 	blx     r3
@@ -164,6 +195,10 @@ wait_emif_disable:
 	ldr	r3, module_disabled_val
 	cmp	r2, r3
 	bne	wait_emif_disable
+
+emif_skip_enter_sr:
+	tst	r4, #WFI_FLAG_WAKE_M3
+	beq	wkup_m3_skip
 
 	/*
 	 * For the MPU WFI to be registered as an interrupt
@@ -182,6 +217,7 @@ wait_emif_disable:
 	mov	r2, #AM43XX_CM_CLKSTCTRL_CLKTRCTRL_SW_SLEEP
 	str	r2, [r1]
 
+wkup_m3_skip:
 	/*
 	 * Execute a barrier instruction to ensure that all cache,
 	 * TLB and branch predictor maintenance operations issued
@@ -235,6 +271,9 @@ wait_emif_enable:
 	cmp	r2, r3
 	bne	wait_emif_enable
 
+	tst	r4, #WFI_FLAG_FLUSH_CACHE
+	beq	cache_skip_restore
+
 	/*
 	 * Set SCTLR.C bit to allow data cache allocation
 	 */
@@ -243,9 +282,16 @@ wait_emif_enable:
 	mcr	p15, 0, r0, c1, c0, 0
 	isb
 
-	ldr     r1, [r9, #EMIF_PM_ABORT_SR_OFFSET]
-	blx     r1
+cache_skip_restore:
+	/* Only necessary if PER is losing context */
+	tst	r4, #WFI_FLAG_SELF_REFRESH
+	beq	emif_skip_exit_sr_abt
 
+	adr	r9, am43xx_emif_sram_table
+	ldr	r1, [r9, #EMIF_PM_ABORT_SR_OFFSET]
+	blx	r1
+
+emif_skip_exit_sr_abt:
 	/* Let the suspend code know about the abort */
 	mov	r0, #1
 	ldmfd	sp!, {r4 - r11, pc}	@ restore regs and return
