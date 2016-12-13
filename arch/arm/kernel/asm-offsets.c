@@ -28,6 +28,7 @@
 #include <asm/vdso_datapage.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <linux/kbuild.h>
+#include <linux/ti-emif-sram.h>
 
 /*
  * Make sure that the compiler and target are compatible.
@@ -183,5 +184,10 @@ int main(void)
 #ifdef CONFIG_VDSO
   DEFINE(VDSO_DATA_SIZE,	sizeof(union vdso_data_store));
 #endif
+#if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)
+  BLANK();
+  ti_emif_offsets();
+#endif
+
   return 0; 
 }
