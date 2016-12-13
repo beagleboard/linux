@@ -530,6 +530,7 @@ void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type);
 struct rproc *rproc_vdev_to_rproc_safe(struct virtio_device *vdev);
 int rproc_get_alias_id(struct rproc *rproc);
 int rproc_pa_to_da(struct rproc *rproc, phys_addr_t pa, u64 *da);
+void *rproc_da_to_va(struct rproc *rproc, u64 da, int len);
 
 static inline struct rproc_vdev *vdev_to_rvdev(struct virtio_device *vdev)
 {
