@@ -107,6 +107,8 @@ static int am33xx_pm_begin(suspend_state_t state)
 {
 	int ret = -EINVAL;
 
+	cpu_idle_poll_ctrl(true);
+
 	switch (state) {
 	case PM_SUSPEND_MEM:
 		ret = m3_ipc->ops->prepare_low_power(m3_ipc, WKUP_M3_DEEPSLEEP);
@@ -122,6 +124,8 @@ static int am33xx_pm_begin(suspend_state_t state)
 static void am33xx_pm_end(void)
 {
 	m3_ipc->ops->finish_low_power(m3_ipc);
+
+	cpu_idle_poll_ctrl(false);
 }
 
 static int am33xx_pm_valid(suspend_state_t state)
