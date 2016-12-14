@@ -8,7 +8,6 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/reset/ti-syscon.h>
 
 #include "skeleton.dtsi"
 
@@ -87,11 +86,6 @@
 		psc: power-sleep-controller@02350000 {
 			compatible = "syscon", "simple-mfd";
 			reg = <0x02350000 0x1000>;
-
-			pscrst: psc-reset {
-				compatible = "ti,syscon-reset";
-				#reset-cells = <1>;
-			};
 		};
 
 		devctrl: device-state-control@02620000 {
