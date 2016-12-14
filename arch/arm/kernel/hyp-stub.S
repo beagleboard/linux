@@ -21,6 +21,9 @@
 #include <asm/assembler.h>
 #include <asm/virt.h>
 
+#define HVC_GET_VECTORS -1
+#define HVC_SOFT_RESTART 1
+
 #ifndef ZIMAGE
 /*
  * For the kernel proper, we need to find out the CPU boot mode long after
@@ -165,9 +168,18 @@ ARM_BE8(orr	r7, r7, #(1 << 25))     @ HSCTLR.EE
 ENDPROC(__hyp_stub_install_secondary)
 
 __hyp_stub_do_trap:
-	cmp	r0, #-1
-	mrceq	p15, 4, r0, c12, c0, 0	@ get HVBAR
-	mcrne	p15, 4, r0, c12, c0, 0	@ set HVBAR
+	cmp	r0, #HVC_GET_VECTORS
+	bne	1f
+	mrc	p15, 4, r0, c12, c0, 0	@ get HVBAR
+	b	__hyp_stub_exit
+
+1:	teq	r0, #HVC_SOFT_RESTART
+	bne	1f
+	mov	r0, r3
+	bx	r0
+
+1:	mcrne	p15, 4, r0, c12, c0, 0	@ set HVBAR
+__hyp_stub_exit:
 	__ERET
 ENDPROC(__hyp_stub_do_trap)
 
@@ -194,13 +206,25 @@ ENDPROC(__hyp_stub_do_trap)
  * initialisation entry point.
  */
 ENTRY(__hyp_get_vectors)
-	mov	r0, #-1
-ENDPROC(__hyp_get_vectors)
-	@ fall through
-ENTRY(__hyp_set_vectors)
+	mov	r0, #HVC_GET_VECTORS
 	__HVC(0)
 	ret	lr
+ENDPROC(__hyp_get_vectors)
+
+ENTRY(__hyp_set_vectors)
+	tst	r0, #31
+	bne	1f
+	__HVC(0)
+1:	ret	lr
 ENDPROC(__hyp_set_vectors)
+
+ENTRY(__hyp_soft_restart)
+	mov	r3, r0
+	mov	r0, #HVC_SOFT_RESTART
+	__HVC(0)
+	mov	r0, r3
+	ret	lr
+ENDPROC(__hyp_soft_restart)
 
 #ifndef ZIMAGE
 .align 2
