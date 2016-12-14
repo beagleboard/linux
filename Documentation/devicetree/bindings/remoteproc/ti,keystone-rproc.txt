@@ -27,6 +27,7 @@ The following are the mandatory properties:
 			    "ti,k2hk-dsp" for DSPs on Keystone 2 66AK2H/K SoCs
 			    "ti,k2l-dsp" for DSPs on Keystone 2 66AK2L SoCs
 			    "ti,k2e-dsp" for DSPs on Keystone 2 66AK2E SoCs
+			    "ti,k2g-dsp" for DSPs on Keystone 2 66AK2G SoCs
 
 - reg:			Should contain an entry for each value in 'reg-names'.
 			Each entry should have the memory region's start address
@@ -45,6 +46,9 @@ The following are the mandatory properties:
 - clocks: 		Should contain the device's input clock, and should be
 			defined as per the bindings in,
 			Documentation/devicetree/bindings/clock/keystone-gate.txt
+			    for 66AK2HK/66AK2L/66AK2E SoCs or,
+			Documentation/devicetree/bindings/clock/ti,sci-clk.txt
+			    for 66AK2G SoC
 
 - ti,syscon-dev:	Should be a pair of the phandle to the Keystone Device
 			State Control node, and the register offset of the DSP
@@ -52,10 +56,12 @@ The following are the mandatory properties:
 
 - resets:		Should contain the phandle to the reset controller node
 			managing the resets for this device, and a reset
-			specifier. Please refer to the following reset bindings
-			for the reset argument specifier as per SoC,
+			specifier. Please refer to either of the following reset
+			bindings for the reset argument specifier as per SoC,
 			Documentation/devicetree/bindings/reset/ti-syscon-reset.txt
-			    for 66AK2HK/66AK2L/66AK2E SoCs
+			    for 66AK2HK/66AK2L/66AK2E SoCs or,
+			Documentation/devicetree/bindings/reset/ti,sci-reset.txt
+			    for 66AK2G SoC
 
 - interrupt-parent:	Should contain a phandle to the Keystone 2 IRQ controller
 			IP node that is used by the ARM CorePac processor to
@@ -83,6 +89,16 @@ The following are the mandatory properties:
 Optional properties:
 --------------------
 
+- power-domains:	_required_ property only for Keystone 2 66AK2G SoCs.
+			Should contain a phandle to a PM domain provider node.
+			This property is as per the binding,
+			Documentation/devicetree/bindings/soc/ti/sci-pm-domain.txt
+
+- ti,sci-id:		_required_ property only for Keystone 2 66AK2G SoCs.
+			Should contain the SCI device id to identify the specific
+			device. The id values are defined in the dt include file,
+			include/dt-bindings/genpd/k2g.h
+
 - memory-region:	phandle to the reserved memory node to be associated
 			with the remoteproc device. The reserved memory node
 			can be a CMA memory node, and should be defined as
@@ -90,9 +106,10 @@ Optional properties:
 			Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
 
 
-Example:
---------
+Examples:
+---------
 
+1.
 	/* 66AK2H/K DSP node in SoC DTS file */
 	soc {
 		dsp0: dsp@10800000 {
@@ -114,6 +131,33 @@ Example:
 	};
 
 	/* K2HK EVM Board file */
+	&dsp0 {
+		memory-region = <&dsp_common_cma_pool>;
+	};
+
+2.
+	/* 66AK2G DSP node in SoC DTS file */
+	soc {
+		dsp0: dsp@10800000 {
+			compatible = "ti,k2g-dsp";
+			reg = <0x10800000 0x00100000>,
+			      <0x10e00000 0x00008000>,
+			      <0x10f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp0";
+			power-domains = <&k2g_pds K2G_DEV_CGEM0>;
+			clocks = <&k2g_clks K2G_DEV_CGEM0 0>;
+			ti,syscon-dev = <&devctrl 0x40>;
+			resets = <&k2g_reset K2G_DEV_CGEM0 K2G_DEV_CGEM0_DSP0_RESET>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <0 8>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio0 27 0>;
+		};
+
+	};
+
+	/* K2G EVM Board file */
 	&dsp0 {
 		memory-region = <&dsp_common_cma_pool>;
 	};
