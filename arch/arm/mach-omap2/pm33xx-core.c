@@ -37,6 +37,7 @@
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
 static struct clockdomain *gfx_l4ls_clkdm;
 static void __iomem *scu_base;
+static struct omap_hwmod *rtc_oh;
 
 static int (*idle_fn)(u32 wfi_flags);
 
@@ -206,12 +207,20 @@ static struct am33xx_pm_sram_addr *amx3_get_sram_addrs(void)
 		return NULL;
 }
 
+void __iomem *am43xx_get_rtc_base_addr(void)
+{
+	rtc_oh = omap_hwmod_lookup("rtc");
+
+	return omap_hwmod_get_mpu_rt_va(rtc_oh);
+}
+
 static struct am33xx_pm_platform_data am33xx_ops = {
 	.init = am33xx_suspend_init,
 	.deinit = amx3_suspend_deinit,
 	.soc_suspend = am33xx_suspend,
 	.cpu_suspend = am33xx_cpu_suspend,
 	.get_sram_addrs = amx3_get_sram_addrs,
+	.get_rtc_base_addr = am43xx_get_rtc_base_addr,
 };
 
 static struct am33xx_pm_platform_data am43xx_ops = {
@@ -220,6 +229,7 @@ static struct am33xx_pm_platform_data am43xx_ops = {
 	.soc_suspend = am43xx_suspend,
 	.cpu_suspend = am43xx_cpu_suspend,
 	.get_sram_addrs = amx3_get_sram_addrs,
+	.get_rtc_base_addr = am43xx_get_rtc_base_addr,
 };
 
 struct am33xx_pm_platform_data *am33xx_pm_get_pdata(void)
