@@ -793,3 +793,7 @@
 	assigned-clocks = <&mux_synctimer32k_ck>;
 	assigned-clock-parents = <&clkdiv32k_ick>;
 };
+
+&wkup_m3_ipc {
+	ti,scale-data-fw = "am43x-evm-scale-data.bin";
+};

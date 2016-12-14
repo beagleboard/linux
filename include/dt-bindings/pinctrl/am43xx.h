@@ -21,6 +21,7 @@
 #define INPUT_EN		(1 << 18)
 #define SLEWCTRL_SLOW		(1 << 19)
 #define SLEWCTRL_FAST		0
+#define DS0_FORCE_OFF_MODE	(1 << 24)
 #define DS0_PULL_UP_DOWN_EN	(1 << 27)
 #define WAKEUP_ENABLE		(1 << 29)
 

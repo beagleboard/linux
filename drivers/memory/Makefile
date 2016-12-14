@@ -20,3 +20,7 @@ obj-$(CONFIG_MTK_SMI)		+= mtk-smi.o
 
 obj-$(CONFIG_SAMSUNG_MC)	+= samsung/
 obj-$(CONFIG_TEGRA_MC)		+= tegra/
+obj-$(CONFIG_TI_EMIF_SRAM)	+= ti-emif-sram.o
+ti-emif-sram-objs		:= ti-emif-pm.o ti-emif-sram-pm.o
+
+AFLAGS_ti-emif-sram-pm.o	:=-Wa,-march=armv7-a
