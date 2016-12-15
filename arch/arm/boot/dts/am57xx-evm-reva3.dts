@@ -25,7 +25,7 @@
 
 	mmc1_pins_default: mmc1_pins_default {
 		pinctrl-single,pins = <
-			DRA7XX_CORE_IOPAD(0x3754, (PIN_OUTPUT_PULLUP | MUX_MODE0)) /* mmc1_clk.clk */
+			DRA7XX_CORE_IOPAD(0x3754, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_clk.clk */
 			DRA7XX_CORE_IOPAD(0x3758, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_cmd.cmd */
 			DRA7XX_CORE_IOPAD(0x375c, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_dat0.dat0 */
 			DRA7XX_CORE_IOPAD(0x3760, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_dat1.dat1 */
@@ -36,7 +36,7 @@
 
 	mmc1_pins_hs: pinmux_mmc1_hs_pins {
 		pinctrl-single,pins = <
-			DRA7XX_CORE_IOPAD(0x3754, (PIN_OUTPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_clk.clk */
+			DRA7XX_CORE_IOPAD(0x3754, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_clk.clk */
 			DRA7XX_CORE_IOPAD(0x3758, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_cmd.cmd */
 			DRA7XX_CORE_IOPAD(0x375c, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_dat0.dat0 */
 			DRA7XX_CORE_IOPAD(0x3760, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_dat1.dat1 */
@@ -47,7 +47,7 @@
 
 	mmc1_pins_sdr12: pinmux_mmc1_sdr12_pins {
 		pinctrl-single,pins = <
-			DRA7XX_CORE_IOPAD(0x3754, (PIN_OUTPUT_PULLUP | MUX_MODE0)) /* mmc1_clk.clk */
+			DRA7XX_CORE_IOPAD(0x3754, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_clk.clk */
 			DRA7XX_CORE_IOPAD(0x3758, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_cmd.cmd */
 			DRA7XX_CORE_IOPAD(0x375c, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_dat0.dat0 */
 			DRA7XX_CORE_IOPAD(0x3760, (PIN_INPUT_PULLUP | MUX_MODE0)) /* mmc1_dat1.dat1 */
@@ -58,7 +58,7 @@
 
 	mmc1_pins_sdr25: pinmux_mmc1_sdr25_pins {
 		pinctrl-single,pins = <
-			DRA7XX_CORE_IOPAD(0x3754, (PIN_OUTPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_clk.clk */
+			DRA7XX_CORE_IOPAD(0x3754, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_clk.clk */
 			DRA7XX_CORE_IOPAD(0x3758, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_cmd.cmd */
 			DRA7XX_CORE_IOPAD(0x375c, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_dat0.dat0 */
 			DRA7XX_CORE_IOPAD(0x3760, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE11 | MUX_MODE0))	/* mmc1_dat1.dat1 */
@@ -69,7 +69,7 @@
 
 	mmc1_pins_sdr50: pinmux_mmc1_sdr50_pins {
 		pinctrl-single,pins = <
-			DRA7XX_CORE_IOPAD(0x3754, (PIN_OUTPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0))	/* mmc1_clk.clk */
+			DRA7XX_CORE_IOPAD(0x3754, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0))	/* mmc1_clk.clk */
 			DRA7XX_CORE_IOPAD(0x3758, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0))	/* mmc1_cmd.cmd */
 			DRA7XX_CORE_IOPAD(0x375c, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0))	/* mmc1_dat0.dat0 */
 			DRA7XX_CORE_IOPAD(0x3760, (PIN_INPUT_PULLUP | MUX_VIRTUAL_MODE10 | MUX_MODE0))	/* mmc1_dat1.dat1 */
@@ -80,7 +80,7 @@
 
 	mmc1_pins_ddr50: pinmux_mmc1_ddr50_pins {
 		pinctrl-single,pins = <
-			DRA7XX_CORE_IOPAD(0x3754, (PIN_OUTPUT_PULLUP | MANUAL_MODE | MUX_MODE0))/* mmc1_clk.clk */
+			DRA7XX_CORE_IOPAD(0x3754, (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0))/* mmc1_clk.clk */
 			DRA7XX_CORE_IOPAD(0x3758, (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0))	/* mmc1_cmd.cmd */
 			DRA7XX_CORE_IOPAD(0x375c, (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0))	/* mmc1_dat0.dat0 */
 			DRA7XX_CORE_IOPAD(0x3760, (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0))	/* mmc1_dat1.dat1 */
@@ -91,7 +91,7 @@
 
 	mmc1_pins_sdr104: pinmux_mmc1_sdr104_pins {
 		pinctrl-single,pins = <
-			DRA7XX_CORE_IOPAD(0x3754, (PIN_OUTPUT_PULLUP | MANUAL_MODE | MUX_MODE0))/* mmc1_clk.clk */
+			DRA7XX_CORE_IOPAD(0x3754, (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0))/* mmc1_clk.clk */
 			DRA7XX_CORE_IOPAD(0x3758, (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0))	/* mmc1_cmd.cmd */
 			DRA7XX_CORE_IOPAD(0x375c, (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0))	/* mmc1_dat0.dat0 */
 			DRA7XX_CORE_IOPAD(0x3760, (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0))	/* mmc1_dat1.dat1 */
@@ -147,7 +147,7 @@
 
 	mmc3_pins_default: mmc3_pins_default {
 		pinctrl-single,pins = <
-			0x37c (PIN_OUTPUT_PULLUP | MUX_MODE0)/* mmc3_clk.mmc3_clk */
+			0x37c (PIN_INPUT_PULLUP | MUX_MODE0)/* mmc3_clk.mmc3_clk */
 			0x380 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
 			0x384 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
 			0x388 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
@@ -158,7 +158,7 @@
 
 	mmc3_pins_hs: mmc3_pins_hs {
 		pinctrl-single,pins = <
-			0x37c (PIN_OUTPUT_PULLUP | MUX_MODE0)/* mmc3_clk.mmc3_clk */
+			0x37c (PIN_INPUT_PULLUP | MUX_MODE0)/* mmc3_clk.mmc3_clk */
 			0x380 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
 			0x384 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
 			0x388 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
@@ -169,7 +169,7 @@
 
 	mmc3_pins_sdr12: mmc3_pins_sdr12 {
 		pinctrl-single,pins = <
-			0x37c (PIN_OUTPUT_PULLUP | MUX_MODE0)/* mmc3_clk.mmc3_clk */
+			0x37c (PIN_INPUT_PULLUP | MUX_MODE0)/* mmc3_clk.mmc3_clk */
 			0x380 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
 			0x384 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
 			0x388 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
@@ -180,7 +180,7 @@
 
 	mmc3_pins_sdr25: mmc3_pins_sdr25 {
 		pinctrl-single,pins = <
-			0x37c (PIN_OUTPUT_PULLUP | MUX_MODE0)/* mmc3_clk.mmc3_clk */
+			0x37c (PIN_INPUT_PULLUP | MUX_MODE0)/* mmc3_clk.mmc3_clk */
 			0x380 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
 			0x384 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
 			0x388 (PIN_INPUT_PULLUP | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
@@ -191,7 +191,7 @@
 
 	mmc3_pins_sdr50: mmc3_pins_sdr50 {
 		pinctrl-single,pins = <
-			0x37c (PIN_OUTPUT_PULLUP | MANUAL_MODE | MUX_MODE0)/* mmc3_clk.mmc3_clk */
+			0x37c (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0)/* mmc3_clk.mmc3_clk */
 			0x380 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0) /* mmc3_cmd.mmc3_cmd */
 			0x384 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0) /* mmc3_dat0.mmc3_dat0 */
 			0x388 (PIN_INPUT_PULLUP | MANUAL_MODE | MUX_MODE0) /* mmc3_dat1.mmc3_dat1 */
