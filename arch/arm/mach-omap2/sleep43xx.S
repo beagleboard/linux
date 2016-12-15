@@ -56,6 +56,13 @@
 /* replicated define because linux/bitops.h cannot be included in assembly */
 #define BIT(nr)			(1 << (nr))
 
+#define RTC_SECONDS_REG					0x0
+#define RTC_PMIC_REG					0x98
+#define RTC_PMIC_POWER_EN				BIT(16)
+#define RTC_PMIC_EXT_WAKEUP_STS				BIT(12)
+#define RTC_PMIC_EXT_WAKEUP_POL				BIT(4)
+#define RTC_PMIC_EXT_WAKEUP_EN				BIT(0)
+
 	.data
 	.align 3
 
@@ -165,6 +172,20 @@ sync:
 	ldr	r4, [r2, #AMX3_PM_WFI_FLAGS_OFFSET]
 
 cache_skip_flush:
+	/*
+	 * If we are trying to enter RTC+DDR mode we must perform
+	 * a read from the rtc address space to ensure translation
+	 * presence in the TLB to avoid page table walk after DDR
+	 * is unavailable.
+	 */
+	tst	r4, #WFI_FLAG_RTC_ONLY
+	beq	skip_rtc_va_refresh
+
+	adr	r3, am43xx_pm_ro_sram_data
+	ldr	r1, [r3, #AMX3_PM_RTC_BASE_VIRT_OFFSET]
+	ldr	r0, [r1]
+
+skip_rtc_va_refresh:
 	/* Only necessary if PER is losing context */
 	tst	r4, #WFI_FLAG_SAVE_EMIF
 	beq	emif_skip_save
@@ -197,6 +218,33 @@ wait_emif_disable:
 	bne	wait_emif_disable
 
 emif_skip_enter_sr:
+	tst	r4, #WFI_FLAG_RTC_ONLY
+	beq	skip_rtc_only
+
+	adr	r3, am43xx_pm_ro_sram_data
+	ldr	r1, [r3, #AMX3_PM_RTC_BASE_VIRT_OFFSET]
+
+	ldr	r0, [r1, #RTC_PMIC_REG]
+	orr	r0, r0, #RTC_PMIC_POWER_EN
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_STS
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_EN
+	orr	r0, r0, #RTC_PMIC_EXT_WAKEUP_POL
+	str	r0, [r1, #RTC_PMIC_REG]
+	ldr	r0, [r1, #RTC_PMIC_REG]
+	/* Wait for 2 seconds to lose power */
+	mov	r3, #2
+	ldr	r2, [r1, #RTC_SECONDS_REG]
+rtc_loop:
+	ldr	r0, [r1, #RTC_SECONDS_REG]
+	cmp	r0, r2
+	beq	rtc_loop
+	mov	r2, r0
+	subs	r3, r3, #1
+	bne	rtc_loop
+
+	b	re_enable_emif
+
+skip_rtc_only:
 	tst	r4, #WFI_FLAG_WAKE_M3
 	beq	wkup_m3_skip
 
@@ -262,6 +310,7 @@ wkup_m3_skip:
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
 	str	r2, [r1]
 
+re_enable_emif:
 	/* Re-enable EMIF */
 	ldr	r1, am43xx_virt_emif_clkctrl
 	mov	r2, #AM33XX_CM_CLKCTRL_MODULEMODE_ENABLE
@@ -396,8 +445,6 @@ ENDPROC(am43xx_resume_from_deep_sleep)
  * Local variables
  */
 	.align
-resume_addr:
-	.word	cpu_resume - PAGE_OFFSET + 0x80000000
 get_l2cache_base:
 	.word	omap4_get_l2cache_base
 kernel_flush:
@@ -444,6 +491,8 @@ ENTRY(am43xx_pm_sram)
 .word am43xx_resume_offset
 .word am43xx_emif_sram_table
 .word am43xx_pm_ro_sram_data
+resume_addr:
+.word	cpu_resume - PAGE_OFFSET + 0x80000000
 
 ENTRY(am43xx_pm_ro_sram_data)
 	.space AMX3_PM_RO_SRAM_DATA_SIZE

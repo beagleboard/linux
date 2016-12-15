@@ -50,6 +50,7 @@ struct am33xx_pm_sram_addr {
 	unsigned long *resume_offset;
 	unsigned long *emif_sram_table;
 	unsigned long *ro_sram_data;
+	unsigned long resume_address;
 };
 
 struct am33xx_pm_platform_data {
@@ -59,6 +60,12 @@ struct am33xx_pm_platform_data {
 			       unsigned long args);
 	int	(*cpu_suspend)(int (*fn)(unsigned long), unsigned long args);
 	struct  am33xx_pm_sram_addr *(*get_sram_addrs)(void);
+	void (*save_context)(void);
+	void (*restore_context)(void);
+	void (*prepare_rtc_suspend)(void);
+	void (*prepare_rtc_resume)(void);
+	int (*check_off_mode_enable)(void);
+	void __iomem *(*get_rtc_base_addr)(void);
 };
 
 struct am33xx_pm_sram_data {
@@ -70,6 +77,7 @@ struct am33xx_pm_sram_data {
 struct am33xx_pm_ro_sram_data {
 	u32 amx3_pm_sram_data_virt;
 	u32 amx3_pm_sram_data_phys;
+	void __iomem *rtc_base_virt;
 };
 
 extern inline void amx3_pm_asm_offsets(void)
@@ -88,6 +96,8 @@ extern inline void amx3_pm_asm_offsets(void)
 	       offsetof(struct am33xx_pm_ro_sram_data, amx3_pm_sram_data_virt));
 	DEFINE(AMX3_PM_RO_SRAM_DATA_PHYS_OFFSET,
 	       offsetof(struct am33xx_pm_ro_sram_data, amx3_pm_sram_data_phys));
+	DEFINE(AMX3_PM_RTC_BASE_VIRT_OFFSET,
+	       offsetof(struct am33xx_pm_ro_sram_data, rtc_base_virt));
 	DEFINE(AMX3_PM_RO_SRAM_DATA_SIZE,
 	       sizeof(struct am33xx_pm_ro_sram_data));
 }
