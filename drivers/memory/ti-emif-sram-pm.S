@@ -35,6 +35,7 @@
 
 	.data
 	.align 3
+	.arm
 
 ENTRY(ti_emif_sram)
 
