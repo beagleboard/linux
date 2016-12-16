@@ -657,14 +657,14 @@
 		      <&gpio0 21 GPIO_ACTIVE_LOW>;
 	reset-delay-us = <20>;
 
-	pruss0_eth0_phy: ethernet-phy@4 {
-		reg = <4>;
+	pruss0_eth0_phy: ethernet-phy@0 {
+		reg = <0>;
 		interrupt-parent = <&gpio0>;
 		interrupts = <28 IRQ_TYPE_EDGE_FALLING>;
 	};
 
-	pruss0_eth1_phy: ethernet-phy@5 {
-		reg = <5>;
+	pruss0_eth1_phy: ethernet-phy@1 {
+		reg = <1>;
 		interrupt-parent = <&gpio0>;
 		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
 	};
@@ -678,14 +678,14 @@
 		      <&gpio0 24 GPIO_ACTIVE_LOW>;
 	reset-delay-us = <20>;
 
-	pruss1_eth0_phy: ethernet-phy@6 {
-		reg = <6>;
+	pruss1_eth0_phy: ethernet-phy@2 {
+		reg = <2>;
 		interrupt-parent = <&gpio0>;
 		interrupts = <17 IRQ_TYPE_EDGE_FALLING>;
 	};
 
-	pruss1_eth1_phy: ethernet-phy@7 {
-		reg = <7>;
+	pruss1_eth1_phy: ethernet-phy@3 {
+		reg = <3>;
 		interrupt-parent = <&gpio0>;
 		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
 	};
