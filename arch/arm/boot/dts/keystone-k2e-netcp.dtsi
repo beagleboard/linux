@@ -598,7 +598,7 @@ netcpx: netcp@2f00000 {
 sa_subsys: subsys@24080000 {
 	#address-cells = <1>;
 	#size-cells = <1>;
-	ranges = <0 24080000 0x40000>;
+	ranges = <0 0x24080000 0x40000>;
 	compatible = "simple-bus";
 
 	sa_config: subsys@0 {
