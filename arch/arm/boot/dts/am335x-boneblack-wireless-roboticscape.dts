@@ -23,7 +23,7 @@
 #include "am335x-roboticscape.dtsi"
 
 / {
-	model = "TI AM335x BeagleBone Black Wireless";
+	model = "TI AM335x BeagleBone Black Wireless RoboticsCape";
 	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
