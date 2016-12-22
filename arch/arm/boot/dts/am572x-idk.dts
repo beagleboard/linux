@@ -87,3 +87,7 @@
 &sn65hvs882 {
 	load-gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;
 };
+
+&cpu0 {
+	vdd-supply = <&smps12_reg>;
+};
