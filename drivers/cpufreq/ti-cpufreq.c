@@ -211,7 +211,7 @@ static const struct of_device_id ti_cpufreq_of_match[] = {
 	{},
 };
 
-static int ti_cpufreq_init(void)
+static int ti_cpufreq_probe(struct platform_device *pdev)
 {
 	u32 version[VERSION_COUNT];
 	struct device_node *np;
@@ -281,7 +281,21 @@ fail_put_node:
 
 	return ret;
 }
+
+static int ti_cpufreq_init(void)
+{
+	platform_device_register_simple("ti-cpufreq", -1, NULL, 0);
+	return 0;
+}
 module_init(ti_cpufreq_init);
+
+static struct platform_driver ti_cpufreq_driver = {
+	.probe = ti_cpufreq_probe,
+	.driver = {
+		.name = "ti-cpufreq",
+	},
+};
+module_platform_driver(ti_cpufreq_driver);
 
 MODULE_DESCRIPTION("TI CPUFreq/OPP hw-supported driver");
 MODULE_AUTHOR("Dave Gerlach <d-gerlach@ti.com>");
