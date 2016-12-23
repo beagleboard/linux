@@ -46,6 +46,7 @@ struct ti_cpufreq_soc_data {
 	unsigned long (*efuse_xlate)(struct ti_cpufreq_data *opp_data,
 				     unsigned long efuse);
 	unsigned long efuse_fallback;
+	bool multi_regulator;
 };
 
 struct ti_cpufreq_data {
@@ -89,15 +90,18 @@ static unsigned long dra7_efuse_xlate(struct ti_cpufreq_data *opp_data,
 static struct ti_cpufreq_soc_data am3x_soc_data = {
 	.efuse_xlate = amx3_efuse_xlate,
 	.efuse_fallback = AM33XX_800M_ARM_MPU_MAX_FREQ,
+	.multi_regulator = false,
 };
 
 static struct ti_cpufreq_soc_data am4x_soc_data = {
 	.efuse_xlate = amx3_efuse_xlate,
 	.efuse_fallback = AM43XX_600M_ARM_MPU_MAX_FREQ,
+	.multi_regulator = false,
 };
 
 static struct ti_cpufreq_soc_data dra7_soc_data = {
 	.efuse_xlate = dra7_efuse_xlate,
+	.multi_regulator = true,
 };
 
 /**
@@ -211,12 +215,14 @@ static const struct of_device_id ti_cpufreq_of_match[] = {
 	{},
 };
 
-static int ti_cpufreq_init(void)
+static int ti_cpufreq_probe(struct platform_device *pdev)
 {
 	u32 version[VERSION_COUNT];
 	struct device_node *np;
 	const struct of_device_id *match;
+	struct opp_table *ti_opp_table;
 	struct ti_cpufreq_data *opp_data;
+	const char * const reg_names[] = {"vdd", "vbb"};
 	int ret;
 
 	np = of_find_node_by_path("/");
@@ -271,6 +277,16 @@ static int ti_cpufreq_init(void)
 		goto fail_put_node;
 	}
 
+	if (opp_data->soc_data->multi_regulator) {
+		ti_opp_table = dev_pm_opp_set_regulators(opp_data->cpu_dev,
+							 reg_names,
+							 ARRAY_SIZE(reg_names));
+		if (IS_ERR(ti_opp_table)) {
+			dev_pm_opp_put_supported_hw(opp_data->cpu_dev);
+			return PTR_ERR(ti_opp_table);
+		}
+	}
+
 register_cpufreq_dt:
 	platform_device_register_simple("cpufreq-dt", -1, NULL, 0);
 
@@ -281,7 +297,21 @@ fail_put_node:
 
 	return ret;
 }
+
+static int ti_cpufreq_init(void)
+{
+	platform_device_register_simple("ti-cpufreq", -1, NULL, 0);
+	return 0;
+}
 module_init(ti_cpufreq_init);
+
+static struct platform_driver ti_cpufreq_driver = {
+	.probe = ti_cpufreq_probe,
+	.driver = {
+		.name = "ti-cpufreq",
+	},
+};
+module_platform_driver(ti_cpufreq_driver);
 
 MODULE_DESCRIPTION("TI CPUFreq/OPP hw-supported driver");
 MODULE_AUTHOR("Dave Gerlach <d-gerlach@ti.com>");

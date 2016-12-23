@@ -148,3 +148,7 @@
 &mmc1 {
 	vmmc_aux-supply = <&ldo1_reg>;
 };
+
+&cpu0 {
+	vdd-supply = <&smps1_reg>;
+};

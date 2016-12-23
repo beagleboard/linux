@@ -79,3 +79,7 @@
 &omap_dwc3_2 {
 	extcon = <&extcon_usb2>;
 };
+
+&cpu0 {
+	vdd-supply = <&smps12_reg>;
+};
