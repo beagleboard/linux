@@ -1,0 +1,38 @@
+menuconfig DRM_TINYDRM
+	tristate "Support for small TFT LCD display modules"
+	depends on DRM
+	select DRM_KMS_HELPER
+	select DRM_KMS_CMA_HELPER
+	select VIDEOMODE_HELPERS
+	help
+	  Choose this option if you have a tinydrm supported display.
+	  If M is selected the module will be called tinydrm.
+
+config TINYDRM_MIPI_DBI
+	tristate
+	select REGMAP
+
+config TINYDRM_MI0283QT
+	tristate "DRM support for MI0283QT"
+	depends on DRM_TINYDRM && SPI
+	select TINYDRM_MIPI_DBI
+	help
+	  DRM driver for the following Multi-Inno MI0283QT display panels:
+	    MI0283QT-8, MI0283QT-9, MI0283QT-9A, MI0283QT-11, MI0283QT-13
+
+config TINYDRM_ADAFRUIT_TFT
+	tristate "DRM driver for Adafruit SPI TFT displays"
+	depends on DRM_TINYDRM && SPI
+	select TINYDRM_MIPI_DBI
+	help
+	  DRM driver for the following Adafruit displays:
+	    2.2" Color TFT LCD display - HX8340BN, 9-bit mode (#797)
+	    1.8" Color TFT LCD display - ST7735R (#358)
+
+config TINYDRM_USER
+	tristate "Userspace tinydrm driver"
+	depends on DRM_TINYDRM
+	help
+	  This option enables support for userspace tinydrm. Say 'y' to enable
+	  this support in kernel. To compile this driver as a module,
+	  choose 'm' here: the module will be called utinydrm.
