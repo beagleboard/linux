@@ -300,3 +300,4 @@ config DRM_SAVAGE
 	  chipset. If M is selected the module will be called savage.
 
 endif # DRM_LEGACY
+source "drivers/gpu/drm/tinydrm/Kconfig"
