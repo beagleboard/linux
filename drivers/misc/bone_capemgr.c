@@ -59,6 +59,11 @@ module_param(boot_scan_period, int, 0444);
 MODULE_PARM_DESC(boot_scan_period,
 		"boot scan period until rootfs firmware is available");
 
+static int uboot_capemgr_enabled = 0;
+module_param(uboot_capemgr_enabled, int, 0444);
+MODULE_PARM_DESC(uboot_capemgr_enabled,
+		 "U-Boot Cape Manager is enabled (0=Kernel Cape Manager [default], 1=Disable Kernel Cape Manager)");
+
 struct capemgr_info;
 
 struct slot_ee_attribute {
@@ -453,6 +458,9 @@ static int bone_slot_scan(struct bone_cape_slot *slot)
 
 	/* need to read EEPROM? */
 	if (slot->probed)
+		goto slot_fail_check;
+
+	if (uboot_capemgr_enabled)
 		goto slot_fail_check;
 
 	slot->probed = 1;
@@ -1387,7 +1395,7 @@ capemgr_add_slot(struct capemgr_info *info, const char *slot_name,
 			goto err_out;
 		}
 	} else {
-		dev_info(dev, "slot #%d: override\n", slotno);
+		dev_err(dev, "slot #%d: override\n", slotno);
 
 		/* fill in everything with defaults first */
 		ret = bone_slot_fill_override(slot, part_number, version);
@@ -1409,17 +1417,19 @@ capemgr_add_slot(struct capemgr_info *info, const char *slot_name,
 		dev_err(dev, "slot #%d: No cape found\n", slotno);
 		/* but all is fine */
 	} else {
+		if (uboot_capemgr_enabled == 0) {
+			dev_err(dev, "slot #%d: '%s'\n",
+					slotno, slot->text_id);
 
-		dev_info(dev, "slot #%d: '%s'\n",
-				slotno, slot->text_id);
-
-		ret = bone_cape_slot_sysfs_register(slot);
-		if (ret != 0) {
-			dev_err(dev, "slot #%d: sysfs register failed\n",
-					slotno);
-			goto err_out;
+			ret = bone_cape_slot_sysfs_register(slot);
+			if (ret != 0) {
+				dev_err(dev, "slot #%d: sysfs register failed\n",
+						slotno);
+				goto err_out;
+			}
+		} else {
+			dev_err(dev, "slot #%d: auto loading handled by U-Boot\n", slotno);
 		}
-
 	}
 
 	/* add to the slot list */
