@@ -229,6 +229,15 @@ static int _opp_set_voltage(struct device *dev,
 	else
 		vdd_uv = supply->u_volt;
 
+	if (vdd_uv > supply->u_volt_max ||
+	    vdd_uv < supply->u_volt_min ||
+	    supply->u_volt_min > supply->u_volt_max) {
+		dev_warn(dev,
+			 "Invalid range voltages [Min:%lu target:%lu Max:%lu]\n",
+			 supply->u_volt_min, vdd_uv, supply->u_volt_max);
+		return -EINVAL;
+	}
+
 	dev_dbg(dev, "%s scaling to %luuV[min %luuV max %luuV]\n", reg_name,
 		vdd_uv, supply->u_volt_min,
 		supply->u_volt_max);
