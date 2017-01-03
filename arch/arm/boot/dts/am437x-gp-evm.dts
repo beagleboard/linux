@@ -149,7 +149,7 @@
 
 &am43xx_pinmux {
 	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&wlan_pins_default &ddr3_vtt_toggle_default &unused_pins>;
+	pinctrl-0 = <&wlan_pins_default &ddr3_vtt_toggle_default &unused_pins &debugss_pins>;
 	pinctrl-1 = <&wlan_pins_sleep>;
 
 	ddr3_vtt_toggle_default: ddr_vtt_toggle_default {
@@ -552,6 +552,18 @@
 			0x310	(PIN_INPUT_PULLDOWN | MUX_MODE7)
 			0x314	(PIN_INPUT_PULLDOWN | MUX_MODE7)
 			0x318	(PIN_INPUT_PULLDOWN | MUX_MODE7)
+		>;
+	};
+
+	debugss_pins: pinmux_debugss_pins {
+		pinctrl-single,pins = <
+			0x290 (PIN_INPUT_PULLDOWN)
+			0x294 (PIN_INPUT_PULLDOWN)
+			0x298 (PIN_INPUT_PULLDOWN)
+			0x29C (PIN_INPUT_PULLDOWN)
+			0x2A0 (PIN_INPUT_PULLDOWN)
+			0x2A4 (PIN_INPUT_PULLDOWN)
+			0x2A8 (PIN_INPUT_PULLDOWN)
 		>;
 	};
 };
