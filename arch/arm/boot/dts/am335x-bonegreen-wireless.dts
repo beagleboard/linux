@@ -63,6 +63,9 @@
 	reset-names = "eMMC_RSTn-CONSUMER";
 };
 
+&mac {
+	status = "disabled";
+};
 
 &cpu {
 	/*
