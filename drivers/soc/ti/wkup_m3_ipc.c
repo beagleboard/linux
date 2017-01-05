@@ -122,7 +122,7 @@ static void wkup_m3_scale_data_fw_cb(const struct firmware *fw, void *context)
 	unsigned long val, aux_base;
 	struct wkup_m3_scale_data_header hdr;
 	struct wkup_m3_ipc *m3_ipc = context;
-	struct device *dev = (struct device *)context;
+	struct device *dev = m3_ipc->dev;
 
 	if (!fw) {
 		dev_err(dev, "Voltage scale fw name given but file missing.\n");
