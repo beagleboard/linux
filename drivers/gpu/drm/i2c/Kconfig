@@ -32,4 +32,10 @@ config DRM_I2C_NXP_TDA998X
 	help
 	  Support for NXP Semiconductors TDA998X HDMI encoders.
 
+config DRM_I2C_IT66121
+    tristate "ITE tech it66121 HDMI transmitter"
+    default m if DRM_TILCDC
+    select SND_SOC_HDMI_CODEC if SND_SOC
+    help
+      Support for ITE tech it66121 HDMI transmitter.
 endmenu
