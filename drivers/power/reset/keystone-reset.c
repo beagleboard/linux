@@ -167,7 +167,18 @@ static struct platform_driver rsctrl_driver = {
 		.of_match_table = rsctrl_of_match,
 	},
 };
-module_platform_driver(rsctrl_driver);
+
+static void __exit rsctlr_exit(void)
+{
+	platform_driver_unregister(&rsctrl_driver);
+}
+
+static int __init rsctlr_init(void)
+{
+	return platform_driver_register(&rsctrl_driver);
+}
+arch_initcall(rsctlr_init);
+module_exit(rsctlr_exit);
 
 MODULE_AUTHOR("Ivan Khoronzhuk <ivan.khoronzhuk@ti.com>");
 MODULE_DESCRIPTION("Texas Instruments keystone reset driver");
