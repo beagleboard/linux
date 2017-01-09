@@ -2259,6 +2259,18 @@ static int cpsw_set_eee(struct net_device *ndev, struct ethtool_eee *edata)
 		return -EOPNOTSUPP;
 }
 
+static int cpsw_nway_reset(struct net_device *ndev)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	struct cpsw_common *cpsw = priv->cpsw;
+	int slave_no = cpsw_slave_index(cpsw, priv);
+
+	if (cpsw->slaves[slave_no].phy)
+		return genphy_restart_aneg(cpsw->slaves[slave_no].phy);
+	else
+		return -EOPNOTSUPP;
+}
+
 static const struct ethtool_ops cpsw_ethtool_ops = {
 	.get_drvinfo	= cpsw_get_drvinfo,
 	.get_msglevel	= cpsw_get_msglevel,
@@ -2284,6 +2296,7 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
 	.set_channels	= cpsw_set_channels,
 	.get_eee	= cpsw_get_eee,
 	.set_eee	= cpsw_set_eee,
+	.nway_reset	= cpsw_nway_reset,
 };
 
 static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_common *cpsw,
