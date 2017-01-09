@@ -51,6 +51,17 @@ static const struct acpi_gpio_mapping acpi_dwc3_byt_gpios[] = {
 
 static int dwc3_pci_quirks(struct pci_dev *pdev, struct platform_device *dwc3)
 {
+	int				ret;
+
+	struct property_entry sysdev_property[] = {
+		PROPERTY_ENTRY_BOOL("linux,sysdev_is_parent"),
+		{ },
+	};
+
+	ret = platform_device_add_properties(dwc3, sysdev_property);
+	if (ret)
+		return ret;
+
 	if (pdev->vendor == PCI_VENDOR_ID_AMD &&
 	    pdev->device == PCI_DEVICE_ID_AMD_NL_USB) {
 		struct property_entry properties[] = {
