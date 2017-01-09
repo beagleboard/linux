@@ -222,25 +222,47 @@ static int _opp_set_voltage(struct device *dev,
 			    char *reg_name)
 {
 	int ret;
-	unsigned long vdd_uv;
+	unsigned long vdd_uv, uv_max;
 
 	if (new_target_uv)
 		vdd_uv = new_target_uv;
 	else
 		vdd_uv = supply->u_volt;
 
+	/*
+	 * If we do have an absolute max voltage specified, then we should
+	 * use that voltage instead to allow for cases where the voltage rails
+	 * are ganged (example if we set the max for an opp as 1.12v, and
+	 * the absolute max is 1.5v, for another rail to get 1.25v, it cannot
+	 * be achieved if the regulator is constrainted to max of 1.12v, even
+	 * if it can function at 1.25v
+	 */
+	if (opp_data.vdd_absolute_max_voltage_uv)
+		uv_max = opp_data.vdd_absolute_max_voltage_uv;
+	else
+		uv_max = supply->u_volt_max;
+
+	if (vdd_uv > uv_max ||
+	    vdd_uv < supply->u_volt_min ||
+	    supply->u_volt_min > uv_max) {
+		dev_warn(dev,
+			 "Invalid range voltages [Min:%lu target:%lu Max:%lu]\n",
+			 supply->u_volt_min, vdd_uv, uv_max);
+		return -EINVAL;
+	}
+
 	dev_dbg(dev, "%s scaling to %luuV[min %luuV max %luuV]\n", reg_name,
 		vdd_uv, supply->u_volt_min,
-		supply->u_volt_max);
+		uv_max);
 
 	ret = regulator_set_voltage_triplet(reg,
 					    supply->u_volt_min,
 					    vdd_uv,
-					    supply->u_volt_max);
+					    uv_max);
 	if (ret) {
 		dev_err(dev, "%s failed for %luuV[min %luuV max %luuV]\n",
 			reg_name, vdd_uv, supply->u_volt_min,
-			supply->u_volt_max);
+			uv_max);
 		return ret;
 	}
 

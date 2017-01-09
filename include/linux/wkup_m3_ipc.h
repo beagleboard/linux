@@ -36,6 +36,7 @@ struct wkup_m3_ipc {
 	int vtt_conf;
 	int isolation_conf;
 	int state;
+	u32 halt;
 
 	unsigned long volt_scale_offsets;
 	const char *sd_fw_name;
