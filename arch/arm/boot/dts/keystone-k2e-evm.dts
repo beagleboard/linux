@@ -40,6 +40,10 @@
 				clock-output-names = "refclk-ddr3a";
 			};
 		};
+
+		ddr3edac: edac@21010000 {
+			status = "ok";
+		};
 	};
 };
 
