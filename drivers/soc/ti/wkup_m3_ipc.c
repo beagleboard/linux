@@ -122,7 +122,7 @@ static void wkup_m3_scale_data_fw_cb(const struct firmware *fw, void *context)
 	unsigned long val, aux_base;
 	struct wkup_m3_scale_data_header hdr;
 	struct wkup_m3_ipc *m3_ipc = context;
-	struct device *dev = (struct device *)context;
+	struct device *dev = m3_ipc->dev;
 
 	if (!fw) {
 		dev_err(dev, "Voltage scale fw name given but file missing.\n");
@@ -593,6 +593,8 @@ static void wkup_m3_rproc_boot_thread(struct wkup_m3_ipc *m3_ipc)
 	ret = rproc_boot(m3_ipc->rproc);
 	if (ret)
 		dev_err(dev, "rproc_boot failed\n");
+	else
+		m3_ipc_state = m3_ipc;
 
 	do_exit(0);
 }
@@ -695,8 +697,6 @@ static int wkup_m3_ipc_probe(struct platform_device *pdev)
 		dev_err(dev, "can't create rproc_boot thread\n");
 		goto err_put_rproc;
 	}
-
-	m3_ipc_state = m3_ipc;
 
 	wkup_m3_ipc_dbg_init();
 
