@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/soc/ti/knav_qmss.h>
 #include <linux/soc/ti/knav_dma.h>
+#include <linux/soc/ti/knav_helpers.h>
 
 #include "netcp.h"
 
@@ -53,20 +54,6 @@
 		    NETIF_MSG_RX_STATUS)
 
 #define NETCP_EFUSE_ADDR_SWAP	2
-
-#define knav_queue_get_id(q)	knav_queue_device_control(q, \
-				KNAV_QUEUE_GET_ID, (unsigned long)NULL)
-
-#define knav_queue_enable_notify(q) knav_queue_device_control(q,	\
-					KNAV_QUEUE_ENABLE_NOTIFY,	\
-					(unsigned long)NULL)
-
-#define knav_queue_disable_notify(q) knav_queue_device_control(q,	\
-					KNAV_QUEUE_DISABLE_NOTIFY,	\
-					(unsigned long)NULL)
-
-#define knav_queue_get_count(q)	knav_queue_device_control(q, \
-				KNAV_QUEUE_GET_COUNT, (unsigned long)NULL)
 
 #define for_each_netcp_module(module)			\
 	list_for_each_entry(module, &netcp_modules, module_list)
@@ -107,91 +94,6 @@ static DEFINE_MUTEX(netcp_modules_lock);
 static int netcp_debug_level = -1;
 module_param(netcp_debug_level, int, 0);
 MODULE_PARM_DESC(netcp_debug_level, "Netcp debug level (NETIF_MSG bits) (0=none,...,16=all)");
-
-/* Helper functions - Get/Set */
-static void get_pkt_info(dma_addr_t *buff, u32 *buff_len, dma_addr_t *ndesc,
-			 struct knav_dma_desc *desc)
-{
-	*buff_len = le32_to_cpu(desc->buff_len);
-	*buff = le32_to_cpu(desc->buff);
-	*ndesc = le32_to_cpu(desc->next_desc);
-}
-
-static void get_desc_info(u32 *desc_info, u32 *pkt_info,
-			  struct knav_dma_desc *desc)
-{
-	*desc_info = le32_to_cpu(desc->desc_info);
-	*pkt_info = le32_to_cpu(desc->packet_info);
-}
-
-static u32 get_sw_data(int index, struct knav_dma_desc *desc)
-{
-	/* No Endian conversion needed as this data is untouched by hw */
-	return desc->sw_data[index];
-}
-
-/* use these macros to get sw data */
-#define GET_SW_DATA0(desc) get_sw_data(0, desc)
-#define GET_SW_DATA1(desc) get_sw_data(1, desc)
-#define GET_SW_DATA2(desc) get_sw_data(2, desc)
-#define GET_SW_DATA3(desc) get_sw_data(3, desc)
-
-static void get_org_pkt_info(dma_addr_t *buff, u32 *buff_len,
-			     struct knav_dma_desc *desc)
-{
-	*buff = le32_to_cpu(desc->orig_buff);
-	*buff_len = le32_to_cpu(desc->orig_len);
-}
-
-static void get_words(dma_addr_t *words, int num_words, __le32 *desc)
-{
-	int i;
-
-	for (i = 0; i < num_words; i++)
-		words[i] = le32_to_cpu(desc[i]);
-}
-
-static void set_pkt_info(dma_addr_t buff, u32 buff_len, u32 ndesc,
-			 struct knav_dma_desc *desc)
-{
-	desc->buff_len = cpu_to_le32(buff_len);
-	desc->buff = cpu_to_le32(buff);
-	desc->next_desc = cpu_to_le32(ndesc);
-}
-
-static void set_desc_info(u32 desc_info, u32 pkt_info,
-			  struct knav_dma_desc *desc)
-{
-	desc->desc_info = cpu_to_le32(desc_info);
-	desc->packet_info = cpu_to_le32(pkt_info);
-}
-
-static void set_sw_data(int index, u32 data, struct knav_dma_desc *desc)
-{
-	/* No Endian conversion needed as this data is untouched by hw */
-	desc->sw_data[index] = data;
-}
-
-/* use these macros to set sw data */
-#define SET_SW_DATA0(data, desc) set_sw_data(0, data, desc)
-#define SET_SW_DATA1(data, desc) set_sw_data(1, data, desc)
-#define SET_SW_DATA2(data, desc) set_sw_data(2, data, desc)
-#define SET_SW_DATA3(data, desc) set_sw_data(3, data, desc)
-
-static void set_org_pkt_info(dma_addr_t buff, u32 buff_len,
-			     struct knav_dma_desc *desc)
-{
-	desc->orig_buff = cpu_to_le32(buff);
-	desc->orig_len = cpu_to_le32(buff_len);
-}
-
-static void set_words(u32 *words, int num_words, __le32 *desc)
-{
-	int i;
-
-	for (i = 0; i < num_words; i++)
-		desc[i] = cpu_to_le32(words[i]);
-}
 
 /* Read the e-fuse value as 32 bit values to be endian independent */
 static int emac_arch_get_mac_addr(char *x, void __iomem *efuse_mac, u32 swap)
@@ -591,7 +493,7 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
 	void *buf_ptr;
 	u32 tmp;
 
-	get_words(&dma_desc, 1, &desc->next_desc);
+	knav_dma_get_words(&dma_desc, 1, &desc->next_desc);
 
 	while (dma_desc) {
 		ndesc = knav_pool_desc_unmap(netcp->rx_pool, dma_desc, dma_sz);
@@ -599,12 +501,12 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
 			dev_err(netcp->ndev_dev, "failed to unmap Rx desc\n");
 			break;
 		}
-		get_pkt_info(&dma_buf, &tmp, &dma_desc, ndesc);
+		knav_dma_get_pkt_info(&dma_buf, &tmp, &dma_desc, ndesc);
 		/* warning!!!! We are retrieving the virtual ptr in the sw_data
 		 * field as a 32bit value. Will not work on 64bit machines
 		 */
-		buf_ptr = (void *)GET_SW_DATA0(ndesc);
-		buf_len = (int)GET_SW_DATA1(desc);
+		buf_ptr = (void *)KNAV_DMA_GET_SW_DATA0(ndesc);
+		buf_len = (int)KNAV_DMA_GET_SW_DATA1(desc);
 		dma_unmap_page(netcp->dev, dma_buf, PAGE_SIZE, DMA_FROM_DEVICE);
 		__free_page(buf_ptr);
 		knav_pool_desc_put(netcp->rx_pool, desc);
@@ -612,8 +514,8 @@ static void netcp_free_rx_desc_chain(struct netcp_intf *netcp,
 	/* warning!!!! We are retrieving the virtual ptr in the sw_data
 	 * field as a 32bit value. Will not work on 64bit machines
 	 */
-	buf_ptr = (void *)GET_SW_DATA0(desc);
-	buf_len = (int)GET_SW_DATA1(desc);
+	buf_ptr = (void *)KNAV_DMA_GET_SW_DATA0(desc);
+	buf_len = (int)KNAV_DMA_GET_SW_DATA1(desc);
 
 	if (buf_ptr)
 		netcp_frag_free(buf_len <= PAGE_SIZE, buf_ptr);
@@ -667,12 +569,12 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
 		return 0;
 	}
 
-	get_pkt_info(&dma_buff, &buf_len, &dma_desc, desc);
+	knav_dma_get_pkt_info(&dma_buff, &buf_len, &dma_desc, desc);
 	/* warning!!!! We are retrieving the virtual ptr in the sw_data
 	 * field as a 32bit value. Will not work on 64bit machines
 	 */
-	org_buf_ptr = (void *)GET_SW_DATA0(desc);
-	org_buf_len = (int)GET_SW_DATA1(desc);
+	org_buf_ptr = (void *)KNAV_DMA_GET_SW_DATA0(desc);
+	org_buf_len = (int)KNAV_DMA_GET_SW_DATA1(desc);
 
 	if (unlikely(!org_buf_ptr)) {
 		dev_err(netcp->ndev_dev, "NULL bufptr in desc\n");
@@ -704,11 +606,11 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
 			goto free_desc;
 		}
 
-		get_pkt_info(&dma_buff, &buf_len, &dma_desc, ndesc);
+		knav_dma_get_pkt_info(&dma_buff, &buf_len, &dma_desc, ndesc);
 		/* warning!!!! We are retrieving the virtual ptr in the sw_data
 		 * field as a 32bit value. Will not work on 64bit machines
 		 */
-		page = (struct page *)GET_SW_DATA0(desc);
+		page = (struct page *)KNAV_DMA_GET_SW_DATA0(desc);
 
 		if (likely(dma_buff && buf_len && page)) {
 			dma_unmap_page(netcp->dev, dma_buff, PAGE_SIZE,
@@ -742,7 +644,7 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
 	/* Call each of the RX hooks */
 	p_info.skb = skb;
 	p_info.rxtstamp_complete = false;
-	get_desc_info(&tmp, &p_info.eflags, desc);
+	knav_dma_get_desc_info(&tmp, &p_info.eflags, desc);
 	p_info.epib = desc->epib;
 	p_info.psdata = (u32 __force *)desc->psdata;
 	p_info.eflags = ((p_info.eflags >> KNAV_DMA_DESC_EFLAGS_SHIFT) &
@@ -807,11 +709,11 @@ static void netcp_free_rx_buf(struct netcp_intf *netcp, int fdq)
 			continue;
 		}
 
-		get_org_pkt_info(&dma, &buf_len, desc);
+		knav_get_org_pkt_info(&dma, &buf_len, desc);
 		/* warning!!!! We are retrieving the virtual ptr in the sw_data
 		 * field as a 32bit value. Will not work on 64bit machines
 		 */
-		buf_ptr = (void *)GET_SW_DATA0(desc);
+		buf_ptr = (void *)KNAV_DMA_GET_SW_DATA0(desc);
 
 		if (unlikely(!dma)) {
 			dev_err(netcp->ndev_dev, "NULL orig_buff in desc\n");
@@ -918,10 +820,10 @@ static int netcp_allocate_rx_buf(struct netcp_intf *netcp, int fdq)
 	pkt_info |= KNAV_DMA_NUM_PS_WORDS << KNAV_DMA_DESC_PSLEN_SHIFT;
 	pkt_info |= (netcp->rx_queue_id & KNAV_DMA_DESC_RETQ_MASK) <<
 		    KNAV_DMA_DESC_RETQ_SHIFT;
-	set_org_pkt_info(dma, buf_len, hwdesc);
-	SET_SW_DATA0(sw_data[0], hwdesc);
-	SET_SW_DATA1(sw_data[1], hwdesc);
-	set_desc_info(desc_info, pkt_info, hwdesc);
+	knav_dma_set_org_pkt_info(dma, buf_len, hwdesc);
+	KNAV_DMA_SET_SW_DATA0(sw_data[0], hwdesc);
+	KNAV_DMA_SET_SW_DATA1(sw_data[1], hwdesc);
+	knav_dma_set_desc_info(desc_info, pkt_info, hwdesc);
 
 	/* Push to FDQs */
 	knav_pool_desc_map(netcp->rx_pool, hwdesc, sizeof(*hwdesc), &dma,
@@ -985,7 +887,7 @@ static void netcp_free_tx_desc_chain(struct netcp_intf *netcp,
 	unsigned int buf_len;
 
 	while (ndesc) {
-		get_pkt_info(&dma_buf, &buf_len, &dma_desc, ndesc);
+		knav_dma_get_pkt_info(&dma_buf, &buf_len, &dma_desc, ndesc);
 
 		if (dma_buf && buf_len)
 			dma_unmap_single(netcp->dev, dma_buf, buf_len,
@@ -1029,7 +931,7 @@ static int netcp_process_tx_compl_packets(struct netcp_intf *netcp,
 		/* warning!!!! We are retrieving the virtual ptr in the sw_data
 		 * field as a 32bit value. Will not work on 64bit machines
 		 */
-		skb = (struct sk_buff *)GET_SW_DATA0(desc);
+		skb = (struct sk_buff *)KNAV_DMA_GET_SW_DATA0(desc);
 		netcp_free_tx_desc_chain(netcp, desc, dma_sz);
 		if (!skb) {
 			dev_err(netcp->ndev_dev, "No skb in Tx desc\n");
@@ -1103,7 +1005,7 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
 		return NULL;
 	}
 
-	set_pkt_info(dma_addr, pkt_len, 0, desc);
+	knav_dma_set_pkt_info(dma_addr, pkt_len, 0, desc);
 	if (skb_is_nonlinear(skb)) {
 		prefetchw(skb_shinfo(skb));
 	} else {
@@ -1141,9 +1043,9 @@ netcp_tx_map_skb(struct sk_buff *skb, struct netcp_intf *netcp)
 		pkt_info =
 			(netcp->tx_compl_qid & KNAV_DMA_DESC_RETQ_MASK) <<
 				KNAV_DMA_DESC_RETQ_SHIFT;
-		set_pkt_info(dma_addr, buf_len, 0, ndesc);
+		knav_dma_set_pkt_info(dma_addr, buf_len, 0, ndesc);
 		desc_dma_32 = (u32)desc_dma;
-		set_words(&desc_dma_32, 1, &pdesc->next_desc);
+		knav_dma_set_words(&desc_dma_32, 1, &pdesc->next_desc);
 		pkt_len += buf_len;
 		if (pdesc != desc)
 			knav_pool_desc_map(netcp->tx_pool, pdesc,
@@ -1164,7 +1066,7 @@ upd_pkt_len:
 	WARN_ON(pkt_len != skb->len);
 
 	pkt_len &= KNAV_DMA_DESC_PKT_LEN_MASK;
-	set_words(&pkt_len, 1, &desc->desc_info);
+	knav_dma_set_words(&pkt_len, 1, &desc->desc_info);
 	return desc;
 
 free_descs:
@@ -1219,9 +1121,9 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
 		/* psdata points to both native-endian and device-endian data */
 		__le32 *psdata = (void __force *)p_info.psdata;
 
-		set_words((u32 *)psdata +
-			  (KNAV_DMA_NUM_PS_WORDS - p_info.psdata_len),
-			  p_info.psdata_len, psdata);
+		knav_dma_set_words((u32 *)psdata +
+				   (KNAV_DMA_NUM_PS_WORDS - p_info.psdata_len),
+				   p_info.psdata_len, psdata);
 		tmp |= (p_info.psdata_len & KNAV_DMA_DESC_PSLEN_MASK) <<
 			KNAV_DMA_DESC_PSLEN_SHIFT;
 	}
@@ -1235,15 +1137,15 @@ static int netcp_tx_submit_skb(struct netcp_intf *netcp,
 			KNAV_DMA_DESC_PSFLAG_SHIFT);
 	}
 
-	set_words(&tmp, 1, &desc->packet_info);
+	knav_dma_set_words(&tmp, 1, &desc->packet_info);
 	/* warning!!!! We are saving the virtual ptr in the sw_data
 	 * field as a 32bit value. Will not work on 64bit machines
 	 */
-	SET_SW_DATA0((u32)skb, desc);
+	KNAV_DMA_SET_SW_DATA0((u32)skb, desc);
 
 	if (tx_pipe->flags & SWITCH_TO_PORT_IN_TAGINFO) {
 		tmp = tx_pipe->switch_to_port;
-		set_words(&tmp, 1, &desc->tag_info);
+		knav_dma_set_words(&tmp, 1, &desc->tag_info);
 	}
 
 	/* submit packet descriptor */
