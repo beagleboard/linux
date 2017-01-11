@@ -119,6 +119,21 @@
 			K2G_CORE_IOPAD(0x121c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_csn0.qspi_csn0 */
 		>;
 	};
+
+	mmc1_pins: pinmux_mmc1_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x10FC) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_dat3.mmc1_dat3 */
+			K2G_CORE_IOPAD(0x1100) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_dat2.mmc1_dat2 */
+			K2G_CORE_IOPAD(0x1104) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_dat1.mmc1_dat1 */
+			K2G_CORE_IOPAD(0x1108) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_dat0.mmc1_dat0 */
+			K2G_CORE_IOPAD(0x110C) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_clk.mmc1_clk */
+			K2G_CORE_IOPAD(0x1110) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_cmd.mmc1_cmd */
+			K2G_CORE_IOPAD(0x1114) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* mmc1_sdcd.gpio0_69 */
+			K2G_CORE_IOPAD(0x1118) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_sdwp.mmc1_sdwp */
+			K2G_CORE_IOPAD(0x111C) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_pow.mmc1_pow */
+		>;
+	};
+
 };
 
 &uart0 {
@@ -179,4 +194,12 @@
 			reg = <0x00a00000 0x1600000>;
 		};
 	};
+};
+
+&mmc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc1_pins>;
+	vmmc-supply = <&vdd_3v3>;
+	cd-gpios = <&gpio0 69 GPIO_ACTIVE_LOW>;
+	status = "okay";
 };
