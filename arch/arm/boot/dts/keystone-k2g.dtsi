@@ -317,5 +317,20 @@
 			clocks = <&k2g_clks K2G_DEV_EDMA1 K2G_DEV_EDMA_TPTC_CLK>;
 			clock-names = "fck";
 		};
+
+		mdio: mdio@4200f00 {
+			compatible = "ti,keystone_mdio", "ti,davinci_mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			power-domains = <&k2g_pds>;
+			ti,sci-id = <K2G_DEV_NSS0>;
+			clocks = <&k2g_clks K2G_DEV_NSS0 K2G_DEV_NSS_ESW_CLK>;
+			clock-names = "fck";
+			reg = <0x04200f00 0x100>;
+			status = "disabled";
+			bus_freq = <2500000>;
+		};
+
+		#include "keystone-k2g-netcp.dtsi"
 	};
 };
