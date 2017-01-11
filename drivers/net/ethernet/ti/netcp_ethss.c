@@ -1677,6 +1677,17 @@ static void keystone_set_msglevel(struct net_device *ndev, u32 value)
 	netcp->msg_enable = value;
 }
 
+static struct gbe_intf *keystone_get_intf_data(struct netcp_intf *netcp)
+{
+	struct gbe_intf *gbe_intf;
+
+	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	if (!gbe_intf)
+		gbe_intf = netcp_module_get_intf_data(&xgbe_module, netcp);
+
+	return gbe_intf;
+}
+
 static void keystone_get_stat_strings(struct net_device *ndev,
 				      uint32_t stringset, uint8_t *data)
 {
@@ -1685,7 +1696,7 @@ static void keystone_get_stat_strings(struct net_device *ndev,
 	struct gbe_priv *gbe_dev;
 	int i;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return;
 	gbe_dev = gbe_intf->gbe_dev;
@@ -1709,7 +1720,7 @@ static int keystone_get_sset_count(struct net_device *ndev, int stringset)
 	struct gbe_intf *gbe_intf;
 	struct gbe_priv *gbe_dev;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return -EINVAL;
 	gbe_dev = gbe_intf->gbe_dev;
@@ -1827,7 +1838,7 @@ static void keystone_get_ethtool_stats(struct net_device *ndev,
 	struct gbe_intf *gbe_intf;
 	struct gbe_priv *gbe_dev;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return;
 
@@ -1851,7 +1862,7 @@ static int keystone_get_settings(struct net_device *ndev,
 	if (!phy)
 		return -EINVAL;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return -EINVAL;
 
@@ -1876,7 +1887,7 @@ static int keystone_set_settings(struct net_device *ndev,
 	if (!phy)
 		return -EINVAL;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return -EINVAL;
 
