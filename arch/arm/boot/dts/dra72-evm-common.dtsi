@@ -182,6 +182,12 @@
 		};
 	};
 
+	clk_ov10633_fixed: clk-ov10633-fixed {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24000000>;
+	};
+
 	vmmcwl_fixed: fixedregulator-mmcwl {
 		compatible = "regulator-fixed";
 		regulator-name = "vmmcwl_fixed";
@@ -277,6 +283,26 @@
 			output-low;
 			line-name = "vin6_sel_s0";
 		};
+
+		/*
+		 * Dual pin selection
+		 * ENET: vin2_sel_s0: high: vin2_sel_s2: high
+		 * VIN2: vin2_sel_s0: low: vin2_sel_s2: high
+		 * CAM : vin2_sel_s0: high: vin2_sel_s2: low
+		 */
+		p2 {
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "vin2_sel_s0";
+		};
+
+		p6 {
+			gpio-hog;
+			gpios = <6 GPIO_ACTIVE_HIGH>;
+			output-low;
+			line-name = "vin2_sel_s2";
+		};
 	};
 
 	ov5640@3c {
@@ -295,6 +321,22 @@
 		};
 	};
 
+	ov10633@37 {
+		compatible = "ovti,ov10633";
+		reg = <0x37>;
+
+		clocks = <&clk_ov10633_fixed>;
+		clock-names = "xvclk";
+
+		port {
+			onboardLI: endpoint {
+				remote-endpoint = <&vin2a_ep>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
 };
 
 &uart1 {
@@ -548,6 +590,15 @@
 		hdmi_out: endpoint {
 			remote-endpoint = <&tpd12s015_in>;
 		};
+	};
+};
+
+&vin2a {
+	vin2a_ep: endpoint {
+		remote-endpoint = <&onboardLI>;
+		hsync-active = <1>;
+		vsync-active = <1>;
+		pclk-sample = <0>;
 	};
 };
 
