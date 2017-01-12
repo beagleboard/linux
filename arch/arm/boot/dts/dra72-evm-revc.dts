@@ -79,6 +79,6 @@
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
-		ti,min-output-imepdance;
+		ti,min-output-impedance;
 	};
 };
