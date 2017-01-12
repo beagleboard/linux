@@ -185,6 +185,12 @@
 		};
 	};
 
+	clk_ov10633_fixed: clk_ov10633_fixed {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24000000>;
+	};
+
 	vmmcwl_fixed: fixedregulator-mmcwl {
 		compatible = "regulator-fixed";
 		regulator-name = "vmmcwl_fixed";
@@ -273,6 +279,25 @@
 			gpios = <1 GPIO_ACTIVE_HIGH>;
 			output-low;
 			line-name = "vin6_sel_s0";
+		};
+	};
+
+	ov10633@37 {
+		compatible = "ovti,ov10633";
+		reg = <0x37>;
+
+		clocks = <&clk_ov10633_fixed>;
+		clock-names = "xvclk";
+
+		mux-gpios = <&pcf_hdmi 2	GPIO_ACTIVE_HIGH>, /* VIN2_S0 */
+			    <&pcf_hdmi 6	GPIO_ACTIVE_LOW>; /* VIN2_S2 */
+		port {
+			onboardLI: endpoint {
+				remote-endpoint = <&vin2a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
 		};
 	};
 };
@@ -528,6 +553,18 @@
 		hdmi_out: endpoint {
 			remote-endpoint = <&tpd12s015_in>;
 		};
+	};
+};
+
+&vip1 {
+	status = "okay";
+};
+
+&vin2a {
+	status = "okay";
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
 	};
 };
 
