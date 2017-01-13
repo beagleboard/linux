@@ -19,9 +19,11 @@
  */
 
 #include <linux/io.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of_mdio.h>
 #include <linux/of_address.h>
+#include <linux/regmap.h>
 #include <linux/if_vlan.h>
 #include <linux/ethtool.h>
 
@@ -40,7 +42,10 @@
 #define GBE_MODULE_NAME			"netcp-gbe"
 #define GBE_SS_VERSION_14		0x4ed21104
 
+/* for devicetree backward compatible only */
 #define GBE_SS_REG_INDEX		0
+
+#define GBE_SGMII_REG_INDEX		0
 #define GBE_SGMII34_REG_INDEX		1
 #define GBE_SM_REG_INDEX		2
 /* offset relative to base of GBE_SS_REG_INDEX */
@@ -54,6 +59,12 @@
 #define GBE13_ALE_OFFSET		0x600
 #define GBE13_HOST_PORT_NUM		0
 #define GBE13_NUM_ALE_ENTRIES		1024
+/* offset relative to PCSR regmap */
+#define XGBE10_PCSR_OFFSET(x)		((x) * 0x80)
+#define XGBE10_PCSR_RX_STATUS(x)	(XGBE10_PCSR_OFFSET(x) + 0xc)
+
+#define XGBE10_PCSR_BLOCK_LOCK_MASK	BIT(30)
+#define XGBE10_PCSR_BLOCK_LOCK_SHIFT	30
 
 /* 1G Ethernet NU SS defines */
 #define GBENU_MODULE_NAME		"netcp-gbenu"
@@ -67,28 +78,29 @@
 #define IS_SS_ID_NU(d) \
 	(GBE_IDENT((d)->ss_version) == GBE_SS_ID_NU)
 
-#define GBENU_SS_REG_INDEX		0
+#define GBENU_SGMII_REG_INDEX		0
 #define GBENU_SM_REG_INDEX		1
+/* offset relative to base of GBE_SS_REG_INDEX */
 #define GBENU_SGMII_MODULE_OFFSET	0x100
+/* offset relative to base of GBENU_SM_REG_INDEX */
 #define GBENU_HOST_PORT_OFFSET		0x1000
 #define GBENU_SLAVE_PORT_OFFSET		0x2000
 #define GBENU_EMAC_OFFSET		0x2330
 #define GBENU_HW_STATS_OFFSET		0x1a000
 #define GBENU_ALE_OFFSET		0x1e000
 #define GBENU_HOST_PORT_NUM		0
-#define GBENU_NUM_ALE_ENTRIES		1024
-#define GBENU_SGMII_MODULE_SIZE		0x100
 
 /* 10G Ethernet SS defines */
 #define XGBE_MODULE_NAME		"netcp-xgbe"
 #define XGBE_SS_VERSION_10		0x4ee42100
 
-#define XGBE_SS_REG_INDEX		0
+#define XGBE_SGMII_REG_INDEX		0
 #define XGBE_SM_REG_INDEX		1
 #define XGBE_SERDES_REG_INDEX		2
 
 /* offset relative to base of XGBE_SS_REG_INDEX */
 #define XGBE10_SGMII_MODULE_OFFSET	0x100
+#define IS_SS_ID_XGBE(d)		((d)->ss_version == XGBE_SS_VERSION_10)
 /* offset relative to base of XGBE_SM_REG_INDEX */
 #define XGBE10_HOST_PORT_OFFSET		0x34
 #define XGBE10_SLAVE_PORT_OFFSET	0x64
@@ -96,7 +108,7 @@
 #define XGBE10_ALE_OFFSET		0x700
 #define XGBE10_HW_STATS_OFFSET		0x800
 #define XGBE10_HOST_PORT_NUM		0
-#define XGBE10_NUM_ALE_ENTRIES		1024
+#define XGBE10_NUM_ALE_ENTRIES		2048
 
 #define	GBE_TIMER_INTERVAL			(HZ / 2)
 
@@ -115,6 +127,7 @@
 #define MACSL_FULLDUPLEX			BIT(0)
 
 #define GBE_CTL_P0_ENABLE			BIT(2)
+#define ETH_SW_CTL_P0_TX_CRC_REMOVE		BIT(13)
 #define GBE13_REG_VAL_STAT_ENABLE_ALL		0xff
 #define XGBE_REG_VAL_STAT_ENABLE_ALL		0xf
 #define GBE_STATS_CD_SEL			BIT(28)
@@ -157,6 +170,9 @@
 #define	GBE_TXHOOK_ORDER			0
 #define GBE_DEFAULT_ALE_AGEOUT			30
 #define SLAVE_LINK_IS_XGMII(s) ((s)->link_interface >= XGMII_LINK_MAC_PHY)
+#define SLAVE_LINK_IS_RGMII(s) \
+	(((s)->link_interface >= RGMII_LINK_MAC_PHY) && \
+	 ((s)->link_interface <= RGMII_LINK_MAC_PHY_NO_MDIO))
 #define NETCP_LINK_STATE_INVALID		-1
 
 #define GBE_SET_REG_OFS(p, rb, rn) p->rb##_ofs.rn = \
@@ -166,9 +182,11 @@
 #define XGBE_SET_REG_OFS(p, rb, rn) p->rb##_ofs.rn = \
 		offsetof(struct xgbe##_##rb, rn)
 #define GBE_REG_ADDR(p, rb, rn) (p->rb + p->rb##_ofs.rn)
+#define GBE_REG_OFS(p, rb, rn) ((p)->rb##_ofs.rn)
 
 #define HOST_TX_PRI_MAP_DEFAULT			0x00000000
 
+#define SGMII_MODULE_SIZE			0x100
 struct xgbe_ss_regs {
 	u32	id_ver;
 	u32	synce_count;
@@ -490,6 +508,7 @@ struct gbe_ss_regs {
 struct gbe_ss_regs_ofs {
 	u16	id_ver;
 	u16	control;
+	u16	rgmii_status; /* 2U */
 };
 
 struct gbe_switch_regs {
@@ -532,6 +551,7 @@ struct gbe_port_regs {
 struct gbe_port_regs_ofs {
 	u16	port_vlan;
 	u16	tx_pri_map;
+	u16     rx_pri_map;
 	u16	sa_lo;
 	u16	sa_hi;
 	u16	ts_ctl;
@@ -651,7 +671,9 @@ struct gbe_priv {
 	u32				ss_version;
 	u32				stats_en_mask;
 
-	void __iomem			*ss_regs;
+	struct regmap			*ss_regmap;
+	struct regmap			*pcsr_regmap;
+	void __iomem                    *ss_regs;
 	void __iomem			*switch_regs;
 	void __iomem			*host_port_regs;
 	void __iomem			*ale_reg;
@@ -1677,6 +1699,17 @@ static void keystone_set_msglevel(struct net_device *ndev, u32 value)
 	netcp->msg_enable = value;
 }
 
+static struct gbe_intf *keystone_get_intf_data(struct netcp_intf *netcp)
+{
+	struct gbe_intf *gbe_intf;
+
+	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	if (!gbe_intf)
+		gbe_intf = netcp_module_get_intf_data(&xgbe_module, netcp);
+
+	return gbe_intf;
+}
+
 static void keystone_get_stat_strings(struct net_device *ndev,
 				      uint32_t stringset, uint8_t *data)
 {
@@ -1685,7 +1718,7 @@ static void keystone_get_stat_strings(struct net_device *ndev,
 	struct gbe_priv *gbe_dev;
 	int i;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return;
 	gbe_dev = gbe_intf->gbe_dev;
@@ -1709,7 +1742,7 @@ static int keystone_get_sset_count(struct net_device *ndev, int stringset)
 	struct gbe_intf *gbe_intf;
 	struct gbe_priv *gbe_dev;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return -EINVAL;
 	gbe_dev = gbe_intf->gbe_dev;
@@ -1827,7 +1860,7 @@ static void keystone_get_ethtool_stats(struct net_device *ndev,
 	struct gbe_intf *gbe_intf;
 	struct gbe_priv *gbe_dev;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return;
 
@@ -1851,7 +1884,7 @@ static int keystone_get_settings(struct net_device *ndev,
 	if (!phy)
 		return -EINVAL;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return -EINVAL;
 
@@ -1876,7 +1909,7 @@ static int keystone_set_settings(struct net_device *ndev,
 	if (!phy)
 		return -EINVAL;
 
-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
+	gbe_intf = keystone_get_intf_data(netcp);
 	if (!gbe_intf)
 		return -EINVAL;
 
@@ -1963,8 +1996,9 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 				     ALE_PORT_STATE_FORWARD);
 
 		if (ndev && slave->open &&
-		    slave->link_interface != SGMII_LINK_MAC_PHY &&
-		    slave->link_interface != XGMII_LINK_MAC_PHY)
+		    ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
+		    (slave->link_interface != RGMII_LINK_MAC_PHY) &&
+		    (slave->link_interface != XGMII_LINK_MAC_PHY)))
 			netif_carrier_on(ndev);
 	} else {
 		writel(mac_control, GBE_REG_ADDR(slave, emac_regs,
@@ -1973,13 +2007,18 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 				     ALE_PORT_STATE,
 				     ALE_PORT_STATE_DISABLE);
 		if (ndev &&
-		    slave->link_interface != SGMII_LINK_MAC_PHY &&
-		    slave->link_interface != XGMII_LINK_MAC_PHY)
+		    ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
+		    (slave->link_interface != RGMII_LINK_MAC_PHY) &&
+		    (slave->link_interface != XGMII_LINK_MAC_PHY)))
 			netif_carrier_off(ndev);
 	}
 
 	if (phy)
 		phy_print_status(phy);
+	else if (slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
+		netdev_printk(KERN_INFO, ndev,
+			      "Link is %s\n", (up ? "Up" : "Down"));
+	}
 }
 
 static bool gbe_phy_link_status(struct gbe_slave *slave)
@@ -1987,23 +2026,59 @@ static bool gbe_phy_link_status(struct gbe_slave *slave)
 	 return !slave->phy || slave->phy->link;
 }
 
+#define RGMII_REG_STATUS_LINK	BIT(0)
+
+static int netcp_2u_rgmii_get_port_link(struct gbe_priv *gbe_dev, bool *status)
+{
+	u32 val = 0;
+	int ret;
+
+	ret = regmap_read(gbe_dev->ss_regmap,
+			  GBE_REG_OFS(gbe_dev, ss_regs, rgmii_status), &val);
+	if (ret)
+		return ret;
+
+	*status = false;
+	if ((val & RGMII_REG_STATUS_LINK) != 0)
+		*status = true;
+
+	return ret;
+}
+
 static void netcp_ethss_update_link_state(struct gbe_priv *gbe_dev,
 					  struct gbe_slave *slave,
 					  struct net_device *ndev)
 {
-	int sp = slave->slave_num;
-	int phy_link_state, sgmii_link_state = 1, link_state;
+	int sp = slave->slave_num, link_state, ret;
+	bool sw_link_state = true, phy_link_state;
+	u32 stat;
 
 	if (!slave->open)
 		return;
 
 	if (!SLAVE_LINK_IS_XGMII(slave)) {
-		sgmii_link_state =
-			netcp_sgmii_get_port_link(SGMII_BASE(gbe_dev, sp), sp);
+		if (SLAVE_LINK_IS_RGMII(slave)) {
+			ret = netcp_2u_rgmii_get_port_link(gbe_dev,
+							   &sw_link_state);
+			if (ret)
+				return;
+		} else
+			sw_link_state = netcp_sgmii_get_port_link(
+						SGMII_BASE(gbe_dev, sp), sp);
+	} else if (slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
+		/* read status from pcsr status reg */
+		ret = regmap_read(gbe_dev->pcsr_regmap,
+				  XGBE10_PCSR_RX_STATUS(sp), &stat);
+
+		if (ret)
+			return;
+
+		sw_link_state = (stat & XGBE10_PCSR_BLOCK_LOCK_MASK) >>
+				 XGBE10_PCSR_BLOCK_LOCK_SHIFT;
 	}
 
 	phy_link_state = gbe_phy_link_status(slave);
-	link_state = phy_link_state & sgmii_link_state;
+	link_state = phy_link_state & sw_link_state;
 
 	if (atomic_xchg(&slave->link_state, link_state) != link_state)
 		netcp_ethss_link_state_action(gbe_dev, ndev, slave,
@@ -2071,7 +2146,7 @@ static void gbe_port_config(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 			    int max_rx_len)
 {
 	void __iomem *rx_maxlen_reg;
-	u32 xgmii_mode;
+	int ret;
 
 	if (max_rx_len > NETCP_MAX_FRAME_SIZE)
 		max_rx_len = NETCP_MAX_FRAME_SIZE;
@@ -2079,9 +2154,16 @@ static void gbe_port_config(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 	/* Enable correct MII mode at SS level */
 	if ((gbe_dev->ss_version == XGBE_SS_VERSION_10) &&
 	    (slave->link_interface >= XGMII_LINK_MAC_PHY)) {
-		xgmii_mode = readl(GBE_REG_ADDR(gbe_dev, ss_regs, control));
-		xgmii_mode |= (1 << slave->slave_num);
-		writel(xgmii_mode, GBE_REG_ADDR(gbe_dev, ss_regs, control));
+		ret = regmap_update_bits(gbe_dev->ss_regmap,
+					 GBE_REG_OFS(gbe_dev, ss_regs, control),
+					 BIT(slave->slave_num),
+					 BIT(slave->slave_num));
+
+		if (ret) {
+			dev_err(gbe_dev->dev,
+				"regmap update xgmii mode bit Failed\n");
+			return;
+		}
 	}
 
 	if (IS_SS_ID_MU(gbe_dev))
@@ -2143,11 +2225,19 @@ static int gbe_slave_open(struct gbe_intf *gbe_intf)
 
 	void (*hndlr)(struct net_device *) = gbe_adjust_link;
 
-	gbe_sgmii_config(priv, slave);
+	if ((priv->ss_version == GBE_SS_VERSION_14) || IS_SS_ID_NU(priv))
+		gbe_sgmii_config(priv, slave);
 	gbe_port_reset(slave);
 	gbe_sgmii_rtreset(priv, slave, false);
 	gbe_port_config(priv, slave, priv->rx_packet_max);
 	gbe_set_slave_mac(slave, gbe_intf);
+	/* For NU & 2U switch, map the vlan priorities to zero
+	 * as we only configure to use priority 0
+	 */
+	if (IS_SS_ID_MU(priv))
+		writel(HOST_TX_PRI_MAP_DEFAULT,
+		       GBE_REG_ADDR(slave, port_regs, rx_pri_map));
+
 	/* enable forwarding */
 	cpsw_ale_control_set(priv->ale, slave->port_num,
 			     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
@@ -2157,6 +2247,10 @@ static int gbe_slave_open(struct gbe_intf *gbe_intf)
 	if (slave->link_interface == SGMII_LINK_MAC_PHY) {
 		has_phy = true;
 		phy_mode = PHY_INTERFACE_MODE_SGMII;
+		slave->phy_port_t = PORT_MII;
+	} else if (slave->link_interface == RGMII_LINK_MAC_PHY) {
+		has_phy = true;
+		phy_mode = PHY_INTERFACE_MODE_RGMII;
 		slave->phy_port_t = PORT_MII;
 	} else if (slave->link_interface == XGMII_LINK_MAC_PHY) {
 		has_phy = true;
@@ -2190,7 +2284,7 @@ static void gbe_init_host_port(struct gbe_priv *priv)
 	int bypass_en = 1;
 
 	/* Host Tx Pri */
-	if (IS_SS_ID_NU(priv))
+	if (IS_SS_ID_NU(priv) || IS_SS_ID_XGBE(priv))
 		writel(HOST_TX_PRI_MAP_DEFAULT,
 		       GBE_REG_ADDR(priv, host_port_regs, tx_pri_map));
 
@@ -2417,7 +2511,7 @@ static int gbe_open(void *intf_priv, struct net_device *ndev)
 	struct netcp_intf *netcp = netdev_priv(ndev);
 	struct gbe_slave *slave = gbe_intf->slave;
 	int port_num = slave->port_num;
-	u32 reg;
+	u32 reg, val;
 	int ret;
 
 	reg = readl(GBE_REG_ADDR(gbe_dev, switch_regs, id_ver));
@@ -2447,7 +2541,12 @@ static int gbe_open(void *intf_priv, struct net_device *ndev)
 	writel(0, GBE_REG_ADDR(gbe_dev, switch_regs, ptype));
 
 	/* Control register */
-	writel(GBE_CTL_P0_ENABLE, GBE_REG_ADDR(gbe_dev, switch_regs, control));
+	val = GBE_CTL_P0_ENABLE;
+	if (IS_SS_ID_MU(gbe_dev)) {
+		val |= ETH_SW_CTL_P0_TX_CRC_REMOVE;
+		netcp->hw_cap = ETH_SW_CAN_REMOVE_ETH_FCS;
+	}
+	writel(val, GBE_REG_ADDR(gbe_dev, switch_regs, control));
 
 	/* All statistics enabled and STAT AB visible by default */
 	writel(gbe_dev->stats_en_mask, GBE_REG_ADDR(gbe_dev, switch_regs,
@@ -2503,7 +2602,10 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 	}
 
 	slave->open = false;
-	slave->phy_node = of_parse_phandle(node, "phy-handle", 0);
+	if ((slave->link_interface == SGMII_LINK_MAC_PHY) ||
+	    (slave->link_interface == RGMII_LINK_MAC_PHY) ||
+	    (slave->link_interface == XGMII_LINK_MAC_PHY))
+		slave->phy_node = of_parse_phandle(node, "phy-handle", 0);
 	slave->port_num = gbe_get_slave_port(gbe_dev, slave->slave_num);
 
 	if (slave->link_interface >= XGMII_LINK_MAC_PHY)
@@ -2565,6 +2667,7 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 		/* Initialize  slave port register offsets */
 		GBENU_SET_REG_OFS(slave, port_regs, port_vlan);
 		GBENU_SET_REG_OFS(slave, port_regs, tx_pri_map);
+		GBENU_SET_REG_OFS(slave, port_regs, rx_pri_map);
 		GBENU_SET_REG_OFS(slave, port_regs, sa_lo);
 		GBENU_SET_REG_OFS(slave, port_regs, sa_hi);
 		GBENU_SET_REG_OFS(slave, port_regs, ts_ctl);
@@ -2627,7 +2730,9 @@ static void init_secondary_ports(struct gbe_priv *gbe_dev,
 			continue;
 		}
 
-		gbe_sgmii_config(gbe_dev, slave);
+		if ((gbe_dev->ss_version == GBE_SS_VERSION_14) ||
+		    IS_SS_ID_NU(gbe_dev))
+			gbe_sgmii_config(gbe_dev, slave);
 		gbe_port_reset(slave);
 		gbe_port_config(gbe_dev, slave, gbe_dev->rx_packet_max);
 		list_add_tail(&slave->slave_list, &gbe_dev->secondary_slaves);
@@ -2661,6 +2766,9 @@ static void init_secondary_ports(struct gbe_priv *gbe_dev,
 	if (slave->link_interface == SGMII_LINK_MAC_PHY) {
 		phy_mode = PHY_INTERFACE_MODE_SGMII;
 		slave->phy_port_t = PORT_MII;
+	} else if (slave->link_interface == RGMII_LINK_MAC_PHY) {
+		phy_mode = PHY_INTERFACE_MODE_RGMII;
+		slave->phy_port_t = PORT_MII;
 	} else {
 		phy_mode = PHY_INTERFACE_MODE_NA;
 		slave->phy_port_t = PORT_FIBRE;
@@ -2668,6 +2776,7 @@ static void init_secondary_ports(struct gbe_priv *gbe_dev,
 
 	for_each_sec_slave(slave, gbe_dev) {
 		if ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
+		    (slave->link_interface != RGMII_LINK_MAC_PHY) &&
 		    (slave->link_interface != XGMII_LINK_MAC_PHY))
 			continue;
 		slave->phy =
@@ -2710,20 +2819,25 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
 	void __iomem *regs;
 	int ret, i;
 
-	ret = of_address_to_resource(node, XGBE_SS_REG_INDEX, &res);
-	if (ret) {
+	gbe_dev->ss_regmap = syscon_regmap_lookup_by_phandle(node,
+							     "syscon-subsys");
+
+	if (IS_ERR(gbe_dev->ss_regmap)) {
 		dev_err(gbe_dev->dev,
-			"Can't xlate xgbe of node(%s) ss address at %d\n",
-			node->name, XGBE_SS_REG_INDEX);
-		return ret;
+			"subsys regmap lookup failed: %ld\n",
+			PTR_ERR(gbe_dev->ss_regmap));
+		return PTR_ERR(gbe_dev->ss_regmap);
 	}
 
-	regs = devm_ioremap_resource(gbe_dev->dev, &res);
-	if (IS_ERR(regs)) {
-		dev_err(gbe_dev->dev, "Failed to map xgbe ss register base\n");
-		return PTR_ERR(regs);
+	gbe_dev->pcsr_regmap = syscon_regmap_lookup_by_phandle(node,
+							       "syscon-pcsr");
+
+	if (IS_ERR(gbe_dev->pcsr_regmap)) {
+		dev_err(gbe_dev->dev,
+			"pcsr regmap lookup failed: %ld\n",
+			PTR_ERR(gbe_dev->pcsr_regmap));
+		return PTR_ERR(gbe_dev->pcsr_regmap);
 	}
-	gbe_dev->ss_regs = regs;
 
 	ret = of_address_to_resource(node, XGBE_SM_REG_INDEX, &res);
 	if (ret) {
@@ -2740,6 +2854,22 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
 	}
 	gbe_dev->switch_regs = regs;
 
+	ret = of_address_to_resource(node, XGBE_SGMII_REG_INDEX, &res);
+	if (ret) {
+		dev_err(gbe_dev->dev,
+			"Can't xlate xgbe of node(%s) sgmii address at %d\n",
+			node->name, XGBE_SGMII_REG_INDEX);
+		return ret;
+	}
+
+	regs = devm_ioremap_resource(gbe_dev->dev, &res);
+	if (IS_ERR(regs)) {
+		dev_err(gbe_dev->dev,
+			"Failed to map xgbe sgmii register base\n");
+		return PTR_ERR(regs);
+	}
+	gbe_dev->sgmii_port_regs = regs;
+
 	ret = of_address_to_resource(node, XGBE_SERDES_REG_INDEX, &res);
 	if (ret) {
 		dev_err(gbe_dev->dev,
@@ -2754,6 +2884,8 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
 		return PTR_ERR(regs);
 	}
 	gbe_dev->xgbe_serdes_regs = regs;
+	gbe_dev->sgmii_port34_regs = gbe_dev->sgmii_port_regs +
+				     (2 * SGMII_MODULE_SIZE);
 
 	gbe_dev->num_stats_mods = gbe_dev->max_num_ports;
 	gbe_dev->et_stats = xgbe10_et_stats;
@@ -2778,9 +2910,9 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
 	}
 
 	gbe_dev->ss_version = XGBE_SS_VERSION_10;
-	gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
-					XGBE10_SGMII_MODULE_OFFSET;
-	gbe_dev->host_port_regs = gbe_dev->ss_regs + XGBE10_HOST_PORT_OFFSET;
+
+	gbe_dev->host_port_regs = gbe_dev->switch_regs +
+					XGBE10_HOST_PORT_OFFSET;
 
 	for (i = 0; i < gbe_dev->max_num_ports; i++)
 		gbe_dev->hw_stats_regs[i] = gbe_dev->switch_regs +
@@ -2810,8 +2942,8 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
 	return 0;
 }
 
-static int get_gbe_resource_version(struct gbe_priv *gbe_dev,
-				    struct device_node *node)
+static int get_gbe_resource_version_ss_regs(struct gbe_priv *gbe_dev,
+					    struct device_node *node)
 {
 	struct resource res;
 	void __iomem *regs;
@@ -2830,8 +2962,27 @@ static int get_gbe_resource_version(struct gbe_priv *gbe_dev,
 		dev_err(gbe_dev->dev, "Failed to map gbe register base\n");
 		return PTR_ERR(regs);
 	}
+
 	gbe_dev->ss_regs = regs;
 	gbe_dev->ss_version = readl(gbe_dev->ss_regs);
+	gbe_dev->ss_regmap = NULL;
+	return 0;
+}
+
+static int get_gbe_resource_version(struct gbe_priv *gbe_dev,
+				    struct device_node *node)
+{
+	gbe_dev->ss_regmap = syscon_regmap_lookup_by_phandle(node,
+							     "syscon-subsys");
+	if (IS_ERR(gbe_dev->ss_regmap)) {
+		dev_dbg(gbe_dev->dev,
+			"subsys regmap lookup failed: %ld. try reg property\n",
+			PTR_ERR(gbe_dev->ss_regmap));
+		return get_gbe_resource_version_ss_regs(gbe_dev, node);
+	}
+
+	regmap_read(gbe_dev->ss_regmap, 0, &gbe_dev->ss_version);
+	gbe_dev->ss_regs = NULL;
 	return 0;
 }
 
@@ -2841,6 +2992,27 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
 	struct resource res;
 	void __iomem *regs;
 	int i, ret;
+
+	if (gbe_dev->ss_regs) {
+		gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
+					   GBE13_SGMII_MODULE_OFFSET;
+	} else {
+		ret = of_address_to_resource(node, GBE_SGMII_REG_INDEX, &res);
+		if (ret) {
+			dev_err(gbe_dev->dev,
+				"Can't translate of gbe node(%s) address at index %d\n",
+				node->name, GBE_SGMII_REG_INDEX);
+			return ret;
+		}
+
+		regs = devm_ioremap_resource(gbe_dev->dev, &res);
+		if (IS_ERR(regs)) {
+			dev_err(gbe_dev->dev,
+				"Failed to map gbe sgmii port register base\n");
+			return PTR_ERR(regs);
+		}
+		gbe_dev->sgmii_port_regs = regs;
+	}
 
 	ret = of_address_to_resource(node, GBE_SGMII34_REG_INDEX, &res);
 	if (ret) {
@@ -2896,7 +3068,6 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
 		return -ENOMEM;
 	}
 
-	gbe_dev->sgmii_port_regs = gbe_dev->ss_regs + GBE13_SGMII_MODULE_OFFSET;
 	gbe_dev->host_port_regs = gbe_dev->switch_regs + GBE13_HOST_PORT_OFFSET;
 
 	/* K2HK has only 2 hw stats modules visible at a time, so
@@ -2942,7 +3113,7 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
 	gbe_dev->num_stats_mods = gbe_dev->max_num_ports;
 	gbe_dev->et_stats = gbenu_et_stats;
 
-	if (IS_SS_ID_NU(gbe_dev))
+	if (IS_SS_ID_MU(gbe_dev))
 		gbe_dev->num_et_stats = GBENU_ET_STATS_HOST_SIZE +
 			(gbe_dev->max_num_slaves * GBENU_ET_STATS_PORT_SIZE);
 	else
@@ -2983,14 +3154,33 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
 	}
 	gbe_dev->switch_regs = regs;
 
-	gbe_dev->sgmii_port_regs = gbe_dev->ss_regs + GBENU_SGMII_MODULE_OFFSET;
+	if (gbe_dev->ss_regs) {
+		gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
+					   GBENU_SGMII_MODULE_OFFSET;
+	} else {
+		ret = of_address_to_resource(node, GBENU_SGMII_REG_INDEX, &res);
+		if (ret) {
+			dev_err(gbe_dev->dev,
+				"Can't translate of gbenu node(%s) addr at index %d\n",
+				node->name, GBENU_SGMII_REG_INDEX);
+			return ret;
+		}
+
+		regs = devm_ioremap_resource(gbe_dev->dev, &res);
+		if (IS_ERR(regs)) {
+			dev_err(gbe_dev->dev,
+				"Failed to map gbenu sgmii port register base\n");
+			return PTR_ERR(regs);
+		}
+		gbe_dev->sgmii_port_regs = regs;
+	}
 
 	/* Although sgmii modules are mem mapped to one contiguous
 	 * region on GBENU devices, setting sgmii_port34_regs allows
 	 * consistent code when accessing sgmii api
 	 */
 	gbe_dev->sgmii_port34_regs = gbe_dev->sgmii_port_regs +
-				     (2 * GBENU_SGMII_MODULE_SIZE);
+				     (2 * SGMII_MODULE_SIZE);
 
 	gbe_dev->host_port_regs = gbe_dev->switch_regs + GBENU_HOST_PORT_OFFSET;
 
@@ -3001,11 +3191,12 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
 	gbe_dev->ale_reg = gbe_dev->switch_regs + GBENU_ALE_OFFSET;
 	gbe_dev->ale_ports = gbe_dev->max_num_ports;
 	gbe_dev->host_port = GBENU_HOST_PORT_NUM;
-	gbe_dev->ale_entries = GBE13_NUM_ALE_ENTRIES;
 	gbe_dev->stats_en_mask = (1 << (gbe_dev->max_num_ports)) - 1;
 
 	/* Subsystem registers */
 	GBENU_SET_REG_OFS(gbe_dev, ss_regs, id_ver);
+	/* ok to set for MU, but used by 2U only */
+	GBENU_SET_REG_OFS(gbe_dev, ss_regs, rgmii_status);
 
 	/* Switch module registers */
 	GBENU_SET_REG_OFS(gbe_dev, switch_regs, id_ver);
@@ -3169,7 +3360,10 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 	ale_params.ale_ageout	= GBE_DEFAULT_ALE_AGEOUT;
 	ale_params.ale_entries	= gbe_dev->ale_entries;
 	ale_params.ale_ports	= gbe_dev->ale_ports;
-
+	if (IS_SS_ID_MU(gbe_dev)) {
+		ale_params.major_ver_mask = 0x7;
+		ale_params.nu_switch_ale = true;
+	}
 	gbe_dev->ale = cpsw_ale_create(&ale_params);
 	if (!gbe_dev->ale) {
 		dev_err(gbe_dev->dev, "error initializing ale engine\n");

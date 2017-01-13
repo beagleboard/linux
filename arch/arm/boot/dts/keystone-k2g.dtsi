@@ -234,6 +234,41 @@
 			};
 		};
 
+		mmc0: mmc@23000000 {
+			compatible = "ti,omap4-hsmmc";
+			reg = <0x23000000 0x400>;
+			interrupts = <GIC_SPI 96 IRQ_TYPE_EDGE_RISING>;
+			dmas = <&edma1 24 0>, <&edma1 25 0>;
+			dma-names = "tx", "rx";
+			bus-width = <4>;
+			ti,needs-special-reset;
+			max-frequency = <96000000>;
+			status = "disabled";
+			ti,sci-id = <K2G_DEV_MMCHS0>;
+			power-domains = <&k2g_pds>;
+			clocks = <&k2g_clks K2G_DEV_MMCHS0 K2G_DEV_MMCHS_CLK_ADPI>,
+				  <&k2g_clks K2G_DEV_MMCHS0 K2G_DEV_MMCHS_CLK32K>;
+			clock-names = "fck", "mmchsdb_fck";
+		};
+
+		mmc1: mmc@23100000 {
+			compatible = "ti,omap4-hsmmc";
+			reg = <0x23100000 0x400>;
+			interrupts = <GIC_SPI 97 IRQ_TYPE_EDGE_RISING>;
+			dmas = <&edma1 26 0>, <&edma1 27 0>;
+			dma-names = "tx", "rx";
+			bus-width = <8>;
+			ti,needs-special-reset;
+			ti,non-removable;
+			max-frequency = <96000000>;
+			status = "disabled";
+			ti,sci-id = <K2G_DEV_MMCHS1>;
+			power-domains = <&k2g_pds>;
+			clocks = <&k2g_clks K2G_DEV_MMCHS1 K2G_DEV_MMCHS_CLK_ADPI>,
+				  <&k2g_clks K2G_DEV_MMCHS1 K2G_DEV_MMCHS_CLK32K>;
+			clock-names = "fck", "mmchsdb_fck";
+		};
+
 		edma0: edma@02700000 {
 			compatible = "ti,edma3-tpcc";
 			reg =	<0x02700000 0x8000>;
@@ -317,5 +352,20 @@
 			clocks = <&k2g_clks K2G_DEV_EDMA1 K2G_DEV_EDMA_TPTC_CLK>;
 			clock-names = "fck";
 		};
+
+		mdio: mdio@4200f00 {
+			compatible = "ti,keystone_mdio", "ti,davinci_mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			power-domains = <&k2g_pds>;
+			ti,sci-id = <K2G_DEV_NSS0>;
+			clocks = <&k2g_clks K2G_DEV_NSS0 K2G_DEV_NSS_ESW_CLK>;
+			clock-names = "fck";
+			reg = <0x04200f00 0x100>;
+			status = "disabled";
+			bus_freq = <2500000>;
+		};
+
+		#include "keystone-k2g-netcp.dtsi"
 	};
 };
