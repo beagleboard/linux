@@ -1875,6 +1875,42 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 	case CONFIG_SWITCH_DEL_VLAN:
 		ret = cpsw_ale_del_vlan(cpsw->ale, config.vid, 0);
 		break;
+	case CONFIG_SWITCH_SET_PORT_CONFIG:
+	{
+		struct phy_device *phy = NULL;
+
+		if ((config.port == 1) || (config.port == 2))
+			phy = cpsw->slaves[config.port - 1].phy;
+
+		if (!phy) {
+			dev_err(priv->dev, "Phy not Found\n");
+			break;
+		}
+
+		config.ecmd.phy_address = phy->mdio.addr;
+		ret = phy_ethtool_sset(phy, &config.ecmd);
+		break;
+	}
+	case CONFIG_SWITCH_GET_PORT_CONFIG:
+	{
+		struct phy_device *phy = NULL;
+
+		if ((config.port == 1) || (config.port == 2))
+			phy = cpsw->slaves[config.port - 1].phy;
+
+		if (!phy) {
+			dev_err(priv->dev, "Phy not Found\n");
+			break;
+		}
+
+		config.ecmd.phy_address = phy->mdio.addr;
+		ret = phy_ethtool_gset(phy, &config.ecmd);
+		if (ret)
+			break;
+		ret = copy_to_user(ifrq->ifr_data, &config, sizeof(config));
+		break;
+	}
+
 	default:
 		ret = -EOPNOTSUPP;
 	}
