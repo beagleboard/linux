@@ -31,6 +31,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/spi/spi.h>
 #include <linux/timer.h>
@@ -1211,6 +1212,8 @@ static int cqspi_probe(struct platform_device *pdev)
 		goto probe_irq_failed;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 	cqspi_wait_idle(cqspi);
 	cqspi_controller_init(cqspi);
 	cqspi->current_cs = -1;
@@ -1225,6 +1228,8 @@ static int cqspi_probe(struct platform_device *pdev)
 	return ret;
 probe_irq_failed:
 	cqspi_controller_enable(cqspi, 0);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 probe_setup_failed:
 	clk_disable_unprepare(cqspi->clk);
 	return ret;
@@ -1242,6 +1247,8 @@ static int cqspi_remove(struct platform_device *pdev)
 	cqspi_controller_enable(cqspi, 0);
 
 	clk_disable_unprepare(cqspi->clk);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
@@ -1252,6 +1259,7 @@ static int cqspi_suspend(struct device *dev)
 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
 
 	cqspi_controller_enable(cqspi, 0);
+	pm_runtime_put_sync(dev);
 	return 0;
 }
 
@@ -1260,6 +1268,7 @@ static int cqspi_resume(struct device *dev)
 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
 
 	cqspi_controller_enable(cqspi, 1);
+	pm_runtime_get_sync(dev);
 	return 0;
 }
 
