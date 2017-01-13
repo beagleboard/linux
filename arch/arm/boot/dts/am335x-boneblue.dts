@@ -68,12 +68,6 @@
 			0x1AC 0x37	/*P9.25 MPU-9150 INTERRUPT IN*/
 
 			/* LEDs GPIO Out*/
-			0x090 0x0F	/* P8.7 R7 LED_RED */
-			0x094 0x0F	/* P8.8 T7 LED_GREEN */
-			0x02C 0x0F	/* P8.17 U12 BATT_LED_1 */
-			0x0DC 0x0F  /* P8.32 T5  BATT_LED_2 diff from cape! */
-			0x07c 0x0F	/* P8.26 V6  BATT_LED_3 */
-			0x028 0x0F	/* P8.14 T11 BATT_LED_4 */
 
 			/* Motor Control GPIO Out*/
 			0x0a8 0x0F	/*P8.43 MDIR_3B*/
@@ -143,7 +137,7 @@
 		***********************************************************************/
 		/* H18 SPI1_SS1    */
 		H18_default_pin: pinmux_H18_default_pin {
-			pinctrl-single,pins = < 0x144 ( PIN_OUTPUT | MUX_MODE4 ) >; };
+			pinctrl-single,pins = < 0x144 ( PIN_OUTPUT | MUX_MODE2 ) >; };
 		H18_gpio_pin: pinmux_H18_gpio_pin {
 			pinctrl-single,pins = < 0x144 ( PIN_OUTPUT | MUX_MODE7 ) >; };
 		H18_gpio_pu_pin: pinmux_H18_gpio_pu_pin {
@@ -155,7 +149,7 @@
 
 		/* C18 SPI1_SS2    */
 		C18_default_pin: pinmux_C18_default_pin {
-			pinctrl-single,pins = < 0x164 ( PIN_OUTPUT | MUX_MODE4 ) >; };
+			pinctrl-single,pins = < 0x164 ( PIN_OUTPUT | MUX_MODE2 ) >; };
 		C18_gpio_pin: pinmux_C18_gpio_pin {
 			pinctrl-single,pins = < 0x164 ( PIN_OUTPUT | MUX_MODE7 ) >; };
 		C18_gpio_pu_pin: pinmux_C18_gpio_pu_pin {
@@ -206,6 +200,17 @@
 			pinctrl-single,pins = < 0x10C ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) >; };
 	};
 
+	led_pins: pinmux_led_pins {
+		pinctrl-single,pins = <
+			0x1B0 (PIN_OUTPUT | MUX_MODE7) /* (A15) xdma_event_intr0.gpio0[19] - WIFI_LED */
+			0x090 (PIN_OUTPUT | MUX_MODE7) /* (R7) gpmc_advn_ale.gpio2[2] - P8.7, LED_RED, GP1_PIN_5 */
+			0x094 (PIN_OUTPUT | MUX_MODE7) /* (T7) gpmc_oen_ren.gpio2[3] - P8.8, LED_GREEN, GP1_PIN_6 */
+			0x02C (PIN_OUTPUT | MUX_MODE7) /* (U12) gpmc_ad11.gpio0[27] - P8.17, BATT_LED_1 */
+			0x0DC (PIN_OUTPUT | MUX_MODE7) /* (T5) lcd_data15.gpio0[11] - P8.32, BATT_LED_2 diff from cape! */
+			0x07C (PIN_OUTPUT | MUX_MODE7) /* (V6) gpmc_csn0.gpio1[29] - P8.26, BATT_LED_3 */
+			0x028 (PIN_OUTPUT | MUX_MODE7) /* (T11) gpmc_ad10.gpio0[26] - P8.14, BATT_LED_4 */
+		>;
+	};
 };
 
 
@@ -572,5 +577,60 @@
 		compatible = "spidev";
 		reg = <1>;
 		spi-max-frequency = <24000000>;
+	};
+};
+
+/ {
+	leds {
+		pinctrl-names = "default";
+		pinctrl-0 = <&led_pins>;
+		compatible = "gpio-leds";
+
+		wifi_led {
+			label = "wifi";
+			gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "phy0assoc";
+		};
+
+		red_led {
+			label = "red";
+			gpios = <&gpio2 2 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		green_led {
+			label = "green";
+			gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_1_led {
+			label = "bat0";
+			gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_2_led {
+			label = "bat1";
+			gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_3_led {
+			label = "bat2";
+			gpios = <&gpio1 29 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		batt_4_led {
+			label = "bat3";
+			gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	btwilink {
+		compatible = "btwilink";
 	};
 };
