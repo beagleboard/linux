@@ -666,9 +666,17 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	am572x-idk.dtb \
 	am571x-idk.dtb \
 	dra7-evm.dtb \
+	dra7-evm-lcd-osd101t2045.dtb \
+	dra7-evm-lcd-osd101t2587.dtb \
 	dra72-evm.dtb \
+	dra72-evm-lcd-osd101t2045.dtb \
+	dra72-evm-lcd-osd101t2587.dtb \
 	dra72-evm-revc.dtb \
+	dra72-evm-revc-lcd-osd101t2045.dtb \
+	dra72-evm-revc-lcd-osd101t2587.dtb \
 	dra71-evm.dtb \
+	dra71-evm.dtb \
+	dra71-evm-lcd-auo-g101evn01.0.dtb \
 	dra76-evm.dtb
 dts-dirs-$(CONFIG_SOC_DRA7XX) += ti
 dtb-$(CONFIG_ARCH_ORION5X) += \
