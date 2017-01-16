@@ -67,18 +67,16 @@
 			0x098 0x37	/*P8.10 MODE BUTTON input pullup*/
 			0x1AC 0x37	/*P9.25 MPU-9150 INTERRUPT IN*/
 
-			/* LEDs GPIO Out*/
-
 			/* Motor Control GPIO Out*/
-			0x0a8 0x0F	/*P8.43 MDIR_3B*/
-			0x0ac 0x0F	/*P8.44 MDIR_3A*/
-			0x0a0 0x0F	/*P8.45 MDIR_4A*/
-			0x0a4 0x0F	/*P8.46 MDIR_4B*/
-			0x074 0x0F	/*P9.13 MDIR_1B*/
-			0x040 0x0F	/*P9.15 MDIR_2A*/
-			0x1b4 0x0F	/*P9.41 MOT_STBY*/
-			0x088 0x0F	/*T13   MDIR_1A different from cape! */
-			0x0D8 0x0F	/*P8.31 MDIR_2B different from cape! */
+			0x088 ( PIN_OUTPUT | MUX_MODE7 ) /* (T13) gpmc_csn3.gpio2[0] - MDIR_1A different from cape! */
+			0x074 ( PIN_OUTPUT | MUX_MODE7 ) /* (U17) gpmc_wpn.gpio0[31] - P9.13, MDIR_1B */
+			0x040 ( PIN_OUTPUT | MUX_MODE7 ) /* (R13) gpmc_a0.gpio1[16] - P9.15, MDIR_2A */
+			0x0D8 ( PIN_OUTPUT | MUX_MODE7 ) /* (V4) lcd_data14.gpio0[10] - P8.31, MDIR_2B different from cape! */
+			0x0AC ( PIN_OUTPUT | MUX_MODE7 ) /* (R4) lcd_data3.gpio2[9] - P8.44, MDIR_3A */
+			0x0A8 ( PIN_OUTPUT | MUX_MODE7 ) /* (R3) lcd_data2.gpio2[8] - P8.43, MDIR_3B */
+			0x0A0 ( PIN_OUTPUT | MUX_MODE7 ) /* (R1) lcd_data0.gpio2[6] - P8.45, MDIR_4A */
+			0x0A4 ( PIN_OUTPUT | MUX_MODE7 ) /* (R2) lcd_data1.gpio2[7] - P8.46, MDIR_4B */
+			0x1B4 ( PIN_OUTPUT | MUX_MODE7 ) /* (D14) xdma_event_intr1.gpio0[20] - P9.41, MOT_STBY */
 
 			/* HRPWM 1 */
 			0x048  0x6 /* P9_14 | MODE 6 */
@@ -120,16 +118,12 @@
 			0x178  0x73 /* P9.20, i2c2_sda, mode 3 */
 
 			/* UART5 */
-			0x0C4 0x34	/* P8.38,uart5_rxd,MODE4 */
-			0x0C0 0x14	/* P8.37,uart5_txd,MODE4 */
+			0x0C4 ( PIN_INPUT | MUX_MODE4 ) /* (U2) lcd_data9.uart5_rxd - P8.38 */
+			0x0C0 ( PIN_OUTPUT | MUX_MODE4 ) /* (U1) lcd_data8.uart5_txd - P8.37 */
 
 			/* WILINK 8 */
 			0x08c 0x0F	/*P8.18 V12 A2DP FSYNC */
 			0x078 0x0F	/*P9.12 A2DP_CLOCK*/
-
-			/* DCAN */
-			0x16c ( PIN_INPUT  | MUX_MODE2 ) /* (E17) uart0_rtsn.dcan1_rx */
-			0x168 ( PIN_OUTPUT | MUX_MODE2 ) /* (E18) uart0_ctsn.dcan1_tx */
 		>;
 
 		/***********************************************************************
@@ -198,6 +192,16 @@
 			pinctrl-single,pins = < 0x10C ( PIN_INPUT_PULLUP | MUX_MODE7 ) >; };
 		H17_gpio_pd_pin: pinmux_H17_gpio_pd_pin {
 			pinctrl-single,pins = < 0x10C ( PIN_INPUT_PULLDOWN | MUX_MODE7 ) >; };
+	};
+
+
+	/* DCAN */
+	dcan1_pins: pinmux_dcan1_pins {
+		pinctrl-single,pins = <
+			0x16c ( PIN_INPUT  | MUX_MODE2 ) /* (E17) uart0_rtsn.dcan1_rx */
+			0x168 ( PIN_OUTPUT | MUX_MODE2 ) /* (E18) uart0_ctsn.dcan1_tx */
+			0x140 ( PIN_OUTPUT | MUX_MODE7 ) /* (M16) gmii1_rxd0.gpio2[21] */
+		>;
 	};
 
 	led_pins: pinmux_led_pins {
@@ -633,4 +637,10 @@
 	btwilink {
 		compatible = "btwilink";
 	};
+};
+
+&dcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dcan1_pins>;
+	status = "okay";
 };
