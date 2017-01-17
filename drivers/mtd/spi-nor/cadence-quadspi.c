@@ -31,6 +31,7 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/spi/spi.h>
 #include <linux/timer.h>
@@ -76,6 +77,7 @@ struct cqspi_st {
 	u32			fifo_depth;
 	u32			fifo_width;
 	u32			trigger_address;
+	u32			wr_delay;
 	struct cqspi_flash_pdata f_pdata[CQSPI_MAX_CHIPSELECT];
 };
 
@@ -607,6 +609,13 @@ static int cqspi_indirect_write_execute(struct spi_nor *nor,
 	reinit_completion(&cqspi->transfer_complete);
 	writel(CQSPI_REG_INDIRECTWR_START_MASK,
 	       reg_base + CQSPI_REG_INDIRECTWR);
+	/*
+	 * As per 66AK2G02 TRM SPRUHY8 section 11.14.5.3 Indirect Access
+	 * Controller programming sequence, couple of cycles of
+	 * QSPI_REF_CLK delay is required for the above bit to
+	 * be internally synchronized by the QSPI module.
+	 */
+	ndelay(cqspi->wr_delay);
 
 	while (remaining > 0) {
 		write_bytes = remaining > page_size ? page_size : remaining;
@@ -1203,6 +1212,9 @@ static int cqspi_probe(struct platform_device *pdev)
 	}
 
 	cqspi->master_ref_clk_hz = clk_get_rate(cqspi->clk);
+	if (of_device_is_compatible(dev->of_node, "ti,k2g-qspi"))
+		cqspi->wr_delay = 3 * DIV_ROUND_UP(1000000000U,
+						   cqspi->master_ref_clk_hz);
 
 	ret = devm_request_irq(dev, irq, cqspi_irq_handler, 0,
 			       pdev->name, cqspi);
@@ -1211,6 +1223,8 @@ static int cqspi_probe(struct platform_device *pdev)
 		goto probe_irq_failed;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 	cqspi_wait_idle(cqspi);
 	cqspi_controller_init(cqspi);
 	cqspi->current_cs = -1;
@@ -1225,6 +1239,8 @@ static int cqspi_probe(struct platform_device *pdev)
 	return ret;
 probe_irq_failed:
 	cqspi_controller_enable(cqspi, 0);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 probe_setup_failed:
 	clk_disable_unprepare(cqspi->clk);
 	return ret;
@@ -1242,6 +1258,8 @@ static int cqspi_remove(struct platform_device *pdev)
 	cqspi_controller_enable(cqspi, 0);
 
 	clk_disable_unprepare(cqspi->clk);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
@@ -1252,6 +1270,7 @@ static int cqspi_suspend(struct device *dev)
 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
 
 	cqspi_controller_enable(cqspi, 0);
+	pm_runtime_put_sync(dev);
 	return 0;
 }
 
@@ -1260,6 +1279,7 @@ static int cqspi_resume(struct device *dev)
 	struct cqspi_st *cqspi = dev_get_drvdata(dev);
 
 	cqspi_controller_enable(cqspi, 1);
+	pm_runtime_get_sync(dev);
 	return 0;
 }
 
@@ -1275,6 +1295,7 @@ static const struct dev_pm_ops cqspi__dev_pm_ops = {
 
 static struct of_device_id const cqspi_dt_ids[] = {
 	{.compatible = "cdns,qspi-nor",},
+	{.compatible = "ti,k2g-qspi",},
 	{ /* end of table */ }
 };
 

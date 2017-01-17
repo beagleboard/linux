@@ -97,7 +97,6 @@
 		vin-supply = <&v5_0>;
 		regulator-always-on;
 	};
-
 };
 
 &k2g_pinctrl {
@@ -108,6 +107,33 @@
 			K2G_CORE_IOPAD(0x11d0) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE0)	/* uart0_txd.uart0_txd */
 		>;
 	};
+
+	qspi_pins: pinmux_qspi_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1204) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_clk.qspi_clk */
+			K2G_CORE_IOPAD(0x1208) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_rclk.qspi_rclk */
+			K2G_CORE_IOPAD(0x120c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_d0.qspi_d0 */
+			K2G_CORE_IOPAD(0x1210) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_d1.qspi_d1 */
+			K2G_CORE_IOPAD(0x1214) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_d2.qspi_d2 */
+			K2G_CORE_IOPAD(0x1218) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_d3.qspi_d3 */
+			K2G_CORE_IOPAD(0x121c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0) /* qspi_csn0.qspi_csn0 */
+		>;
+	};
+
+	mmc1_pins: pinmux_mmc1_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x10FC) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_dat3.mmc1_dat3 */
+			K2G_CORE_IOPAD(0x1100) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_dat2.mmc1_dat2 */
+			K2G_CORE_IOPAD(0x1104) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_dat1.mmc1_dat1 */
+			K2G_CORE_IOPAD(0x1108) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_dat0.mmc1_dat0 */
+			K2G_CORE_IOPAD(0x110C) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_clk.mmc1_clk */
+			K2G_CORE_IOPAD(0x1110) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_cmd.mmc1_cmd */
+			K2G_CORE_IOPAD(0x1114) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* mmc1_sdcd.gpio0_69 */
+			K2G_CORE_IOPAD(0x1118) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_sdwp.mmc1_sdwp */
+			K2G_CORE_IOPAD(0x111C) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE0)	/* mmc1_pow.mmc1_pow */
+		>;
+	};
+
 };
 
 &uart0 {
@@ -117,5 +143,63 @@
 };
 
 &gpio0 {
+	status = "okay";
+};
+
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&qspi_pins>;
+	status = "okay";
+
+	flash0: m25p80@0 {
+		compatible = "s25fl256s1", "jedec,spi-nor";
+		reg = <0>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <96000000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		cdns,read-delay = <2>;
+		cdns,tshsl-ns = <500>;
+		cdns,tsd2d-ns = <500>;
+		cdns,tchsh-ns = <119>;
+		cdns,tslch-ns = <119>;
+
+		partition@0 {
+			label = "QSPI.u-boot";
+			reg = <0x00000000 0x00100000>;
+		};
+		partition@1 {
+			label = "QSPI.u-boot-env";
+			reg = <0x00100000 0x00040000>;
+		};
+		partition@2 {
+			label = "QSPI.skern";
+			reg = <0x00140000 0x0040000>;
+		};
+		partition@3 {
+			label = "QSPI.pmmc-firmware";
+			reg = <0x00180000 0x0040000>;
+		};
+		partition@4 {
+			label = "QSPI.kernel";
+			reg = <0x001c0000 0x0800000>;
+		};
+		partition@5 {
+			label = "QSPI.u-boot-spl-os";
+			reg = <0x009c0000 0x0040000>;
+		};
+		partition@6 {
+			label = "QSPI.file-system";
+			reg = <0x00a00000 0x1600000>;
+		};
+	};
+};
+
+&mmc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc1_pins>;
+	vmmc-supply = <&vdd_3v3>;
+	cd-gpios = <&gpio0 69 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
