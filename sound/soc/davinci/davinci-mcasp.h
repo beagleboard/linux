@@ -99,6 +99,13 @@
 #define MCASP_RFIFOCTL_OFFSET		(0x8)
 #define MCASP_RFIFOSTS_OFFSET		(0xc)
 
+/* DAVINCI_MCASP_PID_REG - Peripheral Identification Register Bits */
+#define MCASP_V4_REVMINOR_MASK		(0x3f)
+#define MCASP_V4_REVMAJOR_MASK		(0x7 << 8)
+#define MCASP_V4_REV_MASK		(MCASP_V4_REVMAJOR_MASK | \
+					 MCASP_V4_REVMINOR_MASK)
+#define MCASP_V4_REV(maj, min)		((maj) << 8 | (min))
+
 /*
  * DAVINCI_MCASP_PWREMUMGT_REG - Power Down and Emulation Management
  *     Register Bits
@@ -305,10 +312,5 @@
 #define NUMEVT_MASK	(0xFF << 8)
 #define NUMEVT(x)	(((x) & 0xFF) << 8)
 #define NUMDMA_MASK	(0xFF)
-
-/* clock divider IDs */
-#define MCASP_CLKDIV_AUXCLK		0 /* HCLK divider from AUXCLK */
-#define MCASP_CLKDIV_BCLK		1 /* BCLK divider from HCLK */
-#define MCASP_CLKDIV_BCLK_FS_RATIO	2 /* to set BCLK FS ration */
 
 #endif	/* DAVINCI_MCASP_H */
