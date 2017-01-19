@@ -309,7 +309,7 @@ static int _omap_device_reidle_hwmods(struct omap_device *od)
 	int i;
 
 	for (i = 0; i < od->hwmods_cnt; i++)
-		if (od->hwmods[i]->flags | HWMOD_NEEDS_REIDLE)
+		if (od->hwmods[i]->flags & HWMOD_NEEDS_REIDLE)
 			omap_hwmod_enable_reidle(od->hwmods[i]);
 
 	/* XXX pass along return value here? */
