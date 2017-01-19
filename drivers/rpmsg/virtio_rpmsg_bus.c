@@ -524,6 +524,25 @@ static void rpmsg_downref_sleepers(struct virtproc_info *vrp)
 }
 
 /**
+ * virtio_rpmsg_get_vdev - Get underlying virtio device
+ * @rpdev: the rpmsg channel
+ *
+ * Returns the underlying remoteproc virtio device, if one exists. Returns NULL
+ * otherwise.
+ */
+struct virtio_device *virtio_rpmsg_get_vdev(struct rpmsg_device *rpdev)
+{
+	struct virtio_rpmsg_channel *vch = NULL;
+
+	if (!rpdev)
+		return NULL;
+
+	vch = to_virtio_rpmsg_channel(rpdev);
+	return vch->vrp ? vch->vrp->vdev : NULL;
+}
+EXPORT_SYMBOL(virtio_rpmsg_get_vdev);
+
+/**
  * rpmsg_send_offchannel_raw() - send a message across to the remote processor
  * @rpdev: the rpmsg channel
  * @src: source address
