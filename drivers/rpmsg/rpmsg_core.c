@@ -289,6 +289,9 @@ static int rpmsg_device_match(struct device *dev, void *data)
 	if (strncmp(chinfo->name, rpdev->id.name, RPMSG_NAME_SIZE))
 		return 0;
 
+	if (strncmp(chinfo->desc, rpdev->desc, RPMSG_NAME_SIZE))
+		return 0;
+
 	/* found a match ! */
 	return 1;
 }
@@ -314,6 +317,7 @@ field##_show(struct device *dev,					\
 
 /* for more info, see Documentation/ABI/testing/sysfs-bus-rpmsg */
 rpmsg_show_attr(name, id.name, "%s\n");
+rpmsg_show_attr(desc, desc, "%s\n");
 rpmsg_show_attr(src, src, "0x%x\n");
 rpmsg_show_attr(dst, dst, "0x%x\n");
 rpmsg_show_attr(announce, announce ? "true" : "false", "%s\n");
@@ -328,6 +332,7 @@ static ssize_t modalias_show(struct device *dev,
 
 static struct device_attribute rpmsg_dev_attrs[] = {
 	__ATTR_RO(name),
+	__ATTR_RO(desc),
 	__ATTR_RO(modalias),
 	__ATTR_RO(dst),
 	__ATTR_RO(src),
