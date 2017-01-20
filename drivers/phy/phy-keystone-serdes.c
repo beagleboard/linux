@@ -2472,21 +2472,37 @@ static int kserdes_probe(struct platform_device *pdev)
 	if (!sd)
 		return -ENOMEM;
 
+	pm_runtime_enable(&pdev->dev);
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enable SerDes power-domain\n");
+		pm_runtime_set_suspended(dev);
+		pm_runtime_put_noidle(dev);
+		return ret;
+	}
+
 	sd->dev = dev;
 	dev_set_drvdata(dev, sd);
 
 	ret = kserdes_of_parse(pdev, sd, np);
 	if (ret)
-		return ret;
+		goto error;
 
 	phy_provider = devm_of_phy_provider_register(sd->dev, kserdes_xlate);
-	if (IS_ERR(phy_provider))
-		return PTR_ERR_OR_ZERO(phy_provider);
+	if (IS_ERR(phy_provider)) {
+		ret = PTR_ERR_OR_ZERO(phy_provider);
+		goto error;
+	}
 
 	kserdes_provider_init(sd);
 
 	dev_vdbg(&pdev->dev, "probed");
 	return 0;
+
+error:
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
+	return ret;
 }
 
 static struct platform_driver kserdes_driver = {
