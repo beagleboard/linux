@@ -423,6 +423,12 @@
 			link-rate-kbps = <5000000>;
 			num-lanes = <1>;
 			status = "disabled";
+
+			power-domains = <&k2g_pds>;
+			ti,sci-id = <K2G_DEV_PCIE0>;
+			clocks = <&k2g_clks
+					K2G_DEV_PCIE0 K2G_DEV_PCIE_VBUS_CLK>;
+			clock-names = "fck";
 		};
 
 		pcie0: pcie@21800000 {
@@ -443,7 +449,6 @@
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <1>;
-			phys = <&pcie0_phy>;
 			dma-coherent;
 
 			/* error interrupt */
