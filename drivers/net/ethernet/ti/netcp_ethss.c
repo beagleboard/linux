@@ -2176,9 +2176,10 @@ static void netcp_ethss_update_link_state(struct gbe_priv *gbe_dev,
 							   &sw_link_state);
 			if (ret)
 				return;
-		} else
+		} else {
 			sw_link_state = netcp_sgmii_get_port_link(
 						SGMII_BASE(gbe_dev, sp), sp);
+		}
 	} else if (slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
 		/* read status from pcsr status reg */
 		ret = regmap_read(gbe_dev->pcsr_regmap,
