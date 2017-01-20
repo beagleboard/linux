@@ -154,6 +154,14 @@ config PHY_RCAR_GEN3_USB2
 	help
 	  Support for USB 2.0 PHY found on Renesas R-Car generation 3 SoCs.
 
+config PHY_TI_KEYSTONE_SERDES
+	tristate "TI Keystone SerDes PHY support"
+	depends on OF && ARCH_KEYSTONE || COMPILE_TEST
+	select GENERIC_PHY
+	help
+	  This option enables support for TI Keystone SerDes PHY found
+	  in peripherals GBE, 10GBE and PCIe.
+
 config OMAP_CONTROL_PHY
 	tristate "OMAP CONTROL PHY Driver"
 	depends on ARCH_OMAP2PLUS || COMPILE_TEST
