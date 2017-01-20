@@ -95,7 +95,6 @@ struct gbe_priv {
 	u8				max_num_slaves;
 	u8				max_num_ports; /* max_num_slaves + 1 */
 	u8				num_stats_mods;
-	u8				num_serdeses;
 	struct netcp_tx_pipe		tx_pipe;
 
 	int				host_port;
@@ -134,7 +133,6 @@ struct gbe_priv {
 	spinlock_t			hw_stats_lock;
 	int                             cpts_registered;
 	struct cpts                     *cpts;
-	struct phy			*serdes_phy[MAX_NUM_SERDES];
 
 	struct kobject			kobj;
 	struct kobject			tx_pri_kobj;
@@ -151,6 +149,7 @@ struct ts_ctl {
 };
 
 struct gbe_slave {
+	struct gbe_priv			*gbe_dev;
 	void __iomem			*port_regs;
 	void __iomem			*emac_regs;
 	struct gbe_port_regs_ofs	port_regs_ofs;
@@ -163,9 +162,18 @@ struct gbe_slave {
 	u32				link_interface;
 	u32				mac_control;
 	u8				phy_port_t;
+					/* work trigger threshold
+					 *   0: triger disabled
+					 * > 1: trigger enabled
+					 */
+	u32				link_recover_thresh;
+					/* 0:NOT, > 0:recovering */
+	u32				link_recovering;
+	struct delayed_work		link_recover_work;
 	struct device_node		*phy_node;
 	struct ts_ctl                   ts_ctl;
 	struct list_head		slave_list;
+	struct phy			*serdes_phy;
 };
 
 struct gbe_intf {
@@ -200,6 +208,10 @@ void gbe_reset_mod_stats_ver14(struct gbe_priv *gbe_dev, int stats_mod);
 
 #define IS_SS_ID_NU(d) \
 	(GBE_IDENT((d)->ss_version) == GBE_SS_ID_NU)
+
+#define IS_SS_ID_2U(d) \
+	(GBE_IDENT((d)->ss_version) == GBE_SS_ID_2U)
+
 #define GBE_STATSA_MODULE			0
 #define GBE_STATSB_MODULE			1
 #define GBE_STATSC_MODULE			2

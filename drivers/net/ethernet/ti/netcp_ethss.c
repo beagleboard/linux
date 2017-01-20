@@ -207,7 +207,6 @@
 /* The PTP event messages - Sync, Delay_Req, Pdelay_Req, and Pdelay_Resp. */
 #define EVENT_MSG_BITS (BIT(0) | BIT(1) | BIT(2) | BIT(3))
 #endif /* CONFIG_TI_CPTS */
-#define MAX_NUM_SERDES				2
 
 struct xgbe_ss_regs {
 	u32	id_ver;
@@ -1914,6 +1913,24 @@ static int gbe_get_slave_port(struct gbe_priv *priv, u32 slave_num)
 	return slave_num;
 }
 
+/* Number of GBE_TIMER_INTERVAL */
+#define LINK_RECOVER_THRESHOLD	6
+
+static void gbe_slave_link_recover(struct work_struct *work)
+{
+	struct gbe_slave *slave = container_of(work, struct gbe_slave,
+					       link_recover_work.work);
+	struct device *dev = slave->gbe_dev->dev;
+	int lane = slave->slave_num;
+	int ret;
+
+	dev_dbg(dev, "recovering serdes lane %d ...\n", lane);
+
+	ret = phy_reset(slave->serdes_phy);
+	if (!ret)
+		dev_dbg(dev, "Serdes Lane %u rx recovered\n", lane);
+}
+
 static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 					  struct net_device *ndev,
 					  struct gbe_slave *slave,
@@ -1957,11 +1974,28 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 			netif_carrier_off(ndev);
 	}
 
-	if (phy)
+	if (phy) {
 		phy_print_status(phy);
-	else if (slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
+	} else if (slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
 		netdev_printk(KERN_INFO, ndev,
 			      "Link is %s\n", (up ? "Up" : "Down"));
+		if (up) {
+			if (slave->link_recover_thresh ||
+			    slave->link_recovering) {
+				slave->link_recover_thresh = 0;
+				slave->link_recovering = 0;
+				dev_info(gbe_dev->dev,
+					 "link_recover process cancelled: %s slave %d\n",
+					 netdev_name(ndev), slave->slave_num);
+			}
+		} else {
+			/* from up to down */
+			slave->link_recover_thresh = LINK_RECOVER_THRESHOLD;
+			slave->link_recovering = 1;
+			dev_info(gbe_dev->dev,
+				 "link_recover process initiated: %s slave %d\n",
+				 netdev_name(ndev), slave->slave_num);
+		}
 	}
 }
 
@@ -2025,9 +2059,19 @@ static void netcp_ethss_update_link_state(struct gbe_priv *gbe_dev,
 	phy_link_state = gbe_phy_link_status(slave);
 	link_state = phy_link_state & sw_link_state;
 
-	if (atomic_xchg(&slave->link_state, link_state) != link_state)
+	if (atomic_xchg(&slave->link_state, link_state) != link_state) {
 		netcp_ethss_link_state_action(gbe_dev, ndev, slave,
 					      link_state);
+	} else {
+		if (slave->link_recover_thresh) {
+			if (++slave->link_recovering >=
+					slave->link_recover_thresh) {
+				schedule_delayed_work(&slave->link_recover_work,
+						      0);
+				slave->link_recovering = 1;
+			}
+		}
+	}
 }
 
 static void xgbe_adjust_link(struct net_device *ndev)
@@ -2821,6 +2865,27 @@ static void init_slave_ts_ctl(struct gbe_slave *slave)
 }
 #endif /* CONFIG_TI_CPTS */
 
+static int init_serdes_phys(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
+			    struct device_node *node, bool do_phy_init)
+{
+	struct device *dev = gbe_dev->dev;
+	struct phy *phy;
+
+	phy = devm_of_phy_get_by_index(dev, node, 0);
+	if (IS_ERR(phy)) {
+		/* this one may be disabled, quietly skip */
+		dev_dbg(dev, "%s sl-%d: No serdes phy found: %ld\n",
+			node->name, slave->slave_num, PTR_ERR(phy));
+		return 0;
+	}
+
+	slave->serdes_phy = phy;
+	if (!do_phy_init)
+		return 0;
+
+	return phy_init(phy);
+}
+
 static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 		      struct device_node *node)
 {
@@ -2840,6 +2905,7 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 		slave->link_interface = SGMII_LINK_MAC_PHY;
 	}
 
+	slave->gbe_dev = gbe_dev;
 	slave->open = false;
 	if ((slave->link_interface == SGMII_LINK_MAC_PHY) ||
 	    (slave->link_interface == RGMII_LINK_MAC_PHY) ||
@@ -2936,6 +3002,8 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
 		XGBE_SET_REG_OFS(slave, emac_regs, mac_control);
 		XGBE_SET_REG_OFS(slave, emac_regs, soft_reset);
 		XGBE_SET_REG_OFS(slave, emac_regs, rx_maxlen);
+		INIT_DELAYED_WORK(&slave->link_recover_work,
+				  gbe_slave_link_recover);
 	}
 
 	atomic_set(&slave->link_state, NETCP_LINK_STATE_INVALID);
@@ -2953,6 +3021,7 @@ static void init_secondary_ports(struct gbe_priv *gbe_dev,
 	struct device_node *port;
 	struct gbe_slave *slave;
 	bool mac_phy_link = false;
+	int ret;
 
 	for_each_child_of_node(node, port) {
 		slave = devm_kzalloc(dev, sizeof(*slave), GFP_KERNEL);
@@ -2969,6 +3038,15 @@ static void init_secondary_ports(struct gbe_priv *gbe_dev,
 				port->name);
 			devm_kfree(dev, slave);
 			continue;
+		}
+
+		if (!IS_SS_ID_2U(gbe_dev)) {
+			ret = init_serdes_phys(gbe_dev, slave, port, true);
+			if (ret && (ret != -ENODEV)) {
+				dev_err(dev, "serdes phy init failed\n");
+				devm_kfree(dev, slave);
+				continue;
+			}
 		}
 
 		if ((gbe_dev->ss_version == GBE_SS_VERSION_14) ||
@@ -3045,6 +3123,8 @@ static void free_secondary_ports(struct gbe_priv *gbe_dev)
 	while (!list_empty(&gbe_dev->secondary_slaves)) {
 		slave = first_sec_slave(gbe_dev);
 
+		phy_exit(slave->serdes_phy);
+
 		if (slave->phy)
 			phy_disconnect(slave->phy);
 		list_del(&slave->slave_list);
@@ -3059,8 +3139,6 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
 	struct resource res;
 	void __iomem *regs;
 	int ret, i;
-
-	gbe_dev->num_serdeses = 1;
 
 	gbe_dev->ss_regmap = syscon_regmap_lookup_by_phandle(node,
 							     "syscon-subsys");
@@ -3222,8 +3300,6 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
 	void __iomem *regs;
 	int i, ret;
 
-	gbe_dev->num_serdeses = 1;
-
 	if (gbe_dev->ss_regs) {
 		gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
 					   GBE13_SGMII_MODULE_OFFSET;
@@ -3342,7 +3418,6 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
 	void __iomem *regs;
 	int i, ret;
 
-	gbe_dev->num_serdeses = 2;
 	gbe_dev->num_stats_mods = gbe_dev->max_num_ports;
 	gbe_dev->et_stats = gbenu_et_stats;
 
@@ -3538,21 +3613,6 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 	if (ret)
 		return ret;
 
-	for (i = 0; i < gbe_dev->num_serdeses; i++) {
-		phy = devm_of_phy_get_by_index(dev, node, i);
-		if (IS_ERR(phy)) {
-			/* this one may be disabled, quietly skip */
-			dev_dbg(dev, "No %s serdes driver found: %ld\n",
-				node->name, PTR_ERR(phy));
-			continue;
-		}
-
-		gbe_dev->serdes_phy[i] = phy;
-		ret = phy_init(phy);
-		if (ret < 0)
-			goto exit_phys;
-	}
-
 	interfaces = of_get_child_by_name(node, "interfaces");
 	if (!interfaces)
 		dev_err(dev, "could not find interfaces\n");
@@ -3560,21 +3620,28 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 	ret = netcp_txpipe_init(&gbe_dev->tx_pipe, netcp_device,
 				gbe_dev->dma_chan_name, gbe_dev->tx_queue_id);
 	if (ret)
-		goto exit_phys;
+		goto exit_err;
 
 	ret = netcp_txpipe_open(&gbe_dev->tx_pipe);
 	if (ret)
-		goto exit_phys;
+		goto exit_err;
 
 	/* Create network interfaces */
 	INIT_LIST_HEAD(&gbe_dev->gbe_intf_head);
 	for_each_child_of_node(interfaces, interface) {
+		if (!IS_SS_ID_2U(gbe_dev)) {
+			phy = devm_of_phy_get_by_index(dev, interface, 0);
+			if (!IS_ERR(phy))
+				phy_init(phy);
+		}
+
 		ret = of_property_read_u32(interface, "slave-port", &slave_num);
 		if (ret) {
 			dev_err(dev, "missing slave-port parameter, skipping interface configuration for %s\n",
 				interface->name);
 			continue;
 		}
+
 		gbe_dev->num_slaves++;
 		if (gbe_dev->num_slaves >= gbe_dev->max_num_slaves) {
 			of_node_put(interface);
@@ -3652,9 +3719,7 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 
 free_sec_ports:
 	free_secondary_ports(gbe_dev);
-exit_phys:
-	for (i = 0; i < gbe_dev->num_serdeses; i++)
-		phy_exit(gbe_dev->serdes_phy[i]);
+exit_err:
 	return ret;
 }
 
@@ -3691,6 +3756,14 @@ static int gbe_attach(void *inst_priv, struct net_device *ndev,
 		goto fail;
 	}
 
+	if (!IS_SS_ID_2U(gbe_dev)) {
+		ret = init_serdes_phys(gbe_dev, gbe_intf->slave, node, false);
+		if (ret && (ret != -ENODEV)) {
+			dev_err(gbe_dev->dev, "serdes phy init failed\n");
+			goto fail;
+		}
+	}
+
 	gbe_intf->tx_pipe = gbe_dev->tx_pipe;
 	ndev->ethtool_ops = &keystone_ethtool_ops;
 	list_add_tail(&gbe_intf->gbe_intf_list, &gbe_dev->gbe_intf_head);
@@ -3709,6 +3782,7 @@ static int gbe_release(void *intf_priv)
 {
 	struct gbe_intf *gbe_intf = intf_priv;
 
+	phy_exit(gbe_intf->slave->serdes_phy);
 	gbe_intf->ndev->ethtool_ops = NULL;
 	list_del(&gbe_intf->gbe_intf_list);
 	devm_kfree(gbe_intf->dev, gbe_intf->slave);
@@ -3719,7 +3793,6 @@ static int gbe_release(void *intf_priv)
 static int gbe_remove(struct netcp_device *netcp_device, void *inst_priv)
 {
 	struct gbe_priv *gbe_dev = inst_priv;
-	int i;
 
 	del_timer_sync(&gbe_dev->timer);
 	cpts_release(gbe_dev->cpts);
@@ -3728,9 +3801,6 @@ static int gbe_remove(struct netcp_device *netcp_device, void *inst_priv)
 	netcp_txpipe_close(&gbe_dev->tx_pipe);
 	gbe_remove_sysfs_entries(gbe_dev);
 	free_secondary_ports(gbe_dev);
-
-	for (i = 0; i < gbe_dev->num_serdeses; i++)
-		phy_exit(gbe_dev->serdes_phy[i]);
 
 	if (!list_empty(&gbe_dev->gbe_intf_head))
 		dev_alert(gbe_dev->dev,

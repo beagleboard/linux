@@ -111,6 +111,10 @@ Required properties:
 			- 10Gb mac<->mac forced mode : 11
 ----phy-handle:	phandle to PHY device
 
+----phys:	phandles to serdes PHY devices
+		see Documentation/devicetree/bindings/phy/ti-phy.txt
+		for Keystone SerDes device specificcations.
+
 Optional properties:
 - enable-ale:	NetCP driver keeps the address learning feature in the ethernet
 		switch module disabled. This attribute is to enable the address
@@ -119,10 +123,6 @@ Optional properties:
 				registered as a network interface. NetCP driver
 				will only initialize these ports and attach PHY
 				driver to them if needed.
-
-- phys:		phandles to serdes devices
-		see Documentation/devicetree/bindings/phy/ti-phy.txt
-		for Keystone SerDes device specificcations.
 
 NetCP interface properties: Interface specification for NetCP sub-modules.
 Required properties:
@@ -162,29 +162,49 @@ gbe_subsys: subsys@2090000 {
 };
 
 gbe_serdes: phy@232a000 {
-	status			= "ok";
-	#phy-cells		= <0>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 	compatible		= "ti,keystone-serdes-gbe";
 	reg			= <0x0232a000 0x2000>;
+	status			= "ok";
 	link-rate-kbps		= <1250000>;
 	num-lanes		= <4>;
-	lanes {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		lane@0 {
-			reg		= <0>;
-			control-rate	= <2>;
-			rx-start	= <7 5>;
-			rx-force	= <1 1>;
-			tx-coeff	= <0 0 0 12 4>;
-		};
-		lane@1 {
-			reg		= <1>;
-			control-rate	= <2>;
-			rx-start	= <7 5>;
-			rx-force	= <1 1>;
-			tx-coeff	= <0 0 0 12 4>;
-		};
+
+	serdes_lane0: lane@0 {
+		#phy-cells	= <0>;
+		reg		= <0>;
+		status		= "ok";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+	serdes_lane1: lane@1 {
+		#phy-cells	= <0>;
+		reg		= <1>;
+		status		= "ok";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+	serdes_lane2: lane@2 {
+		#phy-cells	= <0>;
+		reg		= <2>;
+		status		= "disabled";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+	serdes_lane3: lane@3 {
+		#phy-cells	= <0>;
+		reg		= <3>;
+		status		= "disabled";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
 	};
 };
 
@@ -209,14 +229,15 @@ netcp: netcp@2000000 {
 			reg = <0x90100 0x200>, <0x90400 0x200>, <0x90800 0x700>;
 			tx-queue = <648>;
 			tx-channel = <8>;
-			phys = <&gbe_serdes>;
 
 			interfaces {
 				gbe0: interface-0 {
+					phys = <&serdes_lane0>;
 					slave-port = <0>;
 					link-interface	= <4>;
 				};
 				gbe1: interface-1 {
+					phys = <&serdes_lane1>;
 					slave-port = <1>;
 					link-interface	= <4>;
 				};
@@ -224,10 +245,12 @@ netcp: netcp@2000000 {
 
 			secondary-slave-ports {
 				port-2 {
+					phys = <&serdes_lane2>;
 					slave-port = <2>;
 					link-interface	= <2>;
 				};
 				port-3 {
+					phys = <&serdes_lane3>;
 					slave-port = <3>;
 					link-interface	= <2>;
 				};
@@ -278,31 +301,33 @@ xgbe_pcsr: pcsr@2f00600 {
 };
 
 xgbe_serdes: phy@231e000 {
-	status			= "disabled";
-	#phy-cells		= <0>;
+	#address-cells  = <1>;
+	#size-cells     = <0>;
 	compatible		= "ti,keystone-serdes-xgbe";
 	reg			= <0x0231e000 0x2000>;
+	status			= "disabled";
 	link-rate-kbps		= <10312500>;
 	num-lanes		= <2>;
 	syscon-peripheral	= <&xgbe_subsys>;
 	syscon-link		= <&xgbe_pcsr>;
-	lanes {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		lane@0 {
-			reg		= <0>;
-			control-rate	= <0>;
-			rx-start	= <7 5>;
-			rx-force	= <1 1>;
-			tx-coeff	= <2 0 0 12 4>;
-		};
-		lane@1 {
-			reg		= <1>;
-			control-rate	= <0>;
-			rx-start	= <7 5>;
-			rx-force	= <1 1>;
-			tx-coeff	= <2 0 0 12 4>;
-		};
+
+	xserdes_lane0: lane@0 {
+		#phy-cells	= <0>;
+		reg		= <0>;
+		status		= "ok";
+		control-rate	= <0>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <2 0 0 12 4>;
+	};
+	xserdes_lane1: lane@1 {
+		#phy-cells	= <0>;
+		reg		= <1>;
+		status		= "ok";
+		control-rate	= <0>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <2 0 0 12 4>;
 	};
 };
 
@@ -334,14 +359,15 @@ netcpx: netcpx@2f00000 {
 			reg = <0x02f00100 0x200>, <0x02f01000 0xb00>;
 			tx-queue = <692>;
 			tx-channel = "xnettx";
-			phys = <&xgbe_serdes>;
 
 			interfaces {
 				xgbe0: interface-0 {
+					phys = <&xserdes_lane0>;
 					slave-port = <0>;
 					link-interface	= <11>;
 				};
 				xgbe1: interface-1 {
+					phys = <&xserdes_lane1>;
 					slave-port = <1>;
 					link-interface	= <11>;
 				};
