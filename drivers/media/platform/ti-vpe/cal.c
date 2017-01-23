@@ -253,6 +253,9 @@ struct cal_dev {
 	struct platform_device	*pdev;
 	struct v4l2_device	v4l2_dev;
 
+	/* Controller flags for special cases */
+	unsigned int		flags;
+
 	/* Control Module handle */
 	struct cm_data		*cm;
 	/* Camera Core Module handle */
@@ -315,6 +318,10 @@ struct cal_ctx {
 	struct cal_buffer	*cur_frm;
 	/* Pointer pointing to next v4l2_buffer */
 	struct cal_buffer	*next_frm;
+};
+
+struct cal_of_data {
+	unsigned int flags;
 };
 
 static const struct cal_fmt *find_format_by_pix(struct cal_ctx *ctx,
@@ -481,11 +488,50 @@ static void cal_get_hwinfo(struct cal_dev *dev)
 		hwinfo);
 }
 
+/*
+ *   Errata i913: CSI2 LDO Needs to be disabled when module is powered on
+ *
+ *   Enabling CSI2 LDO shorts it to core supply. It is crucial the 2 CSI2
+ *   LDOs on the device are disabled if CSI-2 module is powered on
+ *   (0x4845 B304 | 0x4845 B384 [28:27] = 0x1) or in ULPS (0x4845 B304
+ *   | 0x4845 B384 [28:27] = 0x2) mode. Common concerns include: high
+ *   current draw on the module supply in active mode.
+ *
+ *   Errata does not apply when CSI-2 module is powered off
+ *   (0x4845 B304 | 0x4845 B384 [28:27] = 0x0).
+ *
+ * SW Workaround:
+ *	Set the following register bits to disable the LDO,
+ *	which is essentially CSI2 REG10 bit 6:
+ *
+ *		Core 0:  0x4845 B828 = 0x0000 0040
+ *		Core 1:  0x4845 B928 = 0x0000 0040
+ */
+static void i913_errata(struct cal_dev *dev, unsigned int port)
+{
+	u32 reg10 = reg_read(dev->cc[port], CAL_CSI2_PHY_REG10);
+
+	set_field(&reg10, CAL_CSI2_PHY_REG0_HSCLOCKCONFIG_DISABLE,
+		    CAL_CSI2_PHY_REG10_I933_LDO_DISABLE_MASK);
+
+	cal_dbg(1, dev, "CSI2_%d_REG10 = 0x%08x\n", port, reg10);
+	reg_write(dev->cc[port], CAL_CSI2_PHY_REG10, reg10);
+}
+
 static inline int cal_runtime_get(struct cal_dev *dev)
 {
 	int r;
 
 	r = pm_runtime_get_sync(&dev->pdev->dev);
+
+	if (dev->flags & DRA72_CAL_PRE_ES2_LDO_DISABLE) {
+		/*
+		 * Apply errata on both paort eveytime we (re-)enable
+		 * the clock
+		 */
+		i913_errata(dev, 0);
+		i913_errata(dev, 1);
+	}
 
 	return r;
 }
@@ -690,12 +736,13 @@ static void pix_proc_config(struct cal_ctx *ctx)
 }
 
 static void cal_wr_dma_config(struct cal_ctx *ctx,
-			      unsigned int width)
+			      unsigned int width, unsigned int height)
 {
 	u32 val;
 
 	val = reg_read(ctx->dev, CAL_WR_DMA_CTRL(ctx->csi2_port));
 	set_field(&val, ctx->csi2_port, CAL_WR_DMA_CTRL_CPORT_MASK);
+	set_field(&val, height, CAL_WR_DMA_CTRL_YSIZE_MASK);
 	set_field(&val, CAL_WR_DMA_CTRL_DTAG_PIX_DAT,
 		  CAL_WR_DMA_CTRL_DTAG_MASK);
 	set_field(&val, CAL_WR_DMA_CTRL_MODE_CONST,
@@ -1321,7 +1368,8 @@ static int cal_start_streaming(struct vb2_queue *vq, unsigned int count)
 	csi2_lane_config(ctx);
 	csi2_ctx_config(ctx);
 	pix_proc_config(ctx);
-	cal_wr_dma_config(ctx, ctx->v_fmt.fmt.pix.bytesperline);
+	cal_wr_dma_config(ctx, ctx->v_fmt.fmt.pix.bytesperline,
+				ctx->v_fmt.fmt.pix.height);
 	cal_wr_dma_addr(ctx, addr);
 	csi2_ppi_enable(ctx);
 
@@ -1412,6 +1460,7 @@ static const struct v4l2_ioctl_ops cal_ioctl_ops = {
 	.vidioc_querybuf      = vb2_ioctl_querybuf,
 	.vidioc_qbuf          = vb2_ioctl_qbuf,
 	.vidioc_dqbuf         = vb2_ioctl_dqbuf,
+	.vidioc_expbuf        = vb2_ioctl_expbuf,
 	.vidioc_enum_input    = cal_enum_input,
 	.vidioc_g_input       = cal_g_input,
 	.vidioc_s_input       = cal_s_input,
@@ -1809,15 +1858,27 @@ err_exit:
 	return NULL;
 }
 
+static const struct of_device_id cal_of_match[];
+
 static int cal_probe(struct platform_device *pdev)
 {
 	struct cal_dev *dev;
+	const struct of_device_id *match;
+	const struct cal_of_data *data;
 	int ret;
 	int irq;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
+
+	match = of_match_device(of_match_ptr(cal_of_match), &pdev->dev);
+	if (match) {
+		if (match->data) {
+			data = match->data;
+			dev->flags = data->flags;
+		}
+	}
 
 	/* set pseudo v4l2 device name so we can use v4l2_printk */
 	strlcpy(dev->v4l2_dev.name, CAL_MODULE_NAME,
@@ -1915,8 +1976,22 @@ static int cal_remove(struct platform_device *pdev)
 }
 
 #if defined(CONFIG_OF)
+static const struct cal_of_data dra72_pre_es2_cal_of_data = {
+	/*
+	 * See DRA72x Errata: i913: CSI2 LDO Needs to be disabled
+	 * when module is powered on.
+	 */
+	.flags = DRA72_CAL_PRE_ES2_LDO_DISABLE,
+};
+
 static const struct of_device_id cal_of_match[] = {
-	{ .compatible = "ti,dra72-cal", },
+	{
+		.compatible = "ti,dra72-cal",
+	},
+	{
+		.compatible = "ti,dra72-pre-es2-cal",
+		.data = &dra72_pre_es2_cal_of_data,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, cal_of_match);
