@@ -30,6 +30,7 @@
 #include <linux/platform_data/media/ir-rx51.h>
 #include <linux/platform_data/asoc-ti-mcbsp.h>
 #include <plat/dmtimer.h>
+#include <linux/platform_data/sgx-omap.h>
 
 #include "common.h"
 #include "common-board-devices.h"
@@ -61,6 +62,14 @@ static inline int omap_iommu_set_pwrdm_constraint(struct platform_device *pdev,
 {
 	return 0;
 }
+#endif
+
+#if defined(CONFIG_SOC_AM33XX) || defined(CONFIG_SOC_AM43XX)
+static struct gfx_sgx_platform_data sgx_pdata = {
+	.reset_name = "gfx",
+	.assert_reset = omap_device_assert_hardreset,
+	.deassert_reset = omap_device_deassert_hardreset,
+};
 #endif
 
 #ifdef CONFIG_MACH_NOKIA_N8X0
@@ -631,12 +640,16 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &wkup_m3_data),
 	OF_DEV_AUXDATA("ti,am3356-pruss-soc-bus", 0x4a326000,
 		       "4a326000.pruss-soc-bus", &pruss_pdata),
+	OF_DEV_AUXDATA("ti,am3352-sgx530", 0x56000000, "56000000.sgx",
+		       &sgx_pdata),
 #endif
 #ifdef CONFIG_SOC_AM43XX
 	OF_DEV_AUXDATA("ti,am4372-wkup-m3", 0x44d00000, "44d00000.wkup_m3",
 		       &wkup_m3_data),
 	OF_DEV_AUXDATA("ti,am4376-pruss-soc-bus", 0x54426000,
 		       "54426000.pruss_soc_bus", &pruss_pdata),
+	OF_DEV_AUXDATA("ti,am4376-sgx530", 0x56000000, "56000000.sgx",
+		       &sgx_pdata),
 #endif
 #if IS_ENABLED(CONFIG_OMAP_DM_TIMER)
 	OF_DEV_AUXDATA("ti,omap-dmtimer-pwm", 0, NULL, &pwm_dmtimer_pdata),
