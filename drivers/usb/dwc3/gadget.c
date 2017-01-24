@@ -1443,12 +1443,16 @@ static int dwc3_gadget_set_selfpowered(struct usb_gadget *g,
 	return 0;
 }
 
-static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
+int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 {
 	u32			reg;
 	u32			timeout = 500;
 
 	if (pm_runtime_suspended(dwc->dev))
+		return 0;
+
+	if (dwc->dr_mode == USB_DR_MODE_OTG &&
+	    dwc->otg_fsm.protocol != PROTO_GADGET)
 		return 0;
 
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
@@ -1502,6 +1506,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	is_on = !!is_on;
 
 	spin_lock_irqsave(&dwc->lock, flags);
+	dwc->gadget_pullup = is_on;
 	ret = dwc3_gadget_run_stop(dwc, is_on, false);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -1576,7 +1581,7 @@ static void dwc3_gadget_setup_nump(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
 }
 
-static int __dwc3_gadget_start(struct dwc3 *dwc)
+int __dwc3_gadget_start(struct dwc3 *dwc)
 {
 	struct dwc3_ep		*dep;
 	int			ret = 0;
@@ -1700,8 +1705,11 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 
 	dwc->gadget_driver	= driver;
 
-	if (pm_runtime_active(dwc->dev))
-		__dwc3_gadget_start(dwc);
+	if (pm_runtime_active(dwc->dev)) {
+		if (!(dwc->dr_mode == USB_DR_MODE_OTG &&
+		      dwc->otg_fsm.protocol != PROTO_GADGET))
+			__dwc3_gadget_start(dwc);
+	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -1715,7 +1723,7 @@ err0:
 	return ret;
 }
 
-static void __dwc3_gadget_stop(struct dwc3 *dwc)
+void __dwc3_gadget_stop(struct dwc3 *dwc)
 {
 	if (pm_runtime_suspended(dwc->dev))
 		return;

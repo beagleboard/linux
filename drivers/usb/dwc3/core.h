@@ -34,6 +34,9 @@
 
 #include <linux/phy/phy.h>
 
+#include <linux/usb/otg.h>
+#include <linux/usb/otg-fsm.h>
+
 #define DWC3_MSG_MAX	500
 
 /* Global constants */
@@ -832,15 +835,21 @@ struct dwc3_scratchpad_array {
  * @event_buffer_list: a list of event buffers
  * @gadget: device side representation of the peripheral controller
  * @gadget_driver: pointer to the gadget driver
+ * @gadget_pullup: gadget driver's pullup request flag
  * @regs: base address for our registers
  * @regs_size: address space size
+ * @dr_mode: requested mode of operation
+ * @otg: usb otg data structure
+ * @otg-fsm: usb otg fsm data structure
+ * @otg_prevent_sync: flag to block events to otg fsm
+ * @current_mode: current mode of operation written to PRTCAPDIR
  * @fladj: frame length adjustment
  * @irq_gadget: peripheral controller's IRQ number
+ * @otg_irq: IRQ number for OTG IRQs
  * @nr_scratch: number of scratch buffers
  * @u1u2: only used on revisions <1.83a for workaround
  * @maximum_speed: maximum speed requested (mainly for testing purposes)
  * @revision: revision register contents
- * @dr_mode: requested mode of operation
  * @hsphy_mode: UTMI phy mode, one of following:
  *		- USBPHY_INTERFACE_MODE_UTMI
  *		- USBPHY_INTERFACE_MODE_UTMIW
@@ -851,6 +860,9 @@ struct dwc3_scratchpad_array {
  * @ulpi: pointer to ulpi interface
  * @dcfg: saved contents of DCFG register
  * @gctl: saved contents of GCTL register
+ * @ocfg: saved contents of OCFG register
+ * @octl: saved contents of OCTL register
+ * @oevten: saved contents of OEVTEN register
  * @isoch_delay: wValue from Set Isochronous Delay request;
  * @u2sel: parameter from Set SEL request.
  * @u2pel: parameter from Set SEL request.
@@ -940,6 +952,7 @@ struct dwc3 {
 
 	struct usb_gadget	gadget;
 	struct usb_gadget_driver *gadget_driver;
+	bool			gadget_pullup;
 
 	struct usb_phy		*usb2_phy;
 	struct usb_phy		*usb3_phy;
@@ -949,14 +962,28 @@ struct dwc3 {
 
 	struct ulpi		*ulpi;
 
+	/* used for suspend/resume */
+	u32			dcfg;
+	u32			gctl;
+	u32			ocfg;
+	u32			octl;
+	u32			oevten;
+
 	void __iomem		*regs;
 	size_t			regs_size;
 
 	enum usb_dr_mode	dr_mode;
+	struct usb_otg		otg;
+	struct otg_fsm		otg_fsm;
+	bool			otg_prevent_sync;
+	u32			current_mode;
+
 	enum usb_phy_interface	hsphy_mode;
 
 	u32			fladj;
 	u32			irq_gadget;
+	int			otg_irq;
+
 	u32			nr_scratch;
 	u32			u1u2;
 	u32			maximum_speed;
@@ -1239,6 +1266,9 @@ int dwc3_gadget_set_link_state(struct dwc3 *dwc, enum dwc3_link_state state);
 int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned cmd,
 		struct dwc3_gadget_ep_cmd_params *params);
 int dwc3_send_gadget_generic_command(struct dwc3 *dwc, unsigned cmd, u32 param);
+int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend);
+int __dwc3_gadget_start(struct dwc3 *dwc);
+void __dwc3_gadget_stop(struct dwc3 *dwc);
 #else
 static inline int dwc3_gadget_init(struct dwc3 *dwc)
 { return 0; }
@@ -1258,6 +1288,12 @@ static inline int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned cmd,
 static inline int dwc3_send_gadget_generic_command(struct dwc3 *dwc,
 		int cmd, u32 param)
 { return 0; }
+static inline int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
+{ return 0; }
+static inline int __dwc3_gadget_start(struct dwc3 *dwc)
+{ return 0; }
+static inline void __dwc3_gadget_stop(struct dwc3 *dwc)
+{ }
 #endif
 
 /* power management interface */
