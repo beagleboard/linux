@@ -43,6 +43,7 @@
 #define PCIE_RC_K2HK		0xb008
 #define PCIE_RC_K2E		0xb009
 #define PCIE_RC_K2L		0xb00a
+#define PCIE_RC_K2G		0xb00b
 
 #define to_keystone_pcie(x)	container_of(x, struct keystone_pcie, pp)
 
@@ -56,6 +57,8 @@ static void quirk_limit_mrrs(struct pci_dev *dev)
 		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCIE_RC_K2E),
 		 .class = PCI_CLASS_BRIDGE_PCI << 8, .class_mask = ~0, },
 		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCIE_RC_K2L),
+		 .class = PCI_CLASS_BRIDGE_PCI << 8, .class_mask = ~0, },
+		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCIE_RC_K2G),
 		 .class = PCI_CLASS_BRIDGE_PCI << 8, .class_mask = ~0, },
 		{ 0, },
 	};
@@ -381,8 +384,7 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	struct pcie_port *pp;
 	struct resource *res;
 	void __iomem *reg_p;
-	struct phy *phy;
-	int ret;
+	int ret = 0;
 
 	ks_pcie = devm_kzalloc(dev, sizeof(*ks_pcie), GFP_KERNEL);
 	if (!ks_pcie)
@@ -390,17 +392,6 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 
 	pp = &ks_pcie->pp;
 	pp->dev = dev;
-
-	/* initialize SerDes Phy if present */
-	phy = devm_phy_get(dev, "pcie-phy");
-	if (PTR_ERR_OR_ZERO(phy) == -EPROBE_DEFER)
-		return PTR_ERR(phy);
-
-	if (!IS_ERR_OR_NULL(phy)) {
-		ret = phy_init(phy);
-		if (ret < 0)
-			return ret;
-	}
 
 	/* index 2 is to read PCI DEVICE_ID */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
@@ -429,7 +420,6 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	return 0;
 fail_clk:
 	clk_disable_unprepare(ks_pcie->clk);
-
 	return ret;
 }
 

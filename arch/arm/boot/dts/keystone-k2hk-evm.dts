@@ -188,3 +188,7 @@
 		reg = <1>;
 	};
 };
+
+&gbe_serdes {
+	status = "okay";
+};

@@ -27,6 +27,8 @@
 
 /* Maximum Ethernet frame size supported by Keystone switch */
 #define NETCP_MAX_FRAME_SIZE		9504
+/* to indicate netcp core should drop the packet */
+#define NETCP_TX_DROP			1
 
 #define SGMII_LINK_MAC_MAC_AUTONEG	0
 #define SGMII_LINK_MAC_PHY		1
@@ -91,6 +93,7 @@ struct netcp_intf {
 	struct device		*ndev_dev;
 	struct net_device	*ndev;
 	bool			big_endian;
+	bool			bridged;
 	unsigned int		tx_compl_qid;
 	void			*tx_pool;
 	struct list_head	txhook_list_head;
@@ -110,7 +113,11 @@ struct netcp_intf {
 
 	/* 64-bit netcp stats */
 	struct netcp_stats	stats;
+	u32			rx_queue_depths[KNAV_DMA_FDQ_PER_CHAN];
 
+	/* Non Data path related stuffs below. In future, move any variable
+	 * if used on data path to above this for better cache line use
+	 */
 	void			*rx_channel;
 	const char		*dma_chan_name;
 	u32			rx_pool_size;
@@ -130,7 +137,6 @@ struct netcp_intf {
 
 	/* DMA configuration data */
 	u32			msg_enable;
-	u32			rx_queue_depths[KNAV_DMA_FDQ_PER_CHAN];
 };
 
 #define	NETCP_PSDATA_LEN		KNAV_DMA_NUM_PS_WORDS
@@ -145,7 +151,7 @@ struct netcp_packet {
 	bool			rxtstamp_complete;
 	void			*ts_context;
 
-	int	(*txtstamp_complete)(void *ctx, struct netcp_packet *pkt);
+	void (*txtstamp)(void *ctx, struct sk_buff *skb);
 };
 
 static inline u32 *netcp_push_psdata(struct netcp_packet *p_info,
@@ -215,6 +221,7 @@ struct netcp_module {
 	int	(*add_vid)(void *intf_priv, int vid);
 	int	(*del_vid)(void *intf_priv, int vid);
 	int	(*ioctl)(void *intf_priv, struct ifreq *req, int cmd);
+	int	(*set_rx_mode)(void *intf_priv, bool promisc);
 
 	/* used internally */
 	struct list_head	module_list;

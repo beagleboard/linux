@@ -9,6 +9,7 @@
  */
 /dts-v1/;
 #include "keystone-k2g.dtsi"
+#include <dt-bindings/net/ti-dp83867.h>
 
 / {
 	compatible =  "ti,k2g-ice", "ti,k2g", "ti,keystone";
@@ -134,6 +135,29 @@
 		>;
 	};
 
+	rgmii_pins: pinmux_rmgii_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1154) (BUFFER_CLASS_B | MUX_MODE1)			/* mii_txclk.rgmii_txc */
+			K2G_CORE_IOPAD(0x1120) (BUFFER_CLASS_B | MUX_MODE1)			/* mii_rxclk.rgmii_rxc */
+			K2G_CORE_IOPAD(0x1134) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* mii_rxd3.rgmii_rxd3 */
+			K2G_CORE_IOPAD(0x1138) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* mii_rxd2.rgmii_rxd2 */
+			K2G_CORE_IOPAD(0x113C) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* mii_rxd1.rgmii_rxd1 */
+			K2G_CORE_IOPAD(0x1140) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* mii_rxd0.rgmii_rxd0 */
+			K2G_CORE_IOPAD(0x1144) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* mii_rxdv.rgmii_rxctl */
+			K2G_CORE_IOPAD(0x116C) (BUFFER_CLASS_B | MUX_MODE1)			/* mii_txd3.rgmii_txd3 */
+			K2G_CORE_IOPAD(0x1170) (BUFFER_CLASS_B | MUX_MODE1)			/* mii_txd2.rgmii_txd2 */
+			K2G_CORE_IOPAD(0x1174) (BUFFER_CLASS_B | MUX_MODE1)			/* mii_txd1.rgmii_txd1 */
+			K2G_CORE_IOPAD(0x1178) (BUFFER_CLASS_B | MUX_MODE1)			/* mii_txd0.rgmii_txd0 */
+			K2G_CORE_IOPAD(0x117C) (BUFFER_CLASS_B | MUX_MODE1)			/* mii_txen.rgmii_txctl */
+		>;
+	};
+
+	mdio_pins: pinmux_mdio_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1188) (BUFFER_CLASS_B | MUX_MODE0)			/* mdio_data.mdio_data */
+			K2G_CORE_IOPAD(0x118C) (BUFFER_CLASS_B | MUX_MODE0)			/* mdio_clk.mdio_clk */
+		>;
+	};
 };
 
 &uart0 {
@@ -202,4 +226,39 @@
 	vmmc-supply = <&vdd_3v3>;
 	cd-gpios = <&gpio0 69 GPIO_ACTIVE_LOW>;
 	status = "okay";
+};
+
+&qmss {
+	status = "okay";
+};
+
+&knav_dmas {
+	status = "okay";
+};
+
+&gbe_subsys {
+	status = "okay";
+};
+
+&netcp {
+	pinctrl-names = "default";
+	pinctrl-0 = <&rgmii_pins>;
+	status = "okay";
+};
+
+&mdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mdio_pins>;
+	status = "okay";
+	ethphy0: ethernet-phy@0 {
+		reg = <0>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_25_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
+		ti,min-output-impedance;
+	};
+};
+
+&gbe0 {
+	phy-handle = <&ethphy0>;
+	phy-mode = "rgmii-rxid";
 };
