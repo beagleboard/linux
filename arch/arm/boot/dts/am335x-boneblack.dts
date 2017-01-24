@@ -137,6 +137,10 @@
 	rx-num-evt = <32>;
 };
 
+&sgx {
+	status = "okay";
+};
+
 / {
 	clk_mcasp0_fixed: clk_mcasp0_fixed {
 		#clock-cells = <0>;
