@@ -433,7 +433,6 @@ enum rproc_crash_type {
  * @num_last_traces: number of last trace buffers
  * @carveouts: list of physically contiguous memory allocations
  * @mappings: list of iommu mappings we initiated, needed on shutdown
- * @firmware_loading_complete: marks e/o asynchronous firmware loading
  * @bootaddr: address of first instruction to boot rproc with (optional)
  * @rvdevs: list of remote virtio devices
  * @subdevs: list of subdevices, to following the running state
@@ -469,7 +468,6 @@ struct rproc {
 	int num_last_traces;
 	struct list_head carveouts;
 	struct list_head mappings;
-	struct completion firmware_loading_complete;
 	u32 bootaddr;
 	struct list_head rvdevs;
 	struct list_head subdevs;
