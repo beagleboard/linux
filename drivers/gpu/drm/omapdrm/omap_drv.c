@@ -752,6 +752,14 @@ static int pdev_probe(struct platform_device *pdev)
 	drm_kms_helper_poll_init(ddev);
 	omap_modeset_enable_external_hpd(ddev);
 
+	if (priv->dispc_ops->has_writeback()) {
+		ret = omap_wb_init(ddev);
+		if (ret)
+			dev_warn(&pdev->dev, "failed to initialize writeback\n");
+		else
+			priv->wb_initialized = true;
+	}
+
 	/*
 	 * Register the DRM device with the core and the connectors with
 	 * sysfs.
@@ -763,7 +771,11 @@ static int pdev_probe(struct platform_device *pdev)
 	return 0;
 
 err_cleanup_helpers:
+	if (priv->wb_initialized)
+		omap_wb_cleanup(ddev);
+
 	omap_modeset_disable_external_hpd(ddev);
+
 	drm_kms_helper_poll_fini(ddev);
 	if (priv->fbdev)
 		omap_fbdev_free(ddev);
@@ -788,6 +800,9 @@ static int pdev_remove(struct platform_device *pdev)
 	DBG("");
 
 	drm_dev_unregister(ddev);
+
+	if (priv->wb_initialized)
+		omap_wb_cleanup(ddev);
 
 	omap_modeset_disable_external_hpd(ddev);
 	drm_kms_helper_poll_fini(ddev);
