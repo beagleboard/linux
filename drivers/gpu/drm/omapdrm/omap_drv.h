@@ -102,6 +102,9 @@ struct omap_drm_private {
 	struct list_head wait_list;	/* list of omap_irq_wait */
 	uint32_t irq_mask;		/* enabled irqs in addition to wait_list */
 
+	void *wb_private;	      /* Write-back private data */
+	bool wb_initialized;
+
 	/* atomic commit */
 	struct {
 		wait_queue_head_t wait;
@@ -232,5 +235,25 @@ struct drm_gem_object *omap_gem_prime_import(struct drm_device *dev,
 
 /* map crtc to vblank mask */
 struct omap_dss_device *omap_encoder_get_dssdev(struct drm_encoder *encoder);
+
+#if IS_ENABLED(CONFIG_DRM_OMAP_WB)
+
+#define OMAP_WB_IRQ_MASK (DISPC_IRQ_FRAMEDONEWB | \
+			  DISPC_IRQ_WBBUFFEROVERFLOW | \
+			  DISPC_IRQ_WBUNCOMPLETEERROR)
+
+int omap_wb_init(struct drm_device *drmdev);
+void omap_wb_cleanup(struct drm_device *drmdev);
+void omap_wb_irq(void *priv, u32 irqstatus);
+
+#else
+
+#define OMAP_WB_IRQ_MASK (0)
+
+static inline int omap_wb_init(struct drm_device *drmdev) { return 0; }
+static inline void omap_wb_cleanup(struct drm_device *drmdev) { }
+static inline void omap_wb_irq(void *priv, u32 irqstatus) { }
+
+#endif
 
 #endif /* __OMAP_DRV_H__ */
