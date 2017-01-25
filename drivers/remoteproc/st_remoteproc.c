@@ -107,7 +107,7 @@ static int st_rproc_stop(struct rproc *rproc)
 	return sw_err ?: pwr_err;
 }
 
-static struct rproc_ops st_rproc_ops = {
+static const struct rproc_ops st_rproc_ops = {
 	.start		= st_rproc_start,
 	.stop		= st_rproc_stop,
 };
@@ -245,8 +245,10 @@ static int st_rproc_probe(struct platform_device *pdev)
 		goto free_rproc;
 
 	enabled = st_rproc_state(pdev);
-	if (enabled < 0)
+	if (enabled < 0) {
+		ret = enabled;
 		goto free_rproc;
+	}
 
 	if (enabled) {
 		atomic_inc(&rproc->power);
