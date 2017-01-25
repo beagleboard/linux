@@ -395,6 +395,8 @@ enum rproc_crash_type {
  * @dbg_dir: debugfs directory of this rproc device
  * @traces: list of trace buffers
  * @num_traces: number of trace buffers
+ * @last_traces: list of last trace buffers
+ * @num_last_traces: number of last trace buffers
  * @carveouts: list of physically contiguous memory allocations
  * @mappings: list of iommu mappings we initiated, needed on shutdown
  * @firmware_loading_complete: marks e/o asynchronous firmware loading
@@ -410,6 +412,7 @@ enum rproc_crash_type {
  * @max_notifyid: largest allocated notify id.
  * @table_ptr: pointer to the resource table in effect
  * @cached_table: copy of the resource table
+ * @fw_version: human readable version information extracted from f/w
  * @has_iommu: flag to indicate if remote processor is behind an MMU
  */
 struct rproc {
@@ -427,6 +430,8 @@ struct rproc {
 	struct dentry *dbg_dir;
 	struct list_head traces;
 	int num_traces;
+	struct list_head last_traces;
+	int num_last_traces;
 	struct list_head carveouts;
 	struct list_head mappings;
 	struct completion firmware_loading_complete;
@@ -442,6 +447,7 @@ struct rproc {
 	int max_notifyid;
 	struct resource_table *table_ptr;
 	struct resource_table *cached_table;
+	char *fw_version;
 	bool has_iommu;
 	bool auto_boot;
 };

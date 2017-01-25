@@ -41,6 +41,7 @@
 #include <linux/virtio_ids.h>
 #include <linux/virtio_ring.h>
 #include <linux/of.h>
+#include <linux/vmalloc.h>
 #include <asm/byteorder.h>
 
 #include "remoteproc_internal.h"
@@ -488,6 +489,103 @@ void rproc_vdev_release(struct kref *ref)
 }
 
 /**
+ * rproc_handle_last_trace() - setup a buffer to capture the trace snapshot
+ *				before recovery
+ * @rproc: the remote processor
+ * @trace: the trace resource descriptor
+ * @count: the index of the trace under process
+ *
+ * The last trace is allocated and the contents of the trace buffer are
+ * copied during a recovery cleanup. Once, the contents get copied, the
+ * trace buffers are cleaned up for re-use.
+ *
+ * It might also happen that the remoteproc binary changes between the
+ * time that it was loaded and the time that it crashed. In this case,
+ * the trace descriptors might have changed too. The last traces are
+ * re-built as required in this case.
+ *
+ * Returns 0 on success, or an appropriate error code otherwise
+ */
+static int rproc_handle_last_trace(struct rproc *rproc,
+				   struct rproc_mem_entry *trace, int count)
+{
+	struct rproc_mem_entry *trace_last, *tmp_trace;
+	struct device *dev = &rproc->dev;
+	char name[15];
+	int i = 0;
+	bool new_trace = false;
+
+	if (!rproc || !trace)
+		return -EINVAL;
+
+	/* we need a new trace in this case */
+	if (count > rproc->num_last_traces) {
+		new_trace = true;
+		/*
+		 * make sure snprintf always null terminates, even if truncating
+		 */
+		snprintf(name, sizeof(name), "trace%d_last", (count - 1));
+		trace_last = kzalloc(sizeof(*trace_last), GFP_KERNEL);
+		if (!trace_last) {
+			dev_err(dev, "kzalloc failed for trace%d_last\n",
+				count);
+			return -ENOMEM;
+		}
+	} else {
+		/* try to reuse buffers here */
+		list_for_each_entry_safe(trace_last, tmp_trace,
+					 &rproc->last_traces, node) {
+			if (++i == count)
+				break;
+		}
+
+		/* if we can reuse the trace, copy buffer and exit */
+		if (trace_last->len == trace->len)
+			goto copy_and_exit;
+
+		/* can reuse the trace struct but not the buffer */
+		vfree(trace_last->va);
+		trace_last->va = NULL;
+		trace_last->len = 0;
+	}
+
+	trace_last->len = trace->len;
+	trace_last->va = vmalloc(sizeof(u32) * trace_last->len);
+	if (!trace_last->va) {
+		dev_err(dev, "vmalloc failed for trace%d_last\n", count);
+		if (!new_trace) {
+			list_del(&trace_last->node);
+			rproc->num_last_traces--;
+		}
+		kfree(trace_last);
+		return -ENOMEM;
+	}
+
+	/* create the debugfs entry */
+	if (new_trace) {
+		trace_last->priv = rproc_create_trace_file(name, rproc,
+				trace_last);
+		if (!trace_last->priv) {
+			dev_err(dev, "trace%d_last create debugfs failed\n",
+				count);
+			vfree(trace_last->va);
+			kfree(trace_last);
+			return -EINVAL;
+		}
+
+		/* add it to the trace list */
+		list_add_tail(&trace_last->node, &rproc->last_traces);
+		rproc->num_last_traces++;
+	}
+
+copy_and_exit:
+	/* copy the trace to last trace */
+	memcpy(trace_last->va, trace->va, trace->len);
+
+	return 0;
+}
+
+/**
  * rproc_handle_trace() - handle a shared trace buffer resource
  * @rproc: the remote processor
  * @rsc: the trace resource descriptor
@@ -855,6 +953,32 @@ static void rproc_remove_subdevices(struct rproc *rproc)
 		subdev->remove(subdev);
 }
 
+/* handle firmware version entry before loading the firmware sections */
+static int
+rproc_handle_fw_version(struct rproc *rproc, const char *version, int versz)
+{
+	struct device *dev = &rproc->dev;
+
+	rproc->fw_version = kmemdup(version, versz, GFP_KERNEL);
+	if (!rproc->fw_version) {
+		dev_err(dev, "%s: version kzalloc failed\n", __func__);
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+/**
+ * rproc_free_last_trace() - helper function to cleanup a last trace entry
+ * @trace: the last trace element to be cleaned up
+ */
+static void rproc_free_last_trace(struct rproc_mem_entry *trace)
+{
+	rproc_remove_trace_file(trace->priv);
+	list_del(&trace->node);
+	vfree(trace->va);
+	kfree(trace);
+}
+
 /**
  * rproc_resource_cleanup() - clean up and free all acquired resources
  * @rproc: rproc handle
@@ -867,13 +991,31 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 	struct rproc_mem_entry *entry, *tmp;
 	struct rproc_vdev *rvdev, *rvtmp;
 	struct device *dev = &rproc->dev;
+	int count = 0, i = rproc->num_traces;
 
 	/* clean up debugfs trace entries */
 	list_for_each_entry_safe(entry, tmp, &rproc->traces, node) {
+		/* handle last trace here */
+		if (rproc->state == RPROC_CRASHED)
+			rproc_handle_last_trace(rproc, entry, ++count);
+
 		rproc_remove_trace_file(entry->priv);
-		rproc->num_traces--;
 		list_del(&entry->node);
 		kfree(entry);
+	}
+	rproc->num_traces = 0;
+
+	/*
+	 * clean up debugfs last trace entries. This either deletes all last
+	 * trace entries during cleanup or just the remaining entries, if any,
+	 * in case of a crash.
+	 */
+	list_for_each_entry_safe(entry, tmp, &rproc->last_traces, node) {
+		/* skip the valid traces */
+		if ((i--) && (rproc->state == RPROC_CRASHED))
+			continue;
+		rproc_free_last_trace(entry);
+		rproc->num_last_traces--;
 	}
 
 	/* clean up iommu mapping entries */
@@ -902,6 +1044,9 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 	/* clean up remote vdev entries */
 	list_for_each_entry_safe(rvdev, rvtmp, &rproc->rvdevs, node)
 		kref_put(&rvdev->refcount, rproc_vdev_release);
+
+	/* free fw version */
+	kfree(rproc->fw_version);
 }
 
 /*
@@ -912,7 +1057,8 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	struct device *dev = &rproc->dev;
 	const char *name = rproc->firmware;
 	struct resource_table *table, *loaded_table;
-	int ret, tablesz;
+	int ret, tablesz, versz;
+	const char *version;
 
 	ret = rproc_fw_sanity_check(rproc, fw);
 	if (ret)
@@ -960,6 +1106,17 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	if (ret) {
 		dev_err(dev, "Failed to process resources: %d\n", ret);
 		goto clean_up_resources;
+	}
+
+	/* look for the firmware version, and store if present */
+	version = rproc_find_version_info(rproc, fw, &versz);
+	if (version) {
+		ret = rproc_handle_fw_version(rproc, version, versz);
+		if (ret) {
+			dev_err(dev, "Failed to process version info: %d\n",
+				ret);
+			goto clean_up;
+		}
 	}
 
 	/* load the ELF segments to memory */
@@ -1390,8 +1547,15 @@ EXPORT_SYMBOL(rproc_add);
 static void rproc_type_release(struct device *dev)
 {
 	struct rproc *rproc = container_of(dev, struct rproc, dev);
+	struct rproc_mem_entry *entry, *tmp;
 
 	dev_info(&rproc->dev, "releasing %s\n", rproc->name);
+
+	/* clean up debugfs last trace entries */
+	list_for_each_entry_safe(entry, tmp, &rproc->last_traces, node) {
+		rproc_free_last_trace(entry);
+		rproc->num_last_traces--;
+	}
 
 	rproc_delete_debug_dir(rproc);
 
@@ -1498,6 +1662,7 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	INIT_LIST_HEAD(&rproc->carveouts);
 	INIT_LIST_HEAD(&rproc->mappings);
 	INIT_LIST_HEAD(&rproc->traces);
+	INIT_LIST_HEAD(&rproc->last_traces);
 	INIT_LIST_HEAD(&rproc->rvdevs);
 	INIT_LIST_HEAD(&rproc->subdevs);
 
