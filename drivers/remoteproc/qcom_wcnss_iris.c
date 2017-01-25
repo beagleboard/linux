@@ -171,6 +171,7 @@ static const struct of_device_id iris_of_match[] = {
 	{ .compatible = "qcom,wcn3680", .data = &wcn3680_data },
 	{}
 };
+MODULE_DEVICE_TABLE(of, iris_of_match);
 
 struct platform_driver qcom_iris_driver = {
 	.probe = qcom_iris_probe,

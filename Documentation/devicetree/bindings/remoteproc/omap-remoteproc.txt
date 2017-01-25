@@ -1,0 +1,145 @@
+OMAP4+ Remoteproc Devices
+=========================
+
+The OMAP family of SoCs usually have one or more slave processor sub-systems
+that are used to offload some of the processor-intensive tasks, or to manage
+other hardware accelerators, for achieving various system level goals.
+
+The processor cores in the sub-system are usually behind an IOMMU, and may
+contain additional sub-modules like Internal RAM and/or ROMs, L1 and/or L2
+caches, an Interrupt Controller, a Cache Controller etc.
+
+The OMAP SoCs usually have a DSP processor sub-system and/or an IPU processor
+sub-system. The DSP processor sub-system can contain any of the TI's C64x,
+C66x or C67x family of DSP cores as the main execution unit. The IPU processor
+sub-system usually contains either a Dual-Core Cortex-M3 or Dual-Core Cortex-M4
+processors.
+
+Remote Processor Node:
+======================
+Each remote processor sub-system is represented as a single DT node. Each node
+has a number of required or optional properties that enable the OS running on
+the host processor (MPU) to perform the device management of the remote
+processor and to communicate with the remote processor. The various properties
+can be classified as constant or variable. The constant properties are dictated
+by the SoC and does not change from one board to another having the same SoC.
+Examples of constant properties include 'iommus', 'reg'. The variable properties
+are dictated by the system integration aspects such as memory on the board, or
+configuration used within the corresponding firmware image. Examples of variable
+properties include 'mboxes', 'memory-region', 'timers', 'watchdog-timers' etc.
+
+Required properties:
+--------------------
+The following are the mandatory properties:
+
+- compatible:	Should be one of the following,
+		    "ti,omap4-dsp" for DSPs on OMAP4 SoCs
+		    "ti,omap5-dsp" for DSPs on OMAP5 SoCs
+		    "ti,dra7-dsp" for DSPs on DRA7xx SoCs
+		    "ti,omap4-ipu" for IPUs on OMAP4 SoCs
+		    "ti,omap5-ipu" for IPUs on OMAP5 SoCs
+		    "ti,dra7-ipu" for IPUs on DRA7xx SoCs
+
+- ti,hwmods:	Name of the hwmod associated with the remoteproc device
+
+- iommus:	phandles to OMAP IOMMU nodes, that need to be programmed
+		for this remote processor to access any external RAM memory or
+		other peripheral device address spaces. This property usually
+		has only a single phandle. Multiple phandles are used only in
+		cases where the sub-system has different ports for different
+		sub-modules within the processor sub-system (eg: DRA7 DSPs),
+		and need the same programming in both the MMUs.
+
+- mboxes:	OMAP Mailbox specifier denoting the sub-mailbox, to be used for
+		communication with the remote processor. The specifier format is
+		as per the bindings,
+		Documentation/devicetree/bindings/mailbox/omap-mailbox.txt
+		This property should match with the sub-mailbox node used in
+		the firmware image.
+
+Optional properties:
+--------------------
+Some of these properties are mandatory on some SoCs, and some are optional
+depending on the configuration of the firmware image to be executed on the
+remote processor. The conditions are mentioned for each property.
+
+The following are the optional properties:
+- reg:			Address space for any remoteproc memories present on
+			the SoC. Should contain an entry for each value in
+			'reg-names'. These are mandatory for all DSP and IPU
+			processors that have them (OMAP4/OMAP5 DSPs do not have
+			any RAMs)
+
+- reg-names:		Required names for each of the address spaces defined in
+			the 'reg' property. Should contain a string from among
+			the following names, each representing the corresponding
+			internal RAM memory region,
+			   "l2ram" for L2 RAM,
+			   "l1pram" for L1 Program RAM Memory/Cache,
+			   "l1dram" for L1 Data RAM Memory/Cache,
+
+			All devices may not have all the above memories.
+
+- syscon-bootreg:	Should be a pair of the phandle to the System Control
+			Configuration region that contains the boot address
+			register, and the register offset of the boot address
+			register within the System Control module. This property
+			is required for all the DSP instances on OMAP4, OMAP5
+			and DRA7xx SoCs.
+
+- memory-region:	phandle to the reserved memory node to be associated
+			with the remoteproc device. The reserved memory node
+			should be a CMA memory node, and should be defined as
+			per the bindings,
+			Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
+
+- mbox-names:		Optional names for the OMAP mailbox specifiers mentioned
+			in the 'mboxes' property, one per specifier value
+
+- timers:		One or more phandles to OMAP DMTimer nodes, that serve
+			as System/Tick timers for the OS running on the remote
+			processors. This will usually be a single timer if the
+			processor sub-system is running in SMP mode, or one per
+			core in the processor sub-system.
+
+			This property is mandatory on remote processors requiring
+			external tick wakeup, and to support Power Management
+			features. The timers to be used should match with the
+			timers used in the firmware image.
+
+- watchdog-timers:	One or more phandles to OMAP DMTimer nodes, used to
+			serve as Watchdog timers for the processor cores. This
+			will usually be one per executing processor core, even
+			if the processor sub-system is running a SMP OS.
+
+			The timers to be used should match with the watchdog
+			timers used in the firmware image.
+
+- ti,rproc-standby-info: Standby data for the remote processor. This is
+			 mandatory to support Power Management for the OMAP
+			 remoteprocs, and should contain the address containing
+			 the module standby status.
+
+Example:
+--------
+
+/* OMAP4 DSP node in SoC DTS file */
+ocp {
+	dsp: dsp {
+		compatible = "ti,omap4-dsp";
+		ti,hwmods = "dsp";
+		syscon-bootreg = <&scm_conf 0x304>;
+		iommus = <&mmu_dsp>;
+		mboxes = <&mailbox &mbox_dsp>;
+		ti,rproc-standby-info = <0x4a004420>;
+		status = "disabled";
+	};
+};
+
+/* OMAP4 DSP node additional fields in a Board DTS file */
+&dsp {
+	status = "okay";
+	memory-region = <&dsp_cma_pool>;
+	timers = <&timer5>;
+	watchdog-timers = <&timer6>;
+};
