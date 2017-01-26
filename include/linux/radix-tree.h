@@ -289,9 +289,19 @@ unsigned int radix_tree_gang_lookup(struct radix_tree_root *root,
 unsigned int radix_tree_gang_lookup_slot(struct radix_tree_root *root,
 			void ***results, unsigned long *indices,
 			unsigned long first_index, unsigned int max_items);
+#ifdef CONFIG_PREEMPT_RT_FULL
+static inline int radix_tree_preload(gfp_t gm) { return 0; }
+static inline int radix_tree_maybe_preload(gfp_t gfp_mask) { return 0; }
+static inline int radix_tree_maybe_preload_order(gfp_t gfp_mask, int order)
+{
+	return 0;
+};
+
+#else
 int radix_tree_preload(gfp_t gfp_mask);
 int radix_tree_maybe_preload(gfp_t gfp_mask);
 int radix_tree_maybe_preload_order(gfp_t gfp_mask, int order);
+#endif
 void radix_tree_init(void);
 void *radix_tree_tag_set(struct radix_tree_root *root,
 			unsigned long index, unsigned int tag);
@@ -316,7 +326,7 @@ unsigned long radix_tree_locate_item(struct radix_tree_root *root, void *item);
 
 static inline void radix_tree_preload_end(void)
 {
-	preempt_enable();
+	preempt_enable_nort();
 }
 
 /**

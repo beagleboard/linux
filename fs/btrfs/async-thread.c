@@ -302,8 +302,8 @@ static void run_ordered_work(struct __btrfs_workqueue *wq)
 		 * we don't want to call the ordered free functions
 		 * with the lock held though
 		 */
-		work->ordered_free(work);
 		trace_btrfs_all_work_done(work);
+		work->ordered_free(work);
 	}
 	spin_unlock_irqrestore(lock, flags);
 }
@@ -332,8 +332,6 @@ static void normal_work_helper(struct btrfs_work *work)
 		set_bit(WORK_DONE_BIT, &work->flags);
 		run_ordered_work(wq);
 	}
-	if (!need_order)
-		trace_btrfs_all_work_done(work);
 }
 
 void btrfs_init_work(struct btrfs_work *work, btrfs_work_func_t uniq_func,
