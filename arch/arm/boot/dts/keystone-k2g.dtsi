@@ -30,6 +30,9 @@
 
 	aliases {
 		serial0 = &uart0;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
 	};
 
 	cpus {
@@ -483,6 +486,48 @@
 					<GIC_SPI 50 IRQ_TYPE_EDGE_RISING>,
 					<GIC_SPI 51 IRQ_TYPE_EDGE_RISING>;
 			};
+		};
+
+		i2c0: i2c@2530000 {
+			compatible = "ti,keystone-i2c";
+			reg = <0x02530000 0x400>;
+			clock-frequency = <100000>;
+			interrupts = <GIC_SPI 88 IRQ_TYPE_EDGE_RISING>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			ti,sci-id = <K2G_DEV_I2C0>;
+			power-domains = <&k2g_pds>;
+			clocks = <&k2g_clks K2G_DEV_I2C0 K2G_DEV_I2C_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		i2c1: i2c@2530400 {
+			compatible = "ti,keystone-i2c";
+			reg = <0x02530400 0x400>;
+			clock-frequency = <100000>;
+			interrupts = <GIC_SPI 89 IRQ_TYPE_EDGE_RISING>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			ti,sci-id = <K2G_DEV_I2C1>;
+			power-domains = <&k2g_pds>;
+			clocks = <&k2g_clks K2G_DEV_I2C1 K2G_DEV_I2C_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		i2c2: i2c@2530800 {
+			compatible = "ti,keystone-i2c";
+			reg = <0x02530800 0x400>;
+			clock-frequency = <100000>;
+			interrupts = <GIC_SPI 90 IRQ_TYPE_EDGE_RISING>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			ti,sci-id = <K2G_DEV_I2C2>;
+			power-domains = <&k2g_pds>;
+			clocks = <&k2g_clks K2G_DEV_I2C2 K2G_DEV_I2C_VBUS_CLK>;
+			clock-names = "fck";
 		};
 	};
 };
