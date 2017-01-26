@@ -33,6 +33,7 @@ struct rproc;
  *			expects to find it
  * @sanity_check:	sanity check the fw image
  * @get_boot_addr:	get boot address to entry point specified in firmware
+ * @find_version:	get the version information string from the firmware
  */
 struct rproc_fw_ops {
 	struct resource_table *(*find_rsc_table)(struct rproc *rproc,
@@ -43,12 +44,15 @@ struct rproc_fw_ops {
 	int (*load)(struct rproc *rproc, const struct firmware *fw);
 	int (*sanity_check)(struct rproc *rproc, const struct firmware *fw);
 	u32 (*get_boot_addr)(struct rproc *rproc, const struct firmware *fw);
+	const char *(*find_version)(struct rproc *rproc,
+				    const struct firmware *fw, int *versz);
 };
 
 /* from remoteproc_core.c */
 void rproc_release(struct kref *kref);
 irqreturn_t rproc_vq_interrupt(struct rproc *rproc, int vq_id);
 int rproc_boot_nowait(struct rproc *rproc);
+void rproc_vdev_release(struct kref *ref);
 
 /* from remoteproc_virtio.c */
 int rproc_add_virtio_dev(struct rproc_vdev *rvdev, int id);
@@ -62,6 +66,11 @@ void rproc_delete_debug_dir(struct rproc *rproc);
 void rproc_create_debug_dir(struct rproc *rproc);
 void rproc_init_debugfs(void);
 void rproc_exit_debugfs(void);
+
+/* from remoteproc_sysfs.c */
+extern struct class rproc_class;
+int rproc_init_sysfs(void);
+void rproc_exit_sysfs(void);
 
 void rproc_free_vring(struct rproc_vring *rvring);
 int rproc_alloc_vring(struct rproc_vdev *rvdev, int i);
@@ -116,6 +125,18 @@ struct resource_table *rproc_find_loaded_rsc_table(struct rproc *rproc,
 	return NULL;
 }
 
+static inline
+const char *rproc_find_version_info(struct rproc *rproc,
+				    const struct firmware *fw, int *versz)
+{
+	if (rproc->fw_ops->find_version)
+		return rproc->fw_ops->find_version(rproc, fw, versz);
+
+	return NULL;
+}
+
 extern const struct rproc_fw_ops rproc_elf_fw_ops;
+
+extern struct device_type rproc_type;
 
 #endif /* REMOTEPROC_INTERNAL_H */

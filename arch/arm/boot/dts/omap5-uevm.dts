@@ -18,6 +18,26 @@
 		reg = <0 0x80000000 0 0x7f000000>; /* 2032 MB */
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		dsp_cma_pool: dsp_cma@95000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x95000000 0 0x800000>;
+			reusable;
+			status = "okay";
+		};
+
+		ipu_cma_pool: ipu_cma@95800000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x95800000 0 0x3800000>;
+			reusable;
+			status = "okay";
+		};
+	};
+
 	leds {
 		compatible = "gpio-leds";
 		led1 {
@@ -74,4 +94,18 @@
 
 &wlcore {
 	compatible = "ti,wl1837";
+};
+
+&dsp {
+	status = "okay";
+	memory-region = <&dsp_cma_pool>;
+	timers = <&timer5>;
+	watchdog-timers = <&timer6>;
+};
+
+&ipu {
+	status = "okay";
+	memory-region = <&ipu_cma_pool>;
+	timers = <&timer3>;
+	watchdog-timers = <&timer9>, <&timer11>;
 };
