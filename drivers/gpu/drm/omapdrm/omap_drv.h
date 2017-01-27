@@ -59,6 +59,8 @@ int omap_irq_wait(struct drm_device *dev, struct omap_irq_wait *wait,
 struct omap_drm_private {
 	uint32_t omaprev;
 
+	const struct dispc_ops *dispc_ops;
+
 	unsigned int num_crtcs;
 	struct drm_crtc *crtcs[8];
 
@@ -84,13 +86,24 @@ struct omap_drm_private {
 	struct omap_drm_usergart *usergart;
 	bool has_dmm;
 
-	/* properties: */
+	/* plane properties */
 	struct drm_property *zorder_prop;
+	struct drm_property *global_alpha_prop;
+	struct drm_property *pre_mult_alpha_prop;
+
+	/* crtc properties */
+	struct drm_property *background_color_prop;
+	struct drm_property *trans_key_mode_prop;
+	struct drm_property *trans_key_prop;
+	struct drm_property *alpha_blender_prop;
 
 	/* irq handling: */
 	spinlock_t wait_lock;		/* protects the wait_list */
 	struct list_head wait_list;	/* list of omap_irq_wait */
 	uint32_t irq_mask;		/* enabled irqs in addition to wait_list */
+
+	void *wb_private;	      /* Write-back private data */
+	bool wb_initialized;
 
 	/* atomic commit */
 	struct {
@@ -146,6 +159,9 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 		u32 possible_crtcs);
 void omap_plane_install_properties(struct drm_plane *plane,
 		struct drm_mode_object *obj);
+int omap_plane_id(struct drm_plane *plane);
+struct drm_plane *omap_plane_reserve_wb(struct drm_device *dev);
+void omap_plane_release_wb(struct drm_plane *plane);
 
 struct drm_encoder *omap_encoder_init(struct drm_device *dev,
 		struct omap_dss_device *dssdev);
@@ -219,5 +235,25 @@ struct drm_gem_object *omap_gem_prime_import(struct drm_device *dev,
 
 /* map crtc to vblank mask */
 struct omap_dss_device *omap_encoder_get_dssdev(struct drm_encoder *encoder);
+
+#if IS_ENABLED(CONFIG_DRM_OMAP_WB)
+
+#define OMAP_WB_IRQ_MASK (DISPC_IRQ_FRAMEDONEWB | \
+			  DISPC_IRQ_WBBUFFEROVERFLOW | \
+			  DISPC_IRQ_WBUNCOMPLETEERROR)
+
+int omap_wb_init(struct drm_device *drmdev);
+void omap_wb_cleanup(struct drm_device *drmdev);
+void omap_wb_irq(void *priv, u32 irqstatus);
+
+#else
+
+#define OMAP_WB_IRQ_MASK (0)
+
+static inline int omap_wb_init(struct drm_device *drmdev) { return 0; }
+static inline void omap_wb_cleanup(struct drm_device *drmdev) { }
+static inline void omap_wb_irq(void *priv, u32 irqstatus) { }
+
+#endif
 
 #endif /* __OMAP_DRV_H__ */

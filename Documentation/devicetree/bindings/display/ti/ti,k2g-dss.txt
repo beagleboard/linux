@@ -1,0 +1,34 @@
+Texas Instruments K2G Display Subsystem
+=========================================
+
+See Documentation/devicetree/bindings/display/ti/ti,omap-dss.txt for generic
+description about OMAP Display Subsystem bindings.
+
+DSS Core
+--------
+
+Required properties:
+- compatible: "ti,k2g-dss"
+- reg: address and length of the register space for 'dss'
+- clocks: handle to fclk
+- clock-names: "fck"
+
+Required nodes:
+- DISPC
+
+Optional nodes:
+- Video port for DPI output
+
+DPI Endpoint required properties:
+- data-lines: number of lines used
+
+DISPC
+-----
+
+Required properties:
+- compatible: "ti,k2g-dispc"
+- reg: addresses and lengths of the register spaces
+- reg-names: "common", "vid1", "ovr1", "vp1"
+- interrupts: the DISPC interrupt
+- clocks: handles to fclk and vp clock
+- clock-names: "fck", "vp"

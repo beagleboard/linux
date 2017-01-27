@@ -25,6 +25,7 @@
 #include <video/videomode.h>
 #include <linux/platform_data/omapdss.h>
 #include <uapi/drm/drm_mode.h>
+#include <drm/drm_crtc.h>
 
 #define DISPC_IRQ_FRAMEDONE		(1 << 0)
 #define DISPC_IRQ_VSYNC			(1 << 1)
@@ -189,25 +190,6 @@ enum omap_overlay_caps {
 	OMAP_DSS_OVL_CAP_ZORDER = 1 << 3,
 	OMAP_DSS_OVL_CAP_POS = 1 << 4,
 	OMAP_DSS_OVL_CAP_REPLICATION = 1 << 5,
-};
-
-enum omap_overlay_manager_caps {
-	OMAP_DSS_DUMMY_VALUE, /* add a dummy value to prevent compiler error */
-};
-
-enum omap_dss_clk_source {
-	OMAP_DSS_CLK_SRC_FCK = 0,		/* OMAP2/3: DSS1_ALWON_FCLK
-						 * OMAP4: DSS_FCLK */
-	OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DISPC,	/* OMAP3: DSI1_PLL_FCLK
-						 * OMAP4: PLL1_CLK1 */
-	OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DSI,	/* OMAP3: DSI2_PLL_FCLK
-						 * OMAP4: PLL1_CLK2 */
-	OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DISPC,	/* OMAP4: PLL2_CLK1 */
-	OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DSI,	/* OMAP4: PLL2_CLK2 */
-};
-
-enum omap_hdmi_flags {
-	OMAP_HDMI_SDA_SCL_EXTERNAL_PULLUP = 1 << 0,
 };
 
 enum omap_dss_output_id {
@@ -393,7 +375,6 @@ struct omap_overlay_manager {
 	/* static fields */
 	const char *name;
 	enum omap_channel id;
-	enum omap_overlay_manager_caps caps;
 	struct list_head overlays;
 	enum omap_display_type supported_displays;
 	enum omap_dss_output_id supported_outputs;
@@ -554,6 +535,12 @@ struct omapdss_hdmi_ops {
 
 	int (*read_edid)(struct omap_dss_device *dssdev, u8 *buf, int len);
 	bool (*detect)(struct omap_dss_device *dssdev);
+
+	int (*enable_hpd)(struct omap_dss_device *dssdev,
+			   void (*cb)(void *cb_data,
+				      enum drm_connector_status status),
+			   void *cb_data);
+	void (*disable_hpd)(struct omap_dss_device *dssdev);
 
 	int (*set_hdmi_mode)(struct omap_dss_device *dssdev, bool hdmi_mode);
 	int (*set_infoframe)(struct omap_dss_device *dssdev,
@@ -761,6 +748,12 @@ struct omap_dss_driver {
 	int (*read_edid)(struct omap_dss_device *dssdev, u8 *buf, int len);
 	bool (*detect)(struct omap_dss_device *dssdev);
 
+	int (*enable_hpd)(struct omap_dss_device *dssdev,
+			   void (*cb)(void *cb_data,
+				      enum drm_connector_status status),
+			   void *cb_data);
+	void (*disable_hpd)(struct omap_dss_device *dssdev);
+
 	int (*set_hdmi_mode)(struct omap_dss_device *dssdev, bool hdmi_mode);
 	int (*set_hdmi_infoframe)(struct omap_dss_device *dssdev,
 		const struct hdmi_avi_infoframe *avi);
@@ -844,42 +837,61 @@ omapdss_of_get_first_endpoint(const struct device_node *parent);
 struct omap_dss_device *
 omapdss_of_find_source_for_first_ep(struct device_node *node);
 
-u32 dispc_read_irqstatus(void);
-void dispc_clear_irqstatus(u32 mask);
-u32 dispc_read_irqenable(void);
-void dispc_write_irqenable(u32 mask);
+struct device_node *omapdss_of_get_endpoint(struct device_node *parent,
+	int port_index, int ep_index);
 
-int dispc_request_irq(irq_handler_t handler, void *dev_id);
-void dispc_free_irq(void *dev_id);
+/* OMAP TRM gives bitfields as start:end, where start is the higher bit
+   number. For example 7:0 */
+#define FLD_MASK(start, end)	(((1 << ((start) - (end) + 1)) - 1) << (end))
+#define FLD_VAL(val, start, end) (((val) << (end)) & FLD_MASK(start, end))
+#define FLD_GET(val, start, end) (((val) & FLD_MASK(start, end)) >> (end))
+#define FLD_MOD(orig, val, start, end) \
+	(((orig) & ~FLD_MASK(start, end)) | FLD_VAL(val, start, end))
 
-int dispc_runtime_get(void);
-void dispc_runtime_put(void);
+enum dss_io_pad_mode {
+	DSS_IO_PAD_MODE_RESET,
+	DSS_IO_PAD_MODE_RFBI,
+	DSS_IO_PAD_MODE_BYPASS,
+};
 
-void dispc_mgr_enable(enum omap_channel channel, bool enable);
-u32 dispc_mgr_get_vsync_irq(enum omap_channel channel);
-u32 dispc_mgr_get_framedone_irq(enum omap_channel channel);
-u32 dispc_mgr_get_sync_lost_irq(enum omap_channel channel);
-bool dispc_mgr_go_busy(enum omap_channel channel);
-void dispc_mgr_go(enum omap_channel channel);
-void dispc_mgr_set_lcd_config(enum omap_channel channel,
-		const struct dss_lcd_mgr_config *config);
-void dispc_mgr_set_timings(enum omap_channel channel,
-		const struct videomode *vm);
-void dispc_mgr_setup(enum omap_channel channel,
-		const struct omap_overlay_manager_info *info);
-u32 dispc_mgr_gamma_size(enum omap_channel channel);
-void dispc_mgr_set_gamma(enum omap_channel channel,
-			 const struct drm_color_lut *lut,
-			 unsigned int length);
+struct dispc_clock_info {
+	/* rates that we get with dividers below */
+	unsigned long lck;
+	unsigned long pck;
 
-int dispc_ovl_enable(enum omap_plane plane, bool enable);
-bool dispc_ovl_enabled(enum omap_plane plane);
-void dispc_ovl_set_channel_out(enum omap_plane plane,
-		enum omap_channel channel);
-int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
-		bool replication, const struct videomode *vm, bool mem_to_mem);
+	/* dividers */
+	u16 lck_div;
+	u16 pck_div;
+};
 
-enum omap_dss_output_id dispc_mgr_get_supported_outputs(enum omap_channel channel);
+struct dss_lcd_mgr_config {
+	enum dss_io_pad_mode io_pad_mode;
+
+	bool stallmode;
+	bool fifohandcheck;
+
+	struct dispc_clock_info clock_info;
+
+	int video_port_width;
+
+	int lcden_sig_polarity;
+};
+
+void omapdss_set_is_initialized(bool set);
+
+struct device_node *dss_of_port_get_parent_device(struct device_node *port);
+u32 dss_of_port_get_port_number(struct device_node *port);
+
+enum dss_writeback_channel {
+	DSS_WB_LCD1_MGR =	0,
+	DSS_WB_LCD2_MGR =	1,
+	DSS_WB_TV_MGR =		2,
+	DSS_WB_OVL0 =		3,
+	DSS_WB_OVL1 =		4,
+	DSS_WB_OVL2 =		5,
+	DSS_WB_OVL3 =		6,
+	DSS_WB_LCD3_MGR =	7,
+};
 
 struct dss_mgr_ops {
 	int (*connect)(enum omap_channel channel,
@@ -918,5 +930,69 @@ int dss_mgr_register_framedone_handler(enum omap_channel channel,
 		void (*handler)(void *), void *data);
 void dss_mgr_unregister_framedone_handler(enum omap_channel channel,
 		void (*handler)(void *), void *data);
+
+/* dispc ops */
+
+struct dispc_ops {
+	u32 (*read_irqstatus)(void);
+	void (*clear_irqstatus)(u32 mask);
+	u32 (*read_irqenable)(void);
+	void (*write_irqenable)(u32 mask);
+
+	int (*request_irq)(irq_handler_t handler, void *dev_id);
+	void (*free_irq)(void *dev_id);
+
+	int (*runtime_get)(void);
+	void (*runtime_put)(void);
+
+	int (*get_num_ovls)(void);
+	int (*get_num_mgrs)(void);
+	void (*get_min_max_size)(u32 *min_w, u32 *min_h, u32 *max_w, u32 *max_h);
+
+	void (*mgr_enable)(enum omap_channel channel, bool enable);
+	bool (*mgr_is_enabled)(enum omap_channel channel);
+	u32 (*mgr_get_vsync_irq)(enum omap_channel channel);
+	u32 (*mgr_get_framedone_irq)(enum omap_channel channel);
+	u32 (*mgr_get_sync_lost_irq)(enum omap_channel channel);
+	bool (*mgr_go_busy)(enum omap_channel channel);
+	void (*mgr_go)(enum omap_channel channel);
+	void (*mgr_set_lcd_config)(enum omap_channel channel,
+			const struct dss_lcd_mgr_config *config);
+	void (*mgr_set_timings)(enum omap_channel channel,
+			const struct videomode *vm);
+	void (*mgr_setup)(enum omap_channel channel,
+			const struct omap_overlay_manager_info *info);
+	enum omap_dss_output_id (*mgr_get_supported_outputs)(enum omap_channel channel);
+	u32 (*mgr_gamma_size)(enum omap_channel channel);
+	void (*mgr_set_gamma)(enum omap_channel channel,
+		const struct drm_color_lut *lut,
+		unsigned int length);
+
+	int (*ovl_enable)(enum omap_plane plane, bool enable);
+	bool (*ovl_enabled)(enum omap_plane plane);
+	void (*ovl_set_channel_out)(enum omap_plane plane,
+			enum omap_channel channel);
+	int (*ovl_setup)(enum omap_plane plane, const struct omap_overlay_info *oi,
+			const struct videomode *vm, bool mem_to_mem);
+
+	enum omap_color_mode (*ovl_get_color_modes)(enum omap_plane plane);
+
+	u32 (*wb_get_framedone_irq)(void);
+	int (*wb_setup)(const struct omap_dss_writeback_info *wi,
+		bool mem_to_mem, const struct videomode *vm,
+		enum dss_writeback_channel channel_in);
+	bool (*has_writeback)(void);
+	bool (*wb_go_busy)(void);
+	void (*wb_go)(void);
+};
+
+void dispc_set_ops(const struct dispc_ops *o);
+const struct dispc_ops *dispc_get_ops(void);
+
+bool omapdss_component_is_display(struct device_node *node);
+bool omapdss_component_is_output(struct device_node *node);
+
+bool omapdss_stack_is_ready(void);
+void omapdss_gather_components(struct device *dev);
 
 #endif /* __OMAP_DRM_DSS_H */
