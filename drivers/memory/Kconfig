@@ -61,7 +61,7 @@ config TI_EMIF
 	  temperature changes
 
 config OMAP_GPMC
-	bool
+	bool "Texas Instruments GPMC driver"
 	default y
 	select GPIOLIB
 	depends on (ARCH_OMAP2PLUS || ARCH_KEYSTONE)
