@@ -22,6 +22,8 @@
 
 #include "omap_drv.h"
 
+#include <linux/suspend.h>
+
 MODULE_PARM_DESC(ywrap, "Enable ywrap scrolling (omap44xx and later, default 'y')");
 static bool ywrap_enabled = true;
 module_param_named(ywrap, ywrap_enabled, bool, 0644);
@@ -255,6 +257,9 @@ struct drm_fb_helper *omap_fbdev_init(struct drm_device *dev)
 	struct drm_fb_helper *helper;
 	int ret = 0;
 
+	if (!priv->num_crtcs || !priv->num_connectors)
+		return NULL;
+
 	fbdev = kzalloc(sizeof(*fbdev), GFP_KERNEL);
 	if (!fbdev)
 		goto fail;
@@ -272,7 +277,9 @@ struct drm_fb_helper *omap_fbdev_init(struct drm_device *dev)
 		goto fail;
 	}
 
-	ret = drm_fb_helper_single_add_all_connectors(helper);
+	drm_modeset_lock_all(dev);
+	ret = drm_fb_helper_add_one_connector(helper, priv->connectors[0]);
+	drm_modeset_unlock_all(dev);
 	if (ret)
 		goto fini;
 
@@ -281,6 +288,14 @@ struct drm_fb_helper *omap_fbdev_init(struct drm_device *dev)
 		goto fini;
 
 	priv->fbdev = helper;
+
+	/*
+	 * disable creation of new console during suspend.
+	 * this works around a problem where a ctrl-c is needed
+	 * to be entered on the VT to actually get the device
+	 * to continue into the suspend state.
+	 */
+	pm_set_vt_switch(0);
 
 	return helper;
 
