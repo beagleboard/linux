@@ -322,6 +322,35 @@
 			clock-names = "gpio";
 		};
 
+		dss: dss@02540000 {
+			compatible = "ti,k2g-dss","simple-bus";
+			reg = <0x02540000 0x400>;
+			clocks = <&k2g_clks 0x2 0>;
+			clock-names = "fck";
+			power-domains = <&k2g_pds 0x2>;
+			status = "disabled";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			dispc@02550000 {
+				compatible = "ti,k2g-dispc";
+				reg = <0x02550000 0x1000>,
+				      <0x02557000 0x1000>,
+				      <0x0255a800 0x100>,
+				      <0x0255ac00 0x100>;
+				reg-names = "common", "vid1", "ovr1", "vp1";
+
+				interrupts = <GIC_SPI 247 IRQ_TYPE_EDGE_RISING>;
+
+				clocks = <&k2g_clks 0x2 0>,
+					<&k2g_clks 0x2 1>;
+				clock-names = "fck", "vp";
+
+				max-memory-bandwidth = <230000000>;
+			};
+		};
+
 		edma0: edma@02700000 {
 			compatible = "ti,k2g-edma3-tpcc", "ti,edma3-tpcc";
 			reg =	<0x02700000 0x8000>;
