@@ -924,6 +924,7 @@ struct dwc3_scratchpad_array {
  * 	1	- -3.5dB de-emphasis
  * 	2	- No de-emphasis
  * 	3	- Reserved
+ * @devctrl_halt_quirk: set if DWC3_DSTS_DEVCTRLHLT is not reliable
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -1086,6 +1087,8 @@ struct dwc3 {
 
 	unsigned		tx_de_emphasis_quirk:1;
 	unsigned		tx_de_emphasis:2;
+
+	unsigned		devctrl_halt_quirk:1;
 };
 
 /* -------------------------------------------------------------------------- */
