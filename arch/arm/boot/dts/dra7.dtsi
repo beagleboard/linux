@@ -1549,6 +1549,7 @@
 				dr_mode = "otg";
 				snps,dis_u3_susphy_quirk;
 				snps,dis_u2_susphy_quirk;
+				snps,devctrl_halt_quirk;
 			};
 		};
 
@@ -1576,6 +1577,7 @@
 				dr_mode = "otg";
 				snps,dis_u3_susphy_quirk;
 				snps,dis_u2_susphy_quirk;
+				snps,devctrl_halt_quirk;
 			};
 		};
 
