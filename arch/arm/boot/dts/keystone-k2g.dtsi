@@ -677,6 +677,9 @@
 				      <0x22400 0x100>;
 				reg-names = "iram", "control", "debug";
 				firmware-name = "k2g-pru0_0-fw";
+				interrupt-parent = <&pruss0_intc>;
+				interrupts = <16>, <17>;
+				interrupt-names = "vring", "kick";
 			};
 
 			pru0_1: pru@38000 {
@@ -686,6 +689,9 @@
 				      <0x24400 0x100>;
 				reg-names = "iram", "control", "debug";
 				firmware-name = "k2g-pru0_1-fw";
+				interrupt-parent = <&pruss0_intc>;
+				interrupts = <18>, <19>;
+				interrupt-names = "vring", "kick";
 			};
 
 			pruss0_mdio: mdio@32400 {
@@ -759,6 +765,9 @@
 				      <0x22400 0x100>;
 				reg-names = "iram", "control", "debug";
 				firmware-name = "k2g-pru1_0-fw";
+				interrupt-parent = <&pruss1_intc>;
+				interrupts = <16>, <17>;
+				interrupt-names = "vring", "kick";
 			};
 
 			pru1_1: pru@38000 {
@@ -768,6 +777,9 @@
 				      <0x24400 0x100>;
 				reg-names = "iram", "control", "debug";
 				firmware-name = "k2g-pru1_1-fw";
+				interrupt-parent = <&pruss1_intc>;
+				interrupts = <18>, <19>;
+				interrupt-names = "vring", "kick";
 			};
 
 			pruss1_mdio: mdio@32400 {
