@@ -185,6 +185,11 @@
 #define PSTATE_DLEV		(0xF << 20)
 #define PSTATE_DLEV_DAT0	(0x1 << 20)
 
+#define MMC_BLOCK_TRANSFER_TIME_NS(blksz, bus_width, freq)		\
+				   ((unsigned long long)		\
+				   (2 * (((blksz) * NSEC_PER_SEC *	\
+				   (8 / (bus_width))) / (freq))))
+
 /*
  * One controller can have multiple slots, like on some omap boards using
  * omap.c controller driver. Luckily this is not currently done on any known
@@ -250,6 +255,8 @@ struct omap_hsmmc_host {
 	struct	omap_hsmmc_platform_data	*pdata;
 
 	bool			is_tuning;
+	struct timer_list	timer;
+	unsigned long long	data_timeout;
 
 	/* return MMC cover switch state, can be NULL if not supported.
 	 *
@@ -642,8 +649,8 @@ static void omap_hsmmc_enable_irq(struct omap_hsmmc_host *host,
 	if (host->use_dma)
 		irq_mask &= ~(BRR_EN | BWR_EN);
 
-	/* Disable timeout for erases */
-	if (cmd->opcode == MMC_ERASE)
+	/* Disable timeout for erases or when using software timeout */
+	if (cmd && (cmd->opcode == MMC_ERASE || host->data_timeout))
 		irq_mask &= ~DTO_EN;
 
 	if (host->flags & CLKEXTFREE_ENABLED)
@@ -1259,8 +1266,16 @@ static void omap_hsmmc_do_irq(struct omap_hsmmc_host *host, int status)
 	}
 
 	OMAP_HSMMC_WRITE(host->base, STAT, status);
-	if (end_cmd || ((status & CC_EN) && host->cmd))
+	if (end_cmd || ((status & CC_EN) && host->cmd)) {
 		omap_hsmmc_cmd_done(host, host->cmd);
+		if (host->data_timeout) {
+			unsigned long timeout;
+
+			timeout = jiffies +
+				  nsecs_to_jiffies(host->data_timeout);
+			mod_timer(&host->timer, timeout);
+		}
+	}
 	if ((end_trans || (status & TC_EN)) && host->mrq)
 		omap_hsmmc_xfer_done(host, data);
 }
@@ -1274,7 +1289,19 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 	int status;
 
 	status = OMAP_HSMMC_READ(host->base, STAT);
+
 	while (status & (INT_EN_MASK | CIRQ_EN)) {
+		/*
+		 * During a successful bulk data transfer command-completion
+		 * interrupt and transfer-completion interrupt will be
+		 * generated, but software-timeout timer should be deleted
+		 * only on non-cc interrupts (transfer complete or error)
+		 */
+		if (host->data_timeout && (status & (~CC_EN))) {
+			del_timer(&host->timer);
+			host->data_timeout = 0;
+		}
+
 		if (host->req_in_progress)
 			omap_hsmmc_do_irq(host, status);
 
@@ -1286,6 +1313,25 @@ static irqreturn_t omap_hsmmc_irq(int irq, void *dev_id)
 	}
 
 	return IRQ_HANDLED;
+}
+
+static void omap_hsmmc_soft_timeout(unsigned long data)
+{
+	struct omap_hsmmc_host *host = (struct omap_hsmmc_host *)data;
+	bool end_trans = false;
+
+	omap_hsmmc_disable_irq(host);
+	if (host->data || host->response_busy) {
+		host->response_busy = 0;
+		end_trans = true;
+	}
+
+	hsmmc_command_incomplete(host, -ETIMEDOUT, 0);
+	if (end_trans && host->mrq)
+		omap_hsmmc_xfer_done(host, host->data);
+	else if (host->cmd)
+		omap_hsmmc_cmd_done(host, host->cmd);
+	host->data_timeout = 0;
 }
 
 static void set_sd_bus_power(struct omap_hsmmc_host *host)
@@ -1481,6 +1527,9 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 {
 	unsigned int timeout, cycle_ns;
 	uint32_t reg, clkd, dto = 0;
+	struct mmc_ios *ios = &host->mmc->ios;
+	struct mmc_data *data = host->mrq->data;
+	struct mmc_command *cmd = host->mrq->cmd;
 
 	reg = OMAP_HSMMC_READ(host->base, SYSCTL);
 	clkd = (reg & CLKD_MASK) >> CLKD_SHIFT;
@@ -1490,23 +1539,60 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 	cycle_ns = 1000000000 / (host->clk_rate / clkd);
 	timeout = timeout_ns / cycle_ns;
 	timeout += timeout_clks;
-	if (timeout) {
-		while ((timeout & 0x80000000) == 0) {
-			dto += 1;
-			timeout <<= 1;
-		}
-		dto = 31 - dto;
+
+	if (!timeout)
+		goto out;
+
+	while ((timeout & 0x80000000) == 0) {
+		dto += 1;
 		timeout <<= 1;
-		if (timeout && dto)
-			dto += 1;
-		if (dto >= 13)
-			dto -= 13;
-		else
-			dto = 0;
-		if (dto > 14)
-			dto = 14;
+	}
+	dto = 31 - dto;
+	timeout <<= 1;
+	if (timeout && dto)
+		dto += 1;
+	if (dto >= 13)
+		dto -= 13;
+	else
+		dto = 0;
+	if (dto > 14) {
+		/*
+		 * DRA7 Errata No i834: When using high speed HS200 and
+		 * SDR104 cards, the functional clock for MMC module
+		 * will be 192MHz. At this frequency, the maximum
+		 * obtainable timeout (DTO =0xE) in hardware is
+		 * (1/192MHz)*2^27 = 700ms. Commands taking longer than
+		 * 700ms will be affected by this small window frame
+		 * and will be timing out frequently even without a
+		 * genuine timeout from the card. Workaround for
+		 * this errata is use a software timer instead of
+		 * hardware timer to provide the timeout requested
+		 * by the upper layer.
+		 *
+		 * The timeout from the upper layer denotes the delay
+		 * between the end bit of the read command and the
+		 * start bit of the data block and in the case of
+		 * multiple-read operation, they also define the
+		 * typical delay between the end bit of a data
+		 * block and the start bit of next data block.
+		 *
+		 * Calculate the total timeout value for the entire
+		 * transfer to complete from the timeout value given
+		 * by the upper layer.
+		 */
+		if (data)
+			host->data_timeout = (data->blocks *
+					      (timeout_ns +
+					      MMC_BLOCK_TRANSFER_TIME_NS(
+					      data->blksz, ios->bus_width,
+					      ios->clock)));
+		else if (cmd->flags & MMC_RSP_BUSY)
+			host->data_timeout = timeout_ns;
+
+		dto = 14;
 	}
 
+out:
 	reg &= ~DTO_MASK;
 	reg |= dto << DTO_SHIFT;
 	OMAP_HSMMC_WRITE(host->base, SYSCTL, reg);
@@ -1525,6 +1611,7 @@ static void omap_hsmmc_start_dma_transfer(struct omap_hsmmc_host *host)
 				req->data->timeout_clks);
 	chan = omap_hsmmc_get_dma_chan(host, req->data);
 	dma_async_issue_pending(chan);
+
 }
 
 /*
@@ -2367,6 +2454,8 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		mmc->f_max = OMAP_MMC_MAX_CLOCK;
 
 	spin_lock_init(&host->irq_lock);
+	setup_timer(&host->timer, omap_hsmmc_soft_timeout,
+		    (unsigned long)host);
 
 	host->fclk = devm_clk_get(&pdev->dev, "fck");
 	if (IS_ERR(host->fclk)) {
@@ -2521,6 +2610,8 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 	dma_release_channel(host->tx_chan);
 	dma_release_channel(host->rx_chan);
 
+	del_timer_sync(&host->timer);
+
 	pm_runtime_dont_use_autosuspend(host->dev);
 	pm_runtime_put_sync(host->dev);
 	pm_runtime_disable(host->dev);
@@ -2553,6 +2644,8 @@ static int omap_hsmmc_suspend(struct device *dev)
 
 	if (host->dbclk)
 		clk_disable_unprepare(host->dbclk);
+
+	del_timer_sync(&host->timer);
 
 	pm_runtime_put_sync(host->dev);
 	return 0;
