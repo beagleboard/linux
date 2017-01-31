@@ -1270,10 +1270,42 @@ out:
 	return irq;
 }
 
+/* dwc->lock must be held */
+static void dwc3_otg_core_init(struct dwc3 *dwc)
+{
+	u32 reg;
+
+	/*
+	 * As per Figure 11-4 OTG Driver Overall Programming Flow,
+	 * block "Initialize GCTL for OTG operation".
+	 */
+	/* GCTL.PrtCapDir=2'b11 */
+	dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
+	/* GUSB2PHYCFG0.SusPHY=0 */
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
+	reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
+	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+
+	/* Initialize OTG registers */
+	dwc3_otgregs_init(dwc);
+
+	/* force drd state machine update the first time */
+	dwc->otg_fsm.b_sess_vld = -1;
+	dwc->otg_fsm.id = -1;
+}
+
+/* dwc->lock must be held */
+static void dwc3_otg_core_exit(struct dwc3 *dwc)
+{
+	/* disable all otg irqs */
+	dwc3_otg_disable_events(dwc, DWC3_OTG_ALL_EVENTS);
+	/* clear all events */
+	dwc3_writel(dwc->regs, DWC3_OEVT, ~0);
+}
+
 static int dwc3_drd_init(struct dwc3 *dwc)
 {
 	int ret, irq;
-	u32 reg;
 	unsigned long flags;
 
 	irq = dwc3_otg_get_irq(dwc);
@@ -1305,24 +1337,7 @@ static int dwc3_drd_init(struct dwc3 *dwc)
 	}
 
 	spin_lock_irqsave(&dwc->lock, flags);
-
-	/*
-	 * As per Figure 11-4 OTG Driver Overall Programming Flow,
-	 * block "Initialize GCTL for OTG operation".
-	 */
-	/* GCTL.PrtCapDir=2'b11 */
-	dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
-	/* GUSB2PHYCFG0.SusPHY=0 */
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
-	reg &= ~DWC3_GUSB2PHYCFG_SUSPHY;
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
-
-	/* Initialize OTG registers */
-	dwc3_otgregs_init(dwc);
-
-	/* force drd state machine update the first time */
-	dwc->otg_fsm.b_sess_vld = -1;
-	dwc->otg_fsm.id = -1;
+	dwc3_otg_core_init(dwc);
 	dwc3_otg_fsm_sync(dwc);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -1334,7 +1349,7 @@ static void dwc3_drd_exit(struct dwc3 *dwc)
 	unsigned long flags;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	dwc3_otg_disable_events(dwc, DWC3_OTG_ALL_EVENTS);
+	dwc3_otg_core_exit(dwc);
 	if (dwc->otg_fsm.protocol == PROTO_HOST)
 		dwc3_drd_start_host(dwc, 0);
 	dwc->otg_fsm.protocol = PROTO_UNDEF;
@@ -1696,6 +1711,9 @@ static int dwc3_suspend_common(struct dwc3 *dwc)
 		break;
 	}
 
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		dwc3_otg_core_exit(dwc);
+
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	dwc3_core_exit(dwc);
 
@@ -1737,12 +1755,8 @@ static int dwc3_resume_common(struct dwc3 *dwc)
 		break;
 	}
 
-	/* Restore OTG state only if we're really using it */
-	if (dwc->current_mode == DWC3_GCTL_PRTCAP_OTG) {
-		dwc3_writel(dwc->regs, DWC3_OCFG, dwc->ocfg);
-		dwc3_writel(dwc->regs, DWC3_OCTL, dwc->octl);
-		dwc3_otg_unmask_irq(dwc);
-	}
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		dwc3_otg_core_init(dwc);
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
