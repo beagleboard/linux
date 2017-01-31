@@ -2257,7 +2257,12 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	host->fclk = devm_clk_get(&pdev->dev, "fck");
 	if (IS_ERR(host->fclk)) {
 		ret = PTR_ERR(host->fclk);
-		host->fclk = NULL;
+		goto err1;
+	}
+
+	ret = clk_set_rate(host->fclk, mmc->f_max);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to set clock to %d\n", mmc->f_max);
 		goto err1;
 	}
 
