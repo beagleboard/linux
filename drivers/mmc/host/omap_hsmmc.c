@@ -1810,24 +1810,33 @@ err:
 	return ret;
 }
 
-static void omap_hsmmc_conf_bus_power(struct omap_hsmmc_host *host)
+static void omap_hsmmc_set_capabilities(struct omap_hsmmc_host *host)
 {
-	u32 hctl, capa, value;
+	u32 val;
+
+	val = OMAP_HSMMC_READ(host->base, CAPA);
 
 	/* Only MMC1 supports 3.0V */
-	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT) {
+	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT)
+		val |= (VS30 | VS18);
+	else
+		val |= VS18;
+
+	OMAP_HSMMC_WRITE(host->base, CAPA, val);
+}
+
+static void omap_hsmmc_conf_bus_power(struct omap_hsmmc_host *host)
+{
+	u32 hctl, value;
+
+	/* Only MMC1 supports 3.0V */
+	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT)
 		hctl = SDVS30;
-		capa = VS30 | VS18;
-	} else {
+	else
 		hctl = SDVS18;
-		capa = VS18;
-	}
 
 	value = OMAP_HSMMC_READ(host->base, HCTL) & ~SDVS_MASK;
 	OMAP_HSMMC_WRITE(host->base, HCTL, value | hctl);
-
-	value = OMAP_HSMMC_READ(host->base, CAPA);
-	OMAP_HSMMC_WRITE(host->base, CAPA, value | capa);
 
 	/* Set SD bus power bit */
 	set_sd_bus_power(host);
@@ -2135,6 +2144,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 
 	mmc->pm_caps |= mmc_pdata(host)->pm_caps;
 
+	omap_hsmmc_set_capabilities(host);
 	omap_hsmmc_conf_bus_power(host);
 
 	host->rx_chan = dma_request_chan(&pdev->dev, "rx");
