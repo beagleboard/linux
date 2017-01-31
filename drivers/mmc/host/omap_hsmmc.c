@@ -1739,6 +1739,8 @@ static void omap_hsmmc_set_timing(struct omap_hsmmc_host *host)
 	val &= ~AC12_UHSMC_MASK;
 	switch (ios->timing) {
 	case MMC_TIMING_UHS_SDR104:
+		val |= AC12_UHSMC_SDR104;
+		break;
 	case MMC_TIMING_MMC_HS200:
 		val |= AC12_UHSMC_SDR104;
 		break;
@@ -1753,6 +1755,13 @@ static void omap_hsmmc_set_timing(struct omap_hsmmc_host *host)
 		break;
 	case MMC_TIMING_UHS_SDR12:
 		val |= AC12_UHSMC_SDR12;
+		break;
+	case MMC_TIMING_SD_HS:
+	case MMC_TIMING_MMC_HS:
+		val |= AC12_UHSMC_RES;
+		break;
+	case MMC_TIMING_MMC_DDR52:
+		val |= AC12_UHSMC_RES;
 		break;
 	default:
 		val |= AC12_UHSMC_RES;
