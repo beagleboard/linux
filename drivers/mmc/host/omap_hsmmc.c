@@ -2316,6 +2316,12 @@ static const struct omap_mmc_of_data am33xx_mmc_of_data = {
 	.controller_flags = OMAP_HSMMC_SWAKEUP_MISSING,
 };
 
+static const struct omap_mmc_of_data dra7_mmc_of_data = {
+	.reg_offset = 0x100,
+	.controller_flags = OMAP_HSMMC_SWAKEUP_MISSING |
+			    OMAP_HSMMC_REQUIRE_IODELAY,
+};
+
 static const struct of_device_id omap_mmc_of_match[] = {
 	{
 		.compatible = "ti,omap2-hsmmc",
@@ -2334,6 +2340,10 @@ static const struct of_device_id omap_mmc_of_match[] = {
 	{
 		.compatible = "ti,am33xx-hsmmc",
 		.data = &am33xx_mmc_of_data,
+	},
+	{
+		.compatible = "ti,dra7-hsmmc",
+		.data = &dra7_mmc_of_data,
 	},
 	{},
 };
