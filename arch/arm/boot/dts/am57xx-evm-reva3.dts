@@ -236,4 +236,5 @@
 	pinctrl-0 = <&mmc2_pins_default>;
 	pinctrl-1 = <&mmc2_pins_hs>;
 	pinctrl-2 = <&mmc2_pins_ddr_3_3v &mmc2_iodelay_ddr_3_3v_conf>;
+	/delete-property/ mmc-hs200-1_8v;
 };
