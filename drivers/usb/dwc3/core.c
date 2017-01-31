@@ -857,7 +857,7 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 	return 0;
 }
 
-static int dwc3_drd_start_host(struct dwc3 *dwc, int on);
+static int dwc3_drd_start_host(struct dwc3 *dwc, int on, bool skip);
 static int dwc3_drd_start_gadget(struct dwc3 *dwc, int on);
 
 /* dwc->lock must be held */
@@ -890,12 +890,12 @@ static void dwc3_drd_statemachine(struct dwc3 *dwc, int id, int vbus)
 		if (protocol == PROTO_GADGET)
 			dwc3_drd_start_gadget(dwc, 0);
 		else if (protocol == PROTO_HOST)
-			dwc3_drd_start_host(dwc, 0);
+			dwc3_drd_start_host(dwc, 0, 0);
 		dwc->otg_fsm.protocol = PROTO_UNDEF;
 		break;
 	case OTG_STATE_B_PERIPHERAL:
 		if (protocol == PROTO_HOST)
-			dwc3_drd_start_host(dwc, 0);
+			dwc3_drd_start_host(dwc, 0, 0);
 
 		if (protocol != PROTO_GADGET) {
 			dwc->otg_fsm.protocol = PROTO_GADGET;
@@ -908,7 +908,7 @@ static void dwc3_drd_statemachine(struct dwc3 *dwc, int id, int vbus)
 
 		if (protocol != PROTO_HOST) {
 			dwc->otg_fsm.protocol = PROTO_HOST;
-			dwc3_drd_start_host(dwc, 1);
+			dwc3_drd_start_host(dwc, 1, 0);
 		}
 		break;
 	default:
@@ -995,6 +995,11 @@ static irqreturn_t dwc3_otg_thread_irq(int irq, void *_dwc)
 	struct dwc3 *dwc = _dwc;
 
 	spin_lock(&dwc->lock);
+	if ((dwc->otg_fsm.protocol == PROTO_HOST) &&
+	    !(dwc->oevt & DWC3_OEVT_DEVICEMODE)) {
+		dwc3_drd_start_host(dwc, true, 1);
+	}
+
 	dwc3_otg_fsm_sync(dwc);
 	dwc3_otg_unmask_irq(dwc);
 	spin_unlock(&dwc->lock);
@@ -1006,11 +1011,10 @@ static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)
 {
 	struct dwc3 *dwc = _dwc;
 	irqreturn_t ret = IRQ_NONE;
-	u32 reg;
 
-	reg = dwc3_readl(dwc->regs, DWC3_OEVT);
-	if (reg) {
-		dwc3_writel(dwc->regs, DWC3_OEVT, reg);
+	dwc->oevt = dwc3_readl(dwc->regs, DWC3_OEVT);
+	if (dwc->oevt) {
+		dwc3_writel(dwc->regs, DWC3_OEVT, dwc->oevt);
 		dwc3_otg_mask_irq(dwc);
 		ret = IRQ_WAKE_THREAD;
 	}
@@ -1064,7 +1068,7 @@ static void dwc3_otgregs_init(struct dwc3 *dwc)
 }
 
 /* dwc->lock must be held */
-static int dwc3_drd_start_host(struct dwc3 *dwc, int on)
+static int dwc3_drd_start_host(struct dwc3 *dwc, int on, bool skip)
 {
 	u32 reg;
 
@@ -1093,9 +1097,11 @@ static int dwc3_drd_start_host(struct dwc3 *dwc, int on)
 		dwc3_writel(dwc->regs, DWC3_OCFG, reg);
 
 		/* start the xHCI host driver */
-		spin_unlock(&dwc->lock);
-		dwc3_host_init(dwc);
-		spin_lock(&dwc->lock);
+		if (!skip) {
+			spin_unlock(&dwc->lock);
+			dwc3_host_init(dwc);
+			spin_lock(&dwc->lock);
+		}
 
 		/*
 		 * OCFG.SRPCap = 1, OCFG.HNPCap = GHWPARAMS6.HNP_CAP
@@ -1126,9 +1132,11 @@ static int dwc3_drd_start_host(struct dwc3 *dwc, int on)
 		 * Figure 11-4 OTG Driver Overall Programming Flow
 		 */
 		/* stop the HCD */
-		spin_unlock(&dwc->lock);
-		dwc3_host_exit(dwc);
-		spin_lock(&dwc->lock);
+		if (!skip) {
+			spin_unlock(&dwc->lock);
+			dwc3_host_exit(dwc);
+			spin_lock(&dwc->lock);
+		}
 
 		/*
 		 * OEVTEN.OTGADevBHostEndEvntEn=0, OEVTEN.OTGADevHNPChngEvntEn=0
@@ -1351,7 +1359,7 @@ static void dwc3_drd_exit(struct dwc3 *dwc)
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc3_otg_core_exit(dwc);
 	if (dwc->otg_fsm.protocol == PROTO_HOST)
-		dwc3_drd_start_host(dwc, 0);
+		dwc3_drd_start_host(dwc, 0, 0);
 	dwc->otg_fsm.protocol = PROTO_UNDEF;
 	free_irq(dwc->otg_irq, dwc);
 	spin_unlock_irqrestore(&dwc->lock, flags);

@@ -862,6 +862,7 @@ struct dwc3_scratchpad_array {
  * @gctl: saved contents of GCTL register
  * @ocfg: saved contents of OCFG register
  * @octl: saved contents of OCTL register
+ * @oevt: saved contents of OEVT register
  * @oevten: saved contents of OEVTEN register
  * @isoch_delay: wValue from Set Isochronous Delay request;
  * @u2sel: parameter from Set SEL request.
@@ -968,6 +969,7 @@ struct dwc3 {
 	u32			gctl;
 	u32			ocfg;
 	u32			octl;
+	u32			oevt;
 	u32			oevten;
 
 	void __iomem		*regs;
