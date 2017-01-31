@@ -37,9 +37,14 @@
 #define DRV_NAME "pruss_uio"
 #define DRV_VERSION "1.0"
 
+/* XXX the sram pool support right now is supported for prussv1, even though
+ * it seems to me it should be easy to support this for prussv2 as well.
+ */
+#ifdef CONFIG_ARCH_DAVINCI_DA850
 static int sram_pool_sz = SZ_16K;
 module_param(sram_pool_sz, int, 0);
 MODULE_PARM_DESC(sram_pool_sz, "sram pool size to allocate ");
+#endif
 
 static int extram_pool_sz = SZ_256K;
 module_param(extram_pool_sz, int, 0);
@@ -69,14 +74,16 @@ MODULE_PARM_DESC(extram_pool_sz, "external ram pool size to allocate");
 struct uio_pruss_dev {
 	struct uio_info *info;
 	struct clk *pruss_clk;
-	dma_addr_t sram_paddr;
 	dma_addr_t ddr_paddr;
 	void __iomem *prussio_vaddr;
-	unsigned long sram_vaddr;
 	void *ddr_vaddr;
 	unsigned int hostirq_start;
 	unsigned int pintc_base;
+#ifdef CONFIG_ARCH_DAVINCI_DA850
+	dma_addr_t sram_paddr;
+	unsigned long sram_vaddr;
 	struct gen_pool *sram_pool;
+#endif
 };
 
 static irqreturn_t pruss_handler(int irq, struct uio_info *info)
@@ -197,6 +204,18 @@ static int pruss_probe(struct platform_device *pdev)
 	}
 
 
+	/* XXX this stuff below is complete garbage:
+	 *	1. It's quite common for pruss to have no pinctrl.
+	 *	2. If the pins are to be used as fast PRU I/O then requesting
+	 *	   the same pins as regular gpios is a conflict (which would be
+	 *	   detected by the kernel if the dts bothered to declare the
+	 *	   gpio-to-pinctrl mapping).
+	 *	3. If you really do just want to request a bunch of regular
+	 *	   gpios, then use gpio-of-helper.  That's what it's for.
+	 *
+	 *	- Matthijs van Duin
+	 */
+#if 0
 	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
 	if (IS_ERR(pinctrl))
 		dev_warn(&pdev->dev,
@@ -239,6 +258,8 @@ static int pruss_probe(struct platform_device *pdev)
 			}
 		}
 	}
+#endif
+#ifdef CONFIG_ARCH_DAVINCI_DA850
 	if (pdata && pdata->sram_pool) {
 		gdev->sram_pool = pdata->sram_pool;
 		gdev->sram_vaddr =
@@ -249,6 +270,7 @@ static int pruss_probe(struct platform_device *pdev)
 			goto out_free;
 		}
 	}
+#endif
 
 	gdev->ddr_vaddr = dma_alloc_coherent(dev, extram_pool_sz,
 				&(gdev->ddr_paddr), GFP_KERNEL | GFP_DMA);
@@ -260,7 +282,7 @@ static int pruss_probe(struct platform_device *pdev)
 	len = resource_size(regs_prussio);
 	gdev->prussio_vaddr = ioremap(regs_prussio->start, len);
 	if (!gdev->prussio_vaddr) {
-		dev_err(dev, "Can't remap PRUSS I/O  address range\n");
+		dev_err(dev, "Can't remap PRUSS I/O address range\n");
 		goto out_free;
 	}
 
@@ -282,6 +304,10 @@ static int pruss_probe(struct platform_device *pdev)
 		p->mem[0].size = resource_size(regs_prussio);
 		p->mem[0].memtype = UIO_MEM_PHYS;
 
+		/* oh this is nicely done... *barf*
+		 * and of course the userspace libs now hardcode these indices
+		 *	- Matthijs van Duin
+		 */
 #ifdef CONFIG_ARCH_DAVINCI_DA850
 		p->mem[1].addr = gdev->sram_paddr;
 		p->mem[1].size = sram_pool_sz;
