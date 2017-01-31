@@ -102,6 +102,10 @@
 	status = "okay";
 };
 
+&ddr3edac {
+	status = "okay";
+};
+
 &gbe0 {
 	phy-handle = <&ethphy0>;
 };

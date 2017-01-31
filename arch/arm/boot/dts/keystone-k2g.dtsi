@@ -237,6 +237,13 @@
 			};
 		};
 
+		ddr3edac: edac@21010000 {
+			compatible = "ti,keystone-ddr3-mc-edac";
+			reg = <0x21010000 0x200>;
+			interrupts = <GIC_SPI 123 IRQ_TYPE_EDGE_RISING>;
+			status = "disabled";
+		};
+
 		mmc0: mmc@23000000 {
 			compatible = "ti,omap4-hsmmc";
 			reg = <0x23000000 0x400>;
