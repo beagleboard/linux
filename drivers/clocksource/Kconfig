@@ -316,7 +316,7 @@ config FSL_ERRATUM_A008585
 	  fsl,erratum-a008585 property is found in the timer node.
 
 config ARM_GLOBAL_TIMER
-	bool "Support for the ARM global timer" if COMPILE_TEST
+	bool "Support for the ARM global timer"
 	select CLKSRC_OF if OF
 	depends on ARM
 	help
