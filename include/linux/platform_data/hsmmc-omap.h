@@ -23,10 +23,17 @@
  *    for example Advisory 2.1.1.128 "MMC: Multiple Block Read
  *    Operation Issue" in _OMAP3530/3525/3515/3503 Silicon Errata_
  *    Revision F (October 2010) (SPRZ278F).
+ *
+ * OMAP_HSMMC_NO_1_8_V: The controller does not support 1.8V IO voltage
+ *    irrespective of what the capability states.
+ *
  */
 #define OMAP_HSMMC_SUPPORTS_DUAL_VOLT		BIT(0)
 #define OMAP_HSMMC_BROKEN_MULTIBLOCK_READ	BIT(1)
 #define OMAP_HSMMC_SWAKEUP_MISSING		BIT(2)
+#define OMAP_HSMMC_REQUIRE_IODELAY		BIT(3)
+#define OMAP_HSMMC_HAS_HWPARAM			BIT(4)
+#define OMAP_HSMMC_NO_1_8_V			BIT(5)
 
 struct omap_hsmmc_dev_attr {
 	u8 flags;
@@ -69,6 +76,9 @@ struct omap_hsmmc_platform_data {
 #define HSMMC_HAS_UPDATED_RESET	(1 << 1)
 #define HSMMC_HAS_HSPE_SUPPORT	(1 << 2)
 	unsigned features;
+
+	/* string specifying a particular variant of hardware */
+	char *version;
 
 	int gpio_cd;			/* gpio (card detect) */
 	int gpio_cod;			/* gpio (cover detect) */
