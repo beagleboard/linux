@@ -163,6 +163,18 @@ static struct of_dev_auxdata am437x_pruss0_rproc_auxdata_lookup[] = {
 	{ /* sentinel */ },
 };
 
+static struct of_dev_auxdata am57xx_pruss1_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b234000, "4b234000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b238000, "4b238000.pru1", NULL),
+	{ /* sentinel */ },
+};
+
+static struct of_dev_auxdata am57xx_pruss2_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b2b4000, "4b2b4000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,am5728-pru", 0x4b2b8000, "4b2b8000.pru1", NULL),
+	{ /* sentinel */ },
+};
+
 /* instance-specific driver private data */
 static struct pruss_private_data am335x_pruss_priv_data = {
 	.aux_data = am335x_pruss_rproc_auxdata_lookup,
@@ -175,6 +187,14 @@ static struct pruss_private_data am437x_pruss1_priv_data = {
 static struct pruss_private_data am437x_pruss0_priv_data = {
 	.aux_data = am437x_pruss0_rproc_auxdata_lookup,
 	.has_no_sharedram = true,
+};
+
+static struct pruss_private_data am57xx_pruss1_priv_data = {
+	.aux_data = am57xx_pruss1_rproc_auxdata_lookup,
+};
+
+static struct pruss_private_data am57xx_pruss2_priv_data = {
+	.aux_data = am57xx_pruss2_rproc_auxdata_lookup,
 };
 
 static struct pruss_match_private_data am335x_match_data[] = {
@@ -201,9 +221,24 @@ static struct pruss_match_private_data am437x_match_data[] = {
 	},
 };
 
+static struct pruss_match_private_data am57xx_match_data[] = {
+	{
+		.device_name	= "4b200000.pruss",
+		.priv_data	= &am57xx_pruss1_priv_data,
+	},
+	{
+		.device_name	= "4b280000.pruss",
+		.priv_data	= &am57xx_pruss2_priv_data,
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id pruss_of_match[] = {
 	{ .compatible = "ti,am3356-pruss", .data = &am335x_match_data, },
 	{ .compatible = "ti,am4376-pruss", .data = &am437x_match_data, },
+	{ .compatible = "ti,am5728-pruss", .data = &am57xx_match_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
