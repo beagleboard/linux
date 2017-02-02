@@ -241,9 +241,13 @@ static ssize_t eqep_get_enabled(struct device *dev, struct device_attribute *att
 {
 	/* Get the instance structure */
 	struct eqep_chip *eqep = dev_get_drvdata(dev);
+	u16 enabled = 0;
+
+	/* Increment the device usage count and run pm_runtime_resume() */
+	pm_runtime_get_sync(dev);
 
 	/* Read the qep control register and mask all but the enabled bit */
-	u16 enabled = readw(eqep->mmio_base + QEPCTL) & PHEN;
+	enabled = readw(eqep->mmio_base + QEPCTL) & PHEN;
 
 	/* Return the target in string format */
 	return sprintf(buf, "%u\n", (enabled) ? 1 : 0);
@@ -262,6 +266,8 @@ static ssize_t eqep_set_enabled(struct device *dev, struct device_attribute *att
 	if ((rc = kstrtou8(buf, 0, &enabled)))
 		return rc;
 
+	/* Increment the device usage count and run pm_runtime_resume() */
+	pm_runtime_get_sync(dev);
 	/* Get the existing state of QEPCTL */
 	val = readw(eqep->mmio_base + QEPCTL);
 
@@ -286,6 +292,8 @@ static ssize_t eqep_get_position(struct device *dev, struct device_attribute *at
 	struct eqep_chip *eqep = dev_get_drvdata(dev);
 
 	s32 position = 0;
+	/* Increment the device usage count and run pm_runtime_resume() */
+	pm_runtime_get_sync(dev);
 
 	if (eqep->op_mode == TIEQEP_MODE_ABSOLUTE) {
 		position = readl(eqep->mmio_base + QPOSCNT);
@@ -308,6 +316,8 @@ static ssize_t eqep_set_position(struct device *dev, struct device_attribute *at
 	if ((rc = kstrtos32(buf, 0, &position)))
 		return rc;
 
+	/* Increment the device usage count and run pm_runtime_resume() */
+	pm_runtime_get_sync(dev);
 	/*
 	 * If we are in absolute mode, set the position of the encoder,
 	 * discard relative mode because thats pointless
@@ -327,6 +337,8 @@ static ssize_t eqep_get_timer_period(struct device *dev, struct device_attribute
 	struct eqep_chip *eqep = dev_get_drvdata(dev);
 	u64 period;
 
+	/* Increment the device usage count and run pm_runtime_resume() */
+	pm_runtime_get_sync(dev);
 	/* Convert from counts per interrupt back into period_ns */
 	period = readl(eqep->mmio_base + QUPRD);
 	period = period * NSEC_PER_SEC;
@@ -348,6 +360,8 @@ static ssize_t eqep_set_timer_period(struct device *dev, struct device_attribute
 	if ((rc = kstrtou64(buf, 0, &period)))
 		return rc;
 
+	/* Increment the device usage count and run pm_runtime_resume() */
+	pm_runtime_get_sync(dev);
 	/* Disable the unit timer before modifying its period register */
 	tmp = readw(eqep->mmio_base + QEPCTL);
 	tmp &= ~(UTE | QCLM);
@@ -395,6 +409,8 @@ static ssize_t eqep_set_mode(struct device *dev, struct device_attribute *attr, 
 
 	dev_dbg(dev, "eqep_set_mode:%d\n", tmp_mode);
 
+	/* Increment the device usage count and run pm_runtime_resume() */
+	pm_runtime_get_sync(dev);
 	val = readw(eqep->mmio_base + QEPCTL);
 
 	if (tmp_mode == TIEQEP_MODE_ABSOLUTE) {
