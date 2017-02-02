@@ -393,6 +393,34 @@
 			clock-names = "fck", "mmchsdb_fck";
 		};
 
+		dss: dss@02540000 {
+			compatible = "ti,k2g-dss","simple-bus";
+			reg = <0x02540000 0x400>;
+			clocks = <&k2g_clks K2G_DEV_DSS0 K2G_DEV_DSS_PI_DSS_OCP_CLK>;
+			clock-names = "fck";
+			power-domains = <&k2g_pds K2G_DEV_DSS0>;
+			status = "disabled";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			ti,sci-id = <K2G_DEV_DSS0>;
+
+			dispc@02550000 {
+				compatible = "ti,k2g-dispc";
+				reg = <0x02550000 0x1000>,
+				      <0x02557000 0x1000>,
+				      <0x0255a800 0x100>,
+				      <0x0255ac00 0x100>;
+				reg-names = "common", "vid1", "ovr1", "vp1";
+
+				interrupts = <GIC_SPI 247 IRQ_TYPE_EDGE_RISING>;
+
+				clocks = <&k2g_clks K2G_DEV_DSS0 K2G_DEV_DSS_PI_DSS_OCP_CLK>,
+					<&k2g_clks K2G_DEV_DSS0 K2G_DEV_DSS_PI_DSS_VP_CLK>;
+				clock-names = "fck", "vp";
+			};
+		};
+
 		edma0: edma@02700000 {
 			compatible = "ti,edma3-tpcc";
 			reg =	<0x02700000 0x8000>;
@@ -648,6 +676,57 @@
 			ti,sci-id = <K2G_DEV_I2C2>;
 			power-domains = <&k2g_pds>;
 			clocks = <&k2g_clks K2G_DEV_I2C2 K2G_DEV_I2C_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		mcasp0: mcasp@02340000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02340000 0x2000>,
+			      <0x21804000 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma0 24 1>, <&edma0 25 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+			ti,sci-id = <K2G_DEV_MCASP0>;
+			power-domains = <&k2g_pds>;
+			clocks = <&k2g_clks K2G_DEV_MCASP0 K2G_DEV_MCASP_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		mcasp1: mcasp@02342000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02342000 0x2000>,
+			      <0x21804400 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma1 48 1>, <&edma1 49 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+			ti,sci-id = <K2G_DEV_MCASP1>;
+			power-domains = <&k2g_pds>;
+			clocks = <&k2g_clks K2G_DEV_MCASP1 K2G_DEV_MCASP_VBUS_CLK>;
+			clock-names = "fck";
+		};
+
+		mcasp2: mcasp@02344000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02344000 0x2000>,
+			      <0x21804800 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma1 50 1>, <&edma1 51 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+			ti,sci-id = <K2G_DEV_MCASP2>;
+			power-domains = <&k2g_pds>;
+			clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_VBUS_CLK>;
 			clock-names = "fck";
 		};
 	};
