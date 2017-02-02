@@ -24,9 +24,11 @@
 /**
  * struct pruss_private_data - PRUSS driver private data
  * @aux_data: auxiliary data used for creating the child nodes
+ * @has_no_sharedram: flag to indicate the absence of PRUSS Shared Data RAM
  */
 struct pruss_private_data {
 	struct of_dev_auxdata *aux_data;
+	bool has_no_sharedram;
 };
 
 /**
@@ -95,6 +97,8 @@ static int pruss_probe(struct platform_device *pdev)
 	pruss->dev = dev;
 
 	for (i = 0; i < ARRAY_SIZE(mem_names); i++) {
+		if (data->has_no_sharedram && !strcmp(mem_names[i], "shrdram2"))
+			continue;
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
 		pruss->mem_regions[i].va = devm_ioremap_resource(dev, res);
@@ -153,6 +157,12 @@ static struct of_dev_auxdata am437x_pruss1_rproc_auxdata_lookup[] = {
 	{ /* sentinel */ },
 };
 
+static struct of_dev_auxdata am437x_pruss0_rproc_auxdata_lookup[] = {
+	OF_DEV_AUXDATA("ti,am4376-pru", 0x54474000, "54474000.pru0", NULL),
+	OF_DEV_AUXDATA("ti,am4376-pru", 0x54478000, "54478000.pru1", NULL),
+	{ /* sentinel */ },
+};
+
 /* instance-specific driver private data */
 static struct pruss_private_data am335x_pruss_priv_data = {
 	.aux_data = am335x_pruss_rproc_auxdata_lookup,
@@ -160,6 +170,11 @@ static struct pruss_private_data am335x_pruss_priv_data = {
 
 static struct pruss_private_data am437x_pruss1_priv_data = {
 	.aux_data = am437x_pruss1_rproc_auxdata_lookup,
+};
+
+static struct pruss_private_data am437x_pruss0_priv_data = {
+	.aux_data = am437x_pruss0_rproc_auxdata_lookup,
+	.has_no_sharedram = true,
 };
 
 static struct pruss_match_private_data am335x_match_data[] = {
@@ -176,6 +191,10 @@ static struct pruss_match_private_data am437x_match_data[] = {
 	{
 		.device_name	= "54400000.pruss",
 		.priv_data	= &am437x_pruss1_priv_data,
+	},
+	{
+		.device_name	= "54440000.pruss",
+		.priv_data	= &am437x_pruss0_priv_data,
 	},
 	{
 		/* sentinel */

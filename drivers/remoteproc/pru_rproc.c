@@ -786,6 +786,17 @@ static struct pru_private_data am437x_pru1_1_rproc_pdata = {
 	.fw_name = "am437x-pru1_1-fw",
 };
 
+/* AM437x PRUSS0 PRU core-specific private data */
+static struct pru_private_data am437x_pru0_0_rproc_pdata = {
+	.id = 0,
+	.fw_name = "am437x-pru0_0-fw",
+};
+
+static struct pru_private_data am437x_pru0_1_rproc_pdata = {
+	.id = 1,
+	.fw_name = "am437x-pru0_1-fw",
+};
+
 /* AM33xx SoC-specific PRU Device data */
 static struct pru_match_private_data am335x_pru_match_data[] = {
 	{
@@ -810,6 +821,14 @@ static struct pru_match_private_data am437x_pru_match_data[] = {
 	{
 		.device_name	= "54438000.pru1",
 		.priv_data	= &am437x_pru1_1_rproc_pdata,
+	},
+	{
+		.device_name    = "54474000.pru0",
+		.priv_data      = &am437x_pru0_0_rproc_pdata,
+	},
+	{
+		.device_name    = "54478000.pru1",
+		.priv_data      = &am437x_pru0_1_rproc_pdata,
 	},
 	{
 		/* sentinel */
