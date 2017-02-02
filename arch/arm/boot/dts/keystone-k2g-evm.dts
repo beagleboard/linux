@@ -94,29 +94,6 @@
 		>;
 	};
 
-};
-
-&uart0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pins>;
-	status = "okay";
-};
-
-&ddr3edac {
-	status = "okay";
-};
-
-&gbe0 {
-	phy-handle = <&ethphy0>;
-};
-
-&mdio {
-	status = "okay";
-	ethphy0: ethernet-phy@0 {
-		reg = <0>;
-		phy-mode = "rgmii-id";
-	};
-
 	dcan0_pins: pinmux_dcan0_pins {
 		pinctrl-single,pins = <
 			K2G_CORE_IOPAD(0x11fc) (BUFFER_CLASS_B | PULL_DISABLE  | MUX_MODE0)	/* dcan0tx.dcan0tx */
@@ -158,7 +135,28 @@
 			K2G_CORE_IOPAD(0x1068) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* gpmc_csn0.gpmc_csn0 */
 		 >;
 	};
+};
 
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pins>;
+	status = "okay";
+};
+
+&ddr3edac {
+	status = "okay";
+};
+
+&gbe0 {
+	phy-handle = <&ethphy0>;
+};
+
+&mdio {
+	status = "okay";
+	ethphy0: ethernet-phy@0 {
+		reg = <0>;
+		phy-mode = "rgmii-id";
+	};
 };
 
 &gpio1 {
