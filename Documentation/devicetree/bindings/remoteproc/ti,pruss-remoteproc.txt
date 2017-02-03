@@ -163,6 +163,8 @@ Required Properties:
                        "iram" for Instruction RAM,
                        "control" for the CTRL sub-module registers,
                        "debug" for the Debug sub-module registers,
+- label          : should be either "pru0" or "pru1" identifying the PRU core
+                   within the PRUSS
 
 Optional Properties:
 --------------------
