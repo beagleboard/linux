@@ -378,6 +378,7 @@ static void ks_dw_pcie_clear_dbi_mode(struct keystone_pcie *ks_pcie)
 void ks_dw_pcie_setup_rc_app_regs(struct keystone_pcie *ks_pcie)
 {
 	struct dw_pcie *pci = ks_pcie->pci;
+	void __iomem *base = pci->dbi_base;
 	struct pcie_port *pp = &pci->pp;
 	u32 start = pp->mem->start, end = pp->mem->end;
 	int i, tr_size;
@@ -385,8 +386,8 @@ void ks_dw_pcie_setup_rc_app_regs(struct keystone_pcie *ks_pcie)
 
 	/* Disable BARs for inbound access */
 	ks_dw_pcie_set_dbi_mode(ks_pcie);
-	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, 0);
-	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_1, 0);
+	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_0, 0);
+	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_1, 0);
 	ks_dw_pcie_clear_dbi_mode(ks_pcie);
 
 	/* Set outbound translation size per window division */
@@ -482,14 +483,15 @@ int ks_dw_pcie_wr_other_conf(struct pcie_port *pp, struct pci_bus *bus,
 void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	void __iomem *base = pci->dbi_base;
 	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 
 	/* Configure and set up BAR0 */
 	ks_dw_pcie_set_dbi_mode(ks_pcie);
 
 	/* Enable BAR0 */
-	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, 1);
-	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, SZ_4K - 1);
+	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_0, 1);
+	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_0, SZ_4K - 1);
 
 	ks_dw_pcie_clear_dbi_mode(ks_pcie);
 
@@ -497,7 +499,7 @@ void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 	  * For BAR0, just setting bus address for inbound writes (MSI) should
 	  * be sufficient.  Use physical address to avoid any conflicts.
 	  */
-	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, ks_pcie->app.start);
+	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_0, ks_pcie->app.start);
 }
 
 /**
@@ -506,8 +508,9 @@ void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 int ks_dw_pcie_link_up(struct dw_pcie *pci)
 {
 	u32 val;
+	void __iomem *base = pci->dbi_base;
 
-	val = dw_pcie_readl_dbi(pci, DEBUG0);
+	val = dw_pcie_readl_dbi(pci, base, DEBUG0);
 	return (val & LTSSM_STATE_MASK) == LTSSM_STATE_L0;
 }
 

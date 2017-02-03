@@ -51,10 +51,11 @@ static int hisi_pcie_cfg_read(struct pcie_port *pp, int where, int size,
 	u32 reg_val;
 	void *walker = &reg_val;
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	void __iomem *base = pci->dbi_base;
 
 	walker += (where & 0x3);
 	reg = where & ~0x3;
-	reg_val = dw_pcie_readl_dbi(pci, reg);
+	reg_val = dw_pcie_readl_dbi(pci, base, reg);
 
 	if (size == 1)
 		*val = *(u8 __force *) walker;
@@ -76,19 +77,20 @@ static int hisi_pcie_cfg_write(struct pcie_port *pp, int where, int  size,
 	u32 reg;
 	void *walker = &reg_val;
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	void __iomem *base = pci->dbi_base;
 
 	walker += (where & 0x3);
 	reg = where & ~0x3;
 	if (size == 4)
-		dw_pcie_writel_dbi(pci, reg, val);
+		dw_pcie_writel_dbi(pci, base, reg, val);
 	else if (size == 2) {
-		reg_val = dw_pcie_readl_dbi(pci, reg);
+		reg_val = dw_pcie_readl_dbi(pci, base, reg);
 		*(u16 __force *) walker = val;
-		dw_pcie_writel_dbi(pci, reg, reg_val);
+		dw_pcie_writel_dbi(pci, base, reg, reg_val);
 	} else if (size == 1) {
-		reg_val = dw_pcie_readl_dbi(pci, reg);
+		reg_val = dw_pcie_readl_dbi(pci, base, reg);
 		*(u8 __force *) walker = val;
-		dw_pcie_writel_dbi(pci, reg, reg_val);
+		dw_pcie_writel_dbi(pci, base, reg, reg_val);
 	} else
 		return PCIBIOS_BAD_REGISTER_NUMBER;
 
@@ -108,9 +110,10 @@ static int hisi_pcie_link_up_hip05(struct hisi_pcie *hisi_pcie)
 static int hisi_pcie_link_up_hip06(struct hisi_pcie *hisi_pcie)
 {
 	struct dw_pcie *pci = hisi_pcie->pci;
+	void __iomem *base = pci->dbi_base;
 	u32 val;
 
-	val = dw_pcie_readl_dbi(pci, PCIE_SYS_STATE4);
+	val = dw_pcie_readl_dbi(pci, base, PCIE_SYS_STATE4);
 
 	return ((val & PCIE_LTSSM_STATE_MASK) == PCIE_LTSSM_LINKUP_STATE);
 }
