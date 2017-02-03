@@ -1004,6 +1004,7 @@
 					      <0x54422000 0x400>,
 					      <0x54422400 0x100>;
 					reg-names = "iram", "control", "debug";
+					label = "pru0";
 					interrupt-parent = <&pruss1_intc>;
 					interrupts = <16>, <17>;
 					interrupt-names = "vring", "kick";
@@ -1016,6 +1017,7 @@
 					      <0x54424000 0x400>,
 					      <0x54424400 0x100>;
 					reg-names = "iram", "control", "debug";
+					label = "pru1";
 					interrupt-parent = <&pruss1_intc>;
 					interrupts = <18>, <19>;
 					interrupt-names = "vring", "kick";
@@ -1074,6 +1076,7 @@
 					      <0x54462000 0x400>,
 					      <0x54462400 0x100>;
 					reg-names = "iram", "control", "debug";
+					label = "pru0";
 					interrupt-parent = <&pruss0_intc>;
 					interrupts = <16>, <17>;
 					interrupt-names = "vring", "kick";
@@ -1086,6 +1089,7 @@
 					      <0x54464000 0x400>,
 					      <0x54464400 0x100>;
 					reg-names = "iram", "control", "debug";
+					label = "pru1";
 					interrupt-parent = <&pruss0_intc>;
 					interrupts = <18>, <19>;
 					interrupt-names = "vring", "kick";
