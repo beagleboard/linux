@@ -325,6 +325,7 @@
 					interrupt-parent = <&pruss0_intc>;
 					interrupts = <16>, <17>;
 					interrupt-names = "vring", "kick";
+					label = "pru0";
 				};
 
 				pru0_1: pru@20ab8000 {
@@ -336,6 +337,7 @@
 					interrupt-parent = <&pruss0_intc>;
 					interrupts = <18>, <19>;
 					interrupt-names = "vring", "kick";
+					label = "pru1";
 				};
 
 				pruss0_mdio: mdio@20ab2400 {
@@ -407,6 +409,7 @@
 					interrupt-parent = <&pruss1_intc>;
 					interrupts = <16>, <17>;
 					interrupt-names = "vring", "kick";
+					label = "pru0";
 				};
 
 				pru1_1: pru@20af8000 {
@@ -418,6 +421,7 @@
 					interrupt-parent = <&pruss1_intc>;
 					interrupts = <18>, <19>;
 					interrupt-names = "vring", "kick";
+					label = "pru1";
 				};
 
 				pruss1_mdio: mdio@20af2400 {
