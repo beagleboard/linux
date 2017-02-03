@@ -1250,3 +1250,7 @@
 	/* not used for audio. only the AXR2 pin is used as GPIO */
 	status = "okay";
 };
+
+&pcie1_rc {
+	status = "okay";
+};
