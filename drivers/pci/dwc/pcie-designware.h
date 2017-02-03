@@ -149,6 +149,8 @@ struct dw_pcie_ops {
 	void	(*write_dbi)(struct dw_pcie *pcie, void __iomem *base, u32 reg,
 			     int size, u32 val);
 	int	(*link_up)(struct dw_pcie *pcie);
+	int	(*start_link)(struct dw_pcie *pcie);
+	void	(*stop_link)(struct dw_pcie *pcie);
 };
 
 struct dw_pcie {
