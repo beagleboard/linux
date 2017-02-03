@@ -172,6 +172,57 @@ void dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index, int type,
 	dev_err(pci->dev, "iATU is not being enabled\n");
 }
 
+int dw_pcie_prog_inbound_atu(struct dw_pcie *pci, int index, int bar,
+			     u64 cpu_addr, enum dw_pcie_as_type as_type)
+{
+	int type;
+	void __iomem *base = pci->dbi_base;
+
+	dw_pcie_write_dbi(pci, base, PCIE_ATU_VIEWPORT, 0x4,
+			  PCIE_ATU_REGION_INBOUND | index);
+	dw_pcie_write_dbi(pci, base, PCIE_ATU_LOWER_TARGET, 0x4,
+			  lower_32_bits(cpu_addr));
+	dw_pcie_write_dbi(pci, base, PCIE_ATU_UPPER_TARGET, 0x4,
+			  upper_32_bits(cpu_addr));
+
+	switch (as_type) {
+	case DW_PCIE_AS_MEM:
+		type = PCIE_ATU_TYPE_MEM;
+		break;
+	case DW_PCIE_AS_IO:
+		type = PCIE_ATU_TYPE_IO;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	dw_pcie_write_dbi(pci, base, PCIE_ATU_CR1, 0x4, type);
+	dw_pcie_write_dbi(pci, base, PCIE_ATU_CR2, 0x4, PCIE_ATU_ENABLE |
+			  PCIE_ATU_BAR_MODE_ENABLE | (bar << 8));
+	return 0;
+}
+
+void dw_pcie_disable_atu(struct dw_pcie *pci, int index,
+			 enum dw_pcie_region_type type)
+{
+	int region;
+	void __iomem *base = pci->dbi_base;
+
+	switch (type) {
+	case DW_PCIE_REGION_INBOUND:
+		region = PCIE_ATU_REGION_INBOUND;
+		break;
+	case DW_PCIE_REGION_OUTBOUND:
+		region = PCIE_ATU_REGION_OUTBOUND;
+		break;
+	default:
+		return;
+	}
+
+	dw_pcie_write_dbi(pci, base, PCIE_ATU_VIEWPORT, 0x4, region | index);
+	dw_pcie_write_dbi(pci, base, PCIE_ATU_CR2, 0x4, ~PCIE_ATU_ENABLE);
+}
+
 int dw_pcie_wait_for_link(struct dw_pcie *pci)
 {
 	int retries;
