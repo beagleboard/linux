@@ -86,7 +86,7 @@ struct qcom_pcie_ops {
 };
 
 struct qcom_pcie {
-	struct pcie_port pp;			/* pp.dbi_base is DT dbi */
+	struct dw_pcie *pci;
 	void __iomem *parf;			/* DT parf */
 	void __iomem *elbi;			/* DT elbi */
 	union qcom_pcie_resources res;
@@ -95,7 +95,7 @@ struct qcom_pcie {
 	struct qcom_pcie_ops *ops;
 };
 
-#define to_qcom_pcie(x)		container_of(x, struct qcom_pcie, pp)
+#define to_qcom_pcie(x)		dev_get_drvdata((x)->dev)
 
 static void qcom_ep_reset_assert(struct qcom_pcie *pcie)
 {
@@ -118,9 +118,10 @@ static irqreturn_t qcom_pcie_msi_irq_handler(int irq, void *arg)
 
 static int qcom_pcie_establish_link(struct qcom_pcie *pcie)
 {
+	struct dw_pcie *pci = pcie->pci;
 	u32 val;
 
-	if (dw_pcie_link_up(&pcie->pp))
+	if (dw_pcie_link_up(pci))
 		return 0;
 
 	/* enable link training */
@@ -128,13 +129,14 @@ static int qcom_pcie_establish_link(struct qcom_pcie *pcie)
 	val |= PCIE20_ELBI_SYS_CTRL_LT_ENABLE;
 	writel(val, pcie->elbi + PCIE20_ELBI_SYS_CTRL);
 
-	return dw_pcie_wait_for_link(&pcie->pp);
+	return dw_pcie_wait_for_link(pci);
 }
 
 static int qcom_pcie_get_resources_v0(struct qcom_pcie *pcie)
 {
 	struct qcom_pcie_resources_v0 *res = &pcie->res.v0;
-	struct device *dev = pcie->pp.dev;
+	struct dw_pcie *pci = pcie->pci;
+	struct device *dev = pci->dev;
 
 	res->vdda = devm_regulator_get(dev, "vdda");
 	if (IS_ERR(res->vdda))
@@ -186,7 +188,8 @@ static int qcom_pcie_get_resources_v0(struct qcom_pcie *pcie)
 static int qcom_pcie_get_resources_v1(struct qcom_pcie *pcie)
 {
 	struct qcom_pcie_resources_v1 *res = &pcie->res.v1;
-	struct device *dev = pcie->pp.dev;
+	struct dw_pcie *pci = pcie->pci;
+	struct device *dev = pci->dev;
 
 	res->vdda = devm_regulator_get(dev, "vdda");
 	if (IS_ERR(res->vdda))
@@ -235,7 +238,8 @@ static void qcom_pcie_deinit_v0(struct qcom_pcie *pcie)
 static int qcom_pcie_init_v0(struct qcom_pcie *pcie)
 {
 	struct qcom_pcie_resources_v0 *res = &pcie->res.v0;
-	struct device *dev = pcie->pp.dev;
+	struct dw_pcie *pci = pcie->pci;
+	struct device *dev = pci->dev;
 	u32 val;
 	int ret;
 
@@ -357,7 +361,8 @@ static void qcom_pcie_deinit_v1(struct qcom_pcie *pcie)
 static int qcom_pcie_init_v1(struct qcom_pcie *pcie)
 {
 	struct qcom_pcie_resources_v1 *res = &pcie->res.v1;
-	struct device *dev = pcie->pp.dev;
+	struct dw_pcie *pci = pcie->pci;
+	struct device *dev = pci->dev;
 	int ret;
 
 	ret = reset_control_deassert(res->core);
@@ -421,17 +426,17 @@ err_res:
 	return ret;
 }
 
-static int qcom_pcie_link_up(struct pcie_port *pp)
+static int qcom_pcie_link_up(struct dw_pcie *pci)
 {
-	struct qcom_pcie *pcie = to_qcom_pcie(pp);
-	u16 val = readw(pcie->pp.dbi_base + PCIE20_CAP + PCI_EXP_LNKSTA);
+	u16 val = readw(pci->dbi_base + PCIE20_CAP + PCI_EXP_LNKSTA);
 
 	return !!(val & PCI_EXP_LNKSTA_DLLLA);
 }
 
 static void qcom_pcie_host_init(struct pcie_port *pp)
 {
-	struct qcom_pcie *pcie = to_qcom_pcie(pp);
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct qcom_pcie *pcie = to_qcom_pcie(pci);
 	int ret;
 
 	qcom_ep_reset_assert(pcie);
@@ -466,19 +471,20 @@ err_deinit:
 static int qcom_pcie_rd_own_conf(struct pcie_port *pp, int where, int size,
 				 u32 *val)
 {
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+
 	/* the device class is not reported correctly from the register */
 	if (where == PCI_CLASS_REVISION && size == 4) {
-		*val = readl(pp->dbi_base + PCI_CLASS_REVISION);
+		*val = readl(pci->dbi_base + PCI_CLASS_REVISION);
 		*val &= 0xff;	/* keep revision id */
 		*val |= PCI_CLASS_BRIDGE_PCI << 16;
 		return PCIBIOS_SUCCESSFUL;
 	}
 
-	return dw_pcie_read(pp->dbi_base + where, size, val);
+	return dw_pcie_read(pci->dbi_base + where, size, val);
 }
 
-static struct pcie_host_ops qcom_pcie_dw_ops = {
-	.link_up = qcom_pcie_link_up,
+static struct dw_pcie_host_ops qcom_pcie_dw_ops = {
 	.host_init = qcom_pcie_host_init,
 	.rd_own_conf = qcom_pcie_rd_own_conf,
 };
@@ -495,19 +501,33 @@ static const struct qcom_pcie_ops ops_v1 = {
 	.deinit = qcom_pcie_deinit_v1,
 };
 
+static const struct dw_pcie_ops dw_pcie_ops = {
+	.link_up = qcom_pcie_link_up,
+};
+
 static int qcom_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	struct qcom_pcie *pcie;
 	struct pcie_port *pp;
+	struct dw_pcie *pci;
+	struct qcom_pcie *pcie;
 	int ret;
 
 	pcie = devm_kzalloc(dev, sizeof(*pcie), GFP_KERNEL);
 	if (!pcie)
 		return -ENOMEM;
 
-	pp = &pcie->pp;
+	pci = devm_kzalloc(dev, sizeof(*pci), GFP_KERNEL);
+	if (!pci)
+		return -ENOMEM;
+
+	pci->dev = dev;
+	pci->ops = &dw_pcie_ops;
+	pp = &pci->pp;
+
+	pcie->pci = pci;
+
 	pcie->ops = (struct qcom_pcie_ops *)of_device_get_match_data(dev);
 
 	pcie->reset = devm_gpiod_get_optional(dev, "perst", GPIOD_OUT_LOW);
@@ -520,9 +540,9 @@ static int qcom_pcie_probe(struct platform_device *pdev)
 		return PTR_ERR(pcie->parf);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
-	pp->dbi_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(pp->dbi_base))
-		return PTR_ERR(pp->dbi_base);
+	pci->dbi_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(pci->dbi_base))
+		return PTR_ERR(pci->dbi_base);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "elbi");
 	pcie->elbi = devm_ioremap_resource(dev, res);
@@ -533,7 +553,6 @@ static int qcom_pcie_probe(struct platform_device *pdev)
 	if (IS_ERR(pcie->phy))
 		return PTR_ERR(pcie->phy);
 
-	pp->dev = dev;
 	ret = pcie->ops->get_resources(pcie);
 	if (ret)
 		return ret;
