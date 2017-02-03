@@ -17,6 +17,11 @@
 #ifndef _PRUSS_H_
 #define _PRUSS_H_
 
+/* number of PRUs within a PRUSS */
+#ifndef PRUSS_NUM_PRUS
+#define PRUSS_NUM_PRUS		2
+#endif
+
 /* maximum number of system events */
 #define MAX_PRU_SYS_EVENTS	64
 
@@ -103,12 +108,18 @@ struct pruss_intc_config {
  * @dev: pruss device pointer
  * @mem_regions: data for each of the PRUSS memory regions
  * @host_mask: indicate which HOST IRQs are enabled
+ * @pru_running: flag to indicate if PRU is running
+ * @pru_in_use: flag to indicate if PRU is used
+ * @lock: mutex to serialize access to resources
  */
 struct pruss {
 	struct list_head node;
 	struct device *dev;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	u32 host_mask;
+	bool pru_running[PRUSS_NUM_PRUS];
+	struct rproc *pru_in_use[PRUSS_NUM_PRUS];
+	struct mutex lock; /* PRU resource lock */
 };
 
 int pruss_intc_configure(struct pruss *pruss,
