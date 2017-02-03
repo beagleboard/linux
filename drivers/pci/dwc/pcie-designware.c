@@ -195,6 +195,9 @@ static void dw_pcie_prog_outbound_atu(struct pcie_port *pp, int index,
 {
 	u32 retries, val;
 
+	if (pp->ops->cpu_addr_fixup)
+		cpu_addr = pp->ops->cpu_addr_fixup(cpu_addr);
+
 	if (pp->iatu_unroll_enabled) {
 		dw_pcie_writel_unroll(pp, index, PCIE_ATU_UNR_LOWER_BASE,
 			lower_32_bits(cpu_addr));

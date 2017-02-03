@@ -54,6 +54,7 @@ struct pcie_port {
 };
 
 struct pcie_host_ops {
+	u64 (*cpu_addr_fixup)(u64 cpu_addr);
 	u32 (*readl_rc)(struct pcie_port *pp, u32 reg);
 	void (*writel_rc)(struct pcie_port *pp, u32 reg, u32 val);
 	int (*rd_own_conf)(struct pcie_port *pp, int where, int size, u32 *val);
