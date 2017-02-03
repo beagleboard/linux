@@ -498,9 +498,9 @@ static int dra7xx_pcie_suspend(struct device *dev)
 	u32 val;
 
 	/* clear MSE */
-	val = dw_pcie_readl_dbi(pci, base, PCI_COMMAND);
+	val = dw_pcie_read_dbi(pci, base, PCI_COMMAND, 0x4);
 	val &= ~PCI_COMMAND_MEMORY;
-	dw_pcie_writel_dbi(pci, base, PCI_COMMAND, val);
+	dw_pcie_write_dbi(pci, base, PCI_COMMAND, 0x4, val);
 
 	return 0;
 }
@@ -513,9 +513,9 @@ static int dra7xx_pcie_resume(struct device *dev)
 	u32 val;
 
 	/* set MSE */
-	val = dw_pcie_readl_dbi(pci, base, PCI_COMMAND);
+	val = dw_pcie_read_dbi(pci, base, PCI_COMMAND, 0x4);
 	val |= PCI_COMMAND_MEMORY;
-	dw_pcie_writel_dbi(pci, base, PCI_COMMAND, val);
+	dw_pcie_write_dbi(pci, base, PCI_COMMAND, 0x4, val);
 
 	return 0;
 }

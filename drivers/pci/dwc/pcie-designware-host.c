@@ -584,27 +584,27 @@ void dw_pcie_setup_rc(struct pcie_port *pp)
 	dw_pcie_setup(pci);
 
 	/* setup RC BARs */
-	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x00000004);
-	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_1, 0x00000000);
+	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4, 0x00000004);
+	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_1, 0x4, 0x00000000);
 
 	/* setup interrupt pins */
-	val = dw_pcie_readl_dbi(pci, base, PCI_INTERRUPT_LINE);
+	val = dw_pcie_read_dbi(pci, base, PCI_INTERRUPT_LINE, 0x4);
 	val &= 0xffff00ff;
 	val |= 0x00000100;
-	dw_pcie_writel_dbi(pci, base, PCI_INTERRUPT_LINE, val);
+	dw_pcie_write_dbi(pci, base, PCI_INTERRUPT_LINE, 0x4, val);
 
 	/* setup bus numbers */
-	val = dw_pcie_readl_dbi(pci, base, PCI_PRIMARY_BUS);
+	val = dw_pcie_read_dbi(pci, base, PCI_PRIMARY_BUS, 0x4);
 	val &= 0xff000000;
 	val |= 0x00010100;
-	dw_pcie_writel_dbi(pci, base, PCI_PRIMARY_BUS, val);
+	dw_pcie_write_dbi(pci, base, PCI_PRIMARY_BUS, 0x4, val);
 
 	/* setup command register */
-	val = dw_pcie_readl_dbi(pci, base, PCI_COMMAND);
+	val = dw_pcie_read_dbi(pci, base, PCI_COMMAND, 0x4);
 	val &= 0xffff0000;
 	val |= PCI_COMMAND_IO | PCI_COMMAND_MEMORY |
 		PCI_COMMAND_MASTER | PCI_COMMAND_SERR;
-	dw_pcie_writel_dbi(pci, base, PCI_COMMAND, val);
+	dw_pcie_write_dbi(pci, base, PCI_COMMAND, 0x4, val);
 
 	/*
 	 * If the platform provides ->rd_other_conf, it means the platform

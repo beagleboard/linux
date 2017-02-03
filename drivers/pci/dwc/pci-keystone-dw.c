@@ -386,8 +386,8 @@ void ks_dw_pcie_setup_rc_app_regs(struct keystone_pcie *ks_pcie)
 
 	/* Disable BARs for inbound access */
 	ks_dw_pcie_set_dbi_mode(ks_pcie);
-	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_0, 0);
-	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_1, 0);
+	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4, 0);
+	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_1, 0x4, 0);
 	ks_dw_pcie_clear_dbi_mode(ks_pcie);
 
 	/* Set outbound translation size per window division */
@@ -490,8 +490,8 @@ void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 	ks_dw_pcie_set_dbi_mode(ks_pcie);
 
 	/* Enable BAR0 */
-	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_0, 1);
-	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_0, SZ_4K - 1);
+	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4, 1);
+	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4, SZ_4K - 1);
 
 	ks_dw_pcie_clear_dbi_mode(ks_pcie);
 
@@ -499,7 +499,8 @@ void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 	  * For BAR0, just setting bus address for inbound writes (MSI) should
 	  * be sufficient.  Use physical address to avoid any conflicts.
 	  */
-	dw_pcie_writel_dbi(pci, base, PCI_BASE_ADDRESS_0, ks_pcie->app.start);
+	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4,
+			  ks_pcie->app.start);
 }
 
 /**
@@ -510,7 +511,7 @@ int ks_dw_pcie_link_up(struct dw_pcie *pci)
 	u32 val;
 	void __iomem *base = pci->dbi_base;
 
-	val = dw_pcie_readl_dbi(pci, base, DEBUG0);
+	val = dw_pcie_read_dbi(pci, base, DEBUG0, 0x4);
 	return (val & LTSSM_STATE_MASK) == LTSSM_STATE_L0;
 }
 

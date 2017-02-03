@@ -75,7 +75,7 @@ static int armada8k_pcie_link_up(struct dw_pcie *pci)
 	u32 mask = PCIE_GLB_STS_RDLH_LINK_UP | PCIE_GLB_STS_PHY_LINK_UP;
 	void __iomem *base = pci->dbi_base;
 
-	reg = dw_pcie_readl_dbi(pci, base, PCIE_GLOBAL_STATUS_REG);
+	reg = dw_pcie_read_dbi(pci, base, PCIE_GLOBAL_STATUS_REG, 0x4);
 
 	if ((reg & mask) == mask)
 		return 1;
@@ -92,45 +92,45 @@ static void armada8k_pcie_establish_link(struct armada8k_pcie *pcie)
 
 	if (!dw_pcie_link_up(pci)) {
 		/* Disable LTSSM state machine to enable configuration */
-		reg = dw_pcie_readl_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG);
+		reg = dw_pcie_read_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG, 0x4);
 		reg &= ~(PCIE_APP_LTSSM_EN);
-		dw_pcie_writel_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG, reg);
+		dw_pcie_write_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG, 0x4, reg);
 	}
 
 	/* Set the device to root complex mode */
-	reg = dw_pcie_readl_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG);
+	reg = dw_pcie_read_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG, 0x4);
 	reg &= ~(PCIE_DEVICE_TYPE_MASK << PCIE_DEVICE_TYPE_SHIFT);
 	reg |= PCIE_DEVICE_TYPE_RC << PCIE_DEVICE_TYPE_SHIFT;
-	dw_pcie_writel_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG, reg);
+	dw_pcie_write_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG, 0x4, reg);
 
 	/* Set the PCIe master AxCache attributes */
-	dw_pcie_writel_dbi(pci, base, PCIE_ARCACHE_TRC_REG,
-			   ARCACHE_DEFAULT_VALUE);
-	dw_pcie_writel_dbi(pci, base, PCIE_AWCACHE_TRC_REG,
-			   AWCACHE_DEFAULT_VALUE);
+	dw_pcie_write_dbi(pci, base, PCIE_ARCACHE_TRC_REG, 0x4,
+			  ARCACHE_DEFAULT_VALUE);
+	dw_pcie_write_dbi(pci, base, PCIE_AWCACHE_TRC_REG, 0x4,
+			  AWCACHE_DEFAULT_VALUE);
 
 	/* Set the PCIe master AxDomain attributes */
-	reg = dw_pcie_readl_dbi(pci, base, PCIE_ARUSER_REG);
+	reg = dw_pcie_read_dbi(pci, base, PCIE_ARUSER_REG, 0x4);
 	reg &= ~(AX_USER_DOMAIN_MASK << AX_USER_DOMAIN_SHIFT);
 	reg |= DOMAIN_OUTER_SHAREABLE << AX_USER_DOMAIN_SHIFT;
-	dw_pcie_writel_dbi(pci, base, PCIE_ARUSER_REG, reg);
+	dw_pcie_write_dbi(pci, base, PCIE_ARUSER_REG, 0x4, reg);
 
-	reg = dw_pcie_readl_dbi(pci, base, PCIE_AWUSER_REG);
+	reg = dw_pcie_read_dbi(pci, base, PCIE_AWUSER_REG, 0x4);
 	reg &= ~(AX_USER_DOMAIN_MASK << AX_USER_DOMAIN_SHIFT);
 	reg |= DOMAIN_OUTER_SHAREABLE << AX_USER_DOMAIN_SHIFT;
-	dw_pcie_writel_dbi(pci, base, PCIE_AWUSER_REG, reg);
+	dw_pcie_write_dbi(pci, base, PCIE_AWUSER_REG, 0x4, reg);
 
 	/* Enable INT A-D interrupts */
-	reg = dw_pcie_readl_dbi(pci, base, PCIE_GLOBAL_INT_MASK1_REG);
+	reg = dw_pcie_read_dbi(pci, base, PCIE_GLOBAL_INT_MASK1_REG, 0x4);
 	reg |= PCIE_INT_A_ASSERT_MASK | PCIE_INT_B_ASSERT_MASK |
 	       PCIE_INT_C_ASSERT_MASK | PCIE_INT_D_ASSERT_MASK;
-	dw_pcie_writel_dbi(pci, base, PCIE_GLOBAL_INT_MASK1_REG, reg);
+	dw_pcie_write_dbi(pci, base, PCIE_GLOBAL_INT_MASK1_REG, 0x4, reg);
 
 	if (!dw_pcie_link_up(pci)) {
 		/* Configuration done. Start LTSSM */
-		reg = dw_pcie_readl_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG);
+		reg = dw_pcie_read_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG, 0x4);
 		reg |= PCIE_APP_LTSSM_EN;
-		dw_pcie_writel_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG, reg);
+		dw_pcie_write_dbi(pci, base, PCIE_GLOBAL_CONTROL_REG, 0x4, reg);
 	}
 
 	/* Wait until the link becomes active again */
@@ -159,8 +159,8 @@ static irqreturn_t armada8k_pcie_irq_handler(int irq, void *arg)
 	 * PCI device. However, they are also latched into the PCIe
 	 * controller, so we simply discard them.
 	 */
-	val = dw_pcie_readl_dbi(pci, base, PCIE_GLOBAL_INT_CAUSE1_REG);
-	dw_pcie_writel_dbi(pci, base, PCIE_GLOBAL_INT_CAUSE1_REG, val);
+	val = dw_pcie_read_dbi(pci, base, PCIE_GLOBAL_INT_CAUSE1_REG, 0x4);
+	dw_pcie_write_dbi(pci, base, PCIE_GLOBAL_INT_CAUSE1_REG, 0x4, val);
 
 	return IRQ_HANDLED;
 }
