@@ -28,7 +28,7 @@
 #define PCIE_LTSSM_LINKUP_STATE			0x11
 #define PCIE_LTSSM_STATE_MASK			0x3F
 
-#define to_hisi_pcie(x)	container_of(x, struct hisi_pcie, pp)
+#define to_hisi_pcie(x)	dev_get_drvdata((x)->dev)
 
 struct hisi_pcie;
 
@@ -37,7 +37,7 @@ struct pcie_soc_ops {
 };
 
 struct hisi_pcie {
-	struct pcie_port pp;		/* pp.dbi_base is DT rc_dbi */
+	struct dw_pcie *pci;
 	struct regmap *subctrl;
 	u32 port_id;
 	struct pcie_soc_ops *soc_ops;
@@ -50,10 +50,12 @@ static int hisi_pcie_cfg_read(struct pcie_port *pp, int where, int size,
 	u32 reg;
 	u32 reg_val;
 	void *walker = &reg_val;
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	void __iomem *base = pci->dbi_base;
 
 	walker += (where & 0x3);
 	reg = where & ~0x3;
-	reg_val = dw_pcie_readl_rc(pp, reg);
+	reg_val = dw_pcie_read_dbi(pci, base, reg, 0x4);
 
 	if (size == 1)
 		*val = *(u8 __force *) walker;
@@ -74,19 +76,21 @@ static int hisi_pcie_cfg_write(struct pcie_port *pp, int where, int  size,
 	u32 reg_val;
 	u32 reg;
 	void *walker = &reg_val;
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	void __iomem *base = pci->dbi_base;
 
 	walker += (where & 0x3);
 	reg = where & ~0x3;
 	if (size == 4)
-		dw_pcie_writel_rc(pp, reg, val);
+		dw_pcie_write_dbi(pci, base, reg, 0x4, val);
 	else if (size == 2) {
-		reg_val = dw_pcie_readl_rc(pp, reg);
+		reg_val = dw_pcie_read_dbi(pci, base, reg, 0x4);
 		*(u16 __force *) walker = val;
-		dw_pcie_writel_rc(pp, reg, reg_val);
+		dw_pcie_write_dbi(pci, base, reg, 0x4, reg_val);
 	} else if (size == 1) {
-		reg_val = dw_pcie_readl_rc(pp, reg);
+		reg_val = dw_pcie_read_dbi(pci, base, reg, 0x4);
 		*(u8 __force *) walker = val;
-		dw_pcie_writel_rc(pp, reg, reg_val);
+		dw_pcie_write_dbi(pci, base, reg, 0x4, reg_val);
 	} else
 		return PCIBIOS_BAD_REGISTER_NUMBER;
 
@@ -105,32 +109,33 @@ static int hisi_pcie_link_up_hip05(struct hisi_pcie *hisi_pcie)
 
 static int hisi_pcie_link_up_hip06(struct hisi_pcie *hisi_pcie)
 {
-	struct pcie_port *pp = &hisi_pcie->pp;
+	struct dw_pcie *pci = hisi_pcie->pci;
+	void __iomem *base = pci->dbi_base;
 	u32 val;
 
-	val = dw_pcie_readl_rc(pp, PCIE_SYS_STATE4);
+	val = dw_pcie_read_dbi(pci, base, PCIE_SYS_STATE4, 0x4);
 
 	return ((val & PCIE_LTSSM_STATE_MASK) == PCIE_LTSSM_LINKUP_STATE);
 }
 
-static int hisi_pcie_link_up(struct pcie_port *pp)
+static int hisi_pcie_link_up(struct dw_pcie *pci)
 {
-	struct hisi_pcie *hisi_pcie = to_hisi_pcie(pp);
+	struct hisi_pcie *hisi_pcie = to_hisi_pcie(pci);
 
 	return hisi_pcie->soc_ops->hisi_pcie_link_up(hisi_pcie);
 }
 
-static struct pcie_host_ops hisi_pcie_host_ops = {
+static struct dw_pcie_host_ops hisi_pcie_host_ops = {
 	.rd_own_conf = hisi_pcie_cfg_read,
 	.wr_own_conf = hisi_pcie_cfg_write,
-	.link_up = hisi_pcie_link_up,
 };
 
 static int hisi_add_pcie_port(struct hisi_pcie *hisi_pcie,
 			      struct platform_device *pdev)
 {
-	struct pcie_port *pp = &hisi_pcie->pp;
-	struct device *dev = pp->dev;
+	struct dw_pcie *pci = hisi_pcie->pci;
+	struct pcie_port *pp = &pci->pp;
+	struct device *dev = &pdev->dev;
 	int ret;
 	u32 port_id;
 
@@ -155,11 +160,15 @@ static int hisi_add_pcie_port(struct hisi_pcie *hisi_pcie,
 	return 0;
 }
 
+static const struct dw_pcie_ops dw_pcie_ops = {
+	.link_up = hisi_pcie_link_up,
+};
+
 static int hisi_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct dw_pcie *pci;
 	struct hisi_pcie *hisi_pcie;
-	struct pcie_port *pp;
 	const struct of_device_id *match;
 	struct resource *reg;
 	struct device_driver *driver;
@@ -169,8 +178,15 @@ static int hisi_pcie_probe(struct platform_device *pdev)
 	if (!hisi_pcie)
 		return -ENOMEM;
 
-	pp = &hisi_pcie->pp;
-	pp->dev = dev;
+	pci = devm_kzalloc(dev, sizeof(*pci), GFP_KERNEL);
+	if (!pci)
+		return -ENOMEM;
+
+	pci->dev = dev;
+	pci->ops = &dw_pcie_ops;
+
+	hisi_pcie->pci = pci;
+
 	driver = dev->driver;
 
 	match = of_match_device(driver->of_match_table, dev);
@@ -184,11 +200,13 @@ static int hisi_pcie_probe(struct platform_device *pdev)
 	}
 
 	reg = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rc_dbi");
-	pp->dbi_base = devm_ioremap_resource(dev, reg);
-	if (IS_ERR(pp->dbi_base)) {
+	pci->dbi_base = devm_ioremap_resource(dev, reg);
+	if (IS_ERR(pci->dbi_base)) {
 		dev_err(dev, "cannot get rc_dbi base\n");
-		return PTR_ERR(pp->dbi_base);
+		return PTR_ERR(pci->dbi_base);
 	}
+
+	platform_set_drvdata(pdev, hisi_pcie);
 
 	ret = hisi_add_pcie_port(hisi_pcie, pdev);
 	if (ret)
