@@ -35,4 +35,18 @@ config RPMSG_RPC
 
 	  If unsure, say N.
 
+config RPMSG_PRU
+	tristate "PRU RPMsg Communication driver"
+	default n
+	depends on RPMSG_VIRTIO
+	depends on REMOTEPROC
+	depends on PRUSS_REMOTEPROC
+	---help---
+	  An rpmsg driver that exposes interfaces to user space, to allow
+	  applications to communicate with the PRU processors on available
+	  TI SoCs. This is restricted to SoCs that have the PRUSS remoteproc
+	  support.
+
+	  If unsure, say N.
+
 endmenu
