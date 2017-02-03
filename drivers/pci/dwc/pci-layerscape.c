@@ -54,7 +54,6 @@ struct ls_pcie {
 	int index;
 };
 
-#define to_ls_pcie(x)	container_of(x, struct ls_pcie, pp)
 #define to_ls_pcie(x)	dev_get_drvdata((x)->dev)
 
 static bool ls_pcie_is_bridge(struct ls_pcie *pcie)
