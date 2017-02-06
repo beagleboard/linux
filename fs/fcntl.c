@@ -29,7 +29,7 @@
 
 #define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
 
-static int setfl(int fd, struct file * filp, unsigned long arg)
+int setfl(int fd, struct file * filp, unsigned long arg)
 {
 	struct inode * inode = file_inode(filp);
 	int error = 0;
@@ -60,6 +60,8 @@ static int setfl(int fd, struct file * filp, unsigned long arg)
 
 	if (filp->f_op->check_flags)
 		error = filp->f_op->check_flags(arg);
+	if (!error && filp->f_op->setfl)
+		error = filp->f_op->setfl(filp, arg);
 	if (error)
 		return error;
 
