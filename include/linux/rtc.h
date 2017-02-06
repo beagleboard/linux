@@ -91,6 +91,11 @@ struct rtc_class_ops {
 	int (*alarm_irq_enable)(struct device *, unsigned int enabled);
 	int (*read_offset)(struct device *, long *offset);
 	int (*set_offset)(struct device *, long offset);
+	int (*read_scratch)(struct device *, unsigned int, u32*);
+	int (*write_scratch)(struct device *, unsigned int, u32);
+	void (*power_off_program)(struct device *);
+
+	unsigned int scratch_size;
 };
 
 #define RTC_DEVICE_NAME_SIZE 20
@@ -213,6 +218,10 @@ void rtc_timer_cancel(struct rtc_device *rtc, struct rtc_timer *timer);
 int rtc_read_offset(struct rtc_device *rtc, long *offset);
 int rtc_set_offset(struct rtc_device *rtc, long offset);
 void rtc_timer_do_work(struct work_struct *work);
+
+int rtc_read_scratch(struct rtc_device *rtc, unsigned int index, u32 *value);
+int rtc_write_scratch(struct rtc_device *rtc, unsigned int index, u32 value);
+void rtc_power_off_program(struct rtc_device *rtc);
 
 static inline bool is_leap_year(unsigned int year)
 {
