@@ -108,7 +108,7 @@ static void __init omap2_init_processor_devices(void)
 	}
 }
 
-int __init omap_pm_clkdms_setup(struct clockdomain *clkdm, void *unused)
+int omap_pm_clkdms_setup(struct clockdomain *clkdm, void *unused)
 {
 	clkdm_allow_idle(clkdm);
 	return 0;

@@ -32,6 +32,10 @@
 		reg = <0x80000000 0x10000000>; /* 256 MB */
 	};
 
+	chosen {
+		stdout-path = &uart0;
+	};
+
 	vbat: fixedregulator0 {
 		compatible = "regulator-fixed";
 		regulator-name = "vbat";
@@ -200,7 +204,13 @@
 
 &am33xx_pinmux {
 	pinctrl-names = "default";
-	pinctrl-0 = <&gpio_keys_s0 &clkout2_pin>;
+	pinctrl-0 = <&gpio_keys_s0 &clkout2_pin &ddr3_vtt_toggle>;
+
+	ddr3_vtt_toggle: ddr3_vtt_toggle {
+		pinctrl-single,pins = <
+			0x164 (PIN_OUTPUT | MUX_MODE7)	/* ecap0_in_pwm0_out.gpio0_7 */
+		>;
+	};
 
 	lcd_pins_default: lcd_pins_default {
 		pinctrl-single,pins = <
@@ -535,6 +545,12 @@
 	};
 };
 
+&wkup_m3_ipc {
+	ti,needs-vtt-toggle;
+	ti,vtt-gpio-pin = <7>;
+	ti,scale-data-fw = "am335x-evm-scale-data.bin";
+};
+
 #include "tps65910.dtsi"
 
 &tps {
@@ -714,4 +730,9 @@
 	status = "okay";
 
 	blue-and-red-wiring = "crossed";
+};
+
+&rtc {
+	clocks = <&clk_32768_ck>, <&clkdiv32k_ick>;
+	clock-names = "ext-clk", "int-clk";
 };

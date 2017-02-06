@@ -77,6 +77,13 @@ static inline int omap4_pm_init_early(void)
 }
 #endif
 
+#if defined(CONFIG_PM) && (defined(CONFIG_SOC_AM33XX) || \
+	defined(CONFIG_SOC_AM43XX))
+void amx3_common_pm_init(void);
+#else
+static inline void amx3_common_pm_init(void) { }
+#endif
+
 #ifdef CONFIG_OMAP_MUX
 int omap_mux_late_init(void);
 #else
