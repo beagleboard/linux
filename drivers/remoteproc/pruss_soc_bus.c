@@ -65,7 +65,6 @@ static inline void pruss_soc_bus_rmw(void __iomem *reg, u32 mask, u32 set)
 	writel_relaxed(val, reg);
 }
 
-#ifdef CONFIG_PM_SLEEP
 /*
  * This function programs the PRUSS_SYSCFG.STANDBY_INIT bit to achieve dual
  * functionalities - one is to deassert the MStandby signal to the device
@@ -98,6 +97,7 @@ static int pruss_soc_bus_enable_ocp_master_ports(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
 static int pruss_soc_bus_suspend(struct device *dev)
 {
 	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
@@ -175,6 +175,11 @@ static int pruss_enable_module(struct device *dev)
 			  SYSCFG_IDLE_MODE_SMART);
 	pruss_soc_bus_rmw(psoc_bus->syscfg, SYSCFG_STANDBY_MODE_MASK,
 			  SYSCFG_STANDBY_MODE_SMART);
+
+	/* enable OCP master ports/disable MStandby */
+	ret = pruss_soc_bus_enable_ocp_master_ports(dev);
+	if (ret)
+		pruss_disable_module(dev);
 
 	return ret;
 }
