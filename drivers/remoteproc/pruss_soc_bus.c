@@ -29,6 +29,16 @@
 #define SYSCFG_STANDBY_INIT	BIT(4)
 #define SYSCFG_SUB_MWAIT_READY	BIT(5)
 
+#define SYSCFG_STANDBY_MODE_FORCE	(0 << 2)
+#define SYSCFG_STANDBY_MODE_NO		(1 << 2)
+#define SYSCFG_STANDBY_MODE_SMART	(2 << 2)
+#define SYSCFG_STANDBY_MODE_MASK	(3 << 2)
+
+#define SYSCFG_IDLE_MODE_FORCE		0
+#define SYSCFG_IDLE_MODE_NO		1
+#define SYSCFG_IDLE_MODE_SMART		2
+#define SYSCFG_IDLE_MODE_MASK		3
+
 /**
  * struct pruss_soc_bus - PRUSS SoC bus structure
  * @base: kernel mapped address for bus register base
@@ -127,6 +137,44 @@ static int pruss_soc_bus_resume(struct device *dev)
 }
 #endif /* CONFIG_PM_SLEEP */
 
+/* firmware must be idle when calling this function */
+static void pruss_disable_module(struct device *dev)
+{
+	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
+
+	/* configure Smart Standby */
+	pruss_soc_bus_rmw(psoc_bus->base, SYSCFG_OFFSET,
+			  SYSCFG_STANDBY_MODE_MASK, SYSCFG_STANDBY_MODE_SMART);
+
+	/* initiate MStandby */
+	pruss_soc_bus_rmw(psoc_bus->base, SYSCFG_OFFSET,
+			  SYSCFG_STANDBY_INIT, SYSCFG_STANDBY_INIT);
+
+	/* tell PRCM to initiate IDLE request */
+	pm_runtime_put_sync(dev);
+}
+
+static int pruss_enable_module(struct device *dev)
+{
+	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
+	int ret;
+
+	/* tell PRCM to de-assert IDLE request */
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(dev);
+		return ret;
+	}
+
+	/* configure for Smart Idle & Smart Standby */
+	pruss_soc_bus_rmw(psoc_bus->base, SYSCFG_OFFSET,
+			  SYSCFG_IDLE_MODE_MASK, SYSCFG_IDLE_MODE_SMART);
+	pruss_soc_bus_rmw(psoc_bus->base, SYSCFG_OFFSET,
+			  SYSCFG_STANDBY_MODE_MASK, SYSCFG_STANDBY_MODE_SMART);
+
+	return ret;
+}
+
 static const struct of_device_id pruss_soc_bus_of_match[];
 
 static const struct pruss_soc_bus_match_data *pruss_soc_bus_get_match_data(
@@ -181,10 +229,10 @@ static int pruss_soc_bus_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
-	ret = pm_runtime_get_sync(dev);
+	ret = pruss_enable_module(dev);
 	if (ret < 0) {
-		pm_runtime_put_noidle(dev);
-		goto fail_clock;
+		dev_err(dev, "couldn't enable module\n");
+		goto fail_module;
 	}
 
 	ret = of_platform_populate(node, NULL, NULL, dev);
@@ -194,8 +242,8 @@ static int pruss_soc_bus_probe(struct platform_device *pdev)
 	return 0;
 
 fail_of:
-	pm_runtime_put_sync(dev);
-fail_clock:
+	pruss_disable_module(dev);
+fail_module:
 	pm_runtime_disable(dev);
 	if (psoc_bus->has_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
@@ -212,7 +260,7 @@ static int pruss_soc_bus_remove(struct platform_device *pdev)
 
 	of_platform_depopulate(dev);
 
-	pm_runtime_put_sync(dev);
+	pruss_disable_module(dev);
 	pm_runtime_disable(dev);
 
 	if (psoc_bus->has_reset)
