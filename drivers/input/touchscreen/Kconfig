@@ -888,4 +888,14 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+config TOUCHSCREEN_MCHPAR1XXX
+	tristate "Microchip AR1XXX touchscreen"
+	select SERIO
+	default m
+	help
+	  Say Y here if you have a Microchip AR1XXX Controller and
+	  want to enable support for the built-in touchscreen.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called mchipar1xxx.
 endif
