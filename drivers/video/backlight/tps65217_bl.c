@@ -337,9 +337,9 @@ static int tps65217_bl_probe(struct platform_device *pdev)
 	struct backlight_properties bl_props;
 	int brightness = 0;
 
-	tps = NULL;
+	tps = dev_get_drvdata(pdev->dev.parent);
 
-	if (pdev->dev.of_node) {
+	if ((pdev->dev.of_node) || (tps->dev->of_node)) {
 		pdata = tps65217_bl_parse_dt(pdev, &tps, &brightness);
 		if (IS_ERR(pdata)) {
 			dev_err(&pdev->dev, "DT parse failed.\n");
@@ -352,9 +352,6 @@ static int tps65217_bl_probe(struct platform_device *pdev)
 		}
 
 		pdata = pdev->dev.platform_data;
-
-		/* get the parent device */
-		tps = dev_get_drvdata(pdev->dev.parent);
 	}
 
 	if (tps == NULL) {
