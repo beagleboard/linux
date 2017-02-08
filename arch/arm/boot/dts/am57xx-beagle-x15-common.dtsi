@@ -703,3 +703,35 @@
 	mboxes = <&mailbox6 &mbox_dsp2_ipc3x>;
 	timers = <&timer6>;
 };
+
+&pruss_soc_bus1 {
+	pruss1: pruss@4b200000 {
+		pru1_0: pru@4b234000 {
+			interrupt-parent = <&pruss1_intc>;
+			interrupts = <16>, <17>;
+			interrupt-names = "vring", "kick";
+		};
+
+		pru1_1: pru@4b238000 {
+			interrupt-parent = <&pruss1_intc>;
+			interrupts = <18>, <19>;
+			interrupt-names = "vring", "kick";
+		};
+	};
+};
+
+&pruss_soc_bus2 {
+	pruss2: pruss@4b280000 {
+		pru2_0: pru@4b2b4000 {
+			interrupt-parent = <&pruss2_intc>;
+			interrupts = <16>, <17>;
+			interrupt-names = "vring", "kick";
+		};
+
+		pru2_1: pru@4b2b8000 {
+			interrupt-parent = <&pruss2_intc>;
+			interrupts = <18>, <19>;
+			interrupt-names = "vring", "kick";
+		};
+	};
+};
