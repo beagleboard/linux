@@ -235,7 +235,18 @@ struct platform_driver bone_iio_helper_driver = {
 	},
 };
 
-module_platform_driver(bone_iio_helper_driver);
+static int __init bone_iio_helper_init(void)
+{
+	return platform_driver_register(&bone_iio_helper_driver);
+}
+
+static void __exit bone_iio_helper_exit(void)
+{
+	platform_driver_unregister(&bone_iio_helper_driver);
+}
+
+late_initcall(bone_iio_helper_init);
+module_exit(bone_iio_helper_exit);
 
 MODULE_AUTHOR("Matt Ranostay");
 MODULE_DESCRIPTION("Beaglebone IIO helper driver");
