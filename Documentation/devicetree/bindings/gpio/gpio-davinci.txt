@@ -1,7 +1,7 @@
 Davinci/Keystone GPIO controller bindings
 
 Required Properties:
-- compatible: should be "ti,dm6441-gpio", "ti,keystone-gpio"
+- compatible: should be "ti,dm6441-gpio", "ti,keystone-gpio", "ti,k2g-gpio"
 
 - reg: Physical base address of the controller and the size of memory mapped
        registers.

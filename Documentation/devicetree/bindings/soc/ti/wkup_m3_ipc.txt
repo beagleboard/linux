@@ -55,3 +55,96 @@ Example:
 			...
 		};
 	};
+
+Support for I2C PMIC Voltage Scaling
+--------------------
+It is possible to pass the name of a binary file to laod to the CM3 firmware
+in order to provide I2C sequences for the CM3 to send out to the PMIC during
+low power mode entry.
+
+Optional properties:
+--------------------
+- scale-data-fw:	Name of the firmware binary in /lib/firmware to copy to m3
+			aux data.
+
+Support for VTT Toggle
+==================================
+In order to enable the support for VTT toggle during Suspend/Resume
+sequence needed by some boards (like AM335x EVM-SK & AM437x GP EVM),
+the below DT properties are required. It is possible to toggle VTT
+using one of two methods depending on the SoC being used, either
+GPIO0 toggle (AM335x and AM437x), or any GPIO with DS_PAD_CONFIG
+bits in the control module (AM437x only).
+
+VTT Toggle using GPIO0
+----------------------------------
+Supported by: AM335x and AM437x
+Used on: AM335x EVM-SK
+
+Optional properties:
+- ti,needs-vtt-toggle:	Indicates that the boards requires VTT toggling
+			during suspend/resume.
+- ti,vtt-gpio-pin:	Specifies the GPIO0 pin used for VTT toggle.
+
+Important Note:
+- Here it is assumed that VTT Toggle will be done using a pin on GPIO-0 Instance.
+  It will not work on any other GPIO using the above properties, regardless of
+  which part is being used.
+
+Example:
+	wkup_m3_ipc: wkup_m3_ipc@1324 {
+		compatible = "ti,am3352-wkup-m3-ipc";
+		...
+		...
+		ti,needs-vtt-toggle;
+		ti,vtt-gpio-pin = <7>;
+		...
+	};
+
+VTT Toggle using any GPIO
+----------------------------------
+Supported by: AM437x ONLY
+Used on: AM437x GP EVM
+
+Many of the pins on AM437x have the ability to configure both normal and
+sleep states. Because of this it is possible to use any pin with a
+corresponding CTRL_CONF_* register in the control module and the
+DS_PAD_CONFIG bits to toggle the VTT regulator enable pin. The DS state of
+the pin must be configured such that the pin disables the VTT regulator. The
+normal state of the pin must be configured such that the VTT regulator is
+enabled by the state alone. This is because the VTT regulator must be enabled
+before context is restored to the controlling GPIO.
+
+Optional properties:
+- ti,set-io-isolation:	Indicates that the IO's should be placed into
+			isolation and the DS_PAD_CONFIG values should be
+			used during suspend.
+
+Example:
+
+On the AM437x GP EVM, the VTT enable line must be held low to disable VTT
+regulator and held high to enable, so the following pinctrl entry is used.
+The DS pull is enabled which uses a pull down by default and DS off mode is
+used which outputs a low by default. For the normal state, a pull up is
+specified so that the VTT enable line gets pulled high immediately after
+the DS states are removed upon exit from DeepSleep0.
+
+	&am43xx_pinmux {
+		pinctrl-names = "default";
+		pinctrl-0 = <&ddr3_vtt_toggle_default>;
+
+		ddr3_vtt_toggle_default: ddr_vtt_toggle_default {
+		pinctrl-single,pins = <
+			0x25C (DS0_PULL_UP_DOWN_EN | PIN_OUTPUT_PULLUP |
+			       DS0_FORCE_OFF_MODE | MUX_MODE7)>;
+		};
+		...
+	};
+
+	wkup_m3_ipc: wkup_m3_ipc@1324 {
+		compatible = "ti,am4372-wkup-m3-ipc";
+		...
+		...
+		ti,set-io-isolation;
+		...
+	};

@@ -522,29 +522,36 @@ static int omap_des_crypt_dma_stop(struct omap_des_dev *dd)
 	return 0;
 }
 
-static int omap_des_copy_needed(struct scatterlist *sg)
+static int omap_des_copy_needed(struct scatterlist *sg, int total)
 {
+	int len = 0;
+
+	if (!IS_ALIGNED(total, DES_BLOCK_SIZE))
+		return -1;
+
 	while (sg) {
 		if (!IS_ALIGNED(sg->offset, 4))
 			return -1;
 		if (!IS_ALIGNED(sg->length, DES_BLOCK_SIZE))
 			return -1;
+
+		len += sg->length;
 		sg = sg_next(sg);
 	}
+
+	if (len != total)
+		return -1;
+
 	return 0;
 }
 
 static int omap_des_copy_sgs(struct omap_des_dev *dd)
 {
 	void *buf_in, *buf_out;
-	int pages;
+	int pages, total;
 
-	pages = dd->total >> PAGE_SHIFT;
-
-	if (dd->total & (PAGE_SIZE-1))
-		pages++;
-
-	BUG_ON(!pages);
+	total = ALIGN(dd->total, DES_BLOCK_SIZE);
+	pages = get_order(total);
 
 	buf_in = (void *)__get_free_pages(GFP_ATOMIC, pages);
 	buf_out = (void *)__get_free_pages(GFP_ATOMIC, pages);
@@ -606,8 +613,8 @@ static int omap_des_prepare_req(struct crypto_engine *engine,
 	if (dd->out_sg_len < 0)
 		return dd->out_sg_len;
 
-	if (omap_des_copy_needed(dd->in_sg) ||
-	    omap_des_copy_needed(dd->out_sg)) {
+	if (omap_des_copy_needed(dd->in_sg, dd->total) ||
+	    omap_des_copy_needed(dd->out_sg, dd->total)) {
 		if (omap_des_copy_sgs(dd))
 			pr_err("Failed to copy SGs for unaligned cases\n");
 		dd->sgs_copied = 1;

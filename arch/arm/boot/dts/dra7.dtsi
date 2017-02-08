@@ -80,11 +80,7 @@
 			compatible = "arm,cortex-a15";
 			reg = <0>;
 
-			operating-points = <
-				/* kHz    uV */
-				1000000	1060000
-				1176000	1160000
-				>;
+			operating-points-v2 = <&cpu0_opp_table>;
 
 			clocks = <&dpll_mpu_ck>;
 			clock-names = "cpu";
@@ -95,6 +91,37 @@
 			cooling-min-level = <0>;
 			cooling-max-level = <2>;
 			#cooling-cells = <2>; /* min followed by max */
+
+			vbb-supply = <&abb_mpu>;
+		};
+	};
+
+	cpu0_opp_table: opp_table0 {
+		compatible = "operating-points-v2-ti-cpu";
+		ti,syscon-efuse = <&scm_wkup 0x20c 0xf80000 19>;
+		ti,syscon-rev = <&scm_wkup 0x204>;
+
+		opp_nom@1000000000 {
+			opp-hz = /bits/ 64 <1000000000>;
+			opp-microvolt = <1060000 850000 1150000>,
+					<1060000 850000 1150000>;
+			opp-supported-hw = <0xFF 0x01>;
+			opp-suspend;
+		};
+
+		opp_od@1176000000 {
+			opp-hz = /bits/ 64 <1176000000>;
+			opp-microvolt = <1160000 885000 1160000>,
+					<1160000 885000 1160000>;
+
+			opp-supported-hw = <0xFF 0x02>;
+		};
+
+		opp_high@1500000000 {
+			opp-hz = /bits/ 64 <1500000000>;
+			opp-microvolt = <1210000 950000 1250000>,
+					<1210000 950000 1250000>;
+			opp-supported-hw = <0xFF 0x04>;
 		};
 	};
 
@@ -398,6 +425,14 @@
 		dsp1_system: dsp_system@40d00000 {
 			compatible = "syscon";
 			reg = <0x40d00000 0x100>;
+		};
+
+		dra7_iodelay_core: padconf@4844a000 {
+			compatible = "ti,dra7-iodelay";
+			reg = <0x4844a000 0x0d1c>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#pinctrl-cells = <2>;
 		};
 
 		sdma: dma-controller@4a056000 {
@@ -2006,6 +2041,8 @@
 				ti,hwmods = "dss_hdmi";
 				clocks = <&dss_48mhz_clk>, <&dss_hdmi_clk>;
 				clock-names = "fck", "sys_clk";
+				dmas = <&sdma_xbar 76>;
+				dma-names = "audio_tx";
 			};
 		};
 
@@ -2151,6 +2188,19 @@
 			clocks = <&l3_iclk_div>;
 			clock-names = "fck";
 		};
+
+		opp_supply_mpu: opp-supply@4a003b20 {
+			compatible = "ti,omap5-opp-supply";
+			reg = <0x4a003b20 0xc>;
+			ti,efuse-settings = <
+			/* uV   offset */
+			1060000 0x0
+			1160000 0x4
+			1210000 0x8
+			>;
+			ti,absolute-max-voltage-uv = <1500000>;
+		};
+
 	};
 
 	thermal_zones: thermal-zones {

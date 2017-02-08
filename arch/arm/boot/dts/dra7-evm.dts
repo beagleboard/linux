@@ -55,6 +55,10 @@
 		};
 	};
 
+	chosen {
+		stdout-path = &uart1;
+	};
+
 	evm_3v3_sd: fixedregulator-sd {
 		compatible = "regulator-fixed";
 		regulator-name = "evm_3v3_sd";
@@ -692,7 +696,7 @@
 };
 
 &cpu0 {
-	cpu0-supply = <&smps123_reg>;
+	vdd-supply = <&smps123_reg>;
 };
 
 &qspi {

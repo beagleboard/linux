@@ -25,8 +25,14 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/sram.h>
+
+#include <asm/cacheflush.h>
 
 #define SRAM_GRANULARITY	32
+
+static DEFINE_MUTEX(exec_pool_list_mutex);
+static LIST_HEAD(exec_pool_list);
 
 struct sram_partition {
 	void __iomem *base;
@@ -34,6 +40,7 @@ struct sram_partition {
 	struct gen_pool *pool;
 	struct bin_attribute battr;
 	struct mutex lock;
+	struct list_head list;
 };
 
 struct sram_dev {
@@ -53,8 +60,64 @@ struct sram_reserve {
 	u32 size;
 	bool export;
 	bool pool;
+	bool protect_exec;
 	const char *label;
 };
+
+/**
+ * sram_exec_copy - copy data to a protected executable region of sram
+ *
+ * @pool: struct gen_pool retrieved that is part of this sram
+ * @dst: Destination address for the copy, that must be inside pool
+ * @src: Source address for the data to copy
+ * @size: Size of copy to perform, which starting from dst, must reside in pool
+ *
+ * This helper function allows sram driver to act as central control location
+ * of 'protect-exec' pools which are normal sram pools but are always set
+ * read-only and executable except when copying data to them, at which point
+ * they are set to read-write non-executable, to make sure no memory is
+ * writeable and executable at the same time. This region must be page-aligned
+ * and is checked during probe, otherwise page attribute manipulation would
+ * not be possible.
+ */
+int sram_exec_copy(struct gen_pool *pool, void *dst, void *src,
+		   size_t size)
+{
+	struct sram_partition *part = NULL, *p;
+	unsigned long base;
+	int pages;
+
+	mutex_lock(&exec_pool_list_mutex);
+	list_for_each_entry(p, &exec_pool_list, list) {
+		if (p->pool == pool)
+			part = p;
+	}
+	mutex_unlock(&exec_pool_list_mutex);
+
+	if (!part)
+		return -EINVAL;
+
+	if (!addr_in_gen_pool(pool, (unsigned long)dst, size))
+		return -EINVAL;
+
+	base = (unsigned long)part->base;
+	pages = PAGE_ALIGN(size) / PAGE_SIZE;
+
+	mutex_lock(&part->lock);
+
+	set_memory_nx((unsigned long)base, pages);
+	set_memory_rw((unsigned long)base, pages);
+
+	memcpy(dst, src, size);
+
+	set_memory_ro((unsigned long)base, pages);
+	set_memory_x((unsigned long)base, pages);
+
+	mutex_unlock(&part->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sram_exec_copy);
 
 static ssize_t sram_read(struct file *filp, struct kobject *kobj,
 			 struct bin_attribute *attr,
@@ -133,6 +196,16 @@ static int sram_add_partition(struct sram_dev *sram, struct sram_reserve *block,
 	mutex_init(&part->lock);
 	part->base = sram->virt_base + block->start;
 
+	if (block->protect_exec) {
+		unsigned long base = (unsigned long)part->base;
+		unsigned long end = base + block->size;
+
+		if (!PAGE_ALIGNED(base) || !PAGE_ALIGNED(end)) {
+			dev_err(sram->dev,
+				"SRAM pool marked with 'protect-exec' is not page aligned and will not be created.\n");
+			return -ENOMEM;
+		}
+	}
 	if (block->pool) {
 		ret = sram_add_pool(sram, block, start, part);
 		if (ret)
@@ -143,6 +216,13 @@ static int sram_add_partition(struct sram_dev *sram, struct sram_reserve *block,
 		if (ret)
 			return ret;
 	}
+	if (block->protect_exec) {
+		/* Add to the list after successful call to sram_add_pool */
+		mutex_lock(&exec_pool_list_mutex);
+		list_add_tail(&part->list, &exec_pool_list);
+		mutex_unlock(&exec_pool_list_mutex);
+	}
+
 	sram->partitions++;
 
 	return 0;
@@ -227,6 +307,11 @@ static int sram_reserve_regions(struct sram_dev *sram, struct resource *res)
 
 		if (of_find_property(child, "pool", NULL))
 			block->pool = true;
+
+		if (of_find_property(child, "protect-exec", NULL)) {
+			block->protect_exec = true;
+			block->pool = true;
+		}
 
 		if ((block->export || block->pool) && block->size) {
 			exports++;
