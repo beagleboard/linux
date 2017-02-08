@@ -616,3 +616,67 @@
 		};
 	};
 };
+
+&mailbox3 {
+	status = "okay";
+	mbox_pru1_0: mbox_pru1_0 {
+		status = "okay";
+	};
+	mbox_pru1_1: mbox_pru1_1 {
+		status = "okay";
+	};
+};
+
+&mailbox4 {
+	status = "okay";
+	mbox_pru2_0: mbox_pru2_0 {
+		status = "okay";
+	};
+	mbox_pru2_1: mbox_pru2_1 {
+		status = "okay";
+	};
+};
+
+&pruss_soc_bus1 {
+	status = "okay";
+
+	pruss1: pruss@4b200000 {
+		status = "okay";
+
+		pru1_0: pru@4b234000 {
+			interrupt-parent = <&pruss1_intc>;
+			interrupts = <16>, <17>;
+			interrupt-names = "vring", "kick";
+			status = "okay";
+		};
+
+		pru1_1: pru@4b238000 {
+			interrupt-parent = <&pruss1_intc>;
+			interrupts = <18>, <19>;
+			interrupt-names = "vring", "kick";
+			status = "okay";
+		};
+	};
+};
+
+&pruss_soc_bus2 {
+	status = "okay";
+
+	pruss2: pruss@4b280000 {
+		status = "okay";
+
+		pru2_0: pru@4b2b4000 {
+			interrupt-parent = <&pruss2_intc>;
+			interrupts = <16>, <17>;
+			interrupt-names = "vring", "kick";
+			status = "okay";
+		};
+
+		pru2_1: pru@4b2b8000 {
+			interrupt-parent = <&pruss2_intc>;
+			interrupts = <18>, <19>;
+			interrupt-names = "vring", "kick";
+			status = "okay";
+		};
+	};
+};

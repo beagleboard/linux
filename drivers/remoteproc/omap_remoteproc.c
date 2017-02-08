@@ -553,7 +553,8 @@ out:
  * present in a DSP or IPU device). The translated addresses can be used
  * either by the remoteproc core for loading, or by any rpmsg bus drivers.
  */
-static void *omap_rproc_da_to_va(struct rproc *rproc, u64 da, int len)
+static void *omap_rproc_da_to_va(struct rproc *rproc, u64 da, int len,
+				 u32 flags)
 {
 	struct omap_rproc *oproc = rproc->priv;
 	void *va = NULL;

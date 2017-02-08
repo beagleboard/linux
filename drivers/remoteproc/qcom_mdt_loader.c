@@ -145,7 +145,8 @@ int qcom_mdt_load(struct rproc *rproc,
 		if (!phdr->p_memsz)
 			continue;
 
-		ptr = rproc_da_to_va(rproc, phdr->p_paddr, phdr->p_memsz);
+		ptr = rproc_da_to_va(rproc, phdr->p_paddr, phdr->p_memsz,
+				     RPROC_FLAGS_NONE);
 		if (!ptr) {
 			dev_err(&rproc->dev, "segment outside memory range\n");
 			ret = -EINVAL;

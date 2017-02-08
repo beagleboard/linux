@@ -794,3 +794,31 @@
 &wkup_m3_ipc {
 	ti,scale-data-fw = "am43x-evm-scale-data.bin";
 };
+
+&pruss_soc_bus {
+	status = "okay";
+
+	pruss1: pruss@54400000 {
+		status = "okay";
+
+		pru1_0: pru@54434000 {
+			status = "okay";
+		};
+
+		pru1_1: pru@54438000 {
+			status = "okay";
+		};
+	};
+
+	pruss0: pruss@54440000 {
+		status = "okay";
+
+		pru0_0: pru@54474000 {
+			status = "okay";
+		};
+
+		pru0_1: pru@54478000 {
+			status = "okay";
+		};
+	};
+};
