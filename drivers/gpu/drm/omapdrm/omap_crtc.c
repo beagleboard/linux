@@ -526,13 +526,7 @@ static void omap_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	omap_crtc_write_crtc_properties(crtc);
 
-	/*
-	 * Only flush the CRTC if it is currently enabled. CRTCs that require a
-	 * mode set are disabled prior plane updates and enabled afterwards.
-	 * They are thus not active (regardless of what their CRTC core state
-	 * reports) and the DRM core could thus call this function even though
-	 * the CRTC is currently disabled. Do nothing in that case.
-	 */
+	/* Only flush the CRTC if it is currently enabled. */
 	if (!omap_crtc->enabled)
 		return;
 
