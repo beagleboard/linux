@@ -24,6 +24,10 @@
 		display0 = &lcd0;
 	};
 
+	chosen {
+		stdout-path = &uart0;
+	};
+
 	/* fixed 32k external oscillator clock */
 	clk_32k_rtc: clk_32k_rtc {
 		#clock-cells = <0>;
@@ -756,6 +760,38 @@
 			bus-width = <8>;
 			hsync-active = <0>;
 			vsync-active = <0>;
+		};
+	};
+};
+
+&wkup_m3_ipc {
+	ti,scale-data-fw = "am43x-evm-scale-data.bin";
+};
+
+&pruss_soc_bus {
+	status = "okay";
+
+	pruss1: pruss@54400000 {
+		status = "okay";
+
+		pru1_0: pru@54434000 {
+			status = "okay";
+		};
+
+		pru1_1: pru@54438000 {
+			status = "okay";
+		};
+	};
+
+	pruss0: pruss@54440000 {
+		status = "okay";
+
+		pru0_0: pru@54474000 {
+			status = "okay";
+		};
+
+		pru0_1: pru@54478000 {
+			status = "okay";
 		};
 	};
 };

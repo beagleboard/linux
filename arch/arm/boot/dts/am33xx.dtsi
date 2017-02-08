@@ -42,27 +42,101 @@
 		#size-cells = <0>;
 		cpu@0 {
 			compatible = "arm,cortex-a8";
+			enable-method = "ti,am3352";
 			device_type = "cpu";
 			reg = <0>;
 
-			/*
-			 * To consider voltage drop between PMIC and SoC,
-			 * tolerance value is reduced to 2% from 4% and
-			 * voltage value is increased as a precaution.
-			 */
-			operating-points = <
-				/* kHz    uV */
-				720000  1285000
-				600000  1225000
-				500000  1125000
-				275000  1125000
-			>;
-			voltage-tolerance = <2>; /* 2 percentage */
+			operating-points-v2 = <&cpu0_opp_table>;
 
 			clocks = <&dpll_mpu_ck>;
 			clock-names = "cpu";
 
 			clock-latency = <300000>; /* From omap-cpufreq driver */
+			cpu-idle-states = <&mpu_gate>;
+		};
+
+		idle-states {
+			mpu_gate: mpu_gate {
+				compatible = "arm,idle-state";
+				entry-latency-us = <40>;
+				exit-latency-us = <90>;
+				min-residency-us = <300>;
+				ti,idle-wkup-m3;
+			};
+		};
+	};
+
+	cpu0_opp_table: opp_table0 {
+		compatible = "operating-points-v2-ti-cpu";
+		ti,syscon-efuse = <&scm_conf 0x7fc 0x1fff 0>;
+		ti,syscon-rev = <&scm_conf 0x600>;
+
+		/*
+		 * The three following nodes are marked with opp-suspend
+		 * because the can not be enabled simultaneously on a
+		 * single SoC.
+		 */
+		opp50@300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+			opp-microvolt = <950000 931000 969000>;
+			opp-supported-hw = <0x06 0x0010>;
+			opp-suspend;
+		};
+
+		opp100@275000000 {
+			opp-hz = /bits/ 64 <275000000>;
+			opp-microvolt = <1100000 1078000 1122000>;
+			opp-supported-hw = <0x01 0x00FF>;
+			opp-suspend;
+		};
+
+		opp100@300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+			opp-microvolt = <1100000 1078000 1122000>;
+			opp-supported-hw = <0x06 0x0020>;
+			opp-suspend;
+		};
+
+		opp100@500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <1100000 1078000 1122000>;
+			opp-supported-hw = <0x01 0xFFFF>;
+		};
+
+		opp100@600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			opp-microvolt = <1100000 1078000 1122000>;
+			opp-supported-hw = <0x06 0x0040>;
+		};
+
+		opp120@600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			opp-microvolt = <1200000 1176000 1224000>;
+			opp-supported-hw = <0x01 0xFFFF>;
+		};
+
+		opp120@720000000 {
+			opp-hz = /bits/ 64 <720000000>;
+			opp-microvolt = <1200000 1176000 1224000>;
+			opp-supported-hw = <0x06 0x0080>;
+		};
+
+		oppturbo@720000000 {
+			opp-hz = /bits/ 64 <720000000>;
+			opp-microvolt = <1260000 1234800 1285200>;
+			opp-supported-hw = <0x01 0xFFFF>;
+		};
+
+		oppturbo@800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <1260000 1234800 1285200>;
+			opp-supported-hw = <0x06 0x0100>;
+		};
+
+		oppnitro@1000000000 {
+			opp-hz = /bits/ 64 <1000000000>;
+			opp-microvolt = <1325000 1298500 1351500>;
+			opp-supported-hw = <0x04 0x0200>;
 		};
 	};
 
@@ -80,6 +154,8 @@
 		mpu {
 			compatible = "ti,omap3-mpu";
 			ti,hwmods = "mpu";
+			pm-sram = <&pm_sram_code
+				   &pm_sram_data>;
 		};
 	};
 
@@ -220,6 +296,13 @@
 			reg =	<0x49a00000 0x100000>;
 			interrupts = <114>;
 			interrupt-names = "edma3_tcerrint";
+		};
+
+		emif: emif@4c000000 {
+			compatible = "ti,emif-am3352";
+			reg =	<0x4C000000 0x1000>;
+			sram = <&pm_sram_code
+				&pm_sram_data>;
 		};
 
 		gpio0: gpio@44e07000 {
@@ -443,6 +526,14 @@
 				ti,mbox-tx = <0 0 0>;
 				ti,mbox-rx = <0 0 3>;
 			};
+			mbox_pru0: mbox_pru0 {
+				ti,mbox-tx = <2 0 0>;
+				ti,mbox-rx = <3 0 0>;
+			};
+			mbox_pru1: mbox_pru1 {
+				ti,mbox-tx = <4 0 0>;
+				ti,mbox-rx = <5 0 0>;
+			};
 		};
 
 		timer1: timer@44e31000 {
@@ -505,6 +596,8 @@
 			interrupts = <75
 				      76>;
 			ti,hwmods = "rtc";
+			clocks = <&clkdiv32k_ick>;
+			clock-names = "int-clk";
 		};
 
 		spi0: spi@48030000 {
@@ -829,6 +922,95 @@
 		ocmcram: ocmcram@40300000 {
 			compatible = "mmio-sram";
 			reg = <0x40300000 0x10000>; /* 64k */
+			ranges = <0x0 0x40300000 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			pm_sram_code: pm-sram-code@0 {
+				compatible = "ti,sram";
+				reg = <0x0 0x1000>;
+				protect-exec;
+			};
+
+			pm_sram_data: pm-sram-data@1000 {
+				compatible = "ti,sram";
+				reg = <0x1000 0x1000>;
+				pool;
+			};
+		};
+
+		pruss_soc_bus: pruss_soc_bus@4a326000 {
+			compatible = "ti,am3356-pruss-soc-bus";
+			reg = <0x4a326000 0x2000>;
+			ti,hwmods = "pruss";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			status = "disabled";
+
+			pruss: pruss@4a300000 {
+				compatible = "ti,am3356-pruss";
+				reg = <0x4a300000 0x2000>,
+				      <0x4a302000 0x2000>,
+				      <0x4a310000 0x3000>,
+				      <0x4a326000 0x2000>,
+				      <0x4a32e000 0x31c>,
+				      <0x4a332000 0x58>;
+				reg-names = "dram0", "dram1", "shrdram2", "cfg",
+					    "iep", "mii_rt";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				status = "disabled";
+
+				pruss_intc: intc@4a320000 {
+					compatible = "ti,am3356-pruss-intc";
+					reg = <0x4a320000 0x2000>;
+					reg-names = "intc";
+					interrupts = <20 21 22 23 24 25 26 27>;
+					interrupt-names = "host2", "host3",
+							  "host4", "host5",
+							  "host6", "host7",
+							  "host8", "host9";
+					interrupt-controller;
+					#interrupt-cells = <1>;
+				};
+
+				pru0: pru@4a334000 {
+					compatible = "ti,am3356-pru";
+					reg = <0x4a334000 0x2000>,
+					      <0x4a322000 0x400>,
+					      <0x4a322400 0x100>;
+					reg-names = "iram", "control", "debug";
+					interrupt-parent = <&pruss_intc>;
+					interrupts = <16>, <17>;
+					interrupt-names = "vring", "kick";
+					status = "disabled";
+				};
+
+				pru1: pru@4a338000 {
+					compatible = "ti,am3356-pru";
+					reg = <0x4a338000 0x2000>,
+					      <0x4a324000 0x400>,
+					      <0x4a324400 0x100>;
+					reg-names = "iram", "control", "debug";
+					interrupt-parent = <&pruss_intc>;
+					interrupts = <18>, <19>;
+					interrupt-names = "vring", "kick";
+					status = "disabled";
+				};
+
+				pruss_mdio: mdio@4a332400 {
+					compatible = "ti,davinci_mdio";
+					reg = <0x4a332400 0x90>;
+					clocks = <&dpll_core_m4_ck>;
+					clock-names = "fck";
+					bus_freq = <1000000>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					status = "disabled";
+				};
+			};
 		};
 
 		elm: elm@48080000 {
