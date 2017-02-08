@@ -407,9 +407,19 @@ static int tps65217_bl_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int tps65217_bl_shutdown(struct platform_device *pdev)
+{
+	struct tps65217_bl *tps65217_bl = platform_get_drvdata(pdev);
+
+	tps65217_bl_disable(tps65217_bl);
+
+	return 0;
+}
+
 static struct platform_driver tps65217_bl_driver = {
 	.probe		= tps65217_bl_probe,
 	.remove		= tps65217_bl_remove,
+	.shutdown       = tps65217_bl_shutdown,
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= "tps65217-bl",
