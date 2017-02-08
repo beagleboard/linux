@@ -737,3 +737,19 @@
 	clocks = <&clk_32768_ck>, <&clkdiv32k_ick>;
 	clock-names = "ext-clk", "int-clk";
 };
+
+&pruss_soc_bus {
+	status = "okay";
+
+	pruss: pruss@4a300000 {
+		status = "okay";
+
+		pru0: pru@4a334000 {
+			status = "okay";
+		};
+
+		pru1: pru@4a338000 {
+			status = "okay";
+		};
+	};
+};
