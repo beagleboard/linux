@@ -972,6 +972,7 @@
 
 &usb1 {
 	dr_mode = "otg";
+	extcon = <&extcon_usb1>;
 };
 
 &usb2 {
