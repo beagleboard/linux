@@ -1776,8 +1776,11 @@ static int dwc3_resume_common(struct dwc3 *dwc)
 		break;
 	}
 
-	if (dwc->dr_mode == USB_DR_MODE_OTG)
+	if (dwc->dr_mode == USB_DR_MODE_OTG) {
 		dwc3_otg_core_init(dwc);
+		if (dwc->otg_fsm.protocol == PROTO_HOST)
+			dwc3_drd_start_host(dwc, true, 1);
+	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
