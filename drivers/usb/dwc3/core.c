@@ -957,6 +957,16 @@ static void dwc3_otg_fsm_sync(struct dwc3 *dwc)
 	} while (osts != reg);
 }
 
+static void dwc3_drd_work(struct work_struct *work)
+{
+	struct dwc3 *dwc = container_of(work, struct dwc3,
+					otg_work);
+
+	spin_lock(&dwc->lock);
+	dwc3_otg_fsm_sync(dwc);
+	spin_unlock(&dwc->lock);
+}
+
 static void dwc3_otg_mask_irq(struct dwc3 *dwc)
 {
 	dwc->oevten = dwc3_readl(dwc->regs, DWC3_OEVTEN);
@@ -1316,6 +1326,8 @@ static int dwc3_drd_init(struct dwc3 *dwc)
 	int ret, irq;
 	unsigned long flags;
 
+	INIT_WORK(&dwc->otg_work, dwc3_drd_work);
+
 	irq = dwc3_otg_get_irq(dwc);
 	if (irq < 0)
 		return irq;
@@ -1356,6 +1368,7 @@ static void dwc3_drd_exit(struct dwc3 *dwc)
 {
 	unsigned long flags;
 
+	cancel_work_sync(&dwc->otg_work);
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc3_otg_core_exit(dwc);
 	if (dwc->otg_fsm.protocol == PROTO_HOST)
@@ -1877,9 +1890,9 @@ static void dwc3_complete(struct device *dev)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc->otg_prevent_sync = false;
-	if (dwc->dr_mode == USB_DR_MODE_OTG)
-		dwc3_otg_fsm_sync(dwc);
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		queue_work(system_power_efficient_wq, &dwc->otg_work);
 }
 
 static int dwc3_suspend(struct device *dev)
