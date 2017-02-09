@@ -118,6 +118,20 @@ enum pruss_pru_id {
 };
 
 /**
+ * enum pru_ctable_idx - Configurable Constant table index identifiers
+ */
+enum pru_ctable_idx {
+	PRU_C24 = 0,
+	PRU_C25,
+	PRU_C26,
+	PRU_C27,
+	PRU_C28,
+	PRU_C29,
+	PRU_C30,
+	PRU_C31,
+};
+
+/**
  * enum pruss_mem - PRUSS memory range identifiers
  */
 enum pruss_mem {
@@ -159,6 +173,7 @@ int pruss_intc_trigger(unsigned int irq);
 struct rproc *pru_rproc_get(struct device_node *node, int index);
 void pru_rproc_put(struct rproc *rproc);
 enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc);
+int pru_rproc_set_ctable(struct rproc *rproc, enum pru_ctable_idx c, u32 addr);
 
 #else
 
@@ -208,6 +223,12 @@ static inline struct rproc *pru_rproc_get(struct device_node *node, int index)
 static inline void pru_rproc_put(struct rproc *rproc) { }
 
 static inline enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc)
+{
+	return -ENOTSUPP;
+}
+
+static inline int pru_rproc_set_ctable(struct rproc *rproc,
+				       enum pru_ctable_idx c, u32 addr)
 {
 	return -ENOTSUPP;
 }
