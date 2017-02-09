@@ -204,7 +204,7 @@ static int option_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(wkup_m3_ipc_option_fops, option_get, option_set,
 			"%llu\n");
 
-static int wkup_m3_ipc_dbg_init(void)
+static int wkup_m3_ipc_dbg_init(struct wkup_m3_ipc *m3_ipc)
 {
 	struct dentry *d;
 
@@ -213,7 +213,7 @@ static int wkup_m3_ipc_dbg_init(void)
 		return -EINVAL;
 
 	(void)debugfs_create_file("enable_late_halt", 0644, d,
-				  &m3_ipc_state->halt,
+				  &m3_ipc->halt,
 				  &wkup_m3_ipc_option_fops);
 
 	return 0;
@@ -285,6 +285,7 @@ static irqreturn_t wkup_m3_txev_handler(int irq, void *ipc_data)
 
 		m3_ipc->state = M3_STATE_INITED;
 		wkup_m3_init_scale_data(m3_ipc, dev);
+		wkup_m3_ipc_dbg_init(m3_ipc);
 		complete(&m3_ipc->sync_complete);
 		break;
 	case M3_STATE_MSG_FOR_RESET:
@@ -697,8 +698,6 @@ static int wkup_m3_ipc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(task);
 		goto err_put_rproc;
 	}
-
-	wkup_m3_ipc_dbg_init();
 
 	return 0;
 
