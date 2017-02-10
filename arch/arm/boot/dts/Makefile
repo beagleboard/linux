@@ -115,6 +115,7 @@ dtb-$(CONFIG_ARCH_OMAP2PLUS) += omap2420-h4.dtb \
 	am335x-evmsk.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-siriusDEB.dtb \
 	am335x-bonegreen-wireless.dtb \
 	am335x-boneblack-wireless.dtb \
 	am335x-bonegreen.dtb \
