@@ -1253,6 +1253,7 @@
 					      <0x4b222000 0x400>,
 					      <0x4b222400 0x100>;
 					reg-names = "iram", "control", "debug";
+					label = "pru0";
 					status = "disabled";
 				};
 
@@ -1262,6 +1263,7 @@
 					      <0x4b224000 0x400>,
 					      <0x4b224400 0x100>;
 					reg-names = "iram", "control", "debug";
+					label = "pru1";
 					status = "disabled";
 				};
 
@@ -1329,6 +1331,7 @@
 					      <0x4b2a2000 0x400>,
 					      <0x4b2a2400 0x100>;
 					reg-names = "iram", "control", "debug";
+					label = "pru0";
 					status = "disabled";
 				};
 
@@ -1338,6 +1341,7 @@
 					      <0x4b2a4000 0x400>,
 					      <0x4b2a4400 0x100>;
 					reg-names = "iram", "control", "debug";
+					label = "pru1";
 					status = "disabled";
 				};
 
