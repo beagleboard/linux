@@ -46,7 +46,9 @@ Required Properties:
                        "ti,am3356-pruss-soc-bus" for AM335x family of SoCs
                        "ti,am4376-pruss-soc-bus" for AM437x family of SoCs
                        "ti,am5728-pruss-soc-bus" for AM57xx family of SoCs
+                       "ti,k2g-pruss-soc-bus" for 66AK2G family of SoCs
 - ti,hwmods      : name of the hwmod associated with the PRUSS instance
+                   (not applicable for 66AK2G SoCs)
 - reg            : base address and size of the PRUSS CFG sub-module containing
                    the SoC interconnect configuration register
 - #address-cells : should be 1
@@ -54,6 +56,19 @@ Required Properties:
 - ranges         : no specific range translations required, child nodes have the
                    same address view as the parent, so should be mentioned without
                    any value for the property
+
+Optional properties:
+--------------------
+The following properties are _required_ only for Keystone 2 66AK2G SoCs. They
+are not applicable to OMAP-architecture based SoCs.
+
+- power-domains  : Should contain a phandle to a PM domain provider node. This
+                   property is as per the binding,
+                       Documentation/devicetree/bindings/soc/ti/sci-pm-domain.txt
+
+- ti,sci-id      : Should contain the SCI device id to identify the specific
+                   device. The id values are defined in the dt include file,
+                       include/dt-bindings/genpd/k2g.h
 
 
 PRU-ICSS Parent Node
@@ -69,6 +84,7 @@ Required Properties:
                        "ti,am3356-pruss" for AM335x family of SoCs
                        "ti,am4376-pruss" for AM437x family of SoCs
                        "ti,am5728-pruss" for AM57xx family of SoCs
+                       "ti,k2g-pruss" for 66AK2G family of SoCs
 - reg            : base address and size for each of the sub-modules as
                    mentioned in reg-names, and in the same order as the
                    reg-names
@@ -105,6 +121,7 @@ Required Properties:
                              "ti,am3356-pruss-intc" for AM335x family of SoCs
                              "ti,am4376-pruss-intc" for AM437x family of SoCs
                              "ti,am5728-pruss-intc" for AM57xx family of SoCs
+                             "ti,k2g-pruss-intc" for 66AK2G family of SoCs
 - reg                  : base address and size for the PRUSS INTC sub-module
 - reg-names            : should contain the string "intc"
 - interrupts           : all the interrupts generated towards the main host
@@ -116,8 +133,8 @@ Required Properties:
                          host interrupt number,
                              "host2", "host3", "host4", "host5", "host6",
                              "host7", "host8" or "host9"
-                         NOTE: AM437x SoCs do not have "host7" interrupt
-                               connected to MPU
+                         NOTE: AM437x and 66AK2G SoCs do not have "host7"
+                               interrupt connected to MPU
 - interrupt-controller : mark this node as an interrupt controller
 - #interrupt-cells     : should be 1. Client users shall use the PRU System
                          event number (the interrupt source that the client
@@ -137,6 +154,7 @@ Required Properties:
                        "ti,am3356-pru" for AM335x family of SoCs
                        "ti,am4376-pru" for AM437x family of SoCs
                        "ti,am5728-pru" for AM57xx family of SoCs
+                       "ti,k2g-pru" for 66AK2G family of SoCs
 - reg            : base address and size for each of the 3 sub-module address
                    spaces as mentioned in reg-names, and in the same order as
                    the reg-names
@@ -150,7 +168,8 @@ Optional Properties:
 --------------------
 The virtio based communication between the MPU and a PRU core _requires_
 either the 'mboxes' property, or the set of 'interrupt-parent', 'interrupts'
-and 'interrupt-names' properties to be defined.
+and 'interrupt-names' properties to be defined. The 'mboxes' property is not
+applicable for 66AK2G SoCs.
 
 - mboxes           : OMAP Mailbox specifier denoting the sub-mailbox, if using
                      a mailbox for IPC signalling between host and a PRU core.
