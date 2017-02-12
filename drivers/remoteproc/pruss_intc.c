@@ -21,6 +21,7 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/pruss.h>
 
 #include "pruss.h"
 
@@ -571,6 +572,10 @@ static struct pruss_intc_match_data am437x_pruss_intc_data = {
 	.no_host7_intr = true,
 };
 
+static struct pruss_intc_match_data k2g_pruss_intc_data = {
+	.no_host7_intr = true,
+};
+
 static const struct of_device_id pruss_intc_of_match[] = {
 	{
 		.compatible = "ti,am3356-pruss-intc",
@@ -583,6 +588,10 @@ static const struct of_device_id pruss_intc_of_match[] = {
 	{
 		.compatible = "ti,am5728-pruss-intc",
 		.data = NULL,
+	},
+	{
+		.compatible = "ti,k2g-pruss-intc",
+		.data = &k2g_pruss_intc_data,
 	},
 	{ /* sentinel */ },
 };
