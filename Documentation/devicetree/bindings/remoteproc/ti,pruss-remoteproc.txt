@@ -163,6 +163,8 @@ Required Properties:
                        "iram" for Instruction RAM,
                        "control" for the CTRL sub-module registers,
                        "debug" for the Debug sub-module registers,
+- label          : should be either "pru0" or "pru1" identifying the PRU core
+                   within the PRUSS
 
 Optional Properties:
 --------------------
@@ -188,6 +190,10 @@ applicable for 66AK2G SoCs.
                      number,
                          "vring" - for PRU to HOST virtqueue signalling
                          "kick"  - for HOST to PRU virtqueue signalling
+- ti,pruss-gp-mux-sel : integer value of the GP MUX mode needed by an
+                        application to be run on a PRU. Currently to be used
+                        _only_ for PRU Ethernet usecase on AM571x IDK board
+                        and K2G ICE EVM boards.
 
 
 MDIO Child Node
@@ -196,6 +202,17 @@ Each PRUSS has an MDIO module that can be used to control external PHYs. The
 MDIO module used within the PRU-ICSS is an instance of the MDIO Controller
 used in TI Davinci SoCs. Please refer to the corresponding binding document,
 Documentation/devicetree/bindings/net/davinci-mdio.txt for details.
+
+
+Application/User Nodes
+=======================
+The PRUSS device node will typically get used by application/user nodes that
+define/represent a PRU application. Each application/client node would need a
+reference to the PRUSS node or directly the PRU nodes in general.
+
+Optional Properties:
+--------------------
+- pruss          : phandle to a PRUSS node
 
 
 Example:
