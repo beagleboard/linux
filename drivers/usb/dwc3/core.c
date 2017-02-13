@@ -934,6 +934,19 @@ static void dwc3_otg_fsm_sync(struct dwc3 *dwc)
 	if (dwc->otg_prevent_sync)
 		return;
 
+	if (dwc->edev) {
+		/* get ID */
+		id = extcon_get_state(dwc->edev, EXTCON_USB_HOST);
+		/* Host means ID == 0 */
+		id = !id;
+
+		/* get VBUS */
+		vbus = extcon_get_state(dwc->edev, EXTCON_USB);
+		dwc3_drd_statemachine(dwc, id, vbus);
+
+		return;
+	}
+
 	do {
 		reg = dwc3_readl(dwc->regs, DWC3_OSTS);
 
@@ -955,6 +968,27 @@ static void dwc3_otg_fsm_sync(struct dwc3 *dwc)
 		 * ISR ends.
 		 */
 	} while (osts != reg);
+}
+
+static void dwc3_drd_work(struct work_struct *work)
+{
+	struct dwc3 *dwc = container_of(work, struct dwc3,
+					otg_work);
+
+	spin_lock(&dwc->lock);
+	dwc3_otg_fsm_sync(dwc);
+	spin_unlock(&dwc->lock);
+}
+
+static int dwc3_drd_notifier(struct notifier_block *nb,
+			     unsigned long event, void *ptr)
+{
+	struct dwc3 *dwc = container_of(nb, struct dwc3, edev_nb);
+
+	if (!dwc->otg_prevent_sync)
+		queue_work(system_power_efficient_wq, &dwc->otg_work);
+
+	return NOTIFY_DONE;
 }
 
 static void dwc3_otg_mask_irq(struct dwc3 *dwc)
@@ -1072,6 +1106,27 @@ static int dwc3_drd_start_host(struct dwc3 *dwc, int on, bool skip)
 {
 	u32 reg;
 
+	if (!dwc->edev)
+		goto otg;
+
+	if (on)
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
+
+	if (!skip) {
+		spin_unlock(&dwc->lock);
+
+		/* start or stop the HCD */
+		if (on)
+			dwc3_host_init(dwc);
+		else
+			dwc3_host_exit(dwc);
+
+		spin_lock(&dwc->lock);
+	}
+
+	return 0;
+
+otg:
 	/* switch OTG core */
 	if (on) {
 		/* As per Figure 11-10 A-Device Flow Diagram */
@@ -1165,6 +1220,33 @@ static int dwc3_drd_start_gadget(struct dwc3 *dwc, int on)
 	if (on)
 		dwc3_event_buffers_setup(dwc);
 
+	if (!dwc->edev)
+		goto otg;
+
+	if (on) {
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+		/* start the Peripheral driver  */
+		if (dwc->gadget_driver) {
+			__dwc3_gadget_start(dwc);
+			if (dwc->gadget_pullup)
+				dwc3_gadget_run_stop(dwc, true, false);
+		}
+	} else {
+		/* stop the Peripheral driver */
+		if (dwc->gadget_driver) {
+			if (dwc->gadget_pullup)
+				dwc3_gadget_run_stop(dwc, false, false);
+			spin_unlock(&dwc->lock);
+			if (dwc->gadget_driver->disconnect)
+				dwc->gadget_driver->disconnect(&dwc->gadget);
+			spin_lock(&dwc->lock);
+			__dwc3_gadget_stop(dwc);
+		}
+	}
+
+	return 0;
+
+otg:
 	if (on) {
 		/* As per Figure 11-20 B-Device Flow Diagram */
 
@@ -1283,6 +1365,13 @@ static void dwc3_otg_core_init(struct dwc3 *dwc)
 {
 	u32 reg;
 
+	/* force drd state machine update the first time */
+	dwc->otg_fsm.b_sess_vld = -1;
+	dwc->otg_fsm.id = -1;
+
+	if (dwc->edev)
+		return;
+
 	/*
 	 * As per Figure 11-4 OTG Driver Overall Programming Flow,
 	 * block "Initialize GCTL for OTG operation".
@@ -1296,15 +1385,14 @@ static void dwc3_otg_core_init(struct dwc3 *dwc)
 
 	/* Initialize OTG registers */
 	dwc3_otgregs_init(dwc);
-
-	/* force drd state machine update the first time */
-	dwc->otg_fsm.b_sess_vld = -1;
-	dwc->otg_fsm.id = -1;
 }
 
 /* dwc->lock must be held */
 static void dwc3_otg_core_exit(struct dwc3 *dwc)
 {
+	if (dwc->edev)
+		return;
+
 	/* disable all otg irqs */
 	dwc3_otg_disable_events(dwc, DWC3_OTG_ALL_EVENTS);
 	/* clear all events */
@@ -1315,6 +1403,59 @@ static int dwc3_drd_init(struct dwc3 *dwc)
 {
 	int ret, irq;
 	unsigned long flags;
+
+	INIT_WORK(&dwc->otg_work, dwc3_drd_work);
+
+	/* If extcon device is present we don't rely on OTG core for ID event */
+	if (dwc->edev) {
+		int id, vbus;
+
+		dwc->edev_nb.notifier_call = dwc3_drd_notifier;
+		ret = extcon_register_notifier(dwc->edev, EXTCON_USB,
+					       &dwc->edev_nb);
+		if (ret < 0) {
+			dev_err(dwc->dev, "Couldn't register USB cable notifier\n");
+			return -ENODEV;
+		}
+
+		ret = extcon_register_notifier(dwc->edev, EXTCON_USB_HOST,
+					       &dwc->edev_nb);
+		if (ret < 0) {
+			dev_err(dwc->dev, "Couldn't register USB-HOST cable notifier\n");
+			ret = -ENODEV;
+			goto extcon_fail;
+		}
+
+		/* sanity check id & vbus states */
+		id = extcon_get_state(dwc->edev, EXTCON_USB_HOST);
+		vbus = extcon_get_state(dwc->edev, EXTCON_USB);
+		if (id < 0 || vbus < 0) {
+			dev_err(dwc->dev, "Invalid USB cable state. id %d, vbus %d\n",
+				id, vbus);
+			ret = -ENODEV;
+			goto fail;
+		}
+
+		ret = dwc3_gadget_init(dwc);
+		if (ret)
+			goto fail;
+
+		spin_lock_irqsave(&dwc->lock, flags);
+		dwc3_otg_core_init(dwc);
+		dwc3_otg_fsm_sync(dwc);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+
+		return 0;
+
+fail:
+		extcon_unregister_notifier(dwc->edev, EXTCON_USB_HOST,
+					   &dwc->edev_nb);
+extcon_fail:
+		extcon_unregister_notifier(dwc->edev, EXTCON_USB,
+					   &dwc->edev_nb);
+
+		return ret;
+	}
 
 	irq = dwc3_otg_get_irq(dwc);
 	if (irq < 0)
@@ -1356,12 +1497,24 @@ static void dwc3_drd_exit(struct dwc3 *dwc)
 {
 	unsigned long flags;
 
+	spin_lock(&dwc->lock);
+	dwc->otg_prevent_sync = true;
+	spin_unlock(&dwc->lock);
+	cancel_work_sync(&dwc->otg_work);
+
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc3_otg_core_exit(dwc);
 	if (dwc->otg_fsm.protocol == PROTO_HOST)
 		dwc3_drd_start_host(dwc, 0, 0);
 	dwc->otg_fsm.protocol = PROTO_UNDEF;
-	free_irq(dwc->otg_irq, dwc);
+	if (dwc->edev) {
+		extcon_unregister_notifier(dwc->edev, EXTCON_USB_HOST,
+					   &dwc->edev_nb);
+		extcon_unregister_notifier(dwc->edev, EXTCON_USB,
+					   &dwc->edev_nb);
+	} else {
+		free_irq(dwc->otg_irq, dwc);
+	}
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	dwc3_gadget_exit(dwc);
@@ -1556,6 +1709,14 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->hird_threshold = hird_threshold
 		| (dwc->is_utmi_l1_suspend << 4);
 
+	if (dev->of_node) {
+		if (of_property_read_bool(dev->of_node, "extcon"))
+			dwc->edev = extcon_get_edev_by_phandle(dev, 0);
+
+		if (IS_ERR(dwc->edev))
+			return PTR_ERR(dwc->edev);
+	}
+
 	platform_set_drvdata(pdev, dwc);
 	dwc3_cache_hwparams(dwc);
 
@@ -1737,6 +1898,13 @@ static int dwc3_resume_common(struct dwc3 *dwc)
 	if (ret)
 		return ret;
 
+	if (dwc->dr_mode == USB_DR_MODE_OTG &&
+	    dwc->edev) {
+		if (dwc->otg_fsm.protocol == PROTO_HOST)
+			dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
+		else if (dwc->otg_fsm.protocol == PROTO_GADGET)
+			dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+	}
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	switch (dwc->dr_mode) {
@@ -1763,8 +1931,13 @@ static int dwc3_resume_common(struct dwc3 *dwc)
 		break;
 	}
 
-	if (dwc->dr_mode == USB_DR_MODE_OTG)
+	if (dwc->dr_mode == USB_DR_MODE_OTG) {
 		dwc3_otg_core_init(dwc);
+		if ((dwc->otg_fsm.protocol == PROTO_HOST) &&
+		    !dwc->edev) {
+			dwc3_drd_start_host(dwc, true, 1);
+		}
+	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -1877,9 +2050,9 @@ static void dwc3_complete(struct device *dev)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc->otg_prevent_sync = false;
-	if (dwc->dr_mode == USB_DR_MODE_OTG)
-		dwc3_otg_fsm_sync(dwc);
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		queue_work(system_power_efficient_wq, &dwc->otg_work);
 }
 
 static int dwc3_suspend(struct device *dev)

@@ -37,6 +37,9 @@
 #include <linux/usb/otg.h>
 #include <linux/usb/otg-fsm.h>
 
+#include <linux/extcon.h>
+#include <linux/workqueue.h>
+
 #define DWC3_MSG_MAX	500
 
 /* Global constants */
@@ -843,6 +846,9 @@ struct dwc3_scratchpad_array {
  * @otg-fsm: usb otg fsm data structure
  * @otg_prevent_sync: flag to block events to otg fsm
  * @current_mode: current mode of operation written to PRTCAPDIR
+ * @otg_work: work struct for otg/dual-role
+ * @edev: extcon handle
+ * @edev_nb: extcon notifier
  * @fladj: frame length adjustment
  * @irq_gadget: peripheral controller's IRQ number
  * @otg_irq: IRQ number for OTG IRQs
@@ -980,6 +986,9 @@ struct dwc3 {
 	struct otg_fsm		otg_fsm;
 	bool			otg_prevent_sync;
 	u32			current_mode;
+	struct work_struct	otg_work;
+	struct extcon_dev	*edev;
+	struct notifier_block	edev_nb;
 
 	enum usb_phy_interface	hsphy_mode;
 
