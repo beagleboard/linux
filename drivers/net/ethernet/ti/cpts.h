@@ -102,6 +102,9 @@ enum {
 #define CPTS_FIFO_DEPTH 16
 #define CPTS_MAX_EVENTS 32
 
+#define CPTS_EVENT_RX_TX_TIMEOUT 20 /* ms */
+#define CPTS_EVENT_HWSTAMP_TIMEOUT 200 /* ms */
+
 struct cpts_event {
 	struct list_head list;
 	unsigned long tmo;
@@ -129,7 +132,10 @@ struct cpts {
 	struct list_head pool;
 	struct cpts_event pool_data[CPTS_MAX_EVENTS];
 	unsigned long ov_check_period;
+	unsigned long ov_check_period_slow;
 	u32 rftclk_sel;
+	u32 ext_ts_inputs;
+	u32 hw_ts_enable;
 	u32 caps;
 };
 
