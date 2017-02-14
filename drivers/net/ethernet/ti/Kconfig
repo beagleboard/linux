@@ -158,4 +158,10 @@ config CPMAC
 	---help---
 	  TI AR7 CPMAC Ethernet support
 
+config TI_PRUETH
+	tristate "TI PRU Ethernet EMAC/Switch driver"
+	depends on PRUSS_REMOTEPROC
+	---help---
+	  Support EMAC over PRUSS.
+
 endif # NET_VENDOR_TI
