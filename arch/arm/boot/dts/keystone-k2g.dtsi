@@ -275,7 +275,7 @@
 			status = "disabled";
 		};
 
-		dsp0: dsp@10800000 {
+		dsp0: dsp0 {
 			compatible = "ti,k2g-dsp";
 			reg = <0x10800000 0x00100000>,
 			      <0x10e00000 0x00008000>,
