@@ -33,6 +33,13 @@
 		};
 	};
 
+	aliases {
+		rproc0 = &dsp0;
+		rproc1 = &dsp1;
+		rproc2 = &dsp2;
+		rproc3 = &dsp3;
+	};
+
 	soc {
 		/include/ "keystone-k2l-clocks.dtsi"
 
