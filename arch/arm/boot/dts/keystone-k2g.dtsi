@@ -269,6 +269,24 @@
 			status = "disabled";
 		};
 
+		dsp0: dsp@10800000 {
+			compatible = "ti,k2g-dsp";
+			reg = <0x10800000 0x00100000>,
+			      <0x10e00000 0x00008000>,
+			      <0x10f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp0";
+			power-domains = <&k2g_pds>;
+			ti,sci-id = <K2G_DEV_CGEM0>;
+			clocks = <&k2g_clks K2G_DEV_CGEM0 0>;
+			ti,syscon-dev = <&devctrl 0x844>;
+			resets = <&k2g_reset K2G_DEV_CGEM0 K2G_DEV_CGEM0_DSP0_RESET>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <0 8>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio0 27 0>;
+		};
+
 		pruss_soc_bus0: pruss_soc_bus@20aa6000 {
 			compatible = "ti,k2g-pruss-soc-bus";
 			reg = <0x20aa6000 0x2000>;
