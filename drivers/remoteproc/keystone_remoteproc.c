@@ -458,6 +458,9 @@ static int keystone_rproc_probe(struct platform_device *pdev)
 	if (of_reserved_mem_device_init(dev))
 		dev_warn(dev, "device does not have specific CMA pool\n");
 
+	if (rproc_get_alias_id(rproc) < 0)
+		dev_warn(&pdev->dev, "device does not have an alias id\n");
+
 	/* ensure the DSP is in reset before loading firmware */
 	ret = reset_control_status(ksproc->reset);
 	if (ret < 0) {
