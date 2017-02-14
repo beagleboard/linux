@@ -45,6 +45,17 @@
 		};
 	};
 
+	aliases {
+		rproc0 = &dsp0;
+		rproc1 = &dsp1;
+		rproc2 = &dsp2;
+		rproc3 = &dsp3;
+		rproc4 = &dsp4;
+		rproc5 = &dsp5;
+		rproc6 = &dsp6;
+		rproc7 = &dsp7;
+	};
+
 	soc {
 		/include/ "keystone-k2hk-clocks.dtsi"
 
