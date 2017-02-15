@@ -1609,14 +1609,16 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->pru0 = pruss_rproc_get(pruss, PRUSS_PRU0);
 	if (IS_ERR(prueth->pru0)) {
 		ret = PTR_ERR(prueth->pru0);
-		dev_err(dev, "unable to get PRU0\n");
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "unable to get PRU0: %d\n", ret);
 		goto pruss_put;
 	}
 
 	prueth->pru1 = pruss_rproc_get(pruss, PRUSS_PRU1);
 	if (IS_ERR(prueth->pru1)) {
 		ret = PTR_ERR(prueth->pru1);
-		dev_err(dev, "unable to get PRU1\n");
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "unable to get PRU1: %d\n", ret);
 		goto put_pru0;
 	}
 
