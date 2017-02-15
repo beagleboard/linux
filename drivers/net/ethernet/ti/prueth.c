@@ -1531,9 +1531,9 @@ static int prueth_netdev_init(struct prueth *prueth,
 	emac->phydev = of_phy_connect(ndev, emac->phy_node,
 				      &emac_adjust_link, 0, emac->phy_if);
 	if (!emac->phydev) {
-		dev_err(prueth->dev, "couldn't connect to phy %s\n",
+		dev_dbg(prueth->dev, "couldn't connect to phy %s\n",
 			emac->phy_node->full_name);
-		ret = -ENODEV;
+		ret = -EPROBE_DEFER;
 		goto free;
 	}
 
@@ -1671,13 +1671,11 @@ static int prueth_probe(struct platform_device *pdev)
 	}
 	ret = prueth_netdev_init(prueth, eth_node);
 	if (ret) {
-		if (ret == -EPROBE_DEFER) {
-			prueth->eth_node[PRUETH_PORT_MII0] = eth_node;
-			goto netdev_exit;
+		if (ret != -EPROBE_DEFER) {
+			dev_err(dev, "netdev init %s failed: %d\n",
+				eth_node->name, ret);
 		}
-		dev_err(dev, "netdev init %s failed: %d\n",
-			eth_node->name, ret);
-		of_node_put(eth_node);
+		goto netdev_exit;
 	} else {
 		prueth->eth_node[PRUETH_PORT_MII0] = eth_node;
 	}
@@ -1690,13 +1688,11 @@ static int prueth_probe(struct platform_device *pdev)
 	}
 	ret = prueth_netdev_init(prueth, eth_node);
 	if (ret) {
-		if (ret == -EPROBE_DEFER) {
-			prueth->eth_node[PRUETH_PORT_MII1] = eth_node;
-			goto netdev_exit;
+		if (ret != -EPROBE_DEFER) {
+			dev_err(dev, "netdev init %s failed: %d\n",
+				eth_node->name, ret);
 		}
-		dev_err(dev, "netdev init %s failed: %d\n",
-			eth_node->name, ret);
-		of_node_put(eth_node);
+		goto netdev_exit;
 	} else {
 		prueth->eth_node[PRUETH_PORT_MII1] = eth_node;
 	}
