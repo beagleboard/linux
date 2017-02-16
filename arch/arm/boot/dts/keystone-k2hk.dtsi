@@ -84,6 +84,11 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
+			sram-mpm@0 {
+				compatible = "ti,keystone-dsp-msm-ram";
+				reg = <0x0 0x80000>;
+			};
+
 			sram-bm@5f0000 {
 				reg = <0x5f0000 0x8000>;
 			};
@@ -145,7 +150,7 @@
 			gpio,syscon-dev = <&devctrl 0x25c>;
 		};
 
-		dsp0: dsp@10800000 {
+		dsp0: dsp0 {
 			compatible = "ti,k2hk-dsp";
 			reg = <0x10800000 0x00100000>,
 			      <0x10e00000 0x00008000>,
@@ -161,7 +166,7 @@
 			kick-gpio = <&dspgpio0 27 0>;
 		};
 
-		dsp1: dsp@11800000 {
+		dsp1: dsp1 {
 			compatible = "ti,k2hk-dsp";
 			reg = <0x11800000 0x00100000>,
 			      <0x11e00000 0x00008000>,
@@ -177,7 +182,7 @@
 			kick-gpio = <&dspgpio1 27 0>;
 		};
 
-		dsp2: dsp@12800000 {
+		dsp2: dsp2 {
 			compatible = "ti,k2hk-dsp";
 			reg = <0x12800000 0x00100000>,
 			      <0x12e00000 0x00008000>,
@@ -193,7 +198,7 @@
 			kick-gpio = <&dspgpio2 27 0>;
 		};
 
-		dsp3: dsp@13800000 {
+		dsp3: dsp3 {
 			compatible = "ti,k2hk-dsp";
 			reg = <0x13800000 0x00100000>,
 			      <0x13e00000 0x00008000>,
@@ -209,7 +214,7 @@
 			kick-gpio = <&dspgpio3 27 0>;
 		};
 
-		dsp4: dsp@14800000 {
+		dsp4: dsp4 {
 			compatible = "ti,k2hk-dsp";
 			reg = <0x14800000 0x00100000>,
 			      <0x14e00000 0x00008000>,
@@ -225,7 +230,7 @@
 			kick-gpio = <&dspgpio4 27 0>;
 		};
 
-		dsp5: dsp@15800000 {
+		dsp5: dsp5 {
 			compatible = "ti,k2hk-dsp";
 			reg = <0x15800000 0x00100000>,
 			      <0x15e00000 0x00008000>,
@@ -241,7 +246,7 @@
 			kick-gpio = <&dspgpio5 27 0>;
 		};
 
-		dsp6: dsp@16800000 {
+		dsp6: dsp6 {
 			compatible = "ti,k2hk-dsp";
 			reg = <0x16800000 0x00100000>,
 			      <0x16e00000 0x00008000>,
@@ -257,7 +262,7 @@
 			kick-gpio = <&dspgpio6 27 0>;
 		};
 
-		dsp7: dsp@17800000 {
+		dsp7: dsp7 {
 			compatible = "ti,k2hk-dsp";
 			reg = <0x17800000 0x00100000>,
 			      <0x17e00000 0x00008000>,

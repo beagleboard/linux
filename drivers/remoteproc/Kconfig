@@ -106,6 +106,7 @@ config KEYSTONE_REMOTEPROC
 	tristate "Keystone Remoteproc support"
 	depends on ARCH_KEYSTONE
 	depends on RESET_CONTROLLER
+	depends on UIO
 	depends on REMOTEPROC
 	select RPMSG_VIRTIO
 	help
