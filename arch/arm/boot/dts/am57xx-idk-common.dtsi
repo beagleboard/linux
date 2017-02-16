@@ -446,6 +446,13 @@
 			};
 		};
 	};
+
+	tpic2810: tpic2810@60 {
+		compatible = "ti,tpic2810";
+		reg = <0x60>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &mcspi3 {
@@ -460,13 +467,6 @@
 		reg = <0>;
 		spi-max-frequency = <1000000>;
 		spi-cpol;
-	};
-
-	tpic2810: tpic2810@60 {
-		compatible = "ti,tpic2810";
-		reg = <0x60>;
-		gpio-controller;
-		#gpio-cells = <2>;
 	};
 
 	ov2659: ov2659@30 {
