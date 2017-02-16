@@ -33,6 +33,7 @@
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
+		rproc0 = &dsp0;
 	};
 
 	cpus {
@@ -89,6 +90,11 @@
 			ranges = <0x0 0x0c000000 0x100000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+
+			sram-mpm@0 {
+				compatible = "ti,keystone-dsp-msm-ram";
+				reg = <0x0 0x80000>;
+			};
 
 			sram-bm@f7000 {
 				reg = <0x000f7000 0x8000>;
@@ -756,6 +762,24 @@
 			power-domains = <&k2g_pds>;
 			clocks = <&k2g_clks K2G_DEV_MCASP2 K2G_DEV_MCASP_VBUS_CLK>;
 			clock-names = "fck";
+		};
+
+		dsp0: dsp0 {
+			compatible = "ti,k2g-dsp";
+			reg = <0x10800000 0x00100000>,
+			      <0x10e00000 0x00008000>,
+			      <0x10f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp0";
+			power-domains = <&k2g_pds>;
+			ti,sci-id = <K2G_DEV_CGEM0>;
+			clocks = <&k2g_clks K2G_DEV_CGEM0 0>;
+			ti,syscon-dev = <&devctrl 0x844>;
+			resets = <&k2g_reset K2G_DEV_CGEM0 K2G_DEV_CGEM0_DSP0_RESET>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <0 8>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio0 27 0>;
 		};
 
 		pruss_soc_bus0: pruss_soc_bus@20aa6000 {

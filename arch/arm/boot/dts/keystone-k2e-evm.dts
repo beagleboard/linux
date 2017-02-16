@@ -16,6 +16,26 @@
 	compatible = "ti,k2e-evm", "ti,k2e", "ti,keystone";
 	model = "Texas Instruments Keystone 2 Edison EVM";
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		dsp_common_cma_pool: dsp_common_cma_pool@81f800000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000008 0x1f800000 0x00000000 0x800000>;
+			reusable;
+			status = "okay";
+		};
+
+		dsp_common_mpm_pool: dsp_common_mpm_pool@820000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00000008 0x20000000 0x00000000 0x10000000>;
+			no-map;
+			status = "okay";
+		};
+	};
+
 	soc {
 
 		clocks {
@@ -43,6 +63,11 @@
 
 		ddr3edac: edac@21010000 {
 			status = "ok";
+		};
+
+		mpm_mem: dspmem@a0000000 {
+			compatible = "ti,keystone-dsp-mem";
+			reg = <0xa0000000 0x10000000>;
 		};
 	};
 };
@@ -175,4 +200,8 @@
 
 &pcie1 {
 	status = "okay";
+};
+
+&dsp0 {
+	memory-region = <&dsp_common_cma_pool>;
 };
