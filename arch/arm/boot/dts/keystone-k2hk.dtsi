@@ -45,6 +45,17 @@
 		};
 	};
 
+	aliases {
+		rproc0 = &dsp0;
+		rproc1 = &dsp1;
+		rproc2 = &dsp2;
+		rproc3 = &dsp3;
+		rproc4 = &dsp4;
+		rproc5 = &dsp5;
+		rproc6 = &dsp6;
+		rproc7 = &dsp7;
+	};
+
 	soc {
 		/include/ "keystone-k2hk-clocks.dtsi"
 
@@ -72,6 +83,11 @@
 			ranges = <0x0 0x0c000000 0x600000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+
+			sram-mpm@0 {
+				compatible = "ti,keystone-dsp-msm-ram";
+				reg = <0x0 0x80000>;
+			};
 
 			sram-bm@5f0000 {
 				reg = <0x5f0000 0x8000>;
@@ -132,6 +148,134 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio,syscon-dev = <&devctrl 0x25c>;
+		};
+
+		dsp0: dsp0 {
+			compatible = "ti,k2hk-dsp";
+			reg = <0x10800000 0x00100000>,
+			      <0x10e00000 0x00008000>,
+			      <0x10f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp0";
+			clocks = <&clkgem0>;
+			ti,syscon-dev = <&devctrl 0x40>;
+			resets = <&pscrst 0>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <0 8>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio0 27 0>;
+		};
+
+		dsp1: dsp1 {
+			compatible = "ti,k2hk-dsp";
+			reg = <0x11800000 0x00100000>,
+			      <0x11e00000 0x00008000>,
+			      <0x11f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp1";
+			clocks = <&clkgem1>;
+			ti,syscon-dev = <&devctrl 0x44>;
+			resets = <&pscrst 1>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <1 9>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio1 27 0>;
+		};
+
+		dsp2: dsp2 {
+			compatible = "ti,k2hk-dsp";
+			reg = <0x12800000 0x00100000>,
+			      <0x12e00000 0x00008000>,
+			      <0x12f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp2";
+			clocks = <&clkgem2>;
+			ti,syscon-dev = <&devctrl 0x48>;
+			resets = <&pscrst 2>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <2 10>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio2 27 0>;
+		};
+
+		dsp3: dsp3 {
+			compatible = "ti,k2hk-dsp";
+			reg = <0x13800000 0x00100000>,
+			      <0x13e00000 0x00008000>,
+			      <0x13f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp3";
+			clocks = <&clkgem3>;
+			ti,syscon-dev = <&devctrl 0x4c>;
+			resets = <&pscrst 3>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <3 11>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio3 27 0>;
+		};
+
+		dsp4: dsp4 {
+			compatible = "ti,k2hk-dsp";
+			reg = <0x14800000 0x00100000>,
+			      <0x14e00000 0x00008000>,
+			      <0x14f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp4";
+			clocks = <&clkgem4>;
+			ti,syscon-dev = <&devctrl 0x50>;
+			resets = <&pscrst 4>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <4 12>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio4 27 0>;
+		};
+
+		dsp5: dsp5 {
+			compatible = "ti,k2hk-dsp";
+			reg = <0x15800000 0x00100000>,
+			      <0x15e00000 0x00008000>,
+			      <0x15f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp5";
+			clocks = <&clkgem5>;
+			ti,syscon-dev = <&devctrl 0x54>;
+			resets = <&pscrst 5>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <5 13>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio5 27 0>;
+		};
+
+		dsp6: dsp6 {
+			compatible = "ti,k2hk-dsp";
+			reg = <0x16800000 0x00100000>,
+			      <0x16e00000 0x00008000>,
+			      <0x16f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp6";
+			clocks = <&clkgem6>;
+			ti,syscon-dev = <&devctrl 0x58>;
+			resets = <&pscrst 6>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <6 14>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio6 27 0>;
+		};
+
+		dsp7: dsp7 {
+			compatible = "ti,k2hk-dsp";
+			reg = <0x17800000 0x00100000>,
+			      <0x17e00000 0x00008000>,
+			      <0x17f00000 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			label = "dsp7";
+			clocks = <&clkgem7>;
+			ti,syscon-dev = <&devctrl 0x5c>;
+			resets = <&pscrst 7>;
+			interrupt-parent = <&kirq0>;
+			interrupts = <7 15>;
+			interrupt-names = "vring", "exception";
+			kick-gpio = <&dspgpio7 27 0>;
 		};
 
 		mdio: mdio@02090300 {

@@ -102,6 +102,20 @@ config PRUSS_REMOTEPROC
 	  processors on various TI SoCs. It's safe to say N here if you're
 	  not interested in the PRU or if you are unsure.
 
+config KEYSTONE_REMOTEPROC
+	tristate "Keystone Remoteproc support"
+	depends on ARCH_KEYSTONE
+	depends on RESET_CONTROLLER
+	depends on UIO
+	depends on REMOTEPROC
+	select RPMSG_VIRTIO
+	help
+	  Say Y here here to support Keystone remote processors (DSP)
+	  via the remote processor framework.
+
+	  It's safe to say N here if you're not interested in the Keystone
+	  DSPs or just want to use a bare minimum kernel.
+
 config QCOM_ADSP_PIL
 	tristate "Qualcomm ADSP Peripheral Image Loader"
 	depends on OF && ARCH_QCOM

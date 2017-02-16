@@ -1,0 +1,67 @@
+TI Keystone DSP Memory Mapping Device
+=====================================
+
+Binding status: Unstable - ABI compatibility may be broken in the future
+
+The Keystone DSP Memory Mapping Device is a device node used to represent
+the memory regions that can be mapped into userspace for providing direct
+user-mode access to regions for the purposes of shared memory communication
+with the DSP remote processor devices on the SoC. It can also be used for
+supporting user-space based loading of the DSP remoteproc devices.
+
+Required properties:
+--------------------
+- compatible : Should be "ti,keystone-dsp-mem"
+- reg        : An array of memory regions (DDR), each region represented by a
+               tuple of the region's start address and the size of the region.
+               The regions should be reserved specifically using corresponding
+               reserved-memory nodes.
+
+SRAM usage (Optional):
+----------------------
+The on-chip Multicore Shared Memory (MSM) RAM can also be exposed to
+userspace by defining specific child nodes under the corresponding parent
+SRAM node. The generic SRAM binding is as per the binding document
+Documentation/devicetree/bindings/misc/sram.txt. Following properties
+should be used in each corresponding child node for the userspace mapping
+usecase:
+
+- compatible : Should be "ti,keystone-dsp-msm-ram"
+- reg        : Should contain a pair of values for the address and size
+               of the region, following the parent-child ranges convention.
+
+Example:
+--------
+	/* 66AK2H EVM */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		dsp_common_mpm_area: dsp_reserved_mpm_area {
+			compatible = "shared-dma-pool";
+			reg = <0x00000008 0x20000000 0x00000000 0x20000000>;
+			no-map;
+			status = "okay";
+		};
+	};
+
+	soc {
+		mpm_mem: dspmem {
+			compatible = "ti,keystone-dsp-mem";
+			reg  = <0xa0000000 0x20000000>; /* DDR Memory */
+		};
+
+		msm_ram: msmram@0c000000 {
+			compatible = "mmio-sram";
+			reg = <0x0c000000 0x600000>;
+			ranges = <0x0 0x0c000000 0x600000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			sram-mpm@0 {
+				compatible = "ti,keystone-dsp-msm-ram";
+				reg = <0x0 0x80000>;
+			};
+		};
+	};
