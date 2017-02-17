@@ -14,7 +14,7 @@
 		enable-active-high;
 	};
 
-	leds {
+	bt_en {
 		pinctrl-names = "default";
 		pinctrl-0 = <&wl18xx_pins>;
 		compatible = "gpio-leds";
