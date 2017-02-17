@@ -1040,11 +1040,6 @@ static int dispc6_ovl_enable(enum omap_plane_id plane, bool enable)
 	return 0;
 }
 
-static bool dispc6_ovl_enabled(enum omap_plane_id plane)
-{
-	return VID_REG_GET(plane, DISPC_VID_ATTRIBUTES, 0, 0);
-}
-
 static u32 dispc6_vid_get_fifo_size(enum omap_plane_id plane)
 {
 	const u32 unit_size = 16;	/* 128-bits */
@@ -1267,7 +1262,6 @@ static const struct dispc_ops dispc6_ops = {
 	.mgr_set_gamma = dispc6_mgr_set_gamma,
 
 	.ovl_enable = dispc6_ovl_enable,
-	.ovl_enabled = dispc6_ovl_enabled,
 	.ovl_set_channel_out = dispc6_ovl_set_channel_out,
 	.ovl_setup = dispc6_ovl_setup,
 	.ovl_get_color_modes = dispc6_ovl_get_color_modes,
