@@ -56,11 +56,11 @@ static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane_id src_plane,
 
 	/* configure input */
 
-	r = priv->dispc_ops->ovl_setup(src_plane, src_info, &t, true);
+	r = priv->dispc_ops->ovl_setup(src_plane, src_info, &t, true,
+		OMAP_DSS_CHANNEL_WB);
 	if (r)
 		return false;
 
-	priv->dispc_ops->ovl_set_channel_out(src_plane, OMAP_DSS_CHANNEL_WB);
 	priv->dispc_ops->ovl_enable(src_plane, true);
 
 	/* configure output */

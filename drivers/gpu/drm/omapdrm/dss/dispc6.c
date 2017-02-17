@@ -943,14 +943,6 @@ static u32 dispc6_dss_colormode_to_fourcc(enum omap_color_mode dss_mode)
 	return DRM_FORMAT_XRGB8888;
 }
 
-static void dispc6_ovl_set_channel_out(enum omap_plane_id plane,
-				       enum omap_channel channel)
-{
-	int val = 0;
-
-	VID_REG_FLD_MOD(plane, DISPC_VID_ATTRIBUTES, val, 16, 14);
-}
-
 static void dispc6_ovl_set_pixel_format(enum omap_plane_id plane, u32 fourcc)
 {
 	int i;
@@ -995,7 +987,8 @@ static s32 pixinc(int pixels, u8 ps)
 
 static int dispc6_ovl_setup(enum omap_plane_id plane,
 			    const struct omap_overlay_info *oi,
-			    const struct videomode *vm, bool mem_to_mem)
+			    const struct videomode *vm, bool mem_to_mem,
+			    enum omap_channel channel)
 {
 	u32 fourcc = dispc6_dss_colormode_to_fourcc(oi->color_mode);
 	int bytespp = dispc6_fourcc_to_bytespp(fourcc);
@@ -1030,6 +1023,9 @@ static int dispc6_ovl_setup(enum omap_plane_id plane,
 		dispc6_vid_csc_enable(plane, true);
 	else
 		dispc6_vid_csc_enable(plane, false);
+
+	/* channel */
+	VID_REG_FLD_MOD(plane, DISPC_VID_ATTRIBUTES, 0, 16, 14);
 
 	return 0;
 }
@@ -1262,7 +1258,6 @@ static const struct dispc_ops dispc6_ops = {
 	.mgr_set_gamma = dispc6_mgr_set_gamma,
 
 	.ovl_enable = dispc6_ovl_enable,
-	.ovl_set_channel_out = dispc6_ovl_set_channel_out,
 	.ovl_setup = dispc6_ovl_setup,
 	.ovl_get_color_modes = dispc6_ovl_get_color_modes,
 
