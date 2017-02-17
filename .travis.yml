@@ -1,0 +1,19 @@
+dist: trusty
+language: c
+compiler: gcc
+cache: ccache
+env:
+  - ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- LOCALVERSION=-git$TRAVIS_COMMIT
+addons:
+  apt:
+    packages:
+    - gcc-arm-linux-gnueabihf
+    - debootstrap
+    - qemu-user-static
+    - binfmt-support
+    - sbuild
+    - lzop
+    - wget
+    - ccache
+script:
+  - bash -ex build_on_x86.sh
