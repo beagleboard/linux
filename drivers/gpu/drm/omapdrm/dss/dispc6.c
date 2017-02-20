@@ -446,6 +446,9 @@ static void dispc6_write_legacy_irqenable(u32 mask)
 
 
 	dispc6_write(DISPC_IRQENABLE_SET, (1 << 0) | (1 << 7));
+
+	/* flush posted write */
+	dispc6_read_legacy_irqenable();
 }
 
 
@@ -1230,7 +1233,6 @@ static void dispc6_get_min_max_size(u32 *min_w, u32 *min_h, u32 *max_w, u32 *max
 static const struct dispc_ops dispc6_ops = {
 	.read_irqstatus = dispc6_read_legacy_irqstatus,
 	.clear_irqstatus = dispc6_clear_legacy_irqstatus,
-	.read_irqenable = dispc6_read_legacy_irqenable,
 	.write_irqenable = dispc6_write_legacy_irqenable,
 
 	.request_irq = dispc6_request_irq,
