@@ -139,8 +139,8 @@ struct cpts {
 	u32 caps;
 };
 
-void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
-void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
 int cpts_register(struct cpts *cpts);
 void cpts_unregister(struct cpts *cpts);
 struct cpts *cpts_create(struct device *dev, void __iomem *regs,
@@ -170,11 +170,14 @@ static inline bool cpts_is_tx_enabled(struct cpts *cpts)
 #else
 struct cpts;
 
-static inline void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+static inline int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
+	return -EOPNOTSUPP;
 }
-static inline void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+
+static inline int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
+	return -EOPNOTSUPP;
 }
 
 static inline

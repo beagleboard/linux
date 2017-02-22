@@ -232,7 +232,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	xhci->clk = clk;
 	xhci->main_hcd = hcd;
-	xhci->shared_hcd = usb_create_shared_hcd(driver, sysdev,
+	xhci->shared_hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
 			dev_name(&pdev->dev), hcd);
 	if (!xhci->shared_hcd) {
 		ret = -ENOMEM;

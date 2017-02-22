@@ -410,35 +410,39 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
 	return ns;
 }
 
-void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
 	u64 ns;
 	struct skb_shared_hwtstamps *ssh;
 
 	if (!cpts->rx_enable)
-		return;
+		return -EPERM;
 	ns = cpts_find_ts(cpts, skb, CPTS_EV_RX);
 	if (!ns)
-		return;
+		return -ENOENT;
 	ssh = skb_hwtstamps(skb);
 	memset(ssh, 0, sizeof(*ssh));
 	ssh->hwtstamp = ns_to_ktime(ns);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(cpts_rx_timestamp);
 
-void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
 	u64 ns;
 	struct skb_shared_hwtstamps ssh;
 
 	if (!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
-		return;
+		return -EPERM;
 	ns = cpts_find_ts(cpts, skb, CPTS_EV_TX);
 	if (!ns)
-		return;
+		return -ENOENT;
 	memset(&ssh, 0, sizeof(ssh));
 	ssh.hwtstamp = ns_to_ktime(ns);
 	skb_tstamp_tx(skb, &ssh);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(cpts_tx_timestamp);
 
