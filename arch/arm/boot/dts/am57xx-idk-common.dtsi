@@ -453,21 +453,6 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
-};
-
-&mcspi3 {
-	status = "okay";
-	ti,pindir-d0-out-d1-in;
-
-	sn65hvs882: sn65hvs882@0 {
-		compatible = "pisosr-gpio";
-		gpio-controller;
-		#gpio-cells = <2>;
-
-		reg = <0>;
-		spi-max-frequency = <1000000>;
-		spi-cpol;
-	};
 
 	ov2659: ov2659@30 {
 		compatible = "ovti,ov2659";
@@ -486,6 +471,21 @@
 				link-frequencies = /bits/ 64 <70000000>;
 			};
 		};
+	};
+};
+
+&mcspi3 {
+	status = "okay";
+	ti,pindir-d0-out-d1-in;
+
+	sn65hvs882: sn65hvs882@0 {
+		compatible = "pisosr-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpol;
 	};
 };
 
