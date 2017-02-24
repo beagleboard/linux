@@ -250,10 +250,6 @@ tlc591xx_configure(struct device *dev,
 		if (!led->active)
 			continue;
 
-		led->priv = priv;
-		led->led_no = i;
-		led->ldev.brightness_set_blocking = tlc591xx_brightness_set;
-		led->ldev.max_brightness = LED_FULL;
 		err = led_classdev_register(dev, &led->ldev);
 		if (err < 0) {
 			dev_err(dev, "couldn't register LED %s\n",
@@ -306,7 +302,7 @@ tlc591xx_probe(struct i2c_client *client,
 	const struct of_device_id *match;
 	const struct tlc591xx *tlc591xx;
 	struct tlc591xx_priv *priv;
-	int err, reg;
+	int err, reg, i;
 
 	match = of_match_device(of_tlc591xx_leds_match, dev);
 	if (!match)
@@ -319,6 +315,15 @@ tlc591xx_probe(struct i2c_client *client,
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
+
+	for (i = 0; i < TLC591XX_MAX_LEDS; i++) {
+		struct tlc591xx_led *led = &priv->leds[i];
+
+		led->priv = priv;
+		led->led_no = i;
+		led->ldev.brightness_set_blocking = tlc591xx_brightness_set;
+		led->ldev.max_brightness = LED_FULL;
+	}
 
 	priv->regmap = devm_regmap_init_i2c(client, &tlc591xx_regmap);
 	if (IS_ERR(priv->regmap)) {
