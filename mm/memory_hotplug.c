@@ -1397,7 +1397,7 @@ int test_pages_in_a_zone(unsigned long start_pfn, unsigned long end_pfn,
 			while ((i < MAX_ORDER_NR_PAGES) &&
 				!pfn_valid_within(pfn + i))
 				i++;
-			if (i == MAX_ORDER_NR_PAGES)
+			if (i == MAX_ORDER_NR_PAGES || pfn + i >= end_pfn)
 				continue;
 			/* Check if we got outside of the zone */
 			if (zone && !zone_spans_pfn(zone, pfn + i))
@@ -1414,7 +1414,7 @@ int test_pages_in_a_zone(unsigned long start_pfn, unsigned long end_pfn,
 
 	if (zone) {
 		*valid_start = start;
-		*valid_end = end;
+		*valid_end = min(end, end_pfn);
 		return 1;
 	} else {
 		return 0;
