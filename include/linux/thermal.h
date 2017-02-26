@@ -358,6 +358,7 @@ struct thermal_genl_event {
  *	       thermal_zone_device_update.
  * @set_emul_temp: a pointer to a function that sets sensor emulated
  *		   temperature.
+ * @notify: nofify lower layer upon crossing thresholds
  * @set_trip_temp: a pointer to a function that sets the trip temperature on
  *		   hardware.
  */
@@ -366,6 +367,8 @@ struct thermal_zone_of_device_ops {
 	int (*get_trend)(void *, int, enum thermal_trend *);
 	int (*set_trips)(void *, int, int);
 	int (*set_emul_temp)(void *, int);
+	int (*notify)(struct thermal_zone_device *, int,
+		      enum thermal_trip_type);
 	int (*set_trip_temp)(void *, int, int);
 };
 

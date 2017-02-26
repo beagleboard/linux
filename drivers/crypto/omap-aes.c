@@ -1253,6 +1253,7 @@ static int omap_aes_probe(struct platform_device *pdev)
 		}
 	}
 
+	spin_lock_init(&dd->lock);
 
 	INIT_LIST_HEAD(&dd->list);
 	spin_lock(&list_lock);
