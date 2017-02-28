@@ -193,8 +193,11 @@ EXPORT_SYMBOL(jiffies_64);
 #endif
 
 struct timer_base {
-	spinlock_t		lock;
+	raw_spinlock_t		lock;
 	struct timer_list	*running_timer;
+#ifdef CONFIG_PREEMPT_RT_FULL
+	struct swait_queue_head	wait_for_running_timer;
+#endif
 	unsigned long		clk;
 	unsigned long		next_expiry;
 	unsigned int		cpu;
@@ -203,6 +206,8 @@ struct timer_base {
 	bool			is_idle;
 	DECLARE_BITMAP(pending_map, WHEEL_SIZE);
 	struct hlist_head	vectors[WHEEL_SIZE];
+	struct hlist_head	expired_lists[LVL_DEPTH];
+	int			expired_count;
 } ____cacheline_aligned;
 
 static DEFINE_PER_CPU(struct timer_base, timer_bases[NR_BASES]);
@@ -948,10 +953,10 @@ static struct timer_base *lock_timer_base(struct timer_list *timer,
 
 		if (!(tf & TIMER_MIGRATING)) {
 			base = get_timer_base(tf);
-			spin_lock_irqsave(&base->lock, *flags);
+			raw_spin_lock_irqsave(&base->lock, *flags);
 			if (timer->flags == tf)
 				return base;
-			spin_unlock_irqrestore(&base->lock, *flags);
+			raw_spin_unlock_irqrestore(&base->lock, *flags);
 		}
 		cpu_relax();
 	}
@@ -1023,9 +1028,9 @@ __mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
 			/* See the comment in lock_timer_base() */
 			timer->flags |= TIMER_MIGRATING;
 
-			spin_unlock(&base->lock);
+			raw_spin_unlock(&base->lock);
 			base = new_base;
-			spin_lock(&base->lock);
+			raw_spin_lock(&base->lock);
 			WRITE_ONCE(timer->flags,
 				   (timer->flags & ~TIMER_BASEMASK) | base->cpu);
 		}
@@ -1050,7 +1055,7 @@ __mod_timer(struct timer_list *timer, unsigned long expires, bool pending_only)
 	}
 
 out_unlock:
-	spin_unlock_irqrestore(&base->lock, flags);
+	raw_spin_unlock_irqrestore(&base->lock, flags);
 
 	return ret;
 }
@@ -1144,18 +1149,45 @@ void add_timer_on(struct timer_list *timer, int cpu)
 	if (base != new_base) {
 		timer->flags |= TIMER_MIGRATING;
 
-		spin_unlock(&base->lock);
+		raw_spin_unlock(&base->lock);
 		base = new_base;
-		spin_lock(&base->lock);
+		raw_spin_lock(&base->lock);
 		WRITE_ONCE(timer->flags,
 			   (timer->flags & ~TIMER_BASEMASK) | cpu);
 	}
 
 	debug_activate(timer, timer->expires);
 	internal_add_timer(base, timer);
-	spin_unlock_irqrestore(&base->lock, flags);
+	raw_spin_unlock_irqrestore(&base->lock, flags);
 }
 EXPORT_SYMBOL_GPL(add_timer_on);
+
+#ifdef CONFIG_PREEMPT_RT_FULL
+/*
+ * Wait for a running timer
+ */
+static void wait_for_running_timer(struct timer_list *timer)
+{
+	struct timer_base *base;
+	u32 tf = timer->flags;
+
+	if (tf & TIMER_MIGRATING)
+		return;
+
+	base = get_timer_base(tf);
+	swait_event(base->wait_for_running_timer,
+		   base->running_timer != timer);
+}
+
+# define wakeup_timer_waiters(b)	swake_up_all(&(b)->wait_for_running_timer)
+#else
+static inline void wait_for_running_timer(struct timer_list *timer)
+{
+	cpu_relax();
+}
+
+# define wakeup_timer_waiters(b)	do { } while (0)
+#endif
 
 /**
  * del_timer - deactive a timer.
@@ -1180,7 +1212,7 @@ int del_timer(struct timer_list *timer)
 	if (timer_pending(timer)) {
 		base = lock_timer_base(timer, &flags);
 		ret = detach_if_pending(timer, base, true);
-		spin_unlock_irqrestore(&base->lock, flags);
+		raw_spin_unlock_irqrestore(&base->lock, flags);
 	}
 
 	return ret;
@@ -1208,13 +1240,13 @@ int try_to_del_timer_sync(struct timer_list *timer)
 		timer_stats_timer_clear_start_info(timer);
 		ret = detach_if_pending(timer, base, true);
 	}
-	spin_unlock_irqrestore(&base->lock, flags);
+	raw_spin_unlock_irqrestore(&base->lock, flags);
 
 	return ret;
 }
 EXPORT_SYMBOL(try_to_del_timer_sync);
 
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT_RT_FULL)
 /**
  * del_timer_sync - deactivate a timer and wait for the handler to finish.
  * @timer: the timer to be deactivated
@@ -1274,7 +1306,7 @@ int del_timer_sync(struct timer_list *timer)
 		int ret = try_to_del_timer_sync(timer);
 		if (ret >= 0)
 			return ret;
-		cpu_relax();
+		wait_for_running_timer(timer);
 	}
 }
 EXPORT_SYMBOL(del_timer_sync);
@@ -1323,7 +1355,8 @@ static void call_timer_fn(struct timer_list *timer, void (*fn)(unsigned long),
 	}
 }
 
-static void expire_timers(struct timer_base *base, struct hlist_head *head)
+static inline void __expire_timers(struct timer_base *base,
+				   struct hlist_head *head)
 {
 	while (!hlist_empty(head)) {
 		struct timer_list *timer;
@@ -1339,33 +1372,53 @@ static void expire_timers(struct timer_base *base, struct hlist_head *head)
 		fn = timer->function;
 		data = timer->data;
 
-		if (timer->flags & TIMER_IRQSAFE) {
-			spin_unlock(&base->lock);
+		if (!IS_ENABLED(CONFIG_PREEMPT_RT_FULL) &&
+		    timer->flags & TIMER_IRQSAFE) {
+			raw_spin_unlock(&base->lock);
 			call_timer_fn(timer, fn, data);
-			spin_lock(&base->lock);
+			base->running_timer = NULL;
+			raw_spin_lock(&base->lock);
 		} else {
-			spin_unlock_irq(&base->lock);
+			raw_spin_unlock_irq(&base->lock);
 			call_timer_fn(timer, fn, data);
-			spin_lock_irq(&base->lock);
+			base->running_timer = NULL;
+			raw_spin_lock_irq(&base->lock);
 		}
 	}
 }
 
-static int __collect_expired_timers(struct timer_base *base,
-				    struct hlist_head *heads)
+static void expire_timers(struct timer_base *base)
+{
+	struct hlist_head *head;
+
+	while (base->expired_count--) {
+		head = base->expired_lists + base->expired_count;
+		__expire_timers(base, head);
+	}
+	base->expired_count = 0;
+}
+
+static void __collect_expired_timers(struct timer_base *base)
 {
 	unsigned long clk = base->clk;
 	struct hlist_head *vec;
-	int i, levels = 0;
+	int i;
 	unsigned int idx;
+
+	/*
+	 * expire_timers() must be called at least once before we can
+	 * collect more timers
+	 */
+	if (WARN_ON(base->expired_count))
+		return;
 
 	for (i = 0; i < LVL_DEPTH; i++) {
 		idx = (clk & LVL_MASK) + i * LVL_SIZE;
 
 		if (__test_and_clear_bit(idx, base->pending_map)) {
 			vec = base->vectors + idx;
-			hlist_move_list(vec, heads++);
-			levels++;
+			hlist_move_list(vec,
+				&base->expired_lists[base->expired_count++]);
 		}
 		/* Is it time to look at the next level? */
 		if (clk & LVL_CLK_MASK)
@@ -1373,7 +1426,6 @@ static int __collect_expired_timers(struct timer_base *base,
 		/* Shift clock for the next level granularity */
 		clk >>= LVL_CLK_SHIFT;
 	}
-	return levels;
 }
 
 #ifdef CONFIG_NO_HZ_COMMON
@@ -1515,7 +1567,7 @@ u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
 	if (cpu_is_offline(smp_processor_id()))
 		return expires;
 
-	spin_lock(&base->lock);
+	raw_spin_lock(&base->lock);
 	nextevt = __next_timer_interrupt(base);
 	is_max_delta = (nextevt == base->clk + NEXT_TIMER_MAX_DELTA);
 	base->next_expiry = nextevt;
@@ -1543,7 +1595,7 @@ u64 get_next_timer_interrupt(unsigned long basej, u64 basem)
 		if ((expires - basem) > TICK_NSEC)
 			base->is_idle = true;
 	}
-	spin_unlock(&base->lock);
+	raw_spin_unlock(&base->lock);
 
 	return cmp_next_hrtimer_event(basem, expires);
 }
@@ -1566,8 +1618,7 @@ void timer_clear_idle(void)
 	base->is_idle = false;
 }
 
-static int collect_expired_timers(struct timer_base *base,
-				  struct hlist_head *heads)
+static void collect_expired_timers(struct timer_base *base)
 {
 	/*
 	 * NOHZ optimization. After a long idle sleep we need to forward the
@@ -1584,19 +1635,48 @@ static int collect_expired_timers(struct timer_base *base,
 		if (time_after(next, jiffies)) {
 			/* The call site will increment clock! */
 			base->clk = jiffies - 1;
-			return 0;
+			return;
 		}
 		base->clk = next;
 	}
-	return __collect_expired_timers(base, heads);
+	__collect_expired_timers(base);
 }
 #else
-static inline int collect_expired_timers(struct timer_base *base,
-					 struct hlist_head *heads)
+static inline void collect_expired_timers(struct timer_base *base)
 {
-	return __collect_expired_timers(base, heads);
+	__collect_expired_timers(base);
 }
 #endif
+
+static int find_expired_timers(struct timer_base *base)
+{
+	const unsigned long int end_clk = jiffies;
+
+	while (!base->expired_count && time_after_eq(end_clk, base->clk)) {
+		collect_expired_timers(base);
+		base->clk++;
+	}
+
+	return base->expired_count;
+}
+
+/* Called from CPU tick routine to quickly collect expired timers */
+static int tick_find_expired(struct timer_base *base)
+{
+	int count;
+
+	raw_spin_lock(&base->lock);
+
+	if (unlikely(time_after(jiffies, base->clk + HZ))) {
+		/* defer to ktimersoftd; don't spend too long in irq context */
+		count = -1;
+	} else
+		count = find_expired_timers(base);
+
+	raw_spin_unlock(&base->lock);
+
+	return count;
+}
 
 /*
  * Called from the timer interrupt handler to charge one tick to the current
@@ -1608,13 +1688,13 @@ void update_process_times(int user_tick)
 
 	/* Note: this timer irq context must be accounted for as well. */
 	account_process_tick(p, user_tick);
+	scheduler_tick();
 	run_local_timers();
 	rcu_check_callbacks(user_tick);
-#ifdef CONFIG_IRQ_WORK
+#if defined(CONFIG_IRQ_WORK)
 	if (in_irq())
 		irq_work_tick();
 #endif
-	scheduler_tick();
 	run_posix_cpu_timers(p);
 }
 
@@ -1624,24 +1704,13 @@ void update_process_times(int user_tick)
  */
 static inline void __run_timers(struct timer_base *base)
 {
-	struct hlist_head heads[LVL_DEPTH];
-	int levels;
+	raw_spin_lock_irq(&base->lock);
 
-	if (!time_after_eq(jiffies, base->clk))
-		return;
+	while (find_expired_timers(base))
+		expire_timers(base);
 
-	spin_lock_irq(&base->lock);
-
-	while (time_after_eq(jiffies, base->clk)) {
-
-		levels = collect_expired_timers(base, heads);
-		base->clk++;
-
-		while (levels--)
-			expire_timers(base, heads + levels);
-	}
-	base->running_timer = NULL;
-	spin_unlock_irq(&base->lock);
+	raw_spin_unlock_irq(&base->lock);
+	wakeup_timer_waiters(base);
 }
 
 /*
@@ -1650,6 +1719,8 @@ static inline void __run_timers(struct timer_base *base)
 static __latent_entropy void run_timer_softirq(struct softirq_action *h)
 {
 	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
+
+	irq_work_tick_soft();
 
 	__run_timers(base);
 	if (IS_ENABLED(CONFIG_NO_HZ_COMMON) && base->nohz_active)
@@ -1665,12 +1736,12 @@ void run_local_timers(void)
 
 	hrtimer_run_queues();
 	/* Raise the softirq only if required. */
-	if (time_before(jiffies, base->clk)) {
+	if (time_before(jiffies, base->clk) || !tick_find_expired(base)) {
 		if (!IS_ENABLED(CONFIG_NO_HZ_COMMON) || !base->nohz_active)
 			return;
 		/* CPU is awake, so check the deferrable base. */
 		base++;
-		if (time_before(jiffies, base->clk))
+		if (time_before(jiffies, base->clk) || !tick_find_expired(base))
 			return;
 	}
 	raise_softirq(TIMER_SOFTIRQ);
@@ -1836,16 +1907,17 @@ int timers_dead_cpu(unsigned int cpu)
 		 * The caller is globally serialized and nobody else
 		 * takes two locks at once, deadlock is not possible.
 		 */
-		spin_lock_irq(&new_base->lock);
-		spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
+		raw_spin_lock_irq(&new_base->lock);
+		raw_spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
 
 		BUG_ON(old_base->running_timer);
+		BUG_ON(old_base->expired_count);
 
 		for (i = 0; i < WHEEL_SIZE; i++)
 			migrate_timer_list(new_base, old_base->vectors + i);
 
-		spin_unlock(&old_base->lock);
-		spin_unlock_irq(&new_base->lock);
+		raw_spin_unlock(&old_base->lock);
+		raw_spin_unlock_irq(&new_base->lock);
 		put_cpu_ptr(&timer_bases);
 	}
 	return 0;
@@ -1861,8 +1933,12 @@ static void __init init_timer_cpu(int cpu)
 	for (i = 0; i < NR_BASES; i++) {
 		base = per_cpu_ptr(&timer_bases[i], cpu);
 		base->cpu = cpu;
-		spin_lock_init(&base->lock);
+		raw_spin_lock_init(&base->lock);
 		base->clk = jiffies;
+#ifdef CONFIG_PREEMPT_RT_FULL
+		init_swait_queue_head(&base->wait_for_running_timer);
+#endif
+		base->expired_count = 0;
 	}
 }
 

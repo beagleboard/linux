@@ -47,6 +47,7 @@ void init_rt_bandwidth(struct rt_bandwidth *rt_b, u64 period, u64 runtime)
 
 	hrtimer_init(&rt_b->rt_period_timer,
 			CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	rt_b->rt_period_timer.irqsafe = 1;
 	rt_b->rt_period_timer.function = sched_rt_period_timer;
 }
 
@@ -101,6 +102,7 @@ void init_rt_rq(struct rt_rq *rt_rq)
 	rt_rq->push_cpu = nr_cpu_ids;
 	raw_spin_lock_init(&rt_rq->push_lock);
 	init_irq_work(&rt_rq->push_work, push_irq_work_func);
+	rt_rq->push_work.flags |= IRQ_WORK_HARD_IRQ;
 #endif
 #endif /* CONFIG_SMP */
 	/* We start is dequeued state, because no RT tasks are queued */
@@ -2198,10 +2200,9 @@ static void switched_to_rt(struct rq *rq, struct task_struct *p)
 #ifdef CONFIG_SMP
 		if (tsk_nr_cpus_allowed(p) > 1 && rq->rt.overloaded)
 			queue_push_tasks(rq);
-#else
+#endif /* CONFIG_SMP */
 		if (p->prio < rq->curr->prio)
 			resched_curr(rq);
-#endif /* CONFIG_SMP */
 	}
 }
 
