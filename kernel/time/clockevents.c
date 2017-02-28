@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/smp.h>
 #include <linux/device.h>
+#include <linux/ipipe_tickdev.h>
 
 #include "tick-internal.h"
 
@@ -452,6 +453,8 @@ void clockevents_register_device(struct clock_event_device *dev)
 
 	/* Initialize state to DETACHED */
 	clockevent_set_state(dev, CLOCK_EVT_STATE_DETACHED);
+
+	ipipe_host_timer_register(dev);
 
 	if (!dev->cpumask) {
 		WARN_ON(num_possible_cpus() > 1);

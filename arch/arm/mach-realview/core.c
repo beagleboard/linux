@@ -358,6 +358,7 @@ void __iomem *timer0_va_base;
 void __iomem *timer1_va_base;
 void __iomem *timer2_va_base;
 void __iomem *timer3_va_base;
+void __iomem *timer3_pa_base;
 
 /*
  * Set up the clock source and clock events devices
@@ -366,14 +367,14 @@ void __init realview_timer_init(unsigned int timer_irq)
 {
 	u32 val;
 
-	/* 
-	 * set clock frequency: 
+	/*
+	 * set clock frequency:
 	 *	REALVIEW_REFCLK is 32KHz
 	 *	REALVIEW_TIMCLK is 1MHz
 	 */
 	val = readl(__io_address(REALVIEW_SCTL_BASE));
 	writel((REALVIEW_TIMCLK << REALVIEW_TIMER1_EnSel) |
-	       (REALVIEW_TIMCLK << REALVIEW_TIMER2_EnSel) | 
+	       (REALVIEW_TIMCLK << REALVIEW_TIMER2_EnSel) |
 	       (REALVIEW_TIMCLK << REALVIEW_TIMER3_EnSel) |
 	       (REALVIEW_TIMCLK << REALVIEW_TIMER4_EnSel) | val,
 	       __io_address(REALVIEW_SCTL_BASE));
@@ -386,7 +387,7 @@ void __init realview_timer_init(unsigned int timer_irq)
 	sp804_timer_disable(timer2_va_base);
 	sp804_timer_disable(timer3_va_base);
 
-	sp804_clocksource_init(timer3_va_base, "timer3");
+	sp804_clocksource_init(timer3_va_base, timer3_pa_base, "timer3");
 	sp804_clockevents_init(timer0_va_base, timer_irq, "timer0");
 }
 

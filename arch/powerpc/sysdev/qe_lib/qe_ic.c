@@ -31,7 +31,7 @@
 
 #include "qe_ic.h"
 
-static DEFINE_RAW_SPINLOCK(qe_ic_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(qe_ic_lock);
 
 static struct qe_ic_info qe_ic_info[] = {
 	[1] = {

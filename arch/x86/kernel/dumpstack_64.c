@@ -305,6 +305,9 @@ void show_regs(struct pt_regs *regs)
 	sp = regs->sp;
 	show_regs_print_info(KERN_DEFAULT);
 	__show_regs(regs, 1);
+#ifdef CONFIG_IPIPE
+	printk(KERN_DEFAULT "I-pipe domain %s\n", ipipe_current_domain->name);
+#endif /* CONFIG_IPIPE */
 
 	/*
 	 * When in-kernel, we also print out the stack and code at the
