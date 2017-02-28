@@ -22,6 +22,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
+#include <linux/ipipe.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -2231,7 +2232,7 @@ static irqreturn_t gpmc_handle_irq(int irq, void *dev)
 
 	for (i = 0; i < GPMC_NR_IRQ; i++)
 		if (regval & gpmc_client_irq[i].bitmask)
-			generic_handle_irq(gpmc_client_irq[i].irq);
+			ipipe_handle_demuxed_irq(gpmc_client_irq[i].irq);
 
 	gpmc_write_reg(GPMC_IRQSTATUS, regval);
 

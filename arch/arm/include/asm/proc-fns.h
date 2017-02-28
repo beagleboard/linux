@@ -60,7 +60,12 @@ extern struct processor {
 	/*
 	 * Set the page table
 	 */
+#ifndef CONFIG_ARM_FCSE_BEST_EFFORT
 	void (*switch_mm)(phys_addr_t pgd_phys, struct mm_struct *mm);
+#else /* !CONFIG_ARM_FCSE_BEST_EFFORT */
+	void (*switch_mm)(phys_addr_t pgd_phys,
+			  struct mm_struct *mm, unsigned flush);
+#endif /* !CONFIG_ARM_FCSE_BEST_EFFORT */
 	/*
 	 * Set a possibly extended PTE.  Non-extended PTEs should
 	 * ignore 'ext'.
@@ -82,7 +87,12 @@ extern void cpu_proc_init(void);
 extern void cpu_proc_fin(void);
 extern int cpu_do_idle(void);
 extern void cpu_dcache_clean_area(void *, int);
+#ifndef CONFIG_ARM_FCSE_BEST_EFFORT
 extern void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm);
+#else /* !CONFIG_ARM_FCSE_BEST_EFFORT */
+extern void cpu_do_switch_mm(phys_addr_t pgd_phys,
+			     struct mm_struct *mm, unsigned flush);
+#endif /* !CONFIG_ARM_FCSE_BEST_EFFORT */
 #ifdef CONFIG_ARM_LPAE
 extern void cpu_set_pte_ext(pte_t *ptep, pte_t pte);
 #else
@@ -113,7 +123,16 @@ extern void cpu_resume(void);
 
 #ifdef CONFIG_MMU
 
-#define cpu_switch_mm(pgd,mm) cpu_do_switch_mm(virt_to_phys(pgd),mm)
+#ifndef CONFIG_ARM_FCSE_BEST_EFFORT
+#define cpu_switch_mm(pgd,mm,fcse_switch)			\
+	({							\
+		(void)(fcse_switch);				\
+		cpu_do_switch_mm(virt_to_phys(pgd), (mm));	\
+	})
+#else /* CONFIG_ARM_FCSE_BEST_EFFORT */
+#define cpu_switch_mm(pgd,mm,fcse_switch)	\
+	cpu_do_switch_mm(virt_to_phys(pgd), (mm), (fcse_switch))
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 
 #ifdef CONFIG_ARM_LPAE
 
@@ -135,7 +154,7 @@ extern void cpu_resume(void);
 #define cpu_get_pgd()	\
 	({						\
 		unsigned long pg;			\
-		__asm__("mrc	p15, 0, %0, c2, c0, 0"	\
+		__asm__ __volatile__ ("mrc	p15, 0, %0, c2, c0, 0"	\
 			 : "=r" (pg) : : "cc");		\
 		pg &= ~0x3fff;				\
 		(pgd_t *)phys_to_virt(pg);		\
