@@ -645,6 +645,10 @@
 	};
 };
 
+&bb2d {
+	status = "okay";
+};
+
 &mailbox3 {
 	status = "okay";
 	mbox_pru1_0: mbox_pru1_0 {
