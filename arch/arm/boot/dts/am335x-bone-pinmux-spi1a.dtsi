@@ -1,0 +1,28 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include "am335x-peripheral-spi1.dtsi"
+
+/* standard */
+
+&am33xx_pinmux {
+	spi1a_pins: pinmux_spi1a_pins {
+		pinctrl-single,pins = <
+			0x164 0x34	/* eCAP0_in_PWM0_out.spi1_sclk, INPUT_PULLUP | MODE4 */
+					/* NOTE: P9.42 is connected to two pads */
+			// 0x1A0 0x27	/* set the other pad to gpio input */
+			0x194 0x33	/* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
+			0x198 0x13	/* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
+			0x178 0x14	/* uart1_ctsn.spi1_cs0, OUTPUT_PULLUP | MODE4 */		>;
+	};
+};
+
+&spi1 {
+	pinctrl-0 = <&spi1a_pins>;
+};
