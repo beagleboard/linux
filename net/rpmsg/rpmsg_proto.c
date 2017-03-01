@@ -309,17 +309,19 @@ static int rpmsg_sock_getname(struct socket *sock, struct sockaddr *addr,
 	struct rpmsg_socket *rpsk;
 	struct rpmsg_device *rpdev;
 	struct sockaddr_rpmsg *sa;
+	int ret = 0;
 
 	rpsk = container_of(sk, struct rpmsg_socket, sk);
-	rpdev = rpsk->rpdev;
 
-	if (!rpdev)
-		return -ENOTCONN;
+	lock_sock(sk);
+	rpdev = rpsk->rpdev;
+	if (!rpdev) {
+		ret = peer ? -ENOTCONN : -EINVAL;
+		goto out;
+	}
 
 	addr->sa_family = AF_RPMSG;
-
 	sa = (struct sockaddr_rpmsg *)addr;
-
 	*len = sizeof(*sa);
 
 	if (peer) {
@@ -330,7 +332,9 @@ static int rpmsg_sock_getname(struct socket *sock, struct sockaddr *addr,
 		sa->addr = rpsk->endpt ? rpsk->endpt->addr : rpsk->rpdev->src;
 	}
 
-	return 0;
+out:
+	release_sock(sk);
+	return ret;
 }
 
 static int rpmsg_sock_release(struct socket *sock)
