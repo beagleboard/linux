@@ -610,25 +610,25 @@
 		};
 
 		batt_1_led {
-			label = "bat0";
+			label = "bat25";
 			gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
 		batt_2_led {
-			label = "bat1";
+			label = "bat50";
 			gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
 		batt_3_led {
-			label = "bat2";
+			label = "bat75";
 			gpios = <&gpio1 29 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
 		batt_4_led {
-			label = "bat3";
+			label = "bat100";
 			gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
