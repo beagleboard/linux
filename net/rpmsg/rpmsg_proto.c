@@ -47,6 +47,7 @@ struct rpmsg_socket {
 	struct sock sk;
 	struct rpmsg_device *rpdev;
 	struct rpmsg_endpoint *endpt;
+	int rproc_id;
 };
 
 /* Connection and socket states */
@@ -152,6 +153,7 @@ static int rpmsg_sock_connect(struct socket *sock, struct sockaddr *addr,
 		goto out;
 	}
 
+	rpsk->rproc_id = sa->vproc_id;
 	rpsk->rpdev = rpdev;
 
 	/* XXX take care of disconnection state too */
@@ -321,7 +323,7 @@ static int rpmsg_sock_getname(struct socket *sock, struct sockaddr *addr,
 	*len = sizeof(*sa);
 
 	if (peer) {
-		sa->vproc_id = rpmsg_sock_get_proc_id(rpdev);
+		sa->vproc_id = rpsk->rproc_id;
 		sa->addr = rpdev->dst;
 	} else {
 		sa->vproc_id = RPMSG_LOCALHOST;
@@ -393,6 +395,7 @@ rpmsg_sock_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 
 	rpsk->rpdev = rpdev;
 	rpsk->endpt = endpt;
+	rpsk->rproc_id = sa->vproc_id;
 
 	sk->sk_state = RPMSG_LISTENING;
 
@@ -429,6 +432,7 @@ static int rpmsg_sock_create(struct net *net, struct socket *sock, int proto,
 			     int kern)
 {
 	struct sock *sk;
+	struct rpmsg_socket *rpsk;
 
 	if (sock->type != SOCK_SEQPACKET)
 		return -ESOCKTNOSUPPORT;
@@ -447,6 +451,10 @@ static int rpmsg_sock_create(struct net *net, struct socket *sock, int proto,
 	sk->sk_protocol = proto;
 
 	sk->sk_state = RPMSG_OPEN;
+
+	rpsk = container_of(sk, struct rpmsg_socket, sk);
+	/* use RPMSG_LOCALHOST to serve as an invalid value */
+	rpsk->rproc_id = RPMSG_LOCALHOST;
 
 	return 0;
 }
