@@ -38,6 +38,7 @@ struct rpmsg_socket {
 	struct rpmsg_device *rpdev;
 	struct rpmsg_endpoint *endpt;
 	int rproc_id;
+	struct list_head elem;
 };
 
 /* Connection and socket states */
@@ -46,6 +47,7 @@ enum {
 	RPMSG_OPEN,
 	RPMSG_LISTENING,
 	RPMSG_CLOSED,
+	RPMSG_ERROR,
 };
 
 /* A single-level radix-tree-based scheme is used to maintain the rpmsg
@@ -124,11 +126,10 @@ static int rpmsg_sock_connect(struct socket *sock, struct sockaddr *addr,
 
 	sa = (struct sockaddr_rpmsg *)addr;
 
+	mutex_lock(&rpmsg_channels_lock);
 	lock_sock(sk);
 
 	rpsk = container_of(sk, struct rpmsg_socket, sk);
-
-	mutex_lock(&rpmsg_channels_lock);
 
 	/* find the set of channels exposed by this remote processor */
 	rpdev = radix_tree_lookup(&rpmsg_channels, sa->vproc_id);
@@ -140,12 +141,15 @@ static int rpmsg_sock_connect(struct socket *sock, struct sockaddr *addr,
 	rpsk->rproc_id = sa->vproc_id;
 	rpsk->rpdev = rpdev;
 
+	/* bind this socket with its parent rpmsg device */
+	list_add_tail(&rpsk->elem, rpdev->ept->priv);
+
 	/* XXX take care of disconnection state too */
 	sk->sk_state = RPMSG_CONNECTED;
 
 out:
-	mutex_unlock(&rpmsg_channels_lock);
 	release_sock(sk);
+	mutex_unlock(&rpmsg_channels_lock);
 	return err;
 }
 
@@ -334,17 +338,29 @@ static int rpmsg_sock_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct rpmsg_socket *rpsk = container_of(sk, struct rpmsg_socket, sk);
+	struct rpmsg_endpoint *endpt;
 
 	if (!sk)
 		return 0;
 
-	/* function can be called with NULL endpoints, so it is effective for
-	 * Rx sockets and a no-op for Tx sockets
-	 */
-	rpmsg_destroy_ept(rpsk->endpt);
+	if (sk->sk_state == RPMSG_OPEN)
+		goto out;
 
+	lock_sock(sk);
+	if (sk->sk_state != RPMSG_ERROR) {
+		rpsk->rpdev = NULL;
+		list_del(&rpsk->elem);
+		endpt = rpsk->endpt;
+		rpsk->endpt = NULL;
+		release_sock(sk);
+		if (endpt)
+			rpmsg_destroy_ept(endpt);
+		goto out;
+	}
+	release_sock(sk);
+
+out:
 	sock_put(sock->sk);
-
 	return 0;
 }
 
@@ -363,6 +379,7 @@ rpmsg_sock_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	struct rpmsg_endpoint *endpt;
 	struct rpmsg_channel_info chinfo = {};
 	struct sockaddr_rpmsg *sa = (struct sockaddr_rpmsg *)uaddr;
+	int ret = 0;
 
 	if (sock->state == SS_CONNECTED)
 		return -EINVAL;
@@ -379,24 +396,37 @@ rpmsg_sock_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	if (sk->sk_state != RPMSG_OPEN)
 		return -EINVAL;
 
+	mutex_lock(&rpmsg_channels_lock);
+
 	rpdev = radix_tree_lookup(&rpmsg_channels, sa->vproc_id);
-	if (!rpdev)
-		return -EINVAL;
+	if (!rpdev) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	/* bind this socket with a receiving endpoint */
 	chinfo.src = sa->addr;
 	chinfo.dst = RPMSG_ADDR_ANY;
 	endpt = rpmsg_create_ept(rpdev, rpmsg_sock_cb, sk, chinfo);
-	if (!endpt)
-		return -EINVAL;
+	if (!endpt) {
+		ret = -EINVAL;
+		goto out;
+	}
 
+	lock_sock(sk);
 	rpsk->rpdev = rpdev;
 	rpsk->endpt = endpt;
 	rpsk->rproc_id = sa->vproc_id;
 
-	sk->sk_state = RPMSG_LISTENING;
+	/* bind this socket with its parent rpmsg device */
+	list_add_tail(&rpsk->elem, rpdev->ept->priv);
 
-	return 0;
+	sk->sk_state = RPMSG_LISTENING;
+	release_sock(sk);
+
+out:
+	mutex_unlock(&rpmsg_channels_lock);
+	return ret;
 }
 
 static const struct proto_ops rpmsg_sock_ops = {
@@ -450,6 +480,7 @@ static int rpmsg_sock_create(struct net *net, struct socket *sock, int proto,
 	sk->sk_state = RPMSG_OPEN;
 
 	rpsk = container_of(sk, struct rpmsg_socket, sk);
+	INIT_LIST_HEAD(&rpsk->elem);
 	/* use RPMSG_LOCALHOST to serve as an invalid value */
 	rpsk->rproc_id = RPMSG_LOCALHOST;
 
@@ -537,6 +568,7 @@ static int rpmsg_proto_probe(struct rpmsg_device *rpdev)
 	struct device *dev = &rpdev->dev;
 	int ret, dst = rpdev->dst, id;
 	struct rpmsg_device *vrp_dev;
+	struct list_head *sock_list = NULL;
 
 	if (WARN_ON(dst == RPMSG_ADDR_ANY))
 		return -EINVAL;
@@ -564,6 +596,20 @@ static int rpmsg_proto_probe(struct rpmsg_device *rpdev)
 		goto out;
 	}
 
+	/* reuse the rpdev endpoint's private field for storing the list of
+	 * all connected and bound sockets on this rpmsg device.
+	 */
+	WARN_ON(!!rpdev->ept->priv);
+	sock_list = kzalloc(sizeof(*sock_list), GFP_KERNEL);
+	if (!sock_list) {
+		dev_err(dev, "failed to allocate list_head\n");
+		radix_tree_delete(&rpmsg_channels, id);
+		ret = -ENOMEM;
+		goto out;
+	}
+	INIT_LIST_HEAD(sock_list);
+	rpdev->ept->priv = sock_list;
+
 out:
 	mutex_unlock(&rpmsg_channels_lock);
 
@@ -575,6 +621,9 @@ static void rpmsg_proto_remove(struct rpmsg_device *rpdev)
 	struct device *dev = &rpdev->dev;
 	int id, dst = rpdev->dst;
 	struct rpmsg_device *vrp_dev;
+	struct list_head *sk_list;
+	struct rpmsg_socket *rpsk, *tmp;
+	struct rpmsg_endpoint *endpt = NULL;
 
 	if (dst == RPMSG_ADDR_ANY)
 		return;
@@ -593,6 +642,27 @@ static void rpmsg_proto_remove(struct rpmsg_device *rpdev)
 
 	if (!radix_tree_delete(&rpmsg_channels, id))
 		dev_err(dev, "failed to delete rpdev for rproc %d\n", id);
+
+	/* mark all associated sockets invalid and remove them from the
+	 * rpdev's list. Destroy the endpoints for bound sockets as the
+	 * parent rpdev will not exist until the socket's release()
+	 */
+	sk_list = rpdev->ept->priv;
+	list_for_each_entry_safe(rpsk, tmp, sk_list, elem) {
+		lock_sock(&rpsk->sk);
+		if (rpsk->rpdev) {
+			rpsk->rpdev = NULL;
+			rpsk->sk.sk_state = RPMSG_ERROR;
+			list_del(&rpsk->elem);
+			endpt = rpsk->endpt;
+			rpsk->endpt = NULL;
+		}
+		release_sock(&rpsk->sk);
+		if (endpt)
+			rpmsg_destroy_ept(endpt);
+	}
+	kfree(sk_list);
+	rpdev->ept->priv = NULL;
 
 out:
 	mutex_unlock(&rpmsg_channels_lock);
