@@ -259,6 +259,9 @@ static struct rpmsg_endpoint *__rpmsg_create_ept(struct virtproc_info *vrp,
 		goto free_ept;
 	}
 	ept->addr = id;
+	ept->cb_lockdep_class = ((ept->addr == RPMSG_NS_ADDR) ?
+				 RPMSG_LOCKDEP_SUBCLASS_NS :
+				 RPMSG_LOCKDEP_SUBCLASS_NORMAL);
 
 	mutex_unlock(&vrp->endpoints_lock);
 
@@ -299,7 +302,7 @@ __rpmsg_destroy_ept(struct virtproc_info *vrp, struct rpmsg_endpoint *ept)
 	mutex_unlock(&vrp->endpoints_lock);
 
 	/* make sure in-flight inbound messages won't invoke cb anymore */
-	mutex_lock(&ept->cb_lock);
+	mutex_lock_nested(&ept->cb_lock, ept->cb_lockdep_class);
 	ept->cb = NULL;
 	mutex_unlock(&ept->cb_lock);
 
@@ -742,7 +745,7 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 
 	if (ept) {
 		/* make sure ept->cb doesn't go away while we use it */
-		mutex_lock(&ept->cb_lock);
+		mutex_lock_nested(&ept->cb_lock, ept->cb_lockdep_class);
 
 		if (ept->cb)
 			ept->cb(ept->rpdev, msg->data, msg->len, ept->priv,
