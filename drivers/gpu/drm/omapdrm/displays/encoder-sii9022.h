@@ -172,6 +172,7 @@ struct panel_drv_data {
 
 	void (*hpd_cb)(void *cb_data, enum drm_connector_status status);
 	void *hpd_cb_data;
+	bool hpd_enabled;
 	struct mutex hpd_lock;
 
 	int irq;

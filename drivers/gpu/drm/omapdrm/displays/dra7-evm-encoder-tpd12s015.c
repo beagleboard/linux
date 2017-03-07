@@ -40,6 +40,7 @@ struct panel_drv_data {
 	struct omap_dss_device *in;
 	void (*hpd_cb)(void *cb_data, enum drm_connector_status status);
 	void *hpd_cb_data;
+	bool hpd_enabled;
 	struct mutex hpd_lock;
 
 	int ct_cp_hpd_gpio;
@@ -277,10 +278,10 @@ static bool tpd_detect(struct omap_dss_device *dssdev)
 	return gpio_get_value_cansleep(ddata->hpd_gpio);
 }
 
-static int tpd_enable_hpd(struct omap_dss_device *dssdev,
-			   void (*cb)(void *cb_data,
-				      enum drm_connector_status status),
-			   void *cb_data)
+static int tpd_register_hpd_cb(struct omap_dss_device *dssdev,
+			       void (*cb)(void *cb_data,
+					  enum drm_connector_status status),
+			       void *cb_data)
 {
 	struct panel_drv_data *ddata = to_panel_data(dssdev);
 
@@ -292,9 +293,32 @@ static int tpd_enable_hpd(struct omap_dss_device *dssdev,
 	return 0;
 }
 
+static void tpd_unregister_hpd_cb(struct omap_dss_device *dssdev)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+	mutex_lock(&ddata->hpd_lock);
+	ddata->hpd_cb = NULL;
+	ddata->hpd_cb_data = NULL;
+	mutex_unlock(&ddata->hpd_lock);
+}
+
+static void tpd_enable_hpd(struct omap_dss_device *dssdev)
+{
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+	mutex_lock(&ddata->hpd_lock);
+	ddata->hpd_enabled = true;
+	mutex_unlock(&ddata->hpd_lock);
+}
+
 static void tpd_disable_hpd(struct omap_dss_device *dssdev)
 {
-	tpd_enable_hpd(dssdev, NULL, NULL);
+	struct panel_drv_data *ddata = to_panel_data(dssdev);
+
+	mutex_lock(&ddata->hpd_lock);
+	ddata->hpd_enabled = false;
+	mutex_unlock(&ddata->hpd_lock);
 }
 
 static int tpd_set_infoframe(struct omap_dss_device *dssdev,
@@ -328,6 +352,8 @@ static const struct omapdss_hdmi_ops tpd_hdmi_ops = {
 
 	.read_edid		= tpd_read_edid,
 	.detect			= tpd_detect,
+	.register_hpd_cb	= tpd_register_hpd_cb,
+	.unregister_hpd_cb	= tpd_unregister_hpd_cb,
 	.enable_hpd		= tpd_enable_hpd,
 	.disable_hpd		= tpd_disable_hpd,
 	.set_infoframe		= tpd_set_infoframe,
@@ -339,7 +365,7 @@ static irqreturn_t tpd_hpd_isr(int irq, void *data)
 	struct panel_drv_data *ddata = data;
 
 	mutex_lock(&ddata->hpd_lock);
-	if (ddata->hpd_cb) {
+	if (ddata->hpd_enabled && ddata->hpd_cb) {
 		enum drm_connector_status status;
 
 		if (tpd_detect(&ddata->dssdev))

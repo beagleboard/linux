@@ -559,6 +559,32 @@ static int omap_modeset_init(struct drm_device *dev)
 }
 
 /*
+ * Enable the HPD in external components if supported
+ */
+static void omap_modeset_enable_external_hpd(void)
+{
+	struct omap_dss_device *dssdev = NULL;
+
+	for_each_dss_dev(dssdev) {
+		if (dssdev->driver->enable_hpd)
+			dssdev->driver->enable_hpd(dssdev);
+	}
+}
+
+/*
+ * Disable the HPD in external components if supported
+ */
+static void omap_modeset_disable_external_hpd(void)
+{
+	struct omap_dss_device *dssdev = NULL;
+
+	for_each_dss_dev(dssdev) {
+		if (dssdev->driver->disable_hpd)
+			dssdev->driver->disable_hpd(dssdev);
+	}
+}
+
+/*
  * drm ioctl funcs
  */
 
@@ -868,6 +894,7 @@ static int pdev_probe(struct platform_device *pdev)
 	priv->fbdev = omap_fbdev_init(ddev);
 
 	drm_kms_helper_poll_init(ddev);
+	omap_modeset_enable_external_hpd();
 
 	if (priv->dispc_ops->has_writeback()) {
 		ret = omap_wb_init(ddev);
@@ -890,6 +917,7 @@ static int pdev_probe(struct platform_device *pdev)
 err_cleanup_helpers:
 	if (priv->wb_initialized)
 		omap_wb_cleanup(ddev);
+	omap_modeset_disable_external_hpd();
 	drm_kms_helper_poll_fini(ddev);
 	if (priv->fbdev)
 		omap_fbdev_free(ddev);
@@ -921,6 +949,7 @@ static int pdev_remove(struct platform_device *pdev)
 	if (priv->wb_initialized)
 		omap_wb_cleanup(ddev);
 
+	omap_modeset_disable_external_hpd();
 	drm_kms_helper_poll_fini(ddev);
 
 	if (priv->fbdev)
