@@ -2575,6 +2575,8 @@ static struct omap_hsmmc_platform_data *of_get_hsmmc_pdata(struct device *dev)
 			pdata->name = legacy->name;
 		if (legacy->version)
 			pdata->version = legacy->version;
+		if (legacy->max_freq > 0)
+			pdata->max_freq = legacy->max_freq;
 	}
 
 	if (of_find_property(np, "ti,dual-volt", NULL))
