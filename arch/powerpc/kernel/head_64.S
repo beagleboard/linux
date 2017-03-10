@@ -631,6 +631,7 @@ _GLOBAL(pmac_secondary_start)
 	add	r13,r13,r4		/* for this processor.		*/
 	SET_PACA(r13)			/* Save vaddr of paca in an SPRG*/
 
+#ifndef CONFIG_IPIPE
 	/* Mark interrupts soft and hard disabled (they might be enabled
 	 * in the PACA when doing hotplug)
 	 */
@@ -638,6 +639,7 @@ _GLOBAL(pmac_secondary_start)
 	stb	r0,PACASOFTIRQEN(r13)
 	li	r0,PACA_IRQ_HARD_DIS
 	stb	r0,PACAIRQHAPPENED(r13)
+#endif
 
 	/* Create a temp kernel stack for use before relocation is on.	*/
 	ld	r1,PACAEMERGSP(r13)
@@ -688,12 +690,14 @@ __secondary_start:
 	li	r7,0
 	mtlr	r7
 
+#ifndef CONFIG_IPIPE
 	/* Mark interrupts soft and hard disabled (they might be enabled
 	 * in the PACA when doing hotplug)
 	 */
 	stb	r7,PACASOFTIRQEN(r13)
 	li	r0,PACA_IRQ_HARD_DIS
 	stb	r0,PACAIRQHAPPENED(r13)
+#endif
 
 	/* enable MMU and jump to start_secondary */
 	LOAD_REG_ADDR(r3, start_secondary_prolog)
@@ -856,6 +860,7 @@ start_here_common:
 	/* Do more system initializations in virtual mode */
 	bl	setup_system
 
+#ifndef CONFIG_IPIPE
 	/* Mark interrupts soft and hard disabled (they might be enabled
 	 * in the PACA when doing hotplug)
 	 */
@@ -863,6 +868,7 @@ start_here_common:
 	stb	r0,PACASOFTIRQEN(r13)
 	li	r0,PACA_IRQ_HARD_DIS
 	stb	r0,PACAIRQHAPPENED(r13)
+#endif
 
 	/* Generic kernel entry */
 	bl	start_kernel

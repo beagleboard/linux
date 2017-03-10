@@ -202,6 +202,7 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/sched.h>
+#include <asm/fcse.h>
 
 struct cpu_tlb_fns {
 	void (*flush_user_range)(unsigned long, unsigned long, struct vm_area_struct *);
@@ -421,7 +422,8 @@ __local_flush_tlb_page(struct vm_area_struct *vma, unsigned long uaddr)
 	const int zero = 0;
 	const unsigned int __tlb_flag = __cpu_tlb_flags;
 
-	uaddr = (uaddr & PAGE_MASK) | ASID(vma->vm_mm);
+	uaddr = (fcse_va_to_mva(vma->vm_mm, uaddr) & PAGE_MASK)
+		| ASID(vma->vm_mm);
 
 	if (possible_tlb_flags & (TLB_V4_U_PAGE|TLB_V4_D_PAGE|TLB_V4_I_PAGE|TLB_V4_I_FULL) &&
 	    cpumask_test_cpu(smp_processor_id(), mm_cpumask(vma->vm_mm))) {
@@ -600,7 +602,15 @@ static inline void clean_pmd_entry(void *pmd)
 /*
  * Convert calls to our calling convention.
  */
-#define local_flush_tlb_range(vma,start,end)	__cpu_flush_user_tlb_range(start,end,vma)
+#define local_flush_tlb_range(vma, start, end)			\
+	({							\
+		struct mm_struct *_mm = (vma)->vm_mm;		\
+		unsigned long _start, _end;			\
+		_start = fcse_va_to_mva(_mm, start);		\
+		_end = fcse_va_to_mva(_mm, end);		\
+		__cpu_flush_user_tlb_range(_start, _end, vma);	\
+	})
+
 #define local_flush_tlb_kernel_range(s,e)	__cpu_flush_kern_tlb_range(s,e)
 
 #ifndef CONFIG_SMP
