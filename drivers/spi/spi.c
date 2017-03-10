@@ -2802,11 +2802,13 @@ int spi_flash_read(struct spi_device *spi,
 	mutex_lock(&master->io_mutex);
 	if (master->dma_rx) {
 		rx_dev = master->dma_rx->device->dev;
-		ret = spi_map_buf(master, rx_dev, &msg->rx_sg,
-				  msg->buf, msg->len,
-				  DMA_FROM_DEVICE);
-		if (!ret)
-			msg->cur_msg_mapped = true;
+		if (virt_addr_valid(msg->buf)) {
+			ret = spi_map_buf(master, rx_dev, &msg->rx_sg,
+					  msg->buf, msg->len,
+					  DMA_FROM_DEVICE);
+			if (!ret)
+				msg->cur_msg_mapped = true;
+		}
 	}
 	ret = master->spi_flash_read(spi, msg);
 	if (msg->cur_msg_mapped)
