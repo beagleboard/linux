@@ -962,7 +962,7 @@ static int mt9t11x_mcu_powerup_stop_enable(const struct i2c_client *client)
 	int ret;
 
 	/* set powerup stop bit */
-	ret = mt9t11x_reg_mask_set(client, 0x0018, 0x0004, 1);
+	ret = mt9t11x_reg_mask_set(client, 0x0018, 0x0004, 0x0004);
 
 	return ret;
 }
