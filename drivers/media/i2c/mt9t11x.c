@@ -416,6 +416,25 @@ static int mt9t11x_reset(const struct i2c_client *client)
 	return ret;
 }
 
+static int mt9t11x_streaming(struct mt9t11x_priv *priv, int on)
+{
+	struct i2c_client *client = priv->client;
+	int ret, tmp;
+
+	dev_dbg(&client->dev, "%s: on: %d\n", __func__, on);
+	on = (on) ? 1 : 0;
+
+	ret = mt9t11x_reg_mask_set(client, 0x001a, 0x0200, on << 9);
+	if (ret < 0)
+		return ret;
+
+	tmp = mt9t11x_reg_read(client, 0x001A);
+	dev_dbg(&client->dev, "reset_and_misc_control: 0x%04x\n", tmp);
+
+	return 0;
+}
+
+
 #define CLOCK_INFO(a, b)				\
 	do {						\
 		if (debug > 1)				\
@@ -699,7 +718,8 @@ static int mt9t11x_pll_setup_pll(const struct i2c_client *client)
 		return ret;
 
 	/* Reset Misc. Control = 536 */
-	ret = mt9t11x_reg_write(client, 0x001A, 0x218);
+	/* make sure parallel interface is not enable at first */
+	ret = mt9t11x_reg_write(client, 0x001A, 0x018);
 	if (ret < 0)
 		return ret;
 	/* PLL control: TEST_BYPASS on = 9541 */
@@ -1741,6 +1761,7 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 
 	if (!enable) {
 		/* Stop Streaming Sequence */
+		mt9t11x_streaming(priv, false);
 		__mt9t11x_set_power(priv, 0);
 		priv->streaming = enable;
 		mutex_unlock(&priv->lock);
@@ -1799,6 +1820,7 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 		priv->frame.height);
 
 	priv->streaming = enable;
+	mt9t11x_streaming(priv, true);
 
 	CLOCK_INFO(client, EXT_CLOCK);
 
