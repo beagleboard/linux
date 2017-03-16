@@ -207,17 +207,31 @@ DEFINE_SIMPLE_ATTRIBUTE(wkup_m3_ipc_option_fops, option_get, option_set,
 
 static int wkup_m3_ipc_dbg_init(struct wkup_m3_ipc *m3_ipc)
 {
-	struct dentry *d;
+	m3_ipc->dbg_path = debugfs_create_dir("wkup_m3_ipc", NULL);
 
-	d = debugfs_create_dir("wkup_m3_ipc", NULL);
-	if (!d)
+	if (!m3_ipc->dbg_path)
 		return -EINVAL;
 
-	(void)debugfs_create_file("enable_late_halt", 0644, d,
+	(void)debugfs_create_file("enable_late_halt", 0644,
+				  m3_ipc->dbg_path,
 				  &m3_ipc->halt,
 				  &wkup_m3_ipc_option_fops);
 
 	return 0;
+}
+
+static inline void wkup_m3_ipc_dbg_destroy(struct wkup_m3_ipc *m3_ipc)
+{
+	debugfs_remove_recursive(m3_ipc->dbg_path);
+}
+#else
+static inline int wkup_m3_ipc_dbg_init(struct wkup_m3_ipc *m3_ipc)
+{
+	return 0;
+}
+
+static inline void wkup_m3_ipc_dbg_destroy(struct wkup_m3_ipc *m3_ipc)
+{
 }
 #endif /* CONFIG_DEBUG_FS */
 
@@ -286,7 +300,6 @@ static irqreturn_t wkup_m3_txev_handler(int irq, void *ipc_data)
 
 		m3_ipc->state = M3_STATE_INITED;
 		wkup_m3_init_scale_data(m3_ipc, dev);
-		wkup_m3_ipc_dbg_init(m3_ipc);
 		complete(&m3_ipc->sync_complete);
 		break;
 	case M3_STATE_MSG_FOR_RESET:
@@ -699,6 +712,8 @@ static int wkup_m3_ipc_probe(struct platform_device *pdev)
 		goto err_put_rproc;
 	}
 
+	wkup_m3_ipc_dbg_init(m3_ipc);
+
 	return 0;
 
 err_put_rproc:
@@ -710,6 +725,8 @@ err_free_mbox:
 
 static int wkup_m3_ipc_remove(struct platform_device *pdev)
 {
+	wkup_m3_ipc_dbg_destroy(m3_ipc_state);
+
 	mbox_free_channel(m3_ipc_state->mbox);
 
 	rproc_shutdown(m3_ipc_state->rproc);
