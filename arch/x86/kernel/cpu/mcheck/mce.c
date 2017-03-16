@@ -47,6 +47,7 @@
 #include <asm/tlbflush.h>
 #include <asm/mce.h>
 #include <asm/msr.h>
+#include <asm/traps.h>
 
 #include "mce-internal.h"
 
@@ -1671,6 +1672,16 @@ static void unexpected_machine_check(struct pt_regs *regs, long error_code)
 /* Call the installed machine check handler for this CPU setup. */
 void (*machine_check_vector)(struct pt_regs *, long error_code) =
 						unexpected_machine_check;
+
+#ifdef CONFIG_IPIPE
+static int mce_trampoline(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(machine_check_vector, X86_TRAP_MC, regs, error_code);
+}
+
+int (*__ipipe_machine_check_vector)(struct pt_regs *, long error_code) =
+	mce_trampoline;
+#endif
 
 /*
  * Called for each booted CPU to set up machine checks.

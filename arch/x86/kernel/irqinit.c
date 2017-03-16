@@ -102,6 +102,9 @@ void __init init_IRQ(void)
 static void __init smp_intr_init(void)
 {
 #ifdef CONFIG_SMP
+	unsigned __maybe_unused cpu;
+	int __maybe_unused ret;
+
 	/*
 	 * The reschedule interrupt is a CPU-to-CPU reschedule-helper
 	 * IPI, driven by wakeup.
@@ -118,9 +121,20 @@ static void __init smp_intr_init(void)
 	/* Low priority IPI to cleanup after moving an irq */
 	set_intr_gate(IRQ_MOVE_CLEANUP_VECTOR, irq_move_cleanup_interrupt);
 	set_bit(IRQ_MOVE_CLEANUP_VECTOR, used_vectors);
+#ifdef CONFIG_IPIPE
+	ret = irq_alloc_descs(IRQ_MOVE_CLEANUP_VECTOR, 0, 1, 0);
+	BUG_ON(IRQ_MOVE_CLEANUP_VECTOR != ret);
+	for_each_possible_cpu(cpu)
+		per_cpu(vector_irq, cpu)[IRQ_MOVE_CLEANUP_VECTOR] =
+			irq_to_desc(IRQ_MOVE_CLEANUP_VECTOR);
+#endif
 
 	/* IPI used for rebooting/stopping */
 	alloc_intr_gate(REBOOT_VECTOR, reboot_interrupt);
+#ifdef CONFIG_IPIPE
+	alloc_intr_gate_notrace(IPIPE_RESCHEDULE_VECTOR, ipipe_reschedule_interrupt);
+	alloc_intr_gate_notrace(IPIPE_CRITICAL_VECTOR, ipipe_critical_interrupt);
+#endif
 #endif /* CONFIG_SMP */
 }
 
@@ -155,6 +169,9 @@ static void __init apic_intr_init(void)
 	/* IPI vectors for APIC spurious and error interrupts */
 	alloc_intr_gate(SPURIOUS_APIC_VECTOR, spurious_interrupt);
 	alloc_intr_gate(ERROR_APIC_VECTOR, error_interrupt);
+#ifdef CONFIG_IPIPE
+	alloc_intr_gate_notrace(IPIPE_HRTIMER_VECTOR, ipipe_hrtimer_interrupt);
+#endif
 
 	/* IRQ work interrupts: */
 # ifdef CONFIG_IRQ_WORK

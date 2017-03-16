@@ -87,6 +87,37 @@ void tlb_flush(struct mmu_gather *tlb)
  *    -- Cort
  */
 
+#ifdef CONFIG_IPIPE
+
+int __flush_hash_pages(unsigned context, unsigned long va,
+		       unsigned long pmdval, int count);
+
+int flush_hash_pages(unsigned context, unsigned long va,
+		     unsigned long pmdval, int count)
+{
+	int bulk, ret = 0;
+	/*
+	 * Submitting flush requests on insanely large PTE counts
+	 * (e.g. HIGHMEM) may cause severe latency penalty on high
+	 * priority domains since this must be done with hw interrupts
+	 * off (typically, peaks over 400 us have been observed on
+	 * 864xD). We split flush requests in bulks of 64 PTEs to
+	 * prevent that; the modified assembly helper which performs
+	 * the actual flush (__flush_hash_pages()) will spin on the
+	 * mmu_lock with interrupts enabled to further reduce latency.
+	 */
+	while (count > 0) {
+		bulk = count > 64 ? 64 : count;
+		ret |= __flush_hash_pages(context, va, pmdval, bulk);
+		va += (bulk << PAGE_SHIFT);
+		count -= bulk;
+	}
+
+	return ret;
+}
+
+#endif /* CONFIG_IPIPE */
+
 static void flush_range(struct mm_struct *mm, unsigned long start,
 			unsigned long end)
 {
