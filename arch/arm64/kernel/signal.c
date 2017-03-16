@@ -409,7 +409,7 @@ asmlinkage void do_notify_resume(struct pt_regs *regs,
 	 */
 	trace_hardirqs_off();
 	do {
-		if (thread_flags & _TIF_NEED_RESCHED) {
+		if (thread_flags & _TIF_NEED_RESCHED_MASK) {
 			schedule();
 		} else {
 			local_irq_enable();
