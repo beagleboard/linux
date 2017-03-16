@@ -654,6 +654,7 @@ static int etnaviv_pdev_remove(struct platform_device *pdev)
 static const struct of_device_id dt_match[] = {
 	{ .compatible = "fsl,imx-gpu-subsystem" },
 	{ .compatible = "marvell,dove-gpu-subsystem" },
+	{ .compatible = "vivante,gc-gpu-subsystem"},
 	{}
 };
 MODULE_DEVICE_TABLE(of, dt_match);
