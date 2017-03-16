@@ -2065,7 +2065,7 @@
 		};
 
 		bb2d: bb2d@59000000 {
-			compatible = "ti,dra7-bb2d";
+			compatible = "ti,dra7-bb2d","vivante,gc";
 			reg = <0x59000000 0x0700>;
 			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "bb2d";
@@ -2346,6 +2346,12 @@
 				status = "disabled";
 			};
 		};
+	};
+
+	gpu-subsystem {
+		compatible = "vivante,gc-gpu-subsystem";
+		cores = <&bb2d>;
+		status = "okay";
 	};
 
 	thermal_zones: thermal-zones {
