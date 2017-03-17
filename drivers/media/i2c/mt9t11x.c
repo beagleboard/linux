@@ -1749,6 +1749,7 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 		.left = priv->frame.left,
 		.top = priv->frame.top,
 	};
+	u16 param;
 
 	dev_dbg(&client->dev, "%s: enable: %d\n", __func__, enable);
 
@@ -1788,7 +1789,9 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 	 * By default data is sampled on falling edge of pixclk.
 	 * Change the default to be rising edge. i.e. Invert PCLK
 	 */
-	ret = mt9t11x_reg_write(client, 0x3C20, 0);
+	param = (priv->info->flags & V4L2_MBUS_PCLK_SAMPLE_RISING) ?
+		0x0001 : 0x0000;
+	ret = mt9t11x_reg_write(client, 0x3C20, param);
 	if (ret < 0)
 		return ret;
 	usleep_range(5000, 6000);
