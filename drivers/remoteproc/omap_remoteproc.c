@@ -1212,19 +1212,26 @@ static int omap_rproc_probe(struct platform_device *pdev)
 
 	init_completion(&oproc->pm_comp);
 	oproc->autosuspend_delay = omap_rproc_get_autosuspend_delay(pdev);
-	if (oproc->autosuspend_delay < 0)
+	if (oproc->autosuspend_delay < 0) {
+		ret = oproc->autosuspend_delay;
 		goto free_rproc;
+	}
 
 	ret = of_property_read_u32(np, "ti,rproc-standby-info", &standby_addr);
-	if (ret || !standby_addr)
+	if (ret || !standby_addr) {
+		ret = !standby_addr ? -EINVAL : ret;
 		goto free_rproc;
+	}
 
 	oproc->standby_addr = devm_ioremap(&pdev->dev, standby_addr,
 					   sizeof(u32));
-	if (!oproc->standby_addr)
+	if (!oproc->standby_addr) {
+		ret = -ENOMEM;
 		goto free_rproc;
+	}
 
-	if (of_reserved_mem_device_init(&pdev->dev)) {
+	ret = of_reserved_mem_device_init(&pdev->dev);
+	if (ret) {
 		dev_err(&pdev->dev, "device does not have specific CMA pool\n");
 		goto free_rproc;
 	}
