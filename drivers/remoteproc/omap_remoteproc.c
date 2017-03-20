@@ -951,8 +951,8 @@ static int omap_rproc_get_autosuspend_delay(struct platform_device *pdev)
 
 	data = match->data;
 
-	if (!of_device_is_compatible(np, "ti,dra7-rproc-dsp") &&
-	    !of_device_is_compatible(np, "ti,dra7-rproc-ipu")) {
+	if (!of_device_is_compatible(np, "ti,dra7-dsp") &&
+	    !of_device_is_compatible(np, "ti,dra7-ipu")) {
 		delay = data->autosuspend_delay;
 		goto out;
 	}
