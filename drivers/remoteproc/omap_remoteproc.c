@@ -1186,7 +1186,9 @@ static int omap_rproc_probe(struct platform_device *pdev)
 			oproc->num_wd_timers);
 		oproc->num_wd_timers = 0;
 	} else {
-		if (!timer_ops || !timer_ops->get_timer_irq ||
+		if (!timer_ops || !timer_ops->request_timer ||
+		    !timer_ops->release_timer || !timer_ops->start_timer ||
+		    !timer_ops->stop_timer || !timer_ops->get_timer_irq ||
 		    !timer_ops->ack_timer_irq) {
 			dev_err(&pdev->dev, "device does not have required watchdog timer ops\n");
 			ret = -ENODEV;
