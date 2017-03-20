@@ -133,7 +133,7 @@ extern void update_vsyscall_tz(void);
 #elif defined(CONFIG_GENERIC_TIME_VSYSCALL_OLD)
 
 extern void update_vsyscall_old(struct timespec *ts, struct timespec *wtm,
-				struct clocksource *c, u32 mult,
+				struct clocksource *c, u32 mult, u32 shift,
 				cycle_t cycle_last);
 extern void update_vsyscall_tz(void);
 

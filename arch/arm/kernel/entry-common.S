@@ -2,6 +2,7 @@
  *  linux/arch/arm/kernel/entry-common.S
  *
  *  Copyright (C) 2000 Russell King
+ *  Copyright (C) 2005 Stelian Pop.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -43,6 +44,42 @@ ret_fast_syscall:
 	arch_ret_to_user r1, lr
 
 	restore_user_regs fast = 1, offset = S_OFF
+
+#ifdef CONFIG_IPIPE
+
+.macro  ipipe_oabi_save_sysnr, tmp
+#ifdef CONFIG_OABI_COMPAT
+	ldr	\tmp, [sp, #S_R7 + S_OFF]
+	stmdb	sp!, {\tmp}
+	ldr	\tmp, =sys_oabi_call_table
+	cmp	\tmp, tbl
+	moveq	\tmp, scno
+	addeq	\tmp, #__NR_SYSCALL_BASE
+	streq	\tmp, [sp, #S_R7 + S_OFF + 4]	@ head domain expects sycall number in r7
+#elif !defined(CONFIG_AEABI)
+	ldr	\tmp, [sp, #S_R7 + S_OFF]
+	stmdb	sp!, {\tmp}
+	mov	\tmp, scno
+	add	\tmp, #__NR_SYSCALL_BASE
+	str	\tmp, [sp, #S_R7 + S_OFF + 4]
+#endif
+.endm
+
+.macro  ipipe_oabi_restore_sysnr, tmp
+#if defined(CONFIG_OABI_COMPAT) || !defined(CONFIG_AEABI)
+	ldmia	sp!, {\tmp}
+	str	\tmp, [sp, #S_R7 + S_OFF]
+#endif
+.endm
+
+__ipipe_ret_to_user:
+	disable_irq				@ disable interrupts
+ENTRY(__ipipe_ret_to_user_irqs_disabled)
+	slow_restore_user_regs
+ENDPROC(__ipipe_ret_to_user_irqs_disabled)
+
+#endif /* CONFIG_IPIPE */
+
  UNWIND(.fnend		)
 ENDPROC(ret_fast_syscall)
 
@@ -98,12 +135,7 @@ ENTRY(ret_to_user_from_irq)
 	bne	slow_work_pending
 no_work_pending:
 	asm_trace_hardirqs_on save = 0
-
-	/* perform architecture specific actions before user return */
-	arch_ret_to_user r1, lr
-	ct_user_enter save = 0
-
-	restore_user_regs fast = 0, offset = 0
+	slow_restore_user_regs
 ENDPROC(ret_to_user_from_irq)
 ENDPROC(ret_to_user)
 
@@ -111,6 +143,7 @@ ENDPROC(ret_to_user)
  * This is how we return from a fork.
  */
 ENTRY(ret_from_fork)
+	enable_irq_cond
 	bl	schedule_tail
 	cmp	r5, #0
 	movne	r0, r4
@@ -157,6 +190,16 @@ ENTRY(vector_swi)
 	str	r0, [sp, #S_OLD_R0]		@ Save OLD_R0
 #endif
 	zero_fp
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	mov	r4, lr
+	mov	r0, #1		/* IPIPE_TRACE_BEGIN */
+	mov	r3, #0x90000000
+	sub	r2, lr, #4	/* calling PC */
+	mov	r1, pc
+	bl	ipipe_trace_asm
+	mov	lr, r4
+	ldm	sp, {r0 - r4}
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	alignment_trap r10, ip, __cr_alignment
 	enable_irq
 	ct_user_exit
@@ -217,6 +260,57 @@ ENTRY(vector_swi)
 #endif
 
 local_restart:
+#ifdef CONFIG_IPIPE
+	ldr	r10, [tsk, #TI_IPIPE]
+	ldr	r0, =(__ARM_NR_ipipe - __NR_SYSCALL_BASE)
+#ifndef CONFIG_IPIPE_LEGACY
+	cmp	scno, r0
+	bne	slow_path
+	tst	r10, #_TIP_HEAD
+	beq	slow_path
+	mov	r0, sp
+	ipipe_oabi_save_sysnr r10		@ caution: affects sp
+	bl	ipipe_fastcall_hook		@ __IPIPE_SYSCALL_E is assumed
+	ipipe_oabi_restore_sysnr r10
+	cmp	r0, #0
+	blt	no_fastcall
+	get_thread_info tsk
+	ldr	r10, [tsk, #TI_IPIPE]
+	tst	r10, #_TIP_HEAD
+	bne	fastcall_exit_check		@ check for MAYDAY
+	bl	__ipipe_root_sync
+	b	ret_slow_syscall
+fastcall_exit_check:
+	tst	r10, #_TIP_MAYDAY
+	beq	__ipipe_ret_to_user
+	mov	r0, sp
+	bl	__ipipe_call_mayday
+	b	__ipipe_ret_to_user
+no_fastcall:
+	get_thread_info tsk
+	ldr	r0, =(__ARM_NR_ipipe - __NR_SYSCALL_BASE)
+	ldr	r10, [tsk, #TI_IPIPE]
+slow_path:
+#endif /* !CONFIG_IPIPE_LEGACY */
+	tst	r10, #_TIP_NOTIFY
+	bne	pipeline_syscall
+	cmp	scno, r0
+	bne	root_syscall
+pipeline_syscall:
+	mov	r0, sp
+	ipipe_oabi_save_sysnr r10		@ caution: affects sp
+	bl	__ipipe_notify_syscall
+	ipipe_oabi_restore_sysnr r10
+	get_thread_info tsk
+	ldr	r10, [tsk, #TI_IPIPE]
+	tst	r10, #_TIP_HEAD
+	bne	__ipipe_ret_to_user
+	cmp	r0, #0
+	bgt	ret_slow_syscall
+root_syscall:
+	ldmia	sp, { r0 - r3 }
+#endif /* CONFIG_IPIPE */
+
 	ldr	r10, [tsk, #TI_FLAGS]		@ check for syscall tracing
 	stmdb	sp!, {r4, r5}			@ push fifth and sixth args
 
@@ -418,3 +512,28 @@ ENTRY(sys_oabi_call_table)
 
 #endif
 
+
+#if defined(CONFIG_FRAME_POINTER) && (CONFIG_IPIPE_TRACE)
+
+	.text
+	.align 0
+	.type arm_return_addr %function
+	.global arm_return_addr
+
+arm_return_addr:
+	mov	ip, r0
+	mov	r0, fp
+3:
+	cmp	r0, #0
+	beq	1f		@ frame list hit end, bail
+	cmp	ip, #0
+	beq	2f		@ reached desired frame
+	ldr	r0, [r0, #-12]  @ else continue, get next fp
+	sub	ip, ip, #1
+	b	3b
+2:
+	ldr	r0, [r0, #-4]   @ get target return address
+1:
+	mov	pc, lr
+
+#endif
