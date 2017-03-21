@@ -71,7 +71,10 @@ static LIST_HEAD(pruss_list);
  * This function increments the pruss device's refcount, so always
  * use pruss_put() to decrement it back once pruss isn't needed anymore.
  *
- * Returns the pruss handle on success, and NULL on failure.
+ * Returns the pruss handle on success. ERR_PTR on failure e.g.
+ * -ENOENT if missing "pruss" property or if pruss device is not enabled in dt
+ * -EINVAL if invalid parameter
+ * -EPROBE_DEFER if the pruss device is not yet available
  */
 struct pruss *pruss_get(struct device *dev)
 {
@@ -79,11 +82,12 @@ struct pruss *pruss_get(struct device *dev)
 	struct device_node *np;
 
 	if (!dev)
-		return NULL;
+		return ERR_PTR(-EINVAL);
 
 	np = of_parse_phandle(dev->of_node, "pruss", 0);
-	if (!np)
-		return NULL;
+	if (!np || !of_device_is_available(np))
+		/* pruss is never going to show up */
+		return ERR_PTR(-ENOENT);
 
 	mutex_lock(&pruss_list_mutex);
 	list_for_each_entry(p, &pruss_list, node) {
@@ -97,7 +101,7 @@ struct pruss *pruss_get(struct device *dev)
 	mutex_unlock(&pruss_list_mutex);
 	of_node_put(np);
 
-	return pruss;
+	return pruss ? pruss : ERR_PTR(-EPROBE_DEFER);
 }
 EXPORT_SYMBOL_GPL(pruss_get);
 
