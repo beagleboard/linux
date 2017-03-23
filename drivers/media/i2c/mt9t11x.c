@@ -1339,6 +1339,7 @@ static int mt9t11x_init_camera_optimized(const struct i2c_client *client)
 
 static int mt9t11x_init_setting(const struct i2c_client *client)
 {
+	struct mt9t11x_priv *priv = to_mt9t11x(client);
 	int ret;
 
 	dev_dbg(&client->dev, "%s:\n", __func__);
@@ -1512,13 +1513,18 @@ static int mt9t11x_init_setting(const struct i2c_client *client)
 		return ret;
 	/* RX FIFO Watermark (B) */
 	ret = mt9t11x_mcu_write(client, VAR(18, 142), 0x0014);
+	if (ret < 0)
+		return ret;
+
+	ret = mt9t11x_set_a_frame_size(client,
+				       priv->frame.width,
+				       priv->frame.height);
 
 	return ret;
 }
 
 static int mt9t11x_init_camera(const struct i2c_client *client)
 {
-	struct mt9t11x_priv *priv = to_mt9t11x(client);
 	int ret;
 
 	dev_dbg(&client->dev, "%s:\n", __func__);
@@ -1552,10 +1558,6 @@ static int mt9t11x_init_camera(const struct i2c_client *client)
 	ret = mt9t11x_continue(client);
 	if (ret < 0)
 		return ret;
-
-	ret = mt9t11x_set_a_frame_size(client,
-				       priv->frame.width,
-				       priv->frame.height);
 
 	return ret;
 }
