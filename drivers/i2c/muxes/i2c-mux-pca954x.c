@@ -96,6 +96,10 @@ static const struct chip_desc chips[] = {
 		.nchans = 4,
 		.muxtype = pca954x_isswi,
 	},
+	[pca_9546] = {
+		.nchans = 4,
+		.muxtype = pca954x_isswi,
+	},
 	[pca_9547] = {
 		.nchans = 8,
 		.enable = 0x8,
@@ -113,7 +117,7 @@ static const struct i2c_device_id pca954x_id[] = {
 	{ "pca9543", pca_9543 },
 	{ "pca9544", pca_9544 },
 	{ "pca9545", pca_9545 },
-	{ "pca9546", pca_9545 },
+	{ "pca9546", pca_9546 },
 	{ "pca9547", pca_9547 },
 	{ "pca9548", pca_9548 },
 	{ }
