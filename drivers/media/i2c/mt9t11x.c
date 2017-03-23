@@ -2028,6 +2028,7 @@ static int mt9t11x_camera_probe(struct i2c_client *client)
 	struct mt9t11x_priv *priv = to_mt9t11x(client);
 	const char          *devname;
 	int                  chipid;
+	int                  custom_rev;
 	int		     ret = 0;
 
 	__mt9t11x_set_power(priv, 1);
@@ -2056,7 +2057,10 @@ static int mt9t11x_camera_probe(struct i2c_client *client)
 		goto done;
 	}
 
-	dev_info(&client->dev, "%s chip ID %04x\n", devname, chipid);
+	custom_rev = mt9t11x_reg_read(client, 0x31FE);
+
+	dev_info(&client->dev, "%s chip ID %04x rev %04x\n",
+		 devname, chipid, custom_rev);
 
 done:
 	__mt9t11x_set_power(priv, 0);
