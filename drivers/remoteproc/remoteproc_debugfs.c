@@ -322,8 +322,8 @@ void rproc_create_debug_dir(struct rproc *rproc)
 
 	debugfs_create_file("name", 0400, rproc->dbg_dir,
 			    rproc, &rproc_name_ops);
-	debugfs_create_file("recovery", 0400, rproc->dbg_dir,
-			    rproc, &rproc_recovery_ops);
+	debugfs_create_file_unsafe("recovery", 0400, rproc->dbg_dir,
+				   rproc, &rproc_recovery_ops);
 	debugfs_create_file("resource_table", 0400, rproc->dbg_dir,
 			    rproc, &rproc_rsc_table_ops);
 	debugfs_create_file("carveout_memories", 0400, rproc->dbg_dir,
