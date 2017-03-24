@@ -1600,9 +1600,13 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->dev = dev;
 
 	pruss = pruss_get(dev);
-	if (!pruss) {
-		dev_dbg(dev, "unable to get pruss handle, deferring probe.\n");
-		return -EPROBE_DEFER;
+	if (IS_ERR(pruss)) {
+		ret = PTR_ERR(pruss);
+		if (ret == -EPROBE_DEFER)
+			dev_dbg(dev, "pruss not yet available, deferring probe.\n");
+		else
+			dev_err(dev, "unable to get pruss handle\n");
+		return ret;
 	}
 	prueth->pruss = pruss;
 
