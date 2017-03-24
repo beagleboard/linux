@@ -288,7 +288,7 @@ static int ti_thermal_get_crit_temp(struct thermal_zone_device *thermal,
 static void emergency_poweroff_func(struct work_struct *work)
 {
 	pr_warn("Attempting kernel_power_off\n");
-	kernel_power_off();
+	pm_power_off();
 
 	pr_warn("kernel_power_off has failed! Attempting emergency_restart\n");
 	emergency_restart();
