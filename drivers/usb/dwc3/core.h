@@ -854,7 +854,7 @@ struct dwc3 {
 
 	struct usb_gadget	gadget;
 	struct usb_gadget_driver *gadget_driver;
-	struct completion	reset_event; /* used for run/stop workaround */
+	bool			reset_event; /* used for run/stop workaround */
 
 	struct usb_phy		*usb2_phy;
 	struct usb_phy		*usb3_phy;
