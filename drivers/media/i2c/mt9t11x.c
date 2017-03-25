@@ -416,6 +416,25 @@ static int mt9t11x_reset(const struct i2c_client *client)
 	return ret;
 }
 
+static int mt9t11x_streaming(struct mt9t11x_priv *priv, int on)
+{
+	struct i2c_client *client = priv->client;
+	int ret, tmp;
+
+	dev_dbg(&client->dev, "%s: on: %d\n", __func__, on);
+	on = (on) ? 1 : 0;
+
+	ret = mt9t11x_reg_mask_set(client, 0x001a, 0x0200, on << 9);
+	if (ret < 0)
+		return ret;
+
+	tmp = mt9t11x_reg_read(client, 0x001A);
+	dev_dbg(&client->dev, "reset_and_misc_control: 0x%04x\n", tmp);
+
+	return 0;
+}
+
+
 #define CLOCK_INFO(a, b)				\
 	do {						\
 		if (debug > 1)				\
@@ -699,7 +718,8 @@ static int mt9t11x_pll_setup_pll(const struct i2c_client *client)
 		return ret;
 
 	/* Reset Misc. Control = 536 */
-	ret = mt9t11x_reg_write(client, 0x001A, 0x218);
+	/* make sure parallel interface is not enable at first */
+	ret = mt9t11x_reg_write(client, 0x001A, 0x018);
 	if (ret < 0)
 		return ret;
 	/* PLL control: TEST_BYPASS on = 9541 */
@@ -942,7 +962,7 @@ static int mt9t11x_mcu_powerup_stop_enable(const struct i2c_client *client)
 	int ret;
 
 	/* set powerup stop bit */
-	ret = mt9t11x_reg_mask_set(client, 0x0018, 0x0004, 1);
+	ret = mt9t11x_reg_mask_set(client, 0x0018, 0x0004, 0x0004);
 
 	return ret;
 }
@@ -1319,6 +1339,7 @@ static int mt9t11x_init_camera_optimized(const struct i2c_client *client)
 
 static int mt9t11x_init_setting(const struct i2c_client *client)
 {
+	struct mt9t11x_priv *priv = to_mt9t11x(client);
 	int ret;
 
 	dev_dbg(&client->dev, "%s:\n", __func__);
@@ -1492,13 +1513,18 @@ static int mt9t11x_init_setting(const struct i2c_client *client)
 		return ret;
 	/* RX FIFO Watermark (B) */
 	ret = mt9t11x_mcu_write(client, VAR(18, 142), 0x0014);
+	if (ret < 0)
+		return ret;
+
+	ret = mt9t11x_set_a_frame_size(client,
+				       priv->frame.width,
+				       priv->frame.height);
 
 	return ret;
 }
 
 static int mt9t11x_init_camera(const struct i2c_client *client)
 {
-	struct mt9t11x_priv *priv = to_mt9t11x(client);
 	int ret;
 
 	dev_dbg(&client->dev, "%s:\n", __func__);
@@ -1532,10 +1558,6 @@ static int mt9t11x_init_camera(const struct i2c_client *client)
 	ret = mt9t11x_continue(client);
 	if (ret < 0)
 		return ret;
-
-	ret = mt9t11x_set_a_frame_size(client,
-				       priv->frame.width,
-				       priv->frame.height);
 
 	return ret;
 }
@@ -1729,6 +1751,7 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 		.left = priv->frame.left,
 		.top = priv->frame.top,
 	};
+	u16 param;
 
 	dev_dbg(&client->dev, "%s: enable: %d\n", __func__, enable);
 
@@ -1741,6 +1764,7 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 
 	if (!enable) {
 		/* Stop Streaming Sequence */
+		mt9t11x_streaming(priv, false);
 		__mt9t11x_set_power(priv, 0);
 		priv->streaming = enable;
 		mutex_unlock(&priv->lock);
@@ -1767,7 +1791,9 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 	 * By default data is sampled on falling edge of pixclk.
 	 * Change the default to be rising edge. i.e. Invert PCLK
 	 */
-	ret = mt9t11x_reg_write(client, 0x3C20, 0);
+	param = (priv->info->flags & V4L2_MBUS_PCLK_SAMPLE_RISING) ?
+		0x0001 : 0x0000;
+	ret = mt9t11x_reg_write(client, 0x3C20, param);
 	if (ret < 0)
 		return ret;
 	usleep_range(5000, 6000);
@@ -1799,6 +1825,7 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 		priv->frame.height);
 
 	priv->streaming = enable;
+	mt9t11x_streaming(priv, true);
 
 	CLOCK_INFO(client, EXT_CLOCK);
 
@@ -2003,6 +2030,7 @@ static int mt9t11x_camera_probe(struct i2c_client *client)
 	struct mt9t11x_priv *priv = to_mt9t11x(client);
 	const char          *devname;
 	int                  chipid;
+	int                  custom_rev;
 	int		     ret = 0;
 
 	__mt9t11x_set_power(priv, 1);
@@ -2031,7 +2059,10 @@ static int mt9t11x_camera_probe(struct i2c_client *client)
 		goto done;
 	}
 
-	dev_info(&client->dev, "%s chip ID %04x\n", devname, chipid);
+	custom_rev = mt9t11x_reg_read(client, 0x31FE);
+
+	dev_info(&client->dev, "%s chip ID %04x rev %04x\n",
+		 devname, chipid, custom_rev);
 
 done:
 	__mt9t11x_set_power(priv, 0);
