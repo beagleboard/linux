@@ -174,6 +174,12 @@ static int omap_connector_mode_valid(struct drm_connector *connector,
 
 		dssdrv->get_timings(dssdev, &t);
 
+		/*
+		 * Ignore the flags, as we don't get them from
+		 * drm_display_mode_to_videomode.
+		 */
+		t.flags = 0;
+
 		if (memcmp(&vm, &t, sizeof(vm)))
 			r = -EINVAL;
 		else
