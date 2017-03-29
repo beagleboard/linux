@@ -1,0 +1,143 @@
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	wlan_en_reg: fixedregulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan-en-regulator";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		startup-delay-us= <70000>;
+
+		/* WL_EN */
+		gpio = <&gpio3 9 0>;
+		enable-active-high;
+	};
+
+	bt_en {
+		pinctrl-names = "default";
+		pinctrl-0 = <&wl18xx_pins>;
+		compatible = "gpio-leds";
+
+		wl18xx_bt_en {
+			label = "wl18xx_bt_en";
+			gpios = <&gpio0 28 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	btwilink {
+		compatible = "btwilink";
+	};
+};
+
+&am33xx_pinmux {
+	wl18xx_pins: pinmux_wl18xx_pins {
+		pinctrl-single,pins = <
+			0x128 (PIN_OUTPUT_PULLUP | MUX_MODE7)	/* (K17) gmii1_txd0.gpio0[28] - BT_EN */
+		>;
+	};
+
+	wlbtbuf_pin: pinmux_wlbtbuf_pin {
+		pinctrl-single,pins = <
+			0x130 ( PIN_OUTPUT_PULLUP | MUX_MODE7 ) /* (L18) gmii1_rxclk.gpio3[10] - LS_BUF_EN */
+		>;
+	};
+
+	mmc3_pins: pinmux_mmc3_pins {
+		pinctrl-single,pins = <
+			0x13c ( PIN_INPUT_PULLUP | MUX_MODE6 ) /* (L15) gmii1_rxd1.mmc2_clk */
+			0x114 ( PIN_INPUT_PULLUP | MUX_MODE6 ) /* (J16) gmii1_txen.mmc2_cmd */
+			0x118 ( PIN_INPUT_PULLUP | MUX_MODE5 ) /* (J17) gmii1_rxdv.mmc2_dat0 */
+			0x11c ( PIN_INPUT_PULLUP | MUX_MODE5 ) /* (J18) gmii1_txd3.mmc2_dat1 */
+			0x120 ( PIN_INPUT_PULLUP | MUX_MODE5 ) /* (K15) gmii1_txd2.mmc2_dat2 */
+			0x108 ( PIN_INPUT_PULLUP | MUX_MODE5 ) /* (H16) gmii1_col.mmc2_dat3 */
+		>;
+	};
+
+	mmc3_pins_sleep: pinmux_mmc3_pins_sleep {
+		pinctrl-single,pins = <
+			0x13c ( PIN_INPUT_PULLDOWN | MUX_MODE6 ) /* (L15) gmii1_rxd1.mmc2_clk */
+			0x114 ( PIN_INPUT_PULLDOWN | MUX_MODE6 ) /* (J16) gmii1_txen.mmc2_cmd */
+			0x118 ( PIN_INPUT_PULLDOWN | MUX_MODE5 ) /* (J17) gmii1_rxdv.mmc2_dat0 */
+			0x11c ( PIN_INPUT_PULLDOWN | MUX_MODE5 ) /* (J18) gmii1_txd3.mmc2_dat1 */
+			0x120 ( PIN_INPUT_PULLDOWN | MUX_MODE5 ) /* (K15) gmii1_txd2.mmc2_dat2 */
+			0x108 ( PIN_INPUT_PULLDOWN | MUX_MODE5 ) /* (H16) gmii1_col.mmc2_dat3 */
+		>;
+	};
+
+	/* wl18xx card enable/irq GPIOs. */
+	wlan_pins: pinmux_wlan_pins {
+		pinctrl-single,pins = <
+			0x12c (PIN_OUTPUT_PULLDOWN | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
+			0x124 (PIN_INPUT_PULLUP | MUX_MODE7 )    /* (K16) gmii1_txd1.gpio0[21] - WL_IRQ */
+		>;
+	};
+
+	/* wl18xx card enable/irq GPIOs. */
+	wlan_pins_sleep: pinmux_wlan_pins_sleep {
+		pinctrl-single,pins = <
+			0x12c (PIN_OUTPUT_PULLDOWN | MUX_MODE7 ) /* (K18) gmii1_txclk.gpio3[9] - WL_EN */
+			0x124 (PIN_INPUT_PULLUP | MUX_MODE7 )    /* (K16) gmii1_txd1.gpio0[21] - WL_IRQ */
+		>;
+	};
+
+	uart3_pins_default: pinmux_uart3_pins_default {
+		pinctrl-single,pins = <
+			0x134 ( PIN_INPUT_PULLUP | MUX_MODE1 ) 		/* (L17) gmii1_rxd3.uart3_rxd */
+			0x138 ( PIN_OUTPUT_PULLDOWN | MUX_MODE1 )	/* (L16) gmii1_rxd2.uart3_txd */
+			0x148 ( PIN_INPUT | MUX_MODE3 ) 		/* (M17) mdio_data.uart3_ctsn */
+			0x14c ( PIN_OUTPUT_PULLDOWN | MUX_MODE3 ) 	/* (M18) mdio_clk.uart3_rtsn */
+		>;
+	};
+
+	uart3_pins_sleep: pinmux_uart3_pins_sleep {
+		pinctrl-single,pins = <
+			0x134 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (L17) gmii1_rxd3.uart3_rxd */
+			0x138 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (L16) gmii1_rxd2.uart3_txd */
+			0x148 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (M17) mdio_data.uart3_ctsn */
+			0x14c (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* (M18) mdio_clk.uart3_rtsn */
+		>;
+	};
+};
+
+&mmc3 {
+	dmas = <&edma_xbar 12 0 1
+		&edma_xbar 13 0 2>;
+	dma-names = "tx", "rx";
+	status = "okay";
+	vmmc-supply = <&wlan_en_reg>;
+	bus-width = <4>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&mmc3_pins &wlan_pins &wlbtbuf_pin>;
+	pinctrl-1 = <&mmc3_pins_sleep &wlan_pins_sleep &wlbtbuf_pin>;
+	ti,non-removable;
+	ti,needs-special-hs-handling;
+	cap-power-off-card;
+	keep-power-in-suspend;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@0 {
+		compatible = "ti,wl1835";
+		reg = <2>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <21 IRQ_TYPE_EDGE_RISING>;
+	};
+};
+
+&uart3 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&uart3_pins_default>;
+	pinctrl-1 = <&uart3_pins_sleep>;
+	status = "okay";
+};
+
+&gpio3 {
+	ls_buf_en {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "LS_BUF_EN";
+	};
+};
