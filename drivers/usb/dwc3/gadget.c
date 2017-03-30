@@ -1566,11 +1566,10 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	is_on = !!is_on;
 
-	if (is_on)
-		reinit_completion(&dwc->reset_event);
-
 	spin_lock_irqsave(&dwc->lock, flags);
 	ret = dwc3_gadget_run_stop(dwc, is_on, false);
+	if (is_on)
+		dwc->reset_event = 0;
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 try:
@@ -1593,7 +1592,7 @@ try:
 	if (is_on && dwc->revision < DWC3_REVISION_220A &&
 	    dwc->current_mode == DWC3_GCTL_PRTCAP_DEVICE) {
 		u32 devspd, ltssm;
-		unsigned long t;
+		int i;
 
 		/* only applicable if devspd != SUPERSPEED */
 		devspd = dwc3_readl(dwc->regs, DWC3_DCFG) & DWC3_DCFG_SPEED_MASK;
@@ -1605,17 +1604,25 @@ try:
 		 * metastability issue. If we got a reset event then we are
 		 * safe and can continue.
 		 */
-		t = wait_for_completion_timeout(&dwc->reset_event,
-						msecs_to_jiffies(100));
-		if (t)
-			goto done;
+		for (i = 0; i < 100; i++) {
+			if (dwc->reset_event)
+				goto done;
 
-		/* get link state */
-		ltssm = dwc3_readl(dwc->regs, DWC3_GDBGLTSSM);
-		ltssm = (ltssm >> 22) & 0xf;
+			/* get link state */
+			ltssm = dwc3_readl(dwc->regs, DWC3_GDBGLTSSM);
+			ltssm = (ltssm >> 22) & 0xf;
+
+			/**
+			 * If link state != 4 we've hit the metastability issue.
+			 */
+			if (ltssm != 4)
+				break;
+
+			mdelay(1);
+		}
 
 		/**
-		 * If link state != 4 we've hit the metastability issue, soft reset.
+		 * If link state == 4 after 100ms, we've not hit the metastability issue.
 		 */
 		if (ltssm == 4)
 			goto done;
@@ -1643,7 +1650,6 @@ try:
 			return ret;
 		}
 
-		reinit_completion(&dwc->reset_event);
 		/* restart gadget */
 		ret = dwc3_gadget_restart(dwc);
 		if (ret) {
@@ -2417,7 +2423,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	}
 
 	/* notify run/stop metastability workaround */
-	complete(&dwc->reset_event);
+	dwc->reset_event = 1;
 
 	dwc3_reset_gadget(dwc);
 
@@ -2957,8 +2963,6 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	 * on ep out.
 	 */
 	dwc->gadget.quirk_ep_out_aligned_size = true;
-
-	init_completion(&dwc->reset_event);
 
 	/*
 	 * REVISIT: Here we should clear all pending IRQs to be
