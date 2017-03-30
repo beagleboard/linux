@@ -45,6 +45,7 @@ module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Debug level 0-1");
 
 #define VPIF_DRIVER_NAME	"vpif_capture"
+MODULE_ALIAS("platform:" VPIF_DRIVER_NAME);
 
 /* global variables */
 static struct vpif_device vpif_obj = { {NULL} };
@@ -647,6 +648,10 @@ static int vpif_input_to_subdev(
 
 	vpif_dbg(2, debug, "vpif_input_to_subdev\n");
 
+	if (!chan_cfg)
+		return -1;
+	if (input_index >= chan_cfg->input_count)
+		return -1;
 	subdev_name = chan_cfg->inputs[input_index].subdev_name;
 	if (subdev_name == NULL)
 		return -1;
@@ -685,6 +690,9 @@ static int vpif_set_input(
 	if (sd_index >= 0) {
 		sd = vpif_obj.sd[sd_index];
 		subdev_info = &vpif_cfg->subdev_info[sd_index];
+	} else {
+		/* no subdevice, no input to setup */
+		return 0;
 	}
 
 	/* first setup input path from sub device to vpif */
@@ -1434,6 +1442,11 @@ static __init int vpif_probe(struct platform_device *pdev)
 	int subdev_count;
 	int res_idx = 0;
 	int i, err;
+
+	if (!pdev->dev.platform_data) {
+		dev_warn(&pdev->dev, "Missing platform data.  Giving up.\n");
+		return -EINVAL;
+	}
 
 	vpif_dev = &pdev->dev;
 
