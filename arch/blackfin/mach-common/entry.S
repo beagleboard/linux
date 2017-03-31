@@ -551,24 +551,74 @@ ENTRY(_system_call)
 
 	[p2+(TASK_THREAD+THREAD_KSP)] = sp;
 #ifdef CONFIG_IPIPE
+	p4 = p0
+	[--sp] = rets;
+	p0.l = ___ipipe_irq_tail_hook;
+	p0.h = ___ipipe_irq_tail_hook;
+	p0 = [p0];
+	sp += -12;
+	call (p0);
+	sp += 12;
+	rets = [sp++];
+	p0 = p4
+	p2 = r7;
+	r0 = [p2+TI_IPIPE];
+	p4 = __NR_syscall;
+#ifndef CONFIG_IPIPE_LEGACY
+	cc = p4 <= p0;
+	if !cc jump slow_path;
+	cc = BITTST(r0,TIP_HEAD);
+	if !cc jump slow_path
 	r0 = sp;
-	SP += -12;
-	pseudo_long_call ___ipipe_syscall_root, p0;
-	SP += 12;
-	cc = r0 == 1;
+	sp += -12;
+	pseudo_long_call _ipipe_fastcall_hook, p0;
+	sp += 12;
+	cc = r0 < 0;
+	if cc jump no_fastcall
+	p2 = r7;
+	r0 = [p2+TI_IPIPE];
+	cc = BITTST(r0,TIP_HEAD);
+	if cc jump fast_exit_check
+	sp += -12;
+	pseudo_long_call ___ipipe_root_sync, p0;
+	sp += 12;
+	jump .Lresume_userspace;
+fast_exit_check:
+	cc = BITTST(r0,TIP_MAYDAY);
+	if !cc jump .Lsyscall_really_exit;
+	r0 = sp;
+	sp += -12;
+	pseudo_long_call ___ipipe_call_mayday, p0;
+	sp += 12;
+	jump .Lsyscall_really_exit;
+no_fastcall:
+	/* fastcall handler not implemented */
+	p0 = [sp + PT_ORIG_P0];
+	p2 = r7;
+	r0 = [p2+TI_IPIPE];
+slow_path:
+#endif /* !CONFIG_IPIPE_LEGACY */
+	cc = BITTST(r0,TIP_NOTIFY);
+	if cc jump pipeline_syscall
+	cc = p4 <= p0;
+	if !cc jump root_syscall;
+pipeline_syscall:
+	r0 = sp;
+	sp += -12;
+	pseudo_long_call ___ipipe_notify_syscall, p0;
+	sp += 12;
+	p2 = r7;
+	r1 = r0;
+	r0 = [p2+TI_IPIPE];
+	cc = BITTST(r0,TIP_HEAD);
 	if cc jump .Lsyscall_really_exit;
-	cc = r0 == -1;
-	if cc jump .Lresume_userspace;
+	cc = r1 == 0;
+	if !cc jump .Lresume_userspace;
+root_syscall:
 	r3 = [sp + PT_R3];
-	r4 = [sp + PT_R4];
 	p0 = [sp + PT_ORIG_P0];
 #endif /* CONFIG_IPIPE */
-
 	/* are we tracing syscalls?*/
-	r7 = sp;
-	r6.l = lo(ALIGN_PAGE_MASK);
-	r6.h = hi(ALIGN_PAGE_MASK);
-	r7 = r7 & r6;
 	p2 = r7;
 	r7 = [p2+TI_FLAGS];
 	CC = BITTST(r7,TIF_SYSCALL_TRACE);
@@ -760,15 +810,6 @@ _new_old_task:
 ENDPROC(_resume)
 
 ENTRY(_ret_from_exception)
-#ifdef CONFIG_IPIPE
-	p2.l = _ipipe_percpu_domain;
-	p2.h = _ipipe_percpu_domain;
-	r0.l = _ipipe_root;
-	r0.h = _ipipe_root;
-	r2 = [p2];
-	cc = r0 == r2;
-	if !cc jump 4f;  /* not on behalf of the root domain, get out */
-#endif /* CONFIG_IPIPE */
 	p2.l = lo(IPEND);
 	p2.h = hi(IPEND);
 
@@ -796,6 +837,16 @@ ENTRY(_ret_from_exception)
 	r0 = r0 & r1;
 	cc = r0 == 0;
 	if !cc jump 5f;
+#ifdef CONFIG_IPIPE
+	p2.l = _ipipe_percpu;
+	p2.h = _ipipe_percpu;
+	p2 = [p2+IPIPE_CURRENT_DOMAIN];
+	r2 = [p2+IPIPE_DOMAIN_DESC];
+	r0.l = _ipipe_root;
+	r0.h = _ipipe_root;
+	cc = r0 == r2;
+	if !cc jump 5f;  /* not on behalf of the root domain, get out */
+#endif /* CONFIG_IPIPE */
 
 	/* Set the stack for the current process */
 	r7 = sp;

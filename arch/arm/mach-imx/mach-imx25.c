@@ -34,6 +34,11 @@ static void __init mx25_init_irq(void)
 	mxc_init_irq(avic_base);
 }
 
+static void __init mx25_dt_init(void)
+{
+	imx_aips_allow_unprivileged_access("fsl,aips-bus");
+}
+
 static const char * const imx25_dt_board_compat[] __initconst = {
 	"fsl,imx25",
 	NULL
@@ -42,5 +47,6 @@ static const char * const imx25_dt_board_compat[] __initconst = {
 DT_MACHINE_START(IMX25_DT, "Freescale i.MX25 (Device Tree Support)")
 	.init_early	= imx25_init_early,
 	.init_irq	= mx25_init_irq,
+	.init_machine	= mx25_dt_init,
 	.dt_compat	= imx25_dt_board_compat,
 MACHINE_END
