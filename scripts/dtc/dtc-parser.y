@@ -32,7 +32,7 @@ extern void yyerror(char const *s);
 		treesource_error = true; \
 	} while (0)
 
-extern struct boot_info *the_boot_info;
+extern struct dt_info *parser_output;
 extern bool treesource_error;
 %}
 
@@ -53,7 +53,7 @@ extern bool treesource_error;
 	struct node *nodelist;
 	struct reserve_info *re;
 	uint64_t integer;
-	bool is_plugin;
+	unsigned int flags;
 }
 
 %token DT_V1
@@ -74,7 +74,8 @@ extern bool treesource_error;
 
 %type <data> propdata
 %type <data> propdataprefix
-%type <is_plugin> plugindecl
+%type <flags> header
+%type <flags> headers
 %type <re> memreserve
 %type <re> memreserves
 %type <array> arrayprefix
@@ -105,22 +106,31 @@ extern bool treesource_error;
 %%
 
 sourcefile:
-	  DT_V1 ';' plugindecl memreserves devicetree
+	  headers memreserves devicetree
 		{
-			$5->is_plugin = $3;
-			the_boot_info = build_boot_info($4, $5,
-							guess_boot_cpuid($5));
+			parser_output = build_dt_info($1, $2, $3,
+			                              guess_boot_cpuid($3));
 		}
 	;
 
-plugindecl:
-	/* empty */
+header:
+	  DT_V1 ';'
 		{
-			$$ = false;
+			$$ = DTSF_V1;
 		}
-	| DT_PLUGIN ';'
+	| DT_V1 ';' DT_PLUGIN ';'
 		{
-			$$ = true;
+			$$ = DTSF_V1 | DTSF_PLUGIN;
+		}
+	;
+
+headers:
+	  header
+	| header headers
+		{
+			if ($2 != $1)
+				ERROR(&@2, "Header flags don't match earlier ones");
+			$$ = $1;
 		}
 	;
 
@@ -161,10 +171,10 @@ devicetree:
 		{
 			struct node *target = get_node_by_ref($1, $3);
 
-			add_label(&target->labels, $2);
-			if (target)
+			if (target) {
+				add_label(&target->labels, $2);
 				merge_nodes(target, $4);
-			else
+			} else
 				ERROR(&@3, "Label or path %s not found", $3);
 			$$ = $1;
 		}
@@ -426,8 +436,24 @@ integer_add:
 
 integer_mul:
 	  integer_mul '*' integer_unary { $$ = $1 * $3; }
-	| integer_mul '/' integer_unary { $$ = $1 / $3; }
-	| integer_mul '%' integer_unary { $$ = $1 % $3; }
+	| integer_mul '/' integer_unary
+		{
+			if ($3 != 0) {
+				$$ = $1 / $3;
+			} else {
+				ERROR(&@$, "Division by zero");
+				$$ = 0;
+			}
+		}
+	| integer_mul '%' integer_unary
+		{
+			if ($3 != 0) {
+				$$ = $1 % $3;
+			} else {
+				ERROR(&@$, "Division by zero");
+				$$ = 0;
+			}
+		}
 	| integer_unary
 	;
 
