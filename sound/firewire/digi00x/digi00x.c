@@ -13,7 +13,8 @@ MODULE_AUTHOR("Takashi Sakamoto <o-takashi@sakamocchi.jp>");
 MODULE_LICENSE("GPL v2");
 
 #define VENDOR_DIGIDESIGN	0x00a07e
-#define MODEL_DIGI00X		0x000002
+#define MODEL_CONSOLE		0x000001
+#define MODEL_RACK		0x000002
 
 static int name_card(struct snd_dg00x *dg00x)
 {
@@ -74,6 +75,8 @@ static int snd_dg00x_probe(struct fw_unit *unit,
 	mutex_init(&dg00x->mutex);
 	spin_lock_init(&dg00x->lock);
 	init_waitqueue_head(&dg00x->hwdep_wait);
+
+	dg00x->is_console = entry->model_id == MODEL_CONSOLE;
 
 	err = name_card(dg00x);
 	if (err < 0)
@@ -138,7 +141,13 @@ static const struct ieee1394_device_id snd_dg00x_id_table[] = {
 		.match_flags = IEEE1394_MATCH_VENDOR_ID |
 			       IEEE1394_MATCH_MODEL_ID,
 		.vendor_id = VENDOR_DIGIDESIGN,
-		.model_id = MODEL_DIGI00X,
+		.model_id = MODEL_CONSOLE,
+	},
+	{
+		.match_flags = IEEE1394_MATCH_VENDOR_ID |
+			       IEEE1394_MATCH_MODEL_ID,
+		.vendor_id = VENDOR_DIGIDESIGN,
+		.model_id = MODEL_RACK,
 	},
 	{}
 };
