@@ -915,7 +915,7 @@ static struct intel_iommu *device_to_iommu(struct device *dev, u8 *bus, u8 *devf
 				 * which we used for the IOMMU lookup. Strictly speaking
 				 * we could do this for all PCI devices; we only need to
 				 * get the BDF# from the scope table for ACPI matches. */
-				if (pdev->is_virtfn)
+				if (pdev && pdev->is_virtfn)
 					goto got_pdev;
 
 				*bus = drhd->devices[i].bus;
@@ -3325,13 +3325,14 @@ static int __init init_dmars(void)
 	iommu_identity_mapping |= IDENTMAP_GFX;
 #endif
 
+	check_tylersburg_isoch();
+
 	if (iommu_identity_mapping) {
 		ret = si_domain_init(hw_pass_through);
 		if (ret)
 			goto free_iommu;
 	}
 
-	check_tylersburg_isoch();
 
 	/*
 	 * If we copied translations from a previous kernel in the kdump
