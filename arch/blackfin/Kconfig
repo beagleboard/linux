@@ -73,6 +73,8 @@ source "kernel/Kconfig.preempt"
 
 source "kernel/Kconfig.freezer"
 
+source "kernel/ipipe/Kconfig"
+
 menu "Blackfin Processor Options"
 
 comment "Processor and Board Settings"

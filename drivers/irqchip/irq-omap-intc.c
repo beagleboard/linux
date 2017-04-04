@@ -15,6 +15,7 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <asm/ipipe.h>
 
 #include <asm/exception.h>
 #include <linux/irqchip.h>
@@ -41,6 +42,7 @@
 #define INTC_MIR_CLEAR0		0x0088
 #define INTC_MIR_SET0		0x008c
 #define INTC_PENDING_IRQ0	0x0098
+#define INTC_PRIO               0x0100
 #define INTC_PENDING_IRQ1	0x00b8
 #define INTC_PENDING_IRQ2	0x00d8
 #define INTC_PENDING_IRQ3	0x00f8
@@ -50,6 +52,12 @@
 #define SPURIOUSIRQ_MASK	(0x1ffffff << 7)
 #define INTCPS_NR_ILR_REGS	128
 #define INTCPS_NR_MIR_REGS	4
+
+#if !defined(MULTI_OMAP1) && !defined(MULTI_OMAP2)
+#define inline_single inline
+#else
+#define inline_single
+#endif
 
 #define INTC_IDLE_FUNCIDLE	(1 << 0)
 #define INTC_IDLE_TURBO		(1 << 1)
@@ -71,12 +79,12 @@ static void __iomem *omap_irq_base;
 static int omap_nr_pending = 3;
 static int omap_nr_irqs = 96;
 
-static void intc_writel(u32 reg, u32 val)
+static inline_single void intc_writel(u32 reg, u32 val)
 {
 	writel_relaxed(val, omap_irq_base + reg);
 }
 
-static u32 intc_readl(u32 reg)
+static inline_single u32 intc_readl(u32 reg)
 {
 	return readl_relaxed(omap_irq_base + reg);
 }
@@ -139,9 +147,10 @@ void omap3_intc_resume_idle(void)
 }
 
 /* XXX: FIQ and additional INTC support (only MPU at the moment) */
-static void omap_ack_irq(struct irq_data *d)
+static inline_single void omap_ack_irq(struct irq_data *d)
 {
 	intc_writel(INTC_CONTROL, 0x1);
+	dsb();
 }
 
 static void omap_mask_ack_irq(struct irq_data *d)
@@ -166,8 +175,14 @@ static void __init omap_irq_soft_reset(void)
 	while (!(intc_readl(INTC_SYSSTATUS) & 0x1))
 		/* Wait for reset to complete */;
 
+#ifndef CONFIG_IPIPE
 	/* Enable autoidle */
 	intc_writel(INTC_SYSCONFIG, 1 << 0);
+#else /* CONFIG_IPIPE */
+	/* Disable autoidle */
+	intc_writel(INTC_SYSCONFIG, 0);
+	intc_writel(INTC_IDLE, 0x1);
+#endif /* CONFIG_IPIPE */
 }
 
 int omap_irq_pending(void)
@@ -234,6 +249,9 @@ static void __init omap_alloc_gc_legacy(void __iomem *base,
 	ct = gc->chip_types;
 	ct->chip.irq_ack = omap_mask_ack_irq;
 	ct->chip.irq_mask = irq_gc_mask_disable_reg;
+#ifdef CONFIG_IPIPE
+	ct->chip.irq_mask_ack = omap_mask_ack_irq;
+#endif
 	ct->chip.irq_unmask = irq_gc_unmask_enable_reg;
 	ct->chip.flags |= IRQCHIP_SKIP_SET_WAKE;
 
@@ -360,7 +378,7 @@ omap_intc_handle_irq(struct pt_regs *regs)
 	}
 
 	irqnr &= ACTIVEIRQ_MASK;
-	handle_domain_irq(domain, irqnr, regs);
+	ipipe_handle_domain_irq(domain, irqnr, regs);
 }
 
 void __init omap3_init_irq(void)
@@ -397,6 +415,28 @@ static int __init intc_of_init(struct device_node *node,
 
 	return 0;
 }
+
+#if defined(CONFIG_IPIPE) && defined(CONFIG_ARCH_OMAP2PLUS)
+#if defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_SOC_AM33XX)
+void omap3_intc_mute(void)
+{
+	intc_writel(INTC_THRESHOLD, 0x1);
+	intc_writel(INTC_CONTROL, 0x1);
+}
+
+void omap3_intc_unmute(void)
+{
+	intc_writel(INTC_THRESHOLD, 0xff);
+}
+
+void omap3_intc_set_irq_prio(int irq, int hi)
+{
+	if (irq >= INTCPS_NR_MIR_REGS * 32)
+		return;
+	intc_writel(INTC_PRIO + 4 * irq, hi ? 0 : 0xfc);
+}
+#endif /* CONFIG_ARCH_OMAP3 */
+#endif /* CONFIG_IPIPE && ARCH_OMAP2PLUS */
 
 IRQCHIP_DECLARE(omap2_intc, "ti,omap2-intc", intc_of_init);
 IRQCHIP_DECLARE(omap3_intc, "ti,omap3-intc", intc_of_init);
