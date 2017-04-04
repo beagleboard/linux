@@ -1,0 +1,79 @@
+menu "Serial drivers"
+
+config XENO_DRIVERS_16550A
+	tristate "16550A UART driver"
+	help
+	Real-time UART driver for 16550A compatible controllers. See
+	doc/txt/16550A-driver.txt for more details.
+
+choice
+	prompt "Hardware access mode"
+	depends on XENO_DRIVERS_16550A
+	default XENO_DRIVERS_16550A_PIO
+
+config XENO_DRIVERS_16550A_PIO
+	bool "Port-based I/O"
+	help
+	Hardware access only via I/O ports. Use module parameter
+	"io=<port>[,<port>[,...]]" to specify the base port of a device.
+
+config XENO_DRIVERS_16550A_MMIO
+	bool "Memory-mapped I/O"
+	help
+	Hardware access only via memory mapping. Use module paramter
+	"mem=<addr>[,<addr>[,...]]" to specify the physical base address of
+	a device.
+
+config XENO_DRIVERS_16550A_ANY
+	bool "Any access mode"
+	help
+	Decide at module load-time (or via kernel parameter) which access
+	mode to use for which device. This mode is useful when devices of
+	both types can be present in a system, also at the same time.
+
+	Both "io" and "mem" module parameters are available, but always only
+	one of them can be applied on a particular device. Use, e.g.,
+	"io=0x3f8,0 mem=0,0xe0000000" to address device 1 via IO base port
+	0x3f8 and device 2 via physical base address 0xe0000000.
+
+endchoice
+
+config XENO_DRIVERS_16550A_PCI
+	depends on PCI && (XENO_DRIVERS_16550A_PIO || XENO_DRIVERS_16550A_ANY)
+	bool "PCI board support"
+	default n
+	help
+
+	This option activates support for PCI serial boards.
+
+config XENO_DRIVERS_16550A_PCI_MOXA
+	depends on XENO_DRIVERS_16550A_PCI
+	bool "Moxa PCI boards"
+	default n
+	help
+
+	This option activates support for the following Moxa boards:
+	PCI Serial Boards:
+	  C104H/PCI, C168H/PCI
+	  CP-114, CP-132
+	Universal PCI Serial Boards:
+	  CP-102U, CP-102UL, CP-104U
+	  CP-112UL, CP-114UL, CP-118U
+	  CP-132U, CP-134U, CP-138U
+	  CP-168U
+
+config XENO_DRIVERS_MPC52XX_UART
+	depends on PPC_MPC52xx
+	tristate "MPC52xx PSC UART driver"
+	help
+	Real-time UART driver for the PSC on the MPC5200 processor.
+
+config XENO_DRIVERS_IMX_UART
+	depends on ARCH_IMX || ARCH_MXC
+	tristate "RT IMX UART driver"
+	select RATIONAL
+	help
+	Real-time UART driver for the Freescale Semiconductor MXC Internal
+	UART compatible controllers.
+
+endmenu
