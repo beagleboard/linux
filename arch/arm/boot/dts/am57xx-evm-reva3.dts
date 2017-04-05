@@ -240,40 +240,6 @@
 		>;
 	};
 
-	mmc2_iodelay_ddr_3_3v_conf: mmc2_iodelay_ddr_3_3v_conf {
-		pinctrl-pin-array = <
-			0x18c A_DELAY_PS(270) G_DELAY_PS(0)	/* CFG_GPMC_A19_IN */
-			0x1a4 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A20_IN */
-			0x1b0 A_DELAY_PS(170) G_DELAY_PS(0)	/* CFG_GPMC_A21_IN */
-			0x1bc A_DELAY_PS(758) G_DELAY_PS(0)	/* CFG_GPMC_A22_IN */
-			0x1c8 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A23_IN */
-			0x1d4 A_DELAY_PS(81) G_DELAY_PS(0)	/* CFG_GPMC_A24_IN */
-			0x1e0 A_DELAY_PS(286) G_DELAY_PS(0)	/* CFG_GPMC_A25_IN */
-			0x1ec A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A26_IN */
-			0x1f8 A_DELAY_PS(123) G_DELAY_PS(0)	/* CFG_GPMC_A27_IN */
-			0x360 A_DELAY_PS(346) G_DELAY_PS(0)	/* CFG_GPMC_CS1_IN */
-			0x190 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A19_OEN */
-			0x194 A_DELAY_PS(55) G_DELAY_PS(0)	/* CFG_GPMC_A19_OUT */
-			0x1a8 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A20_OEN */
-			0x1ac A_DELAY_PS(422) G_DELAY_PS(0)	/* CFG_GPMC_A20_OUT */
-			0x1b4 A_DELAY_PS(642) G_DELAY_PS(0)	/* CFG_GPMC_A21_OEN */
-			0x1b8 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A21_OUT */
-			0x1c0 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A22_OEN */
-			0x1c4 A_DELAY_PS(128) G_DELAY_PS(0)	/* CFG_GPMC_A22_OUT */
-			0x1d0 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A23_OUT */
-			0x1d8 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A24_OEN */
-			0x1dc A_DELAY_PS(395) G_DELAY_PS(0)	/* CFG_GPMC_A24_OUT */
-			0x1e4 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A25_OEN */
-			0x1e8 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A25_OUT */
-			0x1f0 A_DELAY_PS(623) G_DELAY_PS(0)	/* CFG_GPMC_A26_OEN */
-			0x1f4 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A26_OUT */
-			0x1fc A_DELAY_PS(54) G_DELAY_PS(0)	/* CFG_GPMC_A27_OEN */
-			0x200 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A27_OUT */
-			0x364 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_CS1_OEN */
-			0x368 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_CS1_OUT */
-		>;
-	};
-
 	mmc3_iodelay_manual1_conf: mmc3_iodelay_manual1_conf {
 		pinctrl-pin-array = <
 			0x678 A_DELAY_PS(117) G_DELAY_PS(0)	/* CFG_MMC3_CLK_IN */
@@ -314,6 +280,6 @@
 	pinctrl-names = "default", "hs", "ddr_1_8v";
 	pinctrl-0 = <&mmc2_pins_default>;
 	pinctrl-1 = <&mmc2_pins_hs>;
-	pinctrl-2 = <&mmc2_pins_ddr_3_3v &mmc2_iodelay_ddr_3_3v_conf>;
+	pinctrl-2 = <&mmc2_pins_ddr_3_3v>;
 	/delete-property/ mmc-hs200-1_8v;
 };
