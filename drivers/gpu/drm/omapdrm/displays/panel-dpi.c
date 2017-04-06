@@ -262,7 +262,7 @@ static int panel_dpi_probe_of(struct platform_device *pdev)
 	r = of_get_display_timing(node, "panel-timing", &timing);
 	if (r) {
 		dev_err(&pdev->dev, "failed to get video timing\n");
-		goto free_backlight;
+		goto error_free_backlight;
 	}
 
 	videomode_from_timing(&timing, &ddata->vm);
@@ -271,14 +271,14 @@ static int panel_dpi_probe_of(struct platform_device *pdev)
 	if (IS_ERR(in)) {
 		dev_err(&pdev->dev, "failed to find video source\n");
 		r = PTR_ERR(in);
-		goto free_backlight;
+		goto error_free_backlight;
 	}
 
 	ddata->in = in;
 
 	return 0;
 
-free_backlight:
+error_free_backlight:
 	if (ddata->backlight)
 		put_device(&ddata->backlight->dev);
 

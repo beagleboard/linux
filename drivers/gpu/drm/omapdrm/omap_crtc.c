@@ -453,7 +453,7 @@ static void omap_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	const u32 flags_mask = DISPLAY_FLAGS_DE_HIGH | DISPLAY_FLAGS_DE_LOW |
 		DISPLAY_FLAGS_PIXDATA_POSEDGE | DISPLAY_FLAGS_PIXDATA_NEGEDGE |
 		DISPLAY_FLAGS_SYNC_POSEDGE | DISPLAY_FLAGS_SYNC_NEGEDGE;
-	int i;
+	unsigned int i;
 
 	DBG("%s: set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
 	    omap_crtc->name, mode->base.id, mode->name,
@@ -463,6 +463,18 @@ static void omap_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	    mode->type, mode->flags);
 
 	drm_display_mode_to_videomode(mode, &omap_crtc->vm);
+
+	/*
+	 * HACK: This fixes the vm flags.
+	 * struct drm_display_mode does not contain the VSYNC/HSYNC/DE flags
+	 * and they get lost when converting back and forth between
+	 * struct drm_display_mode and struct videomode. The hack below
+	 * goes and fetches the missing flags from the panel drivers.
+	 *
+	 * Correct solution would be to use DRM's bus-flags, but that's not
+	 * easily possible before the omapdrm's panel/encoder driver model
+	 * has been changed to the DRM model.
+	 */
 
 	for (i = 0; i < priv->num_encoders; ++i) {
 		struct drm_encoder *encoder = priv->encoders[i];
