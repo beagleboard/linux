@@ -87,8 +87,9 @@ static void omap_connector_destroy(struct drm_connector *connector)
 
 	DBG("%s", omap_connector->dssdev->name);
 	if (connector->polled == DRM_CONNECTOR_POLL_HPD &&
-	    dssdev->driver->disable_hpd)
-		dssdev->driver->disable_hpd(dssdev);
+	    dssdev->driver->unregister_hpd_cb) {
+		dssdev->driver->unregister_hpd_cb(dssdev);
+	}
 	drm_connector_unregister(connector);
 	drm_connector_cleanup(connector);
 	kfree(omap_connector);
@@ -242,14 +243,14 @@ struct drm_connector *omap_connector_init(struct drm_device *dev,
 				connector_type);
 	drm_connector_helper_add(connector, &omap_connector_helper_funcs);
 
-	if (dssdev->driver->enable_hpd) {
-		int ret = dssdev->driver->enable_hpd(dssdev,
-						     omap_connector_hpd_cb,
-						     omap_connector);
+	if (dssdev->driver->register_hpd_cb) {
+		int ret = dssdev->driver->register_hpd_cb(dssdev,
+							  omap_connector_hpd_cb,
+							  omap_connector);
 		if (!ret)
 			hpd_supported = true;
 		else if (ret != -ENOTSUPP)
-			DBG("%s: enable_hpd failed (%d). HPD will be disabled",
+			DBG("%s: Failed to register HPD callback (%d).",
 			    dssdev->name, ret);
 	}
 
