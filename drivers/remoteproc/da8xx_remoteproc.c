@@ -16,6 +16,7 @@
 #include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
 
@@ -276,10 +277,21 @@ static int da8xx_rproc_probe(struct platform_device *pdev)
 		return PTR_ERR(dsp_clk);
 	}
 
+	if (dev->of_node) {
+		ret = of_reserved_mem_device_init(dev);
+		if (ret) {
+			dev_err(dev, "device does not have specific CMA pool: %d\n",
+				ret);
+			return ret;
+		}
+	}
+
 	rproc = rproc_alloc(dev, "dsp", &da8xx_rproc_ops, da8xx_fw_name,
 		sizeof(*drproc));
-	if (!rproc)
-		return -ENOMEM;
+	if (!rproc) {
+		ret = -ENOMEM;
+		goto free_mem;
+	}
 
 	drproc = rproc->priv;
 	drproc->rproc = rproc;
@@ -326,7 +338,9 @@ static int da8xx_rproc_probe(struct platform_device *pdev)
 
 free_rproc:
 	rproc_free(rproc);
-
+free_mem:
+	if (dev->of_node)
+		of_reserved_mem_device_release(dev);
 	return ret;
 }
 
@@ -355,15 +369,24 @@ static int da8xx_rproc_remove(struct platform_device *pdev)
 
 	rproc_del(rproc);
 	rproc_free(rproc);
+	if (dev->of_node)
+		of_reserved_mem_device_release(dev);
 
 	return 0;
 }
+
+static const struct of_device_id davinci_rproc_of_match[] = {
+	{ .compatible = "ti,da850-dsp", },
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, davinci_rproc_of_match);
 
 static struct platform_driver da8xx_rproc_driver = {
 	.probe = da8xx_rproc_probe,
 	.remove = da8xx_rproc_remove,
 	.driver = {
 		.name = "davinci-rproc",
+		.of_match_table = davinci_rproc_of_match,
 	},
 };
 
