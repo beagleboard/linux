@@ -309,6 +309,8 @@
 			reg = <0x44e09000 0x2000>;
 			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "uart1";
+			dmas = <&edma 26 0>, <&edma 27 0>;
+			dma-names = "tx", "rx";
 		};
 
 		uart1: serial@48022000 {
