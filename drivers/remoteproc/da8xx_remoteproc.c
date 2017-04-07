@@ -334,6 +334,9 @@ static int da8xx_rproc_probe(struct platform_device *pdev)
 		goto free_rproc;
 	}
 
+	if (dev->of_node && rproc_get_alias_id(rproc) < 0)
+		dev_warn(dev, "device does not have an alias id\n");
+
 	return 0;
 
 free_rproc:
