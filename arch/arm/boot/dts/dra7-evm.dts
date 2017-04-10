@@ -66,6 +66,14 @@
 		stdout-path = &uart1;
 	};
 
+	evm_1v8_sw: fixedregulator-evm_1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "evm_1v8";
+		vin-supply = <&smps9_reg>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
 	evm_3v3_sd: fixedregulator-sd {
 		compatible = "regulator-fixed";
 		regulator-name = "evm_3v3_sd";
@@ -1010,7 +1018,7 @@
 
 &mmc2 {
 	status = "okay";
-	vmmc-supply = <&evm_3v3_sw>;
+	vmmc-supply = <&evm_1v8_sw>;
 	bus-width = <8>;
 	pinctrl-names = "default", "hs", "ddr_1_8v-rev11", "ddr_1_8v", "hs200_1_8v-rev11", "hs200_1_8v";
 	pinctrl-0 = <&mmc2_pins_default>;
