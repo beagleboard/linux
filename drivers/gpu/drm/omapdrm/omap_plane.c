@@ -24,12 +24,6 @@
 #include "omap_dmm_tiler.h"
 #include "omap_drv.h"
 
-/* some hackery because omapdss has an 'enum omap_plane' (which would be
- * better named omap_plane_id).. and compiler seems unhappy about having
- * both a 'struct omap_plane' and 'enum omap_plane'
- */
-#define omap_plane _omap_plane
-
 /*
  * plane funcs
  */
@@ -38,7 +32,7 @@
 
 struct omap_plane {
 	struct drm_plane base;
-	int id;  /* TODO rename omap_plane -> omap_plane_id in omapdss so I can use the enum */
+	enum omap_plane_id id;
 	const char *name;
 
 	uint32_t nformats;
@@ -355,24 +349,37 @@ static const struct drm_plane_funcs omap_plane_funcs = {
 	.atomic_get_property = omap_plane_atomic_get_property,
 };
 
-static const char *plane_names[] = {
+static const char *plane_id_to_name[] = {
 	[OMAP_DSS_GFX] = "gfx",
 	[OMAP_DSS_VIDEO1] = "vid1",
 	[OMAP_DSS_VIDEO2] = "vid2",
 	[OMAP_DSS_VIDEO3] = "vid3",
 };
 
+static const enum omap_plane_id plane_idx_to_id[] = {
+	OMAP_DSS_GFX,
+	OMAP_DSS_VIDEO1,
+	OMAP_DSS_VIDEO2,
+	OMAP_DSS_VIDEO3,
+};
+
 /* initialize plane */
 struct drm_plane *omap_plane_init(struct drm_device *dev,
-		int id, enum drm_plane_type type,
+		int idx, enum drm_plane_type type,
 		u32 possible_crtcs)
 {
 	struct omap_drm_private *priv = dev->dev_private;
 	struct drm_plane *plane;
 	struct omap_plane *omap_plane;
+	enum omap_plane_id id;
 	int ret;
 
-	DBG("%s: type=%d", plane_names[id], type);
+	if (WARN_ON(idx >= ARRAY_SIZE(plane_idx_to_id)))
+		return ERR_PTR(-EINVAL);
+
+	id = plane_idx_to_id[idx];
+
+	DBG("%s: type=%d", plane_id_to_name[id], type);
 
 	omap_plane = kzalloc(sizeof(*omap_plane), GFP_KERNEL);
 	if (!omap_plane)
@@ -382,7 +389,7 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 			omap_plane->formats, ARRAY_SIZE(omap_plane->formats),
 			priv->dispc_ops->ovl_get_color_modes(id));
 	omap_plane->id = id;
-	omap_plane->name = plane_names[id];
+	omap_plane->name = plane_id_to_name[id];
 
 	plane = &omap_plane->base;
 
@@ -402,6 +409,9 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 	return plane;
 
 error:
+	dev_err(dev->dev, "%s(): could not create plane: %s\n",
+		__func__, plane_id_to_name[id]);
+
 	kfree(omap_plane);
 	return NULL;
 }

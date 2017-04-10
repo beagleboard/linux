@@ -81,6 +81,7 @@ static enum dss_clk_source dpi_get_clk_src_dra7xx(enum omap_channel channel)
 	{
 		if (dss_pll_find_by_src(DSS_CLK_SRC_PLL1_1))
 			return DSS_CLK_SRC_PLL1_1;
+		break;
 	}
 	case OMAP_DSS_CHANNEL_LCD2:
 	{
@@ -88,6 +89,7 @@ static enum dss_clk_source dpi_get_clk_src_dra7xx(enum omap_channel channel)
 			return DSS_CLK_SRC_PLL1_3;
 		if (dss_pll_find_by_src(DSS_CLK_SRC_PLL2_3))
 			return DSS_CLK_SRC_PLL2_3;
+		break;
 	}
 	case OMAP_DSS_CHANNEL_LCD3:
 	{
@@ -95,6 +97,7 @@ static enum dss_clk_source dpi_get_clk_src_dra7xx(enum omap_channel channel)
 			return DSS_CLK_SRC_PLL2_1;
 		if (dss_pll_find_by_src(DSS_CLK_SRC_PLL1_3))
 			return DSS_CLK_SRC_PLL1_3;
+		break;
 	}
 	default:
 		break;

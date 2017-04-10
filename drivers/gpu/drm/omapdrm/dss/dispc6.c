@@ -93,14 +93,14 @@ static u32 dispc6_read(u16 reg)
 	return ioread32(dispc.base_common + reg);
 }
 
-static void dispc6_vid_write(enum omap_plane plane, u16 reg, u32 val)
+static void dispc6_vid_write(enum omap_plane_id plane, u16 reg, u32 val)
 {
 	void __iomem *base = dispc.base_vid1;
 
 	iowrite32(val, base + reg);
 }
 
-static u32 dispc6_vid_read(enum omap_plane plane, u16 reg)
+static u32 dispc6_vid_read(enum omap_plane_id plane, u16 reg)
 {
 	void __iomem *base = dispc.base_vid1;
 
@@ -307,14 +307,14 @@ static void dispc6_vp_write_irqstatus(enum omap_channel channel,
 	dispc6_vp_write(channel, DISPC_VP_IRQSTATUS, stat);
 }
 
-static enum omapdss_vid_irq dispc6_vid_read_irqstatus(enum omap_plane plane)
+static enum omapdss_vid_irq dispc6_vid_read_irqstatus(enum omap_plane_id plane)
 {
 	u32 stat = dispc6_vid_read(plane, DISPC_VID_IRQSTATUS);
 
 	return dispc6_vid_irq_from_raw(stat);
 }
 
-static void dispc6_vid_write_irqstatus(enum omap_plane plane,
+static void dispc6_vid_write_irqstatus(enum omap_plane_id plane,
 				       enum omapdss_vid_irq vidstat)
 {
 	u32 stat = dispc6_vid_irq_to_raw(vidstat);
@@ -338,14 +338,14 @@ static void dispc6_vp_write_irqenable(enum omap_channel channel,
 	dispc6_vp_write(channel, DISPC_VP_IRQENABLE, stat);
 }
 
-static enum omapdss_vid_irq dispc6_vid_read_irqenable(enum omap_plane plane)
+static enum omapdss_vid_irq dispc6_vid_read_irqenable(enum omap_plane_id plane)
 {
 	u32 stat = dispc6_vid_read(plane, DISPC_VID_IRQENABLE);
 
 	return dispc6_vid_irq_from_raw(stat);
 }
 
-static void dispc6_vid_write_irqenable(enum omap_plane plane,
+static void dispc6_vid_write_irqenable(enum omap_plane_id plane,
 				       enum omapdss_vid_irq vidstat)
 {
 	u32 stat = dispc6_vid_irq_to_raw(vidstat);
@@ -701,7 +701,7 @@ struct color_conv_coef {
 	bool full_range;
 };
 
-static void dispc6_vid_write_color_conv_coefs(enum omap_plane plane,
+static void dispc6_vid_write_color_conv_coefs(enum omap_plane_id plane,
 		const struct color_conv_coef *ct)
 {
 #define CVAL(x, y) (FLD_VAL(x, 26, 16) | FLD_VAL(y, 10, 0))
@@ -736,7 +736,7 @@ static void dispc6_vid_csc_setup(void)
 	dispc6_vid_write_color_conv_coefs(0, &coefs_yuv2rgb_bt601_full);
 }
 
-static void dispc6_vid_csc_enable(enum omap_plane plane, bool enable)
+static void dispc6_vid_csc_enable(enum omap_plane_id plane, bool enable)
 {
 	VID_REG_FLD_MOD(plane, DISPC_VID_ATTRIBUTES, !!enable, 9, 9);
 }
@@ -787,7 +787,7 @@ enum dispc6_vid_fir_coef_set {
 	DISPC6_VID_FIR_COEF_VERT_UV,
 };
 
-static void dispc6_vid_write_fir_coefs(enum omap_plane plane,
+static void dispc6_vid_write_fir_coefs(enum omap_plane_id plane,
 				       enum dispc6_vid_fir_coef_set coef_set,
 				       const struct dispc6_vid_fir_coefs *coefs)
 {
@@ -829,7 +829,7 @@ static void dispc6_vid_write_fir_coefs(enum omap_plane plane,
 	}
 }
 
-static void dispc6_vid_write_scale_coefs(enum omap_plane plane)
+static void dispc6_vid_write_scale_coefs(enum omap_plane_id plane)
 {
 	dispc6_vid_write_fir_coefs(plane, DISPC6_VID_FIR_COEF_HORIZ, &dispc6_fir_coefs_null);
 	dispc6_vid_write_fir_coefs(plane, DISPC6_VID_FIR_COEF_HORIZ_UV, &dispc6_fir_coefs_null);
@@ -837,7 +837,7 @@ static void dispc6_vid_write_scale_coefs(enum omap_plane plane)
 	dispc6_vid_write_fir_coefs(plane, DISPC6_VID_FIR_COEF_VERT_UV, &dispc6_fir_coefs_null);
 }
 
-static void dispc6_vid_set_scaling(enum omap_plane plane,
+static void dispc6_vid_set_scaling(enum omap_plane_id plane,
 				   u32 orig_width, u32 orig_height,
 				   u32 out_width, u32 out_height,
 				   u32 fourcc)
@@ -943,14 +943,15 @@ static u32 dispc6_dss_colormode_to_fourcc(enum omap_color_mode dss_mode)
 	return DRM_FORMAT_XRGB8888;
 }
 
-static void dispc6_ovl_set_channel_out(enum omap_plane plane, enum omap_channel channel)
+static void dispc6_ovl_set_channel_out(enum omap_plane_id plane,
+				       enum omap_channel channel)
 {
 	int val = 0;
 
 	VID_REG_FLD_MOD(plane, DISPC_VID_ATTRIBUTES, val, 16, 14);
 }
 
-static void dispc6_ovl_set_pixel_format(enum omap_plane plane, u32 fourcc)
+static void dispc6_ovl_set_pixel_format(enum omap_plane_id plane, u32 fourcc)
 {
 	int i;
 
@@ -992,7 +993,8 @@ static s32 pixinc(int pixels, u8 ps)
 	return 0;
 }
 
-static int dispc6_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
+static int dispc6_ovl_setup(enum omap_plane_id plane,
+			    const struct omap_overlay_info *oi,
 			    const struct videomode *vm, bool mem_to_mem)
 {
 	u32 fourcc = dispc6_dss_colormode_to_fourcc(oi->color_mode);
@@ -1032,25 +1034,25 @@ static int dispc6_ovl_setup(enum omap_plane plane, const struct omap_overlay_inf
 	return 0;
 }
 
-static int dispc6_ovl_enable(enum omap_plane plane, bool enable)
+static int dispc6_ovl_enable(enum omap_plane_id plane, bool enable)
 {
 	VID_REG_FLD_MOD(plane, DISPC_VID_ATTRIBUTES, !!enable, 0, 0);
 	return 0;
 }
 
-static bool dispc6_ovl_enabled(enum omap_plane plane)
+static bool dispc6_ovl_enabled(enum omap_plane_id plane)
 {
 	return VID_REG_GET(plane, DISPC_VID_ATTRIBUTES, 0, 0);
 }
 
-static u32 dispc6_vid_get_fifo_size(enum omap_plane plane)
+static u32 dispc6_vid_get_fifo_size(enum omap_plane_id plane)
 {
 	const u32 unit_size = 16;	/* 128-bits */
 
 	return VID_REG_GET(plane, DISPC_VID_BUF_SIZE_STATUS, 15, 0) * unit_size;
 }
 
-static void dispc6_vid_set_mflag_threshold(enum omap_plane plane,
+static void dispc6_vid_set_mflag_threshold(enum omap_plane_id plane,
 		u32 low, u32 high)
 {
 	dispc6_vid_write(plane, DISPC_VID_MFLAG_THRESHOLD,
@@ -1059,7 +1061,7 @@ static void dispc6_vid_set_mflag_threshold(enum omap_plane plane,
 
 static void dispc6_mflag_setup(void)
 {
-	enum omap_plane plane = 0;
+	enum omap_plane_id plane = 0;
 	const u32 unit_size = 16;	/* 128-bits */
 	u32 size = dispc6_vid_get_fifo_size(plane);
 	u32 low, high;
@@ -1114,7 +1116,7 @@ static enum omap_dss_output_id dispc6_mgr_get_supported_outputs(enum omap_channe
 	return OMAP_DSS_OUTPUT_DPI;
 }
 
-static enum omap_color_mode dispc6_ovl_get_color_modes(enum omap_plane plane)
+static enum omap_color_mode dispc6_ovl_get_color_modes(enum omap_plane_id plane)
 {
 	enum omap_color_mode formats = 0;
 	int i;
