@@ -11,6 +11,9 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
+	aliases {
+		rproc0 = &dsp;
+	};
 	arm {
 		#address-cells = <1>;
 		#size-cells = <1>;
