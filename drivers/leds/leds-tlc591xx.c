@@ -226,9 +226,10 @@ tlc591xx_destroy_devices(struct tlc591xx_priv *priv, unsigned int j)
 	int i = j;
 
 	while (--i >= 0) {
-		if (priv->leds[i].active)
+		if (priv->leds[i].active) {
 			led_classdev_unregister(&priv->leds[i].ldev);
 			gpiochip_free_own_desc(priv->leds[i].own_gpiod);
+		}
 	}
 
 	if (priv->gpo.ngpio)

@@ -42,7 +42,7 @@ static struct wb_q_data *get_q_data(struct wbm2m_ctx *ctx,
 	return NULL;
 }
 
-static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane src_plane,
+static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane_id src_plane,
 			  const struct omap_overlay_info *src_info,
 			  const struct omap_dss_writeback_info *wb_info)
 {

@@ -453,7 +453,7 @@ static void omap_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	const u32 flags_mask = DISPLAY_FLAGS_DE_HIGH | DISPLAY_FLAGS_DE_LOW |
 		DISPLAY_FLAGS_PIXDATA_POSEDGE | DISPLAY_FLAGS_PIXDATA_NEGEDGE |
 		DISPLAY_FLAGS_SYNC_POSEDGE | DISPLAY_FLAGS_SYNC_NEGEDGE;
-	int i;
+	unsigned int i;
 
 	DBG("%s: set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
 	    omap_crtc->name, mode->base.id, mode->name,
@@ -463,6 +463,18 @@ static void omap_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	    mode->type, mode->flags);
 
 	drm_display_mode_to_videomode(mode, &omap_crtc->vm);
+
+	/*
+	 * HACK: This fixes the vm flags.
+	 * struct drm_display_mode does not contain the VSYNC/HSYNC/DE flags
+	 * and they get lost when converting back and forth between
+	 * struct drm_display_mode and struct videomode. The hack below
+	 * goes and fetches the missing flags from the panel drivers.
+	 *
+	 * Correct solution would be to use DRM's bus-flags, but that's not
+	 * easily possible before the omapdrm's panel/encoder driver model
+	 * has been changed to the DRM model.
+	 */
 
 	for (i = 0; i < priv->num_encoders; ++i) {
 		struct drm_encoder *encoder = priv->encoders[i];
@@ -664,6 +676,8 @@ static const char *channel_names[] = {
 
 void omap_crtc_pre_init(void)
 {
+	memset(omap_crtcs, 0, sizeof(omap_crtcs));
+
 	dss_install_mgr_ops(&mgr_ops);
 }
 
@@ -686,18 +700,28 @@ static void omap_crtc_install_properties(struct drm_crtc *crtc)
 
 /* initialize crtc */
 struct drm_crtc *omap_crtc_init(struct drm_device *dev,
-		struct drm_plane *plane, enum omap_channel channel, int id)
+		struct drm_plane *plane, struct omap_dss_device *dssdev)
 {
 	struct omap_drm_private *priv = dev->dev_private;
 	struct drm_crtc *crtc = NULL;
 	struct omap_crtc *omap_crtc;
+	enum omap_channel channel;
+	struct omap_dss_device *out;
 	int ret;
+
+	out = omapdss_find_output_from_display(dssdev);
+	channel = out->dispc_channel;
+	omap_dss_put_device(out);
 
 	DBG("%s", channel_names[channel]);
 
+	/* Multiple displays on same channel is not allowed */
+	if (WARN_ON(omap_crtcs[channel] != NULL))
+		return ERR_PTR(-EINVAL);
+
 	omap_crtc = kzalloc(sizeof(*omap_crtc), GFP_KERNEL);
 	if (!omap_crtc)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	crtc = &omap_crtc->base;
 
@@ -709,8 +733,10 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 	ret = drm_crtc_init_with_planes(dev, crtc, plane, NULL,
 					&omap_crtc_funcs, NULL);
 	if (ret < 0) {
+		dev_err(dev->dev, "%s(): could not init crtc for: %s\n",
+			__func__, dssdev->name);
 		kfree(omap_crtc);
-		return NULL;
+		return ERR_PTR(ret);
 	}
 
 	drm_crtc_helper_add(crtc, &omap_crtc_helper_funcs);
