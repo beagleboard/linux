@@ -121,7 +121,7 @@ static int omap_aes_gcm_copy_buffers(struct omap_aes_dev *dd,
 	assoc = &req->src[0];
 	sg_init_table(dd->in_sgl, nsg + 1);
 	if (assoclen) {
-		if (omap_aes_check_aligned(assoc, assoclen)) {
+		if (omap_aes_copy_needed(assoc, assoclen)) {
 			dd->sgs_copied |= AES_ASSOC_DATA_COPIED;
 			pages = get_order(alen);
 			buf_in = (void *)__get_free_pages(GFP_ATOMIC, pages);
@@ -142,7 +142,7 @@ static int omap_aes_gcm_copy_buffers(struct omap_aes_dev *dd,
 	if (req->cryptlen) {
 		input = scatterwalk_ffwd(tmp, req->src, req->assoclen);
 
-		if (omap_aes_check_aligned(input, req->cryptlen)) {
+		if (omap_aes_copy_needed(input, req->cryptlen)) {
 			dd->sgs_copied |= AES_IN_DATA_COPIED;
 			pages = get_order(clen);
 			buf_in = (void *)__get_free_pages(GFP_ATOMIC, pages);
@@ -164,7 +164,7 @@ static int omap_aes_gcm_copy_buffers(struct omap_aes_dev *dd,
 	dd->assoc_len = assoclen;
 	dd->authsize = authlen;
 
-	if (omap_aes_check_aligned(req->dst, cryptlen + assoclen)) {
+	if (omap_aes_copy_needed(req->dst, cryptlen + assoclen)) {
 		pages = get_order(clen);
 
 		buf_in = (void *)__get_free_pages(GFP_ATOMIC, pages);

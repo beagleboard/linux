@@ -204,19 +204,33 @@ static int option_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(wkup_m3_ipc_option_fops, option_get, option_set,
 			"%llu\n");
 
-static int wkup_m3_ipc_dbg_init(void)
+static int wkup_m3_ipc_dbg_init(struct wkup_m3_ipc *m3_ipc)
 {
-	struct dentry *d;
+	m3_ipc->dbg_path = debugfs_create_dir("wkup_m3_ipc", NULL);
 
-	d = debugfs_create_dir("wkup_m3_ipc", NULL);
-	if (!d)
+	if (!m3_ipc->dbg_path)
 		return -EINVAL;
 
-	(void)debugfs_create_file("enable_late_halt", 0644, d,
-				  &m3_ipc_state->halt,
+	(void)debugfs_create_file("enable_late_halt", 0644,
+				  m3_ipc->dbg_path,
+				  &m3_ipc->halt,
 				  &wkup_m3_ipc_option_fops);
 
 	return 0;
+}
+
+static inline void wkup_m3_ipc_dbg_destroy(struct wkup_m3_ipc *m3_ipc)
+{
+	debugfs_remove_recursive(m3_ipc->dbg_path);
+}
+#else
+static inline int wkup_m3_ipc_dbg_init(struct wkup_m3_ipc *m3_ipc)
+{
+	return 0;
+}
+
+static inline void wkup_m3_ipc_dbg_destroy(struct wkup_m3_ipc *m3_ipc)
+{
 }
 #endif /* CONFIG_DEBUG_FS */
 
@@ -585,8 +599,6 @@ static void wkup_m3_rproc_boot_thread(struct wkup_m3_ipc *m3_ipc)
 	struct device *dev = m3_ipc->dev;
 	int ret;
 
-	wait_for_completion(&m3_ipc->rproc->firmware_loading_complete);
-
 	init_completion(&m3_ipc->sync_complete);
 
 	ret = rproc_boot(m3_ipc->rproc);
@@ -694,10 +706,11 @@ static int wkup_m3_ipc_probe(struct platform_device *pdev)
 
 	if (IS_ERR(task)) {
 		dev_err(dev, "can't create rproc_boot thread\n");
+		ret = PTR_ERR(task);
 		goto err_put_rproc;
 	}
 
-	wkup_m3_ipc_dbg_init();
+	wkup_m3_ipc_dbg_init(m3_ipc);
 
 	return 0;
 
@@ -710,6 +723,8 @@ err_free_mbox:
 
 static int wkup_m3_ipc_remove(struct platform_device *pdev)
 {
+	wkup_m3_ipc_dbg_destroy(m3_ipc_state);
+
 	mbox_free_channel(m3_ipc_state->mbox);
 
 	rproc_shutdown(m3_ipc_state->rproc);

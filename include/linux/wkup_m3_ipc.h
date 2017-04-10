@@ -47,6 +47,8 @@ struct wkup_m3_ipc {
 
 	struct wkup_m3_ipc_ops *ops;
 	bool is_rtc_only;
+
+	struct dentry *dbg_path;
 };
 
 struct wkup_m3_wakeup_src {

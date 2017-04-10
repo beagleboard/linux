@@ -6,6 +6,7 @@
 /dts-v1/;
 #include "da850.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 / {
 	model = "DA850/AM1808/OMAP-L138 LCDK";
@@ -13,6 +14,7 @@
 
 	aliases {
 		serial2 = &serial2;
+		ethernet0 = &eth0;
 	};
 
 	chosen {
@@ -48,6 +50,23 @@
 		link0_codec: simple-audio-card,codec {
 			sound-dai = <&tlv320aic3106>;
 			system-clock-frequency = <24576000>;
+		};
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		autorepeat;
+
+		user1 {
+			label = "GPIO Key USER1";
+			linux,code = <BTN_0>;
+			gpios = <&gpio 36 GPIO_ACTIVE_LOW>;
+		};
+
+		user2 {
+			label = "GPIO Key USER2";
+			linux,code = <BTN_1>;
+			gpios = <&gpio 37 GPIO_ACTIVE_LOW>;
 		};
 	};
 };
@@ -122,7 +141,7 @@
 	bus-width = <4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc0_pins>;
-	cd-gpios = <&gpio 64 GPIO_ACTIVE_HIGH>;
+	cd-gpios = <&gpio 64 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
 
@@ -156,6 +175,14 @@
 	>;
 	tx-num-evt = <32>;
 	rx-num-evt = <32>;
+};
+
+&usb_phy {
+	status = "okay";
+};
+
+&usb0 {
+	status = "okay";
 };
 
 &aemif {
@@ -218,4 +245,12 @@
 			};
 		};
 	};
+};
+
+&prictrl {
+	status = "okay";
+};
+
+&memctrl {
+	status = "okay";
 };

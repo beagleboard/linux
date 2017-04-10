@@ -195,6 +195,17 @@ static int of_thermal_set_emul_temp(struct thermal_zone_device *tz,
 	return data->ops->set_emul_temp(data->sensor_data, temp);
 }
 
+static int of_thermal_notify(struct thermal_zone_device *tz, int temp,
+			     enum thermal_trip_type type)
+{
+	struct __thermal_zone *data = tz->devdata;
+
+	if (!data->ops || !data->ops->notify)
+		return -EINVAL;
+
+	return data->ops->notify(tz, temp, type);
+}
+
 static int of_thermal_get_trend(struct thermal_zone_device *tz, int trip,
 				enum thermal_trend *trend)
 {
@@ -431,6 +442,9 @@ thermal_zone_of_add_sensor(struct device_node *zone,
 
 	if (ops->set_emul_temp)
 		tzd->ops->set_emul_temp = of_thermal_set_emul_temp;
+
+	if (ops->notify)
+		tzd->ops->notify = of_thermal_notify;
 
 	mutex_unlock(&tzd->lock);
 
