@@ -109,7 +109,11 @@ do {									\
 	asm volatile(SAVE_CONTEXT					  \
 	     "movq %%rsp,%P[threadrsp](%[prev])\n\t" /* save RSP */	  \
 	     "movq %P[threadrsp](%[next]),%%rsp\n\t" /* restore RSP */	  \
-	     "call __switch_to\n\t"					  \
+	     "movq $thread_return,%P[threadrip](%[prev])\n\t" /* save RIP */	  \
+	     "pushq %P[threadrip](%[next])\n\t" /* restore RIP */	  \
+	     "jmp __switch_to\n\t"					  \
+	     ".globl thread_return\n\t"					  \
+	     "thread_return:\n\t"					  \
 	     "movq "__percpu_arg([current_task])",%%rsi\n\t"		  \
 	     __switch_canary						  \
 	     "movq %P[thread_info](%%rsi),%%r8\n\t"			  \
@@ -121,6 +125,7 @@ do {									\
 	       __switch_canary_oparam					  \
 	     : [next] "S" (next), [prev] "D" (prev),			  \
 	       [threadrsp] "i" (offsetof(struct task_struct, thread.sp)), \
+	       [threadrip] "i" (offsetof(struct task_struct, thread.rip)), \
 	       [ti_flags] "i" (offsetof(struct thread_info, flags)),	  \
 	       [_tif_fork] "i" (_TIF_FORK),			  	  \
 	       [thread_info] "i" (offsetof(struct task_struct, stack)),   \
