@@ -183,6 +183,12 @@
 		gpio = <&gpio5 8 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
+
+	clk_ov10633_fixed: clk_ov10633_fixed {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24000000>;
+	};
 };
 
 &dra7_pmx_core {
@@ -308,6 +314,9 @@
 	ov10633@37 {
 		compatible = "ovti,ov10633";
 		reg = <0x37>;
+
+		clocks = <&clk_ov10633_fixed>;
+		clock-names = "xvclk";
 
 		mux-gpios = <&pcf_hdmi 2	GPIO_ACTIVE_HIGH>, /* VIN2_S0 */
 			    <&pcf_hdmi 6	GPIO_ACTIVE_LOW>; /* VIN2_S2 */
