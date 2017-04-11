@@ -7,6 +7,8 @@ Required Properties:
 - compatible : Must be one of the following
   - "ovti,ov10633": For OV10633 camera
   - "ovti,ov10635": For OV10635 camera
+- clocks: reference to the xvclk input clock.
+- clock-names: should be "xvclk".
 
 Optional Properties:
 - gpios : A list of gpios with active high/low flags for enabling the sensor.
@@ -25,6 +27,9 @@ Example:
 		ovcamera@30 {
 			compatible = "ovti,ov10635";
 			reg = <0x30>;
+
+			clocks = <&clk_ov10635>;
+			clock-names = "xvclk";
 
 			mux-gpios = <&pcf_hdmi 3    GPIO_ACTIVE_LOW>;
 

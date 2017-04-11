@@ -19,6 +19,7 @@
  *
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
@@ -94,7 +95,7 @@ struct ov1063x_priv {
 	struct v4l2_ctrl_handler	hdl;
 	int				model;
 	int				revision;
-	int				xvclk;
+	int				xvclk_rate;
 	/* Protects the struct fields below */
 	struct mutex lock;
 
@@ -106,6 +107,9 @@ struct ov1063x_priv {
 
 	struct gpio			mux_gpios[MAX_NUM_GPIOS];
 	int				num_gpios;
+
+	/* Sensor reference clock */
+	struct clk			*xvclk;
 };
 
 static int ov1063x_init_gpios(struct i2c_client *client);
@@ -312,13 +316,14 @@ static int ov1063x_s_ctrl(struct v4l2_ctrl *ctrl)
 
 /*
  * Get the best pixel clock (pclk) that meets minimum hts/vts requirements.
- * xvclk => pre-divider => clk1 => multiplier => clk2 => post-divider => pclk
+ * xvclk_rate => pre-divider => clk1 => multiplier => clk2 => post-divider
+ * => pclk
  * We try all valid combinations of settings for the 3 blocks to get the pixel
  * clock, and from that calculate the actual hts/vts to use. The vts is
  * extended so as to achieve the required frame rate. The function also returns
  * the PLL register contents needed to set the pixel clock.
  */
-static int ov1063x_get_pclk(int xvclk, int *htsmin, int *vtsmin,
+static int ov1063x_get_pclk(int xvclk_rate, int *htsmin, int *vtsmin,
 			    int fps_numerator, int fps_denominator,
 			    u8 *r3003, u8 *r3004)
 {
@@ -333,7 +338,7 @@ static int ov1063x_get_pclk(int xvclk, int *htsmin, int *vtsmin,
 
 	/* Pre-div, reg 0x3004, bits 6:4 */
 	for (i = 0; i < ARRAY_SIZE(pre_divs); i++) {
-		clk1 = (xvclk / pre_divs[i]) * 2;
+		clk1 = (xvclk_rate / pre_divs[i]) * 2;
 
 		if ((clk1 < 3000000) || (clk1 > 27000000))
 			continue;
@@ -468,8 +473,9 @@ static int ov1063x_set_params(struct i2c_client *client, u32 width, u32 height)
 		priv->fps_numerator, priv->fps_denominator, hts, vts);
 
 	/* Get the best PCLK & adjust hts,vts accordingly */
-	pclk = ov1063x_get_pclk(priv->xvclk, &hts, &vts, priv->fps_numerator,
-				priv->fps_denominator, &r3003, &r3004);
+	pclk = ov1063x_get_pclk(priv->xvclk_rate, &hts, &vts,
+				priv->fps_numerator, priv->fps_denominator,
+				&r3003, &r3004);
 	if (pclk < 0)
 		return ret;
 	dev_dbg(&client->dev, "pclk=%d, hts=%d, vts=%d\n", pclk, hts, vts);
@@ -961,6 +967,7 @@ static int ov1063x_probe(struct i2c_client *client,
 	struct device_node *node = client->dev.of_node;
 	struct ov1063x_priv *priv;
 	struct v4l2_subdev *sd;
+	struct clk *clk;
 	int ret = 0;
 
 	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
@@ -969,12 +976,31 @@ static int ov1063x_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, priv);
 
+	clk = devm_clk_get(&client->dev, "xvclk");
+	if (IS_ERR(clk)) {
+		dev_err(&client->dev, "xvclk reference is missing!\n");
+		ret = PTR_ERR(clk);
+		goto err;
+	}
+	priv->xvclk = clk;
+
+	priv->xvclk_rate = clk_get_rate(clk);
+	dev_dbg(&client->dev, "xvclk_rate: %d (Hz)\n", priv->xvclk_rate);
+
+	if (priv->xvclk_rate < 6000000 ||
+	    priv->xvclk_rate > 27000000) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = clk_prepare_enable(priv->xvclk);
+	if (ret < 0)
+		goto err;
+
 	ret = ov1063x_of_probe(client, node);
 	if (ret)
 		goto err;
 
-	/* TODO External XVCLK is board specific */
-	priv->xvclk = 24000000;
 	/* Default framerate */
 	priv->fps_numerator = 30;
 	priv->fps_denominator = 1;
@@ -1021,7 +1047,9 @@ static int ov1063x_probe(struct i2c_client *client,
 
 	pm_runtime_enable(&client->dev);
 
+	return 0;
 err:
+	clk_disable_unprepare(priv->xvclk);
 	return ret;
 }
 
@@ -1031,6 +1059,7 @@ static int ov1063x_remove(struct i2c_client *client)
 
 	v4l2_device_unregister_subdev(&priv->subdev);
 	v4l2_ctrl_handler_free(&priv->hdl);
+	clk_disable_unprepare(priv->xvclk);
 	pm_runtime_disable(&client->dev);
 
 	return 0;
