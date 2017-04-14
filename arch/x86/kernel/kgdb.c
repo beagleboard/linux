@@ -597,9 +597,9 @@ kgdb_notify(struct notifier_block *self, unsigned long cmd, void *ptr)
 	unsigned long flags;
 	int ret;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	ret = __kgdb_notify(ptr, cmd);
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 
 	return ret;
 }
@@ -755,12 +755,13 @@ int kgdb_arch_set_breakpoint(struct kgdb_bkpt *bpt)
 #endif /* CONFIG_DEBUG_RODATA */
 
 	bpt->type = BP_BREAKPOINT;
-	err = probe_kernel_read(bpt->saved_instr, (char *)bpt->bpt_addr,
-				BREAK_INSTR_SIZE);
+	err = ipipe_probe_kernel_read(bpt->saved_instr, (char *)bpt->bpt_addr,
+				      BREAK_INSTR_SIZE);
 	if (err)
 		return err;
-	err = probe_kernel_write((char *)bpt->bpt_addr,
-				 arch_kgdb_ops.gdb_bpt_instr, BREAK_INSTR_SIZE);
+	err = ipipe_probe_kernel_write((char *)bpt->bpt_addr,
+				       arch_kgdb_ops.gdb_bpt_instr,
+				       BREAK_INSTR_SIZE);
 #ifdef CONFIG_DEBUG_RODATA
 	if (!err)
 		return err;
@@ -772,7 +773,8 @@ int kgdb_arch_set_breakpoint(struct kgdb_bkpt *bpt)
 		return -EBUSY;
 	text_poke((void *)bpt->bpt_addr, arch_kgdb_ops.gdb_bpt_instr,
 		  BREAK_INSTR_SIZE);
-	err = probe_kernel_read(opc, (char *)bpt->bpt_addr, BREAK_INSTR_SIZE);
+	err = ipipe_probe_kernel_read(opc, (char *)bpt->bpt_addr,
+				      BREAK_INSTR_SIZE);
 	if (err)
 		return err;
 	if (memcmp(opc, arch_kgdb_ops.gdb_bpt_instr, BREAK_INSTR_SIZE))
@@ -797,14 +799,16 @@ int kgdb_arch_remove_breakpoint(struct kgdb_bkpt *bpt)
 	if (mutex_is_locked(&text_mutex))
 		goto knl_write;
 	text_poke((void *)bpt->bpt_addr, bpt->saved_instr, BREAK_INSTR_SIZE);
-	err = probe_kernel_read(opc, (char *)bpt->bpt_addr, BREAK_INSTR_SIZE);
+	err = ipipe_probe_kernel_read(opc, (char *)bpt->bpt_addr,
+				      BREAK_INSTR_SIZE);
 	if (err || memcmp(opc, bpt->saved_instr, BREAK_INSTR_SIZE))
 		goto knl_write;
 	return err;
 knl_write:
 #endif /* CONFIG_DEBUG_RODATA */
-	return probe_kernel_write((char *)bpt->bpt_addr,
-				  (char *)bpt->saved_instr, BREAK_INSTR_SIZE);
+	return ipipe_probe_kernel_write((char *)bpt->bpt_addr,
+					(char *)bpt->saved_instr,
+					BREAK_INSTR_SIZE);
 }
 
 struct kgdb_arch arch_kgdb_ops = {

@@ -47,6 +47,10 @@ struct irq_desc {
 	struct irq_common_data	irq_common_data;
 	struct irq_data		irq_data;
 	unsigned int __percpu	*kstat_irqs;
+#ifdef CONFIG_IPIPE
+	void			(*ipipe_ack)(struct irq_desc *desc);
+	void			(*ipipe_end)(struct irq_desc *desc);
+#endif /* CONFIG_IPIPE */
 	irq_flow_handler_t	handle_irq;
 #ifdef CONFIG_IRQ_PREFLOW_FASTEOI
 	irq_preflow_handler_t	preflow_handler;
@@ -164,6 +168,10 @@ static inline int irq_desc_has_action(struct irq_desc *desc)
 {
 	return desc->action != NULL;
 }
+
+irq_flow_handler_t
+__fixup_irq_handler(struct irq_desc *desc, irq_flow_handler_t handle,
+		    int is_chained);
 
 static inline int irq_has_action(unsigned int irq)
 {
