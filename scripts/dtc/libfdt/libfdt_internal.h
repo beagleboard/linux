@@ -91,6 +91,5 @@ static inline struct fdt_reserve_entry *_fdt_mem_rsv_w(void *fdt, int n)
 }
 
 #define FDT_SW_MAGIC		(~FDT_MAGIC)
-#define FDT_SW_MAGIC_DTBO	(~FDT_MAGIC_DTBO)
 
 #endif /* _LIBFDT_INTERNAL_H */
