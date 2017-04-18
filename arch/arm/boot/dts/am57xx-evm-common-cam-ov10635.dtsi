@@ -1,0 +1,66 @@
+/*
+ * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/ {
+	clk_ov10635_fixed: clk_ov10635_fixed {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24000000>;
+	};
+
+	clk_ov10635: clk_ov10635 {
+		#clock-cells = <0>;
+		compatible = "gpio-gate-clock";
+		clocks = <&clk_ov10635_fixed>;
+		enable-gpios = <&gpio5 10 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&i2c5 {
+	ov10635@30 {
+		compatible = "ovti,ov10635";
+		reg = <0x30>;
+
+		clocks = <&clk_ov10635>;
+		clock-names = "xvclk";
+
+		reset-gpios = <&gpio4 17 GPIO_ACTIVE_HIGH>;
+		powerdown-gpios = <&gpio5 11 GPIO_ACTIVE_HIGH>;
+
+		port {
+			cam: endpoint {
+				remote-endpoint = <&vin3a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
+	};
+};
+
+&gpio6 {
+	p11 {
+		/* Set mux to enable VIP datalines */
+		gpio-hog;
+		gpios = <11 GPIO_ACTIVE_LOW>;
+		output-high;
+		line-name = "cm-camen-gpio";
+	};
+};
+
+&vip2 {
+	status = "okay";
+};
+
+&vin3a {
+	status = "okay";
+	endpoint {
+		slave-mode;
+		remote-endpoint = <&cam>;
+	};
+};

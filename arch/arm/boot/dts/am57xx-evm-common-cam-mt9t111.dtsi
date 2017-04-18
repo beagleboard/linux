@@ -1,0 +1,43 @@
+/*
+ * Copyright (C) 2015-2016 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&i2c5 {
+	mt9t11x@3C {
+		compatible = "aptina,mt9t111";
+		reg = <0x3C>;
+
+		reset-gpios = <&gpio4 17 GPIO_ACTIVE_LOW>;
+		oscen-gpios = <&gpio5 10 GPIO_ACTIVE_HIGH>;
+		powerdown-gpios = <&gpio5 11 GPIO_ACTIVE_LOW>;
+		bufen-gpios = <&gpio5 12 GPIO_ACTIVE_LOW>;
+		camen-gpios = <&gpio6 11 GPIO_ACTIVE_LOW>;
+
+		port {
+			cam: endpoint {
+				remote-endpoint = <&vin3a>;
+				hsync-active = <1>;
+				vsync-active = <0>;
+				pclk-sample = <0>;
+				input-clock-freq = <32000000>;
+				pixel-clock-freq = <96000000>;
+			};
+		};
+	};
+};
+
+&vip2 {
+	status = "okay";
+};
+
+&vin3a {
+	status = "okay";
+	endpoint {
+		slave-mode;
+		remote-endpoint = <&cam>;
+	};
+};
