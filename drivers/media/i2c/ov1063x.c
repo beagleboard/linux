@@ -19,6 +19,7 @@
  *
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
@@ -30,6 +31,7 @@
 #include <linux/videodev2.h>
 #include <linux/pm_runtime.h>
 #include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/of_device.h>
 
 #include <linux/v4l2-mediabus.h>
@@ -94,7 +96,7 @@ struct ov1063x_priv {
 	struct v4l2_ctrl_handler	hdl;
 	int				model;
 	int				revision;
-	int				xvclk;
+	int				xvclk_rate;
 	/* Protects the struct fields below */
 	struct mutex lock;
 
@@ -106,6 +108,17 @@ struct ov1063x_priv {
 
 	struct gpio			mux_gpios[MAX_NUM_GPIOS];
 	int				num_gpios;
+
+	/* Sensor reference clock */
+	struct clk			*xvclk;
+
+	bool				power;
+
+	/* GPIOs */
+	struct gpio_desc		*reset_gpio;
+	struct gpio_desc		*powerdown_gpio;
+
+	struct v4l2_ctrl		*colorbar;
 };
 
 static int ov1063x_init_gpios(struct i2c_client *client);
@@ -281,12 +294,16 @@ static int ov1063x_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
+static int ov1063x_set_regs(struct i2c_client *client,
+	const struct ov1063x_reg *regs, int nr_regs);
+
 /* Set status of additional camera capabilities */
 static int ov1063x_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct ov1063x_priv *priv = container_of(ctrl->handler,
 					struct ov1063x_priv, hdl);
 	struct i2c_client *client = v4l2_get_subdevdata(&priv->subdev);
+	int n_regs;
 
 	switch (ctrl->id) {
 	case V4L2_CID_VFLIP:
@@ -305,6 +322,19 @@ static int ov1063x_s_ctrl(struct v4l2_ctrl *ctrl)
 			return ov1063x_reg_rmw(client, OV1063X_HMIRROR,
 				0, OV1063X_HMIRROR_ON);
 		break;
+	case V4L2_CID_TEST_PATTERN:
+		if (ctrl->val) {
+			n_regs = ARRAY_SIZE(ov1063x_regs_colorbar_enable);
+			return ov1063x_set_regs(client,
+						ov1063x_regs_colorbar_enable,
+						n_regs);
+		} else {
+			n_regs = ARRAY_SIZE(ov1063x_regs_colorbar_disable);
+			return ov1063x_set_regs(client,
+						ov1063x_regs_colorbar_disable,
+						n_regs);
+		}
+		break;
 	}
 
 	return -EINVAL;
@@ -312,13 +342,14 @@ static int ov1063x_s_ctrl(struct v4l2_ctrl *ctrl)
 
 /*
  * Get the best pixel clock (pclk) that meets minimum hts/vts requirements.
- * xvclk => pre-divider => clk1 => multiplier => clk2 => post-divider => pclk
+ * xvclk_rate => pre-divider => clk1 => multiplier => clk2 => post-divider
+ * => pclk
  * We try all valid combinations of settings for the 3 blocks to get the pixel
  * clock, and from that calculate the actual hts/vts to use. The vts is
  * extended so as to achieve the required frame rate. The function also returns
  * the PLL register contents needed to set the pixel clock.
  */
-static int ov1063x_get_pclk(int xvclk, int *htsmin, int *vtsmin,
+static int ov1063x_get_pclk(int xvclk_rate, int *htsmin, int *vtsmin,
 			    int fps_numerator, int fps_denominator,
 			    u8 *r3003, u8 *r3004)
 {
@@ -333,7 +364,7 @@ static int ov1063x_get_pclk(int xvclk, int *htsmin, int *vtsmin,
 
 	/* Pre-div, reg 0x3004, bits 6:4 */
 	for (i = 0; i < ARRAY_SIZE(pre_divs); i++) {
-		clk1 = (xvclk / pre_divs[i]) * 2;
+		clk1 = (xvclk_rate / pre_divs[i]) * 2;
 
 		if ((clk1 < 3000000) || (clk1 > 27000000))
 			continue;
@@ -468,8 +499,9 @@ static int ov1063x_set_params(struct i2c_client *client, u32 width, u32 height)
 		priv->fps_numerator, priv->fps_denominator, hts, vts);
 
 	/* Get the best PCLK & adjust hts,vts accordingly */
-	pclk = ov1063x_get_pclk(priv->xvclk, &hts, &vts, priv->fps_numerator,
-				priv->fps_denominator, &r3003, &r3004);
+	pclk = ov1063x_get_pclk(priv->xvclk_rate, &hts, &vts,
+				priv->fps_numerator, priv->fps_denominator,
+				&r3003, &r3004);
 	if (pclk < 0)
 		return ret;
 	dev_dbg(&client->dev, "pclk=%d, hts=%d, vts=%d\n", pclk, hts, vts);
@@ -829,12 +861,62 @@ done:
 	return ret;
 }
 
+static int ov1063x_init_cam_gpios(struct i2c_client *client)
+{
+	struct ov1063x_priv *priv = to_ov1063x(client);
+	struct gpio_desc *gpio;
+
+	gpio = devm_gpiod_get_optional(&client->dev, "reset",
+				       GPIOD_OUT_LOW);
+	if (IS_ERR(gpio))
+		return PTR_ERR(gpio);
+	priv->reset_gpio = gpio;
+
+	gpio = devm_gpiod_get_optional(&client->dev, "powerdown",
+				       GPIOD_OUT_LOW);
+	if (IS_ERR(gpio))
+		return PTR_ERR(gpio);
+	priv->powerdown_gpio = gpio;
+
+	return 0;
+}
+
+static void ov1063x_set_power(struct i2c_client *client, bool on)
+{
+	struct ov1063x_priv *priv = to_ov1063x(client);
+
+	dev_dbg(&client->dev, "%s: on: %d\n", __func__, on);
+
+	if (priv->power == on)
+		return;
+
+	if (on) {
+		if (priv->powerdown_gpio) {
+			gpiod_set_value_cansleep(priv->powerdown_gpio, 1);
+			usleep_range(1000, 1200);
+		}
+		if (priv->reset_gpio) {
+			gpiod_set_value_cansleep(priv->reset_gpio, 1);
+			usleep_range(250000, 260000);
+		}
+	} else {
+		if (priv->powerdown_gpio)
+			gpiod_set_value_cansleep(priv->powerdown_gpio, 0);
+		if (priv->reset_gpio)
+			gpiod_set_value_cansleep(priv->reset_gpio, 0);
+	}
+
+	priv->power = on;
+}
+
 static int ov1063x_video_probe(struct i2c_client *client)
 {
 	struct ov1063x_priv *priv = to_ov1063x(client);
 	u8 pid, ver;
 	u16 id;
 	int ret;
+
+	ov1063x_set_power(client, true);
 
 	ret = ov1063x_set_regs(client, ov1063x_regs_default,
 			       ARRAY_SIZE(ov1063x_regs_default));
@@ -890,6 +972,11 @@ static int ov1063x_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 static const struct v4l2_ctrl_ops ov1063x_ctrl_ops = {
 	.s_ctrl = ov1063x_s_ctrl,
+};
+
+static const char * const ov1063x_test_pattern_menu[] = {
+	"Disabled",
+	"Vertical Color Bars",
 };
 
 static const struct v4l2_subdev_video_ops ov1063x_subdev_video_ops = {
@@ -961,6 +1048,7 @@ static int ov1063x_probe(struct i2c_client *client,
 	struct device_node *node = client->dev.of_node;
 	struct ov1063x_priv *priv;
 	struct v4l2_subdev *sd;
+	struct clk *clk;
 	int ret = 0;
 
 	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
@@ -969,12 +1057,31 @@ static int ov1063x_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, priv);
 
+	clk = devm_clk_get(&client->dev, "xvclk");
+	if (IS_ERR(clk)) {
+		dev_err(&client->dev, "xvclk reference is missing!\n");
+		ret = PTR_ERR(clk);
+		goto err;
+	}
+	priv->xvclk = clk;
+
+	priv->xvclk_rate = clk_get_rate(clk);
+	dev_dbg(&client->dev, "xvclk_rate: %d (Hz)\n", priv->xvclk_rate);
+
+	if (priv->xvclk_rate < 6000000 ||
+	    priv->xvclk_rate > 27000000) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = clk_prepare_enable(priv->xvclk);
+	if (ret < 0)
+		goto err;
+
 	ret = ov1063x_of_probe(client, node);
 	if (ret)
 		goto err;
 
-	/* TODO External XVCLK is board specific */
-	priv->xvclk = 24000000;
 	/* Default framerate */
 	priv->fps_numerator = 30;
 	priv->fps_denominator = 1;
@@ -989,11 +1096,15 @@ static int ov1063x_probe(struct i2c_client *client,
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
 		     V4L2_SUBDEV_FL_HAS_EVENTS;
 
-	v4l2_ctrl_handler_init(&priv->hdl, 2);
+	v4l2_ctrl_handler_init(&priv->hdl, 3);
 	v4l2_ctrl_new_std(&priv->hdl, &ov1063x_ctrl_ops,
 			  V4L2_CID_VFLIP, 0, 1, 1, 0);
 	v4l2_ctrl_new_std(&priv->hdl, &ov1063x_ctrl_ops,
 			  V4L2_CID_HFLIP, 0, 1, 1, 0);
+	priv->colorbar = v4l2_ctrl_new_std_menu_items(&priv->hdl, &ov1063x_ctrl_ops,
+				     V4L2_CID_TEST_PATTERN,
+				     ARRAY_SIZE(ov1063x_test_pattern_menu) - 1,
+				     0, 0, ov1063x_test_pattern_menu);
 	priv->subdev.ctrl_handler = &priv->hdl;
 	if (priv->hdl.error) {
 		ret = priv->hdl.error;
@@ -1002,9 +1113,15 @@ static int ov1063x_probe(struct i2c_client *client,
 
 	mutex_init(&priv->lock);
 
+	ret = ov1063x_init_cam_gpios(client);
+	if (ret) {
+		dev_err(&client->dev, "Failed to request cam gpios");
+		goto err;
+	}
+
 	ret = ov1063x_init_gpios(client);
 	if (ret) {
-		dev_err(&client->dev, "Failed to request gpios");
+		dev_err(&client->dev, "Failed to request mux gpios");
 		goto err;
 	}
 
@@ -1021,7 +1138,9 @@ static int ov1063x_probe(struct i2c_client *client,
 
 	pm_runtime_enable(&client->dev);
 
+	return 0;
 err:
+	clk_disable_unprepare(priv->xvclk);
 	return ret;
 }
 
@@ -1031,6 +1150,8 @@ static int ov1063x_remove(struct i2c_client *client)
 
 	v4l2_device_unregister_subdev(&priv->subdev);
 	v4l2_ctrl_handler_free(&priv->hdl);
+	ov1063x_set_power(client, false);
+	clk_disable_unprepare(priv->xvclk);
 	pm_runtime_disable(&client->dev);
 
 	return 0;
