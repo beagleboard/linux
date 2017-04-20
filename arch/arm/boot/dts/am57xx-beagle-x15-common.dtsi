@@ -731,6 +731,7 @@
 	memory-region = <&dsp2_cma_pool>;
 	mboxes = <&mailbox6 &mbox_dsp2_ipc3x>;
 	timers = <&timer6>;
+	watchdog-timers = <&timer13>;
 };
 
 &pruss_soc_bus1 {
