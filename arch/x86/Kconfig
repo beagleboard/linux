@@ -9,6 +9,7 @@ config 64BIT
 config X86_32
 	def_bool y
 	depends on !64BIT
+	select IPIPE_WANT_CLOCKSOURCE if IPIPE
 
 config X86_64
 	def_bool y
@@ -23,6 +24,10 @@ config X86
 	select ARCH_CLOCKSOURCE_DATA
 	select ARCH_DISCARD_MEMBLOCK
 	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
+	select IPIPE_HAVE_HOSTRT if IPIPE
+	select IPIPE_HAVE_VM_NOTIFIER if IPIPE
+	select IPIPE_HAVE_SAFE_THREAD_INFO if X86_64
+	select IPIPE_WANT_PTE_PINNING if IPIPE
 	select ARCH_HAS_DEBUG_STRICT_USER_COPY_CHECKS
 	select ARCH_HAS_ELF_RANDOMIZE
 	select ARCH_HAS_FAST_MULTIPLIER
@@ -90,7 +95,7 @@ config X86
 	select HAVE_CC_STACKPROTECTOR
 	select HAVE_CMPXCHG_DOUBLE
 	select HAVE_CMPXCHG_LOCAL
-	select HAVE_CONTEXT_TRACKING		if X86_64
+	select HAVE_CONTEXT_TRACKING		if X86_64 && !IPIPE
 	select HAVE_COPY_THREAD_TLS
 	select HAVE_C_RECORDMCOUNT
 	select HAVE_DEBUG_KMEMLEAK
@@ -660,6 +665,7 @@ if HYPERVISOR_GUEST
 
 config PARAVIRT
 	bool "Enable paravirtualization code"
+	depends on !IPIPE
 	---help---
 	  This changes the kernel so it can modify itself when it is run
 	  under a hypervisor, potentially improving performance significantly
@@ -891,6 +897,8 @@ config SCHED_MC
 	  increased overhead in some places. If unsure say N here.
 
 source "kernel/Kconfig.preempt"
+
+source "kernel/ipipe/Kconfig"
 
 config UP_LATE_INIT
        def_bool y
