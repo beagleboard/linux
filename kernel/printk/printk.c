@@ -62,6 +62,9 @@ int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* default_console_loglevel */
 };
 
+/* Deferred messaged from sched code are marked by this special level */
+#define SCHED_MESSAGE_LOGLEVEL -2
+
 /*
  * Low level drivers may need that to know if they can schedule in
  * their unblank() callback or not. So let's export it.
@@ -1297,7 +1300,7 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
 int do_syslog(int type, char __user *buf, int len, int source)
 {
 	bool clear = false;
-	static int saved_console_loglevel = LOGLEVEL_DEFAULT;
+	static int saved_console_loglevel = -1;
 	int error;
 
 	error = check_syslog_permissions(type, source);
@@ -1350,15 +1353,15 @@ int do_syslog(int type, char __user *buf, int len, int source)
 		break;
 	/* Disable logging to console */
 	case SYSLOG_ACTION_CONSOLE_OFF:
-		if (saved_console_loglevel == LOGLEVEL_DEFAULT)
+		if (saved_console_loglevel == -1)
 			saved_console_loglevel = console_loglevel;
 		console_loglevel = minimum_console_loglevel;
 		break;
 	/* Enable logging to console */
 	case SYSLOG_ACTION_CONSOLE_ON:
-		if (saved_console_loglevel != LOGLEVEL_DEFAULT) {
+		if (saved_console_loglevel != -1) {
 			console_loglevel = saved_console_loglevel;
-			saved_console_loglevel = LOGLEVEL_DEFAULT;
+			saved_console_loglevel = -1;
 		}
 		break;
 	/* Set level of messages printed to console */
@@ -1370,7 +1373,7 @@ int do_syslog(int type, char __user *buf, int len, int source)
 			len = minimum_console_loglevel;
 		console_loglevel = len;
 		/* Implicitly re-enable logging to console */
-		saved_console_loglevel = LOGLEVEL_DEFAULT;
+		saved_console_loglevel = -1;
 		error = 0;
 		break;
 	/* Number of chars in the log buffer */
@@ -1670,10 +1673,10 @@ asmlinkage int vprintk_emit(int facility, int level,
 	int printed_len = 0;
 	bool in_sched = false;
 	/* cpu currently holding logbuf_lock in this function */
-	static unsigned int logbuf_cpu = UINT_MAX;
+	static volatile unsigned int logbuf_cpu = UINT_MAX;
 
-	if (level == LOGLEVEL_SCHED) {
-		level = LOGLEVEL_DEFAULT;
+	if (level == SCHED_MESSAGE_LOGLEVEL) {
+		level = -1;
 		in_sched = true;
 	}
 
@@ -1738,9 +1741,8 @@ asmlinkage int vprintk_emit(int facility, int level,
 			const char *end_of_header = printk_skip_level(text);
 			switch (kern_level) {
 			case '0' ... '7':
-				if (level == LOGLEVEL_DEFAULT)
+				if (level == -1)
 					level = kern_level - '0';
-				/* fallthrough */
 			case 'd':	/* KERN_DEFAULT */
 				lflags |= LOG_PREFIX;
 			}
@@ -1754,7 +1756,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 		}
 	}
 
-	if (level == LOGLEVEL_DEFAULT)
+	if (level == -1)
 		level = default_message_loglevel;
 
 	if (dict)
@@ -1832,7 +1834,7 @@ EXPORT_SYMBOL(vprintk_emit);
 
 asmlinkage int vprintk(const char *fmt, va_list args)
 {
-	return vprintk_emit(0, LOGLEVEL_DEFAULT, NULL, 0, fmt, args);
+	return vprintk_emit(0, -1, NULL, 0, fmt, args);
 }
 EXPORT_SYMBOL(vprintk);
 
@@ -1875,6 +1877,43 @@ EXPORT_SYMBOL_GPL(vprintk_default);
  */
 DEFINE_PER_CPU(printk_func_t, printk_func) = vprintk_default;
 
+#ifdef CONFIG_IPIPE
+
+extern int __ipipe_printk_bypass;
+
+static IPIPE_DEFINE_SPINLOCK(__ipipe_printk_lock);
+
+static int __ipipe_printk_fill;
+
+static char __ipipe_printk_buf[__LOG_BUF_LEN];
+
+void __ipipe_flush_printk (unsigned virq, void *cookie)
+{
+	char *p = __ipipe_printk_buf;
+	int len, lmax, out = 0;
+	unsigned long flags;
+
+	goto start;
+
+	do {
+		raw_spin_unlock_irqrestore(&__ipipe_printk_lock, flags);
+ start:
+		lmax = __ipipe_printk_fill;
+		while (out < lmax) {
+			len = strlen(p) + 1;
+			printk("%s",p);
+			p += len;
+			out += len;
+		}
+		raw_spin_lock_irqsave(&__ipipe_printk_lock, flags);
+	}
+	while (__ipipe_printk_fill != lmax);
+
+	__ipipe_printk_fill = 0;
+
+	raw_spin_unlock_irqrestore(&__ipipe_printk_lock, flags);
+}
+
 /**
  * printk - print a kernel message
  * @fmt: format string
@@ -1898,6 +1937,59 @@ DEFINE_PER_CPU(printk_func_t, printk_func) = vprintk_default;
  */
 asmlinkage __visible int printk(const char *fmt, ...)
 {
+	int sprintk = 1, cs = -1;
+	int r, fbytes, oldcount;
+	unsigned long flags;
+	va_list args;
+
+	va_start(args, fmt);
+
+	flags = hard_local_irq_save();
+
+	if (__ipipe_printk_bypass || oops_in_progress)
+		cs = ipipe_disable_context_check();
+	else if (__ipipe_current_domain == ipipe_root_domain) {
+		if (ipipe_head_domain != ipipe_root_domain &&
+		    (raw_irqs_disabled_flags(flags) ||
+		     test_bit(IPIPE_STALL_FLAG, &__ipipe_head_status)))
+			sprintk = 0;
+	} else
+		sprintk = 0;
+
+	hard_local_irq_restore(flags);
+
+	if (sprintk) {
+		r = vprintk(fmt, args);
+		if (cs != -1)
+			ipipe_restore_context_check(cs);
+		goto out;
+	}
+
+	raw_spin_lock_irqsave(&__ipipe_printk_lock, flags);
+
+	oldcount = __ipipe_printk_fill;
+	fbytes = __LOG_BUF_LEN - oldcount;
+	if (fbytes > 1)	{
+		r = vscnprintf(__ipipe_printk_buf + __ipipe_printk_fill,
+			       fbytes, fmt, args) + 1;
+		__ipipe_printk_fill += r;
+	} else
+		r = 0;
+
+	raw_spin_unlock_irqrestore(&__ipipe_printk_lock, flags);
+
+	if (oldcount == 0)
+		ipipe_raise_irq(__ipipe_printk_virq);
+out:
+	va_end(args);
+
+	return r;
+}
+
+#else /* !CONFIG_IPIPE */
+
+asmlinkage __visible int printk(const char *fmt, ...)
+{
 	printk_func_t vprintk_func;
 	va_list args;
 	int r;
@@ -1917,6 +2009,8 @@ asmlinkage __visible int printk(const char *fmt, ...)
 
 	return r;
 }
+#endif /* CONFIG_IPIPE */
+
 EXPORT_SYMBOL(printk);
 
 #else /* CONFIG_PRINTK */
@@ -1964,21 +2058,80 @@ DEFINE_PER_CPU(printk_func_t, printk_func);
 #ifdef CONFIG_EARLY_PRINTK
 struct console *early_console;
 
+void early_vprintk(const char *fmt, va_list ap)
+{
+	if (early_console) {
+		char buf[512];
+		int n = vscnprintf(buf, sizeof(buf), fmt, ap);
+
+		early_console->write(early_console, buf, n);
+	}
+}
+
 asmlinkage __visible void early_printk(const char *fmt, ...)
 {
 	va_list ap;
-	char buf[512];
-	int n;
-
-	if (!early_console)
-		return;
 
 	va_start(ap, fmt);
-	n = vscnprintf(buf, sizeof(buf), fmt, ap);
+	early_vprintk(fmt, ap);
 	va_end(ap);
-
-	early_console->write(early_console, buf, n);
 }
+#endif
+
+#ifdef CONFIG_RAW_PRINTK
+static struct console *raw_console;
+static IPIPE_DEFINE_RAW_SPINLOCK(raw_console_lock);
+
+void raw_vprintk(const char *fmt, va_list ap)
+{
+	unsigned long flags;
+	char buf[256];
+	int n;
+
+	if (raw_console == NULL || console_suspended)
+		return;
+
+	n = vscnprintf(buf, sizeof(buf), fmt, ap);
+        touch_nmi_watchdog();
+	raw_spin_lock_irqsave(&raw_console_lock, flags);
+	if (raw_console)
+		raw_console->write_raw(raw_console, buf, n);
+	raw_spin_unlock_irqrestore(&raw_console_lock, flags);
+}
+
+asmlinkage __visible void raw_printk(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	raw_vprintk(fmt, ap);
+	va_end(ap);
+}
+
+static inline void register_raw_console(struct console *newcon)
+{
+	if ((newcon->flags & CON_RAW) != 0 && newcon->write_raw)
+		raw_console = newcon;
+}
+
+static inline void unregister_raw_console(struct console *oldcon)
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&raw_console_lock, flags);
+	if (oldcon == raw_console)
+		raw_console = NULL;
+	raw_spin_unlock_irqrestore(&raw_console_lock, flags);
+}
+
+#else
+
+static inline void register_raw_console(struct console *newcon)
+{ }
+
+static inline void unregister_raw_console(struct console *oldcon)
+{ }
+
 #endif
 
 static int __add_preferred_console(char *name, int idx, char *options,
@@ -2598,6 +2751,9 @@ void register_console(struct console *newcon)
 		console_drivers->next = newcon;
 	}
 
+	/* The latest raw console to register is current. */
+	register_raw_console(newcon);
+
 	if (newcon->flags & CON_EXTENDED)
 		if (!nr_ext_console_drivers++)
 			pr_info("printk: continuation disabled due to ext consoles, expect more fragments in /dev/kmsg\n");
@@ -2653,6 +2809,8 @@ int unregister_console(struct console *console)
 	pr_info("%sconsole [%s%d] disabled\n",
 		(console->flags & CON_BOOT) ? "boot" : "" ,
 		console->name, console->index);
+
+	unregister_raw_console(console);
 
 	res = _braille_unregister_console(console);
 	if (res)
@@ -2750,7 +2908,7 @@ int printk_deferred(const char *fmt, ...)
 
 	preempt_disable();
 	va_start(args, fmt);
-	r = vprintk_emit(0, LOGLEVEL_SCHED, NULL, 0, fmt, args);
+	r = vprintk_emit(0, SCHED_MESSAGE_LOGLEVEL, NULL, 0, fmt, args);
 	va_end(args);
 
 	__this_cpu_or(printk_pending, PRINTK_PENDING_OUTPUT);

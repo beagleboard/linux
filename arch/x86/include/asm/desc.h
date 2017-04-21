@@ -390,6 +390,12 @@ static inline void alloc_system_vector(int vector)
 	}
 }
 
+#define alloc_intr_gate_notrace(n, addr)			\
+	do {							\
+		alloc_system_vector(n);				\
+		set_intr_gate_notrace(n, addr);			\
+	} while (0)
+
 #define alloc_intr_gate(n, addr)				\
 	do {							\
 		alloc_system_vector(n);				\
@@ -435,7 +441,7 @@ static inline void set_system_intr_gate_ist(int n, void *addr, unsigned ist)
 	_set_gate(n, GATE_INTERRUPT, addr, 0x3, ist, __KERNEL_CS);
 }
 
-#ifdef CONFIG_X86_64
+#if defined(CONFIG_X86_64) && !defined(CONFIG_IPIPE)
 DECLARE_PER_CPU(u32, debug_idt_ctr);
 static inline bool is_debug_idt_enabled(void)
 {

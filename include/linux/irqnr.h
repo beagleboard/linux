@@ -5,7 +5,11 @@
 
 
 extern int nr_irqs;
+#if !defined(CONFIG_IPIPE) || defined(CONFIG_SPARSE_IRQ)
 extern struct irq_desc *irq_to_desc(unsigned int irq);
+#else
+#define irq_to_desc(irq)	({ ipipe_virtual_irq_p(irq) ? NULL : &irq_desc[irq]; })
+#endif
 unsigned int irq_get_next_irq(unsigned int offset);
 
 # define for_each_irq_desc(irq, desc)					\

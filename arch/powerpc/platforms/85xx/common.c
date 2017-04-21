@@ -8,6 +8,7 @@
 
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/ipipe.h>
 
 #include <asm/qe.h>
 #include <sysdev/cpm2_pic.h>
@@ -55,7 +56,7 @@ static void cpm2_cascade(struct irq_desc *desc)
 	int cascade_irq;
 
 	while ((cascade_irq = cpm2_get_irq()) >= 0)
-		generic_handle_irq(cascade_irq);
+		ipipe_handle_demuxed_irq(cascade_irq);
 
 	chip->irq_eoi(&desc->irq_data);
 }

@@ -3801,7 +3801,7 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 
 	clgi();
 
-	local_irq_enable();
+	hard_local_irq_enable();
 
 	asm volatile (
 		"push %%" _ASM_BP "; \n\t"
@@ -3887,7 +3887,7 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 
 	reload_tss(vcpu);
 
-	local_irq_disable();
+	hard_local_irq_disable();
 
 	vcpu->arch.cr2 = svm->vmcb->save.cr2;
 	vcpu->arch.regs[VCPU_REGS_RAX] = svm->vmcb->save.rax;
@@ -4253,6 +4253,7 @@ out:
 
 static void svm_handle_external_intr(struct kvm_vcpu *vcpu)
 {
+	hard_cond_local_irq_enable();
 	local_irq_enable();
 }
 
