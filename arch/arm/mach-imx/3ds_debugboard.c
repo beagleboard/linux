@@ -20,6 +20,7 @@
 #include <linux/smsc911x.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
+#include <linux/ipipe.h>
 
 #include "hardware.h"
 
@@ -101,7 +102,7 @@ static void mxc_expio_irq_handler(struct irq_desc *desc)
 	for (; int_valid != 0; int_valid >>= 1, expio_irq++) {
 		if ((int_valid & 1) == 0)
 			continue;
-		generic_handle_irq(irq_find_mapping(domain, expio_irq));
+		ipipe_handle_demuxed_irq(irq_find_mapping(domain, expio_irq));
 	}
 
 	desc->irq_data.chip->irq_ack(&desc->irq_data);

@@ -84,8 +84,9 @@ static void brcmstb_l2_intc_suspend(struct irq_data *d)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct brcmstb_l2_intc_data *b = gc->private;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	/* Save the current mask */
 	b->saved_mask = irq_reg_readl(gc, CPU_MASK_STATUS);
 
@@ -94,22 +95,23 @@ static void brcmstb_l2_intc_suspend(struct irq_data *d)
 		irq_reg_writel(gc, ~gc->wake_active, CPU_MASK_SET);
 		irq_reg_writel(gc, gc->wake_active, CPU_MASK_CLEAR);
 	}
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static void brcmstb_l2_intc_resume(struct irq_data *d)
 {
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct brcmstb_l2_intc_data *b = gc->private;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	/* Clear unmasked non-wakeup interrupts */
 	irq_reg_writel(gc, ~b->saved_mask & ~gc->wake_active, CPU_CLEAR);
 
 	/* Restore the saved mask */
 	irq_reg_writel(gc, b->saved_mask, CPU_MASK_SET);
 	irq_reg_writel(gc, ~b->saved_mask, CPU_MASK_CLEAR);
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 int __init brcmstb_l2_intc_of_init(struct device_node *np,

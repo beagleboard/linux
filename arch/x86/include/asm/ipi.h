@@ -64,10 +64,12 @@ __default_send_IPI_shortcut(unsigned int shortcut, int vector, unsigned int dest
 	 * Subtle. In the case of the 'never do double writes' workaround
 	 * we have to lock out interrupts to be safe.  As we don't care
 	 * of the value read we use an atomic rmw access to avoid costly
-	 * cli/sti.  Otherwise we use an even cheaper single atomic write
-	 * to the APIC.
+	 * cli/sti (except if running the interrupt pipeline).  Otherwise
+	 * we use an even cheaper single atomic write to the APIC.
 	 */
-	unsigned int cfg;
+	unsigned int cfg, flags;
+
+	flags = hard_cond_local_irq_save();
 
 	/*
 	 * Wait for idle.
@@ -83,6 +85,8 @@ __default_send_IPI_shortcut(unsigned int shortcut, int vector, unsigned int dest
 	 * Send the IPI. The write to APIC_ICR fires this off.
 	 */
 	native_apic_mem_write(APIC_ICR, cfg);
+
+	hard_cond_local_irq_restore(flags);
 }
 
 /*
@@ -92,7 +96,9 @@ __default_send_IPI_shortcut(unsigned int shortcut, int vector, unsigned int dest
 static inline void
  __default_send_IPI_dest_field(unsigned int mask, int vector, unsigned int dest)
 {
-	unsigned long cfg;
+	unsigned long cfg, flags;
+
+	flags = hard_cond_local_irq_save();
 
 	/*
 	 * Wait for idle.
@@ -117,6 +123,8 @@ static inline void
 	 * Send the IPI. The write to APIC_ICR fires this off.
 	 */
 	native_apic_mem_write(APIC_ICR, cfg);
+
+	hard_cond_local_irq_restore(flags);
 }
 
 extern void default_send_IPI_mask_sequence_phys(const struct cpumask *mask,

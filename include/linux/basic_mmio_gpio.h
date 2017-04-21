@@ -50,7 +50,7 @@ struct bgpio_chip {
 	 * Used to lock bgpio_chip->data. Also, this is needed to keep
 	 * shadowed and real data registers writes together.
 	 */
-	spinlock_t lock;
+	ipipe_spinlock_t lock;
 
 	/* Shadowed data register to clear/set bits safely. */
 	unsigned long data;
