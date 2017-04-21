@@ -803,6 +803,7 @@ void __init versatile_timer_init(void)
 	sp804_timer_disable(TIMER2_VA_BASE);
 	sp804_timer_disable(TIMER3_VA_BASE);
 
-	sp804_clocksource_init(TIMER3_VA_BASE, "timer3");
+	sp804_clocksource_init(TIMER3_VA_BASE,
+			       VERSATILE_TIMER2_3_BASE + 0x20, "timer3");
 	sp804_clockevents_init(TIMER0_VA_BASE, IRQ_TIMERINT0_1, "timer0");
 }

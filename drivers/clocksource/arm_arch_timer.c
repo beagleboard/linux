@@ -17,6 +17,8 @@
 #include <linux/clockchips.h>
 #include <linux/clocksource.h>
 #include <linux/interrupt.h>
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
@@ -137,8 +139,7 @@ u32 arch_timer_reg_read(int access, enum arch_timer_reg reg,
 	return val;
 }
 
-static __always_inline irqreturn_t timer_handler(const int access,
-					struct clock_event_device *evt)
+static int arch_timer_ack(const int access, struct clock_event_device *evt)
 {
 	unsigned long ctrl;
 
@@ -146,6 +147,52 @@ static __always_inline irqreturn_t timer_handler(const int access,
 	if (ctrl & ARCH_TIMER_CTRL_IT_STAT) {
 		ctrl |= ARCH_TIMER_CTRL_IT_MASK;
 		arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, evt);
+		return 1;
+	}
+	return 0;
+}
+
+#ifdef CONFIG_IPIPE
+static DEFINE_PER_CPU(struct ipipe_timer, arch_itimer);
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING_ARCH,
+	.u = {
+		{
+			.mask = 0xffffffffffffffff,
+		},
+	},
+};
+
+static void arch_itimer_ack_phys(void)
+{
+	struct clock_event_device *evt = this_cpu_ptr(arch_timer_evt);
+	arch_timer_ack(ARCH_TIMER_PHYS_ACCESS, evt);
+}
+
+static void arch_itimer_ack_virt(void)
+{
+	struct clock_event_device *evt = this_cpu_ptr(arch_timer_evt);
+	arch_timer_ack(ARCH_TIMER_VIRT_ACCESS, evt);
+}
+#endif /* CONFIG_IPIPE */
+
+static inline irqreturn_t timer_handler(int irq, const int access,
+					struct clock_event_device *evt)
+{
+	if (clockevent_ipipe_stolen(evt))
+		goto stolen;
+
+	if (arch_timer_ack(access, evt)) {
+#ifdef CONFIG_IPIPE
+		struct ipipe_timer *itimer = raw_cpu_ptr(&arch_itimer);
+		if (itimer->irq != irq)
+			itimer->irq = irq;
+#endif /* CONFIG_IPIPE */
+	  stolen:
+		/*
+		 * This is a 64bit clock source, no need for TSC
+		 * update.
+		 */
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
 	}
@@ -157,28 +204,28 @@ static irqreturn_t arch_timer_handler_virt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
-	return timer_handler(ARCH_TIMER_VIRT_ACCESS, evt);
+	return timer_handler(irq, ARCH_TIMER_VIRT_ACCESS, evt);
 }
 
 static irqreturn_t arch_timer_handler_phys(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
-	return timer_handler(ARCH_TIMER_PHYS_ACCESS, evt);
+	return timer_handler(irq, ARCH_TIMER_PHYS_ACCESS, evt);
 }
 
 static irqreturn_t arch_timer_handler_phys_mem(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
-	return timer_handler(ARCH_TIMER_MEM_PHYS_ACCESS, evt);
+	return timer_handler(irq, ARCH_TIMER_MEM_PHYS_ACCESS, evt);
 }
 
 static irqreturn_t arch_timer_handler_virt_mem(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
-	return timer_handler(ARCH_TIMER_MEM_VIRT_ACCESS, evt);
+	return timer_handler(irq, ARCH_TIMER_MEM_VIRT_ACCESS, evt);
 }
 
 static __always_inline int timer_shutdown(const int access,
@@ -272,6 +319,18 @@ static void __arch_timer_setup(unsigned type,
 			clk->set_state_shutdown = arch_timer_shutdown_phys;
 			clk->set_next_event = arch_timer_set_next_event_phys;
 		}
+
+#ifdef CONFIG_IPIPE
+		clk->ipipe_timer = raw_cpu_ptr(&arch_itimer);
+		if (arch_timer_use_virtual) {
+			clk->ipipe_timer->irq = arch_timer_ppi[VIRT_PPI];
+			clk->ipipe_timer->ack = arch_itimer_ack_virt;
+		} else {
+			clk->ipipe_timer->irq = arch_timer_ppi[PHYS_SECURE_PPI];
+			clk->ipipe_timer->ack = arch_itimer_ack_phys;
+		}
+		clk->ipipe_timer->freq = arch_timer_rate;
+#endif
 	} else {
 		clk->features |= CLOCK_EVT_FEAT_DYNIRQ;
 		clk->name = "arch_mem_timer";
@@ -334,6 +393,9 @@ static void arch_counter_set_user_access(void)
 
 	/* Enable user access to the virtual counter */
 	cntkctl |= ARCH_TIMER_USR_VCT_ACCESS_EN;
+#ifdef CONFIG_IPIPE
+	cntkctl |= ARCH_TIMER_USR_PCT_ACCESS_EN;
+#endif
 
 	arch_timer_set_cntkctl(cntkctl);
 }
@@ -474,6 +536,11 @@ static void __init arch_counter_register(unsigned type)
 		 */
 		clocksource_counter.name = "arch_mem_counter";
 	}
+
+#ifdef CONFIG_IPIPE
+	tsc_info.freq = arch_timer_rate;
+	__ipipe_tsc_register(&tsc_info);
+#endif /* CONFIG_IPIPE */
 
 	start_count = arch_timer_read_counter();
 	clocksource_register_hz(&clocksource_counter, arch_timer_rate);
