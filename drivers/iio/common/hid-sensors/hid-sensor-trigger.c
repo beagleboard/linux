@@ -51,6 +51,8 @@ static int _hid_sensor_power_state(struct hid_sensor_common *st, bool state)
 			st->report_state.report_id,
 			st->report_state.index,
 			HID_USAGE_SENSOR_PROP_REPORTING_STATE_ALL_EVENTS_ENUM);
+
+		poll_value = hid_sensor_read_poll_value(st);
 	} else {
 		int val;
 
@@ -87,9 +89,7 @@ static int _hid_sensor_power_state(struct hid_sensor_common *st, bool state)
 	sensor_hub_get_feature(st->hsdev, st->power_state.report_id,
 			       st->power_state.index,
 			       sizeof(state_val), &state_val);
-	if (state)
-		poll_value = hid_sensor_read_poll_value(st);
-	if (poll_value > 0)
+	if (state && poll_value)
 		msleep_interruptible(poll_value * 2);
 
 	return 0;
@@ -115,7 +115,7 @@ int hid_sensor_power_state(struct hid_sensor_common *st, bool state)
 		return ret;
 	}
 
- 	return 0;
+	return 0;
 #else
 	atomic_set(&st->user_requested_state, state);
 	return _hid_sensor_power_state(st, state);
