@@ -208,9 +208,9 @@ static int mm_fault_error(struct pt_regs *regs, unsigned long addr, int fault)
 int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 			    unsigned long error_code)
 {
-	enum ctx_state prev_state = exception_enter();
+	enum ctx_state prev_state;
 	struct vm_area_struct * vma;
-	struct mm_struct *mm = current->mm;
+	struct mm_struct *mm;
 	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
 	int code = SEGV_MAPERR;
 	int is_write = 0;
@@ -218,6 +218,13 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
  	int is_exec = trap == 0x400;
 	int fault;
 	int rc = 0, store_update_sp = 0;
+
+	prev_state = exception_enter();
+
+	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS, regs))
+		return 0;
+
+	mm = current->mm;
 
 #if !(defined(CONFIG_4xx) || defined(CONFIG_BOOKE))
 	/*

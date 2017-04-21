@@ -54,11 +54,40 @@ static const char *isa_modes[] __maybe_unused = {
   "ARM" , "Thumb" , "Jazelle", "ThumbEE"
 };
 
-/*
- * This is our default idle handler.
- */
-
 void (*arm_pm_idle)(void);
+
+#ifdef CONFIG_IPIPE
+static void __ipipe_halt_root(void)
+{
+	struct ipipe_percpu_domain_data *p;
+
+	/*
+	 * Emulate idle entry sequence over the root domain, which is
+	 * stalled on entry.
+	 */
+	hard_local_irq_disable();
+
+	p = ipipe_this_cpu_root_context();
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
+
+	if (unlikely(__ipipe_ipending_p(p)))
+		__ipipe_sync_stage();
+	else {
+		if (arm_pm_idle)
+			arm_pm_idle();
+		else
+			cpu_do_idle();
+	}
+}
+#else /* !CONFIG_IPIPE */
+static void __ipipe_halt_root(void)
+{
+	if (arm_pm_idle)
+		arm_pm_idle();
+	else
+		cpu_do_idle();
+}
+#endif /* !CONFIG_IPIPE */
 
 /*
  * Called from the core idle loop.
@@ -66,10 +95,10 @@ void (*arm_pm_idle)(void);
 
 void arch_cpu_idle(void)
 {
-	if (arm_pm_idle)
-		arm_pm_idle();
-	else
-		cpu_do_idle();
+	if (!need_resched())
+		__ipipe_halt_root();
+
+	/* This will re-enable hard_irqs also with IPIPE */
 	local_irq_enable();
 }
 

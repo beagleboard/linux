@@ -88,6 +88,9 @@ static struct irq_chip pxa_internal_irq_chip = {
 	.name		= "SC",
 	.irq_ack	= pxa_mask_irq,
 	.irq_mask	= pxa_mask_irq,
+#ifdef CONFIG_IPIPE
+	.irq_mask_ack	= pxa_mask_irq,
+#endif /* CONFIG_IPIPE */
 	.irq_unmask	= pxa_unmask_irq,
 };
 
@@ -103,7 +106,7 @@ asmlinkage void __exception_irq_entry icip_handle_irq(struct pt_regs *regs)
 		if (mask == 0)
 			break;
 
-		handle_IRQ(PXA_IRQ(fls(mask) - 1), regs);
+		ipipe_handle_multi_irq(PXA_IRQ(fls(mask) - 1), regs);
 	} while (1);
 }
 
@@ -117,7 +120,7 @@ asmlinkage void __exception_irq_entry ichp_handle_irq(struct pt_regs *regs)
 		if ((ichp & ICHP_VAL_IRQ) == 0)
 			break;
 
-		handle_IRQ(PXA_IRQ(ICHP_IRQ(ichp)), regs);
+		ipipe_handle_multi_irq(PXA_IRQ(ICHP_IRQ(ichp)), regs);
 	} while (1);
 }
 

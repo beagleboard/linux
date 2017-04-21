@@ -668,9 +668,11 @@ masked_##_H##interrupt:					\
 	GET_SCRATCH0(r13);				\
 	##_H##rfid;					\
 	b	.
-	
+
+#ifndef CONFIG_IPIPE
 	MASKED_INTERRUPT()
 	MASKED_INTERRUPT(H)
+#endif
 
 /*
  * Called from arch_local_irq_enable when an interrupt needs
@@ -785,7 +787,7 @@ kvmppc_skip_Hinterrupt:
 	STD_EXCEPTION_COMMON(0x100, system_reset, system_reset_exception)
 
 	STD_EXCEPTION_COMMON_ASYNC(0x500, hardware_interrupt, do_IRQ)
-	STD_EXCEPTION_COMMON_ASYNC(0x900, decrementer, timer_interrupt)
+	DECREMENTER_EXCEPTION(0x900, decrementer, timer_interrupt)
 	STD_EXCEPTION_COMMON(0x980, hdecrementer, hdec_interrupt)
 #ifdef CONFIG_PPC_DOORBELL
 	STD_EXCEPTION_COMMON_ASYNC(0xa00, doorbell_super, doorbell_exception)

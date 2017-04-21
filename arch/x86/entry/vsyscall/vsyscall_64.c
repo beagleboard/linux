@@ -29,6 +29,7 @@
 #include <linux/timer.h>
 #include <linux/syscalls.h>
 #include <linux/ratelimit.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/vsyscall.h>
 #include <asm/unistd.h>

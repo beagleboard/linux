@@ -373,6 +373,7 @@ config MAGIC_SYSRQ
 	  keys are documented in <file:Documentation/sysrq.txt>. Don't say Y
 	  unless you really know what this hack does.
 
+
 config MAGIC_SYSRQ_DEFAULT_ENABLE
 	hex "Enable magic SysRq key functions by default"
 	depends on MAGIC_SYSRQ
@@ -381,6 +382,8 @@ config MAGIC_SYSRQ_DEFAULT_ENABLE
 	  Specifies which SysRq key functions are enabled by default.
 	  This may be set to 1 or 0 to enable or disable them all, or
 	  to a bitmask as described in Documentation/sysrq.txt.
+
+source "kernel/ipipe/Kconfig.debug"
 
 config DEBUG_KERNEL
 	bool "Kernel debugging"
@@ -654,7 +657,7 @@ config HAVE_DEBUG_STACKOVERFLOW
 
 config DEBUG_STACKOVERFLOW
 	bool "Check for stack overflows"
-	depends on DEBUG_KERNEL && HAVE_DEBUG_STACKOVERFLOW
+	depends on DEBUG_KERNEL && HAVE_DEBUG_STACKOVERFLOW && !IPIPE_LEGACY
 	---help---
 	  Say Y here if you want to check for overflows of kernel, IRQ
 	  and exception stacks (if your architecture uses them). This
@@ -1202,7 +1205,7 @@ config DEBUG_CREDENTIALS
 menu "RCU Debugging"
 
 config PROVE_RCU
-	def_bool PROVE_LOCKING
+	def_bool PROVE_LOCKING && !IPIPE
 
 config PROVE_RCU_REPEATEDLY
 	bool "RCU debugging: don't disable PROVE_RCU on first splat"

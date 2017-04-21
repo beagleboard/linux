@@ -390,7 +390,11 @@ interrupt_base:
 	INSTRUCTION_STORAGE_EXCEPTION
 
 	/* External Input Interrupt */
+#ifdef CONFIG_IPIPE
+	EXCEPTION(0x0500, EXTERNAL, ExternalInput, __ipipe_grab_irq, EXC_XFER_LITE)
+#else /* !CONFIG_IPIPE */
 	EXCEPTION(0x0500, EXTERNAL, ExternalInput, do_IRQ, EXC_XFER_LITE)
+#endif /* CONFIG_IPIPE */
 
 	/* Alignment Interrupt */
 	ALIGNMENT_EXCEPTION
@@ -648,7 +652,11 @@ END_FTR_SECTION_IFSET(CPU_FTR_EMB_HV)
 	EXCEPTION(0x2060, PERFORMANCE_MONITOR, PerformanceMonitor, \
 		  performance_monitor_exception, EXC_XFER_STD)
 
+#ifdef CONFIG_IPIPE
+	EXCEPTION(0x2070, DOORBELL, Doorbell, __ipipe_grab_doorbell, EXC_XFER_IPIPE_FULL)
+#else
 	EXCEPTION(0x2070, DOORBELL, Doorbell, doorbell_exception, EXC_XFER_STD)
+#endif
 
 	CRITICAL_EXCEPTION(0x2080, DOORBELL_CRITICAL, \
 			   CriticalDoorbell, unknown_exception)
@@ -1017,10 +1025,14 @@ _GLOBAL(__setup_ehv_ivors)
 _GLOBAL(giveup_spe)
 	mfmsr	r5
 	oris	r5,r5,MSR_SPE@h
+#ifdef CONFIG_IPIPE
+	mr	r10,r5
+	rlwinm	r5,r5,0,17,15		/* clear MSR_EE */
+#endif
 	mtmsr	r5			/* enable use of SPE now */
 	isync
 	cmpi	0,r3,0
-	beqlr-				/* if no previous owner, done */
+	beq-	2f			/* if no previous owner, done */
 	addi	r3,r3,THREAD		/* want THREAD of task */
 	lwz	r5,PT_REGS(r3)
 	cmpi	0,r5,0
@@ -1040,6 +1052,15 @@ _GLOBAL(giveup_spe)
 	lis	r4,last_task_used_spe@ha
 	stw	r5,last_task_used_spe@l(r4)
 #endif /* !CONFIG_SMP */
+2:
+#ifdef CONFIG_IPIPE
+	andi.	r5,r10,MSR_EE
+	beqlr-
+	mfmsr	r5
+	ori	r5,r5,MSR_EE
+	mtmsr	r5
+	isync
+#endif
 	blr
 #endif /* CONFIG_SPE */
 

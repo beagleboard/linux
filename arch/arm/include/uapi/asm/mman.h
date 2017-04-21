@@ -1,3 +1,5 @@
+#define MAP_BRK	0x80000
+
 #include <asm-generic/mman.h>
 
 #define arch_mmap_check(addr, len, flags) \

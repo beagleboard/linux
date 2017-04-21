@@ -69,6 +69,7 @@ config COMPILE_TEST
 
 config LOCALVERSION
 	string "Local version - append to kernel release"
+	default "-ipipe"
 	help
 	  Append an extra string to the end of your kernel version.
 	  This will show up when you type uname, for example.
@@ -1455,6 +1456,19 @@ config PRINTK
 	  and makes the kernel more or less silent. As this makes it
 	  very difficult to diagnose system problems, saying N here is
 	  strongly discouraged.
+
+config RAW_PRINTK
+       bool "Enable support for raw printk"
+       default n
+       select DEBUG_LL if ARM
+       help
+         This option enables a printk variant called raw_printk() for
+         writing all output unmodified to a raw console channel
+         immediately, without any header or preparation whatsoever,
+         usable from any context.
+
+	 Unlike early_printk() console devices, raw_printk() devices
+         can live past the boot sequence.
 
 config BUG
 	bool "BUG() support" if EXPERT

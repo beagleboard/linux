@@ -26,6 +26,7 @@ struct sched_param {
 #include <linux/nodemask.h>
 #include <linux/mm_types.h>
 #include <linux/preempt.h>
+#include <linux/ipipe.h>
 
 #include <asm/page.h>
 #include <asm/ptrace.h>
@@ -219,9 +220,17 @@ extern void proc_sched_set_task(struct task_struct *p);
 #define TASK_WAKING		256
 #define TASK_PARKED		512
 #define TASK_NOLOAD		1024
+#ifdef CONFIG_IPIPE
+#define TASK_HARDENING		2048
+#define TASK_NOWAKEUP		4096
+#define TASK_STATE_MAX		8192
+#define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPNHU"
+#else  /* !CONFIG_IPIPE */
+#define TASK_HARDENING		0
+#define TASK_NOWAKEUP		0
 #define TASK_STATE_MAX		2048
-
 #define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPN"
+#endif /* CONFIG_IPIPE */
 
 extern char ___assert_task_state[1 - 2*!!(
 		sizeof(TASK_STATE_TO_CHAR_STR)-1 != ilog2(TASK_STATE_MAX)+1)];
@@ -374,6 +383,15 @@ extern void trap_init(void);
 extern void update_process_times(int user);
 extern void scheduler_tick(void);
 
+#ifdef CONFIG_IPIPE
+void update_root_process_times(struct pt_regs *regs);
+#else  /* !CONFIG_IPIPE */
+static inline void update_root_process_times(struct pt_regs *regs)
+{
+	update_process_times(user_mode(regs));
+}
+#endif /* CONFIG_IPIPE */
+
 extern void sched_show_task(struct task_struct *p);
 
 #ifdef CONFIG_LOCKUP_DETECTOR
@@ -504,6 +522,9 @@ static inline int get_dumpable(struct mm_struct *mm)
 #define MMF_VM_MERGEABLE	16	/* KSM may merge identical pages */
 #define MMF_VM_HUGEPAGE		17	/* set when VM_HUGEPAGE is set on vma */
 #define MMF_EXE_FILE_CHANGED	18	/* see prctl_set_mm_exe_file() */
+#ifdef CONFIG_IPIPE
+#define MMF_VM_PINNED		31	/* ondemand load up and COW disabled */
+#endif
 
 #define MMF_HAS_UPROBES		19	/* has uprobes */
 #define MMF_RECALC_UPROBES	20	/* MMF_HAS_UPROBES can be wrong */
@@ -1740,6 +1761,9 @@ struct task_struct {
 #endif
 
 	struct rcu_head rcu;
+#ifdef CONFIG_IPIPE_LEGACY
+	void *ptd[IPIPE_ROOT_NPTDKEYS];
+#endif
 
 	/*
 	 * cache last used pipe for splice
