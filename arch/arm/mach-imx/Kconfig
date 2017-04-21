@@ -523,6 +523,7 @@ config SOC_IMX6
 config SOC_IMX6Q
 	bool "i.MX6 Quad/DualLite support"
 	select ARM_ERRATA_764369 if SMP
+	select ARM_GLOBAL_TIMER if SMP && IPIPE
 	select HAVE_ARM_SCU if SMP
 	select HAVE_ARM_TWD if SMP
 	select PCI_DOMAINS if PCI
@@ -562,6 +563,7 @@ config SOC_IMX7D
 	select ARM_GIC
 	select HAVE_IMX_ANATOP
 	select HAVE_IMX_MMDC
+	select HAVE_IMX_SRC
 	help
 		This enables support for Freescale i.MX7 Dual processor.
 
