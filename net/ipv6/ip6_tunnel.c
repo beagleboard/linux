@@ -972,26 +972,28 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
 
 	/* NBMA tunnel */
 	if (ipv6_addr_any(&t->parms.raddr)) {
-		struct in6_addr *addr6;
-		struct neighbour *neigh;
-		int addr_type;
+		if (skb->protocol == htons(ETH_P_IPV6)) {
+			struct in6_addr *addr6;
+			struct neighbour *neigh;
+			int addr_type;
 
-		if (!skb_dst(skb))
-			goto tx_err_link_failure;
+			if (!skb_dst(skb))
+				goto tx_err_link_failure;
 
-		neigh = dst_neigh_lookup(skb_dst(skb),
-					 &ipv6_hdr(skb)->daddr);
-		if (!neigh)
-			goto tx_err_link_failure;
+			neigh = dst_neigh_lookup(skb_dst(skb),
+						 &ipv6_hdr(skb)->daddr);
+			if (!neigh)
+				goto tx_err_link_failure;
 
-		addr6 = (struct in6_addr *)&neigh->primary_key;
-		addr_type = ipv6_addr_type(addr6);
+			addr6 = (struct in6_addr *)&neigh->primary_key;
+			addr_type = ipv6_addr_type(addr6);
 
-		if (addr_type == IPV6_ADDR_ANY)
-			addr6 = &ipv6_hdr(skb)->daddr;
+			if (addr_type == IPV6_ADDR_ANY)
+				addr6 = &ipv6_hdr(skb)->daddr;
 
-		memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
-		neigh_release(neigh);
+			memcpy(&fl6->daddr, addr6, sizeof(fl6->daddr));
+			neigh_release(neigh);
+		}
 	} else if (!fl6->flowi6_mark)
 		dst = dst_cache_get(&t->dst_cache);
 
