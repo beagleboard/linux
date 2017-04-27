@@ -846,6 +846,7 @@ struct dwc3_scratchpad_array {
  * @otg-fsm: usb otg fsm data structure
  * @otg_prevent_sync: flag to block events to otg fsm
  * @current_mode: current mode of operation written to PRTCAPDIR
+ * @sw_drd_mode: flag to indicate software forced role switching
  * @otg_work: work struct for otg/dual-role
  * @edev: extcon handle
  * @edev_nb: extcon notifier
@@ -986,6 +987,7 @@ struct dwc3 {
 	struct otg_fsm		otg_fsm;
 	bool			otg_prevent_sync;
 	u32			current_mode;
+	bool			sw_drd_mode;
 	struct work_struct	otg_work;
 	struct extcon_dev	*edev;
 	struct notifier_block	edev_nb;
@@ -1254,6 +1256,7 @@ struct dwc3_gadget_ep_cmd_params {
 /* prototypes */
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 u32 dwc3_core_fifo_space(struct dwc3_ep *dep, u8 type);
+void dwc3_drd_statemachine(struct dwc3 *dwc, int id, int vbus);
 
 /* check whether we are on the DWC_usb31 core */
 static inline bool dwc3_is_usb31(struct dwc3 *dwc)

@@ -861,7 +861,7 @@ static int dwc3_drd_start_host(struct dwc3 *dwc, int on, bool skip);
 static int dwc3_drd_start_gadget(struct dwc3 *dwc, int on);
 
 /* dwc->lock must be held */
-static void dwc3_drd_statemachine(struct dwc3 *dwc, int id, int vbus)
+void dwc3_drd_statemachine(struct dwc3 *dwc, int id, int vbus)
 {
 	enum usb_otg_state new_state;
 	int protocol;
