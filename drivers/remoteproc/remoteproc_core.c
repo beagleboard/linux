@@ -1607,15 +1607,8 @@ EXPORT_SYMBOL(rproc_add);
 static void rproc_type_release(struct device *dev)
 {
 	struct rproc *rproc = container_of(dev, struct rproc, dev);
-	struct rproc_mem_entry *entry, *tmp;
 
 	dev_info(&rproc->dev, "releasing %s\n", rproc->name);
-
-	/* clean up debugfs last trace entries */
-	list_for_each_entry_safe(entry, tmp, &rproc->last_traces, node) {
-		rproc_free_last_trace(entry);
-		rproc->num_last_traces--;
-	}
 
 	rproc_delete_debug_dir(rproc);
 
@@ -1783,6 +1776,8 @@ EXPORT_SYMBOL(rproc_put);
  */
 int rproc_del(struct rproc *rproc)
 {
+	struct rproc_mem_entry *entry, *tmp;
+
 	if (!rproc)
 		return -EINVAL;
 
@@ -1793,6 +1788,12 @@ int rproc_del(struct rproc *rproc)
 	/* TODO: make sure this works with rproc->power > 1 */
 	if (rproc->auto_boot)
 		rproc_shutdown(rproc);
+
+	/* clean up debugfs last trace entries */
+	list_for_each_entry_safe(entry, tmp, &rproc->last_traces, node) {
+		rproc_free_last_trace(entry);
+		rproc->num_last_traces--;
+	}
 
 	/* the rproc is downref'ed as soon as it's removed from the klist */
 	mutex_lock(&rproc_list_mutex);
