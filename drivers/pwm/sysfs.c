@@ -23,6 +23,8 @@
 #include <linux/kdev_t.h>
 #include <linux/pwm.h>
 
+static struct class pwm_class;
+
 struct pwm_export {
 	struct device child;
 	struct pwm_device *pwm;
@@ -239,6 +241,10 @@ static struct attribute *pwm_attrs[] = {
 };
 ATTRIBUTE_GROUPS(pwm);
 
+static const struct device_type pwm_channel_type = {
+	.name		= "pwm_channel",
+};
+
 static void pwm_export_release(struct device *child)
 {
 	struct pwm_export *export = child_to_pwm_export(child);
@@ -248,6 +254,7 @@ static void pwm_export_release(struct device *child)
 
 static int pwm_export_child(struct device *parent, struct pwm_device *pwm)
 {
+	struct pwm_chip *chip = dev_get_drvdata(parent);
 	struct pwm_export *export;
 	int ret;
 
@@ -265,9 +272,11 @@ static int pwm_export_child(struct device *parent, struct pwm_device *pwm)
 
 	export->child.release = pwm_export_release;
 	export->child.parent = parent;
+	export->child.type = &pwm_channel_type;
 	export->child.devt = MKDEV(0, 0);
+	export->child.class = &pwm_class;
 	export->child.groups = pwm_groups;
-	dev_set_name(&export->child, "pwm%u", pwm->hwpwm);
+	dev_set_name(&export->child, "pwm-%d:%u", chip->base, pwm->hwpwm);
 
 	ret = device_register(&export->child);
 	if (ret) {
@@ -373,7 +382,6 @@ ATTRIBUTE_GROUPS(pwm_chip);
 static struct class pwm_class = {
 	.name = "pwm",
 	.owner = THIS_MODULE,
-	.dev_groups = pwm_chip_groups,
 };
 
 static int pwmchip_sysfs_match(struct device *parent, const void *data)
@@ -389,7 +397,8 @@ void pwmchip_sysfs_export(struct pwm_chip *chip)
 	 * If device_create() fails the pwm_chip is still usable by
 	 * the kernel its just not exported.
 	 */
-	parent = device_create(&pwm_class, chip->dev, MKDEV(0, 0), chip,
+	parent = device_create_with_groups(&pwm_class, chip->dev, MKDEV(0, 0),
+			       chip, pwm_chip_groups,
 			       "pwmchip%d", chip->base);
 	if (IS_ERR(parent)) {
 		dev_warn(chip->dev,
