@@ -85,9 +85,11 @@ will find:
 
 The PWM channels are numbered using a per-chip index from 0 to npwm-1.
 
-When a PWM channel is exported a pwmX directory will be created in the
+When a PWM channel is exported a pwm-N:X directory will be created in the
 pwmchipN directory it is associated with, where X is the number of the
-channel that was exported. The following properties will then be available:
+channel that was exported. It will also be exposed at /sys/class/pwm/ and
+can be identified by the pwm_channel device type.
+The following properties will then be available:
 
   period
     The total period of the PWM signal (read/write).
