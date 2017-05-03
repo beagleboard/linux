@@ -59,8 +59,10 @@ static LIST_HEAD(thermal_governor_list);
 
 static DEFINE_MUTEX(thermal_list_lock);
 static DEFINE_MUTEX(thermal_governor_lock);
+static DEFINE_MUTEX(poweroff_lock);
 
 static atomic_t in_suspend;
+static bool power_off_triggered;
 
 static struct thermal_governor *def_governor;
 
@@ -446,7 +448,12 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 		dev_emerg(&tz->device,
 			  "critical temperature reached(%d C),shutting down\n",
 			  tz->temperature / 1000);
-		orderly_poweroff(true);
+		mutex_lock(&poweroff_lock);
+		if (!power_off_triggered) {
+			orderly_poweroff(true);
+			power_off_triggered = true;
+		}
+		mutex_unlock(&poweroff_lock);
 	}
 }
 
@@ -2316,6 +2323,7 @@ static int __init thermal_init(void)
 {
 	int result;
 
+	mutex_init(&poweroff_lock);
 	result = thermal_register_governors();
 	if (result)
 		goto error;
@@ -2351,6 +2359,7 @@ error:
 	mutex_destroy(&thermal_idr_lock);
 	mutex_destroy(&thermal_list_lock);
 	mutex_destroy(&thermal_governor_lock);
+	mutex_destroy(&poweroff_lock);
 	return result;
 }
 
