@@ -1232,48 +1232,35 @@ clean_up:
 }
 
 /*
- * take a firmware and look for virtio devices to register.
+ * take a firmware and boot it up.
  *
  * Note: this function is called asynchronously upon registration of the
  * remote processor (so we must wait until it completes before we try
  * to unregister the device. one other option is just to use kref here,
  * that might be cleaner).
  */
-static void rproc_fw_config_virtio(const struct firmware *fw, void *context)
+static void rproc_auto_boot_callback(const struct firmware *fw, void *context)
 {
 	struct rproc *rproc = context;
 
-	/* if rproc is marked always-on, request it to boot */
-	if (rproc->auto_boot)
-		rproc_boot(rproc);
+	rproc_boot(rproc);
 
 	release_firmware(fw);
-	/* allow rproc_del() contexts, if any, to proceed */
-	complete_all(&rproc->firmware_loading_complete);
 }
 
-static int rproc_add_virtio_devices(struct rproc *rproc)
+static int rproc_trigger_auto_boot(struct rproc *rproc)
 {
 	int ret;
 
-	/* rproc_del() calls must wait until async loader completes */
-	init_completion(&rproc->firmware_loading_complete);
-
 	/*
-	 * We must retrieve early virtio configuration info from
-	 * the firmware (e.g. whether to register a virtio device,
-	 * what virtio features does it support, ...).
-	 *
 	 * We're initiating an asynchronous firmware loading, so we can
 	 * be built-in kernel code, without hanging the boot process.
 	 */
 	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
 				      rproc->firmware, &rproc->dev, GFP_KERNEL,
-				      rproc, rproc_fw_config_virtio);
-	if (ret < 0) {
+				      rproc, rproc_auto_boot_callback);
+	if (ret < 0)
 		dev_err(&rproc->dev, "request_firmware_nowait err: %d\n", ret);
-		complete_all(&rproc->firmware_loading_complete);
-	}
 
 	return ret;
 }
@@ -1368,6 +1355,12 @@ static int __rproc_boot(struct rproc *rproc)
 	if (ret) {
 		dev_err(dev, "can't lock rproc %s: %d\n", rproc->name, ret);
 		return ret;
+	}
+
+	if (rproc->state == RPROC_DELETED) {
+		ret = -ENODEV;
+		dev_err(dev, "can't boot deleted rproc %s\n", rproc->name);
+		goto unlock_mutex;
 	}
 
 	/* skip the boot process if rproc is already powered up */
@@ -1582,9 +1575,13 @@ int rproc_add(struct rproc *rproc)
 
 	/* create debugfs entries */
 	rproc_create_debug_dir(rproc);
-	ret = rproc_add_virtio_devices(rproc);
-	if (ret < 0)
-		return ret;
+
+	/* if rproc is marked always-on, request it to boot */
+	if (rproc->auto_boot) {
+		ret = rproc_trigger_auto_boot(rproc);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* expose to rproc_get_by_phandle users */
 	mutex_lock(&rproc_list_mutex);
@@ -1607,17 +1604,8 @@ EXPORT_SYMBOL(rproc_add);
 static void rproc_type_release(struct device *dev)
 {
 	struct rproc *rproc = container_of(dev, struct rproc, dev);
-	struct rproc_mem_entry *entry, *tmp;
 
 	dev_info(&rproc->dev, "releasing %s\n", rproc->name);
-
-	/* clean up debugfs last trace entries */
-	list_for_each_entry_safe(entry, tmp, &rproc->last_traces, node) {
-		rproc_free_last_trace(entry);
-		rproc->num_last_traces--;
-	}
-
-	rproc_delete_debug_dir(rproc);
 
 	idr_destroy(&rproc->notifyids);
 
@@ -1783,16 +1771,27 @@ EXPORT_SYMBOL(rproc_put);
  */
 int rproc_del(struct rproc *rproc)
 {
+	struct rproc_mem_entry *entry, *tmp;
+
 	if (!rproc)
 		return -EINVAL;
-
-	/* if rproc is just being registered, wait */
-	wait_for_completion(&rproc->firmware_loading_complete);
 
 	/* if rproc is marked always-on, rproc_add() booted it */
 	/* TODO: make sure this works with rproc->power > 1 */
 	if (rproc->auto_boot)
 		rproc_shutdown(rproc);
+
+	mutex_lock(&rproc->lock);
+	rproc->state = RPROC_DELETED;
+	mutex_unlock(&rproc->lock);
+
+	/* clean up debugfs last trace entries */
+	list_for_each_entry_safe(entry, tmp, &rproc->last_traces, node) {
+		rproc_free_last_trace(entry);
+		rproc->num_last_traces--;
+	}
+
+	rproc_delete_debug_dir(rproc);
 
 	/* the rproc is downref'ed as soon as it's removed from the klist */
 	mutex_lock(&rproc_list_mutex);

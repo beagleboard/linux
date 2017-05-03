@@ -55,12 +55,14 @@ module_param(use_rproc_core_loader, bool, 0444);
  * @bus_addr: Bus address used to access the memory region
  * @dev_addr: Device address of the memory region from DSP view
  * @size: Size of the memory region
+ * @kobj: kobject for the sysfs directory file
  */
 struct keystone_rproc_mem {
 	void __iomem *cpu_addr;
 	phys_addr_t bus_addr;
 	u32 dev_addr;
 	size_t size;
+	struct kobject kobj;
 };
 
 /**
@@ -110,6 +112,95 @@ struct keystone_rproc {
 	u32 boot_addr;
 	int open_count;
 };
+
+struct mem_sysfs_entry {
+	struct attribute attr;
+	ssize_t (*show)(struct keystone_rproc_mem *, char *);
+	ssize_t (*store)(struct keystone_rproc_mem *, const char *, size_t);
+};
+
+static ssize_t mem_addr_show(struct keystone_rproc_mem *mem, char *buf)
+{
+	return sprintf(buf, "%pa\n", &mem->bus_addr);
+}
+
+static ssize_t mem_size_show(struct keystone_rproc_mem *mem, char *buf)
+{
+	return sprintf(buf, "0x%016zx\n", mem->size);
+}
+
+static struct mem_sysfs_entry addr_attribute =
+	__ATTR(addr, 0444, mem_addr_show, NULL);
+static struct mem_sysfs_entry size_attribute =
+	__ATTR(size, 0444, mem_size_show, NULL);
+
+static struct attribute *attrs[] = {
+	&addr_attribute.attr,
+	&size_attribute.attr,
+	NULL,	/* sentinel */
+};
+
+#define to_dsp_mem(m) container_of(m, struct keystone_rproc_mem, kobj)
+
+static ssize_t mem_type_show(struct kobject *kobj, struct attribute *attr,
+			     char *buf)
+{
+	struct keystone_rproc_mem *mem = to_dsp_mem(kobj);
+	struct mem_sysfs_entry *entry;
+
+	entry = container_of(attr, struct mem_sysfs_entry, attr);
+	if (!entry->show)
+		return -EIO;
+
+	return entry->show(mem, buf);
+}
+
+static const struct sysfs_ops mem_sysfs_ops = {
+	.show = mem_type_show,
+};
+
+static struct kobj_type mem_attr_type = {
+	.sysfs_ops	= &mem_sysfs_ops,
+	.default_attrs	= attrs,
+};
+
+static int keystone_rproc_mem_add_attrs(struct keystone_rproc *ksproc)
+{
+	int i, ret;
+	struct keystone_rproc_mem *mem;
+	struct kobject *kobj_parent = &ksproc->misc.this_device->kobj;
+
+	for (i = 0; i < ksproc->num_mems; i++) {
+		mem = &ksproc->mem[i];
+		kobject_init(&mem->kobj, &mem_attr_type);
+		ret = kobject_add(&mem->kobj, kobj_parent, "memory%d", i);
+		if (ret)
+			goto err_kobj;
+		ret = kobject_uevent(&mem->kobj, KOBJ_ADD);
+		if (ret)
+			goto err_kobj;
+	}
+
+	return 0;
+
+err_kobj:
+	for (; i >= 0; i--) {
+		mem = &ksproc->mem[i];
+		kobject_put(&mem->kobj);
+	}
+	return ret;
+}
+
+static void keystone_rproc_mem_del_attrs(struct keystone_rproc *ksproc)
+{
+	int i;
+	struct keystone_rproc_mem *mem;
+
+	for (i = 0; i < ksproc->num_mems; i++) {
+		mem = &ksproc->mem[i];
+		kobject_put(&mem->kobj);
+	}
+}
 
 static void *keystone_rproc_da_to_va(struct rproc *rproc, u64 da, int len,
 				     u32 flags);
@@ -976,11 +1067,21 @@ static int keystone_rproc_probe(struct platform_device *pdev)
 				ret);
 			goto unregister_uio;
 		}
+
+		ret = keystone_rproc_mem_add_attrs(ksproc);
+		if (ret) {
+			dev_err(ksproc->dev, "error creating sysfs files (%d)\n",
+				ret);
+			goto unregister_misc;
+		}
+
 		dev_dbg(dev, "registered misc device %s\n", misc->name);
 	}
 
 	return 0;
 
+unregister_misc:
+	misc_deregister(misc);
 unregister_uio:
 	uio_unregister_device(uio);
 del_rproc:
@@ -1002,6 +1103,7 @@ static int keystone_rproc_remove(struct platform_device *pdev)
 	struct rproc *rproc = ksproc->rproc;
 
 	if (rproc->use_userspace_loader) {
+		keystone_rproc_mem_del_attrs(ksproc);
 		misc_deregister(&ksproc->misc);
 		uio_unregister_device(&ksproc->uio);
 	}
