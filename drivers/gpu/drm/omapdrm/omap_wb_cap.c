@@ -209,7 +209,7 @@ static int wbcap_schedule_next_buffer(struct wbcap_dev *dev)
 	wb_info.pre_mult_alpha = 1;
 
 	wb_info.rotation = OMAP_DSS_ROT_0;
-	wb_info.rotation_type = OMAP_DSS_ROT_DMA;
+	wb_info.rotation_type = OMAP_DSS_ROT_NONE;
 
 	ok = wb_cap_setup(dev,
 			  wb_inputs[dev->input].wb_channel,
