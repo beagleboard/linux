@@ -15,7 +15,8 @@
 
 /*
  * Rules for modifying this file:
- * a) Update of this file should typically correspond to a datamanual revision
+ * a) Update of this file should typically correspond to a datamanual revision.
+ *    Datamanual revision that was used should be updated in comment below.
  *    If there is no update to datamanual, do not update the values. If you
  *    need to use values different from that recommended by the datamanual
  *    for your design, then you should consider adding values to the device-
@@ -30,6 +31,12 @@
  *    to curb naming creativity and achieve consistency.
  * e) If in future, DRA71x and DRA72x values differ, then add 'dra71_' and
  *    'dra72_' tag to entries. Both the new and old entries should gain a tag.
+ *
+ * Datamanual Revisions:
+ *
+ * AM571x Silicon Revision 2.0: SPRS957D, Revised January 2017
+ * AM571x Silicon Revision 1.0: SPRS919M, Revised November 2017
+ * DRA71x : SPRS960B, Revised February 2017
  */
 
 &dra7_pmx_core {
@@ -198,20 +205,22 @@
 };
 
 &dra7_iodelay_core {
+
+	/* Corresponds to MMC1_MANUAL1 in datamanual */
 	mmc1_iodelay_ddr50_conf: mmc1_iodelay_ddr50_conf {
 		pinctrl-pin-array = <
-			0x618 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_MMC1_CLK_IN */
-			0x624 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_MMC1_CMD_IN */
-			0x630 A_DELAY_PS(495) G_DELAY_PS(0)	/* CFG_MMC1_DAT0_IN */
-			0x63C A_DELAY_PS(116) G_DELAY_PS(0)	/* CFG_MMC1_DAT1_IN */
-			0x648 A_DELAY_PS(117) G_DELAY_PS(0)	/* CFG_MMC1_DAT2_IN */
-			0x654 A_DELAY_PS(32) G_DELAY_PS(0)	/* CFG_MMC1_DAT3_IN */
-			0x620 A_DELAY_PS(1224) G_DELAY_PS(0)	/* CFG_MMC1_CLK_OUT */
+			0x618 A_DELAY_PS(588) G_DELAY_PS(0)	/* CFG_MMC1_CLK_IN */
+			0x624 A_DELAY_PS(1000) G_DELAY_PS(0)	/* CFG_MMC1_CMD_IN */
+			0x630 A_DELAY_PS(1375) G_DELAY_PS(0)	/* CFG_MMC1_DAT0_IN */
+			0x63C A_DELAY_PS(1000) G_DELAY_PS(0)	/* CFG_MMC1_DAT1_IN */
+			0x648 A_DELAY_PS(1000) G_DELAY_PS(0)	/* CFG_MMC1_DAT2_IN */
+			0x654 A_DELAY_PS(1000) G_DELAY_PS(0)	/* CFG_MMC1_DAT3_IN */
+			0x620 A_DELAY_PS(1230) G_DELAY_PS(0)	/* CFG_MMC1_CLK_OUT */
 			0x62C A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_MMC1_CMD_OUT */
-			0x638 A_DELAY_PS(44) G_DELAY_PS(0)	/* CFG_MMC1_DAT0_OUT */
-			0x644 A_DELAY_PS(64) G_DELAY_PS(0)	/* CFG_MMC1_DAT1_OUT */
-			0x650 A_DELAY_PS(79) G_DELAY_PS(0)	/* CFG_MMC1_DAT2_OUT */
-			0x65C A_DELAY_PS(87) G_DELAY_PS(0)	/* CFG_MMC1_DAT3_OUT */
+			0x638 A_DELAY_PS(56) G_DELAY_PS(0)	/* CFG_MMC1_DAT0_OUT */
+			0x644 A_DELAY_PS(76) G_DELAY_PS(0)	/* CFG_MMC1_DAT1_OUT */
+			0x650 A_DELAY_PS(91) G_DELAY_PS(0)	/* CFG_MMC1_DAT2_OUT */
+			0x65C A_DELAY_PS(99) G_DELAY_PS(0)	/* CFG_MMC1_DAT3_OUT */
 			0x628 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_MMC1_CMD_OEN */
 			0x634 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_MMC1_DAT0_OEN */
 			0x640 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_MMC1_DAT1_OEN */
@@ -220,6 +229,7 @@
 		>;
 	};
 
+	/* Corresponds to MMC1_MANUAL2 in datamanual */
 	mmc1_iodelay_sdr104_rev10_conf: mmc1_iodelay_sdr104_rev10_conf {
 		pinctrl-pin-array = <
 			0x620 A_DELAY_PS(560) G_DELAY_PS(365)	/* CFG_MMC1_CLK_OUT */
@@ -236,6 +246,7 @@
 		>;
 	};
 
+	/* Corresponds to MMC1_MANUAL2 in datamanual */
 	mmc1_iodelay_sdr104_rev20_conf: mmc1_iodelay_sdr104_rev20_conf {
 		pinctrl-pin-array = <
 			0x620 A_DELAY_PS(520) G_DELAY_PS(320)	/* CFG_MMC1_CLK_OUT */
@@ -252,16 +263,17 @@
 		>;
 	};
 
+	/* Corresponds to MMC2_MANUAL1 in datamanual */
 	mmc2_iodelay_ddr_conf: mmc2_iodelay_ddr_conf {
 		pinctrl-pin-array = <
 			0x18c A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A19_IN */
-			0x1a4 A_DELAY_PS(121) G_DELAY_PS(0)	/* CFG_GPMC_A20_IN */
+			0x1a4 A_DELAY_PS(119) G_DELAY_PS(0)	/* CFG_GPMC_A20_IN */
 			0x1b0 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A21_IN */
-			0x1bc A_DELAY_PS(20) G_DELAY_PS(0)	/* CFG_GPMC_A22_IN */
-			0x1c8 A_DELAY_PS(108) G_DELAY_PS(0)	/* CFG_GPMC_A23_IN */
-			0x1d4 A_DELAY_PS(31) G_DELAY_PS(0)	/* CFG_GPMC_A24_IN */
+			0x1bc A_DELAY_PS(18) G_DELAY_PS(0)	/* CFG_GPMC_A22_IN */
+			0x1c8 A_DELAY_PS(894) G_DELAY_PS(0)	/* CFG_GPMC_A23_IN */
+			0x1d4 A_DELAY_PS(30) G_DELAY_PS(0)	/* CFG_GPMC_A24_IN */
 			0x1e0 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A25_IN */
-			0x1ec A_DELAY_PS(24) G_DELAY_PS(0)	/* CFG_GPMC_A26_IN */
+			0x1ec A_DELAY_PS(23) G_DELAY_PS(0)	/* CFG_GPMC_A26_IN */
 			0x1f8 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_A27_IN */
 			0x360 A_DELAY_PS(0) G_DELAY_PS(0)	/* CFG_GPMC_CS1_IN */
 			0x194 A_DELAY_PS(152) G_DELAY_PS(0)	/* CFG_GPMC_A19_OUT */
@@ -286,6 +298,7 @@
 		>;
 	};
 
+	/* Corresponds to MMC2_MANUAL3 in datamanual */
 	mmc2_iodelay_hs200_rev10_conf: mmc2_iodelay_hs200_rev10_conf {
 		pinctrl-pin-array = <
 			0x194 A_DELAY_PS(150) G_DELAY_PS(95)	/* CFG_GPMC_A19_OUT */
@@ -310,9 +323,10 @@
 		>;
 	};
 
+	/* Corresponds to MMC2_MANUAL3 in datamanual */
 	mmc2_iodelay_hs200_rev20_conf: mmc2_iodelay_hs200_rev20_conf {
 		pinctrl-pin-array = <
-			0x194 A_DELAY_PS(135) G_DELAY_PS(0)	/* CFG_GPMC_A19_OUT */
+			0x194 A_DELAY_PS(285) G_DELAY_PS(0)	/* CFG_GPMC_A19_OUT */
 			0x1ac A_DELAY_PS(189) G_DELAY_PS(0)	/* CFG_GPMC_A20_OUT */
 			0x1b8 A_DELAY_PS(0) G_DELAY_PS(120)	/* CFG_GPMC_A21_OUT */
 			0x1c4 A_DELAY_PS(0) G_DELAY_PS(70)	/* CFG_GPMC_A22_OUT */
