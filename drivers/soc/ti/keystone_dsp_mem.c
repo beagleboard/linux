@@ -114,17 +114,15 @@ static int keystone_dsp_mem_add_attrs(struct keystone_dsp_mem_info *dsp_mem)
 		kobject_init(&mem->kobj, &mem_attr_type);
 		ret = kobject_add(&mem->kobj, kobj_parent, "memory%d", i);
 		if (ret)
-			goto err_add_kobj;
+			goto err_kobj;
 		ret = kobject_uevent(&mem->kobj, KOBJ_ADD);
 		if (ret)
-			goto err_event;
+			goto err_kobj;
 	}
 
 	return 0;
 
-err_event:
-	i--;
-err_add_kobj:
+err_kobj:
 	for (; i >= 0; i--) {
 		mem = &dsp_mem->mem[i];
 		kobject_put(&mem->kobj);
