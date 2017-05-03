@@ -98,7 +98,7 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	}
 
 	memset(&info, 0, sizeof(info));
-	info.rotation_type = OMAP_DSS_ROT_DMA;
+	info.rotation_type = OMAP_DSS_ROT_NONE;
 	info.rotation = OMAP_DSS_ROT_0;
 	info.mirror = 0;
 	info.zorder = omap_state->zorder;
