@@ -554,7 +554,7 @@ EXPORT_SYMBOL(phy_mii_ioctl);
 /**
  * phy_start_aneg_priv - start auto-negotiation for this PHY device
  * @phydev: the phy_device struct
- * @sync: indicate whether we should wait for the workqueue cancellation
+ * @sync: indicate whether we should wait for the workqueue cancelation
  *
  * Description: Sanitizes the settings (if we're not autonegotiating
  *   them), and then calls the driver's config_aneg function.
@@ -671,7 +671,7 @@ void phy_stop_machine(struct phy_device *phydev)
 	cancel_delayed_work_sync(&phydev->state_queue);
 
 	mutex_lock(&phydev->lock);
-	if (phydev->state > PHY_UP)
+	if (phydev->state > PHY_UP && phydev->state != PHY_HALTED)
 		phydev->state = PHY_UP;
 	mutex_unlock(&phydev->lock);
 }
