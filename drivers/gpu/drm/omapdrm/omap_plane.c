@@ -35,8 +35,6 @@ struct omap_plane {
 	enum omap_plane_id id;
 	const char *name;
 
-	uint32_t nformats;
-	uint32_t formats[32];
 	bool reserved_wb;
 };
 
@@ -371,6 +369,8 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 	struct omap_plane *omap_plane;
 	enum omap_plane_id id;
 	int ret;
+	u32 nformats;
+	const u32 *formats;
 
 	if (WARN_ON(idx >= ARRAY_SIZE(plane_idx_to_id)))
 		return ERR_PTR(-EINVAL);
@@ -383,17 +383,17 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 	if (!omap_plane)
 		return ERR_PTR(-ENOMEM);
 
-	omap_plane->nformats = omap_framebuffer_get_formats(
-			omap_plane->formats, ARRAY_SIZE(omap_plane->formats),
-			priv->dispc_ops->ovl_get_color_modes(id));
+	formats = priv->dispc_ops->ovl_get_color_modes(id);
+	for (nformats = 0; formats[nformats]; ++nformats)
+		;
 	omap_plane->id = id;
 	omap_plane->name = plane_id_to_name[id];
 
 	plane = &omap_plane->base;
 
 	ret = drm_universal_plane_init(dev, plane, possible_crtcs,
-				       &omap_plane_funcs, omap_plane->formats,
-				       omap_plane->nformats, type, NULL);
+				       &omap_plane_funcs, formats,
+				       nformats, type, NULL);
 	if (ret < 0)
 		goto error;
 
