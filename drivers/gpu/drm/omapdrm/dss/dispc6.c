@@ -990,7 +990,7 @@ static int dispc6_ovl_setup(enum omap_plane_id plane,
 			    const struct videomode *vm, bool mem_to_mem,
 			    enum omap_channel channel)
 {
-	u32 fourcc = oi->color_mode;
+	u32 fourcc = oi->fourcc;
 	int bytespp = dispc6_fourcc_to_bytespp(fourcc);
 
 	dispc6_ovl_set_pixel_format(plane, fourcc);
