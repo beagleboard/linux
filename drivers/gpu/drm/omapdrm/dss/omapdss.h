@@ -799,7 +799,7 @@ struct dispc_ops {
 			const struct videomode *vm, bool mem_to_mem,
 			enum omap_channel channel);
 
-	enum omap_color_mode (*ovl_get_color_modes)(enum omap_plane_id plane);
+	const enum omap_color_mode *(*ovl_get_color_modes)(enum omap_plane_id plane);
 
 	u32 (*wb_get_framedone_irq)(void);
 	int (*wb_setup)(const struct omap_dss_writeback_info *wi,
