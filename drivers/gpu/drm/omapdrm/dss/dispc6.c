@@ -914,7 +914,7 @@ static void dispc6_vid_set_scaling(enum omap_plane plane,
 
 /* OTHER */
 
-static const enum omap_color_mode dispc6_supported_formats[] = {
+static const u32 dispc6_supported_formats[] = {
 	OMAP_DSS_COLOR_RGB24U,
 	OMAP_DSS_COLOR_ARGB32,
 	OMAP_DSS_COLOR_RGBX32,
@@ -927,7 +927,7 @@ static const enum omap_color_mode dispc6_supported_formats[] = {
 
 static const struct {
 	u32 fourcc;
-	enum omap_color_mode color_mode;
+	u32 color_mode;
 	u8 dss_code;
 	u8 bytespp;
 } dispc6_color_formats[] = {
@@ -955,7 +955,7 @@ static bool dispc6_fourcc_is_yuv(u32 fourcc)
 	}
 }
 
-static u32 dispc6_dss_colormode_to_fourcc(enum omap_color_mode dss_mode)
+static u32 dispc6_dss_colormode_to_fourcc(u32 dss_mode)
 {
 	int i;
 
@@ -1139,7 +1139,7 @@ static enum omap_dss_output_id dispc6_mgr_get_supported_outputs(enum omap_channe
 	return OMAP_DSS_OUTPUT_DPI;
 }
 
-static const enum omap_color_mode *dispc6_ovl_get_color_modes(enum omap_plane plane)
+static const u32 *dispc6_ovl_get_color_modes(enum omap_plane plane)
 {
 	return dispc6_supported_formats;
 }

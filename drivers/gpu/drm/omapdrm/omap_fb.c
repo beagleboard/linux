@@ -29,7 +29,7 @@
 
 /* per-format info: */
 struct format {
-	enum omap_color_mode dss_format;
+	u32 dss_format;
 	uint32_t pixel_format;
 	struct {
 		int stride_bpp;           /* this times width is stride */
@@ -62,7 +62,7 @@ static const struct format formats[] = {
 
 /* convert from overlay's pixel formats bitmask to an array of fourcc's */
 uint32_t omap_framebuffer_get_formats(uint32_t *pixel_formats,
-		uint32_t max_formats, const enum omap_color_mode *supported_modes)
+		uint32_t max_formats, const u32 *supported_modes)
 {
 	uint32_t nformats = 0;
 	int i = 0;

@@ -64,7 +64,7 @@ struct wb_fmt *find_format(struct v4l2_format *f)
 	return NULL;
 }
 
-enum omap_color_mode fourcc_to_dss(u32 fourcc)
+u32 fourcc_to_dss(u32 fourcc)
 {
 	switch (fourcc) {
 	case DRM_FORMAT_XRGB8888:
