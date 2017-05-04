@@ -1008,7 +1008,7 @@ struct dispc_ops {
 			const struct omap_video_timings *mgr_timings,
 			bool mem_to_mem);
 
-	enum omap_color_mode (*ovl_get_color_modes)(enum omap_plane plane);
+	const enum omap_color_mode *(*ovl_get_color_modes)(enum omap_plane plane);
 
 	u32 (*wb_get_framedone_irq)(void);
 	int (*wb_setup)(const struct omap_dss_writeback_info *wi,
