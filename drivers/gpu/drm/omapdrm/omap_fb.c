@@ -40,24 +40,24 @@ struct format {
 
 static const struct format formats[] = {
 	/* 16bpp [A]RGB: */
-	{ OMAP_DSS_COLOR_RGB16,       DRM_FORMAT_RGB565,   {{2, 1}}, false }, /* RGB16-565 */
-	{ OMAP_DSS_COLOR_RGB12U,      DRM_FORMAT_RGBX4444, {{2, 1}}, false }, /* RGB12x-4444 */
-	{ OMAP_DSS_COLOR_RGBX16,      DRM_FORMAT_XRGB4444, {{2, 1}}, false }, /* xRGB12-4444 */
-	{ OMAP_DSS_COLOR_RGBA16,      DRM_FORMAT_RGBA4444, {{2, 1}}, false }, /* RGBA12-4444 */
-	{ OMAP_DSS_COLOR_ARGB16,      DRM_FORMAT_ARGB4444, {{2, 1}}, false }, /* ARGB16-4444 */
-	{ OMAP_DSS_COLOR_XRGB16_1555, DRM_FORMAT_XRGB1555, {{2, 1}}, false }, /* xRGB15-1555 */
-	{ OMAP_DSS_COLOR_ARGB16_1555, DRM_FORMAT_ARGB1555, {{2, 1}}, false }, /* ARGB16-1555 */
+	{ DRM_FORMAT_RGB565,        DRM_FORMAT_RGB565,   {{2, 1}}, false }, /* RGB16-565 */
+	{ DRM_FORMAT_RGBX4444,      DRM_FORMAT_RGBX4444, {{2, 1}}, false }, /* RGB12x-4444 */
+	{ DRM_FORMAT_XRGB4444,      DRM_FORMAT_XRGB4444, {{2, 1}}, false }, /* xRGB12-4444 */
+	{ DRM_FORMAT_RGBA4444,      DRM_FORMAT_RGBA4444, {{2, 1}}, false }, /* RGBA12-4444 */
+	{ DRM_FORMAT_ARGB4444,      DRM_FORMAT_ARGB4444, {{2, 1}}, false }, /* ARGB16-4444 */
+	{ DRM_FORMAT_XRGB1555,      DRM_FORMAT_XRGB1555, {{2, 1}}, false }, /* xRGB15-1555 */
+	{ DRM_FORMAT_ARGB1555,      DRM_FORMAT_ARGB1555, {{2, 1}}, false }, /* ARGB16-1555 */
 	/* 24bpp RGB: */
-	{ OMAP_DSS_COLOR_RGB24P,      DRM_FORMAT_RGB888,   {{3, 1}}, false }, /* RGB24-888 */
+	{ DRM_FORMAT_RGB888,        DRM_FORMAT_RGB888,   {{3, 1}}, false }, /* RGB24-888 */
 	/* 32bpp [A]RGB: */
-	{ OMAP_DSS_COLOR_RGBX32,      DRM_FORMAT_RGBX8888, {{4, 1}}, false }, /* RGBx24-8888 */
-	{ OMAP_DSS_COLOR_RGB24U,      DRM_FORMAT_XRGB8888, {{4, 1}}, false }, /* xRGB24-8888 */
-	{ OMAP_DSS_COLOR_RGBA32,      DRM_FORMAT_RGBA8888, {{4, 1}}, false }, /* RGBA32-8888 */
-	{ OMAP_DSS_COLOR_ARGB32,      DRM_FORMAT_ARGB8888, {{4, 1}}, false }, /* ARGB32-8888 */
+	{ DRM_FORMAT_RGBX8888,      DRM_FORMAT_RGBX8888, {{4, 1}}, false }, /* RGBx24-8888 */
+	{ DRM_FORMAT_XRGB8888,      DRM_FORMAT_XRGB8888, {{4, 1}}, false }, /* xRGB24-8888 */
+	{ DRM_FORMAT_RGBA8888,      DRM_FORMAT_RGBA8888, {{4, 1}}, false }, /* RGBA32-8888 */
+	{ DRM_FORMAT_ARGB8888,      DRM_FORMAT_ARGB8888, {{4, 1}}, false }, /* ARGB32-8888 */
 	/* YUV: */
-	{ OMAP_DSS_COLOR_NV12,        DRM_FORMAT_NV12,     {{1, 1}, {1, 2}}, true },
-	{ OMAP_DSS_COLOR_YUV2,        DRM_FORMAT_YUYV,     {{2, 1}}, true },
-	{ OMAP_DSS_COLOR_UYVY,        DRM_FORMAT_UYVY,     {{2, 1}}, true },
+	{ DRM_FORMAT_NV12,          DRM_FORMAT_NV12,     {{1, 1}, {1, 2}}, true },
+	{ DRM_FORMAT_YUYV,          DRM_FORMAT_YUYV,     {{2, 1}}, true },
+	{ DRM_FORMAT_UYVY,          DRM_FORMAT_UYVY,     {{2, 1}}, true },
 };
 
 /* convert from overlay's pixel formats bitmask to an array of fourcc's */
@@ -247,7 +247,7 @@ void omap_framebuffer_update_scanout(struct drm_framebuffer *fb,
 	/* convert to pixels: */
 	info->screen_width /= format->planes[0].stride_bpp;
 
-	if (format->dss_format == OMAP_DSS_COLOR_NV12) {
+	if (format->dss_format == DRM_FORMAT_NV12) {
 		plane = &omap_fb->planes[1];
 
 		if (info->rotation_type == OMAP_DSS_ROT_TILER) {
