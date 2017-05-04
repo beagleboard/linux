@@ -205,7 +205,7 @@ static int wbcap_schedule_next_buffer(struct wbcap_dev *dev)
 
 	wb_info.width = pix->width;
 	wb_info.height = pix->height;
-	wb_info.color_mode = fourcc_to_dss(pix->pixelformat);
+	wb_info.color_mode = pix->pixelformat;
 	wb_info.pre_mult_alpha = 1;
 
 	wb_info.rotation = OMAP_DSS_ROT_0;
