@@ -961,6 +961,18 @@ static void dispc_ovl_set_color_mode(enum omap_plane plane,
 	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), m, 4, 1);
 }
 
+static bool format_is_yuv(enum omap_color_mode color_mode)
+{
+	switch (color_mode) {
+	case OMAP_DSS_COLOR_YUV2:
+	case OMAP_DSS_COLOR_UYVY:
+	case OMAP_DSS_COLOR_NV12:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static void dispc_ovl_configure_burst_type(enum omap_plane plane,
 		enum omap_dss_rotation_type rotation_type)
 {
@@ -1674,9 +1686,8 @@ static void dispc_ovl_set_scaling_uv(enum omap_plane plane,
 
 	if (!dss_has_feature(FEAT_HANDLE_UV_SEPARATE))
 		return;
-	if ((color_mode != OMAP_DSS_COLOR_YUV2 &&
-			color_mode != OMAP_DSS_COLOR_UYVY &&
-			color_mode != OMAP_DSS_COLOR_NV12)) {
+
+	if (!format_is_yuv(color_mode)) {
 		/* reset chroma resampling for RGB formats  */
 		if (plane != OMAP_DSS_WB)
 			REG_FLD_MOD(DISPC_OVL_ATTRIBUTES2(plane), 0, 8, 8);
@@ -2374,19 +2385,9 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 	if (paddr == 0 && rotation_type != OMAP_DSS_ROT_TILER)
 		return -EINVAL;
 
-	switch (color_mode) {
-	case OMAP_DSS_COLOR_YUV2:
-	case OMAP_DSS_COLOR_UYVY:
-	case OMAP_DSS_COLOR_NV12:
-		if (in_width & 1) {
-			DSSERR("input width %d is not even for YUV format\n",
-				in_width);
-			return -EINVAL;
-		}
-		break;
-
-	default:
-		break;
+	if (format_is_yuv(color_mode) && (in_width & 1)) {
+		DSSERR("input width %d is not even for YUV format\n", in_width);
+		return -EINVAL;
 	}
 
 	out_width = out_width == 0 ? width : out_width;
@@ -2424,26 +2425,15 @@ static int dispc_ovl_setup_common(enum omap_plane plane,
 		DSSDBG("predecimation %d x %x, new input size %d x %d\n",
 			x_predecim, y_predecim, in_width, in_height);
 
-	switch (color_mode) {
-	case OMAP_DSS_COLOR_YUV2:
-	case OMAP_DSS_COLOR_UYVY:
-	case OMAP_DSS_COLOR_NV12:
-		if (in_width & 1) {
-			DSSDBG("predecimated input width is not even for YUV format\n");
-			DSSDBG("adjusting input width %d -> %d\n",
-				in_width, in_width & ~1);
+	if (format_is_yuv(color_mode) && (in_width & 1)) {
+		DSSDBG("predecimated input width is not even for YUV format\n");
+		DSSDBG("adjusting input width %d -> %d\n",
+			in_width, in_width & ~1);
 
-			in_width &= ~1;
-		}
-		break;
-
-	default:
-		break;
+		in_width &= ~1;
 	}
 
-	if (color_mode == OMAP_DSS_COLOR_YUV2 ||
-			color_mode == OMAP_DSS_COLOR_UYVY ||
-			color_mode == OMAP_DSS_COLOR_NV12)
+	if (format_is_yuv(color_mode))
 		cconv = 1;
 
 	if (ilace && !fieldmode) {
