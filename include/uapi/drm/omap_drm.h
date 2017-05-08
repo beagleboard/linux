@@ -41,6 +41,9 @@ struct drm_omap_param {
 #define OMAP_BO_SCANOUT		0x00000001	/* scanout capable (phys contiguous) */
 #define OMAP_BO_CACHE_MASK	0x00000006	/* cache type mask, see cache modes */
 #define OMAP_BO_TILED_MASK	0x00000f00	/* tiled mapping mask, see tiled modes */
+#define OMAP_BO_MEM_CONTIG	0x00000008	/* only use contiguous dma mem */
+#define OMAP_BO_MEM_TILER	0x00000010	/* only use TILER mem */
+#define OMAP_BO_MEM_PIN		0x00000020	/* pin the buffer when allocating */
 
 /* cache modes */
 #define OMAP_BO_CACHED		0x00000000	/* default */
