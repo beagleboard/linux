@@ -1106,6 +1106,9 @@ void omap_gem_free_object(struct drm_gem_object *obj)
 	list_del(&omap_obj->mm_list);
 	mutex_unlock(&priv->list_lock);
 
+	if (omap_obj->flags & OMAP_BO_MEM_PIN)
+		omap_gem_unpin_locked(obj);
+
 	/*
 	 * We own the sole reference to the object at this point, but to keep
 	 * lockdep happy, we must still take the omap_obj_lock to call
@@ -1156,8 +1159,17 @@ static bool omap_gem_validate_flags(struct drm_device *dev, u32 flags)
 		return false;
 	}
 
+	if ((flags & OMAP_BO_MEM_CONTIG) && (flags & OMAP_BO_MEM_DMM))
+		return false;
+
+	if ((flags & OMAP_BO_MEM_DMM) && !priv->usergart)
+		return false;
+
 	if (flags & OMAP_BO_TILED_MASK) {
 		if (!priv->usergart)
+			return false;
+
+		if (flags & OMAP_BO_MEM_CONTIG)
 			return false;
 
 		switch (flags & OMAP_BO_TILED_MASK) {
@@ -1202,7 +1214,8 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 		 */
 		flags &= ~(OMAP_BO_CACHED|OMAP_BO_WC|OMAP_BO_UNCACHED);
 		flags |= tiler_get_cpu_cache_flags();
-	} else if ((flags & OMAP_BO_SCANOUT) && !priv->has_dmm) {
+	} else if ((flags & OMAP_BO_MEM_CONTIG) ||
+		((flags & OMAP_BO_SCANOUT) && !priv->has_dmm)) {
 		/*
 		 * If we don't have DMM, we must allocate scanout buffers
 		 * from contiguous DMA memory.
@@ -1262,12 +1275,22 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 			goto err_release;
 	}
 
+	if (flags & OMAP_BO_MEM_PIN) {
+		ret = omap_gem_pin(obj, NULL);
+		if (ret)
+			goto err_free_dma;
+	}
+
 	mutex_lock(&priv->list_lock);
 	list_add(&omap_obj->mm_list, &priv->obj_list);
 	mutex_unlock(&priv->list_lock);
 
 	return obj;
 
+err_free_dma:
+	if (flags & OMAP_BO_MEM_DMA_API)
+		dma_free_writecombine(dev->dev, size,
+				omap_obj->vaddr, omap_obj->dma_addr);
 err_release:
 	drm_gem_object_release(obj);
 err_free:
