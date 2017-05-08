@@ -582,13 +582,13 @@ static int zram_decompress_page(struct zram *zram, char *mem, u32 index)
 
 	if (!handle || zram_test_flag(meta, index, ZRAM_ZERO)) {
 		bit_spin_unlock(ZRAM_ACCESS, &meta->table[index].value);
-		memset(mem, 0, PAGE_SIZE);
+		clear_page(mem);
 		return 0;
 	}
 
 	cmem = zs_map_object(meta->mem_pool, handle, ZS_MM_RO);
 	if (size == PAGE_SIZE) {
-		memcpy(mem, cmem, PAGE_SIZE);
+		copy_page(mem, cmem);
 	} else {
 		struct zcomp_strm *zstrm = zcomp_stream_get(zram->comp);
 
@@ -780,7 +780,7 @@ compress_again:
 
 	if ((clen == PAGE_SIZE) && !is_partial_io(bvec)) {
 		src = kmap_atomic(page);
-		memcpy(cmem, src, PAGE_SIZE);
+		copy_page(cmem, src);
 		kunmap_atomic(src);
 	} else {
 		memcpy(cmem, src, clen);
