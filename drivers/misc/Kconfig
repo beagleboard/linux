@@ -767,7 +767,7 @@ config PANEL_BOOT_MESSAGE
 	  printf()-formatted message is valid with newline and escape codes.
 
 config PCI_ENDPOINT_TEST
-	depends on PCI || COMPILE_TEST
+	depends on PCI
 	tristate "PCI Endpoint Test driver"
 	---help---
            Enable this configuration option to enable the host side test driver
