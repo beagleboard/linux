@@ -18,18 +18,18 @@
 		compatible = "btwilink";
 	};
 
-	wilink8_pcm: wilink8_pcm {
-		compatible = "ti,wilink8_bt";
-		status = "okay";
-	};
+//	wilink8_pcm: wilink8_pcm {
+//		compatible = "ti,wilink8_bt";
+//		status = "okay";
+//	};
 
-	sound{
-		compatible = "ti,wilink8-bt-audio";
-		ti,model = "WILINK8_BT";
-		ti,audio-codec = <&wilink8_pcm>;
-		ti,mcasp-controller = <&mcasp0>;
-		ti,codec-clock-rate = <24000000>;
-	};
+//	sound{
+//		compatible = "ti,wilink8-bt-audio";
+//		ti,model = "WILINK8_BT";
+//		ti,audio-codec = <&wilink8_pcm>;
+//		ti,mcasp-controller = <&mcasp0>;
+//		ti,codec-clock-rate = <24000000>;
+//	};
 };
 
 &am33xx_pinmux {
