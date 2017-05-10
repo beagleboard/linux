@@ -905,13 +905,13 @@ static int emac_rx_packets(struct prueth_emac *emac, int quota)
 	switch (emac->port_id) {
 	case PRUETH_PORT_MII0:
 		/* packets from MII0 are on queues 1 through 2 */
-		start_queue = PRUETH_QUEUE2;
-		end_queue = PRUETH_QUEUE1;
+		start_queue = PRUETH_QUEUE1;
+		end_queue = PRUETH_QUEUE2;
 		break;
 	case PRUETH_PORT_MII1:
 		/* packets from MII1 are on queues 3 through 4 */
-		start_queue = PRUETH_QUEUE4;
-		end_queue = PRUETH_QUEUE3;
+		start_queue = PRUETH_QUEUE3;
+		end_queue = PRUETH_QUEUE4;
 		break;
 	default:
 		netdev_err(emac->ndev, "invalid port\n");
@@ -919,7 +919,7 @@ static int emac_rx_packets(struct prueth_emac *emac, int quota)
 	}
 
 	/* search host queues for packets */
-	for (i = start_queue; i >= end_queue; i--) {
+	for (i = start_queue; i <= end_queue; i++) {
 		queue_desc = emac->rx_queue_descs + i;
 		rxqueue = &queue_infos[PRUETH_PORT_HOST][i];
 
