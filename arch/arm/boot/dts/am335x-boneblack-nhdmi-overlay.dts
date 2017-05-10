@@ -9,7 +9,7 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
-#include "am33xx-overlay-edma-fix.dtsi"
+/* #include "am33xx-overlay-edma-fix.dtsi" */
 #include <dt-bindings/display/tda998x.h>
 
 /* pruss: pick one: */
@@ -57,6 +57,17 @@
 	};
 };
 
+&cpu0_opp_table {
+	/*
+	 * All PG 2.0 silicon may not support 1GHz but some of the early
+	 * BeagleBone Blacks have PG 2.0 silicon which is guaranteed
+	 * to support 1GHz OPP so enable it for PG 2.0 on this board.
+	 */
+	oppnitro@1000000000 {
+		opp-supported-hw = <0x06 0x0100>;
+	};
+};
+
 &am33xx_pinmux {
 	nxp_hdmi_bonelt_pins: nxp_hdmi_bonelt_pins {
 		pinctrl-single,pins = <
@@ -92,6 +103,14 @@
 
 &lcdc {
 	status = "okay";
+
+	/* If you want to get 24 bit RGB and 16 BGR mode instead of
+	 * current 16 bit RGB and 24 BGR modes, set the propety
+	 * below to "crossed" and uncomment the video-ports -property
+	 * in tda19988 node.
+	 */
+	blue-and-red-wiring = "straight";
+
 	port {
 		lcdc_0: endpoint@0 {
 			remote-endpoint = <&hdmi_0>;
@@ -108,6 +127,9 @@
 		pinctrl-0 = <&nxp_hdmi_bonelt_pins>;
 		pinctrl-1 = <&nxp_hdmi_bonelt_off_pins>;
 
+		/* Convert 24bit BGR to RGB, e.g. cross red and blue wiring */
+		/* video-ports = <0x234501>; */
+
 		ports {
 			port@0 {
 				hdmi_0: endpoint@0 {
@@ -116,8 +138,4 @@
 			};
 		};
 	};
-};
-
-&rtc {
-	system-power-controller;
 };
