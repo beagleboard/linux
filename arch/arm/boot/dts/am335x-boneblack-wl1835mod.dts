@@ -18,7 +18,7 @@
  * blacklist uio_pruss
  */
 
-/* #include "am33xx-pruss-rproc.dtsi" */
+#include "am33xx-pruss-rproc.dtsi"
 
 /*
  * /etc/modprobe.d/pruss-blacklist.conf
