@@ -29,7 +29,7 @@
  * blacklist pru-rproc
  */
 
-/* #include "am33xx-pruss-uio.dtsi" */
+#include "am33xx-pruss-uio.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone Green";
