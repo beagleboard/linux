@@ -8,32 +8,11 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-/* #include "am33xx-overlay-edma-fix.dtsi" */
-
-/* pruss: pick one: */
-
-/*
- * /etc/modprobe.d/pruss-blacklist.conf
- *
- * blacklist uio_pruss
- */
-
-/* #include "am33xx-pruss-rproc.dtsi" */
-
-/*
- * /etc/modprobe.d/pruss-blacklist.conf
- *
- * blacklist pruss
- * blacklist pruss_intc
- * blacklist pru-rproc
- */
-
-/* #include "am33xx-pruss-uio.dtsi" */
+#include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
-	model = "TI AM335x BeagleBone Green";
-	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
 &ldo3_reg {
@@ -64,3 +43,22 @@
 		opp-supported-hw = <0x06 0x0100>;
 	};
 };
+
+//#include "am335x-peripheral-can0.dtsi"
+//#include "am335x-bone-pinmux-can0.dtsi"
+
+//#include "am335x-peripheral-can1.dtsi"
+//#include "am335x-bone-pinmux-can1.dtsi"
+
+//#include "am335x-peripheral-spi0.dtsi"
+//#include "am335x-bone-pinmux-spi0.dtsi"
+
+//&tscadc {
+//	status = "okay";
+//	adc {
+//		ti,adc-channels = <0 1 2 3 4 5 6>;
+//		ti,chan-step-avg = <0x16 0x16 0x16 0x16 0x16 0x16 0x16>;
+//		ti,chan-step-opendelay = <0x98 0x98 0x98 0x98 0x98 0x98 0x98>;
+//		ti,chan-step-sampledelay = <0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+//	};
+//};
