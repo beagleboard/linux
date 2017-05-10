@@ -731,8 +731,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	if (of_machine_is_compatible("ti,am3359-icev2") ||
 	    of_machine_is_compatible("ti,am437x-idk-evm") ||
 	    of_machine_is_compatible("ti,am5728-idk") ||
-	    of_machine_is_compatible("ti,am5718-idk") ||
-	    of_machine_is_compatible("ti,k2g-ice")) {
+	    of_machine_is_compatible("ti,am5718-idk")) {
 		if (use_eth_fw && (pdata->caps & PRU_FUNC_CAPS_ETHERNET))
 			use_eth = true;
 	}
@@ -952,30 +951,22 @@ static struct pru_private_data am57xx_pru2_1_rproc_pdata = {
 /* 66AK2G PRUSS0 PRU core-specific private data */
 static struct pru_private_data k2g_pru0_0_rproc_pdata = {
 	.id = 0,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "k2g-pru0_0-fw",
-	.eth_fw_name = "ti-pruss/k2g-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data k2g_pru0_1_rproc_pdata = {
 	.id = 1,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "k2g-pru0_1-fw",
-	.eth_fw_name = "ti-pruss/k2g-pru1-prueth-fw.elf"
 };
 
 static struct pru_private_data k2g_pru1_0_rproc_pdata = {
 	.id = 0,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "k2g-pru1_0-fw",
-	.eth_fw_name = "ti-pruss/k2g-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data k2g_pru1_1_rproc_pdata = {
 	.id = 1,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "k2g-pru1_1-fw",
-	.eth_fw_name = "ti-pruss/k2g-pru1-prueth-fw.elf"
 };
 
 /* AM33xx SoC-specific PRU Device data */
