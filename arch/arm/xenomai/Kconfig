@@ -1,0 +1,40 @@
+source "kernel/xenomai/Kconfig"
+source "drivers/xenomai/Kconfig"
+
+menu "Machine/platform-specific options"
+
+config XENO_ARCH_UNLOCKED_SWITCH
+	bool "Unlocked context switch"
+	default y
+	help
+	The Cobalt core may allow non-atomic execution of the
+	machine-dependent context switching code, so that other CPUs
+	and/or local interrupts may execute concurrently.
+
+	This option reduces interrupt latency when costly cache and
+	TLB flushes are required to switch context.
+
+	You definitely want to enable that option on low-end ARM
+	platforms.
+endmenu
+
+config IPIPE_WANT_PREEMPTIBLE_SWITCH
+	bool
+	default y if XENO_ARCH_UNLOCKED_SWITCH
+	default n if !XENO_ARCH_UNLOCKED_SWITCH
+
+config IPIPE_WANT_ACTIVE_MM
+       def_bool y
+
+config XENO_ARCH_WANT_TIP
+       def_bool y
+
+config XENO_ARCH_FPU
+	def_bool VFP
+
+config XENO_ARCH_SYS3264
+        def_bool n
+
+config XENO_ARCH_OUTOFLINE_XNLOCK
+       bool
+       default y
