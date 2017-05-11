@@ -33,6 +33,7 @@
 #define ADCFSM_STEPID		0x10
 #define SEQ_SETTLE		275
 #define MAX_12BIT		((1 << 12) - 1)
+#define PRESSURE_MAX		1000
 
 static const int config_pins[] = {
 	STEPCONFIG_XPP,
@@ -230,6 +231,7 @@ static void titsc_read_coordinates(struct titsc *ts_dev,
 	for (i = 0; i < creads; i++) {
 		xvals[i] = titsc_readl(ts_dev, REG_FIFO0);
 		xvals[i] &= 0xfff;
+		pr_debug("i %d xval %d yval %d z1 %d z2 %d\n", i, xvals[i], yvals[i], *z1, *z2);
 	}
 
 	/*
@@ -306,13 +308,13 @@ static irqreturn_t titsc_irq(int irq, void *dev)
 			 * Resistance(touch) = x plate resistance *
 			 * x postion/4096 * ((z2 / z1) - 1)
 			 */
-			z = z1 - z2;
+			z = z2 - z1;
 			z *= x;
 			z *= ts_dev->x_plate_resistance;
-			z /= z2;
+			z /= z1;
 			z = (z + 2047) >> 12;
-
-			if (z <= MAX_12BIT) {
+			pr_debug("x %d y %d z1 %d z2 %d z %d\n", x, y, z1, z2, z);
+			if (z <= PRESSURE_MAX) {
 				input_report_abs(input_dev, ABS_X, x);
 				input_report_abs(input_dev, ABS_Y, y);
 				input_report_abs(input_dev, ABS_PRESSURE, z);
