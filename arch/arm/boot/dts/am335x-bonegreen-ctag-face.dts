@@ -26,12 +26,12 @@
 	spi_gpio: spi_gpio {
 		compatible = "spi-gpio";
 		#address-cells = <1>;
-		#size-cells = <0>;
+		ranges;
 
-		gpio-sck = <&gpio2 11 0>;
-		gpio-mosi = <&gpio2 9 0>;
-		gpio-miso = <&gpio2 8 0>;
-		cs-gpios = <&gpio2 10 0 &gpio2 13 0>;
+		gpio-sck = <&gpio0 11 0>; //P8.32
+		gpio-mosi = <&gpio0 9 0>; //P8.33
+		gpio-miso = <&gpio0 26 0>; //P8.14
+		cs-gpios = <&gpio0 27 0 &gpio0 10 0>; //P8.17 / P8.31
 		num-chipselects = <2>;
 
 		status = "disabled";
