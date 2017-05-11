@@ -854,6 +854,11 @@ static int omap_rproc_runtime_suspend(struct device *dev)
 	struct omap_rproc *oproc = rproc->priv;
 	int ret;
 
+	if (rproc->state == RPROC_CRASHED) {
+		dev_dbg(dev, "rproc cannot be runtime suspended when crashed!\n");
+		return -EBUSY;
+	}
+
 	if (WARN_ON(rproc->state != RPROC_RUNNING)) {
 		dev_err(dev, "rproc cannot be runtime suspended when not running!\n");
 		return -EBUSY;
