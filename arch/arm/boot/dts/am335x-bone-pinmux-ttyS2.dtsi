@@ -1,0 +1,48 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* Testing */
+/* sudo /sbin/getty -L ttyS2 115200 vt102 */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include "am335x-peripheral-ttyS2.dtsi"
+
+/* cape universal */
+
+/*
+ *&ocp {
+ *	P9_21_pinmux {
+ *		mode = "uart";
+ *	};
+ *	P9_22_pinmux {
+ *		mode = "uart";
+ *	};
+ *};
+ *
+ *&uart2 {
+ *	pinctrl-0 = <>;
+ *};
+ *
+ */
+
+/* standard */
+
+&am33xx_pinmux {
+	uart2_pins: pinmux_uart2_pins {
+		pinctrl-single,pins = <
+			/* P9_21: spi0_d0.uart2_txd */
+			BONE_P9_21 (PIN_OUTPUT_PULLDOWN | MUX_MODE1)
+			/* P9_22: spi0_sclk.uart2_rxd */
+			BONE_P9_22 (PIN_INPUT_PULLUP | MUX_MODE1)
+		>;
+	};
+};
+
+&uart2 {
+	pinctrl-0 = <&uart2_pins>;
+};
