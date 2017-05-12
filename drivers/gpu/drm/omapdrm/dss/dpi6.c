@@ -186,16 +186,6 @@ static void dpi6_get_timings(struct omap_dss_device *out,
 	mutex_unlock(&dpi->lock);
 }
 
-static void dpi6_set_data_lines(struct omap_dss_device *out, int data_lines)
-{
-	struct dpi_data *dpi = dpi6_get_data_from_dssdev(out);
-
-	mutex_lock(&dpi->lock);
-
-	dpi->data_lines = data_lines;
-
-	mutex_unlock(&dpi->lock);
-}
 
 static const struct omapdss_dpi_ops dpi6_ops = {
 	.connect = dpi6_connect,
@@ -207,8 +197,6 @@ static const struct omapdss_dpi_ops dpi6_ops = {
 	.check_timings = dpi6_check_timings,
 	.set_timings = dpi6_set_timings,
 	.get_timings = dpi6_get_timings,
-
-	.set_data_lines = dpi6_set_data_lines,
 };
 
 static void dpi6_setup_output_port(struct platform_device *pdev,
