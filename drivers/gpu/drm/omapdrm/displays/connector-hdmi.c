@@ -18,7 +18,6 @@
 #include <linux/spinlock.h>
 
 #include <drm/drm_edid.h>
-#include <video/omap-panel-data.h>
 
 #include "../dss/omapdss.h"
 
