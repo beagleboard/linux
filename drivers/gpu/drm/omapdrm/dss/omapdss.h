@@ -60,7 +60,6 @@
 #define DISPC_IRQ_FRAMEDONE3		(1 << 30)
 
 struct omap_dss_device;
-struct omap_overlay_manager;
 struct dss_lcd_mgr_config;
 struct snd_aes_iec958;
 struct snd_cea_861_aud_if;
@@ -288,48 +287,6 @@ struct omap_overlay_info {
 	u8 zorder;
 };
 
-struct omap_overlay {
-	struct kobject kobj;
-	struct list_head list;
-
-	/* static fields */
-	const char *name;
-	enum omap_plane_id id;
-	enum omap_color_mode supported_modes;
-	enum omap_overlay_caps caps;
-
-	/* dynamic fields */
-	struct omap_overlay_manager *manager;
-
-	/*
-	 * The following functions do not block:
-	 *
-	 * is_enabled
-	 * set_overlay_info
-	 * get_overlay_info
-	 *
-	 * The rest of the functions may block and cannot be called from
-	 * interrupt context
-	 */
-
-	int (*enable)(struct omap_overlay *ovl);
-	int (*disable)(struct omap_overlay *ovl);
-	bool (*is_enabled)(struct omap_overlay *ovl);
-
-	int (*set_manager)(struct omap_overlay *ovl,
-		struct omap_overlay_manager *mgr);
-	int (*unset_manager)(struct omap_overlay *ovl);
-
-	int (*set_overlay_info)(struct omap_overlay *ovl,
-			struct omap_overlay_info *info);
-	void (*get_overlay_info)(struct omap_overlay *ovl,
-			struct omap_overlay_info *info);
-
-	int (*wait_for_go)(struct omap_overlay *ovl);
-
-	struct omap_dss_device *(*get_device)(struct omap_overlay *ovl);
-};
-
 struct omap_overlay_manager_info {
 	u32 default_color;
 
@@ -341,46 +298,6 @@ struct omap_overlay_manager_info {
 
 	bool cpr_enable;
 	struct omap_dss_cpr_coefs cpr_coefs;
-};
-
-struct omap_overlay_manager {
-	struct kobject kobj;
-
-	/* static fields */
-	const char *name;
-	enum omap_channel id;
-	struct list_head overlays;
-	enum omap_display_type supported_displays;
-	enum omap_dss_output_id supported_outputs;
-
-	/* dynamic fields */
-	struct omap_dss_device *output;
-
-	/*
-	 * The following functions do not block:
-	 *
-	 * set_manager_info
-	 * get_manager_info
-	 * apply
-	 *
-	 * The rest of the functions may block and cannot be called from
-	 * interrupt context
-	 */
-
-	int (*set_output)(struct omap_overlay_manager *mgr,
-		struct omap_dss_device *output);
-	int (*unset_output)(struct omap_overlay_manager *mgr);
-
-	int (*set_manager_info)(struct omap_overlay_manager *mgr,
-			struct omap_overlay_manager_info *info);
-	void (*get_manager_info)(struct omap_overlay_manager *mgr,
-			struct omap_overlay_manager_info *info);
-
-	int (*apply)(struct omap_overlay_manager *mgr);
-	int (*wait_for_go)(struct omap_overlay_manager *mgr);
-	int (*wait_for_vsync)(struct omap_overlay_manager *mgr);
-
-	struct omap_dss_device *(*get_device)(struct omap_overlay_manager *mgr);
 };
 
 /* 22 pins means 1 clk lane and 10 data lanes */
@@ -709,10 +626,8 @@ enum omap_color_mode dss_feat_get_supported_color_modes(enum omap_plane_id plane
 
 
 int omap_dss_get_num_overlay_managers(void);
-struct omap_overlay_manager *omap_dss_get_overlay_manager(int num);
 
 int omap_dss_get_num_overlays(void);
-struct omap_overlay *omap_dss_get_overlay(int num);
 
 int omapdss_register_output(struct omap_dss_device *output);
 void omapdss_unregister_output(struct omap_dss_device *output);
@@ -724,7 +639,6 @@ int omapdss_output_set_device(struct omap_dss_device *out,
 int omapdss_output_unset_device(struct omap_dss_device *out);
 
 struct omap_dss_device *omapdss_find_output_from_display(struct omap_dss_device *dssdev);
-struct omap_overlay_manager *omapdss_find_mgr_from_display(struct omap_dss_device *dssdev);
 
 void omapdss_default_get_timings(struct omap_dss_device *dssdev,
 				 struct videomode *vm);
