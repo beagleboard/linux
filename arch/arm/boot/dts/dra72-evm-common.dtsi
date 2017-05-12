@@ -480,6 +480,8 @@
 	status = "okay";
 	vmmc-supply = <&vmmcwl_fixed>;
 	bus-width = <4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wlan_pins>;
 	cap-power-off-card;
 	keep-power-in-suspend;
 	ti,non-removable;
