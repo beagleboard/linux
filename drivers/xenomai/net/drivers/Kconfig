@@ -1,0 +1,138 @@
+menu "Drivers"
+    depends on XENO_DRIVERS_NET
+
+comment "Common PCI Drivers"
+    depends on PCI
+
+config XENO_DRIVERS_NET_DRV_PCNET32
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "AMD PCnet32"
+
+
+config XENO_DRIVERS_NET_DRV_TULIP
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "DEC Tulip"
+
+
+config XENO_DRIVERS_NET_DRV_EEPRO100
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "Intel EtherExpress PRO/100"
+    default y
+
+config XENO_DRIVERS_NET_DRV_EEPRO100_CMDTIMEOUT
+    depends on XENO_DRIVERS_NET && PCI
+    int "Command Timeout"
+    depends on XENO_DRIVERS_NET_DRV_EEPRO100
+    default 20
+    ---help---
+    Timeout in microseconds of transmission or configuration commands that
+    are issued in real-time contexts.
+
+config XENO_DRIVERS_NET_DRV_EEPRO100_DBG
+    depends on XENO_DRIVERS_NET && PCI
+    bool "Enable debugging and instrumentation"
+    depends on XENO_DRIVERS_NET_DRV_EEPRO100
+    ---help---
+    This option switches on internal debugging code of the EEPRO/100 driver.
+    It also enables the collection of worst-case command delays in real-time
+    contexts in order to reduce the command timeout (which, effectively, will
+    also reduce the worst-case transmission latency).
+
+
+config XENO_DRIVERS_NET_DRV_E1000
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "Intel(R) PRO/1000 (Gigabit)"
+    default y
+
+config XENO_DRIVERS_NET_DRV_E1000E
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "New Intel(R) PRO/1000 PCIe (Gigabit)"
+
+
+config XENO_DRIVERS_NET_DRV_NATSEMI
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "NatSemi"
+
+
+config XENO_DRIVERS_NET_DRV_8139
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "Realtek 8139"
+    default y
+
+
+config XENO_DRIVERS_NET_DRV_VIA_RHINE
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "VIA Rhine"
+
+
+config XENO_DRIVERS_NET_DRV_IGB
+    select I2C
+    select I2C_ALGOBIT
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "Intel(R) 82575 (Gigabit)"
+
+
+config XENO_DRIVERS_NET_DRV_R8169
+    depends on XENO_DRIVERS_NET && PCI
+    tristate "Realtek 8169 (Gigabit)"
+
+
+if ARCH = ppc
+
+comment "Embedded MPC Drivers"
+    depends on XENO_DRIVERS_NET
+
+config XENO_DRIVERS_NET_DRV_FCC_ENET
+    depends on XENO_DRIVERS_NET
+    tristate "MPC8260 FCC Ethernet"
+
+
+config XENO_DRIVERS_NET_DRV_FEC_ENET
+    depends on XENO_DRIVERS_NET
+    tristate "MPC8xx FEC Ethernet"
+
+
+config XENO_DRIVERS_NET_DRV_SCC_ENET
+    depends on XENO_DRIVERS_NET
+    tristate "MPC8xx SCC Ethernet"
+
+
+config XENO_DRIVERS_NET_DRV_MPC52XX_FEC
+    depends on XENO_DRIVERS_NET
+    tristate "MPC52xx FEC Ethernet"
+
+endif
+
+
+comment "Misc Drivers"
+
+config XENO_DRIVERS_NET_DRV_LOOPBACK
+    depends on XENO_DRIVERS_NET
+    tristate "Loopback"
+    default y
+
+
+config XENO_DRIVERS_NET_DRV_SMC91111
+    depends on XENO_DRIVERS_NET
+    tristate "SMSC LAN91C111"
+
+if ARCH = arm
+
+config XENO_DRIVERS_NET_DRV_AT91_ETHER
+    depends on XENO_DRIVERS_NET && SOC_AT91RM9200
+    select XENO_DRIVERS_NET_DRV_MACB
+    tristate "AT91RM9200 Board Ethernet Driver"
+
+config XENO_DRIVERS_NET_DRV_MACB
+    depends on XENO_DRIVERS_NET && ARCH_AT91
+    select AT91_PROGRAMMABLE_CLOCKS
+    tristate "MACB AT91SAM926x devices"
+    ---help---
+    Driver for internal MAC-controller on AT91SAM926x microcontrollers.
+    Porting by Cristiano Mantovani and Stefano Banzi (Marposs SpA).
+
+endif
+
+source "drivers/xenomai/net/drivers/experimental/Kconfig"
+
+endmenu
