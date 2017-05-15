@@ -496,8 +496,8 @@ netcpx: netcp@2f00000 {
 	#size-cells	= <1>;
 	ranges;
 
-	clocks		= <&clkxge>;
-	clock-names	= "xge_clk";
+	clocks		= <&clkxge>, <&chipclk12>;
+	clock-names	= "xge_clk", "cpts";
 	dma-coherent;
 
 	ti,navigator-dmas = <&dma_xgbe 0>,
