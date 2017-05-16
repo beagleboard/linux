@@ -1791,13 +1791,13 @@ static void dispc_ovl_set_rotation_attrs(enum omap_plane plane, u8 rotation,
 				vidrot = 2;
 				break;
 			case BIT(DRM_ROTATE_90):
-				vidrot = 3;
+				vidrot = 1;
 				break;
 			case BIT(DRM_ROTATE_180):
 				vidrot = 0;
 				break;
 			case BIT(DRM_ROTATE_270):
-				vidrot = 1;
+				vidrot = 3;
 				break;
 			}
 		} else {
