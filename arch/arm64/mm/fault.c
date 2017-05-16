@@ -78,6 +78,15 @@ static inline int notify_page_fault(struct pt_regs *regs, unsigned int esr)
 }
 #endif
 
+#define cpu_get_pgd()					\
+({							\
+	unsigned long pg;				\
+	asm("mrs	%0, ttbr0_el1\n"		\
+	    : "=r" (pg));				\
+	pg &= ~0xffff000000003ffful;			\
+	(pgd_t *)phys_to_virt(pg);			\
+})
+
 /*
  * Dump out the page tables associated with 'addr' in mm 'mm'.
  */
@@ -88,7 +97,7 @@ void show_pte(struct mm_struct *mm, unsigned long addr)
 	if (!mm)
 		mm = &init_mm;
 
-	pr_alert("pgd = %p\n", mm->pgd);
+	pr_alert("mm_pgd = %p, hw_pgd = %p\n", mm->pgd, cpu_get_pgd());
 	pgd = pgd_offset(mm, addr);
 	pr_alert("[%08lx] *pgd=%016llx", addr, pgd_val(*pgd));
 
@@ -179,11 +188,19 @@ static bool is_el1_instruction_abort(unsigned int esr)
 static void __do_kernel_fault(struct mm_struct *mm, unsigned long addr,
 			      unsigned int esr, struct pt_regs *regs)
 {
+	unsigned long flags;
+	int ret;
 	/*
 	 * Are we prepared to handle this kernel fault?
 	 * We are almost certainly not prepared to handle instruction faults.
 	 */
-	if (!is_el1_instruction_abort(esr) && fixup_exception(regs))
+	flags = hard_cond_local_irq_save();
+	ret = !is_el1_instruction_abort(esr) && fixup_exception(regs);
+	hard_cond_local_irq_restore(flags);
+	if (ret)
+		return;
+
+	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS, regs))
 		return;
 
 	/*
@@ -210,6 +227,9 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 {
 	struct siginfo si;
 	const struct fault_info *inf;
+
+	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS, regs))
+		return;
 
 	if (unhandled_signal(tsk, sig) && show_unhandled_signals_ratelimited()) {
 		inf = esr_to_fault_info(esr);
@@ -312,6 +332,9 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 	if (notify_page_fault(regs, esr))
 		return 0;
 
+	if (__ipipe_report_trap(IPIPE_TRAP_ACCESS, regs))
+		return 0;
+
 	tsk = current;
 	mm  = tsk->mm;
 
@@ -374,7 +397,7 @@ retry:
 	 * would already be released in __lock_page_or_retry in mm/filemap.c.
 	 */
 	if ((fault & VM_FAULT_RETRY) && fatal_signal_pending(current))
-		return 0;
+		goto out;
 
 	/*
 	 * Major/minor page fault accounting is only done on the initial
@@ -411,7 +434,7 @@ retry:
 	 */
 	if (likely(!(fault & (VM_FAULT_ERROR | VM_FAULT_BADMAP |
 			      VM_FAULT_BADACCESS))))
-		return 0;
+		goto out;
 
 	/*
 	 * If we are in kernel mode at this point, we have no context to
@@ -427,7 +450,7 @@ retry:
 		 * oom-killed).
 		 */
 		pagefault_out_of_memory();
-		return 0;
+		goto out;
 	}
 
 	if (fault & VM_FAULT_SIGBUS) {
@@ -448,10 +471,12 @@ retry:
 	}
 
 	__do_user_fault(tsk, addr, esr, sig, code, regs);
-	return 0;
+	goto out;
 
 no_context:
 	__do_kernel_fault(mm, addr, esr, regs);
+out:
+
 	return 0;
 }
 
@@ -480,6 +505,7 @@ static int __kprobes do_translation_fault(unsigned long addr,
 		return do_page_fault(addr, esr, regs);
 
 	do_bad_area(addr, esr, regs);
+
 	return 0;
 }
 
@@ -495,6 +521,9 @@ static int do_alignment_fault(unsigned long addr, unsigned int esr,
  */
 static int do_bad(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 {
+	if (__ipipe_report_trap(IPIPE_TRAP_DABT, regs))
+		return 0;
+
 	return 1;
 }
 
@@ -574,7 +603,12 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 	const struct fault_info *inf = esr_to_fault_info(esr);
 	struct siginfo info;
 
+	IPIPE_WARN_ONCE(hard_irqs_disabled());
+
 	if (!inf->fn(addr, esr, regs))
+		return;
+
+	if (__ipipe_report_trap(IPIPE_TRAP_UNKNOWN, regs))
 		return;
 
 	pr_alert("Unhandled fault: %s (0x%08x) at 0x%016lx\n",
@@ -602,6 +636,9 @@ asmlinkage void __exception do_sp_pc_abort(unsigned long addr,
 				    tsk->comm, task_pid_nr(tsk),
 				    esr_get_class_string(esr), (void *)regs->pc,
 				    (void *)regs->sp);
+
+	if (__ipipe_report_trap(IPIPE_TRAP_ALIGNMENT, regs))
+		return;
 
 	info.si_signo = SIGBUS;
 	info.si_errno = 0;
@@ -659,6 +696,9 @@ asmlinkage int __exception do_debug_exception(unsigned long addr,
 	if (!inf->fn(addr, esr, regs)) {
 		rv = 1;
 	} else {
+		if (__ipipe_report_trap(IPIPE_TRAP_UNKNOWN, regs))
+			return 0;
+
 		pr_alert("Unhandled debug exception: %s (0x%08x) at 0x%016lx\n",
 			 inf->name, esr, addr);
 

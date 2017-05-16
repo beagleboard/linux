@@ -13,6 +13,7 @@
  */
 #include <linux/string.h>
 #include <linux/thread_info.h>
+#include <linux/ipipe.h>
 #include <asm/errno.h>
 #include <asm/memory.h>
 #include <asm/domain.h>
@@ -221,7 +222,7 @@ extern int __get_user_64t_4(void *);
 
 #define get_user(x, p)							\
 	({								\
-		might_fault();						\
+		__ipipe_uaccess_might_fault();				\
 		__get_user_check(x, p);					\
 	 })
 
@@ -301,7 +302,7 @@ do {									\
 	unsigned long __gu_val;						\
 	unsigned int __ua_flags;					\
 	__chk_user_ptr(ptr);						\
-	might_fault();							\
+	__ipipe_uaccess_might_fault();					\
 	__ua_flags = uaccess_save_and_enable();				\
 	switch (sizeof(*(ptr))) {					\
 	case 1:	__get_user_asm_byte(__gu_val, __gu_addr, err);	break;	\
@@ -361,7 +362,7 @@ do {									\
 		const __typeof__(*(ptr)) __user *__pu_ptr = (ptr);	\
 		__typeof__(*(ptr)) __pu_val = (x);			\
 		unsigned int __ua_flags;				\
-		might_fault();						\
+		__ipipe_uaccess_might_fault();				\
 		__ua_flags = uaccess_save_and_enable();			\
 		switch (sizeof(*(ptr))) {				\
 		case 1: __fn(__pu_val, __pu_ptr, __err, 1); break;	\
@@ -471,7 +472,6 @@ do {									\
 	: "+r" (err), "+r" (__pu_addr)				\
 	: "r" (x), "i" (-EFAULT)				\
 	: "cc")
-
 
 #ifdef CONFIG_MMU
 extern unsigned long __must_check
