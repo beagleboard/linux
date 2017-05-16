@@ -205,7 +205,7 @@ static void device_run(void *priv)
 	src_info.color_mode = spix->pixelformat;
 	src_info.global_alpha = 0xff;
 
-	src_info.rotation = OMAP_DSS_ROT_0;
+	src_info.rotation = BIT(DRM_ROTATE_0);
 	src_info.rotation_type = OMAP_DSS_ROT_NONE;
 
 	log_dbg(dev, "SRC: ctx %pa buf_index %d %dx%d, sw %d\n",
@@ -224,7 +224,7 @@ static void device_run(void *priv)
 	wb_info.color_mode = dpix->pixelformat;
 	wb_info.pre_mult_alpha = 1;
 
-	wb_info.rotation = OMAP_DSS_ROT_0;
+	wb_info.rotation = DRM_ROTATE_0;
 	wb_info.rotation_type = OMAP_DSS_ROT_NONE;
 
 	log_dbg(dev, "DST: ctx %pa buf_index %d %dx%d, sw %d\n",
