@@ -37,8 +37,11 @@ extern u64 cpu_do_resume(phys_addr_t ptr, u64 idmap_ttbr);
 
 #define cpu_switch_mm(pgd,mm)				\
 do {							\
+	unsigned long __flags;				\
 	BUG_ON(pgd == swapper_pg_dir);			\
+	__flags = hard_local_irq_save();		\
 	cpu_do_switch_mm(virt_to_phys(pgd),mm);		\
+	hard_local_irq_restore(__flags);		\
 } while (0)
 
 #endif /* __ASSEMBLY__ */

@@ -94,6 +94,9 @@ static DEFINE_PER_CPU(struct fpsimd_state *, fpsimd_last_state);
  */
 void do_fpsimd_acc(unsigned int esr, struct pt_regs *regs)
 {
+	if (__ipipe_report_trap(IPIPE_TRAP_FPU_ACC, regs))
+		return;
+
 	/* TODO: implement lazy context saving/restoring */
 	WARN_ON(1);
 }
@@ -105,6 +108,9 @@ void do_fpsimd_exc(unsigned int esr, struct pt_regs *regs)
 {
 	siginfo_t info;
 	unsigned int si_code = 0;
+
+	if (__ipipe_report_trap(IPIPE_TRAP_FPU_EXC, regs))
+		return;
 
 	if (esr & FPEXC_IOF)
 		si_code = FPE_FLTINV;
@@ -127,6 +133,9 @@ void do_fpsimd_exc(unsigned int esr, struct pt_regs *regs)
 
 void fpsimd_thread_switch(struct task_struct *next)
 {
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
 	/*
 	 * Save the current FPSIMD state to memory, but only if whatever is in
 	 * the registers is in fact the most recent userland FPSIMD state of
@@ -153,6 +162,7 @@ void fpsimd_thread_switch(struct task_struct *next)
 			set_ti_thread_flag(task_thread_info(next),
 					   TIF_FOREIGN_FPSTATE);
 	}
+	hard_local_irq_restore(flags);
 }
 
 void fpsimd_flush_thread(void)
@@ -168,10 +178,12 @@ void fpsimd_flush_thread(void)
  */
 void fpsimd_preserve_current_state(void)
 {
-	preempt_disable();
+	unsigned long flags;
+
+	flags = hard_preempt_disable();
 	if (!test_thread_flag(TIF_FOREIGN_FPSTATE))
 		fpsimd_save_state(&current->thread.fpsimd_state);
-	preempt_enable();
+	hard_preempt_enable(flags);
 }
 
 /*
@@ -181,7 +193,9 @@ void fpsimd_preserve_current_state(void)
  */
 void fpsimd_restore_current_state(void)
 {
-	preempt_disable();
+	unsigned long flags;
+
+	flags = hard_preempt_disable();
 	if (test_and_clear_thread_flag(TIF_FOREIGN_FPSTATE)) {
 		struct fpsimd_state *st = &current->thread.fpsimd_state;
 
@@ -189,7 +203,7 @@ void fpsimd_restore_current_state(void)
 		this_cpu_write(fpsimd_last_state, st);
 		st->cpu = smp_processor_id();
 	}
-	preempt_enable();
+	hard_preempt_enable(flags);
 }
 
 /*
@@ -199,7 +213,9 @@ void fpsimd_restore_current_state(void)
  */
 void fpsimd_update_current_state(struct fpsimd_state *state)
 {
-	preempt_disable();
+	unsigned long flags;
+
+	flags = hard_preempt_disable();
 	fpsimd_load_state(state);
 	if (test_and_clear_thread_flag(TIF_FOREIGN_FPSTATE)) {
 		struct fpsimd_state *st = &current->thread.fpsimd_state;
@@ -207,7 +223,7 @@ void fpsimd_update_current_state(struct fpsimd_state *state)
 		this_cpu_write(fpsimd_last_state, st);
 		st->cpu = smp_processor_id();
 	}
-	preempt_enable();
+	hard_preempt_enable(flags);
 }
 
 /*

@@ -23,6 +23,7 @@
 #include <linux/pinctrl/pinmux.h>
 /* Since we request GPIOs from ourself */
 #include <linux/pinctrl/consumer.h>
+#include <linux/ipipe.h>
 
 #include "pinctrl-at91.h"
 #include "core.h"
@@ -42,6 +43,12 @@ struct at91_gpio_chip {
 	void __iomem		*regbase;	/* PIO bank virtual address */
 	struct clk		*clock;		/* associated clock */
 	struct at91_pinctrl_mux_ops *ops;	/* ops */
+#ifdef CONFIG_IPIPE
+	unsigned *nr_nonroot;
+	unsigned nr_nonroot_storage;
+	unsigned root;
+	unsigned muted;
+#endif
 };
 
 static struct at91_gpio_chip *gpio_chips[MAX_GPIO_BANKS];
@@ -1581,8 +1588,8 @@ static void gpio_irq_handler(struct irq_desc *desc)
 		}
 
 		for_each_set_bit(n, &isr, BITS_PER_LONG) {
-			generic_handle_irq(irq_find_mapping(
-					   gpio_chip->irqdomain, n));
+			ipipe_handle_demuxed_irq(irq_find_mapping(
+						gpio_chip->irqdomain, n));
 		}
 	}
 	chained_irq_exit(chip, desc);
@@ -1636,6 +1643,10 @@ static int at91_gpio_of_irq_setup(struct platform_device *pdev,
 	}
 
 	prev = gpiochip_get_data(gpiochip_prev);
+#ifdef CONFIG_IPIPE
+	if (prev->pioc_hwirq == at91_gpio->pioc_hwirq)
+		at91_gpio->nr_nonroot = prev->nr_nonroot;
+#endif /* CONFIG_IPIPE */
 
 	/* we can only have 2 banks before */
 	for (i = 0; i < 2; i++) {
@@ -1728,6 +1739,10 @@ static int at91_gpio_probe(struct platform_device *pdev)
 	}
 
 	at91_chip->chip = at91_gpio_template;
+#ifdef CONFIG_IPIPE
+	at91_chip->nr_nonroot = &at91_chip->nr_nonroot_storage;
+	at91_chip->root = ~0U;
+#endif /* CONFIG_IPIPE */
 
 	chip = &at91_chip->chip;
 	chip->of_node = np;
@@ -1790,6 +1805,96 @@ err:
 
 	return ret;
 }
+
+#ifdef CONFIG_IPIPE
+int at91_gpio_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct at91_gpio_chip *at91_chip;
+	struct irq_data *idata;
+	struct irq_desc *desc;
+	struct irq_chip *chip;
+
+	if (ipd == &ipipe_root)
+		return 0;
+
+	desc = irq_to_desc(irq);
+	idata = irq_desc_get_irq_data(desc);
+	chip = irq_data_get_irq_chip(idata);
+
+	if (chip != &gpio_irqchip)
+		return -EINVAL;
+
+	at91_chip = irq_data_get_irq_chip_data(idata);
+
+	at91_chip->root &= ~(1 << idata->hwirq);
+
+	if (ipd != &ipipe_root && ++(*at91_chip->nr_nonroot) == 1)
+		return at91_chip->pioc_hwirq;
+
+	return 0;
+}
+
+int at91_gpio_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+{
+	struct at91_gpio_chip *at91_chip;
+	struct irq_data *idata;
+	struct irq_desc *desc;
+	struct irq_chip *chip;
+
+	if (ipd == &ipipe_root)
+		return 0;
+
+	desc = irq_to_desc(irq);
+	idata = irq_desc_get_irq_data(desc);
+	chip = irq_data_get_irq_chip(idata);
+
+	if (chip != &gpio_irqchip)
+		return -EINVAL;
+
+	at91_chip = irq_data_get_irq_chip_data(idata);
+
+	at91_chip->root |= (1 << idata->hwirq);
+
+	if (ipd != &ipipe_root && --(*at91_chip->nr_nonroot) == 0)
+		return at91_chip->pioc_hwirq;
+
+	return 0;
+}
+
+void at91_gpio_mute(void)
+{
+	struct at91_gpio_chip *prev, *chip = NULL;
+	unsigned long unmasked, muted;
+	unsigned i;
+
+	for (i = 0; i < gpio_banks; i++) {
+		prev = chip;
+		chip = gpio_chips[i];
+		if (!(*chip->nr_nonroot))
+			continue;
+
+		unmasked = __raw_readl(chip->regbase + PIO_IMR);
+		muted = unmasked & chip->root;
+		chip->muted = muted;
+		__raw_writel(muted, chip->regbase + PIO_IDR);
+	}
+}
+
+void at91_gpio_unmute(void)
+{
+	struct at91_gpio_chip *prev, *chip = NULL;
+	unsigned i;
+
+	for (i = 0; i < gpio_banks; i++) {
+		prev = chip;
+		chip = gpio_chips[i];
+		if (!(*chip->nr_nonroot))
+			continue;
+
+		__raw_writel(chip->muted, chip->regbase + PIO_IER);
+	}
+}
+#endif /* CONFIG_IPIPE */
 
 static struct platform_driver at91_gpio_driver = {
 	.driver = {

@@ -25,6 +25,7 @@
 #include <linux/sched_clock.h>
 
 #include <asm/cputype.h>
+#include <asm/ipipe.h>
 
 #define GT_COUNTER0	0x00
 #define GT_COUNTER1	0x04
@@ -49,6 +50,8 @@
  * the units for all operations.
  */
 static void __iomem *gt_base;
+static unsigned long gt_pbase;
+static struct clk *gt_clk;
 static unsigned long gt_clk_rate;
 static int gt_ppi;
 static struct clock_event_device __percpu *gt_evt;
@@ -241,8 +244,35 @@ static void __init gt_delay_timer_init(void)
 	register_current_timer_delay(&gt_delay_timer);
 }
 
+#ifdef CONFIG_IPIPE
+
+static unsigned int refresh_gt_freq(void)
+{
+	gt_clk_rate = clk_get_rate(gt_clk);
+
+	__clocksource_update_freq_hz(&gt_clocksource, gt_clk_rate);
+
+	return gt_clk_rate;
+}
+
+#endif
+
 static int __init gt_clocksource_init(void)
 {
+#ifdef CONFIG_IPIPE
+	struct __ipipe_tscinfo tsc_info = {
+		.type = IPIPE_TSC_TYPE_FREERUNNING,
+		.freq = gt_clk_rate,
+		.counter_vaddr = (unsigned long)gt_base,
+		.u = {
+			{
+				.counter_paddr = gt_pbase,
+				.mask = 0xffffffff,
+			}
+		},
+		.refresh_freq = refresh_gt_freq,
+	};
+#endif
 	writel(0, gt_base + GT_CONTROL);
 	writel(0, gt_base + GT_COUNTER0);
 	writel(0, gt_base + GT_COUNTER1);
@@ -252,6 +282,9 @@ static int __init gt_clocksource_init(void)
 #ifdef CONFIG_CLKSRC_ARM_GLOBAL_TIMER_SCHED_CLOCK
 	sched_clock_register(gt_sched_clock_read, 64, gt_clk_rate);
 #endif
+#ifdef CONFIG_IPIPE
+	__ipipe_tsc_register(&tsc_info);
+#endif
 	return clocksource_register_hz(&gt_clocksource, gt_clk_rate);
 }
 
@@ -259,6 +292,7 @@ static int __init global_timer_of_register(struct device_node *np)
 {
 	struct clk *gt_clk;
 	int err = 0;
+	struct resource res;
 
 	/*
 	 * In A9 r2p0 the comparators for each processor with the global timer
@@ -282,6 +316,11 @@ static int __init global_timer_of_register(struct device_node *np)
 		pr_warn("global-timer: invalid base address\n");
 		return -ENXIO;
 	}
+
+	if (of_address_to_resource(np, 0, &res))
+		res.start = 0;
+
+	gt_pbase = res.start;
 
 	gt_clk = of_clk_get(np, 0);
 	if (!IS_ERR(gt_clk)) {
