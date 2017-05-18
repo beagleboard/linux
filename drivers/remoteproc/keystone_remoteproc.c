@@ -1134,7 +1134,20 @@ static struct platform_driver keystone_rproc_driver = {
 	},
 };
 
-module_platform_driver(keystone_rproc_driver);
+static int __init keystone_rproc_init(void)
+{
+	keystone_rproc_driver.driver.suppress_bind_attrs =
+		!use_rproc_core_loader;
+
+	return platform_driver_register(&keystone_rproc_driver);
+}
+module_init(keystone_rproc_init);
+
+static void __exit keystone_rproc_exit(void)
+{
+	platform_driver_unregister(&keystone_rproc_driver);
+}
+module_exit(keystone_rproc_exit);
 
 MODULE_AUTHOR("Sam Nelson Siluvaimani");
 MODULE_AUTHOR("Suman Anna");
