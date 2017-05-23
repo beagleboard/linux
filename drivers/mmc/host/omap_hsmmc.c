@@ -236,8 +236,8 @@ struct omap_hsmmc_adma_desc {
 
 /* ADMA error status */
 #define AES_MASK		0x3
-#define ST_FDS			0x0
-#define ST_STOP			0x1
+#define ST_STOP			0x0
+#define ST_FDS			0x1
 #define ST_TFR			0x3
 
 struct omap_hsmmc_next {
