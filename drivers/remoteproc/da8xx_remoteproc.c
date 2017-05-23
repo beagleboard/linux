@@ -138,12 +138,21 @@ static int da8xx_rproc_start(struct rproc *rproc)
 	struct device *dev = rproc->dev.parent;
 	struct da8xx_rproc *drproc = (struct da8xx_rproc *)rproc->priv;
 	struct clk *dsp_clk = drproc->dsp_clk;
+	int ret;
 
 	/* hw requires the start (boot) address be on 1KB boundary */
 	if (rproc->bootaddr & 0x3ff) {
 		dev_err(dev, "invalid boot address: must be aligned to 1KB\n");
 
 		return -EINVAL;
+	}
+
+	/* everything the ISR needs is now setup, so hook it up */
+	ret = request_threaded_irq(drproc->irq, da8xx_rproc_callback,
+				   handle_event, 0, "da8xx-remoteproc", rproc);
+	if (ret) {
+		dev_err(dev, "request_threaded_irq error: %d\n", ret);
+		return ret;
 	}
 
 	writel(rproc->bootaddr, drproc->bootreg);
@@ -158,7 +167,10 @@ static int da8xx_rproc_stop(struct rproc *rproc)
 {
 	struct da8xx_rproc *drproc = rproc->priv;
 
+	davinci_clk_reset_assert(drproc->dsp_clk);
 	clk_disable(drproc->dsp_clk);
+
+	free_irq(drproc->irq, rproc);
 
 	return 0;
 }
@@ -177,22 +189,6 @@ static const struct rproc_ops da8xx_rproc_ops = {
 	.stop = da8xx_rproc_stop,
 	.kick = da8xx_rproc_kick,
 };
-
-static int reset_assert(struct device *dev)
-{
-	struct clk *dsp_clk;
-
-	dsp_clk = clk_get(dev, NULL);
-	if (IS_ERR(dsp_clk)) {
-		dev_err(dev, "clk_get error: %ld\n", PTR_ERR(dsp_clk));
-		return PTR_ERR(dsp_clk);
-	}
-
-	davinci_clk_reset_assert(dsp_clk);
-	clk_put(dsp_clk);
-
-	return 0;
-}
 
 static int da8xx_rproc_get_internal_memories(struct platform_device *pdev,
 					     struct da8xx_rproc *drproc)
@@ -295,6 +291,7 @@ static int da8xx_rproc_probe(struct platform_device *pdev)
 
 	drproc = rproc->priv;
 	drproc->rproc = rproc;
+	drproc->dsp_clk = dsp_clk;
 	rproc->has_iommu = false;
 
 	ret = da8xx_rproc_get_internal_memories(pdev, drproc);
@@ -303,21 +300,12 @@ static int da8xx_rproc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, rproc);
 
-	/* everything the ISR needs is now setup, so hook it up */
-	ret = devm_request_threaded_irq(dev, irq, da8xx_rproc_callback,
-					handle_event, 0, "da8xx-remoteproc",
-					rproc);
-	if (ret) {
-		dev_err(dev, "devm_request_threaded_irq error: %d\n", ret);
-		goto free_rproc;
-	}
-
 	/*
 	 * rproc_add() can end up enabling the DSP's clk with the DSP
 	 * *not* in reset, but da8xx_rproc_start() needs the DSP to be
 	 * held in reset at the time it is called.
 	 */
-	ret = reset_assert(dev);
+	ret = davinci_clk_reset_assert(drproc->dsp_clk);
 	if (ret)
 		goto free_rproc;
 
@@ -326,7 +314,6 @@ static int da8xx_rproc_probe(struct platform_device *pdev)
 	drproc->ack_fxn = irq_data->chip->irq_ack;
 	drproc->irq_data = irq_data;
 	drproc->irq = irq;
-	drproc->dsp_clk = dsp_clk;
 
 	ret = rproc_add(rproc);
 	if (ret) {
@@ -351,24 +338,6 @@ static int da8xx_rproc_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct rproc *rproc = platform_get_drvdata(pdev);
-	struct da8xx_rproc *drproc = (struct da8xx_rproc *)rproc->priv;
-
-	/*
-	 * It's important to place the DSP in reset before going away,
-	 * since a subsequent insmod of this module may enable the DSP's
-	 * clock before its program/boot-address has been loaded and
-	 * before this module's probe has had a chance to reset the DSP.
-	 * Without the reset, the DSP can lockup permanently when it
-	 * begins executing garbage.
-	 */
-	reset_assert(dev);
-
-	/*
-	 * The devm subsystem might end up releasing things before
-	 * freeing the irq, thus allowing an interrupt to sneak in while
-	 * the device is being removed.  This should prevent that.
-	 */
-	disable_irq(drproc->irq);
 
 	rproc_del(rproc);
 	rproc_free(rproc);
