@@ -143,11 +143,11 @@ static struct attribute_group ecap_attribute_group = {
 	.attrs = ecap_attributes,
 };
 
-static int ecap_read_raw(struct iio_dev *idev,
+static int ecap_read_raw(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *ch, int *val,
 			int *val2, long mask)
 {
-	struct ecap_state *state = iio_priv(idev);
+	struct ecap_state *state = iio_priv(indio_dev);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
@@ -175,15 +175,16 @@ static const struct iio_info ecap_info = {
 static irqreturn_t ecap_trigger_handler(int irq, void *private)
 {
 	struct iio_poll_func *pf = private;
-	struct iio_dev *idev = pf->indio_dev;
-	struct ecap_state *state = iio_priv(idev);
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct ecap_state *state = iio_priv(indio_dev);
 
 	/* Read pulse counter value */
 	*state->buf = readl(state->regs + CAP2);
 
-	iio_push_to_buffers_with_timestamp(idev, state->buf, iio_get_time_ns());
+	iio_push_to_buffers_with_timestamp(indio_dev, state->buf,
+		iio_get_time_ns(indio_dev));
 
-	iio_trigger_notify_done(idev->trig);
+	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
 };
@@ -195,26 +196,26 @@ static const struct iio_trigger_ops iio_interrupt_trigger_ops = {
 
 static irqreturn_t ecap_interrupt_handler(int irq, void *private)
 {
-	struct iio_dev *idev = private;
-	struct ecap_state *state = iio_priv(idev);
+	struct iio_dev *indio_dev = private;
+	struct ecap_state *state = iio_priv(indio_dev);
 	u16 ints;
 
-	iio_trigger_poll(idev->trig, 0);
+	iio_trigger_poll(indio_dev->trig);
 
 	/* Clear CAP2 interrupt */
 	ints = readw(state->regs + ECFLG);
 	if (ints & ECINT_CEVT2)
 		writew(ECINT_CEVT2, state->regs + ECCLR);
 	else
-		dev_warn(&idev->dev, "unhandled interrupt flagged: %04x\n",
+		dev_warn(&indio_dev->dev, "unhandled interrupt flagged: %04x\n",
 			 ints);
 
 	return IRQ_HANDLED;
 }
 
-static int ecap_buffer_predisable(struct iio_dev *idev)
+static int ecap_buffer_predisable(struct iio_dev *indio_dev)
 {
-	struct ecap_state *state = iio_priv(idev);
+	struct ecap_state *state = iio_priv(indio_dev);
 	int ret = 0;
 	u16 ecctl2;
 
@@ -227,20 +228,20 @@ static int ecap_buffer_predisable(struct iio_dev *idev)
 	writew(0, state->regs + ECEINT);
 	writew(ECINT_ALL, state->regs + ECCLR);
 
-	ret = iio_triggered_buffer_predisable(idev);
+	ret = iio_triggered_buffer_predisable(indio_dev);
 
-	pm_runtime_put_sync(idev->dev.parent);
+	pm_runtime_put_sync(indio_dev->dev.parent);
 
 	return ret;
 }
 
-static int ecap_buffer_postenable(struct iio_dev *idev)
+static int ecap_buffer_postenable(struct iio_dev *indio_dev)
 {
-	struct ecap_state *state = iio_priv(idev);
+	struct ecap_state *state = iio_priv(indio_dev);
 	int ret = 0;
 	u16 ecctl1, ecctl2;
 
-	pm_runtime_get_sync(idev->dev.parent);
+	pm_runtime_get_sync(indio_dev->dev.parent);
 
 	/* Configure pulse polarity */
 	ecctl1 = readw(state->regs + ECCTL1);
@@ -264,7 +265,7 @@ static int ecap_buffer_postenable(struct iio_dev *idev)
 	writew(ecctl2, state->regs + ECCTL2);
 	set_bit(ECAP_ENABLED, &state->flags);
 
-	ret = iio_triggered_buffer_postenable(idev);
+	ret = iio_triggered_buffer_postenable(indio_dev);
 
 	return ret;
 }
@@ -274,9 +275,9 @@ static const struct iio_buffer_setup_ops ecap_buffer_setup_ops = {
 	.predisable = &ecap_buffer_predisable,
 };
 
-static void ecap_init_hw(struct iio_dev *idev)
+static void ecap_init_hw(struct iio_dev *indio_dev)
 {
-	struct ecap_state *state = iio_priv(idev);
+	struct ecap_state *state = iio_priv(indio_dev);
 
 	clear_bit(ECAP_ENABLED, &state->flags);
 	set_bit(ECAP_POLARITY_HIGH, &state->flags);
@@ -298,18 +299,18 @@ MODULE_DEVICE_TABLE(of, ecap_of_ids);
 static int ecap_probe(struct platform_device *pdev)
 {
 	int irq, ret;
-	struct iio_dev *idev;
+	struct iio_dev *indio_dev;
 	struct ecap_state *state;
 	struct resource *r;
 	struct clk *clk;
 	struct iio_trigger *trig;
 	u16 status;
 
-	idev = devm_iio_device_alloc(&pdev->dev, sizeof(struct ecap_state));
-	if (!idev)
+	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(struct ecap_state));
+	if (!indio_dev)
 		return -ENOMEM;
 
-	state = iio_priv(idev);
+	state = iio_priv(indio_dev);
 
 	clk = devm_clk_get(&pdev->dev, "fck");
 	if (IS_ERR(clk)) {
@@ -323,22 +324,22 @@ static int ecap_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	platform_set_drvdata(pdev, idev);
+	platform_set_drvdata(pdev, indio_dev);
 
-	idev->dev.parent = &pdev->dev;
-	idev->name = dev_name(&pdev->dev);
-	idev->modes = INDIO_DIRECT_MODE;
-	idev->info = &ecap_info;
-	idev->channels = ecap_channels;
+	indio_dev->dev.parent = &pdev->dev;
+	indio_dev->name = dev_name(&pdev->dev);
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->info = &ecap_info;
+	indio_dev->channels = ecap_channels;
 	/* One h/w capture and one s/w timestamp channel per instance */
-	idev->num_channels = ARRAY_SIZE(ecap_channels);
+	indio_dev->num_channels = ARRAY_SIZE(ecap_channels);
 
 	trig = devm_iio_trigger_alloc(&pdev->dev, "%s-dev%d",
-				      idev->name, idev->id);
+				      indio_dev->name, indio_dev->id);
 	if (!trig)
 		return -ENOMEM;
-	trig->dev.parent = idev->dev.parent;
-	iio_trigger_set_drvdata(trig, idev);
+	trig->dev.parent = indio_dev->dev.parent;
+	iio_trigger_set_drvdata(trig, indio_dev);
 	trig->ops = &iio_interrupt_trigger_ops;
 
 	ret = iio_trigger_register(trig);
@@ -347,7 +348,7 @@ static int ecap_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = iio_triggered_buffer_setup(idev, NULL,
+	ret = iio_triggered_buffer_setup(indio_dev, NULL,
 					 &ecap_trigger_handler,
 					 &ecap_buffer_setup_ops);
 	if (ret)
@@ -360,7 +361,7 @@ static int ecap_probe(struct platform_device *pdev)
 	}
 	ret = devm_request_irq(&pdev->dev, irq,
 				&ecap_interrupt_handler,
-				0, dev_name(&pdev->dev), idev);
+				0, dev_name(&pdev->dev), indio_dev);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to request irq\n");
 		goto uninit_buffer;
@@ -374,13 +375,13 @@ static int ecap_probe(struct platform_device *pdev)
 		goto uninit_buffer;
 	};
 
-	ret = iio_device_register(idev);
+	ret = iio_device_register(indio_dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "unable to register device\n");
 		goto uninit_buffer;
 	}
 
-	state->buf = devm_kzalloc(&idev->dev, idev->scan_bytes, GFP_KERNEL);
+	state->buf = devm_kzalloc(&indio_dev->dev, indio_dev->scan_bytes, GFP_KERNEL);
 	if (!state->buf) {
 		ret = -ENOMEM;
 		goto uninit_buffer;
@@ -397,7 +398,7 @@ static int ecap_probe(struct platform_device *pdev)
 		goto pwmss_clk_failure;
 	}
 
-	ecap_init_hw(idev);
+	ecap_init_hw(indio_dev);
 
 	pm_runtime_put_sync(&pdev->dev);
 
@@ -406,17 +407,17 @@ static int ecap_probe(struct platform_device *pdev)
 pwmss_clk_failure:
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
-	iio_device_unregister(idev);
+	iio_device_unregister(indio_dev);
 
 uninit_buffer:
-	iio_triggered_buffer_cleanup(idev);
+	iio_triggered_buffer_cleanup(indio_dev);
 
 	return ret;
 }
 
 static int ecap_remove(struct platform_device *pdev)
 {
-	struct iio_dev *idev = platform_get_drvdata(pdev);
+	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 
 	pm_runtime_get_sync(&pdev->dev);
 
@@ -425,8 +426,8 @@ static int ecap_remove(struct platform_device *pdev)
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
-	iio_device_unregister(idev);
-	iio_triggered_buffer_cleanup(idev);
+	iio_device_unregister(indio_dev);
+	iio_triggered_buffer_cleanup(indio_dev);
 
 	return 0;
 }
