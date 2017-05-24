@@ -160,12 +160,6 @@
 	cap-power-off-card;
 	keep-power-in-suspend;
 	ti,non-removable;
-	pinctrl-names = "default", "hs", "sdr12", "sdr25", "sdr50";
-	pinctrl-0 = <&mmc3_pins_default>;
-	pinctrl-1 = <&mmc3_pins_hs>;
-	pinctrl-2 = <&mmc3_pins_sdr12>;
-	pinctrl-3 = <&mmc3_pins_sdr25>;
-	pinctrl-4 = <&mmc3_pins_sdr50 &mmc3_iodelay_manual1_conf>;
 
 	#address-cells = <1>;
 	#size-cells = <0>;
