@@ -38,7 +38,12 @@
  * TASK_UNMAPPED_BASE - the lower boundary of the mmap VM area
  */
 #define TASK_SIZE		(UL(CONFIG_PAGE_OFFSET) - UL(SZ_16M))
+#ifndef CONFIG_ARM_FCSE
 #define TASK_UNMAPPED_BASE	ALIGN(TASK_SIZE / 3, SZ_16M)
+#else /* CONFIG_ARM_FCSE */
+#define TASK_UNMAPPED_BASE	UL(0x00800000)
+#endif /* CONFIG_ARM_FCSE */
+#define FCSE_TASK_SIZE		UL(0x02000000)
 
 /*
  * The maximum size of a 26-bit user space task.

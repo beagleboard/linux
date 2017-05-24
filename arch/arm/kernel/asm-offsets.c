@@ -66,6 +66,9 @@ int main(void)
 #endif
   BLANK();
   DEFINE(TI_FLAGS,		offsetof(struct thread_info, flags));
+#ifdef CONFIG_IPIPE
+  DEFINE(TI_IPIPE,		offsetof(struct thread_info, ipipe_flags));
+#endif
   DEFINE(TI_PREEMPT,		offsetof(struct thread_info, preempt_count));
   DEFINE(TI_ADDR_LIMIT,		offsetof(struct thread_info, addr_limit));
   DEFINE(TI_TASK,		offsetof(struct thread_info, task));
@@ -75,6 +78,9 @@ int main(void)
   DEFINE(TI_USED_CP,		offsetof(struct thread_info, used_cp));
   DEFINE(TI_TP_VALUE,		offsetof(struct thread_info, tp_value));
   DEFINE(TI_FPSTATE,		offsetof(struct thread_info, fpstate));
+#ifdef CONFIG_IPIPE
+  DEFINE(TI_IPIPE,		offsetof(struct thread_info, ipipe_flags));
+#endif
 #ifdef CONFIG_VFP
   DEFINE(TI_VFPSTATE,		offsetof(struct thread_info, vfpstate));
 #ifdef CONFIG_SMP

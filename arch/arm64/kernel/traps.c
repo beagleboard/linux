@@ -31,6 +31,7 @@
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/syscalls.h>
+#include <linux/ipipe.h>
 
 #include <asm/atomic.h>
 #include <asm/bug.h>
@@ -608,7 +609,12 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 		esr_get_class_string(esr));
 
 	die("Oops - bad mode", regs, 0);
+#ifdef CONFIG_IPIPE
+	hard_local_irq_disable();
+	__ipipe_root_status &= ~IPIPE_STALL_FLAG;
+#else
 	local_irq_disable();
+#endif
 	panic("bad mode");
 }
 
@@ -620,6 +626,15 @@ asmlinkage void bad_el0_sync(struct pt_regs *regs, int reason, unsigned int esr)
 {
 	siginfo_t info;
 	void __user *pc = (void __user *)instruction_pointer(regs);
+
+	if (__ipipe_report_trap(IPIPE_TRAP_UNKNOWN,regs))
+		return;
+
+#ifdef CONFIG_IPIPE
+	ipipe_stall_root();
+	hard_local_irq_enable();
+#endif
+
 	console_verbose();
 
 	pr_crit("Bad EL0 synchronous exception detected on CPU%d, code 0x%08x -- %s\n",

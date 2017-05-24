@@ -69,6 +69,53 @@ EXPORT_SYMBOL_GPL(pm_power_off);
 
 void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
 
+#ifdef CONFIG_IPIPE
+static void __ipipe_halt_root(void)
+{
+	struct ipipe_percpu_domain_data *p;
+
+	/*
+	 * Emulate idle entry sequence over the root domain, which is
+	 * stalled on entry.
+	 */
+	hard_local_irq_disable();
+
+	p = ipipe_this_cpu_root_context();
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
+
+	if (unlikely(__ipipe_ipending_p(p)))
+		__ipipe_sync_stage();
+	else {
+		cpu_do_idle();
+	}
+}
+
+#define FPSIMD_EN (0x3 << 20)
+static inline void disable_fpsimd(void)
+{
+	unsigned long flags, cpacr;
+
+	flags = hard_local_irq_save();
+	__asm__ __volatile__("mrs %0, cpacr_el1": "=r"(cpacr));
+	cpacr &= ~FPSIMD_EN;
+	__asm__ __volatile__ (
+		"msr cpacr_el1, %0\n\t"
+		"isb"
+		: /* */ : "r"(cpacr));
+	hard_local_irq_restore(flags);
+}
+
+#else /* !CONFIG_IPIPE */
+static void __ipipe_halt_root(void)
+{
+	cpu_do_idle();
+}
+
+static inline void disable_fpsimd(void)
+{ }
+
+#endif /* !CONFIG_IPIPE */
+
 /*
  * This is our default idle handler.
  */
@@ -79,6 +126,8 @@ void arch_cpu_idle(void)
 	 * tricks
 	 */
 	trace_cpu_idle_rcuidle(1, smp_processor_id());
+	if (!need_resched())
+		__ipipe_halt_root();
 	cpu_do_idle();
 	local_irq_enable();
 	trace_cpu_idle_rcuidle(PWR_EVENT_EXIT, smp_processor_id());
@@ -324,12 +373,16 @@ void uao_thread_switch(struct task_struct *next)
 /*
  * Thread switching.
  */
-struct task_struct *__switch_to(struct task_struct *prev,
-				struct task_struct *next)
+static struct task_struct *__do_switch_to(struct task_struct *prev,
+					  struct task_struct *next,
+					  bool lazy_fpu)
 {
 	struct task_struct *last;
 
-	fpsimd_thread_switch(next);
+	if (lazy_fpu)
+		disable_fpsimd();
+	else
+		fpsimd_thread_switch(next);
 	tls_thread_switch(next);
 	hw_breakpoint_thread_switch(next);
 	contextidr_thread_switch(next);
@@ -346,6 +399,20 @@ struct task_struct *__switch_to(struct task_struct *prev,
 
 	return last;
 }
+
+struct task_struct *__switch_to(struct task_struct *prev,
+				struct task_struct *next)
+{
+	return __do_switch_to(prev, next, false);
+}
+
+#ifdef CONFIG_IPIPE
+struct task_struct *ipipe_switch_to(struct task_struct *prev,
+				    struct task_struct *next)
+{
+	return __do_switch_to(prev, next, true);
+}
+#endif
 
 unsigned long get_wchan(struct task_struct *p)
 {
