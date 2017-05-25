@@ -470,10 +470,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 		}
 	}
 
-#ifdef CONFIG_IPIPE
-	if (!ipipe_trap_notify(fp->seqstat & 0x3f, fp))
-#endif
-	{
+	if (__ipipe_report_trap(fp->seqstat & 0x3f, fp) == 0) {
 		info.si_signo = sig;
 		info.si_errno = 0;
 		switch (trapnr) {

@@ -11,6 +11,7 @@
 #include <linux/cpu.h>
 #include <linux/pm.h>
 #include <linux/io.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/irqdomain.h>
 #include <asm/fixmap.h>
@@ -50,6 +51,9 @@ struct hpet_dev {
 	int				cpu;
 	unsigned int			irq;
 	unsigned int			flags;
+#ifdef CONFIG_IPIPE
+	struct ipipe_timer		itimer;
+#endif /* CONFIG_IPIPE */
 	char				name[10];
 };
 
@@ -425,6 +429,12 @@ static int hpet_legacy_next_event(unsigned long delta,
 	return hpet_next_event(delta, evt, 0);
 }
 
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer hpet_itimer = {
+	.irq = 0,
+};
+#endif /* CONFIG_IPIPE */
+
 /*
  * The hpet clock event device
  */
@@ -439,6 +449,9 @@ static struct clock_event_device hpet_clockevent = {
 	.set_next_event		= hpet_legacy_next_event,
 	.irq			= 0,
 	.rating			= 50,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer    = &hpet_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 /*
@@ -642,8 +655,20 @@ static void hpet_msi_capability_lookup(unsigned int start_timer)
 		hdev->flags |= HPET_DEV_FSB_CAP;
 		hdev->flags |= HPET_DEV_VALID;
 		num_timers_used++;
-		if (num_timers_used == num_possible_cpus())
+		if (num_timers_used == num_possible_cpus()) {
+#ifdef CONFIG_IPIPE
+			/*
+			 * Only register ipipe_timers if there is one
+			 * for each cpu
+			 */
+			for (i = 0; i < num_timers_used; i++) {
+				hdev = &hpet_devs[i];
+				hdev->evt.ipipe_timer = &hdev->itimer;
+				hdev->itimer.irq = hdev->irq;
+			}
+#endif /* CONFIG_IPIPE */
 			break;
+		}
 	}
 
 	printk(KERN_INFO "HPET: %d timers in total, %d timers will be used for per-cpu timer\n",
