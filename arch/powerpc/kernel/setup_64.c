@@ -199,10 +199,14 @@ early_param("smt-enabled", early_smt_enabled);
 /** Fix up paca fields required for the boot cpu */
 static void fixup_boot_paca(void)
 {
-	/* The boot cpu is started */
-	get_paca()->cpu_start = 1;
+	/*
+	 * The boot cpu is started. We use the direct PACA accessor to
+	 * prevent access to uninit I-pipe globals when running the
+	 * debug code w/ CONFIG_DEBUG_PREEMPT.
+	 */
+	local_paca->cpu_start = 1;
 	/* Allow percpu accesses to work until we setup percpu data */
-	get_paca()->data_offset = 0;
+	local_paca->data_offset = 0;
 }
 
 static void cpu_ready_for_interrupts(void)
@@ -332,8 +336,10 @@ void __init early_setup(unsigned long dt_ptr)
 #ifdef CONFIG_SMP
 void early_setup_secondary(void)
 {
+#ifndef CONFIG_IPIPE
 	/* Mark interrupts enabled in PACA */
 	get_paca()->soft_enabled = 0;
+#endif
 
 	/* Initialize the hash table or TLB handling */
 	early_init_mmu_secondary();
@@ -477,6 +483,13 @@ static void __init initialize_cache_info(void)
  */
 void __init setup_system(void)
 {
+#ifdef CONFIG_IPIPE
+	/*
+	 * Early init before per-cpu areas are moved to their final
+	 * location.
+	 */
+	local_paca->ipipe_statp = (u64)&ipipe_percpu_context(&ipipe_root, 0)->status;
+#endif
 	DBG(" -> setup_system()\n");
 
 	/* Apply the CPUs-specific and firmware specific fixups to kernel
@@ -611,6 +624,9 @@ static u64 safe_stack_limit(void)
 #endif
 }
 
+#ifdef CONFIG_IPIPE
+static inline void irqstack_early_init(void) { }
+#else
 static void __init irqstack_early_init(void)
 {
 	u64 limit = safe_stack_limit();
@@ -629,6 +645,7 @@ static void __init irqstack_early_init(void)
 					    THREAD_SIZE, limit));
 	}
 }
+#endif
 
 #ifdef CONFIG_PPC_BOOK3E
 static void __init exc_lvl_early_init(void)
@@ -799,6 +816,10 @@ void __init setup_per_cpu_areas(void)
                 __per_cpu_offset[cpu] = delta + pcpu_unit_offsets[cpu];
 		paca[cpu].data_offset = __per_cpu_offset[cpu];
 	}
+#ifdef CONFIG_IPIPE
+	/* Reset pointer to the relocated per-cpu root domain data. */
+	local_paca->ipipe_statp = (u64)&ipipe_percpu_context(&ipipe_root, 0)->status;
+#endif
 }
 #endif
 

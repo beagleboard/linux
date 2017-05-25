@@ -65,7 +65,9 @@
 	ld	reg, (SPECIAL_EXC_##name * 8 + SPECIAL_EXC_FRAME_OFFS)(r1)
 
 special_reg_save:
+#ifndef CONFIG_IPIPE
 	lbz	r9,PACAIRQHAPPENED(r13)
+#endif
 	RECONCILE_IRQ_STATE(r3,r4)
 
 	/*
@@ -132,15 +134,15 @@ BEGIN_FTR_SECTION
 	mtspr	SPRN_MAS5,r10
 	mtspr	SPRN_MAS8,r10
 END_FTR_SECTION_IFSET(CPU_FTR_EMB_HV)
+#ifndef CONFIG_IPIPE
 	SPECIAL_EXC_STORE(r9,IRQHAPPENED)
-
+#endif
 	mfspr	r10,SPRN_DEAR
 	SPECIAL_EXC_STORE(r10,DEAR)
 	mfspr	r10,SPRN_ESR
 	SPECIAL_EXC_STORE(r10,ESR)
 
-	lbz	r10,PACASOFTIRQEN(r13)
-	SPECIAL_EXC_STORE(r10,SOFTE)
+	SPECIAL_SAVE_SOFTISTATE(r10)
 	ld	r10,_NIP(r1)
 	SPECIAL_EXC_STORE(r10,CSRR0)
 	ld	r10,_MSR(r1)
@@ -206,8 +208,15 @@ BEGIN_FTR_SECTION
 	mtspr	SPRN_MAS8,r10
 END_FTR_SECTION_IFSET(CPU_FTR_EMB_HV)
 
-	lbz	r6,PACASOFTIRQEN(r13)
+#ifdef CONFIG_IPIPE
+	ld	r6,PACAROOTPCPU(r13)
+	cmpwi	cr0,r6,0
+	bne	1f
+	TRACE_ENABLE_INTS
+1:
+#else
 	ld	r5,SOFTE(r1)
+	lbz	r6,PACASOFTIRQEN(r13)
 
 	/* Interrupts had better not already be enabled... */
 	twnei	r6,0
@@ -226,6 +235,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_EMB_HV)
 	 */
 	SPECIAL_EXC_LOAD(r10,IRQHAPPENED)
 	stb	r10,PACAIRQHAPPENED(r13)
+#endif
 
 	SPECIAL_EXC_LOAD(r10,DEAR)
 	mtspr	SPRN_DEAR,r10
@@ -350,10 +360,16 @@ ret_from_mc_except:
 #define PROLOG_ADDITION_NONE_DBG(n)
 #define PROLOG_ADDITION_NONE_MC(n)
 
+#ifdef CONFIG_IPIPE
+#define PROLOG_ADDITION_MASKABLE_GEN(n)
+#define MASKABLE_EXCEPTION_EXIT	 b	__ipipe_ret_from_except_lite
+#else
 #define PROLOG_ADDITION_MASKABLE_GEN(n)					    \
 	lbz	r10,PACASOFTIRQEN(r13); /* are irqs soft-disabled ? */	    \
 	cmpwi	cr0,r10,0;		/* yes -> go out of line */	    \
 	beq	masked_interrupt_book3e_##n
+#define MASKABLE_EXCEPTION_EXIT	 b	ret_from_except_lite
+#endif
 
 #define PROLOG_ADDITION_2REGS_GEN(n)					    \
 	std	r14,PACA_EXGEN+EX_R14(r13);				    \
@@ -397,8 +413,8 @@ exc_##n##_common:							    \
 	mfspr	r8,SPRN_XER;		/* save XER in stackframe */	    \
 	ld	r9,excf+EX_R1(r13);	/* load orig r1 back from PACA */   \
 	lwz	r10,excf+EX_CR(r13);	/* load orig CR back from PACA	*/  \
-	lbz	r11,PACASOFTIRQEN(r13);	/* get current IRQ softe */	    \
 	ld	r12,exception_marker@toc(r2);				    \
+	EXC_SAVE_SOFTISTATE(r11);					    \
 	li	r0,0;							    \
 	std	r3,GPR10(r1);		/* save r10 to stackframe */	    \
 	std	r4,GPR11(r1);		/* save r11 to stackframe */	    \
@@ -410,7 +426,6 @@ exc_##n##_common:							    \
 	std	r9,0(r1);		/* store stack frame back link */   \
 	std	r10,_CCR(r1);		/* store orig CR in stackframe */   \
 	std	r9,GPR1(r1);		/* store stack frame back link */   \
-	std	r11,SOFTE(r1);		/* and save it to stackframe */     \
 	std	r12,STACK_FRAME_OVERHEAD-16(r1); /* mark the frame */	    \
 	std	r3,_TRAP(r1);		/* set trap number		*/  \
 	std	r0,RESULT(r1);		/* clear regs->result */
@@ -499,7 +514,7 @@ exc_##n##_bad_stack:							    \
 	CHECK_NAPPING();						\
 	addi	r3,r1,STACK_FRAME_OVERHEAD;				\
 	bl	hdlr;							\
-	b	ret_from_except_lite;
+	MASKABLE_EXCEPTION_EXIT;
 
 /* This value is used to mark exception frames on the stack. */
 	.section	".toc","aw"
@@ -544,6 +559,16 @@ interrupt_base_book3e:					/* fake trap */
 
 	.globl __end_interrupts
 __end_interrupts:
+
+#ifdef CONFIG_IPIPE
+#define BOOKE_EXTIRQ_HANDLER  __ipipe_grab_irq
+#define BOOKE_TIMER_HANDLER   __ipipe_grab_timer
+#define BOOKE_DBELL_HANDLER   __ipipe_grab_doorbell
+#else
+#define BOOKE_EXTIRQ_HANDLER  do_IRQ
+#define BOOKE_TIMER_HANDLER   timer_interrupt
+#define BOOKE_DBELL_HANDLER   doorbell_exception
+#endif
 
 /* Critical Input Interrupt */
 	START_EXCEPTION(critical_input);
@@ -591,7 +616,7 @@ __end_interrupts:
 
 /* External Input Interrupt */
 	MASKABLE_EXCEPTION(0x500, BOOKE_INTERRUPT_EXTERNAL,
-			   external_input, do_IRQ, ACK_NONE)
+			   external_input, BOOKE_EXTIRQ_HANDLER, ACK_NONE)
 
 /* Alignment */
 	START_EXCEPTION(alignment);
@@ -676,7 +701,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_ALTIVEC)
 
 /* Decrementer Interrupt */
 	MASKABLE_EXCEPTION(0x900, BOOKE_INTERRUPT_DECREMENTER,
-			   decrementer, timer_interrupt, ACK_DEC)
+			   decrementer, BOOKE_TIMER_HANDLER, ACK_DEC)
 
 /* Fixed Interval Timer Interrupt */
 	MASKABLE_EXCEPTION(0x980, BOOKE_INTERRUPT_FIT,
@@ -855,7 +880,7 @@ kernel_dbg_exc:
 
 /* Doorbell interrupt */
 	MASKABLE_EXCEPTION(0x280, BOOKE_INTERRUPT_DOORBELL,
-			   doorbell, doorbell_exception, ACK_NONE)
+			   doorbell, BOOKE_DBELL_HANDLER, ACK_NONE)
 
 /* Doorbell critical Interrupt */
 	START_EXCEPTION(doorbell_crit);
@@ -928,6 +953,7 @@ kernel_dbg_exc:
 	bl	.unknown_exception
 	b	.ret_from_except
 
+#ifndef CONFIG_IPIPE
 /*
  * An interrupt came in while soft-disabled; We mark paca->irq_happened
  * accordingly and if the interrupt is level sensitive, we hard disable
@@ -1000,6 +1026,7 @@ _GLOBAL(__replay_interrupt)
 	beq	exc_0x280_common
 	blr
 
+#endif /* !CONFIG_IPIPE */
 
 /*
  * This is called from 0x300 and 0x400 handlers after the prologs with
