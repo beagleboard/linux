@@ -52,7 +52,7 @@
 
 static void __iomem *wakeupgen_base;
 static void __iomem *sar_base;
-static DEFINE_RAW_SPINLOCK(wakeupgen_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(wakeupgen_lock);
 static unsigned int irq_target_cpu[MAX_IRQS];
 static unsigned int irq_banks = DEFAULT_NR_REG_BANKS;
 static unsigned int max_irqs = DEFAULT_IRQS;
@@ -152,6 +152,26 @@ static void wakeupgen_unmask(struct irq_data *d)
 	raw_spin_unlock_irqrestore(&wakeupgen_lock, flags);
 	irq_chip_unmask_parent(d);
 }
+
+#ifdef CONFIG_IPIPE
+static void wakeupgen_hold(struct irq_data *d)
+{
+	raw_spin_lock(&wakeupgen_lock);
+	_wakeupgen_clear(d->hwirq, irq_target_cpu[d->hwirq]);
+	raw_spin_unlock(&wakeupgen_lock);
+	irq_chip_hold_parent(d);
+}
+
+static void wakeupgen_release(struct irq_data *d)
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&wakeupgen_lock, flags);
+	_wakeupgen_set(d->hwirq, irq_target_cpu[d->hwirq]);
+	raw_spin_unlock_irqrestore(&wakeupgen_lock, flags);
+	irq_chip_release_parent(d);
+}
+#endif
 
 #ifdef CONFIG_HOTPLUG_CPU
 static DEFINE_PER_CPU(u32 [MAX_NR_REG_BANKS], irqmasks);
@@ -444,6 +464,10 @@ static struct irq_chip wakeupgen_chip = {
 	.irq_eoi		= irq_chip_eoi_parent,
 	.irq_mask		= wakeupgen_mask,
 	.irq_unmask		= wakeupgen_unmask,
+#ifdef CONFIG_IPIPE
+	.irq_hold		= wakeupgen_hold,
+	.irq_release		= wakeupgen_release,
+#endif
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_set_type		= irq_chip_set_type_parent,
 	.flags			= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_MASK_ON_SUSPEND,

@@ -800,9 +800,14 @@ again:
 
 	desc->threads_oneshot &= ~action->thread_mask;
 
+#ifndef CONFIG_IPIPE
 	if (!desc->threads_oneshot && !irqd_irq_disabled(&desc->irq_data) &&
 	    irqd_irq_masked(&desc->irq_data))
 		unmask_threaded_irq(desc);
+#else /* CONFIG_IPIPE */
+	if (!desc->threads_oneshot && !irqd_irq_disabled(&desc->irq_data))
+		desc->ipipe_end(desc);
+#endif /* CONFIG_IPIPE */
 
 out_unlock:
 	raw_spin_unlock_irq(&desc->lock);

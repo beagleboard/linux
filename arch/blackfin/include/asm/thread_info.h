@@ -28,6 +28,8 @@
 
 #ifndef __ASSEMBLY__
 
+#include <ipipe/thread_info.h>
+
 typedef unsigned long mm_segment_t;
 
 /*
@@ -41,6 +43,10 @@ struct thread_info {
 	int cpu;		/* cpu we're on */
 	int preempt_count;	/* 0 => preemptable, <0 => BUG */
 	mm_segment_t addr_limit;	/* address limit */
+#ifdef CONFIG_IPIPE
+	unsigned long ipipe_flags;
+#endif
+	struct ipipe_threadinfo ipipe_data;
 #ifndef CONFIG_SMP
 	struct l1_scratch_task_info l1_task_info;
 #endif
@@ -94,6 +100,15 @@ static inline struct thread_info *current_thread_info(void)
 #define _TIF_SINGLESTEP		(1<<TIF_SINGLESTEP)
 
 #define _TIF_WORK_MASK		0x0000FFFE	/* work to do on interrupt/exception return */
+
+/* ti->ipipe_flags */
+#define TIP_MAYDAY	0	/* MAYDAY call is pending */
+#define TIP_NOTIFY	1	/* Notify head domain about kernel events */
+#define TIP_HEAD	2	/* Runs in head domain */
+
+#define _TIP_MAYDAY	(1<<TIP_MAYDAY)
+#define _TIP_NOTIFY	(1<<TIP_NOTIFY)
+#define _TIP_HEAD	(1<<TIP_HEAD)
 
 #endif				/* __KERNEL__ */
 

@@ -381,6 +381,7 @@ struct thread_struct {
 	unsigned short		ds;
 	unsigned short		fsindex;
 	unsigned short		gsindex;
+	unsigned long		rip;
 #endif
 #ifdef CONFIG_X86_32
 	unsigned long		ip;

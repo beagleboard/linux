@@ -180,9 +180,11 @@ transfer_to_handler:
 2:	/* if from kernel, check interrupted DOZE/NAP mode and
          * check for stack overflow
          */
+#ifndef CONFIG_IPIPE_LEGACY
 	lwz	r9,KSP_LIMIT(r12)
 	cmplw	r1,r9			/* if r1 <= ksp_limit */
 	ble-	stack_ovf		/* then the kernel stack overflowed */
+#endif
 5:
 #if defined(CONFIG_6xx) || defined(CONFIG_E500)
 	CURRENT_THREAD_INFO(r9, r1)
@@ -305,6 +307,68 @@ _GLOBAL(DoSyscall)
 	lwz	r11,_CCR(r1)	/* Clear SO bit in CR */
 	rlwinm	r11,r11,0,4,2
 	stw	r11,_CCR(r1)
+#ifdef CONFIG_IPIPE
+	CURRENT_THREAD_INFO(r10, r1)
+#ifndef CONFIG_IPIPE_LEGACY
+	cmplwi	cr0,r0,NR_syscalls
+	blt	slow_path
+	lwz	r11,TI_IPIPE(r10)
+	andi.	r12,r11,_TIP_HEAD /* implies that TIP_NOTIFY if set */
+	beq	slow_path_check
+	addi	r3,r1,GPR0
+	bl	ipipe_fastcall_hook /* __IPIPE_SYSCALL_E is assumed */
+	cmpwi	r3,0
+	blt	no_fastcall
+	CURRENT_THREAD_INFO(r10, r1)
+	lwz	r11,TI_IPIPE(r10)
+	andi.	r12,r11,_TIP_HEAD
+	bne+	fastcall_exit_check
+	bl	__ipipe_root_sync
+	lwz	r3,GPR3(r1)
+	b	ret_from_syscall
+no_fastcall:
+	/* fastcall handler not implemented */
+	lwz	r0,GPR0(r1)
+slow_path:
+#endif /* !CONFIG_IPIPE_LEGACY */
+	lwz	r11,TI_IPIPE(r10)
+slow_path_check:
+	andi.	r12,r11,_TIP_NOTIFY
+	bne	pipeline_syscall
+	cmplwi	cr0,r0,NR_syscalls
+	blt	root_syscall
+pipeline_syscall:
+	addi	r3,r1,GPR0
+	bl	__ipipe_notify_syscall
+	cmpwi	cr1,r3,0
+	CURRENT_THREAD_INFO(r10, r1)
+	lwz	r11,TI_IPIPE(r10)
+	andi.	r12,r11,_TIP_HEAD
+	bne	fastcall_exit
+	beq	cr1,root_syscall
+	lwz	r3,GPR3(r1)		/* syscall return value */
+	b	ret_from_syscall
+fastcall_exit_check:
+	andi.	r12,r11,_TIP_MAYDAY
+	beq+	fastcall_exit
+	addi	r3,r1,GPR0
+	bl	__ipipe_call_mayday
+fastcall_exit:
+	lwz	r3,GPR3(r1)		/* syscall return value */
+	LOAD_MSR_KERNEL(r10,MSR_KERNEL)	/* clear MSR_EE */
+	SYNC
+	MTMSRD(r10)
+	b	syscall_exit_cont
+root_syscall:
+	lwz	r0,GPR0(r1)
+	lwz	r3,GPR3(r1)
+	lwz	r4,GPR4(r1)
+	lwz	r5,GPR5(r1)
+	lwz	r6,GPR6(r1)
+	lwz	r7,GPR7(r1)
+	lwz	r8,GPR8(r1)
+	lwz	r9,GPR9(r1)
+#endif /* CONFIG_IPIPE */
 #ifdef CONFIG_TRACE_IRQFLAGS
 	/* Return from syscalls can (and generally will) hard enable
 	 * interrupts. You aren't supposed to call a syscall with
@@ -422,6 +486,21 @@ END_FTR_SECTION_IFSET(CPU_FTR_NEED_PAIRED_STWCX)
 
 	.globl	ret_from_fork
 ret_from_fork:
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	stwu	r1,-4(r1)
+	stw	r3,0(r1)
+	lis	r3,(0x80000000)@h
+	ori	r3,r3,(0x80000000)@l
+	bl	ipipe_trace_end
+	lwz	r3,0(r1)
+	addi	r1,r1,4
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+	LOAD_MSR_KERNEL(r10,MSR_KERNEL)
+	ori	r10,r10,MSR_EE
+	SYNC
+	MTMSRD(r10)
+#endif /* CONFIG_IPIPE */
 	REST_NVGPRS(r1)
 	bl	schedule_tail
 	li	r3,0
@@ -429,6 +508,21 @@ ret_from_fork:
 
 	.globl	ret_from_kernel_thread
 ret_from_kernel_thread:
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	stwu	r1,-4(r1)
+	stw	r3,0(r1)
+	lis	r3,(0x80000000)@h
+	ori	r3,r3,(0x80000000)@l
+	bl	ipipe_trace_end
+	lwz	r3,0(r1)
+	addi	r1,r1,4
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
+	LOAD_MSR_KERNEL(r10,MSR_KERNEL)
+	ori	r10,r10,MSR_EE
+	SYNC
+	MTMSRD(r10)
+#endif /* CONFIG_IPIPE */
 	REST_NVGPRS(r1)
 	bl	schedule_tail
 	mtlr	r14
@@ -750,6 +844,19 @@ ret_from_except:
 	SYNC			/* Some chip revs have problems here... */
 	MTMSRD(r10)		/* disable interrupts */
 
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_IPIPE_LEGACY
+        bl __ipipe_check_root
+        cmpwi   r3, 0
+	mfmsr	r10		/* this is used later, might be messed */
+        beq- restore
+#else
+	CURRENT_THREAD_INFO(r9, r1)
+	lwz	r0,TI_IPIPE(r9)
+	andi.	r0,r0,_TIP_HEAD
+        bne-    restore
+#endif
+#endif /* CONFIG_IPIPE */
 	lwz	r3,_MSR(r1)	/* Returning to user mode? */
 	andi.	r0,r3,MSR_PR
 	beq	resume_kernel
@@ -771,6 +878,12 @@ restore_user:
 #endif
 
 	b	restore
+
+#ifdef CONFIG_IPIPE
+#define PREEMPT_SCHEDULE_IRQ	__ipipe_preempt_schedule_irq
+#else
+#define PREEMPT_SCHEDULE_IRQ	preempt_schedule_irq
+#endif
 
 /* N.B. the only way to get here is from the beq following ret_from_except. */
 resume_kernel:
@@ -829,7 +942,7 @@ resume_kernel:
 	 */
 	bl	trace_hardirqs_off
 #endif
-1:	bl	preempt_schedule_irq
+1:	bl	PREEMPT_SCHEDULE_IRQ
 	CURRENT_THREAD_INFO(r9, r1)
 	lwz	r3,TI_FLAGS(r9)
 	andi.	r0,r3,_TIF_NEED_RESCHED
@@ -1237,6 +1350,15 @@ END_FTR_SECTION_IFSET(CPU_FTR_601)
 ee_restarts:
 	.space	4
 	.previous
+
+#ifdef CONFIG_IPIPE
+_GLOBAL(__ipipe_ret_from_except_full)
+	REST_NVGPRS(r1)
+_GLOBAL(__ipipe_ret_from_except)
+        cmpwi   r3, 0
+        bne+ ret_from_except
+        b restore
+#endif /* CONFIG_IPIPE */
 
 /*
  * PROM code for specific machines follows.  Put it

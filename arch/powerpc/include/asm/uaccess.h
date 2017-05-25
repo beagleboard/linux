@@ -117,6 +117,21 @@ struct exception_table_entry {
 #define __get_user_unaligned __get_user
 #define __put_user_unaligned __put_user
 
+#ifdef CONFIG_IPIPE
+/*
+ * Calling from atomic context should be allowed for all __nocheck
+ * accessors. The head domain may do this, provided page faulting is
+ * duly prevented.
+ */
+#define __chk_might_fault(__pu)	do { } while (0)
+#else
+#define __chk_might_fault(__pu)					\
+	do {							\
+		if (!is_kernel_addr((unsigned long)__pu))	\
+			might_fault();				\
+	} while (0)
+#endif
+
 extern long __put_user_bad(void);
 
 /*
@@ -177,8 +192,7 @@ do {								\
 ({								\
 	long __pu_err;						\
 	__typeof__(*(ptr)) __user *__pu_addr = (ptr);		\
-	if (!is_kernel_addr((unsigned long)__pu_addr))		\
-		might_fault();					\
+	__chk_might_fault(__pu_addr);				\
 	__chk_user_ptr(ptr);					\
 	__put_user_size((x), __pu_addr, (size), __pu_err);	\
 	__pu_err;						\
@@ -267,8 +281,7 @@ do {								\
 	unsigned long __gu_val;					\
 	__typeof__(*(ptr)) __user *__gu_addr = (ptr);	\
 	__chk_user_ptr(ptr);					\
-	if (!is_kernel_addr((unsigned long)__gu_addr))		\
-		might_fault();					\
+	__chk_might_fault(__gu_addr);				\
 	__get_user_size(__gu_val, __gu_addr, (size), __gu_err);	\
 	(x) = (__typeof__(*(ptr)))__gu_val;			\
 	__gu_err;						\
@@ -281,8 +294,7 @@ do {								\
 	long long __gu_val;					\
 	__typeof__(*(ptr)) __user *__gu_addr = (ptr);	\
 	__chk_user_ptr(ptr);					\
-	if (!is_kernel_addr((unsigned long)__gu_addr))		\
-		might_fault();					\
+	__chk_might_fault(__gu_addr);				\
 	__get_user_size(__gu_val, __gu_addr, (size), __gu_err);	\
 	(x) = (__force __typeof__(*(ptr)))__gu_val;			\
 	__gu_err;						\
