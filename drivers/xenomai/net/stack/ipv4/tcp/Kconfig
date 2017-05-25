@@ -1,0 +1,18 @@
+config XENO_DRIVERS_NET_RTIPV4_TCP
+    tristate "TCP support"
+    depends on XENO_DRIVERS_NET_RTIPV4
+    ---help---
+    Enables TCP support of the RTnet Real-Time IPv4 protocol.
+
+    When the RTnet IPv4 is enabled while this feature is disabled, TCP
+    will be forwarded to the Linux network stack.
+
+config XENO_DRIVERS_NET_RTIPV4_TCP_ERROR_INJECTION
+    bool "TCP error injection"
+    depends on XENO_DRIVERS_NET_RTIPV4_TCP
+    ---help---
+    Enables error injection for incoming TCP packets. This can be used
+    to test both protocol as well as application behavior under error
+    conditions. The per-socket error rate is 0 by default and can be
+    tuned during runtime via the error_rate and multi_error module
+    parameters.

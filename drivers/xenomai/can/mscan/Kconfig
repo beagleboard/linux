@@ -1,0 +1,8 @@
+config XENO_DRIVERS_CAN_MSCAN
+	depends on XENO_DRIVERS_CAN && (PPC_MPC52xx || PPC_MPC512x)
+	tristate "MSCAN driver for MPC52xx and MPC512x"
+	default n
+	help
+
+	This driver is for the MSCAN on the MPC5200 and MPC512x processor
+	from Freescale.
