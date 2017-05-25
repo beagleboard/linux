@@ -32,32 +32,29 @@
 #include <linux/unistd.h>
 #include <linux/io.h>
 #include <linux/atomic.h>
+#include <linux/ipipe_tickdev.h>
 #include <asm/irq_handler.h>
-
-DEFINE_PER_CPU(struct pt_regs, __ipipe_tick_regs);
+#include <asm/blackfin.h>
+#include <asm/time.h>
 
 asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs);
 
+static void __ipipe_do_IRQ(unsigned int irq, void *cookie);
+
 static void __ipipe_no_irqtail(void);
 
-unsigned long __ipipe_irq_tail_hook = (unsigned long)&__ipipe_no_irqtail;
-EXPORT_SYMBOL(__ipipe_irq_tail_hook);
+static atomic_t __ipipe_irq_lvdepth[IVG15 + 1];
+
+static unsigned long __ipipe_irq_lvmask = bfin_no_irqs;
+
+unsigned long __ipipe_irq_tail_hook = (unsigned long)__ipipe_no_irqtail;
+EXPORT_SYMBOL_GPL(__ipipe_irq_tail_hook);
 
 unsigned long __ipipe_core_clock;
-EXPORT_SYMBOL(__ipipe_core_clock);
+EXPORT_SYMBOL_GPL(__ipipe_core_clock);
 
 unsigned long __ipipe_freq_scale;
-EXPORT_SYMBOL(__ipipe_freq_scale);
-
-atomic_t __ipipe_irq_lvdepth[IVG15 + 1];
-
-unsigned long __ipipe_irq_lvmask = bfin_no_irqs;
-EXPORT_SYMBOL(__ipipe_irq_lvmask);
-
-static void __ipipe_ack_irq(unsigned irq, struct irq_desc *desc)
-{
-	desc->ipipe_ack(irq, desc);
-}
+EXPORT_SYMBOL_GPL(__ipipe_freq_scale);
 
 /*
  * __ipipe_enable_pipeline() -- We are running on the boot CPU, hw
@@ -71,214 +68,76 @@ void __ipipe_enable_pipeline(void)
 	__ipipe_freq_scale = 1000000000UL / __ipipe_core_clock;
 
 	for (irq = 0; irq < NR_IRQS; ++irq)
-		ipipe_virtualize_irq(ipipe_root_domain,
-				     irq,
-				     (ipipe_irq_handler_t)&asm_do_IRQ,
-				     NULL,
-				     &__ipipe_ack_irq,
-				     IPIPE_HANDLE_MASK | IPIPE_PASS_MASK);
+		ipipe_request_irq(ipipe_root_domain, irq,
+				  __ipipe_do_IRQ, NULL,
+				  NULL);
 }
 
-/*
- * __ipipe_handle_irq() -- IPIPE's generic IRQ handler. An optimistic
- * interrupt protection log is maintained here for each domain. Hw
- * interrupts are masked on entry.
- */
-void __ipipe_handle_irq(unsigned irq, struct pt_regs *regs)
+void __ipipe_handle_irq(unsigned int irq, struct pt_regs *regs) /* hw IRQs off */
 {
-	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
-	struct ipipe_domain *this_domain, *next_domain;
-	struct list_head *head, *pos;
-	struct ipipe_irqdesc *idesc;
-	int m_ack, s = -1;
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_root_context();
+	int flags, s = -1;
 
-	/*
-	 * Software-triggered IRQs do not need any ack.  The contents
-	 * of the register frame should only be used when processing
-	 * the timer interrupt, but not for handling any other
-	 * interrupt.
-	 */
-	m_ack = (regs == NULL || irq == IRQ_SYSTMR || irq == IRQ_CORETMR);
-	this_domain = __ipipe_current_domain;
-	idesc = &this_domain->irqs[irq];
-
-	if (unlikely(test_bit(IPIPE_STICKY_FLAG, &idesc->control)))
-		head = &this_domain->p_link;
-	else {
-		head = __ipipe_pipeline.next;
-		next_domain = list_entry(head, struct ipipe_domain, p_link);
-		idesc = &next_domain->irqs[irq];
-		if (likely(test_bit(IPIPE_WIRED_FLAG, &idesc->control))) {
-			if (!m_ack && idesc->acknowledge != NULL)
-				idesc->acknowledge(irq, irq_to_desc(irq));
-			if (test_bit(IPIPE_SYNCDEFER_FLAG, &p->status))
-				s = __test_and_set_bit(IPIPE_STALL_FLAG,
-						       &p->status);
-			__ipipe_dispatch_wired(next_domain, irq);
-			goto out;
-		}
-	}
-
-	/* Ack the interrupt. */
-
-	pos = head;
-	while (pos != &__ipipe_pipeline) {
-		next_domain = list_entry(pos, struct ipipe_domain, p_link);
-		idesc = &next_domain->irqs[irq];
-		if (test_bit(IPIPE_HANDLE_FLAG, &idesc->control)) {
-			__ipipe_set_irq_pending(next_domain, irq);
-			if (!m_ack && idesc->acknowledge != NULL) {
-				idesc->acknowledge(irq, irq_to_desc(irq));
-				m_ack = 1;
-			}
-		}
-		if (!test_bit(IPIPE_PASS_FLAG, &idesc->control))
-			break;
-		pos = next_domain->p_link.next;
-	}
-
-	/*
-	 * Now walk the pipeline, yielding control to the highest
-	 * priority domain that has pending interrupt(s) or
-	 * immediately to the current domain if the interrupt has been
-	 * marked as 'sticky'. This search does not go beyond the
-	 * current domain in the pipeline. We also enforce the
-	 * additional root stage lock (blackfin-specific).
-	 */
 	if (test_bit(IPIPE_SYNCDEFER_FLAG, &p->status))
 		s = __test_and_set_bit(IPIPE_STALL_FLAG, &p->status);
 
-	/*
-	 * If the interrupt preempted the head domain, then do not
-	 * even try to walk the pipeline, unless an interrupt is
-	 * pending for it.
-	 */
-	if (test_bit(IPIPE_AHEAD_FLAG, &this_domain->flags) &&
-	    !__ipipe_ipending_p(ipipe_head_cpudom_ptr()))
-		goto out;
+	flags = (regs && irq != IRQ_SYSTMR && irq != IRQ_CORETMR) ?
+		0 : IPIPE_IRQF_NOACK;
+	__ipipe_dispatch_irq(irq, flags);
 
-	__ipipe_walk_pipeline(head);
-out:
-	if (!s)
+	if (s == 0)
 		__clear_bit(IPIPE_STALL_FLAG, &p->status);
 }
 
-void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+void __ipipe_enable_irqdesc(struct ipipe_domain *ipd, unsigned int irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	int prio = __ipipe_get_irq_priority(irq);
 
 	desc->depth = 0;
-	if (ipd != &ipipe_root &&
+	if (ipd != ipipe_root_domain &&
 	    atomic_inc_return(&__ipipe_irq_lvdepth[prio]) == 1)
 		__set_bit(prio, &__ipipe_irq_lvmask);
 }
-EXPORT_SYMBOL(__ipipe_enable_irqdesc);
 
-void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned irq)
+void __ipipe_disable_irqdesc(struct ipipe_domain *ipd, unsigned int irq)
 {
 	int prio = __ipipe_get_irq_priority(irq);
 
-	if (ipd != &ipipe_root &&
+	if (ipd != ipipe_root_domain &&
 	    atomic_dec_and_test(&__ipipe_irq_lvdepth[prio]))
 		__clear_bit(prio, &__ipipe_irq_lvmask);
 }
-EXPORT_SYMBOL(__ipipe_disable_irqdesc);
 
-asmlinkage int __ipipe_syscall_root(struct pt_regs *regs)
+static void __ipipe_do_IRQ(unsigned int irq, void *cookie)
 {
-	struct ipipe_percpu_domain_data *p;
-	void (*hook)(void);
-	int ret;
-
-	WARN_ON_ONCE(irqs_disabled_hw());
-
-	/*
-	 * We need to run the IRQ tail hook each time we intercept a
-	 * syscall, because we know that important operations might be
-	 * pending there (e.g. Xenomai deferred rescheduling).
-	 */
-	hook = (__typeof__(hook))__ipipe_irq_tail_hook;
-	hook();
-
-	/*
-	 * This routine either returns:
-	 * 0 -- if the syscall is to be passed to Linux;
-	 * >0 -- if the syscall should not be passed to Linux, and no
-	 * tail work should be performed;
-	 * <0 -- if the syscall should not be passed to Linux but the
-	 * tail work has to be performed (for handling signals etc).
-	 */
-
-	if (!__ipipe_syscall_watched_p(current, regs->orig_p0) ||
-	    !__ipipe_event_monitored_p(IPIPE_EVENT_SYSCALL))
-		return 0;
-
-	ret = __ipipe_dispatch_event(IPIPE_EVENT_SYSCALL, regs);
-
-	hard_local_irq_disable();
-
-	/*
-	 * This is the end of the syscall path, so we may
-	 * safely assume a valid Linux task stack here.
-	 */
-	if (current->ipipe_flags & PF_EVTRET) {
-		current->ipipe_flags &= ~PF_EVTRET;
-		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
-	}
-
-	if (!__ipipe_root_domain_p)
-		ret = -1;
-	else {
-		p = ipipe_root_cpudom_ptr();
-		if (__ipipe_ipending_p(p))
-			__ipipe_sync_pipeline();
-	}
-
-	hard_local_irq_enable();
-
-	return -ret;
+	struct pt_regs *regs = raw_cpu_ptr(&ipipe_percpu.tick_regs);
+	asm_do_IRQ(irq, regs);
 }
 
 static void __ipipe_no_irqtail(void)
 {
 }
 
+int __ipipe_do_sync_check(void)
+{
+	return !(ipipe_root_p &&
+		 test_bit(IPIPE_SYNCDEFER_FLAG, &__ipipe_root_status));
+}
+
 int ipipe_get_sysinfo(struct ipipe_sysinfo *info)
 {
 	info->sys_nr_cpus = num_online_cpus();
 	info->sys_cpu_freq = ipipe_cpu_freq();
-	info->sys_hrtimer_irq = IPIPE_TIMER_IRQ;
-	info->sys_hrtimer_freq = __ipipe_core_clock;
+	info->sys_hrtimer_irq = per_cpu(ipipe_percpu.hrtimer_irq, 0);
+	info->sys_hrtimer_freq = __ipipe_hrtimer_freq;
 	info->sys_hrclock_freq = __ipipe_core_clock;
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(ipipe_get_sysinfo);
 
-/*
- * ipipe_trigger_irq() -- Push the interrupt at front of the pipeline
- * just like if it has been actually received from a hw source. Also
- * works for virtual interrupts.
- */
-int ipipe_trigger_irq(unsigned irq)
-{
-	unsigned long flags;
-
-#ifdef CONFIG_IPIPE_DEBUG
-	if (irq >= IPIPE_NR_IRQS ||
-	    (ipipe_virtual_irq_p(irq)
-	     && !test_bit(irq - IPIPE_VIRQ_BASE, &__ipipe_virtual_irq_map)))
-		return -EINVAL;
-#endif
-
-	flags = hard_local_irq_save();
-	__ipipe_handle_irq(irq, NULL);
-	hard_local_irq_restore(flags);
-
-	return 1;
-}
-
-asmlinkage void __ipipe_sync_root(void)
+void __ipipe_sync_root(void)
 {
 	void (*irq_tail_hook)(void) = (void (*)(void))__ipipe_irq_tail_hook;
 	struct ipipe_percpu_domain_data *p;
@@ -293,23 +152,14 @@ asmlinkage void __ipipe_sync_root(void)
 
 	clear_thread_flag(TIF_IRQ_SYNC);
 
-	p = ipipe_root_cpudom_ptr();
+	p = ipipe_this_cpu_root_context();
 	if (__ipipe_ipending_p(p))
-		__ipipe_sync_pipeline();
+		__ipipe_sync_stage();
 
 	hard_local_irq_restore(flags);
 }
 
-void ___ipipe_sync_pipeline(void)
-{
-	if (__ipipe_root_domain_p &&
-	    test_bit(IPIPE_SYNCDEFER_FLAG, &ipipe_root_cpudom_var(status)))
-		return;
-
-	__ipipe_sync_stage();
-}
-
-void __ipipe_disable_root_irqs_hw(void)
+unsigned long __ipipe_hard_save_root_irqs(void)
 {
 	/*
 	 * This code is called by the ins{bwl} routines (see
@@ -320,12 +170,15 @@ void __ipipe_disable_root_irqs_hw(void)
 	 * the real-time domain.
 	 */
 	bfin_sti(__ipipe_irq_lvmask);
-	__set_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	return __test_and_set_bit(IPIPE_STALL_FLAG, &__ipipe_root_status) ?
+		bfin_no_irqs : bfin_irq_flags;
 }
 
-void __ipipe_enable_root_irqs_hw(void)
+void __ipipe_hard_restore_root_irqs(unsigned long flags)
 {
-	__clear_bit(IPIPE_STALL_FLAG, &ipipe_root_cpudom_var(status));
+	if (flags != bfin_no_irqs)
+		__clear_bit(IPIPE_STALL_FLAG, &__ipipe_root_status);
+
 	bfin_sti(bfin_irq_flags);
 }
 
@@ -334,64 +187,155 @@ void __ipipe_enable_root_irqs_hw(void)
  * manipulation routines, but let's prepare for SMP support in the
  * same move, preventing CPU migration as required.
  */
-void __ipipe_stall_root(void)
+void ipipe_stall_root(void)
 {
 	unsigned long *p, flags;
 
-	flags = hard_local_irq_save();
+	ipipe_root_only();
+	flags = hard_smp_local_irq_save();
 	p = &__ipipe_root_status;
 	__set_bit(IPIPE_STALL_FLAG, p);
-	hard_local_irq_restore(flags);
+	hard_smp_local_irq_restore(flags);
 }
-EXPORT_SYMBOL(__ipipe_stall_root);
+EXPORT_SYMBOL_GPL(ipipe_stall_root);
 
-unsigned long __ipipe_test_and_stall_root(void)
+unsigned long ipipe_test_and_stall_root(void)
 {
 	unsigned long *p, flags;
 	int x;
 
-	flags = hard_local_irq_save();
+	ipipe_root_only();
+	flags = hard_smp_local_irq_save();
 	p = &__ipipe_root_status;
 	x = __test_and_set_bit(IPIPE_STALL_FLAG, p);
-	hard_local_irq_restore(flags);
+	hard_smp_local_irq_restore(flags);
 
 	return x;
 }
-EXPORT_SYMBOL(__ipipe_test_and_stall_root);
+EXPORT_SYMBOL_GPL(ipipe_test_and_stall_root);
 
-unsigned long __ipipe_test_root(void)
+unsigned long ipipe_test_root(void)
 {
 	const unsigned long *p;
 	unsigned long flags;
 	int x;
 
-	flags = hard_local_irq_save_smp();
+	ipipe_root_only();
+	flags = hard_smp_local_irq_save();
 	p = &__ipipe_root_status;
 	x = test_bit(IPIPE_STALL_FLAG, p);
-	hard_local_irq_restore_smp(flags);
+	hard_smp_local_irq_restore(flags);
 
 	return x;
 }
-EXPORT_SYMBOL(__ipipe_test_root);
+EXPORT_SYMBOL_GPL(ipipe_test_root);
 
 void __ipipe_lock_root(void)
 {
 	unsigned long *p, flags;
 
-	flags = hard_local_irq_save();
+	flags = hard_smp_local_irq_save();
 	p = &__ipipe_root_status;
 	__set_bit(IPIPE_SYNCDEFER_FLAG, p);
-	hard_local_irq_restore(flags);
+	hard_smp_local_irq_restore(flags);
 }
-EXPORT_SYMBOL(__ipipe_lock_root);
+EXPORT_SYMBOL_GPL(__ipipe_lock_root);
 
 void __ipipe_unlock_root(void)
 {
 	unsigned long *p, flags;
 
-	flags = hard_local_irq_save();
+	flags = hard_smp_local_irq_save();
 	p = &__ipipe_root_status;
 	__clear_bit(IPIPE_SYNCDEFER_FLAG, p);
-	hard_local_irq_restore(flags);
+	hard_smp_local_irq_restore(flags);
 }
-EXPORT_SYMBOL(__ipipe_unlock_root);
+EXPORT_SYMBOL_GPL(__ipipe_unlock_root);
+
+/*
+ * We have two main options on the Blackfin for dealing with the clock
+ * event sources for both domains:
+ *
+ * - If CONFIG_GENERIC_CLOCKEVENTS is disabled (old cranky stuff), we
+ * force the system timer to GPT0.  This gives the head domain
+ * exclusive control over the Blackfin core timer.  Therefore, we have
+ * to flesh out the core timer request and release handlers since the
+ * regular kernel won't have set it up at boot.
+ *
+ * - If CONFIG_GENERIC_CLOCKEVENTS is enabled, then Linux may pick
+ * either GPT0 (CONFIG_TICKSOURCE_GPTMR0), or the core timer
+ * (CONFIG_TICKSOURCE_CORETMR) as its own tick source. Depending on
+ * what Kconfig says regarding this setting, we may have in turn:
+ *
+ * - CONFIG_TICKSOURCE_CORETMR is set, which means that both root
+ * (linux) and the head domain will have to share the core timer for
+ * timing duties. In this case, we don't register the core timer with
+ * the pipeline, we only connect the regular linux clock event
+ * structure to our ipipe_time timer structure via the ipipe_timer
+ * field in struct clock_event_device.
+ *
+ * - CONFIG_TICKSOURCE_GPTMR0 is set, in which case we reserve the
+ * core timer to the head domain, just like in the
+ * CONFIG_GENERIC_CLOCKEVENTS disabled case. We have to register the
+ * core timer with the pipeline, so that ipipe_select_timers() may
+ * find it.
+ */
+#if defined(CONFIG_GENERIC_CLOCKEVENTS) && defined(CONFIG_TICKSOURCE_CORETMR)
+
+static inline void icoretmr_request(struct ipipe_timer *timer, int steal)
+{
+}
+
+static inline void icoretmr_release(struct ipipe_timer *timer)
+{
+}
+
+#else /* !(CONFIG_GENERIC_CLOCKEVENTS && CONFIG_TICKSOURCE_CORETMR) */
+
+static void icoretmr_request(struct ipipe_timer *timer, int steal)
+{
+	bfin_write_TCNTL(TMPWR);
+	CSYNC();
+	bfin_write_TSCALE(TIME_SCALE - 1);
+	bfin_write_TPERIOD(0);
+	bfin_write_TCOUNT(0);
+	CSYNC();
+}
+
+static void icoretmr_release(struct ipipe_timer *timer)
+{
+	/* Power down the core timer */
+	bfin_write_TCNTL(0);
+}
+
+#endif /* !(CONFIG_GENERIC_CLOCKEVENTS && CONFIG_TICKSOURCE_CORETMR) */
+
+static int icoretmr_set(unsigned long evt, void *timer)
+{
+	bfin_write_TCNTL(TMPWR);
+	CSYNC();
+	bfin_write_TCOUNT(evt);
+	CSYNC();
+	bfin_write_TCNTL(TMPWR | TMREN);
+
+	return 0;
+}
+
+struct ipipe_timer bfin_coretmr_itimer = {
+	.irq			= IRQ_CORETMR,
+	.request		= icoretmr_request,
+	.set			= icoretmr_set,
+	.ack			= NULL,
+	.release		= icoretmr_release,
+	.name			= "bfin_coretmr",
+	.rating			= 500,
+	.min_delay_ticks	= 2,
+};
+
+void bfin_ipipe_coretmr_register(void)
+{
+	bfin_coretmr_itimer.freq = get_cclk() / TIME_SCALE;
+#if !(defined(CONFIG_GENERIC_CLOCKEVENTS) && defined(CONFIG_TICKSOURCE_CORETMR))
+	ipipe_timer_register(&bfin_coretmr_itimer);
+#endif
+}

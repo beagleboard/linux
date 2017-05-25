@@ -191,10 +191,14 @@ early_param("smt-enabled", early_smt_enabled);
 /** Fix up paca fields required for the boot cpu */
 static void __init fixup_boot_paca(void)
 {
-	/* The boot cpu is started */
-	get_paca()->cpu_start = 1;
+	/*
+	 * The boot cpu is started. We use the direct PACA accessor to
+	 * prevent access to uninit I-pipe globals when running the
+	 * debug code w/ CONFIG_DEBUG_PREEMPT.
+	 */
+	local_paca->cpu_start = 1;
 	/* Allow percpu accesses to work until we setup percpu data */
-	get_paca()->data_offset = 0;
+	local_paca->data_offset = 0;
 }
 
 static void __init configure_exceptions(void)
@@ -347,8 +351,10 @@ void __init early_setup(unsigned long dt_ptr)
 #ifdef CONFIG_SMP
 void early_setup_secondary(void)
 {
+#ifndef CONFIG_IPIPE
 	/* Mark interrupts disabled in PACA */
 	get_paca()->soft_enabled = 0;
+#endif
 
 	/* Initialize the hash table or TLB handling */
 	early_init_mmu_secondary();
@@ -510,6 +516,9 @@ static __init u64 safe_stack_limit(void)
 #endif
 }
 
+#ifdef CONFIG_IPIPE
+void __init irqstack_early_init(void) { }
+#else
 void __init irqstack_early_init(void)
 {
 	u64 limit = safe_stack_limit();
@@ -528,6 +537,7 @@ void __init irqstack_early_init(void)
 					    THREAD_SIZE, limit));
 	}
 }
+#endif
 
 #ifdef CONFIG_PPC_BOOK3E
 void __init exc_lvl_early_init(void)
@@ -615,6 +625,17 @@ static int pcpu_cpu_distance(unsigned int from, unsigned int to)
 unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
 EXPORT_SYMBOL(__per_cpu_offset);
 
+#ifdef CONFIG_IPIPE
+void __init smp_setup_processor_id(void)
+{
+	/*
+	 * Early init before per-cpu areas are moved to their final
+	 * location.
+	 */
+	local_paca->ipipe_statp = (u64)&ipipe_percpu_context(&ipipe_root, 0)->status;
+}
+#endif
+
 void __init setup_per_cpu_areas(void)
 {
 	const size_t dyn_size = PERCPU_MODULE_RESERVE + PERCPU_DYNAMIC_RESERVE;
@@ -643,6 +664,10 @@ void __init setup_per_cpu_areas(void)
                 __per_cpu_offset[cpu] = delta + pcpu_unit_offsets[cpu];
 		paca[cpu].data_offset = __per_cpu_offset[cpu];
 	}
+#ifdef CONFIG_IPIPE
+	/* Reset pointer to the relocated per-cpu root domain data. */
+	local_paca->ipipe_statp = (u64)&ipipe_percpu_context(&ipipe_root, 0)->status;
+#endif
 }
 #endif
 
