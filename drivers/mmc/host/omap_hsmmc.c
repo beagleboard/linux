@@ -222,6 +222,7 @@ struct omap_hsmmc_adma_desc {
 	u32 addr;
 } __packed;
 
+#define ADMA_DESC_SIZE			8
 #define ADMA_MAX_LEN			65532
 
 /* Decriptor table defines */
@@ -236,8 +237,8 @@ struct omap_hsmmc_adma_desc {
 
 /* ADMA error status */
 #define AES_MASK		0x3
-#define ST_FDS			0x0
-#define ST_STOP			0x1
+#define ST_STOP			0x0
+#define ST_FDS			0x1
 #define ST_TFR			0x3
 
 struct omap_hsmmc_next {
@@ -2682,7 +2683,12 @@ static int omap_hsmmc_adma_init(struct omap_hsmmc_host *host)
 	struct mmc_host *mmc = host->mmc;
 	u32 val;
 
-	host->adma_desc_table = dma_alloc_coherent(host->dev, mmc->max_segs + 1,
+	/*
+	 * Allocate max_segs + 1 ('+ 1' to accommodate the NOP sentinel
+	 * descriptor) for the ADMA descriptor table
+	 */
+	host->adma_desc_table = dma_alloc_coherent(host->dev, ADMA_DESC_SIZE *
+						   (mmc->max_segs + 1),
 						   &host->adma_desc_table_addr,
 						   GFP_KERNEL);
 	if (!host->adma_desc_table) {
@@ -2705,7 +2711,7 @@ static void omap_hsmmc_adma_exit(struct omap_hsmmc_host *host)
 {
 	struct mmc_host *mmc = host->mmc;
 
-	dma_free_coherent(host->dev, mmc->max_segs + 1,
+	dma_free_coherent(host->dev, ADMA_DESC_SIZE * (mmc->max_segs + 1),
 			  host->adma_desc_table, host->adma_desc_table_addr);
 }
 

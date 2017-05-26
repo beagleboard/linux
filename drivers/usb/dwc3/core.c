@@ -861,7 +861,7 @@ static int dwc3_drd_start_host(struct dwc3 *dwc, int on, bool skip);
 static int dwc3_drd_start_gadget(struct dwc3 *dwc, int on);
 
 /* dwc->lock must be held */
-static void dwc3_drd_statemachine(struct dwc3 *dwc, int id, int vbus)
+void dwc3_drd_statemachine(struct dwc3 *dwc, int id, int vbus)
 {
 	enum usb_otg_state new_state;
 	int protocol;
@@ -1049,6 +1049,9 @@ static irqreturn_t dwc3_otg_irq(int irq, void *_dwc)
 	dwc->oevt = dwc3_readl(dwc->regs, DWC3_OEVT);
 	if (dwc->oevt) {
 		dwc3_writel(dwc->regs, DWC3_OEVT, dwc->oevt);
+		/* ignore OTG events if not in OTG mode */
+		if (dwc->sw_drd_mode)
+			return IRQ_HANDLED;
 		dwc3_otg_mask_irq(dwc);
 		ret = IRQ_WAKE_THREAD;
 	}
@@ -1106,7 +1109,7 @@ static int dwc3_drd_start_host(struct dwc3 *dwc, int on, bool skip)
 {
 	u32 reg;
 
-	if (!dwc->edev)
+	if (!dwc->edev && !dwc->sw_drd_mode)
 		goto otg;
 
 	if (on)
@@ -1220,7 +1223,7 @@ static int dwc3_drd_start_gadget(struct dwc3 *dwc, int on)
 	if (on)
 		dwc3_event_buffers_setup(dwc);
 
-	if (!dwc->edev)
+	if (!dwc->edev && !dwc->sw_drd_mode)
 		goto otg;
 
 	if (on) {

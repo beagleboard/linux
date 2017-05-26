@@ -322,24 +322,35 @@ static ssize_t dwc3_mode_write(struct file *file,
 	unsigned long		flags;
 	u32			mode = 0;
 	char			buf[32];
+	int			id, vbus;
 
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
 
-	if (!strncmp(buf, "host", 4))
-		mode |= DWC3_GCTL_PRTCAP_HOST;
-
-	if (!strncmp(buf, "device", 6))
-		mode |= DWC3_GCTL_PRTCAP_DEVICE;
-
-	if (!strncmp(buf, "otg", 3))
-		mode |= DWC3_GCTL_PRTCAP_OTG;
-
-	if (mode) {
-		spin_lock_irqsave(&dwc->lock, flags);
-		dwc3_set_mode(dwc, mode);
-		spin_unlock_irqrestore(&dwc->lock, flags);
+	if (!strncmp(buf, "host", 4)) {
+		dwc->sw_drd_mode = true;
+		id = 0;
+		vbus = 0;
+	} else if (!strncmp(buf, "device", 6)) {
+		dwc->sw_drd_mode = true;
+		id = 1;
+		vbus = 1;
+	} else if (!strncmp(buf, "otg", 3)) {
+		dwc->sw_drd_mode = false;
+		if (dwc->edev)
+			return count;
+		mode = DWC3_GCTL_PRTCAP_OTG;
+	} else {
+		return -EINVAL;
 	}
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	if (mode == DWC3_GCTL_PRTCAP_OTG)
+		dwc3_set_mode(dwc, mode);
+	else
+		dwc3_drd_statemachine(dwc, id, vbus);
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
 	return count;
 }
 
