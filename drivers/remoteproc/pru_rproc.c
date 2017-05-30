@@ -749,12 +749,12 @@ static int pru_rproc_probe(struct platform_device *pdev)
 
 	/*
 	 * rproc_add will auto-boot the processor normally, but this is
-	 * not desired with the PRU Ethernet usecase. The PRU Ethernet
-	 * driver will boot the corresponding remote-processor as part
-	 * of its state machine.
+	 * not desired with PRU client driven boot-flow methodoly. A PRU
+	 * application/client driver will boot the corresponding PRU
+	 * remote-processor as part of its state machine either through
+	 * the remoteproc sysfs interface or through the equivalent kernel API
 	 */
-	if (use_eth)
-		rproc->auto_boot = false;
+	rproc->auto_boot = false;
 
 	pru = rproc->priv;
 	pru->id = pdata->id;
@@ -1075,6 +1075,7 @@ static struct platform_driver pru_rproc_driver = {
 	.driver = {
 		.name   = "pru-rproc",
 		.of_match_table = pru_rproc_match,
+		.suppress_bind_attrs = true,
 	},
 	.probe  = pru_rproc_probe,
 	.remove = pru_rproc_remove,
