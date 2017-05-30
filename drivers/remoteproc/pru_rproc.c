@@ -51,9 +51,6 @@
 #define PRU_DEBUG_GPREG(x)	(0x0000 + (x) * 4)
 #define PRU_DEBUG_CT_REG(x)	(0x0080 + (x) * 4)
 
-/* Bit-field definitions for PRU functional capabilities */
-#define PRU_FUNC_CAPS_ETHERNET	BIT(0)
-
 /**
  * enum pru_mem - PRU core memory range identifiers
  */
@@ -67,15 +64,11 @@ enum pru_mem {
 /**
  * struct pru_private_data - PRU core private data
  * @id: PRU index
- * @caps: functional capabilities the PRU core can support
  * @fw_name: firmware name to be used for the PRU core
- * @eth_fw_name: firmware name to be used for PRUSS ethernet usecases on IDKs
  */
 struct pru_private_data {
 	u32 id;
-	const int caps;
 	const char *fw_name;
-	const char *eth_fw_name;
 };
 
 /**
@@ -107,7 +100,6 @@ struct pru_match_private_data {
  * @fw_name: name of firmware image used during loading
  * @dbg_single_step: debug state variable to set PRU into single step mode
  * @dbg_continuous: debug state variable to restore PRU execution mode
- * @use_eth: flag to indicate ethernet usecase functionality
  */
 struct pru_rproc {
 	int id;
@@ -127,12 +119,7 @@ struct pru_rproc {
 	const char *fw_name;
 	u32 dbg_single_step;
 	u32 dbg_continuous;
-	bool use_eth;
 };
-
-static bool use_eth_fw = true; /* ignored for non-IDK platforms */
-module_param(use_eth_fw, bool, 0444);
-MODULE_PARM_DESC(use_eth_fw, "Use Ethernet firmware on applicable PRUs");
 
 static inline u32 pru_control_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
@@ -705,7 +692,6 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret;
 	const char *mem_names[PRU_MEM_MAX] = { "iram", "control", "debug" };
-	bool use_eth = false;
 	u32 mux_sel;
 
 	if (!np) {
@@ -719,20 +705,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	/*
-	 * use a different firmware name for PRU cores supporting
-	 * PRUSS ethernet on specific boards
-	 */
-	if (of_machine_is_compatible("ti,am3359-icev2") ||
-	    of_machine_is_compatible("ti,am437x-idk-evm") ||
-	    of_machine_is_compatible("ti,am5728-idk") ||
-	    of_machine_is_compatible("ti,am5718-idk")) {
-		if (use_eth_fw && (pdata->caps & PRU_FUNC_CAPS_ETHERNET))
-			use_eth = true;
-	}
-
-	rproc = rproc_alloc(dev, pdev->name, &pru_rproc_ops,
-			    (use_eth ? pdata->eth_fw_name : pdata->fw_name),
+	rproc = rproc_alloc(dev, pdev->name, &pru_rproc_ops, pdata->fw_name,
 			    sizeof(*pru));
 	if (!rproc) {
 		dev_err(dev, "rproc_alloc failed\n");
@@ -754,8 +727,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	pru->id = pdata->id;
 	pru->pruss = platform_get_drvdata(ppdev);
 	pru->rproc = rproc;
-	pru->fw_name = use_eth ? pdata->eth_fw_name : pdata->fw_name;
-	pru->use_eth = use_eth;
+	pru->fw_name = pdata->fw_name;
 	spin_lock_init(&pru->rmw_lock);
 
 	/* XXX: get this from match data if different in the future */
@@ -825,7 +797,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	}
 
 	if ((of_machine_is_compatible("ti,am5718-idk") ||
-	     of_machine_is_compatible("ti,k2g-ice")) && pru->use_eth &&
+	     of_machine_is_compatible("ti,k2g-ice")) &&
 	    !of_property_read_u32(np, "ti,pruss-gp-mux-sel", &mux_sel)) {
 		if (mux_sel < PRUSS_GP_MUX_SEL_GP ||
 		    mux_sel >= PRUSS_GP_MUX_MAX) {
@@ -865,7 +837,7 @@ static int pru_rproc_remove(struct platform_device *pdev)
 	mbox_free_channel(pru->mbox);
 
 	if ((of_machine_is_compatible("ti,am5718-idk") ||
-	     of_machine_is_compatible("ti,k2g-ice")) && pru->use_eth)
+	     of_machine_is_compatible("ti,k2g-ice")))
 		pruss_cfg_set_gpmux(pru->pruss, pru->id, PRUSS_GP_MUX_SEL_GP);
 
 	rproc_del(rproc);
@@ -877,31 +849,23 @@ static int pru_rproc_remove(struct platform_device *pdev)
 /* AM33xx PRU core-specific private data */
 static struct pru_private_data am335x_pru0_rproc_pdata = {
 	.id = 0,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am335x-pru0-fw",
-	.eth_fw_name = "ti-pruss/am335x-pru0-prueth-fw.elf",
 };
 
 static struct pru_private_data am335x_pru1_rproc_pdata = {
 	.id = 1,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am335x-pru1-fw",
-	.eth_fw_name = "ti-pruss/am335x-pru1-prueth-fw.elf",
 };
 
 /* AM437x PRUSS1 PRU core-specific private data */
 static struct pru_private_data am437x_pru1_0_rproc_pdata = {
 	.id = 0,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am437x-pru1_0-fw",
-	.eth_fw_name = "ti-pruss/am437x-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data am437x_pru1_1_rproc_pdata = {
 	.id = 1,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am437x-pru1_1-fw",
-	.eth_fw_name = "ti-pruss/am437x-pru1-prueth-fw.elf"
 };
 
 /* AM437x PRUSS0 PRU core-specific private data */
@@ -919,28 +883,22 @@ static struct pru_private_data am437x_pru0_1_rproc_pdata = {
 static struct pru_private_data am57xx_pru1_0_rproc_pdata = {
 	.id = 0,
 	.fw_name = "am57xx-pru1_0-fw",
-	.eth_fw_name = "ti-pruss/am57xx-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data am57xx_pru1_1_rproc_pdata = {
 	.id = 1,
 	.fw_name = "am57xx-pru1_1-fw",
-	.eth_fw_name = "ti-pruss/am57xx-pru1-prueth-fw.elf"
 };
 
 /* AM57xx PRUSS2 PRU core-specific private data */
 static struct pru_private_data am57xx_pru2_0_rproc_pdata = {
 	.id = 0,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am57xx-pru2_0-fw",
-	.eth_fw_name = "ti-pruss/am57xx-pru0-prueth-fw.elf"
 };
 
 static struct pru_private_data am57xx_pru2_1_rproc_pdata = {
 	.id = 1,
-	.caps = PRU_FUNC_CAPS_ETHERNET,
 	.fw_name = "am57xx-pru2_1-fw",
-	.eth_fw_name = "ti-pruss/am57xx-pru1-prueth-fw.elf"
 };
 
 /* 66AK2G PRUSS0 PRU core-specific private data */
