@@ -78,6 +78,7 @@
 #define MADMA_EN		(1 << 0)
 #define VS18			(1 << 26)
 #define VS30			(1 << 25)
+#define VS_MASK			(0x7 << 24)
 #define HSS			(1 << 21)
 #define SDVS18			(0x5 << 9)
 #define SDVS30			(0x6 << 9)
@@ -2145,13 +2146,13 @@ static void omap_hsmmc_set_capabilities(struct omap_hsmmc_host *host)
 {
 	u32 val;
 
-	val = OMAP_HSMMC_READ(host->base, CAPA);
+	/* voltage capabilities might be set by boot loader, clear it */
+	val = OMAP_HSMMC_READ(host->base, CAPA) & ~VS_MASK;
 
 	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT) {
 		val |= (VS30 | VS18);
 	} else if (host->pdata->controller_flags & OMAP_HSMMC_NO_1_8_V) {
 		val |= VS30;
-		val &= ~VS18;
 	} else {
 		val |= VS18;
 	}
