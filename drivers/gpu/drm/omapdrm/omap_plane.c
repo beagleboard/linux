@@ -35,8 +35,6 @@ struct omap_plane {
 	enum omap_plane_id id;
 	const char *name;
 
-	uint32_t nformats;
-	uint32_t formats[32];
 	bool reserved_wb;
 };
 
@@ -78,7 +76,6 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	struct drm_plane_state *state = plane->state;
 	struct omap_plane_state *omap_state = to_omap_plane_state(state);
 	struct omap_overlay_info info;
-	struct omap_drm_window win;
 	int ret;
 
 	DBG("%s, crtc=%p fb=%p", omap_plane->name, state->crtc, state->fb);
@@ -89,41 +86,14 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	}
 
 	memset(&info, 0, sizeof(info));
-	info.rotation_type = OMAP_DSS_ROT_DMA;
-	info.rotation = OMAP_DSS_ROT_0;
-	info.mirror = 0;
+	info.rotation_type = OMAP_DSS_ROT_NONE;
+	info.rotation = DRM_ROTATE_0;
 	info.zorder = omap_state->zorder;
 	info.global_alpha = omap_state->global_alpha;
 	info.pre_mult_alpha = omap_state->pre_mult_alpha;
 
-	memset(&win, 0, sizeof(win));
-	win.rotation = state->rotation;
-	win.crtc_x = state->crtc_x;
-	win.crtc_y = state->crtc_y;
-	win.crtc_w = state->crtc_w;
-	win.crtc_h = state->crtc_h;
-
-	/*
-	 * src values are in Q16 fixed point, convert to integer.
-	 * omap_framebuffer_update_scanout() takes adjusted src.
-	 */
-	win.src_x = state->src_x >> 16;
-	win.src_y = state->src_y >> 16;
-
-	switch (state->rotation & DRM_ROTATE_MASK) {
-	case DRM_ROTATE_90:
-	case DRM_ROTATE_270:
-		win.src_w = state->src_h >> 16;
-		win.src_h = state->src_w >> 16;
-		break;
-	default:
-		win.src_w = state->src_w >> 16;
-		win.src_h = state->src_h >> 16;
-		break;
-	}
-
 	/* update scanout: */
-	omap_framebuffer_update_scanout(state->fb, &win, &info);
+	omap_framebuffer_update_scanout(state->fb, state, &info);
 
 	DBG("%dx%d -> %dx%d (%d)", info.width, info.height,
 			info.out_width, info.out_height,
@@ -131,12 +101,10 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	DBG("%d,%d %pad %pad", info.pos_x, info.pos_y,
 			&info.paddr, &info.p_uv_addr);
 
-	priv->dispc_ops->ovl_set_channel_out(omap_plane->id,
-				  omap_crtc_channel(state->crtc));
-
 	/* and finally, update omapdss: */
 	ret = priv->dispc_ops->ovl_setup(omap_plane->id, &info,
-			      omap_crtc_timings(state->crtc), false);
+			      omap_crtc_timings(state->crtc), false,
+			      omap_crtc_channel(state->crtc));
 	if (ret) {
 		dev_err(plane->dev->dev, "Failed to setup plane %s\n",
 			omap_plane->name);
@@ -234,9 +202,17 @@ void omap_plane_install_properties(struct drm_plane *plane,
 	struct omap_drm_private *priv = dev->dev_private;
 
 	if (priv->has_dmm) {
-		struct drm_property *prop = dev->mode_config.rotation_property;
+		if (!plane->rotation_property)
+			drm_plane_create_rotation_property(plane,
+							   DRM_ROTATE_0,
+							   DRM_ROTATE_0 | DRM_ROTATE_90 |
+							   DRM_ROTATE_180 | DRM_ROTATE_270 |
+							   DRM_REFLECT_X | DRM_REFLECT_Y);
 
-		drm_object_attach_property(obj, prop, 0);
+		/* Attach the rotation property also to the crtc object */
+		if (plane->rotation_property && obj != &plane->base)
+			drm_object_attach_property(obj, plane->rotation_property,
+						   DRM_ROTATE_0);
 	}
 
 	drm_object_attach_property(obj, priv->zorder_prop, 0);
@@ -373,6 +349,8 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 	struct omap_plane *omap_plane;
 	enum omap_plane_id id;
 	int ret;
+	u32 nformats;
+	const u32 *formats;
 
 	if (WARN_ON(idx >= ARRAY_SIZE(plane_idx_to_id)))
 		return ERR_PTR(-EINVAL);
@@ -385,17 +363,17 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 	if (!omap_plane)
 		return ERR_PTR(-ENOMEM);
 
-	omap_plane->nformats = omap_framebuffer_get_formats(
-			omap_plane->formats, ARRAY_SIZE(omap_plane->formats),
-			priv->dispc_ops->ovl_get_color_modes(id));
+	formats = priv->dispc_ops->ovl_get_color_modes(id);
+	for (nformats = 0; formats[nformats]; ++nformats)
+		;
 	omap_plane->id = id;
 	omap_plane->name = plane_id_to_name[id];
 
 	plane = &omap_plane->base;
 
 	ret = drm_universal_plane_init(dev, plane, possible_crtcs,
-				       &omap_plane_funcs, omap_plane->formats,
-				       omap_plane->nformats, type, NULL);
+				       &omap_plane_funcs, formats,
+				       nformats, type, NULL);
 	if (ret < 0)
 		goto error;
 

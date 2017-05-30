@@ -213,6 +213,14 @@ static int get_connector_type(struct omap_dss_device *dssdev)
 		return DRM_MODE_CONNECTOR_DVID;
 	case OMAP_DISPLAY_TYPE_DSI:
 		return DRM_MODE_CONNECTOR_DSI;
+	case OMAP_DISPLAY_TYPE_DPI:
+	case OMAP_DISPLAY_TYPE_DBI:
+		return DRM_MODE_CONNECTOR_DPI;
+	case OMAP_DISPLAY_TYPE_VENC:
+		/* TODO: This could also be composite */
+		return DRM_MODE_CONNECTOR_SVIDEO;
+	case OMAP_DISPLAY_TYPE_SDI:
+		return DRM_MODE_CONNECTOR_LVDS;
 	default:
 		return DRM_MODE_CONNECTOR_Unknown;
 	}
@@ -268,16 +276,6 @@ static int omap_modeset_init_properties(struct drm_device *dev)
 	};
 
 	/* plane properties */
-
-	if (priv->has_dmm) {
-		dev->mode_config.rotation_property =
-			drm_mode_create_rotation_property(dev,
-				DRM_ROTATE_0 | DRM_ROTATE_90 |
-				DRM_ROTATE_180 | DRM_ROTATE_270 |
-				DRM_REFLECT_X | DRM_REFLECT_Y);
-		if (!dev->mode_config.rotation_property)
-			return -ENOMEM;
-	}
 
 	priv->zorder_prop = drm_property_create_range(dev, 0, "zorder", 0, 3);
 	if (!priv->zorder_prop)
@@ -644,22 +642,32 @@ static void dev_lastclose(struct drm_device *dev)
 
 	DBG("lastclose: dev=%p", dev);
 
-	if (dev->mode_config.rotation_property) {
-		/* need to restore default rotation state.. not sure
-		 * if there is a cleaner way to restore properties to
-		 * default state?  Maybe a flag that properties should
-		 * automatically be restored to default state on
-		 * lastclose?
-		 */
-		for (i = 0; i < priv->num_crtcs; i++) {
-			drm_object_property_set_value(&priv->crtcs[i]->base,
-					dev->mode_config.rotation_property, 0);
-		}
+	/* need to restore default rotation state.. not sure
+	 * if there is a cleaner way to restore properties to
+	 * default state?  Maybe a flag that properties should
+	 * automatically be restored to default state on
+	 * lastclose?
+	 */
+	for (i = 0; i < priv->num_crtcs; i++) {
+		struct drm_crtc *crtc = priv->crtcs[i];
 
-		for (i = 0; i < priv->num_planes; i++) {
-			drm_object_property_set_value(&priv->planes[i]->base,
-					dev->mode_config.rotation_property, 0);
-		}
+		if (!crtc->primary->rotation_property)
+			continue;
+
+		drm_object_property_set_value(&crtc->base,
+					      crtc->primary->rotation_property,
+					      DRM_ROTATE_0);
+	}
+
+	for (i = 0; i < priv->num_planes; i++) {
+		struct drm_plane *plane = priv->planes[i];
+
+		if (!plane->rotation_property)
+			continue;
+
+		drm_object_property_set_value(&plane->base,
+					      plane->rotation_property,
+					      DRM_ROTATE_0);
 	}
 
 	if (priv->fbdev) {

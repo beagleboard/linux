@@ -668,7 +668,6 @@ static int tc358768_i2c_probe(struct i2c_client *client,
 	 */
 	dssdev->output_type = OMAP_DISPLAY_TYPE_DPI;
 	dssdev->owner = THIS_MODULE;
-	dssdev->phy.dpi.data_lines = ddata->dpi_ndl;
 	dssdev->port_num = 1;
 
 	r = omapdss_register_output(dssdev);

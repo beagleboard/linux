@@ -39,15 +39,6 @@
 
 struct omap_drm_usergart;
 
-/* parameters which describe (unrotated) coordinates of scanout within a fb: */
-struct omap_drm_window {
-	uint32_t rotation;
-	int32_t  crtc_x, crtc_y;		/* signed because can be offscreen */
-	uint32_t crtc_w, crtc_h;
-	uint32_t src_x, src_y;
-	uint32_t src_w, src_h;
-};
-
 /* For KMS code that needs to wait for a certain # of IRQs:
  */
 struct omap_irq_wait;
@@ -173,8 +164,6 @@ struct drm_encoder *omap_connector_attached_encoder(
 		struct drm_connector *connector);
 bool omap_connector_get_hdmi_mode(struct drm_connector *connector);
 
-uint32_t omap_framebuffer_get_formats(uint32_t *pixel_formats,
-		uint32_t max_formats, enum omap_color_mode supported_modes);
 struct drm_framebuffer *omap_framebuffer_create(struct drm_device *dev,
 		struct drm_file *file, const struct drm_mode_fb_cmd2 *mode_cmd);
 struct drm_framebuffer *omap_framebuffer_init(struct drm_device *dev,
@@ -182,7 +171,7 @@ struct drm_framebuffer *omap_framebuffer_init(struct drm_device *dev,
 int omap_framebuffer_pin(struct drm_framebuffer *fb);
 void omap_framebuffer_unpin(struct drm_framebuffer *fb);
 void omap_framebuffer_update_scanout(struct drm_framebuffer *fb,
-		struct omap_drm_window *win, struct omap_overlay_info *info);
+		struct drm_plane_state *state, struct omap_overlay_info *info);
 struct drm_connector *omap_framebuffer_get_next_connector(
 		struct drm_framebuffer *fb, struct drm_connector *from);
 bool omap_framebuffer_supports_rotation(struct drm_framebuffer *fb);
@@ -212,18 +201,17 @@ int omap_gem_op_sync(struct drm_gem_object *obj, enum omap_gem_op op);
 int omap_gem_op_async(struct drm_gem_object *obj, enum omap_gem_op op,
 		void (*fxn)(void *arg), void *arg);
 int omap_gem_roll(struct drm_gem_object *obj, uint32_t roll);
-void omap_gem_cpu_sync(struct drm_gem_object *obj, int pgoff);
-void omap_gem_dma_sync(struct drm_gem_object *obj,
+void omap_gem_cpu_sync_page(struct drm_gem_object *obj, int pgoff);
+void omap_gem_dma_sync_buffer(struct drm_gem_object *obj,
 		enum dma_data_direction dir);
-int omap_gem_get_paddr(struct drm_gem_object *obj,
-		dma_addr_t *paddr, bool remap);
-void omap_gem_put_paddr(struct drm_gem_object *obj);
+int omap_gem_pin(struct drm_gem_object *obj, dma_addr_t *dma_addr);
+void omap_gem_unpin(struct drm_gem_object *obj);
 int omap_gem_get_pages(struct drm_gem_object *obj, struct page ***pages,
 		bool remap);
 int omap_gem_put_pages(struct drm_gem_object *obj);
 uint32_t omap_gem_flags(struct drm_gem_object *obj);
-int omap_gem_rotated_paddr(struct drm_gem_object *obj, uint32_t orient,
-		int x, int y, dma_addr_t *paddr);
+int omap_gem_rotated_dma_addr(struct drm_gem_object *obj, uint32_t orient,
+		int x, int y, dma_addr_t *dma_addr);
 uint64_t omap_gem_mmap_offset(struct drm_gem_object *obj);
 size_t omap_gem_mmap_size(struct drm_gem_object *obj);
 int omap_gem_tiled_stride(struct drm_gem_object *obj, uint32_t orient);

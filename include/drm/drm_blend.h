@@ -28,6 +28,7 @@
 
 struct drm_device;
 struct drm_atomic_state;
+struct drm_plane;
 
 /*
  * Rotation property bits. DRM_ROTATE_<degrees> rotates the image by the
@@ -47,8 +48,14 @@ struct drm_atomic_state;
 #define DRM_REFLECT_Y	BIT(5)
 #define DRM_REFLECT_MASK (DRM_REFLECT_X | DRM_REFLECT_Y)
 
-struct drm_property *drm_mode_create_rotation_property(struct drm_device *dev,
-						       unsigned int supported_rotations);
+static inline bool drm_rotation_90_or_270(unsigned int rotation)
+{
+	return rotation & (DRM_ROTATE_90 | DRM_ROTATE_270);
+}
+
+int drm_plane_create_rotation_property(struct drm_plane *plane,
+				       unsigned int rotation,
+				       unsigned int supported_rotations);
 unsigned int drm_rotation_simplify(unsigned int rotation,
 				   unsigned int supported_rotations);
 

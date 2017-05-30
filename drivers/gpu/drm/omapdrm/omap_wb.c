@@ -64,24 +64,6 @@ struct wb_fmt *find_format(struct v4l2_format *f)
 	return NULL;
 }
 
-enum omap_color_mode fourcc_to_dss(u32 fourcc)
-{
-	switch (fourcc) {
-	case DRM_FORMAT_XRGB8888:
-		return OMAP_DSS_COLOR_RGB24U;
-
-	case DRM_FORMAT_NV12:
-		return OMAP_DSS_COLOR_NV12;
-	case DRM_FORMAT_YUYV:
-		return OMAP_DSS_COLOR_YUV2;
-	case DRM_FORMAT_UYVY:
-		return OMAP_DSS_COLOR_UYVY;
-	default:
-		WARN_ONCE(1, "WB: unsupported fourcc code: 0x%x\n", fourcc);
-		return OMAP_DSS_COLOR_UYVY;
-	}
-}
-
 void omap_wb_irq(void *priv, u32 irqstatus)
 {
 	struct wb_dev *dev = (struct wb_dev *)priv;

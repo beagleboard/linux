@@ -221,8 +221,6 @@ static inline dma_addr_t vb2_dma_addr_plus_data_offset(struct vb2_buffer *vb,
 		vb->planes[plane_no].data_offset;
 }
 
-enum omap_color_mode fourcc_to_dss(u32 fourcc);
-
 void wbm2m_irq(struct wbm2m_dev *dev, uint32_t irqstatus);
 int wbm2m_init(struct wb_dev *dev);
 void wbm2m_cleanup(struct wb_dev *dev);

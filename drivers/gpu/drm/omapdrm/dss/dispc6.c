@@ -446,6 +446,9 @@ static void dispc6_write_legacy_irqenable(u32 mask)
 
 
 	dispc6_write(DISPC_IRQENABLE_SET, (1 << 0) | (1 << 7));
+
+	/* flush posted write */
+	dispc6_read_legacy_irqenable();
 }
 
 
@@ -900,22 +903,32 @@ static void dispc6_vid_set_scaling(enum omap_plane_id plane,
 
 /* OTHER */
 
+static const enum omap_color_mode dispc6_supported_formats[] = {
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_RGBX8888,
+	DRM_FORMAT_RGBA8888,
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_NV12,
+	0
+};
+
 static const struct {
 	u32 fourcc;
-	enum omap_color_mode color_mode;
 	u8 dss_code;
 	u8 bytespp;
 } dispc6_color_formats[] = {
-	{ DRM_FORMAT_XRGB8888, OMAP_DSS_COLOR_RGB24U, 0x27, 4, },
-	{ DRM_FORMAT_ARGB8888, OMAP_DSS_COLOR_ARGB32, 0x7, 4, },
+	{ DRM_FORMAT_XRGB8888, 0x27, 4, },
+	{ DRM_FORMAT_ARGB8888, 0x7, 4, },
 
-	{ DRM_FORMAT_RGBX8888, OMAP_DSS_COLOR_RGBX32, 0x29, 4, },
-	{ DRM_FORMAT_RGBA8888, OMAP_DSS_COLOR_RGBA32, 0x9, 4, },
+	{ DRM_FORMAT_RGBX8888, 0x29, 4, },
+	{ DRM_FORMAT_RGBA8888, 0x9, 4, },
 
-	{ DRM_FORMAT_YUYV, OMAP_DSS_COLOR_YUV2, 0x3e, 2, },
-	{ DRM_FORMAT_UYVY, OMAP_DSS_COLOR_UYVY, 0x3f, 2, },
+	{ DRM_FORMAT_YUYV, 0x3e, 2, },
+	{ DRM_FORMAT_UYVY, 0x3f, 2, },
 
-	{ DRM_FORMAT_NV12, OMAP_DSS_COLOR_NV12, 0x3d, 2, },
+	{ DRM_FORMAT_NV12, 0x3d, 2, },
 };
 
 static bool dispc6_fourcc_is_yuv(u32 fourcc)
@@ -928,27 +941,6 @@ static bool dispc6_fourcc_is_yuv(u32 fourcc)
 	default:
 		return false;
 	}
-}
-
-static u32 dispc6_dss_colormode_to_fourcc(enum omap_color_mode dss_mode)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(dispc6_color_formats); ++i) {
-		if (dispc6_color_formats[i].color_mode == dss_mode)
-			return dispc6_color_formats[i].fourcc;
-	}
-
-	__WARN();
-	return DRM_FORMAT_XRGB8888;
-}
-
-static void dispc6_ovl_set_channel_out(enum omap_plane_id plane,
-				       enum omap_channel channel)
-{
-	int val = 0;
-
-	VID_REG_FLD_MOD(plane, DISPC_VID_ATTRIBUTES, val, 16, 14);
 }
 
 static void dispc6_ovl_set_pixel_format(enum omap_plane_id plane, u32 fourcc)
@@ -995,9 +987,10 @@ static s32 pixinc(int pixels, u8 ps)
 
 static int dispc6_ovl_setup(enum omap_plane_id plane,
 			    const struct omap_overlay_info *oi,
-			    const struct videomode *vm, bool mem_to_mem)
+			    const struct videomode *vm, bool mem_to_mem,
+			    enum omap_channel channel)
 {
-	u32 fourcc = dispc6_dss_colormode_to_fourcc(oi->color_mode);
+	u32 fourcc = oi->fourcc;
 	int bytespp = dispc6_fourcc_to_bytespp(fourcc);
 
 	dispc6_ovl_set_pixel_format(plane, fourcc);
@@ -1031,6 +1024,9 @@ static int dispc6_ovl_setup(enum omap_plane_id plane,
 	else
 		dispc6_vid_csc_enable(plane, false);
 
+	/* channel */
+	VID_REG_FLD_MOD(plane, DISPC_VID_ATTRIBUTES, 0, 16, 14);
+
 	return 0;
 }
 
@@ -1038,11 +1034,6 @@ static int dispc6_ovl_enable(enum omap_plane_id plane, bool enable)
 {
 	VID_REG_FLD_MOD(plane, DISPC_VID_ATTRIBUTES, !!enable, 0, 0);
 	return 0;
-}
-
-static bool dispc6_ovl_enabled(enum omap_plane_id plane)
-{
-	return VID_REG_GET(plane, DISPC_VID_ATTRIBUTES, 0, 0);
 }
 
 static u32 dispc6_vid_get_fifo_size(enum omap_plane_id plane)
@@ -1116,15 +1107,9 @@ static enum omap_dss_output_id dispc6_mgr_get_supported_outputs(enum omap_channe
 	return OMAP_DSS_OUTPUT_DPI;
 }
 
-static enum omap_color_mode dispc6_ovl_get_color_modes(enum omap_plane_id plane)
+static const u32 *dispc6_ovl_get_color_modes(enum omap_plane_id plane)
 {
-	enum omap_color_mode formats = 0;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(dispc6_color_formats); ++i)
-		formats |= dispc6_color_formats[i].color_mode;
-
-	return formats;
+	return dispc6_supported_formats;
 }
 
 static bool dispc6_has_writeback(void)
@@ -1239,7 +1224,6 @@ static void dispc6_get_min_max_size(u32 *min_w, u32 *min_h, u32 *max_w, u32 *max
 static const struct dispc_ops dispc6_ops = {
 	.read_irqstatus = dispc6_read_legacy_irqstatus,
 	.clear_irqstatus = dispc6_clear_legacy_irqstatus,
-	.read_irqenable = dispc6_read_legacy_irqenable,
 	.write_irqenable = dispc6_write_legacy_irqenable,
 
 	.request_irq = dispc6_request_irq,
@@ -1267,8 +1251,6 @@ static const struct dispc_ops dispc6_ops = {
 	.mgr_set_gamma = dispc6_mgr_set_gamma,
 
 	.ovl_enable = dispc6_ovl_enable,
-	.ovl_enabled = dispc6_ovl_enabled,
-	.ovl_set_channel_out = dispc6_ovl_set_channel_out,
 	.ovl_setup = dispc6_ovl_setup,
 	.ovl_get_color_modes = dispc6_ovl_get_color_modes,
 
