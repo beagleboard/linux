@@ -392,6 +392,7 @@ enum drm_plane_type {
  * @type: type of plane (overlay, primary, cursor)
  * @state: current atomic state for this plane
  * @zpos_property: zpos property for this plane
+ * @rotation_property: rotation property for this plane
  * @helper_private: mid-layer private data
  */
 struct drm_plane {
@@ -438,6 +439,7 @@ struct drm_plane {
 	struct drm_plane_state *state;
 
 	struct drm_property *zpos_property;
+	struct drm_property *rotation_property;
 };
 
 #define obj_to_plane(x) container_of(x, struct drm_plane, base)

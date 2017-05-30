@@ -419,6 +419,19 @@ static void omap_crtc_destroy(struct drm_crtc *crtc)
 	kfree(omap_crtc);
 }
 
+static void omap_crtc_arm_event(struct drm_crtc *crtc)
+{
+	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+
+	WARN_ON(omap_crtc->pending);
+	omap_crtc->pending = true;
+
+	if (crtc->state->event) {
+		omap_crtc->event = crtc->state->event;
+		crtc->state->event = NULL;
+	}
+}
+
 static void omap_crtc_enable(struct drm_crtc *crtc)
 {
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
@@ -431,8 +444,7 @@ static void omap_crtc_enable(struct drm_crtc *crtc)
 	ret = drm_crtc_vblank_get(crtc);
 	WARN_ON(ret != 0);
 
-	WARN_ON(omap_crtc->pending);
-	omap_crtc->pending = true;
+	omap_crtc_arm_event(crtc);
 	spin_unlock_irq(&crtc->dev->event_lock);
 }
 
@@ -441,6 +453,13 @@ static void omap_crtc_disable(struct drm_crtc *crtc)
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 
 	DBG("%s", omap_crtc->name);
+
+	spin_lock_irq(&crtc->dev->event_lock);
+	if (crtc->state->event) {
+		drm_crtc_send_vblank_event(crtc, crtc->state->event);
+		crtc->state->event = NULL;
+	}
+	spin_unlock_irq(&crtc->dev->event_lock);
 
 	drm_crtc_vblank_off(crtc);
 }
@@ -549,22 +568,18 @@ static void omap_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	spin_lock_irq(&crtc->dev->event_lock);
 	priv->dispc_ops->mgr_go(omap_crtc->channel);
-
-	WARN_ON(omap_crtc->pending);
-	omap_crtc->pending = true;
-
-	if (crtc->state->event)
-		omap_crtc->event = crtc->state->event;
+	omap_crtc_arm_event(crtc);
 	spin_unlock_irq(&crtc->dev->event_lock);
 }
 
-static bool omap_crtc_is_plane_prop(struct drm_device *dev,
+static bool omap_crtc_is_plane_prop(struct drm_crtc *crtc,
 	struct drm_property *property)
 {
+	struct drm_device *dev = crtc->dev;
 	struct omap_drm_private *priv = dev->dev_private;
 
 	return property == priv->zorder_prop ||
-		property == dev->mode_config.rotation_property;
+		property == crtc->primary->rotation_property;
 }
 
 static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
@@ -576,7 +591,7 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 	struct omap_drm_private *priv = dev->dev_private;
 	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 
-	if (omap_crtc_is_plane_prop(dev, property)) {
+	if (omap_crtc_is_plane_prop(crtc, property)) {
 		struct drm_plane_state *plane_state;
 		struct drm_plane *plane = crtc->primary;
 
@@ -616,7 +631,7 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 	struct omap_drm_private *priv = dev->dev_private;
 	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 
-	if (omap_crtc_is_plane_prop(dev, property)) {
+	if (omap_crtc_is_plane_prop(crtc, property)) {
 		/*
 		 * Delegate property get to the primary plane. The
 		 * drm_atomic_plane_get_property() function isn't exported, but
