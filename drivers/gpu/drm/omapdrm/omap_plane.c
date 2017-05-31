@@ -105,6 +105,8 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	info.rotation = DRM_MODE_ROTATE_0;
 	info.global_alpha = 0xff;
 	info.zorder = state->normalized_zpos;
+	info.color_encoding = state->color_encoding;
+	info.color_range = state->color_range;
 
 	r_info = info;
 
@@ -429,6 +431,8 @@ static void omap_plane_reset(struct drm_plane *plane)
 	 */
 	plane->state->zpos = plane->type == DRM_PLANE_TYPE_PRIMARY
 			   ? 0 : omap_plane->id;
+	plane->state->color_encoding = DRM_COLOR_YCBCR_BT601;
+	plane->state->color_range = DRM_COLOR_YCBCR_FULL_RANGE;
 }
 
 static struct drm_plane_state *
@@ -521,6 +525,23 @@ static const struct drm_plane_funcs omap_plane_funcs = {
 	.atomic_print_state = omap_plane_atomic_print_state,
 };
 
+static bool omap_plane_supports_yuv(struct drm_plane *plane)
+{
+	struct omap_drm_private *priv = plane->dev->dev_private;
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+	const u32 *formats =
+		priv->dispc_ops->ovl_get_color_modes(priv->dispc, omap_plane->id);
+	int i;
+
+	for (i = 0; formats[i]; i++)
+		if (formats[i] == DRM_FORMAT_YUYV ||
+		    formats[i] == DRM_FORMAT_UYVY ||
+		    formats[i] == DRM_FORMAT_NV12)
+			return true;
+
+	return false;
+}
+
 static const char *plane_id_to_name[] = {
 	[OMAP_DSS_GFX] = "gfx",
 	[OMAP_DSS_VIDEO1] = "vid1",
@@ -572,6 +593,15 @@ struct drm_plane *omap_plane_init(struct drm_device *dev,
 
 	omap_plane_install_properties(plane, &plane->base);
 	drm_plane_create_zpos_property(plane, 0, 0, num_planes - 1);
+
+	if (omap_plane_supports_yuv(plane))
+		drm_plane_create_color_properties(plane,
+					BIT(DRM_COLOR_YCBCR_BT601) |
+					BIT(DRM_COLOR_YCBCR_BT709),
+					BIT(DRM_COLOR_YCBCR_FULL_RANGE) |
+					BIT(DRM_COLOR_YCBCR_LIMITED_RANGE),
+					DRM_COLOR_YCBCR_BT601,
+					DRM_COLOR_YCBCR_FULL_RANGE);
 
 	return plane;
 
