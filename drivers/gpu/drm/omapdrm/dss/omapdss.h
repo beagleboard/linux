@@ -14,6 +14,7 @@
 #include <linux/platform_data/omapdss.h>
 #include <uapi/drm/drm_mode.h>
 #include <drm/drm_crtc.h>
+#include <drm/drm_color_mgmt.h>
 
 #define DISPC_IRQ_FRAMEDONE		(1 << 0)
 #define DISPC_IRQ_VSYNC			(1 << 1)
@@ -243,6 +244,9 @@ struct omap_overlay_info {
 	u8 global_alpha;
 	u8 pre_mult_alpha;
 	u8 zorder;
+
+	enum drm_color_encoding color_encoding;
+	enum drm_color_range color_range;
 };
 
 struct omap_overlay_manager_info {
