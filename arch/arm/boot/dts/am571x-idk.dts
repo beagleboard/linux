@@ -229,6 +229,21 @@
 	watchdog-timers = <&timer10>;
 };
 
+&pcie1_rc {
+	status = "okay";
+	gpios = <&gpio5 18 GPIO_ACTIVE_HIGH>;
+};
+
+&pcie1_ep {
+	/*
+	 * To enable PCIe EP functionality, set the status of
+	 * this node to "okay" and the status of pcie1_rc node
+	 * above to "disabled".
+	 */
+	status = "disabled";
+	gpios = <&gpio5 18 GPIO_ACTIVE_HIGH>;
+};
+
 &pruss1_mdio {
 	status = "okay";
 	reset-gpios = <&gpio5 8 GPIO_ACTIVE_LOW>;
