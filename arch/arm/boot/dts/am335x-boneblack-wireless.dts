@@ -12,6 +12,7 @@
 #include <dt-bindings/display/tda998x.h>
 #include "am335x-boneblack-wl1835.dtsi"
 /* #include "am335x-bone-jtag.dtsi" */
+#include "am33xx-pruss-rproc.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone Black Wireless";
