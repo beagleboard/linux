@@ -9,6 +9,7 @@
 
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
+#include "am33xx-pruss-rproc.dtsi"
 #include <dt-bindings/display/tda998x.h>
 /* #include "am335x-bone-jtag.dtsi" */
 
