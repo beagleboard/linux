@@ -562,6 +562,30 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-base0033.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-sancloud-bbe-uboot.dtb \
+	am335x-boneblack-uboot.dtb \
+	am335x-sancloud-bbe.dtb \
+	am335x-boneblack-wireless-roboticscape.dtb \
+	am335x-boneblack-roboticscape.dtb \
+	am335x-boneblue-ArduPilot.dtb \
+	am335x-boneblue.dtb \
+	am335x-boneblack-wireless-emmc-overlay.dtb \
+	am335x-boneblack-wireless.dtb \
+	am335x-bonegreen-wireless.dtb \
+	am335x-boneblack-audio.dtb \
+	am335x-boneblack-bbb-exp-r.dtb \
+	am335x-boneblack-bbb-exp-c.dtb \
+	am335x-boneblack-bbbmini.dtb \
+	am335x-boneblack-wl1835mod.dtb \
+	am335x-boneblack-cape-bone-argus.dtb \
+	am335x-bone-cape-bone-argus.dtb \
+	am335x-olimex-som.dtb \
+	am335x-abbbi.dtb \
+	am335x-bonegreen-overlay.dtb \
+	am335x-boneblack-overlay.dtb \
+	am335x-boneblack-nhdmi-overlay.dtb \
+	am335x-boneblack-hdmi-overlay.dtb \
+	am335x-boneblack-emmc-overlay.dtb \
 	am335x-bonegreen.dtb \
 	am335x-chiliboard.dtb \
 	am335x-cm-t335.dtb \
@@ -600,6 +624,7 @@ dtb-$(CONFIG_SOC_OMAP5) += \
 	omap5-uevm.dtb
 dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-beagle-x15.dtb \
+	am571x-sndrblock.dtb \
 	am57xx-beagle-x15-revb1.dtb \
 	am57xx-cl-som-am57x.dtb \
 	am57xx-sbc-am57x.dtb \
