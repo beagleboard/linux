@@ -86,5 +86,6 @@
 #define K2G_DEV_CBASS0			0x0049
 #define K2G_DEV_BOARD0			0x004c
 #define K2G_DEV_EDMA1			0x004f
+#define K2G_DEV_SA0			0x0052
 
 #endif
