@@ -20,6 +20,7 @@
  */
 
 #include <linux/sched.h>
+#include <linux/ipipe.h>
 #include <linux/kernel.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
@@ -53,19 +54,47 @@ void arch_cpu_idle_dead(void)
 }
 #endif
 
+#ifdef CONFIG_IPIPE
+static void __ipipe_halt_root(void)
+{
+	struct ipipe_percpu_domain_data *p;
+
+	/*
+	 * Emulate idle entry sequence over the root domain, which is
+	 * stalled on entry.
+	 */
+	hard_local_irq_disable();
+
+	p = ipipe_this_cpu_root_context();
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
+
+	if (unlikely(__ipipe_ipending_p(p)))
+		__ipipe_sync_stage();
+	else
+		ppc_md.power_save();
+
+	hard_local_irq_enable();
+}
+#else
+static void __ipipe_halt_root(void)
+{
+	ppc_md.power_save();
+	/*
+	 * Some power_save functions return with
+	 * interrupts enabled, some don't.
+	 */
+	if (irqs_disabled())
+		local_irq_enable();
+}
+#endif
+
 void arch_cpu_idle(void)
 {
 	ppc64_runlatch_off();
 
-	if (ppc_md.power_save) {
-		ppc_md.power_save();
-		/*
-		 * Some power_save functions return with
-		 * interrupts enabled, some don't.
-		 */
-		if (irqs_disabled())
-			local_irq_enable();
-	} else {
+	if (ppc_md.power_save)
+		__ipipe_halt_root();
+	else {
 		local_irq_enable();
 		/*
 		 * Go into low thread priority and possibly

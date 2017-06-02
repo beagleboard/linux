@@ -36,6 +36,8 @@
  */
 #include <asm/head-64.h>
 
+#include <asm/irq_softstate.h>
+
 #define EX_R9		0
 #define EX_R10		8
 #define EX_R11		16
@@ -345,9 +347,8 @@ END_FTR_SECTION_NESTED(ftr,ftr,943)
 	mflr	r9;			/* Get LR, later save to stack	*/ \
 	ld	r2,PACATOC(r13);	/* get kernel TOC into r2	*/ \
 	std	r9,_LINK(r1);						   \
-	lbz	r10,PACASOFTIRQEN(r13);				   \
+	EXC_SAVE_SOFTISTATE(r10);					   \
 	mfspr	r11,SPRN_XER;		/* save XER in stackframe	*/ \
-	std	r10,SOFTE(r1);						   \
 	std	r11,_XER(r1);						   \
 	li	r9,(n)+1;						   \
 	std	r9,_TRAP(r1);		/* set trap number		*/ \
@@ -410,11 +411,15 @@ END_FTR_SECTION_NESTED(ftr,ftr,943)
 #define SOFTEN_VALUE_0xe60	PACA_IRQ_HMI
 #define SOFTEN_VALUE_0xea0	PACA_IRQ_EE
 
+#ifdef CONFIG_IPIPE
+#define __SOFTEN_TEST(h, vec)
+#else /* !CONFIG_IPIPE */
 #define __SOFTEN_TEST(h, vec)						\
 	lbz	r10,PACASOFTIRQEN(r13);					\
 	cmpwi	r10,0;							\
 	li	r10,SOFTEN_VALUE_##vec;					\
 	beq	masked_##h##interrupt
+#endif /* !CONFIG_IPIPE */
 
 #define _SOFTEN_TEST(h, vec)	__SOFTEN_TEST(h, vec)
 
@@ -491,7 +496,18 @@ END_FTR_SECTION_NESTED(ftr,ftr,943)
  * This addition reconciles our actual IRQ state with the various software
  * flags that track it. This may call C code.
  */
+#ifdef CONFIG_IPIPE
+#define ADD_RECONCILE				\
+	ld	r10,PACAROOTPCPU(r13);		\
+	ld	r11,0(r10);			\
+	ori	r11,r11,1;			\
+	std	r11,0(r10);			\
+	mfmsr	r11;				\
+	ori	r11,r11,MSR_EE;			\
+	mtmsrd	r11,1;
+#else /* !CONFIG_IPIPE */
 #define ADD_RECONCILE	RECONCILE_IRQ_STATE(r10,r11)
+#endif /* !CONFIG_IPIPE */
 
 #define ADD_NVGPRS				\
 	bl	save_nvgprs
@@ -521,9 +537,24 @@ END_FTR_SECTION_IFSET(CPU_FTR_CTRL)
  * in the idle task and therefore need the special idle handling
  * (finish nap and runlatch)
  */
+#ifdef CONFIG_IPIPE
+/*
+ * No NAP mode when pipelining, we don't want that extra latency.
+ * Runlatch will be considered later in __ipipe_exit_irq().
+ */
+#define STD_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)		\
+	EXCEPTION_COMMON(trap, label, __ipipe_grab_irq,	\
+			 __ipipe_ret_from_except_lite, HARD_DISABLE_INTS)
+#define DECREMENTER_EXCEPTION(trap, label, hdlr)		  \
+	EXCEPTION_COMMON(trap, label, __ipipe_grab_timer,	  \
+			 __ipipe_ret_from_except_lite, HARD_DISABLE_INTS)
+#else
 #define STD_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)		  \
 	EXCEPTION_COMMON(trap, label, hdlr, ret_from_except_lite, \
 			 FINISH_NAP;ADD_RECONCILE;RUNLATCH_ON)
+#define DECREMENTER_EXCEPTION(trap, label, hdlr)		  \
+	STD_EXCEPTION_COMMON_ASYNC(trap, label, hdlr)
+#endif
 
 /*
  * When the idle code in power4_idle puts the CPU into NAP mode,

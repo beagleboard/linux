@@ -123,6 +123,9 @@ static __init void avic_init_gc(int idx, unsigned int irq_start)
 	ct->chip.irq_mask = irq_gc_mask_clr_bit;
 	ct->chip.irq_unmask = irq_gc_mask_set_bit;
 	ct->chip.irq_ack = irq_gc_mask_clr_bit;
+#ifdef CONFIG_IPIPE
+	ct->chip.irq_mask_ack = irq_gc_mask_clr_bit;
+#endif /* CONFIG_IPIPE */
 	ct->chip.irq_set_wake = irq_gc_set_wake;
 	ct->chip.irq_suspend = avic_irq_suspend;
 	ct->chip.irq_resume = avic_irq_resume;
@@ -141,7 +144,7 @@ static void __exception_irq_entry avic_handle_irq(struct pt_regs *regs)
 		if (nivector == 0xffff)
 			break;
 
-		handle_domain_irq(domain, nivector, regs);
+		ipipe_handle_domain_irq(domain, nivector, regs);
 	} while (1);
 }
 
