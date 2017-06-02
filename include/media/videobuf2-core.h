@@ -17,7 +17,12 @@
 #include <linux/poll.h>
 #include <linux/dma-buf.h>
 
+#if IS_ENABLED(CONFIG_SOC_DRA7XX) && IS_ENABLED(CONFIG_VIDEO_TI_VPE)
 #define VB2_MAX_FRAME	(128)
+#else
+#define VB2_MAX_FRAME	(32)
+#endif
+
 #define VB2_MAX_PLANES	(8)
 
 /**

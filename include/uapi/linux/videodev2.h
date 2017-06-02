@@ -69,7 +69,11 @@
  * Common stuff for both V4L1 and V4L2
  * Moved from videodev.h
  */
+#if IS_ENABLED(CONFIG_SOC_DRA7XX) && IS_ENABLED(CONFIG_VIDEO_TI_VPE)
 #define VIDEO_MAX_FRAME               128
+#else
+#define VIDEO_MAX_FRAME               32
+#endif
 #define VIDEO_MAX_PLANES               8
 
 /*
