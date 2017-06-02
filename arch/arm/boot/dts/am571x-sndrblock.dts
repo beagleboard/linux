@@ -123,3 +123,13 @@
 	no-1-8-v;
 	/delete-property/ mmc-hs200-1_8v;
 };
+
+&pcie1_rc {
+	status = "okay";
+	gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+};
+
+
+&pcie1_ep {
+	gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+};
