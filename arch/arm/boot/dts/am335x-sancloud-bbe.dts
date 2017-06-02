@@ -12,6 +12,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/display/tda998x.h>
 /* #include "am335x-bone-jtag.dtsi" */
+#include "am33xx-pruss-rproc.dtsi"
 
 / {
 	model = "SanCloud BeagleBone Enhanced";
