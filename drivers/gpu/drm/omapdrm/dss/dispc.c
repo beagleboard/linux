@@ -295,11 +295,6 @@ static const struct {
 	},
 };
 
-struct color_conv_coef {
-	int ry, rcr, rcb, gy, gcr, gcb, by, bcr, bcb;
-	int full_range;
-};
-
 static unsigned long dispc_fclk_rate(void);
 static unsigned long dispc_core_clk_rate(void);
 static unsigned long dispc_mgr_lclk_rate(enum omap_channel channel);
@@ -759,9 +754,18 @@ static void dispc_ovl_set_scale_coef(enum omap_plane_id plane, int fir_hinc,
 	}
 }
 
+struct csc_coef_yuv2rgb {
+	int ry, rcb, rcr, gy, gcb, gcr, by, bcb, bcr;
+	bool full_range;
+};
+
+struct csc_coef_rgb2yuv {
+	int yr, yg, yb, cbr, cbg, cbb, crr, crg, crb;
+	bool full_range;
+};
 
 static void dispc_ovl_write_color_conv_coef(enum omap_plane_id plane,
-		const struct color_conv_coef *ct)
+		const struct csc_coef_yuv2rgb *ct)
 {
 #define CVAL(x, y) (FLD_VAL(x, 26, 16) | FLD_VAL(y, 10, 0))
 
@@ -771,29 +775,112 @@ static void dispc_ovl_write_color_conv_coef(enum omap_plane_id plane,
 	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 3), CVAL(ct->bcr, ct->by));
 	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 4), CVAL(0, ct->bcb));
 
-	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), ct->full_range, 11, 11);
+	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), !!ct->full_range, 11, 11);
 
 #undef CVAL
 }
 
-static void dispc_setup_color_conv_coef(void)
+static void dispc_wb_write_color_conv_coef(const struct csc_coef_rgb2yuv *ct)
 {
-	int i;
-	int num_ovl = dss_feat_get_num_ovls();
-	const struct color_conv_coef ctbl_bt601_5_ovl = {
-		/* YUV -> RGB */
-		298, 409, 0, 298, -208, -100, 298, 0, 517, 0,
-	};
-	const struct color_conv_coef ctbl_bt601_5_wb = {
-		/* RGB -> YUV */
-		66, 129, 25, 112, -94, -18, -38, -74, 112, 0,
-	};
+	const enum omap_plane_id plane = OMAP_DSS_WB;
 
-	for (i = 1; i < num_ovl; i++)
-		dispc_ovl_write_color_conv_coef(i, &ctbl_bt601_5_ovl);
+#define CVAL(x, y) (FLD_VAL(x, 26, 16) | FLD_VAL(y, 10, 0))
 
-	if (dispc.feat->has_writeback)
-		dispc_ovl_write_color_conv_coef(OMAP_DSS_WB, &ctbl_bt601_5_wb);
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 0), CVAL(ct->yg,  ct->yr));
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 1), CVAL(ct->crr, ct->yb));
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 2), CVAL(ct->crb, ct->crg));
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 3), CVAL(ct->cbg, ct->cbr));
+	dispc_write_reg(DISPC_OVL_CONV_COEF(plane, 4), CVAL(0, ct->cbb));
+
+	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), !!ct->full_range, 11, 11);
+
+#undef CVAL
+}
+
+/* YUV -> RGB, ITU-R BT.601, full range */
+const static struct csc_coef_yuv2rgb coefs_yuv2rgb_bt601_full = {
+	256,   0,  358,		/* ry, rcb, rcr |1.000  0.000  1.402|*/
+	256, -88, -182,		/* gy, gcb, gcr |1.000 -0.344 -0.714|*/
+	256, 452,    0,		/* by, bcb, bcr |1.000  1.772  0.000|*/
+	true,			/* full range */
+};
+
+/* YUV -> RGB, ITU-R BT.601, limited range */
+const static struct csc_coef_yuv2rgb coefs_yuv2rgb_bt601_lim = {
+	298,    0,  409,	/* ry, rcb, rcr |1.164  0.000  1.596|*/
+	298, -100, -208,	/* gy, gcb, gcr |1.164 -0.392 -0.813|*/
+	298,  516,    0,	/* by, bcb, bcr |1.164  2.017  0.000|*/
+	false,			/* limited range */
+};
+
+/* YUV -> RGB, ITU-R BT.709, full range */
+const static struct csc_coef_yuv2rgb coefs_yuv2rgb_bt709_full = {
+        256,    0,  402,        /* ry, rcb, rcr |1.000  0.000  1.570|*/
+        256,  -48, -120,        /* gy, gcb, gcr |1.000 -0.187 -0.467|*/
+        256,  475,    0,        /* by, bcb, bcr |1.000  1.856  0.000|*/
+        true,                   /* full range */
+};
+
+/* YUV -> RGB, ITU-R BT.709, limited range */
+const static struct csc_coef_yuv2rgb coefs_yuv2rgb_bt709_lim = {
+	298,    0,  459,	/* ry, rcb, rcr |1.164  0.000  1.793|*/
+	298,  -55, -136,	/* gy, gcb, gcr |1.164 -0.213 -0.533|*/
+	298,  541,    0,	/* by, bcb, bcr |1.164  2.112  0.000|*/
+	false,			/* limited range */
+};
+
+/* RGB -> YUV, ITU-R BT.601, limited range */
+const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_lim = {
+	 66, 129,  25,		/* yr,   yg,  yb | 0.257  0.504  0.098|*/
+	-38, -74, 112,		/* cbr, cbg, cbb |-0.148 -0.291  0.439|*/
+	112, -94, -18,		/* crr, crg, crb | 0.439 -0.368 -0.071|*/
+	false,			/* limited range */
+};
+
+/* RGB -> YUV, ITU-R BT.601, full range */
+const static struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_full = {
+	 77,  150,  29,		/* yr,   yg,  yb | 0.299  0.587  0.114|*/
+	-43,  -85, 128,		/* cbr, cbg, cbb |-0.173 -0.339  0.511|*/
+	128, -107, -21,		/* crr, crg, crb | 0.511 -0.428 -0.083|*/
+	true,			/* full range */
+};
+
+/* RGB -> YUV, ITU-R BT.709, limited range */
+const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt701_lim = {
+	 47,  157,   16,	/* yr,   yg,  yb | 0.1826  0.6142  0.0620|*/
+	-26,  -87,  112,	/* cbr, cbg, cbb |-0.1006 -0.3386  0.4392|*/
+	112, -102,  -10,	/* crr, crg, crb | 0.4392 -0.3989 -0.0403|*/
+	false,			/* limited range */
+};
+
+static int dispc_ovl_set_csc(enum omap_plane_id plane,
+			     enum drm_color_encoding color_encoding,
+			     enum drm_color_range color_range)
+{
+	const struct csc_coef_yuv2rgb *csc;
+
+	switch (color_encoding) {
+	case DRM_COLOR_YCBCR_BT601:
+		if (color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+			csc = &coefs_yuv2rgb_bt601_full;
+		else
+			csc = &coefs_yuv2rgb_bt601_lim;
+		break;
+	case DRM_COLOR_YCBCR_BT709:
+		if (color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+			csc = &coefs_yuv2rgb_bt709_full;
+		else
+			csc = &coefs_yuv2rgb_bt709_lim;
+		break;
+	default:
+		DSSERR("Unsupported CSC mode %d for plane %d\n",
+		       color_encoding, plane);
+		return -EINVAL;
+	}
+
+	dispc_ovl_write_color_conv_coef(plane, csc);
+
+	return 0;
 }
 
 static void dispc_ovl_set_ba0(enum omap_plane_id plane, u32 paddr)
@@ -2395,7 +2482,8 @@ static int dispc_ovl_setup_common(enum omap_plane_id plane,
 		u8 rotation, u8 zorder, u8 pre_mult_alpha,
 		u8 global_alpha, enum omap_dss_rotation_type rotation_type,
 		bool replication, const struct videomode *vm,
-		bool mem_to_mem)
+		bool mem_to_mem, enum drm_color_encoding color_encoding,
+		enum drm_color_range color_range)
 {
 	bool five_taps = true;
 	bool fieldmode = false;
@@ -2543,6 +2631,9 @@ static int dispc_ovl_setup_common(enum omap_plane_id plane,
 				   fourcc, rotation);
 		dispc_ovl_set_output_size(plane, out_width, out_height);
 		dispc_ovl_set_vid_color_conv(plane, cconv);
+
+		if (plane != OMAP_DSS_WB)
+			dispc_ovl_set_csc(plane, color_encoding, color_range);
 	}
 
 	dispc_ovl_set_rotation_attrs(plane, rotation, rotation_type, fourcc);
@@ -2577,7 +2668,8 @@ static int dispc_ovl_setup(enum omap_plane_id plane,
 		oi->screen_width, oi->pos_x, oi->pos_y, oi->width, oi->height,
 		oi->out_width, oi->out_height, oi->fourcc, oi->rotation,
 		oi->zorder, oi->pre_mult_alpha, oi->global_alpha,
-		oi->rotation_type, replication, vm, mem_to_mem);
+	        oi->rotation_type, replication, vm, mem_to_mem,
+	        oi->color_encoding, oi->color_range);
 
 	return r;
 }
@@ -2606,7 +2698,8 @@ static int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 		wi->buf_width, pos_x, pos_y, in_width, in_height, wi->width,
 		wi->height, wi->fourcc, wi->rotation, zorder,
 		wi->pre_mult_alpha, global_alpha, wi->rotation_type,
-		replication, vm, mem_to_mem);
+		replication, vm, mem_to_mem, DRM_COLOR_YCBCR_BT601,
+		DRM_COLOR_YCBCR_LIMITED_RANGE);
 	if (r)
 		return r;
 
@@ -3698,7 +3791,8 @@ static void _omap_dispc_initial_config(void)
 	if (dss_has_feature(FEAT_FUNCGATED) || dispc.feat->has_gamma_table)
 		REG_FLD_MOD(DISPC_CONFIG, 1, 9, 9);
 
-	dispc_setup_color_conv_coef();
+	if (dispc.feat->has_writeback)
+		dispc_wb_write_color_conv_coef(&coefs_rgb2yuv_bt601_full);
 
 	dispc_set_loadmode(OMAP_DSS_LOAD_FRAME_ONLY);
 
