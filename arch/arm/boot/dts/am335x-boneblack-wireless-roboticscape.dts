@@ -18,7 +18,7 @@
 #include "am33xx.dtsi"
 #include "am335x-bone-common-no-capemgr.dtsi"
 #include "am335x-bone-common-universal-pins.dtsi"
-/* #include "am33xx-pruss-rproc.dtsi" */
+#include "am33xx-pruss-rproc.dtsi"
 #include "am335x-boneblack-wl1835.dtsi"
 #include "am335x-roboticscape.dtsi"
 
