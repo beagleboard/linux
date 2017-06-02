@@ -1,0 +1,50 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&lcdc {
+	status = "okay";
+	blue-and-red-wiring = "crossed";
+};
+
+/ {
+	panel {
+		status = "okay";
+		compatible = "ti,tilcdc,panel";
+		pinctrl-names = "default";
+
+		panel-info {
+			ac-bias           = <255>;
+			ac-bias-intrpt    = <0>;
+			dma-burst-sz      = <16>;
+			bpp               = <32>;
+			fdd               = <0x80>;
+			sync-edge         = <0>;
+			sync-ctrl         = <0>;
+			raster-order      = <1>;
+			fifo-th           = <0>;
+		};
+		display-timings {
+			native-mode = <&timing0>;
+			timing0: 1024x600 {
+				clock-frequency = <36000000>;
+				hactive = <1024>;
+				vactive = <600>;
+				hfront-porch = <1>;
+				hback-porch = <45>;
+				hsync-len = <30>;
+				vback-porch = <22>;
+				vfront-porch = <12>;
+				vsync-len = <2>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				de-active = <1>;
+				pixelclk-active = <0>;
+			};
+		};
+	};
+};
