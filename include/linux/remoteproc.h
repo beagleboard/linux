@@ -585,4 +585,6 @@ void rproc_add_subdev(struct rproc *rproc,
 
 void rproc_remove_subdev(struct rproc *rproc, struct rproc_subdev *subdev);
 
+int rproc_set_firmware(struct rproc *rproc, const char *fw_name);
+
 #endif /* REMOTEPROC_H */
