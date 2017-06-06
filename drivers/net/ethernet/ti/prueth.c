@@ -132,6 +132,14 @@ static enum pruss_mem pruss_mem_ids[] = { PRUSS_MEM_DRAM0, PRUSS_MEM_DRAM1,
 					  PRUSS_MEM_SHRD_RAM2, PRUSS_MEM_IEP,
 					  PRUSS_MEM_MII_RT };
 
+/**
+ * struct prueth_private_data - PRU Ethernet private data
+ * @fw_names: firmware names to be used for PRUSS ethernet usecases
+ */
+struct prueth_private_data {
+	const char *fw_names[PRUSS_NUM_PRUS];
+};
+
 /* data for each emac port */
 struct prueth_emac {
 	struct prueth *prueth;
@@ -173,6 +181,7 @@ struct prueth_emac {
  * @eth_node: node for each emac node
  * @emac: emac data for three ports, one host and two physical
  * @registered_netdevs: net device for each registered emac
+ * @fw_data: firmware names to be used with PRU remoteprocs
  */
 struct prueth {
 	struct device *dev;
@@ -184,6 +193,7 @@ struct prueth {
 	struct device_node *eth_node[PRUETH_PORT_MAX];
 	struct prueth_emac *emac[PRUETH_PORT_MAX];
 	struct net_device *registered_netdevs[PRUETH_PORT_MAX];
+	const struct prueth_private_data *fw_data;
 };
 
 static inline u32 prueth_read_reg(struct prueth *prueth,
@@ -1055,6 +1065,7 @@ static int emac_ndo_open(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct prueth *prueth = emac->prueth;
+	const struct prueth_private_data *fw_data = prueth->fw_data;
 	int ret;
 
 	ret = request_irq(emac->rx_irq, emac_rx_hardirq,
@@ -1083,6 +1094,13 @@ static int emac_ndo_open(struct net_device *ndev)
 	emac_set_stats(emac, &emac->stats);
 	switch (emac->port_id) {
 	case PRUETH_PORT_MII0:
+		ret = rproc_set_firmware(prueth->pru0, fw_data->fw_names[0]);
+		if (ret) {
+			netdev_err(ndev, "failed to set PRU0 firmware %s: %d\n",
+				   fw_data->fw_names[0], ret);
+			goto free_irq;
+		}
+
 		ret = rproc_boot(prueth->pru0);
 		if (ret) {
 			netdev_err(ndev, "failed to boot PRU0: %d\n", ret);
@@ -1090,6 +1108,13 @@ static int emac_ndo_open(struct net_device *ndev)
 		}
 		break;
 	case PRUETH_PORT_MII1:
+		ret = rproc_set_firmware(prueth->pru1, fw_data->fw_names[1]);
+		if (ret) {
+			netdev_err(ndev, "failed to set PRU1 firmware %s: %d\n",
+				   fw_data->fw_names[1], ret);
+			goto free_irq;
+		}
+
 		ret = rproc_boot(prueth->pru1);
 		if (ret) {
 			netdev_err(ndev, "failed to boot PRU1: %d\n", ret);
@@ -1580,17 +1605,24 @@ static void prueth_netdev_exit(struct prueth *prueth,
 	prueth->emac[port] = NULL;
 }
 
+static const struct of_device_id prueth_dt_match[];
+
 static int prueth_probe(struct platform_device *pdev)
 {
 	struct prueth *prueth;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct device_node *eth_node;
+	const struct of_device_id *match;
 	struct pruss *pruss;
 	int i, ret;
 
 	if (!np)
 		return -ENODEV;	/* we don't support non DT */
+
+	match = of_match_device(prueth_dt_match, dev);
+	if (!match)
+		return -ENODEV;
 
 	prueth = devm_kzalloc(dev, sizeof(*prueth), GFP_KERNEL);
 	if (!prueth)
@@ -1599,6 +1631,7 @@ static int prueth_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, prueth);
 
 	prueth->dev = dev;
+	prueth->fw_data = match->data;
 
 	pruss = pruss_get(dev);
 	if (IS_ERR(pruss)) {
@@ -1866,11 +1899,35 @@ static const struct dev_pm_ops prueth_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(prueth_suspend, prueth_resume)
 };
 
+/* AM33xx SoC-specific firmware data */
+static struct prueth_private_data am335x_prueth_pdata = {
+	.fw_names[0] = "ti-pruss/am335x-pru0-prueth-fw.elf",
+	.fw_names[1] = "ti-pruss/am335x-pru1-prueth-fw.elf",
+};
+
+/* AM437x SoC-specific firmware data */
+static struct prueth_private_data am437x_prueth_pdata = {
+	.fw_names[0] = "ti-pruss/am437x-pru0-prueth-fw.elf",
+	.fw_names[1] = "ti-pruss/am437x-pru1-prueth-fw.elf",
+};
+
+/* AM57xx SoC-specific firmware data */
+static struct prueth_private_data am57xx_prueth_pdata = {
+	.fw_names[0] = "ti-pruss/am57xx-pru0-prueth-fw.elf",
+	.fw_names[1] = "ti-pruss/am57xx-pru1-prueth-fw.elf",
+};
+
+/* 66AK2G SoC-specific firmware data */
+static struct prueth_private_data k2g_prueth_pdata = {
+	.fw_names[0] = "ti-pruss/k2g-pru0-prueth-fw.elf",
+	.fw_names[1] = "ti-pruss/k2g-pru1-prueth-fw.elf",
+};
+
 static const struct of_device_id prueth_dt_match[] = {
-	{ .compatible = "ti,am57-prueth", },
-	{ .compatible = "ti,am4376-prueth", },
-	{ .compatible = "ti,am3359-prueth", },
-	{ .compatible = "ti,k2g-prueth", },
+	{ .compatible = "ti,am57-prueth", .data = &am57xx_prueth_pdata, },
+	{ .compatible = "ti,am4376-prueth", .data = &am437x_prueth_pdata, },
+	{ .compatible = "ti,am3359-prueth", .data = &am335x_prueth_pdata, },
+	{ .compatible = "ti,k2g-prueth", .data = &k2g_prueth_pdata, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, prueth_dt_match);
