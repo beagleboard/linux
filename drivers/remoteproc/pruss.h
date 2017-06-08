@@ -155,6 +155,7 @@ struct pruss_intc_config {
  * @mem_regions: data for each of the PRUSS memory regions
  * @mem_in_use: to indicate if memory resource is in use
  * @host_mask: indicate which HOST IRQs are enabled
+ * @id: pruss instance id
  * @pru_running: flag to indicate if PRU is running
  * @pru_in_use: flag to indicate if PRU is used
  * @lock: mutex to serialize access to resources
@@ -166,6 +167,7 @@ struct pruss {
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	struct pruss_mem_region *mem_in_use[PRUSS_MEM_MAX];
 	u32 host_mask;
+	u32 id;
 	bool pru_running[PRUSS_NUM_PRUS];
 	struct rproc *pru_in_use[PRUSS_NUM_PRUS];
 	struct mutex lock; /* PRU resource lock */
