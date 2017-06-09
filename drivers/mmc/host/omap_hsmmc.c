@@ -332,6 +332,7 @@ struct omap_mmc_of_data {
 static void omap_hsmmc_start_dma_transfer(struct omap_hsmmc_host *host);
 static void omap_hsmmc_conf_bus_power(struct omap_hsmmc_host *host, int iov);
 static void omap_hsmmc_disable_tuning(struct omap_hsmmc_host *host);
+static void omap_hsmmc_set_capabilities(struct omap_hsmmc_host *host);
 
 static int omap_hsmmc_card_detect(struct device *dev)
 {
@@ -863,8 +864,6 @@ static void omap_hsmmc_set_bus_mode(struct omap_hsmmc_host *host)
 static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 {
 	struct mmc_ios *ios = &host->mmc->ios;
-	u32 hctl, capa;
-	unsigned long timeout;
 
 	if (host->con == OMAP_HSMMC_READ(host->base, CON) &&
 	    host->hctl == OMAP_HSMMC_READ(host->base, HCTL) &&
@@ -874,46 +873,11 @@ static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 
 	host->context_loss++;
 
-	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT) {
-		if (host->power_mode != MMC_POWER_OFF &&
-		    (1 << ios->vdd) <= MMC_VDD_23_24)
-			hctl = SDVS18;
-		else if (host->io_3_3v_support) {
-			hctl = SDVS33;
-			capa = VS33 | VS18;
-		} else {
-			hctl = SDVS30;
-			capa = VS30 | VS18;
-		}
-	} else if (host->pdata->controller_flags & OMAP_HSMMC_NO_1_8_V) {
-		if (host->io_3_3v_support) {
-			hctl = SDVS33;
-			capa = VS33;
-		} else {
-			hctl = SDVS30;
-			capa = VS30;
-		}
-	} else {
-		hctl = SDVS18;
-		capa = VS18;
-	}
+	omap_hsmmc_set_capabilities(host);
 
 	if (host->mmc->caps & MMC_CAP_SDIO_IRQ)
-		hctl |= IWE;
-
-	OMAP_HSMMC_WRITE(host->base, HCTL,
-			OMAP_HSMMC_READ(host->base, HCTL) | hctl);
-
-	OMAP_HSMMC_WRITE(host->base, CAPA,
-			OMAP_HSMMC_READ(host->base, CAPA) | capa);
-
-	OMAP_HSMMC_WRITE(host->base, HCTL,
-			OMAP_HSMMC_READ(host->base, HCTL) | SDBP);
-
-	timeout = jiffies + msecs_to_jiffies(MMC_TIMEOUT_MS);
-	while ((OMAP_HSMMC_READ(host->base, HCTL) & SDBP) != SDBP
-		&& time_before(jiffies, timeout))
-		;
+		OMAP_HSMMC_WRITE(host->base, HCTL,
+				 OMAP_HSMMC_READ(host->base, HCTL) | IWE);
 
 	OMAP_HSMMC_WRITE(host->base, ISE, 0);
 	OMAP_HSMMC_WRITE(host->base, IE, 0);
@@ -934,6 +898,8 @@ static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 	/* Do not initialize card-specific things if the power is off */
 	if (host->power_mode == MMC_POWER_OFF)
 		goto out;
+
+	omap_hsmmc_conf_bus_power(host, ios->signal_voltage);
 
 	omap_hsmmc_set_bus_width(host);
 
