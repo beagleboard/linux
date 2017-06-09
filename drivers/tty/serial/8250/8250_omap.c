@@ -786,8 +786,25 @@ unlock:
 
 static void __dma_rx_complete(void *param)
 {
-	__dma_rx_do_complete(param);
-	omap_8250_rx_dma(param);
+	struct uart_8250_port *p = param;
+	struct uart_8250_dma *dma = p->dma;
+	unsigned long flags;
+
+	spin_lock_irqsave(&p->port.lock, flags);
+
+	/*
+	 * If the completion is for the current cookie then handle it,
+	 * else a previous RX timeout flush would have already pushed
+	 * data from DMA buffers, so exit.
+	 */
+	if (dma->rx_cookie != dma->rxchan->completed_cookie) {
+		spin_unlock_irqrestore(&p->port.lock, flags);
+		return;
+	}
+	__dma_rx_do_complete(p);
+	omap_8250_rx_dma(p);
+
+	spin_unlock_irqrestore(&p->port.lock, flags);
 }
 
 static void omap_8250_rx_dma_flush(struct uart_8250_port *p)
