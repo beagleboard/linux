@@ -114,13 +114,15 @@
 	P8_15_pinmux {
 		compatible = "bone-pinmux-helper";
 		status = "okay";
-		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruin", "qep";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pruin", "qep", "pruin_pu", "pruecapin_pu";
 		pinctrl-0 = <&P8_15_default_pin>;
 		pinctrl-1 = <&P8_15_gpio_pin>;
 		pinctrl-2 = <&P8_15_gpio_pu_pin>;
 		pinctrl-3 = <&P8_15_gpio_pd_pin>;
 		pinctrl-4 = <&P8_15_pruin_pin>;
 		pinctrl-5 = <&P8_15_qep_pin>;
+		pinctrl-6 = <&P8_15_pruin_pu_pin>;
+		pinctrl-7 = <&P8_15_pruecapin_pu_pin>;
 	};
 
 	P8_16_pinmux {
