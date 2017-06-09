@@ -131,6 +131,10 @@
 		pinctrl-single,pins = <0x03c  0x26>; };     /* Mode 6, Pull-Down, RxActive */
 	P8_15_qep_pin: pinmux_P8_15_qep_pin {
 		pinctrl-single,pins = <0x03c  0x24>; };     /* Mode 4, Pull-Down, RxActive */
+	P8_15_pruin_pu_pin: pinmux_P8_15_pruin_pu_pin {
+		pinctrl-single,pins = <0x03c  0x36>; };     /* Mode 6, Pull-Up, RxActive */
+	P8_15_pruecapin_pu_pin: pinmux_P8_15_pruecapin_pu_pin {
+		pinctrl-single,pins = <0x03c  0x35>; };     /* Mode 5, Pull-Up, RxActive */
 
 	/* P8_16 (ZCZ ball V13) */
 	P8_16_default_pin: pinmux_P8_16_default_pin {
