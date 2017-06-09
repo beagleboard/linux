@@ -27,10 +27,12 @@
 /**
  * struct pruss_private_data - PRUSS driver private data
  * @aux_data: auxiliary data used for creating the child nodes
+ * @pruss_id: PRUSS instance number
  * @has_no_sharedram: flag to indicate the absence of PRUSS Shared Data RAM
  */
 struct pruss_private_data {
 	struct of_dev_auxdata *aux_data;
+	u32 pruss_id;
 	bool has_no_sharedram;
 };
 
@@ -50,9 +52,14 @@ static LIST_HEAD(pruss_list);
 /**
  * pruss_get() - get the pruss for the given device
  * @dev: device interested in the pruss
+ * @pruss_id: integer pointer to fill in the pruss instance id
  *
  * Finds the pruss device referenced by the "pruss" property in the
- * requesting (client) device's device node.
+ * requesting (client) device's device node. The function will also
+ * return the PRUSS instance id to requestors if @pruss_id is provided.
+ * This can be used by PRU client drivers to distinguish between
+ * multiple PRUSS instances, and build some customization around a
+ * specific PRUSS instance.
  *
  * This function increments the pruss device's refcount, so always
  * use pruss_put() to decrement it back once pruss isn't needed anymore.
@@ -62,7 +69,7 @@ static LIST_HEAD(pruss_list);
  * -EINVAL if invalid parameter
  * -EPROBE_DEFER if the pruss device is not yet available
  */
-struct pruss *pruss_get(struct device *dev)
+struct pruss *pruss_get(struct device *dev, int *pruss_id)
 {
 	struct pruss *pruss = NULL, *p;
 	struct device_node *np;
@@ -80,6 +87,8 @@ struct pruss *pruss_get(struct device *dev)
 		if (p->dev->of_node == np) {
 			pruss = p;
 			get_device(pruss->dev);
+			if (pruss_id)
+				*pruss_id = pruss->id;
 			break;
 		}
 	}
@@ -502,6 +511,7 @@ static int pruss_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pruss->dev = dev;
+	pruss->id = data->pruss_id;
 	mutex_init(&pruss->lock);
 	mutex_init(&pruss->cfg_lock);
 
@@ -617,31 +627,38 @@ static struct of_dev_auxdata k2g_pruss1_rproc_auxdata_lookup[] = {
 /* instance-specific driver private data */
 static struct pruss_private_data am335x_pruss_priv_data = {
 	.aux_data = am335x_pruss_rproc_auxdata_lookup,
+	.pruss_id = 0,
 };
 
 static struct pruss_private_data am437x_pruss1_priv_data = {
 	.aux_data = am437x_pruss1_rproc_auxdata_lookup,
+	.pruss_id = 1,
 };
 
 static struct pruss_private_data am437x_pruss0_priv_data = {
 	.aux_data = am437x_pruss0_rproc_auxdata_lookup,
+	.pruss_id = 0,
 	.has_no_sharedram = true,
 };
 
 static struct pruss_private_data am57xx_pruss1_priv_data = {
 	.aux_data = am57xx_pruss1_rproc_auxdata_lookup,
+	.pruss_id = 1,
 };
 
 static struct pruss_private_data am57xx_pruss2_priv_data = {
 	.aux_data = am57xx_pruss2_rproc_auxdata_lookup,
+	.pruss_id = 2,
 };
 
 static struct pruss_private_data k2g_pruss0_priv_data = {
 	.aux_data = k2g_pruss0_rproc_auxdata_lookup,
+	.pruss_id = 0,
 };
 
 static struct pruss_private_data k2g_pruss1_priv_data = {
 	.aux_data = k2g_pruss1_rproc_auxdata_lookup,
+	.pruss_id = 1,
 };
 
 static struct pruss_match_private_data am335x_match_data[] = {
