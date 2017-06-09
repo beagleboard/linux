@@ -82,7 +82,7 @@ struct pruss;
 #if IS_ENABLED(CONFIG_PRUSS_REMOTEPROC)
 
 int pruss_intc_trigger(unsigned int irq);
-struct pruss *pruss_get(struct device *dev);
+struct pruss *pruss_get(struct device *dev, int *pruss_id);
 void pruss_put(struct pruss *pruss);
 struct rproc *pruss_rproc_get(struct pruss *pruss,
 			      enum pruss_pru_id pru_id);
@@ -104,7 +104,7 @@ static inline int pruss_intc_trigger(unsigned int irq)
 	return -ENOTSUPP;
 }
 
-static inline struct pruss *pruss_get(struct device *dev)
+static inline struct pruss *pruss_get(struct device *dev, int *pruss_id)
 {
 	return ERR_PTR(-ENOTSUPP);
 }

@@ -182,6 +182,7 @@ struct prueth_emac {
  * @emac: emac data for three ports, one host and two physical
  * @registered_netdevs: net device for each registered emac
  * @fw_data: firmware names to be used with PRU remoteprocs
+ * @pruss_id: PRUSS instance id
  */
 struct prueth {
 	struct device *dev;
@@ -194,6 +195,7 @@ struct prueth {
 	struct prueth_emac *emac[PRUETH_PORT_MAX];
 	struct net_device *registered_netdevs[PRUETH_PORT_MAX];
 	const struct prueth_private_data *fw_data;
+	int pruss_id;
 };
 
 static inline u32 prueth_read_reg(struct prueth *prueth,
@@ -1633,7 +1635,7 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->dev = dev;
 	prueth->fw_data = match->data;
 
-	pruss = pruss_get(dev);
+	pruss = pruss_get(dev, &prueth->pruss_id);
 	if (IS_ERR(pruss)) {
 		ret = PTR_ERR(pruss);
 		if (ret == -EPROBE_DEFER)
