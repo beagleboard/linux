@@ -95,7 +95,6 @@
 			0x034 0x34  /* P8_11,EQEP2B, MODE4 */
 
 			/* PRU encoder input */
-			0x03c 0x36	/* P8_15,PRU0_r31_15,MODE6 */
 			0x038 0x36	/* P8_16,PRU0_r31_16,MODE6 */
 
 			/* PRU Servo output */
@@ -232,145 +231,149 @@
 		status = "okay";
 	};
 
+	/* Encoder 4 (U13) */
+	P8_15_pinmux {
+		compatible = "bone-pinmux-helper";
+		status = "okay";
+		pinctrl-names = "pruin_pu", "gpio", "gpio_pu", "gpio_pd", "pruin", "qep", "pruecapin_pu";
+		pinctrl-0 = <&P8_15_pruin_pu_pin>;
+		pinctrl-1 = <&P8_15_gpio_pin>;
+		pinctrl-2 = <&P8_15_gpio_pu_pin>;
+		pinctrl-3 = <&P8_15_gpio_pd_pin>;
+		pinctrl-4 = <&P8_15_pruin_pin>;
+		pinctrl-5 = <&P8_15_qep_pin>;
+		pinctrl-6 = <&P8_15_pruecapin_pu_pin>;
+	};
+
 	/* UART4 RX DSM */
 	P9_11_pinmux {
 		compatible = "bone-pinmux-helper";
 		status = "okay";
-		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart";
-		pinctrl-0 = <&P9_11_default_pin>;
+		pinctrl-names = "uart", "gpio", "gpio_pu", "gpio_pd";
+		pinctrl-0 = <&P9_11_uart_pin>;
 		pinctrl-1 = <&P9_11_gpio_pin>;
 		pinctrl-2 = <&P9_11_gpio_pu_pin>;
 		pinctrl-3 = <&P9_11_gpio_pd_pin>;
-		pinctrl-4 = <&P9_11_uart_pin>;
 	};
 
 	/* UART 2 TX GPS*/
 	P9_21_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm";
-        pinctrl-0 = <&P9_21_default_pin>;
+        pinctrl-names = "uart", "gpio", "gpio_pu", "gpio_pd", "spi", "i2c", "pwm";
+        pinctrl-0 = <&P9_21_uart_pin>;
         pinctrl-1 = <&P9_21_gpio_pin>;
         pinctrl-2 = <&P9_21_gpio_pu_pin>;
         pinctrl-3 = <&P9_21_gpio_pd_pin>;
         pinctrl-4 = <&P9_21_spi_pin>;
-        pinctrl-5 = <&P9_21_uart_pin>;
-        pinctrl-6 = <&P9_21_i2c_pin>;
-        pinctrl-7 = <&P9_21_pwm_pin>;
+        pinctrl-5 = <&P9_21_i2c_pin>;
+        pinctrl-6 = <&P9_21_pwm_pin>;
     };
 
     /* UART 2 RX GPS */
     P9_22_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm";
-        pinctrl-0 = <&P9_22_default_pin>;
+        pinctrl-names = "uart", "gpio", "gpio_pu", "gpio_pd", "spi", "i2c", "pwm";
+        pinctrl-0 = <&P9_22_uart_pin>;
         pinctrl-1 = <&P9_22_gpio_pin>;
         pinctrl-2 = <&P9_22_gpio_pu_pin>;
         pinctrl-3 = <&P9_22_gpio_pd_pin>;
         pinctrl-4 = <&P9_22_spi_pin>;
-        pinctrl-5 = <&P9_22_uart_pin>;
-        pinctrl-6 = <&P9_22_i2c_pin>;
-        pinctrl-7 = <&P9_22_pwm_pin>;
+        pinctrl-5 = <&P9_22_i2c_pin>;
+        pinctrl-6 = <&P9_22_pwm_pin>;
     };
 
     /* SPI MISO */
     P9_29_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pruout", "pruin";
-        pinctrl-0 = <&P9_29_default_pin>;
+        pinctrl-names = "spi", "gpio", "gpio_pu", "gpio_pd", "pwm", "pruout", "pruin";
+        pinctrl-0 = <&P9_29_spi_pin>;
         pinctrl-1 = <&P9_29_gpio_pin>;
         pinctrl-2 = <&P9_29_gpio_pu_pin>;
         pinctrl-3 = <&P9_29_gpio_pd_pin>;
         pinctrl-4 = <&P9_29_pwm_pin>;
-        pinctrl-5 = <&P9_29_spi_pin>;
-        pinctrl-6 = <&P9_29_pruout_pin>;
-        pinctrl-7 = <&P9_29_pruin_pin>;
+        pinctrl-5 = <&P9_29_pruout_pin>;
+        pinctrl-6 = <&P9_29_pruin_pin>;
     };
 
     /* SPI MOSI */
     P9_30_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pruout", "pruin";
-        pinctrl-0 = <&P9_30_default_pin>;
+        pinctrl-names = "spi", "gpio", "gpio_pu", "gpio_pd", "pwm", "pruout", "pruin";
+        pinctrl-0 = <&P9_30_spi_pin>;
         pinctrl-1 = <&P9_30_gpio_pin>;
         pinctrl-2 = <&P9_30_gpio_pu_pin>;
         pinctrl-3 = <&P9_30_gpio_pd_pin>;
         pinctrl-4 = <&P9_30_pwm_pin>;
-        pinctrl-5 = <&P9_30_spi_pin>;
-        pinctrl-6 = <&P9_30_pruout_pin>;
-        pinctrl-7 = <&P9_30_pruin_pin>;
+        pinctrl-5 = <&P9_30_pruout_pin>;
+        pinctrl-6 = <&P9_30_pruin_pin>;
     };
 
     /* SPI SCK */
     P9_31_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pruout", "pruin";
-        pinctrl-0 = <&P9_31_default_pin>;
+        pinctrl-names = "spi", "gpio", "gpio_pu", "gpio_pd", "pwm", "pruout", "pruin";
+        pinctrl-0 = <&P9_31_spi_pin>;
         pinctrl-1 = <&P9_31_gpio_pin>;
         pinctrl-2 = <&P9_31_gpio_pu_pin>;
         pinctrl-3 = <&P9_31_gpio_pd_pin>;
         pinctrl-4 = <&P9_31_pwm_pin>;
-        pinctrl-5 = <&P9_31_spi_pin>;
-        pinctrl-6 = <&P9_31_pruout_pin>;
-        pinctrl-7 = <&P9_31_pruin_pin>;
+        pinctrl-5 = <&P9_31_pruout_pin>;
+        pinctrl-6 = <&P9_31_pruin_pin>;
     };
 
      /* SPI SS1 */
     H18_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi";
-        pinctrl-0 = <&H18_default_pin>;
+        pinctrl-names = "spi", "gpio", "gpio_pu", "gpio_pd";
+        pinctrl-0 = <&H18_spi_pin>;
         pinctrl-1 = <&H18_gpio_pin>;
         pinctrl-2 = <&H18_gpio_pu_pin>;
         pinctrl-3 = <&H18_gpio_pd_pin>;
-        pinctrl-4 = <&H18_spi_pin>;
     };
 
     /* SPI SS2 */
     C18_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi";
-        pinctrl-0 = <&C18_default_pin>;
+        pinctrl-names = "spi", "gpio", "gpio_pu", "gpio_pd";
+        pinctrl-0 = <&C18_spi_pin>;
         pinctrl-1 = <&C18_gpio_pin>;
         pinctrl-2 = <&C18_gpio_pu_pin>;
         pinctrl-3 = <&C18_gpio_pd_pin>;
-        pinctrl-4 = <&C18_spi_pin>;
     };
 
     /* UART 1 TX */
      P9_24_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c",  "pruin";
-        pinctrl-0 = <&P9_24_default_pin>;
+        pinctrl-names = "uart", "gpio", "gpio_pu", "gpio_pd", "can", "i2c", "pruin";
+        pinctrl-0 = <&P9_24_uart_pin>;
         pinctrl-1 = <&P9_24_gpio_pin>;
         pinctrl-2 = <&P9_24_gpio_pu_pin>;
         pinctrl-3 = <&P9_24_gpio_pd_pin>;
-        pinctrl-4 = <&P9_24_uart_pin>;
-        pinctrl-5 = <&P9_24_can_pin>;
-        pinctrl-6 = <&P9_24_i2c_pin>;
-        pinctrl-7 = <&P9_24_pruin_pin>;
+        pinctrl-4 = <&P9_24_can_pin>;
+        pinctrl-5 = <&P9_24_i2c_pin>;
+        pinctrl-6 = <&P9_24_pruin_pin>;
     };
 
     /* UART 1 RX */
     P9_26_pinmux {
         compatible = "bone-pinmux-helper";
         status = "okay";
-        pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c",  "pruin";
-        pinctrl-0 = <&P9_26_default_pin>;
+        pinctrl-names = "uart", "gpio", "gpio_pu", "gpio_pd", "can", "i2c", "pruin";
+        pinctrl-0 = <&P9_26_uart_pin>;
         pinctrl-1 = <&P9_26_gpio_pin>;
         pinctrl-2 = <&P9_26_gpio_pu_pin>;
         pinctrl-3 = <&P9_26_gpio_pd_pin>;
-        pinctrl-4 = <&P9_26_uart_pin>;
-        pinctrl-5 = <&P9_26_can_pin>;
-        pinctrl-6 = <&P9_26_i2c_pin>;
-        pinctrl-7 = <&P9_26_pruin_pin>;
+        pinctrl-4 = <&P9_26_can_pin>;
+        pinctrl-5 = <&P9_26_i2c_pin>;
+        pinctrl-6 = <&P9_26_pruin_pin>;
     };
 
     /* U16 BLUE_GP0_PIN_3 gpio 1_25*/
