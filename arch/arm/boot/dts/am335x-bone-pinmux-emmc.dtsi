@@ -1,0 +1,88 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/* Testing */
+/* lsblk */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include "am335x-peripheral-emmc.dtsi"
+
+/* cape universal */
+
+/*
+ *&ocp {
+ *	P8_21_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_20_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_25_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_24_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_05_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_06_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_23_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_22_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_03_pinmux {
+ *		state = "disabled";
+ *	};
+ *	P8_04_pinmux {
+ *		state = "disabled";
+ *	};
+ *};
+ *
+ *&mmc2 {
+ *	pinctrl-0 = <>;
+ *};
+ *
+ */
+
+/* standard */
+
+&am33xx_pinmux {
+	emmc_pins: pinmux_emmc_pins {
+		pinctrl-single,pins = <
+			/* P8_21: gpmc_csn1.mmc1_clk */
+			BONE_P8_21 (PIN_INPUT_PULLUP | MUX_MODE2)
+			/* P8_20: gpmc_csn2.mmc1_cmd */
+			BONE_P8_20 (PIN_INPUT_PULLUP | MUX_MODE2)
+			/* P8_25: gpmc_ad0.mmc1_dat0 */
+			BONE_P8_25 (PIN_INPUT_PULLUP | MUX_MODE1)
+			/* P8_24: gpmc_ad1.mmc1_dat1 */
+			BONE_P8_24 (PIN_INPUT_PULLUP | MUX_MODE1)
+			/* P8_05: gpmc_ad2.mmc1_dat2 */
+			BONE_P8_05 (PIN_INPUT_PULLUP | MUX_MODE1)
+			/* P8_06: gpmc_ad3.mmc1_dat3 */
+			BONE_P8_06 (PIN_INPUT_PULLUP | MUX_MODE1)
+			/* P8_23: gpmc_ad4.mmc1_dat4 */
+			BONE_P8_23 (PIN_INPUT_PULLUP | MUX_MODE1)
+			/* P8_22: gpmc_ad5.mmc1_dat5 */
+			BONE_P8_22 (PIN_INPUT_PULLUP | MUX_MODE1)
+			/* P8_03: gpmc_ad6.mmc1_dat6 */
+			BONE_P8_03 (PIN_INPUT_PULLUP | MUX_MODE1)
+			/* P8_04: gpmc_ad7.mmc1_dat7 */
+			BONE_P8_04 (PIN_INPUT_PULLUP | MUX_MODE1)
+		>;
+	};
+};
+
+&mmc2 {
+	pinctrl-0 = <&emmc_pins>;
+};
