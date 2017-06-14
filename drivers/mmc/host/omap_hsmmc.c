@@ -2213,12 +2213,14 @@ static int omap_hsmmc_start_signal_voltage_switch(struct mmc_host *mmc,
 		ret = omap_hsmmc_set_power(host->dev, 1, iov);
 		if (ret) {
 			dev_err(mmc_dev(host->mmc),
-				"failed to switch to %uV\n", iov);
+				"failed to switch to %s\n",
+				host->io_3_3v_support ? "3.3V" : "3.0V");
 			return ret;
 		}
 
 		dev_dbg(mmc_dev(host->mmc),
-			"i/o voltage switched to %uV\n", iov);
+			"i/o voltage switched to %s\n",
+			host->io_3_3v_support ? "3.3V" : "3.0V");
 	} else if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
 		val = OMAP_HSMMC_READ(host->base, CAPA);
 		if (!(val & VS18))
