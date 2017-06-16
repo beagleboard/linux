@@ -40,6 +40,7 @@
 #include <dt-bindings/sound/ti-mcasp.h>
 
 #include "edma-pcm.h"
+#include "../ti/udma-pcm.h"
 #include "davinci-mcasp.h"
 
 #define MCASP_MAX_AFIFO_DEPTH	64
@@ -1744,8 +1745,10 @@ nodata:
 enum {
 	PCM_EDMA,
 	PCM_SDMA,
+	PCM_UDMA,
 };
 static const char *sdma_prefix = "ti,omap";
+static const char *udma_prefix = "ti,k3";
 
 static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 {
@@ -1781,6 +1784,8 @@ static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 	dev_dbg(mcasp->dev, "DMA controller compatible = \"%s\"\n", tmp);
 	if (!strncmp(tmp, sdma_prefix, strlen(sdma_prefix)))
 		return PCM_SDMA;
+	else if (!strncmp(tmp, udma_prefix, strlen(udma_prefix)))
+		return PCM_UDMA;
 
 	return PCM_EDMA;
 }
@@ -2204,6 +2209,17 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		ret = omap_pcm_platform_register(&pdev->dev);
 #else
 		dev_err(&pdev->dev, "Missing SND_SDMA_SOC\n");
+		ret = -EINVAL;
+		goto err;
+#endif
+		break;
+	case PCM_UDMA:
+#if IS_BUILTIN(CONFIG_SND_SOC_TI_UDMA_PCM) || \
+	(IS_MODULE(CONFIG_SND_DAVINCI_SOC_MCASP) && \
+	 IS_MODULE(CONFIG_SND_SOC_TI_UDMA_PCM))
+		ret = udma_pcm_platform_register(&pdev->dev);
+#else
+		dev_err(&pdev->dev, "Missing SND_SOC_TI_UDMA_PCM\n");
 		ret = -EINVAL;
 		goto err;
 #endif
