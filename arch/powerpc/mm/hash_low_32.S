@@ -496,7 +496,11 @@ htab_hash_searches:
  *
  * We assume that there is a hash table in use (Hash != 0).
  */
+#ifdef CONFIG_IPIPE
+_GLOBAL(__flush_hash_pages)
+#else
 _GLOBAL(flush_hash_pages)
+#endif
 	tophys(r7,0)
 
 	/*
@@ -531,18 +535,9 @@ _GLOBAL(flush_hash_pages)
 	addi	r6,r6,-1
 	b	1b
 
-	/* Convert context and va to VSID */
-2:	mulli	r3,r3,897*16		/* multiply context by context skew */
-	rlwinm	r0,r4,4,28,31		/* get ESID (top 4 bits of va) */
-	mulli	r0,r0,0x111		/* multiply by ESID skew */
-	add	r3,r3,r0		/* note code below trims to 24 bits */
-
-	/* Construct the high word of the PPC-style PTE (r11) */
-	rlwinm	r11,r3,7,1,24		/* put VSID in 0x7fffff80 bits */
-	rlwimi	r11,r4,10,26,31		/* put in API (abbrev page index) */
-	SET_V(r11)			/* set V (valid) bit */
-
+2:
 #ifdef CONFIG_SMP
+	li	r11,0
 	addis	r9,r7,mmu_hash_lock@ha
 	addi	r9,r9,mmu_hash_lock@l
 	CURRENT_THREAD_INFO(r8, r1)
@@ -557,9 +552,35 @@ _GLOBAL(flush_hash_pages)
 11:	lwz	r0,0(r9)
 	cmpi	0,r0,0
 	beq	10b
+	mtmsr	r10
+	SYNC_601
+	isync
+	li	r11,1
+	rlwinm	r0,r10,0,17,15		/* clear bit 16 (MSR_EE) */
+	rlwinm	r0,r0,0,28,26		/* clear MSR_DR */
+	mtmsr	r0
+	SYNC_601
+	isync
 	b	11b
 12:	isync
+	cmpwi	r11,0
+	beq	13f
+	li	r0,0
+	stw	r0,0(r9)		/* clear mmu_hash_lock */
+	b	1b
+13:
 #endif
+
+	/* Convert context and va to VSID */
+	mulli	r3,r3,897*16		/* multiply context by context skew */
+	rlwinm	r0,r4,4,28,31		/* get ESID (top 4 bits of va) */
+	mulli	r0,r0,0x111		/* multiply by ESID skew */
+	add	r3,r3,r0		/* note code below trims to 24 bits */
+
+	/* Construct the high word of the PPC-style PTE (r11) */
+	rlwinm	r11,r3,7,1,24		/* put VSID in 0x7fffff80 bits */
+	rlwimi	r11,r4,10,26,31		/* put in API (abbrev page index) */
+	SET_V(r11)			/* set V (valid) bit */
 
 	/*
 	 * Check the _PAGE_HASHPTE bit in the linux PTE.  If it is
@@ -631,7 +652,7 @@ _GLOBAL(flush_hash_patch_B)
 
 19:	mtmsr	r10
 	SYNC_601
-	isync
+	sync
 	blr
 
 /*
