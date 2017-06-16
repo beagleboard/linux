@@ -783,6 +783,17 @@ config BONE_CAPEMGR
 	  beaglebone capes. Select M to build as a module which
 	  will be named bone_capemgr.
 
+config BEAGLELOGIC
+	tristate "BeagleLogic logic analyzer"
+	default n
+	depends on PRUSS_REMOTEPROC
+	help
+	  BeagleLogic implements a logic analyzer using the Programmable Real-
+	  Time Units of the BeagleBone hardware. This should be typically built
+	  as a module (M) on the TI AM335x platform.
+
+	  If unsure, say N.
+
 config DEV_OVERLAYMGR
 	tristate "Device overlay manager"
 	depends on OF
