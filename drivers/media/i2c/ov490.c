@@ -47,7 +47,12 @@
 #define OV490_MAX_HEIGHT		800
 
 #define MAX_NUM_GPIOS			10
-#define OV490_PIXEL_RATE		192000000
+
+/*
+ * = fvco / pixel_width * num_lanes
+ * = 804,000,000 / 16 bits * 4 lanes
+ */
+#define OV490_PIXEL_RATE		201000000
 
 struct ov490_regval {
 	u32 addr;
