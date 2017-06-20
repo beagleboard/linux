@@ -165,6 +165,7 @@ struct sbconfig {
 #define SRCI_LSS_MASK		0x00f00000
 #define SRCI_LSS_SHIFT		20
 #define	SRCI_SRNB_MASK		0xf0
+#define	SRCI_SRNB_MASK_EXT	0x100
 #define	SRCI_SRNB_SHIFT		4
 #define	SRCI_SRBSZ_MASK		0xf
 #define	SRCI_SRBSZ_SHIFT	0
@@ -592,7 +593,13 @@ static void brcmf_chip_socram_ramsize(struct brcmf_core_priv *sr, u32 *ramsize,
 		if (lss != 0)
 			*ramsize += (1 << ((lss - 1) + SR_BSZ_BASE));
 	} else {
-		nb = (coreinfo & SRCI_SRNB_MASK) >> SRCI_SRNB_SHIFT;
+		/* length of SRAM Banks increased for corerev greater than 23 */
+		if (sr->pub.rev >= 23) {
+			nb = (coreinfo & (SRCI_SRNB_MASK | SRCI_SRNB_MASK_EXT))
+				>> SRCI_SRNB_SHIFT;
+		} else {
+			nb = (coreinfo & SRCI_SRNB_MASK) >> SRCI_SRNB_SHIFT;
+		}
 		for (i = 0; i < nb; i++) {
 			retent = brcmf_chip_socram_banksize(sr, i, &banksize);
 			*ramsize += banksize;
