@@ -624,6 +624,7 @@ BRCMF_FW_NVRAM_DEF(43455, "brcmfmac43455-sdio.bin", "brcmfmac43455-sdio.txt");
 BRCMF_FW_NVRAM_DEF(4354, "brcmfmac4354-sdio.bin", "brcmfmac4354-sdio.txt");
 BRCMF_FW_NVRAM_DEF(4356, "brcmfmac4356-sdio.bin", "brcmfmac4356-sdio.txt");
 BRCMF_FW_NVRAM_DEF(4373, "brcmfmac4373-sdio.bin", "brcmfmac4373-sdio.txt");
+BRCMF_FW_NVRAM_DEF(43012, "brcmfmac43012-sdio.bin", "brcmfmac43012-sdio.txt");
 
 static struct brcmf_firmware_mapping brcmf_sdio_fwnames[] = {
 	BRCMF_FW_NVRAM_ENTRY(BRCM_CC_43143_CHIP_ID, 0xFFFFFFFF, 43143),
@@ -643,7 +644,8 @@ static struct brcmf_firmware_mapping brcmf_sdio_fwnames[] = {
 	BRCMF_FW_NVRAM_ENTRY(BRCM_CC_4345_CHIP_ID, 0xFFFFFFC0, 43455),
 	BRCMF_FW_NVRAM_ENTRY(BRCM_CC_4354_CHIP_ID, 0xFFFFFFFF, 4354),
 	BRCMF_FW_NVRAM_ENTRY(BRCM_CC_4356_CHIP_ID, 0xFFFFFFFF, 4356),
-	BRCMF_FW_NVRAM_ENTRY(CY_CC_4373_CHIP_ID, 0xFFFFFFFF, 4373)
+	BRCMF_FW_NVRAM_ENTRY(CY_CC_4373_CHIP_ID, 0xFFFFFFFF, 4373),
+	BRCMF_FW_NVRAM_ENTRY(CY_CC_43012_CHIP_ID, 0xFFFFFFFF, 43012)
 };
 
 static void pkt_align(struct sk_buff *p, int len, int align)
@@ -703,6 +705,15 @@ brcmf_sdio_kso_control(struct brcmf_sdio *bus, bool on)
 	/* 1st KSO write goes to AOS wake up core if device is asleep  */
 	brcmf_sdiod_regwb(bus->sdiodev, SBSDIO_FUNC1_SLEEPCSR,
 			  wr_val, &err);
+
+	/* In case of 43012 chip, the chip could go down immediately after
+	 * KSO bit is cleared. So the further reads of KSO register could
+	 * fail. Thereby just bailing out immediately after clearing KSO
+	 * bit, to avoid polling of KSO bit.
+	 */
+	if (!on && (bus->ci->chip == CY_CC_43012_CHIP_ID)) {
+		return err;
+	}
 
 	if (on) {
 		/* device WAKEUP through KSO:
@@ -2447,9 +2458,20 @@ static void brcmf_sdio_bus_stop(struct device *dev)
 		/* Force backplane clocks to assure F2 interrupt propagates */
 		saveclk = brcmf_sdiod_regrb(sdiodev, SBSDIO_FUNC1_CHIPCLKCSR,
 					    &err);
-		if (!err)
-			brcmf_sdiod_regwb(sdiodev, SBSDIO_FUNC1_CHIPCLKCSR,
-					  (saveclk | SBSDIO_FORCE_HT), &err);
+		if (!err) {
+			if (bus->ci->chip == CY_CC_43012_CHIP_ID) {
+				brcmf_sdiod_regwb(sdiodev,
+						  SBSDIO_FUNC1_CHIPCLKCSR,
+						  (saveclk |
+						   SBSDIO_HT_AVAIL_REQ),
+						  &err);
+			} else {
+				brcmf_sdiod_regwb(sdiodev,
+						  SBSDIO_FUNC1_CHIPCLKCSR,
+						  (saveclk | SBSDIO_FORCE_HT),
+						  &err);
+			}
+		}
 		if (err)
 			brcmf_err("Failed to force clock for F2: err %d\n",
 				  err);
@@ -4057,8 +4079,14 @@ static void brcmf_sdio_firmware_callback(struct device *dev, int err,
 	/* Force clocks on backplane to be sure F2 interrupt propagates */
 	saveclk = brcmf_sdiod_regrb(sdiodev, SBSDIO_FUNC1_CHIPCLKCSR, &err);
 	if (!err) {
-		brcmf_sdiod_regwb(sdiodev, SBSDIO_FUNC1_CHIPCLKCSR,
-				  (saveclk | SBSDIO_FORCE_HT), &err);
+		if (bus->ci->chip == CY_CC_43012_CHIP_ID) {
+			brcmf_sdiod_regwb(sdiodev, SBSDIO_FUNC1_CHIPCLKCSR,
+					  (saveclk | SBSDIO_HT_AVAIL_REQ),
+					  &err);
+		} else {
+			brcmf_sdiod_regwb(sdiodev, SBSDIO_FUNC1_CHIPCLKCSR,
+					  (saveclk | SBSDIO_FORCE_HT), &err);
+		}
 	}
 	if (err) {
 		brcmf_err("Failed to force clock for F2: err %d\n", err);
