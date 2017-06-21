@@ -23,6 +23,9 @@ EXPORT_SYMBOL(pci_dram_offset);
 
 #ifdef CONFIG_SMP
 EXPORT_SYMBOL(smp_hw_index);
+#ifdef CONFIG_IPIPE_LEGACY
+EXPORT_SYMBOL(smp_logical_index);
+#endif
 #endif
 
 long long __ashrdi3(long long, int);

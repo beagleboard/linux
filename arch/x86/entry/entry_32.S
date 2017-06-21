@@ -32,6 +32,7 @@
 #include <linux/err.h>
 #include <asm/thread_info.h>
 #include <asm/irqflags.h>
+#include <asm/ipipe_base.h>
 #include <asm/errno.h>
 #include <asm/segment.h>
 #include <asm/smp.h>
@@ -59,6 +60,12 @@
  * Allowing a register to be clobbered can shrink the paravirt replacement
  * enough to patch inline, increasing performance.
  */
+
+#ifdef CONFIG_IPIPE
+#define PREEMPT_SCHEDULE_IRQ	call __ipipe_preempt_schedule_irq
+#else /* !CONFIG_IPIPE */
+#define PREEMPT_SCHEDULE_IRQ	call preempt_schedule_irq
+#endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_PREEMPT
 # define preempt_stop(clobbers)	DISABLE_INTERRUPTS(clobbers); TRACE_IRQS_OFF
@@ -205,6 +212,7 @@
 .endm
 
 ENTRY(ret_from_fork)
+	HARD_COND_ENABLE_INTERRUPTS
 	pushl	%eax
 	call	schedule_tail
 	GET_THREAD_INFO(%ebp)
@@ -250,7 +258,7 @@ ENDPROC(ret_from_kernel_thread)
 	ALIGN
 ret_from_exception:
 	preempt_stop(CLBR_ANY)
-ret_from_intr:
+ENTRY(ret_from_intr)
 	GET_THREAD_INFO(%ebp)
 #ifdef CONFIG_VM86
 	movl	PT_EFLAGS(%esp), %eax		# mix EFLAGS and CS
@@ -282,7 +290,7 @@ need_resched:
 	jnz	restore_all
 	testl	$X86_EFLAGS_IF, PT_EFLAGS(%esp)	# interrupts off (exception path) ?
 	jz	restore_all
-	call	preempt_schedule_irq
+	PREEMPT_SCHEDULE_IRQ
 	jmp	need_resched
 END(resume_kernel)
 #endif
@@ -479,6 +487,75 @@ ENTRY(irq_entries_start)
     .endr
 END(irq_entries_start)
 
+#ifdef CONFIG_IPIPE
+
+	.p2align CONFIG_X86_L1_CACHE_SHIFT
+
+.Lunwind_root_irq:
+	DISABLE_INTERRUPTS(CLBR_ANY)
+	ret	/* back to __ipipe_do_IRQ() */
+
+ENTRY(do_root_irq)
+	pushfl
+	orl	$X86_EFLAGS_IF, (%esp)
+	pushl	%cs
+	pushl	$.Lunwind_root_irq
+	pushl	PT_ORIG_EAX(%eax)
+	mov	%edx, %ecx
+	SAVE_ALL
+	pushl	%eax
+	call	*%ecx
+	addl	$4, %esp
+	jmp	ret_from_intr
+END(do_root_irq)
+
+common_interrupt:
+	ASM_CLAC;			\
+	addl $-0x80,(%esp)	/* Adjust vector into the [-256,-1] range */
+	SAVE_ALL
+	movl %esp, %eax
+	call __ipipe_handle_irq
+	testl %eax,%eax
+	jnz  ret_from_intr
+	jmp restore_nocheck
+ENDPROC(common_interrupt)
+
+	.p2align CONFIG_X86_L1_CACHE_SHIFT
+
+	.pushsection .kprobes.text, "ax"
+#define BUILD_INTERRUPT2(name, nr)	\
+ENTRY(name)				\
+	ASM_CLAC;			\
+	pushl $~(nr);			\
+	SAVE_ALL;			\
+	movl %esp, %eax;		\
+	call __ipipe_handle_irq;	\
+	testl %eax,%eax;		\
+	jnz  ret_from_intr;		\
+	jmp restore_nocheck;		\
+ENDPROC(name)
+
+/*
+ * We never call the handler directly, we have to go through the
+ * pipeline instead, which sets the proper routing in
+ * __ipipe_enable_pipeline(), so we may ignore the function arg.
+ */
+#define BUILD_INTERRUPT3(name, nr, fn)	\
+	BUILD_INTERRUPT2(name, nr)
+
+#ifdef CONFIG_X86_LOCAL_APIC
+	/*
+	 * The pipeline-specific vectors are not traced by the regular tracing
+	 * infrastructure (CONFIG_IPIPE_TRACE allows this though).
+	 */
+	BUILD_INTERRUPT2(ipipe_hrtimer_interrupt, IPIPE_HRTIMER_VECTOR)
+#ifdef CONFIG_SMP
+	BUILD_INTERRUPT2(ipipe_reschedule_interrupt, IPIPE_RESCHEDULE_VECTOR)
+	BUILD_INTERRUPT2(ipipe_critical_interrupt, IPIPE_CRITICAL_VECTOR)
+#endif
+#endif
+
+#else /* !CONFIG_IPIPE */
 /*
  * the CPU automatically disables interrupts when executing an IRQ vector,
  * so IRQ-flags tracing has to follow that:
@@ -505,6 +582,7 @@ ENTRY(name)				\
 	jmp	ret_from_intr;		\
 ENDPROC(name)
 
+#endif /* !CONFIG_IPIPE */
 
 #ifdef CONFIG_TRACING
 # define TRACE_BUILD_INTERRUPT(name, nr)	BUILD_INTERRUPT3(trace_##name, nr, smp_trace_##name)
@@ -936,9 +1014,15 @@ error_code:
 	movl	$(__USER_DS), %ecx
 	movl	%ecx, %ds
 	movl	%ecx, %es
+#ifndef CONFIG_IPIPE
 	TRACE_IRQS_OFF
+#endif
 	movl	%esp, %eax			# pt_regs pointer
 	call	*%edi
+#ifdef CONFIG_IPIPE
+	testl %eax,%eax
+	jnz restore_nocheck
+#endif
 	jmp	ret_from_exception
 END(page_fault)
 
@@ -973,7 +1057,9 @@ ENTRY(debug)
 debug_stack_correct:
 	pushl	$-1				# mark this as an int
 	SAVE_ALL
+#ifndef CONFIG_IPIPE
 	TRACE_IRQS_OFF
+#endif
 	xorl	%edx, %edx			# error code 0
 	movl	%esp, %eax			# pt_regs pointer
 	call	do_debug
@@ -1060,7 +1146,9 @@ ENTRY(int3)
 	ASM_CLAC
 	pushl	$-1				# mark this as an int
 	SAVE_ALL
+#ifndef CONFIG_IPIPE
 	TRACE_IRQS_OFF
+#endif
 	xorl	%edx, %edx			# zero error code
 	movl	%esp, %eax			# pt_regs pointer
 	call	do_int3
