@@ -81,6 +81,10 @@ static const struct resource imx27_audmux_res[] __initconst = {
 
 void __init imx27_soc_init(void)
 {
+#ifdef CONFIG_IPIPE
+	volatile unsigned long aips_reg;
+	void __iomem *aips_virt;
+#endif
 	mxc_arch_reset_init(MX27_IO_ADDRESS(MX27_WDOG_BASE_ADDR));
 	mxc_device_init();
 
@@ -95,6 +99,15 @@ void __init imx27_soc_init(void)
 	pinctrl_provide_dummies();
 	imx_add_imx_dma("imx27-dma", MX27_DMA_BASE_ADDR,
 			MX27_INT_DMACH0, 0); /* No ERR irq */
+
+	/* Setup AIPS register */
+#ifdef CONFIG_IPIPE
+	aips_virt = (void __iomem *)MX27_IO_P2V(MX27_AIPI_BASE_ADDR);
+	aips_reg = __raw_readl(aips_virt + 8);
+	aips_reg &= ~(1 << 3);
+	__raw_writel(aips_reg, aips_virt);
+#endif
+
 	/* imx27 has the imx21 type audmux */
 	platform_device_register_simple("imx21-audmux", 0, imx27_audmux_res,
 					ARRAY_SIZE(imx27_audmux_res));
