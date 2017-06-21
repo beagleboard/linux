@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/stddef.h>
 #include <linux/sched.h>
+#include <linux/ipipe.h>
 #include <linux/signal.h>
 #include <linux/syscore_ops.h>
 #include <linux/device.h>
@@ -31,7 +32,7 @@
 
 static struct ipic * primary_ipic;
 static struct irq_chip ipic_level_irq_chip, ipic_edge_irq_chip;
-static DEFINE_RAW_SPINLOCK(ipic_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(ipic_lock);
 
 static struct ipic_info ipic_info[] = {
 	[1] = {
@@ -532,18 +533,16 @@ static void ipic_unmask_irq(struct irq_data *d)
 	temp = ipic_read(ipic->regs, ipic_info[src].mask);
 	temp |= (1 << (31 - ipic_info[src].bit));
 	ipic_write(ipic->regs, ipic_info[src].mask, temp);
+	ipipe_unlock_irq(d->irq);
 
 	raw_spin_unlock_irqrestore(&ipic_lock, flags);
 }
 
-static void ipic_mask_irq(struct irq_data *d)
+static void __ipic_mask_irq(struct irq_data *d)
 {
 	struct ipic *ipic = ipic_from_irq(d->irq);
 	unsigned int src = irqd_to_hwirq(d);
-	unsigned long flags;
 	u32 temp;
-
-	raw_spin_lock_irqsave(&ipic_lock, flags);
 
 	temp = ipic_read(ipic->regs, ipic_info[src].mask);
 	temp &= ~(1 << (31 - ipic_info[src].bit));
@@ -552,6 +551,27 @@ static void ipic_mask_irq(struct irq_data *d)
 	/* mb() can't guarantee that masking is finished.  But it does finish
 	 * for nearly all cases. */
 	mb();
+}
+
+static void ipic_mask_irq(struct irq_data *d)
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&ipic_lock, flags);
+
+	ipipe_lock_irq(d->irq);
+	__ipic_mask_irq(d);
+
+	raw_spin_unlock_irqrestore(&ipic_lock, flags);
+}
+
+static void ipic_mask_irq_no_ack(struct irq_data *d)
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&ipic_lock, flags);
+
+	__ipic_mask_irq(d);
 
 	raw_spin_unlock_irqrestore(&ipic_lock, flags);
 }
@@ -658,7 +678,7 @@ static struct irq_chip ipic_level_irq_chip = {
 	.name		= "IPIC",
 	.irq_unmask	= ipic_unmask_irq,
 	.irq_mask	= ipic_mask_irq,
-	.irq_mask_ack	= ipic_mask_irq,
+	.irq_mask_ack	= ipic_mask_irq_no_ack,
 	.irq_set_type	= ipic_set_irq_type,
 };
 

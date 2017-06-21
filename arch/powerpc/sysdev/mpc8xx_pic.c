@@ -27,14 +27,24 @@ static inline unsigned long mpc8xx_irqd_to_bit(struct irq_data *d)
 
 static void mpc8xx_unmask_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
 	mpc8xx_cached_irq_mask |= mpc8xx_irqd_to_bit(d);
 	out_be32(&siu_reg->sc_simask, mpc8xx_cached_irq_mask);
+	ipipe_unlock_irq(d->irq);
+	hard_cond_local_irq_restore(flags);
 }
 
 static void mpc8xx_mask_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
 	mpc8xx_cached_irq_mask &= ~mpc8xx_irqd_to_bit(d);
 	out_be32(&siu_reg->sc_simask, mpc8xx_cached_irq_mask);
+	ipipe_unlock_irq(d->irq);
+	hard_cond_local_irq_restore(flags);
 }
 
 static void mpc8xx_ack(struct irq_data *d)
@@ -42,10 +52,29 @@ static void mpc8xx_ack(struct irq_data *d)
 	out_be32(&siu_reg->sc_sipend, mpc8xx_irqd_to_bit(d));
 }
 
+#ifdef CONFIG_IPIPE
+
+static void mpc8xx_mask_ack_irq(struct irq_data *d)
+{
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
+	mpc8xx_cached_irq_mask &= ~mpc8xx_irqd_to_bit(d);
+	out_be32(&siu_reg->sc_simask, mpc8xx_cached_irq_mask);
+	out_be32(&siu_reg->sc_sipend, mpc8xx_irqd_to_bit(d));
+	hard_cond_local_irq_restore(flags);
+}
+
+#endif
+
 static void mpc8xx_end_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
 	mpc8xx_cached_irq_mask |= mpc8xx_irqd_to_bit(d);
 	out_be32(&siu_reg->sc_simask, mpc8xx_cached_irq_mask);
+	hard_cond_local_irq_restore(flags);
 }
 
 static int mpc8xx_set_irq_type(struct irq_data *d, unsigned int flow_type)
@@ -55,7 +84,9 @@ static int mpc8xx_set_irq_type(struct irq_data *d, unsigned int flow_type)
 		unsigned int siel = in_be32(&siu_reg->sc_siel);
 		siel |= mpc8xx_irqd_to_bit(d);
 		out_be32(&siu_reg->sc_siel, siel);
+#ifndef CONFIG_IPIPE
 		irq_set_handler_locked(d, handle_edge_irq);
+#endif
 	}
 	return 0;
 }
@@ -67,6 +98,9 @@ static struct irq_chip mpc8xx_pic = {
 	.irq_ack = mpc8xx_ack,
 	.irq_eoi = mpc8xx_end_irq,
 	.irq_set_type = mpc8xx_set_irq_type,
+#ifdef CONFIG_IPIPE
+	.mask_ack = mpc8xx_mask_ack_irq,
+#endif
 };
 
 unsigned int mpc8xx_get_irq(void)

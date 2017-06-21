@@ -94,7 +94,8 @@ static inline void load_mm_ldt(struct mm_struct *mm)
 	clear_LDT();
 #endif
 
-	DEBUG_LOCKS_WARN_ON(preemptible());
+	DEBUG_LOCKS_WARN_ON(preemptible() &&
+			(!IS_ENABLED(CONFIG_IPIPE) || !hard_irqs_disabled()));
 }
 
 static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
@@ -131,6 +132,9 @@ extern void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 extern void switch_mm_irqs_off(struct mm_struct *prev, struct mm_struct *next,
 			       struct task_struct *tsk);
 #define switch_mm_irqs_off switch_mm_irqs_off
+
+#define ipipe_switch_mm_head(prev, next, tsk) \
+	switch_mm_irqs_off(prev, next, tsk)
 
 #define activate_mm(prev, next)			\
 do {						\
