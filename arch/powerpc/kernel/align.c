@@ -739,7 +739,7 @@ int fix_alignment(struct pt_regs *regs)
 	unsigned int reg, areg;
 	unsigned int dsisr;
 	unsigned char __user *addr;
-	unsigned long p, swiz;
+	unsigned long p, swiz, irqflags __maybe_unused;
 	int ret, i;
 	union data {
 		u64 ll;
@@ -968,10 +968,10 @@ int fix_alignment(struct pt_regs *regs)
 		if (flags & S) {
 			/* Single-precision FP store requires conversion... */
 #ifdef CONFIG_PPC_FPU
-			preempt_disable();
+			irqflags = hard_preempt_disable();
 			enable_kernel_fp();
 			cvt_df(&data.dd, (float *)&data.x32.low32);
-			preempt_enable();
+			hard_preempt_enable(irqflags);
 #else
 			return 0;
 #endif
@@ -1008,10 +1008,10 @@ int fix_alignment(struct pt_regs *regs)
 	/* Single-precision FP load requires conversion... */
 	case LD+F+S:
 #ifdef CONFIG_PPC_FPU
-		preempt_disable();
+		irqflags = hard_preempt_disable();
 		enable_kernel_fp();
 		cvt_fd((float *)&data.x32.low32, &data.dd);
-		preempt_enable();
+		hard_preempt_enable(irqflags);
 #else
 		return 0;
 #endif

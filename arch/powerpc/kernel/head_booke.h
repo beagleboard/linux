@@ -240,6 +240,16 @@ label:
 	EXC_XFER_TEMPLATE(hdlr, n, MSR_KERNEL, NOCOPY, transfer_to_handler_full, \
 			  ret_from_except_full)
 
+#ifdef CONFIG_IPIPE
+#define EXC_XFER_IPIPE(n, hdlr)		\
+	EXC_XFER_TEMPLATE(hdlr, n+1, MSR_KERNEL, NOCOPY, transfer_to_handler, \
+			  __ipipe_ret_from_except)
+
+#define EXC_XFER_IPIPE_FULL(n, hdlr)						\
+	EXC_XFER_TEMPLATE(hdlr, n, MSR_KERNEL, NOCOPY, transfer_to_handler_full, \
+			  __ipipe_ret_from_except_full)
+#endif /* CONFIG_IPIPE */
+
 #define EXC_XFER_LITE(n, hdlr)		\
 	EXC_XFER_TEMPLATE(hdlr, n+1, MSR_KERNEL, NOCOPY, transfer_to_handler, \
 			  ret_from_except)
@@ -404,6 +414,15 @@ label:
 	addi	r3,r1,STACK_FRAME_OVERHEAD;				      \
 	EXC_XFER_STD(0x0700, program_check_exception)
 
+#ifdef CONFIG_IPIPE
+#define DECREMENTER_EXCEPTION						      \
+	START_EXCEPTION(Decrementer)					      \
+	NORMAL_EXCEPTION_PROLOG(DECREMENTER);				      \
+	lis     r0,TSR_DIS@h;           /* Setup the DEC interrupt mask */    \
+	mtspr   SPRN_TSR,r0;		/* Clear the DEC interrupt */	      \
+	addi    r3,r1,STACK_FRAME_OVERHEAD;				      \
+	EXC_XFER_IPIPE(0x0900, __ipipe_grab_timer)
+#else /* !CONFIG_IPIPE */
 #define DECREMENTER_EXCEPTION						      \
 	START_EXCEPTION(Decrementer)					      \
 	NORMAL_EXCEPTION_PROLOG(DECREMENTER);		      \
@@ -411,6 +430,7 @@ label:
 	mtspr   SPRN_TSR,r0;		/* Clear the DEC interrupt */	      \
 	addi    r3,r1,STACK_FRAME_OVERHEAD;				      \
 	EXC_XFER_LITE(0x0900, timer_interrupt)
+#endif /* CONFIG_IPIPE */
 
 #define FP_UNAVAILABLE_EXCEPTION					      \
 	START_EXCEPTION(FloatingPointUnavailable)			      \

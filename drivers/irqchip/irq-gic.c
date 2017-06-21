@@ -39,6 +39,7 @@
 #include <linux/percpu.h>
 #include <linux/slab.h>
 #include <linux/irqchip.h>
+#include <linux/ipipe.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqchip/arm-gic.h>
 
@@ -87,7 +88,7 @@ struct gic_chip_data {
 #endif
 };
 
-static DEFINE_RAW_SPINLOCK(irq_controller_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(irq_controller_lock);
 
 /*
  * The GIC mapping of CPU interfaces does not necessarily match
@@ -182,7 +183,12 @@ static int gic_peek_irq(struct irq_data *d, u32 offset)
 
 static void gic_mask_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
+	ipipe_lock_irq(d->irq);
 	gic_poke_irq(d, GIC_DIST_ENABLE_CLEAR);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 }
 
 static void gic_eoimode1_mask_irq(struct irq_data *d)
@@ -202,7 +208,12 @@ static void gic_eoimode1_mask_irq(struct irq_data *d)
 
 static void gic_unmask_irq(struct irq_data *d)
 {
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&irq_controller_lock, flags);
 	gic_poke_irq(d, GIC_DIST_ENABLE_SET);
+	ipipe_unlock_irq(d->irq);
+	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
 }
 
 static void gic_eoi_irq(struct irq_data *d)
@@ -218,6 +229,20 @@ static void gic_eoimode1_eoi_irq(struct irq_data *d)
 
 	writel_relaxed(gic_irq(d), gic_cpu_base(d) + GIC_CPU_DEACTIVATE);
 }
+
+#ifdef CONFIG_IPIPE
+static void gic_hold_irq(struct irq_data *d)
+{
+	gic_poke_irq(d, GIC_DIST_ENABLE_CLEAR);
+	gic_eoi_irq(d);
+}
+
+static void gic_release_irq(struct irq_data *d)
+{
+	gic_poke_irq(d, GIC_DIST_ENABLE_SET);
+}
+
+#endif /* CONFIG_IPIPE */
 
 static int gic_irq_set_irqchip_state(struct irq_data *d,
 				     enum irqchip_irq_state which, bool val)
@@ -339,7 +364,7 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 		if (likely(irqnr > 15 && irqnr < 1021)) {
 			if (static_key_true(&supports_deactivate))
 				writel_relaxed(irqstat, cpu_base + GIC_CPU_EOI);
-			handle_domain_irq(gic->domain, irqnr, regs);
+			ipipe_handle_domain_irq(gic->domain, irqnr, regs);
 			continue;
 		}
 		if (irqnr < 16) {
@@ -355,7 +380,7 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 			 * Pairs with the write barrier in gic_raise_softirq
 			 */
 			smp_rmb();
-			handle_IPI(irqnr, regs);
+			ipipe_handle_multi_ipi(irqnr, regs);
 #endif
 			continue;
 		}
@@ -368,13 +393,13 @@ static void gic_handle_cascade_irq(struct irq_desc *desc)
 	struct gic_chip_data *chip_data = irq_desc_get_handler_data(desc);
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 	unsigned int cascade_irq, gic_irq;
-	unsigned long status;
+	unsigned long status, flags;
 
 	chained_irq_enter(chip, desc);
 
-	raw_spin_lock(&irq_controller_lock);
+	raw_spin_lock_irqsave_cond(&irq_controller_lock, flags);
 	status = readl_relaxed(gic_data_cpu_base(chip_data) + GIC_CPU_INTACK);
-	raw_spin_unlock(&irq_controller_lock);
+	raw_spin_unlock_irqrestore_cond(&irq_controller_lock, flags);
 
 	gic_irq = (status & GICC_IAR_INT_ID_MASK);
 	if (gic_irq == GICC_INT_SPURIOUS)
@@ -384,7 +409,7 @@ static void gic_handle_cascade_irq(struct irq_desc *desc)
 	if (unlikely(gic_irq < 32 || gic_irq > 1020))
 		handle_bad_irq(desc);
 	else
-		generic_handle_irq(cascade_irq);
+		ipipe_handle_demuxed_irq(cascade_irq);
 
  out:
 	chained_irq_exit(chip, desc);
@@ -398,6 +423,10 @@ static struct irq_chip gic_chip = {
 	.irq_set_type		= gic_set_type,
 #ifdef CONFIG_SMP
 	.irq_set_affinity	= gic_set_affinity,
+#endif
+#ifdef CONFIG_IPIPE
+	.irq_hold		= gic_hold_irq,
+	.irq_release		= gic_release_irq,
 #endif
 	.irq_get_irqchip_state	= gic_irq_get_irqchip_state,
 	.irq_set_irqchip_state	= gic_irq_set_irqchip_state,
@@ -468,6 +497,39 @@ static void gic_cpu_if_up(struct gic_chip_data *gic)
 	writel_relaxed(bypass | mode | GICC_ENABLE, cpu_base + GIC_CPU_CTRL);
 }
 
+
+#ifdef CONFIG_IPIPE
+
+void gic_mute(void)
+{
+	writel_relaxed(0x90, gic_data_cpu_base(&gic_data[0]) + GIC_CPU_PRIMASK);
+}
+
+void gic_unmute(void)
+{
+	writel_relaxed(0xf0, gic_data_cpu_base(&gic_data[0]) + GIC_CPU_PRIMASK);
+}
+
+void gic_set_irq_prio(int irq, int hi)
+{
+	void __iomem *dist_base;
+	unsigned gic_irqs;
+
+	if (irq < 32) /* The IPIs always are high priority */
+		return;
+
+	dist_base = gic_data_dist_base(&gic_data[0]);
+	gic_irqs = readl_relaxed(dist_base + GIC_DIST_CTR) & 0x1f;
+	gic_irqs = (gic_irqs + 1) * 32;
+	if (gic_irqs > 1020)
+		gic_irqs = 1020;
+	if (irq >= gic_irqs)
+		return;
+
+	writeb_relaxed(hi ? 0x10 : 0xa0, dist_base + GIC_DIST_PRI + irq);
+}
+
+#endif /* CONFIG_IPIPE */
 
 static void __init gic_dist_init(struct gic_chip_data *gic)
 {

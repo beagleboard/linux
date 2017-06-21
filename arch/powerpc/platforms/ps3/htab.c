@@ -42,7 +42,7 @@ enum ps3_lpar_vas_id {
 };
 
 
-static DEFINE_SPINLOCK(ps3_htab_lock);
+static IPIPE_DEFINE_SPINLOCK(ps3_htab_lock);
 
 static long ps3_hpte_insert(unsigned long hpte_group, unsigned long vpn,
 	unsigned long pa, unsigned long rflags, unsigned long vflags,
