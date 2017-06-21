@@ -24,6 +24,7 @@
 #include <linux/sched_clock.h>
 
 #include <asm/cputype.h>
+#include <asm/ipipe.h>
 
 #define GT_COUNTER0	0x00
 #define GT_COUNTER1	0x04
@@ -48,6 +49,8 @@
  * the units for all operations.
  */
 static void __iomem *gt_base;
+static unsigned long gt_pbase;
+static struct clk *gt_clk;
 static unsigned long gt_clk_rate;
 static int gt_ppi;
 static struct clock_event_device __percpu *gt_evt;
@@ -221,8 +224,36 @@ static u64 notrace gt_sched_clock_read(void)
 }
 #endif
 
+#ifdef CONFIG_IPIPE
+
+static unsigned int refresh_gt_freq(void)
+{
+	gt_clk_rate = clk_get_rate(gt_clk);
+
+	__clocksource_update_freq_hz(&gt_clocksource, gt_clk_rate);
+
+	return gt_clk_rate;
+}
+
+#endif
+
 static void __init gt_clocksource_init(void)
 {
+#ifdef CONFIG_IPIPE
+	struct __ipipe_tscinfo tsc_info = {
+		.type = IPIPE_TSC_TYPE_FREERUNNING,
+		.freq = gt_clk_rate,
+		.counter_vaddr = (unsigned long)gt_base,
+		.u = {
+			{
+				.counter_paddr = gt_pbase,
+				.mask = 0xffffffff,
+			}
+		},
+		.refresh_freq = refresh_gt_freq,
+	};
+#endif
+
 	writel(0, gt_base + GT_CONTROL);
 	writel(0, gt_base + GT_COUNTER0);
 	writel(0, gt_base + GT_COUNTER1);
@@ -231,6 +262,9 @@ static void __init gt_clocksource_init(void)
 
 #ifdef CONFIG_CLKSRC_ARM_GLOBAL_TIMER_SCHED_CLOCK
 	sched_clock_register(gt_sched_clock_read, 64, gt_clk_rate);
+#endif
+#ifdef CONFIG_IPIPE
+	__ipipe_tsc_register(&tsc_info);
 #endif
 	clocksource_register_hz(&gt_clocksource, gt_clk_rate);
 }
@@ -255,8 +289,8 @@ static struct notifier_block gt_cpu_nb = {
 
 static void __init global_timer_of_register(struct device_node *np)
 {
-	struct clk *gt_clk;
-	int err = 0;
+	int err = 0, usable_timer = 1;
+	struct resource res;
 
 	/*
 	 * In A9 r2p0 the comparators for each processor with the global timer
@@ -266,13 +300,15 @@ static void __init global_timer_of_register(struct device_node *np)
 	if (read_cpuid_part() == ARM_CPU_PART_CORTEX_A9
 	    && (read_cpuid_id() & 0xf0000f) < 0x200000) {
 		pr_warn("global-timer: non support for this cpu version.\n");
-		return;
+		usable_timer = 0;
 	}
 
-	gt_ppi = irq_of_parse_and_map(np, 0);
-	if (!gt_ppi) {
-		pr_warn("global-timer: unable to parse irq\n");
-		return;
+	if (usable_timer) {
+		gt_ppi = irq_of_parse_and_map(np, 0);
+		if (!gt_ppi) {
+			pr_warn("global-timer: unable to parse irq\n");
+			return;
+		}
 	}
 
 	gt_base = of_iomap(np, 0);
@@ -280,6 +316,11 @@ static void __init global_timer_of_register(struct device_node *np)
 		pr_warn("global-timer: invalid base address\n");
 		return;
 	}
+
+	if (of_address_to_resource(np, 0, &res))
+		res.start = 0;
+
+	gt_pbase = res.start;
 
 	gt_clk = of_clk_get(np, 0);
 	if (!IS_ERR(gt_clk)) {
@@ -293,30 +334,33 @@ static void __init global_timer_of_register(struct device_node *np)
 	}
 
 	gt_clk_rate = clk_get_rate(gt_clk);
-	gt_evt = alloc_percpu(struct clock_event_device);
-	if (!gt_evt) {
-		pr_warn("global-timer: can't allocate memory\n");
-		err = -ENOMEM;
-		goto out_clk;
-	}
+	if (usable_timer) {
+		gt_evt = alloc_percpu(struct clock_event_device);
+		if (!gt_evt) {
+			pr_warn("global-timer: can't allocate memory\n");
+			err = -ENOMEM;
+			goto out_clk;
+		}
 
-	err = request_percpu_irq(gt_ppi, gt_clockevent_interrupt,
+		err = request_percpu_irq(gt_ppi, gt_clockevent_interrupt,
 				 "gt", gt_evt);
-	if (err) {
-		pr_warn("global-timer: can't register interrupt %d (%d)\n",
-			gt_ppi, err);
-		goto out_free;
-	}
+		if (err) {
+			pr_warn("global-timer: can't register interrupt %d (%d)\n",
+				gt_ppi, err);
+			goto out_free;
+		}
 
-	err = register_cpu_notifier(&gt_cpu_nb);
-	if (err) {
-		pr_warn("global-timer: unable to register cpu notifier.\n");
-		goto out_irq;
+		err = register_cpu_notifier(&gt_cpu_nb);
+		if (err) {
+			pr_warn("global-timer: unable to register cpu notifier.\n");
+			goto out_irq;
+		}
 	}
 
 	/* Immediately configure the timer on the boot CPU */
 	gt_clocksource_init();
-	gt_clockevents_init(this_cpu_ptr(gt_evt));
+	if (usable_timer)
+		gt_clockevents_init(this_cpu_ptr(gt_evt));
 
 	return;
 

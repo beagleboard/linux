@@ -202,9 +202,14 @@ static irqreturn_t twl6030_irq_thread(int irq, void *data)
 			int module_irq =
 				irq_find_mapping(pdata->irq_domain,
 						 pdata->irq_mapping_tbl[i]);
-			if (module_irq)
+			if (module_irq) {
+#ifdef CONFIG_IPIPE
+				struct irq_desc *d = irq_to_desc(module_irq);
+				d->ipipe_ack(d);
+#else
 				handle_nested_irq(module_irq);
-			else
+#endif
+			} else
 				pr_err("twl6030_irq: Unmapped PIH ISR %u detected\n",
 				       i);
 			pr_debug("twl6030_irq: PIH ISR %u, virq%u\n",
@@ -470,4 +475,3 @@ int twl6030_exit_irq(void)
 	}
 	return 0;
 }
-

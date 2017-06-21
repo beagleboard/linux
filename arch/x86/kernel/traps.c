@@ -105,7 +105,16 @@ static inline void conditional_cli(struct pt_regs *regs)
 static inline void preempt_conditional_cli(struct pt_regs *regs)
 {
 	if (regs->flags & X86_EFLAGS_IF)
-		local_irq_disable();
+		/*
+		 * I-pipe doesn't virtualize the IRQ flags in the entry code.
+		 * Therefore we cannot call the original local_irq_disable here
+		 * because there will be no pairing IRQ enable for the root
+		 * domain. So just disable interrupts physically.
+		 *
+		 * There is also no I-pipe hard-irq tracing on return from the
+		 * exception, so do not trace here either.
+		 */
+		hard_local_irq_disable_notrace();
 	preempt_count_dec();
 }
 
@@ -293,9 +302,9 @@ static void do_error_trap(struct pt_regs *regs, long error_code, char *str,
 }
 
 #define DO_ERROR(trapnr, signr, str, name)				\
-dotraplinkage void do_##name(struct pt_regs *regs, long error_code)	\
+dotraplinkage int do_##name(struct pt_regs *regs, long error_code)	\
 {									\
-	do_error_trap(regs, error_code, str, trapnr, signr);		\
+	return IPIPE_DO_TRAP(do_error_trap, trapnr, regs, error_code, str, trapnr, signr); \
 }
 
 DO_ERROR(X86_TRAP_DE,     SIGFPE,  "divide error",		divide_error)
@@ -309,7 +318,7 @@ DO_ERROR(X86_TRAP_AC,     SIGBUS,  "alignment check",		alignment_check)
 
 #ifdef CONFIG_X86_64
 /* Runs on IST stack */
-dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code)
+static void __do_double_fault(struct pt_regs *regs, long error_code)
 {
 	static const char str[] = "double fault";
 	struct task_struct *tsk = current;
@@ -357,6 +366,12 @@ dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code)
 	for (;;)
 		die(str, regs, error_code);
 }
+
+dotraplinkage int do_double_fault(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(__do_double_fault, X86_TRAP_DF, regs, error_code);
+}
+
 #endif
 
 dotraplinkage void do_bounds(struct pt_regs *regs, long error_code)
@@ -437,8 +452,8 @@ exit_trap:
 	do_trap(X86_TRAP_BR, SIGSEGV, "bounds", regs, error_code, NULL);
 }
 
-dotraplinkage void
-do_general_protection(struct pt_regs *regs, long error_code)
+static void
+__do_general_protection(struct pt_regs *regs, long error_code)
 {
 	struct task_struct *tsk;
 
@@ -478,10 +493,16 @@ do_general_protection(struct pt_regs *regs, long error_code)
 
 	force_sig_info(SIGSEGV, SEND_SIG_PRIV, tsk);
 }
+
+dotraplinkage int
+do_general_protection(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(__do_general_protection, X86_TRAP_GP, regs, error_code);
+}
 NOKPROBE_SYMBOL(do_general_protection);
 
 /* May run on IST stack. */
-dotraplinkage void notrace do_int3(struct pt_regs *regs, long error_code)
+static void notrace __do_int3(struct pt_regs *regs, long error_code)
 {
 #ifdef CONFIG_DYNAMIC_FTRACE
 	/*
@@ -523,6 +544,11 @@ dotraplinkage void notrace do_int3(struct pt_regs *regs, long error_code)
 	debug_stack_usage_dec();
 exit:
 	ist_exit(regs);
+}
+
+dotraplinkage int notrace do_int3(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(__do_int3, X86_TRAP_BP, regs, error_code);
 }
 NOKPROBE_SYMBOL(do_int3);
 
@@ -595,7 +621,7 @@ NOKPROBE_SYMBOL(fixup_bad_iret);
  *
  * May run on IST stack.
  */
-dotraplinkage void do_debug(struct pt_regs *regs, long error_code)
+static void __do_debug(struct pt_regs *regs, long error_code)
 {
 	struct task_struct *tsk = current;
 	int user_icebp = 0;
@@ -679,6 +705,11 @@ dotraplinkage void do_debug(struct pt_regs *regs, long error_code)
 exit:
 	ist_exit(regs);
 }
+
+dotraplinkage int do_debug(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(__do_debug, X86_TRAP_DB, regs, error_code);
+}
 NOKPROBE_SYMBOL(do_debug);
 
 /*
@@ -727,27 +758,44 @@ static void math_error(struct pt_regs *regs, int error_code, int trapnr)
 	force_sig_info(SIGFPE, &info, task);
 }
 
-dotraplinkage void do_coprocessor_error(struct pt_regs *regs, long error_code)
+static void __do_coprocessor_error(struct pt_regs *regs, long error_code)
 {
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	math_error(regs, error_code, X86_TRAP_MF);
 }
 
-dotraplinkage void
-do_simd_coprocessor_error(struct pt_regs *regs, long error_code)
+dotraplinkage int do_coprocessor_error(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(__do_coprocessor_error, X86_TRAP_MF, regs, error_code);
+}
+
+static void
+__do_simd_coprocessor_error(struct pt_regs *regs, long error_code)
 {
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	math_error(regs, error_code, X86_TRAP_XF);
 }
 
-dotraplinkage void
-do_spurious_interrupt_bug(struct pt_regs *regs, long error_code)
+dotraplinkage int
+do_simd_coprocessor_error(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(__do_simd_coprocessor_error, X86_TRAP_XF, regs, error_code);
+}
+
+static void
+__do_spurious_interrupt_bug(struct pt_regs *regs, long error_code)
 {
 	conditional_sti(regs);
 }
 
+dotraplinkage int
+do_spurious_interrupt_bug(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(__do_spurious_interrupt_bug, X86_TRAP_SPURIOUS, regs, error_code);
+}
+
 dotraplinkage void
-do_device_not_available(struct pt_regs *regs, long error_code)
+__do_device_not_available(struct pt_regs *regs, long error_code)
 {
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	BUG_ON(use_eager_fpu());
@@ -768,10 +816,16 @@ do_device_not_available(struct pt_regs *regs, long error_code)
 	conditional_sti(regs);
 #endif
 }
+
+dotraplinkage int
+do_device_not_available(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(__do_device_not_available, X86_TRAP_NM, regs, error_code);
+}
 NOKPROBE_SYMBOL(do_device_not_available);
 
 #ifdef CONFIG_X86_32
-dotraplinkage void do_iret_error(struct pt_regs *regs, long error_code)
+static void __do_iret_error(struct pt_regs *regs, long error_code)
 {
 	siginfo_t info;
 
@@ -787,6 +841,11 @@ dotraplinkage void do_iret_error(struct pt_regs *regs, long error_code)
 		do_trap(X86_TRAP_IRET, SIGILL, "iret exception", regs, error_code,
 			&info);
 	}
+}
+
+dotraplinkage int do_iret_error(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(__do_iret_error, X86_TRAP_IRET, regs, error_code);
 }
 #endif
 

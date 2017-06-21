@@ -1138,6 +1138,33 @@ static void cdns_uart_console_write(struct console *co, const char *s,
 		spin_unlock_irqrestore(&port->lock, flags);
 }
 
+#ifdef CONFIG_RAW_PRINTK
+
+static void cdns_uart_console_write_raw(struct console *co, const char *s,
+					unsigned int count)
+{
+	struct uart_port *port = &cdns_uart_port[co->index];
+	unsigned int imr, ctrl;
+
+	imr = cdns_uart_readl(CDNS_UART_IMR_OFFSET);
+	cdns_uart_writel(imr, CDNS_UART_IDR_OFFSET);
+
+	ctrl = cdns_uart_readl(CDNS_UART_CR_OFFSET);
+	cdns_uart_writel((ctrl & ~CDNS_UART_CR_TX_DIS) | CDNS_UART_CR_TX_EN,
+		CDNS_UART_CR_OFFSET);
+
+	while (count-- > 0) {
+		if (*s == '\n')
+			cdns_uart_writel('\r', CDNS_UART_FIFO_OFFSET);
+		cdns_uart_writel(*s++, CDNS_UART_FIFO_OFFSET);
+	}
+
+	cdns_uart_writel(ctrl, CDNS_UART_CR_OFFSET);
+	cdns_uart_writel(imr, CDNS_UART_IER_OFFSET);
+}
+
+#endif
+
 /**
  * cdns_uart_console_setup - Initialize the uart to default config
  * @co: Console handle
@@ -1175,7 +1202,12 @@ static struct console cdns_uart_console = {
 	.write	= cdns_uart_console_write,
 	.device	= uart_console_device,
 	.setup	= cdns_uart_console_setup,
+#ifdef CONFIG_RAW_PRINTK
+	.write_raw = cdns_uart_console_write_raw,
+	.flags	= CON_PRINTBUFFER | CON_RAW,
+#else
 	.flags	= CON_PRINTBUFFER,
+#endif
 	.index	= -1, /* Specified on the cmdline (e.g. console=ttyPS ) */
 	.data	= &cdns_uart_uart_driver,
 };
