@@ -26,6 +26,10 @@ void __init setup_pit_timer(void)
 #ifndef CONFIG_X86_64
 static int __init init_pit_clocksource(void)
 {
+#ifdef CONFIG_IPIPE
+	if (cpu_has_tsc == 0 && is_hpet_enabled() == 0)
+		return clocksource_i8253_init();
+#endif /* CONFIG_IPIPE */
 	 /*
 	  * Several reasons not to register PIT as a clocksource:
 	  *

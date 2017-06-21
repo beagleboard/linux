@@ -13,6 +13,7 @@
  */
 
 #include <linux/timekeeper_internal.h>
+#include <linux/ipipe_tickdev.h>
 #include <asm/vgtod.h>
 #include <asm/vvar.h>
 
@@ -67,4 +68,7 @@ void update_vsyscall(struct timekeeper *tk)
 	}
 
 	gtod_write_end(vdata);
+
+	if (tk->tkr_mono.clock == &clocksource_tsc)
+		ipipe_update_hostrt(tk);
 }

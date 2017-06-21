@@ -83,7 +83,7 @@ static void notrace arch_restore_image(void *unused)
 {
 	struct pbe *pbe;
 
-	cpu_switch_mm(idmap_pgd, &init_mm);
+	cpu_switch_mm(idmap_pgd, &init_mm, 1);
 	for (pbe = restore_pblist; pbe; pbe = pbe->next)
 		copy_page(pbe->orig_address, pbe->address);
 

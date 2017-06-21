@@ -2,6 +2,10 @@
 # Makefile for x86 specific library files.
 #
 
+ifdef CONFIG_FUNCTION_TRACER
+CFLAGS_REMOVE_string_32.o = -pg
+endif
+
 inat_tables_script = $(srctree)/arch/x86/tools/gen-insn-attr-x86.awk
 inat_tables_maps = $(srctree)/arch/x86/lib/x86-opcode-map.txt
 quiet_cmd_inat_tables = GEN     $@

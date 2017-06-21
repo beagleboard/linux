@@ -19,6 +19,7 @@
 #include <linux/gpio.h>
 #include <linux/slab.h>
 #include <linux/irq.h>
+#include <linux/ipipe.h>
 
 #define MPC8XXX_GPIO_PINS	32
 
@@ -203,8 +204,8 @@ static void mpc8xxx_gpio_irq_cascade(struct irq_desc *desc)
 
 	mask = in_be32(mm->regs + GPIO_IER) & in_be32(mm->regs + GPIO_IMR);
 	if (mask)
-		generic_handle_irq(irq_linear_revmap(mpc8xxx_gc->irq,
-						     32 - ffs(mask)));
+		ipipe_handle_demuxed_irq(irq_linear_revmap(mpc8xxx_gc->irq,
+							   32 - ffs(mask)));
 	if (chip->irq_eoi)
 		chip->irq_eoi(&desc->irq_data);
 }
