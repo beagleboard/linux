@@ -2870,9 +2870,12 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 			host->use_adma = true;
 	}
 
-	/* Since we do only SG emulation, we can have as many segs
-	 * as we want. */
-	mmc->max_segs = 1024;
+	/* Set this to a value that allows allocating an entire descriptor
+	 * list within a page (zero order allocation). */
+	if (host->use_adma)
+		mmc->max_segs = 512;
+	else
+		mmc->max_segs = 64;
 
 	mmc->max_blk_size = 512;       /* Block Length at max can be 1024 */
 	mmc->max_blk_count = 0xFFFF;    /* No. of Blocks is 16 bits */
