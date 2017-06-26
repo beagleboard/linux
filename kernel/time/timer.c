@@ -22,6 +22,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/export.h>
 #include <linux/interrupt.h>
+#include <linux/ipipe.h>
 #include <linux/percpu.h>
 #include <linux/init.h>
 #include <linux/mm.h>
@@ -1643,6 +1644,24 @@ static inline void __run_timers(struct timer_base *base)
 	base->running_timer = NULL;
 	spin_unlock_irq(&base->lock);
 }
+
+#ifdef CONFIG_IPIPE
+
+void update_root_process_times(struct pt_regs *regs)
+{
+	int user_tick = user_mode(regs);
+
+	if (__ipipe_root_tick_p(regs)) {
+		update_process_times(user_tick);
+		return;
+	}
+
+	run_local_timers();
+	rcu_check_callbacks(user_tick);
+	run_posix_cpu_timers(current);
+}
+
+#endif
 
 /*
  * This function runs timers and the timer-tq in bottom half context.

@@ -24,8 +24,9 @@
 
 #ifdef CONFIG_IPIPE
 
+#include <linux/bitops.h>
 #include <asm/bitsperlong.h>
-#include <mach/irq.h>
+#include <asm/irq.h>
 
 #define IPIPE_NR_XIRQS		NR_IRQS
 
@@ -33,42 +34,51 @@
 #define IPIPE_SYNCDEFER_FLAG	15
 #define IPIPE_SYNCDEFER_MASK	(1L << IPIPE_SYNCDEFER_MASK)
 
- /* Blackfin traps -- i.e. exception vector numbers */
-#define IPIPE_NR_FAULTS		52 /* We leave a gap after VEC_ILL_RES. */
-/* Pseudo-vectors used for kernel events */
-#define IPIPE_FIRST_EVENT	IPIPE_NR_FAULTS
-#define IPIPE_EVENT_SYSCALL	(IPIPE_FIRST_EVENT)
-#define IPIPE_EVENT_SCHEDULE	(IPIPE_FIRST_EVENT + 1)
-#define IPIPE_EVENT_SIGWAKE	(IPIPE_FIRST_EVENT + 2)
-#define IPIPE_EVENT_SETSCHED	(IPIPE_FIRST_EVENT + 3)
-#define IPIPE_EVENT_INIT	(IPIPE_FIRST_EVENT + 4)
-#define IPIPE_EVENT_EXIT	(IPIPE_FIRST_EVENT + 5)
-#define IPIPE_EVENT_CLEANUP	(IPIPE_FIRST_EVENT + 6)
-#define IPIPE_EVENT_RETURN	(IPIPE_FIRST_EVENT + 7)
-#define IPIPE_LAST_EVENT	IPIPE_EVENT_RETURN
-#define IPIPE_NR_EVENTS		(IPIPE_LAST_EVENT + 1)
-
-#define IPIPE_TIMER_IRQ		IRQ_CORETMR
-
-#define __IPIPE_FEATURE_SYSINFO_V2	1
+/*
+ * Blackfin traps -- i.e. exception vector numbers, we leave a gap
+ * after VEC_ILL_RES.
+ */
+#define IPIPE_TRAP_MAYDAY	52	/* Internal recovery trap */
+#define IPIPE_NR_FAULTS		53
 
 #ifndef __ASSEMBLY__
 
-extern unsigned long __ipipe_root_status; /* Alias to ipipe_root_cpudom_var(status) */
+extern unsigned long __ipipe_root_status;
 
-void __ipipe_stall_root(void);
+void ipipe_stall_root(void);
 
-unsigned long __ipipe_test_and_stall_root(void);
+unsigned long ipipe_test_and_stall_root(void);
 
-unsigned long __ipipe_test_root(void);
+unsigned long ipipe_test_root(void);
 
 void __ipipe_lock_root(void);
 
 void __ipipe_unlock_root(void);
 
-#endif /* !__ASSEMBLY__ */
+int __ipipe_do_sync_check(void);
+#define __ipipe_sync_check __ipipe_do_sync_check()
 
-#define __IPIPE_FEATURE_SYSINFO_V2	1
+static inline unsigned long __ipipe_ffnz(unsigned long ul)
+{
+	return ffs(ul) - 1;
+}
+
+#define __ipipe_run_irqtail(irq)  /* Must be a macro */			\
+	do {								\
+		unsigned long __pending;				\
+		CSYNC();						\
+		__pending = bfin_read_IPEND();				\
+		if (__pending & 0x8000) {				\
+			__pending &= ~0x8010;				\
+			if (__pending && (__pending & (__pending - 1)) == 0) \
+				__ipipe_call_irqtail(__ipipe_irq_tail_hook); \
+		}							\
+	} while (0)
+
+#define __ipipe_syscall_watched_p(p, sc)	\
+	(ipipe_notifier_enabled_p(p) || (unsigned long)sc >= NR_syscalls)
+
+#endif /* !__ASSEMBLY__ */
 
 #endif /* CONFIG_IPIPE */
 
