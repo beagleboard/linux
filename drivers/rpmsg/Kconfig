@@ -18,7 +18,6 @@ config RPMSG_VIRTIO
 	tristate
 	select RPMSG
 	select VIRTIO
-	select VIRTUALIZATION
 
 config RPMSG_RPC
 	tristate "rpmsg Remote Procedure Call driver"
