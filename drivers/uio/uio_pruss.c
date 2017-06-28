@@ -126,7 +126,10 @@ static void pruss_cleanup(struct device *dev, struct uio_pruss_dev *gdev)
 			      sram_pool_sz);
 #endif
 	kfree(gdev->info);
-	clk_put(gdev->pruss_clk);
+	if (gdev->pruss_clk) {
+		clk_disable(gdev->pruss_clk);
+		clk_put(gdev->pruss_clk);
+	}
 	kfree(gdev);
 }
 
