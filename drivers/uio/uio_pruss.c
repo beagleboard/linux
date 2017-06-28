@@ -129,6 +129,8 @@ static void pruss_cleanup(struct device *dev, struct uio_pruss_dev *gdev)
 	clk_disable(gdev->pruss_clk);
 	clk_put(gdev->pruss_clk);
 	kfree(gdev);
+	pm_runtime_put(dev);
+	pm_runtime_disable(dev);
 }
 
 static int pruss_probe(struct platform_device *pdev)
@@ -155,15 +157,25 @@ static int pruss_probe(struct platform_device *pdev)
 		kfree(gdev);
 		return -ENOMEM;
 	}
+
+	pm_runtime_enable(dev);
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		dev_err(dev, "pm_runtime_get_sync() failed\n");
+		pm_runtime_disable(dev);
+		kfree(gdev->info);
+		kfree(gdev);
+		return ret;
+	}
+
 #ifdef CONFIG_ARCH_DAVINCI_DA850
 	/* Power on PRU in case its not done as part of boot-loader */
 	gdev->pruss_clk = clk_get(dev, "pruss");
 	if (IS_ERR(gdev->pruss_clk)) {
 		dev_err(dev, "Failed to get clock\n");
 		ret = PTR_ERR(gdev->pruss_clk);
-		kfree(gdev->info);
-		kfree(gdev);
-		return ret;
+		gdev->pruss_clk = NULL;
+		goto out_free;
 	} else {
 		ret = clk_enable(gdev->pruss_clk);
 		if (ret) {
@@ -177,17 +189,10 @@ static int pruss_probe(struct platform_device *pdev)
 #endif
 
 	if (dev->of_node) {
-		pm_runtime_enable(dev);
-		ret = pm_runtime_get_sync(dev);
-		if (IS_ERR_VALUE(ret)) {
-			dev_err(dev, "pm_runtime_get_sync() failed\n");
-			return ret;
-		}
-
 		ret = of_address_to_resource(dev->of_node, 0, &res);
 		if (IS_ERR_VALUE(ret)) {
 			dev_err(dev, "failed to parse DT reg\n");
-			return ret;
+			goto out_free;
 		}
 		regs_prussio = &res;
 	} else {
