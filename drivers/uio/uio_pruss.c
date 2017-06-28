@@ -168,26 +168,26 @@ static int pruss_probe(struct platform_device *pdev)
 	}
 #endif
 
-	if (pdev->dev.of_node) {
-		pm_runtime_enable(&pdev->dev);
-		ret = pm_runtime_get_sync(&pdev->dev);
+	if (dev->of_node) {
+		pm_runtime_enable(dev);
+		ret = pm_runtime_get_sync(dev);
 		if (IS_ERR_VALUE(ret)) {
-			dev_err(&pdev->dev, "pm_runtime_get_sync() failed\n");
+			dev_err(dev, "pm_runtime_get_sync() failed\n");
 			return ret;
 		}
 
-		ret = of_address_to_resource(pdev->dev.of_node, 0, &res);
+		ret = of_address_to_resource(dev->of_node, 0, &res);
 		if (IS_ERR_VALUE(ret)) {
-			dev_err(&pdev->dev, "failed to parse DT reg\n");
+			dev_err(dev, "failed to parse DT reg\n");
 			return ret;
 		}
 		regs_prussio = &res;
-	}
-	else
+	} else {
 		regs_prussio = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!regs_prussio) {
-		dev_err(dev, "No PRUSS I/O resource specified\n");
-		goto out_free;
+		if (!regs_prussio) {
+			dev_err(dev, "No PRUSS I/O resource specified\n");
+			goto out_free;
+		}
 	}
 
 	if (!regs_prussio->start) {
@@ -208,18 +208,18 @@ static int pruss_probe(struct platform_device *pdev)
 	 *	- Matthijs van Duin
 	 */
 #if 0
-	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	pinctrl = devm_pinctrl_get_select_default(dev);
 	if (IS_ERR(pinctrl))
-		dev_warn(&pdev->dev,
+		dev_warn(dev,
 			"pins are not configured from the driver\n");
 	else{
-		count = of_get_child_count(pdev->dev.of_node);
+		count = of_get_child_count(dev->of_node);
 		if (!count){
-			dev_info(&pdev->dev, "No children\n");
+			dev_info(dev, "No children\n");
 			return -ENODEV;
 		}
 		// Run through all children. They have lables for easy reference.
-		for_each_child_of_node(pdev->dev.of_node, child){
+		for_each_child_of_node(dev->of_node, child){
 			enum of_gpio_flags flags;
 			unsigned gpio;
 
@@ -227,11 +227,11 @@ static int pruss_probe(struct platform_device *pdev)
 
 			ret = of_property_count_strings(child, "pin-names");
 			if (ret < 0) {
-				dev_err(&pdev->dev, "Failed to get pin-names\n");
+				dev_err(dev, "Failed to get pin-names\n");
 				continue;
 			}
 			if(count != ret){
-				dev_err(&pdev->dev, "The number of gpios (%d) does not match"\
+				dev_err(dev, "The number of gpios (%d) does not match"\
 					" the number of pin names (%d)\n", count, ret);
 				continue;
 			}
@@ -240,9 +240,9 @@ static int pruss_probe(struct platform_device *pdev)
 				ret = of_property_read_string_index(child,
 					"pin-names", cnt, &pin_name);
 				if (ret != 0)
-					dev_err(&pdev->dev, "Error on pin-name #%d\n", cnt);
+					dev_err(dev, "Error on pin-name #%d\n", cnt);
 				gpio = of_get_gpio_flags(child, cnt, &flags);
-				ret = devm_gpio_request_one(&pdev->dev, gpio, flags, pin_name);
+				ret = devm_gpio_request_one(dev, gpio, flags, pin_name);
 				if (ret < 0) {
 		                        dev_err(dev, "Failed to request GPIO %d (%s) flags: '%d', error %d\n",
 					gpio, pin_name, flags, ret);
@@ -278,13 +278,12 @@ static int pruss_probe(struct platform_device *pdev)
 		goto out_free;
 	}
 
-	if (pdev->dev.of_node) {
-		ret = of_property_read_u32(pdev->dev.of_node,
+	if (dev->of_node) {
+		ret = of_property_read_u32(dev->of_node,
 					   "ti,pintc-offset",
 					   &gdev->pintc_base);
 		if (ret < 0) {
-			dev_err(&pdev->dev,
-				"Can't parse ti,pintc-offset property\n");
+			dev_err(dev, "Can't parse ti,pintc-offset property\n");
 			goto out_free;
 		}
 	} else
