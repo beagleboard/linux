@@ -299,23 +299,24 @@ static int pruss_probe(struct platform_device *pdev)
 	gdev->hostirq_start = platform_get_irq(pdev, 0);
 
 	for (cnt = 0, p = gdev->info; cnt < MAX_PRUSS_EVT; cnt++, p++) {
+		p->mem[0].name = "pruss";
 		p->mem[0].addr = regs_prussio->start;
 		p->mem[0].size = resource_size(regs_prussio);
 		p->mem[0].memtype = UIO_MEM_PHYS;
 
-		/* oh this is nicely done... *barf*
-		 * and of course the userspace libs now hardcode these indices
-		 *	- Matthijs van Duin
-		 */
+		/* note: some userspace code uses hardcoded indices... */
 #ifdef CONFIG_ARCH_DAVINCI_DA850
+		p->mem[1].name = "sram";
 		p->mem[1].addr = gdev->sram_paddr;
 		p->mem[1].size = sram_pool_sz;
 		p->mem[1].memtype = UIO_MEM_PHYS;
 
+		p->mem[2].name = "ddr";
 		p->mem[2].addr = gdev->ddr_paddr;
 		p->mem[2].size = extram_pool_sz;
 		p->mem[2].memtype = UIO_MEM_PHYS;
 #else
+		p->mem[1].name = "ddr";
 		p->mem[1].addr = gdev->ddr_paddr;
 		p->mem[1].size = extram_pool_sz;
 		p->mem[1].memtype = UIO_MEM_PHYS;
