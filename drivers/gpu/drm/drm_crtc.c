@@ -2628,8 +2628,7 @@ int drm_crtc_check_viewport(const struct drm_crtc *crtc,
 	drm_crtc_get_hv_timing(mode, &hdisplay, &vdisplay);
 
 	if (crtc->state &&
-	    crtc->primary->state->rotation & (BIT(DRM_ROTATE_90) |
-					      BIT(DRM_ROTATE_270)))
+	    drm_rotation_90_or_270(crtc->primary->state->rotation))
 		swap(hdisplay, vdisplay);
 
 	return check_src_coords(x << 16, y << 16,
