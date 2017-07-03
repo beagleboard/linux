@@ -854,9 +854,6 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
-	dmas = <&edma_xbar 60 0 7>,
-		<&edma_xbar 61 0 8>;
-	dma-names = "tx", "rx";
 };
 
 &usb2_phy1 {
