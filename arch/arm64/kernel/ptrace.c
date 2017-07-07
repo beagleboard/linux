@@ -182,10 +182,12 @@ static void ptrace_hbptriggered(struct perf_event *bp,
 		.si_code	= TRAP_HWBKPT,
 		.si_addr	= (void __user *)(bkpt->trigger),
 	};
+	int i __maybe_unused;
+
+	if (__ipipe_report_trap(IPIPE_TRAP_BREAK, regs))
+		return;
 
 #ifdef CONFIG_COMPAT
-	int i;
-
 	if (!is_compat_task())
 		goto send_sig;
 

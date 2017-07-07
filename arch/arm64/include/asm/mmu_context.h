@@ -21,6 +21,7 @@
 
 #include <linux/compiler.h>
 #include <linux/sched.h>
+#include <linux/ipipe.h>
 
 #include <asm/cacheflush.h>
 #include <asm/proc-fns.h>
@@ -170,10 +171,10 @@ enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
  * actually changed.
  */
 static inline void
-switch_mm(struct mm_struct *prev, struct mm_struct *next,
-	  struct task_struct *tsk)
+__switch_mm(struct mm_struct *prev, struct mm_struct *next,
+	    struct task_struct *tsk)
 {
-	unsigned int cpu = smp_processor_id();
+	unsigned int cpu = ipipe_processor_id();
 
 	if (prev == next)
 		return;
@@ -190,9 +191,29 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 	check_and_switch_context(next, cpu);
 }
 
+static inline void
+switch_mm(struct mm_struct *prev, struct mm_struct *next,
+	  struct task_struct *tsk)
+{
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
+	__switch_mm(prev, next, tsk);
+	hard_cond_local_irq_restore(flags);
+}
+
 #define deactivate_mm(tsk,mm)	do { } while (0)
 #define activate_mm(prev,next)	switch_mm(prev, next, NULL)
 
 void verify_cpu_asid_bits(void);
+
+#ifdef CONFIG_IPIPE
+static inline void
+ipipe_switch_mm_head(struct mm_struct *prev, struct mm_struct *next,
+			   struct task_struct *tsk)
+{
+	__switch_mm(prev, next, tsk);
+}
+#endif
 
 #endif

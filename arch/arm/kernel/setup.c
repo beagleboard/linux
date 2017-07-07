@@ -32,7 +32,7 @@
 #include <linux/compiler.h>
 #include <linux/sort.h>
 #include <linux/psci.h>
-
+#include <linux/slab.h>
 #include <asm/unified.h>
 #include <asm/cp15.h>
 #include <asm/cpu.h>
@@ -579,7 +579,39 @@ void notrace cpu_init(void)
 #endif
 }
 
-u32 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = MPIDR_INVALID };
+u32 __cpu_logical_map[16] = { [0 ... 15] = MPIDR_INVALID };
+#ifdef CONFIG_IPIPE_LEGACY
+#if NR_CPUS > 16
+u32 __cpu_reverse_map[NR_CPUS];
+#else /* NR_CPUS < 16 */
+u32 __cpu_reverse_map[16];
+#endif /* NR_CPUS < 16 */
+EXPORT_SYMBOL(__cpu_reverse_map);
+#endif /* CONFIG_IPIPE_LEGACY */
+
+#ifdef CONFIG_IPIPE
+
+void __init smp_build_cpu_revmap(void)
+{
+#ifdef CONFIG_IPIPE_LEGACY
+	int i;
+	u32 mpidr = is_smp() ? read_cpuid_mpidr() & MPIDR_HWID_BITMASK : 0;
+	u32 cpu = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+	u32 max = cpu + 1 > nr_cpu_ids ? cpu + 1 : nr_cpu_ids;
+
+	BUG_ON(max > ARRAY_SIZE(__cpu_reverse_map));
+#endif /* CONFIG_IPIPE_LEGACY */
+
+	/* printk on I-pipe needs per cpu data */
+	set_my_cpu_offset(per_cpu_offset(0));
+
+#ifdef CONFIG_IPIPE_LEGACY
+	for (i = 0; i < nr_cpu_ids; ++i)
+		__cpu_reverse_map[cpu_logical_map(i) & 0xff] = i;
+#endif /* CONFIG_IPIPE_LEGACY */
+}
+
+#endif
 
 void __init smp_setup_processor_id(void)
 {
