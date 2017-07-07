@@ -50,16 +50,19 @@ static __always_inline bool test_preempt_need_resched(void)
 
 static __always_inline void __preempt_count_add(int val)
 {
+	ipipe_preempt_root_only();
 	*preempt_count_ptr() += val;
 }
 
 static __always_inline void __preempt_count_sub(int val)
 {
+	ipipe_preempt_root_only();
 	*preempt_count_ptr() -= val;
 }
 
 static __always_inline bool __preempt_count_dec_and_test(void)
 {
+	ipipe_preempt_root_only();
 	/*
 	 * Because of load-store architectures cannot do per-cpu atomic
 	 * operations; we cannot use PREEMPT_NEED_RESCHED because it might get

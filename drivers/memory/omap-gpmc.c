@@ -1294,7 +1294,7 @@ static irqreturn_t gpmc_handle_irq(int irq, void *data)
 					 hwirq, virq);
 			}
 
-			generic_handle_irq(virq);
+			ipipe_handle_demuxed_irq(virq);
 		}
 	}
 

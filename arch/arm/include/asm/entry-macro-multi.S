@@ -11,7 +11,11 @@
 	@ routine called with r0 = irq number, r1 = struct pt_regs *
 	@
 	badrne	lr, 1b
+#ifdef CONFIG_IPIPE
+	bne	__ipipe_grab_irq
+#else
 	bne	asm_do_IRQ
+#endif
 
 #ifdef CONFIG_SMP
 	/*
@@ -24,7 +28,11 @@
 	ALT_UP_B(9997f)
 	movne	r1, sp
 	badrne	lr, 1b
+#ifdef CONFIG_IPIPE
+	bne	__ipipe_grab_ipi
+#else
 	bne	do_IPI
+#endif
 #endif
 9997:
 	.endm
