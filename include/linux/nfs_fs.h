@@ -165,7 +165,11 @@ struct nfs_inode {
 
 	/* Readers: in-flight sillydelete RPC calls */
 	/* Writers: rmdir */
+#ifdef CONFIG_PREEMPT_RT_BASE
+	struct semaphore	rmdir_sem;
+#else
 	struct rw_semaphore	rmdir_sem;
+#endif
 
 #if IS_ENABLED(CONFIG_NFS_V4)
 	struct nfs4_cached_acl	*nfs4_acl;
