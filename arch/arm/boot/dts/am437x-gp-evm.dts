@@ -654,8 +654,6 @@
 
 		dcdc3: regulator-dcdc3 {
 			regulator-name = "vdcdc3";
-			regulator-min-microvolt = <1500000>;
-			regulator-max-microvolt = <1500000>;
 			regulator-boot-on;
 			regulator-always-on;
 			regulator-state-mem {
@@ -889,9 +887,6 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
-	dmas = <&edma_xbar 60 0 7>,
-		<&edma_xbar 61 0 8>;
-	dma-names = "tx", "rx";
 };
 
 &usb2_phy1 {
