@@ -918,11 +918,14 @@ static int rproc_start(struct rproc *rproc, const struct firmware *fw)
 		return -EINVAL;
 	}
 
-	/* load the ELF segments to memory */
-	ret = rproc_load_segments(rproc, fw);
-	if (ret) {
-		dev_err(dev, "Failed to load program segments: %d\n", ret);
-		return ret;
+	if (!rproc->use_userspace_loader) {
+		/* load the ELF segments to memory */
+		ret = rproc_load_segments(rproc, fw);
+		if (ret) {
+			dev_err(dev, "Failed to load program segments: %d\n",
+				ret);
+			return ret;
+		}
 	}
 
 	/*
@@ -976,7 +979,11 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	if (ret)
 		return ret;
 
-	dev_info(dev, "Booting fw image %s, size %zd\n", name, fw->size);
+	if (!rproc->use_userspace_loader)
+		dev_info(dev, "Booting fw image %s, size %zd\n",
+			 name, fw->size);
+	else
+		dev_info(dev, "Booting unspecified pre-loaded fw image\n");
 
 	/*
 	 * if enabling an IOMMU isn't relevant for this rproc, this is
@@ -1250,16 +1257,19 @@ int rproc_boot(struct rproc *rproc)
 
 	dev_info(dev, "powering up %s\n", rproc->name);
 
-	/* load firmware */
-	ret = request_firmware(&firmware_p, rproc->firmware, dev);
-	if (ret < 0) {
-		dev_err(dev, "request_firmware failed: %d\n", ret);
-		goto downref_rproc;
+	if (!rproc->use_userspace_loader) {
+		/* load firmware */
+		ret = request_firmware(&firmware_p, rproc->firmware, dev);
+		if (ret < 0) {
+			dev_err(dev, "request_firmware failed: %d\n", ret);
+			goto downref_rproc;
+		}
 	}
 
 	ret = rproc_fw_boot(rproc, firmware_p);
 
-	release_firmware(firmware_p);
+	if (!rproc->use_userspace_loader)
+		release_firmware(firmware_p);
 
 downref_rproc:
 	if (ret)
