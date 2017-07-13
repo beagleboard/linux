@@ -34,6 +34,10 @@ static ssize_t firmware_store(struct device *dev,
 	struct rproc *rproc = to_rproc(dev);
 	int err;
 
+	/* restrict sysfs operation for userspace-based loader */
+	if (rproc->use_userspace_loader)
+		return -EPERM;
+
 	err = rproc_set_firmware(rproc, buf);
 
 	return err ? err : count;
@@ -71,6 +75,10 @@ static ssize_t state_store(struct device *dev,
 {
 	struct rproc *rproc = to_rproc(dev);
 	int ret = 0;
+
+	/* restrict sysfs operation for userspace-based loader */
+	if (rproc->use_userspace_loader)
+		return -EPERM;
 
 	if (sysfs_streq(buf, "start")) {
 		if (rproc->state == RPROC_RUNNING)
