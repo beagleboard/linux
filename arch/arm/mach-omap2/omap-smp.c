@@ -254,7 +254,7 @@ static void __init omap4_smp_prepare_cpus(unsigned int max_cpus)
 
 	if (cpu_is_omap446x())
 		startup_addr = omap4460_secondary_startup;
-	if (soc_is_dra74x() || soc_is_omap54xx())
+	if (soc_is_dra74x() || soc_is_omap54xx() || soc_is_dra76x())
 		omap5_erratum_workaround_801819();
 
 	/*
