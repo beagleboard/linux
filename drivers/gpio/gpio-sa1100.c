@@ -11,6 +11,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/io.h>
+#include <linux/ipipe.h>
 #include <linux/syscore_ops.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -32,9 +33,9 @@ static int sa1100_direction_input(struct gpio_chip *chip, unsigned offset)
 {
 	unsigned long flags;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	GPDR &= ~GPIO_GPIO(offset);
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 	return 0;
 }
 
@@ -42,10 +43,10 @@ static int sa1100_direction_output(struct gpio_chip *chip, unsigned offset, int 
 {
 	unsigned long flags;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	sa1100_gpio_set(chip, offset, value);
 	GPDR |= GPIO_GPIO(offset);
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 	return 0;
 }
 
@@ -187,7 +188,7 @@ static void sa1100_gpio_handler(struct irq_desc *desc)
 		irq = IRQ_GPIO0;
 		do {
 			if (mask & 1)
-				generic_handle_irq(irq);
+				ipipe_handle_demuxed_irq(irq);
 			mask >>= 1;
 			irq++;
 		} while (mask);

@@ -12,6 +12,7 @@
 #include <linux/param.h>
 #include <linux/spinlock.h>
 #include <linux/timex.h>
+#include <linux/ipipe_lock.h>
 
 /* i8253A PIT registers */
 #define PIT_MODE	0x43
@@ -20,7 +21,7 @@
 
 #define PIT_LATCH	((PIT_TICK_RATE + HZ/2) / HZ)
 
-extern raw_spinlock_t i8253_lock;
+IPIPE_DECLARE_RAW_SPINLOCK(i8253_lock);
 extern struct clock_event_device i8253_clockevent;
 extern void clockevent_i8253_init(bool oneshot);
 
