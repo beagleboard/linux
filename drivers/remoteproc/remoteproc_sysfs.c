@@ -35,6 +35,10 @@ static ssize_t firmware_store(struct device *dev,
 	char *p;
 	int err, len = count;
 
+	/* restrict sysfs operation for userspace-based loader */
+	if (rproc->use_userspace_loader)
+		return -EPERM;
+
 	err = mutex_lock_interruptible(&rproc->lock);
 	if (err) {
 		dev_err(dev, "can't lock rproc %s: %d\n", rproc->name, err);
@@ -95,6 +99,10 @@ static ssize_t state_store(struct device *dev,
 {
 	struct rproc *rproc = to_rproc(dev);
 	int ret = 0;
+
+	/* restrict sysfs operation for userspace-based loader */
+	if (rproc->use_userspace_loader)
+		return -EPERM;
 
 	if (sysfs_streq(buf, "start")) {
 		if (rproc->state == RPROC_RUNNING)
