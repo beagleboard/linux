@@ -566,9 +566,8 @@ static struct pci_ops dw_pcie_ops = {
 static u8 dw_pcie_iatu_unroll_enabled(struct dw_pcie *pci)
 {
 	u32 val;
-	void __iomem *base = pci->dbi_base;
 
-	val = dw_pcie_read_dbi(pci, base, PCIE_ATU_VIEWPORT, 0x4);
+	val = dw_pcie_readl_dbi(pci, PCIE_ATU_VIEWPORT);
 	if (val == 0xffffffff)
 		return 1;
 
@@ -579,32 +578,31 @@ void dw_pcie_setup_rc(struct pcie_port *pp)
 {
 	u32 val;
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
-	void __iomem *base = pci->dbi_base;
 
 	dw_pcie_setup(pci);
 
 	/* setup RC BARs */
-	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4, 0x00000004);
-	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_1, 0x4, 0x00000000);
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, 0x00000004);
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_1, 0x00000000);
 
 	/* setup interrupt pins */
-	val = dw_pcie_read_dbi(pci, base, PCI_INTERRUPT_LINE, 0x4);
+	val = dw_pcie_readl_dbi(pci, PCI_INTERRUPT_LINE);
 	val &= 0xffff00ff;
 	val |= 0x00000100;
-	dw_pcie_write_dbi(pci, base, PCI_INTERRUPT_LINE, 0x4, val);
+	dw_pcie_writel_dbi(pci, PCI_INTERRUPT_LINE, val);
 
 	/* setup bus numbers */
-	val = dw_pcie_read_dbi(pci, base, PCI_PRIMARY_BUS, 0x4);
+	val = dw_pcie_readl_dbi(pci, PCI_PRIMARY_BUS);
 	val &= 0xff000000;
 	val |= 0x00010100;
-	dw_pcie_write_dbi(pci, base, PCI_PRIMARY_BUS, 0x4, val);
+	dw_pcie_writel_dbi(pci, PCI_PRIMARY_BUS, val);
 
 	/* setup command register */
-	val = dw_pcie_read_dbi(pci, base, PCI_COMMAND, 0x4);
+	val = dw_pcie_readl_dbi(pci, PCI_COMMAND);
 	val &= 0xffff0000;
 	val |= PCI_COMMAND_IO | PCI_COMMAND_MEMORY |
 		PCI_COMMAND_MASTER | PCI_COMMAND_SERR;
-	dw_pcie_write_dbi(pci, base, PCI_COMMAND, 0x4, val);
+	dw_pcie_writel_dbi(pci, PCI_COMMAND, val);
 
 	/*
 	 * If the platform provides ->rd_other_conf, it means the platform
