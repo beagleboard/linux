@@ -45,7 +45,20 @@
 #define PCIE_RC_K2L		0xb00a
 #define PCIE_RC_K2G		0xb00b
 
+#define KS_PCIE_DEV_TYPE_MASK	(0x3 << 1)
+#define KS_PCIE_DEV_TYPE(mode)	((mode) << 1)
+
+#define EP	0x0
+#define LEG_EP	0x1
+#define RC	0x2
+
+#define KS_PCIE_SYSCLOCKOUTEN	0x1
+
 #define to_keystone_pcie(x)	dev_get_drvdata((x)->dev)
+
+struct ks_pcie_of_data {
+	enum dw_pcie_device_mode mode;
+};
 
 static void quirk_limit_mrrs(struct pci_dev *dev)
 {
@@ -373,9 +386,14 @@ static int __init ks_add_pcie_port(struct keystone_pcie *ks_pcie,
 	return 0;
 }
 
+static const struct ks_pcie_of_data ks_pcie_rc_of_data = {
+	.mode = DW_PCIE_RC_TYPE,
+};
+
 static const struct of_device_id ks_pcie_of_match[] = {
 	{
 		.type = "pci",
+		.data = &ks_pcie_rc_of_data,
 		.compatible = "ti,keystone-pcie",
 	},
 	{ },
@@ -394,6 +412,49 @@ static int __exit ks_pcie_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int ks_pcie_set_mode(struct device *dev, enum dw_pcie_device_mode mode)
+{
+	struct device_node *np = dev->of_node;
+	struct regmap *syscon;
+	unsigned int reg;
+	u32 val;
+	u32 mask;
+	int ret = 0;
+
+	syscon = syscon_regmap_lookup_by_phandle(np, "ti,syscon-dev");
+	if (IS_ERR(syscon))
+		return 0;
+
+	ret = of_property_read_u32_index(np, "ti,syscon-dev", 1,
+					 &reg);
+	if (ret) {
+		dev_err(dev, "can't read the data register offset!\n");
+		return ret;
+	}
+
+	mask = KS_PCIE_DEV_TYPE_MASK | KS_PCIE_SYSCLOCKOUTEN;
+
+	switch (mode) {
+	case DW_PCIE_RC_TYPE:
+		val = KS_PCIE_DEV_TYPE(RC) | KS_PCIE_SYSCLOCKOUTEN;
+		break;
+	case DW_PCIE_EP_TYPE:
+		val = KS_PCIE_DEV_TYPE(EP);
+		break;
+	default:
+		dev_err(dev, "INVALID device type %d\n", mode);
+		return -EINVAL;
+	}
+
+	ret = regmap_update_bits(syscon, reg, mask, val);
+	if (ret) {
+		dev_err(dev, "failed to set pcie mode\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int __init ks_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -401,6 +462,14 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	struct keystone_pcie *ks_pcie;
 	struct resource *res;
 	int ret = 0;
+	const struct of_device_id *match;
+	const struct ks_pcie_of_data *data;
+	enum dw_pcie_device_mode mode = DW_PCIE_RC_TYPE;
+
+	match = of_match_device(of_match_ptr(ks_pcie_of_match), dev);
+	data = (struct ks_pcie_of_data *)match->data;
+	if (data)
+		mode = (enum dw_pcie_device_mode)data->mode;
 
 	ks_pcie = devm_kzalloc(dev, sizeof(*ks_pcie), GFP_KERNEL);
 	if (!ks_pcie)
@@ -433,6 +502,10 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 		return ret;
 
 	platform_set_drvdata(pdev, ks_pcie);
+
+	ret = ks_pcie_set_mode(dev, mode);
+	if (ret < 0)
+		goto fail_clk;
 
 	ret = ks_add_pcie_port(ks_pcie, pdev);
 	if (ret < 0)
