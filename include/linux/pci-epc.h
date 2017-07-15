@@ -116,6 +116,7 @@ void devm_pci_epc_destroy(struct device *dev, struct pci_epc *epc);
 void pci_epc_destroy(struct pci_epc *epc);
 int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf);
 void pci_epc_remove_epf(struct pci_epc *epc, struct pci_epf *epf);
+void pci_epc_linkup(struct pci_epc *epc);
 int pci_epc_write_header(struct pci_epc *epc, struct pci_epf_header *hdr);
 int pci_epc_set_bar(struct pci_epc *epc, enum pci_barno bar,
 		    dma_addr_t bar_phys, size_t size, int flags);

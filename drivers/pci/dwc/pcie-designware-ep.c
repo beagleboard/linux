@@ -26,10 +26,8 @@
 void dw_pcie_ep_linkup(struct dw_pcie_ep *ep)
 {
 	struct pci_epc *epc = ep->epc;
-	struct pci_epf *epf;
 
-	list_for_each_entry(epf, &epc->pci_epf, list)
-		pci_epf_linkup(epf);
+	pci_epc_linkup(epc);
 }
 
 static void dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar)
