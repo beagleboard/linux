@@ -19,8 +19,6 @@ RC mode:
 EP mode:
 - num-ib-windows: number of inbound address translation
         windows
-- num-ob-windows: number of outbound address translation
-        windows
 
 Optional properties:
 - num-lanes: number of lanes to use (this property should be specified unless
@@ -40,6 +38,8 @@ RC mode:
 EP mode:
 - max-functions: maximum number of functions that can be
   configured
+- num-ob-windows: number of outbound address translation
+  windows
 
 Example configuration:
 
