@@ -138,8 +138,8 @@ static void dw_pcie_writel_unroll(struct dw_pcie *pci, u32 index, u32 reg,
 	dw_pcie_writel_dbi(pci, offset + reg, val);
 }
 
-void dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index, int type,
-			       u64 cpu_addr, u64 pci_addr, u32 size)
+int dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index, int type,
+			      u64 cpu_addr, u64 pci_addr, u32 size)
 {
 	u32 retries, val;
 
@@ -190,11 +190,12 @@ void dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index, int type,
 			val = dw_pcie_readl_dbi(pci, PCIE_ATU_CR2);
 
 		if (val == PCIE_ATU_ENABLE)
-			return;
+			return 0;
 
 		usleep_range(LINK_WAIT_IATU_MIN, LINK_WAIT_IATU_MAX);
 	}
 	dev_err(pci->dev, "iATU is not being enabled\n");
+	return -EBUSY;
 }
 
 int dw_pcie_prog_inbound_atu(struct dw_pcie *pci, int index, int bar,
