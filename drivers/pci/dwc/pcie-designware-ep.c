@@ -320,14 +320,15 @@ int dw_pcie_ep_init(struct dw_pcie_ep *ep)
 	ret = of_property_read_u32(np, "num-ob-windows", &ep->num_ob_windows);
 	if (ret < 0) {
 		dev_err(dev, "unable to read *num-ob-windows* property\n");
-		return ret;
+		if (!pci->ops->outbound_atu)
+			return ret;
+	} else {
+		addr = devm_kzalloc(dev, sizeof(phys_addr_t) *
+				    ep->num_ob_windows, GFP_KERNEL);
+		if (!addr)
+			return -ENOMEM;
+		ep->outbound_addr = addr;
 	}
-
-	addr = devm_kzalloc(dev, sizeof(phys_addr_t) * ep->num_ob_windows,
-			    GFP_KERNEL);
-	if (!addr)
-		return -ENOMEM;
-	ep->outbound_addr = addr;
 
 	if (ep->ops->ep_init)
 		ep->ops->ep_init(ep);
