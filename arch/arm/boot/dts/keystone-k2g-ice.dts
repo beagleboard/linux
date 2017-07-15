@@ -655,6 +655,14 @@
 	status = "okay";
 };
 
+&pcie0_phy {
+	status = "okay";
+};
+
+&pcie_ep {
+	status = "okay";
+};
+
 &pru0_0 {
 	ti,pruss-gp-mux-sel = <2>;	/* MII mux, needed for PR0_MII0 & PR0_MII1 */
 };
