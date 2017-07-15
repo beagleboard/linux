@@ -318,7 +318,18 @@ static int __init ks_add_pcie_port(struct keystone_pcie *ks_pcie,
 	struct dw_pcie *pci = ks_pcie->pci;
 	struct pcie_port *pp = &pci->pp;
 	struct device *dev = &pdev->dev;
+	struct resource *res;
+	void __iomem *reg_p;
 	int ret;
+
+	/* index 2 is to read PCI DEVICE_ID */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	reg_p = devm_ioremap_resource(dev, res);
+	if (IS_ERR(reg_p))
+		return PTR_ERR(reg_p);
+	ks_pcie->device_id = readl(reg_p) >> 16;
+	devm_iounmap(dev, reg_p);
+	devm_release_mem_region(dev, res->start, resource_size(res));
 
 	ret = ks_pcie_get_irq_controller_info(ks_pcie,
 					"legacy-interrupt-controller",
@@ -389,7 +400,6 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	struct dw_pcie *pci;
 	struct keystone_pcie *ks_pcie;
 	struct resource *res;
-	void __iomem *reg_p;
 	int ret = 0;
 
 	ks_pcie = devm_kzalloc(dev, sizeof(*ks_pcie), GFP_KERNEL);
@@ -403,16 +413,14 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	pci->dev = dev;
 	pci->ops = &dw_pcie_ops;
 
-	/* index 2 is to read PCI DEVICE_ID */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	reg_p = devm_ioremap_resource(dev, res);
-	if (IS_ERR(reg_p))
-		return PTR_ERR(reg_p);
-	ks_pcie->device_id = readl(reg_p) >> 16;
-	ks_pcie->pci = pci;
-	devm_iounmap(dev, reg_p);
-	devm_release_mem_region(dev, res->start, resource_size(res));
+	/* Index 1 is the application reg. space address */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	ks_pcie->va_app_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(ks_pcie->va_app_base))
+		return PTR_ERR(ks_pcie->va_app_base);
 
+	ks_pcie->app = *res;
+	ks_pcie->pci = pci;
 	ks_pcie->np = dev->of_node;
 	platform_set_drvdata(pdev, ks_pcie);
 	ks_pcie->clk = devm_clk_get(dev, "pcie");

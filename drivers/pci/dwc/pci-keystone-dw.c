@@ -554,14 +554,6 @@ int __init ks_dw_pcie_host_init(struct keystone_pcie *ks_pcie,
 	pp->va_cfg0_base = pci->dbi_base + SPACE0_REMOTE_CFG_OFFSET;
 	pp->va_cfg1_base = pp->va_cfg0_base;
 
-	/* Index 1 is the application reg. space address */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	ks_pcie->va_app_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(ks_pcie->va_app_base))
-		return PTR_ERR(ks_pcie->va_app_base);
-
-	ks_pcie->app = *res;
-
 	/* Create legacy IRQ domain */
 	ks_pcie->legacy_irq_domain =
 			irq_domain_add_linear(ks_pcie->legacy_intc_np,
