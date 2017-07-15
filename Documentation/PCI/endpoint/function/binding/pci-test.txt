@@ -15,3 +15,19 @@ subsys_id	 : don't care
 interrupt_pin	 : Should be 1 - INTA, 2 - INTB, 3 - INTC, 4 -INTD
 msi_interrupts	 : Should be 1 to 32 depending on the number of msi interrupts
 		   to test
+
+name: Should be "pci_epf_test_k2g" to bind to the pci_epf_test driver (for K2G
+      devices).
+
+Configurable Fields:
+vendorid	 : should be 0x104c
+deviceid	 : should be 0xb00b
+revid		 : dont't care
+progif_code	 : don't care
+subclass_code	 : don't care
+baseclass_code	 : should be 0xff
+cache_line_size	 : don't care
+subsys_vendor_id : don't care
+subsys_id	 : don't care
+interrupt_pin	 : Should be 1 - INTA, 2 - INTB, 3 - INTC, 4 -INTD
+msi_interrupts	 : Should be 0. MSI interrupts are not supported.
