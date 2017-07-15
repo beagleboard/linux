@@ -57,6 +57,9 @@ Optional properties:-
 	  - If boot loader already does PCI link establishment, then phys and
 	    phy-names shouldn't be present.
 	interrupts: platform interrupt for error interrupts.
+	ti,syscon-dev: phandle to the syscon dt node. The 1st argument should
+		       contain the register offset within syscon dt node to set
+		       the PCIe mode.
 
 Designware DT Properties not applicable for Keystone PCI
 
