@@ -1225,8 +1225,6 @@ static int snd_fm801_create(struct snd_card *card,
 		}
 	}
 
-	snd_fm801_chip_init(chip);
-
 	if ((chip->tea575x_tuner & TUNER_ONLY) == 0) {
 		if (devm_request_irq(&pci->dev, pci->irq, snd_fm801_interrupt,
 				IRQF_SHARED, KBUILD_MODNAME, chip)) {
@@ -1237,6 +1235,8 @@ static int snd_fm801_create(struct snd_card *card,
 		chip->irq = pci->irq;
 		pci_set_master(pci);
 	}
+
+	snd_fm801_chip_init(chip);
 
 	if ((err = snd_device_new(card, SNDRV_DEV_LOWLEVEL, chip, &ops)) < 0) {
 		snd_fm801_free(chip);
