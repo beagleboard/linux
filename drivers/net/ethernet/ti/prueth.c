@@ -1729,9 +1729,9 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->mem[PRUETH_MEM_OCMC].va =
 			(void __iomem *)gen_pool_alloc(prueth->sram_pool,
 						       OCMC_RAM_SIZE);
-	if (IS_ERR(prueth->mem[PRUETH_MEM_OCMC].va)) {
-		ret = PTR_ERR(prueth->mem[PRUETH_MEM_OCMC].va);
+	if (!prueth->mem[PRUETH_MEM_OCMC].va) {
 		dev_err(dev, "unable to allocate OCMC resource\n");
+		ret = -ENOMEM;
 		goto put_mem;
 	}
 	prueth->mem[PRUETH_MEM_OCMC].pa =
