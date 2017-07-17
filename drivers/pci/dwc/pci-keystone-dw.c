@@ -12,6 +12,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/delay.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
 #include <linux/irqreturn.h>
@@ -30,6 +31,7 @@
 #define LTSSM_STATE_L0			0x11
 #define DBI_CS2_EN_VAL			0x20
 #define OB_XLAT_EN_VAL		        2
+#define IB_XLAT_EN_VAL		        4
 
 /* Application registers */
 #define CMD_STATUS			0x004
@@ -40,6 +42,10 @@
 #define SPACE0_REMOTE_CFG_OFFSET	0x1000
 #define OB_OFFSET_INDEX(n)		(0x200 + (8 * n))
 #define OB_OFFSET_HI(n)			(0x204 + (8 * n))
+#define IB_BAR(n)			(0x300 + (0x10 * (n)))
+#define IB_START_LO(n)			(0x304 + (0x10 * (n)))
+#define IB_START_HI(n)			(0x308 + (0x10 * (n)))
+#define IB_OFFSET(n)			(0x30c + (0x10 * (n)))
 
 /* IRQ register defines */
 #define IRQ_EOI				0x050
@@ -71,8 +77,187 @@
 
 /* Config space registers */
 #define DEBUG0				0x728
+#define APP_ADDR_SPACE_0		(16 * SZ_1K)
+
+#define WIN_INDEX_MASK			0x1f
+#define WIN_INDEX_SHIFT			20
+#define WIN_SIZE			SZ_1M
+
+#define PCIE_LEGACY_IRQ_ENABLE_SET(n)	(0x188 + (0x10 * ((n) - 1)))
+#define PCIE_LEGACY_IRQ_ENABLE_CLR(n)	(0x18c + (0x10 * ((n) - 1)))
+#define PCIE_EP_IRQ_SET			0x64
+#define PCIE_EP_IRQ_CLR			0x68
+
+#define OB_ENABLEN			0x1
+#define INT_ENABLE			0x1
 
 #define to_keystone_pcie(x)	dev_get_drvdata((x)->dev)
+
+static void ks_dw_app_writel(struct keystone_pcie *ks_pcie, u32 offset,
+			     u32 val);
+static u32 ks_dw_app_readl(struct keystone_pcie *ks_pcie, u32 offset);
+static void ks_dw_pcie_set_dbi_mode(struct keystone_pcie *ks_pcie);
+static void ks_dw_pcie_clear_dbi_mode(struct keystone_pcie *ks_pcie);
+
+void ks_dw_pcie_ep_init(struct dw_pcie_ep *ep)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
+	int flags;
+	u32 val;
+
+	ep->page_size = WIN_SIZE;
+	flags = PCI_BASE_ADDRESS_SPACE_MEMORY | PCI_BASE_ADDRESS_MEM_TYPE_32;
+	dw_pcie_writel_dbi2(pci, PCI_BASE_ADDRESS_0, APP_ADDR_SPACE_0 - 1);
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, flags);
+
+	ks_dw_app_writel(ks_pcie, OB_SIZE, 0x0);
+	val = ks_dw_app_readl(ks_pcie, CMD_STATUS);
+	ks_dw_app_writel(ks_pcie, CMD_STATUS, val | OB_XLAT_EN_VAL |
+			 IB_XLAT_EN_VAL);
+}
+
+void ks_dw_pcie_disable_outbound_atu(struct keystone_pcie *ks_pcie,
+				     phys_addr_t addr)
+{
+	u8 index;
+	u8 regions;
+	u64 cpu_addr;
+
+	index = (addr >> WIN_INDEX_SHIFT) & WIN_INDEX_MASK;
+	regions = ks_pcie->ob_win[index].no_of_regions;
+	cpu_addr = ks_pcie->ob_win[index].cpu_addr;
+
+	WARN_ON(cpu_addr != addr);
+
+	while (regions--) {
+		ks_dw_app_writel(ks_pcie, OB_OFFSET_INDEX(index), 0x0);
+		clear_bit(index++, &ks_pcie->ob_window_map);
+	}
+}
+
+void ks_dw_pcie_disable_inbound_atu(struct keystone_pcie *ks_pcie, int index)
+{
+	ks_dw_app_writel(ks_pcie, IB_BAR(index), 0x0);
+	ks_dw_app_writel(ks_pcie, IB_START_LO(index), 0x0);
+	ks_dw_app_writel(ks_pcie, IB_START_HI(index), 0x0);
+	ks_dw_app_writel(ks_pcie, IB_OFFSET(index), 0x0);
+}
+
+void ks_dw_pcie_disable_atu(struct dw_pcie *pci, phys_addr_t addr, int index,
+			    enum dw_pcie_region_type type)
+{
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
+
+	switch (type) {
+	case DW_PCIE_REGION_INBOUND:
+		ks_dw_pcie_disable_inbound_atu(ks_pcie, index);
+		break;
+	case DW_PCIE_REGION_OUTBOUND:
+		ks_dw_pcie_disable_outbound_atu(ks_pcie, addr);
+		break;
+	default:
+		return;
+	}
+}
+
+int ks_dw_pcie_inbound_atu(struct dw_pcie *pci, u32 index,
+			   enum pci_barno bar, dma_addr_t cpu_addr)
+{
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
+	struct device *dev = pci->dev;
+
+	if (bar == BAR_0) {
+		dev_err(dev, "BAR_0 is reserved\n");
+		return -EINVAL;
+	}
+
+	ks_dw_app_writel(ks_pcie, IB_BAR(index), bar);
+	ks_dw_app_writel(ks_pcie, IB_OFFSET(index), lower_32_bits(cpu_addr));
+
+	return 0;
+}
+
+static int ks_dw_pcie_check_free(struct keystone_pcie *ks_pcie, u8 index,
+				 u8 regions)
+{
+	while (regions--) {
+		if (test_bit(index++, &ks_pcie->ob_window_map))
+			return false;
+	}
+
+	return true;
+}
+
+int ks_dw_pcie_outbound_atu(struct dw_pcie *pci, u64 cpu_addr, u64 pci_addr,
+			    size_t size)
+{
+	u8 index;
+	u8 regions;
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
+
+	index = (cpu_addr >> WIN_INDEX_SHIFT) & WIN_INDEX_MASK;
+	regions = ((size - 1) >> WIN_INDEX_SHIFT) + 1;
+
+	if (!ks_dw_pcie_check_free(ks_pcie, index, regions))
+		return -ENOMEM;
+	if (index + regions > OUTBOUND_WINDOWS)
+		return -ENOMEM;
+
+	ks_pcie->ob_win[index].cpu_addr = cpu_addr;
+	ks_pcie->ob_win[index].no_of_regions = regions;
+
+	while (regions--) {
+		ks_dw_app_writel(ks_pcie, OB_OFFSET_INDEX(index),
+				 lower_32_bits(pci_addr) | OB_ENABLEN);
+		ks_dw_app_writel(ks_pcie, OB_OFFSET_HI(index),
+				 upper_32_bits(pci_addr));
+		set_bit(index++, &ks_pcie->ob_window_map);
+		pci_addr += WIN_SIZE;
+	}
+
+	return 0;
+}
+
+void ks_dw_pcie_raise_legacy_irq(struct keystone_pcie *ks_pcie)
+{
+	struct dw_pcie *pci = ks_pcie->pci;
+	u8 int_pin;
+
+	int_pin = dw_pcie_readb_dbi(pci, PCI_INTERRUPT_PIN);
+	if (int_pin == 0 || int_pin > 4)
+		return;
+
+	ks_dw_app_writel(ks_pcie, PCIE_LEGACY_IRQ_ENABLE_SET(int_pin),
+			 INT_ENABLE);
+	ks_dw_app_writel(ks_pcie, PCIE_EP_IRQ_SET, INT_ENABLE);
+	mdelay(1);
+	ks_dw_app_writel(ks_pcie, PCIE_EP_IRQ_CLR, INT_ENABLE);
+	ks_dw_app_writel(ks_pcie, PCIE_LEGACY_IRQ_ENABLE_CLR(int_pin),
+			 INT_ENABLE);
+}
+
+u32 ks_dw_pcie_read_dbi2(struct dw_pcie *pci, void __iomem *base,
+			 u32 reg, size_t size)
+{
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
+	u32 val;
+
+	ks_dw_pcie_set_dbi_mode(ks_pcie);
+	dw_pcie_read(base + reg, size, &val);
+	ks_dw_pcie_clear_dbi_mode(ks_pcie);
+	return val;
+}
+
+void ks_dw_pcie_write_dbi2(struct dw_pcie *pci, void __iomem *base,
+			   u32 reg, size_t size, u32 val)
+{
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
+
+	ks_dw_pcie_set_dbi_mode(ks_pcie);
+	dw_pcie_write(base + reg, size, val);
+	ks_dw_pcie_clear_dbi_mode(ks_pcie);
+}
 
 static inline void update_reg_offset_bit_pos(u32 offset, u32 *reg_offset,
 					     u32 *bit_pos)
@@ -378,7 +563,6 @@ static void ks_dw_pcie_clear_dbi_mode(struct keystone_pcie *ks_pcie)
 void ks_dw_pcie_setup_rc_app_regs(struct keystone_pcie *ks_pcie)
 {
 	struct dw_pcie *pci = ks_pcie->pci;
-	void __iomem *base = pci->dbi_base;
 	struct pcie_port *pp = &pci->pp;
 	u32 start = pp->mem->start, end = pp->mem->end;
 	int i, tr_size;
@@ -386,8 +570,8 @@ void ks_dw_pcie_setup_rc_app_regs(struct keystone_pcie *ks_pcie)
 
 	/* Disable BARs for inbound access */
 	ks_dw_pcie_set_dbi_mode(ks_pcie);
-	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4, 0);
-	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_1, 0x4, 0);
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, 0);
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_1, 0);
 	ks_dw_pcie_clear_dbi_mode(ks_pcie);
 
 	/* Set outbound translation size per window division */
@@ -483,15 +667,14 @@ int ks_dw_pcie_wr_other_conf(struct pcie_port *pp, struct pci_bus *bus,
 void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
-	void __iomem *base = pci->dbi_base;
 	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 
 	/* Configure and set up BAR0 */
 	ks_dw_pcie_set_dbi_mode(ks_pcie);
 
 	/* Enable BAR0 */
-	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4, 1);
-	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4, SZ_4K - 1);
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, 1);
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, SZ_4K - 1);
 
 	ks_dw_pcie_clear_dbi_mode(ks_pcie);
 
@@ -499,8 +682,7 @@ void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 	  * For BAR0, just setting bus address for inbound writes (MSI) should
 	  * be sufficient.  Use physical address to avoid any conflicts.
 	  */
-	dw_pcie_write_dbi(pci, base, PCI_BASE_ADDRESS_0, 0x4,
-			  ks_pcie->app.start);
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, ks_pcie->app.start);
 }
 
 /**
@@ -509,9 +691,8 @@ void ks_dw_pcie_v3_65_scan_bus(struct pcie_port *pp)
 int ks_dw_pcie_link_up(struct dw_pcie *pci)
 {
 	u32 val;
-	void __iomem *base = pci->dbi_base;
 
-	val = dw_pcie_read_dbi(pci, base, DEBUG0, 0x4);
+	val = dw_pcie_readl_dbi(pci, DEBUG0);
 	return (val & LTSSM_STATE_MASK) == LTSSM_STATE_L0;
 }
 
@@ -557,14 +738,6 @@ int __init ks_dw_pcie_host_init(struct keystone_pcie *ks_pcie,
 	 */
 	pp->va_cfg0_base = pci->dbi_base + SPACE0_REMOTE_CFG_OFFSET;
 	pp->va_cfg1_base = pp->va_cfg0_base;
-
-	/* Index 1 is the application reg. space address */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	ks_pcie->va_app_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(ks_pcie->va_app_base))
-		return PTR_ERR(ks_pcie->va_app_base);
-
-	ks_pcie->app = *res;
 
 	/* Create legacy IRQ domain */
 	ks_pcie->legacy_irq_domain =

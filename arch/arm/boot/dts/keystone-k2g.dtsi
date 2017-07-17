@@ -672,6 +672,23 @@
 			};
 		};
 
+		pcie_ep: pcie_ep@21800000 {
+			compatible = "ti,keystone-pcie-ep";
+			power-domains = <&k2g_pds>;
+			ti,sci-id = <K2G_DEV_PCIE0>;
+			clocks = <&k2g_clks K2G_DEV_PCIE0 K2G_DEV_PCIE_VBUS_CLK>;
+			clock-names = "pcie";
+			#size-cells = <2>;
+			reg =  <0x21801000 0x2000>, <0x21800000 0x1000>, <0x70000000 0x10000000>;
+			reg-names = "ep_dbics", "app", "addr_space";
+			interrupts = <GIC_SPI 60 IRQ_TYPE_EDGE_RISING>;
+			num-lanes = <1>;
+			num-ib-windows = <4>;
+			ti,syscon-dev = <&devctrl 0x14c>;
+			dma-coherent;
+			status = "disabled";
+		};
+
 		i2c0: i2c@2530000 {
 			compatible = "ti,keystone-i2c";
 			reg = <0x02530000 0x400>;

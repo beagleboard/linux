@@ -16,6 +16,13 @@
 #define MAX_MSI_HOST_IRQS		8
 #define MAX_LEGACY_HOST_IRQS		4
 
+#define OUTBOUND_WINDOWS		32
+
+struct keystone_outbound_win {
+	u64	cpu_addr;
+	u8	no_of_regions;
+};
+
 struct keystone_pcie {
 	struct dw_pcie		*pci;
 	struct	clk		*clk;
@@ -36,7 +43,22 @@ struct keystone_pcie {
 	/* Application register space */
 	void __iomem		*va_app_base;	/* DT 1st resource */
 	struct resource		app;
+	unsigned long		ob_window_map;
+	struct keystone_outbound_win ob_win[OUTBOUND_WINDOWS];
 };
+
+u32 ks_dw_pcie_read_dbi2(struct dw_pcie *pci, void __iomem *base,
+			 u32 reg, size_t size);
+void ks_dw_pcie_write_dbi2(struct dw_pcie *pci, void __iomem *base,
+			   u32 reg, size_t size, u32 val);
+int ks_dw_pcie_inbound_atu(struct dw_pcie *pci, u32 index,
+			   enum pci_barno bar, dma_addr_t cpu_addr);
+int ks_dw_pcie_outbound_atu(struct dw_pcie *pci, u64 cpu_addr, u64 pci_addr,
+			    size_t size);
+void ks_dw_pcie_disable_atu(struct dw_pcie *pci, phys_addr_t addr, int index,
+			    enum dw_pcie_region_type type);
+void ks_dw_pcie_ep_init(struct dw_pcie_ep *ep);
+void ks_dw_pcie_raise_legacy_irq(struct keystone_pcie *ks_pcie);
 
 /* Keystone DW specific MSI controller APIs/definitions */
 void ks_dw_pcie_handle_msi_irq(struct keystone_pcie *ks_pcie, int offset);

@@ -21,6 +21,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
 
 #include <linux/pci-epc.h>
 #include <linux/pci-epf.h>
@@ -368,6 +369,7 @@ EXPORT_SYMBOL_GPL(pci_epc_write_header);
 int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf)
 {
 	unsigned long flags;
+	struct device *dev = epc->dev.parent;
 
 	if (IS_ERR(epc))
 		return -EINVAL;
@@ -375,8 +377,12 @@ int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf)
 	if (epf->func_no > epc->max_functions - 1)
 		return -EINVAL;
 
-	dma_set_coherent_mask(&epf->dev, epc->dev.coherent_dma_mask);
-	epf->dev.dma_mask = epc->dev.dma_mask;
+	if (dev->of_node) {
+		of_dma_configure(&epf->dev, dev->of_node);
+	} else {
+		dma_set_coherent_mask(&epf->dev, epc->dev.coherent_dma_mask);
+		epf->dev.dma_mask = epc->dev.dma_mask;
+	}
 
 	spin_lock_irqsave(&epc->lock, flags);
 	list_add_tail(&epf->list, &epc->pci_epf);
@@ -405,6 +411,29 @@ void pci_epc_remove_epf(struct pci_epc *epc, struct pci_epf *epf)
 	spin_unlock_irqrestore(&epc->lock, flags);
 }
 EXPORT_SYMBOL_GPL(pci_epc_remove_epf);
+
+/**
+ * pci_epc_linkup() - Notify the EPF device that EPC device has established a
+ *		      connection with the Root Complex.
+ * @epc: the EPC device which has established link with the host
+ *
+ * Invoke to Notify the EPF device that the EPC device has established a
+ * connection with the Root Complex.
+ */
+void pci_epc_linkup(struct pci_epc *epc)
+{
+	unsigned long flags;
+	struct pci_epf *epf;
+
+	if (!epc || IS_ERR(epc))
+		return;
+
+	spin_lock_irqsave(&epc->lock, flags);
+	list_for_each_entry(epf, &epc->pci_epf, list)
+		pci_epf_linkup(epf);
+	spin_unlock_irqrestore(&epc->lock, flags);
+}
+EXPORT_SYMBOL_GPL(pci_epc_linkup);
 
 /**
  * pci_epc_destroy() - destroy the EPC device
@@ -470,6 +499,7 @@ __pci_epc_create(struct device *dev, const struct pci_epc_ops *ops,
 	dma_set_coherent_mask(&epc->dev, dev->coherent_dma_mask);
 	epc->dev.class = pci_epc_class;
 	epc->dev.dma_mask = dev->dma_mask;
+	epc->dev.parent = dev;
 	epc->ops = ops;
 
 	ret = dev_set_name(&epc->dev, "%s", dev_name(dev));

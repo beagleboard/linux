@@ -62,11 +62,13 @@ struct pci_epc_ops {
  * @size: the size of the pci address space
  * @bitmap: bitmap to manage the pci address space
  * @pages: number of bits representing the address region
+ * @page_size: size of each page
  */
 struct pci_epc_mem {
 	phys_addr_t	phys_base;
 	size_t		size;
 	unsigned long	*bitmap;
+	size_t		page_size;
 	int		pages;
 };
 
@@ -96,6 +98,9 @@ struct pci_epc {
 #define devm_pci_epc_create(dev, ops)    \
 		__devm_pci_epc_create((dev), (ops), THIS_MODULE)
 
+#define pci_epc_mem_init(epc, phys_addr, size)	\
+		__pci_epc_mem_init((epc), (phys_addr), (size), PAGE_SIZE)
+
 static inline void epc_set_drvdata(struct pci_epc *epc, void *data)
 {
 	dev_set_drvdata(&epc->dev, data);
@@ -116,6 +121,7 @@ void devm_pci_epc_destroy(struct device *dev, struct pci_epc *epc);
 void pci_epc_destroy(struct pci_epc *epc);
 int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf);
 void pci_epc_remove_epf(struct pci_epc *epc, struct pci_epf *epf);
+void pci_epc_linkup(struct pci_epc *epc);
 int pci_epc_write_header(struct pci_epc *epc, struct pci_epf_header *hdr);
 int pci_epc_set_bar(struct pci_epc *epc, enum pci_barno bar,
 		    dma_addr_t bar_phys, size_t size, int flags);
@@ -132,7 +138,8 @@ void pci_epc_stop(struct pci_epc *epc);
 struct pci_epc *pci_epc_get(char *epc_name);
 void pci_epc_put(struct pci_epc *epc);
 
-int pci_epc_mem_init(struct pci_epc *epc, phys_addr_t phys_addr, size_t size);
+int __pci_epc_mem_init(struct pci_epc *epc, phys_addr_t phys_addr, size_t size,
+		       size_t page_size);
 void pci_epc_mem_exit(struct pci_epc *epc);
 void __iomem *pci_epc_mem_alloc_addr(struct pci_epc *epc,
 				     phys_addr_t *phys_addr, size_t size);

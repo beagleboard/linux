@@ -183,6 +183,7 @@ struct dw_pcie_ep {
 	struct dw_pcie_ep_ops	*ops;
 	phys_addr_t		phys_base;
 	size_t			addr_size;
+	size_t			page_size;
 	u8			bar_to_atu[6];
 	phys_addr_t		*outbound_addr;
 	unsigned long		ib_window_map;
@@ -194,12 +195,22 @@ struct dw_pcie_ep {
 struct dw_pcie_ops {
 	u64	(*cpu_addr_fixup)(u64 cpu_addr);
 	u32	(*read_dbi)(struct dw_pcie *pcie, void __iomem *base, u32 reg,
-			    int size);
+			    size_t size);
 	void	(*write_dbi)(struct dw_pcie *pcie, void __iomem *base, u32 reg,
-			     int size, u32 val);
+			     size_t size, u32 val);
+	u32     (*read_dbi2)(struct dw_pcie *pcie, void __iomem *base, u32 reg,
+			     size_t size);
+	void    (*write_dbi2)(struct dw_pcie *pcie, void __iomem *base, u32 reg,
+			      size_t size, u32 val);
 	int	(*link_up)(struct dw_pcie *pcie);
 	int	(*start_link)(struct dw_pcie *pcie);
 	void	(*stop_link)(struct dw_pcie *pcie);
+	int	(*inbound_atu)(struct dw_pcie *pci, u32 index,
+			       enum pci_barno bar, dma_addr_t cpu_addr);
+	int	(*outbound_atu)(struct dw_pcie *pci, u64 cpu_addr,
+				u64 pci_addr, size_t size);
+	void	(*disable_atu)(struct dw_pcie *pci, phys_addr_t addr, int index,
+			       enum dw_pcie_region_type type);
 };
 
 struct dw_pcie {
@@ -221,20 +232,64 @@ struct dw_pcie {
 int dw_pcie_read(void __iomem *addr, int size, u32 *val);
 int dw_pcie_write(void __iomem *addr, int size, u32 val);
 
-u32 dw_pcie_read_dbi(struct dw_pcie *pci, void __iomem *base, u32 reg,
-		     int size);
-void dw_pcie_write_dbi(struct dw_pcie *pci, void __iomem *base, u32 reg,
-		       int size, u32 val);
+u32 __dw_pcie_read_dbi(struct dw_pcie *pci, void __iomem *base, u32 reg,
+		       size_t size);
+void __dw_pcie_write_dbi(struct dw_pcie *pci, void __iomem *base, u32 reg,
+			 size_t size, u32 val);
+u32 __dw_pcie_read_dbi2(struct dw_pcie *pci, void __iomem *base, u32 reg,
+			size_t size);
+void __dw_pcie_write_dbi2(struct dw_pcie *pci, void __iomem *base, u32 reg,
+			  size_t size, u32 val);
 int dw_pcie_link_up(struct dw_pcie *pci);
 int dw_pcie_wait_for_link(struct dw_pcie *pci);
-void dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index,
-			       int type, u64 cpu_addr, u64 pci_addr,
-			       u32 size);
+int dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index,
+			      int type, u64 cpu_addr, u64 pci_addr,
+			      u32 size);
 int dw_pcie_prog_inbound_atu(struct dw_pcie *pci, int index, int bar,
 			     u64 cpu_addr, enum dw_pcie_as_type as_type);
 void dw_pcie_disable_atu(struct dw_pcie *pci, int index,
 			 enum dw_pcie_region_type type);
 void dw_pcie_setup(struct dw_pcie *pci);
+
+static inline void dw_pcie_writel_dbi(struct dw_pcie *pci, u32 reg, u32 val)
+{
+	__dw_pcie_write_dbi(pci, pci->dbi_base, reg, 0x4, val);
+}
+
+static inline u32 dw_pcie_readl_dbi(struct dw_pcie *pci, u32 reg)
+{
+	return __dw_pcie_read_dbi(pci, pci->dbi_base, reg, 0x4);
+}
+
+static inline void dw_pcie_writew_dbi(struct dw_pcie *pci, u32 reg, u16 val)
+{
+	__dw_pcie_write_dbi(pci, pci->dbi_base, reg, 0x2, val);
+}
+
+static inline u16 dw_pcie_readw_dbi(struct dw_pcie *pci, u32 reg)
+{
+	return __dw_pcie_read_dbi(pci, pci->dbi_base, reg, 0x2);
+}
+
+static inline void dw_pcie_writeb_dbi(struct dw_pcie *pci, u32 reg, u8 val)
+{
+	__dw_pcie_write_dbi(pci, pci->dbi_base, reg, 0x1, val);
+}
+
+static inline u8 dw_pcie_readb_dbi(struct dw_pcie *pci, u32 reg)
+{
+	return __dw_pcie_read_dbi(pci, pci->dbi_base, reg, 0x1);
+}
+
+static inline void dw_pcie_writel_dbi2(struct dw_pcie *pci, u32 reg, u32 val)
+{
+	__dw_pcie_write_dbi2(pci, pci->dbi_base2, reg, 0x4, val);
+}
+
+static inline u32 dw_pcie_readl_dbi2(struct dw_pcie *pci, u32 reg)
+{
+	return __dw_pcie_read_dbi2(pci, pci->dbi_base2, reg, 0x4);
+}
 
 #ifdef CONFIG_PCIE_DW_HOST
 irqreturn_t dw_handle_msi_irq(struct pcie_port *pp);

@@ -18,12 +18,15 @@
 #include <linux/interrupt.h>
 #include <linux/irqdomain.h>
 #include <linux/init.h>
+#include <linux/mfd/syscon.h>
 #include <linux/msi.h>
 #include <linux/of_irq.h>
 #include <linux/of.h>
 #include <linux/of_pci.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/phy/phy.h>
+#include <linux/regmap.h>
 #include <linux/resource.h>
 #include <linux/signal.h>
 
@@ -45,7 +48,20 @@
 #define PCIE_RC_K2L		0xb00a
 #define PCIE_RC_K2G		0xb00b
 
+#define KS_PCIE_DEV_TYPE_MASK	(0x3 << 1)
+#define KS_PCIE_DEV_TYPE(mode)	((mode) << 1)
+
+#define EP	0x0
+#define LEG_EP	0x1
+#define RC	0x2
+
+#define KS_PCIE_SYSCLOCKOUTEN	0x1
+
 #define to_keystone_pcie(x)	dev_get_drvdata((x)->dev)
+
+struct ks_pcie_of_data {
+	enum dw_pcie_device_mode mode;
+};
 
 static void quirk_limit_mrrs(struct pci_dev *dev)
 {
@@ -88,6 +104,15 @@ static void quirk_limit_mrrs(struct pci_dev *dev)
 	}
 }
 DECLARE_PCI_FIXUP_ENABLE(PCI_ANY_ID, PCI_ANY_ID, quirk_limit_mrrs);
+
+static int ks_pcie_start_link(struct dw_pcie *pci)
+{
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
+
+	ks_dw_pcie_initiate_link_train(ks_pcie);
+
+	return 0;
+}
 
 static int ks_pcie_establish_link(struct keystone_pcie *ks_pcie)
 {
@@ -318,7 +343,18 @@ static int __init ks_add_pcie_port(struct keystone_pcie *ks_pcie,
 	struct dw_pcie *pci = ks_pcie->pci;
 	struct pcie_port *pp = &pci->pp;
 	struct device *dev = &pdev->dev;
+	struct resource *res;
+	void __iomem *reg_p;
 	int ret;
+
+	/* index 2 is to read PCI DEVICE_ID */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	reg_p = devm_ioremap_resource(dev, res);
+	if (IS_ERR(reg_p))
+		return PTR_ERR(reg_p);
+	ks_pcie->device_id = readl(reg_p) >> 16;
+	devm_iounmap(dev, reg_p);
+	devm_release_mem_region(dev, res->start, resource_size(res));
 
 	ret = ks_pcie_get_irq_controller_info(ks_pcie,
 					"legacy-interrupt-controller",
@@ -362,16 +398,96 @@ static int __init ks_add_pcie_port(struct keystone_pcie *ks_pcie,
 	return 0;
 }
 
+static int ks_pcie_raise_irq(struct dw_pcie_ep *ep, enum pci_epc_irq_type type,
+			     u8 interrupt_num)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
+
+	switch (type) {
+	case PCI_EPC_IRQ_LEGACY:
+		ks_dw_pcie_raise_legacy_irq(ks_pcie);
+		break;
+	case PCI_EPC_IRQ_MSI:
+		dev_err(pci->dev, "Raising MSI interrupt not supported\n");
+		return -EINVAL;
+	default:
+		dev_err(pci->dev, "UNKNOWN IRQ type\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static struct dw_pcie_ep_ops ks_dw_pcie_ep_ops = {
+	.ep_init = ks_dw_pcie_ep_init,
+	.raise_irq = ks_pcie_raise_irq,
+};
+
+static int __init ks_add_pcie_ep(struct keystone_pcie *ks_pcie,
+				 struct platform_device *pdev)
+{
+	int ret;
+	struct dw_pcie_ep *ep;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+	struct dw_pcie *pci = ks_pcie->pci;
+
+	ep = &pci->ep;
+	ep->ops = &ks_dw_pcie_ep_ops;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ep_dbics");
+	pci->dbi_base = devm_ioremap(dev, res->start, resource_size(res));
+	if (!pci->dbi_base)
+		return -ENOMEM;
+
+	pci->dbi_base2 = pci->dbi_base;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "addr_space");
+	if (!res)
+		return -EINVAL;
+
+	ep->phys_base = res->start;
+	ep->addr_size = resource_size(res);
+
+	ret = dw_pcie_ep_init(ep);
+	if (ret) {
+		dev_err(dev, "failed to initialize endpoint\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static const struct ks_pcie_of_data ks_pcie_rc_of_data = {
+	.mode = DW_PCIE_RC_TYPE,
+};
+
+static const struct ks_pcie_of_data ks_pcie_ep_of_data = {
+	.mode = DW_PCIE_EP_TYPE,
+};
+
 static const struct of_device_id ks_pcie_of_match[] = {
 	{
 		.type = "pci",
+		.data = &ks_pcie_rc_of_data,
 		.compatible = "ti,keystone-pcie",
+	},
+	{
+		.data = &ks_pcie_ep_of_data,
+		.compatible = "ti,keystone-pcie-ep",
 	},
 	{ },
 };
 
 static const struct dw_pcie_ops dw_pcie_ops = {
+	.start_link = ks_pcie_start_link,
 	.link_up = ks_dw_pcie_link_up,
+	.read_dbi2 = ks_dw_pcie_read_dbi2,
+	.write_dbi2 = ks_dw_pcie_write_dbi2,
+	.inbound_atu = ks_dw_pcie_inbound_atu,
+	.outbound_atu = ks_dw_pcie_outbound_atu,
+	.disable_atu = ks_dw_pcie_disable_atu,
 };
 
 static int __exit ks_pcie_remove(struct platform_device *pdev)
@@ -383,14 +499,64 @@ static int __exit ks_pcie_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int ks_pcie_set_mode(struct device *dev, enum dw_pcie_device_mode mode)
+{
+	struct device_node *np = dev->of_node;
+	struct regmap *syscon;
+	unsigned int reg;
+	u32 val;
+	u32 mask;
+	int ret = 0;
+
+	syscon = syscon_regmap_lookup_by_phandle(np, "ti,syscon-dev");
+	if (IS_ERR(syscon))
+		return 0;
+
+	ret = of_property_read_u32_index(np, "ti,syscon-dev", 1,
+					 &reg);
+	if (ret) {
+		dev_err(dev, "can't read the data register offset!\n");
+		return ret;
+	}
+
+	mask = KS_PCIE_DEV_TYPE_MASK | KS_PCIE_SYSCLOCKOUTEN;
+
+	switch (mode) {
+	case DW_PCIE_RC_TYPE:
+		val = KS_PCIE_DEV_TYPE(RC) | KS_PCIE_SYSCLOCKOUTEN;
+		break;
+	case DW_PCIE_EP_TYPE:
+		val = KS_PCIE_DEV_TYPE(EP);
+		break;
+	default:
+		dev_err(dev, "INVALID device type %d\n", mode);
+		return -EINVAL;
+	}
+
+	ret = regmap_update_bits(syscon, reg, mask, val);
+	if (ret) {
+		dev_err(dev, "failed to set pcie mode\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int __init ks_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct dw_pcie *pci;
 	struct keystone_pcie *ks_pcie;
 	struct resource *res;
-	void __iomem *reg_p;
 	int ret = 0;
+	const struct of_device_id *match;
+	const struct ks_pcie_of_data *data;
+	enum dw_pcie_device_mode mode = DW_PCIE_RC_TYPE;
+
+	match = of_match_device(of_match_ptr(ks_pcie_of_match), dev);
+	data = (struct ks_pcie_of_data *)match->data;
+	if (data)
+		mode = (enum dw_pcie_device_mode)data->mode;
 
 	ks_pcie = devm_kzalloc(dev, sizeof(*ks_pcie), GFP_KERNEL);
 	if (!ks_pcie)
@@ -403,16 +569,14 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	pci->dev = dev;
 	pci->ops = &dw_pcie_ops;
 
-	/* index 2 is to read PCI DEVICE_ID */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	reg_p = devm_ioremap_resource(dev, res);
-	if (IS_ERR(reg_p))
-		return PTR_ERR(reg_p);
-	ks_pcie->device_id = readl(reg_p) >> 16;
-	ks_pcie->pci = pci;
-	devm_iounmap(dev, reg_p);
-	devm_release_mem_region(dev, res->start, resource_size(res));
+	/* Index 1 is the application reg. space address */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	ks_pcie->va_app_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(ks_pcie->va_app_base))
+		return PTR_ERR(ks_pcie->va_app_base);
 
+	ks_pcie->app = *res;
+	ks_pcie->pci = pci;
 	ks_pcie->np = dev->of_node;
 	platform_set_drvdata(pdev, ks_pcie);
 	ks_pcie->clk = devm_clk_get(dev, "pcie");
@@ -426,9 +590,24 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ks_pcie);
 
-	ret = ks_add_pcie_port(ks_pcie, pdev);
+	ret = ks_pcie_set_mode(dev, mode);
 	if (ret < 0)
 		goto fail_clk;
+
+	switch (mode) {
+	case DW_PCIE_RC_TYPE:
+		ret = ks_add_pcie_port(ks_pcie, pdev);
+		if (ret < 0)
+			goto fail_clk;
+		break;
+	case DW_PCIE_EP_TYPE:
+		ret = ks_add_pcie_ep(ks_pcie, pdev);
+		if (ret < 0)
+			goto fail_clk;
+		break;
+	default:
+		dev_err(dev, "INVALID device type %d\n", mode);
+	}
 
 	return 0;
 fail_clk:

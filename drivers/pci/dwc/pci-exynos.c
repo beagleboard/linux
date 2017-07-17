@@ -406,7 +406,7 @@ static void exynos_pcie_enable_interrupts(struct exynos_pcie *exynos_pcie)
 }
 
 static u32 exynos_pcie_read_dbi(struct dw_pcie *pci, void __iomem *base,
-				u32 reg, int size)
+				u32 reg, size_t size)
 {
 	struct exynos_pcie *exynos_pcie = to_exynos_pcie(pci);
 	u32 val;
@@ -418,7 +418,7 @@ static u32 exynos_pcie_read_dbi(struct dw_pcie *pci, void __iomem *base,
 }
 
 static void exynos_pcie_write_dbi(struct dw_pcie *pci, void __iomem *base,
-				  u32 reg, int size, u32 val)
+				  u32 reg, size_t size, u32 val)
 {
 	struct exynos_pcie *exynos_pcie = to_exynos_pcie(pci);
 

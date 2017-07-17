@@ -11,7 +11,25 @@ described here as well as properties that are not applicable.
 
 Required Properties:-
 
-compatibility: "ti,keystone-pcie"
+compatibility: Should be "ti,keystone-pcie" for RC
+	       Should be "ti,keystone-pcie-ep" for EP
+
+Optional properties:-
+	phys: phandle to Generic Keystone SerDes phy for PCI
+	phy-names: name of the Generic Keystine SerDes phy for PCI
+	  - If boot loader already does PCI link establishment, then phys and
+	    phy-names shouldn't be present.
+	interrupts: platform interrupt for error interrupts.
+	ti,syscon-dev: phandle to the syscon dt node. The 1st argument should
+		       contain the register offset within syscon dt node to set
+		       the PCIe mode.
+
+Designware DT Properties not applicable for Keystone PCI
+
+1. pcie_bus clock-names not used.  Instead, a phandle to phys is used.
+
+HOST MODE
+=========
 reg:	index 1 is the base address and length of DW application registers.
 	index 2 is the base address and length of PCI device ID register.
 
@@ -51,14 +69,11 @@ pcie_intc: Interrupt controller device node for Legacy IRQ chip
 			<GIC_SPI 29 IRQ_TYPE_EDGE_RISING>;
 	};
 
-Optional properties:-
-	phys: phandle to Generic Keystone SerDes phy for PCI
-	phy-names: name of the Generic Keystine SerDes phy for PCI
-	  - If boot loader already does PCI link establishment, then phys and
-	    phy-names shouldn't be present.
-	interrupts: platform interrupt for error interrupts.
-
-Designware DT Properties not applicable for Keystone PCI
-
-1. pcie_bus clock-names not used.  Instead, a phandle to phys is used.
-
+DEVICE MODE
+===========
+reg: Three register ranges as listed in the reg-names property
+reg-names: "ep_dbics" for the standard configuration registers as they
+	    are locally accessed within the DIF CS/CS2 space
+	   "app" for the PCIe SS application registers
+	   "addr_space" used to map remote RC address space
+num-ib-windows : number of inbound address translation windows
