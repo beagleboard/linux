@@ -397,18 +397,27 @@ static void omap_rproc_kick(struct rproc *rproc, int vqid)
  *
  * Set boot address for a supported DSP remote processor.
  */
-static void omap_rproc_write_dsp_boot_addr(struct rproc *rproc)
+static int omap_rproc_write_dsp_boot_addr(struct rproc *rproc)
 {
+	struct device *dev = rproc->dev.parent;
 	struct omap_rproc *oproc = rproc->priv;
 	struct omap_rproc_boot_data *bdata = oproc->boot_data;
 	u32 offset = bdata->boot_reg;
 	unsigned int value = rproc->bootaddr;
 	unsigned int mask = ~(SZ_1K - 1);
 
+	if (value & (SZ_1K - 1)) {
+		dev_err(dev, "invalid boot address 0x%x, must be aligned on a 1KB boundary\n",
+			value);
+		return -EINVAL;
+	}
+
 	value >>= bdata->boot_reg_shift;
 	mask >>= bdata->boot_reg_shift;
 
 	regmap_update_bits(bdata->syscon, offset, mask, value);
+
+	return 0;
 }
 
 /*
@@ -427,8 +436,11 @@ static int omap_rproc_start(struct rproc *rproc)
 	int ret;
 	struct mbox_client *client = &oproc->client;
 
-	if (oproc->boot_data)
-		omap_rproc_write_dsp_boot_addr(rproc);
+	if (oproc->boot_data) {
+		ret = omap_rproc_write_dsp_boot_addr(rproc);
+		if (ret)
+			return ret;
+	}
 
 	client->dev = dev;
 	client->tx_done = NULL;
@@ -699,8 +711,13 @@ static int _omap_rproc_resume(struct rproc *rproc, bool auto_suspend)
 	}
 
 	/* boot address could be lost after suspend, so restore it */
-	if (oproc->boot_data)
-		omap_rproc_write_dsp_boot_addr(rproc);
+	if (oproc->boot_data) {
+		ret = omap_rproc_write_dsp_boot_addr(rproc);
+		if (ret) {
+			dev_err(dev, "boot address restore failed %d\n", ret);
+			goto suspend_iommu;
+		}
+	}
 
 	ret = omap_rproc_enable_timers(pdev, false);
 	if (ret) {
