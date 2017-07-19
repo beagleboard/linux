@@ -12,18 +12,17 @@
 	compatible = "ti,dra762", "ti,dra7";
 
 	ocp {
-		cal: cal@4845b000 {
-			compatible = "ti,dra72-cal";
+		cal: cal@489b0000 {
+			compatible = "ti,dra76-cal";
 			ti,hwmods = "cal";
 			reg = <0x489B0000 0x400>,
 			      <0x489B0800 0x40>,
-			      <0x489B0900 0x40>,
-			      <0x4A0026DC 0x4>;
+			      <0x489B0900 0x40>;
 				reg-names = "cal_top",
 					    "cal_rx_core0",
-					    "cal_rx_core1",
-					    "camerrx_control";
+					    "cal_rx_core1";
 			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>;
+			syscon-camerrx = <&scm_conf 0x6DC>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
