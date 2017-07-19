@@ -2930,6 +2930,8 @@ static int vip_init_stream(struct vip_stream *stream)
 	fmt = port->fmt;
 	mbus_fmt = &port->mbus_framefmt;
 
+	memset(&f, 0, sizeof(f));
+
 	/* Properly calculate the sizeimage and bytesperline values. */
 	v4l2_fill_pix_format(&f.fmt.pix, mbus_fmt);
 	f.fmt.pix.pixelformat = fmt->fourcc;
