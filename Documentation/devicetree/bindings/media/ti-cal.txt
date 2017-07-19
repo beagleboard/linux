@@ -8,6 +8,7 @@ DRA72x device.
 
 Required properties:
 - compatible: must be "ti,dra72-cal"
+ Should be "ti,dra76-cal", for DRA76 controllers
 - reg:	CAL Top level, Receiver Core #0, Receiver Core #1 and Camera RX
 	control address space
 - reg-names: cal_top, cal_rx_core0, cal_rx_core1 and camerrx_control
