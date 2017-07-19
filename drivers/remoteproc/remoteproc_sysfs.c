@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/module.h>
 #include <linux/remoteproc.h>
 
 #include "remoteproc_internal.h"
@@ -33,6 +34,10 @@ static ssize_t firmware_store(struct device *dev,
 {
 	struct rproc *rproc = to_rproc(dev);
 	int err;
+
+	/* restrict sysfs operation for userspace-based loader */
+	if (rproc->use_userspace_loader)
+		return -EPERM;
 
 	err = rproc_set_firmware(rproc, buf);
 
@@ -72,19 +77,36 @@ static ssize_t state_store(struct device *dev,
 	struct rproc *rproc = to_rproc(dev);
 	int ret = 0;
 
+	/* restrict sysfs operation for userspace-based loader */
+	if (rproc->use_userspace_loader)
+		return -EPERM;
+
 	if (sysfs_streq(buf, "start")) {
 		if (rproc->state == RPROC_RUNNING)
 			return -EBUSY;
 
+		/*
+		 * prevent underlying implementation from being removed
+		 * when remoteproc does not support auto-boot
+		 */
+		if (!rproc->auto_boot &&
+		    !try_module_get(dev->parent->driver->owner))
+			return -EINVAL;
+
 		ret = rproc_boot(rproc);
-		if (ret)
+		if (ret) {
 			dev_err(&rproc->dev, "Boot failed: %d\n", ret);
+			if (!rproc->auto_boot)
+				module_put(dev->parent->driver->owner);
+		}
 	} else if (sysfs_streq(buf, "stop")) {
 		if (rproc->state != RPROC_RUNNING &&
 		    rproc->state != RPROC_SUSPENDED)
 			return -EINVAL;
 
 		rproc_shutdown(rproc);
+		if (!rproc->auto_boot)
+			module_put(dev->parent->driver->owner);
 	} else {
 		dev_err(&rproc->dev, "Unrecognised option: %s\n", buf);
 		ret = -EINVAL;
