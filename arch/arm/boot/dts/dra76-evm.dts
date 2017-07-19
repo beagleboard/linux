@@ -320,6 +320,40 @@
 	};
 };
 
+&i2c5 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	gpio_csi2_adap: tca6416@20 {
+		status = "okay";
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	ov490@24 {
+		compatible = "ovti,ov490";
+		reg = <0x24>;
+
+		mux-gpios = <&gpio_csi2_adap 0	GPIO_ACTIVE_LOW>,
+						/* CSI2_SEL_I2C_CLK */
+			    <&gpio_csi2_adap 1	GPIO_ACTIVE_HIGH>,
+						/* CSI2_SEL_REF_CLK */
+			    <&gpio_csi2_adap 3	GPIO_ACTIVE_HIGH>,
+						/* CSI2_CAM0_RESETn */
+			    <&gpio_csi2_adap 4	GPIO_ACTIVE_LOW>;
+						/* CSI2_CAM0_PWR_DWN */
+		port {
+			csi2_cam0: endpoint@0 {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&csi2_phy0>;
+			};
+		};
+	};
+};
+
 &cpu0 {
 	vdd-supply = <&buck10_reg>;
 };
@@ -450,3 +484,15 @@
 		max-bitrate = <5000000>;
 	};
 };
+
+&cal {
+	status = "okay";
+};
+
+&csi2_0 {
+	csi2_phy0: endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&csi2_cam0>;
+	};
+};
+
