@@ -55,7 +55,7 @@ static volatile struct pmac_irq_hw __iomem *pmac_irq_hw[4];
 static int max_irqs;
 static int max_real_irqs;
 
-static DEFINE_RAW_SPINLOCK(pmac_pic_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(pmac_pic_lock);
 
 /* The max irq number this driver deals with is 128; see max_irqs */
 static DECLARE_BITMAP(ppc_lost_interrupts, 128);

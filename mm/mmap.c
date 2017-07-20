@@ -52,6 +52,10 @@
 
 #include "internal.h"
 
+#ifndef MMAP_BRK
+#define MMAP_BRK 0
+#endif
+
 #ifndef arch_mmap_check
 #define arch_mmap_check(addr, len, flags)	(0)
 #endif
@@ -2874,7 +2878,7 @@ static int do_brk(unsigned long addr, unsigned long request)
 
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
 
-	error = get_unmapped_area(NULL, addr, len, 0, MAP_FIXED);
+	error = get_unmapped_area(NULL, addr, len, 0, MAP_FIXED | MAP_BRK);
 	if (offset_in_page(error))
 		return error;
 

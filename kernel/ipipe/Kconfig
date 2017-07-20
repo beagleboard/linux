@@ -1,0 +1,70 @@
+config IPIPE
+	bool "Interrupt pipeline"
+	default y
+	---help---
+	  Activate this option if you want the interrupt pipeline to be
+	  compiled in.
+
+config IPIPE_LEGACY
+	bool "I-pipe legacy interface"
+	depends on IPIPE
+	---help---
+	  Activate this option if you want to control the interrupt
+	  pipeline via the legacy interface.
+
+config IPIPE_CORE
+	def_bool y if IPIPE
+
+config IPIPE_WANT_CLOCKSOURCE
+       bool
+
+config IPIPE_WANT_PTE_PINNING
+       bool
+
+config IPIPE_CORE_APIREV
+       int
+       depends on IPIPE
+       default 2
+	---help---
+	  The API revision level we implement.
+
+config IPIPE_WANT_APIREV_1
+       bool
+
+config IPIPE_WANT_APIREV_2
+       bool
+
+config IPIPE_TARGET_APIREV
+       int
+       depends on IPIPE
+       default 1 if IPIPE_WANT_APIREV_1
+       default 2 if IPIPE_WANT_APIREV_2
+       default 1 if IPIPE_LEGACY
+       default IPIPE_CORE_APIREV
+	---help---
+	  The API revision level the we want (must be <=
+	  IPIPE_CORE_APIREV).
+
+config IPIPE_HAVE_HOSTRT
+       bool
+
+config IPIPE_HAVE_PIC_MUTE
+       bool
+
+config HAVE_IPIPE_HOSTRT
+       depends on IPIPE_LEGACY
+       bool
+
+config IPIPE_DELAYED_ATOMICSW
+       def_bool y if IPIPE_LEGACY
+
+config IPIPE_HAVE_SAFE_THREAD_INFO
+	bool
+
+config IPIPE_HAVE_VM_NOTIFIER
+	bool
+
+if IPIPE && ARM && RAW_PRINTK && !DEBUG_LL
+comment "CAUTION: DEBUG_LL must be selected, and properly configured for"
+comment "RAW_PRINTK to work. Otherwise, you will get no output on raw_printk()"
+endif

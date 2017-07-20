@@ -42,9 +42,12 @@ struct flush_tlb_info {
  */
 void leave_mm(int cpu)
 {
+	unsigned long flags;
+
 	struct mm_struct *active_mm = this_cpu_read(cpu_tlbstate.active_mm);
 	if (this_cpu_read(cpu_tlbstate.state) == TLBSTATE_OK)
 		BUG();
+	flags = hard_cond_local_irq_save();
 	if (cpumask_test_cpu(cpu, mm_cpumask(active_mm))) {
 		cpumask_clear_cpu(cpu, mm_cpumask(active_mm));
 		load_cr3(swapper_pg_dir);
@@ -56,6 +59,7 @@ void leave_mm(int cpu)
 		 */
 		trace_tlb_flush_rcuidle(TLB_FLUSH_ON_TASK_SWITCH, TLB_FLUSH_ALL);
 	}
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(leave_mm);
 
@@ -66,15 +70,18 @@ void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 {
 	unsigned long flags;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	switch_mm_irqs_off(prev, next, tsk);
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 void switch_mm_irqs_off(struct mm_struct *prev, struct mm_struct *next,
 			struct task_struct *tsk)
 {
-	unsigned cpu = smp_processor_id();
+	unsigned cpu = raw_smp_processor_id();
+
+	WARN_ON_ONCE(IS_ENABLED(CONFIG_IPIPE_DEBUG_INTERNAL) &&
+		     !hard_irqs_disabled());
 
 	if (likely(prev != next)) {
 		if (IS_ENABLED(CONFIG_VMAP_STACK)) {
