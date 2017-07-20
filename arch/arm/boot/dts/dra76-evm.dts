@@ -324,6 +324,25 @@
 	status = "okay";
 	clock-frequency = <400000>;
 
+	ov10633@37 {
+		compatible = "ovti,ov10633";
+		reg = <0x37>;
+
+		clocks = <&clk_ov10633_fixed>;
+		clock-names = "xvclk";
+
+		mux-gpios = <&pcf_hdmi 2	GPIO_ACTIVE_HIGH>, /* VIN2_S0 */
+			    <&pcf_hdmi 6	GPIO_ACTIVE_LOW>; /* VIN2_S2 */
+		port {
+			onboardLI: endpoint {
+				remote-endpoint = <&vin2a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
+
 	gpio_csi2_adap: tca6416@20 {
 		status = "okay";
 		compatible = "ti,tca6416";
@@ -493,6 +512,14 @@
 	csi2_phy0: endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&csi2_cam0>;
+	};
+};
+
+&vin2a {
+	status = "okay";
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
 	};
 };
 
