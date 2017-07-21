@@ -69,6 +69,36 @@ EXPORT_SYMBOL_GPL(pm_power_off);
 
 void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
 
+#ifdef CONFIG_IPIPE
+static void __ipipe_halt_root(void)
+{
+	struct ipipe_percpu_domain_data *p;
+
+	/*
+	 * Emulate idle entry sequence over the root domain, which is
+	 * stalled on entry.
+	 */
+	hard_local_irq_disable();
+
+	p = ipipe_this_cpu_root_context();
+	__clear_bit(IPIPE_STALL_FLAG, &p->status);
+
+	if (unlikely(__ipipe_ipending_p(p)))
+		__ipipe_sync_stage();
+	else {
+		cpu_do_idle();
+	}
+}
+
+#else /* !CONFIG_IPIPE */
+
+static void __ipipe_halt_root(void)
+{
+	cpu_do_idle();
+}
+
+#endif /* !CONFIG_IPIPE */
+
 /*
  * This is our default idle handler.
  */
@@ -79,6 +109,8 @@ void arch_cpu_idle(void)
 	 * tricks
 	 */
 	trace_cpu_idle_rcuidle(1, smp_processor_id());
+	if (!need_resched())
+		__ipipe_halt_root();
 	cpu_do_idle();
 	local_irq_enable();
 	trace_cpu_idle_rcuidle(PWR_EVENT_EXIT, smp_processor_id());

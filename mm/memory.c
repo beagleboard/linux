@@ -50,6 +50,7 @@
 #include <linux/export.h>
 #include <linux/delayacct.h>
 #include <linux/init.h>
+#include <linux/ipipe.h>
 #include <linux/pfn_t.h>
 #include <linux/writeback.h>
 #include <linux/memcontrol.h>
@@ -123,6 +124,11 @@ unsigned long zero_pfn __read_mostly;
 unsigned long highest_memmap_pfn __read_mostly;
 
 EXPORT_SYMBOL(zero_pfn);
+
+static inline void cow_user_page(struct page *dst,
+				 struct page *src,
+				 unsigned long va,
+				 struct vm_area_struct *vma);
 
 /*
  * CONFIG_MMU architectures set up ZERO_PAGE in their paging_init()
@@ -847,8 +853,8 @@ out:
 
 static inline unsigned long
 copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
-		pte_t *dst_pte, pte_t *src_pte, struct vm_area_struct *vma,
-		unsigned long addr, int *rss)
+	     pte_t *dst_pte, pte_t *src_pte, struct vm_area_struct *vma,
+	     unsigned long addr, int *rss, struct page *uncow_page)
 {
 	unsigned long vm_flags = vma->vm_flags;
 	pte_t pte = *src_pte;
@@ -897,6 +903,21 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	 * in the parent and the child
 	 */
 	if (is_cow_mapping(vm_flags)) {
+#ifdef CONFIG_IPIPE
+		if (uncow_page) {
+			struct page *old_page = vm_normal_page(vma, addr, pte);
+			cow_user_page(uncow_page, old_page, addr, vma);
+			pte = mk_pte(uncow_page, vma->vm_page_prot);
+
+			if (vm_flags & VM_SHARED)
+				pte = pte_mkclean(pte);
+			pte = pte_mkold(pte);
+
+			page_add_new_anon_rmap(uncow_page, vma, addr, false);
+			rss[!!PageAnon(uncow_page)]++;
+			goto out_set_pte;
+		}
+#endif /* CONFIG_IPIPE */
 		ptep_set_wrprotect(src_mm, addr, src_pte);
 		pte = pte_wrprotect(pte);
 	}
@@ -931,13 +952,27 @@ static int copy_pte_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	int progress = 0;
 	int rss[NR_MM_COUNTERS];
 	swp_entry_t entry = (swp_entry_t){0};
-
+	struct page *uncow_page = NULL;
+#ifdef CONFIG_IPIPE
+	int do_cow_break = 0;
 again:
+	if (do_cow_break) {
+		uncow_page = alloc_page_vma(GFP_HIGHUSER, vma, addr);
+		if (uncow_page == NULL)
+			return -ENOMEM;
+		do_cow_break = 0;
+	}
+#else
+again:
+#endif
 	init_rss_vec(rss);
 
 	dst_pte = pte_alloc_map_lock(dst_mm, dst_pmd, addr, &dst_ptl);
-	if (!dst_pte)
+	if (!dst_pte) {
+		if (uncow_page)
+			put_page(uncow_page);
 		return -ENOMEM;
+	}
 	src_pte = pte_offset_map(src_pmd, addr);
 	src_ptl = pte_lockptr(src_mm, src_pmd);
 	spin_lock_nested(src_ptl, SINGLE_DEPTH_NESTING);
@@ -960,8 +995,25 @@ again:
 			progress++;
 			continue;
 		}
+#ifdef CONFIG_IPIPE
+		if (likely(uncow_page == NULL) && likely(pte_present(*src_pte))) {
+			if (is_cow_mapping(vma->vm_flags) &&
+			    test_bit(MMF_VM_PINNED, &src_mm->flags) &&
+			    ((vma->vm_flags|src_mm->def_flags) & VM_LOCKED)) {
+				arch_leave_lazy_mmu_mode();
+				spin_unlock(src_ptl);
+				pte_unmap(src_pte);
+				add_mm_rss_vec(dst_mm, rss);
+				pte_unmap_unlock(dst_pte, dst_ptl);
+				cond_resched();
+				do_cow_break = 1;
+				goto again;
+			}
+		}
+#endif
 		entry.val = copy_one_pte(dst_mm, src_mm, dst_pte, src_pte,
-							vma, addr, rss);
+					 vma, addr, rss, uncow_page);
+		uncow_page = NULL;
 		if (entry.val)
 			break;
 		progress += 8;
@@ -4056,6 +4108,41 @@ void copy_user_huge_page(struct page *dst, struct page *src,
 	}
 }
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE || CONFIG_HUGETLBFS */
+
+#ifdef CONFIG_IPIPE
+
+int __ipipe_disable_ondemand_mappings(struct task_struct *tsk)
+{
+	struct vm_area_struct *vma;
+	struct mm_struct *mm;
+	int result = 0;
+
+	mm = get_task_mm(tsk);
+	if (!mm)
+		return -EPERM;
+
+	down_write(&mm->mmap_sem);
+	if (test_bit(MMF_VM_PINNED, &mm->flags))
+		goto done_mm;
+
+	for (vma = mm->mmap; vma; vma = vma->vm_next) {
+		if (is_cow_mapping(vma->vm_flags) &&
+		    (vma->vm_flags & VM_WRITE)) {
+			result = __ipipe_pin_vma(mm, vma);
+			if (result < 0)
+				goto done_mm;
+		}
+	}
+	set_bit(MMF_VM_PINNED, &mm->flags);
+
+  done_mm:
+	up_write(&mm->mmap_sem);
+	mmput(mm);
+	return result;
+}
+EXPORT_SYMBOL_GPL(__ipipe_disable_ondemand_mappings);
+
+#endif /* CONFIG_IPIPE */
 
 #if USE_SPLIT_PTE_PTLOCKS && ALLOC_SPLIT_PTLOCKS
 
