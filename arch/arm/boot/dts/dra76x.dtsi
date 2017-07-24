@@ -1,0 +1,81 @@
+/*
+ * Copyright (C) 2017 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "dra74x.dtsi"
+
+/ {
+	compatible = "ti,dra762", "ti,dra7";
+
+	ocp {
+		cal: cal@4845b000 {
+			compatible = "ti,dra72-cal";
+			ti,hwmods = "cal";
+			reg = <0x489B0000 0x400>,
+			      <0x489B0800 0x40>,
+			      <0x489B0900 0x40>,
+			      <0x4A0026DC 0x4>;
+				reg-names = "cal_top",
+					    "cal_rx_core0",
+					    "cal_rx_core1",
+					    "camerrx_control";
+			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				csi2_0: port@0 {
+					reg = <0>;
+				};
+				csi2_1: port@1 {
+					reg = <1>;
+				};
+			};
+		};
+	};
+};
+
+/* MCAN interrupts are hard-wired to irqs 67, 68 */
+&crossbar_mpu {
+	ti,irqs-skip = <10 67 68 133 139 140>;
+};
+
+&cpu0_opp_table {
+	opp_plus@1800000000 {
+		opp-hz = /bits/ 64 <1800000000>;
+		opp-microvolt = <1250000 950000 1250000>;
+		opp-supported-hw = <0xFF 0x08>;
+	};
+};
+
+&oppdm_mpu {
+	ti,efuse-settings = <
+	/* uV   offset */
+	1060000 0x0
+	1160000 0x4
+	1210000 0x8
+	1250000 0xC
+	>;
+};
+
+&abb_mpu {
+	ti,abb_info = <
+	/*uV		ABB	efuse	rbb_m fbb_m	vset_m*/
+	1060000		0	0x0	0 0x02000000 0x01F00000
+	1160000		0	0x4	0 0x02000000 0x01F00000
+	1210000		0	0x8	0 0x02000000 0x01F00000
+	1250000		0	0xC	0 0x02000000 0x01F00000
+	>;
+};
+
+&mmc3 {
+	max-frequency = <96000000>;
+};
