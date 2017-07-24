@@ -1871,18 +1871,158 @@ static int vip_s_fmt_vid_cap(struct file *file, void *priv,
 	return 0;
 }
 
-static void vip_disable_sc_path(struct vip_stream *stream)
+/*
+ * Does the exact opposite of set_fmt_params
+ * It makes sure the DataPath register is sane after tear down
+ */
+static void unset_fmt_params(struct vip_stream *stream)
 {
 	struct vip_dev *dev = stream->port->dev;
 	struct vip_port *port = stream->port;
 
-	vip_dbg(3, dev, "%s:\n", __func__);
+	stream->sequence = 0;
+	stream->field = V4L2_FIELD_TOP;
 
-	if (port->scaler)
-		vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 0);
+	if (port->csc == VIP_CSC_Y2R) {
+		if (port->port_id == VIP_PORTA) {
+			vip_set_slice_path(dev, VIP_CSC_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_RGB_SRC_DATA_SELECT, 0);
+		} else {
+			vip_set_slice_path(dev, VIP_CSC_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 0);
+		}
+		/* We are done */
+		return;
+	} else if (port->csc == VIP_CSC_R2Y) {
+		if (port->scaler && port->fmt->coplanar) {
+			if (port->port_id == VIP_PORTA) {
+				vip_set_slice_path(dev,
+						   VIP_CSC_SRC_DATA_SELECT, 0);
+				vip_set_slice_path(dev,
+						   VIP_SC_SRC_DATA_SELECT, 0);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_SRC_DATA_SELECT,
+						   0);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_DATA_BYPASS, 0);
+				vip_set_slice_path(dev,
+						   VIP_RGB_OUT_HI_DATA_SELECT,
+						   0);
+			}
+		} else if (port->scaler) {
+			if (port->port_id == VIP_PORTA) {
+				vip_set_slice_path(dev,
+						   VIP_CSC_SRC_DATA_SELECT, 0);
+				vip_set_slice_path(dev,
+						   VIP_SC_SRC_DATA_SELECT, 0);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_SRC_DATA_SELECT,
+						   0);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_DATA_BYPASS, 0);
+				vip_set_slice_path(dev,
+						   VIP_RGB_OUT_HI_DATA_SELECT,
+						   0);
+			}
+		} else if (port->fmt->coplanar) {
+			if (port->port_id == VIP_PORTA) {
+				vip_set_slice_path(dev,
+						   VIP_CSC_SRC_DATA_SELECT, 0);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_SRC_DATA_SELECT,
+						   0);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_DATA_BYPASS, 0);
+				vip_set_slice_path(dev,
+						   VIP_RGB_OUT_HI_DATA_SELECT,
+						   0);
+			}
+		} else {
+			if (port->port_id == VIP_PORTA) {
+				vip_set_slice_path(dev,
+						   VIP_CSC_SRC_DATA_SELECT, 0);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_SRC_DATA_SELECT,
+						   0);
+				vip_set_slice_path(dev,
+						   VIP_CHR_DS_1_DATA_BYPASS, 0);
+				vip_set_slice_path(dev,
+						   VIP_RGB_OUT_HI_DATA_SELECT,
+						   0);
+			}
+		}
+		/* We are done */
+		return;
+	} else if (vip_is_fmt_rgb(port->fmt->fourcc)) {
+		if (port->port_id == VIP_PORTA) {
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 0);
+		}
+		/* We are done */
+		return;
+	}
 
-	if (port->csc != VIP_CSC_NA)
-		vip_set_slice_path(dev, VIP_CSC_SRC_DATA_SELECT, 0);
+	if (port->scaler && port->fmt->coplanar) {
+		if (port->port_id == VIP_PORTA) {
+			vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_1_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 0);
+		} else {
+			vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_2_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 0);
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 0);
+		}
+	} else if (port->scaler) {
+		if (port->port_id == VIP_PORTA) {
+			vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_1_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 0);
+		} else {
+			vip_set_slice_path(dev, VIP_SC_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_2_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 0);
+			vip_set_slice_path(dev, VIP_CHR_DS_2_DATA_BYPASS, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 0);
+		}
+	} else if (port->fmt->coplanar) {
+		if (port->port_id == VIP_PORTA) {
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_1_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_CHR_DS_1_DATA_BYPASS, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_HI_DATA_SELECT, 0);
+		} else {
+			vip_set_slice_path(dev,
+					   VIP_CHR_DS_2_SRC_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_CHR_DS_2_DATA_BYPASS, 0);
+			vip_set_slice_path(dev,
+					   VIP_MULTI_CHANNEL_DATA_SELECT, 0);
+			vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 0);
+		}
+	} else {
+		/*
+		 * We undo all data path setting except for the multi
+		 * stream case.
+		 * Because we cannot disrupt other on-going capture if only
+		 * one stream is terminated the other might still be going
+		 */
+		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT, 1);
+		vip_set_slice_path(dev, VIP_RGB_OUT_LO_DATA_SELECT, 0);
+	}
 }
 
 /*
@@ -2559,7 +2699,7 @@ static void vip_stop_streaming(struct vb2_queue *vq)
 
 	vip_parser_stop_imm(port, true);
 	vip_enable_parser(port, false);
-	vip_disable_sc_path(stream);
+	unset_fmt_params(stream);
 
 	disable_irqs(dev, dev->slice_id, stream->list_num);
 	clear_irqs(dev, dev->slice_id, stream->list_num);
@@ -2789,6 +2929,8 @@ static int vip_init_stream(struct vip_stream *stream)
 
 	fmt = port->fmt;
 	mbus_fmt = &port->mbus_framefmt;
+
+	memset(&f, 0, sizeof(f));
 
 	/* Properly calculate the sizeimage and bytesperline values. */
 	v4l2_fill_pix_format(&f.fmt.pix, mbus_fmt);
