@@ -4703,6 +4703,15 @@ static struct omap_hwmod_ocp_if *dra7xx_gp_hwmod_ocp_ifs[] __initdata = {
 };
 
 /* SoC variant specific hwmod links */
+static struct omap_hwmod_ocp_if *dra76x_hwmod_ocp_ifs[] __initdata = {
+	&dra7xx_l4_per3__usb_otg_ss4,
+	&dra7xx_l4_per3__vip2,
+	&dra7xx_l3_main_1__mmu0_dsp2,
+	&dra7xx_l3_main_1__mmu1_dsp2,
+	&dra7xx_dsp2__l3_main_1,
+	NULL,
+};
+
 static struct omap_hwmod_ocp_if *dra74x_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per3__usb_otg_ss4,
 	&dra7xx_l4_per3__vip2,
@@ -4734,12 +4743,14 @@ int __init dra7xx_hwmod_init(void)
 		ret = omap_hwmod_register_links(dra74x_hwmod_ocp_ifs);
 	else if (!ret && soc_is_dra72x())
 		ret = omap_hwmod_register_links(dra72x_hwmod_ocp_ifs);
+	else if (!ret && soc_is_dra76x())
+		ret = omap_hwmod_register_links(dra76x_hwmod_ocp_ifs);
 
 	if (!ret && omap_type() == OMAP2_DEVICE_TYPE_GP)
 		ret = omap_hwmod_register_links(dra7xx_gp_hwmod_ocp_ifs);
 
-	/* now for the IPs *NOT* in dra71 */
-	if (!ret && !of_machine_is_compatible("ti,dra718"))
+	/* now for the IPs available only in dra74 and dra72 */
+	if (!ret && !of_machine_is_compatible("ti,dra718") && !soc_is_dra76x())
 		ret = omap_hwmod_register_links(dra74x_dra72x_hwmod_ocp_ifs);
 
 	return ret;
