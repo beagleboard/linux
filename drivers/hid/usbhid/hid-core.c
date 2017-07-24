@@ -1272,7 +1272,7 @@ static int usbhid_idle(struct hid_device *hid, int report, int idle,
 	return hid_set_idle(dev, ifnum, report, idle);
 }
 
-static struct hid_ll_driver usb_hid_driver = {
+struct hid_ll_driver usb_hid_driver = {
 	.parse = usbhid_parse,
 	.start = usbhid_start,
 	.stop = usbhid_stop,
@@ -1285,6 +1285,7 @@ static struct hid_ll_driver usb_hid_driver = {
 	.output_report = usbhid_output_report,
 	.idle = usbhid_idle,
 };
+EXPORT_SYMBOL_GPL(usb_hid_driver);
 
 static int usbhid_probe(struct usb_interface *intf, const struct usb_device_id *id)
 {
