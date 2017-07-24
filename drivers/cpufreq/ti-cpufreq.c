@@ -28,11 +28,14 @@
 
 #define DRA7_EFUSE_HAS_OD_MPU_OPP		11
 #define DRA7_EFUSE_HAS_HIGH_MPU_OPP		15
+#define DRA76_EFUSE_HAS_PLUS_MPU_OPP		18
 #define DRA7_EFUSE_HAS_ALL_MPU_OPP		23
+#define DRA76_EFUSE_HAS_ALL_MPU_OPP		24
 
 #define DRA7_EFUSE_NOM_MPU_OPP			BIT(0)
 #define DRA7_EFUSE_OD_MPU_OPP			BIT(1)
 #define DRA7_EFUSE_HIGH_MPU_OPP			BIT(2)
+#define DRA76_EFUSE_PLUS_MPU_OPP		BIT(3)
 
 #define VERSION_COUNT				2
 
@@ -86,6 +89,9 @@ static unsigned long dra7_efuse_xlate(unsigned long efuse, u32 rev)
 	 */
 
 	switch (efuse) {
+	case DRA76_EFUSE_HAS_PLUS_MPU_OPP:
+	case DRA76_EFUSE_HAS_ALL_MPU_OPP:
+		calculated_efuse |= DRA76_EFUSE_PLUS_MPU_OPP;
 	case DRA7_EFUSE_HAS_ALL_MPU_OPP:
 	case DRA7_EFUSE_HAS_HIGH_MPU_OPP:
 		calculated_efuse |= DRA7_EFUSE_HIGH_MPU_OPP;
