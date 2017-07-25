@@ -166,7 +166,7 @@ ENTRY(ti_emif_restore_context)
 	str	r1, [r0, #EMIF_SDRAM_REFRESH_CTRL_SHDW]
 
 	ldr     r1, [r2, #EMIF_PMCR_VAL_OFFSET]
-	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CTRL_SHDW]
+	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CONTROL]
 
 	ldr     r1, [r2, #EMIF_PMCR_SHDW_VAL_OFFSET]
 	str	r1, [r0, #EMIF_POWER_MANAGEMENT_CTRL_SHDW]
