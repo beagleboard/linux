@@ -213,6 +213,9 @@ struct clk *ti_clk_register_mux(struct ti_clk *setup);
 struct clk *ti_clk_register_divider(struct ti_clk *setup);
 struct clk *ti_clk_register_composite(struct ti_clk *setup);
 struct clk *ti_clk_register_dpll(struct ti_clk *setup);
+struct clk *ti_clk_register(struct device *dev, struct clk_hw *hw,
+			    const char *con);
+int ti_clk_add_alias(struct device *dev, struct clk *clk, const char *con);
 
 void ti_clk_latch(struct clk_omap_reg *reg, s8 shift);
 
