@@ -38,7 +38,7 @@ static const struct clk_ops omap_gate_clkdm_clk_ops = {
 	.restore_context = clk_dflt_restore_context,
 };
 
-static const struct clk_ops omap_gate_clk_ops = {
+const struct clk_ops omap_gate_clk_ops = {
 	.init		= &omap2_init_clk_clkdm,
 	.enable		= &omap2_dflt_clk_enable,
 	.disable	= &omap2_dflt_clk_disable,
