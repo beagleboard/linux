@@ -337,6 +337,7 @@ struct clk __init *ti_clk_register_clk(struct ti_clk *setup)
 	struct ti_clk_fixed *fixed;
 	struct ti_clk_fixed_factor *fixed_factor;
 	struct clk_hw *clk_hw;
+	int ret;
 
 	if (setup->clk)
 		return setup->clk;
@@ -347,6 +348,13 @@ struct clk __init *ti_clk_register_clk(struct ti_clk *setup)
 
 		clk = clk_register_fixed_rate(NULL, setup->name, NULL,
 					      CLK_IS_ROOT, fixed->frequency);
+		if (!IS_ERR(clk)) {
+			ret = ti_clk_add_alias(NULL, clk, setup->name);
+			if (ret) {
+				clk_unregister(clk);
+				clk = ERR_PTR(ret);
+			}
+		}
 		break;
 	case TI_CLK_MUX:
 		clk = ti_clk_register_mux(setup);
@@ -364,6 +372,13 @@ struct clk __init *ti_clk_register_clk(struct ti_clk *setup)
 						fixed_factor->parent,
 						0, fixed_factor->mult,
 						fixed_factor->div);
+		if (!IS_ERR(clk)) {
+			ret = ti_clk_add_alias(NULL, clk, setup->name);
+			if (ret) {
+				clk_unregister(clk);
+				clk = ERR_PTR(ret);
+			}
+		}
 		break;
 	case TI_CLK_GATE:
 		clk = ti_clk_register_gate(setup);
@@ -411,9 +426,6 @@ int __init ti_clk_register_legacy_clks(struct ti_clk_alias *clks)
 				       clks->clk->name, PTR_ERR(clk));
 				return PTR_ERR(clk);
 			}
-		} else {
-			clks->lk.clk = clk;
-			clkdev_add(&clks->lk);
 		}
 		clks++;
 	}
@@ -436,8 +448,6 @@ int __init ti_clk_register_legacy_clks(struct ti_clk_alias *clks)
 				}
 			} else {
 				retry = true;
-				retry_clk->lk.clk = clk;
-				clkdev_add(&retry_clk->lk);
 				list_del(&retry_clk->link);
 			}
 		}
