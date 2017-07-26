@@ -214,6 +214,7 @@ enum {
  * @clk_rmw: pointer to register read-modify-write function
  * @clkdm_clk_enable: pointer to clockdomain enable function
  * @clkdm_clk_disable: pointer to clockdomain disable function
+ * @clkdm_lookup: pointer to clockdomain lookup function
  * @cm_wait_module_ready: pointer to CM module wait ready function
  * @cm_split_idlest_reg: pointer to CM module function to split idlest reg
  *
@@ -230,6 +231,7 @@ struct ti_clk_ll_ops {
 	int	(*clkdm_clk_enable)(struct clockdomain *clkdm, struct clk *clk);
 	int	(*clkdm_clk_disable)(struct clockdomain *clkdm,
 				     struct clk *clk);
+	struct clockdomain * (*clkdm_lookup)(const char *name);
 	int	(*cm_wait_module_ready)(u8 part, s16 prcm_mod, u16 idlest_reg,
 					u8 idlest_shift);
 	int	(*cm_split_idlest_reg)(struct clk_omap_reg *idlest_reg,
