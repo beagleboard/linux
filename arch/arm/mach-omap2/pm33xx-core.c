@@ -243,7 +243,7 @@ static struct am33xx_pm_sram_addr *amx3_get_sram_addrs(void)
 
 static void common_save_context(void)
 {
-	omap2_gpio_prepare_for_idle(1);
+	omap2_gpio_prepare_for_idle(0);
 	pinmux_save_context(pmx_dev, "am33xx_pmx_per");
 	clks_save_context();
 	pwrdms_save_context();
