@@ -394,12 +394,6 @@ struct clk __init *ti_clk_register_clk(struct ti_clk *setup)
 	return clk;
 }
 
-static const struct of_device_id simple_clk_match_table[] __initconst = {
-	{ .compatible = "fixed-clock" },
-	{ .compatible = "fixed-factor-clock" },
-	{ }
-};
-
 int __init ti_clk_register_legacy_clks(struct ti_clk_alias *clks)
 {
 	struct clk *clk;
@@ -452,6 +446,12 @@ int __init ti_clk_register_legacy_clks(struct ti_clk_alias *clks)
 	return 0;
 }
 #endif
+
+static const struct of_device_id simple_clk_match_table[] __initconst = {
+	{ .compatible = "fixed-clock" },
+	{ .compatible = "fixed-factor-clock" },
+	{ }
+};
 
 /**
  * ti_clk_add_aliases - setup clock aliases
