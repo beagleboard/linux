@@ -1522,6 +1522,12 @@ extern int drm_format_plane_cpp(uint32_t format, int plane);
 extern int drm_format_horz_chroma_subsampling(uint32_t format);
 extern int drm_format_vert_chroma_subsampling(uint32_t format);
 extern const char *drm_get_format_name(uint32_t format);
+
+static inline bool drm_rotation_90_or_270(unsigned int rotation)
+{
+	return rotation & (BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270));
+}
+
 extern struct drm_property *drm_mode_create_rotation_property(struct drm_device *dev,
 							      unsigned int supported_rotations);
 extern unsigned int drm_rotation_simplify(unsigned int rotation,

@@ -95,25 +95,7 @@ enum omap_channel {
 };
 
 enum omap_color_mode {
-	OMAP_DSS_COLOR_CLUT1	= 1 << 0,  /* BITMAP 1 */
-	OMAP_DSS_COLOR_CLUT2	= 1 << 1,  /* BITMAP 2 */
-	OMAP_DSS_COLOR_CLUT4	= 1 << 2,  /* BITMAP 4 */
-	OMAP_DSS_COLOR_CLUT8	= 1 << 3,  /* BITMAP 8 */
-	OMAP_DSS_COLOR_RGB12U	= 1 << 4,  /* RGB12, 16-bit container */
-	OMAP_DSS_COLOR_ARGB16	= 1 << 5,  /* ARGB16 */
-	OMAP_DSS_COLOR_RGB16	= 1 << 6,  /* RGB16 */
-	OMAP_DSS_COLOR_RGB24U	= 1 << 7,  /* RGB24, 32-bit container */
-	OMAP_DSS_COLOR_RGB24P	= 1 << 8,  /* RGB24, 24-bit container */
-	OMAP_DSS_COLOR_YUV2	= 1 << 9,  /* YUV2 4:2:2 co-sited */
-	OMAP_DSS_COLOR_UYVY	= 1 << 10, /* UYVY 4:2:2 co-sited */
-	OMAP_DSS_COLOR_ARGB32	= 1 << 11, /* ARGB32 */
-	OMAP_DSS_COLOR_RGBA32	= 1 << 12, /* RGBA32 */
-	OMAP_DSS_COLOR_RGBX32	= 1 << 13, /* RGBx32 */
-	OMAP_DSS_COLOR_NV12		= 1 << 14, /* NV12 format: YUV 4:2:0 */
-	OMAP_DSS_COLOR_RGBA16		= 1 << 15, /* RGBA16 - 4444 */
-	OMAP_DSS_COLOR_RGBX16		= 1 << 16, /* RGBx16 - 4444 */
-	OMAP_DSS_COLOR_ARGB16_1555	= 1 << 17, /* ARGB16 - 1555 */
-	OMAP_DSS_COLOR_XRGB16_1555	= 1 << 18, /* xRGB16 - 1555 */
+	_UNUSED_,
 };
 
 enum omap_dss_load_mode {
@@ -171,17 +153,8 @@ enum omap_dss_display_state {
 };
 
 enum omap_dss_rotation_type {
-	OMAP_DSS_ROT_DMA	= 1 << 0,
-	OMAP_DSS_ROT_VRFB	= 1 << 1,
-	OMAP_DSS_ROT_TILER	= 1 << 2,
-};
-
-/* clockwise rotation angle */
-enum omap_dss_rotation_angle {
-	OMAP_DSS_ROT_0   = 0,
-	OMAP_DSS_ROT_90  = 1,
-	OMAP_DSS_ROT_180 = 2,
-	OMAP_DSS_ROT_270 = 3,
+	OMAP_DSS_ROT_NONE	= 0,
+	OMAP_DSS_ROT_TILER	= 1 << 0,
 };
 
 enum omap_overlay_caps {
@@ -337,10 +310,9 @@ struct omap_overlay_info {
 	u16 screen_width;
 	u16 width;
 	u16 height;
-	enum omap_color_mode color_mode;
+	u32 color_mode;
 	u8 rotation;
 	enum omap_dss_rotation_type rotation_type;
-	bool mirror;
 
 	u16 pos_x;
 	u16 pos_y;
@@ -467,10 +439,9 @@ struct omap_dss_writeback_info {
 	u16 buf_width;
 	u16 width;
 	u16 height;
-	enum omap_color_mode color_mode;
+	u32 color_mode;
 	u8 rotation;
 	enum omap_dss_rotation_type rotation_type;
-	bool mirror;
 	u8 pre_mult_alpha;
 };
 
@@ -1013,7 +984,7 @@ struct dispc_ops {
 			const struct omap_video_timings *mgr_timings,
 			bool mem_to_mem);
 
-	enum omap_color_mode (*ovl_get_color_modes)(enum omap_plane plane);
+	const u32 *(*ovl_get_color_modes)(enum omap_plane plane);
 
 	u32 (*wb_get_framedone_irq)(void);
 	int (*wb_setup)(const struct omap_dss_writeback_info *wi,

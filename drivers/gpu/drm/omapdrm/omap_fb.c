@@ -29,7 +29,7 @@
 
 /* per-format info: */
 struct format {
-	enum omap_color_mode dss_format;
+	u32 dss_format;
 	uint32_t pixel_format;
 	struct {
 		int stride_bpp;           /* this times width is stride */
@@ -40,36 +40,44 @@ struct format {
 
 static const struct format formats[] = {
 	/* 16bpp [A]RGB: */
-	{ OMAP_DSS_COLOR_RGB16,       DRM_FORMAT_RGB565,   {{2, 1}}, false }, /* RGB16-565 */
-	{ OMAP_DSS_COLOR_RGB12U,      DRM_FORMAT_RGBX4444, {{2, 1}}, false }, /* RGB12x-4444 */
-	{ OMAP_DSS_COLOR_RGBX16,      DRM_FORMAT_XRGB4444, {{2, 1}}, false }, /* xRGB12-4444 */
-	{ OMAP_DSS_COLOR_RGBA16,      DRM_FORMAT_RGBA4444, {{2, 1}}, false }, /* RGBA12-4444 */
-	{ OMAP_DSS_COLOR_ARGB16,      DRM_FORMAT_ARGB4444, {{2, 1}}, false }, /* ARGB16-4444 */
-	{ OMAP_DSS_COLOR_XRGB16_1555, DRM_FORMAT_XRGB1555, {{2, 1}}, false }, /* xRGB15-1555 */
-	{ OMAP_DSS_COLOR_ARGB16_1555, DRM_FORMAT_ARGB1555, {{2, 1}}, false }, /* ARGB16-1555 */
+	{ DRM_FORMAT_RGB565,        DRM_FORMAT_RGB565,   {{2, 1}}, false }, /* RGB16-565 */
+	{ DRM_FORMAT_RGBX4444,      DRM_FORMAT_RGBX4444, {{2, 1}}, false }, /* RGB12x-4444 */
+	{ DRM_FORMAT_XRGB4444,      DRM_FORMAT_XRGB4444, {{2, 1}}, false }, /* xRGB12-4444 */
+	{ DRM_FORMAT_RGBA4444,      DRM_FORMAT_RGBA4444, {{2, 1}}, false }, /* RGBA12-4444 */
+	{ DRM_FORMAT_ARGB4444,      DRM_FORMAT_ARGB4444, {{2, 1}}, false }, /* ARGB16-4444 */
+	{ DRM_FORMAT_XRGB1555,      DRM_FORMAT_XRGB1555, {{2, 1}}, false }, /* xRGB15-1555 */
+	{ DRM_FORMAT_ARGB1555,      DRM_FORMAT_ARGB1555, {{2, 1}}, false }, /* ARGB16-1555 */
 	/* 24bpp RGB: */
-	{ OMAP_DSS_COLOR_RGB24P,      DRM_FORMAT_RGB888,   {{3, 1}}, false }, /* RGB24-888 */
+	{ DRM_FORMAT_RGB888,        DRM_FORMAT_RGB888,   {{3, 1}}, false }, /* RGB24-888 */
 	/* 32bpp [A]RGB: */
-	{ OMAP_DSS_COLOR_RGBX32,      DRM_FORMAT_RGBX8888, {{4, 1}}, false }, /* RGBx24-8888 */
-	{ OMAP_DSS_COLOR_RGB24U,      DRM_FORMAT_XRGB8888, {{4, 1}}, false }, /* xRGB24-8888 */
-	{ OMAP_DSS_COLOR_RGBA32,      DRM_FORMAT_RGBA8888, {{4, 1}}, false }, /* RGBA32-8888 */
-	{ OMAP_DSS_COLOR_ARGB32,      DRM_FORMAT_ARGB8888, {{4, 1}}, false }, /* ARGB32-8888 */
+	{ DRM_FORMAT_RGBX8888,      DRM_FORMAT_RGBX8888, {{4, 1}}, false }, /* RGBx24-8888 */
+	{ DRM_FORMAT_XRGB8888,      DRM_FORMAT_XRGB8888, {{4, 1}}, false }, /* xRGB24-8888 */
+	{ DRM_FORMAT_RGBA8888,      DRM_FORMAT_RGBA8888, {{4, 1}}, false }, /* RGBA32-8888 */
+	{ DRM_FORMAT_ARGB8888,      DRM_FORMAT_ARGB8888, {{4, 1}}, false }, /* ARGB32-8888 */
 	/* YUV: */
-	{ OMAP_DSS_COLOR_NV12,        DRM_FORMAT_NV12,     {{1, 1}, {1, 2}}, true },
-	{ OMAP_DSS_COLOR_YUV2,        DRM_FORMAT_YUYV,     {{2, 1}}, true },
-	{ OMAP_DSS_COLOR_UYVY,        DRM_FORMAT_UYVY,     {{2, 1}}, true },
+	{ DRM_FORMAT_NV12,          DRM_FORMAT_NV12,     {{1, 1}, {1, 2}}, true },
+	{ DRM_FORMAT_YUYV,          DRM_FORMAT_YUYV,     {{2, 1}}, true },
+	{ DRM_FORMAT_UYVY,          DRM_FORMAT_UYVY,     {{2, 1}}, true },
 };
 
 /* convert from overlay's pixel formats bitmask to an array of fourcc's */
 uint32_t omap_framebuffer_get_formats(uint32_t *pixel_formats,
-		uint32_t max_formats, enum omap_color_mode supported_modes)
+		uint32_t max_formats, const u32 *supported_modes)
 {
 	uint32_t nformats = 0;
 	int i = 0;
 
-	for (i = 0; i < ARRAY_SIZE(formats) && nformats < max_formats; i++)
-		if (formats[i].dss_format & supported_modes)
+	for (i = 0; i < ARRAY_SIZE(formats) && nformats < max_formats; i++) {
+		unsigned int t;
+
+		for (t = 0; supported_modes[t]; ++t) {
+			if (supported_modes[t] != formats[i].dss_format)
+				continue;
+
 			pixel_formats[nformats++] = formats[i].pixel_format;
+			break;
+		}
+	}
 
 	return nformats;
 }
@@ -153,10 +161,40 @@ bool omap_framebuffer_supports_rotation(struct drm_framebuffer *fb)
 	return omap_gem_flags(plane->bo) & OMAP_BO_TILED;
 }
 
+/* Note: DRM rotates counter-clockwise, TILER & DSS rotates clockwise */
+static uint32_t drm_rotation_to_tiler(unsigned int drm_rot)
+{
+	uint32_t orient;
+
+	switch (drm_rot & DRM_ROTATE_MASK) {
+	default:
+	case BIT(DRM_ROTATE_0):
+		orient = 0;
+		break;
+	case BIT(DRM_ROTATE_90):
+		orient = MASK_XY_FLIP | MASK_X_INVERT;
+		break;
+	case BIT(DRM_ROTATE_180):
+		orient = MASK_X_INVERT | MASK_Y_INVERT;
+		break;
+	case BIT(DRM_ROTATE_270):
+		orient = MASK_XY_FLIP | MASK_Y_INVERT;
+		break;
+	}
+
+	if (drm_rot & BIT(DRM_REFLECT_X))
+		orient ^= MASK_X_INVERT;
+
+	if (drm_rot & BIT(DRM_REFLECT_Y))
+		orient ^= MASK_Y_INVERT;
+
+	return orient;
+}
+
 /* update ovl info for scanout, handles cases of multi-planar fb's, etc.
  */
 void omap_framebuffer_update_scanout(struct drm_framebuffer *fb,
-		struct omap_drm_window *win, struct omap_overlay_info *info)
+		struct drm_plane_state *state, struct omap_overlay_info *info)
 {
 	struct omap_framebuffer *omap_fb = to_omap_framebuffer(fb);
 	const struct format *format = omap_fb->format;
@@ -165,59 +203,53 @@ void omap_framebuffer_update_scanout(struct drm_framebuffer *fb,
 
 	info->color_mode = format->dss_format;
 
-	info->pos_x      = win->crtc_x;
-	info->pos_y      = win->crtc_y;
-	info->out_width  = win->crtc_w;
-	info->out_height = win->crtc_h;
-	info->width      = win->src_w;
-	info->height     = win->src_h;
+	info->pos_x      = state->crtc_x;
+	info->pos_y      = state->crtc_y;
+	info->out_width  = state->crtc_w;
+	info->out_height = state->crtc_h;
+	info->width      = state->src_w >> 16;
+	info->height     = state->src_h >> 16;
 
-	x = win->src_x;
-	y = win->src_y;
+	/* DSS driver wants the w & h in rotated orientation */
+	if (drm_rotation_90_or_270(state->rotation))
+		swap(info->width, info->height);
+
+	x = state->src_x >> 16;
+	y = state->src_y >> 16;
 
 	if (omap_gem_flags(plane->bo) & OMAP_BO_TILED) {
-		uint32_t w = win->src_w;
-		uint32_t h = win->src_h;
+		uint32_t w = state->src_w >> 16;
+		uint32_t h = state->src_h >> 16;
 
-		switch (win->rotation & DRM_ROTATE_MASK) {
-		default:
-			dev_err(fb->dev->dev, "invalid rotation: %02x",
-					(uint32_t)win->rotation);
-			/* fallthru to default to no rotation */
-		case 0:
-		case BIT(DRM_ROTATE_0):
-			orient = 0;
-			break;
-		case BIT(DRM_ROTATE_90):
-			orient = MASK_XY_FLIP | MASK_X_INVERT;
-			break;
-		case BIT(DRM_ROTATE_180):
-			orient = MASK_X_INVERT | MASK_Y_INVERT;
-			break;
-		case BIT(DRM_ROTATE_270):
-			orient = MASK_XY_FLIP | MASK_Y_INVERT;
-			break;
+		orient = drm_rotation_to_tiler(state->rotation);
+
+		/*
+		 * omap_gem_rotated_paddr() wants the x & y in tiler units.
+		 * Usually tiler unit size is the same as the pixel size, except
+		 * for YUV422 formats, for which the tiler unit size is 32 bits
+		 * and pixel size is 16 bits.
+		 */
+		if (fb->pixel_format == DRM_FORMAT_UYVY ||
+				fb->pixel_format == DRM_FORMAT_YUYV) {
+			x /= 2;
+			w /= 2;
 		}
 
-		if (win->rotation & BIT(DRM_REFLECT_X))
-			orient ^= MASK_X_INVERT;
-
-		if (win->rotation & BIT(DRM_REFLECT_Y))
-			orient ^= MASK_Y_INVERT;
-
-		/* adjust x,y offset for flip/invert: */
-		if (orient & MASK_XY_FLIP)
-			swap(w, h);
+		/* adjust x,y offset for invert: */
 		if (orient & MASK_Y_INVERT)
 			y += h - 1;
 		if (orient & MASK_X_INVERT)
 			x += w - 1;
 
-		omap_gem_rotated_paddr(plane->bo, orient, x, y, &info->paddr);
+		/* Note: x and y are in TILER units, not pixels */
+		omap_gem_rotated_paddr(plane->bo, orient, x, y,
+					  &info->paddr);
 		info->rotation_type = OMAP_DSS_ROT_TILER;
+		info->rotation = state->rotation ?: DRM_ROTATE_0;
+		/* Note: stride in TILER units, not pixels */
 		info->screen_width  = omap_gem_tiled_stride(plane->bo, orient);
 	} else {
-		switch (win->rotation & DRM_ROTATE_MASK) {
+		switch (state->rotation & DRM_ROTATE_MASK) {
 		case 0:
 		case BIT(DRM_ROTATE_0):
 			/* OK */
@@ -226,20 +258,20 @@ void omap_framebuffer_update_scanout(struct drm_framebuffer *fb,
 		default:
 			dev_warn(fb->dev->dev,
 				"rotation '%d' ignored for non-tiled fb\n",
-				win->rotation);
-			win->rotation = 0;
+				state->rotation);
 			break;
 		}
 
 		info->paddr         = get_linear_addr(plane, format, 0, x, y);
-		info->rotation_type = OMAP_DSS_ROT_DMA;
+		info->rotation_type = OMAP_DSS_ROT_NONE;
+		info->rotation      = DRM_ROTATE_0;
 		info->screen_width  = plane->pitch;
 	}
 
 	/* convert to pixels: */
 	info->screen_width /= format->planes[0].stride_bpp;
 
-	if (format->dss_format == OMAP_DSS_COLOR_NV12) {
+	if (format->dss_format == DRM_FORMAT_NV12) {
 		plane = &omap_fb->planes[1];
 
 		if (info->rotation_type == OMAP_DSS_ROT_TILER) {

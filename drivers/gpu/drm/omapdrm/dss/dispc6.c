@@ -914,22 +914,32 @@ static void dispc6_vid_set_scaling(enum omap_plane plane,
 
 /* OTHER */
 
+static const enum omap_color_mode dispc6_supported_formats[] = {
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_RGBX8888,
+	DRM_FORMAT_RGBA8888,
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_NV12,
+	0
+};
+
 static const struct {
 	u32 fourcc;
-	enum omap_color_mode color_mode;
 	u8 dss_code;
 	u8 bytespp;
 } dispc6_color_formats[] = {
-	{ DRM_FORMAT_XRGB8888, OMAP_DSS_COLOR_RGB24U, 0x27, 4, },
-	{ DRM_FORMAT_ARGB8888, OMAP_DSS_COLOR_ARGB32, 0x7, 4, },
+	{ DRM_FORMAT_XRGB8888, 0x27, 4, },
+	{ DRM_FORMAT_ARGB8888, 0x7, 4, },
 
-	{ DRM_FORMAT_RGBX8888, OMAP_DSS_COLOR_RGBX32, 0x29, 4, },
-	{ DRM_FORMAT_RGBA8888, OMAP_DSS_COLOR_RGBA32, 0x9, 4, },
+	{ DRM_FORMAT_RGBX8888, 0x29, 4, },
+	{ DRM_FORMAT_RGBA8888, 0x9, 4, },
 
-	{ DRM_FORMAT_YUYV, OMAP_DSS_COLOR_YUV2, 0x3e, 2, },
-	{ DRM_FORMAT_UYVY, OMAP_DSS_COLOR_UYVY, 0x3f, 2, },
+	{ DRM_FORMAT_YUYV, 0x3e, 2, },
+	{ DRM_FORMAT_UYVY, 0x3f, 2, },
 
-	{ DRM_FORMAT_NV12, OMAP_DSS_COLOR_NV12, 0x3d, 2, },
+	{ DRM_FORMAT_NV12, 0x3d, 2, },
 };
 
 static bool dispc6_fourcc_is_yuv(u32 fourcc)
@@ -942,19 +952,6 @@ static bool dispc6_fourcc_is_yuv(u32 fourcc)
 	default:
 		return false;
 	}
-}
-
-static u32 dispc6_dss_colormode_to_fourcc(enum omap_color_mode dss_mode)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(dispc6_color_formats); ++i) {
-		if (dispc6_color_formats[i].color_mode == dss_mode)
-			return dispc6_color_formats[i].fourcc;
-	}
-
-	__WARN();
-	return DRM_FORMAT_XRGB8888;
 }
 
 static void dispc6_ovl_set_channel_out(enum omap_plane plane, enum omap_channel channel)
@@ -1009,7 +1006,7 @@ static int dispc6_ovl_setup(enum omap_plane plane, const struct omap_overlay_inf
 			    const struct omap_video_timings *mgr_timings,
 			    bool mem_to_mem)
 {
-	u32 fourcc = dispc6_dss_colormode_to_fourcc(oi->color_mode);
+	u32 fourcc = oi->color_mode;
 	int bytespp = dispc6_fourcc_to_bytespp(fourcc);
 
 	dispc6_ovl_set_pixel_format(plane, fourcc);
@@ -1128,15 +1125,9 @@ static enum omap_dss_output_id dispc6_mgr_get_supported_outputs(enum omap_channe
 	return OMAP_DSS_OUTPUT_DPI;
 }
 
-static enum omap_color_mode dispc6_ovl_get_color_modes(enum omap_plane plane)
+static const u32 *dispc6_ovl_get_color_modes(enum omap_plane plane)
 {
-	enum omap_color_mode formats = 0;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(dispc6_color_formats); ++i)
-		formats |= dispc6_color_formats[i].color_mode;
-
-	return formats;
+	return dispc6_supported_formats;
 }
 
 static bool dispc6_has_writeback(void)
