@@ -186,6 +186,16 @@ cache_skip_flush:
 	ldr	r0, [r1]
 
 skip_rtc_va_refresh:
+	/* Check if we want self refresh, if so enter SR */
+	tst     r4, #WFI_FLAG_SELF_REFRESH
+	beq     emif_skip_enter_sr
+
+	adr	r9, am43xx_emif_sram_table
+
+	ldr     r3, [r9, #EMIF_PM_ENTER_SR_OFFSET]
+	blx     r3
+
+emif_skip_enter_sr:
 	/* Only necessary if PER is losing context */
 	tst	r4, #WFI_FLAG_SAVE_EMIF
 	beq	emif_skip_save
@@ -196,14 +206,9 @@ skip_rtc_va_refresh:
 	blx     r3
 
 emif_skip_save:
-	/* Check if we want self refresh, if so enter SR and disable EMIF */
+	/* Only can disable EMIF if we have entered self refresh */
 	tst     r4, #WFI_FLAG_SELF_REFRESH
-	beq     emif_skip_enter_sr
-
-	adr	r9, am43xx_emif_sram_table
-
-	ldr     r3, [r9, #EMIF_PM_ENTER_SR_OFFSET]
-	blx     r3
+	beq	emif_skip_disable
 
 	/* Disable EMIF */
 	ldr	r1, am43xx_virt_emif_clkctrl
@@ -217,7 +222,7 @@ wait_emif_disable:
 	cmp	r2, r3
 	bne	wait_emif_disable
 
-emif_skip_enter_sr:
+emif_skip_disable:
 	tst	r4, #WFI_FLAG_RTC_ONLY
 	beq	skip_rtc_only
 
