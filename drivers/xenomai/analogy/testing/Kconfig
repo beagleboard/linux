@@ -1,0 +1,13 @@
+
+config XENO_DRIVERS_ANALOGY_FAKE
+	depends on XENO_DRIVERS_ANALOGY
+	tristate "Fake driver"
+	default n
+	help
+
+	The fake driver displays many subdevices:
+	- 0: analog input;
+	- 1: digital input / output;
+	- 2: analog output;
+	- 3: analog input; data written into the subdevice 2 can be
+          read here.
