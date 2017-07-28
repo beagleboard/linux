@@ -108,8 +108,16 @@ void exit_thread(struct task_struct *tsk)
 	if (bp) {
 		struct tss_struct *tss = &per_cpu(cpu_tss, get_cpu());
 
-		t->io_bitmap_ptr = NULL;
+		/*
+		 * The caller may be preempted via I-pipe: to make
+		 * sure TIF_IO_BITMAP always denotes a valid I/O
+		 * bitmap when set, we clear it _before_ the I/O
+		 * bitmap pointer. No cache coherence issue ahead as
+		 * migration is currently locked (the primary domain
+		 * may never migrate either).
+		 */
 		clear_thread_flag(TIF_IO_BITMAP);
+		t->io_bitmap_ptr = NULL;
 		/*
 		 * Careful, clear this in the TSS too:
 		 */
@@ -324,7 +332,7 @@ bool xen_set_default_idle(void)
 #endif
 void stop_this_cpu(void *dummy)
 {
-	local_irq_disable();
+	hard_local_irq_disable();
 	/*
 	 * Remove this CPU:
 	 */
@@ -364,6 +372,10 @@ static void amd_e400_idle(void)
 			if (!boot_cpu_has(X86_FEATURE_NONSTOP_TSC))
 				mark_tsc_unstable("TSC halt in AMD C1E");
 			pr_info("System has AMD C1E enabled\n");
+#ifdef CONFIG_IPIPE
+			pr_info("I-pipe: will not be able to use LAPIC as a tick device\n"
+				"I-pipe: disable C1E power state in your BIOS\n");
+#endif
 		}
 	}
 
@@ -429,7 +441,11 @@ static __cpuidle void mwait_idle(void)
 
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
 		if (!need_resched())
+#ifdef CONFIG_IPIPE
+			__ipipe_halt_root(1);
+#else
 			__sti_mwait(0, 0);
+#endif
 		else
 			local_irq_enable();
 		trace_cpu_idle_rcuidle(PWR_EVENT_EXIT, smp_processor_id());

@@ -21,9 +21,11 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/clk.h>
+#include <linux/cpu.h>
 
 #include <asm/tlb.h>
 #include <asm/mach/map.h>
+#include <asm/system_misc.h>
 
 #include <linux/omap-dma.h>
 
@@ -516,6 +518,9 @@ void __init omap3_init_early(void)
 	omap3xxx_clockdomains_init();
 	omap3xxx_hwmod_init();
 	omap_hwmod_init_postsetup();
+#ifdef CONFIG_IPIPE
+	cpu_idle_poll_ctrl(true);
+#endif
 	if (!of_have_populated_dt()) {
 		omap3_control_legacy_iomap_init();
 		if (soc_is_am35xx())
@@ -629,6 +634,9 @@ void __init ti816x_init_early(void)
 	ti816x_clockdomains_init();
 	dm816x_hwmod_init();
 	omap_hwmod_init_postsetup();
+#ifdef CONFIG_IPIPE
+	cpu_idle_poll_ctrl(true);
+#endif
 	if (of_have_populated_dt())
 		omap_clk_soc_init = dm816x_dt_clk_init;
 }
