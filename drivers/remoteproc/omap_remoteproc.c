@@ -1058,12 +1058,15 @@ static int omap_rproc_get_boot_data(struct platform_device *pdev,
 static int omap_rproc_of_get_internal_memories(struct platform_device *pdev,
 					       struct rproc *rproc)
 {
-	static const char * const mem_names[] = {"l2ram"};
+	static const char * const ipu_mem_names[] = {"l2ram"};
+	static const char * const dra7_dsp_mem_names[] = {"l2ram", "l1pram",
+								"l1dram"};
 	struct device_node *np = pdev->dev.of_node;
 	struct omap_rproc *oproc = rproc->priv;
 	struct device *dev = &pdev->dev;
+	const char * const *mem_names;
 	struct resource *res;
-	int num_mems = 0;
+	int num_mems;
 	const __be32 *addrp;
 	u32 l4_offset = 0;
 	u64 size;
@@ -1074,8 +1077,15 @@ static int omap_rproc_of_get_internal_memories(struct platform_device *pdev,
 	    of_device_is_compatible(np, "ti,omap5-dsp"))
 		return 0;
 
-	/* XXX: add support for DRA7 DSP L1 RAMs if needed */
-	num_mems = ARRAY_SIZE(mem_names);
+	/* DRA7 DSPs have two additional SRAMs at L1 level */
+	if (of_device_is_compatible(np, "ti,dra7-dsp")) {
+		mem_names = dra7_dsp_mem_names;
+		num_mems = ARRAY_SIZE(dra7_dsp_mem_names);
+	} else {
+		mem_names = ipu_mem_names;
+		num_mems = ARRAY_SIZE(ipu_mem_names);
+	}
+
 	oproc->mem = devm_kcalloc(dev, num_mems, sizeof(*oproc->mem),
 				  GFP_KERNEL);
 	if (!oproc->mem)
