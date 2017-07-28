@@ -68,11 +68,6 @@
 static struct omap_dm_timer clkev;
 static struct clock_event_device clockevent_gpt;
 
-/* Clockevent hwmod for am335x and am437x suspend */
-struct omap_hwmod *clockevent_gpt_hwmod;
-static struct irq_chip *clkev_irq_chip;
-static struct irq_desc *clkev_irq_desc;
-
 #ifdef CONFIG_SOC_HAS_REALTIME_COUNTER
 static unsigned long arch_timer_freq;
 
@@ -128,44 +123,6 @@ static int omap2_gp_timer_set_periodic(struct clock_event_device *evt)
 				   OMAP_TIMER_CTRL_AR | OMAP_TIMER_CTRL_ST,
 				   0xffffffff - period, OMAP_TIMER_POSTED);
 	return 0;
-}
-
-static void omap_clkevt_late_ack(void)
-{
-	if (!clkev_irq_chip)
-		return;
-
-	if (clkev_irq_chip->irq_ack)
-		clkev_irq_chip->irq_ack(&clkev_irq_desc->irq_data);
-	if (clkev_irq_chip->irq_eoi)
-		clkev_irq_chip->irq_eoi(&clkev_irq_desc->irq_data);
-
-	clkev_irq_chip->irq_unmask(&clkev_irq_desc->irq_data);
-}
-
-static void omap_clkevt_idle(struct clock_event_device *unused)
-{
-	if (!clockevent_gpt_hwmod)
-		return;
-
-	/*
-	 * It is possible for a late interrupt to be generated which will
-	 * cause a suspend failure. Let's ack it here both in the timer
-	 * and the interrupt controller to avoid this.
-	 */
-	__omap_dm_timer_write_status(&clkev, OMAP_TIMER_INT_OVERFLOW);
-	omap_clkevt_late_ack();
-
-	omap_hwmod_idle(clockevent_gpt_hwmod);
-}
-
-static void omap_clkevt_unidle(struct clock_event_device *unused)
-{
-	if (!clockevent_gpt_hwmod)
-		return;
-
-	omap_hwmod_enable(clockevent_gpt_hwmod);
-	__omap_dm_timer_int_enable(&clkev, OMAP_TIMER_INT_OVERFLOW);
 }
 
 static struct clock_event_device clockevent_gpt = {
@@ -401,18 +358,6 @@ static void __init omap2_gp_clockevent_init(int gptimer_id,
 					3, /* Timer internal resynch latency */
 					0xffffffff);
 
-	if (soc_is_am33xx() || soc_is_am43xx()) {
-		clockevent_gpt.suspend = omap_clkevt_idle;
-		clockevent_gpt.resume = omap_clkevt_unidle;
-
-		clockevent_gpt_hwmod =
-			omap_hwmod_lookup(clockevent_gpt.name);
-
-		clkev_irq_desc = irq_to_desc(clkev.irq);
-		if (clkev_irq_desc)
-			clkev_irq_chip = irq_desc_get_chip(clkev_irq_desc);
-	}
-
 	pr_info("OMAP clockevent source: %s at %lu Hz\n", clockevent_gpt.name,
 		clkev.rate);
 }
@@ -431,7 +376,7 @@ static cycle_t clocksource_read_cycles(struct clocksource *cs)
 }
 
 static struct clocksource clocksource_gpt = {
-	.rating		= 290,
+	.rating		= 300,
 	.read		= clocksource_read_cycles,
 	.mask		= CLOCKSOURCE_MASK(32),
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
@@ -504,38 +449,6 @@ static int __init __maybe_unused omap2_sync32k_clocksource_init(void)
 	return ret;
 }
 
-static unsigned int omap2_gptimer_clksrc_load;
-
-static void omap2_gptimer_clksrc_suspend(struct clocksource *unused)
-{
-	struct omap_hwmod *oh;
-
-	omap2_gptimer_clksrc_load =
-		__omap_dm_timer_read_counter(&clksrc, OMAP_TIMER_NONPOSTED);
-
-	oh = omap_hwmod_lookup(clocksource_gpt.name);
-	if (!oh)
-		return;
-
-	omap_hwmod_idle(oh);
-}
-
-static void omap2_gptimer_clksrc_resume(struct clocksource *unused)
-{
-	struct omap_hwmod *oh;
-
-	oh = omap_hwmod_lookup(clocksource_gpt.name);
-	if (!oh)
-		return;
-
-	omap_hwmod_enable(oh);
-
-	__omap_dm_timer_load_start(&clksrc,
-				   OMAP_TIMER_CTRL_ST | OMAP_TIMER_CTRL_AR,
-				   omap2_gptimer_clksrc_load,
-				   OMAP_TIMER_NONPOSTED);
-}
-
 static void __init omap2_gptimer_clocksource_init(int gptimer_id,
 						  const char *fck_source,
 						  const char *property)
@@ -544,11 +457,6 @@ static void __init omap2_gptimer_clocksource_init(int gptimer_id,
 
 	clksrc.id = gptimer_id;
 	clksrc.errata = omap_dm_timer_get_errata();
-
-	if (soc_is_am43xx()) {
-		clocksource_gpt.suspend = omap2_gptimer_clksrc_suspend;
-		clocksource_gpt.resume = omap2_gptimer_clksrc_resume;
-	}
 
 	res = omap_dm_timer_init_one(&clksrc, fck_source, property,
 				     &clocksource_gpt.name,
