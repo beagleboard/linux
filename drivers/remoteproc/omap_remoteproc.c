@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/err.h>
 #include <linux/of_device.h>
+#include <linux/of_address.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -31,16 +32,20 @@
 #include "omap_remoteproc.h"
 #include "remoteproc_internal.h"
 
+#define OMAP_RPROC_DSP_LOCAL_MEM_OFFSET		(0x00800000)
 #define OMAP_RPROC_IPU_L2RAM_DEV_ADDR		(0x20000000)
 
 /**
  * struct omap_rproc_boot_data - boot data structure for the DSP omap rprocs
  * @syscon: regmap handle for the system control configuration module
  * @boot_reg: boot register offset within the @syscon regmap
+ * @boot_reg_shift: bit-field shift required for the boot address value in
+ *		    @boot_reg
  */
 struct omap_rproc_boot_data {
 	struct regmap *syscon;
 	unsigned int boot_reg;
+	unsigned int boot_reg_shift;
 };
 
 /**
@@ -150,14 +155,19 @@ static int omap_rproc_write_dsp_boot_addr(struct rproc *rproc)
 	struct omap_rproc *oproc = rproc->priv;
 	struct omap_rproc_boot_data *bdata = oproc->boot_data;
 	u32 offset = bdata->boot_reg;
+	unsigned int value = rproc->bootaddr;
+	unsigned int mask = ~(SZ_1K - 1);
 
-	if (rproc->bootaddr & (SZ_1K - 1)) {
+	if (value & (SZ_1K - 1)) {
 		dev_err(dev, "invalid boot address 0x%x, must be aligned on a 1KB boundary\n",
-			rproc->bootaddr);
+			value);
 		return -EINVAL;
 	}
 
-	regmap_write(bdata->syscon, offset, rproc->bootaddr);
+	value >>= bdata->boot_reg_shift;
+	mask >>= bdata->boot_reg_shift;
+
+	regmap_update_bits(bdata->syscon, offset, mask, value);
 
 	return 0;
 }
@@ -304,6 +314,28 @@ static const struct omap_rproc_dev_data omap5_ipu_dev_data = {
 	.fw_name	= "omap5-ipu-fw.xem4",
 };
 
+static const struct omap_rproc_dev_data dra7_rproc_dev_data[] = {
+	{
+		.device_name	= "40800000.dsp",
+		.fw_name	= "dra7-dsp1-fw.xe66",
+	},
+	{
+		.device_name	= "41000000.dsp",
+		.fw_name	= "dra7-dsp2-fw.xe66",
+	},
+	{
+		.device_name	= "55020000.ipu",
+		.fw_name	= "dra7-ipu2-fw.xem4",
+	},
+	{
+		.device_name	= "58820000.ipu",
+		.fw_name	= "dra7-ipu1-fw.xem4",
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id omap_rproc_of_match[] = {
 	{
 		.compatible     = "ti,omap4-dsp",
@@ -322,6 +354,14 @@ static const struct of_device_id omap_rproc_of_match[] = {
 		.data           = &omap5_ipu_dev_data,
 	},
 	{
+		.compatible     = "ti,dra7-dsp",
+		.data           = dra7_rproc_dev_data,
+	},
+	{
+		.compatible     = "ti,dra7-ipu",
+		.data           = dra7_rproc_dev_data,
+	},
+	{
 		/* end */
 	},
 };
@@ -329,13 +369,23 @@ MODULE_DEVICE_TABLE(of, omap_rproc_of_match);
 
 static const char *omap_rproc_get_firmware(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
 	const struct omap_rproc_dev_data *data;
 
 	data = of_device_get_match_data(&pdev->dev);
 	if (!data)
 		return ERR_PTR(-ENODEV);
 
-	return data->fw_name;
+	if (!of_device_is_compatible(np, "ti,dra7-dsp") &&
+	    !of_device_is_compatible(np, "ti,dra7-ipu"))
+		return data->fw_name;
+
+	for (; data && data->device_name; data++) {
+		if (!strcmp(dev_name(&pdev->dev), data->device_name))
+			return data->fw_name;
+	}
+
+	return ERR_PTR(-ENOENT);
 }
 
 static int omap_rproc_get_boot_data(struct platform_device *pdev,
@@ -346,7 +396,8 @@ static int omap_rproc_get_boot_data(struct platform_device *pdev,
 	int ret;
 
 	if (!of_device_is_compatible(np, "ti,omap4-dsp") &&
-	    !of_device_is_compatible(np, "ti,omap5-dsp"))
+	    !of_device_is_compatible(np, "ti,omap5-dsp") &&
+	    !of_device_is_compatible(np, "ti,dra7-dsp"))
 		return 0;
 
 	oproc->boot_data = devm_kzalloc(&pdev->dev, sizeof(*oproc->boot_data),
@@ -372,18 +423,27 @@ static int omap_rproc_get_boot_data(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
+	if (of_device_is_compatible(np, "ti,dra7-dsp"))
+		oproc->boot_data->boot_reg_shift = 10;
+
 	return 0;
 }
 
 static int omap_rproc_of_get_internal_memories(struct platform_device *pdev,
 					       struct rproc *rproc)
 {
-	static const char * const mem_names[] = {"l2ram"};
+	static const char * const ipu_mem_names[] = {"l2ram"};
+	static const char * const dra7_dsp_mem_names[] = {"l2ram", "l1pram",
+								"l1dram"};
 	struct device_node *np = pdev->dev.of_node;
 	struct omap_rproc *oproc = rproc->priv;
 	struct device *dev = &pdev->dev;
+	const char * const *mem_names;
 	struct resource *res;
 	int num_mems;
+	const __be32 *addrp;
+	u32 l4_offset = 0;
+	u64 size;
 	int i;
 
 	/* OMAP4 and OMAP5 DSPs do not have support for flat SRAM */
@@ -391,7 +451,15 @@ static int omap_rproc_of_get_internal_memories(struct platform_device *pdev,
 	    of_device_is_compatible(np, "ti,omap5-dsp"))
 		return 0;
 
-	num_mems = ARRAY_SIZE(mem_names);
+	/* DRA7 DSPs have two additional SRAMs at L1 level */
+	if (of_device_is_compatible(np, "ti,dra7-dsp")) {
+		mem_names = dra7_dsp_mem_names;
+		num_mems = ARRAY_SIZE(dra7_dsp_mem_names);
+	} else {
+		mem_names = ipu_mem_names;
+		num_mems = ARRAY_SIZE(ipu_mem_names);
+	}
+
 	oproc->mem = devm_kcalloc(dev, num_mems, sizeof(*oproc->mem),
 				  GFP_KERNEL);
 	if (!oproc->mem)
@@ -407,7 +475,26 @@ static int omap_rproc_of_get_internal_memories(struct platform_device *pdev,
 			return PTR_ERR(oproc->mem[i].cpu_addr);
 		}
 		oproc->mem[i].bus_addr = res->start;
-		oproc->mem[i].dev_addr = OMAP_RPROC_IPU_L2RAM_DEV_ADDR;
+
+		/*
+		 * The DSPs have the internal memories starting at a fixed
+		 * offset of 0x800000 from address 0, and this corresponds to
+		 * L2RAM. The L3 address view has the L2RAM bus address as the
+		 * starting address for the IP, so the L2RAM memory region needs
+		 * to be processed first, and the device addresses for each
+		 * memory region can be computed using the relative offset
+		 * from this base address.
+		 */
+		if (of_device_is_compatible(np, "ti,dra7-dsp") &&
+		    !strcmp(mem_names[i], "l2ram")) {
+			addrp = of_get_address(dev->of_node, i, &size, NULL);
+			l4_offset = be32_to_cpu(*addrp);
+		}
+		oproc->mem[i].dev_addr =
+			of_device_is_compatible(np, "ti,dra7-dsp") ?
+				res->start - l4_offset +
+				OMAP_RPROC_DSP_LOCAL_MEM_OFFSET :
+				OMAP_RPROC_IPU_L2RAM_DEV_ADDR;
 		oproc->mem[i].size = resource_size(res);
 
 		dev_dbg(dev, "memory %8s: bus addr %pa size 0x%x va %p da 0x%x\n",
