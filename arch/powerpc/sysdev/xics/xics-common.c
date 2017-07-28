@@ -133,6 +133,7 @@ static void xics_request_ipi(void)
 
 	ipi = irq_create_mapping(xics_host, XICS_IPI);
 	BUG_ON(!ipi);
+	__ipipe_register_mux_ipi(ipi);
 
 	/*
 	 * IPIs are marked IRQF_PERCPU. The handler was set in map.
@@ -325,9 +326,26 @@ static int xics_host_match(struct irq_domain *h, struct device_node *node,
 static void xics_ipi_unmask(struct irq_data *d) { }
 static void xics_ipi_mask(struct irq_data *d) { }
 
+#ifdef CONFIG_IPIPE
+
+static struct irq_chip xics_ipi_chip;
+
+static void xics_ipi_hold(struct irq_data *d)
+{
+	xics_ipi_chip.irq_eoi(d);
+}
+
+static void xics_ipi_release(struct irq_data *d) { }
+
+#endif
+
 static struct irq_chip xics_ipi_chip = {
 	.name = "XICS",
 	.irq_eoi = NULL, /* Patched at init time */
+#ifdef CONFIG_IPIPE
+	.irq_hold = xics_ipi_hold,
+	.irq_release = xics_ipi_release,
+#endif
 	.irq_mask = xics_ipi_mask,
 	.irq_unmask = xics_ipi_unmask,
 };

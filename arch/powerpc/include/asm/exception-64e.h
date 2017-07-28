@@ -11,6 +11,8 @@
 #ifndef _ASM_POWERPC_EXCEPTION_64E_H
 #define _ASM_POWERPC_EXCEPTION_64E_H
 
+#include <asm/irq_softstate.h>
+
 /*
  * SPRGs usage an other considerations...
  *

@@ -98,6 +98,18 @@
 	.macro	enable_irq_notrace
 	cpsie	i
 	.endm
+
+	.macro  disable_irq_cond
+#ifdef CONFIG_IPIPE
+	cpsid	i
+#endif /* CONFIG_IPIPE */
+	.endm
+
+	.macro  enable_irq_cond
+#ifdef CONFIG_IPIPE
+	cpsie	i
+#endif /* CONFIG_IPIPE */
+	.endm
 #else
 	.macro	disable_irq_notrace
 	msr	cpsr_c, #PSR_I_BIT | SVC_MODE
@@ -106,10 +118,22 @@
 	.macro	enable_irq_notrace
 	msr	cpsr_c, #SVC_MODE
 	.endm
+
+	.macro	disable_irq_cond
+#ifdef CONFIG_IPIPE
+	msr	cpsr_c, #PSR_I_BIT | SVC_MODE
+#endif /* CONFIG_IPIPE */
+	.endm
+
+	.macro	enable_irq_cond
+#ifdef CONFIG_IPIPE
+	msr	cpsr_c, #SVC_MODE
+#endif /* CONFIG_IPIPE */
+	.endm
 #endif
 
 	.macro asm_trace_hardirqs_off, save=1
-#if defined(CONFIG_TRACE_IRQFLAGS)
+#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_IPIPE)
 	.if \save
 	stmdb   sp!, {r0-r3, ip, lr}
 	.endif
@@ -121,7 +145,7 @@
 	.endm
 
 	.macro asm_trace_hardirqs_on, cond=al, save=1
-#if defined(CONFIG_TRACE_IRQFLAGS)
+#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_IPIPE)
 	/*
 	 * actually the registers should be pushed and pop'd conditionally, but
 	 * after bl the flags are certainly clobbered

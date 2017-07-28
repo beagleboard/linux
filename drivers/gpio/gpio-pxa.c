@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/syscore_ops.h>
 #include <linux/slab.h>
+#include <linux/ipipe.h>
 
 /*
  * We handle the GPIOs by banks, each bank covers up to 32 GPIOs with
@@ -451,7 +452,7 @@ static irqreturn_t pxa_gpio_demux_handler(int in_irq, void *d)
 			for_each_set_bit(n, &gedr, BITS_PER_LONG) {
 				loop = 1;
 
-				generic_handle_irq(gpio_to_irq(gpio + n));
+				ipipe_handle_demuxed_irq(gpio_to_irq(gpio + n));
 			}
 		}
 		handled += loop;
@@ -491,13 +492,16 @@ static void pxa_mask_muxed_gpio(struct irq_data *d)
 	struct pxa_gpio_bank *b = gpio_to_pxabank(&pchip->chip, gpio);
 	void __iomem *base = gpio_bank_base(&pchip->chip, gpio);
 	uint32_t grer, gfer;
+	unsigned long flags;
 
 	b->irq_mask &= ~GPIO_bit(gpio);
 
+	flags = hard_local_irq_save();
 	grer = readl_relaxed(base + GRER_OFFSET) & ~GPIO_bit(gpio);
 	gfer = readl_relaxed(base + GFER_OFFSET) & ~GPIO_bit(gpio);
 	writel_relaxed(grer, base + GRER_OFFSET);
 	writel_relaxed(gfer, base + GFER_OFFSET);
+	hard_local_irq_restore(flags);
 }
 
 static int pxa_gpio_set_wake(struct irq_data *d, unsigned int on)
@@ -516,9 +520,12 @@ static void pxa_unmask_muxed_gpio(struct irq_data *d)
 	struct pxa_gpio_chip *pchip = irq_data_get_irq_chip_data(d);
 	unsigned int gpio = irqd_to_hwirq(d);
 	struct pxa_gpio_bank *c = gpio_to_pxabank(&pchip->chip, gpio);
+	unsigned long flags;
 
+	flags = hard_local_irq_save();
 	c->irq_mask |= GPIO_bit(gpio);
 	update_edge_detect(c);
+	hard_local_irq_restore(flags);
 }
 
 static struct irq_chip pxa_muxed_gpio_chip = {

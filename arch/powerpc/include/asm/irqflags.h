@@ -38,35 +38,10 @@
 #define TRACE_ENABLE_INTS	TRACE_WITH_FRAME_BUFFER(trace_hardirqs_on)
 #define TRACE_DISABLE_INTS	TRACE_WITH_FRAME_BUFFER(trace_hardirqs_off)
 
-/*
- * This is used by assembly code to soft-disable interrupts first and
- * reconcile irq state.
- *
- * NB: This may call C code, so the caller must be prepared for volatiles to
- * be clobbered.
- */
-#define RECONCILE_IRQ_STATE(__rA, __rB)		\
-	lbz	__rA,PACASOFTIRQEN(r13);	\
-	lbz	__rB,PACAIRQHAPPENED(r13);	\
-	cmpwi	cr0,__rA,0;			\
-	li	__rA,0;				\
-	ori	__rB,__rB,PACA_IRQ_HARD_DIS;	\
-	stb	__rB,PACAIRQHAPPENED(r13);	\
-	beq	44f;				\
-	stb	__rA,PACASOFTIRQEN(r13);	\
-	TRACE_DISABLE_INTS;			\
-44:
-
 #else
 #define TRACE_ENABLE_INTS
 #define TRACE_DISABLE_INTS
 
-#define RECONCILE_IRQ_STATE(__rA, __rB)		\
-	lbz	__rA,PACAIRQHAPPENED(r13);	\
-	li	__rB,0;				\
-	ori	__rA,__rA,PACA_IRQ_HARD_DIS;	\
-	stb	__rB,PACASOFTIRQEN(r13);	\
-	stb	__rA,PACAIRQHAPPENED(r13)
 #endif
 #endif
 
