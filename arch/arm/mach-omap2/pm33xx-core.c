@@ -30,6 +30,7 @@
 #include "control.h"
 #include "pm.h"
 #include "cm33xx.h"
+#include "prm.h"
 #include "prm33xx.h"
 #include "common.h"
 #include "clockdomain.h"
@@ -243,7 +244,7 @@ static struct am33xx_pm_sram_addr *amx3_get_sram_addrs(void)
 
 static void common_save_context(void)
 {
-	omap2_gpio_prepare_for_idle(1);
+	omap2_gpio_prepare_for_idle(0);
 	pinmux_save_context(pmx_dev, "am33xx_pmx_per");
 	clks_save_context();
 	pwrdms_save_context();
@@ -280,12 +281,14 @@ static void am43xx_save_context(void)
 {
 	common_save_context();
 	am43xx_control_save_context();
+	am43xx_prm_save_context();
 }
 
 static void am43xx_restore_context(void)
 {
 	common_restore_context();
 	am43xx_control_restore_context();
+	am43xx_prm_restore_context();
 	/*
 	 * HACK: restore dpll_per_clkdcoldo register contents, to avoid
 	 * breaking suspend-resume

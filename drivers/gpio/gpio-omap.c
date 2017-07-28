@@ -1458,6 +1458,8 @@ void omap2_gpio_resume_after_idle(void)
 			continue;
 
 		pm_runtime_get_sync(bank->chip.parent);
+
+		bank->power_mode = 0;
 	}
 }
 #endif

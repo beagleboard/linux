@@ -73,6 +73,16 @@ ENTRY(am33xx_do_wfi)
 	ldr	r4, [r2, #AMX3_PM_WFI_FLAGS_OFFSET]
 
 cache_skip_flush:
+	/* Check if we want self refresh, if so enter SR */
+	tst     r4, #WFI_FLAG_SELF_REFRESH
+	beq     emif_skip_enter_sr
+
+	adr	r9, am33xx_emif_sram_table
+
+	ldr	r3, [r9, #EMIF_PM_ENTER_SR_OFFSET]
+	blx	r3
+
+emif_skip_enter_sr:
 	/* Only necessary if PER is losing context */
 	tst	r4, #WFI_FLAG_SAVE_EMIF
 	beq	emif_skip_save
@@ -83,14 +93,9 @@ cache_skip_flush:
 	blx	r3
 
 emif_skip_save:
-	/* Check if we want self refresh, if so enter SR and disable EMIF */
+	/* Only can disable EMIF if we have entered self refresh */
 	tst     r4, #WFI_FLAG_SELF_REFRESH
-	beq     emif_skip_enter_sr
-
-	adr	r9, am33xx_emif_sram_table
-
-	ldr	r3, [r9, #EMIF_PM_ENTER_SR_OFFSET]
-	blx	r3
+	beq     emif_skip_disable
 
 	/* Disable EMIF */
 	ldr     r1, virt_emif_clkctrl
@@ -105,7 +110,7 @@ wait_emif_disable:
 	cmp	r2, r3
 	bne	wait_emif_disable
 
-emif_skip_enter_sr:
+emif_skip_disable:
 	tst	r4, #WFI_FLAG_WAKE_M3
 	beq	wkup_m3_skip
 

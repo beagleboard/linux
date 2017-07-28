@@ -70,6 +70,8 @@ static struct clock_event_device clockevent_gpt;
 
 /* Clockevent hwmod for am335x and am437x suspend */
 struct omap_hwmod *clockevent_gpt_hwmod;
+static struct irq_chip *clkev_irq_chip;
+static struct irq_desc *clkev_irq_desc;
 
 #ifdef CONFIG_SOC_HAS_REALTIME_COUNTER
 static unsigned long arch_timer_freq;
@@ -128,10 +130,31 @@ static int omap2_gp_timer_set_periodic(struct clock_event_device *evt)
 	return 0;
 }
 
+static void omap_clkevt_late_ack(void)
+{
+	if (!clkev_irq_chip)
+		return;
+
+	if (clkev_irq_chip->irq_ack)
+		clkev_irq_chip->irq_ack(&clkev_irq_desc->irq_data);
+	if (clkev_irq_chip->irq_eoi)
+		clkev_irq_chip->irq_eoi(&clkev_irq_desc->irq_data);
+
+	clkev_irq_chip->irq_unmask(&clkev_irq_desc->irq_data);
+}
+
 static void omap_clkevt_idle(struct clock_event_device *unused)
 {
 	if (!clockevent_gpt_hwmod)
 		return;
+
+	/*
+	 * It is possible for a late interrupt to be generated which will
+	 * cause a suspend failure. Let's ack it here both in the timer
+	 * and the interrupt controller to avoid this.
+	 */
+	__omap_dm_timer_write_status(&clkev, OMAP_TIMER_INT_OVERFLOW);
+	omap_clkevt_late_ack();
 
 	omap_hwmod_idle(clockevent_gpt_hwmod);
 }
@@ -384,6 +407,10 @@ static void __init omap2_gp_clockevent_init(int gptimer_id,
 
 		clockevent_gpt_hwmod =
 			omap_hwmod_lookup(clockevent_gpt.name);
+
+		clkev_irq_desc = irq_to_desc(clkev.irq);
+		if (clkev_irq_desc)
+			clkev_irq_chip = irq_desc_get_chip(clkev_irq_desc);
 	}
 
 	pr_info("OMAP clockevent source: %s at %lu Hz\n", clockevent_gpt.name,
