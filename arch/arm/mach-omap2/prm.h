@@ -181,6 +181,8 @@ int omap_prm_clear_mod_irqs(s16 module, u8 regs, u32 wkst_mask);
 u32 omap_prm_vp_check_txdone(u8 vp_id);
 void omap_prm_vp_clear_txdone(u8 vp_id);
 
+void am43xx_prm_save_context(void);
+void am43xx_prm_restore_context(void);
 #endif
 
 
