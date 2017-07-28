@@ -74,8 +74,8 @@ static RADIX_TREE(rpmsg_channels, GFP_KERNEL);
  */
 static DEFINE_MUTEX(rpmsg_channels_lock);
 
-static int rpmsg_proto_cb(struct rpmsg_device *rpdev, void *data, int len,
-			  void *priv, u32 src);
+static int rpmsg_sock_cb(struct rpmsg_device *rpdev, void *data, int len,
+			 void *priv, u32 src);
 
 static struct proto rpmsg_proto = {
 	.name		= "RPMSG",
@@ -430,7 +430,7 @@ rpmsg_sock_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	/* bind this socket with a receiving endpoint */
 	chinfo.src = sa->addr;
 	chinfo.dst = RPMSG_ADDR_ANY;
-	endpt = rpmsg_create_ept(rpdev, rpmsg_proto_cb, sk, chinfo);
+	endpt = rpmsg_create_ept(rpdev, rpmsg_sock_cb, sk, chinfo);
 	if (!endpt) {
 		ret = -EINVAL;
 		goto out;
@@ -516,8 +516,8 @@ static const struct net_proto_family rpmsg_proto_family = {
 	.owner = THIS_MODULE,
 };
 
-static int __rpmsg_proto_cb(struct device *dev, int from_vproc_id, void *data,
-			    int len, struct sock *sk, u32 src)
+static int __rpmsg_sock_cb(struct device *dev, int from_vproc_id, void *data,
+			   int len, struct sock *sk, u32 src)
 {
 	struct rpmsg_socket *rpsk = container_of(sk, struct rpmsg_socket, sk);
 	struct sk_buff *skb;
@@ -571,12 +571,19 @@ out:
 	return ret;
 }
 
-static int rpmsg_proto_cb(struct rpmsg_device *rpdev, void *data, int len,
-			  void *priv, u32 src)
+static int rpmsg_sock_cb(struct rpmsg_device *rpdev, void *data, int len,
+			 void *priv, u32 src)
 {
 	int id = rpmsg_sock_get_proc_id(rpdev);
 
-	return __rpmsg_proto_cb(&rpdev->dev, id, data, len, priv, src);
+	return __rpmsg_sock_cb(&rpdev->dev, id, data, len, priv, src);
+}
+
+static int rpmsg_proto_cb(struct rpmsg_device *rpdev, void *data, int len,
+			  void *priv, u32 src)
+{
+	dev_err(&rpdev->dev, "rpmsg_proto device not designed to receive any messages\n");
+	return 0;
 }
 
 static int rpmsg_proto_probe(struct rpmsg_device *rpdev)
