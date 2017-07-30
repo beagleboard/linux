@@ -157,14 +157,16 @@ static int kgdb_compiled_brk_fn(struct pt_regs *regs, unsigned int instr)
 	return 0;
 }
 
+#define INSTR_MASK	((1ULL<<(BREAK_INSTR_SIZE * 8))-1)
+
 static struct undef_hook kgdb_brkpt_hook = {
-	.instr_mask		= 0xffffffff,
+	.instr_mask		= INSTR_MASK,
 	.instr_val		= KGDB_BREAKINST,
 	.fn			= kgdb_brk_fn
 };
 
 static struct undef_hook kgdb_compiled_brkpt_hook = {
-	.instr_mask		= 0xffffffff,
+	.instr_mask		= INSTR_MASK,
 	.instr_val		= KGDB_COMPILED_BREAK,
 	.fn			= kgdb_compiled_brk_fn
 };
@@ -247,9 +249,17 @@ void kgdb_arch_exit(void)
  * handler.
  */
 struct kgdb_arch arch_kgdb_ops = {
+#if BREAK_INSTR_SIZE == 4
 #ifndef __ARMEB__
 	.gdb_bpt_instr		= {0xfe, 0xde, 0xff, 0xe7}
 #else /* ! __ARMEB__ */
 	.gdb_bpt_instr		= {0xe7, 0xff, 0xde, 0xfe}
 #endif
+#elif BREAK_INSTR_SIZE == 2
+#ifndef __ARMEB__
+	.gdb_bpt_instr		= {0xfe, 0xde}
+#else /* ! __ARMEB__ */
+	.gdb_bpt_instr		= {0xde, 0xfe}
+#endif
+#endif /* BREAK_INSTR_SIZE */
 };
