@@ -274,6 +274,5 @@ int wl18xx_process_mailbox_events(struct wl1271 *wl)
 	}
 
 out_event:
-
 	return 0;
 }
