@@ -136,6 +136,7 @@ struct cpts {
 	u32 ext_ts_inputs;
 	u32 hw_ts_enable;
 	u32 caps;
+	struct sk_buff_head txq;
 };
 
 int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
