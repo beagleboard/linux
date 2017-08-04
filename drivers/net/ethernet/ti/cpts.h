@@ -125,7 +125,6 @@ struct cpts {
 	u32 cc_mult; /* for the nominal frequency */
 	struct cyclecounter cc;
 	struct timecounter tc;
-	struct delayed_work overflow_work;
 	int phc_index;
 	struct clk *refclk;
 	struct list_head events;
@@ -137,6 +136,7 @@ struct cpts {
 	u32 ext_ts_inputs;
 	u32 hw_ts_enable;
 	u32 caps;
+	struct sk_buff_head txq;
 };
 
 int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
