@@ -530,7 +530,7 @@
 };
 
 &usb2 {
-	dr_mode = "otg";
+	dr_mode = "peripheral";
 };
 
 &mmc1 {
