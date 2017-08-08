@@ -1,0 +1,66 @@
+config XENO_DRIVERS_NET_RTIPV4
+    depends on XENO_DRIVERS_NET
+    tristate "Real-Time IPv4"
+    default y
+    ---help---
+    Enables the real-time capable IPv4 support of RTnet. The protocol is
+    implemented as a separate module. Supplementing tools (rtroute,
+    rtping) and examples are provided as well. Moreover, RTcfg will
+    include IPv4 support when this option is switched on.
+
+    For further information see also Documentation/README.routing and
+    Documentation/README.ipfragmentation.
+
+config XENO_DRIVERS_NET_RTIPV4_ICMP
+    bool "ICMP support"
+    depends on XENO_DRIVERS_NET_RTIPV4
+    default y
+    ---help---
+    Enables ICMP support of the RTnet Real-Time IPv4 protocol.
+
+    When the RTnet-Proxy is enabled while this feature is disabled, ICMP
+    will be forwarded to the Linux network stack.
+
+config XENO_DRIVERS_NET_RTIPV4_HOST_ROUTES
+    int "Maximum host routing table entries"
+    depends on XENO_DRIVERS_NET_RTIPV4
+    default 32
+    ---help---
+    Each IPv4 supporting interface and each remote host that is directly
+    reachable via via some output interface requires a host routing table
+    entry. If you run larger networks with may hosts per subnet, you may
+    have to increase this limit. Must be power of 2!
+
+config XENO_DRIVERS_NET_RTIPV4_NETROUTING
+    bool "IP Network Routing"
+    depends on XENO_DRIVERS_NET_RTIPV4
+    ---help---
+    Enables routing across IPv4 real-time networks. You will only require
+    this feature in complex networks, while switching it off for flat,
+    single-segment networks improves code size and the worst-case routing
+    decision delay.
+
+    See Documentation/README.routing for further information.
+
+config XENO_DRIVERS_NET_RTIPV4_NET_ROUTES
+    int "Maximum network routing table entries"
+    depends on XENO_DRIVERS_NET_RTIPV4_NETROUTING
+    default 16
+    ---help---
+    Each route describing a target network reachable via a router
+    requires an entry in the network routing table. If you run very
+    complex realtime networks, you may have to increase this limit. Must
+    be power of 2!
+
+config XENO_DRIVERS_NET_RTIPV4_ROUTER
+    bool "IP Router"
+    depends on XENO_DRIVERS_NET_RTIPV4
+    ---help---
+    When switched on, the RTnet station will be able to forward IPv4
+    packets that are not directed to the station itself. Typically used in
+    combination with CONFIG_RTNET_RTIPV4_NETROUTING.
+
+    See Documentation/README.routing for further information.
+
+source "drivers/xenomai/net/stack/ipv4/udp/Kconfig"
+# source "drivers/xenomai/net/stack/ipv4/tcp/Kconfig"
