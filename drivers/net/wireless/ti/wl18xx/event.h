@@ -42,6 +42,7 @@ enum {
 	SMART_CONFIG_SYNC_EVENT_ID               = BIT(22),
 	SMART_CONFIG_DECODE_EVENT_ID             = BIT(23),
 	TIME_SYNC_EVENT_ID                       = BIT(24),
+	FW_LOGGER_INDICATION			 = BIT(25),
 };
 
 enum wl18xx_radar_types {
@@ -74,16 +75,10 @@ struct wl18xx_event_mailbox {
 	__le16 bss_loss_bitmap;
 
 	/* bitmap of stations (by HLID) which exceeded max tx retries */
-	__le16 tx_retry_exceeded_bitmap;
-
-	/* time sync high msb*/
-	u16 time_sync_tsf_high_msb;
+	__le32 tx_retry_exceeded_bitmap;
 
 	/* bitmap of inactive stations (by HLID) */
-	__le16 inactive_sta_bitmap;
-
-	/* time sync high lsb*/
-	u16 time_sync_tsf_high_lsb;
+	__le32 inactive_sta_bitmap;
 
 	/* rx BA win size indicated by RX_BA_WIN_SIZE_CHANGE_EVENT_ID */
 	u8 rx_ba_role_id;
@@ -104,15 +99,14 @@ struct wl18xx_event_mailbox {
 	u8 sc_sync_channel;
 	u8 sc_sync_band;
 
-	/* time sync low msb*/
-	u16 time_sync_tsf_low_msb;
-
+	/* time sync msb*/
+	u16 time_sync_tsf_msb;
 	/* radar detect */
 	u8 radar_channel;
 	u8 radar_type;
 
-	/* time sync low lsb*/
-	u16 time_sync_tsf_low_lsb;
+	/* time sync lsb*/
+	u16 time_sync_tsf_lsb;
 
 } __packed;
 
