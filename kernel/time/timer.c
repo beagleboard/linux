@@ -1426,6 +1426,24 @@ void update_process_times(int user_tick)
 	run_posix_cpu_timers(p);
 }
 
+#ifdef CONFIG_IPIPE
+
+void update_root_process_times(struct pt_regs *regs)
+{
+	int user_tick = user_mode(regs);
+
+	if (__ipipe_root_tick_p(regs)) {
+		update_process_times(user_tick);
+		return;
+	}
+
+	run_local_timers();
+	rcu_check_callbacks(user_tick);
+	run_posix_cpu_timers(current);
+}
+
+#endif
+
 /*
  * This function runs timers and the timer-tq in bottom half context.
  */
