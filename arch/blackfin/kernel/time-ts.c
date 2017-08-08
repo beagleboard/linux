@@ -17,6 +17,7 @@
 #include <linux/clocksource.h>
 #include <linux/clockchips.h>
 #include <linux/cpufreq.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/blackfin.h>
 #include <asm/time.h>
@@ -126,7 +127,7 @@ notrace unsigned long long sched_clock(void)
 
 #if defined(CONFIG_TICKSOURCE_GPTMR0)
 static int bfin_gptmr0_set_next_event(unsigned long cycles,
-                                     struct clock_event_device *evt)
+				     struct clock_event_device *evt)
 {
 	disable_gptimers(TIMER0bit);
 
@@ -235,6 +236,7 @@ static void __init bfin_gptmr0_clockevent_init(struct clock_event_device *evt)
 	evt->cpumask = cpumask_of(0);
 
 	clockevents_register_device(evt);
+	bfin_ipipe_coretmr_register();
 }
 #endif /* CONFIG_TICKSOURCE_GPTMR0 */
 
@@ -326,6 +328,9 @@ void bfin_coretmr_clockevent_init(void)
 	unsigned long clock_tick;
 	unsigned int cpu = smp_processor_id();
 	struct clock_event_device *evt = &per_cpu(coretmr_events, cpu);
+#ifdef CONFIG_IPIPE
+	extern struct ipipe_timer bfin_coretmr_itimer;
+#endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_SMP
 	evt->broadcast = smp_timer_broadcast;
@@ -347,6 +352,9 @@ void bfin_coretmr_clockevent_init(void)
 	evt->min_delta_ns = clockevent_delta2ns(100, evt);
 
 	evt->cpumask = cpumask_of(cpu);
+#ifdef CONFIG_IPIPE
+	evt->ipipe_timer = &bfin_coretmr_itimer;
+#endif /* CONFIG_IPIPE */
 
 	clockevents_register_device(evt);
 }

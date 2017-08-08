@@ -332,6 +332,18 @@ struct fpu {
 	 * deal with bursty apps that only use the FPU for a short time:
 	 */
 	unsigned char			counter;
+
+#ifdef CONFIG_IPIPE
+	/*
+	 * @active_state
+	 *
+	 * An indirection pointer to reach the active state context
+	 * for the task.  This is used by co-kernels for dealing with
+	 * preemption of kernel fpu contexts by their own tasks.
+	 */
+	union fpregs_state		*active_state;
+#endif
+
 	/*
 	 * @state:
 	 *

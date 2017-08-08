@@ -54,7 +54,11 @@
 #define GICD_INT_EN_CLR_X32		0xffffffff
 #define GICD_INT_EN_SET_SGI		0x0000ffff
 #define GICD_INT_EN_CLR_PPI		0xffff0000
+#ifndef CONFIG_IPIPE
 #define GICD_INT_DEF_PRI		0xa0
+#else
+#define GICD_INT_DEF_PRI		0x10
+#endif
 #define GICD_INT_DEF_PRI_X4		((GICD_INT_DEF_PRI << 24) |\
 					(GICD_INT_DEF_PRI << 16) |\
 					(GICD_INT_DEF_PRI << 8) |\

@@ -116,6 +116,9 @@ static __init void tzic_init_gc(int idx, unsigned int irq_start)
 	ct = gc->chip_types;
 	ct->chip.irq_mask = irq_gc_mask_disable_reg;
 	ct->chip.irq_unmask = irq_gc_unmask_enable_reg;
+#ifdef CONFIG_IPIPE
+	ct->chip.irq_mask_ack = irq_gc_mask_disable_reg;
+#endif /* CONFIG_IPIPE */
 	ct->chip.irq_set_wake = irq_gc_set_wake;
 	ct->chip.irq_suspend = tzic_irq_suspend;
 	ct->chip.irq_resume = tzic_irq_resume;
@@ -140,12 +143,33 @@ static void __exception_irq_entry tzic_handle_irq(struct pt_regs *regs)
 			while (stat) {
 				handled = 1;
 				irqofs = fls(stat) - 1;
-				handle_domain_irq(domain, irqofs + i * 32, regs);
+				ipipe_handle_domain_irq(domain, irqofs + i * 32, regs);
 				stat &= ~(1 << irqofs);
 			}
 		}
 	} while (handled);
 }
+
+
+#if defined(CONFIG_IPIPE)
+void tzic_set_irq_prio(unsigned irq, unsigned hi)
+{
+	if (irq >= TZIC_NUM_IRQS)
+		return;
+
+	__raw_writeb(hi ? 0 : 0x80, tzic_base + TZIC_PRIORITY0 + irq);
+}
+
+void tzic_mute_pic(void)
+{
+	__raw_writel(0x10, tzic_base + TZIC_PRIOMASK);
+}
+
+void tzic_unmute_pic(void)
+{
+	__raw_writel(0xf0, tzic_base + TZIC_PRIOMASK);
+}
+#endif /* CONFIG_IPIPE */
 
 /*
  * This function initializes the TZIC hardware and disables all the
@@ -166,8 +190,13 @@ static int __init tzic_init_dt(struct device_node *np, struct device_node *p)
 	i = imx_readl(tzic_base + TZIC_INTCNTL);
 
 	imx_writel(0x80010001, tzic_base + TZIC_INTCNTL);
+#ifndef CONFIG_IPIPE
 	imx_writel(0x1f, tzic_base + TZIC_PRIOMASK);
 	imx_writel(0x02, tzic_base + TZIC_SYNCCTRL);
+#else
+	imx_writel(0xf0, tzic_base + TZIC_PRIOMASK);
+	imx_writel(0, tzic_base + TZIC_SYNCCTRL);
+#endif
 
 	for (i = 0; i < 4; i++)
 		imx_writel(0xFFFFFFFF, tzic_base + TZIC_INTSEC0(i));

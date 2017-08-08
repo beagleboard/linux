@@ -40,7 +40,7 @@ static DEFINE_RAW_SPINLOCK(minicache_lock);
  * instruction.  If your processor does not supply this, you have to write your
  * own copy_user_highpage that does the right thing.
  */
-static void __naked
+static void notrace __naked
 mc_copy_user_page(void *from, void *to)
 {
 	asm volatile(

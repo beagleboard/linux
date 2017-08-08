@@ -30,7 +30,7 @@ struct apic_chip_data {
 
 struct irq_domain *x86_vector_domain;
 EXPORT_SYMBOL_GPL(x86_vector_domain);
-static DEFINE_RAW_SPINLOCK(vector_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(vector_lock);
 static cpumask_var_t vector_cpumask, vector_searchmask, searched_cpumask;
 static struct irq_chip lapic_controller;
 #ifdef	CONFIG_X86_IO_APIC
@@ -463,8 +463,13 @@ static void __setup_vector_irq(int cpu)
 		vector = data->cfg.vector;
 		per_cpu(vector_irq, cpu)[vector] = desc;
 	}
+
 	/* Mark the free vectors */
 	for (vector = 0; vector < NR_VECTORS; ++vector) {
+		/* I-pipe requires initialized vector_irq for system vectors */
+		if (test_bit(vector, used_vectors))
+			continue;
+
 		desc = per_cpu(vector_irq, cpu)[vector];
 		if (IS_ERR_OR_NULL(desc))
 			continue;
@@ -482,7 +487,9 @@ void setup_vector_irq(int cpu)
 {
 	int irq;
 
+#ifndef CONFIG_IPIPE
 	lockdep_assert_held(&vector_lock);
+#endif
 	/*
 	 * On most of the platforms, legacy PIC delivers the interrupts on the
 	 * boot cpu. But there are certain platforms where PIC interrupts are
@@ -512,9 +519,11 @@ static int apic_retrigger_irq(struct irq_data *irq_data)
 
 void apic_ack_edge(struct irq_data *data)
 {
+#ifndef CONFIG_IPIPE
 	irq_complete_move(irqd_cfg(data));
 	irq_move_irq(data);
-	ack_APIC_irq();
+#endif /* !CONFIG_IPIPE */
+	__ack_APIC_irq();
 }
 
 static int apic_set_affinity(struct irq_data *irq_data,

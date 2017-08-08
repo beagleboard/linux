@@ -16,6 +16,7 @@
 
 #include <linux/errno.h>
 #include <linux/sched.h>
+#include <linux/ipipe.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
@@ -163,11 +164,15 @@ void __giveup_fpu(struct task_struct *tsk)
 
 void giveup_fpu(struct task_struct *tsk)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
 	check_if_tm_restore_required(tsk);
 
 	msr_check_and_set(MSR_FP);
 	__giveup_fpu(tsk);
 	msr_check_and_clear(MSR_FP);
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(giveup_fpu);
 
@@ -177,6 +182,8 @@ EXPORT_SYMBOL(giveup_fpu);
  */
 void flush_fp_to_thread(struct task_struct *tsk)
 {
+	unsigned long flags;
+
 	if (tsk->thread.regs) {
 		/*
 		 * We need to disable preemption here because if we didn't,
@@ -186,7 +193,7 @@ void flush_fp_to_thread(struct task_struct *tsk)
 		 * FPU, and then when we get scheduled again we would store
 		 * bogus values for the remaining FP registers.
 		 */
-		preempt_disable();
+		flags = hard_preempt_disable();
 		if (tsk->thread.regs->msr & MSR_FP) {
 			/*
 			 * This should only ever be called for current or
@@ -198,16 +205,18 @@ void flush_fp_to_thread(struct task_struct *tsk)
 			BUG_ON(tsk != current);
 			giveup_fpu(tsk);
 		}
-		preempt_enable();
+		hard_preempt_enable(flags);
 	}
 }
 EXPORT_SYMBOL_GPL(flush_fp_to_thread);
 
 void enable_kernel_fp(void)
 {
-	unsigned long cpumsr;
+	unsigned long cpumsr, flags;
 
 	WARN_ON(preemptible());
+
+	flags = hard_cond_local_irq_save();
 
 	cpumsr = msr_check_and_set(MSR_FP);
 
@@ -221,9 +230,11 @@ void enable_kernel_fp(void)
 		 * checkpointed structure.
 		 */
 		if(!msr_tm_active(cpumsr) && msr_tm_active(current->thread.regs->msr))
-			return;
+			goto out;
 		__giveup_fpu(current);
 	}
+out:
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(enable_kernel_fp);
 
@@ -268,10 +279,11 @@ EXPORT_SYMBOL(giveup_altivec);
 
 void enable_kernel_altivec(void)
 {
-	unsigned long cpumsr;
+	unsigned long cpumsr, flags;
 
 	WARN_ON(preemptible());
 
+	flags = hard_cond_local_irq_save();
 	cpumsr = msr_check_and_set(MSR_VEC);
 
 	if (current->thread.regs && (current->thread.regs->msr & MSR_VEC)) {
@@ -284,9 +296,11 @@ void enable_kernel_altivec(void)
 		 * checkpointed structure.
 		 */
 		if(!msr_tm_active(cpumsr) && msr_tm_active(current->thread.regs->msr))
-			return;
+			goto out;
 		__giveup_altivec(current);
 	}
+out:
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(enable_kernel_altivec);
 
@@ -296,13 +310,15 @@ EXPORT_SYMBOL(enable_kernel_altivec);
  */
 void flush_altivec_to_thread(struct task_struct *tsk)
 {
+	unsigned long flags;
+
 	if (tsk->thread.regs) {
-		preempt_disable();
+		flags = hard_preempt_disable();
 		if (tsk->thread.regs->msr & MSR_VEC) {
 			BUG_ON(tsk != current);
 			giveup_altivec(tsk);
 		}
-		preempt_enable();
+		hard_preempt_enable(flags);
 	}
 }
 EXPORT_SYMBOL_GPL(flush_altivec_to_thread);
@@ -381,13 +397,15 @@ EXPORT_SYMBOL(enable_kernel_vsx);
 
 void flush_vsx_to_thread(struct task_struct *tsk)
 {
+	unsigned long flags;
+
 	if (tsk->thread.regs) {
-		preempt_disable();
+		flags = hard_preempt_disable();
 		if (tsk->thread.regs->msr & MSR_VSX) {
 			BUG_ON(tsk != current);
 			giveup_vsx(tsk);
 		}
-		preempt_enable();
+		hard_preempt_enable(flags);
 	}
 }
 EXPORT_SYMBOL_GPL(flush_vsx_to_thread);
@@ -409,37 +427,47 @@ static inline void save_vsx(struct task_struct *tsk) { }
 #ifdef CONFIG_SPE
 void giveup_spe(struct task_struct *tsk)
 {
+	unsigned long flags;
+
 	check_if_tm_restore_required(tsk);
 
+	flags = hard_cond_local_irq_save();
 	msr_check_and_set(MSR_SPE);
 	__giveup_spe(tsk);
 	msr_check_and_clear(MSR_SPE);
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(giveup_spe);
 
 void enable_kernel_spe(void)
 {
+	unsigned long flags;
+
 	WARN_ON(preemptible());
 
+	flags = hard_cond_local_irq_save();
 	msr_check_and_set(MSR_SPE);
 
 	if (current->thread.regs && (current->thread.regs->msr & MSR_SPE)) {
 		check_if_tm_restore_required(current);
 		__giveup_spe(current);
 	}
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(enable_kernel_spe);
 
 void flush_spe_to_thread(struct task_struct *tsk)
 {
+	unsigned long flags;
+
 	if (tsk->thread.regs) {
-		preempt_disable();
+		flags = hard_preempt_disable();
 		if (tsk->thread.regs->msr & MSR_SPE) {
 			BUG_ON(tsk != current);
 			tsk->thread.spefscr = mfspr(SPRN_SPEFSCR);
 			giveup_spe(tsk);
 		}
-		preempt_enable();
+		hard_preempt_enable(flags);
 	}
 }
 #endif /* CONFIG_SPE */
@@ -470,7 +498,7 @@ early_initcall(init_msr_all_available);
 
 void giveup_all(struct task_struct *tsk)
 {
-	unsigned long usermsr;
+	unsigned long usermsr, flags;
 
 	if (!tsk->thread.regs)
 		return;
@@ -480,6 +508,7 @@ void giveup_all(struct task_struct *tsk)
 	if ((usermsr & msr_all_available) == 0)
 		return;
 
+	flags = hard_cond_local_irq_save();
 	msr_check_and_set(msr_all_available);
 	check_if_tm_restore_required(tsk);
 
@@ -501,18 +530,20 @@ void giveup_all(struct task_struct *tsk)
 #endif
 
 	msr_check_and_clear(msr_all_available);
+	hard_cond_local_irq_restore(flags);
 }
 EXPORT_SYMBOL(giveup_all);
 
 void restore_math(struct pt_regs *regs)
 {
-	unsigned long msr;
+	unsigned long msr, flags;
 
 	if (!msr_tm_active(regs->msr) &&
 		!current->thread.load_fp && !loadvec(current->thread))
 		return;
 
 	msr = regs->msr;
+	flags = hard_cond_local_irq_save();
 	msr_check_and_set(msr_all_available);
 
 	/*
@@ -531,11 +562,12 @@ void restore_math(struct pt_regs *regs)
 	}
 
 	msr_check_and_clear(msr_all_available);
+	hard_cond_local_irq_restore(flags);
 
 	regs->msr = msr;
 }
 
-void save_all(struct task_struct *tsk)
+static void save_all(struct task_struct *tsk)
 {
 	unsigned long usermsr;
 
@@ -571,8 +603,10 @@ void save_all(struct task_struct *tsk)
 
 void flush_all_to_thread(struct task_struct *tsk)
 {
+	unsigned long flags;
+
 	if (tsk->thread.regs) {
-		preempt_disable();
+		flags = hard_preempt_disable();
 		BUG_ON(tsk != current);
 		save_all(tsk);
 
@@ -581,7 +615,7 @@ void flush_all_to_thread(struct task_struct *tsk)
 			tsk->thread.spefscr = mfspr(SPRN_SPEFSCR);
 #endif
 
-		preempt_enable();
+		hard_preempt_enable(flags);
 	}
 }
 EXPORT_SYMBOL(flush_all_to_thread);
@@ -924,8 +958,10 @@ void tm_recheckpoint(struct thread_struct *thread,
 	 * change and later in the trecheckpoint code, we have a userspace R1.
 	 * So let's hard disable over this region.
 	 */
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
+#ifndef CONFIG_IPIPE
 	hard_irq_disable();
+#endif
 
 	/* The TM SPRs are restored here, so that TEXASR.FS can be set
 	 * before the trecheckpoint and no explosion occurs.
@@ -934,7 +970,7 @@ void tm_recheckpoint(struct thread_struct *thread,
 
 	__tm_recheckpoint(thread, orig_msr);
 
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 static inline void tm_recheckpoint_new_task(struct task_struct *new)
@@ -1134,6 +1170,7 @@ struct task_struct *__switch_to(struct task_struct *prev,
 #ifdef CONFIG_PPC_BOOK3S_64
 	struct ppc64_tlb_batch *batch;
 #endif
+	unsigned long flags;
 
 	new_thread = &new->thread;
 	old_thread = &current->thread;
@@ -1183,6 +1220,8 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	 */
 	save_sprs(&prev->thread);
 
+	flags = hard_local_irq_save();
+
 	/* Save FPU, Altivec, VSX and SPE state */
 	giveup_all(prev);
 
@@ -1193,7 +1232,9 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	 * window where the kernel stack SLB and the kernel stack are out
 	 * of sync. Hard disable here.
 	 */
+#ifndef CONFIG_IPIPE
 	hard_irq_disable();
+#endif
 
 	/*
 	 * Call restore_sprs() before calling _switch(). If we move it after
@@ -1216,6 +1257,8 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	if (current_thread_info()->task->thread.regs)
 		restore_math(current_thread_info()->task->thread.regs);
 #endif /* CONFIG_PPC_STD_MMU_64 */
+
+	hard_local_irq_restore(flags);
 
 	return last;
 }
@@ -1823,6 +1866,29 @@ int get_unalign_ctl(struct task_struct *tsk, unsigned long adr)
 	return put_user(tsk->thread.align_ctl, (unsigned int __user *)adr);
 }
 
+#ifdef CONFIG_IPIPE
+
+int validate_sp(unsigned long sp, struct task_struct *p,
+		       unsigned long nbytes)
+{
+	unsigned long stack_page = (unsigned long)task_stack_page(p);
+
+	/*
+	 * We can't always know the bounds of the current stack when
+	 * built in legacy mode due to potentially foreign stack
+	 * contexts, so let's pretend the stack pointer is fine
+	 * in this case.
+	 */
+	if (IS_ENABLED(CONFIG_IPIPE_LEGACY) ||
+	    (sp >= stack_page + sizeof(struct thread_struct)
+	     && sp <= stack_page + THREAD_SIZE - nbytes))
+		return 1;
+
+	return 0;
+}
+
+#else /* !CONFIG_IPIPE */
+
 static inline int valid_irq_stack(unsigned long sp, struct task_struct *p,
 				  unsigned long nbytes)
 {
@@ -1858,6 +1924,8 @@ int validate_sp(unsigned long sp, struct task_struct *p,
 
 	return valid_irq_stack(sp, p, nbytes);
 }
+
+#endif /* !CONFIG_IPIPE */
 
 EXPORT_SYMBOL(validate_sp);
 

@@ -350,6 +350,12 @@ static int portmux_group_check(unsigned short per)
 * MODIFICATION HISTORY :
 **************************************************************/
 
+#ifdef CONFIG_IPIPE
+#define IPIPE_GPIO_ACCESS  1
+#else
+#define IPIPE_GPIO_ACCESS  0
+#endif
+
 /* Set a specific bit */
 
 #define SET_GPIO(name) \
@@ -377,7 +383,7 @@ SET_GPIO(both)  /* set_gpio_both() */
 void set_gpio_ ## name(unsigned gpio, unsigned short arg) \
 { \
 	unsigned long flags; \
-	if (ANOMALY_05000311 || ANOMALY_05000323) \
+	if (ANOMALY_05000311 || ANOMALY_05000323 || IPIPE_GPIO_ACCESS) \
 		flags = hard_local_irq_save(); \
 	if (arg) \
 		gpio_array[gpio_bank(gpio)]->name ## _set = gpio_bit(gpio); \
@@ -385,6 +391,8 @@ void set_gpio_ ## name(unsigned gpio, unsigned short arg) \
 		gpio_array[gpio_bank(gpio)]->name ## _clear = gpio_bit(gpio); \
 	if (ANOMALY_05000311 || ANOMALY_05000323) { \
 		AWA_DUMMY_READ(name); \
+	} \
+	if (ANOMALY_05000311 || ANOMALY_05000323 || IPIPE_GPIO_ACCESS) { \
 		hard_local_irq_restore(flags); \
 	} \
 } \
@@ -397,11 +405,13 @@ SET_GPIO_SC(data)
 void set_gpio_toggle(unsigned gpio)
 {
 	unsigned long flags;
-	if (ANOMALY_05000311 || ANOMALY_05000323)
+	if (ANOMALY_05000311 || ANOMALY_05000323 || IPIPE_GPIO_ACCESS)
 		flags = hard_local_irq_save();
 	gpio_array[gpio_bank(gpio)]->toggle = gpio_bit(gpio);
 	if (ANOMALY_05000311 || ANOMALY_05000323) {
 		AWA_DUMMY_READ(toggle);
+	}
+	if (ANOMALY_05000311 || ANOMALY_05000323 || IPIPE_GPIO_ACCESS) {
 		hard_local_irq_restore(flags);
 	}
 }
@@ -414,11 +424,13 @@ EXPORT_SYMBOL(set_gpio_toggle);
 void set_gpiop_ ## name(unsigned gpio, unsigned short arg) \
 { \
 	unsigned long flags; \
-	if (ANOMALY_05000311 || ANOMALY_05000323) \
+	if (ANOMALY_05000311 || ANOMALY_05000323 || IPIPE_GPIO_ACCESS) \
 		flags = hard_local_irq_save(); \
 	gpio_array[gpio_bank(gpio)]->name = arg; \
 	if (ANOMALY_05000311 || ANOMALY_05000323) { \
 		AWA_DUMMY_READ(name); \
+	} \
+	if (ANOMALY_05000311 || ANOMALY_05000323 || IPIPE_GPIO_ACCESS) { \
 		hard_local_irq_restore(flags); \
 	} \
 } \
