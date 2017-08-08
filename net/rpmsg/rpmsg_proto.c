@@ -590,6 +590,15 @@ static void rpmsg_proto_cb(struct rpmsg_channel *rpdev, void *data, int len,
 {
 	int id = rpmsg_sock_get_proc_id(rpdev);
 
+	/* published rpmsg channels from remote side reuse their end-point's
+	 * private field for storing the list of connected sockets, so cannot
+	 * process messages.
+	 */
+	if (rpdev->src >= RPMSG_RESERVED_ADDRESSES) {
+		dev_err(&rpdev->dev, "rpmsg_proto device not designed to receive any messages\n");
+		return;
+	}
+
 	__rpmsg_proto_cb(&rpdev->dev, id, data, len, priv, src);
 }
 
