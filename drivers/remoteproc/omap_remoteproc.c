@@ -397,18 +397,27 @@ static void omap_rproc_kick(struct rproc *rproc, int vqid)
  *
  * Set boot address for a supported DSP remote processor.
  */
-static void omap_rproc_write_dsp_boot_addr(struct rproc *rproc)
+static int omap_rproc_write_dsp_boot_addr(struct rproc *rproc)
 {
+	struct device *dev = rproc->dev.parent;
 	struct omap_rproc *oproc = rproc->priv;
 	struct omap_rproc_boot_data *bdata = oproc->boot_data;
 	u32 offset = bdata->boot_reg;
 	unsigned int value = rproc->bootaddr;
 	unsigned int mask = ~(SZ_1K - 1);
 
+	if (value & (SZ_1K - 1)) {
+		dev_err(dev, "invalid boot address 0x%x, must be aligned on a 1KB boundary\n",
+			value);
+		return -EINVAL;
+	}
+
 	value >>= bdata->boot_reg_shift;
 	mask >>= bdata->boot_reg_shift;
 
 	regmap_update_bits(bdata->syscon, offset, mask, value);
+
+	return 0;
 }
 
 /*
@@ -427,8 +436,11 @@ static int omap_rproc_start(struct rproc *rproc)
 	int ret;
 	struct mbox_client *client = &oproc->client;
 
-	if (oproc->boot_data)
-		omap_rproc_write_dsp_boot_addr(rproc);
+	if (oproc->boot_data) {
+		ret = omap_rproc_write_dsp_boot_addr(rproc);
+		if (ret)
+			return ret;
+	}
 
 	client->dev = dev;
 	client->tx_done = NULL;
@@ -699,8 +711,13 @@ static int _omap_rproc_resume(struct rproc *rproc, bool auto_suspend)
 	}
 
 	/* boot address could be lost after suspend, so restore it */
-	if (oproc->boot_data)
-		omap_rproc_write_dsp_boot_addr(rproc);
+	if (oproc->boot_data) {
+		ret = omap_rproc_write_dsp_boot_addr(rproc);
+		if (ret) {
+			dev_err(dev, "boot address restore failed %d\n", ret);
+			goto suspend_iommu;
+		}
+	}
 
 	ret = omap_rproc_enable_timers(pdev, false);
 	if (ret) {
@@ -1041,12 +1058,15 @@ static int omap_rproc_get_boot_data(struct platform_device *pdev,
 static int omap_rproc_of_get_internal_memories(struct platform_device *pdev,
 					       struct rproc *rproc)
 {
-	static const char * const mem_names[] = {"l2ram"};
+	static const char * const ipu_mem_names[] = {"l2ram"};
+	static const char * const dra7_dsp_mem_names[] = {"l2ram", "l1pram",
+								"l1dram"};
 	struct device_node *np = pdev->dev.of_node;
 	struct omap_rproc *oproc = rproc->priv;
 	struct device *dev = &pdev->dev;
+	const char * const *mem_names;
 	struct resource *res;
-	int num_mems = 0;
+	int num_mems;
 	const __be32 *addrp;
 	u32 l4_offset = 0;
 	u64 size;
@@ -1057,8 +1077,15 @@ static int omap_rproc_of_get_internal_memories(struct platform_device *pdev,
 	    of_device_is_compatible(np, "ti,omap5-dsp"))
 		return 0;
 
-	/* XXX: add support for DRA7 DSP L1 RAMs if needed */
-	num_mems = ARRAY_SIZE(mem_names);
+	/* DRA7 DSPs have two additional SRAMs at L1 level */
+	if (of_device_is_compatible(np, "ti,dra7-dsp")) {
+		mem_names = dra7_dsp_mem_names;
+		num_mems = ARRAY_SIZE(dra7_dsp_mem_names);
+	} else {
+		mem_names = ipu_mem_names;
+		num_mems = ARRAY_SIZE(ipu_mem_names);
+	}
+
 	oproc->mem = devm_kcalloc(dev, num_mems, sizeof(*oproc->mem),
 				  GFP_KERNEL);
 	if (!oproc->mem)
