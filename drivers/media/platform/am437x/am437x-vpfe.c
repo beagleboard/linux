@@ -354,12 +354,12 @@ static void vpfe_ccdc_setwin(struct vpfe_ccdc *ccdc,
 	vert_start = image_win->top;
 
 	if (frm_fmt == CCDC_FRMFMT_INTERLACED) {
-		vert_nr_lines = (image_win->height >> 1);
+		vert_nr_lines = (image_win->height >> 1) - 1;
 		vert_start >>= 1;
 		/* configure VDINT0 */
 		val = (vert_start << VPFE_VDINT_VDINT0_SHIFT);
 	} else {
-		vert_nr_lines = image_win->height;
+		vert_nr_lines = image_win->height - 1;
 		/*
 		 * configure VDINT0 and VDINT1. VDINT1 will be at half
 		 * of image height
