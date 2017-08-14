@@ -48,6 +48,8 @@
 #define LIBRARY_TEXT_START	0x0c000000
 
 #ifndef __ASSEMBLY__
+#include <asm/fcse.h>
+
 extern void __pte_error(const char *file, int line, pte_t);
 extern void __pmd_error(const char *file, int line, pmd_t);
 extern void __pgd_error(const char *file, int line, pgd_t);
@@ -163,6 +165,46 @@ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 #define __S111  __PAGE_SHARED_EXEC
 
 #ifndef __ASSEMBLY__
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+#define fcse_account_page_removal(mm, addr, val) do {		\
+	struct mm_struct *_mm = (mm);				\
+	unsigned long _addr = (addr);				\
+	unsigned long _val = (val);				\
+	if (pte_present(_val) && ((_val) & L_PTE_SHARED))	\
+		--_mm->context.fcse.shared_dirty_pages;		\
+	if (pte_present(_val) && _addr < TASK_SIZE) {		\
+		if (_addr >= FCSE_TASK_SIZE			\
+		    && 0 == --_mm->context.fcse.high_pages)	\
+			_mm->context.fcse.highest_pid = 0;	\
+	}							\
+} while (0)
+
+#define fcse_account_page_addition(mm, addr, val) ({			\
+	struct mm_struct *_mm = (mm);					\
+	unsigned long _addr = (addr);					\
+	unsigned long _val = (val);					\
+	if (pte_present(_val) && (_val & L_PTE_SHARED)) {		\
+		if ((_val & (PTE_CACHEABLE | L_PTE_RDONLY | L_PTE_DIRTY)) \
+		    != (PTE_CACHEABLE | L_PTE_DIRTY))			\
+			_val &= ~L_PTE_SHARED;                          \
+		else                                                    \
+			++_mm->context.fcse.shared_dirty_pages;         \
+	}                                                               \
+	if (pte_present(_val)						\
+	    && _addr < TASK_SIZE && _addr >= FCSE_TASK_SIZE) {		\
+		unsigned long pid = _addr / FCSE_TASK_SIZE;		\
+		++_mm->context.fcse.high_pages;				\
+		BUG_ON(mm->context.fcse.large == 0);			\
+		if (pid > mm->context.fcse.highest_pid)			\
+			mm->context.fcse.highest_pid = pid;		\
+	}								\
+	_val;								\
+})
+#else /* CONFIG_ARM_FCSE_GUARANTEED || !CONFIG_ARM_FCSE */
+#define fcse_account_page_removal(mm, addr, val) do { } while (0)
+#define fcse_account_page_addition(mm, addr, val) (val)
+#endif /* CONFIG_ARM_FCSE_GUARANTEED || !CONFIG_ARM_FCSE */
+
 /*
  * ZERO_PAGE is a global shared page that is always zero: used
  * for zero-mapped memory areas etc..
@@ -176,10 +218,14 @@ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 /* to find an entry in a page-table-directory */
 #define pgd_index(addr)		((addr) >> PGDIR_SHIFT)
 
-#define pgd_offset(mm, addr)	((mm)->pgd + pgd_index(addr))
+#define pgd_offset(mm, addr)						\
+	({								\
+		struct mm_struct *_mm = (mm);				\
+		(_mm->pgd + pgd_index(fcse_va_to_mva(_mm, (addr))));	\
+	})
 
 /* to find an entry in a kernel page-table-directory */
-#define pgd_offset_k(addr)	pgd_offset(&init_mm, addr)
+#define pgd_offset_k(addr)	(init_mm.pgd + pgd_index(addr))
 
 #define pmd_none(pmd)		(!pmd_val(pmd))
 
@@ -211,7 +257,13 @@ static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 #define pte_page(pte)		pfn_to_page(pte_pfn(pte))
 #define mk_pte(page,prot)	pfn_pte(page_to_pfn(page), prot)
 
-#define pte_clear(mm,addr,ptep)	set_pte_ext(ptep, __pte(0), 0)
+#define pte_clear(mm,addr,ptep)	\
+	do {								\
+		struct mm_struct *_mm = (mm);				\
+		if (_mm)						\
+			fcse_account_page_removal(_mm, addr, pte_val(*ptep)); \
+		set_pte_ext(ptep, __pte(0), 0);				\
+	} while (0)
 
 #define pte_isset(pte, val)	((u32)(val) == (val) ? pte_val(pte) & (val) \
 						: !!(pte_val(pte) & (val)))
@@ -238,9 +290,15 @@ extern void __sync_icache_dcache(pte_t pteval);
 #endif
 
 static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
-			      pte_t *ptep, pte_t pteval)
+				pte_t *ptep, pte_t pteval)
 {
 	unsigned long ext = 0;
+
+	if (mm) {
+		fcse_account_page_removal(mm, addr, pte_val(*ptep));
+		pte_val(pteval) =
+			fcse_account_page_addition(mm, addr, pte_val(pteval));
+	}
 
 	if (addr < TASK_SIZE && pte_valid_user(pteval)) {
 		if (!pte_special(pteval))

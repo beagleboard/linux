@@ -39,6 +39,14 @@ ifdef CONFIG_DEBUG_INFO
 BOOTCFLAGS	+= -g
 endif
 
+ifdef CONFIG_IPIPE_TRACE
+# do not trace the boot loader
+nullstring :=
+space      := $(nullstring) # end of the line
+pg_flag     = $(nullstring) -pg # end of the line
+BOOTCFLAGS     := $(subst ${pg_flag},${space},${BOOTCFLAGS})
+endif
+
 ifeq ($(call cc-option-yn, -fstack-protector),y)
 BOOTCFLAGS	+= -fno-stack-protector
 endif

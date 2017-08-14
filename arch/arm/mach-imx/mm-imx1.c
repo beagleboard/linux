@@ -19,6 +19,7 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/pinctrl/machine.h>
+#include <linux/bug.h>
 
 #include <asm/mach/map.h>
 

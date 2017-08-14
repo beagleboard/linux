@@ -163,7 +163,7 @@ void flush_ptrace_access(struct vm_area_struct *vma, struct page *page,
 			 unsigned long uaddr, void *kaddr, unsigned long len)
 {
 	unsigned int flags = 0;
-	if (cpumask_test_cpu(smp_processor_id(), mm_cpumask(vma->vm_mm)))
+	if (fcse_mm_in_cache(vma->vm_mm))
 		flags |= FLAG_PA_CORE_IN_MM;
 	if (vma->vm_flags & VM_EXEC)
 		flags |= FLAG_PA_IS_EXEC;
@@ -192,6 +192,7 @@ void copy_to_user_page(struct vm_area_struct *vma, struct page *page,
 #ifdef CONFIG_SMP
 	preempt_disable();
 #endif
+	fcse_flush_cache_user_range(vma, uaddr, uaddr + len);
 	memcpy(dst, src, len);
 	flush_ptrace_access(vma, page, uaddr, dst, len);
 #ifdef CONFIG_SMP

@@ -803,6 +803,7 @@ config TLS_REG_EMUL
 
 config NEED_KUSER_HELPERS
 	bool
+	default y if IPIPE
 
 config KUSER_HELPERS
 	bool "Enable kuser helpers in vector page" if !NEED_KUSER_HELPERS
@@ -1032,6 +1033,79 @@ config ARCH_HAS_BARRIERS
 
 config ARM_HEAVY_MB
 	bool
+
+config ARM_FCSE
+	bool "Fast Context Switch Extension (EXPERIMENTAL)"
+	depends on !SMP && (CPU_32v4 || CPU_32v4T || CPU_32v5)
+	help
+	  The Fast Context Switch Extension (FCSE for short) is an extension of
+	  some ARM processors which allows to switch contexts between processes
+	  without flushing cache and saves a few tens of microseconds in the
+	  worst case.
+
+	  Enabling this option makes linux use the FCSE.
+
+	  We propose two modes:
+	  - the guaranteed mode: we guarantee that there will never be any cache
+	    flush when switching context, but this means that there can not be
+	    more than 95 running processes in the system, each with a virtual
+	    memory space smaller than 32MB, and that the shared memory
+	    mappings do not use cache;
+	  - the best effort mode: we allow some cache flushes to happen from
+	    time to time, but do not limit the number of processes or the
+	    virtual memory space available for each process, and the shared
+	    memory mappings use cache.
+
+if ARM_FCSE
+
+choice
+	prompt "FCSE mode"
+	default ARM_FCSE_BEST_EFFORT
+	help
+	  This option allow setting which FCSE mode will be used.
+
+config ARM_FCSE_GUARANTEED
+	bool "guaranteed"
+	help
+	  Select guaranteed mode.
+
+config ARM_FCSE_BEST_EFFORT
+	bool "best effort"
+	help
+	  Select best-effort mode.
+
+endchoice
+
+config ARM_FCSE_PREEMPT_FLUSH
+	bool "Preemptible cache flushes"
+	default ARM_FCSE_GUARANTEED
+	help
+	  When FCSE is enabled, some cache flushes happen with preemption
+	  disabled by default, this allows avoiding more cache
+	  flushes, but increases the latency. This option allows making
+	  them preemptible. It probably only make sense in guaranteed mode.
+
+config ARM_FCSE_MESSAGES
+	bool "help messages"
+	default ARM_FCSE_BEST_EFFORT
+	help
+	  When FCSE is enabled in best-effort mode, due to the VM space
+	  reduction, a too large stack size limit may result in processes
+	  exceeding the 32MB limit too easily. A too small stack size may result
+	  in stack overflows. Enabling this option will print messages in these
+	  situations to assist you in tuning the stack size limit.
+
+	  In guaranteed mode, this option will cause message to be printed if
+	  one of the hard limits (95 proceses, 32 MB VM space) is exceeded.
+
+config ARM_FCSE_DEBUG
+       bool "FCSE debug"
+       select ARM_FCSE_MESSAGES
+       help
+	  This option enables some internal debug checks. It has a high
+	  overhead, and is only useful for debugging the FCSE code.
+
+endif
 
 config ARCH_SUPPORTS_BIG_ENDIAN
 	bool

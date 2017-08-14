@@ -29,10 +29,24 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/sched_clock.h>
+#include <linux/module.h>
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <clocksource/timer-sp804.h>
 
 #include "timer-sp.h"
+
+#ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING_COUNTDOWN,
+	.u = {
+		{
+			.mask = 0xffffffff,
+		},
+	},
+};
+#endif /* CONFIG_IPIPE */
 
 static long __init sp804_get_clock_rate(struct clk *clk)
 {
@@ -78,6 +92,7 @@ void __init sp804_timer_disable(void __iomem *base)
 }
 
 void __init __sp804_clocksource_and_sched_clock_init(void __iomem *base,
+						     unsigned long phys,
 						     const char *name,
 						     struct clk *clk,
 						     int use_sched_clock)
@@ -112,6 +127,13 @@ void __init __sp804_clocksource_and_sched_clock_init(void __iomem *base,
 		sched_clock_base = base;
 		sched_clock_register(sp804_read, 32, rate);
 	}
+
+#ifdef CONFIG_IPIPE
+	tsc_info.freq = rate;
+	tsc_info.counter_vaddr = (unsigned long)base + TIMER_VALUE;
+	tsc_info.u.counter_paddr = phys + TIMER_VALUE;
+	__ipipe_tsc_register(&tsc_info);
+#endif
 }
 
 
@@ -223,6 +245,7 @@ static void __init sp804_of_init(struct device_node *np)
 	u32 irq_num = 0;
 	struct clk *clk1, *clk2;
 	const char *name = of_get_property(np, "compatible", NULL);
+	struct resource res;
 
 	base = of_iomap(np, 0);
 	if (WARN_ON(!base))
@@ -254,14 +277,17 @@ static void __init sp804_of_init(struct device_node *np)
 	if (irq <= 0)
 		goto err;
 
+	if (of_address_to_resource(np, 0, &res))
+	    res.start = 0;
+
 	of_property_read_u32(np, "arm,sp804-has-irq", &irq_num);
 	if (irq_num == 2) {
 		__sp804_clockevents_init(base + TIMER_2_BASE, irq, clk2, name);
-		__sp804_clocksource_and_sched_clock_init(base, name, clk1, 1);
+		__sp804_clocksource_and_sched_clock_init(base, res.start, name, clk1, 1);
 	} else {
 		__sp804_clockevents_init(base, irq, clk1 , name);
 		__sp804_clocksource_and_sched_clock_init(base + TIMER_2_BASE,
-							 name, clk2, 1);
+							 res.start, name, clk2, 1);
 	}
 	initialized = true;
 
@@ -278,6 +304,7 @@ static void __init integrator_cp_of_init(struct device_node *np)
 	int irq;
 	const char *name = of_get_property(np, "compatible", NULL);
 	struct clk *clk;
+	struct resource res;
 
 	base = of_iomap(np, 0);
 	if (WARN_ON(!base))
@@ -292,8 +319,11 @@ static void __init integrator_cp_of_init(struct device_node *np)
 	if (init_count == 2 || !of_device_is_available(np))
 		goto err;
 
+	if (of_address_to_resource(np, 0, &res))
+	    res.start = 0;
+
 	if (!init_count)
-		__sp804_clocksource_and_sched_clock_init(base, name, clk, 0);
+		__sp804_clocksource_and_sched_clock_init(base, res.start, name, clk, 0);
 	else {
 		irq = irq_of_parse_and_map(np, 0);
 		if (irq <= 0)
