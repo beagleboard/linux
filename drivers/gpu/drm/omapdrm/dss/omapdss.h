@@ -471,9 +471,6 @@ struct omap_dss_device {
 
 	struct list_head panel_list;
 
-	/* alias in the form of "display%d" */
-	char alias[16];
-
 	enum omap_display_type type;
 	enum omap_display_type output_type;
 
