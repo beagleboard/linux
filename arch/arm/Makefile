@@ -372,3 +372,6 @@ define archhelp
   echo  '                  install to $$(INSTALL_PATH) and run lilo'
   echo  '  vdso_install  - Install unstripped vdso.so to $$(INSTALL_MOD_PATH)/vdso'
 endef
+
+KBUILD_CFLAGS += -Iarch/$(SRCARCH)/xenomai/include -Iinclude/xenomai
+core-$(CONFIG_XENOMAI) += arch/arm/xenomai/
