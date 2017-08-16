@@ -93,7 +93,7 @@ extern void aout_dump_debugregs(struct user *dump);
 
 extern void hw_breakpoint_restore(void);
 
-#ifdef CONFIG_X86_64
+#if defined(CONFIG_X86_64) && !defined(CONFIG_IPIPE)
 DECLARE_PER_CPU(int, debug_stack_usage);
 static inline void debug_stack_usage_inc(void)
 {

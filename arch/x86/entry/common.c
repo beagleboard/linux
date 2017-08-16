@@ -16,6 +16,7 @@
 #include <linux/tracehook.h>
 #include <linux/audit.h>
 #include <linux/seccomp.h>
+#include <linux/unistd.h>
 #include <linux/signal.h>
 #include <linux/export.h>
 #include <linux/context_tracking.h>
@@ -29,6 +30,22 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/syscalls.h>
+
+#ifdef CONFIG_IPIPE
+#define disable_local_irqs()	do {	\
+	hard_local_irq_disable();	\
+	trace_hardirqs_off();		\
+} while (0)
+#define enable_local_irqs()	do {	\
+	trace_hardirqs_on();		\
+	hard_local_irq_enable();	\
+} while (0)
+#define check_irqs_disabled()	hard_irqs_disabled()
+#else
+#define disable_local_irqs()	local_irq_disable()
+#define enable_local_irqs()	local_irq_enable()
+#define check_irqs_disabled()	irqs_disabled()
+#endif
 
 static struct thread_info *pt_regs_to_thread_info(struct pt_regs *regs)
 {
@@ -234,7 +251,7 @@ static void exit_to_usermode_loop(struct pt_regs *regs, u32 cached_flags)
 	 */
 	while (true) {
 		/* We have work to do. */
-		local_irq_enable();
+		enable_local_irqs();
 
 		if (cached_flags & _TIF_NEED_RESCHED)
 			schedule();
@@ -255,13 +272,12 @@ static void exit_to_usermode_loop(struct pt_regs *regs, u32 cached_flags)
 			fire_user_return_notifiers();
 
 		/* Disable IRQs and retry */
-		local_irq_disable();
+		disable_local_irqs();
 
 		cached_flags = READ_ONCE(pt_regs_to_thread_info(regs)->flags);
 
 		if (!(cached_flags & EXIT_TO_USERMODE_LOOP_FLAGS))
 			break;
-
 	}
 }
 
@@ -271,8 +287,8 @@ __visible inline void prepare_exit_to_usermode(struct pt_regs *regs)
 	struct thread_info *ti = pt_regs_to_thread_info(regs);
 	u32 cached_flags;
 
-	if (IS_ENABLED(CONFIG_PROVE_LOCKING) && WARN_ON(!irqs_disabled()))
-		local_irq_disable();
+	if (IS_ENABLED(CONFIG_PROVE_LOCKING) && WARN_ON(!check_irqs_disabled()))
+		disable_local_irqs();
 
 	lockdep_sys_exit();
 
@@ -333,21 +349,57 @@ __visible inline void syscall_return_slowpath(struct pt_regs *regs)
 	CT_WARN_ON(ct_state() != CONTEXT_KERNEL);
 
 	if (IS_ENABLED(CONFIG_PROVE_LOCKING) &&
-	    WARN(irqs_disabled(), "syscall %ld left IRQs disabled", regs->orig_ax))
-		local_irq_enable();
+	    WARN(check_irqs_disabled(), "syscall %ld left IRQs disabled", regs->orig_ax))
+		enable_local_irqs();
 
 	/*
 	 * First do one-time work.  If these work items are enabled, we
 	 * want to run them exactly once per syscall exit with IRQs on.
 	 */
-	if (unlikely(cached_flags & SYSCALL_EXIT_WORK_FLAGS))
-		syscall_slow_exit_work(regs, cached_flags);
+	if (unlikely((!IS_ENABLED(CONFIG_IPIPE) ||
+		      syscall_get_nr(current, regs) < NR_syscalls) &&
+		     (cached_flags & SYSCALL_EXIT_WORK_FLAGS)))
+	    syscall_slow_exit_work(regs, cached_flags);
 
-	local_irq_disable();
+	disable_local_irqs();
 	prepare_exit_to_usermode(regs);
 }
 
 #if defined(CONFIG_X86_32) || defined(CONFIG_IA32_EMULATION)
+
+#ifdef CONFIG_IPIPE
+#ifdef CONFIG_X86_32
+static inline int pipeline_syscall(struct thread_info *ti,
+				   unsigned long nr, struct pt_regs *regs)
+{
+	return ipipe_handle_syscall(ti, nr, regs);
+}
+#else
+static inline int pipeline_syscall(struct thread_info *ti,
+				   unsigned long nr, struct pt_regs *regs)
+{
+	struct pt_regs regs64 = *regs;
+	int ret;
+
+	regs64.di = (unsigned int)regs->bx;
+	regs64.si = (unsigned int)regs->cx;
+	regs64.r10 = (unsigned int)regs->si;
+	regs64.r8 = (unsigned int)regs->di;
+	regs64.r9 = (unsigned int)regs->bp;
+	ret = ipipe_handle_syscall(ti, nr, &regs64);
+	regs->ax = (unsigned int)regs64.ax;
+
+	return ret;
+}
+#endif /* CONFIG_X86_32 */
+#else  /* CONFIG_IPIPE */
+static inline int pipeline_syscall(struct thread_info *ti,
+				   unsigned long nr, struct pt_regs *regs)
+{
+	return 0;
+}
+#endif /* CONFIG_IPIPE */
+
 /*
  * Does a 32-bit syscall.  Called with IRQs on and does all entry and
  * exit work and returns with IRQs off.  This function is extremely hot
@@ -365,10 +417,19 @@ __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 {
 	struct thread_info *ti = pt_regs_to_thread_info(regs);
 	unsigned int nr = (unsigned int)regs->orig_ax;
+	int ret;
 
 #ifdef CONFIG_IA32_EMULATION
 	ti->status |= TS_COMPAT;
 #endif
+
+	ret = pipeline_syscall(ti, nr, regs);
+	if (ret > 0) {
+		disable_local_irqs();
+		return;
+	}
+	if (ret < 0)
+		goto done;
 
 	if (READ_ONCE(ti->flags) & _TIF_WORK_SYSCALL_ENTRY) {
 		/*
@@ -392,7 +453,7 @@ __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 			(unsigned int)regs->dx, (unsigned int)regs->si,
 			(unsigned int)regs->di, (unsigned int)regs->bp);
 	}
-
+done:
 	syscall_return_slowpath(regs);
 }
 
@@ -400,7 +461,7 @@ __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 /* Handles INT80 on 64-bit kernels */
 __visible void do_syscall_32_irqs_off(struct pt_regs *regs)
 {
-	local_irq_enable();
+	enable_local_irqs();
 	do_syscall_32_irqs_on(regs);
 }
 #endif
@@ -428,7 +489,7 @@ __visible long do_fast_syscall_32(struct pt_regs *regs)
 	 *
 	 * WARNING: We are in CONTEXT_USER and RCU isn't paying attention!
 	 */
-	local_irq_enable();
+	enable_local_irqs();
 	if (
 #ifdef CONFIG_X86_64
 		/*
@@ -444,7 +505,7 @@ __visible long do_fast_syscall_32(struct pt_regs *regs)
 		) {
 
 		/* User code screwed up. */
-		local_irq_disable();
+		disable_local_irqs();
 		regs->ax = -EFAULT;
 #ifdef CONFIG_CONTEXT_TRACKING
 		enter_from_user_mode();

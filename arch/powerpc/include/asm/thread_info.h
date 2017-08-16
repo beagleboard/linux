@@ -33,6 +33,7 @@
 #include <asm/processor.h>
 #include <asm/page.h>
 #include <linux/stringify.h>
+#include <ipipe/thread_info.h>
 
 /*
  * low level task data.
@@ -46,6 +47,10 @@ struct thread_info {
 
 	/* low level flags - has atomic operations done on it */
 	unsigned long	flags ____cacheline_aligned_in_smp;
+#ifdef CONFIG_IPIPE
+	unsigned long ipipe_flags;
+#endif
+	struct ipipe_threadinfo ipipe_data;
 };
 
 /*
@@ -101,6 +106,7 @@ static inline struct thread_info *current_thread_info(void)
 #if defined(CONFIG_PPC64)
 #define TIF_ELF2ABI		18	/* function descriptors must die! */
 #endif
+#define TIF_MMSWITCH_INT	20	/* MMU context switch interrupted */
 
 /* as above, but as bit values */
 #define _TIF_SYSCALL_TRACE	(1<<TIF_SYSCALL_TRACE)
@@ -119,6 +125,7 @@ static inline struct thread_info *current_thread_info(void)
 #define _TIF_SYSCALL_TRACEPOINT	(1<<TIF_SYSCALL_TRACEPOINT)
 #define _TIF_EMULATE_STACK_STORE	(1<<TIF_EMULATE_STACK_STORE)
 #define _TIF_NOHZ		(1<<TIF_NOHZ)
+#define _TIF_MMSWITCH_INT	(1<<TIF_MMSWITCH_INT)
 #define _TIF_SYSCALL_DOTRACE	(_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | \
 				 _TIF_SECCOMP | _TIF_SYSCALL_TRACEPOINT | \
 				 _TIF_NOHZ)
@@ -127,6 +134,15 @@ static inline struct thread_info *current_thread_info(void)
 				 _TIF_NOTIFY_RESUME | _TIF_UPROBE | \
 				 _TIF_RESTORE_TM)
 #define _TIF_PERSYSCALL_MASK	(_TIF_RESTOREALL|_TIF_NOERROR)
+
+/* ti->ipipe_flags */
+#define TIP_MAYDAY	0	/* MAYDAY call is pending */
+#define TIP_NOTIFY	1	/* Notify head domain about kernel events */
+#define TIP_HEAD	2	/* Runs in head domain */
+
+#define _TIP_MAYDAY	(1<<TIP_MAYDAY)
+#define _TIP_NOTIFY	(1<<TIP_NOTIFY)
+#define _TIP_HEAD	(1<<TIP_HEAD)
 
 /* Bits in local_flags */
 /* Don't move TLF_NAPPING without adjusting the code in entry_32.S */
