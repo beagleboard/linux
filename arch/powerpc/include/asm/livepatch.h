@@ -56,7 +56,7 @@ static inline void klp_init_thread_info(struct thread_info *ti)
 	ti->livepatch_sp = (unsigned long *)(ti + 1) + 1;
 }
 #else
-static void klp_init_thread_info(struct thread_info *ti) { }
+static inline void klp_init_thread_info(struct thread_info *ti) { }
 #endif /* CONFIG_LIVEPATCH */
 
 #endif /* _ASM_POWERPC_LIVEPATCH_H */

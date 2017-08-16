@@ -301,6 +301,10 @@ void omap_sram_idle(void)
 
 static void omap3_pm_idle(void)
 {
+#ifdef CONFIG_IPIPE
+	BUG();
+#endif /* CONFIG_IPIPE */
+
 	if (omap_irq_pending())
 		return;
 

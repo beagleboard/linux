@@ -64,6 +64,9 @@ static struct irq_chip pci_msi_controller = {
 	.irq_ack		= irq_chip_ack_parent,
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_compose_msi_msg	= irq_msi_compose_msg,
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+	.irq_move		= move_xxapic_irq,
+#endif
 	.flags			= IRQCHIP_SKIP_SET_WAKE,
 };
 
@@ -155,6 +158,9 @@ static struct irq_chip pci_msi_ir_controller = {
 	.irq_ack		= irq_chip_ack_parent,
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_set_vcpu_affinity	= irq_chip_set_vcpu_affinity_parent,
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+	.irq_move		= move_xxapic_irq,
+#endif
 	.flags			= IRQCHIP_SKIP_SET_WAKE,
 };
 
@@ -188,6 +194,9 @@ static struct irq_chip dmar_msi_controller = {
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_compose_msi_msg	= irq_msi_compose_msg,
 	.irq_write_msi_msg	= dmar_msi_write_msg,
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+	.irq_move		= move_xxapic_irq,
+#endif
 	.flags			= IRQCHIP_SKIP_SET_WAKE,
 };
 
@@ -278,6 +287,9 @@ static struct irq_chip hpet_msi_controller __ro_after_init = {
 	.irq_retrigger = irq_chip_retrigger_hierarchy,
 	.irq_compose_msi_msg = irq_msi_compose_msg,
 	.irq_write_msi_msg = hpet_msi_write_msg,
+#if defined(CONFIG_IPIPE) && defined(CONFIG_SMP)
+	.irq_move = move_xxapic_irq,
+#endif
 	.flags = IRQCHIP_SKIP_SET_WAKE,
 };
 

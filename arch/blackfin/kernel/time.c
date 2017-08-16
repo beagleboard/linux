@@ -74,6 +74,7 @@ time_sched_init(irqreturn_t(*timer_routine) (int, void *))
 	setup_system_timer0();
 	bfin_timer_irq.handler = timer_routine;
 	setup_irq(IRQ_TIMER0, &bfin_timer_irq);
+	bfin_ipipe_coretmr_register();
 #else
 	setup_core_timer();
 	bfin_timer_irq.handler = timer_routine;

@@ -93,6 +93,7 @@ static void vfp_force_reload(unsigned int cpu, struct thread_info *thread)
 static void vfp_thread_flush(struct thread_info *thread)
 {
 	union vfp_state *vfp = &thread->vfpstate;
+	unsigned long flags;
 	unsigned int cpu;
 
 	/*
@@ -103,11 +104,11 @@ static void vfp_thread_flush(struct thread_info *thread)
 	 * Do this first to ensure that preemption won't overwrite our
 	 * state saving should access to the VFP be enabled at this point.
 	 */
-	cpu = get_cpu();
+	cpu = __ipipe_get_cpu(flags);
 	if (vfp_current_hw_state[cpu] == vfp)
 		vfp_current_hw_state[cpu] = NULL;
 	fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
-	put_cpu();
+	__ipipe_put_cpu(flags);
 
 	memset(vfp, 0, sizeof(union vfp_state));
 
@@ -122,11 +123,12 @@ static void vfp_thread_exit(struct thread_info *thread)
 {
 	/* release case: Per-thread VFP cleanup. */
 	union vfp_state *vfp = &thread->vfpstate;
-	unsigned int cpu = get_cpu();
+	unsigned long flags;
+	unsigned int cpu = __ipipe_get_cpu(flags);
 
 	if (vfp_current_hw_state[cpu] == vfp)
 		vfp_current_hw_state[cpu] = NULL;
-	put_cpu();
+	__ipipe_put_cpu(flags);
 }
 
 static void vfp_thread_copy(struct thread_info *thread)
@@ -162,6 +164,7 @@ static void vfp_thread_copy(struct thread_info *thread)
 static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 {
 	struct thread_info *thread = v;
+	unsigned long flags;
 	u32 fpexc;
 #ifdef CONFIG_SMP
 	unsigned int cpu;
@@ -169,8 +172,9 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 
 	switch (cmd) {
 	case THREAD_NOTIFY_SWITCH:
-		fpexc = fmrx(FPEXC);
 
+		flags = hard_cond_local_irq_save();
+		fpexc = fmrx(FPEXC);
 #ifdef CONFIG_SMP
 		cpu = thread->cpu;
 
@@ -188,6 +192,7 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
 		 * old state.
 		 */
 		fmxr(FPEXC, fpexc & ~FPEXC_EN);
+		hard_cond_local_irq_restore(flags);
 		break;
 
 	case THREAD_NOTIFY_FLUSH:
@@ -331,7 +336,7 @@ static u32 vfp_emulate_instruction(u32 inst, u32 fpscr, struct pt_regs *regs)
  */
 void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 {
-	u32 fpscr, orig_fpscr, fpsid, exceptions;
+	u32 fpscr, orig_fpscr, fpsid, exceptions, next_trigger = 0;
 
 	pr_debug("VFP: bounce: trigger %08x fpexc %08x\n", trigger, fpexc);
 
@@ -361,6 +366,7 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 		/*
 		 * Synchronous exception, emulate the trigger instruction
 		 */
+		hard_cond_local_irq_enable();
 		goto emulate;
 	}
 
@@ -373,7 +379,18 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 		trigger = fmrx(FPINST);
 		regs->ARM_pc -= 4;
 #endif
-	} else if (!(fpexc & FPEXC_DEX)) {
+		if (fpexc & FPEXC_FP2V) {
+			/*
+			 * The barrier() here prevents fpinst2 being read
+			 * before the condition above.
+			 */
+			barrier();
+			next_trigger = fmrx(FPINST2);
+		}
+	}
+	hard_cond_local_irq_enable();
+
+	if (!(fpexc & (FPEXC_EX | FPEXC_DEX))) {
 		/*
 		 * Illegal combination of bits. It can be caused by an
 		 * unallocated VFP instruction but with FPSCR.IXE set and not
@@ -413,18 +430,14 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 	if ((fpexc & (FPEXC_EX | FPEXC_FP2V)) != (FPEXC_EX | FPEXC_FP2V))
 		goto exit;
 
-	/*
-	 * The barrier() here prevents fpinst2 being read
-	 * before the condition above.
-	 */
-	barrier();
-	trigger = fmrx(FPINST2);
+	trigger = next_trigger;
 
  emulate:
 	exceptions = vfp_emulate_instruction(trigger, orig_fpscr, regs);
 	if (exceptions)
 		vfp_raise_exceptions(exceptions, trigger, orig_fpscr, regs);
  exit:
+	hard_cond_local_irq_enable();
 	preempt_enable();
 }
 
@@ -524,7 +537,8 @@ static inline void vfp_pm_init(void) { }
  */
 void vfp_sync_hwstate(struct thread_info *thread)
 {
-	unsigned int cpu = get_cpu();
+	unsigned long flags;
+	unsigned int cpu = __ipipe_get_cpu(flags);
 
 	if (vfp_state_in_hw(cpu, thread)) {
 		u32 fpexc = fmrx(FPEXC);
@@ -537,17 +551,18 @@ void vfp_sync_hwstate(struct thread_info *thread)
 		fmxr(FPEXC, fpexc);
 	}
 
-	put_cpu();
+	__ipipe_put_cpu(flags);
 }
 
 /* Ensure that the thread reloads the hardware VFP state on the next use. */
 void vfp_flush_hwstate(struct thread_info *thread)
 {
-	unsigned int cpu = get_cpu();
+	unsigned long flags;
+	unsigned int cpu = __ipipe_get_cpu(flags);
 
 	vfp_force_reload(cpu, thread);
 
-	put_cpu();
+	__ipipe_put_cpu(flags);
 }
 
 /*
