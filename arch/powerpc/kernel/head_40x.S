@@ -230,6 +230,12 @@ label:
 	EXC_XFER_TEMPLATE(hdlr, n, MSR_KERNEL, NOCOPY, transfer_to_handler_full, \
 			  ret_from_except_full)
 
+#ifdef CONFIG_IPIPE
+#define EXC_XFER_IPIPE(n, hdlr)		\
+	EXC_XFER_TEMPLATE(hdlr, n+1, MSR_KERNEL, NOCOPY, transfer_to_handler, \
+			  __ipipe_ret_from_except)
+#endif /* CONFIG_IPIPE */
+
 #define EXC_XFER_LITE(n, hdlr)		\
 	EXC_XFER_TEMPLATE(hdlr, n+1, MSR_KERNEL, NOCOPY, transfer_to_handler, \
 			  ret_from_except)
@@ -398,7 +404,11 @@ label:
 	EXC_XFER_LITE(0x400, handle_page_fault)
 
 /* 0x0500 - External Interrupt Exception */
+#ifdef CONFIG_IPIPE
+	EXCEPTION(0x0500, HardwareInterrupt, __ipipe_grab_irq, EXC_XFER_IPIPE)
+#else /* !CONFIG_IPIPE */
 	EXCEPTION(0x0500, HardwareInterrupt, do_IRQ, EXC_XFER_LITE)
+#endif /* CONFIG_IPIPE */
 
 /* 0x0600 - Alignment Exception */
 	START_EXCEPTION(0x0600, Alignment)
@@ -733,7 +743,11 @@ Decrementer:
 	lis	r0,TSR_PIS@h
 	mtspr	SPRN_TSR,r0		/* Clear the PIT exception */
 	addi	r3,r1,STACK_FRAME_OVERHEAD
+#ifdef CONFIG_IPIPE
+	EXC_XFER_IPIPE(0x1000, __ipipe_grab_timer)
+#else /* !CONFIG_IPIPE */
 	EXC_XFER_LITE(0x1000, timer_interrupt)
+#endif /* CONFIG_IPIPE */
 
 	/* Fixed Interval Timer (FIT) Exception. (from 0x1010) */
 FITException:
