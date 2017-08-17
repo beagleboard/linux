@@ -94,6 +94,36 @@ extern int tau_interrupts(int);
 
 int distribute_irqs = 1;
 
+/*
+ * This is specifically called by assembly code to re-enable interrupts
+ * if they are currently disabled. This is typically called before
+ * schedule() or do_signal() when returning to userspace. We do it
+ * in C to avoid the burden of dealing with lockdep etc...
+ *
+ * NOTE: This is called with interrupts hard disabled but not marked
+ * as such in paca->irq_happened, so we need to resync this.
+ */
+void notrace restore_interrupts(void)
+{
+	if (irqs_disabled()) {
+#ifndef CONFIG_IPIPE
+		local_paca->irq_happened |= PACA_IRQ_HARD_DIS;
+#endif
+		local_irq_enable();
+	} else
+		__hard_irq_enable();
+}
+
+#ifndef CONFIG_IPIPE
+
+static inline notrace int decrementer_check_overflow(void)
+{
+	u64 now = get_tb_or_rtc();
+	u64 *next_tb = this_cpu_ptr(&decrementers_next_tb);
+
+	return now >= *next_tb;
+}
+
 static inline notrace unsigned long get_irq_happened(void)
 {
 	unsigned long happened;
@@ -108,14 +138,6 @@ static inline notrace void set_soft_enabled(unsigned long enable)
 {
 	__asm__ __volatile__("stb %0,%1(13)"
 	: : "r" (enable), "i" (offsetof(struct paca_struct, soft_enabled)));
-}
-
-static inline notrace int decrementer_check_overflow(void)
-{
- 	u64 now = get_tb_or_rtc();
-	u64 *next_tb = this_cpu_ptr(&decrementers_next_tb);
- 
-	return now >= *next_tb;
 }
 
 /* This is called whenever we are re-enabling interrupts
@@ -277,23 +299,7 @@ notrace void arch_local_irq_restore(unsigned long en)
 }
 EXPORT_SYMBOL(arch_local_irq_restore);
 
-/*
- * This is specifically called by assembly code to re-enable interrupts
- * if they are currently disabled. This is typically called before
- * schedule() or do_signal() when returning to userspace. We do it
- * in C to avoid the burden of dealing with lockdep etc...
- *
- * NOTE: This is called with interrupts hard disabled but not marked
- * as such in paca->irq_happened, so we need to resync this.
- */
-void notrace restore_interrupts(void)
-{
-	if (irqs_disabled()) {
-		local_paca->irq_happened |= PACA_IRQ_HARD_DIS;
-		local_irq_enable();
-	} else
-		__hard_irq_enable();
-}
+#endif /* !CONFIG_IPIPE */
 
 /*
  * This is a helper to use when about to go into idle low-power
@@ -328,6 +334,7 @@ bool prep_irq_for_idle(void)
 	/* Tell lockdep we are about to re-enable */
 	trace_hardirqs_on();
 
+#ifndef CONFIG_IPIPE
 	/*
 	 * Mark interrupts as soft-enabled and clear the
 	 * PACA_IRQ_HARD_DIS from the pending mask since we
@@ -336,6 +343,7 @@ bool prep_irq_for_idle(void)
 	 */
 	local_paca->irq_happened &= ~PACA_IRQ_HARD_DIS;
 	local_paca->soft_enabled = 1;
+#endif
 
 	/* Tell the caller to enter the low power state */
 	return true;
@@ -460,9 +468,10 @@ void migrate_irqs(void)
 }
 #endif
 
-static inline void check_stack_overflow(void)
+#if defined(CONFIG_DEBUG_STACKOVERFLOW) && !defined(CONFIG_IPIPE_LEGACY)
+
+void check_stack_overflow(void)
 {
-#ifdef CONFIG_DEBUG_STACKOVERFLOW
 	long sp;
 
 	sp = current_stack_pointer() & (THREAD_SIZE-1);
@@ -473,25 +482,17 @@ static inline void check_stack_overflow(void)
 			sp - sizeof(struct thread_info));
 		dump_stack();
 	}
-#endif
 }
 
-void __do_irq(struct pt_regs *regs)
-{
-	unsigned int irq;
+#endif
 
+void ___do_irq(unsigned int irq, struct pt_regs *regs)
+{
 	irq_enter();
 
 	trace_irq_entry(regs);
 
 	check_stack_overflow();
-
-	/*
-	 * Query the platform PIC for the interrupt & ack it.
-	 *
-	 * This will typically lower the interrupt line to the CPU
-	 */
-	irq = ppc_md.get_irq();
 
 	/* We can hard enable interrupts now to allow perf interrupts */
 	may_hard_irq_enable();
@@ -507,9 +508,25 @@ void __do_irq(struct pt_regs *regs)
 	irq_exit();
 }
 
+void __do_irq(struct pt_regs *regs)
+{
+	unsigned int irq;
+
+	/*
+	 * Query the platform PIC for the interrupt & ack it.
+	 *
+	 * This will typically lower the interrupt line to the CPU
+	 */
+	irq = ppc_md.get_irq();
+	___do_irq(irq, regs);
+}
+
 void do_IRQ(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
+#ifdef CONFIG_IPIPE
+	__do_irq(regs);
+#else /* !CONFIG_IPIPE */
 	struct thread_info *curtp, *irqtp, *sirqtp;
 
 	/* Switch to the irq stack to handle this */
@@ -540,6 +557,7 @@ void do_IRQ(struct pt_regs *regs)
 	/* Copy back updates to the thread_info */
 	if (irqtp->flags)
 		set_bits(irqtp->flags, &curtp->flags);
+#endif /* !CONFIG_IPIPE */
 
 	set_irq_regs(old_regs);
 }
@@ -595,6 +613,21 @@ void exc_lvl_ctx_init(void)
 }
 #endif
 
+#ifdef CONFIG_IPIPE
+
+/* We don't switch stacks when the pipeline is enabled. */
+
+void irq_ctx_init(void) { }
+
+#ifndef CONFIG_PREEMPT_RT_FULL
+void do_softirq_own_stack(void)
+{
+	__do_softirq();
+}
+#endif
+
+#else  /* !CONFIG_IPIPE */
+
 struct thread_info *softirq_ctx[NR_CPUS] __read_mostly;
 struct thread_info *hardirq_ctx[NR_CPUS] __read_mostly;
 
@@ -631,6 +664,8 @@ void do_softirq_own_stack(void)
 	if (irqtp->flags)
 		set_bits(irqtp->flags, &curtp->flags);
 }
+
+#endif  /* !CONFIG_IPIPE */
 
 irq_hw_number_t virq_to_hw(unsigned int virq)
 {
