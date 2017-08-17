@@ -5,6 +5,7 @@
 #include <linux/socket.h>
 #include <linux/rtnetlink.h>
 #include <linux/pkt_sched.h>
+#include <net/net_seq_lock.h>
 
 struct gnet_stats_basic_cpu {
 	struct gnet_stats_basic_packed bstats;
@@ -33,11 +34,11 @@ int gnet_stats_start_copy_compat(struct sk_buff *skb, int type,
 				 spinlock_t *lock, struct gnet_dump *d,
 				 int padattr);
 
-int gnet_stats_copy_basic(const seqcount_t *running,
+int gnet_stats_copy_basic(net_seqlock_t *running,
 			  struct gnet_dump *d,
 			  struct gnet_stats_basic_cpu __percpu *cpu,
 			  struct gnet_stats_basic_packed *b);
-void __gnet_stats_copy_basic(const seqcount_t *running,
+void __gnet_stats_copy_basic(net_seqlock_t *running,
 			     struct gnet_stats_basic_packed *bstats,
 			     struct gnet_stats_basic_cpu __percpu *cpu,
 			     struct gnet_stats_basic_packed *b);
@@ -55,14 +56,14 @@ int gen_new_estimator(struct gnet_stats_basic_packed *bstats,
 		      struct gnet_stats_basic_cpu __percpu *cpu_bstats,
 		      struct gnet_stats_rate_est64 *rate_est,
 		      spinlock_t *stats_lock,
-		      seqcount_t *running, struct nlattr *opt);
+		      net_seqlock_t *running, struct nlattr *opt);
 void gen_kill_estimator(struct gnet_stats_basic_packed *bstats,
 			struct gnet_stats_rate_est64 *rate_est);
 int gen_replace_estimator(struct gnet_stats_basic_packed *bstats,
 			  struct gnet_stats_basic_cpu __percpu *cpu_bstats,
 			  struct gnet_stats_rate_est64 *rate_est,
 			  spinlock_t *stats_lock,
-			  seqcount_t *running, struct nlattr *opt);
+			  net_seqlock_t *running, struct nlattr *opt);
 bool gen_estimator_active(const struct gnet_stats_basic_packed *bstats,
 			  const struct gnet_stats_rate_est64 *rate_est);
 #endif
