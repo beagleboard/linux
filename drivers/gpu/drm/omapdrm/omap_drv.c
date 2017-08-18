@@ -18,6 +18,8 @@
  */
 
 #include <linux/wait.h>
+#include <linux/sort.h>
+#include <linux/of.h>
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
@@ -242,6 +244,22 @@ static void omap_disconnect_dssdevs(struct drm_device *ddev)
 	priv->num_dssdevs = 0;
 }
 
+static int omap_compare_dssdevs(const void *a, const void *b)
+{
+	const struct omap_dss_device *dssdev1 = *(struct omap_dss_device **)a;
+	const struct omap_dss_device *dssdev2 = *(struct omap_dss_device **)b;
+	int  id1, id2;
+
+	id1 = of_alias_get_id(dssdev1->dev->of_node, "display");
+	id2 = of_alias_get_id(dssdev2->dev->of_node, "display");
+
+	if (id1 > id2)
+		return 1;
+	else if (id1 < id2)
+		return -1;
+	return 0;
+}
+
 static void omap_collect_dssdevs(struct drm_device *ddev)
 {
 	struct omap_drm_private *priv = ddev->dev_private;
@@ -256,6 +274,10 @@ static void omap_collect_dssdevs(struct drm_device *ddev)
 			break;
 		}
 	}
+
+	/* Sort the list by DT aliases */
+	sort(dssdevs, num_dssdevs, sizeof(dssdevs[0]), omap_compare_dssdevs,
+	     NULL);
 }
 
 static int omap_connect_dssdevs(struct drm_device *ddev)
