@@ -830,7 +830,7 @@ const static struct csc_coef_yuv2rgb coefs_yuv2rgb_bt709_lim = {
 };
 
 /* RGB -> YUV, ITU-R BT.601, limited range */
-const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_lim = {
+const static struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_lim = {
 	 66, 129,  25,		/* yr,   yg,  yb | 0.257  0.504  0.098|*/
 	-38, -74, 112,		/* cbr, cbg, cbb |-0.148 -0.291  0.439|*/
 	112, -94, -18,		/* crr, crg, crb | 0.439 -0.368 -0.071|*/
@@ -846,7 +846,7 @@ const static struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_full = {
 };
 
 /* RGB -> YUV, ITU-R BT.709, limited range */
-const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt701_lim = {
+const static struct csc_coef_rgb2yuv coefs_rgb2yuv_bt701_lim = {
 	 47,  157,   16,	/* yr,   yg,  yb | 0.1826  0.6142  0.0620|*/
 	-26,  -87,  112,	/* cbr, cbg, cbb |-0.1006 -0.3386  0.4392|*/
 	112, -102,  -10,	/* crr, crg, crb | 0.4392 -0.3989 -0.0403|*/
