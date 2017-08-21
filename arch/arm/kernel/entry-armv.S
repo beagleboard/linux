@@ -4,6 +4,7 @@
  *  Copyright (C) 1996,1997,1998 Russell King.
  *  ARM700 fix by Matthew Godbolt (linux-user@willothewisp.demon.co.uk)
  *  nommu support by Hyok S. Choi (hyok.choi@samsung.com)
+ *  Copyright (C) 2005 Stelian Pop.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -48,6 +49,10 @@
 	arch_irq_handler_default
 #endif
 9997:
+#ifdef CONFIG_IPIPE
+	bl	__ipipe_check_root_interruptible
+	cmp	r0, #1
+#endif /* CONFIG_IPIPE */
 	.endm
 
 	.macro	pabt_helper
@@ -200,6 +205,14 @@ ENDPROC(__und_invalid)
 #ifdef CONFIG_TRACE_IRQFLAGS
 	bl	trace_hardirqs_off
 #endif
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	mov	r0, #1		/* IPIPE_TRACE_BEGIN */
+	mov	r3, #0x90000000
+	ldr	r2, [sp, #S_PC]
+	mov	r1, pc
+	bl	ipipe_trace_asm
+	ldmia	r7, {r2 - r6}
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 	.endif
 	.endm
 
@@ -217,6 +230,9 @@ ENDPROC(__dabt_svc)
 __irq_svc:
 	svc_entry
 	irq_handler
+#ifdef CONFIG_IPIPE
+	bne	__ipipe_fast_svc_irq_exit
+#endif
 
 #ifdef CONFIG_PREEMPT
 	ldr	r8, [tsk, #TI_PREEMPT]		@ get preempt count
@@ -227,6 +243,9 @@ __irq_svc:
 	blne	svc_preempt
 #endif
 
+#ifdef CONFIG_IPIPE
+__ipipe_fast_svc_irq_exit:
+#endif
 	svc_exit r5, irq = 1			@ return from exception
  UNWIND(.fnend		)
 ENDPROC(__irq_svc)
@@ -236,12 +255,16 @@ ENDPROC(__irq_svc)
 #ifdef CONFIG_PREEMPT
 svc_preempt:
 	mov	r8, lr
+#ifndef CONFIG_IPIPE
 1:	bl	preempt_schedule_irq		@ irq en/disable is done inside
+#else /* CONFIG_IPIPE */
+1:	bl	__ipipe_preempt_schedule_irq	@ irq en/disable is done inside
+#endif /* CONFIG_IPIPE */
 	ldr	r0, [tsk, #TI_FLAGS]		@ get new tasks TI_FLAGS
 	tst	r0, #_TIF_NEED_RESCHED
 	reteq	r8				@ go again
 	b	1b
-#endif
+#endif /* CONFIG_PREEMPT */
 
 __und_fault:
 	@ Correct the PC such that it is pointing at the instruction
@@ -266,6 +289,14 @@ __und_svc:
 #else
 	svc_entry
 #endif
+
+#ifdef CONFIG_IPIPE
+	mov	r0, #7				@ r0 = IPIPE_TRAP_UNDEFINSTR
+	mov	r1, sp				@ r1 = &regs
+	bl	__ipipe_notify_trap		@ branch to trap handler
+	cmp	r0, #0
+	bne	__und_svc_finish
+#endif /* CONFIG_IPIPE */
 	@
 	@ call emulation code, which returns using r9 if it has emulated
 	@ the instruction, or the more conventional lr if we are to treat
@@ -385,6 +416,15 @@ ENDPROC(__fiq_abt)
 	sub	sp, sp, #PT_REGS_SIZE
  ARM(	stmib	sp, {r1 - r12}	)
  THUMB(	stmia	sp, {r0 - r12}	)
+#ifdef CONFIG_IPIPE_TRACE_IRQSOFF
+	mov	r4, r0
+	mov	r0, #1		/* IPIPE_TRACE_BEGIN */
+	mov	r3, #0x90000000
+	ldr	r2, [r4, #4]	/* lr_<exception> */
+	mov	r1, pc
+	bl	ipipe_trace_asm
+	mov	r0, r4
+#endif /* CONFIG_IPIPE_TRACE_IRQSOFF */
 
  ATRAP(	mrc	p15, 0, r7, c1, c0, 0)
  ATRAP(	ldr	r8, .LCcralign)
@@ -462,6 +502,10 @@ __irq_usr:
 	usr_entry
 	kuser_cmpxchg_check
 	irq_handler
+#ifdef CONFIG_IPIPE
+ THUMB(	it ne)
+	bne	__ipipe_ret_to_user_irqs_disabled
+#endif	/* CONFIG_IPIPE */
 	get_thread_info tsk
 	mov	why, #0
 	b	ret_to_user_from_irq
@@ -473,6 +517,14 @@ ENDPROC(__irq_usr)
 	.align	5
 __und_usr:
 	usr_entry uaccess=0
+
+#ifdef CONFIG_IPIPE
+	mov	r0, #7				@ r0 = IPIPE_TRAP_UNDEFINSTR
+	mov	r1, sp				@ r1 = &regs
+	bl	__ipipe_notify_trap		@ branch to trap handler
+	cmp	r0, #0
+	bne	ret_from_exception
+#endif /* CONFIG_IPIPE */
 
 	mov	r2, r4
 	mov	r3, r5
@@ -755,7 +807,24 @@ __pabt_usr:
 ENTRY(ret_from_exception)
  UNWIND(.fnstart	)
  UNWIND(.cantunwind	)
+#ifdef CONFIG_IPIPE
+	disable_irq
+#ifdef CONFIG_IPIPE_LEGACY
+	bl	__ipipe_check_root
+	cmp     r0, #1
+ THUMB(	it ne)
+	bne	__ipipe_ret_to_user_irqs_disabled  @ Fast exit path over non-root domains
 	get_thread_info tsk
+#else /* !CONFIG_IPIPE_LEGACY */
+	get_thread_info tsk
+	ldr	r0, [tsk, #TI_IPIPE]
+	tst	r0, #_TIP_HEAD
+ THUMB(	it ne)
+	bne	__ipipe_ret_to_user_irqs_disabled  @ Fast exit path over non-root domains
+#endif /* !CONFIG_IPIPE_LEGACY */
+#else /* !CONFIG_IPIPE */
+	get_thread_info tsk
+#endif /* !CONFIG_IPIPE */
 	mov	why, #0
 	b	ret_to_user
  UNWIND(.fnend		)
@@ -806,7 +875,11 @@ ENTRY(__switch_to)
 	add	r4, r2, #TI_CPU_SAVE
 	ldr	r0, =thread_notify_head
 	mov	r1, #THREAD_NOTIFY_SWITCH
+#ifndef CONFIG_IPIPE
 	bl	atomic_notifier_call_chain
+#else /* CONFIG_IPIPE */
+	bl	__ipipe_switch_to_notifier_call_chain
+#endif /* CONFIG_IPIPE */
 #if defined(CONFIG_CC_STACKPROTECTOR) && !defined(CONFIG_SMP)
 	str	r7, [r8]
 #endif
@@ -840,6 +913,50 @@ ENDPROC(__switch_to)
 	ret	\reg
 #endif
 	.endm
+
+#ifdef CONFIG_IPIPE
+/*
+	I-pipe tsc area, here we store data shared with user-space for
+	tsc-emulation. If CONFIG_IPIPE_ARM_KUSER_TSC is enabled
+	__ipipe_kuser_get_tsc will be overwritten with the real TSC
+	emulation code.
+*/
+	.globl	__ipipe_tsc_area
+	.equ	__ipipe_tsc_area, CONFIG_VECTORS_BASE + 0x1000 + __ipipe_tsc_area_start - __kuser_helper_end
+
+#ifdef CONFIG_IPIPE_ARM_KUSER_TSC
+	.globl  __ipipe_tsc_addr
+	.equ	__ipipe_tsc_addr, CONFIG_VECTORS_BASE + 0x1000 + .LCcntr_addr - __kuser_helper_end
+
+	.globl	__ipipe_tsc_get
+	.equ	__ipipe_tsc_get, CONFIG_VECTORS_BASE + 0x1000 + __ipipe_kuser_get_tsc - __kuser_helper_end
+#endif
+
+	.align 5
+	.globl  __ipipe_tsc_area_start
+__ipipe_tsc_area_start:
+	.rep  3
+	.word 0
+	.endr
+
+#ifdef CONFIG_IPIPE_ARM_KUSER_TSC
+	.rep  4
+	.word 0
+	.endr
+.LCcntr_addr:
+	.word 0
+
+	.align 5
+__ipipe_kuser_get_tsc:
+	nop
+	mov	r0, #0
+	mov	r1, #0
+	usr_ret	lr
+	.rep 20
+	.word 0
+	.endr
+#endif
+#endif
 
 	.macro	kuser_pad, sym, size
 	.if	(. - \sym) & 3
