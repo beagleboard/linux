@@ -1568,8 +1568,13 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	hclk = devm_clk_get(&pdev->dev, "hclk");
 	cclk = devm_clk_get(&pdev->dev, "cclk");
 
-	if (IS_ERR(hclk) || IS_ERR(cclk)) {
-		dev_err(&pdev->dev, "no clock found\n");
+	if (IS_ERR(hclk)) {
+		dev_warn(&pdev->dev, "hclk could not be found\n");
+		hclk = NULL;
+	}
+
+	if (IS_ERR(cclk)) {
+		dev_err(&pdev->dev, "cclk could not be found\n");
 		ret = -ENODEV;
 		goto failed_ret;
 	}
