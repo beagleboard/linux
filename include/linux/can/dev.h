@@ -40,6 +40,8 @@ struct can_priv {
 		*data_bittiming_const;
 	struct can_clock clock;
 
+	unsigned int max_bitrate;
+
 	enum can_state state;
 
 	/* CAN controller features - see include/uapi/linux/can/netlink.h */
@@ -156,6 +158,12 @@ void can_put_echo_skb(struct sk_buff *skb, struct net_device *dev,
 		      unsigned int idx);
 unsigned int can_get_echo_skb(struct net_device *dev, unsigned int idx);
 void can_free_echo_skb(struct net_device *dev, unsigned int idx);
+
+#ifdef CONFIG_OF
+void of_can_transceiver(struct net_device *dev);
+#else
+static inline void of_can_transceiver(struct net_device *dev) { }
+#endif
 
 struct sk_buff *alloc_can_skb(struct net_device *dev, struct can_frame **cf);
 struct sk_buff *alloc_canfd_skb(struct net_device *dev,
