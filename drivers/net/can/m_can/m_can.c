@@ -23,6 +23,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/iopoll.h>
 #include <linux/can/dev.h>
 
@@ -625,19 +626,33 @@ static int m_can_clk_start(struct m_can_priv *priv)
 {
 	int err;
 
+	err = pm_runtime_get_sync(priv->device);
+	if (err) {
+		pm_runtime_put_noidle(priv->device);
+		return err;
+	}
+
 	err = clk_prepare_enable(priv->hclk);
 	if (err)
-		return err;
+		goto pm_runtime_put;
 
 	err = clk_prepare_enable(priv->cclk);
 	if (err)
-		clk_disable_unprepare(priv->hclk);
+		goto disable_hclk;
 
+	return err;
+
+disable_hclk:
+	clk_disable_unprepare(priv->hclk);
+pm_runtime_put:
+	pm_runtime_put_sync(priv->device);
 	return err;
 }
 
 static void m_can_clk_stop(struct m_can_priv *priv)
 {
+	pm_runtime_put_sync(priv->device);
+
 	clk_disable_unprepare(priv->cclk);
 	clk_disable_unprepare(priv->hclk);
 }
@@ -1582,9 +1597,16 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	/* Enable clocks. Necessary to read Core Release in order to determine
 	 * M_CAN version
 	 */
+	pm_runtime_enable(&pdev->dev);
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)  {
+		pm_runtime_put_noidle(&pdev->dev);
+		goto pm_runtime_fail;
+	}
+
 	ret = clk_prepare_enable(hclk);
 	if (ret)
-		goto failed_ret;
+		goto pm_runtime_put;
 
 	ret = clk_prepare_enable(cclk);
 	if (ret)
@@ -1669,6 +1691,11 @@ disable_cclk_ret:
 	clk_disable_unprepare(cclk);
 disable_hclk_ret:
 	clk_disable_unprepare(hclk);
+pm_runtime_put:
+	pm_runtime_put_sync(&pdev->dev);
+pm_runtime_fail:
+	if (ret)
+		pm_runtime_disable(&pdev->dev);
 failed_ret:
 	return ret;
 }
@@ -1726,6 +1753,9 @@ static int m_can_plat_remove(struct platform_device *pdev)
 	struct net_device *dev = platform_get_drvdata(pdev);
 
 	unregister_m_can_dev(dev);
+
+	pm_runtime_disable(&pdev->dev);
+
 	platform_set_drvdata(pdev, NULL);
 
 	free_m_can_dev(dev);
