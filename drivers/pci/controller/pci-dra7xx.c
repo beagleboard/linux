@@ -515,6 +515,22 @@ static const struct of_device_id of_dra7xx_pcie_match[] = {
 		.compatible = "ti,dra7-pcie-ep",
 		.data = &dra7xx_pcie_ep_of_data,
 	},
+	{
+		.compatible = "ti,dra746-pcie-rc",
+		.data = &dra7xx_pcie_rc_of_data,
+	},
+	{
+		.compatible = "ti,dra746-pcie-ep",
+		.data = &dra7xx_pcie_ep_of_data,
+	},
+	{
+		.compatible = "ti,dra726-pcie-rc",
+		.data = &dra7xx_pcie_rc_of_data,
+	},
+	{
+		.compatible = "ti,dra726-pcie-ep",
+		.data = &dra7xx_pcie_ep_of_data,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, of_dra7xx_pcie_match);
