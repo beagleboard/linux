@@ -925,10 +925,6 @@
 	vdd-supply = <&smps7_reg>;
 };
 
-&pcie1_rc {
-	status = "okay";
-};
-
 &omap_dwc3_2 {
 	extcon = <&extcon_usb2>;
 };

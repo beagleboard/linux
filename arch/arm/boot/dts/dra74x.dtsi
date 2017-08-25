@@ -259,3 +259,15 @@
 		status = "disabled";
 	};
 };
+
+&pcie1_rc {
+	compatible = "ti,dra746-pcie-rc";
+};
+
+&pcie1_ep {
+	compatible = "ti,dra746-pcie-ep";
+};
+
+&pcie2_rc {
+	compatible = "ti,dra746-pcie-rc";
+};
