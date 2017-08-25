@@ -46,6 +46,7 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/physmap.h>
 #include <linux/syscore_ops.h>
+#include <linux/ipipe.h>
 
 #include "pxa25x.h"
 #include <mach/audio.h>
@@ -290,7 +291,7 @@ static void viper_irq_handler(struct irq_desc *desc)
 
 		if (likely(pending)) {
 			irq = viper_bit_to_irq(__ffs(pending));
-			generic_handle_irq(irq);
+			ipipe_handle_demuxed_irq(irq);
 		}
 		pending = viper_irq_pending();
 	} while (pending);
@@ -630,8 +631,8 @@ static struct isp116x_platform_data isp116x_platform_data = {
 static struct platform_device isp116x_device = {
 	.name			= "isp116x-hcd",
 	.id			= -1,
-	.num_resources  	= ARRAY_SIZE(isp116x_resources),
-	.resource       	= isp116x_resources,
+	.num_resources		= ARRAY_SIZE(isp116x_resources),
+	.resource		= isp116x_resources,
 	.dev			= {
 		.platform_data	= &isp116x_platform_data,
 	},

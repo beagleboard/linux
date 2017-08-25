@@ -230,6 +230,7 @@ static void pmu_irq_handler(struct irq_desc *desc)
 	void __iomem *base = gc->reg_base;
 	u32 stat = readl_relaxed(base + PMC_IRQ_CAUSE) & gc->mask_cache;
 	u32 done = ~0;
+	unsigned long flags;
 
 	if (stat == 0) {
 		handle_bad_irq(desc);
@@ -256,10 +257,10 @@ static void pmu_irq_handler(struct irq_desc *desc)
 	 * So, let's structure the code so that the window is as small as
 	 * possible.
 	 */
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	done &= readl_relaxed(base + PMC_IRQ_CAUSE);
 	writel_relaxed(done, base + PMC_IRQ_CAUSE);
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static int __init dove_init_pmu_irq(struct pmu_data *pmu, int irq)

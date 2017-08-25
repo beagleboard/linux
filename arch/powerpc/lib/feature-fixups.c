@@ -33,6 +33,7 @@ struct fixup_entry {
 	long		alt_end_off;
 };
 
+notrace
 static unsigned int *calc_addr(struct fixup_entry *fcur, long offset)
 {
 	/*
@@ -43,6 +44,7 @@ static unsigned int *calc_addr(struct fixup_entry *fcur, long offset)
 	return (unsigned int *)((unsigned long)fcur + offset);
 }
 
+notrace
 static int patch_alt_instruction(unsigned int *src, unsigned int *dest,
 				 unsigned int *alt_start, unsigned int *alt_end)
 {
@@ -66,6 +68,7 @@ static int patch_alt_instruction(unsigned int *src, unsigned int *dest,
 	return 0;
 }
 
+notrace
 static int patch_feature_section(unsigned long value, struct fixup_entry *fcur)
 {
 	unsigned int *start, *end, *alt_start, *alt_end, *src, *dest;
@@ -95,6 +98,7 @@ static int patch_feature_section(unsigned long value, struct fixup_entry *fcur)
 	return 0;
 }
 
+notrace
 void do_feature_fixups(unsigned long value, void *fixup_start, void *fixup_end)
 {
 	struct fixup_entry *fcur, *fend;
@@ -115,6 +119,7 @@ void do_feature_fixups(unsigned long value, void *fixup_start, void *fixup_end)
 	}
 }
 
+notrace
 void do_lwsync_fixups(unsigned long value, void *fixup_start, void *fixup_end)
 {
 	long *start, *end;
