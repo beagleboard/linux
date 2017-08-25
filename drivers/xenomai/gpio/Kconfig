@@ -1,0 +1,33 @@
+menu "Real-time GPIO drivers"
+
+config XENO_DRIVERS_GPIO
+       tristate "GPIO controller"
+       depends on GPIOLIB
+       help
+
+       Real-time capable GPIO module.
+      
+if XENO_DRIVERS_GPIO
+
+config XENO_DRIVERS_GPIO_BCM2835
+	depends on MACH_BCM2708 || ARCH_BCM2835
+	bool "Support for BCM2835 GPIOs"
+	help
+
+	Enables support for the GPIO controller available from
+	Broadcom's BCM2835 SoC.
+
+config XENO_DRIVERS_GPIO_MXC
+	depends on GPIO_MXC
+	bool "Support for MXC GPIOs"
+	help
+
+	Suitable for the GPIO controller available from
+	Freescale/NXP's MXC architecture.
+
+config XENO_DRIVERS_GPIO_DEBUG
+       bool "Enable GPIO core debugging features"
+
+endif
+
+endmenu
