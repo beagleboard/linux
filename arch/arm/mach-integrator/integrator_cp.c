@@ -2,6 +2,7 @@
  *  linux/arch/arm/mach-integrator/integrator_cp.c
  *
  *  Copyright (C) 2003 Deep Blue Solutions Ltd
+ *  Copyright (C) 2005 Stelian Pop.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

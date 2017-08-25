@@ -45,7 +45,7 @@ __x2apic_send_IPI_mask(const struct cpumask *mask, int vector, int apic_dest)
 
 	x2apic_wrmsr_fence();
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 
 	this_cpu = smp_processor_id();
 	for_each_cpu(query_cpu, mask) {
@@ -54,7 +54,7 @@ __x2apic_send_IPI_mask(const struct cpumask *mask, int vector, int apic_dest)
 		__x2apic_send_IPI_dest(per_cpu(x86_cpu_to_apicid, query_cpu),
 				       vector, APIC_DEST_PHYSICAL);
 	}
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 static void x2apic_send_IPI_mask(const struct cpumask *mask, int vector)

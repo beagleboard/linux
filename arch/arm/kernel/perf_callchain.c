@@ -104,6 +104,9 @@ perf_callchain_kernel(struct perf_callchain_entry *entry, struct pt_regs *regs)
 		return;
 	}
 
+	if (IS_ENABLED(CONFIG_IPIPE))
+		return;
+
 	arm_get_current_stackframe(regs, &fr);
 	walk_stackframe(&fr, callchain_trace, entry);
 }
