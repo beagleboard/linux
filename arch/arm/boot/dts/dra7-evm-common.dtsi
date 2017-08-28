@@ -322,3 +322,7 @@
 		};
 	};
 };
+
+&pcie1_rc {
+	status = "okay";
+};

@@ -687,10 +687,6 @@
 	status = "okay";
 };
 
-&pcie1_rc {
-	status = "okay";
-};
-
 &omap_dwc3_2 {
 	extcon = <&extcon_usb2>;
 };
