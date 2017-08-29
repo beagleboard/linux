@@ -336,6 +336,11 @@ static bool vip_is_mbuscode_rgb(u32 code)
 	return ((code & 0xFF00) == 0x1000);
 }
 
+static bool vip_is_mbuscode_raw(u32 code)
+{
+	return ((code & 0xFF00) == 0x3000);
+}
+
 static enum  v4l2_colorspace vip_fourcc_to_colorspace(u32 fourcc)
 {
 	if (vip_is_fmt_rgb(fourcc))
@@ -1675,6 +1680,7 @@ static int vip_try_fmt_vid_cap(struct file *file, void *priv,
 
 	if (is_scaler_available(port) &&
 	    csc_direction != VIP_CSC_Y2R &&
+	    !vip_is_mbuscode_raw(fmt->code) &&
 	    f->fmt.pix.height <= port->try_mbus_framefmt.height &&
 	    port->try_mbus_framefmt.height <= SC_MAX_PIXEL_HEIGHT &&
 	    port->try_mbus_framefmt.width <= SC_MAX_PIXEL_WIDTH) {
@@ -2765,7 +2771,7 @@ done:
 
 static inline bool is_scaler_available(struct vip_port *port)
 {
-	if (port->num_streams_configured == 1)
+	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL)
 		if (port->dev->sc_assigned == VIP_NOT_ASSIGNED ||
 		    port->dev->sc_assigned == port->port_id)
 			return true;
@@ -2774,7 +2780,7 @@ static inline bool is_scaler_available(struct vip_port *port)
 
 static inline bool allocate_scaler(struct vip_port *port)
 {
-	if (port->num_streams_configured == 1) {
+	if (is_scaler_available(port)) {
 		if (port->dev->sc_assigned == VIP_NOT_ASSIGNED ||
 		    port->dev->sc_assigned == port->port_id) {
 			port->dev->sc_assigned = port->port_id;
@@ -2795,7 +2801,7 @@ static inline void free_scaler(struct vip_port *port)
 
 static bool is_csc_available(struct vip_port *port)
 {
-	if (port->num_streams_configured == 1)
+	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL)
 		if (port->dev->csc_assigned == VIP_NOT_ASSIGNED ||
 		    port->dev->csc_assigned == port->port_id)
 			return true;
@@ -3434,32 +3440,43 @@ static int get_subdev_active_format(struct vip_port *port,
 	struct v4l2_subdev_mbus_code_enum mbus_code;
 	int ret = 0;
 	unsigned int k, i, j;
+	enum vip_csc_state csc;
 
 	/* Enumerate sub device formats and enable all matching local formats */
 	port->num_active_fmt = 0;
-	for (k = 0, i = 0;
-	     (ret != -EINVAL);
-	     k++) {
+	for (k = 0, i = 0; (ret != -EINVAL); k++) {
 		memset(&mbus_code, 0, sizeof(mbus_code));
 		mbus_code.index = k;
 		ret = v4l2_subdev_call(subdev, pad, enum_mbus_code,
 				       NULL, &mbus_code);
-		if (ret == 0) {
-			vip_dbg(2, dev,
-				"subdev %s: code: %04x idx: %d\n",
-				subdev->name, mbus_code.code, k);
+		if (ret)
+			continue;
 
-			for (j = 0; j < ARRAY_SIZE(vip_formats); j++) {
-				fmt = &vip_formats[j];
-				if (mbus_code.code == fmt->code) {
-					port->active_fmt[i] = fmt;
-					vip_dbg(2, dev,
-						"matched fourcc: %s: code: %04x idx: %d\n",
-						fourcc_to_str(fmt->fourcc),
-						fmt->code, i);
-					port->num_active_fmt = ++i;
-				}
-			}
+		vip_dbg(2, dev,
+			"subdev %s: code: %04x idx: %d\n",
+			subdev->name, mbus_code.code, k);
+
+		for (j = 0; j < ARRAY_SIZE(vip_formats); j++) {
+			fmt = &vip_formats[j];
+			if (mbus_code.code != fmt->code)
+				continue;
+
+			/*
+			 * When the port is configured for BT656
+			 * then none of the downstream unit can be used.
+			 * So here we need to skip all format requiring
+			 * either CSC or CHR_DS
+			 */
+			csc = vip_csc_direction(fmt->code, fmt->fourcc);
+			if (port->endpoint->bus_type == V4L2_MBUS_BT656 &&
+			    (csc != VIP_CSC_NA || fmt->coplanar))
+				continue;
+
+			port->active_fmt[i] = fmt;
+			vip_dbg(2, dev,
+				"matched fourcc: %s: code: %04x idx: %d\n",
+				fourcc_to_str(fmt->fourcc), fmt->code, i);
+			port->num_active_fmt = ++i;
 		}
 	}
 
