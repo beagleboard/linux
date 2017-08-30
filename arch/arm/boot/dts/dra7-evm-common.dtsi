@@ -149,22 +149,6 @@
 	};
 };
 
-&dra7_pmx_core {
-	dcan1_pins_default: dcan1_pins_default {
-		pinctrl-single,pins = <
-			DRA7XX_CORE_IOPAD(0x37d0, PIN_OUTPUT_PULLUP | MUX_MODE0) /* dcan1_tx */
-			DRA7XX_CORE_IOPAD(0x3818, PULL_UP | MUX_MODE1) /* wakeup0.dcan1_rx */
-		>;
-	};
-
-	dcan1_pins_sleep: dcan1_pins_sleep {
-		pinctrl-single,pins = <
-			DRA7XX_CORE_IOPAD(0x37d0, MUX_MODE15 | PULL_UP)	/* dcan1_tx.off */
-			DRA7XX_CORE_IOPAD(0x3818, MUX_MODE15 | PULL_UP)	/* wakeup0.off */
-		>;
-	};
-};
-
 &i2c3 {
 	status = "okay";
 	clock-frequency = <400000>;
@@ -264,14 +248,6 @@
 
 &usb2 {
 	dr_mode = "host";
-};
-
-&dcan1 {
-	status = "ok";
-	pinctrl-names = "default", "sleep", "active";
-	pinctrl-0 = <&dcan1_pins_sleep>;
-	pinctrl-1 = <&dcan1_pins_sleep>;
-	pinctrl-2 = <&dcan1_pins_default>;
 };
 
 &atl {
