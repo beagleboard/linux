@@ -1584,11 +1584,11 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	 */
 	ret = clk_prepare_enable(hclk);
 	if (ret)
-		goto disable_hclk_ret;
+		goto failed_ret;
 
 	ret = clk_prepare_enable(cclk);
 	if (ret)
-		goto disable_cclk_ret;
+		goto disable_hclk_ret;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "m_can");
 	addr = devm_ioremap_resource(&pdev->dev, res);
