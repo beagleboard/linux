@@ -696,6 +696,14 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 	return 0;
 }
 
+int omap_crtc_atomic_get_trans_key_mode(struct drm_crtc *crtc,
+					const struct drm_crtc_state *state)
+{
+	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
+
+	return omap_state->trans_key_mode;
+}
+
 static void omap_crtc_reset(struct drm_crtc *crtc)
 {
 	if (crtc->state)
