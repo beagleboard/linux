@@ -39,6 +39,20 @@
 				};
 			};
 		};
+
+		m_can0: mcan@42C01A00 {
+			compatible = "bosch,m_can";
+			reg = <0x42C01A00 0x4000>, <0x42C00000 0x18FC>;
+			reg-names = "m_can", "message_ram";
+			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "int0", "int1";
+			ti,hwmods = "mcan";
+			clocks = <&mcan_clk>;
+			clock-names = "cclk";
+			bosch,mram-cfg = <0x0 0 0 32 0 0 1 1>;
+			status = "disabled";
+		};
 	};
 };
 
