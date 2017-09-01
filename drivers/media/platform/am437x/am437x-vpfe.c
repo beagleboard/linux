@@ -2090,6 +2090,9 @@ static int vpfe_cropcap(struct file *file, void *priv,
 
 	vpfe_dbg(2, vpfe, "vpfe_cropcap\n");
 
+	if (crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
 	if (vpfe->std_index >= ARRAY_SIZE(vpfe_standards))
 		return -EINVAL;
 
