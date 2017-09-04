@@ -354,12 +354,12 @@ static void vpfe_ccdc_setwin(struct vpfe_ccdc *ccdc,
 	vert_start = image_win->top;
 
 	if (frm_fmt == CCDC_FRMFMT_INTERLACED) {
-		vert_nr_lines = (image_win->height >> 1);
+		vert_nr_lines = (image_win->height >> 1) - 1;
 		vert_start >>= 1;
 		/* configure VDINT0 */
 		val = (vert_start << VPFE_VDINT_VDINT0_SHIFT);
 	} else {
-		vert_nr_lines = image_win->height;
+		vert_nr_lines = image_win->height - 1;
 		/*
 		 * configure VDINT0 and VDINT1. VDINT1 will be at half
 		 * of image height
@@ -452,40 +452,25 @@ static void vpfe_ccdc_restore_defaults(struct vpfe_ccdc *ccdc)
 
 static int vpfe_ccdc_close(struct vpfe_ccdc *ccdc, struct device *dev)
 {
-	int dma_cntl, i, pcr;
+	struct vpfe_device *vpfe = container_of(ccdc, struct vpfe_device, ccdc);
+	u32 dma_cntl, pcr;
 
-	/* If the CCDC module is still busy wait for it to be done */
-	for (i = 0; i < 10; i++) {
-		usleep_range(5000, 6000);
-		pcr = vpfe_reg_read(ccdc, VPFE_PCR);
-		if (!pcr)
-			break;
+	pcr = vpfe_reg_read(ccdc, VPFE_PCR);
+	if (pcr)
+		vpfe_dbg(1, vpfe, "VPFE_PCR is still set (%x)", pcr);
 
-		/* make sure it it is disabled */
-		vpfe_pcr_enable(ccdc, 0);
-	}
+	dma_cntl = vpfe_reg_read(ccdc, VPFE_DMA_CNTL);
+	if ((dma_cntl & VPFE_DMA_CNTL_OVERFLOW))
+		vpfe_dbg(1, vpfe, "VPFE_DMA_CNTL_OVERFLOW is still set (%x)",
+			 dma_cntl);
 
 	/* Disable CCDC by resetting all register to default POR values */
 	vpfe_ccdc_restore_defaults(ccdc);
-
-	/* if DMA_CNTL overflow bit is set. Clear it
-	 *  It appears to take a while for this to become quiescent ~20ms
-	 */
-	for (i = 0; i < 10; i++) {
-		dma_cntl = vpfe_reg_read(ccdc, VPFE_DMA_CNTL);
-		if (!(dma_cntl & VPFE_DMA_CNTL_OVERFLOW))
-			break;
-
-		/* Clear the overflow bit */
-		vpfe_reg_write(ccdc, dma_cntl, VPFE_DMA_CNTL);
-		usleep_range(5000, 6000);
-	}
 
 	/* Disabled the module at the CONFIG level */
 	vpfe_config_enable(ccdc, 0);
 
 	pm_runtime_put_sync(dev);
-
 	return 0;
 }
 
@@ -1244,22 +1229,29 @@ unlock:
  * This function will get next buffer from the dma queue and
  * set the buffer address in the vpfe register for capture.
  * the buffer is marked active
- *
- * Assumes caller is holding vpfe->dma_queue_lock already
  */
-static inline void vpfe_schedule_next_buffer(struct vpfe_device *vpfe)
+static void vpfe_schedule_next_buffer(struct vpfe_device *vpfe)
 {
+	dma_addr_t addr;
+
+	spin_lock(&vpfe->dma_queue_lock);
+	if (list_empty(&vpfe->dma_queue)) {
+		spin_unlock(&vpfe->dma_queue_lock);
+		return;
+	}
+
 	vpfe->next_frm = list_entry(vpfe->dma_queue.next,
 				    struct vpfe_cap_buffer, list);
 	list_del(&vpfe->next_frm->list);
+	spin_unlock(&vpfe->dma_queue_lock);
 
-	vpfe_set_sdr_addr(&vpfe->ccdc,
-	       vb2_dma_contig_plane_dma_addr(&vpfe->next_frm->vb.vb2_buf, 0));
+	addr = vb2_dma_contig_plane_dma_addr(&vpfe->next_frm->vb.vb2_buf, 0);
+	vpfe_set_sdr_addr(&vpfe->ccdc, addr);
 }
 
 static inline void vpfe_schedule_bottom_field(struct vpfe_device *vpfe)
 {
-	unsigned long addr;
+	dma_addr_t addr;
 
 	addr = vb2_dma_contig_plane_dma_addr(&vpfe->next_frm->vb.vb2_buf, 0) +
 					vpfe->field_off;
@@ -1284,6 +1276,58 @@ static inline void vpfe_process_buffer_complete(struct vpfe_device *vpfe)
 	vpfe->cur_frm = vpfe->next_frm;
 }
 
+static void vpfe_handle_interlaced_irq(struct vpfe_device *vpfe,
+				       enum v4l2_field field)
+{
+	int fid;
+
+	/* interlaced or TB capture check which field
+	 * we are in hardware
+	 */
+	fid = vpfe_ccdc_getfid(&vpfe->ccdc);
+
+	/* switch the software maintained field id */
+	vpfe->field ^= 1;
+	if (fid == vpfe->field) {
+		/* we are in-sync here,continue */
+		if (fid == 0) {
+			/*
+			 * One frame is just being captured. If the
+			 * next frame is available, release the
+			 * current frame and move on
+			 */
+			if (vpfe->cur_frm != vpfe->next_frm)
+				vpfe_process_buffer_complete(vpfe);
+
+			if (vpfe->stopping)
+				return;
+
+			/*
+			 * based on whether the two fields are stored
+			 * interleave or separately in memory,
+			 * reconfigure the CCDC memory address
+			 */
+			if (field == V4L2_FIELD_SEQ_TB)
+				vpfe_schedule_bottom_field(vpfe);
+		} else {
+			/*
+			 * if one field is just being captured configure
+			 * the next frame get the next frame from the empty
+			 * queue if no frame is available hold on to the
+			 * current buffer
+			 */
+			if (vpfe->cur_frm == vpfe->next_frm)
+				vpfe_schedule_next_buffer(vpfe);
+		}
+	} else if (fid == 0) {
+		/*
+		 * out of sync. Recover from any hardware out-of-sync.
+		 * May loose one frame
+		 */
+		vpfe->field = fid;
+	}
+}
+
 /*
  * vpfe_isr : ISR handler for vpfe capture (VINT0)
  * @irq: irq number
@@ -1295,80 +1339,31 @@ static inline void vpfe_process_buffer_complete(struct vpfe_device *vpfe)
 static irqreturn_t vpfe_isr(int irq, void *dev)
 {
 	struct vpfe_device *vpfe = (struct vpfe_device *)dev;
-	enum v4l2_field field;
-	int intr_status;
-	int fid;
+	enum v4l2_field field = vpfe->fmt.fmt.pix.field;
+	int intr_status, stopping = vpfe->stopping;
 
 	intr_status = vpfe_reg_read(&vpfe->ccdc, VPFE_IRQ_STS);
 
 	if (intr_status & VPFE_VDINT0) {
-		field = vpfe->fmt.fmt.pix.field;
-
 		if (field == V4L2_FIELD_NONE) {
-			/* handle progressive frame capture */
 			if (vpfe->cur_frm != vpfe->next_frm)
 				vpfe_process_buffer_complete(vpfe);
-			goto next_intr;
+		} else {
+			vpfe_handle_interlaced_irq(vpfe, field);
 		}
-
-		/* interlaced or TB capture check which field
-		   we are in hardware */
-		fid = vpfe_ccdc_getfid(&vpfe->ccdc);
-
-		/* switch the software maintained field id */
-		vpfe->field ^= 1;
-		if (fid == vpfe->field) {
-			/* we are in-sync here,continue */
-			if (fid == 0) {
-				/*
-				 * One frame is just being captured. If the
-				 * next frame is available, release the
-				 * current frame and move on
-				 */
-				if (vpfe->cur_frm != vpfe->next_frm)
-					vpfe_process_buffer_complete(vpfe);
-				/*
-				 * based on whether the two fields are stored
-				 * interleave or separately in memory,
-				 * reconfigure the CCDC memory address
-				 */
-				if (field == V4L2_FIELD_SEQ_TB)
-					vpfe_schedule_bottom_field(vpfe);
-
-				goto next_intr;
-			}
-			/*
-			 * if one field is just being captured configure
-			 * the next frame get the next frame from the empty
-			 * queue if no frame is available hold on to the
-			 * current buffer
-			 */
-			spin_lock(&vpfe->dma_queue_lock);
-			if (!list_empty(&vpfe->dma_queue) &&
-			    vpfe->cur_frm == vpfe->next_frm)
-				vpfe_schedule_next_buffer(vpfe);
-			spin_unlock(&vpfe->dma_queue_lock);
-		} else if (fid == 0) {
-			/*
-			 * out of sync. Recover from any hardware out-of-sync.
-			 * May loose one frame
-			 */
-			vpfe->field = fid;
+		if (stopping) {
+			vpfe->stopping = false;
+			complete(&vpfe->capture_stop);
 		}
 	}
 
-next_intr:
-	if (intr_status & VPFE_VDINT1) {
-		spin_lock(&vpfe->dma_queue_lock);
-		if (vpfe->fmt.fmt.pix.field == V4L2_FIELD_NONE &&
-		    !list_empty(&vpfe->dma_queue) &&
+	if (intr_status & VPFE_VDINT1 && !stopping) {
+		if (field == V4L2_FIELD_NONE &&
 		    vpfe->cur_frm == vpfe->next_frm)
 			vpfe_schedule_next_buffer(vpfe);
-		spin_unlock(&vpfe->dma_queue_lock);
 	}
 
 	vpfe_clear_intr(&vpfe->ccdc, intr_status);
-
 	return IRQ_HANDLED;
 }
 
@@ -1992,6 +1987,9 @@ static int vpfe_start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	vpfe_attach_irq(vpfe);
 
+	vpfe->stopping = false;
+	init_completion(&vpfe->capture_stop);
+
 	if (vpfe->ccdc.ccdc_cfg.if_type == VPFE_RAW_BAYER)
 		vpfe_ccdc_config_raw(&vpfe->ccdc);
 	else
@@ -2043,6 +2041,11 @@ static void vpfe_stop_streaming(struct vb2_queue *vq)
 	int ret;
 
 	vpfe_pcr_enable(&vpfe->ccdc, 0);
+
+	/* Wait for the last frame to be captured */
+	vpfe->stopping = true;
+	wait_for_completion_timeout(&vpfe->capture_stop,
+				    msecs_to_jiffies(250));
 
 	vpfe_detach_irq(vpfe);
 

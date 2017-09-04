@@ -39,6 +39,8 @@
 #define OV490_MIPI_TX_LANE_CTRL2	0x8029202D
 #define OV490_MIPI_TX_LANE_CTRL0	0x80292015
 
+#define OV490_SC_RESET1			0x80800011
+
 /* IDs */
 #define OV490_VERSION_REG		0x0490
 #define OV490_VERSION(pid, ver)	(((pid) << 8) | ((ver) & 0xff))
@@ -207,9 +209,13 @@ static int ov490_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	if (enable) {
+		/* Take MIPI_TX out of reset */
+		ov490_reg_write32(client, OV490_SC_RESET1, 0x00);
 		ov490_reg_write32(client, OV490_MIPI_TX_LANE_CTRL0, 0x80);
 	} else {
 		ov490_reg_write32(client, OV490_MIPI_TX_LANE_CTRL0, 0xa0);
+		/* Put MIPI_TX in reset */
+		ov490_reg_write32(client, OV490_SC_RESET1, 0x80);
 		goto unlock;
 	}
 
