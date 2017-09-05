@@ -46,7 +46,9 @@ set_working_directory() {
 		WORKING_PATH=$(pwd)
 	fi
 
-	TI_WORKING_PATH="$WORKING_PATH/ti_config_fragments"
+	SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+	TI_WORKING_PATH=$SCRIPT_DIR
+	WORKING_PATH=$(cd "$SCRIPT_DIR""/.." && pwd)
 }
 
 prepare_for_exit() {
