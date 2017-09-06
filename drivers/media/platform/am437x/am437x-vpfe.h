@@ -221,6 +221,37 @@ struct vpfe_ccdc {
 	u32 ccdc_ctx[VPFE_REG_END / sizeof(u32)];
 };
 
+/*
+ * struct bus_format - VPFE bus format information
+ * @width: Bits per pixel (when transferred over a bus)
+ * @bpp: Bytes per pixel (when stored in memory)
+ */
+struct bus_format {
+	unsigned int width;
+	unsigned int bpp;
+};
+
+/*
+ * struct vpfe_fmt - VPFE media bus format information
+ * @fourcc: V4L2 pixel format code
+ * @code: V4L2 media bus format code
+ * @l: 10 bit bus format info
+ * @s: 8 bit bus format info
+ */
+struct vpfe_fmt {
+	u32 fourcc;
+	u32 code;
+	struct bus_format l;
+	struct bus_format s;
+};
+
+/*
+ * This value needs to be at least as large as the number of entry in
+ * formats[].
+ * When formats[] is modified make sure to adjust this value also.
+ */
+#define VPFE_MAX_ACTIVE_FMT	10
+
 struct vpfe_device {
 	/* V4l2 specific parameters */
 	/* Identifies video device for this channel */
@@ -258,6 +289,9 @@ struct vpfe_device {
 	struct v4l2_format fmt;
 	/* Used to store current bytes per pixel based on current format */
 	unsigned int bpp;
+	struct vpfe_fmt	*active_fmt[VPFE_MAX_ACTIVE_FMT];
+	unsigned int num_active_fmt;
+
 	/*
 	 * used when IMP is chained to store the crop window which
 	 * is different from the image window
