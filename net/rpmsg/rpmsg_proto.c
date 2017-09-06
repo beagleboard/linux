@@ -459,6 +459,11 @@ rpmsg_sock_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	if (!rpdev)
 		return -EINVAL;
 
+	if (!rpdev->ept) {
+		rpmsg_destroy_channel(rpdev);
+		return -EINVAL;
+	}
+
 	rpsk->rpdev = rpdev;
 	rpsk->unregister_rpdev = true;
 	rpsk->rproc_id = sa->vproc_id;
