@@ -221,20 +221,6 @@ static void pix_to_mbus(struct vpfe_device *vpfe,
 	v4l2_fill_mbus_format(mbus_fmt, pix_fmt, fmt->code);
 }
 
-/*  Print Four-character-code (FOURCC) */
-static char *print_fourcc(u32 fmt)
-{
-	static char code[5];
-
-	code[0] = (unsigned char)(fmt & 0xff);
-	code[1] = (unsigned char)((fmt >> 8) & 0xff);
-	code[2] = (unsigned char)((fmt >> 16) & 0xff);
-	code[3] = (unsigned char)((fmt >> 24) & 0xff);
-	code[4] = '\0';
-
-	return code;
-}
-
 static int
 cmp_v4l2_format(const struct v4l2_format *lhs, const struct v4l2_format *rhs)
 {
@@ -700,8 +686,8 @@ static int vpfe_ccdc_set_pixel_format(struct vpfe_ccdc *ccdc, u32 pixfmt)
 {
 	struct vpfe_device *vpfe = container_of(ccdc, struct vpfe_device, ccdc);
 
-	vpfe_dbg(1, vpfe, "vpfe_ccdc_set_pixel_format: if_type: %d, pixfmt:%s\n",
-		 ccdc->ccdc_cfg.if_type, print_fourcc(pixfmt));
+	vpfe_dbg(1, vpfe, "vpfe_ccdc_set_pixel_format: if_type: %d, pixfmt:%4.4s\n",
+		 ccdc->ccdc_cfg.if_type, (char *)&pixfmt);
 
 	if (ccdc->ccdc_cfg.if_type == VPFE_RAW_BAYER) {
 		ccdc->ccdc_cfg.bayer.pix_fmt = CCDC_PIXFMT_RAW;
@@ -989,8 +975,8 @@ static int vpfe_config_ccdc_image_format(struct vpfe_device *vpfe)
 
 	vpfe_dbg(2, vpfe, "vpfe_config_ccdc_image_format\n");
 
-	vpfe_dbg(1, vpfe, "pixelformat: %s\n",
-		print_fourcc(vpfe->v_fmt.fmt.pix.pixelformat));
+	vpfe_dbg(1, vpfe, "pixelformat: %4.4s\n",
+		 (char *)&vpfe->v_fmt.fmt.pix.pixelformat);
 
 	if (vpfe_ccdc_set_pixel_format(&vpfe->ccdc,
 			vpfe->v_fmt.fmt.pix.pixelformat) < 0) {
@@ -1413,9 +1399,9 @@ static int __vpfe_get_format(struct vpfe_device *vpfe,
 	format->type = vpfe->v_fmt.type;
 
 	vpfe_dbg(1, vpfe,
-		 "%s size %dx%d (%s) bytesperline = %d, size = %d, bpp = %d\n",
+		 "%s size %dx%d (%4.4s) bytesperline = %d, size = %d, bpp = %d\n",
 		 __func__, format->fmt.pix.width, format->fmt.pix.height,
-		 print_fourcc(format->fmt.pix.pixelformat),
+		 (char *)&format->fmt.pix.pixelformat,
 		 format->fmt.pix.bytesperline, format->fmt.pix.sizeimage, *bpp);
 
 	return 0;
@@ -1450,9 +1436,9 @@ static int __vpfe_set_format(struct vpfe_device *vpfe,
 	format->type = vpfe->v_fmt.type;
 
 	vpfe_dbg(1, vpfe,
-		 "%s size %dx%d (%s) bytesperline = %d, size = %d, bpp = %d\n",
+		 "%s size %dx%d (%4.4s) bytesperline = %d, size = %d, bpp = %d\n",
 		 __func__,  format->fmt.pix.width, format->fmt.pix.height,
-		 print_fourcc(format->fmt.pix.pixelformat),
+		 (char *)&format->fmt.pix.pixelformat,
 		 format->fmt.pix.bytesperline, format->fmt.pix.sizeimage, *bpp);
 
 	return 0;
@@ -1491,8 +1477,8 @@ static int vpfe_enum_fmt(struct file *file, void  *priv,
 
 	f->pixelformat = fmt->fourcc;
 	f->type = vpfe->v_fmt.type;
-	vpfe_dbg(1, vpfe, "vpfe_enum_format: mbus index: %d code: %x pixelformat: %s\n",
-		 f->index, fmt->code, print_fourcc(fmt->fourcc));
+	vpfe_dbg(1, vpfe, "vpfe_enum_format: mbus index: %d code: %x pixelformat: %4.4s\n",
+		 f->index, fmt->code, (char *)&fmt->fourcc);
 
 	return 0;
 }
@@ -1613,9 +1599,9 @@ static int vpfe_enum_size(struct file *file, void  *priv,
 	fsize->discrete.width = fse.max_width;
 	fsize->discrete.height = fse.max_height;
 
-	vpfe_dbg(1, vpfe, "vpfe_enum_size: index: %d pixformat: %s size: %dx%d\n",
-		fsize->index, print_fourcc(fsize->pixel_format),
-		fsize->discrete.width, fsize->discrete.height);
+	vpfe_dbg(1, vpfe, "vpfe_enum_size: index: %d pixformat: %4.4s size: %dx%d\n",
+		 fsize->index, (char *)&fsize->pixel_format,
+		 fsize->discrete.width, fsize->discrete.height);
 
 	return 0;
 }
