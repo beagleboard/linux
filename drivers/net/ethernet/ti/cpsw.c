@@ -2051,26 +2051,14 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 			break;
 		}
 
-		ret = cpsw_ale_control_set(cpsw->ale, 0, ALE_RATE_LIMIT_TX,
-					   !!config.direction);
-		if (ret) {
-			dev_err(priv->dev, "CPSW_ALE control set failed");
-			break;
-		}
-
-		ret = cpsw_ale_control_set(cpsw->ale, config.port,
-					   ALE_PORT_BCAST_LIMIT,
-					   config.bcast_rate_limit);
-		if (ret) {
-			dev_err(priv->dev, "CPSW_ALE control set failed");
-			break;
-		}
-
-		ret = cpsw_ale_control_set(cpsw->ale, config.port,
-					   ALE_PORT_MCAST_LIMIT,
-					   config.mcast_rate_limit);
+		ret = cpsw_ale_set_ratelimit(cpsw->ale,
+					     cpsw->bus_freq_mhz * 1000000,
+					     config.port,
+					     config.bcast_rate_limit,
+					     config.mcast_rate_limit,
+					     !!config.direction);
 		if (ret)
-			dev_err(priv->dev, "CPSW_ALE control set failed");
+			dev_err(priv->dev, "CPSW_ALE set ratelimit failed");
 		break;
 	}
 
