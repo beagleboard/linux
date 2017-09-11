@@ -359,8 +359,7 @@ void enable_kernel_vsx(void)
 
 	cpumsr = msr_check_and_set(MSR_FP|MSR_VEC|MSR_VSX);
 
-	if (current->thread.regs &&
-	    (current->thread.regs->msr & (MSR_VSX|MSR_VEC|MSR_FP))) {
+	if (current->thread.regs && (current->thread.regs->msr & MSR_VSX)) {
 		check_if_tm_restore_required(current);
 		/*
 		 * If a thread has already been reclaimed then the
@@ -384,7 +383,7 @@ void flush_vsx_to_thread(struct task_struct *tsk)
 {
 	if (tsk->thread.regs) {
 		preempt_disable();
-		if (tsk->thread.regs->msr & (MSR_VSX|MSR_VEC|MSR_FP)) {
+		if (tsk->thread.regs->msr & MSR_VSX) {
 			BUG_ON(tsk != current);
 			giveup_vsx(tsk);
 		}
