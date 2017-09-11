@@ -168,6 +168,7 @@ int mpc8xx_set_rtc_time(struct rtc_time *tm)
 {
 	sitk8xx_t __iomem *sys_tmr1;
 	sit8xx_t __iomem *sys_tmr2;
+	unsigned long flags;
 	int time;
 
 	sys_tmr1 = immr_map(im_sitk);
@@ -175,9 +176,11 @@ int mpc8xx_set_rtc_time(struct rtc_time *tm)
 	time = mktime(tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
 	              tm->tm_hour, tm->tm_min, tm->tm_sec);
 
+	flags = hard_cond_local_irq_save();
 	out_be32(&sys_tmr1->sitk_rtck, KAPWR_KEY);
 	out_be32(&sys_tmr2->sit_rtc, time);
 	out_be32(&sys_tmr1->sitk_rtck, ~KAPWR_KEY);
+	hard_cond_local_irq_restore(flags);
 
 	immr_unmap(sys_tmr2);
 	immr_unmap(sys_tmr1);
@@ -203,7 +206,7 @@ void __noreturn mpc8xx_restart(char *cmd)
 	car8xx_t __iomem *clk_r = immr_map(im_clkrst);
 
 
-	local_irq_disable();
+	hard_local_irq_disable();
 
 	setbits32(&clk_r->car_plprcr, 0x00000080);
 	/* Clear the ME bit in MSR to cause checkstop on machine check
@@ -220,7 +223,7 @@ static void cpm_cascade(struct irq_desc *desc)
 	int cascade_irq = cpm_get_irq();
 
 	if (cascade_irq >= 0)
-		generic_handle_irq(cascade_irq);
+		ipipe_handle_demuxed_irq(cascade_irq);
 
 	chip->irq_eoi(&desc->irq_data);
 }

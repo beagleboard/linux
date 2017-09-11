@@ -155,6 +155,9 @@ int main(void)
 
 	DEFINE(TI_FLAGS, offsetof(struct thread_info, flags));
 	DEFINE(TI_LOCAL_FLAGS, offsetof(struct thread_info, local_flags));
+#ifdef CONFIG_IPIPE
+	DEFINE(TI_IPIPE, offsetof(struct thread_info, ipipe_flags));
+#endif
 	DEFINE(TI_PREEMPT, offsetof(struct thread_info, preempt_count));
 	DEFINE(TI_TASK, offsetof(struct thread_info, task));
 	DEFINE(TI_CPU, offsetof(struct thread_info, cpu));
@@ -178,8 +181,12 @@ int main(void)
 	DEFINE(PACATOC, offsetof(struct paca_struct, kernel_toc));
 	DEFINE(PACAKBASE, offsetof(struct paca_struct, kernelbase));
 	DEFINE(PACAKMSR, offsetof(struct paca_struct, kernel_msr));
+#ifdef CONFIG_IPIPE
+	DEFINE(PACAROOTPCPU, offsetof(struct paca_struct, ipipe_statp));
+#else
 	DEFINE(PACASOFTIRQEN, offsetof(struct paca_struct, soft_enabled));
 	DEFINE(PACAIRQHAPPENED, offsetof(struct paca_struct, irq_happened));
+#endif
 #ifdef CONFIG_PPC_BOOK3S
 	DEFINE(PACACONTEXTID, offsetof(struct paca_struct, mm_ctx_id));
 #ifdef CONFIG_PPC_MM_SLICES

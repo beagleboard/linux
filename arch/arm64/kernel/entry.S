@@ -59,6 +59,21 @@
 #endif
 	.endm
 
+#ifdef CONFIG_IPIPE
+#define PREEMPT_SCHEDULE_IRQ	__ipipe_preempt_schedule_irq
+#else /* !CONFIG_IPIPE */
+#define ret_from_exception	ret_to_user
+#define PREEMPT_SCHEDULE_IRQ	preempt_schedule_irq
+#endif /* CONFIG_IPIPE */
+
+#if defined(CONFIG_TRACE_IRQFLAGS) && !defined(CONFIG_IPIPE)
+#define TRACE_IRQSON  	bl  trace_hardirqs_on
+#define TRACE_IRQSOFF  	bl  trace_hardirqs_off
+#else
+#define TRACE_IRQSON
+#define TRACE_IRQSOFF
+#endif
+
 /*
  * Bad Abort numbers
  *-----------------
@@ -192,6 +207,20 @@ alternative_else_nop_endif
 	.macro	irq_stack_entry
 	mov	x19, sp			// preserve the original sp
 
+#ifdef CONFIG_IPIPE
+	/*
+	 * When the pipeline is enabled, context switches over the irq
+	 * stack are allowed (for the co-kernel), and more interrupts
+	 * can be taken over sibling stack contexts. So we need a not so
+	 * subtle way of figuring out whether the irq stack was actually
+	 * exited, which cannot depend on the current task pointer.
+	 */
+	this_cpu_ptr irq_nesting, x25, x26
+	ldr	w26, [x25]
+	cmp	w26, #0
+	add	w26, w26, #1
+	str	w26, [x25]
+#else
 	/*
 	 * Compare sp with the current thread_info, if the top
 	 * ~(THREAD_SIZE - 1) bits match, we are on a task stack, and
@@ -199,6 +228,7 @@ alternative_else_nop_endif
 	 */
 	and	x25, x19, #~(THREAD_SIZE - 1)
 	cmp	x25, tsk
+#endif
 	b.ne	9998f
 
 	this_cpu_ptr irq_stack, x25, x26
@@ -224,6 +254,12 @@ alternative_else_nop_endif
 	 */
 	.macro	irq_stack_exit
 	mov	sp, x19
+#ifdef CONFIG_IPIPE
+	this_cpu_ptr irq_nesting, x1, x0
+	ldr	w0, [x1]
+	add	w0, w0, #-1
+	str	w0, [x1]
+#endif
 	.endm
 
 /*
@@ -246,6 +282,10 @@ tsk	.req	x28		// current thread_info
 	irq_stack_entry
 	blr	x1
 	irq_stack_exit
+#ifdef CONFIG_IPIPE
+	bl  __ipipe_check_root_interruptible
+	cmp w0, #1
+#endif /* CONFIG_IPIPE */
 	.endm
 
 	.text
@@ -395,6 +435,13 @@ el1_undef:
 	/*
 	 * Undefined instruction
 	 */
+#ifdef CONFIG_IPIPE
+	mov	x0, #7				//@ x0 = IPIPE_TRAP_UNDEFINSTR
+	mov	x1, sp				//@ x1 = &regs
+	bl	__ipipe_notify_trap		//@ branch to trap handler
+	cmp	w0, #0
+	bne	ipipe_fast_svc_irq_exit
+#endif /* CONFIG_IPIPE */
 	enable_dbg
 	mov	x0, sp
 	b	do_undefinstr
@@ -422,12 +469,13 @@ ENDPROC(el1_sync)
 el1_irq:
 	kernel_entry 1
 	enable_dbg
-#ifdef CONFIG_TRACE_IRQFLAGS
-	bl	trace_hardirqs_off
-#endif
+	TRACE_IRQSOFF
 
 	irq_handler
 
+#ifdef CONFIG_IPIPE
+	bne	ipipe_fast_svc_irq_exit
+#endif
 #ifdef CONFIG_PREEMPT
 	ldr	w24, [tsk, #TI_PREEMPT]		// get preempt count
 	cbnz	w24, 1f				// preempt count != 0
@@ -436,16 +484,17 @@ el1_irq:
 	bl	el1_preempt
 1:
 #endif
-#ifdef CONFIG_TRACE_IRQFLAGS
-	bl	trace_hardirqs_on
+#ifdef CONFIG_IPIPE
+ipipe_fast_svc_irq_exit:
 #endif
+	TRACE_IRQSON
 	kernel_exit 1
 ENDPROC(el1_irq)
 
 #ifdef CONFIG_PREEMPT
 el1_preempt:
 	mov	x24, lr
-1:	bl	preempt_schedule_irq		// irq en/disable is done inside
+1:	bl	PREEMPT_SCHEDULE_IRQ
 	ldr	x0, [tsk, #TI_FLAGS]		// get new tasks TI_FLAGS
 	tbnz	x0, #TIF_NEED_RESCHED, 1b	// needs rescheduling?
 	ret	x24
@@ -541,7 +590,7 @@ el0_da:
 	mov	x1, x25
 	mov	x2, sp
 	bl	do_mem_abort
-	b	ret_to_user
+	b	ret_from_exception
 el0_ia:
 	/*
 	 * Instruction abort handling
@@ -554,7 +603,7 @@ el0_ia:
 	mov	x1, x25
 	mov	x2, sp
 	bl	do_mem_abort
-	b	ret_to_user
+	b	ret_from_exception
 el0_fpsimd_acc:
 	/*
 	 * Floating Point or Advanced SIMD access
@@ -564,7 +613,7 @@ el0_fpsimd_acc:
 	mov	x0, x25
 	mov	x1, sp
 	bl	do_fpsimd_acc
-	b	ret_to_user
+	b	ret_from_exception
 el0_fpsimd_exc:
 	/*
 	 * Floating Point or Advanced SIMD exception
@@ -574,7 +623,7 @@ el0_fpsimd_exc:
 	mov	x0, x25
 	mov	x1, sp
 	bl	do_fpsimd_exc
-	b	ret_to_user
+	b	ret_from_exception
 el0_sp_pc:
 	/*
 	 * Stack or PC alignment exception handling
@@ -587,7 +636,7 @@ el0_sp_pc:
 	mov	x1, x25
 	mov	x2, sp
 	bl	do_sp_pc_abort
-	b	ret_to_user
+	b	ret_from_exception
 el0_undef:
 	/*
 	 * Undefined instruction
@@ -597,7 +646,7 @@ el0_undef:
 	ct_user_exit
 	mov	x0, sp
 	bl	do_undefinstr
-	b	ret_to_user
+	b	ret_from_exception
 el0_sys:
 	/*
 	 * System instructions, for trapped cache maintenance instructions
@@ -607,7 +656,7 @@ el0_sys:
 	mov	x0, x25
 	mov	x1, sp
 	bl	do_sysinstr
-	b	ret_to_user
+	b	ret_from_exception
 el0_dbg:
 	/*
 	 * Debug exception handling
@@ -619,7 +668,7 @@ el0_dbg:
 	bl	do_debug_exception
 	enable_dbg
 	ct_user_exit
-	b	ret_to_user
+	b	ret_from_exception
 el0_inv:
 	enable_dbg
 	ct_user_exit
@@ -627,7 +676,7 @@ el0_inv:
 	mov	x1, #BAD_SYNC
 	mov	x2, x25
 	bl	bad_el0_sync
-	b	ret_to_user
+	b	ret_from_exception
 ENDPROC(el0_sync)
 
 	.align	6
@@ -635,16 +684,17 @@ el0_irq:
 	kernel_entry 0
 el0_irq_naked:
 	enable_dbg
-#ifdef CONFIG_TRACE_IRQFLAGS
-	bl	trace_hardirqs_off
-#endif
+	TRACE_IRQSOFF
 
 	ct_user_exit
 	irq_handler
 
-#ifdef CONFIG_TRACE_IRQFLAGS
-	bl	trace_hardirqs_on
-#endif
+#ifdef CONFIG_IPIPE
+	b.eq	normal_irq_ret
+	/* Fast IRQ exit, root domain stalled or not current. */
+	kernel_exit 0
+normal_irq_ret:
+#endif	/* CONFIG_IPIPE */
 	b	ret_to_user
 ENDPROC(el0_irq)
 
@@ -676,10 +726,33 @@ ENTRY(cpu_switch_to)
 	ldp	x29, x9, [x8], #16
 	ldr	lr, [x8]
 	mov	sp, x9
+#ifdef CONFIG_IPIPE
+	/*
+	 * Unlike the main kernel, the co-kernel may switch contexts
+	 * over the global IRQ stack, so we can't assume that the saved
+	 * %sp we just reloaded in x9 lives within the incoming task's
+	 * stack. Therefore we can't compute 'tsk' from this pointer,
+	 * but we can peek at the incoming task struct for the stack
+	 * base address, where the thread_info struct lives.
+	 */
+	mov	x10, #TSK_STACK
+	add	x10, x1, x10
+	ldr	x9, [x10]
+#else
 	and	x9, x9, #~(THREAD_SIZE - 1)
+#endif
 	msr	sp_el0, x9
 	ret
 ENDPROC(cpu_switch_to)
+
+#ifdef CONFIG_IPIPE
+ret_from_exception:
+	disable_irq
+	ldr	x0, [tsk, #TI_IPIPE]
+	tst	x0, #_TIP_HEAD
+	b.eq	ret_to_user_noirq
+	kernel_exit 0
+#endif /* CONFIG_IPIPE */
 
 /*
  * This is the fast syscall return path.  We do as little as possible here,
@@ -705,9 +778,7 @@ ret_fast_syscall_trace:
 work_pending:
 	mov	x0, sp				// 'regs'
 	bl	do_notify_resume
-#ifdef CONFIG_TRACE_IRQFLAGS
-	bl	trace_hardirqs_on		// enabled while in userspace
-#endif
+	TRACE_IRQSON
 	ldr	x1, [tsk, #TI_FLAGS]		// re-check for single-step
 	b	finish_ret_to_user
 /*
@@ -715,6 +786,7 @@ work_pending:
  */
 ret_to_user:
 	disable_irq				// disable interrupts
+ret_to_user_noirq:
 	ldr	x1, [tsk, #TI_FLAGS]
 	and	x2, x1, #_TIF_WORK_MASK
 	cbnz	x2, work_pending
@@ -727,6 +799,7 @@ ENDPROC(ret_to_user)
  * This is how we return from a fork.
  */
 ENTRY(ret_from_fork)
+	enable_irq_cond
 	bl	schedule_tail
 	cbz	x19, 1f				// not a kernel thread
 	mov	x0, x20
@@ -746,6 +819,57 @@ el0_svc:
 el0_svc_naked:					// compat entry point
 	stp	x0, scno, [sp, #S_ORIG_X0]	// save the original x0 and syscall number
 	enable_dbg_and_irq
+
+#ifdef CONFIG_IPIPE
+	ldr	x16, [tsk, #TI_IPIPE]
+	tst     scno, __ARM_ipipe_syscall
+	b.eq	fastcall_bypass
+	tst	x16, #_TIP_HEAD
+	b.eq	fastcall_bypass
+	mov	x0, sp
+	bl	ipipe_fastcall_hook
+	cmp	w0, #0
+	b.lt	no_fastcall
+	ldr	x16, [tsk, #TI_IPIPE]
+	tst	x16, #_TIP_HEAD
+	b.ne	fastcall_exit
+	bl	__ipipe_root_sync
+fastcall_tail:
+	ldr	x0, [sp, #S_X0]
+	b	ret_fast_syscall
+fastcall_exit:
+	tst	x16, #_TIP_MAYDAY
+	b.eq	fastcall_notail
+	mov	x0, sp
+	bl	__ipipe_call_mayday
+fastcall_notail:
+	ldr	x0, [sp, #S_X0]
+	disable_irq
+	ldr	x1, [tsk, #TI_FLAGS]
+	enable_step_tsk x1, x2
+	kernel_exit 0
+no_fastcall:
+	ldr	x16, [tsk, #TI_IPIPE]
+fastcall_bypass:
+	tst	x16, #_TIP_NOTIFY
+	b.ne	syscall_pipeline
+	tst     scno, __ARM_ipipe_syscall
+	b.eq	regular_syscall
+syscall_pipeline:
+	mov	x0, sp
+	bl	__ipipe_notify_syscall
+	ldr	x16, [tsk, #TI_IPIPE]
+	tst	x16, #_TIP_HEAD
+	b.ne	fastcall_notail
+	cmp	w0, #0
+	b.ne	fastcall_tail
+regular_syscall:
+	ldp	x0, x1, [sp, #S_X0]
+	ldp	x2, x3, [sp, #S_X2]
+	ldp	x4, x5, [sp, #S_X4]
+	ldp	x6, x7, [sp, #S_X6]
+#endif /* CONFIG_IPIPE */
+
 	ct_user_exit 1
 
 	ldr	x16, [tsk, #TI_FLAGS]		// check for syscall hooks

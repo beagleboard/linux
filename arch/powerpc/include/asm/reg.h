@@ -34,6 +34,7 @@
 #define MSR_TS_LG	33		/* Trans Mem state (2 bits) */
 #define MSR_TM_LG	32		/* Trans Mem Available */
 #define MSR_VEC_LG	25	        /* Enable AltiVec */
+#define MSR_VIRTEE_LG	29		/* I-pipe stall bit */
 #define MSR_VSX_LG	23		/* Enable VSX */
 #define MSR_POW_LG	18		/* Enable Power Management */
 #define MSR_WE_LG	18		/* Wait State Enable */
@@ -119,6 +120,10 @@
 #define MSR_TM_RESV(x) (((x) & MSR_TS_MASK) == MSR_TS_MASK) /* Reserved */
 #define MSR_TM_TRANSACTIONAL(x)	(((x) & MSR_TS_MASK) == MSR_TS_T)
 #define MSR_TM_SUSPENDED(x)	(((x) & MSR_TS_MASK) == MSR_TS_S)
+/*
+ * CONFIG_IPIPE only. We divert the unused bit #29 from the MSR.
+ */
+#define MSR_VIRTEE	__MASK(MSR_VIRTEE_LG)
 
 #if defined(CONFIG_PPC_BOOK3S_64)
 #define MSR_64BIT	MSR_SF

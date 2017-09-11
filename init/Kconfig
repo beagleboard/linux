@@ -80,6 +80,7 @@ config COMPILE_TEST
 
 config LOCALVERSION
 	string "Local version - append to kernel release"
+	default "-ipipe"
 	help
 	  Append an extra string to the end of your kernel version.
 	  This will show up when you type uname, for example.
@@ -1508,6 +1509,18 @@ config PRINTK_NMI
 	def_bool y
 	depends on PRINTK
 	depends on HAVE_NMI
+
+config RAW_PRINTK
+       bool "Enable support for raw printk"
+       default n
+       help
+         This option enables a printk variant called raw_printk() for
+         writing all output unmodified to a raw console channel
+         immediately, without any header or preparation whatsoever,
+         usable from any context.
+
+	 Unlike early_printk() console devices, raw_printk() devices
+         can live past the boot sequence.
 
 config BUG
 	bool "BUG() support" if EXPERT

@@ -808,7 +808,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_TM)
 EXC_REAL_MASKABLE(decrementer, 0x900, 0x980)
 EXC_VIRT_MASKABLE(decrementer, 0x4900, 0x4980, 0x900)
 TRAMP_KVM(PACA_EXGEN, 0x900)
-EXC_COMMON_ASYNC(decrementer_common, 0x900, timer_interrupt)
+DECREMENTER_EXCEPTION(decrementer_common, 0x900, timer_interrupt)
 
 
 EXC_REAL_HV(hdecrementer, 0x980, 0xa00)
@@ -1274,6 +1274,7 @@ EXC_VIRT_NONE(0x5800, 0x5900)
 #endif
 
 
+#ifndef CONFIG_IPIPE
 /*
  * An interrupt came in while soft-disabled. We set paca->irq_happened, then:
  * - If it was a decrementer interrupt, we bump the dec to max and and return.
@@ -1320,6 +1321,7 @@ masked_##_H##interrupt:					\
 USE_FIXED_SECTION(virt_trampolines)
 	MASKED_INTERRUPT()
 	MASKED_INTERRUPT(H)
+#endif
 
 #ifdef CONFIG_KVM_BOOK3S_64_HANDLER
 TRAMP_REAL_BEGIN(kvmppc_skip_interrupt)

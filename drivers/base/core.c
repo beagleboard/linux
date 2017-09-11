@@ -2784,6 +2784,19 @@ EXPORT_SYMBOL(dev_printk_emit);
 static void __dev_printk(const char *level, const struct device *dev,
 			struct va_format *vaf)
 {
+#ifdef CONFIG_IPIPE
+	/*
+	 * Console logging only over the head stage, or if hard locked
+	 * over the root stage.
+	 */
+	if (__ipipe_current_domain != ipipe_root_domain ||
+	    (ipipe_head_domain != ipipe_root_domain &&
+	     hard_irqs_disabled())) {
+		__ipipe_log_printk(vaf->fmt, *vaf->va);
+		return;
+	}
+#endif
+
 	if (dev)
 		dev_printk_emit(level[1] - '0', dev, "%s %s: %pV",
 				dev_driver_string(dev), dev_name(dev), vaf);
