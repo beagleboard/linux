@@ -25,6 +25,7 @@
 struct task_struct;
 
 #include <asm/types.h>
+#include <ipipe/thread_info.h>
 
 typedef unsigned long mm_segment_t;
 
@@ -65,6 +66,10 @@ struct thread_info {
 #ifdef CONFIG_ARM_THUMBEE
 	unsigned long		thumbee_state;	/* ThumbEE Handler Base register */
 #endif
+#ifdef CONFIG_IPIPE
+	unsigned long		ipipe_flags;
+#endif
+	struct ipipe_threadinfo ipipe_data;
 };
 
 #define INIT_THREAD_INFO(tsk)						\
@@ -148,6 +153,10 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define TIF_USING_IWMMXT	17
 #define TIF_MEMDIE		18	/* is terminating due to OOM killer */
 #define TIF_RESTORE_SIGMASK	20
+#define TIF_SWITCH_MM		22	/* deferred switch_mm */
+
+#define TIF_SWITCHED		23 	/* FCSE */
+#define TIF_MMSWITCH_INT	24	/* MMU context switch preempted */
 
 #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
 #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
@@ -159,6 +168,9 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
 #define _TIF_USING_IWMMXT	(1 << TIF_USING_IWMMXT)
 
+#define _TIF_SWITCHED		(1 << TIF_SWITCHED)
+#define _TIF_MMSWITCH_INT	(1 << TIF_MMSWITCH_INT)
+
 /* Checks for any syscall work in entry-common.S */
 #define _TIF_SYSCALL_WORK (_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | \
 			   _TIF_SYSCALL_TRACEPOINT | _TIF_SECCOMP)
@@ -168,6 +180,15 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
  */
 #define _TIF_WORK_MASK		(_TIF_NEED_RESCHED | _TIF_SIGPENDING | \
 				 _TIF_NOTIFY_RESUME | _TIF_UPROBE)
+
+/* ti->ipipe_flags */
+#define TIP_MAYDAY	0	/* MAYDAY call is pending */
+#define TIP_NOTIFY	1	/* Notify head domain about kernel events */
+#define TIP_HEAD	2	/* Runs in head domain */
+
+#define _TIP_MAYDAY	(1 << TIP_MAYDAY)
+#define _TIP_NOTIFY	(1 << TIP_NOTIFY)
+#define _TIP_HEAD	(1 << TIP_HEAD)
 
 #endif /* __KERNEL__ */
 #endif /* __ASM_ARM_THREAD_INFO_H */
