@@ -683,7 +683,8 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra71-evm.dtb \
 	dra71-evm.dtb \
 	dra71-evm-lcd-auo-g101evn01.0.dtb \
-	dra76-evm.dtb
+	dra76-evm.dtb \
+	dra76-evm-tfp410.dtb
 dts-dirs-$(CONFIG_SOC_DRA7XX) += ti
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-kuroboxpro.dtb \
