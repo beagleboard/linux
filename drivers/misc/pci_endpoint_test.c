@@ -98,6 +98,7 @@ struct pci_endpoint_test {
 	void __iomem	*bar[6];
 	struct completion irq_raised;
 	int		last_irq;
+	int		num_irqs;
 	/* mutex to protect the ioctls */
 	struct mutex	mutex;
 	struct miscdevice miscdev;
@@ -535,6 +536,7 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 		irq = pci_enable_msi_range(pdev, 1, 32);
 		if (irq < 0)
 			dev_err(dev, "failed to get MSI interrupts\n");
+		test->num_irqs = irq;
 	}
 
 	err = devm_request_irq(dev, pdev->irq, pci_endpoint_test_irqhandler,
@@ -564,6 +566,7 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 
 	test->base = test->bar[test_reg_bar];
 	if (!test->base) {
+		err = -ENOMEM;
 		dev_err(dev, "Cannot perform PCI test without BAR%d\n",
 			test_reg_bar);
 		goto err_iounmap;
@@ -579,6 +582,7 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 
 	id = ida_simple_get(&pci_endpoint_test_ida, 0, 0, GFP_KERNEL);
 	if (id < 0) {
+		err = id;
 		dev_err(dev, "unable to get id\n");
 		goto err_iounmap;
 	}
@@ -586,16 +590,23 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 	snprintf(name, sizeof(name), DRV_MODULE_NAME ".%d", id);
 	misc_device = &test->miscdev;
 	misc_device->minor = MISC_DYNAMIC_MINOR;
-	misc_device->name = name;
+	misc_device->name = kstrdup(name, GFP_KERNEL);
+	if (!misc_device->name) {
+		err = -ENOMEM;
+		goto err_ida_remove;
+	}
 	misc_device->fops = &pci_endpoint_test_fops,
 
 	err = misc_register(misc_device);
 	if (err) {
 		dev_err(dev, "failed to register device\n");
-		goto err_ida_remove;
+		goto err_kfree_name;
 	}
 
 	return 0;
+
+err_kfree_name:
+	kfree(misc_device->name);
 
 err_ida_remove:
 	ida_simple_remove(&pci_endpoint_test_ida, id);
@@ -605,6 +616,9 @@ err_iounmap:
 		if (test->bar[bar])
 			pci_iounmap(pdev, test->bar[bar]);
 	}
+
+	for (i = 0; i < irq; i++)
+		devm_free_irq(dev, pdev->irq + i, test);
 
 err_disable_msi:
 	pci_disable_msi(pdev);
@@ -619,6 +633,7 @@ err_disable_pdev:
 static void pci_endpoint_test_remove(struct pci_dev *pdev)
 {
 	int id;
+	int i;
 	enum pci_barno bar;
 	struct pci_endpoint_test *test = pci_get_drvdata(pdev);
 	struct miscdevice *misc_device = &test->miscdev;
@@ -627,11 +642,14 @@ static void pci_endpoint_test_remove(struct pci_dev *pdev)
 		return;
 
 	misc_deregister(&test->miscdev);
+	kfree(misc_device->name);
 	ida_simple_remove(&pci_endpoint_test_ida, id);
 	for (bar = BAR_0; bar <= BAR_5; bar++) {
 		if (test->bar[bar])
 			pci_iounmap(pdev, test->bar[bar]);
 	}
+	for (i = 0; i < test->num_irqs; i++)
+		devm_free_irq(&pdev->dev, pdev->irq + i, test);
 	pci_disable_msi(pdev);
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
