@@ -1616,6 +1616,9 @@ capemgr_probe(struct platform_device *pdev)
 	long val;
 	char *wbuf, *s, *p, *e;
 
+	if (uboot_capemgr_enabled)
+		return 0;
+
 	/* we don't use platform_data at all; we require OF */
 	if (pnode == NULL)
 		return -ENOTSUPP;
