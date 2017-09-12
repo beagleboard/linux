@@ -401,7 +401,6 @@ struct clk_divider {
 	u8		flags;
 	const struct clk_div_table	*table;
 	spinlock_t	*lock;
-	u32		context;
 };
 
 #define to_clk_divider(_hw) container_of(_hw, struct clk_divider, hw)
