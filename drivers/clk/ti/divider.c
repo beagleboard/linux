@@ -276,10 +276,10 @@ static int ti_clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
  */
 static int clk_divider_save_context(struct clk_hw *hw)
 {
-	struct clk_divider *divider = to_clk_divider(hw);
+	struct clk_omap_divider *divider = to_clk_omap_divider(hw);
 	u32 val;
 
-	val = ti_clk_ll_ops->clk_readl(divider->reg) >> divider->shift;
+	val = ti_clk_ll_ops->clk_readl(&divider->reg) >> divider->shift;
 	divider->context = val & div_mask(divider);
 
 	return 0;
@@ -293,13 +293,13 @@ static int clk_divider_save_context(struct clk_hw *hw)
  */
 static void clk_divider_restore_context(struct clk_hw *hw)
 {
-	struct clk_divider *divider = to_clk_divider(hw);
+	struct clk_omap_divider *divider = to_clk_omap_divider(hw);
 	u32 val;
 
-	val = ti_clk_ll_ops->clk_readl(divider->reg);
+	val = ti_clk_ll_ops->clk_readl(&divider->reg);
 	val &= ~(div_mask(divider) << divider->shift);
 	val |= divider->context << divider->shift;
-	ti_clk_ll_ops->clk_writel(val, divider->reg);
+	ti_clk_ll_ops->clk_writel(val, &divider->reg);
 }
 
 const struct clk_ops ti_clk_divider_ops = {
