@@ -2118,6 +2118,7 @@ static int brcmf_fws_assign_htod(struct brcmf_fws_info *fws, struct sk_buff *p,
 
 int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb)
 {
+	struct brcmf_pub *drvr = ifp->drvr;
 	struct brcmf_fws_info *fws = drvr_to_fws(ifp->drvr);
 	struct brcmf_skbuff_cb *skcb = brcmf_skbcb(skb);
 	struct ethhdr *eh = (struct ethhdr *)(skb->data);
@@ -2131,8 +2132,10 @@ int brcmf_fws_process_skb(struct brcmf_if *ifp, struct sk_buff *skb)
 	skcb->if_flags = 0;
 	skcb->state = BRCMF_FWS_SKBSTATE_NEW;
 	brcmf_skb_if_flags_set_field(skb, INDEX, ifp->ifidx);
+
+	/* mapping from 802.1d priority to firmware fifo index */
 	if (!multicast)
-		fifo = brcmf_fws_prio2fifo[skb->priority];
+		fifo = brcmf_map_prio_to_aci(drvr->config, skb->priority);
 
 	brcmf_fws_lock(fws);
 	if (fifo != BRCMF_FWS_FIFO_AC_BE && fifo < BRCMF_FWS_FIFO_BCMC)
