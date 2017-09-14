@@ -1239,6 +1239,7 @@ static inline int cpsw_tx_packet_submit(struct cpsw_priv *priv,
 {
 	struct cpsw_common *cpsw = priv->cpsw;
 
+	skb_tx_timestamp(skb);
 	return cpdma_chan_submit(txch, skb, skb->data, skb->len,
 				 priv->emac_port + cpsw->data.dual_emac);
 }
@@ -1601,6 +1602,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	struct cpsw_common *cpsw = priv->cpsw;
+	struct cpts *cpts = cpsw->cpts;
 	struct netdev_queue *txq;
 	struct cpdma_chan *txch;
 	int ret, q_idx;
@@ -1612,10 +1614,8 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 	}
 
 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
-	    cpts_is_tx_enabled(cpsw->cpts))
+	    cpts_is_tx_enabled(cpts) && cpts_can_timestamp(cpts, skb))
 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-
-	skb_tx_timestamp(skb);
 
 	q_idx = skb_get_queue_mapping(skb);
 	if (q_idx >= cpsw->tx_ch_num)
@@ -2051,26 +2051,14 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 			break;
 		}
 
-		ret = cpsw_ale_control_set(cpsw->ale, 0, ALE_RATE_LIMIT_TX,
-					   !!config.direction);
-		if (ret) {
-			dev_err(priv->dev, "CPSW_ALE control set failed");
-			break;
-		}
-
-		ret = cpsw_ale_control_set(cpsw->ale, config.port,
-					   ALE_PORT_BCAST_LIMIT,
-					   config.bcast_rate_limit);
-		if (ret) {
-			dev_err(priv->dev, "CPSW_ALE control set failed");
-			break;
-		}
-
-		ret = cpsw_ale_control_set(cpsw->ale, config.port,
-					   ALE_PORT_MCAST_LIMIT,
-					   config.mcast_rate_limit);
+		ret = cpsw_ale_set_ratelimit(cpsw->ale,
+					     cpsw->bus_freq_mhz * 1000000,
+					     config.port,
+					     config.bcast_rate_limit,
+					     config.mcast_rate_limit,
+					     !!config.direction);
 		if (ret)
-			dev_err(priv->dev, "CPSW_ALE control set failed");
+			dev_err(priv->dev, "CPSW_ALE set ratelimit failed");
 		break;
 	}
 
@@ -3335,7 +3323,7 @@ static int cpsw_probe(struct platform_device *pdev)
 		goto clean_dma_ret;
 	}
 
-	ale_params.dev			= &ndev->dev;
+	ale_params.dev			= &pdev->dev;
 	ale_params.ale_ageout		= ale_ageout;
 	ale_params.ale_entries		= data->ale_entries;
 	ale_params.ale_ports		= data->slaves;
@@ -3365,6 +3353,31 @@ static int cpsw_probe(struct platform_device *pdev)
 		pdev->id_entry = of_id->data;
 		if (pdev->id_entry->driver_data)
 			cpsw->quirk_irq = true;
+	}
+
+	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+
+	ndev->netdev_ops = &cpsw_netdev_ops;
+	ndev->ethtool_ops = &cpsw_ethtool_ops;
+	netif_napi_add(ndev, &cpsw->napi_rx, cpsw_rx_poll, CPSW_POLL_WEIGHT);
+	netif_tx_napi_add(ndev, &cpsw->napi_tx, cpsw_tx_poll, CPSW_POLL_WEIGHT);
+	cpsw_split_res(ndev);
+
+	/* register the network device */
+	SET_NETDEV_DEV(ndev, &pdev->dev);
+	ret = register_netdev(ndev);
+	if (ret) {
+		dev_err(priv->dev, "error registering net device\n");
+		ret = -ENODEV;
+		goto clean_ale_ret;
+	}
+
+	if (cpsw->data.dual_emac) {
+		ret = cpsw_probe_dual_emac(priv);
+		if (ret) {
+			cpsw_err(priv, probe, "error probe slave 2 emac interface\n");
+			goto clean_unregister_netdev_ret;
+		}
 	}
 
 	/* Grab RX and TX IRQs. Note that we also have RX_THRESHOLD and
@@ -3405,33 +3418,9 @@ static int cpsw_probe(struct platform_device *pdev)
 		goto clean_ale_ret;
 	}
 
-	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
-
-	ndev->netdev_ops = &cpsw_netdev_ops;
-	ndev->ethtool_ops = &cpsw_ethtool_ops;
-	netif_napi_add(ndev, &cpsw->napi_rx, cpsw_rx_poll, CPSW_POLL_WEIGHT);
-	netif_tx_napi_add(ndev, &cpsw->napi_tx, cpsw_tx_poll, CPSW_POLL_WEIGHT);
-	cpsw_split_res(ndev);
-
-	/* register the network device */
-	SET_NETDEV_DEV(ndev, &pdev->dev);
-	ret = register_netdev(ndev);
-	if (ret) {
-		dev_err(priv->dev, "error registering net device\n");
-		ret = -ENODEV;
-		goto clean_ale_ret;
-	}
-
 	cpsw_notice(priv, probe,
 		    "initialized device (regs %pa, irq %d, pool size %d)\n",
 		    &ss_res->start, ndev->irq, dma_params.descs_pool_size);
-	if (cpsw->data.dual_emac) {
-		ret = cpsw_probe_dual_emac(priv);
-		if (ret) {
-			cpsw_err(priv, probe, "error probe slave 2 emac interface\n");
-			goto clean_unregister_netdev_ret;
-		}
-	}
 
 	pm_runtime_put(&pdev->dev);
 
