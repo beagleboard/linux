@@ -15,3 +15,11 @@ obj-$(CONFIG_SND_DAVINCI_SOC_CTAG_FACE_2_4) += snd-soc-davinci-ctag-face-2-4.o
 snd-soc-evm-objs := davinci-evm.o
 
 obj-$(CONFIG_SND_DAVINCI_SOC_GENERIC_EVM) += snd-soc-evm.o
+
+# JustBomm dac support
+snd-soc-justboom-dac-objs := justboom-dac.o
+obj-$(CONFIG_SND_AM33XX_SOC_JUSTBOOM_DAC) += snd-soc-justboom-dac.o
+
+# JustBomm digi support
+snd-soc-justboom-digi-objs := justboom-digi.o
+obj-$(CONFIG_SND_AM33XX_SOC_JUSTBOOM_DIGI) += snd-soc-justboom-digi.o
