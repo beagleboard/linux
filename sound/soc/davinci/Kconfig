@@ -61,6 +61,24 @@ config SND_DAVINCI_SOC_EVM
 	  Say Y if you want to add support for SoC audio on TI
 	  DaVinci DM6446, DM355 or DM365 EVM platforms.
 
+config SND_AM33XX_SOC_JUSTBOOM_DAC
+	tristate "SoC Audio support for JustBoom DAC"
+	depends on SND_EDMA_SOC && I2C
+	select SND_SOC_PCM512x
+	select SND_DAVINCI_SOC_MCASP
+	help
+	  Say Y if you want to add support for SoC audio on
+	  JustBoom DAC
+
+config SND_AM33XX_SOC_JUSTBOOM_DIGI
+	tristate "SoC Audio support for JustBoom Digi"
+	depends on SND_EDMA_SOC && I2C
+	select SND_SOC_WM8804
+	select SND_DAVINCI_SOC_MCASP
+	help
+	  Say Y if you want to add support for SoC audio on
+	  JustBoom Digi
+
 choice
 	prompt "DM365 codec select"
 	depends on SND_DAVINCI_SOC_EVM
