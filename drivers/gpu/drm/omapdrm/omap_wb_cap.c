@@ -717,6 +717,7 @@ static int wbcap_enum_fmt_vid_cap(struct file *file, void *priv,
 	if (f->index >= num_wb_formats)
 		return -EINVAL;
 
+	f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	f->pixelformat = wb_formats[f->index].fourcc;
 	return 0;
 }
