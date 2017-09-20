@@ -541,7 +541,7 @@ static int wbcap_querycap(struct file *file, void *priv,
 	struct wbcap_dev *wbcap = video_drvdata(file);
 
 	strlcpy(cap->driver, WBCAP_MODULE_NAME, sizeof(cap->driver));
-	strlcpy(cap->card, "wbcap", sizeof(cap->card));
+	strlcpy(cap->card, WBCAP_MODULE_NAME, sizeof(cap->card));
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
 		 wbcap->v4l2_dev.name);
 	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_READWRITE |
