@@ -366,7 +366,7 @@ static int _opp_add_static_v2(struct opp_table *opp_table, struct device *dev,
 free_opp:
 	_opp_free(new_opp);
 
-	return ret;
+	return 0;
 }
 
 /* Initializes OPP tables based on new bindings */
