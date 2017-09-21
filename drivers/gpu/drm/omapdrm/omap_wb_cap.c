@@ -196,16 +196,19 @@ static int wbcap_schedule_next_buffer(struct wbcap_dev *dev)
 	addr_y = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
 	if (num_planes == 2)
 		addr_uv = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 1);
+	else if (pix->pixelformat == V4L2_PIX_FMT_NV12)
+		addr_uv = addr_y + (pix->plane_fmt[0].bytesperline *
+				    pix->height);
 
 	/* fill WB DSS info */
 	wb_info.paddr = (u32)addr_y;
 	wb_info.p_uv_addr = (u32)addr_uv;
 	wb_info.buf_width = pix->plane_fmt[0].bytesperline /
-			    (q_data->fmt->depth[0] / 8);
+			    (q_data->fmt->depth[LUMA_PLANE] / 8);
 
 	wb_info.width = pix->width;
 	wb_info.height = pix->height;
-	wb_info.fourcc = pix->pixelformat;
+	wb_info.fourcc = omap_wb_fourcc_v4l2_to_drm(pix->pixelformat);
 	wb_info.pre_mult_alpha = 1;
 
 	wb_info.rotation = DRM_ROTATE_0;
@@ -609,12 +612,22 @@ static int wbcap_fill_pix_format(struct wbcap_dev *wbcap,
 		depth = fmt->depth[i];
 
 		if (i == LUMA_PLANE)
-			plane_fmt->bytesperline = (pix->width * depth) >> 3;
+			plane_fmt->bytesperline = pix->width * depth / 8;
 		else
 			plane_fmt->bytesperline = pix->width;
 
-		plane_fmt->sizeimage =
-				(pix->height * pix->width * depth) >> 3;
+		plane_fmt->sizeimage = (pix->height * pix->width *
+					depth) / 8;
+
+		if (fmt->fourcc == V4L2_PIX_FMT_NV12) {
+			/*
+			 * Since we are using a single plane buffer
+			 * we need to adjust the reported sizeimage
+			 * to include the colocated UV part.
+			 */
+			plane_fmt->sizeimage += (pix->height / 2 *
+				plane_fmt->bytesperline);
+		}
 
 		memset(plane_fmt->reserved, 0, sizeof(plane_fmt->reserved));
 	}
