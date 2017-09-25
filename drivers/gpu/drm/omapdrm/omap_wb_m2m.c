@@ -242,19 +242,13 @@ static void device_run(void *priv)
 		log_err(dev,
 			"Conversion setup failed, check source and destination parameters\n"
 			);
-		log_err(dev, "\tSRC: %dx%d, fmt: %c%c%c%c sw %d\n",
+		log_err(dev, "\tSRC: %dx%d, fmt: %4.4s sw %d\n",
 			src_info.width, src_info.height,
-			GET_BYTE(spix->pixelformat, 0),
-			GET_BYTE(spix->pixelformat, 1),
-			GET_BYTE(spix->pixelformat, 2),
-			GET_BYTE(spix->pixelformat, 3),
+			(char *)&spix->pixelformat,
 			src_info.screen_width);
-		log_err(dev, "\tDST: %dx%d, fmt: %c%c%c%c sw %d\n",
+		log_err(dev, "\tDST: %dx%d, fmt: %4.4s sw %d\n",
 			wb_info.width, wb_info.height,
-			GET_BYTE(dpix->pixelformat, 0),
-			GET_BYTE(dpix->pixelformat, 1),
-			GET_BYTE(dpix->pixelformat, 2),
-			GET_BYTE(dpix->pixelformat, 3),
+			(char *)&dpix->pixelformat,
 			wb_info.buf_width);
 		return;
 	}
@@ -373,12 +367,9 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			s_q_data->format.fmt.pix_mp.colorspace;
 	}
 
-	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %4.4s bpl_y %d",
 		&ctx, f->type, pix->width, pix->height,
-		GET_BYTE(pix->pixelformat, 0),
-		GET_BYTE(pix->pixelformat, 1),
-		GET_BYTE(pix->pixelformat, 2),
-		GET_BYTE(pix->pixelformat, 3),
+		(char *)&pix->pixelformat,
 		pix->plane_fmt[LUMA_PLANE].bytesperline);
 	if (pix->num_planes == 2)
 		log_dbg(ctx->dev, " bpl_uv %d\n",
@@ -500,12 +491,9 @@ static int __wbm2m_s_fmt(struct wbm2m_ctx *ctx, struct v4l2_format *f)
 	q_data->c_rect.width	= pix->width;
 	q_data->c_rect.height	= pix->height;
 
-	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %4.4s bpl_y %d",
 		&ctx, f->type, pix->width, pix->height,
-		GET_BYTE(pix->pixelformat, 0),
-		GET_BYTE(pix->pixelformat, 1),
-		GET_BYTE(pix->pixelformat, 2),
-		GET_BYTE(pix->pixelformat, 3),
+		(char *)&pix->pixelformat,
 		pix->plane_fmt[LUMA_PLANE].bytesperline);
 	if (pix->num_planes == 2)
 		log_dbg(ctx->dev, " bpl_uv %d\n",
