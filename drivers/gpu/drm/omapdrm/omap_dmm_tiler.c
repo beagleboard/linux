@@ -122,6 +122,12 @@ static u32 dmm_read_wa(struct dmm *dmm, u32 reg)
 		return readl(dmm->base + reg);
 	}
 
+	/*
+	 * As per i878 workaround, the DMA is used to access the DMM registers.
+	 * Make sure that the readl is not moved by the compiler or the CPU
+	 * earlier than the DMA finished writing the value to memory.
+	 */
+	rmb();
 	return readl(dmm->wa_dma_data);
 }
 
@@ -131,6 +137,13 @@ static void dmm_write_wa(struct dmm *dmm, u32 val, u32 reg)
 	int r;
 
 	writel(val, dmm->wa_dma_data);
+	/*
+	 * As per i878 workaround, the DMA is used to access the DMM registers.
+	 * Make sure that the writel is not moved by the compiler or the CPU, so
+	 * the data will be in place before we start the DMA to do the actual
+	 * register write.
+	 */
+	wmb();
 
 	src = (u32)dmm->wa_dma_handle;
 	dst = (u32)(dmm->phys_base + reg);
