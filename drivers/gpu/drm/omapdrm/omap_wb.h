@@ -93,9 +93,6 @@ struct wb_fmt {
 extern struct wb_fmt wb_formats[];
 extern unsigned int num_wb_formats;
 
-/* Return a specific unsigned byte from an unsigned int */
-#define GET_BYTE(c, b) ((c >> (b * 8)) & 0xff)
-
 struct wb_buffer {
 	struct vb2_v4l2_buffer	vb;
 	struct list_head	list;

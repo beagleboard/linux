@@ -625,11 +625,8 @@ static int wbcap_try_fmt_vid_cap(struct file *file, void *priv,
 	struct drm_crtc *crtc;
 	struct omap_video_timings *ct;
 
-	log_dbg(wbcap, "requested fourcc:%c%c%c%c size: %dx%d\n",
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 0),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 1),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 2),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 3),
+	log_dbg(wbcap, "requested fourcc:%4.4s size: %dx%d\n",
+		(char *)&f->fmt.pix_mp.pixelformat,
 		f->fmt.pix_mp.width, f->fmt.pix_mp.height);
 
 	/*
@@ -643,11 +640,8 @@ static int wbcap_try_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.width = ct->x_res;
 	f->fmt.pix.height = ct->y_res;
 
-	log_dbg(wbcap, "replied fourcc:%c%c%c%c size: %dx%d\n",
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 0),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 1),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 2),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 3),
+	log_dbg(wbcap, "replied fourcc:%4.4s size: %dx%d\n",
+		(char *)&f->fmt.pix_mp.pixelformat,
 		f->fmt.pix_mp.width, f->fmt.pix_mp.height);
 
 	return wbcap_fill_pix_format(wbcap, f);
@@ -678,12 +672,9 @@ static int wbcap_s_fmt_vid_cap(struct file *file, void *priv,
 	q_data->format = *f;
 	q_data->fmt = find_format(f);
 
-	log_dbg(wbcap, "Setting format for type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+	log_dbg(wbcap, "Setting format for type %d, %dx%d, fmt: %4.4s bpl_y %d",
 		f->type, f->fmt.pix_mp.width, f->fmt.pix_mp.height,
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 0),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 1),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 2),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 3),
+		(char *)&f->fmt.pix_mp.pixelformat,
 		f->fmt.pix_mp.plane_fmt[LUMA_PLANE].bytesperline);
 	if (f->fmt.pix_mp.num_planes == 2)
 		log_dbg(wbcap, " bpl_uv %d\n",
