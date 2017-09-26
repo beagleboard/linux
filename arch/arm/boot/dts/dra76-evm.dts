@@ -596,3 +596,10 @@
 	phys = <&pcie1_phy>, <&pcie2_phy>;
 	phy-names = "pcie-phy0", "pcie-phy1";
 };
+
+&m_can0 {
+	status = "okay";
+	can-transceiver {
+		max-bitrate = <2000000>;
+	};
+};
