@@ -1957,7 +1957,11 @@ static void init_once(void *foo)
 	nfsi->nrequests = 0;
 	nfsi->commit_info.ncommit = 0;
 	atomic_set(&nfsi->commit_info.rpcs_out, 0);
+#ifdef CONFIG_PREEMPT_RT_BASE
+	sema_init(&nfsi->rmdir_sem, 1);
+#else
 	init_rwsem(&nfsi->rmdir_sem);
+#endif
 	nfs4_init_once(nfsi);
 }
 
