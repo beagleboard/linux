@@ -58,11 +58,13 @@ static int justboom_digi_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_mask *fmt = constrs_mask(&runtime->hw_constraints,
 					    SNDRV_PCM_HW_PARAM_FORMAT);
 	int sysclk = 27000000; /* This is fixed on this board */
-
+	unsigned int sample_bits =
+		snd_pcm_format_physical_width(params_format(params));
 	long mclk_freq=0;
 	int mclk_div=1;
 	int sampling_freq=1;
@@ -70,7 +72,17 @@ static int justboom_digi_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 	
 	snd_mask_none(fmt);
-	snd_mask_set(fmt, SNDRV_PCM_FORMAT_S24_LE);
+	switch (sample_bits) {
+		case 16: 
+			snd_mask_set(fmt, SNDRV_PCM_FORMAT_S16_LE);
+			break;
+		case 24:
+			snd_mask_set(fmt, SNDRV_PCM_FORMAT_S24_LE);
+			break;
+		default:
+			snd_mask_set(fmt, SNDRV_PCM_FORMAT_S32_LE);
+			break;
+	}
 
 	samplerate = params_rate(params);
 	
@@ -129,8 +141,9 @@ static int justboom_digi_hw_params(struct snd_pcm_substream *substream,
 
 	/* set sampling frequency status bits */
 	snd_soc_update_bits(codec, WM8804_SPDTX4, 0x0f, sampling_freq);
-
-	return 0;
+	
+	/* set BCLK/FS ratio */
+	return snd_soc_dai_set_clkdiv(cpu_dai, 2, 64);
 }
 
 /* machine stream operations */
