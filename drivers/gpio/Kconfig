@@ -61,6 +61,20 @@ config GPIO_SYSFS
 	  Kernel drivers may also request that a particular GPIO be
 	  exported to userspace; this can be useful when debugging.
 
+config GPIO_OF_HELPER
+	bool "GPIO OF helper device (EXPERIMENTAL)"
+	depends on OF_GPIO
+	help
+	  Say Y here to add an GPIO OF helper driver
+
+	  Allows you specify a GPIO helper based on OF
+	  which allows simple export of GPIO functionality
+	  in user-space.
+
+	  Features include, value set/get, direction control,
+	  interrupt/value change poll support, event counting
+	  and others.
+
 config GPIO_GENERIC
 	depends on HAS_IOMEM # Only for IOMEM drivers
 	tristate
