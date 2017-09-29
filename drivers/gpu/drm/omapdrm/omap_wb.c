@@ -26,6 +26,11 @@ MODULE_PARM_DESC(wbdebug, "activates debug info");
 struct wb_fmt wb_formats[] = {
 	{
 		.fourcc		= V4L2_PIX_FMT_NV12,
+		.coplanar	= 0,
+		.depth		= {8, 4},
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_NV12M,
 		.coplanar	= 1,
 		.depth		= {8, 4},
 	},
@@ -62,6 +67,24 @@ struct wb_fmt *find_format(struct v4l2_format *f)
 	}
 
 	return NULL;
+}
+
+int omap_wb_fourcc_v4l2_to_drm(u32 fourcc)
+{
+	switch (fourcc) {
+	case V4L2_PIX_FMT_NV12:
+	case V4L2_PIX_FMT_NV12M:
+		return DRM_FORMAT_NV12;
+	case V4L2_PIX_FMT_YUYV:
+		return DRM_FORMAT_YUYV;
+	case V4L2_PIX_FMT_UYVY:
+		return DRM_FORMAT_UYVY;
+	case V4L2_PIX_FMT_XBGR32:
+		return DRM_FORMAT_XRGB8888;
+	default:
+		BUG();
+		return 0;
+	}
 }
 
 void omap_wb_irq(void *priv, u32 irqstatus)

@@ -169,6 +169,9 @@ static void device_run(void *priv)
 	src_dma_addr[0] = vb2_dma_addr_plus_data_offset(s_vb, 0);
 	if (spix->num_planes == 2)
 		src_dma_addr[1] = vb2_dma_addr_plus_data_offset(s_vb, 1);
+	else if (spix->pixelformat == V4L2_PIX_FMT_NV12)
+		src_dma_addr[1] = src_dma_addr[0] +
+			(spix->plane_fmt[0].bytesperline * spix->height);
 	if (!src_dma_addr[0]) {
 		log_err(dev,
 			"acquiring source buffer(%d) dma_addr failed\n",
@@ -180,6 +183,9 @@ static void device_run(void *priv)
 	dst_dma_addr[0] = vb2_dma_addr_plus_data_offset(d_vb, 0);
 	if (dpix->num_planes == 2)
 		dst_dma_addr[1] = vb2_dma_addr_plus_data_offset(d_vb, 1);
+	else if (dpix->pixelformat == V4L2_PIX_FMT_NV12)
+		dst_dma_addr[1] = dst_dma_addr[0] +
+			(dpix->plane_fmt[0].bytesperline * dpix->height);
 	if (!dst_dma_addr[0]) {
 		log_err(dev,
 			"acquiring destination buffer(%d) dma_addr failed\n",
@@ -202,7 +208,7 @@ static void device_run(void *priv)
 	src_info.out_width = spix->width;
 	src_info.out_height = spix->height;
 
-	src_info.fourcc = spix->pixelformat;
+	src_info.fourcc = omap_wb_fourcc_v4l2_to_drm(spix->pixelformat);
 	src_info.global_alpha = 0xff;
 
 	src_info.rotation = DRM_ROTATE_0;
@@ -221,7 +227,7 @@ static void device_run(void *priv)
 
 	wb_info.width = dpix->width;
 	wb_info.height = dpix->height;
-	wb_info.fourcc = dpix->pixelformat;
+	wb_info.fourcc = omap_wb_fourcc_v4l2_to_drm(dpix->pixelformat);
 	wb_info.pre_mult_alpha = 1;
 
 	wb_info.rotation = DRM_ROTATE_0;
@@ -236,19 +242,13 @@ static void device_run(void *priv)
 		log_err(dev,
 			"Conversion setup failed, check source and destination parameters\n"
 			);
-		log_err(dev, "\tSRC: %dx%d, fmt: %c%c%c%c sw %d\n",
+		log_err(dev, "\tSRC: %dx%d, fmt: %4.4s sw %d\n",
 			src_info.width, src_info.height,
-			GET_BYTE(spix->pixelformat, 0),
-			GET_BYTE(spix->pixelformat, 1),
-			GET_BYTE(spix->pixelformat, 2),
-			GET_BYTE(spix->pixelformat, 3),
+			(char *)&spix->pixelformat,
 			src_info.screen_width);
-		log_err(dev, "\tDST: %dx%d, fmt: %c%c%c%c sw %d\n",
+		log_err(dev, "\tDST: %dx%d, fmt: %4.4s sw %d\n",
 			wb_info.width, wb_info.height,
-			GET_BYTE(dpix->pixelformat, 0),
-			GET_BYTE(dpix->pixelformat, 1),
-			GET_BYTE(dpix->pixelformat, 2),
-			GET_BYTE(dpix->pixelformat, 3),
+			(char *)&dpix->pixelformat,
 			wb_info.buf_width);
 		return;
 	}
@@ -337,6 +337,7 @@ static int wbm2m_enum_fmt(struct file *file, void *priv,
 	if (f->index >= num_wb_formats)
 		return -EINVAL;
 
+	f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	f->pixelformat = wb_formats[f->index].fourcc;
 	return 0;
 }
@@ -366,12 +367,9 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 			s_q_data->format.fmt.pix_mp.colorspace;
 	}
 
-	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %4.4s bpl_y %d",
 		&ctx, f->type, pix->width, pix->height,
-		GET_BYTE(pix->pixelformat, 0),
-		GET_BYTE(pix->pixelformat, 1),
-		GET_BYTE(pix->pixelformat, 2),
-		GET_BYTE(pix->pixelformat, 3),
+		(char *)&pix->pixelformat,
 		pix->plane_fmt[LUMA_PLANE].bytesperline);
 	if (pix->num_planes == 2)
 		log_dbg(ctx->dev, " bpl_uv %d\n",
@@ -443,12 +441,22 @@ static int wbm2m_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		depth = fmt->depth[i];
 
 		if (i == LUMA_PLANE)
-			plane_fmt->bytesperline = (pix->width * depth) >> 3;
+			plane_fmt->bytesperline = pix->width * depth / 8;
 		else
 			plane_fmt->bytesperline = pix->width;
 
-		plane_fmt->sizeimage =
-				(pix->height * pix->width * depth) >> 3;
+		plane_fmt->sizeimage = (pix->height * pix->width *
+					depth) / 8;
+
+		if (fmt->fourcc == V4L2_PIX_FMT_NV12) {
+			/*
+			 * Since we are using a single plane buffer
+			 * we need to adjust the reported sizeimage
+			 * to include the colocated UV part.
+			 */
+			plane_fmt->sizeimage += (pix->height / 2 *
+				plane_fmt->bytesperline);
+		}
 
 		memset(plane_fmt->reserved, 0, sizeof(plane_fmt->reserved));
 	}
@@ -483,12 +491,9 @@ static int __wbm2m_s_fmt(struct wbm2m_ctx *ctx, struct v4l2_format *f)
 	q_data->c_rect.width	= pix->width;
 	q_data->c_rect.height	= pix->height;
 
-	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+	log_dbg(ctx->dev, "ctx %pa type %d, %dx%d, fmt: %4.4s bpl_y %d",
 		&ctx, f->type, pix->width, pix->height,
-		GET_BYTE(pix->pixelformat, 0),
-		GET_BYTE(pix->pixelformat, 1),
-		GET_BYTE(pix->pixelformat, 2),
-		GET_BYTE(pix->pixelformat, 3),
+		(char *)&pix->pixelformat,
 		pix->plane_fmt[LUMA_PLANE].bytesperline);
 	if (pix->num_planes == 2)
 		log_dbg(ctx->dev, " bpl_uv %d\n",

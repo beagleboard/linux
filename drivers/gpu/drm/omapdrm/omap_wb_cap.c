@@ -196,16 +196,19 @@ static int wbcap_schedule_next_buffer(struct wbcap_dev *dev)
 	addr_y = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
 	if (num_planes == 2)
 		addr_uv = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 1);
+	else if (pix->pixelformat == V4L2_PIX_FMT_NV12)
+		addr_uv = addr_y + (pix->plane_fmt[0].bytesperline *
+				    pix->height);
 
 	/* fill WB DSS info */
 	wb_info.paddr = (u32)addr_y;
 	wb_info.p_uv_addr = (u32)addr_uv;
 	wb_info.buf_width = pix->plane_fmt[0].bytesperline /
-			    (q_data->fmt->depth[0] / 8);
+			    (q_data->fmt->depth[LUMA_PLANE] / 8);
 
 	wb_info.width = pix->width;
 	wb_info.height = pix->height;
-	wb_info.fourcc = pix->pixelformat;
+	wb_info.fourcc = omap_wb_fourcc_v4l2_to_drm(pix->pixelformat);
 	wb_info.pre_mult_alpha = 1;
 
 	wb_info.rotation = DRM_ROTATE_0;
@@ -541,7 +544,7 @@ static int wbcap_querycap(struct file *file, void *priv,
 	struct wbcap_dev *wbcap = video_drvdata(file);
 
 	strlcpy(cap->driver, WBCAP_MODULE_NAME, sizeof(cap->driver));
-	strlcpy(cap->card, "wbcap", sizeof(cap->card));
+	strlcpy(cap->card, WBCAP_MODULE_NAME, sizeof(cap->card));
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
 		 wbcap->v4l2_dev.name);
 	cap->device_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_READWRITE |
@@ -609,12 +612,22 @@ static int wbcap_fill_pix_format(struct wbcap_dev *wbcap,
 		depth = fmt->depth[i];
 
 		if (i == LUMA_PLANE)
-			plane_fmt->bytesperline = (pix->width * depth) >> 3;
+			plane_fmt->bytesperline = pix->width * depth / 8;
 		else
 			plane_fmt->bytesperline = pix->width;
 
-		plane_fmt->sizeimage =
-				(pix->height * pix->width * depth) >> 3;
+		plane_fmt->sizeimage = (pix->height * pix->width *
+					depth) / 8;
+
+		if (fmt->fourcc == V4L2_PIX_FMT_NV12) {
+			/*
+			 * Since we are using a single plane buffer
+			 * we need to adjust the reported sizeimage
+			 * to include the colocated UV part.
+			 */
+			plane_fmt->sizeimage += (pix->height / 2 *
+				plane_fmt->bytesperline);
+		}
 
 		memset(plane_fmt->reserved, 0, sizeof(plane_fmt->reserved));
 	}
@@ -630,11 +643,8 @@ static int wbcap_try_fmt_vid_cap(struct file *file, void *priv,
 	struct drm_crtc *crtc;
 	struct videomode *ct;
 
-	log_dbg(wbcap, "requested fourcc:%c%c%c%c size: %dx%d\n",
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 0),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 1),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 2),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 3),
+	log_dbg(wbcap, "requested fourcc:%4.4s size: %dx%d\n",
+		(char *)&f->fmt.pix_mp.pixelformat,
 		f->fmt.pix_mp.width, f->fmt.pix_mp.height);
 
 	/*
@@ -648,11 +658,8 @@ static int wbcap_try_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.width = ct->hactive;
 	f->fmt.pix.height = ct->vactive;
 
-	log_dbg(wbcap, "replied fourcc:%c%c%c%c size: %dx%d\n",
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 0),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 1),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 2),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 3),
+	log_dbg(wbcap, "replied fourcc:%4.4s size: %dx%d\n",
+		(char *)&f->fmt.pix_mp.pixelformat,
 		f->fmt.pix_mp.width, f->fmt.pix_mp.height);
 
 	return wbcap_fill_pix_format(wbcap, f);
@@ -683,12 +690,9 @@ static int wbcap_s_fmt_vid_cap(struct file *file, void *priv,
 	q_data->format = *f;
 	q_data->fmt = find_format(f);
 
-	log_dbg(wbcap, "Setting format for type %d, %dx%d, fmt: %c%c%c%c bpl_y %d",
+	log_dbg(wbcap, "Setting format for type %d, %dx%d, fmt: %4.4s bpl_y %d",
 		f->type, f->fmt.pix_mp.width, f->fmt.pix_mp.height,
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 0),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 1),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 2),
-		GET_BYTE(f->fmt.pix_mp.pixelformat, 3),
+		(char *)&f->fmt.pix_mp.pixelformat,
 		f->fmt.pix_mp.plane_fmt[LUMA_PLANE].bytesperline);
 	if (f->fmt.pix_mp.num_planes == 2)
 		log_dbg(wbcap, " bpl_uv %d\n",
@@ -717,6 +721,7 @@ static int wbcap_enum_fmt_vid_cap(struct file *file, void *priv,
 	if (f->index >= num_wb_formats)
 		return -EINVAL;
 
+	f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	f->pixelformat = wb_formats[f->index].fourcc;
 	return 0;
 }
