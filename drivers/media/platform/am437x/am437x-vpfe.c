@@ -68,137 +68,64 @@ static const struct vpfe_standard vpfe_standards[] = {
 	{V4L2_STD_625_50, 720, 576, {54, 59}, 1},
 };
 
-struct bus_format {
-	unsigned int width;
-	unsigned int bpp;
-};
-
-/*
- * struct vpfe_fmt - VPFE media bus format information
- * @name: V4L2 format description
- * @code: V4L2 media bus format code
- * @shifted: V4L2 media bus format code for the same pixel layout but
- *	shifted to be 8 bits per pixel. =0 if format is not shiftable.
- * @pixelformat: V4L2 pixel format FCC identifier
- * @width: Bits per pixel (when transferred over a bus)
- * @bpp: Bytes per pixel (when stored in memory)
- * @supported: Indicates format supported by subdev
- */
-struct vpfe_fmt {
-	const char *name;
-	u32 fourcc;
-	u32 code;
-	struct bus_format l;
-	struct bus_format s;
-	bool supported;
-	u32 index;
-};
-
 static struct vpfe_fmt formats[] = {
 	{
-		.name		= "YUV 4:2:2 packed, YCbYCr",
 		.fourcc		= V4L2_PIX_FMT_YUYV,
 		.code		= MEDIA_BUS_FMT_YUYV8_2X8,
-		.l.width	= 10,
-		.l.bpp		= 4,
-		.s.width	= 8,
-		.s.bpp		= 2,
-		.supported	= false,
+		.bitsperpixel	= 16,
 	}, {
-		.name		= "YUV 4:2:2 packed, CbYCrY",
 		.fourcc		= V4L2_PIX_FMT_UYVY,
 		.code		= MEDIA_BUS_FMT_UYVY8_2X8,
-		.l.width	= 10,
-		.l.bpp		= 4,
-		.s.width	= 8,
-		.s.bpp		= 2,
-		.supported	= false,
+		.bitsperpixel	= 16,
 	}, {
-		.name		= "YUV 4:2:2 packed, YCrYCb",
 		.fourcc		= V4L2_PIX_FMT_YVYU,
 		.code		= MEDIA_BUS_FMT_YVYU8_2X8,
-		.l.width	= 10,
-		.l.bpp		= 4,
-		.s.width	= 8,
-		.s.bpp		= 2,
-		.supported	= false,
+		.bitsperpixel	= 16,
 	}, {
-		.name		= "YUV 4:2:2 packed, CrYCbY",
 		.fourcc		= V4L2_PIX_FMT_VYUY,
 		.code		= MEDIA_BUS_FMT_VYUY8_2X8,
-		.l.width	= 10,
-		.l.bpp		= 4,
-		.s.width	= 8,
-		.s.bpp		= 2,
-		.supported	= false,
+		.bitsperpixel	= 16,
 	}, {
-		.name		= "RAW8 BGGR",
 		.fourcc		= V4L2_PIX_FMT_SBGGR8,
 		.code		= MEDIA_BUS_FMT_SBGGR8_1X8,
-		.l.width	= 10,
-		.l.bpp		= 2,
-		.s.width	= 8,
-		.s.bpp		= 1,
-		.supported	= false,
+		.bitsperpixel	= 8,
 	}, {
-		.name		= "RAW8 GBRG",
 		.fourcc		= V4L2_PIX_FMT_SGBRG8,
 		.code		= MEDIA_BUS_FMT_SGBRG8_1X8,
-		.l.width	= 10,
-		.l.bpp		= 2,
-		.s.width	= 8,
-		.s.bpp		= 1,
-		.supported	= false,
+		.bitsperpixel	= 8,
 	}, {
-		.name		= "RAW8 GRBG",
 		.fourcc		= V4L2_PIX_FMT_SGRBG8,
 		.code		= MEDIA_BUS_FMT_SGRBG8_1X8,
-		.l.width	= 10,
-		.l.bpp		= 2,
-		.s.width	= 8,
-		.s.bpp		= 1,
-		.supported	= false,
+		.bitsperpixel	= 8,
 	}, {
-		.name		= "RAW8 RGGB",
 		.fourcc		= V4L2_PIX_FMT_SRGGB8,
 		.code		= MEDIA_BUS_FMT_SRGGB8_1X8,
-		.l.width	= 10,
-		.l.bpp		= 2,
-		.s.width	= 8,
-		.s.bpp		= 1,
-		.supported	= false,
+		.bitsperpixel	= 8,
 	}, {
-		.name		= "RGB565 (LE)",
 		.fourcc		= V4L2_PIX_FMT_RGB565,
 		.code		= MEDIA_BUS_FMT_RGB565_2X8_LE,
-		.l.width	= 10,
-		.l.bpp		= 4,
-		.s.width	= 8,
-		.s.bpp		= 2,
-		.supported	= false,
+		.bitsperpixel	= 16,
 	}, {
-		.name		= "RGB565 (BE)",
 		.fourcc		= V4L2_PIX_FMT_RGB565X,
 		.code		= MEDIA_BUS_FMT_RGB565_2X8_BE,
-		.l.width	= 10,
-		.l.bpp		= 4,
-		.s.width	= 8,
-		.s.bpp		= 2,
-		.supported	= false,
+		.bitsperpixel	= 16,
 	},
 };
 
-static int
-__vpfe_get_format(struct vpfe_device *vpfe,
-		  struct v4l2_format *format, unsigned int *bpp);
+static int __subdev_get_format(struct vpfe_device *vpfe,
+			       struct v4l2_mbus_framefmt *fmt);
+static int vpfe_calc_format_size(struct vpfe_device *vpfe,
+				 const struct vpfe_fmt *fmt,
+				 struct v4l2_format *f);
 
-static struct vpfe_fmt *find_format_by_code(unsigned int code)
+static const struct vpfe_fmt *find_format_by_code(struct vpfe_device *vpfe,
+					    unsigned int code)
 {
 	struct vpfe_fmt *fmt;
 	unsigned int k;
 
-	for (k = 0; k < ARRAY_SIZE(formats); k++) {
-		fmt = &formats[k];
+	for (k = 0; k < vpfe->num_active_fmt; k++) {
+		fmt = vpfe->active_fmt[k];
 		if (fmt->code == code)
 			return fmt;
 	}
@@ -206,13 +133,14 @@ static struct vpfe_fmt *find_format_by_code(unsigned int code)
 	return NULL;
 }
 
-static struct vpfe_fmt *find_format_by_pix(unsigned int pixelformat)
+static const struct vpfe_fmt *find_format_by_pix(struct vpfe_device *vpfe,
+					   unsigned int pixelformat)
 {
 	struct vpfe_fmt *fmt;
 	unsigned int k;
 
-	for (k = 0; k < ARRAY_SIZE(formats); k++) {
-		fmt = &formats[k];
+	for (k = 0; k < vpfe->num_active_fmt; k++) {
+		fmt = vpfe->active_fmt[k];
 		if (fmt->fourcc == pixelformat)
 			return fmt;
 	}
@@ -220,76 +148,18 @@ static struct vpfe_fmt *find_format_by_pix(unsigned int pixelformat)
 	return NULL;
 }
 
-static void
-mbus_to_pix(struct vpfe_device *vpfe,
-	    const struct v4l2_mbus_framefmt *mbus,
-	    struct v4l2_pix_format *pix, unsigned int *bpp)
+static unsigned int __get_bytesperpixel(struct vpfe_device *vpfe,
+					const struct vpfe_fmt *fmt)
 {
 	struct vpfe_subdev_info *sdinfo = vpfe->current_subdev;
 	unsigned int bus_width = sdinfo->vpfe_param.bus_width;
-	struct vpfe_fmt *fmt;
+	u32 bpp, bus_width_bytes, clocksperpixel;
 
-	fmt = find_format_by_code(mbus->code);
-	if (WARN_ON(fmt == NULL)) {
-		pr_err("Invalid mbus code set\n");
-		*bpp = 1;
-		return;
-	}
+	bus_width_bytes = ALIGN(bus_width, 8) >> 3;
+	clocksperpixel = DIV_ROUND_UP(fmt->bitsperpixel, bus_width);
+	bpp = clocksperpixel * bus_width_bytes;
 
-	memset(pix, 0, sizeof(*pix));
-	v4l2_fill_pix_format(pix, mbus);
-	pix->pixelformat = fmt->fourcc;
-	*bpp = (bus_width == 10) ?  fmt->l.bpp : fmt->s.bpp;
-
-	/* pitch should be 32 bytes aligned */
-	pix->bytesperline = ALIGN(pix->width * *bpp, 32);
-	pix->sizeimage = pix->bytesperline * pix->height;
-}
-
-static void pix_to_mbus(struct vpfe_device *vpfe,
-			struct v4l2_pix_format *pix_fmt,
-			struct v4l2_mbus_framefmt *mbus_fmt)
-{
-	struct vpfe_fmt *fmt;
-
-	fmt = find_format_by_pix(pix_fmt->pixelformat);
-	if (!fmt) {
-		/* default to first entry */
-		vpfe_dbg(3, vpfe, "Invalid pixel code: %x, default used instead\n",
-			pix_fmt->pixelformat);
-		fmt = &formats[0];
-	}
-
-	memset(mbus_fmt, 0, sizeof(*mbus_fmt));
-	v4l2_fill_mbus_format(mbus_fmt, pix_fmt, fmt->code);
-}
-
-/*  Print Four-character-code (FOURCC) */
-static char *print_fourcc(u32 fmt)
-{
-	static char code[5];
-
-	code[0] = (unsigned char)(fmt & 0xff);
-	code[1] = (unsigned char)((fmt >> 8) & 0xff);
-	code[2] = (unsigned char)((fmt >> 16) & 0xff);
-	code[3] = (unsigned char)((fmt >> 24) & 0xff);
-	code[4] = '\0';
-
-	return code;
-}
-
-static int
-cmp_v4l2_format(const struct v4l2_format *lhs, const struct v4l2_format *rhs)
-{
-	return lhs->type == rhs->type &&
-		lhs->fmt.pix.width == rhs->fmt.pix.width &&
-		lhs->fmt.pix.height == rhs->fmt.pix.height &&
-		lhs->fmt.pix.pixelformat == rhs->fmt.pix.pixelformat &&
-		lhs->fmt.pix.field == rhs->fmt.pix.field &&
-		lhs->fmt.pix.colorspace == rhs->fmt.pix.colorspace &&
-		lhs->fmt.pix.ycbcr_enc == rhs->fmt.pix.ycbcr_enc &&
-		lhs->fmt.pix.quantization == rhs->fmt.pix.quantization &&
-		lhs->fmt.pix.xfer_func == rhs->fmt.pix.xfer_func;
+	return bpp;
 }
 
 static inline u32 vpfe_reg_read(struct vpfe_ccdc *ccdc, u32 offset)
@@ -743,8 +613,8 @@ static int vpfe_ccdc_set_pixel_format(struct vpfe_ccdc *ccdc, u32 pixfmt)
 {
 	struct vpfe_device *vpfe = container_of(ccdc, struct vpfe_device, ccdc);
 
-	vpfe_dbg(1, vpfe, "vpfe_ccdc_set_pixel_format: if_type: %d, pixfmt:%s\n",
-		 ccdc->ccdc_cfg.if_type, print_fourcc(pixfmt));
+	vpfe_dbg(1, vpfe, "vpfe_ccdc_set_pixel_format: if_type: %d, pixfmt:%4.4s\n",
+		 ccdc->ccdc_cfg.if_type, (char *)&pixfmt);
 
 	if (ccdc->ccdc_cfg.if_type == VPFE_RAW_BAYER) {
 		ccdc->ccdc_cfg.bayer.pix_fmt = CCDC_PIXFMT_RAW;
@@ -1028,23 +898,25 @@ static int vpfe_get_ccdc_image_format(struct vpfe_device *vpfe,
 static int vpfe_config_ccdc_image_format(struct vpfe_device *vpfe)
 {
 	enum ccdc_frmfmt frm_fmt = CCDC_FRMFMT_INTERLACED;
+	u32 bpp;
 	int ret = 0;
 
 	vpfe_dbg(2, vpfe, "vpfe_config_ccdc_image_format\n");
 
-	vpfe_dbg(1, vpfe, "pixelformat: %s\n",
-		print_fourcc(vpfe->fmt.fmt.pix.pixelformat));
+	vpfe_dbg(1, vpfe, "pixelformat: %4.4s\n",
+		(char *)&vpfe->v_fmt.fmt.pix.pixelformat);
 
 	if (vpfe_ccdc_set_pixel_format(&vpfe->ccdc,
-			vpfe->fmt.fmt.pix.pixelformat) < 0) {
+			vpfe->v_fmt.fmt.pix.pixelformat) < 0) {
 		vpfe_err(vpfe, "couldn't set pix format in ccdc\n");
 		return -EINVAL;
 	}
 
 	/* configure the image window */
-	vpfe_ccdc_set_image_window(&vpfe->ccdc, &vpfe->crop, vpfe->bpp);
+	bpp = __get_bytesperpixel(vpfe, vpfe->fmt);
+	vpfe_ccdc_set_image_window(&vpfe->ccdc, &vpfe->crop, bpp);
 
-	switch (vpfe->fmt.fmt.pix.field) {
+	switch (vpfe->v_fmt.fmt.pix.field) {
 	case V4L2_FIELD_INTERLACED:
 		/* do nothing, since it is default */
 		ret = vpfe_ccdc_set_buftype(
@@ -1086,7 +958,8 @@ static int vpfe_config_ccdc_image_format(struct vpfe_device *vpfe)
 static int vpfe_config_image_format(struct vpfe_device *vpfe,
 				    v4l2_std_id std_id)
 {
-	struct v4l2_pix_format *pix = &vpfe->fmt.fmt.pix;
+	const struct vpfe_fmt *fmt;
+	struct v4l2_mbus_framefmt mbus_fmt;
 	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(vpfe_standards); i++) {
@@ -1108,26 +981,29 @@ static int vpfe_config_image_format(struct vpfe_device *vpfe,
 		return -EINVAL;
 	}
 
-	vpfe->crop.top = vpfe->crop.left = 0;
-	vpfe->crop.width = vpfe->std_info.active_pixels;
-	vpfe->crop.height = vpfe->std_info.active_lines;
-	pix->width = vpfe->crop.width;
-	pix->height = vpfe->crop.height;
-	pix->pixelformat = V4L2_PIX_FMT_YUYV;
-
-	/* first field and frame format based on standard frame format */
-	if (vpfe->std_info.frame_format)
-		pix->field = V4L2_FIELD_INTERLACED;
-	else
-		pix->field = V4L2_FIELD_NONE;
-
-	ret = __vpfe_get_format(vpfe, &vpfe->fmt, &vpfe->bpp);
+	ret = __subdev_get_format(vpfe, &mbus_fmt);
 	if (ret)
 		return ret;
 
+	fmt = find_format_by_code(vpfe, mbus_fmt.code);
+	if (!fmt) {
+		vpfe_dbg(3, vpfe, "mbus code format (0x%08x) not found.\n",
+			 mbus_fmt.code);
+		return -EINVAL;
+	}
+
+	/* Save current subdev format */
+	v4l2_fill_pix_format(&vpfe->v_fmt.fmt.pix, &mbus_fmt);
+	vpfe->v_fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	vpfe->v_fmt.fmt.pix.pixelformat = fmt->fourcc;
+	vpfe_calc_format_size(vpfe, fmt, &vpfe->v_fmt);
+	vpfe->fmt = fmt;
+
 	/* Update the crop window based on found values */
-	vpfe->crop.width = pix->width;
-	vpfe->crop.height = pix->height;
+	vpfe->crop.top = 0;
+	vpfe->crop.left = 0;
+	vpfe->crop.width = mbus_fmt.width;
+	vpfe->crop.height = mbus_fmt.height;
 
 	return vpfe_config_ccdc_image_format(vpfe);
 }
@@ -1270,7 +1146,7 @@ static inline void vpfe_schedule_bottom_field(struct vpfe_device *vpfe)
 static inline void vpfe_process_buffer_complete(struct vpfe_device *vpfe)
 {
 	vpfe->cur_frm->vb.vb2_buf.timestamp = ktime_get_ns();
-	vpfe->cur_frm->vb.field = vpfe->fmt.fmt.pix.field;
+	vpfe->cur_frm->vb.field = vpfe->v_fmt.fmt.pix.field;
 	vpfe->cur_frm->vb.sequence = vpfe->sequence++;
 	vb2_buffer_done(&vpfe->cur_frm->vb.vb2_buf, VB2_BUF_STATE_DONE);
 	vpfe->cur_frm = vpfe->next_frm;
@@ -1339,7 +1215,7 @@ static void vpfe_handle_interlaced_irq(struct vpfe_device *vpfe,
 static irqreturn_t vpfe_isr(int irq, void *dev)
 {
 	struct vpfe_device *vpfe = (struct vpfe_device *)dev;
-	enum v4l2_field field = vpfe->fmt.fmt.pix.field;
+	enum v4l2_field field = vpfe->v_fmt.fmt.pix.field;
 	int intr_status, stopping = vpfe->stopping;
 
 	intr_status = vpfe_reg_read(&vpfe->ccdc, VPFE_IRQ_STS);
@@ -1410,83 +1286,75 @@ static int vpfe_querycap(struct file *file, void  *priv,
 }
 
 /* get the format set at output pad of the adjacent subdev */
-static int __vpfe_get_format(struct vpfe_device *vpfe,
-			     struct v4l2_format *format, unsigned int *bpp)
+static int __subdev_get_format(struct vpfe_device *vpfe,
+			       struct v4l2_mbus_framefmt *fmt)
 {
-	struct v4l2_mbus_framefmt mbus_fmt;
-	struct vpfe_subdev_info *sdinfo;
-	struct v4l2_subdev_format fmt;
+	struct v4l2_subdev *sd = vpfe->current_subdev->sd;
+	struct v4l2_subdev_format sd_fmt;
+	struct v4l2_mbus_framefmt *mbus_fmt = &sd_fmt.format;
 	int ret;
 
-	sdinfo = vpfe->current_subdev;
-	if (!sdinfo->sd)
-		return -EINVAL;
+	sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	sd_fmt.pad = 0;
 
-	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-	fmt.pad = 0;
-
-	ret = v4l2_subdev_call(sdinfo->sd, pad, get_fmt, NULL, &fmt);
-	if (ret && ret != -ENOIOCTLCMD && ret != -ENODEV)
+	ret = v4l2_subdev_call(sd, pad, get_fmt, NULL, &sd_fmt);
+	if (ret)
 		return ret;
 
-	if (!ret) {
-		v4l2_fill_pix_format(&format->fmt.pix, &fmt.format);
-		mbus_to_pix(vpfe, &fmt.format, &format->fmt.pix, bpp);
-	} else {
-		ret = v4l2_device_call_until_err(&vpfe->v4l2_dev,
-						 sdinfo->grp_id,
-						 pad, get_fmt,
-						 NULL, &fmt);
-		if (ret && ret != -ENOIOCTLCMD && ret != -ENODEV)
-			return ret;
-		v4l2_fill_pix_format(&format->fmt.pix, &mbus_fmt);
-		mbus_to_pix(vpfe, &mbus_fmt, &format->fmt.pix, bpp);
-	}
+	*fmt = *mbus_fmt;
 
-	format->type = vpfe->fmt.type;
-
-	vpfe_dbg(1, vpfe,
-		 "%s size %dx%d (%s) bytesperline = %d, size = %d, bpp = %d\n",
-		 __func__, format->fmt.pix.width, format->fmt.pix.height,
-		 print_fourcc(format->fmt.pix.pixelformat),
-		 format->fmt.pix.bytesperline, format->fmt.pix.sizeimage, *bpp);
+	vpfe_dbg(1, vpfe, "%s %dx%d code:%04X\n", __func__,
+		 fmt->width, fmt->height, fmt->code);
 
 	return 0;
 }
 
 /* set the format at output pad of the adjacent subdev */
-static int __vpfe_set_format(struct vpfe_device *vpfe,
-			     struct v4l2_format *format, unsigned int *bpp)
+static int __subdev_set_format(struct vpfe_device *vpfe,
+			       struct v4l2_mbus_framefmt *fmt)
 {
-	struct vpfe_subdev_info *sdinfo;
-	struct v4l2_subdev_format fmt;
+	struct v4l2_subdev *sd = vpfe->current_subdev->sd;
+	struct v4l2_subdev_format sd_fmt;
+	struct v4l2_mbus_framefmt *mbus_fmt = &sd_fmt.format;
 	int ret;
 
-	vpfe_dbg(2, vpfe, "__vpfe_set_format\n");
+	sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	sd_fmt.pad = 0;
+	*mbus_fmt = *fmt;
 
-	sdinfo = vpfe->current_subdev;
-	if (!sdinfo->sd)
-		return -EINVAL;
-
-	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-	fmt.pad = 0;
-
-	pix_to_mbus(vpfe, &format->fmt.pix, &fmt.format);
-
-	ret = v4l2_subdev_call(sdinfo->sd, pad, set_fmt, NULL, &fmt);
+	ret = v4l2_subdev_call(sd, pad, set_fmt, NULL, &sd_fmt);
 	if (ret)
 		return ret;
 
-	v4l2_fill_pix_format(&format->fmt.pix, &fmt.format);
-	mbus_to_pix(vpfe, &fmt.format, &format->fmt.pix, bpp);
+	vpfe_dbg(1, vpfe, "%s %dx%d code:%04X\n", __func__,
+		 fmt->width, fmt->height, fmt->code);
 
-	format->type = vpfe->fmt.type;
+	return 0;
+}
 
-	vpfe_dbg(1, vpfe,
-		 "%s size %dx%d (%s) bytesperline = %d, size = %d, bpp = %d\n",
-		 __func__,  format->fmt.pix.width, format->fmt.pix.height,
-		 print_fourcc(format->fmt.pix.pixelformat),
-		 format->fmt.pix.bytesperline, format->fmt.pix.sizeimage, *bpp);
+/* Needs more work */
+static int vpfe_calc_format_size(struct vpfe_device *vpfe,
+				 const struct vpfe_fmt *fmt,
+				 struct v4l2_format *f)
+{
+	u32 bpp;
+
+	if (!fmt) {
+		vpfe_dbg(3, vpfe, "No vpfe_fmt provided!\n");
+		return -EINVAL;
+	}
+
+	bpp = __get_bytesperpixel(vpfe, fmt);
+
+	/* pitch should be 32 bytes aligned */
+	f->fmt.pix.bytesperline = ALIGN(f->fmt.pix.width * bpp, 32);
+	f->fmt.pix.sizeimage = f->fmt.pix.bytesperline *
+			       f->fmt.pix.height;
+
+	vpfe_dbg(3, vpfe, "%s: fourcc: %4.4s size: %dx%d bpl:%d img_size:%d\n",
+		 __func__, (char *)&f->fmt.pix.pixelformat,
+		 f->fmt.pix.width, f->fmt.pix.height,
+		 f->fmt.pix.bytesperline, f->fmt.pix.sizeimage);
 
 	return 0;
 }
@@ -1498,7 +1366,7 @@ static int vpfe_g_fmt(struct file *file, void *priv,
 
 	vpfe_dbg(2, vpfe, "vpfe_g_fmt\n");
 
-	*fmt = vpfe->fmt;
+	*fmt = vpfe->v_fmt;
 
 	return 0;
 }
@@ -1508,8 +1376,7 @@ static int vpfe_enum_fmt(struct file *file, void  *priv,
 {
 	struct vpfe_device *vpfe = video_drvdata(file);
 	struct vpfe_subdev_info *sdinfo;
-	struct vpfe_fmt *fmt = NULL;
-	unsigned int k;
+	struct vpfe_fmt *fmt;
 
 	vpfe_dbg(2, vpfe, "vpfe_enum_format index:%d\n",
 		f->index);
@@ -1518,48 +1385,85 @@ static int vpfe_enum_fmt(struct file *file, void  *priv,
 	if (!sdinfo->sd)
 		return -EINVAL;
 
-	if (f->index > ARRAY_SIZE(formats))
+	if (f->index >= vpfe->num_active_fmt)
 		return -EINVAL;
 
-	for (k = 0; k < ARRAY_SIZE(formats); k++) {
-		if (formats[k].index == f->index) {
-			fmt = &formats[k];
-			break;
-		}
-	}
-	if (!fmt)
-		return -EINVAL;
+	fmt = vpfe->active_fmt[f->index];
 
-	strncpy(f->description, fmt->name, sizeof(f->description) - 1);
 	f->pixelformat = fmt->fourcc;
-	f->type = vpfe->fmt.type;
-
-	vpfe_dbg(1, vpfe, "vpfe_enum_format: mbus index: %d code: %x pixelformat: %s [%s]\n",
-		f->index, fmt->code, print_fourcc(fmt->fourcc), fmt->name);
+	f->type = vpfe->v_fmt.type;
+	vpfe_dbg(1, vpfe, "vpfe_enum_format: mbus index: %d code: %x pixelformat: %4.4s\n",
+		 f->index, fmt->code, (char *)&fmt->fourcc);
 
 	return 0;
 }
 
 static int vpfe_try_fmt(struct file *file, void *priv,
-			struct v4l2_format *fmt)
+			struct v4l2_format *f)
 {
 	struct vpfe_device *vpfe = video_drvdata(file);
-	unsigned int bpp;
+	struct v4l2_subdev *sd = vpfe->current_subdev->sd;
+	const struct vpfe_fmt *fmt;
+	struct v4l2_subdev_frame_size_enum fse;
+	int ret, found;
 
-	vpfe_dbg(2, vpfe, "vpfe_try_fmt\n");
+	fmt = find_format_by_pix(vpfe, f->fmt.pix.pixelformat);
+	if (!fmt) {
+		/* default to first entry */
+		vpfe_dbg(3, vpfe, "Invalid pixel code: %x, default used instead\n",
+			 f->fmt.pix.pixelformat);
+		fmt = vpfe->active_fmt[0];
+		f->fmt.pix.pixelformat = fmt->fourcc;
+	}
 
-	return __vpfe_get_format(vpfe, fmt, &bpp);
+	f->fmt.pix.field = vpfe->v_fmt.fmt.pix.field;
+
+	/* check for/find a valid width/height */
+	ret = 0;
+	found = false;
+	fse.pad = 0;
+	fse.code = fmt->code;
+	fse.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	for (fse.index = 0; ; fse.index++) {
+		ret = v4l2_subdev_call(sd, pad, enum_frame_size,
+				       NULL, &fse);
+		if (ret)
+			break;
+
+		if ((f->fmt.pix.width == fse.max_width) &&
+		    (f->fmt.pix.height == fse.max_height)) {
+			found = true;
+			break;
+		} else if ((f->fmt.pix.width >= fse.min_width) &&
+			 (f->fmt.pix.width <= fse.max_width) &&
+			 (f->fmt.pix.height >= fse.min_height) &&
+			 (f->fmt.pix.height <= fse.max_height)) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		/* use existing values as default */
+		f->fmt.pix.width = vpfe->v_fmt.fmt.pix.width;
+		f->fmt.pix.height =  vpfe->v_fmt.fmt.pix.height;
+	}
+
+	/*
+	 * Use current colorspace for now, it will get
+	 * updated properly during s_fmt
+	 */
+	f->fmt.pix.colorspace = vpfe->v_fmt.fmt.pix.colorspace;
+	return vpfe_calc_format_size(vpfe, fmt, f);
 }
 
 static int vpfe_s_fmt(struct file *file, void *priv,
-		      struct v4l2_format *fmt)
+		      struct v4l2_format *f)
 {
 	struct vpfe_device *vpfe = video_drvdata(file);
-	struct v4l2_format format;
-	unsigned int bpp;
+	const struct vpfe_fmt *fmt;
+	struct v4l2_mbus_framefmt mbus_fmt;
 	int ret;
-
-	vpfe_dbg(2, vpfe, "vpfe_s_fmt\n");
 
 	/* If streaming is started, return error */
 	if (vb2_is_busy(&vpfe->buffer_queue)) {
@@ -1567,28 +1471,36 @@ static int vpfe_s_fmt(struct file *file, void *priv,
 		return -EBUSY;
 	}
 
-	ret = __vpfe_get_format(vpfe, &format, &bpp);
+	ret = vpfe_try_fmt(file, priv, f);
+	if (ret < 0)
+		return ret;
+
+	fmt = find_format_by_pix(vpfe, f->fmt.pix.pixelformat);
+
+	v4l2_fill_mbus_format(&mbus_fmt, &f->fmt.pix, fmt->code);
+
+	ret = __subdev_set_format(vpfe, &mbus_fmt);
 	if (ret)
 		return ret;
 
-	if (!cmp_v4l2_format(fmt, &format)) {
-		/* Sensor format is different from the requested format
-		 * so we need to change it
-		 */
-		ret = __vpfe_set_format(vpfe, fmt, &bpp);
-		if (ret)
-			return ret;
-	} else /* Just make sure all of the fields are consistent */
-		*fmt = format;
+	/* Just double check nothing has gone wrong */
+	if (mbus_fmt.code != fmt->code) {
+		vpfe_dbg(3, vpfe,
+			"%s subdev changed format on us, this should not happen\n",
+			__func__);
+		return -EINVAL;
+	}
 
-	/* First detach any IRQ if currently attached */
-	vpfe_detach_irq(vpfe);
-	vpfe->fmt = *fmt;
-	vpfe->bpp = bpp;
+	v4l2_fill_pix_format(&vpfe->v_fmt.fmt.pix, &mbus_fmt);
+	vpfe->v_fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	vpfe->v_fmt.fmt.pix.pixelformat  = fmt->fourcc;
+	vpfe_calc_format_size(vpfe, fmt, &vpfe->v_fmt);
+	*f = vpfe->v_fmt;
+	vpfe->fmt = fmt;
 
 	/* Update the crop window based on found values */
-	vpfe->crop.width = fmt->fmt.pix.width;
-	vpfe->crop.height = fmt->fmt.pix.height;
+	vpfe->crop.width = f->fmt.pix.width;
+	vpfe->crop.height = f->fmt.pix.height;
 
 	/* set image capture parameters in the ccdc */
 	return vpfe_config_ccdc_image_format(vpfe);
@@ -1599,45 +1511,30 @@ static int vpfe_enum_size(struct file *file, void  *priv,
 {
 	struct vpfe_device *vpfe = video_drvdata(file);
 	struct v4l2_subdev_frame_size_enum fse;
-	struct vpfe_subdev_info *sdinfo;
-	struct v4l2_mbus_framefmt mbus;
-	struct v4l2_pix_format pix;
-	struct vpfe_fmt *fmt;
+	struct v4l2_subdev *sd = vpfe->current_subdev->sd;
+	const struct vpfe_fmt *fmt;
 	int ret;
 
 	vpfe_dbg(2, vpfe, "vpfe_enum_size\n");
 
 	/* check for valid format */
-	fmt = find_format_by_pix(fsize->pixel_format);
+	fmt = find_format_by_pix(vpfe, fsize->pixel_format);
 	if (!fmt) {
-		vpfe_dbg(3, vpfe, "Invalid pixel code: %x, default used instead\n",
+		vpfe_dbg(3, vpfe, "Invalid pixel code: %x\n",
 			fsize->pixel_format);
 		return -EINVAL;
 	}
 
 	memset(fsize->reserved, 0x0, sizeof(fsize->reserved));
 
-	sdinfo = vpfe->current_subdev;
-	if (!sdinfo->sd)
-		return -EINVAL;
-
-	memset(&pix, 0x0, sizeof(pix));
-	/* Construct pix from parameter and use default for the rest */
-	pix.pixelformat = fsize->pixel_format;
-	pix.width = 640;
-	pix.height = 480;
-	pix.colorspace = V4L2_COLORSPACE_SRGB;
-	pix.field = V4L2_FIELD_NONE;
-	pix_to_mbus(vpfe, &pix, &mbus);
-
 	memset(&fse, 0x0, sizeof(fse));
 	fse.index = fsize->index;
 	fse.pad = 0;
-	fse.code = mbus.code;
+	fse.code = fmt->code;
 	fse.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-	ret = v4l2_subdev_call(sdinfo->sd, pad, enum_frame_size, NULL, &fse);
+	ret = v4l2_subdev_call(sd, pad, enum_frame_size, NULL, &fse);
 	if (ret)
-		return -EINVAL;
+		return ret;
 
 	vpfe_dbg(1, vpfe, "vpfe_enum_size: index: %d code: %x W:[%d,%d] H:[%d,%d]\n",
 		fse.index, fse.code, fse.min_width, fse.max_width,
@@ -1647,8 +1544,8 @@ static int vpfe_enum_size(struct file *file, void  *priv,
 	fsize->discrete.width = fse.max_width;
 	fsize->discrete.height = fse.max_height;
 
-	vpfe_dbg(1, vpfe, "vpfe_enum_size: index: %d pixformat: %s size: %dx%d\n",
-		fsize->index, print_fourcc(fsize->pixel_format),
+	vpfe_dbg(1, vpfe, "vpfe_enum_size: index: %d pixformat: %4.4s size: %dx%d\n",
+		fsize->index, (char *)&fsize->pixel_format,
 		fsize->discrete.width, fsize->discrete.height);
 
 	return 0;
@@ -1837,6 +1734,10 @@ static int vpfe_s_std(struct file *file, void *priv, v4l2_std_id std_id)
 	if (!(sdinfo->inputs[0].capabilities & V4L2_IN_CAP_STD))
 		return -ENODATA;
 
+	/* if trying to set the same std then nothing to do */
+	if (vpfe_standards[vpfe->std_index].std_id == std_id)
+		return 0;
+
 	/* If streaming is started, return error */
 	if (vb2_is_busy(&vpfe->buffer_queue)) {
 		vpfe_err(vpfe, "%s device busy\n", __func__);
@@ -1901,7 +1802,7 @@ static int vpfe_queue_setup(struct vb2_queue *vq,
 			    unsigned int sizes[], struct device *alloc_devs[])
 {
 	struct vpfe_device *vpfe = vb2_get_drv_priv(vq);
-	unsigned size = vpfe->fmt.fmt.pix.sizeimage;
+	unsigned int size = vpfe->v_fmt.fmt.pix.sizeimage;
 
 	if (vq->num_buffers + *nbuffers < 3)
 		*nbuffers = 3 - vq->num_buffers;
@@ -1937,12 +1838,12 @@ static int vpfe_buffer_prepare(struct vb2_buffer *vb)
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct vpfe_device *vpfe = vb2_get_drv_priv(vb->vb2_queue);
 
-	vb2_set_plane_payload(vb, 0, vpfe->fmt.fmt.pix.sizeimage);
+	vb2_set_plane_payload(vb, 0, vpfe->v_fmt.fmt.pix.sizeimage);
 
 	if (vb2_get_plane_payload(vb, 0) > vb2_plane_size(vb, 0))
 		return -EINVAL;
 
-	vbuf->field = vpfe->fmt.fmt.pix.field;
+	vbuf->field = vpfe->v_fmt.fmt.pix.field;
 
 	return 0;
 }
@@ -1964,6 +1865,29 @@ static void vpfe_buffer_queue(struct vb2_buffer *vb)
 	spin_unlock_irqrestore(&vpfe->dma_queue_lock, flags);
 }
 
+static void vpfe_return_all_buffers(struct vpfe_device *vpfe,
+				    enum vb2_buffer_state state)
+{
+	struct vpfe_cap_buffer *buf, *node;
+	unsigned long flags;
+
+	spin_lock_irqsave(&vpfe->dma_queue_lock, flags);
+	list_for_each_entry_safe(buf, node, &vpfe->dma_queue, list) {
+		vb2_buffer_done(&buf->vb.vb2_buf, state);
+		list_del(&buf->list);
+	}
+
+	if (vpfe->cur_frm)
+		vb2_buffer_done(&vpfe->cur_frm->vb.vb2_buf, state);
+
+	if (vpfe->next_frm && (vpfe->next_frm != vpfe->cur_frm))
+		vb2_buffer_done(&vpfe->next_frm->vb.vb2_buf, state);
+
+	vpfe->cur_frm = NULL;
+	vpfe->next_frm = NULL;
+	spin_unlock_irqrestore(&vpfe->dma_queue_lock, flags);
+}
+
 /*
  * vpfe_start_streaming : Starts the DMA engine for streaming
  * @vb: ptr to vb2_buffer
@@ -1972,7 +1896,6 @@ static void vpfe_buffer_queue(struct vb2_buffer *vb)
 static int vpfe_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct vpfe_device *vpfe = vb2_get_drv_priv(vq);
-	struct vpfe_cap_buffer *buf, *tmp;
 	struct vpfe_subdev_info *sdinfo;
 	unsigned long flags;
 	unsigned long addr;
@@ -2018,11 +1941,8 @@ static int vpfe_start_streaming(struct vb2_queue *vq, unsigned int count)
 	return 0;
 
 err:
-	list_for_each_entry_safe(buf, tmp, &vpfe->dma_queue, list) {
-		list_del(&buf->list);
-		vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_QUEUED);
-	}
-
+	vpfe_return_all_buffers(vpfe, VB2_BUF_STATE_QUEUED);
+	vpfe_pcr_enable(&vpfe->ccdc, 0);
 	return ret;
 }
 
@@ -2037,7 +1957,6 @@ static void vpfe_stop_streaming(struct vb2_queue *vq)
 {
 	struct vpfe_device *vpfe = vb2_get_drv_priv(vq);
 	struct vpfe_subdev_info *sdinfo;
-	unsigned long flags;
 	int ret;
 
 	vpfe_pcr_enable(&vpfe->ccdc, 0);
@@ -2055,27 +1974,7 @@ static void vpfe_stop_streaming(struct vb2_queue *vq)
 		vpfe_dbg(1, vpfe, "stream off failed in subdev\n");
 
 	/* release all active buffers */
-	spin_lock_irqsave(&vpfe->dma_queue_lock, flags);
-	if (vpfe->cur_frm == vpfe->next_frm) {
-		vb2_buffer_done(&vpfe->cur_frm->vb.vb2_buf,
-				VB2_BUF_STATE_ERROR);
-	} else {
-		if (vpfe->cur_frm != NULL)
-			vb2_buffer_done(&vpfe->cur_frm->vb.vb2_buf,
-					VB2_BUF_STATE_ERROR);
-		if (vpfe->next_frm != NULL)
-			vb2_buffer_done(&vpfe->next_frm->vb.vb2_buf,
-					VB2_BUF_STATE_ERROR);
-	}
-
-	while (!list_empty(&vpfe->dma_queue)) {
-		vpfe->next_frm = list_entry(vpfe->dma_queue.next,
-						struct vpfe_cap_buffer, list);
-		list_del(&vpfe->next_frm->list);
-		vb2_buffer_done(&vpfe->next_frm->vb.vb2_buf,
-				VB2_BUF_STATE_ERROR);
-	}
-	spin_unlock_irqrestore(&vpfe->dma_queue_lock, flags);
+	vpfe_return_all_buffers(vpfe, VB2_BUF_STATE_ERROR);
 }
 
 static int vpfe_cropcap(struct file *file, void *priv,
@@ -2084,6 +1983,9 @@ static int vpfe_cropcap(struct file *file, void *priv,
 	struct vpfe_device *vpfe = video_drvdata(file);
 
 	vpfe_dbg(2, vpfe, "vpfe_cropcap\n");
+
+	if (crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
 
 	if (vpfe->std_index >= ARRAY_SIZE(vpfe_standards))
 		return -EINVAL;
@@ -2144,6 +2046,7 @@ vpfe_s_selection(struct file *file, void *fh, struct v4l2_selection *s)
 	struct vpfe_device *vpfe = video_drvdata(file);
 	struct v4l2_rect cr = vpfe->crop;
 	struct v4l2_rect r = s->r;
+	u32 bpp;
 
 	/* If streaming is started, return error */
 	if (vb2_is_busy(&vpfe->buffer_queue)) {
@@ -2169,12 +2072,14 @@ vpfe_s_selection(struct file *file, void *fh, struct v4l2_selection *s)
 
 	s->r = vpfe->crop = r;
 
-	vpfe_ccdc_set_image_window(&vpfe->ccdc, &r, vpfe->bpp);
-	vpfe->fmt.fmt.pix.width = r.width;
-	vpfe->fmt.fmt.pix.height = r.height;
-	vpfe->fmt.fmt.pix.bytesperline = vpfe_ccdc_get_line_length(&vpfe->ccdc);
-	vpfe->fmt.fmt.pix.sizeimage = vpfe->fmt.fmt.pix.bytesperline *
-						vpfe->fmt.fmt.pix.height;
+	bpp = __get_bytesperpixel(vpfe, vpfe->fmt);
+	vpfe_ccdc_set_image_window(&vpfe->ccdc, &r, bpp);
+	vpfe->v_fmt.fmt.pix.width = r.width;
+	vpfe->v_fmt.fmt.pix.height = r.height;
+	vpfe->v_fmt.fmt.pix.bytesperline =
+		vpfe_ccdc_get_line_length(&vpfe->ccdc);
+	vpfe->v_fmt.fmt.pix.sizeimage = vpfe->v_fmt.fmt.pix.bytesperline *
+						vpfe->v_fmt.fmt.pix.height;
 
 	vpfe_dbg(1, vpfe, "cropped (%d,%d)/%dx%d of %dx%d\n",
 		 r.left, r.top, r.width, r.height, cr.width, cr.height);
@@ -2210,7 +2115,7 @@ static long vpfe_ioctl_default(struct file *file, void *priv,
 			return ret;
 		}
 		ret = vpfe_get_ccdc_image_format(vpfe,
-						 &vpfe->fmt);
+						 &vpfe->v_fmt);
 		if (ret < 0) {
 			vpfe_dbg(2, vpfe,
 				"Invalid image format at CCDC\n");
@@ -2295,8 +2200,10 @@ vpfe_async_bound(struct v4l2_async_notifier *notifier,
 					       struct vpfe_device, v4l2_dev);
 	struct v4l2_subdev_mbus_code_enum mbus_code;
 	struct vpfe_subdev_info *sdinfo;
+	struct vpfe_fmt *fmt;
+	int ret = 0;
 	bool found = false;
-	int i, j;
+	int i, j, k;
 
 	vpfe_dbg(1, vpfe, "vpfe_async_bound\n");
 
@@ -2317,27 +2224,37 @@ vpfe_async_bound(struct v4l2_async_notifier *notifier,
 
 	vpfe->video_dev.tvnorms |= sdinfo->inputs[0].std;
 
-	/* setup the supported formats & indexes */
-	for (j = 0, i = 0; ; ++j) {
-		struct vpfe_fmt *fmt;
-		int ret;
-
+	vpfe->num_active_fmt = 0;
+	for (j = 0, i = 0; (ret != -EINVAL); ++j) {
 		memset(&mbus_code, 0, sizeof(mbus_code));
 		mbus_code.index = j;
 		mbus_code.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 		ret = v4l2_subdev_call(subdev, pad, enum_mbus_code,
-			       NULL, &mbus_code);
+				       NULL, &mbus_code);
 		if (ret)
-			break;
-
-		fmt = find_format_by_code(mbus_code.code);
-		if (!fmt)
 			continue;
 
-		fmt->supported = true;
-		fmt->index = i++;
+		vpfe_dbg(3, vpfe,
+			 "subdev %s: code: %04x idx: %d\n",
+			 subdev->name, mbus_code.code, j);
+
+		for (k = 0; k < ARRAY_SIZE(formats); k++) {
+			fmt = &formats[k];
+			if (mbus_code.code != fmt->code)
+				continue;
+			vpfe->active_fmt[i] = fmt;
+			vpfe_dbg(3, vpfe,
+				 "matched fourcc: %4.4s code: %04x idx: %d\n",
+				 (char *)&fmt->fourcc, mbus_code.code, i);
+			vpfe->num_active_fmt = ++i;
+		}
 	}
 
+	if (!i) {
+		vpfe_err(vpfe, "No suitable format reported by subdev %s\n",
+			 subdev->name);
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -2350,7 +2267,7 @@ static int vpfe_probe_complete(struct vpfe_device *vpfe)
 	spin_lock_init(&vpfe->dma_queue_lock);
 	mutex_init(&vpfe->lock);
 
-	vpfe->fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	vpfe->v_fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 	/* set first sub device as current one */
 	vpfe->current_subdev = &vpfe->cfg->sub_devs[0];
