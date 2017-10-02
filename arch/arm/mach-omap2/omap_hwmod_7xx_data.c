@@ -4728,6 +4728,10 @@ static struct omap_hwmod_ocp_if *dra76x_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l3_main_1__mmu1_dsp2,
 	&dra7xx_dsp2__l3_main_1,
 	&dra76x_l3_main_1__mcan,
+	NULL,
+};
+
+static struct omap_hwmod_ocp_if *acd_76x_hwmod_ocp_ifs[] __initdata = {
 	&dra76x_l4_per3__cal,
 	NULL,
 };
@@ -4747,7 +4751,7 @@ static struct omap_hwmod_ocp_if *dra72x_hwmod_ocp_ifs[] __initdata = {
 	NULL,
 };
 
-static struct omap_hwmod_ocp_if *dra74x_dra72x_hwmod_ocp_ifs[] __initdata = {
+static struct omap_hwmod_ocp_if *rtc_hwmod_ocp_ifs[] __initdata = {
 	&dra7xx_l4_per3__rtcss,
 	NULL,
 };
@@ -4759,19 +4763,26 @@ int __init dra7xx_hwmod_init(void)
 	omap_hwmod_init();
 	ret = omap_hwmod_register_links(dra7xx_hwmod_ocp_ifs);
 
-	if (!ret && soc_is_dra74x())
+	if (!ret && soc_is_dra74x()) {
 		ret = omap_hwmod_register_links(dra74x_hwmod_ocp_ifs);
-	else if (!ret && soc_is_dra72x())
+		if (!ret)
+			ret = omap_hwmod_register_links(rtc_hwmod_ocp_ifs);
+	} else if (!ret && soc_is_dra72x()) {
 		ret = omap_hwmod_register_links(dra72x_hwmod_ocp_ifs);
-	else if (!ret && soc_is_dra76x())
+		if (!ret && !of_machine_is_compatible("ti,dra718"))
+			ret = omap_hwmod_register_links(rtc_hwmod_ocp_ifs);
+	} else if (!ret && soc_is_dra76x()) {
 		ret = omap_hwmod_register_links(dra76x_hwmod_ocp_ifs);
+
+		if (!ret && soc_is_dra76x_acd()) {
+			ret = omap_hwmod_register_links(acd_76x_hwmod_ocp_ifs);
+		} else if (!ret && soc_is_dra76x_abz()) {
+			ret = omap_hwmod_register_links(rtc_hwmod_ocp_ifs);
+		}
+	}
 
 	if (!ret && omap_type() == OMAP2_DEVICE_TYPE_GP)
 		ret = omap_hwmod_register_links(dra7xx_gp_hwmod_ocp_ifs);
-
-	/* now for the IPs available only in dra74 and dra72 */
-	if (!ret && !of_machine_is_compatible("ti,dra718") && !soc_is_dra76x())
-		ret = omap_hwmod_register_links(dra74x_dra72x_hwmod_ocp_ifs);
 
 	return ret;
 }
