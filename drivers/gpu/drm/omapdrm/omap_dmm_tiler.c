@@ -123,6 +123,12 @@ static u32 dmm_read_wa(struct dmm *dmm, u32 reg)
 		return readl(dmm->base + reg);
 	}
 
+	/*
+	 * As per i878 workaround, the DMA is used to access the DMM registers.
+	 * Make sure that the readl is not moved by the compiler or the CPU
+	 * earlier than the DMA finished writing the value to memory.
+	 */
+	rmb();
 	return readl(dmm->wa_dma_data);
 }
 
@@ -132,6 +138,13 @@ static void dmm_write_wa(struct dmm *dmm, u32 val, u32 reg)
 	int r;
 
 	writel(val, dmm->wa_dma_data);
+	/*
+	 * As per i878 workaround, the DMA is used to access the DMM registers.
+	 * Make sure that the writel is not moved by the compiler or the CPU, so
+	 * the data will be in place before we start the DMA to do the actual
+	 * register write.
+	 */
+	wmb();
 
 	src = (u32)dmm->wa_dma_handle;
 	dst = (u32)(dmm->phys_base + reg);
@@ -232,14 +245,22 @@ static int wait_status(struct refill_engine *engine, uint32_t wait_mask)
 	while (true) {
 		r = dmm_read(dmm, reg[PAT_STATUS][engine->id]);
 		err = r & DMM_PATSTATUS_ERR;
-		if (err)
+		if (err) {
+			dev_err(dmm->dev,
+				"%s: error (engine%d). PAT_STATUS: 0x%08x\n",
+				__func__, engine->id, r);
 			return -EFAULT;
+		}
 
 		if ((r & wait_mask) == wait_mask)
 			break;
 
-		if (--i == 0)
+		if (--i == 0) {
+			dev_err(dmm->dev,
+				"%s: timeout (engine%d). PAT_STATUS: 0x%08x\n",
+				__func__, engine->id, r);
 			return -ETIMEDOUT;
+		}
 
 		udelay(1);
 	}
@@ -269,6 +290,11 @@ static irqreturn_t omap_dmm_irq_handler(int irq, void *arg)
 	dmm_write(dmm, status, DMM_PAT_IRQSTATUS);
 
 	for (i = 0; i < dmm->num_engines; i++) {
+		if (status & DMM_IRQSTAT_ERR_MASK)
+			dev_err(dmm->dev,
+				"irq error(engine%d): IRQSTAT 0x%02x\n",
+				i, status & 0xff);
+
 		if (status & DMM_IRQSTAT_LST) {
 			if (dmm->engines[i].async)
 				release_engine(&dmm->engines[i]);
@@ -420,7 +446,12 @@ static int dmm_txn_commit(struct dmm_txn *txn, bool wait)
 				msecs_to_jiffies(100))) {
 			dev_err(dmm->dev, "timed out waiting for done\n");
 			ret = -ETIMEDOUT;
+			goto cleanup;
 		}
+
+		/* Check the engine status before continue */
+		ret = wait_status(engine, DMM_PATSTATUS_READY |
+				  DMM_PATSTATUS_VALID | DMM_PATSTATUS_DONE);
 	}
 
 cleanup:
