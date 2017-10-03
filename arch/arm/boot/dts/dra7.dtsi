@@ -1008,7 +1008,7 @@
 		};
 
 		dmm@4e000000 {
-			compatible = "ti,omap5-dmm";
+			compatible = "ti,dra7-dmm", "ti,omap5-dmm";
 			reg = <0x4e000000 0x800>;
 			interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "dmm";
