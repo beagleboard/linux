@@ -12,9 +12,7 @@
 / {
 	model = "TI AM335x PocketBeagle";
 	compatible = "ti,am335x-pocketbeagle", "ti,am335x-bone", "ti,am33xx";
-};
 
-/ {
 	cpus {
 		cpu@0 {
 			cpu0-supply = <&dcdc2_reg>;
@@ -24,6 +22,10 @@
 	memory {
 		device_type = "memory";
 		reg = <0x80000000 0x20000000>; /* 512 MB */
+	};
+
+	chosen {
+		stdout-path = &uart0;
 	};
 
 	leds {
@@ -827,9 +829,27 @@
 
 &uart0 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <>;
 };
 
-#include "am335x-peripheral-ttyS4.dtsi"
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <>;
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <>;
+};
+
+&uart4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <>;
+};
 
 &usb {
 	status = "okay";
@@ -918,10 +938,11 @@
 	 * by the hardware problems. (Tip: double-check by performing a current
 	 * measurement after shutdown: it should be less than 1 mA.)
 	 */
-	ti,pmic-shutdown-controller;
 
+	interrupts = <7>; /* NMI */
 	interrupt-parent = <&intc>;
-	interrupts = <7>;	/* NNMI */
+
+	ti,pmic-shutdown-controller;
 
 	regulators {
 		dcdc1_reg: regulator@0 {
@@ -959,6 +980,8 @@
 
 		ldo3_reg: regulator@5 {
 			regulator-name = "vdd_1v8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 			regulator-always-on;
 		};
 
@@ -969,14 +992,23 @@
 	};
 };
 
+&tscadc {
+	status = "okay";
+	adc {
+		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+		ti,chan-step-avg = <0x16 0x16 0x16 0x16 0x16 0x16 0x16 0x16>;
+		ti,chan-step-opendelay = <0x98 0x98 0x98 0x98 0x98 0x98 0x98 0x98>;
+		ti,chan-step-sampledelay = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+	};
+};
+
 &mmc1 {
 	status = "okay";
-	bus-width = <0x4>;
+	vmmc-supply = <&vmmcsd_fixed>;
+	bus-width = <4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc0_pins>;
 	cd-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
-
-	vmmc-supply = <&vmmcsd_fixed>;
 };
 
 &aes {
@@ -991,40 +1023,14 @@
 	ti,scale-data-fw = "am335x-bone-scale-data.bin";
 };
 
-&rtc {
-	clocks = <&clk_32768_ck>, <&clkdiv32k_ick>;
-	clock-names = "ext-clk", "int-clk";
-	system-power-controller;
-};
-
 &sgx {
 	status = "okay";
 };
 
-&ldo3_reg {
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
-	regulator-always-on;
-};
-
-&cpu0_opp_table {
-	opp50@300000000 {
-		status = "disabled";
-	};
-
-	oppnitro@1000000000 {
-		opp-supported-hw = <0x06 0x0100>;
-	};
-};
-
-&tscadc {
-	status = "okay";
-	adc {
-		ti,adc-channels = <0 1 2 3 4 5 6 7>;
-		ti,chan-step-avg = <0x16 0x16 0x16 0x16 0x16 0x16 0x16 0x16>;
-		ti,chan-step-opendelay = <0x98 0x98 0x98 0x98 0x98 0x98 0x98 0x98>;
-		ti,chan-step-sampledelay = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
-	};
+&rtc {
+	clocks = <&clk_32768_ck>, <&clkdiv32k_ick>;
+	clock-names = "ext-clk", "int-clk";
+	system-power-controller;
 };
 
 &spi0 {
@@ -1070,6 +1076,42 @@
 		reg = <1>;
 		spi-max-frequency = <24000000>;
 	};
+};
+
+&epwmss0 {
+	status = "okay";
+};
+
+&ehrpwm0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <>;
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&ehrpwm1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <>;
+};
+
+&epwmss2 {
+	status = "okay";
+};
+
+&ehrpwm2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <>;
+};
+
+&dcan1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <>;
 };
 
 &ocp {
