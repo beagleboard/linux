@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2016 Texas Instruments Incorporated - http://www.ti.com/
  *
- * Keystone DDR3 MC ECC error detection driver
+ * Texas Instruments DDR3 MC ECC error detection driver
  *
  * TODO: Need to investigate how to hook this to the edac core driver.
  *
@@ -42,7 +42,7 @@
 /* Bit 31 enables ECC and 28 enables RMW */
 #define ECC_ENABLED			(BIT(31) | BIT(28))
 
-static void ks2_mc_ddr3_ecc_check(void __iomem *reg)
+static void ti_mc_ddr3_ecc_check(void __iomem *reg)
 {
 	u32 irq_status;
 
@@ -63,11 +63,11 @@ static void ks2_mc_ddr3_ecc_check(void __iomem *reg)
 	}
 }
 
-static irqreturn_t ks2_mc_ddr3_ecc_isr(int irq, void *reg_virt)
+static irqreturn_t ti_mc_ddr3_ecc_isr(int irq, void *reg_virt)
 {
 	void __iomem *reg = (void __iomem *)reg_virt;
 
-	ks2_mc_ddr3_ecc_check(reg);
+	ti_mc_ddr3_ecc_check(reg);
 
 	/*
 	 * Other errors should be handled by hardware
@@ -77,12 +77,13 @@ static irqreturn_t ks2_mc_ddr3_ecc_isr(int irq, void *reg_virt)
 	return IRQ_HANDLED;
 }
 
-static const struct of_device_id ks2_mc_ddr3_ecc_of_match[] = {
+static const struct of_device_id ti_mc_ddr3_ecc_of_match[] = {
 	{.compatible = "ti,keystone-ddr3-mc-edac", },
+	{.compatible = "ti,dra7-ddr3-mc-edac", },
 	{},
 };
 
-static int ks2_mc_ddr3_ecc_probe(struct platform_device *pdev)
+static int ti_mc_ddr3_ecc_probe(struct platform_device *pdev)
 {
 	int error_irq = 0, ret = -ENODEV;
 	struct device *dev = &pdev->dev;
@@ -109,7 +110,7 @@ static int ks2_mc_ddr3_ecc_probe(struct platform_device *pdev)
 	writel(DDR3_1B_ECC_ERR | DDR3_SYS_ERR, reg + DDR3_IRQ_STATUS_SYS);
 
 	/* check if we already have unrecoverable errors */
-	ks2_mc_ddr3_ecc_check(reg);
+	ti_mc_ddr3_ecc_check(reg);
 
 	writel(DDR3_2B_ECC_ERR | DDR3_WR_ECC_ERR,
 	       reg + DDR3_IRQ_ENABLE_CLR_SYS);
@@ -121,7 +122,7 @@ static int ks2_mc_ddr3_ecc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = devm_request_irq(dev, error_irq, ks2_mc_ddr3_ecc_isr, 0,
+	ret = devm_request_irq(dev, error_irq, ti_mc_ddr3_ecc_isr, 0,
 			       "ddr3-ecc-err-irq", (void *)reg);
 	if (ret) {
 		dev_err(dev, "request_irq fail for DDR3 ECC error irq\n");
@@ -134,26 +135,26 @@ static int ks2_mc_ddr3_ecc_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static struct platform_driver ks2_mc_ddr3_ecc_driver = {
-	.probe = ks2_mc_ddr3_ecc_probe,
+static struct platform_driver ti_mc_ddr3_ecc_driver = {
+	.probe = ti_mc_ddr3_ecc_probe,
 	.driver = {
-		   .name = "ks2_mc_ddr3_ecc",
-		   .of_match_table = ks2_mc_ddr3_ecc_of_match,
+		   .name = "ti_mc_ddr3_ecc",
+		   .of_match_table = ti_mc_ddr3_ecc_of_match,
 	},
 };
 
-static int __init ks2_mc_ddr3_ecc_init(void)
+static int __init ti_mc_ddr3_ecc_init(void)
 {
 	int ret = 0;
 
-	ret = platform_driver_register(&ks2_mc_ddr3_ecc_driver);
+	ret = platform_driver_register(&ti_mc_ddr3_ecc_driver);
 	if (ret)
-		pr_warn("keystone DDR3 DDR3 ecc_init failed\n");
+		pr_warn("TI DDR3 DDR3 ecc_init failed\n");
 
 	return ret;
 }
-subsys_initcall(ks2_mc_ddr3_ecc_init);
+subsys_initcall(ti_mc_ddr3_ecc_init);
 
 MODULE_AUTHOR("Texas Instruments Inc.");
-MODULE_DESCRIPTION("EDAC Driver for Keystone DDR3 MC");
+MODULE_DESCRIPTION("EDAC Driver for Texas Instruments DDR3 MC");
 MODULE_LICENSE("GPL v2");

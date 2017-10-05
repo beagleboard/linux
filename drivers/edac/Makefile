@@ -77,4 +77,4 @@ obj-$(CONFIG_EDAC_OCTEON_PCI)		+= octeon_edac-pci.o
 obj-$(CONFIG_EDAC_ALTERA)		+= altera_edac.o
 obj-$(CONFIG_EDAC_SYNOPSYS)		+= synopsys_edac.o
 obj-$(CONFIG_EDAC_XGENE)		+= xgene_edac.o
-obj-$(CONFIG_EDAC_KEYSTONE_MC)		+= keystone_mc_edac.o
+obj-$(CONFIG_EDAC_TI_MC)		+= ti_mc_edac.o
