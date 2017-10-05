@@ -23,3 +23,7 @@
 		spi-max-frequency = <96000000>;
 	};
 };
+
+&emif1 {
+	status = "okay";
+};
