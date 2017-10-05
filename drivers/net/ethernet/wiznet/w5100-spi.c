@@ -442,6 +442,21 @@ static int w5100_spi_remove(struct spi_device *spi)
 	return w5100_remove(&spi->dev);
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id w5100_spi_of_match[] = {
+	{ .compatible = "wiznet,w5500" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, w5100_spi_of_match);
+#endif
+
+#ifdef CONFIG_OF
+static const struct spi_device_id w5100_spi_ids[] = {
+	{ "w5500", W5500 },
+	{}
+};
+MODULE_DEVICE_TABLE(spi, w5100_spi_ids);
+#else
 static const struct spi_device_id w5100_spi_ids[] = {
 	{ "w5100", W5100 },
 	{ "w5200", W5200 },
@@ -449,11 +464,13 @@ static const struct spi_device_id w5100_spi_ids[] = {
 	{}
 };
 MODULE_DEVICE_TABLE(spi, w5100_spi_ids);
+#endif
 
 static struct spi_driver w5100_spi_driver = {
 	.driver		= {
 		.name	= "w5100",
 		.pm	= &w5100_pm_ops,
+		.of_match_table = of_match_ptr(w5100_spi_of_match),
 	},
 	.probe		= w5100_spi_probe,
 	.remove		= w5100_spi_remove,
