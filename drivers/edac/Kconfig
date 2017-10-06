@@ -462,9 +462,9 @@ config EDAC_XGENE
 	  Support for error detection and correction on the
 	  APM X-Gene family of SOCs.
 
-config EDAC_KEYSTONE_MC
-	bool "Keystone DDR3 MC ECC handler"
-	depends on ARCH_KEYSTONE
+config EDAC_TI_MC
+	bool "Texas Instruments DDR3 MC ECC handler"
+	depends on ARCH_KEYSTONE || SOC_DRA7XX
 	help
 	  Support for double bit error detection by DDR3 Memory
 	  controller. This is a simple handler that can panic on double

@@ -277,3 +277,10 @@
 &pru2_1 {
 	ti,pruss-gp-mux-sel = <4>;	/* MII2, needed for PRUSS1_MII1 */
 };
+
+&qspi {
+	spi-max-frequency = <76800000>;
+	m25p80@0 {
+		spi-max-frequency = <76800000>;
+	};
+};

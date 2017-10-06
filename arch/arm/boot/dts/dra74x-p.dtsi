@@ -11,6 +11,14 @@
 / {
 	compatible = "ti,dra762", "ti,dra7";
 
+	ocp {
+		emif1: emif@4c000000 {
+			compatible = "ti,dra7-ddr3-mc-edac";
+			reg = <0x4c000000 0x200>;
+			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+	};
 };
 
 /* MCAN interrupts are hard-wired to irqs 67, 68 */
