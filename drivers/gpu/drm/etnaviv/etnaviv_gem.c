@@ -551,6 +551,7 @@ void etnaviv_gem_free_object(struct drm_gem_object *obj)
 	struct etnaviv_gem_object *etnaviv_obj = to_etnaviv_bo(obj);
 	struct etnaviv_drm_private *priv = obj->dev->dev_private;
 	struct etnaviv_vram_mapping *mapping, *tmp;
+	struct drm_device *dev = etnaviv_obj->base.dev;
 
 	/* object should not be active */
 	WARN_ON(is_active(etnaviv_obj));
@@ -559,6 +560,7 @@ void etnaviv_gem_free_object(struct drm_gem_object *obj)
 	list_del(&etnaviv_obj->gem_node);
 	mutex_unlock(&priv->gem_lock);
 
+	mutex_lock(&etnaviv_obj->lock);
 	list_for_each_entry_safe(mapping, tmp, &etnaviv_obj->vram_list,
 				 obj_node) {
 		struct etnaviv_iommu *mmu = mapping->mmu;
@@ -571,6 +573,7 @@ void etnaviv_gem_free_object(struct drm_gem_object *obj)
 		list_del(&mapping->obj_node);
 		kfree(mapping);
 	}
+	mutex_unlock(&etnaviv_obj->lock);
 
 	drm_gem_free_mmap_offset(obj);
 	etnaviv_obj->ops->release(etnaviv_obj);
@@ -765,8 +768,12 @@ static struct page **etnaviv_gem_userptr_do_get_pages(
 
 	down_read(&mm->mmap_sem);
 	while (pinned < npages) {
-		ret = get_user_pages_remote(task, mm, ptr, npages - pinned,
+		ret = get_user_pages(task, mm, ptr, npages - pinned,
+				     !etnaviv_obj->userptr.ro, 0,
+				     pvec + pinned, NULL);
+/*		ret = get_user_pages_remote(task, mm, ptr, npages - pinned,
 					    flags, pvec + pinned, NULL);
+*/
 		if (ret < 0)
 			break;
 
