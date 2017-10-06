@@ -150,6 +150,12 @@
 	};
 };
 
+&csi2_cam0 {
+	clock-lanes = <0>;
+	data-lanes = <1 2>;
+	remote-endpoint = <&csi2_phy0>;
+};
+
 &pcf_lcd {
 	interrupt-parent = <&gpio7>;
 	interrupts = <31 IRQ_TYPE_EDGE_FALLING>;
