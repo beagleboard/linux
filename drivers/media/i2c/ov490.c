@@ -55,7 +55,7 @@
  * = fvco / pixel_width * num_lanes
  * = 804,000,000 / 16 bits * 4 lanes
  */
-#define OV490_PIXEL_RATE		201000000
+#define OV490_PIXEL_RATE_PER_LANE	50250000
 
 struct ov490_regval {
 	u32 addr;
@@ -453,7 +453,7 @@ static int ov490_probe(struct i2c_client *client,
 	v4l2_ctrl_handler_init(hdl, 1);
 	priv->pixel_rate = v4l2_ctrl_new_std(hdl, &ov490_ctrl_ops,
 				V4L2_CID_PIXEL_RATE, 1, INT_MAX, 1,
-				OV490_PIXEL_RATE);
+				OV490_PIXEL_RATE_PER_LANE * priv->num_lanes);
 
 	if (hdl->error) {
 		dev_err(&client->dev, "Failed to add controls");
