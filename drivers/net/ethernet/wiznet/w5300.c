@@ -362,7 +362,7 @@ static void w5300_tx_timeout(struct net_device *ndev)
 	w5300_hw_reset(priv);
 	w5300_hw_start(priv);
 	ndev->stats.tx_errors++;
-	netif_trans_update(ndev);
+	ndev->trans_start = jiffies;
 	netif_wake_queue(ndev);
 }
 
