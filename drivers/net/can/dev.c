@@ -27,6 +27,7 @@
 #include <linux/can/skb.h>
 #include <linux/can/netlink.h>
 #include <linux/can/led.h>
+#include <linux/of.h>
 #include <net/rtnetlink.h>
 
 #define MOD_DESC "CAN device driver interface"
@@ -761,6 +762,30 @@ int open_candev(struct net_device *dev)
 }
 EXPORT_SYMBOL_GPL(open_candev);
 
+#ifdef CONFIG_OF
+/*
+ * Common function that can be used to understand the limitation of
+ * a transceiver when it provides no means to determine these limitations
+ * at runtime.
+ */
+void of_can_transceiver(struct net_device *dev)
+{
+	struct device_node *dn;
+	struct can_priv *priv = netdev_priv(dev);
+	struct device_node *np = dev->dev.parent->of_node;
+	int ret;
+
+	dn = of_get_child_by_name(np, "can-transceiver");
+	if (!dn)
+		return;
+
+	ret = of_property_read_u32(dn, "max-bitrate", &priv->max_bitrate);
+	if ((ret && ret != -EINVAL) || (!ret && !priv->max_bitrate))
+		netdev_warn(dev, "Invalid value for transceiver max bitrate. Ignoring bitrate limit.\n");
+}
+EXPORT_SYMBOL_GPL(of_can_transceiver);
+#endif
+
 /*
  * Common close function for cleanup before the device gets closed.
  *
@@ -846,6 +871,13 @@ static int can_changelink(struct net_device *dev,
 		err = can_get_bittiming(dev, &bt, priv->bittiming_const);
 		if (err)
 			return err;
+
+		if (priv->max_bitrate && bt.bitrate > priv->max_bitrate) {
+			netdev_err(dev, "arbitration bitrate surpasses transceiver capabilities of %d bps\n",
+				   priv->max_bitrate);
+			return -EINVAL;
+		}
+
 		memcpy(&priv->bittiming, &bt, sizeof(bt));
 
 		if (priv->do_set_bittiming) {
@@ -918,6 +950,13 @@ static int can_changelink(struct net_device *dev,
 		err = can_get_bittiming(dev, &dbt, priv->data_bittiming_const);
 		if (err)
 			return err;
+
+		if (priv->max_bitrate && dbt.bitrate > priv->max_bitrate) {
+			netdev_err(dev, "canfd data bitrate surpasses transceiver capabilities of %d bps\n",
+				   priv->max_bitrate);
+			return -EINVAL;
+		}
+
 		memcpy(&priv->data_bittiming, &dbt, sizeof(dbt));
 
 		if (priv->do_set_data_bittiming) {

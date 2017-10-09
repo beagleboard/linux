@@ -167,7 +167,7 @@ Boards:
   compatible = "ti,am5718-idk", "ti,am5728", "ti,dra742", "ti,dra74", "ti,dra7"
 
 - DRA762 EVM:  Software Development Board for DRA762
-  compatible = "ti,dra76-evm", "ti,dra76", "ti,dra7"
+  compatible = "ti,dra76-evm", "ti,dra762", "ti,dra7"
 
 - DRA742 EVM:  Software Development Board for DRA742
   compatible = "ti,dra7-evm", "ti,dra742", "ti,dra74", "ti,dra7"

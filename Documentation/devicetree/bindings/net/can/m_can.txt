@@ -12,7 +12,8 @@ Required properties:
 - interrupt-names	: Should contain "int0" and "int1"
 - clocks		: Clocks used by controller, should be host clock
 			  and CAN clock.
-- clock-names		: Should contain "hclk" and "cclk"
+- clock-names		: Should contain "hclk" and "cclk". For some socs hclk
+			  may be optional.
 - pinctrl-<n>		: Pinctrl states as described in bindings/pinctrl/pinctrl-bindings.txt
 - pinctrl-names 	: Names corresponding to the numbered pinctrl states
 - bosch,mram-cfg	: Message RAM configuration data.
@@ -43,6 +44,11 @@ Required properties:
 			  Please refer to 2.4.1 Message RAM Configuration in
 			  Bosch M_CAN user manual for details.
 
+Optional Subnode:
+- can-transceiver	: Can-transceiver subnode describing maximum speed
+			  that can be used for CAN/CAN-FD modes. See
+			  Documentation/devicetree/bindings/net/can/can-transceiver.txt
+			  for details.
 Example:
 SoC dtsi:
 m_can1: can@020e8000 {
@@ -64,4 +70,8 @@ Board dts:
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_m_can1>;
 	status = "enabled";
+
+	can-transceiver {
+		max-bitrate = <5000000>;
+	};
 };
