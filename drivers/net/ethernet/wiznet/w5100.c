@@ -786,7 +786,7 @@ static void w5100_restart(struct net_device *ndev)
 	w5100_hw_reset(priv);
 	w5100_hw_start(priv);
 	ndev->stats.tx_errors++;
-	netif_trans_update(ndev);
+	ndev->trans_start = jiffies;
 	netif_wake_queue(ndev);
 }
 
