@@ -78,6 +78,8 @@
 #define MADMA_EN		(1 << 0)
 #define VS18			(1 << 26)
 #define VS30			(1 << 25)
+#define VS33			(1 << 24)
+#define VS_MASK			(0x7 << 24)
 #define HSS			(1 << 21)
 #define SDVS18			(0x5 << 9)
 #define SDVS30			(0x6 << 9)
@@ -185,8 +187,10 @@
 
 #define VDD_1V8			1800000		/* 180000 uV */
 #define VDD_3V0			3000000		/* 300000 uV */
+#define VDD_3V3			3300000		/* 330000 uV */
 #define VDD_165_195		(ffs(MMC_VDD_165_195) - 1)
 #define VDD_30_31		(ffs(MMC_VDD_30_31) - 1)
+#define VDD_33_34		(ffs(MMC_VDD_33_34) - 1)
 
 #define CON_CLKEXTFREE		(1 << 16)
 #define CON_PADEN		(1 << 15)
@@ -256,6 +260,7 @@ struct omap_hsmmc_host {
 	struct	clk		*dbclk;
 	struct	regulator	*pbias;
 	bool			pbias_enabled;
+	bool			io_3_3v_support;
 	void	__iomem		*base;
 	int			vqmmc_enabled;
 	resource_size_t		mapbase;
@@ -327,6 +332,7 @@ struct omap_mmc_of_data {
 static void omap_hsmmc_start_dma_transfer(struct omap_hsmmc_host *host);
 static void omap_hsmmc_conf_bus_power(struct omap_hsmmc_host *host, int iov);
 static void omap_hsmmc_disable_tuning(struct omap_hsmmc_host *host);
+static void omap_hsmmc_set_capabilities(struct omap_hsmmc_host *host);
 
 static int omap_hsmmc_card_detect(struct device *dev)
 {
@@ -367,7 +373,13 @@ static int omap_hsmmc_enable_supply(struct mmc_host *mmc, int iov)
 			host->vqmmc_enabled = 0;
 		}
 
-		uvoltage = (iov == VDD_165_195) ? VDD_1V8 : VDD_3V0;
+		if (iov == VDD_165_195)
+			uvoltage = VDD_1V8;
+		else if (iov == VDD_33_34)
+			uvoltage = VDD_3V3;
+		else
+			uvoltage = VDD_3V0;
+
 		ret = regulator_set_voltage(mmc->supply.vqmmc, uvoltage,
 					    uvoltage);
 		if (ret) {
@@ -435,7 +447,13 @@ static int omap_hsmmc_set_pbias(struct omap_hsmmc_host *host, bool power_on,
 		return 0;
 
 	if (power_on) {
-		uvoltage = (iov <= VDD_165_195) ? VDD_1V8 : VDD_3V0;
+		if (iov <= VDD_165_195)
+			uvoltage = VDD_1V8;
+		else if (iov == VDD_33_34)
+			uvoltage = VDD_3V3;
+		else
+			uvoltage = VDD_3V0;
+
 		ret = regulator_set_voltage(host->pbias, uvoltage, uvoltage);
 		if (ret) {
 			dev_err(host->dev, "pbias set voltage failed\n");
@@ -846,8 +864,6 @@ static void omap_hsmmc_set_bus_mode(struct omap_hsmmc_host *host)
 static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 {
 	struct mmc_ios *ios = &host->mmc->ios;
-	u32 hctl, capa;
-	unsigned long timeout;
 
 	if (host->con == OMAP_HSMMC_READ(host->base, CON) &&
 	    host->hctl == OMAP_HSMMC_READ(host->base, HCTL) &&
@@ -857,37 +873,11 @@ static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 
 	host->context_loss++;
 
-	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT) {
-		if (host->power_mode != MMC_POWER_OFF &&
-		    (1 << ios->vdd) <= MMC_VDD_23_24)
-			hctl = SDVS18;
-		else
-			hctl = SDVS30;
-		capa = VS30 | VS18;
-	} else if (host->pdata->controller_flags & OMAP_HSMMC_NO_1_8_V) {
-		hctl = SDVS30;
-		capa = VS30;
-	} else {
-		hctl = SDVS18;
-		capa = VS18;
-	}
+	omap_hsmmc_set_capabilities(host);
 
 	if (host->mmc->caps & MMC_CAP_SDIO_IRQ)
-		hctl |= IWE;
-
-	OMAP_HSMMC_WRITE(host->base, HCTL,
-			OMAP_HSMMC_READ(host->base, HCTL) | hctl);
-
-	OMAP_HSMMC_WRITE(host->base, CAPA,
-			OMAP_HSMMC_READ(host->base, CAPA) | capa);
-
-	OMAP_HSMMC_WRITE(host->base, HCTL,
-			OMAP_HSMMC_READ(host->base, HCTL) | SDBP);
-
-	timeout = jiffies + msecs_to_jiffies(MMC_TIMEOUT_MS);
-	while ((OMAP_HSMMC_READ(host->base, HCTL) & SDBP) != SDBP
-		&& time_before(jiffies, timeout))
-		;
+		OMAP_HSMMC_WRITE(host->base, HCTL,
+				 OMAP_HSMMC_READ(host->base, HCTL) | IWE);
 
 	OMAP_HSMMC_WRITE(host->base, ISE, 0);
 	OMAP_HSMMC_WRITE(host->base, IE, 0);
@@ -908,6 +898,8 @@ static int omap_hsmmc_context_restore(struct omap_hsmmc_host *host)
 	/* Do not initialize card-specific things if the power is off */
 	if (host->power_mode == MMC_POWER_OFF)
 		goto out;
+
+	omap_hsmmc_conf_bus_power(host, ios->signal_voltage);
 
 	omap_hsmmc_set_bus_width(host);
 
@@ -2145,13 +2137,19 @@ static void omap_hsmmc_set_capabilities(struct omap_hsmmc_host *host)
 {
 	u32 val;
 
-	val = OMAP_HSMMC_READ(host->base, CAPA);
+	/* voltage capabilities might be set by boot loader, clear it */
+	val = OMAP_HSMMC_READ(host->base, CAPA) & ~VS_MASK;
 
 	if (host->pdata->controller_flags & OMAP_HSMMC_SUPPORTS_DUAL_VOLT) {
-		val |= (VS30 | VS18);
+		if (host->io_3_3v_support)
+			val |= (VS33 | VS18);
+		else
+			val |= (VS30 | VS18);
 	} else if (host->pdata->controller_flags & OMAP_HSMMC_NO_1_8_V) {
-		val |= VS30;
-		val &= ~VS18;
+		if (host->io_3_3v_support)
+			val |= VS33;
+		else
+			val |= VS30;
 	} else {
 		val |= VS18;
 	}
@@ -2161,10 +2159,15 @@ static void omap_hsmmc_set_capabilities(struct omap_hsmmc_host *host)
 
 static void omap_hsmmc_conf_bus_power(struct omap_hsmmc_host *host, int iov)
 {
-	u32 hctl, value;
+	u32 hctl = SDVS30, value;
 
 	value = OMAP_HSMMC_READ(host->base, HCTL) & ~SDVS_MASK;
-	hctl = (iov == MMC_SIGNAL_VOLTAGE_180) ? SDVS18 : SDVS30;
+
+	if (iov == MMC_SIGNAL_VOLTAGE_180)
+		hctl = SDVS18;
+	else if (host->io_3_3v_support)
+		hctl = SDVS33;
+
 	OMAP_HSMMC_WRITE(host->base, HCTL, value | hctl);
 
 	/* Set SD bus power bit */
@@ -2187,13 +2190,19 @@ static int omap_hsmmc_start_signal_voltage_switch(struct mmc_host *mmc,
 	struct omap_hsmmc_host *host;
 	u32 val = 0;
 	int ret = 0;
+	u32 iov;
 
 	host  = mmc_priv(mmc);
 
 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
 		val = OMAP_HSMMC_READ(host->base, CAPA);
-		if (!(val & VS30))
+		if (!(val & (VS30 | VS33)))
 			return -EOPNOTSUPP;
+
+		if (val & VS33)
+			iov = VDD_33_34;
+		else
+			iov = VDD_30_31;
 
 		omap_hsmmc_conf_bus_power(host, ios->signal_voltage);
 
@@ -2201,13 +2210,17 @@ static int omap_hsmmc_start_signal_voltage_switch(struct mmc_host *mmc,
 		val &= ~AC12_V1V8_SIGEN;
 		OMAP_HSMMC_WRITE(host->base, AC12, val);
 
-		ret = omap_hsmmc_set_power(host->dev, 1, VDD_30_31);
+		ret = omap_hsmmc_set_power(host->dev, 1, iov);
 		if (ret) {
-			dev_err(mmc_dev(host->mmc), "failed to switch to 3v\n");
+			dev_err(mmc_dev(host->mmc),
+				"failed to switch to %s\n",
+				host->io_3_3v_support ? "3.3V" : "3.0V");
 			return ret;
 		}
 
-		dev_dbg(mmc_dev(host->mmc), " i/o voltage switch to 3V\n");
+		dev_dbg(mmc_dev(host->mmc),
+			"i/o voltage switched to %s\n",
+			host->io_3_3v_support ? "3.3V" : "3.0V");
 	} else if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
 		val = OMAP_HSMMC_READ(host->base, CAPA);
 		if (!(val & VS18))
@@ -2894,8 +2907,6 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 
 	mmc->pm_caps |= mmc_pdata(host)->pm_caps;
 
-	omap_hsmmc_set_capabilities(host);
-
 	ret = omap_hsmmc_get_iodelay_pinctrl_state(host);
 	if (ret)
 		goto err_pinctrl;
@@ -2920,6 +2931,15 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 		goto err_irq;
 
 	mmc->ocr_avail = mmc_pdata(host)->ocr_mask;
+
+	/* Get pbias max-voltage and update host capabilities */
+	if (host->pbias &&
+	    regulator_is_supported_voltage(host->pbias, VDD_3V3, VDD_3V3)) {
+		host->io_3_3v_support = true;
+		dev_dbg(mmc_dev(host->mmc), "PBIAS supports 3.3V not 3V\n");
+	}
+
+	omap_hsmmc_set_capabilities(host);
 
 	omap_hsmmc_disable_irq(host);
 
