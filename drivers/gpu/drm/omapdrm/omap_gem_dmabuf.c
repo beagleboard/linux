@@ -127,7 +127,9 @@ static void *omap_gem_dmabuf_kmap(struct dma_buf *buffer,
 	 */
 	dma_addr = dma_map_page(obj->dev->dev, pages[page_num], 0, PAGE_SIZE,
 				DMA_BIDIRECTIONAL);
-	dma_unmap_page(obj->dev->dev, dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
+	if (!dma_mapping_error(obj->dev->dev, dma_addr))
+		dma_unmap_page(obj->dev->dev, dma_addr, PAGE_SIZE,
+			       DMA_BIDIRECTIONAL);
 
 	return kmap(pages[page_num]);
 }
@@ -147,7 +149,9 @@ static void omap_gem_dmabuf_kunmap(struct dma_buf *buffer,
 	 */
 	dma_addr = dma_map_page(obj->dev->dev, pages[page_num], 0, PAGE_SIZE,
 				DMA_BIDIRECTIONAL);
-	dma_unmap_page(obj->dev->dev, dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
+	if (!dma_mapping_error(obj->dev->dev, dma_addr))
+		dma_unmap_page(obj->dev->dev, dma_addr, PAGE_SIZE,
+			       DMA_BIDIRECTIONAL);
 }
 
 static int omap_gem_dmabuf_mmap(struct dma_buf *buffer,
