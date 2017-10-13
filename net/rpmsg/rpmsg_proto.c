@@ -440,6 +440,10 @@ rpmsg_sock_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	if (sa->family != AF_RPMSG)
 		return -EINVAL;
 
+	/* do not allow fixed addresses above the dynamically allocated range */
+	if (sa->addr >= RPMSG_RESERVED_ADDRESSES)
+		return -EINVAL;
+
 	if (rpsk->rpdev)
 		return -EBUSY;
 
@@ -690,9 +694,6 @@ static void rpmsg_proto_remove(struct rpmsg_channel *rpdev)
 	struct list_head *sk_list;
 	struct rpmsg_socket *rpsk, *tmp;
 	struct sock *sk;
-
-	if (dst == RPMSG_ADDR_ANY)
-		return;
 
 	id = rpmsg_sock_get_proc_id(rpdev);
 
