@@ -322,6 +322,9 @@ free_ept:
 struct rpmsg_endpoint *rpmsg_create_ept(struct rpmsg_channel *rpdev,
 				rpmsg_rx_cb_t cb, void *priv, u32 addr)
 {
+	if (WARN_ON(!rpdev))
+		return NULL;
+
 	return __rpmsg_create_ept(rpdev->vrp, rpdev, cb, priv, addr);
 }
 EXPORT_SYMBOL(rpmsg_create_ept);
@@ -357,11 +360,13 @@ __rpmsg_destroy_ept(struct virtproc_info *vrp, struct rpmsg_endpoint *ept)
  * @ept: endpoing to destroy
  *
  * Should be used by drivers to destroy an rpmsg endpoint previously
- * created with rpmsg_create_ept().
+ * created with rpmsg_create_ept(). As with other types of "free" NULL
+ * is a valid parameter.
  */
 void rpmsg_destroy_ept(struct rpmsg_endpoint *ept)
 {
-	__rpmsg_destroy_ept(ept->rpdev->vrp, ept);
+	if (ept)
+		__rpmsg_destroy_ept(ept->rpdev->vrp, ept);
 }
 EXPORT_SYMBOL(rpmsg_destroy_ept);
 
@@ -594,6 +599,9 @@ struct rpmsg_channel *rpmsg_create_channel(struct virtproc_info *vrp,
 					   int src, int dst)
 {
 	struct rpmsg_channel_info chinfo;
+
+	if (!vrp || !name || !desc)
+		return NULL;
 
 	strncpy(chinfo.name, name, sizeof(chinfo.name));
 	strncpy(chinfo.desc, desc, sizeof(chinfo.desc));
