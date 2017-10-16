@@ -44,6 +44,7 @@
 			compatible = "bosch,m_can";
 			reg = <0x42C01A00 0x4000>, <0x42C00000 0x18FC>;
 			reg-names = "m_can", "message_ram";
+			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "int0", "int1";
