@@ -127,6 +127,12 @@ enum m_can_mram_cfg {
 #define DBTP_DSJW_SHIFT		0
 #define DBTP_DSJW_MASK		(0xf << DBTP_DSJW_SHIFT)
 
+/* Transmitter Delay Compensation Register (TDCR) */
+#define TDCR_TDCO_SHIFT		8
+#define TDCR_TDCO_MASK		(0x7F << TDCR_TDCO_SHIFT)
+#define TDCR_TDCF_SHIFT		0
+#define TDCR_TDCF_MASK		(0x7F << TDCR_TDCF_SHIFT)
+
 /* Test Register (TEST) */
 #define TEST_LBCK		BIT(4)
 
@@ -991,7 +997,8 @@ static int m_can_set_bittiming(struct net_device *dev)
 	const struct can_bittiming *bt = &priv->can.bittiming;
 	const struct can_bittiming *dbt = &priv->can.data_bittiming;
 	u16 brp, sjw, tseg1, tseg2;
-	u32 reg_btp;
+	u32 reg_btp, tdco, ssp;
+	bool enable_tdc = false;
 
 	brp = bt->brp - 1;
 	sjw = bt->sjw - 1;
@@ -1006,9 +1013,41 @@ static int m_can_set_bittiming(struct net_device *dev)
 		sjw = dbt->sjw - 1;
 		tseg1 = dbt->prop_seg + dbt->phase_seg1 - 1;
 		tseg2 = dbt->phase_seg2 - 1;
+
+		/* TDC is only needed for bitrates beyond 2.5 MBit/s.
+		 * This is mentioned in the "Bit Time Requirements for CAN FD"
+		 * paper presented at the International CAN Conference 2013
+		 */
+		if (dbt->bitrate > 2500000) {
+			/* Use default value of 50% for SSP which works for
+			 * DRA76 EVM when performing simple MCAN test
+			 */
+			ssp = 500;
+
+			/* Equation based on Bosch's M_CAN User Manual's
+			 * Transmitter Delay Compensation Section
+			 */
+			tdco = (priv->can.clock.freq / 1000) *
+			       ssp / dbt->bitrate;
+
+			/* Max valid TDCO value is 127 */
+			if (tdco > 127) {
+				netdev_warn(dev, "TDCO value of %u is beyond maximum limit. Disabling Transmitter Delay Compensation mode\n",
+					    tdco);
+			} else {
+				enable_tdc = true;
+				m_can_write(priv, M_CAN_TDCR,
+					    tdco << TDCR_TDCO_SHIFT);
+			}
+		}
+
 		reg_btp = (brp << DBTP_DBRP_SHIFT) | (sjw << DBTP_DSJW_SHIFT) |
 			(tseg1 << DBTP_DTSEG1_SHIFT) |
 			(tseg2 << DBTP_DTSEG2_SHIFT);
+
+		if (enable_tdc)
+			reg_btp |= DBTP_TDC;
+
 		m_can_write(priv, M_CAN_DBTP, reg_btp);
 	}
 
