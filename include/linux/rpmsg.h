@@ -227,9 +227,11 @@ int rpmsg_destroy_channel(struct rpmsg_channel *rpdev);
  */
 static inline int rpmsg_send(struct rpmsg_channel *rpdev, void *data, int len)
 {
-	u32 src = rpdev->src, dst = rpdev->dst;
+	if (WARN_ON(!rpdev))
+		return -EINVAL;
 
-	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, true);
+	return rpmsg_send_offchannel_raw(rpdev, rpdev->src, rpdev->dst, data,
+					 len, true);
 }
 
 /**
@@ -253,9 +255,11 @@ static inline int rpmsg_send(struct rpmsg_channel *rpdev, void *data, int len)
 static inline
 int rpmsg_sendto(struct rpmsg_channel *rpdev, void *data, int len, u32 dst)
 {
-	u32 src = rpdev->src;
+	if (WARN_ON(!rpdev))
+		return -EINVAL;
 
-	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, true);
+	return rpmsg_send_offchannel_raw(rpdev, rpdev->src, dst, data,
+					 len, true);
 }
 
 /**
@@ -282,6 +286,9 @@ static inline
 int rpmsg_send_offchannel(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 							void *data, int len)
 {
+	if (WARN_ON(!rpdev))
+		return -EINVAL;
+
 	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, true);
 }
 
@@ -304,9 +311,11 @@ int rpmsg_send_offchannel(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 static inline
 int rpmsg_trysend(struct rpmsg_channel *rpdev, void *data, int len)
 {
-	u32 src = rpdev->src, dst = rpdev->dst;
+	if (WARN_ON(!rpdev))
+		return -EINVAL;
 
-	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, false);
+	return rpmsg_send_offchannel_raw(rpdev, rpdev->src, rpdev->dst, data,
+					 len, false);
 }
 
 /**
@@ -329,9 +338,11 @@ int rpmsg_trysend(struct rpmsg_channel *rpdev, void *data, int len)
 static inline
 int rpmsg_trysendto(struct rpmsg_channel *rpdev, void *data, int len, u32 dst)
 {
-	u32 src = rpdev->src;
+	if (WARN_ON(!rpdev))
+		return -EINVAL;
 
-	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, false);
+	return rpmsg_send_offchannel_raw(rpdev, rpdev->src, dst, data,
+					 len, false);
 }
 
 /**
@@ -357,6 +368,9 @@ static inline
 int rpmsg_trysend_offchannel(struct rpmsg_channel *rpdev, u32 src, u32 dst,
 							void *data, int len)
 {
+	if (WARN_ON(!rpdev))
+		return -EINVAL;
+
 	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, false);
 }
 
