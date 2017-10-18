@@ -441,10 +441,13 @@ static int rppc_register_buffers(struct rppc_instance *rpc,
 	}
 
 	for (i = 0; i < data.num; i++) {
+		rcu_read_lock();
 		if (!fcheck(fds[i])) {
+			rcu_read_unlock();
 			ret = -EBADF;
 			goto free_fds;
 		}
+		rcu_read_unlock();
 
 		tmp = rppc_find_dmabuf(rpc, fds[i]);
 		if (!IS_ERR_OR_NULL(tmp)) {
@@ -511,10 +514,13 @@ static int rppc_unregister_buffers(struct rppc_instance *rpc,
 	}
 
 	for (i = 0; i < data.num; i++) {
+		rcu_read_lock();
 		if (!fcheck(fds[i])) {
+			rcu_read_unlock();
 			ret = -EBADF;
 			goto free_bufs;
 		}
+		rcu_read_unlock();
 
 		bufs[i] = rppc_find_dmabuf(rpc, fds[i]);
 		if (IS_ERR_OR_NULL(bufs[i])) {
