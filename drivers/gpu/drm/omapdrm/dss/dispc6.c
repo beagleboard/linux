@@ -1221,6 +1221,17 @@ static void dispc6_get_min_max_size(u32 *min_w, u32 *min_h, u32 *max_w, u32 *max
 	*max_h = 4096;
 }
 
+static u32 dispc6_get_memory_bandwidth_limit(void)
+{
+	u32 limit = 0;
+
+	/* Optional maximum memory bandwidth */
+	of_property_read_u32(dispc.pdev->dev.of_node, "max-memory-bandwidth",
+			     &limit);
+
+	return limit;
+}
+
 static const struct dispc_ops dispc6_ops = {
 	.read_irqstatus = dispc6_read_legacy_irqstatus,
 	.clear_irqstatus = dispc6_clear_legacy_irqstatus,
@@ -1235,6 +1246,7 @@ static const struct dispc_ops dispc6_ops = {
 	.get_num_ovls = dispc6_get_num_ovls,
 	.get_num_mgrs = dispc6_get_num_mgrs,
 	.get_min_max_size = dispc6_get_min_max_size,
+	.get_memory_bandwidth_limit = dispc6_get_memory_bandwidth_limit,
 
 	.mgr_enable = dispc6_mgr_enable,
 	.mgr_is_enabled = dispc6_mgr_is_enabled,
