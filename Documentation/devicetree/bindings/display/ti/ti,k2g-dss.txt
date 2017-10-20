@@ -32,3 +32,7 @@ Required properties:
 - interrupts: the DISPC interrupt
 - clocks: handles to fclk and vp clock
 - clock-names: "fck", "vp"
+
+Optional properties:
+- max-memory-bandwidth: Input memory (from main memory to dispc) bandwidth limit
+			in bytes per second
