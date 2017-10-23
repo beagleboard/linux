@@ -1056,6 +1056,7 @@
 		compatible = "spidev";
 		reg = <1>;
 		spi-max-frequency = <24000000>;
+		status = "disabled";
 	};
 };
 
@@ -1071,6 +1072,7 @@
 		compatible = "spidev";
 		reg = <0>;
 		spi-max-frequency = <24000000>;
+		status = "disabled";
 	};
 
 	channel@1 {
