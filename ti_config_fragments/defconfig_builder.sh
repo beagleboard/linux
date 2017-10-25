@@ -46,9 +46,9 @@ set_working_directory() {
 		WORKING_PATH=$(pwd)
 	fi
 
-	TI_WORKING_PATH="$WORKING_PATH/ti_config_fragments"
-	DEFCONFIG_KERNEL_PATH="$WORKING_PATH/arch/arm/configs"
-	DEFCONFIG_MAP_FILE="$TI_WORKING_PATH/defconfig_map.txt"
+	SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+	TI_WORKING_PATH=$SCRIPT_DIR
+	WORKING_PATH=$(cd "$SCRIPT_DIR""/.." && pwd)
 }
 
 prepare_for_exit() {
@@ -161,27 +161,56 @@ choose a value between '1' and '$max_configs':\n"
 list_all_targets() {
 
 	TMP_MAP=$(mktemp -t $TMP_TEMPLATE)
-	cat "$DEFCONFIG_MAP_FILE" > "$TMP_MAP"
-	while true;
-	do
-		CONFIG_FILE=
-		CONFIG_FRAGMENTS=
 
-		BT_TEMP=$(head -n 1 "$TMP_MAP" | awk '{print$4}')
-		BUILD_DETAILS=$(head -n 1 "$TMP_MAP")
-		if [ -z "$BUILD_DETAILS" ]; then
-			break
+	count=0
+	max_types=0
+	while [ "x${SUPPORTED_ARCH[max_types]}" != "x" ]
+	do
+		DEFCONFIG_MAP_FILE=${SUPPORTED_ARCH[(count * 3) + 2]}
+		count=$(( $count + 1 ))
+		max_types=$(( $max_types + 3 ))
+		if [ ! -e "$DEFCONFIG_MAP_FILE" ]; then
+			continue
 		fi
-		check_for_config_existance
-		sed -i "1d" "$TMP_MAP"
+
+		cat "$DEFCONFIG_MAP_FILE" > "$TMP_MAP"
+		while true;
+		do
+			CONFIG_FILE=
+			CONFIG_FRAGMENTS=
+
+			BT_TEMP=$(head -n 1 "$TMP_MAP" | awk '{print$4}')
+			BUILD_DETAILS=$(head -n 1 "$TMP_MAP")
+			if [ -z "$BUILD_DETAILS" ]; then
+				break
+			fi
+			check_for_config_existance
+			sed -i "1d" "$TMP_MAP"
+		done
+		rm "$TMP_MAP"
 	done
-	rm "$TMP_MAP"
 	cat "$BUILD_TYPE_FILE"
 }
 
 get_build_details() {
 
-	BUILD_DETAILS=$(grep -w "$CHOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE")
+	count=0
+	max_types=0
+	while [ "x${SUPPORTED_ARCH[max_types]}" != "x" ]
+	do
+		DEFCONFIG_MAP_FILE=${SUPPORTED_ARCH[(count * 3) + 2]}
+		if [ -e "$DEFCONFIG_MAP_FILE" ]; then
+			BUILD_DETAILS=$(grep -w "$CHOSEN_BUILD_TYPE" "$DEFCONFIG_MAP_FILE")
+			if [ ! -z "$BUILD_DETAILS" ]; then
+				DEFCONFIG_KERNEL_PATH=${SUPPORTED_ARCH[(count * 3) + 1]}
+				break
+			fi
+		fi
+
+		count=$(( $count + 1 ))
+		max_types=$(( $max_types + 3 ))
+	done
+
 	if [ -z "$BUILD_DETAILS" ]; then
 		echo "Cannot find the build type or a match for $CHOSEN_BUILD_TYPE"
 		TEMP_BUILD_FILE=$(mktemp -t $TMP_TEMPLATE)
@@ -254,7 +283,7 @@ build_defconfig() {
 		"$CONFIGS" "$EXTRA_CONFIG_FILE" > /dev/null
 
 	if [ "$?" = "0" ];then
-		echo "Creating defconfig file ""$WORKING_PATH""/arch/arm/configs/""$CHOSEN_BUILD_TYPE"_defconfig
+		echo "Creating defconfig file ""$DEFCONFIG_KERNEL_PATH/""$CHOSEN_BUILD_TYPE"_defconfig
 		mv .config "$DEFCONFIG_KERNEL_PATH"/"$CHOSEN_BUILD_TYPE"_defconfig
 	else
 		echo "Defconfig creation failed"
@@ -299,6 +328,60 @@ choose a value between '1' and '$max_types':\n"
 	if [ "$DEBUG_BUILD" -gt '0' ]; then
 		echo -e "$DISCLAIMER"
 	fi
+}
+
+choose_architecture() {
+
+	TEMP_ARCH_FILE=$(mktemp -t $TMP_TEMPLATE)
+
+	max_types=0
+	count=0
+	while [ "x${SUPPORTED_ARCH[max_types]}" != "x" ]
+	do
+		ARCH_TYPE=${SUPPORTED_ARCH[max_types]}
+		if [ -e "${SUPPORTED_ARCH[max_types + 2]}" ]; then
+			count=$(( $count + 1 ))
+			echo -e '\t' "$count." "$ARCH_TYPE" >> "$TEMP_ARCH_FILE"
+		fi
+		max_types=$(( $max_types + 3 ))
+	done
+
+	if [ "$count" -eq 1 ]; then
+		REPLY=$count
+	else
+		while true;
+		do
+			cat "$TEMP_ARCH_FILE"
+			read -p "Please choose an architecture to build for or 'q' to exit: " REPLY
+			if [ "$REPLY" = "q" -o "$REPLY" = "Q" ]; then
+				prepare_for_exit
+			elif ! [[ "$REPLY" =~ ^[0-9]+$ ]]; then
+				echo -e "\n'$REPLY' is not a number for the build type.  Please try again!\n"
+				continue
+			elif [ "$REPLY" -gt '0' -a "$REPLY" -le "$max_types" ]; then
+				REPLY_DISP="$REPLY""."
+				ARCH_TO_BUILD=$(awk '{if ($1 == "'"$REPLY_DISP"'") print $2;}' "$TEMP_ARCH_FILE")
+				break
+			else
+				echo -e "\n'$REPLY' is not a valid choice. Please \
+	choose a value between '1' and '$max_types':\n"
+			fi
+		done
+	fi
+
+	max_types=0
+	while [ "x${SUPPORTED_ARCH[max_types]}" != "x" ]
+	do
+		ARCH_TYPE=${SUPPORTED_ARCH[max_types]}
+		ARCH_COUNTER=$(grep -c "$ARCH_TO_BUILD" <<< $ARCH_TYPE)
+		if [ "$ARCH_COUNTER" -gt 0 ]; then
+			break
+		fi
+		max_types=$(( $max_types + 3 ))
+	done
+
+	DEFCONFIG_KERNEL_PATH=${SUPPORTED_ARCH[max_types + 1]}
+	DEFCONFIG_MAP_FILE=${SUPPORTED_ARCH[max_types + 2]}
 }
 
 usage() {
@@ -349,10 +432,8 @@ trap prepare_for_exit SIGHUP EXIT SIGINT SIGTERM
 
 set_working_directory
 
-if [ ! -e "$DEFCONFIG_MAP_FILE" ]; then
-	echo "No defconfig map file found"
-	exit 1
-fi
+SUPPORTED_ARCH=(
+"v7 ARM Architecture" "$WORKING_PATH/arch/arm/configs" "$TI_WORKING_PATH/defconfig_map.txt")
 
 BUILD_TYPE_FILE=$(mktemp -t $TMP_TEMPLATE)
 
@@ -361,6 +442,7 @@ if [ ! -z "$LIST_TARGETS" ]; then
 	list_all_targets
 	exit 0
 fi
+
 
 PROCESSOR_FILE=$(mktemp -t $TMP_TEMPLATE)
 OLD_CONFIG=$(mktemp -t $TMP_TEMPLATE)
@@ -379,6 +461,13 @@ if [ ! -z "$CHOSEN_BUILD_TYPE" ]; then
 		exit 1
 	fi
 	exit 0
+fi
+
+choose_architecture
+
+if [ ! -e "$DEFCONFIG_MAP_FILE" ]; then
+	echo "No defconfig map file found"
+	exit 1
 fi
 
 choose_defconfig_type
