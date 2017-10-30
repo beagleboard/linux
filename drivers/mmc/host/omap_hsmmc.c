@@ -46,6 +46,7 @@
 #include <linux/pm_wakeirq.h>
 #include <linux/platform_data/hsmmc-omap.h>
 #include <linux/mmc/sd.h>
+#include <linux/thermal.h>
 
 /* OMAP HSMMC Host Controller Registers */
 #define OMAP_HSMMC_HL_REV	0x0000
@@ -2371,12 +2372,30 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	u32 length = 0, max_len = 0;
 	struct mmc_ios *ios = &mmc->ios;
 	struct omap_hsmmc_host *host;
+	struct thermal_zone_device *thermal_dev;
+	bool single_point_failure = false;
+	int temperature;
+	int i;
 
 	/* clock tuning is not needed for upto 52MHz */
 	if (ios->clock <= OMAP_MMC_MAX_CLOCK)
 		return 0;
 
 	host = mmc_priv(mmc);
+	thermal_dev = thermal_zone_get_zone_by_name("cpu_thermal");
+	if (IS_ERR(thermal_dev)) {
+		dev_err(mmc_dev(host->mmc),
+			"Unable to get thermal zone for tuning.%s",
+			!IS_ENABLED(CONFIG_THERMAL) ?
+			" Maybe CONFIG_THERMAL is not enabled?\n" : "\n");
+
+		ret = PTR_ERR(thermal_dev);
+		goto tuning_error;
+	}
+
+	ret = thermal_zone_get_temp(thermal_dev, &temperature);
+	if (ret)
+		goto tuning_error;
 
 	val = OMAP_HSMMC_READ(host->base, CAPA2);
 	if (ios->timing == MMC_TIMING_UHS_SDR50 && !(val & CAPA2_TSDR50))
@@ -2388,6 +2407,11 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 
 	host->is_tuning =  true;
 
+	/*
+	 * Stage 1: Search for a maximum pass window ignoring any
+	 * any single point failures. If the tuning value ends up
+	 * near it, move away from it in stage 2 below
+	 */
 	while (phase_delay <= MAX_PHASE_DELAY) {
 		omap_hsmmc_set_dll(host, phase_delay);
 
@@ -2395,10 +2419,16 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		if (cur_match) {
 			if (prev_match) {
 				length++;
+			} else if (single_point_failure) {
+				/* ignore single point failure */
+				length++;
+				single_point_failure = false;
 			} else {
 				start_window = phase_delay;
 				length = 1;
 			}
+		} else {
+			single_point_failure = prev_match;
 		}
 
 		if (length > max_len) {
@@ -2410,7 +2440,6 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		phase_delay += 4;
 	}
 
-	host->is_tuning = false;
 
 	if (!max_len) {
 		dev_err(mmc_dev(host->mmc), "Unable to find match\n");
@@ -2418,13 +2447,80 @@ static int omap_hsmmc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		goto tuning_error;
 	}
 
+	/*
+	 * Assign tuning value as a ratio of maximum pass window based
+	 * on temperature
+	 */
+	if (temperature < -20000)
+		phase_delay = min(max_window + 4 * max_len - 24,
+				  max_window +
+				  DIV_ROUND_UP(13 * max_len, 16) * 4);
+	else if (temperature < 20000)
+		phase_delay = max_window + DIV_ROUND_UP(9 * max_len, 16) * 4;
+	else if (temperature < 40000)
+		phase_delay = max_window + DIV_ROUND_UP(8 * max_len, 16) * 4;
+	else if (temperature < 70000)
+		phase_delay = max_window + DIV_ROUND_UP(7 * max_len, 16) * 4;
+	else if (temperature < 90000)
+		phase_delay = max_window + DIV_ROUND_UP(5 * max_len, 16) * 4;
+	else if (temperature < 120000)
+		phase_delay = max_window + DIV_ROUND_UP(4 * max_len, 16) * 4;
+	else
+		phase_delay = max_window + DIV_ROUND_UP(3 * max_len, 16) * 4;
+
+	/*
+	 * Stage 2: Search for a single point failure near the chosen tuning
+	 * value in two steps. First in the +3 to +10 range and then in the
+	 * +2 to -10 range. If found, move away from it in the appropriate
+	 * direction by the appropriate amount depending on the temperature.
+	 */
+	for (i = 3; i <= 10; i++) {
+		omap_hsmmc_set_dll(host, phase_delay + i);
+
+		if (mmc_send_tuning(mmc, opcode, NULL)) {
+			if (temperature < 10000)
+				phase_delay += i + 6;
+			else if (temperature < 20000)
+				phase_delay += i - 12;
+			else if (temperature < 70000)
+				phase_delay += i - 8;
+			else if (temperature < 90000)
+				phase_delay += i - 6;
+			else
+				phase_delay += i - 6;
+
+			goto single_failure_found;
+		}
+	}
+
+	for (i = 2; i >= -10; i--) {
+		omap_hsmmc_set_dll(host, phase_delay + i);
+
+		if (mmc_send_tuning(mmc, opcode, NULL)) {
+			if (temperature < 10000)
+				phase_delay += i + 12;
+			else if (temperature < 20000)
+				phase_delay += i + 8;
+			else if (temperature < 70000)
+				phase_delay += i + 8;
+			else if (temperature < 90000)
+				phase_delay += i + 10;
+			else
+				phase_delay += i + 12;
+
+			goto single_failure_found;
+		}
+	}
+
+single_failure_found:
+	host->is_tuning = false;
+
 	val = OMAP_HSMMC_READ(host->base, AC12);
 	if (!(val & AC12_SCLK_SEL)) {
 		ret = -EIO;
 		goto tuning_error;
 	}
 
-	phase_delay = max_window + 4 * ((3 * max_len) >> 2);
 	omap_hsmmc_set_dll(host, phase_delay);
 
 	omap_hsmmc_reset_controller_fsm(host, SRD);
