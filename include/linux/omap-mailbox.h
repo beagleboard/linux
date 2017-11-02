@@ -9,7 +9,7 @@
 #ifndef OMAP_MAILBOX_H
 #define OMAP_MAILBOX_H
 
-#if defined(CONFIG_ARCH_OMAP2PLUS)
+#if defined(CONFIG_ARCH_OMAP2PLUS) || defined(CONFIG_ARCH_KEYSTONE)
 typedef u32 mbox_msg_t;
 #elif defined(CONFIG_ARCH_K3)
 typedef u64 mbox_msg_t;
