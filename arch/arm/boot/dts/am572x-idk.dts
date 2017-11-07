@@ -17,3 +17,7 @@
 	compatible = "ti,am5728-idk", "ti,am5728", "ti,dra742", "ti,dra74",
 		     "ti,dra7";
 };
+
+&cpu0 {
+	vdd-supply = <&smps12_reg>;
+};
