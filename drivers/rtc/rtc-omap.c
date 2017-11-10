@@ -906,12 +906,13 @@ static int omap_rtc_probe(struct platform_device *pdev)
 		if (!pm_power_off)
 			pm_power_off = omap_rtc_power_off;
 
-	rtc->rtc = devm_rtc_device_register(&pdev->dev, pdev->name,
-			&omap_rtc_ops, THIS_MODULE);
+	rtc->rtc = devm_rtc_allocate_device(&pdev->dev);
 	if (IS_ERR(rtc->rtc)) {
 		ret = PTR_ERR(rtc->rtc);
 		goto err;
 	}
+
+	rtc->rtc->ops = &omap_rtc_ops;
 
 	omap_rtc_nvmem_config.priv = rtc;
 	rtc->rtc->nvmem_config = &omap_rtc_nvmem_config;
@@ -944,6 +945,10 @@ static int omap_rtc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Couldn't register pinctrl driver\n");
 		return PTR_ERR(rtc->pctldev);
 	}
+
+	ret = rtc_register_device(rtc->rtc);
+	if (ret)
+		goto err;
 
 	return 0;
 
