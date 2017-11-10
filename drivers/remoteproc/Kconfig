@@ -87,7 +87,7 @@ config KEYSTONE_REMOTEPROC
 
 config PRUSS_REMOTEPROC
 	tristate "TI PRUSS remoteproc support"
-	depends on SOC_AM33XX
+	depends on SOC_AM33XX || SOC_AM43XX
 	depends on REMOTEPROC
 	default n
 	help
