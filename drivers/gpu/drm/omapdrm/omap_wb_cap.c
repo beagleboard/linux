@@ -658,6 +658,9 @@ static int wbcap_try_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.width = ct->hactive;
 	f->fmt.pix.height = ct->vactive;
 
+	if (ct->flags & DISPLAY_FLAGS_INTERLACED)
+		f->fmt.pix.height /= 2;
+
 	log_dbg(wbcap, "replied fourcc:%4.4s size: %dx%d\n",
 		(char *)&f->fmt.pix_mp.pixelformat,
 		f->fmt.pix_mp.width, f->fmt.pix_mp.height);
