@@ -880,6 +880,11 @@ static int pdev_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->list_lock);
 	INIT_LIST_HEAD(&priv->obj_list);
 
+	/* Get memory bandwidth limits */
+	if (priv->dispc_ops->get_memory_bandwidth_limit)
+		priv->max_bandwidth =
+				priv->dispc_ops->get_memory_bandwidth_limit();
+
 	omap_gem_init(ddev);
 
 	ret = omap_modeset_init(ddev);

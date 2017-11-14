@@ -99,6 +99,9 @@ struct omap_drm_private {
 	void *wb_private;	      /* Write-back private data */
 	bool wb_initialized;
 
+	/* memory bandwidth limit if it is needed on the platform */
+	unsigned int max_bandwidth;
+
 	/* atomic commit */
 	struct {
 		wait_queue_head_t wait;
