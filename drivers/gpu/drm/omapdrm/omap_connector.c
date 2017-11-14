@@ -17,6 +17,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/math64.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
@@ -153,6 +154,7 @@ static int omap_connector_mode_valid(struct drm_connector *connector,
 				 struct drm_display_mode *mode)
 {
 	struct omap_connector *omap_connector = to_omap_connector(connector);
+	struct omap_drm_private *priv = connector->dev->dev_private;
 	struct omap_dss_device *dssdev = omap_connector->dssdev;
 	struct omap_dss_driver *dssdrv = dssdev->driver;
 	struct videomode vm = {0};
@@ -195,6 +197,33 @@ static int omap_connector_mode_valid(struct drm_connector *connector,
 		if (mode->vrefresh == drm_mode_vrefresh(new_mode))
 			ret = MODE_OK;
 		drm_mode_destroy(dev, new_mode);
+	}
+
+	/* Check for bandwidth limit */
+	if (!r && priv->max_bandwidth) {
+		/*
+		 * Estimation for the bandwidth need of a given mode with one
+		 * full screen plane:
+		 * bandwidth = resolution * 32bpp * (pclk / (vtotal * htotal))
+		 *					^^ Refresh rate ^^
+		 *
+		 * The interlaced mode is taken into account by using the
+		 * pixelclock in the calculation.
+		 *
+		 * The equation is rearranged for 64bit arithmetic.
+		 */
+		uint64_t bandwidth = mode->clock * 1000;
+		unsigned int bpp = 4;
+
+		bandwidth = bandwidth * mode->hdisplay * mode->vdisplay * bpp;
+		bandwidth = div_u64(bandwidth, mode->htotal * mode->vtotal);
+
+		/*
+		 * Reject modes which would need more bandwidth if used with one
+		 * full resolution plane (most common use case).
+		 */
+		if (priv->max_bandwidth < bandwidth)
+			ret = MODE_BAD;
 	}
 
 	DBG("connector: mode %s: "

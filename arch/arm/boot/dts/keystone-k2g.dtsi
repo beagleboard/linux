@@ -453,6 +453,8 @@
 				clocks = <&k2g_clks K2G_DEV_DSS0 K2G_DEV_DSS_PI_DSS_OCP_CLK>,
 					<&k2g_clks K2G_DEV_DSS0 K2G_DEV_DSS_PI_DSS_VP_CLK>;
 				clock-names = "fck", "vp";
+
+				max-memory-bandwidth = <230000000>;
 			};
 		};
 
