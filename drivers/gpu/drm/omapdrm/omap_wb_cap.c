@@ -226,8 +226,7 @@ static int wbcap_schedule_next_buffer(struct wbcap_dev *dev)
 static void wbcap_process_buffer_complete(struct wbcap_dev *dev)
 {
 	dev->cur_frm->vb.vb2_buf.timestamp = ktime_get_ns();
-	dev->cur_frm->vb.field =
-		dev->q_data[Q_DATA_DST].format.fmt.pix_mp.field;
+	dev->cur_frm->vb.field = dev->field;
 	dev->cur_frm->vb.sequence = dev->sequence++;
 
 	vb2_buffer_done(&dev->cur_frm->vb.vb2_buf, VB2_BUF_STATE_DONE);
@@ -330,8 +329,15 @@ void wbcap_irq(struct wbcap_dev *dev, u32 irqstatus)
 	if (irqstatus & DISPC_IRQ_WBUNCOMPLETEERROR)
 		log_err(dev, "WB: WBUNCOMPLETEERROR\n");
 
-	if (is_input_irq_vsync_set(dev, irqstatus))
+	if (is_input_irq_vsync_set(dev, irqstatus)) {
+		if (dev->field != V4L2_FIELD_NONE) {
+			if (irqstatus & DISPC_IRQ_EVSYNC_EVEN)
+				dev->field = V4L2_FIELD_BOTTOM;
+			else if (irqstatus & DISPC_IRQ_EVSYNC_ODD)
+				dev->field = V4L2_FIELD_TOP;
+		}
 		wbcap_handle_vsync(dev);
+	}
 }
 
 /*
@@ -451,10 +457,16 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 	struct omap_drm_private *priv = wbcap->dev->drm_dev->dev_private;
 	struct drm_crtc *crtc;
 	int ret;
+	struct wb_q_data *q_data;
 
 	priv->dispc_ops->runtime_get();
 
 	wbcap->sequence = 0;
+	q_data = get_q_data(wbcap, wbcap->queue.type);
+	if (q_data->format.fmt.pix_mp.field == V4L2_FIELD_ALTERNATE)
+		wbcap->field = V4L2_FIELD_TOP;
+	else
+		wbcap->field = V4L2_FIELD_NONE;
 
 	log_dbg(wbcap, "Input (%s) is %s : %s\n",
 		wb_inputs[wbcap->input].name,
@@ -574,8 +586,9 @@ static int wbcap_fill_pix_format(struct wbcap_dev *wbcap,
 		fmt = &wb_formats[1];
 	}
 
-	/* we only allow V4L2_FIELD_NONE */
-	if (pix->field != V4L2_FIELD_NONE)
+	/* we only allow V4L2_FIELD_NONE or V4L2_FIELD_ALTERNATE */
+	if (pix->field != V4L2_FIELD_NONE &&
+	    pix->field != V4L2_FIELD_ALTERNATE)
 		pix->field = V4L2_FIELD_NONE;
 
 	depth = fmt->depth[LUMA_PLANE];
@@ -658,8 +671,10 @@ static int wbcap_try_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.width = ct->hactive;
 	f->fmt.pix.height = ct->vactive;
 
-	if (ct->flags & DISPLAY_FLAGS_INTERLACED)
+	if (ct->flags & DISPLAY_FLAGS_INTERLACED) {
 		f->fmt.pix.height /= 2;
+		f->fmt.pix_mp.field = V4L2_FIELD_ALTERNATE;
+	}
 
 	log_dbg(wbcap, "replied fourcc:%4.4s size: %dx%d\n",
 		(char *)&f->fmt.pix_mp.pixelformat,
