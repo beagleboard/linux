@@ -716,6 +716,8 @@ static void cpsw_tx_handler(void *token, int len, int status)
 
 static void cpsw_rx_vlan_encap(struct sk_buff *skb)
 {
+	struct cpsw_priv *priv = netdev_priv(skb->dev);
+	struct cpsw_common *cpsw = priv->cpsw;
 	u32 rx_vlan_encap_hdr = *((u32 *)skb->data);
 	u16 vtag, vid, prio, pkt_type;
 
@@ -735,6 +737,10 @@ static void cpsw_rx_vlan_encap(struct sk_buff *skb)
 	       VLAN_VID_MASK;
 	/* Ignore vid 0 and pass packet as is */
 	if (!vid)
+		return;
+	/* Ignore default vlans in dual mac mode */
+	if (cpsw->data.dual_emac &&
+	    vid == cpsw->slaves[priv->emac_port].port_vlan)
 		return;
 
 	prio = (rx_vlan_encap_hdr >>
