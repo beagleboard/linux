@@ -38,6 +38,10 @@
 		};
 	};
 
+	aliases {
+		ethernet = &ethernet;
+	};
+
 	leds {
 		compatible = "gpio-leds";
 		led1 {
@@ -90,6 +94,23 @@
 	pinctrl-single,pins = <
 		OMAP5_IOPAD(0x1be, PIN_OUTPUT | MUX_MODE6)	/* mcspi1_somi.gpio5_141 */
 	>;
+};
+
+&usbhsehci {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	hub@2 {
+		compatible = "usb424,3503";
+		reg = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	ethernet: usbether@3 {
+		compatible = "usb424,9730";
+		reg = <3>;
+	};
 };
 
 &wlcore {
