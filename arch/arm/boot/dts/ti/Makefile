@@ -16,6 +16,15 @@ cmd_mkfit = $(MKIMAGE) -D "$(DTC_FLAGS_MKIMAGE)" -f $< $@ ; \
 %.itb: %.its FORCE
 	$(call if_changed_dep,mkfit)
 
+dtb-$(CONFIG_SOC_DRA7XX) += \
+	am57xx-beagle-x15.dtb \
+	am57xx-beagle-x15-revc.dtb \
+	am57xx-evm.dtbo \
+	am57xx-evm.itb
+
+$(src)/am57xx-evm.itb: $(obj)/am57xx-evm.dtbo $(obj)/am57xx-beagle-x15.dtb \
+	$(obj)/am57xx-beagle-x15-revc.dtb $(obj)/../../zImage
+
 clean-files	:= *.dtb *.dtbo *.itb
 
 always		:= $(dtb-y)
