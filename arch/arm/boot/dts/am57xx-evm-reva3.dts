@@ -6,12 +6,18 @@
  * published by the Free Software Foundation.
  */
 
-#include "am57xx-beagle-x15-revb1.dts"
+#include "am57xx-beagle-x15-common.dtsi"
 #include "am57xx-evm-common.dtsi"
 #include "am57xx-industrial-grade.dtsi"
 
 / {
 	model = "TI AM572x EVM Rev A3";
+};
+
+&tpd12s015 {
+	gpios = <&gpio7 10 GPIO_ACTIVE_HIGH>,	/* gpio7_10, CT CP HPD */
+		<&gpio2 30 GPIO_ACTIVE_HIGH>,	/* gpio2_30, LS OE */
+		<&gpio7 12 GPIO_ACTIVE_HIGH>;	/* gpio7_12/sp1_cs2, HPD */
 };
 
 &mmc1 {
@@ -32,7 +38,6 @@
 	pinctrl-0 = <&mmc2_pins_default>;
 	pinctrl-1 = <&mmc2_pins_hs>;
 	pinctrl-2 = <&mmc2_pins_ddr_rev20>;
-	/delete-property/ mmc-hs200-1_8v;
 };
 
 &mmc3 {

@@ -482,7 +482,13 @@
 	bus-width = <8>;
 	ti,non-removable;
 	cap-mmc-dual-data-rate;
+
+	/*
+	 * None of the BeagleBoard x15s or AM57xx EVMs support HS200
+	 * mode on eMMC due to lack of 1.8V support on those boards.
+	 */
 	no-1-8-v;
+	/delete-property/ mmc-hs200-1_8v;
 };
 
 &sata {
