@@ -34,7 +34,12 @@ static void __intel_timeline_init(struct intel_timeline *tl,
 	tl->fence_context = context;
 	tl->common = parent;
 #ifdef CONFIG_DEBUG_SPINLOCK
+# ifdef CONFIG_PREEMPT_RT_FULL
+	rt_mutex_init(&tl->lock.lock);
+	__rt_spin_lock_init(&tl->lock, lockname, lockclass);
+# else
 	__raw_spin_lock_init(&tl->lock.rlock, lockname, lockclass);
+# endif
 #else
 	spin_lock_init(&tl->lock);
 #endif
