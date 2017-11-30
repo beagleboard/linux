@@ -84,7 +84,7 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	info.rotation = DRM_MODE_ROTATE_0;
 	info.global_alpha = omap_state->global_alpha;
 	info.pre_mult_alpha = omap_state->pre_mult_alpha;
-	info.zorder = state->zpos;
+	info.zorder = state->normalized_zpos;
 	info.color_encoding = state->color_encoding;
 	info.color_range = state->color_range;
 
