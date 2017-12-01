@@ -2529,6 +2529,7 @@ single_failure_found:
 	return 0;
 
 tuning_error:
+	host->is_tuning = false;
 	dev_err(mmc_dev(host->mmc),
 		"Tuning failed. Using fixed sampling clock\n");
 
