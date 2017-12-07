@@ -40,9 +40,9 @@
 #define AS3935_AFE_PWR_BIT	BIT(0)
 
 #define AS3935_INT		0x03
-#define AS3935_INT_MASK		0x0f
+#define AS3935_INT_MASK		0x07
 #define AS3935_EVENT_INT	BIT(3)
-#define AS3935_NOISE_INT	BIT(0)
+#define AS3935_NOISE_INT	BIT(1)
 
 #define AS3935_DATA		0x07
 #define AS3935_DATA_MASK	0x3F
@@ -50,6 +50,7 @@
 #define AS3935_TUNE_CAP		0x08
 #define AS3935_CALIBRATE	0x3D
 
+#define AS3935_WRITE_DATA	BIT(15)
 #define AS3935_READ_DATA	BIT(14)
 #define AS3935_ADDRESS(x)	((x) << 8)
 
@@ -104,7 +105,7 @@ static int as3935_write(struct as3935_state *st,
 {
 	u8 *buf = st->buf;
 
-	buf[0] = AS3935_ADDRESS(reg) >> 8;
+	buf[0] = (AS3935_WRITE_DATA | AS3935_ADDRESS(reg)) >> 8;
 	buf[1] = val;
 
 	return spi_write(st->spi, buf, 2);
@@ -230,10 +231,16 @@ static void as3935_event_work(struct work_struct *work)
 {
 	struct as3935_state *st;
 	int val;
+	int ret;
 
 	st = container_of(work, struct as3935_state, work.work);
 
-	as3935_read(st, AS3935_INT, &val);
+	ret = as3935_read(st, AS3935_INT, &val);
+	if (ret) {
+		dev_warn(&st->spi->dev, "read error\n");
+		return;
+	}
+
 	val &= AS3935_INT_MASK;
 
 	switch (val) {
@@ -241,7 +248,7 @@ static void as3935_event_work(struct work_struct *work)
 		iio_trigger_poll(st->trig);
 		break;
 	case AS3935_NOISE_INT:
-		dev_warn(&st->spi->dev, "noise level is too high");
+		dev_warn(&st->spi->dev, "noise level is too high\n");
 		break;
 	}
 }
@@ -263,6 +270,8 @@ static irqreturn_t as3935_interrupt_handler(int irq, void *private)
 
 static void calibrate_as3935(struct as3935_state *st)
 {
+	mutex_lock(&st->lock);
+
 	/* mask disturber interrupt bit */
 	as3935_write(st, AS3935_INT, BIT(5));
 
@@ -272,6 +281,8 @@ static void calibrate_as3935(struct as3935_state *st)
 
 	mdelay(2);
 	as3935_write(st, AS3935_TUNE_CAP, (st->tune_cap / TUNE_CAP_DIV));
+
+	mutex_unlock(&st->lock);
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -308,8 +319,6 @@ static int as3935_resume(struct device *dev)
 	val &= ~AS3935_AFE_PWR_BIT;
 	ret = as3935_write(st, AS3935_AFE_GAIN, val);
 
-	calibrate_as3935(st);
-
 err_resume:
 	mutex_unlock(&st->lock);
 
@@ -343,7 +352,6 @@ static int as3935_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	st->spi = spi;
-	st->tune_cap = 0;
 
 	spi_set_drvdata(spi, indio_dev);
 	mutex_init(&st->lock);
@@ -465,4 +473,3 @@ module_spi_driver(as3935_driver);
 MODULE_AUTHOR("Matt Ranostay <mranostay@gmail.com>");
 MODULE_DESCRIPTION("AS3935 lightning sensor");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("spi:as3935");
