@@ -1652,6 +1652,7 @@ int update_time(struct inode *inode, struct timespec *time, int flags)
 
 	return update_time(inode, time, flags);
 }
+EXPORT_SYMBOL_GPL(update_time);
 
 /**
  *	touch_atime	-	update the access time
