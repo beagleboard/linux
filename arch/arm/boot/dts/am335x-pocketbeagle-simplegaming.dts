@@ -1,0 +1,127 @@
+/dts-v1/;
+
+#include "am335x-pocketbeagle-common.dtsi"
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	adafruit18: adafruit18@0{
+		compatible = "sitronix,st7735r";
+		reg = <0>;
+		buswidth = <8>;
+		reset-gpios = <&gpio0 27 0>;
+		dc-gpios = <&gpio2 1 0>;
+		led-gpios = <&gpio1 18 0>;
+		debug = <1>;
+		spi-max-frequency = <32000000>;
+		rotate = <0>;
+		bgr;
+		fps = <30>;
+	};
+};
+
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	channel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <24000000>;
+		status = "disabled";
+	};
+
+	channel@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <24000000>;
+	};
+};
+
+/ {
+	gpio-keys {
+		compatible = "gpio-keys";
+		autorepeat;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&P2_02_gpio_pu_pin &P2_04_gpio_pu_pin &P2_06_gpio_pu_pin &P2_08_gpio_pu_pin
+				&P2_18_gpio_pu_pin &P2_20_gpio_pu_pin &P2_22_gpio_pu_pin &P2_24_gpio_pu_pin
+			>;
+
+		left {
+			label = "left";
+			linux,code = <105>;
+			gpios = <&gpio1 28 GPIO_ACTIVE_LOW>;
+		};
+
+		right {
+			label = "right";
+			linux,code = <106>;
+			gpios = <&gpio1 26 GPIO_ACTIVE_LOW>;
+		};
+
+		up {
+			label = "up";
+			linux,code = <103>;
+			gpios = <&gpio1 25 GPIO_ACTIVE_LOW>;
+		};
+
+		down {
+			label = "down";
+			linux,code = <108>;
+			gpios = <&gpio1 27 GPIO_ACTIVE_LOW>;
+		};
+
+		five {
+			label = "5";
+			linux,code = <6>;
+			gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
+		};
+
+		one {
+			label = "one";
+			linux,code = <2>;
+			gpios = <&gpio2 0 GPIO_ACTIVE_LOW>;
+		};
+
+		esc {
+			label = "esc";
+			linux,code = <1>;
+			gpios = <&gpio1 14 GPIO_ACTIVE_LOW>;
+		};
+
+		enter {
+			label = "enter";
+			linux,code = <28>;
+			gpios = <&gpio1 15 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
+/ {
+	capeleds {
+		pinctrl-names = "default";
+		pinctrl-0 = <&P1_04_gpio_pin &P2_03_gpio_pin>;
+
+		compatible = "gpio-leds";
+
+		led@1 {
+			label = "gamingpocketcape::left";
+			gpios = <&gpio2 25 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led@2 {
+			label = "gamingpocketcape::right";
+			gpios = <&gpio0 23 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+};
