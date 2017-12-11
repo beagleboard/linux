@@ -585,6 +585,9 @@ config HIST_TRIGGERS
 	  event activity as an initial guide for further investigation
 	  using more advanced tools.
 
+	  Inter-event tracing of quantities such as latencies is also
+	  supported using hist triggers under this option.
+
 	  See Documentation/trace/events.txt.
 	  If in doubt, say N.
 
