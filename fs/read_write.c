@@ -454,6 +454,7 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(vfs_read);
 
 static ssize_t new_sync_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 {
@@ -494,6 +495,7 @@ vfs_readf_t vfs_readf(struct file *file)
 		return new_sync_read;
 	return ERR_PTR(-ENOSYS);
 }
+EXPORT_SYMBOL_GPL(vfs_readf);
 
 vfs_writef_t vfs_writef(struct file *file)
 {
@@ -505,6 +507,7 @@ vfs_writef_t vfs_writef(struct file *file)
 		return new_sync_write;
 	return ERR_PTR(-ENOSYS);
 }
+EXPORT_SYMBOL_GPL(vfs_writef);
 
 ssize_t __kernel_write(struct file *file, const void *buf, size_t count, loff_t *pos)
 {
@@ -574,6 +577,7 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(vfs_write);
 
 static inline loff_t file_pos_read(struct file *file)
 {
