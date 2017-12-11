@@ -81,15 +81,25 @@ const struct raid6_calls * const raid6_algos[] = {
 #if defined(CONFIG_S390)
 	&raid6_s390vx8,
 #endif
+#ifndef CONFIG_KERNEL_MODE_NEON
+	#ifndef CONFIG_SOC_AM33XX
 	&raid6_intx1,
 	&raid6_intx2,
+	#endif
 	&raid6_intx4,
+	#ifndef CONFIG_SOC_AM33XX
 	&raid6_intx8,
+	#endif
+#endif
 #ifdef CONFIG_KERNEL_MODE_NEON
+	#ifndef CONFIG_SOC_AM33XX
 	&raid6_neonx1,
+	#endif
 	&raid6_neonx2,
+	#ifndef CONFIG_SOC_AM33XX
 	&raid6_neonx4,
 	&raid6_neonx8,
+	#endif
 #endif
 	NULL
 };
