@@ -192,12 +192,33 @@ static const struct lp873x_regulator regulators[] = {
 			 LP873X_LDO1_CTRL_LDO1_EN, 0, ldo0_ldo1_ranges, 0xFF),
 };
 
+static int lp873x_set_en_pin_ctrl(struct lp873x *lp873)
+{
+	int ret, i, val;
+
+	for (i = 0; i < ARRAY_SIZE(regulators); i++) {
+		ret = regmap_read(lp873->regmap,
+				  regulators[i].desc.enable_reg, &val);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(lp873->regmap,
+				   regulators[i].desc.enable_reg,
+				   val | LP873X_LDO1_CTRL_LDO1_EN_PIN_CTRL);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int lp873x_regulator_probe(struct platform_device *pdev)
 {
 	struct lp873x *lp873 = dev_get_drvdata(pdev->dev.parent);
 	struct regulator_config config = { };
 	struct regulator_dev *rdev;
 	int i;
+	bool power_ctrl;
 
 	platform_set_drvdata(pdev, lp873);
 
@@ -215,6 +236,15 @@ static int lp873x_regulator_probe(struct platform_device *pdev)
 			return PTR_ERR(rdev);
 		}
 	}
+
+	/*
+	 * Hook the regulators to EN pin based on the system-power-controller
+	 * property.
+	 */
+	power_ctrl = of_property_read_bool(lp873->dev->of_node,
+					   "system-power-controller");
+	if (power_ctrl)
+		return lp873x_set_en_pin_ctrl(lp873);
 
 	return 0;
 }
