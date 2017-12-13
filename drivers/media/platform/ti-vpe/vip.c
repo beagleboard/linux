@@ -3360,7 +3360,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->lock = &dev->mutex;
 	q->min_buffers_needed = 3;
-	q->dev = dev->v4l2_dev.dev;
+	q->dev = dev->v4l2_dev->dev;
 
 	ret = vb2_queue_init(q);
 	if (ret)
@@ -3386,7 +3386,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	if (!vfd)
 		goto do_free_dropq;
 	*vfd = vip_videodev;
-	vfd->v4l2_dev = &dev->v4l2_dev;
+	vfd->v4l2_dev = dev->v4l2_dev;
 	vfd->queue = q;
 
 	vfd->lock = &dev->mutex;
@@ -3728,7 +3728,7 @@ of_node_cleanup:
 	notifier->num_subdevs = config->asd_sizes;
 
 	vip_dbg(1, port, "register async notifier for %d subdevs\n", i);
-	ret = v4l2_async_notifier_register(&dev->v4l2_dev, notifier);
+	ret = v4l2_async_notifier_register(dev->v4l2_dev, notifier);
 	if (ret) {
 		vip_dbg(1, port, "Error registering async notifier\n");
 		ret = -EINVAL;
@@ -3859,6 +3859,10 @@ static int vip_probe(struct platform_device *pdev)
 		goto err_runtime_get;
 	}
 
+	ret = v4l2_device_register(&pdev->dev, &shared->v4l2_dev);
+	if (ret)
+		goto err_runtime_get;
+
 	/* enable clocks, so the firmware will load properly */
 	vip_shared_set_clock_enable(shared, 1);
 	vip_top_vpdma_reset(shared);
@@ -3893,20 +3897,17 @@ static int vip_probe(struct platform_device *pdev)
 		spin_lock_init(&dev->slock);
 		spin_lock_init(&dev->lock);
 
-		ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
-		if (ret)
-			goto err_runtime_get;
-
 		mutex_init(&dev->mutex);
 
 		hdl = &dev->ctrl_handler;
 		v4l2_ctrl_handler_init(hdl, 11);
-		dev->v4l2_dev.ctrl_handler = hdl;
+		shared->v4l2_dev.ctrl_handler = hdl;
 
 		dev->slice_id = slice;
 		dev->pdev = pdev;
 		dev->res = shared->res;
 		dev->base = shared->base;
+		dev->v4l2_dev = &shared->v4l2_dev;
 
 		dev->shared = shared;
 		shared->devs[slice] = dev;
@@ -3956,7 +3957,7 @@ static int vip_probe(struct platform_device *pdev)
 
 	return 0;
 dev_unreg:
-	v4l2_device_unregister(&dev->v4l2_dev);
+	v4l2_device_unregister(&shared->v4l2_dev);
 err_runtime_get:
 	if (slice == VIP_SLICE1) {
 		pm_runtime_disable(&pdev->dev);

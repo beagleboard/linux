@@ -121,6 +121,7 @@ struct vip_shared {
 	void __iomem		*base;
 	struct vpdma_data	vpdma_data;
 	struct vpdma_data	*vpdma;
+	struct v4l2_device	v4l2_dev;
 	struct vip_dev		*devs[VIP_NUM_SLICES];
 };
 
@@ -137,7 +138,7 @@ struct vip_async_config {
 
 
 struct vip_dev {
-	struct v4l2_device	v4l2_dev;
+	struct v4l2_device	*v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct platform_device *pdev;
 	struct vip_shared	*shared;
