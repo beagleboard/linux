@@ -1296,10 +1296,16 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 static int vip_querycap(struct file *file, void *priv,
 			struct v4l2_capability *cap)
 {
+	struct vip_stream *stream = file2stream(file);
+	struct vip_port *port = stream->port;
+	struct vip_dev *dev = port->dev;
+	u32 vin_id = 1 + ((dev->instance_id - 1) * 2) + dev->slice_id;
+
 	strlcpy(cap->driver, VIP_MODULE_NAME, sizeof(cap->driver));
 	strlcpy(cap->card, VIP_MODULE_NAME, sizeof(cap->card));
-	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
-		 VIP_MODULE_NAME);
+	snprintf(cap->bus_info, sizeof(cap->bus_info),
+		 "platform:vip%1d:vin%1d%c:stream%1d", dev->instance_id, vin_id,
+		 port->port_id == VIP_PORTA ? 'a' : 'b', stream->stream_id);
 	cap->device_caps  = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE |
 			    V4L2_CAP_READWRITE;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
