@@ -84,6 +84,7 @@
 	lp8733: lp8733@60 {
 		compatible = "ti,lp8733";
 		reg = <0x60>;
+		system-power-controller;
 
 		buck0-in-supply =<&vsys_3v3>;
 		buck1-in-supply =<&vsys_3v3>;
@@ -130,6 +131,7 @@
 	lp8732: lp8732@61 {
 		compatible = "ti,lp8732";
 		reg = <0x61>;
+		system-power-controller;
 
 		buck0-in-supply =<&vsys_3v3>;
 		buck1-in-supply =<&vsys_3v3>;
