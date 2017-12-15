@@ -50,6 +50,9 @@ struct omap_drm_private {
 
 	const struct dispc_ops *dispc_ops;
 
+	unsigned int num_dssdevs;
+	struct omap_dss_device *dssdevs[8];
+
 	unsigned int num_crtcs;
 	struct drm_crtc *crtcs[8];
 
