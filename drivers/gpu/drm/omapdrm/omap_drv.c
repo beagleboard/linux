@@ -173,33 +173,59 @@ static void omap_disconnect_dssdevs(struct drm_device *ddev)
 	priv->num_dssdevs = 0;
 }
 
-static int omap_connect_dssdevs(struct drm_device *ddev)
+static void omap_collect_dssdevs(struct drm_device *ddev)
 {
 	struct omap_drm_private *priv = ddev->dev_private;
 	struct omap_dss_device *dssdev = NULL;
-	int r;
+
+	for_each_dss_dev(dssdev) {
+		omap_dss_get_device(dssdev);
+		priv->dssdevs[priv->num_dssdevs++] = dssdev;
+		if (priv->num_dssdevs == ARRAY_SIZE(priv->dssdevs)) {
+			/* To balance the 'for_each_dss_dev' loop */
+			omap_dss_put_device(dssdev);
+			break;
+		}
+	}
+}
+
+static int omap_connect_dssdevs(struct drm_device *ddev)
+{
+	struct omap_drm_private *priv = ddev->dev_private;
+	u32 working = 0;
+	int r, i, j;
 
 	if (!omapdss_stack_is_ready())
 		return -EPROBE_DEFER;
 
-	for_each_dss_dev(dssdev) {
+	omap_collect_dssdevs(ddev);
+
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		struct omap_dss_device *dssdev = priv->dssdevs[i];
+
 		r = dssdev->driver->connect(dssdev);
-		if (r == -EPROBE_DEFER) {
-			omap_dss_put_device(dssdev);
+		if (r == -EPROBE_DEFER)
 			goto cleanup;
-		} else if (r) {
+		else if (r)
 			dev_warn(dssdev->dev, "could not connect display: %s\n",
-				dssdev->name);
+				 dssdev->name);
+		else
+			working |= BIT(i);
+	}
+
+	/* Remove the dssdevs if their connect failed */
+	j = 0;
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		if (working & BIT(i)) {
+			if (j != i)
+				priv->dssdevs[j] = priv->dssdevs[i];
+			j++;
 		} else {
-			omap_dss_get_device(dssdev);
-			priv->dssdevs[priv->num_dssdevs++] = dssdev;
-			if (priv->num_dssdevs == ARRAY_SIZE(priv->dssdevs)) {
-				/* To balance the 'for_each_dss_dev' loop */
-				omap_dss_put_device(dssdev);
-				break;
-			}
+			omap_dss_put_device(priv->dssdevs[i]);
 		}
 	}
+
+	priv->num_dssdevs = j;
 
 	return 0;
 
