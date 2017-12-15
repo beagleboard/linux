@@ -34,6 +34,14 @@
 #define DRIVER_MINOR		0
 #define DRIVER_PATCHLEVEL	0
 
+#define MAX_NR_DISPLAYS		8
+static int display_order[MAX_NR_DISPLAYS];
+static int display_order_nelm;
+module_param_array_named(displays, display_order, int, &display_order_nelm,
+			 0444);
+MODULE_PARM_DESC(displays,
+		 "ID array to specify the order of the active displays");
+
 /*
  * mode config funcs
  */
@@ -190,12 +198,21 @@ static int omap_compare_dssdevs(const void *a, const void *b)
 static void omap_collect_dssdevs(struct drm_device *ddev)
 {
 	struct omap_drm_private *priv = ddev->dev_private;
+	struct omap_dss_device *dssdevs[ARRAY_SIZE(priv->dssdevs)];
 	struct omap_dss_device *dssdev = NULL;
+	int num_dssdevs = 0;
+	unsigned long dssdev_mask = 0;
+	int i;
+
+	/* No displays should be enabled */
+	if (display_order_nelm == 1 && display_order[0] < 0)
+		return;
 
 	for_each_dss_dev(dssdev) {
 		omap_dss_get_device(dssdev);
-		priv->dssdevs[priv->num_dssdevs++] = dssdev;
-		if (priv->num_dssdevs == ARRAY_SIZE(priv->dssdevs)) {
+		set_bit(num_dssdevs, &dssdev_mask);
+		dssdevs[num_dssdevs++] = dssdev;
+		if (num_dssdevs == ARRAY_SIZE(dssdevs)) {
 			/* To balance the 'for_each_dss_dev' loop */
 			omap_dss_put_device(dssdev);
 			break;
@@ -203,8 +220,38 @@ static void omap_collect_dssdevs(struct drm_device *ddev)
 	}
 
 	/* Sort the list by DT aliases */
-	sort(priv->dssdevs, priv->num_dssdevs, sizeof(priv->dssdevs[0]),
-	     omap_compare_dssdevs, NULL);
+	sort(dssdevs, num_dssdevs, sizeof(dssdevs[0]), omap_compare_dssdevs,
+	     NULL);
+
+	/* Do ordering based on the display_order parameter array */
+	for (i = 0; i < display_order_nelm; i++) {
+		int old_index = display_order[i];
+
+		if ((old_index >= 0 && old_index < num_dssdevs) &&
+		    (dssdev_mask & BIT(old_index))) {
+			priv->dssdevs[priv->num_dssdevs++] = dssdevs[old_index];
+			clear_bit(old_index, &dssdev_mask);
+		} else {
+			dev_err(ddev->dev,
+				"Ignoring invalid displays module parameter\n");
+			priv->num_dssdevs = 0;
+			break;
+		}
+	}
+
+	/* if the target list is empty, copy the collected dssdevs, if any */
+	if (priv->num_dssdevs == 0) {
+		for (i = 0; i < num_dssdevs; i++)
+			priv->dssdevs[i] = dssdevs[i];
+
+		priv->num_dssdevs = num_dssdevs;
+	} else {
+		u32 idx;
+
+		/* check if we have dssdev which is not carried over */
+		for_each_set_bit(idx, &dssdev_mask, ARRAY_SIZE(dssdevs))
+			omap_dss_put_device(dssdevs[idx]);
+	}
 }
 
 static int omap_connect_dssdevs(struct drm_device *ddev)
