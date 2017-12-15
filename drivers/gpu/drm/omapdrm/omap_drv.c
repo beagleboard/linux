@@ -559,19 +559,17 @@ static int pdev_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
 	omap_crtc_pre_init();
 
 	ret = omap_connect_dssdevs();
 	if (ret)
 		goto err_crtc_uninit;
 
-	/* Allocate and initialize the driver private structure. */
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-	if (!priv) {
-		ret = -ENOMEM;
-		goto err_disconnect_dssdevs;
-	}
-
+	/* Initialize the driver private structure. */
 	priv->dispc_ops = dispc_get_ops();
 
 	soc = soc_device_match(omapdrm_soc_devices);
@@ -585,7 +583,7 @@ static int pdev_probe(struct platform_device *pdev)
 	ddev = drm_dev_alloc(&omap_drm_driver, &pdev->dev);
 	if (IS_ERR(ddev)) {
 		ret = PTR_ERR(ddev);
-		goto err_free_priv;
+		goto err_destroy_wq;
 	}
 
 	ddev->dev_private = priv;
@@ -640,10 +638,8 @@ err_cleanup_modeset:
 err_free_drm_dev:
 	omap_gem_deinit(ddev);
 	drm_dev_unref(ddev);
-err_free_priv:
+err_destroy_wq:
 	destroy_workqueue(priv->wq);
-	kfree(priv);
-err_disconnect_dssdevs:
 	omap_disconnect_dssdevs();
 err_crtc_uninit:
 	omap_crtc_pre_uninit();
@@ -675,7 +671,6 @@ static int pdev_remove(struct platform_device *pdev)
 	drm_dev_unref(ddev);
 
 	destroy_workqueue(priv->wq);
-	kfree(priv);
 
 	omap_disconnect_dssdevs();
 	omap_crtc_pre_uninit();
