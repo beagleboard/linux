@@ -27,7 +27,6 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/sort.h>
-#include <linux/pm_wakeirq.h>
 
 #include <linux/mfd/ti_am335x_tscadc.h>
 
@@ -275,7 +274,6 @@ static irqreturn_t titsc_irq(int irq, void *dev)
 	if (status & IRQENB_HW_PEN) {
 		ts_dev->pen_down = true;
 		irqclr |= IRQENB_HW_PEN;
-		pm_stay_awake(ts_dev->mfd_tscadc->dev);
 	}
 
 	if (status & IRQENB_PENUP) {
@@ -285,7 +283,6 @@ static irqreturn_t titsc_irq(int irq, void *dev)
 			input_report_key(input_dev, BTN_TOUCH, 0);
 			input_report_abs(input_dev, ABS_PRESSURE, 0);
 			input_sync(input_dev);
-			pm_relax(ts_dev->mfd_tscadc->dev);
 		} else {
 			ts_dev->pen_down = true;
 		}
@@ -409,7 +406,7 @@ static int titsc_probe(struct platform_device *pdev)
 	int err;
 
 	/* Allocate memory for device */
-	ts_dev = kzalloc(sizeof(struct titsc), GFP_KERNEL);
+	ts_dev = kzalloc(sizeof(*ts_dev), GFP_KERNEL);
 	input_dev = input_allocate_device();
 	if (!ts_dev || !input_dev) {
 		dev_err(&pdev->dev, "failed to allocate memory.\n");
@@ -435,13 +432,6 @@ static int titsc_probe(struct platform_device *pdev)
 		goto err_free_mem;
 	}
 
-	if (device_may_wakeup(tscadc_dev->dev)) {
-		err = dev_pm_set_wake_irq(tscadc_dev->dev, ts_dev->irq);
-		if (err)
-			dev_err(&pdev->dev, "irq wake enable failed.\n");
-	}
-
-	titsc_writel(ts_dev, REG_IRQSTATUS, IRQENB_MASK);
 	titsc_writel(ts_dev, REG_IRQENABLE, IRQENB_FIFO0THRES);
 	titsc_writel(ts_dev, REG_IRQENABLE, IRQENB_EOS);
 	err = titsc_config_wires(ts_dev);
@@ -472,7 +462,6 @@ static int titsc_probe(struct platform_device *pdev)
 	return 0;
 
 err_free_irq:
-	dev_pm_clear_wake_irq(tscadc_dev->dev);
 	free_irq(ts_dev->irq, ts_dev);
 err_free_mem:
 	input_free_device(input_dev);
@@ -485,7 +474,6 @@ static int titsc_remove(struct platform_device *pdev)
 	struct titsc *ts_dev = platform_get_drvdata(pdev);
 	u32 steps;
 
-	dev_pm_clear_wake_irq(ts_dev->mfd_tscadc->dev);
 	free_irq(ts_dev->irq, ts_dev);
 
 	/* total steps followed by the enable mask */
@@ -499,8 +487,7 @@ static int titsc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int titsc_suspend(struct device *dev)
+static int __maybe_unused titsc_suspend(struct device *dev)
 {
 	struct titsc *ts_dev = dev_get_drvdata(dev);
 	struct ti_tscadc_dev *tscadc_dev;
@@ -508,7 +495,6 @@ static int titsc_suspend(struct device *dev)
 
 	tscadc_dev = ti_tscadc_dev_get(to_platform_device(dev));
 	if (device_may_wakeup(tscadc_dev->dev)) {
-		titsc_writel(ts_dev, REG_IRQSTATUS, IRQENB_MASK);
 		idle = titsc_readl(ts_dev, REG_IRQENABLE);
 		titsc_writel(ts_dev, REG_IRQENABLE,
 				(idle | IRQENB_HW_PEN));
@@ -517,7 +503,7 @@ static int titsc_suspend(struct device *dev)
 	return 0;
 }
 
-static int titsc_resume(struct device *dev)
+static int __maybe_unused titsc_resume(struct device *dev)
 {
 	struct titsc *ts_dev = dev_get_drvdata(dev);
 	struct ti_tscadc_dev *tscadc_dev;
@@ -527,7 +513,6 @@ static int titsc_resume(struct device *dev)
 		titsc_writel(ts_dev, REG_IRQWAKEUP,
 				0x00);
 		titsc_writel(ts_dev, REG_IRQCLR, IRQENB_HW_PEN);
-		pm_relax(ts_dev->mfd_tscadc->dev);
 	}
 	titsc_step_config(ts_dev);
 	titsc_writel(ts_dev, REG_FIFO0THR,
@@ -535,14 +520,7 @@ static int titsc_resume(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops titsc_pm_ops = {
-	.suspend = titsc_suspend,
-	.resume  = titsc_resume,
-};
-#define TITSC_PM_OPS (&titsc_pm_ops)
-#else
-#define TITSC_PM_OPS NULL
-#endif
+static SIMPLE_DEV_PM_OPS(titsc_pm_ops, titsc_suspend, titsc_resume);
 
 static const struct of_device_id ti_tsc_dt_ids[] = {
 	{ .compatible = "ti,am3359-tsc", },
@@ -555,7 +533,7 @@ static struct platform_driver ti_tsc_driver = {
 	.remove	= titsc_remove,
 	.driver	= {
 		.name   = "TI-am335x-tsc",
-		.pm	= TITSC_PM_OPS,
+		.pm	= &titsc_pm_ops,
 		.of_match_table = ti_tsc_dt_ids,
 	},
 };
