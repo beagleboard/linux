@@ -335,7 +335,7 @@
 	};
 
 	baseboard_eeprom: baseboard_eeprom@50 {
-		compatible = "at,24c256";
+		compatible = "atmel,24c256";
 		reg = <0x50>;
 
 		#address-cells = <1>;
@@ -381,13 +381,10 @@
 	interrupt-parent = <&intc>;
 
 	charger {
-		interrupts = <0>, <1>;
-		interrupt-names = "USB", "AC";
 		status = "okay";
 	};
 
 	pwrbutton {
-		interrupts = <2>;
 		status = "okay";
 	};
 
@@ -507,9 +504,13 @@
 };
 
 &rtc {
-	system-power-controller;
 	clocks = <&clk_32768_ck>, <&clkdiv32k_ick>;
 	clock-names = "ext-clk", "int-clk";
+	system-power-controller;
+};
+
+&wkup_m3_ipc {
+	ti,scale-data-fw = "am335x-bone-scale-data.bin";
 };
 
 &dcan1 {
