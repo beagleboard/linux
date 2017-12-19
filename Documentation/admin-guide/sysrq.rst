@@ -77,6 +77,18 @@ On all
 
 		echo t > /proc/sysrq-trigger
 
+On all
+        Enable network SysRq by writing a cookie to icmp_echo_sysrq, e.g.::
+
+                echo 0x01020304 >/proc/sys/net/ipv4/icmp_echo_sysrq
+
+        Send an ICMP echo request with this pattern plus the particular
+        SysRq command key. Example::
+
+                ping -c1 -s57 -p0102030468
+
+        will trigger the SysRq-H (help) command.
+
 What are the 'command' keys?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
