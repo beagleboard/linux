@@ -3335,6 +3335,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	struct vip_buffer *buf;
 	struct list_head *pos, *tmp;
 	int ret, i;
+	u32 vin_id;
 
 	stream = kzalloc(sizeof(*stream), GFP_KERNEL);
 	if (!stream)
@@ -3343,6 +3344,10 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	stream->port = port;
 	stream->stream_id = stream_id;
 	stream->vfl_type = vfl_type;
+
+	vin_id = 1 + ((dev->instance_id - 1) * 2) + dev->slice_id;
+	snprintf(stream->name, sizeof(stream->name), "vin%d%c-%d",
+		 vin_id, (port->port_id == VIP_PORTA) ? 'a' : 'b', stream_id);
 
 	stream->list_num = vpdma_hwlist_alloc(dev->shared->vpdma, stream);
 	if (stream->list_num < 0) {
@@ -3517,6 +3522,7 @@ static int get_subdev_active_format(struct vip_port *port,
 static int alloc_port(struct vip_dev *dev, int id)
 {
 	struct vip_port *port;
+	u32 vin_id;
 
 	port = devm_kzalloc(&dev->pdev->dev, sizeof(*port), GFP_KERNEL);
 	if (!port)
@@ -3525,6 +3531,9 @@ static int alloc_port(struct vip_dev *dev, int id)
 	dev->ports[id] = port;
 	port->dev = dev;
 	port->port_id = id;
+	vin_id = 1 + ((dev->instance_id - 1) * 2) + dev->slice_id;
+	snprintf(port->name, sizeof(port->name),
+		 "vin%d%c", vin_id, (id == VIP_PORTA) ? 'a' : 'b');
 	port->num_streams = 0;
 	return 0;
 }
@@ -3876,14 +3885,17 @@ static int vip_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, shared);
 
 	for (slice = VIP_SLICE1; slice < VIP_NUM_SLICES; slice++) {
+		u32 vin_id;
+
 		dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 		if (!dev) {
 			ret = -ENOMEM;
 			goto err_runtime_get;
 		}
 		dev->instance_id = (int)of_dev_id->data;
-		snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
-			 "%s%d-s%d", VIP_MODULE_NAME, dev->instance_id, slice);
+		vin_id = 1 + ((dev->instance_id - 1) * 2) + slice;
+		snprintf(dev->name, sizeof(dev->name),
+			 "vin%d", vin_id);
 
 		dev->irq = platform_get_irq(pdev, slice);
 		if (!dev->irq) {
@@ -3892,7 +3904,7 @@ static int vip_probe(struct platform_device *pdev)
 		}
 
 		if (devm_request_irq(&pdev->dev, dev->irq, vip_irq,
-				     0, dev->v4l2_dev.name, dev) < 0) {
+				     0, dev->name, dev) < 0) {
 			ret = -ENOMEM;
 			goto dev_unreg;
 		}
