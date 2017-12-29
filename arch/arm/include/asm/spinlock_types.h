@@ -2,6 +2,8 @@
 #ifndef __ASM_SPINLOCK_TYPES_H
 #define __ASM_SPINLOCK_TYPES_H
 
+#include <linux/types.h>
+
 #define TICKET_SHIFT	16
 
 typedef struct {
