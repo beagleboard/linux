@@ -37,6 +37,7 @@ void common(void) {
 
 	BLANK();
 	OFFSET(TASK_TI_flags, task_struct, thread_info.flags);
+	OFFSET(TASK_TI_preempt_lazy_count, task_struct, thread_info.preempt_lazy_count);
 	OFFSET(TASK_addr_limit, task_struct, thread.addr_limit);
 
 	BLANK();
