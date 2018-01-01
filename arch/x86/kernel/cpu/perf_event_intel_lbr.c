@@ -763,7 +763,7 @@ void intel_pmu_lbr_init_atom(void)
 	 * on PMU interrupt
 	 */
 	if (boot_cpu_data.x86_model == 28
-	    && boot_cpu_data.x86_mask < 10) {
+	    && boot_cpu_data.x86_stepping < 10) {
 		pr_cont("LBR disabled due to erratum");
 		return;
 	}
