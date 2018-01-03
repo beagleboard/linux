@@ -459,6 +459,7 @@ static int titsc_probe(struct platform_device *pdev)
 	input_dev->name = "ti-tsc";
 	input_dev->dev.parent = &pdev->dev;
 
+	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
