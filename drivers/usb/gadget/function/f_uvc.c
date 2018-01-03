@@ -597,8 +597,7 @@ uvc_function_bind(struct usb_configuration *c, struct usb_function *f)
 	/* For SS, wMaxPacketSize has to be 1024 if bMaxBurst is not 0 */
 	if (opts->streaming_maxburst &&
 	    (opts->streaming_maxpacket % 1024) != 0) {
-		opts->streaming_maxpacket = roundup(opts->streaming_maxpacket,
-						    1024);
+		opts->streaming_maxpacket = roundup(opts->streaming_maxpacket, 1024);
 		INFO(cdev, "overriding streaming_maxpacket to %d\n",
 		     opts->streaming_maxpacket);
 	}
