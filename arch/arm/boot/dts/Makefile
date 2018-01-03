@@ -621,6 +621,17 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-base0033.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-pocketbeagle-simplegaming.dtb \
+	am335x-pocketbeagle.dtb \
+	am335x-boneblack-audio.dtb \
+	am335x-boneblack-bbb-exp-r.dtb \
+	am335x-boneblack-bbb-exp-c.dtb \
+	am335x-boneblack-bbbmini.dtb \
+	am335x-boneblack-wl1835mod.dtb \
+	am335x-olimex-som.dtb \
+	am335x-abbbi.dtb \
+	am335x-sancloud-bbe.dtb \
+	am335x-boneblack-uboot.dtb \
 	am335x-boneblack-wireless.dtb \
 	am335x-boneblue.dtb \
 	am335x-bonegreen.dtb \
