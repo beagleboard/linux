@@ -7,6 +7,7 @@
  */
 /dts-v1/;
 
+#include "am33xx.dtsi"
 #include "am335x-pocketbeagle-common.dtsi"
 
 &spi0 {
