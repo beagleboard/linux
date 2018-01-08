@@ -2998,6 +2998,7 @@ static void usb_otg_remove_hcd(struct usb_hcd *hcd)
 	}
 
 	usb_put_invalidate_rhdev(hcd);
+	hcd->flags = 0;
 }
 
 static struct otg_hcd_ops otg_hcd_intf = {
