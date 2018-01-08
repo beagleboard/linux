@@ -347,19 +347,20 @@ $(INSTALL_TARGETS):
 %.dtb: | scripts
 	$(Q)$(MAKE) $(build)=$(boot)/dts MACHINE=$(MACHINE) $(boot)/dts/$@
 
-%.dtbo: dtspath = $(dir $@)
+#%.dtbo: dtspath = $(dir $@)
 
-%.dtbo: | scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts/$(dtspath) MACHINE=$(MACHINE) $(boot)/dts/$(dtspath)$(notdir $@)
+#%.dtbo: | scripts
+#	$(Q)$(MAKE) $(build)=$(boot)/dts/$(dtspath) MACHINE=$(MACHINE) $(boot)/dts/$(dtspath)$(notdir $@)
 
-%.itb: itspath = $(dir $@)
+#%.itb: itspath = $(dir $@)
 
-%.itb: | scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts/$(itspath) MACHINE=$(MACHINE) $(boot)/dts/$(itspath)$(notdir $@)
+#%.itb: | scripts
+#	$(Q)$(MAKE) $(build)=$(boot)/dts/$(itspath) MACHINE=$(MACHINE) $(boot)/dts/$(itspath)$(notdir $@)
 
 PHONY += dtbs dtbs_install
 
-dtbs: prepare scripts zImage
+#dtbs: prepare scripts zImage
+dtbs: prepare scripts
 	$(Q)$(MAKE) $(build)=$(boot)/dts
 
 dtbs_install:
