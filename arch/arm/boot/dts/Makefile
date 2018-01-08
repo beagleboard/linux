@@ -1096,4 +1096,4 @@ dtb-$(CONFIG_OF_ALL_DTBS) := $(patsubst $(dtstree)/%.dts,%.dtb, $(wildcard $(dts
 always		:= $(dtb-y)
 clean-files	:= *.dtb
 
-subdir-y	+= $(dts-dirs-y)
+#subdir-y	+= $(dts-dirs-y)
