@@ -1187,13 +1187,6 @@ static enum omap_channel dispc_ovl_get_channel_out(enum omap_plane_id plane)
 	}
 }
 
-void dispc_wb_set_channel_in(enum dss_writeback_channel channel)
-{
-	enum omap_plane_id plane = OMAP_DSS_WB;
-
-	REG_FLD_MOD(DISPC_OVL_ATTRIBUTES(plane), channel, 18, 16);
-}
-
 static void dispc_ovl_set_burst_size(enum omap_plane_id plane,
 		enum omap_burst_size burst_size)
 {
@@ -2660,7 +2653,8 @@ static int dispc_ovl_setup(enum omap_plane_id plane,
 }
 
 int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
-		bool mem_to_mem, const struct videomode *vm)
+		bool mem_to_mem, const struct videomode *vm,
+		enum dss_writeback_channel channel_in)
 {
 	int r;
 	u32 l;
@@ -2705,6 +2699,7 @@ int dispc_wb_setup(const struct omap_dss_writeback_info *wi,
 	/* setup extra DISPC_WB_ATTRIBUTES */
 	l = dispc_read_reg(DISPC_OVL_ATTRIBUTES(plane));
 	l = FLD_MOD(l, truncation, 10, 10);	/* TRUNCATIONENABLE */
+	l = FLD_MOD(l, channel_in, 18, 16);	/* CHANNELIN */
 	l = FLD_MOD(l, mem_to_mem, 19, 19);	/* WRITEBACKMODE */
 	if (mem_to_mem)
 		l = FLD_MOD(l, 1, 26, 24);	/* CAPTUREMODE */
