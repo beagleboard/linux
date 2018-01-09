@@ -45,9 +45,11 @@
 #include "core.h"
 #include "common.h"
 #include "bcdc.h"
+#include "fwil.h"
 
 #define DCMD_RESP_TIMEOUT	msecs_to_jiffies(2500)
 #define CTL_DONE_TIMEOUT	msecs_to_jiffies(2500)
+#define ULP_HUDI_PROC_DONE_TIME	msecs_to_jiffies(2500)
 
 #define DEFAULT_F2_WATERMARK    0x8
 #define CY_4373_F2_WATERMARK    0x40
@@ -321,6 +323,10 @@ struct rte_console {
 #define KSO_WAIT_US 50
 #define MAX_KSO_ATTEMPTS (PMU_MAX_TRANSITION_DLY/KSO_WAIT_US)
 #define BRCMF_SDIO_MAX_ACCESS_ERRORS	5
+
+static void brcmf_sdio_firmware_callback(struct device *dev, int err,
+					 const struct firmware *code,
+					 void *nvram, u32 nvram_len);
 
 /*
  * Conversion of 802.1D priority to precedence level
@@ -2550,6 +2556,154 @@ static int brcmf_sdio_intr_rstatus(struct brcmf_sdio *bus)
 	return ret;
 }
 
+/* This Function is used to retrieve important
+ * details from dongle related to ULP mode Mostly
+ * values/SHM details that will be vary depending
+ * on the firmware branches
+ */
+static void
+brcmf_sdio_ulp_preinit(struct device *dev)
+{
+	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
+	struct brcmf_if *ifp = bus_if->drvr->iflist[0];
+	int err = 0;
+	char iovbuf[BRCMF_DCMD_SMLEN];
+
+	brcmf_dbg(TRACE, "Enter\n");
+	memset(iovbuf, 0, sizeof(iovbuf));
+
+	/* Query ulp_sdioctrl iovar to get the ULP related SHM offsets */
+	err = brcmf_fil_iovar_data_get(ifp, "ulp_sdioctrl", iovbuf,
+				       sizeof(iovbuf));
+	if (err)
+		brcmf_err("fail to get ulp_sdioctrl err:%d\n", err);
+
+	sdiodev->ulp = false;
+
+	/* Copy the data shared by dongle to FMAC structure */
+	memcpy(&sdiodev->shm_ulp, iovbuf, sizeof(struct ulp_shm_info));
+
+	brcmf_dbg(TRACE, "m_ulp_ctrl_sdio[%x] m_ulp_wakeevt_ind [%x]\n",
+		  M_DS1_CTRL_SDIO(sdiodev->shm_ulp),
+		  M_WAKEEVENT_IND(sdiodev->shm_ulp));
+	brcmf_dbg(TRACE, "m_ulp_wakeind [%x]\n",
+		  M_ULP_WAKE_IND(sdiodev->shm_ulp));
+}
+
+/* Reinitialize ARM because In DS1 mode ARM got off */
+static int
+brcmf_sdio_ulp_reinit_fw(struct brcmf_sdio *bus)
+{
+	struct brcmf_sdio_dev *sdiodev = bus->sdiodev;
+	int err = 0;
+
+	/* After firmware redownload tx/rx seq are reset accordingly
+	 * these values are reset on FMAC side tx_max is initially set to 4,
+	 * which later is updated by FW.
+	 */
+	bus->tx_seq = 0;
+	bus->rx_seq = 0;
+	bus->tx_max = 4;
+
+	err = brcmf_fw_get_firmwares(sdiodev->dev, BRCMF_FW_REQUEST_NVRAM,
+				     sdiodev->fw_name, sdiodev->nvram_name,
+				     brcmf_sdio_firmware_callback);
+	if (err != 0)
+		brcmf_err("async firmware request failed: %d\n", err);
+	return err;
+}
+
+/* Check if device is in DS1 mode and handshake with ULP UCODE */
+static bool
+brcmf_sdio_ulp_pre_redownload_check(struct brcmf_sdio *bus)
+{
+	int err = 0;
+	u32 value = 0;
+	u32 val32, ulp_wake_ind, wowl_wake_ind;
+	int reg_addr;
+	unsigned long timeout;
+
+	value = brcmf_sdiod_regrb(bus->sdiodev, SDIO_CCCR_IOEx, &err);
+
+	if (value == SDIO_FUNC_ENABLE_1) {
+		brcmf_dbg(SDIO, "GOT THE INTERRUPT FROM UCODE\n");
+		bus->sdiodev->ulp = true;
+		ulp_wake_ind = D11SHM_RD(bus->sdiodev, M_ULP_WAKE_IND(
+				  bus->sdiodev->shm_ulp), &err) >> 16;
+		wowl_wake_ind = D11SHM_RD(bus->sdiodev, M_WAKEEVENT_IND(
+				  bus->sdiodev->shm_ulp), &err) >> 16;
+
+		brcmf_dbg(SDIO, "wowl_wake_ind: 0x%08x, ulp_wake_ind: 0x%08x\n",
+			  wowl_wake_ind, ulp_wake_ind);
+
+		if (wowl_wake_ind || ulp_wake_ind) {
+			/* TX wake Don't do anything.
+			 * Just bail out and re-download firmware.
+			 */
+		} else {
+			/* RX wake negotiate with MAC */
+			brcmf_dbg(SDIO, "M_DS1_CTRL_SDIO: 0x%08x\n",
+				  (u32)D11SHM_RD(bus->sdiodev,
+				  M_DS1_CTRL_SDIO(bus->sdiodev->shm_ulp),
+				  &err));
+			D11SHM_WR(bus->sdiodev, M_DS1_CTRL_SDIO(
+				  bus->sdiodev->shm_ulp),
+				  C_DS1_CTRL_SDIO_DS1_EXIT |
+				  C_DS1_CTRL_REQ_VALID,
+				  &err);
+			val32 = D11REG_RD(bus->sdiodev,
+					  D11_MACCONTROL_REG, &err);
+			val32 = val32 | D11_MACCONTROL_REG_WAKE;
+			D11REG_WR(bus->sdiodev,
+				  D11_MACCONTROL_REG, val32, &err);
+
+			/* Poll for PROC_DONE to be set by ucode */
+			value = D11SHM_RD(bus->sdiodev,
+					  M_DS1_CTRL_SDIO(
+					  bus->sdiodev->shm_ulp), &err);
+			/* Wait here (polling) for C_DS1_CTRL_PROC_DONE */
+			timeout = jiffies + ULP_HUDI_PROC_DONE_TIME;
+			while (!(value & C_DS1_CTRL_PROC_DONE)) {
+				value = D11SHM_RD(bus->sdiodev,
+						  M_DS1_CTRL_SDIO(
+						  bus->sdiodev->shm_ulp), &err);
+				if (time_after(jiffies, timeout))
+					break;
+				usleep_range(1000, 2000);
+			}
+			brcmf_dbg(SDIO, "M_DS1_CTRL_SDIO: 0x%08x\n",
+				  (u32)D11SHM_RD(bus->sdiodev,
+				  M_DS1_CTRL_SDIO(
+				  bus->sdiodev->shm_ulp), &err));
+			value = D11SHM_RD(bus->sdiodev,
+					  M_DS1_CTRL_SDIO(
+					  bus->sdiodev->shm_ulp), &err);
+			if (!(value & C_DS1_CTRL_PROC_DONE)) {
+				brcmf_err("%s: timeout Failed to enter DS1 Exit state!\n",
+					  __func__);
+				return false;
+			}
+		}
+		ulp_wake_ind = D11SHM_RD(bus->sdiodev, M_ULP_WAKE_IND(
+				  bus->sdiodev->shm_ulp), &err) >> 16;
+		wowl_wake_ind = D11SHM_RD(bus->sdiodev, M_WAKEEVENT_IND(
+				  bus->sdiodev->shm_ulp), &err) >> 16;
+		brcmf_dbg(SDIO, "wowl_wake_ind: 0x%08x, ulp_wake_ind: 0x%08x\n",
+			  wowl_wake_ind, ulp_wake_ind);
+		reg_addr = CORE_CC_REG(
+			  brcmf_chip_get_pmu(bus->ci)->base, min_res_mask);
+		brcmf_sdiod_regwl(bus->sdiodev, reg_addr,
+				  DEFAULT_43012_MIN_RES_MASK, &err);
+		if (err)
+			brcmf_err("min_res_mask failed\n");
+
+		return true;
+	}
+
+	return false;
+}
+
 static void brcmf_sdio_dpc(struct brcmf_sdio *bus)
 {
 	u32 newstatus = 0;
@@ -2622,6 +2776,8 @@ static void brcmf_sdio_dpc(struct brcmf_sdio *bus)
 	if (intstatus & I_HMB_HOST_INT) {
 		intstatus &= ~I_HMB_HOST_INT;
 		intstatus |= brcmf_sdio_hostmail(bus);
+		if (brcmf_sdio_ulp_pre_redownload_check(bus))
+			brcmf_sdio_ulp_reinit_fw(bus);
 	}
 
 	sdio_release_host(bus->sdiodev->func[1]);
@@ -3477,6 +3633,10 @@ static int brcmf_sdio_bus_preinit(struct device *dev)
 	if (err < 0)
 		goto done;
 
+	/* initialize SHM address from firmware for DS1 */
+	if (!bus->sdiodev->ulp)
+		brcmf_sdio_ulp_preinit(dev);
+
 	bus->tx_hdrlen = SDPCM_HWHDR_LEN + SDPCM_SWHDR_LEN;
 	if (sdiodev->sg_support) {
 		bus->txglom = false;
@@ -4172,11 +4332,18 @@ static void brcmf_sdio_firmware_callback(struct device *dev, int err,
 
 	sdio_release_host(sdiodev->func[1]);
 
-	err = brcmf_bus_started(dev);
-	if (err != 0) {
-		brcmf_err("dongle is not responding\n");
-		goto fail;
+	/* Waking up from deep sleep don't requirerd to reint the sdio bus
+	 * as all sdiod core registers will get restored by Firmware using
+	 * FCBS engine.
+	 */
+	if (!bus->sdiodev->ulp) {
+		err = brcmf_bus_started(dev);
+		if (err != 0) {
+			brcmf_err("dongle is not responding\n");
+			goto fail;
+		}
 	}
+
 	return;
 
 release:
