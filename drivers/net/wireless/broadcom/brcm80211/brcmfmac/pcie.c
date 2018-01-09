@@ -2071,7 +2071,7 @@ static void brcmf_pcie_setup(struct device *dev, int ret,
 	brcmf_pcie_intr_enable(devinfo);
 	brcmf_pcie_hostready(devinfo);
 
-	ret = brcmf_attach(&devinfo->pdev->dev);
+	ret = brcmf_attach(&devinfo->pdev->dev, true);
 	if (ret)
 		goto fail;
 
