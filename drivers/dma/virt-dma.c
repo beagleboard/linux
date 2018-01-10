@@ -110,10 +110,7 @@ static void vchan_complete(unsigned long arg)
 		cb_data = vd->tx.callback_param;
 
 		list_del(&vd->node);
-		if (dmaengine_desc_test_reuse(&vd->tx))
-			list_add(&vd->node, &vc->desc_allocated);
-		else
-			vc->desc_free(vd);
+		vchan_vdesc_fini(vd);
 
 		if (cb)
 			cb(cb_data);
