@@ -1489,7 +1489,9 @@ execbuf_submit(struct i915_execbuffer_params *params,
 	if (ret)
 		return ret;
 
+#ifndef CONFIG_PREEMPT_RT_BASE
 	trace_i915_gem_ring_dispatch(params->request, params->dispatch_flags);
+#endif
 
 	i915_gem_execbuffer_move_to_active(vmas, params->request);
 
