@@ -44,7 +44,7 @@ void __delayacct_tsk_init(struct task_struct *tsk)
 {
 	tsk->delays = kmem_cache_zalloc(delayacct_cache, GFP_KERNEL);
 	if (tsk->delays)
-		spin_lock_init(&tsk->delays->lock);
+		raw_spin_lock_init(&tsk->delays->lock);
 }
 
 /*
@@ -57,10 +57,10 @@ static void delayacct_end(u64 *start, u64 *total, u32 *count)
 	unsigned long flags;
 
 	if (ns > 0) {
-		spin_lock_irqsave(&current->delays->lock, flags);
+		raw_spin_lock_irqsave(&current->delays->lock, flags);
 		*total += ns;
 		(*count)++;
-		spin_unlock_irqrestore(&current->delays->lock, flags);
+		raw_spin_unlock_irqrestore(&current->delays->lock, flags);
 	}
 }
 
@@ -119,7 +119,7 @@ int __delayacct_add_tsk(struct taskstats *d, struct task_struct *tsk)
 
 	/* zero XXX_total, non-zero XXX_count implies XXX stat overflowed */
 
-	spin_lock_irqsave(&tsk->delays->lock, flags);
+	raw_spin_lock_irqsave(&tsk->delays->lock, flags);
 	tmp = d->blkio_delay_total + tsk->delays->blkio_delay;
 	d->blkio_delay_total = (tmp < d->blkio_delay_total) ? 0 : tmp;
 	tmp = d->swapin_delay_total + tsk->delays->swapin_delay;
@@ -129,7 +129,7 @@ int __delayacct_add_tsk(struct taskstats *d, struct task_struct *tsk)
 	d->blkio_count += tsk->delays->blkio_count;
 	d->swapin_count += tsk->delays->swapin_count;
 	d->freepages_count += tsk->delays->freepages_count;
-	spin_unlock_irqrestore(&tsk->delays->lock, flags);
+	raw_spin_unlock_irqrestore(&tsk->delays->lock, flags);
 
 	return 0;
 }
@@ -139,10 +139,10 @@ __u64 __delayacct_blkio_ticks(struct task_struct *tsk)
 	__u64 ret;
 	unsigned long flags;
 
-	spin_lock_irqsave(&tsk->delays->lock, flags);
+	raw_spin_lock_irqsave(&tsk->delays->lock, flags);
 	ret = nsec_to_clock_t(tsk->delays->blkio_delay +
 				tsk->delays->swapin_delay);
-	spin_unlock_irqrestore(&tsk->delays->lock, flags);
+	raw_spin_unlock_irqrestore(&tsk->delays->lock, flags);
 	return ret;
 }
 
