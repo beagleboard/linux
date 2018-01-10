@@ -441,12 +441,19 @@ static void palmas_power_off(void)
 		of_property_read_bool(node, "ti,palmas-override-powerhold");
 
 	if (override_powerhold) {
+		u32 powerhold_mask;
+
+		if (of_device_is_compatible(node, "ti,tps65917"))
+			powerhold_mask = TPS65917_PRIMARY_SECONDARY_PAD2_GPIO_5_MASK;
+		else
+			powerhold_mask = PALMAS_PRIMARY_SECONDARY_PAD2_GPIO_7_MASK;
+
 		addr = PALMAS_BASE_TO_REG(PALMAS_PU_PD_OD_BASE,
 					  PALMAS_PRIMARY_SECONDARY_PAD2);
 		slave = PALMAS_BASE_TO_SLAVE(PALMAS_PU_PD_OD_BASE);
 
 		ret = regmap_update_bits(palmas_dev->regmap[slave], addr,
-					 PALMAS_PRIMARY_SECONDARY_PAD2_GPIO_7_MASK, 0);
+					 powerhold_mask, 0);
 		if (ret)
 			pr_err("%s: Unable to write PALMAS_PRIMARY_SECONDARY_PAD2 %d\n",
 			       __func__, ret);
