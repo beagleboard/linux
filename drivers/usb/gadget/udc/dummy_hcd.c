@@ -2181,8 +2181,6 @@ static int dummy_hub_control(
 							USB_PORT_STAT_LOW_SPEED;
 						break;
 					default:
-						dum_hcd->dum->gadget.speed =
-							USB_SPEED_FULL;
 						break;
 					}
 				}
