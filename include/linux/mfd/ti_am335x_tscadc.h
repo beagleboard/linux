@@ -63,6 +63,7 @@
 #define IRQENB_FIFO1OVRRUN	BIT(6)
 #define IRQENB_FIFO1UNDRFLW	BIT(7)
 #define IRQENB_PENUP		BIT(9)
+#define IRQENB_MASK		(0x7FF)
 
 /* Step Configuration */
 #define STEPCONFIG_MODE_MASK	(3 << 0)
