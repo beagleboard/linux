@@ -1,0 +1,105 @@
+/*
+ * Copyright (C) 2017 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+#include <dra76-evm.dts>
+
+/ {
+	tfp410: encoder@0 {
+		compatible = "ti,tfp410";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				tfp410_in: endpoint@0 {
+					remote-endpoint = <&dpi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				tfp410_out: endpoint@0 {
+					remote-endpoint = <&dvi_connector_in>;
+				};
+			};
+		};
+	};
+
+	dvi0: connector@0 {
+		compatible = "dvi-connector";
+		label = "dvi";
+
+		digital;
+
+		ddc-i2c-bus = <&i2c3>;
+
+		hpd-gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;	/* wakeup2/sys_nirq2/gpio1_2 HPD */
+
+		port {
+			dvi_connector_in: endpoint {
+				remote-endpoint = <&tfp410_out>;
+			};
+		};
+	};
+};
+
+&dss {
+	status = "ok";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "ok";
+
+		port {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				remote-endpoint = <&tfp410_in>;
+				data-lines = <24>;
+			};
+		};
+	};
+};
+
+&gpio3 {
+	p1 {
+		/* GPIO3_1 CON_LCD_PWR_DN */
+		/* This affects the TFP410 and the USB */
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "CON_LCD_PWR_DN";
+	};
+};
+
+&i2c3 {
+	clock-frequency = <100000>;
+
+	pcf_tfp: pcf8757@20 {
+		compatible = "ti,pcf8575", "nxp,pcf8575";
+		reg = <0x27>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		p2 {
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "ct_hpd";
+		};
+
+		p3 {
+			gpio-hog;
+			gpios = <3 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "ls_oe";
+		};
+	};
+};
