@@ -1298,6 +1298,17 @@ static const struct soc_device_attribute dss_soc_devices[] = {
 	{ /* sentinel */ }
 };
 
+static struct platform_device *omap_drm_device = NULL;
+
+static int initialize_omapdrm_device(void)
+{
+	omap_drm_device = platform_device_register_simple("omapdrm", 0, NULL, 0);
+	if (IS_ERR(omap_drm_device))
+		return PTR_ERR(omap_drm_device);
+
+	return 0;
+}
+
 static int dss_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -1359,6 +1370,10 @@ static int dss_bind(struct device *dev)
 	if (r)
 		goto err_component;
 
+	r = initialize_omapdrm_device();
+	if (r)
+		goto err_omapdrm_device;
+
 	dss_debugfs_create_file("dss", dss_dump_regs);
 
 	pm_set_vt_switch(0);
@@ -1368,6 +1383,8 @@ static int dss_bind(struct device *dev)
 
 	return 0;
 
+err_omapdrm_device:
+	component_unbind_all(&pdev->dev, NULL);
 err_component:
 err_runtime_get:
 	pm_runtime_disable(&pdev->dev);
@@ -1389,6 +1406,8 @@ static void dss_unbind(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 
 	omapdss_set_is_initialized(false);
+
+	platform_device_unregister(omap_drm_device);
 
 	component_unbind_all(&pdev->dev, NULL);
 
