@@ -5,7 +5,7 @@ DTC_FLAGS_MKIMAGE = -I dts -O dtb -p 500 -Wno-unit_address_vs_reg \
 ifneq ($(DTC),)
   DTC_PATH=$(dir $(DTC))
 else
-  DTC_PATH=$(srctree)/scripts/dtc
+  DTC_PATH=$(objtree)/scripts/dtc
 endif
 
 quiet_cmd_mkfit = MKIMAGE -f $@
