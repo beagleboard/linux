@@ -207,8 +207,9 @@ struct ucred {
 				 * PF_SMC protocol family that
 				 * reuses AF_INET address family
 				 */
+#define AF_RPMSG	44	/* Remote-processor messaging   */
 
-#define AF_MAX		44	/* For now.. */
+#define AF_MAX		45	/* For now.. */
 
 /* Protocol families, same as address families. */
 #define PF_UNSPEC	AF_UNSPEC
@@ -257,6 +258,7 @@ struct ucred {
 #define PF_KCM		AF_KCM
 #define PF_QIPCRTR	AF_QIPCRTR
 #define PF_SMC		AF_SMC
+#define PF_RPMSG	AF_RPMSG
 #define PF_MAX		AF_MAX
 
 /* Maximum queue length specifiable by listen.  */
@@ -337,6 +339,7 @@ struct ucred {
 #define SOL_NFC		280
 #define SOL_KCM		281
 #define SOL_TLS		282
+#define SOL_RPMSG	283
 
 /* IPX options */
 #define IPX_TYPE	1
