@@ -1923,10 +1923,10 @@ static int __attach_device(struct iommu_dev_data *dev_data,
 	int ret;
 
 	/*
-	 * Must be called with IRQs disabled. Warn here to detect early
-	 * when its not.
+	 * Must be called with IRQs disabled on a non RT kernel. Warn here to
+	 * detect early when its not.
 	 */
-	WARN_ON(!irqs_disabled());
+	WARN_ON_NONRT(!irqs_disabled());
 
 	/* lock domain */
 	spin_lock(&domain->lock);
@@ -2094,10 +2094,10 @@ static void __detach_device(struct iommu_dev_data *dev_data)
 	struct protection_domain *domain;
 
 	/*
-	 * Must be called with IRQs disabled. Warn here to detect early
-	 * when its not.
+	 * Must be called with IRQs disabled on a non RT kernel. Warn here to
+	 * detect early when its not.
 	 */
-	WARN_ON(!irqs_disabled());
+	WARN_ON_NONRT(!irqs_disabled());
 
 	if (WARN_ON(!dev_data->domain))
 		return;
@@ -2283,7 +2283,7 @@ static void queue_add(struct dma_ops_domain *dma_dom,
 	pages     = __roundup_pow_of_two(pages);
 	address >>= PAGE_SHIFT;
 
-	queue = get_cpu_ptr(&flush_queue);
+	queue = raw_cpu_ptr(&flush_queue);
 	spin_lock_irqsave(&queue->lock, flags);
 
 	if (queue->next == FLUSH_QUEUE_SIZE)
@@ -2300,8 +2300,6 @@ static void queue_add(struct dma_ops_domain *dma_dom,
 
 	if (atomic_cmpxchg(&queue_timer_on, 0, 1) == 0)
 		mod_timer(&queue_timer, jiffies + msecs_to_jiffies(10));
-
-	put_cpu_ptr(&flush_queue);
 }
 
 
