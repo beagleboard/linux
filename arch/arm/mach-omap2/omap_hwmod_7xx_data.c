@@ -306,6 +306,21 @@ static struct omap_hwmod dra7xx_cal_hwmod = {
 	},
 };
 
+static struct omap_hwmod dra76x_cal_hwmod = {
+	.name		= "cal",
+	.class		= &dra7xx_cal_hwmod_class,
+	.clkdm_name	= "cam_clkdm",
+	.main_clk	= "vip3_gclk_mux",
+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = DRA7XX_CM_CAM_VIP3_CLKCTRL_OFFSET,
+			.context_offs = DRA7XX_RM_CAM_VIP3_CONTEXT_OFFSET,
+			.modulemode   = MODULEMODE_HWCTRL,
+		},
+	},
+};
+
 /*
  * 'counter' class
  *
@@ -3879,6 +3894,14 @@ static struct omap_hwmod_ocp_if dra7xx_l4_per2__cal = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
+/* l4_per3 -> dra76x_cal */
+static struct omap_hwmod_ocp_if dra76x_l4_per3__cal = {
+	.master		= &dra7xx_l4_per3_hwmod,
+	.slave		= &dra76x_cal_hwmod,
+	.clk		= "l3_iclk_div",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
+};
+
 /* l4_wkup -> wd_timer2 */
 static struct omap_hwmod_ocp_if dra7xx_l4_wkup__wd_timer2 = {
 	.master		= &dra7xx_l4_wkup_hwmod,
@@ -4056,6 +4079,7 @@ static struct omap_hwmod_ocp_if *dra76x_hwmod_ocp_ifs[] __initdata = {
 };
 
 static struct omap_hwmod_ocp_if *acd_76x_hwmod_ocp_ifs[] __initdata = {
+	&dra76x_l4_per3__cal,
 	NULL,
 };
 
