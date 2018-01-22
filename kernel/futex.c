@@ -2248,10 +2248,6 @@ static int __fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
 
 	oldowner = pi_state->owner;
 
-	/* Owner died? */
-	if (!pi_state->owner)
-		newtid |= FUTEX_OWNER_DIED;
-
 	/*
 	 * We are here because either:
 	 *
@@ -2309,6 +2305,9 @@ retry:
 	}
 
 	newtid = task_pid_vnr(newowner) | FUTEX_WAITERS;
+	/* Owner died? */
+	if (!pi_state->owner)
+		newtid |= FUTEX_OWNER_DIED;
 
 	if (get_futex_value_locked(&uval, uaddr))
 		goto handle_fault;
