@@ -388,6 +388,25 @@ static struct fbtft_device_display displays[] = {
 			}
 		}
 	}, {
+		.name = "mikroe_oledb",
+		.spi = &(struct spi_board_info) {
+			.modalias = "fb_ssd1306",
+			.max_speed_hz = 16000000,
+			.mode = SPI_MODE_0,
+			.platform_data = &(struct fbtft_platform_data) {
+				.display = {
+					.width = 96,
+					.height = 39,
+					.buswidth = 8,
+				},
+				.gpios = (const struct fbtft_gpio []) {
+					{ "reset", 45 },
+					{ "dc", 110 },
+					{},
+				},
+			}
+		}
+	}, {
 		.name = "admatec_c-berry28",
 		.spi = &(struct spi_board_info) {
 			.modalias = "fb_st7789v",
