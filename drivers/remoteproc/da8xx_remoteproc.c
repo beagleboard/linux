@@ -278,6 +278,9 @@ static int da8xx_rproc_probe(struct platform_device *pdev)
 		goto free_mem;
 	}
 
+	/* error recovery is not supported at present */
+	rproc->recovery_disabled = true;
+
 	drproc = rproc->priv;
 	drproc->rproc = rproc;
 	drproc->dsp_clk = dsp_clk;
@@ -318,6 +321,9 @@ static int da8xx_rproc_probe(struct platform_device *pdev)
 		dev_err(dev, "rproc_add failed: %d\n", ret);
 		goto free_rproc;
 	}
+
+	if (rproc_get_id(rproc) < 0)
+		dev_warn(dev, "device does not have an alias id or platform device id\n");
 
 	return 0;
 
