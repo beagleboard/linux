@@ -605,6 +605,21 @@
 		#gpio-cells = <2>;
 		vcc-supply = <&vdd_3v3>;
 	};
+
+	/* osd9616p0899-10 */
+	display@3c {
+		compatible = "solomon,ssd1306fb-i2c";
+		reg = <0x3c>;
+		reset-gpios = <&gpio1 52 GPIO_ACTIVE_HIGH>;
+		vbat-supply = <&vddb>;
+		solomon,height = <16>;
+		solomon,width = <96>;
+		solomon,com-seq;
+		solomon,com-invdir;
+		solomon,page-offset = <0>;
+		solomon,prechargep1 = <2>;
+		solomon,prechargep2 = <13>;
+	};
 };
 
 &qmss {
