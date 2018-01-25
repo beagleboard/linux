@@ -9,6 +9,9 @@
 / {
 	aliases {
 		display0 = &hdmi0;
+
+		sound0 = &sound;
+		sound1 = &hdmi;
 	};
 
 	chosen {
