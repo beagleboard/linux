@@ -13,6 +13,9 @@
 
 	aliases {
 		display0 = &hdmi0;
+
+		sound0 = &sound0;
+		sound1 = &hdmi;
 	};
 
 	chosen {
