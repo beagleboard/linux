@@ -2,6 +2,7 @@
 #
 # TI Keystone SOC drivers
 #
+obj-$(CONFIG_KEYSTONE_DSP_MEM)		+= keystone_dsp_mem.o
 obj-$(CONFIG_KEYSTONE_NAVIGATOR_QMSS)	+= knav_qmss.o
 knav_qmss-y := knav_qmss_queue.o knav_qmss_acc.o
 obj-$(CONFIG_KEYSTONE_NAVIGATOR_DMA)	+= knav_dma.o
