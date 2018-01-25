@@ -289,8 +289,6 @@ static const struct tilcdc_module_ops tfp410_module_ops = {
  * Device:
  */
 
-static struct of_device_id tfp410_of_match[];
-
 static int tfp410_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -375,7 +373,7 @@ static int tfp410_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id tfp410_of_match[] = {
+static const struct of_device_id tfp410_of_match[] = {
 		{ .compatible = "ti,tilcdc,tfp410", },
 		{ },
 };
@@ -385,7 +383,7 @@ struct platform_driver tfp410_driver = {
 	.remove = tfp410_remove,
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "tfp410",
+		.name = "tilcdc-tfp410",
 		.of_match_table = tfp410_of_match,
 	},
 };
