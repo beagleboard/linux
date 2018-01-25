@@ -1128,6 +1128,7 @@ struct snd_soc_card {
 	struct mutex mutex;
 	struct mutex dapm_mutex;
 
+	int id_hint;
 	bool instantiated;
 
 	int (*probe)(struct snd_soc_card *card);
