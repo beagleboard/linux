@@ -6,6 +6,7 @@
  * License: GPLv2 as published by the FSF.
  */
 
+#include <linux/bitops.h>
 #include <linux/module.h>
 #include <linux/input.h>
 #include <linux/of.h>
@@ -19,6 +20,10 @@
 #define AR1021_MAX_Y	4095
 #define AR1021_MAX_PRESSURE 255
 
+#define AR1021_CMD	0x55
+
+#define AR1021_CMD_ENABLE_TOUCH		0x12
+
 struct ar1021_i2c {
 	struct i2c_client *client;
 	struct input_dev *input;
@@ -27,6 +32,24 @@ struct ar1021_i2c {
 	bool invert_y;
 	bool swap_xy;
 };
+
+static bool ar1021_get_prop_u32(struct device *dev,
+				     const char *property,
+				     unsigned int default_value,
+				     unsigned int *value)
+{
+	u32 val;
+	int error;
+
+	error = device_property_read_u32(dev, property, &val);
+	if (error) {
+		*value = default_value;
+		return false;
+	}
+
+	*value = val;
+	return true;
+}
 
 static irqreturn_t ar1021_i2c_irq(int irq, void *dev_id)
 {
@@ -37,12 +60,12 @@ static irqreturn_t ar1021_i2c_irq(int irq, void *dev_id)
 	int retval;
 
 	retval = i2c_master_recv(ar1021->client,
-				ar1021->data, sizeof(ar1021->data));
+				 ar1021->data, sizeof(ar1021->data));
 	if (retval != sizeof(ar1021->data))
 		goto out;
 
 	/* sync bit set ? */
-	if ((data[0] & 0x80) == 0)
+	if (!(data[0] & BIT(7)))
 		goto out;
 
 	button = data[0] & BIT(0);
@@ -73,8 +96,19 @@ out:
 
 static int ar1021_i2c_open(struct input_dev *dev)
 {
+	static const u8 cmd_enable_touch[] = {
+		AR1021_CMD,
+		0x01, /* number of bytes after this */
+		AR1021_CMD_ENABLE_TOUCH
+	};
 	struct ar1021_i2c *ar1021 = input_get_drvdata(dev);
 	struct i2c_client *client = ar1021->client;
+	int error;
+
+	error = i2c_master_send(ar1021->client, cmd_enable_touch,
+				sizeof(cmd_enable_touch));
+	if (error < 0)
+		return error;
 
 	enable_irq(client->irq);
 
@@ -90,11 +124,13 @@ static void ar1021_i2c_close(struct input_dev *dev)
 }
 
 static int ar1021_i2c_probe(struct i2c_client *client,
-				     const struct i2c_device_id *id)
+			    const struct i2c_device_id *id)
 {
 	struct ar1021_i2c *ar1021;
 	struct input_dev *input;
 	int error;
+	unsigned int offset_x, offset_y;
+	bool data_present;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "i2c_check_functionality error\n");
@@ -122,20 +158,37 @@ static int ar1021_i2c_probe(struct i2c_client *client,
 	ar1021->invert_y = device_property_read_bool(&client->dev, "touchscreen-inverted-y");
 	ar1021->swap_xy = device_property_read_bool(&client->dev, "touchscreen-swapped-x-y");
 
+	data_present = ar1021_get_prop_u32(&client->dev,
+						"touchscreen-offset-x",
+						0,
+						&offset_x);
+
+	if (data_present)
+		dev_info(&client->dev, "touchscreen-offset-x: %d\n", offset_x);
+
+	data_present = ar1021_get_prop_u32(&client->dev,
+						"touchscreen-offset-y",
+						0,
+						&offset_y);
+
+	if (data_present)
+		dev_info(&client->dev, "touchscreen-offset-y: %d\n", offset_y);
+
+
 	//input_set_capability(input, EV_KEY, BTN_TOUCH);
 	input->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 
 	input->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
-    if(ar1021->swap_xy)
+	if(ar1021->swap_xy)
 	{
 		input_set_abs_params(input, ABS_X, 0, AR1021_MAX_Y, 0, 0);
 		input_set_abs_params(input, ABS_Y, 0, AR1021_MAX_X, 0, 0);
 	}
 	else
 	{
-		input_set_abs_params(input, ABS_X, 0, AR1021_MAX_X, 0, 0);
-		input_set_abs_params(input, ABS_Y, 0, AR1021_MAX_Y, 0, 0);
+		input_set_abs_params(input, ABS_X, offset_x, AR1021_MAX_X-offset_x, 0, 0);
+		input_set_abs_params(input, ABS_Y, offset_y, AR1021_MAX_Y-offset_y, 0, 0);
 	}
 
 	input_set_abs_params(input, ABS_PRESSURE, 0, AR1021_MAX_PRESSURE, 0, 0);
