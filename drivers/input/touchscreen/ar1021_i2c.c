@@ -24,6 +24,10 @@
 
 #define AR1021_CMD_ENABLE_TOUCH		0x12
 
+#define AR1021_CMD	0x55
+
+#define AR1021_CMD_ENABLE_TOUCH		0x12
+
 struct ar1021_i2c {
 	struct i2c_client *client;
 	struct input_dev *input;
@@ -32,6 +36,24 @@ struct ar1021_i2c {
 	bool invert_y;
 	bool swap_xy;
 };
+
+static bool ar1021_get_prop_u32(struct device *dev,
+				     const char *property,
+				     unsigned int default_value,
+				     unsigned int *value)
+{
+	u32 val;
+	int error;
+
+	error = device_property_read_u32(dev, property, &val);
+	if (error) {
+		*value = default_value;
+		return false;
+	}
+
+	*value = val;
+	return true;
+}
 
 static irqreturn_t ar1021_i2c_irq(int irq, void *dev_id)
 {
@@ -111,6 +133,8 @@ static int ar1021_i2c_probe(struct i2c_client *client,
 	struct ar1021_i2c *ar1021;
 	struct input_dev *input;
 	int error;
+	unsigned int offset_x, offset_y;
+	bool data_present;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "i2c_check_functionality error\n");
@@ -138,6 +162,22 @@ static int ar1021_i2c_probe(struct i2c_client *client,
 	ar1021->invert_y = device_property_read_bool(&client->dev, "touchscreen-inverted-y");
 	ar1021->swap_xy = device_property_read_bool(&client->dev, "touchscreen-swapped-x-y");
 
+	data_present = ar1021_get_prop_u32(&client->dev,
+						"touchscreen-offset-x",
+						0,
+						&offset_x);
+
+	if (data_present)
+		dev_info(&client->dev, "touchscreen-offset-x: %d\n", offset_x);
+
+	data_present = ar1021_get_prop_u32(&client->dev,
+						"touchscreen-offset-y",
+						0,
+						&offset_y);
+
+	if (data_present)
+		dev_info(&client->dev, "touchscreen-offset-y: %d\n", offset_y);
+
 	__set_bit(INPUT_PROP_DIRECT, input->propbit);
 	//input_set_capability(input, EV_KEY, BTN_TOUCH);
 
@@ -151,8 +191,8 @@ static int ar1021_i2c_probe(struct i2c_client *client,
 	}
 	else
 	{
-		input_set_abs_params(input, ABS_X, 0, AR1021_MAX_X, 0, 0);
-		input_set_abs_params(input, ABS_Y, 0, AR1021_MAX_Y, 0, 0);
+		input_set_abs_params(input, ABS_X, offset_x, AR1021_MAX_X-offset_x, 0, 0);
+		input_set_abs_params(input, ABS_Y, offset_y, AR1021_MAX_Y-offset_y, 0, 0);
 	}
 
 	input_set_abs_params(input, ABS_PRESSURE, 0, AR1021_MAX_PRESSURE, 0, 0);
