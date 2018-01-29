@@ -24,6 +24,8 @@ enum pruss_pru_id {
 
 int pruss_intc_trigger(unsigned int irq);
 
+struct rproc *pru_rproc_get(struct device_node *node, int index);
+void pru_rproc_put(struct rproc *rproc);
 enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc);
 
 #else
@@ -32,6 +34,13 @@ static inline int pruss_intc_trigger(unsigned int irq)
 {
 	return -ENOTSUPP;
 }
+
+static inline struct rproc *pru_rproc_get(struct device_node *node, int index)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline void pru_rproc_put(struct rproc *rproc) { }
 
 static inline enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc)
 {
