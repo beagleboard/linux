@@ -521,6 +521,17 @@ config MISC_RTSX
 	tristate
 	default MISC_RTSX_PCI || MISC_RTSX_USB
 
+config TIEQEP
+	tristate "EQEP Hardware quadrature encoder controller"
+	depends on SOC_AM33XX
+	select PWM_TIPWMSS
+	help
+	  Driver support for the EQEP quadrature encoder controller AM33XX
+	  TI SOC
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called tieqep.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
