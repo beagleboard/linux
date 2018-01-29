@@ -95,6 +95,7 @@ enum pru_type {
  * @shrdram_da: device address of shared Data RAM
  * @fw_name: name of firmware image used during loading
  * @dt_irqs: number of irqs configured from DT
+ * @gpmux_save: saved value for gpmux config
  * @lock: mutex to protect client usage
  * @dbg_single_step: debug state variable to set PRU into single step mode
  * @dbg_continuous: debug state variable to restore PRU execution mode
@@ -121,6 +122,7 @@ struct pru_rproc {
 	u32 shrdram_da;
 	const char *fw_name;
 	int dt_irqs;
+	u8 gpmux_save;
 	struct mutex lock; /* client access lock */
 	u32 dbg_single_step;
 	u32 dbg_continuous;
@@ -334,6 +336,7 @@ struct rproc *pru_rproc_get(struct device_node *np, int index)
 	const char *fw_name;
 	struct device *dev;
 	int ret;
+	u32 mux;
 
 	rproc = __pru_rproc_get(np, index);
 	if (IS_ERR(rproc))
@@ -354,6 +357,22 @@ struct rproc *pru_rproc_get(struct device_node *np, int index)
 	rproc->deny_sysfs_ops = 1;
 
 	mutex_unlock(&pru->lock);
+
+	ret = pruss_cfg_get_gpmux(pru->pruss, pru->id, &pru->gpmux_save);
+	if (ret) {
+		dev_err(dev, "failed to get cfg gpmux: %d\n", ret);
+		goto err;
+	}
+
+	ret = of_property_read_u32_index(np, "ti,pruss-gp-mux-sel", index,
+					 &mux);
+	if (!ret) {
+		ret = pruss_cfg_set_gpmux(pru->pruss, pru->id, mux);
+		if (ret) {
+			dev_err(dev, "failed to set cfg gpmux: %d\n", ret);
+			goto err;
+		}
+	}
 
 	ret = of_property_read_string_index(np, "firmware-name", index,
 					    &fw_name);
@@ -399,6 +418,8 @@ void pru_rproc_put(struct rproc *rproc)
 	pru = rproc->priv;
 	if (!pru->client_np)
 		return;
+
+	pruss_cfg_set_gpmux(pru->pruss, pru->id, pru->gpmux_save);
 
 	if (pru->dt_irqs)
 		pruss_intc_unconfigure(pru->dev, &pru->intc_config);
