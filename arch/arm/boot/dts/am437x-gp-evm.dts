@@ -1020,3 +1020,15 @@
 &cpu {
 	cpu0-supply = <&dcdc2>;
 };
+
+&pruss_soc_bus {
+	status = "okay";
+
+	pruss1: pruss@54400000 {
+		status = "okay";
+	};
+
+	pruss0: pruss@54440000 {
+		status = "okay";
+	};
+};
