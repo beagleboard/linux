@@ -587,3 +587,19 @@
 		status = "okay";
 	};
 };
+
+&pruss_soc_bus1 {
+	status = "okay";
+
+	pruss1: pruss@0 {
+		status = "okay";
+	};
+};
+
+&pruss_soc_bus2 {
+	status = "okay";
+
+	pruss2: pruss@0 {
+		status = "okay";
+	};
+};
