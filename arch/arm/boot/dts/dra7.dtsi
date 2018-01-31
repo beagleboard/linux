@@ -341,7 +341,7 @@
 				ti,hwmods = "pcie1";
 				phys = <&pcie1_phy>;
 				phy-names = "pcie-phy0";
-				syscon-legacy-mode = <&scm_conf1 0x14 2>;
+				syscon-legacy-mode = <&scm_conf1 0x14 1>;
 				status = "disabled";
 			};
 		};
