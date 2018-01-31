@@ -226,6 +226,7 @@ static int dra7xx_pcie_intx_map(struct irq_domain *domain, unsigned int irq,
 
 static const struct irq_domain_ops intx_domain_ops = {
 	.map = dra7xx_pcie_intx_map,
+	.xlate = pci_irqd_intx_xlate,
 };
 
 static int dra7xx_pcie_init_irq_domain(struct pcie_port *pp)
@@ -256,20 +257,40 @@ static irqreturn_t dra7xx_pcie_msi_irq_handler(int irq, void *arg)
 	struct dra7xx_pcie *dra7xx = arg;
 	struct dw_pcie *pci = dra7xx->pci;
 	struct pcie_port *pp = &pci->pp;
-	u32 reg;
+	int count = 0;
+	unsigned long reg;
+	u32 virq, bit;
 
 	reg = dra7xx_pcie_readl(dra7xx, PCIECTRL_DRA7XX_CONF_IRQSTATUS_MSI);
 
 	switch (reg) {
 	case MSI:
-		dw_handle_msi_irq(pp);
+		/*
+		 * Need to make sure no MSI IRQs are pending before
+		 * exiting handler, else the wrapper will not catch new
+		 * IRQs. So loop around till dw_handle_msi_irq() returns
+		 * IRQ_NONE
+		 */
+		while (dw_handle_msi_irq(pp) != IRQ_NONE && count < 1000)
+			count++;
+
+		if (count == 1000) {
+			dev_err(pci->dev, "too much work in msi irq\n");
+			dra7xx_pcie_writel(dra7xx,
+					   PCIECTRL_DRA7XX_CONF_IRQSTATUS_MSI,
+					   reg);
+			return IRQ_HANDLED;
+		}
 		break;
 	case INTA:
 	case INTB:
 	case INTC:
 	case INTD:
-		generic_handle_irq(irq_find_mapping(dra7xx->irq_domain,
-						    ffs(reg)));
+		for_each_set_bit(bit, &reg, PCI_NUM_INTX) {
+			virq = irq_find_mapping(dra7xx->irq_domain, bit);
+			if (virq)
+				generic_handle_irq(virq);
+		}
 		break;
 	}
 
@@ -810,7 +831,7 @@ static int dra7xx_pcie_resume_noirq(struct device *dev)
 }
 #endif
 
-void dra7xx_pcie_shutdown(struct platform_device *pdev)
+static void dra7xx_pcie_shutdown(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct dra7xx_pcie *dra7xx = dev_get_drvdata(dev);
