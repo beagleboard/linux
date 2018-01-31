@@ -3301,6 +3301,20 @@ err0:
 
 void dwc3_gadget_exit(struct dwc3 *dwc)
 {
+	int epnum;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	for (epnum = 2; epnum < DWC3_ENDPOINTS_NUM; epnum++) {
+		struct dwc3_ep  *dep = dwc->eps[epnum];
+
+		if (!dep)
+			continue;
+
+		dep->flags &= ~DWC3_EP_END_TRANSFER_PENDING;
+	}
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
 	usb_del_gadget_udc(&dwc->gadget);
 	dwc3_gadget_free_endpoints(dwc);
 	dma_free_coherent(dwc->sysdev, DWC3_BOUNCE_SIZE, dwc->bounce,
