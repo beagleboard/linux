@@ -39,6 +39,22 @@
 			compression = "none";
 			load = <0x83080000>;
 		};
+		fdt@4 {
+			description = "MT9T111 camera support";
+			data = /incbin/("mt9t111.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
+		fdt@5 {
+			description = "OV10635 camera support";
+			data = /incbin/("ov10635.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
 	};
 
 	configurations {
@@ -62,6 +78,14 @@
 			description = "AM57xx beagle-x15 C";
 			kernel = "kernel@1";
 			fdt = "fdt@2";
+		};
+		cam-mt9t111 {
+			description = "MT9T111 camera";
+			fdt = "fdt@4";
+		};
+		cam-ov10635 {
+			description = "OV10635 camera";
+			fdt = "fdt@5";
 		};
 	};
 };

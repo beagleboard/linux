@@ -26,6 +26,8 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-beagle-x15.dtb \
 	am57xx-beagle-x15-revc.dtb \
 	am57xx-evm.dtbo \
+	mt9t111.dtbo \
+	ov10635.dtbo \
 	am57xx-evm.itb
 
 $(src)/am57xx-evm.itb: $(obj)/am57xx-evm.dtbo $(obj)/am57xx-beagle-x15.dtb \

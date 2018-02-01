@@ -561,7 +561,7 @@ config VIDEO_OV2640
 config VIDEO_OV2659
 	tristate "OmniVision OV2659 sensor support"
 	depends on VIDEO_V4L2 && I2C
-	depends on MEDIA_CAMERA_SUPPORT
+	depends on MEDIA_CAMERA_SUPPORT && GPIOLIB
 	select V4L2_FWNODE
 	---help---
 	  This is a Video4Linux2 sensor-level driver for the OmniVision
@@ -664,6 +664,29 @@ config VIDEO_OV13858
 	  This is a Video4Linux2 sensor-level driver for the OmniVision
 	  OV13858 camera.
 
+config VIDEO_OV1063X
+	tristate "OmniVision OV1063X sensor support"
+	depends on I2C && VIDEO_V4L2
+	depends on MEDIA_CAMERA_SUPPORT && GPIOLIB
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the OmniVision
+	  OV1063X Sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ov1063x.
+
+config VIDEO_OV490
+	tristate "OmniVision OV490 sensor support"
+	depends on I2C && VIDEO_V4L2 && GPIOLIB
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the OmniVision
+	  OV490 Sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ov10640.
+
 config VIDEO_VS6624
 	tristate "ST VS6624 sensor support"
 	depends on VIDEO_V4L2 && I2C
@@ -726,6 +749,16 @@ config VIDEO_MT9V032
 	---help---
 	  This is a Video4Linux2 sensor-level driver for the Micron
 	  MT9V032 752x480 CMOS sensor.
+
+config VIDEO_MT9T11X
+	tristate "Aptina MT9T11x sensor support"
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API && GPIOLIB
+	---help---
+	  This is a V4L2 sensor-level driver for the Aptina
+	  MT9T11x camera sensors.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called mt9t11x.
 
 config VIDEO_SR030PC30
 	tristate "Siliconfile SR030PC30 sensor support"

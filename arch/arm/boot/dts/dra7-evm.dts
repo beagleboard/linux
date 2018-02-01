@@ -399,6 +399,24 @@
 			line-name = "vin6_sel_s0";
 		};
 	};
+
+	ov10633@37 {
+		compatible = "ovti,ov10633";
+		reg = <0x37>;
+
+		clocks = <&clk_ov10633_fixed>;
+		clock-names = "xvclk";
+
+		mux-gpios = <&pcf_hdmi 3 GPIO_ACTIVE_LOW>; /* CAM_FPD_MUX_S0 */
+		port {
+			onboardLI: endpoint {
+				remote-endpoint = <&vin1a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
 };
 
 &mmc1 {
@@ -594,4 +612,12 @@
 &mcasp8 {
 	/* Not used for audio, only AXR2 pin is used as GPIO */
 	status = "okay";
+};
+
+&vin1a {
+	status = "okay";
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
+	};
 };

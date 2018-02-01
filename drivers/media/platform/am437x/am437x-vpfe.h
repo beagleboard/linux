@@ -23,6 +23,7 @@
 
 #include <linux/am437x-vpfe.h>
 #include <linux/clk.h>
+#include <linux/completion.h>
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/i2c.h>
@@ -220,6 +221,25 @@ struct vpfe_ccdc {
 	u32 ccdc_ctx[VPFE_REG_END / sizeof(u32)];
 };
 
+/*
+ * struct vpfe_fmt - VPFE media bus format information
+ * @fourcc: V4L2 pixel format code
+ * @code: V4L2 media bus format code
+ * @bitsperpixel: Bits per pixel over the bus
+ */
+struct vpfe_fmt {
+	u32 fourcc;
+	u32 code;
+	u32 bitsperpixel;
+};
+
+/*
+ * This value needs to be at least as large as the number of entry in
+ * formats[].
+ * When formats[] is modified make sure to adjust this value also.
+ */
+#define VPFE_MAX_ACTIVE_FMT	10
+
 struct vpfe_device {
 	/* V4l2 specific parameters */
 	/* Identifies video device for this channel */
@@ -254,9 +274,11 @@ struct vpfe_device {
 	/* Pointer pointing to next v4l2_buffer */
 	struct vpfe_cap_buffer *next_frm;
 	/* Used to store pixel format */
-	struct v4l2_format fmt;
-	/* Used to store current bytes per pixel based on current format */
-	unsigned int bpp;
+	const struct vpfe_fmt *fmt;
+	struct v4l2_format v_fmt;
+	struct vpfe_fmt	*active_fmt[VPFE_MAX_ACTIVE_FMT];
+	unsigned int num_active_fmt;
+
 	/*
 	 * used when IMP is chained to store the crop window which
 	 * is different from the image window
@@ -276,6 +298,8 @@ struct vpfe_device {
 	 */
 	u32 field_off;
 	struct vpfe_ccdc ccdc;
+	bool stopping;
+	struct completion capture_stop;
 };
 
 #endif	/* AM437X_VPFE_H */
