@@ -1,0 +1,19 @@
+/*
+ * Copyright (C) 2017 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "am571x-idk.dts"
+#include "am57xx-idk-lcd-osd101t2045.dtsi"
+
+/ {
+	model = "TI AM571x IDK-LCD-OSD-Display";
+};
+
+&touchscreen {
+	interrupt-parent = <&gpio5>;
+	interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+};
