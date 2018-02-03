@@ -184,7 +184,6 @@ static int ov490_s_stream(struct v4l2_subdev *sd, int enable)
 	mdelay(5);
 
 	val = priv->num_lanes == 2 ? 0x03 : priv->num_lanes == 4 ? 0x0F : 0x0F;
-	dev_info(&client->dev, "Using %d data lanes\n", priv->num_lanes);
 	ov490_reg_write32(map, OV490_MIPI_TX_LANE_CTRL2, val);
 
 unlock:
@@ -368,6 +367,9 @@ static int ov490_of_probe(struct i2c_client *client,
 			dev_err(&client->dev, "Endpoint bus is not CSI bus!");
 		}
 	}
+
+	dev_info(&client->dev, "Using %d data lanes\n", priv->num_lanes);
+
 	return 0;
 }
 
