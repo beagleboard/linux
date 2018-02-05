@@ -40,6 +40,8 @@
 #define OV490_MIPI_TX_LANE_CTRL0	0x80292015
 
 #define OV490_SC_RESET1			0x80800011
+#define OV490_FW_VER_HIGH		0x80800102
+#define OV490_FW_VER_LOW		0x80800103
 
 /* IDs */
 #define OV490_VERSION_REG		0x0490
@@ -142,6 +144,47 @@ static int ov490_reg_write32(struct regmap *map, u32 reg, u8 val)
 	if (!ret)
 		ret = regmap_write(map, reg_addr, val);
 	return ret;
+}
+
+static int ov490_reg_read32(struct regmap *map, u32 reg, u8 *val)
+{
+	u8 bank_high = (reg >> 24) & 0xff;
+	u8 bank_low  = (reg >> 16) & 0xff;
+	u16 reg_addr = reg & 0xffff;
+	int ret = 0;
+	u32 tval = 0;
+
+	/*
+	 * For reading a register with 32 bit address, First set the bank
+	 * address by writing to two BANK address registers. Then access
+	 * the register using 16LSB bits.
+	 */
+	ret = regmap_write(map, OV490_BANK_HIGH, bank_high);
+	if (!ret)
+		ret = regmap_write(map, OV490_BANK_LOW, bank_low);
+	if (!ret)
+		ret = regmap_read(map, reg_addr, &tval);
+
+	*val = (u8)tval;
+	return ret;
+}
+
+static int ov490_get_fw_version(struct regmap *map, u16 *id)
+{
+	u8 hi, lo;
+	int ret;
+
+	ret = ov490_reg_read32(map, OV490_FW_VER_HIGH, &hi);
+	if (ret)
+		return ret;
+
+	ret = ov490_reg_read32(map, OV490_FW_VER_LOW, &lo);
+	if (ret)
+		return ret;
+
+	*id = hi << 8 | lo;
+
+	return 0;
 }
 
 /* Start/Stop streaming from the device */
@@ -290,6 +333,7 @@ static int ov490_video_probe(struct i2c_client *client)
 	struct ov490_priv *priv = i2c_get_clientdata(client);
 	u32 pid, ver;
 	int ret;
+	u16 version;
 
 	/* check and show product ID and manufacturer ID */
 	ret = regmap_read(priv->regmap, OV490_PID, &pid);
@@ -307,6 +351,12 @@ static int ov490_video_probe(struct i2c_client *client)
 
 	dev_info(&client->dev, "ov490 Product ID %02x Manufacturer ID %02x\n",
 		 pid, ver);
+
+	ret = ov490_get_fw_version(priv->regmap, &version);
+	if (ret)
+		return ret;
+
+	dev_info(&client->dev, "ov490 Firmware ID 0x%04x\n", version);
 
 	return 0;
 }
