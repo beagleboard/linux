@@ -322,6 +322,35 @@
 			clock-names = "gpio";
 		};
 
+		dss: dss@02540000 {
+			compatible = "ti,k2g-dss","simple-bus";
+			reg = <0x02540000 0x400>;
+			clocks = <&k2g_clks 0x2 0>;
+			clock-names = "fck";
+			power-domains = <&k2g_pds 0x2>;
+			status = "disabled";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			dispc@02550000 {
+				compatible = "ti,k2g-dispc";
+				reg = <0x02550000 0x1000>,
+				      <0x02557000 0x1000>,
+				      <0x0255a800 0x100>,
+				      <0x0255ac00 0x100>;
+				reg-names = "common", "vid1", "ovr1", "vp1";
+
+				interrupts = <GIC_SPI 247 IRQ_TYPE_EDGE_RISING>;
+
+				clocks = <&k2g_clks 0x2 0>,
+					<&k2g_clks 0x2 1>;
+				clock-names = "fck", "vp";
+
+				max-memory-bandwidth = <230000000>;
+			};
+		};
+
 		edma0: edma@02700000 {
 			compatible = "ti,k2g-edma3-tpcc", "ti,edma3-tpcc";
 			reg =	<0x02700000 0x8000>;
@@ -444,6 +473,54 @@
 			compatible = "ti,emif-keystone";
 			reg = <0x21010000 0x200>;
 			interrupts = <GIC_SPI 123 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		mcasp0: mcasp@02340000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02340000 0x2000>,
+			      <0x21804000 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma0 24 1>, <&edma0 25 1>;
+			dma-names = "tx", "rx";
+			power-domains = <&k2g_pds 0x4>;
+			clocks = <&k2g_clks 0x4 0>;
+			clock-names = "fck";
+			status = "disabled";
+		};
+
+		mcasp1: mcasp@02342000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02342000 0x2000>,
+			      <0x21804400 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma1 48 1>, <&edma1 49 1>;
+			dma-names = "tx", "rx";
+			power-domains = <&k2g_pds 0x5>;
+			clocks = <&k2g_clks 0x5 0>;
+			clock-names = "fck";
+			status = "disabled";
+		};
+
+		mcasp2: mcasp@02344000 {
+			compatible = "ti,am33xx-mcasp-audio";
+			reg = <0x02344000 0x2000>,
+			      <0x21804800 0x1000>;
+			reg-names = "mpu","dat";
+			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			dmas = <&edma1 50 1>, <&edma1 51 1>;
+			dma-names = "tx", "rx";
+			power-domains = <&k2g_pds 0x6>;
+			clocks = <&k2g_clks 0x6 0>;
+			clock-names = "fck";
+			status = "disabled";
 		};
 
 		usb0_phy: usb-phy@0 {

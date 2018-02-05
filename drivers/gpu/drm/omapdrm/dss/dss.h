@@ -65,26 +65,12 @@
 	pr_warn("omapdss: " format, ##__VA_ARGS__)
 #endif
 
-/* OMAP TRM gives bitfields as start:end, where start is the higher bit
-   number. For example 7:0 */
-#define FLD_MASK(start, end)	(((1 << ((start) - (end) + 1)) - 1) << (end))
-#define FLD_VAL(val, start, end) (((val) << (end)) & FLD_MASK(start, end))
-#define FLD_GET(val, start, end) (((val) & FLD_MASK(start, end)) >> (end))
-#define FLD_MOD(orig, val, start, end) \
-	(((orig) & ~FLD_MASK(start, end)) | FLD_VAL(val, start, end))
-
 enum dss_model {
 	DSS_MODEL_OMAP2,
 	DSS_MODEL_OMAP3,
 	DSS_MODEL_OMAP4,
 	DSS_MODEL_OMAP5,
 	DSS_MODEL_DRA7,
-};
-
-enum dss_io_pad_mode {
-	DSS_IO_PAD_MODE_RESET,
-	DSS_IO_PAD_MODE_RFBI,
-	DSS_IO_PAD_MODE_BYPASS,
 };
 
 enum dss_hdmi_venc_clk_source_select {
@@ -196,29 +182,6 @@ struct dss_pll {
 /* Defines a generic omap register field */
 struct dss_reg_field {
 	u8 start, end;
-};
-
-struct dispc_clock_info {
-	/* rates that we get with dividers below */
-	unsigned long lck;
-	unsigned long pck;
-
-	/* dividers */
-	u16 lck_div;
-	u16 pck_div;
-};
-
-struct dss_lcd_mgr_config {
-	enum dss_io_pad_mode io_pad_mode;
-
-	bool stallmode;
-	bool fifohandcheck;
-
-	struct dispc_clock_info clock_info;
-
-	int video_port_width;
-
-	int lcden_sig_polarity;
 };
 
 struct seq_file;

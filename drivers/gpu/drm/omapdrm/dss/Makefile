@@ -6,7 +6,7 @@ omapdss-base-y := base.o display.o dss-of.o output.o
 
 obj-$(CONFIG_OMAP2_DSS) += omapdss.o
 # Core DSS files
-omapdss-y := core.o dss.o dispc.o dispc_coefs.o \
+omapdss-y := dss.o dispc.o dispc_coefs.o \
 	pll.o video-pll.o
 omapdss-$(CONFIG_OMAP2_DSS_DPI) += dpi.o
 omapdss-$(CONFIG_OMAP2_DSS_VENC) += venc.o
@@ -18,3 +18,6 @@ omapdss-$(CONFIG_OMAP4_DSS_HDMI) += hdmi4.o hdmi4_core.o
 omapdss-$(CONFIG_OMAP4_DSS_HDMI_CEC) += hdmi4_cec.o
 omapdss-$(CONFIG_OMAP5_DSS_HDMI) += hdmi5.o hdmi5_core.o
 ccflags-$(CONFIG_OMAP2_DSS_DEBUG) += -DDEBUG
+
+obj-$(CONFIG_TI_DSS6) += omapdss6.o
+omapdss6-y := dss6.o dispc6.o dpi6.o
