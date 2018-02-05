@@ -792,19 +792,19 @@ static void dispc_setup_color_conv_coef(void)
 		false,			/* limited range */
 	};
 
-	/* RGB -> YUV, ITU-R BT.601, limited range */
-	const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_lim = {
-		 66, 129,  25,		/* yr,   yg,  yb */
-		-38, -74, 112,		/* cbr, cbg, cbb */
-		112, -94, -18,		/* crr, crg, crb */
-		false,			/* limited range */
+	/* RGB -> YUV, ITU-R BT.601, full range */
+	const struct csc_coef_rgb2yuv coefs_rgb2yuv_bt601_full = {
+		77,  150,  29,	    /* yr,   yg,  yb | 0.299  0.587  0.114|*/
+		-43,  -85, 128,	    /* cbr, cbg, cbb |-0.173 -0.339  0.511|*/
+		128, -107, -21,	    /* crr, crg, crb | 0.511 -0.428 -0.083|*/
+		true,		    /* full range */
 	};
 
 	for (i = 1; i < num_ovl; i++)
 		dispc_ovl_write_color_conv_coef(i, &coefs_yuv2rgb_bt601_lim);
 
 	if (dispc.feat->has_writeback)
-		dispc_wb_write_color_conv_coef(&coefs_rgb2yuv_bt601_lim);
+		dispc_wb_write_color_conv_coef(&coefs_rgb2yuv_bt601_full);
 }
 
 static void dispc_ovl_set_ba0(enum omap_plane plane, u32 paddr)
