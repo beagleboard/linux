@@ -23,6 +23,7 @@
 
 #include <net/cfg80211.h>
 #include "fweh.h"
+#include "fwil_types.h"
 
 #define TOE_TX_CSUM_OL		0x00000001
 #define TOE_RX_CSUM_OL		0x00000002
@@ -36,7 +37,7 @@
 #define BRCMF_DCMD_MEDLEN	1536
 #define BRCMF_DCMD_MAXLEN	8192
 
-/* IOCTL from host to device are limited in lenght. A device can only handle
+/* IOCTL from host to device are limited in length. A device can only handle
  * ethernet frame size. This limitation is to be applied by protocol layer.
  */
 #define BRCMF_TX_IOCTL_MAX_MSG_SIZE	(ETH_FRAME_LEN+ETH_FCS_LEN)
@@ -143,6 +144,8 @@ struct brcmf_pub {
 	struct brcmf_mp_device *settings;
 
 	u8 clmver[BRCMF_DCMD_SMLEN];
+	struct brcmf_pkt_filter_enable_le pkt_filter[MAX_PKT_FILTER_COUNT];
+
 };
 
 /* forward declarations */
@@ -216,5 +219,7 @@ void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb);
 void brcmf_net_setcarrier(struct brcmf_if *ifp, bool on);
 int __init brcmf_core_init(void);
 void __exit brcmf_core_exit(void);
-
+int brcmf_pktfilter_add_remove(struct net_device *ndev, int filter_num,
+			       bool add);
+int brcmf_pktfilter_enable(struct net_device *ndev, bool enable);
 #endif /* BRCMFMAC_CORE_H */
