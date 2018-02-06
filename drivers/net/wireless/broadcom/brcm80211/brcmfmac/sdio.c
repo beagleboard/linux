@@ -2567,22 +2567,14 @@ brcmf_sdio_ulp_preinit(struct device *dev)
 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
 	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
 	struct brcmf_if *ifp = bus_if->drvr->iflist[0];
-	int err = 0;
-	char iovbuf[BRCMF_DCMD_SMLEN];
 
 	brcmf_dbg(TRACE, "Enter\n");
-	memset(iovbuf, 0, sizeof(iovbuf));
 
 	/* Query ulp_sdioctrl iovar to get the ULP related SHM offsets */
-	err = brcmf_fil_iovar_data_get(ifp, "ulp_sdioctrl", iovbuf,
-				       sizeof(iovbuf));
-	if (err)
-		brcmf_err("fail to get ulp_sdioctrl err:%d\n", err);
+	brcmf_fil_iovar_data_get(ifp, "ulp_sdioctrl", &sdiodev->shm_ulp,
+				      sizeof(sdiodev->shm_ulp));
 
 	sdiodev->ulp = false;
-
-	/* Copy the data shared by dongle to FMAC structure */
-	memcpy(&sdiodev->shm_ulp, iovbuf, sizeof(struct ulp_shm_info));
 
 	brcmf_dbg(TRACE, "m_ulp_ctrl_sdio[%x] m_ulp_wakeevt_ind [%x]\n",
 		  M_DS1_CTRL_SDIO(sdiodev->shm_ulp),
