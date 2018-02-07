@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2015-2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+
+&i2c5 {
+	mt9t11x@3C {
+		compatible = "aptina,mt9t111";
+		bufen-gpios = <&gpio5 12 GPIO_ACTIVE_LOW>;
+		camen-gpios = <&gpio6 11 GPIO_ACTIVE_LOW>;
+		oscen-gpios = <&gpio5 10 GPIO_ACTIVE_HIGH>;
+		powerdown-gpios = <&gpio5 11 GPIO_ACTIVE_LOW>;
+		reg = <0x3C>;
+		reset-gpios = <&gpio4 17 GPIO_ACTIVE_LOW>;
+
+		port {
+			cam: endpoint {
+				hsync-active = <1>;
+				input-clock-freq = <32000000>;
+				pclk-sample = <0>;
+				pixel-clock-freq = <96000000>;
+				remote-endpoint = <&vin3a>;
+				vsync-active = <0>;
+			};
+		};
+	};
+};
+
+&vin3a {
+	status = "okay";
+
+	endpoint {
+		remote-endpoint = <&cam>;
+		slave-mode;
+	};
+};
+
+&vip2 {
+	status = "okay";
+};
+

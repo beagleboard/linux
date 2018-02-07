@@ -1013,7 +1013,7 @@
 		};
 
 		dmm@4e000000 {
-			compatible = "ti,omap5-dmm";
+			compatible = "ti,dra7-dmm", "ti,omap5-dmm";
 			reg = <0x4e000000 0x800>;
 			interrupts = <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "dmm";
@@ -1888,6 +1888,8 @@
 				ti,hwmods = "dss_hdmi";
 				clocks = <&dss_48mhz_clk>, <&dss_hdmi_clk>;
 				clock-names = "fck", "sys_clk";
+				dmas = <&sdma_xbar 76>;
+				dma-names = "audio_tx";
 			};
 		};
 
@@ -2046,6 +2048,83 @@
 			ti,absolute-max-voltage-uv = <1500000>;
 		};
 
+		vpe {
+			compatible = "ti,vpe";
+			ti,hwmods = "vpe";
+			clocks = <&dpll_core_h23x2_ck>;
+			clock-names = "fck";
+			reg = <0x489d0000 0x120>,
+			      <0x489d0300 0x20>,
+			      <0x489d0400 0x20>,
+			      <0x489d0500 0x20>,
+			      <0x489d0600 0x3c>,
+			      <0x489d0700 0x80>,
+			      <0x489d5700 0x18>,
+			      <0x489dd000 0x400>;
+			reg-names = "vpe_top",
+				    "vpe_chr_us0",
+				    "vpe_chr_us1",
+				    "vpe_chr_us2",
+				    "vpe_dei",
+				    "sc",
+				    "csc",
+				    "vpdma";
+			interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		vip1: vip@0x48970000 {
+			compatible = "ti,vip1";
+			reg = <0x48970000 0x114>,
+			      <0x48975500 0xD8>,
+			      <0x48975700 0x18>,
+			      <0x48975800 0x80>,
+			      <0x48975a00 0xD8>,
+			      <0x48975c00 0x18>,
+			      <0x48975d00 0x80>,
+			      <0x4897d000 0x400>;
+			reg-names = "vip",
+				    "parser0",
+				    "csc0",
+				    "sc0",
+				    "parser1",
+				    "csc1",
+				    "sc1",
+				    "vpdma";
+			ti,hwmods = "vip1";
+			interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH>;
+			/* CTRL_CORE_SMA_SW_1 */
+			syscon-pol = <&scm_conf 0x534>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			vin1a: port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				status = "disabled";
+			};
+			vin2a: port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+				status = "disabled";
+			};
+			vin1b: port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+				status = "disabled";
+			};
+			vin2b: port@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+				status = "disabled";
+			};
+		};
 	};
 
 	thermal_zones: thermal-zones {

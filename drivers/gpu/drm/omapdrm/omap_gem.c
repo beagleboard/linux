@@ -1,7 +1,5 @@
 /*
- * drivers/gpu/drm/omapdrm/omap_gem.c
- *
- * Copyright (C) 2011 Texas Instruments
+ * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
  * Author: Rob Clark <rob.clark@linaro.org>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -868,19 +866,16 @@ fail:
 }
 
 /**
- * omap_gem_unpin() - Unpin a GEM object from memory
+ * omap_gem_unpin_locked() - Unpin a GEM object from memory
  * @obj: the GEM object
  *
- * Unpin the given GEM object previously pinned with omap_gem_pin(). Pins are
- * reference-counted, the actualy unpin will only be performed when the number
- * of calls to this function matches the number of calls to omap_gem_pin().
+ * omap_gem_unpin() without locking.
  */
-void omap_gem_unpin(struct drm_gem_object *obj)
+static void omap_gem_unpin_locked(struct drm_gem_object *obj)
 {
 	struct omap_gem_object *omap_obj = to_omap_bo(obj);
 	int ret;
 
-	mutex_lock(&obj->dev->struct_mutex);
 	if (omap_obj->dma_addr_cnt > 0) {
 		omap_obj->dma_addr_cnt--;
 		if (omap_obj->dma_addr_cnt == 0) {
@@ -898,7 +893,20 @@ void omap_gem_unpin(struct drm_gem_object *obj)
 			omap_obj->block = NULL;
 		}
 	}
+}
 
+/**
+ * omap_gem_unpin() - Unpin a GEM object from memory
+ * @obj: the GEM object
+ *
+ * Unpin the given GEM object previously pinned with omap_gem_pin(). Pins are
+ * reference-counted, the actualy unpin will only be performed when the number
+ * of calls to this function matches the number of calls to omap_gem_pin().
+ */
+void omap_gem_unpin(struct drm_gem_object *obj)
+{
+	mutex_lock(&obj->dev->struct_mutex);
+	omap_gem_unpin_locked(obj);
 	mutex_unlock(&obj->dev->struct_mutex);
 }
 
@@ -996,10 +1004,9 @@ void *omap_gem_vaddr(struct drm_gem_object *obj)
 
 #ifdef CONFIG_PM
 /* re-pin objects in DMM in resume path: */
-int omap_gem_resume(struct device *dev)
+int omap_gem_resume(struct drm_device *dev)
 {
-	struct drm_device *drm_dev = dev_get_drvdata(dev);
-	struct omap_drm_private *priv = drm_dev->dev_private;
+	struct omap_drm_private *priv = dev->dev_private;
 	struct omap_gem_object *omap_obj;
 	int ret = 0;
 
@@ -1012,7 +1019,7 @@ int omap_gem_resume(struct device *dev)
 					omap_obj->pages, npages,
 					omap_obj->roll, true);
 			if (ret) {
-				dev_err(dev, "could not repin: %d\n", ret);
+				dev_err(dev->dev, "could not repin: %d\n", ret);
 				return ret;
 			}
 		}
@@ -1090,6 +1097,9 @@ void omap_gem_free_object(struct drm_gem_object *obj)
 	list_del(&omap_obj->mm_list);
 	spin_unlock(&priv->list_lock);
 
+	if (omap_obj->flags & OMAP_BO_MEM_PIN)
+		omap_gem_unpin_locked(obj);
+
 	/* this means the object is still pinned.. which really should
 	 * not happen.  I think..
 	 */
@@ -1134,6 +1144,11 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 			return NULL;
 		}
 
+		if (flags & OMAP_BO_MEM_CONTIG) {
+			dev_err(dev->dev, "Tiled buffers require TILER memory\n");
+			return NULL;
+		}
+
 		/*
 		 * Tiled buffers are always shmem paged backed. When they are
 		 * scanned out, they are remapped into DMM/TILER.
@@ -1147,7 +1162,8 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 		 */
 		flags &= ~(OMAP_BO_CACHED|OMAP_BO_WC|OMAP_BO_UNCACHED);
 		flags |= tiler_get_cpu_cache_flags();
-	} else if ((flags & OMAP_BO_SCANOUT) && !priv->has_dmm) {
+	} else if ((flags & OMAP_BO_MEM_CONTIG) ||
+		((flags & OMAP_BO_SCANOUT) && !priv->has_dmm)) {
 		/*
 		 * OMAP_BO_SCANOUT hints that the buffer doesn't need to be
 		 * tiled. However, to lower the pressure on memory allocation,
@@ -1207,12 +1223,24 @@ struct drm_gem_object *omap_gem_new(struct drm_device *dev,
 			goto err_release;
 	}
 
+	if (flags & OMAP_BO_MEM_PIN) {
+		dma_addr_t dummy;
+
+		ret = omap_gem_pin(obj, &dummy);
+		if (ret)
+			goto err_free_dma;
+	}
+
 	spin_lock(&priv->list_lock);
 	list_add(&omap_obj->mm_list, &priv->obj_list);
 	spin_unlock(&priv->list_lock);
 
 	return obj;
 
+err_free_dma:
+	if (flags & OMAP_BO_MEM_DMA_API)
+		dma_free_writecombine(dev->dev, size,
+				omap_obj->vaddr, omap_obj->dma_addr);
 err_release:
 	drm_gem_object_release(obj);
 err_free:

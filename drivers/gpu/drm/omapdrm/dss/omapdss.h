@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Texas Instruments
+ * Copyright (C) 2016 Texas Instruments Incorporated - http://www.ti.com/
  * Author: Tomi Valkeinen <tomi.valkeinen@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -26,6 +26,7 @@
 #include <linux/platform_data/omapdss.h>
 #include <uapi/drm/drm_mode.h>
 #include <drm/drm_crtc.h>
+#include <drm/drm_color_mgmt.h>
 
 #define DISPC_IRQ_FRAMEDONE		(1 << 0)
 #define DISPC_IRQ_VSYNC			(1 << 1)
@@ -159,21 +160,6 @@ enum omap_overlay_caps {
 	OMAP_DSS_OVL_CAP_REPLICATION = 1 << 5,
 };
 
-enum omap_dss_clk_source {
-	OMAP_DSS_CLK_SRC_FCK = 0,		/* OMAP2/3: DSS1_ALWON_FCLK
-						 * OMAP4: DSS_FCLK */
-	OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DISPC,	/* OMAP3: DSI1_PLL_FCLK
-						 * OMAP4: PLL1_CLK1 */
-	OMAP_DSS_CLK_SRC_DSI_PLL_HSDIV_DSI,	/* OMAP3: DSI2_PLL_FCLK
-						 * OMAP4: PLL1_CLK2 */
-	OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DISPC,	/* OMAP4: PLL2_CLK1 */
-	OMAP_DSS_CLK_SRC_DSI2_PLL_HSDIV_DSI,	/* OMAP4: PLL2_CLK2 */
-};
-
-enum omap_hdmi_flags {
-	OMAP_HDMI_SDA_SCL_EXTERNAL_PULLUP = 1 << 0,
-};
-
 enum omap_dss_output_id {
 	OMAP_DSS_OUTPUT_DPI	= 1 << 0,
 	OMAP_DSS_OUTPUT_DBI	= 1 << 1,
@@ -265,6 +251,9 @@ struct omap_overlay_info {
 	u8 global_alpha;
 	u8 pre_mult_alpha;
 	u8 zorder;
+
+	enum drm_color_encoding color_encoding;
+	enum drm_color_range color_range;
 };
 
 struct omap_overlay_manager_info {
@@ -395,6 +384,7 @@ struct omapdss_hdmi_ops {
 			    struct videomode *vm);
 
 	int (*read_edid)(struct omap_dss_device *dssdev, u8 *buf, int len);
+	void (*lost_hotplug)(struct omap_dss_device *dssdev);
 	bool (*detect)(struct omap_dss_device *dssdev);
 
 	int (*register_hpd_cb)(struct omap_dss_device *dssdev,
@@ -475,8 +465,7 @@ struct omap_dss_device {
 
 	struct list_head panel_list;
 
-	/* alias in the form of "display%d" */
-	char alias[16];
+	int alias_id;
 
 	enum omap_display_type type;
 	enum omap_display_type output_type;
@@ -562,6 +551,8 @@ struct omap_dss_driver {
 			    struct videomode *vm);
 	void (*get_timings)(struct omap_dss_device *dssdev,
 			    struct videomode *vm);
+	void (*get_size)(struct omap_dss_device *dssdev,
+			 unsigned int *width, unsigned int *height);
 
 	int (*set_wss)(struct omap_dss_device *dssdev, u32 wss);
 	u32 (*get_wss)(struct omap_dss_device *dssdev);
@@ -584,9 +575,6 @@ struct omap_dss_driver {
 
 bool omapdss_is_initialized(void);
 
-int omap_dss_register_driver(struct omap_dss_driver *);
-void omap_dss_unregister_driver(struct omap_dss_driver *);
-
 int omapdss_register_display(struct omap_dss_device *dssdev);
 void omapdss_unregister_display(struct omap_dss_device *dssdev);
 
@@ -594,9 +582,6 @@ struct omap_dss_device *omap_dss_get_device(struct omap_dss_device *dssdev);
 void omap_dss_put_device(struct omap_dss_device *dssdev);
 #define for_each_dss_dev(d) while ((d = omap_dss_get_next_device(d)) != NULL)
 struct omap_dss_device *omap_dss_get_next_device(struct omap_dss_device *from);
-struct omap_dss_device *omap_dss_find_device(void *data,
-		int (*match)(struct omap_dss_device *dssdev, void *data));
-
 
 int omap_dss_get_num_overlay_managers(void);
 
@@ -635,10 +620,58 @@ static inline bool omapdss_device_is_enabled(struct omap_dss_device *dssdev)
 struct omap_dss_device *
 omapdss_of_find_source_for_first_ep(struct device_node *node);
 
+/* OMAP TRM gives bitfields as start:end, where start is the higher bit
+   number. For example 7:0 */
+#define FLD_MASK(start, end)	(((1 << ((start) - (end) + 1)) - 1) << (end))
+#define FLD_VAL(val, start, end) (((val) << (end)) & FLD_MASK(start, end))
+#define FLD_GET(val, start, end) (((val) & FLD_MASK(start, end)) >> (end))
+#define FLD_MOD(orig, val, start, end) \
+	(((orig) & ~FLD_MASK(start, end)) | FLD_VAL(val, start, end))
+
+enum dss_io_pad_mode {
+	DSS_IO_PAD_MODE_RESET,
+	DSS_IO_PAD_MODE_RFBI,
+	DSS_IO_PAD_MODE_BYPASS,
+};
+
+struct dispc_clock_info {
+	/* rates that we get with dividers below */
+	unsigned long lck;
+	unsigned long pck;
+
+	/* dividers */
+	u16 lck_div;
+	u16 pck_div;
+};
+
+struct dss_lcd_mgr_config {
+	enum dss_io_pad_mode io_pad_mode;
+
+	bool stallmode;
+	bool fifohandcheck;
+
+	struct dispc_clock_info clock_info;
+
+	int video_port_width;
+
+	int lcden_sig_polarity;
+};
+
 void omapdss_set_is_initialized(bool set);
 
 struct device_node *dss_of_port_get_parent_device(struct device_node *port);
 u32 dss_of_port_get_port_number(struct device_node *port);
+
+enum dss_writeback_channel {
+	DSS_WB_LCD1_MGR =	0,
+	DSS_WB_LCD2_MGR =	1,
+	DSS_WB_TV_MGR =		2,
+	DSS_WB_OVL0 =		3,
+	DSS_WB_OVL1 =		4,
+	DSS_WB_OVL2 =		5,
+	DSS_WB_OVL3 =		6,
+	DSS_WB_LCD3_MGR =	7,
+};
 
 struct dss_mgr_ops {
 	int (*connect)(enum omap_channel channel,
@@ -694,6 +727,8 @@ struct dispc_ops {
 	int (*get_num_ovls)(void);
 	int (*get_num_mgrs)(void);
 
+	u32 (*get_memory_bandwidth_limit)(void);
+
 	void (*mgr_enable)(enum omap_channel channel, bool enable);
 	bool (*mgr_is_enabled)(enum omap_channel channel);
 	u32 (*mgr_get_vsync_irq)(enum omap_channel channel);
@@ -720,6 +755,14 @@ struct dispc_ops {
 			enum omap_channel channel);
 
 	const u32 *(*ovl_get_color_modes)(enum omap_plane_id plane);
+
+	u32 (*wb_get_framedone_irq)(void);
+	int (*wb_setup)(const struct omap_dss_writeback_info *wi,
+		bool mem_to_mem, const struct videomode *vm,
+		enum dss_writeback_channel channel_in);
+	bool (*has_writeback)(void);
+	bool (*wb_go_busy)(void);
+	void (*wb_go)(void);
 };
 
 void dispc_set_ops(const struct dispc_ops *o);

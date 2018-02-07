@@ -1,0 +1,94 @@
+Texas Instruments DRA7x VIDEO INPUT PORT (VIP)
+----------------------------------------------
+
+The Video Input Port (VIP) is a key component for image capture
+applications. The capture module provides the system interface and the
+processing capability to connect parallel image-sensor as well as
+BT.656/1120 capable encoder chip.
+
+Required properties:
+- compatible: must be "ti,vip1", "ti,vip2" or "ti,vip3".
+- reg:	VIP top level, parser, colorspace converter, scaler for slice 0 and 1
+	and vpdma memory address space;
+- reg-names: vip, parser0, csc0, sc0, parser1, csc1, sc1 and vpdma registers;
+- interrupts: should contain IRQ line for VIP;
+- syscon-pol: phandle to the device control module;
+
+VIP supports 2 slices. Each slice can handle up to 2 camera port nodes.
+Each port nodes should contain a 'port' child node with child 'endpoint'
+node. Please refer to the bindings defined in
+Documentation/devicetree/bindings/media/video-interfaces.txt.
+
+Example:
+	vip1: vip@0x48970000 {
+		compatible = "ti,vip1";
+		reg = <0x48970000 0x114>,
+		      <0x48975500 0xD8>,
+		      <0x48975700 0x18>,
+		      <0x48975800 0x80>,
+		      <0x48975a00 0xD8>,
+		      <0x48975c00 0x18>,
+		      <0x48975d00 0x80>,
+		      <0x4897d000 0x400>;
+		reg-names = "vip",
+			    "parser0",
+			    "csc0",
+			    "sc0",
+			    "parser1",
+			    "csc1",
+			    "sc1",
+			    "vpdma";
+		ti,hwmods = "vip1";
+		interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH>;
+		/* CTRL_CORE_SMA_SW_1 */
+		syscon-pol = <&scm_conf 0x534>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		vin1a: port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			status = "disabled";
+			endpoint@0 {
+				slave-mode;
+				remote-endpoint = <&camera1>;
+			};
+		};
+		vin2a: port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			status = "disabled";
+		};
+		vin1b: port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+			status = "disabled";
+		};
+		vin2b: port@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+			status = "disabled";
+		};
+	};
+
+	i2c5: i2c@4807c000 {
+		ov10633@37 {
+			compatible = "ovti,ov10633";
+			reg = <0x37>;
+
+			mux-gpios = <&pcf_hdmi 3 GPIO_ACTIVE_LOW>;
+			port {
+				camera1: endpoint {
+					remote-endpoint = <&vin1a>;
+					hsync-active = <1>;
+					vsync-active = <1>;
+					pclk-sample = <0>;
+				};
+			};
+		};
+	};

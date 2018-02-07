@@ -12,6 +12,7 @@
 	aliases {
 		rtc0 = &tps659038_rtc;
 		rtc1 = &rtc;
+		display0 = &hdmi0;
 	};
 
 	chosen {
@@ -46,6 +47,12 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 		regulator-boot-on;
+	};
+
+	src_clk_x1: src_clk_x1 {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <20000000>;
 	};
 
 	leds-iio {
@@ -98,6 +105,54 @@
 			gpios = <&tpic2810 7 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
+	};
+
+	hdmi0: connector@0 {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&tpd12s015_out>;
+			};
+		};
+	};
+
+	tpd12s015: encoder@0 {
+		compatible = "ti,tpd12s016", "ti,tpd12s015";
+
+		gpios = <0>, /* optional CT_CP_HPD */
+			<0>, /* optional LS_OE */
+			<&gpio7 12 GPIO_ACTIVE_HIGH>;	/* HPD */
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				tpd12s015_in: endpoint@0 {
+					remote-endpoint = <&hdmi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				tpd12s015_out: endpoint@0 {
+					remote-endpoint = <&hdmi_connector_in>;
+				};
+			};
+		};
+	};
+
+	src_clk_x1: src_clk_x1 {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <20000000>;
 	};
 };
 
@@ -338,6 +393,57 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
+
+	tc358778: tc358778@0e {
+		compatible = "toshiba,tc358778", "toshiba,tc358768";
+		reg = <0x0e>;
+		status = "disabled";
+
+		clocks = <&src_clk_x1>;
+		clock-names = "refclk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				tc358778_in: endpoint {
+					remote-endpoint = <&dpi_out>;
+					data-lines = <24>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				tc358778_out: endpoint {
+					/*
+					 * lanes and remote-endpoint defined per
+					 * panel.
+					 */
+				};
+			};
+		};
+	};
+
+	ov2659: ov2659@30 {
+		compatible = "ovti,ov2659";
+		reg = <0x30>;
+
+		clocks = <&src_clk_x1>;
+		clock-names = "xvclk";
+
+		pwrdn-gpios = <&gpio6 14 GPIO_ACTIVE_LOW>;
+
+		port {
+			ov2659_1: endpoint {
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <1>;
+				link-frequencies = /bits/ 64 <70000000>;
+			};
+		};
+	};
 };
 
 &mcspi3 {
@@ -468,6 +574,43 @@
 		partition@6 {
 			label = "QSPI.file-system";
 			reg = <0x009e0000 0x01620000>;
+		};
+	};
+};
+
+&hdmi {
+	status = "okay";
+	/*
+	 * XXX: Support AM572x-Rev 1.2a. this is wrong for AM571x-rev 1.3a,
+	 * AM572x-Rev1.3a - but thanks to always-on, they work.
+	 * TODO: SWITCH TO LDO4 once rev 1.2a is deprecated
+	 * (on rev 1.3a availability)
+	 */
+	vdda-supply = <&ldo3_reg>;
+
+	port {
+		hdmi_out: endpoint {
+			remote-endpoint = <&tpd12s015_in>;
+		};
+	};
+};
+
+&dss {
+	status = "okay";
+
+	vdda_video-supply = <&ldoln_reg>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				remote-endpoint = <&tc358778_in>;
+				data-lines = <24>;
+			};
 		};
 	};
 };

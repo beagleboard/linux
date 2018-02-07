@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Texas Instruments
+ * Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/
  * Author: Tomi Valkeinen <tomi.valkeinen@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -181,6 +181,7 @@ static const struct of_device_id omapdss_of_match[] __initconst = {
 	{ .compatible = "ti,omap4-dss", },
 	{ .compatible = "ti,omap5-dss", },
 	{ .compatible = "ti,dra7-dss", },
+	{ .compatible = "ti,k2g-dss", },
 	{},
 };
 

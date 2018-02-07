@@ -21,6 +21,9 @@
 		rtc1 = &tps659038_rtc;
 		rtc2 = &rtc;
 		display0 = &hdmi0;
+
+		sound0 = &sound0;
+		sound1 = &hdmi;
 	};
 
 	chosen {

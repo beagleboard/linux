@@ -1,5 +1,4 @@
 /*
- *
  * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
  * Author: Rob Clark <rob@ti.com>
  *         Andy Gross <andy.gross@ti.com>
@@ -13,6 +12,7 @@
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #ifndef OMAP_DMM_PRIV_H
 #define OMAP_DMM_PRIV_H
 
@@ -59,12 +59,12 @@
 #define DMM_IRQSTAT_ERR_UPD_DATA	(1<<6)
 #define DMM_IRQSTAT_ERR_LUT_MISS	(1<<7)
 
-#define DMM_IRQSTAT_ERR_MASK	(DMM_IRQ_STAT_ERR_INV_DSC | \
-				DMM_IRQ_STAT_ERR_INV_DATA | \
-				DMM_IRQ_STAT_ERR_UPD_AREA | \
-				DMM_IRQ_STAT_ERR_UPD_CTRL | \
-				DMM_IRQ_STAT_ERR_UPD_DATA | \
-				DMM_IRQ_STAT_ERR_LUT_MISS)
+#define DMM_IRQSTAT_ERR_MASK	(DMM_IRQSTAT_ERR_INV_DSC | \
+				DMM_IRQSTAT_ERR_INV_DATA | \
+				DMM_IRQSTAT_ERR_UPD_AREA | \
+				DMM_IRQSTAT_ERR_UPD_CTRL | \
+				DMM_IRQSTAT_ERR_UPD_DATA | \
+				DMM_IRQSTAT_ERR_LUT_MISS)
 
 #define DMM_PATSTATUS_READY		(1<<0)
 #define DMM_PATSTATUS_VALID		(1<<1)
@@ -155,10 +155,12 @@ struct refill_engine {
 
 struct dmm_platform_data {
 	uint32_t cpu_cache_flags;
+	bool errata_i878_wa;
 };
 
 struct dmm {
 	struct device *dev;
+	u32 phys_base;
 	void __iomem *base;
 	int irq;
 
@@ -189,6 +191,12 @@ struct dmm {
 	struct list_head alloc_head;
 
 	const struct dmm_platform_data *plat_data;
+
+	bool dmm_workaround;
+	spinlock_t wa_lock;
+	u32 *wa_dma_data;
+	dma_addr_t wa_dma_handle;
+	struct dma_chan *wa_dma_chan;
 };
 
 #endif

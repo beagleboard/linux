@@ -1,10 +1,9 @@
 /*
  * DMM IOMMU driver support functions for TI OMAP processors.
  *
+ * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
  * Author: Rob Clark <rob@ti.com>
  *         Andy Gross <andy.gross@ti.com>
- *
- * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -19,6 +18,7 @@
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -80,14 +80,137 @@ static const uint32_t reg[][4] = {
 			DMM_PAT_DESCR__2, DMM_PAT_DESCR__3},
 };
 
+static int dmm_dma_copy(struct dmm *dmm, u32 src, u32 dst)
+{
+	struct dma_device *dma_dev = dmm->wa_dma_chan->device;
+	struct dma_async_tx_descriptor *tx = NULL;
+	enum dma_status status;
+	dma_cookie_t cookie;
+
+	tx = dma_dev->device_prep_dma_memcpy(dmm->wa_dma_chan, dst, src, 4, 0);
+	if (!tx) {
+		dev_err(dmm->dev, "Failed to prepare DMA memcpy\n");
+		return -EIO;
+	}
+
+	cookie = tx->tx_submit(tx);
+	if (dma_submit_error(cookie)) {
+		dev_err(dmm->dev, "Failed to do DMA tx_submit\n");
+		return -EIO;
+	}
+
+	dma_async_issue_pending(dmm->wa_dma_chan);
+	status = dma_sync_wait(dmm->wa_dma_chan, cookie);
+	if (status != DMA_COMPLETE)
+		dev_err(dmm->dev, "i878 wa DMA copy failure\n");
+
+	dmaengine_terminate_all(dmm->wa_dma_chan);
+	return 0;
+}
+
+static u32 dmm_read_wa(struct dmm *dmm, u32 reg)
+{
+	u32 src, dst;
+	int r;
+
+	src = (u32)(dmm->phys_base + reg);
+	dst = (u32)dmm->wa_dma_handle;
+
+	r = dmm_dma_copy(dmm, src, dst);
+	if (r) {
+		dev_err(dmm->dev, "sDMA read transfer timeout\n");
+		return readl(dmm->base + reg);
+	}
+
+	/*
+	 * As per i878 workaround, the DMA is used to access the DMM registers.
+	 * Make sure that the readl is not moved by the compiler or the CPU
+	 * earlier than the DMA finished writing the value to memory.
+	 */
+	rmb();
+	return readl(dmm->wa_dma_data);
+}
+
+static void dmm_write_wa(struct dmm *dmm, u32 val, u32 reg)
+{
+	u32 src, dst;
+	int r;
+
+	writel(val, dmm->wa_dma_data);
+	/*
+	 * As per i878 workaround, the DMA is used to access the DMM registers.
+	 * Make sure that the writel is not moved by the compiler or the CPU, so
+	 * the data will be in place before we start the DMA to do the actual
+	 * register write.
+	 */
+	wmb();
+
+	src = (u32)dmm->wa_dma_handle;
+	dst = (u32)(dmm->phys_base + reg);
+
+	r = dmm_dma_copy(dmm, src, dst);
+	if (r) {
+		dev_err(dmm->dev, "sDMA write transfer timeout\n");
+		writel(val, dmm->base + reg);
+	}
+}
+
 static u32 dmm_read(struct dmm *dmm, u32 reg)
 {
-	return readl(dmm->base + reg);
+	if (dmm->dmm_workaround) {
+		u32 v;
+		unsigned long flags;
+
+		spin_lock_irqsave(&dmm->wa_lock, flags);
+		v = dmm_read_wa(dmm, reg);
+		spin_unlock_irqrestore(&dmm->wa_lock, flags);
+
+		return v;
+	} else {
+		return readl(dmm->base + reg);
+	}
 }
 
 static void dmm_write(struct dmm *dmm, u32 val, u32 reg)
 {
-	writel(val, dmm->base + reg);
+	if (dmm->dmm_workaround) {
+		unsigned long flags;
+
+		spin_lock_irqsave(&dmm->wa_lock, flags);
+		dmm_write_wa(dmm, val, reg);
+		spin_unlock_irqrestore(&dmm->wa_lock, flags);
+	} else {
+		writel(val, dmm->base + reg);
+	}
+}
+
+static int dmm_workaround_init(struct dmm *dmm)
+{
+	dma_cap_mask_t mask;
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_MEMCPY, mask);
+
+	spin_lock_init(&dmm->wa_lock);
+
+	dmm->wa_dma_data = dma_alloc_coherent(dmm->dev, 4, &dmm->wa_dma_handle, GFP_KERNEL);
+	if (!dmm->wa_dma_data)
+		return -ENOMEM;
+
+	dmm->wa_dma_chan = dma_request_channel(mask, NULL, NULL);
+	if (!dmm->wa_dma_chan) {
+		dma_free_coherent(dmm->dev, 4, dmm->wa_dma_data, dmm->wa_dma_handle);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void dmm_workaround_uninit(struct dmm *dmm)
+{
+	dma_release_channel(dmm->wa_dma_chan);
+
+	dma_free_coherent(dmm->dev, 4, dmm->wa_dma_data, dmm->wa_dma_handle);
 }
 
 /* simple allocator to grab next 16 byte aligned memory from txn */
@@ -121,14 +244,22 @@ static int wait_status(struct refill_engine *engine, uint32_t wait_mask)
 	while (true) {
 		r = dmm_read(dmm, reg[PAT_STATUS][engine->id]);
 		err = r & DMM_PATSTATUS_ERR;
-		if (err)
+		if (err) {
+			dev_err(dmm->dev,
+				"%s: error (engine%d). PAT_STATUS: 0x%08x\n",
+				__func__, engine->id, r);
 			return -EFAULT;
+		}
 
 		if ((r & wait_mask) == wait_mask)
 			break;
 
-		if (--i == 0)
+		if (--i == 0) {
+			dev_err(dmm->dev,
+				"%s: timeout (engine%d). PAT_STATUS: 0x%08x\n",
+				__func__, engine->id, r);
 			return -ETIMEDOUT;
+		}
 
 		udelay(1);
 	}
@@ -158,6 +289,11 @@ static irqreturn_t omap_dmm_irq_handler(int irq, void *arg)
 	dmm_write(dmm, status, DMM_PAT_IRQSTATUS);
 
 	for (i = 0; i < dmm->num_engines; i++) {
+		if (status & DMM_IRQSTAT_ERR_MASK)
+			dev_err(dmm->dev,
+				"irq error(engine%d): IRQSTAT 0x%02x\n",
+				i, status & 0xff);
+
 		if (status & DMM_IRQSTAT_LST) {
 			if (dmm->engines[i].async)
 				release_engine(&dmm->engines[i]);
@@ -273,6 +409,17 @@ static int dmm_txn_commit(struct dmm_txn *txn, bool wait)
 	}
 
 	txn->last_pat->next_pa = 0;
+	/* ensure that the written descriptors are visible to DMM */
+	wmb();
+
+	/*
+	 * NOTE: the wmb() above should be enough, but there seems to be a bug
+	 * in OMAP's memory barrier implementation, which in some rare cases may
+	 * cause the writes not to be observable after wmb().
+	 */
+
+	/* read back to ensure the data is in RAM */
+	readl(&txn->last_pat->next_pa);
 
 	/* write to PAT_DESCR to clear out any pending transaction */
 	dmm_write(dmm, 0x0, reg[PAT_DESCR][engine->id]);
@@ -298,7 +445,12 @@ static int dmm_txn_commit(struct dmm_txn *txn, bool wait)
 				msecs_to_jiffies(100))) {
 			dev_err(dmm->dev, "timed out waiting for done\n");
 			ret = -ETIMEDOUT;
+			goto cleanup;
 		}
+
+		/* Check the engine status before continue */
+		ret = wait_status(engine, DMM_PATSTATUS_READY |
+				  DMM_PATSTATUS_VALID | DMM_PATSTATUS_DONE);
 	}
 
 cleanup:
@@ -604,6 +756,9 @@ static int omap_dmm_remove(struct platform_device *dev)
 		if (omap_dmm->dummy_page)
 			__free_page(omap_dmm->dummy_page);
 
+		if (omap_dmm->dmm_workaround)
+			dmm_workaround_uninit(omap_dmm);
+
 		if (omap_dmm->irq > 0)
 			free_irq(omap_dmm->irq, omap_dmm);
 
@@ -652,6 +807,7 @@ static int omap_dmm_probe(struct platform_device *dev)
 		goto fail;
 	}
 
+	omap_dmm->phys_base = mem->start;
 	omap_dmm->base = ioremap(mem->start, SZ_2K);
 
 	if (!omap_dmm->base) {
@@ -666,6 +822,21 @@ static int omap_dmm_probe(struct platform_device *dev)
 	}
 
 	omap_dmm->dev = &dev->dev;
+
+	omap_dmm->dmm_workaround = omap_dmm->plat_data->errata_i878_wa;
+
+	if (omap_dmm->dmm_workaround) {
+		int r;
+
+		r = dmm_workaround_init(omap_dmm);
+
+		if (r) {
+			omap_dmm->dmm_workaround = false;
+			dev_err(&dev->dev, "failed to initialize work-around, WA not used\n");
+		} else {
+			dev_info(&dev->dev, "workaround for errata i878 in use\n");
+		}
+	}
 
 	hwinfo = dmm_read(omap_dmm, DMM_PAT_HWINFO);
 	omap_dmm->num_engines = (hwinfo >> 24) & 0x1F;
@@ -1030,6 +1201,11 @@ static const struct dmm_platform_data dmm_omap5_platform_data = {
 	.cpu_cache_flags = OMAP_BO_UNCACHED,
 };
 
+static const struct dmm_platform_data dmm_dra7_platform_data = {
+	.cpu_cache_flags = OMAP_BO_UNCACHED,
+	.errata_i878_wa = true,
+};
+
 static const struct of_device_id dmm_of_match[] = {
 	{
 		.compatible = "ti,omap4-dmm",
@@ -1038,6 +1214,10 @@ static const struct of_device_id dmm_of_match[] = {
 	{
 		.compatible = "ti,omap5-dmm",
 		.data = &dmm_omap5_platform_data,
+	},
+	{
+		.compatible = "ti,dra7-dmm",
+		.data = &dmm_dra7_platform_data,
 	},
 	{},
 };

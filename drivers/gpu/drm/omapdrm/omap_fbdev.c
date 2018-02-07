@@ -1,7 +1,5 @@
 /*
- * drivers/gpu/drm/omapdrm/omap_fbdev.c
- *
- * Copyright (C) 2011 Texas Instruments
+ * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
  * Author: Rob Clark <rob@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -84,9 +82,6 @@ static struct fb_ops omap_fb_ops = {
 	.owner = THIS_MODULE,
 	DRM_FB_HELPER_DEFAULT_OPS,
 
-	/* Note: to properly handle manual update displays, we wrap the
-	 * basic fbdev ops which write to the framebuffer
-	 */
 	.fb_read = drm_fb_helper_sys_read,
 	.fb_write = drm_fb_helper_sys_write,
 	.fb_fillrect = drm_fb_helper_sys_fillrect,
@@ -248,6 +243,9 @@ struct drm_fb_helper *omap_fbdev_init(struct drm_device *dev)
 	struct drm_fb_helper *helper;
 	int ret = 0;
 
+	if (!priv->num_crtcs || !priv->num_connectors)
+		return NULL;
+
 	fbdev = kzalloc(sizeof(*fbdev), GFP_KERNEL);
 	if (!fbdev)
 		goto fail;
@@ -264,7 +262,7 @@ struct drm_fb_helper *omap_fbdev_init(struct drm_device *dev)
 		goto fail;
 	}
 
-	ret = drm_fb_helper_single_add_all_connectors(helper);
+	ret = drm_fb_helper_add_one_connector(helper, priv->connectors[0]);
 	if (ret)
 		goto fini;
 

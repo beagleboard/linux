@@ -1,6 +1,4 @@
 /*
- * linux/drivers/video/omap2/dss/display.c
- *
  * Copyright (C) 2009 Nokia Corporation
  * Author: Tomi Valkeinen <tomi.valkeinen@nokia.com>
  *
@@ -44,7 +42,6 @@ static int disp_num_counter;
 int omapdss_register_display(struct omap_dss_device *dssdev)
 {
 	struct omap_dss_driver *drv = dssdev->driver;
-	struct list_head *cur;
 	int id;
 
 	/*
@@ -55,26 +52,20 @@ int omapdss_register_display(struct omap_dss_device *dssdev)
 	if (id < 0)
 		id = disp_num_counter++;
 
-	snprintf(dssdev->alias, sizeof(dssdev->alias), "display%d", id);
+	dssdev->alias_id = id;
 
 	/* Use 'label' property for name, if it exists */
 	of_property_read_string(dssdev->dev->of_node, "label", &dssdev->name);
 
 	if (dssdev->name == NULL)
-		dssdev->name = dssdev->alias;
+		dssdev->name = devm_kasprintf(dssdev->dev, GFP_KERNEL,
+					      "display%d", id);
 
 	if (drv && drv->get_timings == NULL)
 		drv->get_timings = omapdss_default_get_timings;
 
 	mutex_lock(&panel_list_mutex);
-	list_for_each(cur, &panel_list) {
-		struct omap_dss_device *ldev = list_entry(cur,
-							 struct omap_dss_device,
-							 panel_list);
-		if (strcmp(ldev->alias, dssdev->alias) > 0)
-			break;
-	}
-	list_add_tail(&dssdev->panel_list, cur);
+	list_add_tail(&dssdev->panel_list, &panel_list);
 	mutex_unlock(&panel_list_mutex);
 	return 0;
 }
@@ -175,17 +166,3 @@ out:
 	return dssdev;
 }
 EXPORT_SYMBOL(omap_dss_get_next_device);
-
-struct omap_dss_device *omap_dss_find_device(void *data,
-		int (*match)(struct omap_dss_device *dssdev, void *data))
-{
-	struct omap_dss_device *dssdev = NULL;
-
-	while ((dssdev = omap_dss_get_next_device(dssdev)) != NULL) {
-		if (match(dssdev, data))
-			return dssdev;
-	}
-
-	return NULL;
-}
-EXPORT_SYMBOL(omap_dss_find_device);

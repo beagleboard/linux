@@ -1,7 +1,5 @@
 /*
- * drivers/gpu/drm/omapdrm/omap_irq.c
- *
- * Copyright (C) 2012 Texas Instruments
+ * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
  * Author: Rob Clark <rob.clark@linaro.org>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -221,6 +219,7 @@ static irqreturn_t omap_irq_handler(int irq, void *arg)
 
 	omap_irq_ocp_error_handler(dev, irqstatus);
 	omap_irq_fifo_underflow(priv, irqstatus);
+	omap_wb_irq(priv->wb_private, irqstatus);
 
 	spin_lock_irqsave(&priv->wait_lock, flags);
 	list_for_each_entry_safe(wait, n, &priv->wait_list, node) {
@@ -268,6 +267,9 @@ int omap_drm_irq_install(struct drm_device *dev)
 
 	for (i = 0; i < num_mgrs; ++i)
 		priv->irq_mask |= priv->dispc_ops->mgr_get_sync_lost_irq(i);
+
+	if (priv->dispc_ops->has_writeback())
+		priv->irq_mask |= OMAP_WB_IRQ_MASK;
 
 	priv->dispc_ops->runtime_get();
 	priv->dispc_ops->clear_irqstatus(0xffffffff);

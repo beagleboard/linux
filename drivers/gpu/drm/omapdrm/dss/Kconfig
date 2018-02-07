@@ -65,6 +65,14 @@ config OMAP4_DSS_HDMI
 	help
 	  HDMI support for OMAP4 based SoCs.
 
+config OMAP4_DSS_HDMI_CEC
+	bool "Enable HDMI CEC support for OMAP4"
+	depends on OMAP4_DSS_HDMI
+	select CEC_CORE
+	default y
+	---help---
+	  When selected the HDMI transmitter will support the CEC feature.
+
 config OMAP5_DSS_HDMI
 	bool "HDMI support for OMAP5"
 	default n
@@ -124,3 +132,11 @@ config OMAP2_DSS_SLEEP_AFTER_VENC_RESET
 	  disable the sleep if it doesn't cause problems on your platform.
 
 endif
+
+config TI_DSS6
+	tristate "TI DSS6 support"
+	select OMAP_DSS_BASE
+	select VIDEOMODE_HELPERS
+	select OMAP2_DSS_INIT
+	help
+	  Enable support for Texas Instruments DSS6 IP.

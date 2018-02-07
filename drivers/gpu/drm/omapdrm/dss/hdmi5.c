@@ -1,7 +1,7 @@
 /*
  * HDMI driver for OMAP5
  *
- * Copyright (C) 2014 Texas Instruments Incorporated
+ * Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/
  *
  * Authors:
  *	Yong Zhi
@@ -593,21 +593,16 @@ static int hdmi_audio_startup(struct device *dev,
 			      void (*abort_cb)(struct device *dev))
 {
 	struct omap_hdmi *hd = dev_get_drvdata(dev);
-	int ret = 0;
 
 	mutex_lock(&hd->lock);
 
-	if (!hdmi_mode_has_audio(&hd->cfg) || !hd->display_enabled) {
-		ret = -EPERM;
-		goto out;
-	}
+	WARN_ON(hd->audio_abort_cb != NULL);
 
 	hd->audio_abort_cb = abort_cb;
 
-out:
 	mutex_unlock(&hd->lock);
 
-	return ret;
+	return 0;
 }
 
 static int hdmi_audio_shutdown(struct device *dev)
@@ -628,12 +623,14 @@ static int hdmi_audio_start(struct device *dev)
 	struct omap_hdmi *hd = dev_get_drvdata(dev);
 	unsigned long flags;
 
-	WARN_ON(!hdmi_mode_has_audio(&hd->cfg));
-
 	spin_lock_irqsave(&hd->audio_playing_lock, flags);
 
-	if (hd->display_enabled)
+	if (hd->display_enabled) {
+		if (!hdmi_mode_has_audio(&hd->cfg))
+			DSSERR("%s: Video mode does not support audio\n",
+			       __func__);
 		hdmi_start_audio_stream(hd);
+	}
 	hd->audio_playing = true;
 
 	spin_unlock_irqrestore(&hd->audio_playing_lock, flags);
@@ -645,7 +642,8 @@ static void hdmi_audio_stop(struct device *dev)
 	struct omap_hdmi *hd = dev_get_drvdata(dev);
 	unsigned long flags;
 
-	WARN_ON(!hdmi_mode_has_audio(&hd->cfg));
+	if (!hdmi_mode_has_audio(&hd->cfg))
+		DSSERR("%s: Video mode does not support audio\n", __func__);
 
 	spin_lock_irqsave(&hd->audio_playing_lock, flags);
 
@@ -664,18 +662,15 @@ static int hdmi_audio_config(struct device *dev,
 
 	mutex_lock(&hd->lock);
 
-	if (!hdmi_mode_has_audio(&hd->cfg) || !hd->display_enabled) {
-		ret = -EPERM;
-		goto out;
+	if (hd->display_enabled) {
+		ret = hdmi5_audio_config(&hd->core, &hd->wp, dss_audio,
+					 hd->cfg.vm.pixelclock);
+		if (ret)
+			goto out;
 	}
 
-	ret = hdmi5_audio_config(&hd->core, &hd->wp, dss_audio,
-				 hd->cfg.vm.pixelclock);
-
-	if (!ret) {
-		hd->audio_configured = true;
-		hd->audio_config = *dss_audio;
-	}
+	hd->audio_configured = true;
+	hd->audio_config = *dss_audio;
 out:
 	mutex_unlock(&hd->lock);
 
@@ -841,7 +836,7 @@ static const struct of_device_id hdmi_of_match[] = {
 	{},
 };
 
-static struct platform_driver omapdss_hdmihw_driver = {
+struct platform_driver omapdss_hdmi5hw_driver = {
 	.probe		= hdmi5_probe,
 	.remove		= hdmi5_remove,
 	.driver         = {
@@ -851,13 +846,3 @@ static struct platform_driver omapdss_hdmihw_driver = {
 		.suppress_bind_attrs = true,
 	},
 };
-
-int __init hdmi5_init_platform_driver(void)
-{
-	return platform_driver_register(&omapdss_hdmihw_driver);
-}
-
-void hdmi5_uninit_platform_driver(void)
-{
-	platform_driver_unregister(&omapdss_hdmihw_driver);
-}

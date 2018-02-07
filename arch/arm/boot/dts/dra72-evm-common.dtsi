@@ -16,6 +16,9 @@
 
 	aliases {
 		display0 = &hdmi0;
+
+		sound0 = &sound0;
+		sound1 = &hdmi;
 	};
 
 	chosen {
@@ -171,6 +174,12 @@
 			clocks = <&atl_clkin2_ck>;
 		};
 	};
+
+	clk_ov10633_fixed: clk_ov10633_fixed {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <24000000>;
+	};
 };
 
 &dra7_pmx_core {
@@ -278,6 +287,54 @@
 			gpios = <1 GPIO_ACTIVE_HIGH>;
 			output-low;
 			line-name = "vin6_sel_s0";
+		};
+	};
+
+	ov10633@37 {
+		compatible = "ovti,ov10633";
+		reg = <0x37>;
+
+		clocks = <&clk_ov10633_fixed>;
+		clock-names = "xvclk";
+
+		mux-gpios = <&pcf_hdmi 2	GPIO_ACTIVE_HIGH>, /* VIN2_S0 */
+			    <&pcf_hdmi 6	GPIO_ACTIVE_LOW>; /* VIN2_S2 */
+		port {
+			onboardLI: endpoint {
+				remote-endpoint = <&vin2a>;
+				hsync-active = <1>;
+				vsync-active = <1>;
+				pclk-sample = <0>;
+			};
+		};
+	};
+
+	gpio_csi2_adap: tca6416@20 {
+		status = "okay";
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	ov490@24 {
+		compatible = "ovti,ov490";
+		reg = <0x24>;
+
+		mux-gpios = <&gpio_csi2_adap 0	GPIO_ACTIVE_LOW>,
+						/* CSI2_SEL_I2C_CLK */
+			    <&gpio_csi2_adap 1	GPIO_ACTIVE_HIGH>,
+						/* CSI2_SEL_REF_CLK */
+			    <&gpio_csi2_adap 3	GPIO_ACTIVE_HIGH>,
+						/* CSI2_CAM0_RESETn */
+			    <&gpio_csi2_adap 4	GPIO_ACTIVE_LOW>;
+						/* CSI2_CAM0_PWR_DWN */
+		port {
+			csi2_cam0: endpoint@0 {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&csi2_phy0>;
+			};
 		};
 	};
 };
@@ -509,6 +566,29 @@
 		hdmi_out: endpoint {
 			remote-endpoint = <&tpd12s015_in>;
 		};
+	};
+};
+
+&vip1 {
+	status = "okay";
+};
+
+&vin2a {
+	status = "okay";
+	endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&onboardLI>;
+	};
+};
+
+&cal {
+	status = "okay";
+};
+
+&csi2_0 {
+	csi2_phy0: endpoint@0 {
+		slave-mode;
+		remote-endpoint = <&csi2_cam0>;
 	};
 };
 

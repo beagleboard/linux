@@ -1,7 +1,5 @@
 /*
- * drivers/gpu/drm/omapdrm/omap_drv.c
- *
- * Copyright (C) 2011 Texas Instruments
+ * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
  * Author: Rob Clark <rob@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -17,6 +15,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/of.h>
+#include <linux/sort.h>
 #include <linux/sys_soc.h>
 
 #include <drm/drm_atomic.h>
@@ -33,6 +33,14 @@
 #define DRIVER_MAJOR		1
 #define DRIVER_MINOR		0
 #define DRIVER_PATCHLEVEL	0
+
+#define MAX_NR_DISPLAYS		8
+static int display_order[MAX_NR_DISPLAYS];
+static int display_order_nelm;
+module_param_array_named(displays, display_order, int, &display_order_nelm,
+			 0444);
+MODULE_PARM_DESC(displays,
+		 "ID array to specify the order of the active displays");
 
 /*
  * mode config funcs
@@ -159,32 +167,130 @@ static int get_connector_type(struct omap_dss_device *dssdev)
 	}
 }
 
-static void omap_disconnect_dssdevs(void)
+static void omap_disconnect_dssdevs(struct drm_device *ddev)
 {
-	struct omap_dss_device *dssdev = NULL;
+	struct omap_drm_private *priv = ddev->dev_private;
+	unsigned int i;
 
-	for_each_dss_dev(dssdev)
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		struct omap_dss_device *dssdev = priv->dssdevs[i];
+
 		dssdev->driver->disconnect(dssdev);
+		priv->dssdevs[i] = NULL;
+		omap_dss_put_device(dssdev);
+	}
+
+	priv->num_dssdevs = 0;
 }
 
-static int omap_connect_dssdevs(void)
+static int omap_compare_dssdevs(const void *a, const void *b)
 {
-	int r;
+	const struct omap_dss_device *dssdev1 = *(struct omap_dss_device **)a;
+	const struct omap_dss_device *dssdev2 = *(struct omap_dss_device **)b;
+
+	if (dssdev1->alias_id > dssdev2->alias_id)
+		return 1;
+	else if (dssdev1->alias_id < dssdev2->alias_id)
+		return -1;
+	return 0;
+}
+
+static void omap_collect_dssdevs(struct drm_device *ddev)
+{
+	struct omap_drm_private *priv = ddev->dev_private;
+	struct omap_dss_device *dssdevs[ARRAY_SIZE(priv->dssdevs)];
 	struct omap_dss_device *dssdev = NULL;
+	int num_dssdevs = 0;
+	unsigned long dssdev_mask = 0;
+	int i;
+
+	/* No displays should be enabled */
+	if (display_order_nelm == 1 && display_order[0] < 0)
+		return;
+
+	for_each_dss_dev(dssdev) {
+		omap_dss_get_device(dssdev);
+		set_bit(num_dssdevs, &dssdev_mask);
+		dssdevs[num_dssdevs++] = dssdev;
+		if (num_dssdevs == ARRAY_SIZE(dssdevs)) {
+			/* To balance the 'for_each_dss_dev' loop */
+			omap_dss_put_device(dssdev);
+			break;
+		}
+	}
+
+	/* Sort the list by DT aliases */
+	sort(dssdevs, num_dssdevs, sizeof(dssdevs[0]), omap_compare_dssdevs,
+	     NULL);
+
+	/* Do ordering based on the display_order parameter array */
+	for (i = 0; i < display_order_nelm; i++) {
+		int old_index = display_order[i];
+
+		if ((old_index >= 0 && old_index < num_dssdevs) &&
+		    (dssdev_mask & BIT(old_index))) {
+			priv->dssdevs[priv->num_dssdevs++] = dssdevs[old_index];
+			clear_bit(old_index, &dssdev_mask);
+		} else {
+			dev_err(ddev->dev,
+				"Ignoring invalid displays module parameter\n");
+			priv->num_dssdevs = 0;
+			break;
+		}
+	}
+
+	/* if the target list is empty, copy the collected dssdevs, if any */
+	if (priv->num_dssdevs == 0) {
+		for (i = 0; i < num_dssdevs; i++)
+			priv->dssdevs[i] = dssdevs[i];
+
+		priv->num_dssdevs = num_dssdevs;
+	} else {
+		u32 idx;
+
+		/* check if we have dssdev which is not carried over */
+		for_each_set_bit(idx, &dssdev_mask, ARRAY_SIZE(dssdevs))
+			omap_dss_put_device(dssdevs[idx]);
+	}
+}
+
+static int omap_connect_dssdevs(struct drm_device *ddev)
+{
+	struct omap_drm_private *priv = ddev->dev_private;
+	u32 working = 0;
+	int r, i, j;
 
 	if (!omapdss_stack_is_ready())
 		return -EPROBE_DEFER;
 
-	for_each_dss_dev(dssdev) {
+	omap_collect_dssdevs(ddev);
+
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		struct omap_dss_device *dssdev = priv->dssdevs[i];
+
 		r = dssdev->driver->connect(dssdev);
-		if (r == -EPROBE_DEFER) {
-			omap_dss_put_device(dssdev);
+		if (r == -EPROBE_DEFER)
 			goto cleanup;
-		} else if (r) {
+		else if (r)
 			dev_warn(dssdev->dev, "could not connect display: %s\n",
-				dssdev->name);
+				 dssdev->name);
+		else
+			working |= BIT(i);
+	}
+
+	/* Remove the dssdevs if their connect failed */
+	j = 0;
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		if (working & BIT(i)) {
+			if (j != i)
+				priv->dssdevs[j] = priv->dssdevs[i];
+			j++;
+		} else {
+			omap_dss_put_device(priv->dssdevs[i]);
 		}
 	}
+
+	priv->num_dssdevs = j;
 
 	return 0;
 
@@ -193,7 +299,7 @@ cleanup:
 	 * if we are deferring probe, we disconnect the devices we previously
 	 * connected
 	 */
-	omap_disconnect_dssdevs();
+	omap_disconnect_dssdevs(ddev);
 
 	return r;
 }
@@ -203,9 +309,48 @@ static int omap_modeset_init_properties(struct drm_device *dev)
 	struct omap_drm_private *priv = dev->dev_private;
 	unsigned int num_planes = priv->dispc_ops->get_num_ovls();
 
+	static const struct drm_prop_enum_list trans_key_mode_list[] = {
+		{ 0, "disable"},
+		{ 1, "gfx-dst"},
+		{ 2, "vid-src"},
+	};
+
 	priv->zorder_prop = drm_property_create_range(dev, 0, "zorder", 0,
 						      num_planes - 1);
 	if (!priv->zorder_prop)
+		return -ENOMEM;
+
+	priv->global_alpha_prop = drm_property_create_range(dev, 0,
+		"global_alpha", 0, 255);
+	if (!priv->global_alpha_prop)
+		return -ENOMEM;
+
+	priv->pre_mult_alpha_prop = drm_property_create_bool(dev, 0,
+		"pre_mult_alpha");
+	if (!priv->pre_mult_alpha_prop)
+		return -ENOMEM;
+
+	/* crtc properties */
+
+	priv->background_color_prop = drm_property_create_range(dev, 0,
+		"background", 0, 0xffffff);
+	if (!priv->background_color_prop)
+		return -ENOMEM;
+
+	priv->trans_key_mode_prop = drm_property_create_enum(dev, 0,
+		"trans-key-mode",
+		trans_key_mode_list, ARRAY_SIZE(trans_key_mode_list));
+	if (!priv->trans_key_mode_prop)
+		return -ENOMEM;
+
+	priv->trans_key_prop = drm_property_create_range(dev, 0, "trans-key",
+		0, 0xffffff);
+	if (!priv->trans_key_prop)
+		return -ENOMEM;
+
+	priv->alpha_blender_prop = drm_property_create_bool(dev, 0,
+		"alpha_blender");
+	if (!priv->alpha_blender_prop)
 		return -ENOMEM;
 
 	return 0;
@@ -218,7 +363,7 @@ static int omap_modeset_init(struct drm_device *dev)
 	int num_ovls = priv->dispc_ops->get_num_ovls();
 	int num_mgrs = priv->dispc_ops->get_num_mgrs();
 	int num_crtcs, crtc_idx, plane_idx;
-	int ret;
+	int ret, i;
 	u32 plane_crtc_mask;
 
 	drm_mode_config_init(dev);
@@ -235,11 +380,7 @@ static int omap_modeset_init(struct drm_device *dev)
 	 * configuration does not match the expectations or exceeds
 	 * the available resources, the configuration is rejected.
 	 */
-	num_crtcs = 0;
-	for_each_dss_dev(dssdev)
-		if (omapdss_device_is_connected(dssdev))
-			num_crtcs++;
-
+	num_crtcs = priv->num_dssdevs;
 	if (num_crtcs > num_mgrs || num_crtcs > num_ovls ||
 	    num_crtcs > ARRAY_SIZE(priv->crtcs) ||
 	    num_crtcs > ARRAY_SIZE(priv->planes) ||
@@ -257,14 +398,12 @@ static int omap_modeset_init(struct drm_device *dev)
 
 	crtc_idx = 0;
 	plane_idx = 0;
-	for_each_dss_dev(dssdev) {
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		struct omap_dss_device *dssdev = priv->dssdevs[i];
 		struct drm_connector *connector;
 		struct drm_encoder *encoder;
 		struct drm_plane *plane;
 		struct drm_crtc *crtc;
-
-		if (!omapdss_device_is_connected(dssdev))
-			continue;
 
 		encoder = omap_encoder_init(dev, dssdev);
 		if (!encoder)
@@ -320,11 +459,14 @@ static int omap_modeset_init(struct drm_device *dev)
 	dev->mode_config.min_width = 8;
 	dev->mode_config.min_height = 2;
 
-	/* note: eventually will need some cpu_is_omapXYZ() type stuff here
-	 * to fill in these limits properly on different OMAP generations..
+	/*
+	 * Note: these values are used for multiple independent things:
+	 * connector mode filtering, buffer sizes, crtc sizes...
+	 * Use big enough values here to cover all use cases, and do more
+	 * specific checking in the respective code paths.
 	 */
-	dev->mode_config.max_width = 2048;
-	dev->mode_config.max_height = 2048;
+	dev->mode_config.max_width = 8192;
+	dev->mode_config.max_height = 8192;
 
 	dev->mode_config.funcs = &omap_mode_config_funcs;
 	dev->mode_config.helper_private = &omap_mode_config_helper_funcs;
@@ -339,11 +481,14 @@ static int omap_modeset_init(struct drm_device *dev)
 /*
  * Enable the HPD in external components if supported
  */
-static void omap_modeset_enable_external_hpd(void)
+static void omap_modeset_enable_external_hpd(struct drm_device *ddev)
 {
-	struct omap_dss_device *dssdev = NULL;
+	struct omap_drm_private *priv = ddev->dev_private;
+	int i;
 
-	for_each_dss_dev(dssdev) {
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		struct omap_dss_device *dssdev = priv->dssdevs[i];
+
 		if (dssdev->driver->enable_hpd)
 			dssdev->driver->enable_hpd(dssdev);
 	}
@@ -352,11 +497,14 @@ static void omap_modeset_enable_external_hpd(void)
 /*
  * Disable the HPD in external components if supported
  */
-static void omap_modeset_disable_external_hpd(void)
+static void omap_modeset_disable_external_hpd(struct drm_device *ddev)
 {
-	struct omap_dss_device *dssdev = NULL;
+	struct omap_drm_private *priv = ddev->dev_private;
+	int i;
 
-	for_each_dss_dev(dssdev) {
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		struct omap_dss_device *dssdev = priv->dssdevs[i];
+
 		if (dssdev->driver->disable_hpd)
 			dssdev->driver->disable_hpd(dssdev);
 	}
@@ -561,19 +709,25 @@ static int pdev_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
+	/* Allocate and initialize the DRM device. */
+	ddev = drm_dev_alloc(&omap_drm_driver, &pdev->dev);
+	if (IS_ERR(ddev))
+		return PTR_ERR(ddev);
+
+	ddev->dev_private = priv;
+	platform_set_drvdata(pdev, ddev);
+
 	omap_crtc_pre_init();
 
-	ret = omap_connect_dssdevs();
+	ret = omap_connect_dssdevs(ddev);
 	if (ret)
 		goto err_crtc_uninit;
 
-	/* Allocate and initialize the driver private structure. */
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-	if (!priv) {
-		ret = -ENOMEM;
-		goto err_disconnect_dssdevs;
-	}
-
+	/* Initialize the driver private structure. */
 	priv->dispc_ops = dispc_get_ops();
 
 	soc = soc_device_match(omapdrm_soc_devices);
@@ -583,22 +737,17 @@ static int pdev_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->list_lock);
 	INIT_LIST_HEAD(&priv->obj_list);
 
-	/* Allocate and initialize the DRM device. */
-	ddev = drm_dev_alloc(&omap_drm_driver, &pdev->dev);
-	if (IS_ERR(ddev)) {
-		ret = PTR_ERR(ddev);
-		goto err_free_priv;
-	}
-
-	ddev->dev_private = priv;
-	platform_set_drvdata(pdev, ddev);
+	/* Get memory bandwidth limits */
+	if (priv->dispc_ops->get_memory_bandwidth_limit)
+		priv->max_bandwidth =
+				priv->dispc_ops->get_memory_bandwidth_limit();
 
 	omap_gem_init(ddev);
 
 	ret = omap_modeset_init(ddev);
 	if (ret) {
 		dev_err(&pdev->dev, "omap_modeset_init failed: ret=%d\n", ret);
-		goto err_free_drm_dev;
+		goto err_gem_deinit;
 	}
 
 	/* Initialize vblank handling, start with all CRTCs disabled. */
@@ -614,7 +763,15 @@ static int pdev_probe(struct platform_device *pdev)
 	priv->fbdev = omap_fbdev_init(ddev);
 
 	drm_kms_helper_poll_init(ddev);
-	omap_modeset_enable_external_hpd();
+	omap_modeset_enable_external_hpd(ddev);
+
+	if (priv->dispc_ops->has_writeback()) {
+		ret = omap_wb_init(ddev);
+		if (ret)
+			dev_warn(&pdev->dev, "failed to initialize writeback\n");
+		else
+			priv->wb_initialized = true;
+	}
 
 	/*
 	 * Register the DRM device with the core and the connectors with
@@ -627,23 +784,24 @@ static int pdev_probe(struct platform_device *pdev)
 	return 0;
 
 err_cleanup_helpers:
-	omap_modeset_disable_external_hpd();
+	if (priv->wb_initialized)
+		omap_wb_cleanup(ddev);
+
+	omap_modeset_disable_external_hpd(ddev);
+
 	drm_kms_helper_poll_fini(ddev);
 	if (priv->fbdev)
 		omap_fbdev_free(ddev);
 err_cleanup_modeset:
 	drm_mode_config_cleanup(ddev);
 	omap_drm_irq_uninstall(ddev);
-err_free_drm_dev:
+err_gem_deinit:
 	omap_gem_deinit(ddev);
-	drm_dev_unref(ddev);
-err_free_priv:
 	destroy_workqueue(priv->wq);
-	kfree(priv);
-err_disconnect_dssdevs:
-	omap_disconnect_dssdevs();
+	omap_disconnect_dssdevs(ddev);
 err_crtc_uninit:
 	omap_crtc_pre_uninit();
+	drm_dev_unref(ddev);
 	return ret;
 }
 
@@ -656,7 +814,10 @@ static int pdev_remove(struct platform_device *pdev)
 
 	drm_dev_unregister(ddev);
 
-	omap_modeset_disable_external_hpd();
+	if (priv->wb_initialized)
+		omap_wb_cleanup(ddev);
+
+	omap_modeset_disable_external_hpd(ddev);
 	drm_kms_helper_poll_fini(ddev);
 
 	if (priv->fbdev)
@@ -669,23 +830,25 @@ static int pdev_remove(struct platform_device *pdev)
 	omap_drm_irq_uninstall(ddev);
 	omap_gem_deinit(ddev);
 
-	drm_dev_unref(ddev);
-
 	destroy_workqueue(priv->wq);
-	kfree(priv);
 
-	omap_disconnect_dssdevs();
+	omap_disconnect_dssdevs(ddev);
 	omap_crtc_pre_uninit();
+
+	drm_dev_unref(ddev);
 
 	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
-static int omap_drm_suspend_all_displays(void)
+static int omap_drm_suspend_all_displays(struct drm_device *ddev)
 {
-	struct omap_dss_device *dssdev = NULL;
+	struct omap_drm_private *priv = ddev->dev_private;
+	int i;
 
-	for_each_dss_dev(dssdev) {
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		struct omap_dss_device *dssdev = priv->dssdevs[i];
+
 		if (!dssdev->driver)
 			continue;
 
@@ -700,11 +863,14 @@ static int omap_drm_suspend_all_displays(void)
 	return 0;
 }
 
-static int omap_drm_resume_all_displays(void)
+static int omap_drm_resume_all_displays(struct drm_device *ddev)
 {
-	struct omap_dss_device *dssdev = NULL;
+	struct omap_drm_private *priv = ddev->dev_private;
+	int i;
 
-	for_each_dss_dev(dssdev) {
+	for (i = 0; i < priv->num_dssdevs; i++) {
+		struct omap_dss_device *dssdev = priv->dssdevs[i];
+
 		if (!dssdev->driver)
 			continue;
 
@@ -724,7 +890,7 @@ static int omap_drm_suspend(struct device *dev)
 	drm_kms_helper_poll_disable(drm_dev);
 
 	drm_modeset_lock_all(drm_dev);
-	omap_drm_suspend_all_displays();
+	omap_drm_suspend_all_displays(drm_dev);
 	drm_modeset_unlock_all(drm_dev);
 
 	return 0;
@@ -735,12 +901,12 @@ static int omap_drm_resume(struct device *dev)
 	struct drm_device *drm_dev = dev_get_drvdata(dev);
 
 	drm_modeset_lock_all(drm_dev);
-	omap_drm_resume_all_displays();
+	omap_drm_resume_all_displays(drm_dev);
 	drm_modeset_unlock_all(drm_dev);
 
 	drm_kms_helper_poll_enable(drm_dev);
 
-	return omap_gem_resume(dev);
+	return omap_gem_resume(drm_dev);
 }
 #endif
 
