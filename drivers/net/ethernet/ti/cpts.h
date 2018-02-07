@@ -36,7 +36,7 @@
 struct cpsw_cpts {
 	u32 idver;                /* Identification and version */
 	u32 control;              /* Time sync control */
-	u32 res1;
+	u32 rftclk_sel;		  /* Reference Clock Select Register */
 	u32 ts_push;              /* Time stamp event push */
 	u32 ts_load_val;          /* Time stamp load value */
 	u32 ts_load_en;           /* Time stamp load enable */
@@ -67,6 +67,8 @@ struct cpsw_cpts {
 #define HW1_TS_PUSH_EN       (1<<8)  /* Hardware push 1 enable */
 #define INT_TEST             (1<<1)  /* Interrupt Test */
 #define CPTS_EN              (1<<0)  /* Time Sync Enable */
+
+#define CPTS_RFTCLK_SEL_MASK 0x1f
 
 /*
  * Definitions for the single bit resisters:
@@ -108,6 +110,8 @@ struct cpts_event {
 	u32 low;
 };
 
+#define CPTS_CAP_RFTCLK_SEL BIT(0)
+
 struct cpts {
 	struct device *dev;
 	struct cpsw_cpts __iomem *reg;
@@ -126,6 +130,8 @@ struct cpts {
 	struct cpts_event pool_data[CPTS_MAX_EVENTS];
 	unsigned long ov_check_period;
 	struct sk_buff_head txq;
+	u32 rftclk_sel;
+	u32 caps;
 };
 
 void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
