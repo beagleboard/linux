@@ -123,6 +123,10 @@ Optional properties:
 
 		Defaults: clock_mult, clock_shift = calculated from
 		CPTS refclk
+	- cpts-ext-ts-inputs:
+		The number of external time stamp channels.
+		The different CPTS versions might support up 8
+		external time stamp channels. if absent - unsupported.
 
 NetCP interface properties: Interface specification for NetCP sub-modules.
 Required properties:
