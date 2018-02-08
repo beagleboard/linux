@@ -15,7 +15,7 @@ config DRM_TILCDC
 config DRM_TILCDC_SLAVE_COMPAT
 	bool "Support device tree blobs using TI LCDC Slave binding"
 	depends on DRM_TILCDC
-	default y
+	default n
 	select OF_RESOLVE
 	select OF_OVERLAY
 	help
