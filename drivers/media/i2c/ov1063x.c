@@ -650,7 +650,7 @@ static int ov1063x_set_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_format *fmt)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	unsigned int index = ARRAY_SIZE(ov1063x_cfmts);
+	int index = ARRAY_SIZE(ov1063x_cfmts);
 	struct ov1063x_priv *priv = to_ov1063x(client);
 	struct v4l2_mbus_framefmt *mf = &fmt->format;
 	int ret = 0;
