@@ -76,8 +76,14 @@ int generic_check_cpu_restart(unsigned int cpu);
 /* 32-bit */
 extern int smp_hw_index[];
 
+#ifdef CONFIG_IPIPE_LEGACY
+extern int smp_logical_index[];
+#define raw_smp_processor_id()		(smp_logical_index[mfspr(SPRN_PIR)])
+#define hard_smp_processor_id() 	(smp_hw_index[raw_smp_processor_id()])
+#else
 #define raw_smp_processor_id()	(current_thread_info()->cpu)
 #define hard_smp_processor_id() 	(smp_hw_index[smp_processor_id()])
+#endif
 
 static inline int get_hard_smp_processor_id(int cpu)
 {
@@ -87,6 +93,10 @@ static inline int get_hard_smp_processor_id(int cpu)
 static inline void set_hard_smp_processor_id(int cpu, int phys)
 {
 	smp_hw_index[cpu] = phys;
+#ifdef CONFIG_IPIPE_LEGACY
+	BUG_ON(phys >= NR_CPUS);
+	smp_logical_index[phys] = cpu;
+#endif
 }
 #endif
 
@@ -113,6 +123,7 @@ extern int cpu_to_core_id(int cpu);
 #define PPC_MSG_RESCHEDULE      1
 #define PPC_MSG_TICK_BROADCAST	2
 #define PPC_MSG_DEBUGGER_BREAK  3
+#define PPC_MSG_IPIPE_DEMUX     PPC_MSG_DEBUGGER_BREAK
 
 /* for irq controllers that have dedicated ipis per message (4) */
 extern int smp_request_message_ipi(int virq, int message);

@@ -408,6 +408,7 @@ static void __init realview_eb_timer_init(void)
 	timer1_va_base = __io_address(REALVIEW_EB_TIMER0_1_BASE) + 0x20;
 	timer2_va_base = __io_address(REALVIEW_EB_TIMER2_3_BASE);
 	timer3_va_base = __io_address(REALVIEW_EB_TIMER2_3_BASE) + 0x20;
+	timer3_pa_base = REALVIEW_EB_TIMER2_3_BASE + 0x20;
 
 	if (core_tile_eb11mp() || core_tile_a9mp())
 		timer_irq = IRQ_EB11MP_TIMER0_1;

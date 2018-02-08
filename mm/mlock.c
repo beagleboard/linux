@@ -794,3 +794,28 @@ void user_shm_unlock(size_t size, struct user_struct *user)
 	spin_unlock(&shmlock_user_lock);
 	free_uid(user);
 }
+
+#ifdef CONFIG_IPIPE
+int __ipipe_pin_vma(struct mm_struct *mm, struct vm_area_struct *vma)
+{
+	int ret, write, len;
+
+	if (vma->vm_flags & (VM_IO | VM_PFNMAP))
+		return 0;
+
+	if (!((vma->vm_flags & VM_DONTEXPAND) ||
+	    is_vm_hugetlb_page(vma) || vma == get_gate_vma(mm))) {
+		ret = populate_vma_page_range(vma, vma->vm_start, vma->vm_end,
+					      NULL);
+		return ret < 0 ? ret : 0;
+	}
+
+	write = (vma->vm_flags & (VM_WRITE | VM_SHARED)) == VM_WRITE;
+	len = DIV_ROUND_UP(vma->vm_end, PAGE_SIZE) - vma->vm_start/PAGE_SIZE;
+	ret = get_user_pages(current, mm, vma->vm_start,
+			     len, write, 0, NULL, NULL);
+	if (ret < 0)
+		return ret;
+	return ret == len ? 0 : -EFAULT;
+}
+#endif

@@ -26,6 +26,7 @@
 #include <linux/ioport.h>
 #include <linux/device.h>
 #include <linux/io.h>
+#include <linux/ipipe.h>
 
 #include <asm/irq.h>
 #include <asm/mach-types.h>
@@ -119,7 +120,7 @@ static void bast_irq_pc104_demux(struct irq_desc *desc)
 		for (i = 0; stat != 0; i++, stat >>= 1) {
 			if (stat & 1) {
 				irqno = bast_pc104_irqs[i];
-				generic_handle_irq(irqno);
+				ipipe_handle_demuxed_irq(irqno);
 			}
 		}
 	}
