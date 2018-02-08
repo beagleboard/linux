@@ -669,6 +669,7 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra72-evm.dtb \
 	dra72-evm-revc.dtb \
 	dra71-evm.dtb \
+	dra71-lcard.dtb \
 	dra76-evm.dtb
 ifeq ($(CONFIG_SOC_DRA7XX),y)
 dts-dirs += ti
