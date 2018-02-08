@@ -459,6 +459,8 @@ struct thread_struct {
 	unsigned short		gsindex;
 #endif
 
+	u32			status;		/* thread synchronous flags */
+
 #ifdef CONFIG_X86_64
 	unsigned long		fsbase;
 	unsigned long		gsbase;
