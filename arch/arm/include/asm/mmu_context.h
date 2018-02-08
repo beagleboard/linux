@@ -78,6 +78,7 @@ static inline void deferred_switch_mm(struct mm_struct *next)
 }
 #endif /* !I-pipe */
 
+#ifndef MODULE
 #define finish_arch_post_lock_switch \
 	finish_arch_post_lock_switch
 static inline void finish_arch_post_lock_switch(void)
@@ -102,6 +103,8 @@ static inline void finish_arch_post_lock_switch(void)
 		preempt_enable_no_resched();
 	}
 }
+#endif /* !MODULE */
+
 #endif	/* CONFIG_MMU */
 
 static inline int
