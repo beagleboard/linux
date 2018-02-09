@@ -756,7 +756,8 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra72-evm.dtb \
 	dra72-evm-revc.dtb \
 	dra71-evm.dtb \
-	dra76-evm.dtb
+	dra76-evm.dtb \
+	dra76-evm-tfp410.dtb
 dtb-merge-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-evm.dtb \
 	am57xx-evm-cam-mt9t111.dtb \
