@@ -810,6 +810,9 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	if (ret)
 		goto release_mem;
 
+	if (rproc_get_id(rproc) < 0)
+		dev_warn(&pdev->dev, "device does not have an alias id\n");
+
 	return 0;
 
 release_mem:
