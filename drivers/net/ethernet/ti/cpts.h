@@ -36,7 +36,7 @@
 struct cpsw_cpts {
 	u32 idver;                /* Identification and version */
 	u32 control;              /* Time sync control */
-	u32 res1;
+	u32 rftclk_sel;		  /* Reference Clock Select Register */
 	u32 ts_push;              /* Time stamp event push */
 	u32 ts_load_val;          /* Time stamp load value */
 	u32 ts_load_en;           /* Time stamp load enable */
@@ -67,6 +67,8 @@ struct cpsw_cpts {
 #define HW1_TS_PUSH_EN       (1<<8)  /* Hardware push 1 enable */
 #define INT_TEST             (1<<1)  /* Interrupt Test */
 #define CPTS_EN              (1<<0)  /* Time Sync Enable */
+
+#define CPTS_RFTCLK_SEL_MASK 0x1f
 
 /*
  * Definitions for the single bit resisters:
@@ -101,12 +103,17 @@ enum {
 #define CPTS_FIFO_DEPTH 16
 #define CPTS_MAX_EVENTS 32
 
+#define CPTS_EVENT_RX_TX_TIMEOUT 20 /* ms */
+#define CPTS_EVENT_HWSTAMP_TIMEOUT 200 /* ms */
+
 struct cpts_event {
 	struct list_head list;
 	unsigned long tmo;
 	u32 high;
 	u32 low;
 };
+
+#define CPTS_CAP_RFTCLK_SEL BIT(0)
 
 struct cpts {
 	struct device *dev;
@@ -126,10 +133,15 @@ struct cpts {
 	struct cpts_event pool_data[CPTS_MAX_EVENTS];
 	unsigned long ov_check_period;
 	struct sk_buff_head txq;
+	unsigned long ov_check_period_slow;
+	u32 rftclk_sel;
+	u32 ext_ts_inputs;
+	u32 hw_ts_enable;
+	u32 caps;
 };
 
-void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
-void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
+int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb);
 int cpts_register(struct cpts *cpts);
 void cpts_unregister(struct cpts *cpts);
 struct cpts *cpts_create(struct device *dev, void __iomem *regs,
@@ -169,11 +181,14 @@ static inline bool cpts_can_timestamp(struct cpts *cpts, struct sk_buff *skb)
 #else
 struct cpts;
 
-static inline void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+static inline int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
+	return -EOPNOTSUPP;
 }
-static inline void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+
+static inline int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
+	return -EOPNOTSUPP;
 }
 
 static inline
