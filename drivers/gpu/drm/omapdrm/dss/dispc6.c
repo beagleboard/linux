@@ -489,7 +489,7 @@ static u16 c8_to_c12(u8 c8)
 	c12 = c8 << 4;
 
 	/* Replication logic: Copy c8 4 MSB to 4 LSB for full scale c12 */
-	c12 = c8 >> 4;
+	c12 |= c8 >> 4;
 
 	return c12;
 }
