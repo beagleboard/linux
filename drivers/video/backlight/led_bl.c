@@ -124,10 +124,7 @@ static int led_bl_parse_dt(struct device *dev,
 	priv->default_brightness = value;
 
 	priv->led_cdev = of_led_get(node);
-	if (IS_ERR(priv->led_cdev))
-		return PTR_ERR(priv->led_cdev);
-
-	return 0;
+	return PTR_ERR_OR_ZERO(priv->led_cdev);
 }
 
 static int led_bl_probe(struct platform_device *pdev)
