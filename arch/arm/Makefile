@@ -339,18 +339,13 @@ $(BOOT_TARGETS): vmlinux
 $(INSTALL_TARGETS):
 	$(Q)$(MAKE) $(build)=$(boot) MACHINE=$(MACHINE) $@
 
-%.dtb: | scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts MACHINE=$(MACHINE) $(boot)/dts/$@
+%.dtb %.dtbo %.itb: dtbdir=$(patsubst %/,%,$(patsubst %./,%,$(boot)/dts/$(dir $@)))
 
-%.dtbo: dtspath = $(dir $@)
+%.dtb %.dtbo: | scripts
+	$(Q)$(MAKE) $(build)=$(dtbdir) MACHINE=$(MACHINE) $(boot)/dts/$@
 
-%.dtbo: | scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts/$(dtspath) MACHINE=$(MACHINE) $(boot)/dts/$(dtspath)$(notdir $@)
-
-%.itb: itspath = $(dir $@)
-
-%.itb: | scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts/$(itspath) MACHINE=$(MACHINE) $(boot)/dts/$(itspath)$(notdir $@)
+%.itb: | scripts zImage
+	$(Q)$(MAKE) $(build)=$(dtbdir) MACHINE=$(MACHINE) $(boot)/dts/$@
 
 PHONY += dtbs dtbs_install
 
