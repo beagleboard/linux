@@ -309,7 +309,7 @@ endif
 
 # Build the DT binary blobs if we have OF configured
 ifeq ($(CONFIG_USE_OF),y)
-KBUILD_DTBS := dtbs
+KBUILD_DTBS := dtbs itbs
 endif
 
 all:	$(notdir $(KBUILD_IMAGE)) $(KBUILD_DTBS)
@@ -347,13 +347,19 @@ $(INSTALL_TARGETS):
 %.itb: | scripts zImage
 	$(Q)$(MAKE) $(build)=$(dtbdir) MACHINE=$(MACHINE) $(boot)/dts/$@
 
-PHONY += dtbs dtbs_install
+PHONY += dtbs dtbs_install itbs_install
 
-dtbs: prepare scripts zImage
+dtbs: prepare scripts
 	$(Q)$(MAKE) $(build)=$(boot)/dts
+
+itbs: prepare scripts zImage
+	$(Q)$(MAKE) $(build)=$(boot)/dts BUILD_ITBS=y
 
 dtbs_install:
 	$(Q)$(MAKE) $(dtbinst)=$(boot)/dts
+
+itbs_install:
+	$(Q)$(MAKE) $(dtbinst)=$(boot)/dts BUILD_ITBS=y
 
 PHONY += vdso_install
 vdso_install:
@@ -378,6 +384,8 @@ define archhelp
   echo  '                  (supply initrd image via make variable INITRD=<path>)'
   echo  '* dtbs          - Build device tree blobs for enabled boards'
   echo  '  dtbs_install  - Install dtbs to $(INSTALL_DTBS_PATH)'
+  echo  '* itbs          - Build FIT images for enabled boards'
+  echo  '  itbs_install  - Install FIT images to $(INSTALL_DTBS_PATH)'
   echo  '  install       - Install uncompressed kernel'
   echo  '  zinstall      - Install compressed kernel'
   echo  '  uinstall      - Install U-Boot wrapped compressed kernel'

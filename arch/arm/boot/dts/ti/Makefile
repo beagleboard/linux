@@ -33,11 +33,9 @@ $(obj)/%.dtbo: $(src)/%.dtso FORCE
 $(obj)/%.itb: $(src)/%.its FORCE
 	$(call cmd,mkfit)
 
-dtb-$(CONFIG_SOC_DRA7XX) += \
-	am57xx-beagle-x15.dtb \
-	am57xx-beagle-x15-revc.dtb \
-	am57xx-evm.dtbo \
-	am57xx-evm.itb
+ifeq ($(BUILD_ITBS),y)
+dtb-$(CONFIG_SOC_DRA7XX) += am57xx-evm.itb
+endif
 
 clean-files	:= *.dtb *.dtbo *.itb
 
