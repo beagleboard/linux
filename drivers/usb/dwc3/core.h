@@ -1353,9 +1353,9 @@ static inline void dwc3_otg_init(struct dwc3 *dwc)
 { }
 static inline void dwc3_otg_exit(struct dwc3 *dwc)
 { }
-static void dwc3_otg_update(struct dwc3 *dwc, bool ignore_idstatus)
+static inline void dwc3_otg_update(struct dwc3 *dwc, bool ignore_idstatus)
 { }
-static void dwc3_otg_host_init(struct dwc3 *dwc)
+static inline void dwc3_otg_host_init(struct dwc3 *dwc)
 { }
 #endif
 
