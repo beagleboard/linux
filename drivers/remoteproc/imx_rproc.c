@@ -211,7 +211,7 @@ static int imx_rproc_da_to_sys(struct imx_rproc *priv, u64 da,
 	return -ENOENT;
 }
 
-static void *imx_rproc_da_to_va(struct rproc *rproc, u64 da, int len)
+static void *imx_rproc_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags)
 {
 	struct imx_rproc *priv = rproc->priv;
 	void *va = NULL;
