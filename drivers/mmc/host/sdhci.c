@@ -1073,10 +1073,10 @@ static void sdhci_finish_data(struct sdhci_host *host)
 	}
 }
 
-static void sdhci_mod_timer(struct sdhci_host *host, struct mmc_request *mrq,
+static void sdhci_mod_timer(struct sdhci_host *host, struct mmc_command *cmd,
 			    unsigned long timeout)
 {
-	if (sdhci_data_line_cmd(mrq->cmd))
+	if (sdhci_data_line_cmd(cmd))
 		mod_timer(&host->data_timer, timeout);
 	else
 		mod_timer(&host->timer, timeout);
@@ -1135,7 +1135,7 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		timeout += DIV_ROUND_UP(cmd->busy_timeout, 1000) * HZ + HZ;
 	else
 		timeout += 10 * HZ;
-	sdhci_mod_timer(host, cmd->mrq, timeout);
+	sdhci_mod_timer(host, cmd, timeout);
 
 	host->cmd = cmd;
 	if (sdhci_data_line_cmd(cmd)) {
