@@ -735,6 +735,12 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 		DBG("Too large timeout 0x%x requested for CMD%d!\n",
 		    count, cmd->opcode);
 		count = 0xE;
+		if (host->quirks2 & SDHCI_QUIRK2_DISABLE_HW_TIMEOUT) {
+			host->ier &= ~SDHCI_INT_DATA_TIMEOUT;
+			sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+			sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
+			host->hw_timeout_disabled = true;
+		}
 	}
 
 	return count;
@@ -2342,6 +2348,12 @@ static bool sdhci_request_done(struct sdhci_host *host)
 	}
 
 	sdhci_del_timer(host, mrq);
+	if (sdhci_data_line_cmd(mrq->cmd) && host->hw_timeout_disabled) {
+		host->ier |= SDHCI_INT_DATA_TIMEOUT;
+		sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+		sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
+		host->hw_timeout_disabled = false;
+	}
 
 	/*
 	 * Always unmap the data buffers if they were mapped by
