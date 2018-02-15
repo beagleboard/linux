@@ -834,11 +834,6 @@ static struct omap_hwmod_class omap54xx_i2c_hwmod_class = {
 	.rev	= OMAP_I2C_IP_VERSION_2,
 };
 
-/* i2c dev_attr */
-static struct omap_i2c_dev_attr i2c_dev_attr = {
-	.flags	= OMAP_I2C_FLAG_BUS_SHIFT_NONE,
-};
-
 /* i2c1 */
 static struct omap_hwmod omap54xx_i2c1_hwmod = {
 	.name		= "i2c1",
@@ -853,7 +848,6 @@ static struct omap_hwmod omap54xx_i2c1_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &i2c_dev_attr,
 };
 
 /* i2c2 */
@@ -870,7 +864,6 @@ static struct omap_hwmod omap54xx_i2c2_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &i2c_dev_attr,
 };
 
 /* i2c3 */
@@ -887,7 +880,6 @@ static struct omap_hwmod omap54xx_i2c3_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &i2c_dev_attr,
 };
 
 /* i2c4 */
@@ -904,7 +896,6 @@ static struct omap_hwmod omap54xx_i2c4_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &i2c_dev_attr,
 };
 
 /* i2c5 */
@@ -921,7 +912,6 @@ static struct omap_hwmod omap54xx_i2c5_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &i2c_dev_attr,
 };
 
 /*
