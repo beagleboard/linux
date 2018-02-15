@@ -584,18 +584,20 @@ static struct rproc_ops pru_rproc_ops = {
 	.da_to_va		= pru_da_to_va,
 };
 
-static int pru_rproc_get_id(struct pru_rproc *pru)
+static int pru_rproc_set_id(struct pru_rproc *pru)
 {
-	int id = -EINVAL;
+	int ret = 0;
 	u32 mask1 = 0x34000;
 	u32 mask2 = 0x38000;
 
 	if ((pru->mem_regions[0].pa & mask1) == mask1)
-		id = 0;
+		pru->id = 0;
 	else if ((pru->mem_regions[0].pa & mask2) == mask2)
-		id = 1;
+		pru->id = 1;
+	else
+		ret = -EINVAL;
 
-	return id;
+	return ret;
 }
 
 static int pru_rproc_probe(struct platform_device *pdev)
@@ -669,8 +671,8 @@ static int pru_rproc_probe(struct platform_device *pdev)
 			pru->mem_regions[i].size, pru->mem_regions[i].va);
 	}
 
-	pru->id = pru_rproc_get_id(pru);
-	if (pru->id < 0)
+	ret = pru_rproc_set_id(pru);
+	if (ret < 0)
 		goto free_rproc;
 
 	platform_set_drvdata(pdev, rproc);
