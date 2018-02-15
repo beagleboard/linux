@@ -2032,9 +2032,9 @@ static int __gpiod_request(struct gpio_desc *desc, const char *label)
 	if (test_and_set_bit(FLAG_REQUESTED, &desc->flags) == 0) {
 		desc_set_label(desc, label ? : "?");
 		status = 0;
-	} else {
-		status = -EBUSY;
-		goto done;
+//	} else {
+//		status = -EBUSY;
+//		goto done;
 	}
 
 	if (chip->request) {
