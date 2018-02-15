@@ -1747,7 +1747,7 @@ static int m_can_plat_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int m_can_runtime_suspend(struct device *dev)
+static int __maybe_unused m_can_runtime_suspend(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
 	struct m_can_priv *priv = netdev_priv(ndev);
@@ -1758,7 +1758,7 @@ static int m_can_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int m_can_runtime_resume(struct device *dev)
+static int __maybe_unused m_can_runtime_resume(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
 	struct m_can_priv *priv = netdev_priv(ndev);
