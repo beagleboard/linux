@@ -332,6 +332,14 @@ struct sdhci_adma2_64_desc {
 /* Allow for a a command request and a data request at the same time */
 #define SDHCI_MAX_MRQS		2
 
+/*
+ * 48bit command and 136 bit response in 400KHz clock should take 0.46ms.
+ * However since the start time of the command, the time between
+ * command and response, and the time between response and start of data is
+ * not known, set the command transfer time to 2ms.
+ */
+#define MMC_CMD_TRANSFER_TIME	(2 * NSEC_PER_MSEC) /* max 2 ms */
+
 enum sdhci_cookie {
 	COOKIE_UNMAPPED,
 	COOKIE_PRE_MAPPED,	/* mapped by sdhci_pre_req() */
@@ -552,6 +560,8 @@ struct sdhci_host {
 
 	/* Host SDMA buffer boundary. */
 	u32			sdma_boundary;
+
+	unsigned long long	data_timeout;
 
 	unsigned long private[0] ____cacheline_aligned;
 };
