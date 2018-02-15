@@ -363,3 +363,11 @@
 &wkup_m3_ipc {
 	ti,scale-data-fw = "am335x-bone-scale-data.bin";
 };
+
+&pruss_soc_bus {
+	status = "okay";
+
+	pruss: pruss@0 {
+		status = "okay";
+	};
+};
