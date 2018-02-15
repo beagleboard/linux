@@ -17,7 +17,6 @@
 
 #include <linux/i2c-omap.h>
 #include <linux/power/smartreflex.h>
-#include <linux/platform_data/gpio-omap.h>
 #include <linux/platform_data/hsmmc-omap.h>
 
 #include <linux/omap-dma.h>
@@ -836,12 +835,6 @@ static struct omap_hwmod_class omap3xxx_gpio_hwmod_class = {
 	.rev = 1,
 };
 
-/* gpio_dev_attr */
-static struct omap_gpio_dev_attr gpio_dev_attr = {
-	.bank_width = 32,
-	.dbck_flag = true,
-};
-
 /* gpio1 */
 static struct omap_hwmod_opt_clk gpio1_opt_clks[] = {
 	{ .role = "dbclk", .clk = "gpio1_dbck", },
@@ -863,7 +856,6 @@ static struct omap_hwmod omap3xxx_gpio1_hwmod = {
 		},
 	},
 	.class		= &omap3xxx_gpio_hwmod_class,
-	.dev_attr	= &gpio_dev_attr,
 };
 
 /* gpio2 */
@@ -887,7 +879,6 @@ static struct omap_hwmod omap3xxx_gpio2_hwmod = {
 		},
 	},
 	.class		= &omap3xxx_gpio_hwmod_class,
-	.dev_attr	= &gpio_dev_attr,
 };
 
 /* gpio3 */
@@ -911,7 +902,6 @@ static struct omap_hwmod omap3xxx_gpio3_hwmod = {
 		},
 	},
 	.class		= &omap3xxx_gpio_hwmod_class,
-	.dev_attr	= &gpio_dev_attr,
 };
 
 /* gpio4 */
@@ -935,7 +925,6 @@ static struct omap_hwmod omap3xxx_gpio4_hwmod = {
 		},
 	},
 	.class		= &omap3xxx_gpio_hwmod_class,
-	.dev_attr	= &gpio_dev_attr,
 };
 
 /* gpio5 */
@@ -960,7 +949,6 @@ static struct omap_hwmod omap3xxx_gpio5_hwmod = {
 		},
 	},
 	.class		= &omap3xxx_gpio_hwmod_class,
-	.dev_attr	= &gpio_dev_attr,
 };
 
 /* gpio6 */
@@ -985,7 +973,6 @@ static struct omap_hwmod omap3xxx_gpio6_hwmod = {
 		},
 	},
 	.class		= &omap3xxx_gpio_hwmod_class,
-	.dev_attr	= &gpio_dev_attr,
 };
 
 /* dma attributes */
