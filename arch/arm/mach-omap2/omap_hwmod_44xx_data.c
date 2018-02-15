@@ -29,7 +29,6 @@
 
 #include <linux/platform_data/spi-omap2-mcspi.h>
 #include <linux/platform_data/asoc-ti-mcbsp.h>
-#include <plat/dmtimer.h>
 
 #include "omap_hwmod.h"
 #include "omap_hwmod_common_data.h"
@@ -2681,26 +2680,6 @@ static struct omap_hwmod_class omap44xx_timer_hwmod_class = {
 	.sysc	= &omap44xx_timer_sysc,
 };
 
-/* always-on timers dev attribute */
-static struct omap_timer_capability_dev_attr capability_alwon_dev_attr = {
-	.timer_capability	= OMAP_TIMER_ALWON,
-};
-
-/* pwm timers dev attribute */
-static struct omap_timer_capability_dev_attr capability_pwm_dev_attr = {
-	.timer_capability	= OMAP_TIMER_HAS_PWM,
-};
-
-/* timers with DSP interrupt dev attribute */
-static struct omap_timer_capability_dev_attr capability_dsp_dev_attr = {
-	.timer_capability       = OMAP_TIMER_HAS_DSP_IRQ,
-};
-
-/* pwm timers with DSP interrupt dev attribute */
-static struct omap_timer_capability_dev_attr capability_dsp_pwm_dev_attr = {
-	.timer_capability       = OMAP_TIMER_HAS_DSP_IRQ | OMAP_TIMER_HAS_PWM,
-};
-
 /* timer1 */
 static struct omap_hwmod omap44xx_timer1_hwmod = {
 	.name		= "timer1",
@@ -2715,7 +2694,6 @@ static struct omap_hwmod omap44xx_timer1_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &capability_alwon_dev_attr,
 };
 
 /* timer2 */
@@ -2777,7 +2755,6 @@ static struct omap_hwmod omap44xx_timer5_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &capability_dsp_dev_attr,
 };
 
 /* timer6 */
@@ -2793,7 +2770,6 @@ static struct omap_hwmod omap44xx_timer6_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &capability_dsp_dev_attr,
 };
 
 /* timer7 */
@@ -2809,7 +2785,6 @@ static struct omap_hwmod omap44xx_timer7_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &capability_dsp_dev_attr,
 };
 
 /* timer8 */
@@ -2825,7 +2800,6 @@ static struct omap_hwmod omap44xx_timer8_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &capability_dsp_pwm_dev_attr,
 };
 
 /* timer9 */
@@ -2841,7 +2815,6 @@ static struct omap_hwmod omap44xx_timer9_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &capability_pwm_dev_attr,
 };
 
 /* timer10 */
@@ -2858,7 +2831,6 @@ static struct omap_hwmod omap44xx_timer10_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &capability_pwm_dev_attr,
 };
 
 /* timer11 */
@@ -2874,7 +2846,6 @@ static struct omap_hwmod omap44xx_timer11_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &capability_pwm_dev_attr,
 };
 
 /*
