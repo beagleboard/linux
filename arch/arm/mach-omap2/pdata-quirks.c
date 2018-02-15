@@ -21,7 +21,7 @@
 #include <linux/regulator/fixed.h>
 
 #include <linux/platform_data/pinctrl-single.h>
-#include <linux/platform_data/hsmmc-omap.h>
+#include <linux/platform_data/sdhci-omap.h>
 #include <linux/platform_data/iommu-omap.h>
 #include <linux/platform_data/remoteproc-pruss.h>
 #include <linux/platform_data/wkup_m3.h>
@@ -39,7 +39,7 @@
 #include "soc.h"
 #include "hsmmc.h"
 
-static struct omap_hsmmc_platform_data __maybe_unused mmc_pdata[2];
+static struct sdhci_omap_platform_data __maybe_unused mmc_pdata[2];
 
 struct pdata_init {
 	const char *compatible;
@@ -442,21 +442,21 @@ static void __init omap5_uevm_legacy_init(void)
 #endif
 
 #ifdef CONFIG_SOC_DRA7XX
-static struct omap_hsmmc_platform_data dra7_hsmmc_data_mmc1;
-static struct omap_hsmmc_platform_data dra7_hsmmc_data_mmc2;
-static struct omap_hsmmc_platform_data dra7_hsmmc_data_mmc3;
+static struct sdhci_omap_platform_data dra7_sdhci_data_mmc1;
+static struct sdhci_omap_platform_data dra7_sdhci_data_mmc2;
+static struct sdhci_omap_platform_data dra7_sdhci_data_mmc3;
 
 static void __init dra7x_evm_mmc_quirk(void)
 {
 	if (omap_rev() == DRA752_REV_ES1_1 || omap_rev() == DRA752_REV_ES1_0) {
-		dra7_hsmmc_data_mmc1.version = "rev11";
-		dra7_hsmmc_data_mmc1.max_freq = 96000000;
+		dra7_sdhci_data_mmc1.version = "rev11";
+		dra7_sdhci_data_mmc1.max_freq = 96000000;
 
-		dra7_hsmmc_data_mmc2.version = "rev11";
-		dra7_hsmmc_data_mmc2.max_freq = 48000000;
+		dra7_sdhci_data_mmc2.version = "rev11";
+		dra7_sdhci_data_mmc2.max_freq = 48000000;
 
-		dra7_hsmmc_data_mmc3.version = "rev11";
-		dra7_hsmmc_data_mmc3.max_freq = 48000000;
+		dra7_sdhci_data_mmc3.version = "rev11";
+		dra7_sdhci_data_mmc3.max_freq = 48000000;
 	}
 }
 #endif
@@ -593,12 +593,12 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &omap4_iommu_pdata),
 #endif
 #ifdef CONFIG_SOC_DRA7XX
-	OF_DEV_AUXDATA("ti,dra7-hsmmc", 0x4809c000, "4809c000.mmc",
-		       &dra7_hsmmc_data_mmc1),
-	OF_DEV_AUXDATA("ti,dra7-hsmmc", 0x480b4000, "480b4000.mmc",
-		       &dra7_hsmmc_data_mmc2),
-	OF_DEV_AUXDATA("ti,dra7-hsmmc", 0x480ad000, "480ad000.mmc",
-		       &dra7_hsmmc_data_mmc3),
+	OF_DEV_AUXDATA("ti,dra7-sdhci", 0x4809c000, "4809c000.mmc",
+		       &dra7_sdhci_data_mmc1),
+	OF_DEV_AUXDATA("ti,dra7-sdhci", 0x480b4000, "480b4000.mmc",
+		       &dra7_sdhci_data_mmc2),
+	OF_DEV_AUXDATA("ti,dra7-sdhci", 0x480ad000, "480ad000.mmc",
+		       &dra7_sdhci_data_mmc3),
 #endif
 	/* Common auxdata */
 	OF_DEV_AUXDATA("pinctrl-single", 0, NULL, &pcs_pdata),
