@@ -950,6 +950,9 @@ static int sdhci_omap_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_put_sync;
 
+	if (host->quirks2 & SDHCI_QUIRK2_NO_1_8_V)
+		mmc->caps2 &= ~MMC_CAP2_HS200;
+
 	ret = sdhci_omap_config_iodelay_pinctrl_state(omap_host);
 	if (ret)
 		goto err_put_sync;
