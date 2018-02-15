@@ -13,6 +13,7 @@
 #include <linux/io.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 #include <linux/pruss.h>
 
@@ -91,6 +92,63 @@ void pruss_put(struct pruss *pruss)
 	put_device(pruss->dev);
 }
 EXPORT_SYMBOL_GPL(pruss_put);
+
+/**
+ * pruss_regmap_read() - read a PRUSS syscon sub-module register
+ * @pruss: the pruss instance handle
+ * @mod: the pruss syscon sub-module identifier
+ * @reg: register offset within the sub-module
+ * @val: pointer to return the value in
+ *
+ * Reads a given register within one of the PRUSS sub-modules represented
+ * by a syscon and returns it through the passed-in @val pointer
+ *
+ * Returns 0 on success, or an error code otherwise
+ */
+int pruss_regmap_read(struct pruss *pruss, enum pruss_syscon mod,
+		      unsigned int reg, unsigned int *val)
+{
+	struct regmap *map;
+
+	if (IS_ERR_OR_NULL(pruss) || mod < PRUSS_SYSCON_CFG ||
+	    mod >= PRUSS_SYSCON_MAX)
+		return -EINVAL;
+
+	map = (mod == PRUSS_SYSCON_CFG) ? pruss->cfg :
+	       ((mod == PRUSS_SYSCON_IEP ? pruss->iep : pruss->mii_rt));
+
+	return regmap_read(map, reg, val);
+}
+EXPORT_SYMBOL_GPL(pruss_regmap_read);
+
+/**
+ * pruss_regmap_update() - configure a PRUSS syscon sub-module register
+ * @pruss: the pruss instance handle
+ * @mod: the pruss syscon sub-module identifier
+ * @reg: register offset within the sub-module
+ * @mask: bit mask to use for programming the @val
+ * @val: value to write
+ *
+ * Programs a given register within one of the PRUSS sub-modules represented
+ * by a syscon
+ *
+ * Returns 0 on success, or an error code otherwise
+ */
+int pruss_regmap_update(struct pruss *pruss, enum pruss_syscon mod,
+			unsigned int reg, unsigned int mask, unsigned int val)
+{
+	struct regmap *map;
+
+	if (IS_ERR_OR_NULL(pruss) || mod < PRUSS_SYSCON_CFG ||
+	    mod >= PRUSS_SYSCON_MAX)
+		return -EINVAL;
+
+	map = (mod == PRUSS_SYSCON_CFG) ? pruss->cfg :
+	       ((mod == PRUSS_SYSCON_IEP ? pruss->iep : pruss->mii_rt));
+
+	return regmap_update_bits(map, reg, mask, val);
+}
+EXPORT_SYMBOL_GPL(pruss_regmap_update);
 
 static const
 struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
