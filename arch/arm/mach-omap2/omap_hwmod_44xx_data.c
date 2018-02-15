@@ -27,7 +27,6 @@
 
 #include <linux/omap-dma.h>
 
-#include <linux/platform_data/spi-omap2-mcspi.h>
 #include <linux/platform_data/asoc-ti-mcbsp.h>
 
 #include "omap_hwmod.h"
@@ -1910,7 +1909,6 @@ static struct omap_hwmod_class_sysconfig omap44xx_mcspi_sysc = {
 static struct omap_hwmod_class omap44xx_mcspi_hwmod_class = {
 	.name	= "mcspi",
 	.sysc	= &omap44xx_mcspi_sysc,
-	.rev	= OMAP4_MCSPI_REV,
 };
 
 /* mcspi1 */
@@ -1926,11 +1924,6 @@ static struct omap_hwmod_dma_info omap44xx_mcspi1_sdma_reqs[] = {
 	{ .dma_req = -1 }
 };
 
-/* mcspi1 dev_attr */
-static struct omap2_mcspi_dev_attr mcspi1_dev_attr = {
-	.num_chipselect	= 4,
-};
-
 static struct omap_hwmod omap44xx_mcspi1_hwmod = {
 	.name		= "mcspi1",
 	.class		= &omap44xx_mcspi_hwmod_class,
@@ -1944,7 +1937,6 @@ static struct omap_hwmod omap44xx_mcspi1_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &mcspi1_dev_attr,
 };
 
 /* mcspi2 */
@@ -1954,11 +1946,6 @@ static struct omap_hwmod_dma_info omap44xx_mcspi2_sdma_reqs[] = {
 	{ .name = "tx1", .dma_req = 44 + OMAP44XX_DMA_REQ_START },
 	{ .name = "rx1", .dma_req = 45 + OMAP44XX_DMA_REQ_START },
 	{ .dma_req = -1 }
-};
-
-/* mcspi2 dev_attr */
-static struct omap2_mcspi_dev_attr mcspi2_dev_attr = {
-	.num_chipselect	= 2,
 };
 
 static struct omap_hwmod omap44xx_mcspi2_hwmod = {
@@ -1974,7 +1961,6 @@ static struct omap_hwmod omap44xx_mcspi2_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &mcspi2_dev_attr,
 };
 
 /* mcspi3 */
@@ -1984,11 +1970,6 @@ static struct omap_hwmod_dma_info omap44xx_mcspi3_sdma_reqs[] = {
 	{ .name = "tx1", .dma_req = 22 + OMAP44XX_DMA_REQ_START },
 	{ .name = "rx1", .dma_req = 23 + OMAP44XX_DMA_REQ_START },
 	{ .dma_req = -1 }
-};
-
-/* mcspi3 dev_attr */
-static struct omap2_mcspi_dev_attr mcspi3_dev_attr = {
-	.num_chipselect	= 2,
 };
 
 static struct omap_hwmod omap44xx_mcspi3_hwmod = {
@@ -2004,7 +1985,6 @@ static struct omap_hwmod omap44xx_mcspi3_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &mcspi3_dev_attr,
 };
 
 /* mcspi4 */
@@ -2012,11 +1992,6 @@ static struct omap_hwmod_dma_info omap44xx_mcspi4_sdma_reqs[] = {
 	{ .name = "tx0", .dma_req = 69 + OMAP44XX_DMA_REQ_START },
 	{ .name = "rx0", .dma_req = 70 + OMAP44XX_DMA_REQ_START },
 	{ .dma_req = -1 }
-};
-
-/* mcspi4 dev_attr */
-static struct omap2_mcspi_dev_attr mcspi4_dev_attr = {
-	.num_chipselect	= 1,
 };
 
 static struct omap_hwmod omap44xx_mcspi4_hwmod = {
@@ -2032,7 +2007,6 @@ static struct omap_hwmod omap44xx_mcspi4_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &mcspi4_dev_attr,
 };
 
 /*

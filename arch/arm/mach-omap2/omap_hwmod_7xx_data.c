@@ -23,7 +23,6 @@
 #include <linux/i2c-omap.h>
 
 #include <linux/omap-dma.h>
-#include <linux/platform_data/spi-omap2-mcspi.h>
 #include <linux/platform_data/asoc-ti-mcbsp.h>
 
 #include "omap_hwmod.h"
@@ -1381,15 +1380,9 @@ static struct omap_hwmod_class_sysconfig dra7xx_mcspi_sysc = {
 static struct omap_hwmod_class dra7xx_mcspi_hwmod_class = {
 	.name	= "mcspi",
 	.sysc	= &dra7xx_mcspi_sysc,
-	.rev	= OMAP4_MCSPI_REV,
 };
 
 /* mcspi1 */
-/* mcspi1 dev_attr */
-static struct omap2_mcspi_dev_attr mcspi1_dev_attr = {
-	.num_chipselect	= 4,
-};
-
 static struct omap_hwmod dra7xx_mcspi1_hwmod = {
 	.name		= "mcspi1",
 	.class		= &dra7xx_mcspi_hwmod_class,
@@ -1402,15 +1395,9 @@ static struct omap_hwmod dra7xx_mcspi1_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &mcspi1_dev_attr,
 };
 
 /* mcspi2 */
-/* mcspi2 dev_attr */
-static struct omap2_mcspi_dev_attr mcspi2_dev_attr = {
-	.num_chipselect	= 2,
-};
-
 static struct omap_hwmod dra7xx_mcspi2_hwmod = {
 	.name		= "mcspi2",
 	.class		= &dra7xx_mcspi_hwmod_class,
@@ -1423,15 +1410,9 @@ static struct omap_hwmod dra7xx_mcspi2_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &mcspi2_dev_attr,
 };
 
 /* mcspi3 */
-/* mcspi3 dev_attr */
-static struct omap2_mcspi_dev_attr mcspi3_dev_attr = {
-	.num_chipselect	= 2,
-};
-
 static struct omap_hwmod dra7xx_mcspi3_hwmod = {
 	.name		= "mcspi3",
 	.class		= &dra7xx_mcspi_hwmod_class,
@@ -1444,15 +1425,9 @@ static struct omap_hwmod dra7xx_mcspi3_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &mcspi3_dev_attr,
 };
 
 /* mcspi4 */
-/* mcspi4 dev_attr */
-static struct omap2_mcspi_dev_attr mcspi4_dev_attr = {
-	.num_chipselect	= 1,
-};
-
 static struct omap_hwmod dra7xx_mcspi4_hwmod = {
 	.name		= "mcspi4",
 	.class		= &dra7xx_mcspi_hwmod_class,
@@ -1465,7 +1440,6 @@ static struct omap_hwmod dra7xx_mcspi4_hwmod = {
 			.modulemode   = MODULEMODE_SWCTRL,
 		},
 	},
-	.dev_attr	= &mcspi4_dev_attr,
 };
 
 /*
