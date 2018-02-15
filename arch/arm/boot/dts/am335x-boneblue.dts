@@ -513,6 +513,14 @@
 	ti,scale-data-fw = "am335x-bone-scale-data.bin";
 };
 
+&pruss_soc_bus {
+	status = "okay";
+
+	pruss: pruss@0 {
+		status = "okay";
+	};
+};
+
 &dcan1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&dcan1_pins>;
