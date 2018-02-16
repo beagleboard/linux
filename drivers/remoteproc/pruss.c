@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/mfd/syscon.h>
 
 #include "pruss.h"
 
@@ -83,6 +84,33 @@ static int pruss_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pruss->dev = dev;
+
+	np = of_get_child_by_name(node, "cfg");
+	if (!np)
+		return -ENODEV;
+
+	pruss->cfg = syscon_node_to_regmap(np);
+	of_node_put(np);
+	if (IS_ERR(pruss->cfg))
+		return -ENODEV;
+
+	np = of_get_child_by_name(node, "iep");
+	if (!np)
+		return -ENODEV;
+
+	pruss->iep = syscon_node_to_regmap(np);
+	of_node_put(np);
+	if (IS_ERR(pruss->iep))
+		return -ENODEV;
+
+	np = of_get_child_by_name(node, "mii_rt");
+	if (!np)
+		return -ENODEV;
+
+	pruss->mii_rt = syscon_node_to_regmap(np);
+	of_node_put(np);
+	if (IS_ERR(pruss->mii_rt))
+		return -ENODEV;
 
 	np = of_get_child_by_name(node, "memories");
 	if (!np)
