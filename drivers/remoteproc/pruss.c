@@ -94,17 +94,22 @@ static int pruss_probe(struct platform_device *pdev)
 			continue;
 
 		index = of_property_match_string(np, "reg-names", mem_names[i]);
-		if (index < 0)
+		if (index < 0) {
+			of_node_put(np);
 			return index;
+		}
 
-		if (of_address_to_resource(np, index, &res))
+		if (of_address_to_resource(np, index, &res)) {
+			of_node_put(np);
 			return -EINVAL;
+		}
 
 		pruss->mem_regions[i].va = devm_ioremap(dev, res.start,
 							resource_size(&res));
 		if (!pruss->mem_regions[i].va) {
 			dev_err(dev, "failed to parse and map memory resource %d %s\n",
 				i, mem_names[i]);
+			of_node_put(np);
 			return -ENOMEM;
 		}
 		pruss->mem_regions[i].pa = res.start;
@@ -114,6 +119,7 @@ static int pruss_probe(struct platform_device *pdev)
 			mem_names[i], &pruss->mem_regions[i].pa,
 			pruss->mem_regions[i].size, pruss->mem_regions[i].va);
 	}
+	of_node_put(np);
 
 	platform_set_drvdata(pdev, pruss);
 
