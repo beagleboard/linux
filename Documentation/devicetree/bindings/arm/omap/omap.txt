@@ -202,6 +202,9 @@ Boards:
 - DRA718 EVM: Software Development Board for DRA718
   compatible = "ti,dra718-evm", "ti,dra718", "ti,dra722", "ti,dra72", "ti,dra7"
 
+- DRA718 LCard: The DRA71 LCARD ('L'ow 'C'ost 'A'utomotive 'R'eference 'D'esign)
+  compatible = "ti,dra718-lcard", "ti,dra718", "ti,dra722", "ti,dra72", "ti,dra7"
+
 - DM3730 Logic PD Torpedo + Wireless: Commercial System on Module with WiFi and Bluetooth
   compatible = "logicpd,dm3730-torpedo-devkit", "ti,omap3630", "ti,omap3"
 

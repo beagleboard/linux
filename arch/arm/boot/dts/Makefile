@@ -683,11 +683,13 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra72-evm-revc-lcd-osd101t2045.dtb \
 	dra72-evm-revc-lcd-osd101t2587.dtb \
 	dra71-evm.dtb \
-	dra71-evm.dtb \
 	dra71-evm-lcd-auo-g101evn01.0.dtb \
+	dra71-lcard.dtb \
 	dra76-evm.dtb \
 	dra76-evm-tfp410.dtb
-dts-dirs-$(CONFIG_SOC_DRA7XX) += ti
+ifeq ($(CONFIG_SOC_DRA7XX),y)
+dts-dirs += ti
+endif
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-kuroboxpro.dtb \
 	orion5x-lacie-d2-network.dtb \
@@ -1090,11 +1092,15 @@ dtb-$(CONFIG_ARCH_ASPEED) += aspeed-bmc-opp-palmetto.dtb \
 	aspeed-ast2500-evb.dtb
 endif
 
+ifeq ($(BUILD_ITBS),y)
+dtb-y=
+endif
+
 dtstree		:= $(srctree)/$(src)
 dtb-$(CONFIG_OF_ALL_DTBS) := $(patsubst $(dtstree)/%.dts,%.dtb, $(wildcard $(dtstree)/*.dts))
 
 always		:= $(dtb-y)
 clean-files	:= *.dtb
 
-subdir-y	+= $(dts-dirs-y)
-subdir-		+= ti
+subdir-y	+= $(dts-dirs)
+subdir-		+= $(dts-dirs)

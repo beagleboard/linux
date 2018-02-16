@@ -2,6 +2,8 @@ DTC_FLAGS += -@ -Wno-reg_format -Wno-avoid_default_addr_size
 DTC_FLAGS_MKIMAGE = -I dts -O dtb -p 500 -Wno-unit_address_vs_reg \
 	-i arch/arm/boot/dts/ti
 
+-include $(obj)/.itb-deps.d
+
 ifneq ($(DTC),)
   DTC_PATH=$(dir $(DTC))
 else
@@ -9,29 +11,31 @@ else
 endif
 
 quiet_cmd_mkfit = MKIMAGE -f $@
-cmd_mkfit = PATH="$(DTC_PATH):$(PATH)" $(MKIMAGE) -D "$(DTC_FLAGS_MKIMAGE)" -f $< $@ ; \
-	echo "$(notdir $@): $(srctree)/$(src)/$(patsubst %.itb,%.its,$(notdir $@)) \\" > $(depfile) ; \
-	cat $< | grep incbin | cut -d "\"" -f 2 | awk '{ printf " $(src)/%s \\\n", $$1 }' | sed '$$s/ \\$$//' >> $(depfile)
+cmd_mkfit = PATH="$(DTC_PATH):$(PATH)" $(MKIMAGE) -D "$(DTC_FLAGS_MKIMAGE)" -f $< $@
 
-%.dtb: ../%.dts FORCE
+define gen_itb_deps
+	@echo >> $(obj)/.itb-deps.d
+	@echo "$(src)/$(patsubst %.its,%.itb,$(notdir $(1))): $(srctree)/$(src)/$(notdir $(1)) \\" >> $(obj)/.itb-deps.d
+	@cat $(1) | grep incbin | cut -d "\"" -f 2 | awk '{ printf " $(src)/%s \\\n", $$1 }' | sed '$$s/ \\$$//' >> $(obj)/.itb-deps.d
+endef
+
+$(src)/.itb-deps.d:
+	@echo "$(src)/.itb-deps.d: $(wildcard $(srctree)/$(src)/*.its)" > $(obj)/.itb-deps.d
+	@echo >> $(obj)/.itb-deps.d
+	$(foreach f,$(wildcard $(srctree)/$(src)/*.its),$(call gen_itb_deps,$f))
+
+$(obj)/%.dtb: $(src)/../%.dts FORCE
 	$(call if_changed_dep,dtc)
 
-%.dtbo: %.dtso FORCE
+$(obj)/%.dtbo: $(src)/%.dtso FORCE
 	$(call if_changed_dep,dtc)
 
-%.itb: %.its FORCE
-	$(call if_changed_dep,mkfit)
+$(obj)/%.itb: $(src)/%.its FORCE
+	$(call cmd,mkfit)
 
-dtb-$(CONFIG_SOC_DRA7XX) += \
-	am57xx-beagle-x15.dtb \
-	am57xx-beagle-x15-revc.dtb \
-	am57xx-evm.dtbo \
-	mt9t111.dtbo \
-	ov10635.dtbo \
-	am57xx-evm.itb
-
-$(src)/am57xx-evm.itb: $(obj)/am57xx-evm.dtbo $(obj)/am57xx-beagle-x15.dtb \
-	$(obj)/am57xx-beagle-x15-revc.dtb $(obj)/../../zImage
+ifeq ($(BUILD_ITBS),y)
+dtb-$(CONFIG_SOC_DRA7XX) += am57xx-evm.itb
+endif
 
 clean-files	:= *.dtb *.dtbo *.itb
 
