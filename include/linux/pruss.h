@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2015-2018 Texas Instruments Incorporated - http://www.ti.com
  *	Suman Anna <s-anna@ti.com>
+ *	Tero Kristo <t-kristo@ti.com>
  */
 
 #ifndef __LINUX_PRUSS_H
@@ -20,7 +21,12 @@ enum pruss_pru_id {
 	PRUSS_NUM_PRUS,
 };
 
+struct pruss;
+
 #if IS_ENABLED(CONFIG_PRUSS_REMOTEPROC)
+
+struct pruss *pruss_get(struct rproc *rproc);
+void pruss_put(struct pruss *pruss);
 
 int pruss_intc_trigger(unsigned int irq);
 
@@ -29,6 +35,13 @@ void pru_rproc_put(struct rproc *rproc);
 enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc);
 
 #else
+
+static inline struct pruss *pruss_get(struct rproc *rproc)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline void pruss_put(struct pruss *pruss) { }
 
 static inline int pruss_intc_trigger(unsigned int irq)
 {
