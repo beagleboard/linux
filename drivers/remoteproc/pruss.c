@@ -15,7 +15,6 @@
 #include <linux/of_device.h>
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
-#include <linux/pruss.h>
 
 #include "pruss.h"
 

@@ -14,7 +14,6 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/remoteproc.h>
-#include <linux/pruss.h>
 
 #include "remoteproc_internal.h"
 #include "pruss.h"
