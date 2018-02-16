@@ -447,6 +447,38 @@ static int hsr_xmit(struct sk_buff *skb, struct hsr_port *port,
 	return dev_queue_xmit(skb);
 }
 
+static void stripped_skb_get_shared_info(struct sk_buff *skb_stripped,
+					 struct hsr_frame_info *frame)
+{
+	struct hsr_port *port_rcv = frame->port_rcv;
+	struct skb_redundant_info *sred;
+	struct sk_buff *skb_hsr, *skb;
+	struct hsr_ethhdr *hsr_ethhdr;
+	u16 s;
+
+	if (port_rcv->hsr->prot_version > HSR_V1)
+		return;
+
+	if (!frame->skb_hsr)
+		return;
+
+	skb_hsr = frame->skb_hsr;
+	skb = skb_stripped;
+
+	if (is_hsr_l2ptp(skb_hsr)) {
+		skb_hwtstamps(skb)->hwtstamp = skb_hwtstamps(skb_hsr)->hwtstamp;
+		sred = skb_redinfo(skb);
+		/* assumes no vlan */
+		hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb_hsr);
+		sred->io_port = (PTP_MSG_IN | port_rcv->type);
+		sred->ethertype = ntohs(hsr_ethhdr->ethhdr.h_proto);
+		s = ntohs(hsr_ethhdr->hsr_tag.path_and_LSDU_size);
+		sred->lsdu_size = s & 0xfff;
+		sred->pathid = (s >> 12) & 0xf;
+		sred->seqnr = frame->sequence_nr;
+	}
+}
+
 /* Forward the frame through all devices except:
  * - Back through the receiving device
  * - If it's a HSR frame: through a device where it has passed before
@@ -515,10 +547,13 @@ static void hsr_forward_do(struct hsr_frame_info *frame)
 		     port->type ==  HSR_PT_SLAVE_A)))
 			continue;
 
-		if (port->type != HSR_PT_MASTER)
+		if (port->type != HSR_PT_MASTER) {
 			skb = frame_get_tagged_skb(frame, port);
-		else
+		} else {
 			skb = frame_get_stripped_skb(frame, port);
+
+			stripped_skb_get_shared_info(skb, frame);
+		}
 
 		if (!skb) {
 			frame->port_rcv->dev->stats.rx_dropped++;
