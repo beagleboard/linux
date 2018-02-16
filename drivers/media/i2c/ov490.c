@@ -40,6 +40,23 @@
 #define OV490_MIPI_TX_LANE_CTRL0	0x80292015
 
 #define OV490_SC_RESET1			0x80800011
+#define OV490_FW_VER_HIGH		0x80800102
+#define OV490_FW_VER_LOW		0x80800103
+
+#define OV490_IMAGE0_CTRL		0x8082000a
+#define OV490_IMAGE0_BYTE_INVERT	BIT(7)
+#define OV490_IMAGE0_BYTE_SEQUENCE	GEN_MASK(6, 4)
+#define OV490_IMAGE0_BYTE_SEQUENCE_1	BIT(4)
+#define OV490_IMAGE0_FORMAT_SELECT	GEN_MASK(3, 0)
+#define OV490_IMAGE0_FORMAT_PURE_RAW12		0x0
+#define OV490_IMAGE0_FORMAT_3X12_RAW		0x2
+#define OV490_IMAGE0_FORMAT_2X12_RAW		0x3
+#define OV490_IMAGE0_FORMAT_20_COMBINED_RAW	0x4
+#define OV490_IMAGE0_FORMAT_16_COMPRESSED_RAW	0x5
+#define OV490_IMAGE0_FORMAT_12_COMPRESSED_RAW	0x6
+#define OV490_IMAGE0_FORMAT_2X12_COMPRESSED_RAW	0x7
+#define OV490_IMAGE0_FORMAT_12_SELECTED_RAW	0x8
+#define OV490_IMAGE0_FORMAT_12_YUV422		0xf
 
 /* IDs */
 #define OV490_VERSION_REG		0x0490
@@ -50,33 +67,77 @@
 
 #define MAX_NUM_GPIOS			10
 
+/* Host Command Flow */
+#define OV490_STATUS_ADDR		(0x80195ffc)
+#define OV490_HOST_CMD_PARA_ADDR	(0x80195000)
+#define OV490_HOST_CMD_RESULT_ADDR	(0x80195000)
+#define OV490_HOST_INT_ADDR		(0x808000c0)
+#define OV490_STATUS_FINISH		(0x99)
+#define OV490_STATUS_ERROR		(0x55)
+
+/* Host Command List */
+#define OV490_CMD_BRIGHTNESS_SET	(0xf1)
+#define OV490_CMD_SATURATION_SET	(0xf3)
+#define OV490_CMD_HUE_SET		(0xf5)
+#define OV490_CMD_FRAMERATE_SET		(0xf7)
+#define OV490_CMD_GAMMA_SET		(0xf9)
+#define OV490_CMD_SHARPNESS_SET		(0xfb)
+#define OV490_CMD_CONTRAST_SET		(0xfd)
+#define OV490_CMD_GROUPWRITE_SET	(0xe1)
+#define OV490_CMD_STREAMING_CTRL	(0xe2)
+#define OV490_CMD_CONTEXT_SWITCH_CONFIG	(0xe3)
+#define OV490_CMD_CONTEXT_SWITCH_CTRL	(0xe4)
+#define OV490_CMD_MULT_CMD		(0xe5)
+#define OV490_CMD_GPIO_SET		(0xe6)
+#define OV490_CMD_GPIO_GET		(0xe7)
+#define OV490_CMD_FORMAT_SET		(0xe8)
+#define OV490_CMD_TEMP_GET		(0xe9)
+#define OV490_CMD_EXPOSURE_GAIN_SET	(0xea)
+#define OV490_CMD_AWBGAIN_SET		(0xeb)
+#define OV490_CMD_DENOISE_SET		(0xec)
+#define OV490_CMD_TONECURVE_SET		(0xed)
+#define OV490_CMD_COMB_WEIGHT_SET	(0xee)
+#define OV490_CMD_AEC_WEIGHT_SET	(0xd2)
+#define OV490_CMD_AWB_ROI_SET		(0xd3)
+#define OV490_CMD_TONEMAPPING_ROI_SET	(0xd4)
+#define OV490_CMD_STAT_ROI_SET		(0xd5)
+#define OV490_CMD_TESTPATTERN_SET	(0xd6)
+#define OV490_CMD_MTF_SET		(0xd7)
+#define OV490_CMD_LENC_SET		(0xd8)
+#define OV490_CMD_BLC_SET		(0xd9)
+#define OV490_CMD_GROUPWRITE_LAUNCH	(0xda)
+#define OV490_CMD_EMBLINE_CTRL		(0xdb)
+#define OV490_CMD_MIRRFLIP_CTRL		(0xdc)
+#define OV490_CMD_EXTRA_VTS_SET		(0xde)
+#define OV490_CMD_SNR_REG_ACCESS	(0xc1)
+#define OV490_CMD_POSTAWBGAIN_SET	(0xc2)
+#define OV490_CMD_CROP_SET		(0xc3)
+#define OV490_CMD_FRAMESYNC		(0xc4)
+#define OV490_CMD_BANDING_SET		(0xc5)
+#define OV490_CMD_TOPEMB_SET		(0xc7)
+#define OV490_CMD_FWREG_ACCESS		(0x35)
+#define OV490_CMD_FADE_CTRL		(0x37)
+#define OV490_CMD_INIT_CTRL		(0x39)
+#define OV490_CMD_RESET_CTRL		(0x3a)
+
 /*
  * = fvco / pixel_width * num_lanes
  * = 804,000,000 / 16 bits * 4 lanes
  */
 #define OV490_PIXEL_RATE_PER_LANE	50250000
 
-struct ov490_regval {
-	u32 addr;
-	u8 val;
-} ov490_default_regs[] = {
-	{ 0x80195000, 0x01, },
-	{ 0x80195001, 0x01, },
-	{ 0x80195002, 0x05, },
-	{ 0x80195003, 0x08, },
-	{ 0x80195004, 0x04, },
-	{ 0x80195005, 0x40, },
-	{ 0x80195006, 0x05, },
-	{ 0x80195007, 0x08, },
-	{ 0x80195008, 0x04, },
-	{ 0x80195009, 0x40, },
-	{ 0x8019500A, 0x00, },
-	{ 0x80195000, 0x31, },
-
-	{ 0x808000C0, 0x39, },
-	{ 0x808000C0, 0xE2, },
-
-	{ 0x8082000A, 0x92, },
+static u8 ov490_init_param[] = {
+	0x31,	/* [3:0]input port, [7:4]  input format */
+	0x01,	/* [3:0]output port, [7:4]  output format */
+	0x05,	/* in width: 1288 */
+	0x08,
+	0x04,	/* in height:1080 */
+	0x40,
+	0x05,	/* out width: 1288 */
+	0x08,
+	0x04,	/* out height:1080 */
+	0x40,
+	0x00,
 };
 
 struct ov490_color_format {
@@ -144,13 +205,125 @@ static int ov490_reg_write32(struct regmap *map, u32 reg, u8 val)
 	return ret;
 }
 
+static int ov490_reg_read32(struct regmap *map, u32 reg, u8 *val)
+{
+	u8 bank_high = (reg >> 24) & 0xff;
+	u8 bank_low  = (reg >> 16) & 0xff;
+	u16 reg_addr = reg & 0xffff;
+	int ret = 0;
+	u32 tval = 0;
+
+	/*
+	 * For reading a register with 32 bit address, First set the bank
+	 * address by writing to two BANK address registers. Then access
+	 * the register using 16LSB bits.
+	 */
+	ret = regmap_write(map, OV490_BANK_HIGH, bank_high);
+	if (!ret)
+		ret = regmap_write(map, OV490_BANK_LOW, bank_low);
+	if (!ret)
+		ret = regmap_read(map, reg_addr, &tval);
+
+	*val = (u8)tval;
+	return ret;
+}
+
+static int ov490_host_control_set(struct regmap *map, u8 host_cmd,
+				  u8 *param, u16 number)
+{
+	int i, ret;
+	u8 status = 0;
+
+	/* Host reset OV490_status_register */
+	ret = ov490_reg_write32(map, OV490_STATUS_ADDR, 0);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < number; i++) {
+		ret = ov490_reg_write32(map, OV490_HOST_CMD_PARA_ADDR + i,
+					*(param + i));
+		if (ret)
+			return ret;
+	}
+
+	ret = ov490_reg_write32(map, OV490_HOST_INT_ADDR, host_cmd);
+	if (ret)
+		return ret;
+
+	for (i = 500; i && status != OV490_STATUS_FINISH; i--) {
+		ret = ov490_reg_read32(map, OV490_STATUS_ADDR, &status);
+		if (ret)
+			return ret;
+		usleep_range(500, 1000);
+	}
+
+	if (!i)
+		return -ETIMEDOUT;
+
+	return 0;
+}
+
+static int __maybe_unused ov490_host_control_get(struct regmap *map,
+						 u8 host_cmd, u8 *param,
+						 u16 number)
+{
+	int i, ret;
+	u8 status = 0;
+
+	/* Host reset OV490_status_register */
+	ret = ov490_reg_write32(map, OV490_STATUS_ADDR, 0);
+	if (ret)
+		return ret;
+
+	ret = ov490_reg_write32(map, OV490_HOST_INT_ADDR, host_cmd);
+	if (ret)
+		return ret;
+
+	for (i = 500; i && status != OV490_STATUS_FINISH; i--) {
+		ret = ov490_reg_read32(map, OV490_STATUS_ADDR, &status);
+		if (ret)
+			return ret;
+		usleep_range(500, 1000);
+	}
+
+	if (!i)
+		return -ETIMEDOUT;
+
+	for (i = 0; i < number; i++) {
+		ret = ov490_reg_read32(map, OV490_HOST_CMD_PARA_ADDR + i,
+				       (param + i));
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
+static int ov490_get_fw_version(struct regmap *map, u16 *id)
+{
+	u8 hi, lo;
+	int ret;
+
+	ret = ov490_reg_read32(map, OV490_FW_VER_HIGH, &hi);
+	if (ret)
+		return ret;
+
+	ret = ov490_reg_read32(map, OV490_FW_VER_LOW, &lo);
+	if (ret)
+		return ret;
+
+	*id = hi << 8 | lo;
+
+	return 0;
+}
+
 /* Start/Stop streaming from the device */
 static int ov490_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov490_priv *priv = to_ov490(client);
 	struct regmap *map = priv->regmap;
-	int ret = 0, i, val;
+	int ret, val;
+	u8 streaming;
 
 	mutex_lock(&ov490_lock);
 	ret = ov490_init_gpios(client);
@@ -159,33 +332,52 @@ static int ov490_s_stream(struct v4l2_subdev *sd, int enable)
 		goto unlock;
 	}
 
-	if (enable) {
-		/* Take MIPI_TX out of reset */
-		ov490_reg_write32(map, OV490_SC_RESET1, 0x00);
-		ov490_reg_write32(map, OV490_MIPI_TX_LANE_CTRL0, 0x80);
-	} else {
-		ov490_reg_write32(map, OV490_MIPI_TX_LANE_CTRL0, 0xa0);
+	if (!enable) {
+		streaming = 0;
+		/* Stop Streaming */
+		ret = ov490_host_control_set(map, OV490_CMD_STREAMING_CTRL,
+					     &streaming, 1);
+		if (ret)
+			goto unlock;
+		ret = ov490_reg_write32(map, OV490_MIPI_TX_LANE_CTRL0, 0xa0);
+		if (ret)
+			goto unlock;
 		/* Put MIPI_TX in reset */
-		ov490_reg_write32(map, OV490_SC_RESET1, 0x80);
+		ret = ov490_reg_write32(map, OV490_SC_RESET1, 0x80);
 		goto unlock;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(ov490_default_regs); i++) {
-		ret = ov490_reg_write32(map,
-					ov490_default_regs[i].addr,
-					ov490_default_regs[i].val);
-		if (ret)
-			goto unlock;
-	}
+	/* Take MIPI_TX out of reset */
+	ret = ov490_reg_write32(map, OV490_SC_RESET1, 0x00);
+	if (ret)
+		goto unlock;
+	ret = ov490_reg_write32(map, OV490_MIPI_TX_LANE_CTRL0, 0x80);
+	if (ret)
+		goto unlock;
 
-	/* These register updates triggers a routine to configure ISP
-	 * Wait for a while before any more changes are done
-	 */
-	mdelay(5);
+	/* Initialize slave */
+	ret = ov490_host_control_set(map, OV490_CMD_INIT_CTRL, ov490_init_param,
+				     ARRAY_SIZE(ov490_init_param));
+	if (ret)
+		goto unlock;
 
+	ret = ov490_reg_write32(map, OV490_IMAGE0_CTRL,
+				OV490_IMAGE0_BYTE_INVERT |
+				OV490_IMAGE0_BYTE_SEQUENCE_1 |
+				OV490_IMAGE0_BYTE_SEQUENCE_1);
+	if (ret)
+		goto unlock;
+
+	/* Set number of data lane to use */
 	val = priv->num_lanes == 2 ? 0x03 : priv->num_lanes == 4 ? 0x0F : 0x0F;
-	dev_info(&client->dev, "Using %d data lanes\n", priv->num_lanes);
-	ov490_reg_write32(map, OV490_MIPI_TX_LANE_CTRL2, val);
+	ret = ov490_reg_write32(map, OV490_MIPI_TX_LANE_CTRL2, val);
+	if (ret)
+		goto unlock;
+
+	/* Start Streaming */
+	streaming = 0x1;
+	ret = ov490_host_control_set(map, OV490_CMD_STREAMING_CTRL,
+				     &streaming, 1);
 
 unlock:
 	mutex_unlock(&ov490_lock);
@@ -291,6 +483,7 @@ static int ov490_video_probe(struct i2c_client *client)
 	struct ov490_priv *priv = i2c_get_clientdata(client);
 	u32 pid, ver;
 	int ret;
+	u16 version;
 
 	/* check and show product ID and manufacturer ID */
 	ret = regmap_read(priv->regmap, OV490_PID, &pid);
@@ -303,11 +496,17 @@ static int ov490_video_probe(struct i2c_client *client)
 
 	if (OV490_VERSION(pid, ver) != OV490_VERSION_REG) {
 		dev_err(&client->dev, "Product ID error %02x:%02x\n", pid, ver);
-				return -ENODEV;
+		return -ENODEV;
 	}
 
 	dev_info(&client->dev, "ov490 Product ID %02x Manufacturer ID %02x\n",
 		 pid, ver);
+
+	ret = ov490_get_fw_version(priv->regmap, &version);
+	if (ret)
+		return ret;
+
+	dev_info(&client->dev, "ov490 Firmware ID 0x%04x\n", version);
 
 	return 0;
 }
@@ -368,6 +567,9 @@ static int ov490_of_probe(struct i2c_client *client,
 			dev_err(&client->dev, "Endpoint bus is not CSI bus!");
 		}
 	}
+
+	dev_info(&client->dev, "Using %d data lanes\n", priv->num_lanes);
+
 	return 0;
 }
 

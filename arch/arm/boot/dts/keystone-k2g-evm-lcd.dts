@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Source for K2G EVM with LCD Display
+ *
+ * Copyright (C) 2016-2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
 #include "keystone-k2g-evm.dts"
 #include <dt-bindings/pwm/pwm.h>
 

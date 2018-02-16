@@ -8,6 +8,11 @@
 #include "dra76-evm.dts"
 
 / {
+	aliases {
+		display0 = &dvi0;
+		display1 = &hdmi0;
+	};
+
 	tfp410: encoder@0 {
 		compatible = "ti,tfp410";
 
