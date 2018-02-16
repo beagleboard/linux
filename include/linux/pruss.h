@@ -9,13 +9,31 @@
 #ifndef __LINUX_PRUSS_H
 #define __LINUX_PRUSS_H
 
+#include <linux/remoteproc.h>
+
+/**
+ * enum pruss_pru_id - PRU core identifiers
+ */
+enum pruss_pru_id {
+	PRUSS_PRU0 = 0,
+	PRUSS_PRU1,
+	PRUSS_NUM_PRUS,
+};
+
 #if IS_ENABLED(CONFIG_PRUSS_REMOTEPROC)
 
 int pruss_intc_trigger(unsigned int irq);
 
+enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc);
+
 #else
 
 static inline int pruss_intc_trigger(unsigned int irq)
+{
+	return -ENOTSUPP;
+}
+
+static inline enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc)
 {
 	return -ENOTSUPP;
 }

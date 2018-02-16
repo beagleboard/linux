@@ -104,6 +104,29 @@ void pru_control_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
 	writel_relaxed(val, pru->mem_regions[PRU_MEM_CTRL].va + reg);
 }
 
+/**
+ * pru_rproc_get_id() - get PRU id from a previously acquired PRU remoteproc
+ * @rproc: the rproc instance of the PRU
+ *
+ * Returns the PRU id of the PRU remote processor that has been acquired through
+ * a pru_rproc_get(), or a negative value on error
+ */
+enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc)
+{
+	struct pru_rproc *pru;
+
+	if (IS_ERR_OR_NULL(rproc) || !rproc->dev.parent)
+		return -EINVAL;
+
+	/* TODO: replace the crude string based check to make sure it is PRU */
+	if (!strstr(dev_name(rproc->dev.parent), "pru"))
+		return -EINVAL;
+
+	pru = rproc->priv;
+	return pru->id;
+}
+EXPORT_SYMBOL_GPL(pru_rproc_get_id);
+
 static inline u32 pru_debug_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
 	return readl_relaxed(pru->mem_regions[PRU_MEM_DEBUG].va + reg);
@@ -591,9 +614,9 @@ static int pru_rproc_set_id(struct pru_rproc *pru)
 	u32 mask2 = 0x38000;
 
 	if ((pru->mem_regions[0].pa & mask1) == mask1)
-		pru->id = 0;
+		pru->id = PRUSS_PRU0;
 	else if ((pru->mem_regions[0].pa & mask2) == mask2)
-		pru->id = 1;
+		pru->id = PRUSS_PRU1;
 	else
 		ret = -EINVAL;
 
