@@ -24,6 +24,7 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/console.h>
+#include <linux/ipipe_trace.h>
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -389,6 +390,8 @@ void oops_enter(void)
 {
 	tracing_off();
 	/* can't trust the integrity of the kernel anymore: */
+	ipipe_trace_panic_freeze();
+	ipipe_disable_context_check();
 	debug_locks_off();
 	do_oops_enter_exit();
 }

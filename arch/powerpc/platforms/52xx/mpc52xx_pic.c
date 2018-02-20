@@ -142,14 +142,32 @@ static unsigned char mpc52xx_map_senses[4] = {
 };
 
 /* Utility functions */
-static inline void io_be_setbit(u32 __iomem *addr, int bitno)
+static inline void __io_be_setbit(u32 __iomem *addr, int bitno)
 {
 	out_be32(addr, in_be32(addr) | (1 << bitno));
 }
 
-static inline void io_be_clrbit(u32 __iomem *addr, int bitno)
+static inline void io_be_setbit(u32 __iomem *addr, int bitno)
+{
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+	__io_be_setbit(addr, bitno);
+	hard_local_irq_restore(flags);
+}
+
+static inline void __io_be_clrbit(u32 __iomem *addr, int bitno)
 {
 	out_be32(addr, in_be32(addr) & ~(1 << bitno));
+}
+
+static inline void io_be_clrbit(u32 __iomem *addr, int bitno)
+{
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+	__io_be_clrbit(addr, bitno);
+	hard_local_irq_restore(flags);
 }
 
 /*
@@ -158,19 +176,38 @@ static inline void io_be_clrbit(u32 __iomem *addr, int bitno)
 static void mpc52xx_extirq_mask(struct irq_data *d)
 {
 	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	io_be_clrbit(&intr->ctrl, 11 - l2irq);
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+	__io_be_clrbit(&intr->ctrl, 11 - l2irq);
+	ipipe_lock_irq(d->irq);
+	hard_local_irq_restore(flags);
 }
 
 static void mpc52xx_extirq_unmask(struct irq_data *d)
 {
 	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	io_be_setbit(&intr->ctrl, 11 - l2irq);
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+	__io_be_setbit(&intr->ctrl, 11 - l2irq);
+	ipipe_unlock_irq(d->irq);
+	hard_local_irq_restore(flags);
+}
+
+static void mpc52xx_extirq_mask_ack(struct irq_data *d)
+{
+	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
+
+	__io_be_clrbit(&intr->ctrl, 11 - l2irq);
+	__io_be_setbit(&intr->ctrl, 27 - l2irq);
 }
 
 static void mpc52xx_extirq_ack(struct irq_data *d)
 {
 	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	io_be_setbit(&intr->ctrl, 27-l2irq);
+
+	__io_be_setbit(&intr->ctrl, 27 - l2irq);
 }
 
 static int mpc52xx_extirq_set_type(struct irq_data *d, unsigned int flow_type)
@@ -205,6 +242,7 @@ static struct irq_chip mpc52xx_extirq_irqchip = {
 	.name = "MPC52xx External",
 	.irq_mask = mpc52xx_extirq_mask,
 	.irq_unmask = mpc52xx_extirq_unmask,
+	.irq_mask_ack = mpc52xx_extirq_mask_ack,
 	.irq_ack = mpc52xx_extirq_ack,
 	.irq_set_type = mpc52xx_extirq_set_type,
 };
@@ -217,22 +255,38 @@ static int mpc52xx_null_set_type(struct irq_data *d, unsigned int flow_type)
 	return 0; /* Do nothing so that the sense mask will get updated */
 }
 
+static void mpc52xx_main_mask_ack(struct irq_data *d)
+{
+	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
+	__io_be_setbit(&intr->main_mask, 16 - l2irq);
+}
+
 static void mpc52xx_main_mask(struct irq_data *d)
 {
 	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	io_be_setbit(&intr->main_mask, 16 - l2irq);
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+	__io_be_setbit(&intr->main_mask, 16 - l2irq);
+	ipipe_lock_irq(d->irq);
+	hard_local_irq_restore(flags);
 }
 
 static void mpc52xx_main_unmask(struct irq_data *d)
 {
 	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	io_be_clrbit(&intr->main_mask, 16 - l2irq);
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+	__io_be_clrbit(&intr->main_mask, 16 - l2irq);
+	ipipe_unlock_irq(d->irq);
+	hard_local_irq_restore(flags);
 }
 
 static struct irq_chip mpc52xx_main_irqchip = {
 	.name = "MPC52xx Main",
 	.irq_mask = mpc52xx_main_mask,
-	.irq_mask_ack = mpc52xx_main_mask,
+	.irq_mask_ack = mpc52xx_main_mask_ack,
 	.irq_unmask = mpc52xx_main_unmask,
 	.irq_set_type = mpc52xx_null_set_type,
 };
@@ -240,22 +294,38 @@ static struct irq_chip mpc52xx_main_irqchip = {
 /*
  * Peripherals interrupt irq_chip
  */
+static void mpc52xx_periph_mask_ack(struct irq_data *d)
+{
+	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
+	__io_be_setbit(&intr->per_mask, 31 - l2irq);
+}
+
 static void mpc52xx_periph_mask(struct irq_data *d)
 {
 	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	io_be_setbit(&intr->per_mask, 31 - l2irq);
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+	__io_be_setbit(&intr->per_mask, 31 - l2irq);
+	ipipe_lock_irq(d->irq);
+	hard_local_irq_restore(flags);
 }
 
 static void mpc52xx_periph_unmask(struct irq_data *d)
 {
 	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	io_be_clrbit(&intr->per_mask, 31 - l2irq);
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+	__io_be_clrbit(&intr->per_mask, 31 - l2irq);
+	ipipe_unlock_irq(d->irq);
+	hard_local_irq_restore(flags);
 }
 
 static struct irq_chip mpc52xx_periph_irqchip = {
 	.name = "MPC52xx Peripherals",
 	.irq_mask = mpc52xx_periph_mask,
-	.irq_mask_ack = mpc52xx_periph_mask,
+	.irq_mask_ack = mpc52xx_periph_mask_ack,
 	.irq_unmask = mpc52xx_periph_unmask,
 	.irq_set_type = mpc52xx_null_set_type,
 };
@@ -263,29 +333,40 @@ static struct irq_chip mpc52xx_periph_irqchip = {
 /*
  * SDMA interrupt irq_chip
  */
+static void mpc52xx_sdma_mask_ack(struct irq_data *d)
+{
+	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
+	__io_be_setbit(&sdma->IntMask, l2irq);
+	out_be32(&sdma->IntPend, 1 << l2irq);
+}
+
 static void mpc52xx_sdma_mask(struct irq_data *d)
 {
 	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	io_be_setbit(&sdma->IntMask, l2irq);
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
+	__io_be_setbit(&sdma->IntMask, l2irq);
+	ipipe_lock_irq(d->irq);
+	hard_local_irq_restore(flags);
 }
 
 static void mpc52xx_sdma_unmask(struct irq_data *d)
 {
 	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	io_be_clrbit(&sdma->IntMask, l2irq);
-}
+	unsigned long flags;
 
-static void mpc52xx_sdma_ack(struct irq_data *d)
-{
-	int l2irq = irqd_to_hwirq(d) & MPC52xx_IRQ_L2_MASK;
-	out_be32(&sdma->IntPend, 1 << l2irq);
+	flags = hard_local_irq_save();
+	__io_be_clrbit(&sdma->IntMask, l2irq);
+	ipipe_unlock_irq(d->irq);
+	hard_local_irq_restore(flags);
 }
 
 static struct irq_chip mpc52xx_sdma_irqchip = {
 	.name = "MPC52xx SDMA",
 	.irq_mask = mpc52xx_sdma_mask,
 	.irq_unmask = mpc52xx_sdma_unmask,
-	.irq_ack = mpc52xx_sdma_ack,
+	.irq_mask_ack = mpc52xx_sdma_mask_ack,
 	.irq_set_type = mpc52xx_null_set_type,
 };
 

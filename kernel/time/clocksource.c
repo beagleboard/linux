@@ -32,6 +32,7 @@
 #include <linux/sched.h> /* for spin_unlock_irq() using preempt_count() m68k */
 #include <linux/tick.h>
 #include <linux/kthread.h>
+#include <linux/kallsyms.h>
 
 #include "tick-internal.h"
 #include "timekeeping_internal.h"
@@ -173,6 +174,9 @@ static void clocksource_watchdog(unsigned long data)
 	cycle_t csnow, wdnow, cslast, wdlast, delta;
 	int64_t wd_nsec, cs_nsec;
 	int next_cpu, reset_pending;
+#ifdef CONFIG_IPIPE
+	cycle_t wdref;
+#endif
 
 	spin_lock(&watchdog_lock);
 	if (!watchdog_running)
@@ -189,10 +193,23 @@ static void clocksource_watchdog(unsigned long data)
 			continue;
 		}
 
+#ifdef CONFIG_IPIPE
+retry:
+#endif
 		local_irq_disable();
+#ifdef CONFIG_IPIPE
+		wdref = watchdog->read(watchdog);
+#endif
 		csnow = cs->read(cs);
 		wdnow = watchdog->read(watchdog);
 		local_irq_enable();
+
+#ifdef CONFIG_IPIPE
+		wd_nsec = clocksource_cyc2ns((wdnow - wdref) & watchdog->mask,
+					     watchdog->mult, watchdog->shift);
+		if (wd_nsec > WATCHDOG_THRESHOLD)
+			goto retry;
+#endif
 
 		/* Clocksource initialized ? */
 		if (!(cs->flags & CLOCK_SOURCE_WATCHDOG) ||
@@ -662,6 +679,95 @@ static int __init clocksource_done_booting(void)
 }
 fs_initcall(clocksource_done_booting);
 
+#ifdef CONFIG_IPIPE_WANT_CLOCKSOURCE
+unsigned long long __ipipe_cs_freq;
+EXPORT_SYMBOL_GPL(__ipipe_cs_freq);
+
+struct clocksource *__ipipe_cs;
+EXPORT_SYMBOL_GPL(__ipipe_cs);
+
+cycle_t (*__ipipe_cs_read)(struct clocksource *cs);
+cycle_t __ipipe_cs_last_tsc;
+cycle_t __ipipe_cs_mask;
+unsigned __ipipe_cs_lat = 0xffffffff;
+
+static void ipipe_check_clocksource(struct clocksource *cs)
+{
+	cycle_t (*cread)(struct clocksource *cs);
+	cycle_t lat, mask, saved;
+	unsigned long long freq;
+	unsigned long flags;
+	unsigned i;
+
+	if (cs->ipipe_read) {
+		mask = CLOCKSOURCE_MASK(64);
+		cread = cs->ipipe_read;
+	} else {
+		mask = cs->mask;
+		cread = cs->read;
+
+		if ((cs->flags & CLOCK_SOURCE_IS_CONTINUOUS) == 0)
+			return;
+
+		/*
+		 * We only support masks such that cs->mask + 1 is a power of 2,
+		 * 64 bits masks or masks lesser than 32 bits
+		 */
+		if (mask != CLOCKSOURCE_MASK(64)
+		    && ((mask & (mask + 1)) != 0 || mask > 0xffffffff))
+			return;
+	}
+
+	/*
+	 * We prefer a clocksource with a better resolution than 1us
+	 */
+	if (cs->shift <= 34) {
+		freq = 1000000000ULL << cs->shift;
+		do_div(freq, cs->mult);
+	} else {
+		freq = 1000000ULL << cs->shift;
+		do_div(freq, cs->mult);
+		freq *= 1000;
+	}
+	if (freq < 1000000)
+		return;
+
+	/* Measure the clocksource latency */
+	flags = hard_local_irq_save();
+	saved = __ipipe_cs_last_tsc;
+	lat = cread(cs);
+	for (i = 0; i < 10; i++)
+		cread(cs);
+	lat = cread(cs) - lat;
+	__ipipe_cs_last_tsc = saved;
+	hard_local_irq_restore(flags);
+	lat = (lat * cs->mult) >> cs->shift;
+	do_div(lat, i + 1);
+
+	if (!strcmp(cs->name, override_name))
+		goto skip_tests;
+
+	if (lat > __ipipe_cs_lat)
+		return;
+
+	if (__ipipe_cs && !strcmp(__ipipe_cs->name, override_name))
+		return;
+
+  skip_tests:
+	flags = hard_local_irq_save();
+	if (__ipipe_cs_last_tsc == 0) {
+		__ipipe_cs_lat = lat;
+		__ipipe_cs_freq = freq;
+		__ipipe_cs = cs;
+		__ipipe_cs_read = cread;
+		__ipipe_cs_mask = mask;
+	}
+	hard_local_irq_restore(flags);
+}
+#else /* !CONFIG_IPIPE_WANT_CLOCKSOURCE */
+#define ipipe_check_clocksource(cs)	do { }while (0)
+#endif /* !CONFIG_IPIPE_WANT_CLOCKSOURCE */
+
 /*
  * Enqueue the clocksource sorted by rating
  */
@@ -675,6 +781,8 @@ static void clocksource_enqueue(struct clocksource *cs)
 		if (tmp->rating >= cs->rating)
 			entry = &tmp->list;
 	list_add(&cs->list, entry);
+
+	ipipe_check_clocksource(cs);
 }
 
 /**

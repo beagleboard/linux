@@ -140,9 +140,9 @@ static inline void atomic_##op(int i, atomic_t *v)			\
 {									\
 	unsigned long flags;						\
 									\
-	raw_local_irq_save(flags);					\
+	flags = hard_local_irq_save();					\
 	v->counter c_op i;						\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 }									\
 
 #define ATOMIC_OP_RETURN(op, c_op, asm_op)				\
@@ -151,10 +151,10 @@ static inline int atomic_##op##_return(int i, atomic_t *v)		\
 	unsigned long flags;						\
 	int val;							\
 									\
-	raw_local_irq_save(flags);					\
+	flags = hard_local_irq_save();					\
 	v->counter c_op i;						\
 	val = v->counter;						\
-	raw_local_irq_restore(flags);					\
+	hard_local_irq_restore(flags);					\
 									\
 	return val;							\
 }
@@ -164,11 +164,11 @@ static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 	int ret;
 	unsigned long flags;
 
-	raw_local_irq_save(flags);
+	flags = hard_local_irq_save();
 	ret = v->counter;
 	if (likely(ret == old))
 		v->counter = new;
-	raw_local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 
 	return ret;
 }

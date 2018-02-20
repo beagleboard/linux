@@ -51,7 +51,7 @@ void ack_bad_irq(unsigned int irq)
 	 * completely.
 	 * But only ack when the APIC is enabled -AK
 	 */
-	ack_APIC_irq();
+	__ack_APIC_irq();
 }
 
 #define irq_stats(x)		(&per_cpu(irq_stat, x))
@@ -229,12 +229,13 @@ __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
 	 * IRQs.
 	 */
 
+	desc = __this_cpu_read(vector_irq[vector]);
+	__ipipe_move_root_irq(desc);
 	entering_irq();
 
 	/* entering_irq() tells RCU that we're not quiescent.  Check it. */
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "IRQ failed to wake up RCU");
 
-	desc = __this_cpu_read(vector_irq[vector]);
 
 	if (!handle_irq(desc, regs)) {
 		ack_APIC_irq();
