@@ -46,6 +46,7 @@ extern void __iomem *timer0_va_base;
 extern void __iomem *timer1_va_base;
 extern void __iomem *timer2_va_base;
 extern void __iomem *timer3_va_base;
+extern void __iomem *timer3_pa_base;
 
 extern void realview_timer_init(unsigned int timer_irq);
 extern int realview_flash_register(struct resource *res, u32 num);

@@ -382,7 +382,7 @@ static noinline int vmalloc_fault(unsigned long address)
 	 * happen within a race in page table update. In the later
 	 * case just flush:
 	 */
-	pgd = pgd_offset(current->active_mm, address);
+	pgd = (pgd_t *)__va(read_cr3()) + pgd_index(address);
 	pgd_ref = pgd_offset_k(address);
 	if (pgd_none(*pgd_ref))
 		return -1;
@@ -1074,6 +1074,11 @@ __do_page_fault(struct pt_regs *regs, unsigned long error_code,
 	tsk = current;
 	mm = tsk->mm;
 
+#ifdef CONFIG_IPIPE
+	if (ipipe_root_domain != ipipe_head_domain)
+		hard_cond_local_irq_enable();
+#endif
+
 	/*
 	 * Detect and handle instructions that would cause a page fault for
 	 * both a tracked kernel page and a userspace page.
@@ -1290,8 +1295,8 @@ good_area:
 }
 NOKPROBE_SYMBOL(__do_page_fault);
 
-dotraplinkage void notrace
-do_page_fault(struct pt_regs *regs, unsigned long error_code)
+static void notrace
+___do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
 	unsigned long address = read_cr2(); /* Get the faulting address */
 	enum ctx_state prev_state;
@@ -1308,7 +1313,60 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	__do_page_fault(regs, error_code, address);
 	exception_exit(prev_state);
 }
+
+dotraplinkage int notrace
+do_page_fault(struct pt_regs *regs, unsigned long error_code)
+{
+	return IPIPE_DO_TRAP(___do_page_fault, X86_TRAP_PF, regs, error_code);
+}
+
 NOKPROBE_SYMBOL(do_page_fault);
+
+#ifdef CONFIG_IPIPE
+
+void __ipipe_pin_mapping_globally(unsigned long start, unsigned long end)
+{
+#ifdef CONFIG_X86_32
+	unsigned long next, addr = start;
+
+	do {
+		unsigned long flags;
+		struct page *page;
+
+		next = pgd_addr_end(addr, end);
+		spin_lock_irqsave(&pgd_lock, flags);
+		list_for_each_entry(page, &pgd_list, lru)
+			vmalloc_sync_one(page_address(page), addr);
+		spin_unlock_irqrestore(&pgd_lock, flags);
+
+	} while (addr = next, addr != end);
+#else
+	unsigned long next, addr = start;
+	pgd_t *pgd, *pgd_ref;
+	struct page *page;
+
+	if (!(start >= VMALLOC_START && start < VMALLOC_END))
+		return;
+
+	do {
+		next = pgd_addr_end(addr, end);
+		pgd_ref = pgd_offset_k(addr);
+		if (pgd_none(*pgd_ref))
+			continue;
+		spin_lock(&pgd_lock);
+		list_for_each_entry(page, &pgd_list, lru) {
+			pgd = page_address(page) + pgd_index(addr);
+			if (pgd_none(*pgd))
+				set_pgd(pgd, *pgd_ref);
+		}
+		spin_unlock(&pgd_lock);
+		addr = next;
+	} while (addr != end);
+
+	arch_flush_lazy_mmu_mode();
+#endif
+}
+#endif /* CONFIG_IPIPE */
 
 #ifdef CONFIG_TRACING
 static nokprobe_inline void
@@ -1321,8 +1379,8 @@ trace_page_fault_entries(unsigned long address, struct pt_regs *regs,
 		trace_page_fault_kernel(address, regs, error_code);
 }
 
-dotraplinkage void notrace
-trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
+static void notrace
+__trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
 	/*
 	 * The exception_enter and tracepoint processing could
@@ -1337,6 +1395,12 @@ trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	trace_page_fault_entries(address, regs, error_code);
 	__do_page_fault(regs, error_code, address);
 	exception_exit(prev_state);
+}
+
+dotraplinkage int notrace
+trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
+{
+	return IPIPE_DO_TRAP(__trace_do_page_fault, X86_TRAP_PF, regs, error_code);
 }
 NOKPROBE_SYMBOL(trace_do_page_fault);
 #endif /* CONFIG_TRACING */
