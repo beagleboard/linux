@@ -364,7 +364,7 @@ static int ov490_s_stream(struct v4l2_subdev *sd, int enable)
 	ret = ov490_reg_write32(map, OV490_IMAGE0_CTRL,
 				OV490_IMAGE0_BYTE_INVERT |
 				OV490_IMAGE0_BYTE_SEQUENCE_1 |
-				OV490_IMAGE0_BYTE_SEQUENCE_1);
+				OV490_IMAGE0_FORMAT_3X12_RAW);
 	if (ret)
 		goto unlock;
 
