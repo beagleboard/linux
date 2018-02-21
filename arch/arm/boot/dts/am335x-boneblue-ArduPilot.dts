@@ -45,9 +45,8 @@
 };
 
 &cpu0_opp_table {
-	//osd335x
-	opp50@300000000 {
-		status = "disabled";
+	oppnitro@1000000000 {
+		opp-supported-hw = <0x06 0x0100>;
 	};
 };
 
