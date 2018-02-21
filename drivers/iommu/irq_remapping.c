@@ -158,7 +158,7 @@ void panic_if_irq_remap(const char *msg)
 
 void ir_ack_apic_edge(struct irq_data *data)
 {
-	ack_APIC_irq();
+	__ack_APIC_irq();
 }
 
 /**

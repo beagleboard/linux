@@ -45,6 +45,9 @@ extern asmlinkage void deferred_error_interrupt(void);
 extern asmlinkage void call_function_interrupt(void);
 extern asmlinkage void call_function_single_interrupt(void);
 
+extern void smp_kvm_posted_intr_ipi(struct pt_regs *regs);
+extern void smp_kvm_posted_intr_wakeup_ipi(struct pt_regs *regs);
+
 #ifdef CONFIG_TRACING
 /* Interrupt handlers registered during init_IRQ */
 extern void trace_apic_timer_interrupt(void);
@@ -173,6 +176,18 @@ extern char irq_entries_start[];
 #ifdef CONFIG_TRACING
 #define trace_irq_entries_start irq_entries_start
 #endif
+extern asmlinkage __visible void smp_reboot_interrupt(void);
+
+extern __visible void smp_reschedule_interrupt(struct pt_regs *regs);
+extern __visible void smp_call_function_interrupt(struct pt_regs *regs);
+extern __visible void smp_call_function_single_interrupt(struct pt_regs *regs);
+extern __visible void uv_bau_message_interrupt(struct pt_regs *regs);
+extern asmlinkage __visible void smp_irq_move_cleanup_interrupt(void);
+extern __visible void smp_error_interrupt(struct pt_regs *regs);
+extern __visible void smp_spurious_interrupt(struct pt_regs *regs);
+extern __visible void smp_apic_timer_interrupt(struct pt_regs *);
+extern __visible void smp_irq_work_interrupt(struct pt_regs *);
+extern __visible void smp_x86_platform_ipi(struct pt_regs *regs);
 
 #define VECTOR_UNUSED		NULL
 #define VECTOR_RETRIGGERED	((void *)~0UL)
