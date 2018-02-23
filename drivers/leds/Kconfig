@@ -552,7 +552,7 @@ config LEDS_TCA6507
 
 config LEDS_TLC591XX
 	tristate "LED driver for TLC59108 and TLC59116 controllers"
-	depends on LEDS_CLASS && I2C
+	depends on LEDS_CLASS && I2C && GPIOLIB
 	select REGMAP_I2C
 	help
 	  This option enables support for Texas Instruments TLC59108
