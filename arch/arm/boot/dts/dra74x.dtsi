@@ -65,7 +65,6 @@
 			ti,hwmods = "mmu0_dsp2";
 			#iommu-cells = <0>;
 			ti,syscon-mmuconfig = <&dsp2_system 0x0>;
-			status = "disabled";
 		};
 
 		mmu1_dsp2: mmu@41502000 {
@@ -75,7 +74,6 @@
 			ti,hwmods = "mmu1_dsp2";
 			#iommu-cells = <0>;
 			ti,syscon-mmuconfig = <&dsp2_system 0x1>;
-			status = "disabled";
 		};
 	};
 };
