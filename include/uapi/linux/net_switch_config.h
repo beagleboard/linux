@@ -66,7 +66,7 @@ struct net_switch_config {
 	unsigned int	bcast_rate_limit;
 	unsigned int	mcast_rate_limit;
 	bool		direction;
-	struct ethtool_link_ksettings ecmd;
+	struct ethtool_cmd ecmd;
 
 	unsigned int ret_type;   /* Return  Success/Failure */
 };

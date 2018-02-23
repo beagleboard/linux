@@ -1976,6 +1976,7 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 	case CONFIG_SWITCH_SET_PORT_CONFIG:
 	{
 		struct phy_device *phy = NULL;
+		struct ethtool_link_ksettings cmd;
 
 		if ((config.port == 1) || (config.port == 2))
 			phy = cpsw->slaves[config.port - 1].phy;
@@ -1985,13 +1986,15 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 			break;
 		}
 
-		config.ecmd.base.phy_address = phy->mdio.addr;
-		ret = phy_ethtool_ksettings_set(phy, &config.ecmd);
+		convert_legacy_settings_to_link_ksettings(&cmd, &config.ecmd);
+		cmd.base.phy_address = phy->mdio.addr;
+		ret = phy_ethtool_ksettings_set(phy, &cmd);
 		break;
 	}
 	case CONFIG_SWITCH_GET_PORT_CONFIG:
 	{
 		struct phy_device *phy = NULL;
+		struct ethtool_link_ksettings cmd;
 
 		if ((config.port == 1) || (config.port == 2))
 			phy = cpsw->slaves[config.port - 1].phy;
@@ -2001,8 +2004,9 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 			break;
 		}
 
-		config.ecmd.base.phy_address = phy->mdio.addr;
-		phy_ethtool_ksettings_get(phy, &config.ecmd);
+		cmd.base.phy_address = phy->mdio.addr;
+		phy_ethtool_ksettings_get(phy, &cmd);
+		convert_link_ksettings_to_legacy_settings(&config.ecmd, &cmd);
 
 		ret = copy_to_user(ifrq->ifr_data, &config, sizeof(config));
 		break;
