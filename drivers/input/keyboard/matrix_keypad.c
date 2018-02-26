@@ -25,6 +25,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
+#include <linux/pinctrl/consumer.h>
 
 struct matrix_keypad {
 	const struct matrix_keypad_platform_data *pdata;
@@ -282,6 +283,8 @@ static int matrix_keypad_suspend(struct device *dev)
 	if (device_may_wakeup(&pdev->dev))
 		matrix_keypad_enable_wakeup(keypad);
 
+	pinctrl_pm_select_sleep_state(dev);
+
 	return 0;
 }
 
@@ -292,6 +295,8 @@ static int matrix_keypad_resume(struct device *dev)
 
 	if (device_may_wakeup(&pdev->dev))
 		matrix_keypad_disable_wakeup(keypad);
+
+	pinctrl_pm_select_default_state(dev);
 
 	matrix_keypad_start(keypad->input_dev);
 

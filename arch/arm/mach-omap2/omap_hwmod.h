@@ -207,6 +207,7 @@ struct omap_hwmod_rst_info {
 	const char	*name;
 	u8		rst_shift;
 	u8		st_shift;
+	u8		context;
 };
 
 /**
@@ -535,6 +536,10 @@ struct omap_hwmod_omap4_prcm {
  *     entering HW_AUTO while hwmod is active. This is needed to workaround
  *     some modules which don't function correctly with HW_AUTO. For example,
  *     DCAN on DRA7x SoC needs this to workaround errata i893.
+ * HWMOD_NEEDS_REIDLE: Some devices do not assert their MSTANDBY signal by
+ *     default after losing context if no driver is present and using the
+ *     hwmod. This will break subsequent suspend cycles but can be fixed by
+ *     enabling then idling the unused hwmod after each suspend cycle.
  */
 #define HWMOD_SWSUP_SIDLE			(1 << 0)
 #define HWMOD_SWSUP_MSTANDBY			(1 << 1)
@@ -553,6 +558,7 @@ struct omap_hwmod_omap4_prcm {
 #define HWMOD_OPT_CLKS_NEEDED			(1 << 14)
 #define HWMOD_NO_IDLE				(1 << 15)
 #define HWMOD_CLKDM_NOAUTO			(1 << 16)
+#define HWMOD_NEEDS_REIDLE			(1 << 17)
 
 /*
  * omap_hwmod._int_flags definitions
@@ -705,6 +711,14 @@ struct omap_hwmod {
 	struct omap_hwmod		*parent_hwmod;
 };
 
+/*
+ * omap_hwmod_list - simple generic container for omap_hwmod lists
+ */
+struct omap_hwmod_list {
+	struct omap_hwmod *oh;
+	struct list_head oh_list;
+};
+
 struct omap_hwmod *omap_hwmod_lookup(const char *name);
 int omap_hwmod_for_each(int (*fn)(struct omap_hwmod *oh, void *data),
 			void *data);
@@ -734,6 +748,10 @@ void __iomem *omap_hwmod_get_mpu_rt_va(struct omap_hwmod *oh);
 int omap_hwmod_enable_wakeup(struct omap_hwmod *oh);
 int omap_hwmod_disable_wakeup(struct omap_hwmod *oh);
 
+int omap_hwmod_setup_reidle(void);
+int omap_hwmod_enable_reidle(struct omap_hwmod *oh);
+int omap_hwmod_disable_reidle(struct omap_hwmod *oh);
+
 int omap_hwmod_for_each_by_class(const char *classname,
 				 int (*fn)(struct omap_hwmod *oh,
 					   void *user),
@@ -745,6 +763,9 @@ int omap_hwmod_get_context_loss_count(struct omap_hwmod *oh);
 extern void __init omap_hwmod_init(void);
 
 const char *omap_hwmod_get_main_clk(struct omap_hwmod *oh);
+
+void omap_hwmods_save_context(void);
+void omap_hwmods_restore_context(void);
 
 /*
  *

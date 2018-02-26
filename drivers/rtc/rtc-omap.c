@@ -29,6 +29,7 @@
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/machine.h>
 #include <linux/rtc.h>
 
 /*
@@ -69,6 +70,10 @@
 #define OMAP_RTC_COMP_LSB_REG		0x4c
 #define OMAP_RTC_COMP_MSB_REG		0x50
 #define OMAP_RTC_OSC_REG		0x54
+
+#define OMAP_RTC_SCRATCH0_REG		0x60
+#define OMAP_RTC_SCRATCH1_REG		0x64
+#define OMAP_RTC_SCRATCH2_REG		0x68
 
 #define OMAP_RTC_KICK0_REG		0x6c
 #define OMAP_RTC_KICK1_REG		0x70
@@ -126,6 +131,8 @@
 /* OMAP_RTC_KICKER values */
 #define	KICK0_VALUE			0x83e70b13
 #define	KICK1_VALUE			0x95a4f1e0
+
+#define SHUTDOWN_TIME_SEC		1
 
 struct omap_rtc;
 
@@ -414,6 +421,77 @@ static int omap_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 
 static struct omap_rtc *omap_rtc_power_off_rtc;
 
+/**
+ * omap_rtc_power_off_program: Set the pmic power off sequence. The RTC
+ * generates pmic_pwr_enable control, which can be used to control an external
+ * PMIC.
+ */
+void omap_rtc_power_off_program(struct device *dev)
+{
+	u32 val;
+	struct rtc_time tm;
+	unsigned long time;
+	int seconds;
+
+	omap_rtc_power_off_rtc->type->unlock(omap_rtc_power_off_rtc);
+
+	/* Clear any existing ALARM2 event */
+	rtc_writel(omap_rtc_power_off_rtc, OMAP_RTC_STATUS_REG,
+		   OMAP_RTC_STATUS_ALARM2);
+
+	pr_info("System will go to power_off state in approx. %d second\n",
+		SHUTDOWN_TIME_SEC);
+
+again:
+	/* Read rtc time */
+	tm.tm_sec = rtc_read(omap_rtc_power_off_rtc, OMAP_RTC_SECONDS_REG);
+	seconds = tm.tm_sec;
+	tm.tm_min = rtc_read(omap_rtc_power_off_rtc, OMAP_RTC_MINUTES_REG);
+	tm.tm_hour = rtc_read(omap_rtc_power_off_rtc, OMAP_RTC_HOURS_REG);
+	tm.tm_mday = rtc_read(omap_rtc_power_off_rtc, OMAP_RTC_DAYS_REG);
+	tm.tm_mon = rtc_read(omap_rtc_power_off_rtc, OMAP_RTC_MONTHS_REG);
+	tm.tm_year = rtc_read(omap_rtc_power_off_rtc, OMAP_RTC_YEARS_REG);
+	bcd2tm(&tm);
+
+	/* Convert Gregorian date to seconds since 01-01-1970 00:00:00 */
+	rtc_tm_to_time(&tm, &time);
+
+	/* Convert seconds since 01-01-1970 00:00:00 to Gregorian date */
+	rtc_time_to_tm(time + SHUTDOWN_TIME_SEC, &tm);
+
+	if (tm2bcd(&tm) < 0)
+		return;
+
+	/* After wait_not_busy, we have at least 15us until the next second. */
+	rtc_wait_not_busy(omap_rtc_power_off_rtc);
+
+	/* Our calculations started right before the rollover, try again */
+	if (seconds != rtc_read(omap_rtc_power_off_rtc, OMAP_RTC_SECONDS_REG))
+		goto again;
+
+	/*
+	 * pmic_pwr_enable is controlled by means of ALARM2 event. So here
+	 * programming alarm2 expiry time and enabling alarm2 interrupt
+	 */
+	rtc_write(omap_rtc_power_off_rtc, OMAP_RTC_ALARM2_SECONDS_REG,
+		  tm.tm_sec);
+	rtc_write(omap_rtc_power_off_rtc, OMAP_RTC_ALARM2_MINUTES_REG,
+		  tm.tm_min);
+	rtc_write(omap_rtc_power_off_rtc, OMAP_RTC_ALARM2_HOURS_REG,
+		  tm.tm_hour);
+	rtc_write(omap_rtc_power_off_rtc, OMAP_RTC_ALARM2_DAYS_REG,
+		  tm.tm_mday);
+	rtc_write(omap_rtc_power_off_rtc, OMAP_RTC_ALARM2_MONTHS_REG,
+		  tm.tm_mon);
+	rtc_write(omap_rtc_power_off_rtc, OMAP_RTC_ALARM2_YEARS_REG,
+		  tm.tm_year);
+
+	/* Enable alarm2 interrupt */
+	val = rtc_readl(omap_rtc_power_off_rtc, OMAP_RTC_INTERRUPTS_REG);
+	rtc_writel(omap_rtc_power_off_rtc, OMAP_RTC_INTERRUPTS_REG, val |
+		   OMAP_RTC_INTERRUPTS_IT_ALARM2);
+}
+
 /*
  * omap_rtc_poweroff: RTC-controlled power off
  *
@@ -430,45 +508,19 @@ static struct omap_rtc *omap_rtc_power_off_rtc;
  */
 static void omap_rtc_power_off(void)
 {
-	struct omap_rtc *rtc = omap_rtc_power_off_rtc;
-	struct rtc_time tm;
-	unsigned long now;
+	struct rtc_device *rtc = omap_rtc_power_off_rtc->rtc;
 	u32 val;
 
-	rtc->type->unlock(rtc);
-	/* enable pmic_power_en control */
-	val = rtc_readl(rtc, OMAP_RTC_PMIC_REG);
-	rtc_writel(rtc, OMAP_RTC_PMIC_REG, val | OMAP_RTC_PMIC_POWER_EN_EN);
+	regulator_suspend_prepare(PM_SUSPEND_MAX);
+	omap_rtc_power_off_rtc->type->unlock(omap_rtc_power_off_rtc);
+	omap_rtc_power_off_program(rtc->dev.parent);
 
-	/* set alarm two seconds from now */
-	omap_rtc_read_time_raw(rtc, &tm);
-	bcd2tm(&tm);
-	rtc_tm_to_time(&tm, &now);
-	rtc_time_to_tm(now + 2, &tm);
-
-	if (tm2bcd(&tm) < 0) {
-		dev_err(&rtc->rtc->dev, "power off failed\n");
-		return;
-	}
-
-	rtc_wait_not_busy(rtc);
-
-	rtc_write(rtc, OMAP_RTC_ALARM2_SECONDS_REG, tm.tm_sec);
-	rtc_write(rtc, OMAP_RTC_ALARM2_MINUTES_REG, tm.tm_min);
-	rtc_write(rtc, OMAP_RTC_ALARM2_HOURS_REG, tm.tm_hour);
-	rtc_write(rtc, OMAP_RTC_ALARM2_DAYS_REG, tm.tm_mday);
-	rtc_write(rtc, OMAP_RTC_ALARM2_MONTHS_REG, tm.tm_mon);
-	rtc_write(rtc, OMAP_RTC_ALARM2_YEARS_REG, tm.tm_year);
-
-	/*
-	 * enable ALARM2 interrupt
-	 *
-	 * NOTE: this fails on AM3352 if rtc_write (writeb) is used
-	 */
-	val = rtc_read(rtc, OMAP_RTC_INTERRUPTS_REG);
-	rtc_writel(rtc, OMAP_RTC_INTERRUPTS_REG,
-			val | OMAP_RTC_INTERRUPTS_IT_ALARM2);
-	rtc->type->lock(rtc);
+	/* Set PMIC power enable and EXT_WAKEUP in case PB power on is used */
+	val = rtc_readl(omap_rtc_power_off_rtc, OMAP_RTC_PMIC_REG);
+	val |= OMAP_RTC_PMIC_POWER_EN_EN | OMAP_RTC_PMIC_EXT_WKUP_POL(0) |
+	       OMAP_RTC_PMIC_EXT_WKUP_EN(0);
+	rtc_writel(omap_rtc_power_off_rtc, OMAP_RTC_PMIC_REG, val);
+	omap_rtc_power_off_rtc->type->lock(omap_rtc_power_off_rtc);
 
 	/*
 	 * Wait for alarm to trigger (within two seconds) and external PMIC to
@@ -476,6 +528,17 @@ static void omap_rtc_power_off(void)
 	 * (e.g. debounce circuits).
 	 */
 	mdelay(2500);
+
+	pr_err("rtc_power_off failed, bailing out.\n");
+}
+
+static void omap_rtc_cleanup_pm_power_off(struct omap_rtc *rtc)
+{
+	if (pm_power_off == omap_rtc_power_off &&
+	    omap_rtc_power_off_rtc == rtc) {
+		pm_power_off = NULL;
+		omap_rtc_power_off_rtc = NULL;
+	}
 }
 
 static const struct rtc_class_ops omap_rtc_ops = {
@@ -484,6 +547,7 @@ static const struct rtc_class_ops omap_rtc_ops = {
 	.read_alarm	= omap_rtc_read_alarm,
 	.set_alarm	= omap_rtc_set_alarm,
 	.alarm_irq_enable = omap_rtc_alarm_irq_enable,
+	.power_off_program = omap_rtc_power_off_program,
 };
 
 static const struct omap_rtc_device_type omap_rtc_default_type = {
@@ -667,6 +731,45 @@ static struct pinctrl_desc rtc_pinctrl_desc = {
 	.owner = THIS_MODULE,
 };
 
+static int omap_rtc_scratch_read(void *priv, unsigned int offset, void *_val,
+				 size_t bytes)
+{
+	struct omap_rtc	*rtc = priv;
+	u32 *val = _val;
+	int i;
+
+	for (i = 0; i < bytes / 4; i++)
+		val[i] = rtc_readl(rtc,
+				   OMAP_RTC_SCRATCH0_REG + offset + (i * 4));
+
+	return 0;
+}
+
+static int omap_rtc_scratch_write(void *priv, unsigned int offset, void *_val,
+				  size_t bytes)
+{
+	struct omap_rtc	*rtc = priv;
+	u32 *val = _val;
+	int i;
+
+	rtc->type->unlock(rtc);
+	for (i = 0; i < bytes / 4; i++)
+		rtc_writel(rtc,
+			   OMAP_RTC_SCRATCH0_REG + offset + (i * 4), val[i]);
+	rtc->type->lock(rtc);
+
+	return 0;
+}
+
+static struct nvmem_config omap_rtc_nvmem_config = {
+	.name = "omap_rtc_scratch",
+	.word_size = 4,
+	.stride = 4,
+	.size = OMAP_RTC_KICK0_REG - OMAP_RTC_SCRATCH0_REG,
+	.reg_read = omap_rtc_scratch_read,
+	.reg_write = omap_rtc_scratch_write,
+};
+
 static int omap_rtc_probe(struct platform_device *pdev)
 {
 	struct omap_rtc	*rtc;
@@ -797,12 +900,22 @@ static int omap_rtc_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, true);
 
-	rtc->rtc = devm_rtc_device_register(&pdev->dev, pdev->name,
-			&omap_rtc_ops, THIS_MODULE);
+	omap_rtc_power_off_rtc = rtc;
+
+	if (rtc->is_pmic_controller)
+		if (!pm_power_off)
+			pm_power_off = omap_rtc_power_off;
+
+	rtc->rtc = devm_rtc_allocate_device(&pdev->dev);
 	if (IS_ERR(rtc->rtc)) {
 		ret = PTR_ERR(rtc->rtc);
 		goto err;
 	}
+
+	rtc->rtc->ops = &omap_rtc_ops;
+
+	omap_rtc_nvmem_config.priv = rtc;
+	rtc->rtc->nvmem_config = &omap_rtc_nvmem_config;
 
 	/* handle periodic and alarm irqs */
 	ret = devm_request_irq(&pdev->dev, rtc->irq_timer, rtc_irq, 0,
@@ -833,9 +946,14 @@ static int omap_rtc_probe(struct platform_device *pdev)
 		return PTR_ERR(rtc->pctldev);
 	}
 
+	ret = rtc_register_device(rtc->rtc);
+	if (ret)
+		goto err;
+
 	return 0;
 
 err:
+	omap_rtc_cleanup_pm_power_off(rtc);
 	device_init_wakeup(&pdev->dev, false);
 	rtc->type->lock(rtc);
 	pm_runtime_put_sync(&pdev->dev);
@@ -849,11 +967,7 @@ static int omap_rtc_remove(struct platform_device *pdev)
 	struct omap_rtc *rtc = platform_get_drvdata(pdev);
 	u8 reg;
 
-	if (pm_power_off == omap_rtc_power_off &&
-			omap_rtc_power_off_rtc == rtc) {
-		pm_power_off = NULL;
-		omap_rtc_power_off_rtc = NULL;
-	}
+	omap_rtc_cleanup_pm_power_off(rtc);
 
 	device_init_wakeup(&pdev->dev, 0);
 
@@ -941,14 +1055,20 @@ static void omap_rtc_shutdown(struct platform_device *pdev)
 	struct omap_rtc *rtc = platform_get_drvdata(pdev);
 	u8 mask;
 
-	/*
-	 * Keep the ALARM interrupt enabled to allow the system to power up on
-	 * alarm events.
-	 */
 	rtc->type->unlock(rtc);
-	mask = rtc_read(rtc, OMAP_RTC_INTERRUPTS_REG);
-	mask &= OMAP_RTC_INTERRUPTS_IT_ALARM;
-	rtc_write(rtc, OMAP_RTC_INTERRUPTS_REG, mask);
+	/* If rtc does not control PMIC then no need to enable ALARM */
+	if (!rtc->is_pmic_controller) {
+		rtc_write(rtc, OMAP_RTC_INTERRUPTS_REG, 0);
+	} else {
+		/*
+		 * Keep the ALARM interrupt enabled to allow the system to
+		 * power up on alarm events.
+		 */
+		mask = rtc_read(rtc, OMAP_RTC_INTERRUPTS_REG);
+		mask &= OMAP_RTC_INTERRUPTS_IT_ALARM;
+		rtc_write(rtc, OMAP_RTC_INTERRUPTS_REG, mask);
+	}
+
 	rtc->type->lock(rtc);
 }
 
