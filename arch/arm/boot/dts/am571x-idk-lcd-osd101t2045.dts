@@ -6,7 +6,7 @@
  * published by the Free Software Foundation.
  */
 
-#include "am571x-idk.dts"
+#include "am571x-idk-common.dtsi"
 #include "am57xx-idk-lcd-osd101t2045.dtsi"
 
 / {
