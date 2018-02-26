@@ -84,10 +84,6 @@ extern void (*omap3_do_wfi_sram)(void);
 extern struct am33xx_pm_sram_addr am33xx_pm_sram;
 extern struct am33xx_pm_sram_addr am43xx_pm_sram;
 
-/* save_secure_ram_context function pointer and size, for copy to SRAM */
-extern int save_secure_ram_context(u32 *addr);
-extern unsigned int save_secure_ram_context_sz;
-
 extern void omap3_save_scratchpad_contents(void);
 
 #define PM_RTA_ERRATUM_i608		(1 << 0)
