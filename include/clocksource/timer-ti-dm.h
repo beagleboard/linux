@@ -1,6 +1,4 @@
 /*
- * arch/arm/plat-omap/include/plat/dmtimer.h
- *
  * OMAP Dual-Mode Timers
  *
  * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/
@@ -36,8 +34,8 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 
-#ifndef __ASM_ARCH_DMTIMER_H
-#define __ASM_ARCH_DMTIMER_H
+#ifndef __CLOCKSOURCE_DMTIMER_H
+#define __CLOCKSOURCE_DMTIMER_H
 
 /* clock sources */
 #define OMAP_TIMER_SRC_SYS_CLK			0x00
@@ -132,7 +130,16 @@ void omap_dm_timer_disable(struct omap_dm_timer *timer);
 int omap_dm_timer_get_irq(struct omap_dm_timer *timer);
 
 u32 omap_dm_timer_modify_idlect_mask(u32 inputmask);
+
+#ifndef CONFIG_ARCH_OMAP1
 struct clk *omap_dm_timer_get_fclk(struct omap_dm_timer *timer);
+#else
+static inline
+struct clk *omap_dm_timer_get_fclk(struct omap_dm_timer *timer)
+{
+	return NULL;
+}
+#endif
 
 int omap_dm_timer_trigger(struct omap_dm_timer *timer);
 int omap_dm_timer_start(struct omap_dm_timer *timer);
@@ -272,6 +279,12 @@ int omap_dm_timers_active(void);
 #define OMAP_TIMER_TICK_INT_MASK_COUNT_REG				\
 		(_OMAP_TIMER_TICK_INT_MASK_COUNT_OFFSET | (WP_TOWR << WPSHIFT))
 
+/*
+ * The below are inlined to optimize code size for system timers. Other code
+ * should not need these at all, see
+ * include/linux/platform_data/pwm_omap_dmtimer.h
+ */
+#if defined(CONFIG_ARCH_OMAP1) || defined(CONFIG_ARCH_OMAP2PLUS)
 static inline u32 __omap_dm_timer_read(struct omap_dm_timer *timer, u32 reg,
 						int posted)
 {
@@ -410,5 +423,5 @@ static inline void __omap_dm_timer_write_status(struct omap_dm_timer *timer,
 {
 	writel_relaxed(value, timer->irq_stat);
 }
-
-#endif /* __ASM_ARCH_DMTIMER_H */
+#endif /* CONFIG_ARCH_OMAP1 || CONFIG_ARCH_OMAP2PLUS */
+#endif /* __CLOCKSOURCE_DMTIMER_H */
