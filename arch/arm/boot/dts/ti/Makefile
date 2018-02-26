@@ -17,6 +17,7 @@ define gen_itb_deps
 	@echo >> $(obj)/.itb-deps.d
 	@echo "$(src)/$(patsubst %.its,%.itb,$(notdir $(1))): $(srctree)/$(src)/$(notdir $(1)) \\" >> $(obj)/.itb-deps.d
 	@cat $(1) | grep incbin | cut -d "\"" -f 2 | awk '{ printf " $(src)/%s \\\n", $$1 }' | sed '$$s/ \\$$//' >> $(obj)/.itb-deps.d
+
 endef
 
 $(src)/.itb-deps.d:
