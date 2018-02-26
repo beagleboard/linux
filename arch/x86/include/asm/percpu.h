@@ -534,7 +534,7 @@ static inline int x86_this_cpu_variable_test_bit(int nr,
 {
 	int oldbit;
 
-	asm volatile("bt "__percpu_arg(2)",%1\n\t"
+	asm volatile("btl "__percpu_arg(2)",%1\n\t"
 			"sbb %0,%0"
 			: "=r" (oldbit)
 			: "m" (*(unsigned long *)addr), "Ir" (nr));
