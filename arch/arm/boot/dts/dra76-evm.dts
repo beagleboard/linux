@@ -509,6 +509,13 @@
 	};
 };
 
+&m_can0 {
+	status = "okay";
+	can-transceiver {
+		max-bitrate = <5000000>;
+	};
+};
+
 &cal {
 	status = "okay";
 };
