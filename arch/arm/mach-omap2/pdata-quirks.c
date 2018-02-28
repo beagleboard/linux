@@ -447,7 +447,7 @@ static void __init omap5_uevm_legacy_init(void)
 #endif
 
 #ifdef CONFIG_SOC_DRA7XX
-static struct iommu_platform_data dra7_ipu1_iommu_pdata = {
+static struct iommu_platform_data dra7_ipu1_dsp_iommu_pdata = {
 	.reset_name = "mmu_cache",
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
@@ -608,13 +608,13 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("ti,dra7-hsmmc", 0x480ad000, "480ad000.mmc",
 		       &dra7_hsmmc_data_mmc3),
 	OF_DEV_AUXDATA("ti,dra7-dsp-iommu", 0x40d01000, "40d01000.mmu",
-		       &omap4_iommu_pdata),
+		       &dra7_ipu1_dsp_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-dsp-iommu", 0x41501000, "41501000.mmu",
-		       &omap4_iommu_pdata),
+		       &dra7_ipu1_dsp_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x55082000, "55082000.mmu",
 		       &omap4_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-iommu", 0x58882000, "58882000.mmu",
-		       &dra7_ipu1_iommu_pdata),
+		       &dra7_ipu1_dsp_iommu_pdata),
 #endif
 	/* Common auxdata */
 	OF_DEV_AUXDATA("pinctrl-single", 0, NULL, &pcs_pdata),
