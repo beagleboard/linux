@@ -6,14 +6,9 @@
  * published by the Free Software Foundation.
  */
 
-#include "dra74x.dtsi"
+#include "dra74x-p.dtsi"
 
 / {
 	compatible = "ti,dra762", "ti,dra7";
 
-};
-
-/* MCAN interrupts are hard-wired to irqs 67, 68 */
-&crossbar_mpu {
-	ti,irqs-skip = <10 67 68 133 139 140>;
 };

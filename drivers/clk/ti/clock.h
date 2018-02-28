@@ -22,7 +22,9 @@ struct clk_omap_divider {
 	u8			shift;
 	u8			width;
 	u8			flags;
+	s8			latch;
 	const struct clk_div_table	*table;
+	u32		context;
 };
 
 #define to_clk_omap_divider(_hw) container_of(_hw, struct clk_omap_divider, hw)
@@ -33,7 +35,9 @@ struct clk_omap_mux {
 	u32			*table;
 	u32			mask;
 	u8			shift;
+	s8			latch;
 	u8			flags;
+	u8			saved_parent;
 };
 
 #define to_clk_omap_mux(_hw) container_of(_hw, struct clk_omap_mux, hw)
@@ -246,6 +250,8 @@ struct clk *ti_clk_register(struct device *dev, struct clk_hw *hw,
 			    const char *con);
 int ti_clk_add_alias(struct device *dev, struct clk *clk, const char *con);
 void ti_clk_add_aliases(void);
+
+void ti_clk_latch(struct clk_omap_reg *reg, s8 shift);
 
 struct clk_hw *ti_clk_build_component_div(struct ti_clk_divider *setup);
 struct clk_hw *ti_clk_build_component_gate(struct ti_clk_gate *setup);

@@ -32,11 +32,12 @@
 	.macro SMCCC instr
 UNWIND(	.fnstart)
 	mov	r12, sp
-	push	{r4-r7}
-UNWIND(	.save	{r4-r7})
+	push	{r4-r11}
+UNWIND(	.save	{r4-r11})
 	ldm	r12, {r4-r7}
+	mov	r12, #0x200
 	\instr
-	pop	{r4-r7}
+	pop	{r4-r11}
 	ldr	r12, [sp, #(4 * 4)]
 	stm	r12, {r0-r3}
 	bx	lr

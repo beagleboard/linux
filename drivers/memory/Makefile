@@ -22,3 +22,16 @@ obj-$(CONFIG_DA8XX_DDRCTL)	+= da8xx-ddrctl.o
 
 obj-$(CONFIG_SAMSUNG_MC)	+= samsung/
 obj-$(CONFIG_TEGRA_MC)		+= tegra/
+obj-$(CONFIG_TI_EMIF_SRAM)	+= ti-emif-sram.o
+ti-emif-sram-objs		:= ti-emif-pm.o ti-emif-sram-pm.o
+
+AFLAGS_ti-emif-sram-pm.o	:=-Wa,-march=armv7-a
+
+# Generate offset macros for use in ASM code
+drivers/memory/emif-asm-offsets.s: drivers/memory/emif-asm-offsets.c
+	$(call if_changed_dep,cc_s_c)
+
+include/generated/ti-emif-asm-offsets.h: drivers/memory/emif-asm-offsets.s FORCE
+	$(call filechk,offsets,__TI_EMIF_ASM_OFFSETS_H__)
+
+drivers/memory/ti-emif-sram-pm.o: include/generated/ti-emif-asm-offsets.h

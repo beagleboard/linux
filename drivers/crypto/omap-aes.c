@@ -46,6 +46,8 @@
 static LIST_HEAD(dev_list);
 static DEFINE_SPINLOCK(list_lock);
 
+static int aes_fallback_sz = 200;
+
 #ifdef DEBUG
 #define omap_aes_read(dd, offset)				\
 ({								\
@@ -516,7 +518,7 @@ static int omap_aes_crypt(struct ablkcipher_request *req, unsigned long mode)
 		  !!(mode & FLAGS_ENCRYPT),
 		  !!(mode & FLAGS_CBC));
 
-	if (req->nbytes < 200) {
+	if (req->nbytes < aes_fallback_sz) {
 		SKCIPHER_REQUEST_ON_STACK(subreq, ctx->fallback);
 
 		skcipher_request_set_tfm(subreq, ctx->fallback);
@@ -1031,6 +1033,87 @@ err:
 	return err;
 }
 
+static ssize_t fallback_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	return sprintf(buf, "%d\n", aes_fallback_sz);
+}
+
+static ssize_t fallback_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	ssize_t status;
+	long value;
+
+	status = kstrtol(buf, 0, &value);
+	if (status)
+		return status;
+
+	/* HW accelerator only works with buffers > 9 */
+	if (value < 9) {
+		dev_err(dev, "minimum fallback size 9\n");
+		return -EINVAL;
+	}
+
+	aes_fallback_sz = value;
+
+	return size;
+}
+
+static ssize_t queue_len_show(struct device *dev, struct device_attribute *attr,
+			      char *buf)
+{
+	struct omap_aes_dev *dd = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", dd->engine->queue.max_qlen);
+}
+
+static ssize_t queue_len_store(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t size)
+{
+	struct omap_aes_dev *dd;
+	ssize_t status;
+	long value;
+	unsigned long flags;
+
+	status = kstrtol(buf, 0, &value);
+	if (status)
+		return status;
+
+	if (value < 1)
+		return -EINVAL;
+
+	/*
+	 * Changing the queue size in fly is safe, if size becomes smaller
+	 * than current size, it will just not accept new entries until
+	 * it has shrank enough.
+	 */
+	spin_lock_bh(&list_lock);
+	list_for_each_entry(dd, &dev_list, list) {
+		spin_lock_irqsave(&dd->lock, flags);
+		dd->engine->queue.max_qlen = value;
+		dd->aead_queue.base.max_qlen = value;
+		spin_unlock_irqrestore(&dd->lock, flags);
+	}
+	spin_unlock_bh(&list_lock);
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(queue_len);
+static DEVICE_ATTR_RW(fallback);
+
+static struct attribute *omap_aes_attrs[] = {
+	&dev_attr_queue_len.attr,
+	&dev_attr_fallback.attr,
+	NULL,
+};
+
+static struct attribute_group omap_aes_attr_group = {
+	.attrs = omap_aes_attrs,
+};
+
 static int omap_aes_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1159,6 +1242,12 @@ static int omap_aes_probe(struct platform_device *pdev)
 
 			dd->pdata->aead_algs_info->registered++;
 		}
+	}
+
+	err = sysfs_create_group(&dev->kobj, &omap_aes_attr_group);
+	if (err) {
+		dev_err(dev, "could not create sysfs device attrs\n");
+		goto err_aead_algs;
 	}
 
 	return 0;

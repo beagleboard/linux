@@ -662,13 +662,18 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-beagle-x15-revc.dtb \
 	am57xx-cl-som-am57x.dtb \
 	am57xx-sbc-am57x.dtb \
+	am574x-idk.dtb \
 	am572x-idk.dtb \
 	am571x-idk.dtb \
 	dra7-evm.dtb \
 	dra72-evm.dtb \
 	dra72-evm-revc.dtb \
 	dra71-evm.dtb \
+	dra71-lcard.dtb \
 	dra76-evm.dtb
+ifeq ($(CONFIG_SOC_DRA7XX),y)
+dts-dirs += ti
+endif
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-kuroboxpro.dtb \
 	orion5x-lacie-d2-network.dtb \
@@ -1071,8 +1076,15 @@ dtb-$(CONFIG_ARCH_ASPEED) += aspeed-bmc-opp-palmetto.dtb \
 	aspeed-ast2500-evb.dtb
 endif
 
+ifeq ($(BUILD_ITBS),y)
+dtb-y=
+endif
+
 dtstree		:= $(srctree)/$(src)
 dtb-$(CONFIG_OF_ALL_DTBS) := $(patsubst $(dtstree)/%.dts,%.dtb, $(wildcard $(dtstree)/*.dts))
 
 always		:= $(dtb-y)
 clean-files	:= *.dtb
+
+subdir-y	+= $(dts-dirs)
+subdir-		+= $(dts-dirs)
