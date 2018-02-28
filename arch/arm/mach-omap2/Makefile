@@ -252,3 +252,8 @@ include/generated/ti-pm-asm-offsets.h: arch/arm/mach-omap2/pm-asm-offsets.s FORC
 
 arch/arm/mach-omap2/sleep33xx.o: include/generated/ti-pm-asm-offsets.h
 arch/arm/mach-omap2/sleep43xx.o: include/generated/ti-pm-asm-offsets.h
+
+obj-$(CONFIG_OMAP_IOMMU)		+= omap-iommu.o
+ifneq ($(CONFIG_OMAP_REMOTEPROC),)
+obj-y					+= remoteproc.o
+endif
