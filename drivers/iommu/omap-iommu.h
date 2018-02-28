@@ -81,6 +81,8 @@ struct omap_iommu {
 
 	struct iommu_device iommu;
 	struct iommu_group *group;
+
+	u8 pwrst;
 };
 
 /**
