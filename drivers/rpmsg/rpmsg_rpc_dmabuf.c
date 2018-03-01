@@ -486,10 +486,6 @@ int rppc_xlate_buffers(struct rppc_instance *rpc, struct rppc_function *func,
 	/* sanity check the translation elements */
 	for (i = 0; i < limit; i++) {
 		ptr_idx = func->translations[i].index;
-		pri_offset = func->params[ptr_idx].data -
-						func->params[ptr_idx].base;
-		sec_offset = func->translations[i].offset;
-		size = func->params[ptr_idx].size;
 
 		if (ptr_idx >= RPPC_MAX_PARAMETERS) {
 			dev_err(dev, "xlate[%d] - invalid parameter pointer index %u\n",
@@ -506,6 +502,12 @@ int rppc_xlate_buffers(struct rppc_instance *rpc, struct rppc_function *func,
 				i);
 			return -EINVAL;
 		}
+
+		pri_offset = func->params[ptr_idx].data -
+					func->params[ptr_idx].base;
+		sec_offset = func->translations[i].offset;
+		size = func->params[ptr_idx].size;
+
 		if (sec_offset > (size - sizeof(virt_addr_t))) {
 			dev_err(dev, "xlate[%d] offset is larger than data area! (sec_offset = %u size = %u)\n",
 				i, sec_offset, size);
