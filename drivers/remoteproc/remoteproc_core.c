@@ -1014,11 +1014,52 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 	rproc_coredump_cleanup(rproc);
 }
 
-static int rproc_start(struct rproc *rproc, const struct firmware *fw)
+/*
+ * take a firmware and boot a remote processor with it.
+ */
+static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 {
-	struct resource_table *loaded_table;
 	struct device *dev = &rproc->dev;
+	const char *name = rproc->firmware;
+	struct resource_table *loaded_table;
 	int ret;
+
+	ret = rproc_fw_sanity_check(rproc, fw);
+	if (ret)
+		return ret;
+
+	if (!rproc->skip_firmware_request)
+		dev_info(dev, "Booting fw image %s, size %zd\n",
+			 name, fw->size);
+	else
+		dev_info(dev, "Booting unspecified pre-loaded fw image\n");
+
+	/*
+	 * if enabling an IOMMU isn't relevant for this rproc, this is
+	 * just a nop
+	 */
+	ret = rproc_enable_iommu(rproc);
+	if (ret) {
+		dev_err(dev, "can't enable iommu: %d\n", ret);
+		return ret;
+	}
+
+	rproc->bootaddr = rproc_get_boot_addr(rproc, fw);
+
+	/* Load resource table, core dump segment list etc from the firmware */
+	ret = rproc_parse_fw(rproc, fw);
+	if (ret)
+		goto disable_iommu;
+
+	/* reset max_notifyid */
+	rproc->max_notifyid = -1;
+
+	/* handle fw resources which are required to boot rproc */
+	ret = rproc_handle_resources(rproc, rproc_loading_handlers);
+	if (ret) {
+		dev_err(dev, "Failed to process resources: %d\n", ret);
+		goto clean_up_resources;
+	}
 
 	if (!rproc->skip_load) {
 		/* load the ELF segments to memory */
@@ -1026,7 +1067,7 @@ static int rproc_start(struct rproc *rproc, const struct firmware *fw)
 		if (ret) {
 			dev_err(dev, "Failed to load program segments: %d\n",
 				ret);
-			return ret;
+			goto clean_up_resources;
 		}
 	}
 
@@ -1086,67 +1127,12 @@ unprepare_subdevices:
 	rproc_unprepare_subdevices(rproc);
 reset_table_ptr:
 	rproc->table_ptr = rproc->cached_table;
-
-	return ret;
-}
-
-/*
- * take a firmware and boot a remote processor with it.
- */
-static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
-{
-	struct device *dev = &rproc->dev;
-	const char *name = rproc->firmware;
-	int ret;
-
-	ret = rproc_fw_sanity_check(rproc, fw);
-	if (ret)
-		return ret;
-
-	if (!rproc->skip_firmware_request)
-		dev_info(dev, "Booting fw image %s, size %zd\n",
-			 name, fw->size);
-	else
-		dev_info(dev, "Booting unspecified pre-loaded fw image\n");
-
-	/*
-	 * if enabling an IOMMU isn't relevant for this rproc, this is
-	 * just a nop
-	 */
-	ret = rproc_enable_iommu(rproc);
-	if (ret) {
-		dev_err(dev, "can't enable iommu: %d\n", ret);
-		return ret;
-	}
-
-	rproc->bootaddr = rproc_get_boot_addr(rproc, fw);
-
-	/* Load resource table, core dump segment list etc from the firmware */
-	ret = rproc_parse_fw(rproc, fw);
-	if (ret)
-		goto disable_iommu;
-
-	/* reset max_notifyid */
-	rproc->max_notifyid = -1;
-
-	/* handle fw resources which are required to boot rproc */
-	ret = rproc_handle_resources(rproc, rproc_loading_handlers);
-	if (ret) {
-		dev_err(dev, "Failed to process resources: %d\n", ret);
-		goto clean_up_resources;
-	}
-
-	ret = rproc_start(rproc, fw);
-	if (ret)
-		goto clean_up_resources;
-
-	return 0;
-
 clean_up_resources:
 	rproc_resource_cleanup(rproc);
 	kfree(rproc->cached_table);
 	rproc->cached_table = NULL;
 	rproc->table_ptr = NULL;
+	rproc->table_sz = 0;
 disable_iommu:
 	rproc_disable_iommu(rproc);
 	return ret;
@@ -1184,40 +1170,6 @@ static int rproc_trigger_auto_boot(struct rproc *rproc)
 		dev_err(&rproc->dev, "request_firmware_nowait err: %d\n", ret);
 
 	return ret;
-}
-
-static int rproc_stop(struct rproc *rproc, bool crashed)
-{
-	struct device *dev = &rproc->dev;
-	int ret;
-
-	/* Stop any subdevices for the remote processor */
-	rproc_stop_subdevices(rproc, crashed);
-
-	/* the installed resource table is no longer accessible */
-	rproc->table_ptr = rproc->cached_table;
-
-	/* power off the remote processor */
-	ret = rproc->ops->stop(rproc);
-	if (ret) {
-		dev_err(dev, "can't stop rproc: %d\n", ret);
-		return ret;
-	}
-
-	rproc_unprepare_subdevices(rproc);
-
-	/* if in crash state, perform coredump and unlock crash handler */
-	if (rproc->state == RPROC_CRASHED) {
-		rproc_coredump(rproc);
-
-		complete_all(&rproc->crash_comp);
-	}
-
-	rproc->state = RPROC_OFFLINE;
-
-	dev_info(dev, "stopped remote processor %s\n", rproc->name);
-
-	return 0;
 }
 
 /**
@@ -1510,6 +1462,7 @@ void rproc_shutdown(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
 	int ret;
+	bool crashed = false;
 
 	ret = mutex_lock_interruptible(&rproc->lock);
 	if (ret) {
@@ -1521,11 +1474,28 @@ void rproc_shutdown(struct rproc *rproc)
 	if (!atomic_dec_and_test(&rproc->power))
 		goto out;
 
-	ret = rproc_stop(rproc, false);
+	if (rproc->state == RPROC_CRASHED)
+		crashed = true;
+
+	/* remove any subdevices for the remote processor */
+	rproc_stop_subdevices(rproc, crashed);
+
+	/* power off the remote processor */
+	ret = rproc->ops->stop(rproc);
 	if (ret) {
 		atomic_inc(&rproc->power);
+		dev_err(dev, "can't stop rproc: %d\n", ret);
 		goto out;
 	}
+
+	rproc_unprepare_subdevices(rproc);
+
+	/* generate coredump */
+	if (rproc->state == RPROC_CRASHED)
+		rproc_coredump(rproc);
+
+	/* the installed resource table may no longer be accessible */
+	rproc->table_ptr = rproc->cached_table;
 
 	/* clean up all acquired resources */
 	rproc_resource_cleanup(rproc);
@@ -1536,6 +1506,15 @@ void rproc_shutdown(struct rproc *rproc)
 	kfree(rproc->cached_table);
 	rproc->cached_table = NULL;
 	rproc->table_ptr = NULL;
+
+	/* if in crash state, unlock crash handler */
+	if (rproc->state == RPROC_CRASHED)
+		complete_all(&rproc->crash_comp);
+
+	rproc->state = RPROC_OFFLINE;
+
+	dev_info(dev, "stopped remote processor %s\n", rproc->name);
+
 out:
 	mutex_unlock(&rproc->lock);
 }
