@@ -23,10 +23,10 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/platform_data/sdhci-omap.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sys_soc.h>
 #include <linux/thermal.h>
 
 #include "sdhci-pltfm.h"
@@ -938,6 +938,16 @@ static int sdhci_omap_config_iodelay_pinctrl_state(struct sdhci_omap_host
 	return 0;
 }
 
+static const struct soc_device_attribute sdhci_omap_soc_devices[] = {
+	{
+		.machine = "DRA7[45]*",
+		.revision = "ES1.[01]",
+	},
+	{
+		/* sentinel */
+	}
+};
+
 static int sdhci_omap_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -949,7 +959,7 @@ static int sdhci_omap_probe(struct platform_device *pdev)
 	struct mmc_host *mmc;
 	const struct of_device_id *match;
 	struct sdhci_omap_data *data;
-	struct sdhci_omap_platform_data *platform_data;
+	const struct soc_device_attribute *soc;
 
 	match = of_match_device(omap_sdhci_match, dev);
 	if (!match)
@@ -985,11 +995,15 @@ static int sdhci_omap_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_pltfm_free;
 
-	platform_data = dev_get_platdata(dev);
-	if (platform_data) {
-		omap_host->version = platform_data->version;
-		if (platform_data->max_freq)
-			mmc->f_max = platform_data->max_freq;
+	soc = soc_device_match(sdhci_omap_soc_devices);
+	if (soc) {
+		omap_host->version = "rev11";
+		if (!strcmp(dev_name(dev), "4809c000.mmc"))
+			mmc->f_max = 96000000;
+		if (!strcmp(dev_name(dev), "480b4000.mmc"))
+			mmc->f_max = 48000000;
+		if (!strcmp(dev_name(dev), "480ad000.mmc"))
+			mmc->f_max = 48000000;
 	}
 
 	pltfm_host->clk = devm_clk_get(dev, "fck");
