@@ -7,5 +7,5 @@
 	pinctrl-1 = <&mmc3_pins_hs>;
 	pinctrl-2 = <&mmc3_pins_sdr12>;
 	pinctrl-3 = <&mmc3_pins_sdr25>;
-	pinctrl-4 = <&mmc3_pins_sdr50 &mmc3_iodelay_manual1_rev11_conf>;
+	pinctrl-4 = <&mmc3_pins_sdr50 &mmc3_iodelay_manual1_rev20_conf>;
 };
