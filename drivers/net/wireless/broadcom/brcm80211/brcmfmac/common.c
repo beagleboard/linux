@@ -77,6 +77,10 @@ static int brcmf_roamoff;
 module_param_named(roamoff, brcmf_roamoff, int, S_IRUSR);
 MODULE_PARM_DESC(roamoff, "Do not use internal roaming engine");
 
+static int brcmf_sdio_dpc_prio;
+module_param_named(sdio_dpc_prio, brcmf_sdio_dpc_prio, int, S_IRUSR);
+MODULE_PARM_DESC(sdio_dpc_prio, "The scheduling priority of sdio_dpc thread");
+
 #ifdef DEBUG
 /* always succeed brcmf_bus_started() */
 static int brcmf_ignore_probe_fail;
@@ -454,6 +458,7 @@ struct brcmf_mp_device *brcmf_get_module_param(struct device *dev,
 	settings->feature_disable = brcmf_feature_disable;
 	settings->fcmode = brcmf_fcmode;
 	settings->roamoff = !!brcmf_roamoff;
+	settings->sdio_dpc_prio = brcmf_sdio_dpc_prio;
 #ifdef DEBUG
 	settings->ignore_probe_fail = !!brcmf_ignore_probe_fail;
 #endif
