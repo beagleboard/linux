@@ -2367,6 +2367,8 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
 			   struct sk_buff *skb);
 void __sock_recv_wifi_status(struct msghdr *msg, struct sock *sk,
 			     struct sk_buff *skb);
+void __sock_recv_redinfo_timestamp(struct msghdr *msg, struct sock *sk,
+				   struct sk_buff *skb);
 
 static inline void
 sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
@@ -2457,6 +2459,9 @@ static inline void sock_recv_redundant_info(struct msghdr *msg, struct sock *sk,
 	sred = skb_redinfo(skb);
 	if (sred->lsdu_size)
 		put_cmsg(msg, SOL_SOCKET, SCM_REDUNDANT, sizeof(*sred), sred);
+
+	__sock_recv_redinfo_timestamp(msg, sk, skb);
+
 }
 
 static inline void sock_tx_redundant_info(const struct sock *sk,

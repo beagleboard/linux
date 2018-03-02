@@ -539,6 +539,7 @@ struct skb_shared_info {
 	struct sk_buff	*frag_list;
 	struct skb_shared_hwtstamps hwtstamps;
 	unsigned int	gso_type;
+	struct skb_shared_hwtstamps red_hwtstamps;
 	struct skb_redundant_info redinfo;
 	u32		tskey;
 
@@ -1510,6 +1511,12 @@ static inline void skb_list_del_init(struct sk_buff *skb)
 static inline struct skb_redundant_info *skb_redinfo(struct sk_buff *skb)
 {
 	return &skb_shinfo(skb)->redinfo;
+}
+
+static inline struct skb_shared_hwtstamps *
+skb_redinfo_hwtstamps(struct sk_buff *skb)
+{
+	return &skb_shinfo(skb)->red_hwtstamps;
 }
 
 /**
