@@ -6725,6 +6725,7 @@ static s32 brcmf_config_dongle(struct brcmf_cfg80211_info *cfg)
 	struct wireless_dev *wdev;
 	struct brcmf_if *ifp;
 	s32 power_mode;
+	s32 eap_restrict;
 	s32 err = 0;
 
 	if (cfg->dongle_up)
@@ -6749,6 +6750,14 @@ static s32 brcmf_config_dongle(struct brcmf_cfg80211_info *cfg)
 	err = brcmf_dongle_roam(ifp);
 	if (err)
 		goto default_conf_out;
+
+	eap_restrict = ifp->drvr->settings->eap_restrict;
+	if (eap_restrict) {
+		err = brcmf_fil_iovar_int_set(ifp, "eap_restrict",
+					      eap_restrict);
+		if (err)
+			brcmf_info("eap_restrict error (%d)\n", err);
+	}
 	err = brcmf_cfg80211_change_iface(wdev->wiphy, ndev, wdev->iftype,
 					  NULL);
 	if (err)
