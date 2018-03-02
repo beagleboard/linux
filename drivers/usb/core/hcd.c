@@ -3052,8 +3052,11 @@ usb_hcd_platform_shutdown(struct platform_device *dev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(dev);
 
-	if (hcd->driver->shutdown)
-		hcd->driver->shutdown(hcd);
+	/* If OTG device, OTG core takes care of shutting down HCD */
+	if (usb_otg_shutdown_hcd(hcd)) {
+		if (hcd->driver->shutdown)
+			hcd->driver->shutdown(hcd);
+	}
 }
 EXPORT_SYMBOL_GPL(usb_hcd_platform_shutdown);
 

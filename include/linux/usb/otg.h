@@ -164,6 +164,7 @@ int usb_otg_unregister(struct device *dev);
 int usb_otg_register_hcd(struct usb_hcd *hcd, unsigned int irqnum,
 			 unsigned long irqflags, struct otg_hcd_ops *ops);
 int usb_otg_unregister_hcd(struct usb_hcd *hcd);
+int usb_otg_shutdown_hcd(struct usb_hcd *hcd);
 int usb_otg_register_gadget(struct usb_gadget *gadget,
 			    struct otg_gadget_ops *ops);
 int usb_otg_unregister_gadget(struct usb_gadget *gadget);
@@ -194,6 +195,11 @@ static inline int usb_otg_register_hcd(struct usb_hcd *hcd, unsigned int irqnum,
 }
 
 static inline int usb_otg_unregister_hcd(struct usb_hcd *hcd)
+{
+	return -ENOTSUPP;
+}
+
+static inline int usb_otg_shutdown_hcd(struct usb_hcd *hcd)
 {
 	return -ENOTSUPP;
 }
