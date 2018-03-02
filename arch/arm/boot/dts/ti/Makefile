@@ -21,7 +21,7 @@ define gen_itb_deps
 endef
 
 $(src)/.itb-deps.d:
-	@echo "$(src)/.itb-deps.d: $(wildcard $(srctree)/$(src)/*.its)" > $(obj)/.itb-deps.d
+	@echo "$(src)/.itb-deps.d: $(src)/Makefile $(wildcard $(srctree)/$(src)/*.its)" > $(obj)/.itb-deps.d
 	@echo >> $(obj)/.itb-deps.d
 	$(foreach f,$(wildcard $(srctree)/$(src)/*.its),$(call gen_itb_deps,$f))
 
