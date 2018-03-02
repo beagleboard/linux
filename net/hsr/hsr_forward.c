@@ -475,6 +475,9 @@ static void stripped_skb_get_shared_info(struct sk_buff *skb_stripped,
 
 	if (is_hsr_l2ptp(skb_hsr)) {
 		skb_hwtstamps(skb)->hwtstamp = skb_hwtstamps(skb_hsr)->hwtstamp;
+		skb_redinfo_hwtstamps(skb)->hwtstamp =
+			skb_redinfo_hwtstamps(skb_hsr)->hwtstamp;
+
 		sred = skb_redinfo(skb);
 		/* assumes no vlan */
 		hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb_hsr);
