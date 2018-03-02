@@ -1104,4 +1104,4 @@ always		:= $(dtb-y)
 clean-files	:= *.dtb
 
 subdir-y	+= $(dts-dirs)
-subdir-		+= $(dts-dirs)
+subdir-		+= ti
