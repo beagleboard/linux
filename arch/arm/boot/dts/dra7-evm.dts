@@ -894,10 +894,6 @@
 &mmc4 {
 	status = "okay";
 	vmmc-supply = <&vmmcwl_fixed>;
-	bus-width = <4>;
-	cap-power-off-card;
-	keep-power-in-suspend;
-	ti,non-removable;
 
 	pinctrl-names = "default-rev11", "default", "hs-rev11", "hs", "sdr12-rev11", "sdr12", "sdr25-rev11", "sdr25";
 	pinctrl-0 = <&mmc4_pins_default &mmc4_iodelay_ds_rev11_conf>;
@@ -908,15 +904,6 @@
 	pinctrl-5 = <&mmc4_pins_sdr12 &mmc4_iodelay_sdr12_hs_sdr25_rev20_conf>;
 	pinctrl-6 = <&mmc4_pins_sdr25 &mmc4_iodelay_sdr12_hs_sdr25_rev11_conf>;
 	pinctrl-7 = <&mmc4_pins_sdr25 &mmc4_iodelay_sdr12_hs_sdr25_rev20_conf>;
-
-	#address-cells = <1>;
-	#size-cells = <0>;
-	wlcore: wlcore@2 {
-		compatible = "ti,wl1835";
-		reg = <2>;
-		interrupt-parent = <&gpio5>;
-		interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
-	};
 };
 
 &oppdm_mpu {
