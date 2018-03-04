@@ -14,15 +14,19 @@ quiet_cmd_mkfit = MKIMAGE -f $@
 cmd_mkfit = PATH="$(DTC_PATH):$(PATH)" $(MKIMAGE) -D "$(DTC_FLAGS_MKIMAGE)" -f $< $@
 
 define gen_itb_deps
-	@echo >> $(obj)/.itb-deps.d
-	@echo "$(src)/$(patsubst %.its,%.itb,$(notdir $(1))): $(srctree)/$(src)/$(notdir $(1)) \\" >> $(obj)/.itb-deps.d
-	@cat $(1) | grep incbin | cut -d "\"" -f 2 | awk '{ printf " $(src)/%s \\\n", $$1 }' | sed '$$s/ \\$$//' >> $(obj)/.itb-deps.d
+	@if [ -d $(obj) ] ; then \
+		echo >> $(obj)/.itb-deps.d ; \
+		echo "$(src)/$(patsubst %.its,%.itb,$(notdir $(1))): $(srctree)/$(src)/$(notdir $(1)) \\" >> $(obj)/.itb-deps.d ; \
+		cat $(1) | grep incbin | cut -d "\"" -f 2 | awk '{ printf " $(src)/%s \\\n", $$1 }' | sed '$$s/ \\$$//' >> $(obj)/.itb-deps.d ; \
+	fi
 
 endef
 
-$(src)/.itb-deps.d:
-	@echo "$(src)/.itb-deps.d: $(src)/Makefile $(wildcard $(srctree)/$(src)/*.its)" > $(obj)/.itb-deps.d
-	@echo >> $(obj)/.itb-deps.d
+$(obj)/.itb-deps.d:
+	@if [ -d  $(obj) ] ; then \
+		echo "$(src)/.itb-deps.d: $(src)/Makefile $(wildcard $(srctree)/$(src)/*.its)" > $(obj)/.itb-deps.d ; \
+		echo >> $(obj)/.itb-deps.d ; \
+	fi
 	$(foreach f,$(wildcard $(srctree)/$(src)/*.its),$(call gen_itb_deps,$f))
 
 $(obj)/%.dtb: $(src)/../%.dts FORCE
