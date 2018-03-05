@@ -1114,6 +1114,63 @@ int usb_otg_unregister_hcd(struct usb_hcd *hcd)
 EXPORT_SYMBOL_GPL(usb_otg_unregister_hcd);
 
 /**
+ * usb_otg_shutdown_hcd - Shutdown Host controller from OTG core
+ * @hcd:	Host controller device
+ *
+ * This is used by the USB Host stack to shutdown the Host controller.
+ * This functon will call hcd->driver->shutdown() only if the
+ * Host controller was running. It will also stop the OTG FSM to prevent
+ * further OTG state changes.
+ *
+ * Returns: 0 on success, error value otherwise.
+ */
+int usb_otg_shutdown_hcd(struct usb_hcd *hcd)
+{
+	struct usb_otg *otgd;
+	struct device *hcd_dev = hcd_to_bus(hcd)->controller;
+	struct device *otg_dev = usb_otg_get_device(hcd_dev);
+
+	if (!otg_dev)
+		return -EINVAL;	/* we're definitely not OTG */
+
+	mutex_lock(&otg_list_mutex);
+	otgd = usb_otg_get_data(otg_dev);
+	mutex_unlock(&otg_list_mutex);
+	if (!otgd) {
+		dev_dbg(hcd_dev, "otg: host wasn't registered with otg\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&otgd->fsm.lock);
+
+	if (otgd->fsm_running) {
+		int i;
+
+		/* no more new events queued */
+		otgd->fsm_running = false;
+
+		/* Stop state machine / timers */
+		if (!otgd->drd_only) {
+			for (i = 0; i < ARRAY_SIZE(otgd->timers); i++)
+				hrtimer_cancel(&otgd->timers[i].timer);
+		}
+
+		flush_workqueue(otgd->wq);
+	}
+
+	/* shutdown host controller if it was running */
+	if (otgd->flags & OTG_FLAG_HOST_RUNNING) {
+		if (hcd->driver->shutdown)
+			hcd->driver->shutdown(hcd);
+	}
+
+	mutex_unlock(&otgd->fsm.lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(usb_otg_shutdown_hcd);
+
+/**
  * usb_otg_register_gadget - Register Gadget controller to OTG core
  * @gadget:	Gadget controller
  *
