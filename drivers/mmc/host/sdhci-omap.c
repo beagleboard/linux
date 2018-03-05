@@ -23,10 +23,10 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/platform_data/sdhci-omap.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sys_soc.h>
 #include <linux/thermal.h>
 
 #include "sdhci-pltfm.h"
@@ -37,6 +37,7 @@
 #define CON_DDR			BIT(19)
 #define CON_CLKEXTFREE		BIT(16)
 #define CON_PADEN		BIT(15)
+#define CON_CTPL		BIT(11)
 #define CON_INIT		BIT(1)
 #define CON_OD			BIT(0)
 
@@ -225,6 +226,23 @@ static void sdhci_omap_conf_bus_power(struct sdhci_omap_host *omap_host,
 			return;
 		usleep_range(5, 10);
 	}
+}
+
+static void sdhci_omap_enable_sdio_irq(struct mmc_host *mmc, int enable)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_omap_host *omap_host = sdhci_pltfm_priv(pltfm_host);
+	u32 reg;
+
+	reg = sdhci_omap_readl(omap_host, SDHCI_OMAP_CON);
+	if (enable)
+		reg |= (CON_CTPL | CON_CLKEXTFREE);
+	else
+		reg &= ~(CON_CTPL | CON_CLKEXTFREE);
+	sdhci_omap_writel(omap_host, SDHCI_OMAP_CON, reg);
+
+	sdhci_enable_sdio_irq(mmc, enable);
 }
 
 static inline void sdhci_omap_set_dll(struct sdhci_omap_host *omap_host,
@@ -938,6 +956,16 @@ static int sdhci_omap_config_iodelay_pinctrl_state(struct sdhci_omap_host
 	return 0;
 }
 
+static const struct soc_device_attribute sdhci_omap_soc_devices[] = {
+	{
+		.machine = "DRA7[45]*",
+		.revision = "ES1.[01]",
+	},
+	{
+		/* sentinel */
+	}
+};
+
 static int sdhci_omap_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -949,7 +977,7 @@ static int sdhci_omap_probe(struct platform_device *pdev)
 	struct mmc_host *mmc;
 	const struct of_device_id *match;
 	struct sdhci_omap_data *data;
-	struct sdhci_omap_platform_data *platform_data;
+	const struct soc_device_attribute *soc;
 
 	match = of_match_device(omap_sdhci_match, dev);
 	if (!match)
@@ -985,11 +1013,15 @@ static int sdhci_omap_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_pltfm_free;
 
-	platform_data = dev_get_platdata(dev);
-	if (platform_data) {
-		omap_host->version = platform_data->version;
-		if (platform_data->max_freq)
-			mmc->f_max = platform_data->max_freq;
+	soc = soc_device_match(sdhci_omap_soc_devices);
+	if (soc) {
+		omap_host->version = "rev11";
+		if (!strcmp(dev_name(dev), "4809c000.mmc"))
+			mmc->f_max = 96000000;
+		if (!strcmp(dev_name(dev), "480b4000.mmc"))
+			mmc->f_max = 48000000;
+		if (!strcmp(dev_name(dev), "480ad000.mmc"))
+			mmc->f_max = 48000000;
 	}
 
 	pltfm_host->clk = devm_clk_get(dev, "fck");
@@ -1039,9 +1071,7 @@ static int sdhci_omap_probe(struct platform_device *pdev)
 	host->mmc_host_ops.set_ios = sdhci_omap_set_ios;
 	host->mmc_host_ops.card_busy = sdhci_omap_card_busy;
 	host->mmc_host_ops.execute_tuning = sdhci_omap_execute_tuning;
-
-	sdhci_read_caps(host);
-	host->caps |= SDHCI_CAN_DO_ADMA2;
+	host->mmc_host_ops.enable_sdio_irq = sdhci_omap_enable_sdio_irq;
 
 	ret = sdhci_setup_host(host);
 	if (ret)

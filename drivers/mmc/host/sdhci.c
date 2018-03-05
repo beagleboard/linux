@@ -709,7 +709,7 @@ static void sdhci_calc_sw_timeout(struct sdhci_host *host,
 	struct mmc_host *mmc = host->mmc;
 	unsigned long long transfer_time;
 	struct mmc_ios *ios = &mmc->ios;
-	unsigned char bus_width = ios->bus_width;
+	unsigned char bus_width = 1 << ios->bus_width;
 	unsigned int blksz;
 	unsigned int freq;
 

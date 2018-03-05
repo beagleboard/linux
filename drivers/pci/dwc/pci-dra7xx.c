@@ -83,6 +83,12 @@
 #define MSI_REQ_GRANT					BIT(0)
 #define MSI_VECTOR_SHIFT				7
 
+#define CTRL_CORE_CONTROL_IO_2				0x558
+#define PCIE_1LANE_2LANE_SELECTION			BIT(13)
+
+#define CTRL_CORE_PCIE_CONTROL				0x18
+#define PCIE_B1C0_MODE_SEL				BIT(2)
+
 struct dra7xx_pcie {
 	struct dw_pcie		*pci;
 	void __iomem		*base;		/* DT ti_conf */
@@ -95,6 +101,7 @@ struct dra7xx_pcie {
 
 struct dra7xx_pcie_of_data {
 	enum dw_pcie_device_mode mode;
+	bool supports_two_lane;
 };
 
 #define to_dra7xx_pcie(x)	dev_get_drvdata((x)->dev)
@@ -553,6 +560,26 @@ static const struct dra7xx_pcie_of_data dra7xx_pcie_ep_of_data = {
 	.mode = DW_PCIE_EP_TYPE,
 };
 
+static const struct dra7xx_pcie_of_data dra746_pcie_rc_of_data = {
+	.supports_two_lane = true,
+	.mode = DW_PCIE_RC_TYPE,
+};
+
+static const struct dra7xx_pcie_of_data dra726_pcie_rc_of_data = {
+	.supports_two_lane = false,
+	.mode = DW_PCIE_RC_TYPE,
+};
+
+static const struct dra7xx_pcie_of_data dra746_pcie_ep_of_data = {
+	.supports_two_lane = true,
+	.mode = DW_PCIE_EP_TYPE,
+};
+
+static const struct dra7xx_pcie_of_data dra726_pcie_ep_of_data = {
+	.supports_two_lane = false,
+	.mode = DW_PCIE_EP_TYPE,
+};
+
 static const struct of_device_id of_dra7xx_pcie_match[] = {
 	{
 		.compatible = "ti,dra7-pcie",
@@ -561,6 +588,22 @@ static const struct of_device_id of_dra7xx_pcie_match[] = {
 	{
 		.compatible = "ti,dra7-pcie-ep",
 		.data = &dra7xx_pcie_ep_of_data,
+	},
+	{
+		.compatible = "ti,dra746-pcie-rc",
+		.data = &dra746_pcie_rc_of_data,
+	},
+	{
+		.compatible = "ti,dra726-pcie-rc",
+		.data = &dra726_pcie_rc_of_data,
+	},
+	{
+		.compatible = "ti,dra746-pcie-ep",
+		.data = &dra746_pcie_ep_of_data,
+	},
+	{
+		.compatible = "ti,dra726-pcie-ep",
+		.data = &dra726_pcie_ep_of_data,
 	},
 	{},
 };
@@ -605,6 +648,35 @@ static int dra7xx_pcie_unaligned_memaccess(struct device *dev)
 	of_node_put(args.np);
 
 	return ret;
+}
+
+static int dra7xx_pcie_configure_two_lane(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct regmap *syscon_conf;
+	struct regmap *syscon_pcie;
+
+	syscon_conf = syscon_regmap_lookup_by_phandle(np, "ti,syscon-conf");
+	if (IS_ERR(syscon_conf)) {
+		dev_err(dev, "unable to get ti,syscon-conf\n");
+		return -EINVAL;
+	}
+
+	syscon_pcie = syscon_regmap_lookup_by_phandle(np, "ti,syscon-pcie");
+	if (IS_ERR(syscon_pcie)) {
+		dev_err(dev, "unable to get ti,syscon-pcie\n");
+		return -EINVAL;
+	}
+
+	regmap_update_bits(syscon_conf, CTRL_CORE_CONTROL_IO_2,
+			   PCIE_1LANE_2LANE_SELECTION,
+			   PCIE_1LANE_2LANE_SELECTION);
+
+	regmap_update_bits(syscon_pcie, CTRL_CORE_PCIE_CONTROL,
+			   PCIE_B1C0_MODE_SEL,
+			   PCIE_B1C0_MODE_SEL);
+
+	return 0;
 }
 
 static int __init dra7xx_pcie_probe(struct platform_device *pdev)
@@ -674,6 +746,17 @@ static int __init dra7xx_pcie_probe(struct platform_device *pdev)
 	link = devm_kzalloc(dev, sizeof(*link) * phy_count, GFP_KERNEL);
 	if (!link)
 		return -ENOMEM;
+
+	if (!data->supports_two_lane)
+		phy_count = 1;
+
+	if (phy_count == 2) {
+		ret = dra7xx_pcie_configure_two_lane(dev);
+		if (ret < 0) {
+			dev_err(dev, "failed to configure x2 lane mode\n");
+			phy_count = 1;
+		}
+	}
 
 	for (i = 0; i < phy_count; i++) {
 		snprintf(name, sizeof(name), "pcie-phy%d", i);

@@ -21,7 +21,7 @@
 #include <linux/regulator/fixed.h>
 
 #include <linux/platform_data/pinctrl-single.h>
-#include <linux/platform_data/sdhci-omap.h>
+#include <linux/platform_data/hsmmc-omap.h>
 #include <linux/platform_data/iommu-omap.h>
 #include <linux/platform_data/remoteproc-omap.h>
 #include <linux/platform_data/remoteproc-pruss.h>
@@ -39,7 +39,7 @@
 #include "hsmmc.h"
 #include "remoteproc.h"
 
-static struct sdhci_omap_platform_data __maybe_unused mmc_pdata[2];
+static struct omap_hsmmc_platform_data __maybe_unused mmc_pdata[2];
 
 struct pdata_init {
 	const char *compatible;
@@ -484,24 +484,6 @@ static struct iommu_platform_data dra7_dsp_mmu_edma_pdata = {
 	.device_enable = omap_device_enable,
 	.device_idle = omap_device_idle,
 };
-
-static struct sdhci_omap_platform_data dra7_sdhci_data_mmc1;
-static struct sdhci_omap_platform_data dra7_sdhci_data_mmc2;
-static struct sdhci_omap_platform_data dra7_sdhci_data_mmc3;
-
-static void __init dra7x_evm_mmc_quirk(void)
-{
-	if (omap_rev() == DRA752_REV_ES1_1 || omap_rev() == DRA752_REV_ES1_0) {
-		dra7_sdhci_data_mmc1.version = "rev11";
-		dra7_sdhci_data_mmc1.max_freq = 96000000;
-
-		dra7_sdhci_data_mmc2.version = "rev11";
-		dra7_sdhci_data_mmc2.max_freq = 48000000;
-
-		dra7_sdhci_data_mmc3.version = "rev11";
-		dra7_sdhci_data_mmc3.max_freq = 48000000;
-	}
-}
 #endif
 
 static struct pcs_pdata pcs_pdata;
@@ -616,12 +598,6 @@ static struct of_dev_auxdata omap_auxdata_lookup[] __initdata = {
 		       &omap4_iommu_pdata),
 #endif
 #ifdef CONFIG_SOC_DRA7XX
-	OF_DEV_AUXDATA("ti,dra7-sdhci", 0x4809c000, "4809c000.mmc",
-		       &dra7_sdhci_data_mmc1),
-	OF_DEV_AUXDATA("ti,dra7-sdhci", 0x480b4000, "480b4000.mmc",
-		       &dra7_sdhci_data_mmc2),
-	OF_DEV_AUXDATA("ti,dra7-sdhci", 0x480ad000, "480ad000.mmc",
-		       &dra7_sdhci_data_mmc3),
 	OF_DEV_AUXDATA("ti,dra7-dsp-iommu", 0x40d01000, "40d01000.mmu",
 		       &dra7_ipu1_dsp_iommu_pdata),
 	OF_DEV_AUXDATA("ti,dra7-dsp-iommu", 0x41501000, "41501000.mmu",
@@ -671,9 +647,6 @@ static struct pdata_init pdata_quirks[] __initdata = {
 #endif
 #ifdef CONFIG_SOC_OMAP5
 	{ "ti,omap5-uevm", omap5_uevm_legacy_init, },
-#endif
-#ifdef CONFIG_SOC_DRA7XX
-	{ "ti,dra7-evm", dra7x_evm_mmc_quirk, },
 #endif
 	{ /* sentinel */ },
 };
