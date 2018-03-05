@@ -1,0 +1,48 @@
+/dts-v1/;
+
+/ {
+	description = "DRA71x-evm";
+	#address-cells = <1>;
+
+	images {
+		kernel@1 {
+			description = "LCPD kernel";
+			data = /incbin/("../../zImage");
+			type = "kernel";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x82000000>;
+			entry = <0x82000000>;
+		};
+		fdt@1 {
+			description = "DRA71x-evm";
+			data = /incbin/("dra71-evm.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+		fdt@2 {
+			description = "DRA71x-evm LCD";
+			data = /incbin/("dra71-evm-lcd-auo-g101evn01.0.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
+	};
+
+	configurations {
+		default = "dra71-evm.dtb";
+		dra71-evm.dtb {
+			description = "DRA71x-evm";
+			kernel = "kernel@1";
+			fdt = "fdt@1";
+		};
+		lcd-auo-g101evn01.0 {
+			description = "DRA71x-evm with LCD overlay";
+			fdt = "fdt@2";
+		};
+	};
+};
