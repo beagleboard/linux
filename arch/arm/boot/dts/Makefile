@@ -688,6 +688,13 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra71-lcard.dtb \
 	dra76-evm.dtb \
 	dra76-evm-tfp410.dtb
+dtb-merge-$(CONFIG_SOC_DRA7XX) += \
+	am57xx-evm.dtb \
+	am57xx-evm-cam-mt9t111.dtb \
+	am57xx-evm-cam-ov10635.dtb \
+	am57xx-evm-reva3.dtb \
+	am57xx-evm-reva3-cam-mt9t111.dtb \
+	am57xx-evm-reva3-cam-ov10635.dtb
 ifeq ($(CONFIG_SOC_DRA7XX),y)
 dts-dirs += ti
 endif
@@ -1095,13 +1102,22 @@ endif
 
 ifeq ($(BUILD_ITBS),y)
 dtb-y=
+dtb-merge-y=
 endif
 
 dtstree		:= $(srctree)/$(src)
 dtb-$(CONFIG_OF_ALL_DTBS) := $(patsubst $(dtstree)/%.dts,%.dtb, $(wildcard $(dtstree)/*.dts))
 
-always		:= $(dtb-y)
+always		:= $(dtb-y) $(dtb-merge-y)
 clean-files	:= *.dtb
+
+$(addprefix $(obj)/,$(dtb-merge-y)): TI_DTBOS
+	@$(srctree)/scripts/dtb-merge $(srctree) $(objtree) $@ $(objtree)/scripts/dtc/fdtoverlay $(src)/ti
+
+TI_DTBOS:
+	$(Q)$(MAKE) $(build)=$(src)/ti
+
+PHONY += TI_DTBOS
 
 subdir-y	+= $(dts-dirs)
 subdir-		+= ti
