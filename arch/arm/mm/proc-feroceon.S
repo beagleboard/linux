@@ -475,6 +475,12 @@ ENTRY(cpu_feroceon_dcache_clean_area)
 	.align	5
 ENTRY(cpu_feroceon_switch_mm)
 #ifdef CONFIG_MMU
+#ifndef CONFIG_ARM_FCSE_GUARANTEED
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	cmp	r2, #0
+	mov	r2, lr
+	beq	2f
+#else /* !CONFIG_ARM_FCSE */
 	/*
 	 * Note: we wish to call __flush_whole_cache but we need to preserve
 	 * lr to do so.  The only way without touching main memory is to
@@ -482,12 +488,19 @@ ENTRY(cpu_feroceon_switch_mm)
 	 * compensate locally for the skipped ops if it is not set.
 	 */
 	mov	r2, lr				@ abuse r2 to preserve lr
+#endif /* !CONFIG_ARM_FCSE */
 	bl	__flush_whole_cache
 	@ if r2 contains the VM_EXEC bit then the next 2 ops are done already
 	tst	r2, #VM_EXEC
 	mcreq	p15, 0, ip, c7, c5, 0		@ invalidate I cache
 	mcreq	p15, 0, ip, c7, c10, 4		@ drain WB
 
+#ifdef CONFIG_ARM_FCSE
+2:
+#endif
+#else /* CONFIG_ARM_FCSE_GUARANTEED */
+	mov	r2, lr
+#endif /* CONFIG_ARM_FCSE_GUARANTEED */
 	mcr	p15, 0, r0, c2, c0, 0		@ load page table pointer
 	mcr	p15, 0, ip, c8, c7, 0		@ invalidate I & D TLBs
 	ret	r2

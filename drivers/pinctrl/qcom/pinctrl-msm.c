@@ -61,7 +61,7 @@ struct msm_pinctrl {
 	struct notifier_block restart_nb;
 	int irq;
 
-	spinlock_t lock;
+	ipipe_spinlock_t lock;
 
 	DECLARE_BITMAP(dual_edge_irqs, MAX_NR_GPIO);
 	DECLARE_BITMAP(enabled_irqs, MAX_NR_GPIO);
@@ -571,16 +571,34 @@ static void msm_gpio_irq_mask(struct irq_data *d)
 
 	g = &pctrl->soc->groups[d->hwirq];
 
-	spin_lock_irqsave(&pctrl->lock, flags);
+	spin_lock_irqsave_cond(&pctrl->lock, flags);
 
 	val = readl(pctrl->regs + g->intr_cfg_reg);
 	val &= ~BIT(g->intr_enable_bit);
 	writel(val, pctrl->regs + g->intr_cfg_reg);
 
 	clear_bit(d->hwirq, pctrl->enabled_irqs);
-
-	spin_unlock_irqrestore(&pctrl->lock, flags);
+	ipipe_lock_irq(d->irq);
+	spin_unlock_irqrestore_cond(&pctrl->lock, flags);
 }
+
+#ifdef CONFIG_IPIPE
+static void msm_gpio_irq_mask_ack(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct msm_pinctrl *pctrl = gpiochip_get_data(gc);
+	const struct msm_pingroup *g;
+	u32 val;
+
+	g = &pctrl->soc->groups[d->hwirq];
+	spin_lock(&pctrl->lock);
+	val = readl(pctrl->regs + g->intr_cfg_reg);
+	val &= ~BIT(g->intr_enable_bit);
+	writel(val, pctrl->regs + g->intr_cfg_reg);
+	clear_bit(d->hwirq, pctrl->enabled_irqs);
+	spin_unlock(&pctrl->lock);
+}
+#endif
 
 static void msm_gpio_irq_unmask(struct irq_data *d)
 {
@@ -592,7 +610,7 @@ static void msm_gpio_irq_unmask(struct irq_data *d)
 
 	g = &pctrl->soc->groups[d->hwirq];
 
-	spin_lock_irqsave(&pctrl->lock, flags);
+	spin_lock_irqsave_cond(&pctrl->lock, flags);
 
 	val = readl(pctrl->regs + g->intr_cfg_reg);
 	val |= BIT(g->intr_enable_bit);
@@ -600,7 +618,8 @@ static void msm_gpio_irq_unmask(struct irq_data *d)
 
 	set_bit(d->hwirq, pctrl->enabled_irqs);
 
-	spin_unlock_irqrestore(&pctrl->lock, flags);
+	ipipe_unlock_irq(d->irq);
+	spin_unlock_irqrestore_cond(&pctrl->lock, flags);
 }
 
 static void msm_gpio_irq_ack(struct irq_data *d)
@@ -744,6 +763,9 @@ static struct irq_chip msm_gpio_irq_chip = {
 	.irq_ack        = msm_gpio_irq_ack,
 	.irq_set_type   = msm_gpio_irq_set_type,
 	.irq_set_wake   = msm_gpio_irq_set_wake,
+#ifdef CONFIG_IPIPE
+	.irq_mask_ack   = msm_gpio_irq_mask_ack,
+#endif
 };
 
 static void msm_gpio_irq_handler(struct irq_desc *desc)
@@ -768,7 +790,7 @@ static void msm_gpio_irq_handler(struct irq_desc *desc)
 		val = readl(pctrl->regs + g->intr_status_reg);
 		if (val & BIT(g->intr_status_bit)) {
 			irq_pin = irq_find_mapping(gc->irqdomain, i);
-			generic_handle_irq(irq_pin);
+			ipipe_handle_demuxed_irq(irq_pin);
 			handled++;
 		}
 	}

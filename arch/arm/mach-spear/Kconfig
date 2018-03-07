@@ -8,6 +8,7 @@ menuconfig PLAT_SPEAR
 	select ARM_AMBA
 	select CLKSRC_MMIO
 	select GPIOLIB
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 
 if PLAT_SPEAR
 

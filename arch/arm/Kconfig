@@ -44,7 +44,7 @@ config ARM
 	select HAVE_ARM_SMCCC if CPU_V7
 	select HAVE_CBPF_JIT
 	select HAVE_CC_STACKPROTECTOR
-	select HAVE_CONTEXT_TRACKING
+	select HAVE_CONTEXT_TRACKING if !IPIPE
 	select HAVE_C_RECORDMCOUNT
 	select HAVE_DEBUG_KMEMLEAK
 	select HAVE_DMA_API_DEBUG
@@ -80,6 +80,7 @@ config ARM
 	select HAVE_SYSCALL_TRACEPOINTS
 	select HAVE_UID16
 	select HAVE_VIRT_CPU_ACCOUNTING_GEN
+	select IPIPE_WANT_PTE_PINNING if IPIPE && !(CPU_V6K || CPU_V7)
 	select IRQ_FORCED_THREADING
 	select MODULES_USE_ELF_REL
 	select NO_BOOTMEM
@@ -458,6 +459,7 @@ config ARCH_IXP4XX
 	select CLKSRC_MMIO
 	select CPU_XSCALE
 	select DMABOUNCE if PCI
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	select GENERIC_CLOCKEVENTS
 	select GPIOLIB
 	select MIGHT_HAVE_PCI
@@ -599,6 +601,7 @@ config ARCH_S3C24XX
 	select HAVE_S3C2410_I2C if I2C
 	select HAVE_S3C2410_WATCHDOG if WATCHDOG
 	select HAVE_S3C_RTC if RTC_CLASS
+	select IPIPE_ARM_KUSER_TSC if IPIPE
 	select MULTI_IRQ_HANDLER
 	select NEED_MACH_IO_H
 	select SAMSUNG_ATAGS
@@ -923,6 +926,14 @@ config PLAT_PXA
 
 config PLAT_VERSATILE
 	bool
+
+if IPIPE
+config IPIPE_ARM_KUSER_TSC
+       bool
+       select GENERIC_TIME_VSYSCALL
+       select IPIPE_HAVE_HOSTRT if IPIPE
+       default y if ARCH_AT91 || ARM_TIMER_SP804 || ARCH_MXC || ARCH_OMAP || PLAT_PXA || PLAT_S3C24XX || ARCH_SA1100
+endif
 
 source "arch/arm/firmware/Kconfig"
 
@@ -1492,6 +1503,8 @@ config ARCH_NR_GPIO
 
 	  If unsure, leave the default value.
 
+source kernel/ipipe/Kconfig
+
 source kernel/Kconfig.preempt
 
 config HZ_FIXED
@@ -1767,6 +1780,7 @@ config ALIGNMENT_TRAP
 config UACCESS_WITH_MEMCPY
 	bool "Use kernel mem{cpy,set}() for {copy_to,clear}_user()"
 	depends on MMU
+	depends on !IPIPE
 	default y if CPU_FEROCEON
 	help
 	  Implement faster copy_to_user and clear_user methods for CPU
