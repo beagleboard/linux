@@ -9,6 +9,7 @@
 
 #include "dra72x.dtsi"
 #include "dra72x-mmc-iodelay.dtsi"
+#include "dra7-ipu-dsp-common.dtsi"
 #include <dt-bindings/net/ti-dp83867.h>
 #include <dt-bindings/gpio/gpio.h>
 
