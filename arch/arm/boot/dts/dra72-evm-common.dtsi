@@ -529,6 +529,10 @@
 	};
 };
 
+&gpu {
+	status = "ok";
+};
+
 &dss {
 	status = "ok";
 };
