@@ -596,6 +596,10 @@
 	vdda_video-supply = <&ldoln_reg>;
 };
 
+//&bb2d {
+//	status = "okay";
+//};
+
 &bb2d {
 	status = "okay";
 };
