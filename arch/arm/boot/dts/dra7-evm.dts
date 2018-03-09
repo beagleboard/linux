@@ -668,10 +668,6 @@
 	pinctrl-2 = <&dcan1_pins_default>;
 };
 
-&gpu {
-	status = "ok";
-};
-
 &dss {
 	status = "ok";
 
