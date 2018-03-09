@@ -1019,3 +1019,7 @@
 &cpu {
 	cpu0-supply = <&dcdc2>;
 };
+
+&sgx {
+	status = "okay";
+};
