@@ -651,6 +651,10 @@
 	};
 };
 
+&bb2d {
+	status = "okay";
+};
+
 &pruss_soc_bus1 {
 	status = "okay";
 
