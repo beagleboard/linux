@@ -610,6 +610,10 @@
 	};
 };
 
+&gpu {
+	status = "ok";
+};
+
 &hdmi {
 	status = "okay";
 	/*
