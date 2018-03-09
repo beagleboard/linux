@@ -15,6 +15,10 @@
 	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
+&sgx {
+	status = "okay";
+};
+
 &cpu0_opp_table {
 	/*
 	* All PG 2.0 silicon may not support 1GHz but some of the early
