@@ -18,6 +18,10 @@
 	compatible = "sancloud,am335x-boneenhanced", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
+&sgx {
+	status = "okay";
+};
+
 &mmc2 {
 	ti,vcc-aux-disable-is-sleep;
 };
