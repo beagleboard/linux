@@ -2087,7 +2087,7 @@
 		};
 
 		bb2d: bb2d@59000000 {
-			compatible = "ti,dra7-bb2d";
+			compatible = "ti,dra7-bb2d","vivante,gc";
 			reg = <0x59000000 0x0700>;
 			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "bb2d";
@@ -2095,6 +2095,16 @@
 			clock-names = "fclk";
 			status = "disabled";
 		};
+
+		//bb2d: bb2d@59000000 {
+		//	compatible = "ti,dra7-bb2d","vivante,gc";
+		//	reg = <0x59000000 0x0700>;
+		//	interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+		//	ti,hwmods = "bb2d";
+		//	clocks = <&dpll_core_h24x2_ck>;
+		//	clock-names = "fclk";
+		//	status = "disabled";
+		//};
 
 		dss: dss@58000000 {
 			compatible = "ti,dra7-dss";
@@ -2368,6 +2378,12 @@
 				status = "disabled";
 			};
 		};
+	};
+
+	gpu-subsystem {
+		compatible = "vivante,gc-gpu-subsystem";
+		cores = <&bb2d>;
+		status = "okay";
 	};
 
 	thermal_zones: thermal-zones {
