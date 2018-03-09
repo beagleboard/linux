@@ -10,6 +10,10 @@
 #include "am33xx.dtsi"
 #include "am335x-pocketbeagle-common.dtsi"
 
+&sgx {
+	status = "okay";
+};
+
 &spi0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
