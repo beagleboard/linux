@@ -40,6 +40,7 @@ $(obj)/%.itb: $(src)/%.its FORCE
 
 ifeq ($(BUILD_ITBS),y)
 dtb-$(CONFIG_SOC_DRA7XX) += am57xx-evm.itb
+dtb-$(CONFIG_SOC_DRA7XX) += dra71-evm.itb
 else
 dtb-$(CONFIG_SOC_DRA7XX) += $(shell grep incbin $(srctree)/$(src)/*.its | grep dtb | cut -d "\"" -f 2)
 endif
