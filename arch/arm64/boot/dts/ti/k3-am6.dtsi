@@ -359,5 +359,11 @@
 			clocks = <&k3_clks 59 0>;
 			clock-names = "gpio";
 		};
+
+		hwspinlock: spinlock@30e00000 {
+			compatible = "ti,am654-hwspinlock";
+			reg = <0x0 0x30e00000 0x0 0x1000>;
+			#hwlock-cells = <1>;
+		};
 	};
 };
