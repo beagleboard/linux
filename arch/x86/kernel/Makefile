@@ -18,6 +18,9 @@ CFLAGS_REMOVE_pvclock.o = -pg
 CFLAGS_REMOVE_kvmclock.o = -pg
 CFLAGS_REMOVE_ftrace.o = -pg
 CFLAGS_REMOVE_early_printk.o = -pg
+CFLAGS_REMOVE_microcode_core_early.o = -pg
+CFLAGS_REMOVE_microcode_intel_early.o = -pg
+CFLAGS_REMOVE_microcode_amd_early.o = -pg
 endif
 
 KASAN_SANITIZE_head$(BITS).o				:= n
@@ -71,6 +74,7 @@ obj-y				+= reboot.o
 obj-$(CONFIG_X86_MSR)		+= msr.o
 obj-$(CONFIG_X86_CPUID)		+= cpuid.o
 obj-$(CONFIG_PCI)		+= early-quirks.o
+obj-$(CONFIG_IPIPE)		+= ipipe.o
 apm-y				:= apm_32.o
 obj-$(CONFIG_APM)		+= apm.o
 obj-$(CONFIG_SMP)		+= smp.o

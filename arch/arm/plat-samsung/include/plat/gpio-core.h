@@ -74,7 +74,7 @@ struct samsung_gpio_chip {
 	void __iomem		*base;
 	int			irq_base;
 	int			group;
-	spinlock_t		 lock;
+	ipipe_spinlock_t	lock;
 #ifdef CONFIG_PM
 	u32			pm_save[4];
 #endif
