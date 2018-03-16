@@ -9,6 +9,8 @@
 #include <linux/module.h>
 #include <linux/i8253.h>
 #include <linux/smp.h>
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 
 /*
  * Protects access to I/O ports
@@ -16,8 +18,9 @@
  * 0040-0043 : timer0, i8253 / i8254
  * 0061-0061 : NMI Control Register which contains two speaker control bits.
  */
-DEFINE_RAW_SPINLOCK(i8253_lock);
+IPIPE_DEFINE_RAW_SPINLOCK(i8253_lock);
 EXPORT_SYMBOL(i8253_lock);
+static unsigned periodic_pit_ch0;
 
 #ifdef CONFIG_CLKSRC_I8253
 /*
@@ -32,6 +35,10 @@ static cycle_t i8253_read(struct clocksource *cs)
 	unsigned long flags;
 	int count;
 	u32 jifs;
+
+	if (periodic_pit_ch0 == 0)
+		/* The PIT is not running in periodic mode. */
+		return jiffies * PIT_LATCH + (PIT_LATCH - 1) - old_count;
 
 	raw_spin_lock_irqsave(&i8253_lock, flags);
 	/*
@@ -93,8 +100,37 @@ static struct clocksource i8253_cs = {
 	.mask		= CLOCKSOURCE_MASK(32),
 };
 
+#ifdef CONFIG_IPIPE
+
+#define IPIPE_PIT_COUNT2LATCH 0xfffe
+
+extern cycle_t __ipipe_get_8253_tsc(struct clocksource *cs);
+
+int __ipipe_last_8253_counter2;
+
+void ipipe_setup_8253_tsc(void)
+{
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&i8253_lock, flags);
+	outb_p(0xb4, PIT_MODE);
+	outb_p(IPIPE_PIT_COUNT2LATCH & 0xff, PIT_CH2);
+	outb_p(IPIPE_PIT_COUNT2LATCH >> 8, PIT_CH2);
+	/* Gate high, disable speaker */
+	outb_p((inb_p(0x61) & ~0x2) | 1, 0x61);
+
+	raw_spin_unlock_irqrestore(&i8253_lock, flags);
+
+	i8253_cs.ipipe_read = __ipipe_get_8253_tsc;
+}
+#else /* !CONFIG_IPIPE */
+#define ipipe_setup_8253_tsc()	do { } while(0)
+#endif /* !CONFIG_IPIPE */
+
 int __init clocksource_i8253_init(void)
 {
+	if (!boot_cpu_has(X86_FEATURE_TSC))
+		ipipe_setup_8253_tsc();
 	return clocksource_register_hz(&i8253_cs, PIT_TICK_RATE);
 }
 #endif
@@ -117,6 +153,7 @@ static int pit_shutdown(struct clock_event_device *evt)
 
 static int pit_set_oneshot(struct clock_event_device *evt)
 {
+	periodic_pit_ch0 = 0;
 	raw_spin_lock(&i8253_lock);
 	outb_p(0x38, PIT_MODE);
 	raw_spin_unlock(&i8253_lock);
@@ -125,6 +162,7 @@ static int pit_set_oneshot(struct clock_event_device *evt)
 
 static int pit_set_periodic(struct clock_event_device *evt)
 {
+	periodic_pit_ch0 = 1;
 	raw_spin_lock(&i8253_lock);
 
 	/* binary, mode 2, LSB/MSB, ch 0 */
@@ -144,12 +182,24 @@ static int pit_set_periodic(struct clock_event_device *evt)
 static int pit_next_event(unsigned long delta, struct clock_event_device *evt)
 {
 	raw_spin_lock(&i8253_lock);
+#ifndef CONFIG_IPIPE
 	outb_p(delta & 0xff , PIT_CH0);	/* LSB */
 	outb_p(delta >> 8 , PIT_CH0);		/* MSB */
+#else /* CONFIG_IPIPE */
+	outb(delta & 0xff , PIT_CH0);	/* LSB */
+	outb(delta >> 8 , PIT_CH0);		/* MSB */
+#endif /* CONFIG_IPIPE */
 	raw_spin_unlock(&i8253_lock);
 
 	return 0;
 }
+
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer i8253_itimer = {
+	.irq = 0,
+	.min_delay_ticks = 1,
+};
+#endif /* CONFIG_IPIPE */
 
 /*
  * On UP the PIT can serve all of the possible timer functions. On SMP systems
@@ -161,6 +211,9 @@ struct clock_event_device i8253_clockevent = {
 	.set_state_shutdown	= pit_shutdown,
 	.set_state_periodic	= pit_set_periodic,
 	.set_next_event		= pit_next_event,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer    = &i8253_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 /*

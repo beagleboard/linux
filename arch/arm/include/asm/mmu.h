@@ -9,6 +9,17 @@ typedef struct {
 #else
 	int		switch_pending;
 #endif
+#ifdef CONFIG_ARM_FCSE
+	struct {
+		unsigned long pid;
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+		unsigned shared_dirty_pages;
+		unsigned large : 1;
+		unsigned high_pages;
+		unsigned long highest_pid;
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
+	} fcse;
+#endif /* CONFIG_ARM_FCSE */
 	unsigned int	vmalloc_seq;
 	unsigned long	sigpage;
 #ifdef CONFIG_VDSO

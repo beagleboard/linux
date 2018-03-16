@@ -36,10 +36,12 @@ END_FTR_SECTION_IFCLR(CPU_FTR_CAN_NAP)
 	rotldi	r0,r0,16
 	mtmsrd	r0,1
 
+#ifndef CONFIG_IPIPE
 	/* Check if something happened while soft-disabled */
 	lbz	r0,PACAIRQHAPPENED(r13)
 	cmpwi	cr0,r0,0
 	bnelr
+#endif
 
 	/* Soft-enable interrupts */
 #ifdef CONFIG_TRACE_IRQFLAGS
@@ -52,9 +54,10 @@ END_FTR_SECTION_IFCLR(CPU_FTR_CAN_NAP)
 	mtlr	r0
 	mfmsr	r7
 #endif /* CONFIG_TRACE_IRQFLAGS */
-
+#ifndef CONFIG_IPIPE
 	li	r0,1
 	stb	r0,PACASOFTIRQEN(r13)	/* we'll hard-enable shortly */
+#endif
 BEGIN_FTR_SECTION
 	DSSALL
 	sync

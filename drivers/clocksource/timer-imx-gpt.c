@@ -32,6 +32,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 #include <soc/imx/timer.h>
 
 /*
@@ -77,6 +79,9 @@
 
 struct imx_timer {
 	enum imx_gpt_type type;
+#ifdef CONFIG_IPIPE
+	unsigned long pbase;
+#endif
 	void __iomem *base;
 	int irq;
 	struct clk *clk_per;
@@ -281,6 +286,30 @@ static int mxc_set_oneshot(struct clock_event_device *ced)
 	return 0;
 }
 
+#ifdef CONFIG_IPIPE
+
+static struct imx_timer *global_imx_timer;
+
+static void mxc_timer_ack(void)
+{
+	global_imx_timer->gpt->gpt_irq_acknowledge(global_imx_timer);
+}
+
+static struct __ipipe_tscinfo tsc_info = {
+       .type = IPIPE_TSC_TYPE_FREERUNNING,
+       .u = {
+	       {
+		       .mask = 0xffffffff,
+	       },
+       },
+};
+
+static struct ipipe_timer mxc_itimer = {
+	.ack = mxc_timer_ack,
+};
+
+#endif
+
 /*
  * IRQ handler for the timer
  */
@@ -292,7 +321,8 @@ static irqreturn_t mxc_timer_interrupt(int irq, void *dev_id)
 
 	tstat = readl_relaxed(imxtm->base + imxtm->gpt->reg_tstat);
 
-	imxtm->gpt->gpt_irq_acknowledge(imxtm);
+	if (!clockevent_ipipe_stolen(ced))
+		imxtm->gpt->gpt_irq_acknowledge(imxtm);
 
 	ced->event_handler(ced);
 
@@ -313,6 +343,9 @@ static int __init mxc_clockevent_init(struct imx_timer *imxtm)
 	ced->rating = 200;
 	ced->cpumask = cpumask_of(0);
 	ced->irq = imxtm->irq;
+#ifdef CONFIG_IPIPE
+	ced->ipipe_timer = &mxc_itimer;
+#endif
 	clockevents_config_and_register(ced, clk_get_rate(imxtm->clk_per),
 					0xff, 0xfffffffe);
 
@@ -452,6 +485,17 @@ static int __init _mxc_timer_init(struct imx_timer *imxtm)
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_IPIPE
+	tsc_info.u.counter_paddr = imxtm->pbase + imxtm->gpt->reg_tcn;
+	tsc_info.counter_vaddr = (unsigned long)imxtm->base + imxtm->gpt->reg_tcn;
+	tsc_info.freq = clk_get_rate(imxtm->clk_per);
+	__ipipe_tsc_register(&tsc_info);
+	mxc_itimer.irq = imxtm->irq;
+	mxc_itimer.freq = clk_get_rate(imxtm->clk_per);
+	mxc_itimer.min_delay_ticks = ipipe_timer_ns2ticks(&mxc_itimer, 2000);
+	global_imx_timer = imxtm;
+#endif /* CONFIG_IPIPE */
+
 	return mxc_clockevent_init(imxtm);
 }
 
@@ -467,6 +511,9 @@ void __init mxc_timer_init(unsigned long pbase, int irq, enum imx_gpt_type type)
 
 	imxtm->base = ioremap(pbase, SZ_4K);
 	BUG_ON(!imxtm->base);
+#ifdef CONFIG_IPIPE
+	imxtm->pbase = pbase;
+#endif
 
 	imxtm->type = type;
 	imxtm->irq = irq;
@@ -478,6 +525,7 @@ static int __init mxc_timer_init_dt(struct device_node *np,  enum imx_gpt_type t
 {
 	struct imx_timer *imxtm;
 	static int initialized;
+	struct resource res;
 	int ret;
 
 	/* Support one instance only */
@@ -495,6 +543,13 @@ static int __init mxc_timer_init_dt(struct device_node *np,  enum imx_gpt_type t
 	imxtm->irq = irq_of_parse_and_map(np, 0);
 	if (imxtm->irq <= 0)
 		return -EINVAL;
+
+	if (of_address_to_resource(np, 0, &res))
+	    res.start = 0;
+
+#ifdef CONFIG_IPIPE
+	imxtm->pbase = res.start;
+#endif
 
 	imxtm->clk_ipg = of_clk_get_by_name(np, "ipg");
 

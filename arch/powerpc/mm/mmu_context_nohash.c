@@ -59,7 +59,7 @@ static unsigned int next_context, nr_free_contexts;
 static unsigned long *context_map;
 static unsigned long *stale_map[NR_CPUS];
 static struct mm_struct **context_mm;
-static DEFINE_RAW_SPINLOCK(context_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(context_lock);
 static bool no_selective_tlbil;
 
 #define CTX_MAP_SIZE	\
@@ -176,7 +176,7 @@ static unsigned int steal_all_contexts(void)
 static unsigned int steal_context_up(unsigned int id)
 {
 	struct mm_struct *mm;
-	int cpu = smp_processor_id();
+	int cpu = ipipe_processor_id();
 
 	/* Pick up the victim mm */
 	mm = context_mm[id];
@@ -229,7 +229,7 @@ static void context_check_map(void) { }
 void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next,
 			struct task_struct *tsk)
 {
-	unsigned int i, id, cpu = smp_processor_id();
+	unsigned int i, id, cpu = ipipe_processor_id();
 	unsigned long *map;
 
 	/* No lockless fast path .. yet */
@@ -239,6 +239,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next,
 		cpu, next, next->context.active, next->context.id);
 
 #ifdef CONFIG_SMP
+	WARN_ON(!hard_irqs_disabled());
 	/* Mark us active and the previous one not anymore */
 	next->context.active++;
 	if (prev) {
