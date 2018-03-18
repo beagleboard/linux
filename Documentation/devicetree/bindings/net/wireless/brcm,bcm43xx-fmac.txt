@@ -15,6 +15,11 @@ Optional properties:
 	When not specified the device will use in-band SDIO interrupts.
  - interrupt-names : name of the out-of-band interrupt, which must be set
 	to "host-wake".
+ - brcm,broken-sg-support : boolean flag to indicate that the SDIO host
+	controller has higher align requirement than 32 bytes for each
+	scatterlist item.
+ - brcm,sd-head-align : alignment requirement for start of data buffer.
+ - brcm,sd-sgentry-align : length alignment requirement for each sg entry.
 
 Example:
 
