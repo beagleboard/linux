@@ -30,14 +30,20 @@ void brcmf_of_probe(struct device *dev, enum brcmf_bus_type bus_type,
 	struct device_node *np = dev->of_node;
 	int irq;
 	u32 irqf;
-	u32 val;
 
 	if (!np || bus_type != BRCMF_BUSTYPE_SDIO ||
 	    !of_device_is_compatible(np, "brcm,bcm4329-fmac"))
 		return;
 
-	if (of_property_read_u32(np, "brcm,drive-strength", &val) == 0)
-		sdio->drive_strength = val;
+	of_property_read_u32(np, "brcm,drive-strength", &sdio->drive_strength);
+
+	sdio->broken_sg_support =
+		of_property_read_bool(np, "brcm,broken-sg-support");
+
+	of_property_read_u16(np, "brcm,sd-head-align", &sdio->sd_head_align);
+
+	of_property_read_u16(np, "brcm,sd-sgentry-align",
+			     &sdio->sd_sgentry_align);
 
 	/* make sure there are interrupts defined in the node */
 	if (!of_find_property(np, "interrupts", NULL))
