@@ -1,0 +1,17 @@
+config XENO_DRIVERS_NET_EXP_DRIVERS
+    depends on XENO_DRIVERS_NET && PCI
+    bool "Experimental Drivers"
+
+if XENO_DRIVERS_NET_EXP_DRIVERS
+
+config XENO_DRIVERS_NET_DRV_3C59X
+    depends on PCI
+    tristate "3Com 59x"
+
+config XENO_DRIVERS_NET_DRV_E1000_NEW
+    depends on PCI
+    tristate "New Intel(R) PRO/1000 (Gigabit)"
+
+source "drivers/xenomai/net/drivers/experimental/rt2500/Kconfig"
+
+endif
