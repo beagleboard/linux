@@ -617,6 +617,8 @@ struct dispc_ops {
 
 	const u32 *(*ovl_get_color_modes)(struct dispc_device *dispc,
 					  enum omap_plane_id plane);
+	void (*ovl_get_max_size)(struct dispc_device *dispc,
+				 u16 *width, u16 *height);
 
 	u32 (*wb_get_framedone_irq)(struct dispc_device *dispc);
 	int (*wb_setup)(struct dispc_device *dispc,

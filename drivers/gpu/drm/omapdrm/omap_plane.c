@@ -101,10 +101,17 @@ static void omap_plane_atomic_disable(struct drm_plane *plane,
 static int omap_plane_atomic_check(struct drm_plane *plane,
 				   struct drm_plane_state *state)
 {
+	struct omap_drm_private *priv = plane->dev->dev_private;
 	struct drm_crtc_state *crtc_state;
+	u16 width, height;
+	u32 width_fp, height_fp;
 
 	if (!state->fb)
 		return 0;
+
+	priv->dispc_ops->ovl_get_max_size(priv->dispc, &width, &height);
+	width_fp = width << 16;
+	height_fp = height << 16;
 
 	/* crtc should only be NULL when disabling (i.e., !state->fb) */
 	if (WARN_ON(!state->crtc))
@@ -125,6 +132,13 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 
 	if (state->crtc_y + state->crtc_h > crtc_state->adjusted_mode.vdisplay)
+		return -EINVAL;
+
+	/* Make sure dimensions are within bounds. */
+	if (state->src_h > height_fp || state->crtc_h > height)
+		return -EINVAL;
+
+	if (state->src_w > width_fp || state->crtc_w > width)
 		return -EINVAL;
 
 	if (state->rotation != DRM_MODE_ROTATE_0 &&
