@@ -755,6 +755,7 @@ struct dispc_ops {
 			enum omap_channel channel);
 
 	const u32 *(*ovl_get_color_modes)(enum omap_plane_id plane);
+	void (*ovl_get_max_size)(u16 *width, u16 *height);
 
 	u32 (*wb_get_framedone_irq)(void);
 	int (*wb_setup)(const struct omap_dss_writeback_info *wi,
