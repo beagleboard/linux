@@ -23,6 +23,7 @@
 #include <linux/percpu.h>
 #include <linux/string.h>
 #include <linux/device.h>
+#include <linux/ipipe.h>
 #include <linux/syscore_ops.h>
 #include <linux/delay.h>
 #include <linux/ctype.h>
@@ -48,6 +49,7 @@
 #include <asm/tlbflush.h>
 #include <asm/mce.h>
 #include <asm/msr.h>
+#include <asm/traps.h>
 
 #include "mce-internal.h"
 
@@ -1761,6 +1763,16 @@ dotraplinkage void do_mce(struct pt_regs *regs, long error_code)
 {
 	machine_check_vector(regs, error_code);
 }
+
+#ifdef CONFIG_IPIPE
+static int mce_trampoline(struct pt_regs *regs, long error_code)
+{
+	return IPIPE_DO_TRAP(machine_check_vector, X86_TRAP_MC, regs, error_code);
+}
+
+int (*__ipipe_machine_check_vector)(struct pt_regs *, long error_code) =
+	mce_trampoline;
+#endif
 
 /*
  * Called for each booted CPU to set up machine checks.
