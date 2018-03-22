@@ -8,6 +8,7 @@
 #include <linux/sched.h>
 #include <linux/smp.h>
 #include <linux/atomic.h>
+#include <linux/ipipe.h>
 
 static void __dump_stack(void)
 {
@@ -23,6 +24,29 @@ static void __dump_stack(void)
 #ifdef CONFIG_SMP
 static atomic_t dump_lock = ATOMIC_INIT(-1);
 
+static unsigned long disable_local_irqs(void)
+{
+	unsigned long flags = 0; /* only to trick the UMR detection */
+
+	/*
+	 * We neither need nor want to disable root stage IRQs over
+	 * the head stage, where CPU migration can't
+	 * happen. Conversely, we neither need nor want to disable
+	 * hard IRQs from the head stage, so that latency won't
+	 * skyrocket as a result of dumping the stack backtrace.
+	 */
+	if (ipipe_root_p)
+		local_irq_save(flags);
+
+	return flags;
+}
+
+static void restore_local_irqs(unsigned long flags)
+{
+	if (ipipe_root_p)
+		local_irq_restore(flags);
+}
+
 asmlinkage __visible void dump_stack(void)
 {
 	unsigned long flags;
@@ -35,7 +59,7 @@ asmlinkage __visible void dump_stack(void)
 	 * against other CPUs
 	 */
 retry:
-	local_irq_save(flags);
+	flags = disable_local_irqs();
 	cpu = smp_processor_id();
 	old = atomic_cmpxchg(&dump_lock, -1, cpu);
 	if (old == -1) {
@@ -43,7 +67,7 @@ retry:
 	} else if (old == cpu) {
 		was_locked = 1;
 	} else {
-		local_irq_restore(flags);
+		restore_local_irqs(flags);
 		cpu_relax();
 		goto retry;
 	}
@@ -53,7 +77,7 @@ retry:
 	if (!was_locked)
 		atomic_set(&dump_lock, -1);
 
-	local_irq_restore(flags);
+	restore_local_irqs(flags);
 }
 #else
 asmlinkage __visible void dump_stack(void)

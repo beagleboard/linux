@@ -25,6 +25,7 @@
 #include <linux/kasan-checks.h>
 #include <linux/string.h>
 #include <linux/thread_info.h>
+#include <linux/ipipe.h>
 
 #include <asm/alternative.h>
 #include <asm/cpufeature.h>
@@ -192,7 +193,7 @@ do {									\
 #define get_user(x, ptr)						\
 ({									\
 	__typeof__(*(ptr)) __user *__p = (ptr);				\
-	might_fault();							\
+	__ipipe_uaccess_might_fault();					\
 	access_ok(VERIFY_READ, __p, sizeof(*__p)) ?			\
 		__get_user((x), __p) :					\
 		((x) = 0, -EFAULT);					\
@@ -260,7 +261,7 @@ do {									\
 #define put_user(x, ptr)						\
 ({									\
 	__typeof__(*(ptr)) __user *__p = (ptr);				\
-	might_fault();							\
+	__ipipe_uaccess_might_fault();					\
 	access_ok(VERIFY_WRITE, __p, sizeof(*__p)) ?			\
 		__put_user((x), __p) :					\
 		-EFAULT;						\

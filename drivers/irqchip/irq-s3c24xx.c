@@ -5,6 +5,8 @@
  *	Ben Dooks <ben@simtec.co.uk>
  * Copyright (c) 2012 Heiko Stuebner <heiko@sntech.de>
  *
+ * Copyright (C) 2006, 2007 Sebastian Smolorz <ssmolorz@emlix.com>, emlix GmbH
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -24,6 +26,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/device.h>
+#include <linux/ipipe.h>
 #include <linux/irqdomain.h>
 #include <linux/irqchip.h>
 #include <linux/irqchip/chained_irq.h>
@@ -325,7 +328,7 @@ static void s3c_irq_demux(struct irq_desc *desc)
 		n = __ffs(src);
 		src &= ~(1 << n);
 		irq = irq_find_mapping(sub_intc->domain, offset + n);
-		generic_handle_irq(irq);
+		ipipe_handle_demuxed_irq(irq);
 	}
 
 	chained_irq_exit(chip, desc);

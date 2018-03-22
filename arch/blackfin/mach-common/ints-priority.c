@@ -19,9 +19,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/gpio.h>
 #include <asm/delay.h>
-#ifdef CONFIG_IPIPE
 #include <linux/ipipe.h>
-#endif
 #include <asm/traps.h>
 #include <asm/blackfin.h>
 #include <asm/irq_handler.h>
@@ -280,22 +278,19 @@ inline int bfin_internal_set_wake(unsigned int irq, unsigned int state)
 #endif
 
 #else /* SEC_GCTL */
-static void bfin_sec_preflow_handler(struct irq_data *d)
-{
-	unsigned long flags = hard_local_irq_save();
-	unsigned int sid = BFIN_SYSIRQ(d->irq);
-
-	bfin_write_SEC_SCI(0, SEC_CSID, sid);
-
-	hard_local_irq_restore(flags);
-}
-
 static void bfin_sec_mask_ack_irq(struct irq_data *d)
 {
+	unsigned int sid = BFIN_SYSIRQ(d->irq);
+	bfin_write_SEC_SCI(0, SEC_CSID, sid);
+}
+
+static void bfin_sec_mask_irq(struct irq_data *d)
+{
 	unsigned long flags = hard_local_irq_save();
 	unsigned int sid = BFIN_SYSIRQ(d->irq);
 
 	bfin_write_SEC_SCI(0, SEC_CSID, sid);
+	ipipe_lock_irq(d->irq);
 
 	hard_local_irq_restore(flags);
 }
@@ -306,9 +301,43 @@ static void bfin_sec_unmask_irq(struct irq_data *d)
 	unsigned int sid = BFIN_SYSIRQ(d->irq);
 
 	bfin_write32(SEC_END, sid);
+	ipipe_unlock_irq(d->irq);
 
 	hard_local_irq_restore(flags);
 }
+
+#ifdef CONFIG_IPIPE
+
+static void bfin_sec_eoi_irq(struct irq_data *d)
+{
+	/* nop */
+}
+
+static void bfin_sec_hold_irq(struct irq_data *d)
+{
+	unsigned int sid = BFIN_SYSIRQ(d->irq);
+	bfin_write_SEC_SCI(0, SEC_CSID, sid);
+}
+
+static void bfin_sec_release_irq(struct irq_data *d)
+{
+	unsigned int sid = BFIN_SYSIRQ(d->irq);
+	bfin_write32(SEC_END, sid);
+}
+
+#else  /* !CONFIG_IPIPE */
+
+static void bfin_sec_preflow_handler(struct irq_data *d)
+{
+	unsigned long flags = hard_local_irq_save();
+	unsigned int sid = BFIN_SYSIRQ(d->irq);
+
+	bfin_write_SEC_SCI(0, SEC_CSID, sid);
+
+	hard_local_irq_restore(flags);
+}
+
+#endif	/* !CONFIG_IPIPE */
 
 static void bfin_sec_enable_ssi(unsigned int sid)
 {
@@ -542,24 +571,23 @@ static struct irq_chip bfin_internal_irqchip = {
 static struct irq_chip bfin_sec_irqchip = {
 	.name = "SEC",
 	.irq_mask_ack = bfin_sec_mask_ack_irq,
-	.irq_mask = bfin_sec_mask_ack_irq,
+	.irq_mask = bfin_sec_mask_irq,
 	.irq_unmask = bfin_sec_unmask_irq,
-	.irq_eoi = bfin_sec_unmask_irq,
 	.irq_disable = bfin_sec_disable,
 	.irq_enable = bfin_sec_enable,
+#ifdef CONFIG_IPIPE
+	.irq_eoi = bfin_sec_eoi_irq,
+	.irq_hold = bfin_sec_hold_irq,
+	.irq_release = bfin_sec_release_irq,
+#else
+	.irq_eoi = bfin_sec_unmask_irq,
+#endif
 };
 #endif
 
 void bfin_handle_irq(unsigned irq)
 {
-#ifdef CONFIG_IPIPE
-	struct pt_regs regs;    /* Contents not used. */
-	ipipe_trace_irq_entry(irq);
-	__ipipe_handle_irq(irq, &regs);
-	ipipe_trace_irq_exit(irq);
-#else /* !CONFIG_IPIPE */
-	generic_handle_irq(irq);
-#endif  /* !CONFIG_IPIPE */
+	ipipe_handle_demuxed_irq(irq);
 }
 
 #if defined(CONFIG_BFIN_MAC) || defined(CONFIG_BFIN_MAC_MODULE)
@@ -1185,7 +1213,9 @@ int __init init_arch_irq(void)
 		} else {
 			irq_set_chip(irq, &bfin_sec_irqchip);
 			irq_set_handler(irq, handle_fasteoi_irq);
+#ifndef CONFIG_IPIPE
 			__irq_set_preflow_handler(irq, bfin_sec_preflow_handler);
+#endif
 		}
 	}
 
@@ -1256,14 +1286,18 @@ void do_irq(int vec, struct pt_regs *fp)
 
 #ifdef CONFIG_IPIPE
 
-int __ipipe_get_irq_priority(unsigned irq)
+int __ipipe_get_irq_priority(unsigned int irq)
 {
-	int ient, prio;
+	int ient __maybe_unused, prio __maybe_unused;
 
 	if (irq <= IRQ_CORETMR)
 		return irq;
 
 #ifdef SEC_GCTL
+	/*
+	 * XXX: The SEC directs all system interrupts to core
+	 * IVG11. This basically disables the optimization on 60x...
+	 */
 	if (irq >= BFIN_IRQ(0))
 		return IVG11;
 #else
@@ -1282,31 +1316,51 @@ int __ipipe_get_irq_priority(unsigned irq)
 	return IVG15;
 }
 
+static inline int mayday_pending(struct pt_regs *regs)
+{
+#ifdef CONFIG_IPIPE_LEGACY
+	/*
+	 * Testing for user_regs() on Blackfin does NOT fully
+	 * eliminate foreign stack contexts, because of the forged
+	 * interrupt returns we do through __ipipe_call_irqtail. In
+	 * that case, we might have preempted a foreign stack context
+	 * in a high priority domain, with a single interrupt level
+	 * now pending after the irqtail unwinding is done, in which
+	 * case user_mode() is now true. Therefore we exclude foreign
+	 * stack contexts as they can't be mayday issuers, so that the
+	 * event does not get dispatched spuriously.
+	 */
+	if (ipipe_test_foreign_stack())
+		return 0;
+#endif
+	return user_mode(regs) && ipipe_test_thread_flag(TIP_MAYDAY);
+}
+
 /* Hw interrupts are disabled on entry (check SAVE_CONTEXT). */
 #ifdef CONFIG_DO_IRQ_L1
 __attribute__((l1_text))
 #endif
 asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 {
-	struct ipipe_percpu_domain_data *p = ipipe_root_cpudom_ptr();
+	struct ipipe_percpu_domain_data *p = ipipe_this_cpu_root_context();
+	struct ipipe_percpu_data *q = __ipipe_raw_cpu_ptr(&ipipe_percpu);
 	struct ipipe_domain *this_domain = __ipipe_current_domain;
+	struct pt_regs *tick_regs;
 	int irq, s = 0;
 
 	irq = vec_to_irq(vec);
 	if (irq == -1)
 		return 0;
 
-	if (irq == IRQ_SYSTMR) {
-#if !defined(CONFIG_GENERIC_CLOCKEVENTS) || defined(CONFIG_TICKSOURCE_GPTMR0)
-		bfin_write_TIMER_STATUS(1); /* Latch TIMIL0 */
-#endif
+	if (irq == q->hrtimer_irq || q->hrtimer_irq == -1) {
 		/* This is basically what we need from the register frame. */
-		__this_cpu_write(__ipipe_tick_regs.ipend, regs->ipend);
-		__this_cpu_write(__ipipe_tick_regs.pc, regs->pc);
+		tick_regs = &q->tick_regs;
+		tick_regs->ipend = regs->ipend;
+		tick_regs->pc = regs->pc;
 		if (this_domain != ipipe_root_domain)
-			__this_cpu_and(__ipipe_tick_regs.ipend, ~0x10);
+			tick_regs->ipend &= ~0x10;
 		else
-			__this_cpu_or(__ipipe_tick_regs.ipend, 0x10);
+			tick_regs->ipend |= 0x10;
 	}
 
 	/*
@@ -1333,27 +1387,14 @@ asmlinkage int __ipipe_grab_irq(int vec, struct pt_regs *regs)
 	__ipipe_handle_irq(irq, regs);
 	ipipe_trace_irq_exit(irq);
 
-	if (user_mode(regs) &&
-	    !ipipe_test_foreign_stack() &&
-	    (current->ipipe_flags & PF_EVTRET) != 0) {
-		/*
-		 * Testing for user_regs() does NOT fully eliminate
-		 * foreign stack contexts, because of the forged
-		 * interrupt returns we do through
-		 * __ipipe_call_irqtail. In that case, we might have
-		 * preempted a foreign stack context in a high
-		 * priority domain, with a single interrupt level now
-		 * pending after the irqtail unwinding is done. In
-		 * which case user_mode() is now true, and the event
-		 * gets dispatched spuriously.
-		 */
-		current->ipipe_flags &= ~PF_EVTRET;
-		__ipipe_dispatch_event(IPIPE_EVENT_RETURN, regs);
+	if (mayday_pending(regs)) {
+		ipipe_clear_thread_flag(TIP_MAYDAY);
+		__ipipe_notify_trap(IPIPE_TRAP_MAYDAY, regs);
 	}
 
 	if (this_domain == ipipe_root_domain) {
 		set_thread_flag(TIF_IRQ_SYNC);
-		if (!s) {
+		if (s == 0) {
 			__clear_bit(IPIPE_SYNCDEFER_FLAG, &p->status);
 			return !test_bit(IPIPE_STALL_FLAG, &p->status);
 		}

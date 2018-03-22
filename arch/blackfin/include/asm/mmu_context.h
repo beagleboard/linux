@@ -100,8 +100,11 @@ static inline void __switch_mm(struct mm_struct *prev_mm, struct mm_struct *next
 }
 
 #ifdef CONFIG_IPIPE
-#define lock_mm_switch(flags)	flags = hard_local_irq_save_cond()
-#define unlock_mm_switch(flags)	hard_local_irq_restore_cond(flags)
+#define lock_mm_switch(flags)				\
+	do {						\
+		flags = hard_cond_local_irq_save();	\
+	} while (0)
+#define unlock_mm_switch(flags)	hard_cond_local_irq_restore(flags)
 #else
 #define lock_mm_switch(flags)	do { (void)(flags); } while (0)
 #define unlock_mm_switch(flags)	do { (void)(flags); } while (0)
@@ -207,10 +210,13 @@ static inline void destroy_context(struct mm_struct *mm)
 #endif
 }
 
+#define ipipe_switch_mm_head(prev, next, tsk) \
+	__switch_mm(prev, next, tsk)
+
 #define ipipe_mm_switch_protect(flags)		\
-	flags = hard_local_irq_save_cond()
+	flags = hard_cond_local_irq_save()
 
 #define ipipe_mm_switch_unprotect(flags)	\
-	hard_local_irq_restore_cond(flags)
+	hard_cond_local_irq_restore(flags)
 
 #endif

@@ -102,6 +102,9 @@ struct clocksource {
 	cycle_t wd_last;
 #endif
 	struct module *owner;
+#ifdef CONFIG_IPIPE_WANT_CLOCKSOURCE
+	cycle_t (*ipipe_read)(struct clocksource *cs);
+#endif /* CONFIG_IPIPE_WANT_CLOCKSOURCE */
 };
 
 /*

@@ -227,7 +227,11 @@ static void __init request_standard_resources(void)
 	}
 }
 
+#if NR_CPUS > 16
 u64 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = INVALID_HWID };
+#else
+u64 __cpu_logical_map[16] = { [0 ... 15] = INVALID_HWID };
+#endif
 
 void __init setup_arch(char **cmdline_p)
 {

@@ -326,6 +326,12 @@ i##n:								\
 	EXC_XFER_TEMPLATE(n, hdlr, n, NOCOPY, transfer_to_handler_full,	\
 			  ret_from_except_full)
 
+#ifdef CONFIG_IPIPE
+#define EXC_XFER_IPIPE(n, hdlr)		\
+	EXC_XFER_TEMPLATE(n, hdlr, n+1, NOCOPY, transfer_to_handler, \
+			  __ipipe_ret_from_except)
+#endif /* CONFIG_IPIPE */
+
 #define EXC_XFER_LITE(n, hdlr)		\
 	EXC_XFER_TEMPLATE(n, hdlr, n+1, NOCOPY, transfer_to_handler, \
 			  ret_from_except)
@@ -413,7 +419,11 @@ InstructionAccess:
 	EXC_XFER_LITE(0x400, handle_page_fault)
 
 /* External interrupt */
+#ifdef CONFIG_IPIPE
+	EXCEPTION(0x500, HardwareInterrupt, __ipipe_grab_irq, EXC_XFER_IPIPE)
+#else /* !CONFIG_IPIPE */
 	EXCEPTION(0x500, HardwareInterrupt, do_IRQ, EXC_XFER_LITE)
+#endif /* CONFIG_IPIPE */
 
 /* Alignment exception */
 	. = 0x600
@@ -449,7 +459,11 @@ END_FTR_SECTION_IFSET(CPU_FTR_FPU_UNAVAILABLE)
 	EXC_XFER_EE_LITE(0x800, kernel_fp_unavailable_exception)
 
 /* Decrementer */
+#ifdef CONFIG_IPIPE
+	EXCEPTION(0x900, Decrementer, __ipipe_grab_timer, EXC_XFER_IPIPE)
+#else /* !CONFIG_IPIPE */
 	EXCEPTION(0x900, Decrementer, timer_interrupt, EXC_XFER_LITE)
+#endif /* CONFIG_IPIPE */
 
 	EXCEPTION(0xa00, Trap_0a, unknown_exception, EXC_XFER_EE)
 	EXCEPTION(0xb00, Trap_0b, unknown_exception, EXC_XFER_EE)
@@ -1018,6 +1032,12 @@ _ENTRY(switch_mmu_context)
 	lwz	r3,MMCONTEXTID(r4)
 	cmpwi	cr0,r3,0
 	blt-	4f
+#ifdef CONFIG_IPIPE
+	mfmsr	r7
+	rlwinm	r0,r7,0,17,15	/* clear MSR_EE in r0 */
+	mtmsr	r0
+	sync
+#endif
 	mulli	r3,r3,897	/* multiply context by skew factor */
 	rlwinm	r3,r3,4,8,27	/* VSID = (context & 0xfffff) << 4 */
 	addis	r3,r3,0x6000	/* Set Ks, Ku bits */
@@ -1041,6 +1061,9 @@ _ENTRY(switch_mmu_context)
 	rlwinm	r3,r3,0,8,3	/* clear out any overflow from VSID field */
 	addis	r4,r4,0x1000	/* address of next segment */
 	bdnz	3b
+#ifdef CONFIG_IPIPE
+	mtmsr	r7
+#endif
 	sync
 	isync
 	blr

@@ -130,6 +130,7 @@ static const char *ieee1588_sels[] = { "pll3_sw", "pll4_sw", "dummy" /* usbphy2_
 
 static struct clk *clk[IMX5_CLK_END];
 static struct clk_onecell_data clk_data;
+void mxc_pic_muter_register(void);
 
 static struct clk ** const uart_clks[] __initconst = {
 	&clk[IMX5_CLK_UART1_IPG_GATE],
@@ -327,6 +328,9 @@ static void __init mx5_clocks_common_init(void __iomem *ccm_base)
 	clk_prepare_enable(clk[IMX5_CLK_TMAX3]); /* esdhc1, esdhc4 */
 
 	imx_register_uart_clocks(uart_clks);
+#ifdef CONFIG_IPIPE
+	mxc_pic_muter_register();
+#endif
 }
 
 static void __init mx50_clocks_init(struct device_node *np)
