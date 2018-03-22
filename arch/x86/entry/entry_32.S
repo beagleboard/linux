@@ -45,7 +45,6 @@
 #include <asm/asm.h>
 #include <asm/smap.h>
 #include <asm/export.h>
-#include <asm/nospec-branch.h>
 
 	.section .entry.text, "ax"
 
@@ -229,17 +228,6 @@ ENTRY(__switch_to_asm)
 	movl	%ebx, PER_CPU_VAR(stack_canary)+stack_canary_offset
 #endif
 
-#ifdef CONFIG_RETPOLINE
-	/*
-	 * When switching from a shallower to a deeper call stack
-	 * the RSB may either underflow or use entries populated
-	 * with userspace addresses. On CPUs where those concerns
-	 * exist, overwrite the RSB with entries which capture
-	 * speculative execution to prevent attack.
-	 */
-	FILL_RETURN_BUFFER %ebx, RSB_CLEAR_LOOPS, X86_FEATURE_RSB_CTXSW
-#endif
-
 	/* restore callee-saved registers */
 	popl	%esi
 	popl	%edi
@@ -272,7 +260,7 @@ ENTRY(ret_from_fork)
 
 	/* kernel thread */
 1:	movl	%edi, %eax
-	CALL_NOSPEC %ebx
+	call	*%ebx
 	/*
 	 * A kernel thread is allowed to return here after successfully
 	 * calling do_execve().  Exit to userspace to complete the execve()
@@ -996,8 +984,7 @@ trace:
 	movl	0x4(%ebp), %edx
 	subl	$MCOUNT_INSN_SIZE, %eax
 
-	movl    ftrace_trace_function, %ecx
-	CALL_NOSPEC %ecx
+	call	*ftrace_trace_function
 
 	popl	%edx
 	popl	%ecx
@@ -1033,7 +1020,7 @@ return_to_handler:
 	movl	%eax, %ecx
 	popl	%edx
 	popl	%eax
-	JMP_NOSPEC %ecx
+	jmp	*%ecx
 #endif
 
 #ifdef CONFIG_TRACING
@@ -1075,7 +1062,7 @@ error_code:
 	movl	%ecx, %es
 	TRACE_IRQS_OFF
 	movl	%esp, %eax			# pt_regs pointer
-	CALL_NOSPEC %edi
+	call	*%edi
 	jmp	ret_from_exception
 END(page_fault)
 
