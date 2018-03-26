@@ -81,6 +81,10 @@ static int brcmf_eap_restrict;
 module_param_named(eap_restrict, brcmf_eap_restrict, int, 0400);
 MODULE_PARM_DESC(eap_restrict, "Block non-802.1X frames until auth finished");
 
+static int brcmf_sdio_wq_highpri;
+module_param_named(sdio_wq_highpri, brcmf_sdio_wq_highpri, int, 0);
+MODULE_PARM_DESC(sdio_wq_highpri, "SDIO workqueue is set to high priority");
+
 #ifdef DEBUG
 /* always succeed brcmf_bus_started() */
 static int brcmf_ignore_probe_fail;
@@ -465,6 +469,7 @@ struct brcmf_mp_device *brcmf_get_module_param(struct device *dev,
 	settings->fcmode = brcmf_fcmode;
 	settings->roamoff = !!brcmf_roamoff;
 	settings->eap_restrict = !!brcmf_eap_restrict;
+	settings->sdio_wq_highpri = !!brcmf_sdio_wq_highpri;
 #ifdef DEBUG
 	settings->ignore_probe_fail = !!brcmf_ignore_probe_fail;
 #endif
