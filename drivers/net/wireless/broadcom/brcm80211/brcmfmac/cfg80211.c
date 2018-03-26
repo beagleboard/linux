@@ -6939,6 +6939,13 @@ static s32 brcmf_config_dongle(struct brcmf_cfg80211_info *cfg)
 
 	brcmf_configure_arp_nd_offload(ifp, true);
 
+	if (ifp->drvr->settings->frameburst) {
+		err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_FAKEFRAG, 1);
+			if (err)
+				brcmf_info("setting frameburst mode failed\n");
+		brcmf_dbg(INFO, "frameburst mode enabled\n");
+	}
+
 	cfg->dongle_up = true;
 default_conf_out:
 
