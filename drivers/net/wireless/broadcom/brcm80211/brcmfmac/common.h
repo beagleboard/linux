@@ -50,6 +50,7 @@ extern struct brcmf_mp_global_t brcmf_mp_global;
  * @fcmode: FWS flow control.
  * @roamoff: Firmware roaming off?
  * @eap_restrict: Not allow data tx/rx until 802.1X auth succeeds
+ * @sdio_wq_highpri: Tasks submitted to SDIO workqueue will run immediately.
  * @ignore_probe_fail: Ignore probe failure.
  * @country_codes: If available, pointer to struct for translating country codes
  * @bus: Bus specific platform data. Only SDIO at the mmoment.
@@ -61,6 +62,7 @@ struct brcmf_mp_device {
 	bool		roamoff;
 	bool		eap_restrict;
 	int		sdio_dpc_prio;
+	bool		sdio_wq_highpri;
 	bool		ignore_probe_fail;
 	struct brcmfmac_pd_cc *country_codes;
 	union {
