@@ -372,7 +372,13 @@
 			#mbox-cells = <1>;
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <16>;
-			status = "disabled";
+			interrupt-parent = <&k3_irq>;
+			interrupts = <164 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_mcu_r5f0_ipc3x: mbox-mcu-r5f0-ipc3x {
+				ti,mbox-tx = <1 0 0>;
+				ti,mbox-rx = <0 0 0>;
+			};
 		};
 
 		mailbox2: mailbox@31f81000 {
@@ -381,7 +387,13 @@
 			#mbox-cells = <1>;
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <16>;
-			status = "disabled";
+			interrupt-parent = <&k3_irq>;
+			interrupts = <165 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_mcu_r5f1_ipc3x: mbox-mcu-r5f1-ipc3x {
+				ti,mbox-tx = <1 0 0>;
+				ti,mbox-rx = <0 0 0>;
+			};
 		};
 
 		mailbox3: mailbox@31f82000 {
