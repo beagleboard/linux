@@ -332,7 +332,7 @@ static int sdhci_omap_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	 * during the tuning procedure. So disable it during the
 	 * tuning procedure.
 	 */
-	ier &= ~SDHCI_INT_DATA_CRC;
+	ier &= ~SDHCI_INT_DATA_CRC | ~SDHCI_INT_DATA_END_BIT;
 	sdhci_writel(host, ier, SDHCI_INT_ENABLE);
 	sdhci_writel(host, ier, SDHCI_SIGNAL_ENABLE);
 
@@ -412,8 +412,6 @@ static int sdhci_omap_execute_tuning(struct mmc_host *mmc, u32 opcode)
 				phase_delay += i - 12;
 			else if (temperature < 70000)
 				phase_delay += i - 8;
-			else if (temperature < 90000)
-				phase_delay += i - 6;
 			else
 				phase_delay += i - 6;
 
