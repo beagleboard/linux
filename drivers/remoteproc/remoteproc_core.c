@@ -600,7 +600,7 @@ static int rproc_handle_devmem(struct rproc *rproc, struct fw_rsc_devmem *rsc,
 
 	/* no point in handling this resource without a valid iommu domain */
 	if (!rproc->domain)
-		return -EINVAL;
+		return 0;
 
 	if (sizeof(*rsc) > avail) {
 		dev_err(dev, "devmem rsc is truncated\n");
