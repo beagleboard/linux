@@ -583,6 +583,8 @@
 	interrupts = <7>; /* NMI */
 	interrupt-parent = <&intc>;
 
+	ti,pmic-shutdown-controller;
+
 	charger {
 		status = "okay";
 	};
@@ -708,8 +710,6 @@
 };
 
 &rtc {
-	clocks = <&clk_32768_ck>, <&clkdiv32k_ick>;
-	clock-names = "ext-clk", "int-clk";
 	system-power-controller;
 };
 
