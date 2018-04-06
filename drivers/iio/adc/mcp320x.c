@@ -17,8 +17,6 @@
  * MCP3204
  * MCP3208
  * ------------
- * 13 bit converter
- * MCP3301
  *
  * Datasheet can be found here:
  * http://ww1.microchip.com/downloads/en/DeviceDoc/21293C.pdf  mcp3001
@@ -98,7 +96,7 @@ static int mcp320x_channel_to_tx_data(int device_index,
 }
 
 static int mcp320x_adc_conversion(struct mcp320x *adc, u8 channel,
-				  bool differential, int device_index, int *val)
+				  bool differential, int device_index)
 {
 	int ret;
 
@@ -119,25 +117,19 @@ static int mcp320x_adc_conversion(struct mcp320x *adc, u8 channel,
 
 	switch (device_index) {
 	case mcp3001:
-		*val = (adc->rx_buf[0] << 5 | adc->rx_buf[1] >> 3);
-		return 0;
+		return (adc->rx_buf[0] << 5 | adc->rx_buf[1] >> 3);
 	case mcp3002:
 	case mcp3004:
 	case mcp3008:
-		*val = (adc->rx_buf[0] << 2 | adc->rx_buf[1] >> 6);
-		return 0;
+		return (adc->rx_buf[0] << 2 | adc->rx_buf[1] >> 6);
 	case mcp3201:
-		*val = (adc->rx_buf[0] << 7 | adc->rx_buf[1] >> 1);
-		return 0;
+		return (adc->rx_buf[0] << 7 | adc->rx_buf[1] >> 1);
 	case mcp3202:
 	case mcp3204:
 	case mcp3208:
-		*val = (adc->rx_buf[0] << 4 | adc->rx_buf[1] >> 4);
-		return 0;
+		return (adc->rx_buf[0] << 4 | adc->rx_buf[1] >> 4);
 	case mcp3301:
-		*val = sign_extend32((adc->rx_buf[0] & 0x1f) << 8
-				    | adc->rx_buf[1], 12);
-		return 0;
+		return sign_extend32((adc->rx_buf[0] & 0x1f) << 8 | adc->rx_buf[1], 12);
 	default:
 		return -EINVAL;
 	}
@@ -158,10 +150,12 @@ static int mcp320x_read_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		ret = mcp320x_adc_conversion(adc, channel->address,
-			channel->differential, device_index, val);
+			channel->differential, device_index);
+
 		if (ret < 0)
 			goto out;
 
+		*val = ret;
 		ret = IIO_VAL_INT;
 		break;
 
@@ -193,26 +187,27 @@ out:
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) \
 	}
 
-#define MCP320X_VOLTAGE_CHANNEL_DIFF(num)			\
+#define MCP320X_VOLTAGE_CHANNEL_DIFF(chan1, chan2)		\
 	{							\
 		.type = IIO_VOLTAGE,				\
 		.indexed = 1,					\
-		.channel = (num * 2),				\
-		.channel2 = (num * 2 + 1),			\
-		.address = (num * 2),				\
+		.channel = (chan1),				\
+		.channel2 = (chan2),				\
+		.address = (chan1),				\
 		.differential = 1,				\
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) \
 	}
 
 static const struct iio_chan_spec mcp3201_channels[] = {
-	MCP320X_VOLTAGE_CHANNEL_DIFF(0),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(0, 1),
 };
 
 static const struct iio_chan_spec mcp3202_channels[] = {
 	MCP320X_VOLTAGE_CHANNEL(0),
 	MCP320X_VOLTAGE_CHANNEL(1),
-	MCP320X_VOLTAGE_CHANNEL_DIFF(0),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(0, 1),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(1, 0),
 };
 
 static const struct iio_chan_spec mcp3204_channels[] = {
@@ -220,8 +215,10 @@ static const struct iio_chan_spec mcp3204_channels[] = {
 	MCP320X_VOLTAGE_CHANNEL(1),
 	MCP320X_VOLTAGE_CHANNEL(2),
 	MCP320X_VOLTAGE_CHANNEL(3),
-	MCP320X_VOLTAGE_CHANNEL_DIFF(0),
-	MCP320X_VOLTAGE_CHANNEL_DIFF(1),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(0, 1),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(1, 0),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(2, 3),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(3, 2),
 };
 
 static const struct iio_chan_spec mcp3208_channels[] = {
@@ -233,10 +230,14 @@ static const struct iio_chan_spec mcp3208_channels[] = {
 	MCP320X_VOLTAGE_CHANNEL(5),
 	MCP320X_VOLTAGE_CHANNEL(6),
 	MCP320X_VOLTAGE_CHANNEL(7),
-	MCP320X_VOLTAGE_CHANNEL_DIFF(0),
-	MCP320X_VOLTAGE_CHANNEL_DIFF(1),
-	MCP320X_VOLTAGE_CHANNEL_DIFF(2),
-	MCP320X_VOLTAGE_CHANNEL_DIFF(3),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(0, 1),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(1, 0),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(2, 3),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(3, 2),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(4, 5),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(5, 4),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(6, 7),
+	MCP320X_VOLTAGE_CHANNEL_DIFF(7, 6),
 };
 
 static const struct iio_info mcp320x_info = {
@@ -307,10 +308,10 @@ static int mcp320x_probe(struct spi_device *spi)
 	adc->spi = spi;
 
 	indio_dev->dev.parent = &spi->dev;
+	indio_dev->dev.of_node = spi->dev.of_node;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &mcp320x_info;
-	spi_set_drvdata(spi, indio_dev);
 
 	chip_info = &mcp320x_chip_infos[spi_get_device_id(spi)->driver_data];
 	indio_dev->channels = chip_info->channels;
@@ -361,6 +362,7 @@ static int mcp320x_remove(struct spi_device *spi)
 
 #if defined(CONFIG_OF)
 static const struct of_device_id mcp320x_dt_ids[] = {
+	/* NOTE: The use of compatibles with no vendor prefix is deprecated. */
 	{
 		.compatible = "mcp3001",
 		.data = &mcp320x_chip_infos[mcp3001],
@@ -387,6 +389,33 @@ static const struct of_device_id mcp320x_dt_ids[] = {
 		.data = &mcp320x_chip_infos[mcp3208],
 	}, {
 		.compatible = "mcp3301",
+		.data = &mcp320x_chip_infos[mcp3301],
+	}, {
+		.compatible = "microchip,mcp3001",
+		.data = &mcp320x_chip_infos[mcp3001],
+	}, {
+		.compatible = "microchip,mcp3002",
+		.data = &mcp320x_chip_infos[mcp3002],
+	}, {
+		.compatible = "microchip,mcp3004",
+		.data = &mcp320x_chip_infos[mcp3004],
+	}, {
+		.compatible = "microchip,mcp3008",
+		.data = &mcp320x_chip_infos[mcp3008],
+	}, {
+		.compatible = "microchip,mcp3201",
+		.data = &mcp320x_chip_infos[mcp3201],
+	}, {
+		.compatible = "microchip,mcp3202",
+		.data = &mcp320x_chip_infos[mcp3202],
+	}, {
+		.compatible = "microchip,mcp3204",
+		.data = &mcp320x_chip_infos[mcp3204],
+	}, {
+		.compatible = "microchip,mcp3208",
+		.data = &mcp320x_chip_infos[mcp3208],
+	}, {
+		.compatible = "microchip,mcp3301",
 		.data = &mcp320x_chip_infos[mcp3301],
 	}, {
 	}
