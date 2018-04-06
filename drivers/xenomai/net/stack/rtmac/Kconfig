@@ -1,0 +1,16 @@
+menuconfig XENO_DRIVERS_NET_RTMAC
+    depends on XENO_DRIVERS_NET
+    tristate "RTmac Layer"
+    default y
+    ---help---
+    The Real-Time Media Access Control layer allows to extend the RTnet
+    stack with software-based access control mechanisms (also called
+    disciplines) for nondeterministic transport media. Disciplines can be
+    attached and detached per real-time device. RTmac also provides a
+    framework for tunnelling non-time-critical packets through real-time
+    networks by installing virtual NICs (VNIC) in the Linux domain.
+
+    See Documentation/README.rtmac for further information.
+
+source "drivers/xenomai/net/stack/rtmac/tdma/Kconfig"
+source "drivers/xenomai/net/stack/rtmac/nomac/Kconfig"
