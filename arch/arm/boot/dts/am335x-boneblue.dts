@@ -12,7 +12,7 @@
 #include "am335x-bone-common-no-capemgr.dtsi"
 #include "am335x-bone-common-universal-pins.dtsi"
 #include "am335x-boneblue-wl1835.dtsi"
-#include "am33xx-pruss-rproc.dtsi"
+/* #include "am33xx-pruss-rproc.dtsi" */
 
 #define BLUE_IO(x, y) AM33XX_IOPAD((x)*4+0x800, (y)) /* not used anymore */
 
