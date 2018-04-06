@@ -15,25 +15,26 @@
 #if __LINUX_ARM_ARCH__ >= 7
 #define isb(option) __asm__ __volatile__ ("isb " #option : : : "memory")
 #define dsb(option) __asm__ __volatile__ ("dsb " #option : : : "memory")
-#define dmb(option) __asm__ __volatile__ ("dmb " #option : : : "memory")
+#define DMB(option) "dmb " #option
+#define DMB_IN
+
 #elif defined(CONFIG_CPU_XSC3) || __LINUX_ARM_ARCH__ == 6
 #define isb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c5, 4" \
 				    : : "r" (0) : "memory")
 #define dsb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 4" \
 				    : : "r" (0) : "memory")
-#define dmb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 5" \
-				    : : "r" (0) : "memory")
+#define DMB(option) "mcr p15, 0, %0, c7, c10, 5"
+#define DMB_IN "r" (0)
+
 #elif defined(CONFIG_CPU_FA526)
 #define isb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c5, 4" \
 				    : : "r" (0) : "memory")
 #define dsb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 4" \
 				    : : "r" (0) : "memory")
-#define dmb(x) __asm__ __volatile__ ("" : : : "memory")
 #else
 #define isb(x) __asm__ __volatile__ ("" : : : "memory")
 #define dsb(x) __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 4" \
 				    : : "r" (0) : "memory")
-#define dmb(x) __asm__ __volatile__ ("" : : : "memory")
 #endif
 
 #ifdef CONFIG_ARM_HEAVY_MB
@@ -42,6 +43,12 @@ extern void arm_heavy_mb(void);
 #define __arm_heavy_mb(x...) do { dsb(x); arm_heavy_mb(); } while (0)
 #else
 #define __arm_heavy_mb(x...) dsb(x)
+#endif
+
+#ifdef DMB
+#define dmb(option) __asm__ __volatile__(DMB(option) : : DMB_IN : "memory")
+#else
+#define dmb(option) __asm__ __volatile__("" : : : "memory")
 #endif
 
 #ifdef CONFIG_ARCH_HAS_BARRIERS
@@ -65,9 +72,35 @@ extern void arm_heavy_mb(void);
 #define smp_rmb()	barrier()
 #define smp_wmb()	barrier()
 #else
-#define smp_mb()	dmb(ish)
-#define smp_rmb()	smp_mb()
-#define smp_wmb()	dmb(ishst)
+
+#ifdef CONFIG_THUMB2_KERNEL
+#define SMP_ONLY(smp) \
+	"9998:	" smp "\n"					\
+	"	.pushsection \".alt.smp.init\", \"a\"\n"	\
+	"	.long	9998b\n"				\
+	"	nop.w\n"					\
+	"	.popsection\n"
+#else
+#define SMP_ONLY(smp) \
+	"9998:	" smp "\n"					\
+	"	.pushsection \".alt.smp.init\", \"a\"\n"	\
+	"	.long	9998b\n"				\
+	"	nop\n"					\
+	"	.popsection\n"
+#endif
+
+#ifdef DMB
+#define smp_mb() \
+	__asm__ __volatile__ (SMP_ONLY(DMB(ish)) : : DMB_IN : "memory")
+#define smp_rmb() \
+	__asm__ __volatile__ (SMP_ONLY(DMB(ish)) : : DMB_IN : "memory")
+#define smp_wmb() \
+	__asm__ __volatile__ (SMP_ONLY(DMB(ishst)) : : DMB_IN : "memory")
+#else
+#define smp_mb() barrier()
+#define smp_rmb() barrier()
+#define smp_wmb() barrier()
+#endif
 #endif
 
 #define smp_store_release(p, v)						\

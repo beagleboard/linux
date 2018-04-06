@@ -21,7 +21,7 @@
  * With multiple simultaneous hypertransport irq devices it might pay
  * to make this more fine grained.  But start with simple, stupid, and correct.
  */
-static DEFINE_SPINLOCK(ht_irq_lock);
+static IPIPE_DEFINE_SPINLOCK(ht_irq_lock);
 
 void write_ht_irq_msg(unsigned int irq, struct ht_irq_msg *msg)
 {

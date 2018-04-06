@@ -320,6 +320,7 @@ static void __init realview_pbx_timer_init(void)
 	timer1_va_base = __io_address(REALVIEW_PBX_TIMER0_1_BASE) + 0x20;
 	timer2_va_base = __io_address(REALVIEW_PBX_TIMER2_3_BASE);
 	timer3_va_base = __io_address(REALVIEW_PBX_TIMER2_3_BASE) + 0x20;
+	timer3_pa_base = REALVIEW_PBX_TIMER2_3_BASE + 0x20;
 
 	realview_clk_init(__io_address(REALVIEW_SYS_BASE), false);
 	realview_timer_init(IRQ_PBX_TIMER0_1);
