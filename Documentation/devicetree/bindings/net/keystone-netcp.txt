@@ -72,20 +72,24 @@ Required properties:
 		"ti,netcp-gbe-2" for 1GbE N NetCP 1.5 (N=2)
 		"ti,netcp-xgbe" for 10 GbE
 
+- syscon-subsys:	phandle to syscon node of the switch
+			subsystem registers.
+
 - reg:		register location and the size for the following register
 		regions in the specified order.
 		- switch subsystem registers
+		- sgmii module registers
 		- sgmii port3/4 module registers (only for NetCP 1.4)
 		- switch module registers
 		- serdes registers (only for 10G)
 
 		NetCP 1.4 ethss, here is the order
-			index #0 - switch subsystem registers
+			index #0 - sgmii module registers
 			index #1 - sgmii port3/4 module registers
 			index #2 - switch module registers
 
 		NetCP 1.5 ethss 9 port, 5 port and 2 port
-			index #0 - switch subsystem registers
+			index #0 - sgmii module registers
 			index #1 - switch module registers
 			index #2 - serdes registers
 
@@ -160,6 +164,11 @@ Optional properties:
 
 Example binding:
 
+gbe_subsys: subsys@2090000 {
+	compatible = "syscon";
+	reg = <0x02090000 0x100>;
+};
+
 netcp: netcp@2000000 {
 	reg = <0x2620110 0x8>;
 	reg-names = "efuse";
@@ -178,7 +187,8 @@ netcp: netcp@2000000 {
 		ranges;
 		gbe@90000 {
 			label = "netcp-gbe";
-			reg = <0x90000 0x300>, <0x90400 0x400>, <0x90800 0x700>;
+			syscon-subsys = <&gbe_subsys>;
+			reg = <0x90100 0x200>, <0x90400 0x200>, <0x90800 0x700>;
 			/* enable-ale; */
 			tx-queue = <648>;
 			tx-channel = <8>;
