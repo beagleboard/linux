@@ -1232,7 +1232,7 @@ static void handle_parser_irqs(struct vip_dev *dev)
 static irqreturn_t vip_irq(int irq_vip, void *data)
 {
 	struct vip_dev *dev = (struct vip_dev *)data;
-	struct vpdma_data *vpdma = dev->shared->vpdma;
+	struct vpdma_data *vpdma;
 	struct vip_stream *stream;
 	int list_num;
 	int irq_num = dev->slice_id;
@@ -1241,6 +1241,7 @@ static irqreturn_t vip_irq(int irq_vip, void *data)
 	if (!dev->shared)
 		return IRQ_HANDLED;
 
+	vpdma = dev->shared->vpdma;
 	reg_addr = VIP_INT0_STATUS0 +
 			VIP_INTC_INTX_OFFSET * irq_num;
 	irqst_saved = reg_read(dev->shared, reg_addr);
