@@ -3327,6 +3327,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	struct vb2_queue *q;
 	struct video_device *vfd;
 	struct vip_buffer *buf;
+	struct list_head *pos, *tmp;
 	int ret, i;
 
 	stream = kzalloc(sizeof(*stream), GFP_KERNEL);
@@ -3368,7 +3369,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 
 	ret = vb2_queue_init(q);
 	if (ret)
-		goto do_free_stream;
+		goto do_free_hwlist;
 
 	INIT_WORK(&stream->recovery_work, vip_overflow_recovery_work);
 
@@ -3380,7 +3381,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 		buf = kzalloc(sizeof(*buf), GFP_ATOMIC);
 		if (!buf) {
 			ret = -ENOMEM;
-			goto do_free_stream;
+			goto do_free_dropq;
 		}
 		buf->drop = true;
 		list_add(&buf->list, &stream->dropq);
@@ -3388,7 +3389,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 
 	vfd = video_device_alloc();
 	if (!vfd)
-		goto do_free_stream;
+		goto do_free_dropq;
 	*vfd = vip_videodev;
 	vfd->v4l2_dev = &dev->v4l2_dev;
 	vfd->queue = q;
@@ -3399,7 +3400,7 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 	ret = video_register_device(vfd, vfl_type, -1);
 	if (ret) {
 		vip_err(dev, "Failed to register video device\n");
-		goto do_free_stream;
+		goto do_free_vfd;
 	}
 
 	stream->vfd = vfd;
@@ -3408,6 +3409,18 @@ static int alloc_stream(struct vip_port *port, int stream_id, int vfl_type)
 		 video_device_node_name(vfd));
 	return 0;
 
+do_free_vfd:
+	video_device_release(vfd);
+do_free_dropq:
+	list_for_each_safe(pos, tmp, &stream->dropq) {
+		buf = list_entry(pos,
+				 struct vip_buffer, list);
+		vip_dbg(1, dev, "dropq buffer\n");
+		list_del(pos);
+		kfree(buf);
+	}
+do_free_hwlist:
+	vpdma_hwlist_release(dev->shared->vpdma, stream->list_num);
 do_free_stream:
 	kfree(stream);
 	return ret;
@@ -3433,6 +3446,7 @@ static void free_stream(struct vip_stream *stream)
 	}
 
 	video_unregister_device(stream->vfd);
+	video_device_release(stream->vfd);
 	vpdma_hwlist_release(dev->shared->vpdma, stream->list_num);
 	stream->port->cap_streams[stream->stream_id] = NULL;
 	kfree(stream);
