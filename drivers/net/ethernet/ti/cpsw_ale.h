@@ -39,6 +39,17 @@ struct cpsw_ale {
 	unsigned long		ageout;
 	int			allmulti;
 	u32			version;
+	struct device_attribute ale_control_attr;
+#define control_attr_to_ale(attr)	\
+	container_of(attr, struct cpsw_ale, ale_control_attr)
+	struct device_attribute ale_table_attr;
+#define table_attr_to_ale(attr)		\
+	container_of(attr, struct cpsw_ale, ale_table_attr)
+	struct device_attribute ale_table_raw_attr;
+#define table_raw_attr_to_ale(attr)		\
+	container_of(attr, struct cpsw_ale, ale_table_raw_attr)
+	int			show_next;
+	int			raw_show_next;
 	/* These bits are different on NetCP NU Switch ALE */
 	u32			port_mask_bits;
 	u32			port_num_bits;
@@ -47,6 +58,7 @@ struct cpsw_ale {
 
 enum cpsw_ale_control {
 	/* global */
+	ALE_VERSION,
 	ALE_ENABLE,
 	ALE_CLEAR,
 	ALE_AGEOUT,
