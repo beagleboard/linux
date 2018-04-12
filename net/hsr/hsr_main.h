@@ -249,7 +249,6 @@ static inline u16 hsr_get_skb_sequence_nr(struct sk_buff *skb)
 {
 	struct hsr_ethhdr *hsr_ethhdr;
 
-	/* TODO will not work when vlan hdr is present */
 	hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb);
 	return ntohs(hsr_ethhdr->hsr_tag.sequence_nr);
 }

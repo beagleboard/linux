@@ -223,6 +223,7 @@ static void hsr_fill_tag(struct sk_buff *skb, struct hsr_frame_info *frame,
 			 struct hsr_port *port, u8 proto_version)
 {
 	struct hsr_ethhdr *hsr_ethhdr;
+	unsigned char *pc;
 	int lsdu_size;
 
 	/* pad to minimum packet size which is 60 + 6 (HSR tag) */
@@ -232,7 +233,18 @@ static void hsr_fill_tag(struct sk_buff *skb, struct hsr_frame_info *frame,
 	if (frame->is_vlan)
 		lsdu_size -= 4;
 
-	hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb);
+	pc = skb_mac_header(skb);
+	if (frame->is_vlan)
+		/* This 4-byte shift (size of a vlan tag) does not
+		 * mean that the ethhdr starts there. But rather it
+		 * provides the proper environment for accessing
+		 * the fields, such as hsr_tag etc., just like
+		 * when the vlan tag is not there. This is because
+		 * the hsr tag is after the vlan tag.
+		 */
+		hsr_ethhdr = (struct hsr_ethhdr *)(pc + VLAN_HLEN);
+	else
+		hsr_ethhdr = (struct hsr_ethhdr *)pc;
 
 	hsr_set_path_id(hsr_ethhdr, port);
 	set_hsr_tag_LSDU_size(&hsr_ethhdr->hsr_tag, lsdu_size);
@@ -251,7 +263,7 @@ static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
 	struct sk_buff *skb;
 
 	if (port->hsr->prot_version > HSR_V1) {
-		skb = skb_copy_expand(skb_o, 0,
+		skb = skb_copy_expand(skb_o, skb_headroom(skb_o),
 				      skb_tailroom(skb_o) + HSR_HLEN,
 				      GFP_ATOMIC);
 		prp_fill_rct(skb, frame, port);
@@ -471,11 +483,8 @@ static int hsr_fill_frame_info(struct hsr_frame_info *frame,
 	frame->is_vlan = false;
 	proto = ethhdr->h_proto;
 
-	if (proto == htons(ETH_P_8021Q)) {
+	if (proto == htons(ETH_P_8021Q))
 		frame->is_vlan = true;
-		/* FIXME: */
-		WARN_ONCE(1, "HSR: VLAN not yet supported");
-	}
 
 	if (frame->is_vlan) {
 		vlan_hdr = (struct hsr_vlan_ethhdr *)ethhdr;
