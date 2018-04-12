@@ -90,14 +90,6 @@ static bool wbm2m_convert(struct wbm2m_dev *dev, enum omap_plane_id src_plane,
 }
 
 /*
- * Return the wbm2m_ctx structure for a given struct file
- */
-static struct wbm2m_ctx *file2ctx(struct file *file)
-{
-	return container_of(file->private_data, struct wbm2m_ctx, fh);
-}
-
-/*
  * mem2mem callbacks
  */
 
@@ -335,7 +327,7 @@ handled:
 static int wbm2m_querycap(struct file *file, void *priv,
 			  struct v4l2_capability *cap)
 {
-	struct wbm2m_ctx *ctx = file2ctx(file);
+	struct wbm2m_ctx *ctx = file->private_data;
 
 	strncpy(cap->driver, WBM2M_MODULE_NAME, sizeof(cap->driver) - 1);
 	strncpy(cap->card, WBM2M_MODULE_NAME, sizeof(cap->card) - 1);
@@ -359,7 +351,7 @@ static int wbm2m_enum_fmt(struct file *file, void *priv,
 
 static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
-	struct wbm2m_ctx *ctx = file2ctx(file);
+	struct wbm2m_ctx *ctx = file->private_data;
 	struct vb2_queue *vq;
 	struct wb_q_data *q_data;
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
@@ -397,7 +389,7 @@ static int wbm2m_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 
 static int wbm2m_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
-	struct wbm2m_ctx *ctx = file2ctx(file);
+	struct wbm2m_ctx *ctx = file->private_data;
 	struct wb_fmt *fmt = find_format(f);
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct v4l2_plane_pix_format *plane_fmt;
@@ -522,7 +514,7 @@ static int __wbm2m_s_fmt(struct wbm2m_ctx *ctx, struct v4l2_format *f)
 static int wbm2m_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	int ret;
-	struct wbm2m_ctx *ctx = file2ctx(file);
+	struct wbm2m_ctx *ctx = file->private_data;
 
 	ret = wbm2m_try_fmt(file, priv, f);
 	if (ret)
@@ -612,7 +604,7 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 static int wbm2m_g_selection(struct file *file, void *fh,
 			     struct v4l2_selection *s)
 {
-	struct wbm2m_ctx *ctx = file2ctx(file);
+	struct wbm2m_ctx *ctx = file->private_data;
 	struct wb_q_data *q_data;
 	struct v4l2_pix_format_mplane *pix;
 	bool use_c_rect = false;
@@ -675,7 +667,7 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 static int wbm2m_s_selection(struct file *file, void *fh,
 			     struct v4l2_selection *s)
 {
-	struct wbm2m_ctx *ctx = file2ctx(file);
+	struct wbm2m_ctx *ctx = file->private_data;
 	struct wb_q_data *q_data;
 	struct v4l2_selection sel = *s;
 	int ret;
@@ -976,7 +968,7 @@ static int wbm2m_open(struct file *file)
 	}
 
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
-	file->private_data = &ctx->fh;
+	file->private_data = ctx;
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
 	s_q_data->fmt = &wb_formats[1];
@@ -1051,7 +1043,7 @@ free_ctx:
 static int wbm2m_release(struct file *file)
 {
 	struct wbm2m_dev *dev = video_drvdata(file);
-	struct wbm2m_ctx *ctx = file2ctx(file);
+	struct wbm2m_ctx *ctx = file->private_data;
 	bool fh_singular;
 
 	log_dbg(dev, "releasing instance %pa\n", &ctx);
