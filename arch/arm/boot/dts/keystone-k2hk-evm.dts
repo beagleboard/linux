@@ -244,3 +244,7 @@
 	memory-region = <&dsp_common_memory>;
 	status = "okay";
 };
+
+&gbe_serdes {
+	status = "okay";
+};
