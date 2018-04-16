@@ -47,6 +47,10 @@
 #define GBE_SGMII_REG_INDEX		0
 #define GBE_SGMII34_REG_INDEX		1
 #define GBE_SM_REG_INDEX		2
+
+/* For 2U, index 0 points to Switch module register base */
+#define GBE_2U_SM_REG_INDEX		0
+
 /* offset relative to base of GBE_SS_REG_INDEX */
 #define GBE13_SGMII_MODULE_OFFSET	0x100
 /* offset relative to base of GBE_SM_REG_INDEX */
@@ -2017,12 +2021,21 @@ static bool gbe_phy_link_status(struct gbe_slave *slave)
 
 #define RGMII_REG_STATUS_LINK	BIT(0)
 
-static void netcp_2u_rgmii_get_port_link(struct gbe_priv *gbe_dev, bool *status)
+static int netcp_2u_rgmii_get_port_link(struct gbe_priv *gbe_dev, bool *status)
 {
 	u32 val = 0;
+	int ret;
 
-	val = readl(GBE_REG_ADDR(gbe_dev, ss_regs, rgmii_status));
+	ret = regmap_read(gbe_dev->ss_regmap,
+			  GBE_REG_OFS(gbe_dev, ss_regs, rgmii_status), &val);
+	if (ret) {
+		dev_err(gbe_dev->dev,
+			"%s: error in reading rgmii status\n", __func__);
+		return ret;
+	}
 	*status = !!(val & RGMII_REG_STATUS_LINK);
+
+	return ret;
 }
 
 static void netcp_ethss_update_link_state(struct gbe_priv *gbe_dev,
@@ -2036,9 +2049,12 @@ static void netcp_ethss_update_link_state(struct gbe_priv *gbe_dev,
 	if (!slave->open)
 		return;
 
-	if (SLAVE_LINK_IS_RGMII(slave))
-		netcp_2u_rgmii_get_port_link(gbe_dev,
-					     &sw_link_state);
+	if (SLAVE_LINK_IS_RGMII(slave)) {
+		ret = netcp_2u_rgmii_get_port_link(gbe_dev,
+						   &sw_link_state);
+		if (ret)
+			return;
+	}
 	if (SLAVE_LINK_IS_SGMII(slave))
 		sw_link_state =
 		netcp_sgmii_get_port_link(SGMII_BASE(gbe_dev, sp), sp);
@@ -2178,7 +2194,8 @@ static void gbe_slave_stop(struct gbe_intf *intf)
 	struct gbe_priv *gbe_dev = intf->gbe_dev;
 	struct gbe_slave *slave = intf->slave;
 
-	gbe_sgmii_rtreset(gbe_dev, slave, true);
+	if (!IS_SS_ID_2U(gbe_dev))
+		gbe_sgmii_rtreset(gbe_dev, slave, true);
 	gbe_port_reset(slave);
 	/* Disable forwarding */
 	cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
@@ -2216,7 +2233,8 @@ static int gbe_slave_open(struct gbe_intf *gbe_intf)
 	if (IS_SS_ID_VER_14(priv) || IS_SS_ID_NU(priv))
 		gbe_sgmii_config(priv, slave);
 	gbe_port_reset(slave);
-	gbe_sgmii_rtreset(priv, slave, false);
+	if (!IS_SS_ID_2U(priv))
+		gbe_sgmii_rtreset(priv, slave, false);
 	gbe_port_config(priv, slave, priv->rx_packet_max);
 	gbe_set_slave_mac(slave, gbe_intf);
 	/* For NU & 2U switch, map the vlan priorities to zero
@@ -3466,9 +3484,9 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
 static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
 				struct device_node *node)
 {
+	int i, ret, sm_index = GBENU_SM_REG_INDEX;
 	struct resource res;
 	void __iomem *regs;
-	int i, ret;
 
 	gbe_dev->num_stats_mods = gbe_dev->max_num_ports;
 	gbe_dev->et_stats = gbenu_et_stats;
@@ -3498,11 +3516,14 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
 		return -ENOMEM;
 	}
 
-	ret = of_address_to_resource(node, GBENU_SM_REG_INDEX, &res);
+	if (IS_SS_ID_2U(gbe_dev))
+		sm_index = GBE_2U_SM_REG_INDEX;
+
+	ret = of_address_to_resource(node, sm_index, &res);
 	if (ret) {
 		dev_err(gbe_dev->dev,
 			"Can't translate of gbenu node(%s) addr at index %d\n",
-			node->name, GBENU_SM_REG_INDEX);
+			node->name, sm_index);
 		return ret;
 	}
 
@@ -3514,33 +3535,37 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
 	}
 	gbe_dev->switch_regs = regs;
 
-	if (gbe_dev->ss_regs) {
-		gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
-					   GBENU_SGMII_MODULE_OFFSET;
-	} else {
-		ret = of_address_to_resource(node, GBENU_SGMII_REG_INDEX, &res);
-		if (ret) {
-			dev_err(gbe_dev->dev,
-				"Can't translate of gbenu node(%s) addr at index %d\n",
-				node->name, GBENU_SGMII_REG_INDEX);
-			return ret;
+	if (!IS_SS_ID_2U(gbe_dev)) {
+		if (gbe_dev->ss_regs) {
+			gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
+						   GBENU_SGMII_MODULE_OFFSET;
+		} else {
+			ret = of_address_to_resource(node,
+						     GBENU_SGMII_REG_INDEX,
+						     &res);
+			if (ret) {
+				dev_err(gbe_dev->dev,
+					"Can't xlate of node(%s) addr @ %d\n",
+					node->name, GBENU_SGMII_REG_INDEX);
+				return ret;
+			}
+
+			regs = devm_ioremap_resource(gbe_dev->dev, &res);
+			if (IS_ERR(regs)) {
+				dev_err(gbe_dev->dev,
+					"Failed to map sgmii port reg base\n");
+				return PTR_ERR(regs);
+			}
+			gbe_dev->sgmii_port_regs = regs;
 		}
 
-		regs = devm_ioremap_resource(gbe_dev->dev, &res);
-		if (IS_ERR(regs)) {
-			dev_err(gbe_dev->dev,
-				"Failed to map gbenu sgmii port register base\n");
-			return PTR_ERR(regs);
-		}
-		gbe_dev->sgmii_port_regs = regs;
-	}
-
-	/* Although sgmii modules are mem mapped to one contiguous
-	 * region on GBENU devices, setting sgmii_port34_regs allows
-	 * consistent code when accessing sgmii api
-	 */
-	gbe_dev->sgmii_port34_regs = gbe_dev->sgmii_port_regs +
+		/* Although sgmii modules are mem mapped to one contiguous
+		 * region on GBENU devices, setting sgmii_port34_regs allows
+		 * consistent code when accessing sgmii api
+		 */
+		gbe_dev->sgmii_port34_regs = gbe_dev->sgmii_port_regs +
 				     (2 * SGMII_MODULE_SIZE);
+	}
 
 	gbe_dev->host_port_regs = gbe_dev->switch_regs + GBENU_HOST_PORT_OFFSET;
 
