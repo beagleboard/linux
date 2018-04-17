@@ -853,7 +853,7 @@ static int ov1063x_video_probe(struct i2c_client *client)
 		priv->revision = 1;
 	} else {
 		dev_err(&client->dev, "Product ID error %x:%x\n", pid, ver);
-				return -ENODEV;
+		return -ENODEV;
 	}
 
 	dev_info(&client->dev, "ov1063x Product ID %x Manufacturer ID %x\n",

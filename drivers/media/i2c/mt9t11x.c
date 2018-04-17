@@ -769,8 +769,8 @@ static int mt9t11x_pll_setup_pll(const struct i2c_client *client)
 inline u32 calc_vco(u32 desired, u32 ext, u8 *_m, u8 *_n)
 {
 	u32 m, n;
-	u32 delta, actual;
-	long bestdelta = -1;
+	u64 actual;
+	s64 delta, bestdelta = -1;
 
 	n = *_n + 1;
 	if (n == 0)
@@ -780,7 +780,7 @@ inline u32 calc_vco(u32 desired, u32 ext, u8 *_m, u8 *_n)
 		for (m = 1; m <= 256; m++) {
 			actual = ext * 2;
 			actual *= m;
-			actual /= n;
+			actual = div_s64(actual, n);
 			delta = (desired - actual);
 			if (delta < 0)
 				continue;
@@ -791,7 +791,7 @@ inline u32 calc_vco(u32 desired, u32 ext, u8 *_m, u8 *_n)
 			}
 		}
 	actual = ext * 2 * (*_m);
-	actual /= (*_n + 1);
+	actual = div_s64(actual, *_n + 1);
 
 	return actual;
 }
@@ -799,8 +799,8 @@ inline u32 calc_vco(u32 desired, u32 ext, u8 *_m, u8 *_n)
 static inline u32 calc_pixclk(u32 desired, u32 vco, u8 *_p1, u8 *_p2)
 {
 	u32 p1, p2;
-	u32 delta, actual;
-	long bestdelta = -1;
+	u32 actual;
+	s32 delta, bestdelta = -1;
 
 	for (p1 = 1; p1 <= 16; p1++)
 		for (p2 = 1; p2 <= 16; p2++) {
@@ -1757,18 +1757,15 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 
 	mutex_lock(&priv->lock);
 
-	if (priv->streaming == enable) {
-		mutex_unlock(&priv->lock);
-		return 0;
-	}
+	if (priv->streaming == enable)
+		goto unlock;
 
 	if (!enable) {
 		/* Stop Streaming Sequence */
 		mt9t11x_streaming(priv, false);
 		__mt9t11x_set_power(priv, 0);
 		priv->streaming = enable;
-		mutex_unlock(&priv->lock);
-		return 0;
+		goto unlock;
 	}
 
 	mt9t11x_set_params(priv, &rect, priv->format->code);
@@ -1781,11 +1778,11 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 	if (optimize) {
 		ret = mt9t11x_init_camera_optimized(client);
 		if (ret < 0)
-			return ret;
+			goto unlock;
 	} else {
 		ret = mt9t11x_init_camera(client);
 		if (ret < 0)
-			return ret;
+			goto unlock;
 	}
 	/*
 	 * By default data is sampled on falling edge of pixclk.
@@ -1795,19 +1792,19 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 		0x0001 : 0x0000;
 	ret = mt9t11x_reg_write(client, 0x3C20, param);
 	if (ret < 0)
-		return ret;
+		goto unlock;
 	usleep_range(5000, 6000);
 
 	ret = mt9t11x_mcu_write(client, VAR(26, 7), priv->format->fmt);
 	if (ret < 0)
-		return ret;
+		goto unlock;
 	ret = mt9t11x_mcu_write(client, VAR(26, 9), priv->format->order);
 	if (ret < 0)
-		return ret;
+		goto unlock;
 
 	ret = mt9t11x_mcu_write(client, VAR8(1, 0), 0x06);
 	if (ret < 0)
-		return ret;
+		goto unlock;
 
 	if (priv->flags & MT9T11x_FLAG_VFLIP)
 		v4l2_ctrl_s_ctrl(priv->vflip, 1);
@@ -1817,7 +1814,7 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 				      (v4l2_ctrl_g_ctrl(priv->vflip) << 1 |
 				       v4l2_ctrl_g_ctrl(priv->hflip)));
 	if (ret < 0)
-		return ret;
+		goto unlock;
 
 	dev_dbg(&client->dev, "format : %04x\n", priv->format->code);
 	dev_dbg(&client->dev, "size   : %d x %d\n",
@@ -1829,6 +1826,7 @@ static int mt9t11x_s_stream(struct v4l2_subdev *sd, int enable)
 
 	CLOCK_INFO(client, EXT_CLOCK);
 
+unlock:
 	mutex_unlock(&priv->lock);
 	return ret;
 }
@@ -1910,7 +1908,7 @@ static int mt9t11x_set_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_format *fmt)
 {
 	struct mt9t11x_priv *priv = sd_to_mt9t11x(sd);
-	unsigned int index = priv->num_formats;
+	int index = priv->num_formats;
 	struct v4l2_mbus_framefmt *mf = &fmt->format;
 	int ret = 0;
 	struct v4l2_rect rect;
@@ -2124,7 +2122,6 @@ done:
 	return pdata;
 err_out:
 	of_node_put(endpoint);
-	kfree(pdata);
 	return NULL;
 }
 
@@ -2257,8 +2254,6 @@ static int mt9t11x_remove(struct i2c_client *client)
 	media_entity_cleanup(&priv->subdev.entity);
 #endif
 	v4l2_ctrl_handler_free(priv->subdev.ctrl_handler);
-	kfree(priv->info);
-	kfree(priv);
 	return 0;
 }
 
