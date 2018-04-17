@@ -178,6 +178,9 @@ static int wbcap_schedule_next_buffer(struct wbcap_dev *dev)
 	spin_unlock_irqrestore(&dev->qlock, flags);
 
 	q_data = get_q_data(dev, buf->vb.vb2_buf.type);
+	if (!q_data)
+		return -EINVAL;
+
 	pix = &q_data->format.fmt.pix_mp;
 	num_planes = pix->num_planes;
 
@@ -376,6 +379,8 @@ static int buffer_prepare(struct vb2_buffer *vb)
 	int i, num_planes;
 
 	q_data = get_q_data(wbcap, vb->vb2_queue->type);
+	if (!q_data)
+		return -EINVAL;
 	num_planes = q_data->format.fmt.pix_mp.num_planes;
 
 	for (i = 0; i < num_planes; i++) {
@@ -451,6 +456,13 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 
 	wbcap->sequence = 0;
 	q_data = get_q_data(wbcap, wbcap->queue.type);
+	if (!q_data) {
+		log_err(wbcap, "ERROR: getting q_data failed\n");
+		return_all_buffers(wbcap, VB2_BUF_STATE_QUEUED);
+		priv->dispc_ops->runtime_put();
+		return -EINVAL;
+	}
+
 	if (q_data->format.fmt.pix_mp.field == V4L2_FIELD_ALTERNATE)
 		wbcap->field = V4L2_FIELD_TOP;
 	else
@@ -685,6 +697,8 @@ static int wbcap_s_fmt_vid_cap(struct file *file, void *priv,
 		return ret;
 
 	q_data = get_q_data(wbcap, f->type);
+	if (!q_data)
+		return -EINVAL;
 
 	/*
 	 * It is not allowed to change the format while buffers for use with
@@ -716,6 +730,8 @@ static int wbcap_g_fmt_vid_cap(struct file *file, void *priv,
 	log_dbg(wbcap, "type:%d\n", f->type);
 
 	q_data = get_q_data(wbcap, f->type);
+	if (!q_data)
+		return -EINVAL;
 
 	*f = q_data->format;
 	return 0;
@@ -751,6 +767,8 @@ static int wbcap_s_input(struct file *file, void *priv, unsigned int i)
 	log_dbg(wbcap, "%d\n", i);
 
 	q_data = get_q_data(wbcap, wbcap->queue.type);
+	if (!q_data)
+		return -EINVAL;
 
 	if (i >= num_wb_input)
 		return -EINVAL;
