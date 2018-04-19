@@ -41,8 +41,6 @@
 
 /* Application register defines */
 #define LTSSM_EN_VAL		        BIT(0)
-#define LTSSM_STATE_MASK		0x1f
-#define LTSSM_STATE_L0			0x11
 #define DBI_CS2				BIT(5)
 #define OB_XLAT_EN_VAL		        BIT(1)
 
@@ -89,9 +87,6 @@
 #define OB_ENABLEN			BIT(0)
 
 #define OB_OFFSET_HI(n)			(0x204 + (8 * (n)))
-
-/* Config space registers */
-#define DEBUG0				0x728
 
 #define to_keystone_pcie(x)	dev_get_drvdata((x)->dev)
 
@@ -305,8 +300,9 @@ static int ks_pcie_link_up(struct dw_pcie *pci)
 {
 	u32 val;
 
-	val = dw_pcie_readl_dbi(pci, DEBUG0);
-	return (val & LTSSM_STATE_MASK) == LTSSM_STATE_L0;
+	val = dw_pcie_readl_dbi(pci, PCIE_PORT_DEBUG0);
+	val &= PORT_LOGIC_LTSSM_STATE_MASK;
+	return (val == PORT_LOGIC_LTSSM_STATE_L0);
 }
 
 static void ks_pcie_quirk(struct pci_dev *dev)
