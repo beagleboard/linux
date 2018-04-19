@@ -776,7 +776,7 @@ static int ks_pcie_raise_irq(struct dw_pcie_ep *ep, enum pci_epc_irq_type type,
 		ks_pcie_raise_legacy_irq(ks_pcie);
 		break;
 	case PCI_EPC_IRQ_MSI:
-		dev_err(pci->dev, "Raising MSI interrupt not supported\n");
+		dw_pcie_ep_raise_msi_irq(ep, interrupt_num);
 		return -EINVAL;
 	default:
 		dev_err(pci->dev, "UNKNOWN IRQ type\n");
