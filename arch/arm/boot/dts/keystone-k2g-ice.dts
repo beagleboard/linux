@@ -619,6 +619,14 @@
 	};
 };
 
+&pcie0_phy {
+	status = "okay";
+};
+
+&pcie0_ep {
+	status = "okay";
+};
+
 &pruss0 {
 	pinctrl-0 = <&pruss0_eth_default>;
 	pinctrl-names = "default";
