@@ -35,11 +35,6 @@
 /* DEV_STAT_CTRL */
 #define PCIE_CAP_BASE		0x70
 
-/* PCIE controller device IDs */
-#define PCIE_RC_K2HK		0xb008
-#define PCIE_RC_K2E		0xb009
-#define PCIE_RC_K2L		0xb00a
-
 #define to_keystone_pcie(x)	dev_get_drvdata((x)->dev)
 
 static void quirk_limit_mrrs(struct pci_dev *dev)
@@ -47,11 +42,11 @@ static void quirk_limit_mrrs(struct pci_dev *dev)
 	struct pci_bus *bus = dev->bus;
 	struct pci_dev *bridge = bus->self;
 	static const struct pci_device_id rc_pci_devids[] = {
-		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCIE_RC_K2HK),
+		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_K2HK),
 		 .class = PCI_CLASS_BRIDGE_PCI << 8, .class_mask = ~0, },
-		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCIE_RC_K2E),
+		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_K2E),
 		 .class = PCI_CLASS_BRIDGE_PCI << 8, .class_mask = ~0, },
-		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCIE_RC_K2L),
+		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_K2L),
 		 .class = PCI_CLASS_BRIDGE_PCI << 8, .class_mask = ~0, },
 		{ 0, },
 	};
