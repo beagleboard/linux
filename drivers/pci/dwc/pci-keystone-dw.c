@@ -25,7 +25,7 @@
 #include "pci-keystone.h"
 
 /* Application register defines */
-#define LTSSM_EN_VAL		        1
+#define LTSSM_EN_VAL		        BIT(0)
 #define LTSSM_STATE_MASK		0x1f
 #define LTSSM_STATE_L0			0x11
 #define DBI_CS2_EN_VAL			0x20
@@ -422,7 +422,7 @@ int ks_dw_pcie_link_up(struct dw_pcie *pci)
 	return (val & LTSSM_STATE_MASK) == LTSSM_STATE_L0;
 }
 
-void ks_dw_pcie_initiate_link_train(struct keystone_pcie *ks_pcie)
+void ks_dw_pcie_stop_link(struct keystone_pcie *ks_pcie)
 {
 	u32 val;
 
@@ -430,6 +430,11 @@ void ks_dw_pcie_initiate_link_train(struct keystone_pcie *ks_pcie)
 	val = ks_dw_app_readl(ks_pcie, CMD_STATUS);
 	val &= ~LTSSM_EN_VAL;
 	ks_dw_app_writel(ks_pcie, CMD_STATUS, LTSSM_EN_VAL | val);
+}
+
+void ks_dw_pcie_start_link(struct keystone_pcie *ks_pcie)
+{
+	u32 val;
 
 	/* Initiate Link Training */
 	val = ks_dw_app_readl(ks_pcie, CMD_STATUS);
