@@ -20,6 +20,9 @@ pcie_msi_intc : Interrupt controller device node for MSI IRQ chip
 	interrupt-parent: Parent interrupt controller phandle
 	interrupts: GIC interrupt lines connected to PCI MSI interrupt lines
 
+ti,syscon-dev : phandle to the device control module required to set device id
+		and vendor id.
+
  Example:
 	pcie_msi_intc: msi-interrupt-controller {
 			interrupt-controller;
