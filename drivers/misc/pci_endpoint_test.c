@@ -521,7 +521,6 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 	if (data) {
 		test_reg_bar = data->test_reg_bar;
 		test->alignment = data->alignment;
-		no_msi = data->no_msi;
 	}
 
 	init_completion(&test->irq_raised);
@@ -669,7 +668,6 @@ static void pci_endpoint_test_remove(struct pci_dev *pdev)
 static const struct pci_endpoint_test_data k2g_data = {
 	.test_reg_bar = BAR_1,
 	.alignment = SZ_1M,
-	.no_msi = true,
 };
 
 static const struct pci_device_id pci_endpoint_test_tbl[] = {
