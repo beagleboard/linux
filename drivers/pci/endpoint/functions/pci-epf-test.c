@@ -457,9 +457,18 @@ static int pci_epf_test_bind(struct pci_epf *epf)
 	return 0;
 }
 
+static const struct pci_epf_test_data k2g_data = {
+	.test_reg_bar = BAR_1,
+	.linkup_notifier = false
+};
+
 static const struct pci_epf_device_id pci_epf_test_ids[] = {
 	{
 		.name = "pci_epf_test",
+	},
+	{
+		.name = "pci_epf_test_k2g",
+		.driver_data = (kernel_ulong_t)&k2g_data,
 	},
 	{},
 };
