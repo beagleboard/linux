@@ -110,6 +110,8 @@
 #define MSI_CAP_MME_MASK		(7 << MSI_CAP_MME_SHIFT)
 #define MSI_MESSAGE_ADDR_L32		0x54
 #define MSI_MESSAGE_ADDR_U32		0x58
+#define MSI_MESSAGE_DATA_32		0x58
+#define MSI_MESSAGE_DATA_64		0x5C
 
 #define MAX_MSI_IRQS			256
 #define MAX_MSI_IRQS_PER_CTRL		32
@@ -374,6 +376,7 @@ static inline int dw_pcie_allocate_domains(struct pcie_port *pp)
 void dw_pcie_ep_linkup(struct dw_pcie_ep *ep);
 int dw_pcie_ep_init(struct dw_pcie_ep *ep);
 void dw_pcie_ep_exit(struct dw_pcie_ep *ep);
+int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep, u8 interrupt_num);
 #else
 static inline void dw_pcie_ep_linkup(struct dw_pcie_ep *ep)
 {
@@ -386,6 +389,12 @@ static inline int dw_pcie_ep_init(struct dw_pcie_ep *ep)
 
 static inline void dw_pcie_ep_exit(struct dw_pcie_ep *ep)
 {
+}
+
+static inline int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep,
+					   u8 interrupt_num)
+{
+	return 0;
 }
 #endif
 #endif /* _PCIE_DESIGNWARE_H */
