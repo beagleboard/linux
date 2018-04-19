@@ -221,12 +221,10 @@ static void ks_pcie_setup_interrupts(struct keystone_pcie *ks_pcie)
 	ks_dw_pcie_enable_legacy_irqs(ks_pcie);
 
 	/* MSI IRQ */
-	if (IS_ENABLED(CONFIG_PCI_MSI)) {
-		for (i = 0; i < ks_pcie->num_msi_host_irqs; i++) {
-			irq_set_chained_handler_and_data(ks_pcie->msi_host_irqs[i],
-							 ks_pcie_msi_irq_handler,
-							 ks_pcie);
-		}
+	for (i = 0; i < ks_pcie->num_msi_host_irqs; i++) {
+		irq_set_chained_handler_and_data(ks_pcie->msi_host_irqs[i],
+						 ks_pcie_msi_irq_handler,
+						 ks_pcie);
 	}
 
 	if (ks_pcie->error_irq > 0)
@@ -311,13 +309,11 @@ static int __init ks_add_pcie_port(struct keystone_pcie *ks_pcie,
 	if (ret)
 		return ret;
 
-	if (IS_ENABLED(CONFIG_PCI_MSI)) {
-		ret = ks_pcie_get_irq_controller_info(ks_pcie,
-						"msi-interrupt-controller",
-						&ks_pcie->num_msi_host_irqs);
-		if (ret)
-			return ret;
-	}
+	ret = ks_pcie_get_irq_controller_info(ks_pcie,
+					      "msi-interrupt-controller",
+					      &ks_pcie->num_msi_host_irqs);
+	if (ret)
+		return ret;
 
 	/*
 	 * Index 0 is the platform interrupt for error interrupt
