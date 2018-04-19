@@ -92,7 +92,6 @@ static void ks_pcie_stop_link(struct dw_pcie *pci);
 
 struct keystone_pcie {
 	struct dw_pcie		*pci;
-	struct	clk		*clk;
 	int			num_lanes;
 	struct phy		**phy;
 	struct device_link	**link;
@@ -874,26 +873,25 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, ks_pcie);
-	ks_pcie->clk = devm_clk_get(dev, "pcie");
-	if (IS_ERR(ks_pcie->clk)) {
-		dev_err(dev, "Failed to get pcie rc clock\n");
-		ret = PTR_ERR(ks_pcie->clk);
-		goto err_get_irq;
-	}
 
-	ret = clk_prepare_enable(ks_pcie->clk);
-	if (ret)
-		goto err_get_irq;
+	pm_runtime_enable(dev);
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		dev_err(dev, "pm_runtime_get_sync failed\n");
+		goto err_get_sync;
+	}
 
 	ret = ks_pcie_add_pcie_port(ks_pcie, pdev);
 	if (ret < 0)
-		goto fail_clk;
+		goto err_get_sync;
 
 	ks_pcie_enable_error_irq(ks_pcie);
 
 	return 0;
-fail_clk:
-	clk_disable_unprepare(ks_pcie->clk);
+
+err_get_sync:
+	pm_runtime_put(dev);
+	pm_runtime_disable(dev);
 
 err_get_irq:
 	ks_pcie_disable_phy(ks_pcie);
