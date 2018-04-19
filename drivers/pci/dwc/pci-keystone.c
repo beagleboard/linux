@@ -77,8 +77,6 @@
 #define ERR_SYS		BIT(0)	/* System (fatal, non-fatal, or correctable) */
 #define ERR_IRQ_ALL	(ERR_AER | ERR_AXI | ERR_CORR | \
 			 ERR_NONFATAL | ERR_FATAL | ERR_SYS)
-#define ERR_FATAL_IRQ	(ERR_FATAL | ERR_AXI)
-#define ERR_IRQ_STATUS_RAW		0x1c0
 #define ERR_IRQ_STATUS			0x1c4
 #define ERR_IRQ_ENABLE_SET		0x1c8
 #define ERR_IRQ_ENABLE_CLR		0x1cc
@@ -175,23 +173,6 @@ static int ks_pcie_msi_host_init(struct pcie_port *pp)
 void ks_pcie_enable_error_irq(struct keystone_pcie *ks_pcie)
 {
 	ks_pcie_app_writel(ks_pcie, ERR_IRQ_ENABLE_SET, ERR_IRQ_ALL);
-}
-
-static irqreturn_t ks_pcie_handle_error_irq(struct keystone_pcie *ks_pcie)
-{
-	u32 status;
-
-	status = ks_pcie_app_readl(ks_pcie, ERR_IRQ_STATUS_RAW) & ERR_IRQ_ALL;
-	if (!status)
-		return IRQ_NONE;
-
-	if (status & ERR_FATAL_IRQ)
-		dev_err(ks_pcie->pci->dev, "fatal error (status %#010x)\n",
-			status);
-
-	/* Ack the IRQ; status bits are RW1C */
-	ks_pcie_app_writel(ks_pcie, ERR_IRQ_STATUS, status);
-	return IRQ_HANDLED;
 }
 
 /**
@@ -637,9 +618,33 @@ static const struct dw_pcie_host_ops ks_pcie_host_ops = {
 
 static irqreturn_t ks_pcie_err_irq_handler(int irq, void *priv)
 {
+	u32 reg;
 	struct keystone_pcie *ks_pcie = priv;
+	struct device *dev = ks_pcie->pci->dev;
 
-	return ks_pcie_handle_error_irq(ks_pcie);
+	reg = ks_pcie_app_readl(ks_pcie, ERR_IRQ_STATUS);
+
+	if (reg & ERR_SYS)
+		dev_err(dev, "System Error\n");
+
+	if (reg & ERR_FATAL)
+		dev_err(dev, "Fatal Error\n");
+
+	if (reg & ERR_NONFATAL)
+		dev_err(dev, "Non Fatal Error\n");
+
+	if (reg & ERR_CORR)
+		dev_err(dev, "Correctable Error\n");
+
+	if (reg & ERR_AXI)
+		dev_err(dev, "AXI tag lookup fatal Error\n");
+
+	if (reg & ERR_AER)
+		dev_err(dev, "ECRC Error\n");
+
+	ks_pcie_app_writel(ks_pcie, ERR_IRQ_STATUS, reg);
+
+	return IRQ_HANDLED;
 }
 
 static int __init ks_pcie_add_pcie_port(struct keystone_pcie *ks_pcie,
