@@ -87,8 +87,6 @@ static int ks_pcie_establish_link(struct keystone_pcie *ks_pcie)
 	struct device *dev = pci->dev;
 	unsigned int retries;
 
-	dw_pcie_setup_rc(pp);
-
 	if (dw_pcie_link_up(pci)) {
 		dev_err(dev, "Link already up\n");
 		return 0;
@@ -262,6 +260,8 @@ static int __init ks_pcie_host_init(struct pcie_port *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
+
+	dw_pcie_setup_rc(pp);
 
 	ks_pcie_establish_link(ks_pcie);
 	ks_dw_pcie_setup_rc_app_regs(ks_pcie);
