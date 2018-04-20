@@ -161,7 +161,8 @@
 	beeper: beeper {
 		compatible = "gpio-beeper";
 		pinctrl-names = "default";
-		pinctrl-0 = <&beeper_pins>;
+		pinctrl-0 = <&beeper_pins_default>;
+		pinctrl-1 = <&beeper_pins_sleep>;
 		gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;
 	};
 
@@ -529,18 +530,15 @@
 		>;
 	};
 
-	uart0_pins_default: uart0_pins_default {
+	beeper_pins_default: beeper_pins_default {
 		pinctrl-single,pins = <
-			AM4372_IOPAD(0x968, PIN_INPUT | MUX_MODE0)		/* uart0_ctsn.uart0_ctsn */
-			AM4372_IOPAD(0x96C, PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* uart0_rtsn.uart0_rtsn */
-			AM4372_IOPAD(0x970, PIN_INPUT_PULLUP | MUX_MODE0)	/* uart0_rxd.uart0_rxd */
-			AM4372_IOPAD(0x974, PIN_OUTPUT_PULLDOWN | MUX_MODE0)	/* uart0_txd.uart0_txd */
+			AM4372_IOPAD(0x9e0, PIN_OUTPUT_PULLUP | MUX_MODE7)	/* cam1_field.gpio4_12 */
 		>;
 	};
 
-	beeper_pins: beeper_pins {
+	beeper_pins_sleep: beeper_pins_sleep {
 		pinctrl-single,pins = <
-			AM4372_IOPAD(0x9e0, PIN_OUTPUT_PULLUP | MUX_MODE7)	/* cam1_field.gpio4_12 */
+			AM4372_IOPAD(0x9e0, PIN_INPUT_PULLDOWN | MUX_MODE7)	/* cam1_field.gpio4_12 */
 		>;
 	};
 
@@ -640,12 +638,6 @@
 			AM4372_IOPAD(0x954, PIN_INPUT_PULLDOWN | MUX_MODE0)
 		>;
 	};
-};
-
-&uart0 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pins_default>;
 };
 
 &i2c0 {
