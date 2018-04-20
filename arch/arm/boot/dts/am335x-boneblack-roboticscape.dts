@@ -1,16 +1,18 @@
 /*
- * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ * @file am335x-boneblack-roboticscape.dtb
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- */
-
- /******************************************************************************
+ * based on am335x-boneblack.dtb
+ *
  * This device tree serves to replace the need for an overlay when using
  * the RoboticsCape. It is similar to the boneblue tree but preserves
  * pin config for the black.
- ******************************************************************************/
+ *
+ * This file was updated in April 2018 to support LED driver like in BB Blue
+ * This goes in sync with V0.4.0 of the Robotics Cape library
+ *
+ * @author James Strawson
+ * @date April 19, 2018
+ */
 
 
 /dts-v1/;
@@ -18,7 +20,6 @@
 #include "am33xx.dtsi"
 #include "am335x-bone-common-no-capemgr.dtsi"
 #include "am335x-bone-common-universal-pins.dtsi"
-/* #include "am33xx-pruss-rproc.dtsi" */
 #include "am335x-roboticscape.dtsi"
 
 / {
