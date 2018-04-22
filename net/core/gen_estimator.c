@@ -84,7 +84,7 @@ struct gen_estimator
 	struct gnet_stats_basic_packed	*bstats;
 	struct gnet_stats_rate_est64	*rate_est;
 	spinlock_t		*stats_lock;
-	seqcount_t		*running;
+	net_seqlock_t		*running;
 	int			ewma_log;
 	u32			last_packets;
 	unsigned long		avpps;
@@ -213,7 +213,7 @@ int gen_new_estimator(struct gnet_stats_basic_packed *bstats,
 		      struct gnet_stats_basic_cpu __percpu *cpu_bstats,
 		      struct gnet_stats_rate_est64 *rate_est,
 		      spinlock_t *stats_lock,
-		      seqcount_t *running,
+		      net_seqlock_t *running,
 		      struct nlattr *opt)
 {
 	struct gen_estimator *est;
@@ -309,7 +309,7 @@ int gen_replace_estimator(struct gnet_stats_basic_packed *bstats,
 			  struct gnet_stats_basic_cpu __percpu *cpu_bstats,
 			  struct gnet_stats_rate_est64 *rate_est,
 			  spinlock_t *stats_lock,
-			  seqcount_t *running, struct nlattr *opt)
+			  net_seqlock_t *running, struct nlattr *opt)
 {
 	gen_kill_estimator(bstats, rate_est);
 	return gen_new_estimator(bstats, cpu_bstats, rate_est, stats_lock, running, opt);
