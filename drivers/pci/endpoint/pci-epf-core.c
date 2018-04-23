@@ -150,7 +150,11 @@ EXPORT_SYMBOL_GPL(pci_epf_alloc_space);
  */
 void pci_epf_unregister_driver(struct pci_epf_driver *driver)
 {
-	pci_ep_cfs_remove_epf_group(driver->group);
+	struct config_group *group;
+
+	list_for_each_entry(group, &driver->epf_group, group_entry)
+		pci_ep_cfs_remove_epf_group(group);
+	list_del(&driver->epf_group);
 	driver_unregister(&driver->driver);
 }
 EXPORT_SYMBOL_GPL(pci_epf_unregister_driver);
@@ -166,6 +170,8 @@ int __pci_epf_register_driver(struct pci_epf_driver *driver,
 			      struct module *owner)
 {
 	int ret;
+	struct config_group *group;
+	const struct pci_epf_device_id *id;
 
 	if (!driver->ops)
 		return -EINVAL;
@@ -180,7 +186,14 @@ int __pci_epf_register_driver(struct pci_epf_driver *driver,
 	if (ret)
 		return ret;
 
-	driver->group = pci_ep_cfs_add_epf_group(driver->driver.name);
+	INIT_LIST_HEAD(&driver->epf_group);
+
+	id = driver->id_table;
+	while (id->name[0]) {
+		group = pci_ep_cfs_add_epf_group(id->name);
+		list_add_tail(&group->group_entry, &driver->epf_group);
+		id++;
+	}
 
 	return 0;
 }

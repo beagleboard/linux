@@ -11,14 +11,28 @@ described here as well as properties that are not applicable.
 
 Required Properties:-
 
-compatibility: "ti,keystone-pcie"
-reg:	index 1 is the base address and length of DW application registers.
-	index 2 is the base address and length of PCI device ID register.
+compatibility: Should be "ti,keystone-pcie" for RC
+	       Should be "ti,keystone-pcie-ep" for EP
 
+reg: Three register ranges as listed in the reg-names property
+reg-names: "dbics" for the DesignWare PCIe registers, "app" for the
+	   TI specific application registers, "config" for the
+	   configuration space address for a device (used only in
+	   RC mode) and "addr_space" used to map remote RC address space
+	   (used only in EP mode).
+interrupts: platform interrupt for error interrupts.
+ti,syscon-dev : phandle to the device control module required to set device id
+		and vendor id.
+num-ob-windows : number of outbound address translation window
+
+HOST MODE
+=========
 pcie_msi_intc : Interrupt controller device node for MSI IRQ chip
 	interrupt-cells: should be set to 1
 	interrupt-parent: Parent interrupt controller phandle
 	interrupts: GIC interrupt lines connected to PCI MSI interrupt lines
+
+num-ob-windows : number of outbound address translation window
 
  Example:
 	pcie_msi_intc: msi-interrupt-controller {
@@ -51,13 +65,10 @@ pcie_intc: Interrupt controller device node for Legacy IRQ chip
 			<GIC_SPI 29 IRQ_TYPE_EDGE_RISING>;
 	};
 
-Optional properties:-
-	phys: phandle to generic Keystone SerDes PHY for PCI
-	phy-names: name of the generic Keystone SerDes PHY for PCI
-	  - If boot loader already does PCI link establishment, then phys and
-	    phy-names shouldn't be present.
-	interrupts: platform interrupt for error interrupts.
-
 DesignWare DT Properties not applicable for Keystone PCI
 
 1. pcie_bus clock-names not used.  Instead, a phandle to phys is used.
+
+DEVICE MODE
+===========
+num-ib-windows : number of inbound address translation windows

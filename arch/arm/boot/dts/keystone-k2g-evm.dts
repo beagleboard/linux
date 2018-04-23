@@ -316,6 +316,14 @@
 	status = "okay";
 };
 
+&pcie0_phy {
+	status = "okay";
+};
+
+&pcie0_ep {
+	status = "okay";
+};
+
 &dsp0 {
 	memory-region = <&dsp_common_memory>;
 	status = "okay";
