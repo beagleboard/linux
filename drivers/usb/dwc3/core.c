@@ -133,6 +133,9 @@ static void __dwc3_set_mode(struct work_struct *work)
 	if (dwc->desired_dr_role == DWC3_GCTL_PRTCAP_OTG && dwc->edev)
 		return;
 
+	if (dwc->desired_dr_role == DWC3_GCTL_PRTCAP_OTG)
+		return;
+
 	switch (dwc->current_dr_role) {
 	case DWC3_GCTL_PRTCAP_HOST:
 		dwc3_host_exit(dwc);
