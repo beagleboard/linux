@@ -1,0 +1,10 @@
+config DRM_TIDSS
+	tristate "DRM Support for TI Keystone"
+	depends on DRM && OF
+	depends on ARM || ARM64 || COMPILE_TEST
+	select DRM_KMS_HELPER
+	select DRM_KMS_CMA_HELPER
+	select DRM_GEM_CMA_HELPER
+	select VIDEOMODE_HELPERS
+	help
+	  TI Keystone
