@@ -1,0 +1,14 @@
+config DRM_TIDSS
+	tristate "DRM Support for TI Keystone"
+	depends on DRM && OF
+	depends on ARM || ARM64 || COMPILE_TEST
+	select DRM_KMS_HELPER
+	select DRM_KMS_CMA_HELPER
+	select DRM_GEM_CMA_HELPER
+	select VIDEOMODE_HELPERS
+	help
+	  The TI Keystone family SoCs introduced a new generation of
+	  Display SubSystem. They are called DSS6 and DSS7 and at the
+	  time of writing this these DSSs are found on 66AK2Gx and
+	  AM6x SoCs. Set this to Y or M to add display support for
+	  TI Keystone family platforms.
