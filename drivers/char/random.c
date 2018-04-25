@@ -1637,8 +1637,9 @@ static void _warn_unseeded_randomness(const char *func_name, void *caller,
 #ifndef CONFIG_WARN_ALL_UNSEEDED_RANDOM
 	print_once = true;
 #endif
-	pr_notice("random: %s called from %pS with crng_init=%d\n",
-		  func_name, caller, crng_init);
+	if (__ratelimit(&unseeded_warning))
+		pr_notice("random: %s called from %pS with crng_init=%d\n",
+			  func_name, caller, crng_init);
 }
 
 /*
