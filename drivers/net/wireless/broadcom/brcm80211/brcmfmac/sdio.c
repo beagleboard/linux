@@ -33,7 +33,6 @@
 #include <linux/bcma/bcma.h>
 #include <linux/debugfs.h>
 #include <linux/vmalloc.h>
-#include <uapi/linux/sched/types.h>
 #include <asm/unaligned.h>
 #include <defs.h>
 #include <brcmu_wifi.h>
@@ -2704,17 +2703,8 @@ static void brcmf_sdio_dpc(struct brcmf_sdio *bus)
 	uint txlimit = bus->txbound;	/* Tx frames to send before resched */
 	uint framecnt;			/* Temporary counter of tx/rx frames */
 	int err = 0;
-	struct sched_param param;
-	struct brcmf_pub *drvr = bus->sdiodev->bus_if->drvr;
-	int sdio_dpc_prio = drvr->settings->sdio_dpc_prio;
 
 	brcmf_dbg(TRACE, "Enter\n");
-
-	if (sdio_dpc_prio > 0) {
-		param.sched_priority = (sdio_dpc_prio < MAX_RT_PRIO) ?
-				  sdio_dpc_prio : (MAX_RT_PRIO - 1);
-		sched_setscheduler(current, SCHED_FIFO, &param);
-	}
 
 	sdio_claim_host(bus->sdiodev->func[1]);
 
