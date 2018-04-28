@@ -739,22 +739,47 @@ static int pru_handle_vendor_intrmap(struct rproc *rproc,
 	struct pru_rproc *pru = rproc->priv;
 	struct pruss *pruss = pru->pruss;
 	struct pruss_event_chnl *event_chnl_map;
-	struct fw_rsc_pruss_intrmap *intr_rsc =
-		(struct fw_rsc_pruss_intrmap *)rsc->data;
+	struct fw_rsc_pruss_intrmap *intr_rsc0;
+	struct fw_rsc_pruss_intrmap_k3 *intr_rsc1;
 	int i, ret;
+	u32 event_chnl_map_da, event_chnl_map_size;
 	s8 sys_evt, chnl, intr_no;
+	s8 *chnl_host_intr_map;
+	u8 max_system_events, max_pru_channels, max_pru_host_ints;
 
-	dev_dbg(dev, "version %d event_chnl_map_size %d event_chnl_map_addr 0x%x\n",
-		rsc->u.st.st_ver, intr_rsc->event_chnl_map_size,
-		intr_rsc->event_chnl_map_addr);
-
-	if (rsc->u.st.st_ver != 0) {
-		dev_err(dev, "only PRU interrupt resource version 0 supported\n");
+	if (rsc->u.st.st_ver != 0 && rsc->u.st.st_ver != 1) {
+		dev_err(dev, "only PRU interrupt resource versions 0 and 1 are supported\n");
 		return -EINVAL;
 	}
 
-	if (intr_rsc->event_chnl_map_size < 0 ||
-	    intr_rsc->event_chnl_map_size >= MAX_PRU_SYS_EVENTS) {
+	if (!rsc->u.st.st_ver) {
+		intr_rsc0 = (struct fw_rsc_pruss_intrmap *)rsc->data;
+		event_chnl_map_da = intr_rsc0->event_chnl_map_addr;
+		event_chnl_map_size = intr_rsc0->event_chnl_map_size;
+		chnl_host_intr_map = intr_rsc0->chnl_host_intr_map;
+		max_system_events = MAX_PRU_SYS_EVENTS;
+		max_pru_channels = MAX_PRU_CHANNELS;
+		max_pru_host_ints = MAX_PRU_HOST_INT;
+
+		dev_dbg(dev, "version %d event_chnl_map_size %d event_chnl_map_da 0x%x\n",
+			rsc->u.st.st_ver, intr_rsc0->event_chnl_map_size,
+			event_chnl_map_da);
+	} else {
+		intr_rsc1 = (struct fw_rsc_pruss_intrmap_k3 *)rsc->data;
+		event_chnl_map_da = intr_rsc1->event_chnl_map_addr;
+		event_chnl_map_size = intr_rsc1->event_chnl_map_size;
+		chnl_host_intr_map = intr_rsc1->chnl_host_intr_map;
+		max_system_events = MAX_PRU_SYS_EVENTS_K3;
+		max_pru_channels = MAX_PRU_CHANNELS_K3;
+		max_pru_host_ints = MAX_PRU_HOST_INT_K3;
+
+		dev_dbg(dev, "version %d event_chnl_map_size %d event_chnl_map_da 0x%x\n",
+			rsc->u.st.st_ver, intr_rsc1->event_chnl_map_size,
+			event_chnl_map_da);
+	}
+
+	if (event_chnl_map_size < 0 ||
+	    event_chnl_map_size >= max_system_events) {
 		dev_err(dev, "PRU interrupt resource has more events than present on hardware\n");
 		return -EINVAL;
 	}
@@ -763,8 +788,8 @@ static int pru_handle_vendor_intrmap(struct rproc *rproc,
 	 * XXX: The event_chnl_map_addr mapping is currently a pointer in device
 	 * memory, evaluate if this needs to be directly in firmware file.
 	 */
-	event_chnl_map = pru_d_da_to_va(pru, intr_rsc->event_chnl_map_addr,
-					intr_rsc->event_chnl_map_size *
+	event_chnl_map = pru_d_da_to_va(pru, event_chnl_map_da,
+					event_chnl_map_size *
 					sizeof(*event_chnl_map));
 	if (!event_chnl_map) {
 		dev_err(dev, "PRU interrupt resource has inadequate event_chnl_map configuration\n");
@@ -779,15 +804,15 @@ static int pru_handle_vendor_intrmap(struct rproc *rproc,
 		pru->intc_config.ch_to_host[i] = -1;
 
 	/* parse and fill in system event to interrupt channel mapping */
-	for (i = 0; i < intr_rsc->event_chnl_map_size; i++) {
+	for (i = 0; i < event_chnl_map_size; i++) {
 		sys_evt = event_chnl_map[i].event;
 		chnl = event_chnl_map[i].chnl;
 
-		if (sys_evt < 0 || sys_evt >= MAX_PRU_SYS_EVENTS) {
+		if (sys_evt < 0 || sys_evt >= max_system_events) {
 			dev_err(dev, "[%d] bad sys event %d\n", i, sys_evt);
 			return -EINVAL;
 		}
-		if (chnl < 0 || chnl >= MAX_PRU_CHANNELS) {
+		if (chnl < 0 || chnl >= max_pru_channels) {
 			dev_err(dev, "[%d] bad channel value %d\n", i, chnl);
 			return -EINVAL;
 		}
@@ -797,14 +822,14 @@ static int pru_handle_vendor_intrmap(struct rproc *rproc,
 	}
 
 	/* parse and handle interrupt channel-to-host interrupt mapping */
-	for (i = 0; i < MAX_PRU_CHANNELS; i++) {
-		intr_no = intr_rsc->chnl_host_intr_map[i];
+	for (i = 0; i < max_pru_channels; i++) {
+		intr_no = chnl_host_intr_map[i];
 		if (intr_no < 0) {
 			dev_dbg(dev, "skip intr mapping for chnl %d\n", i);
 			continue;
 		}
 
-		if (intr_no >= MAX_PRU_HOST_INT) {
+		if (intr_no >= max_pru_host_ints) {
 			dev_err(dev, "bad intr mapping for chnl %d, intr_no %d\n",
 				i, intr_no);
 			return -EINVAL;
