@@ -47,7 +47,29 @@ struct pruss_event_chnl {
  * @chnl_host_intr_map: array of PRU channels to host interrupt mappings
  * @event_chnl_map_size: number of event_channel mappings defined in
  *			 @event_chnl_map
- * @event_chnl_map: pointer to array of events to channel mappings
+ * @event_chnl_map: PRU device address of pointer to array of events to
+ *		    channel mappings
+ *
+ * PRU system events are mapped to channels, and these channels are mapped
+ * to host interrupts. Events can be mapped to channels in a one-to-one or
+ * many-to-one ratio (multiple events per channel), and channels can be
+ * mapped to host interrupts in a one-to-one or many-to-one ratio (multiple
+ * channels per interrupt).
+ */
+struct fw_rsc_custom_intrmap {
+	u16 reserved;
+	s8 chnl_host_intr_map[10];
+	u32 event_chnl_map_size;
+	u32 event_chnl_map;
+};
+
+/**
+ * struct fw_rsc_custom_intrmap_k3 - K3 custom resource to define PRU interrupts
+ * @chnl_host_intr_map: array of PRU channels to host interrupt mappings
+ * @event_chnl_map_size: number of event_channel mappings defined in
+ *			 @event_chnl_map
+ * @event_chnl_map: PRU device address of pointer to array of events to channel
+ *		    mappings
  *
  * PRU system events are mapped to channels, and these channels are mapped
  * to host interrupts. Events can be mapped to channels in a one-to-one or
@@ -55,15 +77,17 @@ struct pruss_event_chnl {
  * mapped to host interrupts in a one-to-one or many-to-one ratio (multiple
  * channels per interrupt).
  *
- * @da is the device address of the interrupt controller, @channel_map is
- * used to specify to which channel, if any, an event is mapped, and @host_map
- * specifies to which host, if any, a channel is mapped.
+ * This structure needs to be used using custom interrupt resource version
+ * number 1. This structure is to be used with firmwares dealing with the
+ * additional host interrupts on ICSSG IP instances. The firmwares for PRU
+ * cores on ICSSG can get away with the standard version (if not dealing with
+ * Task Manager), but the firmwares for RTU cores would definitely need this
+ * for mapping to the corresponding higher host interrupts.
  */
-struct fw_rsc_custom_intrmap {
-	u16 reserved;
-	s8 chnl_host_intr_map[10];
+struct fw_rsc_custom_intrmap_k3 {
+	s8 chnl_host_intr_map[20];
 	u32 event_chnl_map_size;
-	struct pruss_event_chnl *event_chnl_map;
+	u32 event_chnl_map;
 };
 
 #endif	/* _PRU_REMOTEPROC_H_ */
