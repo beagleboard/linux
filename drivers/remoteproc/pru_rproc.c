@@ -166,7 +166,8 @@ static struct rproc *__pru_rproc_get(struct device_node *np, int index)
 		return ERR_PTR(-EPROBE_DEFER);
 
 	/* TODO: replace the crude string based check to make sure it is PRU */
-	if (!strstr(dev_name(&pdev->dev), "pru")) {
+	if (!strstr(dev_name(&pdev->dev), "pru") &&
+	    !strstr(dev_name(&pdev->dev), "rtu")) {
 		put_device(&pdev->dev);
 		return ERR_PTR(-ENODEV);
 	}
@@ -354,7 +355,8 @@ void pru_rproc_put(struct rproc *rproc)
 		return;
 
 	/* TODO: replace the crude string based check to make sure it is PRU */
-	if (!strstr(dev_name(rproc->dev.parent), "pru"))
+	if (!strstr(dev_name(rproc->dev.parent), "pru") &&
+	    !strstr(dev_name(rproc->dev.parent), "rtu"))
 		return;
 
 	pru = rproc->priv;
@@ -390,7 +392,8 @@ enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc)
 		return -EINVAL;
 
 	/* TODO: replace the crude string based check to make sure it is PRU */
-	if (!strstr(dev_name(rproc->dev.parent), "pru"))
+	if (!strstr(dev_name(rproc->dev.parent), "pru") &&
+	    !strstr(dev_name(rproc->dev.parent), "rtu"))
 		return -EINVAL;
 
 	pru = rproc->priv;
