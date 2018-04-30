@@ -63,8 +63,9 @@ struct pruss *pruss_get(struct rproc *rproc)
 	if (!dev->parent)
 		return ERR_PTR(-ENODEV);
 
-	/* rudimentary check to make sure rproc handle is for a PRU */
-	if (!strstr(dev_name(dev->parent), "pru"))
+	/* rudimentary check to make sure rproc handle is for a PRU or RTU */
+	if (!strstr(dev_name(dev->parent), "pru") &&
+	    !strstr(dev_name(dev->parent), "rtu"))
 		return ERR_PTR(-ENODEV);
 
 	ppdev = to_platform_device(dev->parent->parent);
