@@ -801,6 +801,12 @@ static void dispc_ovl_set_scale_coef(enum omap_plane_id plane, int fir_hinc,
 	h_coef = dispc_ovl_get_scale_coef(fir_hinc, true);
 	v_coef = dispc_ovl_get_scale_coef(fir_vinc, five_taps);
 
+	if (!h_coef || !v_coef) {
+		dev_err(&dispc.pdev->dev, "%s: failed to find scale coefs\n",
+			__func__);
+		return;
+	}
+
 	for (i = 0; i < 8; i++) {
 		u32 h, hv;
 
