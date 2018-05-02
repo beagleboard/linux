@@ -2537,6 +2537,12 @@ static int dispc_ovl_calc_scaling_44xx(struct dispc_device *dispc,
 	return 0;
 }
 
+static enum omap_overlay_caps dispc_ovl_get_caps(struct dispc_device *dispc,
+						 enum omap_plane_id plane)
+{
+	return dispc->feat->overlay_caps[plane];
+}
+
 #define DIV_FRAC(dividend, divisor) \
 	((dividend) * 100 / (divisor) - ((dividend) / (divisor) * 100))
 
@@ -4826,6 +4832,8 @@ static const struct dispc_ops dispc_ops = {
 	.ovl_enable = dispc_ovl_enable,
 	.ovl_setup = dispc_ovl_setup,
 	.ovl_get_color_modes = dispc_ovl_get_color_modes,
+	.ovl_color_mode_supported = dispc_ovl_color_mode_supported,
+	.ovl_get_caps = dispc_ovl_get_caps,
 	.ovl_get_max_size = dispc_ovl_get_max_size,
 
 	.wb_get_framedone_irq = dispc_wb_get_framedone_irq,

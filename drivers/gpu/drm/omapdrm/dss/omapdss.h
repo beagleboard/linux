@@ -617,6 +617,10 @@ struct dispc_ops {
 
 	const u32 *(*ovl_get_color_modes)(struct dispc_device *dispc,
 					  enum omap_plane_id plane);
+	bool (*ovl_color_mode_supported)(struct dispc_device *dispc,
+					 enum omap_plane_id plane, u32 fourcc);
+	enum omap_overlay_caps (*ovl_get_caps)(struct dispc_device *dispc,
+					       enum omap_plane_id plane);
 	void (*ovl_get_max_size)(struct dispc_device *dispc,
 				 u16 *width, u16 *height);
 
