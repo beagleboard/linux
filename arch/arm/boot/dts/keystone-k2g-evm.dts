@@ -320,7 +320,7 @@
 	status = "okay";
 };
 
-&pcie0_ep {
+&pcie0 {
 	status = "okay";
 };
 
