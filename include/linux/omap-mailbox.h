@@ -6,7 +6,13 @@
 #ifndef OMAP_MAILBOX_H
 #define OMAP_MAILBOX_H
 
+#if defined(CONFIG_ARCH_K3)
+typedef u64 mbox_msg_t;
+#else
 typedef u32 mbox_msg_t;
+#endif
+
+#define to_omap_mbox_msg(data) (u32)(*(mbox_msg_t *)(&(data)))
 
 typedef int __bitwise omap_mbox_irq_t;
 #define IRQ_TX ((__force omap_mbox_irq_t) 1)
