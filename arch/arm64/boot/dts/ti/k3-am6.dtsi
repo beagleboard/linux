@@ -34,6 +34,8 @@
 		spi0 = &ospi0;
 		spi1 = &ospi1;
 		ethernet0 = &cpsw_port1;
+		rproc0 = &mcu_r5f0;
+		rproc1 = &mcu_r5f1;
 	};
 
 	chosen { };
