@@ -343,6 +343,13 @@
 		>;
 	};
 
+	i2c1_pins: pinmux_i2c1_pins {
+		pinctrl-single,pins = <
+			0x15C 0x32	/* P9.17,i2c1_scl,INPUT_PULLUP,MODE2 */
+			0x158 0x32	/* P9.18,i2c1_sda,INPUT_PULLUP,MODE2 */
+		>;
+	};
+
 	i2c2_pins: pinmux_i2c2_pins {
 		pinctrl-single,pins = <
 			AM33XX_IOPAD(0x978, PIN_INPUT_PULLUP | MUX_MODE3)	/* (D18) uart1_ctsn.I2C2_SDA */
@@ -509,6 +516,11 @@
 	status = "okay";
 };
 
+&uart4 {
+	pinctrl-names = "default";
+	status = "okay";
+};
+
 &uart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart5_pins>;
@@ -571,32 +583,19 @@
 	};
 };
 
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c2_pins>;
 
 	status = "okay";
 	clock-frequency = <400000>;
-
-	mpu9250@68 {
-		compatible = "invensense,mpu9250";
-		reg = <0x68>;
-		interrupt-parent = <&gpio3>;
-		interrupts = <21 GPIO_ACTIVE_LOW>;
-		i2c-gate {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			ax8975@c {
-				compatible = "ak,ak8975";
-				reg = <0x0c>;
-			};
-		};
-	};
-
-	pressure@76 {
-		compatible = "bosch,bmp280";
-		reg = <0x76>;
-	};
 };
 
 /include/ "tps65217.dtsi"
