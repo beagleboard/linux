@@ -565,7 +565,11 @@ static int of_build_overlay_info(struct of_overlay *ov,
 		ovinfo->attrs[1] = NULL;
 
 		/* NOTE: direct reference to the full_name */
-		ovinfo->attr_group.name = kbasename(ovinfo->info->full_name);
+		if(ovinfo->info != NULL)
+			ovinfo->attr_group.name = kbasename(ovinfo->info->full_name);
+		else
+			ovinfo->attr_group.name = "__symbols__";
+
 		ovinfo->attr_group.attrs = ovinfo->attrs;
 
 	}
