@@ -101,6 +101,7 @@ config PRUSS_REMOTEPROC
 	tristate "TI PRUSS remoteproc support"
 	depends on SOC_AM33XX || SOC_AM43XX || SOC_DRA7XX || ARCH_KEYSTONE
 	depends on REMOTEPROC
+	select MFD_SYSCON
 	select MAILBOX
 	select OMAP2PLUS_MBOX if ARCH_OMAP2PLUS
 	default n
