@@ -14,6 +14,7 @@
 #ifndef _PCIE_DESIGNWARE_H
 #define _PCIE_DESIGNWARE_H
 
+#include <linux/dma-mapping.h>
 #include <linux/irq.h>
 #include <linux/msi.h>
 #include <linux/pci.h>
