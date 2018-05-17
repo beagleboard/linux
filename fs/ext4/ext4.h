@@ -2411,21 +2411,24 @@ extern void ext4_group_desc_csum_set(struct super_block *sb, __u32 group,
 extern int ext4_register_li_request(struct super_block *sb,
 				    ext4_group_t first_not_zeroed);
 
-static inline int ext4_has_group_desc_csum(struct super_block *sb)
-{
-	return EXT4_HAS_RO_COMPAT_FEATURE(sb,
-					  EXT4_FEATURE_RO_COMPAT_GDT_CSUM) ||
-	       (EXT4_SB(sb)->s_chksum_driver != NULL);
-}
-
 static inline int ext4_has_metadata_csum(struct super_block *sb)
 {
 	WARN_ON_ONCE(EXT4_HAS_RO_COMPAT_FEATURE(sb,
 			EXT4_FEATURE_RO_COMPAT_METADATA_CSUM) &&
 		     !EXT4_SB(sb)->s_chksum_driver);
 
-	return (EXT4_SB(sb)->s_chksum_driver != NULL);
+	return EXT4_HAS_RO_COMPAT_FEATURE(sb,
+			EXT4_FEATURE_RO_COMPAT_METADATA_CSUM) &&
+	       (EXT4_SB(sb)->s_chksum_driver != NULL);
 }
+
+static inline int ext4_has_group_desc_csum(struct super_block *sb)
+{
+	return EXT4_HAS_RO_COMPAT_FEATURE(sb,
+					  EXT4_FEATURE_RO_COMPAT_GDT_CSUM) ||
+		ext4_has_metadata_csum(sb);
+}
+
 static inline ext4_fsblk_t ext4_blocks_count(struct ext4_super_block *es)
 {
 	return ((ext4_fsblk_t)le32_to_cpu(es->s_blocks_count_hi) << 32) |
