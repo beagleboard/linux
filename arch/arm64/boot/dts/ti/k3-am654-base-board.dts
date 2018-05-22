@@ -154,3 +154,14 @@
 	pinctrl-0 = <&ecap0_pins_default>;
 	status = "okay";
 };
+
+&cal {
+	status = "okay";
+};
+
+&csi2_0 {
+	csi2_phy0: endpoint@0 {
+		slave-mode;
+/*		remote-endpoint = <&csi2_cam0>; */
+	};
+};
