@@ -325,6 +325,26 @@ static struct cal_data dra76x_cal_data = {
 	.flags = 0,
 };
 
+static struct reg_field am654_ctrl_core_csi0_reg_fields[F_MAX_FIELDS] = {
+	[F_CTRLCLKEN] = REG_FIELD(0, 15, 15),
+	[F_CAMMODE] = REG_FIELD(0, 24, 25),
+	[F_LANEENABLE] = REG_FIELD(0, 0, 4),
+};
+
+static struct cal_csi2_phy am654_cal_csi_phy[] = {
+	{
+		.base_fields = am654_ctrl_core_csi0_reg_fields,
+		.num_lanes = 5,
+	},
+};
+
+static struct cal_data am654_cal_data = {
+	.csi2_phy_core = am654_cal_csi_phy,
+	.num_csi2_phy = ARRAY_SIZE(am654_cal_csi_phy),
+
+	.flags = 0,
+};
+
 /*
  * there is one cal_dev structure in the driver, it is shared by
  * all instances.
@@ -552,7 +572,9 @@ static void camerarx_phy_enable(struct cal_ctx *ctx)
 	/* Always enable all lanes at the phy control level */
 	max_lanes = (1 << cal_data_get_phy_max_lanes(ctx)) - 1;
 	regmap_field_write(phy->fields[F_LANEENABLE], max_lanes);
-	regmap_field_write(phy->fields[F_CSI_MODE], 1);
+	/* F_CSI_MODE is not present on every architecture */
+	if (phy->fields[F_CSI_MODE])
+		regmap_field_write(phy->fields[F_CSI_MODE], 1);
 	regmap_field_write(phy->fields[F_CTRLCLKEN], 1);
 }
 
@@ -2323,6 +2345,10 @@ static const struct of_device_id cal_of_match[] = {
 	{
 		.compatible = "ti,dra76-cal",
 		.data = (void *)&dra76x_cal_data,
+	},
+	{
+		.compatible = "ti,am654-cal",
+		.data = (void *)&am654_cal_data,
 	},
 	{},
 };
