@@ -34,6 +34,19 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		r5f1_memory_region: r5f1-memory@9b000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9b000000 0 0x1000000>;
+			no-map;
+		};
+
+		r5f0_memory_region: r5f0-memory@9c000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9c000000 0 0x800000>;
+			no-map;
+		};
+
 		secure_ddr: secure_ddr@9e800000 {
 			reg = <0 0x9e800000 0 0x01800000>; /* for OP-TEE */
 			alignment = <0x1000>;
@@ -113,6 +126,14 @@
 			gpios = <&wkup_gpio0 27 GPIO_ACTIVE_LOW>;
 		};
 	};
+};
+
+&mcu_r5f0 {
+	memory-region = <&r5f0_memory_region>;
+};
+
+&mcu_r5f1 {
+	memory-region = <&r5f1_memory_region>;
 };
 
 &main_uart0 {
