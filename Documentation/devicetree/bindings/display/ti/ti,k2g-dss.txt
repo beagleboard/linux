@@ -1,0 +1,15 @@
+Texas Instruments K2G Display Subsystem
+=======================================
+
+Required properties:
+- compatible: "ti,k2g-dss"
+- reg: address and length of the register spaces for DSS submodules
+- reg-names: "cfg", "common", "vid1", "ovr1", "vp1"
+- clocks: phandle to fclk and vp1 clocks
+- clock-names: "fck", "vp1"
+- interrupts: phandle to the DISPC interrupt
+
+The DSS outputs are described using the device graphs as documented in
+Documentation/devicetree/bindings/graph.txt. K2G DSS has a single DPI output as
+port 0.
+
