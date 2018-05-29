@@ -4351,7 +4351,6 @@ struct brcmf_sdio *brcmf_sdio_probe(struct brcmf_sdio_dev *sdiodev)
 	int ret;
 	struct brcmf_sdio *bus;
 	struct workqueue_struct *wq;
-	unsigned int wq_flags;
 
 	brcmf_dbg(TRACE, "Enter\n");
 
