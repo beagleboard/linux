@@ -3523,13 +3523,19 @@ static void brcmf_sdio_sr_init(struct brcmf_sdio *bus)
 
 	if (bus->ci->chip == CY_CC_43012_CHIP_ID) {
 		wakeupctrl = SBSDIO_FUNC1_WCTRL_ALPWAIT_SHIFT;
-		cardcap = SDIO_CCCR_BRCM_CARDCAP_CMD_NODEC;
 		chipclkcsr = SBSDIO_HT_AVAIL_REQ;
 	} else {
 		wakeupctrl = SBSDIO_FUNC1_WCTRL_HTWAIT_SHIFT;
-		cardcap = (SDIO_CCCR_BRCM_CARDCAP_CMD14_SUPPORT |
-				   SDIO_CCCR_BRCM_CARDCAP_CMD14_EXT);
 		chipclkcsr = SBSDIO_FORCE_HT;
+	}
+
+	if (bus->ci->chip == CY_CC_43012_CHIP_ID ||
+	    bus->ci->chip == BRCM_CC_4339_CHIP_ID ||
+	    bus->ci->chip == BRCM_CC_4345_CHIP_ID) {
+		cardcap = SDIO_CCCR_BRCM_CARDCAP_CMD_NODEC;
+	} else {
+		cardcap = (SDIO_CCCR_BRCM_CARDCAP_CMD14_SUPPORT |
+			   SDIO_CCCR_BRCM_CARDCAP_CMD14_EXT);
 	}
 
 	val = brcmf_sdiod_regrb(bus->sdiodev, SBSDIO_FUNC1_WAKEUPCTRL, &err);
