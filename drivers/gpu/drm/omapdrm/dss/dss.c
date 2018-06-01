@@ -1311,6 +1311,8 @@ static int initialize_omapdrm_device(void)
 
 static int dss_bind(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	u32 rev;
 	int r;
 
 	r = component_bind_all(dev, NULL);
