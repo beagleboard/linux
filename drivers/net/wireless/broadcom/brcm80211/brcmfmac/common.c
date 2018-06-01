@@ -45,8 +45,6 @@ const u8 ALLFFMAC[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 #define BRCMF_DEFAULT_TXGLOM_SIZE	32  /* max tx frames in glom chain */
 
-#define CLM_LOAD_RETRIES 1 /* # of retries to load clm_blob file */
-
 static int brcmf_sdiod_txglomsz = BRCMF_DEFAULT_TXGLOM_SIZE;
 module_param_named(txglomsz, brcmf_sdiod_txglomsz, int, 0);
 MODULE_PARM_DESC(txglomsz, "Maximum tx packet chain size [SDIO]");
@@ -180,7 +178,6 @@ static int brcmf_c_process_clm_blob(struct brcmf_if *ifp)
 	u16 dl_flag = DL_BEGIN;
 	u32 status;
 	s32 err;
-	uint retries = 0;
 
 	brcmf_dbg(TRACE, "Enter\n");
 
@@ -191,17 +188,10 @@ static int brcmf_c_process_clm_blob(struct brcmf_if *ifp)
 		return err;
 	}
 
-	do {
-		err = request_firmware(&clm, clm_name, dev);
-	} while (err == -EAGAIN && retries++ < CLM_LOAD_RETRIES);
+	err = request_firmware(&clm, clm_name, dev);
 	if (err) {
 		if (err == -ENOENT) {
 			brcmf_dbg(INFO, "continue with CLM data currently present in firmware\n");
-			return 0;
-		} else if (err == -EAGAIN) {
-			brcmf_dbg(INFO, "reached maximum retries(%d)\n",
-				  CLM_LOAD_RETRIES);
-			brcmf_dbg(INFO, "continue with CLM data in firmware\n");
 			return 0;
 		}
 		brcmf_err("request CLM blob file failed (%d)\n", err);
