@@ -23,6 +23,7 @@
 #include <linux/percpu.h>
 #include <linux/string.h>
 #include <linux/device.h>
+#include <linux/ipipe.h>
 #include <linux/syscore_ops.h>
 #include <linux/delay.h>
 #include <linux/ctype.h>
@@ -48,6 +49,7 @@
 #include <asm/tlbflush.h>
 #include <asm/mce.h>
 #include <asm/msr.h>
+#include <asm/traps.h>
 #include <asm/reboot.h>
 
 #include "mce-internal.h"

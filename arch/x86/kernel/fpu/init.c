@@ -42,6 +42,9 @@ static void fpu__init_cpu_generic(void)
 		cr0 |= X86_CR0_EM;
 	write_cr0(cr0);
 
+#ifdef CONFIG_IPIPE
+	current->thread.fpu.active_state = &current->thread.fpu.state;
+#endif
 	/* Flush out any pending x87 state: */
 #ifdef CONFIG_MATH_EMULATION
 	if (!boot_cpu_has(X86_FEATURE_FPU))
@@ -324,6 +327,9 @@ static void __init fpu__init_system_ctx_switch(void)
 
 	if (xfeatures_mask & XFEATURE_MASK_EAGER)
 		eagerfpu = ENABLE;
+
+	if (IS_ENABLED(CONFIG_IPIPE))
+		eagerfpu = DISABLE;
 
 	if (eagerfpu == ENABLE)
 		setup_force_cpu_cap(X86_FEATURE_EAGER_FPU);

@@ -21,6 +21,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/pinctrl/machine.h>
+#include <linux/cpu.h>
 
 #include <asm/pgtable.h>
 #include <asm/system_misc.h>
@@ -134,7 +135,7 @@ void __init mx31_map_io(void)
 	iotable_init(mx31_io_desc, ARRAY_SIZE(mx31_io_desc));
 }
 
-static void imx31_idle(void)
+static __maybe_unused void imx31_idle(void)
 {
 	int reg = imx_readl(mx3_ccm_base + MXC_CCM_CCMR);
 	reg &= ~MXC_CCM_CCMR_LPM_MASK;
@@ -147,7 +148,12 @@ void __init imx31_init_early(void)
 {
 	mxc_set_cpu_type(MXC_CPU_MX31);
 	arch_ioremap_caller = imx3_ioremap_caller;
+#ifdef CONFIG_IPIPE
+	cpu_idle_poll_ctrl(true);
+#else /* !CONFIG_IPIPE */
+	arm_pm_idle = imx3_idle;
 	arm_pm_idle = imx31_idle;
+#endif /* !CONFIG_IPIPE */
 	mx3_ccm_base = MX31_IO_ADDRESS(MX31_CCM_BASE_ADDR);
 }
 
@@ -226,7 +232,7 @@ void __init mx35_map_io(void)
 	iotable_init(mx35_io_desc, ARRAY_SIZE(mx35_io_desc));
 }
 
-static void imx35_idle(void)
+static __maybe_unused void imx35_idle(void)
 {
 	int reg = imx_readl(mx3_ccm_base + MXC_CCM_CCMR);
 	reg &= ~MXC_CCM_CCMR_LPM_MASK;
@@ -240,7 +246,11 @@ void __init imx35_init_early(void)
 {
 	mxc_set_cpu_type(MXC_CPU_MX35);
 	mxc_iomux_v3_init(MX35_IO_ADDRESS(MX35_IOMUXC_BASE_ADDR));
+#ifdef CONFIG_IPIPE
+	cpu_idle_poll_ctrl(true);
+#else /* !CONFIG_IPIPE */
 	arm_pm_idle = imx35_idle;
+#endif /* !CONFIG_IPIPE */
 	arch_ioremap_caller = imx3_ioremap_caller;
 	mx3_ccm_base = MX35_IO_ADDRESS(MX35_CCM_BASE_ADDR);
 }

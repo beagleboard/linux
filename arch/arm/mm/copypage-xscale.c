@@ -36,7 +36,7 @@ static DEFINE_RAW_SPINLOCK(minicache_lock);
  * Dcache aliasing issue.  The writes will be forwarded to the write buffer,
  * and merged as appropriate.
  */
-static void __naked
+static void notrace __naked
 mc_copy_user_page(void *from, void *to)
 {
 	/*

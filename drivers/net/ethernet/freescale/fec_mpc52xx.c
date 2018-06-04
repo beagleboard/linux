@@ -628,6 +628,9 @@ static void mpc52xx_fec_hw_init(struct net_device *dev)
 	 * this can't be done in phy driver, since it needs to be called
 	 * before fec stuff (even on resume) */
 	out_be32(&fec->mii_speed, priv->mdio_speed);
+
+	/* Clear any outstanding interrupt. */
+	out_be32(&fec->ievent, 0xffffffff);
 }
 
 /**
@@ -675,9 +678,6 @@ static void mpc52xx_fec_start(struct net_device *dev)
 	out_be32(&fec->r_cntrl, rcntrl);
 	out_be32(&fec->x_cntrl, tcntrl);
 
-	/* Clear any outstanding interrupt. */
-	out_be32(&fec->ievent, 0xffffffff);
-
 	/* Enable interrupts we wish to service. */
 	out_be32(&fec->imask, FEC_IMASK_ENABLE);
 
@@ -700,6 +700,9 @@ static void mpc52xx_fec_stop(struct net_device *dev)
 
 	/* disable all interrupts */
 	out_be32(&fec->imask, 0);
+
+	/* Clear any outstanding interrupt. */
+	out_be32(&fec->ievent, 0xffffffff);
 
 	/* Disable the rx task. */
 	bcom_disable(priv->rx_dmatsk);

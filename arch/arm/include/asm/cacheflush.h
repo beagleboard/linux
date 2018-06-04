@@ -11,11 +11,13 @@
 #define _ASMARM_CACHEFLUSH_H
 
 #include <linux/mm.h>
+#include <linux/sched.h>
 
 #include <asm/glue-cache.h>
 #include <asm/shmparam.h>
 #include <asm/cachetype.h>
 #include <asm/outercache.h>
+#include <asm/fcse.h>
 
 #define CACHE_COLOUR(vaddr)	((vaddr & (SHMLBA - 1)) >> PAGE_SHIFT)
 
@@ -163,6 +165,27 @@ extern void dmac_flush_range(const void *, const void *);
 
 #endif
 
+#ifdef CONFIG_ARM_FCSE
+#define FCSE_CACHE_MASK (~(L1_CACHE_BYTES - 1))
+#define FCSE_CACHE_ALIGN(addr) (((addr) + ~FCSE_CACHE_MASK) & FCSE_CACHE_MASK)
+
+static inline void
+fcse_flush_cache_user_range(struct vm_area_struct *vma,
+			    unsigned long start, unsigned long end)
+{
+	if (cache_is_vivt()
+	    && fcse_mm_in_cache(vma->vm_mm)) {
+		start = fcse_va_to_mva(vma->vm_mm, start & FCSE_CACHE_MASK);
+		end = fcse_va_to_mva(vma->vm_mm, FCSE_CACHE_ALIGN(end));
+		__cpuc_flush_user_range(start, end, vma->vm_flags);
+	}
+}
+#undef FCSE_CACHE_MASK
+#undef FCSE_CACHE_ALIGN
+#else /* ! CONFIG_ARM_FCSE */
+#define fcse_flush_cache_user_range(vma, start, end) do { } while (0)
+#endif /* ! CONFIG_ARM_FCSE */
+
 /*
  * Copy user data from/to a page which is mapped into a different
  * processes address space.  Really, we want to allow our "user
@@ -170,9 +193,10 @@ extern void dmac_flush_range(const void *, const void *);
  */
 extern void copy_to_user_page(struct vm_area_struct *, struct page *,
 	unsigned long, void *, const void *, unsigned long);
-#define copy_from_user_page(vma, page, vaddr, dst, src, len) \
-	do {							\
-		memcpy(dst, src, len);				\
+#define copy_from_user_page(vma, page, vaddr, dst, src, len)		\
+	do {								\
+		fcse_flush_cache_user_range(vma, vaddr, vaddr + len);	\
+		memcpy(dst, src, len);					\
 	} while (0)
 
 /*
@@ -220,8 +244,11 @@ static inline void __flush_icache_all(void)
 
 static inline void vivt_flush_cache_mm(struct mm_struct *mm)
 {
-	if (cpumask_test_cpu(smp_processor_id(), mm_cpumask(mm)))
+	if (fcse_mm_in_cache(mm)) {
+		unsigned seq = fcse_flush_all_start();
 		__cpuc_flush_user_all();
+		fcse_flush_all_done(seq, 1);
+	}
 }
 
 static inline void
@@ -229,9 +256,11 @@ vivt_flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned
 {
 	struct mm_struct *mm = vma->vm_mm;
 
-	if (!mm || cpumask_test_cpu(smp_processor_id(), mm_cpumask(mm)))
-		__cpuc_flush_user_range(start & PAGE_MASK, PAGE_ALIGN(end),
-					vma->vm_flags);
+	if (!mm || fcse_mm_in_cache(mm)) {
+		start = fcse_va_to_mva(mm, start & PAGE_MASK);
+		end = fcse_va_to_mva(mm, PAGE_ALIGN(end));
+		__cpuc_flush_user_range(start, end, vma->vm_flags);
+	}
 }
 
 static inline void
@@ -239,8 +268,9 @@ vivt_flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr, unsig
 {
 	struct mm_struct *mm = vma->vm_mm;
 
-	if (!mm || cpumask_test_cpu(smp_processor_id(), mm_cpumask(mm))) {
-		unsigned long addr = user_addr & PAGE_MASK;
+	if (!mm || fcse_mm_in_cache(mm)) {
+		unsigned long addr;
+		addr = fcse_va_to_mva(mm, user_addr) & PAGE_MASK;
 		__cpuc_flush_user_range(addr, addr + PAGE_SIZE, vma->vm_flags);
 	}
 }
@@ -265,13 +295,22 @@ extern void flush_cache_page(struct vm_area_struct *vma, unsigned long user_addr
  * Harvard caches are synchronised for the user space address range.
  * This is used for the ARM private sys_cacheflush system call.
  */
-#define flush_cache_user_range(s,e)	__cpuc_coherent_user_range(s,e)
+#define flush_cache_user_range(s,e)			\
+	({						\
+		struct mm_struct *_mm = current->mm;	\
+		unsigned long _s, _e;			\
+		_s = fcse_va_to_mva(_mm, s);		\
+		_e = fcse_va_to_mva(_mm, e);		\
+		__cpuc_coherent_user_range(_s,_e);	\
+	})
 
 /*
  * Perform necessary cache operations to ensure that data previously
  * stored within this range of addresses can be executed by the CPU.
  */
-#define flush_icache_range(s,e)		__cpuc_coherent_kern_range(s,e)
+#define flush_icache_range(s,e)						\
+	__cpuc_coherent_kern_range(fcse_va_to_mva(current->mm, (s)),	\
+				   fcse_va_to_mva(current->mm, (e)))
 
 /*
  * Perform necessary cache operations to ensure that the TLB will
@@ -312,7 +351,8 @@ static inline void flush_anon_page(struct vm_area_struct *vma,
 	extern void __flush_anon_page(struct vm_area_struct *vma,
 				struct page *, unsigned long);
 	if (PageAnon(page))
-		__flush_anon_page(vma, page, vmaddr);
+		__flush_anon_page(vma, page,
+				  fcse_va_to_mva(vma->vm_mm, vmaddr));
 }
 
 #define ARCH_HAS_FLUSH_KERNEL_DCACHE_PAGE
@@ -341,9 +381,11 @@ extern void flush_kernel_dcache_page(struct page *);
  */
 static inline void flush_cache_vmap(unsigned long start, unsigned long end)
 {
-	if (!cache_is_vipt_nonaliasing())
+	if (!cache_is_vipt_nonaliasing()) {
+		unsigned seq = fcse_flush_all_start();
 		flush_cache_all();
-	else
+		fcse_flush_all_done(seq, 1);
+	} else
 		/*
 		 * set_pte_at() called from vmap_pte_range() does not
 		 * have a DSB after cleaning the cache line.
@@ -353,8 +395,11 @@ static inline void flush_cache_vmap(unsigned long start, unsigned long end)
 
 static inline void flush_cache_vunmap(unsigned long start, unsigned long end)
 {
-	if (!cache_is_vipt_nonaliasing())
+	if (!cache_is_vipt_nonaliasing()) {
+		unsigned seq = fcse_flush_all_start();
 		flush_cache_all();
+		fcse_flush_all_done(seq, 1);
+	}
 }
 
 /*

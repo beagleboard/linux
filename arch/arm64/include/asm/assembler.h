@@ -42,6 +42,18 @@
 	msr	daifclr, #2
 	.endm
 
+	.macro	disable_irq_cond
+#ifdef CONFIG_IPIPE
+	msr	daifset, #2
+#endif
+	.endm
+
+	.macro	enable_irq_cond
+#ifdef CONFIG_IPIPE
+	msr	daifclr, #2
+#endif
+	.endm
+
 /*
  * Enable and disable debug exceptions.
  */

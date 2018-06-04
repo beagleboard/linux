@@ -6,10 +6,10 @@
  * Maintainer: Deepak Saxena <dsaxena@plexity.net>
  *
  * Copyright 2002 (c) Intel Corporation
- * Copyright 2003-2004 (c) MontaVista, Software, Inc. 
- * 
- * This file is licensed under  the terms of the GNU General Public 
- * License version 2. This program is licensed "as is" without any 
+ * Copyright 2003-2004 (c) MontaVista, Software, Inc.
+ *
+ * This file is licensed under  the terms of the GNU General Public
+ * License version 2. This program is licensed "as is" without any
  * warranty of any kind, whether express or implied.
  */
 
@@ -31,6 +31,8 @@
 #include <linux/cpu.h>
 #include <linux/pci.h>
 #include <linux/sched_clock.h>
+#include <linux/ipipe.h>
+#include <linux/ipipe_tickdev.h>
 #include <mach/udc.h>
 #include <mach/hardware.h>
 #include <mach/io.h>
@@ -98,7 +100,7 @@ void __init ixp4xx_map_io(void)
  */
 /* GPIO pin types */
 #define IXP4XX_GPIO_OUT 		0x1
-#define IXP4XX_GPIO_IN  		0x2
+#define IXP4XX_GPIO_IN			0x2
 
 /* GPIO signal types */
 #define IXP4XX_GPIO_LOW			0
@@ -110,10 +112,14 @@ void __init ixp4xx_map_io(void)
 
 static void gpio_line_config(u8 line, u32 direction)
 {
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
 	if (direction == IXP4XX_GPIO_IN)
 		*IXP4XX_GPIO_GPOER |= (1 << line);
 	else
 		*IXP4XX_GPIO_GPOER &= ~(1 << line);
+	hard_local_irq_restore(flags);
 }
 
 static void gpio_line_get(u8 line, int *value)
@@ -123,10 +129,14 @@ static void gpio_line_get(u8 line, int *value)
 
 static void gpio_line_set(u8 line, int value)
 {
+	unsigned long flags;
+
+	flags = hard_local_irq_save();
 	if (value == IXP4XX_GPIO_HIGH)
 	    *IXP4XX_GPIO_GPOUTR |= (1 << line);
 	else if (value == IXP4XX_GPIO_LOW)
 	    *IXP4XX_GPIO_GPOUTR &= ~(1 << line);
+	hard_local_irq_restore(flags);
 }
 
 /*************************************************************************
@@ -282,7 +292,7 @@ void __init ixp4xx_init_irq(void)
 	*IXP4XX_ICLR = 0x0;
 
 	/* Disable all interrupt */
-	*IXP4XX_ICMR = 0x0; 
+	*IXP4XX_ICMR = 0x0;
 
 	if (cpu_is_ixp46x() || cpu_is_ixp43x()) {
 		/* Route upper 32 sources to IRQ instead of FIQ */
@@ -292,7 +302,7 @@ void __init ixp4xx_init_irq(void)
 		*IXP4XX_ICMR2 = 0x00;
 	}
 
-        /* Default to all level triggered */
+	/* Default to all level triggered */
 	for(i = 0; i < NR_IRQS; i++) {
 		irq_set_chip_and_handler(i, &ixp4xx_irq_chip,
 					 handle_level_irq);
@@ -300,10 +310,15 @@ void __init ixp4xx_init_irq(void)
 	}
 }
 
+static inline void ixp4xx_timer_ack(void)
+{
+	/* Clear Pending Interrupt by writing '1' to it */
+	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
+}
 
 /*************************************************************************
  * IXP4xx timer tick
- * We use OS timer1 on the CPU for the timer tick and the timestamp 
+ * We use OS timer1 on the CPU for the timer tick and the timestamp
  * counter as a source of real clock ticks to account for missed jiffies.
  *************************************************************************/
 
@@ -311,8 +326,8 @@ static irqreturn_t ixp4xx_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
 
-	/* Clear Pending Interrupt by writing '1' to it */
-	*IXP4XX_OSST = IXP4XX_OSST_TIMER_1_PEND;
+	if (!clockevent_ipipe_stolen(evt))
+		ixp4xx_timer_ack();
 
 	evt->event_handler(evt);
 
@@ -500,12 +515,31 @@ static cycle_t ixp4xx_clocksource_read(struct clocksource *c)
 
 unsigned long ixp4xx_timer_freq = IXP4XX_TIMER_FREQ;
 EXPORT_SYMBOL(ixp4xx_timer_freq);
+
+#ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.freq = IXP4XX_TIMER_FREQ,
+	.counter_vaddr = (unsigned long)IXP4XX_OSTS,
+	.u = {
+		{
+			.mask = 0xffffffff,
+			.counter_paddr = IXP4XX_TIMER_BASE_PHYS,
+		},
+	},
+};
+#endif /* CONFIG_IPIPE */
+
 static void __init ixp4xx_clocksource_init(void)
 {
 	sched_clock_register(ixp4xx_read_sched_clock, 32, ixp4xx_timer_freq);
 
 	clocksource_mmio_init(NULL, "OSTS", ixp4xx_timer_freq, 200, 32,
 			ixp4xx_clocksource_read);
+
+#ifdef CONFIG_IPIPE
+	__ipipe_tsc_register(&tsc_info);
+#endif
 }
 
 /*
@@ -560,6 +594,14 @@ static int ixp4xx_resume(struct clock_event_device *evt)
 	return 0;
 }
 
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer ixp4xx_itimer = {
+	.irq = IRQ_IXP4XX_TIMER1,
+	.min_delay_ticks = 333, /* 5 usec with the 66.66 MHz system clock */
+	.ack = ixp4xx_timer_ack,
+};
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device clockevent_ixp4xx = {
 	.name			= "ixp4xx timer1",
 	.features		= CLOCK_EVT_FEAT_PERIODIC |
@@ -570,6 +612,9 @@ static struct clock_event_device clockevent_ixp4xx = {
 	.set_state_oneshot	= ixp4xx_set_oneshot,
 	.tick_resume		= ixp4xx_resume,
 	.set_next_event		= ixp4xx_set_next_event,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer		= &ixp4xx_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 static void __init ixp4xx_clockevent_init(void)

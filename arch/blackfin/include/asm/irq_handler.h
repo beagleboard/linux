@@ -21,6 +21,8 @@ extern void init_mach_irq(void);
 # define init_mach_irq()
 #endif
 
+struct pt_regs;
+
 /* BASE LEVEL interrupt handler routines */
 asmlinkage void evt_exception(void);
 asmlinkage void trap(void);

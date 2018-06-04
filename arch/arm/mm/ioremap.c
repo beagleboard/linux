@@ -330,6 +330,7 @@ static void __iomem * __arm_ioremap_pfn_caller(unsigned long pfn,
  	}
 
 	flush_cache_vmap(addr, addr + size);
+	__ipipe_pin_mapping_globally(addr, addr + size);
 	return (void __iomem *) (offset + addr);
 }
 

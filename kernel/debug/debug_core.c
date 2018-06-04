@@ -118,8 +118,8 @@ static struct kgdb_bkpt		kgdb_break[KGDB_MAX_BREAKPOINTS] = {
  */
 atomic_t			kgdb_active = ATOMIC_INIT(-1);
 EXPORT_SYMBOL_GPL(kgdb_active);
-static DEFINE_RAW_SPINLOCK(dbg_master_lock);
-static DEFINE_RAW_SPINLOCK(dbg_slave_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(dbg_master_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(dbg_slave_lock);
 
 /*
  * We use NR_CPUs not PERCPU, in case kgdb is used to debug early
@@ -169,19 +169,21 @@ int __weak kgdb_arch_set_breakpoint(struct kgdb_bkpt *bpt)
 {
 	int err;
 
-	err = probe_kernel_read(bpt->saved_instr, (char *)bpt->bpt_addr,
-				BREAK_INSTR_SIZE);
+	err = ipipe_probe_kernel_read(bpt->saved_instr, (char *)bpt->bpt_addr,
+				      BREAK_INSTR_SIZE);
 	if (err)
 		return err;
-	err = probe_kernel_write((char *)bpt->bpt_addr,
-				 arch_kgdb_ops.gdb_bpt_instr, BREAK_INSTR_SIZE);
+	err = ipipe_probe_kernel_write((char *)bpt->bpt_addr,
+				       arch_kgdb_ops.gdb_bpt_instr,
+				       BREAK_INSTR_SIZE);
 	return err;
 }
 
 int __weak kgdb_arch_remove_breakpoint(struct kgdb_bkpt *bpt)
 {
-	return probe_kernel_write((char *)bpt->bpt_addr,
-				  (char *)bpt->saved_instr, BREAK_INSTR_SIZE);
+	return ipipe_probe_kernel_write((char *)bpt->bpt_addr,
+					(char *)bpt->saved_instr,
+					BREAK_INSTR_SIZE);
 }
 
 int __weak kgdb_validate_break_address(unsigned long addr)
@@ -460,7 +462,9 @@ static int kgdb_reenter_check(struct kgdb_state *ks)
 static void dbg_touch_watchdogs(void)
 {
 	touch_softlockup_watchdog_sync();
+#ifndef CONFIG_IPIPE
 	clocksource_touch_watchdog();
+#endif
 	rcu_cpu_stall_reset();
 }
 
@@ -491,7 +495,7 @@ acquirelock:
 	 * Interrupts will be restored by the 'trap return' code, except when
 	 * single stepping.
 	 */
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 
 	cpu = ks->cpu;
 	kgdb_info[cpu].debuggerinfo = regs;
@@ -540,7 +544,7 @@ return_normal:
 			smp_mb__before_atomic();
 			atomic_dec(&slaves_in_kgdb);
 			dbg_touch_watchdogs();
-			local_irq_restore(flags);
+			hard_local_irq_restore(flags);
 			return 0;
 		}
 		cpu_relax();
@@ -558,7 +562,7 @@ return_normal:
 		atomic_set(&kgdb_active, -1);
 		raw_spin_unlock(&dbg_master_lock);
 		dbg_touch_watchdogs();
-		local_irq_restore(flags);
+		hard_local_irq_restore(flags);
 
 		goto acquirelock;
 	}
@@ -675,7 +679,7 @@ kgdb_restore:
 	atomic_set(&kgdb_active, -1);
 	raw_spin_unlock(&dbg_master_lock);
 	dbg_touch_watchdogs();
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 
 	return kgdb_info[cpu].ret_state;
 }
@@ -794,9 +798,9 @@ static void kgdb_console_write(struct console *co, const char *s,
 	if (!kgdb_connected || atomic_read(&kgdb_active) != -1 || dbg_kdb_mode)
 		return;
 
-	local_irq_save(flags);
+	flags = hard_local_irq_save();
 	gdbstub_msg_write(s, count);
-	local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 static struct console kgdbcons = {
