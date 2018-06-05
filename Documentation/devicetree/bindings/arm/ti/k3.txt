@@ -1,0 +1,33 @@
+Texas Instruments K3 Multicore SoC architecture device tree bindings
+--------------------------------------------------------------------
+
+Boards based on K3 Multicore SoC architecture shall have the following property:
+- compatible: Every hardware block introduced in K3 Multicore SoC
+  architecture shall be of the form:
+  "ti,XXX-YYY", where:
+     'XXX' represents the specific SoC part for which the support is added.
+     'YYY' represents the corresponding peripheral in SoC being supported.
+
+  NOTE: Generic devices such as GIC or legacy devices shall use the specified
+  compatible for those devices.
+
+  Example:
+    compatible = "ti,am654-i2c";
+
+SoCs
+-------------------------------------------
+
+Each device tree root node must specify which exact SoC in K3 Multicore SoC
+architecture it uses, using one of the following compatible values:
+
+- AM654
+  compatible = "ti,am654";
+
+Boards
+-------------------------------------------
+
+In addition, each device tree root node must specify which one or more
+of the following board-specific compatible values:
+
+- AM654 EVM
+  compatible = "ti,am654-evm", "ti,am654";
