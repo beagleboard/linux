@@ -86,6 +86,17 @@
 			};
 		};
 
+		secure_proxy: secure_proxy@32c00000 {
+			compatible = "ti,am654-secure-proxy";
+			#mbox-cells = <1>;
+			reg-names = "target_data", "rt", "scfg";
+			reg = <0x0 0x32c00000 0x0 0x100000>,
+			      <0x0 0x32400000 0x0 0x100000>,
+			      <0x0 0x32800000 0x0 0x100000>;
+			interrupt-names = "rx_011";
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		wkup_uart0: serial@42300000 {
 			compatible = "ti,am654-uart", "ti,omap4-uart", "ns16550a";
 			reg = <0x0 0x42300000 0x0 0x100>;
