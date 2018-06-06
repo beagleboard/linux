@@ -3531,6 +3531,7 @@ static void brcmf_sdio_sr_init(struct brcmf_sdio *bus)
 
 	if (bus->ci->chip == CY_CC_43012_CHIP_ID ||
 	    bus->ci->chip == BRCM_CC_4339_CHIP_ID ||
+	    bus->ci->chip == BRCM_CC_4354_CHIP_ID ||
 	    bus->ci->chip == BRCM_CC_4345_CHIP_ID) {
 		cardcap = SDIO_CCCR_BRCM_CARDCAP_CMD_NODEC;
 	} else {
