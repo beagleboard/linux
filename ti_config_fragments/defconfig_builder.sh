@@ -433,7 +433,8 @@ trap prepare_for_exit SIGHUP EXIT SIGINT SIGTERM
 set_working_directory
 
 SUPPORTED_ARCH=(
-"v7 ARM Architecture" "$WORKING_PATH/arch/arm/configs" "$TI_WORKING_PATH/defconfig_map.txt")
+"v7 ARM Architecture" "$WORKING_PATH/arch/arm/configs" "$TI_WORKING_PATH/defconfig_map.txt"
+"v8 ARM Architecture" "$WORKING_PATH/arch/arm64/configs" "$TI_WORKING_PATH/v8_defconfig_map.txt")
 
 BUILD_TYPE_FILE=$(mktemp -t $TMP_TEMPLATE)
 
