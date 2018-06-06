@@ -1311,64 +1311,11 @@ static int initialize_omapdrm_device(void)
 
 static int dss_bind(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	u32 rev;
 	int r;
 
 	r = component_bind_all(dev, NULL);
 	if (r)
 		return r;
-
-	r = dss_setup_default_clock();
-	if (r)
-		goto err_setup_clocks;
-
-	r = dss_video_pll_probe(pdev);
-	if (r)
-		goto err_pll_init;
-
-	r = dss_init_ports(pdev);
-	if (r)
-		goto err_init_ports;
-
-	pm_runtime_enable(&pdev->dev);
-
-	r = dss_runtime_get();
-	if (r)
-		goto err_runtime_get;
-
-	dss.dss_clk_rate = clk_get_rate(dss.dss_clk);
-
-	/* Select DPLL */
-	REG_FLD_MOD(DSS_CONTROL, 0, 0, 0);
-
-	dss_select_dispc_clk_source(DSS_CLK_SRC_FCK);
-
-#ifdef CONFIG_OMAP2_DSS_VENC
-	REG_FLD_MOD(DSS_CONTROL, 1, 4, 4);	/* venc dac demen */
-	REG_FLD_MOD(DSS_CONTROL, 1, 3, 3);	/* venc clock 4x enable */
-	REG_FLD_MOD(DSS_CONTROL, 0, 2, 2);	/* venc clock mode = normal */
-#endif
-	dss.dsi_clk_source[0] = DSS_CLK_SRC_FCK;
-	dss.dsi_clk_source[1] = DSS_CLK_SRC_FCK;
-	dss.dispc_clk_source = DSS_CLK_SRC_FCK;
-	dss.lcd_clk_source[0] = DSS_CLK_SRC_FCK;
-	dss.lcd_clk_source[1] = DSS_CLK_SRC_FCK;
-
-	rev = dss_read_reg(DSS_REVISION);
-	pr_info("OMAP DSS rev %d.%d\n", FLD_GET(rev, 7, 4), FLD_GET(rev, 3, 0));
-
-	dss_runtime_put();
-
-	r = component_bind_all(&pdev->dev, NULL);
-	if (r)
-		goto err_component;
-
-	r = initialize_omapdrm_device();
-	if (r)
-		goto err_omapdrm_device;
-
-	dss_debugfs_create_file("dss", dss_dump_regs);
 
 	pm_set_vt_switch(0);
 
@@ -1376,23 +1323,6 @@ static int dss_bind(struct device *dev)
 	omapdss_set_is_initialized(true);
 
 	return 0;
-
-err_omapdrm_device:
-	component_unbind_all(&pdev->dev, NULL);
-err_component:
-err_runtime_get:
-	pm_runtime_disable(&pdev->dev);
-	dss_uninit_ports(pdev);
-err_init_ports:
-	if (dss.video1_pll)
-		dss_video_pll_uninit(dss.video1_pll);
-
-	if (dss.video2_pll)
-		dss_video_pll_uninit(dss.video2_pll);
-err_pll_init:
-err_setup_clocks:
-	dss_put_clocks();
-	return r;
 }
 
 static void dss_unbind(struct device *dev)
@@ -1530,6 +1460,10 @@ static int dss_probe(struct platform_device *pdev)
 	if (r)
 		goto err_pm_runtime_disable;
 
+	r = initialize_omapdrm_device();
+	if (r)
+		goto err_uninit_debugfs;
+
 	dss_debugfs_create_file("dss", dss_dump_regs);
 
 	/* Add all the child devices as components. */
@@ -1537,9 +1471,12 @@ static int dss_probe(struct platform_device *pdev)
 
 	r = component_master_add_with_match(&pdev->dev, &dss_component_ops, match);
 	if (r)
-		goto err_uninit_debugfs;
+		goto err_unreg_omapdrm;
 
 	return 0;
+
+err_unreg_omapdrm:
+	platform_device_unregister(omap_drm_device);
 
 err_uninit_debugfs:
 	dss_uninitialize_debugfs();
