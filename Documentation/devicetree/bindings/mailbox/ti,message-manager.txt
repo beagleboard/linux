@@ -7,29 +7,47 @@ manager is broken up into queues in different address regions that are called
 "proxies" - each instance is unidirectional and is instantiated at SoC
 integration level to indicate receive or transmit path.
 
+This can also be used to describe Texas Instrument's Secure Proxy
+controller that allows for individually configurable "threads" or
+"proxies" which allow for independent communication scheme.
+
 Message Manager Device Node:
 ===========================
 Required properties:
 --------------------
-- compatible:		Shall be: "ti,k2g-message-manager"
-- reg-names 		queue_proxy_region - Map the queue proxy region.
-			queue_state_debug_region - Map the queue state debug
-			region.
+- compatible:		Shall be one of: "ti,k2g-message-manager",
+			"ti,am654-secure-proxy"
+- reg-names 		for ti,k2g-message-manager, the following shall exist:
+				queue_proxy_region - Map the queue proxy region.
+				queue_state_debug_region - Map the queue state
+					debug region.
+			for ti,am654-secure-proxy, the following shall exist:
+				target_data - Map the proxy data region
+				rt - Map the realtime status region
+				scfg - Map the configuration region
 - reg:			Contains the register map per reg-names.
-- #mbox-cells		Shall be 2. Contains the queue ID and proxy ID in that
-		        order referring to the transfer path.
+- #mbox-cells		for ti,k2g-message-manager, Shall be 2. Contains the
+			queue ID and proxy ID in the following order referring
+			to the transfer path:
+				queue_proxy_region - Map the queue proxy region.
+				queue_state_debug_region - Map the queue state
+					debug region.
+			for ti,am654-secure-proxy, Shall be 1 and shall refer
+		        to the transfer path called thread.
 - interrupt-names:	Contains interrupt names matching the rx transfer path
 			for a given SoC. Receive interrupts shall be of the
-			format: "rx_<QID>_<PID>".
-			For ti,k2g-message-manager, this shall contain:
-				"rx_005_002", "rx_057_002"
+			format:
+			For ti,k2g-message-manager, this shall be: "rx_<QID>"
+			and shall contain:
+				"rx_005", "rx_057"
+			for ti,am654-secure-proxy, this shall be: "rx_<PID>".
 - interrupts:		Contains the interrupt information corresponding to
 			interrupt-names property.
 
 Example(K2G):
 ------------
 
-	msgmgr: msgmgr@02a00000 {
+	msgmgr: msgmgr@2a00000 {
 		compatible = "ti,k2g-message-manager";
 		#mbox-cells = <2>;
 		reg-names = "queue_proxy_region", "queue_state_debug_region";
@@ -46,5 +64,29 @@ Example(K2G):
 		# TX queue ID is 0, proxy ID is 0
 		mboxes= <&msgmgr 5 2>,
 			<&msgmgr 0 0>;
+		[...]
+	};
+
+Example(AM654):
+------------
+
+	secure_proxy: secure_proxy@32c00000 {
+		compatible = "ti,am654-secure-proxy";
+		#mbox-cells = <1>;
+		reg-names = "target_data", "rt", "scfg";
+		reg = <0x0 0x32c00000 0x0 0x100000>,
+		      <0x0 0x32400000 0x0 0x100000>,
+		      <0x0 0x32800000 0x0 0x100000>;
+		interrupt-names = "rx_011";
+		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	dmsc: dmsc {
+		[...]
+		mbox-names = "rx", "tx";
+		# RX Thread ID is 11
+		# TX Thread ID is 13
+		mboxes= <&secure_proxy 11>,
+			<&secure_proxy 13>;
 		[...]
 	};

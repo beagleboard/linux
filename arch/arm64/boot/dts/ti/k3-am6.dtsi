@@ -1,0 +1,187 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Source for AM6 SoC Family
+ *
+ * Copyright (C) 2016-2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	model = "Texas Instruments K3 AM654 SoC";
+	compatible = "ti,am654";
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	aliases {
+		serial0 = &wkup_uart0;
+		serial1 = &mcu_uart0;
+		serial2 = &main_uart0;
+		serial3 = &main_uart1;
+		serial4 = &main_uart2;
+	};
+
+	chosen { };
+
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+
+		psci: psci {
+			compatible = "arm,psci-1.0";
+			method = "smc";
+		};
+	};
+
+	soc0: soc0 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		a53_timer0: timer-cl0-cpu0 {
+			compatible = "arm,armv8-timer";
+			interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* cntpsirq */
+				     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>, /* cntpnsirq */
+				     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>, /* cntvirq */
+				     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>; /* cnthpirq */
+		};
+
+		pmu: pmu {
+			compatible = "arm,armv8-pmuv3";
+			/* Recommendation from GIC500 TRM Table A.3 */
+			interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		gic: interrupt-controller@1800000 {
+			compatible = "arm,gic-v3";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			#interrupt-cells = <3>;
+			interrupt-controller;
+			/*
+			 * NOTE: we are NOT gicv2 backward compat, so no GICC,
+			 * GICH or GICV
+			 */
+			reg = <0x0 0x01800000 0x0 0x10000>,	/* GICD */
+			      <0x0 0x01880000 0x0 0x90000>;	/* GICR */
+
+			/*
+			 * vcpumntirq:
+			 * virtual CPU interface maintenance interrupt
+			 */
+			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+
+			gic_its: gic-its@1000000 {
+				compatible = "arm,gic-v3-its";
+				reg = <0x0 0x1820000 0x0 0x10000>;
+				msi-controller;
+				#msi-cells = <1>;
+			};
+		};
+
+		secure_proxy: secure_proxy@32c00000 {
+			compatible = "ti,am654-secure-proxy";
+			#mbox-cells = <1>;
+			reg-names = "target_data", "rt", "scfg";
+			reg = <0x0 0x32c00000 0x0 0x100000>,
+			      <0x0 0x32400000 0x0 0x100000>,
+			      <0x0 0x32800000 0x0 0x100000>;
+			interrupt-names = "rx_011";
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		dmsc: dmsc {
+			compatible = "ti,k2g-sci";
+			ti,host-id = <12>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			/*
+			 * In case of rare platforms that does not use am6 as
+			 * system master, use /delete-property/
+			 */
+			ti,system-reboot-controller;
+			mbox-names = "rx", "tx";
+
+			mboxes= <&secure_proxy 11>,
+				<&secure_proxy 13>;
+
+			k3_pds: power-controller {
+				compatible = "ti,sci-pm-domain";
+				#power-domain-cells = <1>;
+			};
+
+			k3_clks: clocks {
+				compatible = "ti,k2g-sci-clk";
+				#clock-cells = <2>;
+			};
+
+			k3_reset: reset-controller {
+				compatible = "ti,sci-reset";
+				#reset-cells = <2>;
+			};
+		};
+
+		wkup_uart0: serial@42300000 {
+			compatible = "ti,am654-uart", "ti,omap4-uart", "ns16550a";
+			reg = <0x0 0x42300000 0x0 0x100>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 697 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <48000000>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
+
+		mcu_uart0: serial@40a00000 {
+			compatible = "ti,am654-uart", "ti,omap4-uart", "ns16550a";
+			reg = <0x0 0x40a00000 0x0 0x100>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 565 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <96000000>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
+
+		main_uart0: serial@2800000 {
+			compatible = "ti,am654-uart", "ti,omap4-uart", "ns16550a";
+			reg = <0x0 0x02800000 0x0 0x100>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <48000000>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
+
+		main_uart1: serial@2810000 {
+			compatible = "ti,am654-uart", "ti,omap4-uart", "ns16550a";
+			reg = <0x0 0x02810000 0x0 0x100>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <48000000>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
+
+		main_uart2: serial@2820000 {
+			compatible = "ti,am654-uart", "ti,omap4-uart", "ns16550a";
+			reg = <0x0 0x02820000 0x0 0x100>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <48000000>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
+	};
+};
