@@ -254,7 +254,7 @@ cmd_record_mcount =						\
 	     "$(CC_FLAGS_FTRACE)" ]; then			\
 		$(sub_cmd_record_mcount)			\
 	fi;
-endif
+endif # -record-mcount
 endif
 
 define rule_cc_o_c
