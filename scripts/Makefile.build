@@ -255,6 +255,7 @@ cmd_record_mcount =						\
 	     "$(CC_FLAGS_FTRACE)" ]; then			\
 		$(sub_cmd_record_mcount)			\
 	fi;
+endif # -record-mcount
 endif
 
 ifdef CONFIG_STACK_VALIDATION
@@ -268,7 +269,6 @@ objtool_args += --no-fp
 endif
 ifdef CONFIG_GCOV_KERNEL
 objtool_args += --no-unreachable
-endif
 endif
 
 # 'OBJECT_FILES_NON_STANDARD := y': skip objtool checking for a directory
