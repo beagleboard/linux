@@ -801,6 +801,12 @@ static void dispc_ovl_set_scale_coef(enum omap_plane_id plane, int fir_hinc,
 	h_coef = dispc_ovl_get_scale_coef(fir_hinc, true);
 	v_coef = dispc_ovl_get_scale_coef(fir_vinc, five_taps);
 
+	if (!h_coef || !v_coef) {
+		dev_err(&dispc.pdev->dev, "%s: failed to find scale coefs\n",
+			__func__);
+		return;
+	}
+
 	for (i = 0; i < 8; i++) {
 		u32 h, hv;
 
@@ -2316,7 +2322,7 @@ static int dispc_ovl_calc_scaling_24xx(unsigned long pclk, unsigned long lclk,
 	}
 
 	if (in_width > maxsinglelinewidth) {
-		DSSERR("Cannot scale max input width exceeded");
+		DSSERR("Cannot scale max input width exceeded\n");
 		return -EINVAL;
 	}
 	return 0;
@@ -2394,13 +2400,13 @@ again:
 	}
 
 	if (in_width > (maxsinglelinewidth * 2)) {
-		DSSERR("Cannot setup scaling");
-		DSSERR("width exceeds maximum width possible");
+		DSSERR("Cannot setup scaling\n");
+		DSSERR("width exceeds maximum width possible\n");
 		return -EINVAL;
 	}
 
 	if (in_width > maxsinglelinewidth && *five_taps) {
-		DSSERR("cannot setup scaling with five taps");
+		DSSERR("cannot setup scaling with five taps\n");
 		return -EINVAL;
 	}
 	return 0;
@@ -2438,7 +2444,7 @@ static int dispc_ovl_calc_scaling_44xx(unsigned long pclk, unsigned long lclk,
 			in_width > maxsinglelinewidth && ++*decim_x);
 
 	if (in_width > maxsinglelinewidth) {
-		DSSERR("Cannot scale width exceeds max line width");
+		DSSERR("Cannot scale width exceeds max line width\n");
 		return -EINVAL;
 	}
 
@@ -2456,7 +2462,7 @@ static int dispc_ovl_calc_scaling_44xx(unsigned long pclk, unsigned long lclk,
 		 * bandwidth. Despite what theory says this appears to
 		 * be true also for 16-bit color formats.
 		 */
-		DSSERR("Not enough bandwidth, too much downscaling (x-decimation factor %d > 4)", *decim_x);
+		DSSERR("Not enough bandwidth, too much downscaling (x-decimation factor %d > 4)\n", *decim_x);
 
 		return -EINVAL;
 	}
@@ -4544,7 +4550,7 @@ static int dispc_errata_i734_wa_init(void)
 	i734_buf.vaddr = dma_alloc_writecombine(&dispc.pdev->dev, i734_buf.size,
 						&i734_buf.paddr, GFP_KERNEL);
 	if (!i734_buf.vaddr) {
-		dev_err(&dispc.pdev->dev, "%s: dma_alloc_writecombine failed",
+		dev_err(&dispc.pdev->dev, "%s: dma_alloc_writecombine failed\n",
 			__func__);
 		return -ENOMEM;
 	}
