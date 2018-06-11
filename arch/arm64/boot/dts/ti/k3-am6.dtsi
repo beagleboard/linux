@@ -8,6 +8,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/pinctrl/k3-am6.h>
 
 / {
 	model = "Texas Instruments K3 AM654 SoC";
@@ -127,6 +128,30 @@
 				compatible = "ti,sci-reset";
 				#reset-cells = <2>;
 			};
+		};
+
+		main_pmx0: pinmux@11c000 {
+			compatible = "pinctrl-single";
+			reg = <0x0 0x11c000 0x0 0x2e4>;
+			#pinctrl-cells = <1>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0xffffffff>;
+		};
+
+		main_pmx1: pinmux@11c2e8 {
+			compatible = "pinctrl-single";
+			reg = <0x0 0x11c2e8 0x0 0x24>;
+			#pinctrl-cells = <1>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0xffffffff>;
+		};
+
+		wkup_pmx0: pinmux@4301c000 {
+			compatible = "pinctrl-single";
+			reg = <0x0 0x4301c000 0x0 0x118>;
+			#pinctrl-cells = <1>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0xffffffff>;
 		};
 
 		wkup_uart0: serial@42300000 {
