@@ -1329,7 +1329,7 @@ bool brcmf_chip_set_active(struct brcmf_chip *pub, u32 rstvec)
 
 bool brcmf_chip_sr_capable(struct brcmf_chip *pub)
 {
-	u32 base, addr, reg, pmu_cc3_mask = ~0;
+	u32 base, addr, reg, sr_eng_en, pmu_cc3_mask = ~0;
 	struct brcmf_chip_priv *chip;
 	struct brcmf_core *pmu = brcmf_chip_get_pmu(pub);
 
@@ -1362,6 +1362,12 @@ bool brcmf_chip_sr_capable(struct brcmf_chip *pub)
 		addr = CORE_CC_REG(base, sr_control1);
 		reg = chip->ops->read32(chip->ctx, addr);
 		return reg != 0;
+	case CY_CC_4373_CHIP_ID:
+		/* explicitly check SR engine enable bit */
+		sr_eng_en = BIT(0);
+		addr = CORE_CC_REG(base, sr_control0);
+		reg = chip->ops->read32(chip->ctx, addr);
+		return (reg & sr_eng_en) != 0;
 	case CY_CC_43012_CHIP_ID:
 		addr = CORE_CC_REG(pmu->base, retention_ctl);
 		reg = chip->ops->read32(chip->ctx, addr);
