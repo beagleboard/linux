@@ -697,9 +697,9 @@ dtb-merge-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-evm-reva3-cam-ov10635.dtb \
 	dra71-evm-nand.dtb \
 	dra71-evm-lcd-auo-g101evn01.0.dtb
-ifeq ($(CONFIG_SOC_DRA7XX),y)
-dts-dirs += ti
-endif
+#ifeq ($(CONFIG_SOC_DRA7XX),y)
+#dts-dirs += ti
+#endif
 dtb-$(CONFIG_ARCH_ORION5X) += \
 	orion5x-kuroboxpro.dtb \
 	orion5x-lacie-d2-network.dtb \
@@ -1102,26 +1102,26 @@ dtb-$(CONFIG_ARCH_ASPEED) += aspeed-bmc-opp-palmetto.dtb \
 	aspeed-ast2500-evb.dtb
 endif
 
-ifeq ($(BUILD_ITBS),y)
-dtb-y=
-dtb-merge-y=
-else
-dts-dirs=
-endif
+#ifeq ($(BUILD_ITBS),y)
+#dtb-y=
+#dtb-merge-y=
+#else
+#dts-dirs=
+#endif
 
 dtstree		:= $(srctree)/$(src)
 dtb-$(CONFIG_OF_ALL_DTBS) := $(patsubst $(dtstree)/%.dts,%.dtb, $(wildcard $(dtstree)/*.dts))
 
-always		:= $(dtb-y) $(dtb-merge-y)
+always		:= $(dtb-y)
 clean-files	:= *.dtb
 
-$(addprefix $(obj)/,$(dtb-merge-y)): TI_DTBOS
-	@$(srctree)/scripts/dtb-merge $(srctree) $(objtree) $@ $(objtree)/scripts/dtc/fdtoverlay $(src)/ti
+#$(addprefix $(obj)/,$(dtb-merge-y)): TI_DTBOS
+#	@$(srctree)/scripts/dtb-merge $(srctree) $(objtree) $@ $(objtree)/scripts/dtc/fdtoverlay $(src)/ti
 
-TI_DTBOS:
-	$(Q)$(MAKE) $(build)=$(src)/ti
+#TI_DTBOS:
+#	$(Q)$(MAKE) $(build)=$(src)/ti
 
-PHONY += TI_DTBOS
+#PHONY += TI_DTBOS
 
-subdir-y	+= $(dts-dirs)
-subdir-		+= ti
+#subdir-y	+= $(dts-dirs)
+#subdir-		+= ti
