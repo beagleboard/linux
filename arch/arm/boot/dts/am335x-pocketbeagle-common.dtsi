@@ -1128,13 +1128,13 @@
 	system-power-controller;
 };
 
-&pruss_soc_bus {
-	status = "okay";
-
-	pruss: pruss@0 {
-		status = "okay";
-	};
-};
+//&pruss_soc_bus {
+//	status = "okay";
+//
+//	pruss: pruss@0 {
+//		status = "okay";
+//	};
+//};
 
 &epwmss0 {
 	status = "okay";
