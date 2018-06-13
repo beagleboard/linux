@@ -67,11 +67,16 @@
 #define TI_SCI_MSG_SET_IRQ		0x1000
 #define TI_SCI_MSG_FREE_IRQ		0x1001
 
+/* NAVSS resource management */
 /* Ringacc requests */
 #define TI_SCI_MSG_RM_RING_ALLOCATE	0x1100
 #define TI_SCI_MSG_RM_RING_FREE		0x1101
 #define TI_SCI_MSG_RM_RING_RECONFIG	0x1102
 #define TI_SCI_MSG_RM_RING_RESET	0x1103
+
+/* PSI-L requests */
+#define TI_SCI_MSG_RM_PSIL_PAIR		0x1280
+#define TI_SCI_MSG_RM_PSIL_UNPAIR	0x1281
 
 /**
  * struct ti_sci_msg_hdr - Generic Message Header for All messages and responses
@@ -784,6 +789,64 @@ struct ti_sci_msg_ring_reconfig_resp {
 	u8			old_mode;
 	u8			old_size;
 	u8			old_order_id;
+} __packed;
+
+/**
+ * struct ti_sci_msg_psil_pair - Pairs a PSI-L source thread to a destination
+ *				 thread
+ * @hdr:	Generic Header
+ * @nav_id:	SoC Navigator Subsystem device ID whose PSI-L config proxy is
+ *		used to pair the source and destination threads.
+ * @src_thread:	PSI-L source thread ID within the PSI-L System thread map.
+ *
+ * UDMAP transmit channels mapped to source threads will have their
+ * TCHAN_THRD_ID register programmed with the destination thread if the pairing
+ * is successful.
+
+ * @dst_thread: PSI-L destination thread ID within the PSI-L System thread map.
+ * PSI-L destination threads start at index 0x8000.  The request is NACK'd if
+ * the destination thread is not greater than or equal to 0x8000.
+ *
+ * UDMAP receive channels mapped to destination threads will have their
+ * RCHAN_THRD_ID register programmed with the source thread if the pairing
+ * is successful.
+ *
+ * Request type is TI_SCI_MSG_RM_PSIL_PAIR, response is a generic ACK or NACK
+ * message.
+ */
+struct ti_sci_msg_psil_pair {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 src_thread;
+	u32 dst_thread;
+} __packed;
+
+/**
+ * struct ti_sci_msg_psil_unpair - Unpairs a PSI-L source thread from a
+ *				   destination thread
+ * @hdr:	Generic Header
+ * @nav_id:	SoC Navigator Subsystem device ID whose PSI-L config proxy is
+ *		used to unpair the source and destination threads.
+ * @src_thread:	PSI-L source thread ID within the PSI-L System thread map.
+ *
+ * UDMAP transmit channels mapped to source threads will have their
+ * TCHAN_THRD_ID register cleared if the unpairing is successful.
+ *
+ * @dst_thread: PSI-L destination thread ID within the PSI-L System thread map.
+ * PSI-L destination threads start at index 0x8000.  The request is NACK'd if
+ * the destination thread is not greater than or equal to 0x8000.
+ *
+ * UDMAP receive channels mapped to destination threads will have their
+ * RCHAN_THRD_ID register cleared if the unpairing is successful.
+ *
+ * Request type is TI_SCI_MSG_RM_PSIL_UNPAIR, response is a generic ACK or NACK
+ * message.
+ */
+struct ti_sci_msg_psil_unpair {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 src_thread;
+	u32 dst_thread;
 } __packed;
 
 #endif /* __TI_SCI_H */

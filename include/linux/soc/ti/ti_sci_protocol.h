@@ -272,6 +272,26 @@ struct ti_sci_rm_ringacc_ops {
 };
 
 /**
+ * struct ti_sci_rm_psil_ops - PSI-L thread operations
+ * @pair: pair PSI-L source thread to a destination thread.
+ *	If the src_thread is mapped to UDMA tchan, the corresponding channel's
+ *	TCHAN_THRD_ID register is updated.
+ *	If the dst_thread is mapped to UDMA rchan, the corresponding channel's
+ *	RCHAN_THRD_ID register is updated.
+ * @unpair: unpair PSI-L source thread from a destination thread.
+ *	If the src_thread is mapped to UDMA tchan, the corresponding channel's
+ *	TCHAN_THRD_ID register is cleared.
+ *	If the dst_thread is mapped to UDMA rchan, the corresponding channel's
+ *	RCHAN_THRD_ID register is cleared.
+ */
+struct ti_sci_rm_psil_ops {
+	int (*pair)(const struct ti_sci_handle *handle, u32 nav_id,
+		    u32 src_thread, u32 dst_thread);
+	int (*unpair)(const struct ti_sci_handle *handle, u32 nav_id,
+		      u32 src_thread, u32 dst_thread);
+};
+
+/**
  * struct ti_sci_ops - Function support for TI SCI
  * @dev_ops:	Device specific operations
  * @clk_ops:	Clock specific operations
@@ -284,6 +304,7 @@ struct ti_sci_ops {
 	struct ti_sci_clk_ops clk_ops;
 	struct ti_sci_irq_ops irq_ops;
 	struct ti_sci_rm_ringacc_ops rm_ring_ops;
+	struct ti_sci_rm_psil_ops rm_psil_ops;
 };
 
 /**
