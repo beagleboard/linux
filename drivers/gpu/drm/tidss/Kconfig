@@ -12,3 +12,19 @@ config DRM_TIDSS
 	  time of writing this these DSSs are found on 66AK2Gx and
 	  AM6x SoCs. Set this to Y or M to add display support for
 	  TI Keystone family platforms.
+
+if DRM_TIDSS
+
+config DRM_TIDSS_DSS6
+	bool "DSS6 support"
+	default y
+	help
+	  Support for DSS6 IP on K2G SoC
+
+config DRM_TIDSS_DSS7
+	bool "DSS7 support"
+	default y
+	help
+	  Support for DSS7 IP on AM6 SoC
+
+endif
