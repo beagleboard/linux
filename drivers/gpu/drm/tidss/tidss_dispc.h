@@ -141,5 +141,6 @@ struct dispc_ops {
 };
 
 int dispc6_init(struct tidss_device *tidss);
+int dispc7_init(struct tidss_device *tidss);
 
 #endif

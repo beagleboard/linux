@@ -30,8 +30,13 @@ static const struct tidss_features tidss_k2g_feats = {
 	.dispc_init = dispc6_init,
 };
 
+static const struct tidss_features tidss_am6_feats = {
+	.dispc_init = dispc7_init,
+};
+
 static const struct of_device_id tidss_of_table[] = {
 	{ .compatible = "ti,k2g-dss", .data = &tidss_k2g_feats },
+	{ .compatible = "ti,am6-dss", .data = &tidss_am6_feats },
 	{ }
 };
 
