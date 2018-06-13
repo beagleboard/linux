@@ -67,6 +67,12 @@
 #define TI_SCI_MSG_SET_IRQ		0x1000
 #define TI_SCI_MSG_FREE_IRQ		0x1001
 
+/* Ringacc requests */
+#define TI_SCI_MSG_RM_RING_ALLOCATE	0x1100
+#define TI_SCI_MSG_RM_RING_FREE		0x1101
+#define TI_SCI_MSG_RM_RING_RECONFIG	0x1102
+#define TI_SCI_MSG_RM_RING_RESET	0x1103
+
 /**
  * struct ti_sci_msg_hdr - Generic Message Header for All messages and responses
  * @type:	Type of messages: One of TI_SCI_MSG* values
@@ -573,6 +579,211 @@ struct ti_sci_msg_req_free_irq {
 	u32 global_event;
 	u32 group;
 	u8 secondary_host;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_allocate - Ring Accelerator Ring Allocate
+ * @hdr: Generic Header
+ * @secondary_host: Specifies a host ID for which the TISCI header host ID
+ *	is proxying the request for.
+ * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
+ * @index: Ring index. A valid value will result in a static allocation and
+ *	configuration of the specified ring.
+ *	Passing @TI_SCI_RING_NULL_RING_INDEX will result in the allocation of
+ *	the next free ring within the subset of rings of
+ *	@ti_sci_msg_ring_allocate::type.
+ * @addr_lo: The ring base address must be aligned to the "size" parameter
+ *	setting when the ring is configured for RING or MESSAGE modes.
+ *	For CREDENTIALS and QM modes the ring base address must be aligned to
+ *	a 4k byte boundary 32 LSBs of ring base address to be programmed
+ *	into the ring's RING_BA_LO register.
+ * @addr_hi: See "addr_lo" description,
+ * @count: Number of ring elements. Must be even if mode is CREDENTIALS or QM
+ *	modes.
+ * @mode: Specifies the mode the ring is to be configured as. Allowed values:
+ *	@TI_SCI_RING_MODE_RING
+ *	@TI_SCI_RING_MODE_MESSAGE
+ *	@TI_SCI_RING_MODE_CREDENTIALS
+ *	@TI_SCI_RING_MODE_QM
+ * @size: Specifies the ring element size. To calculate the encoded size use
+ *	the formula (log2(size_bytes) - 2), where size_bytes cannot be
+ *	greater than 256.
+ * @order_id: Specifies the ring's bus order ID. To use the default order ID
+ *	this value must be @TI_SCI_RING_NULL_ORDER_ID. Otherwise, the specified
+ *	order ID will be programmed as the ring's bus order ID.
+ * @share: Specifies whether the allocated and configured ring is unshared,
+ *	limited shared, or open shared. Requests for an already allocated,
+ *	shared ring view this value as don't care as long as a valid value is
+ *	provided.
+ * @type: Specifies the ring type to be allocated for dynamic ring requests
+ *	where the index is @TI_SCI_RING_NULL_RING_INDEX.
+ *	NACK will be returned if both the ring index and type parameters
+ *	are valid.
+ *
+ * Request type is TI_SCI_MSG_RM_RING_ALLOCATE, responded with the ring index
+ * allocated if the request was successful.
+ *
+ * Allocates and configures the non-real-time registers of a Navigator
+ * Subsystem ring.  The message provides two methods for ring allocation,
+ * static and dynamic. Static allocation occurs when the
+ * @ti_sci_msg_ring_allocate::index parameter is set to a valid ring
+ * index. In this case, TISCI RM will allocate and configure the specified ring
+ * index. A static request will be NACK'd if the @ti_sci_msg_ring_allocate::type
+ * parameter is not set to @TI_SCI_RING_NULL_RING_TYPE. The ring type is
+ * redundant in static requests since TISCI RM assumes the user knows which ring
+ * type is being allocated. Dynamic allocation occurs when the index parameter
+ * contains @TI_SCI_RING_NULL_RING_INDEX. In this case,
+ * @ti_sci_msg_ring_allocate::type must be set to a valid ring type
+ * from which TISCI RM will allocate and configure the next free ring. The
+ * allocated and configured ring index will be returned in the
+ * @ti_sci_msg_ring_allocate_resp message for both allocation methods.
+ */
+struct ti_sci_msg_ring_allocate {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	u32 addr_lo;
+	u32 addr_hi;
+	u32 count;
+	u8 mode;
+	u8 size;
+	u8 order_id;
+	u8 share;
+	u16 type;
+	u8 secondary_host;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_allocate_resp - Ring allocate response message
+ * @hdr: Generic Header
+ * @index: Allocated and configured Ring Accelerator ring index. The ring will
+ *	be allocated from the Navigator Subsystem specified in the allocate
+ *	request @ti_sci_msg_ring_allocate::nav_id parameter. Only valid if
+ *	message is ACK'd, but will be NULL anyway if NACK'd.
+ *
+ * Response to request type TI_SCI_MSG_RM_RING_ALLOCATE
+ */
+struct ti_sci_msg_ring_allocate_resp {
+	struct ti_sci_msg_hdr hdr;
+	u32 index;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_allocate_resp - Free and clear Ring Accelerator ring
+ * @hdr: Generic Header
+ * @index: ring index to be freed. Shared rings must be freed the same number of
+ *	times they were allocated.
+ * @secondary_host: Specifies a host ID for which the TISCI header host ID
+ *	is proxying the request for.
+ * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
+ *
+ * Free SoC Navigator Subsystem Ring Accelerator rings that were allocated
+ * via @TI_SCI_MSG_RM_RING_ALLOCATE TISCI message. Freeing a ring does not reset
+ * the ring registers. Firewall access to the ring's real-time registers for
+ * the host sending the ring free request will be revoked.
+ *
+ * Request type is TI_SCI_MSG_RM_RING_FREE, response is a generic
+ * ACK or NACK message.
+ */
+struct ti_sci_msg_ring_free {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	u8 secondary_host;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_reset - Resets a Navigator Subsystem ring
+ * @hdr:	Generic Header
+ * @nav_id:	SoC Navigator Subsystem device ID from which the ring was
+ *		allocated
+ * @index:	Ring index. Passing @RM_TISCI_MSG_NULL_RING_INDEX will result
+ *		in a NACK.
+ *
+ * Reset a ring allocated via @ti_sci_msg_ring_allocate.  Resetting a
+ * ring resets the ring's occupancies and pointers.  The host, or a
+ * supervisor of the host, who owns the ring must be the requesting host.
+ *
+ * Request type is TI_SCI_MSG_RM_RING_RESET, response is a generic
+ * ACK or NACK message.
+ */
+struct ti_sci_msg_ring_reset {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_reconfig - Reconfigure a Navigator Subsystem ring
+ *
+ * Reconfigures the non-real-time register fields of a ring allocated via
+ * @tisci_msg_rm_ring_allocate_req.  The host, or a supervisor of the host, who
+ * owns the ring must be the requesting host.  The value of the non-real-time
+ * register parameters prior to the reconfiguration taking place are returned
+ * in @tisci_msg_rm_ring_reconfig_resp.
+ *
+ * @hdr:	Generic Header
+ * @nav_id:	SoC Navigator Subsystem device ID from which the ring was
+ *		allocated
+ * @index:	Ring index. Passing @RM_TISCI_MSG_NULL_RING_INDEX will result
+ *		in a NACK.
+ * @addr_hi: See "addr_lo" description,
+ * @addr_lo: The ring base address must be aligned to the "size" parameter
+ *	setting when the ring is configured for RING or MESSAGE modes.
+ *	For CREDENTIALS and QM modes the ring base address must be aligned to
+ *	a 4k byte boundary 32 LSBs of ring base address to be programmed
+ *	into the ring's RING_BA_LO register.
+ * @count: Number of ring elements. Must be even if mode is CREDENTIALS or QM
+ *	modes.
+ * @mode: Specifies the mode the ring is to be configured as. Allowed values:
+ *	@TI_SCI_RING_MODE_RING
+ *	@TI_SCI_RING_MODE_MESSAGE
+ *	@TI_SCI_RING_MODE_CREDENTIALS
+ *	@TI_SCI_RING_MODE_QM
+ * @size: Specifies the ring element size. To calculate the encoded size use
+ *	the formula (log2(size_bytes) - 2), where size_bytes cannot be
+ *	greater than 256.
+ * @order_id: Specifies the ring's bus order ID. To use the default order ID
+ *	this value must be @TI_SCI_RING_NULL_ORDER_ID. Otherwise, the specified
+ *	order ID will be programmed as the ring's bus order ID.
+ */
+struct ti_sci_msg_ring_reconfig {
+	struct ti_sci_msg_hdr	hdr;
+	u32			nav_id;
+	u32			index;
+	u32			addr_lo;
+	u32			addr_hi;
+	u32			count;
+	u8			mode;
+	u8			size;
+	u8			order_id;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_reconfig_resp - Ring reconfigure response message
+ *
+ * Response received by host processor after RM has handled
+ * @ref tisci_msg_rm_ring_reconfig_req. The response contains the ring's
+ * non-real-time register values before it was reconfigured.
+ *
+ * @hdr:	Generic Header
+ * @old_addr_lo: Ring 32 LSBs of base address prior to the reconfiguration
+ *		 taking place.
+ * @old_addr_hi: Ring 16 MSBs of base address prior to the reconfiguration
+ *		 taking place.
+ * @old_count: Ring number of elements prior to the reconfiguration taking place
+ * @old_mode: Ring mode prior to the reconfiguration taking place
+ * @old_size: Ring element size prior to the reconfiguration taking place
+ * @old_order_id: Ring order ID prior to the reconfiguration taking place
+ */
+struct ti_sci_msg_ring_reconfig_resp {
+	struct ti_sci_msg_hdr	hdr;
+	u32			old_addr_lo;
+	u32			old_addr_hi;
+	u32			old_count;
+	u8			old_mode;
+	u8			old_size;
+	u8			old_order_id;
 } __packed;
 
 #endif /* __TI_SCI_H */

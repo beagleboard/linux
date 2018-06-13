@@ -1766,6 +1766,294 @@ fail:
 	return ret;
 }
 
+/**
+ * ti_sci_cmd_ring_allocate() - Allocate RA ring
+ * @handle:	pointer to TI SCI handle
+ * @secondary_host: Specifies a host ID for which the TISCI header host ID
+ *	is proxying the request for.
+ * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
+ * @index: Ring index.
+ * @addr_lo: The ring base address lo 32 bits
+ * @addr_hi: The ring base address hi 32 bits
+ * @count: Number of ring elements.
+ * @mode: The mode of the ring
+ * @size: The ring element size.
+ * @order_id: Specifies the ring's bus order ID.
+ * @share: Specifies whether the allocated and configured ring is unshared,
+ *	limited shared, or open shared.
+ * @type: Specifies the ring type to be allocated for dynamic ring requests
+ *
+ * Return: 0 if all went well, else returns appropriate error value.
+ *
+ * See @ti_sci_msg_ring_allocate for more info.
+ */
+static int ti_sci_cmd_ring_allocate(
+			      const struct ti_sci_handle *handle,
+			      u8 s_host, u32 nav_id, u32 *index,
+			      u32 addr_lo, u32 addr_hi,
+			      u32 count, u8 mode, u8 size,
+			      u8 order_id,
+			      u8 share,
+			      u16 type)
+{
+	struct ti_sci_msg_ring_allocate_resp *resp;
+	struct ti_sci_msg_ring_allocate *req;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle || !index)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_RING_ALLOCATE,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "RM_RA:Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_ring_allocate *)xfer->xfer_buf;
+	req->secondary_host = s_host;
+	req->nav_id = nav_id;
+	req->index = *index;
+	req->addr_lo = addr_lo;
+	req->addr_hi = addr_hi;
+	req->count = count;
+	req->mode = mode;
+	req->size = size;
+	req->order_id = order_id;
+	req->share = share;
+	req->type = type;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "RM_RA:Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_ring_allocate_resp *)xfer->xfer_buf;
+
+	if (!ti_sci_is_response_ack(resp))
+		ret = -ENODEV;
+	else
+		*index = resp->index;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+	dev_dbg(dev, "RM_RA:allocate ring %u ret:%d\n", *index, ret);
+
+	return ret;
+}
+
+/**
+ * ti_sci_cmd_ring_free() - Free RA ring
+ * @handle:	pointer to TI SCI handle
+ * @secondary_host: Specifies a host ID for which the TISCI header host ID
+ *	is proxying the request for.
+ * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
+ * @index: Ring index.
+ *
+ * Return: 0 if all went well, else returns appropriate error value.
+ *
+ * See @ti_sci_msg_ring_free for more info.
+ */
+static int ti_sci_cmd_ring_free(const struct ti_sci_handle *handle,
+				u8 s_host, u32 nav_id, u32 index)
+{
+	struct ti_sci_msg_ring_free *req;
+	struct ti_sci_msg_hdr *resp;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_RING_FREE,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "RM_RA:Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_ring_free *)xfer->xfer_buf;
+	req->secondary_host = s_host;
+	req->nav_id = nav_id;
+	req->index = index;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "RM_RA:Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
+
+	ret = ti_sci_is_response_ack(resp) ? 0 : -ENODEV;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+	dev_dbg(dev, "RM_RA:free ring %u ret:%d\n", index, ret);
+
+	return ret;
+}
+
+/**
+ * ti_sci_cmd_ring_reset() - Reset RA ring
+ * @handle:	pointer to TI SCI handle
+ * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
+ * @index: Ring index.
+ *
+ * Return: 0 if all went well, else returns appropriate error value.
+ *
+ * See @ti_sci_msg_ring_reset for more info.
+ */
+static int ti_sci_cmd_ring_reset(const struct ti_sci_handle *handle,
+				 u32 nav_id, u32 index)
+{
+	struct ti_sci_msg_ring_reset *req;
+	struct ti_sci_msg_hdr *resp;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_RING_RESET,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "RM_RA:Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_ring_reset *)xfer->xfer_buf;
+	req->nav_id = nav_id;
+	req->index = index;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "RM_RA:Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
+
+	ret = ti_sci_is_response_ack(resp) ? 0 : -ENODEV;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+	dev_dbg(dev, "RM_RA:reset ring %u ret:%d\n", index, ret);
+
+	return ret;
+}
+
+/**
+ * ti_sci_cmd_ring_reconfig() - Reconfigure qmode RA ring
+ * @handle:	pointer to TI SCI handle
+ * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
+ * @index: Ring index.
+ * @mode: The mode of the ring
+ *
+ * Return: 0 if all went well, else returns appropriate error value.
+ *
+ * See @ti_sci_msg_ring_reconfig for more info.
+ */
+static int ti_sci_cmd_ring_reconfig(
+			      const struct ti_sci_handle *handle,
+			      u32 nav_id, u32 index, u8 *mode,
+			      u32 *addr_lo,
+			      u32 *addr_hi,
+			      u32 *count,
+			      u8 *size,
+			      u8 *order_id)
+{
+	struct ti_sci_msg_ring_reconfig_resp *resp;
+	struct ti_sci_msg_ring_reconfig *req;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle || !index)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_RING_RECONFIG,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "RM_RA:Message reconfig failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_ring_reconfig *)xfer->xfer_buf;
+	req->nav_id = nav_id;
+	req->index = index;
+	req->addr_lo = addr_lo ? *addr_lo : TI_SCI_RM_NULL_U32;
+	req->addr_hi = addr_hi ? *addr_hi : TI_SCI_RM_NULL_U32;
+	req->count = count ? *count : TI_SCI_RM_NULL_U32;
+	req->mode = mode ? *mode : TI_SCI_RM_NULL_U8;
+	req->size = size ? *size : TI_SCI_RM_NULL_U8;
+	req->order_id = order_id ? *order_id : TI_SCI_RM_NULL_U8;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "RM_RA:Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_ring_reconfig_resp *)xfer->xfer_buf;
+
+	if (!ti_sci_is_response_ack(resp)) {
+		ret = -ENODEV;
+	} else {
+		if (mode)
+			*mode = resp->old_mode;
+		if (addr_lo)
+			*addr_lo = resp->old_addr_lo;
+		if (addr_hi)
+			*addr_hi = resp->old_addr_hi;
+		if (count)
+			*count = resp->old_count;
+		if (size)
+			*size = resp->old_size;
+		if (order_id)
+			*order_id = resp->old_order_id;
+	};
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+	dev_dbg(dev, "RM_RA:reconfig ring %u ret:%d\n", index, ret);
+
+	return ret;
+}
+
 /*
  * ti_sci_setup_ops() - Setup the operations structures
  * @info:	pointer to TISCI pointer
@@ -1777,6 +2065,7 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 	struct ti_sci_dev_ops *dops = &ops->dev_ops;
 	struct ti_sci_clk_ops *cops = &ops->clk_ops;
 	struct ti_sci_irq_ops *iops = &ops->irq_ops;
+	struct ti_sci_rm_ringacc_ops *rops = &ops->rm_ring_ops;
 
 	core_ops->reboot_device = ti_sci_cmd_core_reboot;
 
@@ -1810,6 +2099,11 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 
 	iops->set_irq = ti_sci_cmd_set_irq;
 	iops->free_irq = ti_sci_cmd_free_irq;
+
+	rops->allocate = ti_sci_cmd_ring_allocate;
+	rops->free = ti_sci_cmd_ring_free;
+	rops->reset = ti_sci_cmd_ring_reset;
+	rops->reconfig = ti_sci_cmd_ring_reconfig;
 }
 
 /**
