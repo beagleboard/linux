@@ -200,6 +200,10 @@ struct ti_sci_clk_ops {
 			u64 *current_freq);
 };
 
+#define TI_SCI_RM_NULL_U8			((u8)~0U)
+#define TI_SCI_RM_NULL_U16			((u16)~0U)
+#define TI_SCI_RM_NULL_U32			((u32)~0U)
+
 /**
  * struct ti_sci_ops - Function support for TI SCI
  * @dev_ops:	Device specific operations
