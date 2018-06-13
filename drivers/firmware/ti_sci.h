@@ -63,6 +63,10 @@
 #define TI_SCI_MSG_QUERY_CLOCK_FREQ	0x010d
 #define TI_SCI_MSG_GET_CLOCK_FREQ	0x010e
 
+/* IRQ requests */
+#define TI_SCI_MSG_SET_IRQ		0x1000
+#define TI_SCI_MSG_FREE_IRQ		0x1001
+
 /**
  * struct ti_sci_msg_hdr - Generic Message Header for All messages and responses
  * @type:	Type of messages: One of TI_SCI_MSG* values
@@ -487,6 +491,88 @@ struct ti_sci_msg_req_get_clock_freq {
 struct ti_sci_msg_resp_get_clock_freq {
 	struct ti_sci_msg_hdr hdr;
 	u64 freq_hz;
+} __packed;
+
+/**
+ * struct ti_sci_msg_req_set_irq - Request to configure the route between
+ *				   the dev and the host.
+ * @hdr:		Generic Header
+ * @dev_id:		IRQ source peripheral ID.
+ * @irq:		IRQ source offset within the peripheral
+ * @group:		The requested IRQ will be added to this virtual
+ *			interrupt group.
+ *			In order to create a new virtual interrupt group
+ *			this should be -1 along with @share field enabled.
+ * @share:		If enabled, the resultant IRQ will be shared with
+ *			other events.
+ * @poll:		If non-zero, the configured IRQ will not result
+ *			in a physical interrupt.
+ * @secondary_host:	Host ID of the IRQ destination computing entity. This is
+ *			required only when destination host id is different
+ *			from ti sci interface host id, else the invalid host id
+ *			value of TI_SCI_IRQ_SECONDARY_HOST_INVALID (0xFF) can be
+ *			passed.
+ *
+ * Request type is TI_SCI_MSG_SET_IRQ. Responded with IRQ number of the host
+ * interrupt controller input which is of type TI_SCI_MSG_SET_IRQ.
+ */
+struct ti_sci_msg_req_set_irq {
+	struct ti_sci_msg_hdr hdr;
+	u16 dev_id;
+	u16 irq;
+	u32 group;
+	u8 share;
+	u8 pool;
+	u8 secondary_host;
+} __packed;
+
+/**
+ * struct ti_sci_msg_resp_set_irq - Response to the IRQ set.
+ * @hdr:		Generic header
+ * @global_event:	Global event routed within IA to virtual interrupt.
+ * @ia_id:		SoC dev ID of the IA programmed as part of the
+ *			IRQ route to the host processor. A (-1) is returned
+ *			if the route is successfully programmed but does
+ *			not contain an IA within it.
+ * @vint:		Virtual interrupt number of the resultant IRQ.
+ * @group:		Virtual interrupt group to which the IRQ belongs.
+ * @host_irq:		IRQ number as per the host interrupt controller input
+ * @vint_status_bit:	Virtual interrupt status bit.
+ *
+ * Response to request type TI_SCI_MSG_SET_IRQ.
+ */
+struct ti_sci_msg_resp_set_irq {
+	struct ti_sci_msg_hdr hdr;
+	u32 global_event;
+	u32 ia_id;
+	u32 vint;
+	u32 group;
+	u16 host_irq;
+	u8 vint_status_bit;
+} __packed;
+
+/**
+ * struct ti_sci_msg_req_free_irq - Request to release irq.
+ * @dev_id:		IRQ source peripheral ID.
+ * @irq:		IRQ source offset within the peripheral
+ * @global_event:	Global event programmed as part of IRQ route.
+ * @group:		Virtual interrupt group number to which the IRQ belongs.
+ * @secondary_host:	Host ID of the IRQ destination computing entity. This is
+ *			required only when destination host id is different
+ *			from ti sci interface host id, else the invalid host id
+ *			value of TI_SCI_IRQ_SECONDARY_HOST_INVALID (0xFF) can be
+ *			passed.
+ *
+ * Request type is TI_SCI_MSG_FREE_IRQ, response is a generic ACK/NACK
+ * message.
+ */
+struct ti_sci_msg_req_free_irq {
+	struct ti_sci_msg_hdr hdr;
+	u16 dev_id;
+	u16 irq;
+	u32 global_event;
+	u32 group;
+	u8 secondary_host;
 } __packed;
 
 #endif /* __TI_SCI_H */

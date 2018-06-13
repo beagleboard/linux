@@ -204,15 +204,45 @@ struct ti_sci_clk_ops {
 #define TI_SCI_RM_NULL_U16			((u16)~0U)
 #define TI_SCI_RM_NULL_U32			((u32)~0U)
 
+#define TI_SCI_IRQ_SECONDARY_HOST_INVALID	0xff
+#define TI_SCI_IRQ_GLOBAL_EVENT_NULL		0xffffffff
+#define TI_SCI_IRQ_SHARE_DISABLE		0
+#define TI_SCI_IRQ_POLL_DISABLE			0
+#define TI_SCI_IRQ_SHARE_ENABLE			1
+#define TI_SCI_IRQ_POLL_ENABLE			1
+#define TI_SCI_IRQ_GROUP_NULL			0xffffffff
+#define TI_SCI_IRQ_VINT_NULL			0xffffffff
+#define TI_SCI_IRQ_IA_NULL			0xffffffff
+
+/**
+ * struct ti_sci_irq_ops: IRQ management operations
+ * @set_irq:	Command to configure IRQ route between host and the device.
+ *		Returns 0 for successful route configuration, else return
+ *		corresponding error message.
+ * @free_irq:	Command to free the IRQ route between the host and the device.
+ *		Returns 0 for successful IRQ free, else return corresponding
+ *		error message.
+ */
+struct ti_sci_irq_ops {
+	int (*set_irq)(const struct ti_sci_handle *handle, u8 s_host,
+		       u16 dev, u16 irq, u8 share, u8 poll, u32 *group,
+		       u32 *glb_evt, u32 *ia_id, u32 *vint, u16 *host_irq,
+		       u8 *vint_status_bit);
+	int (*free_irq)(const struct ti_sci_handle *handle, u8 s_host,
+			u16 dev_id, u16 irq, u32 glb_evt, u32 hw_group);
+};
+
 /**
  * struct ti_sci_ops - Function support for TI SCI
  * @dev_ops:	Device specific operations
  * @clk_ops:	Clock specific operations
+ * @irq_ops:	IRQ management specific operations
  */
 struct ti_sci_ops {
 	struct ti_sci_core_ops core_ops;
 	struct ti_sci_dev_ops dev_ops;
 	struct ti_sci_clk_ops clk_ops;
+	struct ti_sci_irq_ops irq_ops;
 };
 
 /**

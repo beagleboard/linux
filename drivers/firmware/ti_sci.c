@@ -1625,6 +1625,147 @@ fail:
 	return ret;
 }
 
+/**
+ * ti_sci_cmd_set_irq() - Command to configure the route between the dev and
+ *			  the host and get the host irq in response.
+ * @handle:	Pointer to TISCI handle.
+ * @s_host:	Host ID of the IRQ destination. A negative value
+ *		can be passed if destination host id is same as the ti-sci
+ *		interface host id.
+ * @dev:	IRQ source peripheral ID.
+ * @irq:	IRQ source offset within the peripheral.
+ * @share:	If enabled, the resultant IRQ will be shared with other events.
+ * @poll:	If non-zero, the configured IRQ will not result in a
+ *		physical interrupt.
+ * @group:	The requested IRQ will be added to this virtual interrupt group.
+ *		In order to create a new virtual interrupt group this should be
+ *		-1 along with @share field enabled.
+ * @host_irq:	Input IRQ number to host interrupt controller.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_set_irq(const struct ti_sci_handle *handle, u8 s_host,
+			      u16 dev_id, u16 irq, u8 share, u8 poll,
+			      u32 *group, u32 *glb_evt, u32 *ia_id, u32 *vint,
+			      u16 *host_irq, u8 *vint_status_bit)
+{
+	struct ti_sci_msg_resp_set_irq *resp;
+	struct ti_sci_msg_req_set_irq *req;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_SET_IRQ,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_req_set_irq *)xfer->xfer_buf;
+	req->secondary_host = s_host;
+	req->dev_id = dev_id;
+	req->irq = irq;
+	req->share = share;
+	req->pool = poll;
+	req->group = *group;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_resp_set_irq *)xfer->xfer_buf;
+
+	if (!ti_sci_is_response_ack(resp)) {
+		ret = -ENODEV;
+	} else {
+		*glb_evt = resp->global_event;
+		*ia_id = resp->ia_id;
+		*vint = resp->vint;
+		*group = resp->group;
+		*host_irq = resp->host_irq;
+		*vint_status_bit = resp->vint_status_bit;
+	};
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+/**
+ * ti_sci_cmd_free_irq() - Command to free host's IRQ from dev.
+ * @handle:	Pointer to TISCI handle.
+ * @s_host:	Host ID of the interrupt route destination. A negative value
+ *		can be passed if destination host id is same as the ti-sci
+ *		interface host id.
+ * @dev_id:	Interrupt source peripheral ID.
+ * @irq:	IRQ source within the peripheral.
+ * @group:	virtual interrupt group ID. -1 can be passed if not applicable.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_free_irq(const struct ti_sci_handle *handle, u8 s_host,
+			       u16 dev_id, u16 irq, u32 glb_evt, u32 group)
+{
+	struct ti_sci_msg_req_free_irq *req;
+	struct ti_sci_msg_hdr *resp;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_FREE_IRQ,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_req_free_irq *)xfer->xfer_buf;
+	req->secondary_host = s_host;
+	req->dev_id = dev_id;
+	req->irq = irq;
+	req->global_event = glb_evt;
+	req->group = group;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
+
+	ret = ti_sci_is_response_ack(resp) ? 0 : -ENODEV;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
 /*
  * ti_sci_setup_ops() - Setup the operations structures
  * @info:	pointer to TISCI pointer
@@ -1635,6 +1776,7 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 	struct ti_sci_core_ops *core_ops = &ops->core_ops;
 	struct ti_sci_dev_ops *dops = &ops->dev_ops;
 	struct ti_sci_clk_ops *cops = &ops->clk_ops;
+	struct ti_sci_irq_ops *iops = &ops->irq_ops;
 
 	core_ops->reboot_device = ti_sci_cmd_core_reboot;
 
@@ -1665,6 +1807,9 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 	cops->get_best_match_freq = ti_sci_cmd_clk_get_match_freq;
 	cops->set_freq = ti_sci_cmd_clk_set_freq;
 	cops->get_freq = ti_sci_cmd_clk_get_freq;
+
+	iops->set_irq = ti_sci_cmd_set_irq;
+	iops->free_irq = ti_sci_cmd_free_irq;
 }
 
 /**
