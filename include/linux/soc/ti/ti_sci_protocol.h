@@ -225,6 +225,8 @@ struct ti_sci_handle {
 const struct ti_sci_handle *ti_sci_get_handle(struct device *dev);
 int ti_sci_put_handle(const struct ti_sci_handle *handle);
 const struct ti_sci_handle *devm_ti_sci_get_handle(struct device *dev);
+const struct ti_sci_handle *ti_sci_get_by_phandle(struct device_node *np,
+						  const char *property);
 
 #else	/* CONFIG_TI_SCI_PROTOCOL */
 
@@ -240,6 +242,13 @@ static inline int ti_sci_put_handle(const struct ti_sci_handle *handle)
 
 static inline
 const struct ti_sci_handle *devm_ti_sci_get_handle(struct device *dev)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+static inline
+const struct ti_sci_handle *ti_sci_get_by_phandle(struct device_node *np,
+						  const char *property)
 {
 	return ERR_PTR(-EINVAL);
 }
