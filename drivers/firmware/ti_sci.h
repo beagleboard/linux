@@ -63,6 +63,28 @@
 #define TI_SCI_MSG_QUERY_CLOCK_FREQ	0x010d
 #define TI_SCI_MSG_GET_CLOCK_FREQ	0x010e
 
+/* IRQ requests */
+#define TI_SCI_MSG_SET_IRQ		0x1000
+#define TI_SCI_MSG_FREE_IRQ		0x1001
+
+/* NAVSS resource management */
+/* Ringacc requests */
+#define TI_SCI_MSG_RM_RING_ALLOCATE		0x1100
+#define TI_SCI_MSG_RM_RING_FREE			0x1101
+#define TI_SCI_MSG_RM_RING_RECONFIG		0x1102
+#define TI_SCI_MSG_RM_RING_RESET		0x1103
+
+/* PSI-L requests */
+#define TI_SCI_MSG_RM_PSIL_PAIR			0x1280
+#define TI_SCI_MSG_RM_PSIL_UNPAIR		0x1281
+
+#define TI_SCI_MSG_RM_UDMAP_TX_ALLOC		0x1200
+#define TI_SCI_MSG_RM_UDMAP_TX_FREE		0x1201
+#define TI_SCI_MSG_RM_UDMAP_RX_ALLOC		0x1210
+#define TI_SCI_MSG_RM_UDMAP_RX_FREE		0x1211
+#define TI_SCI_MSG_RM_UDMAP_FLOW_CFG		0x1220
+#define TI_SCI_MSG_RM_UDMAP_OPT_FLOW_CFG	0x1221
+
 /**
  * struct ti_sci_msg_hdr - Generic Message Header for All messages and responses
  * @type:	Type of messages: One of TI_SCI_MSG* values
@@ -488,5 +510,462 @@ struct ti_sci_msg_resp_get_clock_freq {
 	struct ti_sci_msg_hdr hdr;
 	u64 freq_hz;
 } __packed;
+
+/**
+ * struct ti_sci_msg_req_set_irq - Request to configure the route between
+ *				   the dev and the host.
+ * @hdr:		Generic Header
+ * @dev_id:		IRQ source peripheral ID.
+ * @irq:		IRQ source offset within the peripheral
+ * @group:		The requested IRQ will be added to this virtual
+ *			interrupt group.
+ *			In order to create a new virtual interrupt group
+ *			this should be -1 along with @share field enabled.
+ * @share:		If enabled, the resultant IRQ will be shared with
+ *			other events.
+ * @poll:		If non-zero, the configured IRQ will not result
+ *			in a physical interrupt.
+ * @secondary_host:	Host ID of the IRQ destination computing entity. This is
+ *			required only when destination host id is different
+ *			from ti sci interface host id, else the invalid host id
+ *			value of TI_SCI_IRQ_SECONDARY_HOST_INVALID (0xFF) can be
+ *			passed.
+ *
+ * Request type is TI_SCI_MSG_SET_IRQ. Responded with IRQ number of the host
+ * interrupt controller input which is of type TI_SCI_MSG_SET_IRQ.
+ */
+struct ti_sci_msg_req_set_irq {
+	struct ti_sci_msg_hdr hdr;
+	u16 dev_id;
+	u16 irq;
+	u32 group;
+	u8 share;
+	u8 pool;
+	u8 secondary_host;
+} __packed;
+
+/**
+ * struct ti_sci_msg_resp_set_irq - Response to the IRQ set.
+ * @hdr:		Generic header
+ * @global_event:	Global event routed within IA to virtual interrupt.
+ * @ia_id:		SoC dev ID of the IA programmed as part of the
+ *			IRQ route to the host processor. A (-1) is returned
+ *			if the route is successfully programmed but does
+ *			not contain an IA within it.
+ * @vint:		Virtual interrupt number of the resultant IRQ.
+ * @group:		Virtual interrupt group to which the IRQ belongs.
+ * @host_irq:		IRQ number as per the host interrupt controller input
+ * @vint_status_bit:	Virtual interrupt status bit.
+ *
+ * Response to request type TI_SCI_MSG_SET_IRQ.
+ */
+struct ti_sci_msg_resp_set_irq {
+	struct ti_sci_msg_hdr hdr;
+	u32 global_event;
+	u32 ia_id;
+	u32 vint;
+	u32 group;
+	u16 host_irq;
+	u8 vint_status_bit;
+} __packed;
+
+/**
+ * struct ti_sci_msg_req_free_irq - Request to release irq.
+ * @dev_id:		IRQ source peripheral ID.
+ * @irq:		IRQ source offset within the peripheral
+ * @global_event:	Global event programmed as part of IRQ route.
+ * @group:		Virtual interrupt group number to which the IRQ belongs.
+ * @secondary_host:	Host ID of the IRQ destination computing entity. This is
+ *			required only when destination host id is different
+ *			from ti sci interface host id, else the invalid host id
+ *			value of TI_SCI_IRQ_SECONDARY_HOST_INVALID (0xFF) can be
+ *			passed.
+ *
+ * Request type is TI_SCI_MSG_FREE_IRQ, response is a generic ACK/NACK
+ * message.
+ */
+struct ti_sci_msg_req_free_irq {
+	struct ti_sci_msg_hdr hdr;
+	u16 dev_id;
+	u16 irq;
+	u32 global_event;
+	u32 group;
+	u8 secondary_host;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_allocate - Ring Accelerator Ring Allocate
+ * @hdr: Generic Header
+ * @secondary_host: Specifies a host ID for which the TISCI header host ID
+ *	is proxying the request for.
+ * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
+ * @index: Ring index. A valid value will result in a static allocation and
+ *	configuration of the specified ring.
+ *	Passing @TI_SCI_RING_NULL_RING_INDEX will result in the allocation of
+ *	the next free ring within the subset of rings of
+ *	@ti_sci_msg_ring_allocate::type.
+ * @addr_lo: The ring base address must be aligned to the "size" parameter
+ *	setting when the ring is configured for RING or MESSAGE modes.
+ *	For CREDENTIALS and QM modes the ring base address must be aligned to
+ *	a 4k byte boundary 32 LSBs of ring base address to be programmed
+ *	into the ring's RING_BA_LO register.
+ * @addr_hi: See "addr_lo" description,
+ * @count: Number of ring elements. Must be even if mode is CREDENTIALS or QM
+ *	modes.
+ * @mode: Specifies the mode the ring is to be configured as. Allowed values:
+ *	@TI_SCI_RING_MODE_RING
+ *	@TI_SCI_RING_MODE_MESSAGE
+ *	@TI_SCI_RING_MODE_CREDENTIALS
+ *	@TI_SCI_RING_MODE_QM
+ * @size: Specifies the ring element size. To calculate the encoded size use
+ *	the formula (log2(size_bytes) - 2), where size_bytes cannot be
+ *	greater than 256.
+ * @order_id: Specifies the ring's bus order ID. To use the default order ID
+ *	this value must be @TI_SCI_RING_NULL_ORDER_ID. Otherwise, the specified
+ *	order ID will be programmed as the ring's bus order ID.
+ * @share: Specifies whether the allocated and configured ring is unshared,
+ *	limited shared, or open shared. Requests for an already allocated,
+ *	shared ring view this value as don't care as long as a valid value is
+ *	provided.
+ * @type: Specifies the ring type to be allocated for dynamic ring requests
+ *	where the index is @TI_SCI_RING_NULL_RING_INDEX.
+ *	NACK will be returned if both the ring index and type parameters
+ *	are valid.
+ *
+ * Request type is TI_SCI_MSG_RM_RING_ALLOCATE, responded with the ring index
+ * allocated if the request was successful.
+ *
+ * Allocates and configures the non-real-time registers of a Navigator
+ * Subsystem ring.  The message provides two methods for ring allocation,
+ * static and dynamic. Static allocation occurs when the
+ * @ti_sci_msg_ring_allocate::index parameter is set to a valid ring
+ * index. In this case, TISCI RM will allocate and configure the specified ring
+ * index. A static request will be NACK'd if the @ti_sci_msg_ring_allocate::type
+ * parameter is not set to @TI_SCI_RING_NULL_RING_TYPE. The ring type is
+ * redundant in static requests since TISCI RM assumes the user knows which ring
+ * type is being allocated. Dynamic allocation occurs when the index parameter
+ * contains @TI_SCI_RING_NULL_RING_INDEX. In this case,
+ * @ti_sci_msg_ring_allocate::type must be set to a valid ring type
+ * from which TISCI RM will allocate and configure the next free ring. The
+ * allocated and configured ring index will be returned in the
+ * @ti_sci_msg_ring_allocate_resp message for both allocation methods.
+ */
+struct ti_sci_msg_ring_allocate {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	u32 addr_lo;
+	u32 addr_hi;
+	u32 count;
+	u8 mode;
+	u8 size;
+	u8 order_id;
+	u8 share;
+	u16 type;
+	u8 secondary_host;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_allocate_resp - Ring allocate response message
+ * @hdr: Generic Header
+ * @index: Allocated and configured Ring Accelerator ring index. The ring will
+ *	be allocated from the Navigator Subsystem specified in the allocate
+ *	request @ti_sci_msg_ring_allocate::nav_id parameter. Only valid if
+ *	message is ACK'd, but will be NULL anyway if NACK'd.
+ *
+ * Response to request type TI_SCI_MSG_RM_RING_ALLOCATE
+ */
+struct ti_sci_msg_ring_allocate_resp {
+	struct ti_sci_msg_hdr hdr;
+	u32 index;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_allocate_resp - Free and clear Ring Accelerator ring
+ * @hdr: Generic Header
+ * @index: ring index to be freed. Shared rings must be freed the same number of
+ *	times they were allocated.
+ * @secondary_host: Specifies a host ID for which the TISCI header host ID
+ *	is proxying the request for.
+ * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
+ *
+ * Free SoC Navigator Subsystem Ring Accelerator rings that were allocated
+ * via @TI_SCI_MSG_RM_RING_ALLOCATE TISCI message. Freeing a ring does not reset
+ * the ring registers. Firewall access to the ring's real-time registers for
+ * the host sending the ring free request will be revoked.
+ *
+ * Request type is TI_SCI_MSG_RM_RING_FREE, response is a generic
+ * ACK or NACK message.
+ */
+struct ti_sci_msg_ring_free {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	u8 secondary_host;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_reset - Resets a Navigator Subsystem ring
+ * @hdr:	Generic Header
+ * @nav_id:	SoC Navigator Subsystem device ID from which the ring was
+ *		allocated
+ * @index:	Ring index. Passing @RM_TISCI_MSG_NULL_RING_INDEX will result
+ *		in a NACK.
+ *
+ * Reset a ring allocated via @ti_sci_msg_ring_allocate.  Resetting a
+ * ring resets the ring's occupancies and pointers.  The host, or a
+ * supervisor of the host, who owns the ring must be the requesting host.
+ *
+ * Request type is TI_SCI_MSG_RM_RING_RESET, response is a generic
+ * ACK or NACK message.
+ */
+struct ti_sci_msg_ring_reset {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_reconfig - Reconfigure a Navigator Subsystem ring
+ *
+ * Reconfigures the non-real-time register fields of a ring allocated via
+ * @tisci_msg_rm_ring_allocate_req.  The host, or a supervisor of the host, who
+ * owns the ring must be the requesting host.  The value of the non-real-time
+ * register parameters prior to the reconfiguration taking place are returned
+ * in @tisci_msg_rm_ring_reconfig_resp.
+ *
+ * @hdr:	Generic Header
+ * @nav_id:	SoC Navigator Subsystem device ID from which the ring was
+ *		allocated
+ * @index:	Ring index. Passing @RM_TISCI_MSG_NULL_RING_INDEX will result
+ *		in a NACK.
+ * @addr_hi: See "addr_lo" description,
+ * @addr_lo: The ring base address must be aligned to the "size" parameter
+ *	setting when the ring is configured for RING or MESSAGE modes.
+ *	For CREDENTIALS and QM modes the ring base address must be aligned to
+ *	a 4k byte boundary 32 LSBs of ring base address to be programmed
+ *	into the ring's RING_BA_LO register.
+ * @count: Number of ring elements. Must be even if mode is CREDENTIALS or QM
+ *	modes.
+ * @mode: Specifies the mode the ring is to be configured as. Allowed values:
+ *	@TI_SCI_RING_MODE_RING
+ *	@TI_SCI_RING_MODE_MESSAGE
+ *	@TI_SCI_RING_MODE_CREDENTIALS
+ *	@TI_SCI_RING_MODE_QM
+ * @size: Specifies the ring element size. To calculate the encoded size use
+ *	the formula (log2(size_bytes) - 2), where size_bytes cannot be
+ *	greater than 256.
+ * @order_id: Specifies the ring's bus order ID. To use the default order ID
+ *	this value must be @TI_SCI_RING_NULL_ORDER_ID. Otherwise, the specified
+ *	order ID will be programmed as the ring's bus order ID.
+ */
+struct ti_sci_msg_ring_reconfig {
+	struct ti_sci_msg_hdr	hdr;
+	u32			nav_id;
+	u32			index;
+	u32			addr_lo;
+	u32			addr_hi;
+	u32			count;
+	u8			mode;
+	u8			size;
+	u8			order_id;
+} __packed;
+
+/**
+ * struct ti_sci_msg_ring_reconfig_resp - Ring reconfigure response message
+ *
+ * Response received by host processor after RM has handled
+ * @ref tisci_msg_rm_ring_reconfig_req. The response contains the ring's
+ * non-real-time register values before it was reconfigured.
+ *
+ * @hdr:	Generic Header
+ * @old_addr_lo: Ring 32 LSBs of base address prior to the reconfiguration
+ *		 taking place.
+ * @old_addr_hi: Ring 16 MSBs of base address prior to the reconfiguration
+ *		 taking place.
+ * @old_count: Ring number of elements prior to the reconfiguration taking place
+ * @old_mode: Ring mode prior to the reconfiguration taking place
+ * @old_size: Ring element size prior to the reconfiguration taking place
+ * @old_order_id: Ring order ID prior to the reconfiguration taking place
+ */
+struct ti_sci_msg_ring_reconfig_resp {
+	struct ti_sci_msg_hdr	hdr;
+	u32			old_addr_lo;
+	u32			old_addr_hi;
+	u32			old_count;
+	u8			old_mode;
+	u8			old_size;
+	u8			old_order_id;
+} __packed;
+
+/**
+ * struct ti_sci_msg_psil_pair - Pairs a PSI-L source thread to a destination
+ *				 thread
+ * @hdr:	Generic Header
+ * @nav_id:	SoC Navigator Subsystem device ID whose PSI-L config proxy is
+ *		used to pair the source and destination threads.
+ * @src_thread:	PSI-L source thread ID within the PSI-L System thread map.
+ *
+ * UDMAP transmit channels mapped to source threads will have their
+ * TCHAN_THRD_ID register programmed with the destination thread if the pairing
+ * is successful.
+
+ * @dst_thread: PSI-L destination thread ID within the PSI-L System thread map.
+ * PSI-L destination threads start at index 0x8000.  The request is NACK'd if
+ * the destination thread is not greater than or equal to 0x8000.
+ *
+ * UDMAP receive channels mapped to destination threads will have their
+ * RCHAN_THRD_ID register programmed with the source thread if the pairing
+ * is successful.
+ *
+ * Request type is TI_SCI_MSG_RM_PSIL_PAIR, response is a generic ACK or NACK
+ * message.
+ */
+struct ti_sci_msg_psil_pair {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 src_thread;
+	u32 dst_thread;
+} __packed;
+
+/**
+ * struct ti_sci_msg_psil_unpair - Unpairs a PSI-L source thread from a
+ *				   destination thread
+ * @hdr:	Generic Header
+ * @nav_id:	SoC Navigator Subsystem device ID whose PSI-L config proxy is
+ *		used to unpair the source and destination threads.
+ * @src_thread:	PSI-L source thread ID within the PSI-L System thread map.
+ *
+ * UDMAP transmit channels mapped to source threads will have their
+ * TCHAN_THRD_ID register cleared if the unpairing is successful.
+ *
+ * @dst_thread: PSI-L destination thread ID within the PSI-L System thread map.
+ * PSI-L destination threads start at index 0x8000.  The request is NACK'd if
+ * the destination thread is not greater than or equal to 0x8000.
+ *
+ * UDMAP receive channels mapped to destination threads will have their
+ * RCHAN_THRD_ID register cleared if the unpairing is successful.
+ *
+ * Request type is TI_SCI_MSG_RM_PSIL_UNPAIR, response is a generic ACK or NACK
+ * message.
+ */
+struct ti_sci_msg_psil_unpair {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 src_thread;
+	u32 dst_thread;
+} __packed;
+
+struct ti_sci_msg_udmap_tx_ch_alloc {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	u8 tx_pause_on_err;
+	u8 tx_filt_einfo;
+	u8 tx_filt_pswords;
+	u8 tx_atype;
+	u8 tx_chan_type;
+	u8 tx_supr_tdpkt;
+	u16 tx_fetch_size;
+	u8 tx_credit_count;
+	u16 txcq_qnum;
+	u8 tx_priority;
+	u8 tx_qos;
+	u8 tx_orderid;
+	u16 fdepth;
+	u8 tx_sched_priority;
+	u8 share;
+	u8 type;
+	u8 secondary_host;
+} __packed;
+
+struct ti_sci_msg_udmap_tx_ch_alloc_resp {
+	struct ti_sci_msg_hdr hdr;
+	u32 index;
+} __packed;
+
+struct ti_sci_msg_udmap_tx_ch_free {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	s8 secondary_host;
+} __packed;
+
+struct ti_sci_msg_udmap_rx_ch_alloc {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	u16 rx_fetch_size;
+	u16 rxcq_qnum;
+	u8 rx_priority;
+	u8 rx_qos;
+	u8 rx_orderid;
+	u8 rx_sched_priority;
+	u16 flowid_start;
+	u16 flowid_cnt;
+	u8 rx_pause_on_err;
+	u8 rx_atype;
+	u8 rx_chan_type;
+	u8 rx_ignore_short;
+	u8 rx_ignore_long;
+	u8 share;
+	u8 type;
+	u8 secondary_host;
+} __packed;
+
+struct ti_sci_msg_udmap_rx_ch_alloc_resp {
+	struct ti_sci_msg_hdr hdr;
+	u32 index;
+	u32 def_flow_index;
+	u32 rng_flow_start_index;
+	u32 rng_flow_cnt;
+} __packed;
+
+struct ti_sci_msg_udmap_rx_ch_free {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	s8 secondary_host;
+} __packed;
+
+struct ti_sci_msg_udmap_rx_flow_cfg {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 flow_index;
+	u32 rx_ch_index;
+	u8 rx_einfo_present;
+	u8 rx_psinfo_present;
+	u8 rx_error_handling;
+	u8 rx_desc_type;
+	u16 rx_sop_offset;
+	u16 rx_dest_qnum;
+	u8 rx_ps_location;
+	u8 rx_src_tag_hi;
+	u8 rx_src_tag_lo;
+	u8 rx_dest_tag_hi;
+	u8 rx_dest_tag_lo;
+	u8 rx_src_tag_hi_sel;
+	u8 rx_src_tag_lo_sel;
+	u8 rx_dest_tag_hi_sel;
+	u8 rx_dest_tag_lo_sel;
+	u8 rx_size_thresh_en;
+	u16 rx_fdq0_sz0_qnum;
+	u16 rx_fdq1_qnum;
+	u16 rx_fdq2_qnum;
+	u16 rx_fdq3_qnum;
+} __packed;
+
+struct rm_ti_sci_msg_udmap_rx_flow_opt_cfg {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 flow_index;
+	u32 rx_ch_index;
+	u16 rx_size_thresh0;
+	u16 rx_size_thresh1;
+	u16 rx_size_thresh2;
+	u16 rx_fdq0_sz1_qnum;
+	u16 rx_fdq0_sz2_qnum;
+	u16 rx_fdq0_sz3_qnum;
+} __attribute__((__packed__));
 
 #endif /* __TI_SCI_H */

@@ -200,15 +200,378 @@ struct ti_sci_clk_ops {
 			u64 *current_freq);
 };
 
+#define TI_SCI_RM_NULL_U8			((u8)~0U)
+#define TI_SCI_RM_NULL_U16			((u16)~0U)
+#define TI_SCI_RM_NULL_U32			((u32)~0U)
+
+#define TI_SCI_IRQ_SECONDARY_HOST_INVALID	0xff
+#define TI_SCI_IRQ_GLOBAL_EVENT_NULL		0xffffffff
+#define TI_SCI_IRQ_SHARE_DISABLE		0
+#define TI_SCI_IRQ_POLL_DISABLE			0
+#define TI_SCI_IRQ_SHARE_ENABLE			1
+#define TI_SCI_IRQ_POLL_ENABLE			1
+#define TI_SCI_IRQ_GROUP_NULL			0xffffffff
+#define TI_SCI_IRQ_VINT_NULL			0xffffffff
+#define TI_SCI_IRQ_IA_NULL			0xffffffff
+
+/**
+ * struct ti_sci_irq_ops: IRQ management operations
+ * @set_irq:	Command to configure IRQ route between host and the device.
+ *		Returns 0 for successful route configuration, else return
+ *		corresponding error message.
+ * @free_irq:	Command to free the IRQ route between the host and the device.
+ *		Returns 0 for successful IRQ free, else return corresponding
+ *		error message.
+ */
+struct ti_sci_irq_ops {
+	int (*set_irq)(const struct ti_sci_handle *handle, u8 s_host,
+		       u16 dev, u16 irq, u8 share, u8 poll, u32 *group,
+		       u32 *glb_evt, u32 *ia_id, u32 *vint, u16 *host_irq,
+		       u8 *vint_status_bit);
+	int (*free_irq)(const struct ti_sci_handle *handle, u8 s_host,
+			u16 dev_id, u16 irq, u32 glb_evt, u32 hw_group);
+};
+
+#define TI_SCI_RING_MODE_RING			(0)
+#define TI_SCI_RING_MODE_MESSAGE		(1)
+#define TI_SCI_RING_MODE_CREDENTIALS		(2)
+#define TI_SCI_RING_MODE_QM			(3)
+#define TI_SCI_RING_SHARED			(1)
+
+#define TI_SCI_MSG_UNUSED_SECONDARY_HOST TI_SCI_RM_NULL_U8
+
+/**
+ * struct ti_sci_rm_ringacc_ops - Ring Accelerator Management operations
+ * @allocate: allocate and configure SoC Navigator Subsystem Ring
+ *		Accelerator rings. The API allows requesting a specific ring by
+ *		passing the exact @index of the ring to be allocated and
+ *		configured. Rings can also be requested dynamically, which
+ *		allows the RM subsystem to select the next available ring,
+ *		of a specific type (@index = TI_SCI_MSG_NULL_RING_INDEX),
+ *		for allocation and configuration.
+ * @free: free SoC Navigator Subsystem Ring Accelerator rings that were
+ *		allocated by TISCI.
+ * @reset: reset SoC Navigator Subsystem Ring Accelerator rings that were
+ *		allocated by TISCI.
+ * @reconfig: reconfigure the qmode of SoC Navigator Subsystem Ring
+ *		Accelerator rings that were allocated by TISCI
+ */
+struct ti_sci_rm_ringacc_ops {
+	int (*allocate)(const struct ti_sci_handle *handle, u8 s_host,
+			u32 nav_id, u32 *index, u32 addr_lo, u32 addr_hi,
+			u32 count, u8 mode, u8 size, u8 order_id,
+			u8 share, u16 type);
+	int (*free)(const struct ti_sci_handle *handle,
+		    u8 s_host, u32 nav_id, u32 index);
+	int (*reset)(const struct ti_sci_handle *handle,
+		     u32 nav_id, u32 index);
+	int (*reconfig)(const struct ti_sci_handle *handle,
+			u32 nav_id, u32 index, u8 *mode,
+			u32 *addr_lo, u32 *addr_hi, u32 *count,
+			u8 *size, u8 *order_id);
+};
+
+/**
+ * struct ti_sci_rm_psil_ops - PSI-L thread operations
+ * @pair: pair PSI-L source thread to a destination thread.
+ *	If the src_thread is mapped to UDMA tchan, the corresponding channel's
+ *	TCHAN_THRD_ID register is updated.
+ *	If the dst_thread is mapped to UDMA rchan, the corresponding channel's
+ *	RCHAN_THRD_ID register is updated.
+ * @unpair: unpair PSI-L source thread from a destination thread.
+ *	If the src_thread is mapped to UDMA tchan, the corresponding channel's
+ *	TCHAN_THRD_ID register is cleared.
+ *	If the dst_thread is mapped to UDMA rchan, the corresponding channel's
+ *	RCHAN_THRD_ID register is cleared.
+ */
+struct ti_sci_rm_psil_ops {
+	int (*pair)(const struct ti_sci_handle *handle, u32 nav_id,
+		    u32 src_thread, u32 dst_thread);
+	int (*unpair)(const struct ti_sci_handle *handle, u32 nav_id,
+		      u32 src_thread, u32 dst_thread);
+};
+
+/* UDMAP channel types */
+#define TI_SCI_RM_UDMAP_CHAN_TYPE_PKT_PBRR		2
+#define TI_SCI_RM_UDMAP_CHAN_TYPE_PKT_PBRR_SB		3	/* RX only */
+#define TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_PBRR		10
+#define TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_PBVR		11
+#define TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBRR	12
+#define TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBVR	13
+
+/* UDMAP channel atypes */
+#define TI_SCI_RM_UDMAP_ATYPE_PHYS			0
+#define TI_SCI_RM_UDMAP_ATYPE_INTERMEDIATE		1
+#define TI_SCI_RM_UDMAP_ATYPE_VIRTUAL			2
+
+/* UDMAP channel scheduling priorities */
+#define TI_SCI_RM_UDMAP_SCHED_PRIOR_HIGH		0
+#define TI_SCI_RM_UDMAP_SCHED_PRIOR_MEDHIGH		1
+#define TI_SCI_RM_UDMAP_SCHED_PRIOR_MEDLOW		2
+#define TI_SCI_RM_UDMAP_SCHED_PRIOR_LOW			3
+
+#define TI_SCI_RM_UDMAP_RX_FLOW_ERR_DROP		0
+#define TI_SCI_RM_UDMAP_RX_FLOW_ERR_RETRY		1
+
+#define TI_SCI_RM_UDMAP_RX_FLOW_DESC_HOST		0
+#define TI_SCI_RM_UDMAP_RX_FLOW_DESC_MONO		2
+
+/**
+ * struct ti_sci_rm_udmap_tx_ch_alloc -  parameters for UDMAP transmit channel
+ *					 allocation
+ * @nav_id: SoC Navigator Subsystem device ID whose PSI-L config proxy is
+ *	used to unpair the source and destination threads.
+ * @index: UDMAP transmit channel index.
+ * @tx_pause_on_err: UDMAP transmit channel pause on error configuration
+ * @tx_filt_einfo: UDMAP transmit channel extended packet information passing
+ *	configuration.
+ * @tx_filt_pswords: UDMAP transmit channel protocol specific word passing
+ *	configuration.
+ * @tx_atype: UDMAP transmit channel non Ring Accelerator access pointer
+ *	interpretation. Valid values are TI_SCI_RM_UDMAP_ATYPE_*
+ * @tx_chan_type: UDMAP transmit channel functional channel type and work
+ *	passing mechanism configuration.  Valid types are
+ *	TI_SCI_RM_UDMAP_CHAN_TYPE_*
+ * @tx_supr_tdpkt: UDMAP transmit channel teardown packet generation suppression
+ *	configuration.
+ * @tx_fetch_size: UDMAP transmit channel number of 32-bit descriptor words to
+ *	fetch configuration.
+ * @tx_credit_count: UDMAP transmit channel transfer request credit count
+ *	configuration.
+ * @txcq_qnum: UDMAP transmit channel completion queue number.
+ * @tx_priority: UDMAP transmit channel transmit priority value. Can be either
+ *	NULL parameter or valid priority number.
+ * @tx_qos: DMAP transmit channel transmit qos value. Can be either NULL
+ *	parameter or valid QoS number.
+ * @tx_orderid: UDMAP transmit channel bus order id value. Can be either NULL
+ *	parameter or valid orderid number.
+ * @fdepth: UDMAP transmit channel FIFO depth configuration.
+ * @tx_sched_priority: UDMAP transmit channel tx scheduling priority
+ *	configuration. Valid values are TI_SCI_RM_UDMAP_SCHED_PRIOR_*
+ * @share: Not supported, set it to 0.
+ * @type: Not supported, set it to NULL parameter.
+ */
+struct ti_sci_rm_udmap_tx_ch_alloc {
+	u32 nav_id;
+	u32 index;
+	u8 tx_pause_on_err;
+	u8 tx_filt_einfo;
+	u8 tx_filt_pswords;
+	u8 tx_atype;
+	u8 tx_chan_type;
+	u8 tx_supr_tdpkt;
+	u16 tx_fetch_size;
+	u8 tx_credit_count;
+	u16 txcq_qnum;
+	u8 tx_priority;
+	u8 tx_qos;
+	u8 tx_orderid;
+	u16 fdepth;
+	u8 tx_sched_priority;
+	u8 share;
+	u8 type;
+	u8 secondary_host;
+};
+
+/**
+ * struct ti_sci_rm_udmap_rx_ch_alloc -  parameters for UDMAP receive channel
+ *					 allocation
+ * @nav_id: SoC Navigator Subsystem device ID whose PSI-L config proxy is
+ *	used to unpair the source and destination threads.
+ * @index: UDMAP receive channel index.
+ * @rx_fetch_size: UDMAP receive channel number of 32-bit descriptor words to
+ *	fetch configuration.
+ * @rxcq_qnum: UDMAP receive channel completion queue number.
+ * @rx_priority: UDMAP receive channel receive priority value. Can be either
+ *	NULL parameter or valid priority number.
+ * @rx_qos: DMAP receive channel receive qos value. Can be either NULL
+ *	parameter or valid QoS number.
+ * @rx_orderid: UDMAP receive channel bus order id value. Can be either NULL
+ *	parameter or valid orderid number.
+ * @rx_sched_priority: UDMAP receive channel tx scheduling priority
+ *	configuration. Valid values are TI_SCI_RM_UDMAP_SCHED_PRIOR_*
+ * @flowid_start: UDMAP receive channel additional flows starting index.
+ * @flowid_cnt: UDMAP receive channel additional flows count.
+ *	flowid_start is only valid when flowid_cnt is not 0. in that case if
+ *	flowid_start is NULL parameter, dynamic allocation is requested. If
+ *	flowid_start is not NULL and it is valid, a range of flows from the
+ *	given index is going to be requested.
+ * @rx_pause_on_err: UDMAP receive channel pause on error configuration
+ * @rx_atype: UDMAP receive channel non Ring Accelerator access pointer
+ *	interpretation. Valid values are TI_SCI_RM_UDMAP_ATYPE_*
+ * @rx_chan_type: UDMAP receive channel functional channel type and work
+ *	passing mechanism configuration.  Valid types are
+ *	TI_SCI_RM_UDMAP_CHAN_TYPE_*
+ * @rx_ignore_short: UDMAP receive channel short packet treatment configuration.
+ * @rx_ignore_long: UDMAP receive channel long packet treatment configuration.
+ * @share: Not supported, set it to 0.
+ * @type: Not supported, set it to NULL parameter.
+ */
+struct ti_sci_rm_udmap_rx_ch_alloc {
+	u32 nav_id;
+	u32 index;
+	u16 rx_fetch_size;
+	u16 rxcq_qnum;
+	u8 rx_priority;
+	u8 rx_qos;
+	u8 rx_orderid;
+	u8 rx_sched_priority;
+	u16 flowid_start;
+	u16 flowid_cnt;
+	u8 rx_pause_on_err;
+	u8 rx_atype;
+	u8 rx_chan_type;
+	u8 rx_ignore_short;
+	u8 rx_ignore_long;
+	u8 share;
+	u8 type;
+	u8 secondary_host;
+};
+
+/**
+ * struct ti_sci_rm_udmap_rx_flow_cfg -  parameters for UDMAP receive flow
+ *					 configuration
+ * @nav_id: SoC Navigator Subsystem device ID whose PSI-L config proxy is
+ *	used to unpair the source and destination threads.
+ * @flow_index: UDMAP receive flow index for non-optional configuration.
+ * @rx_ch_index: Specifies the index of the receive channel using the flow_index
+ * @rx_einfo_present: UDMAP receive flow extended packet info present.
+ * @rx_psinfo_present: UDMAP receive flow PS words present.
+ * @rx_error_handling: UDMAP receive flow error handling configuration. Valid
+ *	values are TI_SCI_RM_UDMAP_RX_FLOW_ERR_DROP/RETRY.
+ * @rx_desc_type: UDMAP receive flow descriptor type. It can be one of
+ *	TI_SCI_RM_UDMAP_RX_FLOW_DESC_HOST/MONO.
+ * @rx_sop_offset: UDMAP receive flow start of packet offset.
+ * @rx_dest_qnum: UDMAP receive flow destination queue number.
+ * @rx_ps_location: UDMAP receive flow PS words location.
+ *	0 - end of packet descriptor
+ *	1 - Beginning of the data buffer
+ * @rx_src_tag_hi: UDMAP receive flow source tag high byte constant
+ * @rx_src_tag_lo: UDMAP receive flow source tag low byte constant
+ * @rx_dest_tag_hi: UDMAP receive flow destination tag high byte constant
+ * @rx_dest_tag_lo: UDMAP receive flow destination tag low byte constant
+ * @rx_src_tag_hi_sel: UDMAP receive flow source tag high byte selector
+ * @rx_src_tag_lo_sel: UDMAP receive flow source tag low byte selector
+ * @rx_dest_tag_hi_sel: UDMAP receive flow destination tag high byte selector
+ * @rx_dest_tag_lo_sel: UDMAP receive flow destination tag low byte selector
+ * @rx_size_thresh_en: UDMAP receive flow packet size based free buffer queue
+ *	enable. If enabled, the ti_sci_rm_udmap_rx_flow_opt_cfg also need to be
+ *	configured and sent.
+ * @rx_fdq0_sz0_qnum: UDMAP receive flow free descriptor queue 0.
+ * @rx_fdq1_qnum: UDMAP receive flow free descriptor queue 1.
+ * @rx_fdq2_qnum: UDMAP receive flow free descriptor queue 2.
+ * @rx_fdq3_qnum: UDMAP receive flow free descriptor queue 3.
+ */
+struct ti_sci_rm_udmap_rx_flow_cfg {
+	u32 nav_id;
+	u32 flow_index;
+	u32 rx_ch_index;
+	u8 rx_einfo_present;
+	u8 rx_psinfo_present;
+	u8 rx_error_handling;
+	u8 rx_desc_type;
+	u16 rx_sop_offset;
+	u16 rx_dest_qnum;
+	u8 rx_ps_location;
+	u8 rx_src_tag_hi;
+	u8 rx_src_tag_lo;
+	u8 rx_dest_tag_hi;
+	u8 rx_dest_tag_lo;
+	u8 rx_src_tag_hi_sel;
+	u8 rx_src_tag_lo_sel;
+	u8 rx_dest_tag_hi_sel;
+	u8 rx_dest_tag_lo_sel;
+	u8 rx_size_thresh_en;
+	u16 rx_fdq0_sz0_qnum;
+	u16 rx_fdq1_qnum;
+	u16 rx_fdq2_qnum;
+	u16 rx_fdq3_qnum;
+};
+
+/**
+ * struct ti_sci_rm_udmap_rx_flow_cfg -  parameters for UDMAP receive flow
+ *					 optional configuration
+ * @nav_id: SoC Navigator Subsystem device ID whose PSI-L config proxy is
+ *	used to unpair the source and destination threads.
+ * @flow_index: UDMAP receive flow index for optional configuration.
+ * @rx_ch_index: Specifies the index of the receive channel using the flow_index
+ * @rx_size_thresh0: UDMAP receive flow packet size threshold 0.
+ * @rx_size_thresh1: UDMAP receive flow packet size threshold 1.
+ * @rx_size_thresh2: UDMAP receive flow packet size threshold 2.
+ * @rx_fdq0_sz1_qnum: UDMAP receive flow free descriptor queue for size
+ *	threshold 1.
+ * @rx_fdq0_sz2_qnum: UDMAP receive flow free descriptor queue for size
+ *	threshold 2.
+ * @rx_fdq0_sz3_qnum: UDMAP receive flow free descriptor queue for size
+ *	threshold 3.
+ */
+struct ti_sci_rm_udmap_rx_flow_opt_cfg {
+	u32 nav_id;
+	u32 flow_index;
+	u32 rx_ch_index;
+	u16 rx_size_thresh0;
+	u16 rx_size_thresh1;
+	u16 rx_size_thresh2;
+	u16 rx_fdq0_sz1_qnum;
+	u16 rx_fdq0_sz2_qnum;
+	u16 rx_fdq0_sz3_qnum;
+};
+
+/**
+ * struct ti_sci_rm_udmap_ops - UDMA Management operations
+ * @tx_ch_alloc: allocate and configure SoC Navigator Subsystem UDMA transmit
+ *	channel. The channel is allocated based on passed @params
+ *	ti_sci_rm_udmap_tx_ch_alloc parameters and the allocated channel number
+ *	is returned via @index.
+ * @tx_ch_free: free SoC Navigator Subsystem UDMA transmit channel that were
+ *	allocated by TISCI.
+ * @rx_ch_alloc: allocate and configure SoC Navigator Subsystem UDMA receive
+ *	channel. The channel is allocated based on passed @params
+ *	ti_sci_rm_udmap_rx_ch_alloc parameters and the allocated channel number
+ *	is returned via @index, the default flow id via @def_flow_index and the
+ *	information about the extra flow range via def_flow_index/rng_flow_cnt
+ *	if it was requested.
+ * @rx_ch_free: free SoC Navigator Subsystem UDMA receive channel that were
+ *	allocated by TISCI.
+ * @rx_flow_cfg: configure SoC Navigator Subsystem UDMA receive flow. The flow
+ *	configuration is passed via @params ti_sci_rm_udmap_rx_flow_cfg.
+ * @rx_flow_cfg: configure SoC Navigator Subsystem optional UDMA receive flow.
+ *	The configuration is passed via @params ti_sci_rm_udmap_rx_flow_opt_cfg.
+ */
+struct ti_sci_rm_udmap_ops {
+	int (*tx_ch_alloc)(const struct ti_sci_handle *handle,
+			   const struct ti_sci_rm_udmap_tx_ch_alloc *params,
+			   u32 *index);
+	int (*tx_ch_free)(const struct ti_sci_handle *handle,
+			  u8 secondary_host, u32 nav_id, u32 index);
+	int (*rx_ch_alloc)(const struct ti_sci_handle *handle,
+			   const struct ti_sci_rm_udmap_rx_ch_alloc *params,
+			   u32 *index, u32 *def_flow_index,
+			   u32 *rng_flow_start_index, u32 *rng_flow_cnt);
+	int (*rx_ch_free)(const struct ti_sci_handle *handle,
+			  u8 secondary_host, u32 nav_id, u32 index);
+	int (*rx_flow_cfg)(const struct ti_sci_handle *handle,
+			   const struct ti_sci_rm_udmap_rx_flow_cfg *params);
+	int (*rx_flow_opt_cfg)(
+		const struct ti_sci_handle *handle,
+		const struct ti_sci_rm_udmap_rx_flow_opt_cfg *params);
+};
+
 /**
  * struct ti_sci_ops - Function support for TI SCI
  * @dev_ops:	Device specific operations
  * @clk_ops:	Clock specific operations
+ * @irq_ops:	IRQ management specific operations
+ * @ring_ops: Ring Accelerator Management operations
  */
 struct ti_sci_ops {
 	struct ti_sci_core_ops core_ops;
 	struct ti_sci_dev_ops dev_ops;
 	struct ti_sci_clk_ops clk_ops;
+	struct ti_sci_irq_ops irq_ops;
+	struct ti_sci_rm_ringacc_ops rm_ring_ops;
+	struct ti_sci_rm_psil_ops rm_psil_ops;
+	struct ti_sci_rm_udmap_ops rm_udmap_ops;
 };
 
 /**
@@ -225,6 +588,8 @@ struct ti_sci_handle {
 const struct ti_sci_handle *ti_sci_get_handle(struct device *dev);
 int ti_sci_put_handle(const struct ti_sci_handle *handle);
 const struct ti_sci_handle *devm_ti_sci_get_handle(struct device *dev);
+const struct ti_sci_handle *ti_sci_get_by_phandle(struct device_node *np,
+						  const char *property);
 
 #else	/* CONFIG_TI_SCI_PROTOCOL */
 
@@ -240,6 +605,13 @@ static inline int ti_sci_put_handle(const struct ti_sci_handle *handle)
 
 static inline
 const struct ti_sci_handle *devm_ti_sci_get_handle(struct device *dev)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+static inline
+const struct ti_sci_handle *ti_sci_get_by_phandle(struct device_node *np,
+						  const char *property)
 {
 	return ERR_PTR(-EINVAL);
 }

@@ -36,5 +36,18 @@
 };
 
 &main_uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_uart0_pins_default>;
 	status = "okay";
+};
+
+&main_pmx0 {
+	main_uart0_pins_default: main_uart0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x01e4, PIN_INPUT | MUX_MODE0)	/* (AF11) UART0_RXD */
+			AM65X_IOPAD(0x01e8, PIN_OUTPUT | MUX_MODE0)	/* (AE11) UART0_TXD */
+			AM65X_IOPAD(0x01ec, PIN_INPUT | MUX_MODE0)	/* (AG11) UART0_CTSn */
+			AM65X_IOPAD(0x01f0, PIN_OUTPUT | MUX_MODE0)	/* (AD11) UART0_RTSn */
+		>;
+	};
 };
