@@ -50,4 +50,76 @@
 			AM65X_IOPAD(0x01f0, PIN_OUTPUT | MUX_MODE0)	/* (AD11) UART0_RTSn */
 		>;
 	};
+
+	main_i2c2_pins_default: main_i2c2_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0074, PIN_INPUT | MUX_MODE5) /* (T27) GPMC0_CSn3.I2C2_SCL */
+			AM65X_IOPAD(0x0070, PIN_INPUT | MUX_MODE5) /* (R25) GPMC0_CSn2.I2C2_SDA */
+		>;
+	};
+};
+
+&main_pmx1 {
+	main_i2c0_pins_default: main_i2c0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0000, PIN_INPUT | MUX_MODE0) /* (D20) I2C0_SCL */
+			AM65X_IOPAD(0x0004, PIN_INPUT | MUX_MODE0) /* (C21) I2C0_SDA */
+		>;
+	};
+
+	main_i2c1_pins_default: main_i2c1_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0008, PIN_INPUT | MUX_MODE0) /* (B21) I2C1_SCL */
+			AM65X_IOPAD(0x000c, PIN_INPUT | MUX_MODE0) /* (E21) I2C1_SDA */
+		>;
+	};
+};
+
+&wkup_pmx0 {
+	wkup_i2c0_pins_default: wkup_i2c0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_WKUP_IOPAD(0x00e0, PIN_INPUT | MUX_MODE0) /* (AC7) WKUP_I2C0_SCL */
+			AM65X_WKUP_IOPAD(0x00e4, PIN_INPUT | MUX_MODE0) /* (AD6) WKUP_I2C0_SDA */
+		>;
+	};
+};
+
+&wkup_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_i2c0_pins_default>;
+	status = "okay";
+	clock-frequency = <400000>;
+
+	eeprom@50 {
+		compatible = "atmel,24c1024";
+		reg = <0x50>;
+	};
+};
+
+&main_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c0_pins_default>;
+	status = "okay";
+	clock-frequency = <400000>;
+
+	pca9555: gpio@21 {
+		compatible = "nxp,pca9555";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&main_i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c1_pins_default>;
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
+&main_i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_i2c2_pins_default>;
+	status = "okay";
+	clock-frequency = <400000>;
 };
