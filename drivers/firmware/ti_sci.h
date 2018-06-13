@@ -69,14 +69,21 @@
 
 /* NAVSS resource management */
 /* Ringacc requests */
-#define TI_SCI_MSG_RM_RING_ALLOCATE	0x1100
-#define TI_SCI_MSG_RM_RING_FREE		0x1101
-#define TI_SCI_MSG_RM_RING_RECONFIG	0x1102
-#define TI_SCI_MSG_RM_RING_RESET	0x1103
+#define TI_SCI_MSG_RM_RING_ALLOCATE		0x1100
+#define TI_SCI_MSG_RM_RING_FREE			0x1101
+#define TI_SCI_MSG_RM_RING_RECONFIG		0x1102
+#define TI_SCI_MSG_RM_RING_RESET		0x1103
 
 /* PSI-L requests */
-#define TI_SCI_MSG_RM_PSIL_PAIR		0x1280
-#define TI_SCI_MSG_RM_PSIL_UNPAIR	0x1281
+#define TI_SCI_MSG_RM_PSIL_PAIR			0x1280
+#define TI_SCI_MSG_RM_PSIL_UNPAIR		0x1281
+
+#define TI_SCI_MSG_RM_UDMAP_TX_ALLOC		0x1200
+#define TI_SCI_MSG_RM_UDMAP_TX_FREE		0x1201
+#define TI_SCI_MSG_RM_UDMAP_RX_ALLOC		0x1210
+#define TI_SCI_MSG_RM_UDMAP_RX_FREE		0x1211
+#define TI_SCI_MSG_RM_UDMAP_FLOW_CFG		0x1220
+#define TI_SCI_MSG_RM_UDMAP_OPT_FLOW_CFG	0x1221
 
 /**
  * struct ti_sci_msg_hdr - Generic Message Header for All messages and responses
@@ -848,5 +855,117 @@ struct ti_sci_msg_psil_unpair {
 	u32 src_thread;
 	u32 dst_thread;
 } __packed;
+
+struct ti_sci_msg_udmap_tx_ch_alloc {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	u8 tx_pause_on_err;
+	u8 tx_filt_einfo;
+	u8 tx_filt_pswords;
+	u8 tx_atype;
+	u8 tx_chan_type;
+	u8 tx_supr_tdpkt;
+	u16 tx_fetch_size;
+	u8 tx_credit_count;
+	u16 txcq_qnum;
+	u8 tx_priority;
+	u8 tx_qos;
+	u8 tx_orderid;
+	u16 fdepth;
+	u8 tx_sched_priority;
+	u8 share;
+	u8 type;
+	u8 secondary_host;
+} __packed;
+
+struct ti_sci_msg_udmap_tx_ch_alloc_resp {
+	struct ti_sci_msg_hdr hdr;
+	u32 index;
+} __packed;
+
+struct ti_sci_msg_udmap_tx_ch_free {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	s8 secondary_host;
+} __packed;
+
+struct ti_sci_msg_udmap_rx_ch_alloc {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	u16 rx_fetch_size;
+	u16 rxcq_qnum;
+	u8 rx_priority;
+	u8 rx_qos;
+	u8 rx_orderid;
+	u8 rx_sched_priority;
+	u16 flowid_start;
+	u16 flowid_cnt;
+	u8 rx_pause_on_err;
+	u8 rx_atype;
+	u8 rx_chan_type;
+	u8 rx_ignore_short;
+	u8 rx_ignore_long;
+	u8 share;
+	u8 type;
+	u8 secondary_host;
+} __packed;
+
+struct ti_sci_msg_udmap_rx_ch_alloc_resp {
+	struct ti_sci_msg_hdr hdr;
+	u32 index;
+	u32 def_flow_index;
+	u32 rng_flow_start_index;
+	u32 rng_flow_cnt;
+} __packed;
+
+struct ti_sci_msg_udmap_rx_ch_free {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 index;
+	s8 secondary_host;
+} __packed;
+
+struct ti_sci_msg_udmap_rx_flow_cfg {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 flow_index;
+	u32 rx_ch_index;
+	u8 rx_einfo_present;
+	u8 rx_psinfo_present;
+	u8 rx_error_handling;
+	u8 rx_desc_type;
+	u16 rx_sop_offset;
+	u16 rx_dest_qnum;
+	u8 rx_ps_location;
+	u8 rx_src_tag_hi;
+	u8 rx_src_tag_lo;
+	u8 rx_dest_tag_hi;
+	u8 rx_dest_tag_lo;
+	u8 rx_src_tag_hi_sel;
+	u8 rx_src_tag_lo_sel;
+	u8 rx_dest_tag_hi_sel;
+	u8 rx_dest_tag_lo_sel;
+	u8 rx_size_thresh_en;
+	u16 rx_fdq0_sz0_qnum;
+	u16 rx_fdq1_qnum;
+	u16 rx_fdq2_qnum;
+	u16 rx_fdq3_qnum;
+} __packed;
+
+struct rm_ti_sci_msg_udmap_rx_flow_opt_cfg {
+	struct ti_sci_msg_hdr hdr;
+	u32 nav_id;
+	u32 flow_index;
+	u32 rx_ch_index;
+	u16 rx_size_thresh0;
+	u16 rx_size_thresh1;
+	u16 rx_size_thresh2;
+	u16 rx_fdq0_sz1_qnum;
+	u16 rx_fdq0_sz2_qnum;
+	u16 rx_fdq0_sz3_qnum;
+} __attribute__((__packed__));
 
 #endif /* __TI_SCI_H */

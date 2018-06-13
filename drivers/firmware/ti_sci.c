@@ -2146,6 +2146,360 @@ fail:
 	return ret;
 }
 
+static int ti_sci_cmd_rm_udmap_tx_ch_alloc(
+			const struct ti_sci_handle *handle,
+			const struct ti_sci_rm_udmap_tx_ch_alloc *params,
+			u32 *index)
+{
+	struct ti_sci_msg_udmap_tx_ch_alloc_resp *resp;
+	struct ti_sci_msg_udmap_tx_ch_alloc *req;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_UDMAP_TX_ALLOC,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_udmap_tx_ch_alloc *)xfer->xfer_buf;
+	req->secondary_host = params->secondary_host;
+	req->nav_id = params->nav_id;
+	req->index = params->index;
+	req->tx_pause_on_err = params->tx_pause_on_err;
+	req->tx_filt_einfo = params->tx_filt_einfo;
+	req->tx_filt_pswords = params->tx_filt_pswords;
+	req->tx_atype = params->tx_atype;
+	req->tx_chan_type = params->tx_chan_type;
+	req->tx_supr_tdpkt = params->tx_supr_tdpkt;
+	req->tx_fetch_size = params->tx_fetch_size;
+	req->tx_credit_count = params->tx_credit_count;
+	req->txcq_qnum = params->txcq_qnum;
+	req->tx_priority = params->tx_priority;
+	req->tx_qos = params->tx_qos;
+	req->tx_orderid = params->tx_orderid;
+	req->fdepth = params->fdepth;
+	req->tx_sched_priority = params->tx_sched_priority;
+	req->share = params->share;
+	req->type = params->type;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_udmap_tx_ch_alloc_resp *)xfer->xfer_buf;
+
+	if (!ti_sci_is_response_ack(resp))
+		ret = -EINVAL;
+	else
+		*index = resp->index;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+static int ti_sci_cmd_rm_udmap_tx_ch_free(const struct ti_sci_handle *handle,
+					  u8 secondary_host, u32 nav_id,
+					  u32 index)
+{
+	struct ti_sci_msg_hdr *resp;
+	struct ti_sci_msg_udmap_tx_ch_free *req;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_UDMAP_TX_FREE,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_udmap_tx_ch_free *)xfer->xfer_buf;
+	req->secondary_host = secondary_host;
+	req->nav_id = nav_id;
+	req->index = index;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
+	ret = ti_sci_is_response_ack(resp) ? 0 : -EINVAL;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+static int ti_sci_cmd_rm_udmap_rx_ch_alloc(
+			const struct ti_sci_handle *handle,
+			const struct ti_sci_rm_udmap_rx_ch_alloc *params,
+			u32 *index, u32 *def_flow_index,
+			u32 *rng_flow_start_index, u32 *rng_flow_cnt)
+{
+	struct ti_sci_msg_udmap_rx_ch_alloc_resp *resp;
+	struct ti_sci_msg_udmap_rx_ch_alloc *req;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_UDMAP_RX_ALLOC,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_udmap_rx_ch_alloc *)xfer->xfer_buf;
+	req->secondary_host = params->secondary_host;
+	req->nav_id = params->nav_id;
+	req->index = params->index;
+	req->rx_fetch_size = params->rx_fetch_size;
+	req->rxcq_qnum = params->rxcq_qnum;
+	req->rx_priority = params->rx_priority;
+	req->rx_qos = params->rx_qos;
+	req->rx_orderid = params->rx_orderid;
+	req->rx_sched_priority = params->rx_sched_priority;
+	req->flowid_start = params->flowid_start;
+	req->flowid_cnt = params->flowid_cnt;
+	req->rx_pause_on_err = params->rx_pause_on_err;
+	req->rx_atype = params->rx_atype;
+	req->rx_chan_type = params->rx_chan_type;
+	req->rx_ignore_short = params->rx_ignore_short;
+	req->rx_ignore_long = params->rx_ignore_long;
+	req->share = params->share;
+	req->type = params->type;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_udmap_rx_ch_alloc_resp *)xfer->xfer_buf;
+
+	if (!ti_sci_is_response_ack(resp)) {
+		ret = -EINVAL;
+	} else {
+		*index = resp->index;
+		*def_flow_index = resp->def_flow_index;
+		*rng_flow_start_index = resp->rng_flow_start_index;
+		*rng_flow_cnt = resp->rng_flow_cnt;
+	}
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+static int ti_sci_cmd_rm_udmap_rx_ch_free(const struct ti_sci_handle *handle,
+					  u8 secondary_host, u32 nav_id,
+					  u32 index)
+{
+	struct ti_sci_msg_hdr *resp;
+	struct ti_sci_msg_udmap_rx_ch_free *req;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_UDMAP_RX_FREE,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_udmap_rx_ch_free *)xfer->xfer_buf;
+	req->secondary_host = secondary_host;
+	req->nav_id = nav_id;
+	req->index = index;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
+	ret = ti_sci_is_response_ack(resp) ? 0 : -EINVAL;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+static int ti_sci_cmd_rm_udmap_rx_flow_cfg(
+			const struct ti_sci_handle *handle,
+			const struct ti_sci_rm_udmap_rx_flow_cfg *params)
+{
+	struct ti_sci_msg_hdr *resp;
+	struct ti_sci_msg_udmap_rx_flow_cfg *req;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_UDMAP_FLOW_CFG,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct ti_sci_msg_udmap_rx_flow_cfg *)xfer->xfer_buf;
+	req->nav_id = params->nav_id;
+	req->flow_index = params->flow_index;
+	req->rx_ch_index = params->rx_ch_index;
+	req->rx_einfo_present = params->rx_einfo_present;
+	req->rx_psinfo_present = params->rx_psinfo_present;
+	req->rx_error_handling = params->rx_error_handling;
+	req->rx_desc_type = params->rx_desc_type;
+	req->rx_sop_offset = params->rx_sop_offset;
+	req->rx_dest_qnum = params->rx_dest_qnum;
+	req->rx_ps_location = params->rx_ps_location;
+	req->rx_src_tag_hi = params->rx_src_tag_hi;
+	req->rx_src_tag_lo = params->rx_src_tag_lo;
+	req->rx_dest_tag_hi = params->rx_dest_tag_hi;
+	req->rx_dest_tag_lo = params->rx_dest_tag_lo;
+	req->rx_src_tag_hi_sel = params->rx_src_tag_hi_sel;
+	req->rx_src_tag_lo_sel = params->rx_src_tag_lo_sel;
+	req->rx_dest_tag_hi_sel = params->rx_dest_tag_hi_sel;
+	req->rx_dest_tag_lo_sel = params->rx_dest_tag_lo_sel;
+	req->rx_size_thresh_en = params->rx_size_thresh_en;
+	req->rx_fdq0_sz0_qnum = params->rx_fdq0_sz0_qnum;
+	req->rx_fdq1_qnum = params->rx_fdq1_qnum;
+	req->rx_fdq2_qnum = params->rx_fdq2_qnum;
+	req->rx_fdq3_qnum = params->rx_fdq3_qnum;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
+	ret = ti_sci_is_response_ack(resp) ? 0 : -EINVAL;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
+static int ti_sci_cmd_rm_udmap_rx_flow_opt_cfg(
+			const struct ti_sci_handle *handle,
+			const struct ti_sci_rm_udmap_rx_flow_opt_cfg *params)
+{
+	struct ti_sci_msg_hdr *resp;
+	struct rm_ti_sci_msg_udmap_rx_flow_opt_cfg *req;
+	struct ti_sci_xfer *xfer;
+	struct ti_sci_info *info;
+	struct device *dev;
+	int ret = 0;
+
+	if (IS_ERR(handle))
+		return PTR_ERR(handle);
+	if (!handle)
+		return -EINVAL;
+
+	info = handle_to_ti_sci_info(handle);
+	dev = info->dev;
+
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_RM_UDMAP_OPT_FLOW_CFG,
+				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+				   sizeof(*req), sizeof(*resp));
+	if (IS_ERR(xfer)) {
+		ret = PTR_ERR(xfer);
+		dev_err(dev, "Message alloc failed(%d)\n", ret);
+		return ret;
+	}
+	req = (struct rm_ti_sci_msg_udmap_rx_flow_opt_cfg *)xfer->xfer_buf;
+	req->nav_id = params->nav_id;
+	req->flow_index = params->flow_index;
+	req->rx_ch_index = params->rx_ch_index;
+	req->rx_size_thresh0 = params->rx_size_thresh0;
+	req->rx_size_thresh1 = params->rx_size_thresh1;
+	req->rx_size_thresh2 = params->rx_size_thresh2;
+	req->rx_fdq0_sz1_qnum = params->rx_fdq0_sz1_qnum;
+	req->rx_fdq0_sz2_qnum = params->rx_fdq0_sz2_qnum;
+	req->rx_fdq0_sz3_qnum = params->rx_fdq0_sz3_qnum;
+
+	ret = ti_sci_do_xfer(info, xfer);
+	if (ret) {
+		dev_err(dev, "Mbox send fail %d\n", ret);
+		goto fail;
+	}
+
+	resp = (struct ti_sci_msg_hdr *)xfer->xfer_buf;
+	ret = ti_sci_is_response_ack(resp) ? 0 : -EINVAL;
+
+fail:
+	ti_sci_put_one_xfer(&info->minfo, xfer);
+
+	return ret;
+}
+
 /*
  * ti_sci_setup_ops() - Setup the operations structures
  * @info:	pointer to TISCI pointer
@@ -2159,6 +2513,7 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 	struct ti_sci_irq_ops *iops = &ops->irq_ops;
 	struct ti_sci_rm_ringacc_ops *rops = &ops->rm_ring_ops;
 	struct ti_sci_rm_psil_ops *psilops = &ops->rm_psil_ops;
+	struct ti_sci_rm_udmap_ops *udmap_ops = &ops->rm_udmap_ops;
 
 	core_ops->reboot_device = ti_sci_cmd_core_reboot;
 
@@ -2200,6 +2555,13 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 
 	psilops->pair = ti_sci_cmd_rm_psil_pair;
 	psilops->unpair = ti_sci_cmd_rm_psil_unpair;
+
+	udmap_ops->tx_ch_alloc = ti_sci_cmd_rm_udmap_tx_ch_alloc;
+	udmap_ops->tx_ch_free = ti_sci_cmd_rm_udmap_tx_ch_free;
+	udmap_ops->rx_ch_alloc = ti_sci_cmd_rm_udmap_rx_ch_alloc;
+	udmap_ops->rx_ch_free = ti_sci_cmd_rm_udmap_rx_ch_free;
+	udmap_ops->rx_flow_cfg = ti_sci_cmd_rm_udmap_rx_flow_cfg;
+	udmap_ops->rx_flow_opt_cfg = ti_sci_cmd_rm_udmap_rx_flow_opt_cfg;
 }
 
 /**
