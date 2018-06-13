@@ -134,6 +134,18 @@
 				compatible = "ti,sci-reset";
 				#reset-cells = <2>;
 			};
+
+			k3_irq: irqchip@33d00000 {
+				compatible = "ti,sci-irq";
+				interrupt-controller;
+				interrupt-parent = <&gic>;
+				#interrupt-cells = <3>;
+				reg = <0x0 0x33d00000 0x0 0x100000>,
+				      <0x0 0x33c00000 0x0 0x40000>,
+				      <0x0 0x33c40000 0x0 0x40000>,
+				      <0x0 0x2a700000 0x0 0x100000>;
+				ia-ids = <179>, <180>, <181>, <189>;
+			};
 		};
 
 		main_pmx0: pinmux@11c000 {
