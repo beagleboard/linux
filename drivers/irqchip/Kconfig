@@ -1,3 +1,5 @@
+menu "IRQ chip support"
+
 config IRQCHIP
 	def_bool y
 	depends on OF_IRQ
@@ -321,3 +323,16 @@ config IRQ_UNIPHIER_AIDET
 	select IRQ_DOMAIN_HIERARCHY
 	help
 	  Support for the UniPhier AIDET (ARM Interrupt Detector).
+
+config TI_SCI_IRQCHIP
+	tristate "TI System Control Interface (TI-SCI) irqchip driver"
+	depends on TI_SCI_PROTOCOL && ARCH_K3
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+	help
+	  This enables the irqchip driver support over TI System Control
+	  Interface available on some new TI's SoCs. If you wish to use
+	  irq resources managed by the TI System Controller, say Y here.
+	  Otherwise, say N.
+
+endmenu
