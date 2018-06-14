@@ -52,6 +52,11 @@
 		#size-cells = <2>;
 		ranges;
 
+		scm_conf: scm_conf@100000 {
+			compatible = "syscon";
+			reg = <0 0x00100000 0 0x1c000>;
+		};
+
 		a53_timer0: timer-cl0-cpu0 {
 			compatible = "arm,armv8-timer";
 			interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* cntpsirq */
