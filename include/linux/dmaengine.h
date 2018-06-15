@@ -705,6 +705,11 @@ struct dma_filter {
  *	be called after period_len bytes have been transferred.
  * @device_prep_interleaved_dma: Transfer expression in a generic way.
  * @device_prep_dma_imm_data: DMA's 8 byte immediate data to the dst address
+ * @device_attach_metadata: Some DMA engines can send and receive side band
+ *	information, commands or parameters which is not transferred within the
+ *	data stream itself. In such case clients can set the metadata to the
+ *	given descriptor and it is going to be sent to the peripheral, or in
+ *	case of DEV_TO_MEM the provided buffer will receive the metadata.
  * @device_config: Pushes a new configuration to a channel, return 0 or an error
  *	code
  * @device_pause: Pauses any transfer happening on a channel. Returns
@@ -791,6 +796,9 @@ struct dma_device {
 	struct dma_async_tx_descriptor *(*device_prep_dma_imm_data)(
 		struct dma_chan *chan, dma_addr_t dst, u64 data,
 		unsigned long flags);
+
+	int (*device_attach_metadata)(struct dma_async_tx_descriptor *desc,
+				      void *data, size_t len);
 
 	int (*device_config)(struct dma_chan *chan,
 			     struct dma_slave_config *config);
@@ -903,6 +911,21 @@ static inline struct dma_async_tx_descriptor *dmaengine_prep_dma_memcpy(
 
 	return chan->device->device_prep_dma_memcpy(chan, dest, src,
 						    len, flags);
+}
+
+static inline int dmaengine_attach_metadata(
+		struct dma_async_tx_descriptor *desc, void *data, size_t len)
+{
+	struct dma_chan *chan;
+
+	if (!desc)
+		return 0;
+
+	chan = desc->chan;
+	if (!chan || !chan->device || !chan->device->device_attach_metadata)
+		return 0;
+
+	return chan->device->device_attach_metadata(desc, data, len);
 }
 
 /**
