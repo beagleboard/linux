@@ -88,6 +88,12 @@
 			AM65X_WKUP_IOPAD(0x00e4, PIN_INPUT | MUX_MODE0) /* (AD6) WKUP_I2C0_SDA */
 		>;
 	};
+
+	wkup_pca554_default: wkup_pca554_default {
+		pinctrl-single,pins = <
+			AM65X_WKUP_IOPAD(0x0030, PIN_INPUT | MUX_MODE7) /* (R5) MCU_OSPI0_CSn1.WKUP_GPIO0_24 */
+		>;
+	};
 };
 
 &wkup_i2c0 {
@@ -99,6 +105,19 @@
 	eeprom@50 {
 		compatible = "atmel,24c1024";
 		reg = <0x50>;
+	};
+
+	pca9554: gpio@39 {
+		compatible = "nxp,pca9554";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wkup_pca554_default>;
+		reg = <0x39>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&wkup_gpio0>;
+		interrupts = <24 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
 	};
 };
 
