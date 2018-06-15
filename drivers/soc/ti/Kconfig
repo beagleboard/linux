@@ -101,4 +101,9 @@ config TI_K3_NAVSS_RINGACC_DEBUG
 	depends on TI_K3_NAVSS_RINGACC
 	default n
 
+config TI_K3_NAVSS_DESC_POOL
+	tristate "K3 CPPI5 descriptors pool"
+	depends on ARCH_K3
+	default n
+
 endif # SOC_TI
