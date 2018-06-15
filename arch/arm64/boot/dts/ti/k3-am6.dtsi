@@ -573,5 +573,51 @@
 				interrupt-parent = <&k3_irq>;
 			};
 		};
+
+		pdma_main0: pdma@2a41000 {
+			compatible = "ti,k3-pdma";
+			reg = <0x0 0x02A41000 0x0 0x400>;
+			reg-names = "eccaggr_cfg";
+
+			ti,psil-base = <0x4400>;
+
+			/* ti,psil-config0-2 */
+			UDMA_PDMA_TR_XY(0);
+			UDMA_PDMA_TR_XY(1);
+			UDMA_PDMA_TR_XY(2);
+		};
+
+		pdma_main1: pdma@2a42000 {
+			compatible = "ti,k3-pdma";
+			reg = <0x0 0x02A42000 0x0 0x400>;
+			reg-names = "eccaggr_cfg";
+
+			ti,psil-base = <0x4500>;
+
+			/* ti,psil-config0-22 */
+			UDMA_PDMA_TR_XY(0);
+			UDMA_PDMA_TR_XY(1);
+			UDMA_PDMA_TR_XY(2);
+			UDMA_PDMA_TR_XY(3);
+			UDMA_PDMA_TR_XY(4);
+			UDMA_PDMA_TR_XY(5);
+			UDMA_PDMA_TR_XY(6);
+			UDMA_PDMA_TR_XY(7);
+			UDMA_PDMA_TR_XY(8);
+			UDMA_PDMA_TR_XY(9);
+			UDMA_PDMA_TR_XY(10);
+			UDMA_PDMA_TR_XY(11);
+			UDMA_PDMA_TR_XY(12);
+			UDMA_PDMA_TR_XY(13);
+			UDMA_PDMA_TR_XY(14);
+			UDMA_PDMA_TR_XY(15);
+			UDMA_PDMA_TR_XY(16);
+			UDMA_PDMA_TR_XY(17);
+			UDMA_PDMA_TR_XY(18);
+			UDMA_PDMA_TR_XY(19);
+			UDMA_PDMA_PKT_XY(20);
+			UDMA_PDMA_TR_XY(21);
+			UDMA_PDMA_TR_XY(22);
+		};
 	};
 };
