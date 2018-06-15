@@ -9,6 +9,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/pinctrl/k3-am6.h>
+#include <dt-bindings/dma/k3-udma.h>
 
 / {
 	model = "Texas Instruments K3 AM654 SoC";
@@ -475,6 +476,102 @@
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <16>;
 			status = "disabled";
+		};
+
+		navss256: navss256 {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			ringacc: ringacc@31160000 {
+				compatible = "ti,k3-navss-ringacc";
+				reg =	<0x0 0x3c000000 0x0 0x400000>,
+					<0x0 0x38000000 0x0 0x400000>,
+					<0x0 0x31120000 0x0 0x100>,
+					<0x0 0x33000000 0x0 0x40000>;
+				reg-names = "rt", "fifos",
+					    "proxy_gcfg", "proxy_target";
+				ti,num-rings = <818>;
+				ti,gp-rings = <302 466>; /* start, cnt */
+				ti,dma-ring-reset-quirk;
+				ti,sci = <&dmsc>;
+				ti,sci-dev-id = <187>;
+			};
+
+			psilcfg: psilcfg@31f78000 {
+				compatible = "ti,k3-navss-psilcfg";
+
+				ti,sci = <&dmsc>;
+				ti,sci-dev-id = <118>;
+			};
+
+			main_udmap: udmap@31150000 {
+				compatible = "ti,k3-navss-udmap";
+				reg =	<0x0 0x31150000 0x0 0x100>,
+					<0x0 0x34000000 0x0 0x100000>,
+					<0x0 0x35000000 0x0 0x100000>;
+				reg-names = "gcfg", "rchanrt", "tchanrt";
+				#dma-cells = <3>;
+				dma-channels = <270>;
+
+				ti,psi-proxy = <&psilcfg>;
+				ti,ringacc = <&ringacc>;
+				ti,psil-base = <0x1000>;
+
+				interrupt-parent = <&k3_irq>;
+
+				ti,sci = <&dmsc>;
+				ti,sci-dev-id = <188>;
+			};
+		};
+
+		navss_mcu: navss-mcu {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			mcu_ringacc: ringacc@285d0000 {
+				compatible = "ti,k3-navss-ringacc";
+				reg =	<0x0 0x2B800000 0x0 0x400000>,
+					<0x0 0x2B000000 0x0 0x400000>,
+					<0x0 0x28590000 0x0 0x100>,
+					<0x0 0x2a500000 0x0 0x40000>;
+				reg-names = "rt", "fifos",
+					    "proxy_gcfg", "proxy_target";
+				ti,num-rings = <286>;
+				ti,gp-rings = <96 255>; /* start, cnt */
+				ti,dma-ring-reset-quirk;
+				ti,sci = <&dmsc>;
+				ti,sci-dev-id = <195>;
+			};
+
+			mcu_psilcfg: psilcfg@0x2a268000 {
+				compatible = "ti,k3-navss-psilcfg";
+
+				ti,sci = <&dmsc>;
+				ti,sci-dev-id = <119>;
+			};
+
+			mcu_udmap: udmap@31150000 {
+				compatible = "ti,k3-navss-udmap";
+				reg =	<0x0 0x285c0000 0x0 0x100>,
+					<0x0 0x2a800000 0x0 0x40000>,
+					<0x0 0x2aa00000 0x0 0x40000>;
+				reg-names = "gcfg", "rchanrt", "tchanrt";
+				#dma-cells = <3>;
+				dma-channels = <96>;
+
+				ti,psi-proxy = <&mcu_psilcfg>;
+				ti,ringacc = <&mcu_ringacc>;
+				ti,psil-base = <0x6000>;
+
+				ti,sci = <&dmsc>;
+				ti,sci-dev-id = <194>;
+
+				interrupt-parent = <&k3_irq>;
+			};
 		};
 	};
 };
