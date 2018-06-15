@@ -478,6 +478,18 @@ struct dmaengine_unmap_data {
 	dma_addr_t addr[0];
 };
 
+struct dma_async_tx_descriptor;
+
+struct dma_descriptor_metadata_ops {
+	int (*attach)(struct dma_async_tx_descriptor *desc, void *data,
+		      size_t len);
+
+	void *(*get_ptr)(struct dma_async_tx_descriptor *desc,
+			 size_t *payload_len, size_t *max_len);
+	int (*set_len)(struct dma_async_tx_descriptor *desc,
+		       size_t payload_len);
+};
+
 /**
  * struct dma_async_tx_descriptor - async transaction descriptor
  * ---dma generic offload fields---
@@ -507,6 +519,7 @@ struct dma_async_tx_descriptor {
 	dma_async_tx_callback_result callback_result;
 	void *callback_param;
 	struct dmaengine_unmap_data *unmap;
+	struct dma_descriptor_metadata_ops *metadata_ops;
 #ifdef CONFIG_ASYNC_TX_ENABLE_CHANNEL_SWITCH
 	struct dma_async_tx_descriptor *next;
 	struct dma_async_tx_descriptor *parent;
@@ -614,11 +627,13 @@ static inline struct dma_async_tx_descriptor *txd_next(struct dma_async_tx_descr
  * @residue: the remaining number of bytes left to transmit
  *	on the selected transfer for states DMA_IN_PROGRESS and
  *	DMA_PAUSED if this is implemented in the driver, else 0
+ * @cached: amount of data in bytes cached by the DMA.
  */
 struct dma_tx_state {
 	dma_cookie_t last;
 	dma_cookie_t used;
 	u32 residue;
+	u32 cached;
 };
 
 /**
@@ -703,6 +718,11 @@ struct dma_filter {
  *	be called after period_len bytes have been transferred.
  * @device_prep_interleaved_dma: Transfer expression in a generic way.
  * @device_prep_dma_imm_data: DMA's 8 byte immediate data to the dst address
+ * @device_attach_metadata: Some DMA engines can send and receive side band
+ *	information, commands or parameters which is not transferred within the
+ *	data stream itself. In such case clients can set the metadata to the
+ *	given descriptor and it is going to be sent to the peripheral, or in
+ *	case of DEV_TO_MEM the provided buffer will receive the metadata.
  * @device_config: Pushes a new configuration to a channel, return 0 or an error
  *	code
  * @device_pause: Pauses any transfer happening on a channel. Returns
@@ -789,6 +809,9 @@ struct dma_device {
 	struct dma_async_tx_descriptor *(*device_prep_dma_imm_data)(
 		struct dma_chan *chan, dma_addr_t dst, u64 data,
 		unsigned long flags);
+
+	int (*device_attach_metadata)(struct dma_async_tx_descriptor *desc,
+				      void *data, size_t len);
 
 	int (*device_config)(struct dma_chan *chan,
 			     struct dma_slave_config *config);
@@ -901,6 +924,58 @@ static inline struct dma_async_tx_descriptor *dmaengine_prep_dma_memcpy(
 
 	return chan->device->device_prep_dma_memcpy(chan, dest, src,
 						    len, flags);
+}
+
+static inline int dmaengine_attach_metadata(
+		struct dma_async_tx_descriptor *desc, void *data, size_t len)
+{
+	struct dma_chan *chan;
+
+	if (!desc)
+		return 0;
+
+	chan = desc->chan;
+	if (!chan || !chan->device || !chan->device->device_attach_metadata)
+		return 0;
+
+	return chan->device->device_attach_metadata(desc, data, len);
+}
+
+static inline int dmaengine_desc_attach_metadata(
+		struct dma_async_tx_descriptor *desc, void *data, size_t len)
+{
+	if (!desc)
+		return 0;
+
+	if (!desc->metadata_ops || !desc->metadata_ops->attach)
+		return -ENOTSUPP;
+
+	return desc->metadata_ops->attach(desc, data, len);
+}
+
+static inline void *dmaengine_desc_get_metadata_ptr(
+		struct dma_async_tx_descriptor *desc, size_t *payload_len,
+		size_t *max_len)
+{
+	if (!desc)
+		return NULL;
+
+	if (!desc->metadata_ops || !desc->metadata_ops->get_ptr)
+		return ERR_PTR(-ENOTSUPP);
+
+	return desc->metadata_ops->get_ptr(desc, payload_len, max_len);
+}
+
+static inline int dmaengine_desc_set_metadata_len(
+		struct dma_async_tx_descriptor *desc, size_t payload_len)
+{
+	if (!desc)
+		return 0;
+
+	if (!desc->metadata_ops || !desc->metadata_ops->set_len)
+		return -ENOTSUPP;
+
+	return desc->metadata_ops->set_len(desc, payload_len);
 }
 
 /**
@@ -1399,6 +1474,8 @@ void dma_async_device_unregister(struct dma_device *device);
 void dma_run_dependencies(struct dma_async_tx_descriptor *tx);
 struct dma_chan *dma_get_slave_channel(struct dma_chan *chan);
 struct dma_chan *dma_get_any_slave_channel(struct dma_device *device);
+struct dma_chan *dmadev_get_slave_channel(struct dma_device *device,
+					  dma_filter_fn fn, void *fn_param);
 #define dma_request_channel(mask, x, y) __dma_request_channel(&(mask), x, y)
 #define dma_request_slave_channel_compat(mask, x, y, dev, name) \
 	__dma_request_slave_channel_compat(&(mask), x, y, dev, name)
