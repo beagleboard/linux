@@ -317,10 +317,10 @@ struct ti_sci_rm_psil_ops {
 #define TI_SCI_RM_UDMAP_RX_FLOW_DESC_MONO		2
 
 /**
- * struct ti_sci_rm_udmap_tx_ch_alloc -  parameters for UDMAP transmit channel
- *					 allocation
- * @nav_id: SoC Navigator Subsystem device ID whose PSI-L config proxy is
- *	used to unpair the source and destination threads.
+ * struct ti_sci_rm_udmap_tx_ch_alloc - parameters for UDMAP transmit channel
+ *					allocation
+ * @nav_id: SoC Navigator Subsystem device ID from which the transmit channel is
+ *	allocated
  * @index: UDMAP transmit channel index.
  * @tx_pause_on_err: UDMAP transmit channel pause on error configuration
  * @tx_filt_einfo: UDMAP transmit channel extended packet information passing
@@ -350,6 +350,10 @@ struct ti_sci_rm_psil_ops {
  *	configuration. Valid values are TI_SCI_RM_UDMAP_SCHED_PRIOR_*
  * @share: Not supported, set it to 0.
  * @type: Not supported, set it to NULL parameter.
+ * @secondary_host: Specifies a host ID for which the TISCI header host ID
+ *	is proxying the request for.
+ *
+ * For detailed information on the settings, see the UDMAP section of the TRM.
  */
 struct ti_sci_rm_udmap_tx_ch_alloc {
 	u32 nav_id;
@@ -374,10 +378,10 @@ struct ti_sci_rm_udmap_tx_ch_alloc {
 };
 
 /**
- * struct ti_sci_rm_udmap_rx_ch_alloc -  parameters for UDMAP receive channel
- *					 allocation
- * @nav_id: SoC Navigator Subsystem device ID whose PSI-L config proxy is
- *	used to unpair the source and destination threads.
+ * struct ti_sci_rm_udmap_rx_ch_alloc - parameters for UDMAP receive channel
+ *					allocation
+ * @nav_id: SoC Navigator Subsystem device ID from which the receive channel is
+ *	allocated
  * @index: UDMAP receive channel index.
  * @rx_fetch_size: UDMAP receive channel number of 32-bit descriptor words to
  *	fetch configuration.
@@ -406,6 +410,10 @@ struct ti_sci_rm_udmap_tx_ch_alloc {
  * @rx_ignore_long: UDMAP receive channel long packet treatment configuration.
  * @share: Not supported, set it to 0.
  * @type: Not supported, set it to NULL parameter.
+ * @secondary_host: Specifies a host ID for which the TISCI header host ID
+ *	is proxying the request for.
+ *
+ * For detailed information on the settings, see the UDMAP section of the TRM.
  */
 struct ti_sci_rm_udmap_rx_ch_alloc {
 	u32 nav_id;
@@ -429,12 +437,12 @@ struct ti_sci_rm_udmap_rx_ch_alloc {
 };
 
 /**
- * struct ti_sci_rm_udmap_rx_flow_cfg -  parameters for UDMAP receive flow
- *					 configuration
- * @nav_id: SoC Navigator Subsystem device ID whose PSI-L config proxy is
- *	used to unpair the source and destination threads.
+ * struct ti_sci_rm_udmap_rx_flow_cfg - parameters for UDMAP receive flow
+ *					configuration
+ * @nav_id: SoC Navigator Subsystem device ID from which the receive flow is
+ *	allocated
  * @flow_index: UDMAP receive flow index for non-optional configuration.
- * @rx_ch_index: Specifies the index of the receive channel using the flow_index
+ * @rx_ch_index: Specifies the index of the receive channel using the flow_index.
  * @rx_einfo_present: UDMAP receive flow extended packet info present.
  * @rx_psinfo_present: UDMAP receive flow PS words present.
  * @rx_error_handling: UDMAP receive flow error handling configuration. Valid
@@ -461,6 +469,8 @@ struct ti_sci_rm_udmap_rx_ch_alloc {
  * @rx_fdq1_qnum: UDMAP receive flow free descriptor queue 1.
  * @rx_fdq2_qnum: UDMAP receive flow free descriptor queue 2.
  * @rx_fdq3_qnum: UDMAP receive flow free descriptor queue 3.
+ *
+ * For detailed information on the settings, see the UDMAP section of the TRM.
  */
 struct ti_sci_rm_udmap_rx_flow_cfg {
 	u32 nav_id;
@@ -489,10 +499,10 @@ struct ti_sci_rm_udmap_rx_flow_cfg {
 };
 
 /**
- * struct ti_sci_rm_udmap_rx_flow_cfg -  parameters for UDMAP receive flow
- *					 optional configuration
- * @nav_id: SoC Navigator Subsystem device ID whose PSI-L config proxy is
- *	used to unpair the source and destination threads.
+ * struct ti_sci_rm_udmap_rx_flow_opt_cfg - parameters for UDMAP receive flow
+ *					    optional configuration
+ * @nav_id: SoC Navigator Subsystem device ID from which the receive flow is
+ *	allocated
  * @flow_index: UDMAP receive flow index for optional configuration.
  * @rx_ch_index: Specifies the index of the receive channel using the flow_index
  * @rx_size_thresh0: UDMAP receive flow packet size threshold 0.
@@ -504,6 +514,8 @@ struct ti_sci_rm_udmap_rx_flow_cfg {
  *	threshold 2.
  * @rx_fdq0_sz3_qnum: UDMAP receive flow free descriptor queue for size
  *	threshold 3.
+ *
+ * For detailed information on the settings, see the UDMAP section of the TRM.
  */
 struct ti_sci_rm_udmap_rx_flow_opt_cfg {
 	u32 nav_id;
