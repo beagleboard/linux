@@ -6,4 +6,9 @@
 # Copyright (C) 2016-2018 Texas Instruments Incorporated - http://www.ti.com/
 #
 
+DTC_FLAGS += -@
+
 dtb-$(CONFIG_ARCH_K3_AM6_SOC) += k3-am654-base-board.dtb
+
+$(obj)/%.dtbo: $(src)/%.dtso FORCE
+	$(call if_changed_dep,dtc)
