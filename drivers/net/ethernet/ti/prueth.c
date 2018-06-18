@@ -1677,7 +1677,7 @@ static int prueth_probe(struct platform_device *pdev)
 			gen_pool_virt_to_phys(prueth->sram_pool,
 					      (unsigned long)prueth->mem[PRUETH_MEM_OCMC].va);
 	prueth->mem[PRUETH_MEM_OCMC].size = OCMC_RAM_SIZE;
-	dev_dbg(dev, "ocmc: pa %pa va %p size %#x\n",
+	dev_dbg(dev, "ocmc: pa %pa va %p size %#zx\n",
 		&prueth->mem[PRUETH_MEM_OCMC].pa,
 		prueth->mem[PRUETH_MEM_OCMC].va,
 		prueth->mem[PRUETH_MEM_OCMC].size);
