@@ -63,8 +63,9 @@ struct pruss *pruss_get(struct rproc *rproc)
 	if (!dev->parent)
 		return ERR_PTR(-ENODEV);
 
-	/* rudimentary check to make sure rproc handle is for a PRU */
-	if (!strstr(dev_name(dev->parent), "pru"))
+	/* rudimentary check to make sure rproc handle is for a PRU or RTU */
+	if (!strstr(dev_name(dev->parent), "pru") &&
+	    !strstr(dev_name(dev->parent), "rtu"))
 		return ERR_PTR(-ENODEV);
 
 	ppdev = to_platform_device(dev->parent->parent);
@@ -228,6 +229,30 @@ int pruss_release_mem_region(struct pruss *pruss,
 }
 EXPORT_SYMBOL_GPL(pruss_release_mem_region);
 
+/* Custom configuration of couple of PRUSS clocks only on AM65x SoCs */
+static int pruss_configure_clocks(struct platform_device *pdev,
+				  struct pruss *pruss)
+{
+	int ret;
+
+	if (!of_device_is_compatible(pdev->dev.of_node, "ti,am654-icssg"))
+		return 0;
+
+	ret = pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, ICSSG_CFG_CORE_SYNC,
+				  ICSSG_CORE_VBUSP_SYNC_EN,
+				  ICSSG_CORE_VBUSP_SYNC_EN);
+	if (ret)
+		return ret;
+
+	ret = pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, PRUSS_CFG_IEPCLK,
+				  PRUSS_IEPCLK_IEP_OCP_CLK_EN,
+				  PRUSS_IEPCLK_IEP_OCP_CLK_EN);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static const
 struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
 {
@@ -346,6 +371,12 @@ static int pruss_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pruss);
 
+	ret = pruss_configure_clocks(pdev, pruss);
+	if (ret) {
+		dev_err(dev, "clock frequency config failed, ret = %d\n", ret);
+		return ret;
+	}
+
 	dev_info(&pdev->dev, "creating PRU cores and other child platform devices\n");
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
 	if (ret)
@@ -392,6 +423,7 @@ static const struct of_device_id pruss_of_match[] = {
 	{ .compatible = "ti,am4376-pruss", .data = &am437x_match_data, },
 	{ .compatible = "ti,am5728-pruss", .data = NULL, },
 	{ .compatible = "ti,k2g-pruss", .data = NULL, },
+	{ .compatible = "ti,am654-icssg", .data = NULL, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);

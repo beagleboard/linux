@@ -30,9 +30,13 @@ static const char * const irq_names[] = {
 
 /**
  * struct pruss_intc_match_data - match data to handle SoC variations
+ * @num_system_events: number of input system events handled by the PRUSS INTC
+ * @num_host_intrs: number of host interrupts supported by the PRUSS INTC
  * @no_host7_intr: flag denoting the absence of host7 interrupt into MPU
  */
 struct pruss_intc_match_data {
+	u8 num_system_events;
+	u8 num_host_intrs;
 	bool no_host7_intr;
 };
 
@@ -43,6 +47,7 @@ struct pruss_intc_match_data {
  * @mem: kernel-mapping data for the INTC register space
  * @irqchip: irq chip for this interrupt controller
  * @domain: irq domain for this interrupt controller
+ * @data: cached PRUSS INTC IP configuration data
  * @config_map: stored INTC configuration mapping data
  * @lock: mutex to serialize access to INTC
  */
@@ -52,6 +57,7 @@ struct pruss_intc {
 	struct pruss_mem_region mem;
 	struct irq_chip *irqchip;
 	struct irq_domain *domain;
+	const struct pruss_intc_match_data *data;
 	struct pruss_intc_config config_map;
 	struct mutex lock; /* PRUSS INTC lock */
 };
@@ -73,7 +79,7 @@ static int pruss_intc_check_write(struct pruss_intc *intc, unsigned int reg,
 	if (!intc)
 		return -EINVAL;
 
-	if (sysevent >= MAX_PRU_SYS_EVENTS)
+	if (sysevent >= intc->data->num_system_events)
 		return -EINVAL;
 
 	pruss_intc_write_reg(intc, reg, sysevent);
@@ -124,14 +130,22 @@ int pruss_intc_configure(struct pruss *pruss,
 {
 	struct device *dev = pruss->dev;
 	struct pruss_intc *intc = to_pruss_intc(pruss);
-	int i, idx, ch, host, ret;
-	u64 sysevt_mask = 0;
+	int i, idx, ch, host;
+	u32 num_events = intc->data->num_system_events;
+	u32 num_intrs = intc->data->num_host_intrs;
+	u32 num_regs = DIV_ROUND_UP(num_events, 32);
+	u32 *sysevt_mask = NULL;
 	u32 ch_mask = 0;
 	u32 host_mask = 0;
+	int ret = 0;
 	u32 val;
 
 	if (!intc)
 		return -EINVAL;
+
+	sysevt_mask = kcalloc(num_regs, sizeof(*sysevt_mask), GFP_KERNEL);
+	if (!sysevt_mask)
+		return -ENOMEM;
 
 	mutex_lock(&intc->lock);
 
@@ -140,7 +154,7 @@ int pruss_intc_configure(struct pruss *pruss,
 	 * for 4 events, with each event occupying the lower nibble in
 	 * a register byte address in little-endian fashion
 	 */
-	for (i = 0; i < ARRAY_SIZE(intc_config->sysev_to_ch); i++) {
+	for (i = 0; i < num_events; i++) {
 		ch = intc_config->sysev_to_ch[i];
 		if (ch < 0)
 			continue;
@@ -159,7 +173,7 @@ int pruss_intc_configure(struct pruss *pruss,
 		val = pruss_intc_read_reg(intc, PRU_INTC_CMR(idx));
 		val |= ch << ((i & 3) * 8);
 		pruss_intc_write_reg(intc, PRU_INTC_CMR(idx), val);
-		sysevt_mask |= BIT_ULL(i);
+		sysevt_mask[i / 32] |= BIT(i);
 		ch_mask |= BIT(ch);
 
 		dev_dbg(dev, "SYSEV%d -> CH%d (CMR%d 0x%08x)\n", i, ch, idx,
@@ -171,7 +185,7 @@ int pruss_intc_configure(struct pruss *pruss,
 	 * 4 channels, with each channel occupying the lower nibble in
 	 * a register byte address in little-endian fashion
 	 */
-	for (i = 0; i < ARRAY_SIZE(intc_config->ch_to_host); i++) {
+	for (i = 0; i < num_intrs; i++) {
 		host = intc_config->ch_to_host[i];
 		if (host < 0)
 			continue;
@@ -207,17 +221,25 @@ int pruss_intc_configure(struct pruss *pruss,
 			pruss_intc_read_reg(intc, PRU_INTC_HMR(idx)));
 	}
 
-	dev_info(dev, "configured system_events = 0x%016llx intr_channels = 0x%08x host_intr = 0x%08x\n",
-		 sysevt_mask, ch_mask, host_mask);
+	if (num_events == MAX_PRU_SYS_EVENTS) {
+		dev_info(dev, "configured system_events[63-0] = 0x%08x.%08x",
+			 sysevt_mask[1], sysevt_mask[0]);
+	} else if (num_events == MAX_PRU_SYS_EVENTS_K3) {
+		dev_info(dev, "configured system_events[159-0] = 0x%08x.%08x.%08x.%08x.%08x",
+			 sysevt_mask[4], sysevt_mask[3],  sysevt_mask[2],
+			 sysevt_mask[1],  sysevt_mask[0]);
+	}
+	dev_info(dev, "configured intr_channels = 0x%08x host_intr = 0x%08x\n",
+		 ch_mask, host_mask);
 
 	/* enable system events, writing 0 has no-effect */
-	pruss_intc_write_reg(intc, PRU_INTC_ESR0, lower_32_bits(sysevt_mask));
-	pruss_intc_write_reg(intc, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
-	pruss_intc_write_reg(intc, PRU_INTC_ESR1, upper_32_bits(sysevt_mask));
-	pruss_intc_write_reg(intc, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
+	for (i = 0; i < num_regs; i++) {
+		pruss_intc_write_reg(intc, PRU_INTC_ESR(i), sysevt_mask[i]);
+		pruss_intc_write_reg(intc, PRU_INTC_SECR(i), sysevt_mask[i]);
+	}
 
 	/* enable host interrupts */
-	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
+	for (i = 0; i < num_intrs; i++) {
 		if (host_mask & BIT(i))
 			pruss_intc_write_reg(intc, PRU_INTC_HIEISR, i);
 	}
@@ -227,11 +249,9 @@ int pruss_intc_configure(struct pruss *pruss,
 
 	pruss->host_mask |= host_mask;
 
-	mutex_unlock(&intc->lock);
-	return 0;
-
 unlock:
 	mutex_unlock(&intc->lock);
+	kfree(sysevt_mask);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pruss_intc_configure);
@@ -251,25 +271,32 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 	struct device *dev = pruss->dev;
 	struct pruss_intc *intc = to_pruss_intc(pruss);
 	int i, ch, host;
-	u64 sysevt_mask = 0;
+	u32 num_events = intc->data->num_system_events;
+	u32 num_intrs = intc->data->num_host_intrs;
+	u32 num_regs = DIV_ROUND_UP(num_events, 32);
+	u32 *sysevt_mask = NULL;
 	u32 host_mask = 0;
 
 	if (!intc)
 		return -EINVAL;
 
+	sysevt_mask = kcalloc(num_regs, sizeof(*sysevt_mask), GFP_KERNEL);
+	if (!sysevt_mask)
+		return -ENOMEM;
+
 	mutex_lock(&intc->lock);
 
-	for (i = 0; i < ARRAY_SIZE(intc_config->sysev_to_ch); i++) {
+	for (i = 0; i < num_events; i++) {
 		ch = intc_config->sysev_to_ch[i];
 		if (ch < 0)
 			continue;
 
 		/* mark sysevent free in global map */
 		intc->config_map.sysev_to_ch[i] = -1;
-		sysevt_mask |= BIT_ULL(i);
+		sysevt_mask[i / 32] |= BIT(i);
 	}
 
-	for (i = 0; i < ARRAY_SIZE(intc_config->ch_to_host); i++) {
+	for (i = 0; i < num_intrs; i++) {
 		host = intc_config->ch_to_host[i];
 		if (host < 0)
 			continue;
@@ -279,24 +306,32 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 		host_mask |= BIT(host);
 	}
 
-	dev_info(dev, "unconfigured system_events = 0x%016llx host_intr = 0x%08x\n",
-		 sysevt_mask, host_mask);
+	if (num_events == MAX_PRU_SYS_EVENTS) {
+		dev_info(dev, "unconfigured system_events[63-0] = 0x%08x.%08x",
+			 sysevt_mask[1], sysevt_mask[0]);
+	} else if (num_events == MAX_PRU_SYS_EVENTS_K3) {
+		dev_info(dev, "unconfigured system_events[159-0] = 0x%08x.%08x.%08x.%08x.%08x",
+			 sysevt_mask[4], sysevt_mask[3],  sysevt_mask[2],
+			 sysevt_mask[1],  sysevt_mask[0]);
+	}
+	dev_info(dev, "unconfigured host_intr = 0x%08x\n", host_mask);
 
-	/* disable system events, writing 0 has no-effect */
-	pruss_intc_write_reg(intc, PRU_INTC_ECR0, lower_32_bits(sysevt_mask));
-	pruss_intc_write_reg(intc, PRU_INTC_ECR1, upper_32_bits(sysevt_mask));
-	/* clear any pending status */
-	pruss_intc_write_reg(intc, PRU_INTC_SECR0, lower_32_bits(sysevt_mask));
-	pruss_intc_write_reg(intc, PRU_INTC_SECR1, upper_32_bits(sysevt_mask));
+	for (i = 0; i < num_regs; i++) {
+		/* disable system events, writing 0 has no-effect */
+		pruss_intc_write_reg(intc, PRU_INTC_ECR(i), sysevt_mask[i]);
+		/* clear any pending status */
+		pruss_intc_write_reg(intc, PRU_INTC_SECR(i), sysevt_mask[i]);
+	}
 
 	/* disable host interrupts */
-	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
+	for (i = 0; i < num_intrs; i++) {
 		if (host_mask & BIT(i))
 			pruss_intc_write_reg(intc, PRU_INTC_HIDISR, i);
 	}
 
 	pruss->host_mask &= ~host_mask;
 	mutex_unlock(&intc->lock);
+	kfree(sysevt_mask);
 
 	return 0;
 }
@@ -305,21 +340,26 @@ EXPORT_SYMBOL_GPL(pruss_intc_unconfigure);
 static void pruss_intc_init(struct pruss_intc *intc)
 {
 	int i;
+	int num_chnl_map_regs = DIV_ROUND_UP(intc->data->num_system_events, 4);
+	int num_host_intr_regs = DIV_ROUND_UP(intc->data->num_host_intrs, 4);
+	int num_event_type_regs =
+			DIV_ROUND_UP(intc->data->num_system_events, 32);
 
-	/* configure polarity to active high for all system interrupts */
-	pruss_intc_write_reg(intc, PRU_INTC_SIPR0, 0xffffffff);
-	pruss_intc_write_reg(intc, PRU_INTC_SIPR1, 0xffffffff);
+	/*
+	 * configure polarity (SIPR register) to active high and
+	 * type (SITR register) to pulse interrupt for all system events
+	 */
+	for (i = 0; i < num_event_type_regs; i++) {
+		pruss_intc_write_reg(intc, PRU_INTC_SIPR(i), 0xffffffff);
+		pruss_intc_write_reg(intc, PRU_INTC_SITR(i), 0);
+	}
 
-	/* configure type to pulse interrupt for all system interrupts */
-	pruss_intc_write_reg(intc, PRU_INTC_SITR0, 0);
-	pruss_intc_write_reg(intc, PRU_INTC_SITR1, 0);
-
-	/* clear all 16 interrupt channel map registers */
-	for (i = 0; i < 16; i++)
+	/* clear all interrupt channel map registers, 4 events per register */
+	for (i = 0; i < num_chnl_map_regs; i++)
 		pruss_intc_write_reg(intc, PRU_INTC_CMR(i), 0);
 
-	/* clear all 3 host interrupt map registers */
-	for (i = 0; i < 3; i++)
+	/* clear all host interrupt map registers, 4 channels per register */
+	for (i = 0; i < num_host_intr_regs; i++)
 		pruss_intc_write_reg(intc, PRU_INTC_HMR(i), 0);
 }
 
@@ -474,13 +514,19 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	int i, irq;
 	const struct pruss_intc_match_data *data;
 	bool skip_host7;
+	u8 max_system_events;
 
 	data = of_device_get_match_data(dev);
-	skip_host7 = data ? data->no_host7_intr : false;
+	if (!data)
+		return -ENODEV;
+
+	skip_host7 = data->no_host7_intr;
+	max_system_events = data->num_system_events;
 
 	intc = devm_kzalloc(dev, sizeof(*intc), GFP_KERNEL);
 	if (!intc)
 		return -ENOMEM;
+	intc->data = data;
 	platform_set_drvdata(pdev, intc);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "intc");
@@ -519,8 +565,7 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	irqchip->name = dev_name(dev);
 	intc->irqchip = irqchip;
 
-	/* always 64 events */
-	intc->domain = irq_domain_add_linear(dev->of_node, MAX_PRU_SYS_EVENTS,
+	intc->domain = irq_domain_add_linear(dev->of_node, max_system_events,
 					     &pruss_intc_irq_domain_ops, intc);
 	if (!intc->domain)
 		return -ENOMEM;
@@ -551,10 +596,11 @@ fail_irq:
 static int pruss_intc_remove(struct platform_device *pdev)
 {
 	struct pruss_intc *intc = platform_get_drvdata(pdev);
+	u8 max_system_events = intc->data->num_system_events;
 	unsigned int hwirq;
 
 	if (intc->domain) {
-		for (hwirq = 0; hwirq < MAX_PRU_SYS_EVENTS; hwirq++)
+		for (hwirq = 0; hwirq < max_system_events; hwirq++)
 			irq_dispose_mapping(irq_find_mapping(intc->domain,
 							     hwirq));
 		irq_domain_remove(intc->domain);
@@ -563,30 +609,44 @@ static int pruss_intc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct pruss_intc_match_data am437x_pruss_intc_data = {
+static const struct pruss_intc_match_data am335x_am57xx_pruss_intc_data = {
+	.num_system_events = 64,
+	.num_host_intrs = 10,
+	.no_host7_intr = false,
+};
+
+static const struct pruss_intc_match_data am437x_k2g_pruss_intc_data = {
+	.num_system_events = 64,
+	.num_host_intrs = 10,
 	.no_host7_intr = true,
 };
 
-static const struct pruss_intc_match_data k2g_pruss_intc_data = {
-	.no_host7_intr = true,
+static const struct pruss_intc_match_data am6x_icssg_intc_data = {
+	.num_system_events = 160,
+	.num_host_intrs = 20,
+	.no_host7_intr = false,
 };
 
 static const struct of_device_id pruss_intc_of_match[] = {
 	{
 		.compatible = "ti,am3356-pruss-intc",
-		.data = NULL,
+		.data = &am335x_am57xx_pruss_intc_data,
 	},
 	{
 		.compatible = "ti,am4376-pruss-intc",
-		.data = &am437x_pruss_intc_data,
+		.data = &am437x_k2g_pruss_intc_data,
 	},
 	{
 		.compatible = "ti,am5728-pruss-intc",
-		.data = NULL,
+		.data = &am335x_am57xx_pruss_intc_data,
 	},
 	{
 		.compatible = "ti,k2g-pruss-intc",
-		.data = &k2g_pruss_intc_data,
+		.data = &am437x_k2g_pruss_intc_data,
+	},
+	{
+		.compatible = "ti,am654-icssg-intc",
+		.data = &am6x_icssg_intc_data,
 	},
 	{ /* sentinel */ },
 };
