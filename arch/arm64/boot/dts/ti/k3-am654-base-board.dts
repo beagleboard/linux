@@ -73,6 +73,12 @@
 			AM65X_IOPAD(0x000c, PIN_INPUT | MUX_MODE0) /* (E21) I2C1_SDA */
 		>;
 	};
+
+	ecap0_pins_default: ecap0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0010, PIN_INPUT | MUX_MODE0) /* (D21) ECAP0_IN_APWM_OUT */
+		>;
+	};
 };
 
 &wkup_pmx0 {
@@ -80,6 +86,12 @@
 		pinctrl-single,pins = <
 			AM65X_WKUP_IOPAD(0x00e0, PIN_INPUT | MUX_MODE0) /* (AC7) WKUP_I2C0_SCL */
 			AM65X_WKUP_IOPAD(0x00e4, PIN_INPUT | MUX_MODE0) /* (AD6) WKUP_I2C0_SDA */
+		>;
+	};
+
+	wkup_pca554_default: wkup_pca554_default {
+		pinctrl-single,pins = <
+			AM65X_WKUP_IOPAD(0x0030, PIN_INPUT | MUX_MODE7) /* (R5) MCU_OSPI0_CSn1.WKUP_GPIO0_24 */
 		>;
 	};
 };
@@ -93,6 +105,19 @@
 	eeprom@50 {
 		compatible = "atmel,24c1024";
 		reg = <0x50>;
+	};
+
+	pca9554: gpio@39 {
+		compatible = "nxp,pca9554";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wkup_pca554_default>;
+		reg = <0x39>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&wkup_gpio0>;
+		interrupts = <24 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
 	};
 };
 
@@ -122,4 +147,10 @@
 	pinctrl-0 = <&main_i2c2_pins_default>;
 	status = "okay";
 	clock-frequency = <400000>;
+};
+
+&ecap0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ecap0_pins_default>;
+	status = "okay";
 };
