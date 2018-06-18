@@ -2434,7 +2434,7 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 		num_tr = 2;
 		tr0_cnt0 = (SZ_64K - 1);
 		if (len / tr0_cnt0 >= SZ_64K) {
-			dev_err(uc->ud->dev, "size %lu is not supported\n",
+			dev_err(uc->ud->dev, "size %zu is not supported\n",
 				len);
 			return NULL;
 		}
