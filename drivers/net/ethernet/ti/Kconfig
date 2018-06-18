@@ -137,6 +137,7 @@ config CPMAC
 config TI_PRUETH
 	tristate "TI PRU Ethernet EMAC/Switch driver"
 	depends on PRUSS_REMOTEPROC
+	depends on SOC_AM33XX || SOC_AM43XX || SOC_DRA7XX || ARCH_KEYSTONE
 	---help---
 	  Support EMAC over PRUSS.
 
