@@ -1883,12 +1883,12 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 	return d;
 }
 
-static inline void udma_configure_statictr(struct udma_chan *uc,
-					   struct udma_desc *d, u8 elsize,
-					   u16 elcnt)
+static inline int udma_configure_statictr(struct udma_chan *uc,
+					  struct udma_desc *d, u8 elsize,
+					  u16 elcnt)
 {
 	if (!uc->static_tr_type)
-		return;
+		return 0;
 
 	d->static_tr.elsize = elsize;
 	d->static_tr.elcnt = elcnt;
@@ -1899,9 +1899,14 @@ static inline void udma_configure_statictr(struct udma_chan *uc,
 			d->static_tr.bstcnt = d->residue / d->sglen / div;
 		else
 			d->static_tr.bstcnt = d->residue / div;
+
+		if (uc->dir == DMA_DEV_TO_MEM && d->static_tr.bstcnt > 0xfff)
+			return -EINVAL;
 	} else {
 		d->static_tr.bstcnt = 0;
 	}
+
+	return 0;
 }
 
 static struct udma_desc *udma_prep_slave_sg_pkt(
@@ -2197,7 +2202,18 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 	d->sg_idx = 0;
 
 	/* static TR for remote PDMA */
-	udma_configure_statictr(uc, d, elsize, burst);
+	if (udma_configure_statictr(uc, d, elsize, burst)) {
+		dev_err(uc->ud->dev,
+			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
+			__func__, d->static_tr.bstcnt);
+
+		dma_unmap_single(uc->ud->dev, d->cppi5_desc_paddr,
+				 d->cppi5_desc_area_size,
+				 DMA_BIDIRECTIONAL);
+		kfree(d->cppi5_desc_vaddr);
+		kfree(d);
+		return NULL;
+	}
 
 	if (uc->metadata_size)
 		d->vd.tx.metadata_ops = &metadata_ops;
@@ -2398,7 +2414,18 @@ static struct dma_async_tx_descriptor *udma_prep_dma_cyclic(
 	d->residue = buf_len;
 
 	/* static TR for remote PDMA */
-	udma_configure_statictr(uc, d, elsize, burst);
+	if (udma_configure_statictr(uc, d, elsize, burst)) {
+		dev_err(uc->ud->dev,
+			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
+			__func__, d->static_tr.bstcnt);
+
+		dma_unmap_single(uc->ud->dev, d->cppi5_desc_paddr,
+				 d->cppi5_desc_area_size,
+				 DMA_BIDIRECTIONAL);
+		kfree(d->cppi5_desc_vaddr);
+		kfree(d);
+		return NULL;
+	}
 
 	if (uc->metadata_size)
 		d->vd.tx.metadata_ops = &metadata_ops;
