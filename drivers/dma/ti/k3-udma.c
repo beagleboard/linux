@@ -984,6 +984,64 @@ static irqreturn_t udma_udma_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/**
+ * __udma_reserve_rflow_range - reserve range of flow ids
+ * @ud: UDMA device
+ * @from: Start the search from this flow id number
+ * @cnt: Number of consecutive flow ids to allocate
+ *
+ * Reserve range of flow ids for future use, those flows can be allocated
+ * only using explicit flow id number. if @from is set to -1 it will try to find
+ * first free range. if @from is positive value it will force allocation only
+ * of the specified range of flows.
+ *
+ * Returns -ENOMEM if can't find free range.
+ * -EEXIST if requested range is busy.
+ * -EINVAL if wrong input values passed.
+ * Returns flow id on success.
+ */
+static int __udma_reserve_rflow_range(struct udma_dev *ud, int from, int cnt)
+{
+	int start, tmp_from;
+	DECLARE_BITMAP(tmp, K3_UDMA_MAX_RFLOWS);
+
+	tmp_from = from;
+	if (tmp_from < 0)
+		tmp_from = ud->rchan_cnt;
+	/* default flows can't be reserved and accessible only by id */
+	if (tmp_from < ud->rchan_cnt)
+		return -EINVAL;
+
+	if (tmp_from + cnt > ud->rflow_cnt)
+		return -EINVAL;
+
+	bitmap_or(tmp, ud->rflow_map, ud->rflow_map_reserved,
+		  ud->rflow_cnt);
+
+	start = bitmap_find_next_zero_area(tmp,
+					   ud->rflow_cnt,
+					   tmp_from, cnt, 0);
+	if (start >= ud->rflow_cnt)
+		return -ENOMEM;
+
+	if (from >= 0 && start != from)
+		return -EEXIST;
+
+	bitmap_set(ud->rflow_map_reserved, start, cnt);
+	return start;
+}
+
+static int __udma_free_rflow_range(struct udma_dev *ud, int from, int cnt)
+{
+	if (from < ud->rchan_cnt)
+		return -EINVAL;
+	if (from + cnt > ud->rflow_cnt)
+		return -EINVAL;
+
+	bitmap_clear(ud->rflow_map_reserved, from, cnt);
+	return 0;
+}
+
 static struct udma_rflow *__udma_reserve_rflow(struct udma_dev *ud,
 					       bool htp, int id)
 {
@@ -3187,6 +3245,9 @@ static struct platform_driver udma_driver = {
 };
 
 module_platform_driver(udma_driver);
+
+/* Private interfaces to UDMA */
+#include "k3-udma-private.c"
 
 MODULE_ALIAS("platform:ti-udma");
 MODULE_DESCRIPTION("TI K3 DMA driver for CPPI 5.0 compliant devices");
