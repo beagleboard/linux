@@ -490,7 +490,7 @@
 			ranges;
 
 			ringacc: ringacc@3c000000 {
-				compatible = "ti,k3-navss-ringacc";
+				compatible = "ti,am654-navss-ringacc";
 				reg =	<0x0 0x3c000000 0x0 0x400000>,
 					<0x0 0x38000000 0x0 0x400000>,
 					<0x0 0x31120000 0x0 0x100>,
@@ -538,7 +538,7 @@
 			ranges;
 
 			mcu_ringacc: ringacc@2b800000 {
-				compatible = "ti,k3-navss-ringacc";
+				compatible = "ti,am654-navss-ringacc";
 				reg =	<0x0 0x2b800000 0x0 0x400000>,
 					<0x0 0x2b000000 0x0 0x400000>,
 					<0x0 0x28590000 0x0 0x100>,
