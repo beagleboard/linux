@@ -1094,7 +1094,7 @@ static int k3_nav_ringacc_remove(struct platform_device *pdev)
 
 /* Match table for of_platform binding */
 static const struct of_device_id k3_nav_ringacc_of_match[] = {
-	{ .compatible = "ti,k3-navss-ringacc", },
+	{ .compatible = "ti,am654-navss-ringacc", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, k3_nav_ringacc_of_match);
