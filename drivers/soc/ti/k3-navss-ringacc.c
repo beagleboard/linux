@@ -334,9 +334,6 @@ static void k3_ringacc_ring_reconfig_qmode_sci(struct k3_nav_ring *ring,
 			&qmode, NULL, NULL, NULL, NULL, NULL);
 	if (ret)
 		dev_err(dev, "TISCI ring reconfig qmode fail %d\n", ret);
-	if (qmode != ring->mode)
-		dev_err(dev, "TISCI ring qmode unsync hw_qmode %u sw_qmode %u\n",
-			qmode, ring->mode);
 }
 
 void k3_nav_ringacc_ring_reset_dma(struct k3_nav_ring *ring, u32 occ)
