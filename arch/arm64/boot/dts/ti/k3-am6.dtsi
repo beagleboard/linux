@@ -489,7 +489,7 @@
 			#size-cells = <2>;
 			ranges;
 
-			ringacc: ringacc@31160000 {
+			ringacc: ringacc@3c000000 {
 				compatible = "ti,k3-navss-ringacc";
 				reg =	<0x0 0x3c000000 0x0 0x400000>,
 					<0x0 0x38000000 0x0 0x400000>,
@@ -537,10 +537,10 @@
 			#size-cells = <2>;
 			ranges;
 
-			mcu_ringacc: ringacc@285d0000 {
+			mcu_ringacc: ringacc@2b800000 {
 				compatible = "ti,k3-navss-ringacc";
-				reg =	<0x0 0x2B800000 0x0 0x400000>,
-					<0x0 0x2B000000 0x0 0x400000>,
+				reg =	<0x0 0x2b800000 0x0 0x400000>,
+					<0x0 0x2b000000 0x0 0x400000>,
 					<0x0 0x28590000 0x0 0x100>,
 					<0x0 0x2a500000 0x0 0x40000>;
 				reg-names = "rt", "fifos",
