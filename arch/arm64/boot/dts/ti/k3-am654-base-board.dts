@@ -57,6 +57,12 @@
 			AM65X_IOPAD(0x0070, PIN_INPUT | MUX_MODE5) /* (R25) GPMC0_CSn2.I2C2_SDA */
 		>;
 	};
+
+	usb1_pins_default: usb1_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x02c0, PIN_OUTPUT | MUX_MODE0) /* (AC8) USB1_DRVVBUS */
+		>;
+	};
 };
 
 &main_pmx1 {
@@ -153,4 +159,14 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&ecap0_pins_default>;
 	status = "okay";
+};
+
+&dwc3_1 {
+	status = "okay";
+};
+
+&usb1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb1_pins_default>;
+	dr_mode = "otg";
 };
