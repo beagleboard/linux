@@ -37,6 +37,8 @@ struct knav_udmap_host_desc_t {
 	 */
 } __packed;
 
+#define KNAV_UDMAP_DESC_MIN_ALIGN		(16U)
+
 #define KNAV_UDMAP_INFO0_HDESC_EPIB_SIZE	(16U)
 #define KNAV_UDMAP_INFO0_HDESC_PSDATA_MAX_SIZE	(128U)
 
@@ -177,7 +179,7 @@ static inline u32 knav_udmap_hdesc_calc_size(bool epib, u32 psdata_size,
 	if (epib)
 		desc_size += KNAV_UDMAP_INFO0_HDESC_EPIB_SIZE;
 
-	return desc_size;
+	return ALIGN(desc_size, KNAV_UDMAP_DESC_MIN_ALIGN);
 }
 
 /**
