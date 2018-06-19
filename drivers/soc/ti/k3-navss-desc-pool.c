@@ -109,5 +109,5 @@ void k3_knav_pool_free(struct k3_knav_desc_pool *pool, void *addr)
 
 size_t k3_knav_pool_avail(struct k3_knav_desc_pool *pool)
 {
-	return gen_pool_avail(pool->gen_pool);
+	return gen_pool_avail(pool->gen_pool) / pool->desc_size;
 }
