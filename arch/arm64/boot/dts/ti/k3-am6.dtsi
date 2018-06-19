@@ -30,6 +30,8 @@
 		i2c3 = &main_i2c1;
 		i2c4 = &main_i2c2;
 		i2c5 = &main_i2c3;
+		spi0 = &ospi0;
+		spi1 = &ospi1;
 	};
 
 	chosen { };
@@ -1128,6 +1130,43 @@
 				maximum-speed = "high-speed";
 				dr_mode = "otg";
 				usb-phy = <&usb1_phy>;
+			};
+		};
+
+		fss: fss@47000000 {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			ospi0: ospi@47040000 {
+				compatible = "ti,am654-ospi", "cdns,qspi-nor";
+				reg = <0x0 0x47040000 0x0 0x100>,
+					<0x4 0x00000000 0x1 0x0000000>;
+				interrupts = <GIC_SPI 552 IRQ_TYPE_LEVEL_HIGH>;
+				cdns,fifo-depth = <256>;
+				cdns,fifo-width = <4>;
+				cdns,trigger-address = <0x50000000>;
+				clocks = <&k3_clks 55 5>;
+				power-domains = <&k3_pds 55>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			ospi1: ospi@47050000 {
+				compatible = "ti,am654-ospi", "cdns,qspi-nor";
+				reg = <0x0 0x47050000 0x0 0x100>,
+					<0x6 0x00000000 0x1 0x00000000>;
+				interrupts = <GIC_SPI 553 IRQ_TYPE_LEVEL_HIGH>;
+				cdns,fifo-depth = <256>;
+				cdns,fifo-width = <4>;
+				cdns,trigger-address = <0x58000000>;
+				clocks = <&k3_clks 55 16>;
+				power-domains = <&k3_pds 55>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
 			};
 		};
 	};
