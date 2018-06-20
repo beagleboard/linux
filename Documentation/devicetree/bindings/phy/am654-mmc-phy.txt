@@ -1,0 +1,40 @@
+TI AM654 MMC PHY
+-------------------
+
+Required properties:
+ - compatible: ti,am654-emmc-phy
+ - #phy-cells: must be 0
+ - reg: PHY registers address offset and size
+ - clocks: must be phandle of the clock provider which is the host
+	   controller
+ - clock-names: must be "mmcclk"
+ - ti,otap-del-sel: Output Tap Delay select.
+ - ti,trm-icp: DLL trim select.
+
+Example:
+			mmc_phy1: mmc_phy@10100 {
+				compatible = "ti,am654-mmc-phy";
+				reg = <0x10100 0x34>;
+				clocks = <&sdhci1>;
+				clock-names = "mmcclk";
+				#phy-cells = <0>;
+				ti,otap-del-sel = <0x2>;
+				ti,trm-icp = <0x8>;
+				status = "disabled";
+			};
+
+Host controller node:
+
+			sdhci1: sdhci@0 {
+				compatible = "ti,am654-sdhci-5.1";
+				reg = <0x0 0x1000>;
+				power-domains = <&k3_pds 48>;
+				clocks = <&k3_clks 48 0>, <&k3_clks 48 1>;
+				clock-names = "clk_ahb", "clk_xin";
+				interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>;
+				clock-output-names = "mmc_cardclck";
+				#clock-cells = <0>;
+				phys=<&mmc_phy1>;
+				phy-names = "phy_arasan";
+				status = "disabled";
+			};
