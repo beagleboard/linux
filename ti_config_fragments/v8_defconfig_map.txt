@@ -2,3 +2,7 @@
 classification: SDK_Release_Defconfigs type: ti_sdk_arm64_release defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg k3_soc.cfg systemd.cfg
 # Debug Defconfigs
 classification: SDK_Debug_Defconfigs type: ti_sdk_arm64_debug defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg k3_soc.cfg systemd.cfg debug_options.cfg
+# RT Defconfigs
+classification: SDK_Release_Defconfigs type: ti_sdk_arm64_rt_release defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg k3_soc.cfg real_time.cfg systemd.cfg
+# RT Debug Defconfigs
+classification: SDK_Debug_Defconfigs type: ti_sdk_arm64_rt_debug defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg k3_soc.cfg real_time.cfg systemd.cfg debug_options.cfg
