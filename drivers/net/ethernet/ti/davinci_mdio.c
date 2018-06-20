@@ -24,6 +24,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  * ---------------------------------------------------------------------------
  */
+#define pr_fmt(fmt) "MDIO: " fmt
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
@@ -524,6 +525,69 @@ static int davinci_mdio_resume(struct device *dev)
 	return 0;
 }
 #endif
+
+struct davinci_mdio_data *davinci_mdio_create(
+			struct device *dev,
+			struct device_node *node,
+			void __iomem *reg_base,
+			const char *clk_name)
+{
+	struct davinci_mdio_data *data;
+	int ret;
+	u32 prop;
+
+	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return ERR_PTR(-ENOMEM);
+
+	data->dev = dev;
+	data->regs = reg_base;
+	data->bus = devm_mdiobus_alloc(dev);
+	if (!data->bus)
+		return ERR_PTR(-ENOMEM);
+
+	if (of_property_read_u32(node, "bus_freq", &prop)) {
+		dev_err(dev, "Missing bus_freq property in the DT.\n");
+		return ERR_PTR(-EINVAL);
+	}
+	data->pdata.bus_freq = prop;
+
+	snprintf(data->bus->id, MII_BUS_ID_SIZE, "k3-cpsw-mdio");
+
+	data->bus->name		= dev_name(dev);
+	data->bus->read		= davinci_mdio_read,
+	data->bus->write	= davinci_mdio_write,
+	data->bus->reset	= davinci_mdio_reset,
+	data->bus->parent	= dev;
+	data->bus->priv		= data;
+
+	data->clk = devm_clk_get(dev, clk_name);
+	if (IS_ERR(data->clk)) {
+		dev_err(dev, "failed to get device clock\n");
+		return ERR_CAST(data->clk);
+	}
+
+	davinci_mdio_init_clk(data);
+
+	data->skip_scan = true;
+	ret = of_mdiobus_register(data->bus, node);
+	if (ret) {
+		dev_err(dev, "mdio register err %d.\n", ret);
+		goto bail_out;
+	}
+
+	return data;
+
+bail_out:
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL_GPL(davinci_mdio_create);
+
+void davinci_mdio_release(struct davinci_mdio_data *mdio)
+{
+	mdiobus_unregister(mdio->bus);
+}
+EXPORT_SYMBOL_GPL(davinci_mdio_release);
 
 static const struct dev_pm_ops davinci_mdio_pm_ops = {
 	SET_RUNTIME_PM_OPS(davinci_mdio_runtime_suspend,
