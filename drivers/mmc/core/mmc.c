@@ -1522,6 +1522,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	struct mmc_card *oldcard)
 {
 	struct mmc_card *card;
+	unsigned int cache_ctrl_timeout;
 	int err;
 	u32 cid[4];
 	u32 rocr;
@@ -1766,9 +1767,20 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (!mmc_card_broken_hpi(card) &&
 	    card->ext_csd.cache_size > 0) {
+
+		/*
+		 * Some cards require a longer timeout than given in CSD.
+		 * Use a one second timeout here which can be increased
+		 * further if more cards needing larger timeouts are found
+		 */
+		if (mmc_card_long_cache_ctrl(card))
+			cache_ctrl_timeout = 1000;
+		else
+			cache_ctrl_timeout = card->ext_csd.generic_cmd6_time;
+
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_CACHE_CTRL, 1,
-				card->ext_csd.generic_cmd6_time);
+				cache_ctrl_timeout);
 		if (err && err != -EBADMSG)
 			goto free_card;
 

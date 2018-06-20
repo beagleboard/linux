@@ -116,6 +116,14 @@ static const struct mmc_fixup mmc_ext_csd_fixups[] = {
 	MMC_FIXUP_EXT_CSD_REV(CID_NAME_ANY, CID_MANFID_NUMONYX,
 			      0x014e, add_quirk, MMC_QUIRK_BROKEN_HPI, 6),
 
+	/*
+	 * Certain Micron eMMC cards need a longer CMD6:CACHE_CTRL timeout
+	 * than indicated in CSD
+	 */
+	MMC_FIXUP_EXT_CSD_REV(CID_NAME_R1J56L, CID_MANFID_MICRON,
+			      0x14e, add_quirk,
+			      MMC_QUIRK_LONG_CACHE_ENABLE_TIME, 7),
+
 	END_FIXUP
 };
 
