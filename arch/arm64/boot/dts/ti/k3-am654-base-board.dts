@@ -299,6 +299,7 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mmc1_pins_default>;
+	sdhci-caps-mask = <0x7 0x200000>;
 };
 
 &mmc_phy1 {
