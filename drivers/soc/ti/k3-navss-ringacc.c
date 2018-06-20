@@ -334,9 +334,6 @@ static void k3_ringacc_ring_reconfig_qmode_sci(struct k3_nav_ring *ring,
 			&qmode, NULL, NULL, NULL, NULL, NULL);
 	if (ret)
 		dev_err(dev, "TISCI ring reconfig qmode fail %d\n", ret);
-	if (qmode != ring->mode)
-		dev_err(dev, "TISCI ring qmode unsync hw_qmode %u sw_qmode %u\n",
-			qmode, ring->mode);
 }
 
 void k3_nav_ringacc_ring_reset_dma(struct k3_nav_ring *ring, u32 occ)
@@ -1097,7 +1094,7 @@ static int k3_nav_ringacc_remove(struct platform_device *pdev)
 
 /* Match table for of_platform binding */
 static const struct of_device_id k3_nav_ringacc_of_match[] = {
-	{ .compatible = "ti,k3-navss-ringacc", },
+	{ .compatible = "ti,am654-navss-ringacc", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, k3_nav_ringacc_of_match);

@@ -59,6 +59,11 @@
 			reg = <0 0x00100000 0 0x1c000>;
 		};
 
+		mcu_conf: scm_conf@40f00000 {
+			compatible = "syscon";
+			reg = <0 0x40f00000 0 0x20000>;
+		};
+
 		a53_timer0: timer-cl0-cpu0 {
 			compatible = "arm,armv8-timer";
 			interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* cntpsirq */
@@ -851,8 +856,8 @@
 			#size-cells = <2>;
 			ranges;
 
-			ringacc: ringacc@31160000 {
-				compatible = "ti,k3-navss-ringacc";
+			ringacc: ringacc@3c000000 {
+				compatible = "ti,am654-navss-ringacc";
 				reg =	<0x0 0x3c000000 0x0 0x400000>,
 					<0x0 0x38000000 0x0 0x400000>,
 					<0x0 0x31120000 0x0 0x100>,
@@ -899,10 +904,10 @@
 			#size-cells = <2>;
 			ranges;
 
-			mcu_ringacc: ringacc@285d0000 {
-				compatible = "ti,k3-navss-ringacc";
-				reg =	<0x0 0x2B800000 0x0 0x400000>,
-					<0x0 0x2B000000 0x0 0x400000>,
+			mcu_ringacc: ringacc@2b800000 {
+				compatible = "ti,am654-navss-ringacc";
+				reg =	<0x0 0x2b800000 0x0 0x400000>,
+					<0x0 0x2b000000 0x0 0x400000>,
 					<0x0 0x28590000 0x0 0x100>,
 					<0x0 0x2a500000 0x0 0x40000>;
 				reg-names = "rt", "fifos",

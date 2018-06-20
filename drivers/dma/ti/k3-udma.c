@@ -984,6 +984,64 @@ static irqreturn_t udma_udma_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/**
+ * __udma_reserve_rflow_range - reserve range of flow ids
+ * @ud: UDMA device
+ * @from: Start the search from this flow id number
+ * @cnt: Number of consecutive flow ids to allocate
+ *
+ * Reserve range of flow ids for future use, those flows can be allocated
+ * only using explicit flow id number. if @from is set to -1 it will try to find
+ * first free range. if @from is positive value it will force allocation only
+ * of the specified range of flows.
+ *
+ * Returns -ENOMEM if can't find free range.
+ * -EEXIST if requested range is busy.
+ * -EINVAL if wrong input values passed.
+ * Returns flow id on success.
+ */
+static int __udma_reserve_rflow_range(struct udma_dev *ud, int from, int cnt)
+{
+	int start, tmp_from;
+	DECLARE_BITMAP(tmp, K3_UDMA_MAX_RFLOWS);
+
+	tmp_from = from;
+	if (tmp_from < 0)
+		tmp_from = ud->rchan_cnt;
+	/* default flows can't be reserved and accessible only by id */
+	if (tmp_from < ud->rchan_cnt)
+		return -EINVAL;
+
+	if (tmp_from + cnt > ud->rflow_cnt)
+		return -EINVAL;
+
+	bitmap_or(tmp, ud->rflow_map, ud->rflow_map_reserved,
+		  ud->rflow_cnt);
+
+	start = bitmap_find_next_zero_area(tmp,
+					   ud->rflow_cnt,
+					   tmp_from, cnt, 0);
+	if (start >= ud->rflow_cnt)
+		return -ENOMEM;
+
+	if (from >= 0 && start != from)
+		return -EEXIST;
+
+	bitmap_set(ud->rflow_map_reserved, start, cnt);
+	return start;
+}
+
+static int __udma_free_rflow_range(struct udma_dev *ud, int from, int cnt)
+{
+	if (from < ud->rchan_cnt)
+		return -EINVAL;
+	if (from + cnt > ud->rflow_cnt)
+		return -EINVAL;
+
+	bitmap_clear(ud->rflow_map_reserved, from, cnt);
+	return 0;
+}
+
 static struct udma_rflow *__udma_reserve_rflow(struct udma_dev *ud,
 					       bool htp, int id)
 {
@@ -1883,12 +1941,12 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 	return d;
 }
 
-static inline void udma_configure_statictr(struct udma_chan *uc,
-					   struct udma_desc *d, u8 elsize,
-					   u16 elcnt)
+static inline int udma_configure_statictr(struct udma_chan *uc,
+					  struct udma_desc *d, u8 elsize,
+					  u16 elcnt)
 {
 	if (!uc->static_tr_type)
-		return;
+		return 0;
 
 	d->static_tr.elsize = elsize;
 	d->static_tr.elcnt = elcnt;
@@ -1899,9 +1957,14 @@ static inline void udma_configure_statictr(struct udma_chan *uc,
 			d->static_tr.bstcnt = d->residue / d->sglen / div;
 		else
 			d->static_tr.bstcnt = d->residue / div;
+
+		if (uc->dir == DMA_DEV_TO_MEM && d->static_tr.bstcnt > 0xfff)
+			return -EINVAL;
 	} else {
 		d->static_tr.bstcnt = 0;
 	}
+
+	return 0;
 }
 
 static struct udma_desc *udma_prep_slave_sg_pkt(
@@ -2197,7 +2260,18 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 	d->sg_idx = 0;
 
 	/* static TR for remote PDMA */
-	udma_configure_statictr(uc, d, elsize, burst);
+	if (udma_configure_statictr(uc, d, elsize, burst)) {
+		dev_err(uc->ud->dev,
+			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
+			__func__, d->static_tr.bstcnt);
+
+		dma_unmap_single(uc->ud->dev, d->cppi5_desc_paddr,
+				 d->cppi5_desc_area_size,
+				 DMA_BIDIRECTIONAL);
+		kfree(d->cppi5_desc_vaddr);
+		kfree(d);
+		return NULL;
+	}
 
 	if (uc->metadata_size)
 		d->vd.tx.metadata_ops = &metadata_ops;
@@ -2398,7 +2472,18 @@ static struct dma_async_tx_descriptor *udma_prep_dma_cyclic(
 	d->residue = buf_len;
 
 	/* static TR for remote PDMA */
-	udma_configure_statictr(uc, d, elsize, burst);
+	if (udma_configure_statictr(uc, d, elsize, burst)) {
+		dev_err(uc->ud->dev,
+			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
+			__func__, d->static_tr.bstcnt);
+
+		dma_unmap_single(uc->ud->dev, d->cppi5_desc_paddr,
+				 d->cppi5_desc_area_size,
+				 DMA_BIDIRECTIONAL);
+		kfree(d->cppi5_desc_vaddr);
+		kfree(d);
+		return NULL;
+	}
 
 	if (uc->metadata_size)
 		d->vd.tx.metadata_ops = &metadata_ops;
@@ -3160,6 +3245,9 @@ static struct platform_driver udma_driver = {
 };
 
 module_platform_driver(udma_driver);
+
+/* Private interfaces to UDMA */
+#include "k3-udma-private.c"
 
 MODULE_ALIAS("platform:ti-udma");
 MODULE_DESCRIPTION("TI K3 DMA driver for CPPI 5.0 compliant devices");
