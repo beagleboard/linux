@@ -84,3 +84,10 @@ config PHY_TI_KEYSTONE_SERDES
 	help
 	  This option enables support for TI Keystone SerDes PHY found
 	  in peripherals GBE, 10GBE and PCIe.
+
+config PHY_AM654_MMC
+	bool "TI AM654 MMC PHY Support"
+	select GENERIC_PHY
+	help
+	  This option enables support for the Physical layer for MMC host
+	  controllers present on TI AM654 SOCs.
