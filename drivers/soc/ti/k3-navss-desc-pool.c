@@ -35,6 +35,7 @@ void k3_knav_pool_destroy(struct k3_knav_desc_pool *pool)
 		dma_free_coherent(pool->dev, pool->mem_size, pool->cpumem,
 				  pool->dma_addr);
 }
+EXPORT_SYMBOL_GPL(k3_knav_pool_destroy);
 
 struct k3_knav_desc_pool *k3_knav_pool_create_name(struct device *dev,
 						   size_t size,
@@ -86,28 +87,34 @@ gen_pool_create_fail:
 	devm_kfree(pool->dev, pool);
 	return ERR_PTR(ret);
 }
+EXPORT_SYMBOL_GPL(k3_knav_pool_create_name);
 
 dma_addr_t k3_knav_pool_virt2dma(struct k3_knav_desc_pool *pool, void *addr)
 {
 	return addr ? pool->dma_addr + (addr - pool->cpumem) : 0;
 }
+EXPORT_SYMBOL_GPL(k3_knav_pool_virt2dma);
 
 void *k3_knav_pool_dma2virt(struct k3_knav_desc_pool *pool, dma_addr_t dma)
 {
 	return dma ? pool->cpumem + (dma - pool->dma_addr) : NULL;
 }
+EXPORT_SYMBOL_GPL(k3_knav_pool_dma2virt);
 
 void *k3_knav_pool_alloc(struct k3_knav_desc_pool *pool)
 {
 	return (void *)gen_pool_alloc(pool->gen_pool, pool->desc_size);
 }
+EXPORT_SYMBOL_GPL(k3_knav_pool_alloc);
 
 void k3_knav_pool_free(struct k3_knav_desc_pool *pool, void *addr)
 {
 	gen_pool_free(pool->gen_pool, (unsigned long)addr, pool->desc_size);
 }
+EXPORT_SYMBOL_GPL(k3_knav_pool_free);
 
 size_t k3_knav_pool_avail(struct k3_knav_desc_pool *pool)
 {
 	return gen_pool_avail(pool->gen_pool) / pool->desc_size;
 }
+EXPORT_SYMBOL_GPL(k3_knav_pool_avail);
