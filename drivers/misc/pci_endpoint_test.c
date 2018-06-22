@@ -72,7 +72,11 @@
 #define K2G_IB_START_L0(n)		(0x304 + (0x10 * (n)))
 #define K2G_IB_START_HI(n)		(0x308 + (0x10 * (n)))
 
+#define PCI_DEVICE_ID_TI_AM654		0xb00c
+
 #define is_k2g_pci_dev(pdev)		((pdev)->device == PCI_DEVICE_ID_TI_K2G)
+#define is_am654_pci_dev(pdev)		\
+		((pdev)->device == PCI_DEVICE_ID_TI_AM654)
 
 static DEFINE_IDA(pci_endpoint_test_ida);
 
@@ -437,7 +441,8 @@ static long pci_endpoint_test_ioctl(struct file *file, unsigned int cmd,
 		bar = arg;
 		if (bar < 0 || bar > 5)
 			goto ret;
-		if (is_k2g_pci_dev(pdev) && bar == BAR_0)
+		if ((is_k2g_pci_dev(pdev) || is_am654_pci_dev(pdev)) &&
+		    bar == BAR_0)
 			goto ret;
 		ret = pci_endpoint_test_bar(test, bar);
 		break;
@@ -672,11 +677,19 @@ static const struct pci_endpoint_test_data k2g_data = {
 	.alignment = SZ_1M,
 };
 
+static const struct pci_endpoint_test_data am654_data = {
+	.test_reg_bar = BAR_2,
+	.alignment = SZ_64K,
+};
+
 static const struct pci_device_id pci_endpoint_test_tbl[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_DRA74x) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_DRA72x) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_K2G),
 	  .driver_data = (kernel_ulong_t)&k2g_data
+	},
+	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_AM654),
+	  .driver_data = (kernel_ulong_t)&am654_data
 	},
 	{ }
 };
