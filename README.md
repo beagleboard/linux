@@ -1,0 +1,5 @@
+| kernel | normal | rt |
+|:---------:|:--------:|:-------:|
+|4.4 | [![Build Status](http://rcn-ee.online:8080/buildStatus/icon?job=beagleboard_kernel_builder/4.4)](http://rcn-ee.online:8080/job/beagleboard_kernel_builder/job/4.4/) | [![Build Status](http://rcn-ee.online:8080/buildStatus/icon?job=beagleboard_kernel_builder/4.4-rt)](http://rcn-ee.online:8080/job/beagleboard_kernel_builder/job/4.4-rt/) |
+|4.9 | [![Build Status](http://rcn-ee.online:8080/buildStatus/icon?job=beagleboard_kernel_builder/4.9)](http://rcn-ee.online:8080/job/beagleboard_kernel_builder/job/4.9/) | [![Build Status](http://rcn-ee.online:8080/buildStatus/icon?job=beagleboard_kernel_builder/4.9-rt)](http://rcn-ee.online:8080/job/beagleboard_kernel_builder/job/4.9-rt/) |
+|4.14 | [![Build Status](http://rcn-ee.online:8080/buildStatus/icon?job=beagleboard_kernel_builder/4.14)](http://rcn-ee.online:8080/job/beagleboard_kernel_builder/job/4.14/) | [![Build Status](http://rcn-ee.online:8080/buildStatus/icon?job=beagleboard_kernel_builder/4.14-rt)](http://rcn-ee.online:8080/job/beagleboard_kernel_builder/job/4.14-rt/) |
