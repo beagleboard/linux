@@ -109,6 +109,8 @@ void pci_epf_free_space(struct pci_epf *epf, void *addr, enum pci_barno bar)
 
 	epf->bar[bar].phys_addr = 0;
 	epf->bar[bar].size = 0;
+	epf->bar[bar].barno = 0;
+	epf->bar[bar].flags = 0;
 }
 EXPORT_SYMBOL_GPL(pci_epf_free_space);
 
@@ -137,6 +139,8 @@ void *pci_epf_alloc_space(struct pci_epf *epf, size_t size, enum pci_barno bar)
 
 	epf->bar[bar].phys_addr = phys_addr;
 	epf->bar[bar].size = size;
+	epf->bar[bar].barno = bar;
+	epf->bar[bar].flags = PCI_BASE_ADDRESS_SPACE_MEMORY;
 
 	return space;
 }
