@@ -1146,6 +1146,9 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 		}
 	}
 
+	ks_pcie->num_lanes = num_lanes;
+	ks_pcie->phy = phy;
+
 	ret = ks_pcie_enable_phy(ks_pcie);
 	if (ret) {
 		dev_err(dev, "failed to enable phy\n");
@@ -1161,9 +1164,7 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	ks_pcie->pci = pci;
 	ks_pcie->link = link;
 	ks_pcie->np = np;
-	ks_pcie->num_lanes = num_lanes;
 	ks_pcie->num_ob_windows = num_ob_windows;
-	ks_pcie->phy = phy;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
