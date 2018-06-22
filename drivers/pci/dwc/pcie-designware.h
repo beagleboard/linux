@@ -372,6 +372,7 @@ static inline int dw_pcie_allocate_domains(struct pcie_port *pp)
 {
 	return 0;
 }
+
 #endif
 
 #ifdef CONFIG_PCIE_DW_EP
@@ -380,6 +381,7 @@ int dw_pcie_ep_init(struct dw_pcie_ep *ep);
 void dw_pcie_ep_exit(struct dw_pcie_ep *ep);
 int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep, u8 func_no,
 			     u8 interrupt_num);
+void dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar);
 #else
 static inline void dw_pcie_ep_linkup(struct dw_pcie_ep *ep)
 {
@@ -398,6 +400,10 @@ static inline int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep,
 					   u8 func_no, u8 interrupt_num)
 {
 	return 0;
+}
+
+static inline void dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar)
+{
 }
 #endif
 #endif /* _PCIE_DESIGNWARE_H */
