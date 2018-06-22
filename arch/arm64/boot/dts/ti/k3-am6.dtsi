@@ -1254,6 +1254,20 @@
 			status = "disabled";
 		};
 
+		serdes0: serdes@900000 {
+			compatible = "ti,phy-am654-serdes";
+			reg = <0x0 0x900000 0x0 0x2000>;
+			reg-names = "serdes";
+			#phy-cells = <2>;
+			power-domains = <&k3_pds 153>;
+			clocks = <&k3_clks 153 4>;
+			clock-names = "fck";
+			assigned-clocks = <&k3_clks 153 4>;
+			assigned-clock-parents = <&k3_clks 153 8>;
+			mux-controls = <&serdes_mux 0>;
+			status = "disabled";
+		};
+
 		dwc3_0: dwc3@4000000 {
 			compatible = "ti,am654-dwc3";
 			reg = <0x0 0x4000000 0x0 0x4000>;
