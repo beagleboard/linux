@@ -57,6 +57,7 @@ struct pci_epf_test {
 	enum pci_barno		test_reg_bar;
 	bool			linkup_notifier;
 	struct delayed_work	cmd_handler;
+	size_t			align;
 };
 
 struct pci_epf_test_reg {
@@ -79,6 +80,7 @@ static struct pci_epf_header test_header = {
 struct pci_epf_test_data {
 	enum pci_barno	test_reg_bar;
 	bool		linkup_notifier;
+	size_t		align;
 };
 
 static size_t bar_size[] = { 512, 512, 1024, 16384, 131072, 1048576 };
@@ -413,9 +415,10 @@ static int pci_epf_test_alloc_space(struct pci_epf *epf)
 	void *base;
 	int bar;
 	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
+	size_t align = epf_test->align;
 
 	base = pci_epf_alloc_space(epf, sizeof(struct pci_epf_test_reg),
-				   test_reg_bar);
+				   test_reg_bar, align);
 	if (!base) {
 		dev_err(dev, "failed to allocated register space\n");
 		return -ENOMEM;
@@ -425,7 +428,7 @@ static int pci_epf_test_alloc_space(struct pci_epf *epf)
 	for (bar = BAR_0; bar <= BAR_5; bar++) {
 		if (bar == test_reg_bar)
 			continue;
-		base = pci_epf_alloc_space(epf, bar_size[bar], bar);
+		base = pci_epf_alloc_space(epf, bar_size[bar], bar, align);
 		if (!base)
 			dev_err(dev, "failed to allocate space for BAR%d\n",
 				bar);
@@ -494,12 +497,14 @@ static int pci_epf_test_probe(struct pci_epf *epf)
 	struct pci_epf_test_data *data;
 	enum pci_barno test_reg_bar = BAR_0;
 	bool linkup_notifier = true;
+	size_t align = 0;
 
 	match = pci_epf_match_device(pci_epf_test_ids, epf);
 	data = (struct pci_epf_test_data *)match->driver_data;
 	if (data) {
 		test_reg_bar = data->test_reg_bar;
 		linkup_notifier = data->linkup_notifier;
+		align = data->align;
 	}
 
 	epf_test = devm_kzalloc(dev, sizeof(*epf_test), GFP_KERNEL);
@@ -510,6 +515,7 @@ static int pci_epf_test_probe(struct pci_epf *epf)
 	epf_test->epf = epf;
 	epf_test->test_reg_bar = test_reg_bar;
 	epf_test->linkup_notifier = linkup_notifier;
+	epf_test->align = align;
 
 	INIT_DELAYED_WORK(&epf_test->cmd_handler, pci_epf_test_cmd_handler);
 
