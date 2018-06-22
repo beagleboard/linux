@@ -58,12 +58,30 @@
 		scm_conf: scm_conf@100000 {
 			compatible = "syscon", "simple-mfd";
 			reg = <0 0x00100000 0 0x1c000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x0 0x00100000 0x1c000>;
 
 			serdes_mux: mux-controller {
 				compatible = "mmio-mux";
 				#mux-control-cells = <1>;
 				mux-reg-masks = <0x4080 0x3>, /* SERDES0 lane select */
 						<0x4090 0x3>; /* SERDES1 lane select */
+			};
+
+			pcie0_mode: pcie-mode@4060 {
+				compatible = "syscon";
+				reg = <0x00004060 0x4>;
+			};
+
+			pcie1_mode: pcie-mode@4070 {
+				compatible = "syscon";
+				reg = <0x00004070 0x4>;
+			};
+
+			pcie_devid: pcie-devid@210 {
+				compatible = "syscon";
+				reg = <0x00000210 0x4>;
 			};
 		};
 
