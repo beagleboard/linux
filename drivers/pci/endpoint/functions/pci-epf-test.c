@@ -480,6 +480,12 @@ static const struct pci_epf_test_data k2g_data = {
 	.linkup_notifier = false
 };
 
+static const struct pci_epf_test_data am6_data = {
+	.test_reg_bar = BAR_2,
+	.linkup_notifier = false,
+	.align = SZ_1M,
+};
+
 static const struct pci_epf_device_id pci_epf_test_ids[] = {
 	{
 		.name = "pci_epf_test",
@@ -487,6 +493,10 @@ static const struct pci_epf_device_id pci_epf_test_ids[] = {
 	{
 		.name = "pci_epf_test_k2g",
 		.driver_data = (kernel_ulong_t)&k2g_data,
+	},
+	{
+		.name = "pci_epf_test_am6",
+		.driver_data = (kernel_ulong_t)&am6_data,
 	},
 	{},
 };
