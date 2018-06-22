@@ -308,6 +308,8 @@ bool convert_link_ksettings_to_legacy_settings(
  *	fields should be ignored (use %__ETHTOOL_LINK_MODE_MASK_NBITS
  *	instead of the latter), any change to them will be overwritten
  *	by kernel. Returns a negative error code or zero.
+ * @get_fecparam: Get the network device Forward Error Correction parameters.
+ * @set_fecparam: Set the network device Forward Error Correction parameters.
  *
  * All operations are optional (i.e. the function pointer may be set
  * to %NULL) and callers must take this into account.  Callers must
