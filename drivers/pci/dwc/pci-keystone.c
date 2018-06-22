@@ -592,22 +592,17 @@ static void ks_pcie_setup_mem_space(struct keystone_pcie *ks_pcie)
 static int __init ks_pcie_init_id(struct keystone_pcie *ks_pcie)
 {
 	int ret;
-	u32 index;
 	unsigned int id;
 	struct regmap *devctrl_regs;
 	struct dw_pcie *pci = ks_pcie->pci;
 	struct device *dev = pci->dev;
 	struct device_node *np = dev->of_node;
 
-	devctrl_regs = syscon_regmap_lookup_by_phandle(np, "ti,syscon-dev");
+	devctrl_regs = syscon_regmap_lookup_by_phandle(np, "ti,syscon-pcie-id");
 	if (IS_ERR(devctrl_regs))
 		return PTR_ERR(devctrl_regs);
 
-	ret = of_property_read_u32_index(np, "ti,syscon-dev", 1, &index);
-	if (ret)
-		return ret;
-
-	ret = regmap_read(devctrl_regs, index, &id);
+	ret = regmap_read(devctrl_regs, 0, &id);
 	if (ret)
 		return ret;
 
