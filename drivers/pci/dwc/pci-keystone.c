@@ -765,7 +765,8 @@ static void ks_pcie_ep_init(struct dw_pcie_ep *ep)
 			   IB_XLAT_EN_VAL);
 }
 
-static int ks_pcie_raise_irq(struct dw_pcie_ep *ep, enum pci_epc_irq_type type,
+static int ks_pcie_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
+			     enum pci_epc_irq_type type,
 			     u8 interrupt_num)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
@@ -776,7 +777,7 @@ static int ks_pcie_raise_irq(struct dw_pcie_ep *ep, enum pci_epc_irq_type type,
 		ks_pcie_raise_legacy_irq(ks_pcie);
 		break;
 	case PCI_EPC_IRQ_MSI:
-		dw_pcie_ep_raise_msi_irq(ep, interrupt_num);
+		dw_pcie_ep_raise_msi_irq(ep, func_no, interrupt_num);
 		return -EINVAL;
 	default:
 		dev_err(pci->dev, "UNKNOWN IRQ type\n");

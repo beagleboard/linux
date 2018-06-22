@@ -196,7 +196,8 @@ enum dw_pcie_as_type {
 
 struct dw_pcie_ep_ops {
 	void	(*ep_init)(struct dw_pcie_ep *ep);
-	int	(*raise_irq)(struct dw_pcie_ep *ep, enum pci_epc_irq_type type,
+	int	(*raise_irq)(struct dw_pcie_ep *ep, u8 func_no,
+			     enum pci_epc_irq_type type,
 			     u8 interrupt_num);
 };
 
@@ -377,7 +378,8 @@ static inline int dw_pcie_allocate_domains(struct pcie_port *pp)
 void dw_pcie_ep_linkup(struct dw_pcie_ep *ep);
 int dw_pcie_ep_init(struct dw_pcie_ep *ep);
 void dw_pcie_ep_exit(struct dw_pcie_ep *ep);
-int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep, u8 interrupt_num);
+int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep, u8 func_no,
+			     u8 interrupt_num);
 #else
 static inline void dw_pcie_ep_linkup(struct dw_pcie_ep *ep)
 {
@@ -393,7 +395,7 @@ static inline void dw_pcie_ep_exit(struct dw_pcie_ep *ep)
 }
 
 static inline int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep,
-					   u8 interrupt_num)
+					   u8 func_no, u8 interrupt_num)
 {
 	return 0;
 }
