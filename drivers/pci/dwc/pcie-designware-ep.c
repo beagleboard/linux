@@ -76,9 +76,8 @@ static int dw_pcie_ep_write_header(struct pci_epc *epc, u8 func_no,
 	return 0;
 }
 
-static int dw_pcie_ep_inbound_atu(struct dw_pcie_ep *ep, enum pci_barno bar,
-				  dma_addr_t cpu_addr,
-				  enum dw_pcie_as_type as_type)
+int dw_pcie_ep_inbound_atu(struct dw_pcie_ep *ep, enum pci_barno bar,
+			   dma_addr_t cpu_addr, enum dw_pcie_as_type as_type)
 {
 	int ret;
 	u32 free_win;
@@ -165,6 +164,11 @@ static int dw_pcie_ep_set_bar(struct pci_epc *epc, u8 func_no,
 	int flags = epf_bar->flags;
 	enum dw_pcie_as_type as_type;
 	u32 reg = PCI_BASE_ADDRESS_0 + (4 * bar);
+
+	if (ep->ops->set_bar) {
+		ret = ep->ops->set_bar(ep, func_no, epf_bar);
+		return ret;
+	}
 
 	if (!(flags & PCI_BASE_ADDRESS_SPACE))
 		as_type = DW_PCIE_AS_MEM;

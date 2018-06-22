@@ -200,6 +200,8 @@ struct dw_pcie_ep_ops {
 	int	(*raise_irq)(struct dw_pcie_ep *ep, u8 func_no,
 			     enum pci_epc_irq_type type,
 			     u8 interrupt_num);
+	int	(*set_bar)(struct dw_pcie_ep *ep, u8 func_no,
+			   struct pci_epf_bar *epf_bar);
 };
 
 struct dw_pcie_ep {
@@ -385,6 +387,8 @@ void dw_pcie_ep_exit(struct dw_pcie_ep *ep);
 int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep, u8 func_no,
 			     u8 interrupt_num);
 void dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar);
+int dw_pcie_ep_inbound_atu(struct dw_pcie_ep *ep, enum pci_barno bar,
+			   dma_addr_t cpu_addr, enum dw_pcie_as_type as_type);
 #else
 static inline void dw_pcie_ep_linkup(struct dw_pcie_ep *ep)
 {
@@ -407,6 +411,14 @@ static inline int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep,
 
 static inline void dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar)
 {
+}
+
+static inline int dw_pcie_ep_inbound_atu(struct dw_pcie_ep *ep,
+					 enum pci_barno bar,
+					 dma_addr_t cpu_addr,
+					 enum dw_pcie_as_type as_type)
+{
+	return 0;
 }
 #endif
 #endif /* _PCIE_DESIGNWARE_H */
