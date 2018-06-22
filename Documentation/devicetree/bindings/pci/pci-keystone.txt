@@ -25,6 +25,8 @@ reg-names: "dbics" for the DesignWare PCIe registers, "app" for the
 interrupts: platform interrupt for error interrupts.
 ti,syscon-pcie-id : phandle to the device control module required to set device
 		    id and vendor id.
+ti,syscon-pcie-mode : phandle to the device control module required to configure
+		      PCI in either RC mode or EP mode.
 num-ob-windows : number of outbound address translation window
 
 HOST MODE
