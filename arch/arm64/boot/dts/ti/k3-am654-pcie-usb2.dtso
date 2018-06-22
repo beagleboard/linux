@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * DT overlay for SERDES personality card: 2 lane PCIe + USB2.0 Host
+ * DT overlay for SERDES personality card: 2lane PCIe + USB2.0 Host on AM654 EVM
  *
  * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com/
  */
