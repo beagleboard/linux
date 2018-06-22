@@ -79,7 +79,6 @@
 
 #define OB_OFFSET_HI(n)			(0x204 + (8 * (n)))
 
-#define BOOTCFG_DEVCFG			0x14c
 #define KS_PCIE_DEV_TYPE_MASK		(0x3 << 1)
 #define KS_PCIE_DEV_TYPE(mode)		((mode) << 1)
 
@@ -1021,7 +1020,7 @@ static int ks_pcie_set_mode(struct device *dev, enum dw_pcie_device_mode mode)
 	u32 mask;
 	int ret = 0;
 
-	syscon = syscon_regmap_lookup_by_phandle(np, "ti,syscon-dev");
+	syscon = syscon_regmap_lookup_by_phandle(np, "ti,syscon-pcie-mode");
 	if (IS_ERR(syscon))
 		return 0;
 
@@ -1039,7 +1038,7 @@ static int ks_pcie_set_mode(struct device *dev, enum dw_pcie_device_mode mode)
 		return -EINVAL;
 	}
 
-	ret = regmap_update_bits(syscon, BOOTCFG_DEVCFG, mask, val);
+	ret = regmap_update_bits(syscon, 0, mask, val);
 	if (ret) {
 		dev_err(dev, "failed to set pcie mode\n");
 		return ret;
