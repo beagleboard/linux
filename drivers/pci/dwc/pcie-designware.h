@@ -88,6 +88,7 @@
  * iATU Unroll-specific register definitions
  * From 4.80 core version the address translation will be made by unroll
  */
+#define PCIE_ATU_BASE_OFFSET		(0x3 << 20)
 #define PCIE_ATU_UNR_REGION_CTRL1	0x00
 #define PCIE_ATU_UNR_REGION_CTRL2	0x04
 #define PCIE_ATU_UNR_LOWER_BASE		0x08
@@ -98,10 +99,10 @@
 
 /* Register address builder */
 #define PCIE_GET_ATU_OUTB_UNR_REG_OFFSET(region)	\
-			((0x3 << 20) | ((region) << 9))
+			((region) << 9)
 
-#define PCIE_GET_ATU_INB_UNR_REG_OFFSET(region)				\
-			((0x3 << 20) | ((region) << 9) | (0x1 << 8))
+#define PCIE_GET_ATU_INB_UNR_REG_OFFSET(region)		\
+			(((region) << 9) | (0x1 << 8))
 
 #define MSI_MESSAGE_CONTROL		0x52
 #define MSI_CAP_MMC_SHIFT		1
@@ -242,11 +243,13 @@ struct dw_pcie {
 	struct device		*dev;
 	void __iomem		*dbi_base;
 	void __iomem		*dbi_base2;
+	void __iomem		*atu_base;
 	u32			num_viewport;
 	u8			iatu_unroll_enabled;
 	struct pcie_port	pp;
 	struct dw_pcie_ep	ep;
 	const struct dw_pcie_ops *ops;
+	unsigned int		version;
 };
 
 #define to_dw_pcie_from_pp(port) container_of((port), struct dw_pcie, pp)
