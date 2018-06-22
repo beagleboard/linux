@@ -21,8 +21,8 @@ reg-names: "dbics" for the DesignWare PCIe registers, "app" for the
 	   RC mode) and "addr_space" used to map remote RC address space
 	   (used only in EP mode).
 interrupts: platform interrupt for error interrupts.
-ti,syscon-dev : phandle to the device control module required to set device id
-		and vendor id.
+ti,syscon-pcie-id : phandle to the device control module required to set device
+		    id and vendor id.
 num-ob-windows : number of outbound address translation window
 
 HOST MODE
