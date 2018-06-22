@@ -132,3 +132,30 @@ sata_phy: phy@4A096000 {
 	syscon-pllreset = <&scm_conf 0x3fc>;
 	#phy-cells = <0>;
 };
+
+
+TI AM654 PHY
+
+Required properties:
+ - compatible: Should be "ti,phy-am654-serdes"
+ - reg : Address and length of the register set for the device.
+ - reg-names: Should be "serdes" which corresponds to the register space
+	populated in "reg".
+ - #phy-cells: determine the number of cells that should be given in the
+	phandle while referencing this phy. Should be "2". The 1st cell
+	corresponds to the phy type (should be one of the types specified in
+	include/dt-bindings/phy/phy.h) and the 2nd cell should be the serdes
+	lane function.
+	If SERDES0 is referenced 2nd cell should be:
+		0 - USB3
+		1 - PCIe0 Lane0
+		2 - ICSS2 SGMII Lane0
+	If SERDES1 is referenced 2nd cell should be:
+		0 - PCIe1 Lane0
+		1 - PCIe0 Lane1
+		2 - ICSS2 SGMII Lane1
+ - clocks: clock-specifier of the functional clock
+ - clock-names: should be "fck"
+ - assigned-clocks: clock-specifier of the functional clock
+ - assigned-clock-parents: parent of the functional clock
+ - mux-controls: phandle to the multiplexer
