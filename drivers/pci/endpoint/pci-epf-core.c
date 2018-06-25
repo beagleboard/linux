@@ -109,6 +109,8 @@ void pci_epf_free_space(struct pci_epf *epf, void *addr, enum pci_barno bar)
 
 	epf->bar[bar].phys_addr = 0;
 	epf->bar[bar].size = 0;
+	epf->bar[bar].barno = 0;
+	epf->bar[bar].flags = 0;
 }
 EXPORT_SYMBOL_GPL(pci_epf_free_space);
 
@@ -116,10 +118,12 @@ EXPORT_SYMBOL_GPL(pci_epf_free_space);
  * pci_epf_alloc_space() - allocate memory for the PCI EPF register space
  * @size: the size of the memory that has to be allocated
  * @bar: the BAR number corresponding to the allocated register space
+ * @align: alignment size for the allocation region
  *
  * Invoke to allocate memory for the PCI EPF register space.
  */
-void *pci_epf_alloc_space(struct pci_epf *epf, size_t size, enum pci_barno bar)
+void *pci_epf_alloc_space(struct pci_epf *epf, size_t size, enum pci_barno bar,
+			  size_t align)
 {
 	void *space;
 	struct device *dev = epf->epc->dev.parent;
@@ -127,7 +131,11 @@ void *pci_epf_alloc_space(struct pci_epf *epf, size_t size, enum pci_barno bar)
 
 	if (size < 128)
 		size = 128;
-	size = roundup_pow_of_two(size);
+
+	if (align)
+		size = ALIGN(size, align);
+	else
+		size = roundup_pow_of_two(size);
 
 	space = dma_alloc_coherent(dev, size, &phys_addr, GFP_KERNEL);
 	if (!space) {
@@ -137,6 +145,8 @@ void *pci_epf_alloc_space(struct pci_epf *epf, size_t size, enum pci_barno bar)
 
 	epf->bar[bar].phys_addr = phys_addr;
 	epf->bar[bar].size = size;
+	epf->bar[bar].barno = bar;
+	epf->bar[bar].flags = PCI_BASE_ADDRESS_SPACE_MEMORY;
 
 	return space;
 }

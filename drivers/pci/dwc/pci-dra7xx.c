@@ -364,15 +364,6 @@ static irqreturn_t dra7xx_pcie_irq_handler(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
-static void dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar)
-{
-	u32 reg;
-
-	reg = PCI_BASE_ADDRESS_0 + (4 * bar);
-	dw_pcie_writel_dbi2(pci, reg, 0x0);
-	dw_pcie_writel_dbi(pci, reg, 0x0);
-}
-
 static void dra7xx_pcie_ep_init(struct dw_pcie_ep *ep)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
@@ -402,7 +393,7 @@ static void dra7xx_pcie_raise_msi_irq(struct dra7xx_pcie *dra7xx,
 	dra7xx_pcie_writel(dra7xx, PCIECTRL_TI_CONF_MSI_XMT, reg);
 }
 
-static int dra7xx_pcie_raise_irq(struct dw_pcie_ep *ep,
+static int dra7xx_pcie_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
 				 enum pci_epc_irq_type type, u8 interrupt_num)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
@@ -422,7 +413,7 @@ static int dra7xx_pcie_raise_irq(struct dw_pcie_ep *ep,
 	return 0;
 }
 
-static struct dw_pcie_ep_ops pcie_ep_ops = {
+static const struct dw_pcie_ep_ops pcie_ep_ops = {
 	.ep_init = dra7xx_pcie_ep_init,
 	.raise_irq = dra7xx_pcie_raise_irq,
 };

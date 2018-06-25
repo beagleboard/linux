@@ -13,6 +13,8 @@ Required Properties:-
 
 compatibility: Should be "ti,keystone-pcie" for RC
 	       Should be "ti,keystone-pcie-ep" for EP
+	       Should be "ti,am654-pcie-rc" for RC on AM654x SoC
+	       Should be "ti,am654-pcie-ep" for EP on AM654x SoC
 
 reg: Three register ranges as listed in the reg-names property
 reg-names: "dbics" for the DesignWare PCIe registers, "app" for the
@@ -21,8 +23,10 @@ reg-names: "dbics" for the DesignWare PCIe registers, "app" for the
 	   RC mode) and "addr_space" used to map remote RC address space
 	   (used only in EP mode).
 interrupts: platform interrupt for error interrupts.
-ti,syscon-dev : phandle to the device control module required to set device id
-		and vendor id.
+ti,syscon-pcie-id : phandle to the device control module required to set device
+		    id and vendor id.
+ti,syscon-pcie-mode : phandle to the device control module required to configure
+		      PCI in either RC mode or EP mode.
 num-ob-windows : number of outbound address translation window
 
 HOST MODE
@@ -31,6 +35,9 @@ pcie_msi_intc : Interrupt controller device node for MSI IRQ chip
 	interrupt-cells: should be set to 1
 	interrupt-parent: Parent interrupt controller phandle
 	interrupts: GIC interrupt lines connected to PCI MSI interrupt lines
+	(required if the compatible is "ti,keystone-pcie")
+msi-map: As specified in Documentation/devicetree/bindings/pci/pci-msi.txt
+	 (required if the compatible is "ti,am654-pcie-rc".
 
 num-ob-windows : number of outbound address translation window
 

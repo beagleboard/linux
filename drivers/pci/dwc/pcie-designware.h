@@ -88,6 +88,7 @@
  * iATU Unroll-specific register definitions
  * From 4.80 core version the address translation will be made by unroll
  */
+#define PCIE_ATU_BASE_OFFSET		(0x3 << 20)
 #define PCIE_ATU_UNR_REGION_CTRL1	0x00
 #define PCIE_ATU_UNR_REGION_CTRL2	0x04
 #define PCIE_ATU_UNR_LOWER_BASE		0x08
@@ -98,10 +99,10 @@
 
 /* Register address builder */
 #define PCIE_GET_ATU_OUTB_UNR_REG_OFFSET(region)	\
-			((0x3 << 20) | ((region) << 9))
+			((region) << 9)
 
-#define PCIE_GET_ATU_INB_UNR_REG_OFFSET(region)				\
-			((0x3 << 20) | ((region) << 9) | (0x1 << 8))
+#define PCIE_GET_ATU_INB_UNR_REG_OFFSET(region)		\
+			(((region) << 9) | (0x1 << 8))
 
 #define MSI_MESSAGE_CONTROL		0x52
 #define MSI_CAP_MMC_SHIFT		1
@@ -196,13 +197,16 @@ enum dw_pcie_as_type {
 
 struct dw_pcie_ep_ops {
 	void	(*ep_init)(struct dw_pcie_ep *ep);
-	int	(*raise_irq)(struct dw_pcie_ep *ep, enum pci_epc_irq_type type,
+	int	(*raise_irq)(struct dw_pcie_ep *ep, u8 func_no,
+			     enum pci_epc_irq_type type,
 			     u8 interrupt_num);
+	int	(*set_bar)(struct dw_pcie_ep *ep, u8 func_no,
+			   struct pci_epf_bar *epf_bar);
 };
 
 struct dw_pcie_ep {
 	struct pci_epc		*epc;
-	struct dw_pcie_ep_ops	*ops;
+	const struct dw_pcie_ep_ops *ops;
 	phys_addr_t		phys_base;
 	size_t			addr_size;
 	size_t			page_size;
@@ -241,11 +245,13 @@ struct dw_pcie {
 	struct device		*dev;
 	void __iomem		*dbi_base;
 	void __iomem		*dbi_base2;
+	void __iomem		*atu_base;
 	u32			num_viewport;
 	u8			iatu_unroll_enabled;
 	struct pcie_port	pp;
 	struct dw_pcie_ep	ep;
 	const struct dw_pcie_ops *ops;
+	unsigned int		version;
 };
 
 #define to_dw_pcie_from_pp(port) container_of((port), struct dw_pcie, pp)
@@ -371,13 +377,18 @@ static inline int dw_pcie_allocate_domains(struct pcie_port *pp)
 {
 	return 0;
 }
+
 #endif
 
 #ifdef CONFIG_PCIE_DW_EP
 void dw_pcie_ep_linkup(struct dw_pcie_ep *ep);
 int dw_pcie_ep_init(struct dw_pcie_ep *ep);
 void dw_pcie_ep_exit(struct dw_pcie_ep *ep);
-int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep, u8 interrupt_num);
+int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep, u8 func_no,
+			     u8 interrupt_num);
+void dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar);
+int dw_pcie_ep_inbound_atu(struct dw_pcie_ep *ep, enum pci_barno bar,
+			   dma_addr_t cpu_addr, enum dw_pcie_as_type as_type);
 #else
 static inline void dw_pcie_ep_linkup(struct dw_pcie_ep *ep)
 {
@@ -393,7 +404,19 @@ static inline void dw_pcie_ep_exit(struct dw_pcie_ep *ep)
 }
 
 static inline int dw_pcie_ep_raise_msi_irq(struct dw_pcie_ep *ep,
-					   u8 interrupt_num)
+					   u8 func_no, u8 interrupt_num)
+{
+	return 0;
+}
+
+static inline void dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar)
+{
+}
+
+static inline int dw_pcie_ep_inbound_atu(struct dw_pcie_ep *ep,
+					 enum pci_barno bar,
+					 dma_addr_t cpu_addr,
+					 enum dw_pcie_as_type as_type)
 {
 	return 0;
 }

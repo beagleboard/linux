@@ -157,7 +157,8 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x82000000 0 0x60000000 0x60000000 0 0x10000000>;
-			ti,syscon-dev = <&devctrl 0x128>;
+			ti,syscon-pcie-id = <&pcie_devid>;
+			ti,syscon-pcie-mode = <&pcie_mode>;
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <2>;

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * DT overlay for SERDES personality card: 2 lane PCIe + USB2.0 Host
+ * DT overlay for SERDES personality card: 2lane PCIe + USB2.0 Host on AM654 EVM
  *
  * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com/
  */
 
 /dts-v1/;
 /plugin/;
+#include <dt-bindings/phy/phy.h>
 #include <dt-bindings/pinctrl/k3-am6.h>
 
 &main_pmx0 {
@@ -25,4 +26,14 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&usb0_pins_default>;
 	dr_mode = "host";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&pcie0_rc {
+	phys = <&serdes0 PHY_TYPE_PCIE 1>;
+	phy-names = "pcie-phy0";
+	status = "okay";
 };

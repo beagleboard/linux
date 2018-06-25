@@ -91,6 +91,20 @@
 		devctrl: device-state-control@02620000 {
 			compatible = "ti,keystone-devctrl", "syscon";
 			reg = <0x02620000 0x1000>;
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x02620000 0x1000>;
+
+			pcie_devid: pcie-devid@128 {
+				compatible = "syscon";
+				reg = <0x00000128 0x4>;
+			};
+
+			pcie_mode: pcie-mode@14c {
+				compatible = "syscon";
+				reg = <0x0000014c 0x4>;
+			};
 		};
 
 		rstctrl: reset-controller {
