@@ -28,7 +28,7 @@
 #include <linux/poll.h>
 #include <linux/rpmsg/virtio_rpmsg.h>
 
-#define PRU_MAX_DEVICES				(8)
+#define PRU_MAX_DEVICES				(16)
 /* Matches the definition in virtio_rpmsg_bus.c */
 #define RPMSG_BUF_SIZE				(512)
 #define MAX_FIFO_MSG				(32)
