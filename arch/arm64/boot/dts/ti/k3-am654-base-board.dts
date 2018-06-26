@@ -345,3 +345,7 @@
 		remote-endpoint = <&csi2_cam0>;
 	};
 };
+
+&gpu {
+	status = "okay";
+};
