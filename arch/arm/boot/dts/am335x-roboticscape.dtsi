@@ -21,7 +21,28 @@
  * @date       April 19, 2018
  */
 
-
+&aliases {
+	i2c0 = &i2c0;
+	i2c1 = &i2c1;
+	i2c2 = &i2c2;
+	serial0 = &uart0;
+	serial1 = &uart1;
+	serial2 = &uart2;
+	serial3 = &uart3;
+	serial4 = &uart4;
+	serial5 = &uart5;
+	d_can0 = &dcan0;
+	d_can1 = &dcan1;
+	usb0 = &usb0;
+	usb1 = &usb1;
+	phy0 = &usb0_phy;
+	phy1 = &usb1_phy;
+	ethernet0 = &cpsw_emac0;
+	ethernet1 = &cpsw_emac1;
+	/* librobotcontrol expects /dev/spidev1 */
+	spi0 = &spi0;
+	spi1 = &spi1;
+};
 
 /*******************************************************************************
 * Pin Muxing
