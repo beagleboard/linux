@@ -77,6 +77,7 @@ enum pru_mem {
  * @dbg_single_step: debug state variable to set PRU into single step mode
  * @dbg_continuous: debug state variable to restore PRU execution mode
  * @is_rtu: boolean flag to indicate the core is a RTU core
+ * @fw_has_intc_rsc: boolean flag to indicate INTC config through firmware
  */
 struct pru_rproc {
 	int id;
@@ -101,6 +102,7 @@ struct pru_rproc {
 	u32 dbg_single_step;
 	u32 dbg_continuous;
 	bool is_rtu;
+	bool fw_has_intc_rsc;
 };
 
 static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len);
@@ -683,7 +685,7 @@ static int pru_rproc_start(struct rproc *rproc)
 	return 0;
 
 fail:
-	if (!pru->dt_irqs)
+	if (!pru->dt_irqs && pru->fw_has_intc_rsc)
 		pruss_intc_unconfigure(pru->pruss, &pru->intc_config);
 	return ret;
 }
@@ -707,7 +709,7 @@ static int pru_rproc_stop(struct rproc *rproc)
 		free_irq(pru->irq_vring, pru);
 
 	/* undo INTC config */
-	if (!pru->dt_irqs)
+	if (!pru->dt_irqs && pru->fw_has_intc_rsc)
 		pruss_intc_unconfigure(pru->pruss, &pru->intc_config);
 
 	return 0;
@@ -823,6 +825,8 @@ static int pru_handle_vendor_intrmap(struct rproc *rproc,
 		pru->intc_config.ch_to_host[i] = intr_no;
 		dev_dbg(dev, "chnl-to-host[%d] -> %d\n", i, intr_no);
 	}
+
+	pru->fw_has_intc_rsc = true;
 
 	ret = pruss_intc_configure(pruss, &pru->intc_config);
 	if (ret)
