@@ -28,7 +28,7 @@
  * wait == 1 case since in that case write_inode() functions do
  * sync_dirty_buffer() and thus effectively write one block at a time.
  */
-static int __sync_filesystem(struct super_block *sb, int wait)
+int __sync_filesystem(struct super_block *sb, int wait)
 {
 	if (wait)
 		sync_inodes_sb(sb);
