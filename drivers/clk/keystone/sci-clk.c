@@ -206,7 +206,7 @@ static int sci_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct sci_clk *clk = to_sci_clk(hw);
 
 	return clk->provider->ops->set_freq(clk->provider->sci, clk->dev_id,
-					    clk->clk_id, rate, rate, rate);
+					    clk->clk_id, 0, rate, ULONG_MAX);
 }
 
 /**
@@ -449,7 +449,7 @@ static int ti_sci_clk_probe(struct platform_device *pdev)
 		if (ret) {
 			gap_size++;
 			if (!clk_id) {
-				if (gap_size >= 5)
+				if (gap_size >= 50)
 					break;
 				dev_id++;
 			} else {

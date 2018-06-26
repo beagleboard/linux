@@ -90,6 +90,22 @@
 			reg = <0 0x40f00000 0 0x20000>;
 		};
 
+		msmc_ram: sram@70000000 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x70000000 0x0 0x200000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x0 0x70000000 0x200000>;
+
+			sram@0 {	/* Reserved for ATF */
+				reg = <0x0 0x40000>;
+			};
+
+			sram@100000 {	/* Reserved for Cache */
+				reg = <0x100000 0x100000>;
+			};
+		};
+
 		a53_timer0: timer-cl0-cpu0 {
 			compatible = "arm,armv8-timer";
 			interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* cntpsirq */

@@ -34,6 +34,8 @@ void k3_knav_pool_destroy(struct k3_knav_desc_pool *pool)
 	if (pool->cpumem)
 		dma_free_coherent(pool->dev, pool->mem_size, pool->cpumem,
 				  pool->dma_addr);
+
+	gen_pool_destroy(pool->gen_pool);	/* frees pool->name */
 }
 EXPORT_SYMBOL_GPL(k3_knav_pool_destroy);
 
@@ -44,6 +46,7 @@ struct k3_knav_desc_pool *k3_knav_pool_create_name(struct device *dev,
 {
 	struct k3_knav_desc_pool *pool;
 	int ret = -ENOMEM;
+	const char *pool_name = NULL;
 
 	pool = devm_kzalloc(dev, sizeof(*pool), GFP_KERNEL);
 	if (!pool)
@@ -54,14 +57,19 @@ struct k3_knav_desc_pool *k3_knav_pool_create_name(struct device *dev,
 	pool->num_desc	= size;
 	pool->mem_size	= pool->num_desc * pool->desc_size;
 
-	pool->gen_pool = devm_gen_pool_create(
-				pool->dev, ilog2(pool->desc_size),
-				-1, !name ? dev_name(pool->dev) : name);
+	pool_name = kstrdup_const(name ? name : dev_name(pool->dev), GFP_KERNEL);
+	if (!pool_name)
+		return ERR_PTR(-ENOMEM);
+
+	pool->gen_pool = gen_pool_create(ilog2(pool->desc_size), -1);
 	if (IS_ERR(pool->gen_pool)) {
 		ret = PTR_ERR(pool->gen_pool);
 		dev_err(pool->dev, "pool create failed %d\n", ret);
+		kfree_const(pool_name);
 		goto gen_pool_create_fail;
 	}
+
+	pool->gen_pool->name = pool_name;
 
 	pool->cpumem = dma_alloc_coherent(pool->dev, pool->mem_size,
 					  &pool->dma_addr, GFP_KERNEL);
@@ -83,6 +91,7 @@ gen_pool_add_virt_fail:
 	dma_free_coherent(pool->dev, pool->mem_size, pool->cpumem,
 			  pool->dma_addr);
 dma_alloc_fail:
+	gen_pool_destroy(pool->gen_pool);	/* frees pool->name */
 gen_pool_create_fail:
 	devm_kfree(pool->dev, pool);
 	return ERR_PTR(ret);
