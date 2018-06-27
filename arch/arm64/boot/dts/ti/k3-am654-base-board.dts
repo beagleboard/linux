@@ -220,7 +220,7 @@
 
 	wkup_pca554_default: wkup_pca554_default {
 		pinctrl-single,pins = <
-			AM65X_WKUP_IOPAD(0x0030, PIN_INPUT | MUX_MODE7) /* (R5) MCU_OSPI0_CSn1.WKUP_GPIO0_24 */
+			AM65X_WKUP_IOPAD(0x0034, PIN_INPUT | MUX_MODE7) /* (T1) MCU_OSPI1_CLK.WKUP_GPIO0_25 */
 		>;
 	};
 
@@ -284,7 +284,7 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-parent = <&wkup_gpio0>;
-		interrupts = <24 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
