@@ -131,8 +131,6 @@
 			AM65X_IOPAD(0x0190, PIN_INPUT_PULLUP | MUX_MODE0) /* (A24) MMC0_DAT5 */
 			AM65X_IOPAD(0x018c, PIN_INPUT_PULLUP | MUX_MODE0) /* (B26) MMC0_DAT6 */
 			AM65X_IOPAD(0x0188, PIN_INPUT_PULLUP | MUX_MODE0) /* (D25) MMC0_DAT7 */
-			AM65X_IOPAD(0x01b4, PIN_INPUT_PULLUP | MUX_MODE0) /* (A23) MMC0_SDCD */
-			AM65X_IOPAD(0x01b8, PIN_INPUT | MUX_MODE0) /* (B23) MMC0_SDWP */
 			AM65X_IOPAD(0x01b0, PIN_INPUT | MUX_MODE0) /* (C25) MMC0_DS */
 		>;
 	};
@@ -407,6 +405,7 @@
 &sdhci0 {
 	status = "okay";
 	non-removable;
+	xlnx,fails-without-test-cd;
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mmc0_pins_default>;
 };
