@@ -47,16 +47,6 @@
 			compatible = "arm,psci-1.0";
 			method = "smc";
 		};
-
-		gpu: gpu@7000000 {
-			compatible = "ti,am654-sgx544", "img,sgx544";
-			reg = <0x0 0x7000000 0x0 0x10000>;
-			interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
-			power-domains = <&k3_pds 65>;
-			clocks = <&k3_clks 65 0>, <&k3_clks 65 1>, <&k3_clks 65 2>, <&k3_clks 65 3>;
-			clock-names = "mem_clk", "hyd_clk", "sgx_clk", "sys_clk";
-			status = "disabled";
-		};
 	};
 
 	soc0: soc0 {
@@ -488,6 +478,18 @@
 			ti,davinci-gpio-unbanked = <0>;
 			clocks = <&k3_clks 59 0>;
 			clock-names = "gpio";
+		};
+
+		gpu: gpu@7000000 {
+			compatible = "ti,am654-sgx544", "img,sgx544";
+			reg = <0x0 0x7000000 0x0 0x10000>;
+			interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&k3_pds 65>;
+			clocks = <&k3_clks 65 0>, <&k3_clks 65 1>,
+				 <&k3_clks 65 2>, <&k3_clks 65 3>;
+			clock-names = "mem_clk", "hyd_clk",
+				      "sgx_clk", "sys_clk";
+			status = "disabled";
 		};
 
 		hwspinlock: spinlock@30e00000 {
