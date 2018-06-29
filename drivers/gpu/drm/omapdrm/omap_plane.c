@@ -273,7 +273,7 @@ static int omap_plane_atomic_set_property(struct drm_plane *plane,
 					  uint64_t val)
 {
 	struct omap_drm_private *priv = plane->dev->dev_private;
-	struct omap_plane_state *omap_state = to_omap_plane_state(plane->state);
+	struct omap_plane_state *omap_state = to_omap_plane_state(state);
 
 	if (property == priv->zorder_prop)
 		state->zpos = val;
@@ -293,8 +293,7 @@ static int omap_plane_atomic_get_property(struct drm_plane *plane,
 					  uint64_t *val)
 {
 	struct omap_drm_private *priv = plane->dev->dev_private;
-	const struct omap_plane_state *omap_state =
-		to_omap_plane_state(plane->state);
+	const struct omap_plane_state *omap_state = to_omap_plane_state(state);
 
 	if (property == priv->zorder_prop)
 		*val = state->zpos;
