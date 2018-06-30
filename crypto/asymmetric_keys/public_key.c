@@ -67,7 +67,7 @@ void public_key_destroy(void *payload)
 	if (key) {
 		for (i = 0; i < ARRAY_SIZE(key->mpi); i++)
 			mpi_free(key->mpi[i]);
-		kfree(key);
+		kzfree(key);
 	}
 }
 EXPORT_SYMBOL_GPL(public_key_destroy);
