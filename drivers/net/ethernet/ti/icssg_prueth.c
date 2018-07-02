@@ -682,8 +682,8 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 	/* configure fw */
 	memset(config, 0, sizeof(u32) * CONFIG_LENGTH);
 	config[0] = 0;	/* number of packets to send/receive : indefinite */
-	config[1] = prueth->msmcram.pa & 0xFFFFFFFF;
-	config[2] = prueth->msmcram.pa >> 32;
+	config[1] = lower_32_bits(prueth->msmcram.pa);
+	config[2] = upper_32_bits(prueth->msmcram.pa);
 	config[3] = emac->rx_flow_id_base; /* flow id for host port */
 	/*  FIXME: We start in Promiscuous mode else we don't receive
 	 *  any packet. Need to setup classifiers/filters to get this right.
@@ -949,19 +949,6 @@ cleanup_tx:
 static int emac_ndo_stop(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
-	int slice;
-
-	switch (emac->port_id) {
-	case PRUETH_PORT_MII0:
-		slice = ICSS_SLICE0;
-		break;
-	case PRUETH_PORT_MII1:
-		slice = ICSS_SLICE1;
-		break;
-	default:
-		netdev_err(ndev, "invalid port %d\n", emac->port_id);
-		return -EINVAL;
-	}
 
 	/* inform the upper layers. */
 	netif_stop_queue(ndev);
@@ -1438,7 +1425,7 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->msmcram.pa = gen_pool_virt_to_phys(prueth->sram_pool,
 						   (unsigned long)prueth->msmcram.va);
 	prueth->msmcram.size = MSMC_RAM_SIZE;
-	dev_dbg(dev, "sram: pa %pa va %p size %lx\n", &prueth->msmcram.pa,
+	dev_dbg(dev, "sram: pa %pa va %p size %zx\n", &prueth->msmcram.pa,
 		prueth->msmcram.va, prueth->msmcram.size);
 
 	/* setup netdev interfaces */

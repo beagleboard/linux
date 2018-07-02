@@ -158,7 +158,7 @@ config TI_ICSSG_PRUETH
 	tristate "TI Gigabit PRU Ethernet driver"
 	select TI_DAVINCI_MDIO
 	depends on PRUSS_REMOTEPROC
-	depends on OF && TI_K3_NAVSS_UDMA_GLUE_LAYER
+	depends on OF && TI_K3_NAVSS_UDMA_GLUE_LAYER && TI_K3_NAVSS_DESC_POOL
 	---help---
 	  Support dual Gigabit Ethernet ports over the ICSSG PRU Subsystem
 	  This subsystem is available starting with the AM65 platform.
