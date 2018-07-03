@@ -24,6 +24,8 @@
 #include <linux/btrfs.h>
 #include "async-thread.h"
 
+#define BTRFS_MAX_DATA_CHUNK_SIZE	(10ULL * SZ_1G)
+
 #define BTRFS_STRIPE_LEN	(64 * 1024)
 
 struct buffer_head;
