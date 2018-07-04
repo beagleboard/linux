@@ -45,7 +45,7 @@
 #define DLLRDY_SHIFT		0
 #define DLLRDY_MASK		BIT(DLLRDY_SHIFT)
 
-struct regmap_config am654_mmc_phy_regmap_config = {
+static struct regmap_config am654_mmc_phy_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
 	.reg_stride = 4,
