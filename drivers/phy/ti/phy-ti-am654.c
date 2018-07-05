@@ -203,7 +203,7 @@ static int serdes_am654_reset(struct phy *x)
 	return 0;
 }
 
-struct phy *serdes_am654_xlate(struct device *dev, struct of_phandle_args
+static struct phy *serdes_am654_xlate(struct device *dev, struct of_phandle_args
 				 *args)
 {
 	struct serdes_am654 *am654_phy;
