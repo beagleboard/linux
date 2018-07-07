@@ -6,12 +6,14 @@
  *
  */
 
+#include <linux/net_tstamp.h>
 #include <linux/phy.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 
 #include "am65-cpsw-nuss.h"
 #include "cpsw_ale.h"
+#include "am65-cpts.h"
 
 #define AM65_CPSW_DRV_VER "0.1"
 
@@ -679,6 +681,28 @@ static void am65_cpsw_get_ethtool_stats(struct net_device *ndev,
 	}
 }
 
+#if IS_ENABLED(CONFIG_TI_AM65_CPTS)
+static int am65_cpsw_get_ethtool_ts_info(struct net_device *ndev,
+					 struct ethtool_ts_info *info)
+{
+	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+
+	info->so_timestamping =
+		SOF_TIMESTAMPING_TX_HARDWARE |
+		SOF_TIMESTAMPING_TX_SOFTWARE |
+		SOF_TIMESTAMPING_RX_HARDWARE |
+		SOF_TIMESTAMPING_RX_SOFTWARE |
+		SOF_TIMESTAMPING_SOFTWARE |
+		SOF_TIMESTAMPING_RAW_HARDWARE;
+	info->phc_index = am65_cpts_phc_index(common->cpts);
+	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
+	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) | BIT(HWTSTAMP_FILTER_ALL);
+	return 0;
+}
+#else
+#define am65_cpsw_get_ethtool_ts_info ethtool_op_get_ts_info
+#endif
+
 const struct ethtool_ops am65_cpsw_ethtool_ops_slave = {
 	.begin			= am65_cpsw_ethtool_op_begin,
 	.complete		= am65_cpsw_ethtool_op_complete,
@@ -692,6 +716,7 @@ const struct ethtool_ops am65_cpsw_ethtool_ops_slave = {
 	.get_sset_count		= am65_cpsw_get_sset_count,
 	.get_strings		= am65_cpsw_get_strings,
 	.get_ethtool_stats	= am65_cpsw_get_ethtool_stats,
+	.get_ts_info		= am65_cpsw_get_ethtool_ts_info,
 
 	.get_link		= ethtool_op_get_link,
 	.get_link_ksettings	= am65_cpsw_get_link_ksettings,

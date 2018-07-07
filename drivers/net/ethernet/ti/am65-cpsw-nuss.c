@@ -30,6 +30,7 @@
 #include "cpsw.h"
 #include "am65-cpsw-nuss.h"
 #include "davinci_mdio_int.h"
+#include "am65-cpts.h"
 
 #define AM65_CPSW_SS_BASE	0x0
 #define AM65_CPSW_SGMII_BASE	0x100
@@ -58,11 +59,47 @@
 
 #define AM65_CPSW_PORTN_REG_SA_L		0x308
 #define AM65_CPSW_PORTN_REG_SA_H		0x30c
+#define AM65_CPSW_PORTN_REG_TS_CTL              0x310
+#define AM65_CPSW_PORTN_REG_TS_SEQ_LTYPE_REG	0x314
+#define AM65_CPSW_PORTN_REG_TS_VLAN_LTYPE_REG	0x318
+#define AM65_CPSW_PORTN_REG_TS_CTL_LTYPE2       0x31C
 
 #define AM65_CPSW_CTL_VLAN_AWARE		BIT(1)
 #define AM65_CPSW_CTL_P0_ENABLE			BIT(2)
 #define AM65_CPSW_CTL_P0_TX_CRC_REMOVE		BIT(13)
 #define AM65_CPSW_CTL_P0_RX_PAD			BIT(14)
+
+/* AM65_CPSW_PN_TS_CTL register fields */
+#define AM65_CPSW_PN_TS_CTL_TX_ANX_F_EN		BIT(4)
+#define AM65_CPSW_PN_TS_CTL_TX_VLAN_LT1_EN	BIT(5)
+#define AM65_CPSW_PN_TS_CTL_TX_VLAN_LT2_EN	BIT(6)
+#define AM65_CPSW_PN_TS_CTL_TX_ANX_D_EN		BIT(7)
+#define AM65_CPSW_PN_TS_CTL_TX_ANX_E_EN		BIT(10)
+#define AM65_CPSW_PN_TS_CTL_TX_HOST_TS_EN	BIT(11)
+#define AM65_CPSW_PN_TS_CTL_MSG_TYPE_EN_SHIFT	16
+
+/* AM65_CPSW_PORTN_REG_TS_SEQ_LTYPE_REG register fields */
+#define AM65_CPSW_PN_TS_SEQ_ID_OFFSET_SHIFT	16
+
+/* AM65_CPSW_PORTN_REG_TS_CTL_LTYPE2 */
+#define AM65_CPSW_PN_TS_CTL_LTYPE2_TS_107	BIT(16)
+#define AM65_CPSW_PN_TS_CTL_LTYPE2_TS_129	BIT(17)
+#define AM65_CPSW_PN_TS_CTL_LTYPE2_TS_130	BIT(18)
+#define AM65_CPSW_PN_TS_CTL_LTYPE2_TS_131	BIT(19)
+#define AM65_CPSW_PN_TS_CTL_LTYPE2_TS_132	BIT(20)
+#define AM65_CPSW_PN_TS_CTL_LTYPE2_TS_319	BIT(21)
+#define AM65_CPSW_PN_TS_CTL_LTYPE2_TS_320	BIT(22)
+#define AM65_CPSW_PN_TS_CTL_LTYPE2_TS_TTL_NONZERO BIT(23)
+
+/* The PTP event messages - Sync, Delay_Req, Pdelay_Req, and Pdelay_Resp. */
+#define AM65_CPSW_TS_EVENT_MSG_TYPE_BITS (BIT(0) | BIT(1) | BIT(2) | BIT(3))
+
+#define AM65_CPSW_TS_SEQ_ID_OFFSET (0x1e)
+
+#define AM65_CPSW_TS_TX_ANX_ALL_EN		\
+	(AM65_CPSW_PN_TS_CTL_TX_ANX_D_EN |	\
+	 AM65_CPSW_PN_TS_CTL_TX_ANX_E_EN |	\
+	 AM65_CPSW_PN_TS_CTL_TX_ANX_F_EN)
 
 #define AM65_CPSW_ALE_AGEOUT_DEFAULT	30
 /* Number of TX/RX descriptors */
@@ -596,6 +633,18 @@ static void am65_cpsw_nuss_rx_cleanup(void *data, dma_addr_t desc_dma)
 	dev_kfree_skb_any(skb);
 }
 
+static void am65_cpsw_nuss_rx_ts(struct sk_buff *skb, u32 *psdata)
+{
+	struct skb_shared_hwtstamps *ssh;
+	u64 ns;
+
+	ns = ((u64)psdata[1] << 32) | psdata[0];
+
+	ssh = skb_hwtstamps(skb);
+	memset(ssh, 0, sizeof(*ssh));
+	ssh->hwtstamp = ns_to_ktime(ns);
+}
+
 static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 				     u32 flow_idx)
 {
@@ -610,6 +659,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	u32 buf_dma_len, pkt_len, port_id = 0;
 	int ret = 0;
 	void **swdata;
+	u32 *psdata;
 
 	ret = k3_nav_udmax_pop_rx_chn(rx_chn->rx_chn, flow_idx, &desc_dma);
 	if (ret) {
@@ -635,13 +685,17 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	if (port_id)
 		port_id = (port_id % common->port_num);
 	dev_dbg(dev, "%s rx port_id:%d\n", __func__, port_id);
+	ndev = common->ports[port_id].ndev;
+	skb->dev = ndev;
+
+	psdata = knav_udmap_hdesc_get_psdata32(desc_rx);
+	/* add RX timestamp */
+	if (common->ports[port_id].rx_ts_enabled)
+		am65_cpsw_nuss_rx_ts(skb, psdata);
 
 	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 
 	k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
-
-	ndev = common->ports[port_id].ndev;
-	skb->dev = ndev;
 
 	if (unlikely(!netif_running(skb->dev))) {
 		dev_kfree_skb_any(skb);
@@ -651,7 +705,6 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	new_skb = netdev_alloc_skb_ip_align(ndev, AM65_CPSW_MAX_PACKET_SIZE);
 	if (new_skb) {
 		skb_put(skb, pkt_len);
-		/* TODO: add TX timestamp */
 		skb->protocol = eth_type_trans(skb, ndev);
 		netif_receive_skb(skb);
 
@@ -800,6 +853,9 @@ static int am65_cpsw_nuss_tx_compl_packets(struct am65_cpsw_common *common,
 
 		ndev = skb->dev;
 
+		if (skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)
+			am65_cpts_tx_timestamp(common->cpts, skb);
+
 		ndev_priv = netdev_priv(ndev);
 		stats = this_cpu_ptr(ndev_priv->stats);
 		u64_stats_update_begin(&stats->syncp);
@@ -902,7 +958,10 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 
 	/* padding enabled in hw */
 	pkt_len = skb_headlen(skb);
-	/*TODO: SKBTX_HW_TSTAMP */
+
+	/* SKB TX timestamp */
+	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP && port->tx_ts_enabled)
+		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 
 	q_idx = skb_get_queue_mapping(skb);
 	dev_dbg(dev, "%s skb_queue:%d\n", __func__, q_idx);
@@ -1057,6 +1116,102 @@ static int am65_cpsw_nuss_ndo_slave_set_mac_address(
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_TI_AM65_CPTS)
+static int am65_cpsw_nuss_hwtstamp_set(struct net_device *ndev,
+				       struct ifreq *ifr)
+{
+	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	struct hwtstamp_config cfg;
+	u32 ts_ctrl, seq_id, ts_ctrl_ltype2, ts_vlan_ltype;
+
+	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
+		return -EFAULT;
+
+	if (cfg.tx_type != HWTSTAMP_TX_OFF && cfg.tx_type != HWTSTAMP_TX_ON)
+		return -ERANGE;
+
+	switch (cfg.rx_filter) {
+	case HWTSTAMP_FILTER_NONE:
+		port->rx_ts_enabled = false;
+		break;
+	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+	case HWTSTAMP_FILTER_ALL:
+		port->rx_ts_enabled = true;
+		cfg.rx_filter = HWTSTAMP_FILTER_ALL;
+		break;
+	default:
+		return -ERANGE;
+	}
+
+	port->tx_ts_enabled = (cfg.tx_type == HWTSTAMP_TX_ON);
+
+	/* cfg TX timestamp */
+	seq_id = (AM65_CPSW_TS_SEQ_ID_OFFSET <<
+		  AM65_CPSW_PN_TS_SEQ_ID_OFFSET_SHIFT) | ETH_P_1588;
+
+	ts_vlan_ltype = ETH_P_8021Q;
+
+	ts_ctrl_ltype2 = ETH_P_1588 |
+			 AM65_CPSW_PN_TS_CTL_LTYPE2_TS_107 |
+			 AM65_CPSW_PN_TS_CTL_LTYPE2_TS_129 |
+			 AM65_CPSW_PN_TS_CTL_LTYPE2_TS_130 |
+			 AM65_CPSW_PN_TS_CTL_LTYPE2_TS_131 |
+			 AM65_CPSW_PN_TS_CTL_LTYPE2_TS_132 |
+			 AM65_CPSW_PN_TS_CTL_LTYPE2_TS_319 |
+			 AM65_CPSW_PN_TS_CTL_LTYPE2_TS_320 |
+			 AM65_CPSW_PN_TS_CTL_LTYPE2_TS_TTL_NONZERO;
+
+	ts_ctrl = AM65_CPSW_TS_EVENT_MSG_TYPE_BITS <<
+		  AM65_CPSW_PN_TS_CTL_MSG_TYPE_EN_SHIFT;
+
+	if (port->tx_ts_enabled)
+		ts_ctrl |= AM65_CPSW_TS_TX_ANX_ALL_EN |
+			   AM65_CPSW_PN_TS_CTL_TX_VLAN_LT1_EN;
+
+	writel(seq_id, port->port_base + AM65_CPSW_PORTN_REG_TS_SEQ_LTYPE_REG);
+	writel(ts_vlan_ltype, port->port_base +
+	       AM65_CPSW_PORTN_REG_TS_VLAN_LTYPE_REG);
+	writel(ts_ctrl_ltype2, port->port_base +
+	       AM65_CPSW_PORTN_REG_TS_CTL_LTYPE2);
+	writel(ts_ctrl, port->port_base + AM65_CPSW_PORTN_REG_TS_CTL);
+
+	/* en/dis RX timestamp */
+	am65_cpts_rx_enable(common->cpts, port->rx_ts_enabled);
+
+	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
+}
+
+static int am65_cpsw_nuss_hwtstamp_get(struct net_device *ndev,
+				       struct ifreq *ifr)
+{
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	struct hwtstamp_config cfg;
+
+	cfg.flags = 0;
+	cfg.tx_type = port->tx_ts_enabled ?
+		      HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
+	cfg.rx_filter = port->rx_ts_enabled ?
+			HWTSTAMP_FILTER_ALL : HWTSTAMP_FILTER_NONE;
+
+	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
+}
+#else
+static int am65_cpsw_nuss_hwtstamp_get(struct net_device *ndev,
+				       struct ifreq *ifr)
+{
+	return -EOPNOTSUPP;
+}
+
+static int am65_cpsw_nuss_hwtstamp_set(struct net_device *ndev,
+				       struct ifreq *ifr)
+{
+	return -EOPNOTSUPP;
+}
+#endif /* CONFIG_TI_AM65_CPTS */
+
 static int am65_cpsw_nuss_ndo_slave_ioctl(struct net_device *ndev,
 					  struct ifreq *req, int cmd)
 {
@@ -1064,6 +1219,13 @@ static int am65_cpsw_nuss_ndo_slave_ioctl(struct net_device *ndev,
 
 	if (!netif_running(ndev))
 		return -EINVAL;
+
+	switch (cmd) {
+	case SIOCSHWTSTAMP:
+		return am65_cpsw_nuss_hwtstamp_set(ndev, req);
+	case SIOCGHWTSTAMP:
+		return am65_cpsw_nuss_hwtstamp_get(ndev, req);
+	}
 
 	if (!port->slave.phy)
 		return -EOPNOTSUPP;
@@ -1401,6 +1563,37 @@ static int am65_cpsw_am654_get_efuse_macid(struct device_node *of_node,
 	return 0;
 }
 
+static int am65_cpsw_init_cpts(struct am65_cpsw_common *common)
+{
+	struct device *dev = common->dev;
+	struct device_node *node;
+	struct am65_cpts *cpts;
+	void __iomem *reg_base;
+
+	node = of_get_child_by_name(dev->of_node, "cpts");
+	if (!node) {
+		dev_err(dev, "%s cpts not found\n", __func__);
+		return -ENOENT;
+	}
+
+	reg_base = common->cpsw_base + AM65_CPSW_NU_CPTS_BASE;
+	cpts = am65_cpts_create(dev, reg_base, node);
+	if (IS_ERR(cpts)) {
+		int ret = PTR_ERR(cpts);
+
+		if (ret == -EOPNOTSUPP) {
+			dev_info(dev, "cpts disabled\n");
+			return 0;
+		}
+
+		dev_err(dev, "cpts create err %d\n", ret);
+		return ret;
+	}
+	common->cpts = cpts;
+
+	return 0;
+}
+
 static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 {
 	struct device *dev = common->dev;
@@ -1648,6 +1841,10 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	ret = am65_cpsw_nuss_init_slave_ports(common);
 	if (ret)
 		goto clean_rx_chns;
+
+	ret = am65_cpsw_init_cpts(common);
+	if (ret)
+		goto clean_ports;
 
 	/* init common data */
 	ale_params.dev = dev;

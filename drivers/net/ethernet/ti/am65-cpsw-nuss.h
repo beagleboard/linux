@@ -48,6 +48,8 @@ struct am65_cpsw_port {
 	void __iomem			*stat_base;
 	bool				disabled;
 	struct am65_cpsw_slave_data	slave;
+	bool				tx_ts_enabled;
+	bool				rx_ts_enabled;
 };
 
 struct am65_cpsw_tx_chn {
@@ -94,6 +96,7 @@ struct am65_cpsw_common {
 	u32			nuss_ver;
 	u32			cpsw_ver;
 	struct davinci_mdio_data *mdio;
+	struct am65_cpts *cpts;
 };
 
 struct am65_cpsw_ndev_stats {
