@@ -28,9 +28,6 @@ Required properties:
 - power-domains : CPSW NUSS power domain
 		See Documentation/devicetree/bindings/soc/ti/sci-pm-domain.txt
 
-- interrupts-extended : property with a value describing the CPTS events
-		interrupt
-- interrupt-names : should be "cpts"
 - interrupt-parent : The parent interrupt controller - should point on TI
 		System Control Interface (TI-SCI) IRQCHIP phandle
 		See Documentation/devicetree/bindings/interrupt-controller/ti,sci-irq.txt
@@ -94,6 +91,9 @@ Required Sub-nodes:
 - cpsw-phy-sel: CPSW NUSS PHY mode Selection device description
 	Documentation/devicetree/bindings/net/cpsw-phy-sel.txt
 
+- cpts : The Common Platform Time Sync (CPTS) module description
+	Documentation/devicetree/bindings/net/ti,am654-cpts.txt
+
 [1] See Documentation/devicetree/bindings/net/ethernet.txt
 
 Examples:
@@ -111,8 +111,6 @@ mcu_cpsw: cpsw_nuss@046000000 {
 	power-domains = <&k3_pds 5>;
 	ti,psil-base = <0x7000>;
 
-	interrupts-extended = <&gic GIC_SPI 570 IRQ_TYPE_LEVEL_HIGH>;
-	interrupt-names = "cpts";
 	interrupt-parent = <&k3_irq>;
 
 	dmas = <&mcu_udmap &mcu_cpsw 0 UDMA_DIR_TX>,
