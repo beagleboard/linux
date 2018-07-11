@@ -404,6 +404,7 @@
 	status = "okay";
 	non-removable;
 	xlnx,fails-without-test-cd;
+	bus-width = <8>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mmc0_pins_default>;
 };
