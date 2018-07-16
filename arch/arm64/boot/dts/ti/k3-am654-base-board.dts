@@ -411,6 +411,7 @@
 
 &mmc_phy0 {
 	status = "okay";
+	ti,driver-strength-ohm = <50>;
 };
 
 &sdhci1 {
@@ -422,6 +423,7 @@
 
 &mmc_phy1 {
 	status = "okay";
+	ti,driver-strength-ohm = <50>;
 };
 
 &gpu {
