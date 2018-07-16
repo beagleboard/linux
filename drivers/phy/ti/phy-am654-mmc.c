@@ -45,6 +45,12 @@
 #define DLLRDY_SHIFT		0
 #define DLLRDY_MASK		BIT(DLLRDY_SHIFT)
 
+#define DRIVER_STRENGTH_50_OHM	0x0
+#define DRIVER_STRENGTH_33_OHM	0x1
+#define DRIVER_STRENGTH_66_OHM	0x2
+#define DRIVER_STRENGTH_100_OHM	0x3
+#define DRIVER_STRENGTH_40_OHM	0x4
+
 static struct regmap_config am654_mmc_phy_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
@@ -57,6 +63,7 @@ struct am654_mmc_phy {
 	struct clk *mmcclk;
 	int otap_del_sel;
 	int trm_icp;
+	int drv_strength;
 };
 
 static int am654_mmc_phy_init(struct phy *phy)
@@ -124,9 +131,9 @@ static int am654_mmc_phy_power_on(struct phy *phy)
 	mask = DLL_TRIM_ICP_MASK;
 	val = mmc_phy->trm_icp << DLL_TRIM_ICP_SHIFT;
 
-	/* Configure DLL driver strength. For AM654 SOCs the value is 66 Ohm */
+	/* Configure DLL driver strength */
 	mask |= DR_TY_MASK;
-	val |= 0x2 << DR_TY_SHIFT;
+	val |= mmc_phy->drv_strength << DR_TY_SHIFT;
 	regmap_update_bits(mmc_phy->reg_base, PHYCTRL_CTRL1_REG, mask, val);
 
 	/* Enable DLL */
@@ -171,6 +178,7 @@ static int am654_mmc_phy_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *base;
 	struct regmap *map;
+	int drv_strength;
 	int err;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -198,6 +206,32 @@ static int am654_mmc_phy_probe(struct platform_device *pdev)
 				   &mmc_phy->trm_icp);
 	if (err)
 		return err;
+
+	err = of_property_read_u32(np, "ti,driver-strength-ohm", &drv_strength);
+	if (err)
+		return err;
+
+	switch (drv_strength) {
+	case 50:
+		mmc_phy->drv_strength = DRIVER_STRENGTH_50_OHM;
+		break;
+	case 33:
+		mmc_phy->drv_strength = DRIVER_STRENGTH_33_OHM;
+		break;
+	case 66:
+		mmc_phy->drv_strength = DRIVER_STRENGTH_66_OHM;
+		break;
+	case 100:
+		mmc_phy->drv_strength = DRIVER_STRENGTH_100_OHM;
+		break;
+	case 40:
+		mmc_phy->drv_strength = DRIVER_STRENGTH_40_OHM;
+		break;
+	default:
+		dev_err(dev, "Invalid driver strength\n");
+		return -EINVAL;
+
+	}
 
 	generic_phy = devm_phy_create(dev, dev->of_node, &ops);
 	if (IS_ERR(generic_phy)) {
