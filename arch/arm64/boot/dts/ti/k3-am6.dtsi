@@ -498,7 +498,7 @@
 			#hwlock-cells = <1>;
 		};
 
-		mailbox1: mailbox@31f80000 {
+		mailbox0: mailbox@31f80000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f80000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -513,7 +513,7 @@
 			};
 		};
 
-		mailbox2: mailbox@31f81000 {
+		mailbox1: mailbox@31f81000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f81000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -528,7 +528,7 @@
 			};
 		};
 
-		mailbox3: mailbox@31f82000 {
+		mailbox2: mailbox@31f82000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f82000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -537,7 +537,7 @@
 			status = "disabled";
 		};
 
-		mailbox4: mailbox@31f83000 {
+		mailbox3: mailbox@31f83000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f83000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -546,7 +546,7 @@
 			status = "disabled";
 		};
 
-		mailbox5: mailbox@31f84000 {
+		mailbox4: mailbox@31f84000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f84000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -555,7 +555,7 @@
 			status = "disabled";
 		};
 
-		mailbox6: mailbox@31f85000 {
+		mailbox5: mailbox@31f85000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f85000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -564,7 +564,7 @@
 			status = "disabled";
 		};
 
-		mailbox7: mailbox@31f86000 {
+		mailbox6: mailbox@31f86000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f86000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -573,7 +573,7 @@
 			status = "disabled";
 		};
 
-		mailbox8: mailbox@31f87000 {
+		mailbox7: mailbox@31f87000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f87000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -582,7 +582,7 @@
 			status = "disabled";
 		};
 
-		mailbox9: mailbox@31f88000 {
+		mailbox8: mailbox@31f88000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f88000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -591,7 +591,7 @@
 			status = "disabled";
 		};
 
-		mailbox10: mailbox@31f89000 {
+		mailbox9: mailbox@31f89000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f89000 0x0 0x200>;
 			#mbox-cells = <1>;
@@ -600,9 +600,18 @@
 			status = "disabled";
 		};
 
-		mailbox11: mailbox@31f8a000 {
+		mailbox10: mailbox@31f8a000 {
 			compatible = "ti,am654-mailbox";
 			reg = <0x0 0x31f8a000 0x0 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			status = "disabled";
+		};
+
+		mailbox11: mailbox@31f8b000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x0 0x31f8b000 0x0 0x200>;
 			#mbox-cells = <1>;
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <16>;
