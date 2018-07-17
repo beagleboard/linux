@@ -322,7 +322,8 @@ static const struct sdhci_pltfm_data sdhci_arasan_am654_pdata = {
 		  SDHCI_QUIRK_INVERTED_WRITE_PROTECT |
 		  SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
-			SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
+			SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN |
+			SDHCI_QUIRK2_CAPS_BIT63_FOR_HS400,
 };
 
 static const struct sdhci_arasan_of_data sdhci_arasan_am654_data = {

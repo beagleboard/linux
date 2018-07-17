@@ -10,6 +10,8 @@ Required properties:
  - clock-names: must be "mmcclk"
  - ti,otap-del-sel: Output Tap Delay select.
  - ti,trm-icp: DLL trim select.
+ - ti,driver-strength-ohm: driver strength in ohms.
+			   Valid values are 33, 40, 50, 66, and 100 ohms.
 
 Example:
 			mmc_phy1: mmc_phy@10100 {
