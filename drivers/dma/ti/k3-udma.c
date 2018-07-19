@@ -1800,7 +1800,8 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 		return NULL;
 
 	d->sglen = tr_count;
-	d->cppi5_desc_area_size = tr_size * (tr_count + 1);
+	d->cppi5_desc_area_size = sizeof(struct cppi50_tr_req_desc);
+	d->cppi5_desc_area_size += tr_size * (tr_count + 1);
 	d->cppi5_desc_area_size += tr_count * sizeof(struct cppi50_tr_resp);
 	/* We have one descriptor with multiple TRs */
 	d->cppi5_desc_size = d->cppi5_desc_area_size;
