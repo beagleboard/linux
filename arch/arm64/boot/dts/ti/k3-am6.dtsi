@@ -982,6 +982,8 @@
 			compatible = "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
+			dma-coherent;
+			dma-ranges;
 			ranges;
 
 			ringacc: ringacc@3c000000 {
@@ -1186,6 +1188,8 @@
 			compatible = "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
+			dma-coherent;
+			dma-ranges;
 			ranges;
 
 			mcu_ringacc: ringacc@2b800000 {
