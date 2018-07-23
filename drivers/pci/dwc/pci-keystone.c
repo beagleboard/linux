@@ -114,6 +114,9 @@
 #define to_keystone_pcie(x)		dev_get_drvdata((x)->dev)
 
 #define PCI_DEVICE_ID_TI_AM654X		0xb00c
+
+#define EXP_CAP_ID_OFFSET              0x70
+
 /*
  * Size of BAR0, BAR2, BAR5 are from RESBAR.
  * TODO: How are sizes of other BARs determined.
@@ -1191,6 +1194,31 @@ static int ks_pcie_am654_set_mode(struct device *dev,
 	return 0;
 }
 
+static void ks_pcie_set_link_speed(struct dw_pcie *pci, int link_speed)
+{
+	u32 val;
+
+	dw_pcie_dbi_ro_wr_en(pci);
+
+	val = dw_pcie_readl_dbi(pci, EXP_CAP_ID_OFFSET + PCI_EXP_LNKCAP);
+	if ((val & PCI_EXP_LNKCAP_SLS) != link_speed) {
+		val &= ~((u32)PCI_EXP_LNKCAP_SLS);
+		val |= link_speed;
+		dw_pcie_writel_dbi(pci, EXP_CAP_ID_OFFSET + PCI_EXP_LNKCAP,
+				   val);
+	}
+
+	val = dw_pcie_readl_dbi(pci, EXP_CAP_ID_OFFSET + PCI_EXP_LNKCTL2);
+	if ((val & PCI_EXP_LNKCAP_SLS) != link_speed) {
+		val &= ~((u32)PCI_EXP_LNKCAP_SLS);
+		val |= link_speed;
+		dw_pcie_writel_dbi(pci, EXP_CAP_ID_OFFSET + PCI_EXP_LNKCTL2,
+				   val);
+	}
+
+	dw_pcie_dbi_ro_wr_dis(pci);
+}
+
 static const struct ks_pcie_of_data ks_pcie_rc_of_data = {
 	.ops = &ks_pcie_dw_pcie_ops,
 	.host_ops = &ks_pcie_host_ops,
@@ -1255,6 +1283,7 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	void __iomem *base;
 	u32 num_ob_windows;
 	struct phy **phy;
+	int link_speed;
 	u32 num_lanes;
 	char name[10];
 	int ret;
@@ -1381,6 +1410,12 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto err_get_sync;
 	}
+
+	link_speed = of_pci_get_max_link_speed(np);
+	if (link_speed < 0)
+		link_speed = 2;
+
+	ks_pcie_set_link_speed(pci, link_speed);
 
 	switch (mode) {
 	case DW_PCIE_RC_TYPE:
