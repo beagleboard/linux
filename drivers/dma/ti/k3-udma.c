@@ -283,6 +283,8 @@ struct udma_rx_sg_workaround {
 struct udma_desc {
 	struct virt_dma_desc vd;
 
+	bool terminated;
+
 	enum dma_transfer_direction dir;
 
 	struct udma_static_tr static_tr;
@@ -931,7 +933,8 @@ again:
 			vchan_cyclic_callback(&d->vd);
 		} else {
 			uc->bcnt += d->residue;
-			udma_start(uc);
+			if (!d->terminated)
+				udma_start(uc);
 			vchan_cookie_complete(&d->vd);
 		}
 	}
@@ -2764,6 +2767,7 @@ static int udma_terminate_all(struct dma_chan *chan)
 		uc->bcnt += uc->desc->residue;
 		uc->terminated_desc = uc->desc;
 		uc->desc = NULL;
+		uc->terminated_desc->terminated = true;
 	}
 
 	uc->cyclic = false;
