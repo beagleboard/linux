@@ -79,3 +79,7 @@ DesignWare DT Properties not applicable for Keystone PCI
 DEVICE MODE
 ===========
 num-ib-windows : number of inbound address translation windows
+
+Optional Properties:
+max-link-speed: As defined in Documentation/devicetree/bindings/pci/pci.txt
+reset-gpios: GPIO spec for the PERST# signal (only host mode)
