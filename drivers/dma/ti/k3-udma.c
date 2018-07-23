@@ -521,10 +521,9 @@ static void udma_purge_desc_work(struct work_struct *work)
 		d = to_udma_desc(&vd->tx);
 
 		if (d->cppi5_desc_vaddr) {
-			dma_unmap_single(ud->dev, d->cppi5_desc_paddr,
-					 d->cppi5_desc_area_size,
-					 DMA_BIDIRECTIONAL);
-			kfree(d->cppi5_desc_vaddr);
+			dma_free_coherent(ud->dev, d->cppi5_desc_area_size,
+					  d->cppi5_desc_vaddr,
+					  d->cppi5_desc_paddr);
 		}
 
 		if (d->rx_sg_wa.in_use) {
@@ -1830,18 +1829,11 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 	d->cppi5_desc_size = d->cppi5_desc_area_size;
 
 	/* Allocate memory for DMA ring descriptor */
-	d->cppi5_desc_vaddr = kzalloc(d->cppi5_desc_area_size, GFP_ATOMIC);
+	d->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
+						  d->cppi5_desc_area_size,
+						  &d->cppi5_desc_paddr,
+						  GFP_ATOMIC);
 	if (!d->cppi5_desc_vaddr) {
-		kfree(d);
-		return NULL;
-	}
-
-	d->cppi5_desc_paddr = dma_map_single(uc->ud->dev, d->cppi5_desc_vaddr,
-					     d->cppi5_desc_area_size,
-					     DMA_BIDIRECTIONAL);
-	if (dma_mapping_error(uc->ud->dev, d->cppi5_desc_paddr)) {
-		dev_err(uc->ud->dev, "Failed to map descriptor memory\n");
-		kfree(d->cppi5_desc_vaddr);
 		kfree(d);
 		return NULL;
 	}
@@ -2036,28 +2028,16 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 	d->sglen = sglen;
 
 	/* Allocate memory for DMA ring descriptor */
-	d->cppi5_desc_vaddr = kzalloc(d->cppi5_desc_area_size, GFP_ATOMIC);
+	d->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
+						  d->cppi5_desc_area_size,
+						  &d->cppi5_desc_paddr,
+						  GFP_ATOMIC);
 	if (!d->cppi5_desc_vaddr) {
 		if (d->rx_sg_wa.in_use) {
 			dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
 				     DMA_FROM_DEVICE);
 			kfree(sg_virt(&d->rx_sg_wa.single_sg));
 		}
-		kfree(d);
-		return NULL;
-	}
-
-	d->cppi5_desc_paddr = dma_map_single(uc->ud->dev, d->cppi5_desc_vaddr,
-					     d->cppi5_desc_area_size,
-					     DMA_BIDIRECTIONAL);
-	if (!d->cppi5_desc_paddr) {
-		dev_err(uc->ud->dev, "Failed to map descriptor memory\n");
-		if (d->rx_sg_wa.in_use) {
-			dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-				     DMA_FROM_DEVICE);
-			kfree(sg_virt(&d->rx_sg_wa.single_sg));
-		}
-		kfree(d->cppi5_desc_vaddr);
 		kfree(d);
 		return NULL;
 	}
@@ -2273,10 +2253,15 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
 
-		dma_unmap_single(uc->ud->dev, d->cppi5_desc_paddr,
-				 d->cppi5_desc_area_size,
-				 DMA_BIDIRECTIONAL);
-		kfree(d->cppi5_desc_vaddr);
+		dma_free_coherent(uc->ud->dev, d->cppi5_desc_area_size,
+				  d->cppi5_desc_vaddr, d->cppi5_desc_paddr);
+
+		if (d->rx_sg_wa.in_use) {
+			dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
+				     DMA_FROM_DEVICE);
+			kfree(sg_virt(&d->rx_sg_wa.single_sg));
+		}
+
 		kfree(d);
 		return NULL;
 	}
@@ -2366,18 +2351,11 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 	d->cppi5_desc_area_size = hdesc_size * periods;
 
 	/* Allocate memory for DMA ring descriptor */
-	d->cppi5_desc_vaddr = kzalloc(d->cppi5_desc_area_size, GFP_ATOMIC);
+	d->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
+						  d->cppi5_desc_area_size,
+						  &d->cppi5_desc_paddr,
+						  GFP_ATOMIC);
 	if (!d->cppi5_desc_vaddr) {
-		kfree(d);
-		return NULL;
-	}
-
-	d->cppi5_desc_paddr = dma_map_single(uc->ud->dev, d->cppi5_desc_vaddr,
-					     d->cppi5_desc_area_size,
-					     DMA_BIDIRECTIONAL);
-	if (!d->cppi5_desc_paddr) {
-		dev_err(uc->ud->dev, "Failed to map descriptor memory\n");
-		kfree(d->cppi5_desc_vaddr);
 		kfree(d);
 		return NULL;
 	}
@@ -2485,10 +2463,8 @@ static struct dma_async_tx_descriptor *udma_prep_dma_cyclic(
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
 
-		dma_unmap_single(uc->ud->dev, d->cppi5_desc_paddr,
-				 d->cppi5_desc_area_size,
-				 DMA_BIDIRECTIONAL);
-		kfree(d->cppi5_desc_vaddr);
+		dma_free_coherent(uc->ud->dev, d->cppi5_desc_area_size,
+				  d->cppi5_desc_vaddr, d->cppi5_desc_paddr);
 		kfree(d);
 		return NULL;
 	}
