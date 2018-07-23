@@ -507,7 +507,7 @@ static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
 static void udma_purge_desc_work(struct work_struct *work)
 {
 	struct udma_dev *ud = container_of(work, typeof(*ud), purge_work);
-	struct virt_dma_desc *vd;
+	struct virt_dma_desc *vd, *_vd;
 	unsigned long flags;
 	LIST_HEAD(head);
 
@@ -515,7 +515,7 @@ static void udma_purge_desc_work(struct work_struct *work)
 	list_splice_tail_init(&ud->desc_to_purge, &head);
 	spin_unlock_irqrestore(&ud->lock, flags);
 
-	list_for_each_entry(vd, &head, node) {
+	list_for_each_entry_safe(vd, _vd, &head, node) {
 		struct udma_desc *d;
 
 		d = to_udma_desc(&vd->tx);
@@ -533,6 +533,7 @@ static void udma_purge_desc_work(struct work_struct *work)
 			kfree(sg_virt(&d->rx_sg_wa.single_sg));
 		}
 
+		list_del(&vd->node);
 		kfree(d);
 	}
 
