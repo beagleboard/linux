@@ -1648,7 +1648,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			else
 				flow_req.rx_psinfo_present = 0;
 
-			flow_req.rx_error_handling = 0;
+			flow_req.rx_error_handling = 1;
 			flow_req.rx_desc_type = 0;
 			flow_req.rx_sop_offset = 0;
 			flow_req.rx_dest_qnum = rx_ring;
