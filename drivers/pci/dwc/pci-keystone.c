@@ -14,6 +14,7 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/irqchip/chained_irq.h>
@@ -1278,6 +1279,7 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	struct dw_pcie *pci;
 	struct keystone_pcie *ks_pcie;
 	struct device_link **link;
+	struct gpio_desc *gpiod;
 	void __iomem *atu_base;
 	struct resource *res;
 	void __iomem *base;
@@ -1354,6 +1356,15 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	ks_pcie->num_lanes = num_lanes;
 	ks_pcie->phy = phy;
 
+	gpiod = devm_gpiod_get_optional(dev, "reset",
+					GPIOD_OUT_LOW);
+	if (IS_ERR(gpiod)) {
+		ret = PTR_ERR(gpiod);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get reset GPIO\n");
+		goto err_link;
+	}
+
 	ret = ks_pcie_enable_phy(ks_pcie);
 	if (ret) {
 		dev_err(dev, "failed to enable phy\n");
@@ -1422,6 +1433,19 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 		if (!IS_ENABLED(CONFIG_PCI_KEYSTONE_HOST)) {
 			ret = -ENODEV;
 			goto err_get_sync;
+		}
+
+		/*
+		 * "Power Sequencing and Reset Signal Timings" table in
+		 * PCI EXPRESS CARD ELECTROMECHANICAL SPECIFICATION, REV. 2.0
+		 * indicates PERST# should be deasserted after minimum of 100us
+		 * once REFCLK is stable. The REFCLK to the connector in RC
+		 * mode is selected while enabling the PHY. So deassert PERST#
+		 * after 100 us.
+		 */
+		if (gpiod) {
+			usleep_range(100, 200);
+			gpiod_set_value_cansleep(gpiod, 1);
 		}
 
 		pci->pp.ops = data->host_ops;
