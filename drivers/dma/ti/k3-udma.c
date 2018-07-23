@@ -1498,7 +1498,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		req_tx.tx_atype = 0;
 		req_tx.tx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBRR;
 		req_tx.tx_supr_tdpkt = 0;
-		req_tx.tx_fetch_size = 16;
+		req_tx.tx_fetch_size = sizeof(struct cppi50_tr_req_desc) >> 2;
 		req_tx.tx_credit_count = 0;
 		req_tx.txcq_qnum = tc_ring;
 		req_tx.tx_priority = TI_SCI_RM_NULL_U8;
@@ -1520,7 +1520,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 		req_rx.nav_id = tisci_rm->tisci_dev_id;
 		req_rx.index = rchan->id;
-		req_rx.rx_fetch_size = 16;
+		req_rx.rx_fetch_size = sizeof(struct cppi50_tr_req_desc) >> 2;
 		req_rx.rxcq_qnum = tc_ring;
 		req_rx.rx_priority = TI_SCI_RM_NULL_U8;
 		req_rx.rx_qos = TI_SCI_RM_NULL_U8;
@@ -1557,12 +1557,17 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		uc->irq_udma_idx = tchan->id;
 	} else {
 		/* Slave transfer */
-		u32 mode;
+		u32 mode, fetch_size;
 
-		if (uc->pkt_mode)
+		if (uc->pkt_mode) {
 			mode = TI_SCI_RM_UDMAP_CHAN_TYPE_PKT_PBRR;
-		else
+			fetch_size = knav_udmap_hdesc_calc_size(uc->needs_epib,
+								uc->psd_size,
+								0);
+		} else {
 			mode = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_PBRR;
+			fetch_size = sizeof(struct cppi50_tr_req_desc);
+		}
 
 		if (uc->dir == DMA_MEM_TO_DEV) {
 			/* TX */
@@ -1579,7 +1584,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			req.tx_atype = 0;
 			req.tx_chan_type = mode;
 			req.tx_supr_tdpkt = 0;
-			req.tx_fetch_size = 16;
+			req.tx_fetch_size = fetch_size >> 2;
 			req.tx_credit_count = 0;
 			req.txcq_qnum = tc_ring;
 			req.tx_priority = TI_SCI_RM_NULL_U8;
@@ -1615,7 +1620,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 			ch_req.nav_id = tisci_rm->tisci_dev_id;
 			ch_req.index = rchan->id;
-			ch_req.rx_fetch_size = 16;
+			ch_req.rx_fetch_size = fetch_size >> 2;
 			ch_req.rxcq_qnum = rx_ring;
 			ch_req.rx_priority = TI_SCI_RM_NULL_U8;
 			ch_req.rx_qos = TI_SCI_RM_NULL_U8;
