@@ -849,6 +849,9 @@ static inline int udma_stop(struct udma_chan *uc)
 		udma_rchanrt_write(uc->rchan, UDMA_RCHAN_RT_PEER_RT_EN_REG,
 				   UDMA_PEER_RT_EN_ENABLE |
 				   UDMA_PEER_RT_EN_TEARDOWN);
+		/* Resume the UDMA channel if it is paused */
+		udma_rchanrt_update_bits(uc->rchan, UDMA_RCHAN_RT_CTL_REG,
+					 UDMA_CHAN_RT_CTL_PAUSE, 0);
 		break;
 	case DMA_MEM_TO_DEV:
 		udma_tchanrt_write(uc->tchan, UDMA_TCHAN_RT_PEER_RT_EN_REG,
