@@ -483,6 +483,25 @@ static inline void *udma_cppi5_paddr_to_vaddr(struct udma_desc *d,
 	return d->cppi5_desc_vaddr + (paddr - d->cppi5_desc_paddr);
 }
 
+static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
+							  dma_addr_t paddr)
+{
+	struct udma_desc *d = uc->terminated_desc;
+
+	if (d) {
+		dma_addr_t desc_paddr = udma_curr_cppi5_desc_paddr(d,
+								   d->sg_idx);
+
+		if (desc_paddr != paddr)
+			d = NULL;
+	}
+
+	if (!d)
+		d = uc->desc;
+
+	return d;
+}
+
 static void udma_purge_desc_work(struct work_struct *work)
 {
 	struct udma_dev *ud = container_of(work, typeof(*ud), purge_work);
@@ -620,10 +639,7 @@ static int udma_pop_from_ring(struct udma_chan *uc, dma_addr_t *addr)
 		if (*addr & 0x1)
 			return ret;
 
-		if (uc->desc)
-			d = uc->desc;
-		else if (uc->terminated_desc)
-			d = uc->terminated_desc;
+		d = udma_udma_desc_from_paddr(uc, *addr);
 
 		if (d)
 			dma_sync_single_for_cpu(uc->ud->dev, *addr,
@@ -896,7 +912,8 @@ again:
 		goto out;
 	}
 
-	d = uc->desc;
+	d = udma_udma_desc_from_paddr(uc, paddr);
+
 	if (d) {
 		dma_addr_t desc_paddr = udma_curr_cppi5_desc_paddr(d,
 								   d->sg_idx);
