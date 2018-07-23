@@ -2499,9 +2499,16 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 		tr0_cnt0 = len;
 		tr0_cnt1 = 1;
 	} else {
-		/* Keep simple: tr0: SZ_64K-1 blocks, tr1 the remaining */
+		unsigned long align_to = __ffs(src | dest);
+
+		if (align_to > 3)
+			align_to = 3;
+		/*
+		 * Keep simple: tr0: SZ_64K-alignment blocks,
+		 *		tr1: the remaining
+		 */
 		num_tr = 2;
-		tr0_cnt0 = (SZ_64K - 1);
+		tr0_cnt0 = (SZ_64K - BIT(align_to));
 		if (len / tr0_cnt0 >= SZ_64K) {
 			dev_err(uc->ud->dev, "size %zu is not supported\n",
 				len);
@@ -2543,20 +2550,15 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 
 	tr_req[0].flags |= (0x25 << 16); /* CMD_ID */
 
-	if (tx_flags & DMA_PREP_INTERRUPT && num_tr == 1)
-		tr_req[0].flags |= (1 << 31); /* EOP */
-	else
-		tr_req[0].flags |= (1 << 26); /* suppress event output */
-
 	if (num_tr == 2) {
 		tr_req[1].flags = CPPI50_TR_FLAGS_TYPE(15);
-		tr_req[1].addr = src + tr0_cnt1 * (SZ_64K - 1);
+		tr_req[1].addr = src + tr0_cnt1 * tr0_cnt0;
 		tr_req[1].icnt0 = tr1_cnt0;
 		tr_req[1].icnt1 = 1;
 		tr_req[1].icnt2 = 1;
 		tr_req[1].icnt3 = 1;
 
-		tr_req[1].daddr = dest + tr0_cnt1 * (SZ_64K - 1);
+		tr_req[1].daddr = dest + tr0_cnt1 * tr0_cnt0;
 		tr_req[1].dicnt0 = tr1_cnt0;
 		tr_req[1].dicnt1 = 1;
 		tr_req[1].dicnt2 = 1;
@@ -2567,12 +2569,12 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 		tr_req[1].flags |= (3 << 14); /* TRIGGER1_TYPE */
 
 		tr_req[1].flags |= (0x25 << 16); /* CMD_ID */
-
-		if (tx_flags & DMA_PREP_INTERRUPT)
-			tr_req[1].flags |= (1 << 31); /* EOP */
-		else
-			tr_req[1].flags |= (1 << 26); /* suppress event output */
 	}
+
+	if (tx_flags & DMA_PREP_INTERRUPT)
+		tr_req[num_tr - 1].flags |= (1 << 31); /* EOP */
+	else
+		tr_req[num_tr - 1].flags |= (1 << 26); /* suppress event */
 
 	if (uc->metadata_size)
 		d->vd.tx.metadata_ops = &metadata_ops;
@@ -3082,6 +3084,7 @@ static int udma_probe(struct platform_device *pdev)
 	ud->ddev.directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV) |
 			      BIT(DMA_MEM_TO_MEM);
 	ud->ddev.residue_granularity = DMA_RESIDUE_GRANULARITY_BURST;
+	ud->ddev.copy_align = DMAENGINE_ALIGN_8_BYTES;
 	ud->ddev.dev = &pdev->dev;
 	ud->dev = &pdev->dev;
 	INIT_LIST_HEAD(&ud->ddev.channels);
