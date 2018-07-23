@@ -902,7 +902,6 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 	if (!paddr)
 		return;
 
-again:
 	spin_lock_irqsave(&uc->vc.lock, flags);
 
 	/* Check for teardown completion message */
@@ -941,9 +940,6 @@ again:
 	}
 out:
 	spin_unlock_irqrestore(&uc->vc.lock, flags);
-
-	if (!udma_pop_from_ring(uc, &paddr))
-		goto again;
 }
 
 static void udma_tr_event_callback(struct udma_chan *uc)
@@ -1738,18 +1734,16 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	uc->irq_num_ring = ti_sci_irq_desc_to_virq(uc->irqdesc_ring);
 	uc->irq_num_udma = ti_sci_irq_desc_to_virq(uc->irqdesc_udma);
 
-	ret = request_threaded_irq(uc->irq_num_ring, NULL,
-				   udma_ring_irq_handler, IRQF_ONESHOT,
-				   uc->name, uc);
+	ret = request_irq(uc->irq_num_ring, udma_ring_irq_handler, 0, uc->name,
+			  uc);
 	if (ret) {
 		dev_err(ud->dev, "%s: chan%d: Failed to request ring irq\n",
 			__func__, uc->id);
 		goto err_irq_free;
 	}
 
-	ret = request_threaded_irq(uc->irq_num_udma, NULL,
-				   udma_udma_irq_handler, IRQF_ONESHOT,
-				   uc->name, uc);
+	ret = request_irq(uc->irq_num_udma, udma_udma_irq_handler, 0, uc->name,
+			  uc);
 	if (ret) {
 		dev_err(ud->dev, "%s: chan%d: Failed to request UDMA irq\n",
 			__func__, uc->id);
