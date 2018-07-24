@@ -905,22 +905,6 @@ again:
 			goto out;
 		}
 
-		if (d->metadata_size)
-			udma_fetch_epib(uc, d);
-
-		/* TODO: peek into the desc to know the real length */
-		if (d->rx_sg_wa.in_use) {
-			void *src = sg_virt(&d->rx_sg_wa.single_sg);
-
-			dma_sync_sg_for_cpu(uc->ud->dev, &d->rx_sg_wa.single_sg,
-					    1, DMA_FROM_DEVICE);
-			/* Ensure that reads are not moved before this point */
-			rmb();
-
-			sg_copy_from_buffer(d->rx_sg_wa.sgl, d->rx_sg_wa.sglen,
-					    src, d->rx_sg_wa.total_len);
-		}
-
 		if (uc->cyclic) {
 			/* push the descriptor back to the ring */
 			udma_cyclic_packet_elapsed(uc, d);
@@ -2788,22 +2772,49 @@ static void udma_synchronize(struct dma_chan *chan)
 	udma_reset_rings(uc);
 }
 
-static void udma_fill_result(struct virt_dma_desc *vd,
-			     struct dmaengine_result *result)
+static void udma_desc_pre_callback(struct virt_dma_chan *vc,
+				   struct virt_dma_desc *vd,
+				   struct dmaengine_result *result)
 {
-	struct udma_desc *d = to_udma_desc(&vd->tx);
-	void *desc_vaddr = udma_curr_cppi5_desc_vaddr(d, d->sg_idx);
+	struct udma_chan *uc = to_udma_chan(&vc->chan);
+	struct udma_desc *d;
 
-	if (knav_udmap_desc_get_type(desc_vaddr) ==
-	    KNAV_UDMAP_INFO0_DESC_TYPE_VAL_HOST) {
-		result->residue = knav_udmap_hdesc_get_pktlen(desc_vaddr);
-		if (result->residue == d->residue)
+	if (!vd)
+		return;
+
+	d = to_udma_desc(&vd->tx);
+
+	if (d->metadata_size)
+		udma_fetch_epib(uc, d);
+
+	/* TODO: peek into the desc to know the real length */
+	if (d->rx_sg_wa.in_use) {
+		void *src = sg_virt(&d->rx_sg_wa.single_sg);
+
+		dma_sync_sg_for_cpu(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
+				    DMA_FROM_DEVICE);
+		/* Ensure that reads are not moved before this point */
+		rmb();
+
+		sg_copy_from_buffer(d->rx_sg_wa.sgl, d->rx_sg_wa.sglen, src,
+				    d->rx_sg_wa.total_len);
+	}
+
+	/* Provide residue information for the client */
+	if (result) {
+		void *desc_vaddr = udma_curr_cppi5_desc_vaddr(d, d->sg_idx);
+
+		if (knav_udmap_desc_get_type(desc_vaddr) ==
+			KNAV_UDMAP_INFO0_DESC_TYPE_VAL_HOST) {
+			result->residue = knav_udmap_hdesc_get_pktlen(desc_vaddr);
+			if (result->residue == d->residue)
+				result->result = DMA_TRANS_NOERROR;
+			else
+				result->result = DMA_TRANS_ABORTED;
+		} else {
+			result->residue = d->residue;
 			result->result = DMA_TRANS_NOERROR;
-		else
-			result->result = DMA_TRANS_ABORTED;
-	} else {
-		result->residue = d->residue;
-		result->result = DMA_TRANS_NOERROR;
+		}
 	}
 }
 
@@ -2829,6 +2840,7 @@ static void udma_vchan_complete(unsigned long arg)
 	}
 	spin_unlock_irq(&vc->lock);
 
+	udma_desc_pre_callback(vc, vd, NULL);
 	dmaengine_desc_callback_invoke(&cb, NULL);
 
 	list_for_each_entry_safe(vd, _vd, &head, node) {
@@ -2838,7 +2850,7 @@ static void udma_vchan_complete(unsigned long arg)
 
 		list_del(&vd->node);
 
-		udma_fill_result(vd, &result);
+		udma_desc_pre_callback(vc, vd, &result);
 		dmaengine_desc_callback_invoke(&cb, &result);
 
 		vchan_vdesc_fini(vd);
