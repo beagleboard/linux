@@ -192,6 +192,7 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev)
 
 	phy_print_status(phy);
 }
+EXPORT_SYMBOL_GPL(am65_cpsw_nuss_adjust_link);
 
 static int am65_cpsw_nuss_ndo_slave_add_vid(struct net_device *ndev,
 					    __be16 proto, u16 vid)

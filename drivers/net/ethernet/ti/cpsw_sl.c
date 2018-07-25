@@ -192,15 +192,18 @@ u32 cpsw_sl_reg_read(struct cpsw_sl *sl, enum cpsw_sl_regs reg)
 	dev_dbg(sl->dev, "cpsw_sl: reg: %04x r 0x%08X\n", sl->regs[reg], val);
 	return val;
 }
+EXPORT_SYMBOL_GPL(cpsw_sl_reg_read);
 
 void cpsw_sl_reg_write(struct cpsw_sl *sl, enum cpsw_sl_regs reg, u32 val)
 {
 	dev_dbg(sl->dev, "cpsw_sl: reg: %04x w 0x%08X\n", sl->regs[reg], val);
 	writel(val, sl->sl_base + sl->regs[reg]);
 }
+EXPORT_SYMBOL_GPL(cpsw_sl_reg_write);
 
-const struct cpsw_sl_dev_id *cpsw_sl_match_id(const struct cpsw_sl_dev_id *id,
-					      const char *device_id)
+static const struct cpsw_sl_dev_id *cpsw_sl_match_id(
+		const struct cpsw_sl_dev_id *id,
+		const char *device_id)
 {
 	if (!(id && device_id))
 		return NULL;
@@ -234,6 +237,7 @@ struct cpsw_sl *cpsw_sl_get(const char *device_id, struct device *dev,
 
 	return sl;
 }
+EXPORT_SYMBOL_GPL(cpsw_sl_get);
 
 void cpsw_sl_reset(struct cpsw_sl *sl, unsigned long tmo)
 {
@@ -252,6 +256,7 @@ void cpsw_sl_reset(struct cpsw_sl *sl, unsigned long tmo)
 	WARN(cpsw_sl_reg_read(sl, CPSW_SL_SOFT_RESET) & CPSW_SL_SOFT_RESET_BIT,
 	     "cpsw_sl failed to soft-reset.\n");
 }
+EXPORT_SYMBOL_GPL(cpsw_sl_reset);
 
 u32 cpsw_sl_ctl_set(struct cpsw_sl *sl, u32 ctl_funcs)
 {
@@ -269,6 +274,7 @@ u32 cpsw_sl_ctl_set(struct cpsw_sl *sl, u32 ctl_funcs)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cpsw_sl_ctl_set);
 
 u32 cpsw_sl_ctl_clr(struct cpsw_sl *sl, u32 ctl_funcs)
 {
@@ -286,11 +292,13 @@ u32 cpsw_sl_ctl_clr(struct cpsw_sl *sl, u32 ctl_funcs)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(cpsw_sl_ctl_clr);
 
 void cpsw_sl_ctl_reset(struct cpsw_sl *sl)
 {
 	cpsw_sl_reg_write(sl, CPSW_SL_MACCONTROL, 0);
 }
+EXPORT_SYMBOL_GPL(cpsw_sl_ctl_reset);
 
 int cpsw_sl_wait_for_idle(struct cpsw_sl *sl)
 {
@@ -302,3 +310,4 @@ int cpsw_sl_wait_for_idle(struct cpsw_sl *sl)
 
 	return i;
 }
+EXPORT_SYMBOL_GPL(cpsw_sl_wait_for_idle);

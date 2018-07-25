@@ -729,3 +729,4 @@ const struct ethtool_ops am65_cpsw_ethtool_ops_slave = {
 	.set_eee		= am65_cpsw_set_eee,
 	.nway_reset		= am65_cpsw_nway_reset,
 };
+EXPORT_SYMBOL_GPL(am65_cpsw_ethtool_ops_slave);
