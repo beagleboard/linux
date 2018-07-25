@@ -645,6 +645,43 @@ static void am65_cpsw_nuss_rx_ts(struct sk_buff *skb, u32 *psdata)
 	ssh->hwtstamp = ns_to_ktime(ns);
 }
 
+/* RX psdata[2] word format - checksum information */
+#define AM65_CPSW_RX_PSD_CSUM_ADD	GENMASK(15, 0)
+#define AM65_CPSW_RX_PSD_CSUM_ERR	BIT(16)
+#define AM65_CPSW_RX_PSD_IS_FRAGMENT	BIT(17)
+#define AM65_CPSW_RX_PSD_IS_TCP		BIT(18)
+#define AM65_CPSW_RX_PSD_IPV6_VALID	BIT(19)
+#define AM65_CPSW_RX_PSD_IPV4_VALID	BIT(20)
+
+static void am65_cpsw_nuss_rx_csum(struct sk_buff *skb, u32 csum_info)
+{
+	/* HW can verify IPv4/IPv6 TCP/UDP packets checksum
+	 * csum information provides in psdata[2] word:
+	 * AM65_CPSW_RX_PSD_CSUM_ERR bit - indicates csum error
+	 * AM65_CPSW_RX_PSD_IPV6_VALID and AM65_CPSW_RX_PSD_IPV4_VALID
+	 * bits - indicates IPv4/IPv6 packet
+	 * AM65_CPSW_RX_PSD_IS_FRAGMENT bit - indicates fragmented packet
+	 * AM65_CPSW_RX_PSD_CSUM_ADD has value 0xFFFF for non fragmented packets
+	 * or csum value for fragmented packets if !AM65_CPSW_RX_PSD_CSUM_ERR
+	 */
+	skb_checksum_none_assert(skb);
+
+	if (unlikely(!(skb->dev->features & NETIF_F_RXCSUM)))
+		return;
+
+	if (!(csum_info & AM65_CPSW_RX_PSD_CSUM_ERR) &&
+	    (csum_info & (AM65_CPSW_RX_PSD_IPV6_VALID |
+			  AM65_CPSW_RX_PSD_IPV6_VALID))) {
+		if (csum_info & AM65_CPSW_RX_PSD_IS_FRAGMENT) {
+			skb->ip_summed = CHECKSUM_COMPLETE;
+			skb->csum = csum_unfold(csum_info &
+						AM65_CPSW_RX_PSD_CSUM_ADD);
+		} else {
+			skb->ip_summed = CHECKSUM_UNNECESSARY;
+		}
+	}
+}
+
 static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 				     u32 flow_idx)
 {
@@ -656,7 +693,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	struct knav_udmap_host_desc_t *desc_rx;
 	struct sk_buff *skb, *new_skb;
 	dma_addr_t desc_dma, buf_dma;
-	u32 buf_dma_len, pkt_len, port_id = 0;
+	u32 buf_dma_len, pkt_len, port_id = 0, csum_info;
 	int ret = 0;
 	void **swdata;
 	u32 *psdata;
@@ -692,6 +729,8 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	/* add RX timestamp */
 	if (common->ports[port_id].rx_ts_enabled)
 		am65_cpsw_nuss_rx_ts(skb, psdata);
+	csum_info = psdata[2];
+	dev_dbg(dev, "%s rx csum_info:%#x\n", __func__, csum_info);
 
 	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 
@@ -706,6 +745,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	if (new_skb) {
 		skb_put(skb, pkt_len);
 		skb->protocol = eth_type_trans(skb, ndev);
+		am65_cpsw_nuss_rx_csum(skb, csum_info);
 		netif_receive_skb(skb);
 
 		ndev_priv = netdev_priv(ndev);
@@ -1731,6 +1771,7 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 	port->ndev->max_mtu = AM65_CPSW_MAX_PACKET_SIZE;
 	port->ndev->features |= NETIF_F_SG;
 	port->ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+	port->ndev->features |= NETIF_F_RXCSUM;
 	port->ndev->hw_features = port->ndev->features;
 	port->ndev->vlan_features |=  NETIF_F_SG;
 	port->ndev->netdev_ops = &am65_cpsw_nuss_netdev_ops_2g;
