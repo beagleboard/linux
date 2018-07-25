@@ -1814,10 +1814,11 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 
 	port->ndev->min_mtu = AM65_CPSW_MIN_PACKET_SIZE;
 	port->ndev->max_mtu = AM65_CPSW_MAX_PACKET_SIZE;
-	port->ndev->features |= NETIF_F_SG;
-	port->ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
-	port->ndev->features |= NETIF_F_RXCSUM | NETIF_F_HW_CSUM;
-	port->ndev->hw_features = port->ndev->features;
+	port->ndev->hw_features = NETIF_F_SG |
+				  NETIF_F_RXCSUM |
+				  NETIF_F_HW_CSUM;
+	port->ndev->features = port->ndev->hw_features |
+			       NETIF_F_HW_VLAN_CTAG_FILTER;
 	port->ndev->vlan_features |=  NETIF_F_SG;
 	port->ndev->netdev_ops = &am65_cpsw_nuss_netdev_ops_2g;
 	port->ndev->ethtool_ops = &am65_cpsw_ethtool_ops_slave;
