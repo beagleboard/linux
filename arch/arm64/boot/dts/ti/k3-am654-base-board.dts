@@ -13,6 +13,11 @@
 	compatible =  "ti,am654-evm", "ti,am654";
 	model = "Texas Instruments AM654 Base Board";
 
+	aliases {
+		ethernet1 = &pruss2_emac0;
+		ethernet2 = &pruss2_emac1;
+	};
+
 	chosen {
 		stdout-path = "serial2:115200n8";
 		bootargs = "earlycon=ns16550a,mmio32,0x02800000";
