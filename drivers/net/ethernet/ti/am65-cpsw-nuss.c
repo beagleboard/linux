@@ -54,6 +54,7 @@
 #define AM65_CPSW_REG_STAT_PORT_EN	0x014
 #define AM65_CPSW_REG_PTYPE		0x018
 
+#define AM65_CPSW_P0_REG_CTL			0x004
 #define AM65_CPSW_PORT0_REG_FLOW_ID_OFFSET	0x008
 #define AM65_CPSW_PORT_REG_RX_MAXLEN		0x024
 
@@ -68,6 +69,9 @@
 #define AM65_CPSW_CTL_P0_ENABLE			BIT(2)
 #define AM65_CPSW_CTL_P0_TX_CRC_REMOVE		BIT(13)
 #define AM65_CPSW_CTL_P0_RX_PAD			BIT(14)
+
+/* AM65_CPSW_P0_REG_CTL */
+#define AM65_CPSW_P0_REG_CTL_RX_CHECKSUM_EN	BIT(0)
 
 /* AM65_CPSW_PN_TS_CTL register fields */
 #define AM65_CPSW_PN_TS_CTL_TX_ANX_F_EN		BIT(4)
@@ -370,6 +374,9 @@ static int am65_cpsw_nuss_common_open(struct am65_cpsw_common *common)
 	/* set base flow_id */
 	writel(common->rx_flow_id_base,
 	       host_p->port_base + AM65_CPSW_PORT0_REG_FLOW_ID_OFFSET);
+	/* en tx crc offload */
+	writel(AM65_CPSW_P0_REG_CTL_RX_CHECKSUM_EN,
+	       host_p->port_base + AM65_CPSW_P0_REG_CTL);
 
 	/* enable statistic */
 	val = 0;
@@ -988,6 +995,7 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 	int ret, q_idx, i;
 	u32 pkt_len;
 	void **swdata;
+	u32 *psdata;
 
 	/* frag list based linkage is not supported for now. */
 	if (skb_shinfo(skb)->frag_list) {
@@ -1038,6 +1046,19 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 				    buf_dma, pkt_len);
 	swdata = knav_udmap_hdesc_get_swdata(first_desc);
 	*(swdata) = skb;
+	psdata = knav_udmap_hdesc_get_psdata32(first_desc);
+
+	/* HW csum offload if enabled */
+	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+		unsigned int cs_start, cs_offset;
+
+		cs_start = skb_transport_offset(skb);
+		cs_offset = cs_start + skb->csum_offset;
+		/* HW numerates bytes starting from 1 */
+		psdata[2] = ((cs_offset + 1) << 24) |
+			    ((cs_start + 1) << 16) | (skb->len - cs_start);
+		dev_dbg(dev, "%s tx psdata:%#x\n", __func__, psdata[2]);
+	}
 
 	if (!skb_is_nonlinear(skb))
 		goto done_tx;
@@ -1307,6 +1328,29 @@ static void am65_cpsw_nuss_ndo_get_stats(struct net_device *dev,
 	stats->tx_dropped	= dev->stats.tx_dropped;
 }
 
+static int am65_cpsw_nuss_ndo_slave_set_features(struct net_device *ndev,
+						 netdev_features_t features)
+{
+	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+	struct am65_cpsw_port *host_p = am65_common_get_host_port(common);
+	netdev_features_t changes = features ^ ndev->features;
+
+	if (changes & NETIF_F_HW_CSUM) {
+		bool enable = !!(features & NETIF_F_HW_CSUM);
+
+		dev_err(common->dev, "Turn %s tx-checksum-ip-generic\n",
+			enable ? "ON" : "OFF");
+		if (enable)
+			writel(AM65_CPSW_P0_REG_CTL_RX_CHECKSUM_EN,
+			       host_p->port_base + AM65_CPSW_P0_REG_CTL);
+		else
+			writel(0,
+			       host_p->port_base + AM65_CPSW_P0_REG_CTL);
+	}
+
+	return 0;
+}
+
 static const struct net_device_ops am65_cpsw_nuss_netdev_ops_2g = {
 	.ndo_open		= am65_cpsw_nuss_ndo_slave_open,
 	.ndo_stop		= am65_cpsw_nuss_ndo_slave_stop,
@@ -1319,6 +1363,7 @@ static const struct net_device_ops am65_cpsw_nuss_netdev_ops_2g = {
 	.ndo_vlan_rx_add_vid	= am65_cpsw_nuss_ndo_slave_add_vid,
 	.ndo_vlan_rx_kill_vid	= am65_cpsw_nuss_ndo_slave_kill_vid,
 	.ndo_do_ioctl		= am65_cpsw_nuss_ndo_slave_ioctl,
+	.ndo_set_features	= am65_cpsw_nuss_ndo_slave_set_features,
 };
 
 static void am65_cpsw_nuss_slave_disable_unused(struct am65_cpsw_port *port)
@@ -1771,7 +1816,7 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 	port->ndev->max_mtu = AM65_CPSW_MAX_PACKET_SIZE;
 	port->ndev->features |= NETIF_F_SG;
 	port->ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
-	port->ndev->features |= NETIF_F_RXCSUM;
+	port->ndev->features |= NETIF_F_RXCSUM | NETIF_F_HW_CSUM;
 	port->ndev->hw_features = port->ndev->features;
 	port->ndev->vlan_features |=  NETIF_F_SG;
 	port->ndev->netdev_ops = &am65_cpsw_nuss_netdev_ops_2g;
