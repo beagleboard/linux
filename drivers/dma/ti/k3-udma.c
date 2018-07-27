@@ -22,6 +22,7 @@
 #include <linux/of_dma.h>
 #include <linux/of_device.h>
 #include <linux/workqueue.h>
+#include <linux/completion.h>
 #include <linux/soc/ti/k3-navss-psilcfg.h>
 #include <dt-bindings/dma/k3-udma.h>
 #include <linux/soc/ti/k3-navss-ringacc.h>
@@ -338,6 +339,9 @@ struct udma_chan {
 
 	bool cyclic;
 	bool paused;
+
+	bool teardown;
+	struct completion teardown_completed;
 
 	u32 bcnt; /* number of bytes completed since the start of the channel */
 	u32 in_ring_cnt; /* number of descriptors in flight */
@@ -855,6 +859,9 @@ out:
 
 static inline int udma_stop(struct udma_chan *uc)
 {
+	uc->teardown = true;
+	reinit_completion(&uc->teardown_completed);
+
 	switch (uc->dir) {
 	case DMA_DEV_TO_MEM:
 		udma_rchanrt_write(uc->rchan, UDMA_RCHAN_RT_PEER_RT_EN_REG,
@@ -875,6 +882,8 @@ static inline int udma_stop(struct udma_chan *uc)
 				   UDMA_CHAN_RT_CTL_TDOWN);
 		break;
 	default:
+		uc->teardown = false;
+		complete_all(&uc->teardown_completed);
 		return -EINVAL;
 	}
 
@@ -912,13 +921,19 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 
 	/* Check for teardown completion message */
 	if (paddr & 0x1) {
+		/* Compensate our internal pop/push counter */
+		uc->in_ring_cnt++;
+
+		uc->teardown = false;
+		complete_all(&uc->teardown_completed);
+
 		if (uc->terminated_desc) {
 			udma_desc_free(&uc->terminated_desc->vd);
 			uc->terminated_desc = NULL;
 		}
 
-		/* Compensate our internal pop/push counter */
-		uc->in_ring_cnt++;
+		if (!uc->desc)
+			udma_start(uc);
 
 		goto out;
 	}
@@ -935,8 +950,10 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 
 		if (uc->cyclic) {
 			/* push the descriptor back to the ring */
-			udma_cyclic_packet_elapsed(uc, d);
-			vchan_cyclic_callback(&d->vd);
+			if (!d->terminated) {
+				udma_cyclic_packet_elapsed(uc, d);
+				vchan_cyclic_callback(&d->vd);
+			}
 		} else {
 			uc->bcnt += d->residue;
 			if (!d->terminated)
@@ -1758,6 +1775,12 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	}
 
 	udma_reset_rings(uc);
+	/*
+	 * Make sure that the completion is in a known state:
+	 * No teardown completion is running
+	 */
+	reinit_completion(&uc->teardown_completed);
+	complete_all(&uc->teardown_completed);
 
 	return 0;
 
@@ -2602,10 +2625,14 @@ static void udma_issue_pending(struct dma_chan *chan)
 	if (list_empty(&uc->vc.desc_submitted))
 		goto out;
 
-	vchan_issue_pending(&uc->vc);
-
-	if (!udma_is_chan_running(uc) || !uc->desc)
-		udma_start(uc);
+	if (vchan_issue_pending(&uc->vc) && !uc->desc) {
+		/*
+		 * Start the descriptor right away if the channel is not under
+		 * teardown.
+		 */
+		if (!(uc->teardown && udma_is_chan_running(uc)))
+			udma_start(uc);
+	}
 out:
 	spin_unlock_irqrestore(&uc->vc.lock, flags);
 }
@@ -2772,12 +2799,13 @@ static int udma_terminate_all(struct dma_chan *chan)
 static void udma_synchronize(struct dma_chan *chan)
 {
 	struct udma_chan *uc = to_udma_chan(chan);
-	int i = 10;
+	unsigned long timeout = msecs_to_jiffies(1000);
 
 	vchan_synchronize(&uc->vc);
 
-	while (udma_is_chan_running(uc) && i--)
-		usleep_range(100, 200);
+	timeout = wait_for_completion_timeout(&uc->teardown_completed, timeout);
+	if (!timeout)
+		dev_warn(uc->ud->dev, "chan%d teardown timeout!\n", uc->id);
 
 	udma_reset_chan(uc);
 	if (udma_is_chan_running(uc))
@@ -3207,6 +3235,7 @@ static int udma_probe(struct platform_device *pdev)
 		/* Use custom vchan completion handling */
 		tasklet_init(&uc->vc.task, udma_vchan_complete,
 			     (unsigned long)&uc->vc);
+		init_completion(&uc->teardown_completed);
 	}
 
 	ud->tisci_rm.tisci = ti_sci_get_by_phandle(pdev->dev.of_node, "ti,sci");
