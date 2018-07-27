@@ -736,7 +736,7 @@ static void udma_reset_counters(struct udma_chan *uc)
 	uc->bcnt = 0;
 }
 
-static inline int udma_stop_hard(struct udma_chan *uc)
+static inline int udma_reset_chan(struct udma_chan *uc)
 {
 	switch (uc->dir) {
 	case DMA_DEV_TO_MEM:
@@ -791,7 +791,7 @@ static int udma_start(struct udma_chan *uc)
 	}
 
 	/* Make sure that we clear the teardown bit, if it is set */
-	udma_stop_hard(uc);
+	udma_reset_chan(uc);
 
 	/* Reset all counters */
 	udma_reset_counters(uc);
@@ -2779,7 +2779,7 @@ static void udma_synchronize(struct dma_chan *chan)
 	while (udma_is_chan_running(uc) && i--)
 		usleep_range(100, 200);
 
-	udma_stop_hard(uc);
+	udma_reset_chan(uc);
 	if (udma_is_chan_running(uc))
 		dev_warn(uc->ud->dev, "chan%d refused to stop!\n", uc->id);
 
