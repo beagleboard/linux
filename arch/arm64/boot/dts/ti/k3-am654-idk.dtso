@@ -17,6 +17,13 @@
 	target-path = "/";
 
 	__overlay__ {
+		aliases {
+			ethernet3 = "/pruss0_eth/ethernet-mii0";
+			ethernet4 = "/pruss0_eth/ethernet-mii1";
+			ethernet5 = "/pruss1_eth/ethernet-mii0";
+			ethernet6 = "/pruss1_eth/ethernet-mii1";
+		};
+
 		/* Dual Ethernet application node on PRU-ICSSG0 */
 		pruss0_eth: pruss0_eth {
 			compatible = "ti,am654-icssg-prueth";
