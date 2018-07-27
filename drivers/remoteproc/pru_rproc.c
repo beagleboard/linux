@@ -78,6 +78,7 @@ enum pru_mem {
  * @dbg_continuous: debug state variable to restore PRU execution mode
  * @is_rtu: boolean flag to indicate the core is a RTU core
  * @fw_has_intc_rsc: boolean flag to indicate INTC config through firmware
+ * @is_k3: boolean flag used to indicate the core has increased number of events
  */
 struct pru_rproc {
 	int id;
@@ -103,6 +104,7 @@ struct pru_rproc {
 	u32 dbg_continuous;
 	bool is_rtu;
 	bool fw_has_intc_rsc;
+	bool is_k3;
 };
 
 static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len);
@@ -211,6 +213,7 @@ struct rproc *pru_rproc_get(struct device_node *np, int index)
 	u32 mux;
 	const char *fw_name;
 	u32 *arr;
+	u8 max_system_events, max_pru_channels, max_pru_host_ints;
 
 	rproc = __pru_rproc_get(np, index);
 	if (IS_ERR(rproc))
@@ -218,6 +221,10 @@ struct rproc *pru_rproc_get(struct device_node *np, int index)
 
 	pru = rproc->priv;
 	dev = &rproc->dev;
+	max_system_events = pru->is_k3 ?
+				MAX_PRU_SYS_EVENTS_K3 : MAX_PRU_SYS_EVENTS;
+	max_pru_channels = pru->is_k3 ? MAX_PRU_CHANNELS_K3 : MAX_PRU_CHANNELS;
+	max_pru_host_ints = pru->is_k3 ? MAX_PRU_HOST_INT_K3 : MAX_PRU_HOST_INT;
 
 	mutex_lock(&pru->lock);
 
@@ -293,21 +300,21 @@ struct rproc *pru_rproc_get(struct device_node *np, int index)
 			continue;
 
 		if (arr[i + 1] < 0 ||
-		    arr[i + 1] >= MAX_PRU_SYS_EVENTS) {
+		    arr[i + 1] >= max_system_events) {
 			dev_err(dev, "bad sys event %d\n", arr[i + 1]);
 			ret = -EINVAL;
 			goto err_irq;
 		}
 
 		if (arr[i + 2] < 0 ||
-		    arr[i + 2] >= MAX_PRU_CHANNELS) {
+		    arr[i + 2] >= max_pru_channels) {
 			dev_err(dev, "bad channel %d\n", arr[i + 2]);
 			ret = -EINVAL;
 			goto err_irq;
 		}
 
 		if (arr[i + 3] < 0 ||
-		    arr[i + 3] >= MAX_PRU_HOST_INT) {
+		    arr[i + 3] >= max_pru_host_ints) {
 			dev_err(dev, "bad irq %d\n", arr[i + 3]);
 				ret = -EINVAL;
 			goto err_irq;
@@ -1144,6 +1151,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		pru_rproc_k3_fw_ops.get_boot_addr = elf_ops->get_boot_addr;
 
 		rproc->fw_ops = &pru_rproc_k3_fw_ops;
+		pru->is_k3 = true;
 	}
 
 	/* XXX: get this from match data if different in the future */
