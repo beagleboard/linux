@@ -291,7 +291,8 @@ struct udma_desc {
 	u32 residue;
 
 	unsigned int sglen;
-	unsigned int sg_idx;
+	unsigned int desc_idx;
+	unsigned int tr_idx;
 
 	/* for slave_sg RX workaround */
 	struct udma_rx_sg_workaround rx_sg_wa;
@@ -492,14 +493,22 @@ static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
 
 	if (d) {
 		dma_addr_t desc_paddr = udma_curr_cppi5_desc_paddr(d,
-								   d->sg_idx);
+								   d->desc_idx);
 
 		if (desc_paddr != paddr)
 			d = NULL;
 	}
 
-	if (!d)
+	if (!d) {
 		d = uc->desc;
+		if (d) {
+			dma_addr_t desc_paddr = udma_curr_cppi5_desc_paddr(d,
+								d->desc_idx);
+
+			if (desc_paddr != paddr)
+				d = NULL;
+		}
+	}
 
 	return d;
 }
@@ -877,10 +886,10 @@ static void udma_cyclic_packet_elapsed(struct udma_chan *uc,
 	unsigned int hdesc_size = d->cppi5_desc_size;
 	struct knav_udmap_host_desc_t *h_desc;
 
-	h_desc = d->cppi5_desc_vaddr + hdesc_size * d->sg_idx;
+	h_desc = d->cppi5_desc_vaddr + hdesc_size * d->desc_idx;
 	knav_udmap_hdesc_reset_to_original(h_desc);
-	udma_push_to_ring(uc, d, d->sg_idx);
-	d->sg_idx = (d->sg_idx + 1) % d->sglen;
+	udma_push_to_ring(uc, d, d->desc_idx);
+	d->desc_idx = (d->desc_idx + 1) % d->sglen;
 }
 
 static inline void udma_fetch_epib(struct udma_chan *uc, struct udma_desc *d)
@@ -917,7 +926,7 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 
 	if (d) {
 		dma_addr_t desc_paddr = udma_curr_cppi5_desc_paddr(d,
-								   d->sg_idx);
+								   d->desc_idx);
 		if (desc_paddr != paddr) {
 			dev_err(uc->ud->dev, "not matching descriptors!\n");
 			goto out;
@@ -946,7 +955,7 @@ static void udma_tr_event_callback(struct udma_chan *uc)
 	spin_lock_irqsave(&uc->vc.lock, flags);
 	d = uc->desc;
 	if (d) {
-		d->sg_idx = (d->sg_idx + 1) % d->sglen;
+		d->tr_idx = (d->tr_idx + 1) % d->sglen;
 
 		if (uc->cyclic) {
 			vchan_cyclic_callback(&d->vd);
@@ -2242,7 +2251,8 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 		return NULL;
 
 	d->dir = dir;
-	d->sg_idx = 0;
+	d->desc_idx = 0;
+	d->tr_idx = 0;
 
 	/* static TR for remote PDMA */
 	if (udma_configure_statictr(uc, d, elsize, burst)) {
@@ -2521,7 +2531,8 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 		return NULL;
 
 	d->dir = DMA_MEM_TO_MEM;
-	d->sg_idx = 0;
+	d->desc_idx = 0;
+	d->tr_idx = 0;
 	d->residue = len;
 
 	tr_req = (struct cppi50_tr_req_type15 *)d->tr_req_base;
@@ -2748,7 +2759,6 @@ static int udma_terminate_all(struct dma_chan *chan)
 		uc->terminated_desc->terminated = true;
 	}
 
-	uc->cyclic = false;
 	uc->paused = false;
 
 	vchan_get_all_descriptors(&uc->vc, &head);
@@ -2805,7 +2815,7 @@ static void udma_desc_pre_callback(struct virt_dma_chan *vc,
 
 	/* Provide residue information for the client */
 	if (result) {
-		void *desc_vaddr = udma_curr_cppi5_desc_vaddr(d, d->sg_idx);
+		void *desc_vaddr = udma_curr_cppi5_desc_vaddr(d, d->desc_idx);
 
 		if (knav_udmap_desc_get_type(desc_vaddr) ==
 			KNAV_UDMAP_INFO0_DESC_TYPE_VAL_HOST) {
