@@ -851,9 +851,6 @@ static inline int udma_stop(struct udma_chan *uc)
 		udma_rchanrt_write(uc->rchan, UDMA_RCHAN_RT_PEER_RT_EN_REG,
 				   UDMA_PEER_RT_EN_ENABLE |
 				   UDMA_PEER_RT_EN_TEARDOWN);
-		/* Resume the UDMA channel if it is paused */
-		udma_rchanrt_update_bits(uc->rchan, UDMA_RCHAN_RT_CTL_REG,
-					 UDMA_CHAN_RT_CTL_PAUSE, 0);
 		break;
 	case DMA_MEM_TO_DEV:
 		udma_tchanrt_write(uc->tchan, UDMA_TCHAN_RT_PEER_RT_EN_REG,
@@ -2679,9 +2676,10 @@ static int udma_pause(struct dma_chan *chan)
 	/* pause the channel */
 	switch (uc->desc->dir) {
 	case DMA_DEV_TO_MEM:
-		udma_rchanrt_update_bits(uc->rchan, UDMA_RCHAN_RT_CTL_REG,
-					 UDMA_CHAN_RT_CTL_PAUSE,
-					 UDMA_CHAN_RT_CTL_PAUSE);
+		udma_rchanrt_update_bits(uc->rchan,
+					 UDMA_RCHAN_RT_PEER_RT_EN_REG,
+					 UDMA_PEER_RT_EN_PAUSE,
+					 UDMA_PEER_RT_EN_PAUSE);
 		break;
 	case DMA_MEM_TO_DEV:
 		udma_tchanrt_update_bits(uc->tchan,
@@ -2711,8 +2709,10 @@ static int udma_resume(struct dma_chan *chan)
 	/* resume the channel */
 	switch (uc->desc->dir) {
 	case DMA_DEV_TO_MEM:
-		udma_rchanrt_update_bits(uc->rchan, UDMA_RCHAN_RT_CTL_REG,
-					 UDMA_CHAN_RT_CTL_PAUSE, 0);
+		udma_rchanrt_update_bits(uc->rchan,
+					 UDMA_RCHAN_RT_PEER_RT_EN_REG,
+					 UDMA_PEER_RT_EN_PAUSE, 0);
+
 		break;
 	case DMA_MEM_TO_DEV:
 		udma_tchanrt_update_bits(uc->tchan,
