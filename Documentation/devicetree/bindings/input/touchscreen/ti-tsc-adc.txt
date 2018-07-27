@@ -2,7 +2,11 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Required properties:
+- mfd
+	compatible: Should be "ti,am3359-tscadc".
+		    For AM654 SoC: "ti,am654-tscadc", "ti,am3359-tscadc".
 - child "tsc"
+	compatible: Should be "ti,am3359-tsc".
 	ti,wires: Wires refer to application modes i.e. 4/5/8 wire touchscreen
 		  support on the platform.
 	ti,x-plate-resistance: X plate resistance
@@ -25,6 +29,8 @@ Required properties:
 			AIN0 = 0, AIN1 = 1 and so on till AIN7 = 7.
 			XP  = 0, XN = 1, YP = 2, YN = 3.
 - child "adc"
+	compatible: Should be "ti,am3359-adc".
+		    For AM654 SoC: "ti,am654-adc", "ti,am3359-adc".
 	ti,adc-channels: List of analog inputs available for ADC.
 			 AIN0 = 0, AIN1 = 1 and so on till AIN7 = 7.
 
