@@ -955,6 +955,9 @@ void k3_nav_udmax_release_rx_chn(
 		rx_chn->need_tisci_free = false;
 	}
 
+	xudma_free_rflow_range(rx_chn->common.udmax,
+			       rx_chn->flow_id_base, rx_chn->flow_num);
+
 	if (!IS_ERR_OR_NULL(rx_chn->udma_rchanx))
 		xudma_rchan_put(rx_chn->common.udmax,
 				rx_chn->udma_rchanx);
