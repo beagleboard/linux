@@ -311,6 +311,9 @@
 			interrupts = <GIC_SPI 565 IRQ_TYPE_LEVEL_HIGH>;
 			clock-frequency = <96000000>;
 			current-speed = <115200>;
+			dmas = <&mcu_udmap &pdma_mcu1 18 UDMA_DIR_TX>,
+			       <&mcu_udmap &pdma_mcu1 18 UDMA_DIR_RX>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -322,6 +325,9 @@
 			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
 			clock-frequency = <48000000>;
 			current-speed = <115200>;
+			dmas = <&main_udmap &pdma_main1 20 UDMA_DIR_TX>,
+			       <&mcu_udmap &pdma_main1 20 UDMA_DIR_RX>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -333,6 +339,9 @@
 			interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
 			clock-frequency = <48000000>;
 			current-speed = <115200>;
+			dmas = <&main_udmap &pdma_main1 21 UDMA_DIR_TX>,
+			       <&mcu_udmap &pdma_main1 21 UDMA_DIR_RX>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -344,6 +353,9 @@
 			interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
 			clock-frequency = <48000000>;
 			current-speed = <115200>;
+			dmas = <&main_udmap &pdma_main1 22 UDMA_DIR_TX>,
+			       <&mcu_udmap &pdma_main1 22 UDMA_DIR_RX>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -1248,6 +1260,17 @@
 			UDMA_PDMA_TR_XY(3);
 		};
 
+		pdma_mcu1: pdma@40711000 {
+			compatible = "ti,k3-pdma";
+			reg = <0x0 0x40711000 0x0 0x400>;
+			reg-names = "eccaggr_cfg";
+
+			ti,psil-base = <0x7200>;
+
+			/* ti,psil-config18 */
+			UDMA_PDMA_PKT_XY(18);
+		};
+
 		pdma_main0: pdma@2a41000 {
 			compatible = "ti,k3-pdma";
 			reg = <0x0 0x02A41000 0x0 0x400>;
@@ -1290,8 +1313,8 @@
 			UDMA_PDMA_TR_XY(18);
 			UDMA_PDMA_TR_XY(19);
 			UDMA_PDMA_PKT_XY(20);
-			UDMA_PDMA_TR_XY(21);
-			UDMA_PDMA_TR_XY(22);
+			UDMA_PDMA_PKT_XY(21);
+			UDMA_PDMA_PKT_XY(22);
 		};
 
 		mcasp0: mcasp@02B00000 {
