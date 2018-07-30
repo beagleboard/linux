@@ -1062,6 +1062,34 @@ static unsigned int omap_8250_handle_rx_dma(struct uart_8250_port *up,
 	}
 	return status;
 }
+
+static unsigned int am654_8250_handle_rx_dma(struct uart_8250_port *up,
+					     u8 iir, unsigned char status)
+{
+	if ((status & (UART_LSR_DR | UART_LSR_BI)) && (iir & UART_IIR_RDI)) {
+		omap_8250_rx_dma(up);
+		serial_out(up, UART_OMAP_EFR2, UART_OMAP_EFR2_TIMEOUT_BEHAVE);
+	} else if ((iir & 0x3f) == UART_IIR_RX_TIMEOUT) {
+		if (!up->dma->rx_running) {
+			omap_8250_rx_dma(up);
+		} else {
+			omap_8250_rx_dma_flush(up);
+			/*
+			 * Disable RX timeout, read IIR to clear
+			 * current timeout condition, clear EFR2 to
+			 * periodic timeouts, re-enable interrupts.
+			 */
+			up->ier &= ~(UART_IER_RLSI | UART_IER_RDI);
+			serial_out(up, UART_IER, up->ier);
+			serial_in(up, UART_IIR);
+			serial_out(up, UART_OMAP_EFR2, 0x0);
+			up->ier |= UART_IER_RLSI | UART_IER_RDI;
+			serial_out(up, UART_IER, up->ier);
+		}
+	}
+	return status;
+}
+
 /*
  * This is mostly serial8250_handle_irq(). We have a slightly different DMA
  * hoook for RX/TX and need different logic for them in the ISR. Therefore we
@@ -1129,6 +1157,16 @@ static int omap8250_no_handle_irq(struct uart_port *port)
 	return 0;
 }
 
+static struct uart_8250_dma am654_dma = {
+	.fn = the_no_dma_filter_fn,
+	.tx_dma = omap_8250_tx_dma,
+	.rx_dma = omap_8250_rx_dma,
+	.handle_rx_dma = am654_8250_handle_rx_dma,
+	.rx_size = 2048,
+	.rxconf.src_maxburst = 1,
+	.txconf.dst_maxburst = TX_TRIGGER,
+};
+
 static struct uart_8250_dma am33xx_dma = {
 	.fn = the_no_dma_filter_fn,
 	.tx_dma = omap_8250_tx_dma,
@@ -1137,6 +1175,11 @@ static struct uart_8250_dma am33xx_dma = {
 	.rx_size = RX_TRIGGER,
 	.rxconf.src_maxburst = RX_TRIGGER,
 	.txconf.dst_maxburst = TX_TRIGGER,
+};
+
+static struct omap8250_platdata am654_platdata = {
+	.dma = &am654_dma,
+	.habit  = UART_HAS_EFR2,
 };
 
 static struct omap8250_platdata am33xx_platdata = {
@@ -1150,7 +1193,7 @@ static struct omap8250_platdata omap4_platdata = {
 };
 
 static const struct of_device_id omap8250_dt_ids[] = {
-	{ .compatible = "ti,am654-uart" },
+	{ .compatible = "ti,am654-uart", .data = &am654_platdata, },
 	{ .compatible = "ti,omap2-uart" },
 	{ .compatible = "ti,omap3-uart" },
 	{ .compatible = "ti,omap4-uart", .data = &omap4_platdata, },
