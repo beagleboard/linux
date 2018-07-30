@@ -94,6 +94,7 @@ struct cqspi_st {
 };
 
 struct cqspi_platdata {
+	u64 dma_coherent_mask;
 	u8 quirks;
 };
 
@@ -1388,11 +1389,15 @@ static int cqspi_probe(struct platform_device *pdev)
 
 	cqspi->master_ref_clk_hz = clk_get_rate(cqspi->clk);
 	pdata  = (struct cqspi_platdata *)of_device_get_match_data(dev);
-	if (pdata)
+	if (pdata) {
 		if (pdata->quirks & CQSPI_NEEDS_WR_DELAY)
 			cqspi->wr_delay =
 				5 * DIV_ROUND_UP(NSEC_PER_SEC,
 						 cqspi->master_ref_clk_hz);
+		if (pdata->dma_coherent_mask)
+			dma_set_mask_and_coherent(dev,
+						  pdata->dma_coherent_mask);
+	}
 
 	ret = devm_request_irq(dev, irq, cqspi_irq_handler, 0,
 			       pdev->name, cqspi);
@@ -1472,6 +1477,7 @@ static const struct dev_pm_ops cqspi__dev_pm_ops = {
 #define CQSPI_DEV_PM_OPS	NULL
 #endif
 static const struct cqspi_platdata cqspi_am654_platdata = {
+	.dma_coherent_mask = BIT(48),
 	.quirks = CQSPI_NEEDS_WR_DELAY,
 };
 
