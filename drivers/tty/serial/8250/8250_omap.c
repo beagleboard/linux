@@ -110,10 +110,14 @@ struct omap8250_priv {
 	u32 calc_latency;
 	struct pm_qos_request pm_qos_request;
 	struct work_struct qos_work;
-	struct uart_8250_dma omap8250_dma;
 	spinlock_t rx_dma_lock;
 	bool rx_dma_broken;
 	bool throttled;
+};
+
+struct omap8250_platdata {
+	struct uart_8250_dma *dma;
+	u8 habit;
 };
 
 #ifdef CONFIG_SERIAL_8250_DMA
@@ -1116,18 +1120,34 @@ static int omap8250_no_handle_irq(struct uart_port *port)
 	return 0;
 }
 
-static const u8 omap4_habit = UART_ERRATA_CLOCK_DISABLE;
-static const u8 am3352_habit = OMAP_DMA_TX_KICK | UART_ERRATA_CLOCK_DISABLE;
-static const u8 dra742_habit = UART_ERRATA_CLOCK_DISABLE;
+static struct uart_8250_dma am33xx_dma = {
+	.fn = the_no_dma_filter_fn,
+	.tx_dma = omap_8250_tx_dma,
+	.rx_dma = omap_8250_rx_dma,
+	.handle_rx_dma = omap_8250_handle_rx_dma,
+	.rx_size = RX_TRIGGER,
+	.rxconf.src_maxburst = RX_TRIGGER,
+	.txconf.dst_maxburst = TX_TRIGGER,
+};
+
+static struct omap8250_platdata am33xx_platdata = {
+	.dma = &am33xx_dma,
+	.habit = OMAP_DMA_TX_KICK | UART_ERRATA_CLOCK_DISABLE,
+};
+
+static struct omap8250_platdata omap4_platdata = {
+	.dma = &am33xx_dma,
+	.habit = UART_ERRATA_CLOCK_DISABLE,
+};
 
 static const struct of_device_id omap8250_dt_ids[] = {
 	{ .compatible = "ti,am654-uart" },
 	{ .compatible = "ti,omap2-uart" },
 	{ .compatible = "ti,omap3-uart" },
-	{ .compatible = "ti,omap4-uart", .data = &omap4_habit, },
-	{ .compatible = "ti,am3352-uart", .data = &am3352_habit, },
-	{ .compatible = "ti,am4372-uart", .data = &am3352_habit, },
-	{ .compatible = "ti,dra742-uart", .data = &dra742_habit, },
+	{ .compatible = "ti,omap4-uart", .data = &omap4_platdata, },
+	{ .compatible = "ti,am3352-uart", .data = &am33xx_platdata, },
+	{ .compatible = "ti,am4372-uart", .data = &am33xx_platdata, },
+	{ .compatible = "ti,dra742-uart", .data = &omap4_platdata, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, omap8250_dt_ids);
@@ -1137,6 +1157,7 @@ static int omap8250_probe(struct platform_device *pdev)
 	struct resource *regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	struct resource *irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	struct omap8250_priv *priv;
+	struct omap8250_platdata *pdata = NULL;
 	struct uart_8250_port up;
 	int ret;
 	void __iomem *membase;
@@ -1197,17 +1218,14 @@ static int omap8250_probe(struct platform_device *pdev)
 	up.port.rs485_config = omap_8250_rs485_config;
 
 	if (pdev->dev.of_node) {
-		const struct of_device_id *id;
-
 		ret = of_alias_get_id(pdev->dev.of_node, "serial");
 
 		of_property_read_u32(pdev->dev.of_node, "clock-frequency",
 				     &up.port.uartclk);
 		priv->wakeirq = irq_of_parse_and_map(pdev->dev.of_node, 1);
-
-		id = of_match_device(of_match_ptr(omap8250_dt_ids), &pdev->dev);
-		if (id && id->data)
-			priv->habit |= *(u8 *)id->data;
+		pdata = (struct omap8250_platdata *)of_device_get_match_data(&pdev->dev);
+		if (pdata)
+			priv->habit |= pdata->habit;
 	} else {
 		ret = pdev->id;
 	}
@@ -1255,13 +1273,10 @@ static int omap8250_probe(struct platform_device *pdev)
 		 */
 		ret = of_property_count_strings(pdev->dev.of_node, "dma-names");
 		if (ret == 2) {
-			up.dma = &priv->omap8250_dma;
-			priv->omap8250_dma.fn = the_no_dma_filter_fn;
-			priv->omap8250_dma.tx_dma = omap_8250_tx_dma;
-			priv->omap8250_dma.rx_dma = omap_8250_rx_dma;
-			priv->omap8250_dma.rx_size = RX_TRIGGER;
-			priv->omap8250_dma.rxconf.src_maxburst = RX_TRIGGER;
-			priv->omap8250_dma.txconf.dst_maxburst = TX_TRIGGER;
+			if (!pdata)
+				up.dma = &am33xx_dma;
+			else
+				up.dma = pdata->dma;
 		}
 	}
 #endif
