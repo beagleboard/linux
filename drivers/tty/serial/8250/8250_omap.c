@@ -38,6 +38,7 @@
  * The same errata is applicable to AM335x and DRA7x processors too.
  */
 #define UART_ERRATA_CLOCK_DISABLE	(1 << 3)
+#define	UART_HAS_EFR2			BIT(4)
 
 #define OMAP_UART_FCR_RX_TRIG		6
 #define OMAP_UART_FCR_TX_TRIG		4
@@ -90,6 +91,10 @@
 #define OMAP_UART_REV_46 0x0406
 #define OMAP_UART_REV_52 0x0502
 #define OMAP_UART_REV_63 0x0603
+
+/* Enhanced features register 2 */
+#define UART_OMAP_EFR2			0x23
+#define UART_OMAP_EFR2_TIMEOUT_BEHAVE	BIT(6)
 
 struct omap8250_priv {
 	int line;
@@ -649,7 +654,7 @@ static int omap_8250_startup(struct uart_port *port)
 		priv->wer |= OMAP_UART_TX_WAKEUP_EN;
 	serial_out(up, UART_OMAP_WER, priv->wer);
 
-	if (up->dma)
+	if (up->dma && !(priv->habit & UART_HAS_EFR2))
 		up->dma->rx_dma(up);
 
 	pm_runtime_mark_last_busy(port->dev);
@@ -674,6 +679,8 @@ static void omap_8250_shutdown(struct uart_port *port)
 	pm_runtime_get_sync(port->dev);
 
 	serial_out(up, UART_OMAP_WER, 0);
+	if (priv->habit & UART_HAS_EFR2)
+		serial_out(up, UART_OMAP_EFR2, 0x0);
 
 	up->ier = 0;
 	serial_out(up, UART_IER, 0);
@@ -816,7 +823,7 @@ static void __dma_rx_complete(void *param)
 		return;
 	}
 	__dma_rx_do_complete(p);
-	if (!priv->throttled)
+	if (!priv->throttled && !(priv->habit & UART_HAS_EFR2))
 		omap_8250_rx_dma(p);
 
 	spin_unlock_irqrestore(&p->port.lock, flags);
@@ -1478,7 +1485,7 @@ static int omap8250_runtime_resume(struct device *dev)
 	if (omap8250_lost_context(up))
 		omap8250_restore_regs(up);
 
-	if (up->dma && up->dma->rxchan)
+	if (up->dma && up->dma->rxchan && !(priv->habit & UART_HAS_EFR2))
 		omap_8250_rx_dma(up);
 
 	priv->latency = priv->calc_latency;
