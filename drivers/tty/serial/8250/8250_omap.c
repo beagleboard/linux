@@ -108,6 +108,8 @@ struct omap8250_priv {
 	u8 delayed_restore;
 	u16 quot;
 
+	u8 tx_trigger;
+	u8 rx_trigger;
 	bool is_suspending;
 	int wakeirq;
 	int wakeups_enabled;
@@ -300,8 +302,8 @@ static void omap8250_restore_regs(struct uart_8250_port *up)
 	serial_out(up, UART_TI752_TCR, OMAP_UART_TCR_RESTORE(16) |
 			OMAP_UART_TCR_HALT(52));
 	serial_out(up, UART_TI752_TLR,
-		   TRIGGER_TLR_MASK(TX_TRIGGER) << UART_TI752_TLR_TX |
-		   TRIGGER_TLR_MASK(RX_TRIGGER) << UART_TI752_TLR_RX);
+		   TRIGGER_TLR_MASK(priv->tx_trigger) << UART_TI752_TLR_TX |
+		   TRIGGER_TLR_MASK(priv->rx_trigger) << UART_TI752_TLR_RX);
 
 	serial_out(up, UART_LCR, 0);
 
@@ -440,8 +442,8 @@ static void omap_8250_set_termios(struct uart_port *port,
 	 * This is because threshold and trigger values are the same.
 	 */
 	up->fcr = UART_FCR_ENABLE_FIFO;
-	up->fcr |= TRIGGER_FCR_MASK(TX_TRIGGER) << OMAP_UART_FCR_TX_TRIG;
-	up->fcr |= TRIGGER_FCR_MASK(RX_TRIGGER) << OMAP_UART_FCR_RX_TRIG;
+	up->fcr |= TRIGGER_FCR_MASK(priv->tx_trigger) << OMAP_UART_FCR_TX_TRIG;
+	up->fcr |= TRIGGER_FCR_MASK(priv->rx_trigger) << OMAP_UART_FCR_RX_TRIG;
 
 	priv->scr = OMAP_UART_SCR_RX_TRIG_GRANU1_MASK | OMAP_UART_SCR_TX_EMPTY |
 		OMAP_UART_SCR_TX_TRIG_GRANU1_MASK;
@@ -1268,6 +1270,8 @@ static int omap8250_probe(struct platform_device *pdev)
 
 	omap_serial_fill_features_erratas(&up, priv);
 	up.port.handle_irq = omap8250_no_handle_irq;
+	priv->rx_trigger = RX_TRIGGER;
+	priv->tx_trigger = TX_TRIGGER;
 #ifdef CONFIG_SERIAL_8250_DMA
 	if (pdev->dev.of_node) {
 		/*
@@ -1284,6 +1288,8 @@ static int omap8250_probe(struct platform_device *pdev)
 				up.dma = &am33xx_dma;
 			else
 				up.dma = pdata->dma;
+			priv->rx_trigger = up.dma->rxconf.src_maxburst;
+			priv->tx_trigger = up.dma->rxconf.dst_maxburst;
 		}
 	}
 #endif
