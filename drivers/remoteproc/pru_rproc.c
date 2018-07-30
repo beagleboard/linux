@@ -214,6 +214,7 @@ struct rproc *pru_rproc_get(struct device_node *np, int index)
 	const char *fw_name;
 	u32 *arr;
 	u8 max_system_events, max_pru_channels, max_pru_host_ints;
+	bool has_irqs = false;
 
 	rproc = __pru_rproc_get(np, index);
 	if (IS_ERR(rproc))
@@ -327,6 +328,13 @@ struct rproc *pru_rproc_get(struct device_node *np, int index)
 		pru->intc_config.ch_to_host[arr[i + 2]] = arr[i + 3];
 		dev_dbg(dev, "chnl-to-host[%d] -> %d\n", arr[i + 2],
 			arr[i + 3]);
+
+		has_irqs = true;
+	}
+
+	if (!has_irqs) {
+		dev_dbg(dev, "no DT irqs, falling back to firmware intc rsc mode\n");
+		goto bypass_irq_config;
 	}
 
 	pru->dt_irqs = dt_irqs;
@@ -336,6 +344,7 @@ struct rproc *pru_rproc_get(struct device_node *np, int index)
 		goto err_irq;
 	}
 
+bypass_irq_config:
 	kfree(arr);
 
 skip_irq_config:
