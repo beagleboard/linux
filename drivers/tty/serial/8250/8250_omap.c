@@ -777,7 +777,7 @@ static void __dma_rx_do_complete(struct uart_8250_port *p)
 	dma->rx_running = 0;
 	dmaengine_tx_status(dma->rxchan, dma->rx_cookie, &state);
 
-	count = dma->rx_size - state.residue;
+	count = dma->rx_size - state.residue + state.cached;
 
 	ret = tty_insert_flip_string(tty_port, dma->rx_buf, count);
 
