@@ -1234,6 +1234,20 @@
 			};
 		};
 
+		pdma_mcu0: pdma@40710000 {
+			compatible = "ti,k3-pdma";
+			reg = <0x0 0x40710000 0x0 0x400>;
+			reg-names = "eccaggr_cfg";
+
+			ti,psil-base = <0x7100>;
+
+			/* ti,psil-config0-3 */
+			UDMA_PDMA_TR_XY(0);
+			UDMA_PDMA_TR_XY(1);
+			UDMA_PDMA_TR_XY(2);
+			UDMA_PDMA_TR_XY(3);
+		};
+
 		pdma_main0: pdma@2a41000 {
 			compatible = "ti,k3-pdma";
 			reg = <0x0 0x02A41000 0x0 0x400>;
@@ -1665,6 +1679,50 @@
 
 		thermal_zones: thermal-zones {
 			#include "am654-industrial-thermal.dtsi"
+		};
+
+		tscadc0: tscadc@40200000 {
+			compatible = "ti,am654-tscadc", "ti,am3359-tscadc";
+			reg = <0x0 0x40200000 0x0 0x1000>;
+			interrupts = <GIC_SPI 580 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&k3_clks 0 2>;
+			assigned-clocks = <&k3_clks 0 2>;
+			/* Set to 60MHz clock from MCUHSDIV_CLKOUT1 */
+			assigned-clock-parents = <&k3_clks 0 4>;
+			clock-names = "adc_tsc_fck";
+			dmas = <&mcu_udmap &pdma_mcu0 0 UDMA_DIR_RX>,
+			       <&mcu_udmap &pdma_mcu0 1 UDMA_DIR_RX>;
+			dma-names = "fifo0", "fifo1";
+			dma-coherent;
+			status = "disabled";
+
+			adc {
+				#io-channel-cells = <1>;
+				compatible = "ti,am654-adc", "ti,am3359-adc";
+				dma-coherent;
+			};
+		};
+
+		tscadc1: tscadc@40210000 {
+			compatible = "ti,am654-tscadc", "ti,am3359-tscadc";
+			reg = <0x0 0x40210000 0x0 0x1000>;
+			interrupts = <GIC_SPI 581 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&k3_clks 1 2>;
+			assigned-clocks = <&k3_clks 1 2>;
+			/* Set to 60MHz clock from MCUHSDIV_CLKOUT1 */
+			assigned-clock-parents = <&k3_clks 1 4>;
+			clock-names = "adc_tsc_fck";
+			dmas = <&mcu_udmap &pdma_mcu0 2 UDMA_DIR_RX>,
+			       <&mcu_udmap &pdma_mcu0 3 UDMA_DIR_RX>;
+			dma-names = "fifo0", "fifo1";
+			dma-coherent;
+			status = "disabled";
+
+			adc {
+				#io-channel-cells = <1>;
+				compatible = "ti,am654-adc", "ti,am3359-adc";
+				dma-coherent;
+			};
 		};
 	};
 };
