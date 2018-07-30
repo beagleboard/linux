@@ -18,6 +18,8 @@
 struct uart_8250_dma {
 	int (*tx_dma)(struct uart_8250_port *p);
 	int (*rx_dma)(struct uart_8250_port *p);
+	unsigned int (*handle_rx_dma)(struct uart_8250_port *p, u8 iir,
+				      unsigned char status);
 
 	/* Filter function */
 	dma_filter_fn		fn;

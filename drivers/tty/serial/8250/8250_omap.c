@@ -1037,6 +1037,18 @@ static bool handle_rx_dma(struct uart_8250_port *up, unsigned int iir)
 	return omap_8250_rx_dma(up);
 }
 
+static unsigned int omap_8250_handle_rx_dma(struct uart_8250_port *up,
+					    u8 iir, unsigned char status)
+{
+	if ((status & (UART_LSR_DR | UART_LSR_BI)) &&
+	    (iir & UART_IIR_RDI)) {
+		if (handle_rx_dma(up, iir)) {
+			status = serial8250_rx_chars(up, status);
+			omap_8250_rx_dma(up);
+		}
+	}
+	return status;
+}
 /*
  * This is mostly serial8250_handle_irq(). We have a slightly different DMA
  * hoook for RX/TX and need different logic for them in the ISR. Therefore we
@@ -1061,12 +1073,8 @@ static int omap_8250_dma_handle_irq(struct uart_port *port)
 
 	status = serial_port_in(port, UART_LSR);
 
-	if (status & (UART_LSR_DR | UART_LSR_BI)) {
-		if (handle_rx_dma(up, iir)) {
-			status = serial8250_rx_chars(up, status);
-			omap_8250_rx_dma(up);
-		}
-	}
+	status = up->dma->handle_rx_dma(up, iir, status);
+
 	serial8250_modem_status(up);
 	if (status & UART_LSR_THRE && up->dma->tx_err) {
 		if (uart_tx_stopped(&up->port) ||
