@@ -1625,6 +1625,7 @@
 				power-domains = <&k3_pds 55>;
 				#address-cells = <1>;
 				#size-cells = <0>;
+				dma-coherent;
 				status = "disabled";
 			};
 
@@ -1640,6 +1641,7 @@
 				power-domains = <&k3_pds 55>;
 				#address-cells = <1>;
 				#size-cells = <0>;
+				dma-coherent;
 				status = "disabled";
 			};
 		};
