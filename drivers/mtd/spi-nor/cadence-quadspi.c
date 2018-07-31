@@ -93,6 +93,11 @@ struct cqspi_st {
 	struct cqspi_flash_pdata f_pdata[CQSPI_MAX_CHIPSELECT];
 };
 
+struct cqspi_platdata {
+	u64 dma_coherent_mask;
+	u8 quirks;
+};
+
 /* Operation timeout value */
 #define CQSPI_TIMEOUT_MS			500
 #define CQSPI_READ_TIMEOUT_MS			10
@@ -1314,9 +1319,9 @@ static int cqspi_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
 	struct cqspi_st *cqspi;
+	struct cqspi_platdata *pdata;
 	struct resource *res;
 	struct resource *res_ahb;
-	unsigned long data;
 	int ret;
 	int irq;
 
@@ -1383,10 +1388,16 @@ static int cqspi_probe(struct platform_device *pdev)
 	}
 
 	cqspi->master_ref_clk_hz = clk_get_rate(cqspi->clk);
-	data  = (unsigned long)of_device_get_match_data(dev);
-	if (data & CQSPI_NEEDS_WR_DELAY)
-		cqspi->wr_delay = 5 * DIV_ROUND_UP(NSEC_PER_SEC,
-						   cqspi->master_ref_clk_hz);
+	pdata  = (struct cqspi_platdata *)of_device_get_match_data(dev);
+	if (pdata) {
+		if (pdata->quirks & CQSPI_NEEDS_WR_DELAY)
+			cqspi->wr_delay =
+				5 * DIV_ROUND_UP(NSEC_PER_SEC,
+						 cqspi->master_ref_clk_hz);
+		if (pdata->dma_coherent_mask)
+			dma_set_mask_and_coherent(dev,
+						  pdata->dma_coherent_mask);
+	}
 
 	ret = devm_request_irq(dev, irq, cqspi_irq_handler, 0,
 			       pdev->name, cqspi);
@@ -1465,19 +1476,26 @@ static const struct dev_pm_ops cqspi__dev_pm_ops = {
 #else
 #define CQSPI_DEV_PM_OPS	NULL
 #endif
+static const struct cqspi_platdata cqspi_am654_platdata = {
+	.dma_coherent_mask = BIT(48),
+	.quirks = CQSPI_NEEDS_WR_DELAY,
+};
+
+static const struct cqspi_platdata cqspi_k2g_platdata = {
+	.quirks = CQSPI_NEEDS_WR_DELAY,
+};
 
 static const struct of_device_id cqspi_dt_ids[] = {
 	{
 		.compatible = "cdns,qspi-nor",
-		.data = (void *)0,
 	},
 	{
 		.compatible = "ti,k2g-qspi",
-		.data = (void *)CQSPI_NEEDS_WR_DELAY,
+		.data = &cqspi_k2g_platdata,
 	},
 	{
 		.compatible = "ti,am654-ospi",
-		.data = (void *)CQSPI_NEEDS_WR_DELAY,
+		.data = &cqspi_am654_platdata,
 	},
 	{ /* end of table */ }
 };
