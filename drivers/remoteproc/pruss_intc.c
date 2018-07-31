@@ -173,7 +173,7 @@ int pruss_intc_configure(struct pruss *pruss,
 		val = pruss_intc_read_reg(intc, PRU_INTC_CMR(idx));
 		val |= ch << ((i & 3) * 8);
 		pruss_intc_write_reg(intc, PRU_INTC_CMR(idx), val);
-		sysevt_mask[i / 32] |= BIT(i);
+		sysevt_mask[i / 32] |= BIT(i % 32);
 		ch_mask |= BIT(ch);
 
 		dev_dbg(dev, "SYSEV%d -> CH%d (CMR%d 0x%08x)\n", i, ch, idx,
@@ -293,7 +293,7 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 
 		/* mark sysevent free in global map */
 		intc->config_map.sysev_to_ch[i] = -1;
-		sysevt_mask[i / 32] |= BIT(i);
+		sysevt_mask[i / 32] |= BIT(i % 32);
 	}
 
 	for (i = 0; i < num_intrs; i++) {
