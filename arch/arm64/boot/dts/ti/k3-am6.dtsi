@@ -995,7 +995,7 @@
 				reg-names = "rt", "fifos",
 					    "proxy_gcfg", "proxy_target";
 				ti,num-rings = <818>;
-				ti,gp-rings = <302 466>; /* start, cnt */
+				ti,gp-rings = <304 464>; /* start, cnt */
 				ti,dma-ring-reset-quirk;
 				ti,sci = <&dmsc>;
 				ti,sci-dev-id = <187>;
