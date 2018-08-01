@@ -1050,6 +1050,7 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 	psdata = knav_udmap_hdesc_get_psdata32(first_desc);
 
 	/* HW csum offload if enabled */
+	psdata[2] = 0;
 	if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
 		unsigned int cs_start, cs_offset;
 
