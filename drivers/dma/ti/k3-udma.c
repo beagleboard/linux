@@ -3187,6 +3187,11 @@ static int udma_probe(struct platform_device *pdev)
 	    !ud->rflow_map || !ud->tchans || !ud->rchans || !ud->rflows)
 		return -ENOMEM;
 
+	/* tchan0, rchan0 and rflow0 is dedicated to sysfw */
+	set_bit(0, ud->tchan_map);
+	set_bit(0, ud->rchan_map);
+	set_bit(0, ud->rflow_map);
+
 	spin_lock_init(&ud->lock);
 	INIT_WORK(&ud->purge_work, udma_purge_desc_work);
 
