@@ -200,6 +200,28 @@ struct ti_sci_clk_ops {
 			u64 *current_freq);
 };
 
+/**
+ * struct ti_sci_rm_core_ops - Resource management core operations
+ * @get_range:		Get a range of resources belonging to ti sci host.
+ * get_rage_from_shost:	Get a range of resources belonging to specified host id.
+ *
+ * NOTE: for these functions, all the parameters are consolidated and defined
+ * as below:
+ * - handle:	Pointer to TISCI handle as retrieved by *ti_sci_get_handle
+ * - type:	resource assignment type that is being requested for
+ * - subtype:	resource assignment subtype that is being requested for
+ * - s_host:	Host processing entity to which the resources are allocated
+ * - range_start:	Start index of the resource range
+ * - range_end:		Number of resources in the range
+ */
+struct ti_sci_rm_core_ops {
+	int (*get_range)(const struct ti_sci_handle *handle, u16 type,
+			 u8 subtype, u16 *range_start, u16 *range_num);
+	int (*get_range_from_shost)(const struct ti_sci_handle *handle,
+				    u16 type, u8 subtype, u8 s_host,
+				    u16 *range_start, u16 *range_num);
+};
+
 #define TI_SCI_RM_NULL_U8			((u8)~0U)
 #define TI_SCI_RM_NULL_U16			((u16)~0U)
 #define TI_SCI_RM_NULL_U32			((u32)~0U)
@@ -580,6 +602,7 @@ struct ti_sci_ops {
 	struct ti_sci_core_ops core_ops;
 	struct ti_sci_dev_ops dev_ops;
 	struct ti_sci_clk_ops clk_ops;
+	struct ti_sci_rm_core_ops rm_core_ops;
 	struct ti_sci_irq_ops irq_ops;
 	struct ti_sci_rm_ringacc_ops rm_ring_ops;
 	struct ti_sci_rm_psil_ops rm_psil_ops;
