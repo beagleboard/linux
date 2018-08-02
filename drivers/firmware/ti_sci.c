@@ -1626,31 +1626,24 @@ fail:
 }
 
 /**
- * ti_sci_cmd_set_irq() - Command to configure the route between the dev and
- *			  the host and get the host irq in response.
- * @handle:	Pointer to TISCI handle.
- * @s_host:	Host ID of the IRQ destination. A negative value
- *		can be passed if destination host id is same as the ti-sci
- *		interface host id.
- * @dev:	IRQ source peripheral ID.
- * @irq:	IRQ source offset within the peripheral.
- * @share:	If enabled, the resultant IRQ will be shared with other events.
- * @poll:	If non-zero, the configured IRQ will not result in a
- *		physical interrupt.
- * @group:	The requested IRQ will be added to this virtual interrupt group.
- *		In order to create a new virtual interrupt group this should be
- *		-1 along with @share field enabled.
- * @host_irq:	Input IRQ number to host interrupt controller.
+ * ti_sci_get_resource_range - Helper to get a range of resources assigned
+ *			       to a host. Resource is uniquely identified by
+ *			       type and subtype.
+ * @handle:		Pointer to TISCI handle.
+ * @type:		Resource assignment type that is being requested for
+ * @subtype:		Resource assignment subtype that is being requested for
+ * @s_host:		Host processor ID to which the resources are allocated
+ * @range_start:	Start index of the resource range
+ * @range_num:		Number of resources in the range
  *
  * Return: 0 if all went fine, else return appropriate error.
  */
-static int ti_sci_cmd_set_irq(const struct ti_sci_handle *handle, u8 s_host,
-			      u16 dev_id, u16 irq, u8 share, u8 poll,
-			      u32 *group, u32 *glb_evt, u32 *ia_id, u32 *vint,
-			      u16 *host_irq, u8 *vint_status_bit)
+static int ti_sci_get_resource_range(const struct ti_sci_handle *handle,
+				     u16 type, u8 subtype, u8 s_host,
+				     u16 *range_start, u16 *range_num)
 {
-	struct ti_sci_msg_resp_set_irq *resp;
-	struct ti_sci_msg_req_set_irq *req;
+	struct ti_sci_msg_resp_get_resource_range *resp;
+	struct ti_sci_msg_req_get_resource_range *req;
 	struct ti_sci_xfer *xfer;
 	struct ti_sci_info *info;
 	struct device *dev;
@@ -1664,7 +1657,7 @@ static int ti_sci_cmd_set_irq(const struct ti_sci_handle *handle, u8 s_host,
 	info = handle_to_ti_sci_info(handle);
 	dev = info->dev;
 
-	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_SET_IRQ,
+	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_GET_RESOURCE_RANGE,
 				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
 				   sizeof(*req), sizeof(*resp));
 	if (IS_ERR(xfer)) {
@@ -1672,13 +1665,10 @@ static int ti_sci_cmd_set_irq(const struct ti_sci_handle *handle, u8 s_host,
 		dev_err(dev, "Message alloc failed(%d)\n", ret);
 		return ret;
 	}
-	req = (struct ti_sci_msg_req_set_irq *)xfer->xfer_buf;
+	req = (struct ti_sci_msg_req_get_resource_range *)xfer->xfer_buf;
 	req->secondary_host = s_host;
-	req->dev_id = dev_id;
-	req->irq = irq;
-	req->share = share;
-	req->pool = poll;
-	req->group = *group;
+	req->type = type & MSG_RM_RESOURCE_TYPE_MASK;
+	req->subtype = subtype & MSG_RM_RESOURCE_SUBTYPE_MASK;
 
 	ret = ti_sci_do_xfer(info, xfer);
 	if (ret) {
@@ -1686,17 +1676,15 @@ static int ti_sci_cmd_set_irq(const struct ti_sci_handle *handle, u8 s_host,
 		goto fail;
 	}
 
-	resp = (struct ti_sci_msg_resp_set_irq *)xfer->xfer_buf;
+	resp = (struct ti_sci_msg_resp_get_resource_range *)xfer->xfer_buf;
 
 	if (!ti_sci_is_response_ack(resp)) {
 		ret = -ENODEV;
+	} else if (!resp->range_start && !resp->range_num) {
+		ret = -ENODEV;
 	} else {
-		*glb_evt = resp->global_event;
-		*ia_id = resp->ia_id;
-		*vint = resp->vint;
-		*group = resp->group;
-		*host_irq = resp->host_irq;
-		*vint_status_bit = resp->vint_status_bit;
+		*range_start = resp->range_start;
+		*range_num = resp->range_num;
 	};
 
 fail:
@@ -1706,21 +1694,72 @@ fail:
 }
 
 /**
- * ti_sci_cmd_free_irq() - Command to free host's IRQ from dev.
- * @handle:	Pointer to TISCI handle.
- * @s_host:	Host ID of the interrupt route destination. A negative value
- *		can be passed if destination host id is same as the ti-sci
- *		interface host id.
- * @dev_id:	Interrupt source peripheral ID.
- * @irq:	IRQ source within the peripheral.
- * @group:	virtual interrupt group ID. -1 can be passed if not applicable.
+ * ti_sci_cmd_get_resource_range - Get a range of resources assigned to host
+ *				   that is same as ti sci interface host.
+ * @handle:		Pointer to TISCI handle.
+ * @type:		Resource assignment type that is being requested for
+ * @subtype:		Resource assignment subtype that is being requested for
+ * @range_start:	Start index of the resource range
+ * @range_num:		Number of resources in the range
  *
  * Return: 0 if all went fine, else return appropriate error.
  */
-static int ti_sci_cmd_free_irq(const struct ti_sci_handle *handle, u8 s_host,
-			       u16 dev_id, u16 irq, u32 glb_evt, u32 group)
+static int ti_sci_cmd_get_resource_range(const struct ti_sci_handle *handle,
+					 u16 type, u8 subtype,
+					 u16 *range_start, u16 *range_num)
 {
-	struct ti_sci_msg_req_free_irq *req;
+	return ti_sci_get_resource_range(handle, type, subtype,
+					 TI_SCI_IRQ_SECONDARY_HOST_INVALID,
+					 range_start, range_num);
+}
+
+/**
+ * ti_sci_cmd_get_resource_range_from_shost - Get a range of resources
+ *					      assigned to a specified host.
+ * @handle:		Pointer to TISCI handle.
+ * @type:		Resource assignment type that is being requested for
+ * @subtype:		Resource assignment subtype that is being requested for
+ * @s_host:		Host processor ID to which the resources are allocated
+ * @range_start:	Start index of the resource range
+ * @range_num:		Number of resources in the range
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static
+int ti_sci_cmd_get_resource_range_from_shost(const struct ti_sci_handle *handle,
+					     u16 type, u8 subtype, u8 s_host,
+					     u16 *range_start, u16 *range_num)
+{
+	return ti_sci_get_resource_range(handle, type, subtype, s_host,
+					 range_start, range_num);
+}
+
+/**
+ * ti_sci_manage_irq() - Helper api to configure/release the irq route between
+ *			 the requested source and destination
+ * @handle:		Pointer to TISCI handle.
+ * @valid_params:	Bit fields defining the validity of certain params
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @ia_id:		Device ID of the IA, if the IRQ flows through this IA
+ * @vint:		Virtual interrupt to be used within the IA
+ * @global_event:	Global event number to be used for the requesting event
+ * @vint_status_bit:	Virtual interrupt status bit to be used for the event
+ * @s_host:		Secondary host ID to which the irq/event is being
+ *			requested for.
+ * @type:		Request type irq set or release.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_manage_irq(const struct ti_sci_handle *handle,
+			     u32 valid_params, u16 src_id, u16 src_index,
+			     u16 dst_id, u16 dst_host_irq, u16 ia_id, u16 vint,
+			     u16 global_event, u8 vint_status_bit, u8 s_host,
+			     u16 type)
+{
+	struct ti_sci_msg_req_manage_irq *req;
 	struct ti_sci_msg_hdr *resp;
 	struct ti_sci_xfer *xfer;
 	struct ti_sci_info *info;
@@ -1735,20 +1774,24 @@ static int ti_sci_cmd_free_irq(const struct ti_sci_handle *handle, u8 s_host,
 	info = handle_to_ti_sci_info(handle);
 	dev = info->dev;
 
-	xfer = ti_sci_get_one_xfer(info, TI_SCI_MSG_FREE_IRQ,
-				   TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
+	xfer = ti_sci_get_one_xfer(info, type, TI_SCI_FLAG_REQ_ACK_ON_PROCESSED,
 				   sizeof(*req), sizeof(*resp));
 	if (IS_ERR(xfer)) {
 		ret = PTR_ERR(xfer);
 		dev_err(dev, "Message alloc failed(%d)\n", ret);
 		return ret;
 	}
-	req = (struct ti_sci_msg_req_free_irq *)xfer->xfer_buf;
+	req = (struct ti_sci_msg_req_manage_irq *)xfer->xfer_buf;
+	req->valid_params = valid_params;
+	req->src_id = src_id;
+	req->src_index = src_index;
+	req->dst_id = dst_id;
+	req->dst_host_irq = dst_host_irq;
+	req->ia_id = ia_id;
+	req->vint = vint;
+	req->global_event = global_event;
+	req->vint_status_bit = vint_status_bit;
 	req->secondary_host = s_host;
-	req->dev_id = dev_id;
-	req->irq = irq;
-	req->global_event = glb_evt;
-	req->group = group;
 
 	ret = ti_sci_do_xfer(info, xfer);
 	if (ret) {
@@ -1764,6 +1807,355 @@ fail:
 	ti_sci_put_one_xfer(&info->minfo, xfer);
 
 	return ret;
+}
+
+/**
+ * ti_sci_set_irq() - Helper api to configure the irq route between the
+ *		      requested source and destination
+ * @handle:		Pointer to TISCI handle.
+ * @valid_params:	Bit fields defining the validity of certain params
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @ia_id:		Device ID of the IA, if the IRQ flows through this IA
+ * @vint:		Virtual interrupt to be used within the IA
+ * @global_event:	Global event number to be used for the requesting event
+ * @vint_status_bit:	Virtual interrupt status bit to be used for the event
+ * @s_host:		Secondary host ID to which the irq/event is being
+ *			requested for.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_set_irq(const struct ti_sci_handle *handle, u32 valid_params,
+			  u16 src_id, u16 src_index, u16 dst_id,
+			  u16 dst_host_irq, u16 ia_id, u16 vint,
+			  u16 global_event, u8 vint_status_bit, u8 s_host)
+{
+	return ti_sci_manage_irq(handle, valid_params, src_id, src_index,
+				 dst_id, dst_host_irq, ia_id, vint,
+				 global_event, vint_status_bit, s_host,
+				 TI_SCI_MSG_SET_IRQ);
+}
+
+
+/**
+ * ti_sci_free_irq() - Helper api to free the irq route between the
+ *			   requested source and destination
+ * @handle:		Pointer to TISCI handle.
+ * @valid_params:	Bit fields defining the validity of certain params
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @ia_id:		Device ID of the IA, if the IRQ flows through this IA
+ * @vint:		Virtual interrupt to be used within the IA
+ * @global_event:	Global event number to be used for the requesting event
+ * @vint_status_bit:	Virtual interrupt status bit to be used for the event
+ * @s_host:		Secondary host ID to which the irq/event is being
+ *			requested for.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_free_irq(const struct ti_sci_handle *handle, u32 valid_params,
+			   u16 src_id, u16 src_index, u16 dst_id,
+			   u16 dst_host_irq, u16 ia_id, u16 vint,
+			   u16 global_event, u8 vint_status_bit, u8 s_host)
+{
+	return ti_sci_manage_irq(handle, valid_params, src_id, src_index,
+				 dst_id, dst_host_irq, ia_id, vint,
+				 global_event, vint_status_bit, s_host,
+				 TI_SCI_MSG_FREE_IRQ);
+}
+
+/**
+ * ti_sci_cmd_set_direct_irq() - Configure a non-event based direct irq route
+ *				 between the requested source and destination.
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_set_direct_irq(const struct ti_sci_handle *handle,
+				     u16 src_id, u16 src_index, u16 dst_id,
+				     u16 dst_host_irq)
+{
+	u32 valid_params = MSG_FLAG_DST_ID_VALID | MSG_FLAG_DST_HOST_IRQ_VALID;
+
+	return ti_sci_set_irq(handle, valid_params, src_id, src_index,
+			      dst_id, dst_host_irq, 0, 0, 0, 0, 0);
+}
+
+/**
+ * ti_sci_cmd_set_event_irq() - Configure an event based irq route between the
+ *				requested source and destination
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @ia_id:		Device ID of the IA, if the IRQ flows through this IA
+ * @vint:		Virtual interrupt to be used within the IA
+ * @global_event:	Global event number to be used for the requesting event
+ * @vint_status_bit:	Virtual interrupt status bit to be used for the event
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_set_event_irq(const struct ti_sci_handle *handle,
+				    u16 src_id, u16 src_index, u16 dst_id,
+				    u16 dst_host_irq, u16 ia_id, u16 vint,
+				    u16 global_event, u8 vint_status_bit)
+{
+	u32 valid_params = MSG_FLAG_DST_ID_VALID |
+			   MSG_FLAG_DST_HOST_IRQ_VALID | MSG_FLAG_IA_ID_VALID |
+			   MSG_FLAG_VINT_VALID | MSG_FLAG_GLB_EVNT_VALID |
+			   MSG_FLAG_VINT_STS_BIT_VALID;
+
+	return ti_sci_set_irq(handle, valid_params, src_id, src_index, dst_id,
+			      dst_host_irq, ia_id, vint, global_event,
+			      vint_status_bit, 0);
+}
+
+/**
+ * ti_sci_cmd_set_direct_irq_from_shost() - Configure a non-event based direct
+ *					    irq route between the source and
+ *					    destination belonging to a
+ *					    specified host.
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @s_host:		Secondary host ID to which the irq/event is being
+ *			requested for.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static
+int ti_sci_cmd_set_direct_irq_from_shost(const struct ti_sci_handle *handle,
+					 u16 src_id, u16 src_index, u16 dst_id,
+					 u16 dst_host_irq, u8 s_host)
+{
+	u32 valid_params = MSG_FLAG_DST_ID_VALID | MSG_FLAG_DST_HOST_IRQ_VALID |
+			   MSG_FLAG_SHOST_VALID;
+
+	return ti_sci_set_irq(handle, valid_params, src_id, src_index,
+			      dst_id, dst_host_irq, 0, 0, 0, 0, s_host);
+}
+
+/**
+ * ti_sci_cmd_set_event_irq_from_shost() - Configure an event based irq
+ *					   route between the source and
+ *					   destination belonging to a
+ *					   specified host.
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @ia_id:		Device ID of the IA, if the IRQ flows through this IA
+ * @vint:		Virtual interrupt to be used within the IA
+ * @global_event:	Global event number to be used for the requesting event
+ * @vint_status_bit:	Virtual interrupt status bit to be used for the event
+ * @s_host:		Secondary host ID to which the irq/event is being
+ *			requested for.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static
+int ti_sci_cmd_set_event_irq_from_shost(const struct ti_sci_handle *handle,
+					u16 src_id, u16 src_index, u16 dst_id,
+					u16 dst_host_irq, u16 ia_id, u16 vint,
+					u16 global_event, u8 vint_status_bit,
+					u8 s_host)
+{
+	u32 valid_params = MSG_FLAG_DST_ID_VALID |
+			   MSG_FLAG_DST_HOST_IRQ_VALID | MSG_FLAG_IA_ID_VALID |
+			   MSG_FLAG_VINT_VALID | MSG_FLAG_GLB_EVNT_VALID |
+			   MSG_FLAG_VINT_STS_BIT_VALID | MSG_FLAG_SHOST_VALID;
+
+	return ti_sci_set_irq(handle, valid_params, src_id, src_index,
+			      dst_id, dst_host_irq, ia_id, vint,
+			      global_event, vint_status_bit, s_host);
+}
+
+/**
+ * ti_sci_cmd_set_event_irq_to_poll() - Configure an event based irq
+ *					in polling mode
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @ia_id:		Device ID of the IA, if the IRQ flows through this IA
+ * @vint:		Virtual interrupt to be used within the IA
+ * @global_event:	Global event number to be used for the requesting event
+ * @vint_status_bit:	Virtual interrupt status bit to be used for the event
+ * @s_host:		Secondary host ID to which the irq/event is being
+ *			requested for.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_set_event_irq_to_poll(const struct ti_sci_handle *handle,
+					    u16 src_id, u16 src_index,
+					    u16 ia_id, u16 vint,
+					    u16 global_event,
+					    u8 vint_status_bit)
+{
+	u32 valid_params = MSG_FLAG_IA_ID_VALID | MSG_FLAG_VINT_VALID |
+			   MSG_FLAG_GLB_EVNT_VALID |
+			   MSG_FLAG_VINT_STS_BIT_VALID;
+
+	return ti_sci_set_irq(handle, valid_params, src_id, src_index, 0, 0,
+			      ia_id, vint, global_event, vint_status_bit, 0);
+}
+
+/**
+ * ti_sci_cmd_free_direct_irq() - Free a non-event based direct irq route
+ *				  between the requested source and destination.
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_free_direct_irq(const struct ti_sci_handle *handle,
+				      u16 src_id, u16 src_index, u16 dst_id,
+				      u16 dst_host_irq)
+{
+	u32 valid_params = MSG_FLAG_DST_ID_VALID | MSG_FLAG_DST_HOST_IRQ_VALID;
+
+	return ti_sci_free_irq(handle, valid_params, src_id, src_index,
+			       dst_id, dst_host_irq, 0, 0, 0, 0, 0);
+}
+
+/**
+ * ti_sci_cmd_free_event_irq() - Free an event based irq route between the
+ *				 requested source and destination
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @ia_id:		Device ID of the IA, if the IRQ flows through this IA
+ * @vint:		Virtual interrupt to be used within the IA
+ * @global_event:	Global event number to be used for the requesting event
+ * @vint_status_bit:	Virtual interrupt status bit to be used for the event
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_free_event_irq(const struct ti_sci_handle *handle,
+				     u16 src_id, u16 src_index, u16 dst_id,
+				     u16 dst_host_irq, u16 ia_id, u16 vint,
+				     u16 global_event, u8 vint_status_bit)
+{
+	u32 valid_params = MSG_FLAG_DST_ID_VALID |
+			   MSG_FLAG_DST_HOST_IRQ_VALID | MSG_FLAG_IA_ID_VALID |
+			   MSG_FLAG_VINT_VALID | MSG_FLAG_GLB_EVNT_VALID |
+			   MSG_FLAG_VINT_STS_BIT_VALID;
+
+	return ti_sci_free_irq(handle, valid_params, src_id, src_index,
+			       dst_id, dst_host_irq, ia_id, vint,
+			       global_event, vint_status_bit, 0);
+}
+
+/**
+ * ti_sci_cmd_free_direct_irq_from_shost() - Free a non-event based direct irq
+ *					     route between the source and
+ *					     destination belonging to a
+ *					     specified host.
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @s_host:		Secondary host ID to which the irq/event is being
+ *			requested for.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static
+int ti_sci_cmd_free_direct_irq_from_shost(const struct ti_sci_handle *handle,
+					  u16 src_id, u16 src_index, u16 dst_id,
+					  u16 dst_host_irq, u8 s_host)
+{
+	u32 valid_params = MSG_FLAG_DST_ID_VALID | MSG_FLAG_DST_HOST_IRQ_VALID |
+			   MSG_FLAG_SHOST_VALID;
+
+	return ti_sci_free_irq(handle, valid_params, src_id, src_index,
+			       dst_id, dst_host_irq, 0, 0, 0, 0, s_host);
+}
+
+/**
+ * ti_sci_cmd_free_event_irq_from_shost() - Free an event based irq
+ *					    route between the source and
+ *					    destination belonging to a
+ *					    specified host.
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @ia_id:		Device ID of the IA, if the IRQ flows through this IA
+ * @vint:		Virtual interrupt to be used within the IA
+ * @global_event:	Global event number to be used for the requesting event
+ * @vint_status_bit:	Virtual interrupt status bit to be used for the event
+ * @s_host:		Secondary host ID to which the irq/event is being
+ *			requested for.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static
+int ti_sci_cmd_free_event_irq_from_shost(const struct ti_sci_handle *handle,
+					 u16 src_id, u16 src_index, u16 dst_id,
+					 u16 dst_host_irq, u16 ia_id, u16 vint,
+					 u16 global_event, u8 vint_status_bit,
+					 u8 s_host)
+{
+	u32 valid_params = MSG_FLAG_DST_ID_VALID |
+			   MSG_FLAG_DST_HOST_IRQ_VALID | MSG_FLAG_IA_ID_VALID |
+			   MSG_FLAG_VINT_VALID | MSG_FLAG_GLB_EVNT_VALID |
+			   MSG_FLAG_VINT_STS_BIT_VALID | MSG_FLAG_SHOST_VALID;
+
+	return ti_sci_free_irq(handle, valid_params, src_id, src_index,
+			       dst_id, dst_host_irq, ia_id, vint,
+			       global_event, vint_status_bit, s_host);
+}
+
+/**
+ * ti_sci_cmd_free_event_irq_to_poll() - Free an event based irq
+ *					 in polling mode
+ * @handle:		Pointer to TISCI handle.
+ * @src_id:		Device ID of the IRQ source
+ * @src_index:		IRQ source index within the source device
+ * @dst_id:		Device ID of the IRQ destination
+ * @dt_host_irq:	IRQ number of the destination device
+ * @ia_id:		Device ID of the IA, if the IRQ flows through this IA
+ * @vint:		Virtual interrupt to be used within the IA
+ * @global_event:	Global event number to be used for the requesting event
+ * @vint_status_bit:	Virtual interrupt status bit to be used for the event
+ * @s_host:		Secondary host ID to which the irq/event is being
+ *			requested for.
+ *
+ * Return: 0 if all went fine, else return appropriate error.
+ */
+static int ti_sci_cmd_free_event_irq_to_poll(const struct ti_sci_handle *handle,
+					     u16 src_id, u16 src_index,
+					     u16 ia_id, u16 vint,
+					     u16 global_event,
+					     u8 vint_status_bit)
+{
+	u32 valid_params = MSG_FLAG_IA_ID_VALID | MSG_FLAG_VINT_VALID |
+			   MSG_FLAG_GLB_EVNT_VALID |
+			   MSG_FLAG_VINT_STS_BIT_VALID;
+
+	return ti_sci_free_irq(handle, valid_params, src_id, src_index, 0, 0,
+			       ia_id, vint, global_event, vint_status_bit, 0);
 }
 
 /**
@@ -2510,7 +2902,8 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 	struct ti_sci_core_ops *core_ops = &ops->core_ops;
 	struct ti_sci_dev_ops *dops = &ops->dev_ops;
 	struct ti_sci_clk_ops *cops = &ops->clk_ops;
-	struct ti_sci_irq_ops *iops = &ops->irq_ops;
+	struct ti_sci_rm_core_ops *rm_core_ops = &ops->rm_core_ops;
+	struct ti_sci_rm_irq_ops *iops = &ops->rm_irq_ops;
 	struct ti_sci_rm_ringacc_ops *rops = &ops->rm_ring_ops;
 	struct ti_sci_rm_psil_ops *psilops = &ops->rm_psil_ops;
 	struct ti_sci_rm_udmap_ops *udmap_ops = &ops->rm_udmap_ops;
@@ -2545,8 +2938,21 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 	cops->set_freq = ti_sci_cmd_clk_set_freq;
 	cops->get_freq = ti_sci_cmd_clk_get_freq;
 
-	iops->set_irq = ti_sci_cmd_set_irq;
-	iops->free_irq = ti_sci_cmd_free_irq;
+	rm_core_ops->get_range = ti_sci_cmd_get_resource_range;
+	rm_core_ops->get_range_from_shost =
+				ti_sci_cmd_get_resource_range_from_shost;
+
+	iops->set_direct_irq = ti_sci_cmd_set_direct_irq;
+	iops->set_event_irq = ti_sci_cmd_set_event_irq;
+	iops->set_direct_irq_from_shost = ti_sci_cmd_set_direct_irq_from_shost;
+	iops->set_event_irq_from_shost = ti_sci_cmd_set_event_irq_from_shost;
+	iops->set_event_irq_to_poll = ti_sci_cmd_set_event_irq_to_poll;
+	iops->free_direct_irq = ti_sci_cmd_free_direct_irq;
+	iops->free_event_irq = ti_sci_cmd_free_event_irq;
+	iops->free_direct_irq_from_shost =
+					ti_sci_cmd_free_direct_irq_from_shost;
+	iops->free_event_irq_from_shost = ti_sci_cmd_free_event_irq_from_shost;
+	iops->free_event_irq_to_poll = ti_sci_cmd_free_event_irq_to_poll;
 
 	rops->allocate = ti_sci_cmd_ring_allocate;
 	rops->free = ti_sci_cmd_ring_free;
@@ -2734,6 +3140,107 @@ const struct ti_sci_handle *devm_ti_sci_get_handle(struct device *dev)
 	return handle;
 }
 EXPORT_SYMBOL_GPL(devm_ti_sci_get_handle);
+
+u16 ti_sci_get_free_resource(struct ti_sci_resource *res)
+{
+	unsigned long flags;
+	u16 set, free_bit;
+
+	raw_spin_lock_irqsave(&res->lock, flags);
+	for (set = 0; set < res->sets; set++) {
+		free_bit = find_first_zero_bit(res->desc[set].res_map,
+					       res->desc[set].max);
+		if (free_bit != res->desc[set].max) {
+			set_bit(free_bit, res->desc[set].res_map);
+			raw_spin_unlock_irqrestore(&res->lock, flags);
+			return res->desc[set].start + free_bit;
+		}
+	}
+	raw_spin_unlock_irqrestore(&res->lock, flags);
+
+	return TI_SCI_RESOURCE_NULL;
+}
+EXPORT_SYMBOL_GPL(ti_sci_get_free_resource);
+
+void ti_sci_release_resource(struct ti_sci_resource *res, u16 id)
+{
+	unsigned long flags;
+	u16 set;
+
+	raw_spin_lock_irqsave(&res->lock, flags);
+	for (set = 0; set < res->sets; set++) {
+		if (res->desc[set].start <= id &&
+		    (res->desc[set].max + res->desc[set].start) > id)
+			clear_bit(id - res->desc[set].start,
+				  res->desc[set].res_map);
+	}
+	raw_spin_unlock_irqrestore(&res->lock, flags);
+}
+EXPORT_SYMBOL_GPL(ti_sci_release_resource);
+
+struct ti_sci_resource *
+devm_ti_sci_get_of_resource(const struct ti_sci_handle *handle,
+			    struct device *dev, char *of_prop)
+{
+	u32 resource_type, resource_subtype;
+	struct ti_sci_resource *res;
+	int sets, i, ret;
+
+	res = devm_kzalloc(dev, sizeof(*res), GFP_KERNEL);
+	if (!res)
+		return ERR_PTR(-ENOMEM);
+
+	sets = of_property_count_elems_of_size(dev_of_node(dev), of_prop,
+					       sizeof(u32));
+	if (sets < 0) {
+		dev_err(dev, "%s resource type ids not available\n", of_prop);
+		return ERR_PTR(sets);
+	}
+
+	res->sets = sets / 2;
+
+	res->desc = devm_kcalloc(dev, res->sets, sizeof(*res->desc),
+				 GFP_KERNEL);
+	if (!res->desc)
+		return ERR_PTR(-ENOMEM);
+
+	for (i = 0; i < res->sets; i++) {
+		ret = of_property_read_u32_index(dev_of_node(dev), of_prop,
+						 i * 2, &resource_type);
+		if (ret)
+			return ERR_PTR(-EINVAL);
+
+		ret = of_property_read_u32_index(dev_of_node(dev), of_prop,
+						 (i * 2) + 1,
+						 &resource_subtype);
+		if (ret)
+			return ERR_PTR(-EINVAL);
+
+		ret = handle->ops.rm_core_ops.get_range(handle, resource_type,
+							resource_subtype,
+							&res->desc[i].start,
+							&res->desc[i].max);
+		if (ret) {
+			dev_err(dev, "type %d subtype %d not alloted for me.\n",
+				resource_type, resource_subtype);
+			return ERR_PTR(ret);
+		}
+
+		dev_dbg(dev, "res type = %d,subtype = %d,start = %d,max = %d\n",
+			resource_type, resource_subtype, res->desc[i].start,
+			res->desc[i].max);
+
+		res->desc[i].res_map = devm_kzalloc(dev,
+		BITS_TO_LONGS(res->desc[i].max) * sizeof(*res->desc[i].res_map),
+		GFP_KERNEL);
+		if (!res->desc[i].res_map)
+			return ERR_PTR(-ENOMEM);
+	}
+	raw_spin_lock_init(&res->lock);
+
+	return res;
+}
+EXPORT_SYMBOL_GPL(devm_ti_sci_get_of_resource);
 
 static int tisci_reboot_handler(struct notifier_block *nb, unsigned long mode,
 				void *cmd)
