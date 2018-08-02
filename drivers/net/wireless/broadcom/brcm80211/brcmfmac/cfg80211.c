@@ -5448,10 +5448,13 @@ static bool brcmf_is_linkup(struct brcmf_cfg80211_vif *vif,
 	u32 event = e->event_code;
 	u32 status = e->status;
 
-	if (vif->profile.use_fwsup == BRCMF_PROFILE_FWSUP_PSK &&
-	    event == BRCMF_E_PSK_SUP &&
-	    status == BRCMF_E_STATUS_FWSUP_COMPLETED)
+	if (event == BRCMF_E_PSK_SUP &&
+	    status == BRCMF_E_STATUS_FWSUP_COMPLETED) {
 		set_bit(BRCMF_VIF_STATUS_EAP_SUCCESS, &vif->sme_state);
+		if (vif->profile.use_fwsup == BRCMF_PROFILE_FWSUP_1X)
+			return true;
+	}
+
 	if (event == BRCMF_E_SET_SSID && status == BRCMF_E_STATUS_SUCCESS) {
 		brcmf_dbg(CONN, "Processing set ssid\n");
 		memcpy(vif->profile.bssid, e->addr, ETH_ALEN);
@@ -5462,11 +5465,10 @@ static bool brcmf_is_linkup(struct brcmf_cfg80211_vif *vif,
 	}
 
 	if (test_bit(BRCMF_VIF_STATUS_EAP_SUCCESS, &vif->sme_state) &&
-	    test_bit(BRCMF_VIF_STATUS_ASSOC_SUCCESS, &vif->sme_state)) {
-		clear_bit(BRCMF_VIF_STATUS_EAP_SUCCESS, &vif->sme_state);
-		clear_bit(BRCMF_VIF_STATUS_ASSOC_SUCCESS, &vif->sme_state);
+	    test_and_clear_bit(BRCMF_VIF_STATUS_ASSOC_SUCCESS,
+			       &vif->sme_state))
 		return true;
-	}
+
 	return false;
 }
 
@@ -5806,6 +5808,13 @@ brcmf_bss_connect_done(struct brcmf_cfg80211_info *cfg,
 		cfg80211_connect_done(ndev, &conn_params, GFP_KERNEL);
 		brcmf_dbg(CONN, "Report connect result - connection %s\n",
 			  completed ? "succeeded" : "failed");
+	}
+
+	if (test_and_clear_bit(BRCMF_VIF_STATUS_EAP_SUCCESS,
+			       &ifp->vif->sme_state) &&
+	    profile->use_fwsup == BRCMF_PROFILE_FWSUP_1X) {
+		cfg80211_port_authorized(ndev, profile->bssid, GFP_KERNEL);
+		brcmf_dbg(CONN, "Report port authorized\n");
 	}
 	brcmf_dbg(TRACE, "Exit\n");
 	return 0;
