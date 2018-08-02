@@ -25,6 +25,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/of_pci.h>
+#include <linux/pci.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -369,6 +370,7 @@ static int ks_pcie_link_up(struct dw_pcie *pci)
 	return (val == PORT_LOGIC_LTSSM_STATE_L0);
 }
 
+#ifdef CONFIG_PCI
 static void ks_pcie_quirk(struct pci_dev *dev)
 {
 	struct pci_bus *bus = dev->bus;
@@ -413,6 +415,7 @@ static void ks_pcie_quirk(struct pci_dev *dev)
 	}
 }
 DECLARE_PCI_FIXUP_ENABLE(PCI_ANY_ID, PCI_ANY_ID, ks_pcie_quirk);
+#endif
 
 static void ks_pcie_msi_irq_handler(struct irq_desc *desc)
 {
@@ -1306,7 +1309,7 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbics");
-	base = devm_pci_remap_cfg_resource(dev, res);
+	base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 

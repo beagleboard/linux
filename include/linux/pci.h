@@ -2290,4 +2290,12 @@ static inline bool pci_is_thunderbolt_attached(struct pci_dev *pdev)
 /* provide the legacy pci_dma_* API */
 #include <linux/pci-dma-compat.h>
 
+#ifndef CONFIG_PCI
+static inline void __iomem *devm_pci_remap_cfg_resource(struct device *dev,
+							struct resource *res)
+{
+	return NULL;
+}
+#endif
+
 #endif /* LINUX_PCI_H */
