@@ -15,7 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <dt-bindings/dma/k3-udma.h>
-#include <linux/irqchip/irq-ti-sci.h>
+#include <linux/irqchip/irq-ti-sci-inta.h>
 #include <linux/soc/ti/cppi5.h>
 #include <linux/soc/ti/k3-navss-ringacc.h>
 #include <linux/dma/k3-navss-udma.h>
@@ -49,7 +49,7 @@ struct k3_nav_udmax_tx_channel {
 
 	struct k3_nav_psil_entry *psi_link;
 
-	struct ti_sci_irq_desc *irq_desc;
+	unsigned int virq;
 
 	atomic_t free_pkts;
 	bool tx_pause_on_err;
@@ -68,7 +68,7 @@ struct k3_nav_udmax_rx_flow {
 	struct k3_nav_ring *ringrx;
 	struct k3_nav_ring *ringrxfdq;
 
-	struct ti_sci_irq_desc *irq_desc;
+	unsigned int virq;
 };
 
 struct k3_nav_udmax_rx_channel {
@@ -543,27 +543,20 @@ int k3_nav_udmax_tx_get_irq(struct k3_nav_udmax_tx_channel *tx_chn,
 			    unsigned int *irq, u32 flags, bool share,
 			    struct k3_nav_udmax_tx_channel *tx_chn_share)
 {
-	struct ti_sci_irq_desc *irq_desc_share = NULL;
-	int ret;
+	unsigned int virq = 0;
 
 	if (share && tx_chn_share)
-		irq_desc_share = tx_chn_share->irq_desc;
+		virq = tx_chn_share->virq;
 
-	tx_chn->irq_desc = ti_sci_register_irq(
+	tx_chn->virq = ti_sci_inta_register_event(
 			tx_chn->common.dev,
-			irq_desc_share,
 			k3_nav_ringacc_get_tisci_dev_id(tx_chn->ringtxcq),
 			k3_nav_ringacc_get_ring_id(tx_chn->ringtxcq),
-			share,
-			0,
-			flags);
-	if (IS_ERR(tx_chn->irq_desc)) {
-		ret = PTR_ERR(tx_chn->irq_desc);
-		tx_chn->irq_desc = NULL;
-		return ret;
-	}
+			virq, flags);
+	if (tx_chn->virq <= 0)
+		return -ENODEV;
 
-	*irq = ti_sci_irq_desc_to_virq(tx_chn->irq_desc);
+	*irq = tx_chn->virq;
 
 	return 0;
 }
@@ -571,14 +564,14 @@ EXPORT_SYMBOL_GPL(k3_nav_udmax_tx_get_irq);
 
 void k3_nav_udmax_tx_put_irq(struct k3_nav_udmax_tx_channel *tx_chn)
 {
-	if (!tx_chn->irq_desc)
+	if (tx_chn->virq <= 0)
 		return;
 
-	ti_sci_unregister_irq(
+	ti_sci_inta_unregister_event(
 			tx_chn->common.dev,
-			tx_chn->irq_desc,
 			k3_nav_ringacc_get_tisci_dev_id(tx_chn->ringtxcq),
-			k3_nav_ringacc_get_ring_id(tx_chn->ringtxcq));
+			k3_nav_ringacc_get_ring_id(tx_chn->ringtxcq),
+			tx_chn->virq);
 }
 EXPORT_SYMBOL_GPL(k3_nav_udmax_tx_put_irq);
 
@@ -1138,9 +1131,8 @@ int k3_nav_udmax_rx_get_irq(struct k3_nav_udmax_rx_channel *rx_chn,
 			    unsigned int *irq, u32 flags, bool share,
 			    u32 flow_num_share)
 {
-	struct ti_sci_irq_desc *irq_desc_share = NULL;
 	struct k3_nav_udmax_rx_flow *flow, *flow_share;
-	int ret;
+	unsigned int virq = 0;
 
 	if (flow_num >= rx_chn->flow_num ||
 	    (flow_num_share != -1 && flow_num_share >= rx_chn->flow_num))
@@ -1150,24 +1142,18 @@ int k3_nav_udmax_rx_get_irq(struct k3_nav_udmax_rx_channel *rx_chn,
 
 	if (share && flow_num_share != -1) {
 		flow_share = &rx_chn->flows[flow_num_share];
-		irq_desc_share = flow_share->irq_desc;
+		virq = flow_share->virq;
 	}
 
-	flow->irq_desc = ti_sci_register_irq(
+	flow->virq = ti_sci_inta_register_event(
 			rx_chn->common.dev,
-			irq_desc_share,
 			k3_nav_ringacc_get_tisci_dev_id(flow->ringrx),
 			k3_nav_ringacc_get_ring_id(flow->ringrx),
-			share,
-			0,
-			flags);
-	if (IS_ERR(flow->irq_desc)) {
-		ret = PTR_ERR(flow->irq_desc);
-		flow->irq_desc = NULL;
-		return ret;
-	}
+			virq, flags);
+	if (flow->virq <= 0)
+		return -ENODEV;
 
-	*irq = ti_sci_irq_desc_to_virq(flow->irq_desc);
+	*irq = flow->virq;
 
 	return 0;
 }
@@ -1183,13 +1169,12 @@ void k3_nav_udmax_rx_put_irq(struct k3_nav_udmax_rx_channel *rx_chn,
 
 	flow = &rx_chn->flows[flow_num];
 
-	if (!flow->irq_desc)
+	if (flow->virq <= 0)
 		return;
 
-	ti_sci_unregister_irq(
+	ti_sci_inta_unregister_event(
 			rx_chn->common.dev,
-			flow->irq_desc,
 			k3_nav_ringacc_get_tisci_dev_id(flow->ringrx),
-			k3_nav_ringacc_get_ring_id(flow->ringrx));
+			k3_nav_ringacc_get_ring_id(flow->ringrx), flow->virq);
 }
 EXPORT_SYMBOL_GPL(k3_nav_udmax_rx_put_irq);
