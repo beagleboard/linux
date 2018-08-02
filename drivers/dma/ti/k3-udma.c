@@ -27,7 +27,7 @@
 #include <dt-bindings/dma/k3-udma.h>
 #include <linux/soc/ti/k3-navss-ringacc.h>
 #include <linux/soc/ti/ti_sci_protocol.h>
-#include <linux/irqchip/irq-ti-sci.h>
+#include <linux/irqchip/irq-ti-sci-inta.h>
 #include <linux/soc/ti/cppi5.h>
 
 #include "../virt-dma.h"
@@ -328,8 +328,6 @@ struct udma_chan {
 
 	struct k3_nav_psil_entry *psi_link;
 
-	struct ti_sci_irq_desc *irqdesc_ring;
-	struct ti_sci_irq_desc *irqdesc_udma;
 	u32 irq_ra_tisci;
 	u32 irq_ra_idx;
 	u32 irq_udma_idx;
@@ -1002,9 +1000,10 @@ static irqreturn_t udma_ring_irq_handler(int irq, void *data)
 static irqreturn_t udma_udma_irq_handler(int irq, void *data)
 {
 	struct udma_chan *uc = data;
+	struct udma_tisci_rm *tisci_rm = &uc->ud->tisci_rm;
 
-	ti_sci_ack_irq(uc->irqdesc_udma, uc->ud->tisci_rm.tisci_dev_id,
-		       uc->irq_udma_idx);
+	ti_sci_inta_ack_event(uc->ud->dev, tisci_rm->tisci_dev_id,
+			      uc->irq_udma_idx, uc->irq_num_udma);
 
 	udma_tr_event_callback(uc);
 
@@ -1722,40 +1721,30 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	}
 
 	/* Get the interrupts... */
-	uc->irqdesc_ring = ti_sci_register_irq(ud->dev, NULL, uc->irq_ra_tisci,
-					       uc->irq_ra_idx,
-					       0, //TI_SCI_IRQ_SHARE_DISABLE,
-					       0, //TI_SCI_IRQ_POLL_DISABLE,
-					       IRQF_TRIGGER_HIGH);
-	if (IS_ERR(uc->irqdesc_ring)) {
-		dev_err(ud->dev, "Failed to get ring irq (index: %u) %ld\n",
-			uc->irq_ra_idx, PTR_ERR(uc->irqdesc_ring));
-		ret = PTR_ERR(uc->irqdesc_ring);
-		uc->irqdesc_ring = NULL;
+	uc->irq_num_ring = ti_sci_inta_register_event(ud->dev, uc->irq_ra_tisci,
+						      uc->irq_ra_idx, 0,
+						      IRQF_TRIGGER_HIGH);
+	if (uc->irq_num_ring <= 0) {
+		dev_err(ud->dev, "Failed to get ring irq (index: %u) %d\n",
+			uc->irq_ra_idx, uc->irq_num_ring);
+		ret = uc->irq_num_ring;
 		goto err_psi_free;
 	}
 
-	uc->irqdesc_udma = ti_sci_register_irq(ud->dev, NULL,
-					       tisci_rm->tisci_dev_id,
-					       uc->irq_udma_idx,
-					       0, //TI_SCI_IRQ_SHARE_DISABLE,
-					       0, //TI_SCI_IRQ_POLL_DISABLE,
-					       IRQF_TRIGGER_HIGH);
-	if (IS_ERR(uc->irqdesc_udma)) {
-		dev_err(ud->dev, "Failed to get udma irq (index: %u) %ld\n",
-			uc->irq_udma_idx, PTR_ERR(uc->irqdesc_udma));
+	uc->irq_num_udma = ti_sci_inta_register_event(ud->dev,
+						      tisci_rm->tisci_dev_id,
+						      uc->irq_udma_idx, 0,
+						      IRQF_TRIGGER_HIGH);
+	if (uc->irq_num_udma <= 0) {
+		dev_err(ud->dev, "Failed to get udma irq (index: %u) %d\n",
+			uc->irq_udma_idx, uc->irq_num_udma);
 
-		ti_sci_unregister_irq(ud->dev, uc->irqdesc_ring,
-				      uc->irq_ra_tisci, uc->irq_ra_idx);
-		uc->irqdesc_ring = NULL;
+		ti_sci_inta_unregister_event(ud->dev, uc->irq_ra_tisci,
+					     uc->irq_ra_idx, uc->irq_num_ring);
 
-		ret = PTR_ERR(uc->irqdesc_udma);
-		uc->irqdesc_udma = NULL;
+		ret = uc->irq_num_udma;
 		goto err_psi_free;
 	}
-
-	uc->irq_num_ring = ti_sci_irq_desc_to_virq(uc->irqdesc_ring);
-	uc->irq_num_udma = ti_sci_irq_desc_to_virq(uc->irqdesc_udma);
 
 	ret = request_irq(uc->irq_num_ring, udma_ring_irq_handler, 0, uc->name,
 			  uc);
@@ -1785,13 +1774,13 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	return 0;
 
 err_irq_free:
-	ti_sci_unregister_irq(ud->dev, uc->irqdesc_ring, uc->irq_ra_tisci,
-			      uc->irq_ra_idx);
-	uc->irqdesc_ring = NULL;
+	ti_sci_inta_unregister_event(ud->dev, uc->irq_ra_tisci, uc->irq_ra_idx,
+				     uc->irq_num_ring);
+	uc->irq_num_ring = 0;
 
-	ti_sci_unregister_irq(ud->dev, uc->irqdesc_udma, tisci_rm->tisci_dev_id,
-			      uc->irq_udma_idx);
-	uc->irqdesc_udma = NULL;
+	ti_sci_inta_unregister_event(ud->dev, tisci_rm->tisci_dev_id,
+				     uc->irq_udma_idx, uc->irq_num_udma);
+	uc->irq_num_udma = 0;
 err_psi_free:
 	k3_nav_psil_release_link(uc->psi_link);
 err_chan_free:
@@ -2908,21 +2897,20 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 
 	udma_terminate_all(chan);
 
-	if (uc->irq_num_ring >= 0) {
+	if (uc->irq_num_ring > 0) {
 		free_irq(uc->irq_num_ring, uc);
-		uc->irq_num_ring = -1;
 
-		ti_sci_unregister_irq(ud->dev, uc->irqdesc_ring,
-				      uc->irq_ra_tisci, uc->irq_ra_idx);
-		uc->irqdesc_ring = NULL;
+		ti_sci_inta_unregister_event(ud->dev, uc->irq_ra_tisci,
+					     uc->irq_ra_idx, uc->irq_num_ring);
+		uc->irq_num_ring = 0;
 	}
-	if (uc->irq_num_udma >= 0) {
+	if (uc->irq_num_udma > 0) {
 		free_irq(uc->irq_num_udma, uc);
-		uc->irq_num_udma = -1;
 
-		ti_sci_unregister_irq(ud->dev, uc->irqdesc_udma,
-				      tisci_rm->tisci_dev_id, uc->irq_udma_idx);
-		uc->irqdesc_udma = NULL;
+		ti_sci_inta_unregister_event(ud->dev, tisci_rm->tisci_dev_id,
+					     uc->irq_udma_idx,
+					     uc->irq_num_udma);
+		uc->irq_num_udma = 0;
 	}
 
 	/* Release PSI-L pairing */
