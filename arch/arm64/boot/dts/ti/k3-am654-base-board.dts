@@ -47,7 +47,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&icssg2_rgmii_pins_default>;
 		sram = <&msmc_ram>;
-		interrupt-parent = <&k3_irq>;
+		interrupt-parent = <&main_udmass_inta>;
 
 		prus = <&pru2_0>, <&rtu2_0>, <&pru2_1>, <&rtu2_1>;
 		firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
