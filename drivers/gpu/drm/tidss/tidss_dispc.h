@@ -93,11 +93,17 @@ struct dispc_ops {
 
 	u32 (*get_memory_bandwidth_limit)(struct dispc_device *dispc);
 
+	void (*vp_prepare)(struct dispc_device *dispc, u32 hw_videoport,
+			   const struct drm_display_mode *mode,
+			   u32 bus_fmt, u32 bus_flags);
+
 	void (*vp_enable)(struct dispc_device *dispc, u32 hw_videoport,
 			  const struct drm_display_mode *mode,
 			  u32 bus_fmt, u32 bus_flags);
 
 	void (*vp_disable)(struct dispc_device *dispc, u32 hw_videoport);
+
+	void (*vp_unprepare)(struct dispc_device *dispc, u32 hw_videoport);
 
 	bool (*vp_go_busy)(struct dispc_device *dispc,
 			   u32 hw_videoport);

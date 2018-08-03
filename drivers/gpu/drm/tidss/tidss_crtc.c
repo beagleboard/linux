@@ -198,6 +198,12 @@ static void tidss_crtc_atomic_enable(struct drm_crtc *crtc,
 	/* Turn vertical blanking interrupt reporting on. */
 	drm_crtc_vblank_on(crtc);
 
+	if (tidss->dispc_ops->vp_prepare)
+		tidss->dispc_ops->vp_prepare(tidss->dispc, tcrtc->hw_videoport,
+					     mode,
+					     tcrtc_state->bus_format,
+					     tcrtc_state->bus_flags);
+
 	tcrtc->enabled = true;
 
 	tidss->dispc_ops->vp_enable(tidss->dispc, tcrtc->hw_videoport,
@@ -232,6 +238,10 @@ static void tidss_crtc_atomic_disable(struct drm_crtc *crtc,
 					 msecs_to_jiffies(500)))
 		dev_err(tidss->dev, "Timeout waiting for framedone on crtc %d",
 			tcrtc->hw_videoport);
+
+	if (tidss->dispc_ops->vp_unprepare)
+		tidss->dispc_ops->vp_unprepare(tidss->dispc,
+					       tcrtc->hw_videoport);
 
 	spin_lock_irq(&ddev->event_lock);
 	if (crtc->state->event) {
