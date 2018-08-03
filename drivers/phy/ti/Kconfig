@@ -23,6 +23,7 @@ config PHY_DM816X_USB
 config PHY_AM654
 	tristate "TI AM654 SERDES support"
 	depends on OF && ARCH_K3 || COMPILE_TEST
+	depends on COMMON_CLK
 	select GENERIC_PHY
 	select MULTIPLEXER
 	select REGMAP_MMIO
