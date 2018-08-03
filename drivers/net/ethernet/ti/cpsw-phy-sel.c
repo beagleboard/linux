@@ -230,8 +230,7 @@ void cpsw_phy_sel(struct device *dev, phy_interface_t phy_mode, int slave)
 
 	dev = bus_find_device(&platform_bus_type, NULL, node, match);
 	if (!dev) {
-		dev_err(dev, "unable to find platform device for %s\n",
-			of_node_full_name(node));
+		dev_err(dev, "unable to find platform device for %pOF\n", node);
 		goto out;
 	}
 
