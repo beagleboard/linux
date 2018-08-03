@@ -20,7 +20,7 @@
 		display0 {
 			compatible = "rockteck,rk101ii01d-ct";
 			backlight = <&lcd_bl>;
-			enable-gpios = <&pca9555 10 GPIO_ACTIVE_HIGH>;
+			enable-gpios = <&pca9555 8 GPIO_ACTIVE_HIGH>;
 
 			port {
 				lcd_in0: endpoint {
@@ -68,7 +68,7 @@
 		touchscreen-size-x = <1280>;
 		touchscreen-size-y = <800>;
 
-		reset-gpios = <&pca9555 11 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&pca9555 9 GPIO_ACTIVE_HIGH>;
 		irq-gpios = <&pca9554 3 GPIO_ACTIVE_HIGH>;
 	};
 };
