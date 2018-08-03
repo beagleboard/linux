@@ -503,6 +503,33 @@ static void dispc7_enable_oldi(struct dispc_device *dispc, u32 hw_videoport,
 			 __func__);
 }
 
+static void dispc7_vp_prepare(struct dispc_device *dispc, u32 hw_videoport,
+			      const struct drm_display_mode *mode,
+			      u32 bus_fmt, u32 bus_flags)
+{
+	const struct dispc7_bus_format *fmt = NULL;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dispc7_bus_formats); ++i) {
+		if (dispc7_bus_formats[i].bus_fmt != bus_fmt)
+			continue;
+
+		fmt = &dispc7_bus_formats[i];
+		break;
+	}
+
+	if (WARN_ON(!fmt))
+		return;
+
+	if (fmt->oldi) {
+		dispc7_oldi_tx_power(dispc, true);
+
+		dispc7_enable_oldi(dispc, hw_videoport, fmt);
+
+		dispc->vp_data[hw_videoport].oldi = true;
+	}
+}
+
 static void dispc7_vp_enable(struct dispc_device *dispc, u32 hw_videoport,
 			     const struct drm_display_mode *mode,
 			     u32 bus_fmt, u32 bus_flags)
@@ -591,22 +618,16 @@ static void dispc7_vp_enable(struct dispc_device *dispc, u32 hw_videoport,
 			FLD_VAL(mode->hdisplay - 1, 11, 0) |
 			FLD_VAL(mode->vdisplay - 1, 27, 16));
 
-
-	if (fmt->oldi) {
-		dispc7_oldi_tx_power(dispc, true);
-
-		dispc7_enable_oldi(dispc, hw_videoport, fmt);
-
-		dispc->vp_data[hw_videoport].oldi = true;
-	}
-
 	VP_REG_FLD_MOD(dispc, hw_videoport, DISPC_VP_CONTROL, 1, 0, 0);
 }
 
 static void dispc7_vp_disable(struct dispc_device *dispc, u32 hw_videoport)
 {
 	VP_REG_FLD_MOD(dispc, hw_videoport, DISPC_VP_CONTROL, 0, 0, 0);
+}
 
+static void dispc7_vp_unprepare(struct dispc_device *dispc, u32 hw_videoport)
+{
 	if (dispc->vp_data[hw_videoport].oldi) {
 		dispc7_vp_write(dispc, hw_videoport, DISPC_VP_DSS_OLDI_CFG, 0);
 
@@ -1573,8 +1594,10 @@ static const struct dispc_ops dispc7_ops = {
 	.plane_name = dispc7_plane_name,
 	.vp_name = dispc7_vp_name,
 
+	.vp_prepare = dispc7_vp_prepare,
 	.vp_enable = dispc7_vp_enable,
 	.vp_disable = dispc7_vp_disable,
+	.vp_unprepare = dispc7_vp_unprepare,
 	.vp_go_busy = dispc7_vp_go_busy,
 	.vp_go = dispc7_vp_go,
 
