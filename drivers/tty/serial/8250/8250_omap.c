@@ -1142,21 +1142,6 @@ static bool the_no_dma_filter_fn(struct dma_chan *chan, void *param)
 	return false;
 }
 
-#else
-
-static inline int omap_8250_rx_dma(struct uart_8250_port *p)
-{
-	return -EINVAL;
-}
-#endif
-
-static int omap8250_no_handle_irq(struct uart_port *port)
-{
-	/* IRQ has not been requested but handling irq? */
-	WARN_ONCE(1, "Unexpected irq handling before port startup\n");
-	return 0;
-}
-
 static struct uart_8250_dma am654_dma = {
 	.fn = the_no_dma_filter_fn,
 	.tx_dma = omap_8250_tx_dma,
@@ -1176,19 +1161,39 @@ static struct uart_8250_dma am33xx_dma = {
 	.rxconf.src_maxburst = RX_TRIGGER,
 	.txconf.dst_maxburst = TX_TRIGGER,
 };
+#else
+
+static inline int omap_8250_rx_dma(struct uart_8250_port *p)
+{
+	return -EINVAL;
+}
+#endif
+
+static int omap8250_no_handle_irq(struct uart_port *port)
+{
+	/* IRQ has not been requested but handling irq? */
+	WARN_ONCE(1, "Unexpected irq handling before port startup\n");
+	return 0;
+}
 
 static struct omap8250_platdata am654_platdata = {
+#ifdef CONFIG_SERIAL_8250_DMA
 	.dma = &am654_dma,
+#endif
 	.habit  = UART_HAS_EFR2,
 };
 
 static struct omap8250_platdata am33xx_platdata = {
+#ifdef CONFIG_SERIAL_8250_DMA
 	.dma = &am33xx_dma,
+#endif
 	.habit = OMAP_DMA_TX_KICK | UART_ERRATA_CLOCK_DISABLE,
 };
 
 static struct omap8250_platdata omap4_platdata = {
+#ifdef CONFIG_SERIAL_8250_DMA
 	.dma = &am33xx_dma,
+#endif
 	.habit = UART_ERRATA_CLOCK_DISABLE,
 };
 
