@@ -765,6 +765,18 @@ static void dispc7_vp_disable_clk(struct dispc_device *dispc, u32 hw_videoport)
 	clk_disable_unprepare(dispc->vp_clk[hw_videoport]);
 }
 
+/*
+ * Calculate the percentage difference between the requested pixel clock rate
+ * and the effective rate resulting from calculating the clock divider value.
+ */
+static unsigned int dispc7_pclk_diff(unsigned long rate,
+				     unsigned long real_rate)
+{
+	int r = rate / 100, rr = real_rate / 100;
+
+	return (unsigned int)(abs(((rr - r) * 100) / r));
+}
+
 static int dispc7_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
 				  unsigned long rate)
 {
@@ -780,10 +792,10 @@ static int dispc7_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
 
 	new_rate = clk_get_rate(dispc->vp_clk[hw_videoport]);
 
-	if (rate != new_rate)
+	if (dispc7_pclk_diff(rate, new_rate) > 5)
 		dev_warn(dispc->dev,
-			 "Failed to get exact pix clock %lu != %lu\n",
-			 rate, new_rate);
+			 "Clock rate %lu differs over 5%% from requsted %lu\n",
+			 new_rate, rate);
 
 	dev_dbg(dispc->dev, "New VP%d rate %lu Hz (requested %lu Hz)\n",
 		hw_videoport, clk_get_rate(dispc->vp_clk[hw_videoport]), rate);
