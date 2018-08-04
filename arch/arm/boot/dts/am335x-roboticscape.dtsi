@@ -42,6 +42,7 @@
 	/* librobotcontrol expects /dev/spidev1 */
 	spi0 = &spi0;
 	spi1 = &spi1;
+	/delete-property/ spi2;
 };
 
 /*******************************************************************************
