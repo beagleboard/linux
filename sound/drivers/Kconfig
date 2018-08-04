@@ -184,6 +184,15 @@ config SND_PORTMAN2X4
 	  To compile this driver as a module, choose M here: the module
 	  will be called snd-portman2x4.
 
+config SND_PWMSP
+	tristate "PWM Speaker driver (PCM)"
+	depends on HIGH_RES_TIMERS
+	select SND_PCM
+	select PWM
+	help
+	  To compile this driver as a module, choose M here: the module
+	  will be called snd-pwm.
+
 config SND_ML403_AC97CR
 	tristate "Xilinx ML403 AC97 Controller Reference"
 	depends on XILINX_VIRTEX
