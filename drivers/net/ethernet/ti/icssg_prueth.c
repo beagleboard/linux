@@ -726,7 +726,7 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 
 err:
 	dev_err(dev, "slice %d: cmd %d failed: %d\n",
-		slice, ICSS_CMD_ADD_MAC, ret);
+		slice, cmd, ret);
 halt_rtu:
 	rproc_shutdown(prueth->rtu[slice]);
 halt_pru:
