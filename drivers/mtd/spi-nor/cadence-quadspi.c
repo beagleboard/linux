@@ -1477,7 +1477,7 @@ static const struct dev_pm_ops cqspi__dev_pm_ops = {
 #define CQSPI_DEV_PM_OPS	NULL
 #endif
 static const struct cqspi_platdata cqspi_am654_platdata = {
-	.dma_coherent_mask = BIT(48),
+	.dma_coherent_mask = DMA_BIT_MASK(48),
 	.quirks = CQSPI_NEEDS_WR_DELAY,
 };
 

@@ -355,7 +355,7 @@
 			clock-frequency = <48000000>;
 			current-speed = <115200>;
 			dmas = <&main_udmap &pdma_main1 20 UDMA_DIR_TX>,
-			       <&mcu_udmap &pdma_main1 20 UDMA_DIR_RX>;
+			       <&main_udmap &pdma_main1 20 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -369,7 +369,7 @@
 			clock-frequency = <48000000>;
 			current-speed = <115200>;
 			dmas = <&main_udmap &pdma_main1 21 UDMA_DIR_TX>,
-			       <&mcu_udmap &pdma_main1 21 UDMA_DIR_RX>;
+			       <&main_udmap &pdma_main1 21 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -383,7 +383,7 @@
 			clock-frequency = <48000000>;
 			current-speed = <115200>;
 			dmas = <&main_udmap &pdma_main1 22 UDMA_DIR_TX>,
-			       <&mcu_udmap &pdma_main1 22 UDMA_DIR_RX>;
+			       <&main_udmap &pdma_main1 22 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
