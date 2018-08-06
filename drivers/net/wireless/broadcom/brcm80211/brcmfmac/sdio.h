@@ -182,10 +182,28 @@ struct ulp_shm_info {
 	u32 m_ulp_ctrl_sdio;
 	u32 m_ulp_wakeevt_ind;
 	u32 m_ulp_wakeind;
+	u32 m_ulp_phytxblk;
 };
 
-struct fmac_ulp {
+/* FMAC ULP state machine */
+#define FMAC_ULP_IDLE		(0)
+#define FMAC_ULP_ENTRY_RECV		(1)
+#define FMAC_ULP_TRIGGERED		(2)
+
+/* BRCMF_E_ULP event data */
+#define FMAC_ULP_EVENT_VERSION		1
+#define FMAC_ULP_DISABLE_CONSOLE		1 /* Disable console */
+#define FMAC_ULP_UCODE_DOWNLOAD		2 /* Download ULP ucode file */
+#define FMAC_ULP_ENTRY		3 /* Inform ulp entry to Host */
+
+struct brcmf_ulp {
+	uint ulp_state;
 	struct ulp_shm_info ulp_shm_offset;
+};
+
+struct brcmf_ulp_event {
+	u16 version;
+	u16 ulp_dongle_action;
 };
 
 struct brcmf_sdio_dev {
@@ -212,7 +230,7 @@ struct brcmf_sdio_dev {
 	bool wowl_enabled;
 	enum brcmf_sdiod_state state;
 	struct brcmf_sdiod_freezer *freezer;
-	struct fmac_ulp shm_ulp;
+	struct brcmf_ulp fmac_ulp;
 	bool ulp;
 };
 
@@ -393,6 +411,7 @@ void brcmf_sdio_trigger_dpc(struct brcmf_sdio *bus);
 #define M_DS1_CTRL_SDIO(ptr)	((ptr).ulp_shm_offset.m_ulp_ctrl_sdio)
 #define M_WAKEEVENT_IND(ptr)	((ptr).ulp_shm_offset.m_ulp_wakeevt_ind)
 #define M_ULP_WAKE_IND(ptr)		((ptr).ulp_shm_offset.m_ulp_wakeind)
+#define M_DS1_PHYTX_ERR_BLK(ptr)	((ptr).ulp_shm_offset.m_ulp_phytxblk)
 
 #define D11_BASE_ADDR			0x18001000
 #define D11_AXI_BASE_ADDR		0xE8000000
@@ -406,17 +425,7 @@ void brcmf_sdio_trigger_dpc(struct brcmf_sdio *bus);
 #define D11_MACCONTROL_REG			D11REG_ADDR(0x120)
 #define D11_MACCONTROL_REG_WAKE		0x4000000
 
-/* Following are the offsets in M_DRVR_UCODE_IF_PTR block. Start address of
- * M_DRVR_UCODE_IF_PTR block is present in M_DRVR_UCODE_IF_PTR.
- */
-
-/* M_ULP_WAKE_IND bits */
-#define ULP_WAKE_IND_WATCHDOG_EXP		0x1
-#define ULP_WAKE_IND_FCBS_ERROR			0x2
-#define ULP_WAKE_IND_RE_TRANSMIT_ERR	0x4
-#define ULP_WAKE_IND_HOST_WKUP			0x8
-#define ULP_WAKE_IND_INVALID_FCBS_BLK	0x10
-
+/* HUDI Sequence SHM bits */
 #define	C_DS1_CTRL_SDIO_DS1_SLEEP		0x1
 #define	C_DS1_CTRL_SDIO_MAC_ON			0x2
 #define	C_DS1_CTRL_SDIO_RADIO_PHY_ON	0x4
@@ -424,12 +433,53 @@ void brcmf_sdio_trigger_dpc(struct brcmf_sdio *bus);
 #define	C_DS1_CTRL_PROC_DONE			0x100
 #define	C_DS1_CTRL_REQ_VALID			0x200
 
-#define D11SHM_WR(sdh, offset, val, ret) \
-	brcmf_sdiod_regwl(sdh, D11SHM_ADDR(offset), val, ret)
+/* M_ULP_WAKEIND bits */
+#define	C_WATCHDOG_EXPIRY	BIT(0)
+#define	C_FCBS_ERROR		BIT(1)
+#define	C_RETX_FAILURE		BIT(2)
+#define	C_HOST_WAKEUP		BIT(3)
+#define	C_INVALID_FCBS_BLOCK	BIT(4)
+#define	C_HUDI_DS1_EXIT		BIT(5)
+#define	C_LOB_SLEEP		BIT(6)
+#define	C_DS1_PHY_TXERR		BIT(9)
+#define	C_DS1_WAKE_TIMER	BIT(10)
+
+#define PHYTX_ERR_BLK_SIZE		18
+#define D11SHM_FIRST2BYTE_MASK		0xFFFF0000
+#define D11SHM_SECOND2BYTE_MASK		0x0000FFFF
+#define D11SHM_2BYTE_SHIFT		16
 
 #define D11SHM_RD(sdh, offset, ret) \
 	brcmf_sdiod_regrl(sdh, D11SHM_ADDR(offset), ret)
 
+/* SHM Read is motified based on SHM 4 byte alignment as SHM size is 2 bytes and
+ * 2 byte is currently not working on FMAC
+ * If SHM address is not 4 byte aligned, then right shift by 16
+ * otherwise, mask the first two MSB bytes
+ * Suppose data in address 7260 is 0x440002 and it is 4 byte aligned
+ * Correct SHM value is 0x2 for this SHM offset and next SHM value is 0x44
+ */
+#define D11SHM_RDW(sdh, offset, ret) \
+	((offset % 4) ? \
+		(brcmf_sdiod_regrl(sdh, D11SHM_ADDR(offset), ret) \
+		>> D11SHM_2BYTE_SHIFT) : \
+		(brcmf_sdiod_regrl(sdh, D11SHM_ADDR(offset), ret) \
+		& D11SHM_SECOND2BYTE_MASK))
+
+/* SHM is of size 2 bytes, 4 bytes write will overwrite other SHM's
+ * First read 4 bytes and then clear the required two bytes based on
+ * 4 byte alignment, then update the required value and write the
+ * 4 byte value now
+ */
+#define D11SHM_WR(sdh, offset, val, mask, ret) \
+	do { \
+		if ((offset) % 4) \
+			val = (val & D11SHM_SECOND2BYTE_MASK) | \
+				((mask) << D11SHM_2BYTE_SHIFT); \
+		else \
+			val = (mask) | (val & D11SHM_FIRST2BYTE_MASK); \
+		brcmf_sdiod_regwl(sdh, D11SHM_ADDR(offset), val, ret); \
+	} while (0)
 #define D11REG_WR(sdh, addr, val, ret) \
 	brcmf_sdiod_regwl(sdh, addr, val, ret)
 
