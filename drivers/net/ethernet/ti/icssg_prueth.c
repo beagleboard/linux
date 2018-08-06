@@ -126,6 +126,8 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 	if (slice < 0)
 		return slice;
 
+	init_completion(&emac->tdown_complete);
+
 	hdesc_size = knav_udmap_hdesc_calc_size(false,
 						PRUETH_NAV_PS_DATA_SIZE,
 						PRUETH_NAV_SW_DATA_SIZE);
@@ -313,6 +315,9 @@ static int emac_rx_packet(struct prueth_emac *emac)
 			netdev_err(ndev, "rx pop: failed: %d\n", ret);
 		return ret;
 	}
+
+	if (desc_dma & 0x1) /* Teardown ? */
+		return 0;
 
 	desc_rx = k3_knav_pool_dma2virt(rx_chn->desc_pool, desc_dma);
 
@@ -566,6 +571,12 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
 		if (res == -ENODATA)
 			break;
 
+		/* teardown completion */
+		if (desc_dma & 0x1) {
+			complete(&emac->tdown_complete);
+			break;
+		}
+
 		desc_tx = k3_knav_pool_dma2virt(tx_chn->desc_pool, desc_dma);
 		swdata = knav_udmap_hdesc_get_swdata(desc_tx);
 		skb = *(swdata);
@@ -618,10 +629,8 @@ static irqreturn_t prueth_rx_irq(int irq, void *dev_id)
 {
 	struct prueth_emac *emac = dev_id;
 
-	if (likely(netif_running(emac->ndev))) {
-		disable_irq_nosync(irq);
-		napi_schedule(&emac->napi_rx);
-	}
+	disable_irq_nosync(irq);
+	napi_schedule(&emac->napi_rx);
 
 	return IRQ_HANDLED;
 }
@@ -630,10 +639,8 @@ static irqreturn_t prueth_tx_irq(int irq, void *dev_id)
 {
 	struct prueth_emac *emac = dev_id;
 
-	if (likely(netif_running(emac->ndev))) {
-		disable_irq_nosync(irq);
-		napi_schedule(&emac->napi_tx);
-	}
+	disable_irq_nosync(irq);
+	napi_schedule(&emac->napi_tx);
 
 	return IRQ_HANDLED;
 }
@@ -949,15 +956,19 @@ cleanup_tx:
 static int emac_ndo_stop(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
+	int ret;
 
 	/* inform the upper layers. */
 	netif_stop_queue(ndev);
-	napi_disable(&emac->napi_tx);
-	napi_disable(&emac->napi_rx);
-	netif_carrier_off(ndev);
 
 	/* tear down and disable UDMA channels */
-	k3_nav_udmax_tdown_tx_chn(emac->tx_chns.tx_chn, true);
+	reinit_completion(&emac->tdown_complete);
+	k3_nav_udmax_tdown_tx_chn(emac->tx_chns.tx_chn, false);
+	ret = wait_for_completion_timeout(&emac->tdown_complete,
+			msecs_to_jiffies(1000));
+	if (!ret)
+		netdev_err(ndev, "tx teardown timeout\n");
+
 	k3_nav_udmax_reset_tx_chn(emac->tx_chns.tx_chn,
 				  emac,
 				  prueth_tx_cleanup);
@@ -967,6 +978,9 @@ static int emac_ndo_stop(struct net_device *ndev)
 	k3_nav_udmax_reset_rx_chn(emac->rx_chns.rx_chn, 0, emac,
 				  prueth_rx_cleanup, 0);
 	k3_nav_udmax_disable_rx_chn(emac->rx_chns.rx_chn);
+
+	napi_disable(&emac->napi_tx);
+	napi_disable(&emac->napi_rx);
 
 	/* stop PHY */
 	phy_stop(emac->phydev);
