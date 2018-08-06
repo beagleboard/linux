@@ -869,6 +869,8 @@ static SIMPLE_DEV_PM_OPS(goodix_pm_ops, goodix_suspend, goodix_resume);
 
 static const struct i2c_device_id goodix_ts_id[] = {
 	{ "GDIX1001:00", 0 },
+	{ "gt9271", 0 },
+	{ "gt928", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, goodix_ts_id);
@@ -909,7 +911,6 @@ static struct i2c_driver goodix_ts_driver = {
 };
 module_i2c_driver(goodix_ts_driver);
 
-MODULE_ALIAS("i2c:gt9271");
 MODULE_AUTHOR("Benjamin Tissoires <benjamin.tissoires@gmail.com>");
 MODULE_AUTHOR("Bastien Nocera <hadess@hadess.net>");
 MODULE_DESCRIPTION("Goodix touchscreen driver");
