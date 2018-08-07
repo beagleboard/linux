@@ -392,7 +392,7 @@ static bool is_event_last(struct ti_sci_inta_vint_desc *vint_desc,
 
 	raw_spin_lock_irqsave(&vint_desc->lock, flags);
 	next_event = find_next_bit(vint_desc->event_map, MAX_EVENTS_PER_VINT,
-				   event_index);
+				   event_index + 1);
 	status = (next_event != MAX_EVENTS_PER_VINT) ? false : true;
 	if (event_index !=
 		find_first_bit(vint_desc->event_map, MAX_EVENTS_PER_VINT))
