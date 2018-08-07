@@ -57,13 +57,11 @@ static int ti_sci_inta_irq_domain_translate(struct irq_domain *domain,
 					    unsigned int *type)
 {
 	if (is_of_node(fwspec->fwnode)) {
-		if (fwspec->param_count != 3)
+		if (fwspec->param_count != 4)
 			return -EINVAL;
 
-		*hwirq = ((fwspec->param[0] & TI_SCI_DEV_ID_MASK) <<
-			  TI_SCI_DEV_ID_SHIFT) |
-			 (fwspec->param[1] & TI_SCI_IRQ_ID_MASK);
-		*type = fwspec->param[2] & IRQ_TYPE_SENSE_MASK;
+		*hwirq = fwspec->param[2];
+		*type = fwspec->param[3] & IRQ_TYPE_SENSE_MASK;
 
 		return 0;
 	}
@@ -177,7 +175,7 @@ static int ti_sci_allocate_event_irq(struct ti_sci_inta_irq_domain *inta,
 static struct ti_sci_inta_vint_desc *alloc_intr_irq(struct irq_domain *domain,
 						    unsigned int virq,
 						    u32 src_id, u32 src_index,
-						    u32 flags)
+						    u32 vint, u32 flags)
 {
 	struct ti_sci_inta_irq_domain *inta = domain->host_data;
 	struct ti_sci_inta_vint_desc *vint_desc;
@@ -199,7 +197,7 @@ static struct ti_sci_inta_vint_desc *alloc_intr_irq(struct irq_domain *domain,
 		return ERR_PTR(-ENOMEM);
 	}
 
-	vint_desc->vint = ti_sci_get_free_resource(inta->vint);
+	vint_desc->vint = vint;
 	fwspec.fwnode = domain->parent->fwnode;
 	fwspec.param_count = 3;
 	fwspec.param[0] = inta->ia_id;
@@ -241,7 +239,8 @@ static int ti_sci_inta_irq_domain_alloc(struct irq_domain *domain,
 		return -EINVAL;
 
 	vint_desc = alloc_intr_irq(domain, virq, fwspec->param[0],
-				   fwspec->param[1], fwspec->param[2]);
+				   fwspec->param[1], fwspec->param[2],
+				   fwspec->param[3]);
 	if (IS_ERR(vint_desc))
 		return PTR_ERR(vint_desc);
 
@@ -331,6 +330,7 @@ int ti_sci_inta_register_event(struct device *dev, u16 src_id, u16 src_index,
 			       unsigned int virq, u32 flags)
 {
 	struct ti_sci_inta_vint_desc *vint_desc;
+	struct ti_sci_inta_irq_domain *inta;
 	struct device_node *parent_node;
 	struct irq_domain *domain;
 	struct irq_fwspec fwspec;
@@ -345,24 +345,29 @@ int ti_sci_inta_register_event(struct device *dev, u16 src_id, u16 src_index,
 	if (!domain)
 		return -EPROBE_DEFER;
 
+	inta = domain->host_data;
+
 	/* ToDo: Handle Polling mode */
 	if (virq > 0) {
 		/* If Group already available */
 		d = irq_domain_get_irq_data(domain, virq);
 		vint_desc = irq_data_get_irq_chip_data(d);
 
-		err = ti_sci_allocate_event_irq(domain->host_data, vint_desc,
-						src_id, src_index);
+		err = ti_sci_allocate_event_irq(inta, vint_desc, src_id,
+						src_index);
 		if (err)
 			return err;
 	} else {
-		fwspec.param_count = 3;
+		fwspec.param_count = 4;
 		fwspec.fwnode = domain->fwnode;
 		fwspec.param[0] = src_id;
 		fwspec.param[1] = src_index;
-		fwspec.param[2] = flags;
+		fwspec.param[2] = ti_sci_get_free_resource(inta->vint);
+		fwspec.param[3] = flags;
 
 		virq = irq_create_fwspec_mapping(&fwspec);
+		if (virq <= 0)
+			ti_sci_release_resource(inta->vint, fwspec.param[2]);
 	}
 
 	return virq;
