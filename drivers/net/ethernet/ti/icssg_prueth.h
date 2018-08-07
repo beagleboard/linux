@@ -131,6 +131,7 @@ struct prueth_emac {
 
 	/* DMA related */
 	struct prueth_tx_chn tx_chns;
+	struct completion tdown_complete;
 	struct prueth_rx_chn rx_chns;
 	int rx_flow_id_base;
 
