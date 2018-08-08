@@ -1727,7 +1727,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	if (uc->irq_num_ring <= 0) {
 		dev_err(ud->dev, "Failed to get ring irq (index: %u) %d\n",
 			uc->irq_ra_idx, uc->irq_num_ring);
-		ret = uc->irq_num_ring;
+		ret = -EINVAL;
 		goto err_psi_free;
 	}
 
@@ -1742,7 +1742,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		ti_sci_inta_unregister_event(ud->dev, uc->irq_ra_tisci,
 					     uc->irq_ra_idx, uc->irq_num_ring);
 
-		ret = uc->irq_num_udma;
+		ret = -EINVAL;
 		goto err_psi_free;
 	}
 
@@ -3216,8 +3216,6 @@ static int udma_probe(struct platform_device *pdev)
 		uc->vc.desc_free = udma_desc_free;
 		uc->id = i;
 		uc->slave_thread_id = -1;
-		uc->irq_num_ring = -1;
-		uc->irq_num_udma = -1;
 		uc->tchan = NULL;
 		uc->rchan = NULL;
 		uc->dir = DMA_MEM_TO_MEM;
