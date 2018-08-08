@@ -504,6 +504,7 @@ static void omap_crtc_mode_set_nofb(struct drm_crtc *crtc)
 static int omap_crtc_atomic_check(struct drm_crtc *crtc,
 				struct drm_crtc_state *state)
 {
+	const struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 	struct drm_plane_state *pri_state;
 
 	if (state->color_mgmt_changed && state->gamma_lut) {
@@ -512,6 +513,25 @@ static int omap_crtc_atomic_check(struct drm_crtc *crtc,
 
 		if (length < 2)
 			return -EINVAL;
+	}
+
+	if (omap_state->trans_key_mode) {
+		struct drm_plane *plane;
+		struct drm_plane_state *plane_state;
+		u32 zpos_mask = 0;
+
+		drm_for_each_plane_mask(plane, crtc->dev, state->plane_mask) {
+			plane_state = drm_atomic_get_plane_state(state->state,
+								 plane);
+			if (IS_ERR(plane_state))
+				return PTR_ERR(plane_state);
+
+			if (zpos_mask & BIT(plane_state->zpos))
+				return -EINVAL;
+
+			zpos_mask |= BIT(plane_state->zpos);
+			plane_state->normalized_zpos = plane_state->zpos;
+		}
 	}
 
 	pri_state = drm_atomic_get_new_plane_state(state->state, crtc->primary);
