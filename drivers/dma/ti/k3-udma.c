@@ -674,16 +674,22 @@ static void udma_reset_rings(struct udma_chan *uc)
 
 	switch (uc->dir) {
 	case DMA_DEV_TO_MEM:
-		ring1 = uc->rchan->fd_ring;
-		ring2 = uc->rchan->r_ring;
+		if (uc->rchan) {
+			ring1 = uc->rchan->fd_ring;
+			ring2 = uc->rchan->r_ring;
+		}
 		break;
 	case DMA_MEM_TO_DEV:
-		ring1 = uc->tchan->t_ring;
-		ring2 = uc->tchan->tc_ring;
+		if (uc->tchan) {
+			ring1 = uc->tchan->t_ring;
+			ring2 = uc->tchan->tc_ring;
+		}
 		break;
 	case DMA_MEM_TO_MEM:
-		ring1 = uc->tchan->t_ring;
-		ring2 = uc->tchan->tc_ring;
+		if (uc->tchan) {
+			ring1 = uc->tchan->t_ring;
+			ring2 = uc->tchan->tc_ring;
+		}
 		break;
 	default:
 		break;
@@ -1430,6 +1436,14 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 	pm_runtime_get_sync(ud->ddev.dev);
 
+	/*
+	 * Make sure that the completion is in a known state:
+	 * No teardown completion is running
+	 */
+	reinit_completion(&uc->teardown_completed);
+	complete_all(&uc->teardown_completed);
+	uc->teardown = false;
+
 	switch (uc->dir) {
 	case DMA_MEM_TO_MEM:
 		/* Non synchronized - mem to mem type of transfer */
@@ -1764,12 +1778,6 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	}
 
 	udma_reset_rings(uc);
-	/*
-	 * Make sure that the completion is in a known state:
-	 * No teardown completion is running
-	 */
-	reinit_completion(&uc->teardown_completed);
-	complete_all(&uc->teardown_completed);
 
 	return 0;
 
@@ -1783,6 +1791,7 @@ err_irq_free:
 	uc->irq_num_udma = 0;
 err_psi_free:
 	k3_nav_psil_release_link(uc->psi_link);
+	uc->psi_link = NULL;
 err_chan_free:
 	if (tchan)
 		tisci_ops->tx_ch_free(tisci_rm->tisci, TI_SCI_RM_NULL_U8,
@@ -2792,9 +2801,13 @@ static void udma_synchronize(struct dma_chan *chan)
 
 	vchan_synchronize(&uc->vc);
 
-	timeout = wait_for_completion_timeout(&uc->teardown_completed, timeout);
-	if (!timeout)
-		dev_warn(uc->ud->dev, "chan%d teardown timeout!\n", uc->id);
+	if (uc->teardown) {
+		timeout = wait_for_completion_timeout(&uc->teardown_completed,
+						      timeout);
+		if (!timeout)
+			dev_warn(uc->ud->dev, "chan%d teardown timeout!\n",
+				 uc->id);
+	}
 
 	udma_reset_chan(uc);
 	if (udma_is_chan_running(uc))
@@ -2914,7 +2927,8 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 	}
 
 	/* Release PSI-L pairing */
-	k3_nav_psil_release_link(uc->psi_link);
+	if (uc->psi_link)
+		k3_nav_psil_release_link(uc->psi_link);
 
 	vchan_free_chan_resources(&uc->vc);
 	tasklet_kill(&uc->vc.task);
