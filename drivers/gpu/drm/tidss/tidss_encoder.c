@@ -30,6 +30,12 @@ static int tidss_encoder_atomic_check(struct drm_encoder *encoder,
 
 	dev_dbg(ddev->dev, "%s\n", __func__);
 
+	if (!di->bus_formats || di->num_bus_formats == 0)  {
+		dev_err(ddev->dev, "%s: No bus_formats in connected display\n",
+			__func__);
+		return -EINVAL;
+	}
+
 	// XXX any cleaner way to set bus format and flags?
 	tcrtc_state->bus_format = di->bus_formats[0];
 	tcrtc_state->bus_flags = di->bus_flags;
