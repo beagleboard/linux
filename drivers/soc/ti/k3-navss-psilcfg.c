@@ -142,8 +142,9 @@ static int k3_nav_psil_probe(struct platform_device *pdev)
 
 	priv->tisci = ti_sci_get_by_phandle(pdev->dev.of_node, "ti,sci");
 	if (IS_ERR(priv->tisci)) {
-		dev_err(&pdev->dev, "Failed to get tisc %ld\n",
-			PTR_ERR(priv->tisci));
+		if (PTR_ERR(priv->tisci) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Failed to get tisci %ld\n",
+				PTR_ERR(priv->tisci));
 		return PTR_ERR(priv->tisci);
 	}
 
