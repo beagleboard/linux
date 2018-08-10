@@ -95,6 +95,7 @@ struct am65_cpsw_common {
 
 	u32			nuss_ver;
 	u32			cpsw_ver;
+	u32			bus_freq_mhz;
 	struct davinci_mdio_data *mdio;
 	struct am65_cpts *cpts;
 };
