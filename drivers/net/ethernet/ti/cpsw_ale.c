@@ -850,6 +850,7 @@ int cpsw_ale_set_ratelimit(struct cpsw_ale *ale, unsigned long freq, int port,
 {
 	unsigned int rate_limit;
 	unsigned long ale_prescale;
+	int val;
 
 	if (!bcast_rate_limit && !mcast_rate_limit) {
 		/* disable rate limit */
@@ -879,8 +880,10 @@ int cpsw_ale_set_ratelimit(struct cpsw_ale *ale, unsigned long freq, int port,
 		return -EINVAL;
 
 	cpsw_ale_control_set(ale, 0, ALE_RATE_LIMIT_TX, direction);
-	cpsw_ale_control_set(ale, port, ALE_PORT_BCAST_LIMIT, 1);
-	cpsw_ale_control_set(ale, port, ALE_PORT_MCAST_LIMIT, 1);
+	val = bcast_rate_limit ? 1 : 0;
+	cpsw_ale_control_set(ale, port, ALE_PORT_BCAST_LIMIT, val);
+	val = mcast_rate_limit ? 1 : 0;
+	cpsw_ale_control_set(ale, port, ALE_PORT_MCAST_LIMIT, val);
 	writel((u32)ale_prescale, ale->params.ale_regs + ALE_PRESCALE);
 	cpsw_ale_control_set(ale, 0, ALE_RATE_LIMIT, 1);
 
