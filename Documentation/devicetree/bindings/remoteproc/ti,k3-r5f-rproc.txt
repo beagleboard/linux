@@ -114,6 +114,11 @@ The following properties are optional properties for each of the R5F cores:
 			appear at address 0 (from core's view). Should be either
 			a value of 1 (ATCM at 0x0) or 0 (BTCM at 0x0), default
 			value is 1 if omitted.
+- sram:			pHandle to a reserved on-chip SRAM region. The region
+			should be defined as a child node of the respective
+			SRAM node, and should be defined as per the generic
+			bindings in,
+			Documentation/devicetree/bindings/misc/sram.txt
 
 
 Example:
@@ -160,14 +165,29 @@ Example:
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges = <0x00 0x41000000 0x00 0x41000000 0x00 0x00020000>,
-			 <0x00 0x41400000 0x00 0x41400000 0x00 0x00020000>;
+			 <0x00 0x41400000 0x00 0x41400000 0x00 0x00020000>,
+			 <0x00 0x41c00000 0x00 0x41c00000 0x00 0x00080000>;
 
 		cbass_mcu: interconnect@28380000 {
 			compatible = "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges = <0x00 0x41000000 0x00 0x41000000 0x00 0x00020000>, /* MCU R5F Core0 */
-				 <0x00 0x41400000 0x00 0x41400000 0x00 0x00020000>; /* MCU R5F Core1 */
+				 <0x00 0x41400000 0x00 0x41400000 0x00 0x00020000>, /* MCU R5F Core1 */
+				 <0x00 0x41c00000 0x00 0x41c00000 0x00 0x00080000>; /* MCU SRAM */
+
+			/* MCU domain SRAM node */
+			mcu_ram: mcu-ram@41c00000 {
+				compatible = "mmio-sram";
+				reg = <0x00 0x41c00000 0x00 0x80000>;
+				ranges = <0x0 0x00 0x41c00000 0x80000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				mcu_r5fss0_core0_sram: r5f-sram@0 {
+					reg = <0x0 0x40000>;
+				};
+			};
 
 			/* AM65x MCU R5FSS node */
 			mcu_r5fss0: r5fss@41000000 {
@@ -194,6 +214,7 @@ Example:
 					mboxes = <&mailbox0 &mbox_mcu_r5fss0_core0>;
 					memory-region = <&mcu_r5fss0_core0_dma_memory_region>,
 							<&mcu_r5fss0_core0_memory_region>;
+					sram = <&mcu_r5fss0_core0_sram>;
 				};
 
 				mcu_r5f1: r5f@41400000 {
