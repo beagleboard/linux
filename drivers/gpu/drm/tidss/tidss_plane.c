@@ -17,12 +17,31 @@
 #include "tidss_drv.h"
 #include "tidss_plane.h"
 
+static void tidss_plane_info_init(struct drm_plane_state *state,
+				  struct tidss_plane_info *info)
+{
+	memset(info, 0, sizeof(*info));
+
+	info->fourcc		= state->fb->format->format;
+	info->pos_x		= state->crtc_x;
+	info->pos_y		= state->crtc_y;
+	info->out_width		= state->crtc_w;
+	info->out_height	= state->crtc_h;
+	info->width		= state->src_w >> 16;
+	info->height		= state->src_h >> 16;
+	info->zorder		= state->zpos;
+}
+
 static int tidss_plane_atomic_check(struct drm_plane *plane,
 				    struct drm_plane_state *state)
 {
 	struct drm_device *ddev = plane->dev;
+	struct tidss_device *tidss = ddev->dev_private;
 	struct drm_crtc_state *crtc_state;
 	struct drm_rect clip;
+	struct tidss_plane *tplane = to_tidss_plane(plane);
+	struct tidss_plane_info info;
+	u32 hw_videoport;
 	int ret;
 
 	dev_dbg(ddev->dev, "%s\n", __func__);
@@ -40,8 +59,6 @@ static int tidss_plane_atomic_check(struct drm_plane *plane,
 	if (IS_ERR(crtc_state))
 		return PTR_ERR(crtc_state);
 
-	/* XXX TODO: check scaling via dispc_ops */
-
 	clip.x1 = 0;
 	clip.y1 = 0;
 	clip.x2 = crtc_state->adjusted_mode.hdisplay;
@@ -55,7 +72,13 @@ static int tidss_plane_atomic_check(struct drm_plane *plane,
 	if (!state->visible)
 		return 0;
 
-	return 0;
+	hw_videoport = to_tidss_crtc(state->crtc)->hw_videoport;
+
+	tidss_plane_info_init(state, &info);
+
+	return tidss->dispc_ops->plane_check(tidss->dispc,
+					     tplane->hw_plane_id,
+					     &info, hw_videoport);
 }
 
 static void tidss_plane_atomic_update(struct drm_plane *plane,
@@ -82,16 +105,7 @@ static void tidss_plane_atomic_update(struct drm_plane *plane,
 
 	hw_videoport = to_tidss_crtc(state->crtc)->hw_videoport;
 
-	memset(&info, 0, sizeof(info));
-
-	info.fourcc	= fb->format->format;
-	info.pos_x      = state->crtc_x;
-	info.pos_y      = state->crtc_y;
-	info.out_width  = state->crtc_w;
-	info.out_height = state->crtc_h;
-	info.width      = state->src_w >> 16;
-	info.height     = state->src_h >> 16;
-	info.zorder	= state->zpos;
+	tidss_plane_info_init(state, &info);
 
 	x = state->src_x >> 16;
 	y = state->src_y >> 16;

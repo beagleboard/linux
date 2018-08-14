@@ -948,6 +948,13 @@ static s32 pixinc(int pixels, u8 ps)
 	return 0;
 }
 
+static int dispc6_plane_check(struct dispc_device *dispc, u32 hw_plane,
+			      const struct tidss_plane_info *oi,
+			      u32 hw_videoport)
+{
+	return 0; /* XXX: Dummy check function to be implemented later */
+}
+
 static int dispc6_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 			      const struct tidss_plane_info *oi,
 			      u32 hw_videoport)
@@ -1334,6 +1341,7 @@ static const struct dispc_ops dispc6_ops = {
 	.vp_set_gamma = dispc6_vp_set_gamma,
 
 	.plane_enable = dispc6_plane_enable,
+	.plane_check = dispc6_plane_check,
 	.plane_setup = dispc6_plane_setup,
 
 	.vp_set_clk_rate = dispc6_vp_set_clk_rate,

@@ -129,6 +129,9 @@ struct dispc_ops {
 
 	int (*plane_enable)(struct dispc_device *dispc, u32 hw_plane,
 			    bool enable);
+	int (*plane_check)(struct dispc_device *dispc, u32 hw_plane,
+			   const struct tidss_plane_info *oi,
+			   u32 hw_videoport);
 	int (*plane_setup)(struct dispc_device *dispc, u32 hw_plane,
 			   const struct tidss_plane_info *oi,
 			   u32 hw_videoport);
