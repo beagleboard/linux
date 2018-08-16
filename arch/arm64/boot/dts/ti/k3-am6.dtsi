@@ -636,6 +636,14 @@
 			status = "disabled";
 		};
 
+		mcu_ram: mcu-ram@41c00000 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x41c00000 0x0 0x80000>;
+			ranges = <0x0 0x0 0x41c00000 0x80000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+		};
+
 		icssg_soc_bus0: pruss_soc_bus@b026004 {
 			compatible = "ti,am654-icssg-soc-bus";
 			reg = <0x0 0x0b026004 0x0 0x4>;
