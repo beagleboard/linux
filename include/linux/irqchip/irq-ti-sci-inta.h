@@ -14,7 +14,7 @@ int ti_sci_inta_register_event(struct device *dev, u16 src_id, u16 src_index,
 			       unsigned int virq, u32 flags);
 int ti_sci_inta_unregister_event(struct device *dev, u16 src_id, u16 src_index,
 				 unsigned int virq);
-u8 ti_sci_inta_ack_event(struct device *dev, u16 src_id, u16 src_index,
+u8 ti_sci_inta_ack_event(struct irq_domain *domain, u16 src_id, u16 src_index,
 			 unsigned int virq);
 
 #else /* CONFIG_TI_SCI_INTA_IRQCHIP */
@@ -32,8 +32,8 @@ static int ti_sci_inta_unregister_event(struct device *dev, u16 src_id,
 	return -EINVAL;
 }
 
-static u8 ti_sci_inta_ack_event(struct device *dev, u16 src_id, u16 src_index,
-				unsigned int virq)
+static u8 ti_sci_inta_ack_event(struct irq_domain *domain, u16 src_id,
+				u16 src_index, unsigned int virq)
 {
 	return -EINVAL;
 }

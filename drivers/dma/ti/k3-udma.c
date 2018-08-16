@@ -1011,7 +1011,7 @@ static irqreturn_t udma_udma_irq_handler(int irq, void *data)
 	struct udma_chan *uc = data;
 	struct udma_tisci_rm *tisci_rm = &uc->ud->tisci_rm;
 
-	ti_sci_inta_ack_event(uc->ud->dev, tisci_rm->tisci_dev_id,
+	ti_sci_inta_ack_event(uc->ud->irq_domain, tisci_rm->tisci_dev_id,
 			      uc->irq_udma_idx, uc->irq_num_udma);
 
 	udma_tr_event_callback(uc);
