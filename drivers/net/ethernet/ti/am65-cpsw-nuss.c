@@ -397,26 +397,14 @@ static int am65_cpsw_nuss_common_open(struct am65_cpsw_common *common)
 	cpsw_ale_control_set(common->ale, HOST_PORT_NUM,
 			     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
 
-	/* unknown vlan cfg */
+	/* default vlan cfg */
 	/* create mask based on enabled ports */
 	port_mask = GENMASK(common->port_num - 1, 0) &
 		    ~common->disabled_ports_mask;
 
-	cpsw_ale_control_set(common->ale, HOST_PORT_NUM,
-			     ALE_PORT_UNKNOWN_VLAN_MEMBER,
-			     port_mask);
-
-	cpsw_ale_control_set(common->ale, HOST_PORT_NUM,
-			     ALE_PORT_UNKNOWN_MCAST_FLOOD,
-			     port_mask & ~ALE_PORT_HOST);
-
-	cpsw_ale_control_set(common->ale, HOST_PORT_NUM,
-			     ALE_PORT_UNKNOWN_REG_MCAST_FLOOD,
-			     port_mask);
-
-	cpsw_ale_control_set(common->ale, HOST_PORT_NUM,
-			     ALE_PORT_UNTAGGED_EGRESS,
-			     port_mask);
+	cpsw_ale_add_vlan(common->ale, 0, port_mask,
+			  port_mask, port_mask,
+			  port_mask & ~ALE_PORT_HOST);
 
 	for (i = 0; i < common->rx_chns.descs_num; i++) {
 		skb = __netdev_alloc_skb_ip_align(NULL,
