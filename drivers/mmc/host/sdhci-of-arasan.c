@@ -23,6 +23,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/phy/phy.h>
 #include <linux/regmap.h>
 #include "sdhci-pltfm.h"
@@ -335,28 +336,13 @@ static const struct sdhci_arasan_of_data sdhci_arasan_am654_data = {
 	.pdata = &sdhci_arasan_am654_pdata,
 };
 
-#ifdef CONFIG_PM_SLEEP
-/**
- * sdhci_arasan_suspend - Suspend method for the driver
- * @dev:	Address of the device structure
- * Returns 0 on success and error value on error
- *
- * Put the device in a low power state.
- */
-static int sdhci_arasan_suspend(struct device *dev)
+static int __maybe_unused sdhci_arasan_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_arasan_data *sdhci_arasan = sdhci_pltfm_priv(pltfm_host);
 	int ret;
-
-	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
-		mmc_retune_needed(host->mmc);
-
-	ret = sdhci_suspend_host(host);
-	if (ret)
-		return ret;
 
 	if (!IS_ERR(sdhci_arasan->phy) && sdhci_arasan->is_phy_on) {
 		ret = phy_power_off(sdhci_arasan->phy);
@@ -374,14 +360,7 @@ static int sdhci_arasan_suspend(struct device *dev)
 	return 0;
 }
 
-/**
- * sdhci_arasan_resume - Resume method for the driver
- * @dev:	Address of the device structure
- * Returns 0 on success and error value on error
- *
- * Resume operation after suspend
- */
-static int sdhci_arasan_resume(struct device *dev)
+static int __maybe_unused sdhci_arasan_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sdhci_host *host = platform_get_drvdata(pdev);
@@ -410,13 +389,64 @@ static int sdhci_arasan_resume(struct device *dev)
 		sdhci_arasan->is_phy_on = true;
 	}
 
+	return 0;
+}
+
+#ifdef CONFIG_PM_SLEEP
+/**
+ * sdhci_arasan_suspend - Suspend method for the driver
+ * @dev:	Address of the device structure
+ * Returns 0 on success and error value on error
+ *
+ * Put the device in a low power state.
+ */
+static int sdhci_arasan_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sdhci_host *host = platform_get_drvdata(pdev);
+	int ret;
+
+	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
+		mmc_retune_needed(host->mmc);
+
+	ret = sdhci_suspend_host(host);
+	if (ret)
+		return ret;
+
+	pm_runtime_put_sync(dev);
+
+	return 0;
+}
+
+/**
+ * sdhci_arasan_resume - Resume method for the driver
+ * @dev:	Address of the device structure
+ * Returns 0 on success and error value on error
+ *
+ * Resume operation after suspend
+ */
+static int sdhci_arasan_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct sdhci_host *host = platform_get_drvdata(pdev);
+	int ret;
+
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(dev);
+		return ret;
+	}
+
 	return sdhci_resume_host(host);
 }
 #endif /* ! CONFIG_PM_SLEEP */
 
-static SIMPLE_DEV_PM_OPS(sdhci_arasan_dev_pm_ops, sdhci_arasan_suspend,
-			 sdhci_arasan_resume);
-
+static const struct dev_pm_ops sdhci_arasan_pmops = {
+	SET_RUNTIME_PM_OPS(sdhci_arasan_runtime_suspend,
+			   sdhci_arasan_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(sdhci_arasan_suspend,
+				sdhci_arasan_resume)
+};
 static const struct of_device_id sdhci_arasan_of_match[] = {
 	/* SoC-specific compatible strings w/ soc_ctl_map */
 	{
@@ -671,24 +701,27 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 		goto err_pltfm_free;
 	}
 
-	ret = clk_prepare_enable(sdhci_arasan->clk_ahb);
-	if (ret) {
-		dev_err(&pdev->dev, "Unable to enable AHB clock.\n");
-		goto err_pltfm_free;
-	}
+	pltfm_host->clk = clk_xin;
 
-	ret = clk_prepare_enable(clk_xin);
-	if (ret) {
-		dev_err(&pdev->dev, "Unable to enable SD clock.\n");
+	ret = clk_prepare(sdhci_arasan->clk_ahb);
+	if (ret)
 		goto clk_dis_ahb;
+
+	ret = clk_prepare(clk_xin);
+	if (ret)
+		goto clk_disable_all;
+
+	pm_runtime_enable(&pdev->dev);
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret > 0) {
+		pm_runtime_put_noidle(&pdev->dev);
+		goto clk_disable_all;
 	}
 
 	sdhci_get_of_property(pdev);
 
 	if (of_property_read_bool(np, "xlnx,fails-without-test-cd"))
 		sdhci_arasan->quirks |= SDHCI_ARASAN_QUIRK_FORCE_CDTEST;
-
-	pltfm_host->clk = clk_xin;
 
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "rockchip,rk3399-sdhci-5.1"))
@@ -761,9 +794,9 @@ err_add_host:
 unreg_clk:
 	sdhci_arasan_unregister_sdclk(&pdev->dev);
 clk_disable_all:
-	clk_disable_unprepare(clk_xin);
+	clk_unprepare(clk_xin);
 clk_dis_ahb:
-	clk_disable_unprepare(sdhci_arasan->clk_ahb);
+	clk_unprepare(sdhci_arasan->clk_ahb);
 err_pltfm_free:
 	sdhci_pltfm_free(pdev);
 	return ret;
@@ -785,9 +818,10 @@ static int sdhci_arasan_remove(struct platform_device *pdev)
 
 	sdhci_arasan_unregister_sdclk(&pdev->dev);
 
-	ret = sdhci_pltfm_unregister(pdev);
+	pm_runtime_put_sync(&pdev->dev);
+	clk_unprepare(clk_ahb);
 
-	clk_disable_unprepare(clk_ahb);
+	ret = sdhci_pltfm_unregister(pdev);
 
 	return ret;
 }
@@ -796,7 +830,7 @@ static struct platform_driver sdhci_arasan_driver = {
 	.driver = {
 		.name = "sdhci-arasan",
 		.of_match_table = sdhci_arasan_of_match,
-		.pm = &sdhci_arasan_dev_pm_ops,
+		.pm = &sdhci_arasan_pmops,
 	},
 	.probe = sdhci_arasan_probe,
 	.remove = sdhci_arasan_remove,
