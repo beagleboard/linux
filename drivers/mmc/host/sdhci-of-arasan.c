@@ -34,6 +34,11 @@
 
 #define PHY_CLK_TOO_SLOW_HZ		400000
 
+#define SDHCI_ARASAN_CTL_CFG_2		0x14
+
+#define SLOTTYPE_MASK			GENMASK(31, 30)
+#define SLOTTYPE_EMBEDDED		BIT(30)
+
 /*
  * On some SoCs the syscon area has a feature where the upper 16-bits of
  * each 32-bit register act as a write mask for the lower 16-bits.  This allows
@@ -615,9 +620,12 @@ static void sdhci_arasan_unregister_sdclk(struct device *dev)
 static int sdhci_arasan_probe(struct platform_device *pdev)
 {
 	int ret;
+	u32 ctl_cfg_2;
 	const struct of_device_id *match;
 	struct device_node *node;
 	struct clk *clk_xin;
+	void __iomem *ioaddr;
+	struct resource *iomem;
 	struct sdhci_host *host;
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_arasan_data *sdhci_arasan;
@@ -696,6 +704,23 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "parsing dt failed (%d)\n", ret);
 		goto unreg_clk;
+	}
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "ti,am654-sdhci-5.1")) {
+		iomem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		ioaddr = devm_ioremap_resource(&pdev->dev, iomem);
+		if (IS_ERR(ioaddr)) {
+			ret = PTR_ERR(ioaddr);
+			goto unreg_clk;
+		}
+		/* Set slot type based on SD card or eMMC */
+		ctl_cfg_2 = readl(ioaddr + SDHCI_ARASAN_CTL_CFG_2);
+		ctl_cfg_2 &= ~SLOTTYPE_MASK;
+		if (host->mmc->caps & MMC_CAP_NONREMOVABLE)
+			ctl_cfg_2 |= SLOTTYPE_EMBEDDED;
+
+		writel(ctl_cfg_2, ioaddr + SDHCI_ARASAN_CTL_CFG_2);
 	}
 
 	sdhci_arasan->phy = ERR_PTR(-ENODEV);
