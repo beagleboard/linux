@@ -225,8 +225,197 @@ struct chipcregs {
 	u32 PAD[3];
 	u32 retention_grpidx;       /* 0x680 */
 	u32 retention_grpctl;       /* 0x684 */
-	u32 PAD[94];
-	u16 sromotp[768];
+	u32 mac_res_req_timer;      /* 0x688 */
+	u32 mac_res_req_mask;       /* 0x68c */
+	u32 PAD[18];
+	u32 pmucontrol_ext;         /* 0x6d8 */
+	u32 slowclkperiod;          /* 0x6dc */
+	u32 PAD[8];
+	u32 pmuintmask0;            /* 0x700 */
+	u32 pmuintmask1;            /* 0x704 */
+	u32 PAD[14];
+	u32 pmuintstatus;           /* 0x740 */
+	u32 extwakeupstatus;        /* 0x744 */
+	u32 watchdog_res_mask;      /* 0x748 */
+	u32 swscratch;              /* 0x750 */
+	u32 PAD[3];
+	u32 extwakemask[2];         /* 0x760-0x764 */
+	u32 PAD[2];
+	u32 extwakereqmask[2];      /* 0x770-0x774 */
+	u32 PAD[2];
+	u32 pmuintctrl0;            /* 0x780 */
+	u32 pmuintctrl1;            /* 0x784 */
+	u32 PAD[2];
+	u32 extwakectrl[2];         /* 0x790 */
+};
+
+#define CHIPGCIREGOFFS(field) offsetof(struct chipgciregs, field)
+
+struct chipgciregs {
+	u32 gci_corecaps0;                             /* 0x000 */
+	u32 gci_corecaps1;                             /* 0x004 */
+	u32 gci_corecaps2;                             /* 0x008 */
+	u32 gci_corectrl;                              /* 0x00c */
+	u32 gci_corestat;                              /* 0x010 */
+	u32 gci_intstat;                               /* 0x014 */
+	u32 gci_intmask;                               /* 0x018 */
+	u32 gci_wakemask;                              /* 0x01c */
+	u32 gci_levelintstat;                          /* 0x020 */
+	u32 gci_eventintstat;                          /* 0x024 */
+	u32 gci_wakelevelintstat;                      /* 0x028 */
+	u32 gci_wakeeventintstat;                      /* 0x02c */
+	u32 semaphoreintstatus;                        /* 0x030 */
+	u32 semaphoreintmask;                          /* 0x034 */
+	u32 semaphorerequest;                          /* 0x038 */
+	u32 semaphorereserve;                          /* 0x03c */
+	u32 gci_indirect_addr;                         /* 0x040 */
+	u32 gci_gpioctl;                               /* 0x044 */
+	u32 gci_gpiostatus;                            /* 0x048 */
+	u32 gci_gpiomask;                              /* 0x04c */
+	u32 eventsummary;                              /* 0x050 */
+	u32 gci_miscctl;                               /* 0x054 */
+	u32 gci_gpiointmask;                           /* 0x058 */
+	u32 gci_gpiowakemask;                          /* 0x05c */
+	u32 gci_input[32];                             /* 0x060 */
+	u32 gci_event[32];                             /* 0x0e0 */
+	u32 gci_output[4];                             /* 0x160 */
+	u32 gci_control_0;                             /* 0x170 */
+	u32 gci_control_1;                             /* 0x174 */
+	u32 gci_intpolreg;                             /* 0x178 */
+	u32 gci_levelintmask;                          /* 0x17c */
+	u32 gci_eventintmask;                          /* 0x180 */
+	u32 wakelevelintmask;                          /* 0x184 */
+	u32 wakeeventintmask;                          /* 0x188 */
+	u32 hwmask;                                    /* 0x18c */
+	u32 PAD;
+	u32 gci_inbandeventintmask;                    /* 0x194 */
+	u32 PAD;
+	u32 gci_inbandeventstatus;                     /* 0x19c */
+	u32 gci_seciauxtx;                             /* 0x1a0 */
+	u32 gci_seciauxrx;                             /* 0x1a4 */
+	u32 gci_secitx_datatag;                        /* 0x1a8 */
+	u32 gci_secirx_datatag;                        /* 0x1ac */
+	u32 gci_secitx_datamask;                       /* 0x1b0 */
+	u32 gci_seciusef0tx_reg;                       /* 0x1b4 */
+	u32 gci_secif0tx_offset;                       /* 0x1b8 */
+	u32 gci_secif0rx_offset;                       /* 0x1bc */
+	u32 gci_secif1tx_offset;                       /* 0x1c0 */
+	u32 gci_rxfifo_common_ctrl;                    /* 0x1c4 */
+	u32 gci_rxfifoctrl;                            /* 0x1c8 */
+	u32 gci_hw_sema_status;                        /* 0x1cc */
+	u32 gci_seciuartescval;                        /* 0x1d0 */
+	u32 gic_seciuartautobaudctr;                   /* 0x1d4 */
+	u32 gci_secififolevel;                         /* 0x1d8 */
+	u32 gci_seciuartdata;                          /* 0x1dc */
+	u32 gci_secibauddiv;                           /* 0x1e0 */
+	u32 gci_secifcr;                               /* 0x1e4 */
+	u32 gci_secilcr;                               /* 0x1e8 */
+	u32 gci_secimcr;                               /* 0x1ec */
+	u32 gci_secilsr;                               /* 0x1f0 */
+	u32 gci_secimsr;                               /* 0x1f4 */
+	u32 gci_baudadj;                               /* 0x1f8 */
+	u32 gci_inbandintmask;                         /* 0x1fc */
+	u32 gci_chipctrl;                              /* 0x200 */
+	u32 gci_chipsts;                               /* 0x204 */
+	u32 gci_gpioout;                               /* 0x208 */
+	u32 gci_gpioout_read;                          /* 0x20C */
+	u32 gci_mpwaketx;                              /* 0x210 */
+	u32 gci_mpwakedetect;                          /* 0x214 */
+	u32 gci_seciin_ctrl;                           /* 0x218 */
+	u32 gci_seciout_ctrl;                          /* 0x21C */
+	u32 gci_seciin_auxfifo_en;                     /* 0x220 */
+	u32 gci_seciout_txen_txbr;                     /* 0x224 */
+	u32 gci_seciin_rxbrstatus;                     /* 0x228 */
+	u32 gci_seciin_rxerrstatus;                    /* 0x22C */
+	u32 gci_seciin_fcstatus;                       /* 0x230 */
+	u32 gci_seciout_txstatus;                      /* 0x234 */
+	u32 gci_seciout_txbrstatus;                    /* 0x238 */
+	u32 wlan_mem_info;                             /* 0x23C */
+	u32 wlan_bankxinfo;                            /* 0x240 */
+	u32 bt_smem_select;                            /* 0x244 */
+	u32 bt_smem_stby;                              /* 0x248 */
+	u32 bt_smem_status;                            /* 0x24C */
+	u32 wlan_bankxactivepda;                       /* 0x250 */
+	u32 wlan_bankxsleeppda;                        /* 0x254 */
+	u32 wlan_bankxkill;                            /* 0x258 */
+	u32 PAD[41];
+	u32 gci_chipid;                                /* 0x300 */
+	u32 PAD[3];
+	u32 otpstatus;                                 /* 0x310 */
+	u32 otpcontrol;                                /* 0x314 */
+	u32 otpprog;                                   /* 0x318 */
+	u32 otplayout;                                 /* 0x31c */
+	u32 otplayoutextension;                        /* 0x320 */
+	u32 otpcontrol1;                               /* 0x324 */
+	u32 otpprogdata;                               /* 0x328 */
+	u32 PAD[52];
+	u32 otpECCstatus;                              /* 0x3FC */
+	u32 PAD[512];
+	u32 lhl_core_capab_adr;                        /* 0xC00 */
+	u32 lhl_main_ctl_adr;                          /* 0xC04 */
+	u32 lhl_pmu_ctl_adr;                           /* 0xC08 */
+	u32 lhl_extlpo_ctl_adr;                        /* 0xC0C */
+	u32 lpo_ctl_adr;                               /* 0xC10 */
+	u32 lhl_lpo2_ctl_adr;                          /* 0xC14 */
+	u32 lhl_osc32k_ctl_adr;                        /* 0xC18 */
+	u32 lhl_clk_status_adr;                        /* 0xC1C */
+	u32 lhl_clk_det_ctl_adr;                       /* 0xC20 */
+	u32 lhl_clk_sel_adr;                           /* 0xC24 */
+	u32 hidoff_cnt_adr[2];                         /* 0xC28-0xC2C */
+	u32 lhl_autoclk_ctl_adr;                       /* 0xC30 */
+	u32 PAD;
+	u32 lhl_hibtim_adr;                            /* 0xC38 */
+	u32 lhl_wl_ilp_val_adr;                        /* 0xC3C */
+	u32 lhl_wl_armtim0_intrp_adr;                  /* 0xC40 */
+	u32 lhl_wl_armtim0_st_adr;                     /* 0xC44 */
+	u32 lhl_wl_armtim0_adr;                        /* 0xC48 */
+	u32 PAD[9];
+	u32 lhl_wl_mactim0_intrp_adr;                  /* 0xC70 */
+	u32 lhl_wl_mactim0_st_adr;                     /* 0xC74 */
+	u32 lhl_wl_mactim_int0_adr;                    /* 0xC78 */
+	u32 lhl_wl_mactim_frac0_adr;                   /* 0xC7C */
+	u32 lhl_wl_mactim1_intrp_adr;                  /* 0xC80 */
+	u32 lhl_wl_mactim1_st_adr;                     /* 0xC84 */
+	u32 lhl_wl_mactim_int1_adr;                    /* 0xC88 */
+	u32 lhl_wl_mactim_frac1_adr;                   /* 0xC8C */
+	u32 PAD[8];
+	u32 gpio_int_en_port_adr[4];                   /* 0xCB0-0xCBC */
+	u32 gpio_int_st_port_adr[4];                   /* 0xCC0-0xCCC */
+	u32 gpio_ctrl_iocfg_p_adr[64];                 /* 0xCD0-0xDCC */
+	u32 gpio_gctrl_iocfg_p0_p39_adr;               /* 0xDD0 */
+	u32 gpio_gdsctrl_iocfg_p0_p25_p30_p39_adr;     /* 0xDD4 */
+	u32 gpio_gdsctrl_iocfg_p26_p29_adr;            /* 0xDD8 */
+	u32 PAD[8];
+	u32 lhl_gpio_din0_adr;                         /* 0xDFC */
+	u32 lhl_gpio_din1_adr;                         /* 0xE00 */
+	u32 lhl_wkup_status_adr;                       /* 0xE04 */
+	u32 lhl_ctl_adr;                               /* 0xE08 */
+	u32 lhl_adc_ctl_adr;                           /* 0xE0C */
+	u32 lhl_qdxyz_in_dly_adr;                      /* 0xE10 */
+	u32 lhl_optctl_adr;                            /* 0xE14 */
+	u32 lhl_optct2_adr;                            /* 0xE18 */
+	u32 lhl_scanp_cntr_init_val_adr;               /* 0xE1C */
+	u32 lhl_opt_togg_val_adr[6];                   /* 0xE20-0xE34 */
+	u32 lhl_optx_smp_val_adr;                      /* 0xE38 */
+	u32 lhl_opty_smp_val_adr;                      /* 0xE3C */
+	u32 lhl_optz_smp_val_adr;                      /* 0xE40 */
+	u32 lhl_hidoff_keepstate_adr[3];               /* 0xE44-0xE4C */
+	u32 lhl_bt_slmboot_ctl0_adr[4];                /* 0xE50-0xE5C */
+	u32 lhl_wl_fw_ctl;                             /* 0xE60 */
+	u32 lhl_wl_hw_ctl_adr[2];                      /* 0xE64-0xE68 */
+	u32 lhl_bt_hw_ctl_adr;                         /* 0xE6C */
+	u32 lhl_top_pwrseq_en_adr;                     /* 0xE70 */
+	u32 lhl_top_pwrdn_ctl_adr;                     /* 0xE74 */
+	u32 lhl_top_pwrup_ctl_adr;                     /* 0xE78 */
+	u32 lhl_top_pwrseq_ctl_adr;                    /* 0xE7C */
+	u32 lhl_top_pwrdn2_ctl_adr;                    /* 0xE80 */
+	u32 lhl_top_pwrup2_ctl_adr;                    /* 0xE84 */
+	u32 wpt_regon_intrp_cfg_adr;                   /* 0xE88 */
+	u32 bt_regon_intrp_cfg_adr;                    /* 0xE8C */
+	u32 wl_regon_intrp_cfg_adr;                    /* 0xE90 */
+	u32 regon_intrp_st_adr;                        /* 0xE94 */
+	u32 regon_intrp_en_adr;                        /* 0xE98 */
+
 };
 
 /* chipid */
