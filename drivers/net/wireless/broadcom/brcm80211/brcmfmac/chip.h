@@ -21,6 +21,9 @@
 #define CORE_CC_REG(base, field) \
 		(base + offsetof(struct chipcregs, field))
 
+#define CORE_GCI_REG(base, field) \
+		(base + offsetof(struct chipgciregs, field))
+
 /**
  * struct brcmf_chip - chip level information.
  *
@@ -93,5 +96,9 @@ void brcmf_chip_resetcore(struct brcmf_core *core, u32 prereset, u32 reset,
 void brcmf_chip_set_passive(struct brcmf_chip *ci);
 bool brcmf_chip_set_active(struct brcmf_chip *ci, u32 rstvec);
 bool brcmf_chip_sr_capable(struct brcmf_chip *pub);
+void brcmf_chip_reset_watchdog(struct brcmf_chip *pub);
+void brcmf_chip_ulp_reset_lhl_regs(struct brcmf_chip *pub);
+void brcmf_chip_reset_pmu_regs(struct brcmf_chip *pub);
+void brcmf_chip_set_default_min_res_mask(struct brcmf_chip *pub);
 
 #endif /* BRCMF_AXIDMP_H */
