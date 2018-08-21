@@ -213,6 +213,18 @@ struct sbsocramregs {
 #define	ARMCR4_BSZ_MASK		0x3f
 #define	ARMCR4_BSZ_MULT		8192
 
+/* Minimum PMU resource mask for 43012C0 */
+#define CY_43012_PMU_MIN_RES_MASK       0xF8BFE77
+
+/* PMU STATUS mask for 43012C0 */
+#define CY_43012_PMU_STATUS_MASK        0x1AC
+
+/* PMU CONTROL EXT mask for 43012C0 */
+#define CY_43012_PMU_CONTROL_EXT_MASK   0x11
+
+/* PMU CONTROL EXT mask for 43012C0 */
+#define CY_43012_PMU_WATCHDOG_TICK_VAL  0x04
+
 struct brcmf_core_priv {
 	struct brcmf_core pub;
 	u32 wrapbase;
@@ -1207,6 +1219,14 @@ struct brcmf_core *brcmf_chip_get_pmu(struct brcmf_chip *pub)
 	return cc;
 }
 
+struct brcmf_core *brcmf_chip_get_gci(struct brcmf_chip *pub)
+{
+	struct brcmf_core *gci;
+
+	gci = brcmf_chip_get_core(pub, BCMA_CORE_GCI);
+	return gci;
+}
+
 bool brcmf_chip_iscoreup(struct brcmf_core *pub)
 {
 	struct brcmf_core_priv *core;
@@ -1432,3 +1452,138 @@ bool brcmf_chip_sr_capable(struct brcmf_chip *pub)
 			       PMU_RCTL_LOGIC_DISABLE_MASK)) == 0;
 	}
 }
+
+void brcmf_chip_reset_pmu_regs(struct brcmf_chip *pub)
+{
+	struct brcmf_chip_priv *chip;
+	u32 addr;
+	u32 base;
+
+	brcmf_dbg(TRACE, "Enter\n");
+
+	chip = container_of(pub, struct brcmf_chip_priv, pub);
+	base = brcmf_chip_get_pmu(pub)->base;
+
+	switch (pub->chip) {
+	case CY_CC_43012_CHIP_ID:
+		/* SW scratch */
+		addr = CORE_CC_REG(base, swscratch);
+		chip->ops->write32(chip->ctx, addr, 0);
+
+		/* PMU status */
+		addr = CORE_CC_REG(base, pmustatus);
+		chip->ops->write32(chip->ctx, addr,
+			CY_43012_PMU_STATUS_MASK);
+
+		/* PMU control ext */
+		addr = CORE_CC_REG(base, pmucontrol_ext);
+		chip->ops->write32(chip->ctx, addr,
+			CY_43012_PMU_CONTROL_EXT_MASK);
+
+		/* PMU watchdog */
+		addr = CORE_CC_REG(base, pmuwatchdog);
+		chip->ops->write32(chip->ctx, addr,
+			CY_43012_PMU_WATCHDOG_TICK_VAL);
+		break;
+
+	default:
+		brcmf_err("Unsupported chip id\n");
+		break;
+	}
+}
+
+void brcmf_chip_set_default_min_res_mask(struct brcmf_chip *pub)
+{
+	struct brcmf_chip_priv *chip;
+	u32 addr;
+	u32 base;
+
+	brcmf_dbg(TRACE, "Enter\n");
+
+	chip = container_of(pub, struct brcmf_chip_priv, pub);
+	base = brcmf_chip_get_pmu(pub)->base;
+	switch (pub->chip) {
+	case CY_CC_43012_CHIP_ID:
+		addr = CORE_CC_REG(base, min_res_mask);
+		chip->ops->write32(chip->ctx, addr,
+			CY_43012_PMU_MIN_RES_MASK);
+		break;
+
+	default:
+		brcmf_err("Unsupported chip id\n");
+		break;
+	}
+}
+
+void brcmf_chip_ulp_reset_lhl_regs(struct brcmf_chip *pub)
+{
+	struct brcmf_chip_priv *chip;
+	u32 base;
+	u32 addr;
+
+	brcmf_dbg(TRACE, "Enter\n");
+
+	chip = container_of(pub, struct brcmf_chip_priv, pub);
+	base = brcmf_chip_get_gci(pub)->base;
+
+	/* LHL Top Level Power Sequence Control */
+	addr = CORE_GCI_REG(base, lhl_top_pwrseq_ctl_adr);
+	chip->ops->write32(chip->ctx, addr, 0);
+
+	/* GPIO Interrupt Enable0 */
+	addr = CORE_GCI_REG(base, gpio_int_en_port_adr[0]);
+	chip->ops->write32(chip->ctx, addr, 0);
+
+	/* GPIO Interrupt Status0 */
+	addr = CORE_GCI_REG(base, gpio_int_st_port_adr[0]);
+	chip->ops->write32(chip->ctx, addr, ~0);
+
+	/* WL ARM Timer0 Interrupt Mask */
+	addr = CORE_GCI_REG(base, lhl_wl_armtim0_intrp_adr);
+	chip->ops->write32(chip->ctx, addr, 0);
+
+	/* WL ARM Timer0 Interrupt Status */
+	addr = CORE_GCI_REG(base, lhl_wl_armtim0_st_adr);
+	chip->ops->write32(chip->ctx, addr, ~0);
+
+	/* WL ARM Timer */
+	addr = CORE_GCI_REG(base, lhl_wl_armtim0_adr);
+	chip->ops->write32(chip->ctx, addr, 0);
+
+	/* WL MAC Timer0 Interrupt Mask */
+	addr = CORE_GCI_REG(base, lhl_wl_mactim0_intrp_adr);
+	chip->ops->write32(chip->ctx, addr, 0);
+
+	/* WL MAC Timer0 Interrupt Status */
+	addr = CORE_GCI_REG(base, lhl_wl_mactim0_st_adr);
+	chip->ops->write32(chip->ctx, addr, ~0);
+
+	/* WL MAC TimerInt0 */
+	addr = CORE_GCI_REG(base, lhl_wl_mactim_int0_adr);
+	chip->ops->write32(chip->ctx, addr, 0x0);
+}
+
+void brcmf_chip_reset_watchdog(struct brcmf_chip *pub)
+{
+	struct brcmf_chip_priv *chip;
+	u32 base;
+	u32 addr;
+
+	brcmf_dbg(TRACE, "Enter\n");
+
+	chip = container_of(pub, struct brcmf_chip_priv, pub);
+	base = brcmf_chip_get_pmu(pub)->base;
+
+	switch (pub->chip) {
+	case CY_CC_43012_CHIP_ID:
+		/* Watchdog res mask */
+		addr = CORE_CC_REG(base, watchdog_res_mask);
+		chip->ops->write32(chip->ctx, addr,
+			CY_43012_PMU_MIN_RES_MASK);
+		break;
+
+	default:
+		break;
+	}
+}
+
