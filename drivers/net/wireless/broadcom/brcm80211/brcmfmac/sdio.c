@@ -4578,7 +4578,19 @@ void brcmf_sdio_remove(struct brcmf_sdio *bus)
 				 * necessary cores.
 				 */
 				msleep(20);
-				brcmf_chip_set_passive(bus->ci);
+				if (bus->sdiodev->fmac_ulp.ulp_state ==
+					FMAC_ULP_ENTRY_RECV) {
+					brcmf_chip_ulp_reset_lhl_regs(bus->ci);
+					brcmf_chip_reset_pmu_regs(bus->ci);
+					brcmf_chip_set_default_min_res_mask(
+						bus->ci);
+				} else {
+					brcmf_chip_set_passive(bus->ci);
+				}
+				/* Reset the PMU, backplane and all the
+				 * cores by using the PMUWatchdogCounter.
+				 */
+				brcmf_chip_reset_watchdog(bus->ci);
 				brcmf_sdio_clkctl(bus, CLK_NONE, false);
 				sdio_release_host(bus->sdiodev->func[1]);
 			}
