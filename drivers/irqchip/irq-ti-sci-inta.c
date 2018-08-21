@@ -438,22 +438,18 @@ void ti_sci_inta_unregister_event(struct device *dev, u16 src_id,
 }
 EXPORT_SYMBOL_GPL(ti_sci_inta_unregister_event);
 
-u8 ti_sci_inta_ack_event(struct device *dev, u16 src_id, u16 src_index,
+u8 ti_sci_inta_ack_event(struct irq_domain *domain, u16 src_id, u16 src_index,
 			 unsigned int virq)
 {
 	struct ti_sci_inta_vint_desc *vint_desc;
 	struct ti_sci_inta_irq_domain *inta;
-	struct device_node *parent_node;
-	struct irq_domain *domain;
 	struct irq_data *d;
 	u8 event_index;
 	u64 val;
 
-	parent_node = of_irq_find_parent(dev->of_node);
-	if (!parent_node)
+	if (!domain)
 		return -ENODEV;
 
-	domain = irq_find_host(parent_node);
 	inta = domain->host_data;
 	d = irq_domain_get_irq_data(domain, virq);
 

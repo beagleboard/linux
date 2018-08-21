@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/of_dma.h>
 #include <linux/of_device.h>
+#include <linux/of_irq.h>
 #include <linux/workqueue.h>
 #include <linux/completion.h>
 #include <linux/soc/ti/k3-navss-psilcfg.h>
@@ -245,6 +246,8 @@ struct udma_dev {
 
 	struct device_node *psil_node;
 	struct k3_nav_ringacc *ringacc;
+
+	struct irq_domain *irq_domain;
 
 	struct work_struct purge_work;
 	struct list_head desc_to_purge;
@@ -1008,7 +1011,7 @@ static irqreturn_t udma_udma_irq_handler(int irq, void *data)
 	struct udma_chan *uc = data;
 	struct udma_tisci_rm *tisci_rm = &uc->ud->tisci_rm;
 
-	ti_sci_inta_ack_event(uc->ud->dev, tisci_rm->tisci_dev_id,
+	ti_sci_inta_ack_event(uc->ud->irq_domain, tisci_rm->tisci_dev_id,
 			      uc->irq_udma_idx, uc->irq_num_udma);
 
 	udma_tr_event_callback(uc);
@@ -3075,6 +3078,7 @@ static int udma_get_mmrs(struct platform_device *pdev, struct udma_dev *ud)
 
 static int udma_probe(struct platform_device *pdev)
 {
+	struct device_node *parent_irq_node;
 	struct udma_dev *ud;
 	int i, ret;
 	u32 ch_count;
@@ -3101,6 +3105,16 @@ static int udma_probe(struct platform_device *pdev)
 						       "ti,ringacc");
 	if (IS_ERR(ud->ringacc))
 		return PTR_ERR(ud->ringacc);
+
+	parent_irq_node = of_irq_find_parent(pdev->dev.of_node);
+	if (!parent_irq_node) {
+		dev_err(&pdev->dev, "Failed to get IRQ parent node\n");
+		return -ENODEV;
+	}
+
+	ud->irq_domain = irq_find_host(parent_irq_node);
+	if (!ud->irq_domain)
+		return -EPROBE_DEFER;
 
 	dma_cap_set(DMA_SLAVE, ud->ddev.cap_mask);
 	dma_cap_set(DMA_CYCLIC, ud->ddev.cap_mask);
