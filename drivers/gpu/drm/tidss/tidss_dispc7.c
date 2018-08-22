@@ -823,59 +823,194 @@ static int dispc7_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
 }
 
 /* CSC */
-
-struct color_conv_coef {
-	int ry, rcb, rcr;
-	int gy, gcb, gcr;
-	int by, bcb, bcr;
-	int roffset, goffset, boffset;
-	bool full_range;
+enum csc_ctm {
+	CSC_RR, CSC_RG, CSC_RB,
+	CSC_GR, CSC_GG, CSC_GB,
+	CSC_BR, CSC_BG, CSC_BB,
 };
 
-static void dispc7_vid_write_color_conv_coefs(struct dispc_device *dispc,
-					      u32 hw_plane,
-					      const struct color_conv_coef *ct)
+enum csc_yuv2rgb {
+	CSC_RY, CSC_RCb, CSC_RCr,
+	CSC_GY, CSC_GCb, CSC_GCr,
+	CSC_BY, CSC_BCb, CSC_BCr,
+};
+
+enum csc_rgb2yuv {
+	CSC_YR,  CSC_YG,  CSC_YB,
+	CSC_CbR, CSC_CbG, CSC_CbB,
+	CSC_CrR, CSC_CrG, CSC_CrB,
+};
+
+struct dispc7_csc_coef {
+	void (*to_regval)(const struct dispc7_csc_coef *csc, u32 *regval);
+	int m[9];
+	int preoffset[3];
+	int postoffset[3];
+	enum { CLIP_LIMITED_RANGE = 0, CLIP_FULL_RANGE = 1, } cliping;
+	const char *name;
+};
+
+#define DISPC7_REGVAL_LEN 8
+
+static void dispc7_csc_offset_regval(const struct dispc7_csc_coef *csc,
+				     u32 *regval)
 {
-#define CVAL(x, y) (FLD_VAL(x, 26, 16) | FLD_VAL(y, 10, 0))
-
-	dispc7_vid_write(dispc, hw_plane,
-			 DISPC_VID_CSC_COEF(0), CVAL(ct->rcr, ct->ry));
-	dispc7_vid_write(dispc, hw_plane,
-			 DISPC_VID_CSC_COEF(1), CVAL(ct->gy,  ct->rcb));
-	dispc7_vid_write(dispc, hw_plane,
-			 DISPC_VID_CSC_COEF(2), CVAL(ct->gcb, ct->gcr));
-	dispc7_vid_write(dispc, hw_plane,
-			 DISPC_VID_CSC_COEF(3), CVAL(ct->bcr, ct->by));
-	dispc7_vid_write(dispc, hw_plane,
-			 DISPC_VID_CSC_COEF(4), CVAL(0, ct->bcb));
-
-	dispc7_vid_write(dispc, hw_plane, DISPC_VID_CSC_COEF(5),
-			 FLD_VAL(ct->roffset, 15, 3) |
-			 FLD_VAL(ct->goffset, 31, 19));
-	dispc7_vid_write(dispc, hw_plane, DISPC_VID_CSC_COEF(6),
-			 FLD_VAL(ct->boffset, 15, 3));
-
-	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES,
-			ct->full_range, 11, 11);
-
-#undef CVAL
+#define OVAL(x, y) (FLD_VAL(x, 15, 3) | FLD_VAL(y, 31, 19))
+	regval[5] = OVAL(csc->preoffset[0], csc->preoffset[1]);
+	regval[6] = OVAL(csc->preoffset[2], csc->postoffset[0]);
+	regval[7] = OVAL(csc->postoffset[1], csc->postoffset[2]);
+#undef OVAL
 }
 
-static void dispc7_vid_csc_setup(struct dispc_device *dispc)
+#define CVAL(x, y) (FLD_VAL(x, 10, 0) | FLD_VAL(y, 26, 16))
+static void dispc7_csc_yuv2rgb_regval(const struct dispc7_csc_coef *csc,
+				      u32 *regval)
 {
-	/* YUV -> RGB, ITU-R BT.601, full range */
-	const struct color_conv_coef yuv2rgb_bt601_full = {
-		256,   0,  358,
-		256, -88, -182,
-		256, 452,    0,
-		0, -2048, -2048,
-		true,
+	regval[0] = CVAL(csc->m[CSC_RY], csc->m[CSC_RCr]);
+	regval[1] = CVAL(csc->m[CSC_RCb], csc->m[CSC_GY]);
+	regval[2] = CVAL(csc->m[CSC_GCr], csc->m[CSC_GCb]);
+	regval[3] = CVAL(csc->m[CSC_BY], csc->m[CSC_BCr]);
+	regval[4] = CVAL(csc->m[CSC_BCb], 0);
+
+	dispc7_csc_offset_regval(csc, regval);
+}
+
+static void __maybe_unused dispc7_csc_rgb2yuv_regval(const struct dispc7_csc_coef *csc,
+				      u32 *regval)
+{
+	regval[0] = CVAL(csc->m[CSC_YR], csc->m[CSC_YG]);
+	regval[1] = CVAL(csc->m[CSC_YB], csc->m[CSC_CrR]);
+	regval[2] = CVAL(csc->m[CSC_CrG], csc->m[CSC_CrB]);
+	regval[3] = CVAL(csc->m[CSC_CbR], csc->m[CSC_CbG]);
+	regval[4] = CVAL(csc->m[CSC_CbB], 0);
+
+	dispc7_csc_offset_regval(csc, regval);
+}
+
+static void __maybe_unused dispc7_csc_cpr_regval(const struct dispc7_csc_coef *csc,
+				  u32 *regval)
+{
+	regval[0] = CVAL(csc->m[CSC_RR], csc->m[CSC_RG]);
+	regval[1] = CVAL(csc->m[CSC_RB], csc->m[CSC_GR]);
+	regval[2] = CVAL(csc->m[CSC_GG], csc->m[CSC_GB]);
+	regval[3] = CVAL(csc->m[CSC_BR], csc->m[CSC_BG]);
+	regval[4] = CVAL(csc->m[CSC_BB], 0);
+
+	dispc7_csc_offset_regval(csc, regval);
+}
+#undef CVAL
+
+
+static void dispc7_vid_write_csc(struct dispc_device *dispc, u32 hw_plane,
+				 const struct dispc7_csc_coef *csc)
+{
+	static const u16 dispc_vid_csc_coef_reg[DISPC7_REGVAL_LEN] = {
+		DISPC_VID_CSC_COEF(0), DISPC_VID_CSC_COEF(1),
+		DISPC_VID_CSC_COEF(2), DISPC_VID_CSC_COEF(3),
+		DISPC_VID_CSC_COEF(4), DISPC_VID_CSC_COEF(5),
+		DISPC_VID_CSC_COEF(6), DISPC_VID_CSC_COEF7,
 	};
+	u32 regval[DISPC7_REGVAL_LEN];
 	int i;
 
-	for (i = 0; i < dispc->feat->num_planes; i++)
-		dispc7_vid_write_color_conv_coefs(dispc, i,
-						  &yuv2rgb_bt601_full);
+	csc->to_regval(csc, regval);
+
+	for (i = 0; i < ARRAY_SIZE(dispc_vid_csc_coef_reg); i++)
+		dispc7_vid_write(dispc, hw_plane, dispc_vid_csc_coef_reg[i],
+				regval[i]);
+}
+
+/* YUV -> RGB, ITU-R BT.601, full range */
+const static struct dispc7_csc_coef csc_yuv2rgb_bt601_full = {
+	dispc7_csc_yuv2rgb_regval,
+	{ 256,   0,  358,	/* ry, rcb, rcr |1.000  0.000  1.402|*/
+	  256, -88, -182,	/* gy, gcb, gcr |1.000 -0.344 -0.714|*/
+	  256, 452,    0, },	/* by, bcb, bcr |1.000  1.772  0.000|*/
+	{    0, -2048, -2048, },	/* full range */
+	{    0,     0,     0, },
+	CLIP_FULL_RANGE,
+	"BT.601 Full",
+};
+
+/* YUV -> RGB, ITU-R BT.601, limited range */
+const static struct dispc7_csc_coef csc_yuv2rgb_bt601_lim = {
+	dispc7_csc_yuv2rgb_regval,
+	{ 298,    0,  409,	/* ry, rcb, rcr |1.164  0.000  1.596|*/
+	  298, -100, -208,	/* gy, gcb, gcr |1.164 -0.392 -0.813|*/
+	  298,  516,    0, },	/* by, bcb, bcr |1.164  2.017  0.000|*/
+	{ -256, -2048, -2048, },	/* limited range */
+	{    0,     0,     0, },
+	CLIP_FULL_RANGE,
+	"BT.601 Limited",
+};
+
+/* YUV -> RGB, ITU-R BT.709, full range */
+const static struct dispc7_csc_coef csc_yuv2rgb_bt709_full = {
+	dispc7_csc_yuv2rgb_regval,
+	{ 256,	  0,  402,	/* ry, rcb, rcr |1.000	0.000  1.570|*/
+	  256,  -48, -120,	/* gy, gcb, gcr |1.000 -0.187 -0.467|*/
+	  256,  475,    0, },	/* by, bcb, bcr |1.000	1.856  0.000|*/
+	{    0, -2048, -2048, },	/* full range */
+	{    0,     0,     0, },
+	CLIP_FULL_RANGE,
+	"BT.709 Full",
+};
+
+/* YUV -> RGB, ITU-R BT.709, limited range */
+const static struct dispc7_csc_coef csc_yuv2rgb_bt709_lim = {
+	dispc7_csc_yuv2rgb_regval,
+	{ 298,    0,  459,	/* ry, rcb, rcr |1.164  0.000  1.793|*/
+	  298,  -55, -136,	/* gy, gcb, gcr |1.164 -0.213 -0.533|*/
+	  298,  541,    0, },	/* by, bcb, bcr |1.164  2.112  0.000|*/
+	{ -256, -2048, -2048, },	/* limited range */
+	{    0,     0,     0, },
+	CLIP_FULL_RANGE,
+	"BT.709 Limited",
+};
+
+static const struct {
+	enum drm_color_encoding encoding;
+	enum drm_color_range range;
+	const struct dispc7_csc_coef *csc;
+} dispc7_csc_table[] = {
+	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_FULL_RANGE,
+	  &csc_yuv2rgb_bt601_full, },
+	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_LIMITED_RANGE,
+	  &csc_yuv2rgb_bt601_lim, },
+	{ DRM_COLOR_YCBCR_BT709, DRM_COLOR_YCBCR_FULL_RANGE,
+	  &csc_yuv2rgb_bt709_full, },
+	{ DRM_COLOR_YCBCR_BT709, DRM_COLOR_YCBCR_LIMITED_RANGE,
+	  &csc_yuv2rgb_bt709_lim, },
+};
+
+static const
+struct dispc7_csc_coef *dispc7_find_csc(enum drm_color_encoding encoding,
+					enum drm_color_range range)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dispc7_csc_table); i++) {
+		if (dispc7_csc_table[i].encoding == encoding &&
+		    dispc7_csc_table[i].range == range) {
+			return dispc7_csc_table[i].csc;
+		}
+	}
+	return NULL;
+}
+
+static void dispc7_vid_csc_setup(struct dispc_device *dispc, u32 hw_plane,
+				 const struct tidss_plane_info *info)
+{
+	const static struct dispc7_csc_coef *coef;
+
+	coef = dispc7_find_csc(info->color_encoding, info->color_range);
+	if (!coef) {
+		dev_err(dispc->dev, "%s: CSC (%u,%u) not found\n",
+			__func__, info->color_encoding, info->color_range);
+		return;
+	}
+
+	dispc7_vid_write_csc(dispc, hw_plane, coef);
 }
 
 static void dispc7_vid_csc_enable(struct dispc_device *dispc, u32 hw_plane,
@@ -1260,6 +1395,23 @@ static s32 pixinc(int pixels, u8 ps)
 	return 0;
 }
 
+const struct tidss_plane_feat *dispc7_plane_feat(struct dispc_device *dispc,
+						 u32 hw_plane)
+{
+	static const struct tidss_plane_feat pfeat = {
+		.color = {
+			.encodings = (BIT(DRM_COLOR_YCBCR_BT601) |
+				      BIT(DRM_COLOR_YCBCR_BT709)),
+			.ranges = (BIT(DRM_COLOR_YCBCR_FULL_RANGE) |
+				   BIT(DRM_COLOR_YCBCR_LIMITED_RANGE)),
+			.default_encoding = DRM_COLOR_YCBCR_BT601,
+			.default_range = DRM_COLOR_YCBCR_FULL_RANGE,
+		},
+	};
+
+	return &pfeat;
+}
+
 static int dispc7_plane_check(struct dispc_device *dispc, u32 hw_plane,
 			     const struct tidss_plane_info *pi,
 			     u32 hw_videoport)
@@ -1269,6 +1421,17 @@ static int dispc7_plane_check(struct dispc_device *dispc, u32 hw_plane,
 		pi->height != pi->out_height;
 	struct dispc7_scaling_params sp;
 	int ret;
+
+	if (dispc7_fourcc_is_yuv(pi->fourcc)) {
+		if (!dispc7_find_csc(pi->color_encoding,
+				     pi->color_range)) {
+			dev_dbg(dispc->dev,
+				"%s: Unsupported CSC (%u,%u) for HW plane %u\n",
+				__func__, pi->color_encoding, pi->color_range,
+				hw_plane);
+			return -EINVAL;
+		}
+	}
 
 	if (need_scaling) {
 		if (lite) {
@@ -1339,10 +1502,12 @@ static int dispc7_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 	}
 
 	/* enable YUV->RGB color conversion */
-	if (dispc7_fourcc_is_yuv(fourcc))
+	if (dispc7_fourcc_is_yuv(fourcc)) {
+		dispc7_vid_csc_setup(dispc, hw_plane, pi);
 		dispc7_vid_csc_enable(dispc, hw_plane, true);
-	else
+	} else {
 		dispc7_vid_csc_enable(dispc, hw_plane, false);
+	}
 
 	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(pi->zorder),
 			hw_plane, 4, 1);
@@ -1441,7 +1606,6 @@ static void dispc7_vp_init(struct dispc_device *dispc)
 
 static void dispc7_initial_config(struct dispc_device *dispc)
 {
-	dispc7_vid_csc_setup(dispc);
 	dispc7_mflag_setup(dispc);
 	dispc7_plane_init(dispc);
 	dispc7_vp_init(dispc);
@@ -1797,6 +1961,7 @@ static const struct dispc_ops dispc7_ops = {
 	.vp_gamma_size = dispc7_vp_gamma_size,
 	.vp_set_gamma = dispc7_vp_set_gamma,
 
+	.plane_feat = dispc7_plane_feat,
 	.plane_enable = dispc7_plane_enable,
 	.plane_check = dispc7_plane_check,
 	.plane_setup = dispc7_plane_setup,

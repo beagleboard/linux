@@ -77,6 +77,18 @@ struct tidss_plane_info {
 	u8 global_alpha;
 	u8 pre_mult_alpha;
 	u8 zorder;
+
+	enum drm_color_encoding color_encoding;
+	enum drm_color_range color_range;
+};
+
+struct tidss_plane_feat {
+	struct tidss_plane_color_feat {
+		u32 encodings;
+		u32 ranges;
+		enum drm_color_encoding default_encoding;
+		enum drm_color_range default_range;
+	} color;
 };
 
 struct dispc_ops {
@@ -130,6 +142,8 @@ struct dispc_ops {
 			     const struct drm_color_lut *lut,
 			     unsigned int length);
 
+	const struct tidss_plane_feat *(*plane_feat)(struct dispc_device *dispc,
+						     u32 hw_plane);
 	int (*plane_enable)(struct dispc_device *dispc, u32 hw_plane,
 			    bool enable);
 	int (*plane_check)(struct dispc_device *dispc, u32 hw_plane,

@@ -948,6 +948,21 @@ static s32 pixinc(int pixels, u8 ps)
 	return 0;
 }
 
+const struct tidss_plane_feat *dispc6_plane_feat(struct dispc_device *dispc,
+						 u32 hw_plane)
+{
+	static const struct tidss_plane_feat pfeat = {
+		.color = {
+			.encodings = BIT(DRM_COLOR_YCBCR_BT601),
+			.ranges = BIT(DRM_COLOR_YCBCR_FULL_RANGE),
+			.default_encoding = DRM_COLOR_YCBCR_BT601,
+			.default_range = DRM_COLOR_YCBCR_FULL_RANGE,
+		},
+	};
+
+	return &pfeat;
+}
+
 static int dispc6_plane_check(struct dispc_device *dispc, u32 hw_plane,
 			      const struct tidss_plane_info *oi,
 			      u32 hw_videoport)
@@ -1340,6 +1355,7 @@ static const struct dispc_ops dispc6_ops = {
 	.vp_gamma_size = dispc6_vp_gamma_size,
 	.vp_set_gamma = dispc6_vp_set_gamma,
 
+	.plane_feat = dispc6_plane_feat,
 	.plane_enable = dispc6_plane_enable,
 	.plane_check = dispc6_plane_check,
 	.plane_setup = dispc6_plane_setup,

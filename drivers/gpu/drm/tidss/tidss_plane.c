@@ -30,6 +30,8 @@ static void tidss_plane_info_init(struct drm_plane_state *state,
 	info->width		= state->src_w >> 16;
 	info->height		= state->src_h >> 16;
 	info->zorder		= state->zpos;
+	info->color_encoding	= state->color_encoding;
+	info->color_range	= state->color_range;
 }
 
 static int tidss_plane_atomic_check(struct drm_plane *plane,
@@ -217,6 +219,9 @@ struct tidss_plane *tidss_plane_create(struct tidss_device *tidss,
 	uint num_planes = tidss->dispc_ops->get_num_planes(tidss->dispc);
 	int ret;
 	struct tidss_plane *tplane;
+	const struct tidss_plane_feat *pfeat;
+
+	pfeat = tidss->dispc_ops->plane_feat(tidss->dispc, hw_plane_id);
 
 	tplane = devm_kzalloc(tidss->dev, sizeof(*tplane), GFP_KERNEL);
 	if (!tplane)
@@ -239,6 +244,14 @@ struct tidss_plane *tidss_plane_create(struct tidss_device *tidss,
 	if (num_planes > 1)
 		drm_plane_create_zpos_property(&tplane->plane, hw_plane_id, 0,
 					       num_planes - 1);
+
+	ret = drm_plane_create_color_properties(&tplane->plane,
+						pfeat->color.encodings,
+						pfeat->color.ranges,
+						pfeat->color.default_encoding,
+						pfeat->color.default_range);
+	if (ret)
+		return ERR_PTR(ret);
 
 	return tplane;
 }
