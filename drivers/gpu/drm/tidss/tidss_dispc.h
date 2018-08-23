@@ -63,6 +63,9 @@ struct tidss_plane_info {
 	dma_addr_t paddr;
 	dma_addr_t p_uv_addr;  /* for NV12 format */
 	u16 fb_width;
+	u16 fb_width_uv;
+	u16 cpp;
+	u16 cpp_uv;
 	u16 width;
 	u16 height;
 	u32 fourcc;

@@ -30,11 +30,30 @@
 #include "tidss_encoder.h"
 
 #include "tidss_dispc.h"
+#include "tidss_scale_coefs.h"
 #include "tidss_dispc7.h"
 
 static const struct dispc7_features dispc7_am6_feats = {
 	.min_pclk = 1000,
 	.max_pclk = 200000000,
+
+	.scaling = {
+		.in_width_max_5tap_rgb = 1280,
+		.in_width_max_3tap_rgb = 2560,
+		.in_width_max_5tap_yuv = 2560,
+		.in_width_max_3tap_yuv = 4096,
+		.upscale_limit = 16,
+		.downscale_limit_5tap = 4,
+		.downscale_limit_3tap = 2,
+		/*
+		 * The max supported pixel inc value is 255. The value
+		 * of pixel inc is calculated like this: 1+(xinc-1)*bpp.
+		 * The maximum bpp of all formats supported by the HW
+		 * is 8. So the maximum supported xinc value is 32,
+		 * because 1+(32-1)*8 < 255 < 1+(33-1)*4.
+		 */
+		.xinc_max = 32,
+	},
 
 	.num_vps = 2,
 	.vp_name = { "vp1", "vp2" },
@@ -872,38 +891,6 @@ static u32 dispc7_calc_fir_inc(uint in, uint out)
 	return (u32)div_u64(0x200000ull * in, out);
 }
 
-struct dispc7_vid_fir_coefs {
-	s16 c2[16];
-	s16 c1[16];
-	u16 c0[9];
-};
-
-static const struct dispc7_vid_fir_coefs dispc7_fir_coefs_null = {
-	.c2 = {	0 },
-	.c1 = { 0 },
-	.c0 = { 512, 512, 512, 512, 512, 512, 512, 512, 256,  },
-};
-
-/* M=8, Upscale x >= 1 */
-static const struct dispc7_vid_fir_coefs dispc7_fir_coefs_m8 = {
-	.c2 = {	0, -4, -8, -16, -24, -32, -40, -48, 0, 2, 4, 6, 8, 6, 4, 2,  },
-	.c1 = { 0, 28, 56, 94, 132, 176, 220, 266, -56, -60, -64, -62, -60, -50, -40, -20,  },
-	.c0 = { 512, 506, 500, 478, 456, 424, 392, 352, 312,  },
-};
-
-/* 5-tap, M=22, Downscale Ratio 2.5 < x < 3 */
-static const struct dispc7_vid_fir_coefs dispc7_fir_coefs_m22_5tap = {
-	.c2 = { 16, 20, 24, 30, 36, 42, 48, 56, 0, 0, 0, 2, 4, 8, 12, 14,  },
-	.c1 = { 132, 140, 148, 156, 164, 172, 180, 186, 64, 72, 80, 88, 96, 104, 112, 122,  },
-	.c0 = { 216, 216, 216, 214, 212, 208, 204, 198, 192,  },
-};
-
-/* 3-tap, M=22, Downscale Ratio 2.5 < x < 3 */
-static const struct dispc7_vid_fir_coefs dispc7_fir_coefs_m22_3tap = {
-	.c1 = { 100, 118, 136, 156, 176, 196, 216, 236, 0, 10, 20, 30, 40, 54, 68, 84,	},
-	.c0 = { 312, 310, 308, 302, 296, 286, 276, 266, 256,  },
-};
-
 enum dispc7_vid_fir_coef_set {
 	DISPC7_VID_FIR_COEF_HORIZ,
 	DISPC7_VID_FIR_COEF_HORIZ_UV,
@@ -914,7 +901,7 @@ enum dispc7_vid_fir_coef_set {
 static void dispc7_vid_write_fir_coefs(struct dispc_device *dispc,
 				       u32 hw_plane,
 				       enum dispc7_vid_fir_coef_set coef_set,
-				       const struct dispc7_vid_fir_coefs *coefs)
+				       const struct tidss_scale_coefs *coefs)
 {
 	static const u16 c0_regs[] = {
 		[DISPC7_VID_FIR_COEF_HORIZ] = DISPC_VID_FIR_COEFS_H0,
@@ -933,6 +920,11 @@ static void dispc7_vid_write_fir_coefs(struct dispc_device *dispc,
 	const u16 c0_base = c0_regs[coef_set];
 	const u16 c12_base = c12_regs[coef_set];
 	int phase;
+
+	if (!coefs) {
+		dev_err(dispc->dev, "%s: No coefficients given.\n", __func__);
+		return;
+	}
 
 	for (phase = 0; phase <= 8; ++phase) {
 		u16 reg = c0_base + phase * 4;
@@ -954,131 +946,6 @@ static void dispc7_vid_write_fir_coefs(struct dispc_device *dispc,
 	}
 }
 
-static void dispc7_vid_write_scale_coefs(struct dispc_device *dispc,
-					 u32 hw_plane)
-{
-	dispc7_vid_write_fir_coefs(dispc, hw_plane, DISPC7_VID_FIR_COEF_HORIZ, &dispc7_fir_coefs_null);
-	dispc7_vid_write_fir_coefs(dispc, hw_plane, DISPC7_VID_FIR_COEF_HORIZ_UV, &dispc7_fir_coefs_null);
-	dispc7_vid_write_fir_coefs(dispc, hw_plane, DISPC7_VID_FIR_COEF_VERT, &dispc7_fir_coefs_null);
-	dispc7_vid_write_fir_coefs(dispc, hw_plane, DISPC7_VID_FIR_COEF_VERT_UV, &dispc7_fir_coefs_null);
-}
-
-static void dispc7_vid_set_scaling(struct dispc_device *dispc,
-				   u32 hw_plane,
-				   uint orig_width, uint orig_height,
-				   uint out_width, uint out_height,
-				   u32 fourcc)
-{
-	uint in_w, in_h, in_w_uv, in_h_uv;
-	uint fir_hinc, fir_vinc, fir_hinc_uv, fir_vinc_uv;
-	bool scale_x, scale_y;
-	bool five_taps = false;		/* XXX always 3-tap for now */
-
-	in_w = in_w_uv = orig_width;
-	in_h = in_h_uv = orig_height;
-
-	switch (fourcc) {
-	case DRM_FORMAT_NV12:
-		/* UV is subsampled by 2 horizontally and vertically */
-		in_h_uv >>= 1;
-		in_w_uv >>= 1;
-		break;
-
-	case DRM_FORMAT_YUYV:
-	case DRM_FORMAT_UYVY:
-		/* UV is subsampled by 2 horizontally */
-		in_w_uv >>= 1;
-		break;
-
-	default:
-		break;
-	}
-
-	scale_x = in_w != out_width || in_w_uv != out_width;
-	scale_y = in_h != out_height || in_h_uv != out_height;
-
-	/* HORIZONTAL RESIZE ENABLE */
-	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, scale_x, 7, 7);
-
-	/* VERTICAL RESIZE ENABLE */
-	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, scale_y, 8, 8);
-
-	/* Skip the rest if no scaling is used */
-	if (!scale_x && !scale_y)
-		return;
-
-	/* VERTICAL 5-TAPS  */
-	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES,
-			five_taps, 21, 21);
-
-	/* FIR INC */
-
-	fir_hinc = dispc7_calc_fir_inc(in_w, out_width);
-	fir_vinc = dispc7_calc_fir_inc(in_h, out_height);
-	fir_hinc_uv = dispc7_calc_fir_inc(in_w_uv, out_width);
-	fir_vinc_uv = dispc7_calc_fir_inc(in_h_uv, out_height);
-
-	dispc7_vid_write(dispc, hw_plane, DISPC_VID_FIRH, fir_hinc);
-	dispc7_vid_write(dispc, hw_plane, DISPC_VID_FIRV, fir_vinc);
-	dispc7_vid_write(dispc, hw_plane, DISPC_VID_FIRH2, fir_hinc_uv);
-	dispc7_vid_write(dispc, hw_plane, DISPC_VID_FIRV2, fir_vinc_uv);
-
-	dispc7_vid_write_scale_coefs(dispc, hw_plane);
-}
-
-/* OTHER */
-
-static const struct {
-	u32 fourcc;
-	u8 dss_code;
-	u8 bytespp;
-} dispc7_color_formats[] = {
-	{ DRM_FORMAT_ARGB4444, 0x0, 2, },
-	{ DRM_FORMAT_ABGR4444, 0x1, 2, },
-	{ DRM_FORMAT_RGBA4444, 0x2, 2, },
-
-	{ DRM_FORMAT_RGB565, 0x3, 2, },
-	{ DRM_FORMAT_BGR565, 0x4, 2, },
-
-	{ DRM_FORMAT_ARGB1555, 0x5, 2, },
-	{ DRM_FORMAT_ABGR1555, 0x6, 2, },
-
-	{ DRM_FORMAT_ARGB8888, 0x7, 4, },
-	{ DRM_FORMAT_ABGR8888, 0x8, 4, },
-	{ DRM_FORMAT_RGBA8888, 0x9, 4, },
-	{ DRM_FORMAT_BGRA8888, 0xa, 4, },
-
-	{ DRM_FORMAT_RGB888, 0xb, 3, },
-	{ DRM_FORMAT_BGR888, 0xc, 3, },
-
-	{ DRM_FORMAT_ARGB2101010, 0xe, 4, },
-	{ DRM_FORMAT_ABGR2101010, 0xf, 4, },
-	{ DRM_FORMAT_RGBA1010102, 0x10, 4, },
-	{ DRM_FORMAT_BGRA1010102, 0x11, 4, },
-
-	{ DRM_FORMAT_XRGB4444, 0x20, 2, },
-	{ DRM_FORMAT_XBGR4444, 0x21, 2, },
-	{ DRM_FORMAT_RGBX4444, 0x22, 2, },
-
-	{ DRM_FORMAT_ARGB1555, 0x25, 2, },
-	{ DRM_FORMAT_ABGR1555, 0x26, 2, },
-
-	{ DRM_FORMAT_XRGB8888, 0x27, 4, },
-	{ DRM_FORMAT_XBGR8888, 0x28, 4, },
-	{ DRM_FORMAT_RGBX8888, 0x29, 4, },
-	{ DRM_FORMAT_BGRX8888, 0x2a, 4, },
-
-	{ DRM_FORMAT_XRGB2101010, 0x2e, 4, },
-	{ DRM_FORMAT_XBGR2101010, 0x2f, 4, },
-	{ DRM_FORMAT_RGBX1010102, 0x30, 4, },
-	{ DRM_FORMAT_BGRX1010102, 0x31, 4, },
-
-	{ DRM_FORMAT_YUYV, 0x3e, 2, },
-	{ DRM_FORMAT_UYVY, 0x3f, 2, },
-
-	{ DRM_FORMAT_NV12, 0x3d, 2, },
-};
-
 static bool dispc7_fourcc_is_yuv(u32 fourcc)
 {
 	switch (fourcc) {
@@ -1090,6 +957,278 @@ static bool dispc7_fourcc_is_yuv(u32 fourcc)
 		return false;
 	}
 }
+
+struct dispc7_scaling_params {
+	int xinc, yinc;
+	u32 in_w, in_h, in_w_uv, in_h_uv;
+	u32 fir_xinc, fir_yinc, fir_xinc_uv, fir_yinc_uv;
+	bool scale_x, scale_y;
+	const struct tidss_scale_coefs *xcoef, *ycoef, *xcoef_uv, *ycoef_uv;
+	bool five_taps;
+};
+
+static int dispc7_vid_calc_scaling(struct dispc_device *dispc,
+				   const struct tidss_plane_info *pi,
+				   struct dispc7_scaling_params *sp,
+				   bool lite_plane)
+{
+	const struct dispc7_features_scaling *f = &dispc->feat->scaling;
+	u32 in_width_max_5tap = f->in_width_max_5tap_rgb;
+	u32 in_width_max_3tap = f->in_width_max_3tap_rgb;
+	u32 downscale_limit;
+	u32 in_width_max;
+
+	memset(sp, 0, sizeof(*sp));
+	sp->xinc = sp->yinc = 1;
+	sp->in_w = sp->in_w_uv = pi->width;
+	sp->in_h = sp->in_h_uv = pi->height;
+
+	sp->scale_x = sp->in_w != pi->out_width;
+	sp->scale_y = sp->in_h != pi->out_height;
+
+	if (dispc7_fourcc_is_yuv(pi->fourcc)) {
+		in_width_max_5tap = f->in_width_max_5tap_yuv;
+		in_width_max_3tap = f->in_width_max_3tap_yuv;
+
+		sp->in_w_uv >>= 1;
+		sp->scale_x = true;
+
+		if (pi->fourcc == DRM_FORMAT_NV12) {
+			sp->in_h_uv >>= 1;
+			sp->scale_y = true;
+		}
+	}
+
+	/* Skip the rest if no scaling is used */
+	if ((!sp->scale_x && !sp->scale_y) || lite_plane)
+		return 0;
+
+	if (sp->in_w > in_width_max_5tap) {
+		sp->five_taps = false;
+		in_width_max = in_width_max_3tap;
+		downscale_limit = f->downscale_limit_3tap;
+	} else {
+		sp->five_taps = true;
+		in_width_max = in_width_max_5tap;
+		downscale_limit = f->downscale_limit_5tap;
+	}
+
+	if (sp->scale_x) {
+		sp->fir_xinc = dispc7_calc_fir_inc(sp->in_w, pi->out_width);
+
+		if (sp->fir_xinc < dispc7_calc_fir_inc(1, f->upscale_limit)) {
+			dev_dbg(dispc->dev,
+				"%s: X-scaling factor %u/%u > %u\n",
+				__func__,  pi->out_width, pi->width,
+				f->upscale_limit);
+			return -EINVAL;
+		}
+
+		if (sp->fir_xinc >= dispc7_calc_fir_inc(downscale_limit, 1)) {
+			sp->xinc = DIV_ROUND_UP(DIV_ROUND_UP(sp->in_w,
+							     pi->out_width),
+						downscale_limit);
+
+			if (sp->xinc > f->xinc_max) {
+				dev_dbg(dispc->dev,
+					"%s: X-scaling factor %u/%u < 1/%u\n",
+					__func__,  pi->out_width, pi->width,
+					downscale_limit * f->xinc_max);
+				return -EINVAL;
+			}
+
+			sp->in_w = pi->width / sp->xinc;
+		}
+
+		while (sp->in_w > in_width_max) {
+			sp->xinc++;
+			sp->in_w = pi->width / sp->xinc;
+		}
+
+		if (sp->xinc > f->xinc_max) {
+			dev_dbg(dispc->dev,
+				"%s: Too wide input bufer %u > %u\n", __func__,
+				pi->width, in_width_max * f->xinc_max);
+			return -EINVAL;
+		}
+
+		/*
+		 * We need even line length for YUV formats. Decimation
+		 * can lead to odd length, so we need to make it even
+		 * again.
+		 */
+		if (dispc7_fourcc_is_yuv(pi->fourcc))
+			sp->in_w &= ~1;
+
+		sp->fir_xinc = dispc7_calc_fir_inc(sp->in_w, pi->out_width);
+	}
+
+	if (sp->scale_y) {
+		sp->fir_yinc = dispc7_calc_fir_inc(sp->in_h, pi->out_height);
+
+		if (sp->fir_yinc < dispc7_calc_fir_inc(1, f->upscale_limit)) {
+			dev_dbg(dispc->dev,
+				"%s: Y-scaling factor %u/%u > %u\n",
+				__func__,  pi->out_height, pi->height,
+				f->upscale_limit);
+			return -EINVAL;
+		}
+
+		if (sp->fir_yinc >= dispc7_calc_fir_inc(downscale_limit, 1)) {
+			sp->yinc = DIV_ROUND_UP(DIV_ROUND_UP(sp->in_h,
+							     pi->out_height),
+						downscale_limit);
+
+			sp->in_h /= sp->yinc;
+			sp->fir_yinc = dispc7_calc_fir_inc(sp->in_h,
+							   pi->out_height);
+		}
+	}
+
+	dev_dbg(dispc->dev,
+		"%s: %ux%u decim %ux%u -> %ux%u firinc %u.%03ux%u.%03u taps %u -> %ux%u\n",
+		__func__,  pi->width, pi->height,
+		sp->xinc, sp->yinc, sp->in_w, sp->in_h,
+		sp->fir_xinc / 0x200000u,
+		((sp->fir_xinc & 0x1FFFFFu) * 999u) / 0x1FFFFFu,
+		sp->fir_yinc / 0x200000u,
+		((sp->fir_yinc & 0x1FFFFFu) * 999u) / 0x1FFFFFu,
+		sp->five_taps ? 5 : 3,
+		pi->out_width, pi->out_height);
+
+	if (dispc7_fourcc_is_yuv(pi->fourcc)) {
+		if (sp->scale_x) {
+			sp->in_w_uv /= sp->xinc;
+			sp->fir_xinc_uv = dispc7_calc_fir_inc(sp->in_w_uv,
+							      pi->out_width);
+			sp->xcoef_uv = tidss_get_scale_coefs(dispc->dev,
+							     sp->fir_xinc_uv,
+							     true);
+		}
+		if (sp->scale_y) {
+			sp->in_h_uv /= sp->yinc;
+			sp->fir_yinc_uv = dispc7_calc_fir_inc(sp->in_h_uv,
+							      pi->out_height);
+			sp->ycoef_uv = tidss_get_scale_coefs(dispc->dev,
+							     sp->fir_yinc_uv,
+							     sp->five_taps);
+		}
+	}
+
+	if (sp->scale_x)
+		sp->xcoef = tidss_get_scale_coefs(dispc->dev, sp->fir_xinc,
+						  true);
+
+	if (sp->scale_y)
+		sp->ycoef = tidss_get_scale_coefs(dispc->dev, sp->fir_yinc,
+						  sp->five_taps);
+
+	return 0;
+}
+
+static void dispc7_vid_set_scaling(struct dispc_device *dispc,
+				   u32 hw_plane,
+				   struct dispc7_scaling_params *sp,
+				   u32 fourcc)
+{
+	/* HORIZONTAL RESIZE ENABLE */
+	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES,
+			sp->scale_x, 7, 7);
+
+	/* VERTICAL RESIZE ENABLE */
+	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES,
+			sp->scale_y, 8, 8);
+
+	/* Skip the rest if no scaling is used */
+	if (!sp->scale_x && !sp->scale_y)
+		return;
+
+	/* VERTICAL 5-TAPS  */
+	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES,
+			sp->five_taps, 21, 21);
+
+	if (dispc7_fourcc_is_yuv(fourcc)) {
+		if (sp->scale_x) {
+			dispc7_vid_write(dispc, hw_plane, DISPC_VID_FIRH2,
+					 sp->fir_xinc_uv);
+			dispc7_vid_write_fir_coefs(dispc, hw_plane,
+						   DISPC7_VID_FIR_COEF_HORIZ_UV,
+						   sp->xcoef_uv);
+		}
+		if (sp->scale_y) {
+			dispc7_vid_write(dispc, hw_plane, DISPC_VID_FIRV2,
+					 sp->fir_yinc_uv);
+			dispc7_vid_write_fir_coefs(dispc, hw_plane,
+						   DISPC7_VID_FIR_COEF_VERT_UV,
+						   sp->ycoef_uv);
+		}
+	}
+
+	if (sp->scale_x) {
+		dispc7_vid_write(dispc, hw_plane, DISPC_VID_FIRH, sp->fir_xinc);
+		dispc7_vid_write_fir_coefs(dispc, hw_plane,
+					   DISPC7_VID_FIR_COEF_HORIZ,
+					   sp->xcoef);
+	}
+
+	if (sp->scale_y) {
+		dispc7_vid_write(dispc, hw_plane, DISPC_VID_FIRV, sp->fir_yinc);
+		dispc7_vid_write_fir_coefs(dispc, hw_plane,
+					   DISPC7_VID_FIR_COEF_VERT, sp->ycoef);
+	}
+}
+
+/* OTHER */
+
+static const struct {
+	u32 fourcc;
+	u8 dss_code;
+} dispc7_color_formats[] = {
+	{ DRM_FORMAT_ARGB4444, 0x0, },
+	{ DRM_FORMAT_ABGR4444, 0x1, },
+	{ DRM_FORMAT_RGBA4444, 0x2, },
+
+	{ DRM_FORMAT_RGB565, 0x3, },
+	{ DRM_FORMAT_BGR565, 0x4, },
+
+	{ DRM_FORMAT_ARGB1555, 0x5, },
+	{ DRM_FORMAT_ABGR1555, 0x6, },
+
+	{ DRM_FORMAT_ARGB8888, 0x7, },
+	{ DRM_FORMAT_ABGR8888, 0x8, },
+	{ DRM_FORMAT_RGBA8888, 0x9, },
+	{ DRM_FORMAT_BGRA8888, 0xa, },
+
+	{ DRM_FORMAT_RGB888, 0xb, },
+	{ DRM_FORMAT_BGR888, 0xc, },
+
+	{ DRM_FORMAT_ARGB2101010, 0xe, },
+	{ DRM_FORMAT_ABGR2101010, 0xf, },
+	{ DRM_FORMAT_RGBA1010102, 0x10, },
+	{ DRM_FORMAT_BGRA1010102, 0x11, },
+
+	{ DRM_FORMAT_XRGB4444, 0x20, },
+	{ DRM_FORMAT_XBGR4444, 0x21, },
+	{ DRM_FORMAT_RGBX4444, 0x22, },
+
+	{ DRM_FORMAT_ARGB1555, 0x25, },
+	{ DRM_FORMAT_ABGR1555, 0x26, },
+
+	{ DRM_FORMAT_XRGB8888, 0x27, },
+	{ DRM_FORMAT_XBGR8888, 0x28, },
+	{ DRM_FORMAT_RGBX8888, 0x29, },
+	{ DRM_FORMAT_BGRX8888, 0x2a, },
+
+	{ DRM_FORMAT_XRGB2101010, 0x2e, },
+	{ DRM_FORMAT_XBGR2101010, 0x2f, },
+	{ DRM_FORMAT_RGBX1010102, 0x30, },
+	{ DRM_FORMAT_BGRX1010102, 0x31, },
+
+	{ DRM_FORMAT_YUYV, 0x3e, },
+	{ DRM_FORMAT_UYVY, 0x3f, },
+
+	{ DRM_FORMAT_NV12, 0x3d, },
+};
 
 static void dispc7_plane_set_pixel_format(struct dispc_device *dispc,
 					  u32 hw_plane, u32 fourcc)
@@ -1106,19 +1245,6 @@ static void dispc7_plane_set_pixel_format(struct dispc_device *dispc,
 	}
 
 	WARN_ON(1);
-}
-
-static int dispc7_fourcc_to_bytespp(u32 fourcc)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(dispc7_color_formats); ++i) {
-		if (dispc7_color_formats[i].fourcc == fourcc)
-			return dispc7_color_formats[i].bytespp;
-	}
-
-	WARN_ON(1);
-	return 4;
 }
 
 static s32 pixinc(int pixels, u8 ps)
@@ -1138,7 +1264,26 @@ static int dispc7_plane_check(struct dispc_device *dispc, u32 hw_plane,
 			     const struct tidss_plane_info *pi,
 			     u32 hw_videoport)
 {
-	return 0; /* XXX: Dummy check function to be implemented later */
+	bool lite = dispc->feat->vid_lite[hw_plane];
+	bool need_scaling = pi->width != pi->out_width ||
+		pi->height != pi->out_height;
+	struct dispc7_scaling_params sp;
+	int ret;
+
+	if (need_scaling) {
+		if (lite) {
+			dev_dbg(dispc->dev,
+				"%s: Lite plane %u can't scale %ux%u!=%ux%u\n",
+				__func__, hw_plane, pi->width, pi->height,
+				pi->out_width, pi->out_height);
+			return -EINVAL;
+		}
+		ret = dispc7_vid_calc_scaling(dispc, pi, &sp, false);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static int dispc7_plane_setup(struct dispc_device *dispc, u32 hw_plane,
@@ -1147,13 +1292,9 @@ static int dispc7_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 {
 	bool lite = dispc->feat->vid_lite[hw_plane];
 	u32 fourcc = pi->fourcc;
-	int bytespp = dispc7_fourcc_to_bytespp(fourcc);
+	struct dispc7_scaling_params scale;
 
-	if (dispc7_fourcc_is_yuv(fourcc) && (pi->width & 1)) {
-		dev_err(dispc->dev, "non even input width %d for YUV format\n",
-			pi->width);
-		return -EINVAL;
-	}
+	dispc7_vid_calc_scaling(dispc, pi, &scale, lite);
 
 	dispc7_plane_set_pixel_format(dispc, hw_plane, fourcc);
 
@@ -1168,26 +1309,33 @@ static int dispc7_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 	dispc7_vid_write(dispc, hw_plane, DISPC_VID_BA_UV_EXT_1, (u64)pi->p_uv_addr >> 32);
 
 	dispc7_vid_write(dispc, hw_plane, DISPC_VID_PICTURE_SIZE,
-			 (pi->width - 1) | ((pi->height - 1) << 16));
+			 (scale.in_w - 1) | ((scale.in_h - 1) << 16));
 
-	dispc7_vid_write(dispc, hw_plane, DISPC_VID_PIXEL_INC,
-			 pixinc(1, bytespp));
+	/* For YUV422 format we use the macropixel size for pixel inc */
+	if (fourcc == DRM_FORMAT_YUYV || fourcc == DRM_FORMAT_UYVY)
+		dispc7_vid_write(dispc, hw_plane, DISPC_VID_PIXEL_INC,
+				 pixinc(scale.xinc, pi->cpp * 2));
+	else
+		dispc7_vid_write(dispc, hw_plane, DISPC_VID_PIXEL_INC,
+				 pixinc(scale.xinc, pi->cpp));
+
 	dispc7_vid_write(dispc, hw_plane, DISPC_VID_ROW_INC,
-			 pixinc(1 + pi->fb_width - pi->width, bytespp));
+			 pixinc(1 + (scale.yinc * pi->fb_width -
+				     scale.xinc * scale.in_w),
+				pi->cpp));
 
 	if (fourcc == DRM_FORMAT_NV12)
 		dispc7_vid_write(dispc, hw_plane, DISPC_VID_ROW_INC_UV,
-				 pixinc(1 + pi->fb_width - pi->width, bytespp));
+				 pixinc(1 + (scale.yinc * pi->fb_width_uv -
+					     scale.xinc * scale.in_w_uv),
+					pi->cpp_uv));
 
 	if (!lite) {
 		dispc7_vid_write(dispc, hw_plane, DISPC_VID_SIZE,
 				 (pi->out_width - 1) |
 				 ((pi->out_height - 1) << 16));
 
-		dispc7_vid_set_scaling(dispc, hw_plane,
-				       pi->width, pi->height,
-				       pi->out_width, pi->out_height,
-				       fourcc);
+		dispc7_vid_set_scaling(dispc, hw_plane, &scale, fourcc);
 	}
 
 	/* enable YUV->RGB color conversion */
@@ -1267,6 +1415,19 @@ static void dispc7_mflag_setup(struct dispc_device *dispc)
 		dispc7_vid_mflag_setup(dispc, i);
 }
 
+static void dispc7_plane_init(struct dispc_device *dispc)
+{
+	unsigned int i;
+
+	dev_dbg(dispc->dev, "%s()\n", __func__);
+
+	/* FIFO underflows when scaling if preload is not high enough */
+	for (i = 0; i < dispc->feat->num_planes; i++)
+		if (!dispc->feat->vid_lite[i])
+			VID_REG_FLD_MOD(dispc, i, DISPC_VID_PRELOAD,
+					0x7FF, 11, 0);
+}
+
 static void dispc7_vp_init(struct dispc_device *dispc)
 {
 	unsigned int i;
@@ -1282,6 +1443,7 @@ static void dispc7_initial_config(struct dispc_device *dispc)
 {
 	dispc7_vid_csc_setup(dispc);
 	dispc7_mflag_setup(dispc);
+	dispc7_plane_init(dispc);
 	dispc7_vp_init(dispc);
 }
 

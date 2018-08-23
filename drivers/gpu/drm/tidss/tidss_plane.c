@@ -152,6 +152,7 @@ static void tidss_plane_atomic_update(struct drm_plane *plane,
 		     y * fb->pitches[0];
 
 	info.fb_width  = fb->pitches[0] / fb->format->cpp[0];
+	info.cpp = fb->format->cpp[0];
 
 	if (fb->format->num_planes == 2) {
 		gem = drm_fb_cma_get_gem_obj(fb, 1);
@@ -160,6 +161,9 @@ static void tidss_plane_atomic_update(struct drm_plane *plane,
 				 fb->offsets[0] +
 				 (x * fb->format->cpp[0] / fb->format->hsub) +
 				 (y * fb->pitches[0] / fb->format->vsub);
+
+		info.fb_width_uv = fb->pitches[1] / fb->format->cpp[1];
+		info.cpp_uv = fb->format->cpp[1];
 	}
 
 	ret = tidss->dispc_ops->plane_setup(tidss->dispc, tplane->hw_plane_id,
