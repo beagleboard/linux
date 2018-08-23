@@ -435,7 +435,7 @@ int k3_nav_ringacc_ring_free(struct k3_nav_ring *ring)
 	dma_free_coherent(ringacc->dev,
 			  ring->size * (4 << ring->elm_size),
 			  ring->ring_mem_virt, ring->ring_mem_dma);
-	ring->flags &= ~KNAV_RING_FLAG_BUSY;
+	ring->flags = 0;
 	ring->ops = NULL;
 	if (ring->proxy_id != K3_RINGACC_PROXY_NOT_USED) {
 		clear_bit(ring->proxy_id, ringacc->proxy_inuse);
