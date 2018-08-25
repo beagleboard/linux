@@ -1,0 +1,203 @@
+TI K3 MCU R5F devices
+======================
+
+The TI K3 family of SoCs usually have one or more micro-controller (MCU)
+sub-systems comprising of a Dual-Core Cortex R5F cluster. The dual core
+cluster can be used either in a LockStep mode providing safety/fault
+tolerance features or in a Split mode providing two individual compute
+cores for doubling the compute capacity. These are used together with
+other processors present on the SoC to achieve various system level goals.
+
+MCU Sub-System Device Node:
+===========================
+Each Dual-Core R5F sub-system is represented as a single DTS node representing
+the cluster, with a pair of child DT nodes representing the individual R5F
+cores. Each node has a number of required or optional properties that enable
+the OS running on the host processor to perform the device management of the
+remote processor and to communicate with the remote processor.
+
+Required properties:
+--------------------
+The following are the mandatory properties:
+
+- compatible:		Should be one of the following,
+			    "ti,am654-mcu-r5f" for MCU R5F clusters on
+			                       K3 AM65x SoCs
+- power-domains:	Should contain a phandle to a PM domain provider node
+			and an args specifier containing the DSP device id
+			value. This property is as per the binding,
+			Documentation/devicetree/bindings/soc/ti/sci-pm-domain.txt
+- #address-cells:	Should be 1
+- #size-cells:		Should be 1
+- ranges:		Standard ranges definition providing translations for
+			R5F TCM address spaces
+
+Optional properties:
+--------------------
+- lockstep-mode:	Configuration Mode for the Dual R5F cores within the MCU
+			cluster. Should be either a value of 1 (LockStep mode) or
+			0 (Split mode), default is LockStep mode if omitted.
+
+
+R5F Processor Child Nodes:
+==========================
+The MCU Sub-System device node should define two R5F child nodes, each node
+representing a TI instantiation of the ARM Cortex R5F core. There are some
+specific integration differences for the IP like the usage of a Region Address
+Translator (RAT) for translating the larger SoC bus addresses into a 32-bit
+address space for the processor.
+
+Required properties:
+--------------------
+The following are the mandatory properties:
+
+- compatible:		Should be one of the following,
+			    "ti,am654-r5f" for the R5F cores in K3 AM65x SoCs
+- reg:			Should contain an entry for each value in 'reg-names'.
+			Each entry should have the memory region's start address
+			and the size of the region, the representation matching
+			the parent node's '#address-cells' and '#size-cells' values.
+- reg-names:		Should contain strings with the following names, each
+			representing a specific internal memory region, and
+			should be defined in this order,
+			     "atcm", "btcm"
+- ti,sci:		Should be a phandle to the TI-SCI System Controller node
+- ti,sci-dev-id:	Should contain the TI-SCI device id corresponding to the
+			R5F Core. Please refer to the corresponding System
+			Controller documentation for valid values for the R5F
+			cores.
+- ti,sci-proc-ids:	Should contain 2 integer values. The first cell should
+			contain the TI-SCI processor id for the R5F core device
+			and the second cell should contain the TI-SCI host id to
+			which the processor control ownership should be
+			transferred to.
+- resets:		Should contain the phandle to the reset controller node
+			managing the resets for this device, and a reset
+			specifier. Please refer to the following reset bindings
+			for the reset argument specifier,
+			Documentation/devicetree/bindings/reset/ti,sci-reset.txt
+			    for AM65x SoCs
+
+The following properties are mandatory for R5F Core0 in both LockStep and Split
+modes, but are mandatory for R5F Core1 in only Split mode. They are unused for
+R5F Core1 in LockStep mode:
+
+- mboxes:		OMAP Mailbox specifier denoting the sub-mailbox, to be
+			used for communication with the remote processor. The
+			specifier format is as per the bindings,
+			Documentation/devicetree/bindings/mailbox/omap-mailbox.txt
+			This property should match with the sub-mailbox node
+			used in the firmware image.
+- memory-region:	phandle to the reserved memory node to be associated
+			with the remoteproc device. The reserved memory node
+			should be a carveout node, and should be defined as
+			per the bindings in
+			Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
+
+Optional properties:
+--------------------
+The following properties are optional properties for each of the R5F cores:
+
+- atcm-enable:		R5F core configuration mode dictating if ATCM should be
+			enabled. Should be either a value of 1 (enabled) or
+			0 (disabled), default is disabled if omitted. R5F view
+			of ATCM dictated by loczrama property.
+- btcm-enable:		R5F core configuration mode dictating if BTCM should be
+			enabled. Should be either a value of 1 (enabled) or
+			0 (disabled), default is enabled if omitted. R5F view
+			of BTCM dictated by loczrama property.
+- loczrama:		R5F core configuration mode dictating which TCM should
+			appear at address 0 (from core's view). Should be either
+			a value of 1 (ATCM at 0x0) or 0 (BTCM at 0x0), default
+			value is 1 if omitted.
+- sram:			pHandle to a reserved on-chip SRAM region. The region
+			should be defined as a child node of the respective
+			SRAM node, and should be defined as per the generic
+			bindings in,
+			Documentation/devicetree/bindings/misc/sram.txt
+
+
+Example:
+--------
+1. AM654 SoC
+	/* AM65x remoteproc alias */
+	aliases {
+		rproc0 = &mcu_r5f0;
+	};
+
+	/* R5F DDR Carveout reserved memory nodes */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		r5f1_memory_region: r5f1-memory@9b000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9b000000 0 0x1000000>;
+			no-map;
+		};
+
+		r5f0_memory_region: r5f0-memory@9c000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9c000000 0 0x800000>;
+			no-map;
+		};
+	};
+
+	/* MCU domain SRAM node */
+	mcu_ram: mcu-ram@41c00000 {
+		compatible = "mmio-sram";
+		reg = <0x0 0x41c00000 0x0 0x80000>;
+		ranges = <0x0 0x0 0x41c00000 0x80000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		r5f0_sram: r5f0-sram@0 {
+			reg = <0x0 0x40000>;
+		};
+	};
+
+	/* AM65x MCU Cluster node */
+	soc {
+		mcu_r5f_cluster: mcu_r5f_cluster@41000000 {
+			compatible = "ti,am654-mcu-r5f";
+			power-domains = <&k3_pds 129>;
+			lockstep-mode = <1>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x41000000 0x0 0x41000000 0x20000>,
+				 <0x41400000 0x0 0x41400000 0x20000>;
+
+			mcu_r5f0: r5f@41000000 {
+				compatible = "ti,am654-r5f";
+				reg = <0x41000000 0x00008000>,
+				      <0x41010000 0x00008000>;
+				reg-names = "atcm", "btcm";
+				ti,sci = <&dmsc>;
+				ti,sci-dev-id = <159>;
+				ti,sci-proc-ids = <0x01 0xFF>;
+				resets = <&k3_reset 159 1>;
+				atcm-enable = <1>;
+				btcm-enable = <1>;
+				loczrama = <1>;
+				mboxes = <&mailbox0 &mbox_mcu_r5f0_ipc3x>;
+				memory-region = <&r5f0_memory_region>;
+				sram = <&r5f0_sram>;
+			};
+
+			mcu_r5f1: r5f@41400000 {
+				compatible = "ti,am654-r5f";
+				reg = <0x41400000 0x00008000>,
+				      <0x41410000 0x00008000>;
+				reg-names = "atcm", "btcm";
+				ti,sci = <&dmsc>;
+				ti,sci-dev-id = <245>;
+				ti,sci-proc-ids = <0x02 0xFF>;
+				resets = <&k3_reset 245 1>;
+				atcm-enable = <1>;
+				btcm-enable = <1>;
+				loczrama = <1>;
+				mboxes = <&mailbox1 &mbox_mcu_r5f1_ipc3x>;
+			};
+		};
+	};
