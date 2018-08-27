@@ -126,8 +126,10 @@ static const struct dispc7_bus_format dispc7_bus_formats[] = {
 #define OVR_REG_FLD_MOD(dispc, ovr, idx, val, start, end) \
 	dispc7_ovr_write(dispc, ovr, idx, FLD_MOD(dispc7_ovr_read(dispc, ovr, idx), val, start, end))
 
+#define DISPC7_GAMMA_TABLE_SIZE 256
+
 struct dss_vp_data {
-	u32 gamma_table[256];
+	u32 gamma_table[DISPC7_GAMMA_TABLE_SIZE];
 	bool oldi;
 };
 
@@ -850,7 +852,7 @@ struct dispc7_csc_coef {
 	const char *name;
 };
 
-#define DISPC7_REGVAL_LEN 8
+#define DISPC7_CSC_REGVAL_LEN 8
 
 static void dispc7_csc_offset_regval(const struct dispc7_csc_coef *csc,
 				     u32 *regval)
@@ -887,7 +889,7 @@ static void __maybe_unused dispc7_csc_rgb2yuv_regval(const struct dispc7_csc_coe
 	dispc7_csc_offset_regval(csc, regval);
 }
 
-static void __maybe_unused dispc7_csc_cpr_regval(const struct dispc7_csc_coef *csc,
+static void dispc7_csc_cpr_regval(const struct dispc7_csc_coef *csc,
 				  u32 *regval)
 {
 	regval[0] = CVAL(csc->m[CSC_RR], csc->m[CSC_RG]);
@@ -904,13 +906,13 @@ static void __maybe_unused dispc7_csc_cpr_regval(const struct dispc7_csc_coef *c
 static void dispc7_vid_write_csc(struct dispc_device *dispc, u32 hw_plane,
 				 const struct dispc7_csc_coef *csc)
 {
-	static const u16 dispc_vid_csc_coef_reg[DISPC7_REGVAL_LEN] = {
+	static const u16 dispc_vid_csc_coef_reg[DISPC7_CSC_REGVAL_LEN] = {
 		DISPC_VID_CSC_COEF(0), DISPC_VID_CSC_COEF(1),
 		DISPC_VID_CSC_COEF(2), DISPC_VID_CSC_COEF(3),
 		DISPC_VID_CSC_COEF(4), DISPC_VID_CSC_COEF(5),
 		DISPC_VID_CSC_COEF(6), DISPC_VID_CSC_COEF7,
 	};
-	u32 regval[DISPC7_REGVAL_LEN];
+	u32 regval[DISPC7_CSC_REGVAL_LEN];
 	int i;
 
 	csc->to_regval(csc, regval);
@@ -1621,10 +1623,17 @@ static int dispc7_get_num_vps(struct dispc_device *dispc)
 	return dispc->feat->num_vps;
 }
 
-static u32 dispc7_vp_gamma_size(struct dispc_device *dispc,
-				u32 hw_videoport)
+static const struct tidss_vp_feat *dispc7_vp_feat(struct dispc_device *dispc,
+						  u32 hw_videoport)
 {
-	return ARRAY_SIZE(dispc->vp_data[hw_videoport].gamma_table);
+	static const struct tidss_vp_feat vp_feat = {
+		.color = {
+			.gamma_size = DISPC7_GAMMA_TABLE_SIZE,
+			.has_ctm = true,
+		},
+	};
+
+	return &vp_feat;
 }
 
 static void dispc7_vp_write_gamma_table(struct dispc_device *dispc,
@@ -1704,6 +1713,84 @@ static void dispc7_vp_set_gamma(struct dispc_device *dispc,
 
 	if (dispc->is_enabled)
 		dispc7_vp_write_gamma_table(dispc, hw_videoport);
+}
+
+static s16 dispc7_S31_32_to_s2_8(s64 coef)
+{
+	uint64_t sign_bit = 1ULL << 63;
+	uint64_t cbits = (uint64_t) coef;
+	s16 ret = clamp_val(((cbits & ~sign_bit) >> 24), 0, 0x1FF);
+
+	if (cbits & sign_bit)
+		ret = -ret;
+
+	return ret;
+}
+
+static void dispc7_cpr_csc_from_ctm(const struct drm_color_ctm *ctm,
+				    struct dispc7_csc_coef *cpr)
+{
+	memset(cpr, 0, sizeof(*cpr));
+
+	cpr->to_regval = dispc7_csc_cpr_regval;
+	cpr->m[CSC_RR] = dispc7_S31_32_to_s2_8(ctm->matrix[0]);
+	cpr->m[CSC_RG] = dispc7_S31_32_to_s2_8(ctm->matrix[1]);
+	cpr->m[CSC_RB] = dispc7_S31_32_to_s2_8(ctm->matrix[2]);
+	cpr->m[CSC_GR] = dispc7_S31_32_to_s2_8(ctm->matrix[3]);
+	cpr->m[CSC_GG] = dispc7_S31_32_to_s2_8(ctm->matrix[4]);
+	cpr->m[CSC_GB] = dispc7_S31_32_to_s2_8(ctm->matrix[5]);
+	cpr->m[CSC_BR] = dispc7_S31_32_to_s2_8(ctm->matrix[6]);
+	cpr->m[CSC_BG] = dispc7_S31_32_to_s2_8(ctm->matrix[7]);
+	cpr->m[CSC_BB] = dispc7_S31_32_to_s2_8(ctm->matrix[8]);
+}
+
+static void dispc7_vp_write_csc(struct dispc_device *dispc, u32 hw_videoport,
+				const struct dispc7_csc_coef *csc)
+{
+	static const u16 dispc_vp_csc_coef_reg[DISPC7_CSC_REGVAL_LEN] = {
+		DISPC_VP_CSC_COEF0, DISPC_VP_CSC_COEF1, DISPC_VP_CSC_COEF2,
+		DISPC_VP_CSC_COEF3, DISPC_VP_CSC_COEF4, DISPC_VP_CSC_COEF5,
+		DISPC_VP_CSC_COEF6, DISPC_VP_CSC_COEF7,
+	};
+	u32 regval[DISPC7_CSC_REGVAL_LEN];
+	int i;
+
+	csc->to_regval(csc, regval);
+
+	for (i = 0; i < ARRAY_SIZE(regval); i++)
+		dispc7_vp_write(dispc, hw_videoport, dispc_vp_csc_coef_reg[i],
+				regval[i]);
+}
+
+static void dispc7_set_color_mgmt(struct dispc_device *dispc, u32 hw_videoport,
+				 const struct drm_crtc_state *state)
+{
+	struct drm_color_lut *lut = NULL;
+	unsigned int length = 0;
+	bool colorconvenable = false;
+
+	if (!state->color_mgmt_changed)
+		return;
+
+	if (state->gamma_lut) {
+		lut = (struct drm_color_lut *) state->gamma_lut->data;
+		length = state->gamma_lut->length / sizeof(*lut);
+	}
+
+	if (state->ctm) {
+		struct drm_color_ctm *ctm =
+			(struct drm_color_ctm *) state->ctm->data;
+		struct dispc7_csc_coef cpr;
+
+		dispc7_cpr_csc_from_ctm(ctm, &cpr);
+		dispc7_vp_write_csc(dispc, hw_videoport, &cpr);
+
+		colorconvenable = true;
+	}
+
+	dispc7_vp_set_gamma(dispc, hw_videoport, lut, length);
+	VP_REG_FLD_MOD(dispc, hw_videoport, DISPC_VP_CONFIG,
+		       colorconvenable, 24, 24);
 }
 
 static int dispc7_init_gamma_tables(struct dispc_device *dispc)
@@ -1947,6 +2034,8 @@ static const struct dispc_ops dispc7_ops = {
 	.plane_name = dispc7_plane_name,
 	.vp_name = dispc7_vp_name,
 
+	.vp_feat = dispc7_vp_feat,
+
 	.vp_prepare = dispc7_vp_prepare,
 	.vp_enable = dispc7_vp_enable,
 	.vp_disable = dispc7_vp_disable,
@@ -1958,8 +2047,7 @@ static const struct dispc_ops dispc7_ops = {
 	.vp_check_mode = dispc7_vp_check_mode,
 	.vp_check_config = dispc7_vp_check_config,
 
-	.vp_gamma_size = dispc7_vp_gamma_size,
-	.vp_set_gamma = dispc7_vp_set_gamma,
+	.vp_set_color_mgmt = dispc7_set_color_mgmt,
 
 	.plane_feat = dispc7_plane_feat,
 	.plane_enable = dispc7_plane_enable,

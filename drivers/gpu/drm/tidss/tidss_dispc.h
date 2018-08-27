@@ -9,7 +9,8 @@
 
 struct tidss_device;
 struct dispc_device;
-struct drm_color_lut;
+
+struct drm_crtc_state;
 
 #define DSS_MAX_CHANNELS 8
 #define DSS_MAX_PLANES 8
@@ -82,6 +83,13 @@ struct tidss_plane_info {
 	enum drm_color_range color_range;
 };
 
+struct tidss_vp_feat {
+	struct tidss_vp_color_feat {
+		u32 gamma_size;
+		bool has_ctm;
+	} color;
+};
+
 struct tidss_plane_feat {
 	struct tidss_plane_color_feat {
 		u32 encodings;
@@ -108,6 +116,8 @@ struct dispc_ops {
 
 	u32 (*get_memory_bandwidth_limit)(struct dispc_device *dispc);
 
+	const struct tidss_vp_feat *(*vp_feat)(struct dispc_device *dispc,
+					       u32 hw_videoport);
 	void (*vp_prepare)(struct dispc_device *dispc, u32 hw_videoport,
 			   const struct drm_display_mode *mode,
 			   u32 bus_fmt, u32 bus_flags);
@@ -135,12 +145,9 @@ struct dispc_ops {
 			       const struct drm_display_mode *mode,
 			       u32 bus_fmt, u32 bus_flags);
 
-	u32 (*vp_gamma_size)(struct dispc_device *dispc,
-			     u32 hw_videoport);
-	void (*vp_set_gamma)(struct dispc_device *dispc,
-			     u32 hw_videoport,
-			     const struct drm_color_lut *lut,
-			     unsigned int length);
+	void (*vp_set_color_mgmt)(struct dispc_device *dispc,
+				  u32 hw_videoport,
+				  const struct drm_crtc_state *state);
 
 	const struct tidss_plane_feat *(*plane_feat)(struct dispc_device *dispc,
 						     u32 hw_plane);
