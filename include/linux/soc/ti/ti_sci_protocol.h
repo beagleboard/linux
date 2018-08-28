@@ -701,12 +701,25 @@ struct ti_sci_handle {
 
 #define TI_SCI_RESOURCE_NULL	0xffff
 
+/**
+ * struct ti_sci_resource_desc - Description of TI SCI resource instance range.
+ * @start:	Start index of the resource.
+ * @num:	Number of resources.
+ * @res_map:	Bitmap to manage the allocation of these resources.
+ */
 struct ti_sci_resource_desc {
 	u16 start;
-	u16 max;
+	u16 num;
 	unsigned long *res_map;
 };
 
+/**
+ * struct ti_sci_resource - Structure representing a resource assigned
+ *			    to a device.
+ * @sets:	Number of sets available from this resource type
+ * @lock:	Lock to guard the res map in each set.
+ * @desc:	Array of resource descriptors.
+ */
 struct ti_sci_resource {
 	u16 sets;
 	raw_spinlock_t lock;
