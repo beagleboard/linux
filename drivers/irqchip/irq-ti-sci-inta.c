@@ -208,7 +208,7 @@ static struct ti_sci_inta_vint_desc *alloc_intr_irq(struct irq_domain *domain,
 	if (err)
 		goto err_irqs;
 
-	vint_desc->dst_id = ti_sci_intr_get_dst_id(domain->parent, virq);
+	vint_desc->dst_id = ti_sci_intr_get_dst_id(domain->parent);
 	vint_desc->dst_host_irq = ti_sci_intr_get_dst_irq(domain->parent, virq);
 	raw_spin_lock_init(&vint_desc->lock);
 

@@ -16,16 +16,29 @@
 #include <linux/moduleparam.h>
 #include "irq-ti-sci-intr.h"
 
+/**
+ * struct ti_sci_intr_irq_domain - Structure representing a TISCI based
+ *				   Interrupt Router IRQ domain.
+ * @sci:	Pointer to TISCI handle
+ * @dst_irq:	TISCI resource pointer representing destination irq controller.
+ * @dst_id:	TISCI device ID of the destination irq controller.
+ */
 struct ti_sci_intr_irq_domain {
 	const struct ti_sci_handle *sci;
 	struct ti_sci_resource *dst_irq;
 	u16 dst_id;
 };
 
+/**
+ * struct ti_sci_intr_irq_desc - Description of an Interrupt Router IRQ
+ * @src_id:		TISCI device ID of the IRQ source
+ * @src_index:		IRQ source index within the device.
+ * @dst_irq:		Destination host IRQ.
+ * @is_event_irq:	If the specified IRQ is from IA.
+ */
 struct ti_sci_intr_irq_desc {
 	u16 src_id;
 	u16 src_index;
-	u16 dst_id;
 	u16 dst_irq;
 	bool is_event_irq;
 };
@@ -40,6 +53,16 @@ static struct irq_chip ti_sci_intr_irq_chip = {
 	.irq_set_affinity	= irq_chip_set_affinity_parent,
 };
 
+/**
+ * ti_sci_intr_irq_domain_translate() - Retrieve hwirq and type from
+ *					IRQ firmware specific handler.
+ * @domain:	Pointer to IRQ domain
+ * @fwspec:	Pointer to IRQ specific firmware structure
+ * @hwirq:	IRQ number identified by hardware
+ * @type:	IRQ type
+ *
+ * Return 0 if all went ok else appropriate error.
+ */
 static int ti_sci_intr_irq_domain_translate(struct irq_domain *domain,
 					    struct irq_fwspec *fwspec,
 					    unsigned long *hwirq,
@@ -65,12 +88,18 @@ static inline void ti_sci_intr_delete_desc(struct ti_sci_intr_irq_domain *intr,
 {
 	intr->sci->ops.rm_irq_ops.free_direct_irq(intr->sci, desc->src_id,
 						  desc->src_index,
-						  desc->dst_id, desc->dst_irq);
+						  intr->dst_id, desc->dst_irq);
 	pr_debug("%s: IRQ deleted from src = %d, src_index = %d, to dst = %d, dst_irq = %d\n",
-		 __func__, desc->src_id, desc->src_index, desc->dst_id,
+		 __func__, desc->src_id, desc->src_index, intr->dst_id,
 		desc->dst_irq);
 }
 
+/**
+ * ti_sci_intr_irq_domain_free() - Free the specified IRQs from the domain.
+ * @domain:	Domain to which the irqs belong
+ * @virq:	Linux virtual IRQ to be freed.
+ * @nr_irqs:	Number of continuous irqs to be freed
+ */
 static void ti_sci_intr_irq_domain_free(struct irq_domain *domain,
 					unsigned int virq, unsigned int nr_irqs)
 {
@@ -95,9 +124,20 @@ static void ti_sci_intr_irq_domain_free(struct irq_domain *domain,
 	}
 }
 
+/**
+ * allocate_gic_irq() - Allocate GIC specific IRQ
+ * @domain:	Point to the interrupt router IRQ domain
+ * @dev:	TISCI device IRQ generating the IRQ
+ * @irq:	IRQ offset within the device
+ * @flags:	Corresponding flags to the IRQ
+ *
+ * Returns pointer to irq descriptor if all went well else appropriate
+ * error pointer.
+ */
 static struct ti_sci_intr_irq_desc *allocate_gic_irq(struct irq_domain *domain,
 						     unsigned int virq,
-						 u16 dev, u16 irq, u32 flags)
+						     u16 dev, u16 irq,
+						     u32 flags)
 {
 	struct ti_sci_intr_irq_domain *intr = domain->host_data;
 	struct ti_sci_intr_irq_desc *desc;
@@ -113,7 +153,6 @@ static struct ti_sci_intr_irq_desc *allocate_gic_irq(struct irq_domain *domain,
 
 	desc->src_id = dev;
 	desc->src_index = irq;
-	desc->dst_id = intr->dst_id;
 	desc->dst_irq = ti_sci_get_free_resource(intr->dst_irq);
 
 	fwspec.fwnode = domain->parent->fwnode;
@@ -133,17 +172,17 @@ static struct ti_sci_intr_irq_desc *allocate_gic_irq(struct irq_domain *domain,
 	}
 
 	pr_debug("%s: IRQ requested from src = %d, src_index = %d, to dst = %d, dst_irq = %d\n",
-		 __func__, desc->src_id, desc->src_index, desc->dst_id,
+		 __func__, desc->src_id, desc->src_index, intr->dst_id,
 		 desc->dst_irq);
 
 	desc->is_event_irq = false;
 	err = intr->sci->ops.rm_irq_ops.set_direct_irq(intr->sci, desc->src_id,
 						       desc->src_index,
-						       desc->dst_id,
+						       intr->dst_id,
 						       desc->dst_irq);
 	if (err) {
 		pr_err("%s: IRQ allocation failed from src = %d, src_index = %d to dst_id = %d, dst_irq = %d",
-		       __func__, desc->src_id, desc->src_index, desc->dst_id,
+		       __func__, desc->src_id, desc->src_index, intr->dst_id,
 		       desc->dst_irq);
 		goto err_msg;
 	}
@@ -158,6 +197,15 @@ err_irqs:
 	return ERR_PTR(err);
 }
 
+/**
+ * ti_sci_intr_irq_domain_alloc() - Allocate Interrupt router IRQs
+ * @domain:	Point to the interrupt router IRQ domain
+ * @virq:	Corresponding Linux virtual IRQ number
+ * @nr_irqs:	Continuous irqs to be allocated
+ * @data:	Pointer to firmware specifier
+ *
+ * Return 0 if all went well else appropriate error value.
+ */
 static int ti_sci_intr_irq_domain_alloc(struct irq_domain *domain,
 					unsigned int virq, unsigned int nr_irqs,
 					void *data)
@@ -256,25 +304,50 @@ static int ti_sci_intr_irq_domain_probe(struct platform_device *pdev)
 	return 0;
 }
 
-u16 ti_sci_intr_get_dst_id(struct irq_domain *domain, unsigned int virq)
+/**
+ * ti_sci_intr_get_dst_id() - Get the TISCI destination ID from IRQ domain
+ * @domain:	Point to the interrupt router IRQ domain
+ *
+ * Return TISCI destination id if all went ok else TI_SCI_RESOURCE_NULL if any
+ * error occurs.
+ */
+u16 ti_sci_intr_get_dst_id(struct irq_domain *domain)
 {
-	struct ti_sci_intr_irq_desc *irq_desc;
-	struct irq_data *data;
+	struct ti_sci_intr_irq_domain *intr;
 
-	data = irq_domain_get_irq_data(domain, virq);
-	irq_desc = irq_data_get_irq_chip_data(data);
+	if (!domain && !domain->host_data)
+		return TI_SCI_RESOURCE_NULL;
 
-	return irq_desc->dst_id;
+	intr = domain->host_data;
+
+	return intr->dst_id;
 }
 EXPORT_SYMBOL_GPL(ti_sci_intr_get_dst_id);
 
+/**
+ * ti_sci_intr_get_dst_irq() - Get the TISCI destination HW IRQ corresponding to
+ *			     Linux virq.
+ * @domain:	Point to the interrupt router IRQ domain
+ * @virq:	Corresponding Linux virtual IRQ number
+ *
+ * Return TISCI destination irq if all went ok else TI_SCI_RESOURCE_NULL if any
+ * error occurs.
+ */
 u16 ti_sci_intr_get_dst_irq(struct irq_domain *domain, unsigned int virq)
 {
 	struct ti_sci_intr_irq_desc *irq_desc;
 	struct irq_data *data;
 
+	if (virq <= 0)
+		return TI_SCI_RESOURCE_NULL;
+
 	data = irq_domain_get_irq_data(domain, virq);
+	if (!data)
+		return TI_SCI_RESOURCE_NULL;
+
 	irq_desc = irq_data_get_irq_chip_data(data);
+	if (!irq_desc)
+		return TI_SCI_RESOURCE_NULL;
 
 	return irq_desc->dst_irq;
 }
