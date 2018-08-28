@@ -22,8 +22,10 @@ struct ti_sci_inta_irq_domain {
 	const struct ti_sci_handle *sci;
 	struct ti_sci_resource *vint;
 	struct ti_sci_resource *global_event;
+	struct ti_sci_resource *dst_irq;
 	void __iomem *base;
 	u16 ia_id;
+	u16 dst_id;
 };
 
 struct ti_sci_inta_event_desc {
@@ -119,6 +121,8 @@ static void ti_sci_inta_irq_domain_free(struct irq_domain *domain,
 	irq_domain_free_irqs_parent(domain, virq, 1);
 	irq_domain_reset_irq_data(d);
 	ti_sci_release_resource(inta->vint, vint_desc->vint);
+	if (inta->dst_irq)
+		ti_sci_release_resource(inta->dst_irq, vint_desc->dst_host_irq);
 	kfree(vint_desc->event_map);
 	kfree(vint_desc);
 }
@@ -172,10 +176,10 @@ static int ti_sci_allocate_event_irq(struct ti_sci_inta_irq_domain *inta,
 	return 0;
 }
 
-static struct ti_sci_inta_vint_desc *alloc_intr_irq(struct irq_domain *domain,
-						    unsigned int virq,
-						    u32 src_id, u32 src_index,
-						    u32 vint, u32 flags)
+static struct ti_sci_inta_vint_desc *alloc_parent_irq(struct irq_domain *domain,
+						      unsigned int virq,
+						      u32 src_id, u32 src_index,
+						      u32 vint, u32 flags)
 {
 	struct ti_sci_inta_irq_domain *inta = domain->host_data;
 	struct ti_sci_inta_vint_desc *vint_desc;
@@ -200,16 +204,27 @@ static struct ti_sci_inta_vint_desc *alloc_intr_irq(struct irq_domain *domain,
 	vint_desc->vint = vint;
 	fwspec.fwnode = domain->parent->fwnode;
 	fwspec.param_count = 3;
-	fwspec.param[0] = inta->ia_id;
-	fwspec.param[1] = vint_desc->vint;
-	fwspec.param[2] = flags | TI_SCI_IS_EVENT_IRQ;
+	if (!inta->dst_irq) {
+		/* Interrupt parent is Interrupt Router */
+		fwspec.param[0] = inta->ia_id;
+		fwspec.param[1] = vint_desc->vint;
+		fwspec.param[2] = flags | TI_SCI_IS_EVENT_IRQ;
+	} else {
+		/* Interrupt parent is GIC */
+		fwspec.param[0] = 0;	/* SPI */
+		fwspec.param[1] = ti_sci_get_free_resource(inta->dst_irq) - 32;
+		fwspec.param[2] = flags;
+		vint_desc->dst_host_irq = fwspec.param[1];
+	}
 
 	err = irq_domain_alloc_irqs_parent(domain, virq, 1, &fwspec);
 	if (err)
 		goto err_irqs;
 
-	vint_desc->dst_id = ti_sci_intr_get_dst_id(domain->parent);
-	vint_desc->dst_host_irq = ti_sci_intr_get_dst_irq(domain->parent, virq);
+	if (!inta->dst_irq)
+		vint_desc->dst_host_irq =
+				ti_sci_intr_get_dst_irq(domain->parent, virq);
+
 	raw_spin_lock_init(&vint_desc->lock);
 
 	err = ti_sci_allocate_event_irq(inta, vint_desc, src_id, src_index);
@@ -221,6 +236,8 @@ static struct ti_sci_inta_vint_desc *alloc_intr_irq(struct irq_domain *domain,
 err_events:
 	irq_domain_free_irqs_parent(domain, virq, 1);
 err_irqs:
+	if (inta->dst_irq)
+		ti_sci_release_resource(inta->dst_irq, vint_desc->dst_host_irq);
 	ti_sci_release_resource(inta->vint, vint_desc->vint);
 	kfree(vint_desc);
 	return ERR_PTR(err);
@@ -238,9 +255,9 @@ static int ti_sci_inta_irq_domain_alloc(struct irq_domain *domain,
 	if (nr_irqs > 1)
 		return -EINVAL;
 
-	vint_desc = alloc_intr_irq(domain, virq, fwspec->param[0],
-				   fwspec->param[1], fwspec->param[2],
-				   fwspec->param[3]);
+	vint_desc = alloc_parent_irq(domain, virq, fwspec->param[0],
+				     fwspec->param[1], fwspec->param[2],
+				     fwspec->param[3]);
 	if (IS_ERR(vint_desc))
 		return PTR_ERR(vint_desc);
 
@@ -314,6 +331,28 @@ static int ti_sci_inta_irq_domain_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "missing 'ti,sci-dev-id' property\n");
 		return -EINVAL;
+	}
+
+	inta->dst_irq = devm_ti_sci_get_of_resource(inta->sci, dev,
+						    "ti,sci-dst-irq-type");
+	if (!IS_ERR(inta->dst_irq)) {
+		/*
+		 * If dst type is specified, assume GIC is the parent
+		 * then look for dst id
+		 */
+		ret = of_property_read_u32(dev_of_node(dev), "ti,sci-dst-id",
+					   (u32 *)&inta->dst_id);
+		if (ret) {
+			dev_err(dev, "missing 'ti,sci-dst-id' property\n");
+			return -EINVAL;
+		}
+	} else {
+		if (PTR_ERR(inta->dst_irq) != -EINVAL) {
+			dev_err(dev, "irq resource allocation failed\n");
+			return PTR_ERR(inta->dst_irq);
+		}
+		/* If dst is not specified, assume INTR is the parent */
+		inta->dst_irq = NULL;
 	}
 
 	domain = irq_domain_add_hierarchy(parent_domain, 0, 0, dev_of_node(dev),
