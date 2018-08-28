@@ -222,8 +222,14 @@ struct sbsocramregs {
 /* PMU CONTROL EXT mask for 43012C0 */
 #define CY_43012_PMU_CONTROL_EXT_MASK   0x11
 
-/* PMU CONTROL EXT mask for 43012C0 */
+/* PMU Watchdog Counter Tick value for 43012C0 */
 #define CY_43012_PMU_WATCHDOG_TICK_VAL  0x04
+
+/* PMU Watchdog Counter Tick value for 4373 */
+#define CY_4373_PMU_WATCHDOG_TICK_VAL  0x04
+
+/* Minimum PMU resource mask for 4373 */
+#define CY_4373_PMU_MIN_RES_MASK       0xFCAFF7F
 
 struct brcmf_core_priv {
 	struct brcmf_core pub;
@@ -1583,7 +1589,18 @@ void brcmf_chip_reset_watchdog(struct brcmf_chip *pub)
 		chip->ops->write32(chip->ctx, addr,
 			CY_43012_PMU_WATCHDOG_TICK_VAL);
 		break;
-
+	case CY_CC_4373_CHIP_ID:
+		addr = CORE_CC_REG(base, min_res_mask);
+		chip->ops->write32(chip->ctx, addr,
+			CY_4373_PMU_MIN_RES_MASK);
+		addr = CORE_CC_REG(base, watchdog_res_mask);
+		chip->ops->write32(chip->ctx, addr,
+			CY_4373_PMU_MIN_RES_MASK);
+		addr = CORE_CC_REG(base, pmuwatchdog);
+		chip->ops->write32(chip->ctx, addr,
+			CY_4373_PMU_WATCHDOG_TICK_VAL);
+		mdelay(100);
+		break;
 	default:
 		break;
 	}
