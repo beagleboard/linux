@@ -1,0 +1,88 @@
+Texas Instruments K3 Interrupt Aggregator
+=========================================
+
+The Interrupt Aggregator (INTA) provides a centralized machine
+which handles the termination of system events to that they can
+be coherently processed by the host(s) in the system. A maximum
+of 64 events can be mapped to a single interrupt.
+
+
+                              Interrupt Aggregator
+                     +-----------------------------------------+
+                     |      Intmap            VINT             |
+                     | +--------------+  +------------+        |
+            m ------>| | vint  | bit  |  | 0 |.....|63| vint0  |
+               .     | +--------------+  +------------+        |       +------+
+               .     |         .               .               |       | INTR |
+Globalevents  ------>|         .               .               |------>|  or  |
+               .     |         .               .               |       | GIC  |
+               .     |         .               .               |       +------+
+            n ------>| +--------------+  +------------+        |
+                     | | vint  | bit  |  | 0 |.....|63| vintx  |
+                     | +--------------+  +------------+        |
+                     |                                         |
+                     +-----------------------------------------+
+
+Configuration of these Intmap registers that maps global events to vint is done
+by a system controller (like the Device Memory and Security Controller on K3
+AM654 SoC). Driver should request the system controller to get the range
+of global events and vints assigned to the requesting host. Management
+of these requested resources should be handled by driver and requests
+system controller to map specific global event to vint, bit pair.
+
+Communication between the host processor running an OS and the system
+controller happens through a protocol called TI System Control Interface
+(TISCI protocol). For more details refer:
+Documentation/devicetree/bindings/arm/keystone/ti,sci.txt
+
+TISCI Interrupt Aggregator Node:
+-------------------------------
+- compatible:		Must be "ti,sci-inta".
+- reg:			Should contain registers location and length.
+- interrupt-controller:	Identifies the node as an interrupt controller
+- #interrupt-cells:	Specifies the number of cells needed to encode an
+			interrupt source. The value should be 4.
+			First cell should contain the TISCI device ID of source
+			Second cell should contain the event source offset
+			within the device
+			Third cell specified the vint number within IA.
+			Fourth cell specifies the trigger type as defined
+			in interrupts.txt in this directory.
+- interrupt-parent:	phandle of irq parent for TISCI intr. The parent must
+			use the same interrupt-cells format as GIC or
+			Interrupt router as in ti,sci-intr.txt
+- ti,sci:		Phandle to TI-SCI compatible System controller node.
+- ti,sci-dev-id:	TISCI device ID of the Interrupt Aggregator.
+- ti,sci-vint-type:	Tuple corresponding to unique TISCI resource type that
+			defines the vint ranges assigned to the requesting
+			host context from this Interrupt Aggregator.
+			Tuple should be of format <type subtype>.
+- ti,sci-global-event-type:	Tuple corresponding to unique TISCI resource
+				type that defines the global event ranges
+				assigned to the requesting host context from
+				this Interrupt Aggregator.
+				Tuple should be of format <type subtype>.
+
+Optional Properties:
+-------------------
+Below properties are required only when interrupt parent is GIC.
+- ti,sci-dst-id:	TISCI device ID of the destination IRQ controller.
+- ti,sci-dst-irq-type:	Tuple corresponding to unique TISCI resource type that
+			defines the dst host irq ranges assigned to this
+			interrupt router from this host context.
+			Tuple should be of format <type subtype>.
+
+
+Example:
+--------
+main_udmass_inta: interrupt-controller@33d00000 {
+	compatible = "ti,sci-inta";
+	reg = <0x0 0x33d00000 0x0 0x100000>;
+	interrupt-controller;
+	interrupt-parent = <&main_navss_intr>;
+	#interrupt-cells = <3>;
+	ti,sci = <&dmsc>;
+	ti,sci-dev-id = <179>;
+	ti,sci-vint-type = <0x0 0x0>;
+	ti,sci-global-event-type = <0x0 0x1>;
+};
