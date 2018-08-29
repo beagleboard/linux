@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT overlay for GP application board on AM654 EVM
+ *
+ * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/k3-am6.h>
+
+/ {
+  fragment@101 {
+	target-path = "/";
+
+	__overlay__ {
+		gp_vcc_5v0: fixedregulator-gp_vcc_5v0 {
+			compatible = "regulator-fixed";
+			regulator-name = "gp_vcc_5v0";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		codec_vcc_3v3: fixedregulator-codec_vcc_3v3 {
+			/* LP5912-3.3DRVT */
+			compatible = "regulator-fixed";
+			regulator-name = "codec_vcc_3v3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&gp_vcc_5v0>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		gp_vcc_1v8: fixedregulator-gp_vcc_1v8 {
+			compatible = "regulator-fixed";
+			regulator-name = "gp_vcc_1v8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		sound {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "AM65x-GPEVM";
+			simple-audio-card,widgets =
+				"Headphone", "Headphone Jack",
+				"Line", "Line In";
+			simple-audio-card,routing =
+				"Headphone Jack",	"HPLOUT",
+				"Headphone Jack",	"HPROUT",
+				"LINE1L",		"Line In",
+				"LINE1R",		"Line In";
+			simple-audio-card,format = "dsp_b";
+			simple-audio-card,bitclock-master = <&sound_master>;
+			simple-audio-card,frame-master = <&sound_master>;
+			simple-audio-card,bitclock-inversion;
+
+			simple-audio-card,cpu {
+				sound-dai = <&mcasp0>;
+			};
+
+			sound_master: simple-audio-card,codec {
+				sound-dai = <&tlv320aic3106>;
+				system-clock-frequency = <12000000>;
+			};
+		};
+	};
+  };
+};
+
+&main_pmx0 {
+	mcasp0_pins: mcasp0_pins {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x01f4, PIN_INPUT | MUX_MODE5) /* (V24) PRG0_PRU0_GPO0.MCASP0_ACLKX */
+			AM65X_IOPAD(0x01f8, PIN_INPUT | MUX_MODE5) /* (W25) PRG0_PRU0_GPO1.MCASP0_AFSX */
+			AM65X_IOPAD(0x0204, PIN_OUTPUT | MUX_MODE5) /* (Y24) PRG0_PRU0_GPO4.MCASP0_AXR0 */
+			AM65X_IOPAD(0x0208, PIN_INPUT | MUX_MODE5) /* (V28) PRG0_PRU0_GPO5.MCASP0_AXR1 */
+		>;
+	};
+
+	aic3106_pins: aic3106_pins {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x011c, PIN_OUTPUT | MUX_MODE7) /* (AD19) PRG1_PRU0_GPO15.GPIO0_71 */
+		>;
+	};
+};
+
+&main_i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	tlv320aic3106: tlv320aic3106@1b {
+		#sound-dai-cells = <0>;
+		compatible = "ti,tlv320aic3106";
+		reg = <0x1b>;
+		status = "okay";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&aic3106_pins>;
+
+		gpio-reset = <&main_gpio0 71 GPIO_ACTIVE_LOW>; /* gpio0_71 */
+
+		/* Regulators */
+		AVDD-supply = <&codec_vcc_3v3>;
+		IOVDD-supply = <&gp_vcc_1v8>;
+		DRVDD-supply = <&codec_vcc_3v3>;
+		DVDD-supply = <&gp_vcc_1v8>;
+	};
+};
+
+&mcasp0 {
+	#sound-dai-cells = <0>;
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp0_pins>;
+
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	/* 16 serializers */
+	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
+		1 2 0 0
+		0 0 0 0
+		0 0 0 0
+		0 0 0 0
+	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <32>;
+};
