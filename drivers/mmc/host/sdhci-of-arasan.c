@@ -348,7 +348,6 @@ static int __maybe_unused sdhci_arasan_runtime_suspend(struct device *dev)
 		ret = phy_power_off(sdhci_arasan->phy);
 		if (ret) {
 			dev_err(dev, "Cannot power off phy.\n");
-			sdhci_resume_host(host);
 			return ret;
 		}
 		sdhci_arasan->is_phy_on = false;
@@ -413,7 +412,11 @@ static int sdhci_arasan_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
-	pm_runtime_put_sync(dev);
+	ret = pm_runtime_put_sync(dev);
+	if (ret < 0) {
+		sdhci_resume_host(host);
+		return ret;
+	}
 
 	return 0;
 }
