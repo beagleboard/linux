@@ -207,31 +207,33 @@
 	P9_31_pinmux {
 		compatible = "bone-pinmux-helper";
 		status = "okay";
-		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pruout", "pruin";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "spi_sclk", "pruout", "pruin";
 		pinctrl-0 = <&P9_31_default_pin>;
 		pinctrl-1 = <&P9_31_gpio_pin>;
 		pinctrl-2 = <&P9_31_gpio_pu_pin>;
 		pinctrl-3 = <&P9_31_gpio_pd_pin>;
 		pinctrl-4 = <&P9_31_pwm_pin>;
 		pinctrl-5 = <&P9_31_spi_pin>;
-		pinctrl-6 = <&P9_31_pruout_pin>;
-		pinctrl-7 = <&P9_31_pruin_pin>;
+		pinctrl-6 = <&P9_31_spi_sclk_pin>;
+		pinctrl-7 = <&P9_31_pruout_pin>;
+		pinctrl-8 = <&P9_31_pruin_pin>;
 	};
 
 	/* SPI SS1 GPIO3_17*/
 	P9_28_pinmux {
 		compatible = "bone-pinmux-helper";
 		status = "okay";
-		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pwm2", "pruout", "pruin";
+		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "spi_cs", "pwm2", "pruout", "pruin";
 		pinctrl-0 = <&P9_28_default_pin>;
 		pinctrl-1 = <&P9_28_gpio_pin>;
 		pinctrl-2 = <&P9_28_gpio_pu_pin>;
 		pinctrl-3 = <&P9_28_gpio_pd_pin>;
 		pinctrl-4 = <&P9_28_pwm_pin>;
 		pinctrl-5 = <&P9_28_spi_pin>;
-		pinctrl-6 = <&P9_28_pwm2_pin>;
-		pinctrl-7 = <&P9_28_pruout_pin>;
-		pinctrl-8 = <&P9_28_pruin_pin>;
+		pinctrl-6 = <&P9_28_spi_cs_pin>;
+		pinctrl-7 = <&P9_28_pwm2_pin>;
+		pinctrl-8 = <&P9_28_pruout_pin>;
+		pinctrl-9 = <&P9_28_pruin_pin>;
 	};
 
 	/* SPI SS1  GPIO1_17*/
