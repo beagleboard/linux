@@ -615,6 +615,8 @@
 		pinctrl-single,pins = <0x15c  0x27>; };     /* Mode 7, Pull-Down, RxActive */
 	P9_17_spi_pin: pinmux_P9_17_spi_pin {
 		pinctrl-single,pins = <0x15c  0x30>; };     /* Mode 0, Pull-Up, RxActive */
+	P9_17_spi_cs_pin: pinmux_P9_17_spi_cs_pin { pinctrl-single,pins = <
+		AM33XX_IOPAD(0x095c, PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE0) >; };	/* spi0_cs0.spi0_cs0 */
 	P9_17_i2c_pin: pinmux_P9_17_i2c_pin {
 		pinctrl-single,pins = <0x15c  0x32>; };     /* Mode 2, Pull-Up, RxActive */
 	P9_17_pwm_pin: pinmux_P9_17_pwm_pin {
@@ -795,6 +797,8 @@
 		pinctrl-single,pins = <0x19c  0x21>; };     /* Mode 1, Pull-Down, RxActive */
 	P9_28_spi_pin: pinmux_P9_28_spi_pin {
 		pinctrl-single,pins = <0x19c  0x23>; };     /* Mode 3, Pull-Down, RxActive */
+	P9_28_spi_cs_pin: pinmux_P9_28_spi_cs_pin { pinctrl-single,pins = <
+		AM33XX_IOPAD(0x099c, PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) >; };	/* mcasp0_ahclkr.spi1_cs0 */
 	P9_28_pwm2_pin: pinmux_P9_28_pwm2_pin {
 		pinctrl-single,pins = <0x19c  0x24>; };     /* Mode 4, Pull-Down, RxActive */
 	P9_28_pruout_pin: pinmux_P9_28_pruout_pin {
@@ -855,6 +859,8 @@
 		pinctrl-single,pins = <0x190  0x21>; };     /* Mode 1, Pull-Down, RxActive */
 	P9_31_spi_pin: pinmux_P9_31_spi_pin {
 		pinctrl-single,pins = <0x190  0x23>; };     /* Mode 3, Pull-Down, RxActive */
+	P9_31_spi_sclk_pin: pinmux_P9_31_spi_sclk_pin { pinctrl-single,pins = <
+		AM33XX_IOPAD(0x0990, PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE3) >; };	/* mcasp0_aclkx.spi1_sclk */
 	P9_31_pruout_pin: pinmux_P9_31_pruout_pin {
 		pinctrl-single,pins = <0x190  0x25>; };     /* Mode 5, Pull-Down, RxActive */
 	P9_31_pruin_pin: pinmux_P9_31_pruin_pin {
@@ -920,6 +926,10 @@
 		pinctrl-single,pins = <0x164  0x22>; };     /* Mode 2, Pull-Down, RxActive */
 	P9_42_spiclk_pin: pinmux_P9_42_spiclk_pin {
 		pinctrl-single,pins = <0x164  0x24>; };     /* Mode 4, Pull-Down, RxActive */
+	P9_42_spi_cs_pin: pinmux_P9_42_spi_cs_pin { pinctrl-single,pins = <
+		AM33XX_IOPAD(0x0964, PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE2) >; };	/* eCAP0_in_PWM0_out.spi1_cs1 */
+	P9_42_spi_sclk_pin: pinmux_P9_42_spi_sclk_pin { pinctrl-single,pins = <
+		AM33XX_IOPAD(0x0964, PIN_OUTPUT_PULLUP | INPUT_EN | MUX_MODE4) >; };	/* eCAP0_in_PWM0_out.spi1_sclk */
 
 	/* P9_42.1              */
 	/* P9_92 (ZCZ ball B12) */
