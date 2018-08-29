@@ -1088,6 +1088,7 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 
 	/* free fw version */
 	kfree(rproc->fw_version);
+	rproc->fw_version = NULL;
 }
 
 /*
@@ -1160,7 +1161,7 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 		if (ret) {
 			dev_err(dev, "Failed to process version info: %d\n",
 				ret);
-			goto clean_up;
+			goto clean_up_resources;
 		}
 	}
 
