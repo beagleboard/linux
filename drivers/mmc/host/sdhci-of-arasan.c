@@ -348,14 +348,13 @@ static int __maybe_unused sdhci_arasan_runtime_suspend(struct device *dev)
 		ret = phy_power_off(sdhci_arasan->phy);
 		if (ret) {
 			dev_err(dev, "Cannot power off phy.\n");
-			sdhci_resume_host(host);
 			return ret;
 		}
 		sdhci_arasan->is_phy_on = false;
 	}
 
-	clk_disable(pltfm_host->clk);
-	clk_disable(sdhci_arasan->clk_ahb);
+	clk_disable_unprepare(pltfm_host->clk);
+	clk_disable_unprepare(sdhci_arasan->clk_ahb);
 
 	return 0;
 }
@@ -368,13 +367,13 @@ static int __maybe_unused sdhci_arasan_runtime_resume(struct device *dev)
 	struct sdhci_arasan_data *sdhci_arasan = sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
-	ret = clk_enable(sdhci_arasan->clk_ahb);
+	ret = clk_prepare_enable(sdhci_arasan->clk_ahb);
 	if (ret) {
 		dev_err(dev, "Cannot enable AHB clock.\n");
 		return ret;
 	}
 
-	ret = clk_enable(pltfm_host->clk);
+	ret = clk_prepare_enable(pltfm_host->clk);
 	if (ret) {
 		dev_err(dev, "Cannot enable SD clock.\n");
 		return ret;
@@ -413,7 +412,11 @@ static int sdhci_arasan_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
-	pm_runtime_put_sync(dev);
+	ret = pm_runtime_put_sync(dev);
+	if (ret < 0) {
+		sdhci_resume_host(host);
+		return ret;
+	}
 
 	return 0;
 }
@@ -703,19 +706,11 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 
 	pltfm_host->clk = clk_xin;
 
-	ret = clk_prepare(sdhci_arasan->clk_ahb);
-	if (ret)
-		goto clk_dis_ahb;
-
-	ret = clk_prepare(clk_xin);
-	if (ret)
-		goto clk_disable_all;
-
 	pm_runtime_enable(&pdev->dev);
 	ret = pm_runtime_get_sync(&pdev->dev);
 	if (ret > 0) {
 		pm_runtime_put_noidle(&pdev->dev);
-		goto clk_disable_all;
+		goto pm_runtime_disable;
 	}
 
 	sdhci_get_of_property(pdev);
@@ -731,7 +726,7 @@ static int sdhci_arasan_probe(struct platform_device *pdev)
 
 	ret = sdhci_arasan_register_sdclk(sdhci_arasan, clk_xin, &pdev->dev);
 	if (ret)
-		goto clk_disable_all;
+		goto pm_runtime_put;
 
 	ret = mmc_of_parse(host->mmc);
 	if (ret) {
@@ -793,10 +788,10 @@ err_add_host:
 		phy_exit(sdhci_arasan->phy);
 unreg_clk:
 	sdhci_arasan_unregister_sdclk(&pdev->dev);
-clk_disable_all:
-	clk_unprepare(clk_xin);
-clk_dis_ahb:
-	clk_unprepare(sdhci_arasan->clk_ahb);
+pm_runtime_put:
+	pm_runtime_put_sync(&pdev->dev);
+pm_runtime_disable:
+	pm_runtime_disable(&pdev->dev);
 err_pltfm_free:
 	sdhci_pltfm_free(pdev);
 	return ret;
@@ -804,26 +799,20 @@ err_pltfm_free:
 
 static int sdhci_arasan_remove(struct platform_device *pdev)
 {
-	int ret;
 	struct sdhci_host *host = platform_get_drvdata(pdev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_arasan_data *sdhci_arasan = sdhci_pltfm_priv(pltfm_host);
-	struct clk *clk_ahb = sdhci_arasan->clk_ahb;
-
-	if (!IS_ERR(sdhci_arasan->phy)) {
-		if (sdhci_arasan->is_phy_on)
-			phy_power_off(sdhci_arasan->phy);
-		phy_exit(sdhci_arasan->phy);
-	}
+	int dead = (readl(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
+	int ret;
 
 	sdhci_arasan_unregister_sdclk(&pdev->dev);
+	sdhci_remove_host(host, dead);
+	ret = pm_runtime_put_sync(&pdev->dev);
+	if (ret < 0)
+		return ret;
 
-	pm_runtime_put_sync(&pdev->dev);
-	clk_unprepare(clk_ahb);
+	pm_runtime_disable(&pdev->dev);
+	sdhci_pltfm_free(pdev);
 
-	ret = sdhci_pltfm_unregister(pdev);
-
-	return ret;
+	return 0;
 }
 
 static struct platform_driver sdhci_arasan_driver = {
