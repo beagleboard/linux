@@ -3230,6 +3230,19 @@ static int udma_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ud->tisci_rm.tisci = ti_sci_get_by_phandle(dev->of_node, "ti,sci");
+	if (IS_ERR(ud->tisci_rm.tisci))
+		return PTR_ERR(ud->tisci_rm.tisci);
+
+	ret = of_property_read_u32(dev->of_node, "ti,sci-dev-id",
+				   &ud->tisci_rm.tisci_dev_id);
+	if (ret) {
+		dev_err(dev, "ti,sci-dev-id read failure %d\n", ret);
+		return ret;
+	}
+
+	ud->tisci_rm.tisci_udmap_ops = &ud->tisci_rm.tisci->ops.rm_udmap_ops;
+
 	ud->psil_node = of_k3_nav_psil_get_by_phandle(dev->of_node,
 						      "ti,psi-proxy");
 	if (IS_ERR(ud->psil_node))
@@ -3389,19 +3402,6 @@ static int udma_probe(struct platform_device *pdev)
 			     (unsigned long)&uc->vc);
 		init_completion(&uc->teardown_completed);
 	}
-
-	ud->tisci_rm.tisci = ti_sci_get_by_phandle(dev->of_node, "ti,sci");
-	if (IS_ERR(ud->tisci_rm.tisci))
-		return PTR_ERR(ud->tisci_rm.tisci);
-
-	ret = of_property_read_u32(dev->of_node, "ti,sci-dev-id",
-				   &ud->tisci_rm.tisci_dev_id);
-	if (ret) {
-		dev_err(dev, "ti,sci-dev-id read failure %d\n", ret);
-		return ret;
-	}
-
-	ud->tisci_rm.tisci_udmap_ops = &ud->tisci_rm.tisci->ops.rm_udmap_ops;
 
 	dev_info(dev, "NAVSS UDMA-P\n");
 
