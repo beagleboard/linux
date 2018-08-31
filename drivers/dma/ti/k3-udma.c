@@ -2579,6 +2579,8 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 	tr_req[0].dicnt3 = 1;
 	tr_req[0].ddim1 = tr0_cnt0;
 
+	tr_req[0].flags |= (1 << 5); /* WAIT */
+
 	/* trigger types */
 	tr_req[0].flags |= (3 << 10); /* TRIGGER0_TYPE */
 	tr_req[0].flags |= (3 << 14); /* TRIGGER1_TYPE */
@@ -2600,6 +2602,8 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 		tr_req[1].dicnt1 = 1;
 		tr_req[1].dicnt2 = 1;
 		tr_req[1].dicnt3 = 1;
+
+		tr_req[1].flags |= (1 << 5); /* WAIT */
 
 		/* trigger types */
 		tr_req[1].flags |= (3 << 10); /* TRIGGER0_TYPE */
