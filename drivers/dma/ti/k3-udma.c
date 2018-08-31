@@ -794,6 +794,23 @@ static inline void udma_start_desc(struct udma_chan *uc)
 	}
 }
 
+static inline bool udma_chan_needs_reconfiguration(struct udma_chan *uc)
+{
+	/* Only PDMAs have staticTR */
+	if (!uc->static_tr_type)
+		return false;
+
+	/* RX channels always need to be reset, reconfigured */
+	if (uc->dir == DMA_DEV_TO_MEM)
+		return true;
+
+	/* Check if the staticTR configuration has changed for TX */
+	if (memcmp(&uc->static_tr, &uc->desc->static_tr, sizeof(uc->static_tr)))
+		return true;
+
+	return false;
+}
+
 static int udma_start(struct udma_chan *uc)
 {
 	struct virt_dma_desc *vd = vchan_next_desc(&uc->vc);
@@ -807,8 +824,8 @@ static int udma_start(struct udma_chan *uc)
 
 	uc->desc = to_udma_desc(&vd->tx);
 
-	/* Channel is already running, no need to proceed further */
-	if (udma_is_chan_running(uc)) {
+	/* Channel is already running and does not need reconfiguration */
+	if (udma_is_chan_running(uc) && !udma_chan_needs_reconfiguration(uc)) {
 		udma_start_desc(uc);
 		goto out;
 	}
@@ -830,6 +847,10 @@ static int udma_start(struct udma_chan *uc)
 			udma_rchanrt_write(uc->rchan,
 				UDMA_RCHAN_RT_PEER_STATIC_TR_Z_REG,
 				PDMA_STATIC_TR_Z(uc->desc->static_tr.bstcnt));
+
+			/* save the current staticTR configuration */
+			memcpy(&uc->static_tr, &uc->desc->static_tr,
+			       sizeof(uc->static_tr));
 		}
 
 		udma_rchanrt_write(uc->rchan, UDMA_RCHAN_RT_CTL_REG,
@@ -847,6 +868,10 @@ static int udma_start(struct udma_chan *uc)
 				UDMA_TCHAN_RT_PEER_STATIC_TR_XY_REG,
 				PDMA_STATIC_TR_Y(uc->desc->static_tr.elcnt) |
 				PDMA_STATIC_TR_X(uc->desc->static_tr.elsize));
+
+			/* save the current staticTR configuration */
+			memcpy(&uc->static_tr, &uc->desc->static_tr,
+			       sizeof(uc->static_tr));
 		}
 
 		/* Enable remote */
