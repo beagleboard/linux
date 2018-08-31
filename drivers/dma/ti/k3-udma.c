@@ -779,7 +779,7 @@ static inline void udma_reset_counters(struct udma_chan *uc)
 	uc->bcnt = 0;
 }
 
-static inline int udma_reset_chan(struct udma_chan *uc)
+static inline int udma_reset_chan(struct udma_chan *uc, bool hard)
 {
 	switch (uc->dir) {
 	case DMA_DEV_TO_MEM:
@@ -801,6 +801,18 @@ static inline int udma_reset_chan(struct udma_chan *uc)
 	/* Reset all counters */
 	udma_reset_counters(uc);
 
+	if (hard) {
+		k3_nav_psil_release_link(uc->psi_link);
+		uc->psi_link = k3_nav_psil_request_link(uc->ud->psil_node,
+							uc->src_thread,
+							uc->dst_thread);
+		if (IS_ERR(uc->psi_link)) {
+			dev_err(uc->ud->dev,
+				"Hard reset failed, chan%d can not be used.\n",
+				uc->id);
+			uc->psi_link = NULL;
+		}
+	}
 	uc->state = UDMA_CHAN_IS_IDLE;
 
 	return 0;
@@ -856,7 +868,7 @@ static int udma_start(struct udma_chan *uc)
 	}
 
 	/* Make sure that we clear the teardown bit, if it is set */
-	udma_reset_chan(uc);
+	udma_reset_chan(uc, false);
 
 	/* Push descriptors before we start the channel */
 	udma_start_desc(uc);
@@ -2922,10 +2934,11 @@ static void udma_synchronize(struct dma_chan *chan)
 			dev_warn(uc->ud->dev, "chan%d teardown timeout!\n",
 				 uc->id);
 			udma_dump_chan_stdata(uc);
+			udma_reset_chan(uc, true);
 		}
 	}
 
-	udma_reset_chan(uc);
+	udma_reset_chan(uc, false);
 	if (udma_is_chan_running(uc))
 		dev_warn(uc->ud->dev, "chan%d refused to stop!\n", uc->id);
 
