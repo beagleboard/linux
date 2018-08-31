@@ -1423,10 +1423,44 @@ static const struct k3_r5_rproc_dev_data am65x_r5f_dev_data[] = {
 	},
 };
 
+static const struct k3_r5_rproc_dev_data j721e_r5f_dev_data[] = {
+	{
+		.device_name	= "41000000.r5f",
+		.fw_name	= "j7-mcu-r5f0_0-fw",
+	},
+	{
+		.device_name	= "41400000.r5f",
+		.fw_name	= "j7-mcu-r5f0_1-fw",
+	},
+	{
+		.device_name	= "5c00000.r5f",
+		.fw_name	= "j7-main-r5f0_0-fw",
+	},
+	{
+		.device_name	= "5d00000.r5f",
+		.fw_name	= "j7-main-r5f0_1-fw",
+	},
+	{
+		.device_name	= "5e00000.r5f",
+		.fw_name	= "j7-main-r5f1_0-fw",
+	},
+	{
+		.device_name	= "5f00000.r5f",
+		.fw_name	= "j7-main-r5f1_1-fw",
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id k3_r5_of_match[] = {
 	{
 		.compatible     = "ti,am654-r5fss",
 		.data           = am65x_r5f_dev_data,
+	},
+	{
+		.compatible     = "ti,j721e-r5fss",
+		.data           = j721e_r5f_dev_data,
 	},
 	{ /* sentinel */ },
 };
