@@ -1130,7 +1130,6 @@
 					<0x0 0x35000000 0x0 0x100000>;
 				reg-names = "gcfg", "rchanrt", "tchanrt";
 				#dma-cells = <3>;
-				dma-channels = <270>;
 
 				ti,psi-proxy = <&psilcfg>;
 				ti,ringacc = <&ringacc>;
@@ -1337,7 +1336,6 @@
 					<0x0 0x2aa00000 0x0 0x40000>;
 				reg-names = "gcfg", "rchanrt", "tchanrt";
 				#dma-cells = <3>;
-				dma-channels = <96>;
 
 				ti,psi-proxy = <&mcu_psilcfg>;
 				ti,ringacc = <&mcu_ringacc>;
