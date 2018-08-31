@@ -316,6 +316,12 @@ struct udma_desc {
 	void *metadata; /* pointer to provided metadata buffer (EPIP, PSdata) */
 };
 
+enum udma_chan_state {
+	UDMA_CHAN_IS_IDLE = 0, /* not active, no teardown is in progress */
+	UDMA_CHAN_IS_ACTIVE, /* Normal operation */
+	UDMA_CHAN_IS_TERMINATING, /* channel is being terminated */
+};
+
 struct udma_chan {
 	struct virt_dma_chan vc;
 	struct dma_slave_config	cfg;
@@ -341,7 +347,7 @@ struct udma_chan {
 	bool cyclic;
 	bool paused;
 
-	bool teardown;
+	enum udma_chan_state state;
 	struct completion teardown_completed;
 
 	u32 bcnt; /* number of bytes completed since the start of the channel */
@@ -769,6 +775,8 @@ static inline int udma_reset_chan(struct udma_chan *uc)
 	/* Reset all counters */
 	udma_reset_counters(uc);
 
+	uc->state = UDMA_CHAN_IS_IDLE;
+
 	return 0;
 }
 
@@ -791,7 +799,7 @@ static int udma_start(struct udma_chan *uc)
 
 	if (!vd) {
 		uc->desc = NULL;
-		return -EINVAL;
+		return -ENOENT;
 	}
 
 	list_del(&vd->node);
@@ -859,6 +867,7 @@ static int udma_start(struct udma_chan *uc)
 		return -EINVAL;
 	}
 
+	uc->state = UDMA_CHAN_IS_ACTIVE;
 out:
 
 	return 0;
@@ -866,7 +875,9 @@ out:
 
 static inline int udma_stop(struct udma_chan *uc)
 {
-	uc->teardown = true;
+	enum udma_chan_state old_state = uc->state;
+
+	uc->state = UDMA_CHAN_IS_TERMINATING;
 	reinit_completion(&uc->teardown_completed);
 
 	switch (uc->dir) {
@@ -889,7 +900,7 @@ static inline int udma_stop(struct udma_chan *uc)
 				   UDMA_CHAN_RT_CTL_TDOWN);
 		break;
 	default:
-		uc->teardown = false;
+		uc->state = old_state;
 		complete_all(&uc->teardown_completed);
 		return -EINVAL;
 	}
@@ -926,12 +937,11 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 
 	spin_lock_irqsave(&uc->vc.lock, flags);
 
-	/* Check for teardown completion message */
+	/* Teardown completion message */
 	if (paddr & 0x1) {
 		/* Compensate our internal pop/push counter */
 		uc->in_ring_cnt++;
 
-		uc->teardown = false;
 		complete_all(&uc->teardown_completed);
 
 		if (uc->terminated_desc) {
@@ -1441,11 +1451,11 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 	/*
 	 * Make sure that the completion is in a known state:
-	 * No teardown completion is running
+	 * No teardown, the channel is idle
 	 */
 	reinit_completion(&uc->teardown_completed);
 	complete_all(&uc->teardown_completed);
-	uc->teardown = false;
+	uc->state = UDMA_CHAN_IS_IDLE;
 
 	switch (uc->dir) {
 	case DMA_MEM_TO_MEM:
@@ -2628,19 +2638,18 @@ static void udma_issue_pending(struct dma_chan *chan)
 
 	spin_lock_irqsave(&uc->vc.lock, flags);
 
-	/* Check if there is anything to issue */
-	if (list_empty(&uc->vc.desc_submitted))
-		goto out;
-
+	/* If we have something pending and no active descriptor, then */
 	if (vchan_issue_pending(&uc->vc) && !uc->desc) {
 		/*
-		 * Start the descriptor right away if the channel is not under
-		 * teardown.
+		 * start a descriptor if the channel is NOT [marked as
+		 * terminating _and_ it is still running (teardown has not
+		 * completed yet)].
 		 */
-		if (!(uc->teardown && udma_is_chan_running(uc)))
+		if (!(uc->state == UDMA_CHAN_IS_TERMINATING &&
+		      udma_is_chan_running(uc)))
 			udma_start(uc);
 	}
-out:
+
 	spin_unlock_irqrestore(&uc->vc.lock, flags);
 }
 
@@ -2810,7 +2819,7 @@ static void udma_synchronize(struct dma_chan *chan)
 
 	vchan_synchronize(&uc->vc);
 
-	if (uc->teardown) {
+	if (uc->state == UDMA_CHAN_IS_TERMINATING) {
 		timeout = wait_for_completion_timeout(&uc->teardown_completed,
 						      timeout);
 		if (!timeout)
