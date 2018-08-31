@@ -319,6 +319,7 @@ struct udma_desc {
 enum udma_chan_state {
 	UDMA_CHAN_IS_IDLE = 0, /* not active, no teardown is in progress */
 	UDMA_CHAN_IS_ACTIVE, /* Normal operation */
+	UDMA_CHAN_IS_ACTIVE_FLUSH, /* Flushing for delayed tx */
 	UDMA_CHAN_IS_TERMINATING, /* channel is being terminated */
 };
 
@@ -927,6 +928,36 @@ static inline void udma_fetch_epib(struct udma_chan *uc, struct udma_desc *d)
 	memcpy(d->metadata, h_desc->epib, d->metadata_size);
 }
 
+static inline bool udma_is_desc_really_done(struct udma_chan *uc,
+					    struct udma_desc *d)
+{
+	u32 peer_bcnt, bcnt;
+
+	/* Only TX towards PDMA is affected */
+	if (!uc->static_tr_type || uc->dir != DMA_MEM_TO_DEV)
+		return true;
+
+	peer_bcnt = udma_tchanrt_read(uc->tchan, UDMA_TCHAN_RT_PEER_BCNT_REG);
+	bcnt = udma_tchanrt_read(uc->tchan, UDMA_TCHAN_RT_BCNT_REG);
+
+	if (peer_bcnt < bcnt)
+		return false;
+
+	return true;
+}
+
+static void udma_flush_tx(struct udma_chan *uc)
+{
+	if (uc->dir != DMA_MEM_TO_DEV)
+		return;
+
+	uc->state = UDMA_CHAN_IS_ACTIVE_FLUSH;
+
+	udma_tchanrt_write(uc->tchan, UDMA_TCHAN_RT_CTL_REG,
+			   UDMA_CHAN_RT_CTL_EN |
+			   UDMA_CHAN_RT_CTL_TDOWN);
+}
+
 static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 {
 	struct udma_desc *d;
@@ -952,7 +983,11 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 		if (!uc->desc)
 			udma_start(uc);
 
-		goto out;
+		if (uc->state != UDMA_CHAN_IS_ACTIVE_FLUSH)
+			goto out;
+		else if (uc->desc)
+			paddr = udma_curr_cppi5_desc_paddr(uc->desc,
+							   uc->desc->desc_idx);
 	}
 
 	d = udma_udma_desc_from_paddr(uc, paddr);
@@ -967,15 +1002,26 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 
 		if (uc->cyclic) {
 			/* push the descriptor back to the ring */
-			if (!d->terminated) {
+			if (d == uc->desc) {
 				udma_cyclic_packet_elapsed(uc, d);
 				vchan_cyclic_callback(&d->vd);
 			}
 		} else {
-			uc->bcnt += d->residue;
-			if (!d->terminated)
-				udma_start(uc);
-			vchan_cookie_complete(&d->vd);
+			bool desc_done = true;
+
+			if (d == uc->desc) {
+				desc_done = udma_is_desc_really_done(uc, d);
+
+				if (desc_done) {
+					uc->bcnt += d->residue;
+					udma_start(uc);
+				} else {
+					udma_flush_tx(uc);
+				}
+			}
+
+			if (desc_done)
+				vchan_cookie_complete(&d->vd);
 		}
 	}
 out:
