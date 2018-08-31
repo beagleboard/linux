@@ -477,6 +477,31 @@ static inline char *udma_get_dir_text(enum dma_transfer_direction dir)
 	return "invalid";
 }
 
+static inline void udma_dump_chan_stdata(struct udma_chan *uc)
+{
+	struct device *dev = uc->ud->dev;
+	u32 offset;
+	int i;
+
+	if (uc->dir == DMA_MEM_TO_DEV || uc->dir == DMA_MEM_TO_MEM) {
+		dev_dbg(dev, "TCHAN State data:\n");
+		for (i = 0; i < 32; i++) {
+			offset = UDMA_TCHAN_RT_STDATA_REG + i * 4;
+			dev_dbg(dev, "TRT_STDATA[%02d]: 0x%08x\n", i,
+				udma_tchanrt_read(uc->tchan, offset));
+		}
+	}
+
+	if (uc->dir == DMA_DEV_TO_MEM || uc->dir == DMA_MEM_TO_MEM) {
+		dev_dbg(dev, "RCHAN State data:\n");
+		for (i = 0; i < 32; i++) {
+			offset = UDMA_RCHAN_RT_STDATA_REG + i * 4;
+			dev_dbg(dev, "RRT_STDATA[%02d]: 0x%08x\n", i,
+				udma_rchanrt_read(uc->rchan, offset));
+		}
+	}
+}
+
 static inline dma_addr_t udma_curr_cppi5_desc_paddr(struct udma_desc *d,
 						    int idx)
 {
@@ -2893,9 +2918,11 @@ static void udma_synchronize(struct dma_chan *chan)
 	if (uc->state == UDMA_CHAN_IS_TERMINATING) {
 		timeout = wait_for_completion_timeout(&uc->teardown_completed,
 						      timeout);
-		if (!timeout)
+		if (!timeout) {
 			dev_warn(uc->ud->dev, "chan%d teardown timeout!\n",
 				 uc->id);
+			udma_dump_chan_stdata(uc);
+		}
 	}
 
 	udma_reset_chan(uc);
