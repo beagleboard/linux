@@ -3202,6 +3202,78 @@ static int udma_get_mmrs(struct platform_device *pdev, struct udma_dev *ud)
 	return 0;
 }
 
+static int udma_setup_resources(struct udma_dev *ud)
+{
+	struct device *dev = ud->dev;
+	int ch_count;
+	u32 cap2, cap3;
+
+	cap2 = udma_read(ud->mmrs[MMR_GCFG], 0x28);
+	cap3 = udma_read(ud->mmrs[MMR_GCFG], 0x2c);
+
+	ud->rflow_cnt = cap3 & 0x3fff;
+	ud->tchan_cnt = cap2 & 0x1ff;
+	ud->echan_cnt = (cap2 >> 9) & 0x1ff;
+	ud->rchan_cnt = (cap2 >> 18) & 0x1ff;
+	ch_count  = ud->tchan_cnt + ud->rchan_cnt;
+
+	ud->tchan_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->tchan_cnt),
+				     sizeof(unsigned long), GFP_KERNEL);
+	ud->tchans = devm_kcalloc(dev, ud->tchan_cnt, sizeof(*ud->tchans),
+				  GFP_KERNEL);
+	ud->rchan_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->rchan_cnt),
+				     sizeof(unsigned long), GFP_KERNEL);
+	ud->rchans = devm_kcalloc(dev, ud->rchan_cnt, sizeof(*ud->rchans),
+				  GFP_KERNEL);
+	ud->rflow_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
+				     sizeof(unsigned long), GFP_KERNEL);
+	ud->rflow_map_reserved = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
+					      sizeof(unsigned long),
+					      GFP_KERNEL);
+	ud->rflows = devm_kcalloc(dev, ud->rflow_cnt, sizeof(*ud->rflows),
+				  GFP_KERNEL);
+
+	if (!ud->tchan_map || !ud->rchan_map || !ud->rflow_map ||
+	    !ud->rflow_map_reserved || !ud->tchans || !ud->rchans ||
+	    !ud->rflows)
+		return -ENOMEM;
+
+	/*
+	 * RX flows with the same Ids as RX channels are reserved to be used
+	 * as default flows if remote HW can't generate flow_ids. Those
+	 * RX flows can be requested only explicitly by id.
+	 */
+	bitmap_set(ud->rflow_map_reserved, 0, ud->rchan_cnt);
+
+	/*
+	 * HACK: tchan0, rchan0,1 and rflow0,1 on main_navss is dedicated to
+	 * sysfw.
+	 * Only UDMAP on main_navss have echan, use it as a hint for now.
+	 */
+	if (ud->echan_cnt) {
+		set_bit(0, ud->tchan_map);
+		set_bit(0, ud->rchan_map);
+		set_bit(1, ud->rchan_map);
+		set_bit(0, ud->rflow_map);
+		set_bit(1, ud->rflow_map);
+	}
+
+	ch_count -= bitmap_weight(ud->tchan_map, ud->tchan_cnt);
+	ch_count -= bitmap_weight(ud->rchan_map, ud->rchan_cnt);
+
+	ud->channels = devm_kcalloc(dev, ch_count, sizeof(*ud->channels),
+				    GFP_KERNEL);
+	if (!ud->channels)
+		return -ENOMEM;
+
+	dev_info(dev,
+		 "Channels: %d (tchan: %u, echan: %u, rchan: %u, rflow: %u)\n",
+		 ch_count, ud->tchan_cnt, ud->echan_cnt, ud->rchan_cnt,
+		 ud->rflow_cnt);
+
+	return ch_count;
+}
+
 #define TI_UDMAC_BUSWIDTHS	(BIT(DMA_SLAVE_BUSWIDTH_1_BYTE) | \
 				 BIT(DMA_SLAVE_BUSWIDTH_2_BYTES) | \
 				 BIT(DMA_SLAVE_BUSWIDTH_3_BYTES) | \
@@ -3214,8 +3286,7 @@ static int udma_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct udma_dev *ud;
 	int i, ret;
-	u32 ch_count;
-	u32 cap2, cap3;
+	int ch_count;
 
 	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(48));
 	if (ret)
@@ -3300,48 +3371,9 @@ static int udma_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	cap2 = udma_read(ud->mmrs[MMR_GCFG], 0x28);
-	cap3 = udma_read(ud->mmrs[MMR_GCFG], 0x2c);
-
-	ud->rflow_cnt = cap3 & 0x3fff;
-	ud->tchan_cnt = cap2 & 0x1ff;
-	ud->echan_cnt = (cap2 >> 9) & 0x1ff;
-	ud->rchan_cnt = (cap2 >> 18) & 0x1ff;
-	ch_count  = ud->tchan_cnt + ud->rchan_cnt;
-
-	dev_info(dev,
-		 "Number of channels: %u (tchan: %u, echan: %u, rchan: %u)\n",
-		 ch_count, ud->tchan_cnt, ud->echan_cnt, ud->rchan_cnt);
-	dev_info(dev, "Number of rflows: %u\n", ud->rflow_cnt);
-
-	ud->channels = devm_kcalloc(dev, ch_count, sizeof(*ud->channels),
-				    GFP_KERNEL);
-	ud->tchan_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->tchan_cnt),
-				     sizeof(unsigned long), GFP_KERNEL);
-	ud->tchans = devm_kcalloc(dev, ud->tchan_cnt, sizeof(*ud->tchans),
-				  GFP_KERNEL);
-	ud->rchan_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->rchan_cnt),
-				     sizeof(unsigned long), GFP_KERNEL);
-	ud->rchans = devm_kcalloc(dev, ud->rchan_cnt, sizeof(*ud->rchans),
-				  GFP_KERNEL);
-	ud->rflow_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
-				     sizeof(unsigned long), GFP_KERNEL);
-	ud->rflow_map_reserved = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
-					      sizeof(unsigned long),
-					      GFP_KERNEL);
-	ud->rflows = devm_kcalloc(dev, ud->rflow_cnt, sizeof(*ud->rflows),
-				  GFP_KERNEL);
-
-	if (!ud->channels || !ud->tchan_map || !ud->rchan_map ||
-	    !ud->rflow_map || !ud->tchans || !ud->rchans || !ud->rflows)
-		return -ENOMEM;
-
-	/* tchan0, rchan0,1 and rflow0,1 is dedicated to sysfw */
-	set_bit(0, ud->tchan_map);
-	set_bit(0, ud->rchan_map);
-	set_bit(1, ud->rchan_map);
-	set_bit(0, ud->rflow_map);
-	set_bit(1, ud->rflow_map);
+	ch_count = udma_setup_resources(ud);
+	if (ch_count <= 0)
+		return ch_count;
 
 	spin_lock_init(&ud->lock);
 	INIT_WORK(&ud->purge_work, udma_purge_desc_work);
@@ -3359,12 +3391,6 @@ static int udma_probe(struct platform_device *pdev)
 		rchan->id = i;
 		rchan->reg_rt = ud->mmrs[MMR_RCHANRT] + UDMA_CH_1000(i);
 	}
-	/*
-	 * RX flows with the same Ids as RX channels are reserved to be used
-	 * as default flows if remote HW can't generate flow_ids. Those
-	 * RX flows can be requested only explicitly by id.
-	 */
-	bitmap_set(ud->rflow_map_reserved, 0, ud->rchan_cnt);
 
 	for (i = 0; i < ud->rflow_cnt; i++) {
 		struct udma_rflow *rflow = &ud->rflows[i];
@@ -3390,8 +3416,6 @@ static int udma_probe(struct platform_device *pdev)
 			     (unsigned long)&uc->vc);
 		init_completion(&uc->teardown_completed);
 	}
-
-	dev_info(dev, "NAVSS UDMA-P\n");
 
 	ret = dma_async_device_register(&ud->ddev);
 	if (ret) {
