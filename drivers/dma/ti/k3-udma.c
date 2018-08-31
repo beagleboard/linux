@@ -712,7 +712,7 @@ static void udma_reset_rings(struct udma_chan *uc)
 	uc->in_ring_cnt = 0;
 }
 
-static void udma_reset_counters(struct udma_chan *uc)
+static inline void udma_reset_counters(struct udma_chan *uc)
 {
 	u32 val;
 
@@ -766,6 +766,9 @@ static inline int udma_reset_chan(struct udma_chan *uc)
 		return -EINVAL;
 	}
 
+	/* Reset all counters */
+	udma_reset_counters(uc);
+
 	return 0;
 }
 
@@ -803,9 +806,6 @@ static int udma_start(struct udma_chan *uc)
 
 	/* Make sure that we clear the teardown bit, if it is set */
 	udma_reset_chan(uc);
-
-	/* Reset all counters */
-	udma_reset_counters(uc);
 
 	/* Push descriptors before we start the channel */
 	udma_start_desc(uc);
