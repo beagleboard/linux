@@ -590,7 +590,12 @@ static void udma_purge_desc_work(struct work_struct *work)
 static void udma_desc_free(struct virt_dma_desc *vd)
 {
 	struct udma_dev *ud = to_udma_dev(vd->tx.chan->device);
+	struct udma_chan *uc = to_udma_chan(vd->tx.chan);
+	struct udma_desc *d = to_udma_desc(&vd->tx);
 	unsigned long flags;
+
+	if (uc->terminated_desc == d)
+		uc->terminated_desc = NULL;
 
 	spin_lock_irqsave(&ud->lock, flags);
 	list_add_tail(&vd->node, &ud->desc_to_purge);
@@ -1080,6 +1085,8 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 				} else {
 					udma_flush_tx(uc);
 				}
+			} else if (d == uc->terminated_desc) {
+				uc->terminated_desc = NULL;
 			}
 
 			if (desc_done)
