@@ -3207,7 +3207,6 @@ static int udma_get_mmrs(struct platform_device *pdev, struct udma_dev *ud)
 				 BIT(DMA_SLAVE_BUSWIDTH_3_BYTES) | \
 				 BIT(DMA_SLAVE_BUSWIDTH_4_BYTES) | \
 				 BIT(DMA_SLAVE_BUSWIDTH_8_BYTES))
-#define UDMA_MAX_CHANNELS	192
 
 static int udma_probe(struct platform_device *pdev)
 {
@@ -3293,12 +3292,6 @@ static int udma_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&ud->ddev.channels);
 	INIT_LIST_HEAD(&ud->desc_to_purge);
 
-	if (of_property_read_u32(dev->of_node, "dma-channels", &ch_count)) {
-		dev_info(dev, "Missing dma-channels property, using %u.\n",
-			 UDMA_MAX_CHANNELS);
-		ch_count = UDMA_MAX_CHANNELS;
-	}
-
 	ret = of_property_read_u32(dev->of_node, "ti,psil-base",
 				   &ud->psil_base);
 	if (ret) {
@@ -3314,12 +3307,7 @@ static int udma_probe(struct platform_device *pdev)
 	ud->tchan_cnt = cap2 & 0x1ff;
 	ud->echan_cnt = (cap2 >> 9) & 0x1ff;
 	ud->rchan_cnt = (cap2 >> 18) & 0x1ff;
-	if ((ud->tchan_cnt + ud->rchan_cnt) != ch_count) {
-		dev_info(dev,
-			 "Channel count mismatch: %u != tchan(%u) + rchan(%u)\n",
-			 ch_count, ud->tchan_cnt, ud->rchan_cnt);
-		ch_count  = ud->tchan_cnt + ud->rchan_cnt;
-	}
+	ch_count  = ud->tchan_cnt + ud->rchan_cnt;
 
 	dev_info(dev,
 		 "Number of channels: %u (tchan: %u, echan: %u, rchan: %u)\n",
