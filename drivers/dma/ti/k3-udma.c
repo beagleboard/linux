@@ -3250,7 +3250,7 @@ static int udma_probe(struct platform_device *pdev)
 		uc->rchan = NULL;
 		uc->dir = DMA_MEM_TO_MEM;
 		uc->name = devm_kasprintf(&pdev->dev, GFP_KERNEL,
-					  "UDMA chan%d\n", i);
+					  "UDMA chan%d", i);
 
 		vchan_init(&uc->vc, &ud->ddev);
 		/* Use custom vchan completion handling */
