@@ -3212,16 +3212,17 @@ static int udma_get_mmrs(struct platform_device *pdev, struct udma_dev *ud)
 static int udma_probe(struct platform_device *pdev)
 {
 	struct device_node *parent_irq_node;
+	struct device *dev = &pdev->dev;
 	struct udma_dev *ud;
 	int i, ret;
 	u32 ch_count;
 	u32 cap2, cap3;
 
-	ret = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(48));
+	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(48));
 	if (ret)
-		dev_err(&pdev->dev, "failed to set dma mask stuff\n");
+		dev_err(dev, "failed to set dma mask stuff\n");
 
-	ud = devm_kzalloc(&pdev->dev, sizeof(*ud), GFP_KERNEL);
+	ud = devm_kzalloc(dev, sizeof(*ud), GFP_KERNEL);
 	if (!ud)
 		return -ENOMEM;
 
@@ -3229,19 +3230,19 @@ static int udma_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ud->psil_node = of_k3_nav_psil_get_by_phandle(pdev->dev.of_node,
+	ud->psil_node = of_k3_nav_psil_get_by_phandle(dev->of_node,
 						      "ti,psi-proxy");
 	if (IS_ERR(ud->psil_node))
 		return PTR_ERR(ud->psil_node);
 
-	ud->ringacc = of_k3_nav_ringacc_get_by_phandle(pdev->dev.of_node,
+	ud->ringacc = of_k3_nav_ringacc_get_by_phandle(dev->of_node,
 						       "ti,ringacc");
 	if (IS_ERR(ud->ringacc))
 		return PTR_ERR(ud->ringacc);
 
-	parent_irq_node = of_irq_find_parent(pdev->dev.of_node);
+	parent_irq_node = of_irq_find_parent(dev->of_node);
 	if (!parent_irq_node) {
-		dev_err(&pdev->dev, "Failed to get IRQ parent node\n");
+		dev_err(dev, "Failed to get IRQ parent node\n");
 		return -ENODEV;
 	}
 
@@ -3273,24 +3274,23 @@ static int udma_probe(struct platform_device *pdev)
 			      BIT(DMA_MEM_TO_MEM);
 	ud->ddev.residue_granularity = DMA_RESIDUE_GRANULARITY_BURST;
 	ud->ddev.copy_align = DMAENGINE_ALIGN_8_BYTES;
-	ud->ddev.dev = &pdev->dev;
-	ud->dev = &pdev->dev;
+	ud->ddev.dev = dev;
+	ud->dev = dev;
+
 	INIT_LIST_HEAD(&ud->ddev.channels);
 	INIT_LIST_HEAD(&ud->desc_to_purge);
 
-	if (of_property_read_u32(pdev->dev.of_node, "dma-channels",
-				 &ch_count)) {
-		dev_info(&pdev->dev,
-			 "Missing dma-channels property, using %u.\n",
+	if (of_property_read_u32(dev->of_node, "dma-channels", &ch_count)) {
+		dev_info(dev, "Missing dma-channels property, using %u.\n",
 			 UDMA_MAX_CHANNELS);
 		ch_count = UDMA_MAX_CHANNELS;
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "ti,psil-base",
+	ret = of_property_read_u32(dev->of_node, "ti,psil-base",
 				   &ud->psil_base);
 	if (ret) {
-		dev_info(&pdev->dev,
-			 "Missing ti,psil-base property, using %d.\n", ret);
+		dev_info(dev, "Missing ti,psil-base property, using %d.\n",
+			 ret);
 		return ret;
 	}
 
@@ -3302,35 +3302,34 @@ static int udma_probe(struct platform_device *pdev)
 	ud->echan_cnt = (cap2 >> 9) & 0x1ff;
 	ud->rchan_cnt = (cap2 >> 18) & 0x1ff;
 	if ((ud->tchan_cnt + ud->rchan_cnt) != ch_count) {
-		dev_info(&pdev->dev,
+		dev_info(dev,
 			 "Channel count mismatch: %u != tchan(%u) + rchan(%u)\n",
 			 ch_count, ud->tchan_cnt, ud->rchan_cnt);
 		ch_count  = ud->tchan_cnt + ud->rchan_cnt;
 	}
 
-	dev_info(&pdev->dev,
+	dev_info(dev,
 		 "Number of channels: %u (tchan: %u, echan: %u, rchan: %u)\n",
 		 ch_count, ud->tchan_cnt, ud->echan_cnt, ud->rchan_cnt);
-	dev_info(&pdev->dev, "Number of rflows: %u\n", ud->rflow_cnt);
+	dev_info(dev, "Number of rflows: %u\n", ud->rflow_cnt);
 
-	ud->channels = devm_kcalloc(&pdev->dev, ch_count, sizeof(*ud->channels),
+	ud->channels = devm_kcalloc(dev, ch_count, sizeof(*ud->channels),
 				    GFP_KERNEL);
-	ud->tchan_map = devm_kcalloc(&pdev->dev, BITS_TO_LONGS(ud->tchan_cnt),
+	ud->tchan_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->tchan_cnt),
 				     sizeof(unsigned long), GFP_KERNEL);
-	ud->tchans = devm_kcalloc(&pdev->dev, ud->tchan_cnt,
-				  sizeof(*ud->tchans), GFP_KERNEL);
-	ud->rchan_map = devm_kcalloc(&pdev->dev, BITS_TO_LONGS(ud->rchan_cnt),
+	ud->tchans = devm_kcalloc(dev, ud->tchan_cnt, sizeof(*ud->tchans),
+				  GFP_KERNEL);
+	ud->rchan_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->rchan_cnt),
 				     sizeof(unsigned long), GFP_KERNEL);
-	ud->rchans = devm_kcalloc(&pdev->dev, ud->rchan_cnt,
-				  sizeof(*ud->rchans), GFP_KERNEL);
-	ud->rflow_map = devm_kcalloc(&pdev->dev, BITS_TO_LONGS(ud->rflow_cnt),
+	ud->rchans = devm_kcalloc(dev, ud->rchan_cnt, sizeof(*ud->rchans),
+				  GFP_KERNEL);
+	ud->rflow_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
 				     sizeof(unsigned long), GFP_KERNEL);
-	ud->rflow_map_reserved = devm_kcalloc(&pdev->dev,
-					      BITS_TO_LONGS(ud->rflow_cnt),
+	ud->rflow_map_reserved = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
 					      sizeof(unsigned long),
 					      GFP_KERNEL);
-	ud->rflows = devm_kcalloc(&pdev->dev, ud->rflow_cnt,
-				  sizeof(*ud->rflows), GFP_KERNEL);
+	ud->rflows = devm_kcalloc(dev, ud->rflow_cnt, sizeof(*ud->rflows),
+				  GFP_KERNEL);
 
 	if (!ud->channels || !ud->tchan_map || !ud->rchan_map ||
 	    !ud->rflow_map || !ud->tchans || !ud->rchans || !ud->rflows)
@@ -3382,8 +3381,7 @@ static int udma_probe(struct platform_device *pdev)
 		uc->tchan = NULL;
 		uc->rchan = NULL;
 		uc->dir = DMA_MEM_TO_MEM;
-		uc->name = devm_kasprintf(&pdev->dev, GFP_KERNEL,
-					  "UDMA chan%d", i);
+		uc->name = devm_kasprintf(dev, GFP_KERNEL, "UDMA chan%d", i);
 
 		vchan_init(&uc->vc, &ud->ddev);
 		/* Use custom vchan completion handling */
@@ -3392,36 +3390,32 @@ static int udma_probe(struct platform_device *pdev)
 		init_completion(&uc->teardown_completed);
 	}
 
-	ud->tisci_rm.tisci = ti_sci_get_by_phandle(pdev->dev.of_node, "ti,sci");
-	if (IS_ERR(ud->tisci_rm.tisci)) {
-		dev_err(&pdev->dev, "Failed to get tisc %ld\n",
-			PTR_ERR(ud->tisci_rm.tisci));
+	ud->tisci_rm.tisci = ti_sci_get_by_phandle(dev->of_node, "ti,sci");
+	if (IS_ERR(ud->tisci_rm.tisci))
 		return PTR_ERR(ud->tisci_rm.tisci);
-	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "ti,sci-dev-id",
+	ret = of_property_read_u32(dev->of_node, "ti,sci-dev-id",
 				   &ud->tisci_rm.tisci_dev_id);
 	if (ret) {
-		dev_err(&pdev->dev, "ti,sci-dev-id read failure %d\n", ret);
+		dev_err(dev, "ti,sci-dev-id read failure %d\n", ret);
 		return ret;
 	}
 
 	ud->tisci_rm.tisci_udmap_ops = &ud->tisci_rm.tisci->ops.rm_udmap_ops;
 
-	dev_info(&pdev->dev, "NAVSS UDMA-P\n");
+	dev_info(dev, "NAVSS UDMA-P\n");
 
 	ret = dma_async_device_register(&ud->ddev);
 	if (ret) {
-		dev_err(&pdev->dev,
-			"failed to register slave DMA engine: %d\n", ret);
+		dev_err(dev, "failed to register slave DMA engine: %d\n", ret);
 		return ret;
 	}
 
 	platform_set_drvdata(pdev, ud);
 
-	ret = of_dma_controller_register(pdev->dev.of_node, udma_of_xlate, ud);
+	ret = of_dma_controller_register(dev->of_node, udma_of_xlate, ud);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to register of_dma controller\n");
+		dev_err(dev, "failed to register of_dma controller\n");
 		dma_async_device_unregister(&ud->ddev);
 	}
 
