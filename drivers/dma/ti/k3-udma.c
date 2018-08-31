@@ -1961,13 +1961,15 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 		tr_req[i].icnt0 = burst * elsize_bytes[elsize];
 		tr_req[i].dim1 = burst * elsize_bytes[elsize];
 		tr_req[i].icnt1 = sg_dma_len(sgent) / tr_req[i].icnt0;
+
+		/* trigger types */
+		tr_req[i].flags |= (3 << 10); /* TRIGGER0_TYPE */
+		tr_req[i].flags |= (3 << 14); /* TRIGGER1_TYPE */
+
+		tr_req[i].flags |= (1 << 26); /* suppress event */
 	}
 
-	/* trigger types */
-	tr_req[i].flags |= (3 << 10); /* TRIGGER0_TYPE */
-	tr_req[i].flags |= (3 << 14); /* TRIGGER1_TYPE */
-
-	tr_req[i].flags |= (1 << 31); /* EOP */
+	tr_req[i - 1].flags |= (1 << 31); /* EOP */
 
 	return d;
 }
@@ -2581,6 +2583,8 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 	tr_req[0].flags |= (3 << 10); /* TRIGGER0_TYPE */
 	tr_req[0].flags |= (3 << 14); /* TRIGGER1_TYPE */
 
+	tr_req[0].flags |= (1 << 26); /* suppress event */
+
 	tr_req[0].flags |= (0x25 << 16); /* CMD_ID */
 
 	if (num_tr == 2) {
@@ -2602,12 +2606,10 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 		tr_req[1].flags |= (3 << 14); /* TRIGGER1_TYPE */
 
 		tr_req[1].flags |= (0x25 << 16); /* CMD_ID */
+		tr_req[1].flags |= (1 << 26); /* suppress event */
 	}
 
-	if (tx_flags & DMA_PREP_INTERRUPT)
-		tr_req[num_tr - 1].flags |= (1 << 31); /* EOP */
-	else
-		tr_req[num_tr - 1].flags |= (1 << 26); /* suppress event */
+	tr_req[num_tr - 1].flags |= (1 << 31); /* EOP */
 
 	if (uc->metadata_size)
 		d->vd.tx.metadata_ops = &metadata_ops;
