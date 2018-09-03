@@ -1088,6 +1088,7 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 
 	/* free fw version */
 	kfree(rproc->fw_version);
+	rproc->fw_version = NULL;
 }
 
 /*
@@ -1160,7 +1161,7 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 		if (ret) {
 			dev_err(dev, "Failed to process version info: %d\n",
 				ret);
-			goto clean_up;
+			goto clean_up_resources;
 		}
 	}
 
@@ -1194,14 +1195,14 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 	if (ret) {
 		dev_err(dev, "Failed to process post-loading resources: %d\n",
 			ret);
-		goto clean_up;
+		goto reset_loaded_table;
 	}
 
 	/* power up the remote processor */
 	ret = rproc->ops->start(rproc);
 	if (ret) {
 		dev_err(dev, "can't start rproc %s: %d\n", rproc->name, ret);
-		goto clean_up_resources;
+		goto reset_loaded_table;
 	}
 
 	/* probe any subdevices for the remote processor */
@@ -1220,6 +1221,8 @@ static int rproc_fw_boot(struct rproc *rproc, const struct firmware *fw)
 
 stop_rproc:
 	rproc->ops->stop(rproc);
+reset_loaded_table:
+	rproc->table_ptr = rproc->cached_table;
 clean_up_resources:
 	rproc_resource_cleanup(rproc);
 clean_up:
@@ -1468,6 +1471,9 @@ void rproc_shutdown(struct rproc *rproc)
 		dev_err(dev, "can't stop rproc: %d\n", ret);
 		goto out;
 	}
+
+	/* the installed resource table may no longer be accessible */
+	rproc->table_ptr = rproc->cached_table;
 
 	/* clean up all acquired resources */
 	rproc_resource_cleanup(rproc);
