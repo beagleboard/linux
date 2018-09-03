@@ -152,6 +152,7 @@ struct sa_tfm_ctx;
 #define SA_SCCTL_FE_AUTH_ENC	0x65
 #define SA_SCCTL_FE_ENC		0x8D
 
+#define SA_ALIGN_MASK		(sizeof(u32) - 1)
 #define SA_ALIGNED		__aligned(32)
 
 /**
@@ -270,6 +271,12 @@ struct sa_ctx_info {
 	u32		epib[SA_DMA_NUM_EPIB_WORDS];
 };
 
+struct sa_sham_hmac_ctx {
+	struct crypto_shash	*shash;
+	u8			ipad[SHA512_BLOCK_SIZE] SA_ALIGNED;
+	u8			opad[SHA512_BLOCK_SIZE] SA_ALIGNED;
+};
+
 /**
  * struct sa_tfm_ctx: TFM context structure
  * @dev_data: struct sa_crypto_data pointer
@@ -278,6 +285,8 @@ struct sa_ctx_info {
  * @auth: struct sa_ctx_info for authentication
  * @keylen: encrption/decryption keylength
  * @key: encryption key
+ * @shash: software hash crypto_hash
+ * @authkey: authentication key
  */
 struct sa_tfm_ctx {
 	struct sa_crypto_data *dev_data;
@@ -286,6 +295,9 @@ struct sa_tfm_ctx {
 	struct sa_ctx_info auth;
 	int keylen;
 	u32 key[AES_KEYSIZE_256 / sizeof(u32)];
+	struct sa_sham_hmac_ctx base[0];
+	struct crypto_shash	*shash;
+	u8 authkey[SHA512_BLOCK_SIZE];
 };
 
 /**
