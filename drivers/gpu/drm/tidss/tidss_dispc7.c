@@ -1222,23 +1222,18 @@ static u32 dispc7_vid_get_fifo_size(struct dispc_device *dispc,
 }
 
 static void dispc7_vid_set_mflag_threshold(struct dispc_device *dispc,
-					   u32 hw_plane, uint low, uint high)
+					   u32 hw_plane, u32 low, u32 high)
 {
 	dispc7_vid_write(dispc, hw_plane, DISPC_VID_MFLAG_THRESHOLD,
 			 FLD_VAL(high, 31, 16) | FLD_VAL(low, 15, 0));
 }
 
-static void __maybe_unused dispc7_mflag_setup(struct dispc_device *dispc)
+static void dispc7_vid_mflag_setup(struct dispc_device *dispc,
+				   u32 hw_plane)
 {
-	u32 hw_plane = 0;
 	const u32 unit_size = 16;	/* 128-bits */
 	u32 size = dispc7_vid_get_fifo_size(dispc, hw_plane);
 	u32 low, high;
-
-	/* MFLAG_CTRL = MFLAGFORCE */
-	REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 1, 1, 0);
-	/* MFLAG_START = MFLAGNORMALSTARTMODE */
-	REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 0, 6, 6);
 
 	/*
 	 * Simulation team suggests below thesholds:
@@ -1250,6 +1245,19 @@ static void __maybe_unused dispc7_mflag_setup(struct dispc_device *dispc)
 	high = size * 5 / 8 / unit_size;
 
 	dispc7_vid_set_mflag_threshold(dispc, hw_plane, low, high);
+}
+
+static void dispc7_mflag_setup(struct dispc_device *dispc)
+{
+	int i;
+
+	/* MFLAG_CTRL = ENABLED */
+	REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 2, 1, 0);
+	/* MFLAG_START = MFLAGNORMALSTARTMODE */
+	REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 0, 6, 6);
+
+	for (i = 0; i < dispc->feat->num_planes; i++)
+		dispc7_vid_mflag_setup(dispc, i);
 }
 
 static void dispc7_vp_init(struct dispc_device *dispc)
@@ -1266,7 +1274,7 @@ static void dispc7_vp_init(struct dispc_device *dispc)
 static void dispc7_initial_config(struct dispc_device *dispc)
 {
 	dispc7_vid_csc_setup(dispc);
-	//dispc7_mflag_setup(dispc);
+	dispc7_mflag_setup(dispc);
 	dispc7_vp_init(dispc);
 }
 
