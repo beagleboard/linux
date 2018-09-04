@@ -15,6 +15,7 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -1580,6 +1581,7 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	struct clk *hclk, *cclk;
 	int irq, ret;
 	struct device_node *np;
+	struct gpio_desc *stb;
 	u32 mram_config_vals[MRAM_CFG_LEN];
 	u32 tx_fifo_size;
 
@@ -1591,6 +1593,15 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	if (IS_ERR(hclk) || IS_ERR(cclk)) {
 		dev_err(&pdev->dev, "no clock found\n");
 		ret = -ENODEV;
+		goto failed_ret;
+	}
+
+	stb = devm_gpiod_get_optional(&pdev->dev, "stb", GPIOD_OUT_HIGH);
+	if (IS_ERR(stb)) {
+		ret = PTR_ERR(stb);
+		if(ret != -EPROBE_DEFER)
+			netdev_err(dev, "gpio request failed, ret %d\n", ret);
+
 		goto failed_ret;
 	}
 
