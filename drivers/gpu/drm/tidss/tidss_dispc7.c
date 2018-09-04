@@ -1409,6 +1409,9 @@ const struct tidss_plane_feat *dispc7_plane_feat(struct dispc_device *dispc,
 			.default_encoding = DRM_COLOR_YCBCR_BT601,
 			.default_range = DRM_COLOR_YCBCR_FULL_RANGE,
 		},
+		.blend = {
+			.global_alpha = true,
+		},
 	};
 
 	return &pfeat;
@@ -1510,6 +1513,9 @@ static int dispc7_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 	} else {
 		dispc7_vid_csc_enable(dispc, hw_plane, false);
 	}
+
+	dispc7_vid_write(dispc, hw_plane, DISPC_VID_GLOBAL_ALPHA,
+			 0xFF & pi->global_alpha);
 
 	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(pi->zorder),
 			hw_plane, 4, 1);

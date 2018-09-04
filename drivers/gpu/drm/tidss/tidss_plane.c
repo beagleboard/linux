@@ -29,6 +29,7 @@ static void tidss_plane_info_init(struct drm_plane_state *state,
 	info->out_height	= state->crtc_h;
 	info->width		= state->src_w >> 16;
 	info->height		= state->src_h >> 16;
+	info->global_alpha	= state->alpha >> 8;
 	info->zorder		= state->zpos;
 	info->color_encoding	= state->color_encoding;
 	info->color_range	= state->color_range;
@@ -252,6 +253,12 @@ struct tidss_plane *tidss_plane_create(struct tidss_device *tidss,
 						pfeat->color.default_range);
 	if (ret)
 		return ERR_PTR(ret);
+
+	if (pfeat->blend.global_alpha) {
+		ret = drm_plane_create_alpha_property(&tplane->plane);
+		if (ret)
+			return ERR_PTR(ret);
+	}
 
 	return tplane;
 }

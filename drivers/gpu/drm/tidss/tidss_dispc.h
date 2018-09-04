@@ -97,6 +97,9 @@ struct tidss_plane_feat {
 		enum drm_color_encoding default_encoding;
 		enum drm_color_range default_range;
 	} color;
+	struct tidss_plane_blend_feat {
+		bool global_alpha;
+	} blend;
 };
 
 struct dispc_ops {

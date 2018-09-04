@@ -960,6 +960,9 @@ const struct tidss_plane_feat *dispc6_plane_feat(struct dispc_device *dispc,
 			.default_encoding = DRM_COLOR_YCBCR_BT601,
 			.default_range = DRM_COLOR_YCBCR_FULL_RANGE,
 		},
+		.blend = {
+			.global_alpha = false,
+		},
 	};
 
 	return &pfeat;
