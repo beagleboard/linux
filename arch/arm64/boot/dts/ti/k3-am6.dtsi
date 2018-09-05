@@ -1130,7 +1130,6 @@
 					<0x0 0x35000000 0x0 0x100000>;
 				reg-names = "gcfg", "rchanrt", "tchanrt";
 				#dma-cells = <3>;
-				dma-channels = <270>;
 
 				ti,psi-proxy = <&psilcfg>;
 				ti,ringacc = <&ringacc>;
@@ -1337,7 +1336,6 @@
 					<0x0 0x2aa00000 0x0 0x40000>;
 				reg-names = "gcfg", "rchanrt", "tchanrt";
 				#dma-cells = <3>;
-				dma-channels = <96>;
 
 				ti,psi-proxy = <&mcu_psilcfg>;
 				ti,ringacc = <&mcu_ringacc>;
@@ -1489,6 +1487,39 @@
 			reg = <0x0 0x4e10000 0x0 0x7d>;
 			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&k3_clks 136 1>;
+		};
+
+		crypto: crypto@4E00000 {
+			compatible = "ti,sa2ul-crypto";
+			label = "crypto-aes-gbe";
+			reg = <0x0 0x4E00000 0x0 0x1200>;
+
+			status = "okay";
+			ti,psil-base = <0x4000>;
+
+			/* tx: crypto_pnp-1, rx: crypto_pnp-1 */
+			dmas = <&main_udmap &crypto 0 UDMA_DIR_TX>,
+					<&main_udmap &crypto 0 UDMA_DIR_RX>,
+					<&main_udmap &crypto 1 UDMA_DIR_RX>;
+			dma-names = "tx", "rx1", "rx2";
+
+			ti,psil-config0 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				ti,needs-epib;
+				ti,psd-size = <64>;
+			};
+
+			ti,psil-config1 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				ti,needs-epib;
+				ti,psd-size = <64>;
+			};
+
+			ti,psil-config2 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				ti,needs-epib;
+				ti,psd-size = <64>;
+			};
 		};
 
 		ecap0: pwm@3100000 {

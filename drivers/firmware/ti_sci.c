@@ -3549,6 +3549,12 @@ const struct ti_sci_handle *devm_ti_sci_get_handle(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(devm_ti_sci_get_handle);
 
+/**
+ * ti_sci_get_free_resource() - Get a free resource from TISCI resource.
+ * @res:	Pointer to the TISCI resource
+ *
+ * Return: resource num if all went ok else TI_SCI_RESOURCE_NULL.
+ */
 u16 ti_sci_get_free_resource(struct ti_sci_resource *res)
 {
 	unsigned long flags;
@@ -3557,8 +3563,8 @@ u16 ti_sci_get_free_resource(struct ti_sci_resource *res)
 	raw_spin_lock_irqsave(&res->lock, flags);
 	for (set = 0; set < res->sets; set++) {
 		free_bit = find_first_zero_bit(res->desc[set].res_map,
-					       res->desc[set].max);
-		if (free_bit != res->desc[set].max) {
+					       res->desc[set].num);
+		if (free_bit != res->desc[set].num) {
 			set_bit(free_bit, res->desc[set].res_map);
 			raw_spin_unlock_irqrestore(&res->lock, flags);
 			return res->desc[set].start + free_bit;
@@ -3570,6 +3576,10 @@ u16 ti_sci_get_free_resource(struct ti_sci_resource *res)
 }
 EXPORT_SYMBOL_GPL(ti_sci_get_free_resource);
 
+/**
+ * ti_sci_release_resource() - Release a resource from TISCI resource.
+ * @res:	Pointer to the TISCI resource
+ */
 void ti_sci_release_resource(struct ti_sci_resource *res, u16 id)
 {
 	unsigned long flags;
@@ -3578,7 +3588,7 @@ void ti_sci_release_resource(struct ti_sci_resource *res, u16 id)
 	raw_spin_lock_irqsave(&res->lock, flags);
 	for (set = 0; set < res->sets; set++) {
 		if (res->desc[set].start <= id &&
-		    (res->desc[set].max + res->desc[set].start) > id)
+		    (res->desc[set].num + res->desc[set].start) > id)
 			clear_bit(id - res->desc[set].start,
 				  res->desc[set].res_map);
 	}
@@ -3586,6 +3596,15 @@ void ti_sci_release_resource(struct ti_sci_resource *res, u16 id)
 }
 EXPORT_SYMBOL_GPL(ti_sci_release_resource);
 
+/**
+ * devm_ti_sci_get_of_resource() - Get a TISCI resource assigned to a device
+ * @handle:
+ * @dev:	Device pointer to which the resource is assigned
+ * @of_prop:	property name by which the resource are represented
+ *
+ * Return: Pointer to ti_sci_resource if all went well else appropriate
+ *	   error pointer.
+ */
 struct ti_sci_resource *
 devm_ti_sci_get_of_resource(const struct ti_sci_handle *handle,
 			    struct device *dev, char *of_prop)
@@ -3627,19 +3646,20 @@ devm_ti_sci_get_of_resource(const struct ti_sci_handle *handle,
 		ret = handle->ops.rm_core_ops.get_range(handle, resource_type,
 							resource_subtype,
 							&res->desc[i].start,
-							&res->desc[i].max);
+							&res->desc[i].num);
 		if (ret) {
-			dev_err(dev, "type %d subtype %d not alloted for me.\n",
-				resource_type, resource_subtype);
+			dev_err(dev, "type %d subtype %d not allocated for host %d\n",
+				resource_type, resource_subtype,
+				handle_to_ti_sci_info(handle)->host_id);
 			return ERR_PTR(ret);
 		}
 
-		dev_dbg(dev, "res type = %d,subtype = %d,start = %d,max = %d\n",
+		dev_dbg(dev, "res type = %d, subtype = %d, start = %d, num = %d\n",
 			resource_type, resource_subtype, res->desc[i].start,
-			res->desc[i].max);
+			res->desc[i].num);
 
 		res->desc[i].res_map = devm_kzalloc(dev,
-		BITS_TO_LONGS(res->desc[i].max) * sizeof(*res->desc[i].res_map),
+		BITS_TO_LONGS(res->desc[i].num) * sizeof(*res->desc[i].res_map),
 		GFP_KERNEL);
 		if (!res->desc[i].res_map)
 			return ERR_PTR(-ENOMEM);

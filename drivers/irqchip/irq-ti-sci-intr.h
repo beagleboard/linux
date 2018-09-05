@@ -24,20 +24,20 @@
 
 #if IS_ENABLED(CONFIG_TI_SCI_INTR_IRQCHIP)
 
-u16 ti_sci_intr_get_dst_id(struct irq_domain *domain, unsigned int virq);
+u16 ti_sci_intr_get_dst_id(struct irq_domain *domain);
 u16 ti_sci_intr_get_dst_irq(struct irq_domain *domain, unsigned int virq);
 
 #else /* CONFIG_TI_SCI_INTR_IRQCHIP */
 
-static u16 ti_sci_intr_get_dst_id(struct irq_domain *domain, unsigned int virq)
+static u16 ti_sci_intr_get_dst_id(struct irq_domain *domain)
 {
-	return -EINVAL;
+	return TI_SCI_RESOURCE_NULL;
 }
 
 static u16 ti_sci_intr_get_dst_irq(struct irq_domain *domain,
 				   unsigned int virq)
 {
-	return -EINVAL;
+	return TI_SCI_RESOURCE_NULL;
 }
 
 #endif /* CONFIG_TI_SCI_INTR_IRQCHIP */
