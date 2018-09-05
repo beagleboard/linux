@@ -1517,6 +1517,9 @@ static int dispc7_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 	dispc7_vid_write(dispc, hw_plane, DISPC_VID_GLOBAL_ALPHA,
 			 0xFF & pi->global_alpha);
 
+	/* Set pre-multiplied alpha as default. */
+	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, 1, 22, 22);
+
 	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(pi->zorder),
 			hw_plane, 4, 1);
 	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(pi->zorder),
