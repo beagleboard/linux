@@ -322,7 +322,6 @@ static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
 	return ret;
 }
 
-#if IS_ENABLED(CONFIG_OF)
 static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
 			 struct platform_device *pdev)
 {
@@ -340,7 +339,6 @@ static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
 
 	return 0;
 }
-#endif
 
 #if IS_ENABLED(CONFIG_OF)
 static const struct davinci_mdio_of_param of_cpsw_mdio_data = {
@@ -375,7 +373,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	if (dev->of_node) {
+	if (IS_ENABLED(CONFIG_OF) && dev->of_node) {
 		const struct of_device_id	*of_id;
 
 		ret = davinci_mdio_probe_dt(&data->pdata, pdev);

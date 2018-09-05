@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/clk.h>
 #include <linux/etherdevice.h>
 #include <linux/if_vlan.h>
 #include <linux/interrupt.h>
@@ -24,6 +25,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/soc/ti/cppi5.h>
 #include <linux/dma/k3-navss-udma.h>
+#include <linux/net_switch_config.h>
 
 #include "cpsw_ale.h"
 #include "cpsw_sl.h"
@@ -1265,6 +1267,47 @@ static int am65_cpsw_nuss_hwtstamp_set(struct net_device *ndev,
 }
 #endif /* CONFIG_TI_AM65_CPTS */
 
+static int am65_cpsw_switch_config_ioctl(struct net_device *ndev,
+					 struct ifreq *ifrq, int cmd)
+{
+	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+	struct net_switch_config config;
+	int ret = -EINVAL;
+
+	/* Only SIOCSWITCHCONFIG is used as cmd argument and hence, there is no
+	 * switch statement required.
+	 * Function calls are based on switch_config.cmd
+	 */
+
+	if (copy_from_user(&config, ifrq->ifr_data, sizeof(config)))
+		return -EFAULT;
+
+	switch (config.cmd) {
+	case CONFIG_SWITCH_RATELIMIT:
+	{
+		if (config.port > 1) {
+			dev_err(common->dev, "Invalid Port number\n");
+			break;
+		}
+
+		ret = cpsw_ale_set_ratelimit(common->ale,
+					     common->bus_freq_mhz * 1000000,
+					     config.port,
+					     config.bcast_rate_limit,
+					     config.mcast_rate_limit,
+					     !!config.direction);
+		if (ret)
+			dev_err(common->dev, "CPSW_ALE set ratelimit failed");
+		break;
+	}
+
+	default:
+		ret = -EOPNOTSUPP;
+	}
+
+	return ret;
+}
+
 static int am65_cpsw_nuss_ndo_slave_ioctl(struct net_device *ndev,
 					  struct ifreq *req, int cmd)
 {
@@ -1278,6 +1321,8 @@ static int am65_cpsw_nuss_ndo_slave_ioctl(struct net_device *ndev,
 		return am65_cpsw_nuss_hwtstamp_set(ndev, req);
 	case SIOCGHWTSTAMP:
 		return am65_cpsw_nuss_hwtstamp_get(ndev, req);
+	case SIOCSWITCHCONFIG:
+		return am65_cpsw_switch_config_ioctl(ndev, req, cmd);
 	}
 
 	if (!port->slave.phy)
@@ -1852,6 +1897,7 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	struct am65_cpsw_common *common;
 	struct device_node *node;
 	struct resource *res;
+	struct clk *clk;
 	int ret, i;
 
 	common = devm_kzalloc(dev, sizeof(struct am65_cpsw_common), GFP_KERNEL);
@@ -1880,6 +1926,16 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 				   &common->rx_flow_id_base);
 	if (ret < 0)
 		dev_info(dev, "rx-flow-id-base is not set %d\n", ret);
+
+	clk = devm_clk_get(dev, "fck");
+	if (IS_ERR(clk)) {
+		ret = PTR_ERR(clk);
+
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "error getting fck clock %d\n", ret);
+		return ret;
+	}
+	common->bus_freq_mhz = clk_get_rate(clk) / 1000000;
 
 	pm_runtime_enable(dev);
 	ret = pm_runtime_get_sync(dev);
