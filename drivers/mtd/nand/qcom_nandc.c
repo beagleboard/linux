@@ -2163,7 +2163,7 @@ static int qcom_nandc_probe(struct platform_device *pdev)
 
 err_cs_init:
 	list_for_each_entry(host, &nandc->host_list, node)
-		nand_release(nand_to_mtd(&host->chip));
+		nand_release(&host->chip);
 err_setup:
 	clk_disable_unprepare(nandc->aon_clk);
 err_aon_clk:
@@ -2180,7 +2180,7 @@ static int qcom_nandc_remove(struct platform_device *pdev)
 	struct qcom_nand_host *host;
 
 	list_for_each_entry(host, &nandc->host_list, node)
-		nand_release(nand_to_mtd(&host->chip));
+		nand_release(&host->chip);
 
 	qcom_nandc_unalloc(nandc);
 

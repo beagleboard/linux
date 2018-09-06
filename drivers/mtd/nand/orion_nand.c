@@ -167,7 +167,7 @@ static int __init orion_nand_probe(struct platform_device *pdev)
 	mtd->name = "orion_nand";
 	ret = mtd_device_register(mtd, board->parts, board->nr_parts);
 	if (ret) {
-		nand_release(mtd);
+		nand_release(nc);
 		goto no_dev;
 	}
 
@@ -184,9 +184,8 @@ static int orion_nand_remove(struct platform_device *pdev)
 {
 	struct orion_nand_info *info = platform_get_drvdata(pdev);
 	struct nand_chip *chip = &info->chip;
-	struct mtd_info *mtd = nand_to_mtd(chip);
 
-	nand_release(mtd);
+	nand_release(chip);
 
 	if (!IS_ERR(info->clk))
 		clk_disable_unprepare(info->clk);

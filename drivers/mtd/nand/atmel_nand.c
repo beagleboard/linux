@@ -2336,7 +2336,7 @@ static int atmel_nand_remove(struct platform_device *pdev)
 	struct atmel_nand_host *host = platform_get_drvdata(pdev);
 	struct mtd_info *mtd = nand_to_mtd(&host->nand_chip);
 
-	nand_release(mtd);
+	nand_release(&host->nand_chip);
 
 	atmel_nand_disable(host);
 
