@@ -83,6 +83,7 @@ struct pci_epc_mem {
  * @max_functions: max number of functions that can be configured in this EPC
  * @group: configfs group representing the PCI EPC device
  * @lock: spinlock to protect pci_epc ops
+ * @notifier: used to notify EPF of any EPC events (like linkup)
  */
 struct pci_epc {
 	struct device			dev;
@@ -93,6 +94,7 @@ struct pci_epc {
 	struct config_group		*group;
 	/* spinlock to protect against concurrent access of EP controller */
 	spinlock_t			lock;
+	struct atomic_notifier_head	notifier;
 };
 
 #define to_pci_epc(device) container_of((device), struct pci_epc, dev)
@@ -113,6 +115,12 @@ static inline void epc_set_drvdata(struct pci_epc *epc, void *data)
 static inline void *epc_get_drvdata(struct pci_epc *epc)
 {
 	return dev_get_drvdata(&epc->dev);
+}
+
+static inline int
+pci_epc_register_notifier(struct pci_epc *epc, struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&epc->notifier, nb);
 }
 
 struct pci_epc *
