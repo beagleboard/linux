@@ -15,7 +15,7 @@
 			display1 = "/connector";
 		};
 
-		backlight {
+		lcd_bl: backlight {
 			compatible = "led-backlight";
 			brightness-levels = <0 2 38 74 110 146 182 218 255>;
 			default-brightness-level = <8>;
@@ -27,6 +27,7 @@
 			compatible = "auo,g101evn01.0", "panel-dpi";
 			enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>;
 			label = "lcd";
+			backlight = <&lcd_bl>;
 
 			panel-timing {
 				clock-frequency = <68930000>;
