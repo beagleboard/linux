@@ -433,10 +433,7 @@ static int omap_rng_probe(struct platform_device *pdev)
 	struct omap_rng_dev *priv;
 	struct resource *res;
 	struct device *dev = &pdev->dev;
-	struct device_node *node = dev->of_node;
-	void __iomem *reg;
 	int ret;
-	u32 val;
 
 	priv = devm_kzalloc(dev, sizeof(struct omap_rng_dev), GFP_KERNEL);
 	if (!priv)
@@ -487,16 +484,6 @@ static int omap_rng_probe(struct platform_device *pdev)
 				get_omap_rng_device_details(priv);
 	if (ret)
 		goto err_register;
-
-	/* Hack for AM654-EVM as the SA2UL driver is not yet merged */
-	if (of_device_is_compatible(node, "ti,am654-eip76")) {
-	/* Enable the TRNG bit in the SA2UL_Engine_Enable_Control register */
-		reg = ioremap(0x4e01000, 4);
-		val = readl(reg);
-		val = val | 0x8;
-		writel(val, reg);
-		iounmap(reg);
-	}
 
 	ret = hwrng_register(&priv->rng);
 	if (ret)
