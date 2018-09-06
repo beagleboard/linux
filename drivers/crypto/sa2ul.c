@@ -2239,3 +2239,4 @@ static struct platform_driver sa_ul_driver = {
 		   },
 };
 module_platform_driver(sa_ul_driver);
+MODULE_LICENSE("GPL v2");
