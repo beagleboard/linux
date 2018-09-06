@@ -16,7 +16,7 @@
 		display1 = &hdmi0;
 	};
 
-	backlight {
+	lcd_bl: backlight {
 		compatible = "led-backlight";
 		leds = <&backlight_led>;
 		brightness-levels = <0 2 38 74 110 146 182 218 255>;
@@ -31,6 +31,8 @@
 		enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>; /* P15, CON_LCD_PWR_DN */
 
 		label = "lcd";
+
+		backlight = <&lcd_bl>;
 
 		panel-timing {
 			clock-frequency = <68930000>;
