@@ -606,8 +606,7 @@ void sa_set_swinfo(u8 eng_id, u16 sc_id, dma_addr_t sc_phys,
 static void sa_dump_sc(u8 *buf, dma_addr_t dma_addr)
 {
 #ifdef DEBUG
-	dev_info(sa_k3_dev, "Security context dump for %p: and non type cast is 0x%llx\n",
-		 (void *)dma_addr, dma_addr);
+	dev_info(sa_k3_dev, "Security context dump:: 0x%pad\n", &dma_addr);
 	print_hex_dump(KERN_CONT, "", DUMP_PREFIX_OFFSET,
 		       16, 1, buf, SA_CTX_MAX_SZ, false);
 #endif
@@ -761,9 +760,9 @@ static void sa_aes_cra_exit(struct crypto_tfm *tfm)
 	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
 
-	dev_info(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%llx), 0x%x(0x%llx))\n",
-		 __func__, tfm, ctx->enc.sc_id, ctx->enc.sc_phys,
-		 ctx->dec.sc_id, ctx->dec.sc_phys);
+	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
+		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
+		ctx->dec.sc_id, &ctx->dec.sc_phys);
 
 	if ((alg->cra_flags & CRYPTO_ALG_TYPE_ABLKCIPHER)
 	    == CRYPTO_ALG_TYPE_ABLKCIPHER) {
@@ -794,9 +793,9 @@ static int sa_aes_cra_init(struct crypto_tfm *tfm)
 		}
 	}
 
-	dev_info(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%llx), 0x%x(0x%llx))\n",
-		 __func__, tfm, ctx->enc.sc_id, ctx->enc.sc_phys,
-		 ctx->dec.sc_id, ctx->dec.sc_phys);
+	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
+		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
+		ctx->dec.sc_id, &ctx->dec.sc_phys);
 	return 0;
 }
 
@@ -1188,9 +1187,9 @@ static int sa_init_tfm(struct crypto_tfm *tfm)
 		}
 	}
 
-	dev_info(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%llx), 0x%x(0x%llx))\n",
-		 __func__, tfm, ctx->enc.sc_id, ctx->enc.sc_phys,
-		 ctx->dec.sc_id, ctx->dec.sc_phys);
+	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
+		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
+		ctx->dec.sc_id, &ctx->dec.sc_phys);
 	return 0;
 }
 
@@ -1207,9 +1206,9 @@ static void sa_exit_tfm(struct crypto_tfm *tfm)
 	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
 
-	dev_info(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%llx), 0x%x(0x%llx))\n",
-		 __func__, tfm, ctx->enc.sc_id, ctx->enc.sc_phys,
-		 ctx->dec.sc_id, ctx->dec.sc_phys);
+	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
+		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
+		ctx->dec.sc_id, &ctx->dec.sc_phys);
 
 	if ((alg->cra_flags & CRYPTO_ALG_TYPE_MASK)
 		== CRYPTO_ALG_TYPE_AEAD) {
@@ -1533,9 +1532,9 @@ static int sa_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 		}
 	}
 
-	dev_info(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%llx), 0x%x(0x%llx))\n",
-		 __func__, tfm, ctx->enc.sc_id, ctx->enc.sc_phys,
-		 ctx->dec.sc_id, ctx->dec.sc_phys);
+	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
+		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
+		ctx->dec.sc_id, &ctx->dec.sc_phys);
 
 	crypto_ahash_set_reqsize(__crypto_ahash_cast(tfm),
 				 sizeof(struct sa_dma_req_ctx) +
@@ -1819,9 +1818,9 @@ static void sa_sham_cra_exit(struct crypto_tfm *tfm)
 	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
 
-	dev_info(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%llx), 0x%x(0x%llx))\n",
-		 __func__, tfm, ctx->enc.sc_id, ctx->enc.sc_phys,
-		 ctx->dec.sc_id, ctx->dec.sc_phys);
+	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
+		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
+		ctx->dec.sc_id, &ctx->dec.sc_phys);
 
 	if ((alg->cra_flags & CRYPTO_ALG_TYPE_AHASH)
 	    == CRYPTO_ALG_TYPE_AHASH) {
@@ -2239,3 +2238,4 @@ static struct platform_driver sa_ul_driver = {
 		   },
 };
 module_platform_driver(sa_ul_driver);
+MODULE_LICENSE("GPL v2");

@@ -1484,7 +1484,7 @@
 		};
 
 		eip76d_trng: trng@4e10000 {
-			compatible = "inside-secure,safexcel-eip76", "ti,am654-eip76";
+			compatible = "inside-secure,safexcel-eip76";
 			reg = <0x0 0x4e10000 0x0 0x7d>;
 			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&k3_clks 136 1>;
