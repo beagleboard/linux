@@ -141,11 +141,11 @@ static const struct of_device_id dispc7_of_table[] = {
 #define FLD_MOD(orig, val, start, end) \
 	(((orig) & ~FLD_MASK(start, end)) | FLD_VAL(val, start, end))
 
-#define REG_GET(dispc, idx, start, end) \
-	FLD_GET(dispc7_read(dispc, idx), start, end)
+#define CFG_REG_GET(dispc, idx, start, end) \
+	FLD_GET(dispc7_cfg_read(dispc, idx), start, end)
 
-#define REG_FLD_MOD(dispc, idx, val, start, end) \
-	dispc7_write(dispc, idx, FLD_MOD(dispc7_read(dispc, idx), val, start, end))
+#define CFG_REG_FLD_MOD(dispc, idx, val, start, end) \
+	dispc7_cfg_write(dispc, idx, FLD_MOD(dispc7_cfg_read(dispc, idx), val, start, end))
 
 #define VID_REG_GET(dispc, hw_plane, idx, start, end) \
 	FLD_GET(dispc7_vid_read(dispc, hw_plane, idx), start, end)
@@ -247,7 +247,8 @@ struct dispc_device {
 	struct tidss_device *tidss;
 	struct device *dev;
 
-	void __iomem *base_common;
+	void __iomem *base_common_cfg;
+	void __iomem *base_common_intr;
 	void __iomem *base_vid[DISPC7_MAX_PLANES];
 	void __iomem *base_ovr[DISPC7_MAX_PORTS];
 	void __iomem *base_vp[DISPC7_MAX_PORTS];
@@ -268,14 +269,24 @@ struct dispc_device {
 };
 
 
-static void dispc7_write(struct dispc_device *dispc, u16 reg, u32 val)
+static void dispc7_intr_write(struct dispc_device *dispc, u16 reg, u32 val)
 {
-	iowrite32(val, dispc->base_common + reg);
+	iowrite32(val, dispc->base_common_intr + reg);
 }
 
-static u32 dispc7_read(struct dispc_device *dispc, u16 reg)
+static u32 dispc7_intr_read(struct dispc_device *dispc, u16 reg)
 {
-	return ioread32(dispc->base_common + reg);
+	return ioread32(dispc->base_common_intr + reg);
+}
+
+static void dispc7_cfg_write(struct dispc_device *dispc, u16 reg, u32 val)
+{
+	iowrite32(val, dispc->base_common_cfg + reg);
+}
+
+static u32 dispc7_cfg_read(struct dispc_device *dispc, u16 reg)
+{
+	return ioread32(dispc->base_common_cfg + reg);
 }
 
 static void dispc7_vid_write(struct dispc_device *dispc, u32 hw_plane, u16 reg, u32 val)
@@ -397,7 +408,7 @@ static u32 dispc7_vid_irq_to_raw(u64 vidstat, u32 hw_plane)
 static u64 dispc7_vp_read_irqstatus(struct dispc_device *dispc,
 				    u32 hw_videoport)
 {
-	u32 stat = dispc7_read(dispc, DISPC_VP_IRQSTATUS(hw_videoport));
+	u32 stat = dispc7_intr_read(dispc, DISPC_VP_IRQSTATUS(hw_videoport));
 
 	return dispc7_vp_irq_from_raw(stat, hw_videoport);
 }
@@ -407,13 +418,13 @@ static void dispc7_vp_write_irqstatus(struct dispc_device *dispc,
 {
 	u32 stat = dispc7_vp_irq_to_raw(vpstat, hw_videoport);
 
-	dispc7_write(dispc, DISPC_VP_IRQSTATUS(hw_videoport), stat);
+	dispc7_intr_write(dispc, DISPC_VP_IRQSTATUS(hw_videoport), stat);
 }
 
 static u64 dispc7_vid_read_irqstatus(struct dispc_device *dispc,
 				     u32 hw_plane)
 {
-	u32 stat = dispc7_read(dispc, DISPC_VID_IRQSTATUS(hw_plane));
+	u32 stat = dispc7_intr_read(dispc, DISPC_VID_IRQSTATUS(hw_plane));
 
 	return dispc7_vid_irq_from_raw(stat, hw_plane);
 }
@@ -423,13 +434,13 @@ static void dispc7_vid_write_irqstatus(struct dispc_device *dispc,
 {
 	u32 stat = dispc7_vid_irq_to_raw(vidstat, hw_plane);
 
-	dispc7_write(dispc, DISPC_VID_IRQSTATUS(hw_plane), stat);
+	dispc7_intr_write(dispc, DISPC_VID_IRQSTATUS(hw_plane), stat);
 }
 
 static u64 dispc7_vp_read_irqenable(struct dispc_device *dispc,
 				    u32 hw_videoport)
 {
-	u32 stat = dispc7_read(dispc, DISPC_VP_IRQENABLE(hw_videoport));
+	u32 stat = dispc7_intr_read(dispc, DISPC_VP_IRQENABLE(hw_videoport));
 
 	return dispc7_vp_irq_from_raw(stat, hw_videoport);
 }
@@ -439,14 +450,14 @@ static void dispc7_vp_write_irqenable(struct dispc_device *dispc,
 {
 	u32 stat = dispc7_vp_irq_to_raw(vpstat, hw_videoport);
 
-	dispc7_write(dispc, DISPC_VP_IRQENABLE(hw_videoport), stat);
+	dispc7_intr_write(dispc, DISPC_VP_IRQENABLE(hw_videoport), stat);
 }
 
 
 static u64 dispc7_vid_read_irqenable(struct dispc_device *dispc,
 				     u32 hw_plane)
 {
-	u32 stat = dispc7_read(dispc, DISPC_VID_IRQENABLE(hw_plane));
+	u32 stat = dispc7_intr_read(dispc, DISPC_VID_IRQENABLE(hw_plane));
 
 	return dispc7_vid_irq_from_raw(stat, hw_plane);
 }
@@ -456,7 +467,7 @@ static void dispc7_vid_write_irqenable(struct dispc_device *dispc,
 {
 	u32 stat = dispc7_vid_irq_to_raw(vidstat, hw_plane);
 
-	dispc7_write(dispc, DISPC_VID_IRQENABLE(hw_plane), stat);
+	dispc7_intr_write(dispc, DISPC_VID_IRQENABLE(hw_plane), stat);
 }
 
 static void dispc7_clear_irqstatus(struct dispc_device *dispc, u64 clearmask)
@@ -476,10 +487,10 @@ static void dispc7_clear_irqstatus(struct dispc_device *dispc, u64 clearmask)
 			top_clear |= BIT(4 + i);
 		}
 	}
-	dispc7_write(dispc, DISPC_IRQSTATUS, top_clear);
+	dispc7_intr_write(dispc, DISPC_IRQSTATUS, top_clear);
 
 	/* Flush posted writes */
-	dispc7_read(dispc, DISPC_IRQSTATUS);
+	dispc7_intr_read(dispc, DISPC_IRQSTATUS);
 }
 
 static u64 dispc7_read_and_clear_irqstatus(struct dispc_device *dispc)
@@ -540,13 +551,13 @@ static void dispc7_write_irqenable(struct dispc_device *dispc, u64 mask)
 	}
 
 	if (main_enable)
-		dispc7_write(dispc, DISPC_IRQENABLE_SET, main_enable);
+		dispc7_intr_write(dispc, DISPC_IRQENABLE_SET, main_enable);
 
 	if (main_disable)
-		dispc7_write(dispc, DISPC_IRQENABLE_CLR, main_disable);
+		dispc7_intr_write(dispc, DISPC_IRQENABLE_CLR, main_disable);
 
 	/* Flush posted writes */
-	dispc7_read(dispc, DISPC_IRQENABLE_SET);
+	dispc7_intr_read(dispc, DISPC_IRQENABLE_SET);
 }
 
 enum dispc7_oldi_mode { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
@@ -658,11 +669,11 @@ static void dispc7_enable_oldi(struct dispc_device *dispc, u32 hw_videoport,
 
 	dispc7_vp_write(dispc, hw_videoport, DISPC_VP_DSS_OLDI_CFG, oldi_cfg);
 
-	while (!(oldi_reset_bit & dispc7_read(dispc, DSS_SYSSTATUS)) &&
+	while (!(oldi_reset_bit & dispc7_cfg_read(dispc, DSS_SYSSTATUS)) &&
 	       count < 10000)
 		count++;
 
-	if (!(oldi_reset_bit & dispc7_read(dispc, DSS_SYSSTATUS)))
+	if (!(oldi_reset_bit & dispc7_cfg_read(dispc, DSS_SYSSTATUS)))
 		dev_warn(dispc->dev, "%s: timeout waiting OLDI reset done\n",
 			 __func__);
 }
@@ -1789,9 +1800,9 @@ static void dispc7_mflag_setup(struct dispc_device *dispc)
 	unsigned int i;
 
 	/* MFLAG_CTRL = ENABLED */
-	REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 2, 1, 0);
+	CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 2, 1, 0);
 	/* MFLAG_START = MFLAGNORMALSTARTMODE */
-	REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 0, 6, 6);
+	CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 0, 6, 6);
 
 	for (i = 0; i < dispc->feat->num_planes; i++)
 		dispc7_vid_mflag_setup(dispc, i);
@@ -1829,7 +1840,7 @@ static void dispc7_initial_config(struct dispc_device *dispc)
 
 	/* Note: Harcdoded DPI routing on J721E for now */
 	if (dispc->feat->subrev == DSS7_J721E) {
-		dispc7_write(dispc, DISPC_CONNECTIONS,
+		dispc7_cfg_write(dispc, DISPC_CONNECTIONS,
 			     FLD_VAL(2, 3, 0) |		/* VP1 to DPI0 */
 			     FLD_VAL(8, 7, 4)		/* VP3 to DPI1 */
 			    );
@@ -2078,24 +2089,24 @@ static int dispc7_runtime_resume(struct dispc_device *dispc)
 
 	clk_prepare_enable(dispc->fclk);
 
-	if (REG_GET(dispc, DSS_SYSSTATUS, 0, 0) == 0)
+	if (CFG_REG_GET(dispc, DSS_SYSSTATUS, 0, 0) == 0)
 		dev_warn(dispc->dev, "DSS FUNC RESET not done!\n");
 
 	dev_dbg(dispc->dev, "OMAP DSS7 rev 0x%x\n",
-		dispc7_read(dispc, DSS_REVISION));
+		dispc7_cfg_read(dispc, DSS_REVISION));
 
 	dev_dbg(dispc->dev, "VP RESETDONE %d,%d,%d\n",
-		REG_GET(dispc, DSS_SYSSTATUS, 1, 1),
-		REG_GET(dispc, DSS_SYSSTATUS, 2, 2),
-		REG_GET(dispc, DSS_SYSSTATUS, 3, 3));
+		CFG_REG_GET(dispc, DSS_SYSSTATUS, 1, 1),
+		CFG_REG_GET(dispc, DSS_SYSSTATUS, 2, 2),
+		CFG_REG_GET(dispc, DSS_SYSSTATUS, 3, 3));
 
 	dev_dbg(dispc->dev, "OLDI RESETDONE %d,%d,%d\n",
-		REG_GET(dispc, DSS_SYSSTATUS, 5, 5),
-		REG_GET(dispc, DSS_SYSSTATUS, 6, 6),
-		REG_GET(dispc, DSS_SYSSTATUS, 7, 7));
+		CFG_REG_GET(dispc, DSS_SYSSTATUS, 5, 5),
+		CFG_REG_GET(dispc, DSS_SYSSTATUS, 6, 6),
+		CFG_REG_GET(dispc, DSS_SYSSTATUS, 7, 7));
 
 	dev_dbg(dispc->dev, "DISPC IDLE %d\n",
-		REG_GET(dispc, DSS_SYSSTATUS, 9, 9));
+		CFG_REG_GET(dispc, DSS_SYSSTATUS, 9, 9));
 
 	dispc7_initial_config(dispc);
 
@@ -2371,9 +2382,11 @@ int dispc7_init(struct tidss_device *tidss)
 		return -EINVAL;
 	}
 
-	r = dispc7_iomap_resource(pdev, common_name, &dispc->base_common);
+	r = dispc7_iomap_resource(pdev, common_name, &dispc->base_common_cfg);
 	if (r)
 		return r;
+
+	dispc->base_common_intr = dispc->base_common_cfg;
 
 	for (i = 0; i < dispc->feat->num_planes; i++) {
 		r = dispc7_iomap_resource(pdev, dispc->feat->vid_name[i],
