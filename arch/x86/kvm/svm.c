@@ -36,6 +36,7 @@
 #include <linux/slab.h>
 #include <linux/amd-iommu.h>
 #include <linux/hashtable.h>
+#include <linux/frame.h>
 
 #include <asm/apic.h>
 #include <asm/perf_event.h>
@@ -173,6 +174,8 @@ struct vcpu_svm {
 	uint64_t sysenter_esp;
 	uint64_t sysenter_eip;
 	uint64_t tsc_aux;
+
+	u64 msr_decfg;
 
 	u64 next_rip;
 
@@ -1566,6 +1569,7 @@ static void svm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 	u32 dummy;
 	u32 eax = 1;
 
+	vcpu->arch.microcode_version = 0x01000065;
 	svm->spec_ctrl = 0;
 	svm->virt_spec_ctrl = 0;
 
@@ -2122,6 +2126,8 @@ static int pf_interception(struct vcpu_svm *svm)
 	u64 fault_address = svm->vmcb->control.exit_info_2;
 	u32 error_code;
 	int r = 1;
+
+	svm->vcpu.arch.l1tf_flush_l1d = true;
 
 	switch (svm->apf_reason) {
 	default:
@@ -3482,6 +3488,22 @@ static int cr8_write_interception(struct vcpu_svm *svm)
 	return 0;
 }
 
+static int svm_get_msr_feature(struct kvm_msr_entry *msr)
+{
+	msr->data = 0;
+
+	switch (msr->index) {
+	case MSR_F10H_DECFG:
+		if (boot_cpu_has(X86_FEATURE_LFENCE_RDTSC))
+			msr->data |= MSR_F10H_DECFG_LFENCE_SERIALIZE;
+		break;
+	default:
+		return 1;
+	}
+
+	return 0;
+}
+
 static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
@@ -3564,9 +3586,6 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 
 		msr_info->data = svm->virt_spec_ctrl;
 		break;
-	case MSR_IA32_UCODE_REV:
-		msr_info->data = 0x01000065;
-		break;
 	case MSR_F15H_IC_CFG: {
 
 		int family, model;
@@ -3583,6 +3602,9 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		    (model >= 0x2 && model < 0x20))
 			msr_info->data = 0x1E;
 		}
+		break;
+	case MSR_F10H_DECFG:
+		msr_info->data = svm->msr_decfg;
 		break;
 	default:
 		return kvm_get_msr_common(vcpu, msr_info);
@@ -3772,6 +3794,24 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
 	case MSR_VM_IGNNE:
 		vcpu_unimpl(vcpu, "unimplemented wrmsr: 0x%x data 0x%llx\n", ecx, data);
 		break;
+	case MSR_F10H_DECFG: {
+		struct kvm_msr_entry msr_entry;
+
+		msr_entry.index = msr->index;
+		if (svm_get_msr_feature(&msr_entry))
+			return 1;
+
+		/* Check the supported bits */
+		if (data & ~msr_entry.data)
+			return 1;
+
+		/* Don't allow the guest to change a bit, #GP */
+		if (!msr->host_initiated && (data ^ msr_entry.data))
+			return 1;
+
+		svm->msr_decfg = data;
+		break;
+	}
 	case MSR_IA32_APICBASE:
 		if (kvm_vcpu_apicv_active(vcpu))
 			avic_update_vapic_bar(to_svm(vcpu), data);
@@ -4933,8 +4973,6 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 
 	clgi();
 
-	local_irq_enable();
-
 	/*
 	 * If this vCPU has touched SPEC_CTRL, restore the guest's value if
 	 * it's non-zero. Since vmentry is serialising on affected CPUs, there
@@ -4942,6 +4980,8 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 	 * being speculatively taken.
 	 */
 	x86_spec_ctrl_set_guest(svm->spec_ctrl, svm->virt_spec_ctrl);
+
+	local_irq_enable();
 
 	asm volatile (
 		"push %%" _ASM_BP "; \n\t"
@@ -5065,11 +5105,11 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 	if (unlikely(!msr_write_intercepted(vcpu, MSR_IA32_SPEC_CTRL)))
 		svm->spec_ctrl = native_read_msr(MSR_IA32_SPEC_CTRL);
 
-	x86_spec_ctrl_restore_host(svm->spec_ctrl, svm->virt_spec_ctrl);
-
 	reload_tss(vcpu);
 
 	local_irq_disable();
+
+	x86_spec_ctrl_restore_host(svm->spec_ctrl, svm->virt_spec_ctrl);
 
 	vcpu->arch.cr2 = svm->vmcb->save.cr2;
 	vcpu->arch.regs[VCPU_REGS_RAX] = svm->vmcb->save.rax;
@@ -5111,6 +5151,7 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 
 	mark_all_clean(svm->vmcb);
 }
+STACK_FRAME_NON_STANDARD(svm_vcpu_run);
 
 static void svm_set_cr3(struct kvm_vcpu *vcpu, unsigned long root)
 {
@@ -5500,6 +5541,7 @@ static struct kvm_x86_ops svm_x86_ops __ro_after_init = {
 	.vcpu_unblocking = svm_vcpu_unblocking,
 
 	.update_bp_intercept = update_bp_intercept,
+	.get_msr_feature = svm_get_msr_feature,
 	.get_msr = svm_get_msr,
 	.set_msr = svm_set_msr,
 	.get_segment_base = svm_get_segment_base,

@@ -61,6 +61,7 @@
 #include <asm/alternative.h>
 #include <asm/insn.h>
 #include <asm/debugreg.h>
+#include <asm/sections.h>
 
 #include "common.h"
 
@@ -396,7 +397,6 @@ int __copy_instruction(u8 *dest, u8 *src)
 		newdisp = (u8 *) src + (s64) insn.displacement.value - (u8 *) dest;
 		if ((s64) (s32) newdisp != newdisp) {
 			pr_err("Kprobes error: new displacement does not fit into s32 (%llx)\n", newdisp);
-			pr_err("\tSrc: %p, Dest: %p, old disp: %x\n", src, dest, insn.displacement.value);
 			return 0;
 		}
 		disp = (u8 *) dest + insn_offset_displacement(&insn);
@@ -414,25 +414,38 @@ void free_insn_page(void *page)
 	module_memfree(page);
 }
 
+/* Prepare reljump right after instruction to boost */
+static void prepare_boost(struct kprobe *p, int length)
+{
+	if (can_boost(p->ainsn.insn, p->addr) &&
+	    MAX_INSN_SIZE - length >= RELATIVEJUMP_SIZE) {
+		/*
+		 * These instructions can be executed directly if it
+		 * jumps back to correct address.
+		 */
+		synthesize_reljump(p->ainsn.insn + length, p->addr + length);
+		p->ainsn.boostable = 1;
+	} else {
+		p->ainsn.boostable = -1;
+	}
+}
+
 static int arch_copy_kprobe(struct kprobe *p)
 {
-	int ret;
+	int len;
 
 	set_memory_rw((unsigned long)p->ainsn.insn & PAGE_MASK, 1);
 
 	/* Copy an instruction with recovering if other optprobe modifies it.*/
-	ret = __copy_instruction(p->ainsn.insn, p->addr);
-	if (!ret)
+	len = __copy_instruction(p->ainsn.insn, p->addr);
+	if (!len)
 		return -EINVAL;
 
 	/*
 	 * __copy_instruction can modify the displacement of the instruction,
 	 * but it doesn't affect boostable check.
 	 */
-	if (can_boost(p->ainsn.insn, p->addr))
-		p->ainsn.boostable = 0;
-	else
-		p->ainsn.boostable = -1;
+	prepare_boost(p, len);
 
 	set_memory_ro((unsigned long)p->ainsn.insn & PAGE_MASK, 1);
 
@@ -599,8 +612,7 @@ static int reenter_kprobe(struct kprobe *p, struct pt_regs *regs,
 		 * Raise a BUG or we'll continue in an endless reentering loop
 		 * and eventually a stack overflow.
 		 */
-		printk(KERN_WARNING "Unrecoverable kprobe detected at %p.\n",
-		       p->addr);
+		pr_err("Unrecoverable kprobe detected.\n");
 		dump_kprobe(p);
 		BUG();
 	default:
@@ -895,21 +907,6 @@ static void resume_execution(struct kprobe *p, struct pt_regs *regs,
 		}
 	default:
 		break;
-	}
-
-	if (p->ainsn.boostable == 0) {
-		if ((regs->ip > copy_ip) &&
-		    (regs->ip - copy_ip) + 5 < MAX_INSN_SIZE) {
-			/*
-			 * These instructions can be executed directly if it
-			 * jumps back to correct address.
-			 */
-			synthesize_reljump((void *)regs->ip,
-				(void *)orig_ip + (regs->ip - copy_ip));
-			p->ainsn.boostable = 1;
-		} else {
-			p->ainsn.boostable = -1;
-		}
 	}
 
 	regs->ip += orig_ip - copy_ip;

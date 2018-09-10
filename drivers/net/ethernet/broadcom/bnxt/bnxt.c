@@ -5257,6 +5257,9 @@ static int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
 	}
 	mutex_unlock(&bp->hwrm_cmd_lock);
 
+	if (!BNXT_SINGLE_PF(bp))
+		return 0;
+
 	diff = link_info->support_auto_speeds ^ link_info->advertising;
 	if ((link_info->support_auto_speeds | diff) !=
 	    link_info->support_auto_speeds) {
@@ -5557,7 +5560,7 @@ static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
 		rc = bnxt_request_irq(bp);
 		if (rc) {
 			netdev_err(bp->dev, "bnxt_request_irq err: %x\n", rc);
-			goto open_err;
+			goto open_err_irq;
 		}
 	}
 
@@ -5590,6 +5593,8 @@ static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
 
 open_err:
 	bnxt_disable_napi(bp);
+
+open_err_irq:
 	bnxt_del_napi(bp);
 
 open_err_free_mem:
@@ -6859,11 +6864,11 @@ int bnxt_get_max_rings(struct bnxt *bp, int *max_rx, int *max_tx, bool shared)
 	int rx, tx, cp;
 
 	_bnxt_get_max_rings(bp, &rx, &tx, &cp);
+	*max_rx = rx;
+	*max_tx = tx;
 	if (!rx || !tx || !cp)
 		return -ENOMEM;
 
-	*max_rx = rx;
-	*max_tx = tx;
 	return bnxt_trim_rings(bp, max_rx, max_tx, cp, shared);
 }
 

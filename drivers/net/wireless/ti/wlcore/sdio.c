@@ -400,29 +400,35 @@ static int wl1271_suspend(struct device *dev)
 	/* Tell MMC/SDIO core it's OK to power down the card
 	 * (if it isn't already), but not to remove it completely */
 	struct sdio_func *func = dev_to_sdio_func(dev);
+	struct wl12xx_sdio_glue *glue = sdio_get_drvdata(func);
+	struct wl1271 *wl = platform_get_drvdata(glue->core);
 	mmc_pm_flag_t sdio_flags;
 	int ret = 0;
 
-	/**
-	 * Due to some mmc layer issues, the system automatically
-	 * powers us up on resume, which later cause issues when
-	 * we try to restore_power again explicitly.
-	 * temporarily workaround by always asking to keep power.
-	 * this is fine as driver controls the chip power anyway.
-	 */
-	sdio_flags = sdio_get_host_pm_caps(func);
-
-	if (!(sdio_flags & MMC_PM_KEEP_POWER)) {
-		dev_err(dev, "can't keep power while host is suspended\n");
-		ret = -EINVAL;
+	if (!wl) {
+		dev_err(dev, "no wilink module was probed\n");
 		goto out;
 	}
 
-	/* keep power while host suspended */
-	ret = sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
-	if (ret) {
-		dev_err(dev, "error while trying to keep power\n");
-		goto out;
+	dev_dbg(dev, "wl1271 suspend. wow_enabled: %d\n",
+		wl->wow_enabled);
+
+	/* check whether sdio should keep power */
+	if (wl->wow_enabled) {
+		sdio_flags = sdio_get_host_pm_caps(func);
+
+		if (!(sdio_flags & MMC_PM_KEEP_POWER)) {
+			dev_err(dev, "can't keep power while host is suspended\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* keep power while host suspended */
+		ret = sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
+		if (ret) {
+			dev_err(dev, "error while trying to keep power\n");
+			goto out;
+		}
 	}
 out:
 	return ret;
