@@ -441,6 +441,7 @@ struct rproc_dump_segment {
  * @cached_table: copy of the resource table
  * @table_sz: size of @cached_table
  * @has_iommu: flag to indicate if remote processor is behind an MMU
+ * @auto_boot: flag to indicate if remote processor should be auto-started
  * @deny_sysfs_ops: flag to not permit sysfs operations on state and firmware
  * @skip_firmware_request: flag to skip requesting the firmware
  * @skip_load: flag to skip the loading of firmware segments
