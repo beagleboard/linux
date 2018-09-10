@@ -441,6 +441,7 @@ struct rproc_dump_segment {
  * @cached_table: copy of the resource table
  * @table_sz: size of @cached_table
  * @has_iommu: flag to indicate if remote processor is behind an MMU
+ * @deny_sysfs_ops: flag to not permit sysfs operations on state and firmware
  * @dump_segments: list of segments in the firmware
  */
 struct rproc {
@@ -473,6 +474,7 @@ struct rproc {
 	size_t table_sz;
 	bool has_iommu;
 	bool auto_boot;
+	unsigned int deny_sysfs_ops		: 1;
 	struct list_head dump_segments;
 };
 
