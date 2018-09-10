@@ -39,10 +39,6 @@ static ssize_t firmware_store(struct device *dev,
 	if (rproc->deny_sysfs_ops)
 		return -EPERM;
 
-	/* restrict sysfs operation for userspace-based loader */
-	if (rproc->use_userspace_loader)
-		return -EPERM;
-
 	err = rproc_set_firmware(rproc, buf);
 
 	return err ? err : count;
@@ -83,10 +79,6 @@ static ssize_t state_store(struct device *dev,
 
 	/* restrict sysfs operations if not allowed by remoteproc drivers */
 	if (rproc->deny_sysfs_ops)
-		return -EPERM;
-
-	/* restrict sysfs operation for userspace-based loader */
-	if (rproc->use_userspace_loader)
 		return -EPERM;
 
 	if (sysfs_streq(buf, "start")) {
