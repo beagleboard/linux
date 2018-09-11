@@ -2084,20 +2084,23 @@ static int sa_dma_init(struct sa_crypto_data *dd)
 
 	dd->dma_rx1 = dma_request_chan(dd->dev, "rx1");
 	if (IS_ERR(dd->dma_rx1)) {
-		dev_err(dd->dev, "Unable to request in DMA channel\n");
+		if (PTR_ERR(dd->dma_rx1) != -EPROBE_DEFER)
+			dev_err(dd->dev, "Unable to request rx1 DMA channel\n");
 		return PTR_ERR(dd->dma_rx1);
 	}
 
 	dd->dma_rx2 = dma_request_chan(dd->dev, "rx2");
 	if (IS_ERR(dd->dma_rx2)) {
 		dma_release_channel(dd->dma_rx1);
-		dev_err(dd->dev, "Unable to request in DMA channel\n");
+		if (PTR_ERR(dd->dma_rx1) != -EPROBE_DEFER)
+			dev_err(dd->dev, "Unable to request rx2 DMA channel\n");
 		return PTR_ERR(dd->dma_rx2);
 	}
 
 	dd->dma_tx = dma_request_chan(dd->dev, "tx");
 	if (IS_ERR(dd->dma_tx)) {
-		dev_err(dd->dev, "Unable to request out DMA channel\n");
+		if (PTR_ERR(dd->dma_rx1) != -EPROBE_DEFER)
+			dev_err(dd->dev, "Unable to request tx DMA channel\n");
 		ret = PTR_ERR(dd->dma_tx);
 		goto err_dma_tx;
 	}
