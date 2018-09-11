@@ -1629,6 +1629,7 @@
 			num-lanes = <1>;
 			num-ob-windows = <16>;
 			num-viewport = <16>;
+			max-link-speed = <3>;
 			interrupts = <GIC_SPI 340 IRQ_TYPE_EDGE_RISING>;
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 7>;
@@ -1656,6 +1657,7 @@
 			num-lanes = <1>;
 			num-ib-windows = <16>;
 			num-ob-windows = <16>;
+			max-link-speed = <3>;
 			interrupts = <GIC_SPI 340 IRQ_TYPE_EDGE_RISING>;
 		};
 
@@ -1676,6 +1678,7 @@
 			num-lanes = <1>;
 			num-ob-windows = <16>;
 			num-viewport = <16>;
+			max-link-speed = <3>;
 			interrupts = <GIC_SPI 355 IRQ_TYPE_EDGE_RISING>;
 			#interrupt-cells = <1>;
 			interrupt-map-mask = <0 0 0 7>;
@@ -1703,6 +1706,7 @@
 			num-lanes = <1>;
 			num-ib-windows = <16>;
 			num-ob-windows = <16>;
+			max-link-speed = <3>;
 			interrupts = <GIC_SPI 355 IRQ_TYPE_EDGE_RISING>;
 		};
 
