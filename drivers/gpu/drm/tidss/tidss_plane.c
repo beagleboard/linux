@@ -41,6 +41,7 @@ static int tidss_plane_atomic_check(struct drm_plane *plane,
 	struct drm_rect clip;
 	struct tidss_plane *tplane = to_tidss_plane(plane);
 	struct tidss_plane_info info;
+	const struct drm_format_info *finfo;
 	u32 hw_videoport;
 	int ret;
 
@@ -58,6 +59,41 @@ static int tidss_plane_atomic_check(struct drm_plane *plane,
 	crtc_state = drm_atomic_get_crtc_state(state->state, state->crtc);
 	if (IS_ERR(crtc_state))
 		return PTR_ERR(crtc_state);
+
+	/*
+	 * The HW is only able to start drawing at subpixel boundary
+	 * (the two first checks bellow). At the end of a row the HW
+	 * can only jump integer number of subpixels forward to
+	 * beginning of next row. So we can only show picture with
+	 * integer subpixel width (the third check). However, after
+	 * reaching the end of the drawn picture the drawing starts
+	 * again at the absolute memory address where top left corner
+	 * position of the drawn picture is (so there is no need to
+	 * check for odd height).
+	 */
+
+	finfo = drm_format_info(state->fb->format->format);
+
+	if ((state->src_x >> 16) % finfo->hsub != 0) {
+		dev_dbg(ddev->dev,
+			"%s: x-position %u not divisible subpixel size %u\n",
+			__func__, (state->src_x >> 16), finfo->hsub);
+		return -EINVAL;
+	}
+
+	if ((state->src_y >> 16) % finfo->vsub != 0) {
+		dev_dbg(ddev->dev,
+			"%s: y-position %u not divisible subpixel size %u\n",
+			__func__, (state->src_y >> 16), finfo->vsub);
+		return -EINVAL;
+	}
+
+	if ((state->src_w >> 16) % finfo->hsub != 0) {
+		dev_dbg(ddev->dev,
+			"%s: src width %u not divisible by subpixel size %u\n",
+			 __func__, (state->src_w >> 16), finfo->hsub);
+		return -EINVAL;
+	}
 
 	clip.x1 = 0;
 	clip.y1 = 0;
