@@ -47,7 +47,7 @@ Required Properties:
                        "ti,am4376-pruss-soc-bus" for AM437x family of SoCs
                        "ti,am5728-pruss-soc-bus" for AM57xx family of SoCs
                        "ti,k2g-pruss-soc-bus" for 66AK2G family of SoCs
-                       "ti,am654-icssg-soc-bus" for K3 AM6x family of SoCs
+                       "ti,am654-icssg-soc-bus" for K3 AM65x family of SoCs
 - reg            : address and size of the PRUSS CFG sub-module register
                    dictating the interconnect configuration
 - #address-cells : should be 1
@@ -61,7 +61,7 @@ SoC-specific Required properties:
 The following are mandatory properties for all OMAP-architecture based SoCs:
 - ti,hwmods      : name of the hwmod associated with the PRUSS instance
 
-The following properties are _required_ only for Keystone 2 66AK2G and K3 AM6x
+The following properties are _required_ only for Keystone 2 66AK2G and K3 AM65x
 SoCs:
 - power-domains  : Should contain a phandle to a PM domain provider node and an
                    args specifier containing the PRUSS SCI device id value. This
@@ -83,7 +83,7 @@ Required Properties:
                        "ti,am4376-pruss" for AM437x family of SoCs
                        "ti,am5728-pruss" for AM57xx family of SoCs
                        "ti,k2g-pruss" for 66AK2G family of SoCs
-                       "ti,am654-icssg" for K3 AM6x family of SoCs
+                       "ti,am654-icssg" for K3 AM65x family of SoCs
 - reg            : base address and size of the entire PRU-ICSS space
 - interrupts     : all the interrupts generated towards the main host
                    processor in the SoC. The format depends on the
@@ -130,6 +130,9 @@ node each with specific node names as below:
                   "iep" for IEP sub-module,
                   "mii_rt" for MII-RT sub-module,
 
+The following sub-modules are new and present only on ICSSG IP instances and
+are applicable only for K3 SoCs. They are represented as follows:
+	MII_G_RT sub-module: represent as a syscon node with name "mii_g_rt"
 
 PRUSS INTC Child Node
 ======================
@@ -148,7 +151,7 @@ Required Properties:
                              "ti,am4376-pruss-intc" for AM437x family of SoCs
                              "ti,am5728-pruss-intc" for AM57xx family of SoCs
                              "ti,k2g-pruss-intc" for 66AK2G family of SoCs
-                             "ti,am654-icssg-intc" for K3 AM6x family of SoCs
+                             "ti,am654-icssg-intc" for K3 AM65x family of SoCs
 - reg                  : base address and size for the PRUSS INTC sub-module
 - reg-names            : should contain the string "intc"
 - interrupt-controller : mark this node as an interrupt controller
@@ -174,8 +177,8 @@ Required Properties:
                        "ti,am4376-pru" for AM437x family of SoCs
                        "ti,am5728-pru" for AM57xx family of SoCs
                        "ti,k2g-pru" for 66AK2G family of SoCs
-                       "ti,am654-pru" for PRUs in K3 AM6x family of SoCs
-                       "ti,am654-rtu" for RTUs in K3 AM6x family of SoCs
+                       "ti,am654-pru" for PRUs in K3 AM65x family of SoCs
+                       "ti,am654-rtu" for RTUs in K3 AM65x family of SoCs
 - reg            : base address and size for each of the 3 sub-module address
                    spaces as mentioned in reg-names, and in the same order as
                    the reg-names
