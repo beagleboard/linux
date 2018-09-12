@@ -271,6 +271,9 @@ struct dispc_device {
 
 	const struct dispc7_features *feat;
 
+	bool vp_managed[DISPC7_MAX_PORTS];
+	bool plane_managed[DISPC7_MAX_PLANES];
+
 	struct clk *fclk;
 
 	bool is_enabled;
@@ -280,6 +283,26 @@ struct dispc_device {
 	struct dss_plane_data plane_data[DISPC7_MAX_PLANES];
 };
 
+#define dispc_for_each_managed_vp(dispc, hw_videoport) \
+	for ((hw_videoport) = 0; (hw_videoport) < (dispc)->feat->num_vps; (hw_videoport)++) \
+		if ((dispc)->vp_managed[(hw_videoport)])
+
+#define dispc_for_each_managed_plane(dispc, hw_plane) \
+	for ((hw_plane) = 0; (hw_plane) < (dispc)->feat->num_planes; (hw_plane)++) \
+		if ((dispc)->plane_managed[(hw_plane)])
+
+static u32 dispc7_get_next_managed_plane(struct dispc_device *dispc,
+					 u32 *plane_idx)
+{
+	while (*plane_idx < dispc->feat->num_planes) {
+		u32 plane_id = dispc->feat->vid_order[(*plane_idx)++];
+
+		if (dispc->plane_managed[plane_id])
+			return plane_id;
+	}
+
+	return dispc->feat->num_planes;
+}
 
 static void dispc7_intr_write(struct dispc_device *dispc, u16 reg, u32 val)
 {
@@ -487,13 +510,13 @@ static void dispc7_clear_irqstatus(struct dispc_device *dispc, u64 clearmask)
 	unsigned int i;
 	u32 top_clear = 0;
 
-	for (i = 0; i < dispc->feat->num_vps; ++i) {
+	dispc_for_each_managed_vp(dispc, i) {
 		if (clearmask & DSS_IRQ_VP_MASK(i)) {
 			dispc7_vp_write_irqstatus(dispc, i, clearmask);
 			top_clear |= BIT(i);
 		}
 	}
-	for (i = 0; i < dispc->feat->num_planes; ++i) {
+	dispc_for_each_managed_plane(dispc, i) {
 		if (clearmask & DSS_IRQ_PLANE_MASK(i)) {
 			dispc7_vid_write_irqstatus(dispc, i, clearmask);
 			top_clear |= BIT(4 + i);
@@ -510,10 +533,10 @@ static u64 dispc7_read_and_clear_irqstatus(struct dispc_device *dispc)
 	u64 status = 0;
 	unsigned int i;
 
-	for (i = 0; i < dispc->feat->num_vps; ++i)
+	dispc_for_each_managed_vp(dispc, i)
 		status |= dispc7_vp_read_irqstatus(dispc, i);
 
-	for (i = 0; i < dispc->feat->num_planes; ++i)
+	dispc_for_each_managed_plane(dispc, i)
 		status |= dispc7_vid_read_irqstatus(dispc, i);
 
 	dispc7_clear_irqstatus(dispc, status);
@@ -526,10 +549,10 @@ static u64 dispc7_read_irqenable(struct dispc_device *dispc)
 	u64 enable = 0;
 	unsigned int i;
 
-	for (i = 0; i < dispc->feat->num_vps; ++i)
+	dispc_for_each_managed_vp(dispc, i)
 		enable |= dispc7_vp_read_irqenable(dispc, i);
 
-	for (i = 0; i < dispc->feat->num_planes; ++i)
+	dispc_for_each_managed_plane(dispc, i)
 		enable |= dispc7_vid_read_irqenable(dispc, i);
 
 	return enable;
@@ -546,7 +569,7 @@ static void dispc7_write_irqenable(struct dispc_device *dispc, u64 mask)
 	/* clear the irqstatus for newly enabled irqs */
 	dispc7_clear_irqstatus(dispc, (old_mask ^ mask) & mask);
 
-	for (i = 0; i < dispc->feat->num_vps; ++i) {
+	dispc_for_each_managed_vp(dispc, i) {
 		dispc7_vp_write_irqenable(dispc, i, mask);
 		if (mask & DSS_IRQ_VP_MASK(i))
 			main_enable |= BIT(i);		/* VP IRQ */
@@ -554,7 +577,7 @@ static void dispc7_write_irqenable(struct dispc_device *dispc, u64 mask)
 			main_disable |= BIT(i);		/* VP IRQ */
 	}
 
-	for (i = 0; i < dispc->feat->num_planes; ++i) {
+	dispc_for_each_managed_plane(dispc, i) {
 		dispc7_vid_write_irqenable(dispc, i, mask);
 		if (mask & DSS_IRQ_PLANE_MASK(i))
 			main_enable |= BIT(i + 4);	/* VID IRQ */
@@ -1821,7 +1844,7 @@ static void dispc7_mflag_setup(struct dispc_device *dispc)
 	CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 0, 6, 6);
 
 no_cfg:
-	for (i = 0; i < dispc->feat->num_planes; i++)
+	dispc_for_each_managed_plane(dispc, i)
 		dispc7_vid_mflag_setup(dispc, i);
 }
 
@@ -1832,7 +1855,7 @@ static void dispc7_plane_init(struct dispc_device *dispc)
 	dev_dbg(dispc->dev, "%s()\n", __func__);
 
 	/* FIFO underflows when scaling if preload is not high enough */
-	for (i = 0; i < dispc->feat->num_planes; i++)
+	dispc_for_each_managed_plane(dispc, i)
 		if (!dispc->feat->vid_lite[i])
 			VID_REG_FLD_MOD(dispc, i, DISPC_VID_PRELOAD,
 					0x7FF, 11, 0);
@@ -1845,7 +1868,7 @@ static void dispc7_vp_init(struct dispc_device *dispc)
 	dev_dbg(dispc->dev, "%s()\n", __func__);
 
 	/* Enable the gamma Shadow bit-field for all VPs*/
-	for (i = 0; i < dispc->feat->num_vps; i++)
+	dispc_for_each_managed_vp(dispc, i)
 		VP_REG_FLD_MOD(dispc, i, DISPC_VP_CONFIG, 1, 2, 2);
 }
 
@@ -1915,7 +1938,7 @@ static void dispc7_restore_gamma_tables(struct dispc_device *dispc)
 
 	dev_dbg(dispc->dev, "%s()\n", __func__);
 
-	for (i = 0; i < dispc->feat->num_vps; i++)
+	dispc_for_each_managed_vp(dispc, i)
 		dispc7_vp_write_gamma_table(dispc, i);
 }
 
@@ -2067,7 +2090,7 @@ static int dispc7_init_gamma_tables(struct dispc_device *dispc)
 
 	dev_dbg(dispc->dev, "%s()\n", __func__);
 
-	for (i = 0; i < dispc->feat->num_vps; i++)
+	dispc_for_each_managed_vp(dispc, i)
 		dispc7_vp_set_gamma(dispc, i, NULL, 0);
 
 	return 0;
@@ -2151,11 +2174,9 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 		u32 enc_type;
 	};
 
-	u32 max_vps = dispc->feat->num_vps;
-	u32 max_planes = dispc->feat->num_planes;
-
 	struct pipe pipes[DISPC7_MAX_PORTS];
 	u32 num_pipes = 0;
+	u32 plane_idx = 0;
 	u32 crtc_mask;
 
 	num_fourccs = 0;
@@ -2168,8 +2189,9 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 	}
 
 	/* first find all the connected panels & bridges */
+	/* exclude the VPs that are not managed.         */
 
-	for (i = 0; i < max_vps; i++) {
+	dispc_for_each_managed_vp(dispc, i) {
 		struct drm_panel *panel;
 		struct drm_bridge *bridge;
 		u32 enc_type = DRM_MODE_ENCODER_NONE;
@@ -2227,8 +2249,14 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 		struct tidss_plane *tplane;
 		struct tidss_crtc *tcrtc;
 		struct drm_encoder *enc;
-		u32 hw_plane_id = dispc->feat->vid_order[tidss->num_planes];
+		u32 hw_plane_id;
 		int ret;
+
+		hw_plane_id = dispc7_get_next_managed_plane(dispc, &plane_idx);
+		if (hw_plane_id == dispc->feat->num_planes) {
+			dev_err(tidss->dev, "no managed HW plane found for CRTC\n");
+			return -EINVAL;
+		}
 
 		tplane = tidss_plane_create(tidss, hw_plane_id,
 					    DRM_PLANE_TYPE_PRIMARY, crtc_mask,
@@ -2237,6 +2265,8 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 			dev_err(tidss->dev, "plane create failed\n");
 			return PTR_ERR(tplane);
 		}
+
+		hw_plane_id++;
 
 		tidss->planes[tidss->num_planes++] = &tplane->plane;
 
@@ -2265,9 +2295,13 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 
 	/* create overlay planes of the leftover planes */
 
-	while (tidss->num_planes < max_planes) {
+	while (tidss->num_planes < dispc->feat->num_planes) {
 		struct tidss_plane *tplane;
-		u32 hw_plane_id = dispc->feat->vid_order[tidss->num_planes];
+		u32 hw_plane_id;
+
+		hw_plane_id = dispc7_get_next_managed_plane(dispc, &plane_idx);
+		if (hw_plane_id == dispc->feat->num_planes)
+			break;
 
 		tplane = tidss_plane_create(tidss, hw_plane_id,
 					    DRM_PLANE_TYPE_OVERLAY, crtc_mask,
@@ -2277,6 +2311,8 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 			dev_err(tidss->dev, "plane create failed\n");
 			return PTR_ERR(tplane);
 		}
+
+		hw_plane_id++;
 
 		tidss->planes[tidss->num_planes++] = &tplane->plane;
 	}
@@ -2550,6 +2586,100 @@ static int dispc7_setup_commons(struct dispc_device *dispc)
 	}
 }
 
+static struct device_node *dispc7_of_dss_plane_for_id(struct device_node *parent, u32 id)
+{
+	struct device_node *dss_planes_node, *plane;
+
+	dss_planes_node = of_get_child_by_name(parent, "dss-planes");
+	if (!dss_planes_node)
+		return NULL;
+
+	for_each_child_of_node(dss_planes_node, plane) {
+		u32 plane_id = 0;
+
+		if (of_node_cmp(plane->name, "plane") != 0)
+			continue;
+		of_property_read_u32(plane, "reg", &plane_id);
+		if (id == plane_id)
+			break;
+	}
+
+	of_node_put(dss_planes_node);
+
+	return plane;
+}
+
+static struct device_node *dispc7_of_dss_vp_for_id(struct device_node *parent, u32 id)
+{
+	struct device_node *dss_vps_node, *vp;
+
+	dss_vps_node = of_get_child_by_name(parent, "dss-vps");
+	if (!dss_vps_node)
+		return NULL;
+
+	for_each_child_of_node(dss_vps_node, vp) {
+		u32 vp_id = 0;
+
+		if (of_node_cmp(vp->name, "vp") != 0)
+			continue;
+		of_property_read_u32(vp, "reg", &vp_id);
+		if (id == vp_id)
+			break;
+	}
+
+	of_node_put(dss_vps_node);
+
+	return vp;
+}
+
+static bool dispc7_is_plane_managed(struct tidss_device *tidss, u32 plane_id)
+{
+	struct device *dev = tidss->dev;
+	struct device_node *plane;
+	u32 managed;
+	bool ret;
+
+	plane = dispc7_of_dss_plane_for_id(dev->of_node, plane_id);
+	if (!plane)
+		return true;
+
+	ret = true;
+
+	if (of_property_read_u32(plane, "managed", &managed))
+		goto out;
+
+	if (!managed)
+		ret = false;
+
+out:
+	of_node_put(plane);
+	return ret;
+}
+
+static bool dispc7_is_vp_managed(struct tidss_device *tidss, u32 vp_id)
+{
+	struct device *dev = tidss->dev;
+	struct device_node *vp;
+	u32 managed;
+	bool ret;
+
+	vp = dispc7_of_dss_vp_for_id(dev->of_node, vp_id);
+	if (!vp)
+		return true;
+
+	ret = true;
+
+	if (of_property_read_u32(vp, "managed", &managed))
+		goto out;
+
+	if (!managed)
+		ret = false;
+
+out:
+	of_node_put(vp);
+	return ret;
+}
+
 int dispc7_init(struct tidss_device *tidss)
 {
 	struct device *dev = tidss->dev;
@@ -2593,7 +2723,13 @@ int dispc7_init(struct tidss_device *tidss)
 		return r;
 	}
 
-	for (i = 0; i < dispc->feat->num_planes; i++) {
+	for (i = 0; i < dispc->feat->num_vps; i++)
+		dispc->vp_managed[i] = dispc7_is_vp_managed(tidss, i);
+
+	for (i = 0; i < dispc->feat->num_planes; i++)
+		dispc->plane_managed[i] = dispc7_is_plane_managed(tidss, i);
+
+	dispc_for_each_managed_plane(dispc, i) {
 		r = dispc7_iomap_resource(pdev, dispc->feat->vid_name[i],
 					  &dispc->base_vid[i]);
 		dev_dbg(dev, "%s: %u %s %d\n", __func__,
@@ -2602,7 +2738,7 @@ int dispc7_init(struct tidss_device *tidss)
 			return r;
 	}
 
-	for (i = 0; i < dispc->feat->num_vps; i++) {
+	dispc_for_each_managed_vp(dispc, i) {
 		struct clk *clk;
 
 		r = dispc7_iomap_resource(pdev, dispc->feat->ovr_name[i],
