@@ -455,6 +455,7 @@ enum rproc_crash_type {
  * @table_ptr: pointer to the resource table in effect
  * @cached_table: copy of the resource table
  * @has_iommu: flag to indicate if remote processor is behind an MMU
+ * @deny_sysfs_ops: flag to not permit sysfs operations on state and firmware
  * @use_userspace_loader: flag to denote if remoteproc is loaded by userspace
  */
 struct rproc {
@@ -490,6 +491,7 @@ struct rproc {
 	struct resource_table *cached_table;
 	bool has_iommu;
 	bool auto_boot;
+	bool deny_sysfs_ops;
 	bool use_userspace_loader;
 };
 
