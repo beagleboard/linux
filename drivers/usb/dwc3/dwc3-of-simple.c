@@ -41,10 +41,10 @@ static int dwc3_of_simple_clk_init(struct dwc3_of_simple *simple, int count)
 	struct device_node	*np = dev->of_node;
 	int			i;
 
-	simple->num_clocks = count;
-
-	if (!count)
+	if (count <= 0)
 		return 0;
+
+	simple->num_clocks = count;
 
 	simple->clks = devm_kcalloc(dev, simple->num_clocks,
 			sizeof(struct clk *), GFP_KERNEL);
