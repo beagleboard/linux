@@ -621,6 +621,7 @@ static int brcmf_usb_tx(struct device *dev, struct sk_buff *skb)
 		goto fail;
 	}
 
+	skb_orphan(skb);
 	req->skb = skb;
 	req->devinfo = devinfo;
 	usb_fill_bulk_urb(req->urb, devinfo->usbdev, devinfo->tx_pipe,
