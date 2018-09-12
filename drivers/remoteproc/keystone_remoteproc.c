@@ -967,6 +967,7 @@ static int keystone_rproc_probe(struct platform_device *pdev)
 	if (rproc->use_userspace_loader) {
 		rproc->recovery_disabled = true;
 		rproc->auto_boot = false;
+		rproc->deny_sysfs_ops = true;
 		rproc->fw_ops = &keystone_rproc_fw_ops;
 	}
 
