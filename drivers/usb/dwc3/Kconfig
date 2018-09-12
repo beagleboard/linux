@@ -106,11 +106,4 @@ config USB_DWC3_ST
 	  inside (i.e. STiH407).
 	  Say 'Y' or 'M' if you have one such device.
 
-config USB_DWC3_AM65
-       tristate "Texas Instruments AM654 SoC"
-       depends on (ARCH_K3 || COMPILE_TEST) && OF
-       default USB_DWC3
-       help
-         Support USB2/3 functionality in TI's AM654 SoC.
-	 Say 'Y' or 'M' if you have one such device.
 endif
