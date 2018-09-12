@@ -121,6 +121,7 @@ struct vip_shared {
 	void __iomem		*base;
 	struct vpdma_data	vpdma_data;
 	struct vpdma_data	*vpdma;
+	struct v4l2_device	v4l2_dev;
 	struct vip_dev		*devs[VIP_NUM_SLICES];
 };
 
@@ -137,7 +138,7 @@ struct vip_async_config {
 
 
 struct vip_dev {
-	struct v4l2_device	v4l2_dev;
+	struct v4l2_device	*v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct platform_device *pdev;
 	struct vip_shared	*shared;
@@ -156,7 +157,7 @@ struct vip_dev {
 
 	struct vip_port		*ports[VIP_NUM_PORTS];
 
-	const char		*vip_name;
+	char			name[16];
 	/* parser data handle */
 	struct vip_parser_data	*parser;
 	/* scaler data handle */
@@ -185,6 +186,7 @@ struct vip_port {
 	struct v4l2_mbus_framefmt mbus_framefmt;
 	struct v4l2_mbus_framefmt try_mbus_framefmt;
 
+	char			name[16];
 	struct vip_fmt		*fmt;		/* current format info */
 	/* Number of channels/streams configured */
 	int			num_streams_configured;
@@ -222,6 +224,7 @@ struct vip_stream {
 	int			stream_id;
 	int			list_num;
 	int			vfl_type;
+	char			name[16];
 	struct work_struct	recovery_work;
 	int			num_recovery;
 	enum v4l2_field		field;		/* current field */
