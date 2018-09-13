@@ -1219,7 +1219,7 @@
 			reg-names = "gmii-sel";
 		};
 
-		mcu_cpsw: cpsw_nuss@046000000 {
+		mcu_cpsw: ethernet@046000000 {
 			compatible = "ti,am654-cpsw-nuss";
 			#address-cells = <2>;
 			#size-cells = <2>;
