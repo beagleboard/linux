@@ -348,12 +348,20 @@ static void k3_ringacc_ring_reset_sci(struct k3_nav_ring *ring)
 	struct k3_nav_ringacc *ringacc = ring->parent;
 	int ret;
 
-	ret = ringacc->tisci_ring_ops->reset(
+	ret = ringacc->tisci_ring_ops->config(
 			ringacc->tisci,
+			TI_SCI_MSG_VALUE_RM_RING_COUNT_VALID,
 			ringacc->tisci_dev_id,
-			ring->ring_id);
+			ring->ring_id,
+			0,
+			0,
+			ring->size,
+			0,
+			0,
+			0);
 	if (ret)
-		dev_err(ringacc->dev, "TISCI ring reset fail %d\n", ret);
+		dev_err(ringacc->dev, "TISCI reset ring fail (%d) ring_idx %d\n",
+			ret, ring->ring_id);
 }
 
 void k3_nav_ringacc_ring_reset(struct k3_nav_ring *ring)
@@ -374,18 +382,22 @@ static void k3_ringacc_ring_reconfig_qmode_sci(struct k3_nav_ring *ring,
 					       enum k3_nav_ring_mode mode)
 {
 	struct k3_nav_ringacc *ringacc = ring->parent;
-	struct device *dev = ringacc->dev;
-	u8 qmode;
 	int ret;
 
-	qmode = mode;
-	ret = ringacc->tisci_ring_ops->reconfig(
+	ret = ringacc->tisci_ring_ops->config(
 			ringacc->tisci,
+			TI_SCI_MSG_VALUE_RM_RING_MODE_VALID,
 			ringacc->tisci_dev_id,
 			ring->ring_id,
-			&qmode, NULL, NULL, NULL, NULL, NULL);
+			0,
+			0,
+			0,
+			mode,
+			0,
+			0);
 	if (ret)
-		dev_err(dev, "TISCI ring reconfig qmode fail %d\n", ret);
+		dev_err(ringacc->dev, "TISCI reconf qmode fail (%d) ring_idx %d\n",
+			ret, ring->ring_id);
 }
 
 void k3_nav_ringacc_ring_reset_dma(struct k3_nav_ring *ring, u32 occ)
@@ -451,13 +463,20 @@ static void k3_ringacc_ring_free_sci(struct k3_nav_ring *ring)
 	struct k3_nav_ringacc *ringacc = ring->parent;
 	int ret;
 
-	ret = ringacc->tisci_ring_ops->free(
+	ret = ringacc->tisci_ring_ops->config(
 			ringacc->tisci,
-			TI_SCI_MSG_UNUSED_SECONDARY_HOST,
+			TI_SCI_MSG_VALUE_RM_ALL_NO_ORDER,
 			ringacc->tisci_dev_id,
-			ring->ring_id);
+			ring->ring_id,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0);
 	if (ret)
-		dev_err(ringacc->dev, "TISCI ring free fail %d\n", ret);
+		dev_err(ringacc->dev, "TISCI ring free fail (%d) ring_idx %d\n",
+			ret, ring->ring_id);
 }
 
 int k3_nav_ringacc_ring_free(struct k3_nav_ring *ring)
@@ -527,26 +546,27 @@ EXPORT_SYMBOL_GPL(k3_nav_ringacc_get_tisci_dev_id);
 static int k3_nav_ringacc_ring_cfg_sci(struct k3_nav_ring *ring)
 {
 	struct k3_nav_ringacc *ringacc = ring->parent;
-	struct device *dev = ringacc->dev;
 	u32 ring_idx;
 	int ret;
 
+	if (!ringacc->tisci)
+		return -EINVAL;
+
 	ring_idx = ring->ring_id;
-	ret = ringacc->tisci_ring_ops->allocate(
+	ret = ringacc->tisci_ring_ops->config(
 			ringacc->tisci,
-			TI_SCI_MSG_UNUSED_SECONDARY_HOST,
+			TI_SCI_MSG_VALUE_RM_ALL_NO_ORDER,
 			ringacc->tisci_dev_id,
-			&ring_idx,
+			ring_idx,
 			lower_32_bits(ring->ring_mem_dma),
 			upper_32_bits(ring->ring_mem_dma),
 			ring->size,
 			ring->mode,
 			ring->elm_size,
-			TI_SCI_RM_NULL_U8,
-			0,
-			TI_SCI_RM_NULL_U16);
+			0);
 	if (ret)
-		dev_err(dev, "TISCI Unable to request ring (%d)\n", ret);
+		dev_err(ringacc->dev, "TISCI config ring fail (%d) ring_idx %d\n",
+			ret, ring_idx);
 
 	return ret;
 }
