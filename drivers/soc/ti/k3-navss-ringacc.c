@@ -112,7 +112,6 @@ struct k3_nav_ring {
 	u32		size;
 	enum k3_nav_ring_size elm_size;
 	enum k3_nav_ring_mode mode;
-	u32		event_id;
 	u32		flags;
 #define KNAV_RING_FLAG_BUSY	BIT(1)
 #define K3_NAV_RING_FLAG_SHARED	BIT(2)
@@ -523,7 +522,6 @@ int k3_nav_ringacc_ring_cfg(struct k3_nav_ring *ring,
 	ring->free = 0;
 	ring->rindex = 0;
 	ring->windex = 0;
-	ring->event_id = 0xffff;
 
 	if (ring->proxy_id != K3_RINGACC_PROXY_NOT_USED)
 		ring->proxy = ringacc->proxy_target_base +
