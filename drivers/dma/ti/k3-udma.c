@@ -1645,69 +1645,56 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	if (uc->dir == DMA_MEM_TO_MEM) {
 		/* Non synchronized - mem to mem type of transfer */
 		int tc_ring = k3_nav_ringacc_get_ring_id(tchan->tc_ring);
-		struct ti_sci_rm_udmap_tx_ch_alloc req_tx;
-		struct ti_sci_rm_udmap_rx_ch_alloc req_rx;
-		u32 ch_index;
-		u32 def_flow_index, rng_flow_start_index, rng_flow_cnt;
+		struct ti_sci_msg_rm_udmap_tx_ch_cfg req_tx = { 0 };
+		struct ti_sci_msg_rm_udmap_rx_ch_cfg req_rx = { 0 };
+
+		req_tx.valid_params =
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_PAUSE_ON_ERR_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_FILT_EINFO_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_FILT_PSWORDS_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_SUPR_TDPKT_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_FETCH_SIZE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID;
 
 		req_tx.nav_id = tisci_rm->tisci_dev_id;
 		req_tx.index = tchan->id;
 		req_tx.tx_pause_on_err = 0;
 		req_tx.tx_filt_einfo = 0;
 		req_tx.tx_filt_pswords = 0;
-		req_tx.tx_atype = 0;
 		req_tx.tx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBRR;
 		req_tx.tx_supr_tdpkt = 0;
 		req_tx.tx_fetch_size = sizeof(struct cppi50_tr_req_desc) >> 2;
-		req_tx.tx_credit_count = 0;
 		req_tx.txcq_qnum = tc_ring;
-		req_tx.tx_priority = TI_SCI_RM_NULL_U8;
-		req_tx.tx_qos = TI_SCI_RM_NULL_U8;
-		req_tx.tx_orderid = TI_SCI_RM_NULL_U8;
-		req_tx.fdepth = 0x80;
-		req_tx.tx_sched_priority = 0;
-		req_tx.share = 0;
-		req_tx.type = TI_SCI_RM_NULL_U8;
-		req_tx.secondary_host = TI_SCI_RM_NULL_U8;
 
-		ret = tisci_ops->tx_ch_alloc(tisci_rm->tisci, &req_tx,
-					     &ch_index);
+		ret = tisci_ops->tx_ch_cfg(tisci_rm->tisci, &req_tx);
 		if (ret) {
-			dev_err(ud->dev, "tchan%d alloc failed %d\n",
+			dev_err(ud->dev, "tchan%d cfg failed %d\n",
 				tchan->id, ret);
 			goto err_res_free;
 		}
+
+		req_rx.valid_params =
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_PAUSE_ON_ERR_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_FETCH_SIZE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_SHORT_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_LONG_VALID;
 
 		req_rx.nav_id = tisci_rm->tisci_dev_id;
 		req_rx.index = rchan->id;
 		req_rx.rx_fetch_size = sizeof(struct cppi50_tr_req_desc) >> 2;
 		req_rx.rxcq_qnum = tc_ring;
-		req_rx.rx_priority = TI_SCI_RM_NULL_U8;
-		req_rx.rx_qos = TI_SCI_RM_NULL_U8;
-		req_rx.rx_orderid = TI_SCI_RM_NULL_U8;
-		req_rx.rx_sched_priority = 0;
-		req_rx.flowid_start = TI_SCI_RM_NULL_U16;
-		req_rx.flowid_cnt = 0;
 		req_rx.rx_pause_on_err = 0;
-		req_rx.rx_atype = 0;
 		req_rx.rx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBRR;
 		req_rx.rx_ignore_short = 0;
 		req_rx.rx_ignore_long = 0;
-		req_rx.share = 0;
-		req_rx.type = TI_SCI_RM_NULL_U8;
-		req_rx.secondary_host = TI_SCI_RM_NULL_U8;
 
-		ret = tisci_ops->rx_ch_alloc(tisci_rm->tisci, &req_rx,
-					     &ch_index, &def_flow_index,
-					     &rng_flow_start_index,
-					     &rng_flow_cnt);
+		ret = tisci_ops->rx_ch_cfg(tisci_rm->tisci, &req_rx);
 		if (ret) {
 			dev_err(ud->dev, "rchan%d alloc failed %d\n",
 				rchan->id, ret);
-			tisci_ops->tx_ch_free(tisci_rm->tisci,
-					      TI_SCI_RM_NULL_U8,
-					      tisci_rm->tisci_dev_id,
-					      tchan->id);
 			goto err_res_free;
 		}
 
@@ -1733,33 +1720,30 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			/* TX */
 			int tc_ring = k3_nav_ringacc_get_ring_id(
 								tchan->tc_ring);
-			struct ti_sci_rm_udmap_tx_ch_alloc req;
-			u32 ch_index;
+			struct ti_sci_msg_rm_udmap_tx_ch_cfg req_tx = { 0 };
 
-			req.nav_id = tisci_rm->tisci_dev_id;
-			req.index = tchan->id;
-			req.tx_pause_on_err = 0;
-			req.tx_filt_einfo = 0;
-			req.tx_filt_pswords = 0;
-			req.tx_atype = 0;
-			req.tx_chan_type = mode;
-			req.tx_supr_tdpkt = 0;
-			req.tx_fetch_size = fetch_size >> 2;
-			req.tx_credit_count = 0;
-			req.txcq_qnum = tc_ring;
-			req.tx_priority = TI_SCI_RM_NULL_U8;
-			req.tx_qos = TI_SCI_RM_NULL_U8;
-			req.tx_orderid = TI_SCI_RM_NULL_U8;
-			req.fdepth = 0x80;
-			req.tx_sched_priority = 0;
-			req.share = 0;
-			req.type = TI_SCI_RM_NULL_U8;
-			req.secondary_host = TI_SCI_RM_NULL_U8;
+			req_tx.valid_params =
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_PAUSE_ON_ERR_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_FILT_EINFO_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_FILT_PSWORDS_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_SUPR_TDPKT_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_FETCH_SIZE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID;
 
-			ret = tisci_ops->tx_ch_alloc(tisci_rm->tisci, &req,
-						     &ch_index);
+			req_tx.nav_id = tisci_rm->tisci_dev_id;
+			req_tx.index = tchan->id;
+			req_tx.tx_pause_on_err = 0;
+			req_tx.tx_filt_einfo = 0;
+			req_tx.tx_filt_pswords = 0;
+			req_tx.tx_chan_type = mode;
+			req_tx.tx_supr_tdpkt = 0;
+			req_tx.tx_fetch_size = fetch_size >> 2;
+			req_tx.txcq_qnum = tc_ring;
+
+			ret = tisci_ops->tx_ch_cfg(tisci_rm->tisci, &req_tx);
 			if (ret) {
-				dev_err(ud->dev, "tchan%d alloc failed %d\n",
+				dev_err(ud->dev, "tchan%d cfg failed %d\n",
 					tchan->id, ret);
 				goto err_res_free;
 			}
@@ -1773,77 +1757,77 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			int fd_ring = k3_nav_ringacc_get_ring_id(
 								rchan->fd_ring);
 			int rx_ring = k3_nav_ringacc_get_ring_id(rchan->r_ring);
-			struct ti_sci_rm_udmap_rx_ch_alloc ch_req;
-			struct ti_sci_rm_udmap_rx_flow_cfg flow_req;
-			u32 ch_index;
-			u32 def_flow_index, rng_flow_start_index, rng_flow_cnt;
+			struct ti_sci_msg_rm_udmap_rx_ch_cfg req_rx = { 0 };
+			struct ti_sci_msg_rm_udmap_flow_cfg flow_req = { 0 };
 
-			ch_req.nav_id = tisci_rm->tisci_dev_id;
-			ch_req.index = rchan->id;
-			ch_req.rx_fetch_size = fetch_size >> 2;
-			ch_req.rxcq_qnum = rx_ring;
-			ch_req.rx_priority = TI_SCI_RM_NULL_U8;
-			ch_req.rx_qos = TI_SCI_RM_NULL_U8;
-			ch_req.rx_orderid = TI_SCI_RM_NULL_U8;
-			ch_req.rx_sched_priority = 0;
-			ch_req.flowid_start = TI_SCI_RM_NULL_U16;
-			ch_req.flowid_cnt = 0;
-			ch_req.rx_pause_on_err = 0;
-			ch_req.rx_atype = 0;
-			ch_req.rx_chan_type = mode;
-			ch_req.rx_ignore_short = 0;
-			ch_req.rx_ignore_long = 0;
-			ch_req.share = 0;
-			ch_req.type = TI_SCI_RM_NULL_U8;
-			ch_req.secondary_host = TI_SCI_RM_NULL_U8;
+			req_rx.valid_params =
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_PAUSE_ON_ERR_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_FETCH_SIZE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_SHORT_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_LONG_VALID;
 
-			ret = tisci_ops->rx_ch_alloc(tisci_rm->tisci, &ch_req,
-						     &ch_index, &def_flow_index,
-						     &rng_flow_start_index,
-						     &rng_flow_cnt);
+			req_rx.nav_id = tisci_rm->tisci_dev_id;
+			req_rx.index = rchan->id;
+			req_rx.rx_fetch_size =  fetch_size >> 2;
+			req_rx.rxcq_qnum = rx_ring;
+			req_rx.rx_pause_on_err = 0;
+			req_rx.rx_chan_type = mode;
+			req_rx.rx_ignore_short = 0;
+			req_rx.rx_ignore_long = 0;
+
+			ret = tisci_ops->rx_ch_cfg(tisci_rm->tisci, &req_rx);
 			if (ret) {
-				dev_err(ud->dev, "rchan%d alloc failed %d\n",
+				dev_err(ud->dev, "rchan%d cfg failed %d\n",
 					rchan->id, ret);
 				goto err_res_free;
 			}
 
+			flow_req.valid_params =
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_EINFO_PRESENT_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_PSINFO_PRESENT_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_ERROR_HANDLING_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DESC_TYPE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_SRC_TAG_HI_SEL_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_SRC_TAG_LO_SEL_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_TAG_HI_SEL_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_TAG_LO_SEL_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ0_SZ0_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ1_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ2_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ3_QNUM_VALID;
+
 			flow_req.nav_id = tisci_rm->tisci_dev_id;
-			flow_req.flow_index = def_flow_index;
-			flow_req.rx_ch_index = rchan->id;
+			flow_req.flow_index = rchan->id;
+
 			if (uc->needs_epib)
 				flow_req.rx_einfo_present = 1;
 			else
 				flow_req.rx_einfo_present = 0;
-
 			if (uc->psd_size)
 				flow_req.rx_psinfo_present = 1;
 			else
 				flow_req.rx_psinfo_present = 0;
-
 			flow_req.rx_error_handling = 1;
 			flow_req.rx_desc_type = 0;
-			flow_req.rx_sop_offset = 0;
 			flow_req.rx_dest_qnum = rx_ring;
-			flow_req.rx_ps_location = 0;
-			flow_req.rx_src_tag_hi = 0;
-			flow_req.rx_src_tag_lo = 0;
-			flow_req.rx_dest_tag_hi = 0;
-			flow_req.rx_dest_tag_lo = 0;
 			flow_req.rx_src_tag_hi_sel = 2;
 			flow_req.rx_src_tag_lo_sel = 4;
 			flow_req.rx_dest_tag_hi_sel = 5;
 			flow_req.rx_dest_tag_lo_sel = 4;
-			flow_req.rx_size_thresh_en = 0;
 			flow_req.rx_fdq0_sz0_qnum = fd_ring;
 			flow_req.rx_fdq1_qnum = fd_ring;
 			flow_req.rx_fdq2_qnum = fd_ring;
 			flow_req.rx_fdq3_qnum = fd_ring;
 
-			ret = tisci_ops->rx_flow_cfg(tisci_rm->tisci,
-						     &flow_req);
+			ret = tisci_ops->rx_flow_cfg1(tisci_rm->tisci,
+						      &flow_req);
+
 			if (ret) {
 				dev_err(ud->dev, "flow%d config failed: %d\n",
-					def_flow_index, ret);
+					rchan->id, ret);
 				goto err_chan_free;
 			}
 
@@ -1921,14 +1905,6 @@ err_psi_free:
 	k3_nav_psil_release_link(uc->psi_link);
 	uc->psi_link = NULL;
 err_chan_free:
-	if (tchan)
-		tisci_ops->tx_ch_free(tisci_rm->tisci, TI_SCI_RM_NULL_U8,
-				      tisci_rm->tisci_dev_id, tchan->id);
-
-	if (rchan)
-		tisci_ops->rx_ch_free(tisci_rm->tisci, TI_SCI_RM_NULL_U8,
-				      tisci_rm->tisci_dev_id, rchan->id);
-
 err_res_free:
 	udma_free_tx_resources(uc);
 	udma_free_rx_resources(uc);
@@ -3068,14 +3044,6 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 
 	vchan_free_chan_resources(&uc->vc);
 	tasklet_kill(&uc->vc.task);
-
-	if (uc->tchan)
-		tisci_ops->tx_ch_free(tisci_rm->tisci, TI_SCI_RM_NULL_U8,
-				      tisci_rm->tisci_dev_id, uc->tchan->id);
-
-	if (uc->rchan)
-		tisci_ops->rx_ch_free(tisci_rm->tisci, TI_SCI_RM_NULL_U8,
-				      tisci_rm->tisci_dev_id, uc->rchan->id);
 
 	pm_runtime_put(ud->ddev.dev);
 
