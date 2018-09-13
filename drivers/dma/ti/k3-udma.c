@@ -3018,7 +3018,6 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 	struct udma_chan *uc = to_udma_chan(chan);
 	struct udma_dev *ud = to_udma_dev(chan->device);
 	struct udma_tisci_rm *tisci_rm = &ud->tisci_rm;
-	const struct ti_sci_rm_udmap_ops *tisci_ops = tisci_rm->tisci_udmap_ops;
 
 	udma_terminate_all(chan);
 
