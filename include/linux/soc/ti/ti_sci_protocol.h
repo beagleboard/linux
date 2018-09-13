@@ -332,14 +332,6 @@ struct ti_sci_proc_ops {
 			  u32 *status_flags);
 };
 
-#define TI_SCI_RING_MODE_RING			(0)
-#define TI_SCI_RING_MODE_MESSAGE		(1)
-#define TI_SCI_RING_MODE_CREDENTIALS		(2)
-#define TI_SCI_RING_MODE_QM			(3)
-#define TI_SCI_RING_SHARED			(1)
-
-#define TI_SCI_MSG_UNUSED_SECONDARY_HOST TI_SCI_RM_NULL_U8
-
 /* RA config.addr_lo parameter is valid for RM ring configure TI_SCI message */
 #define TI_SCI_MSG_VALUE_RM_RING_ADDR_LO_VALID	BIT(0)
 /* RA config.addr_hi parameter is valid for RM ring configure TI_SCI message */
@@ -362,36 +354,11 @@ struct ti_sci_proc_ops {
 
 /**
  * struct ti_sci_rm_ringacc_ops - Ring Accelerator Management operations
- * @allocate: allocate and configure SoC Navigator Subsystem Ring
- *		Accelerator rings. The API allows requesting a specific ring by
- *		passing the exact @index of the ring to be allocated and
- *		configured. Rings can also be requested dynamically, which
- *		allows the RM subsystem to select the next available ring,
- *		of a specific type (@index = TI_SCI_MSG_NULL_RING_INDEX),
- *		for allocation and configuration.
- * @free: free SoC Navigator Subsystem Ring Accelerator rings that were
- *		allocated by TISCI.
- * @reset: reset SoC Navigator Subsystem Ring Accelerator rings that were
- *		allocated by TISCI.
- * @reconfig: reconfigure the qmode of SoC Navigator Subsystem Ring
- *		Accelerator rings that were allocated by TISCI
  * @config: configure the SoC Navigator Subsystem Ring Accelerator ring
  * @get_config: get the SoC Navigator Subsystem Ring Accelerator ring
  *		configuration
  */
 struct ti_sci_rm_ringacc_ops {
-	int (*allocate)(const struct ti_sci_handle *handle, u8 s_host,
-			u32 nav_id, u32 *index, u32 addr_lo, u32 addr_hi,
-			u32 count, u8 mode, u8 size, u8 order_id,
-			u8 share, u16 type);
-	int (*free)(const struct ti_sci_handle *handle,
-		    u8 s_host, u32 nav_id, u32 index);
-	int (*reset)(const struct ti_sci_handle *handle,
-		     u32 nav_id, u32 index);
-	int (*reconfig)(const struct ti_sci_handle *handle,
-			u32 nav_id, u32 index, u8 *mode,
-			u32 *addr_lo, u32 *addr_hi, u32 *count,
-			u8 *size, u8 *order_id);
 	int (*config)(const struct ti_sci_handle *handle,
 		      u32 valid_params, u16 nav_id, u16 index,
 		      u32 addr_lo, u32 addr_hi, u32 count, u8 mode,
