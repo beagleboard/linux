@@ -628,6 +628,127 @@ struct ti_sci_rm_udmap_rx_flow_opt_cfg {
 	u16 rx_fdq0_sz3_qnum;
 };
 
+/* UDMAP TX/RX channel valid_params common declarations */
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_PAUSE_ON_ERR_VALID		BIT(0)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_ATYPE_VALID                BIT(1)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID            BIT(2)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_FETCH_SIZE_VALID           BIT(3)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID              BIT(4)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_PRIORITY_VALID             BIT(5)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_QOS_VALID                  BIT(6)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_ORDER_ID_VALID             BIT(7)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_SCHED_PRIORITY_VALID       BIT(8)
+
+/**
+ * Configures a Navigator Subsystem UDMAP transmit channel
+ *
+ * Configures a Navigator Subsystem UDMAP transmit channel registers.
+ * See @ti_sci_msg_rm_udmap_tx_ch_cfg_req
+ */
+struct ti_sci_msg_rm_udmap_tx_ch_cfg {
+	u32 valid_params;
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_FILT_EINFO_VALID        BIT(9)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_FILT_PSWORDS_VALID      BIT(10)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_SUPR_TDPKT_VALID        BIT(11)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_CREDIT_COUNT_VALID      BIT(12)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_FDEPTH_VALID            BIT(13)
+	u16 nav_id;
+	u16 index;
+	u8 tx_pause_on_err;
+	u8 tx_filt_einfo;
+	u8 tx_filt_pswords;
+	u8 tx_atype;
+	u8 tx_chan_type;
+	u8 tx_supr_tdpkt;
+	u16 tx_fetch_size;
+	u8 tx_credit_count;
+	u16 txcq_qnum;
+	u8 tx_priority;
+	u8 tx_qos;
+	u8 tx_orderid;
+	u16 fdepth;
+	u8 tx_sched_priority;
+};
+
+/**
+ * Configures a Navigator Subsystem UDMAP receive channel
+ *
+ * Configures a Navigator Subsystem UDMAP receive channel registers.
+ * See @ti_sci_msg_rm_udmap_rx_ch_cfg_req
+ */
+struct ti_sci_msg_rm_udmap_rx_ch_cfg {
+	u32 valid_params;
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_START_VALID      BIT(9)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_CNT_VALID        BIT(10)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_SHORT_VALID      BIT(11)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_LONG_VALID       BIT(12)
+	u16 nav_id;
+	u16 index;
+	u16 rx_fetch_size;
+	u16 rxcq_qnum;
+	u8 rx_priority;
+	u8 rx_qos;
+	u8 rx_orderid;
+	u8 rx_sched_priority;
+	u16 flowid_start;
+	u16 flowid_cnt;
+	u8 rx_pause_on_err;
+	u8 rx_atype;
+	u8 rx_chan_type;
+	u8 rx_ignore_short;
+	u8 rx_ignore_long;
+};
+
+/**
+ * Configures a Navigator Subsystem UDMAP receive flow
+ *
+ * Configures a Navigator Subsystem UDMAP receive flow's registers.
+ * See @tis_ci_msg_rm_udmap_flow_cfg_req
+ */
+struct ti_sci_msg_rm_udmap_flow_cfg {
+	u32 valid_params;
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_EINFO_PRESENT_VALID	BIT(0)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_PSINFO_PRESENT_VALID     BIT(1)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_ERROR_HANDLING_VALID     BIT(2)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DESC_TYPE_VALID          BIT(3)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_SOP_OFFSET_VALID         BIT(4)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_QNUM_VALID          BIT(5)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_SRC_TAG_HI_VALID         BIT(6)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_SRC_TAG_LO_VALID         BIT(7)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_TAG_HI_VALID        BIT(8)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_TAG_LO_VALID        BIT(9)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_SRC_TAG_HI_SEL_VALID     BIT(10)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_SRC_TAG_LO_SEL_VALID     BIT(11)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_TAG_HI_SEL_VALID    BIT(12)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_TAG_LO_SEL_VALID    BIT(13)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ0_SZ0_QNUM_VALID      BIT(14)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ1_QNUM_VALID          BIT(15)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ2_QNUM_VALID          BIT(16)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ3_QNUM_VALID          BIT(17)
+#define TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_PS_LOCATION_VALID        BIT(18)
+	u16 nav_id;
+	u16 flow_index;
+	u8 rx_einfo_present;
+	u8 rx_psinfo_present;
+	u8 rx_error_handling;
+	u8 rx_desc_type;
+	u16 rx_sop_offset;
+	u16 rx_dest_qnum;
+	u8 rx_src_tag_hi;
+	u8 rx_src_tag_lo;
+	u8 rx_dest_tag_hi;
+	u8 rx_dest_tag_lo;
+	u8 rx_src_tag_hi_sel;
+	u8 rx_src_tag_lo_sel;
+	u8 rx_dest_tag_hi_sel;
+	u8 rx_dest_tag_lo_sel;
+	u16 rx_fdq0_sz0_qnum;
+	u16 rx_fdq1_qnum;
+	u16 rx_fdq2_qnum;
+	u16 rx_fdq3_qnum;
+	u8 rx_ps_location;
+};
+
 /**
  * struct ti_sci_rm_udmap_ops - UDMA Management operations
  * @tx_ch_alloc: allocate and configure SoC Navigator Subsystem UDMA transmit
@@ -648,6 +769,9 @@ struct ti_sci_rm_udmap_rx_flow_opt_cfg {
  *	configuration is passed via @params ti_sci_rm_udmap_rx_flow_cfg.
  * @rx_flow_cfg: configure SoC Navigator Subsystem optional UDMA receive flow.
  *	The configuration is passed via @params ti_sci_rm_udmap_rx_flow_opt_cfg.
+ * @tx_ch_cfg: configure SoC Navigator Subsystem UDMA transmit channel.
+ * @rx_ch_cfg: configure SoC Navigator Subsystem UDMA receive channel.
+ * @rx_flow_cfg1: configure SoC Navigator Subsystem UDMA receive flow.
  */
 struct ti_sci_rm_udmap_ops {
 	int (*tx_ch_alloc)(const struct ti_sci_handle *handle,
@@ -666,6 +790,13 @@ struct ti_sci_rm_udmap_ops {
 	int (*rx_flow_opt_cfg)(
 		const struct ti_sci_handle *handle,
 		const struct ti_sci_rm_udmap_rx_flow_opt_cfg *params);
+	int (*tx_ch_cfg)(const struct ti_sci_handle *handle,
+			 const struct ti_sci_msg_rm_udmap_tx_ch_cfg *params);
+	int (*rx_ch_cfg)(const struct ti_sci_handle *handle,
+			 const struct ti_sci_msg_rm_udmap_rx_ch_cfg *params);
+	int (*rx_flow_cfg1)(
+		const struct ti_sci_handle *handle,
+		const struct ti_sci_msg_rm_udmap_flow_cfg *params);
 };
 
 /**
