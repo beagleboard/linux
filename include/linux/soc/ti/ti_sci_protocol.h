@@ -340,6 +340,26 @@ struct ti_sci_proc_ops {
 
 #define TI_SCI_MSG_UNUSED_SECONDARY_HOST TI_SCI_RM_NULL_U8
 
+/* RA config.addr_lo parameter is valid for RM ring configure TI_SCI message */
+#define TI_SCI_MSG_VALUE_RM_RING_ADDR_LO_VALID	BIT(0)
+/* RA config.addr_hi parameter is valid for RM ring configure TI_SCI message */
+#define TI_SCI_MSG_VALUE_RM_RING_ADDR_HI_VALID	BIT(1)
+ /* RA config.count parameter is valid for RM ring configure TI_SCI message */
+#define TI_SCI_MSG_VALUE_RM_RING_COUNT_VALID	BIT(2)
+/* RA config.mode parameter is valid for RM ring configure TI_SCI message */
+#define TI_SCI_MSG_VALUE_RM_RING_MODE_VALID	BIT(3)
+/* RA config.size parameter is valid for RM ring configure TI_SCI message */
+#define TI_SCI_MSG_VALUE_RM_RING_SIZE_VALID	BIT(4)
+/* RA config.order_id parameter is valid for RM ring configure TISCI message */
+#define TI_SCI_MSG_VALUE_RM_RING_ORDER_ID_VALID	BIT(5)
+
+#define TI_SCI_MSG_VALUE_RM_ALL_NO_ORDER \
+	(TI_SCI_MSG_VALUE_RM_RING_ADDR_LO_VALID | \
+	TI_SCI_MSG_VALUE_RM_RING_ADDR_HI_VALID | \
+	TI_SCI_MSG_VALUE_RM_RING_COUNT_VALID | \
+	TI_SCI_MSG_VALUE_RM_RING_MODE_VALID | \
+	TI_SCI_MSG_VALUE_RM_RING_SIZE_VALID)
+
 /**
  * struct ti_sci_rm_ringacc_ops - Ring Accelerator Management operations
  * @allocate: allocate and configure SoC Navigator Subsystem Ring
@@ -355,6 +375,9 @@ struct ti_sci_proc_ops {
  *		allocated by TISCI.
  * @reconfig: reconfigure the qmode of SoC Navigator Subsystem Ring
  *		Accelerator rings that were allocated by TISCI
+ * @config: configure the SoC Navigator Subsystem Ring Accelerator ring
+ * @get_config: get the SoC Navigator Subsystem Ring Accelerator ring
+ *		configuration
  */
 struct ti_sci_rm_ringacc_ops {
 	int (*allocate)(const struct ti_sci_handle *handle, u8 s_host,
@@ -369,6 +392,15 @@ struct ti_sci_rm_ringacc_ops {
 			u32 nav_id, u32 index, u8 *mode,
 			u32 *addr_lo, u32 *addr_hi, u32 *count,
 			u8 *size, u8 *order_id);
+	int (*config)(const struct ti_sci_handle *handle,
+		      u32 valid_params, u16 nav_id, u16 index,
+		      u32 addr_lo, u32 addr_hi, u32 count, u8 mode,
+		      u8 size, u8 order_id
+	);
+	int (*get_config)(const struct ti_sci_handle *handle,
+			  u32 nav_id, u32 index, u8 *mode,
+			  u32 *addr_lo, u32 *addr_hi, u32 *count,
+			  u8 *size, u8 *order_id);
 };
 
 /**
