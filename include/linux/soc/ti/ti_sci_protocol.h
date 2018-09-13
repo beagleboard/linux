@@ -533,7 +533,7 @@ struct ti_sci_rm_udmap_ops {
 			 const struct ti_sci_msg_rm_udmap_tx_ch_cfg *params);
 	int (*rx_ch_cfg)(const struct ti_sci_handle *handle,
 			 const struct ti_sci_msg_rm_udmap_rx_ch_cfg *params);
-	int (*rx_flow_cfg1)(
+	int (*rx_flow_cfg)(
 		const struct ti_sci_handle *handle,
 		const struct ti_sci_msg_rm_udmap_flow_cfg *params);
 };

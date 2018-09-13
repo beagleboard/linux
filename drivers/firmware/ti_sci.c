@@ -3060,7 +3060,7 @@ static void ti_sci_setup_ops(struct ti_sci_info *info)
 
 	udmap_ops->tx_ch_cfg = ti_sci_cmd_rm_udmap_tx_ch_cfg;
 	udmap_ops->rx_ch_cfg = ti_sci_cmd_rm_udmap_rx_ch_cfg;
-	udmap_ops->rx_flow_cfg1 = ti_sci_cmd_rm_udmap_rx_flow_cfg1;
+	udmap_ops->rx_flow_cfg = ti_sci_cmd_rm_udmap_rx_flow_cfg1;
 }
 
 /**

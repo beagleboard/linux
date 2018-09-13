@@ -1822,7 +1822,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			flow_req.rx_fdq2_qnum = fd_ring;
 			flow_req.rx_fdq3_qnum = fd_ring;
 
-			ret = tisci_ops->rx_flow_cfg1(tisci_rm->tisci,
+			ret = tisci_ops->rx_flow_cfg(tisci_rm->tisci,
 						      &flow_req);
 
 			if (ret) {

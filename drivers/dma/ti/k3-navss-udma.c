@@ -717,7 +717,7 @@ static int k3_nav_udmax_cfg_rx_flow(
 	req.rx_fdq2_qnum = rx_ringfdq_id;
 	req.rx_fdq3_qnum = rx_ringfdq_id;
 
-	ret = tisci_rm->tisci_udmap_ops->rx_flow_cfg1(tisci_rm->tisci, &req);
+	ret = tisci_rm->tisci_udmap_ops->rx_flow_cfg(tisci_rm->tisci, &req);
 	if (ret) {
 		dev_err(dev, "flow%d config failed: %d\n", flow->udma_rflow_id,
 			ret);
