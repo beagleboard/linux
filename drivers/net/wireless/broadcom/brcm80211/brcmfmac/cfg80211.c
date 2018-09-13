@@ -7026,8 +7026,7 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 	wiphy->vendor_commands = brcmf_vendor_cmds;
 	wiphy->n_vendor_commands = BRCMF_VNDR_CMDS_LAST - 1;
 
-	if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_WOWL))
-		brcmf_wiphy_wowl_params(wiphy, ifp);
+	brcmf_wiphy_wowl_params(wiphy, ifp);
 	err = brcmf_fil_cmd_data_get(ifp, BRCMF_C_GET_BANDLIST, &bandlist,
 				     sizeof(bandlist));
 	if (err) {
