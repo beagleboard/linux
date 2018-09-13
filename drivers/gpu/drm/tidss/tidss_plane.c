@@ -30,7 +30,7 @@ static void tidss_plane_info_init(struct drm_plane_state *state,
 	info->width		= state->src_w >> 16;
 	info->height		= state->src_h >> 16;
 	info->global_alpha	= state->alpha >> 8;
-	info->zorder		= state->zpos;
+	info->zorder		= state->normalized_zpos;
 	info->color_encoding	= state->color_encoding;
 	info->color_range	= state->color_range;
 }
