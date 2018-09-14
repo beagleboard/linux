@@ -1596,15 +1596,6 @@ static int m_can_plat_probe(struct platform_device *pdev)
 		goto failed_ret;
 	}
 
-	stb = devm_gpiod_get_optional(&pdev->dev, "stb", GPIOD_OUT_HIGH);
-	if (IS_ERR(stb)) {
-		ret = PTR_ERR(stb);
-		if(ret != -EPROBE_DEFER)
-			netdev_err(dev, "gpio request failed, ret %d\n", ret);
-
-		goto failed_ret;
-	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "m_can");
 	addr = devm_ioremap_resource(&pdev->dev, res);
 	irq = platform_get_irq_byname(pdev, "int0");
@@ -1670,6 +1661,15 @@ static int m_can_plat_probe(struct platform_device *pdev)
 	ret = m_can_dev_setup(pdev, dev, addr);
 	if (ret)
 		goto clk_disable;
+
+	stb = devm_gpiod_get_optional(&pdev->dev, "stb", GPIOD_OUT_HIGH);
+	if (IS_ERR(stb)) {
+		ret = PTR_ERR(stb);
+		if (ret != -EPROBE_DEFER)
+			netdev_err(dev, "gpio request failed, ret %d\n", ret);
+
+		goto clk_disable;
+	}
 
 	ret = register_m_can_dev(dev);
 	if (ret) {

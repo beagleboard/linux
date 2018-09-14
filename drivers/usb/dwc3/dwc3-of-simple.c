@@ -41,10 +41,10 @@ static int dwc3_of_simple_clk_init(struct dwc3_of_simple *simple, int count)
 	struct device_node	*np = dev->of_node;
 	int			i;
 
-	simple->num_clocks = count;
-
-	if (!count)
+	if (count <= 0)
 		return 0;
+
+	simple->num_clocks = count;
 
 	simple->clks = devm_kcalloc(dev, simple->num_clocks,
 			sizeof(struct clk *), GFP_KERNEL);
@@ -102,6 +102,9 @@ static int dwc3_of_simple_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	pm_runtime_enable(dev);
+	pm_runtime_get_sync(dev);
+
 	ret = of_platform_populate(np, NULL, NULL, dev);
 	if (ret) {
 		for (i = 0; i < simple->num_clocks; i++) {
@@ -111,10 +114,6 @@ static int dwc3_of_simple_probe(struct platform_device *pdev)
 
 		return ret;
 	}
-
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
-	pm_runtime_get_sync(dev);
 
 	return 0;
 }
@@ -132,9 +131,8 @@ static int dwc3_of_simple_remove(struct platform_device *pdev)
 
 	of_platform_depopulate(dev);
 
+	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
-	pm_runtime_put_noidle(dev);
-	pm_runtime_set_suspended(dev);
 
 	return 0;
 }
@@ -181,6 +179,7 @@ static const struct of_device_id of_dwc3_simple_match[] = {
 	{ .compatible = "xlnx,zynqmp-dwc3" },
 	{ .compatible = "cavium,octeon-7130-usb-uctl" },
 	{ .compatible = "sprd,sc9860-dwc3" },
+	{ .compatible = "ti,am654-dwc3" },
 	{ /* Sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, of_dwc3_simple_match);

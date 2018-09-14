@@ -30,6 +30,10 @@
 	dr_mode = "host";
 };
 
+&usb0_phy {
+	status = "okay";
+};
+
 &serdes0 {
 	assigned-clocks = <&k3_clks 153 4>, <&serdes0 AM654_SERDES_CMU_REFCLK>, <&serdes0 AM654_SERDES_RO_REFCLK>;
 	assigned-clock-parents = <&k3_clks 153 8>, <&k3_clks 153 4>, <&k3_clks 153 4>;

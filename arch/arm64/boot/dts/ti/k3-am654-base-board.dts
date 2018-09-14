@@ -394,6 +394,10 @@
 	dr_mode = "otg";
 };
 
+&usb1_phy {
+	status = "okay";
+};
+
 &ospi0 {
 	status = "okay";
 	pinctrl-names = "default";
