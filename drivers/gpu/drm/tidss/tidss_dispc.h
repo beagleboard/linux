@@ -9,7 +9,8 @@
 
 struct tidss_device;
 struct dispc_device;
-struct drm_color_lut;
+
+struct drm_crtc_state;
 
 #define DSS_MAX_CHANNELS 8
 #define DSS_MAX_PLANES 8
@@ -63,6 +64,9 @@ struct tidss_plane_info {
 	dma_addr_t paddr;
 	dma_addr_t p_uv_addr;  /* for NV12 format */
 	u16 fb_width;
+	u16 fb_width_uv;
+	u16 cpp;
+	u16 cpp_uv;
 	u16 width;
 	u16 height;
 	u32 fourcc;
@@ -74,6 +78,28 @@ struct tidss_plane_info {
 	u8 global_alpha;
 	u8 pre_mult_alpha;
 	u8 zorder;
+
+	enum drm_color_encoding color_encoding;
+	enum drm_color_range color_range;
+};
+
+struct tidss_vp_feat {
+	struct tidss_vp_color_feat {
+		u32 gamma_size;
+		bool has_ctm;
+	} color;
+};
+
+struct tidss_plane_feat {
+	struct tidss_plane_color_feat {
+		u32 encodings;
+		u32 ranges;
+		enum drm_color_encoding default_encoding;
+		enum drm_color_range default_range;
+	} color;
+	struct tidss_plane_blend_feat {
+		bool global_alpha;
+	} blend;
 };
 
 struct dispc_ops {
@@ -93,6 +119,8 @@ struct dispc_ops {
 
 	u32 (*get_memory_bandwidth_limit)(struct dispc_device *dispc);
 
+	const struct tidss_vp_feat *(*vp_feat)(struct dispc_device *dispc,
+					       u32 hw_videoport);
 	void (*vp_prepare)(struct dispc_device *dispc, u32 hw_videoport,
 			   const struct drm_display_mode *mode,
 			   u32 bus_fmt, u32 bus_flags);
@@ -120,15 +148,17 @@ struct dispc_ops {
 			       const struct drm_display_mode *mode,
 			       u32 bus_fmt, u32 bus_flags);
 
-	u32 (*vp_gamma_size)(struct dispc_device *dispc,
-			     u32 hw_videoport);
-	void (*vp_set_gamma)(struct dispc_device *dispc,
-			     u32 hw_videoport,
-			     const struct drm_color_lut *lut,
-			     unsigned int length);
+	void (*vp_set_color_mgmt)(struct dispc_device *dispc,
+				  u32 hw_videoport,
+				  const struct drm_crtc_state *state);
 
+	const struct tidss_plane_feat *(*plane_feat)(struct dispc_device *dispc,
+						     u32 hw_plane);
 	int (*plane_enable)(struct dispc_device *dispc, u32 hw_plane,
 			    bool enable);
+	int (*plane_check)(struct dispc_device *dispc, u32 hw_plane,
+			   const struct tidss_plane_info *oi,
+			   u32 hw_videoport);
 	int (*plane_setup)(struct dispc_device *dispc, u32 hw_plane,
 			   const struct tidss_plane_info *oi,
 			   u32 hw_videoport);

@@ -68,6 +68,8 @@ static const struct {
 #define VP_REG_FLD_MOD(dispc, vp, idx, val, start, end)	\
 	dispc6_vp_write(dispc, vp, idx, FLD_MOD(dispc6_vp_read(dispc, vp, idx), val, start, end))
 
+#define DISPC6_GAMMA_TABLE_SIZE 256
+
 struct dispc_features {
 	/* XXX should these come from the .dts? Min pclk is not feature of DSS IP */
 	unsigned long min_pclk;
@@ -101,7 +103,7 @@ struct dispc_device {
 
 	bool is_enabled;
 
-	u32 gamma_table[256];
+	u32 gamma_table[DISPC6_GAMMA_TABLE_SIZE];
 
 	struct tidss_device *tidss;
 };
@@ -948,6 +950,31 @@ static s32 pixinc(int pixels, u8 ps)
 	return 0;
 }
 
+const struct tidss_plane_feat *dispc6_plane_feat(struct dispc_device *dispc,
+						 u32 hw_plane)
+{
+	static const struct tidss_plane_feat pfeat = {
+		.color = {
+			.encodings = BIT(DRM_COLOR_YCBCR_BT601),
+			.ranges = BIT(DRM_COLOR_YCBCR_FULL_RANGE),
+			.default_encoding = DRM_COLOR_YCBCR_BT601,
+			.default_range = DRM_COLOR_YCBCR_FULL_RANGE,
+		},
+		.blend = {
+			.global_alpha = false,
+		},
+	};
+
+	return &pfeat;
+}
+
+static int dispc6_plane_check(struct dispc_device *dispc, u32 hw_plane,
+			      const struct tidss_plane_info *oi,
+			      u32 hw_videoport)
+{
+	return 0; /* XXX: Dummy check function to be implemented later */
+}
+
 static int dispc6_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 			      const struct tidss_plane_info *oi,
 			      u32 hw_videoport)
@@ -1076,10 +1103,17 @@ static int dispc6_get_num_vps(struct dispc_device *dispc)
 	return 1;
 }
 
-static u32 dispc6_vp_gamma_size(struct dispc_device *dispc,
-				u32 hw_videoport)
+static const struct tidss_vp_feat *dispc6_vp_feat(struct dispc_device *dispc,
+						  u32 hw_videoport)
 {
-	return ARRAY_SIZE(dispc->gamma_table);
+	static const struct tidss_vp_feat vp_feat = {
+		.color = {
+			.gamma_size = DISPC6_GAMMA_TABLE_SIZE,
+			.has_ctm = false, /* Driver implementation missing */
+		},
+	};
+
+	return &vp_feat;
 }
 
 static void dispc6_vp_write_gamma_table(struct dispc_device *dispc,
@@ -1156,6 +1190,23 @@ static void dispc6_vp_set_gamma(struct dispc_device *dispc,
 
 	if (dispc->is_enabled)
 		dispc6_vp_write_gamma_table(dispc, hw_videoport);
+}
+
+static void dispc6_set_color_mgmt(struct dispc_device *dispc, u32 hw_videoport,
+				  const struct drm_crtc_state *state)
+{
+	struct drm_color_lut *lut = NULL;
+	unsigned int length = 0;
+
+	if (!state->color_mgmt_changed)
+		return;
+
+	if (state->gamma_lut) {
+		lut = (struct drm_color_lut *) state->gamma_lut->data;
+		length = state->gamma_lut->length / sizeof(*lut);
+	}
+
+	dispc6_vp_set_gamma(dispc, hw_videoport, lut, length);
 }
 
 static int dispc6_init_gamma_tables(struct dispc_device *dispc)
@@ -1321,6 +1372,8 @@ static const struct dispc_ops dispc6_ops = {
 
 	.get_memory_bandwidth_limit = dispc6_get_memory_bandwidth_limit,
 
+	.vp_feat = dispc6_vp_feat,
+
 	.vp_enable = dispc6_vp_enable,
 	.vp_disable = dispc6_vp_disable,
 	.vp_go_busy = dispc6_vp_go_busy,
@@ -1330,10 +1383,11 @@ static const struct dispc_ops dispc6_ops = {
 	.vp_check_mode = dispc6_vp_check_mode,
 	.vp_check_config = dispc6_vp_check_config,
 
-	.vp_gamma_size = dispc6_vp_gamma_size,
-	.vp_set_gamma = dispc6_vp_set_gamma,
+	.vp_set_color_mgmt = dispc6_set_color_mgmt,
 
+	.plane_feat = dispc6_plane_feat,
 	.plane_enable = dispc6_plane_enable,
+	.plane_check = dispc6_plane_check,
 	.plane_setup = dispc6_plane_setup,
 
 	.vp_set_clk_rate = dispc6_vp_set_clk_rate,
