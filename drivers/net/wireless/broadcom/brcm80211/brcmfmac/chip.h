@@ -100,5 +100,6 @@ void brcmf_chip_reset_watchdog(struct brcmf_chip *pub);
 void brcmf_chip_ulp_reset_lhl_regs(struct brcmf_chip *pub);
 void brcmf_chip_reset_pmu_regs(struct brcmf_chip *pub);
 void brcmf_chip_set_default_min_res_mask(struct brcmf_chip *pub);
+struct brcmf_core *brcmf_chip_get_d11core(struct brcmf_chip *pub, u8 unit);
 
 #endif /* BRCMF_AXIDMP_H */
