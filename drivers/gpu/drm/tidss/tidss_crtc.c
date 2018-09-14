@@ -146,20 +146,9 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	// I think we always need the event to signal flip done
 	WARN_ON(!crtc->state->event);
 
-	if (crtc->state->color_mgmt_changed) {
-		struct drm_color_lut *lut = NULL;
-		uint length = 0;
-
-		if (crtc->state->gamma_lut) {
-			lut = (struct drm_color_lut *)
-			      crtc->state->gamma_lut->data;
-			length = crtc->state->gamma_lut->length /
-				 sizeof(*lut);
-		}
-		tidss->dispc_ops->vp_set_gamma(tidss->dispc,
-					       tcrtc->hw_videoport,
-					       lut, length);
-	}
+	tidss->dispc_ops->vp_set_color_mgmt(tidss->dispc,
+					    tcrtc->hw_videoport,
+					    crtc->state);
 
 	WARN_ON(drm_crtc_vblank_get(crtc) != 0);
 
@@ -365,7 +354,11 @@ struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss, u32 hw_videopor
 {
 	struct tidss_crtc *tcrtc;
 	struct drm_crtc *crtc;
+	const struct tidss_vp_feat *vp_feat;
+	uint gamma_lut_size = 0;
 	int ret;
+
+	vp_feat = tidss->dispc_ops->vp_feat(tidss->dispc, hw_videoport);
 
 	tcrtc = devm_kzalloc(tidss->dev, sizeof(*tcrtc), GFP_KERNEL);
 	if (!tcrtc)
@@ -383,18 +376,21 @@ struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss, u32 hw_videopor
 
 	drm_crtc_helper_add(crtc, &crtc_helper_funcs);
 
-	/* The dispc API adapts to what ever size we ask from in no
+	/*
+	 * The dispc API adapts to what ever size we ask from in no
 	 * matter what HW supports. X-server assumes 256 element gamma
-	 * tables so lets use that. Size of HW gamma table can be
-	 * extracted with dispc_vp_gamma_size(). If it returns 0
-	 * gamma table is not supprted.
+	 * tables so lets use that. Size of HW gamma table size is
+	 * found from struct tidss_vp_feat that is extracted with
+	 * dispc_vp_feats(). If gamma_size is 0 gamma table is not
+	 * supported.
 	 */
-	if (tidss->dispc_ops->vp_gamma_size(tidss->dispc, hw_videoport)) {
-		uint gamma_lut_size = 256;
+	if (vp_feat->color.gamma_size)
+		gamma_lut_size = 256;
 
-		drm_crtc_enable_color_mgmt(crtc, 0, false, gamma_lut_size);
+	drm_crtc_enable_color_mgmt(crtc, 0, vp_feat->color.has_ctm,
+				   gamma_lut_size);
+	if (gamma_lut_size)
 		drm_mode_crtc_set_gamma_size(crtc, gamma_lut_size);
-	}
 
 	return tcrtc;
 }

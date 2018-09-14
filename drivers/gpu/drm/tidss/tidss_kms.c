@@ -70,6 +70,7 @@ int tidss_modeset_init(struct tidss_device *tidss)
 	ddev->mode_config.min_height = 8;
 	ddev->mode_config.max_width = 8096;
 	ddev->mode_config.max_height = 8096;
+	ddev->mode_config.normalize_zpos = true;
 	ddev->mode_config.funcs = &mode_config_funcs;
 	ddev->mode_config.helper_private = &mode_config_helper_funcs;
 
