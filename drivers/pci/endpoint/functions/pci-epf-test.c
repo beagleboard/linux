@@ -87,6 +87,7 @@ static size_t bar_size[] = { 512, 512, 1024, 16384, 131072, 1048576 };
 
 static int pci_epf_test_copy(struct pci_epf_test *epf_test)
 {
+	int tx;
 	int ret;
 	void __iomem *src_addr;
 	void __iomem *dst_addr;
@@ -130,7 +131,11 @@ static int pci_epf_test_copy(struct pci_epf_test *epf_test)
 		goto err_dst_addr;
 	}
 
-	memcpy(dst_addr, src_addr, reg->size);
+	tx = pci_epf_tx(epf, dst_phys_addr, src_phys_addr, reg->size);
+	if (tx) {
+		dev_err(dev, "DMA transfer failed, using memcpy..\n");
+		memcpy(dst_addr, src_addr, reg->size);
+	}
 
 	pci_epc_unmap_addr(epc, epf->func_no, dst_phys_addr);
 
@@ -149,14 +154,17 @@ err:
 
 static int pci_epf_test_read(struct pci_epf_test *epf_test)
 {
+	int tx;
 	int ret;
 	void __iomem *src_addr;
 	void *buf;
 	u32 crc32;
 	phys_addr_t phys_addr;
+	phys_addr_t dst_addr;
 	struct pci_epf *epf = epf_test->epf;
 	struct device *dev = &epf->dev;
 	struct pci_epc *epc = epf->epc;
+	struct device *dma_dev = epf->epc->dev.parent;
 	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
 	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
 
@@ -182,8 +190,25 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 		goto err_map_addr;
 	}
 
-	memcpy(buf, src_addr, reg->size);
+	dst_addr = dma_map_single(dma_dev, buf, reg->size, DMA_FROM_DEVICE);
+	if (dma_mapping_error(dma_dev, dst_addr)) {
+		dev_err(dev, "failed to map destination buffer address\n");
+		dev_err(dev, "DMA transfer failed, using memcpy..\n");
+		memcpy(buf, src_addr, reg->size);
+		goto skip_dma;
+	}
 
+	tx = pci_epf_tx(epf, dst_addr, phys_addr, reg->size);
+	if (tx) {
+		dev_err(dev, "DMA transfer failed, using memcpy..\n");
+		dma_unmap_single(dma_dev, dst_addr, reg->size, DMA_FROM_DEVICE);
+		memcpy(buf, src_addr, reg->size);
+		goto skip_dma;
+	}
+
+	dma_unmap_single(dma_dev, dst_addr, reg->size, DMA_FROM_DEVICE);
+
+skip_dma:
 	crc32 = crc32_le(~0, buf, reg->size);
 	if (crc32 != reg->checksum)
 		ret = -EIO;
@@ -202,13 +227,16 @@ err:
 
 static int pci_epf_test_write(struct pci_epf_test *epf_test)
 {
+	int tx;
 	int ret;
 	void __iomem *dst_addr;
 	void *buf;
 	phys_addr_t phys_addr;
+	phys_addr_t src_addr;
 	struct pci_epf *epf = epf_test->epf;
 	struct device *dev = &epf->dev;
 	struct pci_epc *epc = epf->epc;
+	struct device *dma_dev = epf->epc->dev.parent;
 	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
 	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
 
@@ -237,8 +265,23 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 	get_random_bytes(buf, reg->size);
 	reg->checksum = crc32_le(~0, buf, reg->size);
 
-	memcpy(dst_addr, buf, reg->size);
+	src_addr = dma_map_single(dma_dev, buf, reg->size, DMA_TO_DEVICE);
+	if (dma_mapping_error(dma_dev, src_addr)) {
+		dev_err(dev, "failed to map source buffer address\n");
+		dev_err(dev, "DMA transfer failed, using memcpy..\n");
+		memcpy(dst_addr, buf, reg->size);
+		goto skip_dma;
+	}
 
+	tx = pci_epf_tx(epf, phys_addr, src_addr, reg->size);
+	if (tx) {
+		dev_err(dev, "DMA transfer failed, using memcpy..\n");
+		memcpy(dst_addr, buf, reg->size);
+	}
+
+	dma_unmap_single(dma_dev, src_addr, reg->size, DMA_TO_DEVICE);
+
+skip_dma:
 	/*
 	 * wait 1ms inorder for the write to complete. Without this delay L3
 	 * error in observed in the host system.
@@ -345,12 +388,16 @@ reset_handler:
 			   msecs_to_jiffies(1));
 }
 
-static void pci_epf_test_linkup(struct pci_epf *epf)
+static int pci_epf_test_notifier(struct notifier_block *nb, unsigned long val,
+				 void *data)
 {
+	struct pci_epf *epf = container_of(nb, struct pci_epf, nb);
 	struct pci_epf_test *epf_test = epf_get_drvdata(epf);
 
 	queue_delayed_work(kpcitest_workqueue, &epf_test->cmd_handler,
 			   msecs_to_jiffies(1));
+
+	return NOTIFY_OK;
 }
 
 static void pci_epf_test_unbind(struct pci_epf *epf)
@@ -370,6 +417,7 @@ static void pci_epf_test_unbind(struct pci_epf *epf)
 			pci_epc_clear_bar(epc, epf->func_no, epf_bar);
 		}
 	}
+	pci_epc_epf_exit(epc, epf);
 }
 
 static int pci_epf_test_set_bar(struct pci_epf *epf)
@@ -451,6 +499,12 @@ static int pci_epf_test_bind(struct pci_epf *epf)
 	if (WARN_ON_ONCE(!epc))
 		return -EINVAL;
 
+	ret = pci_epc_epf_init(epc, epf);
+	if (ret) {
+		dev_err(dev, "Failed to initialize EPF\n");
+		return ret;
+	}
+
 	ret = pci_epc_write_header(epc, epf->func_no, header);
 	if (ret) {
 		dev_err(dev, "configuration header write failed\n");
@@ -469,8 +523,12 @@ static int pci_epf_test_bind(struct pci_epf *epf)
 	if (ret)
 		return ret;
 
-	if (!epf_test->linkup_notifier)
+	if (epf_test->linkup_notifier) {
+		epf->nb.notifier_call = pci_epf_test_notifier;
+		pci_epc_register_notifier(epc, &epf->nb);
+	} else {
 		queue_work(kpcitest_workqueue, &epf_test->cmd_handler.work);
+	}
 
 	return 0;
 }
@@ -538,7 +596,6 @@ static int pci_epf_test_probe(struct pci_epf *epf)
 static struct pci_epf_ops ops = {
 	.unbind	= pci_epf_test_unbind,
 	.bind	= pci_epf_test_bind,
-	.linkup = pci_epf_test_linkup,
 };
 
 static struct pci_epf_driver test_driver = {

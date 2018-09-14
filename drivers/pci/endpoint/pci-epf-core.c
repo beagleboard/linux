@@ -19,9 +19,9 @@
 
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-
 #include <linux/pci-epc.h>
 #include <linux/pci-epf.h>
 #include <linux/pci-ep-cfs.h>
@@ -29,25 +29,166 @@
 static struct bus_type pci_epf_bus_type;
 static const struct device_type pci_epf_type;
 
-/**
- * pci_epf_linkup() - Notify the function driver that EPC device has
- *		      established a connection with the Root Complex.
- * @epf: the EPF device bound to the EPC device which has established
- *	 the connection with the host
- *
- * Invoke to notify the function driver that EPC device has established
- * a connection with the Root Complex.
- */
-void pci_epf_linkup(struct pci_epf *epf)
+static void pci_epf_dma_callback(void *param)
 {
-	if (!epf->driver) {
-		dev_WARN(&epf->dev, "epf device not bound to driver\n");
+	struct pci_epf *epf = param;
+
+	complete(&epf->transfer_complete);
+}
+
+/**
+ * pci_epf_data_transfer() - Helper to use dmaengine API to transfer data
+ *			     between PCIe EP and remote PCIe RC
+ * @epf: the EPF device that performs the data transfer operation
+ * @dma_dst: The destination address of the data transfer. It can be a physical
+ *	     address given by pci_epc_mem_alloc_addr or DMA mapping APIs.
+ * @dma_src: The source address of the data transfer. It can be a physical
+ *	     address given by pci_epc_mem_alloc_addr or DMA mapping APIs.
+ * @len: The size of the data transfer
+ *
+ * Helper to use dmaengine API to transfer data between PCIe EP and remote PCIe
+ * RC. The source and destination address can be a physical address given by
+ * pci_epc_mem_alloc_addr or the one obtained using DMA mapping APIs.
+ *
+ * The function returns '0' on success and negative value on failure.
+ */
+int pci_epf_data_transfer(struct pci_epf *epf, dma_addr_t dma_dst,
+			  dma_addr_t dma_src, size_t len)
+{
+	enum dma_ctrl_flags flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
+	struct dma_chan *chan = epf->dma_chan;
+	struct dma_async_tx_descriptor *tx;
+	struct device *dev = &epf->dev;
+	dma_cookie_t cookie;
+	int ret;
+
+	if (IS_ERR_OR_NULL(epf)) {
+		dev_err(dev, "Invalid EPF device\n");
+		return -EINVAL;
+	}
+
+	if (IS_ERR_OR_NULL(chan)) {
+		dev_err(dev, "Invalid DMA memcpy channel\n");
+		return -EINVAL;
+	}
+
+	tx = dmaengine_prep_dma_memcpy(chan, dma_dst, dma_src, len, flags);
+	if (!tx) {
+		dev_err(dev, "Failed to prepare DMA memcpy\n");
+		return -EIO;
+	}
+
+	tx->callback = pci_epf_dma_callback;
+	tx->callback_param = epf;
+	cookie = tx->tx_submit(tx);
+	reinit_completion(&epf->transfer_complete);
+
+	ret = dma_submit_error(cookie);
+	if (ret) {
+		dev_err(dev, "Failed to do DMA tx_submit %d\n", cookie);
+		return -EIO;
+	}
+
+	dma_async_issue_pending(chan);
+	ret = wait_for_completion_interruptible(&epf->transfer_complete);
+	if (ret < 0) {
+		dmaengine_terminate_sync(chan);
+		dev_err(dev, "DMA wait_for_completion_timeout\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pci_epf_data_transfer);
+
+/**
+ * pci_epf_init_dma_chan() - Helper to initialize EPF DMA channel
+ * @epf: the EPF device that has to perform the data transfer operation
+ *
+ * Helper to initialize EPF DMA channel.
+ */
+int pci_epf_init_dma_chan(struct pci_epf *epf)
+{
+	struct device *dev = &epf->dev;
+	struct dma_chan *dma_chan;
+	dma_cap_mask_t mask;
+	int ret;
+
+	if (IS_ERR_OR_NULL(epf)) {
+		dev_err(dev, "Invalid EPF device\n");
+		return -EINVAL;
+	}
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_MEMCPY, mask);
+
+	dma_chan = dma_request_chan_by_mask(&mask);
+	if (IS_ERR(dma_chan)) {
+		ret = PTR_ERR(dma_chan);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get DMA channel\n");
+		return ret;
+	}
+	init_completion(&epf->transfer_complete);
+
+	epf->dma_chan = dma_chan;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pci_epf_init_dma_chan);
+
+/**
+ * pci_epf_clean_dma_chan() - Helper to cleanup EPF DMA channel
+ * @epf: the EPF device that performed the data transfer operation
+ *
+ * Helper to cleanup EPF DMA channel.
+ */
+void pci_epf_clean_dma_chan(struct pci_epf *epf)
+{
+	struct device *dev = &epf->dev;
+
+	if (IS_ERR_OR_NULL(epf)) {
+		dev_err(dev, "Invalid EPF device\n");
 		return;
 	}
 
-	epf->driver->ops->linkup(epf);
+	dma_release_channel(epf->dma_chan);
+	epf->dma_chan = NULL;
 }
-EXPORT_SYMBOL_GPL(pci_epf_linkup);
+EXPORT_SYMBOL_GPL(pci_epf_clean_dma_chan);
+
+/**
+ * pci_epf_tx() - transfer data between EPC and remote PCIe RC
+ * @epf: the EPF device that performs the data transfer operation
+ * @dma_dst: The destination address of the data transfer. It can be a physical
+ *	     address given by pci_epc_mem_alloc_addr or DMA mapping APIs.
+ * @dma_src: The source address of the data transfer. It can be a physical
+ *	     address given by pci_epc_mem_alloc_addr or DMA mapping APIs.
+ * @len: The size of the data transfer
+ *
+ * Invoke to transfer data between EPC and remote PCIe RC. The source and
+ * destination address can be a physical address given by pci_epc_mem_alloc_addr
+ * or the one obtained using DMA mapping APIs.
+ */
+int pci_epf_tx(struct pci_epf *epf, dma_addr_t dma_dst,
+	       dma_addr_t dma_src, size_t len)
+{
+	int ret;
+	struct pci_epc *epc = epf->epc;
+
+	if (IS_ERR_OR_NULL(epc) || IS_ERR_OR_NULL(epf))
+		return -EINVAL;
+
+	if (!epc->ops->data_transfer)
+		return -EINVAL;
+
+	mutex_lock(&epf->lock);
+	ret = epc->ops->data_transfer(epc, epf, dma_dst, dma_src, len);
+	mutex_unlock(&epf->lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pci_epf_tx);
 
 /**
  * pci_epf_unbind() - Notify the function driver that the binding between the
@@ -64,7 +205,9 @@ void pci_epf_unbind(struct pci_epf *epf)
 		return;
 	}
 
+	mutex_lock(&epf->lock);
 	epf->driver->ops->unbind(epf);
+	mutex_unlock(&epf->lock);
 	module_put(epf->driver->owner);
 }
 EXPORT_SYMBOL_GPL(pci_epf_unbind);
@@ -78,6 +221,8 @@ EXPORT_SYMBOL_GPL(pci_epf_unbind);
  */
 int pci_epf_bind(struct pci_epf *epf)
 {
+	int ret;
+
 	if (!epf->driver) {
 		dev_WARN(&epf->dev, "epf device not bound to driver\n");
 		return -EINVAL;
@@ -86,7 +231,11 @@ int pci_epf_bind(struct pci_epf *epf)
 	if (!try_module_get(epf->driver->owner))
 		return -EAGAIN;
 
-	return epf->driver->ops->bind(epf);
+	mutex_lock(&epf->lock);
+	ret = epf->driver->ops->bind(epf);
+	mutex_unlock(&epf->lock);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(pci_epf_bind);
 
@@ -186,7 +335,7 @@ int __pci_epf_register_driver(struct pci_epf_driver *driver,
 	if (!driver->ops)
 		return -EINVAL;
 
-	if (!driver->ops->bind || !driver->ops->unbind || !driver->ops->linkup)
+	if (!driver->ops->bind || !driver->ops->unbind)
 		return -EINVAL;
 
 	driver->driver.bus = &pci_epf_bus_type;
@@ -263,6 +412,7 @@ struct pci_epf *pci_epf_create(const char *name)
 	device_initialize(dev);
 	dev->bus = &pci_epf_bus_type;
 	dev->type = &pci_epf_type;
+	mutex_init(&epf->lock);
 
 	ret = dev_set_name(dev, "%s", name);
 	if (ret)

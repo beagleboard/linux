@@ -51,6 +51,23 @@ void dw_pcie_ep_reset_bar(struct dw_pcie *pci, enum pci_barno bar)
 	__dw_pcie_ep_reset_bar(pci, bar, 0);
 }
 
+static int dw_pcie_ep_data_transfer(struct pci_epc *epc, struct pci_epf *epf,
+				    dma_addr_t dma_dst, dma_addr_t dma_src,
+				    size_t len)
+{
+	return pci_epf_data_transfer(epf, dma_dst, dma_src, len);
+}
+
+static int dw_pcie_ep_epf_init(struct pci_epc *epc, struct pci_epf *epf)
+{
+	return pci_epf_init_dma_chan(epf);
+}
+
+static void dw_pcie_ep_epf_exit(struct pci_epc *epc, struct pci_epf *epf)
+{
+	pci_epf_clean_dma_chan(epf);
+}
+
 static int dw_pcie_ep_write_header(struct pci_epc *epc, u8 func_no,
 				   struct pci_epf_header *hdr)
 {
@@ -311,6 +328,9 @@ static int dw_pcie_ep_start(struct pci_epc *epc)
 }
 
 static const struct pci_epc_ops epc_ops = {
+	.epf_init		= dw_pcie_ep_epf_init,
+	.epf_exit		= dw_pcie_ep_epf_exit,
+	.data_transfer		= dw_pcie_ep_data_transfer,
 	.write_header		= dw_pcie_ep_write_header,
 	.set_bar		= dw_pcie_ep_set_bar,
 	.clear_bar		= dw_pcie_ep_clear_bar,

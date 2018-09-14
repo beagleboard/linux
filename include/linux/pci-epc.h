@@ -24,6 +24,9 @@ enum pci_epc_irq_type {
 
 /**
  * struct pci_epc_ops - set of function pointers for performing EPC operations
+ * @epf_init: ops to perform EPC specific initialization
+ * @epf_exit: ops to cleanup EPF
+ * @data_transfer: ops to transfer data with the remote RC
  * @write_header: ops to populate configuration space header
  * @set_bar: ops to configure the BAR
  * @clear_bar: ops to reset the BAR
@@ -39,6 +42,11 @@ enum pci_epc_irq_type {
  * @owner: the module owner containing the ops
  */
 struct pci_epc_ops {
+	int	(*epf_init)(struct pci_epc *epc, struct pci_epf *epf);
+	void	(*epf_exit)(struct pci_epc *epc, struct pci_epf *epf);
+	int	(*data_transfer)(struct pci_epc *epc, struct pci_epf *epf,
+				 dma_addr_t dma_dst, dma_addr_t dma_src,
+				 size_t len);
 	int	(*write_header)(struct pci_epc *epc, u8 func_no,
 				struct pci_epf_header *hdr);
 	int	(*set_bar)(struct pci_epc *epc, u8 func_no,
@@ -65,6 +73,7 @@ struct pci_epc_ops {
  * @bitmap: bitmap to manage the PCI address space
  * @pages: number of bits representing the address region
  * @page_size: size of each page
+ * @lock: mutex to protect bitmap
  */
 struct pci_epc_mem {
 	phys_addr_t	phys_base;
@@ -72,6 +81,8 @@ struct pci_epc_mem {
 	unsigned long	*bitmap;
 	size_t		page_size;
 	int		pages;
+	/* mutex to protect against concurrent access for memory allocation*/
+	struct mutex	lock;
 };
 
 /**
@@ -82,7 +93,8 @@ struct pci_epc_mem {
  * @mem: address space of the endpoint controller
  * @max_functions: max number of functions that can be configured in this EPC
  * @group: configfs group representing the PCI EPC device
- * @lock: spinlock to protect pci_epc ops
+ * @lock: mutex to protect pci_epc ops
+ * @notifier: used to notify EPF of any EPC events (like linkup)
  */
 struct pci_epc {
 	struct device			dev;
@@ -91,8 +103,9 @@ struct pci_epc {
 	struct pci_epc_mem		*mem;
 	u8				max_functions;
 	struct config_group		*group;
-	/* spinlock to protect against concurrent access of EP controller */
-	spinlock_t			lock;
+	/* mutex to protect against concurrent access of EP controller */
+	struct mutex			lock;
+	struct atomic_notifier_head	notifier;
 };
 
 #define to_pci_epc(device) container_of((device), struct pci_epc, dev)
@@ -113,6 +126,12 @@ static inline void epc_set_drvdata(struct pci_epc *epc, void *data)
 static inline void *epc_get_drvdata(struct pci_epc *epc)
 {
 	return dev_get_drvdata(&epc->dev);
+}
+
+static inline int
+pci_epc_register_notifier(struct pci_epc *epc, struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&epc->notifier, nb);
 }
 
 struct pci_epc *
@@ -153,4 +172,6 @@ void __iomem *pci_epc_mem_alloc_addr(struct pci_epc *epc,
 				     phys_addr_t *phys_addr, size_t size);
 void pci_epc_mem_free_addr(struct pci_epc *epc, phys_addr_t phys_addr,
 			   void __iomem *virt_addr, size_t size);
+int pci_epc_epf_init(struct pci_epc *epc, struct pci_epf *epf);
+void pci_epc_epf_exit(struct pci_epc *epc, struct pci_epf *epf);
 #endif /* __LINUX_PCI_EPC_H */
