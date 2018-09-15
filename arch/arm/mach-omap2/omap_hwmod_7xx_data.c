@@ -1856,6 +1856,7 @@ static struct omap_hwmod dra7xx_mmu1_dsp1_hwmod = {
 	.prcm = {
 		.omap4 = {
 			.rstctrl_offs = DRA7XX_RM_DSP1_RSTCTRL_OFFSET,
+			.flags = HWMOD_OMAP4_NO_CONTEXT_LOSS_BIT,
 		},
 	},
 };
@@ -1889,6 +1890,7 @@ static struct omap_hwmod dra7xx_mmu1_dsp2_hwmod = {
 	.prcm = {
 		.omap4 = {
 			.rstctrl_offs = DRA7XX_RM_DSP2_RSTCTRL_OFFSET,
+			.flags = HWMOD_OMAP4_NO_CONTEXT_LOSS_BIT,
 		},
 	},
 };
