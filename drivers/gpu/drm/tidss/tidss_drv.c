@@ -163,10 +163,10 @@ static int tidss_probe(struct platform_device *pdev)
 		goto err_runtime_suspend;
 	}
 
-	irq = platform_get_irq(pdev, 0);
+	irq = tidss->dispc_ops->get_irq(tidss->dispc);
 	if (irq < 0) {
 		ret = irq;
-		dev_err(dev, "platform_get_irq failed: %d\n", ret);
+		dev_err(dev, "failed to get dispc irq: %d\n", ret);
 		goto err_modeset_cleanup;
 	}
 

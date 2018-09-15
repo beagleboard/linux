@@ -2252,6 +2252,11 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 	return 0;
 }
 
+static int dispc7_get_irq(struct dispc_device *dispc)
+{
+	return platform_get_irq(to_platform_device(dispc->tidss->dev), 0);
+}
+
 static void dispc7_remove(struct dispc_device *dispc)
 {
 	struct device *dev = dispc->dev;
@@ -2299,6 +2304,8 @@ static const struct tidss_dispc_ops dispc7_ops = {
 	.remove = dispc7_remove,
 
 	.modeset_init = dispc7_modeset_init,
+
+	.get_irq = dispc7_get_irq,
 };
 
 static int dispc7_iomap_resource(struct platform_device *pdev, const char *name,

@@ -134,6 +134,8 @@ struct tidss_dispc_ops {
 	void (*remove)(struct dispc_device *dispc);
 
 	int (*modeset_init)(struct dispc_device *dispc);
+
+	int (*get_irq)(struct dispc_device *dispc);
 };
 
 int dispc6_init(struct tidss_device *tidss);
