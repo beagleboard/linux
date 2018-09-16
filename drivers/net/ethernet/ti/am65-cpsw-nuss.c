@@ -11,6 +11,7 @@
 #include <linux/if_vlan.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
+#include <linux/kmemleak.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/net_tstamp.h>
@@ -427,6 +428,7 @@ static int am65_cpsw_nuss_common_open(struct am65_cpsw_common *common,
 			kfree_skb(skb);
 			return ret;
 		}
+		kmemleak_not_leak(skb);
 	}
 	k3_nav_udmax_enable_rx_chn(common->rx_chns.rx_chn);
 
@@ -755,6 +757,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 		stats->rx_packets++;
 		stats->rx_bytes += pkt_len;
 		u64_stats_update_end(&stats->syncp);
+		kmemleak_not_leak(new_skb);
 	} else {
 		ndev->stats.rx_dropped++;
 		new_skb = skb;
