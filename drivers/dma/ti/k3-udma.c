@@ -3148,7 +3148,6 @@ static struct dma_chan *udma_of_xlate(struct of_phandle_args *dma_spec,
 }
 
 static const struct of_device_id udma_of_match[] = {
-	{ .compatible = "ti,k3-navss-udmap", },
 	{ .compatible = "ti,am654-navss-main-udmap", },
 	{ .compatible = "ti,am654-navss-mcu-udmap", },
 	{},
