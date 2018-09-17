@@ -103,10 +103,18 @@ struct udma_tchan;
 struct udma_rchan;
 struct udma_rflow;
 
+enum udma_rm_range {
+	RM_RANGE_TCHAN = 0,
+	RM_RANGE_RCHAN,
+	RM_RANGE_RFLOW,
+	RM_RANGE_LAST,
+};
+
 struct udma_tisci_rm {
 	const struct ti_sci_handle *tisci;
 	const struct ti_sci_rm_udmap_ops *tisci_udmap_ops;
 	u32  tisci_dev_id;
+	struct ti_sci_resource *rm_ranges[RM_RANGE_LAST];
 };
 
 /* HACK: Direct access to UDMA resources */

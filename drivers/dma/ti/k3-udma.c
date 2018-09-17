@@ -3172,8 +3172,14 @@ static int udma_get_mmrs(struct platform_device *pdev, struct udma_dev *ud)
 static int udma_setup_resources(struct udma_dev *ud)
 {
 	struct device *dev = ud->dev;
-	int ch_count;
+	int ch_count, i;
 	u32 cap2, cap3;
+	struct ti_sci_resource_desc *rm_desc;
+	struct ti_sci_resource *rm_res;
+	struct udma_tisci_rm *tisci_rm = &ud->tisci_rm;
+	char *range_names[] = { "ti,sci-rm-range-tchan",
+				"ti,sci-rm-range-rchan",
+				"ti,sci-rm-range-rflow" };
 
 	cap2 = udma_read(ud->mmrs[MMR_GCFG], 0x28);
 	cap3 = udma_read(ud->mmrs[MMR_GCFG], 0x2c);
@@ -3184,16 +3190,16 @@ static int udma_setup_resources(struct udma_dev *ud)
 	ud->rchan_cnt = (cap2 >> 18) & 0x1ff;
 	ch_count  = ud->tchan_cnt + ud->rchan_cnt;
 
-	ud->tchan_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->tchan_cnt),
-				     sizeof(unsigned long), GFP_KERNEL);
+	ud->tchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->tchan_cnt),
+					   sizeof(unsigned long), GFP_KERNEL);
 	ud->tchans = devm_kcalloc(dev, ud->tchan_cnt, sizeof(*ud->tchans),
 				  GFP_KERNEL);
-	ud->rchan_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->rchan_cnt),
-				     sizeof(unsigned long), GFP_KERNEL);
+	ud->rchan_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->rchan_cnt),
+					   sizeof(unsigned long), GFP_KERNEL);
 	ud->rchans = devm_kcalloc(dev, ud->rchan_cnt, sizeof(*ud->rchans),
 				  GFP_KERNEL);
-	ud->rflow_map = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
-				     sizeof(unsigned long), GFP_KERNEL);
+	ud->rflow_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->rflow_cnt),
+					   sizeof(unsigned long), GFP_KERNEL);
 	ud->rflow_map_reserved = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
 					      sizeof(unsigned long),
 					      GFP_KERNEL);
@@ -3211,6 +3217,57 @@ static int udma_setup_resources(struct udma_dev *ud)
 	 * RX flows can be requested only explicitly by id.
 	 */
 	bitmap_set(ud->rflow_map_reserved, 0, ud->rchan_cnt);
+
+	/* Get resource ranges from tisci */
+	for (i = 0; i < RM_RANGE_LAST; i++)
+		tisci_rm->rm_ranges[i] = devm_ti_sci_get_of_resource(
+							tisci_rm->tisci, dev,
+							range_names[i]);
+
+	/* tchan ranges */
+	rm_res = tisci_rm->rm_ranges[RM_RANGE_TCHAN];
+	if (IS_ERR(rm_res)) {
+		bitmap_zero(ud->tchan_map, ud->tchan_cnt);
+	} else {
+		bitmap_fill(ud->tchan_map, ud->tchan_cnt);
+		for (i = 0; i < rm_res->sets; i++) {
+			rm_desc = &rm_res->desc[i];
+			bitmap_clear(ud->tchan_map, rm_desc->start,
+				     rm_desc->num);
+		}
+	}
+
+	/* rchan and matching default flow ranges */
+	rm_res = tisci_rm->rm_ranges[RM_RANGE_RCHAN];
+	if (IS_ERR(rm_res)) {
+		bitmap_zero(ud->rchan_map, ud->rchan_cnt);
+		bitmap_zero(ud->rflow_map, ud->rchan_cnt);
+	} else {
+		bitmap_fill(ud->rchan_map, ud->rchan_cnt);
+		bitmap_fill(ud->rflow_map, ud->rchan_cnt);
+		for (i = 0; i < rm_res->sets; i++) {
+			rm_desc = &rm_res->desc[i];
+			bitmap_clear(ud->rchan_map, rm_desc->start,
+				     rm_desc->num);
+			bitmap_clear(ud->rflow_map, rm_desc->start,
+				     rm_desc->num);
+		}
+	}
+
+	/* GP rflow ranges */
+	rm_res = tisci_rm->rm_ranges[RM_RANGE_RFLOW];
+	if (IS_ERR(rm_res)) {
+		bitmap_clear(ud->rflow_map, ud->rchan_cnt,
+			     ud->rflow_cnt - ud->rchan_cnt);
+	} else {
+		bitmap_set(ud->rflow_map, ud->rchan_cnt,
+			   ud->rflow_cnt - ud->rchan_cnt);
+		for (i = 0; i < rm_res->sets; i++) {
+			rm_desc = &rm_res->desc[i];
+			bitmap_clear(ud->rflow_map, rm_desc->start,
+				     rm_desc->num);
+		}
+	}
 
 	/*
 	 * HACK: tchan0, rchan0,1 and rflow0,1 on main_navss is dedicated to
