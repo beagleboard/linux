@@ -237,10 +237,16 @@ struct udma_rflow {
 	/* Do we needthe  rings allocated per flows, not per rchan ? */
 };
 
+struct udma_match_data {
+	u8 tpl_levels;
+	u32 level_start_idx[];
+};
+
 struct udma_dev {
 	struct dma_device ddev;
 	struct device *dev;
 	void __iomem *mmrs[MMR_LAST];
+	const struct udma_match_data *match_data;
 
 	struct udma_tisci_rm tisci_rm;
 
@@ -362,7 +368,7 @@ struct udma_chan {
 	u32 src_thread;
 	u32 dst_thread;
 	u32 static_tr_type;
-	bool htp_channel; /* for Hight Throughput Peripheral */
+	enum udma_tp_level channel_tpl; /* Channel Throughput Level */
 
 	u32 id;
 	enum dma_transfer_direction dir;
@@ -1203,7 +1209,7 @@ static int __udma_free_rflow_range(struct udma_dev *ud, int from, int cnt)
 }
 
 static struct udma_rflow *__udma_reserve_rflow(struct udma_dev *ud,
-					       bool htp, int id)
+					       enum udma_tp_level tpl, int id)
 {
 	DECLARE_BITMAP(tmp, K3_UDMA_MAX_RFLOWS);
 
@@ -1225,11 +1231,10 @@ static struct udma_rflow *__udma_reserve_rflow(struct udma_dev *ud,
 	return &ud->rflows[id];
 }
 
-#define UDMA_HTP_CHANNEL_COUNT 8
-
 #define UDMA_RESERVE_RESOURCE(res)					\
 static struct udma_##res *__udma_reserve_##res(struct udma_dev *ud,	\
-					       bool htp, int id)	\
+					       enum udma_tp_level tpl,	\
+					       int id)			\
 {									\
 	if (id >= 0) {							\
 		if (test_bit(id, ud->res##_map)) {			\
@@ -1239,10 +1244,10 @@ static struct udma_##res *__udma_reserve_##res(struct udma_dev *ud,	\
 	} else {							\
 		int start;						\
 									\
-		if (htp)						\
-			start = 0;					\
-		else							\
-			start = UDMA_HTP_CHANNEL_COUNT;			\
+		if (tpl >= ud->match_data->tpl_levels)			\
+			tpl = ud->match_data->tpl_levels - 1;		\
+									\
+		start = ud->match_data->level_start_idx[tpl];		\
 									\
 		id = find_next_zero_bit(ud->res##_map, ud->res##_cnt,	\
 					start);				\
@@ -1268,7 +1273,7 @@ static int udma_get_tchan(struct udma_chan *uc)
 		return 0;
 	}
 
-	uc->tchan = __udma_reserve_tchan(ud, uc->htp_channel, -1);
+	uc->tchan = __udma_reserve_tchan(ud, uc->channel_tpl, -1);
 	if (IS_ERR(uc->tchan))
 		return PTR_ERR(uc->tchan);
 
@@ -1293,7 +1298,7 @@ static int udma_get_rchan(struct udma_chan *uc)
 		return 0;
 	}
 
-	uc->rchan = __udma_reserve_rchan(ud, uc->htp_channel, -1);
+	uc->rchan = __udma_reserve_rchan(ud, uc->channel_tpl, -1);
 	if (IS_ERR(uc->rchan))
 		return PTR_ERR(uc->rchan);
 
@@ -1331,7 +1336,8 @@ static int udma_get_chan_pair(struct udma_chan *uc)
 
 	/* Can be optimized, but let's have it like this for now */
 	end = min(ud->tchan_cnt, ud->rchan_cnt);
-	for (chan_id = UDMA_HTP_CHANNEL_COUNT; chan_id < end; chan_id++) {
+	for (chan_id = ud->match_data->level_start_idx[UDMA_TP_NORMAL];
+	     chan_id < end; chan_id++) {
 		if (!test_bit(chan_id, ud->tchan_map) &&
 		    !test_bit(chan_id, ud->rchan_map))
 			break;
@@ -1369,7 +1375,7 @@ static int udma_get_rflow(struct udma_chan *uc, int flow_id)
 	if (!uc->rchan)
 		dev_warn(ud->dev, "chan%d: does not have rchan??\n", uc->id);
 
-	uc->rflow = __udma_reserve_rflow(ud, uc->htp_channel, flow_id);
+	uc->rflow = __udma_reserve_rflow(ud, uc->channel_tpl, flow_id);
 	if (IS_ERR(uc->rflow))
 		return PTR_ERR(uc->rflow);
 
@@ -3102,7 +3108,8 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 	if (!of_property_read_u32(chconf_node, "statictr-type", &val))
 		uc->static_tr_type = val;
 
-	uc->htp_channel = of_property_read_bool(chconf_node, "ti,htp-channel");
+	if (!of_property_read_u32(chconf_node, "ti,channel-tpl", &val))
+		uc->channel_tpl = val;
 
 	uc->needs_epib = of_property_read_bool(chconf_node, "ti,needs-epib");
 	if (!of_property_read_u32(chconf_node, "ti,psd-size", &val))
@@ -3147,9 +3154,25 @@ static struct dma_chan *udma_of_xlate(struct of_phandle_args *dma_spec,
 	return chan;
 }
 
+struct udma_match_data am654_main_data = {
+	.tpl_levels = 2,
+	.level_start_idx = {
+		[0] = 8, /* Normal channels */
+		[1] = 0, /* High Throughput channels */
+	},
+};
+
+struct udma_match_data am654_mcu_data = {
+	.tpl_levels = 2,
+	.level_start_idx = {
+		[0] = 2, /* Normal channels */
+		[1] = 0, /* High Throughput channels */
+	},
+};
+
 static const struct of_device_id udma_of_match[] = {
-	{ .compatible = "ti,am654-navss-main-udmap", },
-	{ .compatible = "ti,am654-navss-mcu-udmap", },
+	{ .compatible = "ti,am654-navss-main-udmap", .data = &am654_main_data, },
+	{ .compatible = "ti,am654-navss-mcu-udmap", .data = &am654_mcu_data, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, udma_of_match);
@@ -3310,6 +3333,7 @@ static int udma_probe(struct platform_device *pdev)
 	struct device_node *parent_irq_node;
 	struct device *dev = &pdev->dev;
 	struct udma_dev *ud;
+	const struct of_device_id *match;
 	int i, ret;
 	int ch_count;
 
@@ -3357,6 +3381,13 @@ static int udma_probe(struct platform_device *pdev)
 	ud->irq_domain = irq_find_host(parent_irq_node);
 	if (!ud->irq_domain)
 		return -EPROBE_DEFER;
+
+	match = of_match_node(udma_of_match, dev->of_node);
+	if (!match) {
+		dev_err(dev, "No compatible match found\n");
+		return -ENODEV;
+	}
+	ud->match_data = match->data;
 
 	dma_cap_set(DMA_SLAVE, ud->ddev.cap_mask);
 	dma_cap_set(DMA_CYCLIC, ud->ddev.cap_mask);

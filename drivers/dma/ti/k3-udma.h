@@ -110,6 +110,13 @@ enum udma_rm_range {
 	RM_RANGE_LAST,
 };
 
+/* Channel Throughput Levels */
+enum udma_tp_level {
+	UDMA_TP_NORMAL = 0,
+	UDMA_TP_HIGH = 1,
+	UDMA_TP_LAST,
+};
+
 struct udma_tisci_rm {
 	const struct ti_sci_handle *tisci;
 	const struct ti_sci_rm_udmap_ops *tisci_udmap_ops;
