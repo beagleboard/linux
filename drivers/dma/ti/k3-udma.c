@@ -3308,6 +3308,8 @@ static int udma_setup_resources(struct udma_dev *ud)
 
 	ch_count -= bitmap_weight(ud->tchan_map, ud->tchan_cnt);
 	ch_count -= bitmap_weight(ud->rchan_map, ud->rchan_cnt);
+	if (!ch_count)
+		return -ENODEV;
 
 	ud->channels = devm_kcalloc(dev, ch_count, sizeof(*ud->channels),
 				    GFP_KERNEL);
