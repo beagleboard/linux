@@ -32,6 +32,7 @@
 #include "firmware.h"
 #include "fweh.h"
 #include <brcm_hw_ids.h>
+#include "defs.h"
 
 MODULE_AUTHOR("Broadcom Corporation");
 MODULE_DESCRIPTION("Broadcom 802.11 wireless LAN fullmac driver.");
@@ -88,6 +89,10 @@ MODULE_PARM_DESC(sdio_wq_highpri, "SDIO workqueue is set to high priority");
 static int brcmf_frameburst;
 module_param_named(frameburst, brcmf_frameburst, int, 0);
 MODULE_PARM_DESC(frameburst, "Enable firmware frameburst feature");
+
+static int brcmf_max_pm;
+module_param_named(max_pm, brcmf_max_pm, int, 0);
+MODULE_PARM_DESC(max_pm, "Use max power management mode by default");
 
 #ifdef DEBUG
 /* always succeed brcmf_bus_started() */
@@ -502,6 +507,7 @@ struct brcmf_mp_device *brcmf_get_module_param(struct device *dev,
 	settings->eap_restrict = !!brcmf_eap_restrict;
 	settings->sdio_wq_highpri = !!brcmf_sdio_wq_highpri;
 	settings->frameburst = !!brcmf_frameburst;
+	settings->default_pm = !!brcmf_max_pm ? PM_MAX : PM_FAST;
 #ifdef DEBUG
 	settings->ignore_probe_fail = !!brcmf_ignore_probe_fail;
 #endif
