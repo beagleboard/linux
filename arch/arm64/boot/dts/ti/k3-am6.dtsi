@@ -1187,6 +1187,12 @@
 
 				ti,sci = <&dmsc>;
 				ti,sci-dev-id = <188>;
+
+				ti,sci-rm-range-tchan = <0x6 0x1>, /* TX_HCHAN */
+							<0x6 0x2>; /* TX_CHAN */
+				ti,sci-rm-range-rchan = <0x6 0x4>, /* RX_HCHAN */
+							<0x6 0x5>; /* RX_CHAN */
+				ti,sci-rm-range-rflow = <0x6 0x6>; /* GP RFLOW */
 			};
 
 			cpts@310d0000 {
@@ -1391,6 +1397,12 @@
 
 				ti,sci = <&dmsc>;
 				ti,sci-dev-id = <194>;
+
+				ti,sci-rm-range-tchan = <0x7 0x1>, /* TX_HCHAN */
+							<0x7 0x2>; /* TX_CHAN */
+				ti,sci-rm-range-rchan = <0x7 0x3>, /* RX_HCHAN */
+							<0x7 0x4>; /* RX_CHAN */
+				ti,sci-rm-range-rflow = <0x7 0x5>; /* GP RFLOW */
 
 				interrupt-parent = <&main_udmass_inta>;
 			};
