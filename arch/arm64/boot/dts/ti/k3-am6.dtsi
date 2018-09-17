@@ -1172,7 +1172,7 @@
 			};
 
 			main_udmap: udmap@31150000 {
-				compatible = "ti,k3-navss-udmap";
+				compatible = "ti,am654-navss-main-udmap";
 				reg =	<0x0 0x31150000 0x0 0x100>,
 					<0x0 0x34000000 0x0 0x100000>,
 					<0x0 0x35000000 0x0 0x100000>;
@@ -1384,7 +1384,7 @@
 			};
 
 			mcu_udmap: udmap@31150000 {
-				compatible = "ti,k3-navss-udmap";
+				compatible = "ti,am654-navss-mcu-udmap";
 				reg =	<0x0 0x285c0000 0x0 0x100>,
 					<0x0 0x2a800000 0x0 0x40000>,
 					<0x0 0x2aa00000 0x0 0x40000>;
