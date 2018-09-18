@@ -2025,6 +2025,36 @@ void sa_register_algos(const struct device *dev)
 	}
 }
 
+/* Unregister the algorithms in crypto framework */
+void sa_unregister_algos(const struct device *dev)
+{
+	char *alg_name;
+	u32 type;
+	int i, err = 0, num_algs = ARRAY_SIZE(sa_algs);
+
+	for (i = 0; i < num_algs; i++) {
+		type = sa_algs[i].type;
+		if (type == CRYPTO_ALG_TYPE_AEAD) {
+			alg_name = sa_algs[i].alg.aead.base.cra_name;
+			crypto_unregister_aead(&sa_algs[i].alg.aead);
+		} else {
+			alg_name = sa_algs[i].alg.crypto.cra_name;
+			err = crypto_unregister_alg(&sa_algs[i].alg.crypto);
+		}
+
+		sa_algs[i].registered = 0;
+	}
+
+	num_algs = ARRAY_SIZE(algs_sha);
+	for (i = 0; i < num_algs; i++) {
+		alg_name =  algs_sha[i].halg.base.cra_name;
+		err = crypto_unregister_ahash(&algs_sha[i]);
+		if (err)
+			dev_err(dev, "Failed to register '%s'\n",
+				alg_name);
+	}
+}
+
 static int sa_init_mem(struct sa_crypto_data *dev_data)
 {
 	struct device *dev = &dev_data->pdev->dev;
@@ -2148,6 +2178,16 @@ static int sa_ul_probe(struct platform_device *pdev)
 
 static int sa_ul_remove(struct platform_device *pdev)
 {
+	struct sa_crypto_data *dev_data = platform_get_drvdata(pdev);
+
+	sa_unregister_algos(&pdev->dev);
+
+	dma_release_channel(dev_data->dma_rx2);
+	dma_release_channel(dev_data->dma_rx1);
+	dma_release_channel(dev_data->dma_tx);
+
+	dma_pool_destroy(dev_data->sc_pool);
+
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
