@@ -375,8 +375,8 @@
 			interrupts = <GIC_SPI 565 IRQ_TYPE_LEVEL_HIGH>;
 			clock-frequency = <96000000>;
 			current-speed = <115200>;
-			dmas = <&mcu_udmap &pdma_mcu1 18 UDMA_DIR_TX>,
-			       <&mcu_udmap &pdma_mcu1 18 UDMA_DIR_RX>;
+			dmas = <&mcu_udmap &mcu_pdma1 18 UDMA_DIR_TX>,
+			       <&mcu_udmap &mcu_pdma1 18 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -389,8 +389,8 @@
 			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
 			clock-frequency = <48000000>;
 			current-speed = <115200>;
-			dmas = <&main_udmap &pdma_main1 20 UDMA_DIR_TX>,
-			       <&main_udmap &pdma_main1 20 UDMA_DIR_RX>;
+			dmas = <&main_udmap &pdma1 20 UDMA_DIR_TX>,
+			       <&main_udmap &pdma1 20 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -403,8 +403,8 @@
 			interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
 			clock-frequency = <48000000>;
 			current-speed = <115200>;
-			dmas = <&main_udmap &pdma_main1 21 UDMA_DIR_TX>,
-			       <&main_udmap &pdma_main1 21 UDMA_DIR_RX>;
+			dmas = <&main_udmap &pdma1 21 UDMA_DIR_TX>,
+			       <&main_udmap &pdma1 21 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -417,8 +417,8 @@
 			interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
 			clock-frequency = <48000000>;
 			current-speed = <115200>;
-			dmas = <&main_udmap &pdma_main1 22 UDMA_DIR_TX>,
-			       <&main_udmap &pdma_main1 22 UDMA_DIR_RX>;
+			dmas = <&main_udmap &pdma1 22 UDMA_DIR_TX>,
+			       <&main_udmap &pdma1 22 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
@@ -1117,7 +1117,7 @@
 			};
 		};
 
-		navss256: navss256 {
+		main_navss: main_navss {
 			compatible = "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
@@ -1172,7 +1172,7 @@
 			};
 
 			main_udmap: udmap@31150000 {
-				compatible = "ti,k3-navss-udmap";
+				compatible = "ti,am654-navss-main-udmap";
 				reg =	<0x0 0x31150000 0x0 0x100>,
 					<0x0 0x34000000 0x0 0x100000>,
 					<0x0 0x35000000 0x0 0x100000>;
@@ -1187,6 +1187,12 @@
 
 				ti,sci = <&dmsc>;
 				ti,sci-dev-id = <188>;
+
+				ti,sci-rm-range-tchan = <0x6 0x1>, /* TX_HCHAN */
+							<0x6 0x2>; /* TX_CHAN */
+				ti,sci-rm-range-rchan = <0x6 0x4>, /* RX_HCHAN */
+							<0x6 0x5>; /* RX_CHAN */
+				ti,sci-rm-range-rflow = <0x6 0x6>; /* GP RFLOW */
 			};
 
 			cpts@310d0000 {
@@ -1346,7 +1352,7 @@
 			};
 		};
 
-		navss_mcu: navss-mcu {
+		mcu_navss: mcu_navss {
 			compatible = "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
@@ -1378,7 +1384,7 @@
 			};
 
 			mcu_udmap: udmap@31150000 {
-				compatible = "ti,k3-navss-udmap";
+				compatible = "ti,am654-navss-mcu-udmap";
 				reg =	<0x0 0x285c0000 0x0 0x100>,
 					<0x0 0x2a800000 0x0 0x40000>,
 					<0x0 0x2aa00000 0x0 0x40000>;
@@ -1392,12 +1398,18 @@
 				ti,sci = <&dmsc>;
 				ti,sci-dev-id = <194>;
 
+				ti,sci-rm-range-tchan = <0x7 0x1>, /* TX_HCHAN */
+							<0x7 0x2>; /* TX_CHAN */
+				ti,sci-rm-range-rchan = <0x7 0x3>, /* RX_HCHAN */
+							<0x7 0x4>; /* RX_CHAN */
+				ti,sci-rm-range-rflow = <0x7 0x5>; /* GP RFLOW */
+
 				interrupt-parent = <&main_udmass_inta>;
 			};
 		};
 
-		pdma_mcu0: pdma@40710000 {
-			compatible = "ti,k3-pdma";
+		mcu_pdma0: pdma@40710000 {
+			compatible = "ti,am654-pdma";
 			reg = <0x0 0x40710000 0x0 0x400>;
 			reg-names = "eccaggr_cfg";
 
@@ -1410,8 +1422,8 @@
 			UDMA_PDMA_TR_XY(3);
 		};
 
-		pdma_mcu1: pdma@40711000 {
-			compatible = "ti,k3-pdma";
+		mcu_pdma1: pdma@40711000 {
+			compatible = "ti,am654-pdma";
 			reg = <0x0 0x40711000 0x0 0x400>;
 			reg-names = "eccaggr_cfg";
 
@@ -1421,8 +1433,8 @@
 			UDMA_PDMA_PKT_XY(18);
 		};
 
-		pdma_main0: pdma@2a41000 {
-			compatible = "ti,k3-pdma";
+		pdma0: pdma@2a41000 {
+			compatible = "ti,am654-pdma";
 			reg = <0x0 0x02A41000 0x0 0x400>;
 			reg-names = "eccaggr_cfg";
 
@@ -1434,8 +1446,8 @@
 			UDMA_PDMA_TR_XY(2);
 		};
 
-		pdma_main1: pdma@2a42000 {
-			compatible = "ti,k3-pdma";
+		pdma1: pdma@2a42000 {
+			compatible = "ti,am654-pdma";
 			reg = <0x0 0x02A42000 0x0 0x400>;
 			reg-names = "eccaggr_cfg";
 
@@ -1476,9 +1488,9 @@
 				     <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "tx", "rx";
 
-			/* tx: pdma_main0-0, rx: pdma_main0-0 */
-			dmas = <&main_udmap &pdma_main0 0 UDMA_DIR_TX>,
-			       <&main_udmap &pdma_main0 0 UDMA_DIR_RX>;
+			/* tx: pdma0-0, rx: pdma0-0 */
+			dmas = <&main_udmap &pdma0 0 UDMA_DIR_TX>,
+			       <&main_udmap &pdma0 0 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 
 			clocks = <&k3_clks 104 0>;
@@ -1497,9 +1509,9 @@
 				     <GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "tx", "rx";
 
-			/* tx: pdma_main0-1, rx: pdma_main0-1 */
-			dmas = <&main_udmap &pdma_main0 1 UDMA_DIR_TX>,
-			       <&main_udmap &pdma_main0 1 UDMA_DIR_RX>;
+			/* tx: pdma0-1, rx: pdma0-1 */
+			dmas = <&main_udmap &pdma0 1 UDMA_DIR_TX>,
+			       <&main_udmap &pdma0 1 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 
 			clocks = <&k3_clks 105 0>;
@@ -1518,9 +1530,9 @@
 				     <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "tx", "rx";
 
-			/* tx: pdma_main0-1, rx: pdma_main0-1 */
-			dmas = <&main_udmap &pdma_main0 2 UDMA_DIR_TX>,
-			       <&main_udmap &pdma_main0 2 UDMA_DIR_RX>;
+			/* tx: pdma0-1, rx: pdma0-1 */
+			dmas = <&main_udmap &pdma0 2 UDMA_DIR_TX>,
+			       <&main_udmap &pdma0 2 UDMA_DIR_RX>;
 			dma-names = "tx", "rx";
 
 			clocks = <&k3_clks 106 0>;
@@ -1916,8 +1928,8 @@
 			/* Set to 60MHz clock from MCUHSDIV_CLKOUT1 */
 			assigned-clock-parents = <&k3_clks 0 4>;
 			clock-names = "adc_tsc_fck";
-			dmas = <&mcu_udmap &pdma_mcu0 0 UDMA_DIR_RX>,
-			       <&mcu_udmap &pdma_mcu0 1 UDMA_DIR_RX>;
+			dmas = <&mcu_udmap &mcu_pdma0 0 UDMA_DIR_RX>,
+			       <&mcu_udmap &mcu_pdma0 1 UDMA_DIR_RX>;
 			dma-names = "fifo0", "fifo1";
 			dma-coherent;
 			status = "disabled";
@@ -1938,8 +1950,8 @@
 			/* Set to 60MHz clock from MCUHSDIV_CLKOUT1 */
 			assigned-clock-parents = <&k3_clks 1 4>;
 			clock-names = "adc_tsc_fck";
-			dmas = <&mcu_udmap &pdma_mcu0 2 UDMA_DIR_RX>,
-			       <&mcu_udmap &pdma_mcu0 3 UDMA_DIR_RX>;
+			dmas = <&mcu_udmap &mcu_pdma0 2 UDMA_DIR_RX>,
+			       <&mcu_udmap &mcu_pdma0 3 UDMA_DIR_RX>;
 			dma-names = "fifo0", "fifo1";
 			dma-coherent;
 			status = "disabled";

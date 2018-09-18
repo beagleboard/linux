@@ -85,6 +85,8 @@
 #define TI_SCI_MSG_RM_RING_FREE			0x1101
 #define TI_SCI_MSG_RM_RING_RECONFIG		0x1102
 #define TI_SCI_MSG_RM_RING_RESET		0x1103
+#define TI_SCI_MSG_RM_RING_CFG			0x1110
+#define TI_SCI_MSG_RM_RING_GET_CFG		0x1111
 
 /* PSI-L requests */
 #define TI_SCI_MSG_RM_PSIL_PAIR			0x1280
@@ -96,6 +98,15 @@
 #define TI_SCI_MSG_RM_UDMAP_RX_FREE		0x1211
 #define TI_SCI_MSG_RM_UDMAP_FLOW_CFG		0x1220
 #define TI_SCI_MSG_RM_UDMAP_OPT_FLOW_CFG	0x1221
+
+#define TISCI_MSG_RM_UDMAP_TX_CH_CFG		0x1205
+#define TISCI_MSG_RM_UDMAP_TX_CH_GET_CFG	0x1206
+#define TISCI_MSG_RM_UDMAP_RX_CH_CFG		0x1215
+#define TISCI_MSG_RM_UDMAP_RX_CH_GET_CFG	0x1216
+#define TISCI_MSG_RM_UDMAP_FLOW_CFG		0x1230
+#define TISCI_MSG_RM_UDMAP_FLOW_SIZE_THRESH_CFG	0x1231
+#define TISCI_MSG_RM_UDMAP_FLOW_GET_CFG		0x1232
+#define TISCI_MSG_RM_UDMAP_FLOW_SIZE_THRESH_GET_CFG	0x1233
 
 /**
  * struct ti_sci_msg_hdr - Generic Message Header for All messages and responses
@@ -763,208 +774,97 @@ struct ti_sci_msg_resp_get_status {
 } __packed;
 
 /**
- * struct ti_sci_msg_ring_allocate - Ring Accelerator Ring Allocate
- * @hdr: Generic Header
- * @secondary_host: Specifies a host ID for which the TISCI header host ID
- *	is proxying the request for.
+ * struct ti_sci_msg_rm_ring_cfg_req - Configure a Navigator Subsystem ring
+ *
+ * Configures the non-real-time registers of a Navigator Subsystem ring.
+ * @hdr:	Generic Header
+ * @valid_params: Bitfield defining validity of ring configuration parameters.
+ *	The ring configuration fields are not valid, and will not be used for
+ *	ring configuration, if their corresponding valid bit is zero.
+ *	Valid bit usage:
+ *	0 - Valid bit for @tisci_msg_rm_ring_cfg_req addr_lo
+ *	1 - Valid bit for @tisci_msg_rm_ring_cfg_req addr_hi
+ *	2 - Valid bit for @tisci_msg_rm_ring_cfg_req count
+ *	3 - Valid bit for @tisci_msg_rm_ring_cfg_req mode
+ *	4 - Valid bit for @tisci_msg_rm_ring_cfg_req size
+ *	5 - Valid bit for @tisci_msg_rm_ring_cfg_req order_id
  * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
- * @index: Ring index. A valid value will result in a static allocation and
- *	configuration of the specified ring.
- *	Passing @TI_SCI_RING_NULL_RING_INDEX will result in the allocation of
- *	the next free ring within the subset of rings of
- *	@ti_sci_msg_ring_allocate::type.
- * @addr_lo: The ring base address must be aligned to the "size" parameter
- *	setting when the ring is configured for RING or MESSAGE modes.
- *	For CREDENTIALS and QM modes the ring base address must be aligned to
- *	a 4k byte boundary 32 LSBs of ring base address to be programmed
- *	into the ring's RING_BA_LO register.
- * @addr_hi: See "addr_lo" description,
+ * @index: ring index to be configured.
+ * @addr_lo: 32 LSBs of ring base address to be programmed into the ring's
+ *	RING_BA_LO register
+ * @addr_hi: 16 MSBs of ring base address to be programmed into the ring's
+ *	RING_BA_HI register.
  * @count: Number of ring elements. Must be even if mode is CREDENTIALS or QM
  *	modes.
- * @mode: Specifies the mode the ring is to be configured as. Allowed values:
- *	@TI_SCI_RING_MODE_RING
- *	@TI_SCI_RING_MODE_MESSAGE
- *	@TI_SCI_RING_MODE_CREDENTIALS
- *	@TI_SCI_RING_MODE_QM
- * @size: Specifies the ring element size. To calculate the encoded size use
+ * @mode: Specifies the mode the ring is to be configured.
+ * @size: Specifies encoded ring element size. To calculate the encoded size use
  *	the formula (log2(size_bytes) - 2), where size_bytes cannot be
  *	greater than 256.
- * @order_id: Specifies the ring's bus order ID. To use the default order ID
- *	this value must be @TI_SCI_RING_NULL_ORDER_ID. Otherwise, the specified
- *	order ID will be programmed as the ring's bus order ID.
- * @share: Specifies whether the allocated and configured ring is unshared,
- *	limited shared, or open shared. Requests for an already allocated,
- *	shared ring view this value as don't care as long as a valid value is
- *	provided.
- * @type: Specifies the ring type to be allocated for dynamic ring requests
- *	where the index is @TI_SCI_RING_NULL_RING_INDEX.
- *	NACK will be returned if both the ring index and type parameters
- *	are valid.
- *
- * Request type is TI_SCI_MSG_RM_RING_ALLOCATE, responded with the ring index
- * allocated if the request was successful.
- *
- * Allocates and configures the non-real-time registers of a Navigator
- * Subsystem ring.  The message provides two methods for ring allocation,
- * static and dynamic. Static allocation occurs when the
- * @ti_sci_msg_ring_allocate::index parameter is set to a valid ring
- * index. In this case, TISCI RM will allocate and configure the specified ring
- * index. A static request will be NACK'd if the @ti_sci_msg_ring_allocate::type
- * parameter is not set to @TI_SCI_RING_NULL_RING_TYPE. The ring type is
- * redundant in static requests since TISCI RM assumes the user knows which ring
- * type is being allocated. Dynamic allocation occurs when the index parameter
- * contains @TI_SCI_RING_NULL_RING_INDEX. In this case,
- * @ti_sci_msg_ring_allocate::type must be set to a valid ring type
- * from which TISCI RM will allocate and configure the next free ring. The
- * allocated and configured ring index will be returned in the
- * @ti_sci_msg_ring_allocate_resp message for both allocation methods.
+ * @order_id: Specifies the ring's bus order ID.
  */
-struct ti_sci_msg_ring_allocate {
+struct ti_sci_msg_rm_ring_cfg_req {
 	struct ti_sci_msg_hdr hdr;
-	u32 nav_id;
-	u32 index;
+	u32 valid_params;
+	u16 nav_id;
+	u16 index;
 	u32 addr_lo;
 	u32 addr_hi;
 	u32 count;
 	u8 mode;
 	u8 size;
 	u8 order_id;
-	u8 share;
-	u16 type;
-	u8 secondary_host;
 } __packed;
 
 /**
- * struct ti_sci_msg_ring_allocate_resp - Ring allocate response message
- * @hdr: Generic Header
- * @index: Allocated and configured Ring Accelerator ring index. The ring will
- *	be allocated from the Navigator Subsystem specified in the allocate
- *	request @ti_sci_msg_ring_allocate::nav_id parameter. Only valid if
- *	message is ACK'd, but will be NULL anyway if NACK'd.
+ * struct ti_sci_msg_rm_ring_cfg_resp - Response to configuring a ring.
  *
- * Response to request type TI_SCI_MSG_RM_RING_ALLOCATE
+ * @hdr:	Generic Header
  */
-struct ti_sci_msg_ring_allocate_resp {
+struct ti_sci_msg_rm_ring_cfg_resp {
 	struct ti_sci_msg_hdr hdr;
-	u32 index;
 } __packed;
 
 /**
- * struct ti_sci_msg_ring_allocate_resp - Free and clear Ring Accelerator ring
+ * struct ti_sci_msg_rm_ring_get_cfg_req - Get RA ring's configuration
+ *
+ * Gets the configuration of the non-real-time register fields of a ring.  The
+ * host, or a supervisor of the host, who owns the ring must be the requesting
+ * host.  The values of the non-real-time registers are returned in
+ * @ti_sci_msg_rm_ring_get_cfg_resp.
+ *
  * @hdr: Generic Header
- * @index: ring index to be freed. Shared rings must be freed the same number of
- *	times they were allocated.
- * @secondary_host: Specifies a host ID for which the TISCI header host ID
- *	is proxying the request for.
  * @nav_id: Device ID of Navigator Subsystem from which the ring is allocated
- *
- * Free SoC Navigator Subsystem Ring Accelerator rings that were allocated
- * via @TI_SCI_MSG_RM_RING_ALLOCATE TISCI message. Freeing a ring does not reset
- * the ring registers. Firewall access to the ring's real-time registers for
- * the host sending the ring free request will be revoked.
- *
- * Request type is TI_SCI_MSG_RM_RING_FREE, response is a generic
- * ACK or NACK message.
+ * @index: ring index.
  */
-struct ti_sci_msg_ring_free {
+struct ti_sci_msg_rm_ring_get_cfg_req {
 	struct ti_sci_msg_hdr hdr;
-	u32 nav_id;
-	u32 index;
-	u8 secondary_host;
+	u16 nav_id;
+	u16 index;
 } __packed;
 
 /**
- * struct ti_sci_msg_ring_reset - Resets a Navigator Subsystem ring
- * @hdr:	Generic Header
- * @nav_id:	SoC Navigator Subsystem device ID from which the ring was
- *		allocated
- * @index:	Ring index. Passing @RM_TISCI_MSG_NULL_RING_INDEX will result
- *		in a NACK.
- *
- * Reset a ring allocated via @ti_sci_msg_ring_allocate.  Resetting a
- * ring resets the ring's occupancies and pointers.  The host, or a
- * supervisor of the host, who owns the ring must be the requesting host.
- *
- * Request type is TI_SCI_MSG_RM_RING_RESET, response is a generic
- * ACK or NACK message.
- */
-struct ti_sci_msg_ring_reset {
-	struct ti_sci_msg_hdr hdr;
-	u32 nav_id;
-	u32 index;
-} __packed;
-
-/**
- * struct ti_sci_msg_ring_reconfig - Reconfigure a Navigator Subsystem ring
- *
- * Reconfigures the non-real-time register fields of a ring allocated via
- * @tisci_msg_rm_ring_allocate_req.  The host, or a supervisor of the host, who
- * owns the ring must be the requesting host.  The value of the non-real-time
- * register parameters prior to the reconfiguration taking place are returned
- * in @tisci_msg_rm_ring_reconfig_resp.
- *
- * @hdr:	Generic Header
- * @nav_id:	SoC Navigator Subsystem device ID from which the ring was
- *		allocated
- * @index:	Ring index. Passing @RM_TISCI_MSG_NULL_RING_INDEX will result
- *		in a NACK.
- * @addr_hi: See "addr_lo" description,
- * @addr_lo: The ring base address must be aligned to the "size" parameter
- *	setting when the ring is configured for RING or MESSAGE modes.
- *	For CREDENTIALS and QM modes the ring base address must be aligned to
- *	a 4k byte boundary 32 LSBs of ring base address to be programmed
- *	into the ring's RING_BA_LO register.
- * @count: Number of ring elements. Must be even if mode is CREDENTIALS or QM
- *	modes.
- * @mode: Specifies the mode the ring is to be configured as. Allowed values:
- *	@TI_SCI_RING_MODE_RING
- *	@TI_SCI_RING_MODE_MESSAGE
- *	@TI_SCI_RING_MODE_CREDENTIALS
- *	@TI_SCI_RING_MODE_QM
- * @size: Specifies the ring element size. To calculate the encoded size use
- *	the formula (log2(size_bytes) - 2), where size_bytes cannot be
- *	greater than 256.
- * @order_id: Specifies the ring's bus order ID. To use the default order ID
- *	this value must be @TI_SCI_RING_NULL_ORDER_ID. Otherwise, the specified
- *	order ID will be programmed as the ring's bus order ID.
- */
-struct ti_sci_msg_ring_reconfig {
-	struct ti_sci_msg_hdr	hdr;
-	u32			nav_id;
-	u32			index;
-	u32			addr_lo;
-	u32			addr_hi;
-	u32			count;
-	u8			mode;
-	u8			size;
-	u8			order_id;
-} __packed;
-
-/**
- * struct ti_sci_msg_ring_reconfig_resp - Ring reconfigure response message
+ * struct ti_sci_msg_rm_ring_get_cfg_resp -  Ring get configuration response
  *
  * Response received by host processor after RM has handled
- * @ref tisci_msg_rm_ring_reconfig_req. The response contains the ring's
- * non-real-time register values before it was reconfigured.
+ * @ti_sci_msg_rm_ring_get_cfg_req. The response contains the ring's
+ * non-real-time register values.
  *
- * @hdr:	Generic Header
- * @old_addr_lo: Ring 32 LSBs of base address prior to the reconfiguration
- *		 taking place.
- * @old_addr_hi: Ring 16 MSBs of base address prior to the reconfiguration
- *		 taking place.
- * @old_count: Ring number of elements prior to the reconfiguration taking place
- * @old_mode: Ring mode prior to the reconfiguration taking place
- * @old_size: Ring element size prior to the reconfiguration taking place
- * @old_order_id: Ring order ID prior to the reconfiguration taking place
+ * @hdr: Generic Header
+ * @addr_lo: Ring 32 LSBs of base address
+ * @addr_hi: Ring 16 MSBs of base address.
+ * @count: Ring number of elements.
+ * @mode: Ring mode.
+ * @size: encoded Ring element size
+ * @order_id: ing order ID.
  */
-struct ti_sci_msg_ring_reconfig_resp {
-	struct ti_sci_msg_hdr	hdr;
-	u32			old_addr_lo;
-	u32			old_addr_hi;
-	u32			old_count;
-	u8			old_mode;
-	u8			old_size;
-	u8			old_order_id;
+struct ti_sci_msg_rm_ring_get_cfg_resp {
+	struct ti_sci_msg_hdr hdr;
+	u32 addr_lo;
+	u32 addr_hi;
+	u32 count;
+	u8 mode;
+	u8 size;
+	u8 order_id;
 } __packed;
 
 /**
@@ -1305,5 +1205,428 @@ struct rm_ti_sci_msg_udmap_rx_flow_opt_cfg {
 	u16 rx_fdq0_sz2_qnum;
 	u16 rx_fdq0_sz3_qnum;
 } __attribute__((__packed__));
+
+/**
+ * Configures a Navigator Subsystem UDMAP transmit channel
+ *
+ * Configures the non-real-time registers of a Navigator Subsystem UDMAP
+ * transmit channel.  The channel index must be assigned to the host defined
+ * in the TISCI header via the RM board configuration resource assignment
+ * range list.
+ *
+ * @hdr: Generic Header
+ *
+ * @valid_params: Bitfield defining validity of tx channel configuration
+ * parameters. The tx channel configuration fields are not valid, and will not
+ * be used for ch configuration, if their corresponding valid bit is zero.
+ * Valid bit usage:
+ *    0 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_pause_on_err
+ *    1 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_atype
+ *    2 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_chan_type
+ *    3 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_fetch_size
+ *    4 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::txcq_qnum
+ *    5 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_priority
+ *    6 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_qos
+ *    7 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_orderid
+ *    8 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_sched_priority
+ *    9 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_filt_einfo
+ *   10 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_filt_pswords
+ *   11 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_supr_tdpkt
+ *   12 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::tx_credit_count
+ *   13 - Valid bit for @ref ti_sci_msg_rm_udmap_tx_ch_cfg::fdepth
+ *
+ * @nav_id: SoC device ID of Navigator Subsystem where tx channel is located
+ *
+ * @index: UDMAP transmit channel index.
+ *
+ * @tx_pause_on_err: UDMAP transmit channel pause on error configuration to
+ * be programmed into the tx_pause_on_err field of the channel's TCHAN_TCFG
+ * register.
+ *
+ * @tx_filt_einfo: UDMAP transmit channel extended packet information passing
+ * configuration to be programmed into the tx_filt_einfo field of the
+ * channel's TCHAN_TCFG register.
+ *
+ * @tx_filt_pswords: UDMAP transmit channel protocol specific word passing
+ * configuration to be programmed into the tx_filt_pswords field of the
+ * channel's TCHAN_TCFG register.
+ *
+ * @tx_atype: UDMAP transmit channel non Ring Accelerator access pointer
+ * interpretation configuration to be programmed into the tx_atype field of
+ * the channel's TCHAN_TCFG register.
+ *
+ * @tx_chan_type: UDMAP transmit channel functional channel type and work
+ * passing mechanism configuration to be programmed into the tx_chan_type
+ * field of the channel's TCHAN_TCFG register.
+ *
+ * @tx_supr_tdpkt: UDMAP transmit channel teardown packet generation suppression
+ * configuration to be programmed into the tx_supr_tdpkt field of the channel's
+ * TCHAN_TCFG register.
+ *
+ * @tx_fetch_size: UDMAP transmit channel number of 32-bit descriptor words to
+ * fetch configuration to be programmed into the tx_fetch_size field of the
+ * channel's TCHAN_TCFG register.  The user must make sure to set the maximum
+ * word count that can pass through the channel for any allowed descriptor type.
+ *
+ * @tx_credit_count: UDMAP transmit channel transfer request credit count
+ * configuration to be programmed into the count field of the TCHAN_TCREDIT
+ * register.  Specifies how many credits for complete TRs are available.
+ *
+ * @txcq_qnum: UDMAP transmit channel completion queue configuration to be
+ * programmed into the txcq_qnum field of the TCHAN_TCQ register. The specified
+ * completion queue must be assigned to the host, or a subordinate of the host,
+ * requesting configuration of the transmit channel.
+ *
+ * @tx_priority: UDMAP transmit channel transmit priority value to be programmed
+ * into the priority field of the channel's TCHAN_TPRI_CTRL register.
+ *
+ * @tx_qos: UDMAP transmit channel transmit qos value to be programmed into the
+ * qos field of the channel's TCHAN_TPRI_CTRL register.
+ *
+ * @tx_orderid: UDMAP transmit channel bus order id value to be programmed into
+ * the orderid field of the channel's TCHAN_TPRI_CTRL register.
+ *
+ * @fdepth: UDMAP transmit channel FIFO depth configuration to be programmed
+ * into the fdepth field of the TCHAN_TFIFO_DEPTH register. Sets the number of
+ * Tx FIFO bytes which are allowed to be stored for the channel. Check the UDMAP
+ * section of the TRM for restrictions regarding this parameter.
+ *
+ * @tx_sched_priority: UDMAP transmit channel tx scheduling priority
+ * configuration to be programmed into the priority field of the channel's
+ * TCHAN_TST_SCHED register.
+ */
+struct ti_sci_msg_rm_udmap_tx_ch_cfg_req {
+	struct ti_sci_msg_hdr hdr;
+	u32 valid_params;
+	u16 nav_id;
+	u16 index;
+	u8 tx_pause_on_err;
+	u8 tx_filt_einfo;
+	u8 tx_filt_pswords;
+	u8 tx_atype;
+	u8 tx_chan_type;
+	u8 tx_supr_tdpkt;
+	u16 tx_fetch_size;
+	u8 tx_credit_count;
+	u16 txcq_qnum;
+	u8 tx_priority;
+	u8 tx_qos;
+	u8 tx_orderid;
+	u16 fdepth;
+	u8 tx_sched_priority;
+} __packed;
+
+/**
+ *  Response to configuring a UDMAP transmit channel.
+ *
+ * @hdr: Standard TISCI header
+ */
+struct ti_sci_msg_rm_udmap_tx_ch_cfg_resp {
+	struct ti_sci_msg_hdr hdr;
+} __packed;
+
+/**
+ * Configures a Navigator Subsystem UDMAP receive channel
+ *
+ * Configures the non-real-time registers of a Navigator Subsystem UDMAP
+ * receive channel.  The channel index must be assigned to the host defined
+ * in the TISCI header via the RM board configuration resource assignment
+ * range list.
+ *
+ * @hdr: Generic Header
+ *
+ * @valid_params: Bitfield defining validity of rx channel configuration
+ * parameters.
+ * The rx channel configuration fields are not valid, and will not be used for
+ * ch configuration, if their corresponding valid bit is zero.
+ * Valid bit usage:
+ *    0 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_pause_on_err
+ *    1 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_atype
+ *    2 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_chan_type
+ *    3 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_fetch_size
+ *    4 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rxcq_qnum
+ *    5 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_priority
+ *    6 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_qos
+ *    7 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_orderid
+ *    8 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_sched_priority
+ *    9 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::flowid_start
+ *   10 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::flowid_cnt
+ *   11 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_ignore_short
+ *   12 - Valid bit for @ti_sci_msg_rm_udmap_rx_ch_cfg_req::rx_ignore_long
+ *
+ * @nav_id: SoC device ID of Navigator Subsystem where rx channel is located
+ *
+ * @index: UDMAP receive channel index.
+ *
+ * @rx_fetch_size: UDMAP receive channel number of 32-bit descriptor words to
+ * fetch configuration to be programmed into the rx_fetch_size field of the
+ * channel's RCHAN_RCFG register.
+ *
+ * @rxcq_qnum: UDMAP receive channel completion queue configuration to be
+ * programmed into the rxcq_qnum field of the RCHAN_RCQ register.
+ * The specified completion queue must be assigned to the host, or a subordinate
+ * of the host, requesting configuration of the receive channel.
+ *
+ * @rx_priority: UDMAP receive channel receive priority value to be programmed
+ * into the priority field of the channel's RCHAN_RPRI_CTRL register.
+ *
+ * @rx_qos: UDMAP receive channel receive qos value to be programmed into the
+ * qos field of the channel's RCHAN_RPRI_CTRL register.
+ *
+ * @rx_orderid: UDMAP receive channel bus order id value to be programmed into
+ * the orderid field of the channel's RCHAN_RPRI_CTRL register.
+ *
+ * @rx_sched_priority: UDMAP receive channel rx scheduling priority
+ * configuration to be programmed into the priority field of the channel's
+ * RCHAN_RST_SCHED register.
+ *
+ * @flowid_start: UDMAP receive channel additional flows starting index
+ * configuration to program into the flow_start field of the RCHAN_RFLOW_RNG
+ * register. Specifies the starting index for flow IDs the receive channel is to
+ * make use of beyond the default flow. flowid_start and @ref flowid_cnt must be
+ * set as valid and configured together. The starting flow ID set by
+ * @ref flowid_cnt must be a flow index within the Navigator Subsystem's subset
+ * of flows beyond the default flows statically mapped to receive channels.
+ * The additional flows must be assigned to the host, or a subordinate of the
+ * host, requesting configuration of the receive channel.
+ *
+ * @flowid_cnt: UDMAP receive channel additional flows count configuration to
+ * program into the flowid_cnt field of the RCHAN_RFLOW_RNG register.
+ * This field specifies how many flow IDs are in the additional contiguous range
+ * of legal flow IDs for the channel.  @ref flowid_start and flowid_cnt must be
+ * set as valid and configured together. Disabling the valid_params field bit
+ * for flowid_cnt indicates no flow IDs other than the default are to be
+ * allocated and used by the receive channel. @ref flowid_start plus flowid_cnt
+ * cannot be greater than the number of receive flows in the receive channel's
+ * Navigator Subsystem.  The additional flows must be assigned to the host, or a
+ * subordinate of the host, requesting configuration of the receive channel.
+ *
+ * @rx_pause_on_err: UDMAP receive channel pause on error configuration to be
+ * programmed into the rx_pause_on_err field of the channel's RCHAN_RCFG
+ * register.
+ *
+ * @rx_atype: UDMAP receive channel non Ring Accelerator access pointer
+ * interpretation configuration to be programmed into the rx_atype field of the
+ * channel's RCHAN_RCFG register.
+ *
+ * @rx_chan_type: UDMAP receive channel functional channel type and work passing
+ * mechanism configuration to be programmed into the rx_chan_type field of the
+ * channel's RCHAN_RCFG register.
+ *
+ * @rx_ignore_short: UDMAP receive channel short packet treatment configuration
+ * to be programmed into the rx_ignore_short field of the RCHAN_RCFG register.
+ *
+ * @rx_ignore_long: UDMAP receive channel long packet treatment configuration to
+ * be programmed into the rx_ignore_long field of the RCHAN_RCFG register.
+ */
+struct ti_sci_msg_rm_udmap_rx_ch_cfg_req {
+	struct ti_sci_msg_hdr hdr;
+	u32 valid_params;
+	u16 nav_id;
+	u16 index;
+	u16 rx_fetch_size;
+	u16 rxcq_qnum;
+	u8 rx_priority;
+	u8 rx_qos;
+	u8 rx_orderid;
+	u8 rx_sched_priority;
+	u16 flowid_start;
+	u16 flowid_cnt;
+	u8 rx_pause_on_err;
+	u8 rx_atype;
+	u8 rx_chan_type;
+	u8 rx_ignore_short;
+	u8 rx_ignore_long;
+} __packed;
+
+/**
+ * Response to configuring a UDMAP receive channel.
+ *
+ * @hdr: Standard TISCI header
+ */
+struct ti_sci_msg_rm_udmap_rx_ch_cfg_resp {
+	struct ti_sci_msg_hdr hdr;
+} __packed;
+
+/**
+ * Configures a Navigator Subsystem UDMAP receive flow
+ *
+ * Configures a Navigator Subsystem UDMAP receive flow's registers.
+ * Configuration does not include the flow registers which handle size-based
+ * free descriptor queue routing.
+ *
+ * The flow index must be assigned to the host defined in the TISCI header via
+ * the RM board configuration resource assignment range list.
+ *
+ * @hdr: Standard TISCI header
+ *
+ * @valid_params
+ * Bitfield defining validity of rx flow configuration parameters.  The
+ * rx flow configuration fields are not valid, and will not be used for flow
+ * configuration, if their corresponding valid bit is zero.  Valid bit usage:
+ *     0 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_einfo_present
+ *     1 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_psinfo_present
+ *     2 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_error_handling
+ *     3 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_desc_type
+ *     4 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_sop_offset
+ *     5 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_dest_qnum
+ *     6 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_src_tag_hi
+ *     7 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_src_tag_lo
+ *     8 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_dest_tag_hi
+ *     9 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_dest_tag_lo
+ *    10 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_src_tag_hi_sel
+ *    11 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_src_tag_lo_sel
+ *    12 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_dest_tag_hi_sel
+ *    13 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_dest_tag_lo_sel
+ *    14 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_fdq0_sz0_qnum
+ *    15 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_fdq1_sz0_qnum
+ *    16 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_fdq2_sz0_qnum
+ *    17 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_fdq3_sz0_qnum
+ *    18 - Valid bit for @tisci_msg_rm_udmap_flow_cfg_req::rx_ps_location
+ *
+ * @nav_id: SoC device ID of Navigator Subsystem from which the receive flow is
+ * allocated
+ *
+ * @flow_index: UDMAP receive flow index for non-optional configuration.
+ *
+ * @rx_einfo_present:
+ * UDMAP receive flow extended packet info present configuration to be
+ * programmed into the rx_einfo_present field of the flow's RFLOW_RFA register.
+ *
+ * @rx_psinfo_present:
+ * UDMAP receive flow PS words present configuration to be programmed into the
+ * rx_psinfo_present field of the flow's RFLOW_RFA register.
+ *
+ * @rx_error_handling:
+ * UDMAP receive flow error handling configuration to be programmed into the
+ * rx_error_handling field of the flow's RFLOW_RFA register.
+ *
+ * @rx_desc_type:
+ * UDMAP receive flow descriptor type configuration to be programmed into the
+ * rx_desc_type field field of the flow's RFLOW_RFA register.
+ *
+ * @rx_sop_offset:
+ * UDMAP receive flow start of packet offset configuration to be programmed
+ * into the rx_sop_offset field of the RFLOW_RFA register.  See the UDMAP
+ * section of the TRM for more information on this setting.  Valid values for
+ * this field are 0-255 bytes.
+ *
+ * @rx_dest_qnum:
+ * UDMAP receive flow destination queue configuration to be programmed into the
+ * rx_dest_qnum field of the flow's RFLOW_RFA register.  The specified
+ * destination queue must be valid within the Navigator Subsystem and must be
+ * owned by the host, or a subordinate of the host, requesting allocation and
+ * configuration of the receive flow.
+ *
+ * @rx_src_tag_hi:
+ * UDMAP receive flow source tag high byte constant configuration to be
+ * programmed into the rx_src_tag_hi field of the flow's RFLOW_RFB register.
+ * See the UDMAP section of the TRM for more information on this setting.
+ *
+ * @rx_src_tag_lo:
+ * UDMAP receive flow source tag low byte constant configuration to be
+ * programmed into the rx_src_tag_lo field of the flow's RFLOW_RFB register.
+ * See the UDMAP section of the TRM for more information on this setting.
+ *
+ * @rx_dest_tag_hi:
+ * UDMAP receive flow destination tag high byte constant configuration to be
+ * programmed into the rx_dest_tag_hi field of the flow's RFLOW_RFB register.
+ * See the UDMAP section of the TRM for more information on this setting.
+ *
+ * @rx_dest_tag_lo:
+ * UDMAP receive flow destination tag low byte constant configuration to be
+ * programmed into the rx_dest_tag_lo field of the flow's RFLOW_RFB register.
+ * See the UDMAP section of the TRM for more information on this setting.
+ *
+ * @rx_src_tag_hi_sel:
+ * UDMAP receive flow source tag high byte selector configuration to be
+ * programmed into the rx_src_tag_hi_sel field of the RFLOW_RFC register.  See
+ * the UDMAP section of the TRM for more information on this setting.
+ *
+ * @rx_src_tag_lo_sel:
+ * UDMAP receive flow source tag low byte selector configuration to be
+ * programmed into the rx_src_tag_lo_sel field of the RFLOW_RFC register.  See
+ * the UDMAP section of the TRM for more information on this setting.
+ *
+ * @rx_dest_tag_hi_sel:
+ * UDMAP receive flow destination tag high byte selector configuration to be
+ * programmed into the rx_dest_tag_hi_sel field of the RFLOW_RFC register.  See
+ * the UDMAP section of the TRM for more information on this setting.
+ *
+ * @rx_dest_tag_lo_sel:
+ * UDMAP receive flow destination tag low byte selector configuration to be
+ * programmed into the rx_dest_tag_lo_sel field of the RFLOW_RFC register.  See
+ * the UDMAP section of the TRM for more information on this setting.
+ *
+ * @rx_fdq0_sz0_qnum:
+ * UDMAP receive flow free descriptor queue 0 configuration to be programmed
+ * into the rx_fdq0_sz0_qnum field of the flow's RFLOW_RFD register.  See the
+ * UDMAP section of the TRM for more information on this setting. The specified
+ * free queue must be valid within the Navigator Subsystem and must be owned
+ * by the host, or a subordinate of the host, requesting allocation and
+ * configuration of the receive flow.
+ *
+ * @rx_fdq1_qnum:
+ * UDMAP receive flow free descriptor queue 1 configuration to be programmed
+ * into the rx_fdq1_qnum field of the flow's RFLOW_RFD register.  See the
+ * UDMAP section of the TRM for more information on this setting.  The specified
+ * free queue must be valid within the Navigator Subsystem and must be owned
+ * by the host, or a subordinate of the host, requesting allocation and
+ * configuration of the receive flow.
+ *
+ * @rx_fdq2_qnum:
+ * UDMAP receive flow free descriptor queue 2 configuration to be programmed
+ * into the rx_fdq2_qnum field of the flow's RFLOW_RFE register.  See the
+ * UDMAP section of the TRM for more information on this setting.  The specified
+ * free queue must be valid within the Navigator Subsystem and must be owned
+ * by the host, or a subordinate of the host, requesting allocation and
+ * configuration of the receive flow.
+ *
+ * @rx_fdq3_qnum:
+ * UDMAP receive flow free descriptor queue 3 configuration to be programmed
+ * into the rx_fdq3_qnum field of the flow's RFLOW_RFE register.  See the
+ * UDMAP section of the TRM for more information on this setting.  The specified
+ * free queue must be valid within the Navigator Subsystem and must be owned
+ * by the host, or a subordinate of the host, requesting allocation and
+ * configuration of the receive flow.
+ *
+ * @rx_ps_location:
+ * UDMAP receive flow PS words location configuration to be programmed into the
+ * rx_ps_location field of the flow's RFLOW_RFA register.
+ */
+struct ti_sci_msg_rm_udmap_flow_cfg_req {
+	struct ti_sci_msg_hdr hdr;
+	u32 valid_params;
+	u16 nav_id;
+	u16 flow_index;
+	u8 rx_einfo_present;
+	u8 rx_psinfo_present;
+	u8 rx_error_handling;
+	u8 rx_desc_type;
+	u16 rx_sop_offset;
+	u16 rx_dest_qnum;
+	u8 rx_src_tag_hi;
+	u8 rx_src_tag_lo;
+	u8 rx_dest_tag_hi;
+	u8 rx_dest_tag_lo;
+	u8 rx_src_tag_hi_sel;
+	u8 rx_src_tag_lo_sel;
+	u8 rx_dest_tag_hi_sel;
+	u8 rx_dest_tag_lo_sel;
+	u16 rx_fdq0_sz0_qnum;
+	u16 rx_fdq1_qnum;
+	u16 rx_fdq2_qnum;
+	u16 rx_fdq3_qnum;
+	u8 rx_ps_location;
+} __packed;
+
+/**
+ *  Response to configuring a Navigator Subsystem UDMAP receive flow
+ *
+ * @hdr: Standard TISCI header
+ */
+struct ti_sci_msg_rm_udmap_flow_cfg_resp {
+	struct ti_sci_msg_hdr hdr;
+} __packed;
 
 #endif /* __TI_SCI_H */

@@ -42,6 +42,9 @@ static	u32 dbg_readl(void __iomem *reg)
 
 #define KNAV_RINGACC_CFG_RING_SIZE_ELCNT_MASK		GENMASK(19, 0)
 
+/**
+ * struct k3_nav_ring_rt_regs -  The RA Control/Status Registers region
+ */
 struct k3_nav_ring_rt_regs {
 	u32	resv_16[4];
 	u32	db;		/* RT Ring N Doorbell Register */
@@ -54,6 +57,9 @@ struct k3_nav_ring_rt_regs {
 
 #define KNAV_RINGACC_RT_REGS_STEP	0x1000
 
+/**
+ * struct k3_nav_ring_fifo_regs -  The Ring Accelerator Queues Registers region
+ */
 struct k3_nav_ring_fifo_regs {
 	u32	head_data[128];		/* Ring Head Entry Data Registers */
 	u32	tail_data[128];		/* Ring Tail Entry Data Registers */
@@ -62,11 +68,11 @@ struct k3_nav_ring_fifo_regs {
 };
 
 /**
- * struct k3_ringacc_proxy_gcfg_regs -  Proxy Global Config MMIO Region
+ * struct k3_ringacc_proxy_gcfg_regs - RA Proxy Global Config MMIO Region
  */
 struct k3_ringacc_proxy_gcfg_regs {
-	u32	revision;
-	u32	config;
+	u32	revision;	/* Revision Register */
+	u32	config;		/* Config Register */
 };
 
 #define K3_RINGACC_PROXY_CFG_THREADS_MASK		GENMASK(15, 0)
@@ -75,10 +81,10 @@ struct k3_ringacc_proxy_gcfg_regs {
  * struct k3_ringacc_proxy_target_regs -  Proxy Datapath MMIO Region
  */
 struct k3_ringacc_proxy_target_regs {
-	u32	control;
-	u32	status;
+	u32	control;	/* Proxy Control Register */
+	u32	status;		/* Proxy Status Register */
 	u8	resv_512[504];
-	u32	data[128];
+	u32	data[128];	/* Proxy Data Register */
 };
 
 #define K3_RINGACC_PROXY_TARGET_STEP	0x1000
@@ -95,6 +101,9 @@ enum k3_ringacc_proxy_access_mode {
 #define KNAV_RINGACC_FIFO_REGS_STEP	0x1000
 #define KNAV_RINGACC_MAX_DB_RING_CNT    (127U)
 
+/**
+ * struct k3_nav_ring_ops -  Ring operations
+ */
 struct k3_nav_ring_ops {
 	int (*push_tail)(struct k3_nav_ring *ring, void *elm);
 	int (*push_head)(struct k3_nav_ring *ring, void *elm);
@@ -102,6 +111,28 @@ struct k3_nav_ring_ops {
 	int (*pop_head)(struct k3_nav_ring *ring, void *elm);
 };
 
+/**
+ * struct k3_nav_ring - RA Ring descriptor
+ *
+ * @rt - Ring control/status registers
+ * @fifos - Ring queues registers
+ * @proxy - Ring Proxy Datapath registers
+ * @ring_mem_dma - Ring buffer dma address
+ * @ring_mem_virt - Ring buffer virt address
+ * @ops - Ring operations
+ * @size - Ring size in elements
+ * @elm_size - Size of the ring element
+ * @mode - Ring mode
+ * @flags - flags
+ * @free - Number of free elements
+ * @occ - Ring occupancy
+ * @windex - Write index (only for @K3_NAV_RINGACC_RING_MODE_RING)
+ * @rindex - Read index (only for @K3_NAV_RINGACC_RING_MODE_RING)
+ * @ring_id - Ring Id
+ * @parent - Pointer on struct @k3_nav_ringacc
+ * @use_count - Use count for shared rings
+ * @proxy_id - RA Ring Proxy Id (only if @K3_NAV_RINGACC_RING_USE_PROXY)
+ */
 struct k3_nav_ring {
 	struct k3_nav_ring_rt_regs __iomem *rt;
 	struct k3_nav_ring_fifo_regs __iomem *fifos;
@@ -112,7 +143,6 @@ struct k3_nav_ring {
 	u32		size;
 	enum k3_nav_ring_size elm_size;
 	enum k3_nav_ring_mode mode;
-	u32		event_id;
 	u32		flags;
 #define KNAV_RING_FLAG_BUSY	BIT(1)
 #define K3_NAV_RING_FLAG_SHARED	BIT(2)
@@ -126,11 +156,33 @@ struct k3_nav_ring {
 	int		proxy_id;
 };
 
+/**
+ * struct k3_nav_ring_range -  Ring range
+ *
+ * @start - first ring id in range
+ * @count - number of rings in range
+ */
 struct k3_nav_ring_range {
 	u32 start;
 	u32 count;
 };
 
+/**
+ * struct k3_nav_ringacc - Rings accelerator descriptor
+ *
+ * @dev - pointer on RA device
+ * @proxy_gcfg - RA proxy global config registers
+ * @proxy_target_base - RA proxy datapath region
+ * @num_rings - number of ring in RA
+ * @gp_rings - general purpose rings range
+ * @dma_ring_reset_quirk - DMA reset w/a enable
+ * @num_proxies - number of RA proxies
+ * @rings - array of rings descriptors (struct @k3_nav_ring)
+ * @list - list of RAs in the system
+ * @tisci - pointer ti-sci handle
+ * @tisci_ring_ops - ti-sci rings ops
+ * @tisci_dev_id - ti-sci device id
+ */
 struct k3_nav_ringacc {
 	struct device *dev;
 	struct k3_ringacc_proxy_gcfg_regs __iomem *proxy_gcfg;
@@ -296,12 +348,20 @@ static void k3_ringacc_ring_reset_sci(struct k3_nav_ring *ring)
 	struct k3_nav_ringacc *ringacc = ring->parent;
 	int ret;
 
-	ret = ringacc->tisci_ring_ops->reset(
+	ret = ringacc->tisci_ring_ops->config(
 			ringacc->tisci,
+			TI_SCI_MSG_VALUE_RM_RING_COUNT_VALID,
 			ringacc->tisci_dev_id,
-			ring->ring_id);
+			ring->ring_id,
+			0,
+			0,
+			ring->size,
+			0,
+			0,
+			0);
 	if (ret)
-		dev_err(ringacc->dev, "TISCI ring reset fail %d\n", ret);
+		dev_err(ringacc->dev, "TISCI reset ring fail (%d) ring_idx %d\n",
+			ret, ring->ring_id);
 }
 
 void k3_nav_ringacc_ring_reset(struct k3_nav_ring *ring)
@@ -322,18 +382,22 @@ static void k3_ringacc_ring_reconfig_qmode_sci(struct k3_nav_ring *ring,
 					       enum k3_nav_ring_mode mode)
 {
 	struct k3_nav_ringacc *ringacc = ring->parent;
-	struct device *dev = ringacc->dev;
-	u8 qmode;
 	int ret;
 
-	qmode = mode;
-	ret = ringacc->tisci_ring_ops->reconfig(
+	ret = ringacc->tisci_ring_ops->config(
 			ringacc->tisci,
+			TI_SCI_MSG_VALUE_RM_RING_MODE_VALID,
 			ringacc->tisci_dev_id,
 			ring->ring_id,
-			&qmode, NULL, NULL, NULL, NULL, NULL);
+			0,
+			0,
+			0,
+			mode,
+			0,
+			0);
 	if (ret)
-		dev_err(dev, "TISCI ring reconfig qmode fail %d\n", ret);
+		dev_err(ringacc->dev, "TISCI reconf qmode fail (%d) ring_idx %d\n",
+			ret, ring->ring_id);
 }
 
 void k3_nav_ringacc_ring_reset_dma(struct k3_nav_ring *ring, u32 occ)
@@ -399,13 +463,20 @@ static void k3_ringacc_ring_free_sci(struct k3_nav_ring *ring)
 	struct k3_nav_ringacc *ringacc = ring->parent;
 	int ret;
 
-	ret = ringacc->tisci_ring_ops->free(
+	ret = ringacc->tisci_ring_ops->config(
 			ringacc->tisci,
-			TI_SCI_MSG_UNUSED_SECONDARY_HOST,
+			TI_SCI_MSG_VALUE_RM_ALL_NO_ORDER,
 			ringacc->tisci_dev_id,
-			ring->ring_id);
+			ring->ring_id,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0);
 	if (ret)
-		dev_err(ringacc->dev, "TISCI ring free fail %d\n", ret);
+		dev_err(ringacc->dev, "TISCI ring free fail (%d) ring_idx %d\n",
+			ret, ring->ring_id);
 }
 
 int k3_nav_ringacc_ring_free(struct k3_nav_ring *ring)
@@ -475,26 +546,27 @@ EXPORT_SYMBOL_GPL(k3_nav_ringacc_get_tisci_dev_id);
 static int k3_nav_ringacc_ring_cfg_sci(struct k3_nav_ring *ring)
 {
 	struct k3_nav_ringacc *ringacc = ring->parent;
-	struct device *dev = ringacc->dev;
 	u32 ring_idx;
 	int ret;
 
+	if (!ringacc->tisci)
+		return -EINVAL;
+
 	ring_idx = ring->ring_id;
-	ret = ringacc->tisci_ring_ops->allocate(
+	ret = ringacc->tisci_ring_ops->config(
 			ringacc->tisci,
-			TI_SCI_MSG_UNUSED_SECONDARY_HOST,
+			TI_SCI_MSG_VALUE_RM_ALL_NO_ORDER,
 			ringacc->tisci_dev_id,
-			&ring_idx,
+			ring_idx,
 			lower_32_bits(ring->ring_mem_dma),
 			upper_32_bits(ring->ring_mem_dma),
 			ring->size,
 			ring->mode,
 			ring->elm_size,
-			TI_SCI_RM_NULL_U8,
-			0,
-			TI_SCI_RM_NULL_U16);
+			0);
 	if (ret)
-		dev_err(dev, "TISCI Unable to request ring (%d)\n", ret);
+		dev_err(ringacc->dev, "TISCI config ring fail (%d) ring_idx %d\n",
+			ret, ring_idx);
 
 	return ret;
 }
@@ -523,7 +595,6 @@ int k3_nav_ringacc_ring_cfg(struct k3_nav_ring *ring,
 	ring->free = 0;
 	ring->rindex = 0;
 	ring->windex = 0;
-	ring->event_id = 0xffff;
 
 	if (ring->proxy_id != K3_RINGACC_PROXY_NOT_USED)
 		ring->proxy = ringacc->proxy_target_base +

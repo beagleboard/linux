@@ -1785,7 +1785,6 @@ enum {
 	PCM_UDMA,
 };
 static const char *sdma_prefix = "ti,omap";
-static const char *udma_prefix = "ti,k3";
 
 static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 {
@@ -1821,7 +1820,7 @@ static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 	dev_dbg(mcasp->dev, "DMA controller compatible = \"%s\"\n", tmp);
 	if (!strncmp(tmp, sdma_prefix, strlen(sdma_prefix)))
 		return PCM_SDMA;
-	else if (!strncmp(tmp, udma_prefix, strlen(udma_prefix)))
+	else if (strstr(tmp, "udmap"))
 		return PCM_UDMA;
 
 	return PCM_EDMA;

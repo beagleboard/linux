@@ -225,11 +225,17 @@ static void k3_nav_udmax_dump_tx_rt_chn(struct k3_nav_udmax_tx_channel *chn,
 static int k3_nav_udmax_cfg_tx_chn(struct k3_nav_udmax_tx_channel *tx_chn)
 {
 	const struct udma_tisci_rm *tisci_rm = tx_chn->common.tisci_rm;
-	struct ti_sci_rm_udmap_tx_ch_alloc req;
-	u32 ch_index;
+	struct ti_sci_msg_rm_udmap_tx_ch_cfg req;
 
 	memset(&req, 0, sizeof(req));
 
+	req.valid_params = TI_SCI_MSG_VALUE_RM_UDMAP_CH_PAUSE_ON_ERR_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_FILT_EINFO_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_FILT_PSWORDS_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_TX_SUPR_TDPKT_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_FETCH_SIZE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID;
 	req.nav_id = tisci_rm->tisci_dev_id;
 	req.index = tx_chn->udma_tchan_id;
 	if (tx_chn->tx_pause_on_err)
@@ -238,24 +244,13 @@ static int k3_nav_udmax_cfg_tx_chn(struct k3_nav_udmax_tx_channel *tx_chn)
 		req.tx_filt_einfo = 1;
 	if (tx_chn->tx_filt_pswords)
 		req.tx_filt_pswords = 1;
-	req.tx_atype = 0;
 	req.tx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_PKT_PBRR;
 	if (tx_chn->tx_supr_tdpkt)
 		req.tx_supr_tdpkt = 1;
 	req.tx_fetch_size = tx_chn->common.hdesc_size >> 2;
-	req.tx_credit_count = 0;
 	req.txcq_qnum = k3_nav_ringacc_get_ring_id(tx_chn->ringtxcq);
-	req.tx_priority = TI_SCI_RM_NULL_U8;
-	req.tx_qos = TI_SCI_RM_NULL_U8;
-	req.tx_orderid = TI_SCI_RM_NULL_U8;
-	req.fdepth = 0x80;
-	req.tx_sched_priority = 0;
-	req.share = 0;
-	req.type = TI_SCI_RM_NULL_U8;
-	req.secondary_host = TI_SCI_RM_NULL_U8;
 
-	return tisci_rm->tisci_udmap_ops->tx_ch_alloc(tisci_rm->tisci, &req,
-						      &ch_index);
+	return tisci_rm->tisci_udmap_ops->tx_ch_cfg(tisci_rm->tisci, &req);
 }
 
 struct k3_nav_udmax_tx_channel *k3_nav_udmax_request_tx_chn(
@@ -371,11 +366,6 @@ void k3_nav_udmax_release_tx_chn(
 
 	if (!IS_ERR_OR_NULL(tx_chn->common.udmax)) {
 		if (tx_chn->need_tisci_free) {
-			const struct udma_tisci_rm *tisci_rm =
-							tx_chn->common.tisci_rm;
-			tisci_rm->tisci_udmap_ops->tx_ch_free(tisci_rm->tisci,
-						0xff, tisci_rm->tisci_dev_id,
-						tx_chn->udma_tchan_id);
 			tx_chn->need_tisci_free = false;
 		}
 
@@ -578,70 +568,38 @@ EXPORT_SYMBOL_GPL(k3_nav_udmax_tx_put_irq);
 static int k3_nav_udmax_cfg_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
 {
 	const struct udma_tisci_rm *tisci_rm = rx_chn->common.tisci_rm;
-	struct ti_sci_rm_udmap_rx_ch_alloc req;
-	u32 ch_index;
-	u32 def_flow_index, rng_flow_start_index, rng_flow_cnt;
+	struct ti_sci_msg_rm_udmap_rx_ch_cfg req;
 	int ret;
 
 	memset(&req, 0, sizeof(req));
 
+	req.valid_params = TI_SCI_MSG_VALUE_RM_UDMAP_CH_FETCH_SIZE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID;
+
 	req.nav_id = tisci_rm->tisci_dev_id;
 	req.index = rx_chn->udma_rchan_id;
 	req.rx_fetch_size = rx_chn->common.hdesc_size >> 2;
-/*
- * TODO: we can't support rxcq_qnum/RCHAN[a]_RCQ cfg with current sysfw and
- * udmax impl, so just configure it to invalid value.
- *	req.rxcq_qnum = k3_nav_ringacc_get_ring_id(rx_chn->flows[0].ringrx);
- */
+	/*
+	 * TODO: we can't support rxcq_qnum/RCHAN[a]_RCQ cfg with current sysfw
+	 * and udmax impl, so just configure it to invalid value.
+	 * req.rxcq_qnum = k3_nav_ringacc_get_ring_id(rx_chn->flows[0].ringrx);
+	 */
 	req.rxcq_qnum = 0xFFFF;
-	req.rx_priority = TI_SCI_RM_NULL_U8;
-	req.rx_qos = TI_SCI_RM_NULL_U8;
-	req.rx_orderid = TI_SCI_RM_NULL_U8;
-	req.rx_sched_priority = 0;
 	if (rx_chn->flow_num && rx_chn->flow_id_base != rx_chn->udma_rchan_id) {
 		/* Default flow + extra ones */
 		req.flowid_start = rx_chn->flow_id_base;
 		req.flowid_cnt = rx_chn->flow_num;
-	} else {
-		/* Only default flow */
-		req.flowid_start = TI_SCI_RM_NULL_U16;
-		req.flowid_cnt = 0;
+		req.valid_params |=
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_START_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_CNT_VALID;
 	}
-	req.rx_pause_on_err = 0;
-	req.rx_atype = 0;
 	req.rx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_PKT_PBRR;
-	req.rx_ignore_short = 0;
-	req.rx_ignore_long = 0;
-	req.share = 0;
-	req.type = TI_SCI_RM_NULL_U8;
-	req.secondary_host = TI_SCI_RM_NULL_U8;
 
-	ret = tisci_rm->tisci_udmap_ops->rx_ch_alloc(tisci_rm->tisci,
-			&req, &ch_index, &def_flow_index,
-			&rng_flow_start_index, &rng_flow_cnt);
-	if (ret) {
-		dev_err(rx_chn->common.dev, "rchan%d alloc failed %d\n",
+	ret = tisci_rm->tisci_udmap_ops->rx_ch_cfg(tisci_rm->tisci, &req);
+	if (ret)
+		dev_err(rx_chn->common.dev, "rchan%d cfg failed %d\n",
 			rx_chn->udma_rchan_id, ret);
-		return ret;
-	}
-
-	if (rx_chn->flow_num && rx_chn->flow_id_base != rx_chn->udma_rchan_id) {
-		if (rng_flow_start_index != rx_chn->flow_id_base ||
-		    rng_flow_cnt != rx_chn->flow_num) {
-			const struct udma_tisci_rm *tisci_rm =
-							rx_chn->common.tisci_rm;
-			dev_err(rx_chn->common.dev,
-				"rchan%d flow range mismatch %u:%u vs %u:%u\n",
-				rx_chn->udma_rchan_id,
-				rx_chn->flow_id_base, rx_chn->flow_num,
-				rng_flow_start_index, rng_flow_cnt);
-
-			tisci_rm->tisci_udmap_ops->rx_ch_free(tisci_rm->tisci,
-						0xff, tisci_rm->tisci_dev_id,
-						rx_chn->udma_rchan_id);
-			ret = -EINVAL;
-		}
-	}
 
 	return ret;
 }
@@ -673,7 +631,7 @@ static int k3_nav_udmax_cfg_rx_flow(
 	struct k3_nav_udmax_rx_flow *flow = &rx_chn->flows[flow_idx];
 	const struct udma_tisci_rm *tisci_rm = rx_chn->common.tisci_rm;
 	struct device *dev = rx_chn->common.dev;
-	struct ti_sci_rm_udmap_rx_flow_cfg req;
+	struct ti_sci_msg_rm_udmap_flow_cfg req;
 	int rx_ring_id;
 	int rx_ringfdq_id;
 	int ret = 0;
@@ -726,9 +684,22 @@ static int k3_nav_udmax_cfg_rx_flow(
 
 	memset(&req, 0, sizeof(req));
 
+	req.valid_params =
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_EINFO_PRESENT_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_PSINFO_PRESENT_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_ERROR_HANDLING_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DESC_TYPE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_SRC_TAG_HI_SEL_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_SRC_TAG_LO_SEL_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_TAG_HI_SEL_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_TAG_LO_SEL_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ0_SZ0_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ1_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ2_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ3_QNUM_VALID;
 	req.nav_id = tisci_rm->tisci_dev_id;
 	req.flow_index = flow->udma_rflow_id;
-	req.rx_ch_index = rx_chn->udma_rchan_id;
 	if (rx_chn->common.epib)
 		req.rx_einfo_present = 1;
 	if (rx_chn->common.psdata_size)
@@ -736,18 +707,11 @@ static int k3_nav_udmax_cfg_rx_flow(
 	if (flow_cfg->rx_error_handling)
 		req.rx_error_handling = 1;
 	req.rx_desc_type = 0;
-	req.rx_sop_offset = 0;
 	req.rx_dest_qnum = rx_ring_id;
-	req.rx_ps_location = 0;
-	req.rx_src_tag_hi = 0;
-	req.rx_src_tag_lo = 0;
-	req.rx_dest_tag_hi = 0;
-	req.rx_dest_tag_lo = 0;
 	req.rx_src_tag_hi_sel = 0;
 	req.rx_src_tag_lo_sel = flow_cfg->src_tag_lo_sel;
 	req.rx_dest_tag_hi_sel = 0;
 	req.rx_dest_tag_lo_sel = 0;
-	req.rx_size_thresh_en = 0;
 	req.rx_fdq0_sz0_qnum = rx_ringfdq_id;
 	req.rx_fdq1_qnum = rx_ringfdq_id;
 	req.rx_fdq2_qnum = rx_ringfdq_id;
@@ -940,11 +904,6 @@ void k3_nav_udmax_release_rx_chn(
 		k3_nav_udmax_release_rx_flow(rx_chn, i);
 
 	if (rx_chn->need_tisci_free) {
-		const struct udma_tisci_rm *tisci_rm =
-						rx_chn->common.tisci_rm;
-		tisci_rm->tisci_udmap_ops->rx_ch_free(tisci_rm->tisci,
-						0xff, tisci_rm->tisci_dev_id,
-						rx_chn->udma_rchan_id);
 		rx_chn->need_tisci_free = false;
 	}
 

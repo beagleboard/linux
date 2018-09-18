@@ -21,7 +21,9 @@ Third-Party channels on a channel by channel basis.
 
 Required properties:
 --------------------
-- compatible:		Should be "ti,k3-navss-udmap"
+- compatible:		Should be
+			"ti,am654-navss-main-udmap" for am654 main NAVSS UDMAP
+			"ti,am654-navss-mcu-udmap" for am654 mcu NAVSS UDMAP
 - #dma-cells:		Should be set to <3>.
 			- The first parameter is a phandle to the remote PSI-L
 			  endpoint
@@ -36,6 +38,9 @@ Required properties:
 - ti,psil-base:		PSI-L thread ID base of the UDMAP channels
 - ti,sci:		phandle on TI-SCI compatible System controller node
 - ti,sci-dev-id:	TI-SCI device id
+- ti,sci-rm-range-tchan: UDMA tchan resource list in pairs of type and subtype
+- ti,sci-rm-range-rchan: UDMA rchan resource list in pairs of type and subtype
+- ti,sci-rm-range-rflow: UDMA rflow resource list in pairs of type and subtype
 
 Remote PSI-L endpoint
 
@@ -58,8 +63,9 @@ Configuration node Optional properties:
 			configuration:
 			- PSIL_STATIC_TR_XY: XY type of StaticTR
 			- PSIL_STATIC_TR_MCAN: MCAN type of StaticTR
-- ti,htp-channel:	If present Hight Throughput Channel is needed for the
-			peripheral.
+- ti,channel-tpl:	Channel Throughput level:
+			0 / or not present - normal channel
+			1 - High Throughput channel
 - ti,needs-epib:	If the endpoint require EPIB to be present in the
 			descriptor.
 - ti,psd-size:		Size of the Protocol Specific Data section of the
@@ -68,46 +74,47 @@ Configuration node Optional properties:
 Example:
 
 main_udmap: udmap@31150000 {
-	compatible = "ti,k3-navss-udmap";
+	compatible = "ti,am654-navss-main-udmap";
 	reg =	<0x0 0x31150000 0x0 0x100>,
 		<0x0 0x34000000 0x0 0x100000>,
 		<0x0 0x35000000 0x0 0x100000>;
 	reg-names = "gcfg", "rchanrt", "tchanrt";
 	#dma-cells = <3>;
-	dma-channels = <270>;
 
 	ti,psi-proxy = <&psilcfg>;
 	ti,ringacc = <&ringacc>;
 	ti,psil-base = <0x1000>;
 
-	interrupt-parent = <&k3_irq>;
+	interrupt-parent = <&main_udmass_inta>;
 
 	ti,sci = <&dmsc>;
 	ti,sci-dev-id = <188>;
+
+	ti,sci-rm-range-tchan = <0x6 0x1>, /* TX_HCHAN */
+				<0x6 0x2>; /* TX_CHAN */
+	ti,sci-rm-range-rchan = <0x6 0x4>, /* RX_HCHAN */
+				<0x6 0x5>; /* RX_CHAN */
+	ti,sci-rm-range-rflow = <0x6 0x6>; /* GP RFLOW */
 };
 
-pdma_main0: pdma@2a41000 {
-	compatible = "ti,k3-pdma";
+pdma0: pdma@2a41000 {
+	compatible = "ti,am654-pdma";
 	reg = <0x0 0x02A41000 0x0 0x400>;
 	reg-names = "eccaggr_cfg";
 
 	ti,psil-base = <0x4400>;
 
 	/* ti,psil-config0-2 */
-	ti,psil-config0 {
-		linux,udma-mode = <UDMA_TR_MODE>;
-		statictr-type = <PSIL_STATIC_TR_XY>;
-	};
-
+	UDMA_PDMA_TR_XY(0);
 	UDMA_PDMA_TR_XY(1);
 	UDMA_PDMA_TR_XY(2);
 };
 
 mcasp0: mcasp@02B00000 {
 ...
-	/* tx: pdma_main0-0, rx: pdma_main0-0 */
-	dmas = <&main_udmap &pdma_main0 0 UDMA_DIR_TX>,
-		<&main_udmap &pdma_main0 0 UDMA_DIR_RX>;
+	/* tx: pdma0-0, rx: pdma0-0 */
+	dmas = <&main_udmap &pdma0 0 UDMA_DIR_TX>,
+	       <&main_udmap &pdma0 0 UDMA_DIR_RX>;
 	dma-names = "tx", "rx";
 ...
 };
