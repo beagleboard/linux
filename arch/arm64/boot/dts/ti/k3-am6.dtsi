@@ -279,6 +279,7 @@
 				phy-names = "phy_arasan";
 				sdhci-caps-mask = <0x7 0x0>;
 				mmc-hs200-1_8v;
+				mmc-ddr-1_8v;
 				status = "disabled";
 			};
 
@@ -313,6 +314,7 @@
 				phy-names = "phy_arasan";
 				sdhci-caps-mask = <0x7 0x0>;
 				mmc-hs200-1_8v;
+				mmc-ddr-1_8v;
 				status = "disabled";
 			};
 
