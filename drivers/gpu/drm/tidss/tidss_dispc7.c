@@ -824,6 +824,27 @@ static int dispc7_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
 	return 0;
 }
 
+/* OVR */
+static void dispc7_ovr_set_plane(struct dispc_device *dispc,
+				 u32 hw_plane, u32 hw_videoport,
+				 uint x, uint y, uint zpos)
+{
+	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(zpos),
+			hw_plane, 4, 1);
+	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(zpos),
+			x, 17, 6);
+	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(zpos),
+			y, 30, 19);
+}
+
+static void dispc7_ovr_enable_plane(struct dispc_device *dispc,
+				    u32 hw_videoport,
+				    uint zpos, bool enable)
+{
+	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(zpos),
+			!!enable, 0, 0);
+}
+
 /* CSC */
 enum csc_ctm {
 	CSC_RR, CSC_RG, CSC_RB,
@@ -1520,12 +1541,8 @@ static int dispc7_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 	/* Set pre-multiplied alpha as default. */
 	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, 1, 22, 22);
 
-	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(pi->zorder),
-			hw_plane, 4, 1);
-	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(pi->zorder),
-			pi->pos_x, 17, 6);
-	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(pi->zorder),
-			pi->pos_y, 30, 19);
+	dispc7_ovr_set_plane(dispc, hw_plane, hw_videoport,
+			     pi->pos_x, pi->pos_y, pi->zorder);
 
 	dispc->plane_data[hw_plane].zorder = pi->zorder;
 	dispc->plane_data[hw_plane].hw_videoport = hw_videoport;
@@ -1536,10 +1553,11 @@ static int dispc7_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 static int dispc7_plane_enable(struct dispc_device *dispc,
 			       u32 hw_plane, bool enable)
 {
-	OVR_REG_FLD_MOD(dispc, dispc->plane_data[hw_plane].hw_videoport,
-			DISPC_OVR_ATTRIBUTES(dispc->plane_data[hw_plane].zorder),
-			!!enable, 0, 0);
+	dispc7_ovr_enable_plane(dispc, dispc->plane_data[hw_plane].hw_videoport,
+				dispc->plane_data[hw_plane].zorder, enable);
+
 	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, !!enable, 0, 0);
+
 	return 0;
 }
 
