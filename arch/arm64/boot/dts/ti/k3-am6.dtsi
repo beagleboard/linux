@@ -1814,6 +1814,9 @@
 				cdns,fifo-width = <4>;
 				cdns,trigger-address = <0x50000000>;
 				clocks = <&k3_clks 55 5>;
+				assigned-clocks = <&k3_clks 55 5>;
+				assigned-clock-parents = <&k3_clks 55 7>;
+				assigned-clock-rates = <166666666>;
 				power-domains = <&k3_pds 55>;
 				#address-cells = <1>;
 				#size-cells = <0>;
