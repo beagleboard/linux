@@ -59,7 +59,7 @@ static const struct dispc7_features dispc7_am6_feats = {
 	.vp_name = { "vp1", "vp2" },
 	.ovr_name = { "ovr1", "ovr2" },
 	.vpclk_name =  { "vp1", "vp2" },
-	.vp_enc_type =	{ DRM_MODE_ENCODER_LVDS, DRM_MODE_ENCODER_DPI },
+	.vp_bus_type = { DISPC7_VP_OLDI, DISPC7_VP_DPI },
 
 	.num_planes = 2,
 	/* note: vid is plane_id 0 and vidl1 is plane_id 1 */
@@ -70,25 +70,6 @@ static const struct dispc7_features dispc7_am6_feats = {
 static const struct of_device_id dispc7_of_table[] = {
 	{ .compatible = "ti,am6-dss", .data = &dispc7_am6_feats },
 	{ }
-};
-
-enum dispc7_oldi_mode { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
-
-struct dispc7_bus_format {
-	u32 bus_fmt;
-	u32 data_width;
-	bool oldi;
-	enum dispc7_oldi_mode oldi_mode;
-};
-
-static const struct dispc7_bus_format dispc7_bus_formats[] = {
-	{ MEDIA_BUS_FMT_RGB444_1X12,		12, false, 0 },
-	{ MEDIA_BUS_FMT_RGB565_1X16,		16, false, 0 },
-	{ MEDIA_BUS_FMT_RGB666_1X18,		18, false, 0 },
-	{ MEDIA_BUS_FMT_RGB888_1X24,		24, false, 0 },
-	{ MEDIA_BUS_FMT_RGB666_1X7X3_SPWG,	18, true, SPWG_18 },
-	{ MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,	24, true, SPWG_24 },
-	{ MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA,	24, true, JEIDA_24 },
 };
 
 /*
@@ -130,7 +111,6 @@ static const struct dispc7_bus_format dispc7_bus_formats[] = {
 
 struct dss_vp_data {
 	u32 gamma_table[DISPC7_GAMMA_TABLE_SIZE];
-	bool oldi;
 };
 
 struct dss_plane_data {
@@ -444,10 +424,46 @@ static void dispc7_write_irqenable(struct dispc_device *dispc, u64 mask)
 	dispc7_read(dispc, DISPC_IRQENABLE_SET);
 }
 
+enum dispc7_oldi_mode { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
+
+struct dispc7_bus_format {
+	u32 bus_fmt;
+	u32 data_width;
+	enum dispc7_vp_bus_type bus_type;
+	enum dispc7_oldi_mode oldi_mode;
+};
+
+static const struct dispc7_bus_format dispc7_bus_formats[] = {
+	{ MEDIA_BUS_FMT_RGB444_1X12,		12, DISPC7_VP_DPI, 0 },
+	{ MEDIA_BUS_FMT_RGB565_1X16,		16, DISPC7_VP_DPI, 0 },
+	{ MEDIA_BUS_FMT_RGB666_1X18,		18, DISPC7_VP_DPI, 0 },
+	{ MEDIA_BUS_FMT_RGB888_1X24,		24, DISPC7_VP_DPI, 0 },
+	{ MEDIA_BUS_FMT_RGB666_1X7X3_SPWG,	18, DISPC7_VP_OLDI, SPWG_18 },
+	{ MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,	24, DISPC7_VP_OLDI, SPWG_24 },
+	{ MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA,	24, DISPC7_VP_OLDI, JEIDA_24 },
+};
+
+static const
+struct dispc7_bus_format *dispc7_vp_find_bus_fmt(struct dispc_device *dispc,
+						 u32 hw_videoport,
+						 u32 bus_fmt, u32 bus_flags)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dispc7_bus_formats); ++i) {
+		if (dispc7_bus_formats[i].bus_fmt == bus_fmt)
+			return &dispc7_bus_formats[i];
+	}
+
+	return NULL;
+}
 
 static void dispc7_oldi_tx_power(struct dispc_device *dispc, bool power)
 {
 	u32 val = power ? 0 : CTRLMMR0P1_OLDI_PWRDN_TX;
+
+	if (WARN_ON(!dispc->syscon))
+		return;
 
 	regmap_update_bits(dispc->syscon, CTRLMMR0P1_OLDI_DAT0_IO_CTRL,
 			   CTRLMMR0P1_OLDI_PWRDN_TX, val);
@@ -528,26 +544,20 @@ static void dispc7_vp_prepare(struct dispc_device *dispc, u32 hw_videoport,
 			      const struct drm_display_mode *mode,
 			      u32 bus_fmt, u32 bus_flags)
 {
-	const struct dispc7_bus_format *fmt = NULL;
-	int i;
+	const struct dispc7_bus_format *fmt;
 
-	for (i = 0; i < ARRAY_SIZE(dispc7_bus_formats); ++i) {
-		if (dispc7_bus_formats[i].bus_fmt != bus_fmt)
-			continue;
-
-		fmt = &dispc7_bus_formats[i];
-		break;
-	}
+	fmt = dispc7_vp_find_bus_fmt(dispc, hw_videoport, bus_fmt, bus_flags);
 
 	if (WARN_ON(!fmt))
 		return;
 
-	if (fmt->oldi) {
+	if (WARN_ON(dispc->feat->vp_bus_type[hw_videoport] != fmt->bus_type))
+		return;
+
+	if (dispc->feat->vp_bus_type[hw_videoport] == DISPC7_VP_OLDI) {
 		dispc7_oldi_tx_power(dispc, true);
 
 		dispc7_enable_oldi(dispc, hw_videoport, fmt);
-
-		dispc->vp_data[hw_videoport].oldi = true;
 	}
 }
 
@@ -556,17 +566,10 @@ static void dispc7_vp_enable(struct dispc_device *dispc, u32 hw_videoport,
 			     u32 bus_fmt, u32 bus_flags)
 {
 	bool align, onoff, rf, ieo, ipc, ihs, ivs;
-	int i;
-	const struct dispc7_bus_format *fmt = NULL;
+	const struct dispc7_bus_format *fmt;
 	u32 hsw, hfp, hbp, vsw, vfp, vbp;
 
-	for (i = 0; i < ARRAY_SIZE(dispc7_bus_formats); ++i) {
-		if (dispc7_bus_formats[i].bus_fmt != bus_fmt)
-			continue;
-
-		fmt = &dispc7_bus_formats[i];
-		break;
-	}
+	fmt = dispc7_vp_find_bus_fmt(dispc, hw_videoport, bus_fmt, bus_flags);
 
 	if (WARN_ON(!fmt))
 		return;
@@ -623,7 +626,7 @@ static void dispc7_vp_enable(struct dispc_device *dispc, u32 hw_videoport,
 	align = true;
 
 	/* always use DE_HIGH for OLDI */
-	if (fmt->oldi)
+	if (dispc->feat->vp_bus_type[hw_videoport] == DISPC7_VP_OLDI)
 		ieo = false;
 
 	dispc7_vp_write(dispc, hw_videoport, DISPC_VP_POL_FREQ,
@@ -649,12 +652,10 @@ static void dispc7_vp_disable(struct dispc_device *dispc, u32 hw_videoport)
 
 static void dispc7_vp_unprepare(struct dispc_device *dispc, u32 hw_videoport)
 {
-	if (dispc->vp_data[hw_videoport].oldi) {
+	if (dispc->feat->vp_bus_type[hw_videoport] == DISPC7_VP_OLDI) {
 		dispc7_vp_write(dispc, hw_videoport, DISPC_VP_DSS_OLDI_CFG, 0);
 
 		dispc7_oldi_tx_power(dispc, false);
-
-		dispc->vp_data[hw_videoport].oldi = false;
 	}
 }
 
@@ -757,20 +758,18 @@ static int dispc7_vp_check_config(struct dispc_device *dispc, u32 hw_videoport,
 				  const struct drm_display_mode *mode,
 				  u32 bus_fmt, u32 bus_flags)
 {
+	const struct dispc7_bus_format *fmt;
 	enum drm_mode_status ok;
-	int i;
 
 	ok = dispc7_vp_check_mode(dispc, hw_videoport, mode);
 	if (ok != MODE_OK)
 		return -EINVAL;
 
+	fmt = dispc7_vp_find_bus_fmt(dispc, hw_videoport, bus_fmt, bus_flags);
+	if (!fmt)
+		return -EINVAL;
 
-	for (i = 0; i < ARRAY_SIZE(dispc7_bus_formats); ++i) {
-		if (dispc7_bus_formats[i].bus_fmt == bus_fmt)
-			break;
-	}
-
-	if (i == ARRAY_SIZE(dispc7_bus_formats))
+	if (dispc->feat->vp_bus_type[hw_videoport] != fmt->bus_type)
 		return -EINVAL;
 
 	return 0;
@@ -1941,12 +1940,13 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 
 			dev_dbg(dev, "Setting up panel for port %d\n", i);
 
-			enc_type = dispc->feat->vp_enc_type[i];
-			switch (enc_type) {
-			case DRM_MODE_ENCODER_LVDS:
+			switch (dispc->feat->vp_bus_type[i]) {
+			case DISPC7_VP_OLDI:
+				enc_type = DRM_MODE_ENCODER_LVDS;
 				conn_type = DRM_MODE_CONNECTOR_LVDS;
 				break;
-			case DRM_MODE_ENCODER_DPI:
+			case DISPC7_VP_DPI:
+				enc_type = DRM_MODE_ENCODER_DPI;
 				conn_type = DRM_MODE_CONNECTOR_DPI;
 				break;
 			default:
