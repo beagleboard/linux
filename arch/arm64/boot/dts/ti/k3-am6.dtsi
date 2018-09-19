@@ -1808,7 +1808,7 @@
 			ospi0: ospi@47040000 {
 				compatible = "ti,am654-ospi", "cdns,qspi-nor";
 				reg = <0x0 0x47040000 0x0 0x100>,
-					<0x4 0x00000000 0x1 0x0000000>;
+					<0x5 0x00000000 0x1 0x0000000>;
 				interrupts = <GIC_SPI 552 IRQ_TYPE_LEVEL_HIGH>;
 				cdns,fifo-depth = <256>;
 				cdns,fifo-width = <4>;
@@ -1824,7 +1824,7 @@
 			ospi1: ospi@47050000 {
 				compatible = "ti,am654-ospi", "cdns,qspi-nor";
 				reg = <0x0 0x47050000 0x0 0x100>,
-					<0x6 0x00000000 0x1 0x00000000>;
+					<0x7 0x00000000 0x1 0x00000000>;
 				interrupts = <GIC_SPI 553 IRQ_TYPE_LEVEL_HIGH>;
 				cdns,fifo-depth = <256>;
 				cdns,fifo-width = <4>;
