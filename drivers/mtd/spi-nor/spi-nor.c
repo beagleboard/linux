@@ -69,7 +69,6 @@ struct flash_info {
 #define SECT_4K_PMC		BIT(4)	/* SPINOR_OP_BE_4K_PMC works uniformly */
 #define SPI_NOR_DUAL_READ	BIT(5)	/* Flash supports Dual Read */
 #define SPI_NOR_QUAD_READ	BIT(6)	/* Flash supports Quad Read */
-#define SPI_NOR_OCTAL_READ	BIT(13)	/* Flash supports Octal Read */
 #define USE_FSR			BIT(7)	/* use flag status register */
 #define SPI_NOR_HAS_LOCK	BIT(8)	/* Flash supports lock/unlock via SR */
 #define SPI_NOR_HAS_TB		BIT(9)	/*
@@ -90,6 +89,7 @@ struct flash_info {
 #define NO_CHIP_ERASE		BIT(12) /* Chip does not support chip erase */
 #define SPI_NOR_SKIP_SFDP	BIT(13)	/* Skip parsing of SFDP tables */
 #define USE_CLSR		BIT(14)	/* use CLSR command */
+#define SPI_NOR_OCTAL_READ	BIT(15)	/* Flash supports Octal Read */
 };
 
 #define JEDEC_MFR(info)	((info)->id[0])
