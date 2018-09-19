@@ -20,6 +20,8 @@ Optional properties:
 - cdns,rclk-en : Flag to indicate that QSPI return clock is used to latch
   the read data rather than the QSPI clock. Make sure that QSPI return
   clock is populated on the board before using this property.
+- cdns,delay-elem-ps: Size of single PHY DLL delay element in ps.
+  Defaults to 80ps if property is absent.
 
 Optional subnodes:
 Subnodes of the Cadence Quad SPI controller are spi slave nodes with additional
@@ -35,6 +37,8 @@ custom properties:
 		  (qspi_n_ss_out).
 - cdns,tslch-ns : Delay in nanoseconds between setting qspi_n_ss_out low
                   and first bit transfer.
+- cdns,phy-mode : Flag to indicate whether PHY needs to be enabled when
+		  reading from flash
 
 Example:
 
