@@ -1813,6 +1813,7 @@
 				cdns,fifo-depth = <256>;
 				cdns,fifo-width = <4>;
 				cdns,trigger-address = <0x50000000>;
+				cdns,delay-elem-ps = <80>;
 				clocks = <&k3_clks 55 5>;
 				assigned-clocks = <&k3_clks 55 5>;
 				assigned-clock-parents = <&k3_clks 55 7>;
