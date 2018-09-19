@@ -61,6 +61,8 @@ struct cqspi_flash_pdata {
 	u8		cs;
 	bool		registered;
 	bool		use_direct_mode;
+	bool		dqs_en;
+
 };
 
 struct cqspi_st {
@@ -156,6 +158,7 @@ struct cqspi_platdata {
 #define CQSPI_REG_READCAPTURE			0x10
 #define CQSPI_REG_READCAPTURE_BYPASS_LSB	0
 #define CQSPI_REG_READCAPTURE_DELAY_LSB		1
+#define CQSPI_REG_READCAPTURE_DQS		BIT(8)
 #define CQSPI_REG_READCAPTURE_DELAY_MASK	0xF
 
 #define CQSPI_REG_SIZE				0x14
@@ -807,7 +810,8 @@ static void cqspi_config_baudrate_div(struct cqspi_st *cqspi)
 
 static void cqspi_readdata_capture(struct cqspi_st *cqspi,
 				   const bool bypass,
-				   const unsigned int delay)
+				   const unsigned int delay,
+				   const bool dqs_en)
 {
 	void __iomem *reg_base = cqspi->iobase;
 	unsigned int reg;
@@ -819,12 +823,16 @@ static void cqspi_readdata_capture(struct cqspi_st *cqspi,
 	else
 		reg &= ~(1 << CQSPI_REG_READCAPTURE_BYPASS_LSB);
 
+	if (dqs_en)
+		reg |= CQSPI_REG_READCAPTURE_DQS;
+	else
+		reg &= ~CQSPI_REG_READCAPTURE_DQS;
+
 	reg &= ~(CQSPI_REG_READCAPTURE_DELAY_MASK
 		 << CQSPI_REG_READCAPTURE_DELAY_LSB);
 
 	reg |= (delay & CQSPI_REG_READCAPTURE_DELAY_MASK)
 		<< CQSPI_REG_READCAPTURE_DELAY_LSB;
-
 	writel(reg, reg_base + CQSPI_REG_READCAPTURE);
 }
 
@@ -871,7 +879,7 @@ static void cqspi_configure(struct spi_nor *nor)
 		cqspi_config_baudrate_div(cqspi);
 		cqspi_delay(nor);
 		cqspi_readdata_capture(cqspi, !cqspi->rclk_en,
-				       f_pdata->read_delay);
+				       f_pdata->read_delay, false);
 	}
 
 	if (switch_cs || switch_ck)
@@ -1115,6 +1123,8 @@ static int cqspi_of_get_flash_pdata(struct platform_device *pdev,
 		dev_err(&pdev->dev, "couldn't determine tslch-ns\n");
 		return -ENXIO;
 	}
+
+	f_pdata->dqs_en = of_property_read_bool(np, "spi-dqs");
 
 	if (of_property_read_u32(np, "spi-max-frequency", &f_pdata->clk_rate)) {
 		dev_err(&pdev->dev, "couldn't determine spi-max-frequency\n");
