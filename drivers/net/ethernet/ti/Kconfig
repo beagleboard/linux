@@ -102,7 +102,7 @@ config TI_AM65_CPSW_NUSS
 	  This driver supports K3 AM654 Ethernet Switch SubSystem Driver
 
 	  To compile this driver as a module, choose M here: the module
-	  will be called keystone_netcp.
+	  will be called ti-am65-cpsw-nuss.
 
 config TI_AM65_CPTS
 	tristate "TI K3 AM65x CPTS"
