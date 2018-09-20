@@ -1421,6 +1421,27 @@ static void am65_cpsw_nuss_slave_disable_unused(struct am65_cpsw_port *port)
 	cpsw_sl_ctl_reset(port->slave.mac_sl);
 }
 
+static void am65_cpsw_nuss_free_tx_chns(void *data)
+{
+	struct am65_cpsw_common *common = data;
+	int i;
+
+	for (i = 0; i < AM65_CPSW_MAX_TX_QUEUES; i++) {
+		struct am65_cpsw_tx_chn	*tx_chn = &common->tx_chns[i];
+
+		if (tx_chn->irq > 0)
+			k3_nav_udmax_tx_put_irq(tx_chn->tx_chn);
+
+		if (!IS_ERR_OR_NULL(tx_chn->tx_chn))
+			k3_nav_udmax_release_tx_chn(tx_chn->tx_chn);
+
+		if (!IS_ERR_OR_NULL(tx_chn->desc_pool))
+			k3_knav_pool_destroy(tx_chn->desc_pool);
+
+		memset(tx_chn, 0, sizeof(*tx_chn));
+	};
+}
+
 static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 {
 	struct device *dev = common->dev;
@@ -1460,7 +1481,6 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 					hdesc_size, tx_chn_name);
 		if (IS_ERR(tx_chn->desc_pool)) {
 			ret = PTR_ERR(tx_chn->desc_pool);
-			tx_chn->desc_pool = NULL;
 			dev_err(dev, "Failed to create poll %d\n", ret);
 			goto err;
 		}
@@ -1469,7 +1489,6 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 			k3_nav_udmax_request_tx_chn(dev, tx_chn_name, &tx_cfg);
 		if (IS_ERR(tx_chn->tx_chn)) {
 			ret = PTR_ERR(tx_chn->tx_chn);
-			tx_chn->tx_chn = NULL;
 			dev_err(dev, "Failed to request tx dma channel %d\n",
 				ret);
 			goto err;
@@ -1478,29 +1497,37 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 				tx_chn->tx_chn, &tx_chn->irq,
 				IRQF_TRIGGER_HIGH, true,
 				i ? common->tx_chns[0].tx_chn : NULL);
-		if (ret)
+		if (ret) {
+			dev_err(dev, "Failed to get tx dma irq %d\n", ret);
 			goto err;
+		}
 	}
 
-	return 0;
-
 err:
-	for (i = 0; i < AM65_CPSW_MAX_TX_QUEUES; i++) {
-		struct am65_cpsw_tx_chn	*tx_chn = &common->tx_chns[i];
-
-		if (tx_chn->irq > 0)
-			k3_nav_udmax_tx_put_irq(tx_chn->tx_chn);
-
-		if (tx_chn->tx_chn)
-			k3_nav_udmax_release_tx_chn(tx_chn->tx_chn);
-
-		if (tx_chn->desc_pool)
-			k3_knav_pool_destroy(tx_chn->desc_pool);
-
-		memset(tx_chn, 0, sizeof(*tx_chn));
+	i = devm_add_action(dev, am65_cpsw_nuss_free_tx_chns, common);
+	if (i) {
+		dev_err(dev, "failed to add free_tx_chns action %d", i);
+		return i;
 	}
 
 	return ret;
+}
+
+static void am65_cpsw_nuss_free_rx_chns(void *data)
+{
+	struct am65_cpsw_common *common = data;
+	struct am65_cpsw_rx_chn *rx_chn = &common->rx_chns;
+	int i;
+
+	if (!IS_ERR_OR_NULL(rx_chn->rx_chn)) {
+		for (i = 0; i < AM65_CPSW_MAX_RX_FLOWS; i++)
+			k3_nav_udmax_rx_put_irq(rx_chn->rx_chn, i);
+
+		k3_nav_udmax_release_rx_chn(rx_chn->rx_chn);
+	}
+
+	if (!IS_ERR_OR_NULL(rx_chn->desc_pool))
+		k3_knav_pool_destroy(rx_chn->desc_pool);
 }
 
 static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
@@ -1532,18 +1559,15 @@ static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
 						     hdesc_size, "rx");
 	if (IS_ERR(rx_chn->desc_pool)) {
 		ret = PTR_ERR(rx_chn->desc_pool);
-		rx_chn->desc_pool = NULL;
 		dev_err(dev, "Failed to create rx poll %d\n", ret);
-		return ret;
+		goto err;
 	}
 
 	rx_chn->rx_chn = k3_nav_udmax_request_rx_chn(dev, "rx", &rx_cfg);
 	if (IS_ERR(rx_chn->rx_chn)) {
 		ret = PTR_ERR(rx_chn->rx_chn);
-		rx_chn->rx_chn = NULL;
 		dev_err(dev, "Failed to request rx dma channel %d\n", ret);
-		k3_knav_pool_destroy(rx_chn->desc_pool);
-		return ret;
+		goto err;
 	}
 
 	common->rx_flow_id_base =
@@ -1587,23 +1611,18 @@ static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
 		ret = k3_nav_udmax_rx_get_irq(rx_chn->rx_chn, i, &rx_chn->irq,
 					      IRQF_TRIGGER_HIGH,
 					      true, i ? 0 : -1);
-		if (ret)
+		if (ret) {
+			dev_err(dev, "Failed to get rx dma irq %d\n", ret);
 			goto err;
+		}
 	}
 
-	return 0;
-
 err:
-	/* TODO: TI-SCI) irqchip driver is buggy and crashes when
-	 * set of irqs or irq group is released
-	 */
-	for (i = rx_cfg.flow_id_num; i; i--)
-		k3_nav_udmax_rx_put_irq(rx_chn->rx_chn, i - 1);
-
-	k3_nav_udmax_release_rx_chn(rx_chn->rx_chn);
-
-	if (rx_chn->desc_pool)
-		k3_knav_pool_destroy(rx_chn->desc_pool);
+	i = devm_add_action(dev, am65_cpsw_nuss_free_rx_chns, common);
+	if (i) {
+		dev_err(dev, "failed to add free_rx_chns action %d", i);
+		return i;
+	}
 
 	return ret;
 }
