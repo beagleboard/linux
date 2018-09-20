@@ -18,10 +18,6 @@
 		     "ti,dra7";
 };
 
-&cpu0 {
-	vdd-supply = <&smps12_reg>;
-};
-
 &mmc1 {
 	pinctrl-names = "default", "hs", "sdr12", "sdr25", "sdr50", "ddr50", "sdr104";
 	pinctrl-0 = <&mmc1_pins_default>;
