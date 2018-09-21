@@ -3,6 +3,7 @@
 #include "gssi-27-009-rts-cyclone.dtsi"
 #include "gssi-27-009-rts-hv.dtsi"
 #include "gssi-27-009-rts-pru.dtsi"
+#include "gssi-27-009-serial.dtsi"
 #include "gssi-27-009-wl1837.dtsi"
 
 / {
