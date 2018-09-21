@@ -277,6 +277,9 @@
 				#clock-cells = <0>;
 				phys=<&mmc_phy0>;
 				phy-names = "phy_arasan";
+				sdhci-caps-mask = <0x7 0x0>;
+				mmc-hs200-1_8v;
+				mmc-ddr-1_8v;
 				status = "disabled";
 			};
 
@@ -309,6 +312,9 @@
 				#clock-cells = <0>;
 				phys=<&mmc_phy1>;
 				phy-names = "phy_arasan";
+				sdhci-caps-mask = <0x7 0x0>;
+				mmc-hs200-1_8v;
+				mmc-ddr-1_8v;
 				status = "disabled";
 			};
 
@@ -1814,12 +1820,16 @@
 			ospi0: ospi@47040000 {
 				compatible = "ti,am654-ospi", "cdns,qspi-nor";
 				reg = <0x0 0x47040000 0x0 0x100>,
-					<0x4 0x00000000 0x1 0x0000000>;
+					<0x5 0x00000000 0x1 0x0000000>;
 				interrupts = <GIC_SPI 552 IRQ_TYPE_LEVEL_HIGH>;
 				cdns,fifo-depth = <256>;
 				cdns,fifo-width = <4>;
 				cdns,trigger-address = <0x50000000>;
+				cdns,delay-elem-ps = <80>;
 				clocks = <&k3_clks 55 5>;
+				assigned-clocks = <&k3_clks 55 5>;
+				assigned-clock-parents = <&k3_clks 55 7>;
+				assigned-clock-rates = <166666666>;
 				power-domains = <&k3_pds 55>;
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -1830,7 +1840,7 @@
 			ospi1: ospi@47050000 {
 				compatible = "ti,am654-ospi", "cdns,qspi-nor";
 				reg = <0x0 0x47050000 0x0 0x100>,
-					<0x6 0x00000000 0x1 0x00000000>;
+					<0x7 0x00000000 0x1 0x00000000>;
 				interrupts = <GIC_SPI 553 IRQ_TYPE_LEVEL_HIGH>;
 				cdns,fifo-depth = <256>;
 				cdns,fifo-width = <4>;
