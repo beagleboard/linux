@@ -1,5 +1,6 @@
 #include "am57xx-beagle-x15-common.dtsi"
 #include "am57xx-cmem.dtsi"
+#include "gssi-27-009-wl1837.dtsi"
 
 / {
 	model = "TI AM5728 BeagleBoard-X15 rev C on GSSI mainboard";
