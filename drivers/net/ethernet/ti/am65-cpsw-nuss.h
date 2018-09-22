@@ -98,6 +98,9 @@ struct am65_cpsw_common {
 	u32			bus_freq_mhz;
 	struct davinci_mdio_data *mdio;
 	struct am65_cpts *cpts;
+
+	bool			pf_p0_rx_ptype_rrobin;
+	u32			cur_txq;
 };
 
 struct am65_cpsw_ndev_stats {
@@ -132,6 +135,7 @@ struct am65_cpsw_ndev_priv {
 extern const struct ethtool_ops am65_cpsw_ethtool_ops_slave;
 
 void am65_cpsw_nuss_adjust_link(struct net_device *ndev);
+void am65_cpsw_nuss_set_p0_ptype(struct am65_cpsw_common *common);
 
 #define	am65_ndev_dbg(ndev, arg...) \
 	do {                                                          \
