@@ -150,6 +150,9 @@ static int omap_atomic_update_normalize_zpos(struct drm_device *dev,
 		    !new_state->zpos_changed)
 			continue;
 
+		if (omap_crtc_atomic_get_trans_key_mode(crtc, new_state))
+			continue;
+
 		/* Reset plane increment and index value for every crtc */
 		n = 0;
 

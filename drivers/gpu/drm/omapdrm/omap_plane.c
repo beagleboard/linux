@@ -240,6 +240,13 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 		is_fourcc_yuv = state->fb->format->is_yuv;
 
 	if (state->src_w > width_fp || state->crtc_w > width) {
+		/*
+		 * We cannot have dual plane/overlay and trans_key_mode
+		 * enabled concurrently, hence rejecting this configuration
+		 */
+		if (omap_crtc_atomic_get_trans_key_mode(crtc, crtc_state))
+			return -EINVAL;
+
 		if (is_fourcc_yuv &&
 		    (((state->src_w >> 16) / 2 & 1) ||
 		     state->crtc_w / 2 & 1)) {
