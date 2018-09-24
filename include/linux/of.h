@@ -26,6 +26,7 @@
 #include <linux/property.h>
 #include <linux/list.h>
 #include <linux/rhashtable.h>
+#include <linux/slab.h>
 
 #include <asm/byteorder.h>
 #include <asm/errno.h>
