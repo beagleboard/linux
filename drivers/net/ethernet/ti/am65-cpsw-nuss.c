@@ -344,7 +344,7 @@ static int am65_cpsw_nuss_rx_push(struct am65_cpsw_common *common,
 	buf_dma = dma_map_single(dev, skb->data, pkt_len, DMA_FROM_DEVICE);
 	if (unlikely(dma_mapping_error(dev, buf_dma))) {
 		k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
-		dev_err(dev, "Failed to map skb buffer\n");
+		dev_err(dev, "Failed to map rx skb buffer\n");
 		return -EINVAL;
 	}
 
@@ -1018,7 +1018,7 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 	buf_dma = dma_map_single(dev, skb->data, pkt_len,
 				 DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(dev, buf_dma))) {
-		dev_err(dev, "Failed to map skb buffer\n");
+		dev_err(dev, "Failed to map tx skb buffer\n");
 		ret = -EINVAL;
 		ndev->stats.tx_errors++;
 		goto drop_stop_q;
@@ -1079,7 +1079,7 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 		buf_dma = skb_frag_dma_map(dev, frag, 0, frag_size,
 					   DMA_TO_DEVICE);
 		if (unlikely(dma_mapping_error(dev, buf_dma))) {
-			dev_err(dev, "Failed to map skb page\n");
+			dev_err(dev, "Failed to map tx skb page\n");
 			k3_knav_pool_free(tx_chn->desc_pool, next_desc);
 			ret = -EINVAL;
 			ndev->stats.tx_errors++;
@@ -1421,6 +1421,27 @@ static void am65_cpsw_nuss_slave_disable_unused(struct am65_cpsw_port *port)
 	cpsw_sl_ctl_reset(port->slave.mac_sl);
 }
 
+static void am65_cpsw_nuss_free_tx_chns(void *data)
+{
+	struct am65_cpsw_common *common = data;
+	int i;
+
+	for (i = 0; i < AM65_CPSW_MAX_TX_QUEUES; i++) {
+		struct am65_cpsw_tx_chn	*tx_chn = &common->tx_chns[i];
+
+		if (tx_chn->irq > 0)
+			k3_nav_udmax_tx_put_irq(tx_chn->tx_chn);
+
+		if (!IS_ERR_OR_NULL(tx_chn->tx_chn))
+			k3_nav_udmax_release_tx_chn(tx_chn->tx_chn);
+
+		if (!IS_ERR_OR_NULL(tx_chn->desc_pool))
+			k3_knav_pool_destroy(tx_chn->desc_pool);
+
+		memset(tx_chn, 0, sizeof(*tx_chn));
+	};
+}
+
 static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 {
 	struct device *dev = common->dev;
@@ -1460,7 +1481,6 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 					hdesc_size, tx_chn_name);
 		if (IS_ERR(tx_chn->desc_pool)) {
 			ret = PTR_ERR(tx_chn->desc_pool);
-			tx_chn->desc_pool = NULL;
 			dev_err(dev, "Failed to create poll %d\n", ret);
 			goto err;
 		}
@@ -1469,7 +1489,6 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 			k3_nav_udmax_request_tx_chn(dev, tx_chn_name, &tx_cfg);
 		if (IS_ERR(tx_chn->tx_chn)) {
 			ret = PTR_ERR(tx_chn->tx_chn);
-			tx_chn->tx_chn = NULL;
 			dev_err(dev, "Failed to request tx dma channel %d\n",
 				ret);
 			goto err;
@@ -1478,29 +1497,37 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 				tx_chn->tx_chn, &tx_chn->irq,
 				IRQF_TRIGGER_HIGH, true,
 				i ? common->tx_chns[0].tx_chn : NULL);
-		if (ret)
+		if (ret) {
+			dev_err(dev, "Failed to get tx dma irq %d\n", ret);
 			goto err;
+		}
 	}
 
-	return 0;
-
 err:
-	for (i = 0; i < AM65_CPSW_MAX_TX_QUEUES; i++) {
-		struct am65_cpsw_tx_chn	*tx_chn = &common->tx_chns[i];
-
-		if (tx_chn->irq > 0)
-			k3_nav_udmax_tx_put_irq(tx_chn->tx_chn);
-
-		if (tx_chn->tx_chn)
-			k3_nav_udmax_release_tx_chn(tx_chn->tx_chn);
-
-		if (tx_chn->desc_pool)
-			k3_knav_pool_destroy(tx_chn->desc_pool);
-
-		memset(tx_chn, 0, sizeof(*tx_chn));
+	i = devm_add_action(dev, am65_cpsw_nuss_free_tx_chns, common);
+	if (i) {
+		dev_err(dev, "failed to add free_tx_chns action %d", i);
+		return i;
 	}
 
 	return ret;
+}
+
+static void am65_cpsw_nuss_free_rx_chns(void *data)
+{
+	struct am65_cpsw_common *common = data;
+	struct am65_cpsw_rx_chn *rx_chn = &common->rx_chns;
+	int i;
+
+	if (!IS_ERR_OR_NULL(rx_chn->rx_chn)) {
+		for (i = 0; i < AM65_CPSW_MAX_RX_FLOWS; i++)
+			k3_nav_udmax_rx_put_irq(rx_chn->rx_chn, i);
+
+		k3_nav_udmax_release_rx_chn(rx_chn->rx_chn);
+	}
+
+	if (!IS_ERR_OR_NULL(rx_chn->desc_pool))
+		k3_knav_pool_destroy(rx_chn->desc_pool);
 }
 
 static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
@@ -1532,18 +1559,15 @@ static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
 						     hdesc_size, "rx");
 	if (IS_ERR(rx_chn->desc_pool)) {
 		ret = PTR_ERR(rx_chn->desc_pool);
-		rx_chn->desc_pool = NULL;
 		dev_err(dev, "Failed to create rx poll %d\n", ret);
-		return ret;
+		goto err;
 	}
 
 	rx_chn->rx_chn = k3_nav_udmax_request_rx_chn(dev, "rx", &rx_cfg);
 	if (IS_ERR(rx_chn->rx_chn)) {
 		ret = PTR_ERR(rx_chn->rx_chn);
-		rx_chn->rx_chn = NULL;
 		dev_err(dev, "Failed to request rx dma channel %d\n", ret);
-		k3_knav_pool_destroy(rx_chn->desc_pool);
-		return ret;
+		goto err;
 	}
 
 	common->rx_flow_id_base =
@@ -1587,23 +1611,18 @@ static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
 		ret = k3_nav_udmax_rx_get_irq(rx_chn->rx_chn, i, &rx_chn->irq,
 					      IRQF_TRIGGER_HIGH,
 					      true, i ? 0 : -1);
-		if (ret)
+		if (ret) {
+			dev_err(dev, "Failed to get rx dma irq %d\n", ret);
 			goto err;
+		}
 	}
 
-	return 0;
-
 err:
-	/* TODO: TI-SCI) irqchip driver is buggy and crashes when
-	 * set of irqs or irq group is released
-	 */
-	for (i = rx_cfg.flow_id_num; i; i--)
-		k3_nav_udmax_rx_put_irq(rx_chn->rx_chn, i - 1);
-
-	k3_nav_udmax_release_rx_chn(rx_chn->rx_chn);
-
-	if (rx_chn->desc_pool)
-		k3_knav_pool_destroy(rx_chn->desc_pool);
+	i = devm_add_action(dev, am65_cpsw_nuss_free_rx_chns, common);
+	if (i) {
+		dev_err(dev, "failed to add free_rx_chns action %d", i);
+		return i;
+	}
 
 	return ret;
 }
@@ -1648,6 +1667,7 @@ static int am65_cpsw_init_mdio(struct am65_cpsw_common *common)
 	reg_base = common->ss_base + AM65_CPSW_MDIO_BASE;
 	mdio = davinci_mdio_create(dev, node, reg_base, "fck");
 	if (IS_ERR(mdio)) {
+		of_node_put(node);
 		dev_err(dev, "MDIO init err %ld\n", PTR_ERR(mdio));
 		return PTR_ERR(mdio);
 	}
@@ -1869,6 +1889,13 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 	if (!ndev_priv->stats)
 		return -ENOMEM;
 
+	ret = devm_add_action_or_reset(dev, (void(*)(void *))free_percpu,
+				       ndev_priv->stats);
+	if (ret) {
+		dev_err(dev, "failed to add percpu stat free action %d", ret);
+		return ret;
+	}
+
 	netif_tx_napi_add(port->ndev, &common->napi_tx,
 			  am65_cpsw_nuss_tx_poll, NAPI_POLL_WEIGHT);
 	netif_tx_napi_add(port->ndev, &common->napi_rx,
@@ -1877,6 +1904,10 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 	ret = register_netdev(port->ndev);
 	if (ret)
 		dev_err(dev, "error registering slave net device %d\n", ret);
+
+	/* can't auto unregister ndev using devm_add_action() due to broken
+	 * devres release sequence in DD core
+	 */
 
 	return ret;
 }
@@ -1915,10 +1946,8 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	common->cpsw_base = common->ss_base + AM65_CPSW_CPSW_NU_BASE;
 
 	node = of_get_child_by_name(dev->of_node, "ports");
-	if (!node) {
-		ret = -ENOENT;
-		goto clean_runtime_disable_ret;
-	}
+	if (!node)
+		return -ENOENT;
 	common->port_num = of_get_child_count(node);
 	if (common->port_num < 2 || common->port_num > AM65_CPSW_MAX_PORTS)
 		return -ENOENT;
@@ -1941,9 +1970,30 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	common->bus_freq_mhz = clk_get_rate(clk) / 1000000;
 
 	pm_runtime_enable(dev);
+	ret = devm_add_action_or_reset(dev, (void(*)(void *))pm_runtime_disable,
+				       dev);
+	if (ret) {
+		dev_err(dev, "failed to add pm reset action %d", ret);
+		return ret;
+	}
+
 	ret = pm_runtime_get_sync(dev);
-	if (ret < 0)
-		goto clean_runtime_disable_ret;
+	if (ret < 0) {
+		pm_runtime_put_noidle(dev);
+		return ret;
+	}
+
+	/* register devres action here, so dev will be disabled
+	 * at right moment. It's required to enable dev in .remove() callback
+	 * unconditionally.
+	 */
+	ret = devm_add_action_or_reset(dev,
+				       (void(*)(void *))pm_runtime_put_sync,
+				       dev);
+	if (ret) {
+		dev_err(dev, "failed to add pm put reset action %d", ret);
+		return ret;
+	}
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	/* We do not want to force this, as in some cases may not have child */
@@ -1958,33 +2008,31 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	common->ports = devm_kcalloc(dev, common->port_num,
 				     sizeof(struct am65_cpsw_port),
 				     GFP_KERNEL);
-	if (!common->ports) {
-		ret = -ENOMEM;
-		goto clean_runtime_disable_ret;
-	}
+	if (!common->ports)
+		return -ENOMEM;
 
 	/* init tx channels */
 	ret = am65_cpsw_nuss_init_tx_chns(common);
 	if (ret)
-		goto clean_runtime_disable_ret;
+		return ret;
 	ret = am65_cpsw_nuss_init_rx_chns(common);
 	if (ret)
-		goto clean_tx_chns;
+		return ret;
 
 	if (common->tx_chns[0].irq == 0 || common->rx_chns.irq == 0)
-		goto clean_rx_chns;
+		return -ENXIO;
 
 	ret = am65_cpsw_nuss_init_host_p(common);
 	if (ret)
-		goto clean_rx_chns;
+		return ret;
 
 	ret = am65_cpsw_nuss_init_slave_ports(common);
 	if (ret)
-		goto clean_rx_chns;
+		return ret;
 
 	ret = am65_cpsw_init_cpts(common);
 	if (ret)
-		goto clean_ports;
+		return ret;
 
 	/* init common data */
 	ale_params.dev = dev;
@@ -1997,26 +2045,25 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	common->ale = cpsw_ale_create(&ale_params);
 	if (!common->ale) {
 		dev_err(dev, "error initializing ale engine\n");
-		ret = -ENODEV;
-		goto clean_ports;
+		return -ENODEV;
 	}
 
 	ret = am65_cpsw_init_mdio(common);
 	if (ret)
-		goto clean_ale;
+		return ret;
 
 	/* init ports */
 	for (i = 0; i < common->port_num; i++)
 		am65_cpsw_nuss_slave_disable_unused(&common->ports[i]);
 
-	if (common->port_num != 2) {
-		ret = -EOPNOTSUPP;
-		goto clean_mdio;
-	}
+	if (common->port_num != 2)
+		return -EOPNOTSUPP;
+
+	dev_set_drvdata(dev, common);
 
 	ret = am65_cpsw_nuss_init_ndev_2g(common);
 	if (ret)
-		goto clean_mdio;
+		return ret;
 
 	ret = devm_request_irq(dev, common->tx_chns[0].irq,
 			       am65_cpsw_nuss_tx_irq,
@@ -2024,7 +2071,7 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "failure requesting tx irq %u, %d\n",
 			common->tx_chns[0].irq, ret);
-		goto clean_ndev;
+		goto unreg_ndev;
 	}
 
 	ret = devm_request_irq(dev, common->rx_chns.irq,
@@ -2033,30 +2080,33 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "failure requesting rx irq %u, %d\n",
 			common->rx_chns.irq, ret);
-		goto clean_ndev;
+		goto unreg_ndev;
 	}
 
 	pm_runtime_put(dev);
 	return 0;
 
-clean_ndev:
+unreg_ndev:
 	am65_cpsw_nuss_cleanup_ndev(common);
-clean_mdio:
-	davinci_mdio_release(common->mdio);
-clean_ale:
-clean_ports:
-	/* clean up ports */
-clean_rx_chns:
-clean_tx_chns:
-clean_runtime_disable_ret:
-	pm_runtime_put_noidle(dev);
-	pm_runtime_disable(dev);
-	am65_nav_dbg(dev, "%s error %d\n", __func__, ret);
 	return ret;
 }
 
 static int am65_cpsw_nuss_remove(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct am65_cpsw_common *common = dev_get_drvdata(dev);
+	int ret;
+
+	/* enable dev here it will be released later by devres action */
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0)
+		pm_runtime_put_noidle(&pdev->dev);
+
+	/* must unregister ndevs here because DD release_driver routine calls
+	 * dma_deconfigure(dev) before devres_release_all(dev)
+	 */
+	am65_cpsw_nuss_cleanup_ndev(common);
+
 	return 0;
 }
 

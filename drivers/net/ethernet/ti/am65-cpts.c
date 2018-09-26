@@ -155,6 +155,7 @@ struct am65_cpts {
 	struct ptp_clock *ptp_clock;
 	int phc_index;
 	struct clk *clk_mux;
+	struct device_node *clk_mux_np;
 	struct clk *refclk;
 	u32 refclk_freq;
 	struct list_head events;
@@ -759,62 +760,75 @@ int am65_cpts_phc_index(struct am65_cpts *cpts)
 }
 EXPORT_SYMBOL_GPL(am65_cpts_phc_index);
 
+static void cpts_of_free_clk_provider(void *data)
+{
+	struct am65_cpts *cpts = data;
+
+	of_clk_del_provider(cpts->clk_mux_np);
+	of_node_put(cpts->clk_mux_np);
+}
+
 static int cpts_of_mux_clk_setup(struct am65_cpts *cpts,
 				 struct device_node *node)
 {
 	unsigned int num_parents;
 	const char **parent_names;
-	struct device_node *refclk_np;
 	void __iomem *reg;
-	int ret, len;
+	int ret;
 	char *clk_mux_name = NULL;
 
-	refclk_np = of_get_child_by_name(node, "cpts_refclk_mux");
-	if (!refclk_np)
+	cpts->clk_mux_np = of_get_child_by_name(node, "cpts_refclk_mux");
+	if (!cpts->clk_mux_np)
 		return -EINVAL;
 
-	num_parents = of_clk_get_parent_count(refclk_np);
+	num_parents = of_clk_get_parent_count(cpts->clk_mux_np);
 	if (num_parents < 1) {
-		dev_err(cpts->dev, "mux-clock %s must have parents\n",
-			refclk_np->name);
-		ret = -EINVAL;
-		goto out;
+		dev_err(cpts->dev, "mux-clock %pOF must have parents\n",
+			cpts->clk_mux_np);
+		return -EINVAL;
 	}
 
-	parent_names = devm_kzalloc(cpts->dev, (sizeof(char *) * num_parents),
+	parent_names = devm_kcalloc(cpts->dev, sizeof(char *), num_parents,
 				    GFP_KERNEL);
-	if (!parent_names) {
-		ret = -ENOMEM;
-		goto out;
-	}
+	if (!parent_names)
+		return -ENOMEM;
 
-	of_clk_parent_fill(refclk_np, parent_names, num_parents);
+	of_clk_parent_fill(cpts->clk_mux_np, parent_names, num_parents);
 
-	len = strlen(dev_name(cpts->dev)) + strlen(refclk_np->name) + 2;
-	clk_mux_name = kmalloc(len, GFP_KERNEL);
-	if (!clk_mux_name) {
-		ret = -ENOMEM;
-		goto out;
-	}
-	snprintf(clk_mux_name, len, "%s.%s",
-		 dev_name(cpts->dev), refclk_np->name);
+	clk_mux_name = devm_kasprintf(cpts->dev, GFP_KERNEL, "%s.%pOFn",
+				      dev_name(cpts->dev), cpts->clk_mux_np);
+	if (!clk_mux_name)
+		return -ENOMEM;
 
 	reg = &cpts->reg->rftclk_sel;
-	cpts->clk_mux = clk_register_mux(cpts->dev, clk_mux_name,
+	/* WARN: dev must be NULL to avoid recursive incrementing
+	 * of module refcnt
+	 */
+	cpts->clk_mux = clk_register_mux(NULL, clk_mux_name,
 					 parent_names, num_parents,
 					 0, reg, 0, 5, 0, NULL);
-	if (IS_ERR(cpts->clk_mux))  {
-		ret = PTR_ERR(cpts->clk_mux);
-		goto out;
+	if (IS_ERR(cpts->clk_mux))
+		return PTR_ERR(cpts->clk_mux);
+
+	ret = devm_add_action_or_reset(cpts->dev,
+				       (void(*)(void *))clk_unregister_mux,
+				       cpts->clk_mux);
+	if (ret) {
+		dev_err(cpts->dev, "failed to add clkmux reset action %d", ret);
+		return ret;
 	}
 
-	ret = of_clk_add_provider(refclk_np, of_clk_src_simple_get,
+	ret = of_clk_add_provider(cpts->clk_mux_np, of_clk_src_simple_get,
 				  cpts->clk_mux);
 	if (ret)
-		clk_unregister_mux(cpts->clk_mux);
-out:
-	kfree(clk_mux_name);
-	of_node_put(refclk_np);
+		return ret;
+
+	ret = devm_add_action_or_reset(cpts->dev,
+				       cpts_of_free_clk_provider,
+				       cpts->clk_mux_np);
+	if (ret)
+		dev_err(cpts->dev, "failed to add clkmux reset action %d", ret);
+
 	return ret;
 }
 
@@ -881,6 +895,14 @@ struct am65_cpts *am65_cpts_create(struct device *dev, void __iomem *regs,
 		return ERR_PTR(ret);
 	}
 
+	ret = devm_add_action_or_reset(dev,
+				       (void(*)(void *))clk_disable_unprepare,
+				       cpts->refclk);
+	if (ret) {
+		dev_err(dev, "failed to add clk reset action %d", ret);
+		return ERR_PTR(ret);
+	}
+
 	cpts->refclk_freq = clk_get_rate(cpts->refclk);
 	cpts->ptp_info = am65_ptp_info;
 
@@ -898,21 +920,36 @@ struct am65_cpts *am65_cpts_create(struct device *dev, void __iomem *regs,
 	/* set time to the current system time */
 	am65_cpts_settime(cpts, ktime_to_ns(ktime_get_real()));
 
+	ret = devm_add_action_or_reset(dev,
+				       (void(*)(void *))am65_cpts_disable,
+				       cpts);
+	if (ret) {
+		dev_err(dev, "failed to add cpts reset action %d", ret);
+		return ERR_PTR(ret);
+	}
+
 	cpts->ptp_clock = ptp_clock_register(&cpts->ptp_info, cpts->dev);
 	if (IS_ERR(cpts->ptp_clock)) {
-		ret = PTR_ERR(cpts->ptp_clock);
-		cpts->ptp_clock = NULL;
-		dev_err(dev, "Failed to register ptp clk %d\n", ret);
-		goto err_disable_clk;
+		dev_err(dev, "Failed to register ptp clk %ld\n",
+			PTR_ERR(cpts->ptp_clock));
+		return ERR_CAST(cpts->ptp_clock);
 	}
 	cpts->phc_index = ptp_clock_index(cpts->ptp_clock);
+
+	ret = devm_add_action_or_reset(dev,
+				       (void(*)(void *))ptp_clock_unregister,
+				       cpts->ptp_clock);
+	if (ret) {
+		dev_err(dev, "failed to add ptpclk reset action %d", ret);
+		return ERR_PTR(ret);
+	}
 
 	ret = devm_request_threaded_irq(dev, cpts->irq, NULL,
 					am65_cpts_interrupt,
 					IRQF_ONESHOT, dev_name(dev), cpts);
 	if (ret < 0) {
 		dev_err(cpts->dev, "error attaching irq %d\n", ret);
-		goto err_put_ptp_clk;
+		return ERR_PTR(ret);
 	}
 
 	dev_info(dev, "CPTS ver 0x%08x, freq:%u, add_val:%u\n",
@@ -920,13 +957,6 @@ struct am65_cpts *am65_cpts_create(struct device *dev, void __iomem *regs,
 		 cpts->refclk_freq, cpts->ts_add_val);
 
 	return cpts;
-
-err_put_ptp_clk:
-	ptp_clock_unregister(cpts->ptp_clock);
-err_disable_clk:
-	am65_cpts_disable(cpts);
-	clk_disable_unprepare(cpts->refclk);
-	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(am65_cpts_create);
 

@@ -275,7 +275,9 @@ static u8 serdes_am654_clk_mux_get_parent(struct clk_hw *hw)
 		if (mux->table[i] == val)
 			return i;
 
-	return -EINVAL;
+	pr_warn("Failed to find the parent of %s clock\n", hw->init->name);
+
+	return 0;
 }
 
 static int serdes_am654_clk_mux_set_parent(struct clk_hw *hw, u8 index)

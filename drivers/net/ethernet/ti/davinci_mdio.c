@@ -574,18 +574,19 @@ struct davinci_mdio_data *davinci_mdio_create(
 		goto bail_out;
 	}
 
+	ret = devm_add_action_or_reset(dev, (void(*)(void *))mdiobus_unregister,
+				       data->bus);
+	if (ret) {
+		dev_err(dev, "failed to add percpu stat free action %d", ret);
+		return ERR_PTR(ret);
+	}
+
 	return data;
 
 bail_out:
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(davinci_mdio_create);
-
-void davinci_mdio_release(struct davinci_mdio_data *mdio)
-{
-	mdiobus_unregister(mdio->bus);
-}
-EXPORT_SYMBOL_GPL(davinci_mdio_release);
 
 static const struct dev_pm_ops davinci_mdio_pm_ops = {
 	SET_RUNTIME_PM_OPS(davinci_mdio_runtime_suspend,
