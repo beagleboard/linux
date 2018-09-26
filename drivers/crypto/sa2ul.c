@@ -880,13 +880,6 @@ static int sa_aes_cbc_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 	return sa_aes_setkey(tfm, key, keylen, ad);
 }
 
-static void sa_aes_dma_out_callback(void *data)
-{
-	struct sa_dma_req_ctx *ctx = (struct sa_dma_req_ctx *)data;
-
-	kmem_cache_free(ctx->dev_data->dma_req_ctx_cache, ctx);
-}
-
 static int sa_aes_ecb_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 			     unsigned int keylen)
 {
@@ -956,13 +949,6 @@ static void sa_aes_dma_in_callback(void *data)
 	ablkcipher_request_complete(req, 0);
 }
 
-static void sa_aead_dma_out_callback(void *data)
-{
-	struct sa_dma_req_ctx *ctx = (struct sa_dma_req_ctx *)data;
-
-	kmem_cache_free(ctx->dev_data->dma_req_ctx_cache, ctx);
-}
-
 static void sa_aead_dma_in_callback(void *data)
 {
 	struct sa_rx_data *rxd = (struct sa_rx_data *)data;
@@ -1023,12 +1009,12 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	    crypto_ablkcipher_ctx(crypto_ablkcipher_reqtfm(req));
 	struct sa_ctx_info *sa_ctx = enc ? &ctx->enc : &ctx->dec;
 	struct sa_crypto_data *pdata = dev_get_drvdata(sa_k3_dev);
-	struct sa_dma_req_ctx *req_ctx = NULL;
+	struct sa_dma_req_ctx req_ctx;
 	struct dma_async_tx_descriptor *tx_in, *tx_out;
 	struct sa_rx_data *rxd;
 	u8 enc_offset;
 	int sg_nents, dst_nents;
-	int psdata_offset, ret = 0;
+	int psdata_offset;
 	u8 auth_offset = 0;
 	u8 *auth_iv = NULL;
 	u8 *aad = NULL;
@@ -1052,20 +1038,13 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	sg_nents = sg_nents_for_len(req->src, enc_len);
 	dst_nents = sg_nents_for_len(req->dst, enc_len);
 
-	req_ctx = kmem_cache_alloc(pdata->dma_req_ctx_cache, flags);
-
-	if (unlikely(!req_ctx)) {
-		ret = -ENOMEM;
-		goto err_nomem;
-	}
-
-	memcpy(req_ctx->cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
+	memcpy(req_ctx.cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
 
 	/* Update Command Label */
 	sa_update_cmdl(sa_k3_dev, enc_offset, enc_len,
 		       iv, auth_offset, auth_len,
 		       auth_iv, aad_len, aad,
-		       &sa_ctx->cmdl_upd_info, req_ctx->cmdl);
+		       &sa_ctx->cmdl_upd_info, req_ctx.cmdl);
 
 	/*
 	 * Last 2 words in PSDATA will have the crypto alg type &
@@ -1078,28 +1057,27 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 		req_type |= (SA_REQ_SUBTYPE_DEC << SA_REQ_SUBTYPE_SHIFT);
 
 	psdata_offset = sa_ctx->cmdl_size / sizeof(u32);
-	req_ctx->cmdl[psdata_offset++] = req_type;
+	req_ctx.cmdl[psdata_offset++] = req_type;
 
 	/* map the packet */
-	req_ctx->src = req->src;
-	req_ctx->src_nents = dma_map_sg(sa_k3_dev, req_ctx->src,
-					sg_nents, DMA_TO_DEVICE);
+	req_ctx.src = req->src;
+	req_ctx.src_nents = dma_map_sg(sa_k3_dev, req_ctx.src,
+				       sg_nents, DMA_TO_DEVICE);
 	if (req->src != req->dst)
 		dst_nents = dma_map_sg(sa_k3_dev, req->dst,
 				       sg_nents, DMA_FROM_DEVICE);
 	else
-		dst_nents = req_ctx->src_nents;
+		dst_nents = req_ctx.src_nents;
 
-	if (unlikely(req_ctx->src_nents != sg_nents)) {
+	if (unlikely(req_ctx.src_nents != sg_nents)) {
 		dev_warn_ratelimited(sa_k3_dev, "failed to map tx pkt\n");
-		ret = -EIO;
-		goto err_map;
+		return -EIO;
 	}
 
-	req_ctx->dev_data = pdata;
-	req_ctx->pkt = true;
+	req_ctx.dev_data = pdata;
+	req_ctx.pkt = true;
 
-	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx->src_nents,
+	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx.src_nents,
 			       DMA_TO_DEVICE);
 
 	if (enc_len >= 256)
@@ -1123,7 +1101,7 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	tx_in->callback_param = rxd;
 
 	tx_out = dmaengine_prep_slave_sg(pdata->dma_tx, req->src,
-					 req_ctx->src_nents, DMA_MEM_TO_DEV,
+					 req_ctx.src_nents, DMA_MEM_TO_DEV,
 					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!tx_out) {
 		dev_err(pdata->dev, "OUT prep_slave_sg() failed\n");
@@ -1131,11 +1109,9 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	}
 
 	mdptr = (u32 *)dmaengine_desc_get_metadata_ptr(tx_out, &pl, &ml);
-	tx_out->callback = sa_aes_dma_out_callback;
-	tx_out->callback_param = req_ctx;
 
 	sa_prepare_tx_desc(mdptr, (sa_ctx->cmdl_size + (SA_PSDATA_CTX_WORDS *
-			   sizeof(u32))), req_ctx->cmdl,
+			   sizeof(u32))), req_ctx.cmdl,
 			   sizeof(sa_ctx->epib), sa_ctx->epib);
 
 	ml = sa_ctx->cmdl_size + (SA_PSDATA_CTX_WORDS * sizeof(u32));
@@ -1148,12 +1124,6 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	dma_async_issue_pending(pdata->dma_tx);
 
 	return -EINPROGRESS;
-
-err_map:
-	if (req_ctx)
-		kmem_cache_free(pdata->dma_req_ctx_cache, req_ctx);
-err_nomem:
-	return ret;
 }
 
 static int sa_aes_cbc_encrypt(struct ablkcipher_request *req)
@@ -1356,10 +1326,10 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	struct sa_rx_data *rxd;
 	struct dma_async_tx_descriptor *tx_in, *tx_out;
 	struct sa_crypto_data *pdata = dev_get_drvdata(sa_k3_dev);
-	struct sa_dma_req_ctx *req_ctx = NULL;
+	struct sa_dma_req_ctx req_ctx;
 	u8 enc_offset;
 	int sg_nents, dst_nents;
-	int psdata_offset, ret = 0;
+	int psdata_offset;
 	u8 auth_offset = 0;
 	u8 *auth_iv = NULL;
 	u8 *aad = NULL;
@@ -1391,19 +1361,13 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	sg_nents = sg_nents_for_len(req->src, enc_len + req->assoclen);
 	dst_nents = sg_nents_for_len(req->dst, enc_len +
 				     crypto_aead_authsize(tfm));
-	req_ctx = kmem_cache_alloc(pdata->dma_req_ctx_cache, flags);
 
-	if (unlikely(!req_ctx)) {
-		ret = -ENOMEM;
-		goto err_0;
-	}
-
-	memcpy(req_ctx->cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
+	memcpy(req_ctx.cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
 	/* Update Command Label */
 	sa_update_cmdl(sa_k3_dev, enc_offset, enc_len,
 		       iv, auth_offset, auth_len,
 		       auth_iv, aad_len, aad,
-		       &sa_ctx->cmdl_upd_info, req_ctx->cmdl);
+		       &sa_ctx->cmdl_upd_info, req_ctx.cmdl);
 
 	/*
 	 * Last 2 words in PSDATA will have the crypto alg type &
@@ -1418,22 +1382,21 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	psdata_offset = sa_ctx->cmdl_size / sizeof(u32);
 
 	/* map the packet */
-	req_ctx->src = req->src;
-	req_ctx->src_nents = dma_map_sg(sa_k3_dev, req_ctx->src,
-					sg_nents, DMA_TO_DEVICE);
+	req_ctx.src = req->src;
+	req_ctx.src_nents = dma_map_sg(sa_k3_dev, req_ctx.src,
+				       sg_nents, DMA_TO_DEVICE);
 	dst_nents = dma_map_sg(sa_k3_dev, req->dst,
 			       dst_nents, DMA_FROM_DEVICE);
 
-	if (unlikely(req_ctx->src_nents != sg_nents)) {
+	if (unlikely(req_ctx.src_nents != sg_nents)) {
 		dev_warn_ratelimited(sa_k3_dev, "failed to map tx pkt\n");
-		ret = -EIO;
-		goto err;
+		return -EIO;
 	}
 
-	req_ctx->dev_data = pdata;
-	req_ctx->pkt = true;
+	req_ctx.dev_data = pdata;
+	req_ctx.pkt = true;
 
-	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx->src_nents,
+	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx.src_nents,
 			       DMA_TO_DEVICE);
 
 	if (enc_len >= 256)
@@ -1459,23 +1422,17 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	tx_in->callback_param = rxd;
 
 	tx_out = dmaengine_prep_slave_sg(pdata->dma_tx, req->src,
-					 req_ctx->src_nents, DMA_MEM_TO_DEV,
+					 req_ctx.src_nents, DMA_MEM_TO_DEV,
 					 DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!tx_out) {
 		dev_err(pdata->dev, "OUT prep_slave_sg() failed\n");
 		return -EINVAL;
 	}
 
-	/* OUT */
-	tx_out->callback = sa_aead_dma_out_callback;
-	tx_out->callback_param = req_ctx;
-
 	mdptr = (u32 *)dmaengine_desc_get_metadata_ptr(tx_out, &pl, &ml);
-	tx_out->callback = sa_aes_dma_out_callback;
-	tx_out->callback_param = req_ctx;
 
 	sa_prepare_tx_desc(mdptr, (sa_ctx->cmdl_size + (SA_PSDATA_CTX_WORDS *
-			   sizeof(u32))), req_ctx->cmdl,
+			   sizeof(u32))), req_ctx.cmdl,
 			   sizeof(sa_ctx->epib), sa_ctx->epib);
 
 	ml = sa_ctx->cmdl_size + (SA_PSDATA_CTX_WORDS * sizeof(u32));
@@ -1487,12 +1444,6 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	dma_async_issue_pending(dma_rx);
 	dma_async_issue_pending(pdata->dma_tx);
 	return -EINPROGRESS;
-
-err:
-	if (req_ctx)
-		kmem_cache_free(pdata->dma_req_ctx_cache, req_ctx);
-err_0:
-	return ret;
 }
 
 /* AEAD algorithm encrypt interface function */
@@ -1570,11 +1521,11 @@ static int sa_sham_digest(struct ahash_request *req)
 	struct sa_ctx_info *sa_ctx = &ctx->enc;
 	struct dma_async_tx_descriptor *tx_in, *tx_out;
 	struct sa_crypto_data *pdata = dev_get_drvdata(sa_k3_dev);
-	struct sa_dma_req_ctx *req_ctx = NULL;
+	struct sa_dma_req_ctx req_ctx;
 	struct sa_rx_data *rxd;
 	u8 enc_offset;
 	int sg_nents;
-	int psdata_offset, ret = 0;
+	int psdata_offset;
 	u8 auth_offset = 0;
 	u8 *auth_iv = NULL;
 	u8 *aad = NULL;
@@ -1596,19 +1547,12 @@ static int sa_sham_digest(struct ahash_request *req)
 	/* Allocate descriptor & submit packet */
 	sg_nents = sg_nents_for_len(req->src, req->nbytes);
 
-	req_ctx = kmem_cache_alloc(pdata->dma_req_ctx_cache, flags);
-
-	if (unlikely(!req_ctx)) {
-		ret = -ENOMEM;
-		goto err_0;
-	}
-
-	memcpy(req_ctx->cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
+	memcpy(req_ctx.cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
 	/* Update Command Label */
 	sa_update_cmdl(sa_k3_dev, enc_offset, enc_len,
 		       NULL, auth_offset, auth_len,
 		       auth_iv, aad_len, aad,
-		       &sa_ctx->cmdl_upd_info, req_ctx->cmdl);
+		       &sa_ctx->cmdl_upd_info, req_ctx.cmdl);
 
 	/*
 	 * Last 2 words in PSDATA will have the crypto alg type &
@@ -1617,23 +1561,22 @@ static int sa_sham_digest(struct ahash_request *req)
 	req_type = CRYPTO_ALG_TYPE_AHASH;
 
 	psdata_offset = sa_ctx->cmdl_size / sizeof(u32);
-	req_ctx->cmdl[psdata_offset++] = req_type;
+	req_ctx.cmdl[psdata_offset++] = req_type;
 
 	/* map the packet */
-	req_ctx->src = req->src;
-	req_ctx->src_nents = dma_map_sg(sa_k3_dev, req_ctx->src,
-					sg_nents, DMA_TO_DEVICE);
+	req_ctx.src = req->src;
+	req_ctx.src_nents = dma_map_sg(sa_k3_dev, req_ctx.src,
+				       sg_nents, DMA_TO_DEVICE);
 
-	if (unlikely(req_ctx->src_nents != sg_nents)) {
+	if (unlikely(req_ctx.src_nents != sg_nents)) {
 		dev_warn_ratelimited(sa_k3_dev, "failed to map tx pkt\n");
-		ret = -EIO;
-		goto err;
+		return -EIO;
 	}
 
-	req_ctx->dev_data = pdata;
-	req_ctx->pkt = true;
+	req_ctx.dev_data = pdata;
+	req_ctx.pkt = true;
 
-	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx->src_nents,
+	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx.src_nents,
 			       DMA_TO_DEVICE);
 
 	if (enc_len > 256)
@@ -1641,7 +1584,7 @@ static int sa_sham_digest(struct ahash_request *req)
 	else
 		dma_rx = pdata->dma_rx1;
 
-	tx_in = dmaengine_prep_slave_sg(dma_rx, req->src, req_ctx->src_nents,
+	tx_in = dmaengine_prep_slave_sg(dma_rx, req->src, req_ctx.src_nents,
 					DMA_DEV_TO_MEM,
 					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!tx_in) {
@@ -1656,7 +1599,7 @@ static int sa_sham_digest(struct ahash_request *req)
 	tx_in->callback_param = rxd;
 
 	tx_out = dmaengine_prep_slave_sg(pdata->dma_tx, req->src,
-					 req_ctx->src_nents, DMA_MEM_TO_DEV,
+					 req_ctx.src_nents, DMA_MEM_TO_DEV,
 					 DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!tx_out) {
 		dev_err(pdata->dev, "OUT prep_slave_sg() failed\n");
@@ -1665,7 +1608,7 @@ static int sa_sham_digest(struct ahash_request *req)
 
 	mdptr = (u32 *)dmaengine_desc_get_metadata_ptr(tx_out, &pl, &ml);
 	sa_prepare_tx_desc(mdptr, (sa_ctx->cmdl_size + (SA_PSDATA_CTX_WORDS *
-			   sizeof(u32))), req_ctx->cmdl,
+			   sizeof(u32))), req_ctx.cmdl,
 			   sizeof(sa_ctx->epib), sa_ctx->epib);
 
 	dmaengine_desc_set_metadata_len(tx_out, 28);
@@ -1677,12 +1620,6 @@ static int sa_sham_digest(struct ahash_request *req)
 	dma_async_issue_pending(pdata->dma_tx);
 
 	return -EINPROGRESS;
-
-err:
-	if (req_ctx)
-		kmem_cache_free(pdata->dma_req_ctx_cache, req_ctx);
-err_0:
-	return ret;
 }
 
 static int sa_sham_init(struct ahash_request *req)
@@ -2088,6 +2025,36 @@ void sa_register_algos(const struct device *dev)
 	}
 }
 
+/* Unregister the algorithms in crypto framework */
+void sa_unregister_algos(const struct device *dev)
+{
+	char *alg_name;
+	u32 type;
+	int i, err = 0, num_algs = ARRAY_SIZE(sa_algs);
+
+	for (i = 0; i < num_algs; i++) {
+		type = sa_algs[i].type;
+		if (type == CRYPTO_ALG_TYPE_AEAD) {
+			alg_name = sa_algs[i].alg.aead.base.cra_name;
+			crypto_unregister_aead(&sa_algs[i].alg.aead);
+		} else {
+			alg_name = sa_algs[i].alg.crypto.cra_name;
+			err = crypto_unregister_alg(&sa_algs[i].alg.crypto);
+		}
+
+		sa_algs[i].registered = 0;
+	}
+
+	num_algs = ARRAY_SIZE(algs_sha);
+	for (i = 0; i < num_algs; i++) {
+		alg_name =  algs_sha[i].halg.base.cra_name;
+		err = crypto_unregister_ahash(&algs_sha[i]);
+		if (err)
+			dev_err(dev, "Failed to register '%s'\n",
+				alg_name);
+	}
+}
+
 static int sa_init_mem(struct sa_crypto_data *dev_data)
 {
 	struct device *dev = &dev_data->pdev->dev;
@@ -2099,12 +2066,6 @@ static int sa_init_mem(struct sa_crypto_data *dev_data)
 		return -ENOMEM;
 	}
 
-	/* Create a cache for Tx DMA request context */
-	dev_data->dma_req_ctx_cache = KMEM_CACHE(sa_dma_req_ctx, 0);
-	if (!dev_data->dma_req_ctx_cache) {
-		dev_err(dev, "Failed to create dma req cache");
-		return -ENOMEM;
-	}
 	return 0;
 }
 
@@ -2217,6 +2178,16 @@ static int sa_ul_probe(struct platform_device *pdev)
 
 static int sa_ul_remove(struct platform_device *pdev)
 {
+	struct sa_crypto_data *dev_data = platform_get_drvdata(pdev);
+
+	sa_unregister_algos(&pdev->dev);
+
+	dma_release_channel(dev_data->dma_rx2);
+	dma_release_channel(dev_data->dma_rx1);
+	dma_release_channel(dev_data->dma_tx);
+
+	dma_pool_destroy(dev_data->sc_pool);
+
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;

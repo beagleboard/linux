@@ -159,7 +159,6 @@ struct sa_tfm_ctx;
  * struct sa_crypto_data - Crypto driver instance data
  * @pdev: Platform device pointer
  * @sc_pool: security context pool
- * @dma_req_ctx_cache: DMA request context Cache
  * @dev: Device pointer
  * @scid_lock: secure context ID lock
  * @sc_id_start: starting index for SC ID
@@ -174,7 +173,6 @@ struct sa_tfm_ctx;
 struct sa_crypto_data {
 	struct platform_device	*pdev;
 	struct dma_pool		*sc_pool;
-	struct kmem_cache	*dma_req_ctx_cache;
 	struct device *dev;
 	spinlock_t	scid_lock; /* lock for SC-ID allocation */
 	/* Security context data */
