@@ -39,5 +39,8 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 int omap_crtc_wait_pending(struct drm_crtc *crtc);
 void omap_crtc_error_irq(struct drm_crtc *crtc, uint32_t irqstatus);
 void omap_crtc_vblank_irq(struct drm_crtc *crtc);
+int omap_crtc_atomic_get_trans_key_mode(struct drm_crtc *crtc,
+					const struct drm_crtc_state *state);
+
 
 #endif /* __OMAPDRM_CRTC_H__ */
