@@ -23,7 +23,10 @@
 #include <linux/workqueue.h>
 
 #include <drm/drmP.h>
+#include <drm/drm_atomic.h>
+#include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_fb_helper.h>
 #include <drm/drm_gem.h>
 #include <drm/omap_drm.h>
 
@@ -37,6 +40,7 @@
 #include "omap_gem.h"
 #include "omap_irq.h"
 #include "omap_plane.h"
+#include "omap_overlay.h"
 
 #define DBG(fmt, ...) DRM_DEBUG(fmt"\n", ##__VA_ARGS__)
 #define VERB(fmt, ...) if (0) DRM_DEBUG(fmt, ##__VA_ARGS__) /* verbose debug */
@@ -64,6 +68,16 @@ struct omap_drm_private {
 
 	unsigned int num_connectors;
 	struct drm_connector *connectors[8];
+
+	unsigned int num_ovls;
+	struct omap_hw_overlay *overlays[8];
+
+	/*
+	 * Global private object state, Do not access directly, use
+	 * omap_global_get_state()
+	 */
+	struct drm_modeset_lock glob_obj_lock;
+	struct drm_private_obj glob_obj;
 
 	struct drm_fb_helper *fbdev;
 

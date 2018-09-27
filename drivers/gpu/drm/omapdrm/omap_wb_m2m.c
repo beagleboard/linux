@@ -240,7 +240,8 @@ static void device_run(void *priv)
 		&ctx, d_vb->index,
 		wb_info.width, wb_info.height, wb_info.buf_width);
 
-	ok = wbm2m_convert(dev, omap_plane_id(dev->plane), &src_info, &wb_info);
+	ok = wbm2m_convert(dev, omap_plane_id_wb(dev->plane),
+			   &src_info, &wb_info);
 	if (!ok) {
 		log_err(dev,
 			"Conversion setup failed, check source and destination parameters\n"
@@ -878,7 +879,7 @@ static void wbm2m_stop_streaming(struct vb2_queue *q)
 		 * DRA7xx errata i829 (Reusing Pipe Connected To Writeback
 		 * Pipeline On The Fly To An Active Panel)
 		 */
-		priv->dispc_ops->ovl_enable(omap_plane_id(ctx->dev->plane),
+		priv->dispc_ops->ovl_enable(omap_plane_id_wb(ctx->dev->plane),
 					    false);
 		priv->dispc_ops->ovl_enable(OMAP_DSS_WB, true);
 		priv->dispc_ops->ovl_enable(OMAP_DSS_WB, false);
