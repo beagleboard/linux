@@ -832,6 +832,13 @@ static void dispc6_vid_write_scale_coefs(enum omap_plane_id plane)
 	dispc6_vid_write_fir_coefs(plane, DISPC6_VID_FIR_COEF_VERT_UV, &dispc6_fir_coefs_null);
 }
 
+static enum omap_overlay_caps dispc6_ovl_get_caps(enum omap_plane_id plane)
+{
+	return OMAP_DSS_OVL_CAP_SCALE | OMAP_DSS_OVL_CAP_GLOBAL_ALPHA |
+		OMAP_DSS_OVL_CAP_PRE_MULT_ALPHA | OMAP_DSS_OVL_CAP_ZORDER |
+		OMAP_DSS_OVL_CAP_POS | OMAP_DSS_OVL_CAP_REPLICATION;
+}
+
 static void dispc6_vid_set_scaling(enum omap_plane_id plane,
 				   u32 orig_width, u32 orig_height,
 				   u32 out_width, u32 out_height,
@@ -977,6 +984,12 @@ static s32 pixinc(int pixels, u8 ps)
 	return 0;
 }
 
+static void dispc6_ovl_get_max_size(u16 *width, u16 *height)
+{
+	*width = 4096;
+	*height = 4096;
+}
+
 static int dispc6_ovl_setup(enum omap_plane_id plane,
 			    const struct omap_overlay_info *oi,
 			    const struct videomode *vm, bool mem_to_mem,
@@ -1097,6 +1110,18 @@ static int dispc6_init_features(struct platform_device *pdev)
 static enum omap_dss_output_id dispc6_mgr_get_supported_outputs(enum omap_channel channel)
 {
 	return OMAP_DSS_OUTPUT_DPI;
+}
+
+static bool dispc6_ovl_color_mode_supported(enum omap_plane_id plane, u32 fourcc)
+{
+	unsigned int i;
+
+	for (i = 0; dispc6_supported_formats[i]; ++i) {
+		if (dispc6_supported_formats[i] == fourcc)
+			return true;
+	}
+
+	return false;
 }
 
 static const u32 *dispc6_ovl_get_color_modes(enum omap_plane_id plane)
@@ -1248,6 +1273,9 @@ static const struct dispc_ops dispc6_ops = {
 	.ovl_enable = dispc6_ovl_enable,
 	.ovl_setup = dispc6_ovl_setup,
 	.ovl_get_color_modes = dispc6_ovl_get_color_modes,
+	.ovl_color_mode_supported = dispc6_ovl_color_mode_supported,
+	.ovl_get_caps = dispc6_ovl_get_caps,
+	.ovl_get_max_size = dispc6_ovl_get_max_size,
 
 	.has_writeback = dispc6_has_writeback,
 };
