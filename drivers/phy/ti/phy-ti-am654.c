@@ -276,9 +276,14 @@ static u8 serdes_am654_clk_mux_get_parent(struct clk_hw *hw)
 		if (mux->table[i] == val)
 			return i;
 
-	pr_warn("Failed to find the parent of %s clock\n", hw->init->name);
+	/*
+	 * No parent? This should never happen!
+	 * Verify if we set a valid parent in serdes_am654_clk_register()
+	 */
+	WARN(1, "Failed to find the parent of %s clock\n", hw->init->name);
 
-	return 0;
+	/* Make the parent lookup to fail */
+	return num_parents;
 }
 
 static int serdes_am654_clk_mux_set_parent(struct clk_hw *hw, u8 index)
@@ -386,6 +391,13 @@ static int serdes_am654_clk_register(struct serdes_am654 *am654_phy,
 	mux->mask = mux_mask[clock_num];
 	mux->hw.init = init;
 
+	/*
+	 * setup a sane default so get_parent() call evaluates
+	 * to a valid parent. Index 1 is the safest choice as
+	 * the default as it is valid value for all of serdes's
+	 * output clocks.
+	 */
+	serdes_am654_clk_mux_set_parent(&mux->hw, 1);
 	clk = devm_clk_register(dev, &mux->hw);
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
