@@ -83,6 +83,7 @@ struct serdes_am654_clk_mux {
 	int		*table;
 	u32		mask;
 	u8		shift;
+	struct clk_init_data clk_data;
 };
 
 #define to_serdes_am654_clk_mux(_hw)	\
@@ -327,7 +328,7 @@ static int serdes_am654_clk_register(struct serdes_am654 *am654_phy,
 	struct serdes_am654_clk_mux *mux;
 	struct device_node *regmap_node;
 	const char **parent_names;
-	struct clk_init_data init;
+	struct clk_init_data *init;
 	unsigned int num_parents;
 	struct regmap *regmap;
 	const __be32 *addr;
@@ -337,6 +338,8 @@ static int serdes_am654_clk_register(struct serdes_am654 *am654_phy,
 	mux = devm_kzalloc(dev, sizeof(*mux), GFP_KERNEL);
 	if (!mux)
 		return -ENOMEM;
+
+	init = &mux->clk_data;
 
 	regmap_node = of_parse_phandle(node, "ti,serdes-clk", 0);
 	of_node_put(regmap_node);
@@ -370,18 +373,18 @@ static int serdes_am654_clk_register(struct serdes_am654 *am654_phy,
 
 	reg = be32_to_cpu(*addr);
 
-	init.ops = &serdes_am654_clk_mux_ops;
-	init.flags = CLK_SET_RATE_NO_REPARENT;
-	init.parent_names = parent_names;
-	init.num_parents = num_parents;
-	init.name = clock_name;
+	init->ops = &serdes_am654_clk_mux_ops;
+	init->flags = CLK_SET_RATE_NO_REPARENT;
+	init->parent_names = parent_names;
+	init->num_parents = num_parents;
+	init->name = clock_name;
 
 	mux->table = mux_table[clock_num];
 	mux->regmap = regmap;
 	mux->reg = reg;
 	mux->shift = 4;
 	mux->mask = mux_mask[clock_num];
-	mux->hw.init = &init;
+	mux->hw.init = init;
 
 	clk = devm_clk_register(dev, &mux->hw);
 	if (IS_ERR(clk))
