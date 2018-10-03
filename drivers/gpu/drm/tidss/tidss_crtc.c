@@ -317,6 +317,23 @@ tidss_crtc_duplicate_state(struct drm_crtc *crtc)
 	return &state->base;
 }
 
+
+static int tidss_crtc_atomic_set_property(struct drm_crtc *crtc,
+					  struct drm_crtc_state *state,
+					  struct drm_property *property,
+					  uint64_t val)
+{
+	return -EINVAL;
+}
+
+static int tidss_crtc_atomic_get_property(struct drm_crtc *crtc,
+					  const struct drm_crtc_state *state,
+					  struct drm_property *property,
+					  uint64_t *val)
+{
+	return -EINVAL;
+}
+
 static int tidss_crtc_enable_vblank(struct drm_crtc *crtc)
 {
 	struct drm_device *ddev = crtc->dev;
@@ -350,9 +367,17 @@ static const struct drm_crtc_funcs crtc_funcs = {
 	.page_flip = drm_atomic_helper_page_flip,
 	.atomic_duplicate_state = tidss_crtc_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
+	.atomic_set_property = tidss_crtc_atomic_set_property,
+	.atomic_get_property = tidss_crtc_atomic_get_property,
 	.enable_vblank = tidss_crtc_enable_vblank,
 	.disable_vblank = tidss_crtc_disable_vblank,
 };
+
+static void tidss_crtc_install_properties(struct tidss_device *tidss,
+					  const struct tidss_vp_feat *vp_feat,
+					  struct drm_crtc *crtc)
+{
+}
 
 struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss, u32 hw_videoport,
 				     struct drm_plane *primary, struct device_node *epnode)
@@ -396,6 +421,8 @@ struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss, u32 hw_videopor
 				   gamma_lut_size);
 	if (gamma_lut_size)
 		drm_mode_crtc_set_gamma_size(crtc, gamma_lut_size);
+
+	tidss_crtc_install_properties(tidss, vp_feat, crtc);
 
 	return tcrtc;
 }

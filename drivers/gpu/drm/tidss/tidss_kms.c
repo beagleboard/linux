@@ -56,6 +56,11 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
+static int tidss_modeset_init_properties(struct tidss_device *tidss)
+{
+	return 0;
+}
+
 int tidss_modeset_init(struct tidss_device *tidss)
 {
 	struct drm_device *ddev = tidss->ddev;
@@ -73,6 +78,10 @@ int tidss_modeset_init(struct tidss_device *tidss)
 	ddev->mode_config.normalize_zpos = true;
 	ddev->mode_config.funcs = &mode_config_funcs;
 	ddev->mode_config.helper_private = &mode_config_helper_funcs;
+
+	ret = tidss_modeset_init_properties(tidss);
+	if (ret < 0)
+		return ret;
 
 	ret = tidss->dispc_ops->modeset_init(tidss->dispc);
 	if (ret)
