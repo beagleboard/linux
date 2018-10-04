@@ -35,6 +35,7 @@ struct tidss_device {
 
 	struct drm_property *trans_key_mode_prop;
 	struct drm_property *trans_key_prop;
+	struct drm_property *background_color_prop;
 };
 
 struct tidss_features {

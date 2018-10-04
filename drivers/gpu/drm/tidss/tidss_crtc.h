@@ -39,6 +39,7 @@ struct tidss_crtc_state {
 
 	uint64_t trans_key_mode;
 	uint64_t trans_key;
+	uint64_t background_color;
 };
 
 struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss, u32 hw_videoport,

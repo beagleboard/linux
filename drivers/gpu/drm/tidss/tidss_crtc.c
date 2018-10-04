@@ -171,6 +171,7 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	// I think we always need the event to signal flip done
 	WARN_ON(!crtc->state->event);
 
+	vp_info.default_color = tcrtc_state->background_color;
 	vp_info.trans_key_mode = tcrtc_state->trans_key_mode;
 	vp_info.trans_key = tcrtc_state->trans_key;
 
@@ -341,6 +342,7 @@ tidss_crtc_duplicate_state(struct drm_crtc *crtc)
 	state->bus_format = current_state->bus_format;
 	state->bus_flags = current_state->bus_flags;
 
+	state->background_color = current_state->background_color;
 	state->trans_key_mode = current_state->trans_key_mode;
 	state->trans_key = current_state->trans_key;
 
@@ -361,6 +363,8 @@ static int tidss_crtc_atomic_set_property(struct drm_crtc *crtc,
 		tidss_state->trans_key_mode = val;
 	else if (property == tidss->trans_key_prop)
 		tidss_state->trans_key = val;
+	else if (property == tidss->background_color_prop)
+		tidss_state->background_color = val;
 	else
 		return -EINVAL;
 
@@ -380,6 +384,8 @@ static int tidss_crtc_atomic_get_property(struct drm_crtc *crtc,
 		*val = tidss_state->trans_key_mode;
 	else if (property == tidss->trans_key_prop)
 		*val = tidss_state->trans_key;
+	else if (property == tidss->background_color_prop)
+		*val = tidss_state->background_color;
 	else
 		return -EINVAL;
 
@@ -435,6 +441,7 @@ static void tidss_crtc_install_properties(struct tidss_device *tidss,
 		drm_object_attach_property(obj, tidss->trans_key_mode_prop, 0);
 		drm_object_attach_property(obj, tidss->trans_key_prop, 0);
 	}
+	drm_object_attach_property(obj, tidss->background_color_prop, 0);
 }
 
 struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss, u32 hw_videoport,

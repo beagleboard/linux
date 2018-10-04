@@ -77,6 +77,11 @@ static int tidss_modeset_init_properties(struct tidss_device *tidss)
 	if (!tidss->trans_key_prop)
 		return -ENOMEM;
 
+	tidss->background_color_prop =
+		drm_property_create_range(ddev, 0, "background", 0, 0xffffff);
+	if (!tidss->background_color_prop)
+		return -ENOMEM;
+
 	return 0;
 }
 
