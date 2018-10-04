@@ -2125,7 +2125,7 @@ int dispc7_init(struct tidss_device *tidss)
 	int r = 0;
 	uint i;
 
-	dev_info(dev, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 
 	feat = of_match_device(dispc7_of_table, dev)->data;
 
