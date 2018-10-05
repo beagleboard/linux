@@ -11,6 +11,7 @@ DTC_FLAGS += -@
 dtb-$(CONFIG_ARCH_K3_AM6_SOC) += k3-am654-base-board.dtb \
 	k3-am654-gp.dtbo \
 	k3-am654-evm-oldi-lcd1evm.dtbo \
+	k3-am654-evm-tc358876.dtbo \
 	k3-am654-pcie-usb3.dtbo \
 	k3-am654-pcie-usb2.dtbo
 
