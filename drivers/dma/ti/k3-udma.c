@@ -181,25 +181,6 @@ struct udma_static_tr {
 	u16 bstcnt; /* RPSTR1 */
 };
 
-/* CPPI 5.0 Host Packet Descriptor */
-struct cppi50_host_packet_desc {
-	u32 packet_info[4];
-	u32 linking_info[2];
-	u32 buffer_info[3];
-	u32 original_buffer_info[3];
-	u32 epib[4];
-};
-
-/* CPPI 5.0 Host Buffer Descriptor */
-struct cppi50_host_buffer_desc {
-	u32 reserved[2];
-	u32 buffer_reclamation_info[2];
-
-	u32 linking_info[2];
-	u32 buffer_info[3];
-	u32 original_buffer_info[3];
-};
-
 #define K3_UDMA_MAX_RFLOWS 1024
 
 struct udma_chan;
@@ -233,8 +214,6 @@ struct udma_rflow {
 	void __iomem *reg_rflow;
 
 	int id;
-
-	/* Do we needthe  rings allocated per flows, not per rchan ? */
 };
 
 struct udma_match_data {
@@ -390,8 +369,6 @@ static inline struct udma_desc *to_udma_desc(struct dma_async_tx_descriptor *t)
 }
 
 #define UDMA_CH_1000(ch)		(ch * 0x1000)
-#define UDMA_CH_100(ch)			(ch * 0x100)
-#define UDMA_CH_40(ch)			(ch * 0x40)
 
 /* Generic register access functions */
 static inline u32 udma_read(void __iomem *base, int reg)
