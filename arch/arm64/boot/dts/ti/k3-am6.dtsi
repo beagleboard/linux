@@ -1172,13 +1172,6 @@
 				interrupt-parent = <&main_udmass_inta>;
 			};
 
-			psilcfg: psilcfg@31f78000 {
-				compatible = "ti,k3-navss-psilcfg";
-
-				ti,sci = <&dmsc>;
-				ti,sci-dev-id = <118>;
-			};
-
 			main_udmap: udmap@31150000 {
 				compatible = "ti,am654-navss-main-udmap";
 				reg =	<0x0 0x31150000 0x0 0x100>,
@@ -1187,7 +1180,6 @@
 				reg-names = "gcfg", "rchanrt", "tchanrt";
 				#dma-cells = <3>;
 
-				ti,psi-proxy = <&psilcfg>;
 				ti,ringacc = <&ringacc>;
 				ti,psil-base = <0x1000>;
 
@@ -1386,13 +1378,6 @@
 				interrupt-parent = <&main_udmass_inta>;
 			};
 
-			mcu_psilcfg: psilcfg@0x2a268000 {
-				compatible = "ti,k3-navss-psilcfg";
-
-				ti,sci = <&dmsc>;
-				ti,sci-dev-id = <119>;
-			};
-
 			mcu_udmap: udmap@31150000 {
 				compatible = "ti,am654-navss-mcu-udmap";
 				reg =	<0x0 0x285c0000 0x0 0x100>,
@@ -1401,7 +1386,6 @@
 				reg-names = "gcfg", "rchanrt", "tchanrt";
 				#dma-cells = <3>;
 
-				ti,psi-proxy = <&mcu_psilcfg>;
 				ti,ringacc = <&mcu_ringacc>;
 				ti,psil-base = <0x6000>;
 
