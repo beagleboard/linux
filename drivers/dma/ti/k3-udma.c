@@ -2195,9 +2195,23 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 		h_desc = desc;
 	}
 
-	if (d->residue > 0x3FFFFF)
-		dev_err(uc->ud->dev, "%s: transfer size is too big: %u...\n",
+	if (d->residue >= SZ_4M) {
+		dev_err(uc->ud->dev,
+			"%s: Transfer size %u is over the supported 4M range\n",
 			__func__, d->residue);
+		dma_free_coherent(uc->ud->dev, d->cppi5_desc_area_size,
+				  d->cppi5_desc_vaddr,
+				  d->cppi5_desc_paddr);
+
+		if (d->rx_sg_wa.in_use) {
+			dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
+				     DMA_FROM_DEVICE);
+			kfree(sg_virt(&d->rx_sg_wa.single_sg));
+		}
+
+		kfree(d);
+		return NULL;
+	}
 
 	h_desc = d->cppi5_desc_vaddr;
 	knav_udmap_hdesc_set_pktlen(h_desc, d->residue);
