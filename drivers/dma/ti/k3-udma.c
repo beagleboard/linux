@@ -194,7 +194,7 @@ struct cppi50_tr_resp {
 /* CPPI 5.0 Transfer Request Descriptor */
 struct cppi50_tr_req_desc {
 	u32 packet_info[4];
-};
+} __aligned(64) __packed;
 
 struct udma_static_tr {
 	u8 elsize; /* RPSTR0 */
