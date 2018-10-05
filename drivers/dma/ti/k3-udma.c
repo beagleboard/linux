@@ -2091,6 +2091,7 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 	struct scatterlist *sgent;
 	struct knav_udmap_host_desc_t *h_desc;
 	unsigned int hdesc_size = sizeof(struct knav_udmap_host_desc_t);
+	int hdesc_align = 64;
 	struct udma_desc *d;
 	u32 ring_id;
 	unsigned int i;
@@ -2138,7 +2139,10 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 
 	/* We need to allocate space for EPIB/PSD */
 	hdesc_size += uc->metadata_size;
-	hdesc_size = ALIGN(hdesc_size, 0x10);
+
+	if (hdesc_align < dma_get_cache_alignment())
+		hdesc_align = dma_get_cache_alignment();
+	hdesc_size = ALIGN(hdesc_size, hdesc_align);
 
 	d->cppi5_desc_size = hdesc_size;
 	d->cppi5_desc_area_size = hdesc_size * sglen;
@@ -2460,6 +2464,7 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 	size_t period_len, enum dma_transfer_direction dir, unsigned long flags)
 {
 	unsigned int hdesc_size = sizeof(struct knav_udmap_host_desc_t);
+	int hdesc_align = 64;
 	struct udma_desc *d;
 	u32 ring_id;
 	int i;
@@ -2477,7 +2482,10 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 
 	/* We need to allocate space for EPIB/PSD */
 	hdesc_size += uc->metadata_size;
-	hdesc_size = ALIGN(hdesc_size, 0x10);
+
+	if (hdesc_align < dma_get_cache_alignment())
+		hdesc_align = dma_get_cache_alignment();
+	hdesc_size = ALIGN(hdesc_size, hdesc_align);
 
 	d->cppi5_desc_size = hdesc_size;
 	d->cppi5_desc_area_size = hdesc_size * periods;
