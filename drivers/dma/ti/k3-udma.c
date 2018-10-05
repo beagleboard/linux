@@ -810,17 +810,14 @@ static inline int udma_reset_chan(struct udma_chan *uc, bool hard)
 	/* Reset all counters */
 	udma_reset_counters(uc);
 
+	/* Hard reset: re-initialize the channel to reset */
 	if (hard) {
-		k3_nav_psil_release_link(uc->psi_link);
-		uc->psi_link = k3_nav_psil_request_link(uc->ud->psil_node,
-							uc->src_thread,
-							uc->dst_thread);
-		if (IS_ERR(uc->psi_link)) {
-			dev_err(uc->ud->dev,
-				"Hard reset failed, chan%d can not be used.\n",
-				uc->id);
-			uc->psi_link = NULL;
-		}
+		int ret;
+
+		uc->ud->ddev.device_free_chan_resources(&uc->vc.chan);
+		ret = uc->ud->ddev.device_alloc_chan_resources(&uc->vc.chan);
+		if (ret)
+			return ret;
 	}
 	uc->state = UDMA_CHAN_IS_IDLE;
 
