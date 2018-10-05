@@ -4,6 +4,18 @@
  *  Author: Peter Ujfalusi <peter.ujfalusi@ti.com>
  */
 
+int xudma_navss_psil_pair(struct udma_dev *ud, u32 src_thread, u32 dst_thread)
+{
+	return navss_psil_pair(ud, src_thread, dst_thread);
+}
+EXPORT_SYMBOL(xudma_navss_psil_pair);
+
+int xudma_navss_psil_unpair(struct udma_dev *ud, u32 src_thread, u32 dst_thread)
+{
+	return navss_psil_unpair(ud, src_thread, dst_thread);
+}
+EXPORT_SYMBOL(xudma_navss_psil_unpair);
+
 struct udma_dev *of_xudma_dev_get(struct device_node *np, const char *property)
 {
 	struct device_node *udma_node = np;

@@ -17,7 +17,6 @@
 #define K3_NAVSS_UDMA_H_
 
 #include <linux/soc/ti/k3-navss-ringacc.h>
-#include <linux/soc/ti/k3-navss-psilcfg.h>
 
 struct k3_nav_udmax_tx_channel_cfg {
 	struct k3_nav_ring_cfg tx_cfg;
