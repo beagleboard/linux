@@ -375,6 +375,7 @@ struct udma_chan {
 	enum udma_tp_level channel_tpl; /* Channel Throughput Level */
 
 	/* dmapool for packet mode descriptors */
+	bool use_dma_pool;
 	struct dma_pool *hdesc_pool;
 
 	u32 id;
@@ -551,12 +552,22 @@ static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
 	return d;
 }
 
+static inline size_t udma_calc_trdesc_size(size_t tr_size, int tr_count)
+{
+	size_t trdesc_size = sizeof(struct cppi50_tr_req_desc);
+
+	trdesc_size += tr_size * (tr_count + 1);
+	trdesc_size += tr_count * sizeof(struct cppi50_tr_resp);
+
+	return trdesc_size;
+}
+
 static void udma_free_hwdesc(struct virt_dma_desc *vd)
 {
 	struct udma_chan *uc = to_udma_chan(vd->tx.chan);
 	struct udma_desc *d = to_udma_desc(&vd->tx);
 
-	if (uc->pkt_mode) {
+	if (uc->use_dma_pool) {
 		int i;
 
 		for (i = 0; i < d->hwdesc_count; i++) {
@@ -622,7 +633,7 @@ static void udma_desc_free(struct virt_dma_desc *vd)
 	if (uc->terminated_desc == d)
 		uc->terminated_desc = NULL;
 
-	if (uc->pkt_mode) {
+	if (uc->use_dma_pool) {
 		udma_free_hwdesc(&d->vd);
 		kfree(d);
 		return;
@@ -1614,13 +1625,22 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	struct udma_rchan *rchan;
 	int ret;
 
-	if (uc->pkt_mode) {
+	if (uc->pkt_mode || uc->dir == DMA_MEM_TO_MEM) {
+		uc->use_dma_pool = true;
+		/* in case of MEM_TO_MEM we have maximum of two TRs */
+		if (uc->dir == DMA_MEM_TO_MEM)
+			uc->hdesc_size = udma_calc_trdesc_size(
+					sizeof(struct cppi50_tr_req_type15), 2);
+	}
+
+	if (uc->use_dma_pool) {
 		uc->hdesc_pool = dma_pool_create(uc->name, ud->ddev.dev,
 						 uc->hdesc_size, uc->desc_align,
 						 0);
 		if (!uc->hdesc_pool) {
 			dev_err(ud->ddev.dev,
 				"Descriptor pool allocation failed\n");
+			uc->use_dma_pool = false;
 			return -ENOMEM;
 		}
 	}
@@ -1973,8 +1993,10 @@ err_res_free:
 	udma_free_rx_resources(uc);
 	uc->slave_thread_id = -1;
 
-	if (uc->pkt_mode)
+	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
+		uc->use_dma_pool = false;
+	}
 
 	return ret;
 }
@@ -2025,15 +2047,22 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 
 	d->hwdesc_count = 1;
 	hwdesc = &d->hwdesc[0];
-	hwdesc->cppi5_desc_size = sizeof(struct cppi50_tr_req_desc);
-	hwdesc->cppi5_desc_size += tr_size * (tr_count + 1);
-	hwdesc->cppi5_desc_size += tr_count * sizeof(struct cppi50_tr_resp);
 
 	/* Allocate memory for DMA ring descriptor */
-	hwdesc->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
-						       hwdesc->cppi5_desc_size,
-						       &hwdesc->cppi5_desc_paddr,
-						       GFP_ATOMIC);
+	if (uc->use_dma_pool) {
+		hwdesc->cppi5_desc_size = uc->hdesc_size;
+		hwdesc->cppi5_desc_vaddr = dma_pool_zalloc(uc->hdesc_pool,
+						GFP_ATOMIC,
+						&hwdesc->cppi5_desc_paddr);
+	} else {
+		hwdesc->cppi5_desc_size = udma_calc_trdesc_size(tr_size,
+								tr_count);
+		hwdesc->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
+						hwdesc->cppi5_desc_size,
+						&hwdesc->cppi5_desc_paddr,
+						GFP_ATOMIC);
+	}
+
 	if (!hwdesc->cppi5_desc_vaddr) {
 		kfree(d);
 		return NULL;
@@ -3088,9 +3117,10 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 	uc->slave_thread_id = -1;
 	uc->dir = DMA_MEM_TO_MEM;
 
-	if (uc->pkt_mode)
+	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
-
+		uc->use_dma_pool = false;
+	}
 }
 
 static struct platform_driver udma_driver;
