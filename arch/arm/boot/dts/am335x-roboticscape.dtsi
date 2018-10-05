@@ -148,7 +148,7 @@
 		compatible = "bone-pinmux-helper";
 		status = "okay";
 		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm";
-		pinctrl-0 = <&P9_21_default_pin>;
+		pinctrl-0 = <&P9_21_uart_pin>;
 		pinctrl-1 = <&P9_21_gpio_pin>;
 		pinctrl-2 = <&P9_21_gpio_pu_pin>;
 		pinctrl-3 = <&P9_21_gpio_pd_pin>;
@@ -163,7 +163,7 @@
 		compatible = "bone-pinmux-helper";
 		status = "okay";
 		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "spi", "uart", "i2c", "pwm";
-		pinctrl-0 = <&P9_22_default_pin>;
+		pinctrl-0 = <&P9_22_uart_pin>;
 		pinctrl-1 = <&P9_22_gpio_pin>;
 		pinctrl-2 = <&P9_22_gpio_pu_pin>;
 		pinctrl-3 = <&P9_22_gpio_pd_pin>;
@@ -178,7 +178,7 @@
 		compatible = "bone-pinmux-helper";
 		status = "okay";
 		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pruout", "pruin";
-		pinctrl-0 = <&P9_29_default_pin>;
+		pinctrl-0 = <&P9_29_spi_pin>;
 		pinctrl-1 = <&P9_29_gpio_pin>;
 		pinctrl-2 = <&P9_29_gpio_pu_pin>;
 		pinctrl-3 = <&P9_29_gpio_pd_pin>;
@@ -193,7 +193,7 @@
 		compatible = "bone-pinmux-helper";
 		status = "okay";
 		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "pruout", "pruin";
-		pinctrl-0 = <&P9_30_default_pin>;
+		pinctrl-0 = <&P9_30_spi_pin>;
 		pinctrl-1 = <&P9_30_gpio_pin>;
 		pinctrl-2 = <&P9_30_gpio_pu_pin>;
 		pinctrl-3 = <&P9_30_gpio_pd_pin>;
@@ -208,7 +208,7 @@
 		compatible = "bone-pinmux-helper";
 		status = "okay";
 		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "spi_sclk", "pruout", "pruin";
-		pinctrl-0 = <&P9_31_default_pin>;
+		pinctrl-0 = <&P9_31_spi_sclk_pin>;
 		pinctrl-1 = <&P9_31_gpio_pin>;
 		pinctrl-2 = <&P9_31_gpio_pu_pin>;
 		pinctrl-3 = <&P9_31_gpio_pd_pin>;
@@ -224,7 +224,7 @@
 		compatible = "bone-pinmux-helper";
 		status = "okay";
 		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm", "spi", "spi_cs", "pwm2", "pruout", "pruin";
-		pinctrl-0 = <&P9_28_default_pin>;
+		pinctrl-0 = <&P9_28_spi_cs_pin>;
 		pinctrl-1 = <&P9_28_gpio_pin>;
 		pinctrl-2 = <&P9_28_gpio_pu_pin>;
 		pinctrl-3 = <&P9_28_gpio_pd_pin>;
@@ -241,7 +241,7 @@
 		compatible = "bone-pinmux-helper";
 		status = "okay";
 		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "pwm";
-		pinctrl-0 = <&P9_23_default_pin>;
+		pinctrl-0 = <&P9_23_gpio_pin>;
 		pinctrl-1 = <&P9_23_gpio_pin>;
 		pinctrl-2 = <&P9_23_gpio_pu_pin>;
 		pinctrl-3 = <&P9_23_gpio_pd_pin>;
@@ -253,7 +253,7 @@
 		compatible = "bone-pinmux-helper";
 		status = "okay";
 		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c",  "pruin";
-		pinctrl-0 = <&P9_24_default_pin>;
+		pinctrl-0 = <&P9_24_uart_pin>;
 		pinctrl-1 = <&P9_24_gpio_pin>;
 		pinctrl-2 = <&P9_24_gpio_pu_pin>;
 		pinctrl-3 = <&P9_24_gpio_pd_pin>;
@@ -268,7 +268,7 @@
 		compatible = "bone-pinmux-helper";
 		status = "okay";
 		pinctrl-names = "default", "gpio", "gpio_pu", "gpio_pd", "uart", "can", "i2c",  "pruin";
-		pinctrl-0 = <&P9_26_default_pin>;
+		pinctrl-0 = <&P9_26_uart_pin>;
 		pinctrl-1 = <&P9_26_gpio_pin>;
 		pinctrl-2 = <&P9_26_gpio_pu_pin>;
 		pinctrl-3 = <&P9_26_gpio_pd_pin>;
