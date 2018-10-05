@@ -2891,7 +2891,6 @@ static int udma_terminate_all(struct dma_chan *chan)
 		udma_stop(uc);
 
 	if (uc->desc) {
-		uc->bcnt += uc->desc->residue;
 		uc->terminated_desc = uc->desc;
 		uc->desc = NULL;
 		uc->terminated_desc->terminated = true;
