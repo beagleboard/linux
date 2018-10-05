@@ -1131,6 +1131,8 @@
 			dma-ranges;
 			ranges;
 
+			ti,sci-dev-id = <118>;
+
 			main_navss_intr: interrupt-controller@0 {
 				compatible = "ti,sci-intr";
 				interrupt-controller;
@@ -1365,6 +1367,8 @@
 			dma-coherent;
 			dma-ranges;
 			ranges;
+
+			ti,sci-dev-id = <119>;
 
 			mcu_ringacc: ringacc@2b800000 {
 				compatible = "ti,am654-navss-ringacc";
