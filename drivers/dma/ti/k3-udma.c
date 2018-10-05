@@ -364,6 +364,7 @@ struct udma_chan {
 	bool needs_epib; /* EPIB is needed for the communication or not */
 	u32 psd_size; /* size of Protocol Specific Data */
 	u32 metadata_size; /* (needs_epib ? 16:0) + psd_size */
+	u32 hdesc_size; /* Size of a packet descriptor in packet mode */
 	int slave_thread_id;
 	u32 src_thread;
 	u32 dst_thread;
@@ -2103,8 +2104,6 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 {
 	struct scatterlist *sgent;
 	struct knav_udmap_host_desc_t *h_desc;
-	unsigned int hdesc_size = sizeof(struct knav_udmap_host_desc_t);
-	int hdesc_align = 64;
 	struct udma_desc *d;
 	u32 ring_id;
 	unsigned int i;
@@ -2150,15 +2149,8 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 		sglen = 1;
 	}
 
-	/* We need to allocate space for EPIB/PSD */
-	hdesc_size += uc->metadata_size;
-
-	if (hdesc_align < dma_get_cache_alignment())
-		hdesc_align = dma_get_cache_alignment();
-	hdesc_size = ALIGN(hdesc_size, hdesc_align);
-
-	d->cppi5_desc_size = hdesc_size;
-	d->cppi5_desc_area_size = hdesc_size * sglen;
+	d->cppi5_desc_size = uc->hdesc_size;
+	d->cppi5_desc_area_size = uc->hdesc_size * sglen;
 	d->sglen = sglen;
 
 	/* Allocate memory for DMA ring descriptor */
@@ -2183,9 +2175,10 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 
 	for_each_sg(sgl, sgent, sglen, i) {
 		dma_addr_t sg_addr = sg_dma_address(sgent);
-		dma_addr_t bdesc_paddr = d->cppi5_desc_paddr + hdesc_size * i;
-		struct knav_udmap_host_desc_t *desc =
-					d->cppi5_desc_vaddr + hdesc_size * i;
+		dma_addr_t bdesc_paddr = d->cppi5_desc_paddr +
+					 uc->hdesc_size * i;
+		struct knav_udmap_host_desc_t *desc = d->cppi5_desc_vaddr +
+						      uc->hdesc_size * i;
 		size_t sg_len = sg_dma_len(sgent);
 
 		d->residue += sg_len;
@@ -2472,8 +2465,6 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 	struct udma_chan *uc, dma_addr_t buf_addr, size_t buf_len,
 	size_t period_len, enum dma_transfer_direction dir, unsigned long flags)
 {
-	unsigned int hdesc_size = sizeof(struct knav_udmap_host_desc_t);
-	int hdesc_align = 64;
 	struct udma_desc *d;
 	u32 ring_id;
 	int i;
@@ -2489,15 +2480,8 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 	if (!d)
 		return NULL;
 
-	/* We need to allocate space for EPIB/PSD */
-	hdesc_size += uc->metadata_size;
-
-	if (hdesc_align < dma_get_cache_alignment())
-		hdesc_align = dma_get_cache_alignment();
-	hdesc_size = ALIGN(hdesc_size, hdesc_align);
-
-	d->cppi5_desc_size = hdesc_size;
-	d->cppi5_desc_area_size = hdesc_size * periods;
+	d->cppi5_desc_size = uc->hdesc_size;
+	d->cppi5_desc_area_size = uc->hdesc_size * periods;
 
 	/* Allocate memory for DMA ring descriptor */
 	d->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
@@ -2517,8 +2501,8 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 
 	for (i = 0; i < periods; i++) {
 		dma_addr_t period_addr = buf_addr + (period_len * i);
-		struct knav_udmap_host_desc_t *h_desc =
-					d->cppi5_desc_vaddr + hdesc_size * i;
+		struct knav_udmap_host_desc_t *h_desc = d->cppi5_desc_vaddr +
+							uc->hdesc_size * i;
 
 		knav_udmap_hdesc_init(h_desc, 0, 0);
 		knav_udmap_hdesc_set_pktlen(h_desc, period_len);
@@ -3111,6 +3095,15 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 	if (!of_property_read_u32(chconf_node, "ti,psd-size", &val))
 		uc->psd_size = val;
 	uc->metadata_size = (uc->needs_epib ? 16 : 0) + uc->psd_size;
+
+	if (uc->pkt_mode) {
+		int hdesc_align = 64;
+
+		if (hdesc_align < dma_get_cache_alignment())
+			hdesc_align = dma_get_cache_alignment();
+		uc->hdesc_size = ALIGN(sizeof(struct knav_udmap_host_desc_t) +
+				 uc->metadata_size, hdesc_align);
+	}
 
 	of_node_put(chconf_node);
 
