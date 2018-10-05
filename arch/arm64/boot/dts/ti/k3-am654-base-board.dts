@@ -271,6 +271,13 @@
 		>;
 	};
 
+	mcu_i2c0_pins_default: mcu_i2c0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_WKUP_IOPAD(0x00e8, PIN_INPUT | MUX_MODE0) /* (AD8) MCU_I2C0_SCL */
+			AM65X_WKUP_IOPAD(0x00ec, PIN_INPUT | MUX_MODE0) /* (AD7) MCU_I2C0_SDA */
+		>;
+	};
+
 	push_button_pins_default: push_button__pins_default {
 		pinctrl-single,pins = <
 			AM65X_WKUP_IOPAD(0x0030, PIN_INPUT | MUX_MODE7) /* (R5) WKUP_GPIO0_24 */
@@ -348,6 +355,13 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
+};
+
+&mcu_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_i2c0_pins_default>;
+	status = "okay";
+	clock-frequency = <400000>;
 };
 
 &main_i2c0 {
