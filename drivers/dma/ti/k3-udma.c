@@ -635,8 +635,10 @@ static inline bool udma_is_chan_running(struct udma_chan *uc)
 	return false;
 }
 
-static int udma_push_to_ring(struct udma_chan *uc, struct udma_desc *d, int idx)
+static int udma_push_to_ring(struct udma_chan *uc, int idx)
 {
+	struct udma_desc *d = uc->desc;
+
 	struct k3_nav_ring *ring = NULL;
 	int ret = -EINVAL;
 
@@ -832,9 +834,9 @@ static inline void udma_start_desc(struct udma_chan *uc)
 
 		/* Push all descriptors to ring for cyclic packet mode */
 		for (i = 0; i < uc->desc->sglen; i++)
-			udma_push_to_ring(uc, uc->desc, i);
+			udma_push_to_ring(uc, i);
 	} else {
-		udma_push_to_ring(uc, uc->desc, 0);
+		udma_push_to_ring(uc, 0);
 	}
 }
 
@@ -978,15 +980,15 @@ static inline int udma_stop(struct udma_chan *uc)
 	return 0;
 }
 
-static void udma_cyclic_packet_elapsed(struct udma_chan *uc,
-				       struct udma_desc *d)
+static void udma_cyclic_packet_elapsed(struct udma_chan *uc)
 {
+	struct udma_desc *d = uc->desc;
 	unsigned int hdesc_size = d->cppi5_desc_size;
 	struct knav_udmap_host_desc_t *h_desc;
 
 	h_desc = d->cppi5_desc_vaddr + hdesc_size * d->desc_idx;
 	knav_udmap_hdesc_reset_to_original(h_desc);
-	udma_push_to_ring(uc, d, d->desc_idx);
+	udma_push_to_ring(uc, d->desc_idx);
 	d->desc_idx = (d->desc_idx + 1) % d->sglen;
 }
 
@@ -1072,7 +1074,7 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 		if (uc->cyclic) {
 			/* push the descriptor back to the ring */
 			if (d == uc->desc) {
-				udma_cyclic_packet_elapsed(uc, d);
+				udma_cyclic_packet_elapsed(uc);
 				vchan_cyclic_callback(&d->vd);
 			}
 		} else {
