@@ -50,13 +50,35 @@ static const u8 elsize_bytes[] = {
 };
 
 #define CPPI50_TR_FLAGS_TYPE(x)			(x << 0)
+#define CPPI50_TR_FLAGS_WAIT			(1 << 5)
+/*
+ * EVENT_SIZE:
+ * 0: Only generate event when the TR is completed
+ * 1: Event is generated when ICNT1 is decremented by 1
+ * 2: Event is generated when ICNT2 is decremented by 1
+ * 3: Event is generated when ICNT3 is decremented by 1
+ */
+#define CPPI50_TR_FLAGS_EVENT_SIZE(x)		(((x) & 0x3) << 6)
+/*
+ * TRIGGERx:
+ * 0: No trigger
+ * 1: Global Trigger 0 for the channel
+ * 2: Global Trigger 1 for the channel
+ * 3: Local Event for the channel
+ *
+ * TRIGGER_TYPEx:
+ * 0: ICNT1 can be decremented by 1 on trigger
+ * 1: ICNT2 can be decremented by 1 on trigger
+ * 2: ICNT3 can be decremented by 1 on trigger
+ * 3: The entire TR is waiting for the trigger
+ */
+#define CPPI50_TR_FLAGS_TRIGGER0(x)		(((x) & 0x3) << 8)
+#define CPPI50_TR_FLAGS_TRIGGER0_TYPE(x)	(((x) & 0x3) << 10)
+#define CPPI50_TR_FLAGS_TRIGGER1(x)		(((x) & 0x3) << 10)
+#define CPPI50_TR_FLAGS_TRIGGER1_TYPE(x)	(((x) & 0x3) << 14)
 
-#define CPPI50_TR_FLAGS_STATIC			(1 << 4)
-
-#define CPPI50_TR_FLAGS_EVENT_COMPLETED		(0 << 6)
-#define CPPI50_TR_FLAGS_EVENT_ICNT1		(1 << 6)
-#define CPPI50_TR_FLAGS_EVENT_ICNT2		(2 << 6)
-#define CPPI50_TR_FLAGS_EVENT_ICNT3		(3 << 6)
+#define CPPI50_TR_FLAGS_SUPR_EVT		(1 << 26)
+#define CPPI50_TR_FLAGS_EOP			(1 << 31)
 
 /* Transfer Request Type 0: One Dimensional Transfer */
 struct cppi50_tr_req_type0 {
@@ -159,9 +181,8 @@ struct cppi50_tr_resp {
 
 #define CPPI50_TRDESC_W0_LAST_ENTRY(x)		(((x) & 0x3fff) << 0)
 #define CPPI50_TRDESC_W0_RELOAD_IDX(x)		(((x) & 0x3fff) << 14)
-#define CPPI50_TRDESC_W0_RELOAD_EN		(0x1 << 28)
+#define CPPI50_TRDESC_W0_RELOAD_CNT(x)		(((x) & 0x1ff) << 20)
 #define CPPI50_TRDESC_W0_TYPE			(0x3 << 30)
-#define CPPI50_HPDESC_W0_TYPE			(0x2 << 30)
 
 #define CPPI50_TRDESC_W1_FLOWID(x)		(((x) & 0x3fff) << 0)
 #define CPPI50_TRDESC_W1_PACKETID(x)		(((x) & 0x3ff) << 14)
@@ -1961,16 +1982,15 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 	d->tr_resp_base = d->tr_req_base + tr_size * tr_count;
 
 	tr_desc->packet_info[0] = CPPI50_TRDESC_W0_LAST_ENTRY(tr_count - 1) |
-				     CPPI50_TRDESC_W0_TYPE;
+				  CPPI50_TRDESC_W0_TYPE;
 	if (uc->cyclic)
-		tr_desc->packet_info[0] |= (0x1ff << 20);
+		tr_desc->packet_info[0] |= CPPI50_TRDESC_W0_RELOAD_CNT(0x1ff);
 
-	/* Flow and Packed ID ??? */
+	/* Flow and Packed ID */
 	tr_desc->packet_info[1] = tr_nominal_size |
-				     CPPI50_TRDESC_W1_PACKETID(uc->id) |
-				     CPPI50_TRDESC_W1_FLOWID(0x3fff); // ??
+				  CPPI50_TRDESC_W1_PACKETID(uc->id) |
+				  CPPI50_TRDESC_W1_FLOWID(0x3fff);
 
-	/* TODO: re-check this... */
 	if (dir == DMA_DEV_TO_MEM)
 		tr_desc->packet_info[2] = k3_nav_ringacc_get_ring_id(
 							uc->rchan->r_ring);
@@ -2046,14 +2066,10 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 		tr_req[i].dim1 = burst * elsize_bytes[elsize];
 		tr_req[i].icnt1 = sg_dma_len(sgent) / tr_req[i].icnt0;
 
-		/* trigger types */
-		tr_req[i].flags |= (3 << 10); /* TRIGGER0_TYPE */
-		tr_req[i].flags |= (3 << 14); /* TRIGGER1_TYPE */
-
-		tr_req[i].flags |= (1 << 26); /* suppress event */
+		tr_req[i].flags |= CPPI50_TR_FLAGS_SUPR_EVT;
 	}
 
-	tr_req[i - 1].flags |= (1 << 31); /* EOP */
+	tr_req[i - 1].flags |= CPPI50_TR_FLAGS_EOP;
 
 	return d;
 }
@@ -2448,12 +2464,8 @@ static struct udma_desc *udma_prep_dma_cyclic_tr(
 		tr_req[i].icnt1 = period_len / dev_width;
 		tr_req[i].dim1 = dev_width;
 
-		tr_req[i].flags |= CPPI50_TR_FLAGS_EVENT_COMPLETED;
-		tr_req[i].flags |= (3 << 10); /* TRIGGER0_TYPE */
-		tr_req[i].flags |= (3 << 14); /* TRIGGER1_TYPE */
-
 		if (!(flags & DMA_PREP_INTERRUPT))
-			tr_req[i].flags |= (1 << 26); /* suppress event output */
+			tr_req[i].flags |= CPPI50_TR_FLAGS_SUPR_EVT;
 	}
 
 	return d;
@@ -2685,15 +2697,9 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 	tr_req[0].dicnt3 = 1;
 	tr_req[0].ddim1 = tr0_cnt0;
 
-	tr_req[0].flags |= (1 << 5); /* WAIT */
+	tr_req[0].flags |= CPPI50_TR_FLAGS_WAIT;
 
-	/* trigger types */
-	tr_req[0].flags |= (3 << 10); /* TRIGGER0_TYPE */
-	tr_req[0].flags |= (3 << 14); /* TRIGGER1_TYPE */
-
-	tr_req[0].flags |= (1 << 26); /* suppress event */
-
-	tr_req[0].flags |= (0x25 << 16); /* CMD_ID */
+	tr_req[0].flags |= CPPI50_TR_FLAGS_SUPR_EVT;
 
 	if (num_tr == 2) {
 		tr_req[1].flags = CPPI50_TR_FLAGS_TYPE(15);
@@ -2709,17 +2715,12 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 		tr_req[1].dicnt2 = 1;
 		tr_req[1].dicnt3 = 1;
 
-		tr_req[1].flags |= (1 << 5); /* WAIT */
+		tr_req[1].flags |= CPPI50_TR_FLAGS_WAIT;
 
-		/* trigger types */
-		tr_req[1].flags |= (3 << 10); /* TRIGGER0_TYPE */
-		tr_req[1].flags |= (3 << 14); /* TRIGGER1_TYPE */
-
-		tr_req[1].flags |= (0x25 << 16); /* CMD_ID */
-		tr_req[1].flags |= (1 << 26); /* suppress event */
+		tr_req[1].flags |= CPPI50_TR_FLAGS_SUPR_EVT;
 	}
 
-	tr_req[num_tr - 1].flags |= (1 << 31); /* EOP */
+	tr_req[num_tr - 1].flags |= CPPI50_TR_FLAGS_EOP;
 
 	if (uc->metadata_size)
 		d->vd.tx.metadata_ops = &metadata_ops;
