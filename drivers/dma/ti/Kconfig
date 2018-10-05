@@ -40,7 +40,6 @@ config TI_K3_NAVSS_UDMA
 	select DMA_ENGINE
 	select DMA_VIRTUAL_CHANNELS
 	select TI_K3_NAVSS_RINGACC
-	select TI_K3_NAVSS_PSILCFG
 	default y
         help
 	  Enable support for the TI UDMA (Unified DMA) controller. This
