@@ -121,6 +121,11 @@ struct udma_tisci_rm {
 	const struct ti_sci_handle *tisci;
 	const struct ti_sci_rm_udmap_ops *tisci_udmap_ops;
 	u32  tisci_dev_id;
+
+	/* tisci information for PSI-L thread pairing/unpairing */
+	const struct ti_sci_rm_psil_ops *tisci_psil_ops;
+	u32  tisci_navss_dev_id;
+
 	struct ti_sci_resource *rm_ranges[RM_RANGE_LAST];
 };
 

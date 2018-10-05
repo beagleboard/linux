@@ -24,7 +24,6 @@
 #include <linux/of_irq.h>
 #include <linux/workqueue.h>
 #include <linux/completion.h>
-#include <linux/soc/ti/k3-navss-psilcfg.h>
 #include <dt-bindings/dma/k3-udma.h>
 #include <linux/soc/ti/k3-navss-ringacc.h>
 #include <linux/soc/ti/ti_sci_protocol.h>
@@ -250,7 +249,6 @@ struct udma_dev {
 
 	struct udma_tisci_rm tisci_rm;
 
-	struct device_node *psil_node;
 	struct k3_nav_ringacc *ringacc;
 
 	struct irq_domain *irq_domain;
@@ -344,8 +342,7 @@ struct udma_chan {
 	struct udma_rchan *rchan;
 	struct udma_rflow *rflow;
 
-	struct k3_nav_psil_entry *psi_link;
-
+	bool psil_paired;
 	u32 irq_ra_tisci;
 	u32 irq_ra_idx;
 	u32 irq_udma_idx;
@@ -469,6 +466,28 @@ static inline void udma_rchanrt_update_bits(struct udma_rchan *rchan, int reg,
 	if (!rchan)
 		return;
 	udma_update_bits(rchan->reg_rt, reg, mask, val);
+}
+
+static inline int navss_psil_pair(struct udma_dev *ud, u32 src_thread,
+				  u32 dst_thread)
+{
+	struct udma_tisci_rm *tisci_rm = &ud->tisci_rm;
+
+	dst_thread |= UDMA_PSIL_DST_THREAD_ID_OFFSET;
+	return tisci_rm->tisci_psil_ops->pair(tisci_rm->tisci,
+					      tisci_rm->tisci_navss_dev_id,
+					      src_thread, dst_thread);
+}
+
+static inline int navss_psil_unpair(struct udma_dev *ud, u32 src_thread,
+				    u32 dst_thread)
+{
+	struct udma_tisci_rm *tisci_rm = &ud->tisci_rm;
+
+	dst_thread |= UDMA_PSIL_DST_THREAD_ID_OFFSET;
+	return tisci_rm->tisci_psil_ops->unpair(tisci_rm->tisci,
+						tisci_rm->tisci_navss_dev_id,
+						src_thread, dst_thread);
 }
 
 static inline char *udma_get_dir_text(enum dma_transfer_direction dir)
@@ -1922,12 +1941,11 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	}
 
 	/* PSI-L pairing */
-	uc->psi_link = k3_nav_psil_request_link(ud->psil_node, uc->src_thread,
-						uc->dst_thread);
-	if (IS_ERR(uc->psi_link)) {
-		ret = PTR_ERR(uc->psi_link);
+	ret = navss_psil_pair(ud, uc->src_thread, uc->dst_thread);
+	if (ret)
 		goto err_chan_free;
-	}
+
+	uc->psil_paired = true;
 
 	/* Get the interrupts... */
 	uc->irq_num_ring = ti_sci_inta_register_event(ud->dev, uc->irq_ra_tisci,
@@ -1985,8 +2003,8 @@ err_irq_free:
 				     uc->irq_udma_idx, uc->irq_num_udma);
 	uc->irq_num_udma = 0;
 err_psi_free:
-	k3_nav_psil_release_link(uc->psi_link);
-	uc->psi_link = NULL;
+	navss_psil_unpair(ud, uc->src_thread, uc->dst_thread);
+	uc->psil_paired = false;
 err_chan_free:
 err_res_free:
 	udma_free_tx_resources(uc);
@@ -3103,8 +3121,10 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 	}
 
 	/* Release PSI-L pairing */
-	if (uc->psi_link)
-		k3_nav_psil_release_link(uc->psi_link);
+	if (uc->psil_paired) {
+		navss_psil_unpair(ud, uc->src_thread, uc->dst_thread);
+		uc->psil_paired = false;
+	}
 
 	vchan_free_chan_resources(&uc->vc);
 	tasklet_kill(&uc->vc.task);
@@ -3405,6 +3425,7 @@ static int udma_setup_resources(struct udma_dev *ud)
 static int udma_probe(struct platform_device *pdev)
 {
 	struct device_node *parent_irq_node;
+	struct device_node *navss_node = pdev->dev.parent->of_node;
 	struct device *dev = &pdev->dev;
 	struct udma_dev *ud;
 	const struct of_device_id *match;
@@ -3434,12 +3455,15 @@ static int udma_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ud->tisci_rm.tisci_udmap_ops = &ud->tisci_rm.tisci->ops.rm_udmap_ops;
+	ret = of_property_read_u32(navss_node, "ti,sci-dev-id",
+				   &ud->tisci_rm.tisci_navss_dev_id);
+	if (ret) {
+		dev_err(dev, "NAVSS ti,sci-dev-id read failure %d\n", ret);
+		return ret;
+	}
 
-	ud->psil_node = of_k3_nav_psil_get_by_phandle(dev->of_node,
-						      "ti,psi-proxy");
-	if (IS_ERR(ud->psil_node))
-		return PTR_ERR(ud->psil_node);
+	ud->tisci_rm.tisci_udmap_ops = &ud->tisci_rm.tisci->ops.rm_udmap_ops;
+	ud->tisci_rm.tisci_psil_ops = &ud->tisci_rm.tisci->ops.rm_psil_ops;
 
 	ud->ringacc = of_k3_nav_ringacc_get_by_phandle(dev->of_node,
 						       "ti,ringacc");
