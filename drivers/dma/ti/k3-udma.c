@@ -290,6 +290,16 @@ struct udma_rx_sg_workaround {
 	struct scatterlist single_sg;
 };
 
+struct udma_hwdesc {
+	size_t cppi5_desc_size;
+	void *cppi5_desc_vaddr;
+	dma_addr_t cppi5_desc_paddr;
+
+	/* TR descriptor internal pointers */
+	void *tr_req_base;
+	struct cppi50_tr_resp *tr_resp_base;
+};
+
 struct udma_desc {
 	struct virt_dma_desc vd;
 
@@ -301,25 +311,17 @@ struct udma_desc {
 	u32 residue;
 
 	unsigned int sglen;
-	unsigned int desc_idx;
+	unsigned int desc_idx; /* Only used for cyclic in packet mode */
 	unsigned int tr_idx;
 
 	/* for slave_sg RX workaround */
 	struct udma_rx_sg_workaround rx_sg_wa;
 
-	/* Size of the descriptor area, in bytes  */
-	size_t cppi5_desc_area_size;
-	/* Size of one descriptor within the descriptor area, in bytes */
-	size_t cppi5_desc_size;
-	dma_addr_t cppi5_desc_paddr;
-	void *cppi5_desc_vaddr;
-
-	/* TR descriptor internal pointers */
-	void *tr_req_base;
-	struct cppi50_tr_resp *tr_resp_base;
-
 	u32 metadata_size;
 	void *metadata; /* pointer to provided metadata buffer (EPIP, PSdata) */
+
+	unsigned int hwdesc_count;
+	struct udma_hwdesc hwdesc[0];
 };
 
 enum udma_chan_state {
@@ -365,11 +367,15 @@ struct udma_chan {
 	u32 psd_size; /* size of Protocol Specific Data */
 	u32 metadata_size; /* (needs_epib ? 16:0) + psd_size */
 	u32 hdesc_size; /* Size of a packet descriptor in packet mode */
+	int desc_align; /* alignment to use for descriptors */
 	int slave_thread_id;
 	u32 src_thread;
 	u32 dst_thread;
 	u32 static_tr_type;
 	enum udma_tp_level channel_tpl; /* Channel Throughput Level */
+
+	/* dmapool for packet mode descriptors */
+	struct dma_pool *hdesc_pool;
 
 	u32 id;
 	enum dma_transfer_direction dir;
@@ -510,22 +516,12 @@ static inline void udma_dump_chan_stdata(struct udma_chan *uc)
 static inline dma_addr_t udma_curr_cppi5_desc_paddr(struct udma_desc *d,
 						    int idx)
 {
-	return d->cppi5_desc_paddr + idx * d->cppi5_desc_size;
+	return d->hwdesc[idx].cppi5_desc_paddr;
 }
 
 static inline void *udma_curr_cppi5_desc_vaddr(struct udma_desc *d, int idx)
 {
-	return d->cppi5_desc_vaddr + idx * d->cppi5_desc_size;
-}
-
-static inline void *udma_cppi5_paddr_to_vaddr(struct udma_desc *d,
-					      dma_addr_t paddr)
-{
-	if (paddr < d->cppi5_desc_paddr ||
-	    paddr >= (d->cppi5_desc_paddr + d->cppi5_desc_area_size))
-		return NULL;
-
-	return d->cppi5_desc_vaddr + (paddr - d->cppi5_desc_paddr);
+	return d->hwdesc[idx].cppi5_desc_vaddr;
 }
 
 static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
@@ -555,6 +551,41 @@ static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
 	return d;
 }
 
+static void udma_free_hwdesc(struct virt_dma_desc *vd)
+{
+	struct udma_chan *uc = to_udma_chan(vd->tx.chan);
+	struct udma_desc *d = to_udma_desc(&vd->tx);
+
+	if (uc->pkt_mode) {
+		int i;
+
+		for (i = 0; i < d->hwdesc_count; i++) {
+			if (!d->hwdesc[i].cppi5_desc_vaddr)
+				continue;
+
+			dma_pool_free(uc->hdesc_pool,
+				      d->hwdesc[i].cppi5_desc_vaddr,
+				      d->hwdesc[i].cppi5_desc_paddr);
+
+			d->hwdesc[i].cppi5_desc_vaddr = NULL;
+		}
+	} else if (d->hwdesc[0].cppi5_desc_vaddr) {
+		struct udma_dev *ud = to_udma_dev(vd->tx.chan->device);
+
+		dma_free_coherent(ud->dev, d->hwdesc[0].cppi5_desc_size,
+				  d->hwdesc[0].cppi5_desc_vaddr,
+				  d->hwdesc[0].cppi5_desc_paddr);
+
+		d->hwdesc[0].cppi5_desc_vaddr = NULL;
+	}
+
+	if (d->rx_sg_wa.in_use) {
+		dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
+			     DMA_FROM_DEVICE);
+		kfree(sg_virt(&d->rx_sg_wa.single_sg));
+	}
+}
+
 static void udma_purge_desc_work(struct work_struct *work)
 {
 	struct udma_dev *ud = container_of(work, typeof(*ud), purge_work);
@@ -571,18 +602,7 @@ static void udma_purge_desc_work(struct work_struct *work)
 
 		d = to_udma_desc(&vd->tx);
 
-		if (d->cppi5_desc_vaddr) {
-			dma_free_coherent(ud->dev, d->cppi5_desc_area_size,
-					  d->cppi5_desc_vaddr,
-					  d->cppi5_desc_paddr);
-		}
-
-		if (d->rx_sg_wa.in_use) {
-			dma_unmap_sg(ud->dev, &d->rx_sg_wa.single_sg, 1,
-				     DMA_FROM_DEVICE);
-			kfree(sg_virt(&d->rx_sg_wa.single_sg));
-		}
-
+		udma_free_hwdesc(vd);
 		list_del(&vd->node);
 		kfree(d);
 	}
@@ -601,6 +621,12 @@ static void udma_desc_free(struct virt_dma_desc *vd)
 
 	if (uc->terminated_desc == d)
 		uc->terminated_desc = NULL;
+
+	if (uc->pkt_mode) {
+		udma_free_hwdesc(&d->vd);
+		kfree(d);
+		return;
+	}
 
 	spin_lock_irqsave(&ud->lock, flags);
 	list_add_tail(&vd->node, &ud->desc_to_purge);
@@ -635,6 +661,30 @@ static inline bool udma_is_chan_running(struct udma_chan *uc)
 	return false;
 }
 
+static void udma_sync_for_device(struct udma_chan *uc, int idx)
+{
+	struct udma_desc *d = uc->desc;
+
+	if (uc->cyclic && uc->pkt_mode) {
+		dma_sync_single_for_device(uc->ud->dev,
+					   d->hwdesc[idx].cppi5_desc_paddr,
+					   d->hwdesc[idx].cppi5_desc_size,
+					   DMA_TO_DEVICE);
+	} else {
+		int i;
+
+		for (i = 0; i < d->hwdesc_count; i++) {
+			if (!d->hwdesc[i].cppi5_desc_vaddr)
+				continue;
+
+			dma_sync_single_for_device(uc->ud->dev,
+						d->hwdesc[i].cppi5_desc_paddr,
+						d->hwdesc[i].cppi5_desc_size,
+						DMA_TO_DEVICE);
+		}
+	}
+}
+
 static int udma_push_to_ring(struct udma_chan *uc, int idx)
 {
 	struct udma_desc *d = uc->desc;
@@ -660,8 +710,7 @@ static int udma_push_to_ring(struct udma_chan *uc, int idx)
 		dma_addr_t desc_addr = udma_curr_cppi5_desc_paddr(d, idx);
 
 		wmb(); /* Ensure that writes are not moved over this point */
-		dma_sync_single_for_device(uc->ud->dev, desc_addr,
-					   d->cppi5_desc_size, DMA_TO_DEVICE);
+		udma_sync_for_device(uc, idx);
 		ret = k3_nav_ringacc_ring_push(ring, &desc_addr);
 		uc->in_ring_cnt++;
 	}
@@ -703,7 +752,7 @@ static int udma_pop_from_ring(struct udma_chan *uc, dma_addr_t *addr)
 
 		if (d)
 			dma_sync_single_for_cpu(uc->ud->dev, *addr,
-						d->cppi5_desc_size,
+						d->hwdesc[0].cppi5_desc_size,
 						DMA_FROM_DEVICE);
 		rmb(); /* Ensure that reads are not moved before this point */
 
@@ -983,10 +1032,9 @@ static inline int udma_stop(struct udma_chan *uc)
 static void udma_cyclic_packet_elapsed(struct udma_chan *uc)
 {
 	struct udma_desc *d = uc->desc;
-	unsigned int hdesc_size = d->cppi5_desc_size;
 	struct knav_udmap_host_desc_t *h_desc;
 
-	h_desc = d->cppi5_desc_vaddr + hdesc_size * d->desc_idx;
+	h_desc = d->hwdesc[d->desc_idx].cppi5_desc_vaddr;
 	knav_udmap_hdesc_reset_to_original(h_desc);
 	udma_push_to_ring(uc, d->desc_idx);
 	d->desc_idx = (d->desc_idx + 1) % d->sglen;
@@ -994,7 +1042,7 @@ static void udma_cyclic_packet_elapsed(struct udma_chan *uc)
 
 static inline void udma_fetch_epib(struct udma_chan *uc, struct udma_desc *d)
 {
-	struct knav_udmap_host_desc_t *h_desc = d->cppi5_desc_vaddr;
+	struct knav_udmap_host_desc_t *h_desc = d->hwdesc[0].cppi5_desc_vaddr;
 
 	memcpy(d->metadata, h_desc->epib, d->metadata_size);
 }
@@ -1566,6 +1614,17 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	struct udma_rchan *rchan;
 	int ret;
 
+	if (uc->pkt_mode) {
+		uc->hdesc_pool = dma_pool_create(uc->name, ud->ddev.dev,
+						 uc->hdesc_size, uc->desc_align,
+						 0);
+		if (!uc->hdesc_pool) {
+			dev_err(ud->ddev.dev,
+				"Descriptor pool allocation failed\n");
+			return -ENOMEM;
+		}
+	}
+
 	pm_runtime_get_sync(ud->ddev.dev);
 
 	/*
@@ -1914,6 +1973,9 @@ err_res_free:
 	udma_free_rx_resources(uc);
 	uc->slave_thread_id = -1;
 
+	if (uc->pkt_mode)
+		dma_pool_destroy(uc->hdesc_pool);
+
 	return ret;
 }
 
@@ -1931,6 +1993,7 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 					    size_t tr_size, int tr_count,
 					    enum dma_transfer_direction dir)
 {
+	struct udma_hwdesc *hwdesc;
 	struct cppi50_tr_req_desc *tr_desc;
 	struct udma_desc *d;
 	u32 tr_nominal_size;
@@ -1953,34 +2016,35 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 		return NULL;
 	}
 
-	d = kzalloc(sizeof(*d), GFP_ATOMIC);
+	/* We have only one descriptor containing multiple TRs */
+	d = kzalloc(sizeof(*d) + sizeof(d->hwdesc[0]), GFP_ATOMIC);
 	if (!d)
 		return NULL;
 
 	d->sglen = tr_count;
-	d->cppi5_desc_area_size = sizeof(struct cppi50_tr_req_desc);
-	d->cppi5_desc_area_size += tr_size * (tr_count + 1);
-	d->cppi5_desc_area_size += tr_count * sizeof(struct cppi50_tr_resp);
-	/* We have one descriptor with multiple TRs */
-	d->cppi5_desc_size = d->cppi5_desc_area_size;
+
+	d->hwdesc_count = 1;
+	hwdesc = &d->hwdesc[0];
+	hwdesc->cppi5_desc_size = sizeof(struct cppi50_tr_req_desc);
+	hwdesc->cppi5_desc_size += tr_size * (tr_count + 1);
+	hwdesc->cppi5_desc_size += tr_count * sizeof(struct cppi50_tr_resp);
 
 	/* Allocate memory for DMA ring descriptor */
-	d->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
-						  d->cppi5_desc_area_size,
-						  &d->cppi5_desc_paddr,
-						  GFP_ATOMIC);
-	if (!d->cppi5_desc_vaddr) {
+	hwdesc->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
+						       hwdesc->cppi5_desc_size,
+						       &hwdesc->cppi5_desc_paddr,
+						       GFP_ATOMIC);
+	if (!hwdesc->cppi5_desc_vaddr) {
 		kfree(d);
 		return NULL;
 	}
 
-	tr_desc = d->cppi5_desc_vaddr;
-
 	/* Start of the TR req records */
-	d->tr_req_base = d->cppi5_desc_vaddr + tr_size;
+	hwdesc->tr_req_base = hwdesc->cppi5_desc_vaddr + tr_size;
 	/* Start address of the TR response array */
-	d->tr_resp_base = d->tr_req_base + tr_size * tr_count;
+	hwdesc->tr_resp_base = hwdesc->tr_req_base + tr_size * tr_count;
 
+	tr_desc = hwdesc->cppi5_desc_vaddr;
 	tr_desc->packet_info[0] = CPPI50_TRDESC_W0_LAST_ENTRY(tr_count - 1) |
 				  CPPI50_TRDESC_W0_TYPE;
 	if (uc->cyclic)
@@ -2057,7 +2121,7 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 
 	d->sglen = sglen;
 
-	tr_req = (struct cppi50_tr_req_type1 *)d->tr_req_base;
+	tr_req = (struct cppi50_tr_req_type1 *)d->hwdesc[0].tr_req_base;
 	for_each_sg(sgl, sgent, sglen, i) {
 		d->residue += sg_dma_len(sgent);
 		tr_req[i].flags = CPPI50_TR_FLAGS_TYPE(1);
@@ -2105,12 +2169,12 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 	enum dma_transfer_direction dir, unsigned long tx_flags, void *context)
 {
 	struct scatterlist *sgent;
-	struct knav_udmap_host_desc_t *h_desc;
+	struct knav_udmap_host_desc_t *h_desc = NULL;
 	struct udma_desc *d;
 	u32 ring_id;
 	unsigned int i;
 
-	d = kzalloc(sizeof(*d), GFP_ATOMIC);
+	d = kzalloc(sizeof(*d) + sglen * sizeof(d->hwdesc[0]), GFP_ATOMIC);
 	if (!d)
 		return NULL;
 
@@ -2151,24 +2215,8 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 		sglen = 1;
 	}
 
-	d->cppi5_desc_size = uc->hdesc_size;
-	d->cppi5_desc_area_size = uc->hdesc_size * sglen;
 	d->sglen = sglen;
-
-	/* Allocate memory for DMA ring descriptor */
-	d->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
-						  d->cppi5_desc_area_size,
-						  &d->cppi5_desc_paddr,
-						  GFP_ATOMIC);
-	if (!d->cppi5_desc_vaddr) {
-		if (d->rx_sg_wa.in_use) {
-			dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-				     DMA_FROM_DEVICE);
-			kfree(sg_virt(&d->rx_sg_wa.single_sg));
-		}
-		kfree(d);
-		return NULL;
-	}
+	d->hwdesc_count = sglen;
 
 	if (dir == DMA_DEV_TO_MEM)
 		ring_id = k3_nav_ringacc_get_ring_id(uc->rchan->r_ring);
@@ -2176,14 +2224,27 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 		ring_id = k3_nav_ringacc_get_ring_id(uc->tchan->tc_ring);
 
 	for_each_sg(sgl, sgent, sglen, i) {
+		struct udma_hwdesc *hwdesc = &d->hwdesc[i];
 		dma_addr_t sg_addr = sg_dma_address(sgent);
-		dma_addr_t bdesc_paddr = d->cppi5_desc_paddr +
-					 uc->hdesc_size * i;
-		struct knav_udmap_host_desc_t *desc = d->cppi5_desc_vaddr +
-						      uc->hdesc_size * i;
+		struct knav_udmap_host_desc_t *desc;
 		size_t sg_len = sg_dma_len(sgent);
 
+		hwdesc->cppi5_desc_vaddr = dma_pool_zalloc(uc->hdesc_pool,
+						GFP_ATOMIC,
+						&hwdesc->cppi5_desc_paddr);
+		if (!hwdesc->cppi5_desc_vaddr) {
+			dev_err(uc->ud->dev,
+				"descriptor%d allocation failed\n", i);
+
+			udma_free_hwdesc(&d->vd);
+			kfree(d);
+			return NULL;
+
+		}
+
 		d->residue += sg_len;
+		hwdesc->cppi5_desc_size = uc->hdesc_size;
+		desc = hwdesc->cppi5_desc_vaddr;
 
 		if (i == 0) {
 			knav_udmap_hdesc_init(desc, 0, 0);
@@ -2201,8 +2262,9 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 					    sg_addr, sg_len);
 
 		/* Attach link as host buffer descriptor */
-		if (i)
-			knav_udmap_hdesc_link_hbdesc(h_desc, bdesc_paddr);
+		if (h_desc)
+			knav_udmap_hdesc_link_hbdesc(h_desc,
+						     hwdesc->cppi5_desc_paddr);
 
 		h_desc = desc;
 	}
@@ -2211,21 +2273,12 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 		dev_err(uc->ud->dev,
 			"%s: Transfer size %u is over the supported 4M range\n",
 			__func__, d->residue);
-		dma_free_coherent(uc->ud->dev, d->cppi5_desc_area_size,
-				  d->cppi5_desc_vaddr,
-				  d->cppi5_desc_paddr);
-
-		if (d->rx_sg_wa.in_use) {
-			dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-				     DMA_FROM_DEVICE);
-			kfree(sg_virt(&d->rx_sg_wa.single_sg));
-		}
-
+		udma_free_hwdesc(&d->vd);
 		kfree(d);
 		return NULL;
 	}
 
-	h_desc = d->cppi5_desc_vaddr;
+	h_desc = d->hwdesc[0].cppi5_desc_vaddr;
 	knav_udmap_hdesc_set_pktlen(h_desc, d->residue);
 
 	return d;
@@ -2249,7 +2302,7 @@ static int udma_attach_metadata(struct dma_async_tx_descriptor *desc,
 	if (uc->needs_epib && len < 16)
 		return -EINVAL;
 
-	h_desc = d->cppi5_desc_vaddr;
+	h_desc = d->hwdesc[0].cppi5_desc_vaddr;
 	if (d->dir == DMA_MEM_TO_DEV)
 		memcpy(h_desc->epib, data, len);
 
@@ -2277,7 +2330,7 @@ static void *udma_get_metadata_ptr(struct dma_async_tx_descriptor *desc,
 	if (!uc->pkt_mode || !uc->metadata_size)
 		return ERR_PTR(-ENOTSUPP);
 
-	h_desc = d->cppi5_desc_vaddr;
+	h_desc = d->hwdesc[0].cppi5_desc_vaddr;
 
 	*max_len = uc->metadata_size;
 
@@ -2305,7 +2358,7 @@ static int udma_set_metadata_len(struct dma_async_tx_descriptor *desc,
 	if (uc->needs_epib && payload_len < 16)
 		return -EINVAL;
 
-	h_desc = d->cppi5_desc_vaddr;
+	h_desc = d->hwdesc[0].cppi5_desc_vaddr;
 
 	if (uc->needs_epib) {
 		psd_size -= 16;
@@ -2397,15 +2450,7 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
 
-		dma_free_coherent(uc->ud->dev, d->cppi5_desc_area_size,
-				  d->cppi5_desc_vaddr, d->cppi5_desc_paddr);
-
-		if (d->rx_sg_wa.in_use) {
-			dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-				     DMA_FROM_DEVICE);
-			kfree(sg_virt(&d->rx_sg_wa.single_sg));
-		}
-
+		udma_free_hwdesc(&d->vd);
 		kfree(d);
 		return NULL;
 	}
@@ -2448,7 +2493,7 @@ static struct udma_desc *udma_prep_dma_cyclic_tr(
 	if (!d)
 		return NULL;
 
-	tr_req = (struct cppi50_tr_req_type1 *)d->tr_req_base;
+	tr_req = (struct cppi50_tr_req_type1 *)d->hwdesc[0].tr_req_base;
 	for (i = 0; i < periods; i++) {
 		tr_req[i].flags = CPPI50_TR_FLAGS_TYPE(1);
 		tr_req[i].addr = buf_addr + period_len * i;
@@ -2478,22 +2523,11 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 	if (period_len > 0x3FFFFF)
 		return NULL;
 
-	d = kzalloc(sizeof(*d), GFP_ATOMIC);
+	d = kzalloc(sizeof(*d) + periods * sizeof(d->hwdesc[0]), GFP_ATOMIC);
 	if (!d)
 		return NULL;
 
-	d->cppi5_desc_size = uc->hdesc_size;
-	d->cppi5_desc_area_size = uc->hdesc_size * periods;
-
-	/* Allocate memory for DMA ring descriptor */
-	d->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
-						  d->cppi5_desc_area_size,
-						  &d->cppi5_desc_paddr,
-						  GFP_ATOMIC);
-	if (!d->cppi5_desc_vaddr) {
-		kfree(d);
-		return NULL;
-	}
+	d->hwdesc_count = periods;
 
 	/* TODO: re-check this... */
 	if (dir == DMA_DEV_TO_MEM)
@@ -2502,9 +2536,24 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 		ring_id = k3_nav_ringacc_get_ring_id(uc->tchan->tc_ring);
 
 	for (i = 0; i < periods; i++) {
+		struct udma_hwdesc *hwdesc = &d->hwdesc[i];
 		dma_addr_t period_addr = buf_addr + (period_len * i);
-		struct knav_udmap_host_desc_t *h_desc = d->cppi5_desc_vaddr +
-							uc->hdesc_size * i;
+		struct knav_udmap_host_desc_t *h_desc;
+
+		hwdesc->cppi5_desc_vaddr = dma_pool_zalloc(uc->hdesc_pool,
+						GFP_ATOMIC,
+						&hwdesc->cppi5_desc_paddr);
+		if (!hwdesc->cppi5_desc_vaddr) {
+			dev_err(uc->ud->dev,
+				"descriptor%d allocation failed\n", i);
+
+			udma_free_hwdesc(&d->vd);
+			kfree(d);
+			return NULL;
+		}
+
+		hwdesc->cppi5_desc_size = uc->hdesc_size;
+		h_desc = hwdesc->cppi5_desc_vaddr;
 
 		knav_udmap_hdesc_init(h_desc, 0, 0);
 		knav_udmap_hdesc_set_pktlen(h_desc, period_len);
@@ -2598,8 +2647,7 @@ static struct dma_async_tx_descriptor *udma_prep_dma_cyclic(
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
 
-		dma_free_coherent(uc->ud->dev, d->cppi5_desc_area_size,
-				  d->cppi5_desc_vaddr, d->cppi5_desc_paddr);
+		udma_free_hwdesc(&d->vd);
 		kfree(d);
 		return NULL;
 	}
@@ -2663,7 +2711,7 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 	d->tr_idx = 0;
 	d->residue = len;
 
-	tr_req = (struct cppi50_tr_req_type15 *)d->tr_req_base;
+	tr_req = (struct cppi50_tr_req_type15 *)d->hwdesc[0].tr_req_base;
 
 	tr_req[0].flags = CPPI50_TR_FLAGS_TYPE(15);
 	tr_req[0].addr = src;
@@ -3039,6 +3087,10 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 
 	uc->slave_thread_id = -1;
 	uc->dir = DMA_MEM_TO_MEM;
+
+	if (uc->pkt_mode)
+		dma_pool_destroy(uc->hdesc_pool);
+
 }
 
 static struct platform_driver udma_driver;
@@ -3098,14 +3150,13 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 		uc->psd_size = val;
 	uc->metadata_size = (uc->needs_epib ? 16 : 0) + uc->psd_size;
 
-	if (uc->pkt_mode) {
-		int hdesc_align = 64;
+	uc->desc_align = 64;
+	if (uc->desc_align < dma_get_cache_alignment())
+		uc->desc_align = dma_get_cache_alignment();
 
-		if (hdesc_align < dma_get_cache_alignment())
-			hdesc_align = dma_get_cache_alignment();
+	if (uc->pkt_mode)
 		uc->hdesc_size = ALIGN(sizeof(struct knav_udmap_host_desc_t) +
-				 uc->metadata_size, hdesc_align);
-	}
+				 uc->metadata_size, uc->desc_align);
 
 	of_node_put(chconf_node);
 
