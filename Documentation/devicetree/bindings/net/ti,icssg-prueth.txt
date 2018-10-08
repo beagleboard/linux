@@ -14,6 +14,7 @@ Required properties:
 			Should be "tx0", "rx0",	"tx1", "rx1"
 - ti,psil-base	   : PSIL thread start number
 - ti,psil-config<n> :	PSIL configuration for each thread number
+- mii-g-rt	   : phandle to MII_G_RT module's syscon regmap.
 
 Must contain children, one for each of the MAC ports.
 Children must be named ethernet-mii0 and ethernet-mii1.
