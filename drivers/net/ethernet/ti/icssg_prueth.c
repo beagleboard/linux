@@ -29,7 +29,13 @@
 #define PRUETH_MODULE_VERSION "0.1"
 #define PRUETH_MODULE_DESCRIPTION "PRUSS ICSSG Ethernet driver"
 
-#define MSMC_RAM_SIZE		(SZ_64K + SZ_4K + SZ_1K)	/* 70144 = 68.5K */
+/* Port queue size in MSMC from firmware
+ * PORTQSZ_HP .set (0x1800)
+ * PORTQSZ_HP2 .set (PORTQSZ_HP+128) ;include barrier area
+ * 0x1880 x 8 bytes per slice  (port)
+ */
+
+#define MSMC_RAM_SIZE	(SZ_64K + SZ_32K + SZ_2K)	/* 0x1880 x 8 x 2 */
 
 #define PRUETH_NAV_PS_DATA_SIZE	0	/* Protocol specific data size */
 #define PRUETH_NAV_SW_DATA_SIZE	16	/* SW related data size */
