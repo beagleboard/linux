@@ -961,9 +961,9 @@ static int emac_ndo_stop(struct net_device *ndev)
 				  prueth_tx_cleanup);
 	k3_nav_udmax_disable_tx_chn(emac->tx_chns.tx_chn);
 
-	icss_hs_cmd_cancel(prueth, slice);
-	if (!icss_hs_is_cmd_done(prueth, slice))
-		netdev_err(ndev, "CANCEL failed\n");
+	ret = icss_hs_send_cmd(prueth, slice, ICSS_HS_CMD_CANCEL, 0, 0);
+	if (ret)
+		netdev_err(ndev, "CANCEL failed: %d\n", ret);
 
 	k3_nav_udmax_tdown_rx_chn(emac->rx_chns.rx_chn, true);
 	k3_nav_udmax_reset_rx_chn(emac->rx_chns.rx_chn, 0, emac,
