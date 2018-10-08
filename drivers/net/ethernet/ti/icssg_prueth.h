@@ -137,6 +137,7 @@ struct prueth_emac {
 	int rx_flow_id_base;
 
 	spinlock_t lock;	/* serialize access */
+	unsigned int flags;
 };
 
 /**
@@ -153,6 +154,7 @@ struct prueth_emac {
  * @registered_netdevs: list of registered netdevs
  * @fw_data: firmware names to be used with PRU remoteprocs
  * @hs: firmware handshake data per slice
+ * @miig_rt: regmap to mii_g_rt block
  */
 struct prueth {
 	struct device *dev;
@@ -168,6 +170,7 @@ struct prueth {
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
 	const struct prueth_private_data *fw_data;
 	struct icss_hs hs[PRUSS_NUM_PRUS];
+	struct regmap *miig_rt;
 };
 
 bool icss_hs_is_fw_dead(struct prueth *prueth, int slice, u16 *err_code);

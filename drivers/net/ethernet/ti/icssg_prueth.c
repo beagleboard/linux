@@ -659,7 +659,6 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 	int slice, ret;
 	u32 config[CONFIG_LENGTH];
 	u32 cmd;
-	u8 *mac;
 
 	switch (emac->port_id) {
 	case PRUETH_PORT_MII0:
@@ -698,27 +697,12 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 	config[1] = lower_32_bits(prueth->msmcram.pa);
 	config[2] = upper_32_bits(prueth->msmcram.pa);
 	config[3] = emac->rx_flow_id_base; /* flow id for host port */
-	/*  FIXME: We start in Promiscuous mode else we don't receive
-	 *  any packet. Need to setup classifiers/filters to get this right.
-	 */
-	config[4] = ICSS_SET_RUN_FLAG_PROMISC;
-	config[5] = 0;		/* future use */
+	config[4] = 0;	/* promisc, multicast, etc done by classifier */
+	config[5] = 0;	/* future use */
 	dev_info(dev, "setting rx flow id %d\n", config[3]);
 
 	cmd = ICSS_CMD_SET_RUN;
 	ret = icss_hs_send_cmd_wait_done(prueth, slice, cmd, config, 6);
-	if (ret)
-		goto err;
-
-	/* send ADD_MAC cmd */
-	mac = emac->mac_addr;
-	config[0] = cpu_to_be32(mac[0] << 24 | mac[1] << 16 |
-				mac[2] << 8 | mac[3]);
-	config[1] = cpu_to_be32(mac[4] << 24 | mac[5] << 16);
-	config[2] = 0;	/* 0 for dual-emac mode */
-
-	cmd = ICSS_CMD_ADD_MAC;
-	ret = icss_hs_send_cmd_wait_done(prueth, slice, cmd, config, 3);
 	if (ret)
 		goto err;
 
@@ -868,9 +852,13 @@ static int emac_ndo_open(struct net_device *ndev)
 	struct device *dev = prueth->dev;
 	int ret, i;
 	struct sk_buff *skb;
+	int slice = prueth_emac_slice(emac);
 
 	/* set h/w MAC as user might have re-configured */
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
+
+	icssg_class_set_mac_addr(prueth->miig_rt, slice, emac->mac_addr);
+	icssg_class_default(prueth->miig_rt, slice);
 
 	netif_carrier_off(ndev);
 
@@ -1035,9 +1023,28 @@ static void emac_ndo_tx_timeout(struct net_device *ndev)
  */
 static void emac_ndo_set_rx_mode(struct net_device *ndev)
 {
-	if (!(ndev->flags & IFF_PROMISC))
-		netdev_dbg(ndev, "Can't disable promiscuous mode\n");
-	/*  FIXME: Need to setup classifiers/filters to get this right */
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	int slice = prueth_emac_slice(emac);
+
+	if (ndev->flags & IFF_PROMISC) {
+		/* enable promiscuous */
+		if (!(emac->flags & IFF_PROMISC)) {
+			icssg_class_promiscuous(prueth->miig_rt, slice);
+			emac->flags |= IFF_PROMISC;
+		}
+		return;
+	} else if (ndev->flags & IFF_ALLMULTI) {
+		/* TODO: enable all multicast */
+	} else {
+		if (emac->flags & IFF_PROMISC) {
+			/* local MAC + BC only */
+			icssg_class_default(prueth->miig_rt, slice);
+			emac->flags &= ~IFF_PROMISC;
+		}
+
+		/* TODO: specific multi */
+	}
 }
 
 static const struct net_device_ops emac_netdev_ops = {
@@ -1389,6 +1396,12 @@ static int prueth_probe(struct platform_device *pdev)
 
 	prueth->eth_node[PRUETH_MAC0] = eth0_node;
 	prueth->eth_node[PRUETH_MAC1] = eth1_node;
+
+	prueth->miig_rt = syscon_regmap_lookup_by_phandle(np, "mii-g-rt");
+	if (IS_ERR(prueth->miig_rt)) {
+		dev_err(dev, "couldn't get mii-g-rt syscon regmap\n");
+		return -ENODEV;
+	}
 
 	if (eth0_node) {
 		ret = prueth_config_rgmiidelay(prueth, eth0_node);
