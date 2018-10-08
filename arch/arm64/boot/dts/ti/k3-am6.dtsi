@@ -277,7 +277,7 @@
 				#clock-cells = <0>;
 				phys=<&mmc_phy0>;
 				phy-names = "phy_arasan";
-				sdhci-caps-mask = <0x7 0x0>;
+				sdhci-caps-mask = <0x80000007 0x0>;
 				mmc-hs200-1_8v;
 				mmc-ddr-1_8v;
 				status = "disabled";
