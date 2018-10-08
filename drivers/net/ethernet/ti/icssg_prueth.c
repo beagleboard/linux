@@ -71,19 +71,6 @@ static int debug_level = -1;
 module_param(debug_level, int, 0644);
 MODULE_PARM_DESC(debug_level, "PRUETH debug level (NETIF_MSG bits)");
 
-/* get PRUSS SLICE number from prueth_emac */
-static int prueth_emac_slice(struct prueth_emac *emac)
-{
-	switch (emac->port_id) {
-	case PRUETH_PORT_MII0:
-		return ICSS_SLICE0;
-	case PRUETH_PORT_MII1:
-		return ICSS_SLICE1;
-	default:
-		return -EINVAL;
-	}
-}
-
 static void prueth_cleanup_rx_chns(struct prueth_emac *emac)
 {
 	struct prueth_rx_chn *rx_chn = &emac->rx_chns;
@@ -1065,72 +1052,6 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
 };
 
-/**
- * emac_get_drvinfo - Get EMAC driver information
- * @ndev: The network adapter
- * @info: ethtool info structure containing name and version
- *
- * Returns EMAC driver information (name and version)
- */
-static void emac_get_drvinfo(struct net_device *ndev,
-			     struct ethtool_drvinfo *info)
-{
-	strlcpy(info->driver, PRUETH_MODULE_DESCRIPTION, sizeof(info->driver));
-	strlcpy(info->version, PRUETH_MODULE_VERSION, sizeof(info->version));
-}
-
-/**
- * emac_get_link_ksettings - Get EMAC settings
- * @ndev: The network adapter
- * @ecmd: ethtool command
- *
- * Executes ethool get command
- */
-static int emac_get_link_ksettings(struct net_device *ndev,
-				   struct ethtool_link_ksettings *ecmd)
-{
-	struct prueth_emac *emac = netdev_priv(ndev);
-
-	if (!emac->phydev)
-		return -EOPNOTSUPP;
-
-	phy_ethtool_ksettings_get(emac->phydev, ecmd);
-	return 0;
-}
-
-/**
- * emac_set_link_ksettings - Set EMAC settings
- * @ndev: The EMAC network adapter
- * @ecmd: ethtool command
- *
- * Executes ethool set command
- */
-static int emac_set_link_ksettings(struct net_device *ndev,
-				   const struct ethtool_link_ksettings *ecmd)
-{
-	struct prueth_emac *emac = netdev_priv(ndev);
-
-	if (!emac->phydev)
-		return -EOPNOTSUPP;
-
-	return phy_ethtool_ksettings_set(emac->phydev, ecmd);
-}
-
-static int emac_get_sset_count(struct net_device *ndev, int stringset)
-{
-	return -EOPNOTSUPP;
-}
-
-/* Ethtool support for EMAC adapter */
-static const struct ethtool_ops emac_ethtool_ops = {
-	.get_drvinfo = emac_get_drvinfo,
-	.get_link_ksettings = emac_get_link_ksettings,
-	.set_link_ksettings = emac_set_link_ksettings,
-	.get_link = ethtool_op_get_link,
-	.get_ts_info = ethtool_op_get_ts_info,
-	.get_sset_count = emac_get_sset_count,
-};
-
 /* get emac_port corresponding to eth_node name */
 static int prueth_node_port(struct device_node *eth_node)
 {
@@ -1152,6 +1073,8 @@ static int prueth_node_mac(struct device_node *eth_node)
 	else
 		return -EINVAL;
 }
+
+extern const struct ethtool_ops icssg_ethtool_ops;
 
 static int prueth_netdev_init(struct prueth *prueth,
 			      struct device_node *eth_node)
@@ -1233,7 +1156,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
 
 	ndev->netdev_ops = &emac_netdev_ops;
-	ndev->ethtool_ops = &emac_ethtool_ops;
+	ndev->ethtool_ops = &icssg_ethtool_ops;
 
 	netif_tx_napi_add(ndev, &emac->napi_tx,
 			  emac_napi_tx_poll, NAPI_POLL_WEIGHT);

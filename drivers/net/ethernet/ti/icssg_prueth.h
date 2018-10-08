@@ -188,4 +188,17 @@ void icssg_class_set_mac_addr(struct regmap *miig_rt, int slice, u8 *mac);
 void icssg_class_disable(struct regmap *miig_rt, int slice);
 void icssg_class_default(struct regmap *miig_rt, int slice);
 void icssg_class_promiscuous(struct regmap *miig_rt, int slice);
+
+/* get PRUSS SLICE number from prueth_emac */
+static inline int prueth_emac_slice(struct prueth_emac *emac)
+{
+	switch (emac->port_id) {
+	case PRUETH_PORT_MII0:
+		return ICSS_SLICE0;
+	case PRUETH_PORT_MII1:
+		return ICSS_SLICE1;
+	default:
+		return -EINVAL;
+	}
+}
 #endif /* __NET_TI_ICSSG_PRUETH_H */
