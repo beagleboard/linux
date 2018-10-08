@@ -839,6 +839,9 @@ static int emac_ndo_open(struct net_device *ndev)
 	struct sk_buff *skb;
 	int slice = prueth_emac_slice(emac);
 
+	/* clear SMEM of this slice */
+	memset_io(prueth->shram.va + slice * ICSS_HS_OFFSET_SLICE1,
+		  0, ICSS_HS_OFFSET_SLICE1);
 	/* set h/w MAC as user might have re-configured */
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
 
