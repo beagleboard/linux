@@ -742,8 +742,6 @@ static void prueth_emac_stop(struct prueth_emac *emac)
 		return;
 	}
 
-	/* FIXME: need to send CANCEL RX/TX command to FW? */
-
 	rproc_shutdown(prueth->rtu[slice]);
 	rproc_shutdown(prueth->pru[slice]);
 }
@@ -950,10 +948,15 @@ cleanup_tx:
 static int emac_ndo_stop(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
 	int ret;
+	int slice = prueth_emac_slice(emac);
 
 	/* inform the upper layers. */
 	netif_stop_queue(ndev);
+
+	/* block packets from wire */
+	icssg_class_disable(prueth->miig_rt, prueth_emac_slice(emac));
 
 	/* tear down and disable UDMA channels */
 	reinit_completion(&emac->tdown_complete);
@@ -967,6 +970,10 @@ static int emac_ndo_stop(struct net_device *ndev)
 				  emac,
 				  prueth_tx_cleanup);
 	k3_nav_udmax_disable_tx_chn(emac->tx_chns.tx_chn);
+
+	icss_hs_cmd_cancel(prueth, slice);
+	if (!icss_hs_is_cmd_done(prueth, slice))
+		netdev_err(ndev, "CANCEL failed\n");
 
 	k3_nav_udmax_tdown_rx_chn(emac->rx_chns.rx_chn, true);
 	k3_nav_udmax_reset_rx_chn(emac->rx_chns.rx_chn, 0, emac,
