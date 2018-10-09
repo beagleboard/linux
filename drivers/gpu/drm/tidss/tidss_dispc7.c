@@ -1418,6 +1418,7 @@ static s32 pixinc(int pixels, u8 ps)
 	return 0;
 }
 
+static
 const struct tidss_plane_feat *dispc7_plane_feat(struct dispc_device *dispc,
 						 u32 hw_plane)
 {
