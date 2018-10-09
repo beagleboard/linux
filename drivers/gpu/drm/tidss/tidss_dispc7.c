@@ -594,33 +594,18 @@ static void dispc7_vp_enable(struct dispc_device *dispc, u32 hw_videoport,
 			FLD_VAL(vfp, 19, 8) |
 			FLD_VAL(vbp, 31, 20));
 
-	if (mode->flags & DRM_MODE_FLAG_NVSYNC)
-		ivs = true;
-	else
-		ivs = false;
+	ivs = !!(mode->flags & DRM_MODE_FLAG_NVSYNC);
 
-	if (mode->flags & DRM_MODE_FLAG_NHSYNC)
-		ihs = true;
-	else
-		ihs = false;
+	ihs = !!(mode->flags & DRM_MODE_FLAG_NHSYNC);
 
-	if (bus_flags & DRM_BUS_FLAG_DE_LOW)
-		ieo = true;
-	else
-		ieo = false;
+	ieo = !!(bus_flags & DRM_BUS_FLAG_DE_LOW);
 
-	if (bus_flags & DRM_BUS_FLAG_PIXDATA_NEGEDGE)
-		ipc = true;
-	else
-		ipc = false;
+	ipc = !!(bus_flags & DRM_BUS_FLAG_PIXDATA_NEGEDGE);
 
 	/* always use the 'rf' setting */
 	onoff = true;
 
-	if (bus_flags & DRM_BUS_FLAG_SYNC_NEGEDGE)
-		rf = false;
-	else
-		rf = true;
+	rf = !!(bus_flags & DRM_BUS_FLAG_SYNC_POSEDGE);
 
 	/* always use aligned syncs */
 	align = true;
