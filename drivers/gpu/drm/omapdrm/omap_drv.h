@@ -37,6 +37,7 @@
 #include "omap_gem.h"
 #include "omap_irq.h"
 #include "omap_plane.h"
+#include "omap_overlay.h"
 
 #define DBG(fmt, ...) DRM_DEBUG(fmt"\n", ##__VA_ARGS__)
 #define VERB(fmt, ...) if (0) DRM_DEBUG(fmt, ##__VA_ARGS__) /* verbose debug */
@@ -68,6 +69,9 @@ struct omap_drm_private {
 
 	unsigned int num_planes;
 	struct drm_plane *planes[8];
+
+	unsigned int num_ovls;
+	struct omap_hw_overlay *overlays[8];
 
 	struct drm_fb_helper *fbdev;
 
