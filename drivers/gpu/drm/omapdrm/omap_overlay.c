@@ -65,12 +65,14 @@ omap_plane_find_free_overlay(struct drm_device *dev,
 
 int omap_overlay_assign(struct drm_atomic_state *s, struct drm_plane *plane,
 			u32 caps, u32 fourcc, u32 crtc_mask,
-			struct omap_hw_overlay **overlay)
+			struct omap_hw_overlay **overlay,
+			struct omap_hw_overlay **r_overlay)
 {
 	struct omap_drm_private *priv = s->dev->dev_private;
 	struct omap_global_state *new_global_state, *old_global_state;
 	struct drm_plane **overlay_map;
-	struct omap_hw_overlay *ovl;
+	struct omap_hw_overlay *ovl, *r_ovl;
+	u32 save_possible_crtcs;
 
 	new_global_state = omap_get_global_state(s);
 	if (IS_ERR(new_global_state))
@@ -92,12 +94,37 @@ int omap_overlay_assign(struct drm_atomic_state *s, struct drm_plane *plane,
 		if (!ovl)
 			return -ENOMEM;
 
+		/* in case we need to backtrack */
+		save_possible_crtcs = ovl->possible_crtcs;
+
 		ovl->possible_crtcs = crtc_mask;
 		overlay_map[ovl->idx] = plane;
 		*overlay = ovl;
 
+		if (r_overlay) {
+			r_ovl = omap_plane_find_free_overlay(s->dev,
+							     overlay_map,
+							     caps, fourcc,
+							     crtc_mask);
+			if (!r_ovl) {
+				ovl->possible_crtcs = save_possible_crtcs;
+				overlay_map[ovl->idx] = NULL;
+				*overlay = NULL;
+				return -ENOMEM;
+			}
+
+			r_ovl->possible_crtcs = crtc_mask;
+			overlay_map[r_ovl->idx] = plane;
+			*r_overlay = r_ovl;
+		}
+
 		DBG("%s: assign to plane %s caps %x on crtc %x",
 		    (*overlay)->name, plane->name, caps, crtc_mask);
+
+		if (r_overlay) {
+			DBG("%s: assign to right of plane %s caps %x on crtc %x",
+			    (*r_overlay)->name, plane->name, caps, crtc_mask);
+		}
 	}
 
 	return 0;
