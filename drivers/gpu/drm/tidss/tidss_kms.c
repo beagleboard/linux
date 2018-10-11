@@ -58,6 +58,25 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 
 static int tidss_modeset_init_properties(struct tidss_device *tidss)
 {
+	struct drm_device *ddev = tidss->ddev;
+	static const struct drm_prop_enum_list trans_key_mode_list[] = {
+		{ TIDSS_TRANS_KEY_DISABLED, "disable"},
+		{ TIDSS_TRANS_KEY_DESTINATION, "destination"},
+		{ TIDSS_TRANS_KEY_SOURCE, "source"},
+	};
+
+	tidss->trans_key_mode_prop =
+		drm_property_create_enum(ddev, 0, "trans-key-mode",
+					 trans_key_mode_list,
+					 ARRAY_SIZE(trans_key_mode_list));
+	if (!tidss->trans_key_mode_prop)
+		return -ENOMEM;
+
+	tidss->trans_key_prop =
+		drm_property_create_range(ddev, 0, "trans-key", 0, 0xffffff);
+	if (!tidss->trans_key_prop)
+		return -ENOMEM;
+
 	return 0;
 }
 

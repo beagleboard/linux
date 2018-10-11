@@ -32,6 +32,9 @@ struct tidss_device {
 	u64 irq_uf_mask;	/* underflow irq bits for all planes */
 
 	struct drm_atomic_state *saved_state;
+
+	struct drm_property *trans_key_mode_prop;
+	struct drm_property *trans_key_prop;
 };
 
 struct tidss_features {

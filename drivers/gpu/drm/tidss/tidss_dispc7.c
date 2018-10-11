@@ -710,6 +710,50 @@ static u64 argb8888_to_argb12121212(u32 argb8888, enum c8_to_c12_mode m)
 	return v;
 }
 
+static void dispc7_ovr_set_trans_key(struct dispc_device *dispc,
+				     u32 hw_videoport,
+				     const struct tidss_vp_info *i)
+{
+	u64 trans_key_min, trans_key_max;
+	bool trans_key_enable = i->trans_key_mode != TIDSS_TRANS_KEY_DISABLED;
+	u32 trans_key_selection;
+
+	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_CONFIG,
+			trans_key_enable, 10, 10);
+
+	if (!trans_key_enable)
+		return;
+
+	switch (i->trans_key_mode) {
+	case TIDSS_TRANS_KEY_DESTINATION:
+		trans_key_selection = 0;
+		break;
+	case TIDSS_TRANS_KEY_SOURCE:
+		trans_key_selection = 1;
+		break;
+	case TIDSS_TRANS_KEY_DISABLED:
+	default:
+		WARN_ON(1);
+		return;
+	}
+
+	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_CONFIG,
+			trans_key_selection, 11, 11);
+
+	trans_key_min = argb8888_to_argb12121212(i->trans_key, C8_TO_C12_MIN);
+	trans_key_max = argb8888_to_argb12121212(i->trans_key, C8_TO_C12_MAX);
+
+	dispc7_ovr_write(dispc, hw_videoport, DISPC_OVR_TRANS_COLOR_MIN,
+			 trans_key_min  & 0xffffffff);
+	dispc7_ovr_write(dispc, hw_videoport, DISPC_OVR_TRANS_COLOR_MIN2,
+			 (trans_key_min >> 32) & 0xffff);
+
+	dispc7_ovr_write(dispc, hw_videoport, DISPC_OVR_TRANS_COLOR_MAX,
+			 trans_key_max  & 0xffffffff);
+	dispc7_ovr_write(dispc, hw_videoport, DISPC_OVR_TRANS_COLOR_MAX2,
+			 (trans_key_max >> 32) & 0xffff);
+}
+
 static void dispc7_vp_setup(struct dispc_device *dispc, u32 hw_videoport,
 			    const struct tidss_vp_info *info)
 {
@@ -721,6 +765,8 @@ static void dispc7_vp_setup(struct dispc_device *dispc, u32 hw_videoport,
 			 DISPC_OVR_DEFAULT_COLOR, v & 0xffffffff);
 	dispc7_ovr_write(dispc, hw_videoport,
 			 DISPC_OVR_DEFAULT_COLOR2, (v >> 32) & 0xffff);
+
+	dispc7_ovr_set_trans_key(dispc, hw_videoport, info);
 }
 
 static enum drm_mode_status dispc7_vp_check_mode(struct dispc_device *dispc,
@@ -1670,6 +1716,7 @@ static const struct tidss_vp_feat *dispc7_vp_feat(struct dispc_device *dispc,
 			.gamma_size = DISPC7_GAMMA_TABLE_SIZE,
 			.has_ctm = true,
 		},
+		.has_trans_key = true,
 	};
 
 	return &vp_feat;
