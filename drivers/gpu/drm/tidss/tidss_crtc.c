@@ -132,6 +132,7 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
 	struct drm_device *ddev = crtc->dev;
 	struct tidss_device *tidss = ddev->dev_private;
+	struct tidss_vp_info vp_info = { 0 };
 
 	dev_dbg(ddev->dev, "%s, crtc enabled %d, event %p\n",
 		__func__, tcrtc->enabled, crtc->state->event);
@@ -145,6 +146,10 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	// I think we always need the event to signal flip done
 	WARN_ON(!crtc->state->event);
+
+	tidss->dispc_ops->vp_setup(tidss->dispc,
+				   tcrtc->hw_videoport,
+				   &vp_info);
 
 	tidss->dispc_ops->vp_set_color_mgmt(tidss->dispc,
 					    tcrtc->hw_videoport,
