@@ -51,6 +51,9 @@ struct omap_global_state {
 	struct drm_private_state base;
 
 	struct drm_atomic_state *state;
+
+	/* global atomic state of assignment between overlays and planes */
+	struct drm_plane *hwoverlay_to_plane[8];
 };
 
 struct omap_drm_private {
