@@ -826,9 +826,11 @@ int omap_gem_pin(struct drm_gem_object *obj, dma_addr_t *dma_addr)
 
 		omap_obj->dma_addr_cnt++;
 
-		*dma_addr = omap_obj->dma_addr;
+		if (dma_addr)
+			*dma_addr = omap_obj->dma_addr;
 	} else if (omap_gem_is_contiguous(omap_obj)) {
-		*dma_addr = omap_obj->dma_addr;
+		if (dma_addr)
+			*dma_addr = omap_obj->dma_addr;
 	} else {
 		ret = -EINVAL;
 		goto fail;
