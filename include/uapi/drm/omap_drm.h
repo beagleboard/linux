@@ -51,7 +51,6 @@ struct drm_omap_param {
 #define OMAP_BO_TILED_8		0x00000100
 #define OMAP_BO_TILED_16	0x00000200
 #define OMAP_BO_TILED_32	0x00000300
-#define OMAP_BO_TILED		(OMAP_BO_TILED_8 | OMAP_BO_TILED_16 | OMAP_BO_TILED_32)
 
 union omap_gem_size {
 	__u32 bytes;		/* (for non-tiled formats) */
