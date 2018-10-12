@@ -566,16 +566,6 @@ static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
 	return d;
 }
 
-static inline size_t udma_calc_trdesc_size(size_t tr_size, int tr_count)
-{
-	/* Space holding the Packet info block is covered by the '+ 1' */
-	size_t trdesc_size = tr_size * (tr_count + 1);
-
-	trdesc_size += tr_count * sizeof(struct cppi50_tr_resp);
-
-	return trdesc_size;
-}
-
 static void udma_free_hwdesc(struct virt_dma_desc *vd)
 {
 	struct udma_chan *uc = to_udma_chan(vd->tx.chan);
@@ -1643,7 +1633,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		uc->use_dma_pool = true;
 		/* in case of MEM_TO_MEM we have maximum of two TRs */
 		if (uc->dir == DMA_MEM_TO_MEM)
-			uc->hdesc_size = udma_calc_trdesc_size(
+			uc->hdesc_size = cppi5_trdesc_calc_size(
 					sizeof(struct cppi50_tr_req_type15), 2);
 	}
 
@@ -2067,8 +2057,8 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 						GFP_ATOMIC,
 						&hwdesc->cppi5_desc_paddr);
 	} else {
-		hwdesc->cppi5_desc_size = udma_calc_trdesc_size(tr_size,
-								tr_count);
+		hwdesc->cppi5_desc_size = cppi5_trdesc_calc_size(tr_size,
+								 tr_count);
 		hwdesc->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
 						hwdesc->cppi5_desc_size,
 						&hwdesc->cppi5_desc_paddr,
