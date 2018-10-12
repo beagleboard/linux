@@ -551,13 +551,12 @@ cppi5_hdesc_reset_hbdesc(struct cppi5_host_desc_t *desc)
 }
 
 /**
- * cppi5_desc_is_epib_present -  check if EPIB present
+ * cppi5_hdesc_epib_present -  check if EPIB present
  * @desc_hdr: packet descriptor/TR header
  *
  * Returns true if EPIB present in the packet
  */
-static inline bool
-cppi5_desc_is_epib_present(struct cppi5_desc_hdr_t *desc_hdr)
+static inline bool cppi5_hdesc_epib_present(struct cppi5_desc_hdr_t *desc_hdr)
 {
 	WARN_ON(!desc_hdr);
 	return !!(desc_hdr->pkt_info0 & CPPI5_INFO0_HDESC_EPIB_PRESENT);
@@ -590,7 +589,7 @@ static inline void *cppi5_hdesc_get_psdata(
 
 	psdata = &desc->epib;
 
-	if (cppi5_desc_is_epib_present(&desc->hdr))
+	if (cppi5_hdesc_epib_present(&desc->hdr))
 		psdata += CPPI5_INFO0_HDESC_EPIB_SIZE;
 
 	return psdata;
@@ -624,7 +623,7 @@ static inline void *cppi5_hdesc_get_swdata(
 
 	swdata = &desc->epib;
 
-	if (cppi5_desc_is_epib_present(&desc->hdr))
+	if (cppi5_hdesc_epib_present(&desc->hdr))
 		swdata += CPPI5_INFO0_HDESC_EPIB_SIZE;
 
 	swdata += (psdata_size << 2);

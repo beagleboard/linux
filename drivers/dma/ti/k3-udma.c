@@ -2328,7 +2328,7 @@ static int udma_attach_metadata(struct dma_async_tx_descriptor *desc,
 	if (!data || len > uc->metadata_size)
 		return -EINVAL;
 
-	if (uc->needs_epib && len < 16)
+	if (uc->needs_epib && len < CPPI5_INFO0_HDESC_EPIB_SIZE)
 		return -EINVAL;
 
 	h_desc = d->hwdesc[0].cppi5_desc_vaddr;
@@ -2336,7 +2336,7 @@ static int udma_attach_metadata(struct dma_async_tx_descriptor *desc,
 		memcpy(h_desc->epib, data, len);
 
 	if (uc->needs_epib)
-		psd_size -= 16;
+		psd_size -= CPPI5_INFO0_HDESC_EPIB_SIZE;
 
 	d->metadata = data;
 	d->metadata_size = len;
@@ -2363,7 +2363,8 @@ static void *udma_get_metadata_ptr(struct dma_async_tx_descriptor *desc,
 
 	*max_len = uc->metadata_size;
 
-	*payload_len = cppi5_desc_is_epib_present(&h_desc->hdr) ? 16 : 0;
+	*payload_len = cppi5_hdesc_epib_present(&h_desc->hdr) ?
+		       CPPI5_INFO0_HDESC_EPIB_SIZE : 0;
 	*payload_len += cppi5_hdesc_get_psdata_size(h_desc);
 
 	return h_desc->epib;
@@ -2384,13 +2385,13 @@ static int udma_set_metadata_len(struct dma_async_tx_descriptor *desc,
 	if (payload_len > uc->metadata_size)
 		return -EINVAL;
 
-	if (uc->needs_epib && payload_len < 16)
+	if (uc->needs_epib && payload_len < CPPI5_INFO0_HDESC_EPIB_SIZE)
 		return -EINVAL;
 
 	h_desc = d->hwdesc[0].cppi5_desc_vaddr;
 
 	if (uc->needs_epib) {
-		psd_size -= 16;
+		psd_size -= CPPI5_INFO0_HDESC_EPIB_SIZE;
 		flags |= CPPI5_INFO0_HDESC_EPIB_PRESENT;
 	}
 
@@ -3180,7 +3181,8 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 	uc->needs_epib = of_property_read_bool(chconf_node, "ti,needs-epib");
 	if (!of_property_read_u32(chconf_node, "ti,psd-size", &val))
 		uc->psd_size = val;
-	uc->metadata_size = (uc->needs_epib ? 16 : 0) + uc->psd_size;
+	uc->metadata_size = (uc->needs_epib ? CPPI5_INFO0_HDESC_EPIB_SIZE : 0) +
+			    uc->psd_size;
 
 	uc->desc_align = 64;
 	if (uc->desc_align < dma_get_cache_alignment())
