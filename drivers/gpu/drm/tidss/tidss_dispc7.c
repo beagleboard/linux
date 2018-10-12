@@ -1219,7 +1219,7 @@ static int dispc7_vid_calc_scaling(struct dispc_device *dispc,
 		if (sp->fir_xinc < dispc7_calc_fir_inc(1, f->upscale_limit)) {
 			dev_dbg(dispc->dev,
 				"%s: X-scaling factor %u/%u > %u\n",
-				__func__,  pi->out_width, pi->width,
+				__func__, pi->out_width, pi->width,
 				f->upscale_limit);
 			return -EINVAL;
 		}
@@ -1232,7 +1232,7 @@ static int dispc7_vid_calc_scaling(struct dispc_device *dispc,
 			if (sp->xinc > f->xinc_max) {
 				dev_dbg(dispc->dev,
 					"%s: X-scaling factor %u/%u < 1/%u\n",
-					__func__,  pi->out_width, pi->width,
+					__func__, pi->out_width, pi->width,
 					downscale_limit * f->xinc_max);
 				return -EINVAL;
 			}
@@ -1269,7 +1269,7 @@ static int dispc7_vid_calc_scaling(struct dispc_device *dispc,
 		if (sp->fir_yinc < dispc7_calc_fir_inc(1, f->upscale_limit)) {
 			dev_dbg(dispc->dev,
 				"%s: Y-scaling factor %u/%u > %u\n",
-				__func__,  pi->out_height, pi->height,
+				__func__, pi->out_height, pi->height,
 				f->upscale_limit);
 			return -EINVAL;
 		}
@@ -1287,7 +1287,7 @@ static int dispc7_vid_calc_scaling(struct dispc_device *dispc,
 
 	dev_dbg(dispc->dev,
 		"%s: %ux%u decim %ux%u -> %ux%u firinc %u.%03ux%u.%03u taps %u -> %ux%u\n",
-		__func__,  pi->width, pi->height,
+		__func__, pi->width, pi->height,
 		sp->xinc, sp->yinc, sp->in_w, sp->in_h,
 		sp->fir_xinc / 0x200000u,
 		((sp->fir_xinc & 0x1FFFFFu) * 999u) / 0x1FFFFFu,
