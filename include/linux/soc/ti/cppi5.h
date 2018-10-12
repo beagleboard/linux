@@ -990,15 +990,22 @@ enum cppi5_tr_resp_status_unsupported {
 };
 
 /**
- * cppi5_tr_calc_size - Calculate TR Descriptor size
- * @tr_num: number of TR records
+ * cppi5_trdesc_calc_size - Calculate TR Descriptor size
+ * @tr_count: number of TR records
  * @tr_size: Nominal size of TR record (max) [16, 32, 64, 128]
  *
  * Returns required TR Descriptor size
  */
-static inline u32 cppi5_tr_calc_size(u32 tr_num, u32 tr_size)
+static inline size_t cppi5_trdesc_calc_size(u32 tr_count, u32 tr_size)
 {
-	return sizeof(struct cppi5_tr_desc_t) + tr_num * tr_size;
+	/*
+	 * The Size of a TR descriptor is:
+	 * 1 x tr_size : the first 16 bytes is used by the packet info block +
+	 * tr_count x tr_size : Transfer Request Records +
+	 * tr_count x sizeof(struct cppi5_tr_resp) : Transfer Response Records
+	 */
+	return tr_size * (tr_count + 1) +
+		sizeof(struct cppi5_tr_resp) * tr_count;
 }
 
 /**
