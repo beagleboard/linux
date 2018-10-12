@@ -33,28 +33,6 @@
 #include "../virt-dma.h"
 #include "k3-udma.h"
 
-/* element sizes */
-#define UDMA_ELSIZE_8				0
-#define UDMA_ELSIZE_16				1
-#define UDMA_ELSIZE_24				2
-#define UDMA_ELSIZE_32				3
-#define UDMA_ELSIZE_64				4
-
-static const u8 elsize_bytes[] = {
-	[UDMA_ELSIZE_8] = 1,
-	[UDMA_ELSIZE_16] = 2,
-	[UDMA_ELSIZE_24] = 3,
-	[UDMA_ELSIZE_32] = 4,
-	[UDMA_ELSIZE_64] = 8,
-};
-
-struct cppi50_tr_resp {
-	u8 status;
-	u8 reserved;
-	u8 cmd_id;
-	u8 flags;
-} __packed;
-
 struct udma_static_tr {
 	u8 elsize; /* RPSTR0 */
 	u16 elcnt; /* RPSTR0 */
@@ -155,7 +133,7 @@ struct udma_hwdesc {
 
 	/* TR descriptor internal pointers */
 	void *tr_req_base;
-	struct cppi50_tr_resp *tr_resp_base;
+	struct cppi5_tr_resp_t *tr_resp_base;
 };
 
 struct udma_desc {
@@ -1961,7 +1939,6 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 	size_t tr_size;
 	struct cppi5_tr_type1_t *tr_req = NULL;
 	unsigned int i;
-	u8 elsize;
 	u32 burst;
 
 	if (dir == DMA_DEV_TO_MEM) {
@@ -1972,27 +1949,6 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 		burst = uc->cfg.dst_maxburst;
 	} else {
 		dev_err(uc->ud->dev, "%s: bad direction?\n", __func__);
-		return NULL;
-	}
-
-	/* Bus width translates to the element size (ES) */
-	switch (dev_width) {
-	case DMA_SLAVE_BUSWIDTH_1_BYTE:
-		elsize = UDMA_ELSIZE_8;
-		break;
-	case DMA_SLAVE_BUSWIDTH_2_BYTES:
-		elsize = UDMA_ELSIZE_16;
-		break;
-	case DMA_SLAVE_BUSWIDTH_3_BYTES:
-		elsize = UDMA_ELSIZE_24;
-		break;
-	case DMA_SLAVE_BUSWIDTH_4_BYTES:
-		elsize = UDMA_ELSIZE_32;
-		break;
-	case DMA_SLAVE_BUSWIDTH_8_BYTES:
-		elsize = UDMA_ELSIZE_64;
-		break;
-	default: /* not reached */
 		return NULL;
 	}
 
@@ -2016,8 +1972,8 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 		cppi5_tr_csf_set(&tr_req[i].flags, CPPI5_TR_CSF_SUPR_EVT);
 
 		tr_req[i].addr = sg_dma_address(sgent);
-		tr_req[i].icnt0 = burst * elsize_bytes[elsize];
-		tr_req[i].dim1 = burst * elsize_bytes[elsize];
+		tr_req[i].icnt0 = burst * dev_width;
+		tr_req[i].dim1 = burst * dev_width;
 		tr_req[i].icnt1 = sg_dma_len(sgent) / tr_req[i].icnt0;
 	}
 
@@ -2027,16 +1983,37 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 }
 
 static inline int udma_configure_statictr(struct udma_chan *uc,
-					  struct udma_desc *d, u8 elsize,
+					  struct udma_desc *d,
+					  enum dma_slave_buswidth dev_width,
 					  u16 elcnt)
 {
 	if (!uc->static_tr_type)
 		return 0;
 
-	d->static_tr.elsize = elsize;
+	/* Bus width translates to the element size (ES) */
+	switch (dev_width) {
+	case DMA_SLAVE_BUSWIDTH_1_BYTE:
+		d->static_tr.elsize = 0;
+		break;
+	case DMA_SLAVE_BUSWIDTH_2_BYTES:
+		d->static_tr.elsize = 1;
+		break;
+	case DMA_SLAVE_BUSWIDTH_3_BYTES:
+		d->static_tr.elsize = 2;
+		break;
+	case DMA_SLAVE_BUSWIDTH_4_BYTES:
+		d->static_tr.elsize = 3;
+		break;
+	case DMA_SLAVE_BUSWIDTH_8_BYTES:
+		d->static_tr.elsize = 4;
+		break;
+	default: /* not reached */
+		return -EINVAL;
+	}
+
 	d->static_tr.elcnt = elcnt;
 	if (uc->pkt_mode) {
-		unsigned int div = elsize_bytes[elsize] * elcnt;
+		unsigned int div = dev_width * elcnt;
 
 		if (uc->cyclic)
 			d->static_tr.bstcnt = d->residue / d->sglen / div;
@@ -2271,7 +2248,6 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 	struct udma_chan *uc = to_udma_chan(chan);
 	enum dma_slave_buswidth dev_width;
 	struct udma_desc *d;
-	u8 elsize;
 	u32 burst;
 
 	if (dir != uc->dir) {
@@ -2293,27 +2269,6 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 		return NULL;
 	}
 
-	/* Bus width translates to the element size (ES) */
-	switch (dev_width) {
-	case DMA_SLAVE_BUSWIDTH_1_BYTE:
-		elsize = UDMA_ELSIZE_8;
-		break;
-	case DMA_SLAVE_BUSWIDTH_2_BYTES:
-		elsize = UDMA_ELSIZE_16;
-		break;
-	case DMA_SLAVE_BUSWIDTH_3_BYTES:
-		elsize = UDMA_ELSIZE_24;
-		break;
-	case DMA_SLAVE_BUSWIDTH_4_BYTES:
-		elsize = UDMA_ELSIZE_32;
-		break;
-	case DMA_SLAVE_BUSWIDTH_8_BYTES:
-		elsize = UDMA_ELSIZE_64;
-		break;
-	default: /* not reached */
-		return NULL;
-	}
-
 	if (!burst)
 		burst = 1;
 
@@ -2332,7 +2287,7 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 	d->tr_idx = 0;
 
 	/* static TR for remote PDMA */
-	if (udma_configure_statictr(uc, d, elsize, burst)) {
+	if (udma_configure_statictr(uc, d, dev_width, burst)) {
 		dev_err(uc->ud->dev,
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
@@ -2468,7 +2423,6 @@ static struct dma_async_tx_descriptor *udma_prep_dma_cyclic(
 	struct udma_chan *uc = to_udma_chan(chan);
 	enum dma_slave_buswidth dev_width;
 	struct udma_desc *d;
-	u8 elsize;
 	u32 burst;
 
 	if (dir != uc->dir) {
@@ -2495,27 +2449,6 @@ static struct dma_async_tx_descriptor *udma_prep_dma_cyclic(
 	if (!burst)
 		burst = 1;
 
-	/* Bus width translates to the element size (ES) */
-	switch (dev_width) {
-	case DMA_SLAVE_BUSWIDTH_1_BYTE:
-		elsize = UDMA_ELSIZE_8;
-		break;
-	case DMA_SLAVE_BUSWIDTH_2_BYTES:
-		elsize = UDMA_ELSIZE_16;
-		break;
-	case DMA_SLAVE_BUSWIDTH_3_BYTES:
-		elsize = UDMA_ELSIZE_24;
-		break;
-	case DMA_SLAVE_BUSWIDTH_4_BYTES:
-		elsize = UDMA_ELSIZE_32;
-		break;
-	case DMA_SLAVE_BUSWIDTH_8_BYTES:
-		elsize = UDMA_ELSIZE_64;
-		break;
-	default: /* not reached */
-		return NULL;
-	}
-
 	if (uc->pkt_mode)
 		d = udma_prep_dma_cyclic_pkt(uc, buf_addr, buf_len, period_len,
 					     dir, flags);
@@ -2532,7 +2465,7 @@ static struct dma_async_tx_descriptor *udma_prep_dma_cyclic(
 	d->residue = buf_len;
 
 	/* static TR for remote PDMA */
-	if (udma_configure_statictr(uc, d, elsize, burst)) {
+	if (udma_configure_statictr(uc, d, dev_width, burst)) {
 		dev_err(uc->ud->dev,
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
