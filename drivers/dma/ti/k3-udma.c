@@ -48,147 +48,12 @@ static const u8 elsize_bytes[] = {
 	[UDMA_ELSIZE_64] = 8,
 };
 
-#define CPPI50_TR_FLAGS_TYPE(x)			(x << 0)
-#define CPPI50_TR_FLAGS_WAIT			(1 << 5)
-/*
- * EVENT_SIZE:
- * 0: Only generate event when the TR is completed
- * 1: Event is generated when ICNT1 is decremented by 1
- * 2: Event is generated when ICNT2 is decremented by 1
- * 3: Event is generated when ICNT3 is decremented by 1
- */
-#define CPPI50_TR_FLAGS_EVENT_SIZE(x)		(((x) & 0x3) << 6)
-/*
- * TRIGGERx:
- * 0: No trigger
- * 1: Global Trigger 0 for the channel
- * 2: Global Trigger 1 for the channel
- * 3: Local Event for the channel
- *
- * TRIGGER_TYPEx:
- * 0: ICNT1 can be decremented by 1 on trigger
- * 1: ICNT2 can be decremented by 1 on trigger
- * 2: ICNT3 can be decremented by 1 on trigger
- * 3: The entire TR is waiting for the trigger
- */
-#define CPPI50_TR_FLAGS_TRIGGER0(x)		(((x) & 0x3) << 8)
-#define CPPI50_TR_FLAGS_TRIGGER0_TYPE(x)	(((x) & 0x3) << 10)
-#define CPPI50_TR_FLAGS_TRIGGER1(x)		(((x) & 0x3) << 10)
-#define CPPI50_TR_FLAGS_TRIGGER1_TYPE(x)	(((x) & 0x3) << 14)
-
-#define CPPI50_TR_FLAGS_SUPR_EVT		(1 << 26)
-#define CPPI50_TR_FLAGS_EOP			(1 << 31)
-
-/* Transfer Request Type 0: One Dimensional Transfer */
-struct cppi50_tr_req_type0 {
-	u32 flags;
-	u16 icnt0;
-	u16 unused;
-	u64 addr;
-} __packed;
-
-/* Transfer Request Type 1: Two Dimensional Transfer */
-struct cppi50_tr_req_type1 {
-	u32 flags;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32 dim1;
-	u32 padd[3]; /* full size is 32 bytes */
-} __packed;
-
-/* Transfer Request Type 2: Three Dimensional Transfer */
-struct cppi50_tr_req_type2 {
-	u32 flags;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32 dim1;
-	u16 icnt2;
-	u16 unused;
-	s32 dim2;
-	u32 padd; /* full size is 32 bytes */
-} __packed;
-
-/* Transfer Request Type 9: Four Dimensional Block Copy with Repacking */
-struct cppi50_tr_req_type9 {
-	u32 flags;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32 dim1;
-	u16 icnt2;
-	u16 icnt3;
-	s32 dim2;
-	s32 dim3;
-	u32 fmtflags;
-	s32 ddim1;
-	u64 daddr;
-	s32 ddim2;
-	s32 ddim3;
-	u16 dicnt0;
-	u16 dicnt1;
-	u16 dicnt2;
-	u16 dicnt3;
-} __packed;
-
-/* Transfer Request Type 10: Two Dimensional BLock Copy */
-struct cppi50_tr_req_type10 {
-	u32 flags;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32 dim1;
-	u32 unused[3];
-	u32 fmtflags;
-	s32 ddim1;
-	u64 daddr;
-	u32 padd[4]; /* full size is 64 bytes */
-} __packed;
-
-/*
- * Transfer Request Type 15: Four Dimensional Block Copy with Repacking
- *			     and Indirection Support
- */
-struct cppi50_tr_req_type15 {
-	u32 flags;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32 dim1;
-	u16 icnt2;
-	u16 icnt3;
-	s32 dim2;
-	s32 dim3;
-	u32 unused;
-	s32 ddim1;
-	u64 daddr;
-	s32 ddim2;
-	s32 ddim3;
-	u16 dicnt0;
-	u16 dicnt1;
-	u16 dicnt2;
-	u16 dicnt3;
-} __packed;
-
 struct cppi50_tr_resp {
 	u8 status;
 	u8 reserved;
 	u8 cmd_id;
 	u8 flags;
 } __packed;
-
-#define CPPI50_TRDESC_W0_LAST_ENTRY(x)		(((x) & 0x3fff) << 0)
-#define CPPI50_TRDESC_W0_RELOAD_IDX(x)		(((x) & 0x3fff) << 14)
-#define CPPI50_TRDESC_W0_RELOAD_CNT(x)		(((x) & 0x1ff) << 20)
-#define CPPI50_TRDESC_W0_TYPE			(0x3 << 30)
-
-#define CPPI50_TRDESC_W1_FLOWID(x)		(((x) & 0x3fff) << 0)
-#define CPPI50_TRDESC_W1_PACKETID(x)		(((x) & 0x3ff) << 14)
-#define CPPI50_TRDESC_W1_TR_SIZE_16		(0 << 24)
-#define CPPI50_TRDESC_W1_TR_SIZE_32		(1 << 24)
-#define CPPI50_TRDESC_W1_TR_SIZE_64		(2 << 24)
-#define CPPI50_TRDESC_W1_TR_SIZE_128		(3 << 24)
 
 struct udma_static_tr {
 	u8 elsize; /* RPSTR0 */
@@ -1634,7 +1499,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		/* in case of MEM_TO_MEM we have maximum of two TRs */
 		if (uc->dir == DMA_MEM_TO_MEM)
 			uc->hdesc_size = cppi5_trdesc_calc_size(
-					sizeof(struct cppi50_tr_req_type15), 2);
+					sizeof(struct cppi5_tr_type15_t), 2);
 	}
 
 	if (uc->use_dma_pool) {
@@ -2020,20 +1885,14 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 	struct udma_hwdesc *hwdesc;
 	struct cppi5_desc_hdr_t *tr_desc;
 	struct udma_desc *d;
-	u32 tr_nominal_size;
+	u32 reload_count = 0;
+	u32 ring_id;
 
 	switch (tr_size) {
 	case 16:
-		tr_nominal_size = CPPI50_TRDESC_W1_TR_SIZE_16;
-		break;
 	case 32:
-		tr_nominal_size = CPPI50_TRDESC_W1_TR_SIZE_32;
-		break;
 	case 64:
-		tr_nominal_size = CPPI50_TRDESC_W1_TR_SIZE_64;
-		break;
 	case 128:
-		tr_nominal_size = CPPI50_TRDESC_W1_TR_SIZE_128;
 		break;
 	default:
 		dev_err(uc->ud->dev, "Unsupported TR size of %zu\n", tr_size);
@@ -2076,22 +1935,18 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 	hwdesc->tr_resp_base = hwdesc->tr_req_base + tr_size * tr_count;
 
 	tr_desc = hwdesc->cppi5_desc_vaddr;
-	tr_desc->pkt_info0 = CPPI50_TRDESC_W0_LAST_ENTRY(tr_count - 1) |
-			     CPPI50_TRDESC_W0_TYPE;
-	if (uc->cyclic)
-		tr_desc->pkt_info0 |= CPPI50_TRDESC_W0_RELOAD_CNT(0x1ff);
 
-	/* Flow and Packed ID */
-	tr_desc->pkt_info1 = tr_nominal_size |
-			     CPPI50_TRDESC_W1_PACKETID(uc->id) |
-			     CPPI50_TRDESC_W1_FLOWID(0x3fff);
+	if (uc->cyclic)
+		reload_count = CPPI5_INFO0_TRDESC_RLDCNT_INFINITE;
 
 	if (dir == DMA_DEV_TO_MEM)
-		tr_desc->pkt_info2 = k3_nav_ringacc_get_ring_id(
-							uc->rchan->r_ring);
+		ring_id = k3_nav_ringacc_get_ring_id(uc->rchan->r_ring);
 	else
-		tr_desc->pkt_info2 = k3_nav_ringacc_get_ring_id(
-							uc->tchan->tc_ring);
+		ring_id = k3_nav_ringacc_get_ring_id(uc->tchan->tc_ring);
+
+	cppi5_trdesc_init(tr_desc, tr_count, tr_size, 0, reload_count);
+	cppi5_desc_set_pktids(tr_desc, uc->id, 0x3fff);
+	cppi5_desc_set_retpolicy(tr_desc, 0, ring_id);
 
 	return d;
 }
@@ -2104,7 +1959,7 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 	struct scatterlist *sgent;
 	struct udma_desc *d;
 	size_t tr_size;
-	struct cppi50_tr_req_type1 *tr_req = NULL;
+	struct cppi5_tr_type1_t *tr_req = NULL;
 	unsigned int i;
 	u8 elsize;
 	u32 burst;
@@ -2145,26 +2000,28 @@ static struct udma_desc *udma_prep_slave_sg_tr(
 		burst = 1;
 
 	/* Now allocate and setup the descriptor. */
-	tr_size = sizeof(struct cppi50_tr_req_type1);
+	tr_size = sizeof(struct cppi5_tr_type1_t);
 	d = udma_alloc_tr_desc(uc, tr_size, sglen, dir);
 	if (!d)
 		return NULL;
 
 	d->sglen = sglen;
 
-	tr_req = (struct cppi50_tr_req_type1 *)d->hwdesc[0].tr_req_base;
+	tr_req = (struct cppi5_tr_type1_t *)d->hwdesc[0].tr_req_base;
 	for_each_sg(sgl, sgent, sglen, i) {
 		d->residue += sg_dma_len(sgent);
-		tr_req[i].flags = CPPI50_TR_FLAGS_TYPE(1);
+
+		cppi5_tr_init(&tr_req[i].flags, CPPI5_TR_TYPE1, false, false,
+			      CPPI5_TR_EVENT_SIZE_COMPLETION, 0);
+		cppi5_tr_csf_set(&tr_req[i].flags, CPPI5_TR_CSF_SUPR_EVT);
+
 		tr_req[i].addr = sg_dma_address(sgent);
 		tr_req[i].icnt0 = burst * elsize_bytes[elsize];
 		tr_req[i].dim1 = burst * elsize_bytes[elsize];
 		tr_req[i].icnt1 = sg_dma_len(sgent) / tr_req[i].icnt0;
-
-		tr_req[i].flags |= CPPI50_TR_FLAGS_SUPR_EVT;
 	}
 
-	tr_req[i - 1].flags |= CPPI50_TR_FLAGS_EOP;
+	cppi5_tr_csf_set(&tr_req[i - 1].flags, CPPI5_TR_CSF_EOP);
 
 	return d;
 }
@@ -2498,7 +2355,7 @@ static struct udma_desc *udma_prep_dma_cyclic_tr(
 	enum dma_slave_buswidth dev_width;
 	struct udma_desc *d;
 	size_t tr_size;
-	struct cppi50_tr_req_type1 *tr_req;
+	struct cppi5_tr_type1_t *tr_req;
 	unsigned int i;
 	unsigned int periods = buf_len / period_len;
 	u32 burst;
@@ -2518,21 +2375,24 @@ static struct udma_desc *udma_prep_dma_cyclic_tr(
 		burst = 1;
 
 	/* Now allocate and setup the descriptor. */
-	tr_size = sizeof(struct cppi50_tr_req_type1);
+	tr_size = sizeof(struct cppi5_tr_type1_t);
 	d = udma_alloc_tr_desc(uc, tr_size, periods, dir);
 	if (!d)
 		return NULL;
 
-	tr_req = (struct cppi50_tr_req_type1 *)d->hwdesc[0].tr_req_base;
+	tr_req = (struct cppi5_tr_type1_t *)d->hwdesc[0].tr_req_base;
 	for (i = 0; i < periods; i++) {
-		tr_req[i].flags = CPPI50_TR_FLAGS_TYPE(1);
+		cppi5_tr_init(&tr_req[i].flags, CPPI5_TR_TYPE1, false, false,
+			      CPPI5_TR_EVENT_SIZE_COMPLETION, 0);
+
 		tr_req[i].addr = buf_addr + period_len * i;
 		tr_req[i].icnt0 = dev_width;
 		tr_req[i].icnt1 = period_len / dev_width;
 		tr_req[i].dim1 = dev_width;
 
 		if (!(flags & DMA_PREP_INTERRUPT))
-			tr_req[i].flags |= CPPI50_TR_FLAGS_SUPR_EVT;
+			cppi5_tr_csf_set(&tr_req[i].flags,
+					 CPPI5_TR_CSF_SUPR_EVT);
 	}
 
 	return d;
@@ -2694,9 +2554,9 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 {
 	struct udma_chan *uc = to_udma_chan(chan);
 	struct udma_desc *d;
-	struct cppi50_tr_req_type15 *tr_req;
+	struct cppi5_tr_type15_t *tr_req;
 	int num_tr;
-	size_t tr_size = sizeof(struct cppi50_tr_req_type15);
+	size_t tr_size = sizeof(struct cppi5_tr_type15_t);
 	u16 tr0_cnt0, tr0_cnt1, tr1_cnt0;
 
 	if (uc->dir != DMA_MEM_TO_MEM) {
@@ -2741,9 +2601,12 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 	d->tr_idx = 0;
 	d->residue = len;
 
-	tr_req = (struct cppi50_tr_req_type15 *)d->hwdesc[0].tr_req_base;
+	tr_req = (struct cppi5_tr_type15_t *)d->hwdesc[0].tr_req_base;
 
-	tr_req[0].flags = CPPI50_TR_FLAGS_TYPE(15);
+	cppi5_tr_init(&tr_req[0].flags, CPPI5_TR_TYPE15, false, true,
+		      CPPI5_TR_EVENT_SIZE_COMPLETION, 0);
+	cppi5_tr_csf_set(&tr_req[0].flags, CPPI5_TR_CSF_SUPR_EVT);
+
 	tr_req[0].addr = src;
 	tr_req[0].icnt0 = tr0_cnt0;
 	tr_req[0].icnt1 = tr0_cnt1;
@@ -2758,12 +2621,11 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 	tr_req[0].dicnt3 = 1;
 	tr_req[0].ddim1 = tr0_cnt0;
 
-	tr_req[0].flags |= CPPI50_TR_FLAGS_WAIT;
-
-	tr_req[0].flags |= CPPI50_TR_FLAGS_SUPR_EVT;
-
 	if (num_tr == 2) {
-		tr_req[1].flags = CPPI50_TR_FLAGS_TYPE(15);
+		cppi5_tr_init(&tr_req[1].flags, CPPI5_TR_TYPE15, false, true,
+			      CPPI5_TR_EVENT_SIZE_COMPLETION, 0);
+		cppi5_tr_csf_set(&tr_req[1].flags, CPPI5_TR_CSF_SUPR_EVT);
+
 		tr_req[1].addr = src + tr0_cnt1 * tr0_cnt0;
 		tr_req[1].icnt0 = tr1_cnt0;
 		tr_req[1].icnt1 = 1;
@@ -2775,13 +2637,9 @@ static struct dma_async_tx_descriptor *udma_prep_dma_memcpy(
 		tr_req[1].dicnt1 = 1;
 		tr_req[1].dicnt2 = 1;
 		tr_req[1].dicnt3 = 1;
-
-		tr_req[1].flags |= CPPI50_TR_FLAGS_WAIT;
-
-		tr_req[1].flags |= CPPI50_TR_FLAGS_SUPR_EVT;
 	}
 
-	tr_req[num_tr - 1].flags |= CPPI50_TR_FLAGS_EOP;
+	cppi5_tr_csf_set(&tr_req[num_tr - 1].flags, CPPI5_TR_CSF_EOP);
 
 	if (uc->metadata_size)
 		d->vd.tx.metadata_ops = &metadata_ops;
