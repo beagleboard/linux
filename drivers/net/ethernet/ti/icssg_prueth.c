@@ -23,6 +23,7 @@
 #include <linux/regmap.h>
 #include <linux/remoteproc.h>
 #include <linux/soc/ti/cppi5.h>
+#include <linux/soc/ti/k3-navss-desc-pool.h>
 
 #include "icssg_prueth.h"
 

@@ -25,6 +25,7 @@
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 #include <linux/soc/ti/cppi5.h>
+#include <linux/soc/ti/k3-navss-desc-pool.h>
 #include <linux/dma/k3-navss-udma.h>
 #include <linux/net_switch_config.h>
 
