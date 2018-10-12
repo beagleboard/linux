@@ -641,50 +641,6 @@ static inline void *cppi5_hdesc_get_swdata(
 
 /* ================================== TR ================================== */
 
-/**
- * cppi5_tr_calc_size - Calculate TR Descriptor size
- * @tr_num: number of TR records
- * @tr_size: Nominal size of TR record (max) [16, 32, 64, 128]
- *
- * Returns required TR Descriptor size
- */
-static inline u32 cppi5_tr_calc_size(u32 tr_num, u32 tr_size)
-{
-	return sizeof(struct cppi5_tr_desc_t) + tr_num * tr_size;
-}
-
-/**
- * cppi5_tr_desc_init - Init TR Descriptor
- * @desc: TR Descriptor
- * @flags: supported values
- *	CPPI5_INFO0_TRDESC_RELOAD
- * @tr_num: number of TR records
- * @tr_size: Nominal size of TR record (max) [16, 32, 64, 128]
- * @reload_idx: Reload Index
- *
- * Init TR Descriptor
- */
-static inline void cppi5_tr_desc_init(
-		struct cppi5_tr_desc_t *desc,
-		u32 flags, u32 tr_num, u32 tr_size, u32 reload_idx)
-{
-	WARN_ON(!desc);
-	WARN_ON(flags & ~CPPI5_INFO0_TRDESC_RELOAD);
-	WARN_ON(tr_num & ~CPPI5_INFO0_TRDESC_LASTIDX_MASK);
-
-	desc->hdr.pkt_info0 = (CPPI5_INFO0_DESC_TYPE_VAL_TR <<
-			       CPPI5_INFO0_HDESC_TYPE_SHIFT) | (flags);
-	desc->hdr.pkt_info0 |= (reload_idx << CPPI5_INFO0_TRDESC_RLDIDX_SHIFT) &
-			       CPPI5_INFO0_TRDESC_RLDIDX_MASK;
-	desc->hdr.pkt_info0 |= tr_num & CPPI5_INFO0_TRDESC_LASTIDX_MASK;
-
-	desc->hdr.pkt_info1 |= ((ffs(tr_size >> 4) - 1) <<
-				CPPI5_INFO1_TRDESC_RECSIZE_SHIFT) &
-				CPPI5_INFO1_TRDESC_RECSIZE_MASK;
-}
-
-/* ================================== TRs definitions====================== */
-
 #define CPPI5_TR_FLAGS_TYPE_SHIFT		(0U)
 #define CPPI5_TR_FLAGS_TYPE_MASK		GENMASK(3, 0)
 #define CPPI5_TR_FLAGS_STATIC			BIT(4)
@@ -1032,6 +988,48 @@ enum cppi5_tr_resp_status_unsupported {
 	CPPI5_TR_RESPONSE_STATUS_UNSUPPORTED_AMODE_SPECIFIC,
 	CPPI5_TR_RESPONSE_STATUS_UNSUPPORTED_MAX
 };
+
+/**
+ * cppi5_tr_calc_size - Calculate TR Descriptor size
+ * @tr_num: number of TR records
+ * @tr_size: Nominal size of TR record (max) [16, 32, 64, 128]
+ *
+ * Returns required TR Descriptor size
+ */
+static inline u32 cppi5_tr_calc_size(u32 tr_num, u32 tr_size)
+{
+	return sizeof(struct cppi5_tr_desc_t) + tr_num * tr_size;
+}
+
+/**
+ * cppi5_tr_desc_init - Init TR Descriptor
+ * @desc: TR Descriptor
+ * @flags: supported values
+ *	CPPI5_INFO0_TRDESC_RELOAD
+ * @tr_num: number of TR records
+ * @tr_size: Nominal size of TR record (max) [16, 32, 64, 128]
+ * @reload_idx: Reload Index
+ *
+ * Init TR Descriptor
+ */
+static inline void cppi5_tr_desc_init(
+		struct cppi5_tr_desc_t *desc,
+		u32 flags, u32 tr_num, u32 tr_size, u32 reload_idx)
+{
+	WARN_ON(!desc);
+	WARN_ON(flags & ~CPPI5_INFO0_TRDESC_RELOAD);
+	WARN_ON(tr_num & ~CPPI5_INFO0_TRDESC_LASTIDX_MASK);
+
+	desc->hdr.pkt_info0 = (CPPI5_INFO0_DESC_TYPE_VAL_TR <<
+			       CPPI5_INFO0_HDESC_TYPE_SHIFT) | (flags);
+	desc->hdr.pkt_info0 |= (reload_idx << CPPI5_INFO0_TRDESC_RLDIDX_SHIFT) &
+			       CPPI5_INFO0_TRDESC_RLDIDX_MASK;
+	desc->hdr.pkt_info0 |= tr_num & CPPI5_INFO0_TRDESC_LASTIDX_MASK;
+
+	desc->hdr.pkt_info1 |= ((ffs(tr_size >> 4) - 1) <<
+				CPPI5_INFO1_TRDESC_RECSIZE_SHIFT) &
+				CPPI5_INFO1_TRDESC_RECSIZE_MASK;
+}
 
 /**
  * cppi5_tr_init - Init TR record
