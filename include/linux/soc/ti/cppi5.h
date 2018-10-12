@@ -124,22 +124,18 @@ struct cppi5_monolithic_desc_t {
 #define CPPI5_INFO2_MDESC_DATA_OFFSET_SHIFT	(18U)
 #define CPPI5_INFO2_MDESC_DATA_OFFSET_MASK	GENMASK(26, 18)
 
-/**
- * Transfer Request Descriptor (TR)
- */
-struct cppi5_tr_desc_t {
-	struct cppi5_desc_hdr_t hdr;
-	u8	tr_records[0];
-};
-
 /*
  * Reload Enable:
  * 0 = Finish the packet and place the descriptor back on the return queue
  * 1 = Vector to the Reload Index and resume processing
  */
-#define CPPI5_INFO0_TRDESC_RELOAD		BIT(28)
+#define CPPI5_INFO0_TRDESC_RLDCNT_SHIFT		(20U)
+#define CPPI5_INFO0_TRDESC_RLDCNT_MASK		GENMASK(28, 20)
+#define CPPI5_INFO0_TRDESC_RLDCNT_MAX		(0x1ff)
+#define CPPI5_INFO0_TRDESC_RLDCNT_INFINITE	CPPI5_INFO0_TRDESC_RLDCNT_MAX
 #define CPPI5_INFO0_TRDESC_RLDIDX_SHIFT		(14U)
-#define CPPI5_INFO0_TRDESC_RLDIDX_MASK		GENMASK(27, 14)
+#define CPPI5_INFO0_TRDESC_RLDIDX_MASK		GENMASK(19, 14)
+#define CPPI5_INFO0_TRDESC_RLDIDX_MAX		(0x3f)
 #define CPPI5_INFO0_TRDESC_LASTIDX_SHIFT	(0)
 #define CPPI5_INFO0_TRDESC_LASTIDX_MASK		GENMASK(13, 0)
 
@@ -633,44 +629,58 @@ static inline void *cppi5_hdesc_get_swdata(
 
 /* ================================== TR ================================== */
 
-#define CPPI5_TR_FLAGS_TYPE_SHIFT		(0U)
-#define CPPI5_TR_FLAGS_TYPE_MASK		GENMASK(3, 0)
-#define CPPI5_TR_FLAGS_STATIC			BIT(4)
-#define CPPI5_TR_FLAGS_EOL			BIT(5)
-#define CPPI5_TR_FLAGS_EVENT_SIZE_SHIFT		(6U)
-#define CPPI5_TR_FLAGS_EVENT_SIZE_MASK		GENMASK(7, 6)
-#define CPPI5_TR_FLAGS_TRIGGER0_SHIFT		(8U)
-#define CPPI5_TR_FLAGS_TRIGGER0_MASK		GENMASK(9, 8)
-#define CPPI5_TR_FLAGS_TRIGGER0_TYPE_SHIFT	(10U)
-#define CPPI5_TR_FLAGS_TRIGGER0_TYPE_MASK	GENMASK(11, 10)
-#define CPPI5_TR_FLAGS_TRIGGER1_SHIFT		(12U)
-#define CPPI5_TR_FLAGS_TRIGGER1_MASK		GENMASK(13, 12)
-#define CPPI5_TR_FLAGS_TRIGGER1_TYPE_SHIFT	(14U)
-#define CPPI5_TR_FLAGS_TRIGGER1_TYPE_MASK	GENMASK(15, 14)
-#define CPPI5_TR_FLAGS_CMD_ID_SHIFT		(16U)
-#define CPPI5_TR_FLAGS_CMD_ID_MASK		GENMASK(23, 16)
-#define CPPI5_TR_FLAGS_CFG_FLAGS_SHIFT		(24U)
-#define CPPI5_TR_FLAGS_CFG_FLAGS_MASK		GENMASK(31, 24)
-#define   CPPI5_TR_FLAGS_CFG_SA_INDIRECT_SHIFT	BIT(0)
-#define   CPPI5_TR_FLAGS_CFG_DA_INDIRECT_SHIFT	BIT(1)
-#define   CPPI5_TR_FLAGS_CFG_EOL_ADV_SHIFT	(4U)
-#define   CPPI5_TR_FLAGS_CFG_EOL_ADV_MASK	GENMASK(6, 4)
-#define   CPPI5_TR_FLAGS_CFG_EOP_SHIFT		BIT(7)
+#define CPPI5_TR_TYPE_SHIFT		(0U)
+#define CPPI5_TR_TYPE_MASK		GENMASK(3, 0)
+#define CPPI5_TR_STATIC			BIT(4)
+#define CPPI5_TR_WAIT			BIT(5)
+#define CPPI5_TR_EVENT_SIZE_SHIFT	(6U)
+#define CPPI5_TR_EVENT_SIZE_MASK	GENMASK(7, 6)
+#define CPPI5_TR_TRIGGER0_SHIFT		(8U)
+#define CPPI5_TR_TRIGGER0_MASK		GENMASK(9, 8)
+#define CPPI5_TR_TRIGGER0_TYPE_SHIFT	(10U)
+#define CPPI5_TR_TRIGGER0_TYPE_MASK	GENMASK(11, 10)
+#define CPPI5_TR_TRIGGER1_SHIFT		(12U)
+#define CPPI5_TR_TRIGGER1_MASK		GENMASK(13, 12)
+#define CPPI5_TR_TRIGGER1_TYPE_SHIFT	(14U)
+#define CPPI5_TR_TRIGGER1_TYPE_MASK	GENMASK(15, 14)
+#define CPPI5_TR_CMD_ID_SHIFT		(16U)
+#define CPPI5_TR_CMD_ID_MASK		GENMASK(23, 16)
+#define CPPI5_TR_CSF_FLAGS_SHIFT	(24U)
+#define CPPI5_TR_CSF_FLAGS_MASK		GENMASK(31, 24)
+#define   CPPI5_TR_CSF_SA_INDIRECT	BIT(0)
+#define   CPPI5_TR_CSF_DA_INDIRECT	BIT(1)
+#define   CPPI5_TR_CSF_SUPR_EVT		BIT(2)
+#define   CPPI5_TR_CSF_EOL_ADV_SHIFT	(4U)
+#define   CPPI5_TR_CSF_EOL_ADV_MASK	GENMASK(6, 4)
+#define   CPPI5_TR_CSF_EOP		BIT(7)
 
 /* Udmap TR flags Type field specifies the type of TR. */
 enum cppi5_tr_types {
-	CPPI5_TR_FLAGS_TYPE_1D_DATA_MOVE = 0,
-	CPPI5_TR_FLAGS_TYPE_2D_DATA_MOVE,
-	CPPI5_TR_FLAGS_TYPE_3D_DATA_MOVE,
-	CPPI5_TR_FLAGS_TYPE_4D_DATA_MOVE,
-	CPPI5_TR_FLAGS_TYPE_4D_DATA_MOVE_FORMATTING,
-	CPPI5_TR_FLAGS_TYPE_4D_CACHE_WARM,
-	CPPI5_TR_FLAGS_TYPE_4D_BLK_MOVE = 8,
-	CPPI5_TR_FLAGS_TYPE_4D_BLK_MOVE_REPACKING,
-	CPPI5_TR_FLAGS_TYPE_2D_BLK_MOVE,
-	CPPI5_TR_FLAGS_TYPE_2D_BLK_MOVE_REPACKING,
-	CPPI5_TR_FLAGS_TYPE_4D_BLK_MOVE_REPACKING_IA = 15,
-	CPPI5_TR_FLAGS_TYPE_MAX
+	/* type0: One dimensional data move */
+	CPPI5_TR_TYPE0 = 0,
+	/* type1: Two dimensional data move */
+	CPPI5_TR_TYPE1,
+	/* type2: Three dimensional data move */
+	CPPI5_TR_TYPE2,
+	/* type3: Four dimensional data move */
+	CPPI5_TR_TYPE3,
+	/* type4: Four dimensional data move with data formatting */
+	CPPI5_TR_TYPE4,
+	/* type5: Four dimensional Cache Warm */
+	CPPI5_TR_TYPE5,
+	/* type6-7: Reserved */
+	/* type8: Four Dimensional Block Move */
+	CPPI5_TR_TYPE8 = 8,
+	/* type9: Four Dimensional Block Move with Repacking */
+	CPPI5_TR_TYPE9,
+	/* type10: Two Dimensional Block Move */
+	CPPI5_TR_TYPE10,
+	/* type11: Two Dimensional Block Move with Repacking */
+	CPPI5_TR_TYPE11,
+	/* type12-14: Reserved */
+	/* type15 Four Dimensional Block Move with Repacking and Indirection */
+	CPPI5_TR_TYPE15 = 15,
+	CPPI5_TR_TYPE_MAX
 };
 
 /*
@@ -679,23 +689,23 @@ enum cppi5_tr_types {
  */
 enum cppi5_tr_event_size {
 	/* When TR is complete and all status for the TR has been received */
-	CPPI5_TR_FLAGS_EVENT_SIZE_COMPLETION,
+	CPPI5_TR_EVENT_SIZE_COMPLETION,
 	/*
 	 * Type 0: when the last data transaction is sent for the TR;
 	 * Type 1-11: when ICNT1 is decremented
 	 */
-	CPPI5_TR_FLAGS_EVENT_SIZE_ICNT1_DEC,
+	CPPI5_TR_EVENT_SIZE_ICNT1_DEC,
 	/*
 	 * Type 0-1,10-11: when the last data transaction is sent for the TR;
 	 * All other types: when ICNT2 is decremented
 	 */
-	CPPI5_TR_FLAGS_EVENT_SIZE_ICNT2_DEC,
+	CPPI5_TR_EVENT_SIZE_ICNT2_DEC,
 	/*
 	 * Type 0-2,10-11: when the last data transaction is sent for the TR;
 	 * All other types: when ICNT3 is decremented
 	 */
-	CPPI5_TR_FLAGS_EVENT_SIZE_ICNT3_DEC,
-	CPPI5_TR_FLAGS_EVENT_SIZE_MAX
+	CPPI5_TR_EVENT_SIZE_ICNT3_DEC,
+	CPPI5_TR_EVENT_SIZE_MAX
 };
 
 /*
@@ -703,11 +713,11 @@ enum cppi5_tr_event_size {
  * enable the TR to transfer data as specified by TRIGGERx_TYPE field.
  */
 enum cppi5_tr_trigger {
-	CPPI5_TR_FLAGS_TRIGGER_NONE,		/* No Trigger */
-	CPPI5_TR_FLAGS_TRIGGER_GLOBAL0,		/* Global Trigger 0 */
-	CPPI5_TR_FLAGS_TRIGGER_GLOBAL1,		/* Global Trigger 1 */
-	CPPI5_TR_FLAGS_TRIGGER_LOCAL_EVENT,	/* Local Event */
-	CPPI5_TR_FLAGS_TRIGGER_MAX
+	CPPI5_TR_TRIGGER_NONE,		/* No Trigger */
+	CPPI5_TR_TRIGGER_GLOBAL0,		/* Global Trigger 0 */
+	CPPI5_TR_TRIGGER_GLOBAL1,		/* Global Trigger 1 */
+	CPPI5_TR_TRIGGER_LOCAL_EVENT,	/* Local Event */
+	CPPI5_TR_TRIGGER_MAX
 };
 
 /*
@@ -716,196 +726,87 @@ enum cppi5_tr_trigger {
  */
 enum cppi5_tr_trigger_type {
 	/* The second inner most loop (ICNT1) will be decremented by 1 */
-	CPPI5_TR_FLAGS_TRIGGER_TYPE_ICNT1_DEC,
+	CPPI5_TR_TRIGGER_TYPE_ICNT1_DEC,
 	/* The third inner most loop (ICNT2) will be decremented by 1 */
-	CPPI5_TR_FLAGS_TRIGGER_TYPE_ICNT2_DEC,
+	CPPI5_TR_TRIGGER_TYPE_ICNT2_DEC,
 	/* The outer most loop (ICNT3) will be decremented by 1 */
-	CPPI5_TR_FLAGS_TRIGGER_TYPE_ICNT3_DEC,
+	CPPI5_TR_TRIGGER_TYPE_ICNT3_DEC,
 	/* The entire TR will be allowed to complete */
-	CPPI5_TR_FLAGS_TRIGGER_TYPE_ALL,
-	CPPI5_TR_FLAGS_TRIGGER_TYPE_MAX
+	CPPI5_TR_TRIGGER_TYPE_ALL,
+	CPPI5_TR_TRIGGER_TYPE_MAX
 };
 
-struct cppi5_tr_hdr_t {
-	u32 flags;
-} __packed;
+typedef u32 cppi5_tr_flags_t;
 
 /*
  * Type 0 (One dimensional data move) TR (16 byte).
  */
-struct cppi5_tr0_t {
-	struct cppi5_tr_hdr_t hdr;
-	u32 icnt0;
+struct cppi5_tr_type0_t {
+	cppi5_tr_flags_t flags;
+	u16 icnt0;
+	u16 unused;
 	u64 addr;
 } __aligned(16) __packed;
 
 /*
  * Type 1 (Two dimensional data move) TR (32 byte).
  */
-struct cppi5_tr1_t {
-	struct cppi5_tr_hdr_t hdr;
+struct cppi5_tr_type1_t {
+	cppi5_tr_flags_t flags;
 	u16 icnt0;
 	u16 icnt1;
 	u64 addr;
-	s32  dim1;
+	s32 dim1;
 } __aligned(32) __packed;
 
 /*
  * Type 2 (Three dimensional data move) TR (32 byte).
  */
-struct cppi5_tr2_t {
-	struct cppi5_tr_hdr_t hdr;
+struct cppi5_tr_type2_t {
+	cppi5_tr_flags_t flags;
 	u16 icnt0;
 	u16 icnt1;
 	u64 addr;
-	s32  dim1;
-	u32 icnt2;
-	s32  dim2;
+	s32 dim1;
+	u16 icnt2;
+	u16 unused;
+	s32 dim2;
 } __aligned(32) __packed;
 
 /*
  * Type 3 (Four dimensional data move) TR (32 byte).
  */
-struct cppi5_tr3_t {
-	struct cppi5_tr_hdr_t hdr;
+struct cppi5_tr_type3_t {
+	cppi5_tr_flags_t flags;
 	u16 icnt0;
 	u16 icnt1;
 	u64 addr;
-	s32  dim1;
+	s32 dim1;
 	u16 icnt2;
 	u16 icnt3;
-	s32  dim2;
-	s32  dim3;
+	s32 dim2;
+	s32 dim3;
 } __aligned(32) __packed;
-
-/*
- * Type 4 (Four dimensional data move with data formatting) TR (64 byte).
- */
-struct cppi5_tr4_t {
-	struct cppi5_tr_hdr_t hdr;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32  dim1;
-	u16 icnt2;
-	u16 icnt3;
-	s32  dim2;
-	s32  dim3;
-	u32 fmtflags;
-} __aligned(64) __packed;
-
-/*
- * Type 5 (Four dimensional cache warm) TR (64 byte).
- */
-struct cppi5_tr5_t {
-	struct cppi5_tr_hdr_t hdr;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32  dim1;
-	u16 icnt2;
-	u16 icnt3;
-	s32  dim2;
-	s32  dim3;
-	u32 cacheflags;
-} __aligned(64) __packed;
-
-/*
- * Type 8 (Four Dimensional Block Copy) TR (64 byte).
- */
-struct cppi5_tr8_t {
-	struct cppi5_tr_hdr_t hdr;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32  dim1;
-	u16 icnt2;
-	u16 icnt3;
-	s32  dim2;
-	s32  dim3;
-	u32 fmtflags;
-	s32  ddim1;
-	u64 daddr;
-	s32  ddim2;
-	s32  ddim3;
-} __aligned(64) __packed;
-
-/*
- * Type 9 (Four Dimensional Block Copy with Repacking) TR (64 byte).
- */
-struct cppi5_tr9_t {
-	struct cppi5_tr_hdr_t hdr;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32  dim1;
-	u16 icnt2;
-	u16 icnt3;
-	s32  dim2;
-	s32  dim3;
-	u32 fmtflags;
-	s32  ddim1;
-	u64 daddr;
-	s32  ddim2;
-	s32  ddim3;
-	u16 dicnt0;
-	u16 dicnt1;
-	u16 dicnt2;
-	u16 dicnt3;
-} __aligned(64) __packed;
-
-/*
- * Type 10 (Two Dimensional Block Copy) TR (64 byte).
- */
-struct cppi5_tr10_t {
-	struct cppi5_tr_hdr_t hdr;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32  dim1;
-	u32 rsvd[3];
-	u32 fmtflags;
-	s32  ddim1;
-	u64 daddr;
-} __aligned(64) __packed;
-
-/*
- * Type 11 (Two Dimensional Block Copy with Repacking) TR (64 byte).
- */
-struct cppi5_tr11_t {
-	struct cppi5_tr_hdr_t hdr;
-	u16 icnt0;
-	u16 icnt1;
-	u64 addr;
-	s32  dim1;
-	u32 rsvd0[3];
-	u32 fmtflags;
-	s32  ddim1;
-	u64 daddr;
-	u32 rsvd1[2];
-	u16 dicnt0;
-	u16 dicnt1;
-} __aligned(64) __packed;
 
 /*
  * Type 15 (Four Dimensional Block Copy with Repacking and
  * Indirection Support) TR (64 byte).
  */
-struct cppi5_tr15_t {
-	struct cppi5_tr_hdr_t hdr;
+struct cppi5_tr_type15_t {
+	cppi5_tr_flags_t flags;
 	u16 icnt0;
 	u16 icnt1;
 	u64 addr;
-	s32  dim1;
+	s32 dim1;
 	u16 icnt2;
 	u16 icnt3;
-	s32  dim2;
-	s32  dim3;
-	u32 fmtflags;
-	s32  ddim1;
+	s32 dim2;
+	s32 dim3;
+	u32 _reserved;
+	s32 ddim1;
 	u64 daddr;
-	s32  ddim2;
-	s32  ddim3;
+	s32 ddim2;
+	s32 ddim3;
 	u16 dicnt0;
 	u16 dicnt1;
 	u16 dicnt2;
@@ -1001,65 +902,113 @@ static inline size_t cppi5_trdesc_calc_size(u32 tr_count, u32 tr_size)
 }
 
 /**
- * cppi5_tr_desc_init - Init TR Descriptor
+ * cppi5_trdesc_init - Init TR Descriptor
  * @desc: TR Descriptor
- * @flags: supported values
- *	CPPI5_INFO0_TRDESC_RELOAD
- * @tr_num: number of TR records
+ * @tr_count: number of TR records
  * @tr_size: Nominal size of TR record (max) [16, 32, 64, 128]
- * @reload_idx: Reload Index
+ * @reload_idx: Absolute index to jump to on the 2nd and following passes
+ *		through the TR packet.
+ * @reload_count: Number of times to jump from last entry to reload_idx. 0x1ff
+ *		  indicates infinite looping.
  *
  * Init TR Descriptor
  */
-static inline void cppi5_tr_desc_init(
-		struct cppi5_tr_desc_t *desc,
-		u32 flags, u32 tr_num, u32 tr_size, u32 reload_idx)
+static inline void cppi5_trdesc_init(struct cppi5_desc_hdr_t *desc_hdr,
+				     u32 tr_count, u32 tr_size, u32 reload_idx,
+				     u32 reload_count)
 {
-	WARN_ON(!desc);
-	WARN_ON(flags & ~CPPI5_INFO0_TRDESC_RELOAD);
-	WARN_ON(tr_num & ~CPPI5_INFO0_TRDESC_LASTIDX_MASK);
+	WARN_ON(!desc_hdr);
+	WARN_ON(tr_count & ~CPPI5_INFO0_TRDESC_LASTIDX_MASK);
+	WARN_ON(reload_idx > CPPI5_INFO0_TRDESC_RLDIDX_MAX);
+	WARN_ON(reload_count > CPPI5_INFO0_TRDESC_RLDCNT_MAX);
 
-	desc->hdr.pkt_info0 = (CPPI5_INFO0_DESC_TYPE_VAL_TR <<
-			       CPPI5_INFO0_HDESC_TYPE_SHIFT) | (flags);
-	desc->hdr.pkt_info0 |= (reload_idx << CPPI5_INFO0_TRDESC_RLDIDX_SHIFT) &
+	desc_hdr->pkt_info0 = CPPI5_INFO0_DESC_TYPE_VAL_TR <<
+			      CPPI5_INFO0_HDESC_TYPE_SHIFT;
+	desc_hdr->pkt_info0 |= (reload_count << CPPI5_INFO0_TRDESC_RLDCNT_SHIFT) &
+			       CPPI5_INFO0_TRDESC_RLDCNT_MASK;
+	desc_hdr->pkt_info0 |= (reload_idx << CPPI5_INFO0_TRDESC_RLDIDX_SHIFT) &
 			       CPPI5_INFO0_TRDESC_RLDIDX_MASK;
-	desc->hdr.pkt_info0 |= tr_num & CPPI5_INFO0_TRDESC_LASTIDX_MASK;
+	desc_hdr->pkt_info0 |= (tr_count - 1) & CPPI5_INFO0_TRDESC_LASTIDX_MASK;
 
-	desc->hdr.pkt_info1 |= ((ffs(tr_size >> 4) - 1) <<
+	desc_hdr->pkt_info1 |= ((ffs(tr_size >> 4) - 1) <<
 				CPPI5_INFO1_TRDESC_RECSIZE_SHIFT) &
 				CPPI5_INFO1_TRDESC_RECSIZE_MASK;
 }
 
 /**
  * cppi5_tr_init - Init TR record
- * @hdr: TR header (flags)
+ * @flags: Pointer to the TR's flags
  * @type: TR type
- * @event: output event generation cfg
- * @cmd_id: TR identifier (application specifics)
  * @static_tr: TR is static
- * @cfg_flags: Configuration Specific Flags
+ * @wait: Wait for TR completion before allow the next TR to start
+ * @event_size: output event generation cfg
+ * @cmd_id: TR identifier (application specifics)
  *
  * Init TR record
  */
-static inline void cppi5_tr_init(struct cppi5_tr_hdr_t *hdr,
-				      enum cppi5_tr_types type,
-				      enum cppi5_tr_event_size event,
-				      u32 cmd_id, bool static_tr, u32 cfg_flags)
+static inline void cppi5_tr_init(cppi5_tr_flags_t *flags,
+				 enum cppi5_tr_types type, bool static_tr,
+				 bool wait, enum cppi5_tr_event_size event_size,
+				 u32 cmd_id)
 {
-	WARN_ON(!hdr);
+	WARN_ON(!flags);
 
-	hdr->flags = type;
-	hdr->flags |= (event << CPPI5_TR_FLAGS_EVENT_SIZE_SHIFT) &
-		      CPPI5_TR_FLAGS_EVENT_SIZE_MASK;
+	*flags = type;
+	*flags |= (event_size << CPPI5_TR_EVENT_SIZE_SHIFT) &
+		  CPPI5_TR_EVENT_SIZE_MASK;
 
-	hdr->flags |= (cmd_id << CPPI5_TR_FLAGS_CMD_ID_SHIFT) &
-		      CPPI5_TR_FLAGS_CMD_ID_MASK;
+	*flags |= (cmd_id << CPPI5_TR_CMD_ID_SHIFT) &
+		  CPPI5_TR_CMD_ID_MASK;
 
-	hdr->flags |= (cfg_flags << CPPI5_TR_FLAGS_CFG_FLAGS_SHIFT) &
-			CPPI5_TR_FLAGS_CFG_FLAGS_MASK;
+	if (static_tr && (type == CPPI5_TR_TYPE8 || type == CPPI5_TR_TYPE9))
+		*flags |= CPPI5_TR_STATIC;
 
-	if (static_tr)
-		hdr->flags |= CPPI5_TR_FLAGS_STATIC;
+	if (wait)
+		*flags |= CPPI5_TR_WAIT;
+}
+
+/**
+ * cppi5_tr_set_trigger - Configure trigger0/1 and trigger0/1_type
+ * @flags: Pointer to the TR's flags
+ * @trigger0: trigger0 selection
+ * @trigger0_type: type of data transfer that will be enabled by trigger0
+ * @trigger1: trigger1 selection
+ * @trigger1_type: type of data transfer that will be enabled by trigger1
+ *
+ * Configure the triggers for the TR
+ */
+static inline void cppi5_tr_set_trigger(cppi5_tr_flags_t *flags,
+		enum cppi5_tr_trigger trigger0,
+		enum cppi5_tr_trigger_type trigger0_type,
+		enum cppi5_tr_trigger trigger1,
+		enum cppi5_tr_trigger_type trigger1_type)
+{
+	WARN_ON(!flags);
+
+	*flags |= (trigger0 << CPPI5_TR_TRIGGER0_SHIFT) &
+		  CPPI5_TR_TRIGGER0_MASK;
+	*flags |= (trigger0_type << CPPI5_TR_TRIGGER0_TYPE_SHIFT) &
+		  CPPI5_TR_TRIGGER0_TYPE_MASK;
+
+	*flags |= (trigger1 << CPPI5_TR_TRIGGER1_SHIFT) &
+		  CPPI5_TR_TRIGGER1_MASK;
+	*flags |= (trigger1_type << CPPI5_TR_TRIGGER1_TYPE_SHIFT) &
+		  CPPI5_TR_TRIGGER1_TYPE_MASK;
+}
+
+/**
+ * cppi5_tr_cflag_set - Update the Configuration specific flags
+ * @flags: Pointer to the TR's flags
+ * @csf: Configuration specific flags
+ *
+ * Set a bit in Configuration Specific Flags section of the TR flags.
+ */
+static inline void cppi5_tr_csf_set(cppi5_tr_flags_t *flags, u32 csf)
+{
+	WARN_ON(!flags);
+
+	*flags |= (csf << CPPI5_TR_CSF_FLAGS_SHIFT) &
+		  CPPI5_TR_CSF_FLAGS_MASK;
 }
 
 #endif /* __CPPI5_H__ */
