@@ -190,11 +190,6 @@ struct cppi50_tr_resp {
 #define CPPI50_TRDESC_W1_TR_SIZE_64		(2 << 24)
 #define CPPI50_TRDESC_W1_TR_SIZE_128		(3 << 24)
 
-/* CPPI 5.0 Transfer Request Descriptor */
-struct cppi50_tr_req_desc {
-	u32 packet_info[4];
-} __aligned(64) __packed;
-
 struct udma_static_tr {
 	u8 elsize; /* RPSTR0 */
 	u16 elcnt; /* RPSTR0 */
@@ -1766,7 +1761,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		req_tx.tx_filt_pswords = 0;
 		req_tx.tx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBRR;
 		req_tx.tx_supr_tdpkt = 0;
-		req_tx.tx_fetch_size = sizeof(struct cppi50_tr_req_desc) >> 2;
+		req_tx.tx_fetch_size = sizeof(struct cppi5_desc_hdr_t) >> 2;
 		req_tx.txcq_qnum = tc_ring;
 
 		ret = tisci_ops->tx_ch_cfg(tisci_rm->tisci, &req_tx);
@@ -1786,7 +1781,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 		req_rx.nav_id = tisci_rm->tisci_dev_id;
 		req_rx.index = rchan->id;
-		req_rx.rx_fetch_size = sizeof(struct cppi50_tr_req_desc) >> 2;
+		req_rx.rx_fetch_size = sizeof(struct cppi5_desc_hdr_t) >> 2;
 		req_rx.rxcq_qnum = tc_ring;
 		req_rx.rx_pause_on_err = 0;
 		req_rx.rx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBRR;
@@ -1814,7 +1809,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 							   uc->psd_size, 0);
 		} else {
 			mode = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_PBRR;
-			fetch_size = sizeof(struct cppi50_tr_req_desc);
+			fetch_size = sizeof(struct cppi5_desc_hdr_t);
 		}
 
 		if (uc->dir == DMA_MEM_TO_DEV) {
@@ -2033,7 +2028,7 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 					    enum dma_transfer_direction dir)
 {
 	struct udma_hwdesc *hwdesc;
-	struct cppi50_tr_req_desc *tr_desc;
+	struct cppi5_desc_hdr_t *tr_desc;
 	struct udma_desc *d;
 	u32 tr_nominal_size;
 
@@ -2091,21 +2086,21 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 	hwdesc->tr_resp_base = hwdesc->tr_req_base + tr_size * tr_count;
 
 	tr_desc = hwdesc->cppi5_desc_vaddr;
-	tr_desc->packet_info[0] = CPPI50_TRDESC_W0_LAST_ENTRY(tr_count - 1) |
-				  CPPI50_TRDESC_W0_TYPE;
+	tr_desc->pkt_info0 = CPPI50_TRDESC_W0_LAST_ENTRY(tr_count - 1) |
+			     CPPI50_TRDESC_W0_TYPE;
 	if (uc->cyclic)
-		tr_desc->packet_info[0] |= CPPI50_TRDESC_W0_RELOAD_CNT(0x1ff);
+		tr_desc->pkt_info0 |= CPPI50_TRDESC_W0_RELOAD_CNT(0x1ff);
 
 	/* Flow and Packed ID */
-	tr_desc->packet_info[1] = tr_nominal_size |
-				  CPPI50_TRDESC_W1_PACKETID(uc->id) |
-				  CPPI50_TRDESC_W1_FLOWID(0x3fff);
+	tr_desc->pkt_info1 = tr_nominal_size |
+			     CPPI50_TRDESC_W1_PACKETID(uc->id) |
+			     CPPI50_TRDESC_W1_FLOWID(0x3fff);
 
 	if (dir == DMA_DEV_TO_MEM)
-		tr_desc->packet_info[2] = k3_nav_ringacc_get_ring_id(
+		tr_desc->pkt_info2 = k3_nav_ringacc_get_ring_id(
 							uc->rchan->r_ring);
 	else
-		tr_desc->packet_info[2] = k3_nav_ringacc_get_ring_id(
+		tr_desc->pkt_info2 = k3_nav_ringacc_get_ring_id(
 							uc->tchan->tc_ring);
 
 	return d;
