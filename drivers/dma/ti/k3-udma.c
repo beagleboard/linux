@@ -573,9 +573,9 @@ static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
 
 static inline size_t udma_calc_trdesc_size(size_t tr_size, int tr_count)
 {
-	size_t trdesc_size = sizeof(struct cppi50_tr_req_desc);
+	/* Space holding the Packet info block is covered by the '+ 1' */
+	size_t trdesc_size = tr_size * (tr_count + 1);
 
-	trdesc_size += tr_size * (tr_count + 1);
 	trdesc_size += tr_count * sizeof(struct cppi50_tr_resp);
 
 	return trdesc_size;
