@@ -1033,7 +1033,7 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 
 	cppi5_hdesc_init(first_desc, CPPI5_INFO0_HDESC_EPIB_PRESENT,
 			 AM65_CPSW_NAV_PS_DATA_SIZE);
-	cppi5_hdesc_set_pktids(&first_desc->hdr, 0, 0x3FFF);
+	cppi5_desc_set_pktids(&first_desc->hdr, 0, 0x3FFF);
 	cppi5_hdesc_set_pkttype(first_desc, 0x7);
 	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, port->port_id);
 

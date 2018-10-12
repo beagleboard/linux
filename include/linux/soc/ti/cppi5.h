@@ -157,6 +157,131 @@ static inline void cppi5_desc_dump(void *desc, u32 size)
 }
 
 /**
+ * cppi5_desc_get_type - get descriptor type
+ * @desc_hdr: packet descriptor/TR header
+ *
+ * Returns descriptor type:
+ * CPPI5_INFO0_DESC_TYPE_VAL_HOST
+ * CPPI5_INFO0_DESC_TYPE_VAL_MONO
+ * CPPI5_INFO0_DESC_TYPE_VAL_TR
+ */
+static inline u32 cppi5_desc_get_type(struct cppi5_desc_hdr_t *desc_hdr)
+{
+	WARN_ON(!desc_hdr);
+
+	return (desc_hdr->pkt_info0 & CPPI5_INFO0_HDESC_TYPE_MASK) >>
+		CPPI5_INFO0_HDESC_TYPE_SHIFT;
+}
+
+/**
+ * cppi5_desc_get_errflags - get Error Flags from Desc
+ * @desc_hdr: packet/TR descriptor header
+ *
+ * Returns Error Flags from Packet/TR Descriptor
+ */
+static inline u32 cppi5_desc_get_errflags(struct cppi5_desc_hdr_t *desc_hdr)
+{
+	WARN_ON(!desc_hdr);
+
+	return (desc_hdr->pkt_info1 & CPPI5_INFO1_DESC_PKTERROR_MASK) >>
+		CPPI5_INFO1_DESC_PKTERROR_SHIFT;
+}
+
+/**
+ * cppi5_desc_get_pktids - get Packet and Flow ids from Desc
+ * @desc_hdr: packet/TR descriptor header
+ * @pkt_id: Packet ID
+ * @flow_id: Flow ID
+ *
+ * Returns Packet and Flow ids from packet/TR descriptor
+ */
+static inline void cppi5_desc_get_pktids(struct cppi5_desc_hdr_t *desc_hdr,
+					 u32 *pkt_id, u32 *flow_id)
+{
+	WARN_ON(!desc_hdr);
+
+	*pkt_id = (desc_hdr->pkt_info1 & CPPI5_INFO1_DESC_PKTID_MASK) >>
+		   CPPI5_INFO1_DESC_PKTID_SHIFT;
+	*flow_id = (desc_hdr->pkt_info1 & CPPI5_INFO1_DESC_FLOWID_MASK) >>
+		    CPPI5_INFO1_DESC_FLOWID_SHIFT;
+}
+
+/**
+ * cppi5_desc_set_pktids - set Packet and Flow ids in Desc
+ * @desc_hdr: packet/TR descriptor header
+ * @pkt_id: Packet ID
+ * @flow_id: Flow ID
+ */
+static inline void cppi5_desc_set_pktids(struct cppi5_desc_hdr_t *desc_hdr,
+					 u32 pkt_id, u32 flow_id)
+{
+	WARN_ON(!desc_hdr);
+
+	desc_hdr->pkt_info1 |= (pkt_id << CPPI5_INFO1_DESC_PKTID_SHIFT) &
+				CPPI5_INFO1_DESC_PKTID_MASK;
+	desc_hdr->pkt_info1 |= (flow_id << CPPI5_INFO1_DESC_FLOWID_SHIFT) &
+				CPPI5_INFO1_DESC_FLOWID_MASK;
+}
+
+/**
+ * cppi5_desc_set_retpolicy - set Packet Return Policy in Desc
+ * @desc_hdr: packet/TR descriptor header
+ * @flags: fags, supported values
+ *  CPPI5_INFO2_HDESC_RETPOLICY
+ *  CPPI5_INFO2_HDESC_EARLYRET
+ *  CPPI5_INFO2_DESC_RETPUSHPOLICY
+ * @return_ring_id: Packet Return Queue/Ring id, value 0xFFFF reserved
+ */
+static inline void cppi5_desc_set_retpolicy(struct cppi5_desc_hdr_t *desc_hdr,
+					    u32 flags, u32 return_ring_id)
+{
+	WARN_ON(!desc_hdr);
+
+	desc_hdr->pkt_info2 |= flags;
+	desc_hdr->pkt_info2 |= return_ring_id & CPPI5_INFO2_DESC_RETQ_MASK;
+}
+
+/**
+ * cppi5_desc_get_tags_ids - get Packet Src/Dst Tags from Desc
+ * @desc_hdr: packet/TR descriptor header
+ * @src_tag_id: Source Tag
+ * @dst_tag_id: Dest Tag
+ *
+ * Returns Packet Src/Dst Tags from packet/TR descriptor
+ */
+static inline void cppi5_desc_get_tags_ids(struct cppi5_desc_hdr_t *desc_hdr,
+					   u32 *src_tag_id, u32 *dst_tag_id)
+{
+	WARN_ON(!desc_hdr);
+
+	if (src_tag_id)
+		*src_tag_id = (desc_hdr->src_dst_tag &
+			      CPPI5_INFO3_DESC_SRCTAG_MASK) >>
+			      CPPI5_INFO3_DESC_SRCTAG_SHIFT;
+	if (dst_tag_id)
+		*dst_tag_id = desc_hdr->src_dst_tag &
+			      CPPI5_INFO3_DESC_DSTTAG_MASK;
+}
+
+/**
+ * cppi5_desc_set_tags_ids - set Packet Src/Dst Tags in HDesc
+ * @desc_hdr: packet/TR descriptor header
+ * @src_tag_id: Source Tag
+ * @dst_tag_id: Dest Tag
+ *
+ * Returns Packet Src/Dst Tags from packet/TR descriptor
+ */
+static inline void cppi5_desc_set_tags_ids(struct cppi5_desc_hdr_t *desc_hdr,
+					   u32 src_tag_id, u32 dst_tag_id)
+{
+	WARN_ON(!desc_hdr);
+
+	desc_hdr->src_dst_tag = (src_tag_id << CPPI5_INFO3_DESC_SRCTAG_SHIFT) &
+				CPPI5_INFO3_DESC_SRCTAG_MASK;
+	desc_hdr->src_dst_tag |= dst_tag_id & CPPI5_INFO3_DESC_DSTTAG_MASK;
+}
+
+/**
  * cppi5_hdesc_calc_size - Calculate Host Packet Descriptor size
  * @epib: is EPIB present
  * @psdata_size: PSDATA size
@@ -265,24 +390,6 @@ static inline u32 cppi5_hdesc_get_psdata_size(
 }
 
 /**
- * cppi5_desc_get_type - get descriptor type
- * @desc_hdr: packet descriptor/TR header
- *
- * Returns descriptor type:
- * CPPI5_INFO0_DESC_TYPE_VAL_HOST
- * CPPI5_INFO0_DESC_TYPE_VAL_MONO
- * CPPI5_INFO0_DESC_TYPE_VAL_TR
- */
-static inline u32
-cppi5_desc_get_type(struct cppi5_desc_hdr_t *desc_hdr)
-{
-	WARN_ON(!desc_hdr);
-
-	return (desc_hdr->pkt_info0 & CPPI5_INFO0_HDESC_TYPE_MASK) >>
-		CPPI5_INFO0_HDESC_TYPE_SHIFT;
-}
-
-/**
  * cppi5_hdesc_get_pktlen - get Packet Length from HDesc
  * @desc: Host packet descriptor
  *
@@ -306,21 +413,6 @@ cppi5_hdesc_set_pktlen(struct cppi5_host_desc_t *desc, u32 pkt_len)
 	WARN_ON(!desc);
 
 	desc->hdr.pkt_info0 |= (pkt_len & CPPI5_INFO0_HDESC_PKTLEN_MASK);
-}
-
-/**
- * cppi5_desc_get_errflags - get Error Flags from Desc
- * @desc_hdr: packet/TR descriptor header
- *
- * Returns Error Flags from Packet/TR Descriptor
- */
-static inline u32
-cppi5_desc_get_errflags(struct cppi5_desc_hdr_t *desc_hdr)
-{
-	WARN_ON(!desc_hdr);
-
-	return (desc_hdr->pkt_info1 & CPPI5_INFO1_DESC_PKTERROR_MASK) >>
-		CPPI5_INFO1_DESC_PKTERROR_SHIFT;
 }
 
 /**
@@ -353,63 +445,6 @@ cppi5_hdesc_set_psflags(struct cppi5_host_desc_t *desc, u32 ps_flags)
 }
 
 /**
- * cppi5_hdesc_get_pktids - get Packet and Flow ids from Desc
- * @desc_hdr: packet/TR descriptor header
- * @pkt_id: Packet ID
- * @flow_id: Flow ID
- *
- * Returns Packet and Flow ids from packet/TR descriptor
- */
-static inline void
-cppi5_hdesc_get_pktids(struct cppi5_desc_hdr_t *desc_hdr,
-			    u32 *pkt_id, u32 *flow_id)
-{
-	WARN_ON(!desc_hdr);
-
-	*pkt_id = (desc_hdr->pkt_info1 & CPPI5_INFO1_DESC_PKTID_MASK) >>
-		   CPPI5_INFO1_DESC_PKTID_SHIFT;
-	*flow_id = (desc_hdr->pkt_info1 & CPPI5_INFO1_DESC_FLOWID_MASK) >>
-		    CPPI5_INFO1_DESC_FLOWID_SHIFT;
-}
-
-/**
- * cppi5_hdesc_get_errflags - set Packet and Flow ids in Desc
- * @desc_hdr: packet/TR descriptor header
- * @pkt_id: Packet ID
- * @flow_id: Flow ID
- */
-static inline void
-cppi5_hdesc_set_pktids(struct cppi5_desc_hdr_t *desc_hdr,
-			    u32 pkt_id, u32 flow_id)
-{
-	WARN_ON(!desc_hdr);
-
-	desc_hdr->pkt_info1 |= (pkt_id << CPPI5_INFO1_DESC_PKTID_SHIFT) &
-				CPPI5_INFO1_DESC_PKTID_MASK;
-	desc_hdr->pkt_info1 |= (flow_id << CPPI5_INFO1_DESC_FLOWID_SHIFT) &
-				CPPI5_INFO1_DESC_FLOWID_MASK;
-}
-
-/**
- * cppi5_hdesc_get_errflags - set Packet Return Policy in Desc
- * @desc_hdr: packet/TR descriptor header
- * @flags: fags, supported values
- *  CPPI5_INFO2_HDESC_RETPOLICY
- *  CPPI5_INFO2_HDESC_EARLYRET
- *  CPPI5_INFO2_DESC_RETPUSHPOLICY
- * @return_ring_id: Packet Return Queue/Ring id, value 0xFFFF reserved
- */
-static inline void cppi5_desc_set_retpolicy(
-		struct cppi5_desc_hdr_t *desc_hdr,
-		u32 flags, u32 return_ring_id)
-{
-	WARN_ON(!desc_hdr);
-
-	desc_hdr->pkt_info2 |= flags;
-	desc_hdr->pkt_info2 |= return_ring_id & CPPI5_INFO2_DESC_RETQ_MASK;
-}
-
-/**
  * cppi5_hdesc_get_errflags - get Packet Type from HDesc
  * @desc: Host packet descriptor
  */
@@ -434,48 +469,6 @@ cppi5_hdesc_set_pkttype(struct cppi5_host_desc_t *desc, u32 pkt_type)
 	desc->hdr.pkt_info2 |=
 			(pkt_type << CPPI5_INFO2_HDESC_PKTTYPE_SHIFT) &
 			 CPPI5_INFO2_HDESC_PKTTYPE_MASK;
-}
-
-/**
- * cppi5_hdesc_get_pktids - get Packet Src/Dst Tags from Desc
- * @desc_hdr: packet/TR descriptor header
- * @src_tag_id: Source Tag
- * @dst_tag_id: Dest Tag
- *
- * Returns Packet Src/Dst Tags from packet/TR descriptor
- */
-static inline void
-cppi5_desc_get_tags_ids(struct cppi5_desc_hdr_t *desc_hdr,
-			     u32 *src_tag_id, u32 *dst_tag_id)
-{
-	WARN_ON(!desc_hdr);
-
-	if (src_tag_id)
-		*src_tag_id = (desc_hdr->src_dst_tag &
-			      CPPI5_INFO3_DESC_SRCTAG_MASK) >>
-			      CPPI5_INFO3_DESC_SRCTAG_SHIFT;
-	if (dst_tag_id)
-		*dst_tag_id = desc_hdr->src_dst_tag &
-			      CPPI5_INFO3_DESC_DSTTAG_MASK;
-}
-
-/**
- * cppi5_hdesc_set_pktids - set Packet Src/Dst Tags in HDesc
- * @desc_hdr: packet/TR descriptor header
- * @src_tag_id: Source Tag
- * @dst_tag_id: Dest Tag
- *
- * Returns Packet Src/Dst Tags from packet/TR descriptor
- */
-static inline void
-cppi5_desc_set_tags_ids(struct cppi5_desc_hdr_t *desc_hdr,
-			     u32 src_tag_id, u32 dst_tag_id)
-{
-	WARN_ON(!desc_hdr);
-
-	desc_hdr->src_dst_tag = (src_tag_id << CPPI5_INFO3_DESC_SRCTAG_SHIFT) &
-				CPPI5_INFO3_DESC_SRCTAG_MASK;
-	desc_hdr->src_dst_tag |= dst_tag_id & CPPI5_INFO3_DESC_DSTTAG_MASK;
 }
 
 /**

@@ -2280,7 +2280,7 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 		if (i == 0) {
 			cppi5_hdesc_init(desc, 0, 0);
 			/* Flow and Packed ID ??? */
-			cppi5_hdesc_set_pktids(&desc->hdr, uc->id, 0x3fff);
+			cppi5_desc_set_pktids(&desc->hdr, uc->id, 0x3fff);
 			cppi5_desc_set_retpolicy(&desc->hdr, 0, ring_id);
 		} else {
 			cppi5_hdesc_reset_hbdesc(desc);
@@ -2588,7 +2588,7 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 		cppi5_hdesc_set_pktlen(h_desc, period_len);
 
 		/* Flow and Packed ID ??? */
-		cppi5_hdesc_set_pktids(&h_desc->hdr, uc->id, 0x3fff);
+		cppi5_desc_set_pktids(&h_desc->hdr, uc->id, 0x3fff);
 		cppi5_desc_set_retpolicy(&h_desc->hdr, 0, ring_id);
 
 		/* attach each period to a new descriptor */
