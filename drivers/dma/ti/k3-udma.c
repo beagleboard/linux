@@ -3270,7 +3270,6 @@ static int udma_probe(struct platform_device *pdev)
 	ud->ddev.device_prep_slave_sg = udma_prep_slave_sg;
 	ud->ddev.device_prep_dma_cyclic = udma_prep_dma_cyclic;
 	ud->ddev.device_prep_dma_memcpy = udma_prep_dma_memcpy;
-	ud->ddev.device_attach_metadata = udma_attach_metadata;
 	ud->ddev.device_issue_pending = udma_issue_pending;
 	ud->ddev.device_tx_status = udma_tx_status;
 	ud->ddev.device_pause = udma_pause;
