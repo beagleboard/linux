@@ -16,8 +16,8 @@
 #include <linux/pm_runtime.h>
 #include <dt-bindings/dma/k3-udma.h>
 #include <linux/irqchip/irq-ti-sci-inta.h>
-#include <linux/soc/ti/cppi5.h>
 #include <linux/soc/ti/k3-navss-ringacc.h>
+#include <linux/dma/ti-cppi5.h>
 #include <linux/dma/k3-navss-udma.h>
 
 #include "k3-udma.h"

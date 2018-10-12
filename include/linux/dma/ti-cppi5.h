@@ -5,8 +5,8 @@
  * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com
  */
 
-#ifndef __CPPI5_H__
-#define __CPPI5_H__
+#ifndef __TI_CPPI5_H__
+#define __TI_CPPI5_H__
 
 #include <linux/bitops.h>
 
@@ -991,4 +991,4 @@ static inline void cppi5_tr_csf_set(cppi5_tr_flags_t *flags, u32 csf)
 		  CPPI5_TR_CSF_FLAGS_MASK;
 }
 
-#endif /* __CPPI5_H__ */
+#endif /* __TI_CPPI5_H__ */

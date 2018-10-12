@@ -28,7 +28,7 @@
 #include <linux/soc/ti/k3-navss-ringacc.h>
 #include <linux/soc/ti/ti_sci_protocol.h>
 #include <linux/irqchip/irq-ti-sci-inta.h>
-#include <linux/soc/ti/cppi5.h>
+#include <linux/dma/ti-cppi5.h>
 
 #include "../virt-dma.h"
 #include "k3-udma.h"

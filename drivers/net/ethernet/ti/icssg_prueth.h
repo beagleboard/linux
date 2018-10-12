@@ -24,7 +24,7 @@
 #include <linux/remoteproc.h>
 
 #include <linux/dma-mapping.h>
-#include <linux/soc/ti/cppi5.h>
+#include <linux/dma/ti-cppi5.h>
 #include <linux/dma/k3-navss-udma.h>
 
 #define ICSS_SLICE0	0
