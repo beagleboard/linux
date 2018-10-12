@@ -365,7 +365,7 @@ struct udma_chan {
 	u32 metadata_size; /* (needs_epib ? 16:0) + psd_size */
 	u32 hdesc_size; /* Size of a packet descriptor in packet mode */
 	int desc_align; /* alignment to use for descriptors */
-	int slave_thread_id;
+	int remote_thread_id;
 	u32 src_thread;
 	u32 dst_thread;
 	u32 static_tr_type;
@@ -1705,12 +1705,12 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 		ret = udma_alloc_tx_resources(uc);
 		if (ret) {
-			uc->slave_thread_id = -1;
+			uc->remote_thread_id = -1;
 			return ret;
 		}
 
 		uc->src_thread = ud->psil_base + uc->tchan->id;
-		uc->dst_thread = uc->slave_thread_id;
+		uc->dst_thread = uc->remote_thread_id;
 		if (!(uc->dst_thread & 0x8000))
 			uc->dst_thread |= 0x8000;
 
@@ -1722,11 +1722,11 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 		ret = udma_alloc_rx_resources(uc);
 		if (ret) {
-			uc->slave_thread_id = -1;
+			uc->remote_thread_id = -1;
 			return ret;
 		}
 
-		uc->src_thread = uc->slave_thread_id;
+		uc->src_thread = uc->remote_thread_id;
 		uc->dst_thread = (ud->psil_base + uc->rchan->id) | 0x8000;
 
 		break;
@@ -2008,7 +2008,7 @@ err_chan_free:
 err_res_free:
 	udma_free_tx_resources(uc);
 	udma_free_rx_resources(uc);
-	uc->slave_thread_id = -1;
+	uc->remote_thread_id = -1;
 
 	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
@@ -3131,7 +3131,7 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 	udma_free_tx_resources(uc);
 	udma_free_rx_resources(uc);
 
-	uc->slave_thread_id = -1;
+	uc->remote_thread_id = -1;
 	uc->dir = DMA_MEM_TO_MEM;
 
 	if (uc->use_dma_pool) {
@@ -3213,13 +3213,12 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 		return false;
 	}
 
-	uc->slave_thread_id = val + args[1];
+	uc->remote_thread_id = val + args[1];
 
 	of_node_put(slave_node);
 
-	dev_dbg(ud->dev, "%s: Slave %s thread%d will be handled by vchan %d\n",
-		__func__, udma_get_dir_text(uc->dir), uc->slave_thread_id,
-		uc->id);
+	dev_dbg(ud->dev, "chan%d: Remote thread: 0x%04x (%s)\n", uc->id,
+		uc->remote_thread_id, udma_get_dir_text(uc->dir));
 
 	return true;
 }
@@ -3555,7 +3554,7 @@ static int udma_probe(struct platform_device *pdev)
 		uc->ud = ud;
 		uc->vc.desc_free = udma_desc_free;
 		uc->id = i;
-		uc->slave_thread_id = -1;
+		uc->remote_thread_id = -1;
 		uc->tchan = NULL;
 		uc->rchan = NULL;
 		uc->dir = DMA_MEM_TO_MEM;
