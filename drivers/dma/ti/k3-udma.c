@@ -3284,6 +3284,8 @@ static int udma_probe(struct platform_device *pdev)
 			      BIT(DMA_MEM_TO_MEM);
 	ud->ddev.residue_granularity = DMA_RESIDUE_GRANULARITY_BURST;
 	ud->ddev.copy_align = DMAENGINE_ALIGN_8_BYTES;
+	ud->ddev.desc_metadata_modes = DESC_METADATA_CLIENT |
+				       DESC_METADATA_ENGINE;
 	ud->ddev.dev = dev;
 	ud->dev = dev;
 
