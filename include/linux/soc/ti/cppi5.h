@@ -287,7 +287,7 @@ static inline void cppi5_desc_set_tags_ids(struct cppi5_desc_hdr_t *desc_hdr,
  * 0 - if PSDATA > CPPI5_INFO0_HDESC_PSDATA_MAX_SIZE
  */
 static inline u32 cppi5_hdesc_calc_size(bool epib, u32 psdata_size,
-					     u32 sw_data_size)
+					u32 sw_data_size)
 {
 	u32 desc_size;
 
@@ -314,8 +314,8 @@ static inline u32 cppi5_hdesc_calc_size(bool epib, u32 psdata_size,
  * Returns required Host Packet Descriptor size
  * 0 - if PSDATA > CPPI5_INFO0_HDESC_PSDATA_MAX_SIZE
  */
-static inline void cppi5_hdesc_init(struct cppi5_host_desc_t *desc,
-					 u32 flags, u32 psdata_size)
+static inline void cppi5_hdesc_init(struct cppi5_host_desc_t *desc, u32 flags,
+				    u32 psdata_size)
 {
 	WARN_ON(!desc);
 	WARN_ON(psdata_size > CPPI5_INFO0_HDESC_PSDATA_MAX_SIZE);
@@ -337,8 +337,8 @@ static inline void cppi5_hdesc_init(struct cppi5_host_desc_t *desc,
  *	CPPI5_INFO0_HDESC_EPIB_PRESENT
  *	CPPI5_INFO0_HDESC_PSINFO_LOCATION
  */
-static inline void cppi5_hdesc_update_flags(
-	struct cppi5_host_desc_t *desc, u32 flags)
+static inline void cppi5_hdesc_update_flags(struct cppi5_host_desc_t *desc,
+					    u32 flags)
 {
 	WARN_ON(!desc);
 	WARN_ON(flags & ~(CPPI5_INFO0_HDESC_EPIB_PRESENT |
@@ -355,7 +355,7 @@ static inline void cppi5_hdesc_update_flags(
  * @psdata_size: PSDATA size
  */
 static inline void cppi5_hdesc_update_psdata_size(
-	struct cppi5_host_desc_t *desc, u32 psdata_size)
+		struct cppi5_host_desc_t *desc, u32 psdata_size)
 {
 	WARN_ON(!desc);
 	WARN_ON(psdata_size > CPPI5_INFO0_HDESC_PSDATA_MAX_SIZE);
@@ -370,8 +370,7 @@ static inline void cppi5_hdesc_update_psdata_size(
  * cppi5_hdesc_get_psdata_size - get PSdata size in bytes
  * @desc: Host packet descriptor
  */
-static inline u32 cppi5_hdesc_get_psdata_size(
-	struct cppi5_host_desc_t *desc)
+static inline u32 cppi5_hdesc_get_psdata_size(struct cppi5_host_desc_t *desc)
 {
 	u32 psdata_size = 0;
 
@@ -391,8 +390,7 @@ static inline u32 cppi5_hdesc_get_psdata_size(
  *
  * Returns Packet Length from Host Packet Descriptor
  */
-static inline u32
-cppi5_hdesc_get_pktlen(struct cppi5_host_desc_t *desc)
+static inline u32 cppi5_hdesc_get_pktlen(struct cppi5_host_desc_t *desc)
 {
 	WARN_ON(!desc);
 
@@ -403,8 +401,8 @@ cppi5_hdesc_get_pktlen(struct cppi5_host_desc_t *desc)
  * cppi5_hdesc_set_pktlen - set Packet Length in HDesc
  * @desc: Host packet descriptor
  */
-static inline void
-cppi5_hdesc_set_pktlen(struct cppi5_host_desc_t *desc, u32 pkt_len)
+static inline void cppi5_hdesc_set_pktlen(struct cppi5_host_desc_t *desc,
+					  u32 pkt_len)
 {
 	WARN_ON(!desc);
 
@@ -417,8 +415,7 @@ cppi5_hdesc_set_pktlen(struct cppi5_host_desc_t *desc, u32 pkt_len)
  *
  * Returns Protocol Specific Flags from Host Packet Descriptor
  */
-static inline u32
-cppi5_hdesc_get_psflags(struct cppi5_host_desc_t *desc)
+static inline u32 cppi5_hdesc_get_psflags(struct cppi5_host_desc_t *desc)
 {
 	WARN_ON(!desc);
 
@@ -430,8 +427,8 @@ cppi5_hdesc_get_psflags(struct cppi5_host_desc_t *desc)
  * cppi5_hdesc_set_psflags - set Protocol Specific Flags in HDesc
  * @desc: Host packet descriptor
  */
-static inline void
-cppi5_hdesc_set_psflags(struct cppi5_host_desc_t *desc, u32 ps_flags)
+static inline void cppi5_hdesc_set_psflags(struct cppi5_host_desc_t *desc,
+					   u32 ps_flags)
 {
 	WARN_ON(!desc);
 
@@ -444,8 +441,7 @@ cppi5_hdesc_set_psflags(struct cppi5_host_desc_t *desc, u32 ps_flags)
  * cppi5_hdesc_get_errflags - get Packet Type from HDesc
  * @desc: Host packet descriptor
  */
-static inline u32
-cppi5_hdesc_get_pkttype(struct cppi5_host_desc_t *desc)
+static inline u32 cppi5_hdesc_get_pkttype(struct cppi5_host_desc_t *desc)
 {
 	WARN_ON(!desc);
 
@@ -458,8 +454,8 @@ cppi5_hdesc_get_pkttype(struct cppi5_host_desc_t *desc)
  * @desc: Host packet descriptor
  * @pkt_type: Packet Type
  */
-static inline void
-cppi5_hdesc_set_pkttype(struct cppi5_host_desc_t *desc, u32 pkt_type)
+static inline void cppi5_hdesc_set_pkttype(struct cppi5_host_desc_t *desc,
+					   u32 pkt_type)
 {
 	WARN_ON(!desc);
 	desc->hdr.pkt_info2 |=
@@ -477,10 +473,9 @@ cppi5_hdesc_set_pkttype(struct cppi5_host_desc_t *desc, u32 pkt_type)
  *
  * Attaches buffer to Host Packet Descriptor
  */
-static inline void
-cppi5_hdesc_attach_buf(struct cppi5_host_desc_t *desc,
-			    dma_addr_t buf, u32 buf_data_len,
-			    dma_addr_t obuf, u32 obuf_len)
+static inline void cppi5_hdesc_attach_buf(struct cppi5_host_desc_t *desc,
+					  dma_addr_t buf, u32 buf_data_len,
+					  dma_addr_t obuf, u32 obuf_len)
 {
 	WARN_ON(!desc);
 	WARN_ON(!buf && !obuf);
@@ -491,9 +486,8 @@ cppi5_hdesc_attach_buf(struct cppi5_host_desc_t *desc,
 	desc->org_buf_len = obuf_len & CPPI5_OBUFINFO0_HDESC_BUF_LEN_MASK;
 }
 
-static inline void
-cppi5_hdesc_get_obuf(struct cppi5_host_desc_t *desc,
-			  dma_addr_t *obuf, u32 *obuf_len)
+static inline void cppi5_hdesc_get_obuf(struct cppi5_host_desc_t *desc,
+					dma_addr_t *obuf, u32 *obuf_len)
 {
 	WARN_ON(!desc);
 	WARN_ON(!obuf);
@@ -503,8 +497,7 @@ cppi5_hdesc_get_obuf(struct cppi5_host_desc_t *desc,
 	*obuf_len = desc->org_buf_len & CPPI5_OBUFINFO0_HDESC_BUF_LEN_MASK;
 }
 
-static inline void
-cppi5_hdesc_reset_to_original(struct cppi5_host_desc_t *desc)
+static inline void cppi5_hdesc_reset_to_original(struct cppi5_host_desc_t *desc)
 {
 	WARN_ON(!desc);
 
@@ -519,9 +512,8 @@ cppi5_hdesc_reset_to_original(struct cppi5_host_desc_t *desc)
  *
  * add and link Host Buffer Descriptor to HDesc
  */
-static inline void
-cppi5_hdesc_link_hbdesc(struct cppi5_host_desc_t *desc,
-			     dma_addr_t hbuf_desc)
+static inline void cppi5_hdesc_link_hbdesc(struct cppi5_host_desc_t *desc,
+					   dma_addr_t hbuf_desc)
 {
 	WARN_ON(!desc);
 	WARN_ON(!hbuf_desc);
@@ -529,16 +521,15 @@ cppi5_hdesc_link_hbdesc(struct cppi5_host_desc_t *desc,
 	desc->next_desc = hbuf_desc;
 }
 
-static inline dma_addr_t
-cppi5_hdesc_get_next_hbdesc(struct cppi5_host_desc_t *desc)
+static inline dma_addr_t cppi5_hdesc_get_next_hbdesc(
+		struct cppi5_host_desc_t *desc)
 {
 	WARN_ON(!desc);
 
 	return (dma_addr_t)desc->next_desc;
 }
 
-static inline void
-cppi5_hdesc_reset_hbdesc(struct cppi5_host_desc_t *desc)
+static inline void cppi5_hdesc_reset_hbdesc(struct cppi5_host_desc_t *desc)
 {
 	WARN_ON(!desc);
 
@@ -565,8 +556,7 @@ static inline bool cppi5_hdesc_epib_present(struct cppi5_desc_hdr_t *desc_hdr)
  * Returns pointer on PSDATA in HDesc.
  * NULL - if ps_data placed at the start of data buffer.
  */
-static inline void *cppi5_hdesc_get_psdata(
-		struct cppi5_host_desc_t *desc)
+static inline void *cppi5_hdesc_get_psdata(struct cppi5_host_desc_t *desc)
 {
 	u32 psdata_size;
 	void *psdata;
@@ -591,8 +581,7 @@ static inline void *cppi5_hdesc_get_psdata(
 	return psdata;
 }
 
-static inline u32 *cppi5_hdesc_get_psdata32(
-		struct cppi5_host_desc_t *desc)
+static inline u32 *cppi5_hdesc_get_psdata32(struct cppi5_host_desc_t *desc)
 {
 	return (u32 *)cppi5_hdesc_get_psdata(desc);
 }
@@ -604,8 +593,7 @@ static inline u32 *cppi5_hdesc_get_psdata32(
  * Returns pointer on SWDATA in HDesc.
  * NOTE. It's caller responsibility to be sure hdesc actually has swdata.
  */
-static inline void *cppi5_hdesc_get_swdata(
-		struct cppi5_host_desc_t *desc)
+static inline void *cppi5_hdesc_get_swdata(struct cppi5_host_desc_t *desc)
 {
 	u32 psdata_size = 0;
 	void *swdata;
@@ -629,30 +617,30 @@ static inline void *cppi5_hdesc_get_swdata(
 
 /* ================================== TR ================================== */
 
-#define CPPI5_TR_TYPE_SHIFT		(0U)
-#define CPPI5_TR_TYPE_MASK		GENMASK(3, 0)
-#define CPPI5_TR_STATIC			BIT(4)
-#define CPPI5_TR_WAIT			BIT(5)
-#define CPPI5_TR_EVENT_SIZE_SHIFT	(6U)
-#define CPPI5_TR_EVENT_SIZE_MASK	GENMASK(7, 6)
-#define CPPI5_TR_TRIGGER0_SHIFT		(8U)
-#define CPPI5_TR_TRIGGER0_MASK		GENMASK(9, 8)
-#define CPPI5_TR_TRIGGER0_TYPE_SHIFT	(10U)
-#define CPPI5_TR_TRIGGER0_TYPE_MASK	GENMASK(11, 10)
-#define CPPI5_TR_TRIGGER1_SHIFT		(12U)
-#define CPPI5_TR_TRIGGER1_MASK		GENMASK(13, 12)
-#define CPPI5_TR_TRIGGER1_TYPE_SHIFT	(14U)
-#define CPPI5_TR_TRIGGER1_TYPE_MASK	GENMASK(15, 14)
-#define CPPI5_TR_CMD_ID_SHIFT		(16U)
-#define CPPI5_TR_CMD_ID_MASK		GENMASK(23, 16)
-#define CPPI5_TR_CSF_FLAGS_SHIFT	(24U)
-#define CPPI5_TR_CSF_FLAGS_MASK		GENMASK(31, 24)
-#define   CPPI5_TR_CSF_SA_INDIRECT	BIT(0)
-#define   CPPI5_TR_CSF_DA_INDIRECT	BIT(1)
-#define   CPPI5_TR_CSF_SUPR_EVT		BIT(2)
-#define   CPPI5_TR_CSF_EOL_ADV_SHIFT	(4U)
-#define   CPPI5_TR_CSF_EOL_ADV_MASK	GENMASK(6, 4)
-#define   CPPI5_TR_CSF_EOP		BIT(7)
+#define CPPI5_TR_TYPE_SHIFT			(0U)
+#define CPPI5_TR_TYPE_MASK			GENMASK(3, 0)
+#define CPPI5_TR_STATIC				BIT(4)
+#define CPPI5_TR_WAIT				BIT(5)
+#define CPPI5_TR_EVENT_SIZE_SHIFT		(6U)
+#define CPPI5_TR_EVENT_SIZE_MASK		GENMASK(7, 6)
+#define CPPI5_TR_TRIGGER0_SHIFT			(8U)
+#define CPPI5_TR_TRIGGER0_MASK			GENMASK(9, 8)
+#define CPPI5_TR_TRIGGER0_TYPE_SHIFT		(10U)
+#define CPPI5_TR_TRIGGER0_TYPE_MASK		GENMASK(11, 10)
+#define CPPI5_TR_TRIGGER1_SHIFT			(12U)
+#define CPPI5_TR_TRIGGER1_MASK			GENMASK(13, 12)
+#define CPPI5_TR_TRIGGER1_TYPE_SHIFT		(14U)
+#define CPPI5_TR_TRIGGER1_TYPE_MASK		GENMASK(15, 14)
+#define CPPI5_TR_CMD_ID_SHIFT			(16U)
+#define CPPI5_TR_CMD_ID_MASK			GENMASK(23, 16)
+#define CPPI5_TR_CSF_FLAGS_SHIFT		(24U)
+#define CPPI5_TR_CSF_FLAGS_MASK			GENMASK(31, 24)
+#define   CPPI5_TR_CSF_SA_INDIRECT		BIT(0)
+#define   CPPI5_TR_CSF_DA_INDIRECT		BIT(1)
+#define   CPPI5_TR_CSF_SUPR_EVT			BIT(2)
+#define   CPPI5_TR_CSF_EOL_ADV_SHIFT		(4U)
+#define   CPPI5_TR_CSF_EOL_ADV_MASK		GENMASK(6, 4)
+#define   CPPI5_TR_CSF_EOP			BIT(7)
 
 /* Udmap TR flags Type field specifies the type of TR. */
 enum cppi5_tr_types {
@@ -738,9 +726,7 @@ enum cppi5_tr_trigger_type {
 
 typedef u32 cppi5_tr_flags_t;
 
-/*
- * Type 0 (One dimensional data move) TR (16 byte).
- */
+/* Type 0 (One dimensional data move) TR (16 byte) */
 struct cppi5_tr_type0_t {
 	cppi5_tr_flags_t flags;
 	u16 icnt0;
@@ -748,9 +734,7 @@ struct cppi5_tr_type0_t {
 	u64 addr;
 } __aligned(16) __packed;
 
-/*
- * Type 1 (Two dimensional data move) TR (32 byte).
- */
+/* Type 1 (Two dimensional data move) TR (32 byte) */
 struct cppi5_tr_type1_t {
 	cppi5_tr_flags_t flags;
 	u16 icnt0;
@@ -759,9 +743,7 @@ struct cppi5_tr_type1_t {
 	s32 dim1;
 } __aligned(32) __packed;
 
-/*
- * Type 2 (Three dimensional data move) TR (32 byte).
- */
+/* Type 2 (Three dimensional data move) TR (32 byte) */
 struct cppi5_tr_type2_t {
 	cppi5_tr_flags_t flags;
 	u16 icnt0;
@@ -773,9 +755,7 @@ struct cppi5_tr_type2_t {
 	s32 dim2;
 } __aligned(32) __packed;
 
-/*
- * Type 3 (Four dimensional data move) TR (32 byte).
- */
+/* Type 3 (Four dimensional data move) TR (32 byte) */
 struct cppi5_tr_type3_t {
 	cppi5_tr_flags_t flags;
 	u16 icnt0;
@@ -813,7 +793,7 @@ struct cppi5_tr_type15_t {
 	u16 dicnt3;
 } __aligned(64) __packed;
 
-struct cppi5_tr_resp {
+struct cppi5_tr_resp_t {
 	u8 status;
 	u8 reserved;
 	u8 cmd_id;
@@ -895,10 +875,10 @@ static inline size_t cppi5_trdesc_calc_size(u32 tr_count, u32 tr_size)
 	 * The Size of a TR descriptor is:
 	 * 1 x tr_size : the first 16 bytes is used by the packet info block +
 	 * tr_count x tr_size : Transfer Request Records +
-	 * tr_count x sizeof(struct cppi5_tr_resp) : Transfer Response Records
+	 * tr_count x sizeof(struct cppi5_tr_resp_t) : Transfer Response Records
 	 */
 	return tr_size * (tr_count + 1) +
-		sizeof(struct cppi5_tr_resp) * tr_count;
+		sizeof(struct cppi5_tr_resp_t) * tr_count;
 }
 
 /**
