@@ -1062,17 +1062,17 @@ static inline int udma_stop(struct udma_chan *uc)
 static void udma_cyclic_packet_elapsed(struct udma_chan *uc)
 {
 	struct udma_desc *d = uc->desc;
-	struct knav_udmap_host_desc_t *h_desc;
+	struct cppi5_host_desc_t *h_desc;
 
 	h_desc = d->hwdesc[d->desc_idx].cppi5_desc_vaddr;
-	knav_udmap_hdesc_reset_to_original(h_desc);
+	cppi5_hdesc_reset_to_original(h_desc);
 	udma_push_to_ring(uc, d->desc_idx);
 	d->desc_idx = (d->desc_idx + 1) % d->sglen;
 }
 
 static inline void udma_fetch_epib(struct udma_chan *uc, struct udma_desc *d)
 {
-	struct knav_udmap_host_desc_t *h_desc = d->hwdesc[0].cppi5_desc_vaddr;
+	struct cppi5_host_desc_t *h_desc = d->hwdesc[0].cppi5_desc_vaddr;
 
 	memcpy(d->metadata, h_desc->epib, d->metadata_size);
 }
@@ -1810,9 +1810,8 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 		if (uc->pkt_mode) {
 			mode = TI_SCI_RM_UDMAP_CHAN_TYPE_PKT_PBRR;
-			fetch_size = knav_udmap_hdesc_calc_size(uc->needs_epib,
-								uc->psd_size,
-								0);
+			fetch_size = cppi5_hdesc_calc_size(uc->needs_epib,
+							   uc->psd_size, 0);
 		} else {
 			mode = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_PBRR;
 			fetch_size = sizeof(struct cppi50_tr_req_desc);
@@ -2216,7 +2215,7 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 	enum dma_transfer_direction dir, unsigned long tx_flags, void *context)
 {
 	struct scatterlist *sgent;
-	struct knav_udmap_host_desc_t *h_desc = NULL;
+	struct cppi5_host_desc_t *h_desc = NULL;
 	struct udma_desc *d;
 	u32 ring_id;
 	unsigned int i;
@@ -2273,7 +2272,7 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 	for_each_sg(sgl, sgent, sglen, i) {
 		struct udma_hwdesc *hwdesc = &d->hwdesc[i];
 		dma_addr_t sg_addr = sg_dma_address(sgent);
-		struct knav_udmap_host_desc_t *desc;
+		struct cppi5_host_desc_t *desc;
 		size_t sg_len = sg_dma_len(sgent);
 
 		hwdesc->cppi5_desc_vaddr = dma_pool_zalloc(uc->hdesc_pool,
@@ -2294,24 +2293,22 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 		desc = hwdesc->cppi5_desc_vaddr;
 
 		if (i == 0) {
-			knav_udmap_hdesc_init(desc, 0, 0);
+			cppi5_hdesc_init(desc, 0, 0);
 			/* Flow and Packed ID ??? */
-			knav_udmap_hdesc_set_pktids(&desc->hdr, uc->id, 0x3fff);
-			knav_udmap_desc_set_retpolicy(&desc->hdr, 0, ring_id);
+			cppi5_hdesc_set_pktids(&desc->hdr, uc->id, 0x3fff);
+			cppi5_desc_set_retpolicy(&desc->hdr, 0, ring_id);
 		} else {
-			knav_udmap_hdesc_reset_hbdesc(desc);
-			knav_udmap_desc_set_retpolicy(&desc->hdr, 0, 0xffff);
+			cppi5_hdesc_reset_hbdesc(desc);
+			cppi5_desc_set_retpolicy(&desc->hdr, 0, 0xffff);
 		}
 
 		/* attach the sg buffer to the descriptor */
-		knav_udmap_hdesc_attach_buf(desc,
-					    sg_addr, sg_len,
-					    sg_addr, sg_len);
+		cppi5_hdesc_attach_buf(desc, sg_addr, sg_len, sg_addr, sg_len);
 
 		/* Attach link as host buffer descriptor */
 		if (h_desc)
-			knav_udmap_hdesc_link_hbdesc(h_desc,
-						     hwdesc->cppi5_desc_paddr);
+			cppi5_hdesc_link_hbdesc(h_desc,
+						hwdesc->cppi5_desc_paddr);
 
 		h_desc = desc;
 	}
@@ -2326,7 +2323,7 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 	}
 
 	h_desc = d->hwdesc[0].cppi5_desc_vaddr;
-	knav_udmap_hdesc_set_pktlen(h_desc, d->residue);
+	cppi5_hdesc_set_pktlen(h_desc, d->residue);
 
 	return d;
 }
@@ -2336,7 +2333,7 @@ static int udma_attach_metadata(struct dma_async_tx_descriptor *desc,
 {
 	struct udma_desc *d = to_udma_desc(desc);
 	struct udma_chan *uc = to_udma_chan(desc->chan);
-	struct knav_udmap_host_desc_t *h_desc;
+	struct cppi5_host_desc_t *h_desc;
 	u32 psd_size = len;
 	u32 flags = 0;
 
@@ -2359,10 +2356,10 @@ static int udma_attach_metadata(struct dma_async_tx_descriptor *desc,
 	d->metadata = data;
 	d->metadata_size = len;
 	if (uc->needs_epib)
-		flags |= KNAV_UDMAP_INFO0_HDESC_EPIB_PRESENT;
+		flags |= CPPI5_INFO0_HDESC_EPIB_PRESENT;
 
-	knav_udmap_hdesc_update_flags(h_desc, flags);
-	knav_udmap_hdesc_update_psdata_size(h_desc, psd_size);
+	cppi5_hdesc_update_flags(h_desc, flags);
+	cppi5_hdesc_update_psdata_size(h_desc, psd_size);
 
 	return 0;
 }
@@ -2372,7 +2369,7 @@ static void *udma_get_metadata_ptr(struct dma_async_tx_descriptor *desc,
 {
 	struct udma_desc *d = to_udma_desc(desc);
 	struct udma_chan *uc = to_udma_chan(desc->chan);
-	struct knav_udmap_host_desc_t *h_desc;
+	struct cppi5_host_desc_t *h_desc;
 
 	if (!uc->pkt_mode || !uc->metadata_size)
 		return ERR_PTR(-ENOTSUPP);
@@ -2381,8 +2378,8 @@ static void *udma_get_metadata_ptr(struct dma_async_tx_descriptor *desc,
 
 	*max_len = uc->metadata_size;
 
-	*payload_len = knav_udmap_desc_is_epib_present(&h_desc->hdr) ? 16 : 0;
-	*payload_len += knav_udmap_hdesc_get_psdata_size(h_desc);
+	*payload_len = cppi5_desc_is_epib_present(&h_desc->hdr) ? 16 : 0;
+	*payload_len += cppi5_hdesc_get_psdata_size(h_desc);
 
 	return h_desc->epib;
 }
@@ -2392,7 +2389,7 @@ static int udma_set_metadata_len(struct dma_async_tx_descriptor *desc,
 {
 	struct udma_desc *d = to_udma_desc(desc);
 	struct udma_chan *uc = to_udma_chan(desc->chan);
-	struct knav_udmap_host_desc_t *h_desc;
+	struct cppi5_host_desc_t *h_desc;
 	u32 psd_size = payload_len;
 	u32 flags = 0;
 
@@ -2409,11 +2406,11 @@ static int udma_set_metadata_len(struct dma_async_tx_descriptor *desc,
 
 	if (uc->needs_epib) {
 		psd_size -= 16;
-		flags |= KNAV_UDMAP_INFO0_HDESC_EPIB_PRESENT;
+		flags |= CPPI5_INFO0_HDESC_EPIB_PRESENT;
 	}
 
-	knav_udmap_hdesc_update_flags(h_desc, flags);
-	knav_udmap_hdesc_update_psdata_size(h_desc, psd_size);
+	cppi5_hdesc_update_flags(h_desc, flags);
+	cppi5_hdesc_update_psdata_size(h_desc, psd_size);
 
 	return 0;
 }
@@ -2585,7 +2582,7 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 	for (i = 0; i < periods; i++) {
 		struct udma_hwdesc *hwdesc = &d->hwdesc[i];
 		dma_addr_t period_addr = buf_addr + (period_len * i);
-		struct knav_udmap_host_desc_t *h_desc;
+		struct cppi5_host_desc_t *h_desc;
 
 		hwdesc->cppi5_desc_vaddr = dma_pool_zalloc(uc->hdesc_pool,
 						GFP_ATOMIC,
@@ -2602,17 +2599,17 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 		hwdesc->cppi5_desc_size = uc->hdesc_size;
 		h_desc = hwdesc->cppi5_desc_vaddr;
 
-		knav_udmap_hdesc_init(h_desc, 0, 0);
-		knav_udmap_hdesc_set_pktlen(h_desc, period_len);
+		cppi5_hdesc_init(h_desc, 0, 0);
+		cppi5_hdesc_set_pktlen(h_desc, period_len);
 
 		/* Flow and Packed ID ??? */
-		knav_udmap_hdesc_set_pktids(&h_desc->hdr, uc->id, 0x3fff);
-		knav_udmap_desc_set_retpolicy(&h_desc->hdr, 0, ring_id);
+		cppi5_hdesc_set_pktids(&h_desc->hdr, uc->id, 0x3fff);
+		cppi5_desc_set_retpolicy(&h_desc->hdr, 0, ring_id);
 
 		/* attach each period to a new descriptor */
-		knav_udmap_hdesc_attach_buf(h_desc,
-					    period_addr, period_len,
-					    period_addr, period_len);
+		cppi5_hdesc_attach_buf(h_desc,
+				       period_addr, period_len,
+				       period_addr, period_len);
 	}
 
 	return d;
@@ -3043,9 +3040,9 @@ static void udma_desc_pre_callback(struct virt_dma_chan *vc,
 	if (result) {
 		void *desc_vaddr = udma_curr_cppi5_desc_vaddr(d, d->desc_idx);
 
-		if (knav_udmap_desc_get_type(desc_vaddr) ==
-			KNAV_UDMAP_INFO0_DESC_TYPE_VAL_HOST) {
-			result->residue = knav_udmap_hdesc_get_pktlen(desc_vaddr);
+		if (cppi5_desc_get_type(desc_vaddr) ==
+		    CPPI5_INFO0_DESC_TYPE_VAL_HOST) {
+			result->residue = cppi5_hdesc_get_pktlen(desc_vaddr);
 			if (result->residue == d->residue)
 				result->result = DMA_TRANS_NOERROR;
 			else
@@ -3205,7 +3202,7 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 		uc->desc_align = dma_get_cache_alignment();
 
 	if (uc->pkt_mode)
-		uc->hdesc_size = ALIGN(sizeof(struct knav_udmap_host_desc_t) +
+		uc->hdesc_size = ALIGN(sizeof(struct cppi5_host_desc_t) +
 				 uc->metadata_size, uc->desc_align);
 
 	of_node_put(chconf_node);

@@ -270,7 +270,7 @@ struct k3_nav_udmax_tx_channel *k3_nav_udmax_request_tx_chn(
 	if (ret)
 		goto err;
 
-	tx_chn->common.hdesc_size = knav_udmap_hdesc_calc_size(
+	tx_chn->common.hdesc_size = cppi5_hdesc_calc_size(
 				tx_chn->common.epib,
 				tx_chn->common.psdata_size,
 				tx_chn->common.swdata_size);
@@ -382,7 +382,7 @@ EXPORT_SYMBOL_GPL(k3_nav_udmax_release_tx_chn);
 
 int k3_nav_udmax_push_tx_chn(
 		struct k3_nav_udmax_tx_channel *tx_chn,
-		struct knav_udmap_host_desc_t *desc_tx,
+		struct cppi5_host_desc_t *desc_tx,
 		dma_addr_t desc_dma)
 {
 	u32 ringtxcq_id;
@@ -391,8 +391,7 @@ int k3_nav_udmax_push_tx_chn(
 		return -ENOMEM;
 
 	ringtxcq_id = k3_nav_ringacc_get_ring_id(tx_chn->ringtxcq);
-	knav_udmap_desc_set_retpolicy(&desc_tx->hdr, 0,
-				      ringtxcq_id);
+	cppi5_desc_set_retpolicy(&desc_tx->hdr, 0, ringtxcq_id);
 
 	return k3_nav_ringacc_ring_push(tx_chn->ringtx, &desc_dma);
 }
@@ -797,7 +796,7 @@ struct k3_nav_udmax_rx_channel *k3_nav_udmax_request_rx_chn(
 	if (ret)
 		goto err;
 
-	rx_chn->common.hdesc_size = knav_udmap_hdesc_calc_size(
+	rx_chn->common.hdesc_size = cppi5_hdesc_calc_size(
 					rx_chn->common.epib,
 					rx_chn->common.psdata_size,
 					rx_chn->common.swdata_size);
@@ -1059,7 +1058,7 @@ EXPORT_SYMBOL_GPL(k3_nav_udmax_reset_rx_chn);
 int k3_nav_udmax_push_rx_chn(
 		struct k3_nav_udmax_rx_channel *rx_chn,
 		u32 flow_num,
-		struct knav_udmap_host_desc_t *desc_rx,
+		struct cppi5_host_desc_t *desc_rx,
 		dma_addr_t desc_dma)
 {
 	struct k3_nav_udmax_rx_flow *flow = &rx_chn->flows[flow_num];
