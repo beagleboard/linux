@@ -670,19 +670,31 @@ static void dispc7_vp_go(struct dispc_device *dispc, u32 hw_videoport)
 	VP_REG_FLD_MOD(dispc, hw_videoport, DISPC_VP_CONTROL, 1, 5, 5);
 }
 
-static u16 c8_to_c12(u8 c8)
+enum c8_to_c12_mode { C8_TO_C12_REPLICATE, C8_TO_C12_MAX, C8_TO_C12_MIN };
+
+static u16 c8_to_c12(u8 c8, enum c8_to_c12_mode mode)
 {
 	u16 c12;
 
 	c12 = c8 << 4;
 
-	/* Replication logic: Copy c8 4 MSB to 4 LSB for full scale c12 */
-	c12 |= c8 >> 4;
+	switch (mode) {
+	case C8_TO_C12_REPLICATE:
+		/* Copy c8 4 MSB to 4 LSB for full scale c12 */
+		c12 |= c8 >> 4;
+		break;
+	case C8_TO_C12_MAX:
+		c12 |= 0xF;
+		break;
+	default:
+	case C8_TO_C12_MIN:
+		break;
+	};
 
 	return c12;
 }
 
-static u64 argb8888_to_argb12121212(u32 argb8888)
+static u64 argb8888_to_argb12121212(u32 argb8888, enum c8_to_c12_mode m)
 {
 	u8 a, r, g, b;
 	u64 v;
@@ -692,8 +704,8 @@ static u64 argb8888_to_argb12121212(u32 argb8888)
 	g = (argb8888 >> 8) & 0xff;
 	b = (argb8888 >> 0) & 0xff;
 
-	v = ((u64)c8_to_c12(a) << 36) | ((u64)c8_to_c12(r) << 24) |
-	    ((u64)c8_to_c12(g) << 12) | (u64)c8_to_c12(b);
+	v = ((u64)c8_to_c12(a, m) << 36) | ((u64)c8_to_c12(r, m) << 24) |
+		((u64)c8_to_c12(g, m) << 12) | (u64)c8_to_c12(b, m);
 
 	return v;
 }
@@ -703,7 +715,7 @@ static void dispc7_vp_setup(struct dispc_device *dispc, u32 hw_videoport,
 {
 	u64 v;
 
-	v = argb8888_to_argb12121212(info->default_color);
+	v = argb8888_to_argb12121212(info->default_color, C8_TO_C12_REPLICATE);
 
 	dispc7_ovr_write(dispc, hw_videoport,
 			 DISPC_OVR_DEFAULT_COLOR, v & 0xffffffff);
