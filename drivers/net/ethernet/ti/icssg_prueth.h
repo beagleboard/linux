@@ -19,6 +19,7 @@
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
 #include <linux/of_platform.h>
+#include <linux/mfd/syscon.h>
 #include <linux/phy.h>
 #include <linux/pruss.h>
 #include <linux/remoteproc.h>
@@ -136,6 +137,7 @@ struct prueth_emac {
 	int rx_flow_id_base;
 
 	spinlock_t lock;	/* serialize access */
+	unsigned int flags;
 };
 
 /**
@@ -152,6 +154,7 @@ struct prueth_emac {
  * @registered_netdevs: list of registered netdevs
  * @fw_data: firmware names to be used with PRU remoteprocs
  * @hs: firmware handshake data per slice
+ * @miig_rt: regmap to mii_g_rt block
  */
 struct prueth {
 	struct device *dev;
@@ -167,6 +170,7 @@ struct prueth {
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
 	const struct prueth_private_data *fw_data;
 	struct icss_hs hs[PRUSS_NUM_PRUS];
+	struct regmap *miig_rt;
 };
 
 bool icss_hs_is_fw_dead(struct prueth *prueth, int slice, u16 *err_code);
@@ -178,4 +182,23 @@ bool icss_hs_is_cmd_done(struct prueth *prueth, int slice);
 int icss_hs_send_cmd_wait_done(struct prueth *prueth, int slice,
 			       u32 cmd, u32 *idata, u32 ilen);
 int icss_hs_get_result(struct prueth *prueth, int slice, u32 *odata, u32 olen);
+
+/* Classifier helpers */
+void icssg_class_set_mac_addr(struct regmap *miig_rt, int slice, u8 *mac);
+void icssg_class_disable(struct regmap *miig_rt, int slice);
+void icssg_class_default(struct regmap *miig_rt, int slice);
+void icssg_class_promiscuous(struct regmap *miig_rt, int slice);
+
+/* get PRUSS SLICE number from prueth_emac */
+static inline int prueth_emac_slice(struct prueth_emac *emac)
+{
+	switch (emac->port_id) {
+	case PRUETH_PORT_MII0:
+		return ICSS_SLICE0;
+	case PRUETH_PORT_MII1:
+		return ICSS_SLICE1;
+	default:
+		return -EINVAL;
+	}
+}
 #endif /* __NET_TI_ICSSG_PRUETH_H */

@@ -62,7 +62,7 @@ int icss_hs_send_cmd(struct prueth *prueth, int slice, u32 cmd,
 	for (i = 0; i < ilen; i++)
 		writel_relaxed(cpu_to_le32(idata[i]), vax + i * 4);
 
-	cmd &= 0xfffffff;
+	cmd &= 0x1fffffff;
 	hs->cmd = cpu_to_le32(cmd);
 	memcpy_toio(va + offsetof(struct icss_hs, cmd),
 		    &hs->cmd, sizeof(hs->cmd));
@@ -70,29 +70,28 @@ int icss_hs_send_cmd(struct prueth *prueth, int slice, u32 cmd,
 	return 0;
 }
 
-/* send a cancel a command to firmware */
-void icss_hs_cmd_cancel(struct prueth *prueth, int slice)
-{
-	void __iomem *va;
-	struct icss_hs *hs = &prueth->hs[slice];
-
-	va = prueth->shram.va + slice * ICSS_HS_OFFSET_SLICE1;
-
-	icss_hs_get(prueth, slice, hs);
-	hs->cmd |= cpu_to_le32(ICSS_HS_CMD_CANCEL);
-
-	memcpy_toio(va + offsetof(struct icss_hs, cmd),
-		    &hs->cmd, sizeof(hs->cmd));
-}
-
 /* check if command done */
 bool icss_hs_is_cmd_done(struct prueth *prueth, int slice)
 {
 	struct icss_hs *hs = &prueth->hs[slice];
 	u32 cmd;
+	int trys;
 
-	icss_hs_get(prueth, slice, hs);
-	cmd = le32_to_cpu(hs->cmd);
+	for (trys = 1; trys < 3; trys++) {
+		icss_hs_get(prueth, slice, hs);
+		cmd = le32_to_cpu(hs->cmd);
+		if (cmd & ICSS_HS_CMD_DONE)
+			break;
+
+		/* If firmware didn't see the command yet, wait and retry */
+		if (!(cmd & ICSS_HS_CMD_BUSY)) {
+			dev_err(prueth->dev,
+				"slice %d fw didn't see cmd 0x%x, try: %d\n",
+				slice, cmd, trys);
+		}
+
+		udelay(5);
+	}
 
 	return !!(cmd & ICSS_HS_CMD_DONE);
 }

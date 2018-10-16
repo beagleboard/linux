@@ -67,7 +67,7 @@
 				"ti-pruss/am65x-rtu0-prueth-fw.elf",
 				"ti-pruss/am65x-pru1-prueth-fw.elf",
 				"ti-pruss/am65x-rtu1-prueth-fw.elf";
-
+		mii-g-rt = <&icssg2_mii_g_rt>;
 		dma-coherent;
 		dmas = <&main_udmap &pruss2_eth 0 UDMA_DIR_TX>,	/* SLICE 0 */
 		       <&main_udmap &pruss2_eth 0 UDMA_DIR_RX>,

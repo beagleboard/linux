@@ -29,7 +29,13 @@
 #define PRUETH_MODULE_VERSION "0.1"
 #define PRUETH_MODULE_DESCRIPTION "PRUSS ICSSG Ethernet driver"
 
-#define MSMC_RAM_SIZE		(SZ_64K + SZ_4K + SZ_1K)	/* 70144 = 68.5K */
+/* Port queue size in MSMC from firmware
+ * PORTQSZ_HP .set (0x1800)
+ * PORTQSZ_HP2 .set (PORTQSZ_HP+128) ;include barrier area
+ * 0x1880 x 8 bytes per slice  (port)
+ */
+
+#define MSMC_RAM_SIZE	(SZ_64K + SZ_32K + SZ_2K)	/* 0x1880 x 8 x 2 */
 
 #define PRUETH_NAV_PS_DATA_SIZE	0	/* Protocol specific data size */
 #define PRUETH_NAV_SW_DATA_SIZE	16	/* SW related data size */
@@ -64,19 +70,6 @@
 static int debug_level = -1;
 module_param(debug_level, int, 0644);
 MODULE_PARM_DESC(debug_level, "PRUETH debug level (NETIF_MSG bits)");
-
-/* get PRUSS SLICE number from prueth_emac */
-static int prueth_emac_slice(struct prueth_emac *emac)
-{
-	switch (emac->port_id) {
-	case PRUETH_PORT_MII0:
-		return ICSS_SLICE0;
-	case PRUETH_PORT_MII1:
-		return ICSS_SLICE1;
-	default:
-		return -EINVAL;
-	}
-}
 
 static void prueth_cleanup_rx_chns(struct prueth_emac *emac)
 {
@@ -653,7 +646,6 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 	int slice, ret;
 	u32 config[CONFIG_LENGTH];
 	u32 cmd;
-	u8 *mac;
 
 	switch (emac->port_id) {
 	case PRUETH_PORT_MII0:
@@ -692,27 +684,12 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 	config[1] = lower_32_bits(prueth->msmcram.pa);
 	config[2] = upper_32_bits(prueth->msmcram.pa);
 	config[3] = emac->rx_flow_id_base; /* flow id for host port */
-	/*  FIXME: We start in Promiscuous mode else we don't receive
-	 *  any packet. Need to setup classifiers/filters to get this right.
-	 */
-	config[4] = ICSS_SET_RUN_FLAG_PROMISC;
-	config[5] = 0;		/* future use */
+	config[4] = 0;	/* promisc, multicast, etc done by classifier */
+	config[5] = 0;	/* future use */
 	dev_info(dev, "setting rx flow id %d\n", config[3]);
 
 	cmd = ICSS_CMD_SET_RUN;
 	ret = icss_hs_send_cmd_wait_done(prueth, slice, cmd, config, 6);
-	if (ret)
-		goto err;
-
-	/* send ADD_MAC cmd */
-	mac = emac->mac_addr;
-	config[0] = cpu_to_be32(mac[0] << 24 | mac[1] << 16 |
-				mac[2] << 8 | mac[3]);
-	config[1] = cpu_to_be32(mac[4] << 24 | mac[5] << 16);
-	config[2] = 0;	/* 0 for dual-emac mode */
-
-	cmd = ICSS_CMD_ADD_MAC;
-	ret = icss_hs_send_cmd_wait_done(prueth, slice, cmd, config, 3);
 	if (ret)
 		goto err;
 
@@ -751,8 +728,6 @@ static void prueth_emac_stop(struct prueth_emac *emac)
 		netdev_err(emac->ndev, "invalid port\n");
 		return;
 	}
-
-	/* FIXME: need to send CANCEL RX/TX command to FW? */
 
 	rproc_shutdown(prueth->rtu[slice]);
 	rproc_shutdown(prueth->pru[slice]);
@@ -862,9 +837,16 @@ static int emac_ndo_open(struct net_device *ndev)
 	struct device *dev = prueth->dev;
 	int ret, i;
 	struct sk_buff *skb;
+	int slice = prueth_emac_slice(emac);
 
+	/* clear SMEM of this slice */
+	memset_io(prueth->shram.va + slice * ICSS_HS_OFFSET_SLICE1,
+		  0, ICSS_HS_OFFSET_SLICE1);
 	/* set h/w MAC as user might have re-configured */
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
+
+	icssg_class_set_mac_addr(prueth->miig_rt, slice, emac->mac_addr);
+	icssg_class_default(prueth->miig_rt, slice);
 
 	netif_carrier_off(ndev);
 
@@ -956,10 +938,15 @@ cleanup_tx:
 static int emac_ndo_stop(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
 	int ret;
+	int slice = prueth_emac_slice(emac);
 
 	/* inform the upper layers. */
 	netif_stop_queue(ndev);
+
+	/* block packets from wire */
+	icssg_class_disable(prueth->miig_rt, prueth_emac_slice(emac));
 
 	/* tear down and disable UDMA channels */
 	reinit_completion(&emac->tdown_complete);
@@ -973,6 +960,10 @@ static int emac_ndo_stop(struct net_device *ndev)
 				  emac,
 				  prueth_tx_cleanup);
 	k3_nav_udmax_disable_tx_chn(emac->tx_chns.tx_chn);
+
+	ret = icss_hs_send_cmd(prueth, slice, ICSS_HS_CMD_CANCEL, 0, 0);
+	if (ret)
+		netdev_err(ndev, "CANCEL failed: %d\n", ret);
 
 	k3_nav_udmax_tdown_rx_chn(emac->rx_chns.rx_chn, true);
 	k3_nav_udmax_reset_rx_chn(emac->rx_chns.rx_chn, 0, emac,
@@ -1029,9 +1020,28 @@ static void emac_ndo_tx_timeout(struct net_device *ndev)
  */
 static void emac_ndo_set_rx_mode(struct net_device *ndev)
 {
-	if (!(ndev->flags & IFF_PROMISC))
-		netdev_dbg(ndev, "Can't disable promiscuous mode\n");
-	/*  FIXME: Need to setup classifiers/filters to get this right */
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct prueth *prueth = emac->prueth;
+	int slice = prueth_emac_slice(emac);
+
+	if (ndev->flags & IFF_PROMISC) {
+		/* enable promiscuous */
+		if (!(emac->flags & IFF_PROMISC)) {
+			icssg_class_promiscuous(prueth->miig_rt, slice);
+			emac->flags |= IFF_PROMISC;
+		}
+		return;
+	} else if (ndev->flags & IFF_ALLMULTI) {
+		/* TODO: enable all multicast */
+	} else {
+		if (emac->flags & IFF_PROMISC) {
+			/* local MAC + BC only */
+			icssg_class_default(prueth->miig_rt, slice);
+			emac->flags &= ~IFF_PROMISC;
+		}
+
+		/* TODO: specific multi */
+	}
 }
 
 static const struct net_device_ops emac_netdev_ops = {
@@ -1043,72 +1053,6 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_change_mtu	= eth_change_mtu,
 	.ndo_tx_timeout = emac_ndo_tx_timeout,
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
-};
-
-/**
- * emac_get_drvinfo - Get EMAC driver information
- * @ndev: The network adapter
- * @info: ethtool info structure containing name and version
- *
- * Returns EMAC driver information (name and version)
- */
-static void emac_get_drvinfo(struct net_device *ndev,
-			     struct ethtool_drvinfo *info)
-{
-	strlcpy(info->driver, PRUETH_MODULE_DESCRIPTION, sizeof(info->driver));
-	strlcpy(info->version, PRUETH_MODULE_VERSION, sizeof(info->version));
-}
-
-/**
- * emac_get_link_ksettings - Get EMAC settings
- * @ndev: The network adapter
- * @ecmd: ethtool command
- *
- * Executes ethool get command
- */
-static int emac_get_link_ksettings(struct net_device *ndev,
-				   struct ethtool_link_ksettings *ecmd)
-{
-	struct prueth_emac *emac = netdev_priv(ndev);
-
-	if (!emac->phydev)
-		return -EOPNOTSUPP;
-
-	phy_ethtool_ksettings_get(emac->phydev, ecmd);
-	return 0;
-}
-
-/**
- * emac_set_link_ksettings - Set EMAC settings
- * @ndev: The EMAC network adapter
- * @ecmd: ethtool command
- *
- * Executes ethool set command
- */
-static int emac_set_link_ksettings(struct net_device *ndev,
-				   const struct ethtool_link_ksettings *ecmd)
-{
-	struct prueth_emac *emac = netdev_priv(ndev);
-
-	if (!emac->phydev)
-		return -EOPNOTSUPP;
-
-	return phy_ethtool_ksettings_set(emac->phydev, ecmd);
-}
-
-static int emac_get_sset_count(struct net_device *ndev, int stringset)
-{
-	return -EOPNOTSUPP;
-}
-
-/* Ethtool support for EMAC adapter */
-static const struct ethtool_ops emac_ethtool_ops = {
-	.get_drvinfo = emac_get_drvinfo,
-	.get_link_ksettings = emac_get_link_ksettings,
-	.set_link_ksettings = emac_set_link_ksettings,
-	.get_link = ethtool_op_get_link,
-	.get_ts_info = ethtool_op_get_ts_info,
-	.get_sset_count = emac_get_sset_count,
 };
 
 /* get emac_port corresponding to eth_node name */
@@ -1132,6 +1076,8 @@ static int prueth_node_mac(struct device_node *eth_node)
 	else
 		return -EINVAL;
 }
+
+extern const struct ethtool_ops icssg_ethtool_ops;
 
 static int prueth_netdev_init(struct prueth *prueth,
 			      struct device_node *eth_node)
@@ -1213,7 +1159,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
 
 	ndev->netdev_ops = &emac_netdev_ops;
-	ndev->ethtool_ops = &emac_ethtool_ops;
+	ndev->ethtool_ops = &icssg_ethtool_ops;
 
 	netif_tx_napi_add(ndev, &emac->napi_tx,
 			  emac_napi_tx_poll, NAPI_POLL_WEIGHT);
@@ -1383,6 +1329,12 @@ static int prueth_probe(struct platform_device *pdev)
 
 	prueth->eth_node[PRUETH_MAC0] = eth0_node;
 	prueth->eth_node[PRUETH_MAC1] = eth1_node;
+
+	prueth->miig_rt = syscon_regmap_lookup_by_phandle(np, "mii-g-rt");
+	if (IS_ERR(prueth->miig_rt)) {
+		dev_err(dev, "couldn't get mii-g-rt syscon regmap\n");
+		return -ENODEV;
+	}
 
 	if (eth0_node) {
 		ret = prueth_config_rgmiidelay(prueth, eth0_node);
