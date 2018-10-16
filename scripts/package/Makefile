@@ -24,7 +24,6 @@
 # Remove hyphens since they have special meaning in RPM filenames
 KERNELPATH := kernel-$(subst -,_,$(KERNELRELEASE))
 KDEB_SOURCENAME ?= linux-$(KERNELRELEASE)
-KBUILD_PKG_ROOTCMD ?="fakeroot -u"
 export KDEB_SOURCENAME
 # Include only those top-level files that are needed by make, plus the GPL copy
 TAR_CONTENT := $(KBUILD_ALLDIRS) .config .scmversion Makefile \
@@ -67,20 +66,35 @@ binrpm-pkg: FORCE
 
 clean-files += $(objtree)/*.spec
 
+# Deb target
+# ---------------------------------------------------------------------------
+quiet_cmd_builddeb = BUILDDEB
+      cmd_builddeb = set -e; \
+	test `id -u` = 0 || \
+	test -n "$(KBUILD_PKG_ROOTCMD)" || { \
+		which fakeroot >/dev/null 2>&1 && \
+		KBUILD_PKG_ROOTCMD="fakeroot -u"; \
+	} || { \
+		echo; \
+		echo "builddeb must be run as root (or using fakeroot)."; \
+		echo "KBUILD_PKG_ROOTCMD is unset and fakeroot not found."; \
+		echo "Try setting KBUILD_PKG_ROOTCMD to a command to acquire"; \
+		echo "root privileges (e.g., 'fakeroot -u' or 'sudo')."; \
+		false; \
+	} && \
+	\
+	$$KBUILD_PKG_ROOTCMD $(CONFIG_SHELL) \
+		$(srctree)/scripts/package/builddeb $@
+
 deb-pkg: FORCE
 	$(MAKE) clean
-	$(CONFIG_SHELL) $(srctree)/scripts/package/mkdebian
 	$(call cmd,src_tar,$(KDEB_SOURCENAME))
-	origversion=$$(dpkg-parsechangelog -SVersion |sed 's/-[^-]*$$//');\
-		mv $(KDEB_SOURCENAME).tar.gz ../$(KDEB_SOURCENAME)_$${origversion}.orig.tar.gz
-	+dpkg-buildpackage -r$(KBUILD_PKG_ROOTCMD) -a$$(cat debian/arch) -i.git -us -uc
+	$(MAKE) KBUILD_SRC=
+	+$(call cmd,builddeb)
 
 bindeb-pkg: FORCE
-	$(CONFIG_SHELL) $(srctree)/scripts/package/mkdebian
-	+dpkg-buildpackage -r$(KBUILD_PKG_ROOTCMD) -a$$(cat debian/arch) -b -nc -uc
-
-intdeb-pkg: FORCE
-	+$(CONFIG_SHELL) $(srctree)/scripts/package/builddeb
+	$(MAKE) KBUILD_SRC=
+	+$(call cmd,builddeb)
 
 clean-dirs += $(objtree)/debian/
 
