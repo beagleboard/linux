@@ -17,7 +17,6 @@
 #define K3_NAVSS_UDMA_H_
 
 #include <linux/soc/ti/k3-navss-ringacc.h>
-#include <linux/soc/ti/k3-navss-psilcfg.h>
 
 struct k3_nav_udmax_tx_channel_cfg {
 	struct k3_nav_ring_cfg tx_cfg;
@@ -41,7 +40,7 @@ void k3_nav_udmax_release_tx_chn(
 		struct k3_nav_udmax_tx_channel *tx_chn);
 int k3_nav_udmax_push_tx_chn(
 		struct k3_nav_udmax_tx_channel *tx_chn,
-		struct knav_udmap_host_desc_t *desc_tx,
+		struct cppi5_host_desc_t *desc_tx,
 		dma_addr_t desc_dma);
 int k3_nav_udmax_pop_tx_chn(
 		struct k3_nav_udmax_tx_channel *tx_chn,
@@ -125,7 +124,7 @@ void k3_nav_udmax_tdown_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn,
 int k3_nav_udmax_push_rx_chn(
 		struct k3_nav_udmax_rx_channel *rx_chn,
 		u32 flow_num,
-		struct knav_udmap_host_desc_t *desc_tx,
+		struct cppi5_host_desc_t *desc_tx,
 		dma_addr_t desc_dma);
 int k3_nav_udmax_pop_rx_chn(
 		struct k3_nav_udmax_rx_channel *rx_chn,

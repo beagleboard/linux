@@ -24,7 +24,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
-#include <linux/soc/ti/cppi5.h>
+#include <linux/soc/ti/k3-navss-desc-pool.h>
+#include <linux/dma/ti-cppi5.h>
 #include <linux/dma/k3-navss-udma.h>
 #include <linux/net_switch_config.h>
 
@@ -326,7 +327,7 @@ static void am65_cpsw_nuss_ndo_host_tx_timeout(struct net_device *ndev)
 static int am65_cpsw_nuss_rx_push(struct am65_cpsw_common *common,
 				  struct sk_buff *skb)
 {
-	struct knav_udmap_host_desc_t *desc_rx;
+	struct cppi5_host_desc_t *desc_rx;
 	struct am65_cpsw_rx_chn *rx_chn = &common->rx_chns;
 	struct device *dev = common->dev;
 	dma_addr_t desc_dma;
@@ -348,11 +349,10 @@ static int am65_cpsw_nuss_rx_push(struct am65_cpsw_common *common,
 		return -EINVAL;
 	}
 
-	knav_udmap_hdesc_init(desc_rx, KNAV_UDMAP_INFO0_HDESC_EPIB_PRESENT,
-			      AM65_CPSW_NAV_PS_DATA_SIZE);
-	knav_udmap_hdesc_attach_buf(desc_rx, 0, 0,
-				    buf_dma, skb_tailroom(skb));
-	swdata = knav_udmap_hdesc_get_swdata(desc_rx);
+	cppi5_hdesc_init(desc_rx, CPPI5_INFO0_HDESC_EPIB_PRESENT,
+			 AM65_CPSW_NAV_PS_DATA_SIZE);
+	cppi5_hdesc_attach_buf(desc_rx, 0, 0, buf_dma, skb_tailroom(skb));
+	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	*((void **)swdata) = skb;
 
 	return k3_nav_udmax_push_rx_chn(rx_chn->rx_chn, 0, desc_rx, desc_dma);
@@ -618,16 +618,16 @@ error_cleanup:
 static void am65_cpsw_nuss_rx_cleanup(void *data, dma_addr_t desc_dma)
 {
 	struct am65_cpsw_rx_chn *rx_chn = data;
-	struct knav_udmap_host_desc_t *desc_rx;
+	struct cppi5_host_desc_t *desc_rx;
 	struct sk_buff *skb;
 	dma_addr_t buf_dma;
 	u32 buf_dma_len;
 	void **swdata;
 
 	desc_rx = k3_knav_pool_dma2virt(rx_chn->desc_pool, desc_dma);
-	swdata = knav_udmap_hdesc_get_swdata(desc_rx);
+	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
-	knav_udmap_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
 
 	dma_unmap_single(rx_chn->dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 	k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
@@ -692,7 +692,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	struct am65_cpsw_ndev_priv *ndev_priv;
 	struct am65_cpsw_ndev_stats *stats;
 	struct net_device *ndev;
-	struct knav_udmap_host_desc_t *desc_rx;
+	struct cppi5_host_desc_t *desc_rx;
 	struct sk_buff *skb, *new_skb;
 	dma_addr_t desc_dma, buf_dma;
 	u32 buf_dma_len, pkt_len, port_id = 0, csum_info;
@@ -716,18 +716,18 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	dev_dbg(dev, "%s flow_idx: %u desc %pad\n",
 		__func__, flow_idx, &desc_dma);
 
-	swdata = knav_udmap_hdesc_get_swdata(desc_rx);
+	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
-	knav_udmap_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
-	pkt_len = knav_udmap_hdesc_get_pktlen(desc_rx);
-	knav_udmap_desc_get_tags_ids(&desc_rx->hdr, &port_id, NULL);
+	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+	pkt_len = cppi5_hdesc_get_pktlen(desc_rx);
+	cppi5_desc_get_tags_ids(&desc_rx->hdr, &port_id, NULL);
 	if (port_id)
 		port_id = (port_id % common->port_num);
 	dev_dbg(dev, "%s rx port_id:%d\n", __func__, port_id);
 	ndev = common->ports[port_id].ndev;
 	skb->dev = ndev;
 
-	psdata = knav_udmap_hdesc_get_psdata32(desc_rx);
+	psdata = cppi5_hdesc_get_psdata32(desc_rx);
 	/* add RX timestamp */
 	if (common->ports[port_id].rx_ts_enabled)
 		am65_cpsw_nuss_rx_ts(skb, psdata);
@@ -813,30 +813,30 @@ static int am65_cpsw_nuss_rx_poll(struct napi_struct *napi_rx, int budget)
 
 static void am65_cpsw_nuss_xmit_free(struct am65_cpsw_tx_chn *tx_chn,
 				     struct device *dev,
-				     struct knav_udmap_host_desc_t *desc)
+				     struct cppi5_host_desc_t *desc)
 {
-	struct knav_udmap_host_desc_t *first_desc, *next_desc;
+	struct cppi5_host_desc_t *first_desc, *next_desc;
 	dma_addr_t buf_dma, next_desc_dma;
 	u32 buf_dma_len;
 
 	first_desc = desc;
 	next_desc = first_desc;
 
-	knav_udmap_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
+	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
 
 	dma_unmap_single(dev, buf_dma, buf_dma_len,
 			 DMA_TO_DEVICE);
 
-	next_desc_dma = knav_udmap_hdesc_get_next_hbdesc(first_desc);
+	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
 	while (next_desc_dma) {
 		next_desc = k3_knav_pool_dma2virt(tx_chn->desc_pool,
 						  next_desc_dma);
-		knav_udmap_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
+		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
 
 		dma_unmap_page(dev, buf_dma, buf_dma_len,
 			       DMA_TO_DEVICE);
 
-		next_desc_dma = knav_udmap_hdesc_get_next_hbdesc(next_desc);
+		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
 
 		k3_knav_pool_free(tx_chn->desc_pool, next_desc);
 	}
@@ -847,12 +847,12 @@ static void am65_cpsw_nuss_xmit_free(struct am65_cpsw_tx_chn *tx_chn,
 static void am65_cpsw_nuss_tx_cleanup(void *data, dma_addr_t desc_dma)
 {
 	struct am65_cpsw_tx_chn *tx_chn = data;
-	struct knav_udmap_host_desc_t *desc_tx;
+	struct cppi5_host_desc_t *desc_tx;
 	struct sk_buff *skb;
 	void **swdata;
 
 	desc_tx = k3_knav_pool_dma2virt(tx_chn->desc_pool, desc_dma);
-	swdata = knav_udmap_hdesc_get_swdata(desc_tx);
+	swdata = cppi5_hdesc_get_swdata(desc_tx);
 	skb = *(swdata);
 	am65_cpsw_nuss_xmit_free(tx_chn, tx_chn->dev, desc_tx);
 
@@ -862,7 +862,7 @@ static void am65_cpsw_nuss_tx_cleanup(void *data, dma_addr_t desc_dma)
 static int am65_cpsw_nuss_tx_compl_packets(struct am65_cpsw_common *common,
 					   int chn, unsigned int budget)
 {
-	struct knav_udmap_host_desc_t *desc_tx;
+	struct cppi5_host_desc_t *desc_tx;
 	struct device *dev = common->dev;
 	struct netdev_queue *netif_txq;
 	struct am65_cpsw_tx_chn *tx_chn;
@@ -890,7 +890,7 @@ static int am65_cpsw_nuss_tx_compl_packets(struct am65_cpsw_common *common,
 		}
 
 		desc_tx = k3_knav_pool_dma2virt(tx_chn->desc_pool, desc_dma);
-		swdata = knav_udmap_hdesc_get_swdata(desc_tx);
+		swdata = cppi5_hdesc_get_swdata(desc_tx);
 		skb = *(swdata);
 		am65_cpsw_nuss_xmit_free(tx_chn, dev, desc_tx);
 
@@ -984,7 +984,7 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
 	struct device *dev = common->dev;
-	struct knav_udmap_host_desc_t *first_desc, *next_desc, *cur_desc;
+	struct cppi5_host_desc_t *first_desc, *next_desc, *cur_desc;
 	struct am65_cpsw_tx_chn *tx_chn;
 	struct netdev_queue *netif_txq;
 	dma_addr_t desc_dma, buf_dma;
@@ -1031,18 +1031,16 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 		goto drop_stop_q_busy;
 	}
 
-	knav_udmap_hdesc_init(first_desc, KNAV_UDMAP_INFO0_HDESC_EPIB_PRESENT,
-			      AM65_CPSW_NAV_PS_DATA_SIZE);
-	knav_udmap_hdesc_set_pktids(&first_desc->hdr, 0, 0x3FFF);
-	knav_udmap_hdesc_set_pkttype(first_desc, 0x7);
-	knav_udmap_desc_set_tags_ids(&first_desc->hdr, 0, port->port_id);
+	cppi5_hdesc_init(first_desc, CPPI5_INFO0_HDESC_EPIB_PRESENT,
+			 AM65_CPSW_NAV_PS_DATA_SIZE);
+	cppi5_desc_set_pktids(&first_desc->hdr, 0, 0x3FFF);
+	cppi5_hdesc_set_pkttype(first_desc, 0x7);
+	cppi5_desc_set_tags_ids(&first_desc->hdr, 0, port->port_id);
 
-	knav_udmap_hdesc_attach_buf(first_desc,
-				    buf_dma, pkt_len,
-				    buf_dma, pkt_len);
-	swdata = knav_udmap_hdesc_get_swdata(first_desc);
+	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
+	swdata = cppi5_hdesc_get_swdata(first_desc);
 	*(swdata) = skb;
-	psdata = knav_udmap_hdesc_get_psdata32(first_desc);
+	psdata = cppi5_hdesc_get_psdata32(first_desc);
 
 	/* HW csum offload if enabled */
 	psdata[2] = 0;
@@ -1086,13 +1084,12 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 			goto drop_free_descs;
 		}
 
-		knav_udmap_hdesc_reset_hbdesc(next_desc);
-		knav_udmap_hdesc_attach_buf(next_desc,
-					    buf_dma, frag_size,
-					    buf_dma, frag_size);
+		cppi5_hdesc_reset_hbdesc(next_desc);
+		cppi5_hdesc_attach_buf(next_desc,
+				       buf_dma, frag_size, buf_dma, frag_size);
 
 		desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, next_desc);
-		knav_udmap_hdesc_link_hbdesc(cur_desc, desc_dma);
+		cppi5_hdesc_link_hbdesc(cur_desc, desc_dma);
 
 		pkt_len += frag_size;
 		cur_desc = next_desc;
@@ -1105,7 +1102,7 @@ done_tx:
 	/* report bql before sending packet */
 	netdev_tx_sent_queue(netif_txq, pkt_len);
 
-	knav_udmap_hdesc_set_pktlen(first_desc, pkt_len);
+	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
 	desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, first_desc);
 	ret = k3_nav_udmax_push_tx_chn(tx_chn->tx_chn, first_desc, desc_dma);
 	if (ret) {
@@ -1457,9 +1454,8 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 
 	init_completion(&common->tdown_complete);
 
-	hdesc_size = knav_udmap_hdesc_calc_size(true,
-						AM65_CPSW_NAV_PS_DATA_SIZE,
-						AM65_CPSW_NAV_SW_DATA_SIZE);
+	hdesc_size = cppi5_hdesc_calc_size(true, AM65_CPSW_NAV_PS_DATA_SIZE,
+					   AM65_CPSW_NAV_SW_DATA_SIZE);
 
 	tx_cfg.swdata_size = AM65_CPSW_NAV_SW_DATA_SIZE;
 	tx_cfg.tx_cfg = ring_cfg;
@@ -1544,9 +1540,8 @@ static int am65_cpsw_nuss_init_rx_chns(struct am65_cpsw_common *common)
 	 * N = n_mac_only*8 [+ 8 if switch ports] rest can be used for class
 	 */
 
-	hdesc_size = knav_udmap_hdesc_calc_size(true,
-						AM65_CPSW_NAV_PS_DATA_SIZE,
-						AM65_CPSW_NAV_SW_DATA_SIZE);
+	hdesc_size = cppi5_hdesc_calc_size(true, AM65_CPSW_NAV_PS_DATA_SIZE,
+					   AM65_CPSW_NAV_SW_DATA_SIZE);
 
 	rx_cfg.swdata_size = AM65_CPSW_NAV_SW_DATA_SIZE;
 	rx_cfg.flow_id_num = AM65_CPSW_MAX_RX_FLOWS;

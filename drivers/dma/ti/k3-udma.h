@@ -121,10 +121,19 @@ struct udma_tisci_rm {
 	const struct ti_sci_handle *tisci;
 	const struct ti_sci_rm_udmap_ops *tisci_udmap_ops;
 	u32  tisci_dev_id;
+
+	/* tisci information for PSI-L thread pairing/unpairing */
+	const struct ti_sci_rm_psil_ops *tisci_psil_ops;
+	u32  tisci_navss_dev_id;
+
 	struct ti_sci_resource *rm_ranges[RM_RANGE_LAST];
 };
 
 /* HACK: Direct access to UDMA resources */
+int xudma_navss_psil_pair(struct udma_dev *ud, u32 src_thread, u32 dst_thread);
+int xudma_navss_psil_unpair(struct udma_dev *ud, u32 src_thread,
+			    u32 dst_thread);
+
 struct udma_dev *of_xudma_dev_get(struct device_node *np, const char *property);
 void xudma_dev_put(struct udma_dev *ud);
 u32 xudma_dev_get_psil_base(struct udma_dev *ud);

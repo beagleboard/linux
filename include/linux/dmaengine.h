@@ -231,6 +231,58 @@ typedef struct { DECLARE_BITMAP(bits, DMA_TX_TYPE_END); } dma_cap_mask_t;
  * @bytes_transferred: byte counter
  */
 
+/**
+ * enum dma_desc_metadata_mode - per descriptor metadata mode types supported
+ * @DESC_METADATA_CLIENT - the metadata buffer is allocated/provided by the
+ *  client driver and it is attached (via the dmaengine_desc_attach_metadata()
+ *  helper) to the descriptor.
+ *
+ * Client drivers interested to use this mode can follow:
+ * - DMA_MEM_TO_DEV / DEV_MEM_TO_MEM:
+ *   1. prepare the descriptor (dmaengine_prep_*)
+ *	construct the metadata in the client's buffer
+ *   2. use dmaengine_desc_attach_metadata() to attach the buffer to the
+ *	descriptor
+ *   3. submit the transfer
+ * - DMA_DEV_TO_MEM:
+ *   1. prepare the descriptor (dmaengine_prep_*)
+ *   2. use dmaengine_desc_attach_metadata() to attach the buffer to the
+ *	descriptor
+ *   3. submit the transfer
+ *   4. when the transfer is completed, the metadata should be available in the
+ *	attached buffer
+ *
+ * @DESC_METADATA_ENGINE - the metadata buffer is allocated/managed by the DMA
+ *  driver. The client driver can ask for the pointer, maximum size and the
+ *  currently used size of the metadata and can directly update or read it.
+ *  dmaengine_desc_get_metadata_ptr() and dmaengine_desc_set_metadata_len() is
+ *  provided as helper functions.
+ *
+ * Client drivers interested to use this mode can follow:
+ * - DMA_MEM_TO_DEV / DEV_MEM_TO_MEM:
+ *   1. prepare the descriptor (dmaengine_prep_*)
+ *   2. use dmaengine_desc_get_metadata_ptr() to get the pointer to the engine's
+ *	metadata area
+ *   3. update the metadata at the pointer
+ *   4. use dmaengine_desc_set_metadata_len()  to tell the DMA engine the amount
+ *	of data the client has placed into the metadata buffer
+ *   5. submit the transfer
+ * - DMA_DEV_TO_MEM:
+ *   1. prepare the descriptor (dmaengine_prep_*)
+ *   2. submit the transfer
+ *   3. on transfer completion, use dmaengine_desc_get_metadata_ptr() to get the
+ *	pointer to the engine's metadata are
+ *   4. Read out the metadate from the pointer
+ *
+ * Note: the two mode is not compatible and clients must use one mode for a
+ * descriptor.
+ */
+enum dma_desc_metadata_mode {
+	DESC_METADATA_NONE = 0,
+	DESC_METADATA_CLIENT = BIT(0),
+	DESC_METADATA_ENGINE = BIT(1),
+};
+
 struct dma_chan_percpu {
 	/* stats */
 	unsigned long memcpy_count;
@@ -503,6 +555,11 @@ struct dma_descriptor_metadata_ops {
  * descriptor pending. To be pushed on .issue_pending() call
  * @callback: routine to call after this operation is complete
  * @callback_param: general parameter to pass to the callback routine
+ * @desc_metadata_mode: core managed metadata mode to protect mixed use of
+ *	DESC_METADATA_CLIENT or DESC_METADATA_ENGINE. Otherwise
+ *	DESC_METADATA_NONE
+ * @metadata_ops: DMA driver provided metadata mode ops, need to be set by the
+ *	DMA driver if metadata mode is supported with the descriptor
  * ---async_tx api specific fields---
  * @next: at completion submit this descriptor
  * @parent: pointer to the next level up in the dependency chain
@@ -519,6 +576,7 @@ struct dma_async_tx_descriptor {
 	dma_async_tx_callback_result callback_result;
 	void *callback_param;
 	struct dmaengine_unmap_data *unmap;
+	enum dma_desc_metadata_mode desc_metadata_mode;
 	struct dma_descriptor_metadata_ops *metadata_ops;
 #ifdef CONFIG_ASYNC_TX_ENABLE_CHANNEL_SWITCH
 	struct dma_async_tx_descriptor *next;
@@ -684,6 +742,7 @@ struct dma_filter {
  * @global_node: list_head for global dma_device_list
  * @filter: information for device/slave to filter function/param mapping
  * @cap_mask: one or more dma_capability flags
+ * @desc_metadata_modes: supported metadata modes by the DMA device
  * @max_xor: maximum number of xor sources, 0 if no capability
  * @max_pq: maximum number of PQ sources and PQ-continue capability
  * @copy_align: alignment shift for memcpy operations
@@ -718,11 +777,6 @@ struct dma_filter {
  *	be called after period_len bytes have been transferred.
  * @device_prep_interleaved_dma: Transfer expression in a generic way.
  * @device_prep_dma_imm_data: DMA's 8 byte immediate data to the dst address
- * @device_attach_metadata: Some DMA engines can send and receive side band
- *	information, commands or parameters which is not transferred within the
- *	data stream itself. In such case clients can set the metadata to the
- *	given descriptor and it is going to be sent to the peripheral, or in
- *	case of DEV_TO_MEM the provided buffer will receive the metadata.
  * @device_config: Pushes a new configuration to a channel, return 0 or an error
  *	code
  * @device_pause: Pauses any transfer happening on a channel. Returns
@@ -748,6 +802,7 @@ struct dma_device {
 	struct list_head global_node;
 	struct dma_filter filter;
 	dma_cap_mask_t  cap_mask;
+	enum dma_desc_metadata_mode desc_metadata_modes;
 	unsigned short max_xor;
 	unsigned short max_pq;
 	enum dmaengine_alignment copy_align;
@@ -809,9 +864,6 @@ struct dma_device {
 	struct dma_async_tx_descriptor *(*device_prep_dma_imm_data)(
 		struct dma_chan *chan, dma_addr_t dst, u64 data,
 		unsigned long flags);
-
-	int (*device_attach_metadata)(struct dma_async_tx_descriptor *desc,
-				      void *data, size_t len);
 
 	int (*device_config)(struct dma_chan *chan,
 			     struct dma_slave_config *config);
@@ -926,57 +978,41 @@ static inline struct dma_async_tx_descriptor *dmaengine_prep_dma_memcpy(
 						    len, flags);
 }
 
-static inline int dmaengine_attach_metadata(
-		struct dma_async_tx_descriptor *desc, void *data, size_t len)
+
+static inline bool dmaengine_is_metadata_mode_supported(struct dma_chan *chan,
+		enum dma_desc_metadata_mode mode)
 {
-	struct dma_chan *chan;
+	if (!chan)
+		return false;
 
-	if (!desc)
-		return 0;
-
-	chan = desc->chan;
-	if (!chan || !chan->device || !chan->device->device_attach_metadata)
-		return 0;
-
-	return chan->device->device_attach_metadata(desc, data, len);
+	return !!(chan->device->desc_metadata_modes & mode);
 }
 
+#ifdef CONFIG_DMA_ENGINE
+int dmaengine_desc_attach_metadata(struct dma_async_tx_descriptor *desc,
+				   void *data, size_t len);
+void *dmaengine_desc_get_metadata_ptr(struct dma_async_tx_descriptor *desc,
+				      size_t *payload_len, size_t *max_len);
+int dmaengine_desc_set_metadata_len(struct dma_async_tx_descriptor *desc,
+				    size_t payload_len);
+#else /* CONFIG_DMA_ENGINE */
 static inline int dmaengine_desc_attach_metadata(
 		struct dma_async_tx_descriptor *desc, void *data, size_t len)
 {
-	if (!desc)
-		return 0;
-
-	if (!desc->metadata_ops || !desc->metadata_ops->attach)
-		return -ENOTSUPP;
-
-	return desc->metadata_ops->attach(desc, data, len);
+	return -EINVAL;
 }
-
 static inline void *dmaengine_desc_get_metadata_ptr(
 		struct dma_async_tx_descriptor *desc, size_t *payload_len,
 		size_t *max_len)
 {
-	if (!desc)
-		return NULL;
-
-	if (!desc->metadata_ops || !desc->metadata_ops->get_ptr)
-		return ERR_PTR(-ENOTSUPP);
-
-	return desc->metadata_ops->get_ptr(desc, payload_len, max_len);
+	return NULL;
 }
-
 static inline int dmaengine_desc_set_metadata_len(
 		struct dma_async_tx_descriptor *desc, size_t payload_len)
 {
-	if (!desc)
-		return 0;
-
-	if (!desc->metadata_ops || !desc->metadata_ops->set_len)
-		return -ENOTSUPP;
-
-	return desc->metadata_ops->set_len(desc, payload_len);
+	return -EINVAL;
 }
+#endif /* CONFIG_DMA_ENGINE */
 
 /**
  * dmaengine_terminate_all() - Terminate all active DMA transfers

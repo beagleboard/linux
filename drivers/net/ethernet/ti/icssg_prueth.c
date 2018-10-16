@@ -22,7 +22,8 @@
 #include <linux/pruss.h>
 #include <linux/regmap.h>
 #include <linux/remoteproc.h>
-#include <linux/soc/ti/cppi5.h>
+#include <linux/dma/ti-cppi5.h>
+#include <linux/soc/ti/k3-navss-desc-pool.h>
 
 #include "icssg_prueth.h"
 
@@ -121,9 +122,8 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 
 	init_completion(&emac->tdown_complete);
 
-	hdesc_size = knav_udmap_hdesc_calc_size(false,
-						PRUETH_NAV_PS_DATA_SIZE,
-						PRUETH_NAV_SW_DATA_SIZE);
+	hdesc_size = cppi5_hdesc_calc_size(false, PRUETH_NAV_PS_DATA_SIZE,
+					   PRUETH_NAV_SW_DATA_SIZE);
 	memset(&tx_cfg, 0, sizeof(tx_cfg));
 	tx_cfg.swdata_size = PRUETH_NAV_SW_DATA_SIZE;
 	tx_cfg.tx_cfg = ring_cfg;
@@ -203,9 +203,8 @@ static int prueth_init_rx_chns(struct prueth_emac *emac)
 	/* To differentiate channels for SLICE0 vs SLICE1 */
 	snprintf(rx_chn_name, sizeof(rx_chn_name), "rx%d", slice);
 
-	hdesc_size = knav_udmap_hdesc_calc_size(false,
-						PRUETH_NAV_PS_DATA_SIZE,
-						PRUETH_NAV_SW_DATA_SIZE);
+	hdesc_size = cppi5_hdesc_calc_size(false, PRUETH_NAV_PS_DATA_SIZE,
+					   PRUETH_NAV_SW_DATA_SIZE);
 	memset(&rx_cfg, 0, sizeof(rx_cfg));
 	rx_cfg.swdata_size = PRUETH_NAV_SW_DATA_SIZE;
 	rx_cfg.flow_id_num = 1;		/* only 1 flow id used */
@@ -252,7 +251,7 @@ fail:
 static int prueth_dma_rx_push(struct prueth_emac *emac,
 			      struct sk_buff *skb)
 {
-	struct knav_udmap_host_desc_t *desc_rx;
+	struct cppi5_host_desc_t *desc_rx;
 	struct prueth_rx_chn *rx_chn = &emac->rx_chns;
 	struct device *dev = emac->prueth->dev;
 	struct net_device *ndev = emac->ndev;
@@ -275,11 +274,10 @@ static int prueth_dma_rx_push(struct prueth_emac *emac,
 		return -EINVAL;
 	}
 
-	knav_udmap_hdesc_init(desc_rx, 0, PRUETH_NAV_PS_DATA_SIZE);
-	knav_udmap_hdesc_attach_buf(desc_rx, 0, 0,
-				    buf_dma, skb_tailroom(skb));
+	cppi5_hdesc_init(desc_rx, 0, PRUETH_NAV_PS_DATA_SIZE);
+	cppi5_hdesc_attach_buf(desc_rx, 0, 0, buf_dma, skb_tailroom(skb));
 
-	swdata = knav_udmap_hdesc_get_swdata(desc_rx);
+	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	*swdata = skb;
 
 	return k3_nav_udmax_push_rx_chn(rx_chn->rx_chn, 0 /* flow num */,
@@ -295,7 +293,7 @@ static int emac_rx_packet(struct prueth_emac *emac)
 	struct prueth_rx_chn *rx_chn = &emac->rx_chns;
 	struct device *dev = emac->prueth->dev;
 	struct net_device *ndev = emac->ndev;
-	struct knav_udmap_host_desc_t *desc_rx;
+	struct cppi5_host_desc_t *desc_rx;
 	dma_addr_t desc_dma, buf_dma;
 	u32 buf_dma_len, pkt_len, port_id = 0;
 	int ret;
@@ -314,13 +312,13 @@ static int emac_rx_packet(struct prueth_emac *emac)
 
 	desc_rx = k3_knav_pool_dma2virt(rx_chn->desc_pool, desc_dma);
 
-	swdata = knav_udmap_hdesc_get_swdata(desc_rx);
+	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
-	knav_udmap_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
-	pkt_len = knav_udmap_hdesc_get_pktlen(desc_rx);
+	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+	pkt_len = cppi5_hdesc_get_pktlen(desc_rx);
 	/* firmware adds 4 CRC bytes, strip them */
 	pkt_len -= 4;
-	knav_udmap_desc_get_tags_ids(&desc_rx->hdr, &port_id, NULL);
+	cppi5_desc_get_tags_ids(&desc_rx->hdr, &port_id, NULL);
 
 	dma_unmap_single(dev, buf_dma, buf_dma_len, DMA_FROM_DEVICE);
 	k3_knav_pool_free(rx_chn->desc_pool, desc_rx);
@@ -359,16 +357,16 @@ static void prueth_rx_cleanup(void *data, dma_addr_t desc_dma)
 {
 	struct prueth_emac *emac = data;
 	struct prueth_rx_chn *rx_chn = &emac->rx_chns;
-	struct knav_udmap_host_desc_t *desc_rx;
+	struct cppi5_host_desc_t *desc_rx;
 	struct sk_buff *skb;
 	dma_addr_t buf_dma;
 	u32 buf_dma_len;
 	void **swdata;
 
 	desc_rx = k3_knav_pool_dma2virt(rx_chn->desc_pool, desc_dma);
-	swdata = knav_udmap_hdesc_get_swdata(desc_rx);
+	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
-	knav_udmap_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
+	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
 
 	dma_unmap_single(emac->prueth->dev, buf_dma, buf_dma_len,
 			 DMA_FROM_DEVICE);
@@ -379,30 +377,30 @@ static void prueth_rx_cleanup(void *data, dma_addr_t desc_dma)
 
 static void prueth_xmit_free(struct prueth_tx_chn *tx_chn,
 			     struct device *dev,
-			     struct knav_udmap_host_desc_t *desc)
+			     struct cppi5_host_desc_t *desc)
 {
-	struct knav_udmap_host_desc_t *first_desc, *next_desc;
+	struct cppi5_host_desc_t *first_desc, *next_desc;
 	dma_addr_t buf_dma, next_desc_dma;
 	u32 buf_dma_len;
 
 	first_desc = desc;
 	next_desc = first_desc;
 
-	knav_udmap_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
+	cppi5_hdesc_get_obuf(first_desc, &buf_dma, &buf_dma_len);
 
 	dma_unmap_single(dev, buf_dma, buf_dma_len,
 			 DMA_TO_DEVICE);
 
-	next_desc_dma = knav_udmap_hdesc_get_next_hbdesc(first_desc);
+	next_desc_dma = cppi5_hdesc_get_next_hbdesc(first_desc);
 	while (next_desc_dma) {
 		next_desc = k3_knav_pool_dma2virt(tx_chn->desc_pool,
 						  next_desc_dma);
-		knav_udmap_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
+		cppi5_hdesc_get_obuf(next_desc, &buf_dma, &buf_dma_len);
 
 		dma_unmap_page(dev, buf_dma, buf_dma_len,
 			       DMA_TO_DEVICE);
 
-		next_desc_dma = knav_udmap_hdesc_get_next_hbdesc(next_desc);
+		next_desc_dma = cppi5_hdesc_get_next_hbdesc(next_desc);
 
 		k3_knav_pool_free(tx_chn->desc_pool, next_desc);
 	}
@@ -427,7 +425,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	struct prueth_emac *emac = netdev_priv(ndev);
 	int ret = 0;
 	struct device *dev = emac->prueth->dev;
-	struct knav_udmap_host_desc_t *first_desc, *next_desc, *cur_desc;
+	struct cppi5_host_desc_t *first_desc, *next_desc, *cur_desc;
 	struct prueth_tx_chn *tx_chn;
 	dma_addr_t desc_dma, buf_dma;
 	u32 pkt_len;
@@ -460,11 +458,9 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		goto drop_stop_q;
 	}
 
-	knav_udmap_hdesc_init(first_desc, 0, PRUETH_NAV_PS_DATA_SIZE);
-	knav_udmap_hdesc_attach_buf(first_desc,
-				    buf_dma, pkt_len,
-				    buf_dma, pkt_len);
-	swdata = knav_udmap_hdesc_get_swdata(first_desc);
+	cppi5_hdesc_init(first_desc, 0, PRUETH_NAV_PS_DATA_SIZE);
+	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
+	swdata = cppi5_hdesc_get_swdata(first_desc);
 	*swdata = skb;
 
 	if (!skb_is_nonlinear(skb))
@@ -493,13 +489,12 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			goto drop_free_descs;
 		}
 
-		knav_udmap_hdesc_reset_hbdesc(next_desc);
-		knav_udmap_hdesc_attach_buf(next_desc,
-					    buf_dma, frag_size,
-					    buf_dma, frag_size);
+		cppi5_hdesc_reset_hbdesc(next_desc);
+		cppi5_hdesc_attach_buf(next_desc,
+				       buf_dma, frag_size, buf_dma, frag_size);
 
 		desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, next_desc);
-		knav_udmap_hdesc_link_hbdesc(cur_desc, desc_dma);
+		cppi5_hdesc_link_hbdesc(cur_desc, desc_dma);
 
 		pkt_len += frag_size;
 		cur_desc = next_desc;
@@ -512,9 +507,9 @@ tx_push:
 	/* report bql before sending packet */
 	netdev_sent_queue(ndev, pkt_len);
 
-	knav_udmap_hdesc_set_pktlen(first_desc, pkt_len);
+	cppi5_hdesc_set_pktlen(first_desc, pkt_len);
 	desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, first_desc);
-	/* knav_udmap_desc_dump(first_desc, 64); */
+	/* cppi5_desc_dump(first_desc, 64); */
 
 	ret = k3_nav_udmax_push_tx_chn(tx_chn->tx_chn, first_desc, desc_dma);
 	if (ret) {
@@ -548,7 +543,7 @@ drop_free_skb:
 static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
 {
 	struct net_device *ndev = emac->ndev;
-	struct knav_udmap_host_desc_t *desc_tx;
+	struct cppi5_host_desc_t *desc_tx;
 	struct device *dev = emac->prueth->dev;
 	struct prueth_tx_chn *tx_chn;
 	unsigned int total_bytes = 0;
@@ -571,7 +566,7 @@ static int emac_tx_complete_packets(struct prueth_emac *emac, int budget)
 		}
 
 		desc_tx = k3_knav_pool_dma2virt(tx_chn->desc_pool, desc_dma);
-		swdata = knav_udmap_hdesc_get_swdata(desc_tx);
+		swdata = cppi5_hdesc_get_swdata(desc_tx);
 		skb = *(swdata);
 		prueth_xmit_free(tx_chn, dev, desc_tx);
 
@@ -606,12 +601,12 @@ static void prueth_tx_cleanup(void *data, dma_addr_t desc_dma)
 {
 	struct prueth_emac *emac = data;
 	struct prueth_tx_chn *tx_chn = &emac->tx_chns;
-	struct knav_udmap_host_desc_t *desc_tx;
+	struct cppi5_host_desc_t *desc_tx;
 	struct sk_buff *skb;
 	void **swdata;
 
 	desc_tx = k3_knav_pool_dma2virt(tx_chn->desc_pool, desc_dma);
-	swdata = knav_udmap_hdesc_get_swdata(desc_tx);
+	swdata = cppi5_hdesc_get_swdata(desc_tx);
 	skb = *(swdata);
 	prueth_xmit_free(tx_chn, emac->prueth->dev, desc_tx);
 

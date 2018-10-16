@@ -33,7 +33,6 @@ Required properties:
 - reg:			Memory map of UDMAP
 - reg-names:		"gcfg", "rchanrt", "tchanrt"
 - interrupt-parent:	phandle for "ti,sci-irq" irqchip
-- ti,psi-proxy:		phandle for the psilcfg node
 - ti,ringacc:		phandle for the ring accelerator node
 - ti,psil-base:		PSI-L thread ID base of the UDMAP channels
 - ti,sci:		phandle on TI-SCI compatible System controller node
@@ -41,6 +40,9 @@ Required properties:
 - ti,sci-rm-range-tchan: UDMA tchan resource list in pairs of type and subtype
 - ti,sci-rm-range-rchan: UDMA rchan resource list in pairs of type and subtype
 - ti,sci-rm-range-rflow: UDMA rflow resource list in pairs of type and subtype
+
+For PSI-L thread management the parent NAVSS node must have:
+- ti,sci-dev-id:	TI-SCI device id of the NAVSS instance
 
 Remote PSI-L endpoint
 
@@ -73,28 +75,38 @@ Configuration node Optional properties:
 
 Example:
 
-main_udmap: udmap@31150000 {
-	compatible = "ti,am654-navss-main-udmap";
-	reg =	<0x0 0x31150000 0x0 0x100>,
-		<0x0 0x34000000 0x0 0x100000>,
-		<0x0 0x35000000 0x0 0x100000>;
-	reg-names = "gcfg", "rchanrt", "tchanrt";
-	#dma-cells = <3>;
+main_navss: main_navss {
+	compatible = "simple-bus";
+	#address-cells = <2>;
+	#size-cells = <2>;
+	dma-coherent;
+	dma-ranges;
+	ranges;
 
-	ti,psi-proxy = <&psilcfg>;
-	ti,ringacc = <&ringacc>;
-	ti,psil-base = <0x1000>;
+	ti,sci-dev-id = <118>;
 
-	interrupt-parent = <&main_udmass_inta>;
+	main_udmap: udmap@31150000 {
+		compatible = "ti,am654-navss-main-udmap";
+		reg =	<0x0 0x31150000 0x0 0x100>,
+			<0x0 0x34000000 0x0 0x100000>,
+			<0x0 0x35000000 0x0 0x100000>;
+		reg-names = "gcfg", "rchanrt", "tchanrt";
+		#dma-cells = <3>;
 
-	ti,sci = <&dmsc>;
-	ti,sci-dev-id = <188>;
+		ti,ringacc = <&ringacc>;
+		ti,psil-base = <0x1000>;
 
-	ti,sci-rm-range-tchan = <0x6 0x1>, /* TX_HCHAN */
-				<0x6 0x2>; /* TX_CHAN */
-	ti,sci-rm-range-rchan = <0x6 0x4>, /* RX_HCHAN */
-				<0x6 0x5>; /* RX_CHAN */
-	ti,sci-rm-range-rflow = <0x6 0x6>; /* GP RFLOW */
+		interrupt-parent = <&main_udmass_inta>;
+
+		ti,sci = <&dmsc>;
+		ti,sci-dev-id = <188>;
+
+		ti,sci-rm-range-tchan = <0x6 0x1>, /* TX_HCHAN */
+					<0x6 0x2>; /* TX_CHAN */
+		ti,sci-rm-range-rchan = <0x6 0x4>, /* RX_HCHAN */
+					<0x6 0x5>; /* RX_CHAN */
+		ti,sci-rm-range-rflow = <0x6 0x6>; /* GP RFLOW */
+	};
 };
 
 pdma0: pdma@2a41000 {
