@@ -538,8 +538,8 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 	unsigned int w_align;
 	int depth_bytes;
 
-	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
-	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE))
+	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
+	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
 		return -EINVAL;
 
 	q_data = get_q_data(ctx, s->type);
@@ -554,7 +554,7 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 		 * COMPOSE target is only valid for capture buffer type, return
 		 * error for output buffer type
 		 */
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
 			return -EINVAL;
 		break;
 	case V4L2_SEL_TGT_CROP:
@@ -562,7 +562,7 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 		 * CROP target is only valid for output buffer type, return
 		 * error for capture buffer type
 		 */
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 			return -EINVAL;
 		break;
 	/*
@@ -610,8 +610,8 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 	struct v4l2_pix_format_mplane *pix;
 	bool use_c_rect = false;
 
-	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
-	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE))
+	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
+	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
 		return -EINVAL;
 
 	q_data = get_q_data(ctx, s->type);
@@ -623,21 +623,21 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
 	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
 			return -EINVAL;
 		break;
 	case V4L2_SEL_TGT_CROP_BOUNDS:
 	case V4L2_SEL_TGT_CROP_DEFAULT:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 			return -EINVAL;
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
 			return -EINVAL;
 		use_c_rect = true;
 		break;
 	case V4L2_SEL_TGT_CROP:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 			return -EINVAL;
 		use_c_rect = true;
 		break;
