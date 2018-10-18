@@ -80,15 +80,21 @@ fallback:
 
 static struct fb_ops omap_fb_ops = {
 	.owner = THIS_MODULE,
-	DRM_FB_HELPER_DEFAULT_OPS,
+
+	.fb_check_var	= drm_fb_helper_check_var,
+	.fb_set_par	= drm_fb_helper_set_par,
+	.fb_setcmap	= drm_fb_helper_setcmap,
+	.fb_blank	= drm_fb_helper_blank,
+	.fb_pan_display = omap_fbdev_pan_display,
+	.fb_debug_enter = drm_fb_helper_debug_enter,
+	.fb_debug_leave = drm_fb_helper_debug_leave,
+	.fb_ioctl	= drm_fb_helper_ioctl,
 
 	.fb_read = drm_fb_helper_sys_read,
 	.fb_write = drm_fb_helper_sys_write,
 	.fb_fillrect = drm_fb_helper_sys_fillrect,
 	.fb_copyarea = drm_fb_helper_sys_copyarea,
 	.fb_imageblit = drm_fb_helper_sys_imageblit,
-
-	.fb_pan_display = omap_fbdev_pan_display,
 };
 
 static int omap_fbdev_create(struct drm_fb_helper *helper,
@@ -188,7 +194,7 @@ static int omap_fbdev_create(struct drm_fb_helper *helper,
 
 	dev->mode_config.fb_base = dma_addr;
 
-	fbi->screen_base = omap_gem_vaddr(fbdev->bo);
+	fbi->screen_buffer = omap_gem_vaddr(fbdev->bo);
 	fbi->screen_size = fbdev->bo->size;
 	fbi->fix.smem_start = dma_addr;
 	fbi->fix.smem_len = fbdev->bo->size;

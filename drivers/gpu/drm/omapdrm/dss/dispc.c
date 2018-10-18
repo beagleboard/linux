@@ -123,6 +123,7 @@ struct dispc_features {
 	const unsigned int num_reg_fields;
 	const enum omap_overlay_caps *overlay_caps;
 	const u32 **supported_color_modes;
+	const u32 *supported_scaler_color_modes;
 	unsigned int num_mgrs;
 	unsigned int num_ovls;
 	unsigned int buffer_size_unit;
@@ -2500,6 +2501,19 @@ static int dispc_ovl_calc_scaling(enum omap_plane_id plane,
 	if (width == out_width && height == out_height)
 		return 0;
 
+	if (dispc.feat->supported_scaler_color_modes) {
+		const u32 *modes = dispc.feat->supported_scaler_color_modes;
+		int i;
+
+		for (i = 0; modes[i]; ++i) {
+			if (modes[i] == fourcc)
+				break;
+		}
+
+		if (modes[i] == 0)
+			return -EINVAL;
+	}
+
 	if (plane == OMAP_DSS_WB) {
 		switch (fourcc) {
 		case DRM_FORMAT_NV12:
@@ -4179,6 +4193,12 @@ static const u32 *omap4_dispc_supported_color_modes[] = {
 	DRM_FORMAT_RGBX8888),
 };
 
+static const u32 omap3_dispc_supported_scaler_color_modes[] = {
+	DRM_FORMAT_XRGB8888, DRM_FORMAT_RGB565, DRM_FORMAT_YUYV,
+	DRM_FORMAT_UYVY,
+	0,
+};
+
 static const struct dispc_features omap24xx_dispc_feats = {
 	.sw_start		=	5,
 	.fp_start		=	15,
@@ -4209,6 +4229,7 @@ static const struct dispc_features omap24xx_dispc_feats = {
 	.num_reg_fields		=	ARRAY_SIZE(omap2_dispc_reg_fields),
 	.overlay_caps		=	omap2_dispc_overlay_caps,
 	.supported_color_modes	=	omap2_dispc_supported_color_modes,
+	.supported_scaler_color_modes = COLOR_ARRAY(DRM_FORMAT_XRGB8888),
 	.num_mgrs		=	2,
 	.num_ovls		=	3,
 	.buffer_size_unit	=	1,
@@ -4245,6 +4266,7 @@ static const struct dispc_features omap34xx_rev1_0_dispc_feats = {
 	.num_reg_fields		=	ARRAY_SIZE(omap3_dispc_reg_fields),
 	.overlay_caps		=	omap3430_dispc_overlay_caps,
 	.supported_color_modes	=	omap3_dispc_supported_color_modes,
+	.supported_scaler_color_modes = omap3_dispc_supported_scaler_color_modes,
 	.num_mgrs		=	2,
 	.num_ovls		=	3,
 	.buffer_size_unit	=	1,
@@ -4281,6 +4303,7 @@ static const struct dispc_features omap34xx_rev3_0_dispc_feats = {
 	.num_reg_fields		=	ARRAY_SIZE(omap3_dispc_reg_fields),
 	.overlay_caps		=	omap3430_dispc_overlay_caps,
 	.supported_color_modes	=	omap3_dispc_supported_color_modes,
+	.supported_scaler_color_modes = omap3_dispc_supported_scaler_color_modes,
 	.num_mgrs		=	2,
 	.num_ovls		=	3,
 	.buffer_size_unit	=	1,
@@ -4317,6 +4340,7 @@ static const struct dispc_features omap36xx_dispc_feats = {
 	.num_reg_fields		=	ARRAY_SIZE(omap3_dispc_reg_fields),
 	.overlay_caps		=	omap3630_dispc_overlay_caps,
 	.supported_color_modes	=	omap3_dispc_supported_color_modes,
+	.supported_scaler_color_modes = omap3_dispc_supported_scaler_color_modes,
 	.num_mgrs		=	2,
 	.num_ovls		=	3,
 	.buffer_size_unit	=	1,
@@ -4353,6 +4377,7 @@ static const struct dispc_features am43xx_dispc_feats = {
 	.num_reg_fields		=	ARRAY_SIZE(omap3_dispc_reg_fields),
 	.overlay_caps		=	omap3430_dispc_overlay_caps,
 	.supported_color_modes	=	omap3_dispc_supported_color_modes,
+	.supported_scaler_color_modes = omap3_dispc_supported_scaler_color_modes,
 	.num_mgrs		=	1,
 	.num_ovls		=	3,
 	.buffer_size_unit	=	1,
