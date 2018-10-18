@@ -56,8 +56,16 @@ struct drm_crtc_state;
 
 #define DSS_IRQ_PLANE_FIFO_UNDERFLOW(plane)	DSS_IRQ_PLANE_BIT(plane, 0)
 
+enum tidss_trans_key_mode {
+	TIDSS_TRANS_KEY_DISABLED = 0,
+	TIDSS_TRANS_KEY_DESTINATION = 1,
+	TIDSS_TRANS_KEY_SOURCE = 2,
+};
+
 struct tidss_vp_info {
 	u32 default_color;
+	enum tidss_trans_key_mode trans_key_mode;
+	u32 trans_key;
 };
 
 struct tidss_plane_info {
@@ -88,6 +96,7 @@ struct tidss_vp_feat {
 		u32 gamma_size;
 		bool has_ctm;
 	} color;
+	bool has_trans_key;
 };
 
 struct tidss_plane_feat {

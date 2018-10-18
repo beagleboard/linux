@@ -950,6 +950,7 @@ static s32 pixinc(int pixels, u8 ps)
 	return 0;
 }
 
+static
 const struct tidss_plane_feat *dispc6_plane_feat(struct dispc_device *dispc,
 						 u32 hw_plane)
 {
@@ -1111,6 +1112,7 @@ static const struct tidss_vp_feat *dispc6_vp_feat(struct dispc_device *dispc,
 			.gamma_size = DISPC6_GAMMA_TABLE_SIZE,
 			.has_ctm = false, /* Driver implementation missing */
 		},
+		.has_trans_key = false,
 	};
 
 	return &vp_feat;
