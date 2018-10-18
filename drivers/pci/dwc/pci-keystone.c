@@ -1324,8 +1324,8 @@ static int __init ks_pcie_probe(struct platform_device *pdev)
 	if (IS_ERR(ks_pcie->va_app_base))
 		return PTR_ERR(ks_pcie->va_app_base);
 
-	if ((dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(48)) != 0) &&
-	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32) != 0)) {
+	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(48)) &&
+	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
 		dev_err(dev, "Cannot set DMA mask\n");
 		return -EINVAL;
 	}
