@@ -56,6 +56,35 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
+static int tidss_modeset_init_properties(struct tidss_device *tidss)
+{
+	struct drm_device *ddev = tidss->ddev;
+	static const struct drm_prop_enum_list trans_key_mode_list[] = {
+		{ TIDSS_TRANS_KEY_DISABLED, "disable"},
+		{ TIDSS_TRANS_KEY_DESTINATION, "destination"},
+		{ TIDSS_TRANS_KEY_SOURCE, "source"},
+	};
+
+	tidss->trans_key_mode_prop =
+		drm_property_create_enum(ddev, 0, "trans-key-mode",
+					 trans_key_mode_list,
+					 ARRAY_SIZE(trans_key_mode_list));
+	if (!tidss->trans_key_mode_prop)
+		return -ENOMEM;
+
+	tidss->trans_key_prop =
+		drm_property_create_range(ddev, 0, "trans-key", 0, 0xffffff);
+	if (!tidss->trans_key_prop)
+		return -ENOMEM;
+
+	tidss->background_color_prop =
+		drm_property_create_range(ddev, 0, "background", 0, 0xffffff);
+	if (!tidss->background_color_prop)
+		return -ENOMEM;
+
+	return 0;
+}
+
 int tidss_modeset_init(struct tidss_device *tidss)
 {
 	struct drm_device *ddev = tidss->ddev;
@@ -73,6 +102,10 @@ int tidss_modeset_init(struct tidss_device *tidss)
 	ddev->mode_config.normalize_zpos = true;
 	ddev->mode_config.funcs = &mode_config_funcs;
 	ddev->mode_config.helper_private = &mode_config_helper_funcs;
+
+	ret = tidss_modeset_init_properties(tidss);
+	if (ret < 0)
+		return ret;
 
 	ret = tidss->dispc_ops->modeset_init(tidss->dispc);
 	if (ret)

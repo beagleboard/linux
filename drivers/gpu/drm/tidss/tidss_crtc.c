@@ -104,6 +104,29 @@ static int tidss_crtc_atomic_check(struct drm_crtc *crtc,
 	if (!state->enable)
 		return 0;
 
+	if (tcrtc_state->trans_key_mode) {
+		struct drm_plane *plane;
+		struct drm_plane_state *plane_state;
+		u32 zpos_mask = 0;
+
+		/*
+		 * We cannot use normalized zpos with transparency key
+		 * so lets use the original zpos and check that they
+		 * are not overlapping.
+		 */
+		drm_for_each_plane_mask(plane, crtc->dev, state->plane_mask) {
+			plane_state = drm_atomic_get_plane_state(state->state,
+								 plane);
+			if (IS_ERR(plane_state))
+				return PTR_ERR(plane_state);
+			if (zpos_mask & BIT(plane_state->zpos))
+				return -EINVAL;
+
+			zpos_mask |= BIT(plane_state->zpos);
+			plane_state->normalized_zpos = plane_state->zpos;
+		}
+	}
+
 	r = tidss->dispc_ops->vp_check_config(tidss->dispc, tcrtc->hw_videoport,
 					      mode,
 					      tcrtc_state->bus_format,
@@ -130,8 +153,10 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 				    struct drm_crtc_state *old_crtc_state)
 {
 	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
+	struct tidss_crtc_state *tcrtc_state = to_tidss_crtc_state(crtc->state);
 	struct drm_device *ddev = crtc->dev;
 	struct tidss_device *tidss = ddev->dev_private;
+	struct tidss_vp_info vp_info = { 0 };
 
 	dev_dbg(ddev->dev, "%s, crtc enabled %d, event %p\n",
 		__func__, tcrtc->enabled, crtc->state->event);
@@ -145,6 +170,14 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	// I think we always need the event to signal flip done
 	WARN_ON(!crtc->state->event);
+
+	vp_info.default_color = tcrtc_state->background_color;
+	vp_info.trans_key_mode = tcrtc_state->trans_key_mode;
+	vp_info.trans_key = tcrtc_state->trans_key;
+
+	tidss->dispc_ops->vp_setup(tidss->dispc,
+				   tcrtc->hw_videoport,
+				   &vp_info);
 
 	tidss->dispc_ops->vp_set_color_mgmt(tidss->dispc,
 					    tcrtc->hw_videoport,
@@ -309,7 +342,54 @@ tidss_crtc_duplicate_state(struct drm_crtc *crtc)
 	state->bus_format = current_state->bus_format;
 	state->bus_flags = current_state->bus_flags;
 
+	state->background_color = current_state->background_color;
+	state->trans_key_mode = current_state->trans_key_mode;
+	state->trans_key = current_state->trans_key;
+
 	return &state->base;
+}
+
+
+static int tidss_crtc_atomic_set_property(struct drm_crtc *crtc,
+					  struct drm_crtc_state *state,
+					  struct drm_property *property,
+					  uint64_t val)
+{
+	struct drm_device *ddev = crtc->dev;
+	struct tidss_device *tidss = ddev->dev_private;
+	struct tidss_crtc_state *tidss_state = to_tidss_crtc_state(state);
+
+	if (property == tidss->trans_key_mode_prop)
+		tidss_state->trans_key_mode = val;
+	else if (property == tidss->trans_key_prop)
+		tidss_state->trans_key = val;
+	else if (property == tidss->background_color_prop)
+		tidss_state->background_color = val;
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
+static int tidss_crtc_atomic_get_property(struct drm_crtc *crtc,
+					  const struct drm_crtc_state *state,
+					  struct drm_property *property,
+					  uint64_t *val)
+{
+	struct drm_device *ddev = crtc->dev;
+	struct tidss_device *tidss = ddev->dev_private;
+	struct tidss_crtc_state *tidss_state = to_tidss_crtc_state(state);
+
+	if (property == tidss->trans_key_mode_prop)
+		*val = tidss_state->trans_key_mode;
+	else if (property == tidss->trans_key_prop)
+		*val = tidss_state->trans_key;
+	else if (property == tidss->background_color_prop)
+		*val = tidss_state->background_color;
+	else
+		return -EINVAL;
+
+	return 0;
 }
 
 static int tidss_crtc_enable_vblank(struct drm_crtc *crtc)
@@ -345,9 +425,24 @@ static const struct drm_crtc_funcs crtc_funcs = {
 	.page_flip = drm_atomic_helper_page_flip,
 	.atomic_duplicate_state = tidss_crtc_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
+	.atomic_set_property = tidss_crtc_atomic_set_property,
+	.atomic_get_property = tidss_crtc_atomic_get_property,
 	.enable_vblank = tidss_crtc_enable_vblank,
 	.disable_vblank = tidss_crtc_disable_vblank,
 };
+
+static void tidss_crtc_install_properties(struct tidss_device *tidss,
+					  const struct tidss_vp_feat *vp_feat,
+					  struct drm_crtc *crtc)
+{
+	struct drm_mode_object *obj = &crtc->base;
+
+	if (vp_feat->has_trans_key) {
+		drm_object_attach_property(obj, tidss->trans_key_mode_prop, 0);
+		drm_object_attach_property(obj, tidss->trans_key_prop, 0);
+	}
+	drm_object_attach_property(obj, tidss->background_color_prop, 0);
+}
 
 struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss, u32 hw_videoport,
 				     struct drm_plane *primary, struct device_node *epnode)
@@ -391,6 +486,8 @@ struct tidss_crtc *tidss_crtc_create(struct tidss_device *tidss, u32 hw_videopor
 				   gamma_lut_size);
 	if (gamma_lut_size)
 		drm_mode_crtc_set_gamma_size(crtc, gamma_lut_size);
+
+	tidss_crtc_install_properties(tidss, vp_feat, crtc);
 
 	return tcrtc;
 }
