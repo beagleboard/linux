@@ -738,6 +738,12 @@ static int omap_dmm_remove(struct platform_device *dev)
 	unsigned long flags;
 
 	if (omap_dmm) {
+		if (omap_dmm->irq > 0) {
+			/* Disable all enabled interrupts */
+			dmm_write(omap_dmm, 0x7e7e7e7e, DMM_PAT_IRQENABLE_CLR);
+			free_irq(omap_dmm->irq, omap_dmm);
+		}
+
 		/* free all area regions */
 		spin_lock_irqsave(&list_lock, flags);
 		list_for_each_entry_safe(block, _block, &omap_dmm->alloc_head,
@@ -762,9 +768,6 @@ static int omap_dmm_remove(struct platform_device *dev)
 
 		if (omap_dmm->dmm_workaround)
 			dmm_workaround_uninit(omap_dmm);
-
-		if (omap_dmm->irq > 0)
-			free_irq(omap_dmm->irq, omap_dmm);
 
 		iounmap(omap_dmm->base);
 		kfree(omap_dmm);
@@ -868,24 +871,6 @@ static int omap_dmm_probe(struct platform_device *dev)
 	dmm_write(omap_dmm, 0x88888888, DMM_TILER_OR__0);
 	dmm_write(omap_dmm, 0x88888888, DMM_TILER_OR__1);
 
-	ret = request_irq(omap_dmm->irq, omap_dmm_irq_handler, IRQF_SHARED,
-				"omap_dmm_irq_handler", omap_dmm);
-
-	if (ret) {
-		dev_err(&dev->dev, "couldn't register IRQ %d, error %d\n",
-			omap_dmm->irq, ret);
-		omap_dmm->irq = -1;
-		goto fail;
-	}
-
-	/* Enable all interrupts for each refill engine except
-	 * ERR_LUT_MISS<n> (which is just advisory, and we don't care
-	 * about because we want to be able to refill live scanout
-	 * buffers for accelerated pan/scroll) and FILL_DSC<n> which
-	 * we just generally don't care about.
-	 */
-	dmm_write(omap_dmm, 0x7e7e7e7e, DMM_PAT_IRQENABLE_SET);
-
 	omap_dmm->dummy_page = alloc_page(GFP_KERNEL | __GFP_DMA32);
 	if (!omap_dmm->dummy_page) {
 		dev_err(&dev->dev, "could not allocate dummy page\n");
@@ -976,6 +961,24 @@ static int omap_dmm_probe(struct platform_device *dev)
 		.p1.x = omap_dmm->container_width - 1,
 		.p1.y = omap_dmm->container_height - 1,
 	};
+
+	ret = request_irq(omap_dmm->irq, omap_dmm_irq_handler, IRQF_SHARED,
+				"omap_dmm_irq_handler", omap_dmm);
+
+	if (ret) {
+		dev_err(&dev->dev, "couldn't register IRQ %d, error %d\n",
+			omap_dmm->irq, ret);
+		omap_dmm->irq = -1;
+		goto fail;
+	}
+
+	/* Enable all interrupts for each refill engine except
+	 * ERR_LUT_MISS<n> (which is just advisory, and we don't care
+	 * about because we want to be able to refill live scanout
+	 * buffers for accelerated pan/scroll) and FILL_DSC<n> which
+	 * we just generally don't care about.
+	 */
+	dmm_write(omap_dmm, 0x7e7e7e7e, DMM_PAT_IRQENABLE_SET);
 
 	/* initialize all LUTs to dummy page entries */
 	for (i = 0; i < omap_dmm->num_lut; i++) {
