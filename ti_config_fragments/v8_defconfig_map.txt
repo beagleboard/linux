@@ -1,0 +1,8 @@
+# Release Defconfigs
+classification: SDK_Release_Defconfigs type: ti_sdk_arm64_release defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg systemd.cfg
+classification: SDK_Release_Defconfigs type: ti_sdk_presil_arm64_release defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg presil_prune.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg systemd.cfg
+classification: SDK_Release_Defconfigs type: ti_sdk_presil_mini_arm64_release defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg presil_prune.cfg baseport.cfg ipc.cfg presil_mini_prune.cfg
+# Debug Defconfigs
+classification: SDK_Debug_Defconfigs type: ti_sdk_arm64_debug defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg  baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg systemd.cfg debug_options.cfg
+classification: SDK_Debug_Defconfigs type: ti_sdk_presil_arm64_debug defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg presil_prune.cfg baseport.cfg ipc.cfg connectivity.cfg audio_display.cfg systemd.cfg debug_options.cfg
+classification: SDK_Debug_Defconfigs type: ti_sdk_presil_mini_arm64_debug defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg presil_prune.cfg baseport.cfg ipc.cfg presil_mini_prune.cfg  debug_options.cfg
