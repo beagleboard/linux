@@ -88,10 +88,14 @@ R5F Core1 in LockStep mode:
 			Documentation/devicetree/bindings/mailbox/omap-mailbox.txt
 			This property should match with the sub-mailbox node
 			used in the firmware image.
-- memory-region:	phandle to the reserved memory node to be associated
-			with the remoteproc device. The reserved memory node
-			should be a carveout node, and should be defined as
-			per the bindings in
+- memory-region:	phandle to the reserved memory nodes to be associated
+			with the remoteproc device. There should be atleast two
+			reserved memory nodes defined - the first one would be
+			used for dynamic DMA allocations like vrings and vring
+			buffers, and the remaining ones used for the firmware
+			image sections. The reserved memory nodes should be
+			carveout nodes, and should be defined as per the
+			bindings in
 			Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
 
 Optional properties:
@@ -131,15 +135,27 @@ Example:
 		#size-cells = <2>;
 		ranges;
 
-		r5f1_memory_region: r5f1-memory@9b000000 {
+		r5f1_dma_memory_region: r5f1-dma-memory@9b000000 {
 			compatible = "shared-dma-pool";
-			reg = <0 0x9b000000 0 0x1000000>;
+			reg = <0 0x9b000000 0 0x100000>;
 			no-map;
 		};
 
-		r5f0_memory_region: r5f0-memory@9c000000 {
+		r5f1_memory_region: r5f1-memory@9b100000 {
 			compatible = "shared-dma-pool";
-			reg = <0 0x9c000000 0 0x800000>;
+			reg = <0 0x9b100000 0 0xf00000>;
+			no-map;
+		};
+
+		r5f0_dma_memory_region: r5f0-dma-memory@9c000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9c000000 0 0x100000>;
+			no-map;
+		};
+
+		r5f0_memory_region: r5f0-memory@9c100000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9c100000 0 0x700000>;
 			no-map;
 		};
 	};
@@ -181,7 +197,8 @@ Example:
 				btcm-enable = <1>;
 				loczrama = <1>;
 				mboxes = <&mailbox0 &mbox_mcu_r5f0_ipc3x>;
-				memory-region = <&r5f0_memory_region>;
+				memory-region = <&r5f0_dma_memory_region>,
+						<&r5f0_memory_region>;
 				sram = <&r5f0_sram>;
 			};
 

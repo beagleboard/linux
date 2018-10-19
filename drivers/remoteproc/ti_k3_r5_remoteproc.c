@@ -6,6 +6,7 @@
  *	Suman Anna <s-anna@ti.com>
  */
 
+#include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
@@ -119,6 +120,8 @@ struct k3_r5_core {
  * @client: mailbox client to request the mailbox channel
  * @rproc: rproc handle
  * @core: cached pointer to r5 core structure being used
+ * @rmem: reserved memory regions data
+ * @num_rmems: number of reserved memory regions
  * @is_remove: boolean flag indicating device is being removed
  */
 struct k3_r5_rproc {
@@ -128,6 +131,8 @@ struct k3_r5_rproc {
 	struct mbox_client client;
 	struct rproc *rproc;
 	struct k3_r5_core *core;
+	struct k3_r5_mem *rmem;
+	int num_rmems;
 	bool is_remove;
 };
 
@@ -575,11 +580,23 @@ static void *k3_r5_rproc_da_to_va(struct rproc *rproc, u64 da, int len,
 		if ((da >= dev_addr) && (da + len) <= (dev_addr + size)) {
 			offset = da - dev_addr;
 			va = core->sram[i].cpu_addr + offset;
-			break;
+			return (__force void *)va;
 		}
 	}
 
-	return (__force void *)va;
+	/* handle static DDR reserved memory regions */
+	for (i = 0; i < kproc->num_rmems; i++) {
+		dev_addr = kproc->rmem[i].dev_addr;
+		size = kproc->rmem[i].size;
+
+		if ((da >= dev_addr) && ((da + len) <= (dev_addr + size))) {
+			offset = da - dev_addr;
+			va = kproc->rmem[i].cpu_addr + offset;
+			return (__force void *)va;
+		}
+	}
+
+	return NULL;
 }
 
 static const struct rproc_ops k3_r5_rproc_ops = {
@@ -694,6 +711,102 @@ out:
 	return ret;
 }
 
+static int k3_r5_reserved_mem_init(struct k3_r5_rproc *kproc)
+{
+	struct device *dev = kproc->dev;
+	struct device_node *np = dev->of_node;
+	struct device_node *rmem_np;
+	struct reserved_mem *rmem;
+	int num_rmems;
+	int ret, i;
+
+	num_rmems = of_property_count_elems_of_size(np, "memory-region",
+						    sizeof(phandle));
+	if (num_rmems <= 0) {
+		dev_err(dev, "device does not reserved memory regions, ret = %d\n",
+			num_rmems);
+		return -EINVAL;
+	}
+	if (num_rmems < 2) {
+		dev_err(dev, "device needs atleast two memory regions to be defined, num = %d\n",
+			num_rmems);
+		return -EINVAL;
+	}
+
+	/* use reserved memory region 0 for vring DMA allocations */
+	ret = of_reserved_mem_device_init_by_idx(dev, np, 0);
+	if (ret) {
+		dev_err(dev, "device cannot initialize DMA pool, ret = %d\n",
+			ret);
+		return ret;
+	}
+
+	num_rmems--;
+	kproc->rmem = kcalloc(num_rmems, sizeof(*kproc->rmem), GFP_KERNEL);
+	if (!kproc->rmem) {
+		ret = -ENOMEM;
+		goto release_rmem;
+	}
+
+	/* use remaining reserved memory regions for static carveouts */
+	for (i = 0; i < num_rmems; i++) {
+		rmem_np = of_parse_phandle(np, "memory-region", i + 1);
+		if (!rmem_np) {
+			ret = -EINVAL;
+			goto unmap_rmem;
+		}
+
+		rmem = of_reserved_mem_lookup(rmem_np);
+		if (!rmem) {
+			of_node_put(rmem_np);
+			ret = -EINVAL;
+			goto unmap_rmem;
+		}
+		of_node_put(rmem_np);
+
+		kproc->rmem[i].bus_addr = rmem->base;
+		/* 64-bit address regions currently not supported */
+		kproc->rmem[i].dev_addr = (u32)rmem->base;
+		kproc->rmem[i].size = rmem->size;
+		kproc->rmem[i].cpu_addr = ioremap_wc(rmem->base, rmem->size);
+		if (!kproc->rmem[i].cpu_addr) {
+			dev_err(dev, "failed to map reserved memory#%d at %pa of size %pa\n",
+				i + 1, &rmem->base, &rmem->size);
+			ret = -ENOMEM;
+			goto unmap_rmem;
+		}
+
+		dev_dbg(dev, "reserved memory%d: bus addr %pa size 0x%zx va %pK da 0x%x\n",
+			i + 1, &kproc->rmem[i].bus_addr,
+			kproc->rmem[i].size, kproc->rmem[i].cpu_addr,
+			kproc->rmem[i].dev_addr);
+	}
+	kproc->num_rmems = num_rmems;
+
+	return 0;
+
+unmap_rmem:
+	for (i--; i >= 0; i--) {
+		if (kproc->rmem[i].cpu_addr)
+			iounmap(kproc->rmem[i].cpu_addr);
+	}
+	kfree(kproc->rmem);
+release_rmem:
+	of_reserved_mem_device_release(kproc->dev);
+	return ret;
+}
+
+static void k3_r5_reserved_mem_exit(struct k3_r5_rproc *kproc)
+{
+	int i;
+
+	for (i = 0; i < kproc->num_rmems; i++)
+		iounmap(kproc->rmem[i].cpu_addr);
+	kfree(kproc->rmem);
+
+	of_reserved_mem_device_release(kproc->dev);
+}
+
 static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 {
 	struct k3_r5_cluster *cluster = platform_get_drvdata(pdev);
@@ -744,9 +857,9 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 			goto err_config;
 		}
 
-		ret = of_reserved_mem_device_init(cdev);
+		ret = k3_r5_reserved_mem_init(kproc);
 		if (ret) {
-			dev_err(dev, "device does not have specific CMA pool, ret = %d\n",
+			dev_err(dev, "reserved memory init failed, ret = %d\n",
 				ret);
 			goto err_of;
 		}
@@ -765,7 +878,7 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 	return 0;
 
 err_mem:
-	of_reserved_mem_device_release(cdev);
+	k3_r5_reserved_mem_exit(kproc);
 err_of:
 	ret1 = cluster->mode ? k3_r5_lockstep_reset(cluster) :
 			       k3_r5_split_reset(core);
@@ -801,7 +914,7 @@ static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 		rproc_free(rproc);
 		core->rproc = NULL;
 
-		of_reserved_mem_device_release(core->dev);
+		k3_r5_reserved_mem_exit(kproc);
 
 		/* only one rproc exists in lockstep mode */
 		if (cluster->mode)

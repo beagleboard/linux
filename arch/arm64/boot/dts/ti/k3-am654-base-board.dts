@@ -35,15 +35,27 @@
 		#size-cells = <2>;
 		ranges;
 
-		r5f1_memory_region: r5f1-memory@9b000000 {
+		r5f1_dma_memory_region: r5f1-dma-memory@9b000000 {
 			compatible = "shared-dma-pool";
-			reg = <0 0x9b000000 0 0x1000000>;
+			reg = <0 0x9b000000 0 0x100000>;
 			no-map;
 		};
 
-		r5f0_memory_region: r5f0-memory@9c000000 {
+		r5f1_memory_region: r5f1-memory@9b100000 {
 			compatible = "shared-dma-pool";
-			reg = <0 0x9c000000 0 0x800000>;
+			reg = <0 0x9b100000 0 0xf00000>;
+			no-map;
+		};
+
+		r5f0_dma_memory_region: r5f0-dma-memory@9c000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9c000000 0 0x100000>;
+			no-map;
+		};
+
+		r5f0_memory_region: r5f0-memory@9c100000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9c100000 0 0x700000>;
 			no-map;
 		};
 
@@ -129,11 +141,11 @@
 };
 
 &mcu_r5f0 {
-	memory-region = <&r5f0_memory_region>;
+	memory-region = <&r5f0_dma_memory_region>, <&r5f0_memory_region>;
 };
 
 &mcu_r5f1 {
-	memory-region = <&r5f1_memory_region>;
+	memory-region = <&r5f1_dma_memory_region>, <&r5f1_memory_region>;
 };
 
 &main_uart0 {
