@@ -169,9 +169,9 @@ static void device_run(void *priv)
 	}
 
 	spix = &s_q_data->format.fmt.pix_mp;
-	src_dma_addr[0] = vb2_dma_addr_plus_data_offset(s_vb, 0);
+	src_dma_addr[0] = vb2_dma_contig_plane_dma_addr(s_vb, 0);
 	if (spix->num_planes == 2)
-		src_dma_addr[1] = vb2_dma_addr_plus_data_offset(s_vb, 1);
+		src_dma_addr[1] = vb2_dma_contig_plane_dma_addr(s_vb, 1);
 	else if (spix->pixelformat == V4L2_PIX_FMT_NV12)
 		src_dma_addr[1] = src_dma_addr[0] +
 			(spix->plane_fmt[0].bytesperline * spix->height);
@@ -183,9 +183,9 @@ static void device_run(void *priv)
 	}
 
 	dpix = &d_q_data->format.fmt.pix_mp;
-	dst_dma_addr[0] = vb2_dma_addr_plus_data_offset(d_vb, 0);
+	dst_dma_addr[0] = vb2_dma_contig_plane_dma_addr(d_vb, 0);
 	if (dpix->num_planes == 2)
-		dst_dma_addr[1] = vb2_dma_addr_plus_data_offset(d_vb, 1);
+		dst_dma_addr[1] = vb2_dma_contig_plane_dma_addr(d_vb, 1);
 	else if (dpix->pixelformat == V4L2_PIX_FMT_NV12)
 		dst_dma_addr[1] = dst_dma_addr[0] +
 			(dpix->plane_fmt[0].bytesperline * dpix->height);

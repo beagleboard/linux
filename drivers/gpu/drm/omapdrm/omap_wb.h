@@ -201,13 +201,6 @@ static inline struct wb_buffer *to_wb_buffer(struct vb2_buffer *vb2)
 	return container_of(vb2, struct wb_buffer, vb.vb2_buf);
 }
 
-static inline dma_addr_t vb2_dma_addr_plus_data_offset(struct vb2_buffer *vb,
-						       unsigned int plane_no)
-{
-	return vb2_dma_contig_plane_dma_addr(vb, plane_no) +
-		vb->planes[plane_no].data_offset;
-}
-
 int omap_wb_fourcc_v4l2_to_drm(u32 fourcc);
 
 void wbm2m_irq(struct wbm2m_dev *dev, uint32_t irqstatus);
