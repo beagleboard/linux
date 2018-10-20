@@ -1133,7 +1133,6 @@ static int capemgr_load_slot(struct bone_cape_slot *slot)
 {
 	struct capemgr_info *info = slot->info;
 	struct device *dev = &info->pdev->dev;
-	const char *dtbo;
 	int err;
 
 	if (slot->probe_failed) {
@@ -1159,8 +1158,8 @@ static int capemgr_load_slot(struct bone_cape_slot *slot)
 	slot->dtbo = kasprintf(GFP_KERNEL, "%s-%s.dtbo",
 			slot->part_number, slot->version);
 	if (slot->dtbo == NULL) {
-		dev_err(dev, "slot #%d: Failed to get dtbo '%s'\n",
-				slot->slotno, dtbo);
+		dev_err(dev, "slot #%d: Failed to get dtbo '%s-%s.dtbo'\n",
+			slot->slotno, slot->part_number, slot->version);
 		return -ENOMEM;
 	}
 
