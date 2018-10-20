@@ -104,6 +104,11 @@ static inline unsigned int pd_header_msgid_le(__le16 header)
 
 #define PD_MAX_PAYLOAD		7
 
+/**
+ * struct pd_message - PD message as seen on wire
+ * @header:	PD message header
+ * @payload:	PD message payload
+ */
 struct pd_message {
 	__le16 header;
 	__le32 payload[PD_MAX_PAYLOAD];
@@ -142,6 +147,8 @@ enum pd_pdo_type {
 #define PDO_FIXED(mv, ma, flags)			\
 	(PDO_TYPE(PDO_TYPE_FIXED) | (flags) |		\
 	 PDO_FIXED_VOLT(mv) | PDO_FIXED_CURR(ma))
+
+#define VSAFE5V 5000 /* mv units */
 
 #define PDO_BATT_MAX_VOLT_SHIFT	20	/* 50mV units */
 #define PDO_BATT_MIN_VOLT_SHIFT	10	/* 50mV units */
