@@ -1,5 +1,0 @@
-classification: LINUX type: allnoconfig defconfig: allnoconfig config_file: None extra_configs:
-classification: LINUX type: allmodconfig defconfig: allmodconfig config_file: None extra_configs:
-classification: LINUX type: v8_defconfig defconfig: defconfig config_file: None extra_configs:
-classification: SDK_Release_Defconfigs type: ti_sdk_arm64_no_pm_release defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg no_pm.cfg
-classification: SDK_Debug_Defconfigs type: ti_sdk_arm64_no_pm_debug defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg debug_options.cfg no_pm.cfg
