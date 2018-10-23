@@ -320,4 +320,67 @@
 		clocks = <&k3_clks 58 0>;
 		clock-names = "gpio";
 	};
+
+	mcasp0: mcasp@02B00000 {
+		compatible = "ti,am33xx-mcasp-audio";
+		reg = <0x0 0x02B00000 0x0 0x2000>,
+			<0x0 0x02B08000 0x0 0x1000>;
+		reg-names = "mpu","dat";
+		interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "tx", "rx";
+
+		/* tx: pdma0-0, rx: pdma0-0 */
+		dmas = <&main_udmap &pdma0 0 UDMA_DIR_TX>,
+			<&main_udmap &pdma0 0 UDMA_DIR_RX>;
+		dma-names = "tx", "rx";
+
+		clocks = <&k3_clks 104 0>;
+		clock-names = "fck";
+		power-domains = <&k3_pds 104>;
+
+		status = "disabled";
+	};
+
+	mcasp1: mcasp@02B10000 {
+		compatible = "ti,am33xx-mcasp-audio";
+		reg = <0x0 0x02B10000 0x0 0x2000>,
+			<0x0 0x02B18000 0x0 0x1000>;
+		reg-names = "mpu","dat";
+		interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "tx", "rx";
+
+		/* tx: pdma0-1, rx: pdma0-1 */
+		dmas = <&main_udmap &pdma0 1 UDMA_DIR_TX>,
+			<&main_udmap &pdma0 1 UDMA_DIR_RX>;
+		dma-names = "tx", "rx";
+
+		clocks = <&k3_clks 105 0>;
+		clock-names = "fck";
+		power-domains = <&k3_pds 105>;
+
+		status = "disabled";
+	};
+
+	mcasp2: mcasp@02B20000 {
+		compatible = "ti,am33xx-mcasp-audio";
+		reg = <0x0 0x02B20000 0x0 0x2000>,
+			<0x0 0x02B28000 0x0 0x1000>;
+		reg-names = "mpu","dat";
+		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "tx", "rx";
+
+		/* tx: pdma0-1, rx: pdma0-1 */
+		dmas = <&main_udmap &pdma0 2 UDMA_DIR_TX>,
+			<&main_udmap &pdma0 2 UDMA_DIR_RX>;
+		dma-names = "tx", "rx";
+
+		clocks = <&k3_clks 106 0>;
+		clock-names = "fck";
+		power-domains = <&k3_pds 106>;
+
+		status = "disabled";
+	};
 };
