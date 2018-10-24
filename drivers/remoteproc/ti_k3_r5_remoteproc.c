@@ -122,7 +122,6 @@ struct k3_r5_core {
  * @core: cached pointer to r5 core structure being used
  * @rmem: reserved memory regions data
  * @num_rmems: number of reserved memory regions
- * @is_remove: boolean flag indicating device is being removed
  */
 struct k3_r5_rproc {
 	struct device *dev;
@@ -133,7 +132,6 @@ struct k3_r5_rproc {
 	struct k3_r5_core *core;
 	struct k3_r5_mem *rmem;
 	int num_rmems;
-	bool is_remove;
 };
 
 /**
@@ -360,6 +358,56 @@ static inline int k3_r5_core_run(struct k3_r5_core *core)
 }
 
 /*
+ * The R5F cores have controls for both a reset and a halt/run. The code
+ * execution from DDR requires the initial boot-strapping code to be run
+ * from the internal TCMs. This function is used to release the resets on
+ * applicable cores to allow loading into the TCMs. The .prepare() ops is
+ * invoked by remoteproc core before any firmware loading, and is followed
+ * by the .start() ops after loading to actually let the R5 cores run.
+ */
+static int k3_r5_rproc_prepare(struct rproc *rproc)
+{
+	struct k3_r5_rproc *kproc = rproc->priv;
+	struct k3_r5_cluster *cluster = kproc->cluster;
+	struct k3_r5_core *core = kproc->core;
+	struct device *dev = kproc->dev;
+	int ret;
+
+	ret = cluster->mode ? k3_r5_lockstep_release(cluster) :
+			      k3_r5_split_release(core);
+	if (ret)
+		dev_err(dev, "unable to enable cores for TCM loading, ret = %d\n",
+			ret);
+
+	return ret;
+}
+
+/*
+ * This function implements the .unprepare() ops and performs the complimentary
+ * operations to that of the .prepare() ops. The function is used to assert the
+ * resets on all applicable cores for the rproc device (depending on LockStep
+ * or Split mode). This completes the second portion of powering down the R5F
+ * cores. The cores themselves are only halted in the .stop() ops, and the
+ * .unprepare() ops is invoked by the remoteproc core after the remoteproc is
+ * stopped.
+ */
+static int k3_r5_rproc_unprepare(struct rproc *rproc)
+{
+	struct k3_r5_rproc *kproc = rproc->priv;
+	struct k3_r5_cluster *cluster = kproc->cluster;
+	struct k3_r5_core *core = kproc->core;
+	struct device *dev = kproc->dev;
+	int ret;
+
+	ret = cluster->mode ? k3_r5_lockstep_reset(cluster) :
+			      k3_r5_split_reset(core);
+	if (ret)
+		dev_err(dev, "unable to disable cores, ret = %d\n", ret);
+
+	return ret;
+}
+
+/*
  * The R5F start sequence includes two different operations
  * 1. Configure the boot vector for R5F core(s)
  * 2. Unhalt/Run the R5F core(s)
@@ -444,10 +492,8 @@ put_mbox:
 }
 
 /*
- * The R5F stop function includes three different operations
+ * The R5F stop function includes the following operations
  * 1. Halt R5F core(s)
- * 2. Assert reset for R5F core(s)
- * 3. Deassert reset for R5F core(s) to allow TCM loading for next iteration
  *
  * The sequence is different between LockStep and Split modes, and the order
  * of cores the operations are performed are also in general reverse to that
@@ -458,7 +504,11 @@ put_mbox:
  *
  * Note that the R5F halt operation in general is not effective when the R5F
  * core is running, but is needed to make sure the core won't run after
- * deasserting the reset.
+ * deasserting the reset the subsequent time. The asserting of reset can
+ * be done here, but is preferred to be done in the .unprepare() ops - this
+ * maintains the symmetric behavior between the .start(), .stop(), .prepare()
+ * and .unprepare() ops, and also balances them well between sysfs 'state'
+ * flow and device bind/unbind or module removal.
  */
 static int k3_r5_rproc_stop(struct rproc *rproc)
 {
@@ -482,40 +532,7 @@ static int k3_r5_rproc_stop(struct rproc *rproc)
 			goto out;
 	}
 
-	/* assert resets on all applicable cores */
-	if (cluster->mode) {
-		ret = k3_r5_lockstep_reset(cluster);
-		if (ret) {
-			core = list_last_entry(&cluster->cores,
-					       struct k3_r5_core, elem);
-			goto unroll_core_halt;
-		}
-	} else {
-		ret = k3_r5_split_reset(core);
-		if (ret) {
-			if (k3_r5_core_run(core))
-				dev_warn(core->dev, "core run back failed\n");
-			goto out;
-		}
-	}
-
 	mbox_free_channel(kproc->mbox);
-
-	/*
-	 * deassert resets to allow TCM loading for next run. This is performed
-	 * only if the device is not being removed/unbound from the driver. The
-	 * stop is executed in that code path and the resets should not be
-	 * deasserted again, otherwise the devices are stuck in transition
-	 */
-	if (!kproc->is_remove) {
-		ret = cluster->mode ? k3_r5_lockstep_release(cluster) :
-				      k3_r5_split_release(core);
-		if (ret) {
-			dev_err(kproc->dev, "unable to re-release the resets, ret = %d\n",
-				ret);
-			goto out;
-		}
-	}
 
 	return 0;
 
@@ -600,6 +617,8 @@ static void *k3_r5_rproc_da_to_va(struct rproc *rproc, u64 da, int len,
 }
 
 static const struct rproc_ops k3_r5_rproc_ops = {
+	.prepare	= k3_r5_rproc_prepare,
+	.unprepare	= k3_r5_rproc_unprepare,
 	.start		= k3_r5_rproc_start,
 	.stop		= k3_r5_rproc_stop,
 	.kick		= k3_r5_rproc_kick,
@@ -816,7 +835,7 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 	struct device *cdev;
 	const char *fw_name;
 	struct rproc *rproc;
-	int ret, ret1;
+	int ret;
 
 	list_for_each_entry(core, &cluster->cores, elem) {
 		cdev = core->dev;
@@ -845,29 +864,20 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 		if (ret) {
 			dev_err(dev, "initial configure failed, ret = %d\n",
 				ret);
-			goto err_config;
-		}
-
-		/* enable applicable cores to allow loading into TCM */
-		ret = cluster->mode ? k3_r5_lockstep_release(cluster) :
-				      k3_r5_split_release(core);
-		if (ret) {
-			dev_err(dev, "unable to enable cores for TCM loading, ret = %d\n",
-				ret);
-			goto err_config;
+			return ret;
 		}
 
 		ret = k3_r5_reserved_mem_init(kproc);
 		if (ret) {
 			dev_err(dev, "reserved memory init failed, ret = %d\n",
 				ret);
-			goto err_of;
+			goto err_mem;
 		}
 
 		ret = rproc_add(rproc);
 		if (ret) {
 			dev_err(dev, "rproc_add failed, ret = %d\n", ret);
-			goto err_mem;
+			goto err_add;
 		}
 
 		/* create only one rproc in lockstep mode */
@@ -877,14 +887,9 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 
 	return 0;
 
-err_mem:
+err_add:
 	k3_r5_reserved_mem_exit(kproc);
-err_of:
-	ret1 = cluster->mode ? k3_r5_lockstep_reset(cluster) :
-			       k3_r5_split_reset(core);
-	if (ret1)
-		dev_err(dev, "unable to disable back cores\n");
-err_config:
+err_mem:
 	rproc_free(rproc);
 	core->rproc = NULL;
 	return ret;
@@ -893,25 +898,17 @@ err_config:
 static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 {
 	struct k3_r5_cluster *cluster = platform_get_drvdata(pdev);
-	struct device *dev = &pdev->dev;
 	struct k3_r5_rproc *kproc;
 	struct k3_r5_core *core;
 	struct rproc *rproc;
-	int ret;
 
 	list_for_each_entry(core, &cluster->cores, elem) {
 		rproc = core->rproc;
 		kproc = rproc->priv;
 
-		kproc->is_remove = true;
 		rproc_del(rproc);
 
 		k3_r5_reserved_mem_exit(kproc);
-
-		ret = cluster->mode ? k3_r5_lockstep_reset(cluster) :
-				      k3_r5_split_reset(core);
-		if (ret)
-			dev_err(dev, "unable to disable cores\n");
 
 		rproc_free(rproc);
 		core->rproc = NULL;
