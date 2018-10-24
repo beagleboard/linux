@@ -906,6 +906,8 @@ static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 		kproc->is_remove = true;
 		rproc_del(rproc);
 
+		k3_r5_reserved_mem_exit(kproc);
+
 		ret = cluster->mode ? k3_r5_lockstep_reset(cluster) :
 				      k3_r5_split_reset(core);
 		if (ret)
@@ -913,8 +915,6 @@ static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 
 		rproc_free(rproc);
 		core->rproc = NULL;
-
-		k3_r5_reserved_mem_exit(kproc);
 
 		/* only one rproc exists in lockstep mode */
 		if (cluster->mode)
