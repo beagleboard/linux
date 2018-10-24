@@ -142,6 +142,8 @@ static void device_run(void *priv)
 	struct omap_overlay_info src_info = { 0 };
 	struct omap_dss_writeback_info wb_info = { 0 };
 	struct v4l2_pix_format_mplane *spix, *dpix;
+	struct v4l2_rect *srect, *drect;
+	u32 stride, depth;
 	bool ok;
 
 	src_vb = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
@@ -168,10 +170,11 @@ static void device_run(void *priv)
 		return;
 	}
 
+	srect = &s_q_data->c_rect;
 	spix = &s_q_data->format.fmt.pix_mp;
-	src_dma_addr[0] = vb2_dma_addr_plus_data_offset(s_vb, 0);
+	src_dma_addr[0] = vb2_dma_contig_plane_dma_addr(s_vb, 0);
 	if (spix->num_planes == 2)
-		src_dma_addr[1] = vb2_dma_addr_plus_data_offset(s_vb, 1);
+		src_dma_addr[1] = vb2_dma_contig_plane_dma_addr(s_vb, 1);
 	else if (spix->pixelformat == V4L2_PIX_FMT_NV12)
 		src_dma_addr[1] = src_dma_addr[0] +
 			(spix->plane_fmt[0].bytesperline * spix->height);
@@ -182,10 +185,11 @@ static void device_run(void *priv)
 		return;
 	}
 
+	drect = &d_q_data->c_rect;
 	dpix = &d_q_data->format.fmt.pix_mp;
-	dst_dma_addr[0] = vb2_dma_addr_plus_data_offset(d_vb, 0);
+	dst_dma_addr[0] = vb2_dma_contig_plane_dma_addr(d_vb, 0);
 	if (dpix->num_planes == 2)
-		dst_dma_addr[1] = vb2_dma_addr_plus_data_offset(d_vb, 1);
+		dst_dma_addr[1] = vb2_dma_contig_plane_dma_addr(d_vb, 1);
 	else if (dpix->pixelformat == V4L2_PIX_FMT_NV12)
 		dst_dma_addr[1] = dst_dma_addr[0] +
 			(dpix->plane_fmt[0].bytesperline * dpix->height);
@@ -200,16 +204,32 @@ static void device_run(void *priv)
 	src_info.paddr = (u32)src_dma_addr[0];
 	src_info.p_uv_addr = (u32)src_dma_addr[1];
 
+	/* update addr based on cropping window */
+	stride = spix->plane_fmt[0].bytesperline;
+	depth = s_q_data->fmt->depth[0];
+	src_info.paddr += srect->top * stride + (srect->left * depth / 8);
+
+	if (src_info.p_uv_addr) {
+		u32 top = srect->top;
+
+		if (spix->pixelformat == V4L2_PIX_FMT_NV12 ||
+		    spix->pixelformat == V4L2_PIX_FMT_NV12M) {
+			top >>= 1;
+			depth = 8;
+		}
+		src_info.p_uv_addr += top * stride + (srect->left * depth / 8);
+	}
+
 	src_info.screen_width = spix->plane_fmt[0].bytesperline /
 				(s_q_data->fmt->depth[0] / 8);
 
-	src_info.width = spix->width;
-	src_info.height = spix->height;
+	src_info.width = srect->width;
+	src_info.height = srect->height;
 
 	src_info.pos_x = 0;
 	src_info.pos_y = 0;
-	src_info.out_width = spix->width;
-	src_info.out_height = spix->height;
+	src_info.out_width = srect->width;
+	src_info.out_height = srect->height;
 
 	src_info.fourcc = omap_wb_fourcc_v4l2_to_drm(spix->pixelformat);
 	src_info.global_alpha = 0xff;
@@ -228,8 +248,24 @@ static void device_run(void *priv)
 	wb_info.buf_width = dpix->plane_fmt[0].bytesperline /
 			    (d_q_data->fmt->depth[0] / 8);
 
-	wb_info.width = dpix->width;
-	wb_info.height = dpix->height;
+	/* update addr based on compose window */
+	stride = dpix->plane_fmt[0].bytesperline;
+	depth = d_q_data->fmt->depth[0];
+	wb_info.paddr += drect->top * stride + (drect->left * depth / 8);
+
+	if (wb_info.p_uv_addr) {
+		u32 top = drect->top;
+
+		if (dpix->pixelformat == V4L2_PIX_FMT_NV12 ||
+		    dpix->pixelformat == V4L2_PIX_FMT_NV12M) {
+			top >>= 1;
+			depth = 8;
+		}
+		wb_info.p_uv_addr += top * stride + (drect->left * depth / 8);
+	}
+
+	wb_info.width = drect->width;
+	wb_info.height = drect->height;
 	wb_info.fourcc = omap_wb_fourcc_v4l2_to_drm(dpix->pixelformat);
 	wb_info.pre_mult_alpha = 1;
 
@@ -538,8 +574,8 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 	unsigned int w_align;
 	int depth_bytes;
 
-	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
-	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE))
+	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
+	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
 		return -EINVAL;
 
 	q_data = get_q_data(ctx, s->type);
@@ -554,7 +590,7 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 		 * COMPOSE target is only valid for capture buffer type, return
 		 * error for output buffer type
 		 */
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
 			return -EINVAL;
 		break;
 	case V4L2_SEL_TGT_CROP:
@@ -562,7 +598,7 @@ static int __wbm2m_try_selection(struct wbm2m_ctx *ctx,
 		 * CROP target is only valid for output buffer type, return
 		 * error for capture buffer type
 		 */
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 			return -EINVAL;
 		break;
 	/*
@@ -610,8 +646,8 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 	struct v4l2_pix_format_mplane *pix;
 	bool use_c_rect = false;
 
-	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
-	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE))
+	if ((s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
+	    (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
 		return -EINVAL;
 
 	q_data = get_q_data(ctx, s->type);
@@ -623,21 +659,21 @@ static int wbm2m_g_selection(struct file *file, void *fh,
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
 	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
 			return -EINVAL;
 		break;
 	case V4L2_SEL_TGT_CROP_BOUNDS:
 	case V4L2_SEL_TGT_CROP_DEFAULT:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 			return -EINVAL;
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
 			return -EINVAL;
 		use_c_rect = true;
 		break;
 	case V4L2_SEL_TGT_CROP:
-		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		if (s->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 			return -EINVAL;
 		use_c_rect = true;
 		break;
@@ -686,7 +722,8 @@ static int wbm2m_s_selection(struct file *file, void *fh,
 	    (q_data->c_rect.width == sel.r.width) &&
 	    (q_data->c_rect.height == sel.r.height)) {
 		log_dbg(ctx->dev,
-			"requested crop/compose values are already set\n");
+			"type: %d, requested crop/compose values are already set\n",
+			sel.type);
 		return 0;
 	}
 
