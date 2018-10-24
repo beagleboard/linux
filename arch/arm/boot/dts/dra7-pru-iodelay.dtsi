@@ -8,7 +8,7 @@
     IODELAY_OUT( index, out_a_delay, out_g_delay )
 
 &dra7_iodelay_core {
-    pruss1_iodelay: pruss1 {
+    pruss1_pru0_iodelay: pruss1_pru0 {
         pinctrl-pin-array = <
             IODELAY( 202, 0, 600, 0, 1600 ) // P19.52 AH6 core 0 gpio 0
             IODELAY( 203, 0, 0,   0, 2800 ) // P19.45 AH3 core 0 gpio 1
@@ -31,7 +31,11 @@
             IODELAY( 198, 0, 800, 0, 500  ) // x      AE6 core 0 gpio 18
             IODELAY( 199, 0,1400, 0, 0    ) // P19.40 AD2 core 0 gpio 19
             IODELAY( 200, 0,1001, 0, 500  ) // x      AD3 core 0 gpio 20
+        >;
+    };
 
+    pruss1_pru1_iodelay: pruss1_pru1 {
+        pinctrl-pin-array = <
             IODELAY( 232, 0, 2100, 0, 3900 ) // P18.42 E2 core 1 gpio 0
             IODELAY( 233, 0, 1000, 0, 5100 ) // P18.13 D2 core 1 gpio 1
             IODELAY( 234, 0, 1700, 0,    0 ) // P18.08 F4 core 1 gpio 2
@@ -56,7 +60,7 @@
         >;
     };
 
-    pruss2_iodelay: pruss2 {
+    pruss2_pru0_iodelay: pruss2_pru0 {
         pinctrl-pin-array = <
             IODELAY( 261, 0,  226, 0, 1300 ) // P18.26  G11 core 0 gpio 0
             IODELAY( 262, 0,    0, 0, 2500 ) // P18.48  E09 core 0 gpio 1
@@ -79,7 +83,11 @@
             IODELAY( 257, 0,    0, 0,  900 ) // P18.23  A09 core 0 gpio 18
             IODELAY( 258, 0,  404, 0,  300 ) // P18.52  B09 core 0 gpio 19
             IODELAY( 259, 0,  290, 0,  300 ) // P18.24  A10 core 0 gpio 20
+        >;
+    };
 
+    pruss2_pru1_iodelay: pruss2_pru1 {
+        pinctrl-pin-array = <
             IODELAY( 119, 0, 2422, 0, 3200 ) // ethmdio V01 core 1 gpio 0
             IODELAY( 118, 0, 3200, 0, 3900 ) // ethmdio U04 core 1 gpio 1
             IODELAY(   0, 0, 2100, 0, 2500 ) // x       U03 core 1 gpio 2
