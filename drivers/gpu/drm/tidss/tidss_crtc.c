@@ -149,6 +149,27 @@ static void tidss_crtc_atomic_begin(struct drm_crtc *crtc,
 	dev_dbg(ddev->dev, "%s\n", __func__);
 }
 
+static void tidss_crtc_set_vp_state(struct drm_crtc *crtc)
+{
+	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
+	struct tidss_crtc_state *tcrtc_state = to_tidss_crtc_state(crtc->state);
+	struct drm_device *ddev = crtc->dev;
+	struct tidss_device *tidss = ddev->dev_private;
+	struct tidss_vp_info vp_info = { 0 };
+
+	vp_info.default_color = tcrtc_state->background_color;
+	vp_info.trans_key_mode = tcrtc_state->trans_key_mode;
+	vp_info.trans_key = tcrtc_state->trans_key;
+
+	tidss->dispc_ops->vp_setup(tidss->dispc,
+				   tcrtc->hw_videoport,
+				   &vp_info);
+
+	tidss->dispc_ops->vp_set_color_mgmt(tidss->dispc,
+					    tcrtc->hw_videoport,
+					    crtc->state);
+}
+
 static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 				    struct drm_crtc_state *old_crtc_state)
 {
@@ -156,7 +177,6 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct tidss_crtc_state *tcrtc_state = to_tidss_crtc_state(crtc->state);
 	struct drm_device *ddev = crtc->dev;
 	struct tidss_device *tidss = ddev->dev_private;
-	struct tidss_vp_info vp_info = { 0 };
 
 	dev_dbg(ddev->dev, "%s, crtc enabled %d, event %p\n",
 		__func__, tcrtc->enabled, crtc->state->event);
@@ -171,17 +191,7 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	// I think we always need the event to signal flip done
 	WARN_ON(!crtc->state->event);
 
-	vp_info.default_color = tcrtc_state->background_color;
-	vp_info.trans_key_mode = tcrtc_state->trans_key_mode;
-	vp_info.trans_key = tcrtc_state->trans_key;
-
-	tidss->dispc_ops->vp_setup(tidss->dispc,
-				   tcrtc->hw_videoport,
-				   &vp_info);
-
-	tidss->dispc_ops->vp_set_color_mgmt(tidss->dispc,
-					    tcrtc->hw_videoport,
-					    crtc->state);
+	tidss_crtc_set_vp_state(crtc);
 
 	WARN_ON(drm_crtc_vblank_get(crtc) != 0);
 
@@ -216,6 +226,8 @@ static void tidss_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	r = tidss->dispc_ops->vp_enable_clk(tidss->dispc, tcrtc->hw_videoport);
 	WARN_ON(r);
+
+	tidss_crtc_set_vp_state(crtc);
 
 	/* Turn vertical blanking interrupt reporting on. */
 	drm_crtc_vblank_on(crtc);
