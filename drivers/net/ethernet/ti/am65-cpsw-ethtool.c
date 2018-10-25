@@ -353,6 +353,12 @@ static const struct am65_cpsw_ethtool_stat am65_slave_stats[] = {
 	AM65_CPSW_STATS(, tx_pri7_drop_bcnt),
 };
 
+/* Ethtool priv_flags */
+static const char am65_cpsw_ethtool_priv_flags[][ETH_GSTRING_LEN] = {
+#define	AM65_CPSW_PRIV_P0_RX_PTYPE_RROBIN	BIT(0)
+	"p0-rx-ptype-rrobin",
+};
+
 static int am65_cpsw_ethtool_op_begin(struct net_device *ndev)
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
@@ -597,6 +603,8 @@ static int am65_cpsw_get_sset_count(struct net_device *ndev, int sset)
 			return ARRAY_SIZE(am65_host_stats);
 		else
 			return ARRAY_SIZE(am65_slave_stats);
+	case ETH_SS_PRIV_FLAGS:
+		return ARRAY_SIZE(am65_cpsw_ethtool_priv_flags);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -640,6 +648,15 @@ static void am65_cpsw_get_strings(struct net_device *ndev,
 				memcpy(p, hw_stats[i].desc, ETH_GSTRING_LEN);
 				p += ETH_GSTRING_LEN;
 			}
+		}
+		break;
+	case ETH_SS_PRIV_FLAGS:
+		num_stats = ARRAY_SIZE(am65_cpsw_ethtool_priv_flags);
+
+		for (i = 0; i < num_stats; i++) {
+			memcpy(p, am65_cpsw_ethtool_priv_flags[i],
+			       ETH_GSTRING_LEN);
+			p += ETH_GSTRING_LEN;
 		}
 		break;
 	}
@@ -703,6 +720,28 @@ static int am65_cpsw_get_ethtool_ts_info(struct net_device *ndev,
 #define am65_cpsw_get_ethtool_ts_info ethtool_op_get_ts_info
 #endif
 
+static u32 am65_cpsw_get_ethtool_priv_flags(struct net_device *ndev)
+{
+	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+	u32 priv_flags = 0;
+
+	if (common->pf_p0_rx_ptype_rrobin)
+		priv_flags |= AM65_CPSW_PRIV_P0_RX_PTYPE_RROBIN;
+
+	return priv_flags;
+}
+
+static int am65_cpsw_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
+{
+	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+
+	common->pf_p0_rx_ptype_rrobin =
+			!!(flags & AM65_CPSW_PRIV_P0_RX_PTYPE_RROBIN);
+	am65_cpsw_nuss_set_p0_ptype(common);
+
+	return 0;
+}
+
 const struct ethtool_ops am65_cpsw_ethtool_ops_slave = {
 	.begin			= am65_cpsw_ethtool_op_begin,
 	.complete		= am65_cpsw_ethtool_op_complete,
@@ -717,6 +756,8 @@ const struct ethtool_ops am65_cpsw_ethtool_ops_slave = {
 	.get_strings		= am65_cpsw_get_strings,
 	.get_ethtool_stats	= am65_cpsw_get_ethtool_stats,
 	.get_ts_info		= am65_cpsw_get_ethtool_ts_info,
+	.get_priv_flags		= am65_cpsw_get_ethtool_priv_flags,
+	.set_priv_flags		= am65_cpsw_set_ethtool_priv_flags,
 
 	.get_link		= ethtool_op_get_link,
 	.get_link_ksettings	= am65_cpsw_get_link_ksettings,

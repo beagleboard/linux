@@ -60,6 +60,9 @@
 
 #define AM65_CPSW_P0_REG_CTL			0x004
 #define AM65_CPSW_PORT0_REG_FLOW_ID_OFFSET	0x008
+
+#define AM65_CPSW_PORT_REG_PRI_CTL		0x01c
+#define AM65_CPSW_PORT_REG_RX_PRI_MAP		0x020
 #define AM65_CPSW_PORT_REG_RX_MAXLEN		0x024
 
 #define AM65_CPSW_PORTN_REG_SA_L		0x308
@@ -76,6 +79,9 @@
 
 /* AM65_CPSW_P0_REG_CTL */
 #define AM65_CPSW_P0_REG_CTL_RX_CHECKSUM_EN	BIT(0)
+
+/* AM65_CPSW_PORT_REG_PRI_CTL */
+#define AM65_CPSW_PORT_REG_PRI_CTL_RX_PTYPE_RROBIN	BIT(8)
 
 /* AM65_CPSW_PN_TS_CTL register fields */
 #define AM65_CPSW_PN_TS_CTL_TX_ANX_F_EN		BIT(4)
@@ -316,12 +322,34 @@ static void am65_cpsw_nuss_ndo_slave_set_rx_mode(struct net_device *ndev)
 
 static void am65_cpsw_nuss_ndo_host_tx_timeout(struct net_device *ndev)
 {
-	struct am65_cpsw_port *host_p = am65_ndev_to_port(ndev);
+	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+	int ch;
 
-	netdev_err(host_p->ndev, "transmit timed out tx\n");
+	/* process every txq*/
+	for (ch = 0; ch < common->tx_ch_num; ch++) {
+		struct am65_cpsw_tx_chn *tx_chn;
+		struct netdev_queue *netif_txq;
+		unsigned long trans_start;
 
-	netif_trans_update(ndev);
-	netif_tx_wake_all_queues(ndev);
+		netif_txq = netdev_get_tx_queue(ndev, ch);
+		trans_start = netif_txq->trans_start;
+		if (netif_xmit_stopped(netif_txq) &&
+		    time_after(jiffies, (trans_start + ndev->watchdog_timeo))) {
+			tx_chn = &common->tx_chns[ch];
+			netdev_err(ndev, "txq:%d DRV_XOFF:%d tmo:%u dql_avail:%d free_desc:%zu\n",
+				   ch,
+				   netif_tx_queue_stopped(netif_txq),
+				   jiffies_to_msecs(jiffies - trans_start),
+				   dql_avail(&netif_txq->dql),
+				   k3_knav_pool_avail(tx_chn->desc_pool));
+
+			if (netif_tx_queue_stopped(netif_txq)) {
+				/* try recover if stopped by us */
+				txq_trans_update(netif_txq);
+				netif_tx_wake_queue(netif_txq);
+			}
+		}
+	}
 }
 
 static int am65_cpsw_nuss_rx_push(struct am65_cpsw_common *common,
@@ -358,6 +386,30 @@ static int am65_cpsw_nuss_rx_push(struct am65_cpsw_common *common,
 	return k3_nav_udmax_push_rx_chn(rx_chn->rx_chn, 0, desc_rx, desc_dma);
 }
 
+void am65_cpsw_nuss_set_p0_ptype(struct am65_cpsw_common *common)
+{
+	struct am65_cpsw_port *host_p = am65_common_get_host_port(common);
+	u32 val, pri_map;
+
+	/* P0 set Receive Priority Type */
+	val = readl(host_p->port_base + AM65_CPSW_PORT_REG_PRI_CTL);
+
+	if (common->pf_p0_rx_ptype_rrobin) {
+		val |= AM65_CPSW_PORT_REG_PRI_CTL_RX_PTYPE_RROBIN;
+		/* Enet Ports fifos works in fixed priority mode only, so
+		 * reset P0_Rx_Pri_Map so all packet will go in Enet fifo 0
+		 */
+		pri_map = 0x0;
+	} else {
+		val &= ~AM65_CPSW_PORT_REG_PRI_CTL_RX_PTYPE_RROBIN;
+		/* restore P0_Rx_Pri_Map */
+		pri_map = 0x76543210;
+	}
+
+	writel(pri_map, host_p->port_base + AM65_CPSW_PORT_REG_RX_PRI_MAP);
+	writel(val, host_p->port_base + AM65_CPSW_PORT_REG_PRI_CTL);
+}
+
 static int am65_cpsw_nuss_common_open(struct am65_cpsw_common *common,
 				      netdev_features_t features)
 {
@@ -383,6 +435,8 @@ static int am65_cpsw_nuss_common_open(struct am65_cpsw_common *common,
 	if (features & NETIF_F_HW_CSUM)
 		writel(AM65_CPSW_P0_REG_CTL_RX_CHECKSUM_EN,
 		       host_p->port_base + AM65_CPSW_P0_REG_CTL);
+
+	am65_cpsw_nuss_set_p0_ptype(common);
 
 	/* enable statistic */
 	val = 0;
@@ -930,7 +984,7 @@ static int am65_cpsw_nuss_tx_compl_packets(struct am65_cpsw_common *common,
 
 		__netif_tx_unlock(netif_txq);
 	}
-	dev_dbg(dev, "%s pkt:%d\n", __func__, num_tx);
+	dev_dbg(dev, "%s:%u pkt:%d\n", __func__, chn, num_tx);
 
 	return num_tx;
 }
@@ -942,10 +996,16 @@ static int am65_cpsw_nuss_tx_poll(struct napi_struct *napi_tx, int budget)
 
 	/* process every unprocessed channel */
 	for (ch = common->tx_ch_num; ch; ch--) {
+		u32 cur_ch = ch;
 		cur_budget = budget - num_tx;
 
+		if (common->pf_p0_rx_ptype_rrobin) {
+			common->cur_txq = (common->cur_txq + 1) %
+					   common->tx_ch_num;
+			cur_ch = common->cur_txq + 1;
+		}
 		num_tx += am65_cpsw_nuss_tx_compl_packets(
-				common, ch, cur_budget);
+				common, cur_ch, cur_budget);
 		if (num_tx >= budget)
 			break;
 	}
@@ -1896,6 +1956,7 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 	netif_tx_napi_add(port->ndev, &common->napi_rx,
 			  am65_cpsw_nuss_rx_poll, NAPI_POLL_WEIGHT);
 
+	common->pf_p0_rx_ptype_rrobin = true;
 	ret = register_netdev(port->ndev);
 	if (ret)
 		dev_err(dev, "error registering slave net device %d\n", ret);
