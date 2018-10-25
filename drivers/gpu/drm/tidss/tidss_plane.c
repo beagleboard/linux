@@ -161,9 +161,9 @@ static void tidss_plane_atomic_update(struct drm_plane *plane,
 		gem = drm_fb_cma_get_gem_obj(fb, 1);
 
 		info.p_uv_addr = gem->paddr +
-				 fb->offsets[0] +
-				 (x * fb->format->cpp[0] / fb->format->hsub) +
-				 (y * fb->pitches[0] / fb->format->vsub);
+				 fb->offsets[1] +
+				 (x * fb->format->cpp[1] / fb->format->hsub) +
+				 (y * fb->pitches[1] / fb->format->vsub);
 
 		info.fb_width_uv = fb->pitches[1] / fb->format->cpp[1];
 		info.cpp_uv = fb->format->cpp[1];
