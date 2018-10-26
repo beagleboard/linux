@@ -917,7 +917,16 @@ static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 	struct k3_r5_core *core;
 	struct rproc *rproc;
 
-	list_for_each_entry(core, &cluster->cores, elem) {
+	/*
+	 * lockstep mode has only one rproc associated with first core, whereas
+	 * split-mode has two rprocs associated with each core, and requires
+	 * that core1 be powered down first
+	 */
+	core = cluster->mode ?
+		list_first_entry(&cluster->cores, struct k3_r5_core, elem) :
+		list_last_entry(&cluster->cores, struct k3_r5_core, elem);
+
+	list_for_each_entry_from_reverse(core, &cluster->cores, elem) {
 		rproc = core->rproc;
 		kproc = rproc->priv;
 
@@ -927,10 +936,6 @@ static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 
 		rproc_free(rproc);
 		core->rproc = NULL;
-
-		/* only one rproc exists in lockstep mode */
-		if (cluster->mode)
-			break;
 	}
 
 	return 0;
