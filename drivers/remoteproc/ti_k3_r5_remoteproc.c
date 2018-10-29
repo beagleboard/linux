@@ -1258,6 +1258,7 @@ static int k3_r5_cluster_of_init(struct platform_device *pdev)
 		}
 
 		core = platform_get_drvdata(cpdev);
+		put_device(&cpdev->dev);
 		list_add_tail(&core->elem, &cluster->cores);
 	}
 
