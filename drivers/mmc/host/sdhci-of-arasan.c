@@ -332,6 +332,7 @@ static const struct sdhci_ops sdhci_arasan_am654_ops = {
 	.set_bus_width = sdhci_set_bus_width,
 	.reset = sdhci_arasan_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
+	.set_power = sdhci_arasan_set_power,
 };
 
 static const struct sdhci_pltfm_data sdhci_arasan_am654_pdata = {
