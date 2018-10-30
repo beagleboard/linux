@@ -465,7 +465,7 @@ enum rproc_crash_type {
 struct rproc {
 	struct list_head node;
 	struct iommu_domain *domain;
-	const char *name;
+	char *name;
 	char *firmware;
 	void *priv;
 	const struct rproc_ops *ops;
