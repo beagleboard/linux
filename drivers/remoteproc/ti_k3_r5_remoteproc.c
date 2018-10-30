@@ -831,22 +831,27 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 	struct k3_r5_cluster *cluster = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
 	struct k3_r5_rproc *kproc;
-	struct k3_r5_core *core;
+	struct k3_r5_core *core, *core1;
 	struct device *cdev;
 	const char *fw_name;
 	struct rproc *rproc;
 	int ret;
 
+	core1 = list_last_entry(&cluster->cores, struct k3_r5_core, elem);
 	list_for_each_entry(core, &cluster->cores, elem) {
 		cdev = core->dev;
 		fw_name = k3_r5_rproc_get_firmware(cdev);
-		if (IS_ERR(fw_name))
-			return PTR_ERR(fw_name);
+		if (IS_ERR(fw_name)) {
+			ret = PTR_ERR(fw_name);
+			goto out;
+		}
 
 		rproc = rproc_alloc(cdev, dev_name(cdev), &k3_r5_rproc_ops,
 				    fw_name, sizeof(*kproc));
-		if (!rproc)
-			return -ENOMEM;
+		if (!rproc) {
+			ret = -ENOMEM;
+			goto out;
+		}
 
 		/* K3 R5s have a Region Address Translator (RAT) but no MMU */
 		rproc->has_iommu = false;
@@ -864,14 +869,14 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 		if (ret) {
 			dev_err(dev, "initial configure failed, ret = %d\n",
 				ret);
-			return ret;
+			goto err_config;
 		}
 
 		ret = k3_r5_reserved_mem_init(kproc);
 		if (ret) {
 			dev_err(dev, "reserved memory init failed, ret = %d\n",
 				ret);
-			goto err_mem;
+			goto err_config;
 		}
 
 		ret = rproc_add(rproc);
@@ -887,11 +892,21 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 
 	return 0;
 
+err_split:
+	rproc_del(rproc);
 err_add:
 	k3_r5_reserved_mem_exit(kproc);
-err_mem:
+err_config:
 	rproc_free(rproc);
 	core->rproc = NULL;
+out:
+	/* undo core0 upon any failures on core1 in split-mode */
+	if (!cluster->mode && core == core1) {
+		core = list_prev_entry(core, elem);
+		rproc = core->rproc;
+		kproc = rproc->priv;
+		goto err_split;
+	}
 	return ret;
 }
 
@@ -902,7 +917,16 @@ static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 	struct k3_r5_core *core;
 	struct rproc *rproc;
 
-	list_for_each_entry(core, &cluster->cores, elem) {
+	/*
+	 * lockstep mode has only one rproc associated with first core, whereas
+	 * split-mode has two rprocs associated with each core, and requires
+	 * that core1 be powered down first
+	 */
+	core = cluster->mode ?
+		list_first_entry(&cluster->cores, struct k3_r5_core, elem) :
+		list_last_entry(&cluster->cores, struct k3_r5_core, elem);
+
+	list_for_each_entry_from_reverse(core, &cluster->cores, elem) {
 		rproc = core->rproc;
 		kproc = rproc->priv;
 
@@ -912,10 +936,6 @@ static int k3_r5_cluster_rproc_exit(struct platform_device *pdev)
 
 		rproc_free(rproc);
 		core->rproc = NULL;
-
-		/* only one rproc exists in lockstep mode */
-		if (cluster->mode)
-			break;
 	}
 
 	return 0;
@@ -1258,6 +1278,7 @@ static int k3_r5_cluster_of_init(struct platform_device *pdev)
 		}
 
 		core = platform_get_drvdata(cpdev);
+		put_device(&cpdev->dev);
 		list_add_tail(&core->elem, &cluster->cores);
 	}
 

@@ -1613,6 +1613,7 @@ static void rproc_type_release(struct device *dev)
 		ida_simple_remove(&rproc_dev_index, rproc->index);
 
 	kfree(rproc->firmware);
+	kfree(rproc->name);
 	kfree(rproc);
 }
 
@@ -1678,7 +1679,12 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	}
 
 	rproc->firmware = p;
-	rproc->name = name;
+	rproc->name = kstrdup(name, GFP_KERNEL);
+	if (!rproc->name) {
+		kfree(p);
+		kfree(rproc);
+		return NULL;
+	}
 	rproc->ops = ops;
 	rproc->priv = &rproc[1];
 	rproc->auto_boot = true;
