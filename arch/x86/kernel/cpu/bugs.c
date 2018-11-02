@@ -812,7 +812,7 @@ static void __init spec_v2_print_cond(const char *reason, bool secure)
 
 static inline bool retp_compiler(void)
 {
-	return __is_defined(RETPOLINE);
+	return __is_defined(CONFIG_RETPOLINE);
 }
 
 static enum spectre_v2_mitigation_cmd __init spectre_v2_parse_cmdline(void)

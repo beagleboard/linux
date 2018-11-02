@@ -221,9 +221,10 @@ ifdef CONFIG_RETPOLINE
     RETPOLINE_CFLAGS_CLANG := -mretpoline-external-thunk
 
     RETPOLINE_CFLAGS += $(call cc-option,$(RETPOLINE_CFLAGS_GCC),$(call cc-option,$(RETPOLINE_CFLAGS_CLANG)))
-    ifneq ($(RETPOLINE_CFLAGS),)
-        KBUILD_CFLAGS += $(RETPOLINE_CFLAGS) -DRETPOLINE
+    ifeq ($(RETPOLINE_CFLAGS),)
+      $(error You are building kernel with non-retpoline compiler, please update your compiler.)
     endif
+    KBUILD_CFLAGS += $(RETPOLINE_CFLAGS)
 endif
 
 archscripts: scripts_basic
