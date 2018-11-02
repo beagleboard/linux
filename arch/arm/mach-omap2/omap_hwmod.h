@@ -168,6 +168,7 @@ struct omap_hwmod_rst_info {
 	const char	*name;
 	u8		rst_shift;
 	u8		st_shift;
+	u8		context;
 };
 
 /**
@@ -677,6 +678,9 @@ int omap_hwmod_get_context_loss_count(struct omap_hwmod *oh);
 extern void __init omap_hwmod_init(void);
 
 const char *omap_hwmod_get_main_clk(struct omap_hwmod *oh);
+
+void omap_hwmods_save_context(void);
+void omap_hwmods_restore_context(void);
 
 /*
  *
