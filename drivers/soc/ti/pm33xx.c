@@ -261,6 +261,8 @@ static int am33xx_pm_begin(suspend_state_t state)
 		rtc_only_idle = 0;
 	}
 
+	cpu_idle_poll_ctrl(true);
+
 	switch (state) {
 	case PM_SUSPEND_MEM:
 		ret = m3_ipc->ops->prepare_low_power(m3_ipc, WKUP_M3_DEEPSLEEP);
@@ -296,6 +298,8 @@ static void am33xx_pm_end(void)
 	}
 
 	rtc_only_idle = 0;
+
+	cpu_idle_poll_ctrl(false);
 }
 
 static int am33xx_pm_valid(suspend_state_t state)
