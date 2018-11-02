@@ -55,3 +55,37 @@ Example:
 			...
 		};
 	};
+
+Support for VTT Toggle
+==================================
+In order to enable the support for VTT toggle during Suspend/Resume
+sequence needed by some boards (like AM335x EVM-SK & AM437x GP EVM),
+the below DT properties are required. It is possible to toggle VTT
+using one of two methods depending on the SoC being used, either
+GPIO0 toggle (AM335x and AM437x), or any GPIO with DS_PAD_CONFIG
+bits in the control module (AM437x only).
+
+VTT Toggle using GPIO0
+----------------------------------
+Supported by: AM335x and AM437x
+Used on: AM335x EVM-SK
+
+Optional properties:
+- ti,needs-vtt-toggle:	Indicates that the boards requires VTT toggling
+			during suspend/resume.
+- ti,vtt-gpio-pin:	Specifies the GPIO0 pin used for VTT toggle.
+
+Important Note:
+- Here it is assumed that VTT Toggle will be done using a pin on GPIO-0 Instance.
+  It will not work on any other GPIO using the above properties, regardless of
+  which part is being used.
+
+Example:
+	wkup_m3_ipc: wkup_m3_ipc@1324 {
+		compatible = "ti,am3352-wkup-m3-ipc";
+		...
+		...
+		ti,needs-vtt-toggle;
+		ti,vtt-gpio-pin = <7>;
+		...
+	};
