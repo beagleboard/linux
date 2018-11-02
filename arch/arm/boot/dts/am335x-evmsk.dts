@@ -556,6 +556,7 @@
 &wkup_m3_ipc {
 	ti,needs-vtt-toggle;
 	ti,vtt-gpio-pin = <7>;
+	ti,scale-data-fw = "am335x-evm-scale-data.bin";
 };
 
 #include "tps65910.dtsi"
