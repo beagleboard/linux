@@ -1168,6 +1168,12 @@ static int brcmf_usb_bus_setup(struct brcmf_usbdev_info *devinfo)
 		return ret;
 	}
 
+	if (BRCMF_FWCON_ON()) {
+		ret = brcmf_fwlog_attach(devinfo->dev);
+		if (ret)
+			goto fail;
+	}
+
 	ret = brcmf_usb_up(devinfo->dev);
 	if (ret)
 		goto fail;
