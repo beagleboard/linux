@@ -1220,6 +1220,12 @@ static void brcmf_usb_probe_phase2(struct device *dev, int ret,
 	if (ret)
 		goto error;
 
+	if (BRCMF_FWCON_ON()) {
+		ret = brcmf_fwlog_attach(devinfo->dev);
+		if (ret)
+			goto error;
+	}
+
 	/* Attach to the common driver interface */
 	ret = brcmf_attach(devinfo->dev);
 	if (ret)
@@ -1296,9 +1302,17 @@ static int brcmf_usb_probe_cb(struct brcmf_usbdev_info *devinfo)
 		ret = brcmf_alloc(devinfo->dev, devinfo->settings);
 		if (ret)
 			goto fail;
+
+		if (BRCMF_FWCON_ON()) {
+			ret = brcmf_fwlog_attach(devinfo->dev);
+			if (ret)
+				goto fail;
+		}
+
 		ret = brcmf_attach(devinfo->dev);
 		if (ret)
 			goto fail;
+
 		/* we are done */
 		complete(&devinfo->dev_init_done);
 		return 0;
