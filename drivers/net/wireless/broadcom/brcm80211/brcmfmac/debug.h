@@ -103,6 +103,10 @@ do {								\
 
 #endif /* defined(DEBUG) || defined(CONFIG_BRCM_TRACING) */
 
+#define MSGTRACE_VERSION 1
+#define MSGTRACE_HDR_TYPE_MSG 0
+#define MSGTRACE_HDR_TYPE_LOG 1
+
 #define brcmf_dbg_hex_dump(test, data, len, fmt, ...)			\
 do {									\
 	trace_brcmf_hexdump((void *)data, len);				\
@@ -120,6 +124,7 @@ int brcmf_debugfs_add_entry(struct brcmf_pub *drvr, const char *fn,
 			    int (*read_fn)(struct seq_file *seq, void *data));
 int brcmf_debug_create_memdump(struct brcmf_bus *bus, const void *data,
 			       size_t len);
+int brcmf_debug_fwlog_init(struct brcmf_pub *drvr);
 #else
 static inline struct dentry *brcmf_debugfs_get_devdir(struct brcmf_pub *drvr)
 {
@@ -137,6 +142,25 @@ int brcmf_debug_create_memdump(struct brcmf_bus *bus, const void *data,
 {
 	return 0;
 }
+
+static inline
+int brcmf_debug_fwlog_init(struct brcmf_pub *drvr)
+{
+	return 0;
+}
 #endif
 
+/* Message trace header */
+struct msgtrace_hdr {
+	u8	version;
+	u8	trace_type;
+	u16	len;    /* Len of the trace */
+	u32	seqnum; /* Sequence number of message */
+	/* Number of discarded bytes because of trace overflow  */
+	u32	discarded_bytes;
+	/* Number of discarded printf because of trace overflow */
+	u32	discarded_printf;
+};
+
+#define MSGTRACE_HDRLEN		sizeof(struct msgtrace_hdr)
 #endif /* BRCMFMAC_DEBUG_H */
