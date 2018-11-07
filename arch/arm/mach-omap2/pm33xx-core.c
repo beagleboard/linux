@@ -30,6 +30,7 @@
 #include "prm33xx.h"
 #include "soc.h"
 #include "sram.h"
+#include "omap-secure.h"
 
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
 static struct clockdomain *gfx_l4ls_clkdm;
@@ -182,6 +183,12 @@ static int am43xx_suspend(unsigned int state, int (*fn)(unsigned long),
 {
 	int ret = 0;
 
+	/* Suspend secure side on HS devices */
+	if (omap_type() != OMAP2_DEVICE_TYPE_GP)
+		omap_secure_dispatcher(AM43xx_PPA_SVC_PM_SUSPEND,
+				       FLAG_START_CRITICAL,
+				       0, 0, 0, 0, 0);
+
 	amx3_pre_suspend_common();
 	scu_power_mode(scu_base, SCU_PM_POWEROFF);
 	ret = cpu_suspend(args, fn);
@@ -189,6 +196,12 @@ static int am43xx_suspend(unsigned int state, int (*fn)(unsigned long),
 
 	if (!am43xx_check_off_mode_enable())
 		amx3_post_suspend_common();
+
+	/* Resume secure side on HS devices */
+	if (omap_type() != OMAP2_DEVICE_TYPE_GP)
+		omap_secure_dispatcher(AM43xx_PPA_SVC_PM_RESUME,
+				       FLAG_START_CRITICAL,
+				       0, 0, 0, 0, 0);
 
 	return ret;
 }
