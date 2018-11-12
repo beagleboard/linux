@@ -6,10 +6,18 @@
  *	Dave Gerlach
  */
 
+#include <linux/cpuidle.h>
+#include <linux/platform_data/pm33xx.h>
+#include <asm/cpuidle.h>
 #include <asm/smp_scu.h>
 #include <asm/suspend.h>
 #include <linux/errno.h>
-#include <linux/platform_data/pm33xx.h>
+#include <linux/clk.h>
+#include <linux/platform_data/gpio-omap.h>
+#include <linux/pinctrl/pinmux.h>
+#include <linux/wkup_m3_ipc.h>
+#include <linux/of.h>
+#include <linux/rtc.h>
 
 #include "cm33xx.h"
 #include "common.h"
@@ -22,11 +30,20 @@
 #include "prm33xx.h"
 #include "soc.h"
 #include "sram.h"
+#include "omap-secure.h"
 
 static struct powerdomain *cefuse_pwrdm, *gfx_pwrdm, *per_pwrdm, *mpu_pwrdm;
 static struct clockdomain *gfx_l4ls_clkdm;
 static void __iomem *scu_base;
 static struct omap_hwmod *rtc_oh;
+
+static int (*idle_fn)(u32 wfi_flags);
+
+struct amx3_idle_state {
+	int wfi_flags;
+};
+
+static struct amx3_idle_state *idle_states;
 
 static int __init am43xx_map_scu(void)
 {
@@ -38,7 +55,30 @@ static int __init am43xx_map_scu(void)
 	return 0;
 }
 
-static int amx3_common_init(void)
+static int am33xx_check_off_mode_enable(void)
+{
+	if (enable_off_mode)
+		pr_warn("WARNING: This platform does not support off-mode, entering DeepSleep suspend.\n");
+
+	/* off mode not supported on am335x so return 0 always */
+	return 0;
+}
+
+static int am43xx_check_off_mode_enable(void)
+{
+	/*
+	 * Check for am437x-sk-evm which due to HW design cannot support
+	 * this mode reliably.
+	 */
+	if (of_machine_is_compatible("ti,am437x-sk-evm") && enable_off_mode) {
+		pr_warn("WARNING: This platform does not support off-mode, entering DeepSleep suspend.\n");
+		return 0;
+	}
+
+	return enable_off_mode;
+}
+
+static int amx3_common_init(int (*idle)(u32 wfi_flags))
 {
 	gfx_pwrdm = pwrdm_lookup("gfx_pwrdm");
 	per_pwrdm = pwrdm_lookup("per_pwrdm");
@@ -56,10 +96,12 @@ static int amx3_common_init(void)
 	else
 		pr_err("PM: Failed to get cefuse_pwrdm\n");
 
+	idle_fn = idle;
+
 	return 0;
 }
 
-static int am33xx_suspend_init(void)
+static int am33xx_suspend_init(int (*idle)(u32 wfi_flags))
 {
 	int ret;
 
@@ -70,12 +112,12 @@ static int am33xx_suspend_init(void)
 		return -ENODEV;
 	}
 
-	ret = amx3_common_init();
+	ret = amx3_common_init(idle);
 
 	return ret;
 }
 
-static int am43xx_suspend_init(void)
+static int am43xx_suspend_init(int (*idle)(u32 wfi_flags))
 {
 	int ret = 0;
 
@@ -85,9 +127,15 @@ static int am43xx_suspend_init(void)
 		return ret;
 	}
 
-	ret = amx3_common_init();
+	ret = amx3_common_init(idle);
 
 	return ret;
+}
+
+static int amx3_suspend_deinit(void)
+{
+	idle_fn = NULL;
+	return 0;
 }
 
 static void amx3_pre_suspend_common(void)
@@ -135,11 +183,51 @@ static int am43xx_suspend(unsigned int state, int (*fn)(unsigned long),
 {
 	int ret = 0;
 
+	/* Suspend secure side on HS devices */
+	if (omap_type() != OMAP2_DEVICE_TYPE_GP)
+		omap_secure_dispatcher(AM43xx_PPA_SVC_PM_SUSPEND,
+				       FLAG_START_CRITICAL,
+				       0, 0, 0, 0, 0);
+
 	amx3_pre_suspend_common();
 	scu_power_mode(scu_base, SCU_PM_POWEROFF);
 	ret = cpu_suspend(args, fn);
 	scu_power_mode(scu_base, SCU_PM_NORMAL);
-	amx3_post_suspend_common();
+
+	if (!am43xx_check_off_mode_enable())
+		amx3_post_suspend_common();
+
+	/* Resume secure side on HS devices */
+	if (omap_type() != OMAP2_DEVICE_TYPE_GP)
+		omap_secure_dispatcher(AM43xx_PPA_SVC_PM_RESUME,
+				       FLAG_START_CRITICAL,
+				       0, 0, 0, 0, 0);
+
+	return ret;
+}
+
+static int am33xx_cpu_suspend(int (*fn)(unsigned long), unsigned long args)
+{
+	int ret = 0;
+
+	if (omap_irq_pending() || need_resched())
+		return ret;
+
+	ret = cpu_suspend(args, fn);
+
+	return ret;
+}
+
+static int am43xx_cpu_suspend(int (*fn)(unsigned long), unsigned long args)
+{
+	int ret = 0;
+
+	if (!scu_base)
+		return 0;
+
+	scu_power_mode(scu_base, SCU_PM_DORMANT);
+	ret = cpu_suspend(args, fn);
+	scu_power_mode(scu_base, SCU_PM_NORMAL);
 
 	return ret;
 }
@@ -161,17 +249,64 @@ void __iomem *am43xx_get_rtc_base_addr(void)
 	return omap_hwmod_get_mpu_rt_va(rtc_oh);
 }
 
+static void am43xx_save_context(void)
+{
+}
+
+static void am33xx_save_context(void)
+{
+	omap_intc_save_context();
+}
+
+static void am33xx_restore_context(void)
+{
+	omap_intc_restore_context();
+}
+
+static void am43xx_restore_context(void)
+{
+	/*
+	 * HACK: restore dpll_per_clkdcoldo register contents, to avoid
+	 * breaking suspend-resume
+	 */
+	writel_relaxed(0x0, AM33XX_L4_WK_IO_ADDRESS(0x44df2e14));
+}
+
+static void am43xx_prepare_rtc_suspend(void)
+{
+	omap_hwmod_enable(rtc_oh);
+}
+
+static void am43xx_prepare_rtc_resume(void)
+{
+	omap_hwmod_idle(rtc_oh);
+}
+
 static struct am33xx_pm_platform_data am33xx_ops = {
 	.init = am33xx_suspend_init,
+	.deinit = amx3_suspend_deinit,
 	.soc_suspend = am33xx_suspend,
+	.cpu_suspend = am33xx_cpu_suspend,
 	.get_sram_addrs = amx3_get_sram_addrs,
+	.save_context = am33xx_save_context,
+	.restore_context = am33xx_restore_context,
+	.prepare_rtc_suspend = am43xx_prepare_rtc_suspend,
+	.prepare_rtc_resume = am43xx_prepare_rtc_resume,
+	.check_off_mode_enable = am33xx_check_off_mode_enable,
 	.get_rtc_base_addr = am43xx_get_rtc_base_addr,
 };
 
 static struct am33xx_pm_platform_data am43xx_ops = {
 	.init = am43xx_suspend_init,
+	.deinit = amx3_suspend_deinit,
 	.soc_suspend = am43xx_suspend,
+	.cpu_suspend = am43xx_cpu_suspend,
 	.get_sram_addrs = amx3_get_sram_addrs,
+	.save_context = am43xx_save_context,
+	.restore_context = am43xx_restore_context,
+	.prepare_rtc_suspend = am43xx_prepare_rtc_suspend,
+	.prepare_rtc_resume = am43xx_prepare_rtc_resume,
+	.check_off_mode_enable = am43xx_check_off_mode_enable,
 	.get_rtc_base_addr = am43xx_get_rtc_base_addr,
 };
 
@@ -201,3 +336,64 @@ int __init amx3_common_pm_init(void)
 
 	return 0;
 }
+
+static int __init amx3_idle_init(struct device_node *cpu_node, int cpu)
+{
+	struct device_node *state_node;
+	struct amx3_idle_state states[CPUIDLE_STATE_MAX];
+	int i;
+	int state_count = 1;
+
+	for (i = 0; ; i++) {
+		state_node = of_parse_phandle(cpu_node, "cpu-idle-states", i);
+		if (!state_node)
+			break;
+
+		if (!of_device_is_available(state_node))
+			continue;
+
+		if (i == CPUIDLE_STATE_MAX) {
+			pr_warn("%s: cpuidle states reached max possible\n",
+				__func__);
+			break;
+		}
+
+		states[state_count].wfi_flags = 0;
+
+		if (of_property_read_bool(state_node, "ti,idle-wkup-m3"))
+			states[state_count].wfi_flags |= WFI_FLAG_WAKE_M3 |
+							 WFI_FLAG_FLUSH_CACHE;
+
+		state_count++;
+	}
+
+	idle_states = kcalloc(state_count, sizeof(*idle_states), GFP_KERNEL);
+	if (!idle_states)
+		return -ENOMEM;
+
+	for (i = 1; i < state_count; i++)
+		idle_states[i].wfi_flags = states[i].wfi_flags;
+
+	return 0;
+}
+
+static int amx3_idle_enter(unsigned long index)
+{
+	struct amx3_idle_state *idle_state = &idle_states[index];
+
+	if (!idle_state)
+		return -EINVAL;
+
+	if (idle_fn)
+		idle_fn(idle_state->wfi_flags);
+
+	return 0;
+}
+
+static struct cpuidle_ops amx3_cpuidle_ops __initdata = {
+	.init = amx3_idle_init,
+	.suspend = amx3_idle_enter,
+};
+
+CPUIDLE_METHOD_OF_DECLARE(pm33xx_idle, "ti,am3352", &amx3_cpuidle_ops);
+CPUIDLE_METHOD_OF_DECLARE(pm43xx_idle, "ti,am4372", &amx3_cpuidle_ops);
