@@ -828,13 +828,6 @@ static int __of_overlay_create(struct device_node *tree,
 	if (err)
 		goto err_revert_overlay;
 
-	err = sysfs_create_groups(&ov->kobj, ov->attr_groups);
-	if (err != 0) {
-		pr_err("%s: sysfs_create_groups() failed for tree@%s\n",
-				__func__, tree->full_name);
-		goto err_remove_kobj;
-	}
-
 	ov->kobj.kset = ov_kset;
 	err = kobject_add(&ov->kobj, NULL, "%d", id);
 	if (err != 0) {
@@ -852,8 +845,6 @@ static int __of_overlay_create(struct device_node *tree,
 
 	return id;
 
-err_remove_kobj:
-	kobject_put(&ov->kobj);
 err_cancel_overlay:
 	of_changeset_revert(&ov->cset);
 err_revert_overlay:
