@@ -44,6 +44,7 @@ config SND_AM33XX_SOC_EVM
 	tristate "SoC Audio for the AM33XX chip based boards"
 	depends on SND_EDMA_SOC && SOC_AM33XX && I2C
 	select SND_DAVINCI_SOC_GENERIC_EVM
+	select SND_SOC_PCM5102A
 	help
 	  Say Y or M if you want to add support for SoC audio on AM33XX
 	  boards using McASP and TLV320AIC3X codec. For example AM335X-EVM,
