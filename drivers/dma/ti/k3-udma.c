@@ -85,6 +85,8 @@ struct udma_dev {
 	void __iomem *mmrs[MMR_LAST];
 	const struct udma_match_data *match_data;
 
+	size_t desc_align; /* alignment to use for descriptors */
+
 	struct udma_tisci_rm tisci_rm;
 
 	struct k3_nav_ringacc *ringacc;
@@ -202,7 +204,6 @@ struct udma_chan {
 	u32 psd_size; /* size of Protocol Specific Data */
 	u32 metadata_size; /* (needs_epib ? 16:0) + psd_size */
 	u32 hdesc_size; /* Size of a packet descriptor in packet mode */
-	int desc_align; /* alignment to use for descriptors */
 	int remote_thread_id;
 	u32 src_thread;
 	u32 dst_thread;
@@ -1482,7 +1483,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 	if (uc->use_dma_pool) {
 		uc->hdesc_pool = dma_pool_create(uc->name, ud->ddev.dev,
-						 uc->hdesc_size, uc->desc_align,
+						 uc->hdesc_size, ud->desc_align,
 						 0);
 		if (!uc->hdesc_pool) {
 			dev_err(ud->ddev.dev,
@@ -1896,6 +1897,8 @@ static struct udma_desc *udma_alloc_tr_desc(struct udma_chan *uc,
 	} else {
 		hwdesc->cppi5_desc_size = cppi5_trdesc_calc_size(tr_size,
 								 tr_count);
+		hwdesc->cppi5_desc_size = ALIGN(hwdesc->cppi5_desc_size,
+						uc->ud->desc_align);
 		hwdesc->cppi5_desc_vaddr = dma_zalloc_coherent(uc->ud->dev,
 						hwdesc->cppi5_desc_size,
 						&hwdesc->cppi5_desc_paddr,
@@ -2975,13 +2978,9 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 	uc->metadata_size = (uc->needs_epib ? CPPI5_INFO0_HDESC_EPIB_SIZE : 0) +
 			    uc->psd_size;
 
-	uc->desc_align = 64;
-	if (uc->desc_align < dma_get_cache_alignment())
-		uc->desc_align = dma_get_cache_alignment();
-
 	if (uc->pkt_mode)
 		uc->hdesc_size = ALIGN(sizeof(struct cppi5_host_desc_t) +
-				 uc->metadata_size, uc->desc_align);
+				 uc->metadata_size, ud->desc_align);
 
 	of_node_put(chconf_node);
 
@@ -3306,6 +3305,10 @@ static int udma_probe(struct platform_device *pdev)
 
 	spin_lock_init(&ud->lock);
 	INIT_WORK(&ud->purge_work, udma_purge_desc_work);
+
+	ud->desc_align = 64;
+	if (ud->desc_align < dma_get_cache_alignment())
+		ud->desc_align = dma_get_cache_alignment();
 
 	for (i = 0; i < ud->tchan_cnt; i++) {
 		struct udma_tchan *tchan = &ud->tchans[i];
