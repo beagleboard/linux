@@ -41,6 +41,7 @@ struct dispc7_features {
 	u32 num_planes;
 	const char *vid_name[DISPC7_MAX_PLANES]; /* Should match dt reg names */
 	bool vid_lite[DISPC7_MAX_PLANES];
+	u32 vid_order[DISPC7_MAX_PLANES];
 };
 
 #define DSS_REVISION			0x4

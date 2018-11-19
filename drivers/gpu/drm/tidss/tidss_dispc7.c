@@ -65,6 +65,7 @@ static const struct dispc7_features dispc7_am6_feats = {
 	/* note: vid is plane_id 0 and vidl1 is plane_id 1 */
 	.vid_name = { "vid", "vidl1" },
 	.vid_lite = { false, true, },
+	.vid_order = { 1, 0 },
 };
 
 static const struct of_device_id dispc7_of_table[] = {
@@ -2018,7 +2019,7 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 		struct tidss_plane *tplane;
 		struct tidss_crtc *tcrtc;
 		struct drm_encoder *enc;
-		u32 hw_plane_id = tidss->num_planes;
+		u32 hw_plane_id = dispc->feat->vid_order[tidss->num_planes];
 		int ret;
 
 		tplane = tidss_plane_create(tidss, hw_plane_id,
@@ -2058,7 +2059,7 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 
 	while (tidss->num_planes < max_planes) {
 		struct tidss_plane *tplane;
-		u32 hw_plane_id = tidss->num_planes;
+		u32 hw_plane_id = dispc->feat->vid_order[tidss->num_planes];
 
 		tplane = tidss_plane_create(tidss, hw_plane_id,
 					    DRM_PLANE_TYPE_OVERLAY, crtc_mask,
