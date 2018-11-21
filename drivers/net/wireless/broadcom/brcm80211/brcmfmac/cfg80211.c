@@ -239,19 +239,6 @@ struct parsed_vndr_ies {
 	struct parsed_vndr_ie_info ie_info[VNDR_IE_PARSE_LIMIT];
 };
 
-#define WL_INTERFACE_MAC_DONT_USE	0x0
-#define WL_INTERFACE_MAC_USE		0x2
-
-#define WL_INTERFACE_CREATE_STA		0x0
-#define WL_INTERFACE_CREATE_AP		0x1
-
-struct wl_interface_create {
-	u16	ver;
-	u32	flags;
-	u8	mac_addr[ETH_ALEN];
-	u8	pad[13];
-};
-
 static u8 nl80211_band_to_fwil(enum nl80211_band band)
 {
 	switch (band) {
@@ -560,42 +547,6 @@ static int brcmf_get_first_free_bsscfgidx(struct brcmf_pub *drvr)
 	return -ENOMEM;
 }
 
-static void brcmf_set_sta_iface_macaddr(struct brcmf_if *ifp,
-					struct wl_interface_create *iface)
-{
-	u8 mac_idx = ifp->drvr->sta_mac_idx;
-
-	/* set difference MAC address with locally administered bit */
-	iface->flags |= WL_INTERFACE_MAC_USE;
-	memcpy(iface->mac_addr, ifp->mac_addr, ETH_ALEN);
-	iface->mac_addr[0] |= 0x02;
-	iface->mac_addr[3] ^= mac_idx ? 0xC0 : 0xA0;
-	mac_idx++;
-	mac_idx = mac_idx % 2;
-	ifp->drvr->sta_mac_idx = mac_idx;
-}
-
-static int brcmf_cfg80211_request_sta_if(struct brcmf_if *ifp, u8 *macaddr)
-{
-	struct wl_interface_create iface;
-	int err;
-
-	memset(&iface, 0, sizeof(iface));
-
-	iface.ver = 0;
-	iface.flags = WL_INTERFACE_CREATE_STA;
-	if (!is_zero_ether_addr(macaddr)) {
-		/* set MAC address in cfg80211 params */
-		memcpy(iface.mac_addr, macaddr, ETH_ALEN);
-	} else {
-		brcmf_set_sta_iface_macaddr(ifp, &iface);
-	}
-
-	err = brcmf_fil_iovar_data_get(ifp, "interface_create", &iface,
-				       sizeof(iface));
-	return err;
-}
-
 static int brcmf_cfg80211_request_ap_if(struct brcmf_if *ifp)
 {
 	struct brcmf_mbss_ssid_le mbss_ssid_le;
@@ -620,40 +571,33 @@ static int brcmf_cfg80211_request_ap_if(struct brcmf_if *ifp)
 }
 
 /**
- * brcmf_ap_add_vif() - create a new AP or STA virtual interface
+ * brcmf_ap_add_vif() - create a new AP virtual interface for multiple BSS
  *
  * @wiphy: wiphy device of new interface.
  * @name: name of the new interface.
- * @params: contains mac address for AP or STA device.
+ * @params: contains mac address for AP device.
  */
 static
-struct wireless_dev *brcmf_apsta_add_vif(struct wiphy *wiphy, const char *name,
-					 struct vif_params *params,
-					 enum nl80211_iftype type)
+struct wireless_dev *brcmf_ap_add_vif(struct wiphy *wiphy, const char *name,
+				      struct vif_params *params)
 {
 	struct brcmf_cfg80211_info *cfg = wiphy_to_cfg(wiphy);
 	struct brcmf_if *ifp = netdev_priv(cfg_to_ndev(cfg));
 	struct brcmf_cfg80211_vif *vif;
 	int err;
 
-	if (type != NL80211_IFTYPE_STATION && type != NL80211_IFTYPE_AP)
-		return ERR_PTR(-EINVAL);
-
 	if (brcmf_cfg80211_vif_event_armed(cfg))
 		return ERR_PTR(-EBUSY);
 
 	brcmf_dbg(INFO, "Adding vif \"%s\"\n", name);
 
-	vif = brcmf_alloc_vif(cfg, type);
+	vif = brcmf_alloc_vif(cfg, NL80211_IFTYPE_AP);
 	if (IS_ERR(vif))
 		return (struct wireless_dev *)vif;
 
 	brcmf_cfg80211_arm_vif_event(cfg, vif);
 
-	if (type == NL80211_IFTYPE_STATION)
-		err = brcmf_cfg80211_request_sta_if(ifp, params->macaddr);
-	else
-		err = brcmf_cfg80211_request_ap_if(ifp);
+	err = brcmf_cfg80211_request_ap_if(ifp);
 	if (err) {
 		brcmf_cfg80211_arm_vif_event(cfg, NULL);
 		goto fail;
@@ -722,14 +666,14 @@ static struct wireless_dev *brcmf_cfg80211_add_iface(struct wiphy *wiphy,
 	}
 	switch (type) {
 	case NL80211_IFTYPE_ADHOC:
+	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_AP_VLAN:
 	case NL80211_IFTYPE_WDS:
 	case NL80211_IFTYPE_MONITOR:
 	case NL80211_IFTYPE_MESH_POINT:
 		return ERR_PTR(-EOPNOTSUPP);
-	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_AP:
-		wdev = brcmf_apsta_add_vif(wiphy, name, params, type);
+		wdev = brcmf_ap_add_vif(wiphy, name, params);
 		break;
 	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_P2P_GO:
@@ -847,8 +791,8 @@ s32 brcmf_notify_escan_complete(struct brcmf_cfg80211_info *cfg,
 	return err;
 }
 
-static int brcmf_cfg80211_del_apsta_iface(struct wiphy *wiphy,
-					  struct wireless_dev *wdev)
+static int brcmf_cfg80211_del_ap_iface(struct wiphy *wiphy,
+				       struct wireless_dev *wdev)
 {
 	struct brcmf_cfg80211_info *cfg = wiphy_priv(wiphy);
 	struct net_device *ndev = wdev->netdev;
@@ -904,14 +848,14 @@ int brcmf_cfg80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 
 	switch (wdev->iftype) {
 	case NL80211_IFTYPE_ADHOC:
+	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_AP_VLAN:
 	case NL80211_IFTYPE_WDS:
 	case NL80211_IFTYPE_MONITOR:
 	case NL80211_IFTYPE_MESH_POINT:
 		return -EOPNOTSUPP;
-	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_AP:
-		return brcmf_cfg80211_del_apsta_iface(wiphy, wdev);
+		return brcmf_cfg80211_del_ap_iface(wiphy, wdev);
 	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_P2P_GO:
 	case NL80211_IFTYPE_P2P_DEVICE:
