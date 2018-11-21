@@ -6747,7 +6747,7 @@ brcmf_txrx_stypes[NUM_NL80211_IFTYPES] = {
  *	#AP <= 4, matching BI, channels = 1, 4 total
  *
  * no p2p and rsdb:
- *	#STA <= 2, #AP <= 2, channels = 2, 4 total
+ *	#STA <= 1, #AP <= 2, channels = 2, 3 total
  *
  * p2p, no mchan, and mbss:
  *
@@ -6762,8 +6762,14 @@ brcmf_txrx_stypes[NUM_NL80211_IFTYPES] = {
  *	#AP <= 4, matching BI, channels = 1, 4 total
  *
  * p2p, rsdb, and no mbss:
- *	#STA <= 2, #P2P-DEV <= 1, #{P2P-CL, P2P-GO} <= 2, AP <= 2,
+ *	#STA <= 1, #P2P-DEV <= 1, #{P2P-CL, P2P-GO} <= 2, AP <= 2,
  *	 channels = 2, 4 total
+ *
+ * p2p, rsdb, mbss
+ *	#STA <= 1, #P2P-DEV <= 1, #{P2P-CL, P2P-GO} <= 2, AP <= 2,
+ *	 channels = 2, 4 total
+ *	#AP <= 4, matching BI, channels = 1, 4 total
+ *
  */
 static int brcmf_setup_ifmodes(struct wiphy *wiphy, struct brcmf_if *ifp)
 {
@@ -6802,7 +6808,7 @@ static int brcmf_setup_ifmodes(struct wiphy *wiphy, struct brcmf_if *ifp)
 		wiphy->interface_modes |= BIT(NL80211_IFTYPE_P2P_CLIENT) |
 					  BIT(NL80211_IFTYPE_P2P_GO) |
 					  BIT(NL80211_IFTYPE_P2P_DEVICE);
-		c0_limits[i].max = 2;
+		c0_limits[i].max = 1;
 		c0_limits[i++].types = BIT(NL80211_IFTYPE_STATION);
 		c0_limits[i].max = 1;
 		c0_limits[i++].types = BIT(NL80211_IFTYPE_P2P_DEVICE);
@@ -6811,7 +6817,7 @@ static int brcmf_setup_ifmodes(struct wiphy *wiphy, struct brcmf_if *ifp)
 				       BIT(NL80211_IFTYPE_P2P_GO);
 		c0_limits[i].max = 2;
 		c0_limits[i++].types = BIT(NL80211_IFTYPE_AP);
-		combo[c].max_interfaces = 5;
+		combo[c].max_interfaces = 4;
 	} else if (p2p) {
 		if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_MCHAN))
 			combo[c].num_different_channels = 2;
@@ -6830,7 +6836,7 @@ static int brcmf_setup_ifmodes(struct wiphy *wiphy, struct brcmf_if *ifp)
 		combo[c].max_interfaces = i;
 	} else if (rsdb) {
 		combo[c].num_different_channels = 2;
-		c0_limits[i].max = 2;
+		c0_limits[i].max = 1;
 		c0_limits[i++].types = BIT(NL80211_IFTYPE_STATION);
 		c0_limits[i].max = 2;
 		c0_limits[i++].types = BIT(NL80211_IFTYPE_AP);
