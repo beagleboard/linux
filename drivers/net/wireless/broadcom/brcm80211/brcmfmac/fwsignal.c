@@ -2212,6 +2212,7 @@ void brcmf_fws_del_interface(struct brcmf_if *ifp)
 
 	brcmf_fws_lock(fws);
 	ifp->fws_desc = NULL;
+	brcmf_fws_macdesc_cleanup(fws, entry, ifp->ifidx);
 	brcmf_dbg(TRACE, "deleting %s\n", entry->name);
 	brcmf_fws_macdesc_deinit(entry);
 	brcmf_fws_cleanup(fws, ifp->ifidx);
