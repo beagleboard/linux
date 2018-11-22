@@ -7,6 +7,7 @@
  *	Keerthy <j-keerthy@ti.com>
  */
 
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
@@ -16,13 +17,18 @@
 
 #include <linux/platform_data/ti-pruss.h>
 
+#define SYSCFG_STANDBY_INIT	BIT(4)
+#define SYSCFG_SUB_MWAIT_READY	BIT(5)
+
 /**
  * struct pruss_soc_bus - PRUSS SoC bus structure
  * @syscfg: kernel mapped address for SYSCFG register
+ * @in_standby: flag for storing standby status
  * @has_reset: cached variable for storing global module reset flag
  */
 struct pruss_soc_bus {
 	void __iomem *syscfg;
+	bool in_standby;
 	bool has_reset;
 };
 
@@ -33,6 +39,81 @@ struct pruss_soc_bus {
 struct pruss_soc_bus_match_data {
 	bool has_reset;
 };
+
+static inline void pruss_soc_bus_rmw(void __iomem *reg, u32 mask, u32 set)
+{
+	u32 val;
+
+	val = readl_relaxed(reg);
+	val &= ~mask;
+	val |= (set & mask);
+	writel_relaxed(val, reg);
+}
+
+/*
+ * This function programs the PRUSS_SYSCFG.STANDBY_INIT bit to achieve dual
+ * functionalities - one is to deassert the MStandby signal to the device
+ * PRCM, and the other is to enable OCP master ports to allow accesses
+ * outside of the PRU-ICSS. The function has to wait for the PRCM to
+ * acknowledge through the monitoring of the PRUSS_SYSCFG.SUB_MWAIT bit.
+ */
+static
+int __maybe_unused pruss_soc_bus_enable_ocp_master_ports(struct device *dev)
+{
+	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
+	u32 syscfg_val, i;
+	bool ready = false;
+
+	pruss_soc_bus_rmw(psoc_bus->syscfg, SYSCFG_STANDBY_INIT, 0);
+
+	/* wait till we are ready for transactions - delay is arbitrary */
+	for (i = 0; i < 10; i++) {
+		syscfg_val = readl_relaxed(psoc_bus->syscfg);
+		ready = !(syscfg_val & SYSCFG_SUB_MWAIT_READY);
+		if (ready)
+			break;
+		udelay(5);
+	}
+
+	if (!ready) {
+		dev_err(dev, "timeout waiting for SUB_MWAIT_READY\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int __maybe_unused pruss_soc_bus_suspend(struct device *dev)
+{
+	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
+	u32 syscfg_val;
+
+	syscfg_val = readl_relaxed(psoc_bus->syscfg);
+	psoc_bus->in_standby = syscfg_val & SYSCFG_STANDBY_INIT;
+
+	/* initiate MStandby, undo the MStandby config in probe */
+	if (!psoc_bus->in_standby) {
+		pruss_soc_bus_rmw(psoc_bus->syscfg, SYSCFG_STANDBY_INIT,
+				  SYSCFG_STANDBY_INIT);
+	}
+
+	return 0;
+}
+
+static int __maybe_unused pruss_soc_bus_resume(struct device *dev)
+{
+	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
+	int ret = 0;
+
+	/* re-enable OCP master ports/disable MStandby */
+	if (!psoc_bus->in_standby) {
+		ret = pruss_soc_bus_enable_ocp_master_ports(dev);
+		if (ret)
+			dev_err(dev, "%s failed\n", __func__);
+	}
+
+	return ret;
+}
 
 static int pruss_soc_bus_probe(struct platform_device *pdev)
 {
@@ -136,9 +217,13 @@ static const struct of_device_id pruss_soc_bus_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, pruss_soc_bus_of_match);
 
+static SIMPLE_DEV_PM_OPS(pruss_soc_bus_pm_ops,
+			 pruss_soc_bus_suspend, pruss_soc_bus_resume);
+
 static struct platform_driver pruss_soc_bus_driver = {
 	.driver	= {
 		.name = "pruss-soc-bus",
+		.pm = &pruss_soc_bus_pm_ops,
 		.of_match_table = pruss_soc_bus_of_match,
 	},
 	.probe	= pruss_soc_bus_probe,
