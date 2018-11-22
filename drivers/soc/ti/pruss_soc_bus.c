@@ -72,8 +72,7 @@ static inline void pruss_soc_bus_rmw(void __iomem *reg, u32 mask, u32 set)
  * outside of the PRU-ICSS. The function has to wait for the PRCM to
  * acknowledge through the monitoring of the PRUSS_SYSCFG.SUB_MWAIT bit.
  */
-static
-int __maybe_unused pruss_soc_bus_enable_ocp_master_ports(struct device *dev)
+static int pruss_soc_bus_enable_ocp_master_ports(struct device *dev)
 {
 	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
 	u32 syscfg_val, i;
@@ -174,6 +173,11 @@ static int pruss_enable_module(struct device *dev)
 			  SYSCFG_IDLE_MODE_SMART);
 	pruss_soc_bus_rmw(psoc_bus->syscfg, SYSCFG_STANDBY_MODE_MASK,
 			  SYSCFG_STANDBY_MODE_SMART);
+
+	/* enable OCP master ports/disable MStandby */
+	ret = pruss_soc_bus_enable_ocp_master_ports(dev);
+	if (ret)
+		pruss_disable_module(dev);
 
 	return ret;
 }
