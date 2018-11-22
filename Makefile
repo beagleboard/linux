@@ -1236,8 +1236,10 @@ endif
 
 ifneq ($(dtstree),)
 
-%.dtb: include/config/kernel.release scripts_dtc
-	$(Q)$(MAKE) $(build)=$(dtstree) $(dtstree)/$@
+%.dtb %.dtbo: dtbdir=$(patsubst %/,%,$(patsubst %./,%,$(dtstree)/$(dir $@)))
+
+%.dtb %.dtbo: include/config/kernel.release scripts_dtc
+	$(Q)$(MAKE) $(build)=$(dtbdir) $(dtstree)/$@
 
 PHONY += dtbs dtbs_install dt_binding_check
 dtbs dtbs_check: include/config/kernel.release scripts_dtc
