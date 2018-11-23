@@ -43,4 +43,14 @@
 		clock-frequency = <48000000>;
 		current-speed = <115200>;
 	};
+
+	wkup_intr: interrupt-controller2 {
+		compatible = "ti,sci-intr";
+		interrupt-controller;
+		interrupt-parent = <&gic500>;
+		#interrupt-cells = <3>;
+		ti,sci = <&dmsc>;
+		ti,sci-dst-id = <56>;
+		ti,sci-rm-range-girq = <0x4>;
+	};
 };
