@@ -464,6 +464,28 @@ static const struct mfd_cell stmpe_ts_cell = {
 };
 
 /*
+ * ADC (STMPE811)
+ */
+
+static struct resource stmpe_adc_resources[] = {
+	{
+		.name	= "STMPE_TEMP_SENS",
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "STMPE_ADC",
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static const struct mfd_cell stmpe_adc_cell = {
+	.name		= "stmpe-adc",
+	.of_compatible	= "st,stmpe-adc",
+	.resources	= stmpe_adc_resources,
+	.num_resources	= ARRAY_SIZE(stmpe_adc_resources),
+};
+
+/*
  * STMPE811 or STMPE610
  */
 
@@ -497,6 +519,11 @@ static struct stmpe_variant_block stmpe811_blocks[] = {
 		.irq	= STMPE811_IRQ_TOUCH_DET,
 		.block	= STMPE_BLOCK_TOUCHSCREEN,
 	},
+	{
+		.cell	= &stmpe_adc_cell,
+		.irq	= STMPE811_IRQ_TEMP_SENS,
+		.block	= STMPE_BLOCK_ADC,
+	},
 };
 
 static int stmpe811_enable(struct stmpe *stmpe, unsigned int blocks,
@@ -515,6 +542,44 @@ static int stmpe811_enable(struct stmpe *stmpe, unsigned int blocks,
 
 	return __stmpe_set_bits(stmpe, stmpe->regs[STMPE_IDX_SYS_CTRL2], mask,
 				enable ? 0 : mask);
+}
+
+static int stmpe811_init_adc(struct stmpe *stmpe)
+{
+	int ret;
+	u8 adc_ctrl1, adc_ctrl1_mask;
+
+	ret = stmpe_enable(stmpe, STMPE_BLOCK_ADC);
+	if (ret) {
+		dev_err(stmpe->dev, "Could not enable clock for ADC\n");
+		goto err_adc;
+	}
+
+	adc_ctrl1 = STMPE_SAMPLE_TIME(stmpe->sample_time) |
+		    STMPE_MOD_12B(stmpe->mod_12b) |
+		    STMPE_REF_SEL(stmpe->ref_sel);
+	adc_ctrl1_mask = STMPE_SAMPLE_TIME(0xff) | STMPE_MOD_12B(0xff) |
+			 STMPE_REF_SEL(0xff);
+
+	ret = stmpe_set_bits(stmpe, STMPE811_REG_ADC_CTRL1,
+			adc_ctrl1_mask, adc_ctrl1);
+	if (ret) {
+		dev_err(stmpe->dev, "Could not setup ADC\n");
+		goto err_adc;
+	}
+
+	ret = stmpe_set_bits(stmpe, STMPE811_REG_ADC_CTRL2,
+			STMPE_ADC_FREQ(0xff), STMPE_ADC_FREQ(stmpe->adc_freq));
+	if (ret) {
+		dev_err(stmpe->dev, "Could not setup ADC\n");
+		goto err_adc;
+	}
+
+	return 0;
+err_adc:
+	stmpe_disable(stmpe, STMPE_BLOCK_ADC);
+
+	return ret;
 }
 
 static int stmpe811_get_altfunc(struct stmpe *stmpe, enum stmpe_block block)
@@ -1235,6 +1300,12 @@ static int stmpe_chip_init(struct stmpe *stmpe)
 			return ret;
 	}
 
+	if (id == STMPE811_ID) {
+		ret = stmpe811_init_adc(stmpe);
+		if (ret)
+			return ret;
+	}
+
 	return stmpe_reg_write(stmpe, stmpe->regs[STMPE_IDX_ICR_LSB], icr);
 }
 
@@ -1325,6 +1396,7 @@ int stmpe_probe(struct stmpe_client_info *ci, enum stmpe_partnum partnum)
 	struct device_node *np = ci->dev->of_node;
 	struct stmpe *stmpe;
 	int ret;
+	u32 val;
 
 	pdata = devm_kzalloc(ci->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -1341,6 +1413,15 @@ int stmpe_probe(struct stmpe_client_info *ci, enum stmpe_partnum partnum)
 
 	mutex_init(&stmpe->irq_lock);
 	mutex_init(&stmpe->lock);
+
+	if (!of_property_read_u32(np, "st,sample-time", &val))
+		stmpe->sample_time = val;
+	if (!of_property_read_u32(np, "st,mod-12b", &val))
+		stmpe->mod_12b = val;
+	if (!of_property_read_u32(np, "st,ref-sel", &val))
+		stmpe->ref_sel = val;
+	if (!of_property_read_u32(np, "st,adc-freq", &val))
+		stmpe->adc_freq = val;
 
 	stmpe->dev = ci->dev;
 	stmpe->client = ci->client;
