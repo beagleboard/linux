@@ -10,6 +10,15 @@
 #define __LINUX_PRUSS_H
 
 /**
+ * enum pruss_pru_id - PRU core identifiers
+ */
+enum pruss_pru_id {
+	PRUSS_PRU0 = 0,
+	PRUSS_PRU1,
+	PRUSS_NUM_PRUS,
+};
+
+/**
  * enum pru_ctable_idx - Configurable Constant table index identifiers
  */
 enum pru_ctable_idx {
@@ -42,6 +51,7 @@ static inline int pruss_intc_trigger(unsigned int irq)
 
 struct rproc *pru_rproc_get(struct device_node *node, int index);
 void pru_rproc_put(struct rproc *rproc);
+enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc);
 int pru_rproc_set_ctable(struct rproc *rproc, enum pru_ctable_idx c, u32 addr);
 
 #else
@@ -52,6 +62,11 @@ static inline struct rproc *pru_rproc_get(struct device_node *node, int index)
 }
 
 static inline void pru_rproc_put(struct rproc *rproc) { }
+
+static inline enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc)
+{
+	return -ENOTSUPP;
+}
 
 static inline int pru_rproc_set_ctable(struct rproc *rproc,
 				       enum pru_ctable_idx c, u32 addr)
