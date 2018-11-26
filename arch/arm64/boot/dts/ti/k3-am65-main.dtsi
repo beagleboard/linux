@@ -162,4 +162,44 @@
 		clocks = <&k3_clks 113 1>;
 		power-domains = <&k3_pds 113>;
 	};
+
+	main_gpio0:  main_gpio0@600000 {
+		compatible = "ti,k2g-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x600000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+			interrupt-parent = <&main_intr>;
+		interrupts = <57 256 IRQ_TYPE_EDGE_RISING>,
+				<57 257 IRQ_TYPE_EDGE_RISING>,
+				<57 258 IRQ_TYPE_EDGE_RISING>,
+				<57 259 IRQ_TYPE_EDGE_RISING>,
+				<57 260 IRQ_TYPE_EDGE_RISING>,
+				<57 261 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <96>;
+		ti,davinci-gpio-unbanked = <0>;
+		clocks = <&k3_clks 57 0>;
+		clock-names = "gpio";
+	};
+
+	main_gpio1:  main_gpio1@601000 {
+		compatible = "ti,k2g-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x601000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+			interrupt-parent = <&main_intr>;
+		interrupts = <58 256 IRQ_TYPE_EDGE_RISING>,
+				<58 257 IRQ_TYPE_EDGE_RISING>,
+				<58 258 IRQ_TYPE_EDGE_RISING>,
+				<58 259 IRQ_TYPE_EDGE_RISING>,
+				<58 260 IRQ_TYPE_EDGE_RISING>,
+				<58 261 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+			#interrupt-cells = <2>;
+		ti,ngpio = <90>;
+		ti,davinci-gpio-unbanked = <0>;
+		clocks = <&k3_clks 58 0>;
+		clock-names = "gpio";
+	};
 };

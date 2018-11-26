@@ -72,4 +72,22 @@
 		clocks = <&k3_clks 115 1>;
 		power-domains = <&k3_pds 115>;
 	};
+
+	wkup_gpio0: wkup_gpio0@42110000 {
+		compatible = "ti,k2g-gpio", "ti,keystone-gpio";
+		reg = <0x42110000 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+			interrupt-parent = <&wkup_intr>;
+		interrupts = <59 128 IRQ_TYPE_EDGE_RISING>,
+				<59 129 IRQ_TYPE_EDGE_RISING>,
+				<59 130 IRQ_TYPE_EDGE_RISING>,
+				<59 131 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <56>;
+		ti,davinci-gpio-unbanked = <0>;
+		clocks = <&k3_clks 59 0>;
+		clock-names = "gpio";
+	};
 };
