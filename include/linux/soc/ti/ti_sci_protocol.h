@@ -193,14 +193,118 @@ struct ti_sci_clk_ops {
 };
 
 /**
+ * struct ti_sci_rm_core_ops - Resource management core operations
+ * @get_range:		Get a range of resources belonging to ti sci host.
+ * @get_rage_from_shost:	Get a range of resources belonging to
+ *				specified host id.
+ *			- s_host: Host processing entity to which the
+ *				  resources are allocated
+ *
+ * NOTE: for these functions, all the parameters are consolidated and defined
+ * as below:
+ * - handle:	Pointer to TISCI handle as retrieved by *ti_sci_get_handle
+ * - dev_id:	TISCI device ID.
+ * - subtype:	Resource assignment subtype that is being requested
+ *		from the given device.
+ * - range_start:	Start index of the resource range
+ * - range_end:		Number of resources in the range
+ */
+struct ti_sci_rm_core_ops {
+	int (*get_range)(const struct ti_sci_handle *handle, u32 dev_id,
+			 u8 subtype, u16 *range_start, u16 *range_num);
+	int (*get_range_from_shost)(const struct ti_sci_handle *handle,
+				    u32 dev_id, u8 subtype, u8 s_host,
+				    u16 *range_start, u16 *range_num);
+};
+
+/**
+ * struct ti_sci_rm_irq_ops: IRQ management operations
+ * @set_direct_irq:		Set Non-event Sourced direct irq to destination
+ *				host(same host as ti sci interface id).
+ * @set_event_irq:		Set Event based peripheral irq to destination
+ *				host(same host as ti sci interface id).
+ * @set_direct_irq_from_shost:	Set Non-event Sourced direct irq to a
+ *				specified destination host.
+ * @set_event_irq_from_shost:	Set Event based peripheral irq to a
+ *				specified destination host.
+ * @set_event_irq_to_poll:	Set Event based peripheral irq to polling mode.
+ *				vint_status_bit is used for polling.
+ * @free_direct_irq:		Free a non-event sourced direct irq to
+ *				destination host(same as ti sci interface id)
+ * @free_event_irq:		Free an event based peripheral irq to
+ *				destination host(same as ti sci interface id)
+ * @free_direct_irq_from_shost:	Free non-event based direct irq from a
+ *				specified destination host.
+ * @free_event_irq_from_shost:	Free event based peripheral irq from a
+ *				specified destination host.
+ * @free_event_irq_to_poll:	Free an event based peripheral irq that is
+ *				configured in polling mode.
+ *
+ * NOTE: for these functions, all the parameters are consolidated and defined
+ * as below:
+ * - handle:	Pointer to TISCI handle as retrieved by *ti_sci_get_handle
+ * - src_id:	Device ID of the IRQ source
+ * - src_index:	IRQ source index within the source device
+ * - dst_id:	Device ID of the IRQ destination.
+ * - dst_host_irq:	IRQ number of the destination device.
+ * - ia_id:	Device ID of the IA, if the IRQ flows through this IA
+ * - vint:	Virtual interrupt to be used within the IA
+ * - global_event:	Global event number to be used for the requesting event.
+ * - vint_status_bit:	Virtual interrupt status bit to be used for the event.
+ * - s_host:	Secondary host ID to which the irq/event is being requested.
+ */
+struct ti_sci_rm_irq_ops {
+	int (*set_direct_irq)(const struct ti_sci_handle *handle, u16 src_id,
+			      u16 src_index, u16 dst_id, u16 dst_host_irq);
+	int (*set_event_irq)(const struct ti_sci_handle *handle, u16 src_id,
+			     u16 src_index, u16 dst_id, u16 dst_host_irq,
+			     u16 ia_id, u16 vint, u16 global_event,
+			     u8 vint_status_bit);
+	int (*set_direct_irq_from_shost)(const struct ti_sci_handle *handle,
+					 u16 src_id, u16 src_index, u16 dst_id,
+					 u16 dst_host_irq, u8 s_host);
+	int (*set_event_irq_from_shost)(const struct ti_sci_handle *handle,
+					u16 src_id, u16 src_index, u16 dst_id,
+					u16 dst_host_irq, u16 ia_id, u16 vint,
+					u16 global_event, u8 vint_status_bit,
+					u8 s_host);
+	int (*set_event_irq_to_poll)(const struct ti_sci_handle *handle,
+				     u16 src_id, u16 src_index, u16 ia_id,
+				     u16 vint, u16 global_event,
+				     u8 vint_status_bit);
+	int (*free_direct_irq)(const struct ti_sci_handle *handle, u16 src_id,
+			       u16 src_index, u16 dst_id, u16 dst_host_irq);
+	int (*free_event_irq)(const struct ti_sci_handle *handle, u16 src_id,
+			      u16 src_index, u16 dst_id, u16 dst_host_irq,
+			      u16 ia_id, u16 vint, u16 global_event,
+			      u8 vint_status_bit);
+	int (*free_direct_irq_from_shost)(const struct ti_sci_handle *handle,
+					  u16 src_id, u16 src_index, u16 dst_id,
+					  u16 dst_host_irq, u8 s_host);
+	int (*free_event_irq_from_shost)(const struct ti_sci_handle *handle,
+					 u16 src_id, u16 src_index, u16 dst_id,
+					 u16 dst_host_irq, u16 ia_id, u16 vint,
+					 u16 global_event, u8 vint_status_bit,
+					 u8 s_host);
+	int (*free_event_irq_to_poll)(const struct ti_sci_handle *handle,
+				      u16 src_id, u16 src_index, u16 ia_id,
+				      u16 vint, u16 global_event,
+				      u8 vint_status_bit);
+};
+
+/**
  * struct ti_sci_ops - Function support for TI SCI
  * @dev_ops:	Device specific operations
  * @clk_ops:	Clock specific operations
+ * @rm_core_ops:	Resource management core operations.
+ * @rm_irq_ops:		IRQ management specific operations
  */
 struct ti_sci_ops {
 	struct ti_sci_core_ops core_ops;
 	struct ti_sci_dev_ops dev_ops;
 	struct ti_sci_clk_ops clk_ops;
+	struct ti_sci_rm_core_ops rm_core_ops;
+	struct ti_sci_rm_irq_ops rm_irq_ops;
 };
 
 /**
@@ -213,10 +317,46 @@ struct ti_sci_handle {
 	struct ti_sci_ops ops;
 };
 
+#define TI_SCI_RESOURCE_NULL	0xffff
+
+/**
+ * struct ti_sci_resource_desc - Description of TI SCI resource instance range.
+ * @start:	Start index of the resource.
+ * @num:	Number of resources.
+ * @res_map:	Bitmap to manage the allocation of these resources.
+ */
+struct ti_sci_resource_desc {
+	u16 start;
+	u16 num;
+	unsigned long *res_map;
+};
+
+/**
+ * struct ti_sci_resource - Structure representing a resource assigned
+ *			    to a device.
+ * @sets:	Number of sets available from this resource type
+ * @lock:	Lock to guard the res map in each set.
+ * @desc:	Array of resource descriptors.
+ */
+struct ti_sci_resource {
+	u16 sets;
+	raw_spinlock_t lock;
+	struct ti_sci_resource_desc *desc;
+};
+
 #if IS_ENABLED(CONFIG_TI_SCI_PROTOCOL)
 const struct ti_sci_handle *ti_sci_get_handle(struct device *dev);
 int ti_sci_put_handle(const struct ti_sci_handle *handle);
 const struct ti_sci_handle *devm_ti_sci_get_handle(struct device *dev);
+const struct ti_sci_handle *ti_sci_get_by_phandle(struct device_node *np,
+						  const char *property);
+const struct ti_sci_handle *devm_ti_sci_get_by_phandle(struct device *dev,
+						       const char *property);
+u16 ti_sci_get_free_resource(struct ti_sci_resource *res);
+void ti_sci_release_resource(struct ti_sci_resource *res, u16 id);
+struct ti_sci_resource *
+devm_ti_sci_get_of_resource(const struct ti_sci_handle *handle,
+			    struct device *dev, u32 dev_id, char *of_prop);
 
 #else	/* CONFIG_TI_SCI_PROTOCOL */
 
@@ -236,6 +376,35 @@ const struct ti_sci_handle *devm_ti_sci_get_handle(struct device *dev)
 	return ERR_PTR(-EINVAL);
 }
 
+static inline
+const struct ti_sci_handle *ti_sci_get_by_phandle(struct device_node *np,
+						  const char *property)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+static inline
+const struct ti_sci_handle *devm_ti_sci_get_by_phandle(struct device *dev,
+						       const char *property)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+static inline u16 ti_sci_get_free_resource(struct ti_sci_resource *res)
+{
+	return TI_SCI_RESOURCE_NULL;
+}
+
+static inline void ti_sci_release_resource(struct ti_sci_resource *res, u16 id)
+{
+}
+
+static inline struct ti_sci_resource *
+devm_ti_sci_get_of_resource(const struct ti_sci_handle *handle,
+			    struct device *dev, u32 dev_id, char *of_prop)
+{
+	return ERR_PTR(-EINVAL);
+}
 #endif	/* CONFIG_TI_SCI_PROTOCOL */
 
 #endif	/* __TISCI_PROTOCOL_H */
