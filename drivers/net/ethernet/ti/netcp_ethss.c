@@ -2600,10 +2600,9 @@ static int gbe_rxtstamp(struct gbe_intf *gbe_intf, struct netcp_packet *p_info)
 		return 0;
 	}
 
-	if (gbe_dev->rx_ts_enabled)
-		cpts_rx_timestamp(gbe_dev->cpts, p_info->skb);
-
-	p_info->rxtstamp_complete = true;
+	if (gbe_dev->rx_ts_enabled &&
+	    !cpts_rx_timestamp(gbe_dev->cpts, p_info->skb))
+		p_info->rxtstamp_complete = true;
 
 	return 0;
 }
