@@ -75,6 +75,7 @@ struct udma_rflow {
 };
 
 struct udma_match_data {
+	bool enable_memcpy_support;
 	u8 tpl_levels;
 	u32 level_start_idx[];
 };
@@ -3010,6 +3011,7 @@ static struct dma_chan *udma_of_xlate(struct of_phandle_args *dma_spec,
 }
 
 struct udma_match_data am654_main_data = {
+	.enable_memcpy_support = true,
 	.tpl_levels = 2,
 	.level_start_idx = {
 		[0] = 8, /* Normal channels */
@@ -3018,6 +3020,7 @@ struct udma_match_data am654_main_data = {
 };
 
 struct udma_match_data am654_mcu_data = {
+	.enable_memcpy_support = false, /* MEM_TO_MEM is slow via MCU UDMA */
 	.tpl_levels = 2,
 	.level_start_idx = {
 		[0] = 2, /* Normal channels */
@@ -3257,13 +3260,11 @@ static int udma_probe(struct platform_device *pdev)
 
 	dma_cap_set(DMA_SLAVE, ud->ddev.cap_mask);
 	dma_cap_set(DMA_CYCLIC, ud->ddev.cap_mask);
-	dma_cap_set(DMA_MEMCPY, ud->ddev.cap_mask);
 
 	ud->ddev.device_alloc_chan_resources = udma_alloc_chan_resources;
 	ud->ddev.device_config = udma_slave_config;
 	ud->ddev.device_prep_slave_sg = udma_prep_slave_sg;
 	ud->ddev.device_prep_dma_cyclic = udma_prep_dma_cyclic;
-	ud->ddev.device_prep_dma_memcpy = udma_prep_dma_memcpy;
 	ud->ddev.device_issue_pending = udma_issue_pending;
 	ud->ddev.device_tx_status = udma_tx_status;
 	ud->ddev.device_pause = udma_pause;
@@ -3274,12 +3275,17 @@ static int udma_probe(struct platform_device *pdev)
 	ud->ddev.device_free_chan_resources = udma_free_chan_resources;
 	ud->ddev.src_addr_widths = TI_UDMAC_BUSWIDTHS;
 	ud->ddev.dst_addr_widths = TI_UDMAC_BUSWIDTHS;
-	ud->ddev.directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV) |
-			      BIT(DMA_MEM_TO_MEM);
+	ud->ddev.directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV);
 	ud->ddev.residue_granularity = DMA_RESIDUE_GRANULARITY_BURST;
 	ud->ddev.copy_align = DMAENGINE_ALIGN_8_BYTES;
 	ud->ddev.desc_metadata_modes = DESC_METADATA_CLIENT |
 				       DESC_METADATA_ENGINE;
+	if (ud->match_data->enable_memcpy_support) {
+		dma_cap_set(DMA_MEMCPY, ud->ddev.cap_mask);
+		ud->ddev.device_prep_dma_memcpy = udma_prep_dma_memcpy;
+		ud->ddev.directions |= BIT(DMA_MEM_TO_MEM);
+	}
+
 	ud->ddev.dev = dev;
 	ud->dev = dev;
 
