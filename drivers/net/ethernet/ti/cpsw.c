@@ -2379,6 +2379,83 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 			dev_err(priv->dev, "Invalid Port number\n");
 		}
 		break;
+	case CONFIG_SWITCH_GET_PORT_VLAN_CONFIG:
+	{
+		u32 __iomem *port_vlan_reg;
+		u32 port_vlan;
+
+		switch (config.port) {
+		case 0:
+			port_vlan_reg = &cpsw->host_port_regs->port_vlan;
+			port_vlan = readl(port_vlan_reg);
+			ret = 0;
+
+			break;
+		case 1:
+		case 2:
+		{
+			int slave = config.port - 1;
+			int reg = CPSW2_PORT_VLAN;
+
+			if (cpsw->version == CPSW_VERSION_1)
+				reg = CPSW1_PORT_VLAN;
+
+			port_vlan = slave_read(cpsw->slaves + slave, reg);
+			ret = 0;
+
+			break;
+		}
+		default:
+			dev_err(priv->dev, "Invalid Port number\n");
+			break;
+		}
+
+		if (!ret) {
+			config.vid = port_vlan & 0xfff;
+			config.vlan_cfi = port_vlan & BIT(12) ? true : false;
+			config.prio = (port_vlan >> 13) & 0x7;
+			ret = copy_to_user(ifrq->ifr_data, &config,
+					   sizeof(config));
+		}
+		break;
+	}
+	case CONFIG_SWITCH_SET_PORT_VLAN_CONFIG:
+	{
+		void __iomem *port_vlan_reg;
+		u32 port_vlan;
+
+		port_vlan = config.vid;
+		port_vlan |= config.vlan_cfi ? BIT(12) : 0;
+		port_vlan |= (config.prio & 0x7) << 13;
+
+		switch (config.port) {
+		case 0:
+			port_vlan_reg = &cpsw->host_port_regs->port_vlan;
+			writel(port_vlan, port_vlan_reg);
+			ret = 0;
+
+			break;
+		case 1:
+		case 2:
+		{
+			int slave = config.port - 1;
+			int reg = CPSW2_PORT_VLAN;
+
+			if (cpsw->version == CPSW_VERSION_1)
+				reg = CPSW1_PORT_VLAN;
+
+			slave_write(cpsw->slaves + slave, port_vlan, reg);
+			ret = 0;
+
+			break;
+		}
+		default:
+			dev_err(priv->dev, "Invalid Port number\n");
+			break;
+		}
+
+		break;
+	}
 
 	default:
 		ret = -EOPNOTSUPP;
