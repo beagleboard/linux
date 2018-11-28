@@ -615,7 +615,8 @@ struct dma_chan *dma_get_slave_channel(struct dma_chan *chan)
 }
 EXPORT_SYMBOL_GPL(dma_get_slave_channel);
 
-struct dma_chan *dma_get_any_slave_channel(struct dma_device *device)
+struct dma_chan *dmadev_get_slave_channel(struct dma_device *device,
+					  dma_filter_fn fn, void *fn_param)
 {
 	dma_cap_mask_t mask;
 	struct dma_chan *chan;
@@ -626,13 +627,13 @@ struct dma_chan *dma_get_any_slave_channel(struct dma_device *device)
 	/* lock against __dma_request_channel */
 	mutex_lock(&dma_list_mutex);
 
-	chan = find_candidate(device, &mask, NULL, NULL);
+	chan = find_candidate(device, &mask, fn, fn_param);
 
 	mutex_unlock(&dma_list_mutex);
 
 	return IS_ERR(chan) ? NULL : chan;
 }
-EXPORT_SYMBOL_GPL(dma_get_any_slave_channel);
+EXPORT_SYMBOL_GPL(dmadev_get_slave_channel);
 
 /**
  * __dma_request_channel - try to allocate an exclusive channel
