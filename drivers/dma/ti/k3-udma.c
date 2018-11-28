@@ -3390,6 +3390,9 @@ static struct platform_driver udma_driver = {
 
 module_platform_driver(udma_driver);
 
+/* Private interfaces to UDMA */
+#include "k3-udma-private.c"
+
 MODULE_ALIAS("platform:ti-udma");
 MODULE_DESCRIPTION("TI K3 DMA driver for CPPI 5.0 compliant devices");
 MODULE_AUTHOR("Peter Ujfalusi <peter.ujfalusi@ti.com>");
