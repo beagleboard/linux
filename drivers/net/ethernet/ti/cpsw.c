@@ -471,6 +471,7 @@ struct cpsw_priv {
 	int				rx_ts_enabled;
 	u32 emac_port;
 	struct cpsw_common *cpsw;
+	u8				port_state[3];
 };
 
 struct cpsw_stats {
@@ -1148,7 +1149,8 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
 
 		/* enable forwarding */
 		cpsw_ale_control_set(cpsw->ale, slave_port,
-				     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
+				     ALE_PORT_STATE,
+				     priv->port_state[slave_port]);
 
 		if (phy->speed == 1000)
 			mac_control |= BIT(7);	/* GIGABITEN	*/
@@ -1481,6 +1483,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
 	slave->mac_control = 0;	/* no link yet */
 
 	slave_port = cpsw_get_slave_port(slave->slave_num);
+	priv->port_state[slave_port] = ALE_PORT_STATE_FORWARD;
 
 	if (cpsw->data.dual_emac)
 		cpsw_add_dual_emac_def_ale_entries(priv, slave, slave_port);
@@ -2212,6 +2215,30 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 }
 #endif /*CONFIG_TI_CPTS*/
 
+static int cpsw_set_port_state(struct cpsw_priv *priv, int port,
+			       int port_state)
+{
+	switch (port_state) {
+	case PORT_STATE_DISABLED:
+		priv->port_state[port] = ALE_PORT_STATE_DISABLE;
+		break;
+	case PORT_STATE_BLOCKED:
+		priv->port_state[port] = ALE_PORT_STATE_BLOCK;
+		break;
+	case PORT_STATE_LEARN:
+		priv->port_state[port] = ALE_PORT_STATE_LEARN;
+		break;
+	case PORT_STATE_FORWARD:
+		priv->port_state[port] = ALE_PORT_STATE_FORWARD;
+		break;
+	default:
+		dev_err(priv->dev, "Switch config: Invalid port state\n");
+		return -EINVAL;
+	}
+	return cpsw_ale_control_set(priv->cpsw->ale, port, ALE_PORT_STATE,
+			priv->port_state[port]);
+}
+
 static int cpsw_switch_config_ioctl(struct net_device *ndev,
 				    struct ifreq *ifrq, int cmd)
 {
@@ -2333,6 +2360,23 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 			ret = 0;
 		} else {
 			dev_err(priv->dev, "Invalid Unknown VLAN Arguments\n");
+		}
+		break;
+	case CONFIG_SWITCH_GET_PORT_STATE:
+		if (config.port == 1 || config.port == 2) {
+			config.port_state = priv->port_state[config.port];
+			ret = copy_to_user(ifrq->ifr_data, &config,
+					   sizeof(config));
+		} else {
+			dev_err(priv->dev, "Invalid Port number\n");
+		}
+		break;
+	case CONFIG_SWITCH_SET_PORT_STATE:
+		if (config.port == 1 || config.port == 2) {
+			ret = cpsw_set_port_state(priv, config.port,
+						  config.port_state);
+		} else {
+			dev_err(priv->dev, "Invalid Port number\n");
 		}
 		break;
 
