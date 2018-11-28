@@ -2456,6 +2456,23 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 
 		break;
 	}
+	case CONFIG_SWITCH_RATELIMIT:
+	{
+		if (config.port > 2) {
+			dev_err(priv->dev, "Invalid Port number\n");
+			break;
+		}
+
+		ret = cpsw_ale_set_ratelimit(cpsw->ale,
+					     cpsw->bus_freq_mhz * 1000000,
+					     config.port,
+					     config.bcast_rate_limit,
+					     config.mcast_rate_limit,
+					     !!config.direction);
+		if (ret)
+			dev_err(priv->dev, "CPSW_ALE set ratelimit failed");
+		break;
+	}
 
 	default:
 		ret = -EOPNOTSUPP;

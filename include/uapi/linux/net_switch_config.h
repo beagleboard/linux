@@ -23,6 +23,7 @@ enum {
 	CONFIG_SWITCH_SET_PORT_STATE,
 	CONFIG_SWITCH_GET_PORT_VLAN_CONFIG,
 	CONFIG_SWITCH_SET_PORT_VLAN_CONFIG,
+	CONFIG_SWITCH_RATELIMIT,
 };
 
 enum {
@@ -53,6 +54,9 @@ struct net_switch_config {
 	unsigned int	port_state;
 	unsigned int	prio;
 	bool		vlan_cfi;
+	unsigned int	bcast_rate_limit;
+	unsigned int	mcast_rate_limit;
+	bool		direction;
 
 	unsigned int ret_type;   /* Return  Success/Failure */
 };
