@@ -559,6 +559,15 @@ static int cpts_of_parse(struct cpts *cpts, struct device_node *node)
 	    (!cpts->cc.mult && cpts->cc.shift))
 		goto of_error;
 
+	if (!of_property_read_u32(node, "cpts-rftclk-sel", &prop)) {
+		if (prop & ~CPTS_RFTCLK_SEL_MASK) {
+			dev_err(cpts->dev, "cpts: invalid cpts_rftclk_sel.\n");
+			goto of_error;
+		}
+		cpts->caps |= CPTS_CAP_RFTCLK_SEL;
+		cpts->rftclk_sel = prop & CPTS_RFTCLK_SEL_MASK;
+	}
+
 	return 0;
 
 of_error:
@@ -591,6 +600,9 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
 	}
 
 	clk_prepare(cpts->refclk);
+
+	if (cpts->caps & CPTS_CAP_RFTCLK_SEL)
+		cpts_write32(cpts, cpts->rftclk_sel, rftclk_sel);
 
 	cpts->cc.read = cpts_systim_read;
 	cpts->cc.mask = CLOCKSOURCE_MASK(32);
