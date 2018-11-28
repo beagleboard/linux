@@ -2313,6 +2313,28 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 		ret = copy_to_user(ifrq->ifr_data, &config, sizeof(config));
 		break;
 	}
+	case CONFIG_SWITCH_ADD_UNKNOWN_VLAN_INFO:
+		if ((config.unknown_vlan_member <= 7) &&
+		    (config.unknown_vlan_untag <= 7) &&
+		    (config.unknown_vlan_unreg_multi <= 7) &&
+		    (config.unknown_vlan_reg_multi <= 7)) {
+			cpsw_ale_control_set(cpsw->ale, 0,
+					     ALE_PORT_UNTAGGED_EGRESS,
+					     config.unknown_vlan_untag);
+			cpsw_ale_control_set(cpsw->ale, 0,
+					     ALE_PORT_UNKNOWN_REG_MCAST_FLOOD,
+					     config.unknown_vlan_reg_multi);
+			cpsw_ale_control_set(cpsw->ale, 0,
+					     ALE_PORT_UNKNOWN_MCAST_FLOOD,
+					     config.unknown_vlan_unreg_multi);
+			cpsw_ale_control_set(cpsw->ale, 0,
+					     ALE_PORT_UNKNOWN_VLAN_MEMBER,
+					     config.unknown_vlan_member);
+			ret = 0;
+		} else {
+			dev_err(priv->dev, "Invalid Unknown VLAN Arguments\n");
+		}
+		break;
 
 	default:
 		ret = -EOPNOTSUPP;
