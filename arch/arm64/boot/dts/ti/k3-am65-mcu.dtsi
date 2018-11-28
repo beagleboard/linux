@@ -26,4 +26,78 @@
 		clocks = <&k3_clks 114 1>;
 		power-domains = <&k3_pds 114>;
 	};
+
+	mcu_navss: mcu_navss {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		dma-coherent;
+		dma-ranges;
+		ranges;
+
+		ti,sci-dev-id = <119>;
+
+		mcu_ringacc: ringacc@2b800000 {
+			compatible = "ti,am654-navss-ringacc";
+			reg =	<0x0 0x2b800000 0x0 0x400000>,
+				<0x0 0x2b000000 0x0 0x400000>,
+				<0x0 0x28590000 0x0 0x100>,
+				<0x0 0x2a500000 0x0 0x40000>;
+			reg-names = "rt", "fifos", "proxy_gcfg", "proxy_target";
+			ti,num-rings = <286>;
+			ti,gp-rings = <96 255>; /* start, cnt */
+			ti,dma-ring-reset-quirk;
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <195>;
+			interrupt-parent = <&main_udmass_inta>;
+		};
+
+		mcu_udmap: udmap@31150000 {
+			compatible = "ti,am654-navss-mcu-udmap";
+			reg =	<0x0 0x285c0000 0x0 0x100>,
+				<0x0 0x2a800000 0x0 0x40000>,
+				<0x0 0x2aa00000 0x0 0x40000>;
+			reg-names = "gcfg", "rchanrt", "tchanrt";
+			#dma-cells = <3>;
+
+			ti,ringacc = <&mcu_ringacc>;
+			ti,psil-base = <0x6000>;
+
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <194>;
+
+			ti,sci-rm-range-tchan = <0x1>, /* TX_HCHAN */
+						<0x2>; /* TX_CHAN */
+			ti,sci-rm-range-rchan = <0x3>, /* RX_HCHAN */
+						<0x4>; /* RX_CHAN */
+			ti,sci-rm-range-rflow = <0x5>; /* GP RFLOW */
+
+			interrupt-parent = <&main_udmass_inta>;
+		};
+	};
+
+	mcu_pdma0: pdma@40710000 {
+		compatible = "ti,am654-pdma";
+		reg = <0x0 0x40710000 0x0 0x400>;
+		reg-names = "eccaggr_cfg";
+
+		ti,psil-base = <0x7100>;
+
+		/* ti,psil-config0-3 */
+		UDMA_PDMA_TR_XY(0);
+		UDMA_PDMA_TR_XY(1);
+		UDMA_PDMA_TR_XY(2);
+		UDMA_PDMA_TR_XY(3);
+	};
+
+	mcu_pdma1: pdma@40711000 {
+		compatible = "ti,am654-pdma";
+		reg = <0x0 0x40711000 0x0 0x400>;
+		reg-names = "eccaggr_cfg";
+
+		ti,psil-base = <0x7200>;
+
+		/* ti,psil-config18 */
+		UDMA_PDMA_PKT_XY(18);
+	};
 };
