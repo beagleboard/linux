@@ -1216,6 +1216,7 @@ static int udma_get_rchan(struct udma_chan *uc)
 static int udma_get_chan_pair(struct udma_chan *uc)
 {
 	struct udma_dev *ud = uc->ud;
+	struct udma_match_data *match_data = ud->match_data;
 	int chan_id, end;
 
 	if ((uc->tchan && uc->rchan) && uc->tchan->id == uc->rchan->id) {
@@ -1236,8 +1237,9 @@ static int udma_get_chan_pair(struct udma_chan *uc)
 
 	/* Can be optimized, but let's have it like this for now */
 	end = min(ud->tchan_cnt, ud->rchan_cnt);
-	for (chan_id = ud->match_data->level_start_idx[UDMA_TP_NORMAL];
-	     chan_id < end; chan_id++) {
+	/* Try to use the highest TPL channel pair for MEM_TO_MEM channels */
+	chan_id = match_data->level_start_idx[match_data->tpl_levels - 1];
+	for (; chan_id < end; chan_id++) {
 		if (!test_bit(chan_id, ud->tchan_map) &&
 		    !test_bit(chan_id, ud->rchan_map))
 			break;
