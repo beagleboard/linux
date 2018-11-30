@@ -1,0 +1,213 @@
+TI AM654 SoC Gigabit Ethernet Switch (CPSW) subsystem Device Tree Bindings
+------------------------------------------------------
+
+The TI am654 SoC Gigabit Ethernet Switch subsystem (CPSW NUSS) has two ports and
+provides Ethernet packet communication for the device and can be configured
+as an Ethernet switch. CPSW NUSS features: the Reduced Gigabit Media Independent
+Interface (RGMII), Reduced Media Independent Interface (RMII), and the
+Management Data Input/Output (MDIO) interface for physical layer device
+(PHY) management.
+
+The TI am654 SoC has integrated two-port Gigabit Ethernet Switch subsystem
+into device MCU domain named MCU_CPSW0. One Ethernet port (port 1) with
+selectable RGMII and RMII interfaces and an internal Communications
+Port Programming Interface (CPPI) port (Host port 0).
+
+Host Port 0 CPPI Packet Streaming Interface interface supports 8 TX channels
+and on RX channels operating by TI am654 NAVSS Unified DMA Peripheral Root
+Complex (UDMA-P) controller.
+
+Required properties:
+- compatible	: Should be "ti,am654-cpsw-nuss"
+- reg		: physical base address and size of the CPSW NUSS registers map
+- reg-names	: should be "cpsw_nuss"
+
+- clocks	: CPSW NUSS functional clock
+- clock-names	: should be "fck"
+		See Documentation/devicetree/bindings/clock/ti,sci-clk.txt
+- power-domains : CPSW NUSS power domain
+		See Documentation/devicetree/bindings/soc/ti/sci-pm-domain.txt
+
+- interrupt-parent : The parent interrupt controller - should point on TI
+		System Control Interface (TI-SCI) IRQCHIP phandle
+		See Documentation/devicetree/bindings/interrupt-controller/ti,sci-irq.txt
+
+- dma-coherent	: indicates that CPSW NUSS operates with coherent memory.
+- dmas		: list of UDMA-P controller channels specifiers
+- dma-names	: should be "tx0", "tx1", "tx2", "tx3", "tx4", "tx5", "tx6",
+		"tx7", "rx";
+- ti,psil-base : CPSW NUSS PSI-L endpoint thread ID base of the UDMA-P channels
+		Within the PSI-L endpoint node thread configuration subnodes
+		must present with ti,psil-configX naming convention,
+		where X is the thread ID offset.
+		See Documentation/devicetree/bindings/dma/ti/k3-udma.txt
+
+Optional properties:
+- ti,rx-flow-id-base : specifies fixed UDMA-P RX flow id offset to be used
+		by RX CPPI DMA channel. It will be selected dynamically
+		if not specified.
+
+- syscon	: Phandle to the system control device node, which is
+		the control module device of the am33x
+
+Required Sub-nodes:
+- ti,psil-config0..ti,psil-config7 : PSI-L endpoint node threads configuration
+		subnodes
+
+	Required properties:
+	- linux,udma-mode : should be UDMA_PKT_MODE
+	- statictr-type : should be PSIL_STATIC_TR_NONE
+	- ti,needs-epib : CPSW NUSS provides/accepts EPIB with each packet
+	- ti,psd-size	: CPSW NUSS provides/accepts 16 bytes of PS data with
+			each packet
+
+- ports	: contains CPSW NUSS ports descriptions
+	Required properties - all ports:
+	- reg : CPSW NUSS port number. Should be 0,1 for TI am654 SoC
+		0 - Host port 0
+		1.. - external Ethernet ports
+
+	Optional properties - all ports:
+	- ti,label : Describes the label associated with this port
+
+	Required properties for - external Ethernet ports:
+	- phy-mode : operation mode of the PHY interface [1]
+	- phy-handle : phandle, specifies a reference to a node representing
+		a PHY device [1]
+
+	Optional properties for - external Ethernet ports:
+	- ti,mac-only: port operates in MAC only mode
+	- mac-address : array of 6 bytes, specifies the MAC address. Always
+		accounted first if present [1]
+	- ti,syscon-efuse: tuple of two cells. First is phandle on syscon System
+		Control Module (SCM) node. Second is offset inside SCM points on
+		efuse registers containing Ethernet MAC address.
+		Accounted second if "mac-address" doesn't present.
+
+- mdio : CPSW NUSS MDIO bus description
+	- bus_freq : MDIO Bus frequency
+	See Documentation/devicetree/bindings/net/mdio.txt
+
+- cpsw-phy-sel: CPSW NUSS PHY mode Selection device description
+	Documentation/devicetree/bindings/net/cpsw-phy-sel.txt
+
+- cpts : The Common Platform Time Sync (CPTS) module description
+	Documentation/devicetree/bindings/net/ti,am654-cpts.txt
+
+[1] See Documentation/devicetree/bindings/net/ethernet.txt
+
+Examples:
+
+mcu_cpsw: cpsw_nuss@046000000 {
+	compatible = "ti,am654-cpsw-nuss";
+	#address-cells = <2>;
+	#size-cells = <2>;
+	reg = <0x0 0x46000000 0x0 0x200000>;
+	reg-names = "cpsw_nuss";
+	ranges;
+	dma-coherent;
+	clocks = <&k3_clks 5 10>;
+	clock-names = "fck";
+	power-domains = <&k3_pds 5>;
+	ti,psil-base = <0x7000>;
+
+	interrupt-parent = <&k3_irq>;
+
+	dmas = <&mcu_udmap &mcu_cpsw 0 UDMA_DIR_TX>,
+	       <&mcu_udmap &mcu_cpsw 1 UDMA_DIR_TX>,
+	       <&mcu_udmap &mcu_cpsw 2 UDMA_DIR_TX>,
+	       <&mcu_udmap &mcu_cpsw 3 UDMA_DIR_TX>,
+	       <&mcu_udmap &mcu_cpsw 4 UDMA_DIR_TX>,
+	       <&mcu_udmap &mcu_cpsw 5 UDMA_DIR_TX>,
+	       <&mcu_udmap &mcu_cpsw 6 UDMA_DIR_TX>,
+	       <&mcu_udmap &mcu_cpsw 7 UDMA_DIR_TX>,
+	       <&mcu_udmap &mcu_cpsw 0 UDMA_DIR_RX>;
+	dma-names = "tx0", "tx1", "tx2", "tx3",
+		    "tx4", "tx5", "tx6", "tx7",
+		    "rx";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		host: host@0 {
+			reg = <0>;
+			ti,label = "host";
+		};
+
+		cpsw_port1: port@1 {
+			reg = <1>;
+			ti,mac-only;
+			ti,label = "port1";
+			ti,syscon-efuse = <&mcu_conf 0x200>;
+		};
+	};
+
+	davinci_mdio: mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		bus_freq = <1000000>;
+	};
+
+	phy_sel: cpsw-phy-sel@40f04040 {
+		compatible = "ti,am654-cpsw-phy-sel";
+		reg= <0x0 0x40f04040 0x0 0x4>;
+		reg-names = "gmii-sel";
+	};
+
+	ti,psil-config0 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		statictr-type = <PSIL_STATIC_TR_NONE>;
+		ti,needs-epib;
+		ti,psd-size = <16>;
+	};
+
+	ti,psil-config1 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		statictr-type = <PSIL_STATIC_TR_NONE>;
+		ti,needs-epib;
+		ti,psd-size = <16>;
+	};
+
+	ti,psil-config2 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		statictr-type = <PSIL_STATIC_TR_NONE>;
+		ti,needs-epib;
+		ti,psd-size = <16>;
+	};
+
+	ti,psil-config3 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		statictr-type = <PSIL_STATIC_TR_NONE>;
+		ti,needs-epib;
+		ti,psd-size = <16>;
+	};
+
+	ti,psil-config4 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		statictr-type = <PSIL_STATIC_TR_NONE>;
+		ti,needs-epib;
+		ti,psd-size = <16>;
+	};
+
+	ti,psil-config5 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		statictr-type = <PSIL_STATIC_TR_NONE>;
+		ti,needs-epib;
+		ti,psd-size = <16>;
+	};
+
+	ti,psil-config6 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		statictr-type = <PSIL_STATIC_TR_NONE>;
+		ti,needs-epib;
+		ti,psd-size = <16>;
+	};
+
+	ti,psil-config7 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		statictr-type = <PSIL_STATIC_TR_NONE>;
+		ti,needs-epib;
+		ti,psd-size = <16>;
+	};
+};
