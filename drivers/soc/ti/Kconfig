@@ -93,4 +93,12 @@ config TI_K3_RINGACC_DEBUG
 	depends on TI_K3_RINGACC
 	default n
 
+config TI_K3_UDMA_DESC_POOL
+	tristate "K3 CPPI5 DMA descriptors pool"
+	depends on ARCH_K3
+	help
+	  Say y here to enable support for creating and maintaining a
+	  pool of descriptors usable with CPPI5 DMA. Such pools are
+	  required for networking usecases.
+
 endif # SOC_TI
