@@ -40,6 +40,11 @@ struct cpts_skb_cb_data {
 #define cpts_read32(c, r)	readl_relaxed(&c->reg->r)
 #define cpts_write32(c, v, r)	writel_relaxed(v, &c->reg->r)
 
+static int cpts_event_port(struct cpts_event *event)
+{
+	return (event->high >> PORT_NUMBER_SHIFT) & PORT_NUMBER_MASK;
+}
+
 static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
 		      u16 ts_seqid, u8 ts_msgtype);
 
@@ -86,6 +91,25 @@ static int cpts_purge_events(struct cpts *cpts)
 	return removed ? 0 : -1;
 }
 
+static void cpts_purge_txq(struct cpts *cpts)
+{
+	struct cpts_skb_cb_data *skb_cb;
+	struct sk_buff *skb, *tmp;
+	int removed = 0;
+
+	skb_queue_walk_safe(&cpts->txq, skb, tmp) {
+		skb_cb = (struct cpts_skb_cb_data *)skb->cb;
+		if (time_after(jiffies, skb_cb->tmo)) {
+			__skb_unlink(skb, &cpts->txq);
+			dev_consume_skb_any(skb);
+			++removed;
+		}
+	}
+
+	if (removed)
+		dev_dbg(cpts->dev, "txq cleaned up %d\n", removed);
+}
+
 static bool cpts_match_tx_ts(struct cpts *cpts, struct cpts_event *event)
 {
 	struct sk_buff *skb, *tmp;
@@ -119,9 +143,7 @@ static bool cpts_match_tx_ts(struct cpts *cpts, struct cpts_event *event)
 
 		if (time_after(jiffies, skb_cb->tmo)) {
 			/* timeout any expired skbs over 1s */
-			dev_dbg(cpts->dev,
-				"expiring tx timestamp mtype %u seqid %04x\n",
-				mtype, seqid);
+			dev_dbg(cpts->dev, "expiring tx timestamp from txq\n");
 			__skb_unlink(skb, &cpts->txq);
 			dev_consume_skb_any(skb);
 		}
@@ -149,11 +171,18 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
 		}
 
 		event = list_first_entry(&cpts->pool, struct cpts_event, list);
-		event->tmo = jiffies + 2;
+		event->tmo = jiffies +
+			     msecs_to_jiffies(CPTS_EVENT_RX_TX_TIMEOUT);
 		event->high = hi;
 		event->low = lo;
 		type = event_type(event);
 		switch (type) {
+		case CPTS_EV_HW:
+			event->tmo +=
+				msecs_to_jiffies(CPTS_EVENT_HWSTAMP_TIMEOUT);
+			list_del_init(&event->list);
+			list_add_tail(&event->list, &cpts->events);
+			break;
 		case CPTS_EV_TX:
 			if (cpts_match_tx_ts(cpts, event)) {
 				/* if the new event matches an existing skb,
@@ -169,7 +198,6 @@ static int cpts_fifo_read(struct cpts *cpts, int match)
 			break;
 		case CPTS_EV_ROLL:
 		case CPTS_EV_HALF:
-		case CPTS_EV_HW:
 			break;
 		default:
 			pr_err("cpts: unknown event type\n");
@@ -278,9 +306,82 @@ static int cpts_ptp_settime(struct ptp_clock_info *ptp,
 	return 0;
 }
 
+static int cpts_report_ts_events(struct cpts *cpts)
+{
+	struct list_head *this, *next;
+	struct ptp_clock_event pevent;
+	struct cpts_event *event;
+	int reported = 0, ev;
+
+	list_for_each_safe(this, next, &cpts->events) {
+		event = list_entry(this, struct cpts_event, list);
+		ev = event_type(event);
+		if (ev == CPTS_EV_HW) {
+			list_del_init(&event->list);
+			list_add(&event->list, &cpts->pool);
+			/* report the event */
+			pevent.timestamp =
+				timecounter_cyc2time(&cpts->tc, event->low);
+			pevent.type = PTP_CLOCK_EXTTS;
+			pevent.index = cpts_event_port(event) - 1;
+			ptp_clock_event(cpts->clock, &pevent);
+			++reported;
+			continue;
+		}
+	}
+	return reported;
+}
+
+/* HW TS */
+static int cpts_extts_enable(struct cpts *cpts, u32 index, int on)
+{
+	unsigned long flags;
+	u32 v;
+
+	if (index >= cpts->info.n_ext_ts)
+		return -ENXIO;
+
+	if (((cpts->hw_ts_enable & BIT(index)) >> index) == on)
+		return 0;
+
+	spin_lock_irqsave(&cpts->lock, flags);
+
+	v = cpts_read32(cpts, control);
+	if (on) {
+		v |= BIT(8 + index);
+		cpts->hw_ts_enable |= BIT(index);
+	} else {
+		v &= ~BIT(8 + index);
+		cpts->hw_ts_enable &= ~BIT(index);
+	}
+	cpts_write32(cpts, v, control);
+
+	spin_unlock_irqrestore(&cpts->lock, flags);
+
+	if (cpts->hw_ts_enable)
+		/* poll for events faster - evry 200 ms */
+		cpts->ov_check_period =
+			msecs_to_jiffies(CPTS_EVENT_HWSTAMP_TIMEOUT);
+	else
+		cpts->ov_check_period = cpts->ov_check_period_slow;
+
+	ptp_schedule_worker(cpts->clock, cpts->ov_check_period);
+
+	return 0;
+}
+
 static int cpts_ptp_enable(struct ptp_clock_info *ptp,
 			   struct ptp_clock_request *rq, int on)
 {
+	struct cpts *cpts = container_of(ptp, struct cpts, info);
+
+	switch (rq->type) {
+	case PTP_CLK_REQ_EXTTS:
+		return cpts_extts_enable(cpts, rq->extts.index, on);
+	default:
+		break;
+	}
+
 	return -EOPNOTSUPP;
 }
 
@@ -294,8 +395,13 @@ static long cpts_overflow_check(struct ptp_clock_info *ptp)
 	spin_lock_irqsave(&cpts->lock, flags);
 	ts = ns_to_timespec64(timecounter_read(&cpts->tc));
 
-	if (!skb_queue_empty(&cpts->txq))
-		delay = CPTS_SKB_TX_WORK_TIMEOUT;
+	if (cpts->hw_ts_enable)
+		cpts_report_ts_events(cpts);
+	if (!skb_queue_empty(&cpts->txq)) {
+		cpts_purge_txq(cpts);
+		if (!skb_queue_empty(&cpts->txq))
+			delay = CPTS_SKB_TX_WORK_TIMEOUT;
+	}
 	spin_unlock_irqrestore(&cpts->lock, flags);
 
 	pr_debug("cpts overflow check at %lld.%09ld\n",
@@ -405,35 +511,37 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
 	return ns;
 }
 
-void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
 	u64 ns;
 	struct skb_shared_hwtstamps *ssh;
 
-	if (!cpts->rx_enable)
-		return;
 	ns = cpts_find_ts(cpts, skb, CPTS_EV_RX);
 	if (!ns)
-		return;
+		return -ENOENT;
 	ssh = skb_hwtstamps(skb);
 	memset(ssh, 0, sizeof(*ssh));
 	ssh->hwtstamp = ns_to_ktime(ns);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(cpts_rx_timestamp);
 
-void cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+int cpts_tx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
 	u64 ns;
 	struct skb_shared_hwtstamps ssh;
 
 	if (!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
-		return;
+		return -EPERM;
 	ns = cpts_find_ts(cpts, skb, CPTS_EV_TX);
 	if (!ns)
-		return;
+		return -ENOENT;
 	memset(&ssh, 0, sizeof(ssh));
 	ssh.hwtstamp = ns_to_ktime(ns);
 	skb_tstamp_tx(skb, &ssh);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(cpts_tx_timestamp);
 
@@ -509,6 +617,8 @@ static void cpts_calc_mult_shift(struct cpts *cpts)
 
 	/* Calc overflow check period (maxsec / 2) */
 	cpts->ov_check_period = (HZ * maxsec) / 2;
+	cpts->ov_check_period_slow = cpts->ov_check_period;
+
 	dev_info(cpts->dev, "cpts: overflow check period %lu (jiffies)\n",
 		 cpts->ov_check_period);
 
@@ -540,6 +650,18 @@ static int cpts_of_parse(struct cpts *cpts, struct device_node *node)
 	if ((cpts->cc.mult && !cpts->cc.shift) ||
 	    (!cpts->cc.mult && cpts->cc.shift))
 		goto of_error;
+
+	if (!of_property_read_u32(node, "cpts-rftclk-sel", &prop)) {
+		if (prop & ~CPTS_RFTCLK_SEL_MASK) {
+			dev_err(cpts->dev, "cpts: invalid cpts_rftclk_sel.\n");
+			goto of_error;
+		}
+		cpts->caps |= CPTS_CAP_RFTCLK_SEL;
+		cpts->rftclk_sel = prop & CPTS_RFTCLK_SEL_MASK;
+	}
+
+	if (!of_property_read_u32(node, "cpts-ext-ts-inputs", &prop))
+		cpts->ext_ts_inputs = prop;
 
 	return 0;
 
@@ -574,9 +696,15 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
 
 	clk_prepare(cpts->refclk);
 
+	if (cpts->caps & CPTS_CAP_RFTCLK_SEL)
+		cpts_write32(cpts, cpts->rftclk_sel, rftclk_sel);
+
 	cpts->cc.read = cpts_systim_read;
 	cpts->cc.mask = CLOCKSOURCE_MASK(32);
 	cpts->info = cpts_info;
+
+	if (cpts->ext_ts_inputs)
+		cpts->info.n_ext_ts = cpts->ext_ts_inputs;
 
 	cpts_calc_mult_shift(cpts);
 	/* save cc.mult original value as it can be modified

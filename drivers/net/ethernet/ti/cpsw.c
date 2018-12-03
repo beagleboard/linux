@@ -37,6 +37,7 @@
 #include <linux/if_vlan.h>
 #include <linux/kmemleak.h>
 #include <linux/sys_soc.h>
+#include <linux/net_switch_config.h>
 
 #include <linux/pinctrl/consumer.h>
 #include <net/pkt_cls.h>
@@ -283,7 +284,7 @@ struct cpsw_ss_regs {
 
 #define CTRL_V2_TS_BITS \
 	(TS_320 | TS_319 | TS_132 | TS_131 | TS_130 | TS_129 |\
-	 TS_TTL_NONZERO  | TS_ANNEX_D_EN | TS_LTYPE1_EN)
+	 TS_TTL_NONZERO  | TS_ANNEX_D_EN | TS_LTYPE1_EN | VLAN_LTYPE1_EN)
 
 #define CTRL_V2_ALL_TS_MASK (CTRL_V2_TS_BITS | TS_TX_EN | TS_RX_EN)
 #define CTRL_V2_TX_TS_BITS  (CTRL_V2_TS_BITS | TS_TX_EN)
@@ -293,7 +294,7 @@ struct cpsw_ss_regs {
 #define CTRL_V3_TS_BITS \
 	(TS_107 | TS_320 | TS_319 | TS_132 | TS_131 | TS_130 | TS_129 |\
 	 TS_TTL_NONZERO | TS_ANNEX_F_EN | TS_ANNEX_D_EN |\
-	 TS_LTYPE1_EN)
+	 TS_LTYPE1_EN | VLAN_LTYPE1_EN)
 
 #define CTRL_V3_ALL_TS_MASK (CTRL_V3_TS_BITS | TS_TX_EN | TS_RX_EN)
 #define CTRL_V3_TX_TS_BITS  (CTRL_V3_TS_BITS | TS_TX_EN)
@@ -466,8 +467,11 @@ struct cpsw_priv {
 	bool				mqprio_hw;
 	int				fifo_bw[CPSW_TC_NUM];
 	int				shp_cfg_speed;
+	int				tx_ts_enabled;
+	int				rx_ts_enabled;
 	u32 emac_port;
 	struct cpsw_common *cpsw;
+	u8				port_state[3];
 };
 
 struct cpsw_stats {
@@ -484,13 +488,13 @@ enum {
 };
 
 #define CPSW_STAT(m)		CPSW_STATS,				\
-				sizeof(((struct cpsw_hw_stats *)0)->m), \
+				FIELD_SIZEOF(struct cpsw_hw_stats, m), \
 				offsetof(struct cpsw_hw_stats, m)
 #define CPDMA_RX_STAT(m)	CPDMA_RX_STATS,				   \
-				sizeof(((struct cpdma_chan_stats *)0)->m), \
+				FIELD_SIZEOF(struct cpdma_chan_stats, m), \
 				offsetof(struct cpdma_chan_stats, m)
 #define CPDMA_TX_STAT(m)	CPDMA_TX_STATS,				   \
-				sizeof(((struct cpdma_chan_stats *)0)->m), \
+				FIELD_SIZEOF(struct cpdma_chan_stats, m), \
 				offsetof(struct cpdma_chan_stats, m)
 
 static const struct cpsw_stats cpsw_gstrings_stats[] = {
@@ -570,16 +574,14 @@ static inline int cpsw_get_slave_port(u32 slave_num)
 	return slave_num + 1;
 }
 
-static void cpsw_add_mcast(struct cpsw_priv *priv, u8 *addr)
+static void cpsw_add_mcast(struct cpsw_priv *priv, const u8 *addr)
 {
 	struct cpsw_common *cpsw = priv->cpsw;
 
 	if (cpsw->data.dual_emac) {
 		struct cpsw_slave *slave = cpsw->slaves + priv->emac_port;
-		int slave_port = cpsw_get_slave_port(slave->slave_num);
 
-		cpsw_ale_add_mcast(cpsw->ale, addr,
-				   1 << slave_port | ALE_PORT_HOST,
+		cpsw_ale_add_mcast(cpsw->ale, addr, ALE_PORT_HOST,
 				   ALE_VLAN, slave->port_vlan, 0);
 		return;
 	}
@@ -642,6 +644,7 @@ static void cpsw_set_promiscious(struct net_device *ndev, bool enable)
 
 			/* Clear all mcast from ALE */
 			cpsw_ale_flush_multicast(ale, ALE_ALL_PORTS, -1);
+			__dev_mc_unsync(ndev, NULL);
 
 			/* Flood All Unicast Packets to Host port */
 			cpsw_ale_control_set(ale, 0, ALE_P0_UNI_FLOOD, 1);
@@ -662,16 +665,35 @@ static void cpsw_set_promiscious(struct net_device *ndev, bool enable)
 	}
 }
 
-static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
+static int cpsw_add_mc_addr(struct net_device *ndev, const u8 *addr)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+
+	cpsw_add_mcast(priv, addr);
+	return 0;
+}
+
+static int cpsw_del_mc_addr(struct net_device *ndev, const u8 *addr)
 {
 	struct cpsw_priv *priv = netdev_priv(ndev);
 	struct cpsw_common *cpsw = priv->cpsw;
-	int vid;
+	int vid, flags;
 
-	if (cpsw->data.dual_emac)
+	if (cpsw->data.dual_emac) {
 		vid = cpsw->slaves[priv->emac_port].port_vlan;
-	else
-		vid = cpsw->data.default_vlan;
+		flags = ALE_VLAN;
+	} else {
+		vid = 0;
+		flags = 0;
+	}
+
+	cpsw_ale_del_mcast(cpsw->ale, addr, 0, flags, vid);
+	return 0;
+}
+
+static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
+{
+	struct cpsw_common *cpsw = ndev_to_cpsw(ndev);
 
 	if (ndev->flags & IFF_PROMISC) {
 		/* Enable promiscuous mode */
@@ -684,19 +706,9 @@ static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
 	}
 
 	/* Restore allmulti on vlans if necessary */
-	cpsw_ale_set_allmulti(cpsw->ale, priv->ndev->flags & IFF_ALLMULTI);
+	cpsw_ale_set_allmulti(cpsw->ale, ndev->flags & IFF_ALLMULTI);
 
-	/* Clear all mcast from ALE */
-	cpsw_ale_flush_multicast(cpsw->ale, ALE_ALL_PORTS, vid);
-
-	if (!netdev_mc_empty(ndev)) {
-		struct netdev_hw_addr *ha;
-
-		/* program multicast address list into ALE register */
-		netdev_for_each_mc_addr(ha, ndev) {
-			cpsw_add_mcast(priv, ha->addr);
-		}
-	}
+	__dev_mc_sync(ndev, cpsw_add_mc_addr, cpsw_del_mc_addr);
 }
 
 static void cpsw_intr_enable(struct cpsw_common *cpsw)
@@ -788,6 +800,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
 	struct net_device	*ndev = skb->dev;
 	int			ret = 0, port;
 	struct cpsw_common	*cpsw = ndev_to_cpsw(ndev);
+	struct cpsw_priv	*priv;
 
 	if (cpsw->data.dual_emac) {
 		port = CPDMA_RX_SOURCE_PORT(status);
@@ -822,7 +835,9 @@ static void cpsw_rx_handler(void *token, int len, int status)
 		skb_put(skb, len);
 		if (status & CPDMA_RX_VLAN_ENCAP)
 			cpsw_rx_vlan_encap(skb);
-		cpts_rx_timestamp(cpsw->cpts, skb);
+		priv = netdev_priv(ndev);
+		if (priv->rx_ts_enabled)
+			cpts_rx_timestamp(cpsw->cpts, skb);
 		skb->protocol = eth_type_trans(skb, ndev);
 		netif_receive_skb(skb);
 		ndev->stats.rx_bytes += len;
@@ -1134,7 +1149,8 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
 
 		/* enable forwarding */
 		cpsw_ale_control_set(cpsw->ale, slave_port,
-				     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
+				     ALE_PORT_STATE,
+				     priv->port_state[slave_port]);
 
 		if (phy->speed == 1000)
 			mac_control |= BIT(7);	/* GIGABITEN	*/
@@ -1410,7 +1426,7 @@ static inline void cpsw_add_dual_emac_def_ale_entries(
 	cpsw_ale_add_vlan(cpsw->ale, slave->port_vlan, port_mask,
 			  port_mask, port_mask, 0);
 	cpsw_ale_add_mcast(cpsw->ale, priv->ndev->broadcast,
-			   port_mask, ALE_VLAN, slave->port_vlan, 0);
+			   ALE_PORT_HOST, ALE_VLAN, slave->port_vlan, 0);
 	cpsw_ale_add_ucast(cpsw->ale, priv->mac_addr,
 			   HOST_PORT_NUM, ALE_VLAN |
 			   ALE_SECURE, slave->port_vlan);
@@ -1467,6 +1483,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
 	slave->mac_control = 0;	/* no link yet */
 
 	slave_port = cpsw_get_slave_port(slave->slave_num);
+	priv->port_state[slave_port] = ALE_PORT_STATE_FORWARD;
 
 	if (cpsw->data.dual_emac)
 		cpsw_add_dual_emac_def_ale_entries(priv, slave, slave_port);
@@ -1956,6 +1973,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
 	struct cpsw_common *cpsw = priv->cpsw;
 
 	cpsw_info(priv, ifdown, "shutting down cpsw device\n");
+	__dev_mc_unsync(priv->ndev, cpsw_del_mc_addr);
 	netif_tx_stop_all_queues(priv->ndev);
 	netif_carrier_off(priv->ndev);
 
@@ -1994,7 +2012,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 	}
 
 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
-	    cpts_is_tx_enabled(cpts) && cpts_can_timestamp(cpts, skb))
+	    priv->tx_ts_enabled && cpts_can_timestamp(cpts, skb))
 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 
 	q_idx = skb_get_queue_mapping(skb);
@@ -2038,13 +2056,13 @@ fail:
 
 #if IS_ENABLED(CONFIG_TI_CPTS)
 
-static void cpsw_hwtstamp_v1(struct cpsw_common *cpsw)
+static void cpsw_hwtstamp_v1(struct cpsw_priv *priv)
 {
+	struct cpsw_common *cpsw = priv->cpsw;
 	struct cpsw_slave *slave = &cpsw->slaves[cpsw->data.active_slave];
 	u32 ts_en, seq_id;
 
-	if (!cpts_is_tx_enabled(cpsw->cpts) &&
-	    !cpts_is_rx_enabled(cpsw->cpts)) {
+	if (!priv->tx_ts_enabled && !priv->rx_ts_enabled) {
 		slave_write(slave, 0, CPSW1_TS_CTL);
 		return;
 	}
@@ -2052,10 +2070,10 @@ static void cpsw_hwtstamp_v1(struct cpsw_common *cpsw)
 	seq_id = (30 << CPSW_V1_SEQ_ID_OFS_SHIFT) | ETH_P_1588;
 	ts_en = EVENT_MSG_BITS << CPSW_V1_MSG_TYPE_OFS;
 
-	if (cpts_is_tx_enabled(cpsw->cpts))
+	if (priv->tx_ts_enabled)
 		ts_en |= CPSW_V1_TS_TX_EN;
 
-	if (cpts_is_rx_enabled(cpsw->cpts))
+	if (priv->rx_ts_enabled)
 		ts_en |= CPSW_V1_TS_RX_EN;
 
 	slave_write(slave, ts_en, CPSW1_TS_CTL);
@@ -2075,20 +2093,20 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
 	case CPSW_VERSION_2:
 		ctrl &= ~CTRL_V2_ALL_TS_MASK;
 
-		if (cpts_is_tx_enabled(cpsw->cpts))
+		if (priv->tx_ts_enabled)
 			ctrl |= CTRL_V2_TX_TS_BITS;
 
-		if (cpts_is_rx_enabled(cpsw->cpts))
+		if (priv->rx_ts_enabled)
 			ctrl |= CTRL_V2_RX_TS_BITS;
 		break;
 	case CPSW_VERSION_3:
 	default:
 		ctrl &= ~CTRL_V3_ALL_TS_MASK;
 
-		if (cpts_is_tx_enabled(cpsw->cpts))
+		if (priv->tx_ts_enabled)
 			ctrl |= CTRL_V3_TX_TS_BITS;
 
-		if (cpts_is_rx_enabled(cpsw->cpts))
+		if (priv->rx_ts_enabled)
 			ctrl |= CTRL_V3_RX_TS_BITS;
 		break;
 	}
@@ -2098,6 +2116,7 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
 	slave_write(slave, mtype, CPSW2_TS_SEQ_MTYPE);
 	slave_write(slave, ctrl, CPSW2_CONTROL);
 	writel_relaxed(ETH_P_1588, &cpsw->regs->ts_ltype);
+	writel_relaxed(ETH_P_8021Q, &cpsw->regs->vlan_ltype);
 }
 
 static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
@@ -2105,7 +2124,6 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 	struct cpsw_priv *priv = netdev_priv(dev);
 	struct hwtstamp_config cfg;
 	struct cpsw_common *cpsw = priv->cpsw;
-	struct cpts *cpts = cpsw->cpts;
 
 	if (cpsw->version != CPSW_VERSION_1 &&
 	    cpsw->version != CPSW_VERSION_2 &&
@@ -2124,7 +2142,7 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 
 	switch (cfg.rx_filter) {
 	case HWTSTAMP_FILTER_NONE:
-		cpts_rx_enable(cpts, 0);
+		priv->rx_ts_enabled = 0;
 		break;
 	case HWTSTAMP_FILTER_ALL:
 	case HWTSTAMP_FILTER_NTP_ALL:
@@ -2132,7 +2150,7 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-		cpts_rx_enable(cpts, HWTSTAMP_FILTER_PTP_V1_L4_EVENT);
+		priv->rx_ts_enabled = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
 		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
 		break;
 	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
@@ -2144,18 +2162,18 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
-		cpts_rx_enable(cpts, HWTSTAMP_FILTER_PTP_V2_EVENT);
+		priv->rx_ts_enabled = HWTSTAMP_FILTER_PTP_V2_EVENT;
 		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
 		break;
 	default:
 		return -ERANGE;
 	}
 
-	cpts_tx_enable(cpts, cfg.tx_type == HWTSTAMP_TX_ON);
+	priv->tx_ts_enabled = cfg.tx_type == HWTSTAMP_TX_ON;
 
 	switch (cpsw->version) {
 	case CPSW_VERSION_1:
-		cpsw_hwtstamp_v1(cpsw);
+		cpsw_hwtstamp_v1(priv);
 		break;
 	case CPSW_VERSION_2:
 	case CPSW_VERSION_3:
@@ -2171,7 +2189,7 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
 {
 	struct cpsw_common *cpsw = ndev_to_cpsw(dev);
-	struct cpts *cpts = cpsw->cpts;
+	struct cpsw_priv *priv = netdev_priv(dev);
 	struct hwtstamp_config cfg;
 
 	if (cpsw->version != CPSW_VERSION_1 &&
@@ -2180,10 +2198,8 @@ static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
 		return -EOPNOTSUPP;
 
 	cfg.flags = 0;
-	cfg.tx_type = cpts_is_tx_enabled(cpts) ?
-		      HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
-	cfg.rx_filter = (cpts_is_rx_enabled(cpts) ?
-			 cpts->rx_enable : HWTSTAMP_FILTER_NONE);
+	cfg.tx_type = priv->tx_ts_enabled ? HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
+	cfg.rx_filter = priv->rx_ts_enabled;
 
 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
 }
@@ -2199,6 +2215,272 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 }
 #endif /*CONFIG_TI_CPTS*/
 
+static int cpsw_set_port_state(struct cpsw_priv *priv, int port,
+			       int port_state)
+{
+	switch (port_state) {
+	case PORT_STATE_DISABLED:
+		priv->port_state[port] = ALE_PORT_STATE_DISABLE;
+		break;
+	case PORT_STATE_BLOCKED:
+		priv->port_state[port] = ALE_PORT_STATE_BLOCK;
+		break;
+	case PORT_STATE_LEARN:
+		priv->port_state[port] = ALE_PORT_STATE_LEARN;
+		break;
+	case PORT_STATE_FORWARD:
+		priv->port_state[port] = ALE_PORT_STATE_FORWARD;
+		break;
+	default:
+		dev_err(priv->dev, "Switch config: Invalid port state\n");
+		return -EINVAL;
+	}
+	return cpsw_ale_control_set(priv->cpsw->ale, port, ALE_PORT_STATE,
+			priv->port_state[port]);
+}
+
+static int cpsw_switch_config_ioctl(struct net_device *ndev,
+				    struct ifreq *ifrq, int cmd)
+{
+	struct cpsw_priv *priv = netdev_priv(ndev);
+	struct cpsw_common *cpsw = priv->cpsw;
+	struct net_switch_config config;
+	int ret = -EINVAL;
+
+	if (cpsw->data.dual_emac) {
+		dev_err(priv->dev, "CPSW not in switch mode\n");
+		return -ENOTSUPP;
+	}
+
+	/* Only SIOCSWITCHCONFIG is used as cmd argument and hence, there is no
+	 * switch statement required.
+	 * Function calls are based on switch_config.cmd
+	 */
+
+	if (copy_from_user(&config, (ifrq->ifr_data), sizeof(config)))
+		return -EFAULT;
+
+	if (config.vid > 4095) {
+		dev_err(priv->dev, "Invalid VLAN id Arguments for cmd %d\n",
+			config.cmd);
+		return ret;
+	}
+
+	switch (config.cmd) {
+	case CONFIG_SWITCH_ADD_MULTICAST:
+		if ((config.port > 0) && (config.port <= 7) &&
+		    is_multicast_ether_addr(config.addr)) {
+			ret = cpsw_ale_add_mcast(cpsw->ale, config.addr,
+						 config.port, ALE_VLAN,
+						 config.vid, 0);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments for cmd %d\n",
+				config.cmd);
+		}
+		break;
+	case CONFIG_SWITCH_DEL_MULTICAST:
+		if (is_multicast_ether_addr(config.addr)) {
+			ret = cpsw_ale_del_mcast(cpsw->ale, config.addr,
+						 0, ALE_VLAN, config.vid);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments for cmd %d\n",
+				config.cmd);
+		}
+		break;
+	case CONFIG_SWITCH_ADD_VLAN:
+		if ((config.port > 0) && (config.port <= 7)) {
+			ret = cpsw_ale_add_vlan(cpsw->ale, config.vid,
+						config.port,
+						config.untag_port,
+						config.reg_multi,
+						config.unreg_multi);
+		} else {
+			dev_err(priv->dev, "Invalid Arguments for cmd %d\n",
+				config.cmd);
+		}
+		break;
+	case CONFIG_SWITCH_DEL_VLAN:
+		ret = cpsw_ale_del_vlan(cpsw->ale, config.vid, 0);
+		break;
+	case CONFIG_SWITCH_SET_PORT_CONFIG:
+	{
+		struct phy_device *phy = NULL;
+		struct ethtool_link_ksettings cmd;
+
+		if ((config.port == 1) || (config.port == 2))
+			phy = cpsw->slaves[config.port - 1].phy;
+
+		if (!phy) {
+			dev_err(priv->dev, "Phy not Found\n");
+			break;
+		}
+
+		convert_legacy_settings_to_link_ksettings(&cmd, &config.ecmd);
+		cmd.base.phy_address = phy->mdio.addr;
+		ret = phy_ethtool_ksettings_set(phy, &cmd);
+		break;
+	}
+	case CONFIG_SWITCH_GET_PORT_CONFIG:
+	{
+		struct phy_device *phy = NULL;
+		struct ethtool_link_ksettings cmd;
+
+		if ((config.port == 1) || (config.port == 2))
+			phy = cpsw->slaves[config.port - 1].phy;
+
+		if (!phy) {
+			dev_err(priv->dev, "Phy not Found\n");
+			break;
+		}
+
+		cmd.base.phy_address = phy->mdio.addr;
+		phy_ethtool_ksettings_get(phy, &cmd);
+		convert_link_ksettings_to_legacy_settings(&config.ecmd, &cmd);
+
+		ret = copy_to_user(ifrq->ifr_data, &config, sizeof(config));
+		break;
+	}
+	case CONFIG_SWITCH_ADD_UNKNOWN_VLAN_INFO:
+		if ((config.unknown_vlan_member <= 7) &&
+		    (config.unknown_vlan_untag <= 7) &&
+		    (config.unknown_vlan_unreg_multi <= 7) &&
+		    (config.unknown_vlan_reg_multi <= 7)) {
+			cpsw_ale_control_set(cpsw->ale, 0,
+					     ALE_PORT_UNTAGGED_EGRESS,
+					     config.unknown_vlan_untag);
+			cpsw_ale_control_set(cpsw->ale, 0,
+					     ALE_PORT_UNKNOWN_REG_MCAST_FLOOD,
+					     config.unknown_vlan_reg_multi);
+			cpsw_ale_control_set(cpsw->ale, 0,
+					     ALE_PORT_UNKNOWN_MCAST_FLOOD,
+					     config.unknown_vlan_unreg_multi);
+			cpsw_ale_control_set(cpsw->ale, 0,
+					     ALE_PORT_UNKNOWN_VLAN_MEMBER,
+					     config.unknown_vlan_member);
+			ret = 0;
+		} else {
+			dev_err(priv->dev, "Invalid Unknown VLAN Arguments\n");
+		}
+		break;
+	case CONFIG_SWITCH_GET_PORT_STATE:
+		if (config.port == 1 || config.port == 2) {
+			config.port_state = priv->port_state[config.port];
+			ret = copy_to_user(ifrq->ifr_data, &config,
+					   sizeof(config));
+		} else {
+			dev_err(priv->dev, "Invalid Port number\n");
+		}
+		break;
+	case CONFIG_SWITCH_SET_PORT_STATE:
+		if (config.port == 1 || config.port == 2) {
+			ret = cpsw_set_port_state(priv, config.port,
+						  config.port_state);
+		} else {
+			dev_err(priv->dev, "Invalid Port number\n");
+		}
+		break;
+	case CONFIG_SWITCH_GET_PORT_VLAN_CONFIG:
+	{
+		u32 __iomem *port_vlan_reg;
+		u32 port_vlan;
+
+		switch (config.port) {
+		case 0:
+			port_vlan_reg = &cpsw->host_port_regs->port_vlan;
+			port_vlan = readl(port_vlan_reg);
+			ret = 0;
+
+			break;
+		case 1:
+		case 2:
+		{
+			int slave = config.port - 1;
+			int reg = CPSW2_PORT_VLAN;
+
+			if (cpsw->version == CPSW_VERSION_1)
+				reg = CPSW1_PORT_VLAN;
+
+			port_vlan = slave_read(cpsw->slaves + slave, reg);
+			ret = 0;
+
+			break;
+		}
+		default:
+			dev_err(priv->dev, "Invalid Port number\n");
+			break;
+		}
+
+		if (!ret) {
+			config.vid = port_vlan & 0xfff;
+			config.vlan_cfi = port_vlan & BIT(12) ? true : false;
+			config.prio = (port_vlan >> 13) & 0x7;
+			ret = copy_to_user(ifrq->ifr_data, &config,
+					   sizeof(config));
+		}
+		break;
+	}
+	case CONFIG_SWITCH_SET_PORT_VLAN_CONFIG:
+	{
+		void __iomem *port_vlan_reg;
+		u32 port_vlan;
+
+		port_vlan = config.vid;
+		port_vlan |= config.vlan_cfi ? BIT(12) : 0;
+		port_vlan |= (config.prio & 0x7) << 13;
+
+		switch (config.port) {
+		case 0:
+			port_vlan_reg = &cpsw->host_port_regs->port_vlan;
+			writel(port_vlan, port_vlan_reg);
+			ret = 0;
+
+			break;
+		case 1:
+		case 2:
+		{
+			int slave = config.port - 1;
+			int reg = CPSW2_PORT_VLAN;
+
+			if (cpsw->version == CPSW_VERSION_1)
+				reg = CPSW1_PORT_VLAN;
+
+			slave_write(cpsw->slaves + slave, port_vlan, reg);
+			ret = 0;
+
+			break;
+		}
+		default:
+			dev_err(priv->dev, "Invalid Port number\n");
+			break;
+		}
+
+		break;
+	}
+	case CONFIG_SWITCH_RATELIMIT:
+	{
+		if (config.port > 2) {
+			dev_err(priv->dev, "Invalid Port number\n");
+			break;
+		}
+
+		ret = cpsw_ale_set_ratelimit(cpsw->ale,
+					     cpsw->bus_freq_mhz * 1000000,
+					     config.port,
+					     config.bcast_rate_limit,
+					     config.mcast_rate_limit,
+					     !!config.direction);
+		if (ret)
+			dev_err(priv->dev, "CPSW_ALE set ratelimit failed");
+		break;
+	}
+
+	default:
+		ret = -EOPNOTSUPP;
+	}
+
+	return ret;
+}
+
 static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
 	struct cpsw_priv *priv = netdev_priv(dev);
@@ -2213,6 +2495,8 @@ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 		return cpsw_hwtstamp_set(dev, req);
 	case SIOCGHWTSTAMP:
 		return cpsw_hwtstamp_get(dev, req);
+	case SIOCSWITCHCONFIG:
+		return cpsw_switch_config_ioctl(dev, req, cmd);
 	}
 
 	if (!cpsw->slaves[slave_no].phy)
@@ -2293,16 +2577,19 @@ static inline int cpsw_add_vlan_ale_entry(struct cpsw_priv *priv,
 {
 	int ret;
 	int unreg_mcast_mask = 0;
+	int mcast_mask;
 	u32 port_mask;
 	struct cpsw_common *cpsw = priv->cpsw;
 
 	if (cpsw->data.dual_emac) {
 		port_mask = (1 << (priv->emac_port + 1)) | ALE_PORT_HOST;
 
+		mcast_mask = ALE_PORT_HOST;
 		if (priv->ndev->flags & IFF_ALLMULTI)
-			unreg_mcast_mask = port_mask;
+			unreg_mcast_mask = mcast_mask;
 	} else {
 		port_mask = ALE_ALL_PORTS;
+		mcast_mask = port_mask;
 
 		if (priv->ndev->flags & IFF_ALLMULTI)
 			unreg_mcast_mask = ALE_ALL_PORTS;
@@ -2321,7 +2608,7 @@ static inline int cpsw_add_vlan_ale_entry(struct cpsw_priv *priv,
 		goto clean_vid;
 
 	ret = cpsw_ale_add_mcast(cpsw->ale, priv->ndev->broadcast,
-				 port_mask, ALE_VLAN, vid, 0);
+				 mcast_mask, ALE_VLAN, vid, 0);
 	if (ret != 0)
 		goto clean_vlan_ucast;
 	return 0;
@@ -3658,8 +3945,7 @@ static int cpsw_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int cpsw_suspend(struct device *dev)
 {
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct net_device	*ndev = platform_get_drvdata(pdev);
+	struct net_device	*ndev = dev_get_drvdata(dev);
 	struct cpsw_common	*cpsw = ndev_to_cpsw(ndev);
 
 	if (cpsw->data.dual_emac) {
@@ -3682,8 +3968,7 @@ static int cpsw_suspend(struct device *dev)
 
 static int cpsw_resume(struct device *dev)
 {
-	struct platform_device	*pdev = to_platform_device(dev);
-	struct net_device	*ndev = platform_get_drvdata(pdev);
+	struct net_device	*ndev = dev_get_drvdata(dev);
 	struct cpsw_common	*cpsw = ndev_to_cpsw(ndev);
 
 	/* Select default pin state */

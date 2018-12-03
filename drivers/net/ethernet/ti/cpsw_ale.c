@@ -136,7 +136,7 @@ static inline void cpsw_ale_get_addr(u32 *ale_entry, u8 *addr)
 		addr[i] = cpsw_ale_get_field(ale_entry, 40 - 8*i, 8);
 }
 
-static inline void cpsw_ale_set_addr(u32 *ale_entry, u8 *addr)
+static inline void cpsw_ale_set_addr(u32 *ale_entry, const u8 *addr)
 {
 	int i;
 
@@ -175,7 +175,7 @@ static int cpsw_ale_write(struct cpsw_ale *ale, int idx, u32 *ale_entry)
 	return idx;
 }
 
-static int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr, u16 vid)
+static int cpsw_ale_match_addr(struct cpsw_ale *ale, const u8 *addr, u16 vid)
 {
 	u32 ale_entry[ALE_ENTRY_WORDS];
 	int type, idx;
@@ -309,7 +309,7 @@ static inline void cpsw_ale_set_vlan_entry_type(u32 *ale_entry,
 	}
 }
 
-int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port,
+int cpsw_ale_add_ucast(struct cpsw_ale *ale, const u8 *addr, int port,
 		       int flags, u16 vid)
 {
 	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
@@ -336,7 +336,7 @@ int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port,
 }
 EXPORT_SYMBOL_GPL(cpsw_ale_add_ucast);
 
-int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port,
+int cpsw_ale_del_ucast(struct cpsw_ale *ale, const u8 *addr, int port,
 		       int flags, u16 vid)
 {
 	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
@@ -352,7 +352,7 @@ int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port,
 }
 EXPORT_SYMBOL_GPL(cpsw_ale_del_ucast);
 
-int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
+int cpsw_ale_add_mcast(struct cpsw_ale *ale, const u8 *addr, int port_mask,
 		       int flags, u16 vid, int mcast_state)
 {
 	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
@@ -386,7 +386,7 @@ int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
 }
 EXPORT_SYMBOL_GPL(cpsw_ale_add_mcast);
 
-int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
+int cpsw_ale_del_mcast(struct cpsw_ale *ale, const u8 *addr, int port_mask,
 		       int flags, u16 vid)
 {
 	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
@@ -764,6 +764,55 @@ int cpsw_ale_control_get(struct cpsw_ale *ale, int port, int control)
 	return tmp & BITMASK(info->bits);
 }
 EXPORT_SYMBOL_GPL(cpsw_ale_control_get);
+
+int cpsw_ale_set_ratelimit(struct cpsw_ale *ale, unsigned long freq, int port,
+			   unsigned int bcast_rate_limit,
+			   unsigned int mcast_rate_limit,
+			   bool direction)
+
+{
+	unsigned int rate_limit;
+	unsigned long ale_prescale;
+	int val;
+
+	if (!bcast_rate_limit && !mcast_rate_limit) {
+		/* disable rate limit */
+		cpsw_ale_control_set(ale, 0, ALE_RATE_LIMIT, 0);
+		cpsw_ale_control_set(ale, port, ALE_PORT_BCAST_LIMIT, 0);
+		cpsw_ale_control_set(ale, port, ALE_PORT_MCAST_LIMIT, 0);
+		writel(0, ale->params.ale_regs + ALE_PRESCALE);
+		return 0;
+	}
+
+	/* configure Broadcast and Multicast Rate Limit
+	 * number_of_packets = (Fclk / ALE_PRESCALE) * port.BCASTMCAST/_LIMIT
+	 * ALE_PRESCALE width is 19bit and min value 0x10
+	 * with Fclk = 125MHz and port.BCASTMCAST/_LIMIT = 1
+	 *
+	 * max number_of_packets = (125MHz / 0x10) * 1 = 7812500
+	 * min number_of_packets = (125MHz / 0xFFFFF) * 1 = 119
+	 *
+	 * above values are more than enough (with higher Fclk they will be
+	 * just better), so port.BCASTMCAST/_LIMIT can be selected to be 1
+	 * while ALE_PRESCALE is calculated as:
+	 *  ALE_PRESCALE = Fclk / number_of_packets
+	 */
+	rate_limit = max_t(unsigned int, bcast_rate_limit, mcast_rate_limit);
+	ale_prescale = freq / rate_limit;
+	if (ale_prescale & (~0xfffff))
+		return -EINVAL;
+
+	cpsw_ale_control_set(ale, 0, ALE_RATE_LIMIT_TX, direction);
+	val = bcast_rate_limit ? 1 : 0;
+	cpsw_ale_control_set(ale, port, ALE_PORT_BCAST_LIMIT, val);
+	val = mcast_rate_limit ? 1 : 0;
+	cpsw_ale_control_set(ale, port, ALE_PORT_MCAST_LIMIT, val);
+	writel((u32)ale_prescale, ale->params.ale_regs + ALE_PRESCALE);
+	cpsw_ale_control_set(ale, 0, ALE_RATE_LIMIT, 1);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(cpsw_ale_set_ratelimit);
 
 static void cpsw_ale_timer(struct timer_list *t)
 {
