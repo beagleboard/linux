@@ -13,12 +13,12 @@ classification: SDK_Debug_Defconfigs type: ti_sdk_dra7x_debug defconfig: multi_v
 classification: SDK_Debug_Defconfigs type: ti_sdk_omap2_debug defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg omap_soc.cfg systemd.cfg debug_options.cfg
 classification: SDK_Debug_Defconfigs type: ti_sdk_k2g_debug defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg  baseport.cfg keystone.cfg lpae.cfg k2g_only.cfg systemd.cfg debug_options.cfg
 classification: SDK_Debug_Defconfigs type: ti_sdk_keystone_debug defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg keystone.cfg lpae.cfg systemd.cfg debug_options.cfg
-classification: SDK_Debug_Defconfigs type: ti_sdk_omapl138_debug defconfig: davinci_all_defconfig config_file: None extra_configs:  systemd.cfg debug_options.cfg
+classification: SDK_Debug_Defconfigs type: ti_sdk_omapl138_debug defconfig: davinci_all_defconfig config_file: None extra_configs: baseport.cfg systemd.cfg debug_options.cfg
 # RT Defconfigs
 classification: SDK_Release_Defconfigs type: ti_sdk_am3x_rt_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg omap_soc.cfg am33xx_only.cfg real_time.cfg systemd.cfg
 classification: SDK_Release_Defconfigs type: ti_sdk_am4x_rt_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg omap_soc.cfg am43xx_only.cfg real_time.cfg systemd.cfg
 classification: SDK_Release_Defconfigs type: ti_sdk_dra7x_rt_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg omap_soc.cfg lpae.cfg dra7_only.cfg real_time.cfg systemd.cfg
-classification: SDK_Release_Defconfigs type: ti_sdk_omap2_rt_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg  omap_soc.cfg real_time.cfg systemd.cfg
+classification: SDK_Release_Defconfigs type: ti_sdk_omap2_rt_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg omap_soc.cfg real_time.cfg systemd.cfg
 classification: SDK_Release_Defconfigs type: ti_sdk_k2g_rt_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg  keystone.cfg lpae.cfg k2g_only.cfg real_time.cfg systemd.cfg
 classification: SDK_Release_Defconfigs type: ti_sdk_keystone_rt_release defconfig: multi_v7_defconfig config_file: None extra_configs: multi_v7_prune.cfg baseport.cfg keystone.cfg lpae.cfg real_time.cfg systemd.cfg
 # RT Debug Defconfigs
