@@ -1,0 +1,47 @@
+K3 SoC SA2UL crypto module
+
+Required properties:
+
+- compatible : Should be:
+  - "ti,sa2ul-crypto"
+- reg : Offset and length of the register set for the module
+
+- dmas: DMA specifiers for tx and rx dma. sa2ul needs one tx channel
+	and 2 rx channels. First rx channel for < 256 bytes and
+	the other one for >=256 bytes. See the DMA client binding,
+        Documentation/devicetree/bindings/dma/dma.txt
+- dma-names: DMA request names has to have one tx and 2 rx names
+	corresponding to dmas abive.
+- ti,psil-config* - UDMA PSIL native Peripheral using packet mode.
+	SA2UL must have EPIB(Extended protocal information block)
+	and PSDATA(protocol specific data) properties.
+
+Example AM654 SA2UL:
+crypto: crypto@4E00000 {
+	compatible = "ti,sa2ul-crypto";
+	reg = <0x0 0x4E00000 0x0 0x1200>;
+	ti,psil-base = <0x4000>;
+
+	dmas = <&main_udmap &crypto 0 UDMA_DIR_TX>,
+		<&main_udmap &crypto 0 UDMA_DIR_RX>,
+		<&main_udmap &crypto 1 UDMA_DIR_RX>;
+	dma-names = "tx", "rx1", "rx2";
+
+	ti,psil-config0 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		ti,needs-epib;
+		ti,psd-size = <64>;
+	};
+
+	ti,psil-config1 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		ti,needs-epib;
+		ti,psd-size = <64>;
+	};
+
+	ti,psil-config2 {
+		linux,udma-mode = <UDMA_PKT_MODE>;
+		ti,needs-epib;
+		ti,psd-size = <64>;
+	};
+};
