@@ -33,6 +33,8 @@
 #define AM33XX_GMII_SEL_RGMII2_IDMODE	BIT(5)
 #define AM33XX_GMII_SEL_RGMII1_IDMODE	BIT(4)
 
+#define AM65_GMII_SEL_RGMII_IDMODE	BIT(4)
+
 #define GMII_SEL_MODE_MASK		0x3
 
 struct cpsw_phy_sel_priv {
@@ -157,6 +159,56 @@ static void cpsw_gmii_sel_dra7xx(struct cpsw_phy_sel_priv *priv,
 	writel(reg, priv->gmii_sel);
 }
 
+static void cpsw_gmii_sel_am654(struct cpsw_phy_sel_priv *priv,
+				phy_interface_t phy_mode, int slave)
+{
+	u32 reg;
+	u32 mode = 0;
+	bool rgmii_id = false;
+
+	reg = readl(priv->gmii_sel + slave - 1);
+
+	dev_dbg(priv->dev, "old gmii_sel: %08x\n", reg);
+
+	switch (phy_mode) {
+	case PHY_INTERFACE_MODE_RMII:
+		mode = AM33XX_GMII_SEL_MODE_RMII;
+		break;
+
+	case PHY_INTERFACE_MODE_RGMII:
+		mode = AM33XX_GMII_SEL_MODE_RGMII;
+		break;
+
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
+	case PHY_INTERFACE_MODE_RGMII_TXID:
+		mode = AM33XX_GMII_SEL_MODE_RGMII;
+		rgmii_id = true;
+		break;
+
+	case PHY_INTERFACE_MODE_SGMII:
+		mode = AM33XX_GMII_SEL_MODE_RGMII;
+		break;
+
+	default:
+		dev_warn(priv->dev,
+			 "Unsupported PHY mode: \"%s\". Defaulting to MII.\n",
+			phy_modes(phy_mode));
+		/* fallthrough */
+	case PHY_INTERFACE_MODE_MII:
+		mode = AM33XX_GMII_SEL_MODE_MII;
+		break;
+	};
+
+	if (rgmii_id)
+		mode |= AM65_GMII_SEL_RGMII_IDMODE;
+
+	reg = mode;
+	dev_dbg(priv->dev, "gmii_sel PHY mode: %s, new gmii_sel: %08x\n",
+		phy_modes(phy_mode), reg);
+	writel(reg, priv->gmii_sel + slave - 1);
+}
+
 static struct platform_driver cpsw_phy_sel_driver;
 static int match(struct device *dev, void *data)
 {
@@ -207,6 +259,10 @@ static const struct of_device_id cpsw_phy_sel_id_table[] = {
 	{
 		.compatible	= "ti,am43xx-cpsw-phy-sel",
 		.data		= &cpsw_gmii_sel_am3352,
+	},
+	{
+		.compatible	= "ti,am654-cpsw-phy-sel",
+		.data		= &cpsw_gmii_sel_am654,
 	},
 	{}
 };
