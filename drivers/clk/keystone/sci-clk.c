@@ -449,7 +449,7 @@ static int ti_sci_clk_probe(struct platform_device *pdev)
 		if (ret) {
 			gap_size++;
 			if (!clk_id) {
-				if (gap_size >= 5)
+				if (gap_size >= 50)
 					break;
 				dev_id++;
 			} else {
