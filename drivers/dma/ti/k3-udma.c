@@ -1216,7 +1216,7 @@ static int udma_get_rchan(struct udma_chan *uc)
 static int udma_get_chan_pair(struct udma_chan *uc)
 {
 	struct udma_dev *ud = uc->ud;
-	struct udma_match_data *match_data = ud->match_data;
+	const struct udma_match_data *match_data = ud->match_data;
 	int chan_id, end;
 
 	if ((uc->tchan && uc->rchan) && uc->tchan->id == uc->rchan->id) {
