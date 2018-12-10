@@ -27,6 +27,7 @@
 #include <uapi/sound/asound.h>
 #include <sound/asoundef.h>
 #include <sound/omap-hdmi-audio.h>
+#include <sound/initval.h>
 
 #include "sdma-pcm.h"
 
@@ -322,10 +323,18 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 	struct snd_soc_dai_driver *dai_drv;
 	struct snd_soc_card *card;
 	int ret;
+	int id = SNDRV_DEFAULT_IDX1;
 
 	if (!ha) {
 		dev_err(dev, "No platform data\n");
 		return -EINVAL;
+	}
+
+	/* Get the id of the parent (the HDMI HW IP) */
+	if (ha->dev->of_node) {
+		id = of_alias_get_id(ha->dev->of_node, "sound");
+		if (id < 0)
+			id = SNDRV_DEFAULT_IDX1;
 	}
 
 	ad = devm_kzalloc(dev, sizeof(*ad), GFP_KERNEL);
@@ -348,7 +357,7 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 	default:
 		return -EINVAL;
 	}
-	ret = snd_soc_register_component(ad->dssdev, &omap_hdmi_component,
+	ret = devm_snd_soc_register_component(ad->dssdev, &omap_hdmi_component,
 					 dai_drv, 1);
 	if (ret)
 		return ret;
@@ -366,6 +375,7 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 	if (!card->name)
 		return -ENOMEM;
 
+	card->id_hint = id;
 	card->owner = THIS_MODULE;
 	card->dai_link =
 		devm_kzalloc(dev, sizeof(*(card->dai_link)), GFP_KERNEL);
@@ -383,7 +393,6 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(dev, "snd_soc_register_card failed (%d)\n", ret);
-		snd_soc_unregister_component(ad->dssdev);
 		return ret;
 	}
 
@@ -400,7 +409,6 @@ static int omap_hdmi_audio_remove(struct platform_device *pdev)
 	struct hdmi_audio_data *ad = platform_get_drvdata(pdev);
 
 	snd_soc_unregister_card(ad->card);
-	snd_soc_unregister_component(ad->dssdev);
 	return 0;
 }
 

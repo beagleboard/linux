@@ -1021,6 +1021,7 @@ struct snd_soc_card {
 	struct mutex mutex;
 	struct mutex dapm_mutex;
 
+	int id_hint;
 	bool instantiated;
 	bool topology_shortname_created;
 

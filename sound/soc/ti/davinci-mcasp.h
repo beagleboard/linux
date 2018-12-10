@@ -99,6 +99,13 @@
 #define MCASP_RFIFOCTL_OFFSET		(0x8)
 #define MCASP_RFIFOSTS_OFFSET		(0xc)
 
+/* DAVINCI_MCASP_PID_REG - Peripheral Identification Register Bits */
+#define MCASP_V4_REVMINOR_MASK		(0x3f)
+#define MCASP_V4_REVMAJOR_MASK		(0x7 << 8)
+#define MCASP_V4_REV_MASK		(MCASP_V4_REVMAJOR_MASK | \
+					 MCASP_V4_REVMINOR_MASK)
+#define MCASP_V4_REV(maj, min)		((maj) << 8 | (min))
+
 /*
  * DAVINCI_MCASP_PWREMUMGT_REG - Power Down and Emulation Management
  *     Register Bits
@@ -108,27 +115,18 @@
 
 /*
  * DAVINCI_MCASP_PFUNC_REG - Pin Function / GPIO Enable Register Bits
- */
-#define AXR(n)		(1<<n)
-#define PFUNC_AMUTE	BIT(25)
-#define ACLKX		BIT(26)
-#define AHCLKX		BIT(27)
-#define AFSX		BIT(28)
-#define ACLKR		BIT(29)
-#define AHCLKR		BIT(30)
-#define AFSR		BIT(31)
-
-/*
  * DAVINCI_MCASP_PDIR_REG - Pin Direction Register Bits
+ * DAVINCI_MCASP_PDOUT_REG - Pin output in GPIO mode
+ * DAVINCI_MCASP_PDSET_REG - Pin input in GPIO mode
  */
-#define AXR(n)		(1<<n)
-#define PDIR_AMUTE	BIT(25)
-#define ACLKX		BIT(26)
-#define AHCLKX		BIT(27)
-#define AFSX		BIT(28)
-#define ACLKR		BIT(29)
-#define AHCLKR		BIT(30)
-#define AFSR		BIT(31)
+#define PIN_BIT_AXR(n)	(n)
+#define PIN_BIT_AMUTE	25
+#define PIN_BIT_ACLKX	26
+#define PIN_BIT_AHCLKX	27
+#define PIN_BIT_AFSX	28
+#define PIN_BIT_ACLKR	29
+#define PIN_BIT_AHCLKR	30
+#define PIN_BIT_AFSR	31
 
 /*
  * DAVINCI_MCASP_TXDITCTL_REG - Transmit DIT Control Register Bits
@@ -218,6 +216,7 @@
 #define DISMOD_3STATE	(0x0)
 #define DISMOD_LOW	(0x2 << 2)
 #define DISMOD_HIGH	(0x3 << 2)
+#define DISMOD_VAL(x)	((x) << 2)
 #define DISMOD_MASK	DISMOD_HIGH
 #define TXSTATE		BIT(4)
 #define RXSTATE		BIT(5)
@@ -305,10 +304,5 @@
 #define NUMEVT_MASK	(0xFF << 8)
 #define NUMEVT(x)	(((x) & 0xFF) << 8)
 #define NUMDMA_MASK	(0xFF)
-
-/* clock divider IDs */
-#define MCASP_CLKDIV_AUXCLK		0 /* HCLK divider from AUXCLK */
-#define MCASP_CLKDIV_BCLK		1 /* BCLK divider from HCLK */
-#define MCASP_CLKDIV_BCLK_FS_RATIO	2 /* to set BCLK FS ration */
 
 #endif	/* DAVINCI_MCASP_H */
