@@ -658,21 +658,45 @@ void rproc_vdev_release(struct kref *ref)
  *
  * Returns 0 on success, or an appropriate error code otherwise
  */
-static int rproc_handle_trace(struct rproc *rproc, struct fw_rsc_trace *rsc,
+static int rproc_handle_trace(struct rproc *rproc, void *rsc,
 			      int offset, int avail, u16 ver)
 {
 	struct rproc_debug_trace *trace;
 	struct device *dev = &rproc->dev;
+	struct fw_rsc_trace *rsc1;
+	struct fw_rsc_trace2 *rsc2;
 	char name[15];
+	size_t rsc_size;
+	u32 reserved;
+	u64 da;
+	u32 len;
 
-	if (sizeof(*rsc) > avail) {
+	if (!ver) {
+		rsc1 = (struct fw_rsc_trace *)rsc;
+		rsc_size = sizeof(*rsc1);
+		reserved = rsc1->reserved;
+		da = rsc1->da;
+		len = rsc1->len;
+	} else if (ver == 1) {
+		rsc2 = (struct fw_rsc_trace2 *)rsc;
+		rsc_size = sizeof(*rsc2);
+		reserved = rsc2->reserved;
+		da = rsc2->da;
+		len = rsc2->len;
+	} else {
+		dev_err(dev, "unsupported trace rsc version %d\n", ver);
+		return -EINVAL;
+	}
+
+	if (rsc_size > avail) {
 		dev_err(dev, "trace rsc is truncated\n");
 		return -EINVAL;
 	}
 
 	/* make sure reserved bytes are zeroes */
-	if (rsc->reserved) {
-		dev_err(dev, "trace rsc has non zero reserved bytes\n");
+	if (reserved) {
+		dev_err(dev, "trace rsc has non zero reserved bytes, value = 0x%x\n",
+			reserved);
 		return -EINVAL;
 	}
 
@@ -681,8 +705,8 @@ static int rproc_handle_trace(struct rproc *rproc, struct fw_rsc_trace *rsc,
 		return -ENOMEM;
 
 	/* set the trace buffer dma properties */
-	trace->trace_mem.len = rsc->len;
-	trace->trace_mem.da = rsc->da;
+	trace->trace_mem.len = len;
+	trace->trace_mem.da = da;
 
 	/* set pointer on rproc device */
 	trace->rproc = rproc;
@@ -701,8 +725,8 @@ static int rproc_handle_trace(struct rproc *rproc, struct fw_rsc_trace *rsc,
 
 	rproc->num_traces++;
 
-	dev_dbg(dev, "%s added: da 0x%x, len 0x%x\n",
-		name, rsc->da, rsc->len);
+	dev_dbg(dev, "%s added: da 0x%llx, len 0x%x\n",
+		name, da, len);
 
 	return 0;
 }
