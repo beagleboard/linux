@@ -206,10 +206,11 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 		struct fw_rsc_hdr *hdr = (void *)table + offset;
 		void *rsc = (void *)hdr + sizeof(*hdr);
 
-		switch (hdr->type) {
+		switch (hdr->st.t) {
 		case RSC_CARVEOUT:
 			c = rsc;
-			seq_printf(seq, "Entry %d is of type %s\n", i, types[hdr->type]);
+			seq_printf(seq, "Entry %d is of type %s\n",
+				   i, types[hdr->st.t]);
 			seq_printf(seq, "  Device Address 0x%x\n", c->da);
 			seq_printf(seq, "  Physical Address 0x%x\n", c->pa);
 			seq_printf(seq, "  Length 0x%x Bytes\n", c->len);
@@ -219,7 +220,8 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 			break;
 		case RSC_DEVMEM:
 			d = rsc;
-			seq_printf(seq, "Entry %d is of type %s\n", i, types[hdr->type]);
+			seq_printf(seq, "Entry %d is of type %s\n",
+				   i, types[hdr->st.t]);
 			seq_printf(seq, "  Device Address 0x%x\n", d->da);
 			seq_printf(seq, "  Physical Address 0x%x\n", d->pa);
 			seq_printf(seq, "  Length 0x%x Bytes\n", d->len);
@@ -229,7 +231,8 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 			break;
 		case RSC_TRACE:
 			t = rsc;
-			seq_printf(seq, "Entry %d is of type %s\n", i, types[hdr->type]);
+			seq_printf(seq, "Entry %d is of type %s\n",
+				   i, types[hdr->st.t]);
 			seq_printf(seq, "  Device Address 0x%x\n", t->da);
 			seq_printf(seq, "  Length 0x%x Bytes\n", t->len);
 			seq_printf(seq, "  Reserved (should be zero) [%d]\n", t->reserved);
@@ -237,8 +240,8 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 			break;
 		case RSC_VDEV:
 			v = rsc;
-			seq_printf(seq, "Entry %d is of type %s\n", i, types[hdr->type]);
-
+			seq_printf(seq, "Entry %d is of type %s\n",
+				   i, types[hdr->st.t]);
 			seq_printf(seq, "  ID %d\n", v->id);
 			seq_printf(seq, "  Notify ID %d\n", v->notifyid);
 			seq_printf(seq, "  Device features 0x%x\n", v->dfeatures);
@@ -261,7 +264,7 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 			break;
 		default:
 			seq_printf(seq, "Unknown resource type found: %d [hdr: %pK]\n",
-				   hdr->type, hdr);
+				   hdr->st.t, hdr);
 			break;
 		}
 	}
