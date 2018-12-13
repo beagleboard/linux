@@ -30,6 +30,10 @@
 	};
 };
 
+&sgx {
+	status = "okay";
+};
+
 &am33xx_pinmux {
 	bt_pins: pinmux_bt_pins {
 		pinctrl-single,pins = <
