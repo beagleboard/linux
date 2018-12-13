@@ -162,6 +162,10 @@
 	spi1 = &spi1;
 };
 
+&sgx {
+	status = "okay";
+};
+
 &cpu0_opp_table {
 	/*
 	* All PG 2.0 silicon may not support 1GHz but some of the early
