@@ -12,13 +12,13 @@
 #include "am335x-boneblack-common.dtsi"
 /* #include "am335x-bone-jtag.dtsi" */
 
-&sgx {
-	status = "okay";
-};
-
 / {
 	model = "TI AM335x BeagleBone Black";
 	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&sgx {
+	status = "okay";
 };
 
 &cpu0_opp_table {
