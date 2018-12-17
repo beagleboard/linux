@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 #include <linux/export.h>
 #include <linux/errno.h>
 #include <linux/gpio.h>
@@ -22,10 +23,6 @@ int fbtft_write_spi(struct fbtft_par *par, void *buf, size_t len)
 	}
 
 	spi_message_init(&m);
-	if (par->txbuf.dma && buf == par->txbuf.buf) {
-		t.tx_dma = par->txbuf.dma;
-		m.is_dma_mapped = 1;
-	}
 	spi_message_add_tail(&t, &m);
 	return spi_sync(par->spi, &m);
 }
@@ -75,7 +72,7 @@ int fbtft_write_spi_emulate_9(struct fbtft_par *par, void *buf, size_t len)
 			src++;
 		}
 		tmp |= ((*src & 0x0100) ? 1 : 0);
-		*(u64 *)dst = cpu_to_be64(tmp);
+		*(__be64 *)dst = cpu_to_be64(tmp);
 		dst += 8;
 		*dst++ = (u8)(*src++ & 0x00FF);
 		added++;
@@ -141,7 +138,7 @@ int fbtft_write_gpio8_wr(struct fbtft_par *par, void *buf, size_t len)
 		"%s(len=%d): ", __func__, len);
 
 	while (len--) {
-		data = *(u8 *) buf;
+		data = *(u8 *)buf;
 
 		/* Start writing by pulling down /WR */
 		gpio_set_value(par->gpio.wr, 0);
@@ -170,7 +167,7 @@ int fbtft_write_gpio8_wr(struct fbtft_par *par, void *buf, size_t len)
 		gpio_set_value(par->gpio.wr, 1);
 
 #ifndef DO_NOT_OPTIMIZE_FBTFT_WRITE_GPIO
-		prev_data = *(u8 *) buf;
+		prev_data = *(u8 *)buf;
 #endif
 		buf++;
 	}
@@ -191,7 +188,7 @@ int fbtft_write_gpio16_wr(struct fbtft_par *par, void *buf, size_t len)
 		"%s(len=%d): ", __func__, len);
 
 	while (len) {
-		data = *(u16 *) buf;
+		data = *(u16 *)buf;
 
 		/* Start writing by pulling down /WR */
 		gpio_set_value(par->gpio.wr, 0);
@@ -220,7 +217,7 @@ int fbtft_write_gpio16_wr(struct fbtft_par *par, void *buf, size_t len)
 		gpio_set_value(par->gpio.wr, 1);
 
 #ifndef DO_NOT_OPTIMIZE_FBTFT_WRITE_GPIO
-		prev_data = *(u16 *) buf;
+		prev_data = *(u16 *)buf;
 #endif
 		buf += 2;
 		len -= 2;
