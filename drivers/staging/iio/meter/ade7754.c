@@ -347,19 +347,17 @@ static int ade7754_set_irq(struct device *dev, bool enable)
 
 	ret = ade7754_spi_read_reg_16(dev, ADE7754_IRQEN, &irqen);
 	if (ret)
-		goto error_ret;
+		return ret;
 
 	if (enable)
 		irqen |= BIT(14); /* Enables an interrupt when a data is
-				     present in the waveform register */
+				   * present in the waveform register
+				   */
 	else
 		irqen &= ~BIT(14);
 
 	ret = ade7754_spi_write_reg_16(dev, ADE7754_IRQEN, irqen);
-	if (ret)
-		goto error_ret;
 
-error_ret:
 	return ret;
 }
 
@@ -561,7 +559,6 @@ powerdown_on_error:
 	return ret;
 }
 
-/* fixme, confirm ordering in this function */
 static int ade7754_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);

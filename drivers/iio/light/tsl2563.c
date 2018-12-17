@@ -626,11 +626,11 @@ static irqreturn_t tsl2563_event_handler(int irq, void *private)
 	struct tsl2563_chip *chip = iio_priv(dev_info);
 
 	iio_push_event(dev_info,
-		       IIO_UNMOD_EVENT_CODE(IIO_INTENSITY,
+		       IIO_UNMOD_EVENT_CODE(IIO_LIGHT,
 					    0,
 					    IIO_EV_TYPE_THRESH,
 					    IIO_EV_DIR_EITHER),
-		       iio_get_time_ns());
+		       iio_get_time_ns(dev_info));
 
 	/* clear the interrupt and push the event */
 	i2c_smbus_write_byte(chip->client, TSL2563_CMD | TSL2563_CLEARINT);
@@ -806,8 +806,7 @@ static int tsl2563_probe(struct i2c_client *client,
 	return 0;
 
 fail:
-	cancel_delayed_work(&chip->poweroff_work);
-	flush_scheduled_work();
+	cancel_delayed_work_sync(&chip->poweroff_work);
 	return err;
 }
 
