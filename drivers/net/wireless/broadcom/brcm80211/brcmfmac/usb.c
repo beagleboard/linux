@@ -103,7 +103,6 @@ static struct brcmf_firmware_mapping brcmf_usb_fwnames[] = {
 				 */
 #define DL_IMAGE_TOOBIG	7	/* firmware image too big */
 
-
 struct trx_header_le {
 	__le32 magic;		/* "HDR0" */
 	__le32 len;		/* Length of file including header */
@@ -160,7 +159,7 @@ struct brcmf_usbdev_info {
 
 	struct usb_device *usbdev;
 	struct device *dev;
-	struct mutex dev_init_lock;
+	struct completion fw_downloaded;
 
 	int ctl_in_pipe, ctl_out_pipe;
 	struct urb *ctl_urb; /* URB for control endpoint */
@@ -1257,11 +1256,11 @@ static void brcmf_usb_probe_phase2(struct device *dev, int ret,
 	if (ret)
 		goto error;
 
-	mutex_unlock(&devinfo->dev_init_lock);
+	complete(&devinfo->fw_downloaded);
 	return;
 error:
 	brcmf_dbg(TRACE, "failed: dev=%s, err=%d\n", dev_name(dev), ret);
-	mutex_unlock(&devinfo->dev_init_lock);
+	complete(&devinfo->fw_downloaded);
 	device_release_driver(dev);
 }
 
@@ -1308,7 +1307,7 @@ static int brcmf_usb_probe_cb(struct brcmf_usbdev_info *devinfo)
 		if (ret)
 			goto fail;
 		/* we are done */
-		mutex_unlock(&devinfo->dev_init_lock);
+		complete(&devinfo->fw_downloaded);
 		return 0;
 	}
 	bus->chip = bus_pub->devid;
@@ -1369,11 +1368,9 @@ brcmf_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 
 	devinfo->usbdev = usb;
 	devinfo->dev = &usb->dev;
-	/* Take an init lock, to protect for disconnect while still loading.
-	 * Necessary because of the asynchronous firmware load construction
-	 */
-	mutex_init(&devinfo->dev_init_lock);
-	mutex_lock(&devinfo->dev_init_lock);
+
+	/* Initialize fw downloaded completion and mark it as not complete */
+	init_completion(&devinfo->fw_downloaded);
 
 	usb_set_intfdata(intf, devinfo);
 
@@ -1453,7 +1450,7 @@ brcmf_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	return 0;
 
 fail:
-	mutex_unlock(&devinfo->dev_init_lock);
+	complete(&devinfo->fw_downloaded);
 	kfree(devinfo);
 	usb_set_intfdata(intf, NULL);
 	return ret;
@@ -1468,7 +1465,7 @@ brcmf_usb_disconnect(struct usb_interface *intf)
 	devinfo = (struct brcmf_usbdev_info *)usb_get_intfdata(intf);
 
 	if (devinfo) {
-		mutex_lock(&devinfo->dev_init_lock);
+		wait_for_completion(&devinfo->fw_downloaded);
 		/* Make sure that devinfo still exists. Firmware probe routines
 		 * may have released the device and cleared the intfdata.
 		 */
