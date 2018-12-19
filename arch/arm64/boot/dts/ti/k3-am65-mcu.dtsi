@@ -23,6 +23,10 @@
 		ranges = <0x0 0x00 0x41c00000 0x80000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		mcu_r5fss0_core0_sram: r5f-sram@0 {
+			reg = <0x0 0x40000>;
+		};
 	};
 
 	mcu_i2c0: i2c@40b00000 {
@@ -118,6 +122,7 @@
 			atcm-enable = <1>;
 			btcm-enable = <1>;
 			loczrama = <1>;
+			sram = <&mcu_r5fss0_core0_sram>;
 		};
 
 		mcu_r5fss0_core1: r5f@41400000 {
