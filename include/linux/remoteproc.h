@@ -558,6 +558,7 @@ void rproc_free(struct rproc *rproc);
 int rproc_boot(struct rproc *rproc);
 void rproc_shutdown(struct rproc *rproc);
 void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type);
+void *rproc_da_to_va(struct rproc *rproc, u64 da, int len);
 int rproc_coredump_add_segment(struct rproc *rproc, dma_addr_t da, size_t size);
 int rproc_get_id(struct rproc *rproc);
 int rproc_pa_to_da(struct rproc *rproc, phys_addr_t pa, u64 *da);
