@@ -423,4 +423,10 @@
 
 		status = "disabled";
 	};
+
+	hwspinlock: spinlock@30e00000 {
+		compatible = "ti,am654-hwspinlock";
+		reg = <0x00 0x30e00000 0x00 0x1000>;
+		#hwlock-cells = <1>;
+	};
 };
