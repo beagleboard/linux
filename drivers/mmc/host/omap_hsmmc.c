@@ -3108,6 +3108,7 @@ static int omap_hsmmc_remove(struct platform_device *pdev)
 
 	del_timer_sync(&host->timer);
 
+	dev_pm_clear_wake_irq(host->dev);
 	pm_runtime_dont_use_autosuspend(host->dev);
 	pm_runtime_put_sync(host->dev);
 	pm_runtime_disable(host->dev);
