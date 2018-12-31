@@ -2002,10 +2002,10 @@ static int gpiod_request_commit(struct gpio_desc *desc, const char *label)
 	if (test_and_set_bit(FLAG_REQUESTED, &desc->flags) == 0) {
 		desc_set_label(desc, label ? : "?");
 		ret = 0;
-	} else {
-		kfree_const(label);
-		ret = -EBUSY;
-		goto done;
+//	} else {
+//		kfree_const(label);
+//		ret = -EBUSY;
+//		goto done;
 	}
 
 	if (gc->request) {
