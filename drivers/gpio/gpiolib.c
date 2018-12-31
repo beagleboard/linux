@@ -1927,9 +1927,9 @@ static int gpiod_request_commit(struct gpio_desc *desc, const char *label)
 
 	if (test_and_set_bit(FLAG_REQUESTED, &desc->flags) == 0) {
 		desc_set_label(desc, label ? : "?");
-	} else {
-		ret = -EBUSY;
-		goto out_free_unlock;
+//	} else {
+//		ret = -EBUSY;
+//		goto out_free_unlock;
 	}
 
 	if (gc->request) {
