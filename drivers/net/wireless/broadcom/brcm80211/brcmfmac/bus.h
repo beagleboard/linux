@@ -160,6 +160,7 @@ struct brcmf_bus {
 
 	const struct brcmf_bus_ops *ops;
 	struct brcmf_bus_msgbuf *msgbuf;
+	bool allow_skborphan;
 };
 
 /*
