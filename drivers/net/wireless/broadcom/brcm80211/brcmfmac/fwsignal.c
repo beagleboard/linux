@@ -523,6 +523,7 @@ struct brcmf_fws_info {
 	bool creditmap_received;
 	u8 mode;
 	bool avoid_queueing;
+	int fifo_init_credit[BRCMF_FWS_FIFO_COUNT];
 };
 
 /*
@@ -1645,6 +1646,7 @@ static int brcmf_fws_notify_credit_map(struct brcmf_if *ifp,
 		if (fws->fifo_credit[i] < 0)
 			brcmf_err("fifo_credit[%d] value is negative(%d)\n",
 				  i, fws->fifo_credit[i]);
+		fws->fifo_init_credit[i] = fws->fifo_credit[i];
 	}
 	brcmf_fws_schedule_deq(fws);
 	brcmf_fws_unlock(fws);
@@ -2219,6 +2221,36 @@ void brcmf_fws_del_interface(struct brcmf_if *ifp)
 	brcmf_fws_unlock(fws);
 }
 
+static bool brcmf_fws_ismultistream(struct brcmf_fws_info *fws)
+{
+	bool ret = false;
+	u8 credit_usage = 0;
+
+	/* Check only for BE, VI and VO traffic */
+	u32 delay_map = fws->fifo_delay_map &
+		((1 << BRCMF_FWS_FIFO_AC_BE) |
+		 (1 << BRCMF_FWS_FIFO_AC_VI) |
+		 (1 << BRCMF_FWS_FIFO_AC_VO));
+
+	if (hweight_long(delay_map) > 1) {
+		ret = true;
+	} else {
+		if (fws->fifo_credit[BRCMF_FWS_FIFO_AC_BE] <
+			fws->fifo_init_credit[BRCMF_FWS_FIFO_AC_BE])
+			credit_usage++;
+		if (fws->fifo_credit[BRCMF_FWS_FIFO_AC_VI] <
+			fws->fifo_init_credit[BRCMF_FWS_FIFO_AC_VI])
+			credit_usage++;
+		if (fws->fifo_credit[BRCMF_FWS_FIFO_AC_VO] <
+			fws->fifo_init_credit[BRCMF_FWS_FIFO_AC_VO])
+			credit_usage++;
+
+		if (credit_usage > 1)
+			ret = true;
+	}
+	return ret;
+}
+
 static void brcmf_fws_dequeue_worker(struct work_struct *worker)
 {
 	struct brcmf_fws_info *fws;
@@ -2231,6 +2263,11 @@ static void brcmf_fws_dequeue_worker(struct work_struct *worker)
 
 	fws = container_of(worker, struct brcmf_fws_info, fws_dequeue_work);
 	drvr = fws->drvr;
+
+	if (brcmf_fws_ismultistream(fws))
+		drvr->bus_if->allow_skborphan = false;
+	else
+		drvr->bus_if->allow_skborphan = true;
 
 	brcmf_fws_lock(fws);
 	for (fifo = BRCMF_FWS_FIFO_BCMC; fifo >= 0 && !fws->bus_flow_blocked;
