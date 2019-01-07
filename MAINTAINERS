@@ -9843,6 +9843,13 @@ S:	Odd Fixes
 F:	drivers/media/i2c/mt9t112.c
 F:	include/media/i2c/mt9t112.h
 
+MT9T11x APTINA CAMERA SENSOR
+M:	Benoit Parrot <bparrot@ti.com>
+L:	linux-media@vger.kernel.org
+T:	git git://linuxtv.org/media_tree.git
+S:	Odd Fixes
+F:	Documentation/devicetree/bindings/media/i2c/mt9t11x.txt
+
 MT9V032 APTINA CAMERA SENSOR
 M:	Laurent Pinchart <laurent.pinchart@ideasonboard.com>
 L:	linux-media@vger.kernel.org
