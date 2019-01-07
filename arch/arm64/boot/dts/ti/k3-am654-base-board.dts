@@ -94,6 +94,13 @@
 			AM65X_WKUP_IOPAD(0x0088, PIN_INPUT, 0) /* (L4) MCU_MDIO0_MDIO */
 		>;
 	};
+
+	wkup_pca554_default: wkup_pca554_default {
+		pinctrl-single,pins = <
+			AM65X_WKUP_IOPAD(0x0034, PIN_INPUT, 7) /* (T1) MCU_OSPI1_CLK.WKUP_GPIO0_25 */
+
+		>;
+	};
 };
 
 &main_pmx0 {
@@ -156,6 +163,12 @@
 		reg = <0x39>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wkup_pca554_default>;
+		interrupt-parent = <&wkup_gpio0>;
+		interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
 	};
 };
 
