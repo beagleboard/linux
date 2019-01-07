@@ -475,6 +475,7 @@ static int omap_mcpdm_remove(struct snd_soc_dai *dai)
 		pm_qos_remove_request(&mcpdm->pm_qos_req);
 
 	clk_disable_unprepare(mcpdm->pdmclk);
+
 	return 0;
 }
 
