@@ -157,24 +157,13 @@ struct k3_ring {
 };
 
 /**
- * struct k3_ring_range -  Ring range
- *
- * @start - first ring id in range
- * @count - number of rings in range
- */
-struct k3_ring_range {
-	u32 start;
-	u32 count;
-};
-
-/**
  * struct k3_ringacc - Rings accelerator descriptor
  *
  * @dev - pointer on RA device
  * @proxy_gcfg - RA proxy global config registers
  * @proxy_target_base - RA proxy datapath region
  * @num_rings - number of ring in RA
- * @gp_rings - general purpose rings range
+ * @rm_gp_range - general purpose rings range from tisci
  * @dma_ring_reset_quirk - DMA reset w/a enable
  * @num_proxies - number of RA proxies
  * @rings - array of rings descriptors (struct @k3_ring)
@@ -189,7 +178,8 @@ struct k3_ringacc {
 	void __iomem *proxy_target_base;
 	u32 num_rings; /* number of rings in Ringacc module */
 	unsigned long *rings_inuse;
-	struct k3_ring_range gp_rings;
+	struct ti_sci_resource *rm_gp_range;
+
 	bool dma_ring_reset_quirk;
 	u32 num_proxies;
 	unsigned long *proxy_inuse;
@@ -291,11 +281,13 @@ struct k3_ring *k3_ringacc_request_ring(struct k3_ringacc *ringacc,
 
 	if (id == K3_RINGACC_RING_ID_ANY) {
 		/* Request for any general purpose ring */
+		struct ti_sci_resource_desc *gp_rings =
+						&ringacc->rm_gp_range->desc[0];
 		unsigned long size;
 
-		size = ringacc->gp_rings.start + ringacc->gp_rings.count;
-		id = find_next_zero_bit(ringacc->rings_inuse,
-					size, ringacc->gp_rings.start);
+		size = gp_rings->start + gp_rings->num;
+		id = find_next_zero_bit(ringacc->rings_inuse, size,
+					gp_rings->start);
 		if (id == size)
 			goto error;
 	} else if (id < 0) {
@@ -995,7 +987,6 @@ static int k3_ringacc_probe_dt(struct k3_ringacc *ringacc)
 {
 	struct device_node *node = ringacc->dev->of_node;
 	struct device *dev = ringacc->dev;
-	u32 ranges[2];
 	int ret;
 
 	if (!node) {
@@ -1008,16 +999,6 @@ static int k3_ringacc_probe_dt(struct k3_ringacc *ringacc)
 		dev_err(dev, "ti,num-rings read failure %d\n", ret);
 		return ret;
 	}
-
-	ret = of_property_read_u32_array(node, "ti,gp-rings", &ranges[0], 2);
-	if (ret) {
-		ranges[0] = 0;
-		ranges[1] = ringacc->num_rings;
-		dev_info(dev, "Using default GP range [%u, %u]\n",
-			 ranges[0], ranges[1]);
-	}
-	ringacc->gp_rings.start = ranges[0];
-	ringacc->gp_rings.count = ranges[1];
 
 	ringacc->dma_ring_reset_quirk =
 			of_property_read_bool(node, "ti,dma-ring-reset-quirk");
@@ -1035,6 +1016,12 @@ static int k3_ringacc_probe_dt(struct k3_ringacc *ringacc)
 				   &ringacc->tisci_dev_id);
 	if (ret)
 		dev_err(dev, "ti,sci-dev-id read fail %d\n", ret);
+
+	ringacc->rm_gp_range = devm_ti_sci_get_of_resource(ringacc->tisci, dev,
+						ringacc->tisci_dev_id,
+						"ti,sci-rm-range-gp-rings");
+	if (IS_ERR(ringacc->rm_gp_range))
+		ret = PTR_ERR(ringacc->rm_gp_range);
 
 	return ret;
 }
@@ -1123,8 +1110,8 @@ static int k3_ringacc_probe(struct platform_device *pdev)
 
 	dev_info(dev, "Ring Accelerator probed rings:%u, gp-rings[%u,%u] sci-dev-id:%u\n",
 		 ringacc->num_rings,
-		 ringacc->gp_rings.start,
-		 ringacc->gp_rings.count,
+		 ringacc->rm_gp_range->desc[0].start,
+		 ringacc->rm_gp_range->desc[0].num,
 		 ringacc->tisci_dev_id);
 	dev_info(dev, "dma-ring-reset-quirk: %s\n",
 		 ringacc->dma_ring_reset_quirk ? "enabled" : "disabled");
