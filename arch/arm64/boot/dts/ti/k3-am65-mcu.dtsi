@@ -59,6 +59,7 @@
 				<0x0 0x2a500000 0x0 0x40000>;
 			reg-names = "rt", "fifos", "proxy_gcfg", "proxy_target";
 			ti,num-rings = <286>;
+			ti,sci-rm-range-gp-rings = <0x2>; /* GP ring range */
 			ti,gp-rings = <96 255>; /* start, cnt */
 			ti,dma-ring-reset-quirk;
 			ti,sci = <&dmsc>;
