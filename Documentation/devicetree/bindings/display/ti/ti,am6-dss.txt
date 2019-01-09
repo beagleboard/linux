@@ -1,0 +1,16 @@
+Texas Instruments AM65x Display Subsystem
+==========================================
+
+Required properties:
+- compatible: "ti,am65x-dss", "ti,am6-dss"
+- reg: address and length of the register spaces for DSS submodules
+- reg-names: "common", "vidl1", "vid", "ovr1", "ovr2", "vp1", "vp2"
+- clocks: phandle to fclk, vp1, and vp2 clocks
+- clock-names: "fck", "vp1", "vp2"
+- interrupts: phandle to the DISPC interrupt
+- syscon: phandle to syscon device handling OLDI_PWRDN_TX (partition 1 of
+  AM654 CTRL MMR0)
+
+The DSS outputs are described using the device graphs as documented in
+Documentation/devicetree/bindings/graph.txt. AM6 DSS has a DPI output as port 0
+and an OLDI output as port 1.
