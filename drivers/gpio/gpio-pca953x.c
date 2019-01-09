@@ -652,6 +652,7 @@ static int pca953x_irq_setup(struct pca953x_chip *chip,
 			     int irq_base)
 {
 	struct i2c_client *client = chip->client;
+	unsigned long irqflags;
 	int ret, i;
 
 	if (client->irq && irq_base != -1
@@ -670,12 +671,16 @@ static int pca953x_irq_setup(struct pca953x_chip *chip,
 			chip->irq_stat[i] &= chip->reg_direction[i];
 		mutex_init(&chip->irq_lock);
 
+		irqflags = irq_get_trigger_type(client->irq);
+		if (irqflags == IRQF_TRIGGER_NONE)
+			irqflags = IRQF_TRIGGER_LOW;
+		irqflags |= IRQF_ONESHOT | IRQF_SHARED;
+
 		ret = devm_request_threaded_irq(&client->dev,
 					client->irq,
 					   NULL,
 					   pca953x_irq_handler,
-					   IRQF_TRIGGER_LOW | IRQF_ONESHOT |
-						   IRQF_SHARED,
+					   irqflags,
 					   dev_name(&client->dev), chip);
 		if (ret) {
 			dev_err(&client->dev, "failed to request irq %d\n",
