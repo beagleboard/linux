@@ -1,0 +1,8 @@
+Rockteck 10.1" TFT 1280x800 Pixels
+- with LVDS interface, LED Backlight and capacitive touch panel
+
+Required properties:
+- compatible: should be "rockteck,rk101ii01d-ct"
+
+This binding is compatible with the simple-panel binding, which is specified
+in simple-panel.txt in this directory.
