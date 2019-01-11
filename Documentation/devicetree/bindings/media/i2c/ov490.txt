@@ -1,0 +1,46 @@
+* OmniVision OV490 CSI2 Image Signal Processor (ISP)
+
+The Omnivision OV490 is a Image Signal Processor which is a companion
+processor for the Raw image sensors. This device can process the raw images
+and apply multiple algorithms to correct/transform/enhance the image quality.
+
+It needs programming lot of registers are most of them are written from
+a flash memory. The output is a CSI2 MIPI interface which can work with
+configurable number of lanes.
+
+Required Properties:
+- compatible : "ovti,ov490"
+
+Optional Properties:
+- mux-gpios : A list of gpios with active high/low flags for enabling the sensor.
+         This may contain gpios for power, board muxes, etc. Driver would
+         set all of them as specified by the active high/low flag.
+
+  There are no custom optional properties supported for this device.
+  Although all the CSI2 endpoint properties documented in
+  Documentation/devicetree/bindings/media/video-interfaces.txt are supported.
+
+Example:
+
+	&i2c2 {
+		...
+		...
+		ov490@cam0 {
+			compatible = "ovti,ov490";
+			reg = <0x24>;
+
+			mux-gpios = <&gpio_csi2_adap 0  GPIO_ACTIVE_LOW>,
+				    <&gpio_csi2_adap 1  GPIO_ACTIVE_HIGH>,
+				    <&gpio_csi2_adap 3  GPIO_ACTIVE_HIGH>,
+				    <&gpio_csi2_adap 4  GPIO_ACTIVE_LOW>;
+
+			port {
+				csi2_cam0: endpoint@0 {
+					clock-lanes = <0>;
+					data-lanes = <1 2 3 4>;
+					remote-endpoint = <&csi2_phy0>;
+				};
+			};
+		};
+		...
+	};

@@ -757,7 +757,11 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	dra76-evm.dtb
 dtb-merge-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-evm.dtb \
-	am57xx-evm-reva3.dtb
+	am57xx-evm-cam-mt9t111.dtb \
+	am57xx-evm-cam-ov10635.dtb \
+	am57xx-evm-reva3.dtb \
+	am57xx-evm-reva3-cam-mt9t111.dtb \
+	am57xx-evm-reva3-cam-ov10635.dtb
 ifeq ($(CONFIG_SOC_DRA7XX),y)
 dts-dirs += ti
 endif
