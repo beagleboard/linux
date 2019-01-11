@@ -55,7 +55,7 @@
 #define MIN_W		32
 #define MIN_H		32
 #define MAX_W		2048
-#define MAX_H		1184
+#define MAX_H		2048
 
 /* required alignments */
 #define S_ALIGN		0	/* multiple of 1 */
@@ -255,6 +255,15 @@ static struct vpe_fmt vpe_formats[] = {
 				  },
 	},
 	{
+		.name		= "NV21 YUV 420 co-planar",
+		.fourcc		= V4L2_PIX_FMT_NV21,
+		.types		= VPE_FMT_TYPE_CAPTURE | VPE_FMT_TYPE_OUTPUT,
+		.coplanar	= 1,
+		.vpdma_fmt	= { &vpdma_yuv_fmts[VPDMA_DATA_FMT_Y420],
+				    &vpdma_yuv_fmts[VPDMA_DATA_FMT_CB420],
+				  },
+	},
+	{
 		.name		= "YUYV 422 packed",
 		.fourcc		= V4L2_PIX_FMT_YUYV,
 		.types		= VPE_FMT_TYPE_CAPTURE | VPE_FMT_TYPE_OUTPUT,
@@ -342,9 +351,14 @@ struct vpe_q_data {
 #define	Q_DATA_MODE_TILED		BIT(1)
 #define	Q_DATA_INTERLACED_ALTERNATE	BIT(2)
 #define	Q_DATA_INTERLACED_SEQ_TB	BIT(3)
+#define	Q_DATA_INTERLACED_SEQ_BT	BIT(4)
+
+#define Q_IS_SEQ_XX		(Q_DATA_INTERLACED_SEQ_TB | \
+				Q_DATA_INTERLACED_SEQ_BT)
 
 #define Q_IS_INTERLACED		(Q_DATA_INTERLACED_ALTERNATE | \
-				Q_DATA_INTERLACED_SEQ_TB)
+				Q_DATA_INTERLACED_SEQ_TB | \
+				Q_DATA_INTERLACED_SEQ_BT)
 
 enum {
 	Q_DATA_SRC = 0,
@@ -352,18 +366,23 @@ enum {
 };
 
 /* find our format description corresponding to the passed v4l2_format */
-static struct vpe_fmt *find_format(struct v4l2_format *f)
+static struct vpe_fmt *__find_format(u32 fourcc)
 {
 	struct vpe_fmt *fmt;
 	unsigned int k;
 
 	for (k = 0; k < ARRAY_SIZE(vpe_formats); k++) {
 		fmt = &vpe_formats[k];
-		if (fmt->fourcc == f->fmt.pix.pixelformat)
+		if (fmt->fourcc == fourcc)
 			return fmt;
 	}
 
 	return NULL;
+}
+
+static struct vpe_fmt *find_format(struct v4l2_format *f)
+{
+	return __find_format(f->fmt.pix.pixelformat);
 }
 
 /*
@@ -695,7 +714,8 @@ static void set_cfg_modes(struct vpe_ctx *ctx)
 	 * Cfg Mode 1: YUV422 source, disable upsampler, DEI is de-interlacing.
 	 */
 
-	if (fmt->fourcc == V4L2_PIX_FMT_NV12)
+	if (fmt->fourcc == V4L2_PIX_FMT_NV12 ||
+	    fmt->fourcc == V4L2_PIX_FMT_NV21)
 		cfg_mode = 0;
 
 	write_field(us1_reg0, cfg_mode, VPE_US_MODE_MASK, VPE_US_MODE_SHIFT);
@@ -710,7 +730,8 @@ static void set_line_modes(struct vpe_ctx *ctx)
 	struct vpe_fmt *fmt = ctx->q_data[Q_DATA_SRC].fmt;
 	int line_mode = 1;
 
-	if (fmt->fourcc == V4L2_PIX_FMT_NV12)
+	if (fmt->fourcc == V4L2_PIX_FMT_NV12 ||
+	    fmt->fourcc == V4L2_PIX_FMT_NV21)
 		line_mode = 0;		/* double lines to line buffer */
 
 	/* regs for now */
@@ -772,7 +793,8 @@ static void set_dst_registers(struct vpe_ctx *ctx)
 	 */
 	val |= VPE_DS_SRC_DEI_SCALER | VPE_CSC_SRC_DEI_SCALER;
 
-	if (fmt->fourcc != V4L2_PIX_FMT_NV12)
+	if (fmt->fourcc != V4L2_PIX_FMT_NV12 &&
+	    fmt->fourcc != V4L2_PIX_FMT_NV21)
 		val |= VPE_DS_BYPASS;
 
 	mmr_adb->out_fmt_reg[0] = val;
@@ -915,14 +937,6 @@ static int set_srcdst_params(struct vpe_ctx *ctx)
 }
 
 /*
- * Return the vpe_ctx structure for a given struct file
- */
-static struct vpe_ctx *file2ctx(struct file *file)
-{
-	return container_of(file->private_data, struct vpe_ctx, fh);
-}
-
-/*
  * mem2mem callbacks
  */
 
@@ -1027,11 +1041,14 @@ static void add_out_dtd(struct vpe_ctx *ctx, int port)
 	dma_addr_t dma_addr;
 	u32 flags = 0;
 	u32 offset = 0;
+	u32 stride;
 
 	if (port == VPE_PORT_MV_OUT) {
 		vpdma_fmt = &vpdma_misc_fmts[VPDMA_DATA_FMT_MV];
 		dma_addr = ctx->mv_buf_dma[mv_buf_selector];
 		q_data = &ctx->q_data[Q_DATA_SRC];
+		stride = ALIGN((q_data->width * vpdma_fmt->depth) >> 3,
+			       VPDMA_STRIDE_ALIGN);
 	} else {
 		/* to incorporate interleaved formats */
 		int plane = fmt->coplanar ? p_data->vb_part : 0;
@@ -1058,6 +1075,7 @@ static void add_out_dtd(struct vpe_ctx *ctx, int port)
 		}
 		/* Apply the offset */
 		dma_addr += offset;
+		stride = q_data->bytesperline[VPE_LUMA];
 	}
 
 	if (q_data->flags & Q_DATA_FRAME_1D)
@@ -1069,7 +1087,7 @@ static void add_out_dtd(struct vpe_ctx *ctx, int port)
 			   MAX_W, MAX_H);
 
 	vpdma_add_out_dtd(&ctx->desc_list, q_data->width,
-			  q_data->bytesperline[VPE_LUMA], &q_data->c_rect,
+			  stride, &q_data->c_rect,
 			  vpdma_fmt, dma_addr, MAX_OUT_WIDTH_REG1,
 			  MAX_OUT_HEIGHT_REG1, p_data->channel, flags);
 }
@@ -1088,10 +1106,13 @@ static void add_in_dtd(struct vpe_ctx *ctx, int port)
 	dma_addr_t dma_addr;
 	u32 flags = 0;
 	u32 offset = 0;
+	u32 stride;
 
 	if (port == VPE_PORT_MV_IN) {
 		vpdma_fmt = &vpdma_misc_fmts[VPDMA_DATA_FMT_MV];
 		dma_addr = ctx->mv_buf_dma[mv_buf_selector];
+		stride = ALIGN((q_data->width * vpdma_fmt->depth) >> 3,
+			       VPDMA_STRIDE_ALIGN);
 	} else {
 		/* to incorporate interleaved formats */
 		int plane = fmt->coplanar ? p_data->vb_part : 0;
@@ -1118,25 +1139,38 @@ static void add_in_dtd(struct vpe_ctx *ctx, int port)
 		}
 		/* Apply the offset */
 		dma_addr += offset;
+		stride = q_data->bytesperline[VPE_LUMA];
 
-		if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB) {
-			/*
-			 * Use top or bottom field from same vb alternately
-			 * f,f-1,f-2 = TBT when seq is even
-			 * f,f-1,f-2 = BTB when seq is odd
-			 */
-			field = (p_data->vb_index + (ctx->sequence % 2)) % 2;
+		/*
+		 * field used in VPDMA desc  = 0 (top) / 1 (bottom)
+		 * Use top or bottom field from same vb alternately
+		 * For each de-interlacing operation, f,f-1,f-2 should be one
+		 * of TBT or BTB
+		 */
+		if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB ||
+		    q_data->flags & Q_DATA_INTERLACED_SEQ_TB) {
+			/* Select initial value based on format */
+			if (q_data->flags & Q_DATA_INTERLACED_SEQ_BT)
+				field = 1;
+			else
+				field = 0;
+
+			/* Toggle for each vb_index and each operation */
+			field = (field + p_data->vb_index + ctx->sequence) % 2;
 
 			if (field) {
-				/*
-				 * bottom field of a SEQ_TB buffer
-				 * Skip the top field data by
-				 */
 				int height = q_data->height / 2;
-				int bpp = fmt->fourcc == V4L2_PIX_FMT_NV12 ?
-						1 : (vpdma_fmt->depth >> 3);
+				int bpp;
+
+				if (fmt->fourcc == V4L2_PIX_FMT_NV12 ||
+				    fmt->fourcc == V4L2_PIX_FMT_NV21)
+					bpp = 1;
+				else
+					bpp = vpdma_fmt->depth >> 3;
+
 				if (plane)
 					height /= 2;
+
 				dma_addr += q_data->width * height * bpp;
 			}
 		}
@@ -1150,13 +1184,14 @@ static void add_in_dtd(struct vpe_ctx *ctx, int port)
 	frame_width = q_data->c_rect.width;
 	frame_height = q_data->c_rect.height;
 
-	if (p_data->vb_part && fmt->fourcc == V4L2_PIX_FMT_NV12)
+	if (p_data->vb_part && (fmt->fourcc == V4L2_PIX_FMT_NV12 ||
+				fmt->fourcc == V4L2_PIX_FMT_NV21))
 		frame_height /= 2;
 
-	vpdma_add_in_dtd(&ctx->desc_list, q_data->width,
-			 q_data->bytesperline[VPE_LUMA], &q_data->c_rect,
-		vpdma_fmt, dma_addr, p_data->channel, field, flags, frame_width,
-		frame_height, 0, 0);
+	vpdma_add_in_dtd(&ctx->desc_list, q_data->width, stride,
+			 &q_data->c_rect, vpdma_fmt, dma_addr,
+			 p_data->channel, field, flags, frame_width,
+			 frame_height, 0, 0);
 }
 
 /*
@@ -1191,12 +1226,14 @@ static void device_run(void *priv)
 	struct vpe_q_data *d_q_data = &ctx->q_data[Q_DATA_DST];
 	struct vpe_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
 
-	if (ctx->deinterlacing && s_q_data->flags & Q_DATA_INTERLACED_SEQ_TB &&
-		ctx->sequence % 2 == 0) {
-		/* When using SEQ_TB buffers, When using it first time,
-		 * No need to remove the buffer as the next field is present
-		 * in the same buffer. (so that job_ready won't fail)
-		 * It will be removed when using bottom field
+	if (ctx->deinterlacing && s_q_data->flags & Q_IS_SEQ_XX &&
+	    ctx->sequence % 2 == 0) {
+		/* When using SEQ_XX type buffers, each buffer has two fields
+		 * each buffer has two fields (top & bottom)
+		 * Removing one buffer is actually getting two fields
+		 * Alternate between two operations:-
+		 * Even : consume one field but DO NOT REMOVE from queue
+		 * Odd : consume other field and REMOVE from queue
 		 */
 		ctx->src_vbs[0] = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 		WARN_ON(ctx->src_vbs[0] == NULL);
@@ -1405,9 +1442,6 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 	 /* the previous dst mv buffer becomes the next src mv buffer */
 	ctx->src_mv_buf_selector = !ctx->src_mv_buf_selector;
 
-	if (ctx->aborting)
-		goto finished;
-
 	s_vb = ctx->src_vbs[0];
 	d_vb = ctx->dst_vb;
 
@@ -1418,6 +1452,7 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 		d_vb->timecode = s_vb->timecode;
 
 	d_vb->sequence = ctx->sequence;
+	s_vb->sequence = ctx->sequence;
 
 	d_q_data = &ctx->q_data[Q_DATA_DST];
 	if (d_q_data->flags & Q_IS_INTERLACED) {
@@ -1470,6 +1505,9 @@ static irqreturn_t vpe_irq(int irq_vpe, void *data)
 	*/
 	ctx->src_vbs[0] = NULL;
 	ctx->dst_vb = NULL;
+
+	if (ctx->aborting)
+		goto finished;
 
 	ctx->bufs_completed++;
 	if (ctx->bufs_completed < ctx->bufs_per_job && job_ready(ctx)) {
@@ -1536,7 +1574,7 @@ static int vpe_enum_fmt(struct file *file, void *priv,
 static int vpe_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
-	struct vpe_ctx *ctx = file2ctx(file);
+	struct vpe_ctx *ctx = file->private_data;
 	struct vb2_queue *vq;
 	struct vpe_q_data *q_data;
 	int i;
@@ -1546,6 +1584,8 @@ static int vpe_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 		return -EINVAL;
 
 	q_data = get_q_data(ctx, f->type);
+	if (!q_data)
+		return -EINVAL;
 
 	pix->width = q_data->width;
 	pix->height = q_data->height;
@@ -1583,13 +1623,15 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 	unsigned int stride = 0;
 
 	if (!fmt || !(fmt->types & type)) {
-		vpe_err(ctx->dev, "Fourcc format (0x%08x) invalid.\n",
+		vpe_dbg(ctx->dev, "Fourcc format (0x%08x) invalid.\n",
 			pix->pixelformat);
-		return -EINVAL;
+		fmt = __find_format(V4L2_PIX_FMT_YUYV);
 	}
 
-	if (pix->field != V4L2_FIELD_NONE && pix->field != V4L2_FIELD_ALTERNATE
-			&& pix->field != V4L2_FIELD_SEQ_TB)
+	if (pix->field != V4L2_FIELD_NONE &&
+	    pix->field != V4L2_FIELD_ALTERNATE &&
+	    pix->field != V4L2_FIELD_SEQ_TB &&
+	    pix->field != V4L2_FIELD_SEQ_BT)
 		pix->field = V4L2_FIELD_NONE;
 
 	depth = fmt->vpdma_fmt[VPE_LUMA]->depth;
@@ -1632,7 +1674,7 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 			      &pix->height, MIN_H, MAX_H, H_ALIGN,
 			      S_ALIGN);
 
-	if (!pix->num_planes)
+	if (!pix->num_planes || pix->num_planes > 2)
 		pix->num_planes = fmt->coplanar ? 2 : 1;
 	else if (pix->num_planes > 1 && !fmt->coplanar)
 		pix->num_planes = 1;
@@ -1641,9 +1683,9 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 
 	/*
 	 * For the actual image parameters, we need to consider the field
-	 * height of the image for SEQ_TB buffers.
+	 * height of the image for SEQ_XX buffers.
 	 */
-	if (pix->field == V4L2_FIELD_SEQ_TB)
+	if (pix->field == V4L2_FIELD_SEQ_TB || pix->field == V4L2_FIELD_SEQ_BT)
 		height = pix->height / 2;
 	else
 		height = pix->height;
@@ -1671,6 +1713,10 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 		if (stride > plane_fmt->bytesperline)
 			plane_fmt->bytesperline = stride;
 
+		plane_fmt->bytesperline = clamp_t(u32, plane_fmt->bytesperline,
+						  stride,
+						  VPDMA_MAX_STRIDE);
+
 		plane_fmt->bytesperline = ALIGN(plane_fmt->bytesperline,
 						VPDMA_STRIDE_ALIGN);
 
@@ -1696,7 +1742,7 @@ static int __vpe_try_fmt(struct vpe_ctx *ctx, struct v4l2_format *f,
 
 static int vpe_try_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
-	struct vpe_ctx *ctx = file2ctx(file);
+	struct vpe_ctx *ctx = file->private_data;
 	struct vpe_fmt *fmt = find_format(f);
 
 	if (V4L2_TYPE_IS_OUTPUT(f->type))
@@ -1749,11 +1795,13 @@ static int __vpe_s_fmt(struct vpe_ctx *ctx, struct v4l2_format *f)
 		q_data->flags |= Q_DATA_INTERLACED_ALTERNATE;
 	else if (q_data->field == V4L2_FIELD_SEQ_TB)
 		q_data->flags |= Q_DATA_INTERLACED_SEQ_TB;
+	else if (q_data->field == V4L2_FIELD_SEQ_BT)
+		q_data->flags |= Q_DATA_INTERLACED_SEQ_BT;
 	else
 		q_data->flags &= ~Q_IS_INTERLACED;
 
-	/* the crop height is halved for the case of SEQ_TB buffers */
-	if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB)
+	/* the crop height is halved for the case of SEQ_XX buffers */
+	if (q_data->flags & Q_IS_SEQ_XX)
 		q_data->c_rect.height /= 2;
 
 	vpe_dbg(ctx->dev, "Setting format for type %d, wxh: %dx%d, fmt: %d bpl_y %d",
@@ -1769,7 +1817,7 @@ static int __vpe_s_fmt(struct vpe_ctx *ctx, struct v4l2_format *f)
 static int vpe_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	int ret;
-	struct vpe_ctx *ctx = file2ctx(file);
+	struct vpe_ctx *ctx = file->private_data;
 
 	ret = vpe_try_fmt(file, priv, f);
 	if (ret)
@@ -1826,10 +1874,10 @@ static int __vpe_try_selection(struct vpe_ctx *ctx, struct v4l2_selection *s)
 	}
 
 	/*
-	 * For SEQ_TB buffers, crop height should be less than the height of
+	 * For SEQ_XX buffers, crop height should be less than the height of
 	 * the field height, not the buffer height
 	 */
-	if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB)
+	if (q_data->flags & Q_IS_SEQ_XX)
 		height = q_data->height / 2;
 	else
 		height = q_data->height;
@@ -1854,7 +1902,7 @@ static int __vpe_try_selection(struct vpe_ctx *ctx, struct v4l2_selection *s)
 static int vpe_g_selection(struct file *file, void *fh,
 		struct v4l2_selection *s)
 {
-	struct vpe_ctx *ctx = file2ctx(file);
+	struct vpe_ctx *ctx = file->private_data;
 	struct vpe_q_data *q_data;
 	bool use_c_rect = false;
 
@@ -1915,7 +1963,7 @@ static int vpe_g_selection(struct file *file, void *fh,
 static int vpe_s_selection(struct file *file, void *fh,
 		struct v4l2_selection *s)
 {
-	struct vpe_ctx *ctx = file2ctx(file);
+	struct vpe_ctx *ctx = file->private_data;
 	struct vpe_q_data *q_data;
 	struct v4l2_selection sel = *s;
 	int ret;
@@ -2010,6 +2058,8 @@ static int vpe_queue_setup(struct vb2_queue *vq,
 	struct vpe_q_data *q_data;
 
 	q_data = get_q_data(ctx, vq->type);
+	if (!q_data)
+		return -EINVAL;
 
 	*nplanes = q_data->nplanes;
 
@@ -2034,6 +2084,8 @@ static int vpe_buf_prepare(struct vb2_buffer *vb)
 	vpe_dbg(ctx->dev, "type: %d\n", vb->vb2_queue->type);
 
 	q_data = get_q_data(ctx, vb->vb2_queue->type);
+	if (!q_data)
+		return -EINVAL;
 	num_planes = q_data->nplanes;
 
 	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -2042,7 +2094,8 @@ static int vpe_buf_prepare(struct vb2_buffer *vb)
 		} else {
 			if (vbuf->field != V4L2_FIELD_TOP &&
 			    vbuf->field != V4L2_FIELD_BOTTOM &&
-			    vbuf->field != V4L2_FIELD_SEQ_TB)
+			    vbuf->field != V4L2_FIELD_SEQ_TB &&
+			    vbuf->field != V4L2_FIELD_SEQ_BT)
 				return -EINVAL;
 		}
 	}
@@ -2278,7 +2331,7 @@ static int vpe_open(struct file *file)
 	init_adb_hdrs(ctx);
 
 	v4l2_fh_init(&ctx->fh, video_devdata(file));
-	file->private_data = &ctx->fh;
+	file->private_data = ctx;
 
 	hdl = &ctx->hdl;
 	v4l2_ctrl_handler_init(hdl, 1);
@@ -2291,7 +2344,7 @@ static int vpe_open(struct file *file)
 	v4l2_ctrl_handler_setup(hdl);
 
 	s_q_data = &ctx->q_data[Q_DATA_SRC];
-	s_q_data->fmt = &vpe_formats[2];
+	s_q_data->fmt = __find_format(V4L2_PIX_FMT_YUYV);
 	s_q_data->width = 1920;
 	s_q_data->height = 1080;
 	s_q_data->nplanes = 1;
@@ -2363,12 +2416,18 @@ free_ctx:
 static int vpe_release(struct file *file)
 {
 	struct vpe_dev *dev = video_drvdata(file);
-	struct vpe_ctx *ctx = file2ctx(file);
+	struct vpe_ctx *ctx = file->private_data;
 
 	vpe_dbg(dev, "releasing instance %p\n", ctx);
 
 	mutex_lock(&dev->dev_mutex);
 	free_mv_buffers(ctx);
+
+	vpdma_unmap_desc_buf(dev->vpdma, &ctx->desc_list.buf);
+	vpdma_unmap_desc_buf(dev->vpdma, &ctx->mmr_adb);
+	vpdma_unmap_desc_buf(dev->vpdma, &ctx->sc_coeff_h);
+	vpdma_unmap_desc_buf(dev->vpdma, &ctx->sc_coeff_v);
+
 	vpdma_free_desc_list(&ctx->desc_list);
 	vpdma_free_desc_buf(&ctx->mmr_adb);
 
@@ -2475,6 +2534,13 @@ static int vpe_probe(struct platform_device *pdev)
 	struct vpe_dev *dev;
 	int ret, irq, func;
 
+	ret = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(&pdev->dev,
+			"32-bit consistent DMA enable failed\n");
+		return ret;
+	}
+
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
@@ -2489,7 +2555,12 @@ static int vpe_probe(struct platform_device *pdev)
 	mutex_init(&dev->dev_mutex);
 
 	dev->res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			"vpe_top");
+						"vpe_top");
+	if (!dev->res) {
+		dev_err(&pdev->dev, "missing 'vpe_top' resources data\n");
+		return -ENODEV;
+	}
+
 	/*
 	 * HACK: we get resource info from device tree in the form of a list of
 	 * VPE sub blocks, the driver currently uses only the base of vpe_top

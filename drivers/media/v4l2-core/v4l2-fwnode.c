@@ -114,6 +114,7 @@ static void v4l2_fwnode_endpoint_parse_parallel_bus(
 	struct v4l2_fwnode_bus_parallel *bus = &vep->bus.parallel;
 	unsigned int flags = 0;
 	u32 v;
+	int rval;
 
 	if (!fwnode_property_read_u32(fwnode, "hsync-active", &v))
 		flags |= v ? V4L2_MBUS_HSYNC_ACTIVE_HIGH :
@@ -157,6 +158,26 @@ static void v4l2_fwnode_endpoint_parse_parallel_bus(
 	if (!fwnode_property_read_u32(fwnode, "data-enable-active", &v))
 		flags |= v ? V4L2_MBUS_DATA_ENABLE_HIGH :
 			V4L2_MBUS_DATA_ENABLE_LOW;
+
+	if (vep->bus_type == V4L2_MBUS_BT656) {
+		if (fwnode_property_present(fwnode, "pixel-mux"))
+			bus->pixmux = 1;
+		else
+			bus->pixmux = 0;
+
+		bus->num_channels = 0;
+		rval = fwnode_property_read_u8_array(fwnode, "channels",
+						     NULL, 0);
+		if (rval > 0) {
+			bus->num_channels = min_t(int,
+						  ARRAY_SIZE(bus->channels),
+						  rval);
+
+			fwnode_property_read_u8_array(fwnode, "channels",
+						      bus->channels,
+						      bus->num_channels);
+		}
+	}
 
 	bus->flags = flags;
 

@@ -9843,6 +9843,14 @@ S:	Odd Fixes
 F:	drivers/media/i2c/mt9t112.c
 F:	include/media/i2c/mt9t112.h
 
+MT9T11x APTINA CAMERA SENSOR
+M:	Benoit Parrot <bparrot@ti.com>
+L:	linux-media@vger.kernel.org
+T:	git git://linuxtv.org/media_tree.git
+S:	Odd Fixes
+F:	Documentation/devicetree/bindings/media/i2c/mt9t11x.txt
+F:	drivers/media/i2c/mt9t11x.c
+
 MT9V032 APTINA CAMERA SENSOR
 M:	Laurent Pinchart <laurent.pinchart@ideasonboard.com>
 L:	linux-media@vger.kernel.org
@@ -10682,6 +10690,15 @@ M:	Harald Welte <laforge@gnumonks.org>
 S:	Maintained
 F:	drivers/char/pcmcia/cm4040_cs.*
 
+OMNIVISION OV1063x SENSOR DRIVER
+M:	Benoit Parrot <bparrot@ti.com>
+L:	linux-media@vger.kernel.org
+T:	git git://linuxtv.org/media_tree.git
+S:	Maintained
+F:	Documentation/devicetree/bindings/media/i2c/ov1063x.txt
+F:	drivers/media/i2c/ov1063x.c
+F:	drivers/media/i2c/ov1063x_regs.h
+
 OMNIVISION OV13858 SENSOR DRIVER
 M:	Sakari Ailus <sakari.ailus@linux.intel.com>
 L:	linux-media@vger.kernel.org
@@ -10703,6 +10720,14 @@ L:	linux-media@vger.kernel.org
 T:	git git://linuxtv.org/media_tree.git
 S:	Maintained
 F:	drivers/media/i2c/ov2685.c
+
+OMNIVISION OV490 SENSOR DRIVER
+M:	Benoit Parrot <bparrot@ti.com>
+L:	linux-media@vger.kernel.org
+T:	git git://linuxtv.org/media_tree.git
+S:	Maintained
+F:	Documentation/devicetree/bindings/media/i2c/ov490.txt
+F:	drivers/media/i2c/ov490.c
 
 OMNIVISION OV5640 SENSOR DRIVER
 M:	Steve Longerbeam <slongerbeam@gmail.com>
@@ -14682,6 +14707,8 @@ W:	http://linuxtv.org/
 Q:	http://patchwork.linuxtv.org/project/linux-media/list/
 S:	Maintained
 F:	drivers/media/platform/ti-vpe/
+F:	Documentation/devicetree/bindings/media/ti-vpe.txt
+F:	Documentation/devicetree/bindings/media/ti-vip.txt
 
 TI WILINK WIRELESS DRIVERS
 L:	linux-wireless@vger.kernel.org
