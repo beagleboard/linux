@@ -1148,7 +1148,7 @@ static void add_in_dtd(struct vpe_ctx *ctx, int port)
 		 * of TBT or BTB
 		 */
 		if (q_data->flags & Q_DATA_INTERLACED_SEQ_TB ||
-		    q_data->flags & Q_DATA_INTERLACED_SEQ_TB) {
+		    q_data->flags & Q_DATA_INTERLACED_SEQ_BT) {
 			/* Select initial value based on format */
 			if (q_data->flags & Q_DATA_INTERLACED_SEQ_BT)
 				field = 1;
