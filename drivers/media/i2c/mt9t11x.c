@@ -861,13 +861,15 @@ static unsigned int mt9t11x_pll_calc_params(struct mt9t11x_priv *priv)
 
 static int mt9t11x_sysctl_startup(const struct i2c_client *client)
 {
-	int ret = 0;
+	int ret;
 
 	/* reset */
-	mt9t11x_reset(client);
+	ret = mt9t11x_reset(client);
+	if (ret < 0)
+		return ret;
 
 	/* Setup PLL */
-	mt9t11x_pll_setup_pll(client);
+	ret = mt9t11x_pll_setup_pll(client);
 
 	return ret;
 }
