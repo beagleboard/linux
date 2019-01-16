@@ -191,8 +191,8 @@ static void ti_sci_inta_irq_domain_free(struct irq_domain *domain,
 	ti_sci_free_event_irq(inta, vint_desc, event_index,
 			      gic_data->hwirq, data->hwirq);
 	irq_domain_free_irqs_parent(domain, virq, 1);
-	irq_domain_reset_irq_data(data);
 	ti_sci_release_resource(inta->vint, data->hwirq);
+	irq_domain_reset_irq_data(data);
 	kfree(vint_desc->event_map);
 	kfree(vint_desc);
 }

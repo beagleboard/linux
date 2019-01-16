@@ -6,7 +6,7 @@
 
 /dts-v1/;
 
-#include "dra76x.dtsi"
+#include "dra74x-p.dtsi"
 #include "dra7-mmc-iodelay.dtsi"
 #include "dra76x-mmc-iodelay.dtsi"
 #include "am572x-idk-common.dtsi"

@@ -23,12 +23,9 @@ Required properties:
 		  "proxy_gcfg" - The RA Proxy Global Config Registers
 		  "proxy_target" - The RA Proxy Datapath Registers
 - ti,num-rings	: Number of rings supported by RA
+- ti,sci-rm-range-gp-rings : TI-SCI RM subtype for GP ring range
 
 Optional properties:
- -- ti,gp-rings	: defines general purpose range of rings. Pair of values:
-		  first ring in range and range size.
-		  Each range of rings defined as pair of values: first ring id
-		  in range and number of rings in range.
  -- ti,dma-ring-reset-quirk : enable ringacc / udma ring state interoperability
 		  issue software w/a
  -- ti,sci : phandle on TI-SCI compatible System controller node
@@ -45,7 +42,7 @@ ringacc: ringacc@3c000000 {
 	reg-names = "rt", "fifos",
 		    "proxy_gcfg", "proxy_target";
 	ti,num-rings = <818>;
-	ti,gp-rings = <302 466>; /* start, cnt */
+	ti,sci-rm-range-gp-rings = <0x2>; /* GP ring range */
 	ti,dma-ring-reset-quirk;
 	ti,sci = <&dmsc>;
 	ti,sci-dev-id = <187>;
