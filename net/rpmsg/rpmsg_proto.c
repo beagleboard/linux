@@ -191,6 +191,8 @@ static int rpmsg_sock_sendmsg(struct socket *sock, struct msghdr *msg,
 	err = rpmsg_send(rpsk->rpdev->ept, payload, len);
 	if (err)
 		pr_err("rpmsg_send failed: %d\n", err);
+	else
+		err = len;
 
 out:
 	release_sock(sk);
