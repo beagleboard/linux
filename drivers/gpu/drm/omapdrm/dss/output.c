@@ -30,8 +30,15 @@
 int omapdss_device_init_output(struct omap_dss_device *out)
 {
 	struct device_node *remote_node;
+	u32 port_num;
 
-	remote_node = of_graph_get_remote_node(out->dev->of_node, 0, 0);
+	/*
+	 * FIXME: DSS outputs have only a single bit set, so we can use __ffs.
+	 * This is a temporary fix until the port management has been cleaned.
+	 */
+	port_num = __ffs(out->of_ports);
+
+	remote_node = of_graph_get_remote_node(out->dev->of_node, port_num, 0);
 	if (!remote_node) {
 		dev_dbg(out->dev, "failed to find video sink\n");
 		return 0;
