@@ -3043,7 +3043,7 @@ static void dispc_mgr_setup(struct dispc_device *dispc,
 				info->trans_key);
 	dispc_mgr_enable_trans_key(dispc, channel, info->trans_enabled);
 	dispc_mgr_enable_alpha_fixed_zorder(dispc, channel,
-			info->partial_alpha_enabled);
+			info->alpha_blender_enabled);
 	if (dispc_has_feature(dispc, FEAT_CPR)) {
 		dispc_mgr_enable_cpr(dispc, channel, info->cpr_enable);
 		dispc_mgr_set_cpr_coef(dispc, channel, &info->cpr_coefs);
@@ -4660,7 +4660,7 @@ static const struct dispc_errata_i734_data {
 	.mgri = {
 		.default_color = 0,
 		.trans_enabled = false,
-		.partial_alpha_enabled = false,
+		.alpha_blender_enabled = false,
 		.cpr_enable = false,
 	},
 	.lcd_conf = {

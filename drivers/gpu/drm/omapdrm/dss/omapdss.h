@@ -256,7 +256,7 @@ struct omap_overlay_manager_info {
 	u32 trans_key;
 	bool trans_enabled;
 
-	bool partial_alpha_enabled;
+	bool alpha_blender_enabled;
 
 	bool cpr_enable;
 	struct omap_dss_cpr_coefs cpr_coefs;

@@ -224,6 +224,11 @@ static int omap_modeset_init_properties(struct drm_device *dev)
 	if (!priv->trans_key_prop)
 		return -ENOMEM;
 
+	priv->alpha_blender_prop = drm_property_create_bool(dev, 0,
+		"alpha_blender");
+	if (!priv->alpha_blender_prop)
+		return -ENOMEM;
+
 	return 0;
 }
 
