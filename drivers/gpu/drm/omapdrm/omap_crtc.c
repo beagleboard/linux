@@ -35,6 +35,8 @@ struct omap_crtc_state {
 	unsigned int zpos;
 
 	u32 default_color;
+	unsigned int trans_key_mode;
+	unsigned int trans_key;
 };
 
 #define to_omap_crtc(x) container_of(x, struct omap_crtc, base)
@@ -342,8 +344,24 @@ static void omap_crtc_write_crtc_properties(struct drm_crtc *crtc)
 	memset(&info, 0, sizeof(info));
 
 	info.default_color = omap_state->default_color;
-	info.trans_enabled = false;
 	info.partial_alpha_enabled = false;
+
+	info.trans_key = omap_state->trans_key;
+
+	switch (omap_state->trans_key_mode) {
+	case 0:
+	default:
+		info.trans_enabled = false;
+		break;
+	case 1:
+		info.trans_enabled = true;
+		info.trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;
+		break;
+	case 2:
+		info.trans_enabled = true;
+		info.trans_key_type = OMAP_DSS_COLOR_KEY_VID_SRC;
+		break;
+	}
 
 	if (crtc->state->ctm) {
 		struct drm_color_ctm *ctm =
@@ -575,6 +593,10 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 		plane_state->zpos = val;
 	else if (property == priv->background_color_prop)
 		omap_state->default_color = val;
+	else if (property == priv->trans_key_mode_prop)
+		omap_state->trans_key_mode = val;
+	else if (property == priv->trans_key_prop)
+		omap_state->trans_key = val;
 	else
 		return -EINVAL;
 
@@ -595,6 +617,10 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 		*val = omap_state->zpos;
 	else if (property == priv->background_color_prop)
 		*val = omap_state->default_color;
+	else if (property == priv->trans_key_mode_prop)
+		*val = omap_state->trans_key_mode;
+	else if (property == priv->trans_key_prop)
+		*val = omap_state->trans_key;
 	else
 		return -EINVAL;
 
@@ -633,6 +659,9 @@ omap_crtc_duplicate_state(struct drm_crtc *crtc)
 	state->rotation = current_state->rotation;
 
 	state->default_color = current_state->default_color;
+
+	state->trans_key_mode = current_state->trans_key_mode;
+	state->trans_key = current_state->trans_key;
 
 	return &state->base;
 }
@@ -689,6 +718,8 @@ static void omap_crtc_install_properties(struct drm_crtc *crtc)
 	struct omap_drm_private *priv = dev->dev_private;
 
 	drm_object_attach_property(obj, priv->background_color_prop, 0);
+	drm_object_attach_property(obj, priv->trans_key_mode_prop, 0);
+	drm_object_attach_property(obj, priv->trans_key_prop, 0);
 }
 
 /* initialize crtc */
