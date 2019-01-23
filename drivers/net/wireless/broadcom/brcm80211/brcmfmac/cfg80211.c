@@ -22,6 +22,7 @@
 #include "p2p.h"
 #include "btcoex.h"
 #include "pno.h"
+#include "fwsignal.h"
 #include "cfg80211.h"
 #include "feature.h"
 #include "fwil.h"
@@ -5984,14 +5985,14 @@ static void brcmf_init_wmm_prio(u8 *priority)
 	 * 802.1d prio 4,5 maps to VI
 	 * 802.1d prio 6,7 maps to VO
 	 */
-	priority[0] = AC_BE;
-	priority[3] = AC_BE;
-	priority[1] = AC_BK;
-	priority[2] = AC_BK;
-	priority[4] = AC_VI;
-	priority[5] = AC_VI;
-	priority[6] = AC_VO;
-	priority[7] = AC_VO;
+	priority[0] = BRCMF_FWS_FIFO_AC_BE;
+	priority[3] = BRCMF_FWS_FIFO_AC_BE;
+	priority[1] = BRCMF_FWS_FIFO_AC_BK;
+	priority[2] = BRCMF_FWS_FIFO_AC_BK;
+	priority[4] = BRCMF_FWS_FIFO_AC_VI;
+	priority[5] = BRCMF_FWS_FIFO_AC_VI;
+	priority[6] = BRCMF_FWS_FIFO_AC_VO;
+	priority[7] = BRCMF_FWS_FIFO_AC_VO;
 }
 
 static void brcmf_register_event_handlers(struct brcmf_cfg80211_info *cfg)
