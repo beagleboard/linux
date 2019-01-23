@@ -41,7 +41,7 @@
 			cam: endpoint {
 				hsync-active = <1>;
 				pclk-sample = <1>;
-				remote-endpoint = <&vin3a>;
+				remote-endpoint = <&vin3a_ep>;
 				vsync-active = <1>;
 			};
 		};
@@ -51,7 +51,7 @@
 &vin3a {
 	status = "okay";
 
-	endpoint {
+	vin3a_ep: endpoint {
 		remote-endpoint = <&cam>;
 		slave-mode;
 	};
