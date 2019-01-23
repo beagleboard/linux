@@ -120,8 +120,6 @@
 };
 
 &vin1b {
-	status = "okay";
-
 	vin1b_ep: endpoint@2 {
 		slave-mode;
 		remote-endpoint = <&ov2659_1>;
