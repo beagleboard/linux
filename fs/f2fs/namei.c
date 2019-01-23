@@ -169,7 +169,7 @@ static int f2fs_link(struct dentry *old_dentry, struct inode *dir,
 
 	if (f2fs_encrypted_inode(dir) &&
 		!f2fs_is_child_context_consistent_with_parent(dir, inode))
-		return -EPERM;
+		return -EXDEV;
 
 	f2fs_balance_fs(sbi);
 
@@ -597,7 +597,7 @@ static int f2fs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	if ((old_dir != new_dir) && f2fs_encrypted_inode(new_dir) &&
 		!f2fs_is_child_context_consistent_with_parent(new_dir,
 							old_inode)) {
-		err = -EPERM;
+		err = -EXDEV;
 		goto out;
 	}
 
@@ -758,7 +758,7 @@ static int f2fs_cross_rename(struct inode *old_dir, struct dentry *old_dentry,
 								old_inode) ||
 		!f2fs_is_child_context_consistent_with_parent(old_dir,
 								new_inode)))
-		return -EPERM;
+		return -EXDEV;
 
 	f2fs_balance_fs(sbi);
 
