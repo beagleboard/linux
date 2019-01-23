@@ -3507,6 +3507,9 @@ static int alloc_port(struct vip_dev *dev, int id)
 	struct vip_port *port;
 	u32 vin_id;
 
+	if (dev->ports[id])
+		return -EINVAL;
+
 	port = devm_kzalloc(&dev->pdev->dev, sizeof(*port), GFP_KERNEL);
 	if (!port)
 		return -ENOMEM;
@@ -3625,126 +3628,60 @@ static const struct v4l2_async_notifier_operations vip_async_ops = {
 	.complete = vip_async_complete,
 };
 
-static struct device_node *
-of_get_next_available_port(const struct device_node *parent,
-			   struct device_node *prev)
+static struct fwnode_handle *
+fwnode_graph_get_next_endpoint_by_regs(const struct fwnode_handle *fwnode,
+				       int port_reg, int reg)
 {
-	struct device_node *port = NULL;
-
-	if (!parent)
-		return NULL;
-
-	do {
-		port = of_get_next_available_child(parent, prev);
-		if (!port)
-			return NULL;
-
-		prev = port;
-	} while (of_node_cmp(port->name, "port") != 0);
-
-	return port;
-}
-
-static struct device_node *
-of_get_next_endpoint(const struct device_node *parent,
-		     struct device_node *prev)
-{
-	struct device_node *ep = NULL;
-
-	if (!parent)
-		return NULL;
-
-	do {
-		ep = of_get_next_child(parent, prev);
-		if (!ep)
-			return NULL;
-		prev = ep;
-	} while (of_node_cmp(ep->name, "endpoint") != 0);
-
-	return ep;
+	return of_fwnode_handle(of_graph_get_endpoint_by_regs(to_of_node(fwnode),
+							      port_reg, reg));
 }
 
 static int vip_register_subdev_notif(struct vip_port *port,
-				     struct device_node *port_node)
+				     struct fwnode_handle *ep)
 {
 	struct vip_async_config *config = &port->config;
 	struct v4l2_async_notifier *notifier = &port->notifier;
-	struct v4l2_async_subdev *asd;
 	struct vip_dev *dev = port->dev;
-	struct device_node *ep_node = NULL, *subdev_node, *subdev_ep;
-	int i = 0, ret;
+	struct fwnode_handle *subdev, *remote_ep;
+	int ret;
 
-	while (i < VIP_MAX_SUBDEV) {
-		subdev_node = NULL;
-		subdev_ep = NULL;
-		ep_node = of_get_next_endpoint(port_node, ep_node);
-		if (!ep_node) {
-			vip_dbg(3, port, "can't get next endpoint: loop: %d\n",
-				i);
-			break;
-		}
-
-		subdev_node = of_graph_get_remote_port_parent(ep_node);
-		if (!subdev_node) {
-			vip_dbg(3, port, "can't get remote parent: loop: %d\n",
-				i);
-			goto of_node_cleanup;
-		}
-
-		subdev_ep = of_graph_get_remote_endpoint(ep_node);
-		if (!subdev_ep) {
-			vip_dbg(3, port, "can't get remote-endpoint: loop: %d\n",
-				i);
-			goto of_node_cleanup;
-		}
-
-		ret = v4l2_fwnode_endpoint_parse(of_fwnode_handle(subdev_ep),
-						 &config->endpoints[i]);
-		if (ret) {
-			vip_dbg(3, port, "Failed to parse endpoint: loop: %d\n",
-				i);
-			goto of_node_cleanup;
-		}
-
-		asd = &config->asd[i];
-		asd->match_type = V4L2_ASYNC_MATCH_FWNODE;
-		asd->match.fwnode = of_fwnode_handle(subdev_node);
-		config->asd_list[i] = asd;
-		i++;
-
-of_node_cleanup:
-		if (!subdev_ep)
-			of_node_put(subdev_ep);
-		if (!subdev_node)
-			of_node_put(subdev_node);
+	subdev = fwnode_graph_get_remote_port_parent(ep);
+	if (!subdev) {
+		vip_dbg(3, port, "can't get remote parent\n");
+		return -EINVAL;
 	}
 
-	if (i == 0) {
-		vip_err(port, "Port %c enabled but no endpoints found\n",
-			port->port_id == VIP_PORTA ? 'A' : 'B');
-		ret = -EINVAL;
-		goto skip_async;
+	remote_ep = fwnode_graph_get_remote_endpoint(ep);
+	if (!remote_ep) {
+		vip_dbg(3, port, "can't get remote-endpoint\n");
+		fwnode_handle_put(subdev);
+		return -EINVAL;
 	}
 
-	config->asd_sizes = i;
+	ret = v4l2_fwnode_endpoint_parse(remote_ep, &config->endpoints[0]);
+	if (ret) {
+		vip_dbg(3, port, "Failed to parse endpoint:\n");
+		fwnode_handle_put(subdev);
+		fwnode_handle_put(remote_ep);
+		return -EINVAL;
+	}
+
+	fwnode_handle_put(subdev);
+	fwnode_handle_put(remote_ep);
+
+	config->asd[0].match_type = V4L2_ASYNC_MATCH_FWNODE;
+	config->asd[0].match.fwnode = subdev;
+	config->asd_list[0] = &config->asd[0];
+	config->asd_sizes = 1;
 	notifier->ops = &vip_async_ops;
 	notifier->subdevs = config->asd_list;
 	notifier->num_subdevs = config->asd_sizes;
 
-	vip_dbg(1, port, "register async notifier for %d subdevs\n", i);
 	ret = v4l2_async_notifier_register(dev->v4l2_dev, notifier);
 	if (ret) {
 		vip_dbg(1, port, "Error registering async notifier\n");
 		ret = -EINVAL;
 	}
-
-skip_async:
-	if (!subdev_ep)
-		of_node_put(subdev_ep);
-	if (!subdev_node)
-		of_node_put(subdev_node);
-	if (!ep_node)
-		of_node_put(ep_node);
 
 	return ret;
 }
@@ -3756,11 +3693,9 @@ static int vip_of_probe(struct platform_device *pdev)
 	u32 syscon_pol_offset = 0;
 	struct vip_port *port;
 	struct vip_dev *dev;
-
 	struct device_node *parent = pdev->dev.of_node;
-	struct device_node *port_node = NULL;
-	int ret, slice_id, port_id;
-	u32 regval = 0;
+	struct fwnode_handle *ep = NULL;
+	int ret, slice_id, port_id, p;
 
 	if (parent && of_property_read_bool(parent, "syscon-pol")) {
 		syscon_pol = syscon_regmap_lookup_by_phandle(parent,
@@ -3777,14 +3712,13 @@ static int vip_of_probe(struct platform_device *pdev)
 		}
 	}
 
-	while (1) {
-		port_node = of_get_next_available_port(parent, port_node);
-		if (!port_node)
-			break;
+	for (p = 0; p < (VIP_NUM_PORTS * VIP_NUM_SLICES); p++) {
+		ep = fwnode_graph_get_next_endpoint_by_regs(of_fwnode_handle(parent),
+							    p, 0);
+		if (!ep)
+			continue;
 
-		/* Find the port from <REG> */
-		of_property_read_u32(port_node, "reg", &regval);
-		switch (regval) {
+		switch (p) {
 		case 0:
 			slice_id = VIP_SLICE1;	port_id = VIP_PORTA;
 			break;
@@ -3798,18 +3732,20 @@ static int vip_of_probe(struct platform_device *pdev)
 			slice_id = VIP_SLICE2;	port_id = VIP_PORTB;
 			break;
 		default:
-			dev_err(&pdev->dev, "Unknown port reg=<%d>\n", regval);
+			dev_err(&pdev->dev, "Unknown port reg=<%d>\n", p);
 			continue;
 		}
+
+		ret = alloc_port(shared->devs[slice_id], port_id);
+		if (ret < 0)
+			continue;
 
 		dev = shared->devs[slice_id];
 		dev->syscon_pol = syscon_pol;
 		dev->syscon_pol_offset = syscon_pol_offset;
-		alloc_port(dev, port_id);
 		port = dev->ports[port_id];
 
-		ret = vip_register_subdev_notif(port, port_node);
-		of_node_put(port_node);
+		vip_register_subdev_notif(port, ep);
 	}
 	return 0;
 }
