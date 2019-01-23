@@ -550,7 +550,6 @@
 };
 
 &vin1a {
-	status = "okay";
 	vin1a_ep: endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;
