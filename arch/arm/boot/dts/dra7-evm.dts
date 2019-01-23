@@ -354,7 +354,7 @@
 		mux-gpios = <&pcf_hdmi 3 GPIO_ACTIVE_LOW>; /* CAM_FPD_MUX_S0 */
 		port {
 			onboardLI: endpoint {
-				remote-endpoint = <&vin1a>;
+				remote-endpoint = <&vin1a_ep>;
 				hsync-active = <1>;
 				vsync-active = <1>;
 				pclk-sample = <0>;
@@ -551,7 +551,7 @@
 
 &vin1a {
 	status = "okay";
-	endpoint@0 {
+	vin1a_ep: endpoint@0 {
 		slave-mode;
 		remote-endpoint = <&onboardLI>;
 	};
