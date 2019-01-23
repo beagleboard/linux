@@ -96,13 +96,13 @@
 };
 
 &ov2659_1 {
-	remote-endpoint = <&vin4b>;
+	remote-endpoint = <&vin4b_ep>;
 };
 
 &vin4b {
 	status = "okay";
 
-	endpoint@3 {
+	vin4b_ep: endpoint@3 {
 		slave-mode;
 		remote-endpoint = <&ov2659_1>;
 	};
