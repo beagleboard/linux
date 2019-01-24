@@ -3159,19 +3159,6 @@ static int udma_setup_resources(struct udma_dev *ud)
 		}
 	}
 
-	/*
-	 * HACK: tchan0, rchan0,1 and rflow0,1 on main_navss is dedicated to
-	 * sysfw.
-	 * Only UDMAP on main_navss have echan, use it as a hint for now.
-	 */
-	if (ud->echan_cnt) {
-		set_bit(0, ud->tchan_map);
-		set_bit(0, ud->rchan_map);
-		set_bit(1, ud->rchan_map);
-		set_bit(0, ud->rflow_map);
-		set_bit(1, ud->rflow_map);
-	}
-
 	ch_count -= bitmap_weight(ud->tchan_map, ud->tchan_cnt);
 	ch_count -= bitmap_weight(ud->rchan_map, ud->rchan_cnt);
 	if (!ch_count)
