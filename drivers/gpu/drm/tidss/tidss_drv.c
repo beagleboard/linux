@@ -13,7 +13,6 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
-#include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 
@@ -177,22 +176,6 @@ static int tidss_probe(struct platform_device *pdev)
 		goto err_modeset_cleanup;
 	}
 
-#ifdef CONFIG_DRM_FBDEV_EMULATION
-	if (ddev->mode_config.num_connector) {
-		struct drm_fbdev_cma *fbdev;
-
-		fbdev = drm_fbdev_cma_init(ddev, 32,
-					   ddev->mode_config.num_connector);
-		if (IS_ERR(fbdev)) {
-			dev_err(tidss->dev, "fbdev init failed\n");
-			ret =  PTR_ERR(fbdev);
-			goto err_irq_uninstall;
-		}
-
-		tidss->fbdev = fbdev;
-	}
-#endif
-
 	drm_kms_helper_poll_init(ddev);
 
 	ret = drm_dev_register(ddev, 0);
@@ -201,6 +184,8 @@ static int tidss_probe(struct platform_device *pdev)
 		goto err_poll_fini;
 	}
 
+	drm_fbdev_generic_setup(ddev, 32);
+
 	dev_dbg(dev, "%s done\n", __func__);
 
 	return 0;
@@ -208,14 +193,8 @@ static int tidss_probe(struct platform_device *pdev)
 err_poll_fini:
 	drm_kms_helper_poll_fini(ddev);
 
-	if (tidss->fbdev)
-		drm_fbdev_cma_fini(tidss->fbdev);
-
 	drm_atomic_helper_shutdown(ddev);
 
-#ifdef CONFIG_DRM_FBDEV_EMULATION
-err_irq_uninstall:
-#endif
 	drm_irq_uninstall(ddev);
 
 err_modeset_cleanup:
@@ -248,9 +227,6 @@ static int tidss_remove(struct platform_device *pdev)
 	drm_dev_unregister(ddev);
 
 	drm_kms_helper_poll_fini(ddev);
-
-	if (tidss->fbdev)
-		drm_fbdev_cma_fini(tidss->fbdev);
 
 	drm_atomic_helper_shutdown(ddev);
 
