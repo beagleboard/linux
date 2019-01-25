@@ -308,7 +308,7 @@ inline struct vip_port *notifier_to_vip_port(struct v4l2_async_notifier *n)
 	return container_of(n, struct vip_port, notifier);
 }
 
-static bool __maybe_unused vip_is_fmt_yuv(u32 fourcc)
+static bool vip_is_fmt_yuv(u32 fourcc)
 {
 	if (fourcc == V4L2_PIX_FMT_NV12 ||
 	    fourcc == V4L2_PIX_FMT_UYVY ||
@@ -331,7 +331,7 @@ static bool vip_is_fmt_rgb(u32 fourcc)
 	return false;
 }
 
-static bool __maybe_unused vip_is_mbuscode_yuv(u32 code)
+static bool vip_is_mbuscode_yuv(u32 code)
 {
 	return ((code & 0xFF00) == 0x2000);
 }
@@ -3127,7 +3127,7 @@ static int vip_setup_parser(struct vip_port *port)
 	return 0;
 }
 
-static __maybe_unused void vip_enable_parser(struct vip_port *port, bool on)
+static void vip_enable_parser(struct vip_port *port, bool on)
 {
 	u32 config0;
 	struct vip_dev *dev = port->dev;
@@ -3145,7 +3145,7 @@ static __maybe_unused void vip_enable_parser(struct vip_port *port, bool on)
 	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
 }
 
-static __maybe_unused void vip_reset_parser(struct vip_port *port, bool on)
+static void vip_reset_parser(struct vip_port *port, bool on)
 {
 	u32 config0;
 	struct vip_dev *dev = port->dev;
@@ -3161,7 +3161,7 @@ static __maybe_unused void vip_reset_parser(struct vip_port *port, bool on)
 	reg_write(parser, VIP_PARSER_PORT(port->port_id), config0);
 }
 
-static __maybe_unused void vip_parser_stop_imm(struct vip_port *port, bool on)
+static void vip_parser_stop_imm(struct vip_port *port, bool on)
 {
 	u32 config0;
 	struct vip_dev *dev = port->dev;
