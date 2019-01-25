@@ -440,6 +440,7 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 	const __be32 *addrp;
 	u32 addr;
 	int ret;
+	u16 soc_mask = 0;
 
 	addrp = of_get_address(node, 0, NULL, NULL);
 	addr = (u32)of_translate_address(node, addrp);
@@ -455,6 +456,12 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 #ifdef CONFIG_SOC_DRA7XX
 	if (of_machine_is_compatible("ti,dra7"))
 		data = dra7_clkctrl_data;
+	if (of_machine_is_compatible("ti,dra72"))
+		soc_mask = CLKF_SOC_DRA72;
+	if (of_machine_is_compatible("ti,dra74"))
+		soc_mask = CLKF_SOC_DRA74;
+	if (of_machine_is_compatible("ti,dra76"))
+		soc_mask = CLKF_SOC_DRA76;
 #endif
 #ifdef CONFIG_SOC_AM33XX
 	if (of_machine_is_compatible("ti,am33xx"))
@@ -513,6 +520,12 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 	reg_data = data->regs;
 
 	while (reg_data->parent) {
+		if ((reg_data->flags & CLKF_SOC_MASK) &&
+		    (reg_data->flags & soc_mask) == 0) {
+			reg_data++;
+			continue;
+		}
+
 		hw = kzalloc(sizeof(*hw), GFP_KERNEL);
 		if (!hw)
 			return;
