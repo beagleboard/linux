@@ -861,13 +861,15 @@ static unsigned int mt9t11x_pll_calc_params(struct mt9t11x_priv *priv)
 
 static int mt9t11x_sysctl_startup(const struct i2c_client *client)
 {
-	int ret = 0;
+	int ret;
 
 	/* reset */
-	mt9t11x_reset(client);
+	ret = mt9t11x_reset(client);
+	if (ret < 0)
+		return ret;
 
 	/* Setup PLL */
-	mt9t11x_pll_setup_pll(client);
+	ret = mt9t11x_pll_setup_pll(client);
 
 	return ret;
 }
@@ -2275,7 +2277,6 @@ MODULE_DEVICE_TABLE(of, mt9t11x_of_match);
 
 static struct i2c_driver mt9t11x_i2c_driver = {
 	.driver = {
-		.owner = THIS_MODULE,
 		.name	= DRIVER_NAME,
 		.of_match_table = of_match_ptr(mt9t11x_of_match),
 	},
