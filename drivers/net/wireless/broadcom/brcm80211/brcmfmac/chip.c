@@ -1479,11 +1479,6 @@ void brcmf_chip_reset_pmu_regs(struct brcmf_chip *pub)
 		addr = CORE_CC_REG(base, pmucontrol_ext);
 		chip->ops->write32(chip->ctx, addr,
 			CY_43012_PMU_CONTROL_EXT_MASK);
-
-		/* PMU watchdog */
-		addr = CORE_CC_REG(base, pmuwatchdog);
-		chip->ops->write32(chip->ctx, addr,
-			CY_43012_PMU_WATCHDOG_TICK_VAL);
 		break;
 
 	default:
@@ -1576,10 +1571,17 @@ void brcmf_chip_reset_watchdog(struct brcmf_chip *pub)
 
 	switch (pub->chip) {
 	case CY_CC_43012_CHIP_ID:
+		addr = CORE_CC_REG(base, min_res_mask);
+		chip->ops->write32(chip->ctx, addr,
+			CY_43012_PMU_MIN_RES_MASK);
 		/* Watchdog res mask */
 		addr = CORE_CC_REG(base, watchdog_res_mask);
 		chip->ops->write32(chip->ctx, addr,
 			CY_43012_PMU_MIN_RES_MASK);
+		/* PMU watchdog */
+		addr = CORE_CC_REG(base, pmuwatchdog);
+		chip->ops->write32(chip->ctx, addr,
+			CY_43012_PMU_WATCHDOG_TICK_VAL);
 		break;
 
 	default:
