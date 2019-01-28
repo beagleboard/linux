@@ -4599,8 +4599,6 @@ void brcmf_sdio_remove(struct brcmf_sdio *bus)
 					FMAC_ULP_ENTRY_RECV) {
 					brcmf_chip_ulp_reset_lhl_regs(bus->ci);
 					brcmf_chip_reset_pmu_regs(bus->ci);
-					brcmf_chip_set_default_min_res_mask(
-						bus->ci);
 				} else {
 					brcmf_chip_set_passive(bus->ci);
 				}
