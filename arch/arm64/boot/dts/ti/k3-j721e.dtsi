@@ -38,6 +38,7 @@
 		rproc5 = &main_r5fss1_core1;
 		rproc6 = &c66_0;
 		rproc7 = &c66_1;
+		rproc8 = &c71_0;
 	};
 
 	chosen { };
