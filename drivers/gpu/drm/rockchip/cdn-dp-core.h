@@ -15,12 +15,12 @@
 #ifndef _CDN_DP_CORE_H
 #define _CDN_DP_CORE_H
 
+#include <drm/bridge/cdns-mhdp-common.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_panel.h>
 #include "rockchip_drm_drv.h"
-#include "cdn-dp-reg.h"
 
 #define MAX_PHY		2
 
@@ -45,7 +45,6 @@ struct cdn_dp_device {
 	struct cdns_mhdp_device mhdp;
 	struct drm_device *drm_dev;
 	struct drm_encoder encoder;
-	struct platform_device *audio_pdev;
 	struct work_struct event_work;
 	struct edid *edid;
 
@@ -64,7 +63,6 @@ struct cdn_dp_device {
 	struct reset_control *dptx_rst;
 	struct reset_control *apb_rst;
 	struct reset_control *core_rst;
-	struct audio_info audio_info;
 	struct cdn_dp_port *port[MAX_PHY];
 	u8 ports;
 	u8 lanes;

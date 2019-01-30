@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (C) Fuzhou Rockchip Electronics Co.Ltd
  * Author: Chris Zhong <zyw@rock-chips.com>
@@ -12,8 +13,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _CDN_DP_REG_H
-#define _CDN_DP_REG_H
+#ifndef CDNS_MHDP_COMMON_H_
+#define CDNS_MHDP_COMMON_H_
+
+#include <drm/bridge/cdns-mhdp-cbs.h>
+#include <drm/drm_bridge.h>
+#include <drm/drm_connector.h>
+#include <drm/drm_dp_helper.h>
+#include <drm/drm_dp_mst_helper.h>
 
 #include <linux/bitops.h>
 
@@ -323,10 +330,11 @@
 #define MB_MODULE_ID_GENERAL		0x0a
 
 /* general opcode */
-#define GENERAL_MAIN_CONTROL            0x01
-#define GENERAL_TEST_ECHO               0x02
-#define GENERAL_BUS_SETTINGS            0x03
-#define GENERAL_TEST_ACCESS             0x04
+#define GENERAL_MAIN_CONTROL		0x01
+#define GENERAL_TEST_ECHO		0x02
+#define GENERAL_BUS_SETTINGS		0x03
+#define GENERAL_TEST_ACCESS		0x04
+#define GENERAL_REGISTER_READ		0x07
 
 #define DPTX_SET_POWER_MNG			0x00
 #define DPTX_SET_HOST_CAPABILITIES		0x01
@@ -346,6 +354,7 @@
 #define DPTX_SET_LINK_BREAK_POINT		0x0f
 #define DPTX_FORCE_LANES			0x10
 #define DPTX_HPD_STATE				0x11
+#define DPTX_ADJUST_LT				0x12
 
 #define FW_STANDBY				0
 #define FW_ACTIVE				1
@@ -507,26 +516,58 @@ struct cdns_mhdp_sink {
 	u8	enhanced;
 };
 
+struct cdns_mhdp_bridge;
+struct cdns_mhdp_connector;
+
+struct cdns_mhdp_bridge {
+	struct cdns_mhdp_device *mhdp;
+	struct drm_bridge base;
+	int pbn;
+	int8_t stream_id;
+	struct cdns_mhdp_connector *connector;
+	bool is_active;
+};
+
+
+struct cdns_mhdp_connector {
+	struct drm_connector base;
+	bool is_mst_connector;
+	struct drm_dp_mst_port *port;
+	struct cdns_mhdp_bridge *bridge;
+};
+
+
 struct cdns_mhdp_device {
 	void __iomem		*regs;
 
 	struct device		*dev;
 
 	struct drm_dp_link	link;
-	struct drm_connector	connector;
+	struct cdns_mhdp_connector  connector;
 	struct clk		*spdif_clk;
 	struct reset_control	*spdif_rst;
+
+	struct platform_device	*audio_pdev;
+	struct audio_info	audio_info;
 
 	struct drm_dp_aux	aux;
 	struct cdns_mhdp_host	host;
 	struct cdns_mhdp_sink	sink;
-	struct drm_bridge	bridge;
+	struct cdns_mhdp_bridge	bridge;
 	struct phy		*phy;
-	void __iomem		*dbg_regs;
 
 	struct video_info	video_info;
 	struct drm_display_mode	mode;
 	unsigned int		fw_version;
+
+	struct drm_dp_mst_topology_mgr mst_mgr;
+	struct delayed_work hotplug_work;
+
+	struct cdns_mhdp_mst_cbs cbs;
+	bool is_mst;
+	bool can_mst;
+	bool link_up;
+	bool plugged;
 };
 
 void cdns_mhdp_clock_reset(struct cdns_mhdp_device *mhdp);
@@ -551,4 +592,11 @@ int cdns_mhdp_audio_stop(struct cdns_mhdp_device *mhdp,
 int cdns_mhdp_audio_mute(struct cdns_mhdp_device *mhdp, bool enable);
 int cdns_mhdp_audio_config(struct cdns_mhdp_device *mhdp,
 			   struct audio_info *audio);
-#endif /* _CDN_DP_REG_H */
+int cdns_mhdp_reg_read(struct cdns_mhdp_device *mhdp, u32 addr, u32 *value);
+int cdns_mhdp_reg_write(struct cdns_mhdp_device *mhdp, u16 addr, u32 val);
+int cdns_mhdp_reg_write_bit(struct cdns_mhdp_device *mhdp, u16 addr,
+			    u8 start_bit, u8 bits_no, u32 val);
+int cdns_mhdp_adjust_lt(struct cdns_mhdp_device *mhdp, u8 nlanes,
+			u16 udelay, u8 *lanes_data,
+			u8 *dpcd);
+#endif /* CDNS_MHDP_COMMON_H_ */
