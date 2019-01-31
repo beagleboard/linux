@@ -364,3 +364,6 @@
 	status = "okay";
 };
 
+&sgx {
+	status = "okay";
+};
