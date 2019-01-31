@@ -533,3 +533,7 @@
 		opp-suspend;
 	};
 };
+
+&sgx {
+	status = "okay";
+};
