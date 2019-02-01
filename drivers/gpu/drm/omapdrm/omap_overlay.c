@@ -191,6 +191,82 @@ void omap_overlay_disable(struct drm_atomic_state *s,
 	 */
 }
 
+int omap_overlay_assign_wb(struct omap_drm_private *priv,
+			   struct drm_plane *plane,
+			   u32 caps, u32 fourcc, u32 crtc_mask,
+			   struct omap_hw_overlay **overlay)
+{
+	struct omap_global_state *old_global_state;
+	struct drm_plane **overlay_map;
+	struct omap_hw_overlay *ovl;
+
+	/*
+	 * As there is no state here we can't really grab the global obj lock.
+	 * This might cause issue!
+	 */
+	old_global_state = omap_get_existing_global_state(priv);
+	DBG("old_global_state: %p", old_global_state);
+
+	overlay_map = old_global_state->hwoverlay_to_plane;
+
+	if (!*overlay) {
+		ovl = omap_plane_find_free_overlay(plane->dev, overlay_map,
+						   caps, fourcc, crtc_mask);
+		if (!ovl)
+			return -ENOMEM;
+
+		overlay_map[ovl->idx] = plane;
+		*overlay = ovl;
+
+		DBG("%s: assign to WB plane %s for caps %x",
+		    (*overlay)->name, plane->name, caps);
+	}
+
+	return 0;
+}
+
+void omap_overlay_release_wb(struct omap_drm_private *priv,
+			     struct drm_plane *plane,
+			     struct omap_hw_overlay *overlay)
+{
+	struct omap_global_state *old_global_state;
+	struct drm_plane **overlay_map;
+
+	if (!overlay)
+		return;
+
+	/*
+	 * As there is no state here we can't really grab the global obj lock.
+	 * This might cause issue!
+	 */
+	old_global_state = omap_get_existing_global_state(priv);
+	DBG("old_global_state: %p", old_global_state);
+
+	overlay_map = old_global_state->hwoverlay_to_plane;
+
+	if (WARN_ON(!overlay_map[overlay->idx]))
+		return;
+	/*
+	 * Check that the overlay we are releasing is actually
+	 * assigned to the plane we are trying to release it from.
+	 */
+	if (overlay_map[overlay->idx] == plane) {
+		DBG("%s: release from WB plane %s", overlay->name, plane->name);
+
+		/*
+		 * As this might get called without having done any other
+		 * actual h/w access make sure the module is enabled before
+		 * trying to access it.
+		 */
+		priv->dispc_ops->runtime_get(priv->dispc);
+		priv->dispc_ops->ovl_enable(priv->dispc, overlay->overlay_id,
+					    false);
+		priv->dispc_ops->runtime_put(priv->dispc);
+		overlay->possible_crtcs = (1 << priv->num_pipes) - 1;
+		overlay_map[overlay->idx] = NULL;
+	}
+}
+
 static void omap_overlay_destroy(struct omap_hw_overlay *overlay)
 {
 	kfree(overlay);

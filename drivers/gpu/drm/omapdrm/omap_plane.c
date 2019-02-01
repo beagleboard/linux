@@ -32,6 +32,12 @@ struct omap_plane {
 	struct drm_plane base;
 	enum omap_plane_id id;
 	const char *name;
+
+	/*
+	 * WB has no notion of atomic state we need to keep
+	 * a reference to the allocated overlay here.
+	 */
+	struct omap_hw_overlay *reserved_wb_overlay;
 };
 
 bool is_omap_plane_dual_overlay(struct drm_plane_state *state)
@@ -192,6 +198,7 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 				   struct drm_plane_state *state)
 {
 	struct omap_drm_private *priv = plane->dev->dev_private;
+	struct omap_plane *omap_plane = to_omap_plane(plane);
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
 	u16 width, height;
@@ -207,6 +214,9 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 	bool is_fourcc_yuv = false;
 	int min_scale, max_scale;
 	int ret;
+
+	if (omap_plane->reserved_wb_overlay)
+		return -EBUSY;
 
 	omap_overlay_global_state = omap_get_global_state(state->state);
 	if (IS_ERR(omap_overlay_global_state))
@@ -613,4 +623,68 @@ error:
 
 	kfree(omap_plane);
 	return NULL;
+}
+
+enum omap_plane_id omap_plane_id_wb(struct drm_plane *plane)
+{
+	struct omap_plane *omap_plane = to_omap_plane(plane);
+
+	return omap_plane->reserved_wb_overlay->overlay_id;
+}
+
+struct drm_plane *omap_plane_reserve_wb(struct drm_device *dev)
+{
+	struct omap_drm_private *priv = dev->dev_private;
+	int i, ret;
+
+	/*
+	 * Look from the last plane to the first to lessen chances of the
+	 * display side trying to use the same plane as writeback.
+	 */
+	for (i = priv->num_planes - 1; i >= 0; --i) {
+		struct drm_plane *plane = priv->planes[i];
+		struct omap_plane *omap_plane = to_omap_plane(plane);
+		struct omap_hw_overlay *new_ovl = NULL;
+		u32 crtc_mask = (1 << priv->num_pipes) - 1;
+		u32 fourcc = DRM_FORMAT_YUYV;
+		u32 caps = OMAP_DSS_OVL_CAP_SCALE;
+
+		if (plane->state->crtc || plane->state->fb)
+			continue;
+
+		if (omap_plane->reserved_wb_overlay)
+			continue;
+
+		ret = omap_overlay_assign_wb(priv, plane, caps, fourcc,
+					     crtc_mask, &new_ovl);
+		if (ret) {
+			DBG("%s: failed to assign hw_overlay for wb!",
+			    plane->name);
+			return NULL;
+		}
+
+		omap_plane->reserved_wb_overlay = new_ovl;
+
+		return plane;
+	}
+
+	return NULL;
+}
+
+void omap_plane_release_wb(struct drm_plane *plane)
+{
+	struct omap_drm_private *priv = plane->dev->dev_private;
+	struct omap_plane *omap_plane;
+
+	/*
+	 * This is also called on module unload at which point plane might
+	 * not be set. In that case just return as there is nothing to do.
+	 */
+	if (!plane)
+		return;
+
+	omap_plane = to_omap_plane(plane);
+
+	omap_overlay_release_wb(priv, plane, omap_plane->reserved_wb_overlay);
+	omap_plane->reserved_wb_overlay = NULL;
 }
