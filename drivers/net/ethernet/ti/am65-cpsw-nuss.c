@@ -2064,6 +2064,12 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(48));
+	if (ret) {
+		dev_err(dev, "error setting dma mask: %d\n", ret);
+		goto unreg_ndev;
+	}
+
 	ret = devm_request_irq(dev, common->tx_chns[0].irq,
 			       am65_cpsw_nuss_tx_irq,
 			       0, dev_name(dev), common);
