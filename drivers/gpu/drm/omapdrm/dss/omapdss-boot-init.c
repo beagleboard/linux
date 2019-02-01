@@ -195,6 +195,7 @@ static const struct of_device_id omapdss_of_fixups_whitelist[] __initconst = {
 	{ .compatible = "svideo-connector" },
 	{ .compatible = "ti,opa362" },
 	{ .compatible = "ti,tpd12s015" },
+	{ .compatible = "ti,dra7evm-tpd12s015" },
 	{ .compatible = "toppoly,td028ttec1" },
 	{ .compatible = "tpo,td028ttec1" },
 	{ .compatible = "tpo,td043mtea1" },
