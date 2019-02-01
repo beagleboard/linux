@@ -38,4 +38,12 @@ void omap_overlay_release(struct drm_atomic_state *s,
 void omap_overlay_disable(struct drm_atomic_state *s,
 			  struct drm_plane *plane,
 			  struct omap_hw_overlay *overlay);
+int omap_overlay_assign_wb(struct omap_drm_private *priv,
+			   struct drm_plane *plane,
+			   u32 caps, u32 fourcc, u32 crtc_mask,
+			   struct omap_hw_overlay **overlay);
+void omap_overlay_release_wb(struct omap_drm_private *priv,
+			     struct drm_plane *plane,
+			     struct omap_hw_overlay *overlay);
+
 #endif /* __OMAPDRM_OVERLAY_H__ */
