@@ -165,7 +165,7 @@ mailbox: mailbox@480c8000 {
 		interrupt-parent = <&main_navss_intr>;
 		interrupts = <164 0 IRQ_TYPE_LEVEL_HIGH>;
 
-		mbox_mcu_r5f0_ipc3x: mbox-mcu-r5f0-ipc3x {
+		mbox_mcu_r5fss0_core0: mbox-mcu-r5fss0-core0 {
 			ti,mbox-tx = <1 0 0>;
 			ti,mbox-rx = <0 0 0>;
 		};
