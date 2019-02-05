@@ -1,0 +1,122 @@
+/dts-v1/;
+
+/ {
+	description = "DRA72-evm";
+	#address-cells = <1>;
+
+	images {
+		kernel@1 {
+			description = "LCPD kernel";
+			data = /incbin/("../../zImage");
+			type = "kernel";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x82000000>;
+			entry = <0x82000000>;
+		};
+		fdt@1 {
+			description = "am571x-idk";
+			data = /incbin/("am571x-idk.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+		fdt@2 {
+			description = "am572x-idk";
+			data = /incbin/("am572x-idk.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+		fdt@3 {
+			description = "am574x-idk";
+			data = /incbin/("am574x-idk.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+		fdt@4 {
+			description = "am57xx-idk OSD LCD common";
+			data = /incbin/("am57xx-idk-osd-lcd-common.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83080000>;
+		};
+		fdt@5 {
+			description = "am571x-idk touchscreen";
+			data = /incbin/("am571x-idk-touchscreen.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
+		fdt@6 {
+			description = "am572x-idk touchscreen";
+			data = /incbin/("am572x-idk-touchscreen.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
+		fdt@7 {
+			description = "osd101t2045 LCD";
+			data = /incbin/("lcd-osd101t2045.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83180000>;
+		};
+		fdt@8 {
+			description = "osd101t2587 LCD";
+			data = /incbin/("lcd-osd101t2587.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83180000>;
+		};
+	};
+
+	configurations {
+		default = "dra72-evm.dtb";
+		am571x-idk.dtb {
+			description = "am571x-idk";
+			kernel = "kernel@1";
+			fdt = "fdt@1";
+		};
+		am572x-idk.dtb {
+			description = "am572x-idk";
+			kernel = "kernel@1";
+			fdt = "fdt@2";
+		};
+		am574x-idk.dtb {
+			description = "am574x-idk";
+			kernel = "kernel@1";
+			fdt = "fdt@3";
+		};
+		am571x-idk-lcd-osd101t2045 {
+			description = "am571x-idk with osd101t2045 LCD";
+			fdt = "fdt@1", "fdt@4", "fdt@5", "fdt@7";
+		};
+		am571x-idk-lcd-osd101t2587 {
+			description = "am571x-idk with osd101t2587 LCD";
+			fdt = "fdt@1", "fdt@4", "fdt@5", "fdt@8";
+		};
+		am572x-idk-lcd-osd101t2045 {
+			description = "am572x-idk with osd101t2045 LCD";
+			fdt = "fdt@2", "fdt@4", "fdt@6", "fdt@7";
+		};
+		am572x-idk-lcd-osd101t2587 {
+			description = "am572x-idk with osd101t2587 LCD";
+			fdt = "fdt@2", "fdt@4", "fdt@6", "fdt@8";
+		};
+		am574x-idk-lcd-osd101t2587 {
+			description = "am574x-idk with osd101t2587 LCD";
+			fdt = "fdt@3", "fdt@4", "fdt@6", "fdt@8";
+		};
+	};
+};
