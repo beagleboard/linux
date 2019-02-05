@@ -42,6 +42,7 @@ ifeq ($(BUILD_ITBS),y)
 dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-evm.itb \
 	dra71-evm.itb \
+	dra72-evm.itb \
 	dra74-evm.itb
 else
 dtb-$(CONFIG_SOC_DRA7XX) += $(shell grep incbin $(srctree)/$(src)/*.its | grep dtb | cut -d "\"" -f 2)
