@@ -17,11 +17,13 @@
 *.c.[012]*.*
 *.dtb
 *.dtb.S
+*.dtbo
 *.dwo
 *.elf
 *.gcno
 *.gz
 *.i
+*.itb
 *.ko
 *.lex.c
 *.ll
