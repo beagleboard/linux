@@ -26,14 +26,22 @@
 #include <linux/dma-mapping.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
+#include <linux/of.h>
+#ifdef CONFIG_ARCH_DAVINCI_DA850
 #include <linux/genalloc.h>
+#else
+#include <linux/pm_runtime.h>
+#endif
 
 #define DRV_NAME "pruss_uio"
 #define DRV_VERSION "1.0"
 
+#ifdef CONFIG_ARCH_DAVINCI_DA850
 static int sram_pool_sz = SZ_16K;
 module_param(sram_pool_sz, int, 0);
-MODULE_PARM_DESC(sram_pool_sz, "sram pool size to allocate ");
+MODULE_PARM_DESC(sram_pool_sz, "sram pool size to allocate");
+#endif
+
 
 static int extram_pool_sz = SZ_256K;
 module_param(extram_pool_sz, int, 0);
@@ -61,22 +69,23 @@ MODULE_PARM_DESC(extram_pool_sz, "external ram pool size to allocate");
 #define PINTC_HIER	0x1500
 
 struct uio_pruss_dev {
-	struct uio_info *info;
-	struct clk *pruss_clk;
-	dma_addr_t sram_paddr;
+	struct uio_info info[MAX_PRUSS_EVT];
 	dma_addr_t ddr_paddr;
 	void __iomem *prussio_vaddr;
-	unsigned long sram_vaddr;
 	void *ddr_vaddr;
-	unsigned int hostirq_start;
 	unsigned int pintc_base;
+#ifdef CONFIG_ARCH_DAVINCI_DA850
+	struct clk *pruss_clk;
 	struct gen_pool *sram_pool;
+	dma_addr_t sram_paddr;
+	unsigned long sram_vaddr;
+#endif
 };
 
 static irqreturn_t pruss_handler(int irq, struct uio_info *info)
 {
 	struct uio_pruss_dev *gdev = info->priv;
-	int intr_bit = (irq - gdev->hostirq_start + 2);
+	int intr_bit = 2 + (info - gdev->info);
 	int val, intr_mask = (1 << intr_bit);
 	void __iomem *base = gdev->prussio_vaddr + gdev->pintc_base;
 	void __iomem *intren_reg = base + PINTC_HIER;
@@ -94,53 +103,50 @@ static irqreturn_t pruss_handler(int irq, struct uio_info *info)
 
 static void pruss_cleanup(struct device *dev, struct uio_pruss_dev *gdev)
 {
-	int cnt;
-	struct uio_info *p = gdev->info;
+	int i;
 
-	for (cnt = 0; cnt < MAX_PRUSS_EVT; cnt++, p++) {
-		uio_unregister_device(p);
-		kfree(p->name);
+	for (i = 0; i < MAX_PRUSS_EVT; i++) {
+		uio_unregister_device(&gdev->info[i]);
+		kfree(gdev->info[i].name);
 	}
 	iounmap(gdev->prussio_vaddr);
 	if (gdev->ddr_vaddr) {
 		dma_free_coherent(dev, extram_pool_sz, gdev->ddr_vaddr,
 			gdev->ddr_paddr);
 	}
+#ifdef CONFIG_ARCH_DAVINCI_DA850
 	if (gdev->sram_vaddr)
 		gen_pool_free(gdev->sram_pool,
 			      gdev->sram_vaddr,
 			      sram_pool_sz);
-	kfree(gdev->info);
 	clk_disable(gdev->pruss_clk);
 	clk_put(gdev->pruss_clk);
+#else
+	pm_runtime_put(dev);
+	pm_runtime_disable(dev);
+#endif
 	kfree(gdev);
 }
 
 static int pruss_probe(struct platform_device *pdev)
 {
-	struct uio_info *p;
 	struct uio_pruss_dev *gdev;
 	struct resource *regs_prussio;
 	struct device *dev = &pdev->dev;
-	int ret, cnt, i, len;
+	int ret, i, len;
 	struct uio_pruss_pdata *pdata = dev_get_platdata(dev);
 
 	gdev = kzalloc(sizeof(struct uio_pruss_dev), GFP_KERNEL);
 	if (!gdev)
 		return -ENOMEM;
 
-	gdev->info = kcalloc(MAX_PRUSS_EVT, sizeof(*p), GFP_KERNEL);
-	if (!gdev->info) {
-		ret = -ENOMEM;
-		goto err_free_gdev;
-	}
-
+#ifdef CONFIG_ARCH_DAVINCI_DA850
 	/* Power on PRU in case its not done as part of boot-loader */
 	gdev->pruss_clk = clk_get(dev, "pruss");
 	if (IS_ERR(gdev->pruss_clk)) {
 		dev_err(dev, "Failed to get clock\n");
 		ret = PTR_ERR(gdev->pruss_clk);
-		goto err_free_info;
+		goto err_free_gdev;
 	}
 
 	ret = clk_enable(gdev->pruss_clk);
@@ -148,6 +154,15 @@ static int pruss_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to enable clock\n");
 		goto err_clk_put;
 	}
+#else
+	pm_runtime_enable(dev);
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		dev_err(dev, "pm_runtime_get_sync() failed\n");
+		pm_runtime_disable(dev);
+		goto err_free_gdev;
+	}
+#endif
 
 	regs_prussio = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!regs_prussio) {
@@ -162,6 +177,18 @@ static int pruss_probe(struct platform_device *pdev)
 		goto err_clk_disable;
 	}
 
+	if (dev->of_node) {
+		ret = of_property_read_u32(dev->of_node,
+					   "ti,pintc-offset",
+					   &gdev->pintc_base);
+		if (ret < 0) {
+			dev_err(dev, "Can't parse ti,pintc-offset property\n");
+			goto err_clk_disable;
+		}
+	} else
+		gdev->pintc_base = pdata->pintc_base;
+
+#ifdef CONFIG_ARCH_DAVINCI_DA850
 	if (pdata->sram_pool) {
 		gdev->sram_pool = pdata->sram_pool;
 		gdev->sram_vaddr =
@@ -173,9 +200,10 @@ static int pruss_probe(struct platform_device *pdev)
 			goto err_clk_disable;
 		}
 	}
+#endif
 
 	gdev->ddr_vaddr = dma_alloc_coherent(dev, extram_pool_sz,
-				&(gdev->ddr_paddr), GFP_KERNEL | GFP_DMA);
+				&gdev->ddr_paddr, GFP_KERNEL | GFP_DMA);
 	if (!gdev->ddr_vaddr) {
 		dev_err(dev, "Could not allocate external memory\n");
 		ret = -ENOMEM;
@@ -185,32 +213,48 @@ static int pruss_probe(struct platform_device *pdev)
 	len = resource_size(regs_prussio);
 	gdev->prussio_vaddr = ioremap(regs_prussio->start, len);
 	if (!gdev->prussio_vaddr) {
-		dev_err(dev, "Can't remap PRUSS I/O  address range\n");
+		dev_err(dev, "Can't remap PRUSS I/O address range\n");
 		ret = -ENOMEM;
 		goto err_free_ddr_vaddr;
 	}
 
-	gdev->pintc_base = pdata->pintc_base;
-	gdev->hostirq_start = platform_get_irq(pdev, 0);
+	for (i = 0; i < MAX_PRUSS_EVT; i++) {
+		struct uio_info *p = &gdev->info[i];
 
-	for (cnt = 0, p = gdev->info; cnt < MAX_PRUSS_EVT; cnt++, p++) {
+		p->mem[0].name = "pruss";
 		p->mem[0].addr = regs_prussio->start;
 		p->mem[0].size = resource_size(regs_prussio);
 		p->mem[0].memtype = UIO_MEM_PHYS;
 
+		/* note: some userspace code uses hardcoded mem indices... */
+#ifdef CONFIG_ARCH_DAVINCI_DA850
+		p->mem[1].name = "sram";
 		p->mem[1].addr = gdev->sram_paddr;
 		p->mem[1].size = sram_pool_sz;
 		p->mem[1].memtype = UIO_MEM_PHYS;
 
+		p->mem[2].name = "ddr";
 		p->mem[2].addr = gdev->ddr_paddr;
 		p->mem[2].size = extram_pool_sz;
 		p->mem[2].memtype = UIO_MEM_PHYS;
+#else
+		p->mem[1].name = "ddr";
+		p->mem[1].addr = gdev->ddr_paddr;
+		p->mem[1].size = extram_pool_sz;
+		p->mem[1].memtype = UIO_MEM_PHYS;
+#endif
 
-		p->name = kasprintf(GFP_KERNEL, "pruss_evt%d", cnt);
+		ret = platform_get_irq(pdev, i);
+		if (ret < 0) {
+			dev_err(dev, "Failed to obtain irq %d (%d)\n", i, ret);
+			goto err_unloop;
+		}
+
+		p->name = kasprintf(GFP_KERNEL, "pruss_evt%d", i);
 		p->version = DRV_VERSION;
 
 		/* Register PRUSS IRQ lines */
-		p->irq = gdev->hostirq_start + cnt;
+		p->irq = ret;
 		p->handler = pruss_handler;
 		p->priv = gdev;
 
@@ -225,23 +269,27 @@ static int pruss_probe(struct platform_device *pdev)
 	return 0;
 
 err_unloop:
-	for (i = 0, p = gdev->info; i < cnt; i++, p++) {
-		uio_unregister_device(p);
-		kfree(p->name);
+	while( --i >= 0 ) {
+		uio_unregister_device(&gdev->info[i]);
+		kfree(gdev->info[i].name);
 	}
 	iounmap(gdev->prussio_vaddr);
 err_free_ddr_vaddr:
 	dma_free_coherent(dev, extram_pool_sz, gdev->ddr_vaddr,
 			  gdev->ddr_paddr);
 err_free_sram:
+#ifdef CONFIG_ARCH_DAVINCI_DA850
 	if (pdata->sram_pool)
 		gen_pool_free(gdev->sram_pool, gdev->sram_vaddr, sram_pool_sz);
 err_clk_disable:
 	clk_disable(gdev->pruss_clk);
 err_clk_put:
 	clk_put(gdev->pruss_clk);
-err_free_info:
-	kfree(gdev->info);
+#else
+err_clk_disable:
+	pm_runtime_put(dev);
+	pm_runtime_disable(dev);
+#endif
 err_free_gdev:
 	kfree(gdev);
 
@@ -256,11 +304,19 @@ static int pruss_remove(struct platform_device *dev)
 	return 0;
 }
 
+static const struct of_device_id pruss_dt_ids[] = {
+	{ .compatible = "ti,pruss-v1" },
+	{ .compatible = "ti,pruss-v2" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, pruss_dt_ids);
+
 static struct platform_driver pruss_driver = {
 	.probe = pruss_probe,
 	.remove = pruss_remove,
 	.driver = {
 		   .name = DRV_NAME,
+		   .of_match_table = pruss_dt_ids,
 		   },
 };
 
