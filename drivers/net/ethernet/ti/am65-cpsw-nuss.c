@@ -720,9 +720,9 @@ static void am65_cpsw_nuss_rx_csum(struct sk_buff *skb, u32 csum_info)
 	if (unlikely(!(skb->dev->features & NETIF_F_RXCSUM)))
 		return;
 
-	if (!(csum_info & AM65_CPSW_RX_PSD_CSUM_ERR) &&
-	    (csum_info & (AM65_CPSW_RX_PSD_IPV6_VALID |
-			  AM65_CPSW_RX_PSD_IPV6_VALID))) {
+	if ((csum_info & (AM65_CPSW_RX_PSD_IPV6_VALID |
+			  AM65_CPSW_RX_PSD_IPV4_VALID)) &&
+			  !(csum_info & AM65_CPSW_RX_PSD_CSUM_ERR)) {
 		if (csum_info & AM65_CPSW_RX_PSD_IS_FRAGMENT) {
 			skb->ip_summed = CHECKSUM_COMPLETE;
 			skb->csum = csum_unfold(csum_info &
@@ -2063,6 +2063,12 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	ret = am65_cpsw_nuss_init_ndev_2g(common);
 	if (ret)
 		return ret;
+
+	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(48));
+	if (ret) {
+		dev_err(dev, "error setting dma mask: %d\n", ret);
+		goto unreg_ndev;
+	}
 
 	ret = devm_request_irq(dev, common->tx_chns[0].irq,
 			       am65_cpsw_nuss_tx_irq,
