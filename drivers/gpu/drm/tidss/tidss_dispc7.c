@@ -678,7 +678,7 @@ static u16 c8_to_c12(u8 c8, enum c8_to_c12_mode mode)
 	default:
 	case C8_TO_C12_MIN:
 		break;
-	};
+	}
 
 	return c12;
 }
