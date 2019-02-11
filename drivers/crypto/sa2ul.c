@@ -619,7 +619,7 @@ int sa_init_sc(struct sa_ctx_info *ctx, const u8 *enc_key,
 	       struct algo_data *ad, u8 enc, u32 *swinfo, bool auth_req)
 {
 	int use_enc = 0;
-	int enc_sc_offset, auth_sc_offset;
+	int enc_sc_offset = 0, auth_sc_offset = 0;
 	u8 *sc_buf = ctx->sc;
 	u16 sc_id = ctx->sc_id;
 	u16 aad_len = 0;	/* Currently not supporting AEAD algo */
