@@ -53,6 +53,7 @@ struct omap_drm_pipeline {
 	struct drm_connector *connector;
 	struct omap_dss_device *output;
 	struct omap_dss_device *display;
+	unsigned int alias_id;
 };
 
 /*
