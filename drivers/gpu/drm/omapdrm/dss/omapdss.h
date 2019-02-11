@@ -413,7 +413,6 @@ struct omap_dss_device {
 	struct module *owner;
 
 	struct dss_device *dss;
-	struct omap_dss_device *src;
 	struct omap_dss_device *next;
 
 	struct list_head list;
