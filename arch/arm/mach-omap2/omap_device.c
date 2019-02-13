@@ -141,8 +141,8 @@ static int omap_device_build_from_dt(struct platform_device *pdev)
 	struct omap_hwmod *oh;
 	struct device_node *node = pdev->dev.of_node;
 	struct resource res;
-	const char *oh_name;
-	int oh_cnt, i, ret = 0;
+	const char *oh_name, *rst_name;
+	int oh_cnt, dstr_cnt, i, ret = 0;
 	bool device_active = false, skip_pm_domain = false;
 
 	oh_cnt = of_property_count_strings(node, "ti,hwmods");
@@ -188,6 +188,26 @@ static int omap_device_build_from_dt(struct platform_device *pdev)
 			oh_name);
 		ret = PTR_ERR(od);
 		goto odbfd_exit1;
+	}
+	dstr_cnt =
+		of_property_count_strings(node, "ti,deassert-hard-reset");
+	if (dstr_cnt > 0) {
+		for (i = 0; i < dstr_cnt; i += 2) {
+			of_property_read_string_index(
+				node, "ti,deassert-hard-reset", i,
+				&oh_name);
+			of_property_read_string_index(
+				node, "ti,deassert-hard-reset", i+1,
+				&rst_name);
+			oh = omap_hwmod_lookup(oh_name);
+			if (!oh) {
+				dev_warn(&pdev->dev,
+				"Cannot parse deassert property for '%s'\n",
+				oh_name);
+				break;
+			}
+			omap_hwmod_deassert_hardreset(oh, rst_name);
+		}
 	}
 
 	/* Fix up missing resource names */
