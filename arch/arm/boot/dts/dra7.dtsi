@@ -1184,6 +1184,56 @@
 			status = "disabled";
 		};
 
+		pruss_soc_bus1: pruss_soc_bus@4b226004 {
+			reg = <0x4b226004 0x4>;
+			ti,hwmods = "pruss1";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x4b200000 0x80000>;
+			status = "disabled";
+
+			pruss1: pruss@0 {
+				reg = <0 0x80000>;
+				interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "host2", "host3", "host4",
+				                  "host5", "host6", "host7",
+				                  "host8", "host9";
+				status = "disabled";
+			};
+		};
+
+		pruss_soc_bus2: pruss_soc_bus@4b2a6004 {
+			reg = <0x4b2a6004 0x4>;
+			ti,hwmods = "pruss2";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x4b280000 0x80000>;
+			status = "disabled";
+
+			pruss2: pruss@0 {
+				reg = <0 0x80000>;
+				interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>,
+				             <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "host2", "host3", "host4",
+				                  "host5", "host6", "host7",
+				                  "host8", "host9";
+				status = "disabled";
+			};
+		};
+
 		abb_mpu: regulator-abb-mpu {
 			compatible = "ti,abb-v3";
 			regulator-name = "abb_mpu";
