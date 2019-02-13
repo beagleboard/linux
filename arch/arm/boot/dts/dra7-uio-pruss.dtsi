@@ -1,0 +1,23 @@
+&pruss_soc_bus1 {
+	compatible = "simple-pm-bus";
+	status = "okay";
+};
+
+&pruss1 {
+	compatible = "ti,pruss-v2";
+	pruss-instance = "pruss1";
+	ti,pintc-offset = <0x20000>;
+	status = "okay";
+};
+
+&pruss_soc_bus2 {
+	compatible = "simple-pm-bus";
+	status = "okay";
+};
+
+&pruss2 {
+	compatible = "ti,pruss-v2";
+	pruss-instance = "pruss2";
+	ti,pintc-offset = <0x20000>;
+	status = "okay";
+};
