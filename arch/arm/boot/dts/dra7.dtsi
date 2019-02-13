@@ -1913,6 +1913,18 @@
 			status = "disabled";
 		};
 
+		gpu: gpu@56000000 {
+			compatible = "ti,dra7-sgx544", "img,sgx544";
+			reg = <0x56000000 0x10000>;
+			reg-names = "gpu_ocp_base";
+			interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+			ti,hwmods = "gpu";
+			clocks = <&l3_iclk_div>, <&gpu_core_gclk_mux>,
+				<&gpu_hyd_gclk_mux>;
+			clock-names = "iclk", "fclk1", "fclk2";
+			status = "disabled";
+		};
+
 		dss: dss@58000000 {
 			compatible = "ti,dra7-dss";
 			/* 'reg' defined in dra72x.dtsi and dra74x.dtsi */

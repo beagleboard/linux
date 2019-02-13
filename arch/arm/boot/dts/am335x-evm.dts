@@ -804,3 +804,7 @@
 &wkup_m3_ipc {
 	ti,scale-data-fw = "am335x-evm-scale-data.bin";
 };
+
+&sgx {
+	status = "okay";
+};
