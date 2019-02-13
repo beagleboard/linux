@@ -1,0 +1,11 @@
+&pruss_soc_bus {
+	compatible = "simple-pm-bus";
+	ti,deassert-hard-reset = "pruss", "pruss";
+	status = "okay";
+};
+
+&pruss {
+	compatible = "ti,pruss-v2";
+	ti,pintc-offset = <0x20000>;
+	status = "okay";
+};
