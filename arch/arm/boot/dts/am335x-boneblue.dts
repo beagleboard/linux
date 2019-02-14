@@ -10,6 +10,10 @@
 #include "am33xx.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 
+&sgx {
+	status = "okay";
+};
+
 / {
 	model = "TI AM335x BeagleBone Blue";
 	compatible = "ti,am335x-bone-blue", "ti,am33xx";
