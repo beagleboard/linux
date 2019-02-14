@@ -11,6 +11,10 @@
 #include "am335x-bone-common.dtsi"
 #include "am335x-bonegreen-wireless-common-univ.dtsi"
 
+&sgx {
+	status = "okay";
+};
+
 / {
 	model = "TI AM335x BeagleBone Green Wireless";
 	compatible = "ti,am335x-bone-green-wireless", "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
