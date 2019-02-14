@@ -5735,6 +5735,9 @@ cfg80211_connect_timeout(struct net_device *dev, const u8 *bssid,
  * @req_ie_len: association request IEs length
  * @resp_ie: association response IEs (may be %NULL)
  * @resp_ie_len: assoc response IEs length
+ * @authorized: true if the 802.1X authentication was done by the driver or is
+ *	not needed (e.g., when Fast Transition protocol was used), false
+ *	otherwise. Ignored for networks that don't use 802.1X authentication.
  * @fils: FILS related roaming information.
  */
 struct cfg80211_roam_info {
@@ -5745,6 +5748,7 @@ struct cfg80211_roam_info {
 	size_t req_ie_len;
 	const u8 *resp_ie;
 	size_t resp_ie_len;
+	bool authorized;
 	struct cfg80211_fils_resp_params fils;
 };
 
