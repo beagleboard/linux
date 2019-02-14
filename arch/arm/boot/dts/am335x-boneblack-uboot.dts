@@ -10,6 +10,10 @@
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
 
+&sgx {
+	status = "okay";
+};
+
 / {
 	model = "TI AM335x BeagleBone Black";
 	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
