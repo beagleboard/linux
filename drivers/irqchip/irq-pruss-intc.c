@@ -395,6 +395,37 @@ static void pruss_intc_irq_relres(struct irq_data *data)
 	module_put(THIS_MODULE);
 }
 
+/**
+ * pruss_intc_trigger() - trigger a PRU system event
+ * @irq: linux IRQ number associated with a PRU system event
+ *
+ * Trigger an interrupt by signalling a specific PRU system event.
+ * This can be used by PRUSS client users to raise/send an event to
+ * a PRU or any other core that is listening on the host interrupt
+ * mapped to that specific PRU system event. The @irq variable is the
+ * Linux IRQ number associated with a specific PRU system event that
+ * a client user/application uses. The interrupt mappings for this is
+ * provided by the PRUSS INTC irqchip instance.
+ *
+ * Returns 0 on success, or an error value upon failure.
+ */
+int pruss_intc_trigger(unsigned int irq)
+{
+	struct irq_desc *desc;
+
+	if (irq <= 0)
+		return -EINVAL;
+
+	desc = irq_to_desc(irq);
+	if (!desc)
+		return -EINVAL;
+
+	pruss_intc_irq_retrigger(&desc->irq_data);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_intc_trigger);
+
 static int pruss_intc_irq_domain_map(struct irq_domain *d, unsigned int virq,
 				     irq_hw_number_t hw)
 {
