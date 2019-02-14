@@ -9,6 +9,10 @@
 #include "am33xx.dtsi"
 #include "am335x-osd335x-common.dtsi"
 
+&sgx {
+	status = "okay";
+};
+
 / {
 	model = "TI AM335x PocketBeagle";
 	compatible = "ti,am335x-pocketbeagle", "ti,am335x-bone", "ti,am33xx";
