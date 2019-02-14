@@ -15322,7 +15322,9 @@ void nl80211_send_roamed(struct cfg80211_registered_device *rdev,
 	    (info->fils.pmk &&
 	     nla_put(msg, NL80211_ATTR_PMK, info->fils.pmk_len, info->fils.pmk)) ||
 	    (info->fils.pmkid &&
-	     nla_put(msg, NL80211_ATTR_PMKID, WLAN_PMKID_LEN, info->fils.pmkid)))
+	     nla_put(msg, NL80211_ATTR_PMKID, WLAN_PMKID_LEN, info->fils.pmkid)) ||
+	    (info->authorized &&
+	     nla_put_flag(msg, NL80211_ATTR_PORT_AUTHORIZED)))
 		goto nla_put_failure;
 
 	genlmsg_end(msg, hdr);
