@@ -100,6 +100,10 @@ struct fw_rsc_hdr {
  *		    the remote processor will be writing logs.
  * @RSC_VDEV:       declare support for a virtio device, and serve as its
  *		    virtio header.
+ * @RSC_PRELOAD_VENDOR: a vendor resource type that needs to be handled by
+ *		    remoteproc implementations before loading
+ * @RSC_POSTLOAD_VENDOR: a vendor resource type that needs to be handled by
+ *		    remoteproc implementations after loading
  * @RSC_LAST:       just keep this one at the end
  *
  * For more details regarding a specific resource type, please see its
@@ -111,11 +115,13 @@ struct fw_rsc_hdr {
  * please update it as needed.
  */
 enum fw_resource_type {
-	RSC_CARVEOUT	= 0,
-	RSC_DEVMEM	= 1,
-	RSC_TRACE	= 2,
-	RSC_VDEV	= 3,
-	RSC_LAST	= 4,
+	RSC_CARVEOUT		= 0,
+	RSC_DEVMEM		= 1,
+	RSC_TRACE		= 2,
+	RSC_VDEV		= 3,
+	RSC_PRELOAD_VENDOR	= 4,
+	RSC_POSTLOAD_VENDOR	= 5,
+	RSC_LAST		= 6,
 };
 
 #define FW_RSC_ADDR_ANY (-1)
@@ -306,6 +312,24 @@ struct fw_rsc_vdev {
 } __packed;
 
 /**
+ * struct fw_rsc_vendor - vendor resource definition
+ * @sub_type: implementation specific type including version field
+ * @size: size of the vendor custom resource
+ * @data: label for the start of the resource
+ */
+struct fw_rsc_vendor {
+	union {
+		u32 sub_type;
+		struct {
+			u16 st_type;
+			u16 st_ver;
+		} st;
+	} u;
+	u32 size;
+	u8 data[0];
+} __packed;
+
+/**
  * struct rproc_mem_entry - memory entry descriptor
  * @va:	virtual address
  * @dma: dma address
@@ -336,6 +360,7 @@ struct firmware;
  * @da_to_va:	optional platform hook to perform address translations
  * @load_rsc_table:	load resource table from firmware image
  * @find_loaded_rsc_table: find the loaded resouce table
+ * @handle_vendor_rsc:	hook to handle device specific resource table entries
  * @load:		load firmeware to memory, where the remote processor
  *			expects to find it
  * @sanity_check:	sanity check the fw image
@@ -349,6 +374,8 @@ struct rproc_ops {
 	int (*parse_fw)(struct rproc *rproc, const struct firmware *fw);
 	struct resource_table *(*find_loaded_rsc_table)(
 				struct rproc *rproc, const struct firmware *fw);
+	int (*handle_vendor_rsc)(struct rproc *rproc,
+				 struct fw_rsc_vendor *rsc);
 	int (*load)(struct rproc *rproc, const struct firmware *fw);
 	int (*sanity_check)(struct rproc *rproc, const struct firmware *fw);
 	u32 (*get_boot_addr)(struct rproc *rproc, const struct firmware *fw);
