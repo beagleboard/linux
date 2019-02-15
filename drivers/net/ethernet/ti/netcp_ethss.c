@@ -65,6 +65,12 @@
 #define GBE13_ALE_OFFSET		0x600
 #define GBE13_HOST_PORT_NUM		0
 #define GBE13_NUM_ALE_ENTRIES		1024
+/* offset relative to PCSR regmap */
+#define XGBE10_PCSR_OFFSET(x)		((x) * 0x80)
+#define XGBE10_PCSR_RX_STATUS(x)	(XGBE10_PCSR_OFFSET(x) + 0xc)
+
+#define XGBE10_PCSR_BLOCK_LOCK_MASK	BIT(30)
+#define XGBE10_PCSR_BLOCK_LOCK_SHIFT	30
 
 /* 1G Ethernet NU SS defines */
 #define GBENU_MODULE_NAME		"netcp-gbenu"
@@ -2135,6 +2141,10 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
 
 	if (phy)
 		phy_print_status(phy);
+	else if (slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
+		netdev_printk(KERN_INFO, ndev,
+			      "Link is %s\n", (up ? "Up" : "Down"));
+	}
 }
 
 static bool gbe_phy_link_status(struct gbe_slave *slave)
@@ -2157,7 +2167,8 @@ static void netcp_ethss_update_link_state(struct gbe_priv *gbe_dev,
 					  struct net_device *ndev)
 {
 	bool sw_link_state = true, phy_link_state;
-	int sp = slave->slave_num, link_state;
+	int sp = slave->slave_num, link_state, ret;
+	u32 pcsr_rx_stat;
 
 	if (!slave->open)
 		return;
@@ -2168,6 +2179,18 @@ static void netcp_ethss_update_link_state(struct gbe_priv *gbe_dev,
 	if (SLAVE_LINK_IS_SGMII(slave))
 		sw_link_state =
 		netcp_sgmii_get_port_link(SGMII_BASE(gbe_dev, sp), sp);
+
+	if (SLAVE_LINK_IS_XGMII(slave) &&
+	    slave->link_interface == XGMII_LINK_MAC_MAC_FORCED) {
+		/* read status from pcsr status reg */
+		ret = regmap_read(gbe_dev->pcsr_regmap,
+				  XGBE10_PCSR_RX_STATUS(sp), &pcsr_rx_stat);
+		if (ret)
+			return;
+
+		sw_link_state = (pcsr_rx_stat & XGBE10_PCSR_BLOCK_LOCK_MASK) >>
+				 XGBE10_PCSR_BLOCK_LOCK_SHIFT;
+	}
 
 	phy_link_state = gbe_phy_link_status(slave);
 	link_state = phy_link_state & sw_link_state;
@@ -3261,6 +3284,16 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
 			"subsys regmap lookup failed: %ld\n",
 			PTR_ERR(gbe_dev->ss_regmap));
 		return PTR_ERR(gbe_dev->ss_regmap);
+	}
+
+	gbe_dev->pcsr_regmap = syscon_regmap_lookup_by_phandle(node,
+							       "syscon-pcsr");
+
+	if (IS_ERR(gbe_dev->pcsr_regmap)) {
+		dev_err(gbe_dev->dev,
+			"pcsr regmap lookup failed: %ld\n",
+			PTR_ERR(gbe_dev->pcsr_regmap));
+		return PTR_ERR(gbe_dev->pcsr_regmap);
 	}
 
 	ret = of_address_to_resource(node, XGBE_SM_REG_INDEX, &res);
