@@ -1104,3 +1104,7 @@ void k3_nav_udmax_rx_put_irq(struct k3_nav_udmax_rx_channel *rx_chn,
 				     flow->virq);
 }
 EXPORT_SYMBOL_GPL(k3_nav_udmax_rx_put_irq);
+
+MODULE_DESCRIPTION("TI K3 UDMA glue layer for non DMAengine clients");
+MODULE_AUTHOR("Grygorii Strashko <grygorii.strashko@ti.com>");
+MODULE_LICENSE("GPL v2");
