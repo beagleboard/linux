@@ -32,21 +32,14 @@
 #include <linux/phy/phy.h>
 
 #include "cpsw.h"
-#include "cpsw_ale.h"
-#include "netcp.h"
 #include "cpts.h"
+#include "netcp_ethss.h"
 
 #define NETCP_DRIVER_NAME		"TI KeyStone Ethernet Driver"
 #define NETCP_DRIVER_VERSION		"v1.0"
 
-#define GBE_IDENT(reg)			((reg >> 16) & 0xffff)
-#define GBE_MAJOR_VERSION(reg)		(reg >> 8 & 0x7)
-#define GBE_MINOR_VERSION(reg)		(reg & 0xff)
-#define GBE_RTL_VERSION(reg)		((reg >> 11) & 0x1f)
-
 /* 1G Ethernet SS defines */
 #define GBE_MODULE_NAME			"netcp-gbe"
-#define GBE_SS_VERSION_14		0x4ed2
 
 /* for devicetree backward compatible only */
 #define GBE_SS_REG_INDEX		0
@@ -75,19 +68,6 @@
 
 /* 1G Ethernet NU SS defines */
 #define GBENU_MODULE_NAME		"netcp-gbenu"
-#define GBE_SS_ID_NU			0x4ee6
-#define GBE_SS_ID_2U			0x4ee8
-
-#define IS_SS_ID_MU(d) \
-	((GBE_IDENT((d)->ss_version) == GBE_SS_ID_NU) || \
-	 (GBE_IDENT((d)->ss_version) == GBE_SS_ID_2U))
-
-#define IS_SS_ID_NU(d) \
-	(GBE_IDENT((d)->ss_version) == GBE_SS_ID_NU)
-#define IS_SS_ID_VER_14(d) \
-	(GBE_IDENT((d)->ss_version) == GBE_SS_VERSION_14)
-#define IS_SS_ID_2U(d) \
-	(GBE_IDENT((d)->ss_version) == GBE_SS_ID_2U)
 
 #define GBENU_SGMII_REG_INDEX		0
 #define GBENU_SM_REG_INDEX		1
@@ -104,7 +84,6 @@
 
 /* 10G Ethernet SS defines */
 #define XGBE_MODULE_NAME		"netcp-xgbe"
-#define XGBE_SS_VERSION_10		0x4ee4
 
 #define XGBE_SGMII_REG_INDEX		0
 #define XGBE_SM_REG_INDEX		1
@@ -156,25 +135,6 @@
 		(MACSL_XGIG_MODE | MACSL_XGMII_ENABLE |		\
 		 MACSL_ENABLE_EXT_CTL |	MACSL_RX_ENABLE_CSF)
 
-#define GBE_STATSA_MODULE			0
-#define GBE_STATSB_MODULE			1
-#define GBE_STATSC_MODULE			2
-#define GBE_STATSD_MODULE			3
-
-#define GBENU_STATS0_MODULE			0
-#define GBENU_STATS1_MODULE			1
-#define GBENU_STATS2_MODULE			2
-#define GBENU_STATS3_MODULE			3
-#define GBENU_STATS4_MODULE			4
-#define GBENU_STATS5_MODULE			5
-#define GBENU_STATS6_MODULE			6
-#define GBENU_STATS7_MODULE			7
-#define GBENU_STATS8_MODULE			8
-
-#define XGBE_STATS0_MODULE			0
-#define XGBE_STATS1_MODULE			1
-#define XGBE_STATS2_MODULE			2
-
 /* s: 0-based slave_port */
 #define SGMII_BASE(d, s) \
 	(((s) < 2) ? (d)->sgmii_port_regs : (d)->sgmii_port34_regs)
@@ -197,10 +157,10 @@
 		offsetof(struct gbenu##_##rb, rn)
 #define XGBE_SET_REG_OFS(p, rb, rn) p->rb##_ofs.rn = \
 		offsetof(struct xgbe##_##rb, rn)
-#define GBE_REG_ADDR(p, rb, rn) (p->rb + p->rb##_ofs.rn)
 #define GBE_REG_OFS(p, rb, rn) ((p)->rb##_ofs.rn)
 
 #define HOST_TX_PRI_MAP_DEFAULT			0x00000000
+#define SGMII_MODULE_SIZE			0x100
 
 #if IS_ENABLED(CONFIG_TI_CPTS)
 /* Px_TS_CTL register fields */
@@ -571,12 +531,6 @@ struct gbe_ss_regs {
 	u32	synce_mux;
 };
 
-struct gbe_ss_regs_ofs {
-	u16	id_ver;
-	u16	control;
-	u16	rgmii_status; /* 2U */
-};
-
 struct gbe_switch_regs {
 	u32	id_ver;
 	u32	control;
@@ -588,16 +542,6 @@ struct gbe_switch_regs {
 	u32	gap_thresh;
 	u32	tx_start_wds;
 	u32	flow_control;
-};
-
-struct gbe_switch_regs_ofs {
-	u16	id_ver;
-	u16	control;
-	u16	soft_reset;
-	u16	emcontrol;
-	u16	stat_port_en;
-	u16	ptype;
-	u16	flow_control;
 };
 
 struct gbe_port_regs {
@@ -614,31 +558,11 @@ struct gbe_port_regs {
 	u32	ts_ctl2;
 };
 
-struct gbe_port_regs_ofs {
-	u16	port_vlan;
-	u16	tx_pri_map;
-	u16     rx_pri_map;
-	u16	sa_lo;
-	u16	sa_hi;
-	u16	ts_ctl;
-	u16	ts_seq_ltype;
-	u16	ts_vlan;
-	u16	ts_ctl_ltype2;
-	u16	ts_ctl2;
-	u16	rx_maxlen;	/* 2U, NU */
-};
-
 struct gbe_host_port_regs {
 	u32	src_id;
 	u32	port_vlan;
 	u32	rx_pri_map;
 	u32	rx_maxlen;
-};
-
-struct gbe_host_port_regs_ofs {
-	u16	port_vlan;
-	u16	tx_pri_map;
-	u16	rx_maxlen;
 };
 
 struct gbe_emac_regs {
@@ -653,12 +577,6 @@ struct gbe_emac_regs {
 	u32	__reserved_1;
 	u32	rx_pri_map;
 	u32	rsvd[6];
-};
-
-struct gbe_emac_regs_ofs {
-	u16	mac_control;
-	u16	soft_reset;
-	u16	rx_maxlen;
 };
 
 struct gbe_hw_stats {
@@ -699,109 +617,7 @@ struct gbe_hw_stats {
 	u32	rx_dma_overruns;
 };
 
-#define GBE_MAX_HW_STAT_MODS			9
 #define GBE_HW_STATS_REG_MAP_SZ			0x100
-
-struct ts_ctl {
-	int     uni;
-	u8      dst_port_map;
-	u8      maddr_map;
-	u8      ts_mcast_type;
-};
-
-struct gbe_slave {
-	struct gbe_priv			*gbe_dev;
-	void __iomem			*port_regs;
-	void __iomem			*emac_regs;
-	struct gbe_port_regs_ofs	port_regs_ofs;
-	struct gbe_emac_regs_ofs	emac_regs_ofs;
-	int				slave_num; /* 0 based logical number */
-	int				port_num;  /* actual port number */
-	atomic_t			link_state;
-	bool				open;
-	struct phy_device		*phy;
-	u32				link_interface;
-	u32				mac_control;
-	u8				phy_port_t;
-					/* work trigger threshold
-					 *   0: triger disabled
-					 * > 1: trigger enabled
-					 */
-	u32				link_recover_thresh;
-					/* 0:NOT, > 0:recovering */
-	u32				link_recovering;
-	struct delayed_work		link_recover_work;
-	struct device_node		*node;
-	struct device_node		*phy_node;
-	struct ts_ctl                   ts_ctl;
-	struct list_head		slave_list;
-	struct phy			*serdes_phy;
-};
-
-struct gbe_priv {
-	struct device			*dev;
-	struct netcp_device		*netcp_device;
-	struct timer_list		timer;
-	u32				num_slaves;
-	u32				ale_entries;
-	u32				ale_ports;
-	bool				enable_ale;
-	u8				max_num_slaves;
-	u8				max_num_ports; /* max_num_slaves + 1 */
-	u8				num_stats_mods;
-	struct netcp_tx_pipe		tx_pipe;
-
-	int				host_port;
-	u32				rx_packet_max;
-	u32				ss_version;
-	u32				stats_en_mask;
-
-	struct regmap			*ss_regmap;
-	struct regmap			*pcsr_regmap;
-	void __iomem                    *ss_regs;
-	void __iomem			*switch_regs;
-	void __iomem			*host_port_regs;
-	void __iomem			*ale_reg;
-	void __iomem                    *cpts_reg;
-	void __iomem			*sgmii_port_regs;
-	void __iomem			*sgmii_port34_regs;
-	void __iomem			*xgbe_serdes_regs;
-	void __iomem			*hw_stats_regs[GBE_MAX_HW_STAT_MODS];
-
-	struct gbe_ss_regs_ofs		ss_regs_ofs;
-	struct gbe_switch_regs_ofs	switch_regs_ofs;
-	struct gbe_host_port_regs_ofs	host_port_regs_ofs;
-
-	struct cpsw_ale			*ale;
-	unsigned int			tx_queue_id;
-	const char			*dma_chan_name;
-
-	struct list_head		gbe_intf_head;
-	struct list_head		secondary_slaves;
-	struct net_device		*dummy_ndev;
-
-	u64				*hw_stats;
-	u32				*hw_stats_prev;
-	const struct netcp_ethtool_stat *et_stats;
-	int				num_et_stats;
-	/*  Lock for updating the hwstats */
-	spinlock_t			hw_stats_lock;
-
-	int                             cpts_registered;
-	struct cpts                     *cpts;
-	int				rx_ts_enabled;
-	int				tx_ts_enabled;
-};
-
-struct gbe_intf {
-	struct net_device	*ndev;
-	struct device		*dev;
-	struct gbe_priv		*gbe_dev;
-	struct netcp_tx_pipe	tx_pipe;
-	struct gbe_slave	*slave;
-	struct list_head	gbe_intf_list;
-	unsigned long		active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
-};
 
 static struct netcp_module gbe_module;
 static struct netcp_module xgbe_module;
@@ -1758,9 +1574,6 @@ static const struct netcp_ethtool_stat xgbe10_et_stats[] = {
 	XGBE_STATS2_INFO(rx_mof_overruns),
 	XGBE_STATS2_INFO(rx_dma_overruns),
 };
-
-#define for_each_intf(i, priv) \
-	list_for_each_entry((i), &(priv)->gbe_intf_head, gbe_intf_list)
 
 #define for_each_sec_slave(slave, priv) \
 	list_for_each_entry((slave), &(priv)->secondary_slaves, slave_list)
