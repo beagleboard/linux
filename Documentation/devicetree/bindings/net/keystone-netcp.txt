@@ -68,13 +68,14 @@ Required properties:
 - label:	Must be "netcp-gbe" for 1Gb & "netcp-xgbe" for 10Gb.
 - compatible:	Must be one of below:-
 		"ti,netcp-gbe" for 1GbE on NetCP 1.4
-		"ti,netcp-gbe-5" for 1GbE N NetCP 1.5 (N=5)
-		"ti,netcp-gbe-9" for 1GbE N NetCP 1.5 (N=9)
-		"ti,netcp-gbe-2" for 1GbE N NetCP 1.5 (N=2)
+		"ti,netcp-gbe-5" for 1GbE on NetCP 1.5 (N=5)
+		"ti,netcp-gbe-9" for 1GbE on NetCP 1.5 (N=9)
+		"ti,netcp-gbe-2" for 1GbE on NSS (Network Subsystem)
 		"ti,netcp-xgbe" for 10 GbE
 
 - syscon-subsys:	phandle to syscon node of the switch
-			subsystem registers.
+			subsystem registers of NetCP 1.4/1.5
+			or EMAC registers of NSS
 
 - syscon-pcsr:		(10gbe only) phandle to syscon node of the
 			switch PCSR registers.
@@ -91,9 +92,12 @@ Required properties:
 			index #1 - sgmii port3/4 module registers
 			index #2 - switch module registers
 
-		NetCP 1.5 ethss 9 port, 5 port and 2 port
+		NetCP 1.5 ethss 9 port, 5 port
 			index #0 - sgmii module registers
 			index #1 - switch module registers
+
+		NSS of K2G SoC
+			index #0 sgmii module registers
 
 - tx-channel:	the navigator packet dma channel name for tx.
 - tx-queue:	the navigator queue number associated with the tx dma channel.
