@@ -75,6 +75,9 @@ Required properties:
 - syscon-subsys:	phandle to syscon node of the switch
 			subsystem registers.
 
+- syscon-pcsr:		(10gbe only) phandle to syscon node of the
+			switch PCSR registers.
+
 - reg:		register location and the size for the following register
 		regions in the specified order.
 		- switch subsystem registers
