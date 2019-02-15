@@ -8,6 +8,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/debugfs.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -37,6 +38,10 @@
 #define CTRL_CTRL_SINGLE_STEP	BIT(8)
 #define CTRL_CTRL_RUNSTATE	BIT(15)
 
+/* PRU_ICSS_PRU_DEBUG registers */
+#define PRU_DEBUG_GPREG(x)	(0x0000 + (x) * 4)
+#define PRU_DEBUG_CT_REG(x)	(0x0080 + (x) * 4)
+
 /* PRU Core IRAM address masks */
 #define PRU0_IRAM_ADDR_MASK	0x34000
 #define PRU1_IRAM_ADDR_MASK	0x38000
@@ -64,6 +69,8 @@ enum pru_iomem {
  * @sdram_da: device address of secondary Data RAM for this PRU
  * @shrdram_da: device address of shared Data RAM
  * @fw_name: name of firmware image used during loading
+ * @dbg_single_step: debug state variable to set PRU into single step mode
+ * @dbg_continuous: debug state variable to restore PRU execution mode
  */
 struct pru_rproc {
 	int id;
@@ -77,6 +84,8 @@ struct pru_rproc {
 	u32 sdram_da;
 	u32 shrdram_da;
 	const char *fw_name;
+	u32 dbg_single_step;
+	u32 dbg_continuous;
 };
 
 static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len);
@@ -101,6 +110,120 @@ static inline
 void pru_debug_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
 {
 	writel_relaxed(val, pru->mem_regions[PRU_IOMEM_DEBUG].va + reg);
+}
+
+static int regs_show(struct seq_file *s, void *data)
+{
+	struct rproc *rproc = s->private;
+	struct pru_rproc *pru = rproc->priv;
+	int i, nregs = 32;
+	u32 pru_sts;
+	int pru_is_running;
+
+	seq_puts(s, "============== Control Registers ==============\n");
+	seq_printf(s, "CTRL      := 0x%08x\n",
+		   pru_control_read_reg(pru, PRU_CTRL_CTRL));
+	pru_sts = pru_control_read_reg(pru, PRU_CTRL_STS);
+	seq_printf(s, "STS (PC)  := 0x%08x (0x%08x)\n", pru_sts, pru_sts << 2);
+	seq_printf(s, "WAKEUP_EN := 0x%08x\n",
+		   pru_control_read_reg(pru, PRU_CTRL_WAKEUP_EN));
+	seq_printf(s, "CYCLE     := 0x%08x\n",
+		   pru_control_read_reg(pru, PRU_CTRL_CYCLE));
+	seq_printf(s, "STALL     := 0x%08x\n",
+		   pru_control_read_reg(pru, PRU_CTRL_STALL));
+	seq_printf(s, "CTBIR0    := 0x%08x\n",
+		   pru_control_read_reg(pru, PRU_CTRL_CTBIR0));
+	seq_printf(s, "CTBIR1    := 0x%08x\n",
+		   pru_control_read_reg(pru, PRU_CTRL_CTBIR1));
+	seq_printf(s, "CTPPR0    := 0x%08x\n",
+		   pru_control_read_reg(pru, PRU_CTRL_CTPPR0));
+	seq_printf(s, "CTPPR1    := 0x%08x\n",
+		   pru_control_read_reg(pru, PRU_CTRL_CTPPR1));
+
+	seq_puts(s, "=============== Debug Registers ===============\n");
+	pru_is_running = pru_control_read_reg(pru, PRU_CTRL_CTRL) &
+				CTRL_CTRL_RUNSTATE;
+	if (pru_is_running) {
+		seq_puts(s, "PRU is executing, cannot print/access debug registers.\n");
+		return 0;
+	}
+
+	for (i = 0; i < nregs; i++) {
+		seq_printf(s, "GPREG%-2d := 0x%08x\tCT_REG%-2d := 0x%08x\n",
+			   i, pru_debug_read_reg(pru, PRU_DEBUG_GPREG(i)),
+			   i, pru_debug_read_reg(pru, PRU_DEBUG_CT_REG(i)));
+	}
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(regs);
+
+/*
+ * Control PRU single-step mode
+ *
+ * This is a debug helper function used for controlling the single-step
+ * mode of the PRU. The PRU Debug registers are not accessible when the
+ * PRU is in RUNNING state.
+ *
+ * Writing a non-zero value sets the PRU into single-step mode irrespective
+ * of its previous state. The PRU mode is saved only on the first set into
+ * a single-step mode. Writing a zero value will restore the PRU into its
+ * original mode.
+ */
+static int pru_rproc_debug_ss_set(void *data, u64 val)
+{
+	struct rproc *rproc = data;
+	struct pru_rproc *pru = rproc->priv;
+	u32 reg_val;
+
+	val = val ? 1 : 0;
+	if (!val && !pru->dbg_single_step)
+		return 0;
+
+	reg_val = pru_control_read_reg(pru, PRU_CTRL_CTRL);
+
+	if (val && !pru->dbg_single_step)
+		pru->dbg_continuous = reg_val;
+
+	if (val)
+		reg_val |= CTRL_CTRL_SINGLE_STEP | CTRL_CTRL_EN;
+	else
+		reg_val = pru->dbg_continuous;
+
+	pru->dbg_single_step = val;
+	pru_control_write_reg(pru, PRU_CTRL_CTRL, reg_val);
+
+	return 0;
+}
+
+static int pru_rproc_debug_ss_get(void *data, u64 *val)
+{
+	struct rproc *rproc = data;
+	struct pru_rproc *pru = rproc->priv;
+
+	*val = pru->dbg_single_step;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(pru_rproc_debug_ss_fops, pru_rproc_debug_ss_get,
+			pru_rproc_debug_ss_set, "%llu\n");
+
+/*
+ * Create PRU-specific debugfs entries
+ *
+ * The entries are created only if the parent remoteproc debugfs directory
+ * exists, and will be cleaned up by the remoteproc core.
+ */
+static void pru_rproc_create_debug_entries(struct rproc *rproc)
+{
+	if (!rproc->dbg_dir)
+		return;
+
+	debugfs_create_file("regs", 0400, rproc->dbg_dir,
+			    rproc, &regs_fops);
+	debugfs_create_file("single_step", 0600, rproc->dbg_dir,
+			    rproc, &pru_rproc_debug_ss_fops);
 }
 
 /* start a PRU core */
@@ -517,6 +640,8 @@ static int pru_rproc_probe(struct platform_device *pdev)
 		dev_err(dev, "rproc_add failed: %d\n", ret);
 		goto free_rproc;
 	}
+
+	pru_rproc_create_debug_entries(rproc);
 
 	dev_info(dev, "PRU rproc node %pOF probed successfully\n", np);
 
