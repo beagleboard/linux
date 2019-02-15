@@ -1661,7 +1661,7 @@ static int keystone_get_sset_count(struct net_device *ndev, int stringset)
 	}
 }
 
-static void gbe_reset_mod_stats(struct gbe_priv *gbe_dev, int stats_mod)
+void gbe_reset_mod_stats(struct gbe_priv *gbe_dev, int stats_mod)
 {
 	void __iomem *base = gbe_dev->hw_stats_regs[stats_mod];
 	u32  __iomem *p_stats_entry;
@@ -1730,7 +1730,7 @@ static inline void gbe_stats_mod_visible_ver14(struct gbe_priv *gbe_dev,
 	writel(val, GBE_REG_ADDR(gbe_dev, switch_regs, stat_port_en));
 }
 
-static void gbe_reset_mod_stats_ver14(struct gbe_priv *gbe_dev, int stats_mod)
+void gbe_reset_mod_stats_ver14(struct gbe_priv *gbe_dev, int stats_mod)
 {
 	gbe_stats_mod_visible_ver14(gbe_dev, stats_mod);
 	gbe_reset_mod_stats(gbe_dev, stats_mod);
@@ -3691,6 +3691,7 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 			if (!IS_ERR(phy))
 				phy_init(phy);
 		}
+
 		ret = of_property_read_u32(interface, "slave-port", &slave_num);
 		if (ret) {
 			dev_err(dev, "missing slave-port parameter, skipping interface configuration for %s\n",
@@ -3760,6 +3761,9 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
 	}
 	spin_unlock_bh(&gbe_dev->hw_stats_lock);
 
+	ret = gbe_create_sysfs_entries(gbe_dev);
+	if (ret)
+		goto free_sec_ports;
 	timer_setup(&gbe_dev->timer, netcp_ethss_timer, 0);
 	gbe_dev->timer.expires	 = jiffies + GBE_TIMER_INTERVAL;
 	add_timer(&gbe_dev->timer);
@@ -3848,6 +3852,7 @@ static int gbe_remove(struct netcp_device *netcp_device, void *inst_priv)
 	cpts_release(gbe_dev->cpts);
 	cpsw_ale_stop(gbe_dev->ale);
 	netcp_txpipe_close(&gbe_dev->tx_pipe);
+	gbe_remove_sysfs_entries(gbe_dev);
 	free_secondary_ports(gbe_dev);
 
 	if (!list_empty(&gbe_dev->gbe_intf_head))
