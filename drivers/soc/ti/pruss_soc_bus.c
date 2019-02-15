@@ -124,9 +124,14 @@ static const struct pruss_soc_bus_match_data am437x_data = {
 	.has_reset = true,
 };
 
+static const struct pruss_soc_bus_match_data am57xx_data = {
+	.has_reset = false,
+};
+
 static const struct of_device_id pruss_soc_bus_of_match[] = {
 	{ .compatible = "ti,am3356-pruss-soc-bus", .data = &am335x_data, },
 	{ .compatible = "ti,am4376-pruss-soc-bus", .data = &am437x_data, },
+	{ .compatible = "ti,am5728-pruss-soc-bus", .data = &am57xx_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_soc_bus_of_match);

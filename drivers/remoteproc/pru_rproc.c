@@ -594,6 +594,7 @@ static int pru_rproc_remove(struct platform_device *pdev)
 static const struct of_device_id pru_rproc_match[] = {
 	{ .compatible = "ti,am3356-pru", },
 	{ .compatible = "ti,am4376-pru", },
+	{ .compatible = "ti,am5728-pru", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pru_rproc_match);

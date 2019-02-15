@@ -609,6 +609,10 @@ static const struct of_device_id pruss_intc_of_match[] = {
 		.compatible = "ti,am4376-pruss-intc",
 		.data = &am437x_pruss_intc_data,
 	},
+	{
+		.compatible = "ti,am5728-pruss-intc",
+		.data = NULL,
+	},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_intc_of_match);
