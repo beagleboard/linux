@@ -125,6 +125,11 @@ knav_dmas: knav_dmas@0 {
 	};
 };
 
+gbe_subsys: subsys@24200000 {
+	compatible = "syscon";
+	reg = <0x24200000 0x100>;
+};
+
 netcp: netcp@24000000 {
 	reg = <0x2620110 0x8>;
 	reg-names = "efuse";
@@ -151,7 +156,8 @@ netcp: netcp@24000000 {
 		gbe@200000 { /* ETHSS */
 			label = "netcp-gbe";
 			compatible = "ti,netcp-gbe-9";
-			reg = <0x200000 0x900>, <0x220000 0x20000>;
+			syscon-subsys = <&gbe_subsys>;
+			reg = <0x200100 0x800>, <0x220000 0x20000>;
 			/* enable-ale; */
 			tx-queue = <896>;
 			tx-channel = "nettx";
