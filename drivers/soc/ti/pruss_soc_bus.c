@@ -35,19 +35,24 @@
  * @syscfg: kernel mapped address for SYSCFG register
  * @in_standby: flag for storing standby status
  * @has_reset: cached variable for storing global module reset flag
+ * @skip_syscfg: flag to indicate if PRCM master standby/slave idle is needed
  */
 struct pruss_soc_bus {
 	void __iomem *syscfg;
 	bool in_standby;
 	bool has_reset;
+	bool skip_syscfg;
 };
 
 /**
  * struct pruss_soc_bus_match_data - PRUSS SoC bus driver match data
  * @has_reset: flag to indicate the presence of global module reset
+ * @uses_prcm: flag to indicate the usage of PRCM master standby/slave idle
+ *	       protocol
  */
 struct pruss_soc_bus_match_data {
 	bool has_reset;
+	bool uses_prcm;
 };
 
 static inline void pruss_soc_bus_rmw(void __iomem *reg, u32 mask, u32 set)
@@ -98,6 +103,9 @@ static int __maybe_unused pruss_soc_bus_suspend(struct device *dev)
 	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
 	u32 syscfg_val;
 
+	if (psoc_bus->skip_syscfg)
+		return 0;
+
 	syscfg_val = readl_relaxed(psoc_bus->syscfg);
 	psoc_bus->in_standby = syscfg_val & SYSCFG_STANDBY_INIT;
 
@@ -116,7 +124,7 @@ static int __maybe_unused pruss_soc_bus_resume(struct device *dev)
 	int ret = 0;
 
 	/* re-enable OCP master ports/disable MStandby */
-	if (!psoc_bus->in_standby) {
+	if (!psoc_bus->skip_syscfg && !psoc_bus->in_standby) {
 		ret = pruss_soc_bus_enable_ocp_master_ports(dev);
 		if (ret)
 			dev_err(dev, "%s failed\n", __func__);
@@ -130,6 +138,9 @@ static void pruss_disable_module(struct device *dev)
 {
 	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
 
+	if (psoc_bus->skip_syscfg)
+		goto put_sync;
+
 	/* configure Smart Standby */
 	pruss_soc_bus_rmw(psoc_bus->syscfg, SYSCFG_STANDBY_MODE_MASK,
 			  SYSCFG_STANDBY_MODE_SMART);
@@ -138,7 +149,8 @@ static void pruss_disable_module(struct device *dev)
 	pruss_soc_bus_rmw(psoc_bus->syscfg, SYSCFG_STANDBY_INIT,
 			  SYSCFG_STANDBY_INIT);
 
-	/* tell PRCM to initiate IDLE request */
+put_sync:
+	/* initiate IDLE request, disable clocks */
 	pm_runtime_put_sync(dev);
 }
 
@@ -147,12 +159,15 @@ static int pruss_enable_module(struct device *dev)
 	struct pruss_soc_bus *psoc_bus = dev_get_drvdata(dev);
 	int ret;
 
-	/* tell PRCM to de-assert IDLE request */
+	/* enable clocks, de-assert IDLE request */
 	ret = pm_runtime_get_sync(dev);
 	if (ret < 0) {
 		pm_runtime_put_noidle(dev);
 		return ret;
 	}
+
+	if (psoc_bus->skip_syscfg)
+		return ret;
 
 	/* configure for Smart Idle & Smart Standby */
 	pruss_soc_bus_rmw(psoc_bus->syscfg, SYSCFG_IDLE_MODE_MASK,
@@ -192,6 +207,7 @@ static int pruss_soc_bus_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	psoc_bus->has_reset = data->has_reset;
+	psoc_bus->skip_syscfg = !data->uses_prcm;
 	platform_set_drvdata(pdev, psoc_bus);
 
 	if (psoc_bus->has_reset) {
@@ -247,20 +263,29 @@ static int pruss_soc_bus_remove(struct platform_device *pdev)
 /* instance-specific driver private data */
 static const struct pruss_soc_bus_match_data am335x_data = {
 	.has_reset = true,
+	.uses_prcm = true,
 };
 
 static const struct pruss_soc_bus_match_data am437x_data = {
 	.has_reset = true,
+	.uses_prcm = true,
 };
 
 static const struct pruss_soc_bus_match_data am57xx_data = {
 	.has_reset = false,
+	.uses_prcm = true,
+};
+
+static const struct pruss_soc_bus_match_data k2g_data = {
+	.has_reset = false,
+	.uses_prcm = false,
 };
 
 static const struct of_device_id pruss_soc_bus_of_match[] = {
 	{ .compatible = "ti,am3356-pruss-soc-bus", .data = &am335x_data, },
 	{ .compatible = "ti,am4376-pruss-soc-bus", .data = &am437x_data, },
 	{ .compatible = "ti,am5728-pruss-soc-bus", .data = &am57xx_data, },
+	{ .compatible = "ti,k2g-pruss-soc-bus", .data = &k2g_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_soc_bus_of_match);
