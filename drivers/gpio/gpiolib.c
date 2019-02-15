@@ -2304,10 +2304,10 @@ static int gpiod_request_commit(struct gpio_desc *desc, const char *label)
 	if (test_and_set_bit(FLAG_REQUESTED, &desc->flags) == 0) {
 		desc_set_label(desc, label ? : "?");
 		status = 0;
-	} else {
-		kfree_const(label);
-		status = -EBUSY;
-		goto done;
+//	} else {
+//		kfree_const(label);
+//		status = -EBUSY;
+//		goto done;
 	}
 
 	if (chip->request) {
