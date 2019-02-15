@@ -60,6 +60,14 @@ static const char * const irq_names[] = {
 };
 
 /**
+ * struct pruss_intc_match_data - match data to handle SoC variations
+ * @no_host7_intr: flag denoting the absence of host7 interrupt into MPU
+ */
+struct pruss_intc_match_data {
+	bool no_host7_intr;
+};
+
+/**
  * struct pruss_intc - PRUSS interrupt controller structure
  * @pruss: back-reference to parent PRUSS structure
  * @irqs: kernel irq numbers corresponding to PRUSS host interrupts
@@ -499,6 +507,11 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct irq_chip *irqchip;
 	int i, irq;
+	const struct pruss_intc_match_data *data;
+	bool skip_host7;
+
+	data = of_device_get_match_data(dev);
+	skip_host7 = data ? data->no_host7_intr : false;
 
 	intc = devm_kzalloc(dev, sizeof(*intc), GFP_KERNEL);
 	if (!intc)
@@ -548,6 +561,9 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	for (i = 0; i < MAX_HOST_NUM_IRQS; i++) {
 		irq = platform_get_irq_byname(ppdev, irq_names[i]);
 		if (irq < 0) {
+			if (!strcmp(irq_names[i], "host7") && !!skip_host7)
+				continue;
+
 			dev_err(dev->parent, "platform_get_irq_byname failed for %s : %d\n",
 				irq_names[i], irq);
 			goto fail_irq;
@@ -580,8 +596,19 @@ static int pruss_intc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct pruss_intc_match_data am437x_pruss_intc_data = {
+	.no_host7_intr = true,
+};
+
 static const struct of_device_id pruss_intc_of_match[] = {
-	{ .compatible = "ti,am3356-pruss-intc", },
+	{
+		.compatible = "ti,am3356-pruss-intc",
+		.data = NULL,
+	},
+	{
+		.compatible = "ti,am4376-pruss-intc",
+		.data = &am437x_pruss_intc_data,
+	},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_intc_of_match);

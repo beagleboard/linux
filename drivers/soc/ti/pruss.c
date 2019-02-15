@@ -131,7 +131,8 @@ static int pruss_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id pruss_of_match[] = {
-	{ .compatible = "ti,am3356-pruss", },
+	{ .compatible = "ti,am3356-pruss", .data = NULL, },
+	{ .compatible = "ti,am4376-pruss", .data = NULL, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
