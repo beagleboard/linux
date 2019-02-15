@@ -139,6 +139,7 @@ knav_dmas: knav_dmas@0 {
 			  <0x2005000 0x400>;
 		reg-names = "global", "txchan", "rxchan",
 				"txsched", "rxflow";
+		ti,enable-all;
 	};
 };
 
