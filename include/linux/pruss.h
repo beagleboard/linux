@@ -9,6 +9,22 @@
 #ifndef __LINUX_PRUSS_H
 #define __LINUX_PRUSS_H
 
+/**
+ * enum pru_ctable_idx - Configurable Constant table index identifiers
+ */
+enum pru_ctable_idx {
+	PRU_C24 = 0,
+	PRU_C25,
+	PRU_C26,
+	PRU_C27,
+	PRU_C28,
+	PRU_C29,
+	PRU_C30,
+	PRU_C31,
+};
+
+struct rproc;
+
 #if IS_ENABLED(CONFIG_TI_PRUSS)
 
 int pruss_intc_trigger(unsigned int irq);
@@ -26,6 +42,7 @@ static inline int pruss_intc_trigger(unsigned int irq)
 
 struct rproc *pru_rproc_get(struct device_node *node, int index);
 void pru_rproc_put(struct rproc *rproc);
+int pru_rproc_set_ctable(struct rproc *rproc, enum pru_ctable_idx c, u32 addr);
 
 #else
 
@@ -35,6 +52,12 @@ static inline struct rproc *pru_rproc_get(struct device_node *node, int index)
 }
 
 static inline void pru_rproc_put(struct rproc *rproc) { }
+
+static inline int pru_rproc_set_ctable(struct rproc *rproc,
+				       enum pru_ctable_idx c, u32 addr)
+{
+	return -ENOTSUPP;
+}
 
 #endif /* CONFIG_PRU_REMOTEPROC */
 
