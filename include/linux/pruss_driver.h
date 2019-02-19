@@ -34,10 +34,16 @@ struct pruss_mem_region {
 /**
  * struct pruss - PRUSS parent structure
  * @dev: pruss device pointer
+ * @cfg: regmap for config region
+ * @iep: regmap for IEP sub-module
+ * @mii_rt: regmap for MII_RT sub-module
  * @mem_regions: data for each of the PRUSS memory regions
  */
 struct pruss {
 	struct device *dev;
+	struct regmap *cfg;
+	struct regmap *iep;
+	struct regmap *mii_rt;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 };
 
