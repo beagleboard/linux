@@ -58,4 +58,41 @@ int pruss_intc_configure(struct pruss *pruss,
 int pruss_intc_unconfigure(struct pruss *pruss,
 			   struct pruss_intc_config *intc_config);
 
+/**
+ * pruss_cfg_get_gpmux() - get the current GPMUX value for a PRU device
+ * @pruss: pruss instance
+ * @id: PRU identifier (0-1)
+ * @mux: pointer to store the current mux value into
+ */
+static inline int pruss_cfg_get_gpmux(struct pruss *pruss,
+				      enum pruss_pru_id id, u8 *mux)
+{
+	int ret = 0;
+	u32 val;
+
+	ret = pruss_regmap_read(pruss, PRUSS_SYSCON_CFG,
+				PRUSS_CFG_GPCFG(id), &val);
+	if (!ret)
+		*mux = (u8)((val & PRUSS_GPCFG_PRU_MUX_SEL_MASK) >>
+			    PRUSS_GPCFG_PRU_MUX_SEL_SHIFT);
+	return ret;
+}
+
+/**
+ * pruss_cfg_set_gpmux() - set the GPMUX value for a PRU device
+ * @pruss: pruss instance
+ * @pru_id: PRU identifier (0-1)
+ * @mux: new mux value for PRU
+ */
+static inline int pruss_cfg_set_gpmux(struct pruss *pruss,
+				      enum pruss_pru_id id, u8 mux)
+{
+	if (mux >= PRUSS_GP_MUX_SEL_MAX)
+		return -EINVAL;
+
+	return pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, PRUSS_CFG_GPCFG(id),
+				   PRUSS_GPCFG_PRU_MUX_SEL_MASK,
+				  (u32)mux << PRUSS_GPCFG_PRU_MUX_SEL_SHIFT);
+}
+
 #endif	/* _PRUSS_DRIVER_H_ */
