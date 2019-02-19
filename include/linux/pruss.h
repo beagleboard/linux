@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2015-2019 Texas Instruments Incorporated - http://www.ti.com
  *	Suman Anna <s-anna@ti.com>
+ *	Tero Kristo <t-kristo@ti.com>
  */
 
 #ifndef __LINUX_PRUSS_H
@@ -33,12 +34,22 @@ enum pru_ctable_idx {
 };
 
 struct rproc;
+struct pruss;
 
 #if IS_ENABLED(CONFIG_TI_PRUSS)
 
+struct pruss *pruss_get(struct rproc *rproc);
+void pruss_put(struct pruss *pruss);
 int pruss_intc_trigger(unsigned int irq);
 
 #else
+
+static inline struct pruss *pruss_get(struct rproc *rproc)
+{
+	return ERR_PTR(-ENOTSUPP);
+}
+
+static inline void pruss_put(struct pruss *pruss) { }
 
 static inline int pruss_intc_trigger(unsigned int irq)
 {
