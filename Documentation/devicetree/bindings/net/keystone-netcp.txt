@@ -62,32 +62,42 @@ Optional properties:
 		big endian mode with the DSP in little endian.
 
 NetCP device properties: Device specification for NetCP sub-modules.
+
 1Gb/10Gb (gbe/xgbe) ethernet switch sub-module specifications.
 Required properties:
 - label:	Must be "netcp-gbe" for 1Gb & "netcp-xgbe" for 10Gb.
 - compatible:	Must be one of below:-
 		"ti,netcp-gbe" for 1GbE on NetCP 1.4
-		"ti,netcp-gbe-5" for 1GbE N NetCP 1.5 (N=5)
-		"ti,netcp-gbe-9" for 1GbE N NetCP 1.5 (N=9)
-		"ti,netcp-gbe-2" for 1GbE N NetCP 1.5 (N=2)
+		"ti,netcp-gbe-5" for 1GbE on NetCP 1.5 (N=5)
+		"ti,netcp-gbe-9" for 1GbE on NetCP 1.5 (N=9)
+		"ti,netcp-gbe-2" for 1GbE on NSS (Network Subsystem)
 		"ti,netcp-xgbe" for 10 GbE
+
+- syscon-subsys:	phandle to syscon node of the switch
+			subsystem registers of NetCP 1.4/1.5
+			or EMAC registers of NSS
+
+- syscon-pcsr:		(10gbe only) phandle to syscon node of the
+			switch PCSR registers.
 
 - reg:		register location and the size for the following register
 		regions in the specified order.
 		- switch subsystem registers
+		- sgmii module registers
 		- sgmii port3/4 module registers (only for NetCP 1.4)
 		- switch module registers
-		- serdes registers (only for 10G)
 
 		NetCP 1.4 ethss, here is the order
-			index #0 - switch subsystem registers
+			index #0 - sgmii module registers
 			index #1 - sgmii port3/4 module registers
 			index #2 - switch module registers
 
-		NetCP 1.5 ethss 9 port, 5 port and 2 port
-			index #0 - switch subsystem registers
+		NetCP 1.5 ethss 9 port, 5 port
+			index #0 - sgmii module registers
 			index #1 - switch module registers
-			index #2 - serdes registers
+
+		NSS of K2G SoC
+			index #0 sgmii module registers
 
 - tx-channel:	the navigator packet dma channel name for tx.
 - tx-queue:	the navigator queue number associated with the tx dma channel.
@@ -103,6 +113,10 @@ Required properties:
 			- 10Gb mac<->phy mode : 10
 			- 10Gb mac<->mac forced mode : 11
 ----phy-handle:	phandle to PHY device
+
+----phys:	phandles to serdes PHY devices
+		see Documentation/devicetree/bindings/phy/ti-phy.txt
+		for Keystone SerDes device specificcations.
 
 Optional properties:
 - enable-ale:	NetCP driver keeps the address learning feature in the ethernet
@@ -160,6 +174,16 @@ Optional properties:
 
 Example binding:
 
+gbe_subsys: subsys@2090000 {
+	compatible = "syscon";
+	reg = <0x02090000 0x100>;
+};
+
+gbe_serdes: phy@232a000 {
+	compatible		= "ti,keystone-serdes-gbe";
+	...
+};
+
 netcp: netcp@2000000 {
 	reg = <0x2620110 0x8>;
 	reg-names = "efuse";
@@ -169,7 +193,6 @@ netcp: netcp@2000000 {
 	ranges  = <0 0x2000000 0xfffff>;
 	clocks = <&papllclk>, <&clkcpgmac>, <&chipclk12>;
 	dma-coherent;
-	/* big-endian; */
 	dma-id = <0>;
 
 	netcp-devices {
@@ -178,17 +201,19 @@ netcp: netcp@2000000 {
 		ranges;
 		gbe@90000 {
 			label = "netcp-gbe";
-			reg = <0x90000 0x300>, <0x90400 0x400>, <0x90800 0x700>;
-			/* enable-ale; */
+			syscon-subsys = <&gbe_subsys>;
+			reg = <0x90100 0x200>, <0x90400 0x200>, <0x90800 0x700>;
 			tx-queue = <648>;
 			tx-channel = <8>;
 
 			interfaces {
 				gbe0: interface-0 {
+					phys = <&serdes_lane0>;
 					slave-port = <0>;
 					link-interface	= <4>;
 				};
 				gbe1: interface-1 {
+					phys = <&serdes_lane1>;
 					slave-port = <1>;
 					link-interface	= <4>;
 				};
@@ -196,10 +221,12 @@ netcp: netcp@2000000 {
 
 			secondary-slave-ports {
 				port-2 {
+					phys = <&serdes_lane2>;
 					slave-port = <2>;
 					link-interface	= <2>;
 				};
 				port-3 {
+					phys = <&serdes_lane3>;
 					slave-port = <3>;
 					link-interface	= <2>;
 				};
@@ -231,6 +258,84 @@ netcp: netcp@2000000 {
 			efuse-mac = <0>;
 			local-mac-address = [02 18 31 7e 3e 6f];
 			netcp-gbe = <&gbe1>;
+		};
+	};
+};
+
+Example bindings (10gbe):
+
+xgbe_serdes: phy@231e000 {
+	compatible		= "ti,keystone-serdes-xgbe";
+	...
+};
+
+netcpx: netcpx@2f00000 {
+	status		= "disabled";
+	compatible	= "ti,netcp-1.0";
+	#address-cells	= <1>;
+	#size-cells	= <1>;
+	ranges;
+
+	clocks		= <&clkxge>;
+	clock-names	= "clk_xge";
+	dma-coherent;
+
+	ti,navigator-dmas = <&dma_xgbe 0>,
+			<&dma_xgbe 8>,
+			<&dma_xgbe 0>;
+	ti,navigator-dma-names = "xnetrx0", "xnetrx1", "xnettx";
+
+	netcp-devices {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		xgbe@2f00000 {
+			label = "netcp-xgbe";
+			compatible = "ti,netcp-xgbe";
+			syscon-subsys = <&xgbe_subsys>;
+			syscon-pcsr = <&xgbe_pcsr>;
+			reg = <0x02f00100 0x200>, <0x02f01000 0xb00>;
+			tx-queue = <692>;
+			tx-channel = "xnettx";
+
+			interfaces {
+				xgbe0: interface-0 {
+					phys = <&xserdes_lane0>;
+					slave-port = <0>;
+					link-interface	= <11>;
+				};
+				xgbe1: interface-1 {
+					phys = <&xserdes_lane1>;
+					slave-port = <1>;
+					link-interface	= <11>;
+				};
+			};
+		};
+	};
+
+	netcp-interfaces {
+		interface-0 {
+			rx-channel = "xnetrx0";
+			rx-pool = <2048 12>;
+			tx-pool = <1024 12>;
+			rx-queue-depth = <1024 1024 0 0>;
+			rx-buffer-size = <1536 4096 0 0>;
+			rx-queue = <532>;
+			tx-completion-queue = <534>;
+			efuse-mac = <0>;
+			netcp-xgbe = <&xgbe0>;
+
+		};
+		interface-1 {
+			rx-channel = "xnetrx1";
+			rx-pool = <2048 12>;
+			tx-pool = <1024 12>;
+			rx-queue-depth = <1024 1024 0 0>;
+			rx-buffer-size = <1536 4096 0 0>;
+			rx-queue = <533>;
+			tx-completion-queue = <535>;
+			efuse-mac = <0>;
+			netcp-xgbe = <&xgbe1>;
 		};
 	};
 };
