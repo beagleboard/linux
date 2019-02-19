@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/omap-mailbox.h>
+#include <linux/pruss.h>
 #include <linux/pruss_driver.h>
 #include <linux/pruss_intc.h>
 #include <linux/irqchip/irq-pruss-intc.h>
@@ -87,6 +88,7 @@ enum pru_type {
  * @irq_kick: IRQ number to use to perform virtio kick
  * @mem_regions: data for each of the PRU memory regions
  * @intc_config: PRU INTC configuration data
+ * @rmw_lock: lock for read, modify, write operations on registers
  * @iram_da: device address of Instruction RAM for this PRU
  * @pdram_da: device address of primary Data RAM for this PRU
  * @sdram_da: device address of secondary Data RAM for this PRU
@@ -110,6 +112,7 @@ struct pru_rproc {
 	int irq_kick;
 	struct pruss_mem_region mem_regions[PRU_IOMEM_MAX];
 	struct pruss_intc_config intc_config;
+	spinlock_t rmw_lock; /* register access lock */
 	u32 iram_da;
 	u32 pdram_da;
 	u32 sdram_da;
@@ -132,6 +135,23 @@ static inline
 void pru_control_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
 {
 	writel_relaxed(val, pru->mem_regions[PRU_IOMEM_CTRL].va + reg);
+}
+
+static inline
+void pru_control_set_reg(struct pru_rproc *pru, unsigned int reg,
+			 u32 mask, u32 set)
+{
+	u32 val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&pru->rmw_lock, flags);
+
+	val = pru_control_read_reg(pru, reg);
+	val &= ~mask;
+	val |= (set & mask);
+	pru_control_write_reg(pru, reg, val);
+
+	spin_unlock_irqrestore(&pru->rmw_lock, flags);
 }
 
 static struct rproc *__pru_rproc_get(struct device_node *np, int index)
@@ -244,6 +264,37 @@ void pru_rproc_put(struct rproc *rproc)
 	put_device(&rproc->dev);
 }
 EXPORT_SYMBOL_GPL(pru_rproc_put);
+
+/**
+ * pru_rproc_set_ctable() - set the constant table index for the PRU
+ * @rproc: the rproc instance of the PRU
+ * @c: constant table index to set
+ * @addr: physical address to set it to
+ */
+int pru_rproc_set_ctable(struct rproc *rproc, enum pru_ctable_idx c, u32 addr)
+{
+	struct pru_rproc *pru = rproc->priv;
+	unsigned int reg;
+	u32 mask, set;
+	u16 idx;
+	u16 idx_mask;
+
+	/* pointer is 16 bit and index is 8-bit so mask out the rest */
+	idx_mask = (c >= PRU_C28) ? 0xFFFF : 0xFF;
+
+	/* ctable uses bit 8 and upwards only */
+	idx = (addr >> 8) & idx_mask;
+
+	/* configurable ctable (i.e. C24) starts at PRU_CTRL_CTBIR0 */
+	reg = PRU_CTRL_CTBIR0 + 4 * (c >> 1);
+	mask = idx_mask << (16 * (c & 1));
+	set = idx << (16 * (c & 1));
+
+	pru_control_set_reg(pru, reg, mask, set);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pru_rproc_set_ctable);
 
 static inline u32 pru_debug_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
@@ -953,6 +1004,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	pru->pruss = platform_get_drvdata(ppdev);
 	pru->rproc = rproc;
 	pru->fw_name = fw_name;
+	spin_lock_init(&pru->rmw_lock);
 	mutex_init(&pru->lock);
 
 	if (of_device_is_compatible(np, "ti,am654-pru") ||
