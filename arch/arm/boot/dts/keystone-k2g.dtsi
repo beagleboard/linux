@@ -142,6 +142,38 @@
 				#gpio-cells = <2>;
 				gpio,syscon-dev = <&devctrl 0x240>;
 			};
+
+			prussgpio0: keystone-pruss-gpio@26c {
+				compatible = "ti,keystone-dsp-gpio";
+				reg = <0x26c 0x4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio,syscon-dev = <&devctrl 0x26c>;
+			};
+
+			prussgpio1: keystone-pruss-gpio@270 {
+				compatible = "ti,keystone-dsp-gpio";
+				reg = <0x270 0x4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio,syscon-dev = <&devctrl 0x270>;
+			};
+
+			prussgpio2: keystone-pruss-gpio@274 {
+				compatible = "ti,keystone-dsp-gpio";
+				reg = <0x274 0x4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio,syscon-dev = <&devctrl 0x274>;
+			};
+
+			prussgpio3: keystone-pruss-gpio@278 {
+				compatible = "ti,keystone-dsp-gpio";
+				reg = <0x278 0x4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio,syscon-dev = <&devctrl 0x278>;
+			};
 		};
 
 		uart0: serial@2530c00 {
