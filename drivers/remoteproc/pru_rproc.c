@@ -44,9 +44,11 @@
 #define PRU_DEBUG_GPREG(x)	(0x0000 + (x) * 4)
 #define PRU_DEBUG_CT_REG(x)	(0x0080 + (x) * 4)
 
-/* PRU Core IRAM address masks */
+/* PRU/RTU Core IRAM address masks */
 #define PRU0_IRAM_ADDR_MASK	0x34000
 #define PRU1_IRAM_ADDR_MASK	0x38000
+#define RTU0_IRAM_ADDR_MASK	0x4000
+#define RTU1_IRAM_ADDR_MASK	0x6000
 
 /**
  * enum pru_iomem - PRU core memory/register range identifiers
@@ -82,6 +84,8 @@ enum pru_iomem {
  * @dbg_single_step: debug state variable to set PRU into single step mode
  * @dbg_continuous: debug state variable to restore PRU execution mode
  * @fw_has_intc_rsc: boolean flag to indicate INTC config through firmware
+ * @is_k3: boolean flag used to indicate the core has increased number of events
+ * @is_rtu: boolean flag to indicate the core is a RTU core
  */
 struct pru_rproc {
 	int id;
@@ -106,6 +110,8 @@ struct pru_rproc {
 	u32 dbg_single_step;
 	u32 dbg_continuous;
 	unsigned int fw_has_intc_rsc : 1;
+	unsigned int is_k3 : 1;
+	unsigned int is_rtu : 1;
 };
 
 static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len);
@@ -159,6 +165,7 @@ static int pru_rproc_intc_dt_config(struct pru_rproc *pru, int index)
 	struct device_node *np = pru->client_np;
 	struct property *prop;
 	const char *prop_name = "ti,pru-interrupt-map";
+	u8 max_system_events, max_pru_channels, max_pru_host_ints;
 	int ret = 0, i;
 	int dt_irqs;
 	u32 *arr;
@@ -185,6 +192,11 @@ static int pru_rproc_intc_dt_config(struct pru_rproc *pru, int index)
 		goto out;
 	}
 
+	max_system_events = pru->is_k3 ?
+				MAX_PRU_SYS_EVENTS_K3 : MAX_PRU_SYS_EVENTS;
+	max_pru_channels = pru->is_k3 ? MAX_PRU_CHANNELS_K3 : MAX_PRU_CHANNELS;
+	max_pru_host_ints = pru->is_k3 ? MAX_PRU_HOST_INT_K3 : MAX_PRU_HOST_INT;
+
 	for (i = 0; i < ARRAY_SIZE(pru->intc_config.sysev_to_ch); i++)
 		pru->intc_config.sysev_to_ch[i] = -1;
 
@@ -196,21 +208,21 @@ static int pru_rproc_intc_dt_config(struct pru_rproc *pru, int index)
 			continue;
 
 		if (arr[i + 1] < 0 ||
-		    arr[i + 1] >= MAX_PRU_SYS_EVENTS) {
+		    arr[i + 1] >= max_system_events) {
 			dev_err(dev, "bad sys event %d\n", arr[i + 1]);
 			ret = -EINVAL;
 			goto out;
 		}
 
 		if (arr[i + 2] < 0 ||
-		    arr[i + 2] >= MAX_PRU_CHANNELS) {
+		    arr[i + 2] >= max_pru_channels) {
 			dev_err(dev, "bad channel %d\n", arr[i + 2]);
 			ret = -EINVAL;
 			goto out;
 		}
 
 		if (arr[i + 3] < 0 ||
-		    arr[i + 3] >= MAX_PRU_HOST_INT) {
+		    arr[i + 3] >= max_pru_host_ints) {
 			dev_err(dev, "bad irq %d\n", arr[i + 3]);
 			ret = -EINVAL;
 			goto out;
@@ -269,7 +281,8 @@ static struct rproc *__pru_rproc_get(struct device_node *np, int index)
 		return ERR_PTR(-EPROBE_DEFER);
 
 	/* TODO: replace the crude string based check to make sure it is PRU */
-	if (!strstr(dev_name(&pdev->dev), "pru")) {
+	if (!strstr(dev_name(&pdev->dev), "pru") &&
+	    !strstr(dev_name(&pdev->dev), "rtu")) {
 		put_device(&pdev->dev);
 		return ERR_PTR(-ENODEV);
 	}
@@ -383,7 +396,8 @@ void pru_rproc_put(struct rproc *rproc)
 		return;
 
 	/* TODO: replace the crude string based check to make sure it is PRU */
-	if (!strstr(dev_name(rproc->dev.parent), "pru"))
+	if (!strstr(dev_name(rproc->dev.parent), "pru") &&
+	    !strstr(dev_name(rproc->dev.parent), "rtu"))
 		return;
 
 	pru = rproc->priv;
@@ -421,7 +435,8 @@ enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc)
 		return -EINVAL;
 
 	/* TODO: replace the crude string based check to make sure it is PRU */
-	if (!strstr(dev_name(rproc->dev.parent), "pru"))
+	if (!strstr(dev_name(rproc->dev.parent), "pru") &&
+	    !strstr(dev_name(rproc->dev.parent), "rtu"))
 		return -EINVAL;
 
 	pru = rproc->priv;
@@ -644,8 +659,9 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 	struct pru_rproc *pru = rproc->priv;
 	int ret;
 	mbox_msg_t msg = (mbox_msg_t)vq_id;
+	const char *name = pru->is_rtu ? "RTU" : "PRU";
 
-	dev_dbg(dev, "kicking vqid %d on PRU%d\n", vq_id, pru->id);
+	dev_dbg(dev, "kicking vqid %d on %s%d\n", vq_id, name, pru->id);
 
 	if (pru->irq_kick > 0) {
 		ret = pruss_intc_trigger(pru->irq_kick);
@@ -667,11 +683,12 @@ static int pru_rproc_start(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
+	const char *name = pru->is_rtu ? "RTU" : "PRU";
 	u32 val;
 	int ret;
 
-	dev_dbg(dev, "starting PRU%d: entry-point = 0x%x\n",
-		pru->id, (rproc->bootaddr >> 2));
+	dev_dbg(dev, "starting %s%d: entry-point = 0x%x\n",
+		name, pru->id, (rproc->bootaddr >> 2));
 
 	if (!list_empty(&pru->rproc->rvdevs)) {
 		if (!pru->mbox && (pru->irq_vring <= 0 || pru->irq_kick <= 0)) {
@@ -709,9 +726,10 @@ static int pru_rproc_stop(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
+	const char *name = pru->is_rtu ? "RTU" : "PRU";
 	u32 val;
 
-	dev_dbg(dev, "stopping PRU%d\n", pru->id);
+	dev_dbg(dev, "stopping %s%d\n", name, pru->id);
 
 	val = pru_control_read_reg(pru, PRU_CTRL_CTRL);
 	val &= ~CTRL_CTRL_EN;
@@ -964,22 +982,135 @@ static struct rproc_ops pru_rproc_ops = {
 };
 
 /*
+ * Custom memory copy implementation for ICSSG PRU/RTU Cores
+ *
+ * The ICSSG PRU/RTU cores have a memory copying issue with IRAM memories, that
+ * is not seen on previous generation SoCs. The data is reflected properly in
+ * the IRAM memories only for integer (4-byte) copies. Any unaligned copies
+ * result in all the other pre-existing bytes zeroed out within that 4-byte
+ * boundary, thereby resulting in wrong text/code in the IRAMs. Also, the
+ * IRAM memory port interface does not allow any 8-byte copies (as commonly
+ * used by ARM64 memcpy implementation) and throws an exception. The DRAM
+ * memory ports do not show this behavior. Use this custom copying function
+ * to properly load the PRU/RTU firmware images on all memories for simplicity.
+ *
+ * TODO: Improve the function to deal with additional corner cases like
+ * unaligned copy sizes or sub-integer trailing bytes when the need arises.
+ */
+static int pru_rproc_memcpy(void *dest, const void *src, size_t count)
+{
+	const int *s = src;
+	int *d = dest;
+	int size = count / 4;
+	int *tmp_src = NULL;
+
+	/* limited to 4-byte aligned addresses and copy sizes */
+	if ((long)dest % 4 || count % 4)
+		return -EINVAL;
+
+	/* src offsets in ELF firmware image can be non-aligned */
+	if ((long)src % 4) {
+		tmp_src = kmemdup(src, count, GFP_KERNEL);
+		if (!tmp_src)
+			return -ENOMEM;
+		s = tmp_src;
+	}
+
+	while (size--)
+		*d++ = *s++;
+
+	kfree(tmp_src);
+
+	return 0;
+}
+
+static int
+pru_rproc_load_elf_segments(struct rproc *rproc, const struct firmware *fw)
+{
+	struct device *dev = &rproc->dev;
+	struct elf32_hdr *ehdr;
+	struct elf32_phdr *phdr;
+	int i, ret = 0;
+	const u8 *elf_data = fw->data;
+
+	ehdr = (struct elf32_hdr *)elf_data;
+	phdr = (struct elf32_phdr *)(elf_data + ehdr->e_phoff);
+
+	/* go through the available ELF segments */
+	for (i = 0; i < ehdr->e_phnum; i++, phdr++) {
+		u32 da = phdr->p_paddr;
+		u32 memsz = phdr->p_memsz;
+		u32 filesz = phdr->p_filesz;
+		u32 offset = phdr->p_offset;
+		void *ptr;
+
+		if (phdr->p_type != PT_LOAD)
+			continue;
+
+		dev_dbg(dev, "phdr: type %d da 0x%x memsz 0x%x filesz 0x%x\n",
+			phdr->p_type, da, memsz, filesz);
+
+		if (filesz > memsz) {
+			dev_err(dev, "bad phdr filesz 0x%x memsz 0x%x\n",
+				filesz, memsz);
+			ret = -EINVAL;
+			break;
+		}
+
+		if (offset + filesz > fw->size) {
+			dev_err(dev, "truncated fw: need 0x%x avail 0x%zx\n",
+				offset + filesz, fw->size);
+			ret = -EINVAL;
+			break;
+		}
+
+		/* grab the kernel address for this device address */
+		ptr = rproc_da_to_va(rproc, da, memsz,
+				     RPROC_FLAGS_ELF_PHDR | phdr->p_flags);
+		if (!ptr) {
+			dev_err(dev, "bad phdr da 0x%x mem 0x%x\n", da, memsz);
+			ret = -EINVAL;
+			break;
+		}
+
+		/* skip the memzero logic performed by remoteproc ELF loader */
+		if (!phdr->p_filesz)
+			continue;
+
+		ret = pru_rproc_memcpy(ptr, elf_data + phdr->p_offset, filesz);
+		if (ret) {
+			dev_err(dev, "PRU custom memory copy failed for da 0x%x memsz 0x%x\n",
+				da, memsz);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+/*
  * compute PRU id based on the IRAM addresses. The PRU IRAMs are
  * always at a particular offset within the PRUSS address space.
  * The other alternative is to use static data for each core (not a
  * hardware property to define it in DT), and the id can always be
  * computated using this inherent address logic.
  */
-static int pru_rproc_set_id(struct pru_rproc *pru)
+static int pru_rproc_set_id(struct device_node *np, struct pru_rproc *pru)
 {
 	int ret = 0;
 	u32 mask1 = PRU0_IRAM_ADDR_MASK;
 	u32 mask2 = PRU1_IRAM_ADDR_MASK;
 
-	if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask1) == mask1)
-		pru->id = PRUSS_PRU0;
-	else if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask2) == mask2)
+	if (of_device_is_compatible(np, "ti,am654-rtu")) {
+		mask1 = RTU0_IRAM_ADDR_MASK;
+		mask2 = RTU1_IRAM_ADDR_MASK;
+		pru->is_rtu = 1;
+	}
+
+	if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask2) == mask2)
 		pru->id = PRUSS_PRU1;
+	else if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask1) == mask1)
+		pru->id = PRUSS_PRU0;
 	else
 		ret = -EINVAL;
 
@@ -1035,6 +1166,14 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	spin_lock_init(&pru->rmw_lock);
 	mutex_init(&pru->lock);
 
+	if (of_device_is_compatible(np, "ti,am654-pru") ||
+	    of_device_is_compatible(np, "ti,am654-rtu")) {
+		/* use generic elf ops for undefined platform driver ops */
+		rproc->ops->load = pru_rproc_load_elf_segments;
+
+		pru->is_k3 = 1;
+	}
+
 	/* XXX: get this from match data if different in the future */
 	pru->iram_da = 0;
 	pru->pdram_da = 0;
@@ -1059,7 +1198,7 @@ static int pru_rproc_probe(struct platform_device *pdev)
 			pru->mem_regions[i].size, pru->mem_regions[i].va);
 	}
 
-	ret = pru_rproc_set_id(pru);
+	ret = pru_rproc_set_id(np, pru);
 	if (ret < 0)
 		goto free_rproc;
 
@@ -1145,6 +1284,8 @@ static const struct of_device_id pru_rproc_match[] = {
 	{ .compatible = "ti,am4376-pru", },
 	{ .compatible = "ti,am5728-pru", },
 	{ .compatible = "ti,k2g-pru",    },
+	{ .compatible = "ti,am654-pru",  },
+	{ .compatible = "ti,am654-rtu",  },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pru_rproc_match);
