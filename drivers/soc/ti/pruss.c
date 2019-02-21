@@ -231,6 +231,30 @@ int pruss_regmap_update(struct pruss *pruss, enum pruss_syscon mod,
 }
 EXPORT_SYMBOL_GPL(pruss_regmap_update);
 
+/* Custom configuration of couple of PRUSS clocks only on AM65x SoCs */
+static int pruss_configure_clocks(struct platform_device *pdev,
+				  struct pruss *pruss)
+{
+	int ret;
+
+	if (!of_device_is_compatible(pdev->dev.of_node, "ti,am654-icssg"))
+		return 0;
+
+	ret = pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, ICSSG_CFG_CORE_SYNC,
+				  ICSSG_CORE_VBUSP_SYNC_EN,
+				  ICSSG_CORE_VBUSP_SYNC_EN);
+	if (ret)
+		return ret;
+
+	ret = pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, PRUSS_CFG_IEPCLK,
+				  PRUSS_IEPCLK_IEP_OCP_CLK_EN,
+				  PRUSS_IEPCLK_IEP_OCP_CLK_EN);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static const
 struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
 {
@@ -356,6 +380,12 @@ static int pruss_probe(struct platform_device *pdev)
 	of_node_put(np);
 
 	platform_set_drvdata(pdev, pruss);
+
+	ret = pruss_configure_clocks(pdev, pruss);
+	if (ret) {
+		dev_err(dev, "clock frequency config failed, ret = %d\n", ret);
+		return ret;
+	}
 
 	dev_dbg(&pdev->dev, "creating PRU cores and other child platform devices\n");
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
