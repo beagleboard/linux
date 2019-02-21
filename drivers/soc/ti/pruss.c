@@ -63,8 +63,9 @@ struct pruss *pruss_get(struct rproc *rproc)
 	if (!dev->parent)
 		return ERR_PTR(-ENODEV);
 
-	/* rudimentary check to make sure rproc handle is for a PRU */
-	if (!strstr(dev_name(dev->parent), "pru"))
+	/* rudimentary check to make sure rproc handle is for a PRU or RTU */
+	if (!strstr(dev_name(dev->parent), "pru") &&
+	    !strstr(dev_name(dev->parent), "rtu"))
 		return ERR_PTR(-ENODEV);
 
 	ppdev = to_platform_device(dev->parent->parent);
@@ -402,6 +403,7 @@ static const struct of_device_id pruss_of_match[] = {
 	{ .compatible = "ti,am4376-pruss", .data = &am437x_match_data, },
 	{ .compatible = "ti,am5728-pruss", .data = NULL, },
 	{ .compatible = "ti,k2g-pruss", .data = NULL, },
+	{ .compatible = "ti,am654-icssg", .data = NULL, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
