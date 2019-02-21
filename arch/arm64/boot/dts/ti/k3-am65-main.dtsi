@@ -528,6 +528,17 @@
 				interrupts = <22>, <23>;
 				interrupt-names = "vring", "kick";
 			};
+
+			icssg0_mdio: mdio@b032400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0xb032400 0x100>;
+				clocks = <&k3_clks 62 3>;
+				clock-names = "fck";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				bus_freq = <1000000>;
+				status = "disabled";
+			};
 		};
 	};
 
@@ -641,6 +652,17 @@
 				interrupts = <22>, <23>;
 				interrupt-names = "vring", "kick";
 			};
+
+			icssg1_mdio: mdio@b132400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0xb132400 0x100>;
+				clocks = <&k3_clks 63 3>;
+				clock-names = "fck";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				bus_freq = <1000000>;
+				status = "disabled";
+			};
 		};
 	};
 
@@ -753,6 +775,17 @@
 				interrupt-parent = <&icssg2_intc>;
 				interrupts = <22>, <23>;
 				interrupt-names = "vring", "kick";
+			};
+
+			icssg2_mdio: mdio@b232400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0xb232400 0x100>;
+				clocks = <&k3_clks 64 3>;
+				clock-names = "fck";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				bus_freq = <1000000>;
+				status = "disabled";
 			};
 		};
 	};
