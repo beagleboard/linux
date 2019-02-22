@@ -13,6 +13,7 @@
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/omap-mailbox.h>
 #include <linux/pruss.h>
 #include <linux/pruss_driver.h>
 #include <linux/remoteproc.h>
@@ -602,7 +603,7 @@ static void pru_rproc_mbox_callback(struct mbox_client *client, void *data)
 {
 	struct pru_rproc *pru = container_of(client, struct pru_rproc, client);
 	struct device *dev = &pru->rproc->dev;
-	u32 msg = (u32)data;
+	u32 msg = to_omap_mbox_msg(data);
 
 	dev_dbg(dev, "mbox msg: 0x%x\n", msg);
 
@@ -642,6 +643,7 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
 	int ret;
+	mbox_msg_t msg = (mbox_msg_t)vq_id;
 
 	dev_dbg(dev, "kicking vqid %d on PRU%d\n", vq_id, pru->id);
 
@@ -654,7 +656,7 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 		 * send the index of the triggered virtqueue in the mailbox
 		 * payload
 		 */
-		ret = mbox_send_message(pru->mbox, (void *)vq_id);
+		ret = mbox_send_message(pru->mbox, (void *)msg);
 		if (ret < 0)
 			dev_err(dev, "mbox_send_message failed: %d\n", ret);
 	}
