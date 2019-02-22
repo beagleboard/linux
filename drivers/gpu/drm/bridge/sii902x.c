@@ -174,7 +174,6 @@ struct sii902x {
 	struct drm_bridge bridge;
 	struct drm_connector connector;
 	struct gpio_desc *reset_gpio;
-	bool use_custom_ddc_probe;
 	struct mutex mutex;
 	struct sii902x_audio {
 		struct platform_device *pdev;
@@ -232,84 +231,6 @@ static const struct drm_connector_funcs sii902x_connector_funcs = {
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
-/*
- * This is a copy-paste from drm_do_probe_ddc_edid() with the extra
- * sleep to make SiI902x pass trough DDC transfer more reliable.
- */
-#define DDC_SEGMENT_ADDR 0x30
-static int
-sii902x_do_probe_ddc_edid(void *data, u8 *buf, unsigned int block, size_t len)
-{
-	struct i2c_adapter *adapter = data;
-	unsigned char start = block * EDID_LENGTH;
-	unsigned char segment = block >> 1;
-	unsigned char xfers = segment ? 3 : 2;
-	int ret, retries = 5;
-
-	/*
-	 * The core I2C driver will automatically retry the transfer if the
-	 * adapter reports EAGAIN. However, we find that bit-banging transfers
-	 * are susceptible to errors under a heavily loaded machine and
-	 * generate spurious NAKs and timeouts. Retrying the transfer
-	 * of the individual block a few times seems to overcome this.
-	 */
-	do {
-		struct i2c_msg msgs[] = {
-			{
-				.addr	= DDC_SEGMENT_ADDR,
-				.flags	= 0,
-				.len	= 1,
-				.buf	= &segment,
-			}, {
-				.addr	= DDC_ADDR,
-				.flags	= 0,
-				.len	= 1,
-				.buf	= &start,
-			}, {
-				.addr	= DDC_ADDR,
-				.flags	= I2C_M_RD,
-				.len	= len,
-				.buf	= buf,
-			}
-		};
-
-		/* This sleep helps k2g-evm DDC read to become reliable */
-		msleep(10);
-
-		/*
-		 * Avoid sending the segment addr to not upset non-compliant
-		 * DDC monitors.
-		 */
-		ret = i2c_transfer(adapter, &msgs[3 - xfers], xfers);
-
-		if (ret == -ENXIO) {
-			DRM_DEBUG_KMS("drm: skipping non-existent adapter %s\n",
-					adapter->name);
-			break;
-		}
-	} while (ret != xfers && --retries);
-
-	return ret == xfers ? 0 : -1;
-}
-
-/*
- * This is a simplified version of drm_get_edid(). It does not implement
- * all the features - just the necessary parts - and it uses the above
- * custom DDC read function. Tile group feature is not supported.
- */
-static struct edid *sii902x_get_edid(struct drm_connector *connector,
-				     struct i2c_adapter *adapter)
-{
-	struct edid *edid;
-
-	if (connector->force == DRM_FORCE_OFF)
-		return NULL;
-
-	edid = drm_do_get_edid(connector, sii902x_do_probe_ddc_edid, adapter);
-
-	return edid;
-}
-
 static int sii902x_get_modes(struct drm_connector *connector)
 {
 	struct sii902x *sii902x = connector_to_sii902x(connector);
@@ -351,10 +272,7 @@ static int sii902x_get_modes(struct drm_connector *connector)
 	if (ret)
 		goto error_out;
 
-	if (sii902x->use_custom_ddc_probe)
-		edid = sii902x_get_edid(connector, sii902x->i2c->adapter);
-	else
-		edid = drm_get_edid(connector, sii902x->i2c->adapter);
+	edid = drm_get_edid(connector, sii902x->i2c->adapter);
 	drm_connector_update_edid_property(connector, edid);
 	if (edid) {
 	        if (drm_detect_hdmi_monitor(edid))
@@ -946,9 +864,6 @@ static int sii902x_probe(struct i2c_client *client,
 		if (ret)
 			return ret;
 	}
-
-	sii902x->use_custom_ddc_probe =
-		of_property_read_bool(dev->of_node, "use-custom-ddc-probe");
 
 	sii902x->bridge.funcs = &sii902x_bridge_funcs;
 	sii902x->bridge.of_node = dev->of_node;
