@@ -52,7 +52,7 @@ struct omap_drm_pipeline {
 	struct drm_encoder *encoder;
 	struct drm_connector *connector;
 	struct omap_dss_device *output;
-	struct omap_dss_device *display;
+	unsigned int alias_id;
 };
 
 /*
@@ -110,6 +110,14 @@ struct omap_drm_private {
 
 	/* properties: */
 	struct drm_property *zorder_prop;
+	struct drm_property *global_alpha_prop;
+	struct drm_property *pre_mult_alpha_prop;
+
+	/* crtc properties */
+	struct drm_property *background_color_prop;
+	struct drm_property *trans_key_mode_prop;
+	struct drm_property *trans_key_prop;
+	struct drm_property *alpha_blender_prop;
 
 	/* irq handling: */
 	spinlock_t wait_lock;		/* protects the wait_list */
@@ -118,6 +126,9 @@ struct omap_drm_private {
 
 	/* memory bandwidth limit if it is needed on the platform */
 	unsigned int max_bandwidth;
+
+	void *wb_private;	      /* Write-back private data */
+	bool wb_initialized;
 };
 
 
@@ -126,5 +137,25 @@ struct omap_global_state *__must_check
 omap_get_global_state(struct drm_atomic_state *s);
 struct omap_global_state *
 omap_get_existing_global_state(struct omap_drm_private *priv);
+
+#if IS_ENABLED(CONFIG_DRM_OMAP_WB)
+
+#define OMAP_WB_IRQ_MASK (DISPC_IRQ_FRAMEDONEWB | \
+			  DISPC_IRQ_WBBUFFEROVERFLOW | \
+			  DISPC_IRQ_WBUNCOMPLETEERROR)
+
+int omap_wb_init(struct drm_device *drmdev);
+void omap_wb_cleanup(struct drm_device *drmdev);
+void omap_wb_irq(void *priv, u32 irqstatus);
+
+#else
+
+#define OMAP_WB_IRQ_MASK (0)
+
+static inline int omap_wb_init(struct drm_device *drmdev) { return 0; }
+static inline void omap_wb_cleanup(struct drm_device *drmdev) { }
+static inline void omap_wb_irq(void *priv, u32 irqstatus) { }
+
+#endif
 
 #endif /* __OMAPDRM_DRV_H__ */

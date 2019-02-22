@@ -33,6 +33,11 @@ struct omap_crtc_state {
 	/* Shadow values for legacy userspace support. */
 	unsigned int rotation;
 	unsigned int zpos;
+
+	u32 default_color;
+	unsigned int trans_key_mode;
+	unsigned int trans_key;
+	bool alpha_blender_enabled;
 };
 
 #define to_omap_crtc(x) container_of(x, struct omap_crtc, base)
@@ -129,7 +134,7 @@ static void omap_crtc_set_enabled(struct drm_crtc *crtc, bool enable)
 	if (WARN_ON(omap_crtc->enabled == enable))
 		return;
 
-	if (omap_crtc->pipe->output->output_type == OMAP_DISPLAY_TYPE_HDMI) {
+	if (omap_crtc->pipe->output->type == OMAP_DISPLAY_TYPE_HDMI) {
 		priv->dispc_ops->mgr_enable(priv->dispc, channel, enable);
 		omap_crtc->enabled = enable;
 		return;
@@ -334,12 +339,31 @@ static void omap_crtc_write_crtc_properties(struct drm_crtc *crtc)
 	struct omap_drm_private *priv = crtc->dev->dev_private;
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	struct omap_overlay_manager_info info;
+	const struct omap_crtc_state *omap_state =
+		to_omap_crtc_state(crtc->state);
 
 	memset(&info, 0, sizeof(info));
 
-	info.default_color = 0x000000;
-	info.trans_enabled = false;
-	info.partial_alpha_enabled = false;
+	info.default_color = omap_state->default_color;
+
+	info.trans_key = omap_state->trans_key;
+
+	switch (omap_state->trans_key_mode) {
+	case 0:
+	default:
+		info.trans_enabled = false;
+		break;
+	case 1:
+		info.trans_enabled = true;
+		info.trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;
+		break;
+	case 2:
+		info.trans_enabled = true;
+		info.trans_key_type = OMAP_DSS_COLOR_KEY_VID_SRC;
+		break;
+	}
+
+	info.alpha_blender_enabled = omap_state->alpha_blender_enabled;
 
 	if (crtc->state->ctm) {
 		struct drm_color_ctm *ctm =
@@ -426,6 +450,15 @@ static enum drm_mode_status omap_crtc_mode_valid(struct drm_crtc *crtc,
 					const struct drm_display_mode *mode)
 {
 	struct omap_drm_private *priv = crtc->dev->dev_private;
+	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
+	struct videomode vm = {0};
+	int r;
+
+	drm_display_mode_to_videomode(mode, &vm);
+	r = priv->dispc_ops->mgr_check_timings(priv->dispc, omap_crtc->channel,
+					       &vm);
+	if (r)
+		return r;
 
 	/* Check for bandwidth limit */
 	if (priv->max_bandwidth) {
@@ -462,12 +495,8 @@ static void omap_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	struct omap_crtc *omap_crtc = to_omap_crtc(crtc);
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 
-	DBG("%s: set mode: %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x",
-	    omap_crtc->name, mode->base.id, mode->name,
-	    mode->vrefresh, mode->clock,
-	    mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
-	    mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
-	    mode->type, mode->flags);
+	DBG("%s: set mode: " DRM_MODE_FMT,
+	    omap_crtc->name, DRM_MODE_ARG(mode));
 
 	drm_display_mode_to_videomode(mode, &omap_crtc->vm);
 }
@@ -475,6 +504,7 @@ static void omap_crtc_mode_set_nofb(struct drm_crtc *crtc)
 static int omap_crtc_atomic_check(struct drm_crtc *crtc,
 				struct drm_crtc_state *state)
 {
+	const struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 	struct drm_plane_state *pri_state;
 
 	if (state->color_mgmt_changed && state->gamma_lut) {
@@ -483,6 +513,25 @@ static int omap_crtc_atomic_check(struct drm_crtc *crtc,
 
 		if (length < 2)
 			return -EINVAL;
+	}
+
+	if (omap_state->trans_key_mode) {
+		struct drm_plane *plane;
+		struct drm_plane_state *plane_state;
+		u32 zpos_mask = 0;
+
+		drm_for_each_plane_mask(plane, crtc->dev, state->plane_mask) {
+			plane_state = drm_atomic_get_plane_state(state->state,
+								 plane);
+			if (IS_ERR(plane_state))
+				return PTR_ERR(plane_state);
+
+			if (zpos_mask & BIT(plane_state->zpos))
+				return -EINVAL;
+
+			zpos_mask |= BIT(plane_state->zpos);
+			plane_state->normalized_zpos = plane_state->zpos;
+		}
 	}
 
 	pri_state = drm_atomic_get_new_plane_state(state->state, crtc->primary);
@@ -548,6 +597,7 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 {
 	struct omap_drm_private *priv = crtc->dev->dev_private;
 	struct drm_plane_state *plane_state;
+	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
 
 	/*
 	 * Delegate property set to the primary plane. Get the plane state and
@@ -563,6 +613,14 @@ static int omap_crtc_atomic_set_property(struct drm_crtc *crtc,
 		plane_state->rotation = val;
 	else if (property == priv->zorder_prop)
 		plane_state->zpos = val;
+	else if (property == priv->background_color_prop)
+		omap_state->default_color = val;
+	else if (property == priv->trans_key_mode_prop)
+		omap_state->trans_key_mode = val;
+	else if (property == priv->trans_key_prop)
+		omap_state->trans_key = val;
+	else if (property == priv->alpha_blender_prop)
+		omap_state->alpha_blender_enabled = !!val;
 	else
 		return -EINVAL;
 
@@ -581,10 +639,26 @@ static int omap_crtc_atomic_get_property(struct drm_crtc *crtc,
 		*val = omap_state->rotation;
 	else if (property == priv->zorder_prop)
 		*val = omap_state->zpos;
+	else if (property == priv->background_color_prop)
+		*val = omap_state->default_color;
+	else if (property == priv->trans_key_mode_prop)
+		*val = omap_state->trans_key_mode;
+	else if (property == priv->trans_key_prop)
+		*val = omap_state->trans_key;
+	else if (property == priv->alpha_blender_prop)
+		*val = omap_state->alpha_blender_enabled;
 	else
 		return -EINVAL;
 
 	return 0;
+}
+
+int omap_crtc_atomic_get_trans_key_mode(struct drm_crtc *crtc,
+					const struct drm_crtc_state *state)
+{
+	struct omap_crtc_state *omap_state = to_omap_crtc_state(state);
+
+	return omap_state->trans_key_mode;
 }
 
 static void omap_crtc_reset(struct drm_crtc *crtc)
@@ -617,6 +691,12 @@ omap_crtc_duplicate_state(struct drm_crtc *crtc)
 
 	state->zpos = current_state->zpos;
 	state->rotation = current_state->rotation;
+
+	state->default_color = current_state->default_color;
+
+	state->trans_key_mode = current_state->trans_key_mode;
+	state->trans_key = current_state->trans_key;
+	state->alpha_blender_enabled = current_state->alpha_blender_enabled;
 
 	return &state->base;
 }
@@ -666,6 +746,18 @@ void omap_crtc_pre_uninit(struct omap_drm_private *priv)
 	dss_uninstall_mgr_ops(priv->dss);
 }
 
+static void omap_crtc_install_properties(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_mode_object *obj = &crtc->base;
+	struct omap_drm_private *priv = dev->dev_private;
+
+	drm_object_attach_property(obj, priv->background_color_prop, 0);
+	drm_object_attach_property(obj, priv->trans_key_mode_prop, 0);
+	drm_object_attach_property(obj, priv->trans_key_prop, 0);
+	drm_object_attach_property(obj, priv->alpha_blender_prop, 0);
+}
+
 /* initialize crtc */
 struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 				struct omap_drm_pipeline *pipe,
@@ -697,7 +789,7 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 					&omap_crtc_funcs, NULL);
 	if (ret < 0) {
 		dev_err(dev->dev, "%s(): could not init crtc for: %s\n",
-			__func__, pipe->display->name);
+			__func__, pipe->output->name);
 		kfree(omap_crtc);
 		return ERR_PTR(ret);
 	}
@@ -718,6 +810,7 @@ struct drm_crtc *omap_crtc_init(struct drm_device *dev,
 		drm_mode_crtc_set_gamma_size(crtc, gamma_lut_size);
 	}
 
+	omap_crtc_install_properties(crtc);
 	omap_plane_install_properties(crtc->primary, &crtc->base);
 
 	return crtc;

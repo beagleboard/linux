@@ -1,0 +1,89 @@
+/dts-v1/;
+
+/ {
+	description = "DRA72-evm";
+	#address-cells = <1>;
+
+	images {
+		kernel@1 {
+			description = "LCPD kernel";
+			data = /incbin/("../../zImage");
+			type = "kernel";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x82000000>;
+			entry = <0x82000000>;
+		};
+		fdt@1 {
+			description = "DRA72-evm";
+			data = /incbin/("dra72-evm.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+		fdt@2 {
+			description = "DRA72-evm-revc";
+			data = /incbin/("dra72-evm-revc.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+		fdt@3 {
+			description = "DRA7x-evm OSD LCD common";
+			data = /incbin/("dra7x-evm-osd-lcd-common.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83080000>;
+		};
+		fdt@4 {
+			description = "DRA72-evm touchscreen";
+			data = /incbin/("dra72-evm-touchscreen.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
+		fdt@5 {
+			description = "osd101t2045 LCD";
+			data = /incbin/("lcd-osd101t2045.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
+		fdt@6 {
+			description = "osd101t2587 LCD";
+			data = /incbin/("lcd-osd101t2587.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
+	};
+
+	configurations {
+		default = "dra72-evm.dtb";
+		dra72-evm.dtb {
+			description = "DRA72-evm";
+			kernel = "kernel@1";
+			fdt = "fdt@1";
+		};
+		dra72-evm-revc.dtb {
+			description = "DRA72-evm-revc";
+			kernel = "kernel@1";
+			fdt = "fdt@2";
+		};
+		lcd-osd101t2045 {
+			description = "osd101t2045 LCD overlay";
+			fdt = "fdt@3", "fdt@4", "fdt@5";
+		};
+		lcd-osd101t2587 {
+			description = "osd101t2587 LCD overlay";
+			fdt = "fdt@3", "fdt@4", "fdt@6";
+		};
+	};
+};
