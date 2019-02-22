@@ -142,6 +142,7 @@ static int sii902x_get_modes(struct drm_connector *connector)
 	unsigned int retries;
 	unsigned int status;
 	struct edid *edid;
+	u8 output_mode = SII902X_SYS_CTRL_OUTPUT_DVI;
 	int num = 0;
 	int ret;
 
@@ -172,6 +173,9 @@ static int sii902x_get_modes(struct drm_connector *connector)
 	edid = drm_get_edid(connector, sii902x->i2c->adapter);
 	drm_connector_update_edid_property(connector, edid);
 	if (edid) {
+	        if (drm_detect_hdmi_monitor(edid))
+			output_mode = SII902X_SYS_CTRL_OUTPUT_HDMI;
+
 		num = drm_add_edid_modes(connector, edid);
 		kfree(edid);
 	}
@@ -197,7 +201,8 @@ static int sii902x_get_modes(struct drm_connector *connector)
 
 	ret = regmap_update_bits(regmap, SII902X_SYS_CTRL_DATA,
 				 SII902X_SYS_CTRL_DDC_BUS_REQ |
-				 SII902X_SYS_CTRL_DDC_BUS_GRTD, 0);
+				 SII902X_SYS_CTRL_DDC_BUS_GRTD |
+				 SII902X_SYS_CTRL_OUTPUT_MODE, output_mode);
 	if (ret)
 		return ret;
 
