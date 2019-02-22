@@ -81,8 +81,6 @@ struct tidss_dispc_ops {
 	u64 (*read_and_clear_irqstatus)(struct dispc_device *dispc);
 	void (*write_irqenable)(struct dispc_device *dispc, u64 enable);
 
-	u32 (*get_memory_bandwidth_limit)(struct dispc_device *dispc);
-
 	int (*get_num_vps)(struct dispc_device *dispc);
 	const char *(*vp_name)(struct dispc_device *dispc,
 			       u32 hw_videoport);
