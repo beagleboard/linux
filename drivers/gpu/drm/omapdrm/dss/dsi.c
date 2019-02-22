@@ -1406,7 +1406,7 @@ static void dsi_pll_disable(struct dss_pll *pll)
 
 static int dsi_dump_dsi_clocks(struct seq_file *s, void *p)
 {
-	struct dsi_data *dsi = p;
+	struct dsi_data *dsi = s->private;
 	struct dss_pll_clock_info *cinfo = &dsi->pll.cinfo;
 	enum dss_clk_source dispc_clk_src, dsi_clk_src;
 	int dsi_module = dsi->module_id;
@@ -1467,7 +1467,7 @@ static int dsi_dump_dsi_clocks(struct seq_file *s, void *p)
 #ifdef CONFIG_OMAP2_DSS_COLLECT_IRQ_STATS
 static int dsi_dump_dsi_irqs(struct seq_file *s, void *p)
 {
-	struct dsi_data *dsi = p;
+	struct dsi_data *dsi = s->private;
 	unsigned long flags;
 	struct dsi_irq_stats stats;
 
@@ -1558,7 +1558,7 @@ static int dsi_dump_dsi_irqs(struct seq_file *s, void *p)
 
 static int dsi_dump_dsi_regs(struct seq_file *s, void *p)
 {
-	struct dsi_data *dsi = p;
+	struct dsi_data *dsi = s->private;
 
 	if (dsi_runtime_get(dsi))
 		return 0;
@@ -3753,19 +3753,13 @@ static int dsi_enable_video_output(struct omap_dss_device *dssdev, int channel)
 {
 	struct dsi_data *dsi = to_dsi_data(dssdev);
 	int bpp = dsi_get_pixel_size(dsi->pix_fmt);
-	struct omap_dss_device *out = &dsi->output;
 	u8 data_type;
 	u16 word_count;
 	int r;
 
-	if (!out->dispc_channel_connected) {
-		DSSERR("failed to enable display: no output/manager\n");
-		return -ENODEV;
-	}
-
 	r = dsi_display_init_dispc(dsi);
 	if (r)
-		goto err_init_dispc;
+		return r;
 
 	if (dsi->mode == OMAP_DSS_DSI_VIDEO_MODE) {
 		switch (dsi->pix_fmt) {
@@ -3814,7 +3808,6 @@ err_mgr_enable:
 	}
 err_pix_fmt:
 	dsi_display_uninit_dispc(dsi);
-err_init_dispc:
 	return r;
 }
 
@@ -4161,10 +4154,10 @@ static void dsi_display_uninit_dsi(struct dsi_data *dsi, bool disconnect_lanes,
 	dsi_pll_uninit(dsi, disconnect_lanes);
 }
 
-static int dsi_display_enable(struct omap_dss_device *dssdev)
+static void dsi_display_enable(struct omap_dss_device *dssdev)
 {
 	struct dsi_data *dsi = to_dsi_data(dssdev);
-	int r = 0;
+	int r;
 
 	DSSDBG("dsi_display_enable\n");
 
@@ -4184,14 +4177,13 @@ static int dsi_display_enable(struct omap_dss_device *dssdev)
 
 	mutex_unlock(&dsi->lock);
 
-	return 0;
+	return;
 
 err_init_dsi:
 	dsi_runtime_put(dsi);
 err_get_dsi:
 	mutex_unlock(&dsi->lock);
 	DSSDBG("dsi_display_enable FAILED\n");
-	return r;
 }
 
 static void dsi_display_disable(struct omap_dss_device *dssdev,
@@ -4751,6 +4743,17 @@ static int dsi_set_config(struct omap_dss_device *dssdev,
 	dsi->vm.flags |= DISPLAY_FLAGS_HSYNC_HIGH;
 	dsi->vm.flags &= ~DISPLAY_FLAGS_VSYNC_LOW;
 	dsi->vm.flags |= DISPLAY_FLAGS_VSYNC_HIGH;
+	/*
+	 * HACK: These flags should be handled through the omap_dss_device bus
+	 * flags, but this will only be possible when the DSI encoder will be
+	 * converted to the omapdrm-managed encoder model.
+	 */
+	dsi->vm.flags &= ~DISPLAY_FLAGS_PIXDATA_NEGEDGE;
+	dsi->vm.flags |= DISPLAY_FLAGS_PIXDATA_POSEDGE;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_DE_LOW;
+	dsi->vm.flags |= DISPLAY_FLAGS_DE_HIGH;
+	dsi->vm.flags &= ~DISPLAY_FLAGS_SYNC_POSEDGE;
+	dsi->vm.flags |= DISPLAY_FLAGS_SYNC_NEGEDGE;
 
 	dss_mgr_set_timings(&dsi->output, &dsi->vm);
 
@@ -4877,21 +4880,12 @@ static int dsi_get_clocks(struct dsi_data *dsi)
 static int dsi_connect(struct omap_dss_device *src,
 		       struct omap_dss_device *dst)
 {
-	int r;
-
-	r = omapdss_device_connect(dst->dss, dst, dst->next);
-	if (r)
-		return r;
-
-	dst->dispc_channel_connected = true;
-	return 0;
+	return omapdss_device_connect(dst->dss, dst, dst->next);
 }
 
 static void dsi_disconnect(struct omap_dss_device *src,
 			   struct omap_dss_device *dst)
 {
-	dst->dispc_channel_connected = false;
-
 	omapdss_device_disconnect(dst, dst->next);
 }
 
@@ -5083,15 +5077,15 @@ static int dsi_bind(struct device *dev, struct device *master, void *data)
 
 	snprintf(name, sizeof(name), "dsi%u_regs", dsi->module_id + 1);
 	dsi->debugfs.regs = dss_debugfs_create_file(dss, name,
-						    dsi_dump_dsi_regs, &dsi);
+						    dsi_dump_dsi_regs, dsi);
 #ifdef CONFIG_OMAP2_DSS_COLLECT_IRQ_STATS
 	snprintf(name, sizeof(name), "dsi%u_irqs", dsi->module_id + 1);
 	dsi->debugfs.irqs = dss_debugfs_create_file(dss, name,
-						    dsi_dump_dsi_irqs, &dsi);
+						    dsi_dump_dsi_irqs, dsi);
 #endif
 	snprintf(name, sizeof(name), "dsi%u_clks", dsi->module_id + 1);
 	dsi->debugfs.clks = dss_debugfs_create_file(dss, name,
-						    dsi_dump_dsi_clocks, &dsi);
+						    dsi_dump_dsi_clocks, dsi);
 
 	return 0;
 }
@@ -5103,8 +5097,6 @@ static void dsi_unbind(struct device *dev, struct device *master, void *data)
 	dss_debugfs_remove_file(dsi->debugfs.clks);
 	dss_debugfs_remove_file(dsi->debugfs.irqs);
 	dss_debugfs_remove_file(dsi->debugfs.regs);
-
-	of_platform_depopulate(dev);
 
 	WARN_ON(dsi->scp_clk_refcount > 0);
 
@@ -5129,29 +5121,19 @@ static int dsi_init_output(struct dsi_data *dsi)
 	out->id = dsi->module_id == 0 ?
 			OMAP_DSS_OUTPUT_DSI1 : OMAP_DSS_OUTPUT_DSI2;
 
-	out->output_type = OMAP_DISPLAY_TYPE_DSI;
+	out->type = OMAP_DISPLAY_TYPE_DSI;
 	out->name = dsi->module_id == 0 ? "dsi.0" : "dsi.1";
 	out->dispc_channel = dsi_get_channel(dsi);
 	out->ops = &dsi_ops;
 	out->owner = THIS_MODULE;
 	out->of_ports = BIT(0);
-	out->bus_flags = DRM_BUS_FLAG_PIXDATA_POSEDGE
+	out->bus_flags = DRM_BUS_FLAG_PIXDATA_DRIVE_POSEDGE
 		       | DRM_BUS_FLAG_DE_HIGH
-		       | DRM_BUS_FLAG_SYNC_NEGEDGE;
+		       | DRM_BUS_FLAG_SYNC_DRIVE_NEGEDGE;
 
-	out->next = omapdss_of_find_connected_device(out->dev->of_node, 0);
-	if (IS_ERR(out->next)) {
-		if (PTR_ERR(out->next) != -EPROBE_DEFER)
-			dev_err(out->dev, "failed to find video sink\n");
-		return PTR_ERR(out->next);
-	}
-
-	r = omapdss_output_validate(out);
-	if (r) {
-		omapdss_device_put(out->next);
-		out->next = NULL;
+	r = omapdss_device_init_output(out);
+	if (r < 0)
 		return r;
-	}
 
 	omapdss_device_register(out);
 
@@ -5162,9 +5144,8 @@ static void dsi_uninit_output(struct dsi_data *dsi)
 {
 	struct omap_dss_device *out = &dsi->output;
 
-	if (out->next)
-		omapdss_device_put(out->next);
 	omapdss_device_unregister(out);
+	omapdss_device_cleanup_output(out);
 }
 
 static int dsi_probe_of(struct dsi_data *dsi)
@@ -5456,6 +5437,8 @@ static int dsi_remove(struct platform_device *pdev)
 	component_del(&pdev->dev, &dsi_component_ops);
 
 	dsi_uninit_output(dsi);
+
+	of_platform_depopulate(&pdev->dev);
 
 	pm_runtime_disable(&pdev->dev);
 

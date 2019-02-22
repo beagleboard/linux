@@ -101,6 +101,8 @@ struct dispc_device {
 	struct clk *fclk;
 	struct clk *vp_clk;
 
+	u32 memory_bandwidth_limit;
+
 	bool is_enabled;
 
 	u32 gamma_table[DISPC6_GAMMA_TABLE_SIZE];
@@ -575,6 +577,18 @@ static enum drm_mode_status dispc6_vp_mode_valid(struct dispc_device *dispc,
 	    vfp < 0 || vfp > 4095 ||
 	    vbp < 0 || vbp > 4095)
 		return MODE_BAD_VVALUE;
+
+	if (dispc->memory_bandwidth_limit) {
+		const unsigned int bpp = 4;
+		u64 bandwidth;
+
+		bandwidth = 1000 * mode->clock;
+		bandwidth = bandwidth * mode->hdisplay * mode->vdisplay * bpp;
+		bandwidth = div_u64(bandwidth, mode->htotal * mode->vtotal);
+
+		if (dispc->memory_bandwidth_limit < bandwidth)
+			return MODE_BAD;
+	}
 
 	return MODE_OK;
 }
@@ -1230,17 +1244,6 @@ static int dispc6_init_gamma_tables(struct dispc_device *dispc)
 	return 0;
 }
 
-static u32 dispc6_get_memory_bandwidth_limit(struct dispc_device *dispc)
-{
-	u32 limit = 0;
-
-	/* Optional maximum memory bandwidth */
-	of_property_read_u32(dispc->dev->of_node, "max-memory-bandwidth",
-			     &limit);
-
-	return limit;
-}
-
 static const char *dispc6_plane_name(struct dispc_device *dispc,
 				     u32 hw_plane)
 {
@@ -1370,8 +1373,6 @@ static const struct tidss_dispc_ops dispc6_ops = {
 	.read_and_clear_irqstatus = dispc6_read_and_clear_irqstatus,
 	.write_irqenable = dispc6_write_irqenable,
 
-	.get_memory_bandwidth_limit = dispc6_get_memory_bandwidth_limit,
-
 	.get_num_vps = dispc6_get_num_vps,
 	.vp_name = dispc6_vp_name,
 	.vp_feat = dispc6_vp_feat,
@@ -1478,6 +1479,9 @@ int dispc6_init(struct tidss_device *tidss)
 		r = PTR_ERR(dispc->vp_clk);
 		goto err_free;
 	}
+
+	of_property_read_u32(dispc->dev->of_node, "max-memory-bandwidth",
+			     &dispc->memory_bandwidth_limit);
 
 	r = dispc6_init_gamma_tables(dispc);
 	if (r)

@@ -230,6 +230,7 @@ dtb-$(CONFIG_ARCH_KEYSTONE) += \
 	keystone-k2l-evm.dtb \
 	keystone-k2e-evm.dtb \
 	keystone-k2g-evm.dtb \
+	keystone-k2g-evm-lcd.dtb \
 	keystone-k2g-ice.dtb
 dtb-$(CONFIG_MACH_KIRKWOOD) += \
 	kirkwood-b3.dtb \
@@ -733,6 +734,7 @@ dtb-$(CONFIG_SOC_AM43XX) += \
 	am43x-epos-evm.dtb \
 	am437x-cm-t43.dtb \
 	am437x-gp-evm.dtb \
+	am437x-gp-evm-hdmi.dtb \
 	am437x-idk-evm.dtb \
 	am437x-sbc-t43.dtb \
 	am437x-sk-evm.dtb
@@ -761,7 +763,19 @@ dtb-merge-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-evm-cam-ov10635.dtb \
 	am57xx-evm-reva3.dtb \
 	am57xx-evm-reva3-cam-mt9t111.dtb \
-	am57xx-evm-reva3-cam-ov10635.dtb
+	am57xx-evm-reva3-cam-ov10635.dtb \
+	am571x-idk-lcd-osd101t2045.dtb \
+	am571x-idk-lcd-osd101t2587.dtb \
+	am572x-idk-lcd-osd101t2045.dtb \
+	am572x-idk-lcd-osd101t2587.dtb \
+	am574x-idk-lcd-osd101t2587.dtb \
+	dra71-evm-lcd-auo-g101evn01.0.dtb \
+	dra72-evm-lcd-osd101t2045.dtb \
+	dra72-evm-lcd-osd101t2587.dtb \
+	dra72-evm-revc-lcd-osd101t2045.dtb \
+	dra72-evm-revc-lcd-osd101t2587.dtb \
+	dra7-evm-lcd-osd101t2045.dtb \
+	dra7-evm-lcd-osd101t2587.dtb
 ifeq ($(CONFIG_SOC_DRA7XX),y)
 dts-dirs += ti
 endif
