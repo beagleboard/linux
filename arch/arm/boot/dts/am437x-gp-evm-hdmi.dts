@@ -12,6 +12,8 @@
 
 /delete-node/ &lcd0;
 
+#include <dt-bindings/sound/sii902x-audio.h>
+
 / {
 	aliases {
 		display0 = &hdmi;
@@ -29,19 +31,59 @@
 			};
 		};
 	};
+
+	sound@1 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HDMI";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&hdmi_dailink_master>;
+		simple-audio-card,frame-master = <&hdmi_dailink_master>;
+		hdmi_dailink_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp1>;
+			system-clock-frequency = <24000000>;
+			system-clock-direction-out;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&sii9022>;
+		};
+	};
+
+	sii9022_mclk: sii9022_mclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12000000>;
+	};
 };
 
 &lcd_bl {
 	status = "disabled";
 };
 
+&sound0 {
+	status = "disabled";
+};
+
+&tlv320aic3106 {
+	status = "disabled";
+};
+
 &i2c1 {
 	sii9022: sii9022@3b {
+		#sound-dai-cells = <0>;
 		compatible = "sil,sii9022";
 		reg = <0x3b>;
 
 		interrupt-parent = <&gpio3>;
 		interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
+
+		i2s-fifo-routing = <
+			(ENABLE_BIT|CONNECT_SD0)
+			0
+			0
+			0
+		>;
+		clocks = <&sii9022_mclk>;
 
 		ports {
 			#address-cells = <1>;
