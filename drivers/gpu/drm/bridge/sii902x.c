@@ -24,11 +24,15 @@
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
+#include <linux/clk.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_edid.h>
+
+#include <sound/hdmi-codec.h>
+#include <dt-bindings/sound/sii902x-audio.h>
 
 #define SII902X_TPI_VIDEO_DATA			0x0
 
@@ -71,12 +75,96 @@
 #define SII902X_AVI_POWER_STATE_MSK		GENMASK(1, 0)
 #define SII902X_AVI_POWER_STATE_D(l)		((l) & SII902X_AVI_POWER_STATE_MSK)
 
+/* Audio  */
+#define SII902X_TPI_I2S_ENABLE_MAPPING_REG	0x1f
+#define SII902X_TPI_I2S_CONFIG_FIFO0			(0 << 0)
+#define SII902X_TPI_I2S_CONFIG_FIFO1			(1 << 0)
+#define SII902X_TPI_I2S_CONFIG_FIFO2			(2 << 0)
+#define SII902X_TPI_I2S_CONFIG_FIFO3			(3 << 0)
+#define SII902X_TPI_I2S_LEFT_RIGHT_SWAP			(1 << 2)
+#define SII902X_TPI_I2S_AUTO_DOWNSAMPLE			(1 << 3)
+#define SII902X_TPI_I2S_SELECT_SD0			(0 << 4)
+#define SII902X_TPI_I2S_SELECT_SD1			(1 << 4)
+#define SII902X_TPI_I2S_SELECT_SD2			(2 << 4)
+#define SII902X_TPI_I2S_SELECT_SD3			(3 << 4)
+#define SII902X_TPI_I2S_FIFO_ENABLE			(1 << 7)
+
+#define SII902X_TPI_I2S_INPUT_CONFIG_REG	0x20
+#define SII902X_TPI_I2S_FIRST_BIT_SHIFT_YES		(0 << 0)
+#define SII902X_TPI_I2S_FIRST_BIT_SHIFT_NO		(1 << 0)
+#define SII902X_TPI_I2S_SD_DIRECTION_MSB_FIRST		(0 << 1)
+#define SII902X_TPI_I2S_SD_DIRECTION_LSB_FIRST		(1 << 1)
+#define SII902X_TPI_I2S_SD_JUSTIFY_LEFT			(0 << 2)
+#define SII902X_TPI_I2S_SD_JUSTIFY_RIGHT		(1 << 2)
+#define SII902X_TPI_I2S_WS_POLARITY_LOW			(0 << 3)
+#define SII902X_TPI_I2S_WS_POLARITY_HIGH		(1 << 3)
+#define SII902X_TPI_I2S_MCLK_MULTIPLIER_128		(0 << 4)
+#define SII902X_TPI_I2S_MCLK_MULTIPLIER_256		(1 << 4)
+#define SII902X_TPI_I2S_MCLK_MULTIPLIER_384		(2 << 4)
+#define SII902X_TPI_I2S_MCLK_MULTIPLIER_512		(3 << 4)
+#define SII902X_TPI_I2S_MCLK_MULTIPLIER_768		(4 << 4)
+#define SII902X_TPI_I2S_MCLK_MULTIPLIER_1024		(5 << 4)
+#define SII902X_TPI_I2S_MCLK_MULTIPLIER_1152		(6 << 4)
+#define SII902X_TPI_I2S_MCLK_MULTIPLIER_192		(7 << 4)
+#define SII902X_TPI_I2S_SCK_EDGE_FALLING		(0 << 7)
+#define SII902X_TPI_I2S_SCK_EDGE_RISING			(1 << 7)
+
+#define SII902X_TPI_I2S_STRM_HDR_BASE	0x21
+#define SII902X_TPI_I2S_STRM_HDR_SIZE	5
+
+#define SII902X_TPI_AUDIO_CONFIG_BYTE2_REG	0x26
+#define SII902X_TPI_AUDIO_CODING_STREAM_HEADER		(0 << 0)
+#define SII902X_TPI_AUDIO_CODING_PCM			(1 << 0)
+#define SII902X_TPI_AUDIO_CODING_AC3			(2 << 0)
+#define SII902X_TPI_AUDIO_CODING_MPEG1			(3 << 0)
+#define SII902X_TPI_AUDIO_CODING_MP3			(4 << 0)
+#define SII902X_TPI_AUDIO_CODING_MPEG2			(5 << 0)
+#define SII902X_TPI_AUDIO_CODING_AAC			(6 << 0)
+#define SII902X_TPI_AUDIO_CODING_DTS			(7 << 0)
+#define SII902X_TPI_AUDIO_CODING_ATRAC			(8 << 0)
+#define SII902X_TPI_AUDIO_MUTE_DISABLE			(0 << 4)
+#define SII902X_TPI_AUDIO_MUTE_ENABLE			(1 << 4)
+#define SII902X_TPI_AUDIO_LAYOUT_2_CHANNELS		(0 << 5)
+#define SII902X_TPI_AUDIO_LAYOUT_8_CHANNELS		(1 << 5)
+#define SII902X_TPI_AUDIO_INTERFACE_DISABLE		(0 << 6)
+#define SII902X_TPI_AUDIO_INTERFACE_SPDIF		(1 << 6)
+#define SII902X_TPI_AUDIO_INTERFACE_I2S			(2 << 6)
+
+#define SII902X_TPI_AUDIO_CONFIG_BYTE3_REG	0x27
+#define SII902X_TPI_AUDIO_CHANNEL_STREAM		(0 << 0)
+#define SII902X_TPI_AUDIO_2_CHANNEL			(1 << 0)
+#define SII902X_TPI_AUDIO_8_CHANNEL			(7 << 0)
+#define SII902X_TPI_AUDIO_FREQ_STREAM			(0 << 3)
+#define SII902X_TPI_AUDIO_FREQ_32KHZ			(1 << 3)
+#define SII902X_TPI_AUDIO_FREQ_44KHZ			(2 << 3)
+#define SII902X_TPI_AUDIO_FREQ_48KHZ			(3 << 3)
+#define SII902X_TPI_AUDIO_FREQ_88KHZ			(4 << 3)
+#define SII902X_TPI_AUDIO_FREQ_96KHZ			(5 << 3)
+#define SII902X_TPI_AUDIO_FREQ_176KHZ			(6 << 3)
+#define SII902X_TPI_AUDIO_FREQ_192KHZ			(7 << 3)
+#define SII902X_TPI_AUDIO_SAMPLE_SIZE_STREAM		(0 << 6)
+#define SII902X_TPI_AUDIO_SAMPLE_SIZE_16		(1 << 6)
+#define SII902X_TPI_AUDIO_SAMPLE_SIZE_20		(2 << 6)
+#define SII902X_TPI_AUDIO_SAMPLE_SIZE_24		(3 << 6)
+
+#define SII902X_TPI_AUDIO_CONFIG_BYTE4_REG	0x28
+
 #define SII902X_INT_ENABLE			0x3c
 #define SII902X_INT_STATUS			0x3d
 #define SII902X_HOTPLUG_EVENT			BIT(0)
 #define SII902X_PLUGGED_STATUS			BIT(2)
 
 #define SII902X_REG_TPI_RQB			0xc7
+
+/* Indirect internal register access */
+#define SII902X_IND_SET_PAGE			0xbc
+#define SII902X_IND_OFFSET			0xbd
+#define SII902X_IND_VALUE			0xbe
+
+#define SII902X_TPI_MISC_INFOFRAME_BASE		0xbf
+#define SII902X_TPI_MISC_INFOFRAME_END		0xde
+#define SII902X_TPI_MISC_INFOFRAME_SIZE	\
+	(SII902X_TPI_MISC_INFOFRAME_END - SII902X_TPI_MISC_INFOFRAME_BASE)
 
 #define SII902X_I2C_BUS_ACQUISITION_TIMEOUT_MS	500
 
@@ -86,6 +174,13 @@ struct sii902x {
 	struct drm_bridge bridge;
 	struct drm_connector connector;
 	struct gpio_desc *reset_gpio;
+	struct mutex mutex;
+	struct sii902x_audio {
+		struct platform_device *pdev;
+		u8 channels;
+		struct clk *mclk;
+		u32 i2s_fifo_routing[4];
+	} audio;
 };
 
 static inline struct sii902x *bridge_to_sii902x(struct drm_bridge *bridge)
@@ -117,7 +212,11 @@ sii902x_connector_detect(struct drm_connector *connector, bool force)
 	struct sii902x *sii902x = connector_to_sii902x(connector);
 	unsigned int status;
 
+	mutex_lock(&sii902x->mutex);
+
 	regmap_read(sii902x->regmap, SII902X_INT_STATUS, &status);
+
+	mutex_unlock(&sii902x->mutex);
 
 	return (status & SII902X_PLUGGED_STATUS) ?
 	       connector_status_connected : connector_status_disconnected;
@@ -146,29 +245,32 @@ static int sii902x_get_modes(struct drm_connector *connector)
 	int num = 0;
 	int ret;
 
+	mutex_lock(&sii902x->mutex);
+
 	ret = regmap_update_bits(regmap, SII902X_SYS_CTRL_DATA,
 				 SII902X_SYS_CTRL_DDC_BUS_REQ,
 				 SII902X_SYS_CTRL_DDC_BUS_REQ);
 	if (ret)
-		return ret;
+		goto error_out;
 
 	timeout = jiffies +
 		  msecs_to_jiffies(SII902X_I2C_BUS_ACQUISITION_TIMEOUT_MS);
 	do {
 		ret = regmap_read(regmap, SII902X_SYS_CTRL_DATA, &status);
 		if (ret)
-			return ret;
+			goto error_out;
 	} while (!(status & SII902X_SYS_CTRL_DDC_BUS_GRTD) &&
 		 time_before(jiffies, timeout));
 
 	if (!(status & SII902X_SYS_CTRL_DDC_BUS_GRTD)) {
 		dev_err(dev, "failed to acquire the i2c bus\n");
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto error_out;
 	}
 
 	ret = regmap_write(regmap, SII902X_SYS_CTRL_DATA, status);
 	if (ret)
-		return ret;
+		goto error_out;
 
 	edid = drm_get_edid(connector, sii902x->i2c->adapter);
 	drm_connector_update_edid_property(connector, edid);
@@ -183,7 +285,7 @@ static int sii902x_get_modes(struct drm_connector *connector)
 	ret = drm_display_info_set_bus_formats(&connector->display_info,
 					       &bus_format, 1);
 	if (ret)
-		return ret;
+		goto error_out;
 
 	/*
 	 * Sometimes the I2C bus can stall after failure to use the
@@ -204,14 +306,14 @@ static int sii902x_get_modes(struct drm_connector *connector)
 				 SII902X_SYS_CTRL_DDC_BUS_GRTD |
 				 SII902X_SYS_CTRL_OUTPUT_MODE, output_mode);
 	if (ret)
-		return ret;
+		goto error_out;
 
 	timeout = jiffies +
 		  msecs_to_jiffies(SII902X_I2C_BUS_ACQUISITION_TIMEOUT_MS);
 	do {
 		ret = regmap_read(regmap, SII902X_SYS_CTRL_DATA, &status);
 		if (ret)
-			return ret;
+			goto error_out;
 	} while (status & (SII902X_SYS_CTRL_DDC_BUS_REQ |
 			   SII902X_SYS_CTRL_DDC_BUS_GRTD) &&
 		 time_before(jiffies, timeout));
@@ -219,10 +321,16 @@ static int sii902x_get_modes(struct drm_connector *connector)
 	if (status & (SII902X_SYS_CTRL_DDC_BUS_REQ |
 		      SII902X_SYS_CTRL_DDC_BUS_GRTD)) {
 		dev_err(dev, "failed to release the i2c bus\n");
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto error_out;
 	}
 
-	return num;
+	ret = num;
+
+error_out:
+	mutex_unlock(&sii902x->mutex);
+
+	return ret;
 }
 
 static enum drm_mode_status sii902x_mode_valid(struct drm_connector *connector,
@@ -242,20 +350,28 @@ static void sii902x_bridge_disable(struct drm_bridge *bridge)
 {
 	struct sii902x *sii902x = bridge_to_sii902x(bridge);
 
+	mutex_lock(&sii902x->mutex);
+
 	regmap_update_bits(sii902x->regmap, SII902X_SYS_CTRL_DATA,
 			   SII902X_SYS_CTRL_PWR_DWN,
 			   SII902X_SYS_CTRL_PWR_DWN);
+
+	mutex_unlock(&sii902x->mutex);
 }
 
 static void sii902x_bridge_enable(struct drm_bridge *bridge)
 {
 	struct sii902x *sii902x = bridge_to_sii902x(bridge);
 
+	mutex_lock(&sii902x->mutex);
+
 	regmap_update_bits(sii902x->regmap, SII902X_PWR_STATE_CTRL,
 			   SII902X_AVI_POWER_STATE_MSK,
 			   SII902X_AVI_POWER_STATE_D(0));
 	regmap_update_bits(sii902x->regmap, SII902X_SYS_CTRL_DATA,
 			   SII902X_SYS_CTRL_PWR_DWN, 0);
+
+	mutex_unlock(&sii902x->mutex);
 }
 
 static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
@@ -281,6 +397,8 @@ static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
 	buf[9] = SII902X_TPI_AVI_INPUT_RANGE_AUTO |
 		 SII902X_TPI_AVI_INPUT_COLORSPACE_RGB;
 
+	mutex_lock(&sii902x->mutex);
+
 	ret = regmap_bulk_write(regmap, SII902X_TPI_VIDEO_DATA, buf, 10);
 	if (ret)
 		return;
@@ -301,6 +419,8 @@ static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
 	regmap_bulk_write(regmap, SII902X_TPI_AVI_INFOFRAME,
 			  buf + HDMI_INFOFRAME_HEADER_SIZE - 1,
 			  HDMI_AVI_INFOFRAME_SIZE + 1);
+
+	mutex_unlock(&sii902x->mutex);
 }
 
 static int sii902x_bridge_attach(struct drm_bridge *bridge)
@@ -341,6 +461,308 @@ static const struct drm_bridge_funcs sii902x_bridge_funcs = {
 	.enable = sii902x_bridge_enable,
 };
 
+static int sii902x_mute(struct sii902x *sii902x, int mute)
+{
+	u8 channel_layout = sii902x->audio.channels > 2 ?
+		SII902X_TPI_AUDIO_LAYOUT_8_CHANNELS :
+		SII902X_TPI_AUDIO_LAYOUT_2_CHANNELS;
+	struct device *dev = &sii902x->i2c->dev;
+	int ret;
+
+	if (mute) {
+		dev_dbg(dev, "%s: Muted (%d)\n", __func__, mute);
+		ret = regmap_write(sii902x->regmap,
+				   SII902X_TPI_AUDIO_CONFIG_BYTE2_REG,
+				   SII902X_TPI_AUDIO_INTERFACE_I2S |
+				   channel_layout |
+				   SII902X_TPI_AUDIO_MUTE_ENABLE |
+				   SII902X_TPI_AUDIO_CODING_PCM);
+	} else {
+		dev_dbg(dev, "%s: Unmuted (%d)\n", __func__, mute);
+		ret = regmap_write(sii902x->regmap,
+				   SII902X_TPI_AUDIO_CONFIG_BYTE2_REG,
+				   SII902X_TPI_AUDIO_INTERFACE_I2S |
+				   channel_layout |
+				   SII902X_TPI_AUDIO_MUTE_DISABLE |
+				   SII902X_TPI_AUDIO_CODING_PCM);
+	}
+	return ret;
+}
+
+static const unsigned int sii902x_mclk_div_table[] = {
+	128, 256, 384, 512, 768, 1024, 1152, 192 };
+
+static int sii902x_select_mclk_div(u8 *i2s_config_reg, unsigned int rate,
+				   unsigned int mclk)
+{
+	int distance = 100000;
+	u8 i, nearest = 0;
+
+	for (i = 0; i < ARRAY_SIZE(sii902x_mclk_div_table); i++) {
+		unsigned int div = mclk / rate;
+
+		if (abs(div - sii902x_mclk_div_table[i]) < distance) {
+			nearest = i;
+			distance = abs(div - sii902x_mclk_div_table[i]);
+		}
+		if (div == sii902x_mclk_div_table[i])
+			break;
+	}
+
+	*i2s_config_reg |= nearest << 4;
+
+	if (i == ARRAY_SIZE(sii902x_mclk_div_table))
+		return sii902x_mclk_div_table[nearest];
+
+	return 0;
+}
+
+static int sii902x_audio_hw_params(struct device *dev, void *data,
+				   struct hdmi_codec_daifmt *daifmt,
+				   struct hdmi_codec_params *params)
+{
+	struct sii902x *sii902x = dev_get_drvdata(dev);
+	u8 i2s_config_reg = SII902X_TPI_I2S_SD_DIRECTION_MSB_FIRST;
+	u8 config_byte3_reg = SII902X_TPI_AUDIO_CHANNEL_STREAM;
+	u8 infoframe_buf[HDMI_INFOFRAME_SIZE(AUDIO)];
+	unsigned long mclk_rate;
+	int i, ret;
+
+	if (daifmt->bit_clk_master || daifmt->frame_clk_master) {
+		dev_dbg(dev, "%s: I2S master mode not supported\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (daifmt->fmt) {
+	case HDMI_I2S:
+		i2s_config_reg |= SII902X_TPI_I2S_FIRST_BIT_SHIFT_YES |
+			SII902X_TPI_I2S_SD_JUSTIFY_LEFT;
+		break;
+	case HDMI_RIGHT_J:
+		i2s_config_reg |= SII902X_TPI_I2S_SD_JUSTIFY_RIGHT;
+		break;
+	case HDMI_LEFT_J:
+		i2s_config_reg |= SII902X_TPI_I2S_SD_JUSTIFY_LEFT;
+		break;
+	default:
+		dev_dbg(dev, "%s: Unsupported i2s format %u\n", __func__,
+			daifmt->fmt);
+		return -EINVAL;
+	}
+
+	if (daifmt->bit_clk_inv)
+		i2s_config_reg |= SII902X_TPI_I2S_SCK_EDGE_FALLING;
+	else
+		i2s_config_reg |= SII902X_TPI_I2S_SCK_EDGE_RISING;
+
+	if (daifmt->frame_clk_inv)
+		i2s_config_reg |= SII902X_TPI_I2S_WS_POLARITY_LOW;
+	else
+		i2s_config_reg |= SII902X_TPI_I2S_WS_POLARITY_HIGH;
+
+	switch (params->sample_width) {
+	case 16:
+		config_byte3_reg |= SII902X_TPI_AUDIO_SAMPLE_SIZE_16;
+		break;
+	case 20:
+		config_byte3_reg |= SII902X_TPI_AUDIO_SAMPLE_SIZE_20;
+		break;
+	case 24:
+	case 32:
+		config_byte3_reg |= SII902X_TPI_AUDIO_SAMPLE_SIZE_24;
+		break;
+	default:
+		dev_err(dev, "%s: Unsupported sample width %u\n", __func__,
+			params->sample_width);
+		return -EINVAL;
+	};
+
+	mclk_rate = clk_get_rate(sii902x->audio.mclk);
+
+	ret = sii902x_select_mclk_div(&i2s_config_reg, params->sample_rate,
+				      mclk_rate);
+	if (ret)
+		dev_dbg(dev, "Inaccurate reference clock (%ld/%d != %u)\n",
+			mclk_rate, ret, params->sample_rate);
+
+	sii902x->audio.channels = params->channels;
+
+	ret = clk_prepare_enable(sii902x->audio.mclk);
+	if (ret) {
+		dev_err(dev, "Enabling mclk failed: %d\n", ret);
+		return ret;
+	}
+
+	mutex_lock(&sii902x->mutex);
+
+	ret = sii902x_mute(sii902x, true);
+	if (ret < 0)
+		goto out;
+
+	ret = regmap_write(sii902x->regmap, SII902X_TPI_I2S_INPUT_CONFIG_REG,
+			   i2s_config_reg);
+	if (ret)
+		goto out;
+
+	for (i = 0; i < ARRAY_SIZE(sii902x->audio.i2s_fifo_routing); i++)
+		regmap_write(sii902x->regmap,
+			     SII902X_TPI_I2S_ENABLE_MAPPING_REG,
+			     sii902x->audio.i2s_fifo_routing[i]);
+
+	ret = regmap_write(sii902x->regmap, SII902X_TPI_AUDIO_CONFIG_BYTE3_REG,
+			   config_byte3_reg);
+	if (ret)
+		goto out;
+
+	ret = regmap_bulk_write(sii902x->regmap, SII902X_TPI_I2S_STRM_HDR_BASE,
+				params->iec.status,
+				min((size_t) SII902X_TPI_I2S_STRM_HDR_SIZE,
+				    sizeof(params->iec.status)));
+	if (ret)
+		goto out;
+
+	ret = hdmi_audio_infoframe_pack(&params->cea, infoframe_buf,
+					sizeof(infoframe_buf));
+	if (ret < 0) {
+		dev_err(dev, "%s: Failed to pack audio infoframe: %d\n",
+			__func__, ret);
+		goto out;
+	}
+
+	ret = regmap_bulk_write(sii902x->regmap,
+				SII902X_TPI_MISC_INFOFRAME_BASE,
+				infoframe_buf,
+				min(ret, SII902X_TPI_MISC_INFOFRAME_SIZE));
+	if (ret)
+		goto out;
+
+	/* Decode Level 0 Packets */
+	ret = regmap_write(sii902x->regmap, SII902X_IND_SET_PAGE, 0x02);
+	if (ret)
+		goto out;
+
+	ret = regmap_write(sii902x->regmap, SII902X_IND_OFFSET, 0x24);
+	if (ret)
+		goto out;
+
+	ret = regmap_write(sii902x->regmap, SII902X_IND_VALUE, 0x02);
+	if (ret)
+		goto out;
+
+	dev_dbg(dev, "%s: hdmi audio enabled\n", __func__);
+out:
+	mutex_unlock(&sii902x->mutex);
+
+	if (ret) {
+		clk_disable_unprepare(sii902x->audio.mclk);
+		dev_err(dev, "%s: hdmi audio enable failed: %d\n", __func__,
+			ret);
+	}
+
+	return ret;
+}
+
+static void sii902x_audio_shutdown(struct device *dev, void *data)
+{
+	struct sii902x *sii902x = dev_get_drvdata(dev);
+
+	mutex_lock(&sii902x->mutex);
+
+	regmap_write(sii902x->regmap, SII902X_TPI_AUDIO_CONFIG_BYTE2_REG,
+		     SII902X_TPI_AUDIO_INTERFACE_DISABLE);
+
+	mutex_unlock(&sii902x->mutex);
+
+	clk_disable_unprepare(sii902x->audio.mclk);
+}
+
+int sii902x_audio_digital_mute(struct device *dev, void *data, bool enable)
+{
+	struct sii902x *sii902x = dev_get_drvdata(dev);
+
+	mutex_lock(&sii902x->mutex);
+
+	sii902x_mute(sii902x, enable);
+
+	mutex_unlock(&sii902x->mutex);
+
+	return 0;
+}
+
+static int sii902x_audio_get_eld(struct device *dev, void *data,
+				 uint8_t *buf, size_t len)
+{
+	struct sii902x *sii902x = dev_get_drvdata(dev);
+
+	mutex_lock(&sii902x->mutex);
+
+	memcpy(buf, sii902x->connector.eld,
+	       min(sizeof(sii902x->connector.eld), len));
+
+	mutex_unlock(&sii902x->mutex);
+
+	return 0;
+}
+
+static const struct hdmi_codec_ops sii902x_audio_codec_ops = {
+	.hw_params = sii902x_audio_hw_params,
+	.audio_shutdown = sii902x_audio_shutdown,
+	.digital_mute = sii902x_audio_digital_mute,
+	.get_eld = sii902x_audio_get_eld,
+};
+
+static int sii902x_audio_codec_init(struct sii902x *sii902x,
+				    struct device *dev)
+{
+	static const u8 i2s_fifo_defaults[] = {
+		SII902X_TPI_I2S_CONFIG_FIFO0,
+		SII902X_TPI_I2S_CONFIG_FIFO1,
+		SII902X_TPI_I2S_CONFIG_FIFO2,
+		SII902X_TPI_I2S_CONFIG_FIFO3,
+	};
+	struct hdmi_codec_pdata codec_data = {
+		.ops = &sii902x_audio_codec_ops,
+		.i2s = 1, /* Only i2s support for now. */
+		.spdif = 0,
+		.max_i2s_channels = 0,
+	};
+	int ret, i;
+
+	ret = of_property_read_u32_array(dev->of_node, "i2s-fifo-routing",
+					 sii902x->audio.i2s_fifo_routing,
+					 ARRAY_SIZE(sii902x->audio.i2s_fifo_routing));
+
+	if (ret != 0) {
+		if (ret == -EINVAL)
+			dev_dbg(dev, "%s: No \"i2s-fifo-routing\", no audio\n",
+			__func__);
+		else
+			dev_err(dev,
+				"%s: Error gettin \"i2s-fifo-routing\": %d\n",
+				__func__, ret);
+		return 0;
+	}
+
+	sii902x->audio.mclk = devm_clk_get(dev, NULL);
+	if (IS_ERR(sii902x->audio.mclk)) {
+		dev_err(dev, "%s: No clock (audio mclk) found: %ld\n",
+			__func__, PTR_ERR(sii902x->audio.mclk));
+		return 0;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(sii902x->audio.i2s_fifo_routing); i++) {
+		if (sii902x->audio.i2s_fifo_routing[i] | ENABLE_BIT)
+			codec_data.max_i2s_channels += 2;
+		sii902x->audio.i2s_fifo_routing[i] |= i2s_fifo_defaults[i];
+	}
+
+	sii902x->audio.pdev = platform_device_register_data(
+		dev, HDMI_CODEC_DRV_NAME, PLATFORM_DEVID_AUTO,
+		&codec_data, sizeof(codec_data));
+
+	return PTR_ERR_OR_ZERO(sii902x->audio.pdev);
+}
+
 static const struct regmap_range sii902x_volatile_ranges[] = {
 	{ .range_min = 0, .range_max = 0xff },
 };
@@ -353,6 +775,7 @@ static const struct regmap_access_table sii902x_volatile_table = {
 static const struct regmap_config sii902x_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
+	.max_register = SII902X_TPI_MISC_INFOFRAME_END,
 	.volatile_table = &sii902x_volatile_table,
 	.cache_type = REGCACHE_NONE,
 };
@@ -403,6 +826,9 @@ static int sii902x_probe(struct i2c_client *client,
 		return PTR_ERR(sii902x->reset_gpio);
 	}
 
+	/* protect audio and video functions from each other */
+	mutex_init(&sii902x->mutex);
+
 	sii902x_reset(sii902x);
 
 	ret = regmap_write(sii902x->regmap, SII902X_REG_TPI_RQB, 0x0);
@@ -442,6 +868,8 @@ static int sii902x_probe(struct i2c_client *client,
 	sii902x->bridge.of_node = dev->of_node;
 	sii902x->bridge.timings = &default_sii902x_timings;
 	drm_bridge_add(&sii902x->bridge);
+
+	sii902x_audio_codec_init(sii902x, dev);
 
 	i2c_set_clientdata(client, sii902x);
 
