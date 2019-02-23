@@ -41,6 +41,7 @@
 #include <linux/completion.h>
 #include <linux/idr.h>
 #include <linux/of.h>
+#include <linux/bitops.h>
 
 /**
  * struct resource_table - firmware resource table header
@@ -352,6 +353,19 @@ struct rproc_mem_entry {
 struct rproc;
 struct firmware;
 
+/*
+ * Macros to use with flags field in rproc_da_to_va API. Use
+ * the upper 16 bits to dictate the flags type and the lower
+ * 16 bits to pass on the value of the flags pertinent to that
+ * type.
+ *
+ * Add any new flags type at a new bit-field position
+ */
+#define RPROC_FLAGS_SHIFT	16
+#define RPROC_FLAGS_NONE	0
+#define RPROC_FLAGS_ELF_PHDR	BIT(0 + RPROC_FLAGS_SHIFT)
+#define RPROC_FLAGS_ELF_SHDR	BIT(1 + RPROC_FLAGS_SHIFT)
+
 /**
  * struct rproc_ops - platform-specific device handlers
  * @start:	power on the device and boot it
@@ -370,7 +384,7 @@ struct rproc_ops {
 	int (*start)(struct rproc *rproc);
 	int (*stop)(struct rproc *rproc);
 	void (*kick)(struct rproc *rproc, int vqid);
-	void * (*da_to_va)(struct rproc *rproc, u64 da, int len);
+	void * (*da_to_va)(struct rproc *rproc, u64 da, int len, u32 flags);
 	int (*parse_fw)(struct rproc *rproc, const struct firmware *fw);
 	struct resource_table *(*find_loaded_rsc_table)(
 				struct rproc *rproc, const struct firmware *fw);
@@ -593,7 +607,7 @@ int rproc_boot(struct rproc *rproc);
 void rproc_shutdown(struct rproc *rproc);
 int rproc_set_firmware(struct rproc *rproc, const char *fw_name);
 void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type);
-void *rproc_da_to_va(struct rproc *rproc, u64 da, int len);
+void *rproc_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags);
 int rproc_coredump_add_segment(struct rproc *rproc, dma_addr_t da, size_t size);
 int rproc_get_id(struct rproc *rproc);
 int rproc_pa_to_da(struct rproc *rproc, phys_addr_t pa, u64 *da);

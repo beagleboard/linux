@@ -147,6 +147,7 @@ static void rproc_disable_iommu(struct rproc *rproc)
  * @rproc: handle of a remote processor
  * @da: remoteproc device address to translate
  * @len: length of the memory region @da is pointing to
+ * @flags: flags to pass onto platform implementations for aiding translations
  *
  * Some remote processors will ask us to allocate them physically contiguous
  * memory regions (which we call "carveouts"), and map them to specific
@@ -162,7 +163,10 @@ static void rproc_disable_iommu(struct rproc *rproc)
  * carveouts and translate specific device addresses to kernel virtual addresses
  * so we can access the referenced memory. This function also allows to perform
  * translations on the internal remoteproc memory regions through a platform
- * implementation specific da_to_va ops, if present.
+ * implementation specific da_to_va ops, if present. The @flags field is passed
+ * onto these ops to aid the translation within the ops implementation. The
+ * @flags field is to be passed as a combination of the RPROC_FLAGS_xxx type
+ * and the pertinent flags value for that type.
  *
  * The function returns a valid kernel address on success or NULL on failure.
  *
@@ -171,13 +175,13 @@ static void rproc_disable_iommu(struct rproc *rproc)
  * here the output of the DMA API for the carveouts, which should be more
  * correct.
  */
-void *rproc_da_to_va(struct rproc *rproc, u64 da, int len)
+void *rproc_da_to_va(struct rproc *rproc, u64 da, int len, u32 flags)
 {
 	struct rproc_mem_entry *carveout;
 	void *ptr = NULL;
 
 	if (rproc->ops->da_to_va) {
-		ptr = rproc->ops->da_to_va(rproc, da, len);
+		ptr = rproc->ops->da_to_va(rproc, da, len, flags);
 		if (ptr)
 			goto out;
 	}
@@ -527,7 +531,7 @@ static int rproc_handle_trace(struct rproc *rproc, struct fw_rsc_trace *rsc,
 	}
 
 	/* what's the kernel address of this resource ? */
-	ptr = rproc_da_to_va(rproc, rsc->da, rsc->len);
+	ptr = rproc_da_to_va(rproc, rsc->da, rsc->len, RPROC_FLAGS_NONE);
 	if (!ptr) {
 		dev_err(dev, "erroneous trace resource entry\n");
 		return -EINVAL;
@@ -1299,7 +1303,8 @@ static void rproc_coredump(struct rproc *rproc)
 		phdr->p_flags = PF_R | PF_W | PF_X;
 		phdr->p_align = 0;
 
-		ptr = rproc_da_to_va(rproc, segment->da, segment->size);
+		ptr = rproc_da_to_va(rproc, segment->da, segment->size,
+				     RPROC_FLAGS_NONE);
 		if (!ptr) {
 			dev_err(&rproc->dev,
 				"invalid coredump segment (%pad, %zu)\n",
