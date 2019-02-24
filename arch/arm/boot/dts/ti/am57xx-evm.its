@@ -1,0 +1,67 @@
+/dts-v1/;
+
+/ {
+	description = "AM57xx-evm";
+	#address-cells = <1>;
+
+	images {
+		kernel@1 {
+			description = "LCPD kernel";
+			data = /incbin/("../../zImage");
+			type = "kernel";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x82000000>;
+			entry = <0x82000000>;
+		};
+		fdt@1 {
+			description = "AM57xx-beagle-x15";
+			data = /incbin/("am57xx-beagle-x15.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+		fdt@2 {
+			description = "AM57xx-beagle-x15-revc";
+			data = /incbin/("am57xx-beagle-x15-revc.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+		fdt@3 {
+			description = "AM57xx-evm overlay";
+			data = /incbin/("am57xx-evm.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83080000>;
+		};
+	};
+
+	configurations {
+		default = "am57xx-evm.dtb";
+		am57xx-evm.dtb {
+			description = "AM57xx EVM";
+			kernel = "kernel@1";
+			fdt = "fdt@1", "fdt@3";
+		};
+		am57xx-evm-reva3.dtb {
+			description = "AM57xx EVM rev A3";
+			kernel = "kernel@1";
+			fdt = "fdt@2", "fdt@3";
+		};
+		am57xx-beagle-x15.dtb {
+			description = "AM57xx beagle-x15";
+			kernel = "kernel@1";
+			fdt = "fdt@1";
+		};
+		am57xx-beagle-x15-revc.dtb {
+			description = "AM57xx beagle-x15 C";
+			kernel = "kernel@1";
+			fdt = "fdt@2";
+		};
+	};
+};

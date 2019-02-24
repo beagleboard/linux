@@ -801,6 +801,10 @@
 	clock-names = "ext-clk", "int-clk";
 };
 
+&wkup_m3_ipc {
+	ti,scale-data-fw = "am335x-evm-scale-data.bin";
+};
+
 &pruss_soc_bus {
 	status = "okay";
 

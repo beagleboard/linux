@@ -48,6 +48,11 @@
 	vdda-supply = <&ldo2_reg>;
 };
 
+&pcf_lcd {
+	interrupt-parent = <&gpio3>;
+	interrupts = <30 IRQ_TYPE_EDGE_FALLING>;
+};
+
 &pcf_gpio_21 {
 	interrupt-parent = <&gpio3>;
 	interrupts = <30 IRQ_TYPE_EDGE_FALLING>;

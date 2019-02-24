@@ -8,13 +8,13 @@
 &cbass_main {
 	gic500: interrupt-controller@1800000 {
 		compatible = "arm,gic-v3";
-		#address-cells = <1>;
-		#size-cells = <1>;
+		#address-cells = <2>;
+		#size-cells = <2>;
 		ranges;
 		#interrupt-cells = <3>;
 		interrupt-controller;
-		reg = <0x01800000 0x10000>,	/* GICD */
-		      <0x01880000 0x90000>;	/* GICR */
+		reg = <0x00 0x01800000 0x00 0x10000>,	/* GICD */
+		      <0x00 0x01880000 0x00 0x90000>;	/* GICR */
 		/*
 		 * vcpumntirq:
 		 * virtual CPU interface maintenance interrupt
@@ -23,9 +23,398 @@
 
 		gic_its: gic-its@18200000 {
 			compatible = "arm,gic-v3-its";
-			reg = <0x01820000 0x10000>;
+			reg = <0x00 0x01820000 0x00 0x10000>;
 			msi-controller;
 			#msi-cells = <1>;
 		};
+	};
+
+	secure_proxy_main: mailbox@32c00000 {
+		compatible = "ti,am654-secure-proxy";
+		#mbox-cells = <1>;
+		reg-names = "target_data", "rt", "scfg";
+		reg = <0x00 0x32c00000 0x00 0x100000>,
+		      <0x00 0x32400000 0x00 0x100000>,
+		      <0x00 0x32800000 0x00 0x100000>;
+		interrupt-names = "rx_011";
+		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	main_uart0: serial@2800000 {
+		compatible = "ti,am654-uart";
+		reg = <0x00 0x02800000 0x00 0x100>;
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <48000000>;
+		current-speed = <115200>;
+	};
+
+	main_uart1: serial@2810000 {
+		compatible = "ti,am654-uart";
+		reg = <0x00 0x02810000 0x00 0x100>;
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <48000000>;
+		current-speed = <115200>;
+	};
+
+	main_uart2: serial@2820000 {
+		compatible = "ti,am654-uart";
+		reg = <0x00 0x02820000 0x00 0x100>;
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <48000000>;
+		current-speed = <115200>;
+	};
+
+	main_intr: interrupt-controller0 {
+		compatible = "ti,sci-intr";
+		interrupt-controller;
+		interrupt-parent = <&gic500>;
+		#interrupt-cells = <3>;
+		ti,sci = <&dmsc>;
+		ti,sci-dst-id = <56>;
+		ti,sci-rm-range-girq = <0x1>;
+	};
+
+	main_navss: main_navss {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		dma-coherent;
+		dma-ranges;
+		ranges;
+
+		ti,sci-dev-id = <118>;
+
+		main_navss_intr: interrupt-controller1 {
+			compatible = "ti,sci-intr";
+			interrupt-controller;
+			interrupt-parent = <&gic500>;
+			#interrupt-cells = <3>;
+			ti,sci = <&dmsc>;
+			ti,sci-dst-id = <56>;
+			ti,sci-rm-range-girq = <0x0>,
+					       <0x2>;
+		};
+
+		main_udmass_inta: interrupt-controller@33d00000 {
+			compatible = "ti,sci-inta";
+			reg = <0x0 0x33d00000 0x0 0x100000>;
+			interrupt-controller;
+			interrupt-parent = <&main_navss_intr>;
+			#interrupt-cells = <3>;
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <179>;
+			ti,sci-rm-range-vint = <0x0>;
+			ti,sci-rm-range-global-event = <0x1>;
+		};
+
+		ringacc: ringacc@3c000000 {
+			compatible = "ti,am654-navss-ringacc";
+			reg =	<0x0 0x3c000000 0x0 0x400000>,
+				<0x0 0x38000000 0x0 0x400000>,
+				<0x0 0x31120000 0x0 0x100>,
+				<0x0 0x33000000 0x0 0x40000>;
+			reg-names = "rt", "fifos", "proxy_gcfg", "proxy_target";
+			ti,num-rings = <818>;
+			ti,gp-rings = <304 464>; /* start, cnt */
+			ti,dma-ring-reset-quirk;
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <187>;
+			interrupt-parent = <&main_udmass_inta>;
+		};
+
+		main_udmap: udmap@31150000 {
+			compatible = "ti,am654-navss-main-udmap";
+			reg =	<0x0 0x31150000 0x0 0x100>,
+				<0x0 0x34000000 0x0 0x100000>,
+				<0x0 0x35000000 0x0 0x100000>;
+			reg-names = "gcfg", "rchanrt", "tchanrt";
+			#dma-cells = <3>;
+
+			ti,ringacc = <&ringacc>;
+			ti,psil-base = <0x1000>;
+
+			interrupt-parent = <&main_udmass_inta>;
+
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <188>;
+
+			ti,sci-rm-range-tchan = <0x1>, /* TX_HCHAN */
+						<0x2>; /* TX_CHAN */
+			ti,sci-rm-range-rchan = <0x4>, /* RX_HCHAN */
+						<0x5>; /* RX_CHAN */
+			ti,sci-rm-range-rflow = <0x6>; /* GP RFLOW */
+		};
+	};
+
+	pdma0: pdma@2a41000 {
+		compatible = "ti,am654-pdma";
+		reg = <0x0 0x02A41000 0x0 0x400>;
+		reg-names = "eccaggr_cfg";
+
+		ti,psil-base = <0x4400>;
+
+		/* ti,psil-config0-2 */
+		UDMA_PDMA_TR_XY(0);
+		UDMA_PDMA_TR_XY(1);
+		UDMA_PDMA_TR_XY(2);
+	};
+
+	pdma1: pdma@2a42000 {
+		compatible = "ti,am654-pdma";
+		reg = <0x0 0x02A42000 0x0 0x400>;
+		reg-names = "eccaggr_cfg";
+
+		ti,psil-base = <0x4500>;
+
+		/* ti,psil-config0-22 */
+		UDMA_PDMA_TR_XY(0);
+		UDMA_PDMA_TR_XY(1);
+		UDMA_PDMA_TR_XY(2);
+		UDMA_PDMA_TR_XY(3);
+		UDMA_PDMA_TR_XY(4);
+		UDMA_PDMA_TR_XY(5);
+		UDMA_PDMA_TR_XY(6);
+		UDMA_PDMA_TR_XY(7);
+		UDMA_PDMA_TR_XY(8);
+		UDMA_PDMA_TR_XY(9);
+		UDMA_PDMA_TR_XY(10);
+		UDMA_PDMA_TR_XY(11);
+		UDMA_PDMA_TR_XY(12);
+		UDMA_PDMA_TR_XY(13);
+		UDMA_PDMA_TR_XY(14);
+		UDMA_PDMA_TR_XY(15);
+		UDMA_PDMA_TR_XY(16);
+		UDMA_PDMA_TR_XY(17);
+		UDMA_PDMA_TR_XY(18);
+		UDMA_PDMA_TR_XY(19);
+		UDMA_PDMA_PKT_XY(20);
+		UDMA_PDMA_PKT_XY(21);
+		UDMA_PDMA_PKT_XY(22);
+	};
+
+	main_pmx0: pinmux@11c000 {
+		compatible = "pinctrl-single";
+		reg = <0x0 0x11c000 0x0 0x2e4>;
+		#pinctrl-cells = <1>;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0xffffffff>;
+	};
+
+	main_pmx1: pinmux@11c2e8 {
+		compatible = "pinctrl-single";
+		reg = <0x0 0x11c2e8 0x0 0x24>;
+		#pinctrl-cells = <1>;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0xffffffff>;
+	};
+
+	main_i2c0: i2c@2000000 {
+		compatible = "ti,am654-i2c", "ti,omap4-i2c";
+		reg = <0x0 0x2000000 0x0 0x100>;
+		interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 110 1>;
+		power-domains = <&k3_pds 110>;
+	};
+
+	main_i2c1: i2c@2010000 {
+		compatible = "ti,am654-i2c", "ti,omap4-i2c";
+		reg = <0x0 0x2010000 0x0 0x100>;
+		interrupts = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 111 1>;
+		power-domains = <&k3_pds 111>;
+	};
+
+	main_i2c2: i2c@2020000 {
+		compatible = "ti,am654-i2c", "ti,omap4-i2c";
+		reg = <0x0 0x2020000 0x0 0x100>;
+		interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 112 1>;
+		power-domains = <&k3_pds 112>;
+	};
+
+	main_i2c3: i2c@2030000 {
+		compatible = "ti,am654-i2c", "ti,omap4-i2c";
+		reg = <0x0 0x2030000 0x0 0x100>;
+		interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 113 1>;
+		power-domains = <&k3_pds 113>;
+	};
+
+	main_gpio0:  main_gpio0@600000 {
+		compatible = "ti,k2g-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x600000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+			interrupt-parent = <&main_intr>;
+		interrupts = <57 256 IRQ_TYPE_EDGE_RISING>,
+				<57 257 IRQ_TYPE_EDGE_RISING>,
+				<57 258 IRQ_TYPE_EDGE_RISING>,
+				<57 259 IRQ_TYPE_EDGE_RISING>,
+				<57 260 IRQ_TYPE_EDGE_RISING>,
+				<57 261 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <96>;
+		ti,davinci-gpio-unbanked = <0>;
+		clocks = <&k3_clks 57 0>;
+		clock-names = "gpio";
+	};
+
+	main_gpio1:  main_gpio1@601000 {
+		compatible = "ti,k2g-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x601000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+			interrupt-parent = <&main_intr>;
+		interrupts = <58 256 IRQ_TYPE_EDGE_RISING>,
+				<58 257 IRQ_TYPE_EDGE_RISING>,
+				<58 258 IRQ_TYPE_EDGE_RISING>,
+				<58 259 IRQ_TYPE_EDGE_RISING>,
+				<58 260 IRQ_TYPE_EDGE_RISING>,
+				<58 261 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+			#interrupt-cells = <2>;
+		ti,ngpio = <90>;
+		ti,davinci-gpio-unbanked = <0>;
+		clocks = <&k3_clks 58 0>;
+		clock-names = "gpio";
+	};
+
+	mailbox0_cluster0: mailbox@31f80000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f80000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		interrupt-parent = <&main_navss_intr>;
+		interrupts = <164 0 IRQ_TYPE_LEVEL_HIGH>;
+
+		mbox_mcu_r5fss0_core0: mbox-mcu-r5fss0-core0 {
+			ti,mbox-tx = <1 0 0>;
+			ti,mbox-rx = <0 0 0>;
+		};
+	};
+
+	mailbox0_cluster1: mailbox@31f81000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f81000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		interrupt-parent = <&main_navss_intr>;
+		interrupts = <165 0 IRQ_TYPE_LEVEL_HIGH>;
+
+		mbox_mcu_r5fss0_core1: mbox-mcu-r5fss0-core1 {
+			ti,mbox-tx = <1 0 0>;
+			ti,mbox-rx = <0 0 0>;
+		};
+	};
+
+	mailbox0_cluster2: mailbox@31f82000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f82000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
+	};
+
+	mailbox0_cluster3: mailbox@31f83000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f83000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
+	};
+
+	mailbox0_cluster4: mailbox@31f84000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f84000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
+	};
+
+	mailbox0_cluster5: mailbox@31f85000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f85000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
+	};
+
+	mailbox0_cluster6: mailbox@31f86000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f86000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
+	};
+
+	mailbox0_cluster7: mailbox@31f87000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f87000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
+	};
+
+	mailbox0_cluster8: mailbox@31f88000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f88000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
+	};
+
+	mailbox0_cluster9: mailbox@31f89000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f89000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
+	};
+
+	mailbox0_cluster10: mailbox@31f8a000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f8a000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
+	};
+
+	mailbox0_cluster11: mailbox@31f8b000 {
+		compatible = "ti,am654-mailbox";
+		reg = <0x00 0x31f8b000 0x00 0x200>;
+		#mbox-cells = <1>;
+		ti,mbox-num-users = <4>;
+		ti,mbox-num-fifos = <16>;
+		status = "disabled";
 	};
 };

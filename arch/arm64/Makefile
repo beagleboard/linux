@@ -127,8 +127,10 @@ Image.%: Image
 zinstall install:
 	$(Q)$(MAKE) $(build)=$(boot) $@
 
-%.dtb: scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts $(boot)/dts/$@
+%.dtb %.dtbo: dtbdir=$(patsubst %/,%,$(patsubst %./,%,$(boot)/dts/$(dir $@)))
+
+%.dtb %.dtbo: scripts
+	$(Q)$(MAKE) $(build)=$(dtbdir) $(boot)/dts/$@
 
 PHONY += dtbs dtbs_install
 

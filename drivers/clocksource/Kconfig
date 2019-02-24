@@ -365,7 +365,7 @@ config ARM64_ERRATUM_858921
 	  core is detected.
 
 config ARM_GLOBAL_TIMER
-	bool "Support for the ARM global timer" if COMPILE_TEST
+	bool "Support for the ARM global timer"
 	select TIMER_OF if OF
 	depends on ARM
 	help

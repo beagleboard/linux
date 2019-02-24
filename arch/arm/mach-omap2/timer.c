@@ -33,6 +33,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/irq.h>
+#include <linux/irqchip/arm-gic.h>
 #include <linux/clocksource.h>
 #include <linux/clockchips.h>
 #include <linux/slab.h>
@@ -62,6 +63,10 @@
 #define INCREMENTER_DENUMERATOR_RELOAD_OFFSET		0x14
 #define NUMERATOR_DENUMERATOR_MASK			0xfffff000
 
+#define AM43XX_GIC_CPU_BASE				0x48240100
+
+static void __iomem *gic_cpu_base;
+
 /* Clockevent code */
 
 static struct omap_dm_timer clkev;
@@ -69,6 +74,8 @@ static struct clock_event_device clockevent_gpt;
 
 /* Clockevent hwmod for am335x and am437x suspend */
 static struct omap_hwmod *clockevent_gpt_hwmod;
+static struct irq_chip *clkev_irq_chip;
+static struct irq_desc *clkev_irq_desc;
 
 /* Clockesource hwmod for am437x suspend */
 static struct omap_hwmod *clocksource_gpt_hwmod;
@@ -130,10 +137,49 @@ static int omap2_gp_timer_set_periodic(struct clock_event_device *evt)
 	return 0;
 }
 
+static int omap_clkevt_late_ack_init(void)
+{
+	gic_cpu_base = ioremap(AM43XX_GIC_CPU_BASE, SZ_4K);
+
+	if (!gic_cpu_base)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static void omap_clkevt_late_ack(void)
+{
+	u32 val;
+
+	if (!clkev_irq_chip)
+		return;
+
+	/*
+	 * For the gic to properly clear an interrupt it must be read
+	 * from INTACK register
+	 */
+	if (gic_cpu_base)
+		val = readl_relaxed(gic_cpu_base + GIC_CPU_INTACK);
+	if (clkev_irq_chip->irq_ack)
+		clkev_irq_chip->irq_ack(&clkev_irq_desc->irq_data);
+	if (clkev_irq_chip->irq_eoi)
+		clkev_irq_chip->irq_eoi(&clkev_irq_desc->irq_data);
+
+	clkev_irq_chip->irq_unmask(&clkev_irq_desc->irq_data);
+}
+
 static void omap_clkevt_idle(struct clock_event_device *unused)
 {
 	if (!clockevent_gpt_hwmod)
 		return;
+
+	/*
+	 * It is possible for a late interrupt to be generated which will
+	 * cause a suspend failure. Let's ack it here both in the timer
+	 * and the interrupt controller to avoid this.
+	 */
+	__omap_dm_timer_write_status(&clkev, OMAP_TIMER_INT_OVERFLOW);
+	omap_clkevt_late_ack();
 
 	omap_hwmod_idle(clockevent_gpt_hwmod);
 }
@@ -400,7 +446,15 @@ static void __init omap2_gp_clockevent_init(int gptimer_id,
 
 		clockevent_gpt_hwmod =
 			omap_hwmod_lookup(clockevent_gpt.name);
+
+		clkev_irq_desc = irq_to_desc(clkev.irq);
+		if (clkev_irq_desc)
+			clkev_irq_chip = irq_desc_get_chip(clkev_irq_desc);
+
 	}
+
+	if (soc_is_am437x())
+		omap_clkevt_late_ack_init();
 
 	pr_info("OMAP clockevent source: %s at %lu Hz\n", clockevent_gpt.name,
 		clkev.rate);

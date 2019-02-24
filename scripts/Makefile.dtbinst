@@ -28,13 +28,19 @@ quiet_cmd_dtb_install =	INSTALL $<
 
 install-dir = $(patsubst $(dtbinst_root)%,$(INSTALL_DTBS_PATH)%,$(obj))
 
-$(dtbinst-files): %.dtb: $(obj)/%.dtb
+$(filter %.dtb,$(dtbinst-files)): %.dtb: $(obj)/%.dtb
+	$(call cmd,dtb_install,$(install-dir))
+
+$(filter %.itb,$(dtbinst-files)): %.itb: $(obj)/%.itb
 	$(call cmd,dtb_install,$(install-dir))
 
 $(dtbinst-dirs):
 	$(Q)$(MAKE) $(dtbinst)=$(obj)/$@
 
-PHONY += $(dtbinst-files) $(dtbinst-dirs)
-__dtbs_install: $(dtbinst-files) $(dtbinst-dirs)
+dummy:
+	@echo > /dev/null
+
+PHONY += $(dtbinst-files) $(dtbinst-dirs) dummy
+__dtbs_install: $(dtbinst-files) $(dtbinst-dirs) dummy
 
 .PHONY: $(PHONY)
