@@ -1,13 +1,16 @@
-PRU Core on TI SoCs
-===================
+PRU/RTU Core on TI SoCs
+=======================
 
 Each PRUSS has dual PRU cores, each represented by a PRU node. Each PRU core
 has a dedicated Instruction RAM, Control and Debug register sets, and use
-the Data RAMs present within the PRUSS for code execution.
+the Data RAMs present within the PRUSS for code execution. K3 SoCs have two
+additional PRU cores called RTUs with slightly different IP integration. Each
+RTU core can be used independently like a PRU, or alongside a corresponding
+PRU core to provide/implement auxiliary functionality/support.
 
-Each PRU core node should be defined as a child node of the corresponding PRUSS
-node. Each node can optionally be rendered inactive by using the standard DT
-string property, "status".
+Each PRU or RTU core node should be defined as a child node of the corresponding
+PRUSS node. Each node can optionally be rendered inactive by using the standard
+DT string property, "status".
 
 Please see the overall PRUSS bindings document for additional details
 including a complete example,
@@ -20,6 +23,8 @@ Required Properties:
                        "ti,am4376-pru" for AM437x family of SoCs
                        "ti,am5728-pru" for AM57xx family of SoCs
                        "ti,k2g-pru" for 66AK2G family of SoCs
+                       "ti,am654-pru" for PRUs in K3 AM65x family of SoCs
+                       "ti,am654-rtu" for RTUs in K3 AM65x family of SoCs
 - reg            : base address and size for each of the 3 sub-module address
                    spaces as mentioned in reg-names, and in the same order as
                    the reg-names
@@ -72,7 +77,7 @@ devices, so below are in addition to each node's bindings.
 
 Required Properties:
 --------------------
-- prus                 : phandles to the PRU nodes used
+- prus                 : phandles to the PRU or RTU nodes used
 
 Optional Properties:
 --------------------

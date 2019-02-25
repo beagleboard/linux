@@ -13,15 +13,18 @@
 
 /* maximum number of system events */
 #define MAX_PRU_SYS_EVENTS	64
+#define MAX_PRU_SYS_EVENTS_K3	160
 
 /* maximum number of interrupt channels */
 #define MAX_PRU_CHANNELS	10
+#define MAX_PRU_CHANNELS_K3	20
 
 /* minimum starting host interrupt number for MPU */
 #define MIN_PRU_HOST_INT	2
 
 /* maximum number of host interrupts */
 #define MAX_PRU_HOST_INT	10
+#define MAX_PRU_HOST_INT_K3	20
 
 /**
  * struct pruss_intc_config - INTC configuration info
@@ -29,8 +32,8 @@
  * @ch_to_host: interrupt channel to host interrupt information
  */
 struct pruss_intc_config {
-	s8 sysev_to_ch[MAX_PRU_SYS_EVENTS];
-	s8 ch_to_host[MAX_PRU_CHANNELS];
+	s8 sysev_to_ch[MAX_PRU_SYS_EVENTS_K3];
+	s8 ch_to_host[MAX_PRU_CHANNELS_K3];
 };
 
 /**

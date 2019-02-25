@@ -29,6 +29,8 @@
 #define PRUSS_CFG_SPP		0x34
 #define PRUSS_CFG_PIN_MX	0x40
 
+#define ICSSG_CFG_CORE_SYNC	0x3c
+
 /* PRUSS_GPCFG register bits */
 #define PRUSS_GPCFG_PRU_GPO_SH_SEL		BIT(25)
 
@@ -66,6 +68,12 @@
 /* PRUSS_SPP register bits */
 #define PRUSS_SPP_XFER_SHIFT_EN			BIT(1)
 #define PRUSS_SPP_PRU1_PAD_HP_EN		BIT(0)
+
+/* PRUSS_IEPCLK register bits */
+#define PRUSS_IEPCLK_IEP_OCP_CLK_EN		BIT(0)
+
+/* ICSSG CORE_SYNC register bits */
+#define ICSSG_CORE_VBUSP_SYNC_EN		BIT(0)
 
 /**
  * enum pruss_gp_mux_sel - PRUSS GPI/O Mux modes for the

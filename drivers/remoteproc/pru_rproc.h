@@ -62,4 +62,31 @@ struct fw_rsc_pruss_intrmap {
 	u32 event_chnl_map_addr;
 };
 
+/**
+ * struct fw_rsc_pruss_intrmap_k3 - K3 custom resource to define PRU interrupts
+ * @chnl_host_intr_map: array of PRU channels to host interrupt mappings
+ * @event_chnl_map_size: number of event_channel mappings defined in
+ *			 @event_chnl_map_addr
+ * @event_chnl_map_addr: PRU device address of pointer to array of events to
+ *			 channel mappings (struct pruss_event_chnl elements)
+ *
+ * PRU system events are mapped to channels, and these channels are mapped
+ * to host interrupts. Events can be mapped to channels in a one-to-one or
+ * many-to-one ratio (multiple events per channel), and channels can be
+ * mapped to host interrupts in a one-to-one or many-to-one ratio (multiple
+ * channels per interrupt).
+ *
+ * This structure needs to be used using PRU vendor interrupt resource version
+ * number 1. This structure is to be used with firmwares dealing with the
+ * additional host interrupts on ICSSG IP instances. The firmwares for PRU
+ * cores on ICSSG can get away with the standard version (if not dealing with
+ * Task Manager), but the firmwares for RTU cores would definitely need this
+ * for mapping to the corresponding higher host interrupts.
+ */
+struct fw_rsc_pruss_intrmap_k3 {
+	s8 chnl_host_intr_map[20];
+	u32 event_chnl_map_size;
+	u32 event_chnl_map_addr;
+};
+
 #endif	/* _PRU_RPROC_H_ */
