@@ -109,9 +109,8 @@ static unsigned long wkup_m3_copy_aux_data(struct wkup_m3_ipc *m3_ipc,
 	void *aux_data_addr;
 
 	aux_data_dev_addr = WKUP_M3_DMEM_START + WKUP_M3_AUXDATA_OFFSET;
-	aux_data_addr = rproc_da_to_va(m3_ipc->rproc,
-				       aux_data_dev_addr,
-				       WKUP_M3_AUXDATA_SIZE);
+	aux_data_addr = rproc_da_to_va(m3_ipc->rproc, aux_data_dev_addr,
+				       WKUP_M3_AUXDATA_SIZE, RPROC_FLAGS_NONE);
 	memcpy(aux_data_addr, data, sz);
 
 	return WKUP_M3_AUXDATA_OFFSET;

@@ -83,7 +83,7 @@ static const struct omap_clkctrl_reg_data am3_l4_per_clkctrl_regs[] __initconst 
 	{ AM3_EPWMSS2_CLKCTRL, NULL, CLKF_SW_SUP, "l4ls_gclk" },
 	{ AM3_L3_INSTR_CLKCTRL, NULL, CLKF_SW_SUP, "l3_gclk", "l3_clkdm" },
 	{ AM3_L3_MAIN_CLKCTRL, NULL, CLKF_SW_SUP, "l3_gclk", "l3_clkdm" },
-	{ AM3_PRUSS_CLKCTRL, NULL, CLKF_SW_SUP, "pruss_ocp_gclk", "pruss_ocp_clkdm" },
+	{ AM3_PRUSS_CLKCTRL, NULL, CLKF_SW_SUP | CLKF_NO_IDLEST, "pruss_ocp_gclk", "pruss_ocp_clkdm" },
 	{ AM3_TIMER5_CLKCTRL, NULL, CLKF_SW_SUP, "timer5_fck" },
 	{ AM3_TIMER6_CLKCTRL, NULL, CLKF_SW_SUP, "timer6_fck" },
 	{ AM3_MMC2_CLKCTRL, NULL, CLKF_SW_SUP, "mmc_clk" },

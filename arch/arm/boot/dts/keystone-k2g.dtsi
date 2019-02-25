@@ -142,6 +142,38 @@
 				#gpio-cells = <2>;
 				gpio,syscon-dev = <&devctrl 0x240>;
 			};
+
+			prussgpio0: keystone-pruss-gpio@26c {
+				compatible = "ti,keystone-dsp-gpio";
+				reg = <0x26c 0x4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio,syscon-dev = <&devctrl 0x26c>;
+			};
+
+			prussgpio1: keystone-pruss-gpio@270 {
+				compatible = "ti,keystone-dsp-gpio";
+				reg = <0x270 0x4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio,syscon-dev = <&devctrl 0x270>;
+			};
+
+			prussgpio2: keystone-pruss-gpio@274 {
+				compatible = "ti,keystone-dsp-gpio";
+				reg = <0x274 0x4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio,syscon-dev = <&devctrl 0x274>;
+			};
+
+			prussgpio3: keystone-pruss-gpio@278 {
+				compatible = "ti,keystone-dsp-gpio";
+				reg = <0x278 0x4>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio,syscon-dev = <&devctrl 0x278>;
+			};
 		};
 
 		uart0: serial@2530c00 {
@@ -639,6 +671,198 @@
 			compatible = "ti,emif-keystone";
 			reg = <0x21010000 0x200>;
 			interrupts = <GIC_SPI 123 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		pruss_soc_bus0: pruss-soc-bus@20aa6004 {
+			compatible = "ti,k2g-pruss-soc-bus";
+			reg = <0x20aa6004 0x4>;
+			power-domains = <&k2g_pds 0x0014>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			dma-ranges;
+			dma-coherent;
+
+			pruss0: pruss@20a80000 {
+				compatible = "ti,k2g-pruss";
+				reg = <0x20a80000 0x40000>;
+				interrupts = <GIC_SPI 224 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 225 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 226 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 227 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 228 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 230 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 231 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "host2", "host3", "host4",
+						  "host5", "host6", "host8",
+						  "host9";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				dma-ranges;
+				dma-coherent;
+
+				pruss0_mem: memories@20a80000 {
+					reg = <0x20a80000 0x2000>,
+					      <0x20a82000 0x2000>,
+					      <0x20a90000 0x10000>;
+					reg-names = "dram0", "dram1",
+						    "shrdram2";
+				};
+
+				pruss0_cfg: cfg@20aa6000 {
+					compatible = "syscon";
+					reg = <0x20aa6000 0x2000>;
+				};
+
+				pruss0_iep: iep@20aae000 {
+					compatible = "syscon";
+					reg = <0x20aae000 0x31c>;
+				};
+
+				pruss0_mii_rt: mii-rt@20ab2000 {
+					compatible = "syscon";
+					reg = <0x20ab2000 0x70>;
+				};
+
+				pruss0_intc: interrupt-controller@20aa0000 {
+					compatible = "ti,k2g-pruss-intc";
+					reg = <0x20aa0000 0x2000>;
+					interrupt-controller;
+					#interrupt-cells = <1>;
+				};
+
+				pru0_0: pru@20ab4000 {
+					compatible = "ti,k2g-pru";
+					reg = <0x20ab4000 0x3000>,
+					      <0x20aa2000 0x400>,
+					      <0x20aa2400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "k2g-pru0_0-fw";
+					interrupt-parent = <&pruss0_intc>;
+					interrupts = <16>, <17>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pru0_1: pru@20ab8000 {
+					compatible = "ti,k2g-pru";
+					reg = <0x20ab8000 0x3000>,
+					      <0x20aa4000 0x400>,
+					      <0x20aa4400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "k2g-pru0_1-fw";
+					interrupt-parent = <&pruss0_intc>;
+					interrupts = <18>, <19>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pruss0_mdio: mdio@20ab2400 {
+					compatible = "ti,davinci_mdio";
+					reg = <0x20ab2400 0x90>;
+					clocks = <&k2g_clks 0x0014 1>;
+					clock-names = "fck";
+					#address-cells = <1>;
+					#size-cells = <0>;
+					bus_freq = <2500000>;
+					status = "disabled";
+				};
+			};
+		};
+
+		pruss_soc_bus1: pruss-soc-bus@20ae6004 {
+			compatible = "ti,k2g-pruss-soc-bus";
+			reg = <0x20ae6004 0x4>;
+			power-domains = <&k2g_pds 0x0015>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			dma-ranges;
+			dma-coherent;
+
+			pruss1: pruss@20ac0000 {
+				compatible = "ti,k2g-pruss";
+				reg = <0x20ac0000 0x40000>;
+				interrupts = <GIC_SPI 232 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 233 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 234 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 235 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 236 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 238 IRQ_TYPE_EDGE_RISING>,
+					     <GIC_SPI 239 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "host2", "host3", "host4",
+						  "host5", "host6", "host8",
+						  "host9";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				dma-ranges;
+				dma-coherent;
+
+				pruss1_mem: memories@20ac0000 {
+					reg = <0x20ac0000 0x2000>,
+					      <0x20ac2000 0x2000>,
+					      <0x20ad0000 0x10000>;
+					reg-names = "dram0", "dram1",
+						    "shrdram2";
+				};
+
+				pruss1_cfg: cfg@20ae6000 {
+					compatible = "syscon";
+					reg = <0x20ae6000 0x2000>;
+				};
+
+				pruss1_iep: iep@20aee000 {
+					compatible = "syscon";
+					reg = <0x20aee000 0x31c>;
+				};
+
+				pruss1_mii_rt: mii-rt@20af2000 {
+					compatible = "syscon";
+					reg = <0x20af2000 0x70>;
+				};
+
+				pruss1_intc: interrupt-controller@20ae0000 {
+					compatible = "ti,k2g-pruss-intc";
+					reg = <0x20ae0000 0x2000>;
+					interrupt-controller;
+					#interrupt-cells = <1>;
+				};
+
+				pru1_0: pru@20af4000 {
+					compatible = "ti,k2g-pru";
+					reg = <0x20af4000 0x3000>,
+					      <0x20ae2000 0x400>,
+					      <0x20ae2400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "k2g-pru1_0-fw";
+					interrupt-parent = <&pruss1_intc>;
+					interrupts = <16>, <17>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pru1_1: pru@20af8000 {
+					compatible = "ti,k2g-pru";
+					reg = <0x20af8000 0x3000>,
+					      <0x20ae4000 0x400>,
+					      <0x20ae4400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "k2g-pru1_1-fw";
+					interrupt-parent = <&pruss1_intc>;
+					interrupts = <18>, <19>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pruss1_mdio: mdio@20af2400 {
+					compatible = "ti,davinci_mdio";
+					reg = <0x20af2400 0x90>;
+					clocks = <&k2g_clks 0x0015 1>;
+					clock-names = "fck";
+					#address-cells = <1>;
+					#size-cells = <0>;
+					bus_freq = <2500000>;
+					status = "disabled";
+				};
+			};
 		};
 
 		mdio: mdio@4200f00 {
