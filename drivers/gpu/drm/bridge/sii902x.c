@@ -382,25 +382,25 @@ static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
 
 	ret = regmap_bulk_write(regmap, SII902X_TPI_VIDEO_DATA, buf, 10);
 	if (ret)
-		return;
+		goto out;
 
 	ret = drm_hdmi_avi_infoframe_from_display_mode(&frame, adj, false);
 	if (ret < 0) {
 		DRM_ERROR("couldn't fill AVI infoframe\n");
-		return;
+		goto out;
 	}
 
 	ret = hdmi_avi_infoframe_pack(&frame, buf, sizeof(buf));
 	if (ret < 0) {
 		DRM_ERROR("failed to pack AVI infoframe: %d\n", ret);
-		return;
+		goto out;
 	}
 
 	/* Do not send the infoframe header, but keep the CRC field. */
 	regmap_bulk_write(regmap, SII902X_TPI_AVI_INFOFRAME,
 			  buf + HDMI_INFOFRAME_HEADER_SIZE - 1,
 			  HDMI_AVI_INFOFRAME_SIZE + 1);
-
+out:
 	mutex_unlock(&sii902x->mutex);
 }
 
