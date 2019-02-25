@@ -292,6 +292,35 @@ struct ti_sci_rm_irq_ops {
 				      u8 vint_status_bit);
 };
 
+/**
+ * struct ti_sci_proc_ops - Processor Control operations
+ * @request:	Request to control a physical processor. The requesting host
+ *		should be in the processor access list
+ * @release:	Relinquish a physical processor control
+ * @handover:	Handover a physical processor control to another host
+ *		in the permitted list
+ * @set_config:	Set base configuration of a processor
+ * @set_control: Setup limited control flags in specific cases
+ * @get_status: Get the state of physical processor
+ *
+ * NOTE: The following paramteres are generic in nature for all these ops,
+ * -handle:	Pointer to TI SCI handle as retrieved by *ti_sci_get_handle
+ * -pid:	Processor ID
+ * -hid:	Host ID
+ */
+struct ti_sci_proc_ops {
+	int (*request)(const struct ti_sci_handle *handle, u8 pid);
+	int (*release)(const struct ti_sci_handle *handle, u8 pid);
+	int (*handover)(const struct ti_sci_handle *handle, u8 pid, u8 hid);
+	int (*set_config)(const struct ti_sci_handle *handle, u8 pid,
+			  u64 boot_vector, u32 cfg_set, u32 cfg_clr);
+	int (*set_control)(const struct ti_sci_handle *handle, u8 pid,
+			   u32 ctrl_set, u32 ctrl_clr);
+	int (*get_status)(const struct ti_sci_handle *handle, u8 pid,
+			  u64 *boot_vector, u32 *cfg_flags, u32 *ctrl_flags,
+			  u32 *status_flags);
+};
+
 /* RA config.addr_lo parameter is valid for RM ring configure TI_SCI message */
 #define TI_SCI_MSG_VALUE_RM_RING_ADDR_LO_VALID	BIT(0)
 /* RA config.addr_hi parameter is valid for RM ring configure TI_SCI message */
@@ -503,6 +532,7 @@ struct ti_sci_rm_udmap_ops {
  * @clk_ops:	Clock specific operations
  * @rm_core_ops:	Resource management core operations.
  * @rm_irq_ops:		IRQ management specific operations
+ * @proc_ops:	Processor Control specific operations
  */
 struct ti_sci_ops {
 	struct ti_sci_core_ops core_ops;
@@ -510,6 +540,7 @@ struct ti_sci_ops {
 	struct ti_sci_clk_ops clk_ops;
 	struct ti_sci_rm_core_ops rm_core_ops;
 	struct ti_sci_rm_irq_ops rm_irq_ops;
+	struct ti_sci_proc_ops proc_ops;
 	struct ti_sci_rm_ringacc_ops rm_ring_ops;
 	struct ti_sci_rm_psil_ops rm_psil_ops;
 	struct ti_sci_rm_udmap_ops rm_udmap_ops;

@@ -31,6 +31,9 @@ install-dir = $(patsubst $(dtbinst_root)%,$(INSTALL_DTBS_PATH)%,$(obj))
 $(filter %.dtb,$(dtbinst-files)): %.dtb: $(obj)/%.dtb
 	$(call cmd,dtb_install,$(install-dir))
 
+$(filter %.dtbo,$(dtbinst-files)): %.dtbo: $(obj)/%.dtbo
+	$(call cmd,dtb_install,$(install-dir))
+
 $(filter %.itb,$(dtbinst-files)): %.itb: $(obj)/%.itb
 	$(call cmd,dtb_install,$(install-dir))
 
