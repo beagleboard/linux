@@ -5,6 +5,7 @@
  * Copyright (C) 2014-2019 Texas Instruments Incorporated - http://www.ti.com/
  *	Suman Anna <s-anna@ti.com>
  *	Andrew F. Davis <afd@ti.com>
+ *	Tero Kristo <t-kristo@ti.com>
  */
 
 #include <linux/dma-mapping.h>
@@ -14,6 +15,8 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/pruss_driver.h>
+#include <linux/regmap.h>
+#include <linux/remoteproc.h>
 
 /**
  * struct pruss_private_data - PRUSS driver private data
@@ -32,6 +35,200 @@ struct pruss_match_private_data {
 	const char *device_name;
 	const struct pruss_private_data *priv_data;
 };
+
+/**
+ * pruss_get() - get the pruss for a given PRU remoteproc
+ * @rproc: remoteproc handle of a PRU instance
+ *
+ * Finds the parent pruss device for a PRU given the @rproc handle of the
+ * PRU remote processor. This function increments the pruss device's refcount,
+ * so always use pruss_put() to decrement it back once pruss isn't needed
+ * anymore.
+ *
+ * Returns the pruss handle on success, and an ERR_PTR on failure using one
+ * of the following error values
+ *    -EINVAL if invalid parameter
+ *    -ENODEV if PRU device or PRUSS device is not found
+ */
+struct pruss *pruss_get(struct rproc *rproc)
+{
+	struct pruss *pruss;
+	struct device *dev;
+	struct platform_device *ppdev;
+
+	if (IS_ERR_OR_NULL(rproc))
+		return ERR_PTR(-EINVAL);
+
+	dev = &rproc->dev;
+	if (!dev->parent)
+		return ERR_PTR(-ENODEV);
+
+	/* rudimentary check to make sure rproc handle is for a PRU */
+	if (!strstr(dev_name(dev->parent), "pru"))
+		return ERR_PTR(-ENODEV);
+
+	ppdev = to_platform_device(dev->parent->parent);
+	pruss = platform_get_drvdata(ppdev);
+	if (!pruss)
+		return ERR_PTR(-ENODEV);
+
+	get_device(pruss->dev);
+
+	return pruss;
+}
+EXPORT_SYMBOL_GPL(pruss_get);
+
+/**
+ * pruss_put() - decrement pruss device's usecount
+ * @pruss: pruss handle
+ *
+ * Complimentary function for pruss_get(). Needs to be called
+ * after the PRUSS is used, and only if the pruss_get() succeeds.
+ */
+void pruss_put(struct pruss *pruss)
+{
+	if (IS_ERR_OR_NULL(pruss))
+		return;
+
+	put_device(pruss->dev);
+}
+EXPORT_SYMBOL_GPL(pruss_put);
+
+/**
+ * pruss_request_mem_region() - request a memory resource
+ * @pruss: the pruss instance
+ * @mem_id: the memory resource id
+ * @region: pointer to memory region structure to be filled in
+ *
+ * This function allows a client driver to request a memory resource,
+ * and if successful, will let the client driver own the particular
+ * memory region until released using the pruss_release_mem_region()
+ * API.
+ *
+ * Returns the memory region if requested resource is available, an
+ * error otherwise
+ */
+int pruss_request_mem_region(struct pruss *pruss, enum pruss_mem mem_id,
+			     struct pruss_mem_region *region)
+{
+	if (!pruss || !region)
+		return -EINVAL;
+
+	if (mem_id >= PRUSS_MEM_MAX)
+		return -EINVAL;
+
+	mutex_lock(&pruss->lock);
+
+	if (pruss->mem_in_use[mem_id]) {
+		mutex_unlock(&pruss->lock);
+		return -EBUSY;
+	}
+
+	*region = pruss->mem_regions[mem_id];
+	pruss->mem_in_use[mem_id] = region;
+
+	mutex_unlock(&pruss->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_request_mem_region);
+
+/**
+ * pruss_release_mem_region() - release a memory resource
+ * @pruss: the pruss instance
+ * @region: the memory region to release
+ *
+ * This function is the complimentary function to
+ * pruss_request_mem_region(), and allows the client drivers to
+ * release back a memory resource.
+ *
+ * Returns 0 on success, an error code otherwise
+ */
+int pruss_release_mem_region(struct pruss *pruss,
+			     struct pruss_mem_region *region)
+{
+	int id;
+
+	if (!pruss || !region)
+		return -EINVAL;
+
+	mutex_lock(&pruss->lock);
+
+	/* find out the memory region being released */
+	for (id = 0; id < PRUSS_MEM_MAX; id++) {
+		if (pruss->mem_in_use[id] == region)
+			break;
+	}
+
+	if (id == PRUSS_MEM_MAX) {
+		mutex_unlock(&pruss->lock);
+		return -EINVAL;
+	}
+
+	pruss->mem_in_use[id] = NULL;
+
+	mutex_unlock(&pruss->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pruss_release_mem_region);
+
+/**
+ * pruss_regmap_read() - read a PRUSS syscon sub-module register
+ * @pruss: the pruss instance handle
+ * @mod: the pruss syscon sub-module identifier
+ * @reg: register offset within the sub-module
+ * @val: pointer to return the value in
+ *
+ * Reads a given register within one of the PRUSS sub-modules represented
+ * by a syscon and returns it through the passed-in @val pointer
+ *
+ * Returns 0 on success, or an error code otherwise
+ */
+int pruss_regmap_read(struct pruss *pruss, enum pruss_syscon mod,
+		      unsigned int reg, unsigned int *val)
+{
+	struct regmap *map;
+
+	if (IS_ERR_OR_NULL(pruss) || mod < PRUSS_SYSCON_CFG ||
+	    mod >= PRUSS_SYSCON_MAX)
+		return -EINVAL;
+
+	map = (mod == PRUSS_SYSCON_CFG) ? pruss->cfg :
+	       ((mod == PRUSS_SYSCON_IEP ? pruss->iep : pruss->mii_rt));
+
+	return regmap_read(map, reg, val);
+}
+EXPORT_SYMBOL_GPL(pruss_regmap_read);
+
+/**
+ * pruss_regmap_update() - configure a PRUSS syscon sub-module register
+ * @pruss: the pruss instance handle
+ * @mod: the pruss syscon sub-module identifier
+ * @reg: register offset within the sub-module
+ * @mask: bit mask to use for programming the @val
+ * @val: value to write
+ *
+ * Programs a given register within one of the PRUSS sub-modules represented
+ * by a syscon
+ *
+ * Returns 0 on success, or an error code otherwise
+ */
+int pruss_regmap_update(struct pruss *pruss, enum pruss_syscon mod,
+			unsigned int reg, unsigned int mask, unsigned int val)
+{
+	struct regmap *map;
+
+	if (IS_ERR_OR_NULL(pruss) || mod < PRUSS_SYSCON_CFG ||
+	    mod >= PRUSS_SYSCON_MAX)
+		return -EINVAL;
+
+	map = (mod == PRUSS_SYSCON_CFG) ? pruss->cfg :
+	       ((mod == PRUSS_SYSCON_IEP ? pruss->iep : pruss->mii_rt));
+
+	return regmap_update_bits(map, reg, mask, val);
+}
+EXPORT_SYMBOL_GPL(pruss_regmap_update);
 
 static const
 struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
@@ -83,6 +280,7 @@ static int pruss_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pruss->dev = dev;
+	mutex_init(&pruss->lock);
 
 	np = of_get_child_by_name(node, "cfg");
 	if (!np) {
