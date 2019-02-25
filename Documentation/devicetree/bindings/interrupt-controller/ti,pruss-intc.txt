@@ -1,0 +1,57 @@
+PRU ICSS INTC on TI SoCs
+========================
+
+Each PRUSS has a single interrupt controller instance that is common to both
+the PRU cores. Each interrupt controller can detect 64 input events which are
+then mapped to 10 possible output interrupts through two levels of mapping. The
+input events can be triggered by either the PRUs and/or various other PRUSS
+internal and external peripherals. The first 2 output interrupts are fed
+exclusively to the internal PRU cores, with the remaining 8 connected to
+external interrupt controllers including the MPU.
+
+This interrupt-controller node should be defined as a child node of the
+corresponding PRUSS node. The node should be named "interrupt-controller".
+Please see the overall PRUSS bindings document for additional details
+including a complete example,
+    Documentation/devicetree/bindings/soc/ti/ti,pruss.txt
+
+Required Properties:
+--------------------
+- compatible           : should be one of,
+                             "ti,am3356-pruss-intc" for AM335x family of SoCs
+                             "ti,am4376-pruss-intc" for AM437x family of SoCs
+                             "ti,am5728-pruss-intc" for AM57xx family of SoCs
+                             "ti,k2g-pruss-intc" for 66AK2G family of SoCs
+- reg                  : base address and size for the PRUSS INTC sub-module
+- interrupt-controller : mark this node as an interrupt controller
+- #interrupt-cells     : should be 1. Client users shall use the PRU System
+                         event number (the interrupt source that the client
+                         is interested in) as the value of the interrupts
+                         property in their node
+
+Example:
+--------
+
+1.	/* AM33xx PRU-ICSS */
+	pruss_soc_bus: pruss-soc-bus@4a326004 {
+		compatible = "ti,am3356-pruss-soc-bus";
+		...
+
+		pruss: pruss@4a300000 {
+			compatible = "ti,am3356-pruss";
+			reg = <0x4a300000 0x80000>;
+			interrupts = <20 21 22 23 24 25 26 27>;
+			interrupt-names = "host2", "host3", "host4",
+					  "host5", "host6", "host7",
+					  "host8", "host9";
+			#address-cells = <1>;
+			...
+
+			pruss_intc: interrupt-controller@4a320000 {
+				compatible = "ti,am3356-pruss-intc";
+				reg = <0x4a320000 0x2000>;
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
+		};
+	};

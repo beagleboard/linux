@@ -1138,3 +1138,15 @@
 	ti,set-io-isolation;
 	ti,scale-data-fw = "am43x-evm-scale-data.bin";
 };
+
+&pruss_soc_bus {
+	status = "okay";
+
+	pruss1: pruss@54400000 {
+		status = "okay";
+	};
+
+	pruss0: pruss@54440000 {
+		status = "okay";
+	};
+};

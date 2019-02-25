@@ -504,3 +504,11 @@
 		reg = <3>;
 	};
 };
+
+&pruss_soc_bus {
+	status = "okay";
+
+	pruss: pruss@4a300000 {
+		status = "okay";
+	};
+};
