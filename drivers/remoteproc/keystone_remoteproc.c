@@ -197,7 +197,8 @@ static void keystone_rproc_mem_del_attrs(struct keystone_rproc *ksproc)
 	}
 }
 
-static void *keystone_rproc_da_to_va(struct rproc *rproc, u64 da, int len);
+static void *keystone_rproc_da_to_va(struct rproc *rproc, u64 da, int len,
+				     u32 flags);
 
 /* uio handler dealing with userspace controlled exception interrupt */
 static irqreturn_t keystone_rproc_uio_handler(int irq, struct uio_info *uio)
@@ -360,7 +361,8 @@ static int keystone_rproc_set_loaded_rsc_table(struct keystone_rproc *ksproc,
 	if (!ksproc->rsc_table_size || !ksproc->rsc_table)
 		return -EINVAL;
 
-	ptr = keystone_rproc_da_to_va(rproc, dma_addr, ksproc->rsc_table_size);
+	ptr = keystone_rproc_da_to_va(rproc, dma_addr, ksproc->rsc_table_size,
+				      RPROC_FLAGS_NONE);
 	if (!ptr)
 		return -EINVAL;
 
@@ -793,7 +795,8 @@ static void keystone_rproc_kick(struct rproc *rproc, int vqid)
  * can be used either by the remoteproc core for loading (when using kernel
  * remoteproc loader), or by any rpmsg bus drivers.
  */
-static void *keystone_rproc_da_to_va(struct rproc *rproc, u64 da, int len)
+static void *keystone_rproc_da_to_va(struct rproc *rproc, u64 da, int len,
+				     u32 flags)
 {
 	struct keystone_rproc *ksproc = rproc->priv;
 	void __iomem *va = NULL;

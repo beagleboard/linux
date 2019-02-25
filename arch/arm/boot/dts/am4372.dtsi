@@ -957,6 +957,171 @@
 			interrupts = <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		pruss_soc_bus: pruss-soc-bus@54426004 {
+			compatible = "ti,am4376-pruss-soc-bus";
+			reg = <0x54426004 0x4>;
+			ti,hwmods = "pruss";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			status = "disabled";
+
+			pruss1: pruss@54400000 {
+				compatible = "ti,am4376-pruss";
+				reg = <0x54400000 0x40000>;
+				interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "host2", "host3", "host4",
+						  "host5", "host6", "host8",
+						  "host9";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				status = "disabled";
+
+				pruss1_mem: memories@54400000 {
+					reg = <0x54400000 0x2000>,
+					      <0x54402000 0x2000>,
+					      <0x54410000 0x8000>;
+					reg-names = "dram0", "dram1",
+						    "shrdram2";
+				};
+
+				pruss1_cfg: cfg@54426000 {
+					compatible = "syscon";
+					reg = <0x54426000 0x2000>;
+				};
+
+				pruss1_iep: iep@5442e000 {
+					compatible = "syscon";
+					reg = <0x5442e000 0x31c>;
+				};
+
+				pruss1_mii_rt: mii-rt@54432000 {
+					compatible = "syscon";
+					reg = <0x54432000 0x58>;
+				};
+
+				pruss1_intc: interrupt-controller@54420000 {
+					compatible = "ti,am4376-pruss-intc";
+					reg = <0x54420000 0x2000>;
+					interrupt-controller;
+					#interrupt-cells = <1>;
+				};
+
+				pru1_0: pru@54434000 {
+					compatible = "ti,am4376-pru";
+					reg = <0x54434000 0x3000>,
+					      <0x54422000 0x400>,
+					      <0x54422400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "am437x-pru1_0-fw";
+					interrupt-parent = <&pruss1_intc>;
+					interrupts = <16>, <17>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pru1_1: pru@54438000 {
+					compatible = "ti,am4376-pru";
+					reg = <0x54438000 0x3000>,
+					      <0x54424000 0x400>,
+					      <0x54424400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "am437x-pru1_1-fw";
+					interrupt-parent = <&pruss1_intc>;
+					interrupts = <18>, <19>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pruss1_mdio: mdio@54432400 {
+					compatible = "ti,davinci_mdio";
+					reg = <0x54432400 0x90>;
+					clocks = <&dpll_core_m4_ck>;
+					clock-names = "fck";
+					bus_freq = <1000000>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					status = "disabled";
+				};
+			};
+
+			pruss0: pruss@54440000 {
+				compatible = "ti,am4376-pruss";
+				reg = <0x54440000 0x40000>;
+				interrupts = <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH
+					      GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "host2", "host3", "host4",
+						  "host5", "host6", "host8",
+						  "host9";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				status = "disabled";
+
+				pruss0_mem: memories@54440000 {
+					reg = <0x54440000 0x1000>,
+					      <0x54442000 0x1000>;
+					reg-names = "dram0", "dram1";
+				};
+
+				pruss0_cfg: cfg@54466000 {
+					compatible = "syscon";
+					reg = <0x54466000 0x2000>;
+				};
+
+				pruss0_iep: iep@5446e000 {
+					compatible = "syscon";
+					reg = <0x6e000 0x31c>;
+				};
+
+				pruss0_mii_rt: mii-rt@54472000 {
+					compatible = "syscon";
+					reg = <0x54472000 0x58>;
+				};
+
+				pruss0_intc: interrupt-controller@54460000 {
+					compatible = "ti,am4376-pruss-intc";
+					reg = <0x54460000 0x2000>;
+					interrupt-controller;
+					#interrupt-cells = <1>;
+				};
+
+				pru0_0: pru@54474000 {
+					compatible = "ti,am4376-pru";
+					reg = <0x54474000 0x1000>,
+					      <0x54462000 0x400>,
+					      <0x54462400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "am437x-pru0_0-fw";
+					interrupt-parent = <&pruss0_intc>;
+					interrupts = <16>, <17>;
+					interrupt-names = "vring", "kick";
+				};
+
+				pru0_1: pru@54478000 {
+					compatible = "ti,am4376-pru";
+					reg = <0x54478000 0x1000>,
+					      <0x54464000 0x400>,
+					      <0x54464400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "am437x-pru0_1-fw";
+					interrupt-parent = <&pruss0_intc>;
+					interrupts = <18>, <19>;
+					interrupt-names = "vring", "kick";
+				};
+			};
+		};
+
 		mcasp0: mcasp@48038000 {
 			compatible = "ti,am33xx-mcasp-audio";
 			ti,hwmods = "mcasp0";
