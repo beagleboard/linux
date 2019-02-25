@@ -257,12 +257,28 @@ static irqreturn_t dra7xx_pcie_msi_irq_handler(int irq, void *arg)
 	struct pcie_port *pp = &pci->pp;
 	unsigned long reg;
 	u32 virq, bit;
+	int count = 0;
 
 	reg = dra7xx_pcie_readl(dra7xx, PCIECTRL_DRA7XX_CONF_IRQSTATUS_MSI);
 
 	switch (reg) {
 	case MSI:
-		dw_handle_msi_irq(pp);
+		/*
+		 * Need to make sure no MSI IRQs are pending before
+		 * exiting handler, else the wrapper will not catch new
+		 * IRQs. So loop around till dw_handle_msi_irq() returns
+		 * IRQ_NONE
+		 */
+		while (dw_handle_msi_irq(pp) != IRQ_NONE && count < 1000)
+			count++;
+
+		if (count == 1000) {
+			dev_err(pci->dev, "too much work in msi irq\n");
+			dra7xx_pcie_writel(dra7xx,
+					   PCIECTRL_DRA7XX_CONF_IRQSTATUS_MSI,
+					   reg);
+			return IRQ_HANDLED;
+		}
 		break;
 	case INTA:
 	case INTB:
