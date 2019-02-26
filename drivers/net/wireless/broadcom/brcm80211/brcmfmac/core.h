@@ -143,6 +143,8 @@ struct brcmf_pub {
 	struct notifier_block inet6addr_notifier;
 	struct brcmf_mp_device *settings;
 
+	struct work_struct bus_reset;
+
 	u8 clmver[BRCMF_DCMD_SMLEN];
 	struct brcmf_pkt_filter_enable_le pkt_filter[MAX_PKT_FILTER_COUNT];
 
