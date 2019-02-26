@@ -340,6 +340,10 @@ static const u32 brcmf_ring_itemsize[BRCMF_NROF_COMMON_MSGRINGS] = {
 	BRCMF_D2H_MSGRING_RX_COMPLETE_ITEMSIZE
 };
 
+static void brcmf_pcie_setup(struct device *dev, int ret,
+			     const struct firmware *fw,
+			     void *nvram, u32 nvram_len);
+
 #ifdef CONFIG_BRCMFMAC_PCIE_BARWIN_SZ
 DEFINE_RAW_SPINLOCK(pcie_lock);
 #endif /* CONFIG_BRCMFMAC_PCIE_BARWIN_SZ */
@@ -1618,6 +1622,46 @@ static int brcmf_pcie_get_fwname(struct device *dev, u32 chip, u32 chiprev,
 	return ret;
 }
 
+static int brcmf_pcie_reset(struct device *dev)
+{
+	struct brcmf_bus *bus;
+	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+	struct brcmf_pciedev *buspub = bus_if->bus_priv.pcie;
+	struct brcmf_pciedev_info *devinfo = buspub->devinfo;
+	int err;
+	u16 domain_nr;
+	u16 bus_nr;
+
+	domain_nr = pci_domain_nr(devinfo->pdev->bus) + 1;
+	bus_nr = devinfo->pdev->bus->number;
+	brcmf_dbg(PCIE, "Enter %x:%x (%d/%d)\n", devinfo->pdev->vendor,
+		  devinfo->pdev->device, domain_nr, bus_nr);
+	bus = dev_get_drvdata(dev);
+
+	brcmf_detach(dev);
+
+	brcmf_pcie_release_irq(devinfo);
+	brcmf_pcie_release_scratchbuffers(devinfo);
+	brcmf_pcie_release_ringbuffers(devinfo);
+	brcmf_pcie_reset_device(devinfo);
+
+	err = brcmf_fw_map_chip_to_name(devinfo->ci->chip,
+					devinfo->ci->chiprev,
+					brcmf_pcie_fwnames,
+					ARRAY_SIZE(brcmf_pcie_fwnames),
+					devinfo->fw_name, devinfo->nvram_name);
+	if (err)
+		return err;
+
+	err = brcmf_fw_get_firmwares_pcie(bus->dev, BRCMF_FW_REQUEST_NVRAM |
+						    BRCMF_FW_REQ_NV_OPTIONAL,
+					  devinfo->fw_name, devinfo->nvram_name,
+					  brcmf_pcie_setup, domain_nr, bus_nr);
+	if (err == 0)
+		return 0;
+	return err;
+}
+
 static const struct brcmf_bus_ops brcmf_pcie_bus_ops = {
 	.txdata = brcmf_pcie_tx,
 	.stop = brcmf_pcie_down,
@@ -1627,6 +1671,7 @@ static const struct brcmf_bus_ops brcmf_pcie_bus_ops = {
 	.get_ramsize = brcmf_pcie_get_ramsize,
 	.get_memdump = brcmf_pcie_get_memdump,
 	.get_fwname = brcmf_pcie_get_fwname,
+	.reset = brcmf_pcie_reset,
 };
 
 
