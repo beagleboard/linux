@@ -1033,6 +1033,14 @@
 	system-power-controller;
 };
 
+//&pruss_soc_bus {
+//	status = "okay";
+//
+//	pruss: pruss@4a300000 {
+//		status = "okay";
+//	};
+//};
+
 &tscadc {
 	status = "okay";
 	adc {

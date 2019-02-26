@@ -378,10 +378,10 @@
 	ti,scale-data-fw = "am335x-bone-scale-data.bin";
 };
 
-&pruss_soc_bus {
-	status = "okay";
-
-	pruss: pruss@4a300000 {
-		status = "okay";
-	};
-};
+//&pruss_soc_bus {
+//	status = "okay";
+//
+//	pruss: pruss@4a300000 {
+//		status = "okay";
+//	};
+//};
