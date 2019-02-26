@@ -732,7 +732,7 @@ static int sii902x_audio_codec_init(struct sii902x *sii902x,
 	}
 
 	for (i = 0; i < ARRAY_SIZE(sii902x->audio.i2s_fifo_routing); i++) {
-		if (sii902x->audio.i2s_fifo_routing[i] | ENABLE_BIT)
+		if (sii902x->audio.i2s_fifo_routing[i] & ENABLE_BIT)
 			codec_data.max_i2s_channels += 2;
 		sii902x->audio.i2s_fifo_routing[i] |= i2s_fifo_defaults[i];
 	}
