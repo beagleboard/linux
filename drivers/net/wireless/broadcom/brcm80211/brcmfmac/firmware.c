@@ -581,6 +581,7 @@ int brcmf_fw_map_chip_to_name(u32 chip, u32 chiprev,
 		return -ENODEV;
 	}
 
+	fw_name[0] = '\0';
 	/* check if firmware path is provided by module parameter */
 	if (brcmf_mp_global.firmware_path[0] != '\0') {
 		strlcpy(fw_name, brcmf_mp_global.firmware_path,
