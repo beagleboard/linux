@@ -967,6 +967,14 @@ static int brcmf_revinfo_read(struct seq_file *s, void *data)
 	return 0;
 }
 
+static void brcmf_core_bus_reset(struct work_struct *work)
+{
+	struct brcmf_pub *drvr = container_of(work, struct brcmf_pub,
+					      bus_reset);
+
+	brcmf_bus_reset(drvr->bus_if);
+}
+
 int brcmf_bus_started(struct device *dev)
 {
 	int ret = -1;
@@ -1043,6 +1051,8 @@ int brcmf_bus_started(struct device *dev)
 #endif
 #endif /* CONFIG_INET */
 
+	INIT_WORK(&drvr->bus_reset, brcmf_core_bus_reset);
+
 	return 0;
 
 fail:
@@ -1100,6 +1110,8 @@ void brcmf_fw_crashed(struct device *dev)
 	brcmf_err("Firmware has halted or crashed\n");
 
 	brcmf_dev_coredump(dev);
+
+	schedule_work(&drvr->bus_reset);
 }
 
 void brcmf_detach(struct device *dev)
