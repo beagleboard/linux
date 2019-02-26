@@ -1141,8 +1141,10 @@ static u32 brcmf_sdio_hostmail(struct brcmf_sdio *bus, u32 *hmbd)
 	bus->sdcnt.f1regdata += 2;
 
 	/* dongle indicates the firmware has halted/crashed */
-	if (hmb_data & HMB_DATA_FWHALT)
-		brcmf_err("mailbox indicates firmware halted\n");
+	if (hmb_data & HMB_DATA_FWHALT) {
+		brcmf_dbg(SDIO, "mailbox indicates firmware halted\n");
+		brcmf_fw_crashed(bus->sdiodev->dev);
+	}
 
 	/* Dongle recomposed rx frames, accept them again */
 	if (hmb_data & HMB_DATA_NAKHANDLED) {
