@@ -182,6 +182,9 @@ struct ov5640_mode_info {
 struct ov5640_ctrls {
 	struct v4l2_ctrl_handler handler;
 	struct {
+		struct v4l2_ctrl *pixel_rate;
+	};
+	struct {
 		struct v4l2_ctrl *auto_exp;
 		struct v4l2_ctrl *exposure;
 	};
@@ -229,6 +232,7 @@ struct ov5640_dev {
 	const struct ov5640_mode_info *last_mode;
 	enum ov5640_frame_rate current_fr;
 	struct v4l2_fract frame_interval;
+	u64 pixel_rate;
 
 	struct ov5640_ctrls ctrls;
 
@@ -2160,6 +2164,7 @@ static int ov5640_set_fmt(struct v4l2_subdev *sd,
 	const struct ov5640_mode_info *new_mode;
 	struct v4l2_mbus_framefmt *mbus_fmt = &format->format;
 	struct v4l2_mbus_framefmt *fmt;
+	u64 rate;
 	int ret;
 
 	if (format->pad != 0)
@@ -2191,6 +2196,12 @@ static int ov5640_set_fmt(struct v4l2_subdev *sd,
 	if (mbus_fmt->code != sensor->fmt.code)
 		sensor->pending_fmt_change = true;
 
+	rate = sensor->current_mode->vtot * sensor->current_mode->htot;
+	rate *= ov5640_framerates[sensor->current_fr];
+	sensor->pixel_rate = rate;
+
+	__v4l2_ctrl_s_ctrl_int64(sensor->ctrls.pixel_rate,
+				 sensor->pixel_rate);
 out:
 	mutex_unlock(&sensor->lock);
 	return ret;
@@ -2568,6 +2579,13 @@ static int ov5640_init_controls(struct ov5640_dev *sensor)
 	/* we can use our own mutex for the ctrl lock */
 	hdl->lock = &sensor->lock;
 
+	/* Clock related controls */
+	ctrls->pixel_rate =
+		v4l2_ctrl_new_std(hdl, ops,
+				  V4L2_CID_PIXEL_RATE, 0, INT_MAX, 1,
+				  55969920);
+	ctrls->pixel_rate->flags |= V4L2_CTRL_FLAG_READ_ONLY;
+
 	/* Auto/manual white balance */
 	ctrls->auto_wb = v4l2_ctrl_new_std(hdl, ops,
 					   V4L2_CID_AUTO_WHITE_BALANCE,
@@ -2693,6 +2711,7 @@ static int ov5640_s_frame_interval(struct v4l2_subdev *sd,
 	struct ov5640_dev *sensor = to_ov5640_dev(sd);
 	const struct ov5640_mode_info *mode;
 	int frame_rate, ret = 0;
+	u64 rate;
 
 	if (fi->pad != 0)
 		return -EINVAL;
@@ -2727,6 +2746,12 @@ static int ov5640_s_frame_interval(struct v4l2_subdev *sd,
 		sensor->frame_interval = fi->interval;
 		sensor->current_mode = mode;
 		sensor->pending_mode_change = true;
+
+		rate = sensor->current_mode->vtot * sensor->current_mode->htot;
+		rate *= ov5640_framerates[sensor->current_fr];
+		sensor->pixel_rate = rate;
+		__v4l2_ctrl_s_ctrl_int64(sensor->ctrls.pixel_rate,
+					 sensor->pixel_rate);
 	}
 out:
 	mutex_unlock(&sensor->lock);
