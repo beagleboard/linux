@@ -18,6 +18,13 @@ Required properties:
   and clocks IDs for 66AK2G SoC are documented at
   http://processors.wiki.ti.com/index.php/TISCI#66AK2G02_Data
 
+Optional properties:
+-------------------
+- ti,scan-clocks-from-dt: Scan clock tree info from DT. By default,
+  clocks are queried from firmware, which can be rather slow operation,
+  especially if there is a really large number of clocks available out
+  of which only a handful are ever used by kernel.
+
 Examples:
 --------
 
