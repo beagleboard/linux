@@ -79,14 +79,22 @@
 			compression = "none";
 			load = <0x83180000>;
 		};
+		fdt@9 {
+			description = "ICSS1 Ethernet";
+			data = /incbin/("am571x-idk-icss1eth.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83080000>;
+		};
 	};
 
 	configurations {
 		default = "dra72-evm.dtb";
 		am571x-idk.dtb {
-			description = "am571x-idk";
+			description = "am571x-idk 6 port Ethernet";
 			kernel = "kernel@1";
-			fdt = "fdt@1";
+			fdt = "fdt@1", "fdt@9";
 		};
 		am572x-idk.dtb {
 			description = "am572x-idk";

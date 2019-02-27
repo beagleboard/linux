@@ -751,7 +751,6 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-cl-som-am57x.dtb \
 	am57xx-sbc-am57x.dtb \
 	am572x-idk.dtb \
-	am571x-idk.dtb \
 	am574x-idk.dtb \
 	dra7-evm.dtb \
 	dra72-evm.dtb \
@@ -766,6 +765,7 @@ dtb-merge-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-evm-reva3.dtb \
 	am57xx-evm-reva3-cam-mt9t111.dtb \
 	am57xx-evm-reva3-cam-ov10635.dtb \
+	am571x-idk.dtb \
 	am571x-idk-lcd-osd101t2045.dtb \
 	am571x-idk-lcd-osd101t2587.dtb \
 	am572x-idk-lcd-osd101t2045.dtb \
