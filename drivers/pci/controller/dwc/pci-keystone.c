@@ -98,6 +98,8 @@
 
 #define to_keystone_pcie(x)		dev_get_drvdata((x)->dev)
 
+#define PCI_DEVICE_ID_TI_AM654X		0xb00c
+
 struct ks_pcie_of_data {
 	const struct dw_pcie_host_ops *host_ops;
 	unsigned int version;
@@ -617,6 +619,11 @@ static void ks_pcie_quirk(struct pci_dev *dev)
 		 .class = PCI_CLASS_BRIDGE_PCI << 8, .class_mask = ~0, },
 		{ 0, },
 	};
+	static const struct pci_device_id am6_pci_devids[] = {
+		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_AM654X),
+		 .class = PCI_CLASS_BRIDGE_PCI << 8, .class_mask = ~0, },
+		{ 0, },
+	};
 
 	if (pci_is_root_bus(bus))
 		bridge = dev;
@@ -640,6 +647,18 @@ static void ks_pcie_quirk(struct pci_dev *dev)
 		if (pcie_get_readrq(dev) > 256) {
 			dev_info(&dev->dev, "limiting MRRS to 256\n");
 			pcie_set_readrq(dev, 256);
+		}
+	}
+
+	/*
+	 * Memory transactions fail with PCI controller in AM654 PG1.0
+	 * when MRRS is set to more than 128 Bytes. Force the MRRS to
+	 * 128 Bytes in all downstream devices.
+	 */
+	if (pci_match_id(am6_pci_devids, bridge)) {
+		if (pcie_get_readrq(dev) > 128) {
+			dev_info(&dev->dev, "limiting MRRS to 128\n");
+			pcie_set_readrq(dev, 128);
 		}
 	}
 }
