@@ -25,3 +25,5 @@ keystone_netcp_ethss-y := netcp_ethss.o netcp_ethss_sysfs.o netcp_sgmii.o
 obj-$(CONFIG_TI_AM65_CPSW_NUSS) += ti-am65-cpsw-nuss.o
 ti-am65-cpsw-nuss-y := am65-cpsw-nuss.o cpsw_sl.o am65-cpsw-ethtool.o
 obj-$(CONFIG_TI_AM65_CPTS) += am65-cpts.o
+
+obj-$(CONFIG_TI_PRUETH) += prueth.o
