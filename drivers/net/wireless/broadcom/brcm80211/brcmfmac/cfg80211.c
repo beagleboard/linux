@@ -5512,6 +5512,25 @@ u8 brcmf_map_prio_to_aci(void *config, u8 prio)
 	return prio;
 }
 
+static void brcmf_init_wmm_prio(u8 *priority)
+{
+	/* Initialize AC priority array to default
+	 * 802.1d priority as per following table:
+	 * 802.1d prio 0,3 maps to BE
+	 * 802.1d prio 1,2 maps to BK
+	 * 802.1d prio 4,5 maps to VI
+	 * 802.1d prio 6,7 maps to VO
+	 */
+	priority[0] = BRCMF_FWS_FIFO_AC_BE;
+	priority[3] = BRCMF_FWS_FIFO_AC_BE;
+	priority[1] = BRCMF_FWS_FIFO_AC_BK;
+	priority[2] = BRCMF_FWS_FIFO_AC_BK;
+	priority[4] = BRCMF_FWS_FIFO_AC_VI;
+	priority[5] = BRCMF_FWS_FIFO_AC_VI;
+	priority[6] = BRCMF_FWS_FIFO_AC_VO;
+	priority[7] = BRCMF_FWS_FIFO_AC_VO;
+}
+
 static void brcmf_wifi_prioritize_acparams(const
 	struct brcmf_cfg80211_edcf_acparam *acp, u8 *priority)
 {
@@ -5564,22 +5583,30 @@ static void brcmf_wifi_prioritize_acparams(const
 	 * Use ACI prio to get the new priority value for
 	 * each 802.1d traffic type, in this range.
 	 */
+	if (!(aci_prio[AC_BE] == aci_prio[AC_BK] &&
+	      aci_prio[AC_BK] == aci_prio[AC_VI] &&
+	      aci_prio[AC_VI] == aci_prio[AC_VO])) {
 
-	/* 802.1d 0,3 maps to BE */
-	priority[0] = aci_prio[AC_BE];
-	priority[3] = aci_prio[AC_BE];
+		/* 802.1d 0,3 maps to BE */
+		priority[0] = aci_prio[AC_BE];
+		priority[3] = aci_prio[AC_BE];
 
-	/* 802.1d 1,2 maps to BK */
-	priority[1] = aci_prio[AC_BK];
-	priority[2] = aci_prio[AC_BK];
+		/* 802.1d 1,2 maps to BK */
+		priority[1] = aci_prio[AC_BK];
+		priority[2] = aci_prio[AC_BK];
 
-	/* 802.1d 4,5 maps to VO */
-	priority[4] = aci_prio[AC_VI];
-	priority[5] = aci_prio[AC_VI];
+		/* 802.1d 4,5 maps to VO */
+		priority[4] = aci_prio[AC_VI];
+		priority[5] = aci_prio[AC_VI];
 
-	/* 802.1d 6,7 maps to VO */
-	priority[6] = aci_prio[AC_VO];
-	priority[7] = aci_prio[AC_VO];
+		/* 802.1d 6,7 maps to VO */
+		priority[6] = aci_prio[AC_VO];
+		priority[7] = aci_prio[AC_VO];
+
+	} else {
+		/* Initialize to default priority */
+		brcmf_init_wmm_prio(priority);
+	}
 
 	brcmf_dbg(CONN, "Adj prio BE 0->%d, BK 1->%d, BK 2->%d, BE 3->%d\n",
 		  priority[0], priority[1], priority[2], priority[3]);
@@ -5974,25 +6001,6 @@ static void brcmf_init_conf(struct brcmf_cfg80211_conf *conf)
 	conf->rts_threshold = (u32)-1;
 	conf->retry_short = (u32)-1;
 	conf->retry_long = (u32)-1;
-}
-
-static void brcmf_init_wmm_prio(u8 *priority)
-{
-	/* Initialize AC priority array to default
-	 * 802.1d priority as per following table:
-	 * 802.1d prio 0,3 maps to BE
-	 * 802.1d prio 1,2 maps to BK
-	 * 802.1d prio 4,5 maps to VI
-	 * 802.1d prio 6,7 maps to VO
-	 */
-	priority[0] = BRCMF_FWS_FIFO_AC_BE;
-	priority[3] = BRCMF_FWS_FIFO_AC_BE;
-	priority[1] = BRCMF_FWS_FIFO_AC_BK;
-	priority[2] = BRCMF_FWS_FIFO_AC_BK;
-	priority[4] = BRCMF_FWS_FIFO_AC_VI;
-	priority[5] = BRCMF_FWS_FIFO_AC_VI;
-	priority[6] = BRCMF_FWS_FIFO_AC_VO;
-	priority[7] = BRCMF_FWS_FIFO_AC_VO;
 }
 
 static void brcmf_register_event_handlers(struct brcmf_cfg80211_info *cfg)
