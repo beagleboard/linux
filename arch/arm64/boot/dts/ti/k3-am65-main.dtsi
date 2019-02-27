@@ -27,8 +27,15 @@
 	};
 
 	scm_conf: scm_conf@100000 {
-		compatible = "syscon";
+		compatible = "syscon", "simple-mfd";
 		reg = <0 0x00100000 0 0x1c000>;
+
+		serdes_mux: mux-controller {
+			compatible = "mmio-mux";
+			#mux-control-cells = <1>;
+			mux-reg-masks = <0x4080 0x3>, /* SERDES0 lane select */
+					<0x4090 0x3>; /* SERDES1 lane select */
+		};
 	};
 
 	gic500: interrupt-controller@1800000 {
