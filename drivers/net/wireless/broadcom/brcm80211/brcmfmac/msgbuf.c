@@ -330,7 +330,7 @@ brcmf_msgbuf_alloc_pktid(struct device *dev,
 	do {
 		(*idx)++;
 		if (*idx == pktids->array_size)
-			*idx = 0;
+			*idx = 1;
 		if (array[*idx].allocated.counter == 0)
 			if (atomic_cmpxchg(&array[*idx].allocated, 0, 1) == 0)
 				break;
