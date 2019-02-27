@@ -51,6 +51,7 @@ enum phy_mode {
  * @set_mode: set the mode of the phy
  * @reset: resetting the phy
  * @calibrate: calibrate the phy
+ * @release: ops to be performed while the consumer reliquishes the PHY
  * @owner: the module owner containing the ops
  */
 struct phy_ops {
@@ -61,6 +62,7 @@ struct phy_ops {
 	int	(*set_mode)(struct phy *phy, enum phy_mode mode);
 	int	(*reset)(struct phy *phy);
 	int	(*calibrate)(struct phy *phy);
+	void	(*release)(struct phy *phy);
 	struct module *owner;
 };
 
