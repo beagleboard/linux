@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT overlay for SERDES personality card: 2lane PCIe + USB2.0 Host on AM654 EVM
+ *
+ * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/phy/phy-am654-serdes.h>
+
+&serdes0 {
+	assigned-clocks = <&k3_clks 153 4>, <&serdes0 AM654_SERDES_CMU_REFCLK>, <&serdes0 AM654_SERDES_RO_REFCLK>;
+	assigned-clock-parents = <&k3_clks 153 8>, <&k3_clks 153 4>, <&k3_clks 153 4>;
+	status = "okay";
+};
+
+&serdes1 {
+	assigned-clocks = <&serdes1 AM654_SERDES_CMU_REFCLK>;
+	assigned-clock-parents = <&serdes0 AM654_SERDES_RO_REFCLK>;
+	status = "okay";
+};
+
+&pcie0_rc {
+	num-lanes = <2>;
+	phys = <&serdes0 PHY_TYPE_PCIE 1>, <&serdes1 PHY_TYPE_PCIE 1>;
+	phy-names = "pcie-phy0", "pcie-phy1";
+	reset-gpios = <&pca9555 5 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
