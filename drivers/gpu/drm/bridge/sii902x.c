@@ -1,4 +1,6 @@
 /*
+ * Copyright (C) 2018 Renesas Electronics
+ *
  * Copyright (C) 2016 Atmel
  *		      Bo Shen <voice.shen@atmel.com>
  *
@@ -21,6 +23,7 @@
  */
 
 #include <linux/gpio/consumer.h>
+#include <linux/i2c-mux.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
@@ -174,15 +177,56 @@ struct sii902x {
 	struct drm_bridge bridge;
 	struct drm_connector connector;
 	struct gpio_desc *reset_gpio;
-	bool use_custom_ddc_probe;
+	struct i2c_mux_core *i2cmux;
 	struct mutex mutex;
 	struct sii902x_audio {
 		struct platform_device *pdev;
 		u8 channels;
 		struct clk *mclk;
+		bool mclk_enabled;
 		u32 i2s_fifo_routing[4];
 	} audio;
 };
+
+static int sii902x_read_unlocked(struct i2c_client *i2c, u8 reg, u8 *val)
+{
+	union i2c_smbus_data data;
+	int ret;
+
+	ret = __i2c_smbus_xfer(i2c->adapter, i2c->addr, i2c->flags,
+			       I2C_SMBUS_READ, reg, I2C_SMBUS_BYTE_DATA, &data);
+
+	if (ret < 0)
+		return ret;
+
+	*val = data.byte;
+	return 0;
+}
+
+static int sii902x_write_unlocked(struct i2c_client *i2c, u8 reg, u8 val)
+{
+	union i2c_smbus_data data;
+
+	data.byte = val;
+
+	return __i2c_smbus_xfer(i2c->adapter, i2c->addr, i2c->flags,
+				I2C_SMBUS_WRITE, reg, I2C_SMBUS_BYTE_DATA,
+				&data);
+}
+
+static int sii902x_update_bits_unlocked(struct i2c_client *i2c, u8 reg, u8 mask,
+					u8 val)
+{
+	int ret;
+	u8 status;
+
+	ret = sii902x_read_unlocked(i2c, reg, &status);
+	if (ret)
+		return ret;
+	status &= ~mask;
+	status |= val & mask;
+	return sii902x_write_unlocked(i2c, reg, status);
+}
 
 static inline struct sii902x *bridge_to_sii902x(struct drm_bridge *bridge)
 {
@@ -232,129 +276,17 @@ static const struct drm_connector_funcs sii902x_connector_funcs = {
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
-/*
- * This is a copy-paste from drm_do_probe_ddc_edid() with the extra
- * sleep to make SiI902x pass trough DDC transfer more reliable.
- */
-#define DDC_SEGMENT_ADDR 0x30
-static int
-sii902x_do_probe_ddc_edid(void *data, u8 *buf, unsigned int block, size_t len)
-{
-	struct i2c_adapter *adapter = data;
-	unsigned char start = block * EDID_LENGTH;
-	unsigned char segment = block >> 1;
-	unsigned char xfers = segment ? 3 : 2;
-	int ret, retries = 5;
-
-	/*
-	 * The core I2C driver will automatically retry the transfer if the
-	 * adapter reports EAGAIN. However, we find that bit-banging transfers
-	 * are susceptible to errors under a heavily loaded machine and
-	 * generate spurious NAKs and timeouts. Retrying the transfer
-	 * of the individual block a few times seems to overcome this.
-	 */
-	do {
-		struct i2c_msg msgs[] = {
-			{
-				.addr	= DDC_SEGMENT_ADDR,
-				.flags	= 0,
-				.len	= 1,
-				.buf	= &segment,
-			}, {
-				.addr	= DDC_ADDR,
-				.flags	= 0,
-				.len	= 1,
-				.buf	= &start,
-			}, {
-				.addr	= DDC_ADDR,
-				.flags	= I2C_M_RD,
-				.len	= len,
-				.buf	= buf,
-			}
-		};
-
-		/* This sleep helps k2g-evm DDC read to become reliable */
-		msleep(10);
-
-		/*
-		 * Avoid sending the segment addr to not upset non-compliant
-		 * DDC monitors.
-		 */
-		ret = i2c_transfer(adapter, &msgs[3 - xfers], xfers);
-
-		if (ret == -ENXIO) {
-			DRM_DEBUG_KMS("drm: skipping non-existent adapter %s\n",
-					adapter->name);
-			break;
-		}
-	} while (ret != xfers && --retries);
-
-	return ret == xfers ? 0 : -1;
-}
-
-/*
- * This is a simplified version of drm_get_edid(). It does not implement
- * all the features - just the necessary parts - and it uses the above
- * custom DDC read function. Tile group feature is not supported.
- */
-static struct edid *sii902x_get_edid(struct drm_connector *connector,
-				     struct i2c_adapter *adapter)
-{
-	struct edid *edid;
-
-	if (connector->force == DRM_FORCE_OFF)
-		return NULL;
-
-	edid = drm_do_get_edid(connector, sii902x_do_probe_ddc_edid, adapter);
-
-	return edid;
-}
-
 static int sii902x_get_modes(struct drm_connector *connector)
 {
 	struct sii902x *sii902x = connector_to_sii902x(connector);
-	struct regmap *regmap = sii902x->regmap;
 	u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
-	struct device *dev = &sii902x->i2c->dev;
-	unsigned long timeout;
-	unsigned int retries;
-	unsigned int status;
 	struct edid *edid;
 	u8 output_mode = SII902X_SYS_CTRL_OUTPUT_DVI;
-	int num = 0;
-	int ret;
+	int num = 0, ret;
 
 	mutex_lock(&sii902x->mutex);
 
-	ret = regmap_update_bits(regmap, SII902X_SYS_CTRL_DATA,
-				 SII902X_SYS_CTRL_DDC_BUS_REQ,
-				 SII902X_SYS_CTRL_DDC_BUS_REQ);
-	if (ret)
-		goto error_out;
-
-	timeout = jiffies +
-		  msecs_to_jiffies(SII902X_I2C_BUS_ACQUISITION_TIMEOUT_MS);
-	do {
-		ret = regmap_read(regmap, SII902X_SYS_CTRL_DATA, &status);
-		if (ret)
-			goto error_out;
-	} while (!(status & SII902X_SYS_CTRL_DDC_BUS_GRTD) &&
-		 time_before(jiffies, timeout));
-
-	if (!(status & SII902X_SYS_CTRL_DDC_BUS_GRTD)) {
-		dev_err(dev, "failed to acquire the i2c bus\n");
-		ret = -ETIMEDOUT;
-		goto error_out;
-	}
-
-	ret = regmap_write(regmap, SII902X_SYS_CTRL_DATA, status);
-	if (ret)
-		goto error_out;
-
-	if (sii902x->use_custom_ddc_probe)
-		edid = sii902x_get_edid(connector, sii902x->i2c->adapter);
-	else
-		edid = drm_get_edid(connector, sii902x->i2c->adapter);
+	edid = drm_get_edid(connector, sii902x->i2cmux->adapter[0]);
 	drm_connector_update_edid_property(connector, edid);
 	if (edid) {
 	        if (drm_detect_hdmi_monitor(edid))
@@ -369,43 +301,10 @@ static int sii902x_get_modes(struct drm_connector *connector)
 	if (ret)
 		goto error_out;
 
-	/*
-	 * Sometimes the I2C bus can stall after failure to use the
-	 * EDID channel. Retry a few times to see if things clear
-	 * up, else continue anyway.
-	 */
-	retries = 5;
-	do {
-		ret = regmap_read(regmap, SII902X_SYS_CTRL_DATA,
-				  &status);
-		retries--;
-	} while (ret && retries);
-	if (ret)
-		dev_err(dev, "failed to read status (%d)\n", ret);
-
-	ret = regmap_update_bits(regmap, SII902X_SYS_CTRL_DATA,
-				 SII902X_SYS_CTRL_DDC_BUS_REQ |
-				 SII902X_SYS_CTRL_DDC_BUS_GRTD |
+	ret = regmap_update_bits(sii902x->regmap, SII902X_SYS_CTRL_DATA,
 				 SII902X_SYS_CTRL_OUTPUT_MODE, output_mode);
 	if (ret)
 		goto error_out;
-
-	timeout = jiffies +
-		  msecs_to_jiffies(SII902X_I2C_BUS_ACQUISITION_TIMEOUT_MS);
-	do {
-		ret = regmap_read(regmap, SII902X_SYS_CTRL_DATA, &status);
-		if (ret)
-			goto error_out;
-	} while (status & (SII902X_SYS_CTRL_DDC_BUS_REQ |
-			   SII902X_SYS_CTRL_DDC_BUS_GRTD) &&
-		 time_before(jiffies, timeout));
-
-	if (status & (SII902X_SYS_CTRL_DDC_BUS_REQ |
-		      SII902X_SYS_CTRL_DDC_BUS_GRTD)) {
-		dev_err(dev, "failed to release the i2c bus\n");
-		ret = -ETIMEDOUT;
-		goto error_out;
-	}
 
 	ret = num;
 
@@ -484,25 +383,25 @@ static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
 
 	ret = regmap_bulk_write(regmap, SII902X_TPI_VIDEO_DATA, buf, 10);
 	if (ret)
-		return;
+		goto out;
 
 	ret = drm_hdmi_avi_infoframe_from_display_mode(&frame, adj, false);
 	if (ret < 0) {
 		DRM_ERROR("couldn't fill AVI infoframe\n");
-		return;
+		goto out;
 	}
 
 	ret = hdmi_avi_infoframe_pack(&frame, buf, sizeof(buf));
 	if (ret < 0) {
 		DRM_ERROR("failed to pack AVI infoframe: %d\n", ret);
-		return;
+		goto out;
 	}
 
 	/* Do not send the infoframe header, but keep the CRC field. */
 	regmap_bulk_write(regmap, SII902X_TPI_AVI_INFOFRAME,
 			  buf + HDMI_INFOFRAME_HEADER_SIZE - 1,
 			  HDMI_AVI_INFOFRAME_SIZE + 1);
-
+out:
 	mutex_unlock(&sii902x->mutex);
 }
 
@@ -660,6 +559,13 @@ static int sii902x_audio_hw_params(struct device *dev, void *data,
 		return -EINVAL;
 	};
 
+	ret = clk_prepare_enable(sii902x->audio.mclk);
+	if (ret) {
+		dev_err(dev, "Enabling mclk failed: %d\n", ret);
+		return ret;
+	}
+	sii902x->audio.mclk_enabled = true;
+
 	mclk_rate = clk_get_rate(sii902x->audio.mclk);
 
 	ret = sii902x_select_mclk_div(&i2s_config_reg, params->sample_rate,
@@ -669,12 +575,6 @@ static int sii902x_audio_hw_params(struct device *dev, void *data,
 			mclk_rate, ret, params->sample_rate);
 
 	sii902x->audio.channels = params->channels;
-
-	ret = clk_prepare_enable(sii902x->audio.mclk);
-	if (ret) {
-		dev_err(dev, "Enabling mclk failed: %d\n", ret);
-		return ret;
-	}
 
 	mutex_lock(&sii902x->mutex);
 
@@ -756,7 +656,10 @@ static void sii902x_audio_shutdown(struct device *dev, void *data)
 
 	mutex_unlock(&sii902x->mutex);
 
-	clk_disable_unprepare(sii902x->audio.mclk);
+	if (sii902x->audio.mclk_enabled) {
+		clk_disable_unprepare(sii902x->audio.mclk);
+		sii902x->audio.mclk_enabled = false;
+	}
 }
 
 int sii902x_audio_digital_mute(struct device *dev, void *data, bool enable)
@@ -834,7 +737,7 @@ static int sii902x_audio_codec_init(struct sii902x *sii902x,
 	}
 
 	for (i = 0; i < ARRAY_SIZE(sii902x->audio.i2s_fifo_routing); i++) {
-		if (sii902x->audio.i2s_fifo_routing[i] | ENABLE_BIT)
+		if (sii902x->audio.i2s_fifo_routing[i] & ENABLE_BIT)
 			codec_data.max_i2s_channels += 2;
 		sii902x->audio.i2s_fifo_routing[i] |= i2s_fifo_defaults[i];
 	}
@@ -877,6 +780,121 @@ static irqreturn_t sii902x_interrupt(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/*
+ * The purpose of sii902x_i2c_bypass_select is to enable the pass through
+ * mode of the HDMI transmitter. Do not use regmap from within this function,
+ * only use sii902x_*_unlocked functions to read/modify/write registers.
+ * We are holding the parent adapter lock here, keep this in mind before
+ * adding more i2c transactions.
+ *
+ * Also, since SII902X_SYS_CTRL_DATA is used with regmap_update_bits elsewhere
+ * in this driver, we need to make sure that we only touch 0x1A[2:1] from
+ * within sii902x_i2c_bypass_select and sii902x_i2c_bypass_deselect, and that
+ * we leave the remaining bits as we have found them.
+ */
+static int sii902x_i2c_bypass_select(struct i2c_mux_core *mux, u32 chan_id)
+{
+	struct sii902x *sii902x = i2c_mux_priv(mux);
+	struct device *dev = &sii902x->i2c->dev;
+	unsigned long timeout;
+	u8 status;
+	int ret;
+
+	ret = sii902x_update_bits_unlocked(sii902x->i2c, SII902X_SYS_CTRL_DATA,
+					   SII902X_SYS_CTRL_DDC_BUS_REQ,
+					   SII902X_SYS_CTRL_DDC_BUS_REQ);
+	if (ret)
+		return ret;
+
+	timeout = jiffies +
+		  msecs_to_jiffies(SII902X_I2C_BUS_ACQUISITION_TIMEOUT_MS);
+	do {
+		ret = sii902x_read_unlocked(sii902x->i2c, SII902X_SYS_CTRL_DATA,
+					    &status);
+		if (ret)
+			return ret;
+	} while (!(status & SII902X_SYS_CTRL_DDC_BUS_GRTD) &&
+		 time_before(jiffies, timeout));
+
+	if (!(status & SII902X_SYS_CTRL_DDC_BUS_GRTD)) {
+		dev_err(dev, "Failed to acquire the i2c bus\n");
+		return -ETIMEDOUT;
+	}
+
+	return sii902x_write_unlocked(sii902x->i2c, SII902X_SYS_CTRL_DATA,
+				      status);
+}
+
+/*
+ * The purpose of sii902x_i2c_bypass_deselect is to disable the pass through
+ * mode of the HDMI transmitter. Do not use regmap from within this function,
+ * only use sii902x_*_unlocked functions to read/modify/write registers.
+ * We are holding the parent adapter lock here, keep this in mind before
+ * adding more i2c transactions.
+ *
+ * Also, since SII902X_SYS_CTRL_DATA is used with regmap_update_bits elsewhere
+ * in this driver, we need to make sure that we only touch 0x1A[2:1] from
+ * within sii902x_i2c_bypass_select and sii902x_i2c_bypass_deselect, and that
+ * we leave the remaining bits as we have found them.
+ */
+static int sii902x_i2c_bypass_deselect(struct i2c_mux_core *mux, u32 chan_id)
+{
+	struct sii902x *sii902x = i2c_mux_priv(mux);
+	struct device *dev = &sii902x->i2c->dev;
+	unsigned long timeout;
+	unsigned int retries;
+	u8 status;
+	int ret;
+
+	/*
+	 * When the HDMI transmitter is in pass through mode, we need an
+	 * (undocumented) additional delay between STOP and START conditions
+	 * to guarantee the bus won't get stuck.
+	 */
+	udelay(30);
+
+	/*
+	 * Sometimes the I2C bus can stall after failure to use the
+	 * EDID channel. Retry a few times to see if things clear
+	 * up, else continue anyway.
+	 */
+	retries = 5;
+	do {
+		ret = sii902x_read_unlocked(sii902x->i2c, SII902X_SYS_CTRL_DATA,
+					    &status);
+		retries--;
+	} while (ret && retries);
+	if (ret) {
+		dev_err(dev, "failed to read status (%d)\n", ret);
+		return ret;
+	}
+
+	ret = sii902x_update_bits_unlocked(sii902x->i2c, SII902X_SYS_CTRL_DATA,
+					   SII902X_SYS_CTRL_DDC_BUS_REQ |
+					   SII902X_SYS_CTRL_DDC_BUS_GRTD, 0);
+	if (ret)
+		return ret;
+
+	timeout = jiffies +
+		  msecs_to_jiffies(SII902X_I2C_BUS_ACQUISITION_TIMEOUT_MS);
+	do {
+		ret = sii902x_read_unlocked(sii902x->i2c, SII902X_SYS_CTRL_DATA,
+					    &status);
+		if (ret)
+			return ret;
+	} while (status & (SII902X_SYS_CTRL_DDC_BUS_REQ |
+			   SII902X_SYS_CTRL_DDC_BUS_GRTD) &&
+		 time_before(jiffies, timeout));
+
+	if (status & (SII902X_SYS_CTRL_DDC_BUS_REQ |
+		      SII902X_SYS_CTRL_DDC_BUS_GRTD)) {
+		dev_err(dev, "failed to release the i2c bus\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 static const struct drm_bridge_timings default_sii902x_timings = {
 	.input_bus_flags = DRM_BUS_FLAG_PIXDATA_SAMPLE_NEGEDGE
 		 | DRM_BUS_FLAG_SYNC_SAMPLE_NEGEDGE
@@ -891,6 +909,13 @@ static int sii902x_probe(struct i2c_client *client,
 	struct sii902x *sii902x;
 	u8 chipid[4];
 	int ret;
+
+	ret = i2c_check_functionality(client->adapter,
+				      I2C_FUNC_SMBUS_BYTE_DATA);
+	if (!ret) {
+		dev_err(dev, "I2C adapter not suitable\n");
+		return -EIO;
+	}
 
 	sii902x = devm_kzalloc(dev, sizeof(*sii902x), GFP_KERNEL);
 	if (!sii902x)
@@ -947,9 +972,6 @@ static int sii902x_probe(struct i2c_client *client,
 			return ret;
 	}
 
-	sii902x->use_custom_ddc_probe =
-		of_property_read_bool(dev->of_node, "use-custom-ddc-probe");
-
 	sii902x->bridge.funcs = &sii902x_bridge_funcs;
 	sii902x->bridge.of_node = dev->of_node;
 	sii902x->bridge.timings = &default_sii902x_timings;
@@ -959,7 +981,15 @@ static int sii902x_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, sii902x);
 
-	return 0;
+	sii902x->i2cmux = i2c_mux_alloc(client->adapter, dev,
+					1, 0, I2C_MUX_GATE,
+					sii902x_i2c_bypass_select,
+					sii902x_i2c_bypass_deselect);
+	if (!sii902x->i2cmux)
+		return -ENOMEM;
+
+	sii902x->i2cmux->priv = sii902x;
+	return i2c_mux_add_adapter(sii902x->i2cmux, 0, 0, 0);
 }
 
 static int sii902x_remove(struct i2c_client *client)
@@ -967,6 +997,7 @@ static int sii902x_remove(struct i2c_client *client)
 {
 	struct sii902x *sii902x = i2c_get_clientdata(client);
 
+	i2c_mux_del_adapters(sii902x->i2cmux);
 	drm_bridge_remove(&sii902x->bridge);
 
 	return 0;

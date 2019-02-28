@@ -513,7 +513,6 @@
 			0
 		>;
 		clocks = <&sii9022_mclk>;
-		use-custom-ddc-probe;
 
 		ports {
 			#address-cells = <1>;

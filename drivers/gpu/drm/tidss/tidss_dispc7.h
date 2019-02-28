@@ -21,9 +21,17 @@ struct dispc7_features_scaling {
 	u32 xinc_max;
 };
 
+struct dispc7_errata {
+	bool i2000; /* DSS Does Not Support YUV Pixel Data Formats */
+};
+
 enum dispc7_vp_bus_type {
 	DISPC7_VP_DPI,
 	DISPC7_VP_OLDI,
+};
+
+enum dispc7_dss_subrevision {
+	DSS7_AM6,
 };
 
 struct dispc7_features {
@@ -32,6 +40,8 @@ struct dispc7_features {
 	unsigned long max_pclk;
 
 	struct dispc7_features_scaling scaling;
+
+	enum dispc7_dss_subrevision subrev;
 
 	u32 num_vps;
 	const char *vp_name[DISPC7_MAX_PORTS]; /* Should match dt reg names */
@@ -42,6 +52,8 @@ struct dispc7_features {
 	const char *vid_name[DISPC7_MAX_PLANES]; /* Should match dt reg names */
 	bool vid_lite[DISPC7_MAX_PLANES];
 	u32 vid_order[DISPC7_MAX_PLANES];
+
+	struct dispc7_errata errata;
 };
 
 #define DSS_REVISION			0x4
