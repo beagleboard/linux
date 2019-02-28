@@ -29,6 +29,31 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		mcu_r5fss0_core1_dma_memory_region: r5f-dma-memory@9b000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9b000000 0 0x100000>;
+			no-map;
+		};
+
+		mcu_r5fss0_core1_memory_region: r5f-memory@9b100000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9b100000 0 0xf00000>;
+			no-map;
+		};
+
+		mcu_r5fss0_core0_dma_memory_region: r5f-dma-memory@9c000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9c000000 0 0x100000>;
+			no-map;
+		};
+
+		mcu_r5fss0_core0_memory_region: r5f-memory@9c100000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x9c100000 0 0x700000>;
+			no-map;
+		};
+
 		secure_ddr: secure_ddr@9e800000 {
 			reg = <0 0x9e800000 0 0x01800000>; /* for OP-TEE */
 			alignment = <0x1000>;
@@ -316,4 +341,14 @@
 	adc {
 		ti,adc-channels = <0 1 2 3 4 5 6 7>;
 	};
+};
+
+&mcu_r5fss0_core0 {
+	memory-region = <&mcu_r5fss0_core0_dma_memory_region>,
+			<&mcu_r5fss0_core0_memory_region>;
+};
+
+&mcu_r5fss0_core1 {
+	memory-region = <&mcu_r5fss0_core1_dma_memory_region>,
+			<&mcu_r5fss0_core1_memory_region>;
 };
