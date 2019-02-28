@@ -55,6 +55,8 @@ static const struct dispc7_features dispc7_am6_feats = {
 		.xinc_max = 32,
 	},
 
+	.subrev = DSS7_AM6,
+
 	.num_vps = 2,
 	.vp_name = { "vp1", "vp2" },
 	.ovr_name = { "ovr1", "ovr2" },

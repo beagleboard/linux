@@ -30,12 +30,18 @@ enum dispc7_vp_bus_type {
 	DISPC7_VP_OLDI,
 };
 
+enum dispc7_dss_subrevision {
+	DSS7_AM6,
+};
+
 struct dispc7_features {
 	/* XXX should these come from the .dts? Min pclk is not feature of DSS IP */
 	unsigned long min_pclk;
 	unsigned long max_pclk;
 
 	struct dispc7_features_scaling scaling;
+
+	enum dispc7_dss_subrevision subrev;
 
 	u32 num_vps;
 	const char *vp_name[DISPC7_MAX_PORTS]; /* Should match dt reg names */
