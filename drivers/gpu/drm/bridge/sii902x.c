@@ -183,6 +183,7 @@ struct sii902x {
 		struct platform_device *pdev;
 		u8 channels;
 		struct clk *mclk;
+		bool mclk_enabled;
 		u32 i2s_fifo_routing[4];
 	} audio;
 };
@@ -558,6 +559,13 @@ static int sii902x_audio_hw_params(struct device *dev, void *data,
 		return -EINVAL;
 	};
 
+	ret = clk_prepare_enable(sii902x->audio.mclk);
+	if (ret) {
+		dev_err(dev, "Enabling mclk failed: %d\n", ret);
+		return ret;
+	}
+	sii902x->audio.mclk_enabled = true;
+
 	mclk_rate = clk_get_rate(sii902x->audio.mclk);
 
 	ret = sii902x_select_mclk_div(&i2s_config_reg, params->sample_rate,
@@ -567,12 +575,6 @@ static int sii902x_audio_hw_params(struct device *dev, void *data,
 			mclk_rate, ret, params->sample_rate);
 
 	sii902x->audio.channels = params->channels;
-
-	ret = clk_prepare_enable(sii902x->audio.mclk);
-	if (ret) {
-		dev_err(dev, "Enabling mclk failed: %d\n", ret);
-		return ret;
-	}
 
 	mutex_lock(&sii902x->mutex);
 
@@ -654,7 +656,10 @@ static void sii902x_audio_shutdown(struct device *dev, void *data)
 
 	mutex_unlock(&sii902x->mutex);
 
-	clk_disable_unprepare(sii902x->audio.mclk);
+	if (sii902x->audio.mclk_enabled) {
+		clk_disable_unprepare(sii902x->audio.mclk);
+		sii902x->audio.mclk_enabled = false;
+	}
 }
 
 int sii902x_audio_digital_mute(struct device *dev, void *data, bool enable)
