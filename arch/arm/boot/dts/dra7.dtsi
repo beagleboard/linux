@@ -905,6 +905,8 @@
 			reg = <0x48032000 0x80>;
 			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer2";
+			clocks = <&l4per_clkctrl DRA7_TIMER2_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer3: timer@48034000 {
@@ -912,6 +914,8 @@
 			reg = <0x48034000 0x80>;
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer3";
+			clocks = <&l4per_clkctrl DRA7_TIMER3_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer4: timer@48036000 {
@@ -919,6 +923,8 @@
 			reg = <0x48036000 0x80>;
 			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer4";
+			clocks = <&l4per_clkctrl DRA7_TIMER4_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer5: timer@48820000 {
@@ -926,6 +932,8 @@
 			reg = <0x48820000 0x80>;
 			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer5";
+			clocks = <&ipu_clkctrl DRA7_TIMER5_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer6: timer@48822000 {
@@ -933,6 +941,8 @@
 			reg = <0x48822000 0x80>;
 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer6";
+			clocks = <&ipu_clkctrl DRA7_TIMER6_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer7: timer@48824000 {
@@ -940,6 +950,8 @@
 			reg = <0x48824000 0x80>;
 			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer7";
+			clocks = <&ipu_clkctrl DRA7_TIMER7_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer8: timer@48826000 {
@@ -947,6 +959,8 @@
 			reg = <0x48826000 0x80>;
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer8";
+			clocks = <&ipu_clkctrl DRA7_TIMER8_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer9: timer@4803e000 {
@@ -954,6 +968,8 @@
 			reg = <0x4803e000 0x80>;
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer9";
+			clocks = <&l4per_clkctrl DRA7_TIMER9_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer10: timer@48086000 {
@@ -961,6 +977,8 @@
 			reg = <0x48086000 0x80>;
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer10";
+			clocks = <&l4per_clkctrl DRA7_TIMER10_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer11: timer@48088000 {
@@ -968,6 +986,8 @@
 			reg = <0x48088000 0x80>;
 			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer11";
+			clocks = <&l4per_clkctrl DRA7_TIMER11_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer12: timer@4ae20000 {
@@ -977,6 +997,8 @@
 			ti,hwmods = "timer12";
 			ti,timer-alwon;
 			ti,timer-secure;
+			clocks = <&wkupaon_clkctrl DRA7_TIMER12_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer13: timer@48828000 {
@@ -984,6 +1006,8 @@
 			reg = <0x48828000 0x80>;
 			interrupts = <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer13";
+			clocks = <&l4per_clkctrl DRA7_TIMER13_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer14: timer@4882a000 {
@@ -991,6 +1015,8 @@
 			reg = <0x4882a000 0x80>;
 			interrupts = <GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer14";
+			clocks = <&l4per_clkctrl DRA7_TIMER14_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer15: timer@4882c000 {
@@ -998,6 +1024,8 @@
 			reg = <0x4882c000 0x80>;
 			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer15";
+			clocks = <&l4per_clkctrl DRA7_TIMER15_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer16: timer@4882e000 {
@@ -1005,6 +1033,8 @@
 			reg = <0x4882e000 0x80>;
 			interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer16";
+			clocks = <&l4per_clkctrl DRA7_TIMER16_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		wdt2: wdt@4ae14000 {
