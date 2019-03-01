@@ -953,5 +953,22 @@
 					<GIC_SPI 51 IRQ_TYPE_EDGE_RISING>;
 			};
 		};
+
+		pcie0_ep: pcie-ep@21800000 {
+			compatible = "ti,keystone-pcie-ep";
+			power-domains = <&k2g_pds 0x0019>;
+			clocks = <&k2g_clks 0x19 0x0>;
+			clock-names = "fck";
+			#size-cells = <2>;
+			reg =  <0x21800000 0x1000>, <0x21801000 0x2000>, <0x70000000 0x10000000>;
+			reg-names = "app", "dbics", "addr_space";
+			interrupts = <GIC_SPI 60 IRQ_TYPE_EDGE_RISING>;
+			num-lanes = <1>;
+			num-ib-windows = <4>;
+			num-ob-windows = <32>;
+			ti,syscon-pcie-mode = <&pcie_mode>;
+			dma-coherent;
+			status = "disabled";
+		};
 	};
 };
