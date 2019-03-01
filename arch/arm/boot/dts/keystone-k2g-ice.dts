@@ -707,3 +707,11 @@
 		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
 	};
 };
+
+&pcie0_phy {
+	status = "okay";
+};
+
+&pcie0_ep {
+	status = "okay";
+};
