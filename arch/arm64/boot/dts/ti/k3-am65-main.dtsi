@@ -1330,15 +1330,15 @@
 		interrupts = <GIC_SPI 355 IRQ_TYPE_EDGE_RISING>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
-		interrupt-map = <0 0 0 1 &pcie1_intc 0>, /* INT A */
-				<0 0 0 2 &pcie1_intc 0>, /* INT B */
-				<0 0 0 3 &pcie1_intc 0>, /* INT C */
-				<0 0 0 4 &pcie1_intc 0>; /* INT D */
+		interrupt-map = <0 0 0 1 &pcie1_intc 0 IRQ_TYPE_EDGE_RISING>, /* INT A */
+				<0 0 0 2 &pcie1_intc 0 IRQ_TYPE_EDGE_RISING>, /* INT B */
+				<0 0 0 3 &pcie1_intc 0 IRQ_TYPE_EDGE_RISING>, /* INT C */
+				<0 0 0 4 &pcie1_intc 0 IRQ_TYPE_EDGE_RISING>; /* INT D */
 		msi-map = <0x0 &gic_its 0x10000 0x10000>;
 
 		pcie1_intc: legacy-interrupt-controller@1 {
 			interrupt-controller;
-			#interrupt-cells = <1>;
+			#interrupt-cells = <2>;
 			interrupt-parent = <&gic500>;
 			interrupts = <GIC_SPI 343 IRQ_TYPE_EDGE_RISING>;
 		};
