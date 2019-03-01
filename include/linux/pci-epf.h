@@ -165,4 +165,6 @@ int pci_epf_init_dma_chan(struct pci_epf *epf);
 void pci_epf_clean_dma_chan(struct pci_epf *epf);
 int pci_epf_data_transfer(struct pci_epf *epf, dma_addr_t dma_dst,
 			  dma_addr_t dma_src, size_t len);
+int pci_epf_tx(struct pci_epf *epf, dma_addr_t dma_dst, dma_addr_t dma_src,
+	       size_t len);
 #endif /* __LINUX_PCI_EPF_H */

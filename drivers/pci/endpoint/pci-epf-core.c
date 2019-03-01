@@ -149,6 +149,39 @@ void pci_epf_clean_dma_chan(struct pci_epf *epf)
 EXPORT_SYMBOL_GPL(pci_epf_clean_dma_chan);
 
 /**
+ * pci_epf_tx() - transfer data between EPC and remote PCIe RC
+ * @epf: the EPF device that performs the data transfer operation
+ * @dma_dst: The destination address of the data transfer. It can be a physical
+ *	     address given by pci_epc_mem_alloc_addr or DMA mapping APIs.
+ * @dma_src: The source address of the data transfer. It can be a physical
+ *	     address given by pci_epc_mem_alloc_addr or DMA mapping APIs.
+ * @len: The size of the data transfer
+ *
+ * Invoke to transfer data between EPC and remote PCIe RC. The source and
+ * destination address can be a physical address given by pci_epc_mem_alloc_addr
+ * or the one obtained using DMA mapping APIs.
+ */
+int pci_epf_tx(struct pci_epf *epf, dma_addr_t dma_dst,
+	       dma_addr_t dma_src, size_t len)
+{
+	int ret;
+	struct pci_epc *epc = epf->epc;
+
+	if (IS_ERR_OR_NULL(epc) || IS_ERR_OR_NULL(epf))
+		return -EINVAL;
+
+	if (!epc->ops->data_transfer)
+		return -EINVAL;
+
+	mutex_lock(&epf->lock);
+	ret = epc->ops->data_transfer(epc, epf, dma_dst, dma_src, len);
+	mutex_unlock(&epf->lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pci_epf_tx);
+
+/**
  * pci_epf_unbind() - Notify the function driver that the binding between the
  *		      EPF device and EPC device has been lost
  * @epf: the EPF device which has lost the binding with the EPC device

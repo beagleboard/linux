@@ -22,6 +22,9 @@ enum pci_epc_irq_type {
 
 /**
  * struct pci_epc_ops - set of function pointers for performing EPC operations
+ * @epf_init: ops to perform EPC specific initialization
+ * @epf_exit: ops to cleanup EPF
+ * @data_transfer: ops to transfer data with the remote RC
  * @write_header: ops to populate configuration space header
  * @set_bar: ops to configure the BAR
  * @clear_bar: ops to reset the BAR
@@ -41,6 +44,11 @@ enum pci_epc_irq_type {
  * @owner: the module owner containing the ops
  */
 struct pci_epc_ops {
+	int	(*epf_init)(struct pci_epc *epc, struct pci_epf *epf);
+	void	(*epf_exit)(struct pci_epc *epc, struct pci_epf *epf);
+	int	(*data_transfer)(struct pci_epc *epc, struct pci_epf *epf,
+				 dma_addr_t dma_dst, dma_addr_t dma_src,
+				 size_t len);
 	int	(*write_header)(struct pci_epc *epc, u8 func_no,
 				struct pci_epf_header *hdr);
 	int	(*set_bar)(struct pci_epc *epc, u8 func_no,
@@ -196,4 +204,6 @@ void __iomem *pci_epc_mem_alloc_addr(struct pci_epc *epc,
 				     phys_addr_t *phys_addr, size_t size);
 void pci_epc_mem_free_addr(struct pci_epc *epc, phys_addr_t phys_addr,
 			   void __iomem *virt_addr, size_t size);
+int pci_epc_epf_init(struct pci_epc *epc, struct pci_epf *epf);
+void pci_epc_epf_exit(struct pci_epc *epc, struct pci_epf *epf);
 #endif /* __LINUX_PCI_EPC_H */

@@ -136,6 +136,53 @@ const struct pci_epc_features *pci_epc_get_features(struct pci_epc *epc,
 EXPORT_SYMBOL_GPL(pci_epc_get_features);
 
 /**
+ * pci_epc_epf_init() - EPC specific EPF initialization
+ * @epc: the EPC device that initializes the EPF
+ * @epf: the EPF device that has to be initialized
+ *
+ * Invoke to initialize EPF that is specific to a EPC and varies from
+ * platform to platform
+ */
+int pci_epc_epf_init(struct pci_epc *epc, struct pci_epf *epf)
+{
+	int ret;
+
+	if (IS_ERR_OR_NULL(epc) || IS_ERR_OR_NULL(epf))
+		return -EINVAL;
+
+	if (!epc->ops->epf_init)
+		return 0;
+
+	mutex_lock(&epc->lock);
+	ret = epc->ops->epf_init(epc, epf);
+	mutex_unlock(&epc->lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pci_epc_epf_init);
+
+/**
+ * pci_epc_epf_exit() - Cleanup the EPF initialization
+ * @epc: the EPC device that initialized the EPF
+ * @epf: the EPF device that has to be reset
+ *
+ * Invoke to cleanup the EPF initialization done as part fo pci_epc_epf_init.
+ */
+void pci_epc_epf_exit(struct pci_epc *epc, struct pci_epf *epf)
+{
+	if (IS_ERR_OR_NULL(epc) || IS_ERR_OR_NULL(epf))
+		return;
+
+	if (!epc->ops->epf_exit)
+		return;
+
+	mutex_lock(&epc->lock);
+	epc->ops->epf_exit(epc, epf);
+	mutex_unlock(&epc->lock);
+}
+EXPORT_SYMBOL_GPL(pci_epc_epf_exit);
+
+/**
  * pci_epc_stop() - stop the PCI link
  * @epc: the link of the EPC device that has to be stopped
  *
