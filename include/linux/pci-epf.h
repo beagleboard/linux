@@ -106,6 +106,8 @@ struct pci_epf_bar {
  * @bar: represents the BAR of EPF device
  * @msi_interrupts: number of MSI interrupts required by this function
  * @func_no: unique function number within this endpoint device
+ * @dma_chan: allocated DMA memcpy channel
+ * @transfer_complete: completion variable to handle completion of data transfer
  * @epc: the EPC device to which this EPF device is bound
  * @driver: the EPF driver to which this EPF device is bound
  * @list: to add pci_epf as a list of PCI endpoint functions to pci_epc
@@ -120,6 +122,9 @@ struct pci_epf {
 	u8			msi_interrupts;
 	u16			msix_interrupts;
 	u8			func_no;
+
+	struct dma_chan         *dma_chan;
+	struct completion       transfer_complete;
 
 	struct pci_epc		*epc;
 	struct pci_epf_driver	*driver;
@@ -156,4 +161,8 @@ void *pci_epf_alloc_space(struct pci_epf *epf, size_t size, enum pci_barno bar,
 void pci_epf_free_space(struct pci_epf *epf, void *addr, enum pci_barno bar);
 int pci_epf_bind(struct pci_epf *epf);
 void pci_epf_unbind(struct pci_epf *epf);
+int pci_epf_init_dma_chan(struct pci_epf *epf);
+void pci_epf_clean_dma_chan(struct pci_epf *epf);
+int pci_epf_data_transfer(struct pci_epf *epf, dma_addr_t dma_dst,
+			  dma_addr_t dma_src, size_t len);
 #endif /* __LINUX_PCI_EPF_H */
