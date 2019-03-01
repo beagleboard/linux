@@ -1,14 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2017 Texas Instruments Incorporated - http://www.ti.com/
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com/
  */
 
-/* AM437x GP EVM with HDMI output */
+/* AM43x EPOS EVM with HDMI output */
 
-#include "am437x-gp-evm.dts"
+#include "am43x-epos-evm.dts"
 
 /delete-node/ &lcd0;
 
@@ -64,18 +61,25 @@
 	status = "disabled";
 };
 
-&tlv320aic3106 {
-	status = "disabled";
+&am43xx_pinmux {
+	sii9022_pins: sii9022_pins {
+		pinctrl-single,pins = <
+			AM4372_IOPAD(0x848, PIN_INPUT | MUX_MODE7)	/* gpmc_a2.gpio1_18 */
+		>;
+	};
 };
 
-&i2c1 {
+&i2c2 {
 	sii9022: sii9022@3b {
 		#sound-dai-cells = <0>;
 		compatible = "sil,sii9022";
 		reg = <0x3b>;
 
-		interrupt-parent = <&gpio3>;
-		interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sii9022_pins>;
+
+		interrupt-parent = <&gpio1>;
+		interrupts = <18 IRQ_TYPE_LEVEL_LOW>;
 
 		i2s-fifo-routing = <
 			(ENABLE_BIT|CONNECT_SD0)
@@ -114,9 +118,9 @@
 	data-lines = <24>;
 };
 
-/* Override SelLCDorHDMI from am437x-gp-evm.dts to select HDMI */
-&gpio5 {
-	p8 {
+/* Override SelLCDorHDMI from am43x-epos-evm.dts to select HDMI */
+&gpio2 {
+	p1 {
 		output-low;
 	};
 };
