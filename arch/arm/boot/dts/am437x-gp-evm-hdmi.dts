@@ -84,6 +84,7 @@
 			0
 		>;
 		clocks = <&sii9022_mclk>;
+		clock-names = "mclk";
 
 		ports {
 			#address-cells = <1>;
