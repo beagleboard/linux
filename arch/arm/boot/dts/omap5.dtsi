@@ -788,6 +788,8 @@
 			reg = <0x48032000 0x80>;
 			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer2";
+			clocks = <&l4per_clkctrl OMAP5_TIMER2_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer3: timer@48034000 {
@@ -795,6 +797,8 @@
 			reg = <0x48034000 0x80>;
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer3";
+			clocks = <&l4per_clkctrl OMAP5_TIMER3_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer4: timer@48036000 {
@@ -802,6 +806,8 @@
 			reg = <0x48036000 0x80>;
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer4";
+			clocks = <&l4per_clkctrl OMAP5_TIMER4_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer5: timer@40138000 {
@@ -812,6 +818,8 @@
 			ti,hwmods = "timer5";
 			ti,timer-dsp;
 			ti,timer-pwm;
+			clocks = <&abe_clkctrl OMAP5_TIMER5_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer6: timer@4013a000 {
@@ -822,6 +830,8 @@
 			ti,hwmods = "timer6";
 			ti,timer-dsp;
 			ti,timer-pwm;
+			clocks = <&abe_clkctrl OMAP5_TIMER6_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer7: timer@4013c000 {
@@ -831,6 +841,8 @@
 			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer7";
 			ti,timer-dsp;
+			clocks = <&abe_clkctrl OMAP5_TIMER7_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer8: timer@4013e000 {
@@ -841,6 +853,8 @@
 			ti,hwmods = "timer8";
 			ti,timer-dsp;
 			ti,timer-pwm;
+			clocks = <&abe_clkctrl OMAP5_TIMER8_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer9: timer@4803e000 {
@@ -849,6 +863,8 @@
 			interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer9";
 			ti,timer-pwm;
+			clocks = <&l4per_clkctrl OMAP5_TIMER9_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer10: timer@48086000 {
@@ -857,6 +873,8 @@
 			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer10";
 			ti,timer-pwm;
+			clocks = <&l4per_clkctrl OMAP5_TIMER10_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer11: timer@48088000 {
@@ -865,6 +883,8 @@
 			interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer11";
 			ti,timer-pwm;
+			clocks = <&l4per_clkctrl OMAP5_TIMER11_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		wdt2: wdt@4ae14000 {
