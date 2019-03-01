@@ -1,0 +1,6 @@
+/dts-v1/;
+/plugin/;
+
+&gpmc {
+	status = "okay";
+};
