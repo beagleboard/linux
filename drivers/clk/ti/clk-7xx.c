@@ -27,6 +27,32 @@ static const struct omap_clkctrl_reg_data dra7_mpu_clkctrl_regs[] __initconst = 
 	{ 0 },
 };
 
+static const struct omap_clkctrl_reg_data dra7_dsp1_clkctrl_regs[] __initconst = {
+	{ DRA7_DSP1_CLKCTRL, NULL, CLKF_HW_SUP | CLKF_NO_IDLEST, "dpll_dsp_m2_ck" },
+	{ 0 },
+};
+
+static const struct omap_clkctrl_reg_data dra7_dsp2_clkctrl_regs[] __initconst = {
+	{ DRA7_DSP2_CLKCTRL, NULL, CLKF_HW_SUP | CLKF_NO_IDLEST, "dpll_dsp_m2_ck" },
+	{ 0 },
+};
+
+static const char * const dra7_ipu1_gfclk_mux_parents[] __initconst = {
+	"dpll_abe_m2x2_ck",
+	"dpll_core_h22x2_ck",
+	NULL,
+};
+
+static const struct omap_clkctrl_bit_data dra7_ipu1_bit_data[] __initconst = {
+	{ 24, TI_CLK_MUX, dra7_ipu1_gfclk_mux_parents, NULL },
+	{ 0 },
+};
+
+static const struct omap_clkctrl_reg_data dra7_ipu1_clkctrl_regs[] __initconst = {
+	{ DRA7_IPU1_CLKCTRL, dra7_ipu1_bit_data, CLKF_HW_SUP | CLKF_NO_IDLEST, "ipu1_cm:clk:0000:24", "ipu1_clkdm" },
+	{ 0 },
+};
+
 static const char * const dra7_mcasp1_aux_gfclk_mux_parents[] __initconst = {
 	"per_abe_x1_gfclk2_div",
 	"video1_clk2_div",
@@ -137,6 +163,11 @@ static const struct omap_clkctrl_reg_data dra7_l3main1_clkctrl_regs[] __initcons
 	{ DRA7_TPTC1_CLKCTRL, NULL, CLKF_HW_SUP, "l3_iclk_div" },
 	{ DRA7_VCP1_CLKCTRL, NULL, 0, "l3_iclk_div" },
 	{ DRA7_VCP2_CLKCTRL, NULL, 0, "l3_iclk_div" },
+	{ 0 },
+};
+
+static const struct omap_clkctrl_reg_data dra7_ipu2_clkctrl_regs[] __initconst = {
+	{ DRA7_IPU2_CLKCTRL, NULL, CLKF_HW_SUP | CLKF_NO_IDLEST, "dpll_core_h22x2_ck" },
 	{ 0 },
 };
 
@@ -615,6 +646,8 @@ static const struct omap_clkctrl_bit_data dra7_mcasp7_bit_data[] __initconst = {
 static const struct omap_clkctrl_reg_data dra7_l4per_clkctrl_regs[] __initconst = {
 	{ DRA7_L4_PER2_CLKCTRL, NULL, 0, "l3_iclk_div", "l4per2_clkdm" },
 	{ DRA7_L4_PER3_CLKCTRL, NULL, 0, "l3_iclk_div", "l4per3_clkdm" },
+	{ DRA7_PRUSS1_CLKCTRL, NULL, CLKF_SW_SUP, "dpll_gmac_h13x2_ck" },
+	{ DRA7_PRUSS2_CLKCTRL, NULL, CLKF_SW_SUP, "dpll_gmac_h13x2_ck" },
 	{ DRA7_TIMER10_CLKCTRL, dra7_timer10_bit_data, CLKF_SW_SUP, "l4per_cm:clk:0028:24" },
 	{ DRA7_TIMER11_CLKCTRL, dra7_timer11_bit_data, CLKF_SW_SUP, "l4per_cm:clk:0030:24" },
 	{ DRA7_TIMER2_CLKCTRL, dra7_timer2_bit_data, CLKF_SW_SUP, "l4per_cm:clk:0038:24" },
@@ -714,10 +747,14 @@ static const struct omap_clkctrl_reg_data dra7_wkupaon_clkctrl_regs[] __initcons
 
 const struct omap_clkctrl_data dra7_clkctrl_data[] __initconst = {
 	{ 0x4a005320, dra7_mpu_clkctrl_regs },
+	{ 0x4a005420, dra7_dsp1_clkctrl_regs },
+	{ 0x4a005520, dra7_ipu1_clkctrl_regs },
 	{ 0x4a005540, dra7_ipu_clkctrl_regs },
+	{ 0x4a005620, dra7_dsp2_clkctrl_regs },
 	{ 0x4a005740, dra7_rtc_clkctrl_regs },
 	{ 0x4a008620, dra7_coreaon_clkctrl_regs },
 	{ 0x4a008720, dra7_l3main1_clkctrl_regs },
+	{ 0x4a008920, dra7_ipu2_clkctrl_regs },
 	{ 0x4a008a20, dra7_dma_clkctrl_regs },
 	{ 0x4a008b20, dra7_emif_clkctrl_regs },
 	{ 0x4a008c00, dra7_atl_clkctrl_regs },
@@ -752,6 +789,7 @@ static struct ti_dt_clk dra7xx_clks[] = {
 	DT_CLK(NULL, "gpio6_dbclk", "l4per_cm:0080:8"),
 	DT_CLK(NULL, "gpio7_dbclk", "l4per_cm:0110:8"),
 	DT_CLK(NULL, "gpio8_dbclk", "l4per_cm:0118:8"),
+	DT_CLK(NULL, "ipu1_gfclk_mux", "ipu1_cm:0000:24"),
 	DT_CLK(NULL, "mcasp1_ahclkr_mux", "ipu_cm:0010:28"),
 	DT_CLK(NULL, "mcasp1_ahclkx_mux", "ipu_cm:0010:24"),
 	DT_CLK(NULL, "mcasp1_aux_gfclk_mux", "ipu_cm:0010:22"),
