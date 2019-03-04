@@ -34,7 +34,7 @@ static const struct omap_clkctrl_reg_data omap5_mpu_clkctrl_regs[] __initconst =
 };
 
 static const struct omap_clkctrl_reg_data omap5_dsp_clkctrl_regs[] __initconst = {
-	{ OMAP5_MMU_DSP_CLKCTRL, NULL, CLKF_HW_SUP, "dpll_iva_h11x2_ck" },
+	{ OMAP5_MMU_DSP_CLKCTRL, NULL, CLKF_HW_SUP | CLKF_NO_IDLEST, "dpll_iva_h11x2_ck" },
 	{ 0 },
 };
 
@@ -148,7 +148,7 @@ static const struct omap_clkctrl_reg_data omap5_l3main2_clkctrl_regs[] __initcon
 };
 
 static const struct omap_clkctrl_reg_data omap5_ipu_clkctrl_regs[] __initconst = {
-	{ OMAP5_MMU_IPU_CLKCTRL, NULL, CLKF_HW_SUP, "dpll_core_h22x2_ck" },
+	{ OMAP5_MMU_IPU_CLKCTRL, NULL, CLKF_HW_SUP | CLKF_NO_IDLEST, "dpll_core_h22x2_ck" },
 	{ 0 },
 };
 
@@ -533,6 +533,17 @@ static struct ti_dt_clk omap54xx_clks[] = {
 	DT_CLK(NULL, "usb_tll_hs_usb_ch2_clk", "l3init_cm:0048:10"),
 	DT_CLK(NULL, "utmi_p1_gfclk", "l3init_cm:0038:24"),
 	DT_CLK(NULL, "utmi_p2_gfclk", "l3init_cm:0038:25"),
+	DT_CLK("4ae18000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48032000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48034000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48036000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("4803e000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48086000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("48088000.timer", "timer_sys_ck", "sys_clkin"),
+	DT_CLK("40138000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
+	DT_CLK("4013a000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
+	DT_CLK("4013c000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
+	DT_CLK("4013e000.timer", "timer_sys_ck", "dss_syc_gfclk_div"),
 	{ .node_name = NULL },
 };
 
