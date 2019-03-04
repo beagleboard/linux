@@ -464,6 +464,7 @@
 			ti,hwmods = "dsp";
 			syscon-bootreg = <&scm_conf 0x304>;
 			iommus = <&mmu_dsp>;
+			ti,rproc-standby-info = <0x4a004420>;
 			mboxes = <&mailbox &mbox_dsp>;
 			status = "disabled";
 		};
@@ -474,6 +475,7 @@
 			reg-names = "l2ram";
 			ti,hwmods = "ipu";
 			iommus = <&mmu_ipu>;
+			ti,rproc-standby-info = <0x4a008920>;
 			mboxes = <&mailbox &mbox_ipu>;
 			status = "disabled";
 		};
