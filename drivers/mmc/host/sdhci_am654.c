@@ -6,6 +6,7 @@
  *
  */
 #include <linux/clk.h>
+#include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/property.h>
@@ -319,6 +320,12 @@ static int sdhci_am654_probe(struct platform_device *pdev)
 	ret = mmc_of_parse(host->mmc);
 	if (ret) {
 		dev_err(dev, "parsing dt failed (%d)\n", ret);
+		goto pm_runtime_put;
+	}
+
+	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(48));
+	if (ret) {
+		dev_err(dev, "error setting dma mask: %d\n", ret);
 		goto pm_runtime_put;
 	}
 

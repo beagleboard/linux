@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+  fragment@101 {
+	target-path = "/";
+
+	__overlay__ {
+
+		aliases {
+			ethernet4 = "/pruss1_eth/ethernet-mii0";
+			ethernet5 = "/pruss1_eth/ethernet-mii1";
+		};
+
+		/* Dual mac ethernet application node on icss1 */
+		pruss1_eth {
+			status = "okay";
+			compatible = "ti,am57-prueth";
+			prus = <&pru1_0>, <&pru1_1>;
+			firmware-name = "ti-pruss/am57xx-pru0-prueth-fw.elf",
+					"ti-pruss/am57xx-pru1-prueth-fw.elf";
+			ti,pruss-gp-mux-sel = <0>,	/* GP, default */
+					      <4>;	/* MII2, needed for PRUSS1_MII1 */
+			sram = <&ocmcram1>;
+			interrupt-parent = <&pruss1_intc>;
+			mii-rt = <&pruss1_mii_rt>;
+			iep = <&pruss1_iep>;
+
+			ethernet-mii0 {
+				phy-handle = <&pruss1_eth0_phy>;
+				phy-mode = "mii";
+				interrupts = <20>, <22>;
+				interrupt-names = "rx", "tx";
+				/* Filled in by bootloader */
+				local-mac-address = [00 00 00 00 00 00];
+			};
+
+			ethernet-mii1 {
+				phy-handle = <&pruss1_eth1_phy>;
+				phy-mode = "mii";
+				interrupts = <21>, <23>;
+				interrupt-names = "rx", "tx";
+				/* Filled in by bootloader */
+				local-mac-address = [00 00 00 00 00 00];
+			};
+		};
+	};
+  };
+};
+
+&pruss1_mdio {
+	status = "okay";
+	reset-gpios = <&gpio5 8 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <2>;   /* PHY datasheet states 1uS min */
+	pruss1_eth0_phy: ethernet-phy@0 {
+		reg = <0>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <28 IRQ_TYPE_EDGE_FALLING>;
+	};
+
+	pruss1_eth1_phy: ethernet-phy@1 {
+		reg = <1>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
+&pruss2_eth {
+	ti,pruss-gp-mux-sel = <4>,	/* MII2, needed for PRUSS1_MII0 */
+			      <4>;	/* MII2, needed for PRUSS1_MII1 */
+};

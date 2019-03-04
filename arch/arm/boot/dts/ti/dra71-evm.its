@@ -31,6 +31,14 @@
 			compression = "none";
 			load = <0x83100000>;
 		};
+		fdt@3 {
+			description = "DRA71x-evm NAND";
+			data = /incbin/("dra71-evm-nand.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83200000>;
+		};
 	};
 
 	configurations {
@@ -43,6 +51,11 @@
 		lcd-auo-g101evn01.0 {
 			description = "DRA71x-evm with LCD overlay";
 			fdt = "fdt@2";
+		};
+		dra71-evm-nand {
+			description = "DRA71x-evm with NAND overlay";
+			kernel = "kernel@1";
+			fdt = "fdt@1", "fdt@3";
 		};
 	};
 };

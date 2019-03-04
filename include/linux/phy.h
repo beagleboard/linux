@@ -232,7 +232,8 @@ struct mii_bus {
 	/* GPIO reset pulse width in microseconds */
 	int reset_delay_us;
 	/* RESET GPIO descriptor pointer */
-	struct gpio_desc *reset_gpiod;
+	int num_resets;
+	struct gpio_desc *reset_gpiod[PHY_MAX_ADDR];
 };
 #define to_mii_bus(d) container_of(d, struct mii_bus, dev)
 

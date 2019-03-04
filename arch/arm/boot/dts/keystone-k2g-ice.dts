@@ -38,6 +38,13 @@
 		};
 	};
 
+	aliases {
+		ethernet1 = &pruss0_emac0;
+		ethernet2 = &pruss0_emac1;
+		ethernet3 = &pruss1_emac0;
+		ethernet4 = &pruss1_emac1;
+	};
+
 	vmain: fixedregulator-vmain {
 		compatible = "regulator-fixed";
 		regulator-name = "vmain_fixed";
@@ -222,6 +229,70 @@
 			linux,default-trigger = "heartbeat";
 		};
 	};
+
+	/* Dual-MAC Ethernet application node on PRU-ICSS0 */
+	pruss0_eth {
+		compatible = "ti,k2g-prueth";
+		prus = <&pru0_0>, <&pru0_1>;
+		firmware-name = "ti-pruss/k2g-pru0-prueth-fw.elf",
+				"ti-pruss/k2g-pru1-prueth-fw.elf";
+		ti,pruss-gp-mux-sel = <2>,	/* MII, needed for PR0_MII0 & PR0_MII1 */
+				      <2>;	/* MII, needed for PR0_MII1 & PR0_MII1 */
+		sram = <&msm_ram>;
+		interrupt-parent = <&pruss0_intc>;
+		mii-rt = <&pruss0_mii_rt>;
+		iep = <&pruss0_iep>;
+
+		pruss0_emac0: ethernet-mii0 {
+			phy-handle = <&pruss0_eth0_phy>;
+			phy-mode = "mii";
+			interrupts = <20>, <22>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+
+		pruss0_emac1: ethernet-mii1 {
+			phy-handle = <&pruss0_eth1_phy>;
+			phy-mode = "mii";
+			interrupts = <21>, <23>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
+
+	/* Dual-MAC Ethernet application node on PRU-ICSS1 */
+	pruss1_eth {
+		compatible = "ti,k2g-prueth";
+		prus = <&pru1_0>, <&pru1_1>;
+		firmware-name = "ti-pruss/k2g-pru0-prueth-fw.elf",
+				"ti-pruss/k2g-pru1-prueth-fw.elf";
+		ti,pruss-gp-mux-sel = <2>,	/* MII, needed for PR1_MII0 & PR1_MII1 */
+				      <2>;	/* MII, needed for PR1_MII1 & PR1_MII1 */
+		sram = <&msm_ram>;
+		interrupt-parent = <&pruss1_intc>;
+		mii-rt = <&pruss1_mii_rt>;
+		iep = <&pruss1_iep>;
+
+		pruss1_emac0: ethernet-mii0 {
+			phy-handle = <&pruss1_eth0_phy>;
+			phy-mode = "mii";
+			interrupts = <20>, <22>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+
+		pruss1_emac1: ethernet-mii1 {
+			phy-handle = <&pruss1_eth1_phy>;
+			phy-mode = "mii";
+			interrupts = <21>, <23>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
 };
 
 &k2g_pinctrl {
@@ -311,6 +382,123 @@
 		pinctrl-single,pins = <
 			K2G_CORE_IOPAD(0x118C) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* MDIO_CLK.MDIO_CLK */
 			K2G_CORE_IOPAD(0x1188) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* MDIO_DATA.MDIO_DATA */
+		>;
+	};
+
+	pruss0_mdio_default: pruss0_mdio_default {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x12cc) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* pr0_mdio_data.pr0_mdio_data */
+			K2G_CORE_IOPAD(0x12d0) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE0)	/* pr0_mdio_mdclk.pr0_mdio_mdclk */
+			K2G_CORE_IOPAD(0x105c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE3)	/* gpmc_wait1.gpio0_23 (pr0_mii0_resetn) */
+			K2G_CORE_IOPAD(0x1070) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_csn2.gpio0_28 (pr0_mii0_intn) */
+			K2G_CORE_IOPAD(0x1054) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE3)	/* gpmc_be1n.gpio0_21 (pr0_mii1_resetn) */
+			K2G_CORE_IOPAD(0x1074) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_csn3.gpio0_29 (pr0_mii1_intn) */
+		>;
+	};
+
+	pruss1_mdio_default: pruss1_mdio_default {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1374) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE0)	/* pr1_mdio_data.pr1_mdio_data */
+			K2G_CORE_IOPAD(0x1378) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE0)	/* pr1_mdio_mdclk.pr1_mdio_mdclk */
+			K2G_CORE_IOPAD(0x1050) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE3)	/* gpmc_be0ncle.gpio0_20 (pr1_mii0_resetn) */
+			K2G_CORE_IOPAD(0x1044) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_advnale.gpio0_17 (pr1_mii0_intn) */
+			K2G_CORE_IOPAD(0x1060) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE3)	/* gpmc_wpn.gpio0_24 (pr1_mii1_resetn) */
+			K2G_CORE_IOPAD(0x1088) (BUFFER_CLASS_B | PIN_PULLUP | MUX_MODE3)	/* gpmc_wait0.gpio0_22 (pr1_mii1_intn) */
+		>;
+	};
+
+	pruss0_eth_default: pruss0_eth_default {
+		pinctrl-single,pins = <
+			/* PRUSS0 External Mux routing */
+			K2G_CORE_IOPAD(0x11d4) (BUFFER_CLASS_B | MUX_MODE3)			/* uart0_ctsn.gpio0_106 */
+			K2G_CORE_IOPAD(0x11d8) (BUFFER_CLASS_B | MUX_MODE3)			/* uart0_rtsn.gpio0_107 */
+			K2G_CORE_IOPAD(0x11fc) (BUFFER_CLASS_B | MUX_MODE3)			/* dcan0_rx.gpio1_57 */
+			K2G_CORE_IOPAD(0x1200) (BUFFER_CLASS_B | MUX_MODE3)			/* dcan0_tx.gpio1_56 */
+			K2G_CORE_IOPAD(0x1224) (BUFFER_CLASS_B | MUX_MODE3)			/* qspi_csn2.gpio1_66 */
+			K2G_CORE_IOPAD(0x1228) (BUFFER_CLASS_B | MUX_MODE3)			/* qspi_csn3.gpio1_67 */
+
+			/* PRUSS0 PRU0 Ethernet */
+			K2G_CORE_IOPAD(0x122c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru0_gpo0.pr0_pru0_gpi0 (pr0_mii0_rxd0) */
+			K2G_CORE_IOPAD(0x1230) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru0_gpo1.pr0_pru0_gpi1 (pr0_mii0_rxd1) */
+			K2G_CORE_IOPAD(0x1234) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru0_gpo2.pr0_pru0_gpi2 (pr0_mii0_rxd2) */
+			K2G_CORE_IOPAD(0x1238) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru0_gpo3.pr0_pru0_gpi3 (pr0_mii0_rxd3) */
+			K2G_CORE_IOPAD(0x123c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru0_gpo4.pr0_pru0_gpi4 (pr0_mii0_rxdv) */
+			K2G_CORE_IOPAD(0x1240) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru0_gpo5.pr0_pru0_gpi5 (pr0_mii0_rxer) */
+			K2G_CORE_IOPAD(0x1244) (BUFFER_CLASS_B | MUX_MODE1)			/* pr0_pru0_gpo6.pr0_pru0_gpi6 (pr0_mii_mr0_clk) */
+
+			K2G_CORE_IOPAD(0x124c) (BUFFER_CLASS_B | MUX_MODE1)			/* pr0_pru0_gpo8.pr0_pru0_gpi8 (pr0_mii0_rxlink) */
+			K2G_CORE_IOPAD(0x1250) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru0_gpo9.pr0_pru0_gpi9 (pr0_mii0_col) */
+			K2G_CORE_IOPAD(0x1254) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru0_gpo10.pr0_pru0_gpi10 (pr0_mii0_crs) */
+
+			K2G_CORE_IOPAD(0x12a8) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru1_gpo11.pr0_pru1_gpo11 (pr0_mii0_txd0) */
+			K2G_CORE_IOPAD(0x12ac) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru1_gpo12.pr0_pru1_gpo12 (pr0_mii0_txd1) */
+			K2G_CORE_IOPAD(0x12b0) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru1_gpo13.pr0_pru1_gpo13 (pr0_mii0_txd2) */
+			K2G_CORE_IOPAD(0x12b4) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru1_gpo14.pr0_pru1_gpo14 (pr0_mii0_txd3) */
+			K2G_CORE_IOPAD(0x12b8) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru1_gpo15.pr0_pru1_gpo15 (pr0_mii0_txen) */
+			K2G_CORE_IOPAD(0x12bc) (BUFFER_CLASS_B | MUX_MODE1)			/* pr0_pru1_gpo16.pr0_pru1_gpo16 (pr0_mii_mt0_clk) */
+
+			/* PRUSS0 PRU1 Ethernet */
+			K2G_CORE_IOPAD(0x127c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru1_gpo0.pr0_pru1_gpi0 (pr0_mii1_rxd0) */
+			K2G_CORE_IOPAD(0x1280) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru1_gpo1.pr0_pru1_gpi1 (pr0_mii1_rxd1) */
+			K2G_CORE_IOPAD(0x1284) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru1_gpo2.pr0_pru1_gpi2 (pr0_mii1_rxd2) */
+			K2G_CORE_IOPAD(0x1288) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru1_gpo3.pr0_pru1_gpi3 (pr0_mii1_rxd3) */
+			K2G_CORE_IOPAD(0x128c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru1_gpo4.pr0_pru1_gpi4 (pr0_mii1_rxdv) */
+			K2G_CORE_IOPAD(0x1290) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru1_gpo5.pr0_pru1_gpi5 (pr0_mii1_rxer) */
+			K2G_CORE_IOPAD(0x1294) (BUFFER_CLASS_B | MUX_MODE1)			/* pr0_pru1_gpo6.pr0_pru1_gpi6 (pr0_mii_mr1_clk) */
+
+			K2G_CORE_IOPAD(0x129c) (BUFFER_CLASS_B | MUX_MODE1)			/* pr0_pru1_gpo8.pr0_pru1_gpi8 (pr0_mii1_rxlink) */
+			K2G_CORE_IOPAD(0x12a0) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru1_gpo9.pr0_pru1_gpi9 (pr0_mii1_col) */
+			K2G_CORE_IOPAD(0x12a4) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr0_pru1_gpo10.pr0_pru1_gpi10 (pr0_mii1_crs) */
+
+			K2G_CORE_IOPAD(0x1258) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru0_gpo11.pr0_pru0_gpo11 (pr0_mii1_txd0) */
+			K2G_CORE_IOPAD(0x125c) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru0_gpo12.pr0_pru0_gpo12 (pr0_mii1_txd1) */
+			K2G_CORE_IOPAD(0x1260) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru0_gpo13.pr0_pru0_gpo13 (pr0_mii1_txd2) */
+			K2G_CORE_IOPAD(0x1264) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru0_gpo14.pr0_pru0_gpo14 (pr0_mii1_txd3) */
+			K2G_CORE_IOPAD(0x1268) (BUFFER_CLASS_B | MUX_MODE0)			/* pr0_pru0_gpo15.pr0_pru0_gpo15 (pr0_mii1_txen) */
+			K2G_CORE_IOPAD(0x126c) (BUFFER_CLASS_B | MUX_MODE1)			/* pr0_pru0_gpo16.pr0_pru0_gpo16 (pr0_mii_mt1_clk) */
+		>;
+	};
+
+	pruss1_eth_default: pruss1_eth_default {
+		pinctrl-single,pins = <
+			/* PRUSS1 PRU0 Ethernet */
+			K2G_CORE_IOPAD(0x12d4) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru0_gpo0.pr1_pru0_gpi0 (pr1_mii0_rxd0) */
+			K2G_CORE_IOPAD(0x12d8) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru0_gpo1.pr1_pru0_gpi1 (pr1_mii0_rxd1) */
+			K2G_CORE_IOPAD(0x12dc) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru0_gpo2.pr1_pru0_gpi2 (pr1_mii0_rxd2) */
+			K2G_CORE_IOPAD(0x12e0) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru0_gpo3.pr1_pru0_gpi3 (pr1_mii0_rxd3) */
+			K2G_CORE_IOPAD(0x12e4) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru0_gpo4.pr1_pru0_gpi4 (pr1_mii0_rxdv) */
+			K2G_CORE_IOPAD(0x12e8) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru0_gpo5.pr1_pru0_gpi5 (pr1_mii0_rxer) */
+			K2G_CORE_IOPAD(0x12ec) (BUFFER_CLASS_B | MUX_MODE1)			/* pr1_pru0_gpo6.pr1_pru0_gpi6 (pr1_mii_mr0_clk) */
+
+			K2G_CORE_IOPAD(0x12f4) (BUFFER_CLASS_B | MUX_MODE1)			/* pr1_pru0_gpo8.pr1_pru0_gpi8 (pr1_mii0_rxlink) */
+			K2G_CORE_IOPAD(0x12f8) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru0_gpo9.pr1_pru0_gpi9 (pr1_mii0_col) */
+			K2G_CORE_IOPAD(0x12fc) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru0_gpo10.pr1_pru0_gpi10 (pr1_mii0_crs) */
+
+			K2G_CORE_IOPAD(0x1350) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru1_gpo11.pr1_pru1_gpo11 (pr1_mii0_txd0) */
+			K2G_CORE_IOPAD(0x1354) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru1_gpo12.pr1_pru1_gpo12 (pr1_mii0_txd1) */
+			K2G_CORE_IOPAD(0x1358) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru1_gpo13.pr1_pru1_gpo13 (pr1_mii0_txd2) */
+			K2G_CORE_IOPAD(0x135c) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru1_gpo14.pr1_pru1_gpo14 (pr1_mii0_txd3) */
+			K2G_CORE_IOPAD(0x1360) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru1_gpo15.pr1_pru1_gpo15 (pr1_mii0_txen) */
+			K2G_CORE_IOPAD(0x1364) (BUFFER_CLASS_B | MUX_MODE1)			/* pr1_pru1_gpo16.pr1_pru1_gpo16 (pr1_mii_mt0_clk) */
+
+			/* PRUSS1 PRU1 Ethernet */
+			K2G_CORE_IOPAD(0x1324) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru1_gpo0.pr1_pru1_gpi0 (pr1_mii1_rxd0) */
+			K2G_CORE_IOPAD(0x132c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru1_gpo2.pr1_pru1_gpi2 (pr1_mii1_rxd2) */
+			K2G_CORE_IOPAD(0x1330) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru1_gpo3.pr1_pru1_gpi3 (pr1_mii1_rxd3) */
+			K2G_CORE_IOPAD(0x1334) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru1_gpo4.pr1_pru1_gpi4 (pr1_mii1_rxdv) */
+			K2G_CORE_IOPAD(0x1338) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru1_gpo5.pr1_pru1_gpi5 (pr1_mii1_rxer) */
+			K2G_CORE_IOPAD(0x133c) (BUFFER_CLASS_B | MUX_MODE1)			/* pr1_pru1_gpo6.pr1_pru1_gpi6 (pr1_mii_mr1_clk) */
+
+			K2G_CORE_IOPAD(0x1344) (BUFFER_CLASS_B | MUX_MODE1)			/* pr1_pru1_gpo8.pr1_pru1_gpi8 (pr1_mii1_rxlink) */
+			K2G_CORE_IOPAD(0x1348) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru1_gpo9.pr1_pru1_gpi9 (pr1_mii1_col) */
+			K2G_CORE_IOPAD(0x134c) (BUFFER_CLASS_B | PULL_DISABLE | MUX_MODE1)	/* pr1_pru1_gpo10.pr1_pru1_gpi10 (pr1_mii1_crs) */
+
+			K2G_CORE_IOPAD(0x1300) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru0_gpo11.pr1_pru0_gpo11 (pr1_mii1_txd0) */
+			K2G_CORE_IOPAD(0x1304) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru0_gpo12.pr1_pru0_gpo12 (pr1_mii1_txd1) */
+			K2G_CORE_IOPAD(0x1308) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru0_gpo13.pr1_pru0_gpo13 (pr1_mii1_txd2) */
+			K2G_CORE_IOPAD(0x130c) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru0_gpo14.pr1_pru0_gpo14 (pr1_mii1_txd3) */
+			K2G_CORE_IOPAD(0x1310) (BUFFER_CLASS_B | MUX_MODE0)			/* pr1_pru0_gpo15.pr1_pru0_gpo15 (pr1_mii1_txen) */
+			K2G_CORE_IOPAD(0x1314) (BUFFER_CLASS_B | MUX_MODE1)			/* pr1_pru0_gpo16.pr1_pru0_gpo16 (pr1_mii_mt1_clk) */
 		>;
 	};
 };
@@ -466,4 +654,56 @@
 	phy-handle = <&ethphy0>;
 	phy-mode = "rgmii-id";
 	status = "okay";
+};
+
+&pruss0 {
+	pinctrl-0 = <&pruss0_eth_default>;
+	pinctrl-names = "default";
+};
+
+&pruss1 {
+	pinctrl-0 = <&pruss1_eth_default>;
+	pinctrl-names = "default";
+};
+
+&pruss0_mdio {
+	status = "okay";
+	pinctrl-0 = <&pruss0_mdio_default>;
+	pinctrl-names = "default";
+	reset-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>,
+		      <&gpio0 21 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <20>;
+
+	pruss0_eth0_phy: ethernet-phy@0 {
+		reg = <0>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <28 IRQ_TYPE_EDGE_FALLING>;
+	};
+
+	pruss0_eth1_phy: ethernet-phy@1 {
+		reg = <1>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
+&pruss1_mdio {
+	status = "okay";
+	pinctrl-0 = <&pruss1_mdio_default>;
+	pinctrl-names = "default";
+	reset-gpios = <&gpio0 20 GPIO_ACTIVE_LOW>,
+		      <&gpio0 24 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <20>;
+
+	pruss1_eth0_phy: ethernet-phy@2 {
+		reg = <2>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <17 IRQ_TYPE_EDGE_FALLING>;
+	};
+
+	pruss1_eth1_phy: ethernet-phy@3 {
+		reg = <3>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
+	};
 };
