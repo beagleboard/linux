@@ -180,7 +180,7 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 	dst_addr = dma_map_single(dma_dev, buf, reg->size, DMA_FROM_DEVICE);
 	if (dma_mapping_error(dma_dev, dst_addr)) {
 		dev_err(dev, "failed to map destination buffer address\n");
-		memcpy(buf, src_addr, reg->size);
+		memcpy_fromio(buf, src_addr, reg->size);
 		goto skip_dma;
 	}
 
@@ -188,7 +188,7 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 	if (tx) {
 		dev_err(dev, "DMA transfer failed, using memcpy..\n");
 		dma_unmap_single(dma_dev, dst_addr, reg->size, DMA_FROM_DEVICE);
-		memcpy(buf, src_addr, reg->size);
+		memcpy_fromio(buf, src_addr, reg->size);
 		goto skip_dma;
 	}
 
@@ -254,14 +254,14 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 	src_addr = dma_map_single(dma_dev, buf, reg->size, DMA_TO_DEVICE);
 	if (dma_mapping_error(dma_dev, src_addr)) {
 		dev_err(dev, "failed to map source buffer address\n");
-		memcpy(dst_addr, buf, reg->size);
+		memcpy_toio(dst_addr, buf, reg->size);
 		goto skip_dma;
 	}
 
 	tx = pci_epf_tx(epf, phys_addr, src_addr, reg->size);
 	if (tx) {
 		dev_err(dev, "DMA transfer failed, using memcpy..\n");
-		memcpy(dst_addr, buf, reg->size);
+		memcpy_toio(dst_addr, buf, reg->size);
 	}
 
 	dma_unmap_single(dma_dev, src_addr, reg->size, DMA_TO_DEVICE);
