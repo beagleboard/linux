@@ -288,6 +288,8 @@ static __poll_t rpmsg_sock_poll(struct file *file, struct socket *sock,
 	/* exceptional events? */
 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
 		mask |= EPOLLERR;
+	if (sk->sk_state == RPMSG_ERROR)
+		mask |= EPOLLERR;
 	if (sk->sk_shutdown & RCV_SHUTDOWN)
 		mask |= EPOLLRDHUP;
 	if (sk->sk_shutdown == SHUTDOWN_MASK)
@@ -672,8 +674,10 @@ static void rpmsg_proto_remove(struct rpmsg_device *rpdev)
 			rpsk->endpt = NULL;
 		}
 		release_sock(&rpsk->sk);
-		if (endpt)
+		if (endpt) {
 			rpmsg_destroy_ept(endpt);
+			rpsk->sk.sk_error_report(&rpsk->sk);
+		}
 	}
 	kfree(sk_list);
 	rpdev->ept->priv = NULL;
