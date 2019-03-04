@@ -1,0 +1,175 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+  fragment@101 {
+	target-path = "/";
+
+	__overlay__ {
+		compatible = "ti,am5728-evm", "ti,am572x-beagle-x15", "ti,am5728", "ti,dra742", "ti,dra74", "ti,dra7";
+		model = "TI AM5728 EVM";
+
+		aliases {
+			display0 = "/display";
+			display1 = "/connector";
+		};
+
+		gpio_keys {
+			compatible = "gpio-keys";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			autorepeat;
+
+			USER1 {
+				gpios = <&gpio2 23 GPIO_ACTIVE_LOW>;
+				label = "Up";
+				linux,code = <KEY_UP>;
+			};
+
+			USER2 {
+				gpios = <&gpio2 25 GPIO_ACTIVE_LOW>;
+				label = "Down";
+				linux,code = <KEY_DOWN>;
+			};
+
+			USER3 {
+				gpios = <&gpio2 28 GPIO_ACTIVE_LOW>;
+				label = "Left";
+				linux,code = <KEY_LEFT>;
+			};
+
+			USER4 {
+				gpios = <&gpio2 24 GPIO_ACTIVE_LOW>;
+				label = "Right";
+				linux,code = <KEY_RIGHT>;
+			};
+
+			USER5 {
+				gpios = <&gpio2 20 GPIO_ACTIVE_LOW>;
+				label = "Home";
+				linux,code = <KEY_HOME>;
+			};
+		};
+
+		lcd0: display {
+			compatible = "osddisplays,osd070t1718-19ts", "panel-dpi";
+			backlight = <&lcd_bl>;
+			enable-gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
+			label = "lcd";
+
+			panel-timing {
+				clock-frequency = <33000000>;
+				de-active = <1>;
+				hactive = <800>;
+				hback-porch = <16>;
+				hfront-porch = <210>;
+				hsync-active = <0>;
+				hsync-len = <30>;
+				pixelclk-active = <1>;
+				vactive = <480>;
+				vback-porch = <10>;
+				vfront-porch = <22>;
+				vsync-active = <0>;
+				vsync-len = <13>;
+			};
+
+			port {
+				lcd_in: endpoint {
+					remote-endpoint = <&dpi_out>;
+				};
+			};
+		};
+
+		lcd_bl: backlight {
+			compatible = "pwm-backlight";
+			brightness-levels = <0 243 245 247 249 251 252 253 255>;
+			default-brightness-level = <8>;
+			pwms = <&ehrpwm1 0 50000 0>;
+		};
+
+		com_3v6: fixedregulator-com_3v6 {
+			compatible = "regulator-fixed";
+			regulator-name = "com_3v6";
+			regulator-min-microvolt = <3600000>;
+			regulator-max-microvolt = <3600000>;
+			vin-supply = <&evm_5v0>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		vmmcwl_fixed: fixedregulator-mmcwl {
+			compatible = "regulator-fixed";
+			regulator-name = "vmmcwl_fixed";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&gpio5 8 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+	};
+  };
+};
+
+&ehrpwm1 {
+	status = "okay";
+};
+
+&epwmss1 {
+	status = "okay";
+};
+
+&i2c5 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	pixcir_ts@5c {
+		compatible = "pixcir,pixcir_tangoc";
+		attb-gpio = <&gpio2 4 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <4 0>;
+		reg = <0x5c>;
+		reset-gpio = <&gpio2 6 GPIO_ACTIVE_HIGH>;
+		touchscreen-size-x = <1024>;
+		touchscreen-size-y = <600>;
+	};
+};
+
+&uart8 {
+	status = "okay";
+};
+
+&dss {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port {
+			reg = <0>;
+
+			dpi_out: endpoint {
+				data-lines = <24>;
+				remote-endpoint = <&lcd_in>;
+			};
+		};
+	};
+};
+
+&mmc3 {
+	status = "okay";
+	vmmc-supply = <&com_3v6>;
+	vqmmc-supply = <&vmmcwl_fixed>;
+	bus-width = <4>;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	non-removable;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	wlcore: wlcore@2 {
+		compatible = "ti,wl1835";
+		reg = <2>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_EDGE_RISING>;
+	};
+};

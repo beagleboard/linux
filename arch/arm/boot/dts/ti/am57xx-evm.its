@@ -32,8 +32,8 @@
 			load = <0x83000000>;
 		};
 		fdt@3 {
-			description = "AM57xx-evm overlay";
-			data = /incbin/("am57xx-evm.dtbo");
+			description = "AM57xx-evm-common overlay";
+			data = /incbin/("am57xx-evm-common.dtbo");
 			type = "flat_dt";
 			arch = "arm";
 			compression = "none";
@@ -55,6 +55,22 @@
 			compression = "none";
 			load = <0x83100000>;
 		};
+		fdt@6 {
+			description = "AM57xx-evm overlay";
+			data = /incbin/("am57xx-evm.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83090000>;
+		};
+		fdt@7 {
+			description = "AM57xx-evm-reva3 overlay";
+			data = /incbin/("am57xx-evm-reva3.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83090000>;
+		};
 	};
 
 	configurations {
@@ -62,12 +78,12 @@
 		am57xx-evm.dtb {
 			description = "AM57xx EVM";
 			kernel = "kernel@1";
-			fdt = "fdt@1", "fdt@3";
+			fdt = "fdt@1", "fdt@3", "fdt@6";
 		};
 		am57xx-evm-reva3.dtb {
 			description = "AM57xx EVM rev A3";
 			kernel = "kernel@1";
-			fdt = "fdt@2", "fdt@3";
+			fdt = "fdt@2", "fdt@3", "fdt@7";
 		};
 		am57xx-beagle-x15.dtb {
 			description = "AM57xx beagle-x15";
