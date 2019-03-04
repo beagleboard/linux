@@ -194,6 +194,14 @@ static int iommu_enable(struct omap_iommu *obj)
 	struct platform_device *pdev = to_platform_device(obj->dev);
 	struct iommu_platform_data *pdata = dev_get_platdata(&pdev->dev);
 
+	if (pdata && pdata->set_pwrdm_constraint) {
+		err = pdata->set_pwrdm_constraint(pdev, true, &obj->pwrst);
+		if (err) {
+			dev_warn(obj->dev, "pwrdm_constraint failed to be set, status = %d\n",
+				 err);
+		}
+	}
+
 	if (pdata && pdata->deassert_reset) {
 		err = pdata->deassert_reset(pdev, pdata->reset_name);
 		if (err) {
@@ -213,6 +221,7 @@ static void iommu_disable(struct omap_iommu *obj)
 {
 	struct platform_device *pdev = to_platform_device(obj->dev);
 	struct iommu_platform_data *pdata = dev_get_platdata(&pdev->dev);
+	int ret;
 
 	omap2_iommu_disable(obj);
 
@@ -220,6 +229,14 @@ static void iommu_disable(struct omap_iommu *obj)
 
 	if (pdata && pdata->assert_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
+
+	if (pdata && pdata->set_pwrdm_constraint) {
+		ret = pdata->set_pwrdm_constraint(pdev, false, &obj->pwrst);
+		if (ret) {
+			dev_warn(obj->dev, "pwrdm_constraint failed to be reset, status = %d\n",
+				 ret);
+		}
+	}
 }
 
 /*
@@ -1558,7 +1575,7 @@ static const struct iommu_ops omap_iommu_ops = {
 static int __init omap_iommu_init(void)
 {
 	struct kmem_cache *p;
-	const unsigned long flags = SLAB_HWCACHE_ALIGN;
+	const slab_flags_t flags = SLAB_HWCACHE_ALIGN;
 	size_t align = 1 << 10; /* L2 pagetable alignement */
 	struct device_node *np;
 	int ret;
