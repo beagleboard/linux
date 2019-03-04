@@ -8,6 +8,10 @@
 #include "keystone-k2g-evm.dts"
 #include <dt-bindings/pwm/pwm.h>
 
+/delete-node/ &hdmi;
+/delete-node/ &sii9022;
+/delete-node/ &sound0;
+
 / {
 	lcd0: display {
 		compatible = "newhaven,nhd-4.3-480272ef-atxl";
@@ -84,16 +88,4 @@
 
 &dpi_out {
 	remote-endpoint = <&lcd_in>;
-};
-
-&hdmi {
-	status = "disabled";
-};
-
-&sii9022 {
-	status = "disabled";
-};
-
-&sound0 {
-	status = "disabled";
 };
