@@ -29,6 +29,8 @@
 		serial1 = &uart2;
 		serial2 = &uart3;
 		serial3 = &uart4;
+		rproc0 = &dsp;
+		rproc1 = &ipu;
 	};
 
 	cpus {
@@ -107,11 +109,6 @@
 			compatible = "ti,omap4-mpu";
 			ti,hwmods = "mpu";
 			sram = <&ocmcram>;
-		};
-
-		dsp {
-			compatible = "ti,omap3-c64";
-			ti,hwmods = "dsp";
 		};
 
 		iva {
@@ -424,6 +421,8 @@
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer5";
 			ti,timer-dsp;
+			clocks = <&abe_clkctrl OMAP4_TIMER5_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer6: timer@4013a000 {
@@ -433,6 +432,8 @@
 			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer6";
 			ti,timer-dsp;
+			clocks = <&abe_clkctrl OMAP4_TIMER6_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer7: timer@4013c000 {
@@ -442,6 +443,8 @@
 			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "timer7";
 			ti,timer-dsp;
+			clocks = <&abe_clkctrl OMAP4_TIMER7_CLKCTRL 24>;
+			clock-names = "fck";
 		};
 
 		timer8: timer@4013e000 {
@@ -452,6 +455,29 @@
 			ti,hwmods = "timer8";
 			ti,timer-pwm;
 			ti,timer-dsp;
+			clocks = <&abe_clkctrl OMAP4_TIMER8_CLKCTRL 24>;
+			clock-names = "fck";
+		};
+
+		dsp: dsp {
+			compatible = "ti,omap4-dsp";
+			ti,hwmods = "dsp";
+			syscon-bootreg = <&scm_conf 0x304>;
+			iommus = <&mmu_dsp>;
+			ti,rproc-standby-info = <0x4a004420>;
+			mboxes = <&mailbox &mbox_dsp>;
+			status = "disabled";
+		};
+
+		ipu: ipu@55020000 {
+			compatible = "ti,omap4-ipu";
+			reg = <0x55020000 0x10000>;
+			reg-names = "l2ram";
+			ti,hwmods = "ipu";
+			iommus = <&mmu_ipu>;
+			ti,rproc-standby-info = <0x4a008920>;
+			mboxes = <&mailbox &mbox_ipu>;
+			status = "disabled";
 		};
 
 		aes1: aes@4b501000 {

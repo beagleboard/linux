@@ -76,11 +76,16 @@ struct omap_iommu {
 
 	void *ctx; /* iommu context: registres saved area */
 
+	struct cr_regs *cr_ctx;
+	u32 num_cr_ctx;
+
 	int has_bus_err_back;
 	u32 id;
 
 	struct iommu_device iommu;
 	struct iommu_group *group;
+
+	u8 pwrst;
 };
 
 /**
