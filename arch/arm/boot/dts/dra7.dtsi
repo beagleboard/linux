@@ -1141,7 +1141,6 @@
 			ti,hwmods = "mmu0_dsp1";
 			#iommu-cells = <0>;
 			ti,syscon-mmuconfig = <&dsp1_system 0x0>;
-			status = "disabled";
 		};
 
 		mmu1_dsp1: mmu@40d02000 {
@@ -1151,7 +1150,6 @@
 			ti,hwmods = "mmu1_dsp1";
 			#iommu-cells = <0>;
 			ti,syscon-mmuconfig = <&dsp1_system 0x1>;
-			status = "disabled";
 		};
 
 		mmu_ipu1: mmu@58882000 {
@@ -1161,7 +1159,6 @@
 			ti,hwmods = "mmu_ipu1";
 			#iommu-cells = <0>;
 			ti,iommu-bus-err-back;
-			status = "disabled";
 		};
 
 		mmu_ipu2: mmu@55082000 {
@@ -1171,7 +1168,6 @@
 			ti,hwmods = "mmu_ipu2";
 			#iommu-cells = <0>;
 			ti,iommu-bus-err-back;
-			status = "disabled";
 		};
 
 		pruss_soc_bus1: pruss-soc-bus@4b226004 {
