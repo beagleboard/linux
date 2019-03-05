@@ -76,9 +76,15 @@
 #define PCI_ENDPOINT_TEST_IRQ_NUMBER		0x28
 
 #define PCI_DEVICE_ID_TI_AM654			0xb00c
+#define PCI_DEVICE_ID_TI_K2G			0xb00b
 
 #define is_am654_pci_dev(pdev)		\
 		((pdev)->device == PCI_DEVICE_ID_TI_AM654)
+
+#define K2G_IB_START_L0(n)		(0x304 + (0x10 * (n)))
+#define K2G_IB_START_HI(n)		(0x308 + (0x10 * (n)))
+
+#define is_k2g_pci_dev(pdev)		((pdev)->device == PCI_DEVICE_ID_TI_K2G)
 
 static DEFINE_IDA(pci_endpoint_test_ida);
 
@@ -352,12 +358,20 @@ static bool pci_endpoint_test_copy(struct pci_endpoint_test *test, size_t size)
 		goto err;
 	}
 
-	orig_src_addr = dma_alloc_coherent(dev, size + alignment,
-					   &orig_src_phys_addr, GFP_KERNEL);
+	orig_src_addr = kzalloc(size + alignment, GFP_KERNEL);
 	if (!orig_src_addr) {
 		dev_err(dev, "Failed to allocate source buffer\n");
 		ret = false;
 		goto err;
+	}
+
+	get_random_bytes(orig_src_addr, size + alignment);
+	orig_src_phys_addr = dma_map_single(dev, orig_src_addr,
+					    size + alignment, DMA_TO_DEVICE);
+	if (dma_mapping_error(dev, orig_src_phys_addr)) {
+		dev_err(dev, "failed to map source buffer address\n");
+		ret = false;
+		goto err_src_phys_addr;
 	}
 
 	if (alignment && !IS_ALIGNED(orig_src_phys_addr, alignment)) {
@@ -375,15 +389,21 @@ static bool pci_endpoint_test_copy(struct pci_endpoint_test *test, size_t size)
 	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_UPPER_SRC_ADDR,
 				 upper_32_bits(src_phys_addr));
 
-	get_random_bytes(src_addr, size);
 	src_crc32 = crc32_le(~0, src_addr, size);
 
-	orig_dst_addr = dma_alloc_coherent(dev, size + alignment,
-					   &orig_dst_phys_addr, GFP_KERNEL);
+	orig_dst_addr = kzalloc(size + alignment, GFP_KERNEL);
 	if (!orig_dst_addr) {
 		dev_err(dev, "Failed to allocate destination address\n");
 		ret = false;
-		goto err_orig_src_addr;
+		goto err_dst_addr;
+	}
+
+	orig_dst_phys_addr = dma_map_single(dev, orig_dst_addr,
+					    size + alignment, DMA_FROM_DEVICE);
+	if (dma_mapping_error(dev, orig_dst_phys_addr)) {
+		dev_err(dev, "failed to map destination buffer address\n");
+		ret = false;
+		goto err_dst_phys_addr;
 	}
 
 	if (alignment && !IS_ALIGNED(orig_dst_phys_addr, alignment)) {
@@ -410,16 +430,22 @@ static bool pci_endpoint_test_copy(struct pci_endpoint_test *test, size_t size)
 
 	wait_for_completion(&test->irq_raised);
 
+	dma_unmap_single(dev, orig_dst_phys_addr, size + alignment,
+			 DMA_FROM_DEVICE);
+
 	dst_crc32 = crc32_le(~0, dst_addr, size);
 	if (dst_crc32 == src_crc32)
 		ret = true;
 
-	dma_free_coherent(dev, size + alignment, orig_dst_addr,
-			  orig_dst_phys_addr);
+err_dst_phys_addr:
+	kfree(orig_dst_addr);
 
-err_orig_src_addr:
-	dma_free_coherent(dev, size + alignment, orig_src_addr,
-			  orig_src_phys_addr);
+err_dst_addr:
+	dma_unmap_single(dev, orig_src_phys_addr, size + alignment,
+			 DMA_TO_DEVICE);
+
+err_src_phys_addr:
+	kfree(orig_src_addr);
 
 err:
 	return ret;
@@ -447,12 +473,21 @@ static bool pci_endpoint_test_write(struct pci_endpoint_test *test, size_t size)
 		goto err;
 	}
 
-	orig_addr = dma_alloc_coherent(dev, size + alignment, &orig_phys_addr,
-				       GFP_KERNEL);
+	orig_addr = kzalloc(size + alignment, GFP_KERNEL);
 	if (!orig_addr) {
 		dev_err(dev, "Failed to allocate address\n");
 		ret = false;
 		goto err;
+	}
+
+	get_random_bytes(orig_addr, size + alignment);
+
+	orig_phys_addr = dma_map_single(dev, orig_addr, size + alignment,
+					DMA_TO_DEVICE);
+	if (dma_mapping_error(dev, orig_phys_addr)) {
+		dev_err(dev, "failed to map source buffer address\n");
+		ret = false;
+		goto err_phys_addr;
 	}
 
 	if (alignment && !IS_ALIGNED(orig_phys_addr, alignment)) {
@@ -463,8 +498,6 @@ static bool pci_endpoint_test_write(struct pci_endpoint_test *test, size_t size)
 		phys_addr = orig_phys_addr;
 		addr = orig_addr;
 	}
-
-	get_random_bytes(addr, size);
 
 	crc32 = crc32_le(~0, addr, size);
 	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_CHECKSUM,
@@ -488,7 +521,11 @@ static bool pci_endpoint_test_write(struct pci_endpoint_test *test, size_t size)
 	if (reg & STATUS_READ_SUCCESS)
 		ret = true;
 
-	dma_free_coherent(dev, size + alignment, orig_addr, orig_phys_addr);
+	dma_unmap_single(dev, orig_phys_addr, size + alignment,
+			 DMA_TO_DEVICE);
+
+err_phys_addr:
+	kfree(orig_addr);
 
 err:
 	return ret;
@@ -515,12 +552,19 @@ static bool pci_endpoint_test_read(struct pci_endpoint_test *test, size_t size)
 		goto err;
 	}
 
-	orig_addr = dma_alloc_coherent(dev, size + alignment, &orig_phys_addr,
-				       GFP_KERNEL);
+	orig_addr = kzalloc(size + alignment, GFP_KERNEL);
 	if (!orig_addr) {
 		dev_err(dev, "Failed to allocate destination address\n");
 		ret = false;
 		goto err;
+	}
+
+	orig_phys_addr = dma_map_single(dev, orig_addr, size + alignment,
+					DMA_FROM_DEVICE);
+	if (dma_mapping_error(dev, orig_phys_addr)) {
+		dev_err(dev, "failed to map source buffer address\n");
+		ret = false;
+		goto err_phys_addr;
 	}
 
 	if (alignment && !IS_ALIGNED(orig_phys_addr, alignment)) {
@@ -546,11 +590,15 @@ static bool pci_endpoint_test_read(struct pci_endpoint_test *test, size_t size)
 
 	wait_for_completion(&test->irq_raised);
 
+	dma_unmap_single(dev, orig_phys_addr, size + alignment,
+			 DMA_FROM_DEVICE);
+
 	crc32 = crc32_le(~0, addr, size);
 	if (crc32 == pci_endpoint_test_readl(test, PCI_ENDPOINT_TEST_CHECKSUM))
 		ret = true;
 
-	dma_free_coherent(dev, size + alignment, orig_addr, orig_phys_addr);
+err_phys_addr:
+	kfree(orig_addr);
 err:
 	return ret;
 }
@@ -601,7 +649,8 @@ static long pci_endpoint_test_ioctl(struct file *file, unsigned int cmd,
 		bar = arg;
 		if (bar < 0 || bar > 5)
 			goto ret;
-		if (is_am654_pci_dev(pdev) && bar == BAR_0)
+		if ((is_am654_pci_dev(pdev) || is_k2g_pci_dev(pdev)) &&
+		    bar == BAR_0)
 			goto ret;
 		ret = pci_endpoint_test_bar(test, bar);
 		break;
@@ -638,6 +687,28 @@ static const struct file_operations pci_endpoint_test_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = pci_endpoint_test_ioctl,
 };
+
+static int pci_endpoint_test_k2g_init(struct pci_endpoint_test *test)
+{
+	struct pci_dev *pdev = test->pdev;
+	enum pci_barno bar;
+	resource_size_t start;
+
+	if (!test->bar[0])
+		return -EINVAL;
+
+	for (bar = BAR_1; bar <= BAR_5; bar++) {
+		start = pci_resource_start(pdev, bar);
+		pci_endpoint_test_bar_writel(test, BAR_0,
+					     K2G_IB_START_L0(bar - 1),
+					     lower_32_bits(start));
+		pci_endpoint_test_bar_writel(test, BAR_0,
+					     K2G_IB_START_HI(bar - 1),
+					     upper_32_bits(start));
+	}
+
+	return 0;
+}
 
 static int pci_endpoint_test_probe(struct pci_dev *pdev,
 				   const struct pci_device_id *ent)
@@ -678,6 +749,12 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 	init_completion(&test->irq_raised);
 	mutex_init(&test->mutex);
 
+	if ((dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(48)) != 0) &&
+	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32)) != 0) {
+		dev_err(dev, "Cannot set DMA mask\n");
+		return -EINVAL;
+	}
+
 	err = pci_enable_device(pdev);
 	if (err) {
 		dev_err(dev, "Cannot enable PCI device\n");
@@ -715,6 +792,12 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 		dev_err(dev, "Cannot perform PCI test without BAR%d\n",
 			test_reg_bar);
 		goto err_iounmap;
+	}
+
+	if (is_k2g_pci_dev(pdev)) {
+		err = pci_endpoint_test_k2g_init(test);
+		if (err)
+			goto err_iounmap;
 	}
 
 	pci_set_drvdata(pdev, test);
@@ -794,17 +877,34 @@ static void pci_endpoint_test_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 }
 
+static const struct pci_endpoint_test_data default_data = {
+	.test_reg_bar = BAR_0,
+	.alignment = SZ_4K,
+};
+
 static const struct pci_endpoint_test_data am654_data = {
 	.test_reg_bar = BAR_2,
 	.alignment = SZ_64K,
 };
 
+static const struct pci_endpoint_test_data k2g_data = {
+	.test_reg_bar = BAR_1,
+	.alignment = SZ_1M,
+};
+
 static const struct pci_device_id pci_endpoint_test_tbl[] = {
-	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_DRA74x) },
-	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_DRA72x) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_SYNOPSYS, 0xedda) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_DRA74x),
+	  .driver_data = (kernel_ulong_t)&default_data,
+	},
+	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_DRA72x),
+	  .driver_data = (kernel_ulong_t)&default_data,
+	},
 	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_AM654),
 	  .driver_data = (kernel_ulong_t)&am654_data
+	},
+	{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_K2G),
+	  .driver_data = (kernel_ulong_t)&k2g_data
 	},
 	{ }
 };

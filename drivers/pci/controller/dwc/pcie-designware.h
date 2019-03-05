@@ -222,6 +222,12 @@ struct dw_pcie_ops {
 	int	(*link_up)(struct dw_pcie *pcie);
 	int	(*start_link)(struct dw_pcie *pcie);
 	void	(*stop_link)(struct dw_pcie *pcie);
+	int	(*inbound_atu)(struct dw_pcie *pci, u32 index,
+			       enum pci_barno bar, dma_addr_t cpu_addr);
+	int	(*outbound_atu)(struct dw_pcie *pci, u64 cpu_addr,
+				u64 pci_addr, size_t size);
+	void	(*disable_atu)(struct dw_pcie *pci, phys_addr_t addr, int index,
+			       enum dw_pcie_region_type type);
 };
 
 struct dw_pcie {
@@ -256,9 +262,9 @@ void __dw_pcie_write_dbi2(struct dw_pcie *pci, void __iomem *base, u32 reg,
 			  size_t size, u32 val);
 int dw_pcie_link_up(struct dw_pcie *pci);
 int dw_pcie_wait_for_link(struct dw_pcie *pci);
-void dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index,
-			       int type, u64 cpu_addr, u64 pci_addr,
-			       u32 size);
+int dw_pcie_prog_outbound_atu(struct dw_pcie *pci, int index,
+			      int type, u64 cpu_addr, u64 pci_addr,
+			      u32 size);
 int dw_pcie_prog_inbound_atu(struct dw_pcie *pci, int index, int bar,
 			     u64 cpu_addr, enum dw_pcie_as_type as_type);
 void dw_pcie_disable_atu(struct dw_pcie *pci, int index,
