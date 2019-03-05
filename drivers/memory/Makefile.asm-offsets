@@ -1,4 +1,6 @@
-drivers/memory/emif-asm-offsets.s: drivers/memory/emif-asm-offsets.c
+targets += emif-asm-offsets.s
+
+drivers/memory/emif-asm-offsets.s: drivers/memory/emif-asm-offsets.c FORCE
 	$(call if_changed_dep,cc_s_c)
 
 include/generated/ti-emif-asm-offsets.h: drivers/memory/emif-asm-offsets.s FORCE
