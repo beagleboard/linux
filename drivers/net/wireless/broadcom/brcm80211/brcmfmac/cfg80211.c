@@ -3647,10 +3647,24 @@ static s32 brcmf_cfg80211_resume(struct wiphy *wiphy)
 	struct brcmf_cfg80211_info *cfg = wiphy_to_cfg(wiphy);
 	struct net_device *ndev = cfg_to_ndev(cfg);
 	struct brcmf_if *ifp = netdev_priv(ndev);
+	struct brcmf_pub *drvr = ifp->drvr;
+	struct brcmf_bus *bus_if = drvr->bus_if;
+	struct brcmf_cfg80211_info *config = drvr->config;
+	int retry = BRCMF_PM_WAIT_MAXRETRY;
 
 	brcmf_dbg(TRACE, "Enter\n");
 
+	config->pm_state = BRCMF_CFG80211_PM_STATE_RESUMING;
+
 	if (cfg->wowl.active) {
+		/* wait for bus resumed */
+		while (retry && bus_if->state != BRCMF_BUS_UP) {
+			usleep_range(10000, 20000);
+			retry--;
+		}
+		if (!retry && bus_if->state != BRCMF_BUS_UP)
+			brcmf_err("timed out wait for bus resume\n");
+
 		brcmf_report_wowl_wakeind(wiphy, ifp);
 		brcmf_fil_iovar_int_set(ifp, "wowl_clear", 0);
 		brcmf_config_wowl_pattern(ifp, "clr", NULL, 0, NULL, 0);
@@ -3671,6 +3685,7 @@ static s32 brcmf_cfg80211_resume(struct wiphy *wiphy)
 		brcmf_pktfilter_enable(ifp->ndev, false);
 
 	}
+	config->pm_state = BRCMF_CFG80211_PM_STATE_RESUMED;
 	return 0;
 }
 
@@ -3740,8 +3755,11 @@ static s32 brcmf_cfg80211_suspend(struct wiphy *wiphy,
 	struct net_device *ndev = cfg_to_ndev(cfg);
 	struct brcmf_if *ifp = netdev_priv(ndev);
 	struct brcmf_cfg80211_vif *vif;
+	struct brcmf_cfg80211_info *config = ifp->drvr->config;
 
 	brcmf_dbg(TRACE, "Enter\n");
+
+	config->pm_state = BRCMF_CFG80211_PM_STATE_SUSPENDING;
 
 	/* if the primary net_device is not READY there is nothing
 	 * we can do but pray resume goes smoothly.
@@ -3784,9 +3802,13 @@ static s32 brcmf_cfg80211_suspend(struct wiphy *wiphy,
 	}
 
 exit:
-	brcmf_dbg(TRACE, "Exit\n");
+	/* set cfg80211 pm state to cfg80211 suspended state */
+	config->pm_state = BRCMF_CFG80211_PM_STATE_SUSPENDED;
+
 	/* clear any scanning activity */
 	cfg->scan_status = 0;
+
+	brcmf_dbg(TRACE, "Exit\n");
 	return 0;
 }
 
@@ -7328,6 +7350,7 @@ struct brcmf_cfg80211_info *brcmf_cfg80211_attach(struct brcmf_pub *drvr,
 
 	cfg->wiphy = wiphy;
 	cfg->pub = drvr;
+	cfg->pm_state = BRCMF_CFG80211_PM_STATE_RESUMED;
 	init_vif_event(&cfg->vif_event);
 	INIT_LIST_HEAD(&cfg->vif_list);
 
