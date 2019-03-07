@@ -30,6 +30,7 @@
 #include "core.h"
 #include "common.h"
 #include "bcdc.h"
+#include "cfg80211.h"
 
 
 #define IOCTL_RESP_TIMEOUT		msecs_to_jiffies(2000)
@@ -1486,8 +1487,22 @@ static int brcmf_usb_suspend(struct usb_interface *intf, pm_message_t state)
 {
 	struct usb_device *usb = interface_to_usbdev(intf);
 	struct brcmf_usbdev_info *devinfo = brcmf_usb_get_businfo(&usb->dev);
+	struct brcmf_bus *bus;
+	struct brcmf_cfg80211_info *config;
+	int retry = BRCMF_PM_WAIT_MAXRETRY;
 
 	brcmf_dbg(USB, "Enter\n");
+
+	bus = devinfo->bus_pub.bus;
+	config = bus->drvr->config;
+	while (retry &&
+	       config->pm_state == BRCMF_CFG80211_PM_STATE_SUSPENDING) {
+		usleep_range(10000, 20000);
+		retry--;
+	}
+	if (!retry && config->pm_state == BRCMF_CFG80211_PM_STATE_SUSPENDING)
+		brcmf_err("timed out wait for cfg80211 suspended\n");
+
 	devinfo->bus_pub.state = BRCMFMAC_USB_STATE_SLEEP;
 	brcmf_cancel_all_urbs(devinfo);
 	device_set_wakeup_enable(devinfo->dev, true);
