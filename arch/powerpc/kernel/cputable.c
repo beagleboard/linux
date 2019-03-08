@@ -2229,7 +2229,7 @@ static struct cpu_spec * __init setup_cpu_spec(unsigned long offset,
 	return t;
 }
 
-struct cpu_spec * __init identify_cpu(unsigned long offset, unsigned int pvr)
+notrace struct cpu_spec * __init identify_cpu(unsigned long offset, unsigned int pvr)
 {
 	struct cpu_spec *s = cpu_specs;
 	int i;

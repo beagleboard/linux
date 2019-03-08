@@ -53,7 +53,7 @@ struct spear_shirq {
 #define SPEAR300_INT_ENB_MASK_REG	0x54
 #define SPEAR300_INT_STS_MASK_REG	0x58
 
-static DEFINE_RAW_SPINLOCK(shirq_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(shirq_lock);
 
 static void shirq_irq_mask(struct irq_data *d)
 {
@@ -82,6 +82,9 @@ static void shirq_irq_unmask(struct irq_data *d)
 static struct irq_chip shirq_chip = {
 	.name		= "spear-shirq",
 	.irq_mask	= shirq_irq_mask,
+#ifdef CONFIG_IPIPE
+	.irq_mask_ack   = shirq_irq_mask,
+#endif /* CONFIG_IPIPE */
 	.irq_unmask	= shirq_irq_unmask,
 };
 
@@ -194,7 +197,7 @@ static void shirq_handler(struct irq_desc *desc)
 		int irq = __ffs(pend);
 
 		pend &= ~(0x1 << irq);
-		generic_handle_irq(shirq->virq_base + irq);
+		ipipe_handle_demuxed_irq(shirq->virq_base + irq);
 	}
 }
 

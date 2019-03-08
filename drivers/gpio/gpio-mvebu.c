@@ -294,10 +294,11 @@ static void mvebu_gpio_irq_ack(struct irq_data *d)
 	struct irq_chip_generic *gc = irq_data_get_irq_chip_data(d);
 	struct mvebu_gpio_chip *mvchip = gc->private;
 	u32 mask = d->mask;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	writel_relaxed(~mask, mvebu_gpioreg_edge_cause(mvchip));
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static void mvebu_gpio_edge_irq_mask(struct irq_data *d)
@@ -306,12 +307,13 @@ static void mvebu_gpio_edge_irq_mask(struct irq_data *d)
 	struct mvebu_gpio_chip *mvchip = gc->private;
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	ct->mask_cache_priv &= ~mask;
 
 	writel_relaxed(ct->mask_cache_priv, mvebu_gpioreg_edge_mask(mvchip));
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static void mvebu_gpio_edge_irq_unmask(struct irq_data *d)
@@ -320,11 +322,12 @@ static void mvebu_gpio_edge_irq_unmask(struct irq_data *d)
 	struct mvebu_gpio_chip *mvchip = gc->private;
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	ct->mask_cache_priv |= mask;
 	writel_relaxed(ct->mask_cache_priv, mvebu_gpioreg_edge_mask(mvchip));
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static void mvebu_gpio_level_irq_mask(struct irq_data *d)
@@ -333,11 +336,12 @@ static void mvebu_gpio_level_irq_mask(struct irq_data *d)
 	struct mvebu_gpio_chip *mvchip = gc->private;
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	ct->mask_cache_priv &= ~mask;
 	writel_relaxed(ct->mask_cache_priv, mvebu_gpioreg_level_mask(mvchip));
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 static void mvebu_gpio_level_irq_unmask(struct irq_data *d)
@@ -346,11 +350,12 @@ static void mvebu_gpio_level_irq_unmask(struct irq_data *d)
 	struct mvebu_gpio_chip *mvchip = gc->private;
 	struct irq_chip_type *ct = irq_data_get_chip_type(d);
 	u32 mask = d->mask;
+	unsigned long flags;
 
-	irq_gc_lock(gc);
+	flags = irq_gc_lock(gc);
 	ct->mask_cache_priv |= mask;
 	writel_relaxed(ct->mask_cache_priv, mvebu_gpioreg_level_mask(mvchip));
-	irq_gc_unlock(gc);
+	irq_gc_unlock(gc, flags);
 }
 
 /*****************************************************************************

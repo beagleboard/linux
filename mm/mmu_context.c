@@ -7,6 +7,7 @@
 #include <linux/sched.h>
 #include <linux/mmu_context.h>
 #include <linux/export.h>
+#include <linux/ipipe.h>
 
 #include <asm/mmu_context.h>
 
@@ -21,15 +22,22 @@ void use_mm(struct mm_struct *mm)
 {
 	struct mm_struct *active_mm;
 	struct task_struct *tsk = current;
+	unsigned long flags;
 
 	task_lock(tsk);
 	active_mm = tsk->active_mm;
+	ipipe_mm_switch_protect(flags);
 	if (active_mm != mm) {
 		atomic_inc(&mm->mm_count);
 		tsk->active_mm = mm;
 	}
 	tsk->mm = mm;
+#ifdef CONFIG_IPIPE
+	switch_mm_irqs_off(active_mm, mm, tsk);
+#else
 	switch_mm(active_mm, mm, tsk);
+#endif
+	ipipe_mm_switch_unprotect(flags);
 	task_unlock(tsk);
 #ifdef finish_arch_post_lock_switch
 	finish_arch_post_lock_switch();

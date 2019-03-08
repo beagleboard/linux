@@ -249,7 +249,9 @@ static void tsi108_pci_int_mask(u_int irq)
 {
 	u_int irp_cfg;
 	int int_line = (irq - IRQ_PCI_INTAD_BASE);
+	unsigned long flags;
 
+	flags = hard_cond_local_irq_save();
 	irp_cfg = tsi108_read_reg(TSI108_PCI_OFFSET + TSI108_PCI_IRP_CFG_CTL);
 	mb();
 	irp_cfg |= (1 << int_line);	/* INTx_DIR = output */
@@ -257,19 +259,23 @@ static void tsi108_pci_int_mask(u_int irq)
 	tsi108_write_reg(TSI108_PCI_OFFSET + TSI108_PCI_IRP_CFG_CTL, irp_cfg);
 	mb();
 	irp_cfg = tsi108_read_reg(TSI108_PCI_OFFSET + TSI108_PCI_IRP_CFG_CTL);
+	hard_cond_local_irq_restore(flags);
 }
 
 static void tsi108_pci_int_unmask(u_int irq)
 {
 	u_int irp_cfg;
 	int int_line = (irq - IRQ_PCI_INTAD_BASE);
+	unsigned long flags;
 
+	flags = hard_cond_local_irq_save();
 	irp_cfg = tsi108_read_reg(TSI108_PCI_OFFSET + TSI108_PCI_IRP_CFG_CTL);
 	mb();
 	irp_cfg &= ~(1 << int_line);
 	irp_cfg |= (3 << (8 + (int_line * 2)));
 	tsi108_write_reg(TSI108_PCI_OFFSET + TSI108_PCI_IRP_CFG_CTL, irp_cfg);
 	mb();
+	hard_cond_local_irq_restore(flags);
 }
 
 static void init_pci_source(void)
@@ -345,6 +351,9 @@ static inline unsigned int get_pci_source(void)
 
 static void tsi108_pci_irq_unmask(struct irq_data *d)
 {
+	unsigned long flags;
+
+	flags = hard_cond_local_irq_save();
 	tsi108_pci_int_unmask(d->irq);
 
 	/* Enable interrupts from PCI block */
@@ -352,6 +361,7 @@ static void tsi108_pci_irq_unmask(struct irq_data *d)
 			 tsi108_read_reg(TSI108_PCI_OFFSET +
 					 TSI108_PCI_IRP_ENABLE) |
 			 TSI108_PCI_IRP_ENABLE_P_INT);
+	hard_cond_local_irq_restore(flags);
 	mb();
 }
 
@@ -434,7 +444,7 @@ void tsi108_irq_cascade(struct irq_desc *desc)
 	unsigned int cascade_irq = get_pci_source();
 
 	if (cascade_irq)
-		generic_handle_irq(cascade_irq);
+		ipipe_handle_demuxed_irq(cascade_irq);
 
 	chip->irq_eoi(&desc->irq_data);
 }

@@ -59,7 +59,7 @@ EXPORT_SYMBOL_GPL(force_sig_info);
 /*
  * Protects cbe_spu_info and spu->number.
  */
-static DEFINE_SPINLOCK(spu_lock);
+static IPIPE_DEFINE_SPINLOCK(spu_lock);
 
 /*
  * List of all spus in the system.

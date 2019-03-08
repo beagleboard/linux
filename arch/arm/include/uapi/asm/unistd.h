@@ -435,6 +435,12 @@
 #define __ARM_NR_set_tls		(__ARM_NR_BASE+5)
 
 /*
+ * This SWI is IPIPE private, for dispatching syscalls to the head
+ * domain.
+ */
+#define __ARM_NR_ipipe			(__ARM_NR_BASE+66)
+
+/*
  * The following syscalls are obsolete and no longer available for EABI.
  */
 #if !defined(__KERNEL__)

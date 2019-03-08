@@ -1336,6 +1336,7 @@ memdump:	mov	r12, r0
 		mov	pc, r10
 #endif
 
+
 		.ltorg
 
 #ifdef CONFIG_ARM_VIRT_EXT

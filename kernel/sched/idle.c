@@ -90,11 +90,12 @@ void __weak arch_cpu_idle(void)
  */
 void __cpuidle default_idle_call(void)
 {
-	if (current_clr_polling_and_test()) {
+	if (current_clr_polling_and_test() || !ipipe_enter_cpuidle()) {
 		local_irq_enable();
 	} else {
 		stop_critical_timings();
 		arch_cpu_idle();
+		ipipe_exit_cpuidle();
 		start_critical_timings();
 	}
 }
