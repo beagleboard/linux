@@ -81,6 +81,7 @@ int setfl(int fd, struct file * filp, unsigned long arg)
  out:
 	return error;
 }
+EXPORT_SYMBOL_GPL(setfl);
 
 static void f_modown(struct file *filp, struct pid *pid, enum pid_type type,
                      int force)
