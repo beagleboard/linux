@@ -177,6 +177,9 @@ static void blk_mq_rq_ctx_init(struct request_queue *q, struct blk_mq_ctx *ctx,
 	rq->resid_len = 0;
 	rq->sense = NULL;
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+	INIT_WORK(&rq->work, __blk_mq_complete_request_remote_work);
+#endif
 	INIT_LIST_HEAD(&rq->timeout_list);
 	rq->timeout = 0;
 
@@ -345,12 +348,25 @@ void blk_mq_end_request(struct request *rq, int error)
 }
 EXPORT_SYMBOL(blk_mq_end_request);
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+
+void __blk_mq_complete_request_remote_work(struct work_struct *work)
+{
+	struct request *rq = container_of(work, struct request, work);
+
+	rq->q->softirq_done_fn(rq);
+}
+
+#else
+
 static void __blk_mq_complete_request_remote(void *data)
 {
 	struct request *rq = data;
 
 	rq->q->softirq_done_fn(rq);
 }
+
+#endif
 
 static void blk_mq_ipi_complete_request(struct request *rq)
 {
@@ -363,19 +379,23 @@ static void blk_mq_ipi_complete_request(struct request *rq)
 		return;
 	}
 
-	cpu = get_cpu();
+	cpu = get_cpu_light();
 	if (!test_bit(QUEUE_FLAG_SAME_FORCE, &rq->q->queue_flags))
 		shared = cpus_share_cache(cpu, ctx->cpu);
 
 	if (cpu != ctx->cpu && !shared && cpu_online(ctx->cpu)) {
+#ifdef CONFIG_PREEMPT_RT_FULL
+		schedule_work_on(ctx->cpu, &rq->work);
+#else
 		rq->csd.func = __blk_mq_complete_request_remote;
 		rq->csd.info = rq;
 		rq->csd.flags = 0;
 		smp_call_function_single_async(ctx->cpu, &rq->csd);
+#endif
 	} else {
 		rq->q->softirq_done_fn(rq);
 	}
-	put_cpu();
+	put_cpu_light();
 }
 
 static void __blk_mq_complete_request(struct request *rq)
@@ -906,14 +926,14 @@ void blk_mq_run_hw_queue(struct blk_mq_hw_ctx *hctx, bool async)
 		return;
 
 	if (!async && !(hctx->flags & BLK_MQ_F_BLOCKING)) {
-		int cpu = get_cpu();
+		int cpu = get_cpu_light();
 		if (cpumask_test_cpu(cpu, hctx->cpumask)) {
 			__blk_mq_run_hw_queue(hctx);
-			put_cpu();
+			put_cpu_light();
 			return;
 		}
 
-		put_cpu();
+		put_cpu_light();
 	}
 
 	kblockd_schedule_work_on(blk_mq_hctx_next_cpu(hctx), &hctx->run_work);
