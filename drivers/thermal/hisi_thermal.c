@@ -378,8 +378,6 @@ static int hisi_thermal_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	enable_irq(data->irq);
-
 	return 0;
 }
 
