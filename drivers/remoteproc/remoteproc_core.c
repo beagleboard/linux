@@ -1206,9 +1206,12 @@ static int rproc_stop(struct rproc *rproc, bool crashed)
 
 	rproc_unprepare_subdevices(rproc);
 
-	/* if in crash state, unlock crash handler */
-	if (rproc->state == RPROC_CRASHED)
+	/* if in crash state, perform coredump and unlock crash handler */
+	if (rproc->state == RPROC_CRASHED) {
+		rproc_coredump(rproc);
+
 		complete_all(&rproc->crash_comp);
+	}
 
 	rproc->state = RPROC_OFFLINE;
 
@@ -1337,43 +1340,23 @@ static void rproc_coredump(struct rproc *rproc)
  */
 int rproc_trigger_recovery(struct rproc *rproc)
 {
-	const struct firmware *firmware_p;
-	struct device *dev = &rproc->dev;
-	int ret;
-
-	dev_err(dev, "recovering %s\n", rproc->name);
+	dev_err(&rproc->dev, "recovering %s\n", rproc->name);
 
 	init_completion(&rproc->crash_comp);
 
-	ret = mutex_lock_interruptible(&rproc->lock);
-	if (ret)
-		return ret;
-
-	ret = rproc_stop(rproc, true);
-	if (ret)
-		goto unlock_mutex;
-
-	/* generate coredump */
-	rproc_coredump(rproc);
+	/* shut down the remote */
+	/* TODO: make sure this works with rproc->power > 1 */
+	rproc_shutdown(rproc);
 
 	/* wait until there is no more rproc users */
 	wait_for_completion(&rproc->crash_comp);
 
-	/* load firmware */
-	ret = request_firmware(&firmware_p, rproc->firmware, dev);
-	if (ret < 0) {
-		dev_err(dev, "request_firmware failed: %d\n", ret);
-		goto unlock_mutex;
-	}
+	/*
+	 * boot the remote processor up again
+	 */
+	rproc_boot(rproc);
 
-	/* boot the remote processor up again */
-	ret = rproc_start(rproc, firmware_p);
-
-	release_firmware(firmware_p);
-
-unlock_mutex:
-	mutex_unlock(&rproc->lock);
-	return ret;
+	return 0;
 }
 
 /**
