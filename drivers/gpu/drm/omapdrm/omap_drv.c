@@ -244,16 +244,6 @@ omap_get_global_state(struct drm_atomic_state *s)
 {
 	struct omap_drm_private *priv = s->dev->dev_private;
 	struct drm_private_state *priv_state;
-	int ret;
-
-	if (!drm_modeset_is_locked(&priv->glob_obj_lock)) {
-		ret = drm_modeset_lock(&priv->glob_obj_lock, s->acquire_ctx);
-		if (ret) {
-			DBG("getting priv->glob_obj_lock (%p) failed %d",
-			    &priv->glob_obj_lock, ret);
-			return ERR_PTR(ret);
-		}
-	}
 
 	priv_state = drm_atomic_get_private_obj_state(s, &priv->glob_obj);
 	if (IS_ERR(priv_state))
@@ -289,17 +279,16 @@ static const struct drm_private_state_funcs omap_global_state_funcs = {
 	.atomic_destroy_state = omap_global_destroy_state,
 };
 
-static int omap_global_obj_init(struct omap_drm_private *priv)
+static int omap_global_obj_init(struct drm_device *dev)
 {
+	struct omap_drm_private *priv = dev->dev_private;
 	struct omap_global_state *state;
-
-	drm_modeset_lock_init(&priv->glob_obj_lock);
 
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return -ENOMEM;
 
-	drm_atomic_private_obj_init(&priv->glob_obj, &state->base,
+	drm_atomic_private_obj_init(dev, &priv->glob_obj, &state->base,
 				    &omap_global_state_funcs);
 	return 0;
 }
@@ -307,7 +296,6 @@ static int omap_global_obj_init(struct omap_drm_private *priv)
 static void omap_global_obj_fini(struct omap_drm_private *priv)
 {
 	drm_atomic_private_obj_fini(&priv->glob_obj);
-	drm_modeset_lock_fini(&priv->glob_obj_lock);
 }
 
 static void omap_disconnect_pipelines(struct drm_device *ddev)
@@ -462,8 +450,6 @@ static int omap_modeset_init(struct drm_device *dev)
 
 	if (!omapdss_stack_is_ready())
 		return -EPROBE_DEFER;
-
-	drm_mode_config_init(dev);
 
 	ret = omap_modeset_init_properties(dev);
 	if (ret < 0)
@@ -829,7 +815,9 @@ static int omapdrm_init(struct omap_drm_private *priv, struct device *dev)
 
 	omap_gem_init(ddev);
 
-	ret = omap_global_obj_init(priv);
+	drm_mode_config_init(ddev);
+
+	ret = omap_global_obj_init(ddev);
 	if (ret)
 		goto err_gem_deinit;
 
@@ -886,13 +874,13 @@ err_cleanup_helpers:
 
 	omap_fbdev_fini(ddev);
 err_cleanup_modeset:
-	drm_mode_config_cleanup(ddev);
 	omap_drm_irq_uninstall(ddev);
 err_free_overlays:
 	omap_hwoverlays_destroy(priv);
 err_free_priv_obj:
 	omap_global_obj_fini(priv);
 err_gem_deinit:
+	drm_mode_config_cleanup(ddev);
 	omap_gem_deinit(ddev);
 	destroy_workqueue(priv->wq);
 	omap_disconnect_pipelines(ddev);
@@ -919,11 +907,10 @@ static void omapdrm_cleanup(struct omap_drm_private *priv)
 
 	drm_atomic_helper_shutdown(ddev);
 
-	drm_mode_config_cleanup(ddev);
-
 	omap_drm_irq_uninstall(ddev);
 	omap_hwoverlays_destroy(priv);
 	omap_global_obj_fini(priv);
+	drm_mode_config_cleanup(ddev);
 	omap_gem_deinit(ddev);
 
 	destroy_workqueue(priv->wq);
