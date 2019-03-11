@@ -13,6 +13,7 @@
 #include <linux/wait.h>
 #include <linux/fs.h>
 #include <linux/skbuff.h>
+#include <linux/rpmsg.h>
 
 typedef u32 virt_addr_t;
 typedef u32 dev_addr_t;
@@ -35,6 +36,7 @@ typedef u32 dev_addr_t;
  * @num_funcs: number of functions published by this remote server device
  * @cur_func: counter used while querying information for each function
  *	      associated with this remote server device
+ * @desc: description of the exposed service
  *
  * A rppc_device indicates the base remote server device that supports the
  * execution of a bunch of remote functions. Each such remote server device
@@ -53,12 +55,14 @@ struct rppc_device {
 	unsigned int minor;
 	u32 num_funcs;
 	u32 cur_func;
+	char desc[RPMSG_NAME_SIZE];
 };
 
 /**
  * struct rppc_instance - The per-instance data structure (per user)
  * @list: list node
  * @rppcdev: the rppc device (remote server instance) handle
+ * @dev: local device reference pointer of the rppc device
  * @queue: queue of buffers waiting to be read by the user
  * @lock: mutex for protecting instance variables
  * @readq: wait queue of blocked user threads waiting to read data
@@ -79,6 +83,7 @@ struct rppc_device {
 struct rppc_instance {
 	struct list_head list;
 	struct rppc_device *rppcdev;
+	struct device *dev;
 	struct sk_buff_head queue;
 	struct mutex lock; /* instance state variables lock */
 	wait_queue_head_t readq;
