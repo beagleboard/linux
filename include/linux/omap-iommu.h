@@ -13,6 +13,8 @@
 #ifndef _OMAP_IOMMU_H_
 #define _OMAP_IOMMU_H_
 
+#include <linux/errno.h>
+
 struct iommu_domain;
 
 #ifdef CONFIG_OMAP_IOMMU
@@ -27,12 +29,12 @@ static inline void omap_iommu_restore_ctx(struct device *dev) {}
 
 static inline int omap_iommu_domain_deactivate(struct iommu_domain *domain)
 {
-	return -ENOTSUP;
+	return -ENOTSUPP;
 }
 
 static inline int omap_iommu_domain_activate(struct iommu_domain *domain)
 {
-	return -ENOTSUP;
+	return -ENOTSUPP;
 }
 #endif
 
