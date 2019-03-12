@@ -471,6 +471,8 @@ struct rproc_dump_segment {
  * @dbg_dir: debugfs directory of this rproc device
  * @traces: list of trace buffers
  * @num_traces: number of trace buffers
+ * @last_traces: list of last trace buffers
+ * @num_last_traces: number of last trace buffers
  * @carveouts: list of physically contiguous memory allocations
  * @mappings: list of iommu mappings we initiated, needed on shutdown
  * @bootaddr: address of first instruction to boot rproc with (optional)
@@ -480,6 +482,7 @@ struct rproc_dump_segment {
  * @index: index of this rproc device
  * @crash_handler: workqueue for handling a crash
  * @crash_cnt: crash counter
+ * @crash_comp: completion used to sync crash handler and the rproc reload
  * @recovery_disabled: flag that state if recovery was disabled
  * @max_notifyid: largest allocated notify id.
  * @table_ptr: pointer to the resource table in effect
@@ -506,6 +509,8 @@ struct rproc {
 	struct dentry *dbg_dir;
 	struct list_head traces;
 	int num_traces;
+	struct list_head last_traces;
+	int num_last_traces;
 	struct list_head carveouts;
 	struct list_head mappings;
 	u32 bootaddr;
@@ -515,6 +520,7 @@ struct rproc {
 	int index;
 	struct work_struct crash_handler;
 	unsigned int crash_cnt;
+	struct completion crash_comp;
 	bool recovery_disabled;
 	int max_notifyid;
 	struct resource_table *table_ptr;
