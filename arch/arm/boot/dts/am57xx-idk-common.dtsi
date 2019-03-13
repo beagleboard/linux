@@ -682,3 +682,7 @@
 		interrupts = <31 IRQ_TYPE_EDGE_FALLING>;
 	};
 };
+
+&bb2d {
+	status = "ok";
+};
