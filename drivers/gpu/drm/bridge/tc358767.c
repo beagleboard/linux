@@ -782,10 +782,6 @@ static int tc_main_link_enable(struct tc_data *tc)
 	u8 tmp[8];
 	u32 error;
 
-	/* display mode should be set at this point */
-	if (!tc->mode)
-		return -EINVAL;
-
 	dev_dbg(tc->dev, "link enable\n");
 
 	tc_write(DP0CTL, 0);
