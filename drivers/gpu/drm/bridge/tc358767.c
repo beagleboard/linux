@@ -964,15 +964,15 @@ static int tc_main_link_enable(struct tc_data *tc)
 	if (ret)
 		goto err;
 
+	/* Clear Training Pattern, set AutoCorrect Mode = 1 */
+	tc_write(DP0_SRCCTRL, tc_srcctrl(tc) | DP0_SRCCTRL_AUTOCORRECT);
+
 	/* Clear DPCD 0x102 */
 	/* Note: Can Not use DP0_SNKLTCTRL (0x06E4) short cut */
 	tmp[0] = tc->link.scrambler_dis ? DP_LINK_SCRAMBLING_DISABLE : 0x00;
 	ret = drm_dp_dpcd_writeb(aux, DP_TRAINING_PATTERN_SET, tmp[0]);
 	if (ret < 0)
 		goto err_dpcd_write;
-
-	/* Clear Training Pattern, set AutoCorrect Mode = 1 */
-	tc_write(DP0_SRCCTRL, tc_srcctrl(tc) | DP0_SRCCTRL_AUTOCORRECT);
 
 	/* Wait */
 	timeout = 100;
