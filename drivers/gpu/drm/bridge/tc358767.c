@@ -845,6 +845,8 @@ static int tc_main_link_enable(struct tc_data *tc)
 
 	dev_dbg(tc->dev, "link enable\n");
 
+	tc_write(DP0CTL, 0);
+
 	tc_write(DP0_SRCCTRL, tc_srcctrl(tc));
 	/* SSCG and BW27 on DP1 must be set to the same as on DP0 */
 	tc_write(DP1_SRCCTRL,
