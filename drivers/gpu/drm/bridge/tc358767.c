@@ -746,82 +746,24 @@ err:
 	return ret;
 }
 
-static int tc_link_training(struct tc_data *tc, int pattern)
+static int tc_wait_link_training(struct tc_data *tc, u32 *error)
 {
-	const char * const *errors;
-	u32 srcctrl = tc_srcctrl(tc) | DP0_SRCCTRL_SCRMBLDIS |
-		      DP0_SRCCTRL_AUTOCORRECT;
-	int timeout;
-	int retry;
+	u32 timeout = 1000;
 	u32 value;
 	int ret;
 
-	if (pattern == DP_TRAINING_PATTERN_1) {
-		srcctrl |= DP0_SRCCTRL_TP1;
-		errors = training_pattern1_errors;
-	} else {
-		srcctrl |= DP0_SRCCTRL_TP2;
-		errors = training_pattern2_errors;
-	}
-
-	/* Set DPCD 0x102 for Training Part 1 or 2 */
-	tc_write(DP0_SNKLTCTRL, DP_LINK_SCRAMBLING_DISABLE | pattern);
-
-	tc_write(DP0_LTLOOPCTRL,
-		 (0x0f << 28) |	/* Defer Iteration Count */
-		 (0x0f << 24) |	/* Loop Iteration Count */
-		 (0x0d << 0));	/* Loop Timer Delay */
-
-	retry = 5;
 	do {
-		/* Set DP0 Training Pattern */
-		tc_write(DP0_SRCCTRL, srcctrl);
+		udelay(1);
+		tc_read(DP0_LTSTAT, &value);
+	} while ((!(value & LT_LOOPDONE)) && (--timeout));
 
-		/* Enable DP0 to start Link Training */
-		tc_write(DP0CTL, DP_EN);
-
-		/* wait */
-		timeout = 1000;
-		do {
-			tc_read(DP0_LTSTAT, &value);
-			udelay(1);
-		} while ((!(value & LT_LOOPDONE)) && (--timeout));
-		if (timeout == 0) {
-			dev_err(tc->dev, "Link training timeout!\n");
-		} else {
-			int pattern = (value >> 11) & 0x3;
-			int error = (value >> 8) & 0x7;
-
-			dev_dbg(tc->dev,
-				"Link training phase %d done after %d uS: %s\n",
-				pattern, 1000 - timeout, errors[error]);
-			if (pattern == DP_TRAINING_PATTERN_1 && error == 0)
-				break;
-			if (pattern == DP_TRAINING_PATTERN_2) {
-				value &= LT_CHANNEL1_EQ_BITS |
-					 LT_INTERLANE_ALIGN_DONE |
-					 LT_CHANNEL0_EQ_BITS;
-				/* in case of two lanes */
-				if ((tc->link.base.num_lanes == 2) &&
-				    (value == (LT_CHANNEL1_EQ_BITS |
-					       LT_INTERLANE_ALIGN_DONE |
-					       LT_CHANNEL0_EQ_BITS)))
-					break;
-				/* in case of one line */
-				if ((tc->link.base.num_lanes == 1) &&
-				    (value == (LT_INTERLANE_ALIGN_DONE |
-					       LT_CHANNEL0_EQ_BITS)))
-					break;
-			}
-		}
-		/* restart */
-		tc_write(DP0CTL, 0);
-		usleep_range(10, 20);
-	} while (--retry);
-	if (retry == 0) {
-		dev_err(tc->dev, "Failed to finish training phase %d\n",
-			pattern);
+	if (timeout == 0) {
+		dev_err(tc->dev, "Link training timeout waiting for LT_LOOPDONE!\n");
+		ret = -ETIMEDOUT;
+		goto err;
 	}
+
+	*error = (value >> 8) & 0x7;
 
 	return 0;
 err:
@@ -838,6 +780,7 @@ static int tc_main_link_enable(struct tc_data *tc)
 	u32 value;
 	int ret;
 	u8 tmp[8];
+	u32 error;
 
 	/* display mode should be set at this point */
 	if (!tc->mode)
@@ -956,13 +899,55 @@ static int tc_main_link_enable(struct tc_data *tc)
 	if (ret < 0)
 		goto err_dpcd_write;
 
-	ret = tc_link_training(tc, DP_TRAINING_PATTERN_1);
+	/* LINK TRAINING PATTERN 1 */
+
+	/* Set DPCD 0x102 for Training Pattern 1 */
+	tc_write(DP0_SNKLTCTRL, DP_LINK_SCRAMBLING_DISABLE | DP_TRAINING_PATTERN_1);
+
+	tc_write(DP0_LTLOOPCTRL,
+		 (15 << 28) |	/* Defer Iteration Count */
+		 (15 << 24) |	/* Loop Iteration Count */
+		 (0xd << 0));	/* Loop Timer Delay */
+
+	tc_write(DP0_SRCCTRL, tc_srcctrl(tc) | DP0_SRCCTRL_SCRMBLDIS | DP0_SRCCTRL_AUTOCORRECT |
+		 DP0_SRCCTRL_TP1);
+
+	/* Enable DP0 to start Link Training */
+	tc_write(DP0CTL,
+		 ((tc->link.base.capabilities & DP_LINK_CAP_ENHANCED_FRAMING) ? EF_EN : 0) |
+		 DP_EN);
+
+	/* wait */
+	ret = tc_wait_link_training(tc, &error);
 	if (ret)
 		goto err;
 
-	ret = tc_link_training(tc, DP_TRAINING_PATTERN_2);
+	if (error) {
+		dev_err(tc->dev, "Link training phase 1 failed: %s\n",
+			training_pattern1_errors[error]);
+		ret = -ENODEV;
+		goto err;
+	}
+
+	/* LINK TRAINING PATTERN 2 */
+
+	/* Set DPCD 0x102 for Training Pattern 2 */
+	tc_write(DP0_SNKLTCTRL, DP_LINK_SCRAMBLING_DISABLE | DP_TRAINING_PATTERN_2);
+
+	tc_write(DP0_SRCCTRL, tc_srcctrl(tc) | DP0_SRCCTRL_SCRMBLDIS | DP0_SRCCTRL_AUTOCORRECT |
+		 DP0_SRCCTRL_TP2);
+
+	/* wait */
+	ret = tc_wait_link_training(tc, &error);
 	if (ret)
 		goto err;
+
+	if (error) {
+		dev_err(tc->dev, "Link training phase 2 failed: %s\n",
+			training_pattern2_errors[error]);
+		ret = -ENODEV;
+		goto err;
+	}
 
 	/* Clear Training Pattern, set AutoCorrect Mode = 1 */
 	tc_write(DP0_SRCCTRL, tc_srcctrl(tc) | DP0_SRCCTRL_AUTOCORRECT);
