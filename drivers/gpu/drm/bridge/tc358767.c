@@ -194,8 +194,6 @@ struct tc_edp_link {
 	u8			assr;
 	bool			scrambler_dis;
 	bool			spread;
-	u8			swing;
-	u8			preemp;
 };
 
 struct tc_data {
