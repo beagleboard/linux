@@ -1039,7 +1039,7 @@ static const struct i2c_device_id ov1063x_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, ov1063x_id);
 
-#if defined(CONFIG_OF)
+#if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id ov1063x_dt_id[] = {
 	{
 		.compatible = "ovti,ov10635", .data = "ov10635"
@@ -1050,6 +1050,7 @@ static const struct of_device_id ov1063x_dt_id[] = {
 	{
 	}
 };
+MODULE_DEVICE_TABLE(of, ov1063x_dt_id);
 #endif
 
 static struct i2c_driver ov1063x_i2c_driver = {
