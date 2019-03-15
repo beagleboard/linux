@@ -657,6 +657,7 @@ static const struct of_device_id ov490_dt_id[] = {
 	{
 	}
 };
+MODULE_DEVICE_TABLE(of, ov490_dt_id);
 
 static struct i2c_driver ov490_i2c_driver = {
 	.driver = {
