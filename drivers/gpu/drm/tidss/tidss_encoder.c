@@ -27,8 +27,24 @@ static int tidss_encoder_atomic_check(struct drm_encoder *encoder,
 	struct drm_device *ddev = encoder->dev;
 	struct tidss_crtc_state *tcrtc_state = to_tidss_crtc_state(crtc_state);
 	struct drm_display_info *di = &conn_state->connector->display_info;
+	struct drm_bridge *bridge;
+	bool bus_flags_set = false;
 
 	dev_dbg(ddev->dev, "%s\n", __func__);
+
+	/*
+	 * Take the bus_flags from the first bridge that defines
+	 * bridge timings, or from the connector's display_info if no
+	 * bridge defines the timings.
+	 */
+	for (bridge = encoder->bridge; bridge; bridge = bridge->next) {
+		if (!bridge->timings)
+			continue;
+
+		tcrtc_state->bus_flags = bridge->timings->input_bus_flags;
+		bus_flags_set = true;
+		break;
+	}
 
 	if (!di->bus_formats || di->num_bus_formats == 0)  {
 		dev_err(ddev->dev, "%s: No bus_formats in connected display\n",
@@ -38,7 +54,8 @@ static int tidss_encoder_atomic_check(struct drm_encoder *encoder,
 
 	// XXX any cleaner way to set bus format and flags?
 	tcrtc_state->bus_format = di->bus_formats[0];
-	tcrtc_state->bus_flags = di->bus_flags;
+	if (!bus_flags_set)
+		tcrtc_state->bus_flags = di->bus_flags;
 
 	return 0;
 }
