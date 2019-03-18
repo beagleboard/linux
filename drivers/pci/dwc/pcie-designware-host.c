@@ -51,6 +51,7 @@ static struct irq_chip dw_msi_irq_chip = {
 	.irq_disable = pci_msi_mask_irq,
 	.irq_mask = pci_msi_mask_irq,
 	.irq_unmask = pci_msi_unmask_irq,
+	.flags = IRQCHIP_PIPELINE_SAFE,
 };
 
 /* MSI int handler */
