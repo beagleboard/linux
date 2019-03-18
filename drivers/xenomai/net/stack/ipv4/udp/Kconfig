@@ -1,0 +1,6 @@
+config XENO_DRIVERS_NET_RTIPV4_UDP
+    tristate "UDP support"
+    depends on XENO_DRIVERS_NET_RTIPV4
+    default y
+    ---help---
+    Enables UDP support of the RTnet Real-Time IPv4 protocol.
