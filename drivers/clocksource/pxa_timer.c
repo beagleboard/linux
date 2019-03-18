@@ -20,6 +20,8 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/sched_clock.h>
+#include <linux/ipipe_tickdev.h>
+#include <linux/ipipe.h>
 
 #include <clocksource/pxa.h>
 
@@ -64,14 +66,21 @@ static u64 notrace pxa_read_sched_clock(void)
 
 #define MIN_OSCR_DELTA 16
 
+static inline void pxa_ost0_ack(void)
+{
+	/* Disarm the compare/match, signal the event. */
+	timer_writel(timer_readl(OIER) & ~OIER_E0, OIER);
+	timer_writel(OSSR_M0, OSSR);
+}
+
 static irqreturn_t
 pxa_ost0_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *c = dev_id;
 
-	/* Disarm the compare/match, signal the event. */
-	timer_writel(timer_readl(OIER) & ~OIER_E0, OIER);
-	timer_writel(OSSR_M0, OSSR);
+	if (clockevent_ipipe_stolen(c) == 0)
+		pxa_ost0_ack();
+
 	c->event_handler(c);
 
 	return IRQ_HANDLED;
@@ -134,6 +143,13 @@ static void pxa_timer_resume(struct clock_event_device *cedev)
 #define pxa_timer_resume NULL
 #endif
 
+#ifdef CONFIG_IPIPE
+static struct ipipe_timer pxa_osmr0_itimer = {
+	.ack = pxa_ost0_ack,
+	.min_delay_ticks = MIN_OSCR_DELTA,
+};
+#endif /* CONFIG_IPIPE */
+
 static struct clock_event_device ckevt_pxa_osmr0 = {
 	.name			= "osmr0",
 	.features		= CLOCK_EVT_FEAT_ONESHOT,
@@ -143,6 +159,9 @@ static struct clock_event_device ckevt_pxa_osmr0 = {
 	.set_state_oneshot	= pxa_osmr0_shutdown,
 	.suspend		= pxa_timer_suspend,
 	.resume			= pxa_timer_resume,
+#ifdef CONFIG_IPIPE
+	.ipipe_timer		= &pxa_osmr0_itimer,
+#endif /* CONFIG_IPIPE */
 };
 
 static struct irqaction pxa_ost0_irq = {
@@ -151,6 +170,18 @@ static struct irqaction pxa_ost0_irq = {
 	.handler	= pxa_ost0_interrupt,
 	.dev_id		= &ckevt_pxa_osmr0,
 };
+
+#ifdef CONFIG_IPIPE
+static struct __ipipe_tscinfo tsc_info = {
+	.type = IPIPE_TSC_TYPE_FREERUNNING,
+	.u = {
+		{
+			.counter_paddr = 0x40A00010UL,
+			.mask = 0xffffffff,
+		},
+	},
+};
+#endif /* CONFIG_IPIPE */
 
 static int __init pxa_timer_common_init(int irq, unsigned long clock_tick_rate)
 {
@@ -175,6 +206,13 @@ static int __init pxa_timer_common_init(int irq, unsigned long clock_tick_rate)
 		pr_err("Failed to init clocksource");
 		return ret;
 	}
+
+#ifdef CONFIG_IPIPE
+	tsc_info.freq = clock_tick_rate;
+	tsc_info.counter_vaddr = (unsigned long)timer_base + OSCR;
+	__ipipe_tsc_register(&tsc_info);
+	pxa_osmr0_itimer.irq = irq;
+#endif /* CONFIG_IPIPE */
 
 	clockevents_config_and_register(&ckevt_pxa_osmr0, clock_tick_rate,
 					MIN_OSCR_DELTA * 2, 0x7fffffff);
@@ -221,7 +259,7 @@ CLOCKSOURCE_OF_DECLARE(pxa_timer, "marvell,pxa-timer", pxa_timer_dt_init);
  * Legacy timer init for non device-tree boards.
  */
 void __init pxa_timer_nodt_init(int irq, void __iomem *base,
-	unsigned long clock_tick_rate)
+				unsigned long clock_tick_rate)
 {
 	struct clk *clk;
 

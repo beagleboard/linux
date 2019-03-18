@@ -27,15 +27,20 @@ _GLOBAL(\name)
 	mflr	r0
 	std	r0,16(r1)
 
+#ifndef CONFIG_IPIPE
 	/* Hard disable interrupts */
 	wrteei	0
 
 	/* Now check if an interrupt came in while we were soft disabled
-	 * since we may otherwise lose it (doorbells etc...).
+	 * since we may otherwise lose it (doorbells etc...). There is no
+	 * need to do that if pipelining IRQs, since our caller already
+	 * cleared the stall bit, then synchronized the interrupt log,
+	 * disabling hw IRQs before getting here.
 	 */
 	lbz	r3,PACAIRQHAPPENED(r13)
 	cmpwi	cr0,r3,0
 	bnelr
+#endif
 
 	/* Now we are going to mark ourselves as soft and hard enabled in
 	 * order to be able to take interrupts while asleep. We inform lockdep
@@ -46,8 +51,10 @@ _GLOBAL(\name)
 	bl	trace_hardirqs_on
 	addi    r1,r1,128
 #endif
+#ifndef CONFIG_IPIPE
 	li	r0,1
 	stb	r0,PACASOFTIRQEN(r13)
+#endif
 	
 	/* Interrupts will make use return to LR, so get something we want
 	 * in there

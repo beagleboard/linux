@@ -28,6 +28,7 @@
 #include <asm/unistd.h>
 #include <asm/thread_info.h>
 #include <asm/hw_irq.h>
+#include <asm/ipipe_base.h>
 #include <asm/page_types.h>
 #include <asm/irqflags.h>
 #include <asm/paravirt.h>
@@ -45,6 +46,12 @@
 #define AUDIT_ARCH_X86_64			(EM_X86_64|__AUDIT_ARCH_64BIT|__AUDIT_ARCH_LE)
 #define __AUDIT_ARCH_64BIT			0x80000000
 #define __AUDIT_ARCH_LE				0x40000000
+
+#ifdef CONFIG_IPIPE
+#define PREEMPT_SCHEDULE_IRQ	call __ipipe_preempt_schedule_irq
+#else /* !CONFIG_IPIPE */
+#define PREEMPT_SCHEDULE_IRQ	call preempt_schedule_irq
+#endif /* !CONFIG_IPIPE */
 
 .code64
 .section .entry.text, "ax"
@@ -76,7 +83,8 @@ ENDPROC(native_usergs_sysret64)
  * make sure the stack pointer does not get reset back to the top
  * of the debug stack, and instead just reuses the current stack.
  */
-#if defined(CONFIG_DYNAMIC_FTRACE) && defined(CONFIG_TRACE_IRQFLAGS)
+#if defined(CONFIG_DYNAMIC_FTRACE) && defined(CONFIG_TRACE_IRQFLAGS) \
+	&& !defined(CONFIG_IPIPE)
 
 .macro TRACE_IRQS_OFF_DEBUG
 	call	debug_stack_set_zero
@@ -354,6 +362,7 @@ END(__switch_to_asm)
  */
 ENTRY(ret_from_fork)
 	movq	%rax, %rdi
+	HARD_COND_ENABLE_INTERRUPTS
 	call	schedule_tail			/* rdi: 'prev' task parameter */
 
 	testq	%rbx, %rbx			/* from kernel_thread? */
@@ -442,7 +451,9 @@ END(irq_entries_start)
 	 */
 	movq	%rsp, %rdi
 	incl	PER_CPU_VAR(irq_count)
+#ifndef CONFIG_IPIPE
 	cmovzq	PER_CPU_VAR(irq_stack_ptr), %rsp
+#endif
 	pushq	%rdi
 	/* We entered an interrupt context - irqs are off: */
 	TRACE_IRQS_OFF
@@ -458,7 +469,18 @@ END(irq_entries_start)
 common_interrupt:
 	ASM_CLAC
 	addq	$-0x80, (%rsp)			/* Adjust vector to [-256, -1] range */
+#ifdef CONFIG_IPIPE
+	interrupt __ipipe_handle_irq
+	testl	%eax, %eax
+	jnz	ret_from_intr
+	decl	PER_CPU_VAR(irq_count)
+	popq	%rsp
+	testl	$3,CS(%rsp)
+	jz	restore_regs_and_iret
+	jmp	retint_swapgs_notrace
+#else /* !CONFIG_IPIPE */
 	interrupt do_IRQ
+#endif /* !CONFIG_IPIPE */
 	/* 0(%rsp): old RSP */
 ret_from_intr:
 	DISABLE_INTERRUPTS(CLBR_NONE)
@@ -476,9 +498,32 @@ GLOBAL(retint_user)
 	mov	%rsp,%rdi
 	call	prepare_exit_to_usermode
 	TRACE_IRQS_IRETQ
+retint_swapgs_notrace:
 	SWITCH_USER_CR3
 	SWAPGS
 	jmp	restore_regs_and_iret
+
+#ifdef CONFIG_IPIPE
+.Lunwind_root_irq:
+	DISABLE_INTERRUPTS(CLBR_NONE)
+	retq	/* back to __ipipe_do_IRQ() */
+
+ENTRY(do_root_irq)
+	movq	%rsp, %rax
+	pushq	$__KERNEL_DS
+	pushq	%rax
+	pushfq
+	orq	$X86_EFLAGS_IF, (%rsp)
+	pushq	$__KERNEL_CS
+	pushq	$.Lunwind_root_irq
+	pushq	ORIG_RAX(%rdi)
+	ALLOC_PT_GPREGS_ON_STACK
+	SAVE_C_REGS
+	SAVE_EXTRA_REGS
+	callq	*RSI(%rsp)
+	DISABLE_INTERRUPTS(CLBR_NONE)
+END(do_root_irq)
+#endif
 
 /* Returning to kernel space */
 retint_kernel:
@@ -489,7 +534,15 @@ retint_kernel:
 	jnc	1f
 0:	cmpl	$0, PER_CPU_VAR(__preempt_count)
 	jnz	1f
-	call	preempt_schedule_irq
+#ifdef CONFIG_IPIPE
+	/*
+	 * We may have preempted call_softirq before __do_softirq raised or
+	 * after it lowered the preemption counter.
+	 */
+	cmpl	$0,PER_CPU_VAR(irq_count)
+	jge	1f
+#endif
+	PREEMPT_SCHEDULE_IRQ
 	jmp	0b
 1:
 #endif
@@ -603,6 +656,26 @@ END(common_interrupt)
 /*
  * APIC interrupts.
  */
+#ifdef CONFIG_IPIPE
+.macro apicinterrupt2 num sym
+ENTRY(\sym)
+	ASM_CLAC
+	pushq	$~(\num)
+.Lcommon_\sym:
+	interrupt __ipipe_handle_irq
+	testl	%eax, %eax
+	jnz	ret_from_intr
+	decl	PER_CPU_VAR(irq_count)
+	popq	%rsp
+	testl	$3,CS(%rsp)
+	jz	restore_regs_and_iret
+	jmp	retint_swapgs_notrace
+END(\sym)
+.endm
+.macro apicinterrupt3 num sym do_sym
+apicinterrupt2 \num \sym
+.endm
+#else /* !CONFIG_IPIPE */
 .macro apicinterrupt3 num sym do_sym
 ENTRY(\sym)
 	ASM_CLAC
@@ -612,6 +685,7 @@ ENTRY(\sym)
 	jmp	ret_from_intr
 END(\sym)
 .endm
+#endif /* !CONFIG_IPIPE */
 
 #ifdef CONFIG_TRACING
 #define trace(sym) trace_##sym
@@ -674,6 +748,14 @@ apicinterrupt THERMAL_APIC_VECTOR		thermal_interrupt		smp_thermal_interrupt
 apicinterrupt CALL_FUNCTION_SINGLE_VECTOR	call_function_single_interrupt	smp_call_function_single_interrupt
 apicinterrupt CALL_FUNCTION_VECTOR		call_function_interrupt		smp_call_function_interrupt
 apicinterrupt RESCHEDULE_VECTOR			reschedule_interrupt		smp_reschedule_interrupt
+#ifdef CONFIG_IPIPE
+apicinterrupt2 IPIPE_RESCHEDULE_VECTOR		ipipe_reschedule_interrupt
+apicinterrupt2 IPIPE_CRITICAL_VECTOR		ipipe_critical_interrupt
+#endif
+#endif
+
+#ifdef CONFIG_IPIPE
+apicinterrupt2 IPIPE_HRTIMER_VECTOR		ipipe_hrtimer_interrupt
 #endif
 
 apicinterrupt ERROR_APIC_VECTOR			error_interrupt			smp_error_interrupt
@@ -736,7 +818,23 @@ ENTRY(\sym)
 	subq	$EXCEPTION_STKSZ, CPU_TSS_IST(\shift_ist)
 	.endif
 
+	TRACE_IRQS_OFF
 	call	\do_sym
+#ifdef CONFIG_IPIPE
+	.if \paranoid
+	xorl	%eax,%eax 	/* force paranoid_exit to propagate the exception */
+	.else
+	testl	%eax, %eax
+	jz	99f
+	movl	%ebx,%eax	/* %ebx: no swapgs flag */
+	RESTORE_EXTRA_REGS
+	DISABLE_INTERRUPTS(CLBR_NONE)
+	testl	%eax,%eax
+	jnz	restore_regs_and_iret
+	jmp	retint_swapgs_notrace
+	.endif
+99:
+#endif
 
 	.if \shift_ist != -1
 	addq	$EXCEPTION_STKSZ, CPU_TSS_IST(\shift_ist)
@@ -842,12 +940,16 @@ bad_gs:
 ENTRY(do_softirq_own_stack)
 	pushq	%rbp
 	mov	%rsp, %rbp
+	HARD_COND_DISABLE_INTERRUPTS
 	incl	PER_CPU_VAR(irq_count)
 	cmove	PER_CPU_VAR(irq_stack_ptr), %rsp
+	HARD_COND_ENABLE_INTERRUPTS
 	push	%rbp				/* frame pointer backlink */
 	call	__do_softirq
+	HARD_COND_DISABLE_INTERRUPTS
 	leaveq
 	decl	PER_CPU_VAR(irq_count)
+	HARD_COND_ENABLE_INTERRUPTS
 	ret
 END(do_softirq_own_stack)
 
@@ -942,7 +1044,11 @@ apicinterrupt3 HYPERVISOR_CALLBACK_VECTOR \
 	hyperv_callback_vector hyperv_vector_handler
 #endif /* CONFIG_HYPERV */
 
+#ifdef CONFIG_IPIPE
+idtentry debug			do_debug		has_error_code=0	paranoid=1
+#else
 idtentry debug			do_debug		has_error_code=0	paranoid=1 shift_ist=DEBUG_STACK
+#endif
 idtentry int3			do_int3			has_error_code=0
 idtentry stack_segment		do_stack_segment	has_error_code=1
 
@@ -1075,7 +1181,9 @@ ENTRY(error_entry)
 	ret
 
 .Lerror_entry_done:
+#ifndef CONFIG_IPIPE
 	TRACE_IRQS_OFF
+#endif
 	ret
 
 	/*

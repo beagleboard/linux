@@ -13,6 +13,7 @@
 #include <linux/compat.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/ipipe.h>
 
 #include <asm/user.h>
 #include <asm/fpu/api.h>
@@ -212,8 +213,8 @@ static inline void copy_fxregs_to_kernel(struct fpu *fpu)
 		 * registers.
 		 */
 		asm volatile( "rex64/fxsave (%[fx])"
-			     : "=m" (fpu->state.fxsave)
-			     : [fx] "R" (&fpu->state.fxsave));
+                             : "=m" (fpu->state.fxsave)
+                             : [fx] "R" (&fpu->state.fxsave));
 	}
 }
 
@@ -625,11 +626,12 @@ static inline void switch_fpu_finish(struct fpu *new_fpu, fpu_switch_t fpu_switc
 static inline void user_fpu_begin(void)
 {
 	struct fpu *fpu = &current->thread.fpu;
+	unsigned long flags;
 
-	preempt_disable();
+	flags = hard_preempt_disable();
 	if (!fpregs_active())
 		fpregs_activate(fpu);
-	preempt_enable();
+	hard_preempt_enable(flags);
 }
 
 /*
@@ -657,6 +659,25 @@ static inline void xsetbv(u32 index, u64 value)
 
 	asm volatile(".byte 0x0f,0x01,0xd1" /* xsetbv */
 		     : : "a" (eax), "d" (edx), "c" (index));
+}
+
+DECLARE_PER_CPU(bool, in_kernel_fpu);
+
+static inline void kernel_fpu_disable(void)
+{
+	WARN_ON_FPU(this_cpu_read(in_kernel_fpu));
+	this_cpu_write(in_kernel_fpu, true);
+}
+
+static inline void kernel_fpu_enable(void)
+{
+	WARN_ON_FPU(!this_cpu_read(in_kernel_fpu));
+	this_cpu_write(in_kernel_fpu, false);
+}
+
+static inline bool kernel_fpu_disabled(void)
+{
+	return this_cpu_read(in_kernel_fpu);
 }
 
 #endif /* _ASM_X86_FPU_INTERNAL_H */

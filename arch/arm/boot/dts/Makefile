@@ -1,3 +1,9 @@
+omap3-igep0020-3430.dts: omap3-igep0020.dts omap3430-igep.dtsi
+	sed 's/omap3-igep\.dtsi/omap3430-igep.dtsi/' $< > $@
+
+omap3430-igep.dtsi: omap3-igep.dtsi Makefile
+	sed 's/omap36xx\.dtsi/omap34xx.dtsi/' $< > $@
+
 ifeq ($(CONFIG_OF),y)
 
 dtb-$(CONFIG_ARCH_ALPINE) += \
@@ -70,7 +76,9 @@ dtb-$(CONFIG_ARCH_BCM2835) += \
 	bcm2835-rpi-b-plus.dtb \
 	bcm2835-rpi-a-plus.dtb \
 	bcm2836-rpi-2-b.dtb \
-	bcm2835-rpi-zero.dtb
+	bcm2835-rpi-zero.dtb \
+	bcm2837-rpi-3-b.dtb \
+	bcm2837-rpi-3-b-cobalt.dtb
 dtb-$(CONFIG_ARCH_BCM_5301X) += \
 	bcm4708-asus-rt-ac56u.dtb \
 	bcm4708-asus-rt-ac68u.dtb \

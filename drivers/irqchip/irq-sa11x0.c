@@ -36,21 +36,57 @@ static void __iomem *iobase;
  */
 static void sa1100_mask_irq(struct irq_data *d)
 {
+	unsigned long flags;
 	u32 reg;
 
+	flags = hard_local_irq_save();
+	ipipe_lock_irq(d->irq);
 	reg = readl_relaxed(iobase + ICMR);
 	reg &= ~BIT(d->hwirq);
 	writel_relaxed(reg, iobase + ICMR);
+	hard_local_irq_restore(flags);
 }
 
 static void sa1100_unmask_irq(struct irq_data *d)
 {
+	unsigned long flags;
 	u32 reg;
 
+	flags = hard_local_irq_save();
 	reg = readl_relaxed(iobase + ICMR);
 	reg |= BIT(d->hwirq);
 	writel_relaxed(reg, iobase + ICMR);
+	ipipe_unlock_irq(d->irq);
+	hard_local_irq_restore(flags);
 }
+
+#ifdef CONFIG_IPIPE
+
+static void sa1100_hold_irq(struct irq_data *d)
+{
+	unsigned long flags;
+	u32 reg;
+
+	flags = hard_local_irq_save();
+	reg = readl_relaxed(iobase + ICMR);
+	reg &= ~BIT(d->hwirq);
+	writel_relaxed(reg, iobase + ICMR);
+	hard_local_irq_restore(flags);
+}
+
+static void sa1100_release_irq(struct irq_data *d)
+{
+	unsigned long flags;
+	u32 reg;
+
+	flags = hard_local_irq_save();
+	reg = readl_relaxed(iobase + ICMR);
+	reg |= BIT(d->hwirq);
+	writel_relaxed(reg, iobase + ICMR);
+	hard_local_irq_restore(flags);
+}
+
+#endif
 
 static int sa1100_set_wake(struct irq_data *d, unsigned int on)
 {
@@ -59,10 +95,15 @@ static int sa1100_set_wake(struct irq_data *d, unsigned int on)
 
 static struct irq_chip sa1100_normal_chip = {
 	.name		= "SC",
-	.irq_ack	= sa1100_mask_irq,
 	.irq_mask	= sa1100_mask_irq,
 	.irq_unmask	= sa1100_unmask_irq,
 	.irq_set_wake	= sa1100_set_wake,
+#ifdef CONFIG_IPIPE
+	.irq_hold	= sa1100_hold_irq,
+	.irq_release	= sa1100_release_irq,
+#else
+	.irq_ack	= sa1100_mask_irq,
+#endif
 };
 
 static int sa1100_normal_irqdomain_map(struct irq_domain *d,
@@ -143,8 +184,8 @@ sa1100_handle_irq(struct pt_regs *regs)
 		if (mask == 0)
 			break;
 
-		handle_domain_irq(sa1100_normal_irqdomain,
-				ffs(mask) - 1, regs);
+		ipipe_handle_domain_irq(sa1100_normal_irqdomain,
+					ffs(mask) - 1, regs);
 	} while (1);
 }
 

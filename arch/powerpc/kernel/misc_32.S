@@ -41,6 +41,7 @@
  * We store the saved ksp_limit in the unused part
  * of the STACK_FRAME_OVERHEAD
  */
+#ifndef CONFIG_IPIPE
 _GLOBAL(call_do_softirq)
 	mflr	r0
 	stw	r0,4(r1)
@@ -77,6 +78,7 @@ _GLOBAL(call_do_irq)
 	stw	r10,THREAD+KSP_LIMIT(r2)
 	mtlr	r0
 	blr
+#endif
 
 /*
  * This returns the high 64 bits of the product of two 64-bit numbers.

@@ -155,6 +155,7 @@
 # define MAX_LOCAL_APIC 32768
 #endif
 
+#ifndef __ASSEMBLY__
 /*
  * All x86-64 systems are xAPIC compatible.
  * In the following, "apicid" is a physical APIC ID.
@@ -441,5 +442,7 @@ enum ioapic_irq_destination_types {
 	dest__reserved_2	= 6,
 	dest_ExtINT		= 7
 };
+
+#endif /* !__ASSEMBLY__ */
 
 #endif /* _ASM_X86_APICDEF_H */

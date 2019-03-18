@@ -32,7 +32,7 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 	 */
 	ret = __cpu_suspend(arg, fn, __mpidr);
 	if (ret == 0) {
-		cpu_switch_mm(mm->pgd, mm);
+		cpu_switch_mm(mm->pgd, mm, 1);
 		local_flush_bp_all();
 		local_flush_tlb_all();
 		check_other_bugs();
