@@ -68,7 +68,7 @@ static inline bool __chk_range_not_ok(unsigned long addr, unsigned long size, un
 	__chk_range_not_ok((unsigned long __force)(addr), size, limit); \
 })
 
-#ifdef CONFIG_DEBUG_ATOMIC_SLEEP
+#if defined(CONFIG_DEBUG_ATOMIC_SLEEP) && !defined(CONFIG_IPIPE)
 # define WARN_ON_IN_IRQ()	WARN_ON_ONCE(!in_task())
 #else
 # define WARN_ON_IN_IRQ()

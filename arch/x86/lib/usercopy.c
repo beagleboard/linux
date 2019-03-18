@@ -19,7 +19,7 @@ copy_from_user_nmi(void *to, const void __user *from, unsigned long n)
 {
 	unsigned long ret;
 
-	if (__range_not_ok(from, n, TASK_SIZE))
+	if (!ipipe_root_p || __range_not_ok(from, n, TASK_SIZE))
 		return n;
 
 	/*

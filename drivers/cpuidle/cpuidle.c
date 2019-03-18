@@ -16,6 +16,7 @@
 #include <linux/pm_qos.h>
 #include <linux/cpu.h>
 #include <linux/cpuidle.h>
+#include <linux/ipipe.h>
 #include <linux/ktime.h>
 #include <linux/hrtimer.h>
 #include <linux/module.h>
@@ -176,6 +177,11 @@ int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
 	ktime_t time_start, time_end;
 	s64 diff;
 
+	if (!ipipe_enter_cpuidle()) {
+		ipipe_exit_cpuidle();
+		return -EBUSY;
+	}
+
 	/*
 	 * Tell the time framework to switch to a broadcast timer because our
 	 * local timer will be shut down.  If a local timer is used from another
@@ -234,6 +240,8 @@ int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
 	} else {
 		dev->last_residency = 0;
 	}
+
+	ipipe_exit_cpuidle();
 
 	return entered_state;
 }

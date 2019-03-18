@@ -4994,7 +4994,7 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 	 */
 	x86_spec_ctrl_set_guest(svm->spec_ctrl, svm->virt_spec_ctrl);
 
-	local_irq_enable();
+	hard_local_irq_enable();
 
 	asm volatile (
 		"push %%" _ASM_BP "; \n\t"
@@ -5120,7 +5120,7 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 
 	reload_tss(vcpu);
 
-	local_irq_disable();
+	hard_local_irq_disable();
 
 	x86_spec_ctrl_restore_host(svm->spec_ctrl, svm->virt_spec_ctrl);
 
@@ -5501,6 +5501,7 @@ out:
 
 static void svm_handle_external_intr(struct kvm_vcpu *vcpu)
 {
+	hard_cond_local_irq_enable();
 	local_irq_enable();
 	/*
 	 * We must have an instruction with interrupts enabled, so

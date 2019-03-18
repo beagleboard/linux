@@ -177,7 +177,7 @@ struct gpio_chip {
 	void __iomem *reg_clr;
 	void __iomem *reg_dir;
 	int bgpio_bits;
-	spinlock_t bgpio_lock;
+	ipipe_spinlock_t bgpio_lock;
 	unsigned long bgpio_data;
 	unsigned long bgpio_dir;
 #endif

@@ -65,7 +65,7 @@ static void bfin_idle_this_cpu(void *info)
 	unsigned long iwr0, iwr1, iwr2;
 	unsigned int cpu = smp_processor_id();
 
-	local_irq_save_hw(flags);
+	flags = hard_local_irq_save();
 	bfin_iwr_set_sup0(&iwr0, &iwr1, &iwr2);
 
 	platform_clear_ipi(cpu, IRQ_SUPPLE_0);
@@ -73,7 +73,7 @@ static void bfin_idle_this_cpu(void *info)
 	asm("IDLE;");
 	bfin_iwr_restore(iwr0, iwr1, iwr2);
 
-	local_irq_restore_hw(flags);
+	hard_local_irq_restore(flags);
 }
 
 static void bfin_idle_cpu(void)

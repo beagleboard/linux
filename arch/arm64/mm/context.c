@@ -28,7 +28,7 @@
 #include <asm/tlbflush.h>
 
 static u32 asid_bits;
-static DEFINE_RAW_SPINLOCK(cpu_asid_lock);
+static IPIPE_DEFINE_RAW_SPINLOCK(cpu_asid_lock);
 
 static atomic64_t asid_generation;
 static unsigned long *asid_map;

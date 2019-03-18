@@ -368,6 +368,11 @@ ENTRY(cpu_arm926_dcache_clean_area)
 ENTRY(cpu_arm926_switch_mm)
 #ifdef CONFIG_MMU
 	mov	ip, #0
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+	cmp	r2, #0
+	beq	2f
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
+#ifndef CONFIG_ARM_FCSE_GUARANTEED
 #ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 	mcr	p15, 0, ip, c7, c6, 0		@ invalidate D cache
 #else
@@ -377,6 +382,10 @@ ENTRY(cpu_arm926_switch_mm)
 #endif
 	mcr	p15, 0, ip, c7, c5, 0		@ invalidate I cache
 	mcr	p15, 0, ip, c7, c10, 4		@ drain WB
+#endif /* !CONFIG_ARM_FCSE_GUARANTEED */
+#ifdef CONFIG_ARM_FCSE_BEST_EFFORT
+2:
+#endif /* CONFIG_ARM_FCSE_BEST_EFFORT */
 	mcr	p15, 0, r0, c2, c0, 0		@ load page table pointer
 	mcr	p15, 0, ip, c8, c7, 0		@ invalidate I & D TLBs
 #endif
