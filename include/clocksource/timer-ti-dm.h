@@ -98,6 +98,7 @@ struct omap_dm_timer {
 	int irq;
 	struct clk *fclk;
 
+	unsigned long	phys_base;
 	void __iomem	*io_base;
 	void __iomem	*irq_stat;	/* TISR/IRQSTATUS interrupt status */
 	void __iomem	*irq_ena;	/* irq enable */
@@ -423,5 +424,12 @@ static inline void __omap_dm_timer_write_status(struct omap_dm_timer *timer,
 {
 	writel_relaxed(value, timer->irq_stat);
 }
+
+static inline unsigned long __omap_dm_timer_read_status(struct omap_dm_timer *timer)
+{
+	return __raw_readl(timer->irq_stat);
+}
+
 #endif /* CONFIG_ARCH_OMAP1 || CONFIG_ARCH_OMAP2PLUS */
+
 #endif /* __CLOCKSOURCE_DMTIMER_H */

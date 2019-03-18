@@ -26,6 +26,7 @@
 #include <linux/slab.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm.h>
+#include <linux/ipipe.h>
 
 #define GPIODIR 0x400
 #define GPIOIS  0x404
@@ -50,7 +51,11 @@ struct pl061_context_save_regs {
 #endif
 
 struct pl061 {
+#ifdef CONFIG_IPIPE
+	ipipe_spinlock_t	lock;
+#else
 	raw_spinlock_t		lock;
+#endif
 
 	void __iomem		*base;
 	struct gpio_chip	gc;
@@ -221,14 +226,30 @@ static void pl061_irq_handler(struct irq_desc *desc)
 	pending = readb(pl061->base + GPIOMIS);
 	if (pending) {
 		for_each_set_bit(offset, &pending, PL061_GPIO_NR)
-			generic_handle_irq(irq_find_mapping(gc->irqdomain,
-							    offset));
+			ipipe_handle_demuxed_irq(irq_find_mapping(gc->irqdomain,
+								  offset));
 	}
 
 	chained_irq_exit(irqchip, desc);
 }
 
 static void pl061_irq_mask(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct pl061 *pl061 = gpiochip_get_data(gc);
+	u8 mask = BIT(irqd_to_hwirq(d) % PL061_GPIO_NR);
+	unsigned long flags;
+	u8 gpioie;
+
+	raw_spin_lock_irqsave(&pl061->lock, flags);
+	gpioie = readb(pl061->base + GPIOIE) & ~mask;
+	writeb(gpioie, pl061->base + GPIOIE);
+	ipipe_lock_irq(d->irq);
+	raw_spin_unlock_irqrestore(&pl061->lock, flags);
+}
+
+#ifdef CONFIG_IPIPE
+static void pl061_irq_mask_ack(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct pl061 *pl061 = gpiochip_get_data(gc);
@@ -240,6 +261,7 @@ static void pl061_irq_mask(struct irq_data *d)
 	writeb(gpioie, pl061->base + GPIOIE);
 	raw_spin_unlock(&pl061->lock);
 }
+#endif
 
 static void pl061_irq_unmask(struct irq_data *d)
 {
@@ -288,6 +310,10 @@ static struct irq_chip pl061_irqchip = {
 	.irq_unmask	= pl061_irq_unmask,
 	.irq_set_type	= pl061_irq_type,
 	.irq_set_wake	= pl061_irq_set_wake,
+#ifdef CONFIG_IPIPE
+	.irq_mask_ack	= pl061_irq_mask_ack,
+	.flags		= IRQCHIP_PIPELINE_SAFE,
+#endif
 };
 
 static int pl061_probe(struct amba_device *adev, const struct amba_id *id)
