@@ -214,7 +214,7 @@ struct tc_data {
 	/* display edid */
 	struct edid		*edid;
 	/* current mode */
-	struct drm_display_mode	*mode;
+	const struct drm_display_mode	*mode;
 
 	u32			rev;
 	u8			assr;
@@ -663,7 +663,8 @@ err_dpcd_read:
 	return ret;
 }
 
-static int tc_set_video_mode(struct tc_data *tc, struct drm_display_mode *mode)
+static int tc_set_video_mode(struct tc_data *tc,
+			     const struct drm_display_mode *mode)
 {
 	int ret;
 	int vid_sync_dly;
