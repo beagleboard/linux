@@ -888,10 +888,10 @@ err_cleanup_helpers:
 err_cleanup_modeset:
 	drm_mode_config_cleanup(ddev);
 	omap_drm_irq_uninstall(ddev);
-err_free_priv_obj:
-	omap_global_obj_fini(priv);
 err_free_overlays:
 	omap_hwoverlays_destroy(priv);
+err_free_priv_obj:
+	omap_global_obj_fini(priv);
 err_gem_deinit:
 	omap_gem_deinit(ddev);
 	destroy_workqueue(priv->wq);
@@ -922,10 +922,9 @@ static void omapdrm_cleanup(struct omap_drm_private *priv)
 	drm_mode_config_cleanup(ddev);
 
 	omap_drm_irq_uninstall(ddev);
-	omap_gem_deinit(ddev);
-
-	omap_global_obj_fini(priv);
 	omap_hwoverlays_destroy(priv);
+	omap_global_obj_fini(priv);
+	omap_gem_deinit(ddev);
 
 	destroy_workqueue(priv->wq);
 
