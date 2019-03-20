@@ -102,6 +102,16 @@
 				ti,syscon-dev = <&devctrl 0x2a0>;
 			};
 
+			pcie_devid: pcie-devid@128 {
+				compatible = "syscon";
+				reg = <0x00000128 0x4>;
+			};
+
+			pcie_mode: pcie-mode@14c {
+				compatible = "syscon";
+				reg = <0x0000014c 0x4>;
+			};
+
 			rstctrl: reset-controller@328 {
 				compatible = "ti,keystone-reset";
 				reg = <0x328 0x10>;
@@ -306,17 +316,19 @@
 
 		pcie0: pcie@21800000 {
 			compatible = "ti,keystone-pcie", "snps,dw-pcie";
+			reg =  <0x21800000 0x1000>, <0x21801000 0x1000>, <0x21802000 0x1000>;
+			reg-names = "app", "dbics", "config";
 			clocks = <&clkpcie>;
-			clock-names = "pcie";
+			clock-names = "fck";
 			#address-cells = <3>;
 			#size-cells = <2>;
-			reg =  <0x21801000 0x2000>, <0x21800000 0x1000>, <0x02620128 4>;
-			ranges = <0x82000000 0 0x50000000 0x50000000
-				  0 0x10000000>;
+			ranges = <0x81000000 0 0          0x50000000 0 0x100000
+				  0x82000000 0 0x50100000 0x50100000 0 0xFF00000>;
 
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <2>;
+			num-viewport = <32>;
 			bus-range = <0x00 0xff>;
 			phys = <&pcie0_phy>;
 
