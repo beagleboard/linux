@@ -753,10 +753,6 @@ static inline bool udma_chan_needs_reconfiguration(struct udma_chan *uc)
 	if (!uc->static_tr_type)
 		return false;
 
-	/* RX channels always need to be reset, reconfigured */
-	if (uc->dir == DMA_DEV_TO_MEM)
-		return true;
-
 	/* Check if the staticTR configuration has changed for TX */
 	if (memcmp(&uc->static_tr, &uc->desc->static_tr, sizeof(uc->static_tr)))
 		return true;
