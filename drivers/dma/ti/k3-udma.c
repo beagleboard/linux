@@ -2657,6 +2657,11 @@ static enum dma_status udma_tx_status(struct dma_chan *chan,
 		else
 			residue -= bcnt % uc->desc->residue;
 
+		if (!residue && (uc->dir == DMA_DEV_TO_MEM || !delay)) {
+			ret = DMA_COMPLETE;
+			delay = 0;
+		}
+
 		dma_set_residue(txstate, residue);
 		dma_set_in_flight_bytes(txstate, delay);
 
