@@ -20,6 +20,9 @@
 			clock-frequency = <96000000>;
 			current-speed = <115200>;
 			power-domains = <&k3_pds 149>;
+			dmas = <&mcu_udmap &mcu_pdma1 18 UDMA_DIR_TX>,
+			       <&mcu_udmap &mcu_pdma1 18 UDMA_DIR_RX>;
+			dma-names = "tx", "rx";
 	};
 
 	mcu_ram: mcu-ram@41c00000 {

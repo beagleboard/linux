@@ -142,6 +142,9 @@
 		clock-frequency = <48000000>;
 		current-speed = <115200>;
 		power-domains = <&k3_pds 146>;
+		dmas = <&main_udmap &pdma1 20 UDMA_DIR_TX>,
+		       <&main_udmap &pdma1 20 UDMA_DIR_RX>;
+		dma-names = "tx", "rx";
 	};
 
 	main_uart1: serial@2810000 {
@@ -152,6 +155,9 @@
 		interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <48000000>;
 		power-domains = <&k3_pds 147>;
+		dmas = <&main_udmap &pdma1 21 UDMA_DIR_TX>,
+		       <&main_udmap &pdma1 21 UDMA_DIR_RX>;
+		dma-names = "tx", "rx";
 	};
 
 	main_uart2: serial@2820000 {
@@ -162,6 +168,9 @@
 		interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <48000000>;
 		power-domains = <&k3_pds 148>;
+		dmas = <&main_udmap &pdma1 22 UDMA_DIR_TX>,
+		       <&main_udmap &pdma1 22 UDMA_DIR_RX>;
+		dma-names = "tx", "rx";
 	};
 
 	main_intr: interrupt-controller0 {
