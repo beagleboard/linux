@@ -3018,7 +3018,7 @@ static struct dma_chan *udma_of_xlate(struct of_phandle_args *dma_spec,
 	return chan;
 }
 
-struct udma_match_data am654_main_data = {
+static struct udma_match_data am654_main_data = {
 	.enable_memcpy_support = true,
 	.tpl_levels = 2,
 	.level_start_idx = {
@@ -3027,7 +3027,7 @@ struct udma_match_data am654_main_data = {
 	},
 };
 
-struct udma_match_data am654_mcu_data = {
+static struct udma_match_data am654_mcu_data = {
 	.enable_memcpy_support = false, /* MEM_TO_MEM is slow via MCU UDMA */
 	.tpl_levels = 2,
 	.level_start_idx = {
