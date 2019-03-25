@@ -74,6 +74,8 @@
 		clock-names = "ref";
 		clocks = <&dp_refclk>;
 
+		toshiba,hpd-pin = <0>;
+
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
