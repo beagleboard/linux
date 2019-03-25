@@ -35,6 +35,14 @@
 #define DRIVER_MINOR		0
 #define DRIVER_PATCHLEVEL	0
 
+#define MAX_NR_DISPLAYS		8
+static int display_order[MAX_NR_DISPLAYS];
+static int display_order_nelm;
+module_param_array_named(displays, display_order, int, &display_order_nelm,
+			 0444);
+MODULE_PARM_DESC(displays,
+		 "ID array to specify the order of the active displays");
+
 /*
  * mode config funcs
  */
@@ -336,7 +344,14 @@ static int omap_connect_pipelines(struct drm_device *ddev)
 {
 	struct omap_drm_private *priv = ddev->dev_private;
 	struct omap_dss_device *output = NULL;
-	int r;
+	struct omap_drm_pipeline pipes[ARRAY_SIZE(priv->pipes)];
+	unsigned int num_pipes = 0;
+	unsigned long pipes_mask = 0;
+	int r, i;
+
+	/* No displays should be enabled */
+	if (display_order_nelm == 1 && display_order[0] < 0)
+		return 0;
 
 	for_each_dss_output(output) {
 		r = omapdss_device_connect(priv->dss, NULL, output);
@@ -349,6 +364,7 @@ static int omap_connect_pipelines(struct drm_device *ddev)
 		} else {
 			struct omap_drm_pipeline *pipe;
 
+			set_bit(priv->num_pipes, &pipes_mask);
 			pipe = &priv->pipes[priv->num_pipes++];
 			pipe->output = omapdss_device_get(output);
 
@@ -363,6 +379,46 @@ static int omap_connect_pipelines(struct drm_device *ddev)
 	/* Sort the pipelines by DT aliases. */
 	sort(priv->pipes, priv->num_pipes, sizeof(priv->pipes[0]),
 	     omap_compare_pipelines, NULL);
+
+	/* Do ordering based on the display_order parameter array */
+	for (i = 0; i < display_order_nelm; i++) {
+		int old_index = display_order[i];
+
+		if ((old_index >= 0 && old_index < priv->num_pipes) &&
+		    (pipes_mask & BIT(old_index))) {
+			pipes[num_pipes++] = priv->pipes[old_index];
+			clear_bit(old_index, &pipes_mask);
+		} else {
+			dev_err(ddev->dev,
+				"Ignoring invalid displays module parameter\n");
+			num_pipes = 0;
+			break;
+		}
+	}
+
+	if (num_pipes > 0) {
+		u32 idx;
+
+		/* check if we have dssdev which is not carried over */
+		for_each_set_bit(idx, &pipes_mask, ARRAY_SIZE(priv->pipes)) {
+			struct omap_drm_pipeline *pipe = &priv->pipes[idx];
+
+			if (pipe->output->panel)
+				drm_panel_detach(pipe->output->panel);
+
+			omapdss_device_disconnect(NULL, pipe->output);
+
+			omapdss_device_put(pipe->output);
+			pipe->output = NULL;
+		}
+
+		for (i = 0; i < num_pipes; i++)
+			priv->pipes[i] = pipes[i];
+		for (i = num_pipes; i < priv->num_pipes; i++)
+			priv->pipes[i].output = NULL;
+
+		priv->num_pipes = num_pipes;
+	}
 
 	return 0;
 }
