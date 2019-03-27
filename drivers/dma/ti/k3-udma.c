@@ -753,10 +753,6 @@ static inline bool udma_chan_needs_reconfiguration(struct udma_chan *uc)
 	if (!uc->static_tr_type)
 		return false;
 
-	/* RX channels always need to be reset, reconfigured */
-	if (uc->dir == DMA_DEV_TO_MEM)
-		return true;
-
 	/* Check if the staticTR configuration has changed for TX */
 	if (memcmp(&uc->static_tr, &uc->desc->static_tr, sizeof(uc->static_tr)))
 		return true;
@@ -2655,7 +2651,17 @@ static enum dma_status udma_tx_status(struct dma_chan *chan,
 				delay = sbcnt - bcnt;
 		}
 
-		residue -= ((bcnt - uc->bcnt) % uc->desc->residue);
+		bcnt -= uc->bcnt;
+		if (bcnt && !(bcnt % uc->desc->residue))
+			residue = 0;
+		else
+			residue -= bcnt % uc->desc->residue;
+
+		if (!residue && (uc->dir == DMA_DEV_TO_MEM || !delay)) {
+			ret = DMA_COMPLETE;
+			delay = 0;
+		}
+
 		dma_set_residue(txstate, residue);
 		dma_set_in_flight_bytes(txstate, delay);
 
@@ -3012,7 +3018,7 @@ static struct dma_chan *udma_of_xlate(struct of_phandle_args *dma_spec,
 	return chan;
 }
 
-struct udma_match_data am654_main_data = {
+static struct udma_match_data am654_main_data = {
 	.enable_memcpy_support = true,
 	.tpl_levels = 2,
 	.level_start_idx = {
@@ -3021,7 +3027,7 @@ struct udma_match_data am654_main_data = {
 	},
 };
 
-struct udma_match_data am654_mcu_data = {
+static struct udma_match_data am654_mcu_data = {
 	.enable_memcpy_support = false, /* MEM_TO_MEM is slow via MCU UDMA */
 	.tpl_levels = 2,
 	.level_start_idx = {
