@@ -328,26 +328,11 @@ static void omap_disconnect_pipelines(struct drm_device *ddev)
 	priv->num_pipes = 0;
 }
 
-static int omap_compare_pipelines(const void *a, const void *b)
-{
-	const struct omap_drm_pipeline *pipe1 = a;
-	const struct omap_drm_pipeline *pipe2 = b;
-
-	if (pipe1->alias_id > pipe2->alias_id)
-		return 1;
-	else if (pipe1->alias_id < pipe2->alias_id)
-		return -1;
-	return 0;
-}
-
 static int omap_connect_pipelines(struct drm_device *ddev)
 {
 	struct omap_drm_private *priv = ddev->dev_private;
 	struct omap_dss_device *output = NULL;
-	struct omap_drm_pipeline pipes[ARRAY_SIZE(priv->pipes)];
-	unsigned int num_pipes = 0;
-	unsigned long pipes_mask = 0;
-	int r, i;
+	int r;
 
 	/* No displays should be enabled */
 	if (display_order_nelm == 1 && display_order[0] < 0)
@@ -364,7 +349,6 @@ static int omap_connect_pipelines(struct drm_device *ddev)
 		} else {
 			struct omap_drm_pipeline *pipe;
 
-			set_bit(priv->num_pipes, &pipes_mask);
 			pipe = &priv->pipes[priv->num_pipes++];
 			pipe->output = omapdss_device_get(output);
 
@@ -374,50 +358,6 @@ static int omap_connect_pipelines(struct drm_device *ddev)
 				break;
 			}
 		}
-	}
-
-	/* Sort the pipelines by DT aliases. */
-	sort(priv->pipes, priv->num_pipes, sizeof(priv->pipes[0]),
-	     omap_compare_pipelines, NULL);
-
-	/* Do ordering based on the display_order parameter array */
-	for (i = 0; i < display_order_nelm; i++) {
-		int old_index = display_order[i];
-
-		if ((old_index >= 0 && old_index < priv->num_pipes) &&
-		    (pipes_mask & BIT(old_index))) {
-			pipes[num_pipes++] = priv->pipes[old_index];
-			clear_bit(old_index, &pipes_mask);
-		} else {
-			dev_err(ddev->dev,
-				"Ignoring invalid displays module parameter\n");
-			num_pipes = 0;
-			break;
-		}
-	}
-
-	if (num_pipes > 0) {
-		u32 idx;
-
-		/* check if we have dssdev which is not carried over */
-		for_each_set_bit(idx, &pipes_mask, ARRAY_SIZE(priv->pipes)) {
-			struct omap_drm_pipeline *pipe = &priv->pipes[idx];
-
-			if (pipe->output->panel)
-				drm_panel_detach(pipe->output->panel);
-
-			omapdss_device_disconnect(NULL, pipe->output);
-
-			omapdss_device_put(pipe->output);
-			pipe->output = NULL;
-		}
-
-		for (i = 0; i < num_pipes; i++)
-			priv->pipes[i] = pipes[i];
-		for (i = num_pipes; i < priv->num_pipes; i++)
-			priv->pipes[i].output = NULL;
-
-		priv->num_pipes = num_pipes;
 	}
 
 	return 0;
@@ -499,6 +439,79 @@ static int omap_display_id(struct omap_dss_device *output)
 	return node ? of_alias_get_id(node, "display") : -ENODEV;
 }
 
+static int omap_compare_pipelines(const void *a, const void *b)
+{
+	const struct omap_drm_pipeline *pipe1 = a;
+	const struct omap_drm_pipeline *pipe2 = b;
+
+	if (pipe1->alias_id > pipe2->alias_id)
+		return 1;
+	else if (pipe1->alias_id < pipe2->alias_id)
+		return -1;
+	return 0;
+}
+
+static void omap_sort_pipes(struct drm_device *ddev)
+{
+	struct omap_drm_private *priv = ddev->dev_private;
+	struct omap_drm_pipeline pipes[ARRAY_SIZE(priv->pipes)];
+	unsigned int num_pipes = 0;
+	unsigned long pipes_mask = 0;
+	int i;
+
+	if (!priv->num_pipes)
+		return;
+
+	/* Sort the pipelines by DT aliases. */
+	sort(priv->pipes, priv->num_pipes, sizeof(priv->pipes[0]),
+	     omap_compare_pipelines, NULL);
+
+	if (!display_order_nelm)
+		return;
+
+	bitmap_set(&pipes_mask, 0, priv->num_pipes);
+
+	/* Do ordering based on the display_order parameter array */
+	for (i = 0; i < display_order_nelm; i++) {
+		int old_index = display_order[i];
+
+		if ((old_index >= 0 && old_index < priv->num_pipes) &&
+		    (pipes_mask & BIT(old_index))) {
+			pipes[num_pipes++] = priv->pipes[old_index];
+			clear_bit(old_index, &pipes_mask);
+		} else {
+			dev_err(ddev->dev,
+				"Ignoring invalid displays module parameter\n");
+			num_pipes = 0;
+			break;
+		}
+	}
+
+	if (num_pipes > 0) {
+		u32 idx;
+
+		/* check if we have dssdev which is not carried over */
+		for_each_set_bit(idx, &pipes_mask, ARRAY_SIZE(priv->pipes)) {
+			struct omap_drm_pipeline *pipe = &priv->pipes[idx];
+
+			if (pipe->output->panel)
+				drm_panel_detach(pipe->output->panel);
+
+			omapdss_device_disconnect(NULL, pipe->output);
+
+			omapdss_device_put(pipe->output);
+			pipe->output = NULL;
+		}
+
+		for (i = 0; i < num_pipes; i++)
+			priv->pipes[i] = pipes[i];
+		for (i = num_pipes; i < priv->num_pipes; i++)
+			priv->pipes[i].output = NULL;
+
+		priv->num_pipes = num_pipes;
+	}
+}
+
 static int omap_modeset_init(struct drm_device *dev)
 {
 	struct omap_drm_private *priv = dev->dev_private;
@@ -574,6 +587,8 @@ static int omap_modeset_init(struct drm_device *dev)
 		id = omap_display_id(pipe->output);
 		pipe->alias_id = id >= 0 ? id : i;
 	}
+
+	omap_sort_pipes(dev);
 
 	/*
 	 * Populate the pipeline lookup table by DISPC channel. Only one display
