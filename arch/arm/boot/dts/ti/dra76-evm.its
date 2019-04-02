@@ -31,6 +31,14 @@
 			compression = "none";
 			load = <0x83080000>;
 		};
+		fdt@3 {
+			description = "OV490 4 data lanes camera";
+			data = /incbin/("dra7x-evm-ov490.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
 	};
 
 	configurations {
@@ -43,6 +51,10 @@
 		tfp410 {
 			description = "tfp410 overlay";
 			fdt = "fdt@2";
+		};
+		ov490 {
+			description = "OV490 overlay";
+			fdt = "fdt@3";
 		};
 	};
 };
