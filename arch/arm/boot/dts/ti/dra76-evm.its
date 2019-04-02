@@ -39,6 +39,14 @@
 			compression = "none";
 			load = <0x83100000>;
 		};
+		fdt@4 {
+			description = "OV5640 camera";
+			data = /incbin/("dra7x-evm-ov5640.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
 	};
 
 	configurations {
@@ -55,6 +63,10 @@
 		ov490 {
 			description = "OV490 overlay";
 			fdt = "fdt@3";
+		};
+		ov5640 {
+			description = "OV5640 overlay";
+			fdt = "fdt@4";
 		};
 	};
 };
