@@ -1,12 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * USB Type-C Connector System Software Interface driver
  *
  * Copyright (C) 2017, Intel Corporation
  * Author: Heikki Krogerus <heikki.krogerus@linux.intel.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 
 #include <linux/completion.h>
@@ -346,19 +343,6 @@ static void ucsi_connector_change(struct work_struct *work)
 	}
 
 	if (con->status.change & UCSI_CONSTAT_CONNECT_CHANGE) {
-		typec_set_pwr_role(con->port, con->status.pwr_dir);
-
-		switch (con->status.partner_type) {
-		case UCSI_CONSTAT_PARTNER_TYPE_UFP:
-			typec_set_data_role(con->port, TYPEC_HOST);
-			break;
-		case UCSI_CONSTAT_PARTNER_TYPE_DFP:
-			typec_set_data_role(con->port, TYPEC_DEVICE);
-			break;
-		default:
-			break;
-		}
-
 		if (con->status.connected)
 			ucsi_register_partner(con);
 		else
