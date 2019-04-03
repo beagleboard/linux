@@ -29,15 +29,15 @@
  * Ensure each lock is in a separate cacheline.
  */
 static union {
-	raw_spinlock_t lock;
+	ipipe_spinlock_t lock;
 	char pad[L1_CACHE_BYTES];
 } atomic64_lock[NR_LOCKS] __cacheline_aligned_in_smp = {
 	[0 ... (NR_LOCKS - 1)] = {
-		.lock =  __RAW_SPIN_LOCK_UNLOCKED(atomic64_lock.lock),
+		.lock =  IPIPE_SPIN_LOCK_UNLOCKED,
 	},
 };
 
-static inline raw_spinlock_t *lock_addr(const atomic64_t *v)
+static inline ipipe_spinlock_t *lock_addr(const atomic64_t *v)
 {
 	unsigned long addr = (unsigned long) v;
 
@@ -49,7 +49,7 @@ static inline raw_spinlock_t *lock_addr(const atomic64_t *v)
 long long atomic64_read(const atomic64_t *v)
 {
 	unsigned long flags;
-	raw_spinlock_t *lock = lock_addr(v);
+	ipipe_spinlock_t *lock = lock_addr(v);
 	long long val;
 
 	raw_spin_lock_irqsave(lock, flags);
@@ -62,7 +62,7 @@ EXPORT_SYMBOL(atomic64_read);
 void atomic64_set(atomic64_t *v, long long i)
 {
 	unsigned long flags;
-	raw_spinlock_t *lock = lock_addr(v);
+	ipipe_spinlock_t *lock = lock_addr(v);
 
 	raw_spin_lock_irqsave(lock, flags);
 	v->counter = i;
@@ -74,7 +74,7 @@ EXPORT_SYMBOL(atomic64_set);
 void atomic64_##op(long long a, atomic64_t *v)				\
 {									\
 	unsigned long flags;						\
-	raw_spinlock_t *lock = lock_addr(v);				\
+	ipipe_spinlock_t *lock = lock_addr(v);				\
 									\
 	raw_spin_lock_irqsave(lock, flags);				\
 	v->counter c_op a;						\
@@ -86,7 +86,7 @@ EXPORT_SYMBOL(atomic64_##op);
 long long atomic64_##op##_return(long long a, atomic64_t *v)		\
 {									\
 	unsigned long flags;						\
-	raw_spinlock_t *lock = lock_addr(v);				\
+	ipipe_spinlock_t *lock = lock_addr(v);				\
 	long long val;							\
 									\
 	raw_spin_lock_irqsave(lock, flags);				\
@@ -100,7 +100,7 @@ EXPORT_SYMBOL(atomic64_##op##_return);
 long long atomic64_fetch_##op(long long a, atomic64_t *v)		\
 {									\
 	unsigned long flags;						\
-	raw_spinlock_t *lock = lock_addr(v);				\
+	ipipe_spinlock_t *lock = lock_addr(v);				\
 	long long val;							\
 									\
 	raw_spin_lock_irqsave(lock, flags);				\
@@ -137,7 +137,7 @@ ATOMIC64_OPS(xor, ^=)
 long long atomic64_dec_if_positive(atomic64_t *v)
 {
 	unsigned long flags;
-	raw_spinlock_t *lock = lock_addr(v);
+	ipipe_spinlock_t *lock = lock_addr(v);
 	long long val;
 
 	raw_spin_lock_irqsave(lock, flags);
@@ -152,7 +152,7 @@ EXPORT_SYMBOL(atomic64_dec_if_positive);
 long long atomic64_cmpxchg(atomic64_t *v, long long o, long long n)
 {
 	unsigned long flags;
-	raw_spinlock_t *lock = lock_addr(v);
+	ipipe_spinlock_t *lock = lock_addr(v);
 	long long val;
 
 	raw_spin_lock_irqsave(lock, flags);
@@ -167,7 +167,7 @@ EXPORT_SYMBOL(atomic64_cmpxchg);
 long long atomic64_xchg(atomic64_t *v, long long new)
 {
 	unsigned long flags;
-	raw_spinlock_t *lock = lock_addr(v);
+	ipipe_spinlock_t *lock = lock_addr(v);
 	long long val;
 
 	raw_spin_lock_irqsave(lock, flags);
@@ -181,7 +181,7 @@ EXPORT_SYMBOL(atomic64_xchg);
 int atomic64_add_unless(atomic64_t *v, long long a, long long u)
 {
 	unsigned long flags;
-	raw_spinlock_t *lock = lock_addr(v);
+	ipipe_spinlock_t *lock = lock_addr(v);
 	int ret = 0;
 
 	raw_spin_lock_irqsave(lock, flags);
