@@ -40,9 +40,9 @@ static inline void ____atomic_set_bit(unsigned int bit, volatile unsigned long *
 
 	p += BIT_WORD(bit);
 
-	raw_local_irq_save(flags);
+	flags = hard_local_irq_save();
 	*p |= mask;
-	raw_local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 static inline void ____atomic_clear_bit(unsigned int bit, volatile unsigned long *p)
@@ -52,9 +52,9 @@ static inline void ____atomic_clear_bit(unsigned int bit, volatile unsigned long
 
 	p += BIT_WORD(bit);
 
-	raw_local_irq_save(flags);
+	flags = hard_local_irq_save();
 	*p &= ~mask;
-	raw_local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 static inline void ____atomic_change_bit(unsigned int bit, volatile unsigned long *p)
@@ -64,9 +64,9 @@ static inline void ____atomic_change_bit(unsigned int bit, volatile unsigned lon
 
 	p += BIT_WORD(bit);
 
-	raw_local_irq_save(flags);
+	flags = hard_local_irq_save();
 	*p ^= mask;
-	raw_local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 }
 
 static inline int
@@ -78,10 +78,10 @@ ____atomic_test_and_set_bit(unsigned int bit, volatile unsigned long *p)
 
 	p += BIT_WORD(bit);
 
-	raw_local_irq_save(flags);
+	flags = hard_local_irq_save();
 	res = *p;
 	*p = res | mask;
-	raw_local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 
 	return (res & mask) != 0;
 }
@@ -95,10 +95,10 @@ ____atomic_test_and_clear_bit(unsigned int bit, volatile unsigned long *p)
 
 	p += BIT_WORD(bit);
 
-	raw_local_irq_save(flags);
+	flags = hard_local_irq_save();
 	res = *p;
 	*p = res & ~mask;
-	raw_local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 
 	return (res & mask) != 0;
 }
@@ -112,10 +112,10 @@ ____atomic_test_and_change_bit(unsigned int bit, volatile unsigned long *p)
 
 	p += BIT_WORD(bit);
 
-	raw_local_irq_save(flags);
+	flags = hard_local_irq_save();
 	res = *p;
 	*p = res ^ mask;
-	raw_local_irq_restore(flags);
+	hard_local_irq_restore(flags);
 
 	return (res & mask) != 0;
 }
