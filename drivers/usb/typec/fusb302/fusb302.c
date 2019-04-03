@@ -1,15 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2016-2017 Google, Inc
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
  * Fairchild FUSB302 Type-C Chip Driver
  */
@@ -25,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
-#include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/power_supply.h>
@@ -37,11 +27,11 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/usb/typec.h>
+#include <linux/usb/tcpm.h>
+#include <linux/usb/pd.h>
 #include <linux/workqueue.h>
 
 #include "fusb302_reg.h"
-#include "../tcpm.h"
-#include "../pd.h"
 
 /*
  * When the device is SNK, BC_LVL interrupt is used to monitor cc pins
@@ -1753,24 +1743,24 @@ static int init_gpio(struct fusb302_chip *chip)
 	chip->gpio_int_n = of_get_named_gpio(node, "fcs,int_n", 0);
 	if (!gpio_is_valid(chip->gpio_int_n)) {
 		ret = chip->gpio_int_n;
-		fusb302_log(chip, "cannot get named GPIO Int_N, ret=%d", ret);
+		dev_err(chip->dev, "cannot get named GPIO Int_N, ret=%d", ret);
 		return ret;
 	}
 	ret = devm_gpio_request(chip->dev, chip->gpio_int_n, "fcs,int_n");
 	if (ret < 0) {
-		fusb302_log(chip, "cannot request GPIO Int_N, ret=%d", ret);
+		dev_err(chip->dev, "cannot request GPIO Int_N, ret=%d", ret);
 		return ret;
 	}
 	ret = gpio_direction_input(chip->gpio_int_n);
 	if (ret < 0) {
-		fusb302_log(chip,
-			    "cannot set GPIO Int_N to input, ret=%d", ret);
+		dev_err(chip->dev,
+			"cannot set GPIO Int_N to input, ret=%d", ret);
 		return ret;
 	}
 	ret = gpio_to_irq(chip->gpio_int_n);
 	if (ret < 0) {
-		fusb302_log(chip,
-			    "cannot request IRQ for GPIO Int_N, ret=%d", ret);
+		dev_err(chip->dev,
+			"cannot request IRQ for GPIO Int_N, ret=%d", ret);
 		return ret;
 	}
 	chip->gpio_int_n_irq = ret;
@@ -1867,7 +1857,8 @@ static int fusb302_probe(struct i2c_client *client,
 	chip->tcpm_port = tcpm_register_port(&client->dev, &chip->tcpc_dev);
 	if (IS_ERR(chip->tcpm_port)) {
 		ret = PTR_ERR(chip->tcpm_port);
-		fusb302_log(chip, "cannot register tcpm port, ret=%d", ret);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "cannot register tcpm port, ret=%d", ret);
 		goto destroy_workqueue;
 	}
 
@@ -1876,8 +1867,7 @@ static int fusb302_probe(struct i2c_client *client,
 					IRQF_ONESHOT | IRQF_TRIGGER_LOW,
 					"fsc_interrupt_int_n", chip);
 	if (ret < 0) {
-		fusb302_log(chip,
-			    "cannot request IRQ for GPIO Int_N, ret=%d", ret);
+		dev_err(dev, "cannot request IRQ for GPIO Int_N, ret=%d", ret);
 		goto tcpm_unregister_port;
 	}
 	enable_irq_wake(chip->gpio_int_n_irq);
