@@ -42,7 +42,7 @@ struct irq_chip no_irq_chip = {
 	.irq_enable	= noop,
 	.irq_disable	= noop,
 	.irq_ack	= ack_bad,
-	.flags		= IRQCHIP_SKIP_SET_WAKE,
+	.flags		= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_PIPELINE_SAFE,
 };
 
 /*
@@ -58,6 +58,6 @@ struct irq_chip dummy_irq_chip = {
 	.irq_ack	= noop,
 	.irq_mask	= noop,
 	.irq_unmask	= noop,
-	.flags		= IRQCHIP_SKIP_SET_WAKE,
+	.flags		= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_PIPELINE_SAFE,
 };
 EXPORT_SYMBOL_GPL(dummy_irq_chip);
