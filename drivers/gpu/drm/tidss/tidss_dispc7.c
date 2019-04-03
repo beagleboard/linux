@@ -2171,6 +2171,10 @@ int dispc7_init(struct tidss_device *tidss)
 
 	dev_dbg(dev, "%s\n", __func__);
 
+	r = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(48));
+	if (r)
+		dev_warn(dev, "cannot set DMA masks to 48-bit\n");
+
 	feat = of_match_device(dispc7_of_table, dev)->data;
 
 	dispc = devm_kzalloc(dev, sizeof(*dispc), GFP_KERNEL);
