@@ -56,6 +56,7 @@
 #define SDIO_FUNC1_BLOCKSIZE		64
 #define SDIO_FUNC2_BLOCKSIZE		512
 #define SDIO_4373_FUNC2_BLOCKSIZE	256
+#define SDIO_4359_FUNC2_BLOCKSIZE	256
 /* Maximum milliseconds to wait for F2 to come up */
 #define SDIO_WAIT_F2RDY	3000
 
@@ -1053,8 +1054,15 @@ static int brcmf_sdiod_probe(struct brcmf_sdio_dev *sdiodev)
 		goto out;
 	}
 
-	if (sdiodev->func[0]->device == SDIO_DEVICE_ID_CYPRESS_4373) {
+	switch (sdiodev->func[0]->device) {
+	case SDIO_DEVICE_ID_CYPRESS_4373:
 		f2_blksz = SDIO_4373_FUNC2_BLOCKSIZE;
+		break;
+	case SDIO_DEVICE_ID_BROADCOM_4359:
+		f2_blksz = SDIO_4359_FUNC2_BLOCKSIZE;
+		break;
+	default:
+		break;
 	}
 
 	ret = sdio_set_block_size(sdiodev->func[2], f2_blksz);
