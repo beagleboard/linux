@@ -3131,7 +3131,11 @@ qla24xx_enable_msix(struct qla_hw_data *ha, struct rsp_que *rsp)
 		* kref_put().
 		*/
 		kref_get(&qentry->irq_notify.kref);
+#ifdef CONFIG_PREEMPT_RT_BASE
+		swork_queue(&qentry->irq_notify.swork);
+#else
 		schedule_work(&qentry->irq_notify.work);
+#endif
 	}
 
 	/*
