@@ -14,4 +14,8 @@ static inline void ack_bad_irq(int irq)
 
 #define ARCH_IRQ_INIT_FLAGS	(IRQ_NOREQUEST | IRQ_NOPROBE)
 
+#define IPIPE_NR_ROOT_IRQS	1024
+
+#define IPIPE_NR_XIRQS		IPIPE_NR_ROOT_IRQS
+
 #endif

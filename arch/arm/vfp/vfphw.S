@@ -177,6 +177,7 @@ vfp_hw_state_valid:
 					@ out before setting an FPEXC that
 					@ stops us reading stuff
 	VFPFMXR	FPEXC, r1		@ Restore FPEXC last
+	enable_irq_cond
 	sub	r2, r2, #4		@ Retry current instruction - if Thumb
 	str	r2, [sp, #S_PC]		@ mode it's two 16-bit instructions,
 					@ else it's one 32-bit instruction, so
@@ -206,6 +207,7 @@ skip:
 	@ Fall into hand on to next handler - appropriate coproc instr
 	@ not recognised by VFP
 
+	enable_irq_cond
 	DBGSTR	"not VFP"
 	dec_preempt_count_ti r10, r4
 	ret	lr
