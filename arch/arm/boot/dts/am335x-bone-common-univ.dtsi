@@ -2938,5 +2938,11 @@
 			dir-changeable;
 		};
 
+		A15 {
+			gpio-name = "A15";
+			gpio = <&gpio0 19 0>;
+			input;
+			dir-changeable;
+		};
 	};
 };
