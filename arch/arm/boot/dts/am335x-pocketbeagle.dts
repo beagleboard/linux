@@ -23,6 +23,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "spidev";
+		symlink = "spi/0.0";
 		reg = <0>;
 		spi-max-frequency = <24000000>;
 	};
@@ -31,6 +32,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "spidev";
+		symlink = "spi/0.1";
 		reg = <1>;
 		spi-max-frequency = <24000000>;
 		status = "disabled";
@@ -46,6 +48,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "spidev";
+		symlink = "spi/1.0";
 		reg = <0>;
 		spi-max-frequency = <24000000>;
 	};
@@ -54,6 +57,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "spidev";
+		symlink = "spi/1.1";
 		reg = <1>;
 		spi-max-frequency = <24000000>;
 	};
