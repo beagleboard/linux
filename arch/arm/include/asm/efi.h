@@ -41,7 +41,7 @@ int efi_set_mapping_permissions(struct mm_struct *mm, efi_memory_desc_t *md);
 
 static inline void efi_set_pgd(struct mm_struct *mm)
 {
-	check_and_switch_context(mm, NULL);
+	check_and_switch_context(mm, NULL, true);
 }
 
 void efi_virtmap_load(void);
