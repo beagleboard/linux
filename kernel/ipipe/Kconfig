@@ -1,0 +1,47 @@
+
+config HAVE_IPIPE_SUPPORT
+       depends on GENERIC_CLOCKEVENTS
+       bool
+
+config IPIPE
+	bool "Interrupt pipeline"
+	depends on HAVE_IPIPE_SUPPORT
+	default n
+	---help---
+	  Activate this option if you want the interrupt pipeline to be
+	  compiled in.
+
+config IPIPE_CORE
+	def_bool y if IPIPE
+
+config IPIPE_WANT_PTE_PINNING
+       bool
+
+config IPIPE_CORE_APIREV
+       int
+       depends on IPIPE
+       default 2
+	---help---
+	  The API revision level we implement.
+
+config IPIPE_WANT_APIREV_2
+       bool
+
+config IPIPE_TARGET_APIREV
+       int
+       depends on IPIPE
+       default IPIPE_CORE_APIREV
+	---help---
+	  The API revision level the we want (must be <=
+	  IPIPE_CORE_APIREV).
+
+config IPIPE_HAVE_HOSTRT
+       bool
+
+config IPIPE_HAVE_EAGER_FPU
+	bool
+
+if IPIPE && ARM && RAW_PRINTK && !DEBUG_LL
+comment "CAUTION: DEBUG_LL must be selected, and properly configured for"
+comment "RAW_PRINTK to work. Otherwise, you will get no output on raw_printk()"
+endif
