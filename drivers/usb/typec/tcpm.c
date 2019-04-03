@@ -1,15 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2015-2017 Google, Inc
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  *
  * USB Power Delivery protocol stack.
  */
@@ -26,13 +17,12 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/usb/pd.h>
+#include <linux/usb/pd_bdo.h>
+#include <linux/usb/pd_vdo.h>
+#include <linux/usb/tcpm.h>
 #include <linux/usb/typec.h>
 #include <linux/workqueue.h>
-
-#include "pd.h"
-#include "pd_vdo.h"
-#include "pd_bdo.h"
-#include "tcpm.h"
 
 #define FOREACH_STATE(S)			\
 	S(INVALID_STATE),			\
@@ -908,27 +898,6 @@ static void svdm_consume_identity(struct tcpm_port *port, const __le32 *payload,
 
 	memset(&port->mode_data, 0, sizeof(port->mode_data));
 
-#if 0 /* Not really a match */
-	switch (PD_IDH_PTYPE(vdo)) {
-	case IDH_PTYPE_UNDEF:
-		port->partner.type = TYPEC_PARTNER_NONE; /* no longer exists */
-		break;
-	case IDH_PTYPE_HUB:
-		break;
-	case IDH_PTYPE_PERIPH:
-		break;
-	case IDH_PTYPE_PCABLE:
-		break;
-	case IDH_PTYPE_ACABLE:
-		break;
-	case IDH_PTYPE_AMA:
-		port->partner.type = TYPEC_PARTNER_ALTMODE;
-		break;
-	default:
-		break;
-	}
-#endif
-
 	port->partner_ident.id_header = vdo;
 	port->partner_ident.cert_stat = le32_to_cpu(payload[VDO_INDEX_CSTAT]);
 	port->partner_ident.product = product;
@@ -1008,7 +977,7 @@ static void svdm_consume_modes(struct tcpm_port *port, const __le32 *payload,
 	}
 	port->partner_altmode[pmdata->altmodes] =
 		typec_partner_register_altmode(port->partner, paltmode);
-	if (port->partner_altmode[pmdata->altmodes] == NULL) {
+	if (!port->partner_altmode[pmdata->altmodes]) {
 		tcpm_log(port,
 			 "Failed to register alternate modes for SVID 0x%04x",
 			 paltmode->svid);
@@ -1103,11 +1072,7 @@ static int tcpm_pd_svdm(struct tcpm_port *port, const __le32 *payload, int cnt,
 				response[0] = VDO(svid, 1, CMD_DISCOVER_MODES);
 				rlen = 1;
 			} else {
-#if 0
-				response[0] = pd_dfp_enter_mode(port, 0, 0);
-				if (response[0])
-					rlen = 1;
-#endif
+				/* enter alternate mode if/when implemented */
 			}
 			break;
 		case CMD_ENTER_MODE:
@@ -1145,10 +1110,6 @@ static void tcpm_handle_vdm_request(struct tcpm_port *port,
 
 	if (PD_VDO_SVDM(p0))
 		rlen = tcpm_pd_svdm(port, payload, cnt, response);
-#if 0
-	else
-		rlen = tcpm_pd_custom_vdm(port, cnt, payload, response);
-#endif
 
 	if (rlen > 0) {
 		tcpm_queue_vdm(port, response[0], &response[1], rlen - 1);
@@ -1286,6 +1247,100 @@ static void vdm_state_machine_work(struct work_struct *work)
 	mutex_unlock(&port->lock);
 }
 
+enum pdo_err {
+	PDO_NO_ERR,
+	PDO_ERR_NO_VSAFE5V,
+	PDO_ERR_VSAFE5V_NOT_FIRST,
+	PDO_ERR_PDO_TYPE_NOT_IN_ORDER,
+	PDO_ERR_FIXED_NOT_SORTED,
+	PDO_ERR_VARIABLE_BATT_NOT_SORTED,
+	PDO_ERR_DUPE_PDO,
+};
+
+static const char * const pdo_err_msg[] = {
+	[PDO_ERR_NO_VSAFE5V] =
+	" err: source/sink caps should atleast have vSafe5V",
+	[PDO_ERR_VSAFE5V_NOT_FIRST] =
+	" err: vSafe5V Fixed Supply Object Shall always be the first object",
+	[PDO_ERR_PDO_TYPE_NOT_IN_ORDER] =
+	" err: PDOs should be in the following order: Fixed; Battery; Variable",
+	[PDO_ERR_FIXED_NOT_SORTED] =
+	" err: Fixed supply pdos should be in increasing order of their fixed voltage",
+	[PDO_ERR_VARIABLE_BATT_NOT_SORTED] =
+	" err: Variable/Battery supply pdos should be in increasing order of their minimum voltage",
+	[PDO_ERR_DUPE_PDO] =
+	" err: Variable/Batt supply pdos cannot have same min/max voltage",
+};
+
+static enum pdo_err tcpm_caps_err(struct tcpm_port *port, const u32 *pdo,
+				  unsigned int nr_pdo)
+{
+	unsigned int i;
+
+	/* Should at least contain vSafe5v */
+	if (nr_pdo < 1)
+		return PDO_ERR_NO_VSAFE5V;
+
+	/* The vSafe5V Fixed Supply Object Shall always be the first object */
+	if (pdo_type(pdo[0]) != PDO_TYPE_FIXED ||
+	    pdo_fixed_voltage(pdo[0]) != VSAFE5V)
+		return PDO_ERR_VSAFE5V_NOT_FIRST;
+
+	for (i = 1; i < nr_pdo; i++) {
+		if (pdo_type(pdo[i]) < pdo_type(pdo[i - 1])) {
+			return PDO_ERR_PDO_TYPE_NOT_IN_ORDER;
+		} else if (pdo_type(pdo[i]) == pdo_type(pdo[i - 1])) {
+			enum pd_pdo_type type = pdo_type(pdo[i]);
+
+			switch (type) {
+			/*
+			 * The remaining Fixed Supply Objects, if
+			 * present, shall be sent in voltage order;
+			 * lowest to highest.
+			 */
+			case PDO_TYPE_FIXED:
+				if (pdo_fixed_voltage(pdo[i]) <=
+				    pdo_fixed_voltage(pdo[i - 1]))
+					return PDO_ERR_FIXED_NOT_SORTED;
+				break;
+			/*
+			 * The Battery Supply Objects and Variable
+			 * supply, if present shall be sent in Minimum
+			 * Voltage order; lowest to highest.
+			 */
+			case PDO_TYPE_VAR:
+			case PDO_TYPE_BATT:
+				if (pdo_min_voltage(pdo[i]) <
+				    pdo_min_voltage(pdo[i - 1]))
+					return PDO_ERR_VARIABLE_BATT_NOT_SORTED;
+				else if ((pdo_min_voltage(pdo[i]) ==
+					  pdo_min_voltage(pdo[i - 1])) &&
+					 (pdo_max_voltage(pdo[i]) ==
+					  pdo_min_voltage(pdo[i - 1])))
+					return PDO_ERR_DUPE_PDO;
+				break;
+			default:
+				tcpm_log_force(port, " Unknown pdo type");
+			}
+		}
+	}
+
+	return PDO_NO_ERR;
+}
+
+static int tcpm_validate_caps(struct tcpm_port *port, const u32 *pdo,
+			      unsigned int nr_pdo)
+{
+	enum pdo_err err_index = tcpm_caps_err(port, pdo, nr_pdo);
+
+	if (err_index != PDO_NO_ERR) {
+		tcpm_log_force(port, " %s", pdo_err_msg[err_index]);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /*
  * PD (data, control) command handling functions
  */
@@ -1307,6 +1362,9 @@ static void tcpm_pd_data_request(struct tcpm_port *port,
 		port->nr_source_caps = cnt;
 
 		tcpm_log_source_caps(port);
+
+		tcpm_validate_caps(port, port->source_caps,
+				   port->nr_source_caps);
 
 		/*
 		 * This message may be received even if VBUS is not
@@ -2442,7 +2500,6 @@ static void run_state_machine(struct tcpm_port *port)
 			tcpm_set_state(port, SNK_STARTUP, 0);
 		break;
 	case SNK_STARTUP:
-		/* XXX: callback into infrastructure */
 		opmode =  tcpm_get_pwr_opmode(port->polarity ?
 					      port->cc2 : port->cc1);
 		typec_set_pwr_opmode(port->typec_port, opmode);
@@ -2479,8 +2536,7 @@ static void run_state_machine(struct tcpm_port *port)
 		    tcpm_port_is_sink(port) &&
 		    time_is_after_jiffies(port->delayed_runtime)) {
 			tcpm_set_state(port, SNK_DISCOVERY,
-				       jiffies_to_msecs(port->delayed_runtime -
-							jiffies));
+				       port->delayed_runtime - jiffies);
 			break;
 		}
 		tcpm_set_state(port, unattached_state(port), 0);
@@ -3476,9 +3532,12 @@ static int tcpm_copy_vdos(u32 *dest_vdo, const u32 *src_vdo,
 	return nr_vdo;
 }
 
-void tcpm_update_source_capabilities(struct tcpm_port *port, const u32 *pdo,
-				     unsigned int nr_pdo)
+int tcpm_update_source_capabilities(struct tcpm_port *port, const u32 *pdo,
+				    unsigned int nr_pdo)
 {
+	if (tcpm_validate_caps(port, pdo, nr_pdo))
+		return -EINVAL;
+
 	mutex_lock(&port->lock);
 	port->nr_src_pdo = tcpm_copy_pdos(port->src_pdo, pdo, nr_pdo);
 	switch (port->state) {
@@ -3498,16 +3557,20 @@ void tcpm_update_source_capabilities(struct tcpm_port *port, const u32 *pdo,
 		break;
 	}
 	mutex_unlock(&port->lock);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(tcpm_update_source_capabilities);
 
-void tcpm_update_sink_capabilities(struct tcpm_port *port, const u32 *pdo,
-				   unsigned int nr_pdo,
-				   unsigned int max_snk_mv,
-				   unsigned int max_snk_ma,
-				   unsigned int max_snk_mw,
-				   unsigned int operating_snk_mw)
+int tcpm_update_sink_capabilities(struct tcpm_port *port, const u32 *pdo,
+				  unsigned int nr_pdo,
+				  unsigned int max_snk_mv,
+				  unsigned int max_snk_ma,
+				  unsigned int max_snk_mw,
+				  unsigned int operating_snk_mw)
 {
+	if (tcpm_validate_caps(port, pdo, nr_pdo))
+		return -EINVAL;
+
 	mutex_lock(&port->lock);
 	port->nr_snk_pdo = tcpm_copy_pdos(port->snk_pdo, pdo, nr_pdo);
 	port->max_snk_mv = max_snk_mv;
@@ -3526,6 +3589,7 @@ void tcpm_update_sink_capabilities(struct tcpm_port *port, const u32 *pdo,
 		break;
 	}
 	mutex_unlock(&port->lock);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(tcpm_update_sink_capabilities);
 
@@ -3561,7 +3625,15 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 
 	init_completion(&port->tx_complete);
 	init_completion(&port->swap_complete);
+	tcpm_debugfs_init(port);
 
+	if (tcpm_validate_caps(port, tcpc->config->src_pdo,
+			       tcpc->config->nr_src_pdo) ||
+	    tcpm_validate_caps(port, tcpc->config->snk_pdo,
+			       tcpc->config->nr_snk_pdo)) {
+		err = -EINVAL;
+		goto out_destroy_wq;
+	}
 	port->nr_src_pdo = tcpm_copy_pdos(port->src_pdo, tcpc->config->src_pdo,
 					  tcpc->config->nr_src_pdo);
 	port->nr_snk_pdo = tcpm_copy_pdos(port->snk_pdo, tcpc->config->snk_pdo,
@@ -3590,11 +3662,6 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 
 	port->partner_desc.identity = &port->partner_ident;
 	port->port_type = tcpc->config->type;
-	/*
-	 * TODO:
-	 *  - alt_modes, set_alt_mode
-	 *  - {debug,audio}_accessory
-	 */
 
 	port->typec_port = typec_register_port(port->dev, &port->typec_caps);
 	if (!port->typec_port) {
@@ -3621,7 +3688,6 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 		}
 	}
 
-	tcpm_debugfs_init(port);
 	mutex_lock(&port->lock);
 	tcpm_init(port);
 	mutex_unlock(&port->lock);
@@ -3639,6 +3705,7 @@ void tcpm_unregister_port(struct tcpm_port *port)
 {
 	int i;
 
+	tcpm_reset_port(port);
 	for (i = 0; i < ARRAY_SIZE(port->port_altmode); i++)
 		typec_unregister_altmode(port->port_altmode[i]);
 	typec_unregister_port(port->typec_port);
