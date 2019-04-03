@@ -37,4 +37,10 @@
 #define __ARM_NR_usr32			(__ARM_NR_BASE+4)
 #define __ARM_NR_set_tls		(__ARM_NR_BASE+5)
 
+/*
+ * This SWI is IPIPE private, for dispatching syscalls to the head
+ * domain.
+ */
+#define __ARM_NR_ipipe			(__ARM_NR_BASE+66)
+
 #endif /* _UAPI__ASM_ARM_UNISTD_H */
