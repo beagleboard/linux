@@ -13,6 +13,7 @@
 
 	channel@0 {
 		compatible = "spidev";
+		symlink = "spi/0.0";
 		spi-max-frequency = <16000000>;
 		reg = <0>;
 		spi-cpha;
@@ -20,6 +21,7 @@
 
 	channel@1 {
 		compatible = "spidev";
+		symlink = "spi/0.1";
 		spi-max-frequency = <16000000>;
 		reg = <1>;
 	};
