@@ -1,0 +1,100 @@
+config IPIPE_DEBUG
+	bool "I-pipe debugging"
+	depends on IPIPE
+	select RAW_PRINTK
+
+config IPIPE_DEBUG_CONTEXT
+	bool "Check for illicit cross-domain calls"
+	depends on IPIPE_DEBUG
+	default y
+	---help---
+	  Enable this feature to arm checkpoints in the kernel that
+	  verify the correct invocation context. On entry of critical
+	  Linux services a warning is issued if the caller is not
+	  running over the root domain.
+
+config IPIPE_DEBUG_INTERNAL
+	bool "Enable internal debug checks"
+	depends on IPIPE_DEBUG
+	default y
+	---help---
+	  When this feature is enabled, I-pipe will perform internal
+	  consistency checks of its subsystems, e.g. on per-cpu variable
+	  access.
+
+config HAVE_IPIPE_TRACER_SUPPORT
+       bool
+
+config IPIPE_TRACE
+	bool "Latency tracing"
+	depends on HAVE_IPIPE_TRACER_SUPPORT
+	depends on IPIPE_DEBUG
+	select CONFIG_FTRACE
+	select CONFIG_FUNCTION_TRACER
+	select KALLSYMS
+	select PROC_FS
+	---help---
+	  Activate this option if you want to use per-function tracing of
+	  the kernel. The tracer will collect data via instrumentation
+	  features like the one below or with the help of explicite calls
+	  of ipipe_trace_xxx(). See include/linux/ipipe_trace.h for the
+	  in-kernel tracing API. The collected data and runtime control
+	  is available via /proc/ipipe/trace/*.
+
+if IPIPE_TRACE
+
+config IPIPE_TRACE_ENABLE
+	bool "Enable tracing on boot"
+	default y
+	---help---
+	  Disable this option if you want to arm the tracer after booting
+	  manually ("echo 1 > /proc/ipipe/tracer/enable"). This can reduce
+	  boot time on slow embedded devices due to the tracer overhead.
+
+config IPIPE_TRACE_MCOUNT
+	bool "Instrument function entries"
+	default y
+	select FTRACE
+	select FUNCTION_TRACER
+	---help---
+	  When enabled, records every kernel function entry in the tracer
+	  log. While this slows down the system noticeably, it provides
+	  the highest level of information about the flow of events.
+	  However, it can be switch off in order to record only explicit
+	  I-pipe trace points.
+
+config IPIPE_TRACE_IRQSOFF
+	bool "Trace IRQs-off times"
+	default y
+	---help---
+	  Activate this option if I-pipe shall trace the longest path
+	  with hard-IRQs switched off.
+
+config IPIPE_TRACE_SHIFT
+	int "Depth of trace log (14 => 16Kpoints, 15 => 32Kpoints)"
+	range 10 18
+	default 14
+	---help---
+	  The number of trace points to hold tracing data for each
+	  trace path, as a power of 2.
+
+config IPIPE_TRACE_VMALLOC
+	bool "Use vmalloc'ed trace buffer"
+	default y if EMBEDDED
+	---help---
+	  Instead of reserving static kernel data, the required buffer
+	  is allocated via vmalloc during boot-up when this option is
+	  enabled. This can help to start systems that are low on memory,
+	  but it slightly degrades overall performance. Try this option
+	  when a traced kernel hangs unexpectedly at boot time.
+
+config IPIPE_TRACE_PANIC
+	bool "Enable panic back traces"
+	default y
+	---help---
+	  Provides services to freeze and dump a back trace on panic
+	  situations. This is used on IPIPE_DEBUG_CONTEXT exceptions
+	  as well as ordinary kernel oopses. You can control the number
+	  of printed back trace points via /proc/ipipe/trace.
+
+endif
