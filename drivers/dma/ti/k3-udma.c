@@ -1173,14 +1173,6 @@ static int udma_get_tchan(struct udma_chan *uc)
 	if (IS_ERR(uc->tchan))
 		return PTR_ERR(uc->tchan);
 
-	if (udma_is_chan_running(uc)) {
-		dev_warn(ud->dev, "chan%d: tchan%d is running!\n", uc->id,
-			 uc->tchan->id);
-		udma_stop(uc);
-		if (udma_is_chan_running(uc))
-			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
-	}
-
 	return 0;
 }
 
@@ -1197,14 +1189,6 @@ static int udma_get_rchan(struct udma_chan *uc)
 	uc->rchan = __udma_reserve_rchan(ud, uc->channel_tpl, -1);
 	if (IS_ERR(uc->rchan))
 		return PTR_ERR(uc->rchan);
-
-	if (udma_is_chan_running(uc)) {
-		dev_warn(ud->dev, "chan%d: rchan%d is running!\n", uc->id,
-			 uc->rchan->id);
-		udma_stop(uc);
-		if (udma_is_chan_running(uc))
-			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
-	}
 
 	return 0;
 }
@@ -1248,14 +1232,6 @@ static int udma_get_chan_pair(struct udma_chan *uc)
 	set_bit(chan_id, ud->rchan_map);
 	uc->tchan = &ud->tchans[chan_id];
 	uc->rchan = &ud->rchans[chan_id];
-
-	if (udma_is_chan_running(uc)) {
-		dev_warn(ud->dev, "chan%d: t/rchan%d pair is running!\n",
-			 uc->id, chan_id);
-		udma_stop(uc);
-		if (udma_is_chan_running(uc))
-			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
-	}
 
 	return 0;
 }
@@ -1755,6 +1731,16 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 								rchan->r_ring);
 			uc->irq_ra_idx = rx_ring;
 			uc->irq_udma_idx = 0x2000 + rchan->id;
+		}
+	}
+
+	if (udma_is_chan_running(uc)) {
+		dev_warn(ud->dev, "chan%d: tchan%d is running!\n", uc->id,
+			 uc->tchan->id);
+		udma_stop(uc);
+		if (udma_is_chan_running(uc)) {
+			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
+			goto err_chan_free;
 		}
 	}
 
