@@ -1,0 +1,56 @@
+menu "ANALOGY drivers"
+
+config XENO_DRIVERS_ANALOGY
+	tristate "ANALOGY interface"
+	help
+
+	ANALOGY is a framework aimed at supporting data acquisition
+	devices.
+
+config XENO_DRIVERS_ANALOGY_DEBUG
+       depends on XENO_DRIVERS_ANALOGY
+       bool "Analogy debug trace"
+       default n
+       help
+
+       Enable debugging traces in Analogy so as to monitor Analogy's
+       core and drivers behaviours.
+
+config XENO_DRIVERS_ANALOGY_DEBUG_FTRACE
+       depends on XENO_DRIVERS_ANALOGY_DEBUG
+       bool "Analogy debug ftrace"
+       default n
+       help
+
+       Route the Analogy a4l_dbg and a4l_info statements to /sys/kernel/debug/
+
+config XENO_DRIVERS_ANALOGY_DEBUG_LEVEL
+       depends on XENO_DRIVERS_ANALOGY_DEBUG
+       int "Analogy core debug level threshold"
+       default 0
+       help
+
+       Define the level above which the debugging traces will not be
+       displayed.
+
+       WARNING: this threshold is only applied on the Analogy
+       core. That will not affect the driver.
+
+config XENO_DRIVERS_ANALOGY_DRIVER_DEBUG_LEVEL
+       depends on XENO_DRIVERS_ANALOGY_DEBUG
+       int "Analogy driver debug level threshold"
+       default 0
+       help
+
+       Define the level above which the debugging traces will not be
+       displayed.
+
+       WARNING: this threshold is only applied on the Analogy
+       driver. That will not affect the core.
+
+source drivers/xenomai/analogy/testing/Kconfig
+source drivers/xenomai/analogy/intel/Kconfig
+source drivers/xenomai/analogy/national_instruments/Kconfig
+source drivers/xenomai/analogy/sensoray/Kconfig
+
+endmenu
