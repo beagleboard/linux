@@ -1085,6 +1085,7 @@ struct ti_sci_msg_rm_udmap_tx_ch_cfg_req {
 	u8 tx_orderid;
 	u16 fdepth;
 	u8 tx_sched_priority;
+	u8 tx_burst_size;
 } __packed;
 
 /**
@@ -1208,6 +1209,8 @@ struct ti_sci_msg_rm_udmap_rx_ch_cfg_req {
 	u8 rx_chan_type;
 	u8 rx_ignore_short;
 	u8 rx_ignore_long;
+	u8 rx_burst_size;
+
 } __packed;
 
 /**
