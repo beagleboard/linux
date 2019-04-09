@@ -1836,6 +1836,13 @@ err_res_free:
 	udma_free_tx_resources(uc);
 	udma_free_rx_resources(uc);
 	uc->remote_thread_id = -1;
+	uc->dir = DMA_MEM_TO_MEM;
+	uc->pkt_mode = false;
+	uc->static_tr_type = 0;
+	uc->channel_tpl = 0;
+	uc->psd_size = 0;
+	uc->metadata_size = 0;
+	uc->hdesc_size = 0;
 
 	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
@@ -2920,6 +2927,12 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 
 	uc->remote_thread_id = -1;
 	uc->dir = DMA_MEM_TO_MEM;
+	uc->pkt_mode = false;
+	uc->static_tr_type = 0;
+	uc->channel_tpl = 0;
+	uc->psd_size = 0;
+	uc->metadata_size = 0;
+	uc->hdesc_size = 0;
 
 	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
