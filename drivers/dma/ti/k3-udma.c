@@ -722,9 +722,20 @@ static inline int udma_reset_chan(struct udma_chan *uc, bool hard)
 
 	/* Hard reset: re-initialize the channel to reset */
 	if (hard) {
+		struct udma_chan uc_backup = *uc;
 		int ret;
 
 		uc->ud->ddev.device_free_chan_resources(&uc->vc.chan);
+		/* restore the channel configuration */
+		uc->dir = uc_backup.dir;
+		uc->remote_thread_id = uc_backup.remote_thread_id;
+		uc->pkt_mode = uc_backup.pkt_mode;
+		uc->static_tr_type = uc_backup.static_tr_type;
+		uc->channel_tpl = uc_backup.channel_tpl;
+		uc->psd_size = uc_backup.psd_size;
+		uc->metadata_size = uc_backup.metadata_size;
+		uc->hdesc_size = uc_backup.hdesc_size;
+
 		ret = uc->ud->ddev.device_alloc_chan_resources(&uc->vc.chan);
 		if (ret)
 			return ret;
