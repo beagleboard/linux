@@ -1757,8 +1757,11 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 	/* PSI-L pairing */
 	ret = navss_psil_pair(ud, uc->src_thread, uc->dst_thread);
-	if (ret)
+	if (ret) {
+		dev_err(ud->dev, "PSI-L pairing failed: 0x%04x -> 0x%04x\n",
+			uc->src_thread, uc->dst_thread);
 		goto err_chan_free;
+	}
 
 	uc->psil_paired = true;
 
