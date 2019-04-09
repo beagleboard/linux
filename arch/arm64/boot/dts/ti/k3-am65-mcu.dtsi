@@ -7,8 +7,17 @@
 
 &cbass_mcu {
 	mcu_conf: scm_conf@40f00000 {
-		compatible = "syscon";
-		reg = <0 0x40f00000 0 0x20000>;
+		compatible = "syscon", "simple-mfd";
+		reg = <0x0 0x40f00000 0x0 0x20000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x40f00000 0x20000>;
+
+		phy_sel: cpsw-phy-sel@4040 {
+			compatible = "ti,am654-cpsw-phy-sel";
+			reg = <0x4040 0x4>;
+			reg-names = "gmii-sel";
+		};
 	};
 
 	mcu_uart0: serial@40a00000 {
@@ -134,6 +143,7 @@
 		clock-names = "fck";
 		power-domains = <&k3_pds 5>;
 		ti,psil-base = <0x7000>;
+		cpsw-phy-sel = <&phy_sel>;
 
 		interrupt-parent = <&main_udmass_inta>;
 
