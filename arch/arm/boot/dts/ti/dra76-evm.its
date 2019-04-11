@@ -1,0 +1,72 @@
+/dts-v1/;
+
+/ {
+	description = "DRA76-evm";
+	#address-cells = <1>;
+
+	images {
+		kernel@1 {
+			description = "LCPD kernel";
+			data = /incbin/("../../zImage");
+			type = "kernel";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x82000000>;
+			entry = <0x82000000>;
+		};
+		fdt@1 {
+			description = "DRA76-evm";
+			data = /incbin/("dra76-evm.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+		fdt@2 {
+			description = "tfp410 display support";
+			data = /incbin/("dra76-evm-tfp410.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83080000>;
+		};
+		fdt@3 {
+			description = "OV490 4 data lanes camera";
+			data = /incbin/("dra7x-evm-ov490.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
+		fdt@4 {
+			description = "OV5640 camera";
+			data = /incbin/("dra7x-evm-ov5640.dtbo");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83100000>;
+		};
+	};
+
+	configurations {
+		default = "dra76-evm.dtb";
+		dra76-evm.dtb {
+			description = "DRA76-evm";
+			kernel = "kernel@1";
+			fdt = "fdt@1";
+		};
+		tfp410 {
+			description = "tfp410 overlay";
+			fdt = "fdt@2";
+		};
+		ov490 {
+			description = "OV490 overlay";
+			fdt = "fdt@3";
+		};
+		ov5640 {
+			description = "OV5640 overlay";
+			fdt = "fdt@4";
+		};
+	};
+};
