@@ -1,58 +1,65 @@
 // SPDX-License-Identifier: GPL-2.0
-/**
- * TFP410 expansion board for DRA76 EVM.
- *
+/*
  * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
  */
 
-#include "dra76-evm.dts"
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	aliases {
-		display0 = &dvi0;
-		display1 = &hdmi0;
-	};
+  fragment@101 {
+	target-path = "/";
 
-	tfp410: encoder@0 {
-		compatible = "ti,tfp410";
+	__overlay__ {
+		aliases {
+			display0 = "/display";
+			display1 = "/connector";
+		};
 
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
+		tfp410: encoder@0 {
+			compatible = "ti,tfp410";
 
-			port@0 {
-				reg = <0>;
-				tfp410_in: endpoint@0 {
-					remote-endpoint = <&dpi_out>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					tfp410_in: endpoint@0 {
+						remote-endpoint = <&dpi_out>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+	
+					tfp410_out: endpoint@0 {
+						remote-endpoint = <&dvi_connector_in>;
+					};
 				};
 			};
+		};
 
-			port@1 {
-				reg = <1>;
+		dvi0: connector@0 {
+			compatible = "dvi-connector";
+			label = "dvi";
 
-				tfp410_out: endpoint@0 {
-					remote-endpoint = <&dvi_connector_in>;
+			digital;
+
+			ddc-i2c-bus = <&i2c3>;
+
+			hpd-gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;	/* wakeup2/sys_nirq2/gpio1_2 HPD */
+
+			port {
+				dvi_connector_in: endpoint {
+					remote-endpoint = <&tfp410_out>;
 				};
 			};
 		};
 	};
-
-	dvi0: connector@0 {
-		compatible = "dvi-connector";
-		label = "dvi";
-
-		digital;
-
-		ddc-i2c-bus = <&i2c3>;
-
-		hpd-gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;	/* wakeup2/sys_nirq2/gpio1_2 HPD */
-
-		port {
-			dvi_connector_in: endpoint {
-				remote-endpoint = <&tfp410_out>;
-			};
-		};
-	};
+  };
 };
 
 &dss {

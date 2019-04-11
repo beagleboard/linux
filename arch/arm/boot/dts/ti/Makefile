@@ -44,7 +44,8 @@ dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-idk.itb \
 	dra71-evm.itb \
 	dra72-evm.itb \
-	dra74-evm.itb
+	dra74-evm.itb \
+	dra76-evm.itb
 else
 dtb-$(CONFIG_SOC_DRA7XX) += $(shell grep incbin $(srctree)/$(src)/*.its | grep dtb | cut -d "\"" -f 2)
 endif

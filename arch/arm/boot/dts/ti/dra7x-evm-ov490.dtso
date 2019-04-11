@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2015-2019 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+
+&i2c5 {
+	gpio_csi2_adap: tca6416@20 {
+		status = "okay";
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	ov490@24 {
+		compatible = "ovti,ov490";
+		reg = <0x24>;
+
+		mux-gpios = <&gpio_csi2_adap 0	GPIO_ACTIVE_LOW>,
+						/* CSI2_SEL_I2C_CLK */
+			    <&gpio_csi2_adap 1	GPIO_ACTIVE_HIGH>,
+						/* CSI2_SEL_REF_CLK */
+			    <&gpio_csi2_adap 3	GPIO_ACTIVE_HIGH>,
+						/* CSI2_CAM0_RESETn */
+			    <&gpio_csi2_adap 4	GPIO_ACTIVE_LOW>;
+						/* CSI2_CAM0_PWR_DWN */
+		port {
+			csi2_cam0: endpoint@0 {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&csi2_phy0>;
+			};
+		};
+	};
+};
+
+&cal {
+	status = "okay";
+};
+
+&csi2_0 {
+	csi2_phy0: endpoint@0 {
+		clock-lanes = <0>;
+		data-lanes = <1 2 3 4>;
+		remote-endpoint = <&csi2_cam0>;
+	};
+};
