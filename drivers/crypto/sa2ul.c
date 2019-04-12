@@ -64,6 +64,9 @@
 /* Max Authentication tag size */
 #define SA_MAX_AUTH_TAG_SZ 64
 
+#define PRIV_ID	0x1
+#define PRIV		0x3
+
 static struct device *sa_k3_dev;
 
 /**
@@ -652,8 +655,8 @@ int sa_init_sc(struct sa_ctx_info *ctx, const u8 *enc_key,
 		sc_buf[1] = SA_SCCTL_FE_ENC;
 	memcpy(&sc_buf[2], &sc_id, 2);
 	sc_buf[4] = 0x0;
-	sc_buf[5] = 0x0;
-	sc_buf[6] = 0x0;
+	sc_buf[5] = PRIV_ID;
+	sc_buf[6] = PRIV;
 	sc_buf[7] = 0x0;
 
 	/* Initialize the rest of PHP context */
