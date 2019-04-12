@@ -140,6 +140,7 @@ struct sa_alg_tmpl {
  */
 struct sa_rx_data {
 	void *req;
+	struct device *ddev;
 	struct dma_async_tx_descriptor *tx_in;
 	u8 enc;
 };
@@ -946,9 +947,9 @@ static void sa_aes_dma_in_callback(void *data)
 
 	kfree(rxd);
 
-	dma_unmap_sg(sa_k3_dev, req->src, sglen, DMA_TO_DEVICE);
+	dma_unmap_sg(rxd->ddev, req->src, sglen, DMA_TO_DEVICE);
 	if (req->src != req->dst)
-		dma_unmap_sg(sa_k3_dev, req->dst, sglen, DMA_FROM_DEVICE);
+		dma_unmap_sg(rxd->ddev, req->dst, sglen, DMA_FROM_DEVICE);
 
 	ablkcipher_request_complete(req, 0);
 }
@@ -984,10 +985,10 @@ static void sa_aead_dma_in_callback(void *data)
 	kfree(rxd);
 
 	sglen = sg_nents_for_len(req->dst, req->cryptlen + authsize);
-	dma_unmap_sg(sa_k3_dev, req->dst, sglen, DMA_FROM_DEVICE);
+	dma_unmap_sg(rxd->ddev, req->dst, sglen, DMA_FROM_DEVICE);
 
 	sglen =  sg_nents_for_len(req->src, req->assoclen + req->cryptlen);
-	dma_unmap_sg(sa_k3_dev, req->src, sglen, DMA_TO_DEVICE);
+	dma_unmap_sg(rxd->ddev, req->src, sglen, DMA_TO_DEVICE);
 
 	aead_request_complete(req, err);
 }
@@ -1028,7 +1029,7 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	u32 req_type;
 	u32 *mdptr;
 	size_t pl, ml;
-
+	struct device *ddev;
 	struct dma_chan *dma_rx;
 	gfp_t flags;
 
@@ -1038,6 +1039,10 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	enc_offset = 0x0;
 	enc_len = req->nbytes;
 
+	if (enc_len >= 256)
+		dma_rx = pdata->dma_rx2;
+	else
+		dma_rx = pdata->dma_rx1;
 	/* Allocate descriptor & submit packet */
 	sg_nents = sg_nents_for_len(req->src, enc_len);
 	dst_nents = sg_nents_for_len(req->dst, enc_len);
@@ -1063,12 +1068,12 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	psdata_offset = sa_ctx->cmdl_size / sizeof(u32);
 	req_ctx.cmdl[psdata_offset++] = req_type;
 
+	ddev = dma_rx->device->dev;
 	/* map the packet */
 	req_ctx.src = req->src;
-	req_ctx.src_nents = dma_map_sg(sa_k3_dev, req_ctx.src,
-				       sg_nents, DMA_TO_DEVICE);
+	req_ctx.src_nents = dma_map_sg(ddev, req->src, sg_nents, DMA_TO_DEVICE);
 	if (req->src != req->dst)
-		dst_nents = dma_map_sg(sa_k3_dev, req->dst,
+		dst_nents = dma_map_sg(ddev, req->dst,
 				       sg_nents, DMA_FROM_DEVICE);
 	else
 		dst_nents = req_ctx.src_nents;
@@ -1084,11 +1089,6 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx.src_nents,
 			       DMA_TO_DEVICE);
 
-	if (enc_len >= 256)
-		dma_rx = pdata->dma_rx2;
-	else
-		dma_rx = pdata->dma_rx1;
-
 	tx_in = dmaengine_prep_slave_sg(dma_rx, req->dst, dst_nents,
 					DMA_DEV_TO_MEM,
 					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
@@ -1099,6 +1099,7 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 
 	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
 	rxd->req = (void *)req;
+	rxd->ddev = ddev;
 
 	/* IN */
 	tx_in->callback = sa_aes_dma_in_callback;
@@ -1345,6 +1346,7 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	struct dma_chan *dma_rx;
 	gfp_t flags;
 	size_t pl, ml;
+	struct device *ddev;
 
 	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
 			GFP_KERNEL : GFP_ATOMIC;
@@ -1361,6 +1363,12 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 			crypto_aead_authsize(tfm);
 	}
 
+	if (enc_len >= 256)
+		dma_rx = pdata->dma_rx2;
+	else
+		dma_rx = pdata->dma_rx1;
+
+	ddev = dma_rx->device->dev;
 	/* Allocate descriptor & submit packet */
 	sg_nents = sg_nents_for_len(req->src, enc_len + req->assoclen);
 	dst_nents = sg_nents_for_len(req->dst, enc_len +
@@ -1387,9 +1395,9 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 
 	/* map the packet */
 	req_ctx.src = req->src;
-	req_ctx.src_nents = dma_map_sg(sa_k3_dev, req_ctx.src,
+	req_ctx.src_nents = dma_map_sg(ddev, req->src,
 				       sg_nents, DMA_TO_DEVICE);
-	dst_nents = dma_map_sg(sa_k3_dev, req->dst,
+	dst_nents = dma_map_sg(ddev, req->dst,
 			       dst_nents, DMA_FROM_DEVICE);
 
 	if (unlikely(req_ctx.src_nents != sg_nents)) {
@@ -1402,11 +1410,6 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 
 	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx.src_nents,
 			       DMA_TO_DEVICE);
-
-	if (enc_len >= 256)
-		dma_rx = pdata->dma_rx2;
-	else
-		dma_rx = pdata->dma_rx1;
 
 	tx_in = dmaengine_prep_slave_sg(dma_rx, req->dst, dst_nents,
 					DMA_DEV_TO_MEM,
@@ -1504,7 +1507,7 @@ static void sa_sham_dma_in_callback(void *data)
 	struct ahash_request *req = (struct ahash_request *)rxd->req;
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	unsigned int authsize = crypto_ahash_digestsize(tfm);
-	int i;
+	int i, sg_nents;
 	size_t ml, pl;
 	u32 *mdptr, *result;
 
@@ -1515,6 +1518,9 @@ static void sa_sham_dma_in_callback(void *data)
 
 	for (i = 0; i < (authsize / 4); i++)
 		result[i] = htonl(mdptr[i + 4]);
+
+	sg_nents = sg_nents_for_len(req->src, req->nbytes);
+	dma_unmap_sg(rxd->ddev, req->src, sg_nents, DMA_FROM_DEVICE);
 
 	ahash_request_complete(req, 0);
 }
@@ -1541,12 +1547,20 @@ static int sa_sham_digest(struct ahash_request *req)
 	struct dma_chan *dma_rx;
 	gfp_t flags;
 	size_t pl, ml;
+	struct device *ddev;
 
 	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
 			GFP_KERNEL : GFP_ATOMIC;
 	enc_len = 0;
 	auth_len = req->nbytes;
 	enc_offset = 0;
+
+	if (enc_len > 256)
+		dma_rx = pdata->dma_rx2;
+	else
+		dma_rx = pdata->dma_rx1;
+
+	ddev = dma_rx->device->dev;
 
 	/* Allocate descriptor & submit packet */
 	sg_nents = sg_nents_for_len(req->src, req->nbytes);
@@ -1569,8 +1583,7 @@ static int sa_sham_digest(struct ahash_request *req)
 
 	/* map the packet */
 	req_ctx.src = req->src;
-	req_ctx.src_nents = dma_map_sg(sa_k3_dev, req_ctx.src,
-				       sg_nents, DMA_TO_DEVICE);
+	req_ctx.src_nents = dma_map_sg(ddev, req->src, sg_nents, DMA_TO_DEVICE);
 
 	if (unlikely(req_ctx.src_nents != sg_nents)) {
 		dev_warn_ratelimited(sa_k3_dev, "failed to map tx pkt\n");
@@ -1582,11 +1595,6 @@ static int sa_sham_digest(struct ahash_request *req)
 
 	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx.src_nents,
 			       DMA_TO_DEVICE);
-
-	if (enc_len > 256)
-		dma_rx = pdata->dma_rx2;
-	else
-		dma_rx = pdata->dma_rx1;
 
 	tx_in = dmaengine_prep_slave_sg(dma_rx, req->src, req_ctx.src_nents,
 					DMA_DEV_TO_MEM,
