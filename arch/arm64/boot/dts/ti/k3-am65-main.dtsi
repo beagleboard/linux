@@ -299,7 +299,7 @@
 		ti,psil-base = <0x4500>;
 
 		/* ti,psil-config0-22 */
-		UDMA_PDMA_TR_XY(0);
+		UDMA_PDMA_PKT_XY(0);
 		UDMA_PDMA_TR_XY(1);
 		UDMA_PDMA_TR_XY(2);
 		UDMA_PDMA_TR_XY(3);
@@ -1227,6 +1227,9 @@
 		power-domains = <&k3_pds 137>;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		dmas = <&main_udmap &pdma1 0 UDMA_DIR_TX>,
+		       <&main_udmap &pdma1 0 UDMA_DIR_RX>;
+		dma-names = "tx0", "rx0";
 	};
 
 	main_spi1: spi@2110000 {
