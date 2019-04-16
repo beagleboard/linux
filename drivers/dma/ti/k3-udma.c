@@ -1173,14 +1173,6 @@ static int udma_get_tchan(struct udma_chan *uc)
 	if (IS_ERR(uc->tchan))
 		return PTR_ERR(uc->tchan);
 
-	if (udma_is_chan_running(uc)) {
-		dev_warn(ud->dev, "chan%d: tchan%d is running!\n", uc->id,
-			 uc->tchan->id);
-		udma_stop(uc);
-		if (udma_is_chan_running(uc))
-			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
-	}
-
 	return 0;
 }
 
@@ -1197,14 +1189,6 @@ static int udma_get_rchan(struct udma_chan *uc)
 	uc->rchan = __udma_reserve_rchan(ud, uc->channel_tpl, -1);
 	if (IS_ERR(uc->rchan))
 		return PTR_ERR(uc->rchan);
-
-	if (udma_is_chan_running(uc)) {
-		dev_warn(ud->dev, "chan%d: rchan%d is running!\n", uc->id,
-			 uc->rchan->id);
-		udma_stop(uc);
-		if (udma_is_chan_running(uc))
-			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
-	}
 
 	return 0;
 }
@@ -1248,14 +1232,6 @@ static int udma_get_chan_pair(struct udma_chan *uc)
 	set_bit(chan_id, ud->rchan_map);
 	uc->tchan = &ud->tchans[chan_id];
 	uc->rchan = &ud->rchans[chan_id];
-
-	if (udma_is_chan_running(uc)) {
-		dev_warn(ud->dev, "chan%d: t/rchan%d pair is running!\n",
-			 uc->id, chan_id);
-		udma_stop(uc);
-		if (udma_is_chan_running(uc))
-			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
-	}
 
 	return 0;
 }
@@ -1758,6 +1734,16 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		}
 	}
 
+	if (udma_is_chan_running(uc)) {
+		dev_warn(ud->dev, "chan%d: tchan%d is running!\n", uc->id,
+			 uc->tchan->id);
+		udma_stop(uc);
+		if (udma_is_chan_running(uc)) {
+			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
+			goto err_chan_free;
+		}
+	}
+
 	/* PSI-L pairing */
 	ret = navss_psil_pair(ud, uc->src_thread, uc->dst_thread);
 	if (ret)
@@ -1776,21 +1762,6 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		goto err_psi_free;
 	}
 
-	uc->irq_num_udma = ti_sci_inta_register_event(ud->dev,
-						      tisci_rm->tisci_dev_id,
-						      uc->irq_udma_idx, 0, true,
-						      IRQF_TRIGGER_HIGH);
-	if (uc->irq_num_udma <= 0) {
-		dev_err(ud->dev, "Failed to get udma irq (index: %u) %d\n",
-			uc->irq_udma_idx, uc->irq_num_udma);
-
-		ti_sci_inta_unregister_event(ud->dev, uc->irq_ra_tisci,
-					     uc->irq_ra_idx, uc->irq_num_ring);
-
-		ret = -EINVAL;
-		goto err_psi_free;
-	}
-
 	ret = request_irq(uc->irq_num_ring, udma_ring_irq_handler, 0, uc->name,
 			  uc);
 	if (ret) {
@@ -1799,13 +1770,34 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		goto err_irq_free;
 	}
 
-	ret = request_irq(uc->irq_num_udma, udma_udma_irq_handler, 0, uc->name,
-			  uc);
-	if (ret) {
-		dev_err(ud->dev, "%s: chan%d: Failed to request UDMA irq\n",
-			__func__, uc->id);
-		free_irq(uc->irq_num_ring, uc);
-		goto err_irq_free;
+	/* Event from UDMA (TR events) only needed for slave TR mode channels */
+	if (is_slave_direction(uc->dir) && !uc->pkt_mode) {
+		uc->irq_num_udma = ti_sci_inta_register_event(ud->dev,
+						tisci_rm->tisci_dev_id,
+						uc->irq_udma_idx, 0, true,
+						IRQF_TRIGGER_HIGH);
+		if (uc->irq_num_udma <= 0) {
+			dev_err(ud->dev,
+				"Failed to get udma irq (index: %u) %d\n",
+				uc->irq_udma_idx, uc->irq_num_udma);
+
+			free_irq(uc->irq_num_ring, uc);
+
+			ret = -EINVAL;
+			goto err_irq_free;
+		}
+
+		ret = request_irq(uc->irq_num_udma, udma_udma_irq_handler, 0,
+				  uc->name, uc);
+		if (ret) {
+			dev_err(ud->dev,
+				"%s: chan%d: Failed to request UDMA irq\n",
+				__func__, uc->id);
+			free_irq(uc->irq_num_ring, uc);
+			goto err_irq_free;
+		}
+	} else {
+		uc->irq_num_udma = 0;
 	}
 
 	udma_reset_rings(uc);
@@ -1813,13 +1805,18 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 	return 0;
 
 err_irq_free:
-	ti_sci_inta_unregister_event(ud->dev, uc->irq_ra_tisci, uc->irq_ra_idx,
-				     uc->irq_num_ring);
-	uc->irq_num_ring = 0;
+	if (uc->irq_num_ring > 0) {
+		ti_sci_inta_unregister_event(ud->dev, uc->irq_ra_tisci,
+					     uc->irq_ra_idx, uc->irq_num_ring);
+		uc->irq_num_ring = 0;
+	}
 
-	ti_sci_inta_unregister_event(ud->dev, tisci_rm->tisci_dev_id,
-				     uc->irq_udma_idx, uc->irq_num_udma);
-	uc->irq_num_udma = 0;
+	if (uc->irq_num_udma > 0) {
+		ti_sci_inta_unregister_event(ud->dev, tisci_rm->tisci_dev_id,
+					     uc->irq_udma_idx,
+					     uc->irq_num_udma);
+		uc->irq_num_udma = 0;
+	}
 err_psi_free:
 	navss_psil_unpair(ud, uc->src_thread, uc->dst_thread);
 	uc->psil_paired = false;

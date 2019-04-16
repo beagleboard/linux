@@ -880,190 +880,6 @@ struct ti_sci_msg_psil_unpair {
 } __packed;
 
 /**
- * struct ti_sci_msg_udmap_tx_ch_alloc -  UDMAP transmit channel allocation
- *					  message
- * @hdr: Generic Header
- * @nav_id: SoC Navigator Subsystem device ID from which the transmit channel is
- *	allocated
- * @index: UDMAP transmit channel index.
- * @tx_pause_on_err: UDMAP transmit channel pause on error configuration
- * @tx_filt_einfo: UDMAP transmit channel extended packet information passing
- *	configuration.
- * @tx_filt_pswords: UDMAP transmit channel protocol specific word passing
- *	configuration.
- * @tx_atype: UDMAP transmit channel non Ring Accelerator access pointer
- *	interpretation. Valid values are TI_SCI_RM_UDMAP_ATYPE_*
- * @tx_chan_type: UDMAP transmit channel functional channel type and work
- *	passing mechanism configuration.  Valid types are
- *	TI_SCI_RM_UDMAP_CHAN_TYPE_*
- * @tx_supr_tdpkt: UDMAP transmit channel teardown packet generation suppression
- *	configuration.
- * @tx_fetch_size: UDMAP transmit channel number of 32-bit descriptor words to
- *	fetch configuration.
- * @tx_credit_count: UDMAP transmit channel transfer request credit count
- *	configuration.
- * @txcq_qnum: UDMAP transmit channel completion queue number.
- * @tx_priority: UDMAP transmit channel transmit priority value. Can be either
- *	NULL parameter or valid priority number.
- * @tx_qos: DMAP transmit channel transmit qos value. Can be either NULL
- *	parameter or valid QoS number.
- * @tx_orderid: UDMAP transmit channel bus order id value. Can be either NULL
- *	parameter or valid orderid number.
- * @fdepth: UDMAP transmit channel FIFO depth configuration.
- * @tx_sched_priority: UDMAP transmit channel tx scheduling priority
- *	configuration. Valid values are TI_SCI_RM_UDMAP_SCHED_PRIOR_*
- * @share: Not supported, set it to 0.
- * @type: Not supported, set it to NULL parameter.
- * @secondary_host: Specifies a host ID for which the TISCI header host ID
- *	is proxying the request for.
- *
- * For detailed information on the settings, see the UDMAP section of the TRM.
- */
-struct ti_sci_msg_udmap_tx_ch_alloc {
-	struct ti_sci_msg_hdr hdr;
-	u32 nav_id;
-	u32 index;
-	u8 tx_pause_on_err;
-	u8 tx_filt_einfo;
-	u8 tx_filt_pswords;
-	u8 tx_atype;
-	u8 tx_chan_type;
-	u8 tx_supr_tdpkt;
-	u16 tx_fetch_size;
-	u8 tx_credit_count;
-	u16 txcq_qnum;
-	u8 tx_priority;
-	u8 tx_qos;
-	u8 tx_orderid;
-	u16 fdepth;
-	u8 tx_sched_priority;
-	u8 share;
-	u8 type;
-	u8 secondary_host;
-} __packed;
-
-/**
- * struct ti_sci_msg_udmap_tx_ch_alloc_resp -  UDMAP transmit channel allocate
- *					       response
- * @hdr: Generic Header
- * @index: UDMAP transmit channel index.
- */
-struct ti_sci_msg_udmap_tx_ch_alloc_resp {
-	struct ti_sci_msg_hdr hdr;
-	u32 index;
-} __packed;
-
-/**
- * struct ti_sci_msg_udmap_tx_ch_free -  UDMAP transmit channel free message
- * @hdr: Generic Header
- * @nav_id: SoC Navigator Subsystem device ID from which the transmit channel
- *	was allocated
- * @index: UDMAP transmit channel index.
- * @secondary_host: Specifies a host ID for which the TISCI header host ID
- *	is proxying the request for.
- */
-struct ti_sci_msg_udmap_tx_ch_free {
-	struct ti_sci_msg_hdr hdr;
-	u32 nav_id;
-	u32 index;
-	s8 secondary_host;
-} __packed;
-
-/**
- * struct ti_sci_msg_udmap_rx_ch_alloc -  parameters for UDMAP receive channel
- *					  allocation
- * @hdr: Generic Header
- * @nav_id: SoC Navigator Subsystem device ID from which the receive channel is
- *	allocated
- * @index: UDMAP receive channel index.
- * @rx_fetch_size: UDMAP receive channel number of 32-bit descriptor words to
- *	fetch configuration.
- * @rxcq_qnum: UDMAP receive channel completion queue number.
- * @rx_priority: UDMAP receive channel receive priority value. Can be either
- *	NULL parameter or valid priority number.
- * @rx_qos: DMAP receive channel receive qos value. Can be either NULL
- *	parameter or valid QoS number.
- * @rx_orderid: UDMAP receive channel bus order id value. Can be either NULL
- *	parameter or valid orderid number.
- * @rx_sched_priority: UDMAP receive channel tx scheduling priority
- *	configuration. Valid values are TI_SCI_RM_UDMAP_SCHED_PRIOR_*
- * @flowid_start: UDMAP receive channel additional flows starting index.
- * @flowid_cnt: UDMAP receive channel additional flows count.
- *	flowid_start is only valid when flowid_cnt is not 0. in that case if
- *	flowid_start is NULL parameter, dynamic allocation is requested. If
- *	flowid_start is not NULL and it is valid, a range of flows from the
- *	given index is going to be requested.
- * @rx_pause_on_err: UDMAP receive channel pause on error configuration
- * @rx_atype: UDMAP receive channel non Ring Accelerator access pointer
- *	interpretation. Valid values are TI_SCI_RM_UDMAP_ATYPE_*
- * @rx_chan_type: UDMAP receive channel functional channel type and work
- *	passing mechanism configuration.  Valid types are
- *	TI_SCI_RM_UDMAP_CHAN_TYPE_*
- * @rx_ignore_short: UDMAP receive channel short packet treatment configuration.
- * @rx_ignore_long: UDMAP receive channel long packet treatment configuration.
- * @share: Not supported, set it to 0.
- * @type: Not supported, set it to NULL parameter.
- * @secondary_host: Specifies a host ID for which the TISCI header host ID
- *	is proxying the request for.
- *
- * For detailed information on the settings, see the UDMAP section of the TRM.
- */
-struct ti_sci_msg_udmap_rx_ch_alloc {
-	struct ti_sci_msg_hdr hdr;
-	u32 nav_id;
-	u32 index;
-	u16 rx_fetch_size;
-	u16 rxcq_qnum;
-	u8 rx_priority;
-	u8 rx_qos;
-	u8 rx_orderid;
-	u8 rx_sched_priority;
-	u16 flowid_start;
-	u16 flowid_cnt;
-	u8 rx_pause_on_err;
-	u8 rx_atype;
-	u8 rx_chan_type;
-	u8 rx_ignore_short;
-	u8 rx_ignore_long;
-	u8 share;
-	u8 type;
-	u8 secondary_host;
-} __packed;
-
-/**
- * struct ti_sci_msg_udmap_rx_ch_alloc_resp -  UDMAP receive channel allocate
- *					       response
- * @hdr: Generic Header
- * @index: UDMAP receive channel index.
- * @def_flow_index: Index of the defaule receive flow for the channel
- * @rng_flow_start_index: Start index of the allocated extra receive flows
- * @rng_flow_cnt: Number of allocated extra receive flows
- */
-struct ti_sci_msg_udmap_rx_ch_alloc_resp {
-	struct ti_sci_msg_hdr hdr;
-	u32 index;
-	u32 def_flow_index;
-	u32 rng_flow_start_index;
-	u32 rng_flow_cnt;
-} __packed;
-
-/**
- * struct ti_sci_msg_udmap_rx_ch_free -  UDMAP receive channel free message
- * @hdr: Generic Header
- * @nav_id: SoC Navigator Subsystem device ID from which the receive channel
- *	was allocated
- * @index: UDMAP receive channel index.
- * @secondary_host: Specifies a host ID for which the TISCI header host ID
- *	is proxying the request for.
- */
-struct ti_sci_msg_udmap_rx_ch_free {
-	struct ti_sci_msg_hdr hdr;
-	u32 nav_id;
-	u32 index;
-	s8 secondary_host;
-} __packed;
-
-/**
  * struct ti_sci_msg_udmap_rx_flow_cfg -  UDMAP receive flow configuration
  *					  message
  * @hdr: Generic Header
@@ -1269,6 +1085,7 @@ struct ti_sci_msg_rm_udmap_tx_ch_cfg_req {
 	u8 tx_orderid;
 	u16 fdepth;
 	u8 tx_sched_priority;
+	u8 tx_burst_size;
 } __packed;
 
 /**
@@ -1392,6 +1209,8 @@ struct ti_sci_msg_rm_udmap_rx_ch_cfg_req {
 	u8 rx_chan_type;
 	u8 rx_ignore_short;
 	u8 rx_ignore_long;
+	u8 rx_burst_size;
+
 } __packed;
 
 /**
