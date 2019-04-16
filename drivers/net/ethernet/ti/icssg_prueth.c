@@ -38,7 +38,7 @@
 
 #define MSMC_RAM_SIZE	(SZ_64K + SZ_32K + SZ_2K)	/* 0x1880 x 8 x 2 */
 
-#define PRUETH_NAV_PS_DATA_SIZE	0	/* Protocol specific data size */
+#define PRUETH_NAV_PS_DATA_SIZE	16	/* Protocol specific data size */
 #define PRUETH_NAV_SW_DATA_SIZE	16	/* SW related data size */
 #define PRUETH_MAX_TX_DESC	512
 #define PRUETH_MAX_RX_DESC	512
@@ -126,7 +126,7 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 
 	init_completion(&emac->tdown_complete);
 
-	hdesc_size = cppi5_hdesc_calc_size(false, PRUETH_NAV_PS_DATA_SIZE,
+	hdesc_size = cppi5_hdesc_calc_size(true, PRUETH_NAV_PS_DATA_SIZE,
 					   PRUETH_NAV_SW_DATA_SIZE);
 	memset(&tx_cfg, 0, sizeof(tx_cfg));
 	tx_cfg.swdata_size = PRUETH_NAV_SW_DATA_SIZE;
@@ -207,7 +207,7 @@ static int prueth_init_rx_chns(struct prueth_emac *emac)
 	/* To differentiate channels for SLICE0 vs SLICE1 */
 	snprintf(rx_chn_name, sizeof(rx_chn_name), "rx%d", slice);
 
-	hdesc_size = cppi5_hdesc_calc_size(false, PRUETH_NAV_PS_DATA_SIZE,
+	hdesc_size = cppi5_hdesc_calc_size(true, PRUETH_NAV_PS_DATA_SIZE,
 					   PRUETH_NAV_SW_DATA_SIZE);
 	memset(&rx_cfg, 0, sizeof(rx_cfg));
 	rx_cfg.swdata_size = PRUETH_NAV_SW_DATA_SIZE;
@@ -278,7 +278,8 @@ static int prueth_dma_rx_push(struct prueth_emac *emac,
 		return -EINVAL;
 	}
 
-	cppi5_hdesc_init(desc_rx, 0, PRUETH_NAV_PS_DATA_SIZE);
+	cppi5_hdesc_init(desc_rx, CPPI5_INFO0_HDESC_EPIB_PRESENT,
+			 PRUETH_NAV_PS_DATA_SIZE);
 	cppi5_hdesc_attach_buf(desc_rx, 0, 0, buf_dma, skb_tailroom(skb));
 
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
@@ -462,7 +463,8 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		goto drop_stop_q;
 	}
 
-	cppi5_hdesc_init(first_desc, 0, PRUETH_NAV_PS_DATA_SIZE);
+	cppi5_hdesc_init(first_desc, CPPI5_INFO0_HDESC_EPIB_PRESENT,
+			 PRUETH_NAV_PS_DATA_SIZE);
 	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
 	swdata = cppi5_hdesc_get_swdata(first_desc);
 	*swdata = skb;
