@@ -43,6 +43,10 @@
 #define PRUETH_MAX_TX_DESC	512
 #define PRUETH_MAX_RX_DESC	512
 
+#define PRUETH_NUM_BUF_POOLS		16
+#define PRUETH_EMAC_BUF_POOL_START	8
+#define PRUETH_EMAC_BUF_POOL_SIZE	0x1800
+
 #define PRUETH_MIN_PKT_SIZE	(VLAN_ETH_ZLEN)
 #define PRUETH_MAX_PKT_SIZE	(VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
 
@@ -633,26 +637,41 @@ static irqreturn_t prueth_tx_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-#define CONFIG_LENGTH 16
+static void icssg_config_set(struct prueth *prueth, int slice)
+{
+	void __iomem *va;
+
+	va = prueth->shram.va + slice * ICSSG_CONFIG_OFFSET_SLICE1;
+	memcpy_toio(va, &prueth->config[slice], sizeof(prueth->config[slice]));
+}
 
 static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 {
 	struct device *dev = prueth->dev;
 	int slice, ret;
-	u32 config[CONFIG_LENGTH];
-	u32 cmd;
+	struct icssg_config *config;
+	int i;
 
-	switch (emac->port_id) {
-	case PRUETH_PORT_MII0:
-		slice = ICSS_SLICE0;
-		break;
-	case PRUETH_PORT_MII1:
-		slice = ICSS_SLICE1;
-		break;
-	default:
+	slice = prueth_emac_slice(emac);
+	if (slice < 0) {
 		netdev_err(emac->ndev, "invalid port\n");
 		return -EINVAL;
 	}
+
+	/* Set Load time configuration */
+	config = &prueth->config[slice];
+	memset(config, 0, sizeof(*config));
+	config->addr_lo = cpu_to_le32(lower_32_bits(prueth->msmcram.pa));
+	config->addr_hi = cpu_to_le32(upper_32_bits(prueth->msmcram.pa));
+	config->num_tx_threads = 0;
+	config->rx_flow_id = emac->rx_flow_id_base; /* flow id for host port */
+
+	/* set buffer sizes for the pools. 0-7 are not used for dual-emac */
+	for (i = PRUETH_EMAC_BUF_POOL_START;
+	     i < PRUETH_NUM_BUF_POOLS; i++)
+		config->tx_buf_sz[i] = cpu_to_le32(PRUETH_EMAC_BUF_POOL_SIZE);
+
+	icssg_config_set(prueth, slice);
 
 	ret = rproc_boot(prueth->pru[slice]);
 	if (ret) {
@@ -666,41 +685,8 @@ static int prueth_emac_start(struct prueth *prueth, struct prueth_emac *emac)
 		goto halt_pru;
 	}
 
-	mdelay(2);	/* FW can take aobut 1ms */
-	if (!icss_hs_is_fw_ready(prueth, slice)) {
-		dev_err(dev, "slice %d: firmware not ready\n", slice);
-		ret = -EIO;
-		goto halt_rtu;
-	}
-
-	/* configure fw */
-	memset(config, 0, sizeof(u32) * CONFIG_LENGTH);
-	config[0] = 0;	/* number of packets to send/receive : indefinite */
-	config[1] = lower_32_bits(prueth->msmcram.pa);
-	config[2] = upper_32_bits(prueth->msmcram.pa);
-	config[3] = emac->rx_flow_id_base; /* flow id for host port */
-	config[4] = 0;	/* promisc, multicast, etc done by classifier */
-	config[5] = 0;	/* future use */
-	dev_info(dev, "setting rx flow id %d\n", config[3]);
-
-	cmd = ICSS_CMD_SET_RUN;
-	ret = icss_hs_send_cmd_wait_done(prueth, slice, cmd, config, 6);
-	if (ret)
-		goto err;
-
-	/* send RXTX cmd */
-	cmd = ICSS_CMD_RXTX;
-	ret = icss_hs_send_cmd(prueth, slice, cmd, 0, 0);
-	if (ret)
-		goto err;
-
 	return 0;
 
-err:
-	dev_err(dev, "slice %d: cmd %d failed: %d\n",
-		slice, cmd, ret);
-halt_rtu:
-	rproc_shutdown(prueth->rtu[slice]);
 halt_pru:
 	rproc_shutdown(prueth->pru[slice]);
 
@@ -835,8 +821,8 @@ static int emac_ndo_open(struct net_device *ndev)
 	int slice = prueth_emac_slice(emac);
 
 	/* clear SMEM of this slice */
-	memset_io(prueth->shram.va + slice * ICSS_HS_OFFSET_SLICE1,
-		  0, ICSS_HS_OFFSET_SLICE1);
+	memset_io(prueth->shram.va + slice * ICSSG_CONFIG_OFFSET_SLICE1,
+		  0, ICSSG_CONFIG_OFFSET_SLICE1);
 	/* set h/w MAC as user might have re-configured */
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
 
@@ -935,7 +921,6 @@ static int emac_ndo_stop(struct net_device *ndev)
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct prueth *prueth = emac->prueth;
 	int ret;
-	int slice = prueth_emac_slice(emac);
 
 	/* inform the upper layers. */
 	netif_stop_queue(ndev);
@@ -956,9 +941,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 				  prueth_tx_cleanup);
 	k3_nav_udmax_disable_tx_chn(emac->tx_chns.tx_chn);
 
-	ret = icss_hs_send_cmd(prueth, slice, ICSS_HS_CMD_CANCEL, 0, 0);
-	if (ret)
-		netdev_err(ndev, "CANCEL failed: %d\n", ret);
+	/* TODO: send shutdown command */
 
 	k3_nav_udmax_tdown_rx_chn(emac->rx_chns.rx_chn, true);
 	k3_nav_udmax_reset_rx_chn(emac->rx_chns.rx_chn, 0, emac,
@@ -1386,7 +1369,7 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->msmcram.pa = gen_pool_virt_to_phys(prueth->sram_pool,
 						   (unsigned long)prueth->msmcram.va);
 	prueth->msmcram.size = MSMC_RAM_SIZE;
-	dev_dbg(dev, "sram: pa %pa va %p size %zx\n", &prueth->msmcram.pa,
+	dev_dbg(dev, "sram: pa %llx va %p size %zx\n", prueth->msmcram.pa,
 		prueth->msmcram.va, prueth->msmcram.size);
 
 	/* setup netdev interfaces */

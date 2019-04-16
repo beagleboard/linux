@@ -28,4 +28,4 @@ obj-$(CONFIG_TI_AM65_CPTS) += am65-cpts.o
 
 obj-$(CONFIG_TI_PRUETH) += prueth.o
 obj-$(CONFIG_TI_ICSSG_PRUETH) += icssg-prueth.o
-icssg-prueth-y := icssg_prueth.o icssg_hs.o icssg_classifier.o icssg_ethtool.o
+icssg-prueth-y := icssg_prueth.o icssg_classifier.o icssg_ethtool.o
