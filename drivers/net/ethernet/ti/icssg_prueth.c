@@ -118,7 +118,7 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 	u32 hdesc_size;
 	int ret, slice;
 	struct prueth_tx_chn *tx_chn = &emac->tx_chns;
-	char tx_chn_name[4];
+	char tx_chn_name[16];
 
 	slice = prueth_emac_slice(emac);
 	if (slice < 0)
@@ -134,7 +134,7 @@ static int prueth_init_tx_chns(struct prueth_emac *emac)
 	tx_cfg.txcq_cfg = ring_cfg;
 
 	/* To differentiate channels for SLICE0 vs SLICE1 */
-	snprintf(tx_chn_name, sizeof(tx_chn_name), "tx%d", slice);
+	snprintf(tx_chn_name, sizeof(tx_chn_name), "tx%d-0", slice);
 
 	tx_chn->descs_num = PRUETH_MAX_TX_DESC;
 	spin_lock_init(&tx_chn->lock);
