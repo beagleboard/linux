@@ -211,8 +211,9 @@ static int prueth_init_rx_chns(struct prueth_emac *emac)
 					   PRUETH_NAV_SW_DATA_SIZE);
 	memset(&rx_cfg, 0, sizeof(rx_cfg));
 	rx_cfg.swdata_size = PRUETH_NAV_SW_DATA_SIZE;
-	rx_cfg.flow_id_num = 1;		/* only 1 flow id used */
-	rx_cfg.flow_id_base = -1;	/* udmax will auto select flow id base */
+	rx_cfg.flow_id_num = 1;	/* 1 for defalut flow */
+	rx_cfg.flow_id_use_rxchan_id = true; /* must be set for default flow */
+	rx_cfg.flow_id_base = -1; /* udmax will auto select flow id base */
 	rx_cfg.def_flow_cfg = &rx_flow_cfg;
 
 	/* init all flows */
