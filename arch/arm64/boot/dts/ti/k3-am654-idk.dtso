@@ -26,7 +26,7 @@
 		};
 
 		/* Dual Ethernet application node on PRU-ICSSG0 */
-		pruss0_eth: pruss0_eth {
+		pruss0_eth {
 			compatible = "ti,am654-icssg-prueth";
 			pinctrl-names = "default";
 			pinctrl-0 = <&icssg0_rgmii_pins_default>;
@@ -40,27 +40,23 @@
 					"ti-pruss/am65x-rtu1-prueth-fw.elf";
 			mii-g-rt = <&icssg0_mii_g_rt>;
 			dma-coherent;
-			dmas = <&main_udmap &pruss0_eth 0 UDMA_DIR_TX>,	/* SLICE 0 */
-			       <&main_udmap &pruss0_eth 0 UDMA_DIR_RX>,
-			       <&main_udmap &pruss0_eth 4 UDMA_DIR_TX>,	/* SLICE 1 */
-			       <&main_udmap &pruss0_eth 1 UDMA_DIR_RX>;
-			dma-names = "tx0", "rx0", "tx1", "rx1";
+			dmas = <&main_udmap &icssg0 0 UDMA_DIR_TX>, /* egress slice 0 */
+			       <&main_udmap &icssg0 1 UDMA_DIR_TX>, /* egress slice 0 */
+			       <&main_udmap &icssg0 2 UDMA_DIR_TX>, /* egress slice 0 */
+			       <&main_udmap &icssg0 3 UDMA_DIR_TX>, /* egress slice 0 */
+			       <&main_udmap &icssg0 4 UDMA_DIR_TX>, /* egress slice 1 */
+			       <&main_udmap &icssg0 5 UDMA_DIR_TX>, /* egress slice 1 */
+			       <&main_udmap &icssg0 6 UDMA_DIR_TX>, /* egress slice 1 */
+			       <&main_udmap &icssg0 7 UDMA_DIR_TX>, /* egress slice 1 */
 
-			ti,psil-base = <0x4100>;	/* ICSSG0 PSIL thread start */
-			ti,psil-config0 {
-				linux,udma-mode = <UDMA_PKT_MODE>;
-				ti,psd-size = <0>;
-			};
-
-			ti,psil-config1 {
-				linux,udma-mode = <UDMA_PKT_MODE>;
-				ti,psd-size = <0>;
-			};
-
-			ti,psil-config4 {
-				linux,udma-mode = <UDMA_PKT_MODE>;
-				ti,psd-size = <0>;
-			};
+			       <&main_udmap &icssg0 0 UDMA_DIR_RX>, /* ingress slice 0 */
+			       <&main_udmap &icssg0 1 UDMA_DIR_RX>, /* ingress slice 1 */
+			       <&main_udmap &icssg0 2 UDMA_DIR_RX>, /* mgmnt rsp slice 0 */
+			       <&main_udmap &icssg0 3 UDMA_DIR_RX>; /* mgmnt rsp slice 1 */
+			dma-names = "tx0-0", "tx0-1", "tx0-2", "tx0-3",
+				    "tx1-0", "tx1-1", "tx1-2", "tx1-3",
+				    "rx0", "rx1",
+				    "rxmgm0", "rxmgm1";
 
 			pruss0_emac0: ethernet-mii0 {
 				phy-handle = <&pruss0_eth0_phy>;
@@ -80,7 +76,7 @@
 		};
 
 		/* Dual Ethernet application node on PRU-ICSSG1 */
-		pruss1_eth: pruss1_eth {
+		pruss1_eth {
 			compatible = "ti,am654-icssg-prueth";
 			pinctrl-names = "default";
 			pinctrl-0 = <&icssg1_rgmii_pins_default>;
@@ -94,27 +90,23 @@
 					"ti-pruss/am65x-rtu1-prueth-fw.elf";
 			mii-g-rt = <&icssg1_mii_g_rt>;
 			dma-coherent;
-			dmas = <&main_udmap &pruss1_eth 0 UDMA_DIR_TX>,	/* SLICE 0 */
-			       <&main_udmap &pruss1_eth 0 UDMA_DIR_RX>,
-			       <&main_udmap &pruss1_eth 4 UDMA_DIR_TX>,	/* SLICE 1 */
-			       <&main_udmap &pruss1_eth 1 UDMA_DIR_RX>;
-			dma-names = "tx0", "rx0", "tx1", "rx1";
+			dmas = <&main_udmap &icssg1 0 UDMA_DIR_TX>, /* egress slice 0 */
+			       <&main_udmap &icssg1 1 UDMA_DIR_TX>, /* egress slice 0 */
+			       <&main_udmap &icssg1 2 UDMA_DIR_TX>, /* egress slice 0 */
+			       <&main_udmap &icssg1 3 UDMA_DIR_TX>, /* egress slice 0 */
+			       <&main_udmap &icssg1 4 UDMA_DIR_TX>, /* egress slice 1 */
+			       <&main_udmap &icssg1 5 UDMA_DIR_TX>, /* egress slice 1 */
+			       <&main_udmap &icssg1 6 UDMA_DIR_TX>, /* egress slice 1 */
+			       <&main_udmap &icssg1 7 UDMA_DIR_TX>, /* egress slice 1 */
 
-			ti,psil-base = <0x4200>;	/* ICSSG1 PSIL thread start */
-			ti,psil-config0 {
-				linux,udma-mode = <UDMA_PKT_MODE>;
-				ti,psd-size = <0>;
-			};
-
-			ti,psil-config1 {
-				linux,udma-mode = <UDMA_PKT_MODE>;
-				ti,psd-size = <0>;
-			};
-
-			ti,psil-config4 {
-				linux,udma-mode = <UDMA_PKT_MODE>;
-				ti,psd-size = <0>;
-			};
+			       <&main_udmap &icssg1 0 UDMA_DIR_RX>, /* ingress slice 0 */
+			       <&main_udmap &icssg1 1 UDMA_DIR_RX>, /* ingress slice 1 */
+			       <&main_udmap &icssg1 2 UDMA_DIR_RX>, /* mgmnt rsp slice 0 */
+			       <&main_udmap &icssg1 3 UDMA_DIR_RX>; /* mgmnt rsp slice 1 */
+			dma-names = "tx0-0", "tx0-1", "tx0-2", "tx0-3",
+				    "tx1-0", "tx1-1", "tx1-2", "tx1-3",
+				    "rx0", "rx1",
+				    "rxmgm0", "rxmgm1";
 
 			pruss1_emac0: ethernet-mii0 {
 				phy-handle = <&pruss1_eth0_phy>;

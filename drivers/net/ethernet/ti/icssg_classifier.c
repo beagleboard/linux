@@ -242,8 +242,9 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 	u32 data, offset;
 	int n;
 
-	/* Disable RX_L2_G */
-	regmap_update_bits(miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_RX_L2_G_EN, 0);
+	/* Enable RX_L2_G */
+	regmap_update_bits(miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_RX_L2_G_EN,
+			   ICSSG_CFG_RX_L2_G_EN);
 
 	for (n = 0; n < ICSSG_NUM_CLASSIFIERS; n++) {
 		/* AND_EN = 0 */
@@ -266,11 +267,11 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 
 	/* FT1 uses 6 bytes of DA address */
 	offset = offs[slice].ft1_start_len;
-	regmap_write(miig_rt, offset, FT1_LEN(0));
+	regmap_write(miig_rt, offset, FT1_LEN(6));
 
 	/* FT1 type EQ */
 	for (n = 0; n < ICSSG_NUM_FT1_SLOTS; n++)
-		rx_class_ft1_cfg_set_type(miig_rt, slice, n, FT1_CFG_TYPE_DISABLED);
+		rx_class_ft1_cfg_set_type(miig_rt, slice, n, FT1_CFG_TYPE_EQ);
 
 	/* FT1[0] DA compare address 00-00-00-00-00-00 */
 	offset = FT1_N_REG(slice, 0, FT1_DA0);
@@ -286,10 +287,6 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 
 	/* clear CFG2 */
 	regmap_write(miig_rt, offs[slice].rx_class_cfg2, 0);
-
-	/* Enable RX_L2_G */
-	regmap_update_bits(miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_RX_L2_G_EN,
-			   ICSSG_CFG_RX_L2_G_EN);
 }
 
 void icssg_class_default(struct regmap *miig_rt, int slice)
@@ -297,20 +294,30 @@ void icssg_class_default(struct regmap *miig_rt, int slice)
 	u32 offset, data;
 	int n;
 
-	/* Disable RX_L2_G */
-	regmap_update_bits(miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_RX_L2_G_EN, 0);
-
+	/* defaults */
 	icssg_class_disable(miig_rt, slice);
 
-	/* FT1 len = 0 */
+	/* FT1 uses 6 bytes of DA address */
 	offset = offs[slice].ft1_start_len;
-	regmap_write(miig_rt, offset, FT1_LEN(0));
+	regmap_write(miig_rt, offset, FT1_LEN(6));
 
-	/* FT1 slots to disabled */
+	/* FT1 slots type to EQ */
 	for (n = 0; n < ICSSG_NUM_FT1_SLOTS; n++) {
 		rx_class_ft1_cfg_set_type(miig_rt, slice, n,
-					  FT1_CFG_TYPE_DISABLED);
+					  FT1_CFG_TYPE_EQ);
 	}
+
+	/* FT1[0] DA compare address 00-00-00-00-00-00 */
+	offset = FT1_N_REG(slice, 0, FT1_DA0);
+	regmap_write(miig_rt, offset, 0);
+	offset = FT1_N_REG(slice, 0, FT1_DA1);
+	regmap_write(miig_rt, offset, 0);
+
+	/* FT1[0] mask 00-00-00-00-00-00 */
+	offset = FT1_N_REG(slice, 0, FT1_DA0_MASK);
+	regmap_write(miig_rt, offset, 0);
+	offset = FT1_N_REG(slice, 0, FT1_DA1_MASK);
+	regmap_write(miig_rt, offset, 0);
 
 	/* Setup Classifier 4 */
 	/* match on Broadcast or MAC_PRU address */
@@ -320,12 +327,14 @@ void icssg_class_default(struct regmap *miig_rt, int slice)
 	/* set CFG1 for OR_OR_AND for classifier 4 */
 	rx_class_sel_set_type(miig_rt, slice, 4, RX_CLASS_SEL_TYPE_OR_OR_AND);
 
+	/* ungate classifier 4 */
+	offset = RX_CLASS_GATES_N_REG(slice, 4);
+	regmap_read(miig_rt, offset, &data);
+	data |= RX_CLASS_GATES_RAW_MASK;
+	regmap_write(miig_rt, offset, data);
+
 	/* clear CFG2 */
 	regmap_write(miig_rt, offs[slice].rx_class_cfg2, 0);
-
-	/* Enable RX_L2_G */
-	regmap_update_bits(miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_RX_L2_G_EN,
-			   ICSSG_CFG_RX_L2_G_EN);
 }
 
 void icssg_class_promiscuous(struct regmap *miig_rt, int slice)
@@ -334,8 +343,8 @@ void icssg_class_promiscuous(struct regmap *miig_rt, int slice)
 	u32 offset;
 	int n;
 
-	/* Disable RX_L2_G */
-	regmap_update_bits(miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_RX_L2_G_EN, 0);
+	/* defaults */
+	icssg_class_disable(miig_rt, slice);
 
 	/* FT1 uses 6 bytes of DA address */
 	offset = offs[slice].ft1_start_len;
@@ -365,7 +374,9 @@ void icssg_class_promiscuous(struct regmap *miig_rt, int slice)
 	/* set CFG1 for OR_OR_AND for classifier 4 */
 	rx_class_sel_set_type(miig_rt, slice, 4, RX_CLASS_SEL_TYPE_OR_OR_AND);
 
-	/* Enable RX_L2_G */
-	regmap_update_bits(miig_rt, ICSSG_CFG_OFFSET, ICSSG_CFG_RX_L2_G_EN,
-			   ICSSG_CFG_RX_L2_G_EN);
+	/* ungate classifier 4 */
+	offset = RX_CLASS_GATES_N_REG(slice, 4);
+	regmap_read(miig_rt, offset, &data);
+	data |= RX_CLASS_GATES_RAW_MASK;
+	regmap_write(miig_rt, offset, data);
 }

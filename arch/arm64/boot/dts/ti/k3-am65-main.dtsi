@@ -691,6 +691,63 @@
 			ranges;
 			dma-ranges;
 
+			ti,psil-base = <0x4100>;	/* ICSSG0 PSIL thread start */
+			ti,psil-config0 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config1 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config2 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config3 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config4 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config5 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config6 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config7 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
 			icssg0_mem: memories@b000000 {
 				reg = <0xb000000 0x2000>,
 				      <0xb002000 0x2000>,
@@ -815,6 +872,63 @@
 			ranges;
 			dma-ranges;
 
+			ti,psil-base = <0x4200>;	/* ICSSG1 PSIL thread start */
+			ti,psil-config0 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config1 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config2 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config3 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config4 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config5 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config6 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config7 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
 			icssg1_mem: memories@b100000 {
 				reg = <0xb100000 0x2000>,
 				      <0xb102000 0x2000>,
@@ -938,6 +1052,63 @@
 			#size-cells = <1>;
 			ranges;
 			dma-ranges;
+
+			ti,psil-base = <0x4300>;	/* ICSSG2 PSIL thread start */
+			ti,psil-config0 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config1 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config2 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config3 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config4 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config5 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config6 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
+
+			ti,psil-config7 {
+				linux,udma-mode = <UDMA_PKT_MODE>;
+				statictr-type = <PSIL_STATIC_TR_NONE>;
+				ti,needs-epib;
+				ti,psd-size = <16>;
+			};
 
 			icssg2_mem: memories@b200000 {
 				reg = <0xb200000 0x2000>,

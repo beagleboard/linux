@@ -103,6 +103,10 @@ Required Properties:
                    same address view as the parent, so should be mentioned without
                    any value for the property
 
+Optional Properties: (Applies only to "ti,am654-icssg")
+--------------------
+- ti,psil-base	    : PSIL thread start number
+- ti,psil-config<n> :   PSIL configuration for each thread number
 
 PRU-ICSS Memories Node
 =======================

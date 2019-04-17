@@ -28,15 +28,13 @@
 #include <linux/dma/ti-cppi5.h>
 #include <linux/dma/k3-navss-udma.h>
 
+#include "icssg_config.h"
+
 #define ICSS_SLICE0	0
 #define ICSS_SLICE1	1
 
 #define ICSS_FW_PRU	0
 #define ICSS_FW_RTU	1
-
-/* Handshake region lies in shared RAM */
-#define ICSS_HS_OFFSET_SLICE0	0
-#define ICSS_HS_OFFSET_SLICE1	0x8000
 
 /* Firmware status codes */
 #define ICSS_HS_FW_READY 0x55555555
@@ -62,20 +60,6 @@
 #define ICSS_SET_RUN_FLAG_FLOOD_UNICAST		BIT(1)	/* switch only */
 #define ICSS_SET_RUN_FLAG_PROMISC		BIT(2)	/* MAC only */
 #define ICSS_SET_RUN_FLAG_MULTICAST_PROMISC	BIT(3)	/* MAC only */
-
-/* Fiwmware Handshake */
-struct icss_hs {
-			/* Owner : Description */
-	__le32 fw_status;	/* FW : firmware boot status */
-	__le32 cmd;		/* bits 31 and 30 owned by Firwmware, rest by Host */
-	__le16 log_len;		/* FW: length of log area (in 32-bit words) */
-	__le16 ilen_max;	/* FW:  max. length of input params (32-bit words) */
-	__le32 ilen;		/* HOST: number of input parameters (32-bit words) */
-	__le32 ioffset;		/* FW: offset to input parameters */
-	__le32 olen;		/* FW: length of output data (in 32-bit words) */
-	__le32 ooffset;		/* FW: offset to output data */
-	__le32 log_offset;	/* FW: offset to log area */
-} __packed;
 
 /* In switch mode there are 3 real ports i.e. 3 mac addrs.
  * however Linux sees only the host side port. The other 2 ports
@@ -153,7 +137,7 @@ struct prueth_emac {
  * @emac: private EMAC data structure
  * @registered_netdevs: list of registered netdevs
  * @fw_data: firmware names to be used with PRU remoteprocs
- * @hs: firmware handshake data per slice
+ * @config: firmware load time configuration per slice
  * @miig_rt: regmap to mii_g_rt block
  */
 struct prueth {
@@ -169,19 +153,9 @@ struct prueth {
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
 	const struct prueth_private_data *fw_data;
-	struct icss_hs hs[PRUSS_NUM_PRUS];
+	struct icssg_config config[PRUSS_NUM_PRUS];
 	struct regmap *miig_rt;
 };
-
-bool icss_hs_is_fw_dead(struct prueth *prueth, int slice, u16 *err_code);
-bool icss_hs_is_fw_ready(struct prueth *prueth, int slice);
-int icss_hs_send_cmd(struct prueth *prueth, int slice, u32 cmd,
-		     u32 *idata, u32 ilen);
-void icss_hs_cmd_cancel(struct prueth *prueth, int slice);
-bool icss_hs_is_cmd_done(struct prueth *prueth, int slice);
-int icss_hs_send_cmd_wait_done(struct prueth *prueth, int slice,
-			       u32 cmd, u32 *idata, u32 ilen);
-int icss_hs_get_result(struct prueth *prueth, int slice, u32 *odata, u32 olen);
 
 /* Classifier helpers */
 void icssg_class_set_mac_addr(struct regmap *miig_rt, int slice, u8 *mac);
