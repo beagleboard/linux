@@ -260,7 +260,7 @@
 			reg-names = "cpts";
 			clocks = <&main_cpts_mux>;
 			clock-names = "cpts";
-			interrupts-extended = <&gic500 163 0 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts-extended = <&main_navss_intr 163 0 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "cpts";
 			ti,cpts-periodic-outputs = <6>;
 			ti,cpts-ext-ts-inputs = <8>;
