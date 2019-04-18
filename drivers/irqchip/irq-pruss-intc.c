@@ -577,6 +577,11 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	return 0;
 
 fail_irq:
+	while (--i >= 0) {
+		if (intc->irqs[i])
+			irq_set_chained_handler_and_data(intc->irqs[i], NULL,
+							 NULL);
+	}
 	irq_domain_remove(intc->domain);
 	return irq;
 }
@@ -585,6 +590,13 @@ static int pruss_intc_remove(struct platform_device *pdev)
 {
 	struct pruss_intc *intc = platform_get_drvdata(pdev);
 	unsigned int hwirq;
+	int i;
+
+	for (i = 0; i < MAX_HOST_NUM_IRQS; i++) {
+		if (intc->irqs[i])
+			irq_set_chained_handler_and_data(intc->irqs[i], NULL,
+							 NULL);
+	}
 
 	if (intc->domain) {
 		for (hwirq = 0; hwirq < MAX_PRU_SYS_EVENTS; hwirq++)
