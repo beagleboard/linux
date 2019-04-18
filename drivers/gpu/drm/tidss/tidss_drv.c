@@ -151,8 +151,8 @@ static int tidss_probe(struct platform_device *pdev)
 		goto err_disable_pm;
 	}
 
-#ifndef CONFIG_PM_SLEEP
-	/* no PM, so force enable DISPC */
+#ifndef CONFIG_PM
+	/* If we don't have PM, we need to call resume manually */
 	tidss->dispc_ops->runtime_resume(tidss->dispc);
 #endif
 
@@ -201,8 +201,8 @@ err_modeset_cleanup:
 	drm_mode_config_cleanup(ddev);
 
 err_runtime_suspend:
-#ifndef CONFIG_PM_SLEEP
-	/* no PM, so force disable DISPC */
+#ifndef CONFIG_PM
+	/* If we don't have PM, we need to call suspend manually */
 	tidss->dispc_ops->runtime_suspend(tidss->dispc);
 #endif
 
@@ -234,8 +234,8 @@ static int tidss_remove(struct platform_device *pdev)
 
 	drm_mode_config_cleanup(ddev);
 
-#ifndef CONFIG_PM_SLEEP
-	/* no PM, so force disable DISPC */
+#ifndef CONFIG_PM
+	/* If we don't have PM, we need to call suspend manually */
 	tidss->dispc_ops->runtime_suspend(tidss->dispc);
 #endif
 
