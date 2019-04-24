@@ -164,20 +164,23 @@ int pruss_intc_configure(struct pruss *pruss,
 			 struct pruss_intc_config *intc_config)
 {
 	struct device *dev = pruss->dev;
-	struct pruss_intc *intc = to_pruss_intc(pruss);
+	struct pruss_intc *intc;
 	int i, idx;
 	s8 ch, host;
-	u32 num_events = intc->data->num_system_events;
-	u32 num_intrs = intc->data->num_host_intrs;
-	u32 num_regs = DIV_ROUND_UP(num_events, 32);
+	u32 num_events, num_intrs, num_regs;
 	u32 *sysevt_mask = NULL;
 	u32 ch_mask = 0;
 	u32 host_mask = 0;
 	int ret = 0;
 	u32 val;
 
+	intc = to_pruss_intc(pruss);
 	if (!intc)
 		return -EINVAL;
+
+	num_events = intc->data->num_system_events;
+	num_intrs = intc->data->num_host_intrs;
+	num_regs = DIV_ROUND_UP(num_events, 32);
 
 	sysevt_mask = kcalloc(num_regs, sizeof(*sysevt_mask), GFP_KERNEL);
 	if (!sysevt_mask)
@@ -305,17 +308,20 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 			   struct pruss_intc_config *intc_config)
 {
 	struct device *dev = pruss->dev;
-	struct pruss_intc *intc = to_pruss_intc(pruss);
+	struct pruss_intc *intc;
 	int i;
 	s8 ch, host;
-	u32 num_events = intc->data->num_system_events;
-	u32 num_intrs = intc->data->num_host_intrs;
-	u32 num_regs = DIV_ROUND_UP(num_events, 32);
+	u32 num_events, num_intrs, num_regs;
 	u32 *sysevt_mask = NULL;
 	u32 host_mask = 0;
 
+	intc = to_pruss_intc(pruss);
 	if (!intc)
 		return -EINVAL;
+
+	num_events = intc->data->num_system_events;
+	num_intrs = intc->data->num_host_intrs;
+	num_regs = DIV_ROUND_UP(num_events, 32);
 
 	sysevt_mask = kcalloc(num_regs, sizeof(*sysevt_mask), GFP_KERNEL);
 	if (!sysevt_mask)
@@ -361,7 +367,7 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 	}
 
 	/* disable host interrupts */
-	for (i = 0; i < MAX_PRU_HOST_INT; i++) {
+	for (i = 0; i < num_intrs; i++) {
 		if (host_mask & BIT(i))
 			pruss_intc_write_reg(intc, PRU_INTC_HIDISR, i);
 	}
