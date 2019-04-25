@@ -2492,6 +2492,9 @@ out:
  * 2. Optionally, find a configuration region, or make certain
  *    assumptions and proceed
  *
+ *    If the dss has a remote device, assume tidss is a slave
+ *    and do not search for a config_common
+ *
  *    If the dss device-tree node does not have a
  *    subnode called "dss-commons", assume tidss is the only
  *    module handling DSS and therefore use config_common =
@@ -2526,6 +2529,12 @@ static int dispc7_j721e_setup_commons(struct dispc_device *dispc)
 	dispc->irq = platform_get_irq(pdev, common_intr_id);
 	if (dispc->irq < 0)
 		return dispc->irq;
+
+	if (tidss->rdev) {
+		dev_dbg(dev, "%s: continuing with remote device\n", __func__);
+		dispc->has_cfg_common = false;
+		return 0;
+	}
 
 	r = dispc_j721e_get_managed_common_cfg(dispc, &common_cfg_id);
 	if (r) {

@@ -8,10 +8,13 @@
 #define __TIDSS_DRV_H__
 
 #include <linux/spinlock.h>
+#include <linux/rpmsg-remotedev/rpmsg-remotedev.h>
 
 struct tidss_device {
 	struct device *dev;		/* Underlying DSS device */
 	struct drm_device *ddev;	/* DRM device for DSS */
+
+	struct rpmsg_remotedev *rdev;
 
 	struct drm_fbdev_cma *fbdev;
 
