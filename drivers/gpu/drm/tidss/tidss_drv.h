@@ -15,6 +15,7 @@ struct tidss_device {
 	struct drm_device *ddev;	/* DRM device for DSS */
 
 	struct rpmsg_remotedev *rdev;
+	struct rpmsg_remotedev_display_resinfo rres;
 
 	struct drm_fbdev_cma *fbdev;
 
@@ -24,7 +25,9 @@ struct tidss_device {
 	const struct tidss_features *features;
 
 	unsigned int num_crtcs;
+	unsigned int num_v_crtcs;
 	struct drm_crtc *crtcs[8];
+	struct drm_crtc *v_crtcs[8];
 
 	unsigned int num_planes;
 	struct drm_plane *planes[8];
