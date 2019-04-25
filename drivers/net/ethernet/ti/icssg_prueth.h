@@ -20,6 +20,7 @@
 #include <linux/of_net.h>
 #include <linux/of_platform.h>
 #include <linux/mfd/syscon.h>
+#include <linux/net_tstamp.h>
 #include <linux/phy.h>
 #include <linux/pruss.h>
 #include <linux/ptp_clock_kernel.h>
@@ -116,6 +117,9 @@ struct prueth_emac {
 	struct phy_device *phydev;
 	enum prueth_port port_id;
 	struct icssg_iep iep;
+	struct hwtstamp_config tstamp_config;
+	unsigned int rx_ts_enabled : 1;
+	unsigned int tx_ts_enabled : 1;
 
 	/* DMA related */
 	struct prueth_tx_chn tx_chns;

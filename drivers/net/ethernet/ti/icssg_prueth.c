@@ -291,6 +291,18 @@ static int prueth_dma_rx_push(struct prueth_emac *emac,
 					desc_rx, desc_dma);
 }
 
+static void emac_rx_timestamp(struct sk_buff *skb, u32 *psdata)
+{
+	struct skb_shared_hwtstamps *ssh;
+	u64 ns;
+
+	ns = (u64)psdata[1] << 32 | psdata[0];
+
+	ssh = skb_hwtstamps(skb);
+	memset(ssh, 0, sizeof(*ssh));
+	ssh->hwtstamp = ns_to_ktime(ns);
+}
+
 /**
  * emac_rx_packet - Get one packet from RX ring and push to netdev.
  * Returns 0 on success, else error code.
@@ -306,6 +318,7 @@ static int emac_rx_packet(struct prueth_emac *emac)
 	int ret;
 	void **swdata;
 	struct sk_buff *skb, *new_skb;
+	u32 *psdata;
 
 	ret = k3_nav_udmax_pop_rx_chn(rx_chn->rx_chn, 0, &desc_dma);
 	if (ret) {
@@ -321,6 +334,12 @@ static int emac_rx_packet(struct prueth_emac *emac)
 
 	swdata = cppi5_hdesc_get_swdata(desc_rx);
 	skb = *swdata;
+
+	psdata = cppi5_hdesc_get_psdata32(desc_rx);
+	/* RX HW timestamp */
+	if (emac->rx_ts_enabled)
+		emac_rx_timestamp(skb, psdata);
+
 	cppi5_hdesc_get_obuf(desc_rx, &buf_dma, &buf_dma_len);
 	pkt_len = cppi5_hdesc_get_pktlen(desc_rx);
 	/* firmware adds 4 CRC bytes, strip them */
@@ -1026,6 +1045,80 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	}
 }
 
+static int emac_set_timestamp_mode(struct prueth_emac *emac,
+				   struct hwtstamp_config *config)
+{
+	/* reserved for future extensions */
+	if (config->flags)
+		return -EINVAL;
+
+	switch (config->tx_type) {
+	case HWTSTAMP_TX_OFF:
+		emac->tx_ts_enabled = 0;
+		break;
+	case HWTSTAMP_TX_ON:
+		emac->tx_ts_enabled = 1;
+		break;
+	default:
+		return -ERANGE;
+	}
+
+	switch (config->rx_filter) {
+	case HWTSTAMP_FILTER_NONE:
+		emac->rx_ts_enabled = 0;
+		break;
+	case HWTSTAMP_FILTER_ALL:
+		emac->rx_ts_enabled = 1;
+		break;
+	default:
+		emac->rx_ts_enabled = 1;
+	}
+
+	return 0;
+}
+
+static int emac_set_ts_config(struct net_device *ndev, struct ifreq *ifr)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct hwtstamp_config config;
+	int ret;
+
+	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
+		return -EFAULT;
+
+	ret = emac_set_timestamp_mode(emac, &config);
+	if (ret)
+		return ret;
+
+	/* save these settings for future reference */
+	memcpy(&emac->tstamp_config, &config,
+	       sizeof(emac->tstamp_config));
+
+	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
+		-EFAULT : 0;
+}
+
+static int emac_get_ts_config(struct net_device *ndev, struct ifreq *ifr)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+	struct hwtstamp_config *config = &emac->tstamp_config;
+
+	return copy_to_user(ifr->ifr_data, config, sizeof(*config)) ?
+			    -EFAULT : 0;
+}
+
+static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
+{
+	switch (cmd) {
+	case SIOCGHWTSTAMP:
+		return emac_get_ts_config(ndev, ifr);
+	case SIOCSHWTSTAMP:
+		return emac_set_ts_config(ndev, ifr);
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
 static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open = emac_ndo_open,
 	.ndo_stop = emac_ndo_stop,
@@ -1035,6 +1128,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_change_mtu	= eth_change_mtu,
 	.ndo_tx_timeout = emac_ndo_tx_timeout,
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
+	.ndo_do_ioctl = emac_ndo_ioctl,
 };
 
 /* get emac_port corresponding to eth_node name */
