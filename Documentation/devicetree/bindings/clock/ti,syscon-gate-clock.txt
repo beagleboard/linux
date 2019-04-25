@@ -1,0 +1,31 @@
+TI syscon gate clock driver
+
+The gate clock node must be provided inside a system controller node.
+
+Required:
+- comaptible: Must be "ti,am654-ehrpwm-tbclk" for EHRPWM tbclk on AM654 SoC
+- #clock-cells: must be <1>. It represents the index of clk instance
+  within the syscon regmap. Index starts from 0.
+
+Example:
+	ctrlmmr_epwm_ctrl: syscon@104140 {
+		compatible = "syscon", "simple-mfd";
+		reg = <0x0 0x104140 0x0 0x18>;
+		ranges = <0x0 0x0 0x104140 0x18>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ehrpwm_tbclk: clk@0 {
+			compatible = "ti,am654-ehrpwm-tbclk";
+			#clock-cells = <1>;
+		};
+	};
+
+	ehrpwm0: pwm@3000000 {
+		compatible = "ti,am654-ehrpwm", "ti,am3352-ehrpwm";
+		#pwm-cells = <3>;
+		reg = <0x0 0x3000000 0x0 0x100>;
+		power-domains = <&k3_pds 40>;
+		clocks = <&ehrpwm_tbclk 0>;
+		clock-names = "tbclk";
+	};
