@@ -22,6 +22,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/phy.h>
 #include <linux/pruss.h>
+#include <linux/ptp_clock_kernel.h>
 #include <linux/remoteproc.h>
 
 #include <linux/dma-mapping.h>
@@ -29,6 +30,7 @@
 #include <linux/dma/k3-navss-udma.h>
 
 #include "icssg_config.h"
+#include "icssg_iep.h"
 
 #define ICSS_SLICE0	0
 #define ICSS_SLICE1	1
@@ -113,6 +115,7 @@ struct prueth_emac {
 	int phy_if;
 	struct phy_device *phydev;
 	enum prueth_port port_id;
+	struct icssg_iep iep;
 
 	/* DMA related */
 	struct prueth_tx_chn tx_chns;
