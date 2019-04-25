@@ -43,6 +43,7 @@
 #define PRUETH_NAV_SW_DATA_SIZE	16	/* SW related data size */
 #define PRUETH_MAX_TX_DESC	512
 #define PRUETH_MAX_RX_DESC	512
+#define PRUETH_MAX_RX_FLOWS	4
 
 #define PRUETH_NUM_BUF_POOLS		16
 #define PRUETH_EMAC_BUF_POOL_START	8
@@ -176,28 +177,10 @@ static int prueth_init_rx_chns(struct prueth_emac *emac)
 	struct net_device *ndev = emac->ndev;
 	struct device *dev = emac->prueth->dev;
 	struct k3_nav_udmax_rx_channel_cfg rx_cfg;
-	static struct k3_ring_cfg rxring_cfg = {
-		.elm_size = K3_RINGACC_RING_ELSIZE_8,
-		.mode = K3_RINGACC_RING_MODE_RING,
-		.flags = 0,
-		.size = PRUETH_MAX_RX_DESC,
-	};
-	static struct k3_ring_cfg fdqring_cfg = {
-		.elm_size = K3_RINGACC_RING_ELSIZE_8,
-		.mode = K3_RINGACC_RING_MODE_MESSAGE,
-		.flags = 0,
-		.size = PRUETH_MAX_RX_DESC,
-	};
-	struct k3_nav_udmax_rx_flow_cfg rx_flow_cfg = {
-		.rx_cfg = rxring_cfg,
-		.rxfdq_cfg = fdqring_cfg,
-		.ring_rxq_id = K3_RINGACC_RING_ID_ANY,
-		.ring_rxfdq0_id = K3_RINGACC_RING_ID_ANY,
-		.src_tag_lo_sel = K3_NAV_UDMAX_SRC_TAG_LO_KEEP,
-	};
-
+	u32 fdqring_id;
+	u32 max_desc_num = PRUETH_MAX_RX_DESC;
 	u32 hdesc_size;
-	int ret, slice;
+	int i, ret = 0, slice;
 	struct prueth_rx_chn	*rx_chn = &emac->rx_chns;
 	char rx_chn_name[16];
 
@@ -212,13 +195,11 @@ static int prueth_init_rx_chns(struct prueth_emac *emac)
 					   PRUETH_NAV_SW_DATA_SIZE);
 	memset(&rx_cfg, 0, sizeof(rx_cfg));
 	rx_cfg.swdata_size = PRUETH_NAV_SW_DATA_SIZE;
-	rx_cfg.flow_id_num = 1;	/* 1 for defalut flow */
-	rx_cfg.flow_id_use_rxchan_id = true; /* must be set for default flow */
+	rx_cfg.flow_id_num = PRUETH_MAX_RX_FLOWS;
 	rx_cfg.flow_id_base = -1; /* udmax will auto select flow id base */
-	rx_cfg.def_flow_cfg = &rx_flow_cfg;
 
 	/* init all flows */
-	rx_chn->descs_num = PRUETH_MAX_RX_DESC;
+	rx_chn->descs_num = max_desc_num;
 	spin_lock_init(&rx_chn->lock);
 	rx_chn->desc_pool = k3_knav_pool_create_name(dev, rx_chn->descs_num,
 						     hdesc_size, rx_chn_name);
@@ -238,13 +219,48 @@ static int prueth_init_rx_chns(struct prueth_emac *emac)
 	}
 
 	emac->rx_flow_id_base = k3_nav_udmax_rx_get_flow_id_base(rx_chn->rx_chn);
+	netdev_info(ndev, "flow id base = %d\n", emac->rx_flow_id_base);
 
-	ret = k3_nav_udmax_rx_get_irq(rx_chn->rx_chn, 0, &rx_chn->irq,
-				      IRQF_TRIGGER_HIGH, false, -1);
-	if (ret) {
-		rx_chn->irq = 0;
-		netdev_err(ndev, "failed to get rx irq number\n");
-		goto fail;
+	fdqring_id = K3_RINGACC_RING_ID_ANY;
+	for (i = 0; i < rx_cfg.flow_id_num; i++) {
+		struct k3_ring_cfg rxring_cfg = {
+			.elm_size = K3_RINGACC_RING_ELSIZE_8,
+			.mode = K3_RINGACC_RING_MODE_RING,
+			.flags = 0,
+		};
+		struct k3_ring_cfg fdqring_cfg = {
+			.elm_size = K3_RINGACC_RING_ELSIZE_8,
+			.mode = K3_RINGACC_RING_MODE_MESSAGE,
+			.flags = K3_RINGACC_RING_SHARED,
+		};
+		struct k3_nav_udmax_rx_flow_cfg rx_flow_cfg = {
+			.rx_cfg = rxring_cfg,
+			.rxfdq_cfg = fdqring_cfg,
+			.ring_rxq_id = K3_RINGACC_RING_ID_ANY,
+			.src_tag_lo_sel =
+				K3_NAV_UDMAX_SRC_TAG_LO_USE_REMOTE_SRC_TAG,
+		};
+
+		rx_flow_cfg.ring_rxfdq0_id = fdqring_id;
+		rx_flow_cfg.rx_cfg.size = max_desc_num;
+		rx_flow_cfg.rxfdq_cfg.size = max_desc_num;
+
+		ret = k3_nav_udmax_rx_flow_init(rx_chn->rx_chn,
+						i, &rx_flow_cfg);
+		if (ret) {
+			dev_err(dev, "Failed to init rx flow%d %d\n", i, ret);
+			goto fail;
+		}
+		if (!i)
+			fdqring_id = k3_nav_udmax_rx_flow_get_fdq_id(rx_chn->rx_chn,
+								     i);
+		ret = k3_nav_udmax_rx_get_irq(rx_chn->rx_chn, i, &rx_chn->irq,
+					      IRQF_TRIGGER_HIGH,
+					      true, i ? 0 : -1);
+		if (ret) {
+			dev_err(dev, "Failed to get rx dma irq %d\n", ret);
+			goto fail;
+		}
 	}
 
 	return 0;
@@ -307,7 +323,7 @@ static void emac_rx_timestamp(struct sk_buff *skb, u32 *psdata)
  * emac_rx_packet - Get one packet from RX ring and push to netdev.
  * Returns 0 on success, else error code.
  */
-static int emac_rx_packet(struct prueth_emac *emac)
+static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 {
 	struct prueth_rx_chn *rx_chn = &emac->rx_chns;
 	struct device *dev = emac->prueth->dev;
@@ -320,7 +336,7 @@ static int emac_rx_packet(struct prueth_emac *emac)
 	struct sk_buff *skb, *new_skb;
 	u32 *psdata;
 
-	ret = k3_nav_udmax_pop_rx_chn(rx_chn->rx_chn, 0, &desc_dma);
+	ret = k3_nav_udmax_pop_rx_chn(rx_chn->rx_chn, flow_id, &desc_dma);
 	if (ret) {
 		if (ret != -ENODATA)
 			netdev_err(ndev, "rx pop: failed: %d\n", ret);
@@ -795,20 +811,31 @@ static void emac_adjust_link(struct net_device *ndev)
 static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)
 {
 	struct prueth_emac *emac = prueth_napi_to_emac(napi_rx);
-	int num_rx_packets = 0;
+	int num_rx = 0;
+	int flow = PRUETH_MAX_RX_FLOWS;
+	int cur_budget;
+	int ret;
 
-	while (num_rx_packets < budget) {
-		if (emac_rx_packet(emac))
+	while (flow--) {
+		cur_budget = budget - num_rx;
+
+		while (cur_budget--) {
+			ret = emac_rx_packet(emac, flow);
+			if (ret)
+				break;
+			num_rx++;
+		}
+
+		if (num_rx >= budget)
 			break;
-		num_rx_packets++;
 	}
 
-	if (num_rx_packets < budget) {
+	if (num_rx < budget) {
 		napi_complete(napi_rx);
 		enable_irq(emac->rx_chns.irq);
 	}
 
-	return num_rx_packets;
+	return num_rx;
 }
 
 static int emac_napi_tx_poll(struct napi_struct *napi_tx, int budget)
