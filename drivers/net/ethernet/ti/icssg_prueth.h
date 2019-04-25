@@ -126,6 +126,8 @@ struct prueth_emac {
 	struct completion tdown_complete;
 	struct prueth_rx_chn rx_chns;
 	int rx_flow_id_base;
+	struct prueth_rx_chn rx_mgm_chn;
+	int rx_mgm_flow_id_base;
 
 	spinlock_t lock;	/* serialize access */
 	unsigned int flags;
