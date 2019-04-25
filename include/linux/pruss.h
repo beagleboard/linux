@@ -109,7 +109,6 @@ enum pruss_gpi_mode {
  */
 enum pruss_syscon {
 	PRUSS_SYSCON_CFG = 0,
-	PRUSS_SYSCON_IEP,
 	PRUSS_SYSCON_MII_RT,
 	PRUSS_SYSCON_MAX,
 };
