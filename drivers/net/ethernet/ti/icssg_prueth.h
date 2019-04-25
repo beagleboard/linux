@@ -98,6 +98,10 @@ struct prueth_rx_chn {
 	unsigned int irq;
 };
 
+enum prueth_state_flags {
+	__STATE_TX_TS_IN_PROGRESS,
+};
+
 /* data for each emac port */
 struct prueth_emac {
 	struct prueth *prueth;
@@ -131,6 +135,11 @@ struct prueth_emac {
 
 	spinlock_t lock;	/* serialize access */
 	unsigned int flags;
+
+	/* TX HW Timestamping */
+	u32 tx_ts_cookie;
+	struct sk_buff *tx_ts_skb;
+	unsigned long state;
 };
 
 /**
@@ -164,6 +173,13 @@ struct prueth {
 	const struct prueth_private_data *fw_data;
 	struct icssg_config config[PRUSS_NUM_PRUS];
 	struct regmap *miig_rt;
+};
+
+struct emac_tx_ts_response {
+	u32 lo_ts;
+	u32 hi_ts;
+	u32 reserved;
+	u32 cookie;
 };
 
 /* Classifier helpers */

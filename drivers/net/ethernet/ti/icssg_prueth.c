@@ -5,6 +5,7 @@
  *
  */
 
+#include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/etherdevice.h>
 #include <linux/dma-mapping.h>
@@ -485,6 +486,8 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	u32 pkt_len;
 	int i;
 	void **swdata;
+	u32 *epib;
+	bool in_tx_ts = 0;
 
 	/* frag list based linkage is not supported for now. */
 	if (skb_shinfo(skb)->frag_list) {
@@ -514,6 +517,26 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	cppi5_hdesc_init(first_desc, CPPI5_INFO0_HDESC_EPIB_PRESENT,
 			 PRUETH_NAV_PS_DATA_SIZE);
+	epib = first_desc->epib;
+	epib[0] = 0;
+	epib[1] = 0;
+	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
+	    emac->tx_ts_enabled) {
+		/* We currently support only one TX HW timestamp at a time */
+		if (!test_and_set_bit_lock(__STATE_TX_TS_IN_PROGRESS,
+					   &emac->state)) {
+			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+			/* Request TX timestamp */
+			epib[0] = emac->tx_ts_cookie;
+			epib[1] = 0x80000000;	/* TX TS request */
+			emac->tx_ts_skb = skb_get(skb);
+			in_tx_ts = 1;
+			/* TODO: note time and check for timeout if HW
+			 * doesn't come back with TS
+			 */
+		}
+	}
+
 	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
 	swdata = cppi5_hdesc_get_swdata(first_desc);
 	*swdata = skb;
@@ -532,7 +555,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			netdev_err(ndev,
 				   "tx: failed to allocate frag. descriptor\n");
 			ret = -ENOMEM;
-			goto drop_free_descs;
+			goto cleanup_tx_ts;
 		}
 
 		buf_dma = skb_frag_dma_map(dev, frag, 0, frag_size,
@@ -541,7 +564,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 			netdev_err(ndev, "tx: Failed to map skb page\n");
 			k3_knav_pool_free(tx_chn->desc_pool, next_desc);
 			ret = -EINVAL;
-			goto drop_free_descs;
+			goto cleanup_tx_ts;
 		}
 
 		cppi5_hdesc_reset_hbdesc(next_desc);
@@ -557,8 +580,6 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 	WARN_ON(pkt_len != skb->len);
 
 tx_push:
-	skb_tx_timestamp(skb);
-
 	/* report bql before sending packet */
 	netdev_sent_queue(ndev, pkt_len);
 
@@ -566,6 +587,7 @@ tx_push:
 	desc_dma = k3_knav_pool_virt2dma(tx_chn->desc_pool, first_desc);
 	/* cppi5_desc_dump(first_desc, 64); */
 
+	skb_tx_timestamp(skb);	/* SW timestamp if SKBTX_IN_PROGRESS not set */
 	ret = k3_nav_udmax_push_tx_chn(tx_chn->tx_chn, first_desc, desc_dma);
 	if (ret) {
 		netdev_err(ndev, "tx: push failed: %d\n", ret);
@@ -576,6 +598,13 @@ tx_push:
 		netif_stop_queue(ndev);
 
 	return NETDEV_TX_OK;
+
+cleanup_tx_ts:
+	if (in_tx_ts) {
+		dev_kfree_skb_any(emac->tx_ts_skb);
+		emac->tx_ts_skb = NULL;
+		clear_bit_unlock(__STATE_TX_TS_IN_PROGRESS, &emac->state);
+	}
 
 drop_free_descs:
 	prueth_xmit_free(tx_chn, dev, first_desc);
@@ -735,6 +764,43 @@ static struct sk_buff *prueth_process_rx_mgm(struct prueth_emac *emac,
 	return skb;
 }
 
+static void prueth_tx_ts(struct prueth_emac *emac,
+			 struct emac_tx_ts_response *tsr)
+{
+	u64 ns;
+	struct skb_shared_hwtstamps ssh;
+	struct sk_buff *skb;
+
+	ns = (u64)tsr->hi_ts << 32 | tsr->lo_ts;
+
+	if (!test_bit(__STATE_TX_TS_IN_PROGRESS, &emac->state)) {
+		netdev_err(emac->ndev, "unexpected TS response\n");
+		return;
+	}
+
+	skb = emac->tx_ts_skb;
+	if (tsr->cookie != emac->tx_ts_cookie) {
+		netdev_err(emac->ndev, "TX TS cookie mismatch 0x%x:0x%x\n",
+			   tsr->cookie, emac->tx_ts_cookie);
+		goto error;
+	}
+
+	emac->tx_ts_cookie++;
+	memset(&ssh, 0, sizeof(ssh));
+	ssh.hwtstamp = ns_to_ktime(ns);
+	clear_bit_unlock(__STATE_TX_TS_IN_PROGRESS, &emac->state);
+
+	skb_tstamp_tx(skb, &ssh);
+	dev_consume_skb_any(skb);
+
+	return;
+
+error:
+	dev_kfree_skb_any(skb);
+	emac->tx_ts_skb = NULL;
+	clear_bit_unlock(__STATE_TX_TS_IN_PROGRESS, &emac->state);
+}
+
 static irqreturn_t prueth_rx_mgm_irq_thread(int irq, void *dev_id)
 {
 	struct prueth_emac *emac = dev_id;
@@ -751,7 +817,7 @@ static irqreturn_t prueth_rx_mgm_irq_thread(int irq, void *dev_id)
 			/* Process command response */
 			break;
 		case PRUETH_RX_MGM_FLOW_TIMESTAMP:
-			/* Process TX timestamp */
+			prueth_tx_ts(emac, (void *)skb->data);
 			break;
 		default:
 			continue;
