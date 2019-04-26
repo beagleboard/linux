@@ -39,7 +39,8 @@ struct udma_static_tr {
 	u16 bstcnt; /* RPSTR1 */
 };
 
-#define K3_UDMA_MAX_RFLOWS 1024
+#define K3_UDMA_MAX_RFLOWS		1024
+#define K3_UDMA_DEFAULT_RING_SIZE	16
 
 struct udma_chan;
 
@@ -1340,7 +1341,7 @@ static int udma_alloc_tx_resources(struct udma_chan *uc)
 	}
 
 	memset(&ring_cfg, 0, sizeof(ring_cfg));
-	ring_cfg.size = 16;
+	ring_cfg.size = K3_UDMA_DEFAULT_RING_SIZE;
 	ring_cfg.elm_size = K3_RINGACC_RING_ELSIZE_8;
 	ring_cfg.mode = K3_RINGACC_RING_MODE_MESSAGE;
 
@@ -1417,7 +1418,7 @@ static int udma_alloc_rx_resources(struct udma_chan *uc)
 	}
 
 	memset(&ring_cfg, 0, sizeof(ring_cfg));
-	ring_cfg.size = 16;
+	ring_cfg.size = K3_UDMA_DEFAULT_RING_SIZE;
 	ring_cfg.elm_size = K3_RINGACC_RING_ELSIZE_8;
 	ring_cfg.mode = K3_RINGACC_RING_MODE_MESSAGE;
 
@@ -2372,7 +2373,7 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 	int i;
 	int periods = buf_len / period_len;
 
-	if (periods > 15)
+	if (periods > (K3_UDMA_DEFAULT_RING_SIZE - 1))
 		return NULL;
 
 	if (period_len > 0x3FFFFF)
