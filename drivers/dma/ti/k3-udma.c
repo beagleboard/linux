@@ -116,20 +116,6 @@ struct udma_dev {
 	u32 psil_base;
 };
 
-/*
- * Slave RX scatter gather workaround:
- * We need to use single continuous buffer if the original buffer is scattered
- */
-struct udma_rx_sg_workaround {
-	bool in_use;
-
-	struct scatterlist *sgl;
-	unsigned int sglen;
-	size_t total_len;
-
-	struct scatterlist single_sg;
-};
-
 struct udma_hwdesc {
 	size_t cppi5_desc_size;
 	void *cppi5_desc_vaddr;
@@ -153,9 +139,6 @@ struct udma_desc {
 	unsigned int sglen;
 	unsigned int desc_idx; /* Only used for cyclic in packet mode */
 	unsigned int tr_idx;
-
-	/* for slave_sg RX workaround */
-	struct udma_rx_sg_workaround rx_sg_wa;
 
 	u32 metadata_size;
 	void *metadata; /* pointer to provided metadata buffer (EPIP, PSdata) */
@@ -437,12 +420,6 @@ static void udma_free_hwdesc(struct virt_dma_desc *vd)
 
 		d->hwdesc[0].cppi5_desc_vaddr = NULL;
 	}
-
-	if (d->rx_sg_wa.in_use) {
-		dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-			     DMA_FROM_DEVICE);
-		kfree(sg_virt(&d->rx_sg_wa.single_sg));
-	}
 }
 
 static void udma_purge_desc_work(struct work_struct *work)
@@ -651,7 +628,8 @@ static void udma_reset_rings(struct udma_chan *uc)
 	}
 
 	if (ring1)
-		k3_ringacc_ring_reset_dma(ring1, 0);
+		k3_ringacc_ring_reset_dma(ring1,
+					  k3_ringacc_ring_get_occ(ring1));
 	if (ring2)
 		k3_ringacc_ring_reset(ring2);
 
@@ -748,10 +726,10 @@ static inline int udma_reset_chan(struct udma_chan *uc, bool hard)
 
 static inline void udma_start_desc(struct udma_chan *uc)
 {
-	if (uc->cyclic && uc->pkt_mode) {
+	if (uc->pkt_mode && (uc->cyclic || uc->dir == DMA_DEV_TO_MEM)) {
 		int i;
 
-		/* Push all descriptors to ring for cyclic packet mode */
+		/* Push all descriptors to ring for packet mode cyclic or RX */
 		for (i = 0; i < uc->desc->sglen; i++)
 			udma_push_to_ring(uc, i);
 	} else {
@@ -1418,11 +1396,17 @@ static int udma_alloc_rx_resources(struct udma_chan *uc)
 	}
 
 	memset(&ring_cfg, 0, sizeof(ring_cfg));
-	ring_cfg.size = K3_UDMA_DEFAULT_RING_SIZE;
+
+	if (uc->pkt_mode)
+		ring_cfg.size = SG_MAX_SEGMENTS;
+	else
+		ring_cfg.size = K3_UDMA_DEFAULT_RING_SIZE;
+
 	ring_cfg.elm_size = K3_RINGACC_RING_ELSIZE_8;
 	ring_cfg.mode = K3_RINGACC_RING_MODE_MESSAGE;
 
 	ret = k3_ringacc_ring_cfg(uc->rchan->fd_ring, &ring_cfg);
+	ring_cfg.size = K3_UDMA_DEFAULT_RING_SIZE;
 	ret |= k3_ringacc_ring_cfg(uc->rchan->r_ring, &ring_cfg);
 
 	if (ret)
@@ -2055,43 +2039,6 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 	if (!d)
 		return NULL;
 
-	if (dir == DMA_DEV_TO_MEM && sglen > 1) {
-		void *buffer;
-		int ret;
-		size_t total_len = 0;
-
-		/* Count the total length of the receive SG buffer */
-		for_each_sg(sgl, sgent, sglen, i)
-			total_len += sg_dma_len(sgent);
-
-		buffer = kzalloc(total_len, GFP_ATOMIC);
-		if (!buffer) {
-			kfree(d);
-			return NULL;
-		}
-
-		sg_init_table(&d->rx_sg_wa.single_sg, 1);
-		sg_set_buf(&d->rx_sg_wa.single_sg, buffer, total_len);
-		ret = dma_map_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-				 DMA_FROM_DEVICE);
-		if (ret != 1) {
-			dev_err(uc->ud->dev,
-				"mapping of temp buffer error (%d)\n", ret);
-			kfree(buffer);
-			kfree(d);
-			return NULL;
-		}
-
-		d->rx_sg_wa.in_use = true;
-
-		d->rx_sg_wa.sgl = sgl;
-		d->rx_sg_wa.sglen = sglen;
-		d->rx_sg_wa.total_len = total_len;
-
-		sgl = &d->rx_sg_wa.single_sg;
-		sglen = 1;
-	}
-
 	d->sglen = sglen;
 	d->hwdesc_count = sglen;
 
@@ -2140,7 +2087,8 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 			cppi5_hdesc_link_hbdesc(h_desc,
 						hwdesc->cppi5_desc_paddr);
 
-		h_desc = desc;
+		if (dir == DMA_MEM_TO_DEV)
+			h_desc = desc;
 	}
 
 	if (d->residue >= SZ_4M) {
@@ -2820,19 +2768,6 @@ static void udma_desc_pre_callback(struct virt_dma_chan *vc,
 
 	if (d->metadata_size)
 		udma_fetch_epib(uc, d);
-
-	/* TODO: peek into the desc to know the real length */
-	if (d->rx_sg_wa.in_use) {
-		void *src = sg_virt(&d->rx_sg_wa.single_sg);
-
-		dma_sync_sg_for_cpu(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-				    DMA_FROM_DEVICE);
-		/* Ensure that reads are not moved before this point */
-		rmb();
-
-		sg_copy_from_buffer(d->rx_sg_wa.sgl, d->rx_sg_wa.sglen, src,
-				    d->rx_sg_wa.total_len);
-	}
 
 	/* Provide residue information for the client */
 	if (result) {
