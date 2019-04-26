@@ -393,11 +393,8 @@ static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
 	return d;
 }
 
-static void udma_free_hwdesc(struct virt_dma_desc *vd)
+static void udma_free_hwdesc(struct udma_chan *uc, struct udma_desc *d)
 {
-	struct udma_chan *uc = to_udma_chan(vd->tx.chan);
-	struct udma_desc *d = to_udma_desc(&vd->tx);
-
 	if (uc->use_dma_pool) {
 		int i;
 
@@ -412,7 +409,7 @@ static void udma_free_hwdesc(struct virt_dma_desc *vd)
 			d->hwdesc[i].cppi5_desc_vaddr = NULL;
 		}
 	} else if (d->hwdesc[0].cppi5_desc_vaddr) {
-		struct udma_dev *ud = to_udma_dev(vd->tx.chan->device);
+		struct udma_dev *ud = uc->ud;
 
 		dma_free_coherent(ud->dev, d->hwdesc[0].cppi5_desc_size,
 				  d->hwdesc[0].cppi5_desc_vaddr,
@@ -434,11 +431,10 @@ static void udma_purge_desc_work(struct work_struct *work)
 	spin_unlock_irqrestore(&ud->lock, flags);
 
 	list_for_each_entry_safe(vd, _vd, &head, node) {
-		struct udma_desc *d;
+		struct udma_chan *uc = to_udma_chan(vd->tx.chan);
+		struct udma_desc *d = to_udma_desc(&vd->tx);
 
-		d = to_udma_desc(&vd->tx);
-
-		udma_free_hwdesc(vd);
+		udma_free_hwdesc(uc, d);
 		list_del(&vd->node);
 		kfree(d);
 	}
@@ -459,7 +455,7 @@ static void udma_desc_free(struct virt_dma_desc *vd)
 		uc->terminated_desc = NULL;
 
 	if (uc->use_dma_pool) {
-		udma_free_hwdesc(&d->vd);
+		udma_free_hwdesc(uc, d);
 		kfree(d);
 		return;
 	}
@@ -2060,7 +2056,7 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 			dev_err(uc->ud->dev,
 				"descriptor%d allocation failed\n", i);
 
-			udma_free_hwdesc(&d->vd);
+			udma_free_hwdesc(uc, d);
 			kfree(d);
 			return NULL;
 		}
@@ -2095,7 +2091,7 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 		dev_err(uc->ud->dev,
 			"%s: Transfer size %u is over the supported 4M range\n",
 			__func__, d->residue);
-		udma_free_hwdesc(&d->vd);
+		udma_free_hwdesc(uc, d);
 		kfree(d);
 		return NULL;
 	}
@@ -2251,7 +2247,7 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
 
-		udma_free_hwdesc(&d->vd);
+		udma_free_hwdesc(uc, d);
 		kfree(d);
 		return NULL;
 	}
@@ -2351,7 +2347,7 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 			dev_err(uc->ud->dev,
 				"descriptor%d allocation failed\n", i);
 
-			udma_free_hwdesc(&d->vd);
+			udma_free_hwdesc(uc, d);
 			kfree(d);
 			return NULL;
 		}
@@ -2429,7 +2425,7 @@ static struct dma_async_tx_descriptor *udma_prep_dma_cyclic(
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
 
-		udma_free_hwdesc(&d->vd);
+		udma_free_hwdesc(uc, d);
 		kfree(d);
 		return NULL;
 	}
