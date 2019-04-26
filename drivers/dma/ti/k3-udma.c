@@ -2004,7 +2004,14 @@ static inline int udma_configure_statictr(struct udma_chan *uc,
 	}
 
 	d->static_tr.elcnt = elcnt;
-	if (uc->pkt_mode) {
+
+	/*
+	 * PDMA must to close the packet when the channel is in packet mode.
+	 * For TR mode when the channel is not cyclic we also need PDMA to close
+	 * the packet otherwise the transfer will stall because PDMA holds on
+	 * the data it has received from the peripheral.
+	 */
+	if (uc->pkt_mode || !uc->cyclic) {
 		unsigned int div = dev_width * elcnt;
 
 		if (uc->cyclic)
