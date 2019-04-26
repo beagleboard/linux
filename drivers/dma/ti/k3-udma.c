@@ -722,9 +722,20 @@ static inline int udma_reset_chan(struct udma_chan *uc, bool hard)
 
 	/* Hard reset: re-initialize the channel to reset */
 	if (hard) {
+		struct udma_chan uc_backup = *uc;
 		int ret;
 
 		uc->ud->ddev.device_free_chan_resources(&uc->vc.chan);
+		/* restore the channel configuration */
+		uc->dir = uc_backup.dir;
+		uc->remote_thread_id = uc_backup.remote_thread_id;
+		uc->pkt_mode = uc_backup.pkt_mode;
+		uc->static_tr_type = uc_backup.static_tr_type;
+		uc->channel_tpl = uc_backup.channel_tpl;
+		uc->psd_size = uc_backup.psd_size;
+		uc->metadata_size = uc_backup.metadata_size;
+		uc->hdesc_size = uc_backup.hdesc_size;
+
 		ret = uc->ud->ddev.device_alloc_chan_resources(&uc->vc.chan);
 		if (ret)
 			return ret;
@@ -1746,8 +1757,11 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 	/* PSI-L pairing */
 	ret = navss_psil_pair(ud, uc->src_thread, uc->dst_thread);
-	if (ret)
+	if (ret) {
+		dev_err(ud->dev, "PSI-L pairing failed: 0x%04x -> 0x%04x\n",
+			uc->src_thread, uc->dst_thread);
 		goto err_chan_free;
+	}
 
 	uc->psil_paired = true;
 
@@ -1825,6 +1839,13 @@ err_res_free:
 	udma_free_tx_resources(uc);
 	udma_free_rx_resources(uc);
 	uc->remote_thread_id = -1;
+	uc->dir = DMA_MEM_TO_MEM;
+	uc->pkt_mode = false;
+	uc->static_tr_type = 0;
+	uc->channel_tpl = 0;
+	uc->psd_size = 0;
+	uc->metadata_size = 0;
+	uc->hdesc_size = 0;
 
 	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
@@ -2909,6 +2930,12 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 
 	uc->remote_thread_id = -1;
 	uc->dir = DMA_MEM_TO_MEM;
+	uc->pkt_mode = false;
+	uc->static_tr_type = 0;
+	uc->channel_tpl = 0;
+	uc->psd_size = 0;
+	uc->metadata_size = 0;
+	uc->hdesc_size = 0;
 
 	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);

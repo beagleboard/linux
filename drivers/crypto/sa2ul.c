@@ -945,11 +945,11 @@ static void sa_aes_dma_in_callback(void *data)
 
 	int sglen = sg_nents_for_len(req->dst, req->nbytes);
 
-	kfree(rxd);
-
 	dma_unmap_sg(rxd->ddev, req->src, sglen, DMA_TO_DEVICE);
 	if (req->src != req->dst)
 		dma_unmap_sg(rxd->ddev, req->dst, sglen, DMA_FROM_DEVICE);
+
+	kfree(rxd);
 
 	ablkcipher_request_complete(req, 0);
 }
@@ -982,13 +982,13 @@ static void sa_aead_dma_in_callback(void *data)
 			     auth_tag, authsize) ? -EBADMSG : 0;
 	}
 
-	kfree(rxd);
-
 	sglen = sg_nents_for_len(req->dst, req->cryptlen + authsize);
 	dma_unmap_sg(rxd->ddev, req->dst, sglen, DMA_FROM_DEVICE);
 
 	sglen =  sg_nents_for_len(req->src, req->assoclen + req->cryptlen);
 	dma_unmap_sg(rxd->ddev, req->src, sglen, DMA_TO_DEVICE);
+
+	kfree(rxd);
 
 	aead_request_complete(req, err);
 }
@@ -1514,13 +1514,13 @@ static void sa_sham_dma_in_callback(void *data)
 	mdptr = (u32 *)dmaengine_desc_get_metadata_ptr(rxd->tx_in, &pl, &ml);
 	result = (u32 *)req->result;
 
-	kfree(rxd);
-
 	for (i = 0; i < (authsize / 4); i++)
 		result[i] = htonl(mdptr[i + 4]);
 
 	sg_nents = sg_nents_for_len(req->src, req->nbytes);
 	dma_unmap_sg(rxd->ddev, req->src, sg_nents, DMA_FROM_DEVICE);
+
+	kfree(rxd);
 
 	ahash_request_complete(req, 0);
 }
