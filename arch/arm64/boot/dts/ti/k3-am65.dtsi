@@ -11,6 +11,7 @@
 #include <dt-bindings/pinctrl/k3.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/dma/k3-udma.h>
+#include <dt-bindings/soc/ti,sci_pm_domain.h>
 
 / {
 	model = "Texas Instruments K3 AM654 SoC";
