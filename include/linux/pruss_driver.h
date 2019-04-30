@@ -39,6 +39,7 @@ struct pruss_intc_config {
 /**
  * struct pruss - PRUSS parent structure
  * @dev: pruss device pointer
+ * @cfg_base: base iomap for CFG region
  * @cfg: regmap for config region
  * @iep: regmap for IEP sub-module
  * @mii_rt: regmap for MII_RT sub-module
@@ -48,12 +49,15 @@ struct pruss_intc_config {
  */
 struct pruss {
 	struct device *dev;
+	void __iomem *cfg_base;
 	struct regmap *cfg;
 	struct regmap *iep;
 	struct regmap *mii_rt;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	struct pruss_mem_region *mem_in_use[PRUSS_MEM_MAX];
 	struct mutex lock; /* PRU resource lock */
+	struct clk *core_clk_mux;
+	struct clk *iep_clk_mux;
 };
 
 int pruss_intc_configure(struct pruss *pruss,

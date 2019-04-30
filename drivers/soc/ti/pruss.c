@@ -8,6 +8,7 @@
  *	Tero Kristo <t-kristo@ti.com>
  */
 
+#include <linux/clk-provider.h>
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/mfd/syscon.h>
@@ -229,30 +230,6 @@ int pruss_regmap_update(struct pruss *pruss, enum pruss_syscon mod,
 }
 EXPORT_SYMBOL_GPL(pruss_regmap_update);
 
-/* Custom configuration of couple of PRUSS clocks only on AM65x SoCs */
-static int pruss_configure_clocks(struct platform_device *pdev,
-				  struct pruss *pruss)
-{
-	int ret;
-
-	if (!of_device_is_compatible(pdev->dev.of_node, "ti,am654-icssg"))
-		return 0;
-
-	ret = pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, ICSSG_CFG_CORE_SYNC,
-				  ICSSG_CORE_VBUSP_SYNC_EN,
-				  ICSSG_CORE_VBUSP_SYNC_EN);
-	if (ret)
-		return ret;
-
-	ret = pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, PRUSS_CFG_IEPCLK,
-				  PRUSS_IEPCLK_IEP_OCP_CLK_EN,
-				  PRUSS_IEPCLK_IEP_OCP_CLK_EN);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
 static const
 struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
 {
@@ -270,6 +247,87 @@ struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
 	return ERR_PTR(-ENODEV);
 }
 
+static const struct regmap_config syscon_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = 4,
+};
+
+static void pruss_of_free_clk_provider(void *data)
+{
+	struct device_node *clk_mux_np = data;
+
+	of_clk_del_provider(clk_mux_np);
+	of_node_put(clk_mux_np);
+}
+
+static int pruss_clk_mux_setup(struct pruss *pruss, struct clk *clk_mux,
+			       char *mux_name, unsigned int reg_offset)
+{
+	unsigned int num_parents;
+	const char **parent_names;
+	void __iomem *reg;
+	int ret;
+	char *clk_mux_name = NULL;
+	struct device_node *clk_mux_np;
+
+	clk_mux_np = of_get_child_by_name(pruss->dev->of_node, mux_name);
+	if (!clk_mux_np)
+		return -EINVAL;
+
+	num_parents = of_clk_get_parent_count(clk_mux_np);
+	if (num_parents < 1) {
+		dev_err(pruss->dev, "mux-clock %pOF must have parents\n",
+			clk_mux_np);
+		return -EINVAL;
+	}
+
+	parent_names = devm_kcalloc(pruss->dev, sizeof(char *), num_parents,
+				    GFP_KERNEL);
+	if (!parent_names)
+		return -ENOMEM;
+
+	of_clk_parent_fill(clk_mux_np, parent_names, num_parents);
+
+	clk_mux_name = devm_kasprintf(pruss->dev, GFP_KERNEL, "%s.%pOFn",
+				      dev_name(pruss->dev), clk_mux_np);
+	if (!clk_mux_name)
+		return -ENOMEM;
+
+	reg = pruss->cfg_base + reg_offset;
+	/* WARN: dev must be NULL to avoid recursive incrementing
+	 * of module refcnt
+	 */
+	clk_mux = clk_register_mux(NULL, clk_mux_name,
+				   parent_names, num_parents,
+				   0, reg, 0, 1, 0, NULL);
+	if (IS_ERR(clk_mux))
+		return PTR_ERR(clk_mux);
+
+	ret = devm_add_action_or_reset(pruss->dev,
+				       (void(*)(void *))clk_unregister_mux,
+				       clk_mux);
+	if (ret) {
+		dev_err(pruss->dev, "failed to add clkmux reset action %d",
+			ret);
+		return ret;
+	}
+
+	ret = of_clk_add_provider(clk_mux_np, of_clk_src_simple_get,
+				  clk_mux);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(pruss->dev,
+				       pruss_of_free_clk_provider,
+				       clk_mux_np);
+	if (ret)
+		dev_err(pruss->dev, "failed to add clkmux reset action %d",
+			ret);
+
+	return ret;
+}
+
 static int pruss_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -280,6 +338,7 @@ static int pruss_probe(struct platform_device *pdev)
 	int ret, i, index;
 	const struct pruss_private_data *data;
 	const char *mem_names[PRUSS_MEM_MAX] = { "dram0", "dram1", "shrdram2" };
+	struct regmap_config syscon_config = syscon_regmap_config;
 
 	if (!node) {
 		dev_err(dev, "Non-DT platform device not supported\n");
@@ -311,10 +370,39 @@ static int pruss_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	pruss->cfg = syscon_node_to_regmap(np);
-	of_node_put(np);
-	if (IS_ERR(pruss->cfg))
-		return -ENODEV;
+	if (of_address_to_resource(np, 0, &res))
+		return -ENOMEM;
+
+	pruss->cfg_base = devm_ioremap(dev, res.start, resource_size(&res));
+	if (!pruss->cfg_base)
+		return -ENOMEM;
+
+	if (!of_device_is_compatible(pdev->dev.of_node, "ti,am654-icssg"))
+		goto skip_mux;
+
+	ret = pruss_clk_mux_setup(pruss, pruss->core_clk_mux, "coreclk_mux",
+				  ICSSG_CFG_CORE_SYNC);
+	if (ret) {
+		dev_err(dev, "failed to setup coreclk_mux\n");
+		return ret;
+	}
+
+	ret = pruss_clk_mux_setup(pruss, pruss->core_clk_mux, "iepclk_mux",
+				  PRUSS_CFG_IEPCLK);
+	if (ret) {
+		dev_err(dev, "failed to setup iepclk_mux\n");
+		return ret;
+	}
+
+skip_mux:
+	syscon_config.name = of_node_full_name(np);
+	syscon_config.max_register = resource_size(&res) - 4;
+
+	pruss->cfg = regmap_init_mmio(NULL, pruss->cfg_base, &syscon_config);
+	if (IS_ERR(pruss->cfg)) {
+		dev_err(dev, "cfg regmap init failed\n");
+		return PTR_ERR(pruss->cfg);
+	}
 
 	np = of_get_child_by_name(node, "mii-rt");
 	if (!np) {
@@ -367,12 +455,6 @@ static int pruss_probe(struct platform_device *pdev)
 	of_node_put(np);
 
 	platform_set_drvdata(pdev, pruss);
-
-	ret = pruss_configure_clocks(pdev, pruss);
-	if (ret) {
-		dev_err(dev, "clock frequency config failed, ret = %d\n", ret);
-		return ret;
-	}
 
 	dev_dbg(&pdev->dev, "creating PRU cores and other child platform devices\n");
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
