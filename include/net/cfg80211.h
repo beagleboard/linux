@@ -5287,6 +5287,8 @@ static inline void cfg80211_testmode_event(struct sk_buff *skb, gfp_t gfp)
  *	not known. This value is used only if @status < 0 to indicate that the
  *	failure is due to a timeout and not due to explicit rejection by the AP.
  *	This value is ignored in other cases (@status >= 0).
+ * @authorized: Indicates whether the connection is ready to transport
+ *	data packets.
  */
 struct cfg80211_connect_resp_params {
 	int status;
@@ -5304,6 +5306,7 @@ struct cfg80211_connect_resp_params {
 	size_t pmk_len;
 	const u8 *pmkid;
 	enum nl80211_timeout_reason timeout_reason;
+	bool authorized;
 };
 
 /**
