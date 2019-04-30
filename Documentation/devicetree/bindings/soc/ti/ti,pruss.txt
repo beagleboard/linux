@@ -101,6 +101,11 @@ are applicable only for K3 SoCs. They are represented as follows:
 See Documentation/devicetree/bindings/mfd/syscon.txt for generic syscon
 binding details.
 
+Required Properties:
+--------------------
+The following are required properties for IEP nodes
+- clocks        : phandle to IEP core clock.
+
 
 IEPCLK MUX Clock node
 =====================
