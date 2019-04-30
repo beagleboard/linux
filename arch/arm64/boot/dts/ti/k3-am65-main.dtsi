@@ -666,11 +666,13 @@
 		icssg0_iep0: iep@2e000 {
 			compatible = "syscon";
 			reg = <0x2e000 0x1000>;
+			clocks = <&icssg0_iepclk_mux>;
 		};
 
 		icssg0_iep1: iep@2f000 {
 			compatible = "syscon";
 			reg = <0x2f000 0x1000>;
+			clocks = <&icssg0_iepclk_mux>;
 		};
 
 		icssg0_mii_rt: mii-rt@32000 {
@@ -804,11 +806,13 @@
 		icssg1_iep0: iep@2e000 {
 			compatible = "syscon";
 			reg = <0x2e000 0x1000>;
+			clocks = <&icssg1_iepclk_mux>;
 		};
 
 		icssg1_iep1: iep@2f000 {
 			compatible = "syscon";
 			reg = <0x2f000 0x1000>;
+			clocks = <&icssg1_iepclk_mux>;
 		};
 
 		icssg1_mii_rt: mii-rt@32000 {
@@ -942,11 +946,13 @@
 		icssg2_iep0: iep@2e000 {
 			compatible = "syscon";
 			reg = <0x2e000 0x1000>;
+			clocks = <&icssg2_iepclk_mux>;
 		};
 
 		icssg2_iep1: iep@2f000 {
 			compatible = "syscon";
 			reg = <0x2f000 0x1000>;
+			clocks = <&icssg2_iepclk_mux>;
 		};
 
 		icssg2_mii_rt: mii-rt@32000 {
