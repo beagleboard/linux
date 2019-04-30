@@ -62,6 +62,7 @@
 				phy-handle = <&pruss0_eth0_phy>;
 				phy-mode = "rgmii-id";
 				syscon-rgmii-delay = <&scm_conf 0x4100>;
+				iep = <&icssg0_iep0>;
 				/* Filled in by bootloader */
 				local-mac-address = [00 00 00 00 00 00];
 			};
@@ -70,6 +71,7 @@
 				phy-handle = <&pruss0_eth1_phy>;
 				phy-mode = "rgmii-id";
 				syscon-rgmii-delay = <&scm_conf 0x4104>;
+				iep = <&icssg0_iep1>;
 				/* Filled in by bootloader */
 				local-mac-address = [00 00 00 00 00 00];
 			};
@@ -112,6 +114,7 @@
 				phy-handle = <&pruss1_eth0_phy>;
 				phy-mode = "rgmii-id";
 				syscon-rgmii-delay = <&scm_conf 0x4110>;
+				iep = <&icssg1_iep0>;
 				/* Filled in by bootloader */
 				local-mac-address = [00 00 00 00 00 00];
 			};
@@ -119,8 +122,9 @@
 			pruss1_emac1: ethernet-mii1 {
 				phy-handle = <&pruss1_eth1_phy>;
 				phy-mode = "rgmii-id";
-				/* Filled in by bootloader */
 				syscon-rgmii-delay = <&scm_conf 0x4114>;
+				iep = <&icssg1_iep1>;
+				/* Filled in by bootloader */
 				local-mac-address = [00 00 00 00 00 00];
 			};
 		};

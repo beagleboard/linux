@@ -319,19 +319,22 @@ void icssg_class_default(struct regmap *miig_rt, int slice)
 	offset = FT1_N_REG(slice, 0, FT1_DA1_MASK);
 	regmap_write(miig_rt, offset, 0);
 
-	/* Setup Classifier 4 */
-	/* match on Broadcast or MAC_PRU address */
-	data = RX_CLASS_FT_BC | RX_CLASS_FT_DA_P;
-	rx_class_set_or(miig_rt, slice, 4, data);
+	/* Setup Classifier */
+	for (n = 0; n < 5; n++) {
+		/* match on Broadcast or MAC_PRU address */
+		data = RX_CLASS_FT_BC | RX_CLASS_FT_DA_P;
+		rx_class_set_or(miig_rt, slice, n, data);
 
-	/* set CFG1 for OR_OR_AND for classifier 4 */
-	rx_class_sel_set_type(miig_rt, slice, 4, RX_CLASS_SEL_TYPE_OR_OR_AND);
+		/* set CFG1 for OR_OR_AND for classifier */
+		rx_class_sel_set_type(miig_rt, slice, n,
+				      RX_CLASS_SEL_TYPE_OR_OR_AND);
 
-	/* ungate classifier 4 */
-	offset = RX_CLASS_GATES_N_REG(slice, 4);
-	regmap_read(miig_rt, offset, &data);
-	data |= RX_CLASS_GATES_RAW_MASK;
-	regmap_write(miig_rt, offset, data);
+		/* ungate classifier */
+		offset = RX_CLASS_GATES_N_REG(slice, n);
+		regmap_read(miig_rt, offset, &data);
+		data |= RX_CLASS_GATES_RAW_MASK;
+		regmap_write(miig_rt, offset, data);
+	}
 
 	/* clear CFG2 */
 	regmap_write(miig_rt, offs[slice].rx_class_cfg2, 0);
@@ -366,17 +369,20 @@ void icssg_class_promiscuous(struct regmap *miig_rt, int slice)
 	offset = FT1_N_REG(slice, 0, FT1_DA1_MASK);
 	regmap_write(miig_rt, offset, 0xffff);
 
-	/* Setup Classifier 4 */
-	/* match on multicast, broadcast or unicast (ft1-0 address) */
-	data = RX_CLASS_FT_MC | RX_CLASS_FT_BC | FT1_MATCH_SLOT(0);
-	rx_class_set_or(miig_rt, slice, 4, data);
+	/* Setup Classifier */
+	for (n = 0; n < 5; n++) {
+		/* match on multicast, broadcast or unicast (ft1-0 address) */
+		data = RX_CLASS_FT_MC | RX_CLASS_FT_BC | FT1_MATCH_SLOT(0);
+		rx_class_set_or(miig_rt, slice, n, data);
 
-	/* set CFG1 for OR_OR_AND for classifier 4 */
-	rx_class_sel_set_type(miig_rt, slice, 4, RX_CLASS_SEL_TYPE_OR_OR_AND);
+		/* set CFG1 for OR_OR_AND for classifier */
+		rx_class_sel_set_type(miig_rt, slice, n,
+				      RX_CLASS_SEL_TYPE_OR_OR_AND);
 
-	/* ungate classifier 4 */
-	offset = RX_CLASS_GATES_N_REG(slice, 4);
-	regmap_read(miig_rt, offset, &data);
-	data |= RX_CLASS_GATES_RAW_MASK;
-	regmap_write(miig_rt, offset, data);
+		/* ungate classifier */
+		offset = RX_CLASS_GATES_N_REG(slice, n);
+		regmap_read(miig_rt, offset, &data);
+		data |= RX_CLASS_GATES_RAW_MASK;
+		regmap_write(miig_rt, offset, data);
+	}
 }

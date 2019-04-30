@@ -29,6 +29,7 @@ Required properties for children:
 - phy-mode         : See ethernet.txt file in the same directory.
 - syscon-rgmii-delay : phandle to system controller node and register offset
 			to ICSSG control register for RGMII transmit delay.
+- iep		   : phandle to IEP module's syscon regmap.
 
 Optional properties for children:
 - local-mac-address	: mac address for the port.
@@ -75,6 +76,7 @@ Example (k3-am654 base board, dual-emac):
 			phy-handle = <&pruss2_eth0_phy>;
 			phy-mode = "rgmii-id";
 			syscon-rgmii-delay = <&scm_conf 0x4120>;
+			iep = <&icssg2_iep0>;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
 		};
@@ -83,6 +85,7 @@ Example (k3-am654 base board, dual-emac):
 			phy-handle = <&pruss2_eth1_phy>;
 			phy-mode = "rgmii-id";
 			syscon-rgmii-delay = <&scm_conf 0x4124>;
+			iep = <&icssg2_iep1>;
 			/* Filled in by bootloader */
 			local-mac-address = [00 00 00 00 00 00];
 		};
