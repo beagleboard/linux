@@ -37,7 +37,11 @@ hsr_node_table_show(struct seq_file *sfp, void *data)
 
 	seq_puts(sfp, "Node Table entries\n");
 	seq_puts(sfp, "MAC-Address-A,   MAC-Address-B, time_in[A], ");
-	seq_puts(sfp, "time_in[B], Address-B port\n");
+	seq_puts(sfp, "time_in[B], Address-B port");
+	if (priv->prot_version == PRP_V1)
+		seq_puts(sfp, ", san_a, san_b\n");
+	else
+		seq_puts(sfp, "\n");
 	rcu_read_lock();
 	list_for_each_entry_rcu(node, &priv->node_db, mac_list) {
 		/* skip self node */
@@ -48,7 +52,12 @@ hsr_node_table_show(struct seq_file *sfp, void *data)
 		print_mac_address(sfp, &node->macaddress_B[0]);
 		seq_printf(sfp, "0x%lx, ", node->time_in[HSR_PT_SLAVE_A]);
 		seq_printf(sfp, "0x%lx ", node->time_in[HSR_PT_SLAVE_B]);
-		seq_printf(sfp, "0x%x\n", node->addr_B_port);
+		seq_printf(sfp, "0x%x", node->addr_B_port);
+
+		if (priv->prot_version == PRP_V1)
+			seq_printf(sfp, ", %x, %x\n", node->san_a, node->san_b);
+		else
+			seq_puts(sfp, "\n");
 	}
 	rcu_read_unlock();
 	return 0;
@@ -57,7 +66,8 @@ hsr_node_table_show(struct seq_file *sfp, void *data)
 /* hsr_node_table_open - Open the node_table file
  *
  * Description:
- * This routine opens a debugfs file node_table of specific hsr device
+ * This routine opens a debugfs file node_table of specific hsr
+ * or prp device
  */
 static int
 hsr_node_table_open(struct inode *inode, struct file *filp)
