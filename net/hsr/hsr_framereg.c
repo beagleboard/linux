@@ -324,7 +324,10 @@ void hsr_addr_subst_dest(struct hsr_node *node_src, struct sk_buff *skb,
 	if (port->type != node_dst->addr_B_port)
 		return;
 
-	ether_addr_copy(eth_hdr(skb)->h_dest, node_dst->macaddress_B);
+	if (is_valid_ether_addr(node_dst->macaddress_B))
+		ether_addr_copy(eth_hdr(skb)->h_dest, node_dst->macaddress_B);
+	else
+		WARN_ONCE(1, "%s: mac address B not valid\n", __func__);
 }
 
 void hsr_register_frame_in(struct hsr_node *node, struct hsr_port *port,
