@@ -41,7 +41,6 @@ struct pruss_intc_config {
  * @dev: pruss device pointer
  * @cfg_base: base iomap for CFG region
  * @cfg: regmap for config region
- * @iep: regmap for IEP sub-module
  * @mii_rt: regmap for MII_RT sub-module
  * @mem_regions: data for each of the PRUSS memory regions
  * @mem_in_use: to indicate if memory resource is in use
@@ -51,7 +50,6 @@ struct pruss {
 	struct device *dev;
 	void __iomem *cfg_base;
 	struct regmap *cfg;
-	struct regmap *iep;
 	struct regmap *mii_rt;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	struct pruss_mem_region *mem_in_use[PRUSS_MEM_MAX];
