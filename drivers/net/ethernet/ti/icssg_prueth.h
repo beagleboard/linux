@@ -91,6 +91,7 @@ struct prueth_tx_chn {
 };
 
 struct prueth_rx_chn {
+	struct device *dev;
 	struct k3_knav_desc_pool *desc_pool;
 	struct k3_nav_udmax_rx_channel *rx_chn;
 	u32 descs_num;
