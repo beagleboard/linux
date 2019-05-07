@@ -31,6 +31,16 @@ struct hsr_frame_info {
 	bool is_from_san;
 };
 
+static inline int is_hsr_l2ptp(struct sk_buff *skb)
+{
+	struct hsr_ethhdr *hsr_ethhdr;
+
+	hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb);
+
+	return (hsr_ethhdr->ethhdr.h_proto == htons(ETH_P_HSR) &&
+		hsr_ethhdr->hsr_tag.encap_proto == htons(ETH_P_1588));
+}
+
 /* The uses I can see for these HSR supervision frames are:
  * 1) Use the frames that are sent after node initialization ("HSR_TLV.Type =
  *    22") to reset any sequence_nr counters belonging to that node. Useful if
@@ -289,6 +299,9 @@ static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
 	int movelen;
 	unsigned char *dst, *src;
 	struct sk_buff *skb;
+	struct skb_redundant_info *sred;
+	struct hsr_ethhdr *hsr_ethhdr;
+	u16 s;
 
 	if (port->hsr->prot_version > HSR_V1) {
 		skb = skb_copy_expand(skb_o, skb_headroom(skb_o),
@@ -320,6 +333,22 @@ static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
 	skb_reset_mac_header(skb);
 
 	hsr_fill_tag(skb, frame, port, port->hsr->prot_version);
+
+	skb_shinfo(skb)->tx_flags = skb_shinfo(skb_o)->tx_flags;
+	skb->sk = skb_o->sk;
+
+	/* TODO: should check socket option instead? */
+	if (is_hsr_l2ptp(skb)) {
+		sred = skb_redinfo(skb);
+		/* assumes no vlan */
+		hsr_ethhdr = (struct hsr_ethhdr *)skb_mac_header(skb);
+		sred->io_port = port->type;
+		sred->ethertype = ntohs(hsr_ethhdr->ethhdr.h_proto);
+		s = ntohs(hsr_ethhdr->hsr_tag.path_and_LSDU_size);
+		sred->lsdu_size = s & 0xfff;
+		sred->pathid = (s >> 12) & 0xf;
+		sred->seqnr = hsr_get_skb_sequence_nr(skb);
+	}
 
 	return skb;
 }
