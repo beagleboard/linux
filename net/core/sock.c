@@ -3070,6 +3070,7 @@ int sock_recv_errqueue(struct sock *sk, struct msghdr *msg, int len,
 	struct sock_exterr_skb *serr;
 	struct sk_buff *skb;
 	int copied, err;
+	struct skb_redundant_info *sred;
 
 	err = -EAGAIN;
 	skb = sock_dequeue_err_skb(sk);
@@ -3086,6 +3087,9 @@ int sock_recv_errqueue(struct sock *sk, struct msghdr *msg, int len,
 		goto out_free_skb;
 
 	sock_recv_timestamp(msg, sk, skb);
+
+	sred = skb_redinfo(skb);
+	put_cmsg(msg, SOL_SOCKET, SCM_REDUNDANT, sizeof(*sred), sred);
 
 	serr = SKB_EXT_ERR(skb);
 	put_cmsg(msg, level, type, sizeof(serr->ee), &serr->ee);
