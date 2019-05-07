@@ -2447,6 +2447,16 @@ static inline void skb_setup_tx_timestamp(struct sk_buff *skb, __u16 tsflags)
 			   &skb_shinfo(skb)->tskey);
 }
 
+static inline void sock_recv_redundant_info(struct msghdr *msg, struct sock *sk,
+					    struct sk_buff *skb)
+{
+	struct skb_redundant_info *sred;
+
+	sred = skb_redinfo(skb);
+	if (sred->lsdu_size)
+		put_cmsg(msg, SOL_SOCKET, SCM_REDUNDANT, sizeof(*sred), sred);
+}
+
 /**
  * sk_eat_skb - Release a skb if it is no longer needed
  * @sk: socket to eat this skb from

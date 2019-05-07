@@ -144,4 +144,7 @@
 
 #endif
 
+#define SO_REDUNDANT		80
+#define SCM_REDUNDANT		SO_REDUNDANT
+
 #endif /* __ASM_GENERIC_SOCKET_H */
