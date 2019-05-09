@@ -102,7 +102,6 @@ enum rx_class_sel_type {
 #define RX_CLASS_SEL_MASK(n)	(0x3 << RX_CLASS_SEL_SHIFT((n)))
 
 #define ICSSG_CFG_OFFSET	0
-#define RGMII_CFG_OFFSET	4
 
 #define ICSSG_CFG_RX_L2_G_EN	BIT(2)
 
