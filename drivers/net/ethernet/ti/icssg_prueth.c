@@ -987,9 +987,14 @@ static void emac_adjust_link(struct net_device *ndev)
 			/* Set the RGMII cfg for gig en and full duplex */
 			icssg_update_rgmii_cfg(prueth->miig_rt, gig_en,
 					       full_duplex, slice);
+			/* update the Tx IPG based on 100M/1G speed */
+			icssg_update_mii_rt_cfg(prueth->mii_rt, emac->speed,
+						slice);
 		} else {
 			icssg_update_rgmii_cfg(prueth->miig_rt, true, true,
 					       emac->port_id);
+			icssg_update_mii_rt_cfg(prueth->mii_rt, emac->speed,
+						slice);
 		}
 	}
 
@@ -1712,6 +1717,12 @@ static int prueth_probe(struct platform_device *pdev)
 	prueth->miig_rt = syscon_regmap_lookup_by_phandle(np, "mii-g-rt");
 	if (IS_ERR(prueth->miig_rt)) {
 		dev_err(dev, "couldn't get mii-g-rt syscon regmap\n");
+		return -ENODEV;
+	}
+
+	prueth->mii_rt = syscon_regmap_lookup_by_phandle(np, "mii-rt");
+	if (IS_ERR(prueth->mii_rt)) {
+		dev_err(dev, "couldn't get mii-rt syscon regmap\n");
 		return -ENODEV;
 	}
 
