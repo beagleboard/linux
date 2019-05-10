@@ -120,14 +120,6 @@ static void sdhci_am654_set_clock(struct sdhci_host *host, unsigned int clock)
 		mask = SEL50_MASK | SEL100_MASK;
 		val = (sel50 << SEL50_SHIFT) | (sel100 << SEL100_SHIFT);
 		regmap_update_bits(sdhci_am654->base, PHY_CTRL5, mask, val);
-		/* Configure DLL TRIM */
-		mask = DLL_TRIM_ICP_MASK;
-		val = sdhci_am654->trm_icp << DLL_TRIM_ICP_SHIFT;
-
-		/* Configure DLL driver strength */
-		mask |= DR_TY_MASK;
-		val |= sdhci_am654->drv_strength << DR_TY_SHIFT;
-		regmap_update_bits(sdhci_am654->base, PHY_CTRL1, mask, val);
 		/* Enable DLL */
 		regmap_update_bits(sdhci_am654->base, PHY_CTRL1, ENDLL_MASK,
 				   0x1 << ENDLL_SHIFT);
@@ -209,6 +201,15 @@ static int sdhci_am654_init(struct sdhci_host *host)
 	/* Reset OTAP to default value */
 	mask = OTAPDLYENA_MASK | OTAPDLYSEL_MASK;
 	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, mask, 0x0);
+
+	/* Configure DLL TRIM */
+	mask = DLL_TRIM_ICP_MASK;
+	val = sdhci_am654->trm_icp << DLL_TRIM_ICP_SHIFT;
+
+	/* Configure DLL driver strength */
+	mask |= DR_TY_MASK;
+	val |= sdhci_am654->drv_strength << DR_TY_SHIFT;
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL1, mask, val);
 
 	regmap_read(sdhci_am654->base, PHY_STAT1, &val);
 	if (~val & CALDONE_MASK) {
