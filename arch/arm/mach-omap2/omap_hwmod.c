@@ -139,6 +139,7 @@
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/cpu.h>
+#include <linux/cpu_pm.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/suspend.h>
@@ -4067,6 +4068,22 @@ int omap_hwmod_get_context_loss_count(struct omap_hwmod *oh)
 	return ret;
 }
 
+static int cpu_notifier(struct notifier_block *nb, unsigned long cmd, void *v)
+{
+	switch (cmd) {
+	case CPU_CLUSTER_PM_ENTER:
+		if (enable_off_mode)
+			omap_hwmods_rst_save_context();
+		break;
+	case CPU_CLUSTER_PM_EXIT:
+		if (enable_off_mode)
+			omap_hwmods_rst_restore_context();
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 /**
  * omap_hwmod_init - initialize the hwmod code
  *
@@ -4076,6 +4093,8 @@ int omap_hwmod_get_context_loss_count(struct omap_hwmod *oh)
  */
 void __init omap_hwmod_init(void)
 {
+	static struct notifier_block nb;
+
 	if (cpu_is_omap24xx()) {
 		soc_ops.wait_target_ready = _omap2xxx_3xxx_wait_target_ready;
 		soc_ops.assert_hardreset = _omap2_assert_hardreset;
@@ -4115,6 +4134,12 @@ void __init omap_hwmod_init(void)
 	}
 
 	_init_clkctrl_providers();
+
+	/* Only AM43XX can lose prm context during rtc-ddr suspend */
+	if (soc_is_am43xx()) {
+		nb.notifier_call = cpu_notifier;
+		cpu_pm_register_notifier(&nb);
+	}
 
 	inited = true;
 }
