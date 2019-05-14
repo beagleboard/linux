@@ -139,6 +139,7 @@
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/cpu.h>
+#include <linux/cpu_pm.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/suspend.h>
@@ -4067,6 +4068,22 @@ int omap_hwmod_get_context_loss_count(struct omap_hwmod *oh)
 	return ret;
 }
 
+static int cpu_notifier(struct notifier_block *nb, unsigned long cmd, void *v)
+{
+	switch (cmd) {
+	case CPU_CLUSTER_PM_ENTER:
+		if (enable_off_mode)
+			omap_hwmods_rst_save_context();
+		break;
+	case CPU_CLUSTER_PM_EXIT:
+		if (enable_off_mode)
+			omap_hwmods_rst_restore_context();
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 /**
  * omap_hwmod_init - initialize the hwmod code
  *
@@ -4076,6 +4093,8 @@ int omap_hwmod_get_context_loss_count(struct omap_hwmod *oh)
  */
 void __init omap_hwmod_init(void)
 {
+	static struct notifier_block nb;
+
 	if (cpu_is_omap24xx()) {
 		soc_ops.wait_target_ready = _omap2xxx_3xxx_wait_target_ready;
 		soc_ops.assert_hardreset = _omap2_assert_hardreset;
@@ -4116,6 +4135,12 @@ void __init omap_hwmod_init(void)
 
 	_init_clkctrl_providers();
 
+	/* Only AM43XX can lose prm context during rtc-ddr suspend */
+	if (soc_is_am43xx()) {
+		nb.notifier_call = cpu_notifier;
+		cpu_pm_register_notifier(&nb);
+	}
+
 	inited = true;
 }
 
@@ -4150,13 +4175,13 @@ const char *omap_hwmod_get_main_clk(struct omap_hwmod *oh)
 }
 
 /**
- * omap_hwmod_save_context - Saves the HW reset line state of submodules
+ * omap_hwmod_rst_save_context - Saves the HW reset line state of submodules
  * @oh: struct omap_hwmod *
  * @unused: (unused, caller should pass NULL)
  *
  * Saves the HW reset line state of all the submodules in the hwmod
  */
-static int omap_hwmod_save_context(struct omap_hwmod *oh, void *unused)
+static int omap_hwmod_rst_save_context(struct omap_hwmod *oh, void *unused)
 {
 	int i;
 
@@ -4167,13 +4192,14 @@ static int omap_hwmod_save_context(struct omap_hwmod *oh, void *unused)
 }
 
 /**
- * omap_hwmod_restore_context - Restores the HW reset line state of submodules
+ * omap_hwmod_rst_restore_context - Restores the HW reset line state of
+ *					submodules
  * @oh: struct omap_hwmod *
  * @unused: (unused, caller should pass NULL)
  *
  * Restores the HW reset line state of all the submodules in the hwmod
  */
-static int omap_hwmod_restore_context(struct omap_hwmod *oh, void *unused)
+static int omap_hwmod_rst_restore_context(struct omap_hwmod *oh, void *unused)
 {
 	int i;
 
@@ -4183,35 +4209,25 @@ static int omap_hwmod_restore_context(struct omap_hwmod *oh, void *unused)
 		else
 			_deassert_hardreset(oh, oh->rst_lines[i].name);
 
-	if (oh->_state == _HWMOD_STATE_ENABLED) {
-		if (soc_ops.enable_module)
-			soc_ops.enable_module(oh);
-	} else {
-		if (oh->flags & HWMOD_NEEDS_REIDLE)
-			_reidle(oh);
-		else if (soc_ops.disable_module)
-			soc_ops.disable_module(oh);
-	}
-
 	return 0;
 }
 
 /**
- * omap_hwmods_save_context - Saves the HW reset line state for all hwmods
+ * omap_hwmods_rst_save_context - Saves the HW reset line state for all hwmods
  *
  * Saves the HW reset line state of all the registered hwmods
  */
-void omap_hwmods_save_context(void)
+void omap_hwmods_rst_save_context(void)
 {
-	omap_hwmod_for_each(omap_hwmod_save_context, NULL);
+	omap_hwmod_for_each(omap_hwmod_rst_save_context, NULL);
 }
 
 /**
- * omap_hwmods_restore_context - Restores the HW reset line state for all hwmods
+ * omap_hwmods_rst_restore_context - Restores the HW reset line state for all hwmods
  *
  * Restores the HW reset line state of all the registered hwmods
  */
-void omap_hwmods_restore_context(void)
+void omap_hwmods_rst_restore_context(void)
 {
-	omap_hwmod_for_each(omap_hwmod_restore_context, NULL);
+	omap_hwmod_for_each(omap_hwmod_rst_restore_context, NULL);
 }

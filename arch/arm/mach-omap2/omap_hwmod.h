@@ -679,8 +679,8 @@ extern void __init omap_hwmod_init(void);
 
 const char *omap_hwmod_get_main_clk(struct omap_hwmod *oh);
 
-void omap_hwmods_save_context(void);
-void omap_hwmods_restore_context(void);
+void omap_hwmods_rst_save_context(void);
+void omap_hwmods_rst_restore_context(void);
 
 /*
  *
