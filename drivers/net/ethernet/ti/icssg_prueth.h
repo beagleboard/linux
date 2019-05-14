@@ -174,6 +174,7 @@ struct prueth {
 	const struct prueth_private_data *fw_data;
 	struct icssg_config config[PRUSS_NUM_PRUS];
 	struct regmap *miig_rt;
+	struct regmap *mii_rt;
 };
 
 struct emac_tx_ts_response {

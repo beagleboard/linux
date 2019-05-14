@@ -14,6 +14,7 @@ Required properties:
 			    "tx1-0", "tx1-1", "tx1-2", "tx1-3",
 			    "rx0", "rx1", "rxmgm0", "rxmgm1"
 - mii-g-rt	   : phandle to MII_G_RT module's syscon regmap.
+- mii-rt	   : phandle to MII_RT module's syscon regmap.
 
 Must contain children, one for each of the MAC ports.
 Children must be named ethernet-mii0 and ethernet-mii1.
