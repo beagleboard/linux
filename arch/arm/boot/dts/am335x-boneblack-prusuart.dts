@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+#include "am335x-boneblack.dts"
+
+&am33xx_pinmux {
+	pru_uart0_bone_pins: pru_uart0bone_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x990, PIN_OUTPUT_PULLUP | MUX_MODE5)	/* mcasp0_aclkx.pr1_pru0_pru_r30_0, port0 TXD, P9.31 */
+			AM33XX_IOPAD(0x994, PIN_INPUT_PULLUP | MUX_MODE6)	/* mcasp0_fsx.pr1_pru0_pru_r31_1, port0 RXD, P9.29 */
+
+			AM33XX_IOPAD(0x998, PIN_OUTPUT_PULLUP | MUX_MODE5)	/* mcasp0_axr0.pr1_pru0_pru_r30_2, port1 TXD, P9.30 */
+			AM33XX_IOPAD(0x99c, PIN_INPUT_PULLUP | MUX_MODE6)	/* mcasp0_ahclkr.pr1_pru0_pru_r31_3, port1 RXD, P9.28 */
+
+			AM33XX_IOPAD(0x9a4, PIN_OUTPUT_PULLUP | MUX_MODE5)	/* mcasp0_fsr.pr1_pru0_pru_r30_5, port2 TXD, P9.27 */
+			AM33XX_IOPAD(0x9ac, PIN_INPUT_PULLUP | MUX_MODE6)	/* mcasp0_ahclkx.pr1_pru0_pru_r31_7, port2 RXD, P9.25 */
+		>;
+	};
+	pru_uart1_bone_pins: pru_uart1bone_pins {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x8a0, PIN_OUTPUT_PULLUP | MUX_MODE5)	/* lcd_data0.pru_pru1_pru_r30_0, port0 TXD, P8.45 */
+			AM33XX_IOPAD(0x8a4, PIN_INPUT_PULLUP | MUX_MODE6)	/* lcd_data1.pru_pru1_pru_r31_1, port0 RXD, P8.46 */
+			AM33XX_IOPAD(0x8a8, PIN_INPUT_PULLDOWN | MUX_MODE6)	/* lcd_data2.pru_pru1_pru_r30_2, port0 CTS, P8.43 */
+			AM33XX_IOPAD(0x8ac, PIN_OUTPUT_PULLDOWN | MUX_MODE5)	/* lcd_data3.pru_pru1_pru_r31_3, port0 RTS, P8.44 */
+
+			AM33XX_IOPAD(0x8b0, PIN_OUTPUT_PULLUP | MUX_MODE5)	/* lcd_data4.pru_pru1_pru_r30_4, port1 TXD, P8.41 */
+			AM33XX_IOPAD(0x8b4, PIN_INPUT_PULLUP | MUX_MODE6)	/* lcd_data5.pru_pru1_pru_r31_5, port1 RXD, P8.42 */
+			AM33XX_IOPAD(0x8b8, PIN_INPUT_PULLDOWN | MUX_MODE6)	/* lcd_data6.pru_pru1_pru_r30_6, port1 CTS, P8.39 */
+			AM33XX_IOPAD(0x8bc, PIN_OUTPUT_PULLDOWN | MUX_MODE5)	/* lcd_data7.pru_pru1_pru_r31_7, port1 RTS, P8.40 */
+
+			AM33XX_IOPAD(0x8e0, PIN_OUTPUT_PULLUP | MUX_MODE5)	/* lcd_vsync.pru_pru1_pru_r30_8, port2 TXD, P8.27 */
+			AM33XX_IOPAD(0x8e4, PIN_INPUT_PULLUP | MUX_MODE6)	/* lcd_hsync.pru_pru1_pru_r31_9, port2 RXD, P8.29 */
+			AM33XX_IOPAD(0x8e8, PIN_INPUT_PULLDOWN | MUX_MODE6)	/* lcd_pclk.pru_pru1_pru_r30_10, port2 CTS, P8.28 */
+			AM33XX_IOPAD(0x8ec, PIN_OUTPUT_PULLDOWN | MUX_MODE5)	/* lcd_ac_bias_en.pru_pru1_pru_r31_11, port2 RTS, P8.30 */
+		>;
+	};
+};
+
+/{
+	pru_suart0 {
+		compatible = "ti,pru-soft-uart";
+		interrupt-parent = <&pruss_intc>;
+		prus = <&pru0>;
+		firmware-name = "ti-pruss/pru_swuart-fw.elf";
+		ti,pru-interrupt-map = <0 21 2 2>, <0 22 3 3>, <0 23 4 4>;
+		pinctrl-0 = <&pru_uart0_bone_pins>;
+		pinctrl-names = "default";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pru0_port0: port@0 {
+			reg = <0>;
+			interrupts = <21>;
+			ti,pru-suart-pins = /bits/ 8 <0 1>;
+		};
+		pru0_port1: port@1 {
+			reg = <1>;
+			interrupts = <22>;
+			ti,pru-suart-pins = /bits/ 8 <2 3>;
+		};
+		pru0_port2: port@2 {
+			reg = <2>;
+			interrupts = <23>;
+			ti,pru-suart-pins = /bits/ 8 <5 7>;
+		};
+	};
+
+	pru_suart1 {
+		compatible = "ti,pru-soft-uart";
+		interrupt-parent = <&pruss_intc>;
+		prus = <&pru1>;
+		firmware-name = "ti-pruss/pru_swuart-fw.elf";
+		ti,pru-interrupt-map = <0 24 5 5>, <0 25 6 6>, <0 26 7 7>;
+		pinctrl-0 = <&pru_uart1_bone_pins>;
+		pinctrl-names = "default";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pru1_port0: port@0 {
+			reg = <0>;
+			interrupts = <24>;
+			ti,pru-suart-pins = /bits/ 8 <0 1 2 3>;
+		};
+		pru1_port1: port@1 {
+			reg = <1>;
+			interrupts = <25>;
+			ti,pru-suart-pins = /bits/ 8 <4 5 6 7>;
+		};
+		pru1_port2: port@2 {
+			reg = <2>;
+			interrupts = <26>;
+			ti,pru-suart-pins = /bits/ 8 <8 9 10 11>;
+		};
+	};
+};
+
+/* Disable the following nodes due to pin mux conflicts with
+ * PRU Software UART signals
+ */
+&tda19988 {
+	status = "disabled";
+};
+
+&mcasp0 {
+	status = "disabled";
+};
