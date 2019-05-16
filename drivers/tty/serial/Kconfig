@@ -1528,6 +1528,16 @@ config SERIAL_OWL_CONSOLE
 	  Say 'Y' here if you wish to use Actions Semiconductor S500/S900 UART
 	  as the system console.
 
+config SERIAL_PRU_SUART
+	tristate "TI PRU Software UART support"
+	depends on PRU_REMOTEPROC && !ARCH_K3
+	select SERIAL_CORE
+	help
+	  This driver is to support software UART over PRUSS, provided through
+	  PRU firmware.
+	  Say 'Y' here if you wish to use PRU software based UART.
+	  Otherwise, say 'N'.
+
 endmenu
 
 config SERIAL_MCTRL_GPIO
