@@ -830,7 +830,7 @@ static int dispc7_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
 
 	r = clk_set_rate(dispc->vp_clk[hw_videoport], rate);
 	if (r) {
-		dev_err(dispc->dev, "Failed to set vp%d clk rate to %lu\n",
+		dev_err(dispc->dev, "vp%d: failed to set clk rate to %lu\n",
 			hw_videoport, rate);
 		return r;
 	}
@@ -839,10 +839,10 @@ static int dispc7_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
 
 	if (dispc7_pclk_diff(rate, new_rate) > 5)
 		dev_warn(dispc->dev,
-			 "Clock rate %lu differs over 5%% from requsted %lu\n",
-			 new_rate, rate);
+			 "vp%d: Clock rate %lu differs over 5%% from requsted %lu\n",
+			 hw_videoport, new_rate, rate);
 
-	dev_dbg(dispc->dev, "New VP%d rate %lu Hz (requested %lu Hz)\n",
+	dev_dbg(dispc->dev, "vp%d: new rate %lu Hz (requested %lu Hz)\n",
 		hw_videoport, clk_get_rate(dispc->vp_clk[hw_videoport]), rate);
 
 	return 0;
