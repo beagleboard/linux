@@ -8,8 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-/* #include "am335x-bone-jtag.dtsi" */
+#include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone";
@@ -26,6 +25,4 @@
 	vmmc-supply = <&ldo3_reg>;
 };
 
-&sgx {
-	status = "okay";
-};
+#include "am335x-bone-argus.dtsi"
