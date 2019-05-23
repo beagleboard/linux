@@ -1907,8 +1907,8 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 
 	netif_tx_napi_add(port->ndev, &common->napi_tx,
 			  am65_cpsw_nuss_tx_poll, NAPI_POLL_WEIGHT);
-	netif_tx_napi_add(port->ndev, &common->napi_rx,
-			  am65_cpsw_nuss_rx_poll, NAPI_POLL_WEIGHT);
+	netif_napi_add(port->ndev, &common->napi_rx,
+		       am65_cpsw_nuss_rx_poll, NAPI_POLL_WEIGHT);
 
 	common->pf_p0_rx_ptype_rrobin = true;
 	ret = register_netdev(port->ndev);
