@@ -5,35 +5,25 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+
+ /******************************************************************************
+ * This device tree serves to replace the need for an overlay when using
+ * the RoboticsCape. It is similar to the boneblue tree but preserves
+ * pin config for the black.
+ ******************************************************************************/
+
+
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-/* #include "am33xx-overlay-edma-fix.dtsi" */
-
-/* pruss: pick one: */
-
-/*
- * /etc/modprobe.d/pruss-blacklist.conf
- *
- * blacklist uio_pruss
- */
-
+#include "am335x-bone-common-no-capemgr.dtsi"
+#include "am335x-bone-common-universal-pins.dtsi"
 #include "am33xx-pruss-rproc.dtsi"
-
-/*
- * /etc/modprobe.d/pruss-blacklist.conf
- *
- * blacklist pruss
- * blacklist pruss_intc
- * blacklist pru-rproc
- */
-
-/* #include "am33xx-pruss-uio.dtsi" */
+#include "am335x-roboticscape.dtsi"
 
 / {
-	model = "TI AM335x BeagleBone Green";
-	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+	model = "TI AM335x BeagleBone Black RoboticsCape";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
 };
 
 &ldo3_reg {

@@ -5,12 +5,12 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#include "am57xx-beagle-x15-common.dtsi"
+#include "am571x-sndrblock-common.dtsi"
 #include "am57xx-commercial-grade.dtsi"
 #include "am57xx-cmem.dtsi"
 
 / {
-	model = "TI AM5728 BeagleBoard-X15";
+	model = "sndrBlock (Rev A)";
 };
 
 &dra7_pmx_core {
@@ -122,4 +122,14 @@
 	max-frequency = <96000000>;
 	no-1-8-v;
 	/delete-property/ mmc-hs200-1_8v;
+};
+
+&pcie1_rc {
+	status = "okay";
+	gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+};
+
+
+&pcie1_ep {
+	gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
 };
