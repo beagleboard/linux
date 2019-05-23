@@ -8,8 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-/* #include "am33xx-overlay-edma-fix.dtsi" */
+#include "am335x-bone-common-no-capemgr.dtsi"
 
 /* pruss: pick one: */
 
@@ -46,6 +45,4 @@
 	vmmc-supply = <&ldo3_reg>;
 };
 
-&sgx {
-	status = "okay";
-};
+#include "am335x-bone-argus.dtsi"

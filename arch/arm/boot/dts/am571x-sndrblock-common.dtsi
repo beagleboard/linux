@@ -7,13 +7,13 @@
  */
 /dts-v1/;
 
-#include "dra74x.dtsi"
+#include "dra72x.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	model = "TI AM5728 BeagleBoard-X15";
-	compatible = "ti,am572x-beagle-x15", "ti,am5728", "ti,dra742", "ti,dra74", "ti,dra7";
+	model = "sndrBlock (Rev A)";
+	compatible = "ti,am5718", "ti,dra722", "ti,dra72", "ti,dra7";
 
 	aliases {
 		rtc0 = &mcp_rtc;
@@ -55,13 +55,6 @@
 			reusable;
 			status = "okay";
 		};
-
-		dsp2_cma_pool: dsp2_cma@9f000000 {
-			compatible = "shared-dma-pool";
-			reg = <0x0 0x9f000000 0x0 0x800000>;
-			reusable;
-			status = "okay";
-		};
 	};
 
 	vdd_3v3: fixedregulator-vdd_3v3 {
@@ -96,28 +89,28 @@
 	leds {
 		compatible = "gpio-leds";
 		led@0 {
-			label = "beagle-x15:usr0";
+			label = "sndrBlock:usr0";
 			gpios = <&gpio7 9 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "heartbeat";
 			default-state = "off";
 		};
 
 		led@1 {
-			label = "beagle-x15:usr1";
+			label = "sndrBlock:usr1";
 			gpios = <&gpio7 8 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "cpu0";
 			default-state = "off";
 		};
 
 		led@2 {
-			label = "beagle-x15:usr2";
+			label = "sndrBlock:usr2";
 			gpios = <&gpio7 14 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "mmc0";
 			default-state = "off";
 		};
 
 		led@3 {
-			label = "beagle-x15:usr3";
+			label = "sndrBlock:usr3";
 			gpios = <&gpio7 15 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "ide-disk";
 			default-state = "off";
@@ -680,9 +673,6 @@
 	mbox_ipu2_ipc3x: mbox_ipu2_ipc3x {
 		status = "okay";
 	};
-	mbox_dsp2_ipc3x: mbox_dsp2_ipc3x {
-		status = "okay";
-	};
 };
 
 &mmu0_dsp1 {
@@ -690,14 +680,6 @@
 };
 
 &mmu1_dsp1 {
-	status = "okay";
-};
-
-&mmu0_dsp2 {
-	status = "okay";
-};
-
-&mmu1_dsp2 {
 	status = "okay";
 };
 
@@ -729,13 +711,6 @@
 	memory-region = <&dsp1_cma_pool>;
 	mboxes = <&mailbox5 &mbox_dsp1_ipc3x>;
 	timers = <&timer5>;
-};
-
-&dsp2 {
-	status = "okay";
-	memory-region = <&dsp2_cma_pool>;
-	mboxes = <&mailbox6 &mbox_dsp2_ipc3x>;
-	timers = <&timer6>;
 };
 
 &pruss1 {
@@ -771,4 +746,3 @@
 		status = "okay";
 	};
 };
-
