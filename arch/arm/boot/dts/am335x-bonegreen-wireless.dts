@@ -11,6 +11,7 @@
 #include "am335x-bone-common.dtsi"
 #include "am335x-bonegreen-common.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
+/* #include "am335x-bone-jtag.dtsi" */
 
 / {
 	model = "TI AM335x BeagleBone Green Wireless";
@@ -27,6 +28,10 @@
 		gpio = <&gpio0 26 0>;
 		enable-active-high;
 	};
+};
+
+&sgx {
+	status = "okay";
 };
 
 &am33xx_pinmux {
