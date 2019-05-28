@@ -1546,8 +1546,8 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	netif_tx_napi_add(ndev, &emac->napi_tx,
 			  emac_napi_tx_poll, NAPI_POLL_WEIGHT);
-	netif_tx_napi_add(ndev, &emac->napi_rx,
-			  emac_napi_rx_poll, NAPI_POLL_WEIGHT);
+	netif_napi_add(ndev, &emac->napi_rx,
+		       emac_napi_rx_poll, NAPI_POLL_WEIGHT);
 
 	return 0;
 

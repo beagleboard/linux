@@ -797,7 +797,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 		skb_put(skb, pkt_len);
 		skb->protocol = eth_type_trans(skb, ndev);
 		am65_cpsw_nuss_rx_csum(skb, csum_info);
-		netif_receive_skb(skb);
+		napi_gro_receive(&common->napi_rx, skb);
 
 		ndev_priv = netdev_priv(ndev);
 		stats = this_cpu_ptr(ndev_priv->stats);
@@ -852,10 +852,8 @@ static int am65_cpsw_nuss_rx_poll(struct napi_struct *napi_rx, int budget)
 
 	dev_dbg(common->dev, "%s num_rx:%d %d\n", __func__, num_rx, budget);
 
-	if (num_rx < budget) {
-		napi_complete(napi_rx);
+	if (num_rx < budget && napi_complete_done(napi_rx, num_rx))
 		enable_irq(common->rx_chns.irq);
-	}
 
 	return num_rx;
 }
@@ -1907,8 +1905,8 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 
 	netif_tx_napi_add(port->ndev, &common->napi_tx,
 			  am65_cpsw_nuss_tx_poll, NAPI_POLL_WEIGHT);
-	netif_tx_napi_add(port->ndev, &common->napi_rx,
-			  am65_cpsw_nuss_rx_poll, NAPI_POLL_WEIGHT);
+	netif_napi_add(port->ndev, &common->napi_rx,
+		       am65_cpsw_nuss_rx_poll, NAPI_POLL_WEIGHT);
 
 	common->pf_p0_rx_ptype_rrobin = true;
 	ret = register_netdev(port->ndev);
