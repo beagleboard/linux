@@ -150,6 +150,7 @@ struct brcmf_cfg80211_profile {
 	struct brcmf_wsec_key key[BRCMF_MAX_DEFAULT_KEYS];
 	enum brcmf_profile_fwsup use_fwsup;
 	bool is_ft;
+	bool is_okc;
 };
 
 /**
