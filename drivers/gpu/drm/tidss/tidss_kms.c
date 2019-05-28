@@ -18,14 +18,31 @@
 #include "tidss_plane.h"
 #include "tidss_v_display.h"
 
+static bool tidss_is_v_crtc(struct drm_crtc *crtc)
+{
+	int i;
+	struct drm_device *dev = crtc->dev;
+	struct tidss_device *tidss = dev->dev_private;
+
+	for (i = 0; i < tidss->num_v_crtcs; i++)
+		if (crtc == tidss->v_crtcs[i])
+			return true;
+	return false;
+}
+
 static void tidss_atomic_commit_tail(struct drm_atomic_state *old_state)
 {
 	struct drm_device *ddev = old_state->dev;
 	struct tidss_device *tidss = ddev->dev_private;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
+	int i;
 
 	dev_dbg(ddev->dev, "%s\n", __func__);
 
-	tidss->dispc_ops->runtime_get(tidss->dispc);
+	for_each_oldnew_crtc_in_state(old_state, crtc, old_crtc_state, new_crtc_state, i)
+		if (!tidss_is_v_crtc(crtc))
+			tidss->dispc_ops->runtime_get(tidss->dispc);
 
 	drm_atomic_helper_commit_modeset_disables(ddev, old_state);
 	drm_atomic_helper_commit_planes(ddev, old_state, 0);
@@ -36,7 +53,9 @@ static void tidss_atomic_commit_tail(struct drm_atomic_state *old_state)
 
 	drm_atomic_helper_cleanup_planes(ddev, old_state);
 
-	tidss->dispc_ops->runtime_put(tidss->dispc);
+	for_each_oldnew_crtc_in_state(old_state, crtc, old_crtc_state, new_crtc_state, i)
+		if (!tidss_is_v_crtc(crtc))
+			tidss->dispc_ops->runtime_put(tidss->dispc);
 }
 
 static const struct drm_mode_config_helper_funcs mode_config_helper_funcs = {
