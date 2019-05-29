@@ -260,6 +260,10 @@ static const struct tidss_features tidss_k2g_features = {
 static const struct tidss_features tidss_am6_features = {
 	.dispc_init = dispc7_init,
 };
+
+static const struct tidss_features tidss_j721e_features = {
+	.dispc_init = dispc7_init,
+};
 #endif
 static const struct of_device_id tidss_of_table[] = {
 #ifdef CONFIG_DRM_TIDSS_DSS6
@@ -267,6 +271,7 @@ static const struct of_device_id tidss_of_table[] = {
 #endif
 #ifdef CONFIG_DRM_TIDSS_DSS7
 	{ .compatible = "ti,am6-dss", .data = &tidss_am6_features },
+	{ .compatible = "ti,j721e-dss", .data = &tidss_j721e_features },
 #endif
 	{ }
 };

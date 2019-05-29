@@ -81,8 +81,52 @@ static const struct dispc7_features dispc7_am6_feats = {
 	},
 };
 
+static const struct dispc7_features dispc7_j721e_feats = {
+	.min_pclk = 1000,
+	.max_pclk = 200000000,
+
+	/* XXX: Scaling features are copied from AM6 and should be checked */
+	.scaling = {
+		.in_width_max_5tap_rgb = 1280,
+		.in_width_max_3tap_rgb = 2560,
+		.in_width_max_5tap_yuv = 2560,
+		.in_width_max_3tap_yuv = 4096,
+		.upscale_limit = 16,
+		.downscale_limit_5tap = 4,
+		.downscale_limit_3tap = 2,
+		/*
+		 * The max supported pixel inc value is 255. The value
+		 * of pixel inc is calculated like this: 1+(xinc-1)*bpp.
+		 * The maximum bpp of all formats supported by the HW
+		 * is 8. So the maximum supported xinc value is 32,
+		 * because 1+(32-1)*8 < 255 < 1+(33-1)*4.
+		 */
+		.xinc_max = 32,
+	},
+
+	.subrev = DSS7_J721E,
+
+	.num_vps = 4,
+	.vp_name = { "vp1", "vp2", "vp3", "vp4" },
+	.ovr_name = { "ovr1", "ovr2", "ovr3", "ovr4" },
+	.vpclk_name = { "vp1", "vp2", "vp3", "vp4" },
+	.vp_bus_type =	{ DISPC7_VP_DPI, DISPC7_VP_DPI,
+			  DISPC7_VP_DPI, DISPC7_VP_DPI, },
+	.vp_feat = { .color = {
+			.has_ctm = true,
+			.gamma_size = 1024,
+			.gamma_type = TIDSS_GAMMA_10BIT,
+		},
+	},
+	.num_planes = 4,
+	.vid_name = { "vid1", "vidl1", "vid2", "vidl2" },
+	.vid_lite = { 0, 1, 0, 1, },
+	.vid_order = { 1, 3, 0, 2 },
+};
+
 static const struct of_device_id dispc7_of_table[] = {
 	{ .compatible = "ti,am6-dss", .data = &dispc7_am6_feats },
+	{ .compatible = "ti,j721e-dss", .data = &dispc7_j721e_feats },
 	{ }
 };
 
@@ -120,6 +164,75 @@ static const struct of_device_id dispc7_of_table[] = {
 
 #define OVR_REG_FLD_MOD(dispc, ovr, idx, val, start, end) \
 	dispc7_ovr_write(dispc, ovr, idx, FLD_MOD(dispc7_ovr_read(dispc, ovr, idx), val, start, end))
+
+static const u16 tidss_am6_common_regs[DSS7_COMMON_REG_TABLE_LEN] = {
+	[DSS_REVISION_OFF] =			0x4,
+	[DSS_SYSCONFIG_OFF] =			0x8,
+	[DSS_SYSSTATUS_OFF] =			0x20,
+	[DISPC_IRQ_EOI_OFF] =			0x24,
+	[DISPC_IRQSTATUS_RAW_OFF] =		0x28,
+	[DISPC_IRQSTATUS_OFF] =			0x2c,
+	[DISPC_IRQENABLE_SET_OFF] =		0x30,
+	[DISPC_IRQENABLE_CLR_OFF] =		0x40,
+	[DISPC_VID_IRQENABLE_OFF] =		0x44,
+	[DISPC_VID_IRQSTATUS_OFF] =		0x58,
+	[DISPC_VP_IRQENABLE_OFF] =		0x70,
+	[DISPC_VP_IRQSTATUS_OFF] =		0x7c,
+
+	[WB_IRQENABLE_OFF] =			0x88,
+	[WB_IRQSTATUS_OFF] =			0x8c,
+
+	[DISPC_GLOBAL_MFLAG_ATTRIBUTE_OFF] =	0x90,
+	[DISPC_GLOBAL_OUTPUT_ENABLE_OFF] =	0x94,
+	[DISPC_GLOBAL_BUFFER_OFF] =		0x98,
+	[DSS_CBA_CFG_OFF] =			0x9c,
+	[DISPC_DBG_CONTROL_OFF] =		0xa0,
+	[DISPC_DBG_STATUS_OFF] =		0xa4,
+	[DISPC_CLKGATING_DISABLE_OFF] =		0xa8,
+	[DISPC_SECURE_DISABLE_OFF] =		0xac,
+};
+
+static const u16 tidss_j721e_common_regs[DSS7_COMMON_REG_TABLE_LEN] = {
+	[DSS_REVISION_OFF] =			0x4,
+	[DSS_SYSCONFIG_OFF] =			0x8,
+	[DSS_SYSSTATUS_OFF] =			0x20,
+	[DISPC_IRQ_EOI_OFF] =			0x80,
+	[DISPC_IRQSTATUS_RAW_OFF] =		0x28,
+	[DISPC_IRQSTATUS_OFF] =			0x2c,
+	[DISPC_IRQENABLE_SET_OFF] =		0x30,
+	[DISPC_IRQENABLE_CLR_OFF] =		0x34,
+	[DISPC_VID_IRQENABLE_OFF] =		0x38,
+	[DISPC_VID_IRQSTATUS_OFF] =		0x48,
+	[DISPC_VP_IRQENABLE_OFF] =		0x58,
+	[DISPC_VP_IRQSTATUS_OFF] =		0x68,
+
+	[WB_IRQENABLE_OFF] =			0x78,
+	[WB_IRQSTATUS_OFF] =			0x7c,
+
+	[DISPC_GLOBAL_MFLAG_ATTRIBUTE_OFF] =	0x98,
+	[DISPC_GLOBAL_OUTPUT_ENABLE_OFF] =	0x9c,
+	[DISPC_GLOBAL_BUFFER_OFF] =		0xa0,
+	[DSS_CBA_CFG_OFF] =			0xa4,
+	[DISPC_DBG_CONTROL_OFF] =		0xa8,
+	[DISPC_DBG_STATUS_OFF] =		0xac,
+	[DISPC_CLKGATING_DISABLE_OFF] =		0xb0,
+	[DISPC_SECURE_DISABLE_OFF] =		0x90,
+
+	[FBDC_REVISION_1_OFF] =			0xb8,
+	[FBDC_REVISION_2_OFF] =			0xbc,
+	[FBDC_REVISION_3_OFF] =			0xc0,
+	[FBDC_REVISION_4_OFF] =			0xc4,
+	[FBDC_REVISION_5_OFF] =			0xc8,
+	[FBDC_REVISION_6_OFF] =			0xcc,
+	[FBDC_COMMON_CONTROL_OFF] =		0xd0,
+	[FBDC_CONSTANT_COLOR_0_OFF] =		0xd4,
+	[FBDC_CONSTANT_COLOR_1_OFF] =		0xd8,
+	[DISPC_CONNECTIONS_OFF] =		0xe4,
+	[DISPC_MSS_VP1_OFF] =			0xe8,
+	[DISPC_MSS_VP3_OFF] =			0xec,
+};
+
+static const u16 *dispc7_common_regmap;
 
 struct dss_vp_data {
 	u32 *gamma_table;
@@ -450,6 +563,8 @@ static const struct dispc7_bus_format dispc7_bus_formats[] = {
 	{ MEDIA_BUS_FMT_RGB565_1X16,		16, DISPC7_VP_DPI, 0 },
 	{ MEDIA_BUS_FMT_RGB666_1X18,		18, DISPC7_VP_DPI, 0 },
 	{ MEDIA_BUS_FMT_RGB888_1X24,		24, DISPC7_VP_DPI, 0 },
+	{ MEDIA_BUS_FMT_RGB101010_1X30,		30, DISPC7_VP_DPI, 0 },
+	{ MEDIA_BUS_FMT_RGB121212_1X36,		36, DISPC7_VP_DPI, 0 },
 	{ MEDIA_BUS_FMT_RGB666_1X7X3_SPWG,	18, DISPC7_VP_OLDI, SPWG_18 },
 	{ MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,	24, DISPC7_VP_OLDI, SPWG_24 },
 	{ MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA,	24, DISPC7_VP_OLDI, JEIDA_24 },
@@ -854,9 +969,9 @@ static int dispc7_vp_set_clk_rate(struct dispc_device *dispc, u32 hw_videoport,
 }
 
 /* OVR */
-static void dispc7_ovr_set_plane(struct dispc_device *dispc,
-				 u32 hw_plane, u32 hw_videoport,
-				 u32 x, u32 y, u32 zpos)
+static void dispc7_am6_ovr_set_plane(struct dispc_device *dispc,
+				     u32 hw_plane, u32 hw_videoport,
+				     u32 x, u32 y, u32 zpos)
 {
 	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(zpos),
 			hw_plane, 4, 1);
@@ -864,6 +979,37 @@ static void dispc7_ovr_set_plane(struct dispc_device *dispc,
 			x, 17, 6);
 	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(zpos),
 			y, 30, 19);
+}
+
+static void dispc7_j721e_ovr_set_plane(struct dispc_device *dispc,
+				      u32 hw_plane, u32 hw_videoport,
+				      u32 x, u32 y, u32 zpos)
+{
+	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES(zpos),
+			hw_plane, 4, 1);
+	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES2(zpos),
+			x, 13, 0);
+	OVR_REG_FLD_MOD(dispc, hw_videoport, DISPC_OVR_ATTRIBUTES2(zpos),
+			y, 29, 16);
+}
+
+static void dispc7_ovr_set_plane(struct dispc_device *dispc,
+				 u32 hw_plane, u32 hw_videoport,
+				 u32 x, u32 y, u32 zpos)
+{
+	switch (dispc->feat->subrev) {
+	case DSS7_AM6:
+		dispc7_am6_ovr_set_plane(dispc, hw_plane, hw_videoport,
+					 x, y, zpos);
+		break;
+	case DSS7_J721E:
+		dispc7_j721e_ovr_set_plane(dispc, hw_plane, hw_videoport,
+					  x, y, zpos);
+		break;
+	default:
+		WARN_ON(1);
+		break;
+	}
 }
 
 static void dispc7_ovr_enable_plane(struct dispc_device *dispc,
@@ -1680,6 +1826,14 @@ static void dispc7_initial_config(struct dispc_device *dispc)
 	dispc7_mflag_setup(dispc);
 	dispc7_plane_init(dispc);
 	dispc7_vp_init(dispc);
+
+	/* Note: Harcdoded DPI routing on J721E for now */
+	if (dispc->feat->subrev == DSS7_J721E) {
+		dispc7_write(dispc, DISPC_CONNECTIONS,
+			     FLD_VAL(2, 3, 0) |		/* VP1 to DPI0 */
+			     FLD_VAL(8, 7, 4)		/* VP3 to DPI1 */
+			    );
+	}
 }
 
 static int dispc7_get_num_planes(struct dispc_device *dispc)
@@ -2176,6 +2330,7 @@ int dispc7_init(struct tidss_device *tidss)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dispc_device *dispc;
 	const struct dispc7_features *feat;
+	const char *common_name;
 	unsigned int i;
 	int r = 0;
 
@@ -2195,7 +2350,21 @@ int dispc7_init(struct tidss_device *tidss)
 	dispc->dev = dev;
 	dispc->feat = feat;
 
-	r = dispc7_iomap_resource(pdev, "common", &dispc->base_common);
+	switch (feat->subrev) {
+	case DSS7_AM6:
+		dispc7_common_regmap = tidss_am6_common_regs;
+		common_name = "common";
+		break;
+	case DSS7_J721E:
+		dispc7_common_regmap = tidss_j721e_common_regs;
+		common_name = "common_m";
+		break;
+	default:
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	r = dispc7_iomap_resource(pdev, common_name, &dispc->base_common);
 	if (r)
 		return r;
 
@@ -2240,11 +2409,14 @@ int dispc7_init(struct tidss_device *tidss)
 			return -ENOMEM;
 	}
 
-	dispc->syscon = syscon_regmap_lookup_by_phandle(dev->of_node, "syscon");
-	if (IS_ERR(dispc->syscon)) {
-		dev_err(dev, "%s: syscon_regmap_lookup_by_phandle failed %ld\n",
-			__func__, PTR_ERR(dispc->syscon));
-		return PTR_ERR(dispc->syscon);
+	if (feat->subrev == DSS7_AM6) {
+		dispc->syscon = syscon_regmap_lookup_by_phandle(dev->of_node,
+								"syscon");
+		if (IS_ERR(dispc->syscon)) {
+			dev_err(dev, "%s: syscon_regmap_lookup_by_phandle failed %ld\n",
+				__func__, PTR_ERR(dispc->syscon));
+			return PTR_ERR(dispc->syscon);
+		}
 	}
 
 	dispc->fclk = devm_clk_get(dev, "fck");
