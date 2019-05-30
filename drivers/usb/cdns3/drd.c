@@ -16,9 +16,6 @@
 #include "drd.h"
 #include "core.h"
 
-static int cdns3_drd_switch_gadget(struct cdns3 *cdns, int on);
-static int cdns3_drd_switch_host(struct cdns3 *cdns, int on);
-
 /**
  * cdns3_set_mode - change mode of OTG Core
  * @cdns: pointer to context structure
@@ -35,12 +32,8 @@ int cdns3_set_mode(struct cdns3 *cdns, enum usb_dr_mode mode)
 
 	switch (mode) {
 	case USB_DR_MODE_PERIPHERAL:
-		dev_dbg(cdns->dev, "Set controller to Gadget mode\n");
-		ret = cdns3_drd_switch_gadget(cdns, 1);
 		break;
 	case USB_DR_MODE_HOST:
-		dev_dbg(cdns->dev, "Set controller to Host mode\n");
-		ret = cdns3_drd_switch_host(cdns, 1);
 		break;
 	case USB_DR_MODE_OTG:
 		dev_dbg(cdns->dev, "Set controller to OTG mode\n");
@@ -126,7 +119,7 @@ static void cdns3_otg_enable_irq(struct cdns3 *cdns)
  *
  * Returns 0 on success otherwise negative errno
  */
-static int cdns3_drd_switch_host(struct cdns3 *cdns, int on)
+int cdns3_drd_switch_host(struct cdns3 *cdns, int on)
 {
 	int ret;
 	u32 reg = OTGCMD_OTG_DIS;
@@ -163,7 +156,7 @@ static int cdns3_drd_switch_host(struct cdns3 *cdns, int on)
  *
  * Returns 0 on success otherwise negative errno
  */
-static int cdns3_drd_switch_gadget(struct cdns3 *cdns, int on)
+int cdns3_drd_switch_gadget(struct cdns3 *cdns, int on)
 {
 	int ret;
 	u32 reg = OTGCMD_OTG_DIS;
@@ -216,14 +209,6 @@ static int cdns3_init_otg_mode(struct cdns3 *cdns)
 	if (ret)
 		return ret;
 
-	if (cdns3_is_host(cdns))
-		ret = cdns3_drd_switch_host(cdns, 1);
-	else
-		ret = cdns3_drd_switch_gadget(cdns, 1);
-
-	if (ret)
-		return ret;
-
 	cdns3_otg_enable_irq(cdns);
 	return ret;
 }
@@ -240,9 +225,6 @@ int cdns3_drd_update_mode(struct cdns3 *cdns)
 
 	if (cdns->desired_dr_mode == cdns->current_dr_mode)
 		return ret;
-
-	cdns3_drd_switch_gadget(cdns, 0);
-	cdns3_drd_switch_host(cdns, 0);
 
 	switch (cdns->desired_dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
@@ -372,5 +354,5 @@ int cdns3_drd_init(struct cdns3 *cdns)
 
 int cdns3_drd_exit(struct cdns3 *cdns)
 {
-	return cdns3_drd_switch_host(cdns, 0);
+	return 0;
 }

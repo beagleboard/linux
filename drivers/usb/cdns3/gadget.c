@@ -61,6 +61,7 @@
 #include <linux/module.h>
 
 #include "core.h"
+#include "drd.h"
 #include "gadget-export.h"
 #include "gadget.h"
 #include "trace.h"
@@ -2264,6 +2265,7 @@ void cdns3_gadget_exit(struct cdns3 *cdns)
 	kfree(priv_dev->zlp_buf);
 	kfree(priv_dev);
 	cdns->gadget_dev = NULL;
+	cdns3_drd_switch_gadget(cdns, 0);
 }
 
 static int cdns3_gadget_start(struct cdns3 *cdns)
@@ -2372,6 +2374,7 @@ static int __cdns3_gadget_init(struct cdns3 *cdns)
 	struct cdns3_device *priv_dev;
 	int ret = 0;
 
+	cdns3_drd_switch_gadget(cdns, 1);
 	pm_runtime_get_sync(cdns->dev);
 
 	ret = cdns3_gadget_start(cdns);

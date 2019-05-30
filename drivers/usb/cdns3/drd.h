@@ -159,5 +159,8 @@ int cdns3_get_id(struct cdns3 *cdns);
 int cdns3_drd_init(struct cdns3 *cdns);
 int cdns3_drd_exit(struct cdns3 *cdns);
 int cdns3_drd_update_mode(struct cdns3 *cdns);
+int cdns3_drd_switch_gadget(struct cdns3 *cdns, int on);
+int cdns3_drd_switch_host(struct cdns3 *cdns, int on);
+
 
 #endif /* __LINUX_CDNS3_DRD */
