@@ -325,30 +325,64 @@ static int cdns3_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, cdns);
 
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "host");
 	if (!res) {
-		dev_err(dev, "missing IRQ\n");
-		return -ENODEV;
+		platform_get_resource_byname(pdev, IORESOURCE_IRQ, 0);
+		if (!res) {
+			dev_err(dev, "missing host IRQ\n");
+			return -ENODEV;
+		}
 	}
-	cdns->irq = res->start;
 
 	cdns->xhci_res[0] = *res;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "xhci");
-	if (!res)
+	if (!res) {
+		dev_err(dev, "couldn't get xhci resource\n");
 		return -ENXIO;
+	}
 
 	cdns->xhci_res[1] = *res;
 
+	cdns->dev_irq = platform_get_irq_byname(pdev, "peripheral");
+	if (cdns->dev_irq == -EPROBE_DEFER)
+		return cdns->dev_irq;
+
+	if (cdns->dev_irq < 0) {
+		cdns->dev_irq = platform_get_irq(pdev, 0);
+		if (cdns->dev_irq < 0) {
+			if (cdns->dev_irq != -EPROBE_DEFER)
+				dev_err(dev, "couldn't get peripheral irq\n");
+			return cdns->dev_irq;
+		}
+	}
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dev");
 	regs = devm_ioremap_resource(dev, res);
-	if (IS_ERR(regs))
+	if (IS_ERR(regs)) {
+		dev_err(dev, "couldn't iomap dev resource\n");
 		return PTR_ERR(regs);
+	}
 	cdns->dev_regs	= regs;
 
+	cdns->otg_irq = platform_get_irq_byname(pdev, "otg");
+	if (cdns->otg_irq == -EPROBE_DEFER)
+		return cdns->otg_irq;
+
+	if (cdns->otg_irq < 0) {
+		cdns->otg_irq = platform_get_irq(pdev, 0);
+		if (cdns->otg_irq < 0) {
+			if (cdns->otg_irq != -EPROBE_DEFER)
+				dev_err(dev, "couldn't get otg irq\n");
+			return cdns->otg_irq;
+		}
+	}
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "otg");
-	if (!res)
+	if (!res) {
+		dev_err(dev, "couldn't get otg resource\n");
 		return -ENXIO;
+	}
 
 	cdns->otg_res = *res;
 

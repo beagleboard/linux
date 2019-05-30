@@ -52,7 +52,8 @@ struct cdns3_role_driver {
  * @otg_v0_regs: pointer to base of v0 otg registers
  * @otg_v1_regs: pointer to base of v1 otg registers
  * @otg_regs: pointer to base of otg registers
- * @irq: irq number for controller
+ * @otg_irq: irq number for otg controller
+ * @dev_irq: irq number for device controller
  * @roles: array of supported roles for this controller
  * @role: current role
  * @host_dev: the child host device pointer for cdns3 core
@@ -94,7 +95,8 @@ struct cdns3 {
 #define CDNS3_CONTROLLER_V1	1
 	u32				version;
 
-	int				irq;
+	int				otg_irq;
+	int				dev_irq;
 	struct cdns3_role_driver	*roles[CDNS3_ROLE_END];
 	enum cdns3_roles		role;
 	struct platform_device		*host_dev;

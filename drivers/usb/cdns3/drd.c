@@ -135,7 +135,7 @@ static int cdns3_drd_switch_host(struct cdns3 *cdns, int on)
 	if (on) {
 		writel(OTGCMD_HOST_BUS_REQ | reg, &cdns->otg_regs->cmd);
 
-		dev_dbg(cdns->dev, "Waiting till Host mode is turned on\n");
+		dev_info(cdns->dev, "Waiting till Host mode is turned on\n");
 		ret = cdns3_handshake(&cdns->otg_regs->sts, OTGSTS_XHCI_READY,
 				      OTGSTS_XHCI_READY, 100000);
 
@@ -170,7 +170,7 @@ static int cdns3_drd_switch_gadget(struct cdns3 *cdns, int on)
 	if (on) {
 		writel(OTGCMD_DEV_BUS_REQ | reg, &cdns->otg_regs->cmd);
 
-		dev_dbg(cdns->dev, "Waiting till Device mode is turned on\n");
+		dev_info(cdns->dev, "Waiting till Device mode is turned on\n");
 
 		ret = cdns3_handshake(&cdns->otg_regs->sts, OTGSTS_DEV_READY,
 				      OTGSTS_DEV_READY, 100000);
@@ -347,12 +347,15 @@ int cdns3_drd_init(struct cdns3 *cdns)
 	cdns->desired_dr_mode = cdns->dr_mode;
 	cdns->current_dr_mode = USB_DR_MODE_UNKNOWN;
 
-	ret = devm_request_threaded_irq(cdns->dev, cdns->irq, cdns3_drd_irq,
+	ret = devm_request_threaded_irq(cdns->dev, cdns->otg_irq,
+					cdns3_drd_irq,
 					NULL, IRQF_SHARED,
 					dev_name(cdns->dev), cdns);
 
-	if (ret)
+	if (ret) {
+		dev_err(cdns->dev, "couldn't get otg_irq\n");
 		return ret;
+	}
 
 	state = readl(&cdns->otg_regs->sts);
 	if (OTGSTS_OTG_NRDY(state) != 0) {

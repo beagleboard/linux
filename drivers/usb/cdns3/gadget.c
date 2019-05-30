@@ -2237,7 +2237,7 @@ void cdns3_gadget_exit(struct cdns3 *cdns)
 
 	cdns3_gadget_disable(cdns);
 
-	devm_free_irq(cdns->dev, cdns->irq, cdns);
+	devm_free_irq(cdns->dev, cdns->dev_irq, cdns);
 
 	pm_runtime_mark_last_busy(cdns->dev);
 	pm_runtime_put_autosuspend(cdns->dev);
@@ -2379,7 +2379,7 @@ static int __cdns3_gadget_init(struct cdns3 *cdns)
 		return ret;
 
 	priv_dev = cdns->gadget_dev;
-	ret = devm_request_threaded_irq(cdns->dev, cdns->irq,
+	ret = devm_request_threaded_irq(cdns->dev, cdns->dev_irq,
 					cdns3_device_irq_handler,
 					cdns3_device_thread_irq_handler,
 					IRQF_SHARED, dev_name(cdns->dev), cdns);
