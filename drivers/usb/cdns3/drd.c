@@ -363,8 +363,6 @@ int cdns3_drd_init(struct cdns3 *cdns)
 		return -ENODEV;
 	}
 
-	ret = cdns3_drd_update_mode(cdns);
-
 	return ret;
 }
 
