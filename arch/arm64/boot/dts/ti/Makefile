@@ -19,6 +19,8 @@ dtb-$(CONFIG_ARCH_K3_AM6_SOC) += k3-am654-base-board.dtb \
 	k3-am654-evm-csi2-ov5640.dtbo \
 	k3-am654-idk.dtbo
 
+dtb-$(CONFIG_ARCH_K3_J721E_SOC) += k3-j721e-common-proc-board.dtb
+
 $(obj)/%.dtbo: $(src)/%.dtso FORCE
 	$(call if_changed_dep,dtc)
 
