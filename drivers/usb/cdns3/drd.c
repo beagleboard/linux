@@ -139,8 +139,10 @@ static int cdns3_drd_switch_host(struct cdns3 *cdns, int on)
 		ret = cdns3_handshake(&cdns->otg_regs->sts, OTGSTS_XHCI_READY,
 				      OTGSTS_XHCI_READY, 100000);
 
-		if (ret)
+		if (ret) {
+			dev_err(cdns->dev, "timeout waiting for xhci_ready\n");
 			return ret;
+		}
 	} else {
 		writel(OTGCMD_HOST_BUS_DROP | OTGCMD_DEV_BUS_DROP |
 		       OTGCMD_DEV_POWER_OFF | OTGCMD_HOST_POWER_OFF,
@@ -175,8 +177,10 @@ static int cdns3_drd_switch_gadget(struct cdns3 *cdns, int on)
 		ret = cdns3_handshake(&cdns->otg_regs->sts, OTGSTS_DEV_READY,
 				      OTGSTS_DEV_READY, 100000);
 
-		if (ret)
+		if (ret) {
+			dev_err(cdns->dev, "timeout waiting for dev_ready\n");
 			return ret;
+		}
 	} else {
 		/*
 		 * driver should wait at least 10us after disabling Device
