@@ -72,6 +72,15 @@ int cdns3_get_id(struct cdns3 *cdns)
 	return id;
 }
 
+int cdns3_get_vbus(struct cdns3 *cdns)
+{
+	int vbus;
+
+	vbus = !!(readl(&cdns->otg_regs->sts) & OTGSTS_VBUS_VALID);
+	dev_dbg(cdns->dev, "OTG VBUS: %d", vbus);
+	return vbus;
+}
+
 int cdns3_is_host(struct cdns3 *cdns)
 {
 	if (cdns->current_dr_mode == USB_DR_MODE_HOST)
@@ -271,10 +280,19 @@ static irqreturn_t cdns3_drd_irq(int irq, void *data)
 		dev_dbg(cdns->dev, "OTG IRQ: new ID: %d\n",
 			cdns3_get_id(cdns));
 
-		queue_work(system_freezable_wq, &cdns->role_switch_wq);
+		ret = IRQ_HANDLED;
+	}
+
+	if (reg & OTGIEN_VBUSVALID_RISE_INT ||
+	    reg & OTGIEN_VBUSVALID_FALL_INT) {
+		dev_dbg(cdns->dev, "OTG IRQ: new VBUS: %d\n",
+			cdns3_get_vbus(cdns));
 
 		ret = IRQ_HANDLED;
 	}
+
+	if (ret == IRQ_HANDLED)
+		queue_work(system_freezable_wq, &cdns->role_switch_wq);
 
 	writel(~0, &cdns->otg_regs->ivect);
 	return ret;

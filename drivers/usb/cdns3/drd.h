@@ -156,6 +156,7 @@ struct cdns3_otg_common_regs {
 int cdns3_is_host(struct cdns3 *cdns);
 int cdns3_is_device(struct cdns3 *cdns);
 int cdns3_get_id(struct cdns3 *cdns);
+int cdns3_get_vbus(struct cdns3 *cdns);
 int cdns3_drd_init(struct cdns3 *cdns);
 int cdns3_drd_exit(struct cdns3 *cdns);
 int cdns3_drd_update_mode(struct cdns3 *cdns);

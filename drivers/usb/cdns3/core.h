@@ -15,7 +15,8 @@
 
 struct cdns3;
 enum cdns3_roles {
-	CDNS3_ROLE_HOST = 0,
+	CDNS3_ROLE_IDLE = 0,
+	CDNS3_ROLE_HOST,
 	CDNS3_ROLE_GADGET,
 	CDNS3_ROLE_END,
 };

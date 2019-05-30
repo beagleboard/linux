@@ -103,31 +103,43 @@ void cdns3_role_stop(struct cdns3 *cdns)
 	mutex_unlock(&cdns->mutex);
 }
 
-/*
- * cdns->role gets from cdns3_get_initial_role, and this API tells role at the
- * runtime.
- * If both roles are supported, the role is selected based on vbus/id.
- * It could be read from OTG register or external connector.
- * If only single role is supported, only one role structure
- * is allocated, cdns->roles[CDNS3_ROLE_HOST] or cdns->roles[CDNS3_ROLE_GADGET].
- */
-static enum cdns3_roles cdns3_get_initial_role(struct cdns3 *cdns)
-{
-	if (cdns->roles[CDNS3_ROLE_HOST] && cdns->roles[CDNS3_ROLE_GADGET]) {
-		if (cdns3_is_host(cdns))
-			return CDNS3_ROLE_HOST;
-		if (cdns3_is_device(cdns))
-			return CDNS3_ROLE_GADGET;
-	}
-	return cdns->roles[CDNS3_ROLE_HOST]
-		? CDNS3_ROLE_HOST
-		: CDNS3_ROLE_GADGET;
-}
-
 static void cdns3_exit_roles(struct cdns3 *cdns)
 {
 	cdns3_role_stop(cdns);
 	cdns3_drd_exit(cdns);
+}
+
+enum cdns3_roles cdsn3_get_real_role(struct cdns3 *cdns);
+
+static int cdns3_idle_role_start(struct cdns3 *cnds)
+{
+	/* Hold PHY in RESET */
+	return 0;
+}
+
+static void cdns3_idle_role_stop(struct cdns3 *cnds)
+{
+	/* Program Lane swap and bring PHY out of RESET */
+}
+
+static int cdns3_idle_init(struct cdns3 *cdns)
+{
+	struct cdns3_role_driver *rdrv;
+
+	rdrv = devm_kzalloc(cdns->dev, sizeof(*rdrv), GFP_KERNEL);
+	if (!rdrv)
+		return -ENOMEM;
+
+	rdrv->start = cdns3_idle_role_start;
+	rdrv->stop = cdns3_idle_role_stop;
+	rdrv->state = CDNS3_ROLE_STATE_INACTIVE;
+	rdrv->suspend = NULL;
+	rdrv->resume = NULL;
+	rdrv->name = "idle";
+
+	cdns->roles[CDNS3_ROLE_IDLE] = rdrv;
+
+	return 0;
 }
 
 /**
@@ -178,6 +190,10 @@ static int cdns3_core_init_role(struct cdns3 *cdns)
 
 	dr_mode = best_dr_mode;
 
+	ret = cdns3_idle_init(cdns);
+	if (ret)
+		return ret;
+
 	if (dr_mode == USB_DR_MODE_OTG || dr_mode == USB_DR_MODE_HOST) {
 		ret = cdns3_host_init(cdns);
 		if (ret) {
@@ -207,7 +223,7 @@ static int cdns3_core_init_role(struct cdns3 *cdns)
 	if (ret)
 		goto err;
 
-	cdns->role = cdns3_get_initial_role(cdns);
+	cdns->role = cdsn3_get_real_role(cdns);
 
 	ret = cdns3_role_start(cdns, cdns->role);
 	if (ret) {
@@ -230,19 +246,54 @@ err:
  */
 enum cdns3_roles cdsn3_get_real_role(struct cdns3 *cdns)
 {
-	enum cdns3_roles role = CDNS3_ROLE_END;
+	enum cdns3_roles role;
+	int id, vbus;
 
-	if (cdns->current_dr_mode == USB_DR_MODE_OTG) {
-		if (cdns3_get_id(cdns))
-			role = CDNS3_ROLE_GADGET;
-		else
+	if (cdns->current_dr_mode != USB_DR_MODE_OTG)
+		goto not_otg;
+
+	id = cdns3_get_id(cdns);
+	vbus = cdns3_get_vbus(cdns);
+
+	dev_info(cdns->dev, "id: %d, vbus: %d\n", id, vbus);
+	/* Role change state machine
+	 * Inputs: ID, VBUS
+	 * Previous state: cdns->role
+	 * Next state: role
+	 */
+
+	role = cdns->role;
+	switch (role) {
+	case CDNS3_ROLE_IDLE: /* from IDLE, we can change to HOST or GADGET */
+		if (!id)
 			role = CDNS3_ROLE_HOST;
-	} else {
-		if (cdns3_is_host(cdns))
-			role = CDNS3_ROLE_HOST;
-		if (cdns3_is_device(cdns))
+		else if (vbus)
 			role = CDNS3_ROLE_GADGET;
+		break;
+
+	case CDNS3_ROLE_HOST: /* from HOST, we can only change to IDLE */
+		if (id)
+			role = CDNS3_ROLE_IDLE;
+		break;
+
+	case CDNS3_ROLE_GADGET: /* from GADGET, we can only change to IDLE */
+		if (!vbus)
+			role = CDNS3_ROLE_IDLE;
+		break;
+	case CDNS3_ROLE_END:	/* only at initialization, move to IDLE */
+		role = CDNS3_ROLE_IDLE;
+		break;
 	}
+
+	dev_info(cdns->dev, "role %d -> %d\n", cdns->role, role);
+
+	return role;
+
+not_otg:
+	if (cdns3_is_host(cdns))
+		role = CDNS3_ROLE_HOST;
+	if (cdns3_is_device(cdns))
+		role = CDNS3_ROLE_GADGET;
 
 	return role;
 }
