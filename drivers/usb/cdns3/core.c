@@ -392,7 +392,18 @@ static int cdns3_probe(struct platform_device *pdev)
 	if (IS_ERR(cdns->phy))
 		return PTR_ERR(cdns->phy);
 
-	phy_init(cdns->phy);
+	ret = phy_init(cdns->phy);
+	if (ret) {
+		dev_err(dev, "phy_init error\n");
+		return ret;
+	}
+
+	ret = phy_power_on(cdns->phy);
+	if (ret) {
+		dev_err(dev, "phy_power_on error\n");
+		phy_exit(cdns->phy);
+		return ret;
+	}
 
 	INIT_WORK(&cdns->role_switch_wq, cdns3_role_switch);
 
@@ -422,6 +433,7 @@ static int cdns3_probe(struct platform_device *pdev)
 	return 0;
 
 err:
+	phy_power_off(cdns->phy);
 	phy_exit(cdns->phy);
 	return ret;
 }
@@ -441,6 +453,7 @@ static int cdns3_remove(struct platform_device *pdev)
 	pm_runtime_put_noidle(&pdev->dev);
 	cdns3_debugfs_exit(cdns);
 	cdns3_exit_roles(cdns);
+	phy_power_off(cdns->phy);
 	phy_exit(cdns->phy);
 	return 0;
 }
