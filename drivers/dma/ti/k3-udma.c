@@ -39,7 +39,8 @@ struct udma_static_tr {
 	u16 bstcnt; /* RPSTR1 */
 };
 
-#define K3_UDMA_MAX_RFLOWS 1024
+#define K3_UDMA_MAX_RFLOWS		1024
+#define K3_UDMA_DEFAULT_RING_SIZE	16
 
 struct udma_chan;
 
@@ -115,20 +116,6 @@ struct udma_dev {
 	u32 psil_base;
 };
 
-/*
- * Slave RX scatter gather workaround:
- * We need to use single continuous buffer if the original buffer is scattered
- */
-struct udma_rx_sg_workaround {
-	bool in_use;
-
-	struct scatterlist *sgl;
-	unsigned int sglen;
-	size_t total_len;
-
-	struct scatterlist single_sg;
-};
-
 struct udma_hwdesc {
 	size_t cppi5_desc_size;
 	void *cppi5_desc_vaddr;
@@ -152,9 +139,6 @@ struct udma_desc {
 	unsigned int sglen;
 	unsigned int desc_idx; /* Only used for cyclic in packet mode */
 	unsigned int tr_idx;
-
-	/* for slave_sg RX workaround */
-	struct udma_rx_sg_workaround rx_sg_wa;
 
 	u32 metadata_size;
 	void *metadata; /* pointer to provided metadata buffer (EPIP, PSdata) */
@@ -409,11 +393,8 @@ static inline struct udma_desc *udma_udma_desc_from_paddr(struct udma_chan *uc,
 	return d;
 }
 
-static void udma_free_hwdesc(struct virt_dma_desc *vd)
+static void udma_free_hwdesc(struct udma_chan *uc, struct udma_desc *d)
 {
-	struct udma_chan *uc = to_udma_chan(vd->tx.chan);
-	struct udma_desc *d = to_udma_desc(&vd->tx);
-
 	if (uc->use_dma_pool) {
 		int i;
 
@@ -428,19 +409,13 @@ static void udma_free_hwdesc(struct virt_dma_desc *vd)
 			d->hwdesc[i].cppi5_desc_vaddr = NULL;
 		}
 	} else if (d->hwdesc[0].cppi5_desc_vaddr) {
-		struct udma_dev *ud = to_udma_dev(vd->tx.chan->device);
+		struct udma_dev *ud = uc->ud;
 
 		dma_free_coherent(ud->dev, d->hwdesc[0].cppi5_desc_size,
 				  d->hwdesc[0].cppi5_desc_vaddr,
 				  d->hwdesc[0].cppi5_desc_paddr);
 
 		d->hwdesc[0].cppi5_desc_vaddr = NULL;
-	}
-
-	if (d->rx_sg_wa.in_use) {
-		dma_unmap_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-			     DMA_FROM_DEVICE);
-		kfree(sg_virt(&d->rx_sg_wa.single_sg));
 	}
 }
 
@@ -456,11 +431,10 @@ static void udma_purge_desc_work(struct work_struct *work)
 	spin_unlock_irqrestore(&ud->lock, flags);
 
 	list_for_each_entry_safe(vd, _vd, &head, node) {
-		struct udma_desc *d;
+		struct udma_chan *uc = to_udma_chan(vd->tx.chan);
+		struct udma_desc *d = to_udma_desc(&vd->tx);
 
-		d = to_udma_desc(&vd->tx);
-
-		udma_free_hwdesc(vd);
+		udma_free_hwdesc(uc, d);
 		list_del(&vd->node);
 		kfree(d);
 	}
@@ -481,7 +455,7 @@ static void udma_desc_free(struct virt_dma_desc *vd)
 		uc->terminated_desc = NULL;
 
 	if (uc->use_dma_pool) {
-		udma_free_hwdesc(&d->vd);
+		udma_free_hwdesc(uc, d);
 		kfree(d);
 		return;
 	}
@@ -650,7 +624,8 @@ static void udma_reset_rings(struct udma_chan *uc)
 	}
 
 	if (ring1)
-		k3_ringacc_ring_reset_dma(ring1, 0);
+		k3_ringacc_ring_reset_dma(ring1,
+					  k3_ringacc_ring_get_occ(ring1));
 	if (ring2)
 		k3_ringacc_ring_reset(ring2);
 
@@ -747,10 +722,10 @@ static inline int udma_reset_chan(struct udma_chan *uc, bool hard)
 
 static inline void udma_start_desc(struct udma_chan *uc)
 {
-	if (uc->cyclic && uc->pkt_mode) {
+	if (uc->pkt_mode && (uc->cyclic || uc->dir == DMA_DEV_TO_MEM)) {
 		int i;
 
-		/* Push all descriptors to ring for cyclic packet mode */
+		/* Push all descriptors to ring for packet mode cyclic or RX */
 		for (i = 0; i < uc->desc->sglen; i++)
 			udma_push_to_ring(uc, i);
 	} else {
@@ -1340,7 +1315,7 @@ static int udma_alloc_tx_resources(struct udma_chan *uc)
 	}
 
 	memset(&ring_cfg, 0, sizeof(ring_cfg));
-	ring_cfg.size = 16;
+	ring_cfg.size = K3_UDMA_DEFAULT_RING_SIZE;
 	ring_cfg.elm_size = K3_RINGACC_RING_ELSIZE_8;
 	ring_cfg.mode = K3_RINGACC_RING_MODE_MESSAGE;
 
@@ -1417,11 +1392,17 @@ static int udma_alloc_rx_resources(struct udma_chan *uc)
 	}
 
 	memset(&ring_cfg, 0, sizeof(ring_cfg));
-	ring_cfg.size = 16;
+
+	if (uc->pkt_mode)
+		ring_cfg.size = SG_MAX_SEGMENTS;
+	else
+		ring_cfg.size = K3_UDMA_DEFAULT_RING_SIZE;
+
 	ring_cfg.elm_size = K3_RINGACC_RING_ELSIZE_8;
 	ring_cfg.mode = K3_RINGACC_RING_MODE_MESSAGE;
 
 	ret = k3_ringacc_ring_cfg(uc->rchan->fd_ring, &ring_cfg);
+	ring_cfg.size = K3_UDMA_DEFAULT_RING_SIZE;
 	ret |= k3_ringacc_ring_cfg(uc->rchan->r_ring, &ring_cfg);
 
 	if (ret)
@@ -2023,7 +2004,14 @@ static inline int udma_configure_statictr(struct udma_chan *uc,
 	}
 
 	d->static_tr.elcnt = elcnt;
-	if (uc->pkt_mode) {
+
+	/*
+	 * PDMA must to close the packet when the channel is in packet mode.
+	 * For TR mode when the channel is not cyclic we also need PDMA to close
+	 * the packet otherwise the transfer will stall because PDMA holds on
+	 * the data it has received from the peripheral.
+	 */
+	if (uc->pkt_mode || !uc->cyclic) {
 		unsigned int div = dev_width * elcnt;
 
 		if (uc->cyclic)
@@ -2054,43 +2042,6 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 	if (!d)
 		return NULL;
 
-	if (dir == DMA_DEV_TO_MEM && sglen > 1) {
-		void *buffer;
-		int ret;
-		size_t total_len = 0;
-
-		/* Count the total length of the receive SG buffer */
-		for_each_sg(sgl, sgent, sglen, i)
-			total_len += sg_dma_len(sgent);
-
-		buffer = kzalloc(total_len, GFP_ATOMIC);
-		if (!buffer) {
-			kfree(d);
-			return NULL;
-		}
-
-		sg_init_table(&d->rx_sg_wa.single_sg, 1);
-		sg_set_buf(&d->rx_sg_wa.single_sg, buffer, total_len);
-		ret = dma_map_sg(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-				 DMA_FROM_DEVICE);
-		if (ret != 1) {
-			dev_err(uc->ud->dev,
-				"mapping of temp buffer error (%d)\n", ret);
-			kfree(buffer);
-			kfree(d);
-			return NULL;
-		}
-
-		d->rx_sg_wa.in_use = true;
-
-		d->rx_sg_wa.sgl = sgl;
-		d->rx_sg_wa.sglen = sglen;
-		d->rx_sg_wa.total_len = total_len;
-
-		sgl = &d->rx_sg_wa.single_sg;
-		sglen = 1;
-	}
-
 	d->sglen = sglen;
 	d->hwdesc_count = sglen;
 
@@ -2112,7 +2063,7 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 			dev_err(uc->ud->dev,
 				"descriptor%d allocation failed\n", i);
 
-			udma_free_hwdesc(&d->vd);
+			udma_free_hwdesc(uc, d);
 			kfree(d);
 			return NULL;
 		}
@@ -2139,14 +2090,15 @@ static struct udma_desc *udma_prep_slave_sg_pkt(
 			cppi5_hdesc_link_hbdesc(h_desc,
 						hwdesc->cppi5_desc_paddr);
 
-		h_desc = desc;
+		if (dir == DMA_MEM_TO_DEV)
+			h_desc = desc;
 	}
 
 	if (d->residue >= SZ_4M) {
 		dev_err(uc->ud->dev,
 			"%s: Transfer size %u is over the supported 4M range\n",
 			__func__, d->residue);
-		udma_free_hwdesc(&d->vd);
+		udma_free_hwdesc(uc, d);
 		kfree(d);
 		return NULL;
 	}
@@ -2302,7 +2254,7 @@ static struct dma_async_tx_descriptor *udma_prep_slave_sg(
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
 
-		udma_free_hwdesc(&d->vd);
+		udma_free_hwdesc(uc, d);
 		kfree(d);
 		return NULL;
 	}
@@ -2372,7 +2324,7 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 	int i;
 	int periods = buf_len / period_len;
 
-	if (periods > 15)
+	if (periods > (K3_UDMA_DEFAULT_RING_SIZE - 1))
 		return NULL;
 
 	if (period_len > 0x3FFFFF)
@@ -2402,7 +2354,7 @@ static struct udma_desc *udma_prep_dma_cyclic_pkt(
 			dev_err(uc->ud->dev,
 				"descriptor%d allocation failed\n", i);
 
-			udma_free_hwdesc(&d->vd);
+			udma_free_hwdesc(uc, d);
 			kfree(d);
 			return NULL;
 		}
@@ -2480,7 +2432,7 @@ static struct dma_async_tx_descriptor *udma_prep_dma_cyclic(
 			"%s: StaticTR Z is limted to maximum 4095 (%u)\n",
 			__func__, d->static_tr.bstcnt);
 
-		udma_free_hwdesc(&d->vd);
+		udma_free_hwdesc(uc, d);
 		kfree(d);
 		return NULL;
 	}
@@ -2819,19 +2771,6 @@ static void udma_desc_pre_callback(struct virt_dma_chan *vc,
 
 	if (d->metadata_size)
 		udma_fetch_epib(uc, d);
-
-	/* TODO: peek into the desc to know the real length */
-	if (d->rx_sg_wa.in_use) {
-		void *src = sg_virt(&d->rx_sg_wa.single_sg);
-
-		dma_sync_sg_for_cpu(uc->ud->dev, &d->rx_sg_wa.single_sg, 1,
-				    DMA_FROM_DEVICE);
-		/* Ensure that reads are not moved before this point */
-		rmb();
-
-		sg_copy_from_buffer(d->rx_sg_wa.sgl, d->rx_sg_wa.sglen, src,
-				    d->rx_sg_wa.total_len);
-	}
 
 	/* Provide residue information for the client */
 	if (result) {
