@@ -23,9 +23,11 @@ All the current OMAP SoCs except for the newest DRA7xx SoC has a single IP
 instance. DRA7xx has multiple instances with different number of h/w fifo queues
 and interrupt lines between different instances. The interrupt lines can also be
 routed to different processor sub-systems on DRA7xx as they are routed through
-the Crossbar, a kind of interrupt router/multiplexer. The K3 AM65x SoCs has each
-of these instances form a cluster and combine multiple clusters into a single IP
-block.
+the Crossbar, a kind of interrupt router/multiplexer. The K3 AM65x and J721E
+SoCs has each of these instances form a cluster and combine multiple clusters
+into a single IP block present within the Main NavSS. The interrupt lines from
+all these clusters are multiplexed and routed to different processor subsystems
+over a limited number of common interrupt output lines of an Interrupt Router.
 
 Mailbox Device Node:
 ====================
@@ -39,12 +41,12 @@ Required properties:
 			    "ti,omap3-mailbox" for OMAP3430, OMAP3630 SoCs
 			    "ti,omap4-mailbox" for OMAP44xx, OMAP54xx, AM33xx,
 						   AM43xx and DRA7xx SoCs
-			    "ti,am654-mailbox" for K3 AM65x SoCs
+			    "ti,am654-mailbox" for K3 AM65x and J721E SoCs
 - reg:			Contains the mailbox register address range (base
 			address and length)
 - interrupts:		Contains the interrupt information for the mailbox
 			device. The format is dependent on which interrupt
-			controller the OMAP device uses
+			controller the Mailbox device uses
 - #mbox-cells:		Common mailbox binding property to identify the number
 			of cells required for the mailbox specifier. Should be
 			1
@@ -56,15 +58,18 @@ SoC-specific Required properties:
 ---------------------------------
 The following are mandatory properties for the OMAP architecture based SoCs
 only:
-- ti,hwmods:		Name of the hwmod associated with the mailbox
+- ti,hwmods:		Name of the hwmod associated with the mailbox. This
+			should be defined in the mailbox node only if the node
+			is not defined as a child node of a corresponding sysc
+			interconnect node.
 
-The following are mandatory properties for the K3 AM65x SoCs only:
+The following are mandatory properties for the K3 AM65x and J721E SoCs only:
 - interrupt-parent:	Should contain a phandle to the TI-SCI interrupt
 			controller node that is used to dynamically program
 			the interrupt routes between the IP and the main GIC
 			controllers. See the following binding for additional
 			details,
-			Documentation/devicetree/bindings/interrupt-controller/ti,sci-irq.txt
+			Documentation/devicetree/bindings/interrupt-controller/ti,sci-intr.txt
 
 Child Nodes:
 ============
@@ -156,18 +161,20 @@ mailbox: mailbox@480c8000 {
 
 3. /* AM65x */
 &cbass_main {
-	mailbox0_cluster0: mailbox@31f80000 {
-		compatible = "ti,am654-mailbox";
-		reg = <0x00 0x31f80000 0x00 0x200>;
-		#mbox-cells = <1>;
-		ti,mbox-num-users = <4>;
-		ti,mbox-num-fifos = <16>;
-		interrupt-parent = <&main_navss_intr>;
-		interrupts = <164 0 IRQ_TYPE_LEVEL_HIGH>;
+	cbass_main_navss: interconnect0 {
+		mailbox0_cluster0: mailbox@31f80000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f80000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <164 0 IRQ_TYPE_LEVEL_HIGH>;
 
-		mbox_mcu_r5fss0_core0: mbox-mcu-r5fss0-core0 {
-			ti,mbox-tx = <1 0 0>;
-			ti,mbox-rx = <0 0 0>;
+			mbox_mcu_r5fss0_core0: mbox-mcu-r5fss0-core0 {
+				ti,mbox-tx = <1 0 0>;
+				ti,mbox-rx = <0 0 0>;
+			};
 		};
 	};
 };
