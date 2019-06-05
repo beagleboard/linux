@@ -335,6 +335,9 @@ struct k3_nav_udmax_tx_channel *k3_nav_udmax_request_tx_chn(struct device *dev,
 
 	tx_chn->psil_paired = true;
 
+	/* reset TX RT registers */
+	k3_nav_udmax_disable_tx_chn(tx_chn);
+
 	k3_nav_udmax_dump_tx_chn(tx_chn);
 
 	return tx_chn;
@@ -853,6 +856,9 @@ struct k3_nav_udmax_rx_channel *k3_nav_udmax_request_rx_chn(struct device *dev,
 
 		rx_chn->psil_paired = true;
 	}
+
+	/* reset RX RT registers */
+	k3_nav_udmax_disable_rx_chn(rx_chn);
 
 	k3_nav_udmax_dump_rx_chn(rx_chn);
 
