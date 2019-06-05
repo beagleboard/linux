@@ -78,7 +78,18 @@
 			#mbox-cells = <1>;
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <16>;
-			status = "disabled";
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <214 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_mcu_r5fss0_core0: mbox-mcu-r5fss0-core0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
+
+			mbox_mcu_r5fss0_core1: mbox-mcu-r5fss0-core1 {
+				ti,mbox-rx = <2 0 0>;
+				ti,mbox-tx = <3 0 0>;
+			};
 		};
 
 		mailbox0_cluster1: mailbox@31f81000 {
@@ -87,7 +98,18 @@
 			#mbox-cells = <1>;
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <16>;
-			status = "disabled";
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <215 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_main_r5fss0_core0: mbox-main-r5fss0-core0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
+
+			mbox_main_r5fss0_core1: mbox-main-r5fss0-core1 {
+				ti,mbox-rx = <2 0 0>;
+				ti,mbox-tx = <3 0 0>;
+			};
 		};
 
 		mailbox0_cluster2: mailbox@31f82000 {
@@ -96,7 +118,18 @@
 			#mbox-cells = <1>;
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <16>;
-			status = "disabled";
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <216 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_main_r5fss1_core0: mbox-main-r5fss1-core0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
+
+			mbox_main_r5fss1_core1: mbox-main-r5fss1-core1 {
+				ti,mbox-rx = <2 0 0>;
+				ti,mbox-tx = <3 0 0>;
+			};
 		};
 
 		mailbox0_cluster3: mailbox@31f83000 {
@@ -105,7 +138,18 @@
 			#mbox-cells = <1>;
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <16>;
-			status = "disabled";
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <217 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_c66_0: mbox-c66-0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
+
+			mbox_c66_1: mbox-c66-1 {
+				ti,mbox-rx = <2 0 0>;
+				ti,mbox-tx = <3 0 0>;
+			};
 		};
 
 		mailbox0_cluster4: mailbox@31f84000 {
@@ -114,7 +158,13 @@
 			#mbox-cells = <1>;
 			ti,mbox-num-users = <4>;
 			ti,mbox-num-fifos = <16>;
-			status = "disabled";
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <218 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_c71_0: mbox-c71-0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
 		};
 
 		mailbox0_cluster5: mailbox@31f85000 {
