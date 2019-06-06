@@ -59,8 +59,8 @@ DECLARE_EVENT_CLASS(dwc3_log_event,
 		__entry->ep0state = dwc->ep0state;
 	),
 	TP_printk("event (%08x): %s", __entry->event,
-			dwc3_decode_event(__get_str(str), __entry->event,
-					  __entry->ep0state))
+			dwc3_decode_event(__get_str(str), DWC3_MSG_MAX,
+					__entry->event, __entry->ep0state))
 );
 
 DEFINE_EVENT(dwc3_log_event, dwc3_event,
@@ -86,7 +86,8 @@ DECLARE_EVENT_CLASS(dwc3_log_ctrl,
 		__entry->wIndex = le16_to_cpu(ctrl->wIndex);
 		__entry->wLength = le16_to_cpu(ctrl->wLength);
 	),
-	TP_printk("%s", dwc3_decode_ctrl(__get_str(str), __entry->bRequestType,
+	TP_printk("%s", usb_decode_ctrl(__get_str(str), DWC3_MSG_MAX,
+					__entry->bRequestType,
 					__entry->bRequest, __entry->wValue,
 					__entry->wIndex, __entry->wLength)
 	)
@@ -199,7 +200,7 @@ DECLARE_EVENT_CLASS(dwc3_log_gadget_ep_cmd,
 		__entry->param2 = params->param2;
 		__entry->cmd_status = cmd_status;
 	),
-	TP_printk("%s: cmd '%s' [%d] params %08x %08x %08x --> status: %s",
+	TP_printk("%s: cmd '%s' [%x] params %08x %08x %08x --> status: %s",
 		__get_str(name), dwc3_gadget_ep_cmd_string(__entry->cmd),
 		__entry->cmd, __entry->param0,
 		__entry->param1, __entry->param2,
