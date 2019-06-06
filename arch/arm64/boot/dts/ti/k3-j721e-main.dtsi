@@ -65,6 +65,170 @@
 			ti,sci-dst-id = <14>;
 			ti,sci-rm-range-girq = <0>, <2>;
 		};
+
+		hwspinlock: spinlock@30e00000 {
+			compatible = "ti,am654-hwspinlock";
+			reg = <0x00 0x30e00000 0x00 0x1000>;
+			#hwlock-cells = <1>;
+		};
+
+		mailbox0_cluster0: mailbox@31f80000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f80000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <214 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_mcu_r5fss0_core0: mbox-mcu-r5fss0-core0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
+
+			mbox_mcu_r5fss0_core1: mbox-mcu-r5fss0-core1 {
+				ti,mbox-rx = <2 0 0>;
+				ti,mbox-tx = <3 0 0>;
+			};
+		};
+
+		mailbox0_cluster1: mailbox@31f81000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f81000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <215 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_main_r5fss0_core0: mbox-main-r5fss0-core0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
+
+			mbox_main_r5fss0_core1: mbox-main-r5fss0-core1 {
+				ti,mbox-rx = <2 0 0>;
+				ti,mbox-tx = <3 0 0>;
+			};
+		};
+
+		mailbox0_cluster2: mailbox@31f82000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f82000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <216 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_main_r5fss1_core0: mbox-main-r5fss1-core0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
+
+			mbox_main_r5fss1_core1: mbox-main-r5fss1-core1 {
+				ti,mbox-rx = <2 0 0>;
+				ti,mbox-tx = <3 0 0>;
+			};
+		};
+
+		mailbox0_cluster3: mailbox@31f83000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f83000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <217 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_c66_0: mbox-c66-0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
+
+			mbox_c66_1: mbox-c66-1 {
+				ti,mbox-rx = <2 0 0>;
+				ti,mbox-tx = <3 0 0>;
+			};
+		};
+
+		mailbox0_cluster4: mailbox@31f84000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f84000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			interrupt-parent = <&main_navss_intr>;
+			interrupts = <218 0 IRQ_TYPE_LEVEL_HIGH>;
+
+			mbox_c71_0: mbox-c71-0 {
+				ti,mbox-rx = <0 0 0>;
+				ti,mbox-tx = <1 0 0>;
+			};
+		};
+
+		mailbox0_cluster5: mailbox@31f85000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f85000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			status = "disabled";
+		};
+
+		mailbox0_cluster6: mailbox@31f86000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f86000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			status = "disabled";
+		};
+
+		mailbox0_cluster7: mailbox@31f87000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f87000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			status = "disabled";
+		};
+
+		mailbox0_cluster8: mailbox@31f88000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f88000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			status = "disabled";
+		};
+
+		mailbox0_cluster9: mailbox@31f89000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f89000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			status = "disabled";
+		};
+
+		mailbox0_cluster10: mailbox@31f8a000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f8a000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			status = "disabled";
+		};
+
+		mailbox0_cluster11: mailbox@31f8b000 {
+			compatible = "ti,am654-mailbox";
+			reg = <0x00 0x31f8b000 0x00 0x200>;
+			#mbox-cells = <1>;
+			ti,mbox-num-users = <4>;
+			ti,mbox-num-fifos = <16>;
+			status = "disabled";
+		};
 	};
 
 	secure_proxy_main: mailbox@32c00000 {
