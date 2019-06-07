@@ -73,8 +73,7 @@ static inline int pruss_cfg_get_gpmux(struct pruss *pruss,
 	int ret = 0;
 	u32 val;
 
-	ret = pruss_regmap_read(pruss, PRUSS_SYSCON_CFG,
-				PRUSS_CFG_GPCFG(id), &val);
+	ret = pruss_cfg_read(pruss, PRUSS_CFG_GPCFG(id), &val);
 	if (!ret)
 		*mux = (u8)((val & PRUSS_GPCFG_PRU_MUX_SEL_MASK) >>
 			    PRUSS_GPCFG_PRU_MUX_SEL_SHIFT);
@@ -93,9 +92,9 @@ static inline int pruss_cfg_set_gpmux(struct pruss *pruss,
 	if (mux >= PRUSS_GP_MUX_SEL_MAX)
 		return -EINVAL;
 
-	return pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, PRUSS_CFG_GPCFG(id),
-				   PRUSS_GPCFG_PRU_MUX_SEL_MASK,
-				  (u32)mux << PRUSS_GPCFG_PRU_MUX_SEL_SHIFT);
+	return pruss_cfg_update(pruss, PRUSS_CFG_GPCFG(id),
+				PRUSS_GPCFG_PRU_MUX_SEL_MASK,
+				(u32)mux << PRUSS_GPCFG_PRU_MUX_SEL_SHIFT);
 }
 
 #endif	/* _PRUSS_DRIVER_H_ */
