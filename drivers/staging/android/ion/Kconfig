@@ -42,3 +42,9 @@ config ION_CMA_HEAP
 	  Choose this option to enable CMA heaps with Ion. This heap is backed
 	  by the Contiguous Memory Allocator (CMA). If your system has these
 	  regions, you should say Y here.
+
+config ION_TI
+	bool "Ion for Texas Instruments"
+	depends on ION
+	help
+	  Choose this option if you wish to use ION on Texas Instruments platforms.

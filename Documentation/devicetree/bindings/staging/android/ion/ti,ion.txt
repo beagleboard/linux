@@ -1,0 +1,37 @@
+Texas Instruments ION heap declaration binding
+
+Describes heaps and the associated memory. Each child node provides
+information about a single heap. Only chunk and carveout heaps are currently
+supported. CMA and system heaps are automatically generated when enabled.
+
+Required Properties:
+ - compatible:		Must be "ti,ion"
+
+Required child node properties:
+ - memory-region:	A phandle to the reserved memory node that backs this
+			heap. The reserved memory node can be a CMA memory
+			node, and should be defined as per the bindings in
+			Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
+
+ - ion-heap-type:	Heap type ID as defined by uapi/ion.h
+
+Required child node properties for chunk heaps:
+ - ion-chunk-size:	Size of each allocation pool, allocation will only
+			be made in granules of this size to prevent
+			fragmentation
+
+Example:
+
+ion {
+	compatible = "ti,ion";
+	ti_chunk_heap_0 {
+		memory-region = <&ion_block_mem_0>;
+		ion-heap-type = <3>; // ION_HEAP_TYPE_CHUNK
+		ion-chunk-size = <0x00010000>; // 64KB
+	};
+
+	ti_carveout_heap_0 {
+		memory-region = <&ion_block_mem_1>;
+		ion-heap-type = <2>; // ION_HEAP_TYPE_CARVEOUT
+	};
+};

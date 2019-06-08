@@ -308,4 +308,37 @@ void ion_page_pool_free(struct ion_page_pool *pool, struct page *page);
 int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 			 int nr_to_scan);
 
+#ifdef CONFIG_ION_CARVEOUT_HEAP
+/**
+ * ion_carveout_heap_create
+ * @base:		base address of carveout memory
+ * @size:		size of carveout memory region
+ *
+ * Creates a carveout ion_heap using the passed in data
+ */
+struct ion_heap *ion_carveout_heap_create(phys_addr_t base, size_t size);
+#else
+static inline struct ion_heap *ion_carveout_heap_create(phys_addr_t base, size_t size)
+{
+	return ERR_PTR(-ENODEV);
+}
+#endif
+
+#ifdef CONFIG_ION_CHUNK_HEAP
+/**
+ * ion_chunk_heap_create
+ * @base:		base address of carveout memory
+ * @size:		size of carveout memory region
+ * @chunk_size:		minimum allocation granularity
+ *
+ * Creates a chunk ion_heap using the passed in data
+ */
+struct ion_heap *ion_chunk_heap_create(phys_addr_t base, size_t size, size_t chunk_size);
+#else
+static inline struct ion_heap *ion_chunk_heap_create(phys_addr_t base, size_t size, size_t chunk_size)
+{
+	return ERR_PTR(-ENODEV);
+}
+#endif
+
 #endif /* _ION_H */

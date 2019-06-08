@@ -50,6 +50,16 @@
 		#iommu-cells = <1>;
 	};
 
+	main_gpio_intr: interrupt-controller0 {
+		compatible = "ti,sci-intr";
+		interrupt-controller;
+		interrupt-parent = <&gic500>;
+		#interrupt-cells = <3>;
+		ti,sci = <&dmsc>;
+		ti,sci-dst-id = <14>;
+		ti,sci-rm-range-girq = <0x1>;
+	};
+
 	cbass_main_navss: interconnect0 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -64,6 +74,18 @@
 			ti,sci = <&dmsc>;
 			ti,sci-dst-id = <14>;
 			ti,sci-rm-range-girq = <0>, <2>;
+		};
+
+		main_udmass_inta: interrupt-controller@33d00000 {
+			compatible = "ti,sci-inta";
+			reg = <0x0 0x33d00000 0x0 0x100000>;
+			interrupt-controller;
+			interrupt-parent = <&main_navss_intr>;
+			#interrupt-cells = <3>;
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <209>;
+			ti,sci-rm-range-vint = <0xa>;
+			ti,sci-rm-range-global-event = <0xd>;
 		};
 
 		hwspinlock: spinlock@30e00000 {
@@ -363,7 +385,7 @@
 		interrupts = <GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <48000000>;
 		current-speed = <115200>;
-		power-domains = <&k3_pds 285>;
+		power-domains = <&k3_pds 285 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 285 0>;
 		clock-names = "fclk";
 	};
@@ -379,5 +401,169 @@
 		power-domains = <&k3_pds 286 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 286 0>;
 		clock-names = "fclk";
+	};
+
+	main_gpio0: gpio@600000 {
+		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x00600000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&main_gpio_intr>;
+		interrupts = <105 0 IRQ_TYPE_EDGE_RISING>,
+			     <105 1 IRQ_TYPE_EDGE_RISING>,
+			     <105 2 IRQ_TYPE_EDGE_RISING>,
+			     <105 3 IRQ_TYPE_EDGE_RISING>,
+			     <105 4 IRQ_TYPE_EDGE_RISING>,
+			     <105 5 IRQ_TYPE_EDGE_RISING>,
+			     <105 6 IRQ_TYPE_EDGE_RISING>,
+			     <105 7 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <128>;
+		ti,davinci-gpio-unbanked = <0>;
+		power-domains = <&k3_pds 105 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 105 0>;
+		clock-names = "gpio";
+	};
+
+	main_gpio1: gpio@601000 {
+		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x00601000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&main_gpio_intr>;
+		interrupts = <106 0 IRQ_TYPE_EDGE_RISING>,
+			     <106 1 IRQ_TYPE_EDGE_RISING>,
+			     <106 2 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <36>;
+		ti,davinci-gpio-unbanked = <0>;
+		power-domains = <&k3_pds 106 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 106 0>;
+		clock-names = "gpio";
+	};
+
+	main_gpio2: gpio@610000 {
+		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x00610000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&main_gpio_intr>;
+		interrupts = <107 0 IRQ_TYPE_EDGE_RISING>,
+			     <107 1 IRQ_TYPE_EDGE_RISING>,
+			     <107 2 IRQ_TYPE_EDGE_RISING>,
+			     <107 3 IRQ_TYPE_EDGE_RISING>,
+			     <107 4 IRQ_TYPE_EDGE_RISING>,
+			     <107 5 IRQ_TYPE_EDGE_RISING>,
+			     <107 6 IRQ_TYPE_EDGE_RISING>,
+			     <107 7 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <128>;
+		ti,davinci-gpio-unbanked = <0>;
+		power-domains = <&k3_pds 107 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 107 0>;
+		clock-names = "gpio";
+	};
+
+	main_gpio3: gpio@611000 {
+		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x00611000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&main_gpio_intr>;
+		interrupts = <108 0 IRQ_TYPE_EDGE_RISING>,
+			     <108 1 IRQ_TYPE_EDGE_RISING>,
+			     <108 2 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <36>;
+		ti,davinci-gpio-unbanked = <0>;
+		power-domains = <&k3_pds 108 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 108 0>;
+		clock-names = "gpio";
+	};
+
+	main_gpio4: gpio@620000 {
+		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x00620000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&main_gpio_intr>;
+		interrupts = <109 0 IRQ_TYPE_EDGE_RISING>,
+			     <109 1 IRQ_TYPE_EDGE_RISING>,
+			     <109 2 IRQ_TYPE_EDGE_RISING>,
+			     <109 3 IRQ_TYPE_EDGE_RISING>,
+			     <109 4 IRQ_TYPE_EDGE_RISING>,
+			     <109 5 IRQ_TYPE_EDGE_RISING>,
+			     <109 6 IRQ_TYPE_EDGE_RISING>,
+			     <109 7 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <128>;
+		ti,davinci-gpio-unbanked = <0>;
+		power-domains = <&k3_pds 109 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 109 0>;
+		clock-names = "gpio";
+	};
+
+	main_gpio5: gpio@621000 {
+		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x00621000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&main_gpio_intr>;
+		interrupts = <110 0 IRQ_TYPE_EDGE_RISING>,
+			     <110 1 IRQ_TYPE_EDGE_RISING>,
+			     <110 2 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <36>;
+		ti,davinci-gpio-unbanked = <0>;
+		power-domains = <&k3_pds 110 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 110 0>;
+		clock-names = "gpio";
+	};
+
+	main_gpio6: gpio@630000 {
+		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x00630000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&main_gpio_intr>;
+		interrupts = <111 0 IRQ_TYPE_EDGE_RISING>,
+			     <111 1 IRQ_TYPE_EDGE_RISING>,
+			     <111 2 IRQ_TYPE_EDGE_RISING>,
+			     <111 3 IRQ_TYPE_EDGE_RISING>,
+			     <111 4 IRQ_TYPE_EDGE_RISING>,
+			     <111 5 IRQ_TYPE_EDGE_RISING>,
+			     <111 6 IRQ_TYPE_EDGE_RISING>,
+			     <111 7 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <128>;
+		ti,davinci-gpio-unbanked = <0>;
+		power-domains = <&k3_pds 111 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 111 0>;
+		clock-names = "gpio";
+	};
+
+	main_gpio7: gpio@631000 {
+		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
+		reg = <0x0 0x00631000 0x0 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-parent = <&main_gpio_intr>;
+		interrupts = <112 0 IRQ_TYPE_EDGE_RISING>,
+			     <112 1 IRQ_TYPE_EDGE_RISING>,
+			     <112 2 IRQ_TYPE_EDGE_RISING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		ti,ngpio = <36>;
+		ti,davinci-gpio-unbanked = <0>;
+		power-domains = <&k3_pds 112 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 112 0>;
+		clock-names = "gpio";
 	};
 };
