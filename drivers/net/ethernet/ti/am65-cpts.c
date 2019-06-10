@@ -850,7 +850,7 @@ static int cpts_of_mux_clk_setup(struct am65_cpts *cpts,
 
 	cpts->clk_mux_np = of_get_child_by_name(node, "cpts_refclk_mux");
 	if (!cpts->clk_mux_np)
-		return -EINVAL;
+		return 0;
 
 	num_parents = of_clk_get_parent_count(cpts->clk_mux_np);
 	if (num_parents < 1) {
