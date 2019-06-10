@@ -209,6 +209,10 @@
 &mcu_cpsw {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcu_cpsw_pins_default &mcu_mdio_pins_default>;
+
+	cpts {
+		ti,pps = <3 1>;
+	};
 };
 
 &davinci_mdio {
@@ -223,4 +227,18 @@
 &cpsw_port1 {
 	phy-mode = "rgmii-id";
 	phy-handle = <&phy0>;
+};
+
+#define TS_OFFSET(pa, val)     (0x4 + (pa) * 4) (0x10000 | val)
+
+&timesync_router {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_cpts>;
+
+	mcu_cpts: mcu_cpts {
+		pinctrl-single,pins = <
+			/* pps [cpts genf1] in17 -> out25 [cpts hw4_push] */
+			TS_OFFSET(25, 17)
+		>;
+	};
 };
