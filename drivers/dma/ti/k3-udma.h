@@ -84,14 +84,14 @@
 #define PDMA_STATIC_TR_X(x)	\
 	(((x) << PDMA_STATIC_TR_X_SHIFT) & PDMA_STATIC_TR_X_MASK)
 
+#define PDMA_STATIC_TR_XY_ACC32		BIT(30)
+#define PDMA_STATIC_TR_XY_BURST		BIT(31)
+
 /*
  * UDMA_TCHAN_RT_PEER_STATIC_TR_Z_REG /
  * UDMA_RCHAN_RT_PEER_STATIC_TR_Z_REG
  */
-#define PDMA_STATIC_TR_Z_MASK		GENMASK(11, 0)
-#define PDMA_STATIC_TR_Z_SHIFT		(0)
-#define PDMA_STATIC_TR_Z(x)	\
-	(((x) << PDMA_STATIC_TR_Z_SHIFT) & PDMA_STATIC_TR_Z_MASK)
+#define PDMA_STATIC_TR_Z(x, mask)	((x) & (mask))
 
 /* Private API to UDMA via k3-udma-private */
 #include <linux/of.h>
@@ -114,6 +114,7 @@ enum udma_rm_range {
 enum udma_tp_level {
 	UDMA_TP_NORMAL = 0,
 	UDMA_TP_HIGH = 1,
+	UDMA_TP_ULTRAHIGH = 2,
 	UDMA_TP_LAST,
 };
 

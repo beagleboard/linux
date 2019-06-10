@@ -129,4 +129,86 @@
 		clocks = <&k3_clks 114 0>;
 		clock-names = "gpio";
 	};
+
+	cbass_mcu_navss: mcu_navss {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		dma-coherent;
+		dma-ranges;
+		ranges;
+
+		ti,sci-dev-id = <232>;
+
+		mcu_ringacc: ringacc@2b800000 {
+			compatible = "ti,am654-navss-ringacc";
+			reg =	<0x0 0x2b800000 0x0 0x400000>,
+				<0x0 0x2b000000 0x0 0x400000>,
+				<0x0 0x28590000 0x0 0x100>,
+				<0x0 0x2a500000 0x0 0x40000>;
+			reg-names = "rt", "fifos", "proxy_gcfg", "proxy_target";
+			ti,num-rings = <286>;
+			ti,sci-rm-range-gp-rings = <0x1>; /* GP ring range */
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <235>;
+			interrupt-parent = <&main_udmass_inta>;
+		};
+
+		mcu_udmap: udmap@31150000 {
+			compatible = "ti,j721e-navss-mcu-udmap";
+			reg =	<0x0 0x285c0000 0x0 0x100>,
+				<0x0 0x2a800000 0x0 0x40000>,
+				<0x0 0x2aa00000 0x0 0x40000>;
+			reg-names = "gcfg", "rchanrt", "tchanrt";
+			#dma-cells = <3>;
+
+			ti,ringacc = <&mcu_ringacc>;
+			ti,psil-base = <0x6000>;
+
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <236>;
+
+			ti,sci-rm-range-tchan = <0x0d>, /* TX_CHAN */
+						<0x0f>; /* TX_HCHAN */
+			ti,sci-rm-range-rchan = <0x0a>, /* RX_CHAN */
+						<0x0b>; /* RX_HCHAN */
+			ti,sci-rm-range-rflow = <0x00>; /* GP RFLOW */
+
+			interrupt-parent = <&main_udmass_inta>;
+		};
+	};
+
+	pdma_mcu_misc_g0: pdma_mcu_misc_g0 {
+		/* MCU_PDMA0 (MCU_PDMA_MISC_G0) */
+		ti,psil-base = <0x7100>;
+
+		/* ti,psil-config0-3 */
+		UDMA_PDMA_PKT_XY(0);
+		UDMA_PDMA_PKT_XY(1);
+		UDMA_PDMA_PKT_XY(2);
+		UDMA_PDMA_PKT_XY(3);
+	};
+
+	pdma_mcu_misc_g1: pdma_mcu_misc_g1 {
+		/* MCU_PDMA1 (MCU_PDMA_MISC_G1) */
+		ti,psil-base = <0x7200>;
+
+		/* ti,psil-config0-7 */
+		UDMA_PDMA_PKT_XY(0);
+		UDMA_PDMA_PKT_XY(1);
+		UDMA_PDMA_PKT_XY(2);
+		UDMA_PDMA_PKT_XY(3);
+		UDMA_PDMA_PKT_XY(4);
+		UDMA_PDMA_PKT_XY(5);
+		UDMA_PDMA_PKT_XY(6);
+		UDMA_PDMA_PKT_XY(7);
+	};
+
+	pdma_mcu_misc_g2: pdma_mcu_misc_g2 {
+		/* MCU_PDMA2 (MCU_PDMA_MISC_G2) */
+		ti,psil-base = <0x7300>;
+
+		/* ti,psil-config0 */
+		UDMA_PDMA_PKT_XY(0);
+	};
 };

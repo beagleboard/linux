@@ -24,6 +24,8 @@ Required properties:
 - compatible:		Should be
 			"ti,am654-navss-main-udmap" for am654 main NAVSS UDMAP
 			"ti,am654-navss-mcu-udmap" for am654 mcu NAVSS UDMAP
+			"ti,j721e-navss-main-udmap" for j721e main NAVSS UDMAP
+			"ti,j721e-navss-mcu-udmap" for j721e mcu NAVSS UDMAP
 - #dma-cells:		Should be set to <3>.
 			- The first parameter is a phandle to the remote PSI-L
 			  endpoint
@@ -66,9 +68,16 @@ Configuration node Optional properties:
 			configuration:
 			- PSIL_STATIC_TR_XY: XY type of StaticTR
 			- PSIL_STATIC_TR_MCAN: MCAN type of StaticTR
+- enable-acc32:		Force 32 bit access on peripheral port. Only valid for
+			XY type StaticTR, not supported on am654.
+			Must be enabled for threads servicing McASP with AFIFO
+			bypass mode.
+- enable-burst:		Enable burst access on peripheral port. Only valid for
+			XY type StaticTR, not supported on am654.
 - ti,channel-tpl:	Channel Throughput level:
 			0 / or not present - normal channel
 			1 - High Throughput channel
+			2 - Ultra High Throughput channel (j721e only)
 - ti,needs-epib:	If the endpoint require EPIB to be present in the
 			descriptor.
 - ti,psd-size:		Size of the Protocol Specific Data section of the

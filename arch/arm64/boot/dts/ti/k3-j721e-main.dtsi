@@ -64,7 +64,11 @@
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
+		dma-coherent;
+		dma-ranges;
 		ranges;
+
+		ti,sci-dev-id = <199>;
 
 		main_navss_intr: interrupt-controller1 {
 			compatible = "ti,sci-intr";
@@ -251,6 +255,183 @@
 			ti,mbox-num-fifos = <16>;
 			status = "disabled";
 		};
+
+		main_ringacc: ringacc@3c000000 {
+			compatible = "ti,am654-navss-ringacc";
+			reg =	<0x0 0x3c000000 0x0 0x400000>,
+				<0x0 0x38000000 0x0 0x400000>,
+				<0x0 0x31120000 0x0 0x100>,
+				<0x0 0x33000000 0x0 0x40000>;
+			reg-names = "rt", "fifos", "proxy_gcfg", "proxy_target";
+			ti,num-rings = <1024>;
+			ti,sci-rm-range-gp-rings = <0x1>; /* GP ring range */
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <211>;
+			interrupt-parent = <&main_udmass_inta>;
+		};
+
+		main_udmap: udmap@31150000 {
+			compatible = "ti,j721e-navss-main-udmap";
+			reg =	<0x0 0x31150000 0x0 0x100>,
+				<0x0 0x34000000 0x0 0x100000>,
+				<0x0 0x35000000 0x0 0x100000>;
+			reg-names = "gcfg", "rchanrt", "tchanrt";
+			#dma-cells = <3>;
+
+			ti,ringacc = <&main_ringacc>;
+			ti,psil-base = <0x1000>;
+
+			interrupt-parent = <&main_udmass_inta>;
+
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <212>;
+
+			ti,sci-rm-range-tchan = <0x0d>, /* TX_CHAN */
+						<0x0f>, /* TX_HCHAN */
+						<0x10>; /* TX_UHCHAN */
+			ti,sci-rm-range-rchan = <0x0a>, /* RX_CHAN */
+						<0x0b>, /* RX_HCHAN */
+						<0x0c>; /* RX_UHCHAN */
+			ti,sci-rm-range-rflow = <0x00>; /* GP RFLOW */
+		};
+	};
+
+	psilss@3400000 {
+		/* PSILSS16 USART */
+		compatible = "ti,j721e-psilss";
+		reg = <0x0 0x03400000 0x0 0x1000>;
+		reg-names = "config";
+
+		pdma_main_usart_g0: pdma_main_usart_g0 {
+			/* PDMA13 (PDMA_USART_G0) */
+			ti,psil-base = <0x4700>;
+
+			/* ti,psil-config0-1 */
+			UDMA_PDMA_PKT_XY(0);
+			UDMA_PDMA_PKT_XY(1);
+		};
+
+		pdma_main_usart_g1: pdma_main_usart_g1 {
+			/* PDMA14 (PDMA_USART_G1) */
+			ti,psil-base = <0x4702>;
+
+			/* ti,psil-config0-1 */
+			UDMA_PDMA_PKT_XY(0);
+			UDMA_PDMA_PKT_XY(1);
+		};
+
+		pdma_main_usart_g2: pdma_main_usart_g2 {
+			/* PDMA15 (PDMA_USART_G2) */
+			ti,psil-base = <0x4704>;
+
+			/* ti,psil-config0-5 */
+			UDMA_PDMA_PKT_XY(0);
+			UDMA_PDMA_PKT_XY(1);
+			UDMA_PDMA_PKT_XY(2);
+			UDMA_PDMA_PKT_XY(3);
+			UDMA_PDMA_PKT_XY(4);
+			UDMA_PDMA_PKT_XY(5);
+		};
+	};
+
+	psilss@3404000 {
+		/* PSILSS12 MISC */
+		compatible = "ti,j721e-psilss";
+		reg = <0x0 0x03404000 0x0 0x1000>;
+		reg-names = "config";
+
+		pdma_main_misc_g0: pdma_main_misc_g0 {
+			/* PDMA8 (PDMA_MISC_G0) */
+			ti,psil-base = <0x4600>;
+
+			/* ti,psil-config0-7 */
+			UDMA_PDMA_PKT_XY(0);
+			UDMA_PDMA_PKT_XY(1);
+			UDMA_PDMA_PKT_XY(2);
+			UDMA_PDMA_PKT_XY(3);
+			UDMA_PDMA_PKT_XY(4);
+			UDMA_PDMA_PKT_XY(5);
+			UDMA_PDMA_PKT_XY(6);
+			UDMA_PDMA_PKT_XY(7);
+		};
+
+		pdma_main_misc_g1: pdma_main_misc_g1 {
+			/* PDMA9 (PDMA_MISC_G1) */
+			ti,psil-base = <0x460c>;
+
+			/* ti,psil-config0-7 */
+			UDMA_PDMA_PKT_XY(0);
+			UDMA_PDMA_PKT_XY(1);
+			UDMA_PDMA_PKT_XY(2);
+			UDMA_PDMA_PKT_XY(3);
+			UDMA_PDMA_PKT_XY(4);
+			UDMA_PDMA_PKT_XY(5);
+			UDMA_PDMA_PKT_XY(6);
+			UDMA_PDMA_PKT_XY(7);
+		};
+
+		pdma_main_misc_g2: pdma_main_misc_g2 {
+			/* PDMA10 (PDMA_MISC_G2) */
+			ti,psil-base = <0x4618>;
+
+			/* ti,psil-config0-7 */
+			UDMA_PDMA_PKT_XY(0);
+			UDMA_PDMA_PKT_XY(1);
+			UDMA_PDMA_PKT_XY(2);
+			UDMA_PDMA_PKT_XY(3);
+			UDMA_PDMA_PKT_XY(4);
+			UDMA_PDMA_PKT_XY(5);
+			UDMA_PDMA_PKT_XY(6);
+			UDMA_PDMA_PKT_XY(7);
+		};
+
+		pdma_main_misc_g3: pdma_main_misc_g3 {
+			/* PDMA11 (PDMA_MISC_G3) */
+			ti,psil-base = <0x4624>;
+
+			/* ti,psil-config0-7 */
+			UDMA_PDMA_PKT_XY(0);
+			UDMA_PDMA_PKT_XY(1);
+			UDMA_PDMA_PKT_XY(2);
+			UDMA_PDMA_PKT_XY(3);
+			UDMA_PDMA_PKT_XY(4);
+			UDMA_PDMA_PKT_XY(5);
+			UDMA_PDMA_PKT_XY(6);
+			UDMA_PDMA_PKT_XY(7);
+		};
+	};
+
+	psilss@340c000 {
+		/* PSILSS1 AASRC */
+		compatible = "ti,j721e-psilss";
+		reg = <0x0 0x0340c000 0x0 0x1000>;
+		reg-names = "config";
+
+		pdma_main_mcasp_g0: pdma_main_mcasp_g0 {
+			/* PDMA6 (PDMA_MCASP_G0) */
+			ti,psil-base = <0x4400>;
+
+			/* ti,psil-config0-2 */
+			UDMA_PDMA_J721E_MCASP(0);
+			UDMA_PDMA_J721E_MCASP(1);
+			UDMA_PDMA_J721E_MCASP(2);
+		};
+	};
+
+	pdma_main_mcasp_g1: pdma_main_mcasp_g1 {
+		/* PDMA7 (PDMA_MCASP_G1) */
+		ti,psil-base = <0x4500>;
+
+		/* ti,psil-config0-8 */
+		UDMA_PDMA_J721E_MCASP(0);
+		UDMA_PDMA_J721E_MCASP(1);
+		UDMA_PDMA_J721E_MCASP(2);
+		UDMA_PDMA_J721E_MCASP(3);
+		UDMA_PDMA_J721E_MCASP(4);
+		UDMA_PDMA_J721E_MCASP(5);
+		UDMA_PDMA_J721E_MCASP(6);
+		UDMA_PDMA_J721E_MCASP(7);
+		UDMA_PDMA_J721E_MCASP(8);
 	};
 
 	secure_proxy_main: mailbox@32c00000 {
