@@ -1830,7 +1830,8 @@ static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 		if (mac_addr && is_valid_ether_addr(mac_addr)) {
 			ether_addr_copy(port->slave.mac_addr, mac_addr);
 		} else if (am65_cpsw_am654_get_efuse_macid(
-				port_np, port->port_id, port->slave.mac_addr)) {
+				port_np, port->port_id, port->slave.mac_addr) ||
+			   !is_valid_ether_addr(port->slave.mac_addr)) {
 			random_ether_addr(port->slave.mac_addr);
 			dev_err(dev, "Use rundom MAC address\n");
 		}
