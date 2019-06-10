@@ -1061,6 +1061,7 @@ static int am65_cpts_probe(struct platform_device *pdev)
 
 static const struct of_device_id am65_cpts_of_match[] = {
 	{ .compatible = "ti,am65-cpts", },
+	{ .compatible = "ti,j721e-cpts", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, am65_cpts_of_match);
