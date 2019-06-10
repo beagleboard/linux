@@ -48,6 +48,7 @@ struct dispc7_features {
 	const char *ovr_name[DISPC7_MAX_PORTS]; /* Should match dt reg names */
 	const char *vpclk_name[DISPC7_MAX_PORTS]; /* Should match dt clk names */
 	const enum dispc7_vp_bus_type vp_bus_type[DISPC7_MAX_PORTS];
+	struct tidss_vp_feat vp_feat;
 	u32 num_planes;
 	const char *vid_name[DISPC7_MAX_PLANES]; /* Should match dt reg names */
 	bool vid_lite[DISPC7_MAX_PLANES];

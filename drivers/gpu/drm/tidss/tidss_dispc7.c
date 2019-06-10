@@ -63,6 +63,13 @@ static const struct dispc7_features dispc7_am6_feats = {
 	.vpclk_name =  { "vp1", "vp2" },
 	.vp_bus_type = { DISPC7_VP_OLDI, DISPC7_VP_DPI },
 
+	.vp_feat = { .color = {
+			.has_ctm = true,
+			.gamma_size = 256,
+			.gamma_type = TIDSS_GAMMA_8BIT,
+		},
+	},
+
 	.num_planes = 2,
 	/* note: vid is plane_id 0 and vidl1 is plane_id 1 */
 	.vid_name = { "vid", "vidl1" },
@@ -114,10 +121,8 @@ static const struct of_device_id dispc7_of_table[] = {
 #define OVR_REG_FLD_MOD(dispc, ovr, idx, val, start, end) \
 	dispc7_ovr_write(dispc, ovr, idx, FLD_MOD(dispc7_ovr_read(dispc, ovr, idx), val, start, end))
 
-#define DISPC7_GAMMA_TABLE_SIZE 256
-
 struct dss_vp_data {
-	u32 gamma_table[DISPC7_GAMMA_TABLE_SIZE];
+	u32 *gamma_table;
 };
 
 struct dss_plane_data {
@@ -1690,21 +1695,14 @@ static int dispc7_get_num_vps(struct dispc_device *dispc)
 static const struct tidss_vp_feat *dispc7_vp_feat(struct dispc_device *dispc,
 						  u32 hw_videoport)
 {
-	static const struct tidss_vp_feat vp_feat = {
-		.color = {
-			.gamma_size = DISPC7_GAMMA_TABLE_SIZE,
-			.has_ctm = true,
-		},
-	};
-
-	return &vp_feat;
+	return &dispc->feat->vp_feat;
 }
 
 static void dispc7_vp_write_gamma_table(struct dispc_device *dispc,
 					u32 hw_videoport)
 {
 	u32 *table = dispc->vp_data[hw_videoport].gamma_table;
-	u32 hwlen = ARRAY_SIZE(dispc->vp_data[hw_videoport].gamma_table);
+	u32 hwlen = dispc->feat->vp_feat.color.gamma_size;
 	unsigned int i;
 
 	dev_dbg(dispc->dev, "%s: hw_videoport %d\n", __func__, hw_videoport);
@@ -1712,7 +1710,18 @@ static void dispc7_vp_write_gamma_table(struct dispc_device *dispc,
 	for (i = 0; i < hwlen; ++i) {
 		u32 v = table[i];
 
-		v |= i << 24;
+		switch (dispc->feat->vp_feat.color.gamma_type) {
+		case TIDSS_GAMMA_8BIT:
+			v |= i << 24;
+			break;
+		case TIDSS_GAMMA_10BIT:
+			if (i == 0)
+				v |= 1 << 31;
+			break;
+		default:
+			WARN_ON(1);
+			return;
+		}
 
 		dispc7_vp_write(dispc, hw_videoport, DISPC_VP_GAMMA_TABLE, v);
 	}
@@ -1739,12 +1748,17 @@ static void dispc7_vp_set_gamma(struct dispc_device *dispc,
 				unsigned int length)
 {
 	u32 *table = dispc->vp_data[hw_videoport].gamma_table;
-	u32 hwlen = ARRAY_SIZE(dispc->vp_data[hw_videoport].gamma_table);
-	static const unsigned int hwbits = 8;
+	u32 hwlen = dispc->feat->vp_feat.color.gamma_size;
+	u32 hwbits;
 	unsigned int i;
 
 	dev_dbg(dispc->dev, "%s: hw_videoport %d, lut len %u, hw len %u\n",
 		__func__, hw_videoport, length, hwlen);
+
+	if (dispc->feat->vp_feat.color.gamma_type == TIDSS_GAMMA_10BIT)
+		hwbits = 10;
+	else
+		hwbits = 8;
 
 	if (lut == NULL || length < 2) {
 		lut = dispc7_vp_gamma_default_lut;
@@ -2218,6 +2232,12 @@ int dispc7_init(struct tidss_device *tidss)
 			return PTR_ERR(clk);
 		}
 		dispc->vp_clk[i] = clk;
+
+		dispc->vp_data[i].gamma_table = devm_kmalloc_array(
+			dev, dispc->feat->vp_feat.color.gamma_size,
+			sizeof(*dispc->vp_data[i].gamma_table), GFP_KERNEL);
+		if (!dispc->vp_data[i].gamma_table)
+			return -ENOMEM;
 	}
 
 	dispc->syscon = syscon_regmap_lookup_by_phandle(dev->of_node, "syscon");
