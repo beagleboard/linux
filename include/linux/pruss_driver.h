@@ -41,8 +41,6 @@ struct pruss_intc_config {
  * @dev: pruss device pointer
  * @cfg_base: base iomap for CFG region
  * @cfg: regmap for config region
- * @iep: regmap for IEP sub-module
- * @mii_rt: regmap for MII_RT sub-module
  * @mem_regions: data for each of the PRUSS memory regions
  * @mem_in_use: to indicate if memory resource is in use
  * @lock: mutex to serialize access to resources
@@ -51,8 +49,6 @@ struct pruss {
 	struct device *dev;
 	void __iomem *cfg_base;
 	struct regmap *cfg;
-	struct regmap *iep;
-	struct regmap *mii_rt;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
 	struct pruss_mem_region *mem_in_use[PRUSS_MEM_MAX];
 	struct mutex lock; /* PRU resource lock */
@@ -77,8 +73,7 @@ static inline int pruss_cfg_get_gpmux(struct pruss *pruss,
 	int ret = 0;
 	u32 val;
 
-	ret = pruss_regmap_read(pruss, PRUSS_SYSCON_CFG,
-				PRUSS_CFG_GPCFG(id), &val);
+	ret = pruss_cfg_read(pruss, PRUSS_CFG_GPCFG(id), &val);
 	if (!ret)
 		*mux = (u8)((val & PRUSS_GPCFG_PRU_MUX_SEL_MASK) >>
 			    PRUSS_GPCFG_PRU_MUX_SEL_SHIFT);
@@ -97,9 +92,9 @@ static inline int pruss_cfg_set_gpmux(struct pruss *pruss,
 	if (mux >= PRUSS_GP_MUX_SEL_MAX)
 		return -EINVAL;
 
-	return pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, PRUSS_CFG_GPCFG(id),
-				   PRUSS_GPCFG_PRU_MUX_SEL_MASK,
-				  (u32)mux << PRUSS_GPCFG_PRU_MUX_SEL_SHIFT);
+	return pruss_cfg_update(pruss, PRUSS_CFG_GPCFG(id),
+				PRUSS_GPCFG_PRU_MUX_SEL_MASK,
+				(u32)mux << PRUSS_GPCFG_PRU_MUX_SEL_SHIFT);
 }
 
 #endif	/* _PRUSS_DRIVER_H_ */
