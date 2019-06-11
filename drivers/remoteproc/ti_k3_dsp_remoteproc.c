@@ -52,6 +52,7 @@ struct k3_dsp_rproc_mem {
  * @ti_sci_id: TI-SCI device identifier
  * @mbox: mailbox channel handle
  * @client: mailbox client to request the mailbox channel
+ * @ipc_only: flag to indicate IPC-only mode
  */
 struct k3_dsp_rproc {
 	struct device *dev;
@@ -66,6 +67,7 @@ struct k3_dsp_rproc {
 	u32 ti_sci_id;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
+	unsigned int ipc_only : 1;
 };
 
 /**
@@ -226,6 +228,15 @@ static int k3_dsp_rproc_start(struct rproc *rproc)
 		goto put_mbox;
 	}
 
+	/*
+	 * no need to issue TI-SCI commands to configure and boot the DSP cores
+	 * in IPC-only mode.
+	 */
+	if (kproc->ipc_only) {
+		dev_err(dev, "DSP initialized in IPC-only mode\n");
+		return 0;
+	}
+
 	boot_addr = rproc->bootaddr;
 	if (boot_addr & (SZ_1K - 1)) {
 		dev_err(dev, "invalid boot address 0x%x, must be aligned on a 1KB boundary\n",
@@ -261,6 +272,15 @@ static int k3_dsp_rproc_stop(struct rproc *rproc)
 	struct k3_dsp_rproc *kproc = rproc->priv;
 
 	mbox_free_channel(kproc->mbox);
+
+	/*
+	 * no need to issue TI-SCI commands to stop the DSP core
+	 * in IPC-only mode.
+	 */
+	if (kproc->ipc_only) {
+		dev_err(kproc->dev, "DSP deinitialized in IPC-only mode\n");
+		return 0;
+	}
 
 	k3_dsp_rproc_reset(kproc);
 
@@ -544,6 +564,8 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 	struct k3_dsp_rproc *kproc;
 	struct rproc *rproc;
 	const char *fw_name;
+	bool r_state = false;
+	bool p_state = false;
 	int ret = 0;
 	int ret1;
 
@@ -628,6 +650,23 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "reserved memory init failed, ret = %d\n", ret);
 		goto disable_clk;
+	}
+
+	ret = kproc->ti_sci->ops.dev_ops.is_on(kproc->ti_sci, kproc->ti_sci_id,
+					       &r_state, &p_state);
+	if (ret) {
+		dev_err(dev, "failed to get initial state, mode cannot be determined, ret = %d\n",
+			ret);
+		goto release_mem;
+	}
+
+	/* configure J721E devices for either remoteproc or IPC-only mode */
+	if (p_state) {
+		dev_err(dev, "configured DSP for IPC-only mode\n");
+		rproc->skip_load = 1;
+		kproc->ipc_only = 1;
+	} else {
+		dev_err(dev, "configured DSP for remoteproc mode\n");
 	}
 
 	ret = rproc_add(rproc);
