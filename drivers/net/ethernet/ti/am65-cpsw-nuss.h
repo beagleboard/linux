@@ -69,8 +69,15 @@ struct am65_cpsw_rx_chn {
 	unsigned int irq;
 };
 
+#define AM65_CPSW_QUIRK_I2027_NO_TX_CSUM BIT(0)
+
+struct am65_cpsw_pdata {
+	u32	quirks;
+};
+
 struct am65_cpsw_common {
 	struct device		*dev;
+	const struct am65_cpsw_pdata *pdata;
 
 	void __iomem		*ss_base;
 	void __iomem		*cpsw_base;
