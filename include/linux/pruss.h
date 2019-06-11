@@ -105,15 +105,6 @@ enum pruss_gpi_mode {
 };
 
 /**
- * enum pruss_syscon - PRUSS sub-module syscon identifiers
- */
-enum pruss_syscon {
-	PRUSS_SYSCON_CFG = 0,
-	PRUSS_SYSCON_MII_RT,
-	PRUSS_SYSCON_MAX,
-};
-
-/**
  * enum pruss_pru_id - PRU core identifiers
  */
 enum pruss_pru_id {
@@ -169,10 +160,9 @@ int pruss_request_mem_region(struct pruss *pruss, enum pruss_mem mem_id,
 			     struct pruss_mem_region *region);
 int pruss_release_mem_region(struct pruss *pruss,
 			     struct pruss_mem_region *region);
-int pruss_regmap_read(struct pruss *pruss, enum pruss_syscon mod,
-		      unsigned int reg, unsigned int *val);
-int pruss_regmap_update(struct pruss *pruss, enum pruss_syscon mod,
-			unsigned int reg, unsigned int mask, unsigned int val);
+int pruss_cfg_read(struct pruss *pruss, unsigned int reg, unsigned int *val);
+int pruss_cfg_update(struct pruss *pruss, unsigned int reg,
+		     unsigned int mask, unsigned int val);
 int pruss_intc_trigger(unsigned int irq);
 
 #else
@@ -197,15 +187,14 @@ static inline int pruss_release_mem_region(struct pruss *pruss,
 	return -ENOTSUPP;
 }
 
-static inline int pruss_regmap_read(struct pruss *pruss, enum pruss_syscon mod,
-				    unsigned int reg, unsigned int *val)
+static inline int pruss_cfg_read(struct pruss *pruss, unsigned int reg,
+				 unsigned int *val)
 {
 	return -ENOTSUPP;
 }
 
-static inline int pruss_regmap_update(struct pruss *pruss,
-				      enum pruss_syscon mod, unsigned int reg,
-				      unsigned int mask, unsigned int val)
+static inline int pruss_cfg_update(struct pruss *pruss, unsigned int reg,
+				   unsigned int mask, unsigned int val)
 {
 	return -ENOTSUPP;
 }
@@ -265,9 +254,9 @@ static inline int pruss_cfg_gpimode(struct pruss *pruss, struct rproc *pru,
 	if (id < 0)
 		return -EINVAL;
 
-	return pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, PRUSS_CFG_GPCFG(id),
-				   PRUSS_GPCFG_PRU_GPI_MODE_MASK,
-				   mode << PRUSS_GPCFG_PRU_GPI_MODE_SHIFT);
+	return pruss_cfg_update(pruss, PRUSS_CFG_GPCFG(id),
+				PRUSS_GPCFG_PRU_GPI_MODE_MASK,
+				mode << PRUSS_GPCFG_PRU_GPI_MODE_SHIFT);
 }
 
 /**
@@ -281,8 +270,8 @@ static inline int pruss_cfg_miirt_enable(struct pruss *pruss, bool enable)
 {
 	u32 set = enable ? PRUSS_MII_RT_EVENT_EN : 0;
 
-	return pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, PRUSS_CFG_MII_RT,
-				   PRUSS_MII_RT_EVENT_EN, set);
+	return pruss_cfg_update(pruss, PRUSS_CFG_MII_RT,
+				PRUSS_MII_RT_EVENT_EN, set);
 }
 
 /**
@@ -294,8 +283,8 @@ static inline int pruss_cfg_xfr_enable(struct pruss *pruss, bool enable)
 {
 	u32 set = enable ? PRUSS_SPP_XFER_SHIFT_EN : 0;
 
-	return pruss_regmap_update(pruss, PRUSS_SYSCON_CFG, PRUSS_CFG_SPP,
-				   PRUSS_SPP_XFER_SHIFT_EN, set);
+	return pruss_cfg_update(pruss, PRUSS_CFG_SPP,
+				PRUSS_SPP_XFER_SHIFT_EN, set);
 }
 
 #endif /* __LINUX_PRUSS_H */
