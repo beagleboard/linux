@@ -83,3 +83,7 @@ extern long long __ashrti3(long long a, int b);
 EXPORT_SYMBOL(__ashrti3);
 extern long long __lshrti3(long long a, int b);
 EXPORT_SYMBOL(__lshrti3);
+
+	/* hyp-stub.S */
+extern char __hyp_stub_vectors[];
+EXPORT_SYMBOL(__hyp_stub_vectors);
