@@ -2087,7 +2087,7 @@
 		};
 
 		bb2d: bb2d@59000000 {
-			compatible = "ti,dra7-bb2d";
+			compatible = "ti,dra7-bb2d","vivante,gc";
 			reg = <0x59000000 0x0700>;
 			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			ti,hwmods = "bb2d";
@@ -2095,6 +2095,16 @@
 			clock-names = "fclk";
 			status = "disabled";
 		};
+
+		//bb2d: bb2d@59000000 {
+		//	compatible = "ti,dra7-bb2d","vivante,gc";
+		//	reg = <0x59000000 0x0700>;
+		//	interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+		//	ti,hwmods = "bb2d";
+		//	clocks = <&dpll_core_h24x2_ck>;
+		//	clock-names = "fclk";
+		//	status = "disabled";
+		//};
 
 		dss: dss@58000000 {
 			compatible = "ti,dra7-dss";
@@ -2155,6 +2165,15 @@
 				status = "disabled";
 			};
 
+			eqep0: eqep@0x4843e180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x4843e180 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
+				interrupt-parent = <&crossbar_mpu>;
+				interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
 			ecap0: ecap@4843e100 {
 				compatible = "ti,dra746-ecap",
 					     "ti,am3352-ecap";
@@ -2185,6 +2204,15 @@
 				status = "disabled";
 			};
 
+			eqep1: eqep@0x48440180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x48440180 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
+				interrupt-parent = <&crossbar_mpu>;
+				interrupts = <GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
 			ecap1: ecap@48440100 {
 				compatible = "ti,dra746-ecap",
 					     "ti,am3352-ecap";
@@ -2213,6 +2241,15 @@
 				clocks = <&ehrpwm2_tbclk>, <&l4_root_clk_div>;
 				clock-names = "tbclk", "fck";
 				status = "disabled";
+			};
+
+			eqep2: eqep@0x48442180 {
+				compatible = "ti,am33xx-eqep";
+				reg = <0x48442180 0x80>;
+				clocks = <&l4_root_clk_div>;
+				clock-names = "fck";
+				interrupt-parent = <&crossbar_mpu>;
+				interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
 			};
 
 			ecap2: ecap@48442100 {
@@ -2368,6 +2405,12 @@
 				status = "disabled";
 			};
 		};
+	};
+
+	gpu-subsystem {
+		compatible = "vivante,gc-gpu-subsystem";
+		cores = <&bb2d>;
+		status = "okay";
 	};
 
 	thermal_zones: thermal-zones {
