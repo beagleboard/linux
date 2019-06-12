@@ -10,8 +10,13 @@
 #include "am33xx.dtsi"
 #include "am335x-bone-common.dtsi"
 #include "am335x-bonegreen-common.dtsi"
+/* #include "am335x-bone-jtag.dtsi" */
 
 / {
 	model = "TI AM335x BeagleBone Green";
 	compatible = "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+
+&sgx {
+	status = "okay";
 };
