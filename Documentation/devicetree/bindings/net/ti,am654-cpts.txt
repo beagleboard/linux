@@ -23,7 +23,8 @@ different parts of the system which could be synchronized with each other:
   support
 
 Properties:
-- compatible	: Should be "ti,am65-cpts"
+- compatible	: Should be "ti,am65-cpts"  or
+		  "ti,j721e-cpts"
 - reg		: physical base address and size of the CPTS registers map
 - reg-names	: should be "cpts"
 	Depending on CPTS module integration and when CPTS is integral part of

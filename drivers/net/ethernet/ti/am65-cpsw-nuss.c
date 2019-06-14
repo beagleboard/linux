@@ -1830,7 +1830,8 @@ static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 		if (mac_addr && is_valid_ether_addr(mac_addr)) {
 			ether_addr_copy(port->slave.mac_addr, mac_addr);
 		} else if (am65_cpsw_am654_get_efuse_macid(
-				port_np, port->port_id, port->slave.mac_addr)) {
+				port_np, port->port_id, port->slave.mac_addr) ||
+			   !is_valid_ether_addr(port->slave.mac_addr)) {
 			random_ether_addr(port->slave.mac_addr);
 			dev_err(dev, "Use rundom MAC address\n");
 		}
@@ -1886,11 +1887,13 @@ static int am65_cpsw_nuss_init_ndev_2g(struct am65_cpsw_common *common)
 				  NETIF_F_HW_CSUM;
 	port->ndev->features = port->ndev->hw_features |
 			       NETIF_F_HW_VLAN_CTAG_FILTER;
-	/* Disable TX checksum offload by default due to HW bug */
-	port->ndev->features &= ~NETIF_F_HW_CSUM;
 	port->ndev->vlan_features |=  NETIF_F_SG;
 	port->ndev->netdev_ops = &am65_cpsw_nuss_netdev_ops_2g;
 	port->ndev->ethtool_ops = &am65_cpsw_ethtool_ops_slave;
+
+	/* Disable TX checksum offload by default due to HW bug */
+	if (common->pdata->quirks & AM65_CPSW_QUIRK_I2027_NO_TX_CSUM)
+		port->ndev->features &= ~NETIF_F_HW_CSUM;
 
 	ndev_priv->stats = netdev_alloc_pcpu_stats(struct am65_cpsw_ndev_stats);
 	if (!ndev_priv->stats)
@@ -1932,8 +1935,24 @@ static void am65_cpsw_nuss_cleanup_ndev(struct am65_cpsw_common *common)
 	}
 }
 
+static const struct am65_cpsw_pdata am65x_sr1_0 = {
+	.quirks = AM65_CPSW_QUIRK_I2027_NO_TX_CSUM,
+};
+
+static const struct am65_cpsw_pdata j721e_sr1_0 = {
+	.quirks = 0,
+};
+
+static const struct of_device_id am65_cpsw_nuss_of_mtable[] = {
+	{ .compatible = "ti,am654-cpsw-nuss", .data = &am65x_sr1_0 },
+	{ .compatible = "ti,j721e-cpsw-nuss", .data = &j721e_sr1_0 },
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, am65_cpsw_nuss_of_mtable);
+
 static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 {
+	const struct of_device_id *of_id;
 	struct cpsw_ale_params ale_params;
 	struct device *dev = &pdev->dev;
 	struct am65_cpsw_common *common;
@@ -1945,6 +1964,11 @@ static int am65_cpsw_nuss_probe(struct platform_device *pdev)
 	if (!common)
 		return -ENOMEM;
 	common->dev = dev;
+
+	of_id = of_match_device(am65_cpsw_nuss_of_mtable, dev);
+	if (!of_id)
+		return -EINVAL;
+	common->pdata = of_id->data;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cpsw_nuss");
 	common->ss_base = devm_ioremap_resource(&pdev->dev, res);
@@ -2112,12 +2136,6 @@ static int am65_cpsw_nuss_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id am65_cpsw_nuss_of_mtable[] = {
-	{ .compatible = "ti,am654-cpsw-nuss", .data = NULL },
-	{ /* sentinel */ },
-};
-MODULE_DEVICE_TABLE(of, am65_cpsw_nuss_of_mtable);
 
 static struct platform_driver am65_cpsw_nuss_driver = {
 	.driver = {

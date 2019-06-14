@@ -35,6 +35,20 @@
 		};
 	};
 
+	mcu_conf: scm_conf@40f00000 {
+		compatible = "syscon", "simple-mfd";
+		reg = <0x0 0x40f00000 0x0 0x20000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x40f00000 0x20000>;
+
+		phy_sel: cpsw-phy-sel@4040 {
+			compatible = "ti,am654-cpsw-phy-sel";
+			reg = <0x4040 0x4>;
+			reg-names = "gmii-sel";
+		};
+	};
+
 	wkup_pmx0: pinmux@4301c000 {
 		compatible = "pinctrl-single";
 		/* Proxy 0 addressing */
@@ -210,5 +224,195 @@
 
 		/* ti,psil-config0 */
 		UDMA_PDMA_PKT_XY(0);
+	};
+
+	mcu_i2c0: i2c@40b00000 {
+		compatible = "ti,j721e-i2c", "ti,omap4-i2c";
+		reg = <0x0 0x40b00000 0x0 0x100>;
+		interrupts = <GIC_SPI 852 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 194 0>;
+		power-domains = <&k3_pds 194 TI_SCI_PD_EXCLUSIVE>;
+	};
+
+	mcu_i2c1: i2c@40b10000 {
+		compatible = "ti,j721e-i2c", "ti,omap4-i2c";
+		reg = <0x0 0x40b10000 0x0 0x100>;
+		interrupts = <GIC_SPI 853 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 195 0>;
+		power-domains = <&k3_pds 195 TI_SCI_PD_EXCLUSIVE>;
+	};
+
+	wkup_i2c0: i2c@42120000 {
+		compatible = "ti,j721e-i2c", "ti,omap4-i2c";
+		reg = <0x0 0x42120000 0x0 0x100>;
+		interrupts = <GIC_SPI 896 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "fck";
+		clocks = <&k3_clks 197 0>;
+		power-domains = <&k3_pds 197 TI_SCI_PD_SHARED>;
+	};
+
+	mcu_cpsw: ethernet@046000000 {
+		compatible = "ti,j721e-cpsw-nuss";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		reg = <0x0 0x46000000 0x0 0x200000>;
+		reg-names = "cpsw_nuss";
+		ranges;
+		dma-coherent;
+		clocks = <&k3_clks 18 22>;
+		clock-names = "fck";
+		power-domains = <&k3_pds 18 TI_SCI_PD_EXCLUSIVE>;
+		ti,psil-base = <0x7000>;
+		cpsw-phy-sel = <&phy_sel>;
+
+		interrupt-parent = <&main_udmass_inta>;
+
+		dmas = <&mcu_udmap &mcu_cpsw 0 UDMA_DIR_TX>,
+		       <&mcu_udmap &mcu_cpsw 1 UDMA_DIR_TX>,
+		       <&mcu_udmap &mcu_cpsw 2 UDMA_DIR_TX>,
+		       <&mcu_udmap &mcu_cpsw 3 UDMA_DIR_TX>,
+		       <&mcu_udmap &mcu_cpsw 4 UDMA_DIR_TX>,
+		       <&mcu_udmap &mcu_cpsw 5 UDMA_DIR_TX>,
+		       <&mcu_udmap &mcu_cpsw 6 UDMA_DIR_TX>,
+		       <&mcu_udmap &mcu_cpsw 7 UDMA_DIR_TX>,
+		       <&mcu_udmap &mcu_cpsw 0 UDMA_DIR_RX>;
+		dma-names = "tx0", "tx1", "tx2", "tx3",
+			    "tx4", "tx5", "tx6", "tx7",
+			    "rx";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			host: host@0 {
+				reg = <0>;
+				ti,label = "host";
+			};
+
+			cpsw_port1: port@1 {
+				reg = <1>;
+				ti,mac-only;
+				ti,label = "port1";
+				ti,syscon-efuse = <&mcu_conf 0x200>;
+			};
+		};
+
+		davinci_mdio: mdio {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bus_freq = <1000000>;
+		};
+
+		cpts {
+			clocks = <&k3_clks 18 2>;
+			clock-names = "cpts";
+			interrupts-extended = <&gic500 GIC_SPI 858 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "cpts";
+			ti,cpts-ext-ts-inputs = <4>;
+			ti,cpts-periodic-outputs = <2>;
+		};
+
+		ti,psil-config0 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			statictr-type = <PSIL_STATIC_TR_NONE>;
+			ti,needs-epib;
+			ti,psd-size = <16>;
+		};
+
+		ti,psil-config1 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			statictr-type = <PSIL_STATIC_TR_NONE>;
+			ti,needs-epib;
+			ti,psd-size = <16>;
+		};
+
+		ti,psil-config2 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			statictr-type = <PSIL_STATIC_TR_NONE>;
+			ti,needs-epib;
+			ti,psd-size = <16>;
+		};
+
+		ti,psil-config3 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			statictr-type = <PSIL_STATIC_TR_NONE>;
+			ti,needs-epib;
+			ti,psd-size = <16>;
+		};
+
+		ti,psil-config4 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			statictr-type = <PSIL_STATIC_TR_NONE>;
+			ti,needs-epib;
+			ti,psd-size = <16>;
+		};
+
+		ti,psil-config5 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			statictr-type = <PSIL_STATIC_TR_NONE>;
+			ti,needs-epib;
+			ti,psd-size = <16>;
+		};
+
+		ti,psil-config6 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			statictr-type = <PSIL_STATIC_TR_NONE>;
+			ti,needs-epib;
+			ti,psd-size = <16>;
+		};
+
+		ti,psil-config7 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			statictr-type = <PSIL_STATIC_TR_NONE>;
+			ti,needs-epib;
+			ti,psd-size = <16>;
+		};
+	};
+
+	fss: fss@47000000 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		ospi0: spi@47040000 {
+			compatible = "ti,j721e-ospi", "ti,am654-ospi";
+			reg = <0x0 0x47040000 0x0 0x100>,
+				<0x5 0x00000000 0x1 0x0000000>;
+			interrupts = <GIC_SPI 840 IRQ_TYPE_LEVEL_HIGH>;
+			cdns,fifo-depth = <256>;
+			cdns,fifo-width = <4>;
+			cdns,trigger-address = <0x0>;
+			cdns,delay-elem-ps = <80>;
+			clocks = <&k3_clks 103 0>;
+			assigned-clocks = <&k3_clks 103 0>;
+			assigned-clock-parents = <&k3_clks 103 2>;
+			assigned-clock-rates = <166666666>;
+			power-domains = <&k3_pds 103 TI_SCI_PD_EXCLUSIVE>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		ospi1: spi@47050000 {
+			compatible = "ti,j721e-ospi", "ti,am654-ospi";
+			reg = <0x0 0x47050000 0x0 0x100>,
+				<0x7 0x00000000 0x1 0x00000000>;
+			interrupts = <GIC_SPI 841 IRQ_TYPE_LEVEL_HIGH>;
+			cdns,fifo-depth = <256>;
+			cdns,fifo-width = <4>;
+			cdns,trigger-address = <0x0>;
+			clocks = <&k3_clks 104 0>;
+			power-domains = <&k3_pds 104 TI_SCI_PD_EXCLUSIVE>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
 	};
 };

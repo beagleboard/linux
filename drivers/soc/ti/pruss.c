@@ -176,59 +176,45 @@ int pruss_release_mem_region(struct pruss *pruss,
 EXPORT_SYMBOL_GPL(pruss_release_mem_region);
 
 /**
- * pruss_regmap_read() - read a PRUSS syscon sub-module register
+ * pruss_cfg_read() - read a PRUSS CFG sub-module register
  * @pruss: the pruss instance handle
- * @mod: the pruss syscon sub-module identifier
- * @reg: register offset within the sub-module
+ * @reg: register offset within the CFG sub-module
  * @val: pointer to return the value in
  *
- * Reads a given register within one of the PRUSS sub-modules represented
- * by a syscon and returns it through the passed-in @val pointer
+ * Reads a given register within the PRUSS CFG sub-module and
+ * returns it through the passed-in @val pointer
  *
  * Returns 0 on success, or an error code otherwise
  */
-int pruss_regmap_read(struct pruss *pruss, enum pruss_syscon mod,
-		      unsigned int reg, unsigned int *val)
+int pruss_cfg_read(struct pruss *pruss, unsigned int reg, unsigned int *val)
 {
-	struct regmap *map;
-
-	if (IS_ERR_OR_NULL(pruss) || mod < PRUSS_SYSCON_CFG ||
-	    mod >= PRUSS_SYSCON_MAX)
+	if (IS_ERR_OR_NULL(pruss))
 		return -EINVAL;
 
-	map = (mod == PRUSS_SYSCON_CFG) ? pruss->cfg : pruss->mii_rt;
-
-	return regmap_read(map, reg, val);
+	return regmap_read(pruss->cfg, reg, val);
 }
-EXPORT_SYMBOL_GPL(pruss_regmap_read);
+EXPORT_SYMBOL_GPL(pruss_cfg_read);
 
 /**
- * pruss_regmap_update() - configure a PRUSS syscon sub-module register
+ * pruss_cfg_update() - configure a PRUSS CFG sub-module register
  * @pruss: the pruss instance handle
- * @mod: the pruss syscon sub-module identifier
- * @reg: register offset within the sub-module
+ * @reg: register offset within the CFG sub-module
  * @mask: bit mask to use for programming the @val
  * @val: value to write
  *
- * Programs a given register within one of the PRUSS sub-modules represented
- * by a syscon
+ * Programs a given register within the PRUSS CFG sub-module
  *
  * Returns 0 on success, or an error code otherwise
  */
-int pruss_regmap_update(struct pruss *pruss, enum pruss_syscon mod,
-			unsigned int reg, unsigned int mask, unsigned int val)
+int pruss_cfg_update(struct pruss *pruss, unsigned int reg,
+		     unsigned int mask, unsigned int val)
 {
-	struct regmap *map;
-
-	if (IS_ERR_OR_NULL(pruss) || mod < PRUSS_SYSCON_CFG ||
-	    mod >= PRUSS_SYSCON_MAX)
+	if (IS_ERR_OR_NULL(pruss))
 		return -EINVAL;
 
-	map = (mod == PRUSS_SYSCON_CFG) ? pruss->cfg : pruss->mii_rt;
-
-	return regmap_update_bits(map, reg, mask, val);
+	return regmap_update_bits(pruss->cfg, reg, mask, val);
 }
-EXPORT_SYMBOL_GPL(pruss_regmap_update);
+EXPORT_SYMBOL_GPL(pruss_cfg_update);
 
 static const
 struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
@@ -403,17 +389,6 @@ skip_mux:
 		dev_err(dev, "cfg regmap init failed\n");
 		return PTR_ERR(pruss->cfg);
 	}
-
-	np = of_get_child_by_name(node, "mii-rt");
-	if (!np) {
-		dev_err(dev, "%pOF is missing mii-rt node\n", np);
-		return -ENODEV;
-	}
-
-	pruss->mii_rt = syscon_node_to_regmap(np);
-	of_node_put(np);
-	if (IS_ERR(pruss->mii_rt))
-		return -ENODEV;
 
 	np = of_get_child_by_name(node, "memories");
 	if (!np) {

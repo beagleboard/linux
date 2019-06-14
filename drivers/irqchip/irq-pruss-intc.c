@@ -7,6 +7,7 @@
  *	Suman Anna <s-anna@ti.com>
  */
 
+#include <linux/bitmap.h>
 #include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
@@ -168,11 +169,12 @@ int pruss_intc_configure(struct pruss *pruss,
 	int i, idx;
 	s8 ch, host;
 	u32 num_events, num_intrs, num_regs;
-	u32 *sysevt_mask = NULL;
 	u32 ch_mask = 0;
 	u32 host_mask = 0;
 	int ret = 0;
 	u32 val;
+	unsigned long *sysevt_bitmap;
+	u32 *sysevts;
 
 	intc = to_pruss_intc(pruss);
 	if (!intc)
@@ -182,9 +184,10 @@ int pruss_intc_configure(struct pruss *pruss,
 	num_intrs = intc->data->num_host_intrs;
 	num_regs = DIV_ROUND_UP(num_events, 32);
 
-	sysevt_mask = kcalloc(num_regs, sizeof(*sysevt_mask), GFP_KERNEL);
-	if (!sysevt_mask)
+	sysevt_bitmap = bitmap_zalloc(num_events, GFP_KERNEL);
+	if (!sysevt_bitmap)
 		return -ENOMEM;
+	sysevts = (u32 *)sysevt_bitmap;
 
 	mutex_lock(&intc->lock);
 
@@ -212,7 +215,7 @@ int pruss_intc_configure(struct pruss *pruss,
 		val = pruss_intc_read_reg(intc, PRU_INTC_CMR(idx));
 		val |= ch << ((i & 3) * 8);
 		pruss_intc_write_reg(intc, PRU_INTC_CMR(idx), val);
-		sysevt_mask[i / 32] |= BIT(i % 32);
+		bitmap_set(sysevt_bitmap, i, 1);
 		ch_mask |= BIT(ch);
 
 		dev_dbg(dev, "SYSEV%d -> CH%d (CMR%d 0x%08x)\n", i, ch, idx,
@@ -260,21 +263,15 @@ int pruss_intc_configure(struct pruss *pruss,
 			pruss_intc_read_reg(intc, PRU_INTC_HMR(idx)));
 	}
 
-	if (num_events == MAX_PRU_SYS_EVENTS) {
-		dev_info(dev, "configured system_events[63-0] = 0x%08x.%08x",
-			 sysevt_mask[1], sysevt_mask[0]);
-	} else if (num_events == MAX_PRU_SYS_EVENTS_K3) {
-		dev_info(dev, "configured system_events[159-0] = 0x%08x.%08x.%08x.%08x.%08x",
-			 sysevt_mask[4], sysevt_mask[3],  sysevt_mask[2],
-			 sysevt_mask[1],  sysevt_mask[0]);
-	}
+	dev_info(dev, "configured system_events[%d-0] = %*pb\n",
+		 num_events - 1, num_events, sysevt_bitmap);
 	dev_info(dev, "configured intr_channels = 0x%08x host_intr = 0x%08x\n",
 		 ch_mask, host_mask);
 
 	/* enable system events, writing 0 has no-effect */
 	for (i = 0; i < num_regs; i++) {
-		pruss_intc_write_reg(intc, PRU_INTC_ESR(i), sysevt_mask[i]);
-		pruss_intc_write_reg(intc, PRU_INTC_SECR(i), sysevt_mask[i]);
+		pruss_intc_write_reg(intc, PRU_INTC_ESR(i), sysevts[i]);
+		pruss_intc_write_reg(intc, PRU_INTC_SECR(i), sysevts[i]);
 	}
 
 	/* enable host interrupts */
@@ -290,7 +287,7 @@ int pruss_intc_configure(struct pruss *pruss,
 
 unlock:
 	mutex_unlock(&intc->lock);
-	kfree(sysevt_mask);
+	bitmap_free(sysevt_bitmap);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pruss_intc_configure);
@@ -312,8 +309,9 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 	int i;
 	s8 ch, host;
 	u32 num_events, num_intrs, num_regs;
-	u32 *sysevt_mask = NULL;
 	u32 host_mask = 0;
+	unsigned long *sysevt_bitmap;
+	u32 *sysevts;
 
 	intc = to_pruss_intc(pruss);
 	if (!intc)
@@ -323,9 +321,10 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 	num_intrs = intc->data->num_host_intrs;
 	num_regs = DIV_ROUND_UP(num_events, 32);
 
-	sysevt_mask = kcalloc(num_regs, sizeof(*sysevt_mask), GFP_KERNEL);
-	if (!sysevt_mask)
+	sysevt_bitmap = bitmap_zalloc(num_events, GFP_KERNEL);
+	if (!sysevt_bitmap)
 		return -ENOMEM;
+	sysevts = (u32 *)sysevt_bitmap;
 
 	mutex_lock(&intc->lock);
 
@@ -336,7 +335,7 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 
 		/* mark sysevent free in global map */
 		intc->config_map.sysev_to_ch[i] = -1;
-		sysevt_mask[i / 32] |= BIT(i % 32);
+		bitmap_set(sysevt_bitmap, i, 1);
 	}
 
 	for (i = 0; i < num_intrs; i++) {
@@ -349,21 +348,15 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 		host_mask |= BIT(host);
 	}
 
-	if (num_events == MAX_PRU_SYS_EVENTS) {
-		dev_info(dev, "unconfigured system_events[63-0] = 0x%08x.%08x",
-			 sysevt_mask[1], sysevt_mask[0]);
-	} else if (num_events == MAX_PRU_SYS_EVENTS_K3) {
-		dev_info(dev, "unconfigured system_events[159-0] = 0x%08x.%08x.%08x.%08x.%08x",
-			 sysevt_mask[4], sysevt_mask[3],  sysevt_mask[2],
-			 sysevt_mask[1],  sysevt_mask[0]);
-	}
+	dev_info(dev, "unconfigured system_events[%d-0] = %*pb\n",
+		 num_events - 1, num_events, sysevt_bitmap);
 	dev_info(dev, "unconfigured host_intr = 0x%08x\n", host_mask);
 
 	for (i = 0; i < num_regs; i++) {
 		/* disable system events, writing 0 has no-effect */
-		pruss_intc_write_reg(intc, PRU_INTC_ECR(i), sysevt_mask[i]);
+		pruss_intc_write_reg(intc, PRU_INTC_ECR(i), sysevts[i]);
 		/* clear any pending status */
-		pruss_intc_write_reg(intc, PRU_INTC_SECR(i), sysevt_mask[i]);
+		pruss_intc_write_reg(intc, PRU_INTC_SECR(i), sysevts[i]);
 	}
 
 	/* disable host interrupts */
@@ -374,7 +367,7 @@ int pruss_intc_unconfigure(struct pruss *pruss,
 
 	intc->host_mask &= ~host_mask;
 	mutex_unlock(&intc->lock);
-	kfree(sysevt_mask);
+	bitmap_free(sysevt_bitmap);
 
 	return 0;
 }

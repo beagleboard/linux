@@ -31,6 +31,8 @@
 		serial9 = &main_uart7;
 		serial10 = &main_uart8;
 		serial11 = &main_uart9;
+		spi0 = &ospi0;
+		spi1 = &ospi1;
 	};
 
 	chosen { };
