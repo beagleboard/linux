@@ -83,7 +83,7 @@ static const struct dispc7_features dispc7_am6_feats = {
 
 static const struct dispc7_features dispc7_j721e_feats = {
 	.min_pclk = 1000,
-	.max_pclk = 200000000,
+	.max_pclk = 600000000,
 
 	/* XXX: Scaling features are copied from AM6 and should be checked */
 	.scaling = {
