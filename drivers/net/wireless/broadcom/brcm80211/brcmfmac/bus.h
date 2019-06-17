@@ -270,8 +270,6 @@ int brcmf_attach(struct device *dev, struct brcmf_mp_device *settings);
 void brcmf_detach(struct device *dev);
 /* Indication from bus module that dongle should be reset */
 void brcmf_dev_reset(struct device *dev);
-/* Request from bus module to initiate a coredump */
-void brcmf_dev_coredump(struct device *dev);
 /* Indication that firmware has halted or crashed */
 void brcmf_fw_crashed(struct device *dev);
 
