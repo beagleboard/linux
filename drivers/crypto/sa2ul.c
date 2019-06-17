@@ -65,7 +65,7 @@
 #define SA_MAX_AUTH_TAG_SZ 64
 
 #define PRIV_ID	0x1
-#define PRIV		0x3
+#define PRIV	0x1
 
 static struct device *sa_k3_dev;
 
