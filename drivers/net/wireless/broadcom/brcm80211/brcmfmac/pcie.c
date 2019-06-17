@@ -2123,7 +2123,6 @@ static struct pci_driver brcmf_pciedrvr = {
 #ifdef CONFIG_PM
 	.driver.pm = &brcmf_pciedrvr_pm,
 #endif
-	.driver.coredump = brcmf_dev_coredump,
 };
 
 
