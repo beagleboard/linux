@@ -711,6 +711,7 @@ brcmf_fw_alloc_request(u32 chip, u32 chiprev,
 	size_t mp_path_len;
 	u32 i, j;
 	char end = '\0';
+	size_t reqsz;
 
 	for (i = 0; i < table_size; i++) {
 		if (mapping_table[i].chipid == chip &&
@@ -725,7 +726,8 @@ brcmf_fw_alloc_request(u32 chip, u32 chiprev,
 		return NULL;
 	}
 
-	fwreq = kzalloc(struct_size(fwreq, items, n_fwnames), GFP_KERNEL);
+	reqsz = sizeof(*fwreq) + n_fwnames * sizeof(struct brcmf_fw_item);
+	fwreq = kzalloc(reqsz, GFP_KERNEL);
 	if (!fwreq)
 		return NULL;
 
