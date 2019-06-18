@@ -10,6 +10,7 @@
 #include <linux/clk.h>
 #include <linux/module.h>
 #include <linux/dmapool.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/dmaengine.h>
@@ -2157,6 +2158,7 @@ err_dma_tx:
 static int sa_ul_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
 	struct resource *res;
 	static void __iomem *saul_base;
 	struct sa_crypto_data *dev_data;
@@ -2188,6 +2190,9 @@ static int sa_ul_probe(struct platform_device *pdev)
 
 	sa_register_algos(dev);
 
+	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
+	if (ret)
+		dev_err(dev, "of_platform_populate failed\n");
 	return 0;
 }
 
