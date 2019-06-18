@@ -1,0 +1,74 @@
+Texas Instruments PowerVR 3D GPU
+================================
+
+PowerVR is a 3D Graphics Processing Unit from Imagination Technologies. Texas
+Instruments SoCs have integrated different generations of PowerVR 3D GPUs. This
+binding describes the GPU's integrated in Texas Instruments SoCs.
+
+Required properties:
+--------------------
+  - compatible:
+      accepted values:
+	(a) "ti,am3352-sgx530", "img,sgx530" for TI AM33x
+	(b) "ti,am4376-sgx530", "img,sgx530" for TI AM43x
+	(c) "ti,dra7-sgx544", "img,sgx544" for TI DRA7xx / AM57x
+	(d) "ti,am654-sgx544", "img,sgx544" for TI AM654
+	(e) "ti,j721e-pvr", "img,pvr-ge8430" for TI J721E SoC with PowerVR GE8430 GPU
+
+  - reg: base address and length of registers
+  - interrupts: phandle to GPU interrupts
+  - clocks: from SoC clock bindings
+
+Optional properties:
+--------------------
+  - reg-names: names of registers listed in reg property in same order
+  - clock-names: names of clocks listed in clocks property in same order
+
+SoC-specific properties:
+------------------------
+The following properties are mandatory for OMAP architecture based SoC's
+  - ti,hwmods: name of hwmod associated with AM33x, AM43x, DRA7xx devices
+
+The following properties are mandatory for K3 AM65x and J721E SoCs only:
+  - power-domains: power domain parameters from SoC device description
+
+The following properties are optional for K3 AM65x and J721E SoCs only:
+  - power-domain-names: names of domains listed in power-domains property in
+    same order
+
+Examples:
+--------
+
+1. /* DRA7 */
+	sgx@56000000 {
+		compatible = "ti,dra7-sgx544", "img,sgx544";
+		reg = <0x56000000 0x10000>;
+		reg-names = "gpu_ocp_base";
+		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+		ti,hwmods = "gpu";
+		clocks = <&l3_iclk_div>, <&gpu_core_gclk_mux>,
+			 <&gpu_hyd_gclk_mux>;
+		clock-names = "iclk", "fclk1", "fclk2";
+	};
+
+2. /* AM65x */
+	gpu@7000000 {
+		compatible = "ti,am654-sgx544", "img,sgx544";
+		reg = <0x0 0x7000000 0x0 0x10000>;
+		interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&k3_pds 65>;
+		clocks = <&k3_clks 65 0>, <&k3_clks 65 1>, <&k3_clks 65 2>, <&k3_clks 65 3>;
+		clock-names = "mem_clk", "hyd_clk", "sgx_clk", "sys_clk";
+	};
+
+3. /* J721e */
+	gpu: gpu@4e20000000 {
+		compatible = "ti,j721e-pvr", "img,pvr-ge8430";
+		reg = <0x4e 0x20000000 0x00 0x80000>;
+		reg-names = "gpu_regs";
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&k3_pds 125 TI_SCI_PD_EXCLUSIVE>, <&k3_pds 126 TI_SCI_PD_EXCLUSIVE>;
+		power-domain-names = "gpu_0", "gpucore_0";
+		clocks = <&k3_clks 125 0>;
+		clock-names = "ctrl";
+	};
