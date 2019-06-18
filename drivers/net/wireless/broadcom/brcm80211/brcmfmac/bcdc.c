@@ -165,7 +165,7 @@ static int brcmf_proto_bcdc_cmplt(struct brcmf_pub *drvr, u32 id, u32 len)
 
 static int
 brcmf_proto_bcdc_query_dcmd(struct brcmf_pub *drvr, int ifidx, uint cmd,
-			    void *buf, uint len)
+			    void *buf, uint len, int *fwerr)
 {
 	struct brcmf_bcdc *bcdc = (struct brcmf_bcdc *)drvr->proto->pd;
 	struct brcmf_proto_bcdc_dcmd *msg = &bcdc->msg;
@@ -175,10 +175,11 @@ brcmf_proto_bcdc_query_dcmd(struct brcmf_pub *drvr, int ifidx, uint cmd,
 
 	brcmf_dbg(BCDC, "Enter, cmd %d len %d\n", cmd, len);
 
+	*fwerr = 0;
 	ret = brcmf_proto_bcdc_msg(drvr, ifidx, cmd, buf, len, false);
 	if (ret < 0) {
-		brcmf_err("brcmf_proto_bcdc_msg failed w/status %d\n",
-			  ret);
+		bphy_err(drvr, "brcmf_proto_bcdc_msg failed w/status %d\n",
+			 ret);
 		goto done;
 	}
 
@@ -194,9 +195,9 @@ retry:
 	if ((id < bcdc->reqid) && (++retries < RETRIES))
 		goto retry;
 	if (id != bcdc->reqid) {
-		brcmf_err("%s: unexpected request id %d (expected %d)\n",
-			  brcmf_ifname(brcmf_get_ifp(drvr, ifidx)), id,
-			  bcdc->reqid);
+		bphy_err(drvr, "%s: unexpected request id %d (expected %d)\n",
+			 brcmf_ifname(brcmf_get_ifp(drvr, ifidx)), id,
+			 bcdc->reqid);
 		ret = -EINVAL;
 		goto done;
 	}
@@ -211,25 +212,27 @@ retry:
 		memcpy(buf, info, len);
 	}
 
+	ret = 0;
+
 	/* Check the ERROR flag */
 	if (flags & BCDC_DCMD_ERROR)
-		ret = le32_to_cpu(msg->status);
-
+		*fwerr = le32_to_cpu(msg->status);
 done:
 	return ret;
 }
 
 static int
 brcmf_proto_bcdc_set_dcmd(struct brcmf_pub *drvr, int ifidx, uint cmd,
-			  void *buf, uint len)
+			  void *buf, uint len, int *fwerr)
 {
 	struct brcmf_bcdc *bcdc = (struct brcmf_bcdc *)drvr->proto->pd;
 	struct brcmf_proto_bcdc_dcmd *msg = &bcdc->msg;
-	int ret = 0;
+	int ret;
 	u32 flags, id;
 
 	brcmf_dbg(BCDC, "Enter, cmd %d len %d\n", cmd, len);
 
+	*fwerr = 0;
 	ret = brcmf_proto_bcdc_msg(drvr, ifidx, cmd, buf, len, true);
 	if (ret < 0)
 		goto done;
@@ -242,16 +245,18 @@ brcmf_proto_bcdc_set_dcmd(struct brcmf_pub *drvr, int ifidx, uint cmd,
 	id = (flags & BCDC_DCMD_ID_MASK) >> BCDC_DCMD_ID_SHIFT;
 
 	if (id != bcdc->reqid) {
-		brcmf_err("%s: unexpected request id %d (expected %d)\n",
-			  brcmf_ifname(brcmf_get_ifp(drvr, ifidx)), id,
-			  bcdc->reqid);
+		bphy_err(drvr, "%s: unexpected request id %d (expected %d)\n",
+			 brcmf_ifname(brcmf_get_ifp(drvr, ifidx)), id,
+			 bcdc->reqid);
 		ret = -EINVAL;
 		goto done;
 	}
 
+	ret = 0;
+
 	/* Check the ERROR flag */
 	if (flags & BCDC_DCMD_ERROR)
-		ret = le32_to_cpu(msg->status);
+		*fwerr = le32_to_cpu(msg->status);
 
 done:
 	return ret;
@@ -307,8 +312,8 @@ brcmf_proto_bcdc_hdrpull(struct brcmf_pub *drvr, bool do_fws,
 	}
 	if (((h->flags & BCDC_FLAG_VER_MASK) >> BCDC_FLAG_VER_SHIFT) !=
 	    BCDC_PROTO_VER) {
-		brcmf_err("%s: non-BCDC packet received, flags 0x%x\n",
-			  brcmf_ifname(tmp_if), h->flags);
+		bphy_err(drvr, "%s: non-BCDC packet received, flags 0x%x\n",
+			 brcmf_ifname(tmp_if), h->flags);
 		return -EBADE;
 	}
 
@@ -440,6 +445,11 @@ brcmf_proto_bcdc_init_done(struct brcmf_pub *drvr)
 	return 0;
 }
 
+static void brcmf_proto_bcdc_debugfs_create(struct brcmf_pub *drvr)
+{
+	brcmf_fws_debugfs_create(drvr);
+}
+
 int brcmf_proto_bcdc_attach(struct brcmf_pub *drvr)
 {
 	struct brcmf_bcdc *bcdc;
@@ -450,7 +460,7 @@ int brcmf_proto_bcdc_attach(struct brcmf_pub *drvr)
 
 	/* ensure that the msg buf directly follows the cdc msg struct */
 	if ((unsigned long)(&bcdc->msg + 1) != (unsigned long)bcdc->buf) {
-		brcmf_err("struct brcmf_proto_bcdc is not correctly defined\n");
+		bphy_err(drvr, "struct brcmf_proto_bcdc is not correctly defined\n");
 		goto fail;
 	}
 
@@ -467,6 +477,7 @@ int brcmf_proto_bcdc_attach(struct brcmf_pub *drvr)
 	drvr->proto->del_if = brcmf_proto_bcdc_del_if;
 	drvr->proto->reset_if = brcmf_proto_bcdc_reset_if;
 	drvr->proto->init_done = brcmf_proto_bcdc_init_done;
+	drvr->proto->debugfs_create = brcmf_proto_bcdc_debugfs_create;
 	drvr->proto->pd = bcdc;
 
 	drvr->hdrlen += BCDC_HEADER_LEN + BRCMF_PROT_FW_SIGNAL_MAX_TXBYTES;
@@ -479,11 +490,18 @@ fail:
 	return -ENOMEM;
 }
 
-void brcmf_proto_bcdc_detach(struct brcmf_pub *drvr)
+void brcmf_proto_bcdc_detach_pre_delif(struct brcmf_pub *drvr)
+{
+	struct brcmf_bcdc *bcdc = drvr->proto->pd;
+
+	brcmf_fws_detach_pre_delif(bcdc->fws);
+}
+
+void brcmf_proto_bcdc_detach_post_delif(struct brcmf_pub *drvr)
 {
 	struct brcmf_bcdc *bcdc = drvr->proto->pd;
 
 	drvr->proto->pd = NULL;
-	brcmf_fws_detach(bcdc->fws);
+	brcmf_fws_detach_post_delif(bcdc->fws);
 	kfree(bcdc);
 }
