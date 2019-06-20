@@ -137,7 +137,7 @@ int cdns3_drd_switch_host(struct cdns3 *cdns, int on)
 	if (on) {
 		writel(OTGCMD_HOST_BUS_REQ | reg, &cdns->otg_regs->cmd);
 
-		dev_info(cdns->dev, "Waiting till Host mode is turned on\n");
+		dev_dbg(cdns->dev, "Waiting till Host mode is turned on\n");
 		ret = cdns3_handshake(&cdns->otg_regs->sts, OTGSTS_XHCI_READY,
 				      OTGSTS_XHCI_READY, 100000);
 
@@ -174,7 +174,7 @@ int cdns3_drd_switch_gadget(struct cdns3 *cdns, int on)
 	if (on) {
 		writel(OTGCMD_DEV_BUS_REQ | reg, &cdns->otg_regs->cmd);
 
-		dev_info(cdns->dev, "Waiting till Device mode is turned on\n");
+		dev_dbg(cdns->dev, "Waiting till Device mode is turned on\n");
 
 		ret = cdns3_handshake(&cdns->otg_regs->sts, OTGSTS_DEV_READY,
 				      OTGSTS_DEV_READY, 100000);
