@@ -256,7 +256,7 @@ enum cdns3_roles cdsn3_get_real_role(struct cdns3 *cdns)
 	id = cdns3_get_id(cdns);
 	vbus = cdns3_get_vbus(cdns);
 
-	dev_info(cdns->dev, "id: %d, vbus: %d\n", id, vbus);
+	dev_dbg(cdns->dev, "id: %d, vbus: %d\n", id, vbus);
 	/* Role change state machine
 	 * Inputs: ID, VBUS
 	 * Previous state: cdns->role
@@ -286,7 +286,7 @@ enum cdns3_roles cdsn3_get_real_role(struct cdns3 *cdns)
 		break;
 	}
 
-	dev_info(cdns->dev, "role %d -> %d\n", cdns->role, role);
+	dev_dbg(cdns->dev, "role %d -> %d\n", cdns->role, role);
 
 	return role;
 
