@@ -2042,7 +2042,7 @@ static int brcmf_fws_borrow_credit(struct brcmf_fws_info *fws,
 
 		if (!borrow_all)
 			borrow_limit =
-			  fws->fifo_credit[lender_ac] / BRCMF_BORROW_RATIO;
+			  fws->init_fifo_credit[lender_ac] / BRCMF_BORROW_RATIO;
 		else
 			borrow_limit = 0;
 
