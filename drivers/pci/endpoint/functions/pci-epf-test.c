@@ -8,6 +8,7 @@
 
 #include <linux/crc32.h>
 #include <linux/delay.h>
+#include <linux/dmaengine.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -177,6 +178,9 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 		goto err_map_addr;
 	}
 
+	if (epf->dma_chan)
+		dma_dev = epf->dma_chan->device->dev;
+
 	dst_addr = dma_map_single(dma_dev, buf, reg->size, DMA_FROM_DEVICE);
 	if (dma_mapping_error(dma_dev, dst_addr)) {
 		dev_err(dev, "failed to map destination buffer address\n");
@@ -250,6 +254,9 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 
 	get_random_bytes(buf, reg->size);
 	reg->checksum = crc32_le(~0, buf, reg->size);
+
+	if (epf->dma_chan)
+		dma_dev = epf->dma_chan->device->dev;
 
 	src_addr = dma_map_single(dma_dev, buf, reg->size, DMA_TO_DEVICE);
 	if (dma_mapping_error(dma_dev, src_addr)) {
