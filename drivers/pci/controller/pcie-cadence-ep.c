@@ -425,9 +425,17 @@ static const struct pci_epc_ops cdns_pcie_epc_ops = {
 	.get_features	= cdns_pcie_ep_get_features,
 };
 
-static const struct of_device_id cdns_pcie_ep_of_match[] = {
-	{ .compatible = "cdns,cdns-pcie-ep" },
+static struct cdns_pcie_ep_data cdns_ti_pcie_ep_data = {
+	.read = cdns_pcie_read32,
+	.write = cdns_pcie_write32,
+};
 
+static const struct of_device_id cdns_pcie_ep_of_match[] = {
+	{ .compatible = "cdns,cdns-pcie-ep",
+	},
+	{ .compatible = "ti,j721e-cdns-pcie-ep",
+	  .data = &cdns_ti_pcie_ep_data,
+	},
 	{ },
 };
 
