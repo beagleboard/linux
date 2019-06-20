@@ -23,6 +23,10 @@ Optional properties:
 assigned-clocks and assigned-clock-parents: As documented in the generic
 clock bindings in Documentation/devicetree/bindings/clock/clock-bindings.txt
 
+ - typec-dir-gpios: GPIO to signal Type-C cable orientation for lane swap.
+     If GPIO is active, lane 0 and lane 1 of SERDES will be swapped to
+     achieve the funtionality of an exernal type-C plug flip mux.
+
 Required subnodes:
  - Clock Subnode: WIZ node should have '3' subnodes for each of the clock
      selects it supports. The clock subnodes should have the following names
