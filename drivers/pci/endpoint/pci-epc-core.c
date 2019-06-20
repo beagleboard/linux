@@ -518,6 +518,8 @@ EXPORT_SYMBOL_GPL(pci_epc_write_header);
  */
 int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf)
 {
+	u32 func_no = 0;
+
 	if (epf->epc)
 		return -EBUSY;
 
@@ -527,9 +529,16 @@ int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf)
 	if (epf->func_no > epc->max_functions - 1)
 		return -EINVAL;
 
+	mutex_lock(&epc->lock);
+	func_no = find_first_zero_bit(&epc->function_num_map,
+				      BITS_PER_LONG);
+	if (func_no >= BITS_PER_LONG)
+		return -EINVAL;
+
+	set_bit(func_no, &epc->function_num_map);
+	epf->func_no = func_no;
 	epf->epc = epc;
 
-	mutex_lock(&epc->lock);
 	list_add_tail(&epf->list, &epc->pci_epf);
 	mutex_unlock(&epc->lock);
 
@@ -550,6 +559,7 @@ void pci_epc_remove_epf(struct pci_epc *epc, struct pci_epf *epf)
 		return;
 
 	mutex_lock(&epc->lock);
+	clear_bit(epf->func_no, &epc->function_num_map);
 	list_del(&epf->list);
 	mutex_unlock(&epc->lock);
 }
