@@ -196,6 +196,8 @@ struct cdns_sierra_phy {
 	struct regmap_field *phy_pll_cfg_1;
 	struct regmap_field *pllctrl_lock[SIERRA_MAX_LANES];
 	struct clk *clk;
+	struct clk *cmn_refclk;
+	struct clk *cmn_refclk1;
 	int nsubnodes;
 	u32 num_lanes;
 	bool autoconf;
@@ -277,6 +279,8 @@ static int cdns_sierra_phy_init(struct phy *gphy)
 	if (phy->autoconf)
 		return 0;
 
+	clk_set_rate(phy->cmn_refclk, 25000000);
+	clk_set_rate(phy->cmn_refclk1, 25000000);
 	if (ins->phy_type == PHY_TYPE_PCIE) {
 		num_cmn_regs = phy->init_data->pcie_cmn_regs;
 		num_ln_regs = phy->init_data->pcie_ln_regs;
@@ -466,6 +470,7 @@ static int cdns_sierra_phy_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret, node = 0;
 	void __iomem *base;
+	struct clk *clk;
 	struct device_node *dn = dev->of_node, *child;
 
 	if (of_get_child_count(dn) == 0)
@@ -520,6 +525,22 @@ static int cdns_sierra_phy_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to get apb reset\n");
 		return PTR_ERR(sp->apb_rst);
 	}
+
+	clk = devm_clk_get_optional(dev, "cmn_refclk");
+	if (IS_ERR(clk)) {
+		dev_err(dev, "core_ref_clk clock not found\n");
+		ret = PTR_ERR(clk);
+		return ret;
+	}
+	sp->cmn_refclk = clk;
+
+	clk = devm_clk_get_optional(dev, "cmn_refclk1");
+	if (IS_ERR(clk)) {
+		dev_err(dev, "core_ref_clk clock not found\n");
+		ret = PTR_ERR(clk);
+		return ret;
+	}
+	sp->cmn_refclk1 = clk;
 
 	ret = clk_prepare_enable(sp->clk);
 	if (ret)
