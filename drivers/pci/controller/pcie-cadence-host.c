@@ -5,6 +5,7 @@
 
 #include <linux/kernel.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/of_pci.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -235,9 +236,12 @@ static int cdns_pcie_host_init(struct device *dev,
 
 static int cdns_pcie_host_probe(struct platform_device *pdev)
 {
+	struct pci_ops *ops = &cdns_pcie_host_ops;
+	const struct cdns_pcie_host_data *data;
 	const char *type;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	const struct of_device_id *match;
 	struct pci_host_bridge *bridge;
 	struct list_head resources;
 	struct cdns_pcie_rc *rc;
@@ -245,6 +249,10 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 	int phy_count;
+
+	match = of_match_device(of_match_ptr(cdns_pcie_host_of_match), dev);
+	if (!match)
+		return -EINVAL;
 
 	bridge = devm_pci_alloc_host_bridge(dev, sizeof(*rc));
 	if (!bridge)
@@ -255,6 +263,16 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 
 	pcie = &rc->pcie;
 	pcie->is_rc = true;
+
+	data = (struct cdns_pcie_host_data *)match->data;
+	if (data) {
+		if (data->read)
+			pcie->read = data->read;
+		if (data->write)
+			pcie->write = data->write;
+		if (data->ops)
+			ops = data->ops;
+	}
 
 	rc->max_regions = 32;
 	of_property_read_u32(np, "cdns,max-outbound-regions", &rc->max_regions);
@@ -317,7 +335,7 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 	list_splice_init(&resources, &bridge->windows);
 	bridge->dev.parent = dev;
 	bridge->busnr = pcie->bus;
-	bridge->ops = &cdns_pcie_host_ops;
+	bridge->ops = ops;
 	bridge->map_irq = of_irq_parse_and_map_pci;
 	bridge->swizzle_irq = pci_common_swizzle;
 

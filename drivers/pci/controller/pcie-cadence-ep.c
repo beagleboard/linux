@@ -6,6 +6,7 @@
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/pci-epc.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -434,6 +435,8 @@ static int cdns_pcie_ep_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	const struct cdns_pcie_ep_data *data;
+	const struct of_device_id *match;
 	struct cdns_pcie_ep *ep;
 	struct cdns_pcie *pcie;
 	struct pci_epc *epc;
@@ -441,12 +444,24 @@ static int cdns_pcie_ep_probe(struct platform_device *pdev)
 	int ret;
 	int phy_count;
 
+	match = of_match_device(of_match_ptr(cdns_pcie_ep_of_match), dev);
+	if (!match)
+		return -EINVAL;
+
 	ep = devm_kzalloc(dev, sizeof(*ep), GFP_KERNEL);
 	if (!ep)
 		return -ENOMEM;
 
 	pcie = &ep->pcie;
 	pcie->is_rc = false;
+
+	data = (struct cdns_pcie_ep_data *)match->data;
+	if (data) {
+		if (data->read)
+			pcie->read = data->read;
+		if (data->write)
+			pcie->write = data->write;
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "reg");
 	pcie->reg_base = devm_ioremap_resource(dev, res);
