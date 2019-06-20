@@ -28,6 +28,21 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x00100000 0x1c000>;
 
+		pcie0_ctrl: pcie-ctrl@4070 {
+			compatible = "syscon";
+			reg = <0x00004070 0x4>;
+		};
+
+		pcie1_ctrl: pcie-ctrl@4074 {
+			compatible = "syscon";
+			reg = <0x00004074 0x4>;
+		};
+
+		pcie2_ctrl: pcie-ctrl@4078 {
+			compatible = "syscon";
+			reg = <0x00004078 0x4>;
+		};
+
 		serdes_ln_ctrl: serdes_ln_ctrl@4080 {
 			compatible = "mmio-mux";
 			#mux-control-cells = <1>;
@@ -750,6 +765,147 @@
 			reset-names = "sierra_reset";
 			clocks = <&wiz3_cmn_refclk>, <&wiz3_cmn_refclk1>;
 			clock-names = "cmn_refclk", "cmn_refclk1";
+		};
+	};
+
+	pcie0: pcie@2900000 {
+		compatible = "ti,j721e-pcie";
+		reg = <0x00 0x02900000 0x00 0x1000>,
+		      <0x00 0x02907000 0x00 0x400>,
+		      <0x0 0x02905000 0x0 0x00000400>;
+		reg-names = "intd_cfg", "user_cfg", "vmap";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		ti,syscon-pcie-ctrl = <&pcie0_ctrl>;
+		max-link-speed = <3>;
+		num-lanes = <2>;
+		power-domains = <&k3_pds 239 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 239 1>;
+		clock-names = "fck";
+
+		pcie0_rc: pcie@d000000 {
+			compatible = "ti,j721e-cdns-pcie-host";
+			reg = <0x00 0x0d000000 0x00 0x00800000>,
+			      <0x00 0x10000000 0x00 0x00001000>;
+			reg-names = "reg", "cfg";
+			device_type = "pci";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			bus-range = <0x0 0xf>;
+			cdns,max-outbound-regions = <16>;
+			cdns,no-bar-match-nbits = <32>;
+			vendor-id = /bits/ 16 <0x104c>;
+			device-id = /bits/ 16 <0xb00d>;
+			msi-map = <0x0 &gic_its 0x0 0x10000>;
+			iommu-map = <0x0 &smmu0 0x0 0x1000>;
+			dma-coherent;
+			ranges = <0x01000000 0x0 0x10001000  0x00 0x10001000  0x0 0x0010000>,
+				 <0x02000000 0x0 0x10011000  0x00 0x10011000  0x0 0x7fef000>;
+		};
+
+		pcie0_ep: pcie-ep@d000000 {
+			compatible = "ti,j721e-cdns-pcie-ep";
+			reg = <0x00 0x0d000000 0x00 0x00800000>,
+			      <0x00 0x10000000 0x00 0x08000000>;
+			reg-names = "reg", "addr_space";
+			cdns,max-outbound-regions = <16>;
+			max-functions = /bits/ 8 <2>;
+			dma-coherent;
+		};
+	};
+
+	pcie1: pcie@2910000 {
+		compatible = "ti,j721e-pcie";
+		reg = <0x00 0x02910000 0x00 0x1000>,
+		      <0x00 0x02917000 0x00 0x400>,
+		      <0x0 0x02915000 0x0 0x00000400>;
+		reg-names = "intd_cfg", "user_cfg", "vmap";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		ti,syscon-pcie-ctrl = <&pcie1_ctrl>;
+		max-link-speed = <3>;
+		num-lanes = <2>;
+		power-domains = <&k3_pds 240 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 240 1>;
+		clock-names = "fck";
+
+		pcie1_rc: pcie@d800000 {
+			compatible = "ti,j721e-cdns-pcie-host";
+			device_type = "pci";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			bus-range = <0x0 0xf>;
+			cdns,max-outbound-regions = <16>;
+			cdns,no-bar-match-nbits = <32>;
+			vendor-id = /bits/ 16 <0x104c>;
+			device-id = /bits/ 16 <0xb00d>;
+			reg = <0x00 0x0d800000 0x00 0x00800000>,
+			      <0x00 0x18000000 0x00 0x00001000>;
+			reg-names = "reg", "cfg";
+			msi-map = <0x0 &gic_its 0x10000 0x10000>;
+			iommu-map = <0x0 &smmu0 0x04000 0x1000>;
+			dma-coherent;
+			ranges = <0x01000000 0x0 0x18001000  0x00 0x18001000  0x0 0x0010000>,
+				 <0x02000000 0x0 0x18011000  0x00 0x18011000  0x0 0x7fef000>;
+		};
+
+		pcie1_ep: pcie-ep@d800000 {
+			compatible = "ti,j721e-cdns-pcie-ep";
+			reg = <0x00 0x0d800000 0x00 0x00800000>,
+			      <0x00 0x18000000 0x00 0x08000000>;
+			reg-names = "reg", "addr_space";
+			cdns,max-outbound-regions = <16>;
+			max-functions = /bits/ 8 <2>;
+			dma-coherent;
+		};
+	};
+
+	pcie2: pcie@2920000 {
+		compatible = "ti,j721e-pcie";
+		reg = <0x00 0x02920000 0x00 0x1000>,
+		      <0x00 0x02927000 0x00 0x400>,
+		      <0x00 0x02925000 0x00 0x400>;
+		reg-names = "intd_cfg", "user_cfg", "vmap";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		ti,syscon-pcie-ctrl = <&pcie2_ctrl>;
+		max-link-speed = <3>;
+		num-lanes = <2>;
+		power-domains = <&k3_pds 241 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 241 1>;
+		clock-names = "fck";
+
+		pcie2_rc: pcie@e000000 {
+			compatible = "ti,j721e-cdns-pcie-host";
+			device_type = "pci";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			bus-range = <0x0 0xf>;
+			cdns,max-outbound-regions = <16>;
+			cdns,no-bar-match-nbits = <32>;
+			vendor-id = /bits/ 16 <0x104c>;
+			device-id = /bits/ 16 <0xb00d>;
+			reg = <0x00 0x0e000000 0x00 0x00800000>,
+			      <0x44 0x00000000 0x00 0x00001000>;
+			reg-names = "reg", "cfg";
+			msi-map = <0x0 &gic_its 0x10000 0x10000>;
+			iommu-map = <0x0 &smmu0 0x08000 0x1000>;
+			dma-coherent;
+			ranges = <0x01000000 0x00 0x00001000  0x44 0x00001000  0x0 0x0010000>,
+				 <0x02000000 0x00 0x00011000  0x44 0x00011000  0x0 0x7fef000>;
+		};
+
+		pcie2_ep: pcie-ep@e000000 {
+			compatible = "ti,j721e-cdns-pcie-ep";
+			reg = <0x00 0x0e000000 0x00 0x00800000>,
+			      <0x44 0x00000000 0x00 0x08000000>;
+			reg-names = "reg", "addr_space";
+			cdns,max-outbound-regions = <16>;
+			max-functions = /bits/ 8 <2>;
+			dma-coherent;
 		};
 	};
 
