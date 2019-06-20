@@ -16,11 +16,9 @@
 #ifndef CDNS_MHDP_COMMON_H_
 #define CDNS_MHDP_COMMON_H_
 
-#include <drm/bridge/cdns-mhdp-cbs.h>
 #include <drm/drm_bridge.h>
 #include <drm/drm_connector.h>
 #include <drm/drm_dp_helper.h>
-#include <drm/drm_dp_mst_helper.h>
 
 #include <linux/bitops.h>
 
@@ -531,8 +529,6 @@ struct cdns_mhdp_bridge {
 
 struct cdns_mhdp_connector {
 	struct drm_connector base;
-	bool is_mst_connector;
-	struct drm_dp_mst_port *port;
 	struct cdns_mhdp_bridge *bridge;
 };
 
@@ -541,6 +537,7 @@ struct cdns_mhdp_device {
 	void __iomem		*regs;
 
 	struct device		*dev;
+	struct clk		*clk;
 
 	struct drm_dp_link	link;
 	struct cdns_mhdp_connector  connector;
@@ -560,12 +557,8 @@ struct cdns_mhdp_device {
 	struct drm_display_mode	mode;
 	unsigned int		fw_version;
 
-	struct drm_dp_mst_topology_mgr mst_mgr;
 	struct delayed_work hotplug_work;
 
-	struct cdns_mhdp_mst_cbs cbs;
-	bool is_mst;
-	bool can_mst;
 	bool link_up;
 	bool plugged;
 };

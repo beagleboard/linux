@@ -11,10 +11,10 @@
 #ifndef CDNS_MHDP_H
 #define CDNS_MHDP_H
 
-#include <drm/drm_dp_mst_helper.h>
-
 #define CDNS_APB_CFG				0x00000
 #define CDNS_APB_CTRL				(CDNS_APB_CFG + 0x00)
+#define CDNS_CPU_STALL				BIT(3)
+
 #define CDNS_MAILBOX_FULL			(CDNS_APB_CFG + 0x08)
 #define CDNS_MAILBOX_EMPTY			(CDNS_APB_CFG + 0x0c)
 #define CDNS_MAILBOX_TX_DATA			(CDNS_APB_CFG + 0x10)
@@ -23,6 +23,7 @@
 #define CDNS_KEEP_ALIVE_MASK			GENMASK(7, 0)
 
 #define CDNS_MB_INT_MASK			(CDNS_APB_CFG + 0x34)
+#define CDNS_MB_INT_STATUS			(CDNS_APB_CFG + 0x38)
 
 #define CDNS_SW_CLK_L				(CDNS_APB_CFG + 0x3c)
 #define CDNS_SW_CLK_H				(CDNS_APB_CFG + 0x40)
@@ -36,6 +37,7 @@
 #define CDNS_APB_INT_MASK			(CDNS_APB_CFG + 0x6C)
 #define CDNS_APB_INT_MASK_MAILBOX_INT		BIT(0)
 #define CDNS_APB_INT_MASK_SW_EVENT_INT		BIT(1)
+#define CDNS_APB_INT_STATUS			(CDNS_APB_CFG + 0x70)
 
 #define CDNS_DPTX_CAR				(CDNS_APB_CFG + 0x904)
 #define CDNS_VIF_CLK_EN				BIT(0)
@@ -183,7 +185,6 @@
 
 #define to_mhdp_connector(x) container_of(x, struct cdns_mhdp_connector, base)
 #define to_mhdp_bridge(x) container_of(x, struct cdns_mhdp_bridge, base)
-#define mgr_to_mhdp(x) container_of(x, struct cdns_mhdp_device, mst_mgr)
 
 #define CDNS_MHDP_MAX_STREAMS   4
 
@@ -196,14 +197,9 @@ enum pixel_format {
 };
 
 
-int cdns_mhdp_mst_init(struct cdns_mhdp_device *mhdp);
-void cdns_mhdp_mst_deinit(struct cdns_mhdp_device *mhdp);
-bool cdns_mhdp_mst_probe(struct cdns_mhdp_device *mhdp);
 enum pixel_format cdns_mhdp_get_pxlfmt(u32 color_formats);
 u32 cdns_mhdp_get_bpp(u32 bpc, u32 color_formats);
 void cdns_mhdp_configure_video(struct drm_bridge *bridge);
-void cdns_mhdp_mst_enable(struct drm_bridge *bridge);
-void cdns_mhdp_mst_disable(struct drm_bridge *bridge);
 void cdns_mhdp_enable(struct drm_bridge *bridge);
 
 #endif
