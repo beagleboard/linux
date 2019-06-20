@@ -9,6 +9,8 @@
 #include <dt-bindings/phy/phy.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/mux/consumer.h>
@@ -22,11 +24,14 @@
 #define WIZ_SERDES_CTRL		0x404
 #define WIZ_SERDES_TOP_CTRL	0x408
 #define WIZ_SERDES_RST		0x40c
+#define WIZ_SERDES_TYPEC	0x410
 #define WIZ_LANECTL(n)		(0x480 + (0x40 * (n)))
 
 #define WIZ_MAX_LANES		4
 #define WIZ_MUX_NUM_CLOCKS	3
 #define WIZ_DIV_NUM_CLOCKS	2
+
+#define WIZ_SERDES_TYPEC_LN10_SWAP	BIT(30)
 
 enum wiz_lane_standard_mode {
 	LANE_MODE_GEN1,
@@ -177,6 +182,7 @@ struct wiz {
 	u32			num_lanes;
 	struct platform_device	*serdes_pdev;
 	struct reset_controller_dev wiz_phy_reset_dev;
+	struct gpio_desc	*gpio_typec_dir;
 };
 
 static int wiz_reset(struct wiz *wiz)
@@ -664,6 +670,20 @@ static int wiz_phy_reset_deassert(struct reset_controller_dev *rcdev,
 	struct wiz *wiz = dev_get_drvdata(dev);
 	int ret;
 
+	/* if typec-dir gpio was specified, set LN10 SWAP bit based on that */
+	if (id == 0 && wiz->gpio_typec_dir) {
+		u32 reg;
+
+		if (gpiod_get_value_cansleep(wiz->gpio_typec_dir)) {
+			regmap_update_bits(wiz->regmap, WIZ_SERDES_TYPEC,
+					   WIZ_SERDES_TYPEC_LN10_SWAP,
+					   WIZ_SERDES_TYPEC_LN10_SWAP);
+		} else {
+			regmap_update_bits(wiz->regmap, WIZ_SERDES_TYPEC,
+					   WIZ_SERDES_TYPEC_LN10_SWAP, 0);
+		}
+	}
+
 	if (id == 0) {
 		ret = regmap_field_write(wiz->phy_reset_n, true);
 		return ret;
@@ -743,6 +763,14 @@ static int wiz_probe(struct platform_device *pdev)
 	if (num_lanes > WIZ_MAX_LANES) {
 		dev_err(dev, "Cannot support %d lanes\n", num_lanes);
 		goto err_addr_to_resource;
+	}
+
+	wiz->gpio_typec_dir = devm_gpiod_get_optional(dev, "typec-dir",
+						      GPIOD_IN);
+	if (IS_ERR(wiz->gpio_typec_dir)) {
+		ret = PTR_ERR(wiz->gpio_typec_dir);
+		dev_err(dev, "Failed to request typec-dir gpio: %d\n", ret);
+		return ret;
 	}
 
 	wiz->dev = dev;
