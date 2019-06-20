@@ -102,9 +102,9 @@
 		clock-names = "fclk";
 	};
 
-	wkup_gpio0: gpio@42100000 {
+	wkup_gpio0: gpio@42110000 {
 		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
-		reg = <0x0 0x42100000 0x0 0x100>;
+		reg = <0x0 0x42110000 0x0 0x100>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-parent = <&wkup_gpio_intr>;
@@ -123,9 +123,9 @@
 		clock-names = "gpio";
 	};
 
-	wkup_gpio1: gpio@42110000 {
+	wkup_gpio1: gpio@42100000 {
 		compatible = "ti,j721e-gpio", "ti,keystone-gpio";
-		reg = <0x0 0x42110000 0x0 0x100>;
+		reg = <0x0 0x42100000 0x0 0x100>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-parent = <&wkup_gpio_intr>;
