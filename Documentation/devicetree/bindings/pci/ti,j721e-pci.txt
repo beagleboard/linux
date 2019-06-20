@@ -1,0 +1,63 @@
+PCI Controller in J721E:
+Required Properties:
+ - compatible: Should be "ti,j721e-pcie"
+ - reg : Two register ranges as listed in the reg-names property
+ - reg-names : The first entry must be "intd_cfg" used for handling legacy
+     interrupts. The second entry must be "user_cfg" and it has registers
+     for enabling the LTSSM. The third entry must be "vmap" and it has
+     registers for programming the requestor ID to VIRTID mapping and ATYPE.
+ - #address-cells : should be 1 to indicate the child node should use 1 cell
+     for address
+ - #size-cells : should be 1 to indicate the child node should use 1 cell for
+     size
+ - mode : should be <PCI_MODE_RC> for RC mode and should be <PCI_MODE_EP> for
+     EP mode
+
+Optional Properties:
+ - max-link-speed: As defined in Documentation/devicetree/bindings/pci/pci.txt
+     Default is GEN3
+ - num-lanes: number of lanes to use. Default is '1' lane
+It should have two child nodes, one for RC mode (pcie) and the other for EP
+mode (pcie-ep). The child node for RC should follow the binding in
+cdns,cdns-pcie-host.txt. The child node for the EP should follow the binding
+in cdns,cdns-pcie-ep.txt
+
+Example:
+	pcie0: pcie@2900000 {
+		compatible = "ti,j721e-pcie";
+		reg = <0x02900000 0x1000>,
+		      <0x02907000 0x400>;
+		reg-names = "intd_cfg", "user_cfg";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		pcie0_rc: pcie@d000000 {
+			compatible = "cdns,cdns-pcie-host";
+			reg = <0x0d000000 0x00800000>,
+			      <0x10000000 0x00001000>,
+			      <0x10000000 0x08000000>;
+			reg-names = "reg", "cfg", "mem";
+			device_type = "pci";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			bus-range = <0x0 0xff>;
+			linux,pci-domain = <0>;
+			cdns,max-outbound-regions = <16>;
+			cdns,no-bar-match-nbits = <32>;
+			vendor-id = /bits/ 16 <0x17cd>;
+			device-id = /bits/ 16 <0x0200>;
+			msi-map = <0x0 &gic_its 0x0 0x1000>;
+			ranges = <0x01000000 0x0 0x10001000  0x10001000  0x0 0x0010000>,
+				 <0x02000000 0x0 0x10011000  0x10011000  0x0 0x7fef000>;
+		};
+
+		pcie0_ep: pcie-ep@d000000 {
+			compatible = "cdns,cdns-pcie-ep";
+			reg = <0x0d000000 0x00800000>,
+			      <0x10000000 0x08000000>;
+			reg-names = "reg", "mem";
+			cdns,max-outbound-regions = <16>;
+			max-functions = /bits/ 8 <2>;
+		};
+	};
