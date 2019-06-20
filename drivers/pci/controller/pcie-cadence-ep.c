@@ -49,6 +49,23 @@ struct cdns_pcie_ep {
 	u8				irq_pending;
 };
 
+static int cdns_pcie_ep_epf_init(struct pci_epc *epc, struct pci_epf *epf)
+{
+	return pci_epf_init_dma_chan(epf);
+}
+
+static void cdns_pcie_ep_epf_exit(struct pci_epc *epc, struct pci_epf *epf)
+{
+	pci_epf_clean_dma_chan(epf);
+}
+
+static int cdns_pcie_ep_data_transfer(struct pci_epc *epc, struct pci_epf *epf,
+				      dma_addr_t dma_dst, dma_addr_t dma_src,
+				      size_t len)
+{
+	return pci_epf_data_transfer(epf, dma_dst, dma_src, len);
+}
+
 static int cdns_pcie_ep_write_header(struct pci_epc *epc, u8 fn, u8 vfn,
 				     struct pci_epf_header *hdr)
 {
@@ -504,6 +521,9 @@ cdns_pcie_ep_get_features(struct pci_epc *epc, u8 func_no, u8 vfunc_no)
 }
 
 static const struct pci_epc_ops cdns_pcie_epc_ops = {
+	.epf_init	= cdns_pcie_ep_epf_init,
+	.epf_exit	= cdns_pcie_ep_epf_exit,
+	.data_transfer	= cdns_pcie_ep_data_transfer,
 	.write_header	= cdns_pcie_ep_write_header,
 	.set_bar	= cdns_pcie_ep_set_bar,
 	.clear_bar	= cdns_pcie_ep_clear_bar,
