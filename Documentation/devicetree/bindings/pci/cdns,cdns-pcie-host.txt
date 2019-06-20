@@ -5,6 +5,7 @@ host-generic-pci.txt.
 
 Required properties:
 - compatible: Should contain "cdns,cdns-pcie-host" to identify the IP used.
+	      Should contain "ti,j721e-cdns-pcie-host" for TI platforms.
 - reg: Should contain the controller register base address, PCIe configuration
   window base address, and AXI interface region base address respectively.
 - reg-names: Must be "reg", "cfg" and "mem" respectively.
