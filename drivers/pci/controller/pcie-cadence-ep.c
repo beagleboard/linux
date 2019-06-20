@@ -577,6 +577,13 @@ static int cdns_pcie_ep_probe(struct platform_device *pdev)
 		dev_dbg(dev, "missing \"mem\"\n");
 	pcie->mem_res = res;
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "addr_space");
+	if (!res) {
+		dev_err(dev, "missing \"addr_space\"\n");
+		return -EINVAL;
+	}
+	pcie->addr_res = res;
+
 	ret = of_property_read_u32(np, "cdns,max-outbound-regions",
 				   &ep->max_regions);
 	if (ret < 0) {
@@ -617,8 +624,8 @@ static int cdns_pcie_ep_probe(struct platform_device *pdev)
 	if (of_property_read_u8(np, "max-functions", &epc->max_functions) < 0)
 		epc->max_functions = 1;
 
-	ret = pci_epc_mem_init(epc, pcie->mem_res->start,
-			       resource_size(pcie->mem_res));
+	ret = pci_epc_mem_init(epc, pcie->addr_res->start,
+			       resource_size(pcie->addr_res));
 	if (ret < 0) {
 		dev_err(dev, "failed to initialize the memory space\n");
 		goto err_init;

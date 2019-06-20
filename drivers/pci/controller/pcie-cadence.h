@@ -246,6 +246,7 @@ struct cdns_pcie_plat_data {
 struct cdns_pcie {
 	void __iomem		*reg_base;
 	struct resource		*mem_res;
+	struct resource		*addr_res;
 	bool			is_rc;
 	u8			bus;
 	int			phy_count;
