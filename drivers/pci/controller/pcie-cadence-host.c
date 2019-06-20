@@ -188,9 +188,9 @@ static int cdns_pcie_host_init_address_translation(struct cdns_pcie_rc *rc)
 	struct device *dev = rc->dev;
 	struct device_node *np = dev->of_node;
 	struct of_pci_range_parser parser;
+	u64 cpu_addr = cfg_res->start;
 	struct of_pci_range range;
 	u32 addr0, addr1, desc1;
-	u64 cpu_addr;
 	int r, err;
 
 	/*
@@ -203,7 +203,8 @@ static int cdns_pcie_host_init_address_translation(struct cdns_pcie_rc *rc)
 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_OB_REGION_PCI_ADDR1(0), addr1);
 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_OB_REGION_DESC1(0), desc1);
 
-	cpu_addr = cfg_res->start - mem_res->start;
+	if (mem_res)
+		cpu_addr -= mem_res->start;
 	addr0 = CDNS_PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(12) |
 		(lower_32_bits(cpu_addr) & GENMASK(31, 8));
 	addr1 = upper_32_bits(cpu_addr);
@@ -355,10 +356,8 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 	rc->cfg_res = res;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mem");
-	if (!res) {
+	if (!res)
 		dev_err(dev, "missing \"mem\"\n");
-		return -EINVAL;
-	}
 
 	pcie->mem_res = res;
 
