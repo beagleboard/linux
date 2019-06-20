@@ -372,6 +372,14 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 		goto err_get_sync;
 	}
 
+	ret = cdns_pcie_start_link(pcie, true);
+	if (ret) {
+		dev_err(dev, "Failed to start link\n");
+		goto err_start_link;
+	}
+
+	cdns_pcie_wait_for_link(dev, pcie);
+
 	ret = cdns_pcie_host_init(dev, &resources, rc);
 	if (ret)
 		goto err_init;
@@ -393,6 +401,9 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 	pci_free_resource_list(&resources);
 
  err_init:
+	cdns_pcie_start_link(pcie, false);
+
+ err_start_link:
 	pm_runtime_put_sync(dev);
 
  err_get_sync:
