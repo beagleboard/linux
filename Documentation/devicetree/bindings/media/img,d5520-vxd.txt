@@ -1,0 +1,22 @@
+Imagination D5520-VXD Driver
+----------------------------
+
+The IMG VXD video decode driver for the D5500-VXD is a video decoder for
+multiple video formats including H.264 and HEVC on the TI J721E family
+of SoCs.
+
+Required properties:
+- compatible: must be "img,d5500-vxd"
+- reg: physical base address and length of the registers for the D5520
+- interrupts: should contain interrupt number for the D5520
+
+Example for J721E:
+==================
+
+       d5520: video-decoder@4300000 {
+               /* IMG D5520 driver configuration */
+               compatible = "img,d5500-vxd";
+               reg = <0x00 0x04300000 0x00 0x100000>;
+               power-domains = <&k3_pds 144>;
+               interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
+       };
