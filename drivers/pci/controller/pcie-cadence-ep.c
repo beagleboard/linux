@@ -463,6 +463,12 @@ static int cdns_pcie_ep_raise_irq(struct pci_epc *epc, u8 fn, u8 vfn,
 				  u16 interrupt_num)
 {
 	struct cdns_pcie_ep *ep = epc_get_drvdata(epc);
+	u32 link_status;
+
+	/* Can't send an IRQ if the link is down. */
+	link_status = cdns_pcie_readl(&ep->pcie, CDNS_PCIE_LM_BASE);
+	if (!(link_status & 0x1))
+		return -EINVAL;
 
 	switch (type) {
 	case PCI_EPC_IRQ_LEGACY:
