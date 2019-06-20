@@ -117,9 +117,10 @@ static int cdns3_idle_role_start(struct cdns3 *cnds)
 	return 0;
 }
 
-static void cdns3_idle_role_stop(struct cdns3 *cnds)
+static void cdns3_idle_role_stop(struct cdns3 *cdns)
 {
 	/* Program Lane swap and bring PHY out of RESET */
+	phy_reset(cdns->phy);
 }
 
 static int cdns3_idle_init(struct cdns3 *cdns)
