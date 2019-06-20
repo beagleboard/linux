@@ -10,6 +10,11 @@
 #include <linux/pci.h>
 #include <linux/phy/phy.h>
 
+/* Parameters for the waiting for link up routine */
+#define LINK_WAIT_MAX_RETRIES	10
+#define LINK_WAIT_USLEEP_MIN	90000
+#define LINK_WAIT_USLEEP_MAX	100000
+
 /*
  * Local Management Registers
  */
@@ -221,6 +226,11 @@ enum cdns_pcie_msg_routing {
 	MSG_ROUTING_GATHER,
 };
 
+struct cdns_pcie_plat_data {
+	int (*start_link)(struct cdns_pcie_plat_data *data, bool start);
+	bool (*is_link_up)(struct cdns_pcie_plat_data *data);
+};
+
 /**
  * struct cdns_pcie - private data for Cadence PCIe controller drivers
  * @reg_base: IO mapped register base
@@ -236,6 +246,7 @@ struct cdns_pcie {
 	int			phy_count;
 	struct phy		**phy;
 	struct device_link	**link;
+	struct cdns_pcie_plat_data *plat_data;
 	u32 (*read)(void __iomem *addr, int size);
 	void (*write)(void __iomem *addr, int size, u32 value);
 };
@@ -408,6 +419,8 @@ int cdns_pcie_enable_phy(struct cdns_pcie *pcie);
 int cdns_pcie_init_phy(struct device *dev, struct cdns_pcie *pcie);
 u32 cdns_pcie_read32(void __iomem *addr, int size);
 void cdns_pcie_write32(void __iomem *addr, int size, u32 value);
+int cdns_pcie_start_link(struct cdns_pcie *pci, bool start);
+int cdns_pcie_wait_for_link(struct device *dev, struct cdns_pcie *pci);
 extern const struct dev_pm_ops cdns_pcie_pm_ops;
 
 #endif /* _PCIE_CADENCE_H */

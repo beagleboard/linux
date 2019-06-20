@@ -305,6 +305,7 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 	rc->dev = dev;
 
 	pcie = &rc->pcie;
+	pcie->plat_data = pdev->dev.platform_data;
 	pcie->is_rc = true;
 
 	data = (struct cdns_pcie_host_data *)match->data;

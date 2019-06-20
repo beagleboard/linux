@@ -462,6 +462,7 @@ static int cdns_pcie_ep_probe(struct platform_device *pdev)
 
 	pcie = &ep->pcie;
 	pcie->is_rc = false;
+	pcie->plat_data = pdev->dev.platform_data;
 
 	data = (struct cdns_pcie_ep_data *)match->data;
 	if (data) {

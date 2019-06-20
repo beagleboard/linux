@@ -3,6 +3,7 @@
 // Cadence PCIe controller driver.
 // Author: Cyrille Pitchen <cyrille.pitchen@free-electrons.com>
 
+#include <linux/delay.h>
 #include <linux/kernel.h>
 
 #include "pcie-cadence.h"
@@ -45,6 +46,46 @@ void cdns_pcie_write32(void __iomem *addr, int size, u32 value)
 	val = readl(aligned_addr) & mask;
 	val |= value << (offset * 8);
 	writel(val, aligned_addr);
+}
+
+int cdns_pcie_start_link(struct cdns_pcie *pci, bool start)
+{
+	struct cdns_pcie_plat_data *plat_data;
+
+	plat_data = pci->plat_data;
+	if (!plat_data)
+		return 0;
+
+	return plat_data->start_link(plat_data, start);
+}
+
+static bool cdns_pcie_is_link_up(struct cdns_pcie *pci)
+{
+	struct cdns_pcie_plat_data *plat_data;
+
+	plat_data = pci->plat_data;
+	if (!plat_data)
+		return true;
+
+	return plat_data->is_link_up(plat_data);
+}
+
+int cdns_pcie_wait_for_link(struct device *dev, struct cdns_pcie *pci)
+{
+	int retries;
+
+	/* Check if the link is up or not */
+	for (retries = 0; retries < LINK_WAIT_MAX_RETRIES; retries++) {
+		if (cdns_pcie_is_link_up(pci)) {
+			dev_info(dev, "Link up\n");
+			return 0;
+		}
+		usleep_range(LINK_WAIT_USLEEP_MIN, LINK_WAIT_USLEEP_MAX);
+	}
+
+	dev_err(dev, "Phy link never came up\n");
+
+	return -ETIMEDOUT;
 }
 
 void cdns_pcie_set_outbound_region(struct cdns_pcie *pcie, u8 fn,
