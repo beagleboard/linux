@@ -28,6 +28,7 @@ Optional properties:
   than one in the list.  If only one PHY listed it must manage all lanes. 
 - phy-names:  List of names to identify the PHY.
 - iommu-map: As specified in Documentation/devicetree/bindings/pci/pci-iommu.txt
+- reset-gpios: GPIO specifier for the PERST# signal
 
 Example:
 
