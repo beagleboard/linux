@@ -445,22 +445,17 @@ fail:
 
 }
 
-static void brcmf_usb_free_q(struct list_head *q, bool pending)
+static void brcmf_usb_free_q(struct list_head *q)
 {
 	struct brcmf_usbreq *req, *next;
-	int i = 0;
+
 	list_for_each_entry_safe(req, next, q, list) {
 		if (!req->urb) {
 			brcmf_err("bad req\n");
 			break;
 		}
-		i++;
-		if (pending) {
-			usb_kill_urb(req->urb);
-		} else {
-			usb_free_urb(req->urb);
-			list_del_init(&req->list);
-		}
+		usb_free_urb(req->urb);
+		list_del_init(&req->list);
 	}
 }
 
@@ -508,7 +503,7 @@ static void brcmf_usb_rx_complete(struct urb *urb)
 	skb = req->skb;
 	req->skb = NULL;
 
-	/* zero lenght packets indicate usb "failure". Do not refill */
+	/* zero length packets indicate usb "failure". Do not refill */
 	if (urb->status != 0 || !urb->actual_length) {
 		brcmu_pkt_buf_free_skb(skb);
 		brcmf_usb_enq(devinfo, &devinfo->rx_freeq, req, NULL);
@@ -575,7 +570,6 @@ static void
 brcmf_usb_state_change(struct brcmf_usbdev_info *devinfo, int state)
 {
 	struct brcmf_bus *bcmf_bus = devinfo->bus_pub.bus;
-	int old_state;
 
 	brcmf_dbg(USB, "Enter, current state=%d, new state=%d\n",
 		  devinfo->bus_pub.state, state);
@@ -583,7 +577,6 @@ brcmf_usb_state_change(struct brcmf_usbdev_info *devinfo, int state)
 	if (devinfo->bus_pub.state == state)
 		return;
 
-	old_state = devinfo->bus_pub.state;
 	devinfo->bus_pub.state = state;
 
 	/* update state of upper layer */
@@ -1031,8 +1024,8 @@ static void brcmf_usb_detach(struct brcmf_usbdev_info *devinfo)
 	brcmf_dbg(USB, "Enter, devinfo %p\n", devinfo);
 
 	/* free the URBS */
-	brcmf_usb_free_q(&devinfo->rx_freeq, false);
-	brcmf_usb_free_q(&devinfo->tx_freeq, false);
+	brcmf_usb_free_q(&devinfo->rx_freeq);
+	brcmf_usb_free_q(&devinfo->tx_freeq);
 
 	usb_free_urb(devinfo->ctl_urb);
 	usb_free_urb(devinfo->bulk_urb);
@@ -1555,6 +1548,10 @@ void brcmf_usb_exit(void)
 
 void brcmf_usb_register(void)
 {
+	int ret;
+
 	brcmf_dbg(USB, "Enter\n");
-	usb_register(&brcmf_usbdrvr);
+	ret = usb_register(&brcmf_usbdrvr);
+	if (ret)
+		brcmf_err("usb_register failed %d\n", ret);
 }
