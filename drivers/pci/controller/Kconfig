@@ -48,6 +48,15 @@ config PCIE_CADENCE_EP
 
 endmenu
 
+config PCI_J721E
+	bool "J721E PCIe host controller using Cadence PCIe core"
+	depends on PCIE_CADENCE
+	help
+	  Say Y here if you want to support the J721E PCIe controller in host
+	  mode or device mode. This PCIe controller uses the Cadence PCIe core.
+	  This driver also handles legacy interrupts when operating in host
+	  mode.
+
 config PCIE_XILINX_NWL
 	bool "NWL PCIe Core"
 	depends on ARCH_ZYNQMP || COMPILE_TEST
