@@ -3,8 +3,11 @@
 // Cadence PCIe host controller driver.
 // Author: Cyrille Pitchen <cyrille.pitchen@free-electrons.com>
 
+#include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/of_pci.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -92,9 +95,52 @@ static struct pci_ops cdns_pcie_host_ops = {
 	.write		= pci_generic_config_write,
 };
 
-static const struct of_device_id cdns_pcie_host_of_match[] = {
-	{ .compatible = "cdns,cdns-pcie-host" },
+static int cdns_ti_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
+				    int where, int size, u32 *value)
+{
+	struct pci_host_bridge *bridge = pci_find_host_bridge(bus);
+	struct cdns_pcie_rc *rc = pci_host_bridge_priv(bridge);
+	unsigned int busn = bus->number;
 
+	if (busn == rc->bus_range->start)
+		return pci_generic_config_read32(bus, devfn, where, size,
+						 value);
+
+	return pci_generic_config_read(bus, devfn, where, size, value);
+}
+
+static int cdns_ti_pcie_config_write(struct pci_bus *bus, unsigned int devfn,
+				     int where, int size, u32 value)
+{
+	struct pci_host_bridge *bridge = pci_find_host_bridge(bus);
+	struct cdns_pcie_rc *rc = pci_host_bridge_priv(bridge);
+	unsigned int busn = bus->number;
+
+	if (busn == rc->bus_range->start)
+		return pci_generic_config_write32(bus, devfn, where, size,
+						  value);
+
+	return pci_generic_config_write(bus, devfn, where, size, value);
+}
+
+static struct pci_ops cdns_ti_pcie_host_ops = {
+	.map_bus	= cdns_pci_map_bus,
+	.read		= cdns_ti_pcie_config_read,
+	.write		= cdns_ti_pcie_config_write,
+};
+
+static struct cdns_pcie_host_data cdns_ti_pcie_host_data = {
+	.read = cdns_pcie_read32,
+	.write = cdns_pcie_write32,
+	.ops = &cdns_ti_pcie_host_ops,
+};
+
+static const struct of_device_id cdns_pcie_host_of_match[] = {
+	{ .compatible = "cdns,cdns-pcie-host",
+	},
+	{ .compatible = "ti,j721e-cdns-pcie-host",
+	  .data = &cdns_ti_pcie_host_data,
+	},
 	{ },
 };
 
@@ -102,6 +148,7 @@ static int cdns_pcie_host_init_root_port(struct cdns_pcie_rc *rc)
 {
 	struct cdns_pcie *pcie = &rc->pcie;
 	u32 value, ctrl;
+	u32 id;
 
 	/*
 	 * Set the root complex BAR configuration register:
@@ -121,8 +168,12 @@ static int cdns_pcie_host_init_root_port(struct cdns_pcie_rc *rc)
 	cdns_pcie_writel(pcie, CDNS_PCIE_LM_RC_BAR_CFG, value);
 
 	/* Set root port configuration space */
-	if (rc->vendor_id != 0xffff)
-		cdns_pcie_rp_writew(pcie, PCI_VENDOR_ID, rc->vendor_id);
+	if (rc->vendor_id != 0xffff) {
+		id = CDNS_PCIE_LM_ID_VENDOR(rc->vendor_id) |
+			CDNS_PCIE_LM_ID_SUBSYS(rc->vendor_id);
+		cdns_pcie_writel(pcie, CDNS_PCIE_LM_ID, id);
+	}
+
 	if (rc->device_id != 0xffff)
 		cdns_pcie_rp_writew(pcie, PCI_DEVICE_ID, rc->device_id);
 
@@ -142,9 +193,9 @@ static int cdns_pcie_host_init_address_translation(struct cdns_pcie_rc *rc)
 	struct device *dev = rc->dev;
 	struct device_node *np = dev->of_node;
 	struct of_pci_range_parser parser;
+	u64 cpu_addr = cfg_res->start;
 	struct of_pci_range range;
 	u32 addr0, addr1, desc1;
-	u64 cpu_addr;
 	int r, err;
 
 	/*
@@ -157,7 +208,8 @@ static int cdns_pcie_host_init_address_translation(struct cdns_pcie_rc *rc)
 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_OB_REGION_PCI_ADDR1(0), addr1);
 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_OB_REGION_DESC1(0), desc1);
 
-	cpu_addr = cfg_res->start - mem_res->start;
+	if (mem_res)
+		cpu_addr -= mem_res->start;
 	addr0 = CDNS_PCIE_AT_OB_REGION_CPU_ADDR0_NBITS(12) |
 		(lower_32_bits(cpu_addr) & GENMASK(31, 8));
 	addr1 = upper_32_bits(cpu_addr);
@@ -235,16 +287,24 @@ static int cdns_pcie_host_init(struct device *dev,
 
 static int cdns_pcie_host_probe(struct platform_device *pdev)
 {
+	struct pci_ops *ops = &cdns_pcie_host_ops;
+	const struct cdns_pcie_host_data *data;
 	const char *type;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	const struct of_device_id *match;
 	struct pci_host_bridge *bridge;
 	struct list_head resources;
 	struct cdns_pcie_rc *rc;
+	struct gpio_desc *gpiod;
 	struct cdns_pcie *pcie;
 	struct resource *res;
 	int ret;
 	int phy_count;
+
+	match = of_match_device(of_match_ptr(cdns_pcie_host_of_match), dev);
+	if (!match)
+		return -EINVAL;
 
 	bridge = devm_pci_alloc_host_bridge(dev, sizeof(*rc));
 	if (!bridge)
@@ -254,7 +314,18 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 	rc->dev = dev;
 
 	pcie = &rc->pcie;
+	pcie->plat_data = pdev->dev.platform_data;
 	pcie->is_rc = true;
+
+	data = (struct cdns_pcie_host_data *)match->data;
+	if (data) {
+		if (data->read)
+			pcie->read = data->read;
+		if (data->write)
+			pcie->write = data->write;
+		if (data->ops)
+			ops = data->ops;
+	}
 
 	rc->max_regions = 32;
 	of_property_read_u32(np, "cdns,max-outbound-regions", &rc->max_regions);
@@ -290,17 +361,38 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 	rc->cfg_res = res;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mem");
-	if (!res) {
+	if (!res)
 		dev_err(dev, "missing \"mem\"\n");
-		return -EINVAL;
-	}
+
 	pcie->mem_res = res;
+
+	gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(gpiod)) {
+		ret = PTR_ERR(gpiod);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get reset GPIO\n");
+		return ret;
+	}
 
 	ret = cdns_pcie_init_phy(dev, pcie);
 	if (ret) {
 		dev_err(dev, "failed to init phy\n");
 		return ret;
 	}
+
+	/*
+	 * "Power Sequencing and Reset Signal Timings" table in
+	 * PCI EXPRESS CARD ELECTROMECHANICAL SPECIFICATION, REV. 3.0
+	 * indicates PERST# should be deasserted after minimum of 100us
+	 * once REFCLK is stable. The REFCLK to the connector in RC
+	 * mode is selected while enabling the PHY. So deassert PERST#
+	 * after 100 us.
+	 */
+	if (gpiod) {
+		usleep_range(100, 200);
+		gpiod_set_value_cansleep(gpiod, 1);
+	}
+
 	platform_set_drvdata(pdev, pcie);
 
 	pm_runtime_enable(dev);
@@ -310,6 +402,14 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 		goto err_get_sync;
 	}
 
+	ret = cdns_pcie_start_link(pcie, true);
+	if (ret) {
+		dev_err(dev, "Failed to start link\n");
+		goto err_start_link;
+	}
+
+	cdns_pcie_wait_for_link(dev, pcie);
+
 	ret = cdns_pcie_host_init(dev, &resources, rc);
 	if (ret)
 		goto err_init;
@@ -317,7 +417,7 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 	list_splice_init(&resources, &bridge->windows);
 	bridge->dev.parent = dev;
 	bridge->busnr = pcie->bus;
-	bridge->ops = &cdns_pcie_host_ops;
+	bridge->ops = ops;
 	bridge->map_irq = of_irq_parse_and_map_pci;
 	bridge->swizzle_irq = pci_common_swizzle;
 
@@ -331,6 +431,9 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 	pci_free_resource_list(&resources);
 
  err_init:
+	cdns_pcie_start_link(pcie, false);
+
+ err_start_link:
 	pm_runtime_put_sync(dev);
 
  err_get_sync:

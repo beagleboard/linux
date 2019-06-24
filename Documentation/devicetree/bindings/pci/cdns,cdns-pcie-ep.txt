@@ -2,6 +2,7 @@
 
 Required properties:
 - compatible: Should contain "cdns,cdns-pcie-ep" to identify the IP used.
+	      Should contain "ti,j721e-cdns-pcie-ep" for TI platforms.
 - reg: Should contain the controller register base address and AXI interface
   region base address respectively.
 - reg-names: Must be "reg" and "mem" respectively.

@@ -169,11 +169,9 @@ EXPORT_SYMBOL(of_device_alloc);
  * Returns pointer to created platform device, or NULL if a device was not
  * registered.  Unavailable devices will not get registered.
  */
-static struct platform_device *of_platform_device_create_pdata(
-					struct device_node *np,
-					const char *bus_id,
-					void *platform_data,
-					struct device *parent)
+struct platform_device *
+of_platform_device_create_pdata(struct device_node *np, const char *bus_id,
+				void *platform_data, struct device *parent)
 {
 	struct platform_device *dev;
 
@@ -203,6 +201,7 @@ err_clear_flag:
 	of_node_clear_flag(np, OF_POPULATED);
 	return NULL;
 }
+EXPORT_SYMBOL(of_platform_device_create_pdata);
 
 /**
  * of_platform_device_create - Alloc, initialize and register an of_device
