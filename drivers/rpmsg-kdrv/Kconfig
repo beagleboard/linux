@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-2.0
+
+menu "Rpmsg virtual device drivers"
+
+# RPMSG always gets selected by whoever wants it
+config RPMSG_KDRV
+	tristate "RPMSG virtual device interface"
+	select RPMSG
+	help
+	  Say Y here enable support for RPMSG based remote devices, usually
+	  exported by a firmware running rpmsg stack and remote_device stack.
+	  This feature enables the framework for para-virtualizing entire H/W
+	  or specific resources of a hardware
+
+
+config RPMSG_KDRV_DISPLAY
+	tristate "RPMSG virtual display device support"
+	select RPMSG_KDRV
+	help
+	  Say Y here to enable support for remote device based display
+	  virtualization. This setup expects that the display will be driven
+	  by a remoteproc and DRM driver will be able to use display features
+	  using remote_device framework
+
+endmenu

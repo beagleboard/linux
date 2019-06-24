@@ -6,7 +6,11 @@ tidss-y := tidss_crtc.o \
 	tidss_irq.o \
 	tidss_kms.o \
 	tidss_plane.o \
-	tidss_scale_coefs.o
+	tidss_scale_coefs.o \
+	tidss_v_connector.o \
+	tidss_v_encoder.o \
+	tidss_v_plane.o \
+	tidss_v_crtc.o
 
 tidss-$(CONFIG_DRM_TIDSS_DSS6) += tidss_dispc6.o
 tidss-$(CONFIG_DRM_TIDSS_DSS7) += tidss_dispc7.o

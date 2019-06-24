@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Source for J721E ASTC VLAB Model with DSS partitioning support
+ *
+ * Copyright (C) 2016-2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+#include <dt-bindings/soc/ti,sci_pm_domain.h>
+
+/dts-v1/;
+/plugin/;
+
+/* Used by RTOS to power-up TFP410 via expander */
+&main_i2c1 {
+	status = "disabled";
+};
+
+&dss {
+	pinctrl-names = "none"; /* pinmux configured by RTOS */
+	power-domains = <&k3_pds 152 TI_SCI_PD_SHARED>; /* share IP among VMs and RTOS */
+
+	/* No changes to parents or rates for VP clocks
+	 * if the VP is not owned by us
+	 */
+	assigned-clocks = <&k3_clks 152 1>,
+		<&k3_clks 152 9>,
+		<&k3_clks 152 13>;
+
+	assigned-clock-parents = <&k3_clks 152 2>,	/* PLL16_HSDIV0 */
+		<&k3_clks 152 11>,			/* PLL18_HSDIV0 */
+		<&k3_clks 152 18>;			/* PLL23_HSDIV0 */
+
+	/* partition information */
+	dss_planes: dss-planes {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* vid1, marshalled to us by RTOS */
+		plane@0 {
+			reg = <0>;
+			managed = <0>;
+		};
+
+		/* vidl1, Reserved for jailhouse inmate */
+		plane@1 {
+			reg = <1>;
+			managed = <0>;
+		};
+
+		/* vid2, owned by RTOS */
+		plane@2 {
+			reg = <2>;
+			managed = <0>;
+		};
+
+		/* vidl2, marshalled to us by RTOS */
+		plane@3 {
+			reg = <3>;
+			managed = <0>;
+		};
+	};
+
+	dss_vps: dss-vps {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Owned by jailhouse inmate */
+		vp@0 {
+			reg = <0>;
+			managed = <0>;
+		};
+
+		/* Owned by RTOS */
+		vp@1 {
+			reg = <1>;
+			managed = <0>;
+		};
+
+		/* The 2 below are not owned by anyone
+		 * else, so keeping here
+		 */
+		vp@2 {
+			reg = <2>;
+			managed = <1>;
+		};
+
+		vp@3 {
+			reg = <3>;
+			managed = <1>;
+		};
+	};
+
+	dss_commons: dss-commons {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-common {
+			reg = <1>;
+		};
+
+		config-common {
+			status = "disabled";
+			reg = <0>;
+		};
+	};
+
+	dss_remote: dss-remote {
+		#address-cells = <0>;
+		#size-cells = <0>;
+
+		remote-name = "r5f-tidss";
+	};
+};
+

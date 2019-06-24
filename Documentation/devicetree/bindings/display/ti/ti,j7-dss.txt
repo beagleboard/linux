@@ -11,5 +11,109 @@ Required properties:
 - interrupts: phandle to DISPC interrupts
 - interrupt-names: "common_m", "common_s0", "common_s1", and "common_s2"
 
+Optional properties:
+- dss-planes: partitioning information for pipes, if display sharing is required
+- dss-vps: partitioning information for video-ports, if display sharing is required
+- dss-commons: partitioning information for common areas, if display sharing is required
+- dss-remote: remote name that is expected to be advertised by the display sharing firmware
+
 The DSS outputs are described using the device graphs as documented in
 Documentation/devicetree/bindings/graph.txt.
+
+Display Sharing on Texas Instruments J721E
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+Partitioning the pipes
+-----------------------
+
+In J721E, multiple video-ports, pipes, and common regions can be driven by separate
+compute entities, and therefore should not be accessed by tidss driver. To ensure this,
+optional properties like dss-planes, dss-vps and dss-commons should be used as required
+by the setup.
+
+Pipe partitioning is described by the 'dss-planes' node. Each pipe is repesented by a 'plane'
+node inside the 'dss-planes' node.
+
+Each 'plane' node must have a 'reg' property to identify the pipe, and a 'managed' property to
+indicate whether the pipe is managed by the driver. the managed property must be 0 if the
+pipe is not to be accessed by the driver.
+
+Since the children of the 'dss-planes' node uses 'reg' properties to identify pipes, it must have '#address-cells'
+and '#size-cells' properties, set to 1 and 0 respectively.
+
+dss-planes {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* vid1, managed by tidss */
+	plane@0 {
+		reg = <0>;
+		managed = <1>;
+	};
+
+	/* vidl1, not managed by tidss */
+	plane@1 {
+		reg = <1>;
+		managed = <0>;
+	};
+
+	...
+};
+
+Partitioning the video-ports
+-----------------------------
+
+Video port partitioning is described by the 'dss-vps' node. Each video-port is repesented by a 'vp'
+node inside the 'dss-vps' node.
+
+Each 'vp' node must have a 'reg' property to identify the video-port, and a 'managed' property to
+indicate whether the video-port is managed by the driver. the managed property must be 0 if the
+video-port is not to be accessed by the driver.
+
+Since the children of the 'dss-vps' node uses 'reg' properties to identify pipes, it must have '#address-cells'
+and '#size-cells' properties, set to 1 and 0 respectively.
+
+dss-vps {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* VP1, managed by tidss */
+	vp@0 {
+		reg = <0>;
+		managed = <1>;
+	};
+
+	/* VP2, not managed by tidss */
+	vp@1 {
+		reg = <1>;
+		managed = <0>;
+	};
+
+	...
+};
+
+Partitioning the common regions
+--------------------------------
+
+Tidss can use at most two common regions
+- mandatory interrupt region
+- optional config region
+
+The common region partitioning is described by the 'dss-commons' node. It must have a child node called
+'interrupt-common' and it may contain an optional node called 'config-common'
+
+'interrupt-common' node must contain a 'reg' property to indicate which common region to be used for interrupt
+handling
+
+'config-common' node must contain a 'reg' property to indicate which common region to be used for device
+configuration. It may contain a 'status' property which can be set to "disabled" when the configuration is
+not to be done.
+
+Since the children of the  'dss-commons' node uses 'reg' properties to identify common regions, it must have
+'#address-cells' and '#size-cells' properties, set to 1 and 0 respectively.
+
+Display sharing
+----------------
+
+To enable display sharing with another compute entity, there must be a 'dss-remote' node. The node must have a
+string property called 'remote-name' which indicates the remote-device name to look for and attach
