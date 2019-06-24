@@ -74,7 +74,7 @@
 			"AIN2R", "Stereo Mic 2",
 			"AIN3L", "Line In",
 			"AIN3R", "Line In";
-		simple-audio-card,mclk-fs = <512>;
+		simple-audio-card,mclk-fs = <256>;
 
 		simple-audio-card,dai-link@0 {
 			format = "dsp_a";
@@ -84,18 +84,18 @@
 				sound-dai = <&mcasp10>;
 				clocks = <&k3_clks 184 1>;
 				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
-				dai-tdm-slot-num = <8>;
+				dai-tdm-slot-num = <2>;
 				dai-tdm-slot-width = <32>;
-				dai-tdm-slot-tx-mask = <1 1 1 1 1 1 1 1>;
-				dai-tdm-slot-rx-mask = <1 1 1 1 1 1 0 0>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
 			};
 
 			codec {
 				sound-dai = <&pcm3168a_1 0>;
-				dai-tdm-slot-num = <8>;
+				dai-tdm-slot-num = <2>;
 				dai-tdm-slot-width = <32>;
-				dai-tdm-slot-tx-mask = <1 1 1 1 1 1 1 1>;
-				dai-tdm-slot-rx-mask = <1 1 1 1 1 1 0 0>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
 			};
 		};
 
@@ -107,18 +107,18 @@
 				sound-dai = <&mcasp10>;
 				clocks = <&k3_clks 184 1>;
 				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
-				dai-tdm-slot-num = <8>;
+				dai-tdm-slot-num = <2>;
 				dai-tdm-slot-width = <32>;
-				dai-tdm-slot-tx-mask = <1 1 1 1 1 1 1 1>;
-				dai-tdm-slot-rx-mask = <1 1 1 1 1 1 0 0>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
 			};
 
 			codec {
 				sound-dai = <&pcm3168a_1 1>;
-				dai-tdm-slot-num = <8>;
+				dai-tdm-slot-num = <2>;
 				dai-tdm-slot-width = <32>;
-				dai-tdm-slot-tx-mask = <1 1 1 1 1 1 1 1>;
-				dai-tdm-slot-rx-mask = <1 1 1 1 1 1 0 0>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
 			};
 		};
 	};
@@ -498,19 +498,12 @@
 	pinctrl-0 = <&mcasp10_pins_default>;
 
 	op-mode = <0>;          /* MCASP_IIS_MODE */
-	tdm-slots = <8>;
-	auxclk-fs-ratio = <512>;
+	tdm-slots = <2>;
+	auxclk-fs-ratio = <256>;
 
-	/*
-	 * 8 serializers
-	 * Enable only 1 serializer per direction for now.
-	 * The actual wireing in the board is:
-	 * 2 2 2 1
-	 * 1 1 1 0
-	 */
 	serial-dir = <  /* 0: INACTIVE, 1: TX, 2: RX */
-		2 0 0 1
-		0 0 0 0
+		2 2 2 1
+		1 1 1 0
 	>;
 	tx-num-evt = <0>;
 	rx-num-evt = <0>;
