@@ -35,6 +35,7 @@
 #include <linux/of_irq.h>
 
 #include "cdns-mhdp.h"
+#include "cdns-mhdp-j721e.h"
 
 #define FW_NAME					"cadence/mhdp8546.bin"
 #define CDNS_MHDP_IMEM				0x10000
@@ -744,6 +745,8 @@ static void cdns_mhdp_disable(struct drm_bridge *bridge)
 	mhdp->link_up = false;
 
 	drm_dp_link_power_down(&mhdp->aux, &mhdp->link);
+
+	cdns_mhdp_j721e_disable(mhdp);
 }
 
 static u32 get_training_interval_us(struct cdns_mhdp_device *mhdp,
@@ -1116,6 +1119,8 @@ void cdns_mhdp_enable(struct drm_bridge *bridge)
 
 	dev_dbg(mhdp->dev, "bridge enable\n");
 
+	cdns_mhdp_j721e_enable(mhdp);
+
 	if (!mhdp->link_up)
 		cdns_mhdp_link_up(mhdp);
 
@@ -1288,6 +1293,13 @@ static int mhdp_probe(struct platform_device *pdev)
 	ret = pm_runtime_get_sync(&pdev->dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "pm_runtime_get_sync failed\n");
+		return ret;
+	}
+
+	ret = cdns_mhdp_j721e_init(mhdp);
+	if (ret != 0) {
+		dev_err(&pdev->dev, "J721E Wrapper initialization failed: %d\n",
+			ret);
 		return ret;
 	}
 

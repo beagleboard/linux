@@ -561,6 +561,8 @@ struct cdns_mhdp_device {
 
 	bool link_up;
 	bool plugged;
+
+	void __iomem            *j721e_regs;
 };
 
 void cdns_mhdp_clock_reset(struct cdns_mhdp_device *mhdp);
