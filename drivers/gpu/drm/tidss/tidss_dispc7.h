@@ -7,6 +7,7 @@
 #ifndef __TIDSS_DISPC7_H
 #define __TIDSS_DISPC7_H
 
+#define DISPC7_MAX_COMMONS	4
 #define DISPC7_MAX_PORTS	4
 #define DISPC7_MAX_PLANES	4
 
@@ -39,6 +40,10 @@ struct dispc7_features {
 	/* XXX should these come from the .dts? Min pclk is not feature of DSS IP */
 	unsigned long min_pclk;
 	unsigned long max_pclk;
+
+	u32 num_commons;
+	const char *common_name[DISPC7_MAX_COMMONS];
+	bool common_cfg[DISPC7_MAX_COMMONS];
 
 	struct dispc7_features_scaling scaling;
 
