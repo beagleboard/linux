@@ -37,7 +37,8 @@
 #define TX_MIN_IPG		0xb8
 
 #define TX_START_DELAY		0x40
-#define TX_CLK_DELAY		0x6
+#define TX_CLK_DELAY_100M	0x6
+#define TX_CLK_DELAY_10M	0
 
 /* PRUSS_IEP_GLOBAL_CFG register definitions */
 #define PRUSS_IEP_GLOBAL_CFG	0
@@ -397,7 +398,7 @@ static void prueth_mii_init(struct prueth *prueth)
 	prueth_mii_set(TX, 0, START_DELAY_MASK,
 		       TX_START_DELAY << PRUSS_MII_RT_TXCFG_TX_START_DELAY_SHIFT);
 	prueth_mii_set(TX, 0, CLK_DELAY_MASK,
-		       TX_CLK_DELAY << PRUSS_MII_RT_TXCFG_TX_CLK_DELAY_SHIFT);
+		       TX_CLK_DELAY_100M << PRUSS_MII_RT_TXCFG_TX_CLK_DELAY_SHIFT);
 
 	/* Configuration of Port 1 Rx */
 	prueth_mii_set(RX, 1, ENABLE, PRUSS_MII_RT_RXCFG_RX_ENABLE);
@@ -418,7 +419,7 @@ static void prueth_mii_init(struct prueth *prueth)
 	prueth_mii_set(TX, 1, START_DELAY_MASK,
 		       TX_START_DELAY << PRUSS_MII_RT_TXCFG_TX_START_DELAY_SHIFT);
 	prueth_mii_set(TX, 1, CLK_DELAY_MASK,
-		       TX_CLK_DELAY << PRUSS_MII_RT_TXCFG_TX_CLK_DELAY_SHIFT);
+		       TX_CLK_DELAY_100M << PRUSS_MII_RT_TXCFG_TX_CLK_DELAY_SHIFT);
 }
 
 static void prueth_clearmem(struct prueth *prueth, enum prueth_mem region)
@@ -517,10 +518,24 @@ static void emac_update_phystatus(struct prueth_emac *emac)
 	struct prueth *prueth = emac->prueth;
 	enum prueth_mem region;
 	u32 phy_speed, port_status = 0;
+	u8 delay;
 
 	region = emac->dram;
 	phy_speed = emac->speed;
 	prueth_write_reg(prueth, region, PHY_SPEED_OFFSET, phy_speed);
+
+	if (phy_speed == SPEED_10)
+		delay = TX_CLK_DELAY_10M;
+	else
+		delay = TX_CLK_DELAY_100M;
+
+	if (emac->port_id) {
+		prueth_mii_set(TX, 1, CLK_DELAY_MASK,
+			       delay << PRUSS_MII_RT_TXCFG_TX_CLK_DELAY_SHIFT);
+	} else {
+		prueth_mii_set(TX, 0, CLK_DELAY_MASK,
+			       delay << PRUSS_MII_RT_TXCFG_TX_CLK_DELAY_SHIFT);
+	}
 
 	if (emac->duplex == DUPLEX_HALF)
 		port_status |= PORT_IS_HD_MASK;
