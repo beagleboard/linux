@@ -34,8 +34,6 @@ Required properties for children:
 
 Optional properties for children:
 - local-mac-address	: mac address for the port.
-- enable-rgmii-delay	: boolean property. If present will enable
-			   ICSSG's internal RGMII transmit delay.
 
 Example (k3-am654 base board, dual-emac):
 ========================================
