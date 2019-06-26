@@ -2216,6 +2216,21 @@ static int scsi_map_queues(struct blk_mq_tag_set *set)
 	return blk_mq_map_queues(set);
 }
 
+static u64 scsi_calculate_bounce_limit(struct Scsi_Host *shost)
+{
+	struct device *dma_dev = shost->dma_dev;
+	u64 bounce_limit = 0xffffffff;
+
+	if (shost->unchecked_isa_dma)
+		return BLK_BOUNCE_ISA;
+
+	if (dma_dev && dma_dev->dma_mask)
+		bounce_limit = (u64)dma_max_pfn(dma_dev) << PAGE_SHIFT;
+
+
+	return bounce_limit;
+}
+
 void __scsi_init_queue(struct Scsi_Host *shost, struct request_queue *q)
 {
 	struct device *dev = shost->dma_dev;
@@ -2235,8 +2250,7 @@ void __scsi_init_queue(struct Scsi_Host *shost, struct request_queue *q)
 	}
 
 	blk_queue_max_hw_sectors(q, shost->max_sectors);
-	if (shost->unchecked_isa_dma)
-		blk_queue_bounce_limit(q, BLK_BOUNCE_ISA);
+	blk_queue_bounce_limit(q, scsi_calculate_bounce_limit(shost));
 	blk_queue_segment_boundary(q, shost->dma_boundary);
 	dma_set_seg_boundary(dev, shost->dma_boundary);
 
