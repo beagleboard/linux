@@ -15,4 +15,10 @@ obj-$(CONFIG_DRM_TOSHIBA_TC358768) += tc358768.o
 obj-$(CONFIG_DRM_ANALOGIX_DP) += analogix/
 obj-$(CONFIG_DRM_I2C_ADV7511) += adv7511/
 obj-$(CONFIG_DRM_TI_TFP410) += ti-tfp410.o
+obj-$(CONFIG_DRM_CDNS_MHDP) += mhdp8546.o
 obj-y += synopsys/
+
+mhdp8546-objs := cdns-mhdp-common.o cdns-mhdp.o
+ifeq ($(CONFIG_DRM_CDNS_MHDP_J721E),y)
+	mhdp8546-objs += cdns-mhdp-j721e.o
+endif
