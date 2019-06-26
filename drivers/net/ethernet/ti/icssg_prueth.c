@@ -1639,7 +1639,6 @@ static int prueth_config_rgmiidelay(struct prueth *prueth,
 	struct device *dev = prueth->dev;
 	struct regmap *ctrl_mmr;
 	u32 icssgctrl;
-	u32 val;
 	struct device_node *np = dev->of_node;
 
 	if (!of_device_is_compatible(np, "ti,am654-icssg-prueth"))
@@ -1657,12 +1656,7 @@ static int prueth_config_rgmiidelay(struct prueth *prueth,
 		return -ENODEV;
 	}
 
-	if (of_property_read_bool(eth_np, "enable-rgmii-delay"))
-		val = 0;
-	else
-		val = ICSSG_CTRL_RGMII_ID_MODE;
-
-	regmap_update_bits(ctrl_mmr, icssgctrl, ICSSG_CTRL_RGMII_ID_MODE, val);
+	regmap_update_bits(ctrl_mmr, icssgctrl, ICSSG_CTRL_RGMII_ID_MODE, 0);
 
 	return 0;
 }
