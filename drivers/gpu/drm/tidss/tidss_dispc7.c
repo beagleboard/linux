@@ -93,11 +93,10 @@ static const struct dispc7_features dispc7_j721e_feats = {
 	.common_name = { "common_m", "common_s0", "common_s1", "common_s2" },
 	.common_cfg = { true, false, false, false },
 
-	/* XXX: Scaling features are copied from AM6 and should be checked */
 	.scaling = {
-		.in_width_max_5tap_rgb = 1280,
-		.in_width_max_3tap_rgb = 2560,
-		.in_width_max_5tap_yuv = 2560,
+		.in_width_max_5tap_rgb = 2048,
+		.in_width_max_3tap_rgb = 4096,
+		.in_width_max_5tap_yuv = 4096,
 		.in_width_max_3tap_yuv = 4096,
 		.upscale_limit = 16,
 		.downscale_limit_5tap = 4,
