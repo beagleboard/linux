@@ -201,6 +201,8 @@ int pruss_intc_configure(struct pruss *pruss,
 
 		idx = i / CMR_EVT_PER_REG;
 		val = pruss_intc_read_reg(intc, PRU_INTC_CMR(idx));
+		val &= ~(CMR_EVT_MAP_MASK <<
+			 ((i % CMR_EVT_PER_REG) * CMR_EVT_MAP_BITS));
 		val |= ch << ((i % CMR_EVT_PER_REG) * CMR_EVT_MAP_BITS);
 		pruss_intc_write_reg(intc, PRU_INTC_CMR(idx), val);
 		sysevt_mask |= BIT_ULL(i);
@@ -241,6 +243,8 @@ int pruss_intc_configure(struct pruss *pruss,
 		idx = i / HMR_CH_PER_REG;
 
 		val = pruss_intc_read_reg(intc, PRU_INTC_HMR(idx));
+		val &= ~(HMR_CH_MAP_MASK <<
+			 ((i % HMR_CH_PER_REG) * HMR_CH_MAP_BITS));
 		val |= host << ((i % HMR_CH_PER_REG) * HMR_CH_MAP_BITS);
 		pruss_intc_write_reg(intc, PRU_INTC_HMR(idx), val);
 
