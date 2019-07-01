@@ -52,6 +52,16 @@
 #define PRU_INTC_HINLR(x)	(0x1100 + (x) * 4)
 #define PRU_INTC_HIER		0x1500
 
+/* CMR register bit-field macros */
+#define CMR_EVT_MAP_MASK	0xf
+#define CMR_EVT_MAP_BITS	8
+#define CMR_EVT_PER_REG		4
+
+/* HMR register bit-field macros */
+#define HMR_CH_MAP_MASK		0xf
+#define HMR_CH_MAP_BITS		8
+#define HMR_CH_PER_REG		4
+
 /* HIPIR register bit-fields */
 #define INTC_HIPIR_NONE_HINT	0x80000000
 
@@ -189,9 +199,11 @@ int pruss_intc_configure(struct pruss *pruss,
 
 		intc->config_map.sysev_to_ch[i] = ch;
 
-		idx = i / 4;
+		idx = i / CMR_EVT_PER_REG;
 		val = pruss_intc_read_reg(intc, PRU_INTC_CMR(idx));
-		val |= ch << ((i & 3) * 8);
+		val &= ~(CMR_EVT_MAP_MASK <<
+			 ((i % CMR_EVT_PER_REG) * CMR_EVT_MAP_BITS));
+		val |= ch << ((i % CMR_EVT_PER_REG) * CMR_EVT_MAP_BITS);
 		pruss_intc_write_reg(intc, PRU_INTC_CMR(idx), val);
 		sysevt_mask |= BIT_ULL(i);
 		ch_mask |= BIT(ch);
@@ -228,10 +240,12 @@ int pruss_intc_configure(struct pruss *pruss,
 
 		intc->config_map.ch_to_host[i] = host;
 
-		idx = i / 4;
+		idx = i / HMR_CH_PER_REG;
 
 		val = pruss_intc_read_reg(intc, PRU_INTC_HMR(idx));
-		val |= host << ((i & 3) * 8);
+		val &= ~(HMR_CH_MAP_MASK <<
+			 ((i % HMR_CH_PER_REG) * HMR_CH_MAP_BITS));
+		val |= host << ((i % HMR_CH_PER_REG) * HMR_CH_MAP_BITS);
 		pruss_intc_write_reg(intc, PRU_INTC_HMR(idx), val);
 
 		ch_mask |= BIT(i);
@@ -427,14 +441,15 @@ static int pruss_intc_irq_set_affinity(struct irq_data *data,
 	}
 
 	/* find programmed channel */
-	ch = pruss_intc_read_reg(intc, PRU_INTC_CMR(data->hwirq / 4));
-	ch >>= (data->hwirq % 4) * 8;
-	ch &= 0xf;
+	ch = pruss_intc_read_reg(intc,
+				 PRU_INTC_CMR(data->hwirq / CMR_EVT_PER_REG));
+	ch >>= (data->hwirq % CMR_EVT_PER_REG) * CMR_EVT_MAP_BITS;
+	ch &= CMR_EVT_MAP_MASK;
 
 	/* find programmed host interrupt */
-	host = pruss_intc_read_reg(intc, PRU_INTC_HMR(ch / 4));
-	host >>= (ch % 4) * 8;
-	host &= 0xf;
+	host = pruss_intc_read_reg(intc, PRU_INTC_HMR(ch / HMR_CH_PER_REG));
+	host >>= (ch % HMR_CH_PER_REG) * HMR_CH_MAP_BITS;
+	host &= HMR_CH_MAP_MASK;
 
 	/* check programmed configuration for sanity */
 	if (ch != sch || host != shost) {
