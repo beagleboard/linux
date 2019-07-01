@@ -447,7 +447,7 @@ static int pruss_intc_irq_set_affinity(struct irq_data *data,
 	ch &= CMR_EVT_MAP_MASK;
 
 	/* find programmed host interrupt */
-	host = pruss_intc_read_reg(intc, PRU_INTC_HMR(ch / HMR_CH_MAP_BITS));
+	host = pruss_intc_read_reg(intc, PRU_INTC_HMR(ch / HMR_CH_PER_REG));
 	host >>= (ch % HMR_CH_PER_REG) * HMR_CH_MAP_BITS;
 	host &= HMR_CH_MAP_MASK;
 
