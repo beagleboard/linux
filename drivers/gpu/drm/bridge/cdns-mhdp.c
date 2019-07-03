@@ -744,7 +744,8 @@ static void cdns_mhdp_disable(struct drm_bridge *bridge)
 
 	mhdp->link_up = false;
 
-	drm_dp_link_power_down(&mhdp->aux, &mhdp->link);
+	if (mhdp->plugged)
+		drm_dp_link_power_down(&mhdp->aux, &mhdp->link);
 
 	cdns_mhdp_j721e_disable(mhdp);
 }
