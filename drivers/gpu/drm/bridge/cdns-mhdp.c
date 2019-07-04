@@ -354,6 +354,16 @@ static void mhdp_get_adjust_train(struct cdns_mhdp_device *mhdp,
 		phy_cfg->dp.pre[i] = lanes_data[i] >> DP_TRAIN_PRE_EMPHASIS_SHIFT;
 		if ((lanes_data[i] >> DP_TRAIN_PRE_EMPHASIS_SHIFT) != (adjust >> DP_TRAIN_PRE_EMPHASIS_SHIFT))
 			lanes_data[i] |= DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
+
+		/* Sum of VOD and PRE should not be greater than 3 */
+		if (phy_cfg->dp.voltage[i] + phy_cfg->dp.pre[i] > 3) {
+			int d = phy_cfg->dp.voltage[i] + phy_cfg->dp.pre[i] - 3;
+			int dpre = d/2;
+			int dvoltage = d - dpre;
+
+			phy_cfg->dp.voltage[i] -= dvoltage;
+			phy_cfg->dp.pre[i] -= dpre;
+		}
 	}
 }
 
