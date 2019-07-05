@@ -201,6 +201,21 @@ static int cdns_mhdp_get_modes(struct drm_connector *connector)
 	num_modes = drm_add_edid_modes(connector, edid);
 	kfree(edid);
 
+	/*
+	 * HACK: Warn about unsupported display formats until we deal
+	 *       with them correctly.
+	 */
+	if (!(connector->display_info.color_formats &
+	      mhdp->display_fmt.color_format))
+		dev_warn(mhdp->dev,
+			 "%s: No supported color_format found (0x%08x)\n",
+			__func__, connector->display_info.color_formats);
+
+	if (connector->display_info.bpc < mhdp->display_fmt.bpc)
+		dev_warn(mhdp->dev, "%s: Display bpc only %d < %d\n",
+			 __func__, connector->display_info.bpc,
+			 mhdp->display_fmt.bpc);
+
 	return num_modes;
 }
 
@@ -871,17 +886,13 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
 	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
 	u32 rate, vs, vs_f, required_bandwidth, available_bandwidth;
-	u32 bpp, tu_size = 30, line_thresh1, line_thresh2, line_thresh = 0;
+	u32 bpp, bpc, tu_size = 30, line_thresh1, line_thresh2, line_thresh = 0;
 	struct drm_display_mode *mode;
 	int pxlclock;
 	enum pixel_format pxlfmt;
-	struct drm_display_info *disp_info = &mhdp->connector.base.display_info;
-	struct drm_display_info disp_info_c;
 
-	disp_info_c = mhdp_bridge->connector->base.display_info;
-	disp_info = &disp_info_c;
-	disp_info->color_formats = DRM_COLOR_FORMAT_RGB444;
-	disp_info->bpc = 8; // HACK
+	pxlfmt = cdns_mhdp_get_pxlfmt(mhdp->display_fmt.color_format);
+	bpc = mhdp->display_fmt.bpc;
 
 	mode = &bridge->encoder->crtc->state->mode;
 	pxlclock = mode->crtc_clock;
@@ -890,8 +901,7 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 
 	rate = mhdp->link.rate / 1000;
 
-	pxlfmt = cdns_mhdp_get_pxlfmt(disp_info->color_formats);
-	bpp = cdns_mhdp_get_bpp(disp_info->bpc, pxlfmt);
+	bpp = cdns_mhdp_get_bpp(bpc, pxlfmt);
 
 	/* find optimal tu_size */
 	required_bandwidth = pxlclock * bpp / 8;
@@ -952,9 +962,7 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 {
 	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
 	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
-	struct drm_display_info disp_info_c;
-	struct drm_display_info *disp_info;
-	unsigned int bpp,  dp_framer_sp = 0, msa_horizontal_1,
+	unsigned int bpp, bpc, dp_framer_sp = 0, msa_horizontal_1,
 			   msa_vertical_1, bnd_hsync2vsync, hsync2vsync_pol_ctrl,
 			   misc0 = 0, misc1 = 0, pxl_repr,
 			   front_porch, back_porch, msa_h0, msa_v0, hsync, vsync,
@@ -966,11 +974,8 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 
 	mode = &bridge->encoder->crtc->state->mode;
 
-	disp_info_c = mhdp_bridge->connector->base.display_info;
-	disp_info = &disp_info_c;
-	disp_info->color_formats = DRM_COLOR_FORMAT_RGB444;
-	disp_info->bpc = 8; // HACK
-	pxlfmt = cdns_mhdp_get_pxlfmt(disp_info->color_formats);
+	pxlfmt = cdns_mhdp_get_pxlfmt(mhdp->display_fmt.color_format);
+	bpc = mhdp->display_fmt.bpc;
 
 	/* if YCBCR supported and stream not SD, use ITU709 */
 	/* FIXME: handle ITU version with YCBCR420 when supported */
@@ -978,7 +983,7 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 	     pxlfmt == PIXEL_FORMAT_YCBCR_422) && mode->crtc_vdisplay >= 720)
 		misc0 = DP_YCBCR_COEFFICIENTS_ITU709;
 
-	bpp = cdns_mhdp_get_bpp(disp_info->bpc, pxlfmt);
+	bpp = cdns_mhdp_get_bpp(bpc, pxlfmt);
 
 	switch (pxlfmt) {
 	case PIXEL_FORMAT_RGB:
@@ -1000,7 +1005,7 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 		pxl_repr = CDNS_DP_FRAMER_Y_ONLY << CDNS_DP_FRAMER_PXL_FORMAT;
 	}
 
-	switch (disp_info->bpc) {
+	switch (bpc) {
 	case 6:
 		misc0 |= DP_TEST_BIT_DEPTH_6;
 		pxl_repr |= CDNS_DP_FRAMER_6_BPC;
@@ -1379,6 +1384,10 @@ static int mhdp_probe(struct platform_device *pdev)
 	mhdp->host.fast_link = 0;
 	mhdp->host.lane_mapping = CDNS_LANE_MAPPING_NORMAL;
 	mhdp->host.enhanced = true;
+
+	/* The only currently supported format */
+	mhdp->display_fmt.color_format = DRM_COLOR_FORMAT_RGB444;
+	mhdp->display_fmt.bpc = 8;
 
 	mhdp->bridge.base.of_node = pdev->dev.of_node;
 	mhdp->bridge.base.funcs = &cdns_mhdp_bridge_funcs;
