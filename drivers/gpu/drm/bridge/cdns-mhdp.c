@@ -354,6 +354,16 @@ static void mhdp_get_adjust_train(struct cdns_mhdp_device *mhdp,
 		phy_cfg->dp.pre[i] = lanes_data[i] >> DP_TRAIN_PRE_EMPHASIS_SHIFT;
 		if ((lanes_data[i] >> DP_TRAIN_PRE_EMPHASIS_SHIFT) != (adjust >> DP_TRAIN_PRE_EMPHASIS_SHIFT))
 			lanes_data[i] |= DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
+
+		/* Sum of VOD and PRE should not be greater than 3 */
+		if (phy_cfg->dp.voltage[i] + phy_cfg->dp.pre[i] > 3) {
+			int d = phy_cfg->dp.voltage[i] + phy_cfg->dp.pre[i] - 3;
+			int dpre = d/2;
+			int dvoltage = d - dpre;
+
+			phy_cfg->dp.voltage[i] -= dvoltage;
+			phy_cfg->dp.pre[i] -= dpre;
+		}
 	}
 }
 
@@ -744,7 +754,8 @@ static void cdns_mhdp_disable(struct drm_bridge *bridge)
 
 	mhdp->link_up = false;
 
-	drm_dp_link_power_down(&mhdp->aux, &mhdp->link);
+	if (mhdp->plugged)
+		drm_dp_link_power_down(&mhdp->aux, &mhdp->link);
 
 	cdns_mhdp_j721e_disable(mhdp);
 }
