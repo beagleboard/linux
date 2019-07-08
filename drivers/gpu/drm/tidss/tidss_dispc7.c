@@ -131,6 +131,7 @@ static const struct dispc7_features dispc7_j721e_feats = {
 	.vid_lite = { 0, 1, 0, 1, },
 	.vid_order = { 1, 3, 0, 2 },
 	.has_writeback = true,
+	.wb_name = "wb",
 };
 
 static const struct of_device_id dispc7_of_table[] = {
@@ -261,6 +262,7 @@ struct dispc_device {
 	void __iomem *base_vid[DISPC7_MAX_PLANES];
 	void __iomem *base_ovr[DISPC7_MAX_PORTS];
 	void __iomem *base_vp[DISPC7_MAX_PORTS];
+	void __iomem *base_wb;
 
 	int irq;
 
@@ -2797,6 +2799,15 @@ int dispc7_init(struct tidss_device *tidss)
 					  &dispc->base_vid[i]);
 		dev_dbg(dev, "%s: %u %s %d\n", __func__,
 			i, dispc->feat->vid_name[i], r);
+		if (r)
+			return r;
+	}
+
+	if (dispc7_has_writeback(dispc)) {
+		r = dispc7_iomap_resource(pdev, dispc->feat->wb_name,
+					  &dispc->base_wb);
+		dev_dbg(dev, "%s: %s %d\n", __func__,
+			dispc->feat->wb_name, r);
 		if (r)
 			return r;
 	}

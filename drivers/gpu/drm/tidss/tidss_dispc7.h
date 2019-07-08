@@ -61,6 +61,7 @@ struct dispc7_features {
 	u32 vid_order[DISPC7_MAX_PLANES];
 
 	bool has_writeback;
+	const char *wb_name; /* Should match dt reg names */
 
 	struct dispc7_errata errata;
 };
