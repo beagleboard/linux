@@ -1048,6 +1048,11 @@ static int dispc6_plane_enable(struct dispc_device *dispc,
 	return 0;
 }
 
+static bool dispc6_has_writeback(struct dispc_device *dispc)
+{
+	return false;
+}
+
 static u32 dispc6_vid_get_fifo_size(struct dispc_device *dispc,
 				    u32 hw_plane)
 {
@@ -1412,6 +1417,8 @@ static const struct tidss_dispc_ops dispc6_ops = {
 	.modeset_init = dispc6_modeset_init,
 
 	.get_irq = dispc6_get_irq,
+
+	.has_writeback = dispc6_has_writeback,
 };
 
 static int dispc6_iomap_resource(struct platform_device *pdev, const char *name,

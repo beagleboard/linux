@@ -60,6 +60,8 @@ struct dispc7_features {
 	bool vid_lite[DISPC7_MAX_PLANES];
 	u32 vid_order[DISPC7_MAX_PLANES];
 
+	bool has_writeback;
+
 	struct dispc7_errata errata;
 };
 

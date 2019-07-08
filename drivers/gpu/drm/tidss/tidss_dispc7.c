@@ -130,6 +130,7 @@ static const struct dispc7_features dispc7_j721e_feats = {
 	.vid_name = { "vid1", "vidl1", "vid2", "vidl2" },
 	.vid_lite = { 0, 1, 0, 1, },
 	.vid_order = { 1, 3, 0, 2 },
+	.has_writeback = true,
 };
 
 static const struct of_device_id dispc7_of_table[] = {
@@ -1796,6 +1797,11 @@ static int dispc7_plane_enable(struct dispc_device *dispc,
 	return 0;
 }
 
+static bool dispc7_has_writeback(struct dispc_device *dispc)
+{
+	return dispc->feat->has_writeback;
+}
+
 static u32 dispc7_vid_get_fifo_size(struct dispc_device *dispc,
 				    u32 hw_plane)
 {
@@ -2374,6 +2380,8 @@ static const struct tidss_dispc_ops dispc7_ops = {
 	.modeset_init = dispc7_modeset_init,
 
 	.get_irq = dispc7_get_irq,
+
+	.has_writeback = dispc7_has_writeback,
 };
 
 static int dispc7_iomap_resource(struct platform_device *pdev, const char *name,

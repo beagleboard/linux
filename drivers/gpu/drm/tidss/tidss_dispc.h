@@ -136,6 +136,8 @@ struct tidss_dispc_ops {
 	int (*modeset_init)(struct dispc_device *dispc);
 
 	int (*get_irq)(struct dispc_device *dispc);
+
+	bool (*has_writeback)(struct dispc_device *dispc);
 };
 
 int dispc6_init(struct tidss_device *tidss);
