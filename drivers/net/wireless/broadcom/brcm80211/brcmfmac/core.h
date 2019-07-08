@@ -36,7 +36,7 @@
 #define BRCMF_DCMD_MEDLEN	1536
 #define BRCMF_DCMD_MAXLEN	8192
 
-/* IOCTL from host to device are limited in lenght. A device can only handle
+/* IOCTL from host to device are limited in length. A device can only handle
  * ethernet frame size. This limitation is to be applied by protocol layer.
  */
 #define BRCMF_TX_IOCTL_MAX_MSG_SIZE	(ETH_FRAME_LEN+ETH_FCS_LEN)
@@ -142,6 +142,8 @@ struct brcmf_pub {
 	struct notifier_block inetaddr_notifier;
 	struct notifier_block inet6addr_notifier;
 	struct brcmf_mp_device *settings;
+
+	struct work_struct bus_reset;
 
 	u8 clmver[BRCMF_DCMD_SMLEN];
 };
