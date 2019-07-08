@@ -47,7 +47,19 @@
 	status = "disabled";
 };
 
+&d5520 {
+	status = "disabled";
+};
+
 &main_sdhci0 {
+	status = "disabled";
+};
+
+&serdes_wiz4 {
+	status = "disabled";
+};
+
+&mhdp {
 	status = "disabled";
 };
 
@@ -66,7 +78,7 @@
 		<&k3_clks 152 11>,			/* PLL18_HSDIV0 */
 		<&k3_clks 152 18>;			/* PLL23_HSDIV0 */
 
-	dss_planes: dss_planes {
+	dss_planes: dss-planes {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
@@ -95,7 +107,7 @@
 		};
 	};
 
-	dss_vps: dss_vps {
+	dss_vps: dss-vps {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
@@ -120,7 +132,7 @@
 		};
 	};
 
-	dss_commons: dss_commons {
+	dss_commons: dss-commons {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
