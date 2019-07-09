@@ -20,6 +20,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/reset-controller.h>
+#include <dt-bindings/phy/phy.h>
 
 #define WIZ_SERDES_CTRL		0x404
 #define WIZ_SERDES_TOP_CTRL	0x408
@@ -77,6 +78,8 @@ static const struct reg_field p_enable[WIZ_MAX_LANES] = {
 	REG_FIELD(WIZ_LANECTL(2), 30, 31),
 	REG_FIELD(WIZ_LANECTL(3), 30, 31),
 };
+
+enum p_enable { P_ENABLE = 2, P_ENABLE_FORCE = 1, P_ENABLE_DISABLE = 0 };
 
 static const struct reg_field p_align[WIZ_MAX_LANES] = {
 	REG_FIELD(WIZ_LANECTL(0), 29, 29),
@@ -214,6 +217,7 @@ struct wiz {
 	int			typec_dir_delay;
 
 	enum wiz_type type;
+	u32 lane_modes[WIZ_MAX_LANES];
 };
 
 static int wiz_reset(struct wiz *wiz)
@@ -236,12 +240,17 @@ static int wiz_reset(struct wiz *wiz)
 static int wiz_mode_select(struct wiz *wiz)
 {
 	u32 num_lanes = wiz->num_lanes;
+	enum wiz_lane_standard_mode mode;
 	int ret;
 	int i;
 
 	for (i = 0; i < num_lanes; i++) {
-		ret = regmap_field_write(wiz->p_standard_mode[i],
-					 LANE_MODE_GEN4);
+		if (wiz->lane_modes[i] == PHY_TYPE_DP)
+			mode = LANE_MODE_GEN1;
+		else
+			mode = LANE_MODE_GEN4;
+
+		ret = regmap_field_write(wiz->p_standard_mode[i], mode);
 		if (ret)
 			return ret;
 	}
@@ -699,7 +708,7 @@ static int wiz_phy_reset_assert(struct reset_controller_dev *rcdev,
 		return ret;
 	}
 
-	ret = regmap_field_write(wiz->p_enable[id - 1], false);
+	ret = regmap_field_write(wiz->p_enable[id - 1], P_ENABLE_DISABLE);
 	return ret;
 }
 
@@ -730,7 +739,11 @@ static int wiz_phy_reset_deassert(struct reset_controller_dev *rcdev,
 		return ret;
 	}
 
-	ret = regmap_field_write(wiz->p_enable[id - 1], true);
+	if (wiz->lane_modes[id - 1] == PHY_TYPE_DP)
+		ret = regmap_field_write(wiz->p_enable[id - 1], P_ENABLE);
+	else
+		ret = regmap_field_write(wiz->p_enable[id - 1], P_ENABLE_FORCE);
+
 	return ret;
 }
 
@@ -757,6 +770,33 @@ static const struct of_device_id wiz_id_table[] = {
 };
 MODULE_DEVICE_TABLE(of, wiz_id_table);
 
+static int wiz_get_lane_mode(struct device *dev, int lane_number,
+			     u32 *lane_mode)
+{
+	char property_name[11]; /* 11 is length of "lane0-mode\0" */
+	int ret;
+
+	ret = snprintf(property_name, sizeof(property_name), "lane%u-mode",
+		       lane_number);
+
+	if (ret != 10) { /* 10 is length of "lane0-mode" */
+		dev_err(dev, "%s: bad lane number %d (ret = %d)\n",
+			__func__, lane_number, ret);
+		return -ENOTSUPP;
+	}
+
+	ret = of_property_read_u32(dev->of_node, property_name, lane_mode);
+	if (ret == -EINVAL) {
+		*lane_mode = PHY_NONE;
+		return 0;
+	} else if (ret) {
+		dev_err(dev, "Getting \"%s\" property failed: %d\n",
+			property_name, ret);
+	}
+
+	return ret;
+}
+
 static int wiz_probe(struct platform_device *pdev)
 {
 	struct reset_controller_dev *phy_reset_dev;
@@ -770,6 +810,7 @@ static int wiz_probe(struct platform_device *pdev)
 	struct wiz *wiz;
 	u32 num_lanes;
 	int ret;
+	int i;
 
 	wiz = devm_kzalloc(dev, sizeof(*wiz), GFP_KERNEL);
 	if (!wiz)
@@ -827,6 +868,12 @@ static int wiz_probe(struct platform_device *pdev)
 			dev_err(dev, "Invalid typec-dir-debounce property\n");
 			goto err_addr_to_resource;
 		}
+	}
+
+	for (i = 0; i < num_lanes; i++) {
+		ret = wiz_get_lane_mode(dev, i, &wiz->lane_modes[i]);
+		if (ret)
+			return ret;
 	}
 
 	wiz->dev = dev;
