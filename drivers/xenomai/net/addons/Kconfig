@@ -1,0 +1,44 @@
+menu "Add-Ons"
+    depends on XENO_DRIVERS_NET
+
+config XENO_DRIVERS_NET_ADDON_RTCAP
+    depends on XENO_DRIVERS_NET && m
+    select ETHERNET
+    tristate "Real-Time Capturing Support"
+    default n
+    ---help---
+    This feature allows to capture real-time packets traversing the RTnet
+    stack. It can both be used to sniff passively on a network (in this
+    case you may want to enable the promisc mode of your real-time NIC via
+    rtifconfig) and to log the traffic the node receives and transmits
+    during normal operation. RTcap consists of additional hooks in the
+    RTnet stack and a separate module as interface to standard network
+    analysis tools like Ethereal.
+
+    For further information see Documentation/README.rtcap.
+
+config XENO_DRIVERS_NET_ADDON_PROXY
+    depends on XENO_DRIVERS_NET_RTIPV4 && m
+    select ETHERNET
+    tristate "IP protocol proxy for Linux"
+    default n
+    ---help---
+    Enables a forward-to-Linux module for all IP protocols that are not
+    handled by the IPv4 implemenation of RTnet (TCP, UDP, etc.). Only use
+    when you know what you are doing - it can easily break your real-time
+    requirements!
+
+    See Documentation/README.rtnetproxy for further information.
+
+config XENO_DRIVERS_NET_ADDON_PROXY_ARP
+    depends on XENO_DRIVERS_NET_ADDON_PROXY
+    bool "Enable ARP handling via protocol proxy"
+    default n
+    ---help---
+    Enables ARP support for the IP protocol proxy. Incoming ARP replies
+    are then delivered to both, the RTnet and the Linux network stack,
+    but only answered by Linux. The IP protocol proxy gets attached to
+    the RTnet device specified by the module parameter "rtdev_attach",
+    rteth0 by default.
+
+endmenu
