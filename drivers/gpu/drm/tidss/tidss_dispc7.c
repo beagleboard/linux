@@ -287,6 +287,8 @@ struct dispc_device {
 	struct dss_plane_data plane_data[DISPC7_MAX_PLANES];
 };
 
+static bool dispc7_has_writeback(struct dispc_device *dispc);
+
 #define dispc_for_each_managed_vp(dispc, hw_videoport) \
 	for ((hw_videoport) = 0; (hw_videoport) < (dispc)->feat->num_vps; (hw_videoport)++) \
 		if ((dispc)->vp_managed[(hw_videoport)])
@@ -444,6 +446,42 @@ static u32 dispc7_vid_irq_to_raw(u64 vidstat, u32 hw_plane)
 	return stat;
 }
 
+static u64 dispc7_wb_irq_from_raw(u32 stat)
+{
+	u64 vp_stat = 0;
+
+	if (stat & BIT(0))
+		vp_stat |= DSS_IRQ_DEVICE_WBBUFFEROVERFLOW;
+	if (stat & BIT(1))
+		vp_stat |= DSS_IRQ_DEVICE_WBUNCOMPLETEERROR;
+	if (stat & BIT(2))
+		vp_stat |= DSS_IRQ_DEVICE_FRAMEDONEWB;
+	if (stat & BIT(3))
+		vp_stat |= DSS_IRQ_DEVICE_WBSECURITYVIOLATION;
+	if (stat & BIT(4))
+		vp_stat |= DSS_IRQ_DEVICE_WBSYNC;
+
+	return vp_stat;
+}
+
+static u32 dispc7_wb_irq_to_raw(u64 vpstat)
+{
+	u32 stat = 0;
+
+	if (vpstat & DSS_IRQ_DEVICE_WBBUFFEROVERFLOW)
+		stat |= BIT(0);
+	if (vpstat & DSS_IRQ_DEVICE_WBUNCOMPLETEERROR)
+		stat |= BIT(1);
+	if (vpstat & DSS_IRQ_DEVICE_FRAMEDONEWB)
+		stat |= BIT(2);
+	if (vpstat & DSS_IRQ_DEVICE_WBSECURITYVIOLATION)
+		stat |= BIT(3);
+	if (vpstat & DSS_IRQ_DEVICE_WBSYNC)
+		stat |= BIT(4);
+
+	return stat;
+}
+
 static u64 dispc7_vp_read_irqstatus(struct dispc_device *dispc,
 				    u32 hw_videoport)
 {
@@ -474,6 +512,21 @@ static void dispc7_vid_write_irqstatus(struct dispc_device *dispc,
 	u32 stat = dispc7_vid_irq_to_raw(vidstat, hw_plane);
 
 	dispc7_intr_write(dispc, DISPC_VID_IRQSTATUS(hw_plane), stat);
+}
+
+static u64 dispc7_wb_read_irqstatus(struct dispc_device *dispc)
+{
+	u32 stat = dispc7_intr_read(dispc, WB_IRQSTATUS);
+
+	return dispc7_wb_irq_from_raw(stat);
+}
+
+static void dispc7_wb_write_irqstatus(struct dispc_device *dispc,
+				      u64 vpstat)
+{
+	u32 stat = dispc7_wb_irq_to_raw(vpstat);
+
+	dispc7_intr_write(dispc, WB_IRQSTATUS, stat);
 }
 
 static u64 dispc7_vp_read_irqenable(struct dispc_device *dispc,
@@ -509,6 +562,21 @@ static void dispc7_vid_write_irqenable(struct dispc_device *dispc,
 	dispc7_intr_write(dispc, DISPC_VID_IRQENABLE(hw_plane), stat);
 }
 
+static u64 dispc7_wb_read_irqenable(struct dispc_device *dispc)
+{
+	u32 stat = dispc7_intr_read(dispc, WB_IRQENABLE);
+
+	return dispc7_wb_irq_from_raw(stat);
+}
+
+static void dispc7_wb_write_irqenable(struct dispc_device *dispc,
+				      u64 vpstat)
+{
+	u32 stat = dispc7_wb_irq_to_raw(vpstat);
+
+	dispc7_intr_write(dispc, WB_IRQENABLE, stat);
+}
+
 static void dispc7_clear_irqstatus(struct dispc_device *dispc, u64 clearmask)
 {
 	unsigned int i;
@@ -524,6 +592,12 @@ static void dispc7_clear_irqstatus(struct dispc_device *dispc, u64 clearmask)
 		if (clearmask & DSS_IRQ_PLANE_MASK(i)) {
 			dispc7_vid_write_irqstatus(dispc, i, clearmask);
 			top_clear |= BIT(4 + i);
+		}
+	}
+	if (dispc7_has_writeback(dispc)) {
+		if (clearmask & DSS_IRQ_DEVICE_WB_MASK) {
+			dispc7_wb_write_irqstatus(dispc, clearmask);
+			top_clear |= BIT(14);
 		}
 	}
 	dispc7_intr_write(dispc, DISPC_IRQSTATUS, top_clear);
@@ -543,6 +617,9 @@ static u64 dispc7_read_and_clear_irqstatus(struct dispc_device *dispc)
 	dispc_for_each_managed_plane(dispc, i)
 		status |= dispc7_vid_read_irqstatus(dispc, i);
 
+	if (dispc7_has_writeback(dispc))
+		status |= dispc7_wb_read_irqstatus(dispc);
+
 	dispc7_clear_irqstatus(dispc, status);
 
 	return status;
@@ -558,6 +635,9 @@ static u64 dispc7_read_irqenable(struct dispc_device *dispc)
 
 	dispc_for_each_managed_plane(dispc, i)
 		enable |= dispc7_vid_read_irqenable(dispc, i);
+
+	if (dispc7_has_writeback(dispc))
+		enable |= dispc7_wb_read_irqenable(dispc);
 
 	return enable;
 }
@@ -587,6 +667,14 @@ static void dispc7_write_irqenable(struct dispc_device *dispc, u64 mask)
 			main_enable |= BIT(i + 4);	/* VID IRQ */
 		else
 			main_disable |= BIT(i + 4);	/* VID IRQ */
+	}
+
+	if (dispc7_has_writeback(dispc)) {
+		dispc7_wb_write_irqenable(dispc, mask);
+		if (mask & DSS_IRQ_DEVICE_WB_MASK)
+			main_enable |= BIT(14);		/* WB_IRQ */
+		else
+			main_disable |= BIT(14);	/* WB_IRQ */
 	}
 
 	if (main_enable)
