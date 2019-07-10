@@ -39,10 +39,6 @@
 	status = "disabled";
 };
 
-&smmu0 {
-	status = "disabled";
-};
-
 &gpu {
 	status = "disabled";
 };
