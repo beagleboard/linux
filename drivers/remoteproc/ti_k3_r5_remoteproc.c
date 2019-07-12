@@ -122,6 +122,7 @@ struct k3_r5_core {
  * @core: cached pointer to r5 core structure being used
  * @rmem: reserved memory regions data
  * @num_rmems: number of reserved memory regions
+ * @ipc_only: flag to indicate IPC-only mode
  */
 struct k3_r5_rproc {
 	struct device *dev;
@@ -132,6 +133,7 @@ struct k3_r5_rproc {
 	struct k3_r5_core *core;
 	struct k3_r5_mem *rmem;
 	int num_rmems;
+	unsigned int ipc_only : 1;
 };
 
 /**
@@ -363,6 +365,10 @@ static int k3_r5_rproc_prepare(struct rproc *rproc)
 	struct device *dev = kproc->dev;
 	int ret;
 
+	/* IPC-only mode does not require the cores to be released from reset */
+	if (kproc->ipc_only)
+		return 0;
+
 	ret = cluster->mode ? k3_r5_lockstep_release(cluster) :
 			      k3_r5_split_release(core);
 	if (ret)
@@ -399,6 +405,10 @@ static int k3_r5_rproc_unprepare(struct rproc *rproc)
 	struct k3_r5_core *core = kproc->core;
 	struct device *dev = kproc->dev;
 	int ret;
+
+	/* do not put back the cores into reset in IPC-only mode */
+	if (kproc->ipc_only)
+		return 0;
 
 	ret = cluster->mode ? k3_r5_lockstep_reset(cluster) :
 			      k3_r5_split_reset(core);
@@ -455,6 +465,15 @@ static int k3_r5_rproc_start(struct rproc *rproc)
 	if (ret < 0) {
 		dev_err(dev, "mbox_send_message failed: %d\n", ret);
 		goto put_mbox;
+	}
+
+	/*
+	 * no need to issue TI-SCI commands to configure and boot the R5F cores
+	 * in IPC-only mode.
+	 */
+	if (kproc->ipc_only) {
+		dev_err(dev, "R5F core initialized in IPC-only mode\n");
+		return 0;
 	}
 
 	boot_addr = rproc->bootaddr;
@@ -517,6 +536,16 @@ static int k3_r5_rproc_stop(struct rproc *rproc)
 	struct k3_r5_cluster *cluster = kproc->cluster;
 	struct k3_r5_core *core = kproc->core;
 	int ret;
+
+	/*
+	 * no need to issue TI-SCI commands to stop the R5F cores
+	 * in IPC-only mode.
+	 */
+	if (kproc->ipc_only) {
+		mbox_free_channel(kproc->mbox);
+		dev_err(kproc->dev, "R5F core deinitialized in IPC-only mode\n");
+		return 0;
+	}
 
 	/* halt all applicable cores */
 	if (cluster->mode) {
@@ -830,6 +859,102 @@ static void k3_r5_reserved_mem_exit(struct k3_r5_rproc *kproc)
 	of_reserved_mem_device_release(kproc->dev);
 }
 
+/*
+ * This function checks and configures a R5F core for IPC-only or remoteproc
+ * mode. The driver is configured to be in IPC-only mode for a R5F core when
+ * the core has been loaded and started by a bootloader. The IPC-only mode is
+ * detected by querying the System Firmware for reset, power on and halt status
+ * and ensuring that the core is running. Any incomplete steps at bootloader
+ * are validated and errored out.
+ *
+ * In IPC-only mode, the driver state flags for ATCM, BTCM and LOCZRAMA settings
+ * and cluster mode parsed originally from kernel DT are updated to reflect the
+ * actual values configured by bootloader. The driver internal device memory
+ * addresses for TCMs are also updated.
+ */
+static int k3_r5_rproc_configure_mode(struct k3_r5_rproc *kproc)
+{
+	struct k3_r5_cluster *cluster = kproc->cluster;
+	struct k3_r5_core *core = kproc->core;
+	struct device *cdev = core->dev;
+	bool r_state = false, c_state = false;
+	u32 ctrl = 0, cfg = 0, stat = 0, halted = 0;
+	u64 boot_vec = 0;
+	u32 atcm_enable, btcm_enable, loczrama;
+	struct k3_r5_core *core0;
+	enum cluster_mode mode;
+	int ret;
+
+	core0 = list_first_entry(&cluster->cores, struct k3_r5_core, elem);
+
+	ret = core->ti_sci->ops.dev_ops.is_on(core->ti_sci, core->ti_sci_id,
+					      &r_state, &c_state);
+	if (ret) {
+		dev_err(cdev, "failed to get initial state, mode cannot be determined, ret = %d\n",
+			ret);
+		return ret;
+	}
+	if (r_state != c_state) {
+		dev_warn(cdev, "R5F core may have been powered on by a different host, programmed state (%d) != actual state (%d)\n",
+			 r_state, c_state);
+	}
+
+	ret = reset_control_status(core->reset);
+	if (ret < 0) {
+		dev_err(cdev, "failed to get initial local reset status, ret = %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = ti_sci_proc_get_status(core->tsp, &boot_vec, &cfg, &ctrl,
+				     &stat);
+	if (ret < 0) {
+		dev_err(cdev, "failed to get initial processor status, ret = %d\n",
+			ret);
+		return ret;
+	}
+	atcm_enable = cfg & PROC_BOOT_CFG_FLAG_R5_ATCM_EN ?  1 : 0;
+	btcm_enable = cfg & PROC_BOOT_CFG_FLAG_R5_BTCM_EN ?  1 : 0;
+	loczrama = cfg & PROC_BOOT_CFG_FLAG_R5_TCM_RSTBASE ?  1 : 0;
+	mode = cfg & PROC_BOOT_CFG_FLAG_R5_LOCKSTEP ?  1 : 0;
+	halted = ctrl & PROC_BOOT_CTRL_FLAG_R5_CORE_HALT;
+
+	/*
+	 * IPC-only mode detection requires both local and module resets to
+	 * be deasserted and R5F core to be unhalted. Local reset status is
+	 * irrelevant if module reset is asserted (POR value has local reset
+	 * deasserted), and is deemed as remoteproc mode
+	 */
+	if (c_state && !ret && !halted) {
+		dev_err(cdev, "configured R5F for IPC-only mode\n");
+		kproc->rproc->skip_load = 1;
+		kproc->ipc_only = 1;
+		ret = 1;
+	} else if (!c_state) {
+		dev_err(cdev, "configured R5F for remoteproc mode\n");
+		ret = 0;
+	} else {
+		dev_err(cdev, "mismatched mode: local_reset = %s, module_reset = %s, core_state = %s\n",
+			!ret ? "deasserted" : "asserted",
+			c_state ? "deasserted" : "asserted",
+			halted ? "halted" : "unhalted");
+		ret = -EINVAL;
+	}
+
+	/* fixup TCMs, cluster & core flags to actual values in IPC-only mode */
+	if (ret > 0) {
+		if (core == core0)
+			cluster->mode = mode;
+		core->atcm_enable = atcm_enable;
+		core->btcm_enable = btcm_enable;
+		core->loczrama = loczrama;
+		core->mem[0].dev_addr = loczrama ? 0 : K3_R5_TCM_DEV_ADDR;
+		core->mem[1].dev_addr = loczrama ? K3_R5_TCM_DEV_ADDR : 0;
+	}
+
+	return ret;
+}
+
 static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 {
 	struct k3_r5_cluster *cluster = platform_get_drvdata(pdev);
@@ -869,6 +994,12 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 		kproc->rproc = rproc;
 		core->rproc = rproc;
 
+		ret = k3_r5_rproc_configure_mode(kproc);
+		if (ret < 0)
+			goto err_config;
+		if (ret)
+			goto init_rmem;
+
 		ret = k3_r5_rproc_configure(kproc);
 		if (ret) {
 			dev_err(dev, "initial configure failed, ret = %d\n",
@@ -876,6 +1007,7 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 			goto err_config;
 		}
 
+init_rmem:
 		ret = k3_r5_reserved_mem_init(kproc);
 		if (ret) {
 			dev_err(dev, "reserved memory init failed, ret = %d\n",
