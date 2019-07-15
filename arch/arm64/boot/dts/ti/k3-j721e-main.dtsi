@@ -864,7 +864,7 @@
 			      <0x00 0x10000000 0x00 0x08000000>;
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
-			max-functions = /bits/ 8 <2>;
+			max-functions = /bits/ 8 <6>;
 			dma-coherent;
 		};
 	};
@@ -911,7 +911,7 @@
 			      <0x00 0x18000000 0x00 0x08000000>;
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
-			max-functions = /bits/ 8 <2>;
+			max-functions = /bits/ 8 <6>;
 			dma-coherent;
 		};
 	};
@@ -958,7 +958,7 @@
 			      <0x44 0x00000000 0x00 0x08000000>;
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
-			max-functions = /bits/ 8 <2>;
+			max-functions = /bits/ 8 <6>;
 			dma-coherent;
 		};
 	};
