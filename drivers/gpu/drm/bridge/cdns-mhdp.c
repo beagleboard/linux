@@ -352,33 +352,37 @@ static void mhdp_get_adjust_train(struct cdns_mhdp_device *mhdp,
 {
 	unsigned int i;
 	u8 adjust, max_pre_emphasis, max_volt_swing;
+	u8 set_volt, set_pre;
 
 	max_pre_emphasis = CDNS_PRE_EMPHASIS(mhdp->host.pre_emphasis)
 			   << DP_TRAIN_PRE_EMPHASIS_SHIFT;
 	max_volt_swing = CDNS_VOLT_SWING(mhdp->host.volt_swing);
 
 	for (i = 0; i < mhdp->link.num_lanes; i++) {
+		/* Check if Voltage swing and pre-emphasis are within limits */
 		adjust = drm_dp_get_adjust_request_voltage(link_status, i);
-		lanes_data[i] = min_t(u8, adjust, max_volt_swing);
-		phy_cfg->dp.voltage[i] = lanes_data[i];
-		if (lanes_data[i] != adjust)
-			lanes_data[i] |= DP_TRAIN_MAX_SWING_REACHED;
+		set_volt = min_t(u8, adjust, max_volt_swing);
 
 		adjust = drm_dp_get_adjust_request_pre_emphasis(link_status, i);
-		lanes_data[i] |= min_t(u8, adjust, max_pre_emphasis);
-		phy_cfg->dp.pre[i] = lanes_data[i] >> DP_TRAIN_PRE_EMPHASIS_SHIFT;
-		if ((lanes_data[i] >> DP_TRAIN_PRE_EMPHASIS_SHIFT) != (adjust >> DP_TRAIN_PRE_EMPHASIS_SHIFT))
+		set_pre = min_t(u8, adjust, max_pre_emphasis) >> DP_TRAIN_PRE_EMPHASIS_SHIFT;
+
+		/* Voltage swing level and pre-emphasis level combination is not allowed:
+		 * leaving pre-emphasis as-is, and adjusting voltage swing.
+		 */
+		if (set_volt + set_pre > 3)
+			set_volt = 3 - set_pre;
+
+		phy_cfg->dp.voltage[i] = set_volt;
+		lanes_data[i] = set_volt;
+
+		if (set_volt == max_volt_swing)
+			lanes_data[i] |= DP_TRAIN_MAX_SWING_REACHED;
+
+		phy_cfg->dp.pre[i] = set_pre;
+		lanes_data[i] |= (set_pre << DP_TRAIN_PRE_EMPHASIS_SHIFT);
+
+		if (set_pre == (max_pre_emphasis >> DP_TRAIN_PRE_EMPHASIS_SHIFT))
 			lanes_data[i] |= DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
-
-		/* Sum of VOD and PRE should not be greater than 3 */
-		if (phy_cfg->dp.voltage[i] + phy_cfg->dp.pre[i] > 3) {
-			int d = phy_cfg->dp.voltage[i] + phy_cfg->dp.pre[i] - 3;
-			int dpre = d/2;
-			int dvoltage = d - dpre;
-
-			phy_cfg->dp.voltage[i] -= dvoltage;
-			phy_cfg->dp.pre[i] -= dpre;
-		}
 	}
 }
 
