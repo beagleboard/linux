@@ -115,6 +115,23 @@ static int cdns_ufs_m31_16nm_phy_initialization(struct ufs_hba *hba)
 	return 0;
 }
 
+static int cdns_ufs_link_startup_notify(struct ufs_hba *hba,
+					enum ufs_notify_change_status status)
+{
+	hba->quirks |= UFSHCD_QUIRK_BROKEN_LCC;
+
+	switch (status) {
+	case PRE_CHANGE:
+		return ufshcd_dme_set(hba,
+				      UIC_ARG_MIB(PA_LOCAL_TX_LCC_ENABLE),
+				      0);
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static const struct ufs_hba_variant_ops cdns_ufs_pltfm_hba_vops = {
 	.name = "cdns-ufs-pltfm",
 	.hce_enable_notify = cdns_ufs_hce_enable_notify,
@@ -125,6 +142,7 @@ static const struct ufs_hba_variant_ops cdns_ufs_m31_16nm_pltfm_hba_vops = {
 	.init = cdns_ufs_init,
 	.hce_enable_notify = cdns_ufs_hce_enable_notify,
 	.phy_initialization = cdns_ufs_m31_16nm_phy_initialization,
+	.link_startup_notify = cdns_ufs_link_startup_notify,
 };
 
 static const struct of_device_id cdns_ufs_of_match[] = {
