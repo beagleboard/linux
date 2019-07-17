@@ -9,6 +9,7 @@
  *
  */
 
+#include <linux/bitfield.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -90,6 +91,10 @@ static int cdns_ufs_hce_enable_notify(struct ufs_hba *hba,
 static int cdns_ufs_init(struct ufs_hba *hba)
 {
 	int status = 0;
+
+	/* Disable Auto-Hibernate Idle Timer by setting it to 0ms */
+	hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 0) |
+		    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
 
 	if (hba->vops && hba->vops->phy_initialization)
 		status = hba->vops->phy_initialization(hba);
