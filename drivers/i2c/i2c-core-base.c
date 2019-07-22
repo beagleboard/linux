@@ -1954,7 +1954,7 @@ int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 		}
 #endif
 
-		if (in_atomic() || irqs_disabled()) {
+		if (i2c_in_atomic_xfer_mode()) {
 			ret = i2c_trylock_bus(adap, I2C_LOCK_SEGMENT);
 			if (!ret)
 				/* I2C activity is ongoing. */
