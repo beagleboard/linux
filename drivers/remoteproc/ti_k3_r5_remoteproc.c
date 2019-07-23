@@ -867,9 +867,6 @@ static void k3_r5_reserved_mem_exit(struct k3_r5_rproc *kproc)
  * and cluster mode parsed originally from kernel DT are updated to reflect the
  * actual values configured by bootloader. The driver internal device memory
  * addresses for TCMs are also updated.
- *
- * The R5F cores on AM65x SoCs are currently limited to remoteproc mode only
- * until the early-boot support is added for the AM65x SoC family.
  */
 static int k3_r5_rproc_configure_mode(struct k3_r5_rproc *kproc)
 {
@@ -883,9 +880,6 @@ static int k3_r5_rproc_configure_mode(struct k3_r5_rproc *kproc)
 	struct k3_r5_core *core0;
 	enum cluster_mode mode;
 	int ret;
-
-	if (!of_device_is_compatible(cdev->of_node, "ti,j721e-r5f"))
-		return 0;
 
 	core0 = list_first_entry(&cluster->cores, struct k3_r5_core, elem);
 
