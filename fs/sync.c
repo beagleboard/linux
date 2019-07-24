@@ -39,6 +39,7 @@ int __sync_filesystem(struct super_block *sb, int wait)
 		sb->s_op->sync_fs(sb, wait);
 	return __sync_blockdev(sb->s_bdev, wait);
 }
+EXPORT_SYMBOL_GPL(__sync_filesystem);
 
 /*
  * Write out and wait upon all dirty data associated with this
