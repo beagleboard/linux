@@ -66,6 +66,7 @@ struct usb_phy_data {
 #define OMAP_USB2_HAS_START_SRP (1 << 0)
 #define OMAP_USB2_HAS_SET_VBUS (1 << 1)
 #define OMAP_USB2_CALIBRATE_FALSE_DISCONNECT (1 << 2)
+#define OMAP_USB2_DISABLE_CHG_DET (1 << 3)
 
 #define OMAP_DEV_PHY_PD		BIT(0)
 #define OMAP_USB2_PHY_PD	BIT(28)
