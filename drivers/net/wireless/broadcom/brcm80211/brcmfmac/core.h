@@ -141,6 +141,8 @@ struct brcmf_pub {
 	struct notifier_block inetaddr_notifier;
 	struct notifier_block inet6addr_notifier;
 	struct brcmf_mp_device *settings;
+
+	u8 clmver[BRCMF_DCMD_SMLEN];
 };
 
 /* forward declarations */
@@ -179,6 +181,7 @@ enum brcmf_netif_stop_reason {
  * @netif_stop_lock: spinlock for update netif_stop from multiple sources.
  * @pend_8021x_cnt: tracks outstanding number of 802.1x frames.
  * @pend_8021x_wait: used for signalling change in count.
+ * @fwil_fwerr: flag indicating fwil layer should return firmware error codes.
  */
 struct brcmf_if {
 	struct brcmf_pub *drvr;
@@ -196,6 +199,7 @@ struct brcmf_if {
 	wait_queue_head_t pend_8021x_wait;
 	struct in6_addr ipv6_addr_tbl[NDOL_MAX_ENTRIES];
 	u8 ipv6addr_idx;
+	bool fwil_fwerr;
 };
 
 int brcmf_netdev_wait_pend8021x(struct brcmf_if *ifp);
@@ -203,6 +207,7 @@ int brcmf_netdev_wait_pend8021x(struct brcmf_if *ifp);
 /* Return pointer to interface name */
 char *brcmf_ifname(struct brcmf_if *ifp);
 struct brcmf_if *brcmf_get_ifp(struct brcmf_pub *drvr, int ifidx);
+void brcmf_configure_arp_nd_offload(struct brcmf_if *ifp, bool enable);
 int brcmf_net_attach(struct brcmf_if *ifp, bool rtnl_locked);
 struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bsscfgidx, s32 ifidx,
 			      bool is_p2pdev, const char *name, u8 *mac_addr);
