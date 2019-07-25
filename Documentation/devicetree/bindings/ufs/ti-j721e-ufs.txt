@@ -1,0 +1,39 @@
+TI J721e UFS Host Controller Glue Driver
+
+Required properties:
+- compatible : Must be ""ti,j721e-ufs" for TI J721e SoC
+- reg : address of TI UFS glue registers
+- clocks : phandle to the M-PHY clock
+
+Subnodes:
+
+Cadence UFS Host Controller node needs to be added as a subnode to glue
+driver node. See Documentation/devicetree/bindings/ufs/cdns,ufshc.txt
+for subnode bindings
+
+Example :
+
+	ufs_wrapper: ufs-wrapper@4e80000 {
+		compatible = "ti,j721e-ufs";
+		reg = <0x0 0x4e80000 0x0 0x100>;
+		power-domains = <&k3_pds 277>;
+		clocks = <&k3_clks 277 1>;
+		assigned-clocks = <&k3_clks 277 1>;
+		assigned-clock-parents = <&k3_clks 277 4>;
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		ufs@4e84000 {
+			compatible = "cdns,ufshc-m31-16nm", "jedec,ufs-2.0";
+			reg = <0x0 0x4e84000 0x0 0x10000>;
+			interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&k3_pds 277>;
+			freq-table-hz = <0 0>, <0 0>;
+			clocks = <&k3_clks 277 0>, <&k3_clks 277 1>;
+			clock-names = "core_clk", "phy_clk";
+			assigned-clocks = <&k3_clks 277 1>;
+			assigned-clock-parents = <&k3_clks 277 4>;
+			dma-coherent;
+		};
+	};

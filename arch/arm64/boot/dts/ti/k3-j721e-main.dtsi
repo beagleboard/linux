@@ -864,7 +864,7 @@
 			      <0x00 0x10000000 0x00 0x08000000>;
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
-			max-functions = /bits/ 8 <2>;
+			max-functions = /bits/ 8 <6>;
 			dma-coherent;
 		};
 	};
@@ -911,7 +911,7 @@
 			      <0x00 0x18000000 0x00 0x08000000>;
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
-			max-functions = /bits/ 8 <2>;
+			max-functions = /bits/ 8 <6>;
 			dma-coherent;
 		};
 	};
@@ -958,7 +958,7 @@
 			      <0x44 0x00000000 0x00 0x08000000>;
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
-			max-functions = /bits/ 8 <2>;
+			max-functions = /bits/ 8 <6>;
 			dma-coherent;
 		};
 	};
@@ -1026,6 +1026,9 @@
 		power-domains = <&k3_pds 281 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 281 0>;
 		clock-names = "fclk";
+		dmas = <&main_udmap &pdma_main_usart_g2 0 UDMA_DIR_TX>,
+			<&main_udmap &pdma_main_usart_g2 0 UDMA_DIR_RX>;
+		dma-names = "tx", "rx";
 	};
 
 	main_uart5: serial@2850000 {
@@ -1952,5 +1955,30 @@
 		reg = <0x00 0x04300000 0x00 0x100000>;
 		power-domains = <&k3_pds 144 TI_SCI_PD_EXCLUSIVE>;
 		interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	ufs_wrapper: ufs-wrapper@4e80000 {
+		compatible = "ti,j721e-ufs";
+		reg = <0x0 0x4e80000 0x0 0x100>;
+		power-domains = <&k3_pds 277 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 277 1>;
+		assigned-clocks = <&k3_clks 277 1>;
+		assigned-clock-parents = <&k3_clks 277 4>;
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		ufs@4e84000 {
+			compatible = "cdns,ufshc-m31-16nm", "jedec,ufs-2.0";
+			reg = <0x0 0x4e84000 0x0 0x10000>;
+			interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&k3_pds 277 TI_SCI_PD_EXCLUSIVE>;
+			freq-table-hz = <250000000 250000000>, <19200000 19200000>, <19200000 19200000>;
+			clocks = <&k3_clks 277 0>, <&k3_clks 277 1>, <&k3_clks 277 1>;
+			clock-names = "core_clk", "phy_clk", "ref_clk";
+			assigned-clocks = <&k3_clks 277 1>;
+			assigned-clock-parents = <&k3_clks 277 4>;
+			dma-coherent;
+		};
 	};
 };

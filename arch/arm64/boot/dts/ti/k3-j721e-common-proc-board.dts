@@ -645,3 +645,15 @@
 	phys = <&serdes2_pcie_link>;
 	phy-names = "pcie_phy";
 };
+
+&tscadc0 {
+	adc {
+		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+	};
+};
+
+&tscadc1 {
+	adc {
+		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+	};
+};

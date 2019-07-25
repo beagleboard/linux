@@ -6,6 +6,7 @@ Required properties:
 	compatible: Should be
 		"ti,am3359-tscadc" for AM335x/AM437x SoCs
 		"ti,am654-tscadc", "ti,am3359-tscadc" for AM654 SoCs
+		"ti,j721e-tscadc", "ti,am3359-tscadc" for J721E SoCs
 - child "tsc"
 	compatible: Should be "ti,am3359-tsc".
 	ti,wires: Wires refer to application modes i.e. 4/5/8 wire touchscreen
@@ -33,6 +34,7 @@ Required properties:
 	compatible: Should be
 		    "ti,am3359-adc" for AM335x/AM437x SoCs
 		    "ti,am654-adc", "ti,am3359-adc" for AM654 SoCs
+		    "ti,j721e-adc", "ti,am3359-adc" for J721E SoCs
 	ti,adc-channels: List of analog inputs available for ADC.
 			 AIN0 = 0, AIN1 = 1 and so on till AIN7 = 7.
 
