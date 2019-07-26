@@ -6098,8 +6098,7 @@ static int brcmf_construct_chaninfo(struct brcmf_cfg80211_info *cfg,
 			 * for subsequent chanspecs.
 			 */
 			channel->flags = IEEE80211_CHAN_NO_HT40 |
-					 IEEE80211_CHAN_NO_80MHZ |
-					 IEEE80211_CHAN_NO_160MHZ;
+					 IEEE80211_CHAN_NO_80MHZ;
 			ch.bw = BRCMU_CHAN_BW_20;
 			cfg->d11inf.encchspec(&ch);
 			chaninfo = ch.chspec;
