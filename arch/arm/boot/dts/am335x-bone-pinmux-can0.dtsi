@@ -1,0 +1,45 @@
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include <dt-bindings/board/am335x-bbw-bbb-base.h>
+#include "am335x-peripheral-can0.dtsi"
+
+/* cape universal */
+
+/*
+ *&ocp {
+ *	P9_19_pinmux {
+ *		mode = "can";
+ *	};
+ *	P9_20_pinmux {
+ *		mode = "can";
+ *	};
+ *};
+ *
+ *&dcan0 {
+ *	pinctrl-0 = <>;
+ *};
+ *
+ */
+
+/* standard */
+
+&am33xx_pinmux {
+	dcan0_pins: pinmux_dcan0_pins {
+		pinctrl-single,pins = <
+			/* P9_20: uart1_ctsn.d_can0_tx */
+			BONE_P9_20 (PIN_OUTPUT_PULLUP | MUX_MODE2)
+			/* P9_19: uart1_rtsn.d_can0_rx */
+			BONE_P9_19 (PIN_INPUT_PULLUP | MUX_MODE2)
+		>;
+	};
+};
+
+&dcan0 {
+	pinctrl-0 = <&dcan0_pins>;
+};
