@@ -656,6 +656,13 @@ config STM32_ADC
 	  This driver can also be built as a module.  If so, the module
 	  will be called stm32-adc.
 
+config STMPE_ADC
+	tristate "STMicroelectronics STMPE ADC driver"
+	depends on OF && MFD_STMPE
+	help
+	  Say yes here to build support for ST Microelectronics STMPE
+	  built-in ADC block (stmpe811).
+
 config STX104
 	tristate "Apex Embedded Systems STX104 driver"
 	depends on PC104 && X86 && ISA_BUS_API
