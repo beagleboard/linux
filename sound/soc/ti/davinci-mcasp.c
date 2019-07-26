@@ -114,6 +114,7 @@ struct davinci_mcasp {
 
 	/* Used for comstraint setting on the second stream */
 	u32	channels;
+	int	max_format_width;
 	u8	active_serializers[2];
 
 #ifdef CONFIG_GPIOLIB
@@ -792,6 +793,8 @@ static int davinci_config_channel_size(struct davinci_mcasp *mcasp,
 
 	if (mcasp->slot_width)
 		slot_width = mcasp->slot_width;
+	else if (mcasp->max_format_width)
+		slot_width = mcasp->max_format_width;
 	else
 		slot_width = sample_width;
 	/*
@@ -1259,8 +1262,11 @@ static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
 
 	davinci_config_channel_size(mcasp, word_length);
 
-	if (mcasp->op_mode == DAVINCI_MCASP_IIS_MODE)
+	if (mcasp->op_mode == DAVINCI_MCASP_IIS_MODE) {
 		mcasp->channels = channels;
+		if (!mcasp->max_format_width)
+			mcasp->max_format_width = word_length;
+	}
 
 	return 0;
 }
@@ -1304,6 +1310,28 @@ static int davinci_mcasp_hw_rule_slot_width(struct snd_pcm_hw_params *params,
 	for (i = 0; i <= SNDRV_PCM_FORMAT_LAST; i++) {
 		if (snd_mask_test(fmt, i)) {
 			if (snd_pcm_format_width(i) <= slot_width) {
+				snd_mask_set(&nfmt, i);
+			}
+		}
+	}
+
+	return snd_mask_refine(fmt, &nfmt);
+}
+
+static int davinci_mcasp_hw_rule_format_width(struct snd_pcm_hw_params *params,
+					      struct snd_pcm_hw_rule *rule)
+{
+	struct davinci_mcasp_ruledata *rd = rule->private;
+	struct snd_mask *fmt = hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT);
+	struct snd_mask nfmt;
+	int i, format_width;
+
+	snd_mask_none(&nfmt);
+	format_width = rd->mcasp->max_format_width;
+
+	for (i = 0; i <= SNDRV_PCM_FORMAT_LAST; i++) {
+		if (snd_mask_test(fmt, i)) {
+			if (snd_pcm_format_width(i) == format_width) {
 				snd_mask_set(&nfmt, i);
 			}
 		}
@@ -1489,7 +1517,20 @@ static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 				   0, SNDRV_PCM_HW_PARAM_CHANNELS,
 				   &mcasp->chconstr[substream->stream]);
 
-	if (mcasp->slot_width) {
+	if (mcasp->max_format_width) {
+		/*
+		 * Only allow formats which require same amount of bits on the
+		 * bus as the currently running stream
+		 */
+		ret = snd_pcm_hw_rule_add(substream->runtime, 0,
+					  SNDRV_PCM_HW_PARAM_FORMAT,
+					  davinci_mcasp_hw_rule_format_width,
+					  ruledata,
+					  SNDRV_PCM_HW_PARAM_FORMAT, -1);
+		if (ret)
+			return ret;
+	}
+	else if (mcasp->slot_width) {
 		/* Only allow formats require <= slot_width bits on the bus */
 		ret = snd_pcm_hw_rule_add(substream->runtime, 0,
 					  SNDRV_PCM_HW_PARAM_FORMAT,
@@ -1540,8 +1581,10 @@ static void davinci_mcasp_shutdown(struct snd_pcm_substream *substream,
 	if (mcasp->op_mode == DAVINCI_MCASP_DIT_MODE)
 		return;
 
-	if (!cpu_dai->active)
+	if (!cpu_dai->active) {
 		mcasp->channels = 0;
+		mcasp->max_format_width = 0;
+	}
 }
 
 static const struct snd_soc_dai_ops davinci_mcasp_dai_ops = {
@@ -1597,7 +1640,6 @@ static struct snd_soc_dai_driver davinci_mcasp_dai[] = {
 		},
 		.ops 		= &davinci_mcasp_dai_ops,
 
-		.symmetric_samplebits	= 1,
 		.symmetric_rates	= 1,
 	},
 	{
