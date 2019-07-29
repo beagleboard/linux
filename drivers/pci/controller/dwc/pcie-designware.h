@@ -172,6 +172,7 @@ struct pcie_port {
 	struct irq_domain	*msi_domain;
 	dma_addr_t		msi_data;
 	struct irq_chip		*msi_irq_chip;
+	struct page		*msi_page;
 	u32			num_vectors;
 	u32			irq_status[MAX_MSI_CTRLS];
 	raw_spinlock_t		lock;
