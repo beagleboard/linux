@@ -51,6 +51,16 @@ config CAN_GW
 	  They can be modified with AND/OR/XOR/SET operations as configured
 	  by the netlink configuration interface known e.g. from iptables.
 
+config CAN_ISOTP
+	tristate "ISO 15765-2:2016 CAN transport protocol"
+	default y
+	---help---
+	  ISO 15765-2 CAN transport protocol for protocol family CAN
+
+	  This implementation is already widely used in automotive use-cases, e.g.
+	  for UDS based OBD diagnosis. Although some small adaptions may be applied
+	  to make it ready for Linux Mainline. Feedback is welcome.
+
 source "drivers/net/can/Kconfig"
 
 endif
