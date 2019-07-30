@@ -142,6 +142,14 @@ config UIO_PRUSS
 	  To compile this driver as a module, choose M here: the module
 	  will be called uio_pruss.
 
+config UIO_PRUSS_SHMEM
+	tristate "Texas Instruments PRUSS_SHMEM driver"
+	help
+	  PRUSS SHMEM driver for AM3X and AM5X devices
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called uio_pruss_shmem.
+
 config UIO_MF624
 	tristate "Humusoft MF624 DAQ PCI card driver"
 	depends on PCI
