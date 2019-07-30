@@ -97,6 +97,7 @@
 			     <GIC_SPI 768 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "eventq", "gerror";
 		#iommu-cells = <1>;
+		dma-coherent;
 	};
 
 	main_gpio_intr: interrupt-controller0 {
@@ -504,6 +505,52 @@
 		      <0x00 0x32800000 0x00 0x100000>;
 		interrupt-names = "rx_011";
 		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	main_crypto: crypto@4E00000 {
+		compatible = "ti,sa2ul-crypto";
+		label = "crypto-aes-gbe";
+		reg = <0x0 0x4E00000 0x0 0x1200>;
+		power-domains = <&k3_pds 264 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 264 0>, <&k3_clks 264 1>, <&k3_clks 264 2>;
+		clock-names = "x2_clk", "pka_in_clk", "x1_clk";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0x0 0x04E00000 0x00 0x04E00000 0x0 0x30000>;
+
+		status = "okay";
+		ti,psil-base = <0x4000>;
+
+		/* tx: crypto_pnp-1, rx: crypto_pnp-1 */
+		dmas = <&main_udmap &main_crypto 0 UDMA_DIR_TX>,
+				<&main_udmap &main_crypto 0 UDMA_DIR_RX>,
+				<&main_udmap &main_crypto 1 UDMA_DIR_RX>;
+		dma-names = "tx", "rx1", "rx2";
+
+		ti,psil-config0 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			ti,needs-epib;
+			ti,psd-size = <64>;
+		};
+
+		ti,psil-config1 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			ti,needs-epib;
+			ti,psd-size = <64>;
+		};
+
+		ti,psil-config2 {
+			linux,udma-mode = <UDMA_PKT_MODE>;
+			ti,needs-epib;
+			ti,psd-size = <64>;
+		};
+
+		main_eip76d_trng: trng@4e10000 {
+			compatible = "inside-secure,safexcel-eip76";
+			reg = <0x0 0x4e10000 0x0 0x7d>;
+			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&k3_clks 264 1>;
+		};
 	};
 
 	main_pmx0: pinmux@11c000 {
@@ -926,7 +973,7 @@
 			      <0x00 0x10000000 0x00 0x08000000>;
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
-			max-functions = /bits/ 8 <2>;
+			max-functions = /bits/ 8 <6>;
 			dma-coherent;
 		};
 	};
@@ -973,7 +1020,7 @@
 			      <0x00 0x18000000 0x00 0x08000000>;
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
-			max-functions = /bits/ 8 <2>;
+			max-functions = /bits/ 8 <6>;
 			dma-coherent;
 		};
 	};
@@ -1020,7 +1067,7 @@
 			      <0x44 0x00000000 0x00 0x08000000>;
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
-			max-functions = /bits/ 8 <2>;
+			max-functions = /bits/ 8 <6>;
 			dma-coherent;
 		};
 	};
@@ -1088,6 +1135,9 @@
 		power-domains = <&k3_pds 281 TI_SCI_PD_EXCLUSIVE>;
 		clocks = <&k3_clks 281 0>;
 		clock-names = "fclk";
+		dmas = <&main_udmap &pdma_main_usart_g2 0 UDMA_DIR_TX>,
+			<&main_udmap &pdma_main_usart_g2 0 UDMA_DIR_RX>;
+		dma-names = "tx", "rx";
 	};
 
 	main_uart5: serial@2850000 {
@@ -2014,5 +2064,30 @@
 		reg = <0x00 0x04300000 0x00 0x100000>;
 		power-domains = <&k3_pds 144 TI_SCI_PD_EXCLUSIVE>;
 		interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	ufs_wrapper: ufs-wrapper@4e80000 {
+		compatible = "ti,j721e-ufs";
+		reg = <0x0 0x4e80000 0x0 0x100>;
+		power-domains = <&k3_pds 277 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 277 1>;
+		assigned-clocks = <&k3_clks 277 1>;
+		assigned-clock-parents = <&k3_clks 277 4>;
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		ufs@4e84000 {
+			compatible = "cdns,ufshc-m31-16nm", "jedec,ufs-2.0";
+			reg = <0x0 0x4e84000 0x0 0x10000>;
+			interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&k3_pds 277 TI_SCI_PD_EXCLUSIVE>;
+			freq-table-hz = <250000000 250000000>, <19200000 19200000>, <19200000 19200000>;
+			clocks = <&k3_clks 277 0>, <&k3_clks 277 1>, <&k3_clks 277 1>;
+			clock-names = "core_clk", "phy_clk", "ref_clk";
+			assigned-clocks = <&k3_clks 277 1>;
+			assigned-clock-parents = <&k3_clks 277 4>;
+			dma-coherent;
+		};
 	};
 };

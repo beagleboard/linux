@@ -23,6 +23,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/smbus.h>
 
+#include "i2c-core.h"
+
 
 /* The SMBus parts */
 
@@ -530,7 +532,10 @@ s32 i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 {
 	s32 res;
 
-	i2c_lock_bus(adapter, I2C_LOCK_SEGMENT);
+	res = __i2c_lock_bus_helper(adapter);
+	if (res)
+		return res;
+
 	res = __i2c_smbus_xfer(adapter, addr, flags, read_write,
 			       command, protocol, data);
 	i2c_unlock_bus(adapter, I2C_LOCK_SEGMENT);
@@ -543,6 +548,9 @@ s32 __i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 		     unsigned short flags, char read_write,
 		     u8 command, int protocol, union i2c_smbus_data *data)
 {
+	int (*xfer_func)(struct i2c_adapter *adap, u16 addr,
+			 unsigned short flags, char read_write,
+			 u8 command, int size, union i2c_smbus_data *data);
 	unsigned long orig_jiffies;
 	int try;
 	s32 res;
@@ -557,13 +565,20 @@ s32 __i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 
 	flags &= I2C_M_TEN | I2C_CLIENT_PEC | I2C_CLIENT_SCCB;
 
-	if (adapter->algo->smbus_xfer) {
+	xfer_func = adapter->algo->smbus_xfer;
+	if (i2c_in_atomic_xfer_mode()) {
+		if (adapter->algo->smbus_xfer_atomic)
+			xfer_func = adapter->algo->smbus_xfer_atomic;
+		else if (adapter->algo->master_xfer_atomic)
+			xfer_func = NULL; /* fallback to I2C emulation */
+	}
+
+	if (xfer_func) {
 		/* Retry automatically on arbitration loss */
 		orig_jiffies = jiffies;
 		for (res = 0, try = 0; try <= adapter->retries; try++) {
-			res = adapter->algo->smbus_xfer(adapter, addr, flags,
-							read_write, command,
-							protocol, data);
+			res = xfer_func(adapter, addr, flags, read_write,
+					command, protocol, data);
 			if (res != -EAGAIN)
 				break;
 			if (time_after(jiffies,

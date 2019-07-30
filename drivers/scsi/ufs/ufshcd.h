@@ -550,6 +550,7 @@ struct ufs_hba {
 	void *priv;
 	unsigned int irq;
 	bool is_irq_enabled;
+	enum ufs_ref_clk_freq dev_ref_clk_freq;
 
 	/* Interrupt aggregation support is broken */
 	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR			0x1
@@ -702,6 +703,9 @@ struct ufs_hba {
 	struct rw_semaphore clk_scaling_lock;
 	struct ufs_desc_size desc_size;
 	atomic_t scsi_block_reqs_cnt;
+
+	struct device		bsg_dev;
+	struct request_queue	*bsg_queue;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
@@ -736,6 +740,11 @@ return true;
 #endif
 }
 
+static inline bool ufshcd_is_auto_hibern8_supported(struct ufs_hba *hba)
+{
+	return (hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT);
+}
+
 #define ufshcd_writel(hba, val, reg)	\
 	writel((val), (hba)->mmio_base + (reg))
 #define ufshcd_readl(hba, reg)	\
@@ -765,6 +774,7 @@ void ufshcd_remove(struct ufs_hba *);
 int ufshcd_wait_for_register(struct ufs_hba *hba, u32 reg, u32 mask,
 				u32 val, unsigned long interval_us,
 				unsigned long timeout_ms, bool can_sleep);
+void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba, struct clk *refclk);
 
 static inline void check_upiu_size(void)
 {
@@ -891,6 +901,15 @@ int ufshcd_map_desc_id_to_length(struct ufs_hba *hba, enum desc_idn desc_id,
 	int *desc_length);
 
 u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
+
+int ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd);
+
+int ufshcd_exec_raw_upiu_cmd(struct ufs_hba *hba,
+			     struct utp_upiu_req *req_upiu,
+			     struct utp_upiu_req *rsp_upiu,
+			     int msgcode,
+			     u8 *desc_buff, int *buff_len,
+			     enum query_opcode desc_op);
 
 /* Wrapper functions for safely calling variant operations */
 static inline const char *ufshcd_get_var_name(struct ufs_hba *hba)

@@ -2946,11 +2946,19 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 		return false;
 	}
 
+	if (of_property_read_u32(slave_node, "ti,psil-base", &val)) {
+		dev_err(ud->dev, "ti,psil-base is missing\n");
+		return false;
+	}
+
+	uc->remote_thread_id = val + args[1];
+
 	snprintf(prop, sizeof(prop), "ti,psil-config%u", args[1]);
+	/* Does of_node_put on slave_node */
 	chconf_node = of_find_node_by_name(slave_node, prop);
 	if (!chconf_node) {
 		dev_err(ud->dev, "Channel configuration node is missing\n");
-		of_node_put(slave_node);
+		uc->remote_thread_id = -1;
 		return false;
 	}
 
@@ -2983,16 +2991,6 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 				 uc->metadata_size, ud->desc_align);
 
 	of_node_put(chconf_node);
-
-	if (of_property_read_u32(slave_node, "ti,psil-base", &val)) {
-		dev_err(ud->dev, "ti,psil-base is missing\n");
-		of_node_put(slave_node);
-		return false;
-	}
-
-	uc->remote_thread_id = val + args[1];
-
-	of_node_put(slave_node);
 
 	dev_dbg(ud->dev, "chan%d: Remote thread: 0x%04x (%s)\n", uc->id,
 		uc->remote_thread_id, udma_get_dir_text(uc->dir));

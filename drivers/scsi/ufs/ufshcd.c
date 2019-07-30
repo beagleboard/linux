@@ -46,6 +46,7 @@
 #include "ufs_quirks.h"
 #include "unipro.h"
 #include "ufs-sysfs.h"
+#include "ufs_bsg.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
@@ -334,14 +335,11 @@ static void ufshcd_add_query_upiu_trace(struct ufs_hba *hba, unsigned int tag,
 static void ufshcd_add_tm_upiu_trace(struct ufs_hba *hba, unsigned int tag,
 		const char *str)
 {
-	struct utp_task_req_desc *descp;
-	struct utp_upiu_task_req *task_req;
 	int off = (int)tag - hba->nutrs;
+	struct utp_task_req_desc *descp = &hba->utmrdl_base_addr[off];
 
-	descp = &hba->utmrdl_base_addr[off];
-	task_req = (struct utp_upiu_task_req *)descp->task_req_upiu;
-	trace_ufshcd_upiu(dev_name(hba->dev), str, &task_req->header,
-			&task_req->input_param1);
+	trace_ufshcd_upiu(dev_name(hba->dev), str, &descp->req_header,
+			&descp->input_param1);
 }
 
 static void ufshcd_add_command_trace(struct ufs_hba *hba,
@@ -483,22 +481,13 @@ void ufshcd_print_trs(struct ufs_hba *hba, unsigned long bitmap, bool pr_prdt)
 
 static void ufshcd_print_tmrs(struct ufs_hba *hba, unsigned long bitmap)
 {
-	struct utp_task_req_desc *tmrdp;
 	int tag;
 
 	for_each_set_bit(tag, &bitmap, hba->nutmrs) {
-		tmrdp = &hba->utmrdl_base_addr[tag];
+		struct utp_task_req_desc *tmrdp = &hba->utmrdl_base_addr[tag];
+
 		dev_err(hba->dev, "TM[%d] - Task Management Header\n", tag);
-		ufshcd_hex_dump("TM TRD: ", &tmrdp->header,
-				sizeof(struct request_desc_header));
-		dev_err(hba->dev, "TM[%d] - Task Management Request UPIU\n",
-				tag);
-		ufshcd_hex_dump("TM REQ: ", tmrdp->task_req_upiu,
-				sizeof(struct utp_upiu_req));
-		dev_err(hba->dev, "TM[%d] - Task Management Response UPIU\n",
-				tag);
-		ufshcd_hex_dump("TM RSP: ", tmrdp->task_rsp_upiu,
-				sizeof(struct utp_task_req_desc));
+		ufshcd_hex_dump("", tmrdp, sizeof(*tmrdp));
 	}
 }
 
@@ -651,19 +640,6 @@ static inline bool ufshcd_is_device_present(struct ufs_hba *hba)
 static inline int ufshcd_get_tr_ocs(struct ufshcd_lrb *lrbp)
 {
 	return le32_to_cpu(lrbp->utr_descriptor_ptr->header.dword_2) & MASK_OCS;
-}
-
-/**
- * ufshcd_get_tmr_ocs - Get the UTMRD Overall Command Status
- * @task_req_descp: pointer to utp_task_req_desc structure
- *
- * This function is used to get the OCS field from UTMRD
- * Returns the OCS field in the UTMRD
- */
-static inline int
-ufshcd_get_tmr_ocs(struct utp_task_req_desc *task_req_descp)
-{
-	return le32_to_cpu(task_req_descp->header.dword_2) & MASK_OCS;
 }
 
 /**
@@ -1914,7 +1890,8 @@ int ufshcd_copy_query_response(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	memcpy(&query_res->upiu_res, &lrbp->ucd_rsp_ptr->qr, QUERY_OSF_SIZE);
 
 	/* Get the descriptor */
-	if (lrbp->ucd_rsp_ptr->qr.opcode == UPIU_QUERY_OPCODE_READ_DESC) {
+	if (hba->dev_cmd.query.descriptor &&
+	    lrbp->ucd_rsp_ptr->qr.opcode == UPIU_QUERY_OPCODE_READ_DESC) {
 		u8 *descp = (u8 *)lrbp->ucd_rsp_ptr +
 				GENERAL_UPIU_REQUEST_SIZE;
 		u16 resp_len;
@@ -2064,8 +2041,7 @@ __ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd,
  *
  * Returns 0 only if success.
  */
-static int
-ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
+int ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 {
 	int ret;
 	unsigned long flags;
@@ -2247,8 +2223,8 @@ void ufshcd_prepare_utp_scsi_cmd_upiu(struct ufshcd_lrb *lrbp, u32 upiu_flags)
 	ucd_req_ptr->sc.exp_data_transfer_len =
 		cpu_to_be32(lrbp->cmd->sdb.length);
 
-	cdb_len = min_t(unsigned short, lrbp->cmd->cmd_len, MAX_CDB_SIZE);
-	memset(ucd_req_ptr->sc.cdb, 0, MAX_CDB_SIZE);
+	cdb_len = min_t(unsigned short, lrbp->cmd->cmd_len, UFS_CDB_SIZE);
+	memset(ucd_req_ptr->sc.cdb, 0, UFS_CDB_SIZE);
 	memcpy(ucd_req_ptr->sc.cdb, lrbp->cmd->cmnd, cdb_len);
 
 	memset(lrbp->ucd_rsp_ptr, 0, sizeof(struct utp_upiu_rsp));
@@ -2267,7 +2243,6 @@ static void ufshcd_prepare_utp_query_req_upiu(struct ufs_hba *hba,
 	struct utp_upiu_req *ucd_req_ptr = lrbp->ucd_req_ptr;
 	struct ufs_query *query = &hba->dev_cmd.query;
 	u16 len = be16_to_cpu(query->request.upiu_req.length);
-	u8 *descp = (u8 *)lrbp->ucd_req_ptr + GENERAL_UPIU_REQUEST_SIZE;
 
 	/* Query request header */
 	ucd_req_ptr->header.dword_0 = UPIU_HEADER_DWORD(
@@ -2289,7 +2264,7 @@ static void ufshcd_prepare_utp_query_req_upiu(struct ufs_hba *hba,
 
 	/* Copy the Descriptor */
 	if (query->request.upiu_req.opcode == UPIU_QUERY_OPCODE_WRITE_DESC)
-		memcpy(descp, query->descriptor, len);
+		memcpy(ucd_req_ptr + 1, query->descriptor, len);
 
 	memset(lrbp->ucd_rsp_ptr, 0, sizeof(struct utp_upiu_rsp));
 }
@@ -3906,7 +3881,7 @@ static void ufshcd_auto_hibern8_enable(struct ufs_hba *hba)
 {
 	unsigned long flags;
 
-	if (!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT) || !hba->ahit)
+	if (!ufshcd_is_auto_hibern8_supported(hba) || !hba->ahit)
 		return;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -4610,46 +4585,6 @@ static void ufshcd_slave_destroy(struct scsi_device *sdev)
 }
 
 /**
- * ufshcd_task_req_compl - handle task management request completion
- * @hba: per adapter instance
- * @index: index of the completed request
- * @resp: task management service response
- *
- * Returns non-zero value on error, zero on success
- */
-static int ufshcd_task_req_compl(struct ufs_hba *hba, u32 index, u8 *resp)
-{
-	struct utp_task_req_desc *task_req_descp;
-	struct utp_upiu_task_rsp *task_rsp_upiup;
-	unsigned long flags;
-	int ocs_value;
-	int task_result;
-
-	spin_lock_irqsave(hba->host->host_lock, flags);
-
-	/* Clear completed tasks from outstanding_tasks */
-	__clear_bit(index, &hba->outstanding_tasks);
-
-	task_req_descp = hba->utmrdl_base_addr;
-	ocs_value = ufshcd_get_tmr_ocs(&task_req_descp[index]);
-
-	if (ocs_value == OCS_SUCCESS) {
-		task_rsp_upiup = (struct utp_upiu_task_rsp *)
-				task_req_descp[index].task_rsp_upiu;
-		task_result = be32_to_cpu(task_rsp_upiup->output_param1);
-		task_result = task_result & MASK_TM_SERVICE_RESP;
-		if (resp)
-			*resp = (u8)task_result;
-	} else {
-		dev_err(hba->dev, "%s: failed, ocs = 0x%x\n",
-				__func__, ocs_value);
-	}
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
-	return ocs_value;
-}
-
-/**
  * ufshcd_scsi_cmd_status - Update SCSI command result based on SCSI status
  * @lrbp: pointer to local reference block of completed command
  * @scsi_status: SCSI command status
@@ -5292,6 +5227,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 			goto skip_err_handling;
 	}
 	if ((hba->saved_err & INT_FATAL_ERRORS) ||
+	    (hba->saved_err & UFSHCD_UIC_HIBERN8_MASK) ||
 	    ((hba->saved_err & UIC_ERROR) &&
 	    (hba->saved_uic_err & (UFSHCD_UIC_DL_PA_INIT_ERROR |
 				   UFSHCD_UIC_DL_NAC_RECEIVED_ERROR |
@@ -5451,6 +5387,23 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 			__func__, hba->uic_error);
 }
 
+static bool ufshcd_is_auto_hibern8_error(struct ufs_hba *hba,
+					 u32 intr_mask)
+{
+	if (!ufshcd_is_auto_hibern8_supported(hba))
+		return false;
+
+	if (!(intr_mask & UFSHCD_UIC_HIBERN8_MASK))
+		return false;
+
+	if (hba->active_uic_cmd &&
+	    (hba->active_uic_cmd->command == UIC_CMD_DME_HIBER_ENTER ||
+	    hba->active_uic_cmd->command == UIC_CMD_DME_HIBER_EXIT))
+		return false;
+
+	return true;
+}
+
 /**
  * ufshcd_check_errors - Check for errors that need s/w attention
  * @hba: per-adapter instance
@@ -5467,6 +5420,15 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 		ufshcd_update_uic_error(hba);
 		if (hba->uic_error)
 			queue_eh_work = true;
+	}
+
+	if (hba->errors & UFSHCD_UIC_HIBERN8_MASK) {
+		dev_err(hba->dev,
+			"%s: Auto Hibern8 %s failed - status: 0x%08x, upmcrs: 0x%08x\n",
+			__func__, (hba->errors & UIC_HIBERNATE_ENTER) ?
+			"Enter" : "Exit",
+			hba->errors, ufshcd_get_upmcrs(hba));
+		queue_eh_work = true;
 	}
 
 	if (queue_eh_work) {
@@ -5531,6 +5493,10 @@ static void ufshcd_tmc_handler(struct ufs_hba *hba)
 static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 {
 	hba->errors = UFSHCD_ERROR_MASK & intr_status;
+
+	if (ufshcd_is_auto_hibern8_error(hba, intr_status))
+		hba->errors |= (UFSHCD_UIC_HIBERN8_MASK & intr_status);
+
 	if (hba->errors)
 		ufshcd_check_errors(hba);
 
@@ -5606,28 +5572,12 @@ out:
 	return err;
 }
 
-/**
- * ufshcd_issue_tm_cmd - issues task management commands to controller
- * @hba: per adapter instance
- * @lun_id: LUN ID to which TM command is sent
- * @task_id: task ID to which the TM command is applicable
- * @tm_function: task management function opcode
- * @tm_response: task management service response return value
- *
- * Returns non-zero value on error, zero on success.
- */
-static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
-		u8 tm_function, u8 *tm_response)
+static int __ufshcd_issue_tm_cmd(struct ufs_hba *hba,
+		struct utp_task_req_desc *treq, u8 tm_function)
 {
-	struct utp_task_req_desc *task_req_descp;
-	struct utp_upiu_task_req *task_req_upiup;
-	struct Scsi_Host *host;
+	struct Scsi_Host *host = hba->host;
 	unsigned long flags;
-	int free_slot;
-	int err;
-	int task_tag;
-
-	host = hba->host;
+	int free_slot, task_tag, err;
 
 	/*
 	 * Get free slot, sleep if slots are unavailable.
@@ -5638,30 +5588,11 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	ufshcd_hold(hba, false);
 
 	spin_lock_irqsave(host->host_lock, flags);
-	task_req_descp = hba->utmrdl_base_addr;
-	task_req_descp += free_slot;
-
-	/* Configure task request descriptor */
-	task_req_descp->header.dword_0 = cpu_to_le32(UTP_REQ_DESC_INT_CMD);
-	task_req_descp->header.dword_2 =
-			cpu_to_le32(OCS_INVALID_COMMAND_STATUS);
-
-	/* Configure task request UPIU */
-	task_req_upiup =
-		(struct utp_upiu_task_req *) task_req_descp->task_req_upiu;
 	task_tag = hba->nutrs + free_slot;
-	task_req_upiup->header.dword_0 =
-		UPIU_HEADER_DWORD(UPIU_TRANSACTION_TASK_REQ, 0,
-					      lun_id, task_tag);
-	task_req_upiup->header.dword_1 =
-		UPIU_HEADER_DWORD(0, tm_function, 0, 0);
-	/*
-	 * The host shall provide the same value for LUN field in the basic
-	 * header and for Input Parameter.
-	 */
-	task_req_upiup->input_param1 = cpu_to_be32(lun_id);
-	task_req_upiup->input_param2 = cpu_to_be32(task_id);
 
+	treq->req_header.dword_0 |= cpu_to_be32(task_tag);
+
+	memcpy(hba->utmrdl_base_addr + free_slot, treq, sizeof(*treq));
 	ufshcd_vops_setup_task_mgmt(hba, free_slot, tm_function);
 
 	/* send command to the controller */
@@ -5691,8 +5622,15 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 					__func__, free_slot);
 		err = -ETIMEDOUT;
 	} else {
-		err = ufshcd_task_req_compl(hba, free_slot, tm_response);
+		err = 0;
+		memcpy(treq, hba->utmrdl_base_addr + free_slot, sizeof(*treq));
+
 		ufshcd_add_tm_upiu_trace(hba, task_tag, "tm_complete");
+
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		__clear_bit(free_slot, &hba->outstanding_tasks);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+
 	}
 
 	clear_bit(free_slot, &hba->tm_condition);
@@ -5700,6 +5638,236 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	wake_up(&hba->tm_tag_wq);
 
 	ufshcd_release(hba);
+	return err;
+}
+
+/**
+ * ufshcd_issue_tm_cmd - issues task management commands to controller
+ * @hba: per adapter instance
+ * @lun_id: LUN ID to which TM command is sent
+ * @task_id: task ID to which the TM command is applicable
+ * @tm_function: task management function opcode
+ * @tm_response: task management service response return value
+ *
+ * Returns non-zero value on error, zero on success.
+ */
+static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
+		u8 tm_function, u8 *tm_response)
+{
+	struct utp_task_req_desc treq = { { 0 }, };
+	int ocs_value, err;
+
+	/* Configure task request descriptor */
+	treq.header.dword_0 = cpu_to_le32(UTP_REQ_DESC_INT_CMD);
+	treq.header.dword_2 = cpu_to_le32(OCS_INVALID_COMMAND_STATUS);
+
+	/* Configure task request UPIU */
+	treq.req_header.dword_0 = cpu_to_be32(lun_id << 8) |
+				  cpu_to_be32(UPIU_TRANSACTION_TASK_REQ << 24);
+	treq.req_header.dword_1 = cpu_to_be32(tm_function << 16);
+
+	/*
+	 * The host shall provide the same value for LUN field in the basic
+	 * header and for Input Parameter.
+	 */
+	treq.input_param1 = cpu_to_be32(lun_id);
+	treq.input_param2 = cpu_to_be32(task_id);
+
+	err = __ufshcd_issue_tm_cmd(hba, &treq, tm_function);
+	if (err == -ETIMEDOUT)
+		return err;
+
+	ocs_value = le32_to_cpu(treq.header.dword_2) & MASK_OCS;
+	if (ocs_value != OCS_SUCCESS)
+		dev_err(hba->dev, "%s: failed, ocs = 0x%x\n",
+				__func__, ocs_value);
+	else if (tm_response)
+		*tm_response = be32_to_cpu(treq.output_param1) &
+				MASK_TM_SERVICE_RESP;
+	return err;
+}
+
+/**
+ * ufshcd_issue_devman_upiu_cmd - API for sending "utrd" type requests
+ * @hba:	per-adapter instance
+ * @req_upiu:	upiu request
+ * @rsp_upiu:	upiu reply
+ * @msgcode:	message code, one of UPIU Transaction Codes Initiator to Target
+ * @desc_buff:	pointer to descriptor buffer, NULL if NA
+ * @buff_len:	descriptor size, 0 if NA
+ * @desc_op:	descriptor operation
+ *
+ * Those type of requests uses UTP Transfer Request Descriptor - utrd.
+ * Therefore, it "rides" the device management infrastructure: uses its tag and
+ * tasks work queues.
+ *
+ * Since there is only one available tag for device management commands,
+ * the caller is expected to hold the hba->dev_cmd.lock mutex.
+ */
+static int ufshcd_issue_devman_upiu_cmd(struct ufs_hba *hba,
+					struct utp_upiu_req *req_upiu,
+					struct utp_upiu_req *rsp_upiu,
+					u8 *desc_buff, int *buff_len,
+					int cmd_type,
+					enum query_opcode desc_op)
+{
+	struct ufshcd_lrb *lrbp;
+	int err = 0;
+	int tag;
+	struct completion wait;
+	unsigned long flags;
+	u32 upiu_flags;
+
+	down_read(&hba->clk_scaling_lock);
+
+	wait_event(hba->dev_cmd.tag_wq, ufshcd_get_dev_cmd_tag(hba, &tag));
+
+	init_completion(&wait);
+	lrbp = &hba->lrb[tag];
+	WARN_ON(lrbp->cmd);
+
+	lrbp->cmd = NULL;
+	lrbp->sense_bufflen = 0;
+	lrbp->sense_buffer = NULL;
+	lrbp->task_tag = tag;
+	lrbp->lun = 0;
+	lrbp->intr_cmd = true;
+	hba->dev_cmd.type = cmd_type;
+
+	switch (hba->ufs_version) {
+	case UFSHCI_VERSION_10:
+	case UFSHCI_VERSION_11:
+		lrbp->command_type = UTP_CMD_TYPE_DEV_MANAGE;
+		break;
+	default:
+		lrbp->command_type = UTP_CMD_TYPE_UFS_STORAGE;
+		break;
+	}
+
+	/* update the task tag in the request upiu */
+	req_upiu->header.dword_0 |= cpu_to_be32(tag);
+
+	ufshcd_prepare_req_desc_hdr(lrbp, &upiu_flags, DMA_NONE);
+
+	/* just copy the upiu request as it is */
+	memcpy(lrbp->ucd_req_ptr, req_upiu, sizeof(*lrbp->ucd_req_ptr));
+	if (desc_buff && desc_op == UPIU_QUERY_OPCODE_WRITE_DESC) {
+		/* The Data Segment Area is optional depending upon the query
+		 * function value. for WRITE DESCRIPTOR, the data segment
+		 * follows right after the tsf.
+		 */
+		memcpy(lrbp->ucd_req_ptr + 1, desc_buff, *buff_len);
+		*buff_len = 0;
+	}
+
+	memset(lrbp->ucd_rsp_ptr, 0, sizeof(struct utp_upiu_rsp));
+
+	hba->dev_cmd.complete = &wait;
+
+	/* Make sure descriptors are ready before ringing the doorbell */
+	wmb();
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufshcd_send_command(hba, tag);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	/*
+	 * ignore the returning value here - ufshcd_check_query_response is
+	 * bound to fail since dev_cmd.query and dev_cmd.type were left empty.
+	 * read the response directly ignoring all errors.
+	 */
+	ufshcd_wait_for_dev_cmd(hba, lrbp, QUERY_REQ_TIMEOUT);
+
+	/* just copy the upiu response as it is */
+	memcpy(rsp_upiu, lrbp->ucd_rsp_ptr, sizeof(*rsp_upiu));
+	if (desc_buff && desc_op == UPIU_QUERY_OPCODE_READ_DESC) {
+		u8 *descp = (u8 *)lrbp->ucd_rsp_ptr + sizeof(*rsp_upiu);
+		u16 resp_len = be32_to_cpu(lrbp->ucd_rsp_ptr->header.dword_2) &
+			       MASK_QUERY_DATA_SEG_LEN;
+
+		if (*buff_len >= resp_len) {
+			memcpy(desc_buff, descp, resp_len);
+			*buff_len = resp_len;
+		} else {
+			dev_warn(hba->dev, "rsp size is bigger than buffer");
+			*buff_len = 0;
+			err = -EINVAL;
+		}
+	}
+
+	ufshcd_put_dev_cmd_tag(hba, tag);
+	wake_up(&hba->dev_cmd.tag_wq);
+	up_read(&hba->clk_scaling_lock);
+	return err;
+}
+
+/**
+ * ufshcd_exec_raw_upiu_cmd - API function for sending raw upiu commands
+ * @hba:	per-adapter instance
+ * @req_upiu:	upiu request
+ * @rsp_upiu:	upiu reply - only 8 DW as we do not support scsi commands
+ * @msgcode:	message code, one of UPIU Transaction Codes Initiator to Target
+ * @desc_buff:	pointer to descriptor buffer, NULL if NA
+ * @buff_len:	descriptor size, 0 if NA
+ * @desc_op:	descriptor operation
+ *
+ * Supports UTP Transfer requests (nop and query), and UTP Task
+ * Management requests.
+ * It is up to the caller to fill the upiu conent properly, as it will
+ * be copied without any further input validations.
+ */
+int ufshcd_exec_raw_upiu_cmd(struct ufs_hba *hba,
+			     struct utp_upiu_req *req_upiu,
+			     struct utp_upiu_req *rsp_upiu,
+			     int msgcode,
+			     u8 *desc_buff, int *buff_len,
+			     enum query_opcode desc_op)
+{
+	int err;
+	int cmd_type = DEV_CMD_TYPE_QUERY;
+	struct utp_task_req_desc treq = { { 0 }, };
+	int ocs_value;
+	u8 tm_f = be32_to_cpu(req_upiu->header.dword_1) >> 16 & MASK_TM_FUNC;
+
+	switch (msgcode) {
+	case UPIU_TRANSACTION_NOP_OUT:
+		cmd_type = DEV_CMD_TYPE_NOP;
+		/* fall through */
+	case UPIU_TRANSACTION_QUERY_REQ:
+		ufshcd_hold(hba, false);
+		mutex_lock(&hba->dev_cmd.lock);
+		err = ufshcd_issue_devman_upiu_cmd(hba, req_upiu, rsp_upiu,
+						   desc_buff, buff_len,
+						   cmd_type, desc_op);
+		mutex_unlock(&hba->dev_cmd.lock);
+		ufshcd_release(hba);
+
+		break;
+	case UPIU_TRANSACTION_TASK_REQ:
+		treq.header.dword_0 = cpu_to_le32(UTP_REQ_DESC_INT_CMD);
+		treq.header.dword_2 = cpu_to_le32(OCS_INVALID_COMMAND_STATUS);
+
+		memcpy(&treq.req_header, req_upiu, sizeof(*req_upiu));
+
+		err = __ufshcd_issue_tm_cmd(hba, &treq, tm_f);
+		if (err == -ETIMEDOUT)
+			break;
+
+		ocs_value = le32_to_cpu(treq.header.dword_2) & MASK_OCS;
+		if (ocs_value != OCS_SUCCESS) {
+			dev_err(hba->dev, "%s: failed, ocs = 0x%x\n", __func__,
+				ocs_value);
+			break;
+		}
+
+		memcpy(rsp_upiu, &treq.rsp_header, sizeof(*rsp_upiu));
+
+		break;
+	default:
+		err = -EINVAL;
+
+		break;
+	}
+
 	return err;
 }
 
@@ -6551,6 +6719,74 @@ static void ufshcd_def_desc_sizes(struct ufs_hba *hba)
 	hba->desc_size.hlth_desc = QUERY_DESC_HEALTH_DEF_SIZE;
 }
 
+static struct ufs_ref_clk ufs_ref_clk_freqs[] = {
+	{19200000, REF_CLK_FREQ_19_2_MHZ},
+	{26000000, REF_CLK_FREQ_26_MHZ},
+	{38400000, REF_CLK_FREQ_38_4_MHZ},
+	{52000000, REF_CLK_FREQ_52_MHZ},
+	{0, REF_CLK_FREQ_INVAL},
+};
+
+static enum ufs_ref_clk_freq
+ufs_get_bref_clk_from_hz(unsigned long freq)
+{
+	int i;
+
+	for (i = 0; ufs_ref_clk_freqs[i].freq_hz; i++)
+		if (ufs_ref_clk_freqs[i].freq_hz == freq)
+			return ufs_ref_clk_freqs[i].val;
+
+	return REF_CLK_FREQ_INVAL;
+}
+
+void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba, struct clk *refclk)
+{
+	unsigned long freq;
+
+	freq = clk_get_rate(refclk);
+
+	hba->dev_ref_clk_freq =
+		ufs_get_bref_clk_from_hz(freq);
+
+	if (hba->dev_ref_clk_freq == REF_CLK_FREQ_INVAL)
+		dev_err(hba->dev,
+		"invalid ref_clk setting = %ld\n", freq);
+}
+
+static int ufshcd_set_dev_ref_clk(struct ufs_hba *hba)
+{
+	int err;
+	u32 ref_clk;
+	u32 freq = hba->dev_ref_clk_freq;
+
+	err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+			QUERY_ATTR_IDN_REF_CLK_FREQ, 0, 0, &ref_clk);
+
+	if (err) {
+		dev_err(hba->dev, "failed reading bRefClkFreq. err = %d\n",
+			err);
+		goto out;
+	}
+
+	if (ref_clk == freq)
+		goto out; /* nothing to update */
+
+	err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
+			QUERY_ATTR_IDN_REF_CLK_FREQ, 0, 0, &freq);
+
+	if (err) {
+		dev_err(hba->dev, "bRefClkFreq setting to %lu Hz failed\n",
+			ufs_ref_clk_freqs[freq].freq_hz);
+		goto out;
+	}
+
+	dev_dbg(hba->dev, "bRefClkFreq setting to %lu Hz succeeded\n",
+			ufs_ref_clk_freqs[freq].freq_hz);
+
+out:
+	return err;
+}
+
 /**
  * ufshcd_probe_hba - probe hba to detect device and initialize
  * @hba: per-adapter instance
@@ -6616,6 +6852,12 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 			"%s: Failed getting max supported power mode\n",
 			__func__);
 	} else {
+		/*
+		 * Set the right value to bRefClkFreq before attempting to
+		 * switch to HS gears.
+		 */
+		if (hba->dev_ref_clk_freq != REF_CLK_FREQ_INVAL)
+			ufshcd_set_dev_ref_clk(hba);
 		ret = ufshcd_config_pwr_mode(hba, &hba->max_pwr_info.info);
 		if (ret) {
 			dev_err(hba->dev, "%s: Failed setting power mode, err = %d\n",
@@ -6660,6 +6902,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 			}
 			hba->clk_scaling.is_allowed = true;
 		}
+
+		ufs_bsg_probe(hba);
 
 		scsi_scan_host(hba->host);
 		pm_runtime_put_sync(hba->dev);
@@ -7110,6 +7354,14 @@ static int ufshcd_init_clocks(struct ufs_hba *hba)
 					__func__, clki->name, ret);
 			goto out;
 		}
+
+		/*
+		 * Parse device ref clk freq as per device tree "ref_clk".
+		 * Default dev_ref_clk_freq is set to REF_CLK_FREQ_INVAL
+		 * in ufshcd_alloc_host().
+		 */
+		if (!strcmp(clki->name, "ref_clk"))
+			ufshcd_parse_dev_ref_clk_freq(hba, clki->clk);
 
 		if (clki->max_freq) {
 			ret = clk_set_rate(clki->clk, clki->max_freq);
@@ -7898,6 +8150,7 @@ EXPORT_SYMBOL(ufshcd_shutdown);
  */
 void ufshcd_remove(struct ufs_hba *hba)
 {
+	ufs_bsg_remove(hba);
 	ufs_sysfs_remove_nodes(hba->dev);
 	scsi_remove_host(hba->host);
 	/* disable interrupts */
@@ -7974,6 +8227,7 @@ int ufshcd_alloc_host(struct device *dev, struct ufs_hba **hba_handle)
 	hba->host = host;
 	hba->dev = dev;
 	*hba_handle = hba;
+	hba->dev_ref_clk_freq = REF_CLK_FREQ_INVAL;
 
 	INIT_LIST_HEAD(&hba->clk_list_head);
 
@@ -8050,7 +8304,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	host->max_lun = UFS_MAX_LUNS;
 	host->max_channel = UFSHCD_MAX_CHANNEL;
 	host->unique_id = host->host_no;
-	host->max_cmd_len = MAX_CDB_SIZE;
+	host->max_cmd_len = UFS_CDB_SIZE;
 
 	hba->max_pwr_info.is_valid = false;
 
@@ -8141,7 +8395,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 						UIC_LINK_HIBERN8_STATE);
 
 	/* Set the default auto-hiberate idle timer value to 150 ms */
-	if (hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT) {
+	if (ufshcd_is_auto_hibern8_supported(hba) && !hba->ahit) {
 		hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 150) |
 			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
 	}
