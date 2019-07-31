@@ -1185,6 +1185,7 @@ static int cqspi_direct_read_execute(struct spi_nor *nor, u_char *buf,
 
 	if (!cqspi->rx_chan || !virt_addr_valid(buf) || len <= 16) {
 		memcpy_fromio(buf, cqspi->ahb_base + from, len);
+		cqspi_wait_idle(cqspi);
 		return 0;
 	}
 	ddev = cqspi->rx_chan->device->dev;
@@ -1245,25 +1246,25 @@ static int cqspi_direct_read_execute_phy(struct spi_nor *nor, u_char *buf,
 	if (f_pdata->phy_calibrated)
 		cqspi_phy_dtr_enable(nor, true);
 	/*
-	 * Cadence OSPI IP requires 4 byte aligned accesses when PHY
-	 * pipeline mode is enabled. But, since on AM654 memcpy_fromio()
-	 * does either 8 byte access or single byte accesses, driver
-	 * will have to align read addresses to 8 bytes.
-	 * We convert read start address and length to 8 byte
+	 * Cadence OSPI IP requires 16 byte aligned accesses when PHY
+	 * pipeline mode is enabled in Octal DDR mode. So, driver
+	 * will have to align read addresses to 16 bytes.
+	 * We convert read start address and length to 16 byte
 	 * aligned start address and length. Then use bounce buffer for
 	 * intermediate copy and finally copy only the requested range
 	 * of data to destination buffer.
 	 */
-	if (IS_ALIGNED(from, 8) && IS_ALIGNED(len, 8) && virt_addr_valid(buf)) {
+	if (IS_ALIGNED(from, 16) && IS_ALIGNED(len, 16) &&
+	    virt_addr_valid(buf)) {
 		ret = cqspi_direct_read_execute(nor, buf, from, len);
 		goto disable_phy;
 	}
 
 	dst = cqspi->dma_bb_rx;
 
-	align_from = ALIGN_DOWN(from, 8);
+	align_from = ALIGN_DOWN(from, 16);
 	off_delta = from - align_from;
-	readsize = ALIGN(len + off_delta, 8);
+	readsize = ALIGN(len + off_delta, 16);
 	len_delta = readsize - (len + off_delta);
 
 	xfer_len = min_t(size_t, CQSPI_DMA_BUFFER_SIZE,
