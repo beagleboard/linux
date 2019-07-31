@@ -1470,10 +1470,6 @@ static int cqspi_of_get_pdata(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	if (of_property_read_u32(np, "cdns,delay-elem-ps",
-				 &cqspi->delayelem_ps))
-		cqspi->delayelem_ps = 80;
-
 	cqspi->rclk_en = of_property_read_bool(np, "cdns,rclk-en");
 
 	return 0;
