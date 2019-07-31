@@ -2781,6 +2781,43 @@ static int spi_nor_select_erase(struct spi_nor *nor,
 	return 0;
 }
 
+/* Calibrate controller for given mode */
+static int spi_nor_calibrate(struct spi_nor *nor, enum spi_nor_mode mode)
+{
+	/* Use first 16 bytes of SFDP Header as calibration data */
+	int size = sizeof(struct sfdp_parameter_header) << 1;
+	u8 addr_width = nor->addr_width;
+	u8 *calibration_data;
+	int ret;
+
+	if (!nor->calibrate)
+		return 0;
+
+	calibration_data = kmalloc(size, GFP_KERNEL);
+	if (!calibration_data)
+		return -ENOMEM;
+
+	ret = spi_nor_read_sfdp(nor, 0, size, calibration_data);
+	if (ret)
+		goto free_mem;
+
+	nor->preferred_mode = mode;
+	spi_nor_select_mode(nor, nor->preferred_mode);
+
+	nor->addr_width = 4;
+	nor->read_opcode = SPINOR_OP_RDSFDP;
+	nor->read_dummy = 8;
+
+	ret = nor->calibrate(nor, calibration_data, size);
+
+	spi_nor_select_mode(nor, SPI_NOR_MODE_SPI);
+	nor->addr_width = addr_width;
+free_mem:
+	kfree(calibration_data);
+
+	return ret;
+}
+
 static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 			 const struct spi_nor_flash_parameter *params,
 			 const struct spi_nor_hwcaps *hwcaps)
@@ -2831,6 +2868,14 @@ static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 		dev_err(nor->dev,
 			"can't select erase settings supported by both the SPI controller and memory.\n");
 		return err;
+	}
+
+	if (info->flags & SPI_NOR_OPI_DTR) {
+		err = spi_nor_calibrate(nor, SPI_NOR_MODE_OPI_DTR);
+		if (err) {
+			dev_err(nor->dev, "Controller calibration failed\n");
+			return err;
+		}
 	}
 
 	/* Enable Quad I/O if needed. */
