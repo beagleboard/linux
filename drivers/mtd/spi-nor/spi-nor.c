@@ -92,6 +92,8 @@ struct flash_info {
 #define SPI_NOR_OCTAL_READ	BIT(15)	/* Flash supports Octal Read */
 
 	int	(*quad_enable)(struct spi_nor *nor);
+	int	(*change_mode)(struct spi_nor *nor, enum spi_nor_mode mode);
+	void	(*adjust_op)(struct spi_nor *nor, enum spi_nor_mode mode);
 };
 
 #define JEDEC_MFR(info)	((info)->id[0])
@@ -1303,6 +1305,28 @@ static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 	return ERR_PTR(-ENODEV);
 }
 
+static int spi_nor_select_mode(struct spi_nor *nor, enum spi_nor_mode mode)
+{
+	int ret;
+
+	if (nor->mode == mode)
+		return 0;
+
+	if (!nor->change_mode)
+		return -ENOTSUPP;
+
+	ret = nor->change_mode(nor, mode);
+	if (ret)
+		return ret;
+
+	if (nor->adjust_op)
+		nor->adjust_op(nor, mode);
+
+	nor->mode = mode;
+
+	return ret;
+}
+
 static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 			size_t *retlen, u_char *buf)
 {
@@ -1314,6 +1338,8 @@ static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 	ret = spi_nor_lock_and_prep(nor, SPI_NOR_OPS_READ);
 	if (ret)
 		return ret;
+
+	spi_nor_select_mode(nor, nor->preferred_mode);
 
 	while (len) {
 		loff_t addr = from;
@@ -1339,6 +1365,8 @@ static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 	ret = 0;
 
 read_err:
+	spi_nor_select_mode(nor, SPI_NOR_MODE_SPI);
+
 	spi_nor_unlock_and_unprep(nor, SPI_NOR_OPS_READ);
 	return ret;
 }
@@ -2715,6 +2743,9 @@ static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 			"SPI n-n-n protocols are not supported yet.\n");
 		shared_mask &= ~ignored_mask;
 	}
+
+	nor->change_mode = info->change_mode;
+	nor->adjust_op = info->adjust_op;
 
 	/* Select the (Fast) Read command. */
 	err = spi_nor_select_read(nor, params, shared_mask);
