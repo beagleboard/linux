@@ -12,10 +12,10 @@
 #include <linux/types.h>
 
 /* maximum number of system events */
-#define MAX_PRU_SYS_EVENTS	64
+#define MAX_PRU_SYS_EVENTS	160
 
 /* maximum number of interrupt channels */
-#define MAX_PRU_CHANNELS	10
+#define MAX_PRU_CHANNELS	20
 
 /* use -1 to mark unassigned events and channels */
 #define PRU_INTC_FREE		-1
