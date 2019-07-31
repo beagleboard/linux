@@ -188,17 +188,7 @@
 
 #define CDNS_MHDP_MAX_STREAMS   4
 
-enum pixel_format {
-	PIXEL_FORMAT_RGB = 1,
-	PIXEL_FORMAT_YCBCR_444 = 2,
-	PIXEL_FORMAT_YCBCR_422 = 4,
-	PIXEL_FORMAT_YCBCR_420 = 8,
-	PIXEL_FORMAT_Y_ONLY = 16,
-};
-
-
-enum pixel_format cdns_mhdp_get_pxlfmt(u32 color_formats);
-u32 cdns_mhdp_get_bpp(u32 bpc, u32 color_formats);
+u32 cdns_mhdp_get_bpp(struct cdns_mhdp_display_fmt *fmt);
 void cdns_mhdp_configure_video(struct drm_bridge *bridge);
 void cdns_mhdp_enable(struct drm_bridge *bridge);
 
