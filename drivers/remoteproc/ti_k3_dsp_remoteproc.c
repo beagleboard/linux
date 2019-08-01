@@ -154,22 +154,18 @@ static int k3_dsp_rproc_reset(struct k3_dsp_rproc *kproc)
 	struct device *dev = kproc->dev;
 	int ret;
 
-#ifdef LOCAL_RESET
 	ret = reset_control_assert(kproc->reset);
 	if (ret) {
 		dev_err(dev, "local-reset assert failed, ret = %d\n", ret);
 		return ret;
 	}
-#endif
 
 	ret = kproc->ti_sci->ops.dev_ops.put_device(kproc->ti_sci,
 						    kproc->ti_sci_id);
 	if (ret) {
 		dev_err(dev, "module-reset assert failed, ret = %d\n", ret);
-#ifdef LOCAL_RESET
 		if (reset_control_deassert(kproc->reset))
 			dev_warn(dev, "local-reset deassert back failed\n");
-#endif
 	}
 
 	return ret;
@@ -188,7 +184,6 @@ static int k3_dsp_rproc_release(struct k3_dsp_rproc *kproc)
 		return ret;
 	}
 
-#ifdef LOCAL_RESET
 	ret = reset_control_deassert(kproc->reset);
 	if (ret) {
 		dev_err(dev, "local-reset deassert failed, ret = %d\n", ret);
@@ -196,7 +191,6 @@ static int k3_dsp_rproc_release(struct k3_dsp_rproc *kproc)
 							  kproc->ti_sci_id))
 			dev_warn(dev, "module-reset assert back failed\n");
 	}
-#endif
 
 	return ret;
 }
