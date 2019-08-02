@@ -92,10 +92,12 @@
 #define SPINOR_OP_READ_1_1_1_DTR	0x0d
 #define SPINOR_OP_READ_1_2_2_DTR	0xbd
 #define SPINOR_OP_READ_1_4_4_DTR	0xed
+#define SPINOR_OP_READ_8_8_8_DTR	0xfd
 
 #define SPINOR_OP_READ_1_1_1_DTR_4B	0x0e
 #define SPINOR_OP_READ_1_2_2_DTR_4B	0xbe
 #define SPINOR_OP_READ_1_4_4_DTR_4B	0xee
+#define SPINOR_OP_READ_8_8_8_DTR_4B	0xfd
 
 /* Used for SST flashes only. */
 #define SPINOR_OP_BP		0x02	/* Byte program */
@@ -122,6 +124,9 @@
 /* Used for Micron flashes only. */
 #define SPINOR_OP_RD_EVCR      0x65    /* Read EVCR register */
 #define SPINOR_OP_WD_EVCR      0x61    /* Write EVCR register */
+#define SPINOR_OP_WR_VCR       0x81	/* Write VCR register */
+#define SPINOR_OP_RESET_EN     0x66	/* Enable Soft reset */
+#define SPINOR_OP_RESET_MEM    0x99	/* Reset memory */
 
 /* Status Register bits. */
 #define SR_WIP			BIT(0)	/* Write in progress */
@@ -140,6 +145,9 @@
 
 /* Enhanced Volatile Configuration Register bits */
 #define EVCR_QUAD_EN_MICRON	BIT(7)	/* Micron Quad I/O */
+
+/* Micron VCR Register Settings */
+#define VCR_OCTAL_DDR_EN_MICRON	0xe7	/* Octal DDR with DQS mode */
 
 /* Flag Status Register bits */
 #define FSR_READY		BIT(7)	/* Device status, 0 = Busy, 1 = Ready */
@@ -198,6 +206,7 @@ enum spi_nor_protocol {
 	SNOR_PROTO_1_2_2_DTR = SNOR_PROTO_DTR(1, 2, 2),
 	SNOR_PROTO_1_4_4_DTR = SNOR_PROTO_DTR(1, 4, 4),
 	SNOR_PROTO_1_8_8_DTR = SNOR_PROTO_DTR(1, 8, 8),
+	SNOR_PROTO_8_8_8_DTR = SNOR_PROTO_DTR(8, 8, 8),
 };
 
 static inline bool spi_nor_protocol_is_dtr(enum spi_nor_protocol proto)
@@ -245,6 +254,15 @@ enum spi_nor_option_flags {
 	SNOR_F_READY_XSR_RDY	= BIT(4),
 	SNOR_F_USE_CLSR		= BIT(5),
 	SNOR_F_BROKEN_RESET	= BIT(6),
+};
+
+enum spi_nor_mode {
+	SPI_NOR_MODE_SPI = 0,
+	SPI_NOR_MODE_DPI,
+	SPI_NOR_MODE_QPI,
+	SPI_NOR_MODE_OPI,
+	SPI_NOR_MODE_OPI_DTR,
+	SPI_NOR_NUM_MODES,
 };
 
 /**
@@ -304,6 +322,8 @@ struct spi_nor {
 	enum spi_nor_protocol	write_proto;
 	enum spi_nor_protocol	reg_proto;
 	bool			sst_write_second;
+	enum spi_nor_mode	mode;
+	enum spi_nor_mode	preferred_mode;
 	u32			flags;
 	u8			cmd_buf[SPI_NOR_MAX_CMD_SIZE];
 
@@ -316,12 +336,15 @@ struct spi_nor {
 			size_t len, u_char *read_buf);
 	ssize_t (*write)(struct spi_nor *nor, loff_t to,
 			size_t len, const u_char *write_buf);
+	int (*calibrate)(struct spi_nor *nor, void *calib_data, size_t len);
 	int (*erase)(struct spi_nor *nor, loff_t offs);
 
 	int (*flash_lock)(struct spi_nor *nor, loff_t ofs, uint64_t len);
 	int (*flash_unlock)(struct spi_nor *nor, loff_t ofs, uint64_t len);
 	int (*flash_is_locked)(struct spi_nor *nor, loff_t ofs, uint64_t len);
 	int (*quad_enable)(struct spi_nor *nor);
+	int (*change_mode)(struct spi_nor *nor, enum spi_nor_mode newmode);
+	void (*adjust_op)(struct spi_nor *nor, enum spi_nor_mode mode);
 
 	void *priv;
 };
@@ -370,11 +393,12 @@ struct spi_nor_hwcaps {
 #define SNOR_HWCAPS_READ_4_4_4		BIT(9)
 #define SNOR_HWCAPS_READ_1_4_4_DTR	BIT(10)
 
-#define SNOR_HWCPAS_READ_OCTAL		GENMASK(14, 11)
+#define SNOR_HWCPAS_READ_OCTAL		GENMASK(15, 11)
 #define SNOR_HWCAPS_READ_1_1_8		BIT(11)
 #define SNOR_HWCAPS_READ_1_8_8		BIT(12)
 #define SNOR_HWCAPS_READ_8_8_8		BIT(13)
 #define SNOR_HWCAPS_READ_1_8_8_DTR	BIT(14)
+#define SNOR_HWCAPS_READ_8_8_8_DTR	BIT(15)
 
 /*
  * Page Program capabilities.
