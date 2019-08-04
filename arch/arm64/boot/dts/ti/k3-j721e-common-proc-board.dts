@@ -600,7 +600,6 @@
 	/* eMMC */
 	non-removable;
 	ti,driver-strength-ohm = <50>;
-	mmc-hs400-1_8v;
 };
 
 &main_sdhci1 {
