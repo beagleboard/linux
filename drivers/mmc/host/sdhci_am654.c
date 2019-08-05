@@ -13,6 +13,7 @@
 #include <linux/property.h>
 #include <linux/regmap.h>
 
+#include "cqhci.h"
 #include "sdhci-pltfm.h"
 
 /* CTL_CFG Registers */
@@ -68,6 +69,9 @@
 #define DRIVER_STRENGTH_40_OHM	0x4
 
 #define CLOCK_TOO_SLOW_HZ	400000
+
+/* Command Queue Host Controller Interface Base address */
+#define SDHCI_AM654_CQE_BASE_ADDR 0x200
 
 static struct regmap_config sdhci_am654_regmap_config = {
 	.reg_bits = 32,
@@ -300,6 +304,19 @@ static const struct sdhci_am654_driver_data sdhci_am654_drvdata = {
 	.flags = IOMUX_PRESENT | FREQSEL_2_BIT | STRBSEL_4_BIT | DLL_PRESENT,
 };
 
+static u32 sdhci_am654_cqhci_irq(struct sdhci_host *host, u32 intmask)
+{
+	int cmd_error = 0;
+	int data_error = 0;
+
+	if (!sdhci_cqe_irq(host, intmask, &cmd_error, &data_error))
+		return intmask;
+
+	cqhci_irq(host->mmc, intmask, cmd_error, data_error);
+
+	return 0;
+}
+
 struct sdhci_ops sdhci_j721e_8bit_ops = {
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.get_timeout_clock = sdhci_pltfm_clk_get_max_clock,
@@ -308,6 +325,7 @@ struct sdhci_ops sdhci_j721e_8bit_ops = {
 	.set_power = sdhci_am654_set_power,
 	.set_clock = sdhci_am654_set_clock,
 	.write_b = sdhci_am654_write_b,
+	.irq = sdhci_am654_cqhci_irq,
 	.reset = sdhci_reset,
 };
 
@@ -331,6 +349,7 @@ struct sdhci_ops sdhci_j721e_4bit_ops = {
 	.set_power = sdhci_am654_set_power,
 	.set_clock = sdhci_j721e_4bit_set_clock,
 	.write_b = sdhci_am654_write_b,
+	.irq = sdhci_am654_cqhci_irq,
 	.reset = sdhci_reset,
 };
 
@@ -395,6 +414,39 @@ static int sdhci_am654_get_otap_delay(struct sdhci_host *host,
 	return 0;
 }
 
+static void sdhci_am654_dumpregs(struct mmc_host *mmc)
+{
+	sdhci_dumpregs(mmc_priv(mmc));
+}
+
+static const struct cqhci_host_ops sdhci_am654_cqhci_ops = {
+	.enable		= sdhci_cqe_enable,
+	.disable	= sdhci_cqe_disable,
+	.dumpregs	= sdhci_am654_dumpregs,
+};
+
+static int sdhci_am654_cqe_add_host(struct sdhci_host *host)
+{
+	struct cqhci_host *cq_host;
+	int ret;
+
+	cq_host = devm_kzalloc(host->mmc->parent, sizeof(struct cqhci_host),
+			       GFP_KERNEL);
+	if (!cq_host)
+		return -ENOMEM;
+
+	cq_host->mmio = host->ioaddr + SDHCI_AM654_CQE_BASE_ADDR;
+	cq_host->quirks |= CQHCI_QUIRK_SHORT_TXFR_DESC_SZ;
+	cq_host->caps |= CQHCI_TASK_DESC_SZ_128;
+	cq_host->ops = &sdhci_am654_cqhci_ops;
+
+	host->mmc->caps2 |= MMC_CAP2_CQE;
+
+	ret = cqhci_init(cq_host, host->mmc, 1);
+
+	return ret;
+}
+
 static int sdhci_am654_init(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -449,6 +501,10 @@ static int sdhci_am654_init(struct sdhci_host *host)
 		return ret;
 
 	ret = sdhci_am654_get_otap_delay(host, sdhci_am654);
+	if (ret)
+		goto err_cleanup_host;
+
+	ret = sdhci_am654_cqe_add_host(host);
 	if (ret)
 		goto err_cleanup_host;
 
