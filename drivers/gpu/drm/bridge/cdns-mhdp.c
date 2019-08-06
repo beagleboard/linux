@@ -201,6 +201,21 @@ static int cdns_mhdp_get_modes(struct drm_connector *connector)
 	num_modes = drm_add_edid_modes(connector, edid);
 	kfree(edid);
 
+	/*
+	 * HACK: Warn about unsupported display formats until we deal
+	 *       with them correctly.
+	 */
+	if (!(connector->display_info.color_formats &
+	      mhdp->display_fmt.color_format))
+		dev_warn(mhdp->dev,
+			 "%s: No supported color_format found (0x%08x)\n",
+			__func__, connector->display_info.color_formats);
+
+	if (connector->display_info.bpc < mhdp->display_fmt.bpc)
+		dev_warn(mhdp->dev, "%s: Display bpc only %d < %d\n",
+			 __func__, connector->display_info.bpc,
+			 mhdp->display_fmt.bpc);
+
 	return num_modes;
 }
 
@@ -337,33 +352,37 @@ static void mhdp_get_adjust_train(struct cdns_mhdp_device *mhdp,
 {
 	unsigned int i;
 	u8 adjust, max_pre_emphasis, max_volt_swing;
+	u8 set_volt, set_pre;
 
 	max_pre_emphasis = CDNS_PRE_EMPHASIS(mhdp->host.pre_emphasis)
 			   << DP_TRAIN_PRE_EMPHASIS_SHIFT;
 	max_volt_swing = CDNS_VOLT_SWING(mhdp->host.volt_swing);
 
 	for (i = 0; i < mhdp->link.num_lanes; i++) {
+		/* Check if Voltage swing and pre-emphasis are within limits */
 		adjust = drm_dp_get_adjust_request_voltage(link_status, i);
-		lanes_data[i] = min_t(u8, adjust, max_volt_swing);
-		phy_cfg->dp.voltage[i] = lanes_data[i];
-		if (lanes_data[i] != adjust)
-			lanes_data[i] |= DP_TRAIN_MAX_SWING_REACHED;
+		set_volt = min_t(u8, adjust, max_volt_swing);
 
 		adjust = drm_dp_get_adjust_request_pre_emphasis(link_status, i);
-		lanes_data[i] |= min_t(u8, adjust, max_pre_emphasis);
-		phy_cfg->dp.pre[i] = lanes_data[i] >> DP_TRAIN_PRE_EMPHASIS_SHIFT;
-		if ((lanes_data[i] >> DP_TRAIN_PRE_EMPHASIS_SHIFT) != (adjust >> DP_TRAIN_PRE_EMPHASIS_SHIFT))
+		set_pre = min_t(u8, adjust, max_pre_emphasis) >> DP_TRAIN_PRE_EMPHASIS_SHIFT;
+
+		/* Voltage swing level and pre-emphasis level combination is not allowed:
+		 * leaving pre-emphasis as-is, and adjusting voltage swing.
+		 */
+		if (set_volt + set_pre > 3)
+			set_volt = 3 - set_pre;
+
+		phy_cfg->dp.voltage[i] = set_volt;
+		lanes_data[i] = set_volt;
+
+		if (set_volt == max_volt_swing)
+			lanes_data[i] |= DP_TRAIN_MAX_SWING_REACHED;
+
+		phy_cfg->dp.pre[i] = set_pre;
+		lanes_data[i] |= (set_pre << DP_TRAIN_PRE_EMPHASIS_SHIFT);
+
+		if (set_pre == (max_pre_emphasis >> DP_TRAIN_PRE_EMPHASIS_SHIFT))
 			lanes_data[i] |= DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
-
-		/* Sum of VOD and PRE should not be greater than 3 */
-		if (phy_cfg->dp.voltage[i] + phy_cfg->dp.pre[i] > 3) {
-			int d = phy_cfg->dp.voltage[i] + phy_cfg->dp.pre[i] - 3;
-			int dpre = d/2;
-			int dvoltage = d - dpre;
-
-			phy_cfg->dp.voltage[i] -= dvoltage;
-			phy_cfg->dp.pre[i] -= dpre;
-		}
 	}
 }
 
@@ -845,23 +864,27 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 	return 0;
 }
 
-u32 cdns_mhdp_get_bpp(u32 bpc, enum pixel_format pxlfmt)
+u32 cdns_mhdp_get_bpp(struct cdns_mhdp_display_fmt *fmt)
 {
 	u32 bpp;
 
-	switch (pxlfmt) {
-	case PIXEL_FORMAT_RGB:
-	case PIXEL_FORMAT_YCBCR_444:
-		bpp = bpc * 3;
+	if (fmt->y_only)
+		return fmt->bpc;
+
+	switch (fmt->color_format) {
+	case DRM_COLOR_FORMAT_RGB444:
+	case DRM_COLOR_FORMAT_YCRCB444:
+		bpp = fmt->bpc * 3;
 		break;
-	case PIXEL_FORMAT_YCBCR_422:
-		bpp = bpc * 2;
+	case DRM_COLOR_FORMAT_YCRCB422:
+		bpp = fmt->bpc * 2;
 		break;
-	case PIXEL_FORMAT_YCBCR_420:
-		bpp = bpc * 3 / 2;
+	case DRM_COLOR_FORMAT_YCRCB420:
+		bpp = fmt->bpc * 3 / 2;
 		break;
 	default:
-		bpp = bpc;
+		bpp = fmt->bpc * 3;
+		WARN_ON(1);
 	}
 	return bpp;
 }
@@ -871,17 +894,13 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
 	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
 	u32 rate, vs, vs_f, required_bandwidth, available_bandwidth;
-	u32 bpp, tu_size = 30, line_thresh1, line_thresh2, line_thresh = 0;
+	u32 tu_size = 30, line_thresh1, line_thresh2, line_thresh = 0;
 	struct drm_display_mode *mode;
 	int pxlclock;
-	enum pixel_format pxlfmt;
-	struct drm_display_info *disp_info = &mhdp->connector.base.display_info;
-	struct drm_display_info disp_info_c;
+	u32 bpp, bpc, pxlfmt;
 
-	disp_info_c = mhdp_bridge->connector->base.display_info;
-	disp_info = &disp_info_c;
-	disp_info->color_formats = DRM_COLOR_FORMAT_RGB444;
-	disp_info->bpc = 8; // HACK
+	pxlfmt = mhdp->display_fmt.color_format;
+	bpc = mhdp->display_fmt.bpc;
 
 	mode = &bridge->encoder->crtc->state->mode;
 	pxlclock = mode->crtc_clock;
@@ -890,8 +909,7 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 
 	rate = mhdp->link.rate / 1000;
 
-	pxlfmt = cdns_mhdp_get_pxlfmt(disp_info->color_formats);
-	bpp = cdns_mhdp_get_bpp(disp_info->bpc, pxlfmt);
+	bpp = cdns_mhdp_get_bpp(&mhdp->display_fmt);
 
 	/* find optimal tu_size */
 	required_bandwidth = pxlclock * bpp / 8;
@@ -911,7 +929,6 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 
 	if (vs > 64)
 		return -EINVAL;
-
 
 	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_TU,
 			    CDNS_DP_FRAMER_TU_VS(vs) |
@@ -936,71 +953,54 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 	return 0;
 }
 
-enum pixel_format cdns_mhdp_get_pxlfmt(u32 color_formats)
-{
-	/* FIXME: what about Y_ONLY? how is it handled in the kernel? */
-	if (color_formats & DRM_COLOR_FORMAT_YCRCB444)
-		return PIXEL_FORMAT_YCBCR_444;
-	if (color_formats & DRM_COLOR_FORMAT_YCRCB422)
-		return PIXEL_FORMAT_YCBCR_422;
-	if (color_formats & DRM_COLOR_FORMAT_YCRCB420)
-		return PIXEL_FORMAT_YCBCR_420;
-	return PIXEL_FORMAT_RGB;
-}
-
 void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 {
 	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
 	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
-	struct drm_display_info disp_info_c;
-	struct drm_display_info *disp_info;
-	unsigned int bpp,  dp_framer_sp = 0, msa_horizontal_1,
+	unsigned int dp_framer_sp = 0, msa_horizontal_1,
 			   msa_vertical_1, bnd_hsync2vsync, hsync2vsync_pol_ctrl,
 			   misc0 = 0, misc1 = 0, pxl_repr,
 			   front_porch, back_porch, msa_h0, msa_v0, hsync, vsync,
 			   dp_vertical_1;
 	struct drm_display_mode *mode;
-	enum pixel_format pxlfmt;
+	u32 bpp, bpc, pxlfmt;
 	u32 tmp;
 	u8 stream_id = mhdp_bridge->stream_id;
 
 	mode = &bridge->encoder->crtc->state->mode;
 
-	disp_info_c = mhdp_bridge->connector->base.display_info;
-	disp_info = &disp_info_c;
-	disp_info->color_formats = DRM_COLOR_FORMAT_RGB444;
-	disp_info->bpc = 8; // HACK
-	pxlfmt = cdns_mhdp_get_pxlfmt(disp_info->color_formats);
+	pxlfmt = mhdp->display_fmt.color_format;
+	bpc = mhdp->display_fmt.bpc;
 
 	/* if YCBCR supported and stream not SD, use ITU709 */
 	/* FIXME: handle ITU version with YCBCR420 when supported */
-	if ((pxlfmt == PIXEL_FORMAT_YCBCR_444 ||
-	     pxlfmt == PIXEL_FORMAT_YCBCR_422) && mode->crtc_vdisplay >= 720)
+	if ((pxlfmt == DRM_COLOR_FORMAT_YCRCB444 ||
+	     pxlfmt == DRM_COLOR_FORMAT_YCRCB422) && mode->crtc_vdisplay >= 720)
 		misc0 = DP_YCBCR_COEFFICIENTS_ITU709;
 
-	bpp = cdns_mhdp_get_bpp(disp_info->bpc, pxlfmt);
+	bpp = cdns_mhdp_get_bpp(&mhdp->display_fmt);
 
 	switch (pxlfmt) {
-	case PIXEL_FORMAT_RGB:
+	case DRM_COLOR_FORMAT_RGB444:
 		pxl_repr = CDNS_DP_FRAMER_RGB << CDNS_DP_FRAMER_PXL_FORMAT;
 		misc0 |= DP_COLOR_FORMAT_RGB;
 		break;
-	case PIXEL_FORMAT_YCBCR_444:
+	case DRM_COLOR_FORMAT_YCRCB444:
 		pxl_repr = CDNS_DP_FRAMER_YCBCR444 << CDNS_DP_FRAMER_PXL_FORMAT;
 		misc0 |= DP_COLOR_FORMAT_YCbCr444 | DP_TEST_DYNAMIC_RANGE_CEA;
 		break;
-	case PIXEL_FORMAT_YCBCR_422:
+	case DRM_COLOR_FORMAT_YCRCB422:
 		pxl_repr = CDNS_DP_FRAMER_YCBCR422 << CDNS_DP_FRAMER_PXL_FORMAT;
 		misc0 |= DP_COLOR_FORMAT_YCbCr422 | DP_TEST_DYNAMIC_RANGE_CEA;
 		break;
-	case PIXEL_FORMAT_YCBCR_420:
+	case DRM_COLOR_FORMAT_YCRCB420:
 		pxl_repr = CDNS_DP_FRAMER_YCBCR420 << CDNS_DP_FRAMER_PXL_FORMAT;
 		break;
 	default:
 		pxl_repr = CDNS_DP_FRAMER_Y_ONLY << CDNS_DP_FRAMER_PXL_FORMAT;
 	}
 
-	switch (disp_info->bpc) {
+	switch (bpc) {
 	case 6:
 		misc0 |= DP_TEST_BIT_DEPTH_6;
 		pxl_repr |= CDNS_DP_FRAMER_6_BPC;
@@ -1088,11 +1088,11 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 	if ((mode->flags & DRM_MODE_FLAG_INTERLACE) &&
 	    mode->crtc_vtotal % 2 == 0)
 		misc1 = DP_TEST_INTERLACED;
-	if (pxlfmt == PIXEL_FORMAT_Y_ONLY)
+	if (mhdp->display_fmt.y_only)
 		misc1 |= CDNS_DP_TEST_COLOR_FORMAT_RAW_Y_ONLY;
 	/* FIXME: use VSC SDP for Y420 */
 	/* FIXME: (CDNS) no code for Y420 in bare metal test */
-	if (pxlfmt == PIXEL_FORMAT_YCBCR_420)
+	if (pxlfmt == DRM_COLOR_FORMAT_YCRCB420)
 		misc1 = CDNS_DP_TEST_VSC_SDP;
 
 	cdns_mhdp_reg_write(mhdp, CDNS_DP_MSA_MISC(stream_id),
@@ -1379,6 +1379,11 @@ static int mhdp_probe(struct platform_device *pdev)
 	mhdp->host.fast_link = 0;
 	mhdp->host.lane_mapping = CDNS_LANE_MAPPING_NORMAL;
 	mhdp->host.enhanced = true;
+
+	/* The only currently supported format */
+	mhdp->display_fmt.y_only = false;
+	mhdp->display_fmt.color_format = DRM_COLOR_FORMAT_RGB444;
+	mhdp->display_fmt.bpc = 8;
 
 	mhdp->bridge.base.of_node = pdev->dev.of_node;
 	mhdp->bridge.base.funcs = &cdns_mhdp_bridge_funcs;
