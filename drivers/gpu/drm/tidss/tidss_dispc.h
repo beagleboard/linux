@@ -140,6 +140,11 @@ struct tidss_dispc_ops {
 	int (*get_irq)(struct dispc_device *dispc);
 
 	bool (*has_writeback)(struct dispc_device *dispc);
+	int (*wb_setup)(struct dispc_device *dispc,
+			const struct drm_plane_state *state,
+			bool mem_to_mem, u32 src_hw_plane,
+			u32 src_hw_videoport);
+	int (*wb_enable)(struct dispc_device *dispc, bool enable);
 };
 
 int dispc6_init(struct tidss_device *tidss);
