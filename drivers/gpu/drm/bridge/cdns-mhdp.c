@@ -108,23 +108,10 @@ static u8 eq_training_pattern_supported(struct cdns_mhdp_host host,
 static void mhdp_hotplug_work_func(struct work_struct *work)
 {
 	struct cdns_mhdp_device *mhdp;
-	struct drm_connector *connector;
-	bool old_plugged;
 
 	mhdp = container_of(work, struct cdns_mhdp_device,
 			    hotplug_work.work);
-	connector = &mhdp->connector.base;
-
-	old_plugged = mhdp->plugged;
-	connector->status = connector->funcs->detect(connector, false);
-
-	if (old_plugged != mhdp->plugged) {
-		drm_kms_helper_hotplug_event(mhdp->bridge.base.dev);
-		return;
-	}
-
-	if (!mhdp->plugged)
-		return;
+	drm_kms_helper_hotplug_event(mhdp->bridge.base.dev);
 }
 
 static irqreturn_t mhdp_irq_handler(int irq, void *data)
