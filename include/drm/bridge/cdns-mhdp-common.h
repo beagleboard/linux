@@ -564,8 +564,6 @@ struct cdns_mhdp_device {
 	struct drm_display_mode	mode;
 	unsigned int		fw_version;
 
-	struct delayed_work hotplug_work;
-
 	bool link_up;
 	bool plugged;
 
