@@ -59,6 +59,10 @@
 	status = "disabled";
 };
 
+&sw10 {
+	status = "disabled";
+};
+
 &dss {
 	power-domains = <&k3_pds 152 TI_SCI_PD_SHARED>; /* share IP among VMs and RTOS */
 
