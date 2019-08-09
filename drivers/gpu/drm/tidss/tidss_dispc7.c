@@ -283,6 +283,7 @@ struct dispc_device {
 	bool vp_managed[DISPC7_MAX_PORTS];
 	bool plane_managed[DISPC7_MAX_PLANES];
 	bool wb_managed;
+	u32 wb_reserved_ovr;
 
 	struct clk *fclk;
 
@@ -2799,6 +2800,51 @@ no_cfg:
 	return 0;
 }
 
+static int dispc7_wb_find_free_ovr(struct dispc_device *dispc)
+{
+	struct tidss_device *tidss = dispc->tidss;
+	struct device *dev = tidss->dev;
+	int i, j;
+	bool found;
+	u32 ovr_id = 0xff;
+
+	dispc_for_each_managed_vp(dispc, i) {
+		found = false;
+		for (j = 0; j < tidss->num_crtcs; j++) {
+			struct drm_crtc *crtc = tidss->crtcs[j];
+			struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
+
+			if (tcrtc->hw_videoport == i) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			/* this means this ovr is available */
+			ovr_id = i;
+			break;
+		}
+	}
+
+	if (ovr_id != 0xff) {
+		dispc->wb_reserved_ovr = ovr_id;
+
+		dev_info(dev, "%s: found ovr %s (%d)\n", __func__,
+			 tidss->dispc_ops->vp_name(tidss->dispc, ovr_id), ovr_id);
+
+		return 0;
+	}
+
+	dispc->wb_managed = false;
+	dev_warn(dev, "%s: No OVR available for WB, disabling WB.\n", __func__);
+	return -1;
+}
+
+static u32 dispc7_wb_get_reserved_ovr(struct dispc_device *dispc)
+{
+	return dispc->wb_reserved_ovr;
+}
+
 static int dispc7_modeset_init(struct dispc_device *dispc)
 {
 	struct tidss_device *tidss = dispc->tidss;
@@ -2931,6 +2977,10 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 		}
 	}
 
+	/* Try to find an available OVR to use for WB */
+	if (dispc7_has_writeback(dispc))
+		dispc7_wb_find_free_ovr(dispc);
+
 	/* create overlay planes of the leftover planes */
 
 	while (tidss->num_planes < dispc->feat->num_planes) {
@@ -3016,6 +3066,7 @@ static const struct tidss_dispc_ops dispc7_ops = {
 	.has_writeback = dispc7_has_writeback,
 	.wb_setup = dispc7_wb_setup,
 	.wb_enable = dispc7_wb_enable,
+	.wb_get_reserved_ovr = dispc7_wb_get_reserved_ovr,
 };
 
 static int dispc7_iomap_resource(struct platform_device *pdev, const char *name,

@@ -16,6 +16,8 @@ struct tidss_plane {
 
 	u32 hw_plane_id;
 
+	bool reserved_wb;
+
 };
 
 struct tidss_plane *tidss_plane_create(struct tidss_device *tidss,
@@ -25,5 +27,7 @@ struct tidss_plane *tidss_plane_create(struct tidss_device *tidss,
 
 dma_addr_t dispc7_plane_state_paddr(const struct drm_plane_state *state);
 dma_addr_t dispc7_plane_state_p_uv_addr(const struct drm_plane_state *state);
+struct drm_plane *tidss_plane_reserve_wb(struct drm_device *dev);
+void tidss_plane_release_wb(struct drm_plane *plane);
 
 #endif

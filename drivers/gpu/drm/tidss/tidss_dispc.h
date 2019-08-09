@@ -145,6 +145,7 @@ struct tidss_dispc_ops {
 			bool mem_to_mem, u32 src_hw_plane,
 			u32 src_hw_videoport);
 	int (*wb_enable)(struct dispc_device *dispc, bool enable);
+	u32 (*wb_get_reserved_ovr)(struct dispc_device *dispc);
 };
 
 int dispc6_init(struct tidss_device *tidss);
