@@ -1,0 +1,53 @@
+* Audio support for j721e Common Processor Board
+
+The audio support on the board is using pcm3168a codec connected to McASP10
+serializers in parallel setup.
+The pcm3168a SCKI clock is coming via the j721e AUDIO_REFCLK2 pin.
+In order to support 48KHz and 44.1KHz family of sampling rates the parent clock
+for AUDIO_REFCLK2 needs to be changed between PLL4 (for 48KHz) and PLL15 (for
+44.1KHz). The same PLLs are used for McASP10's AUXCLK clock via different
+HSDIVIDER.
+
+Required properties:
+- compatible : "ti,j721e-cpb-audio"
+- ti,model : Sound card name, should be "j721e-cpb-analog"
+- ti,cpb-mcasp : phandle to McASP10
+- ti,cpb-codec : phandle to the pcm3168a codec on the CPB
+- pll4-rate : Rate of the PLL4 in Hz. Must be chacked agains how it is
+	      configured by sysfw.
+- pll15-rate : Rate of the PLL15 in Hz. Must be chacked agains how it is
+	       configured by sysfw.
+- clocks : Must contain an entry for each entry in clock-names.
+- clock-names : Must include the following entries:
+		"cpb-mcasp" (McASP10 auxclk clock)
+		"cpb-mcasp-48000" (PLL4_HSDIV0 parent for McASP10 auxclk)
+		"cpb-mcasp-44100" (PLL15_HSDIV0 parent for McASP10 auxclk)
+		"audio-refclk2" (AUDIO_REFCLK2 clock)
+		"audio-refclk2-48000" (PLL4_HSDIV2 parent for AUDIO_REFCLK2
+				       clock)
+		"audio-refclk2-44100" (PLL15_HSDIV2 parent for AUDIO_REFCLK2
+				       clock)
+
+Example:
+
+sound0: sound@0 {
+	compatible = "ti,j721e-cpb-audio";
+	ti,model = "j721e-cpb-analog";
+
+	status = "okay";
+
+	ti,cpb-mcasp = <&mcasp10>;
+	ti,cpb-codec = <&pcm3168a_1>;
+
+	pll4-rate = <1179648000>; /* Used for 48KHz family */
+	pll15-rate = <1083801600>; /* Used for 44.1KHz family */
+
+	clocks = <&k3_clks 184 1>,
+		 <&k3_clks 184 2>, <&k3_clks 184 4>,
+		 <&k3_clks 157 371>,
+		 <&k3_clks 157 400>, <&k3_clks 157 401>;
+	clock-names = "cpb-mcasp",
+		      "cpb-mcasp-48000", "cpb-mcasp-44100",
+		      "audio-refclk2",
+		      "audio-refclk2-48000", "audio-refclk2-44100";
+};
