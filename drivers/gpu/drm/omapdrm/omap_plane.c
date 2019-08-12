@@ -292,14 +292,14 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 	if (ret)
 		return ret;
 
-	if (state->rotation != DRM_MODE_ROTATE_0 &&
-	    !omap_framebuffer_supports_rotation(state->fb))
-		return -EINVAL;
-
 	DBG("%s: check (%d -> %d)", plane->name,
 	    old_state->visible, state->visible);
 
 	if (state->visible) {
+		if (state->rotation != DRM_MODE_ROTATE_0 &&
+		    !omap_framebuffer_supports_rotation(state->fb))
+			return -EINVAL;
+
 		if ((state->src_w >> 16) != state->crtc_w ||
 		    (state->src_h >> 16) != state->crtc_h)
 			caps |= OMAP_DSS_OVL_CAP_SCALE;
