@@ -863,9 +863,46 @@ static int cdns_mhdp_detect(struct drm_connector *conn,
 	return connector_status_disconnected;
 }
 
+static
+bool cdns_mhdp_bandwidth_ok(struct cdns_mhdp_device *mhdp,
+			    const struct drm_display_mode *mode,
+			    int lanes, int rate)
+{
+	u32 max_bw, req_bw, bpp;
+
+	bpp = cdns_mhdp_get_bpp(&mhdp->display_fmt);
+	req_bw = mode->clock * bpp / 8;
+
+	max_bw = lanes * rate;
+
+	if (req_bw > max_bw) {
+		dev_dbg(mhdp->dev, "%s: %s (%u * %u/8 =) %u > %u (= %u * %u)\n",
+			__func__, mode->name, mode->clock, bpp, req_bw,
+			max_bw, lanes, rate);
+
+		return false;
+	}
+
+	return true;
+}
+
+static
+enum drm_mode_status cdns_mhdp_mode_valid(struct drm_connector *conn,
+					  struct drm_display_mode *mode)
+{
+	struct cdns_mhdp_device *mhdp = connector_to_mhdp(conn);
+
+	if (!cdns_mhdp_bandwidth_ok(mhdp, mode, mhdp->host.lanes_cnt,
+				    mhdp->host.link_rate))
+		return MODE_CLOCK_HIGH;
+
+	return MODE_OK;
+}
+
 static const struct drm_connector_helper_funcs cdns_mhdp_conn_helper_funcs = {
 	.detect_ctx = cdns_mhdp_detect,
 	.get_modes = cdns_mhdp_get_modes,
+	.mode_valid = cdns_mhdp_mode_valid,
 };
 
 static const struct drm_connector_funcs cdns_mhdp_conn_funcs = {
