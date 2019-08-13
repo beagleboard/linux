@@ -61,7 +61,7 @@
 
 			pruss0_emac0: ethernet-mii0 {
 				phy-handle = <&pruss0_eth0_phy>;
-				phy-mode = "rgmii-id";
+				phy-mode = "rgmii-rxid";
 				syscon-rgmii-delay = <&scm_conf 0x4100>;
 				iep = <&icssg0_iep0>;
 				/* Filled in by bootloader */
@@ -70,7 +70,7 @@
 
 			pruss0_emac1: ethernet-mii1 {
 				phy-handle = <&pruss0_eth1_phy>;
-				phy-mode = "rgmii-id";
+				phy-mode = "rgmii-rxid";
 				syscon-rgmii-delay = <&scm_conf 0x4104>;
 				iep = <&icssg0_iep1>;
 				/* Filled in by bootloader */
@@ -114,7 +114,7 @@
 
 			pruss1_emac0: ethernet-mii0 {
 				phy-handle = <&pruss1_eth0_phy>;
-				phy-mode = "rgmii-id";
+				phy-mode = "rgmii-rxid";
 				syscon-rgmii-delay = <&scm_conf 0x4110>;
 				iep = <&icssg1_iep0>;
 				/* Filled in by bootloader */
@@ -123,7 +123,7 @@
 
 			pruss1_emac1: ethernet-mii1 {
 				phy-handle = <&pruss1_eth1_phy>;
-				phy-mode = "rgmii-id";
+				phy-mode = "rgmii-rxid";
 				syscon-rgmii-delay = <&scm_conf 0x4114>;
 				iep = <&icssg1_iep1>;
 				/* Filled in by bootloader */
@@ -259,14 +259,12 @@
 	pruss0_eth0_phy: ethernet-phy@0 {
 		reg = <0>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
 	};
 
 	pruss0_eth1_phy: ethernet-phy@3 {
 		reg = <3>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
 	};
 };
@@ -281,14 +279,12 @@
 	pruss1_eth0_phy: ethernet-phy@0 {
 		reg = <0>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
 	};
 
 	pruss1_eth1_phy: ethernet-phy@3 {
 		reg = <3>;
 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-		ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
 	};
 };
