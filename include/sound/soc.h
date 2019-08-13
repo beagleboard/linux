@@ -1021,6 +1021,10 @@ struct snd_soc_card {
 	struct mutex mutex;
 	struct mutex dapm_mutex;
 
+	/* Mutex for PCM operations */
+	struct mutex pcm_mutex;
+	enum snd_soc_pcm_subclass pcm_subclass;
+
 	int id_hint;
 	bool instantiated;
 	bool topology_shortname_created;
@@ -1121,8 +1125,6 @@ struct snd_soc_pcm_runtime {
 	struct device *dev;
 	struct snd_soc_card *card;
 	struct snd_soc_dai_link *dai_link;
-	struct mutex pcm_mutex;
-	enum snd_soc_pcm_subclass pcm_subclass;
 	struct snd_pcm_ops ops;
 
 	/* Dynamic PCM BE runtime data */
