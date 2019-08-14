@@ -365,6 +365,7 @@ static DEVICE_ATTR_RW(field)
 
 /* for more info, see Documentation/ABI/testing/sysfs-bus-rpmsg */
 rpmsg_show_attr(name, id.name, "%s\n");
+rpmsg_show_attr(desc, desc, "%s\n");
 rpmsg_show_attr(src, src, "0x%x\n");
 rpmsg_show_attr(dst, dst, "0x%x\n");
 rpmsg_show_attr(announce, announce ? "true" : "false", "%s\n");
@@ -386,6 +387,7 @@ static DEVICE_ATTR_RO(modalias);
 
 static struct attribute *rpmsg_dev_attrs[] = {
 	&dev_attr_name.attr,
+	&dev_attr_desc.attr,
 	&dev_attr_modalias.attr,
 	&dev_attr_dst.attr,
 	&dev_attr_src.attr,

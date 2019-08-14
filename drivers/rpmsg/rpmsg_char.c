@@ -440,6 +440,7 @@ static long rpmsg_ctrldev_ioctl(struct file *fp, unsigned int cmd,
 	chinfo.name[RPMSG_NAME_SIZE-1] = '\0';
 	chinfo.src = eptinfo.src;
 	chinfo.dst = eptinfo.dst;
+	chinfo.desc[0] = '\0';
 
 	return rpmsg_eptdev_create(ctrldev, chinfo);
 };
