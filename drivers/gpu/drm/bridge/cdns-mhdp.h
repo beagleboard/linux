@@ -212,6 +212,18 @@ struct cdns_mhdp_display_fmt {
 	u8 y_only : 1;
 };
 
+/*
+ * These enums present MHDP hw initialization state
+ * Legal state transitions are:
+ * MHDP_HW_INACTIVE <-> MHDP_HW_LOADING -> MHDP_HW_READY
+ *        |                                     |
+ *        '----------> MHDP_HW_STOPPED <--------'
+ */
+enum mhdp_hw_state { MHDP_HW_INACTIVE = 0, /* HW not initialized */
+		     MHDP_HW_LOADING,	   /* HW initialization in progress */
+		     MHDP_HW_READY,	   /* HW ready, FW active*/
+		     MHDP_HW_STOPPED };	   /* Driver removal FW to be stopped */
+
 struct cdns_mhdp_device {
 	void __iomem *regs;
 	void __iomem *j721e_regs;
@@ -233,6 +245,18 @@ struct cdns_mhdp_device {
 
 	u8 link_up : 1;
 	u8 plugged : 1;
+
+	/*
+	 * "start_lock" protects the access to bridge_attached and
+	 * hw_state data members that control the delayed firmware
+	 * loading and attaching the bridge. They are accessed from
+	 * both the DRM core and mhdp_fw_cb(). In most cases just
+	 * protecting the data members is enough, but the irq mask
+	 * setting needs to be protected when enabling the FW.
+	 */
+	spinlock_t start_lock;
+	u8 bridge_attached : 1;
+	enum mhdp_hw_state hw_state;
 };
 
 #define connector_to_mhdp(x) container_of(x, struct cdns_mhdp_device, connector)
