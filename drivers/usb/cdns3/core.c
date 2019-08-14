@@ -233,6 +233,10 @@ static int cdns3_core_init_role(struct cdns3 *cdns)
 		goto err;
 	}
 
+	/* switch role if needed */
+	if (dr_mode == USB_DR_MODE_OTG)
+		queue_work(system_freezable_wq, &cdns->role_switch_wq);
+
 	return ret;
 err:
 	cdns3_exit_roles(cdns);
