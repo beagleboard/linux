@@ -105,28 +105,6 @@ static u8 eq_training_pattern_supported(struct cdns_mhdp_host host,
 	return fls(host.pattern_supp & sink.pattern_supp);
 }
 
-static void mhdp_hotplug_work_func(struct work_struct *work)
-{
-	struct cdns_mhdp_device *mhdp;
-	struct drm_connector *connector;
-	bool old_plugged;
-
-	mhdp = container_of(work, struct cdns_mhdp_device,
-			    hotplug_work.work);
-	connector = &mhdp->connector.base;
-
-	old_plugged = mhdp->plugged;
-	connector->status = connector->funcs->detect(connector, false);
-
-	if (old_plugged != mhdp->plugged) {
-		drm_kms_helper_hotplug_event(mhdp->bridge.base.dev);
-		return;
-	}
-
-	if (!mhdp->plugged)
-		return;
-}
-
 static irqreturn_t mhdp_irq_handler(int irq, void *data)
 {
 	struct cdns_mhdp_device *mhdp = (struct cdns_mhdp_device *)data;
@@ -142,7 +120,7 @@ static irqreturn_t mhdp_irq_handler(int irq, void *data)
 	//dev_dbg(mhdp->dev, "MHDP IRQ apb %x, mbox %x, sw_ev %x/%x/%x/%x\n", apb_stat, mbox_stat, sw_ev0, sw_ev1, sw_ev2, sw_ev3);
 
 	if (sw_ev0 & CDNS_DPTX_HPD)
-		schedule_delayed_work(&mhdp->hotplug_work, 0);
+		drm_kms_helper_hotplug_event(mhdp->bridge.base.dev);
 
 	return IRQ_HANDLED;
 }
@@ -1334,8 +1312,8 @@ static int mhdp_probe(struct platform_device *pdev)
 	writel(~0, mhdp->regs + CDNS_APB_INT_MASK);
 
 	irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(mhdp->dev, irq, mhdp_irq_handler, 0,
-			       "mhdp8546", mhdp);
+	ret = devm_request_threaded_irq(mhdp->dev, irq, NULL, mhdp_irq_handler,
+					IRQF_ONESHOT, "mhdp8546", mhdp);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"cannot install IRQ %d\n", irq);
@@ -1416,8 +1394,6 @@ static int mhdp_probe(struct platform_device *pdev)
 	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_CAR,
 			    resp | CDNS_VIF_CLK_EN | CDNS_VIF_CLK_RSTN);
 
-	INIT_DELAYED_WORK(&mhdp->hotplug_work, mhdp_hotplug_work_func);
-
 	mhdp->bridge.connector = &mhdp->connector;
 	mhdp->connector.bridge = &mhdp->bridge;
 	mhdp->bridge.mhdp = mhdp;
@@ -1435,7 +1411,6 @@ static int mhdp_remove(struct platform_device *pdev)
 	struct cdns_mhdp_device *mhdp = dev_get_drvdata(&pdev->dev);
 	int ret;
 
-	flush_delayed_work(&mhdp->hotplug_work);
 	platform_device_unregister(mhdp->audio_pdev);
 
 	drm_bridge_remove(&mhdp->bridge.base);
