@@ -711,10 +711,6 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 			   (mhdp->host.lanes_cnt & CDNS_SCRAMBLER) ? 0 :
 			   DP_LINK_SCRAMBLING_DISABLE);
 
-	/* SW reset DPTX framer */
-	cdns_mhdp_reg_write(mhdp, CDNS_DP_SW_RESET, 1);
-	cdns_mhdp_reg_write(mhdp, CDNS_DP_SW_RESET, 0);
-
 	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG,
 			    CDNS_DP_NUM_LANES(mhdp->link.num_lanes) |
 			    CDNS_DP_DISABLE_PHY_RST |
