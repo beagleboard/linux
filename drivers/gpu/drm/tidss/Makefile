@@ -15,4 +15,6 @@ tidss-y := tidss_crtc.o \
 tidss-$(CONFIG_DRM_TIDSS_DSS6) += tidss_dispc6.o
 tidss-$(CONFIG_DRM_TIDSS_DSS7) += tidss_dispc7.o
 
+tidss-$(CONFIG_DRM_TIDSS_WB) += tidss_wb.o tidss_wb_m2m.o
+
 obj-$(CONFIG_DRM_TIDSS) += tidss.o
