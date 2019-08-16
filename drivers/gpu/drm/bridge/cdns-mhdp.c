@@ -619,7 +619,6 @@ static void lower_link_rate(struct drm_dp_link *link)
 }
 
 static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
-			      unsigned int video_mode,
 			      unsigned int training_interval)
 {
 	u32 reg32;
@@ -711,11 +710,10 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 			   (mhdp->host.lanes_cnt & CDNS_SCRAMBLER) ? 0 :
 			   DP_LINK_SCRAMBLING_DISABLE);
 
-	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG,
-			    CDNS_DP_NUM_LANES(mhdp->link.num_lanes) |
-			    CDNS_DP_DISABLE_PHY_RST |
-			    CDNS_DP_WR_FAILING_EDGE_VSYNC |
-			    (!video_mode ? CDNS_DP_NO_VIDEO_MODE : 0));
+	cdns_mhdp_reg_read(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, &reg32);
+	reg32 &= ~GENMASK(1, 0);
+	reg32 |= CDNS_DP_NUM_LANES(mhdp->link.num_lanes);
+	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, reg32);
 
 	/* Reset PHY config */
 	reg32 = CDNS_PHY_COMMON_CONFIG | CDNS_PHY_TRAINING_TYPE(1);
@@ -767,7 +765,7 @@ static u32 get_training_interval_us(struct cdns_mhdp_device *mhdp,
 
 static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 {
-	u32 resp, dp_framer_global_config, video_mode;
+	u32 resp;
 	u8 reg0[DP_RECEIVER_CAP_SIZE], amp[2];
 
 	/*
@@ -802,16 +800,11 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 	mhdp->link.rate = max_link_rate(mhdp->host, mhdp->sink);
 	mhdp->link.num_lanes = min_t(u8, mhdp->sink.lanes_cnt,
 				     mhdp->host.lanes_cnt & GENMASK(2, 0));
+
+	/* Disable framer for link training */
 	cdns_mhdp_reg_read(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, &resp);
-
-	dp_framer_global_config = be32_to_cpu(resp);
-
-	video_mode = !(dp_framer_global_config & CDNS_DP_NO_VIDEO_MODE);
-
-	if (dp_framer_global_config & CDNS_DP_FRAMER_EN)
-		cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG,
-				    dp_framer_global_config &
-				    ~CDNS_DP_FRAMER_EN);
+	resp &= ~CDNS_DP_FRAMER_EN;
+	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, resp);
 
 	/* Spread AMP if required, enable 8b/10b coding */
 	amp[0] = (mhdp->host.lanes_cnt & CDNS_SSC) ? DP_SPREAD_AMP_0_5 : 0;
@@ -827,7 +820,7 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 		const u32 interval_us = get_training_interval_us(mhdp,
 								 interval);
 		if (!interval_us ||
-		    mhdp_link_training(mhdp, video_mode, interval_us)) {
+		    mhdp_link_training(mhdp, interval_us)) {
 			dev_err(mhdp->dev, "Link training failed. Exiting.\n");
 			return -EIO;
 		}
@@ -1094,6 +1087,7 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 
 	cdns_mhdp_reg_read(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, &tmp);
 	tmp |= CDNS_DP_FRAMER_EN;
+	tmp &= ~CDNS_DP_NO_VIDEO_MODE;
 	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, tmp);
 }
 
