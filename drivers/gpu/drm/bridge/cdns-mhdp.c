@@ -997,13 +997,11 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 	cdns_mhdp_reg_write(mhdp, CDNS_BND_HSYNC2VSYNC(stream_id),
 			    bnd_hsync2vsync);
 
-	if (mode->flags & DRM_MODE_FLAG_INTERLACE &&
-	    mode->flags & DRM_MODE_FLAG_PHSYNC)
-		hsync2vsync_pol_ctrl = CDNS_H2V_HSYNC_POL_ACTIVE_LOW |
-				       CDNS_H2V_VSYNC_POL_ACTIVE_LOW;
-	else
-		hsync2vsync_pol_ctrl = 0;
-
+	hsync2vsync_pol_ctrl = 0;
+	if (mode->flags & DRM_MODE_FLAG_NHSYNC)
+		hsync2vsync_pol_ctrl |= CDNS_H2V_HSYNC_POL_ACTIVE_LOW;
+	if (mode->flags & DRM_MODE_FLAG_NVSYNC)
+		hsync2vsync_pol_ctrl |= CDNS_H2V_VSYNC_POL_ACTIVE_LOW;
 	cdns_mhdp_reg_write(mhdp, CDNS_HSYNC2VSYNC_POL_CTRL(stream_id),
 			    hsync2vsync_pol_ctrl);
 
@@ -1114,24 +1112,11 @@ static void cdns_mhdp_detach(struct drm_bridge *bridge)
 	writel(~0, mhdp->regs + CDNS_MB_INT_MASK);
 }
 
-static bool cdns_mhdp_mode_fixup(struct drm_bridge *bridge,
-				 const struct drm_display_mode *mode,
-				 struct drm_display_mode *adj)
-{
-	/* Fixup sync polarities, both hsync and vsync are active high */
-	adj->flags = mode->flags;
-	adj->flags |= (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
-	adj->flags &= ~(DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
-
-	return true;
-}
-
 static const struct drm_bridge_funcs cdns_mhdp_bridge_funcs = {
 	.enable = cdns_mhdp_enable,
 	.disable = cdns_mhdp_disable,
 	.attach = cdns_mhdp_attach,
 	.detach = cdns_mhdp_detach,
-	.mode_fixup = cdns_mhdp_mode_fixup,
 };
 
 static int load_firmware(struct cdns_mhdp_device *mhdp, const char *name,
