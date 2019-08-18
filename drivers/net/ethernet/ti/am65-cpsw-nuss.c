@@ -186,11 +186,17 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev)
 		netif_carrier_on(ndev);
 		netif_tx_wake_all_queues(ndev);
 	} else {
+		int tmo;
 		/* disable forwarding */
 		cpsw_ale_control_set(common->ale, port->port_id,
 				     ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
 
-		cpsw_sl_wait_for_idle(port->slave.mac_sl);
+		cpsw_sl_ctl_set(port->slave.mac_sl, CPSW_SL_CTL_CMD_IDLE);
+
+		tmo = cpsw_sl_wait_for_idle(port->slave.mac_sl);
+		dev_dbg(common->dev, "donw msc_sl %08x tmo %d\n",
+			cpsw_sl_reg_read(port->slave.mac_sl, CPSW_SL_MACSTATUS),
+			tmo);
 
 		cpsw_sl_ctl_reset(port->slave.mac_sl);
 
