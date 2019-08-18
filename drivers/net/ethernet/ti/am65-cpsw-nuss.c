@@ -183,7 +183,6 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev)
 		cpsw_ale_control_set(common->ale, port->port_id,
 				     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
 
-		netif_carrier_on(ndev);
 		netif_tx_wake_all_queues(ndev);
 	} else {
 		int tmo;
@@ -200,7 +199,6 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev)
 
 		cpsw_sl_ctl_reset(port->slave.mac_sl);
 
-		netif_carrier_off(ndev);
 		netif_tx_stop_all_queues(ndev);
 	}
 
@@ -563,14 +561,12 @@ static int am65_cpsw_nuss_ndo_slave_stop(struct net_device *ndev)
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
 	int ret;
 
-	cpsw_ale_control_set(common->ale, port->port_id,
-			     ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
+	if (port->slave.phy)
+		phy_stop(port->slave.phy);
 
 	netif_tx_stop_all_queues(ndev);
-	netif_carrier_off(ndev);
 
 	if (port->slave.phy) {
-		phy_stop(port->slave.phy);
 		phy_disconnect(port->slave.phy);
 		port->slave.phy = NULL;
 	}
@@ -578,8 +574,6 @@ static int am65_cpsw_nuss_ndo_slave_stop(struct net_device *ndev)
 	ret = am65_cpsw_nuss_common_stop(common);
 	if (ret)
 		return ret;
-
-	cpsw_sl_reset(port->slave.mac_sl, 100);
 
 	common->usage_count--;
 	pm_runtime_put(common->dev);
