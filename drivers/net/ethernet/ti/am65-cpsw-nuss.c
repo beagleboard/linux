@@ -523,6 +523,7 @@ static int am65_cpsw_nuss_common_stop(struct am65_cpsw_common *common)
 					msecs_to_jiffies(1000));
 	if (!i)
 		dev_err(common->dev, "tx timeout\n");
+	napi_disable(&common->napi_tx);
 
 	for (i = 0; i < AM65_CPSW_MAX_TX_QUEUES; i++) {
 		k3_nav_udmax_reset_tx_chn(common->tx_chns[i].tx_chn,
@@ -532,6 +533,7 @@ static int am65_cpsw_nuss_common_stop(struct am65_cpsw_common *common)
 	}
 
 	k3_nav_udmax_tdown_rx_chn(common->rx_chns.rx_chn, true);
+	napi_disable(&common->napi_rx);
 
 	for (i = 0; i < AM65_CPSW_MAX_RX_FLOWS; i++)
 		k3_nav_udmax_reset_rx_chn(common->rx_chns.rx_chn, i,
@@ -539,9 +541,6 @@ static int am65_cpsw_nuss_common_stop(struct am65_cpsw_common *common)
 					  am65_cpsw_nuss_rx_cleanup, !!i);
 
 	k3_nav_udmax_disable_rx_chn(common->rx_chns.rx_chn);
-
-	napi_disable(&common->napi_rx);
-	napi_disable(&common->napi_tx);
 
 	cpsw_ale_stop(common->ale);
 
