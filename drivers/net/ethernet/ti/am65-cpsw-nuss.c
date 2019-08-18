@@ -790,7 +790,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 
 	if (unlikely(!netif_running(skb->dev))) {
 		dev_kfree_skb_any(skb);
-		return -ENODEV;
+		return 0;
 	}
 
 	new_skb = netdev_alloc_skb_ip_align(ndev, AM65_CPSW_MAX_PACKET_SIZE);
@@ -816,7 +816,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	if (netif_dormant(ndev)) {
 		dev_kfree_skb_any(new_skb);
 		ndev->stats.rx_dropped++;
-		return -ENODEV;
+		return 0;
 	}
 
 	ret = am65_cpsw_nuss_rx_push(common, new_skb);
