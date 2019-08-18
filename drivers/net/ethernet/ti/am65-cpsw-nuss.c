@@ -636,9 +636,6 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 	cpsw_sl_reset(port->slave.mac_sl, 100);
 	cpsw_sl_ctl_reset(port->slave.mac_sl);
 
-	cpsw_ale_control_set(common->ale, port->port_id,
-			     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
-
 	cpsw_phy_sel(common->dev, port->slave.phy_if, port->port_id);
 
 	if (port->slave.phy_node) {
