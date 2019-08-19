@@ -816,7 +816,8 @@ struct k3_nav_udmax_rx_channel *k3_nav_udmax_request_rx_chn(struct device *dev,
 						rx_chn->flow_id_base,
 						rx_chn->flow_num);
 		if (ret < 0) {
-			dev_err(dev, "UDMAX reserve_rflow get err %d\n", ret);
+			dev_err(dev, "UDMAX reserve_rflow %d cnt:%d err: %d\n",
+				rx_chn->flow_id_base, rx_chn->flow_num, ret);
 			goto err;
 		}
 		rx_chn->flow_id_base = ret;
