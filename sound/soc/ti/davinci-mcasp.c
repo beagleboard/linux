@@ -14,6 +14,7 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/export.h>
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -1630,6 +1631,20 @@ static struct snd_soc_dai_driver davinci_mcasp_dai[] = {
 	},
 
 };
+
+int davinci_mcasp_set_serializer_dir(struct snd_soc_dai *dai, u8 num_serializer,
+				     u8 *serial_dir)
+{
+	struct davinci_mcasp *mcasp = snd_soc_dai_get_drvdata(dai);
+
+	if (mcasp->num_serializer != num_serializer)
+		return -EINVAL;
+
+	memcpy(mcasp->serial_dir, serial_dir, num_serializer);
+
+	return 0;
+}
+EXPORT_SYMBOL(davinci_mcasp_set_serializer_dir);
 
 static const struct snd_soc_component_driver davinci_mcasp_component = {
 	.name		= "davinci-mcasp",
