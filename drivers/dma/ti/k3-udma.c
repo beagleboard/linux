@@ -3170,6 +3170,8 @@ static int udma_setup_resources(struct udma_dev *ud)
 			rm_desc = &rm_res->desc[i];
 			bitmap_clear(ud->tchan_map, rm_desc->start,
 				     rm_desc->num);
+			dev_dbg(dev, "ti-sci-res: tchan: %d:%d\n",
+				rm_desc->start, rm_desc->num);
 		}
 	}
 
@@ -3187,6 +3189,8 @@ static int udma_setup_resources(struct udma_dev *ud)
 				     rm_desc->num);
 			bitmap_clear(ud->rflow_map, rm_desc->start,
 				     rm_desc->num);
+			dev_dbg(dev, "ti-sci-res: rchan: %d:%d\n",
+				rm_desc->start, rm_desc->num);
 		}
 	}
 
@@ -3202,6 +3206,8 @@ static int udma_setup_resources(struct udma_dev *ud)
 			rm_desc = &rm_res->desc[i];
 			bitmap_clear(ud->rflow_map, rm_desc->start,
 				     rm_desc->num);
+			dev_dbg(dev, "ti-sci-res: rflow: %d:%d\n",
+				rm_desc->start, rm_desc->num);
 		}
 	}
 
