@@ -197,12 +197,9 @@ static int cdns_mhdp_get_modes(struct drm_connector *connector)
 	return num_modes;
 }
 
-static const struct drm_connector_helper_funcs cdns_mhdp_conn_helper_funcs = {
-	.get_modes = cdns_mhdp_get_modes,
-};
-
-static enum drm_connector_status cdns_mhdp_detect(struct drm_connector *conn,
-						  bool force)
+static int cdns_mhdp_detect(struct drm_connector *conn,
+			    struct drm_modeset_acquire_ctx *ctx,
+			    bool force)
 {
 	struct cdns_mhdp_device *mhdp = connector_to_mhdp(conn);
 	int ret;
@@ -220,13 +217,17 @@ static enum drm_connector_status cdns_mhdp_detect(struct drm_connector *conn,
 	return connector_status_disconnected;
 }
 
+static const struct drm_connector_helper_funcs cdns_mhdp_conn_helper_funcs = {
+	.detect_ctx = cdns_mhdp_detect,
+	.get_modes = cdns_mhdp_get_modes,
+};
+
 static const struct drm_connector_funcs cdns_mhdp_conn_funcs = {
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.reset = drm_atomic_helper_connector_reset,
 	.destroy = drm_connector_cleanup,
-	.detect = cdns_mhdp_detect,
 };
 
 static int cdns_mhdp_attach(struct drm_bridge *bridge)
