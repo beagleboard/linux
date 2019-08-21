@@ -1,7 +1,8 @@
 TI J721E WIZ (SERDES Wrapper)
 
 Required properties:
- - compatible: Should be "ti,j721e-wiz"
+ - compatible: Should be "ti,j721e-wiz-16g" for Sierra phy wrapper,
+	       or "ti,j721e-wiz-10g" for Torrent phy wrapper.
  - #address-cells : should be 2 to indicate the child node should use 2 cell
      for address
  - #size-cells: should be 2 to indicate the child node should use 2 cell for
@@ -50,7 +51,7 @@ Required subnodes:
 
 Example: Example shows binding for SERDES_16G (Sierra SERDES with WIZ wrapper)
 serdes_wiz0: wiz@5000000 {
-	compatible = "ti,j721e-wiz";
+	compatible = "ti,j721e-wiz-16g";
 	#address-cells = <2>;
 	#size-cells = <2>;
 	power-domains = <&k3_pds 292 TI_SCI_PD_EXCLUSIVE>;
