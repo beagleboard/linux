@@ -53,8 +53,6 @@ MODULE_DEVICE_TABLE(of, mhdp_ids);
 #define CDNS_LANE_1				BIT(0)
 #define CDNS_LANE_2				BIT(1)
 #define CDNS_LANE_4				BIT(2)
-#define CDNS_SSC				BIT(3)
-#define CDNS_SCRAMBLER				BIT(4)
 
 #define CDNS_VOLT_SWING(x)			((x) & GENMASK(1, 0))
 #define CDNS_FORCE_VOLT_SWING			BIT(2)
@@ -290,7 +288,7 @@ static void mhdp_link_training_init(struct cdns_mhdp_device *mhdp)
 
 	/* Reset PHY configuration */
 	reg32 = CDNS_PHY_COMMON_CONFIG | CDNS_PHY_TRAINING_TYPE(1);
-	if (!(mhdp->host.lanes_cnt & CDNS_SCRAMBLER))
+	if (!mhdp->host.scrambler)
 		reg32 |= CDNS_PHY_SCRAMBLER_BYPASS;
 
 	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_PHY_CONFIG, reg32);
@@ -704,7 +702,7 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 	dev_dbg(mhdp->dev, "Link training successful\n");
 
 	drm_dp_dpcd_writeb(&mhdp->aux, DP_TRAINING_PATTERN_SET,
-			   (mhdp->host.lanes_cnt & CDNS_SCRAMBLER) ? 0 :
+			   mhdp->host.scrambler ? 0 :
 			   DP_LINK_SCRAMBLING_DISABLE);
 
 	cdns_mhdp_reg_read(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, &reg32);
@@ -714,7 +712,7 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 
 	/* Reset PHY config */
 	reg32 = CDNS_PHY_COMMON_CONFIG | CDNS_PHY_TRAINING_TYPE(1);
-	if (!(mhdp->host.lanes_cnt & CDNS_SCRAMBLER))
+	if (!mhdp->host.scrambler)
 		reg32 |= CDNS_PHY_SCRAMBLER_BYPASS;
 	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_PHY_CONFIG, reg32);
 
@@ -722,7 +720,7 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 err:
 	/* Reset PHY config */
 	reg32 = CDNS_PHY_COMMON_CONFIG | CDNS_PHY_TRAINING_TYPE(1);
-	if (!(mhdp->host.lanes_cnt & CDNS_SCRAMBLER))
+	if (!mhdp->host.scrambler)
 		reg32 |= CDNS_PHY_SCRAMBLER_BYPASS;
 	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_PHY_CONFIG, reg32);
 
@@ -813,7 +811,7 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, resp);
 
 	/* Spread AMP if required, enable 8b/10b coding */
-	amp[0] = (mhdp->host.lanes_cnt & CDNS_SSC) ? DP_SPREAD_AMP_0_5 : 0;
+	amp[0] = mhdp->host.ssc ? DP_SPREAD_AMP_0_5 : 0;
 	amp[1] = DP_SET_ANSI_8B10B;
 	drm_dp_dpcd_write(&mhdp->aux, DP_DOWNSPREAD_CTRL, amp, 2);
 
@@ -1322,9 +1320,9 @@ static int mhdp_probe(struct platform_device *pdev)
 	ret = device_property_read_u32(&(mhdp->phy->dev), "num_lanes",
 				       &(lanes_prop));
 	if (ret)
-		mhdp->host.lanes_cnt = CDNS_LANE_4 | CDNS_SCRAMBLER;
+		mhdp->host.lanes_cnt = CDNS_LANE_4;
 	else
-		mhdp->host.lanes_cnt = lanes_prop | CDNS_SCRAMBLER;
+		mhdp->host.lanes_cnt = lanes_prop;
 
 	ret = device_property_read_u32(&(mhdp->phy->dev), "max_bit_rate",
 				       &(mhdp->host.link_rate));
@@ -1339,9 +1337,11 @@ static int mhdp_probe(struct platform_device *pdev)
 	mhdp->host.pattern_supp = CDNS_SUPPORT_TPS(1) |
 				  CDNS_SUPPORT_TPS(2) | CDNS_SUPPORT_TPS(3) |
 				  CDNS_SUPPORT_TPS(4);
-	mhdp->host.fast_link = 0;
 	mhdp->host.lane_mapping = CDNS_LANE_MAPPING_NORMAL;
+	mhdp->host.fast_link = false;
 	mhdp->host.enhanced = true;
+	mhdp->host.scrambler = true;
+	mhdp->host.ssc = false;
 
 	/* The only currently supported format */
 	mhdp->display_fmt.y_only = false;

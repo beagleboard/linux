@@ -501,9 +501,11 @@ struct cdns_mhdp_host {
 	u8	volt_swing;
 	u8	pre_emphasis;
 	u8	pattern_supp;
-	u8	fast_link;
 	u8	lane_mapping;
-	u8	enhanced;
+	u8	fast_link : 1;
+	u8	enhanced : 1;
+	u8	scrambler : 1;
+	u8	ssc : 1;
 };
 
 struct cdns_mhdp_sink {
