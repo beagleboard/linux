@@ -183,18 +183,22 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev)
 		cpsw_ale_control_set(common->ale, port->port_id,
 				     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
 
-		netif_carrier_on(ndev);
 		netif_tx_wake_all_queues(ndev);
 	} else {
+		int tmo;
 		/* disable forwarding */
 		cpsw_ale_control_set(common->ale, port->port_id,
 				     ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
 
-		cpsw_sl_wait_for_idle(port->slave.mac_sl);
+		cpsw_sl_ctl_set(port->slave.mac_sl, CPSW_SL_CTL_CMD_IDLE);
+
+		tmo = cpsw_sl_wait_for_idle(port->slave.mac_sl);
+		dev_dbg(common->dev, "donw msc_sl %08x tmo %d\n",
+			cpsw_sl_reg_read(port->slave.mac_sl, CPSW_SL_MACSTATUS),
+			tmo);
 
 		cpsw_sl_ctl_reset(port->slave.mac_sl);
 
-		netif_carrier_off(ndev);
 		netif_tx_stop_all_queues(ndev);
 	}
 
@@ -523,6 +527,7 @@ static int am65_cpsw_nuss_common_stop(struct am65_cpsw_common *common)
 					msecs_to_jiffies(1000));
 	if (!i)
 		dev_err(common->dev, "tx timeout\n");
+	napi_disable(&common->napi_tx);
 
 	for (i = 0; i < AM65_CPSW_MAX_TX_QUEUES; i++) {
 		k3_nav_udmax_reset_tx_chn(common->tx_chns[i].tx_chn,
@@ -532,6 +537,7 @@ static int am65_cpsw_nuss_common_stop(struct am65_cpsw_common *common)
 	}
 
 	k3_nav_udmax_tdown_rx_chn(common->rx_chns.rx_chn, true);
+	napi_disable(&common->napi_rx);
 
 	for (i = 0; i < AM65_CPSW_MAX_RX_FLOWS; i++)
 		k3_nav_udmax_reset_rx_chn(common->rx_chns.rx_chn, i,
@@ -539,9 +545,6 @@ static int am65_cpsw_nuss_common_stop(struct am65_cpsw_common *common)
 					  am65_cpsw_nuss_rx_cleanup, !!i);
 
 	k3_nav_udmax_disable_rx_chn(common->rx_chns.rx_chn);
-
-	napi_disable(&common->napi_rx);
-	napi_disable(&common->napi_tx);
 
 	cpsw_ale_stop(common->ale);
 
@@ -558,14 +561,12 @@ static int am65_cpsw_nuss_ndo_slave_stop(struct net_device *ndev)
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
 	int ret;
 
-	cpsw_ale_control_set(common->ale, port->port_id,
-			     ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
+	if (port->slave.phy)
+		phy_stop(port->slave.phy);
 
 	netif_tx_stop_all_queues(ndev);
-	netif_carrier_off(ndev);
 
 	if (port->slave.phy) {
-		phy_stop(port->slave.phy);
 		phy_disconnect(port->slave.phy);
 		port->slave.phy = NULL;
 	}
@@ -573,8 +574,6 @@ static int am65_cpsw_nuss_ndo_slave_stop(struct net_device *ndev)
 	ret = am65_cpsw_nuss_common_stop(common);
 	if (ret)
 		return ret;
-
-	cpsw_sl_reset(port->slave.mac_sl, 100);
 
 	common->usage_count--;
 	pm_runtime_put(common->dev);
@@ -636,9 +635,6 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 	/* mac_sl should be configured via phy-link interface */
 	cpsw_sl_reset(port->slave.mac_sl, 100);
 	cpsw_sl_ctl_reset(port->slave.mac_sl);
-
-	cpsw_ale_control_set(common->ale, port->port_id,
-			     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
 
 	cpsw_phy_sel(common->dev, port->slave.phy_if, port->port_id);
 
@@ -791,7 +787,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 
 	if (unlikely(!netif_running(skb->dev))) {
 		dev_kfree_skb_any(skb);
-		return -ENODEV;
+		return 0;
 	}
 
 	new_skb = netdev_alloc_skb_ip_align(ndev, AM65_CPSW_MAX_PACKET_SIZE);
@@ -817,7 +813,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	if (netif_dormant(ndev)) {
 		dev_kfree_skb_any(new_skb);
 		ndev->stats.rx_dropped++;
-		return -ENODEV;
+		return 0;
 	}
 
 	ret = am65_cpsw_nuss_rx_push(common, new_skb);

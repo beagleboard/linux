@@ -304,8 +304,9 @@ int cpsw_sl_wait_for_idle(struct cpsw_sl *sl)
 {
 	u32 i = 100;
 
-	while ((cpsw_sl_reg_read(sl, CPSW_SL_MACSTATUS) &
-	       CPSW_SL_STATUS_IDLE_MASK_K3) && i--)
+	while (((cpsw_sl_reg_read(sl, CPSW_SL_MACSTATUS) &
+	       CPSW_SL_STATUS_IDLE_MASK_K3) != CPSW_SL_STATUS_IDLE_MASK_K3) &&
+	       i--)
 		cpu_relax();
 
 	return i;

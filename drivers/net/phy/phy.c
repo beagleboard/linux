@@ -861,6 +861,9 @@ void phy_stop(struct phy_device *phydev)
 out_unlock:
 	mutex_unlock(&phydev->lock);
 
+	phy_state_machine(&phydev->state_queue.work);
+	phy_stop_machine(phydev);
+
 	/* Cannot call flush_scheduled_work() here as desired because
 	 * of rtnl_lock(), but PHY_HALTED shall guarantee phy_change()
 	 * will not reenable interrupts.
