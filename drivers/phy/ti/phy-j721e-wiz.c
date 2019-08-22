@@ -29,7 +29,8 @@
 
 #define WIZ_MAX_LANES		4
 #define WIZ_MUX_NUM_CLOCKS	3
-#define WIZ_DIV_NUM_CLOCKS	2
+#define WIZ_DIV_NUM_CLOCKS_16G	2
+#define WIZ_DIV_NUM_CLOCKS_10G	1
 
 #define WIZ_SERDES_TYPEC_LN10_SWAP	BIT(30)
 
@@ -57,8 +58,10 @@ static const struct reg_field pll1_refclk_mux_sel =
 					REG_FIELD(WIZ_SERDES_RST, 29, 29);
 static const struct reg_field pll0_refclk_mux_sel =
 					REG_FIELD(WIZ_SERDES_RST, 28, 28);
-static const struct reg_field refclk_dig_sel =
+static const struct reg_field refclk_dig_sel_16g =
 					REG_FIELD(WIZ_SERDES_RST, 24, 25);
+static const struct reg_field refclk_dig_sel_10g =
+					REG_FIELD(WIZ_SERDES_RST, 24, 24);
 static const struct reg_field pma_cmn_refclk_int_mode =
 					REG_FIELD(WIZ_SERDES_TOP_CTRL, 28, 29);
 static const struct reg_field pma_cmn_refclk_mode =
@@ -126,7 +129,7 @@ struct wiz_clk_div_sel {
 	const char		*node_name;
 };
 
-static struct wiz_clk_mux_sel clk_mux_sel[] = {
+static struct wiz_clk_mux_sel clk_mux_sel_16g[] = {
 	{
 		/*
 		 * Mux value to be configured for each of the input clocks
@@ -141,6 +144,25 @@ static struct wiz_clk_mux_sel clk_mux_sel[] = {
 	},
 	{
 		.table = { 1, 3, 0, 2 },
+		.node_name = "refclk_dig",
+	},
+};
+
+static struct wiz_clk_mux_sel clk_mux_sel_10g[] = {
+	{
+		/*
+		 * Mux value to be configured for each of the input clocks
+		 * in the order populated in device tree
+		 */
+		.table = { 1, 0 },
+		.node_name = "pll0_refclk",
+	},
+	{
+		.table = { 1, 0 },
+		.node_name = "pll1_refclk",
+	},
+	{
+		.table = { 1, 0 },
 		.node_name = "refclk_dig",
 	},
 };
@@ -163,10 +185,16 @@ static struct wiz_clk_div_sel clk_div_sel[] = {
 	},
 };
 
+enum wiz_type {
+	J721E_WIZ_16G,
+	J721E_WIZ_10G,
+};
+
 struct wiz {
 	struct regmap		*regmap;
 	struct wiz_clk_mux_sel	*clk_mux_sel;
 	struct wiz_clk_div_sel	*clk_div_sel;
+	unsigned int		clk_div_sel_num;
 	struct regmap_field	*por_en;
 	struct regmap_field	*phy_reset_n;
 	struct regmap_field	*p_enable[WIZ_MAX_LANES];
@@ -186,6 +214,7 @@ struct wiz {
 	int			typec_dir_delay;
 
 	bool used_for_dp;
+	enum wiz_type type;
 };
 
 static int wiz_reset(struct wiz *wiz)
@@ -325,12 +354,14 @@ static int wiz_regfield_init(struct wiz *wiz)
 		return PTR_ERR(clk_div_sel->field);
 	}
 
-	clk_div_sel = &wiz->clk_div_sel[CMN_REFCLK1];
-	clk_div_sel->field = devm_regmap_field_alloc(dev, regmap,
-						     pma_cmn_refclk1_dig_div);
-	if (IS_ERR(clk_div_sel->field)) {
-		dev_err(dev, "PMA_CMN_REFCLK1_DIG_DIV reg field init failed\n");
-		return PTR_ERR(clk_div_sel->field);
+	if (wiz->type == J721E_WIZ_16G) {
+		clk_div_sel = &wiz->clk_div_sel[CMN_REFCLK1];
+		clk_div_sel->field = devm_regmap_field_alloc(dev, regmap,
+							     pma_cmn_refclk1_dig_div);
+		if (IS_ERR(clk_div_sel->field)) {
+			dev_err(dev, "PMA_CMN_REFCLK1_DIG_DIV reg field init failed\n");
+			return PTR_ERR(clk_div_sel->field);
+		}
 	}
 
 	clk_mux_sel = &wiz->clk_mux_sel[PLL0_REFCLK];
@@ -350,8 +381,15 @@ static int wiz_regfield_init(struct wiz *wiz)
 	}
 
 	clk_mux_sel = &wiz->clk_mux_sel[REFCLK_DIG];
-	clk_mux_sel->field = devm_regmap_field_alloc(dev, regmap,
-						     refclk_dig_sel);
+	if (wiz->type == J721E_WIZ_10G)
+		clk_mux_sel->field =
+			devm_regmap_field_alloc(dev, regmap,
+						refclk_dig_sel_10g);
+	else
+		clk_mux_sel->field =
+			devm_regmap_field_alloc(dev, regmap,
+						refclk_dig_sel_16g);
+
 	if (IS_ERR(clk_mux_sel->field)) {
 		dev_err(dev, "REFCLK_DIG_SEL reg field init failed\n");
 		return PTR_ERR(clk_mux_sel->field);
@@ -637,7 +675,7 @@ static int wiz_clock_init(struct wiz *wiz, struct device_node *node)
 		of_node_put(clk_node);
 	}
 
-	for (i = 0; i < WIZ_DIV_NUM_CLOCKS; i++) {
+	for (i = 0; i < wiz->clk_div_sel_num; i++) {
 		node_name = clk_div_sel[i].node_name;
 		clk_node = of_get_child_by_name(node, node_name);
 		if (!clk_node) {
@@ -726,7 +764,10 @@ static struct regmap_config wiz_regmap_config = {
 
 static const struct of_device_id wiz_id_table[] = {
 	{
-		.compatible = "ti,j721e-wiz",
+		.compatible = "ti,j721e-wiz-16g", .data = (void *) J721E_WIZ_16G
+	},
+	{
+		.compatible = "ti,j721e-wiz-10g", .data = (void *) J721E_WIZ_10G
 	},
 	{}
 };
@@ -757,6 +798,8 @@ static int wiz_probe(struct platform_device *pdev)
 	wiz = devm_kzalloc(dev, sizeof(*wiz), GFP_KERNEL);
 	if (!wiz)
 		return -ENOMEM;
+
+	wiz->type = (enum wiz_type) of_device_get_match_data(dev);
 
 	child_node = of_get_child_by_name(node, "serdes");
 	if (!child_node) {
@@ -813,8 +856,17 @@ static int wiz_probe(struct platform_device *pdev)
 	wiz->dev = dev;
 	wiz->regmap = regmap;
 	wiz->num_lanes = num_lanes;
-	wiz->clk_mux_sel = clk_mux_sel;
+	if (wiz->type == J721E_WIZ_10G)
+		wiz->clk_mux_sel = clk_mux_sel_10g;
+	else
+		wiz->clk_mux_sel = clk_mux_sel_16g;
+
 	wiz->clk_div_sel = clk_div_sel;
+
+	if (wiz->type == J721E_WIZ_10G)
+		wiz->clk_div_sel_num = WIZ_DIV_NUM_CLOCKS_10G;
+	else
+		wiz->clk_div_sel_num = WIZ_DIV_NUM_CLOCKS_16G;
 
 	platform_set_drvdata(pdev, wiz);
 
