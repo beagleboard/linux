@@ -744,6 +744,11 @@ static void cdns_mhdp_disable(struct drm_bridge *bridge)
 
 	cdns_mhdp_set_video_status(mhdp, 0);
 
+	cdns_mhdp_reg_read(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, &resp);
+	resp &= ~CDNS_DP_FRAMER_EN;
+	resp |= CDNS_DP_NO_VIDEO_MODE;
+	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, resp);
+
 	mhdp->link_up = false;
 
 	if (mhdp->plugged)
