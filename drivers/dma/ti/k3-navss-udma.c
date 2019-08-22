@@ -846,17 +846,15 @@ struct k3_nav_udmax_rx_channel *k3_nav_udmax_request_rx_chn(struct device *dev,
 			goto err;
 	}
 
-	if (!cfg->skip_psil) {
-		ret = xudma_navss_psil_pair(rx_chn->common.udmax,
-					    rx_chn->common.src_thread,
-					    rx_chn->common.dst_thread);
-		if (ret) {
-			dev_err(dev, "PSI-L request err %d\n", ret);
-			goto err;
-		}
-
-		rx_chn->psil_paired = true;
+	ret = xudma_navss_psil_pair(rx_chn->common.udmax,
+				    rx_chn->common.src_thread,
+				    rx_chn->common.dst_thread);
+	if (ret) {
+		dev_err(dev, "PSI-L request err %d\n", ret);
+		goto err;
 	}
+
+	rx_chn->psil_paired = true;
 
 	/* reset RX RT registers */
 	k3_nav_udmax_disable_rx_chn(rx_chn);

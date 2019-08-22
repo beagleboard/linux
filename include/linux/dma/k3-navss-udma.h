@@ -99,7 +99,6 @@ struct k3_nav_udmax_rx_channel_cfg {
 	int  flow_id_base;
 	int  flow_id_num;
 	bool flow_id_use_rxchan_id;
-	bool skip_psil;
 
 	struct k3_nav_udmax_rx_flow_cfg *def_flow_cfg;
 };
