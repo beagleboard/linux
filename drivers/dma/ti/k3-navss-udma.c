@@ -757,6 +757,35 @@ static void k3_nav_udmax_dump_rx_rt_chn(struct k3_nav_udmax_rx_channel *chn,
 		xudma_rchanrt_read(chn->udma_rchanx, UDMA_RCHAN_RT_SBCNT_REG));
 }
 
+static int
+k3_nav_udmax_allocate_rx_flows(struct k3_nav_udmax_rx_channel *rx_chn,
+			       struct k3_nav_udmax_rx_channel_cfg *cfg)
+{
+	int ret;
+
+	/* default rflow */
+	if (cfg->flow_id_use_rxchan_id)
+		return 0;
+
+	/* not a GP rflows */
+	if (rx_chn->flow_id_base != -1 &&
+	    !xudma_rflow_is_gp(rx_chn->common.udmax, rx_chn->flow_id_base))
+		return 0;
+
+	/* Allocate range of GP rflows */
+	ret = xudma_alloc_gp_rflow_range(rx_chn->common.udmax,
+					 rx_chn->flow_id_base,
+					 rx_chn->flow_num);
+	if (ret < 0) {
+		dev_err(rx_chn->common.dev, "UDMAX reserve_rflow %d cnt:%d err: %d\n",
+			rx_chn->flow_id_base, rx_chn->flow_num, ret);
+		return ret;
+	}
+	rx_chn->flow_id_base = ret;
+
+	return 0;
+}
+
 struct k3_nav_udmax_rx_channel *k3_nav_udmax_request_rx_chn(struct device *dev,
 		const char *name, struct k3_nav_udmax_rx_channel_cfg *cfg)
 {
@@ -810,18 +839,9 @@ struct k3_nav_udmax_rx_channel *k3_nav_udmax_request_rx_chn(struct device *dev,
 		goto err;
 	}
 
-	/* Reserve range of RX flows */
-	if (!cfg->flow_id_use_rxchan_id) {
-		ret = xudma_reserve_rflow_range(rx_chn->common.udmax,
-						rx_chn->flow_id_base,
-						rx_chn->flow_num);
-		if (ret < 0) {
-			dev_err(dev, "UDMAX reserve_rflow %d cnt:%d err: %d\n",
-				rx_chn->flow_id_base, rx_chn->flow_num, ret);
-			goto err;
-		}
-		rx_chn->flow_id_base = ret;
-	}
+	ret = k3_nav_udmax_allocate_rx_flows(rx_chn, cfg);
+	if (ret)
+		goto err;
 
 	for (i = 0; i < rx_chn->flow_num; i++)
 		rx_chn->flows[i].udma_rflow_id = rx_chn->flow_id_base + i;
@@ -889,8 +909,8 @@ void k3_nav_udmax_release_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
 	if (rx_chn->need_tisci_free)
 		rx_chn->need_tisci_free = false;
 
-	xudma_free_rflow_range(rx_chn->common.udmax,
-			       rx_chn->flow_id_base, rx_chn->flow_num);
+	xudma_free_gp_rflow_range(rx_chn->common.udmax,
+				  rx_chn->flow_id_base, rx_chn->flow_num);
 
 	if (!IS_ERR_OR_NULL(rx_chn->udma_rchanx))
 		xudma_rchan_put(rx_chn->common.udmax,
