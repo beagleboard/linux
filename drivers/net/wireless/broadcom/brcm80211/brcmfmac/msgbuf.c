@@ -1145,7 +1145,8 @@ brcmf_msgbuf_process_rx_complete(struct brcmf_msgbuf *msgbuf, void *buf)
 {
 	struct brcmf_pub *drvr = msgbuf->drvr;
 	struct msgbuf_rx_complete *rx_complete;
-	struct sk_buff *skb;
+	struct sk_buff *skb, *cpskb = NULL;
+	struct ethhdr *eh;
 	u16 data_offset;
 	u16 buflen;
 	u16 flags;
@@ -1194,6 +1195,34 @@ brcmf_msgbuf_process_rx_complete(struct brcmf_msgbuf *msgbuf, void *buf)
 		return;
 	}
 
+	eh = (struct ethhdr *)(skb->data);
+	if (ifp->isap) {
+		skb_set_network_header(skb, sizeof(struct ethhdr));
+		skb->protocol = eh->h_proto;
+		skb->priority = cfg80211_classify8021d(skb, NULL);
+		if (is_unicast_ether_addr(eh->h_dest)) {
+			if (brcmf_find_sta(ifp, eh->h_dest)) {
+				 /* determine the priority */
+				if (skb->priority == 0 || skb->priority > 7) {
+					skb->priority =
+						cfg80211_classify8021d(skb,
+								       NULL);
+				}
+				brcmf_proto_tx_queue_data(ifp->drvr,
+							  ifp->ifidx, skb);
+				return;
+			}
+		} else {
+			cpskb = pskb_copy(skb, GFP_ATOMIC);
+			if (cpskb) {
+				brcmf_proto_tx_queue_data(ifp->drvr,
+							  ifp->ifidx,
+							  cpskb);
+			} else {
+				brcmf_err("Unable to do skb copy\n");
+			}
+		}
+	}
 	skb->protocol = eth_type_trans(skb, ifp->ndev);
 	brcmf_netif_rx(ifp, skb);
 }
