@@ -188,6 +188,7 @@ struct brcmf_if {
 	struct brcmf_fws_mac_descriptor *fws_desc;
 	int ifidx;
 	s32 bsscfgidx;
+	bool isap;
 	u8 mac_addr[ETH_ALEN];
 	u8 netif_stop;
 	spinlock_t netif_stop_lock;
@@ -196,6 +197,19 @@ struct brcmf_if {
 	struct in6_addr ipv6_addr_tbl[NDOL_MAX_ENTRIES];
 	u8 ipv6addr_idx;
 	bool fwil_fwerr;
+	struct list_head sta_list;              /* sll of associated stations */
+	spinlock_t sta_list_lock;
+};
+
+struct ether_addr {
+	u8 octet[ETH_ALEN];
+};
+
+/** Per STA params. A list of dhd_sta objects are managed in dhd_if */
+struct brcmf_sta {
+	void *ifp;             /* associated brcm_if */
+	struct ether_addr ea;   /* stations ethernet mac address */
+	struct list_head list;  /* link into brcmf_if::sta_list */
 };
 
 int brcmf_netdev_wait_pend8021x(struct brcmf_if *ifp);
@@ -219,4 +233,7 @@ void __exit brcmf_core_exit(void);
 int brcmf_pktfilter_add_remove(struct net_device *ndev, int filter_num,
 			       bool add);
 int brcmf_pktfilter_enable(struct net_device *ndev, bool enable);
+void brcmf_del_sta(struct brcmf_if *ifp, const u8 *ea);
+struct brcmf_sta *brcmf_find_sta(struct brcmf_if *ifp, const u8 *ea);
+struct brcmf_sta *brcmf_findadd_sta(struct brcmf_if *ifp, const u8 *ea);
 #endif /* BRCMFMAC_CORE_H */
