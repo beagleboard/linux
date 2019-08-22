@@ -738,6 +738,7 @@ err:
 static void cdns_mhdp_disable(struct drm_bridge *bridge)
 {
 	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
+	u32 resp;
 
 	dev_dbg(mhdp->dev, "bridge disable\n");
 
@@ -747,6 +748,11 @@ static void cdns_mhdp_disable(struct drm_bridge *bridge)
 
 	if (mhdp->plugged)
 		drm_dp_link_power_down(&mhdp->aux, &mhdp->link);
+
+	/* Disable VIF clock for stream 0 */
+	cdns_mhdp_reg_read(mhdp, CDNS_DPTX_CAR, &resp);
+	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_CAR,
+			    resp & ~(CDNS_VIF_CLK_EN | CDNS_VIF_CLK_RSTN));
 
 	cdns_mhdp_j721e_disable(mhdp);
 }
@@ -1093,10 +1099,16 @@ void cdns_mhdp_enable(struct drm_bridge *bridge)
 {
 	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
 	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
+	u32 resp;
 
 	dev_dbg(mhdp->dev, "bridge enable\n");
 
 	cdns_mhdp_j721e_enable(mhdp);
+
+	/* Enable VIF clock for stream 0 */
+	cdns_mhdp_reg_read(mhdp, CDNS_DPTX_CAR, &resp);
+	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_CAR,
+			    resp | CDNS_VIF_CLK_EN | CDNS_VIF_CLK_RSTN);
 
 	if (!mhdp->link_up)
 		cdns_mhdp_link_up(mhdp);
@@ -1209,7 +1221,6 @@ static int mhdp_probe(struct platform_device *pdev)
 	int ret;
 	unsigned int reg;
 	unsigned long rate;
-	u32 resp;
 	int irq;
 	u32 lanes_prop;
 
@@ -1363,11 +1374,6 @@ static int mhdp_probe(struct platform_device *pdev)
 		dev_err(mhdp->dev, "Failed to initialize PHY: %d\n", ret);
 		return ret;
 	}
-
-	/* Enable VIF clock for stream 0 */
-	cdns_mhdp_reg_read(mhdp, CDNS_DPTX_CAR, &resp);
-	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_CAR,
-			    resp | CDNS_VIF_CLK_EN | CDNS_VIF_CLK_RSTN);
 
 	mhdp->bridge.connector = &mhdp->connector;
 	mhdp->connector.bridge = &mhdp->bridge;
