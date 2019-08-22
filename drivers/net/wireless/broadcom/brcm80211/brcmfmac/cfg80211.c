@@ -4751,7 +4751,7 @@ brcmf_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 		err = -EINVAL;
 		goto exit;
 	}
-
+	ifp->isap = false;
 	/* Interface specific setup */
 	if (dev_role == NL80211_IFTYPE_AP) {
 		if ((brcmf_feat_is_enabled(ifp, BRCMF_FEAT_MBSS)) && (!mbss))
@@ -4831,7 +4831,7 @@ brcmf_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 				 err);
 			goto exit;
 		}
-
+		ifp->isap = true;
 		brcmf_dbg(TRACE, "AP mode configuration complete\n");
 	} else if (dev_role == NL80211_IFTYPE_P2P_GO) {
 		err = brcmf_fil_iovar_int_set(ifp, "chanspec", chanspec);
@@ -4863,6 +4863,7 @@ brcmf_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 			goto exit;
 		}
 
+		ifp->isap = true;
 		brcmf_dbg(TRACE, "GO mode configuration complete\n");
 	} else {
 		WARN_ON(1);
@@ -6117,6 +6118,14 @@ brcmf_notify_connect_status(struct brcmf_if *ifp,
 	}
 
 	if (brcmf_is_apmode(ifp->vif)) {
+		if (e->event_code == BRCMF_E_ASSOC_IND ||
+		    e->event_code == BRCMF_E_REASSOC_IND) {
+			brcmf_findadd_sta(ifp, e->addr);
+		} else if ((e->event_code == BRCMF_E_DISASSOC_IND) ||
+				(e->event_code == BRCMF_E_DEAUTH_IND) ||
+				(e->event_code == BRCMF_E_DEAUTH)) {
+			brcmf_del_sta(ifp, e->addr);
+		}
 		err = brcmf_notify_connect_status_ap(cfg, ndev, e, data);
 	} else if (brcmf_is_linkup(ifp->vif, e)) {
 		brcmf_dbg(CONN, "Linkup\n");
