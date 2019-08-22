@@ -62,6 +62,14 @@ struct wlc_d11rxhdr {
 	s8 rxpwr[4];
 } __packed;
 
+#define BRCMF_IF_STA_LIST_LOCK_INIT(ifp) spin_lock_init(&(ifp)->sta_list_lock)
+#define BRCMF_IF_STA_LIST_LOCK(ifp, flags) \
+	spin_lock_irqsave(&(ifp)->sta_list_lock, (flags))
+#define BRCMF_IF_STA_LIST_UNLOCK(ifp, flags) \
+	spin_unlock_irqrestore(&(ifp)->sta_list_lock, (flags))
+
+#define BRCMF_STA_NULL ((struct brcmf_sta *)NULL)
+
 char *brcmf_ifname(struct brcmf_if *ifp)
 {
 	if (!ifp)
@@ -822,7 +830,9 @@ struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bsscfgidx, s32 ifidx,
 
 	init_waitqueue_head(&ifp->pend_8021x_wait);
 	spin_lock_init(&ifp->netif_stop_lock);
-
+	BRCMF_IF_STA_LIST_LOCK_INIT(ifp);
+	 /* Initialize STA info list */
+	INIT_LIST_HEAD(&ifp->sta_list);
 	if (mac_addr != NULL)
 		memcpy(ifp->mac_addr, mac_addr, ETH_ALEN);
 
@@ -1669,4 +1679,93 @@ int brcmf_pktfilter_enable(struct net_device *ndev, bool enable)
 		}
 	}
 	return ret;
+}
+
+/** Find STA with MAC address ea in an interface's STA list. */
+struct brcmf_sta *
+brcmf_find_sta(struct brcmf_if *ifp, const u8 *ea)
+{
+	struct brcmf_sta  *sta;
+	unsigned long flags;
+
+	BRCMF_IF_STA_LIST_LOCK(ifp, flags);
+	list_for_each_entry(sta, &ifp->sta_list, list) {
+		if (!memcmp(sta->ea.octet, ea, ETH_ALEN)) {
+			brcmf_dbg(INFO, "Found STA: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x into sta list\n",
+				  sta->ea.octet[0], sta->ea.octet[1],
+				  sta->ea.octet[2], sta->ea.octet[3],
+				  sta->ea.octet[4], sta->ea.octet[5]);
+			BRCMF_IF_STA_LIST_UNLOCK(ifp, flags);
+			return sta;
+		}
+	}
+	BRCMF_IF_STA_LIST_UNLOCK(ifp, flags);
+
+	return BRCMF_STA_NULL;
+}
+
+/** Add STA into the interface's STA list. */
+struct brcmf_sta *
+brcmf_add_sta(struct brcmf_if *ifp, const u8 *ea)
+{
+	struct brcmf_sta *sta;
+	unsigned long flags;
+
+	sta =  kzalloc(sizeof(*sta), GFP_KERNEL);
+	if (sta == BRCMF_STA_NULL) {
+		brcmf_err("Alloc failed\n");
+		return BRCMF_STA_NULL;
+	}
+	memcpy(sta->ea.octet, ea, ETH_ALEN);
+	brcmf_dbg(INFO, "Add STA: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x into sta list\n",
+		  sta->ea.octet[0], sta->ea.octet[1],
+		  sta->ea.octet[2], sta->ea.octet[3],
+		  sta->ea.octet[4], sta->ea.octet[5]);
+
+	/* link the sta and the dhd interface */
+	sta->ifp = ifp;
+	INIT_LIST_HEAD(&sta->list);
+
+	BRCMF_IF_STA_LIST_LOCK(ifp, flags);
+
+	list_add_tail(&sta->list, &ifp->sta_list);
+
+	BRCMF_IF_STA_LIST_UNLOCK(ifp, flags);
+	return sta;
+}
+
+/** Delete STA from the interface's STA list. */
+void
+brcmf_del_sta(struct brcmf_if *ifp, const u8 *ea)
+{
+	struct brcmf_sta *sta, *next;
+	unsigned long flags;
+
+	BRCMF_IF_STA_LIST_LOCK(ifp, flags);
+	list_for_each_entry_safe(sta, next, &ifp->sta_list, list) {
+		if (!memcmp(sta->ea.octet, ea, ETH_ALEN)) {
+			brcmf_dbg(INFO, "del STA: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x from sta list\n",
+				  ea[0], ea[1], ea[2], ea[3],
+				  ea[4], ea[5]);
+			list_del(&sta->list);
+			kfree(sta);
+		}
+	}
+
+	BRCMF_IF_STA_LIST_UNLOCK(ifp, flags);
+}
+
+/** Add STA if it doesn't exist. Not reentrant. */
+struct brcmf_sta*
+brcmf_findadd_sta(struct brcmf_if *ifp, const u8 *ea)
+{
+	struct brcmf_sta *sta = NULL;
+
+	sta = brcmf_find_sta(ifp, ea);
+
+	if (!sta) {
+		/* Add entry */
+		sta = brcmf_add_sta(ifp, ea);
+	}
+	return sta;
 }
