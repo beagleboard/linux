@@ -232,12 +232,12 @@ static int prueth_init_rx_chns(struct prueth_emac *emac,
 
 	if (!strncmp(name, "rxmgm", 5)) {
 		emac->rx_mgm_flow_id_base = k3_nav_udmax_rx_get_flow_id_base(rx_chn->rx_chn);
-		netdev_info(ndev, "mgm flow id base = %d\n",
-			    emac->rx_mgm_flow_id_base);
+		netdev_dbg(ndev, "mgm flow id base = %d\n",
+			   emac->rx_mgm_flow_id_base);
 	} else {
 		emac->rx_flow_id_base = k3_nav_udmax_rx_get_flow_id_base(rx_chn->rx_chn);
-		netdev_info(ndev, "flow id base = %d\n",
-			    emac->rx_flow_id_base);
+		netdev_dbg(ndev, "flow id base = %d\n",
+			   emac->rx_flow_id_base);
 	}
 
 	fdqring_id = K3_RINGACC_RING_ID_ANY;
