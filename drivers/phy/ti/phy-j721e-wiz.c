@@ -213,7 +213,6 @@ struct wiz {
 	struct gpio_desc	*gpio_typec_dir;
 	int			typec_dir_delay;
 
-	bool used_for_dp;
 	enum wiz_type type;
 };
 
@@ -290,21 +289,6 @@ static int wiz_init(struct wiz *wiz)
 	if (ret) {
 		dev_err(dev, "WIZ interface initialization failed\n");
 		return ret;
-	}
-
-	/* INIT HACK to get DP working. Values from Brian */
-	if (wiz->used_for_dp) {
-		regmap_write(wiz->regmap, 0x408, 0x30000000);
-		regmap_write(wiz->regmap, 0x40c, 0x39000000);
-		regmap_write(wiz->regmap, 0x480, 0x70000000);
-		regmap_write(wiz->regmap, 0x4c0, 0x80000000);
-		regmap_write(wiz->regmap, 0x500, 0x80000000);
-		regmap_write(wiz->regmap, 0x540, 0x80000000);
-		regmap_write(wiz->regmap, 0x484, 0x10001);
-		regmap_write(wiz->regmap, 0x4c4, 0x10001);
-		regmap_write(wiz->regmap, 0x504, 0x10001);
-		regmap_write(wiz->regmap, 0x544, 0x10001);
-		regmap_write(wiz->regmap, 0x5FC, 0x00000);
 	}
 
 	return 0;
@@ -773,14 +757,6 @@ static const struct of_device_id wiz_id_table[] = {
 };
 MODULE_DEVICE_TABLE(of, wiz_id_table);
 
-static void wiz_check_dp_usage(struct wiz *wiz, struct device_node *child_node)
-{
-	const char *compat;
-
-	if (of_property_read_string(child_node, "compatible", &compat) == 0)
-		wiz->used_for_dp = !strcmp("cdns,torrent-phy", compat);
-}
-
 static int wiz_probe(struct platform_device *pdev)
 {
 	struct reset_controller_dev *phy_reset_dev;
@@ -909,8 +885,6 @@ static int wiz_probe(struct platform_device *pdev)
 		goto err_pdev_create;
 	}
 	wiz->serdes_pdev = serdes_pdev;
-
-	wiz_check_dp_usage(wiz, child_node);
 
 	ret = wiz_init(wiz);
 	if (ret) {
