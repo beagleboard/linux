@@ -1397,14 +1397,18 @@ static int emac_get_ts_config(struct net_device *ndev, struct ifreq *ifr)
 
 static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 {
+	struct prueth_emac *emac = netdev_priv(ndev);
+
 	switch (cmd) {
 	case SIOCGHWTSTAMP:
 		return emac_get_ts_config(ndev, ifr);
 	case SIOCSHWTSTAMP:
 		return emac_set_ts_config(ndev, ifr);
 	default:
-		return -EOPNOTSUPP;
+		break;
 	}
+
+	return phy_mii_ioctl(emac->phydev, ifr, cmd);
 }
 
 static const struct net_device_ops emac_netdev_ops = {
