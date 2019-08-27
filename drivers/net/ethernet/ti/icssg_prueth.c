@@ -1222,6 +1222,7 @@ static int emac_ndo_stop(struct net_device *ndev)
 	netif_stop_queue(ndev);
 
 	/* block packets from wire */
+	phy_stop(emac->phydev);
 	icssg_class_disable(prueth->miig_rt, prueth_emac_slice(emac));
 
 	/* tear down and disable UDMA channels */
@@ -1258,9 +1259,6 @@ static int emac_ndo_stop(struct net_device *ndev)
 
 	napi_disable(&emac->napi_tx);
 	napi_disable(&emac->napi_rx);
-
-	/* stop PHY */
-	phy_stop(emac->phydev);
 
 	/* stop PRUs */
 	prueth_emac_stop(emac);
