@@ -82,6 +82,9 @@
 #define is_am654_pci_dev(pdev)		\
 		((pdev)->device == PCI_DEVICE_ID_TI_AM654)
 
+#define is_j721e_pci_dev(pdev)		\
+		((pdev)->device == PCI_DEVICE_ID_TI_J721E)
+
 #define K2G_IB_START_L0(n)		(0x304 + (0x10 * (n)))
 #define K2G_IB_START_HI(n)		(0x308 + (0x10 * (n)))
 
@@ -122,6 +125,7 @@ struct pci_endpoint_test {
 	struct miscdevice miscdev;
 	enum pci_barno test_reg_bar;
 	size_t alignment;
+	const char *name;
 };
 
 struct pci_endpoint_test_data {
@@ -240,7 +244,7 @@ static bool pci_endpoint_test_request_irq(struct pci_endpoint_test *test)
 	for (i = 0; i < test->num_irqs; i++) {
 		err = devm_request_irq(dev, pci_irq_vector(pdev, i),
 				       pci_endpoint_test_irqhandler,
-				       IRQF_SHARED, DRV_MODULE_NAME, test);
+				       IRQF_SHARED, test->name, test);
 		if (err)
 			goto fail;
 	}
@@ -611,6 +615,13 @@ err:
 	return ret;
 }
 
+static bool pci_endpoint_test_clear_irq(struct pci_endpoint_test *test)
+{
+	pci_endpoint_test_release_irq(test);
+	pci_endpoint_test_free_irq_vectors(test);
+	return true;
+}
+
 static bool pci_endpoint_test_set_irq(struct pci_endpoint_test *test,
 				      int req_irq_type)
 {
@@ -682,6 +693,9 @@ static long pci_endpoint_test_ioctl(struct file *file, unsigned int cmd,
 	case PCITEST_GET_IRQTYPE:
 		ret = irq_type;
 		break;
+	case PCITEST_CLEAR_IRQ:
+		ret = pci_endpoint_test_clear_irq(test);
+		break;
 	}
 
 ret:
@@ -721,7 +735,7 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 {
 	int err;
 	int id;
-	char name[20];
+	char name[24];
 	enum pci_barno bar;
 	void __iomem *base;
 	struct device *dev = &pdev->dev;
@@ -776,11 +790,13 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 	pci_set_master(pdev);
 	pci_intx(pdev, true);
 
-	if (!pci_endpoint_test_alloc_irq_vectors(test, irq_type))
-		goto err_disable_irq;
+	if (!(is_am654_pci_dev(pdev) || is_j721e_pci_dev(pdev))) {
+		if (!pci_endpoint_test_alloc_irq_vectors(test, irq_type))
+			goto err_disable_irq;
 
-	if (!pci_endpoint_test_request_irq(test))
-		goto err_disable_irq;
+		if (!pci_endpoint_test_request_irq(test))
+			goto err_disable_irq;
+	}
 
 	for (bar = BAR_0; bar <= BAR_5; bar++) {
 		if (pci_resource_flags(pdev, bar) & IORESOURCE_MEM) {
@@ -831,6 +847,7 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 		dev_err(dev, "Failed to register device\n");
 		goto err_kfree_name;
 	}
+	test->name = kstrdup(name, GFP_KERNEL);
 
 	return 0;
 
@@ -871,6 +888,7 @@ static void pci_endpoint_test_remove(struct pci_dev *pdev)
 
 	misc_deregister(&test->miscdev);
 	kfree(misc_device->name);
+	kfree(test->name);
 	ida_simple_remove(&pci_endpoint_test_ida, id);
 	for (bar = BAR_0; bar <= BAR_5; bar++) {
 		if (test->bar[bar])
