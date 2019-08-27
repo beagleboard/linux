@@ -82,6 +82,9 @@
 #define is_am654_pci_dev(pdev)		\
 		((pdev)->device == PCI_DEVICE_ID_TI_AM654)
 
+#define is_j721e_pci_dev(pdev)		\
+		((pdev)->device == PCI_DEVICE_ID_TI_J721E)
+
 #define K2G_IB_START_L0(n)		(0x304 + (0x10 * (n)))
 #define K2G_IB_START_HI(n)		(0x308 + (0x10 * (n)))
 
@@ -776,11 +779,13 @@ static int pci_endpoint_test_probe(struct pci_dev *pdev,
 	pci_set_master(pdev);
 	pci_intx(pdev, true);
 
-	if (!pci_endpoint_test_alloc_irq_vectors(test, irq_type))
-		goto err_disable_irq;
+	if (!(is_am654_pci_dev(pdev) || is_j721e_pci_dev(pdev))) {
+		if (!pci_endpoint_test_alloc_irq_vectors(test, irq_type))
+			goto err_disable_irq;
 
-	if (!pci_endpoint_test_request_irq(test))
-		goto err_disable_irq;
+		if (!pci_endpoint_test_request_irq(test))
+			goto err_disable_irq;
+	}
 
 	for (bar = BAR_0; bar <= BAR_5; bar++) {
 		if (pci_resource_flags(pdev, bar) & IORESOURCE_MEM) {
