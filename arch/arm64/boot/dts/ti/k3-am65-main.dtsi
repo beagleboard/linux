@@ -474,18 +474,21 @@
 			linux,udma-mode = <UDMA_PKT_MODE>;
 			ti,needs-epib;
 			ti,psd-size = <64>;
+			ti,notdpkt;
 		};
 
 		ti,psil-config1 {
 			linux,udma-mode = <UDMA_PKT_MODE>;
 			ti,needs-epib;
 			ti,psd-size = <64>;
+			ti,notdpkt;
 		};
 
 		ti,psil-config2 {
 			linux,udma-mode = <UDMA_PKT_MODE>;
 			ti,needs-epib;
 			ti,psd-size = <64>;
+			ti,notdpkt;
 		};
 
 		eip76d_trng: trng@4e10000 {
