@@ -1,0 +1,52 @@
+PRUSS PWM controller on TI SoCs
+
+The PRUSS can be programmed as multi IEP-based PWM controllers.
+
+Each PRU PWM node should define the PRU Application node properties as detailed
+in bindings ti,pru-rproc.txt and one or more PWM chip node(s) describing the
+IEP-based PWM controller(s).
+
+Required properties:
+--------------------
+- compatible        : should be "ti,pru-pwm".
+- prus              : phandle to the PRU node used.
+- firmware-name     : firmware for the PRU core.
+
+PWM Chip Node
+==============
+Required properties:
+--------------------
+- compatible        : should be "ti,pru-pwmchip".
+- reg               : index of the pwmchip corresponding to the index of the
+		      IEP, 0-based.
+- #pwm-cells        : should be 2. See pwm.txt in this directory for a
+		      description of the cell formats.
+
+Example (AM654x EVM board):
+---------------------------
+
+	pru_pwm0 {
+		compatible = "ti,pru-pwm";
+		prus = <&pru0_0>;
+		firmware-name = "ti-pruss/am65x-pru0-pwm-fw.elf";
+		assigned-clocks = <&icssg0_iepclk_mux>;
+		assigned-clock-parents = <&k3_clks 62 10>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pwm_chip@0 {
+			compatible = "ti,pru-pwmchip";
+			reg = <0>;
+			#pwm-cells = <2>;
+			pinctrl-0 = <&prupwm0_chip0_pins_default>;
+			pinctrl-names = "default";
+		};
+
+		pwm_chip@1 {
+			compatible = "ti,pru-pwmchip";
+			reg = <1>;
+			#pwm-cells = <2>;
+			pinctrl-0 = <&prupwm0_chip1_pins_default>;
+			pinctrl-names = "default";
+		};
+	};
