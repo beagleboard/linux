@@ -157,6 +157,7 @@ struct sa_tfm_ctx;
 
 /**
  * struct sa_crypto_data - Crypto driver instance data
+ * @base: Base address of the register space
  * @pdev: Platform device pointer
  * @sc_pool: security context pool
  * @dev: Device pointer
@@ -171,6 +172,7 @@ struct sa_tfm_ctx;
  * @dma_tx: Pointer to DMA TX channel
  */
 struct sa_crypto_data {
+	void __iomem *base;
 	struct platform_device	*pdev;
 	struct dma_pool		*sc_pool;
 	struct device *dev;
