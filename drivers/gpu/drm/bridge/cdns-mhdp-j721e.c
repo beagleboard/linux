@@ -42,6 +42,8 @@
 #define DPTX_SRC_VIF_1_EN		BIT(1)
 #define DPTX_SRC_VIF_0_EN		BIT(0)
 
+/* TODO turn DPTX_IPCFG fw_mem_clk_en at pm_runtime_suspend. */
+
 int cdns_mhdp_j721e_init(struct cdns_mhdp_device *mhdp)
 {
 	struct platform_device *pdev = to_platform_device(mhdp->dev);
@@ -52,12 +54,6 @@ int cdns_mhdp_j721e_init(struct cdns_mhdp_device *mhdp)
 	if (IS_ERR(mhdp->j721e_regs))
 		return PTR_ERR(mhdp->j721e_regs);
 
-	dev_dbg(mhdp->dev, "%s: REVISION: 0x%08x\n", __func__,
-		readl(mhdp->j721e_regs + REVISION));
-
-	dev_dbg(mhdp->dev, "%s: DPTX_IPCFG: 0x%08x\n", __func__,
-		readl(mhdp->j721e_regs + DPTX_IPCFG));
-
 	return 0;
 }
 
@@ -67,35 +63,17 @@ void cdns_mhdp_j721e_fini(struct cdns_mhdp_device *mhdp)
 
 void cdns_mhdp_j721e_enable(struct cdns_mhdp_device *mhdp)
 {
-	dev_dbg(mhdp->dev, "%s: REVISION: 0x%08x\n", __func__,
-		readl(mhdp->j721e_regs + REVISION));
-	dev_dbg(mhdp->dev, "%s: DPTX_VIF_CONN_STATUS: 0x%08x\n", __func__,
-		readl(mhdp->j721e_regs + DPTX_VIF_CONN_STATUS));
-	dev_dbg(mhdp->dev, "%s: PHY_CLK_STATUS: 0x%08x\n", __func__,
-		readl(mhdp->j721e_regs + PHY_CLK_STATUS));
-	dev_dbg(mhdp->dev, "%s: DPTX_SRC_CFG: 0x%08x\n", __func__,
-		readl(mhdp->j721e_regs + DPTX_SRC_CFG));
-
-	/* Eneble VIF_0 and select DPI2 as its input. DSS0 DPI0 is connected
+	/*
+	 * Eneble VIF_0 and select DPI2 as its input. DSS0 DPI0 is connected
 	 * to eDP DPI2. This is the only supported SST configuration on
 	 * J721E.
 	 */
 	writel(DPTX_SRC_VIF_0_EN | DPTX_SRC_VIF_0_SEL_DPI2,
 	       mhdp->j721e_regs + DPTX_SRC_CFG);
-
-	dev_dbg(mhdp->dev, "%s: DPTX_SRC_CFG: 0x%08x\n", __func__,
-		readl(mhdp->j721e_regs + DPTX_SRC_CFG));
 }
 
 void cdns_mhdp_j721e_disable(struct cdns_mhdp_device *mhdp)
 {
-	dev_dbg(mhdp->dev, "%s: DPTX_VIF_CONN_STATUS: 0x%08x\n", __func__,
-		readl(mhdp->j721e_regs + DPTX_VIF_CONN_STATUS));
-	dev_dbg(mhdp->dev, "%s: PHY_CLK_STATUS: 0x%08x\n", __func__,
-		readl(mhdp->j721e_regs + PHY_CLK_STATUS));
-
 	/* HACK: always disable everything and put everything to defaults  */
 	writel(0, mhdp->j721e_regs + DPTX_DSC_CFG);
 }
-
-/* TODO turn DPTX_IPCFG fw_mem_clk_en at pm_runtime_suspend. */
