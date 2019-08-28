@@ -264,25 +264,10 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 		regmap_write(miig_rt, offset, data);
 	}
 
-	/* FT1 uses 6 bytes of DA address */
-	offset = offs[slice].ft1_start_len;
-	regmap_write(miig_rt, offset, FT1_LEN(6));
-
-	/* FT1 type EQ */
+	/* FT1 Disabled */
 	for (n = 0; n < ICSSG_NUM_FT1_SLOTS; n++)
-		rx_class_ft1_cfg_set_type(miig_rt, slice, n, FT1_CFG_TYPE_EQ);
-
-	/* FT1[0] DA compare address 00-00-00-00-00-00 */
-	offset = FT1_N_REG(slice, 0, FT1_DA0);
-	regmap_write(miig_rt, offset, 0);
-	offset = FT1_N_REG(slice, 0, FT1_DA1);
-	regmap_write(miig_rt, offset, 0);
-
-	/* FT1[0] mask FE-FF-FF-FF-FF-FF */
-	offset = FT1_N_REG(slice, 0, FT1_DA0_MASK);
-	regmap_write(miig_rt, offset, 0);
-	offset = FT1_N_REG(slice, 0, FT1_DA1_MASK);
-	regmap_write(miig_rt, offset, 0);
+		rx_class_ft1_cfg_set_type(miig_rt, slice, n,
+					  FT1_CFG_TYPE_DISABLED);
 
 	/* clear CFG2 */
 	regmap_write(miig_rt, offs[slice].rx_class_cfg2, 0);
@@ -296,27 +281,11 @@ void icssg_class_default(struct regmap *miig_rt, int slice)
 	/* defaults */
 	icssg_class_disable(miig_rt, slice);
 
-	/* FT1 uses 6 bytes of DA address */
-	offset = offs[slice].ft1_start_len;
-	regmap_write(miig_rt, offset, FT1_LEN(6));
-
-	/* FT1 slots type to EQ */
+	/* FT1 Disabled */
 	for (n = 0; n < ICSSG_NUM_FT1_SLOTS; n++) {
 		rx_class_ft1_cfg_set_type(miig_rt, slice, n,
-					  FT1_CFG_TYPE_EQ);
+					  FT1_CFG_TYPE_DISABLED);
 	}
-
-	/* FT1[0] DA compare address 00-00-00-00-00-00 */
-	offset = FT1_N_REG(slice, 0, FT1_DA0);
-	regmap_write(miig_rt, offset, 0);
-	offset = FT1_N_REG(slice, 0, FT1_DA1);
-	regmap_write(miig_rt, offset, 0);
-
-	/* FT1[0] mask 00-00-00-00-00-00 */
-	offset = FT1_N_REG(slice, 0, FT1_DA0_MASK);
-	regmap_write(miig_rt, offset, 0);
-	offset = FT1_N_REG(slice, 0, FT1_DA1_MASK);
-	regmap_write(miig_rt, offset, 0);
 
 	/* Setup Classifier */
 	for (n = 0; n < 5; n++) {

@@ -1243,6 +1243,13 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	writel(reg, sram + EMAC_PROMISCUOUS_MODE_OFFSET);
 }
 
+static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
+{
+	struct prueth_emac *emac = netdev_priv(ndev);
+
+	return phy_mii_ioctl(emac->phydev, ifr, cmd);
+}
+
 static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open = emac_ndo_open,
 	.ndo_stop = emac_ndo_stop,
@@ -1253,6 +1260,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_tx_timeout = emac_ndo_tx_timeout,
 	.ndo_get_stats = emac_ndo_get_stats,
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
+	.ndo_do_ioctl = emac_ndo_ioctl,
 };
 
 /**
