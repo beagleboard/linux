@@ -2957,11 +2957,13 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 	slave_node = of_find_node_by_phandle(args[0]);
 	if (!slave_node) {
 		dev_err(ud->dev, "Slave node is missing\n");
+		uc->dir = DMA_MEM_TO_MEM;
 		return false;
 	}
 
 	if (of_property_read_u32(slave_node, "ti,psil-base", &val)) {
 		dev_err(ud->dev, "ti,psil-base is missing\n");
+		uc->dir = DMA_MEM_TO_MEM;
 		return false;
 	}
 
@@ -2972,6 +2974,7 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 	chconf_node = of_find_node_by_name(slave_node, prop);
 	if (!chconf_node) {
 		dev_err(ud->dev, "Channel configuration node is missing\n");
+		uc->dir = DMA_MEM_TO_MEM;
 		uc->remote_thread_id = -1;
 		return false;
 	}
