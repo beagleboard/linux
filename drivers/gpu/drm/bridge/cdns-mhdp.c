@@ -742,8 +742,6 @@ static void cdns_mhdp_disable(struct drm_bridge *bridge)
 
 	dev_dbg(mhdp->dev, "bridge disable\n");
 
-	cdns_mhdp_set_video_status(mhdp, 0);
-
 	cdns_mhdp_reg_read(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, &resp);
 	resp &= ~CDNS_DP_FRAMER_EN;
 	resp |= CDNS_DP_NO_VIDEO_MODE;
@@ -925,8 +923,6 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 						   0 : tu_size - vs));
 
 	cdns_mhdp_configure_video(bridge);
-
-	cdns_mhdp_set_video_status(mhdp, 1);
 
 	return 0;
 }
