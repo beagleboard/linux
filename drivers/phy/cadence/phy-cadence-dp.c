@@ -1058,7 +1058,7 @@ static int cdns_dp_phy_set_power_state(struct cdns_dp_phy *cdns_phy,
 /*
  * Enable or disable PLL for selected lanes.
  */
-static int cdns_dp_phy_set_ppl_en(struct cdns_dp_phy *cdns_phy,
+static int cdns_dp_phy_set_pll_en(struct cdns_dp_phy *cdns_phy,
 				  struct phy_configure_opts_dp *dp,
 				  bool enable)
 {
@@ -1307,7 +1307,7 @@ static int cdns_dp_phy_set_rate(struct cdns_dp_phy *cdns_phy,
 	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A3);
 	if (ret)
 		return ret;
-	ret = cdns_dp_phy_set_ppl_en(cdns_phy, dp, false);
+	ret = cdns_dp_phy_set_pll_en(cdns_phy, dp, false);
 	if (ret)
 		return ret;
 	ndelay(200);
@@ -1317,7 +1317,7 @@ static int cdns_dp_phy_set_rate(struct cdns_dp_phy *cdns_phy,
 		return ret;
 	ndelay(200);
 
-	ret = cdns_dp_phy_set_ppl_en(cdns_phy, dp, true);
+	ret = cdns_dp_phy_set_pll_en(cdns_phy, dp, true);
 	if (ret)
 		return ret;
 	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A2);
