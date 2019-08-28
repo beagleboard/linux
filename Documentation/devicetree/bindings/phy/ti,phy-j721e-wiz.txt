@@ -33,6 +33,12 @@ clock bindings in Documentation/devicetree/bindings/clock/clock-bindings.txt
      Type-C spec states minimum CC pin debounce of 100 ms and maximum
      of 200 ms.
 
+ - lane<n>-mode, : Integer describing static lane usage for lane n. For
+     Sierra there may be properties for n = 0 and n = 1, for Torrent n = 0,
+     n = 1, n = 2, and n = 3. The constants to indicate the lane usage 
+     are defined in "include/dt-bindings/phy/phy.h". The lane is assumed
+     to be unused if the lane<n>-use property does not exist.
+
 Required subnodes:
  - Clock Subnode: WIZ node should have '3' subnodes for each of the clock
      selects it supports. The clock subnodes should have the following names
@@ -59,6 +65,8 @@ serdes_wiz0: wiz@5000000 {
 	num-lanes = <2>;
 	#reset-cells = <1>;
 	ranges;
+	lane0-mode = <PHY_TYPE_PCIE>;
+	lane1-mode = <PHY_TYPE_PCIE>;
 
 	pll0_refclk: pll0_refclk {
 		clocks = <&k3_clks 292 11>, <&cmn_refclk>;
