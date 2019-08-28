@@ -82,6 +82,8 @@ Configuration node Optional properties:
 			descriptor.
 - ti,psd-size:		Size of the Protocol Specific Data section of the
 			descriptor.
+- ti,notdpkt:		The Teardown Completion Message on the thread must be
+			suppressed.
 
 Example:
 
