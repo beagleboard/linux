@@ -818,7 +818,8 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 
 	if (mhdp->host.fast_link & mhdp->sink.fast_link) {
 		/* FIXME: implement fastlink */
-		dev_dbg(mhdp->dev, "fastlink\n");
+		dev_err(mhdp->dev, "fastlink not supported\n");
+		return -ENOTSUPP;
 	} else {
 		const u32 interval = reg0[DP_TRAINING_AUX_RD_INTERVAL] &
 				     DP_TRAINING_AUX_RD_MASK;
