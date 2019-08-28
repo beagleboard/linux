@@ -338,6 +338,21 @@ static inline char *udma_get_dir_text(enum dma_transfer_direction dir)
 	return "invalid";
 }
 
+static void udma_reset_uchan(struct udma_chan *uc)
+{
+	uc->state = UDMA_CHAN_IS_IDLE;
+	uc->remote_thread_id = -1;
+	uc->dir = DMA_MEM_TO_MEM;
+	uc->pkt_mode = false;
+	uc->static_tr_type = 0;
+	uc->enable_acc32 = 0;
+	uc->enable_burst = 0;
+	uc->channel_tpl = 0;
+	uc->psd_size = 0;
+	uc->metadata_size = 0;
+	uc->hdesc_size = 0;
+}
+
 static inline void udma_dump_chan_stdata(struct udma_chan *uc)
 {
 	struct device *dev = uc->ud->dev;
@@ -1859,16 +1874,7 @@ err_chan_free:
 err_res_free:
 	udma_free_tx_resources(uc);
 	udma_free_rx_resources(uc);
-	uc->remote_thread_id = -1;
-	uc->dir = DMA_MEM_TO_MEM;
-	uc->pkt_mode = false;
-	uc->static_tr_type = 0;
-	uc->enable_acc32 = 0;
-	uc->enable_burst = 0;
-	uc->channel_tpl = 0;
-	uc->psd_size = 0;
-	uc->metadata_size = 0;
-	uc->hdesc_size = 0;
+	udma_reset_uchan(uc);
 
 	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
@@ -2909,17 +2915,7 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 
 	udma_free_tx_resources(uc);
 	udma_free_rx_resources(uc);
-
-	uc->remote_thread_id = -1;
-	uc->dir = DMA_MEM_TO_MEM;
-	uc->pkt_mode = false;
-	uc->static_tr_type = 0;
-	uc->enable_acc32 = 0;
-	uc->enable_burst = 0;
-	uc->channel_tpl = 0;
-	uc->psd_size = 0;
-	uc->metadata_size = 0;
-	uc->hdesc_size = 0;
+	udma_reset_uchan(uc);
 
 	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
