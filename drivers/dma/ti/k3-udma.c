@@ -2632,7 +2632,7 @@ static enum dma_status udma_tx_status(struct dma_chan *chan,
 
 		if (uc->desc->dir == DMA_MEM_TO_DEV) {
 			bcnt = udma_tchanrt_read(uc->tchan,
-						 UDMA_TCHAN_RT_BCNT_REG);
+						 UDMA_TCHAN_RT_SBCNT_REG);
 			pdma_bcnt = udma_tchanrt_read(uc->tchan,
 						UDMA_TCHAN_RT_PEER_BCNT_REG);
 			pcnt = udma_tchanrt_read(uc->tchan,
@@ -2642,7 +2642,7 @@ static enum dma_status udma_tx_status(struct dma_chan *chan,
 				delay = bcnt - pdma_bcnt;
 		} else if (uc->desc->dir == DMA_DEV_TO_MEM) {
 			bcnt = udma_rchanrt_read(uc->rchan,
-						 UDMA_RCHAN_RT_SBCNT_REG);
+						 UDMA_RCHAN_RT_BCNT_REG);
 			pdma_bcnt = udma_rchanrt_read(uc->rchan,
 						UDMA_RCHAN_RT_PEER_BCNT_REG);
 			pcnt = udma_rchanrt_read(uc->rchan,
@@ -2654,7 +2654,7 @@ static enum dma_status udma_tx_status(struct dma_chan *chan,
 			u32 sbcnt;
 
 			sbcnt = udma_tchanrt_read(uc->tchan,
-						  UDMA_TCHAN_RT_SBCNT_REG);
+						  UDMA_TCHAN_RT_BCNT_REG);
 			bcnt = udma_tchanrt_read(uc->tchan,
 						 UDMA_TCHAN_RT_PEER_BCNT_REG);
 			pcnt = udma_tchanrt_read(uc->tchan,
