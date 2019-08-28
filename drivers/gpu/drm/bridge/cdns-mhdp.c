@@ -421,7 +421,7 @@ static bool mhdp_link_training_channel_eq(struct cdns_mhdp_device *mhdp,
 	u32 reg32;
 	union phy_configure_opts phy_cfg;
 
-	dev_dbg(mhdp->dev, "Link training - Starting EQ phase\n");
+	dev_dbg(mhdp->dev, "Starting EQ phase\n");
 
 	/* Enable link training TPS[eq_tps] in PHY */
 	reg32 = CDNS_PHY_COMMON_CONFIG | CDNS_PHY_TRAINING_EN |
@@ -452,8 +452,7 @@ static bool mhdp_link_training_channel_eq(struct cdns_mhdp_device *mhdp,
 			goto err;
 
 		if (drm_dp_channel_eq_ok(dpcd, mhdp->link.num_lanes)) {
-			dev_dbg(mhdp->dev,
-				"Link training: EQ phase succeeded\n");
+			dev_dbg(mhdp->dev, "EQ phase succeeded\n");
 			return true;
 		}
 
@@ -463,8 +462,7 @@ static bool mhdp_link_training_channel_eq(struct cdns_mhdp_device *mhdp,
 	} while (fail_counter_short < 5);
 
 err:
-	dev_dbg(mhdp->dev,
-		"Link training - EQ phase failed for %d lanes and %d rate\n",
+	dev_dbg(mhdp->dev, "EQ phase failed for %d lanes and %d rate\n",
 		mhdp->link.num_lanes, mhdp->link.rate);
 
 	return false;
@@ -539,7 +537,7 @@ static bool mhdp_link_training_clock_recovery(struct cdns_mhdp_device *mhdp)
 	bool cr_done;
 	union phy_configure_opts phy_cfg;
 
-	dev_dbg(mhdp->dev, "Link training starting CR phase\n");
+	dev_dbg(mhdp->dev, "Starting CR phase\n");
 
 	mhdp_link_training_init(mhdp);
 
@@ -572,8 +570,7 @@ static bool mhdp_link_training_clock_recovery(struct cdns_mhdp_device *mhdp)
 		}
 
 		if (cr_done) {
-			dev_dbg(mhdp->dev,
-				"Link training: CR phase succeeded\n");
+			dev_dbg(mhdp->dev, "CR phase succeeded\n");
 			return true;
 		}
 
@@ -596,8 +593,7 @@ static bool mhdp_link_training_clock_recovery(struct cdns_mhdp_device *mhdp)
 	} while (fail_counter_short < 5 && fail_counter_cr_long < 10);
 
 err:
-	dev_dbg(mhdp->dev,
-		"Link training: CR phase failed for %d lanes and %d rate\n",
+	dev_dbg(mhdp->dev, "CR phase failed for %d lanes and %d rate\n",
 		mhdp->link.num_lanes, mhdp->link.rate);
 
 	return false;
