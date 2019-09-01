@@ -142,6 +142,11 @@ static inline int brcmf_debug_attach(struct brcmf_pub *drvr)
 static inline void brcmf_debug_detach(struct brcmf_pub *drvr)
 {
 }
+
+static inline struct dentry *brcmf_debugfs_get_devdir(struct brcmf_pub *drvr)
+{
+	return ERR_PTR(-ENOENT);
+}
 static inline
 int brcmf_debugfs_add_entry(struct brcmf_pub *drvr, const char *fn,
 			    int (*read_fn)(struct seq_file *seq, void *data))
