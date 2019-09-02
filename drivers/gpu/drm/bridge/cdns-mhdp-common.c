@@ -686,7 +686,7 @@ static int cdns_mhdp_get_msa_misc(struct video_info *video,
 	case YCBCR_4_2_0:
 		val[0] = 5;
 		break;
-	};
+	}
 
 	switch (video->color_depth) {
 	case 6:
@@ -704,7 +704,7 @@ static int cdns_mhdp_get_msa_misc(struct video_info *video,
 	case 16:
 		val[1] = 4;
 		break;
-	};
+	}
 
 	msa_misc = 2 * val[0] + 32 * val[1] +
 		   ((video->color_fmt == Y_ONLY) ? (1 << 14) : 0);
@@ -786,7 +786,7 @@ int cdns_mhdp_config_video(struct cdns_mhdp_device *mhdp)
 	case 16:
 		val = BCS_16;
 		break;
-	};
+	}
 
 	val += video->color_fmt << 8;
 	ret = cdns_mhdp_reg_write(mhdp, DP_FRAMER_PXL_REPR, val);
