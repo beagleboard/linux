@@ -689,8 +689,6 @@ static int wiz_phy_reset_deassert(struct reset_controller_dev *rcdev,
 
 	/* if typec-dir gpio was specified, set LN10 SWAP bit based on that */
 	if (id == 0 && wiz->gpio_typec_dir) {
-		u32 reg;
-
 		if (gpiod_get_value_cansleep(wiz->gpio_typec_dir)) {
 			regmap_update_bits(wiz->regmap, WIZ_SERDES_TYPEC,
 					   WIZ_SERDES_TYPEC_LN10_SWAP,
