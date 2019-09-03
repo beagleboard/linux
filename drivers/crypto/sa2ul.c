@@ -1551,7 +1551,7 @@ static int sa_sham_digest(struct ahash_request *req)
 	if (!req->nbytes)
 		return zero_message_process(req);
 
-	if (auth_len > 256)
+	if (auth_len >= 256)
 		dma_rx = pdata->dma_rx2;
 	else
 		dma_rx = pdata->dma_rx1;
