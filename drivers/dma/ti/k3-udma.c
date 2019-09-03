@@ -195,6 +195,7 @@ struct udma_chan {
 	u32 psd_size; /* size of Protocol Specific Data */
 	u32 metadata_size; /* (needs_epib ? 16:0) + psd_size */
 	u32 hdesc_size; /* Size of a packet descriptor in packet mode */
+	bool notdpkt; /* Suppress sending TDC packet */
 	int remote_thread_id;
 	u32 src_thread;
 	u32 dst_thread;
@@ -351,6 +352,7 @@ static void udma_reset_uchan(struct udma_chan *uc)
 	uc->psd_size = 0;
 	uc->metadata_size = 0;
 	uc->hdesc_size = 0;
+	uc->notdpkt = 0;
 }
 
 static inline void udma_dump_chan_stdata(struct udma_chan *uc)
@@ -735,6 +737,7 @@ static inline int udma_reset_chan(struct udma_chan *uc, bool hard)
 		uc->psd_size = uc_backup.psd_size;
 		uc->metadata_size = uc_backup.metadata_size;
 		uc->hdesc_size = uc_backup.hdesc_size;
+		uc->notdpkt = uc_backup.notdpkt;
 
 		ret = uc->ud->ddev.device_alloc_chan_resources(&uc->vc.chan);
 		if (ret)
@@ -1609,7 +1612,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		req_tx.tx_filt_einfo = 0;
 		req_tx.tx_filt_pswords = 0;
 		req_tx.tx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBRR;
-		req_tx.tx_supr_tdpkt = 0;
+		req_tx.tx_supr_tdpkt = uc->notdpkt;
 		req_tx.tx_fetch_size = sizeof(struct cppi5_desc_hdr_t) >> 2;
 		req_tx.txcq_qnum = tc_ring;
 
@@ -1680,7 +1683,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			req_tx.tx_filt_einfo = 0;
 			req_tx.tx_filt_pswords = 0;
 			req_tx.tx_chan_type = mode;
-			req_tx.tx_supr_tdpkt = 0;
+			req_tx.tx_supr_tdpkt = uc->notdpkt;
 			req_tx.tx_fetch_size = fetch_size >> 2;
 			req_tx.txcq_qnum = tc_ring;
 
@@ -2992,6 +2995,8 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 
 	if (!of_property_read_u32(chconf_node, "ti,channel-tpl", &val))
 		uc->channel_tpl = val;
+
+	uc->notdpkt = of_property_read_bool(chconf_node, "ti,notdpkt");
 
 	uc->needs_epib = of_property_read_bool(chconf_node, "ti,needs-epib");
 	if (!of_property_read_u32(chconf_node, "ti,psd-size", &val))
