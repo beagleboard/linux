@@ -53,6 +53,7 @@
 #define SA_SW0_ENG_ID_MASK	0x3E000000
 #define SA_SW0_DEST_INFO_PRESENT	BIT(30)
 #define SA_SW2_EGRESS_LENGTH		0xFF000000
+#define SA_BASIC_HASH		0x10
 
 #define SHA256_DIGEST_WORDS    8
 /* Make 32-bit word from 4 bytes */
@@ -415,6 +416,9 @@ static void sa_set_sc_auth(struct algo_data *ad, const u8 *key, u16 key_sz,
 		memcpy(&sc_buf[32], ipad, ad->hash_size);
 		/* Copy opad to Aux-1 */
 		memcpy(&sc_buf[64], opad, ad->hash_size);
+	} else {
+		/* basic hash */
+		sc_buf[1] |= SA_BASIC_HASH;
 	}
 }
 
@@ -1466,50 +1470,6 @@ static int sa_aead_decrypt(struct aead_request *req)
 	return sa_aead_run(req, req->iv, 0);
 }
 
-static int sa_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
-{
-	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
-	struct crypto_alg *alg = tfm->__crt_alg;
-	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
-	int ret;
-
-	if ((alg->cra_flags & CRYPTO_ALG_TYPE_MASK) ==
-	    CRYPTO_ALG_TYPE_AHASH) {
-		memset(ctx, 0, sizeof(*ctx));
-		ctx->dev_data = data;
-		ret = sa_init_ctx_info(&ctx->enc, data);
-		if (ret)
-			return ret;
-	}
-
-	if (alg_base) {
-		ctx->shash = crypto_alloc_shash(alg_base, 0,
-						CRYPTO_ALG_NEED_FALLBACK);
-		if (IS_ERR(ctx->shash)) {
-			pr_err("base driver %s couldn't be loaded\n", alg_base);
-			return PTR_ERR(ctx->shash);
-		}
-		/* for fallback */
-		ctx->fallback_tfm = crypto_alloc_ahash(alg_base, 0,
-						CRYPTO_ALG_NEED_FALLBACK);
-		if (IS_ERR(ctx->fallback_tfm)) {
-			dev_err(ctx->dev_data->dev,
-				"Could not load fallback driver\n");
-			return PTR_ERR(ctx->fallback_tfm);
-		}
-	}
-
-	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
-		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
-		ctx->dec.sc_id, &ctx->dec.sc_phys);
-
-	crypto_ahash_set_reqsize(__crypto_ahash_cast(tfm),
-				 sizeof(struct sa_dma_req_ctx) +
-				 crypto_ahash_reqsize(ctx->fallback_tfm));
-
-	return 0;
-}
-
 static void sa_sham_dma_in_callback(void *data)
 {
 	struct sa_rx_data *rxd = (struct sa_rx_data *)data;
@@ -1591,7 +1551,7 @@ static int sa_sham_digest(struct ahash_request *req)
 	if (!req->nbytes)
 		return zero_message_process(req);
 
-	if (enc_len > 256)
+	if (auth_len > 256)
 		dma_rx = pdata->dma_rx2;
 	else
 		dma_rx = pdata->dma_rx1;
@@ -1668,6 +1628,95 @@ static int sa_sham_digest(struct ahash_request *req)
 	dma_async_issue_pending(pdata->dma_tx);
 
 	return -EINPROGRESS;
+}
+
+static int sa_sha_setup(struct sa_tfm_ctx *ctx, struct  algo_data *ad)
+{
+	int bs = crypto_shash_blocksize(ctx->shash);
+	int cmdl_len;
+	struct sa_cmdl_cfg cfg;
+
+	memset(ctx->authkey, 0, bs);
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.enc1st = 0;
+	cfg.aalg = ad->aalg_id;
+	cfg.enc_eng_id = ad->enc_eng.eng_id;
+	cfg.auth_eng_id = ad->auth_eng.eng_id;
+	cfg.iv_size = 0;
+	cfg.akey = NULL;
+	cfg.akey_len = 0;
+
+	/* Setup Encryption Security Context & Command label template */
+	if (sa_init_sc(&ctx->enc, NULL, 0, NULL, 0, ad, 0,
+		       &ctx->enc.epib[1], true))
+		goto badkey;
+
+	cmdl_len = sa_format_cmdl_gen(&cfg,
+				      (u8 *)ctx->enc.cmdl,
+				      &ctx->enc.cmdl_upd_info);
+	if (cmdl_len <= 0 || (cmdl_len > SA_MAX_CMDL_WORDS * sizeof(u32)))
+		goto badkey;
+
+	ctx->enc.cmdl_size = cmdl_len;
+
+	return 0;
+badkey:
+	dev_err(sa_k3_dev, "%s: badkey\n", __func__);
+	return -EINVAL;
+}
+
+static int sa_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
+{
+	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
+	struct crypto_alg *alg = tfm->__crt_alg;
+	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
+	int ret;
+
+	if ((alg->cra_flags & CRYPTO_ALG_TYPE_MASK) ==
+	    CRYPTO_ALG_TYPE_AHASH) {
+		memset(ctx, 0, sizeof(*ctx));
+		ctx->dev_data = data;
+		ret = sa_init_ctx_info(&ctx->enc, data);
+		if (ret)
+			return ret;
+	}
+
+	if (alg_base) {
+		ctx->shash = crypto_alloc_shash(alg_base, 0,
+						CRYPTO_ALG_NEED_FALLBACK);
+		if (IS_ERR(ctx->shash)) {
+			pr_err("base driver %s couldn't be loaded\n", alg_base);
+			return PTR_ERR(ctx->shash);
+		}
+		/* for fallback */
+		ctx->fallback_tfm = crypto_alloc_ahash(alg_base, 0,
+						CRYPTO_ALG_NEED_FALLBACK);
+		if (IS_ERR(ctx->fallback_tfm)) {
+			dev_err(ctx->dev_data->dev,
+				"Could not load fallback driver\n");
+			return PTR_ERR(ctx->fallback_tfm);
+		}
+	}
+
+	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
+		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
+		ctx->dec.sc_id, &ctx->dec.sc_phys);
+
+	crypto_ahash_set_reqsize(__crypto_ahash_cast(tfm),
+				 sizeof(struct sa_dma_req_ctx) +
+				 crypto_ahash_reqsize(ctx->fallback_tfm));
+
+	return 0;
+}
+
+static int sa_sha1_digest(struct ahash_request *req)
+{
+	return sa_sham_digest(req);
+}
+
+static int sa_sha256_digest(struct ahash_request *req)
+{
+	return sa_sham_digest(req);
 }
 
 static int sa_sham_init(struct ahash_request *req)
@@ -1798,12 +1847,56 @@ static int sa_sham_sha256_setkey(struct crypto_ahash *tfm, const u8 *key,
 
 static int sa_sham_cra_sha1_init(struct crypto_tfm *tfm)
 {
-	return sa_sham_cra_init_alg(tfm, "sha1");
+	struct algo_data *ad = kzalloc(sizeof(*ad), GFP_KERNEL);
+	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
+
+	sa_sham_cra_init_alg(tfm, "sha1");
+
+	ad->enc_eng.eng_id = SA_ENG_ID_NONE;
+	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE1_SZ;
+	ad->auth_eng.eng_id = SA_ENG_ID_AM1;
+	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE2_SZ;
+	ad->mci_enc = NULL;
+	ad->mci_dec = NULL;
+	ad->inv_key = false;
+	ad->keyed_mac = false;
+	ad->ealg_id = SA_EALG_ID_NONE;
+	ad->aalg_id = SA_AALG_ID_SHA1;
+	ad->hash_size = SHA1_DIGEST_SIZE;
+	ad->auth_ctrl = 0x2;
+
+	sa_sha_setup(ctx, ad);
+
+	kfree(ad);
+
+	return 0;
 }
 
 static int sa_sham_cra_sha256_init(struct crypto_tfm *tfm)
 {
-	return sa_sham_cra_init_alg(tfm, "sha256");
+	struct algo_data *ad = kzalloc(sizeof(*ad), GFP_KERNEL);
+	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
+
+	sa_sham_cra_init_alg(tfm, "sha256");
+
+	ad->enc_eng.eng_id = SA_ENG_ID_NONE;
+	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE1_SZ;
+	ad->auth_eng.eng_id = SA_ENG_ID_AM1;
+	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE2_SZ;
+	ad->mci_enc = NULL;
+	ad->mci_dec = NULL;
+	ad->inv_key = false;
+	ad->keyed_mac = false;
+	ad->ealg_id = SA_EALG_ID_NONE;
+	ad->aalg_id = SA_AALG_ID_SHA2_256;
+	ad->hash_size = SHA256_DIGEST_SIZE;
+	ad->auth_ctrl = 0x4;
+
+	sa_sha_setup(ctx, ad);
+
+	kfree(ad);
+
+	return 0;
 }
 
 static void sa_sham_cra_exit(struct crypto_tfm *tfm)
@@ -2049,6 +2142,54 @@ static struct sa_alg_tmpl sa_algs[] = {
 };
 
 static struct ahash_alg algs_sha[] = {
+{
+	.init		= sa_sham_init,
+	.update		= sa_sham_update,
+	.final		= sa_sham_final,
+	.finup		= sa_sham_finup,
+	.digest		= sa_sha1_digest,
+	.export		= sa_sham_export,
+	.import		= sa_sham_import,
+	.halg.digestsize	= SHA1_DIGEST_SIZE,
+	.halg.statesize		= 128,
+	.halg.base	= {
+		.cra_name		= "sha1",
+		.cra_driver_name	= "sa-sha1",
+		.cra_priority		= 400,
+		.cra_flags		= CRYPTO_ALG_ASYNC |
+						CRYPTO_ALG_NEED_FALLBACK,
+		.cra_blocksize		= SHA1_BLOCK_SIZE,
+		.cra_ctxsize		= sizeof(struct sa_tfm_ctx),
+		.cra_alignmask		= SA_ALIGN_MASK,
+		.cra_module		= THIS_MODULE,
+		.cra_init		= sa_sham_cra_sha1_init,
+		.cra_exit		= sa_sham_cra_exit,
+	}
+},
+{
+	.init		= sa_sham_init,
+	.update		= sa_sham_update,
+	.final		= sa_sham_final,
+	.finup		= sa_sham_finup,
+	.digest		= sa_sha256_digest,
+	.export		= sa_sham_export,
+	.import		= sa_sham_import,
+	.halg.digestsize	= SHA256_DIGEST_SIZE,
+	.halg.statesize		= 128,
+	.halg.base	= {
+		.cra_name		= "sha256",
+		.cra_driver_name	= "sa-sha256",
+		.cra_priority		= 400,
+		.cra_flags		= CRYPTO_ALG_ASYNC |
+						CRYPTO_ALG_NEED_FALLBACK,
+		.cra_blocksize		= SHA256_BLOCK_SIZE,
+		.cra_ctxsize		= sizeof(struct sa_tfm_ctx),
+		.cra_alignmask		= SA_ALIGN_MASK,
+		.cra_module		= THIS_MODULE,
+		.cra_init		= sa_sham_cra_sha256_init,
+		.cra_exit		= sa_sham_cra_exit,
+	}
+},
 {
 	.init		= sa_sham_init,
 	.update		= sa_sham_update,
