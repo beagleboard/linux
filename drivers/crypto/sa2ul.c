@@ -1489,6 +1489,14 @@ static int sa_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 			pr_err("base driver %s couldn't be loaded\n", alg_base);
 			return PTR_ERR(ctx->shash);
 		}
+		/* for fallback */
+		ctx->fallback_tfm = crypto_alloc_ahash(alg_base, 0,
+						CRYPTO_ALG_NEED_FALLBACK);
+		if (IS_ERR(ctx->fallback_tfm)) {
+			dev_err(ctx->dev_data->dev,
+				"Could not load fallback driver\n");
+			return PTR_ERR(ctx->fallback_tfm);
+		}
 	}
 
 	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
@@ -1497,7 +1505,7 @@ static int sa_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 
 	crypto_ahash_set_reqsize(__crypto_ahash_cast(tfm),
 				 sizeof(struct sa_dma_req_ctx) +
-				 SHA512_BLOCK_SIZE);
+				 crypto_ahash_reqsize(ctx->fallback_tfm));
 
 	return 0;
 }
@@ -1524,6 +1532,30 @@ static void sa_sham_dma_in_callback(void *data)
 	kfree(rxd);
 
 	ahash_request_complete(req, 0);
+}
+
+/*
+ * IC can not process zero message hash,
+ * so we put the fixed hash out when met zero message.
+ */
+
+static int zero_message_process(struct ahash_request *req)
+{
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	int sa_digest_size = crypto_ahash_digestsize(tfm);
+
+	switch (sa_digest_size) {
+	case SHA1_DIGEST_SIZE:
+		memcpy(req->result, sha1_zero_message_hash, sa_digest_size);
+		break;
+	case SHA256_DIGEST_SIZE:
+		memcpy(req->result, sha256_zero_message_hash, sa_digest_size);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int sa_sham_digest(struct ahash_request *req)
@@ -1555,6 +1587,9 @@ static int sa_sham_digest(struct ahash_request *req)
 	enc_len = 0;
 	auth_len = req->nbytes;
 	enc_offset = 0;
+
+	if (!req->nbytes)
+		return zero_message_process(req);
 
 	if (enc_len > 256)
 		dma_rx = pdata->dma_rx2;
@@ -1638,11 +1673,17 @@ static int sa_sham_digest(struct ahash_request *req)
 static int sa_sham_init(struct ahash_request *req)
 {
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
+	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
 
 	dev_dbg(sa_k3_dev, "init: digest size: %d\n",
 		crypto_ahash_digestsize(tfm));
 
-	return 0;
+	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
+	rctx->fallback_req.base.flags = req->base.flags &
+					CRYPTO_TFM_REQ_MAY_SLEEP;
+
+	return crypto_ahash_init(&rctx->fallback_req);
 }
 
 static int sa_sham_shash_digest(struct crypto_shash *tfm, u32 flags,
@@ -1676,6 +1717,9 @@ static int sa_sham_setkey(struct crypto_ahash *tfm, const u8 *key,
 	} else {
 		memcpy(ctx->authkey, key, keylen);
 	}
+
+	/* Set up the fallback algorithm with key as well */
+	crypto_ahash_setkey(ctx->fallback_tfm, key, keylen);
 
 	memset(ctx->authkey + keylen, 0, bs - keylen);
 	memset(&cfg, 0, sizeof(cfg));
@@ -1780,17 +1824,74 @@ static void sa_sham_cra_exit(struct crypto_tfm *tfm)
 
 static int sa_sham_update(struct ahash_request *req)
 {
-	return 0;
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
+	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
+
+	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
+	rctx->fallback_req.base.flags = req->base.flags &
+					CRYPTO_TFM_REQ_MAY_SLEEP;
+	rctx->fallback_req.nbytes = req->nbytes;
+	rctx->fallback_req.src = req->src;
+
+	return crypto_ahash_update(&rctx->fallback_req);
 }
 
 static int sa_sham_final(struct ahash_request *req)
 {
-	return sa_sham_digest(req);
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
+	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
+
+	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
+	rctx->fallback_req.base.flags = req->base.flags &
+					CRYPTO_TFM_REQ_MAY_SLEEP;
+	rctx->fallback_req.result = req->result;
+
+	return crypto_ahash_final(&rctx->fallback_req);
 }
 
 static int sa_sham_finup(struct ahash_request *req)
 {
-	return sa_sham_digest(req);
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
+	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
+
+	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
+	rctx->fallback_req.base.flags = req->base.flags &
+					CRYPTO_TFM_REQ_MAY_SLEEP;
+
+	rctx->fallback_req.nbytes = req->nbytes;
+	rctx->fallback_req.src = req->src;
+	rctx->fallback_req.result = req->result;
+
+	return crypto_ahash_finup(&rctx->fallback_req);
+}
+
+static int sa_sham_import(struct ahash_request *req, const void *in)
+{
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
+	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
+
+	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
+	rctx->fallback_req.base.flags = req->base.flags &
+					CRYPTO_TFM_REQ_MAY_SLEEP;
+
+	return crypto_ahash_import(&rctx->fallback_req, in);
+}
+
+static int sa_sham_export(struct ahash_request *req, void *out)
+{
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
+	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
+
+	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
+	rctx->fallback_req.base.flags = req->base.flags &
+					CRYPTO_TFM_REQ_MAY_SLEEP;
+
+	return crypto_ahash_export(&rctx->fallback_req, out);
 }
 
 static struct sa_alg_tmpl sa_algs[] = {
@@ -1955,6 +2056,8 @@ static struct ahash_alg algs_sha[] = {
 	.finup		= sa_sham_finup,
 	.digest		= sa_sham_digest,
 	.setkey		= sa_sham_sha1_setkey,
+	.export		= sa_sham_export,
+	.import		= sa_sham_import,
 	.halg.digestsize	= SHA1_DIGEST_SIZE,
 	.halg.statesize		= 128,
 	.halg.base	= {
@@ -1980,6 +2083,8 @@ static struct ahash_alg algs_sha[] = {
 	.finup		= sa_sham_finup,
 	.digest		= sa_sham_digest,
 	.setkey		= sa_sham_sha256_setkey,
+	.export		= sa_sham_export,
+	.import		= sa_sham_import,
 	.halg.digestsize	= SHA256_DIGEST_SIZE,
 	.halg.statesize		= 128,
 	.halg.base	= {
