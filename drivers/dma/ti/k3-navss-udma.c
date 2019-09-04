@@ -74,6 +74,7 @@ struct k3_nav_udmax_rx_channel {
 
 	struct udma_rchan *udma_rchanx;
 	int udma_rchan_id;
+	bool remote;
 
 	bool psil_paired;
 
@@ -653,8 +654,13 @@ static int k3_nav_udmax_cfg_rx_flow(struct k3_nav_udmax_rx_channel *rx_chn,
 		goto err;
 	}
 
-	rx_ring_id = k3_ringacc_get_ring_id(flow->ringrx);
-	rx_ringfdq_id = k3_ringacc_get_ring_id(flow->ringrxfdq);
+	if (rx_chn->remote) {
+		rx_ring_id = TI_SCI_RESOURCE_NULL;
+		rx_ringfdq_id = TI_SCI_RESOURCE_NULL;
+	} else {
+		rx_ring_id = k3_ringacc_get_ring_id(flow->ringrx);
+		rx_ringfdq_id = k3_ringacc_get_ring_id(flow->ringrxfdq);
+	}
 
 	memset(&req, 0, sizeof(req));
 
@@ -699,6 +705,8 @@ static int k3_nav_udmax_cfg_rx_flow(struct k3_nav_udmax_rx_channel *rx_chn,
 	}
 
 	rx_chn->flows_ready++;
+	dev_dbg(dev, "flow%d config done. ready:%d\n",
+		flow->udma_rflow_id, rx_chn->flows_ready);
 
 	return 0;
 err:
@@ -737,6 +745,7 @@ static void k3_nav_udmax_dump_rx_rt_chn(struct k3_nav_udmax_rx_channel *chn,
 	struct device *dev = chn->common.dev;
 
 	dev_dbg(dev, "=== dump ===> %s\n", mark);
+
 	dev_dbg(dev, "0x%08X: %08X\n", UDMA_RCHAN_RT_CTL_REG,
 		xudma_rchanrt_read(chn->udma_rchanx, UDMA_RCHAN_RT_CTL_REG));
 	dev_dbg(dev, "0x%08X: %08X\n", UDMA_RCHAN_RT_PEER_RT_EN_REG,
@@ -779,8 +788,10 @@ k3_nav_udmax_allocate_rx_flows(struct k3_nav_udmax_rx_channel *rx_chn,
 	return 0;
 }
 
-struct k3_nav_udmax_rx_channel *k3_nav_udmax_request_rx_chn(struct device *dev,
-		const char *name, struct k3_nav_udmax_rx_channel_cfg *cfg)
+static struct k3_nav_udmax_rx_channel *
+k3_nav_udmax_request_rx_chn_priv(struct device *dev,
+				 const char *name,
+				 struct k3_nav_udmax_rx_channel_cfg *cfg)
 {
 	struct k3_nav_udmax_rx_channel *rx_chn;
 	int ret, i;
@@ -798,6 +809,7 @@ struct k3_nav_udmax_rx_channel *k3_nav_udmax_request_rx_chn(struct device *dev,
 
 	rx_chn->common.dev = dev;
 	rx_chn->common.swdata_size = cfg->swdata_size;
+	rx_chn->remote = false;
 
 	/* parse of udmap channel */
 	ret = of_k3_nav_udmax_parse_chn(dev->of_node, name,
@@ -878,6 +890,81 @@ err:
 	k3_nav_udmax_release_rx_chn(rx_chn);
 	return ERR_PTR(ret);
 }
+
+static struct k3_nav_udmax_rx_channel *
+k3_nav_udmax_request_remote_rx_chn(struct device *dev,
+				   const char *name,
+				   struct k3_nav_udmax_rx_channel_cfg *cfg)
+{
+	struct k3_nav_udmax_rx_channel *rx_chn;
+	int ret, i;
+
+	if (cfg->flow_id_num <= 0 ||
+	    cfg->flow_id_use_rxchan_id ||
+	    cfg->def_flow_cfg ||
+	    cfg->flow_id_base < 0)
+		return ERR_PTR(-EINVAL);
+
+	/*
+	 * Remote RX channel is under control of Remote CPU core, so
+	 * Linux can only request and manipulate by dedicated RX flows
+	 */
+
+	rx_chn = devm_kzalloc(dev, sizeof(*rx_chn), GFP_KERNEL);
+	if (!rx_chn)
+		return ERR_PTR(-ENOMEM);
+
+	rx_chn->common.dev = dev;
+	rx_chn->common.swdata_size = cfg->swdata_size;
+	rx_chn->remote = true;
+	rx_chn->udma_rchan_id = -1;
+	rx_chn->flow_num = cfg->flow_id_num;
+	rx_chn->flow_id_base = cfg->flow_id_base;
+	rx_chn->psil_paired = false;
+
+	/* parse of udmap channel */
+	ret = of_k3_nav_udmax_parse_chn(dev->of_node, name,
+					&rx_chn->common, false);
+	if (ret)
+		goto err;
+
+	rx_chn->common.hdesc_size = cppi5_hdesc_calc_size(rx_chn->common.epib,
+						rx_chn->common.psdata_size,
+						rx_chn->common.swdata_size);
+
+	rx_chn->flows = devm_kcalloc(dev, rx_chn->flow_num,
+				     sizeof(*rx_chn->flows), GFP_KERNEL);
+	if (!rx_chn->flows) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ret = k3_nav_udmax_allocate_rx_flows(rx_chn, cfg);
+	if (ret)
+		goto err;
+
+	for (i = 0; i < rx_chn->flow_num; i++)
+		rx_chn->flows[i].udma_rflow_id = rx_chn->flow_id_base + i;
+
+	k3_nav_udmax_dump_rx_chn(rx_chn);
+
+	return rx_chn;
+
+err:
+	k3_nav_udmax_release_rx_chn(rx_chn);
+	return ERR_PTR(ret);
+}
+
+struct k3_nav_udmax_rx_channel *
+k3_nav_udmax_request_rx_chn(struct device *dev,
+			    const char *name,
+			    struct k3_nav_udmax_rx_channel_cfg *cfg)
+{
+	if (cfg->remote)
+		return k3_nav_udmax_request_remote_rx_chn(dev, name, cfg);
+	else
+		return k3_nav_udmax_request_rx_chn_priv(dev, name, cfg);
+}
 EXPORT_SYMBOL_GPL(k3_nav_udmax_request_rx_chn);
 
 void k3_nav_udmax_release_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
@@ -941,9 +1028,92 @@ u32 k3_nav_udmax_rx_get_flow_id_base(struct k3_nav_udmax_rx_channel *rx_chn)
 }
 EXPORT_SYMBOL_GPL(k3_nav_udmax_rx_get_flow_id_base);
 
+int k3_nav_udmax_rx_flow_enable(struct k3_nav_udmax_rx_channel *rx_chn,
+				u32 flow_idx)
+{
+	struct k3_nav_udmax_rx_flow *flow = &rx_chn->flows[flow_idx];
+	const struct udma_tisci_rm *tisci_rm = rx_chn->common.tisci_rm;
+	struct device *dev = rx_chn->common.dev;
+	struct ti_sci_msg_rm_udmap_flow_cfg req;
+	int rx_ring_id;
+	int rx_ringfdq_id;
+	int ret = 0;
+
+	if (!rx_chn->remote)
+		return -EINVAL;
+
+	rx_ring_id = k3_ringacc_get_ring_id(flow->ringrx);
+	rx_ringfdq_id = k3_ringacc_get_ring_id(flow->ringrxfdq);
+
+	memset(&req, 0, sizeof(req));
+
+	req.valid_params =
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ0_SZ0_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ1_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ2_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ3_QNUM_VALID;
+	req.nav_id = tisci_rm->tisci_dev_id;
+	req.flow_index = flow->udma_rflow_id;
+	req.rx_dest_qnum = rx_ring_id;
+	req.rx_fdq0_sz0_qnum = rx_ringfdq_id;
+	req.rx_fdq1_qnum = rx_ringfdq_id;
+	req.rx_fdq2_qnum = rx_ringfdq_id;
+	req.rx_fdq3_qnum = rx_ringfdq_id;
+
+	ret = tisci_rm->tisci_udmap_ops->rx_flow_cfg(tisci_rm->tisci, &req);
+	if (ret) {
+		dev_err(dev, "flow%d enable failed: %d\n", flow->udma_rflow_id,
+			ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(k3_nav_udmax_rx_flow_enable);
+
+int k3_nav_udmax_rx_flow_disable(struct k3_nav_udmax_rx_channel *rx_chn,
+				 u32 flow_idx)
+{
+	struct k3_nav_udmax_rx_flow *flow = &rx_chn->flows[flow_idx];
+	const struct udma_tisci_rm *tisci_rm = rx_chn->common.tisci_rm;
+	struct device *dev = rx_chn->common.dev;
+	struct ti_sci_msg_rm_udmap_flow_cfg req;
+	int ret = 0;
+
+	if (!rx_chn->remote)
+		return -EINVAL;
+
+	memset(&req, 0, sizeof(req));
+	req.valid_params =
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_DEST_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ0_SZ0_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ1_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ2_QNUM_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_FLOW_FDQ3_QNUM_VALID;
+	req.nav_id = tisci_rm->tisci_dev_id;
+	req.flow_index = flow->udma_rflow_id;
+	req.rx_dest_qnum = TI_SCI_RESOURCE_NULL;
+	req.rx_fdq0_sz0_qnum = TI_SCI_RESOURCE_NULL;
+	req.rx_fdq1_qnum = TI_SCI_RESOURCE_NULL;
+	req.rx_fdq2_qnum = TI_SCI_RESOURCE_NULL;
+	req.rx_fdq3_qnum = TI_SCI_RESOURCE_NULL;
+
+	ret = tisci_rm->tisci_udmap_ops->rx_flow_cfg(tisci_rm->tisci, &req);
+	if (ret) {
+		dev_err(dev, "flow%d disable failed: %d\n", flow->udma_rflow_id,
+			ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(k3_nav_udmax_rx_flow_disable);
+
 int k3_nav_udmax_enable_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
 {
 	u32 rxrt_ctl;
+
+	if (rx_chn->remote)
+		return -EINVAL;
 
 	if (rx_chn->flows_ready < rx_chn->flow_num)
 		return -EINVAL;
@@ -965,6 +1135,9 @@ EXPORT_SYMBOL_GPL(k3_nav_udmax_enable_rx_chn);
 
 void k3_nav_udmax_disable_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
 {
+	if (rx_chn->remote)
+		return;
+
 	k3_nav_udmax_dump_rx_rt_chn(rx_chn, "rxrt dis1");
 
 	xudma_rchanrt_write(rx_chn->udma_rchanx,
@@ -981,6 +1154,9 @@ void k3_nav_udmax_tdown_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn,
 {
 	int i = 0;
 	u32 val;
+
+	if (rx_chn->remote)
+		return;
 
 	k3_nav_udmax_dump_rx_rt_chn(rx_chn, "rxrt tdown1");
 
@@ -1019,6 +1195,8 @@ void k3_nav_udmax_reset_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn,
 	int occ_rx, i, ret;
 
 	/* reset RXCQ as it is not input for udma - expected to be empty */
+	occ_rx = k3_ringacc_ring_get_occ(flow->ringrx);
+	dev_dbg(dev, "RX reset flow %u occ_rx %u\n", flow_num, occ_rx);
 	if (flow->ringrx)
 		k3_ringacc_ring_reset(flow->ringrx);
 
@@ -1034,7 +1212,7 @@ void k3_nav_udmax_reset_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn,
 	 * 3) reset RX FDQ in a special way
 	 */
 	occ_rx = k3_ringacc_ring_get_occ(flow->ringrxfdq);
-	dev_dbg(dev, "RX reset flow %u occ_tx %u\n", flow_num, occ_rx);
+	dev_dbg(dev, "RX reset flow %u occ_rx_fdq %u\n", flow_num, occ_rx);
 
 	for (i = 0; i < occ_rx; i++) {
 		ret = k3_ringacc_ring_pop(flow->ringrxfdq, &desc_dma);

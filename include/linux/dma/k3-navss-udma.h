@@ -91,6 +91,11 @@ struct k3_nav_udmax_rx_flow_cfg {
  * @flow_id_num:	number of RX flows used by channel
  * @flow_id_use_rxchan_id:	use RX channel id as flow id,
  *				used only if @flow_id_num = 1
+ * @remote		indication that RX channel is remote - some remote CPU
+ *			core owns and control the RX channel. Linux Host only
+ *			allowed to attach and configure RX Flow within RX
+ *			channel. if set - not RX channel operation will be
+ *			performed by K3 NAVSS DMA glue interface.
  * @def_flow_cfg	default RX flow configuration,
  *			used only if @flow_id_num = 1
  */
@@ -99,6 +104,7 @@ struct k3_nav_udmax_rx_channel_cfg {
 	int  flow_id_base;
 	int  flow_id_num;
 	bool flow_id_use_rxchan_id;
+	bool remote;
 
 	struct k3_nav_udmax_rx_flow_cfg *def_flow_cfg;
 };
@@ -134,5 +140,9 @@ void k3_nav_udmax_reset_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn,
 			       u32 flow_num, void *data,
 			       void (*cleanup)(void *data, dma_addr_t desc_dma),
 			       bool skip_fdq);
+int k3_nav_udmax_rx_flow_enable(struct k3_nav_udmax_rx_channel *rx_chn,
+				u32 flow_idx);
+int k3_nav_udmax_rx_flow_disable(struct k3_nav_udmax_rx_channel *rx_chn,
+				 u32 flow_idx);
 
 #endif /* K3_NAVSS_UDMA_H_ */
