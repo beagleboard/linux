@@ -754,3 +754,8 @@
 		ti,adc-channels = <0 1 2 3 4 5 6 7>;
 	};
 };
+
+/* uart2 assigned to cpsw9g eth-switch fw running on remote CPU core */
+&main_uart2 {
+	status = "disabled";
+};
