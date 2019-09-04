@@ -603,6 +603,7 @@ static void k3_nav_udmax_release_rx_flow(struct k3_nav_udmax_rx_channel *rx_chn,
 		k3_ringacc_ring_free(flow->ringrx);
 
 	xudma_rflow_put(rx_chn->common.udmax, flow->udma_rflow);
+	flow->udma_rflow = NULL;
 	rx_chn->flows_ready--;
 }
 
