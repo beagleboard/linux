@@ -909,8 +909,10 @@ void k3_nav_udmax_release_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
 	if (rx_chn->need_tisci_free)
 		rx_chn->need_tisci_free = false;
 
-	xudma_free_gp_rflow_range(rx_chn->common.udmax,
-				  rx_chn->flow_id_base, rx_chn->flow_num);
+	if (xudma_rflow_is_gp(rx_chn->common.udmax, rx_chn->flow_id_base))
+		xudma_free_gp_rflow_range(rx_chn->common.udmax,
+					  rx_chn->flow_id_base,
+					  rx_chn->flow_num);
 
 	if (!IS_ERR_OR_NULL(rx_chn->udma_rchanx))
 		xudma_rchan_put(rx_chn->common.udmax,
