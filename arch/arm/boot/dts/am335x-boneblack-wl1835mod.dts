@@ -8,13 +8,7 @@
 /dts-v1/;
 
 #include "am33xx.dtsi"
-#include "am335x-bone-common.dtsi"
-#include "am335x-boneblack-common.dtsi"
-/* #include "am335x-bone-jtag.dtsi" */
-
-&sgx {
-	status = "okay";
-};
+#include "am335x-bone-common-no-capemgr.dtsi"
 
 / {
 	model = "TI AM335x BeagleBone Black";
@@ -31,3 +25,25 @@
 		opp-supported-hw = <0x06 0x0100>;
 	};
 };
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+/* EMMC in reset */
+&gpio1 {
+	emmc_rst {
+		gpio-hog;
+		gpios = <20 0>;
+		output-high;
+		line-name = "EMMC ResetN";
+	};
+};
+
+#include "am335x-boneblack-wl1835mod-cape.dtsi"
