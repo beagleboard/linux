@@ -335,7 +335,6 @@ static int cdns_sierra_phy_on(struct phy *gphy)
 static int cdns_sierra_phy_off(struct phy *gphy)
 {
 	struct cdns_sierra_inst *ins = phy_get_drvdata(gphy);
-	struct cdns_sierra_phy *sp = dev_get_drvdata(gphy->dev.parent);
 
 	return reset_control_assert(ins->lnk_rst);
 }
