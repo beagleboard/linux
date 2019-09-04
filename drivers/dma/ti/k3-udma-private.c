@@ -69,17 +69,23 @@ struct udma_tisci_rm *xudma_dev_get_tisci_rm(struct udma_dev *ud)
 }
 EXPORT_SYMBOL(xudma_dev_get_tisci_rm);
 
-int xudma_reserve_rflow_range(struct udma_dev *ud, int from, int cnt)
+int xudma_alloc_gp_rflow_range(struct udma_dev *ud, int from, int cnt)
 {
-	return __udma_reserve_rflow_range(ud, from, cnt);
+	return __udma_alloc_gp_rflow_range(ud, from, cnt);
 }
-EXPORT_SYMBOL(xudma_reserve_rflow_range);
+EXPORT_SYMBOL(xudma_alloc_gp_rflow_range);
 
-int xudma_free_rflow_range(struct udma_dev *ud, int from, int cnt)
+int xudma_free_gp_rflow_range(struct udma_dev *ud, int from, int cnt)
 {
-	return __udma_free_rflow_range(ud, from, cnt);
+	return __udma_free_gp_rflow_range(ud, from, cnt);
 }
-EXPORT_SYMBOL(xudma_free_rflow_range);
+EXPORT_SYMBOL(xudma_free_gp_rflow_range);
+
+bool xudma_rflow_is_gp(struct udma_dev *ud, int id)
+{
+	return !test_bit(id, ud->rflow_gp_map);
+}
+EXPORT_SYMBOL(xudma_rflow_is_gp);
 
 #define XUDMA_GET_PUT_RESOURCE(res)					\
 struct udma_##res *xudma_##res##_get(struct udma_dev *ud, int id)	\
@@ -95,7 +101,18 @@ void xudma_##res##_put(struct udma_dev *ud, struct udma_##res *p)	\
 EXPORT_SYMBOL(xudma_##res##_put)
 XUDMA_GET_PUT_RESOURCE(tchan);
 XUDMA_GET_PUT_RESOURCE(rchan);
-XUDMA_GET_PUT_RESOURCE(rflow);
+
+struct udma_rflow *xudma_rflow_get(struct udma_dev *ud, int id)
+{
+	return __udma_get_rflow(ud, id);
+}
+EXPORT_SYMBOL(xudma_rflow_get);
+
+void xudma_rflow_put(struct udma_dev *ud, struct udma_rflow *p)
+{
+	__udma_put_rflow(ud, p);
+}
+EXPORT_SYMBOL(xudma_rflow_put);
 
 #define XUDMA_GET_RESOURCE_ID(res)					\
 int xudma_##res##_get_id(struct udma_##res *p)				\

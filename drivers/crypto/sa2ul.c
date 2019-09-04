@@ -2155,6 +2155,24 @@ err_dma_tx:
 	return ret;
 }
 
+int sa2ul_trng_enable(struct device *dev)
+{
+	struct sa_crypto_data *dev_data;
+	u32 val;
+
+	if (!dev)
+		return -ENODEV;
+
+	dev_data = dev_get_drvdata(dev);
+
+	val = readl_relaxed(dev_data->base + SA_ENGINE_ENABLE_CONTROL);
+	writel_relaxed(val | SA_EEC_TRNG_EN, dev_data->base +
+		       SA_ENGINE_ENABLE_CONTROL);
+
+	return 0;
+}
+EXPORT_SYMBOL(sa2ul_trng_enable);
+
 static int sa_ul_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2183,8 +2201,9 @@ static int sa_ul_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	saul_base = devm_ioremap_resource(dev, res);
 
+	dev_data->base = saul_base;
 	val = SA_EEC_ENCSS_EN | SA_EEC_AUTHSS_EN | SA_EEC_CTXCACH_EN |
-	    SA_EEC_CPPI_PORT_IN_EN | SA_EEC_CPPI_PORT_OUT_EN | SA_EEC_TRNG_EN;
+	    SA_EEC_CPPI_PORT_IN_EN | SA_EEC_CPPI_PORT_OUT_EN;
 
 	writel_relaxed(val, saul_base + SA_ENGINE_ENABLE_CONTROL);
 

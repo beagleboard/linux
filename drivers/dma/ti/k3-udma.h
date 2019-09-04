@@ -140,8 +140,8 @@ void xudma_dev_put(struct udma_dev *ud);
 u32 xudma_dev_get_psil_base(struct udma_dev *ud);
 struct udma_tisci_rm *xudma_dev_get_tisci_rm(struct udma_dev *ud);
 
-int xudma_reserve_rflow_range(struct udma_dev *ud, int from, int cnt);
-int xudma_free_rflow_range(struct udma_dev *ud, int from, int cnt);
+int xudma_alloc_gp_rflow_range(struct udma_dev *ud, int from, int cnt);
+int xudma_free_gp_rflow_range(struct udma_dev *ud, int from, int cnt);
 
 struct udma_tchan *xudma_tchan_get(struct udma_dev *ud, int id);
 struct udma_rchan *xudma_rchan_get(struct udma_dev *ud, int id);
@@ -159,5 +159,6 @@ u32 xudma_tchanrt_read(struct udma_tchan *tchan, int reg);
 void xudma_tchanrt_write(struct udma_tchan *tchan, int reg, u32 val);
 u32 xudma_rchanrt_read(struct udma_rchan *rchan, int reg);
 void xudma_rchanrt_write(struct udma_rchan *rchan, int reg, u32 val);
+bool xudma_rflow_is_gp(struct udma_dev *ud, int id);
 
 #endif /* K3_UDMA_H_ */

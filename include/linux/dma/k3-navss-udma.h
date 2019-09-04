@@ -86,8 +86,8 @@ struct k3_nav_udmax_rx_flow_cfg {
  *
  * @psdata_size:	SW Data is present in Host PD of @swdata_size bytes
  * @flow_id_base:	first flow_id used by channel.
- *			if @flow_id_base = -1 - flow ids range will be allocated
- *			dynamically.
+ *			if @flow_id_base = -1 - range of GP rflows will be
+ *			allocated dynamically.
  * @flow_id_num:	number of RX flows used by channel
  * @flow_id_use_rxchan_id:	use RX channel id as flow id,
  *				used only if @flow_id_num = 1
@@ -99,7 +99,6 @@ struct k3_nav_udmax_rx_channel_cfg {
 	int  flow_id_base;
 	int  flow_id_num;
 	bool flow_id_use_rxchan_id;
-	bool skip_psil;
 
 	struct k3_nav_udmax_rx_flow_cfg *def_flow_cfg;
 };

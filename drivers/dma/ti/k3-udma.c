@@ -110,8 +110,9 @@ struct udma_dev {
 	int rflow_cnt;
 	unsigned long *tchan_map;
 	unsigned long *rchan_map;
-	unsigned long *rflow_map;
-	unsigned long *rflow_map_reserved;
+	unsigned long *rflow_gp_map;
+	unsigned long *rflow_gp_map_allocated;
+	unsigned long *rflow_in_use;
 
 	struct udma_tchan *tchans;
 	struct udma_rchan *rchans;
@@ -194,6 +195,7 @@ struct udma_chan {
 	u32 psd_size; /* size of Protocol Specific Data */
 	u32 metadata_size; /* (needs_epib ? 16:0) + psd_size */
 	u32 hdesc_size; /* Size of a packet descriptor in packet mode */
+	bool notdpkt; /* Suppress sending TDC packet */
 	int remote_thread_id;
 	u32 src_thread;
 	u32 dst_thread;
@@ -335,6 +337,22 @@ static inline char *udma_get_dir_text(enum dma_transfer_direction dir)
 	}
 
 	return "invalid";
+}
+
+static void udma_reset_uchan(struct udma_chan *uc)
+{
+	uc->state = UDMA_CHAN_IS_IDLE;
+	uc->remote_thread_id = -1;
+	uc->dir = DMA_MEM_TO_MEM;
+	uc->pkt_mode = false;
+	uc->static_tr_type = 0;
+	uc->enable_acc32 = 0;
+	uc->enable_burst = 0;
+	uc->channel_tpl = 0;
+	uc->psd_size = 0;
+	uc->metadata_size = 0;
+	uc->hdesc_size = 0;
+	uc->notdpkt = 0;
 }
 
 static inline void udma_dump_chan_stdata(struct udma_chan *uc)
@@ -719,6 +737,7 @@ static inline int udma_reset_chan(struct udma_chan *uc, bool hard)
 		uc->psd_size = uc_backup.psd_size;
 		uc->metadata_size = uc_backup.metadata_size;
 		uc->hdesc_size = uc_backup.hdesc_size;
+		uc->notdpkt = uc_backup.notdpkt;
 
 		ret = uc->ud->ddev.device_alloc_chan_resources(&uc->vc.chan);
 		if (ret)
@@ -1057,12 +1076,12 @@ static irqreturn_t udma_udma_irq_handler(int irq, void *data)
 }
 
 /**
- * __udma_reserve_rflow_range - reserve range of flow ids
+ * __udma_alloc_gp_rflow_range - alloc range of GP RX flows
  * @ud: UDMA device
  * @from: Start the search from this flow id number
  * @cnt: Number of consecutive flow ids to allocate
  *
- * Reserve range of flow ids for future use, those flows can be allocated
+ * Allocate range of RX flow ids for future use, those flows can be requested
  * only using explicit flow id number. if @from is set to -1 it will try to find
  * first free range. if @from is positive value it will force allocation only
  * of the specified range of flows.
@@ -1072,7 +1091,7 @@ static irqreturn_t udma_udma_irq_handler(int irq, void *data)
  * -EINVAL if wrong input values passed.
  * Returns flow id on success.
  */
-static int __udma_reserve_rflow_range(struct udma_dev *ud, int from, int cnt)
+static int __udma_alloc_gp_rflow_range(struct udma_dev *ud, int from, int cnt)
 {
 	int start, tmp_from;
 	DECLARE_BITMAP(tmp, K3_UDMA_MAX_RFLOWS);
@@ -1080,14 +1099,14 @@ static int __udma_reserve_rflow_range(struct udma_dev *ud, int from, int cnt)
 	tmp_from = from;
 	if (tmp_from < 0)
 		tmp_from = ud->rchan_cnt;
-	/* default flows can't be reserved and accessible only by id */
+	/* default flows can't be allocated and accessible only by id */
 	if (tmp_from < ud->rchan_cnt)
 		return -EINVAL;
 
 	if (tmp_from + cnt > ud->rflow_cnt)
 		return -EINVAL;
 
-	bitmap_or(tmp, ud->rflow_map, ud->rflow_map_reserved,
+	bitmap_or(tmp, ud->rflow_gp_map, ud->rflow_gp_map_allocated,
 		  ud->rflow_cnt);
 
 	start = bitmap_find_next_zero_area(tmp,
@@ -1099,42 +1118,55 @@ static int __udma_reserve_rflow_range(struct udma_dev *ud, int from, int cnt)
 	if (from >= 0 && start != from)
 		return -EEXIST;
 
-	bitmap_set(ud->rflow_map_reserved, start, cnt);
+	bitmap_set(ud->rflow_gp_map_allocated, start, cnt);
 	return start;
 }
 
-static int __udma_free_rflow_range(struct udma_dev *ud, int from, int cnt)
+static int __udma_free_gp_rflow_range(struct udma_dev *ud, int from, int cnt)
 {
 	if (from < ud->rchan_cnt)
 		return -EINVAL;
 	if (from + cnt > ud->rflow_cnt)
 		return -EINVAL;
 
-	bitmap_clear(ud->rflow_map_reserved, from, cnt);
+	bitmap_clear(ud->rflow_gp_map_allocated, from, cnt);
 	return 0;
 }
 
-static struct udma_rflow *__udma_reserve_rflow(struct udma_dev *ud,
-					       enum udma_tp_level tpl, int id)
+static struct udma_rflow *__udma_get_rflow(struct udma_dev *ud, int id)
 {
-	DECLARE_BITMAP(tmp, K3_UDMA_MAX_RFLOWS);
+	/*
+	 * Attempt to request rflow by ID can be made for any rflow
+	 * if not in use with assumption that caller knows what's doing.
+	 * TI-SCI FW will perform additional permission check ant way, it's
+	 * safe
+	 */
 
-	if (id >= 0) {
-		if (test_bit(id, ud->rflow_map)) {
-			dev_err(ud->dev, "rflow%d is in use\n", id);
-			return ERR_PTR(-ENOENT);
-		}
-	} else {
-		bitmap_or(tmp, ud->rflow_map, ud->rflow_map_reserved,
-			  ud->rflow_cnt);
+	if (id < 0 || id >= ud->rflow_cnt)
+		return ERR_PTR(-ENOENT);
 
-		id = find_next_zero_bit(tmp, ud->rflow_cnt, ud->rchan_cnt);
-		if (id >= ud->rflow_cnt)
-			return ERR_PTR(-ENOENT);
+	if (test_bit(id, ud->rflow_in_use))
+		return ERR_PTR(-ENOENT);
+
+	/* GP rflow has to be allocated first */
+	if (!test_bit(id, ud->rflow_gp_map) &&
+	    !test_bit(id, ud->rflow_gp_map_allocated))
+		return ERR_PTR(-EINVAL);
+
+	dev_dbg(ud->dev, "get rflow%d\n", id);
+	set_bit(id, ud->rflow_in_use);
+	return &ud->rflows[id];
+}
+
+static void __udma_put_rflow(struct udma_dev *ud, struct udma_rflow *rflow)
+{
+	if (!test_bit(rflow->id, ud->rflow_in_use)) {
+		dev_err(ud->dev, "attempt to put unused rflow%d\n", rflow->id);
+		return;
 	}
 
-	set_bit(id, ud->rflow_map);
-	return &ud->rflows[id];
+	dev_dbg(ud->dev, "put rflow%d\n", rflow->id);
+	clear_bit(rflow->id, ud->rflow_in_use);
 }
 
 #define UDMA_RESERVE_RESOURCE(res)					\
@@ -1259,7 +1291,7 @@ static int udma_get_rflow(struct udma_chan *uc, int flow_id)
 	if (!uc->rchan)
 		dev_warn(ud->dev, "chan%d: does not have rchan??\n", uc->id);
 
-	uc->rflow = __udma_reserve_rflow(ud, uc->channel_tpl, flow_id);
+	uc->rflow = __udma_get_rflow(ud, flow_id);
 	if (IS_ERR(uc->rflow))
 		return PTR_ERR(uc->rflow);
 
@@ -1297,7 +1329,7 @@ static void udma_put_rflow(struct udma_chan *uc)
 	if (uc->rflow) {
 		dev_dbg(ud->dev, "chan%d: put rflow%d\n", uc->id,
 			uc->rflow->id);
-		clear_bit(uc->rflow->id, ud->rflow_map);
+		__udma_put_rflow(ud, uc->rflow);
 		uc->rflow = NULL;
 	}
 }
@@ -1580,7 +1612,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		req_tx.tx_filt_einfo = 0;
 		req_tx.tx_filt_pswords = 0;
 		req_tx.tx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBRR;
-		req_tx.tx_supr_tdpkt = 0;
+		req_tx.tx_supr_tdpkt = uc->notdpkt;
 		req_tx.tx_fetch_size = sizeof(struct cppi5_desc_hdr_t) >> 2;
 		req_tx.txcq_qnum = tc_ring;
 
@@ -1651,7 +1683,7 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			req_tx.tx_filt_einfo = 0;
 			req_tx.tx_filt_pswords = 0;
 			req_tx.tx_chan_type = mode;
-			req_tx.tx_supr_tdpkt = 0;
+			req_tx.tx_supr_tdpkt = uc->notdpkt;
 			req_tx.tx_fetch_size = fetch_size >> 2;
 			req_tx.txcq_qnum = tc_ring;
 
@@ -1845,16 +1877,7 @@ err_chan_free:
 err_res_free:
 	udma_free_tx_resources(uc);
 	udma_free_rx_resources(uc);
-	uc->remote_thread_id = -1;
-	uc->dir = DMA_MEM_TO_MEM;
-	uc->pkt_mode = false;
-	uc->static_tr_type = 0;
-	uc->enable_acc32 = 0;
-	uc->enable_burst = 0;
-	uc->channel_tpl = 0;
-	uc->psd_size = 0;
-	uc->metadata_size = 0;
-	uc->hdesc_size = 0;
+	udma_reset_uchan(uc);
 
 	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
@@ -2618,7 +2641,7 @@ static enum dma_status udma_tx_status(struct dma_chan *chan,
 
 		if (uc->desc->dir == DMA_MEM_TO_DEV) {
 			bcnt = udma_tchanrt_read(uc->tchan,
-						 UDMA_TCHAN_RT_BCNT_REG);
+						 UDMA_TCHAN_RT_SBCNT_REG);
 			pdma_bcnt = udma_tchanrt_read(uc->tchan,
 						UDMA_TCHAN_RT_PEER_BCNT_REG);
 			pcnt = udma_tchanrt_read(uc->tchan,
@@ -2628,7 +2651,7 @@ static enum dma_status udma_tx_status(struct dma_chan *chan,
 				delay = bcnt - pdma_bcnt;
 		} else if (uc->desc->dir == DMA_DEV_TO_MEM) {
 			bcnt = udma_rchanrt_read(uc->rchan,
-						 UDMA_RCHAN_RT_SBCNT_REG);
+						 UDMA_RCHAN_RT_BCNT_REG);
 			pdma_bcnt = udma_rchanrt_read(uc->rchan,
 						UDMA_RCHAN_RT_PEER_BCNT_REG);
 			pcnt = udma_rchanrt_read(uc->rchan,
@@ -2640,7 +2663,7 @@ static enum dma_status udma_tx_status(struct dma_chan *chan,
 			u32 sbcnt;
 
 			sbcnt = udma_tchanrt_read(uc->tchan,
-						  UDMA_TCHAN_RT_SBCNT_REG);
+						  UDMA_TCHAN_RT_BCNT_REG);
 			bcnt = udma_tchanrt_read(uc->tchan,
 						 UDMA_TCHAN_RT_PEER_BCNT_REG);
 			pcnt = udma_tchanrt_read(uc->tchan,
@@ -2895,17 +2918,7 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 
 	udma_free_tx_resources(uc);
 	udma_free_rx_resources(uc);
-
-	uc->remote_thread_id = -1;
-	uc->dir = DMA_MEM_TO_MEM;
-	uc->pkt_mode = false;
-	uc->static_tr_type = 0;
-	uc->enable_acc32 = 0;
-	uc->enable_burst = 0;
-	uc->channel_tpl = 0;
-	uc->psd_size = 0;
-	uc->metadata_size = 0;
-	uc->hdesc_size = 0;
+	udma_reset_uchan(uc);
 
 	if (uc->use_dma_pool) {
 		dma_pool_destroy(uc->hdesc_pool);
@@ -2943,11 +2956,13 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 	slave_node = of_find_node_by_phandle(args[0]);
 	if (!slave_node) {
 		dev_err(ud->dev, "Slave node is missing\n");
+		uc->dir = DMA_MEM_TO_MEM;
 		return false;
 	}
 
 	if (of_property_read_u32(slave_node, "ti,psil-base", &val)) {
 		dev_err(ud->dev, "ti,psil-base is missing\n");
+		uc->dir = DMA_MEM_TO_MEM;
 		return false;
 	}
 
@@ -2958,6 +2973,7 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 	chconf_node = of_find_node_by_name(slave_node, prop);
 	if (!chconf_node) {
 		dev_err(ud->dev, "Channel configuration node is missing\n");
+		uc->dir = DMA_MEM_TO_MEM;
 		uc->remote_thread_id = -1;
 		return false;
 	}
@@ -2979,6 +2995,8 @@ static bool udma_dma_filter_fn(struct dma_chan *chan, void *param)
 
 	if (!of_property_read_u32(chconf_node, "ti,channel-tpl", &val))
 		uc->channel_tpl = val;
+
+	uc->notdpkt = of_property_read_bool(chconf_node, "ti,notdpkt");
 
 	uc->needs_epib = of_property_read_bool(chconf_node, "ti,needs-epib");
 	if (!of_property_read_u32(chconf_node, "ti,psd-size", &val))
@@ -3133,17 +3151,22 @@ static int udma_setup_resources(struct udma_dev *ud)
 					   sizeof(unsigned long), GFP_KERNEL);
 	ud->rchans = devm_kcalloc(dev, ud->rchan_cnt, sizeof(*ud->rchans),
 				  GFP_KERNEL);
-	ud->rflow_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->rflow_cnt),
-					   sizeof(unsigned long), GFP_KERNEL);
-	ud->rflow_map_reserved = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
+	ud->rflow_gp_map = devm_kmalloc_array(dev, BITS_TO_LONGS(ud->rflow_cnt),
 					      sizeof(unsigned long),
 					      GFP_KERNEL);
+	ud->rflow_gp_map_allocated = devm_kcalloc(dev,
+						  BITS_TO_LONGS(ud->rflow_cnt),
+						  sizeof(unsigned long),
+						  GFP_KERNEL);
+	ud->rflow_in_use = devm_kcalloc(dev, BITS_TO_LONGS(ud->rflow_cnt),
+					sizeof(unsigned long),
+					GFP_KERNEL);
 	ud->rflows = devm_kcalloc(dev, ud->rflow_cnt, sizeof(*ud->rflows),
 				  GFP_KERNEL);
 
-	if (!ud->tchan_map || !ud->rchan_map || !ud->rflow_map ||
-	    !ud->rflow_map_reserved || !ud->tchans || !ud->rchans ||
-	    !ud->rflows)
+	if (!ud->tchan_map || !ud->rchan_map || !ud->rflow_gp_map ||
+	    !ud->rflow_gp_map_allocated || !ud->tchans || !ud->rchans ||
+	    !ud->rflows || !ud->rflow_in_use)
 		return -ENOMEM;
 
 	/*
@@ -3151,7 +3174,10 @@ static int udma_setup_resources(struct udma_dev *ud)
 	 * as default flows if remote HW can't generate flow_ids. Those
 	 * RX flows can be requested only explicitly by id.
 	 */
-	bitmap_set(ud->rflow_map_reserved, 0, ud->rchan_cnt);
+	bitmap_set(ud->rflow_gp_map_allocated, 0, ud->rchan_cnt);
+
+	/* by default no GP rflows are assigned to Linux */
+	bitmap_set(ud->rflow_gp_map, 0, ud->rflow_cnt);
 
 	/* Get resource ranges from tisci */
 	for (i = 0; i < RM_RANGE_LAST; i++)
@@ -3170,6 +3196,8 @@ static int udma_setup_resources(struct udma_dev *ud)
 			rm_desc = &rm_res->desc[i];
 			bitmap_clear(ud->tchan_map, rm_desc->start,
 				     rm_desc->num);
+			dev_dbg(dev, "ti-sci-res: tchan: %d:%d\n",
+				rm_desc->start, rm_desc->num);
 		}
 	}
 
@@ -3177,31 +3205,30 @@ static int udma_setup_resources(struct udma_dev *ud)
 	rm_res = tisci_rm->rm_ranges[RM_RANGE_RCHAN];
 	if (IS_ERR(rm_res)) {
 		bitmap_zero(ud->rchan_map, ud->rchan_cnt);
-		bitmap_zero(ud->rflow_map, ud->rchan_cnt);
 	} else {
 		bitmap_fill(ud->rchan_map, ud->rchan_cnt);
-		bitmap_fill(ud->rflow_map, ud->rchan_cnt);
 		for (i = 0; i < rm_res->sets; i++) {
 			rm_desc = &rm_res->desc[i];
 			bitmap_clear(ud->rchan_map, rm_desc->start,
 				     rm_desc->num);
-			bitmap_clear(ud->rflow_map, rm_desc->start,
-				     rm_desc->num);
+			dev_dbg(dev, "ti-sci-res: rchan: %d:%d\n",
+				rm_desc->start, rm_desc->num);
 		}
 	}
 
 	/* GP rflow ranges */
 	rm_res = tisci_rm->rm_ranges[RM_RANGE_RFLOW];
 	if (IS_ERR(rm_res)) {
-		bitmap_clear(ud->rflow_map, ud->rchan_cnt,
+		/* all gp flows are assigned exclusively to Linux */
+		bitmap_clear(ud->rflow_gp_map, ud->rchan_cnt,
 			     ud->rflow_cnt - ud->rchan_cnt);
 	} else {
-		bitmap_set(ud->rflow_map, ud->rchan_cnt,
-			   ud->rflow_cnt - ud->rchan_cnt);
 		for (i = 0; i < rm_res->sets; i++) {
 			rm_desc = &rm_res->desc[i];
-			bitmap_clear(ud->rflow_map, rm_desc->start,
+			bitmap_clear(ud->rflow_gp_map, rm_desc->start,
 				     rm_desc->num);
+			dev_dbg(dev, "ti-sci-res: rflow: %d:%d\n",
+				rm_desc->start, rm_desc->num);
 		}
 	}
 
