@@ -893,15 +893,15 @@ void k3_nav_udmax_release_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
 {
 	int i;
 
+	if (IS_ERR_OR_NULL(rx_chn->common.udmax))
+		return;
+
 	if (rx_chn->psil_paired) {
 		xudma_navss_psil_unpair(rx_chn->common.udmax,
 					rx_chn->common.src_thread,
 					rx_chn->common.dst_thread);
 		rx_chn->psil_paired = false;
 	}
-
-	if (IS_ERR_OR_NULL(rx_chn->common.udmax))
-		return;
 
 	for (i = 0; i < rx_chn->flow_num; i++)
 		k3_nav_udmax_release_rx_flow(rx_chn, i);
