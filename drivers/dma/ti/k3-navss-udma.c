@@ -41,7 +41,6 @@ struct k3_nav_udmax_tx_channel {
 
 	struct udma_tchan *udma_tchanx;
 	int udma_tchan_id;
-	bool need_tisci_free;
 
 	struct k3_ring *ringtx;
 	struct k3_ring *ringtxcq;
@@ -75,7 +74,6 @@ struct k3_nav_udmax_rx_channel {
 
 	struct udma_rchan *udma_rchanx;
 	int udma_rchan_id;
-	bool need_tisci_free;
 
 	bool psil_paired;
 
@@ -316,14 +314,11 @@ struct k3_nav_udmax_tx_channel *k3_nav_udmax_request_tx_chn(struct device *dev,
 			xudma_dev_get_psil_base(tx_chn->common.udmax) +
 			tx_chn->udma_tchan_id;
 
-	tx_chn->need_tisci_free = false;
 	ret = k3_nav_udmax_cfg_tx_chn(tx_chn);
 	if (ret) {
 		dev_err(dev, "Failed to cfg tchan %d\n", ret);
 		goto err;
 	}
-
-	tx_chn->need_tisci_free = true;
 
 	ret = xudma_navss_psil_pair(tx_chn->common.udmax,
 				    tx_chn->common.src_thread,
@@ -358,9 +353,6 @@ void k3_nav_udmax_release_tx_chn(struct k3_nav_udmax_tx_channel *tx_chn)
 	}
 
 	if (!IS_ERR_OR_NULL(tx_chn->common.udmax)) {
-		if (tx_chn->need_tisci_free)
-			tx_chn->need_tisci_free = false;
-
 		if (!IS_ERR_OR_NULL(tx_chn->udma_tchanx))
 			xudma_tchan_put(tx_chn->common.udmax,
 					tx_chn->udma_tchanx);
@@ -852,13 +844,11 @@ struct k3_nav_udmax_rx_channel *k3_nav_udmax_request_rx_chn(struct device *dev,
 			xudma_dev_get_psil_base(rx_chn->common.udmax) +
 			rx_chn->udma_rchan_id;
 
-	rx_chn->need_tisci_free = false;
 	ret = k3_nav_udmax_cfg_rx_chn(rx_chn);
 	if (ret) {
 		dev_err(dev, "Failed to cfg rchan %d\n", ret);
 		goto err;
 	}
-	rx_chn->need_tisci_free = true;
 
 	/* init default RX flow only if flow_num = 1 */
 	if (cfg->def_flow_cfg) {
@@ -906,9 +896,6 @@ void k3_nav_udmax_release_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
 
 	for (i = 0; i < rx_chn->flow_num; i++)
 		k3_nav_udmax_release_rx_flow(rx_chn, i);
-
-	if (rx_chn->need_tisci_free)
-		rx_chn->need_tisci_free = false;
 
 	if (xudma_rflow_is_gp(rx_chn->common.udmax, rx_chn->flow_id_base))
 		xudma_free_gp_rflow_range(rx_chn->common.udmax,
