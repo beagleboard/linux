@@ -1842,7 +1842,7 @@
 		};
 
 		usb0: usb@6000000 {
-			compatible = "cdns,usb3-1.0.1";
+			compatible = "cdns,usb3";
 			reg = <0x00 0x6000000 0x00 0x10000>,
 			      <0x00 0x6010000 0x00 0x10000>,
 			      <0x00 0x6020000 0x00 0x10000>;
@@ -1877,7 +1877,7 @@
 		};
 
 		usb1: usb@6400000 {
-			compatible = "cdns,usb3-1.0.1";
+			compatible = "cdns,usb3";
 			reg = <0x00 0x6400000 0x00 0x10000>,
 			      <0x00 0x6410000 0x00 0x10000>,
 			      <0x00 0x6420000 0x00 0x10000>;
