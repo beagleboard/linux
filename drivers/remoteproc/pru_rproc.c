@@ -49,6 +49,8 @@
 #define PRU1_IRAM_ADDR_MASK	0x38000
 #define RTU0_IRAM_ADDR_MASK	0x4000
 #define RTU1_IRAM_ADDR_MASK	0x6000
+#define TX_PRU0_IRAM_ADDR_MASK	0xa000
+#define TX_PRU1_IRAM_ADDR_MASK	0xc000
 
 /**
  * enum pru_iomem - PRU core memory/register range identifiers
@@ -86,6 +88,7 @@ enum pru_iomem {
  * @fw_has_intc_rsc: boolean flag to indicate INTC config through firmware
  * @is_k3: boolean flag used to indicate the core has increased number of events
  * @is_rtu: boolean flag to indicate the core is a RTU core
+ * @is_tx_pru: boolean flag to indicate the core is a Tx PRU core
  */
 struct pru_rproc {
 	int id;
@@ -112,6 +115,7 @@ struct pru_rproc {
 	unsigned int fw_has_intc_rsc : 1;
 	unsigned int is_k3 : 1;
 	unsigned int is_rtu : 1;
+	unsigned int is_tx_pru : 1;
 };
 
 static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len);
@@ -659,7 +663,8 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 	struct pru_rproc *pru = rproc->priv;
 	int ret;
 	mbox_msg_t msg = (mbox_msg_t)vq_id;
-	const char *name = pru->is_rtu ? "RTU" : "PRU";
+	const char *name = pru->is_tx_pru ? "Tx_PRU" :
+				(pru->is_rtu ? "RTU" : "PRU");
 
 	dev_dbg(dev, "kicking vqid %d on %s%d\n", vq_id, name, pru->id);
 
@@ -683,7 +688,8 @@ static int pru_rproc_start(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
-	const char *name = pru->is_rtu ? "RTU" : "PRU";
+	const char *name = pru->is_tx_pru ? "Tx_PRU" :
+				(pru->is_rtu ? "RTU" : "PRU");
 	u32 val;
 	int ret;
 
@@ -726,7 +732,8 @@ static int pru_rproc_stop(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
-	const char *name = pru->is_rtu ? "RTU" : "PRU";
+	const char *name = pru->is_tx_pru ? "Tx_PRU" :
+				(pru->is_rtu ? "RTU" : "PRU");
 	u32 val;
 
 	dev_dbg(dev, "stopping %s%d\n", name, pru->id);
@@ -1101,10 +1108,17 @@ static int pru_rproc_set_id(struct device_node *np, struct pru_rproc *pru)
 	u32 mask1 = PRU0_IRAM_ADDR_MASK;
 	u32 mask2 = PRU1_IRAM_ADDR_MASK;
 
-	if (of_device_is_compatible(np, "ti,am654-rtu")) {
+	if (of_device_is_compatible(np, "ti,am654-rtu") ||
+	    of_device_is_compatible(np, "ti,j721e-rtu")) {
 		mask1 = RTU0_IRAM_ADDR_MASK;
 		mask2 = RTU1_IRAM_ADDR_MASK;
 		pru->is_rtu = 1;
+	}
+
+	if (of_device_is_compatible(np, "ti,j721e-tx-pru")) {
+		mask1 = TX_PRU0_IRAM_ADDR_MASK;
+		mask2 = TX_PRU1_IRAM_ADDR_MASK;
+		pru->is_tx_pru = 1;
 	}
 
 	if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask2) == mask2)
@@ -1167,7 +1181,10 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	mutex_init(&pru->lock);
 
 	if (of_device_is_compatible(np, "ti,am654-pru") ||
-	    of_device_is_compatible(np, "ti,am654-rtu")) {
+	    of_device_is_compatible(np, "ti,am654-rtu") ||
+	    of_device_is_compatible(np, "ti,j721e-pru") ||
+	    of_device_is_compatible(np, "ti,j721e-rtu") ||
+	    of_device_is_compatible(np, "ti,j721e-tx-pru")) {
 		/* use generic elf ops for undefined platform driver ops */
 		rproc->ops->load = pru_rproc_load_elf_segments;
 
@@ -1286,6 +1303,9 @@ static const struct of_device_id pru_rproc_match[] = {
 	{ .compatible = "ti,k2g-pru",    },
 	{ .compatible = "ti,am654-pru",  },
 	{ .compatible = "ti,am654-rtu",  },
+	{ .compatible = "ti,j721e-pru",  },
+	{ .compatible = "ti,j721e-rtu",  },
+	{ .compatible = "ti,j721e-tx-pru",  },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pru_rproc_match);
