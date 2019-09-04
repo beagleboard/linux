@@ -12,4 +12,3 @@ endif
 cdns3-$(CONFIG_USB_CDNS3_GADGET)	+= gadget.o ep0.o trace.o
 cdns3-$(CONFIG_USB_CDNS3_HOST)		+= host.o
 obj-$(CONFIG_USB_CDNS3_PCI_WRAP)	+= cdns3-pci-wrap.o
-obj-$(CONFIG_USB_CDNS3_TI)		+= cdns3-ti.o
