@@ -41,6 +41,10 @@
 	};
 };
 
+&main_i2c4 {
+	status = "disabled";
+};
+
 &main_uart1 {
 	status = "disabled";
 };
