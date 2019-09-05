@@ -1,0 +1,20 @@
+Imagination VXE384 Driver
+-------------------------
+
+The IMG VXE384 video encode driver for the VXE384 is a video encoder for
+multiple video formats including H.264 on the TI J721E family of SoCs.
+
+Required properties:
+- compatible: must be "img,vxe384"
+- reg: physical base address and length of the registers for the VXE384
+- interrupts: should contain interrupt number for the VXE384
+
+Example for J721E:
+==================
+
+       vxe384: video-encoder@4200000 {
+               compatible = "img,vxe384";
+               reg = <0x00 0x04200000 0x00 0x100000>;
+               power-domains = <&k3_pds 153 TI_SCI_PD_EXCLUSIVE>;
+               interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
+       };
