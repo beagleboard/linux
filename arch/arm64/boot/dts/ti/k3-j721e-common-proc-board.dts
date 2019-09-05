@@ -51,78 +51,23 @@
 	};
 
 	sound0: sound@0 {
-		compatible = "simple-audio-card";
-		simple-audio-card,name = "j721e-cpb-analog";
-		simple-audio-card,widgets =
-			"Headphone", "Stereo HP 1",
-			"Headphone", "Stereo HP 2",
-			"Headphone", "Stereo HP 3",
-			"Line", "Line Out",
-			"Microphone", "Stereo Mic 1",
-			"Microphone", "Stereo Mic 2",
-			"Line", "Line In";
-		simple-audio-card,routing =
-			"Stereo HP 1", "AOUT1L",
-			"Stereo HP 1", "AOUT1R",
-			"Stereo HP 2", "AOUT2L",
-			"Stereo HP 2", "AOUT2R",
-			"Stereo HP 3", "AOUT3L",
-			"Stereo HP 3", "AOUT3R",
-			"Line Out", "AOUT4L",
-			"Line Out", "AOUT4R",
-			"AIN1L", "Stereo Mic 1",
-			"AIN1R", "Stereo Mic 1",
-			"AIN2L", "Stereo Mic 2",
-			"AIN2R", "Stereo Mic 2",
-			"AIN3L", "Line In",
-			"AIN3R", "Line In";
-		simple-audio-card,mclk-fs = <256>;
+		compatible = "ti,j721e-cpb-audio";
+		ti,model = "j721e-cpb-analog";
 
-		simple-audio-card,dai-link@0 {
-			format = "dsp_a";
-			bitclock-master = <&sound0_0_master>;
-			frame-master = <&sound0_0_master>;
-			sound0_0_master: cpu {
-				sound-dai = <&mcasp10>;
-				clocks = <&k3_clks 184 1>;
-				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
-				dai-tdm-slot-num = <2>;
-				dai-tdm-slot-width = <32>;
-				dai-tdm-slot-tx-mask = <1 1>;
-				dai-tdm-slot-rx-mask = <1 1>;
-			};
+		ti,cpb-mcasp = <&mcasp10>;
+		ti,cpb-codec = <&pcm3168a_1>;
 
-			codec {
-				sound-dai = <&pcm3168a_1 0>;
-				dai-tdm-slot-num = <2>;
-				dai-tdm-slot-width = <32>;
-				dai-tdm-slot-tx-mask = <1 1>;
-				dai-tdm-slot-rx-mask = <1 1>;
-			};
-		};
+		pll4-rate = <1179648000>; /* Used for 48KHz family */
+		pll15-rate = <1083801600>; /* Used for 44.1KHz family */
 
-		simple-audio-card,dai-link@1 {
-			format = "dsp_a";
-			bitclock-master = <&sound0_1_master>;
-			frame-master = <&sound0_1_master>;
-			sound0_1_master: cpu {
-				sound-dai = <&mcasp10>;
-				clocks = <&k3_clks 184 1>;
-				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
-				dai-tdm-slot-num = <2>;
-				dai-tdm-slot-width = <32>;
-				dai-tdm-slot-tx-mask = <1 1>;
-				dai-tdm-slot-rx-mask = <1 1>;
-			};
-
-			codec {
-				sound-dai = <&pcm3168a_1 1>;
-				dai-tdm-slot-num = <2>;
-				dai-tdm-slot-width = <32>;
-				dai-tdm-slot-tx-mask = <1 1>;
-				dai-tdm-slot-rx-mask = <1 1>;
-			};
-		};
+		clocks = <&k3_clks 184 1>,
+			 <&k3_clks 184 2>, <&k3_clks 184 4>,
+			 <&k3_clks 157 371>,
+			 <&k3_clks 157 400>, <&k3_clks 157 401>;
+		clock-names = "cpb-mcasp",
+			      "cpb-mcasp-48000", "cpb-mcasp-44100",
+			      "audio-refclk2",
+			      "audio-refclk2-48000", "audio-refclk2-44100";
 	};
 
 	gpio_keys: gpio-keys {
