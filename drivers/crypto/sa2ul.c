@@ -2444,6 +2444,7 @@ static int sa_ul_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	spin_lock_init(&dev_data->scid_lock);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	saul_base = devm_ioremap_resource(dev, res);
 
