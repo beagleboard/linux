@@ -1668,6 +1668,7 @@ static int mhdp_probe(struct platform_device *pdev)
 	ret = pm_runtime_get_sync(&pdev->dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "pm_runtime_get_sync failed\n");
+		pm_runtime_disable(&pdev->dev);
 		return ret;
 	}
 
@@ -1675,7 +1676,7 @@ static int mhdp_probe(struct platform_device *pdev)
 	if (ret != 0) {
 		dev_err(&pdev->dev, "J721E Wrapper initialization failed: %d\n",
 			ret);
-		return ret;
+		goto runtime_put;
 	}
 
 	/* Release uCPU reset and stall it. */
@@ -1703,7 +1704,8 @@ static int mhdp_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev,
 			"cannot install IRQ %d\n", irq);
-		return -EIO;
+		ret = -EIO;
+		goto runtime_put;
 	}
 
 	/*
@@ -1770,12 +1772,18 @@ static int mhdp_probe(struct platform_device *pdev)
 	ret = phy_init(mhdp->phy);
 	if (ret) {
 		dev_err(mhdp->dev, "Failed to initialize PHY: %d\n", ret);
-		return ret;
+		goto runtime_put;
 	}
 
 	drm_bridge_add(&mhdp->bridge);
 
 	return 0;
+
+runtime_put:
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+
+	return ret;
 }
 
 MODULE_FIRMWARE(FW_NAME);
