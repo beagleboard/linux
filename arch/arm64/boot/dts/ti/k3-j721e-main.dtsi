@@ -2169,4 +2169,288 @@
 			dma-coherent;
 		};
 	};
+
+	icssg_soc_bus0: pruss-soc-bus@b026004 {
+		compatible = "ti,j721e-icssg-soc-bus";
+		reg = <0x00 0x0b026004 0x00 0x4>;
+		power-domains = <&k3_pds 119 TI_SCI_PD_EXCLUSIVE>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0b000000 0x00 0x0b000000 0x100000>;
+		dma-ranges;
+
+		icssg0: icssg@b000000 {
+			compatible = "ti,j721e-icssg";
+			reg = <0xb000000 0x80000>;
+			interrupts = <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 257 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 258 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "host2", "host3", "host4",
+					  "host5", "host6", "host7",
+					  "host8", "host9";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			dma-ranges;
+
+			icssg0_mem: memories@b000000 {
+				reg = <0xb000000 0x2000>,
+				      <0xb002000 0x2000>,
+				      <0xb010000 0x10000>;
+				reg-names = "dram0", "dram1",
+					    "shrdram2";
+			};
+
+			icssg0_cfg: cfg@b026000 {
+				compatible = "syscon";
+				reg = <0xb026000 0x200>;
+			};
+
+			icssg0_coreclk_mux: coreclk_mux {
+				#clock-cells = <0>;
+				clocks = <&k3_clks 119 24>, /* icssg0_core_clk */
+					 <&k3_clks 119 1>;  /* icssg0_iclk */
+				assigned-clocks = <&icssg0_coreclk_mux>;
+				assigned-clock-parents = <&k3_clks 119 1>;
+			};
+
+			icssg0_iepclk_mux: iepclk_mux {
+				#clock-cells = <0>;
+				clocks = <&k3_clks 119 3>,	/* icssg0_iep_clk */
+					 <&icssg0_coreclk_mux>;	/* core_clk */
+				assigned-clocks = <&icssg0_iepclk_mux>;
+				assigned-clock-parents = <&icssg0_coreclk_mux>;
+			};
+
+			icssg0_iep0: iep@b02e000 {
+				compatible = "syscon";
+				reg = <0xb02e000 0x1000>;
+				clocks = <&icssg0_iepclk_mux>;
+			};
+
+			icssg0_iep1: iep@b02f000 {
+				compatible = "syscon";
+				reg = <0xb02f000 0x1000>;
+				clocks = <&icssg0_iepclk_mux>;
+			};
+
+			icssg0_mii_rt: mii-rt@b032000 {
+				compatible = "syscon";
+				reg = <0xb032000 0x100>;
+			};
+
+			icssg0_mii_g_rt: mii-g-rt@b033000 {
+				compatible = "syscon";
+				reg = <0xb033000 0x1000>;
+			};
+
+			icssg0_intc: interrupt-controller@b020000 {
+				compatible = "ti,j721e-icssg-intc";
+				reg = <0xb020000 0x2000>;
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
+
+			pru0_0: pru@b034000 {
+				compatible = "ti,j721e-pru";
+				reg = <0xb034000 0x3000>,
+				      <0xb022000 0x100>,
+				      <0xb022400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-pru0_0-fw";
+			};
+
+			rtu0_0: rtu@b004000 {
+				compatible = "ti,j721e-rtu";
+				reg = <0xb004000 0x2000>,
+				      <0xb023000 0x100>,
+				      <0xb023400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-rtu0_0-fw";
+			};
+
+			tx_pru0_0: txpru@b00a000 {
+				compatible = "ti,j721e-tx-pru";
+				reg = <0xb00a000 0x1800>,
+				      <0xb025000 0x100>,
+				      <0xb025400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-txpru0_0-fw";
+			};
+
+			pru0_1: pru@b038000 {
+				compatible = "ti,j721e-pru";
+				reg = <0xb038000 0x3000>,
+				      <0xb024000 0x100>,
+				      <0xb024400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-pru0_1-fw";
+			};
+
+			rtu0_1: rtu@b006000 {
+				compatible = "ti,j721e-rtu";
+				reg = <0xb006000 0x2000>,
+				      <0xb023800 0x100>,
+				      <0xb023c00 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-rtu0_1-fw";
+			};
+
+			tx_pru0_1: txpru@b00c000 {
+				compatible = "ti,j721e-tx-pru";
+				reg = <0xb00c000 0x1800>,
+				      <0xb025800 0x100>,
+				      <0xb025c00 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-txpru0_1-fw";
+			};
+		};
+	};
+
+	icssg_soc_bus1: pruss-soc-bus@b126004 {
+		compatible = "ti,j721e-icssg-soc-bus";
+		reg = <0x00 0x0b126004 0x00 0x4>;
+		power-domains = <&k3_pds 120 TI_SCI_PD_EXCLUSIVE>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0b100000 0x00 0x0b100000 0x100000>;
+		dma-ranges;
+
+		icssg1: icssg@b100000 {
+			compatible = "ti,j721e-icssg";
+			reg = <0xb100000 0x80000>;
+			interrupts = <GIC_SPI 262 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 264 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 267 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 268 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 269 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "host2", "host3", "host4",
+					  "host5", "host6", "host7",
+					  "host8", "host9";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			dma-ranges;
+
+			icssg1_mem: memories@b100000 {
+				reg = <0xb100000 0x2000>,
+				      <0xb102000 0x2000>,
+				      <0xb110000 0x10000>;
+				reg-names = "dram0", "dram1",
+					    "shrdram2";
+			};
+
+			icssg1_cfg: cfg@b126000 {
+				compatible = "syscon";
+				reg = <0xb126000 0x200>;
+			};
+
+			icssg1_coreclk_mux: coreclk_mux {
+				#clock-cells = <0>;
+				clocks = <&k3_clks 120 54>, /* icssg1_core_clk */
+					 <&k3_clks 120 4>;  /* icssg1_iclk */
+				assigned-clocks = <&icssg1_coreclk_mux>;
+				assigned-clock-parents = <&k3_clks 120 4>;
+			};
+
+			icssg1_iepclk_mux: iepclk_mux {
+				#clock-cells = <0>;
+				clocks = <&k3_clks 120 9>,	/* icssg1_iep_clk */
+					 <&icssg1_coreclk_mux>;	/* core_clk */
+				assigned-clocks = <&icssg1_iepclk_mux>;
+				assigned-clock-parents = <&icssg1_coreclk_mux>;
+			};
+
+			icssg1_iep0: iep@b12e000 {
+				compatible = "syscon";
+				reg = <0xb12e000 0x1000>;
+				clocks = <&icssg1_iepclk_mux>;
+			};
+
+			icssg1_iep1: iep@b12f000 {
+				compatible = "syscon";
+				reg = <0xb12f000 0x1000>;
+				clocks = <&icssg1_iepclk_mux>;
+			};
+
+			icssg1_mii_rt: mii-rt@b132000 {
+				compatible = "syscon";
+				reg = <0xb132000 0x100>;
+			};
+
+			icssg1_mii_g_rt: mii-g-rt@b133000 {
+				compatible = "syscon";
+				reg = <0xb133000 0x1000>;
+			};
+
+			icssg1_intc: interrupt-controller@b120000 {
+				compatible = "ti,j721e-icssg-intc";
+				reg = <0xb120000 0x2000>;
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
+
+			pru1_0: pru@b134000 {
+				compatible = "ti,j721e-pru";
+				reg = <0xb134000 0x4000>,
+				      <0xb122000 0x100>,
+				      <0xb122400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-pru1_0-fw";
+			};
+
+			rtu1_0: rtu@b104000 {
+				compatible = "ti,j721e-rtu";
+				reg = <0xb104000 0x2000>,
+				      <0xb123000 0x100>,
+				      <0xb123400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-rtu1_0-fw";
+			};
+
+			tx_pru1_0: txpru@b10a000 {
+				compatible = "ti,j721e-tx-pru";
+				reg = <0xb10a000 0x1800>,
+				      <0xb125000 0x100>,
+				      <0xb125400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-txpru1_0-fw";
+			};
+
+			pru1_1: pru@b138000 {
+				compatible = "ti,j721e-pru";
+				reg = <0xb138000 0x4000>,
+				      <0xb124000 0x100>,
+				      <0xb124400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-pru1_1-fw";
+			};
+
+			rtu1_1: rtu@b106000 {
+				compatible = "ti,j721e-rtu";
+				reg = <0xb106000 0x2000>,
+				      <0xb123800 0x100>,
+				      <0xb123c00 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-rtu1_1-fw";
+			};
+
+			tx_pru1_1: txpru@b10c000 {
+				compatible = "ti,j721e-tx-pru";
+				reg = <0xb10c000 0x1800>,
+				      <0xb125800 0x100>,
+				      <0xb125c00 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "j7-txpru1_1-fw";
+			};
+		};
+	};
 };
