@@ -287,6 +287,7 @@ struct sa_sham_hmac_ctx {
  * @key: encryption key
  * @shash: software hash crypto_hash
  * @authkey: authentication key
+ * @fallback_tfm: SW fallback ahash algorithm
  */
 struct sa_tfm_ctx {
 	struct sa_crypto_data *dev_data;
@@ -298,6 +299,8 @@ struct sa_tfm_ctx {
 	struct sa_sham_hmac_ctx base[0];
 	struct crypto_shash	*shash;
 	u8 authkey[SHA512_BLOCK_SIZE];
+	/* for fallback */
+	struct crypto_ahash	*fallback_tfm;
 };
 
 /**
@@ -314,6 +317,8 @@ struct sa_dma_req_ctx {
 	struct scatterlist *src;
 	unsigned int	src_nents;
 	bool		pkt;
+	struct ahash_request fallback_req;
+	u32 mode;
 };
 
 enum sa_submode {

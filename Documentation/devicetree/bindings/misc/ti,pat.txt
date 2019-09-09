@@ -1,0 +1,35 @@
+Texas Instruments Page-based Address Translator (PAT) driver binding
+--------------------------------------------------------------------
+
+A Page-based Address Translator (PAT) device performs address translation
+using tables stored in an internal SRAM. Each PAT supports a set number of
+pages, each occupying a programmable 4KB, 16KB, 64KB, or 1MB of addresses
+in a window for which an incoming transaction will be translated.
+
+TI-PAT controller Device Node
+=============================
+
+The TI-PAT node describes the Texas Instrument's Page-based Address
+Translator (PAT).
+
+Required properties:
+-------------------
+- compatible: should be "ti,j721e-pat"
+- reg-names:
+	mmrs - Memory mapped registers region
+	table - Location of the table of translation pages
+- reg: register addresses corresponding to the above
+- ti,pat-window-base: base address of window translated by this PAT
+- ti,pat-window-size: size of window translated by this PAT
+
+Example:
+
+navss_pat0: pat@31010000 {
+	compatible = "ti,j721e-pat";
+	reg = <0x00 0x31010000 0x00 0x00000100>,
+	      <0x00 0x36400000 0x00 0x00040000>;
+	reg-names = "mmrs",
+	            "table";
+	ti,pat-window-base = <0x48 0x00000000>;
+	ti,pat-window-size = <0x00 0x40000000>;
+};
