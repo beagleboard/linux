@@ -11,6 +11,10 @@
 #ifndef CDNS_MHDP_H
 #define CDNS_MHDP_H
 
+#include <drm/drm_bridge.h>
+#include <drm/drm_connector.h>
+#include <drm/drm_dp_helper.h>
+
 #define CDNS_APB_CFG				0x00000
 #define CDNS_APB_CTRL				(CDNS_APB_CFG + 0x00)
 #define CDNS_CPU_STALL				BIT(3)
@@ -181,6 +185,67 @@
 #define CDNS_DP_LANE_EN_LANES(x)		GENMASK(x - 1, 0)
 #define CDNS_DP_ENHNCD				(CDNS_DPTX_GLOBAL + 0x04)
 
+struct cdns_mhdp_host {
+	unsigned int link_rate;
+	u8 lanes_cnt;
+	u8 volt_swing;
+	u8 pre_emphasis;
+	u8 pattern_supp;
+	u8 lane_mapping;
+	u8 fast_link : 1;
+	u8 enhanced : 1;
+	u8 scrambler : 1;
+	u8 ssc : 1;
+};
+
+struct cdns_mhdp_sink {
+	unsigned int link_rate;
+	u8 lanes_cnt;
+	u8 pattern_supp;
+	u8 fast_link;
+	u8 enhanced;
+};
+
+struct cdns_mhdp_display_fmt {
+	u32 color_format;
+	u32 bpc;
+	u8 y_only : 1;
+};
+
+struct cdns_mhdp_bridge;
+struct cdns_mhdp_connector;
+
+struct cdns_mhdp_bridge {
+	struct cdns_mhdp_device *mhdp;
+	struct drm_bridge base;
+	s8 stream_id;
+};
+
+struct cdns_mhdp_connector {
+	struct drm_connector base;
+	struct cdns_mhdp_bridge *bridge;
+};
+
+struct cdns_mhdp_device {
+	void __iomem *regs;
+	void __iomem *j721e_regs;
+
+	struct device *dev;
+	struct clk *clk;
+
+	struct drm_dp_link link;
+	struct cdns_mhdp_connector connector;
+
+	struct drm_dp_aux aux;
+	struct cdns_mhdp_host host;
+	struct cdns_mhdp_sink sink;
+	struct cdns_mhdp_display_fmt display_fmt;
+	struct cdns_mhdp_bridge bridge;
+	struct phy *phy;
+
+	u8 link_up : 1;
+	u8 plugged : 1;
+};
 
 #define to_mhdp_connector(x) container_of(x, struct cdns_mhdp_connector, base)
 #define to_mhdp_bridge(x) container_of(x, struct cdns_mhdp_bridge, base)
