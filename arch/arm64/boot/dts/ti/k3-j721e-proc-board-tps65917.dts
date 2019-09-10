@@ -5,9 +5,8 @@
 
 /dts-v1/;
 
-#include "k3-j721e-som-p0.dtsi"
+#include "k3-j721e-som-tps65917.dtsi"
 #include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/input/input.h>
 #include <dt-bindings/net/ti-dp83867.h>
 #include <dt-bindings/pci/pci.h>
 #include <dt-bindings/sound/ti-mcasp.h>
@@ -51,41 +50,77 @@
 	};
 
 	sound0: sound@0 {
-		compatible = "ti,j721e-cpb-audio";
-		ti,model = "j721e-cpb-analog";
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "j721e-cpb-analog";
+		simple-audio-card,widgets =
+			"Headphone", "Stereo HP 1",
+			"Headphone", "Stereo HP 2",
+			"Headphone", "Stereo HP 3",
+			"Line", "Line Out",
+			"Microphone", "Stereo Mic 1",
+			"Microphone", "Stereo Mic 2",
+			"Line", "Line In";
+		simple-audio-card,routing =
+			"Stereo HP 1", "AOUT1L",
+			"Stereo HP 1", "AOUT1R",
+			"Stereo HP 2", "AOUT2L",
+			"Stereo HP 2", "AOUT2R",
+			"Stereo HP 3", "AOUT3L",
+			"Stereo HP 3", "AOUT3R",
+			"Line Out", "AOUT4L",
+			"Line Out", "AOUT4R",
+			"AIN1L", "Stereo Mic 1",
+			"AIN1R", "Stereo Mic 1",
+			"AIN2L", "Stereo Mic 2",
+			"AIN2R", "Stereo Mic 2",
+			"AIN3L", "Line In",
+			"AIN3R", "Line In";
+		simple-audio-card,mclk-fs = <256>;
 
-		ti,cpb-mcasp = <&mcasp10>;
-		ti,cpb-codec = <&pcm3168a_1>;
+		simple-audio-card,dai-link@0 {
+			format = "dsp_a";
+			bitclock-master = <&sound0_0_master>;
+			frame-master = <&sound0_0_master>;
+			sound0_0_master: cpu {
+				sound-dai = <&mcasp10>;
+				clocks = <&k3_clks 184 1>;
+				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
+			};
 
-		pll4-rate = <1179648000>; /* Used for 48KHz family */
-		pll15-rate = <1083801600>; /* Used for 44.1KHz family */
-
-		clocks = <&k3_clks 184 1>,
-			 <&k3_clks 184 2>, <&k3_clks 184 4>,
-			 <&k3_clks 157 371>,
-			 <&k3_clks 157 400>, <&k3_clks 157 401>;
-		clock-names = "cpb-mcasp",
-			      "cpb-mcasp-48000", "cpb-mcasp-44100",
-			      "audio-refclk2",
-			      "audio-refclk2-48000", "audio-refclk2-44100";
-	};
-
-	gpio_keys: gpio-keys {
-		compatible = "gpio-keys";
-		autorepeat;
-		pinctrl-names = "default";
-		pinctrl-0 = <&sw10_button_pins_default &sw11_button_pins_default>;
-
-		sw10: sw10 {
-			label = "GPIO Key USER1";
-			linux,code = <BTN_0>;
-			gpios = <&main_gpio0 0 GPIO_ACTIVE_LOW>;
+			codec {
+				sound-dai = <&pcm3168a_1 0>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
+			};
 		};
 
-		sw11: sw11 {
-			label = "GPIO Key USER2";
-			linux,code = <BTN_1>;
-			gpios = <&wkup_gpio0 7 GPIO_ACTIVE_LOW>;
+		simple-audio-card,dai-link@1 {
+			format = "dsp_a";
+			bitclock-master = <&sound0_1_master>;
+			frame-master = <&sound0_1_master>;
+			sound0_1_master: cpu {
+				sound-dai = <&mcasp10>;
+				clocks = <&k3_clks 184 1>;
+				system-clock-id = <MCASP_CLK_HCLK_AUXCLK>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
+			};
+
+			codec {
+				sound-dai = <&pcm3168a_1 1>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+				dai-tdm-slot-tx-mask = <1 1>;
+				dai-tdm-slot-rx-mask = <1 1>;
+			};
 		};
 	};
 
@@ -146,12 +181,6 @@
 			J721E_WKUP_IOPAD(0x4c, PIN_INPUT, 0) /* (C23) MCU_OSPI1_D3 */
 			J721E_WKUP_IOPAD(0x3c, PIN_INPUT, 0) /* (B23) MCU_OSPI1_DQS */
 			J721E_WKUP_IOPAD(0x38, PIN_INPUT, 0) /* (A23) MCU_OSPI1_LBCLKO */
-		>;
-	};
-
-	sw11_button_pins_default: sw11_button_pins_default {
-		pinctrl-single,pins = <
-			J721E_WKUP_IOPAD(0xcc, PIN_INPUT, 7) /* (G28) WKUP_GPIO0_7 */
 		>;
 	};
 };
@@ -291,25 +320,19 @@
 		pinctrl-single,pins = <
 			J721E_IOPAD(0x254, PIN_INPUT, 0) /* (R29) MMC1_CMD */
 			J721E_IOPAD(0x250, PIN_INPUT, 0) /* (P25) MMC1_CLK */
-			J721E_IOPAD(0x2ac, PIN_INPUT, 0) /* (P25) MMC1_CLKLB */
 			J721E_IOPAD(0x24c, PIN_INPUT, 0) /* (R24) MMC1_DAT0 */
 			J721E_IOPAD(0x248, PIN_INPUT, 0) /* (P24) MMC1_DAT1 */
 			J721E_IOPAD(0x244, PIN_INPUT, 0) /* (R25) MMC1_DAT2 */
 			J721E_IOPAD(0x240, PIN_INPUT, 0) /* (R26) MMC1_DAT3 */
 			J721E_IOPAD(0x258, PIN_INPUT, 0) /* (P23) MMC1_SDCD */
 			J721E_IOPAD(0x25c, PIN_INPUT, 0) /* (R28) MMC1_SDWP */
+			J721E_IOPAD(0x2ac, PIN_INPUT, 0)
 		>;
 	};
 
 	dp0_pins_default: dp0_pins_default {
 		pinctrl-single,pins = <
 			J721E_IOPAD(0x1c4, PIN_INPUT, 5) /* SPI0_CS1.DP0_HPD */
-		>;
-	};
-
-	sw10_button_pins_default: sw10_button_pins_default {
-		pinctrl-single,pins = <
-			J721E_IOPAD(0x0, PIN_INPUT, 7) /* (AC18) EXTINTn.GPIO0_0 */
 		>;
 	};
 };
@@ -590,6 +613,7 @@
 &main_sdhci1 {
 	/* SD/MMC */
 	vmmc-supply = <&vdd_mmc1>;
+	vqmmc-supply = <&ldo1_reg>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mmc1_pins_default>;
 };
