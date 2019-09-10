@@ -162,6 +162,6 @@ int cdns3_drd_exit(struct cdns3 *cdns);
 int cdns3_drd_update_mode(struct cdns3 *cdns);
 int cdns3_drd_switch_gadget(struct cdns3 *cdns, int on);
 int cdns3_drd_switch_host(struct cdns3 *cdns, int on);
-
+int cdns3_set_mode(struct cdns3 *cdns, enum usb_dr_mode mode);
 
 #endif /* __LINUX_CDNS3_DRD */

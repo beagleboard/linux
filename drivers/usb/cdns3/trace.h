@@ -3,7 +3,7 @@
  * USBSS device controller driver.
  * Trace support header file.
  *
- * Copyright (C) 2018 Cadence.
+ * Copyright (C) 2018-2019 Cadence.
  *
  * Author: Pawel Laszczak <pawell@cadence.com>
  */
@@ -24,18 +24,49 @@
 
 #define CDNS3_MSG_MAX	500
 
-TRACE_EVENT(cdns3_log,
-	TP_PROTO(struct cdns3_device *priv_dev, struct va_format *vaf),
-	TP_ARGS(priv_dev, vaf),
+TRACE_EVENT(cdns3_halt,
+	TP_PROTO(struct cdns3_endpoint *ep_priv, u8 halt, u8 flush),
+	TP_ARGS(ep_priv, halt, flush),
 	TP_STRUCT__entry(
-		__string(name, dev_name(priv_dev->dev))
-		__dynamic_array(char, msg, CDNS3_MSG_MAX)
+		__string(name, ep_priv->name)
+		__field(u8, halt)
+		__field(u8, flush)
 	),
 	TP_fast_assign(
-		__assign_str(name, dev_name(priv_dev->dev));
-		vsnprintf(__get_str(msg), CDNS3_MSG_MAX, vaf->fmt, *vaf->va);
+		__assign_str(name, ep_priv->name);
+		__entry->halt = halt;
+		__entry->flush = flush;
 	),
-	TP_printk("%s: %s", __get_str(name), __get_str(msg))
+	TP_printk("Halt %s for %s: %s", __entry->flush ? " and flush" : "",
+		  __get_str(name), __entry->halt ? "set" : "cleared")
+);
+
+TRACE_EVENT(cdns3_wa1,
+	TP_PROTO(struct cdns3_endpoint *ep_priv, char *msg),
+	TP_ARGS(ep_priv, msg),
+	TP_STRUCT__entry(
+		__string(ep_name, ep_priv->name)
+		__string(msg, msg)
+	),
+	TP_fast_assign(
+		__assign_str(ep_name, ep_priv->name);
+		__assign_str(msg, msg);
+	),
+	TP_printk("WA1: %s %s", __get_str(ep_name), __get_str(msg))
+);
+
+TRACE_EVENT(cdns3_wa2,
+	TP_PROTO(struct cdns3_endpoint *ep_priv, char *msg),
+	TP_ARGS(ep_priv, msg),
+	TP_STRUCT__entry(
+		__string(ep_name, ep_priv->name)
+		__string(msg, msg)
+	),
+	TP_fast_assign(
+		__assign_str(ep_name, ep_priv->name);
+		__assign_str(msg, msg);
+	),
+	TP_printk("WA2: %s %s", __get_str(ep_name), __get_str(msg))
 );
 
 DECLARE_EVENT_CLASS(cdns3_log_doorbell,
@@ -49,7 +80,7 @@ DECLARE_EVENT_CLASS(cdns3_log_doorbell,
 		__assign_str(name, ep_name);
 		__entry->ep_trbaddr = ep_trbaddr;
 	),
-	TP_printk("//Ding Dong %s, ep_trbaddr %08x", __get_str(name),
+	TP_printk("%s, ep_trbaddr %08x", __get_str(name),
 		  __entry->ep_trbaddr)
 );
 
@@ -199,9 +230,9 @@ DECLARE_EVENT_CLASS(cdns3_log_request,
 		  " trb: [start:%d, end:%d: virt addr %pa], flags:%x ",
 		__get_str(name), __entry->req, __entry->buf, __entry->actual,
 		__entry->length,
-		__entry->zero ? "zero | " : "",
-		__entry->short_not_ok ? "short | " : "",
-		__entry->no_interrupt ? "no int" : "",
+		__entry->zero ? "Z" : "z",
+		__entry->short_not_ok ? "S" : "s",
+		__entry->no_interrupt ? "I" : "i",
 		__entry->status,
 		__entry->start_trb,
 		__entry->end_trb,
@@ -235,6 +266,21 @@ DEFINE_EVENT(cdns3_log_request, cdns3_gadget_giveback,
 	TP_ARGS(req)
 );
 
+TRACE_EVENT(cdns3_ep0_queue,
+	TP_PROTO(struct cdns3_device *dev_priv, struct usb_request *request),
+	TP_ARGS(dev_priv, request),
+	TP_STRUCT__entry(
+		__field(int, dir)
+		__field(int, length)
+	),
+	TP_fast_assign(
+		__entry->dir = dev_priv->ep0_data_dir;
+		__entry->length = request->length;
+	),
+	TP_printk("Queue to ep0%s length: %u", __entry->dir ? "in" : "out",
+		  __entry->length)
+);
+
 DECLARE_EVENT_CLASS(cdns3_log_aligned_request,
 	TP_PROTO(struct cdns3_request *priv_req),
 	TP_ARGS(priv_req),
@@ -256,9 +302,9 @@ DECLARE_EVENT_CLASS(cdns3_log_aligned_request,
 		__entry->aligned_dma = priv_req->aligned_buf->dma;
 		__entry->aligned_buf_size = priv_req->aligned_buf->size;
 	),
-	TP_printk("%s: req: %p, req buf %p, dma %08llx a_buf %p a_dma %08llx, size %d",
-		__get_str(name), __entry->req, __entry->buf, __entry->dma,
-		__entry->aligned_buf, __entry->aligned_dma,
+	TP_printk("%s: req: %p, req buf %p, dma %pad a_buf %p a_dma %pad, size %d",
+		__get_str(name), __entry->req, __entry->buf, &__entry->dma,
+		__entry->aligned_buf, &__entry->aligned_dma,
 		__entry->aligned_buf_size
 	)
 );
@@ -376,7 +422,7 @@ DECLARE_EVENT_CLASS(cdns3_log_ep,
 		__entry->maxburst, __entry->enqueue,
 		__entry->dequeue,
 		__entry->flags & EP_ENABLED ? "EN | " : "",
-		__entry->flags & EP_STALL ? "STALL | " : "",
+		__entry->flags & EP_STALLED ? "STALLED | " : "",
 		__entry->flags & EP_WEDGE ? "WEDGE | " : "",
 		__entry->flags & EP_TRANSFER_STARTED ? "STARTED | " : "",
 		__entry->flags & EP_UPDATE_EP_TRBADDR ? "UPD TRB | " : "",

@@ -4,11 +4,14 @@
  *
  * Copyright (C) 2018-2019 Cadence.
  * Copyright (C) 2017-2018 NXP
+ * Copyright (C) 2019 Texas Instruments
  *
  * Author: Peter Chen <peter.chen@nxp.com>
  *         Pawel Laszczak <pawell@cadence.com>
+ *         Roger Quadros <rogerq@ti.com>
  */
 
+#include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
@@ -21,54 +24,26 @@
 #include "host-export.h"
 #include "gadget-export.h"
 #include "drd.h"
-#include "debug.h"
 
-/**
- * cdns3_handshake - spin reading  until handshake completes or fails
- * @ptr: address of device controller register to be read
- * @mask: bits to look at in result of read
- * @done: value of those bits when handshake succeeds
- * @usec: timeout in microseconds
- *
- * Returns negative errno, or zero on success
- *
- * Success happens when the "mask" bits have the specified value (hardware
- * handshake done). There are two failure modes: "usec" have passed (major
- * hardware flakeout), or the register reads as all-ones (hardware removed).
- */
-int cdns3_handshake(void __iomem *ptr, u32 mask, u32 done, int usec)
-{
-	u32 result;
-
-	do {
-		result = readl(ptr);
-		if (result == ~(u32)0)  /* card removed */
-			return -ENODEV;
-
-		result &= mask;
-		if (result == done)
-			return 0;
-
-		udelay(1);
-		usec--;
-	} while (usec > 0);
-
-	return -ETIMEDOUT;
-}
+static int cdns3_idle_init(struct cdns3 *cdns);
 
 static inline
 struct cdns3_role_driver *cdns3_get_current_role_driver(struct cdns3 *cdns)
 {
-	WARN_ON(cdns->role >= CDNS3_ROLE_END || !cdns->roles[cdns->role]);
+	WARN_ON(!cdns->roles[cdns->role]);
 	return cdns->roles[cdns->role];
 }
 
-static int cdns3_role_start(struct cdns3 *cdns, enum cdns3_roles role)
+static int cdns3_role_start(struct cdns3 *cdns, enum usb_role role)
 {
 	int ret;
 
-	if (WARN_ON(role >= CDNS3_ROLE_END))
+	if (WARN_ON(role > USB_ROLE_DEVICE))
 		return 0;
+
+	mutex_lock(&cdns->mutex);
+	cdns->role = role;
+	mutex_unlock(&cdns->mutex);
 
 	if (!cdns->roles[role])
 		return -ENXIO;
@@ -77,22 +52,20 @@ static int cdns3_role_start(struct cdns3 *cdns, enum cdns3_roles role)
 		return 0;
 
 	mutex_lock(&cdns->mutex);
-	cdns->role = role;
 	ret = cdns->roles[role]->start(cdns);
 	if (!ret)
 		cdns->roles[role]->state = CDNS3_ROLE_STATE_ACTIVE;
 	mutex_unlock(&cdns->mutex);
+
 	return ret;
 }
 
-void cdns3_role_stop(struct cdns3 *cdns)
+static void cdns3_role_stop(struct cdns3 *cdns)
 {
-	enum cdns3_roles role = cdns->role;
+	enum usb_role role = cdns->role;
 
-	if (role >= CDNS3_ROLE_END) {
-		WARN_ON(role > CDNS3_ROLE_END);
+	if (WARN_ON(role > USB_ROLE_DEVICE))
 		return;
-	}
 
 	if (cdns->roles[role]->state == CDNS3_ROLE_STATE_INACTIVE)
 		return;
@@ -109,39 +82,7 @@ static void cdns3_exit_roles(struct cdns3 *cdns)
 	cdns3_drd_exit(cdns);
 }
 
-enum cdns3_roles cdsn3_get_real_role(struct cdns3 *cdns);
-
-static int cdns3_idle_role_start(struct cdns3 *cnds)
-{
-	/* Hold PHY in RESET */
-	return 0;
-}
-
-static void cdns3_idle_role_stop(struct cdns3 *cdns)
-{
-	/* Program Lane swap and bring PHY out of RESET */
-	phy_reset(cdns->phy);
-}
-
-static int cdns3_idle_init(struct cdns3 *cdns)
-{
-	struct cdns3_role_driver *rdrv;
-
-	rdrv = devm_kzalloc(cdns->dev, sizeof(*rdrv), GFP_KERNEL);
-	if (!rdrv)
-		return -ENOMEM;
-
-	rdrv->start = cdns3_idle_role_start;
-	rdrv->stop = cdns3_idle_role_stop;
-	rdrv->state = CDNS3_ROLE_STATE_INACTIVE;
-	rdrv->suspend = NULL;
-	rdrv->resume = NULL;
-	rdrv->name = "idle";
-
-	cdns->roles[CDNS3_ROLE_IDLE] = rdrv;
-
-	return 0;
-}
+static enum usb_role cdsn3_hw_role_state_machine(struct cdns3 *cdns);
 
 /**
  * cdns3_core_init_role - initialize role of operation
@@ -157,7 +98,7 @@ static int cdns3_core_init_role(struct cdns3 *cdns)
 	int ret = 0;
 
 	dr_mode = usb_get_dr_mode(dev);
-	cdns->role = CDNS3_ROLE_END;
+	cdns->role = USB_ROLE_NONE;
 
 	/*
 	 * If driver can't read mode by means of usb_get_dr_mode function then
@@ -180,6 +121,10 @@ static int cdns3_core_init_role(struct cdns3 *cdns)
 	 */
 	best_dr_mode = cdns->dr_mode;
 
+	ret = cdns3_idle_init(cdns);
+	if (ret)
+		return ret;
+
 	if (dr_mode == USB_DR_MODE_OTG) {
 		best_dr_mode = cdns->dr_mode;
 	} else if (cdns->dr_mode == USB_DR_MODE_OTG) {
@@ -190,10 +135,6 @@ static int cdns3_core_init_role(struct cdns3 *cdns)
 	}
 
 	dr_mode = best_dr_mode;
-
-	ret = cdns3_idle_init(cdns);
-	if (ret)
-		return ret;
 
 	if (dr_mode == USB_DR_MODE_OTG || dr_mode == USB_DR_MODE_HOST) {
 		ret = cdns3_host_init(cdns);
@@ -213,29 +154,35 @@ static int cdns3_core_init_role(struct cdns3 *cdns)
 		}
 	}
 
-	cdns->desired_dr_mode = dr_mode;
 	cdns->dr_mode = dr_mode;
 
-	/*
-	 * desired_dr_mode might have changed so we need to update
-	 * the controller configuration"?
-	 */
 	ret = cdns3_drd_update_mode(cdns);
 	if (ret)
 		goto err;
 
-	cdns->role = cdsn3_get_real_role(cdns);
-
-	ret = cdns3_role_start(cdns, cdns->role);
-	if (ret) {
-		dev_err(dev, "can't start %s role\n",
-			cdns3_get_current_role_driver(cdns)->name);
+	/* Initialize idle role to start with */
+	ret = cdns3_role_start(cdns, USB_ROLE_NONE);
+	if (ret)
 		goto err;
-	}
 
-	/* switch role if needed */
-	if (dr_mode == USB_DR_MODE_OTG)
-		queue_work(system_freezable_wq, &cdns->role_switch_wq);
+	switch (cdns->dr_mode) {
+	case USB_DR_MODE_UNKNOWN:
+	case USB_DR_MODE_OTG:
+		ret = cdns3_hw_role_switch(cdns);
+		if (ret)
+			goto err;
+		break;
+	case USB_DR_MODE_PERIPHERAL:
+		ret = cdns3_role_start(cdns, USB_ROLE_DEVICE);
+		if (ret)
+			goto err;
+		break;
+	case USB_DR_MODE_HOST:
+		ret = cdns3_role_start(cdns, USB_ROLE_HOST);
+		if (ret)
+			goto err;
+		break;
+	}
 
 	return ret;
 err:
@@ -244,49 +191,48 @@ err:
 }
 
 /**
- * cdsn3_get_real_role - get real role of controller based on hardware settings.
- * @cdns: Pointer to cdns3 structure
+ * cdsn3_hw_role_state_machine  - role switch state machine based on hw events.
+ * @cdns: Pointer to controller structure.
  *
- * Returns role
+ * Returns next role to be entered based on hw events.
  */
-enum cdns3_roles cdsn3_get_real_role(struct cdns3 *cdns)
+static enum usb_role cdsn3_hw_role_state_machine(struct cdns3 *cdns)
 {
-	enum cdns3_roles role;
+	enum usb_role role;
 	int id, vbus;
 
-	if (cdns->current_dr_mode != USB_DR_MODE_OTG)
+	if (cdns->dr_mode != USB_DR_MODE_OTG)
 		goto not_otg;
 
 	id = cdns3_get_id(cdns);
 	vbus = cdns3_get_vbus(cdns);
 
-	dev_dbg(cdns->dev, "id: %d, vbus: %d\n", id, vbus);
-	/* Role change state machine
+	/*
+	 * Role change state machine
 	 * Inputs: ID, VBUS
 	 * Previous state: cdns->role
 	 * Next state: role
 	 */
-
 	role = cdns->role;
+
 	switch (role) {
-	case CDNS3_ROLE_IDLE: /* from IDLE, we can change to HOST or GADGET */
+	case USB_ROLE_NONE:
+		/*
+		 * Driver treats USB_ROLE_NONE synonymous to IDLE state from
+		 * controller specification.
+		 */
 		if (!id)
-			role = CDNS3_ROLE_HOST;
+			role = USB_ROLE_HOST;
 		else if (vbus)
-			role = CDNS3_ROLE_GADGET;
+			role = USB_ROLE_DEVICE;
 		break;
-
-	case CDNS3_ROLE_HOST: /* from HOST, we can only change to IDLE */
+	case USB_ROLE_HOST: /* from HOST, we can only change to NONE */
 		if (id)
-			role = CDNS3_ROLE_IDLE;
+			role = USB_ROLE_NONE;
 		break;
-
-	case CDNS3_ROLE_GADGET: /* from GADGET, we can only change to IDLE */
+	case USB_ROLE_DEVICE: /* from GADGET, we can only change to NONE*/
 		if (!vbus)
-			role = CDNS3_ROLE_IDLE;
-		break;
-	case CDNS3_ROLE_END:	/* only at initialization, move to IDLE */
-		role = CDNS3_ROLE_IDLE;
+			role = USB_ROLE_NONE;
 		break;
 	}
 
@@ -296,60 +242,75 @@ enum cdns3_roles cdsn3_get_real_role(struct cdns3 *cdns)
 
 not_otg:
 	if (cdns3_is_host(cdns))
-		role = CDNS3_ROLE_HOST;
+		role = USB_ROLE_HOST;
 	if (cdns3_is_device(cdns))
-		role = CDNS3_ROLE_GADGET;
+		role = USB_ROLE_DEVICE;
 
 	return role;
 }
 
-/**
- * cdns3_role_switch - work queue handler for role switch
- *
- * @work: work queue item structure
- *
- * Handles below events:
- * - Role switch for dual-role devices
- * - CDNS3_ROLE_GADGET <--> CDNS3_ROLE_END for peripheral-only devices
- */
-static void cdns3_role_switch(struct work_struct *work)
+static int cdns3_idle_role_start(struct cdns3 *cdns)
 {
-	enum cdns3_roles role = CDNS3_ROLE_END;
-	struct cdns3_role_driver *role_drv;
-	enum cdns3_roles current_role;
-	struct cdns3 *cdns;
+	return 0;
+}
+
+static void cdns3_idle_role_stop(struct cdns3 *cdns)
+{
+	/* Program Lane swap and bring PHY out of RESET */
+	phy_reset(cdns->usb3_phy);
+}
+
+static int cdns3_idle_init(struct cdns3 *cdns)
+{
+	struct cdns3_role_driver *rdrv;
+
+	rdrv = devm_kzalloc(cdns->dev, sizeof(*rdrv), GFP_KERNEL);
+	if (!rdrv)
+		return -ENOMEM;
+
+	rdrv->start = cdns3_idle_role_start;
+	rdrv->stop = cdns3_idle_role_stop;
+	rdrv->state = CDNS3_ROLE_STATE_INACTIVE;
+	rdrv->suspend = NULL;
+	rdrv->resume = NULL;
+	rdrv->name = "idle";
+
+	cdns->roles[USB_ROLE_NONE] = rdrv;
+
+	return 0;
+}
+
+/**
+ * cdns3_hw_role_switch - switch roles based on HW state
+ * @cdns3: controller
+ */
+int cdns3_hw_role_switch(struct cdns3 *cdns)
+{
+	enum usb_role real_role, current_role;
 	int ret = 0;
 
-	cdns = container_of(work, struct cdns3, role_switch_wq);
+	/* Do nothing if role based on syfs. */
+	if (cdns->role_override)
+		return 0;
 
 	pm_runtime_get_sync(cdns->dev);
 
-	role = cdsn3_get_real_role(cdns);
-
-	role_drv = cdns3_get_current_role_driver(cdns);
-
-	/* Disable current role if requested from debugfs */
-	if (cdns->debug_disable && role_drv->state == CDNS3_ROLE_STATE_ACTIVE) {
-		cdns3_role_stop(cdns);
-		goto exit;
-	}
+	current_role = cdns->role;
+	real_role = cdsn3_hw_role_state_machine(cdns);
 
 	/* Do nothing if nothing changed */
-	if (cdns->role == role && role_drv->state == CDNS3_ROLE_STATE_ACTIVE)
+	if (current_role == real_role)
 		goto exit;
 
 	cdns3_role_stop(cdns);
 
-	role = cdsn3_get_real_role(cdns);
+	dev_dbg(cdns->dev, "Switching role %d -> %d", current_role, real_role);
 
-	current_role = cdns->role;
-	dev_dbg(cdns->dev, "Switching role");
-
-	ret = cdns3_role_start(cdns, role);
+	ret = cdns3_role_start(cdns, real_role);
 	if (ret) {
 		/* Back to current role */
 		dev_err(cdns->dev, "set %d has failed, back to %d\n",
-			role, current_role);
+			real_role, current_role);
 		ret = cdns3_role_start(cdns, current_role);
 		if (ret)
 			dev_err(cdns->dev, "back to %d failed too\n",
@@ -357,7 +318,114 @@ static void cdns3_role_switch(struct work_struct *work)
 	}
 exit:
 	pm_runtime_put_sync(cdns->dev);
+	return ret;
 }
+
+/**
+ * cdsn3_role_get - get current role of controller.
+ *
+ * @dev: Pointer to device structure
+ *
+ * Returns role
+ */
+static enum usb_role cdns3_role_get(struct device *dev)
+{
+	struct cdns3 *cdns = dev_get_drvdata(dev);
+
+	return cdns->role;
+}
+
+/**
+ * cdns3_role_set - set current role of controller.
+ *
+ * @dev: pointer to device object
+ * @role - the previous role
+ * Handles below events:
+ * - Role switch for dual-role devices
+ * - USB_ROLE_GADGET <--> USB_ROLE_NONE for peripheral-only devices
+ */
+static int cdns3_role_set(struct device *dev, enum usb_role role)
+{
+	struct cdns3 *cdns = dev_get_drvdata(dev);
+	int ret = 0;
+
+	pm_runtime_get_sync(cdns->dev);
+
+	/*
+	 * FIXME: switch role framework should be extended to meet
+	 * requirements. Driver assumes that role can be controlled
+	 * by SW or HW. Temporary workaround is to use USB_ROLE_NONE to
+	 * switch from SW to HW control.
+	 *
+	 * For dr_mode == USB_DR_MODE_OTG:
+	 *	if user sets USB_ROLE_HOST or USB_ROLE_DEVICE then driver
+	 *	sets role_override flag and forces that role.
+	 *	if user sets USB_ROLE_NONE, driver clears role_override and lets
+	 *	HW state machine take over.
+	 *
+	 * For dr_mode != USB_DR_MODE_OTG:
+	 *	Assumptions:
+	 *	1. Restricted user control between NONE and dr_mode.
+	 *	2. Driver doesn't need to rely on role_override flag.
+	 *	3. Driver needs to ensure that HW state machine is never called
+	 *	   if dr_mode != USB_DR_MODE_OTG.
+	 */
+	if (role == USB_ROLE_NONE)
+		cdns->role_override = 0;
+	else
+		cdns->role_override = 1;
+
+	/*
+	 * HW state might have changed so driver need to trigger
+	 * HW state machine if dr_mode == USB_DR_MODE_OTG.
+	 */
+	if (!cdns->role_override && cdns->dr_mode == USB_DR_MODE_OTG) {
+		cdns3_hw_role_switch(cdns);
+		goto pm_put;
+	}
+
+	if (cdns->role == role)
+		goto pm_put;
+
+	if (cdns->dr_mode == USB_DR_MODE_HOST) {
+		switch (role) {
+		case USB_ROLE_NONE:
+		case USB_ROLE_HOST:
+			break;
+		default:
+			ret = -EPERM;
+			goto pm_put;
+		}
+	}
+
+	if (cdns->dr_mode == USB_DR_MODE_PERIPHERAL) {
+		switch (role) {
+		case USB_ROLE_NONE:
+		case USB_ROLE_DEVICE:
+			break;
+		default:
+			ret = -EPERM;
+			goto pm_put;
+		}
+	}
+
+	cdns3_role_stop(cdns);
+	ret = cdns3_role_start(cdns, role);
+	if (ret) {
+		dev_err(cdns->dev, "set role %d has failed\n", role);
+		ret = -EPERM;
+	}
+
+pm_put:
+	pm_runtime_put_sync(cdns->dev);
+	return ret;
+}
+
+static const struct usb_role_switch_desc cdns3_switch_desc = {
+	.set = cdns3_role_set,
+	.get = cdns3_role_get,
+	.allow_userspace_control = true,
+};
 
 /**
  * cdns3_probe - probe for cdns3 core device
@@ -373,6 +441,12 @@ static int cdns3_probe(struct platform_device *pdev)
 	void __iomem *regs;
 	int ret;
 
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(dev, "error setting dma mask: %d\n", ret);
+		return -ENODEV;
+	}
+
 	cdns = devm_kzalloc(dev, sizeof(*cdns), GFP_KERNEL);
 	if (!cdns)
 		return -ENOMEM;
@@ -383,11 +457,8 @@ static int cdns3_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "host");
 	if (!res) {
-		platform_get_resource_byname(pdev, IORESOURCE_IRQ, 0);
-		if (!res) {
-			dev_err(dev, "missing host IRQ\n");
-			return -ENODEV;
-		}
+		dev_err(dev, "missing host IRQ\n");
+		return -ENODEV;
 	}
 
 	cdns->xhci_res[0] = *res;
@@ -404,14 +475,8 @@ static int cdns3_probe(struct platform_device *pdev)
 	if (cdns->dev_irq == -EPROBE_DEFER)
 		return cdns->dev_irq;
 
-	if (cdns->dev_irq < 0) {
-		cdns->dev_irq = platform_get_irq(pdev, 0);
-		if (cdns->dev_irq < 0) {
-			if (cdns->dev_irq != -EPROBE_DEFER)
-				dev_err(dev, "couldn't get peripheral irq\n");
-			return cdns->dev_irq;
-		}
-	}
+	if (cdns->dev_irq < 0)
+		dev_err(dev, "couldn't get peripheral irq\n");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dev");
 	regs = devm_ioremap_resource(dev, res);
@@ -426,12 +491,8 @@ static int cdns3_probe(struct platform_device *pdev)
 		return cdns->otg_irq;
 
 	if (cdns->otg_irq < 0) {
-		cdns->otg_irq = platform_get_irq(pdev, 0);
-		if (cdns->otg_irq < 0) {
-			if (cdns->otg_irq != -EPROBE_DEFER)
-				dev_err(dev, "couldn't get otg irq\n");
-			return cdns->otg_irq;
-		}
+		dev_err(dev, "couldn't get otg irq\n");
+		return cdns->otg_irq;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "otg");
@@ -444,34 +505,45 @@ static int cdns3_probe(struct platform_device *pdev)
 
 	mutex_init(&cdns->mutex);
 
-	cdns->phy = devm_phy_optional_get(dev, "cdns3,usbphy");
-	if (IS_ERR(cdns->phy))
-		return PTR_ERR(cdns->phy);
+	cdns->usb2_phy = devm_phy_optional_get(dev, "cdns3,usb2-phy");
+	if (IS_ERR(cdns->usb2_phy))
+		return PTR_ERR(cdns->usb2_phy);
 
-	ret = phy_init(cdns->phy);
-	if (ret) {
-		dev_err(dev, "phy_init error\n");
+	ret = phy_init(cdns->usb2_phy);
+	if (ret)
 		return ret;
-	}
 
-	ret = phy_power_on(cdns->phy);
-	if (ret) {
-		dev_err(dev, "phy_power_on error\n");
-		phy_exit(cdns->phy);
-		return ret;
-	}
+	cdns->usb3_phy = devm_phy_optional_get(dev, "cdns3,usb3-phy");
+	if (IS_ERR(cdns->usb3_phy))
+		return PTR_ERR(cdns->usb3_phy);
 
-	INIT_WORK(&cdns->role_switch_wq, cdns3_role_switch);
+	ret = phy_init(cdns->usb3_phy);
+	if (ret)
+		goto err1;
+
+	ret = phy_power_on(cdns->usb2_phy);
+	if (ret)
+		goto err2;
+
+	ret = phy_power_on(cdns->usb3_phy);
+	if (ret)
+		goto err3;
+
+	cdns->role_sw = usb_role_switch_register(dev, &cdns3_switch_desc);
+	if (IS_ERR(cdns->role_sw)) {
+		ret = PTR_ERR(cdns->role_sw);
+		dev_warn(dev, "Unable to register Role Switch\n");
+		goto err4;
+	}
 
 	ret = cdns3_drd_init(cdns);
 	if (ret)
-		goto err;
+		goto err5;
 
 	ret = cdns3_core_init_role(cdns);
 	if (ret)
-		goto err;
+		goto err5;
 
-	cdns3_debugfs_init(cdns);
 	device_set_wakeup_capable(dev, true);
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
@@ -487,10 +559,19 @@ static int cdns3_probe(struct platform_device *pdev)
 	dev_dbg(dev, "Cadence USB3 core: probe succeed\n");
 
 	return 0;
+err5:
+	cdns3_drd_exit(cdns);
+	usb_role_switch_unregister(cdns->role_sw);
+err4:
+	phy_power_off(cdns->usb3_phy);
 
-err:
-	phy_power_off(cdns->phy);
-	phy_exit(cdns->phy);
+err3:
+	phy_power_off(cdns->usb2_phy);
+err2:
+	phy_exit(cdns->usb3_phy);
+err1:
+	phy_exit(cdns->usb2_phy);
+
 	return ret;
 }
 
@@ -507,17 +588,66 @@ static int cdns3_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
-	cdns3_debugfs_exit(cdns);
 	cdns3_exit_roles(cdns);
-	phy_power_off(cdns->phy);
-	phy_exit(cdns->phy);
+	usb_role_switch_unregister(cdns->role_sw);
+	phy_power_off(cdns->usb2_phy);
+	phy_power_off(cdns->usb3_phy);
+	phy_exit(cdns->usb2_phy);
+	phy_exit(cdns->usb3_phy);
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+
+static int cdns3_suspend(struct device *dev)
+{
+	struct cdns3 *cdns = dev_get_drvdata(dev);
+	unsigned long flags;
+
+	if (cdns->role == USB_ROLE_HOST)
+		return 0;
+
+	if (pm_runtime_status_suspended(dev))
+		pm_runtime_resume(dev);
+
+	if (cdns->roles[cdns->role]->suspend) {
+		spin_lock_irqsave(&cdns->gadget_dev->lock, flags);
+		cdns->roles[cdns->role]->suspend(cdns, false);
+		spin_unlock_irqrestore(&cdns->gadget_dev->lock, flags);
+	}
+
+	return 0;
+}
+
+static int cdns3_resume(struct device *dev)
+{
+	struct cdns3 *cdns = dev_get_drvdata(dev);
+	unsigned long flags;
+
+	if (cdns->role == USB_ROLE_HOST)
+		return 0;
+
+	if (cdns->roles[cdns->role]->resume) {
+		spin_lock_irqsave(&cdns->gadget_dev->lock, flags);
+		cdns->roles[cdns->role]->resume(cdns, false);
+		spin_unlock_irqrestore(&cdns->gadget_dev->lock, flags);
+	}
+
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops cdns3_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(cdns3_suspend, cdns3_resume)
+};
+
 #ifdef CONFIG_OF
 static const struct of_device_id of_cdns3_match[] = {
-	{ .compatible = "cdns,usb3-1.0.0" },
-	{ .compatible = "cdns,usb3-1.0.1" },
+	{ .compatible = "cdns,usb3" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, of_cdns3_match);
@@ -529,6 +659,7 @@ static struct platform_driver cdns3_driver = {
 	.driver		= {
 		.name	= "cdns-usb3",
 		.of_match_table	= of_match_ptr(of_cdns3_match),
+		.pm	= &cdns3_pm_ops,
 	},
 };
 

@@ -2,11 +2,11 @@
 /*
  * Cadence USBSS DRD Driver - host side
  *
- * Copyright (C) 2018 Cadence Design Systems.
+ * Copyright (C) 2018-2019 Cadence Design Systems.
  * Copyright (C) 2017-2018 NXP
  *
  * Authors: Peter Chen <peter.chen@nxp.com>
- *	    Pawel Laszczak <pawell@cadence.com>
+ *          Pawel Laszczak <pawell@cadence.com>
  */
 
 #include <linux/platform_device.h>
@@ -66,11 +66,9 @@ int cdns3_host_init(struct cdns3 *cdns)
 	rdrv->start	= __cdns3_host_init;
 	rdrv->stop	= cdns3_host_exit;
 	rdrv->state	= CDNS3_ROLE_STATE_INACTIVE;
-	rdrv->suspend	= NULL;
-	rdrv->resume	= NULL;
 	rdrv->name	= "host";
 
-	cdns->roles[CDNS3_ROLE_HOST] = rdrv;
+	cdns->roles[USB_ROLE_HOST] = rdrv;
 
 	return 0;
 }

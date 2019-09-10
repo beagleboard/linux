@@ -9,17 +9,12 @@
  *          Pawel Laszczak <pawell@cadence.com>
  */
 #include <linux/usb/otg.h>
+#include <linux/usb/role.h>
 
 #ifndef __LINUX_CDNS3_CORE_H
 #define __LINUX_CDNS3_CORE_H
 
 struct cdns3;
-enum cdns3_roles {
-	CDNS3_ROLE_IDLE = 0,
-	CDNS3_ROLE_HOST,
-	CDNS3_ROLE_GADGET,
-	CDNS3_ROLE_END,
-};
 
 /**
  * struct cdns3_role_driver - host/gadget role driver
@@ -59,28 +54,15 @@ struct cdns3_role_driver {
  * @role: current role
  * @host_dev: the child host device pointer for cdns3 core
  * @gadget_dev: the child gadget device pointer for cdns3 core
- * @usb: phy for this controller
- * @role_switch_wq: work queue item for role switch
- * @in_lpm: the controller in low power mode
- * @wakeup_int: the wakeup interrupt
+ * @usb2_phy: pointer to USB2 PHY
+ * @usb3_phy: pointer to USB3 PHY
  * @mutex: the mutex for concurrent code at driver
  * @dr_mode: supported mode of operation it can be only Host, only Device
  *           or OTG mode that allow to switch between Device and Host mode.
  *           This field based on firmware setting, kernel configuration
  *           and hardware configuration.
- * @current_dr_mode: current mode of operation when in dual-role mode
- * @desired_dr_mode: desired mode of operation when in dual-role mode.
- *           This value can be changed during runtime.
- *           Available options depends on  dr_mode:
- *           dr_mode                 |  desired_dr_mode and current_dr_mode
- *           ----------------------------------------------------------------
- *           USB_DR_MODE_HOST        | only USB_DR_MODE_HOST
- *           USB_DR_MODE_PERIPHERAL  | only USB_DR_MODE_PERIPHERAL
- *           USB_DR_MODE_OTG         | USB_DR_MODE_OTG or USB_DR_MODE_HOST or
- *                                   | USB_DR_MODE_PERIPHERAL
- *           Desired_dr_role can be changed by means of debugfs.
- * @root: debugfs root folder pointer
- * @debug_disable:
+ * @role_sw: pointer to role switch object.
+ * @role_override: set 1 if role rely on SW.
  */
 struct cdns3 {
 	struct device			*dev;
@@ -98,24 +80,19 @@ struct cdns3 {
 
 	int				otg_irq;
 	int				dev_irq;
-	struct cdns3_role_driver	*roles[CDNS3_ROLE_END];
-	enum cdns3_roles		role;
+	struct cdns3_role_driver	*roles[USB_ROLE_DEVICE + 1];
+	enum usb_role			role;
 	struct platform_device		*host_dev;
 	struct cdns3_device		*gadget_dev;
-	struct phy			*phy;
-	struct work_struct		role_switch_wq;
-	int				in_lpm:1;
-	int				wakeup_int:1;
+	struct phy			*usb2_phy;
+	struct phy			*usb3_phy;
 	/* mutext used in workqueue*/
 	struct mutex			mutex;
 	enum usb_dr_mode		dr_mode;
-	enum usb_dr_mode		current_dr_mode;
-	enum usb_dr_mode		desired_dr_mode;
-	struct dentry			*root;
-	int				debug_disable:1;
+	struct usb_role_switch		*role_sw;
+	int				role_override;
 };
 
-void cdns3_role_stop(struct cdns3 *cdns);
-int cdns3_handshake(void __iomem *ptr, u32 mask, u32 done, int usec);
+int cdns3_hw_role_switch(struct cdns3 *cdns);
 
 #endif /* __LINUX_CDNS3_CORE_H */

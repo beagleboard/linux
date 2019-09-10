@@ -8,15 +8,15 @@
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  */
 
-#ifndef __LINUX_USB_COMMON_DEBUG
-#define __LINUX_USB_COMMON_DEBUG
-
 #include <linux/usb/ch9.h>
 
 static void usb_decode_get_status(__u8 bRequestType, __u16 wIndex,
 				  __u16 wLength, char *str, size_t size)
 {
 	switch (bRequestType & USB_RECIP_MASK) {
+	case USB_RECIP_DEVICE:
+		snprintf(str, size, "Get Device Status(Length = %d)", wLength);
+		break;
 	case USB_RECIP_INTERFACE:
 		snprintf(str, size,
 			 "Get Interface Status(Intf = %d, Length = %d)",
@@ -266,5 +266,3 @@ const char *usb_decode_ctrl(char *str, size_t size, __u8 bRequestType,
 	return str;
 }
 EXPORT_SYMBOL_GPL(usb_decode_ctrl);
-
-#endif /* __LINUX_USB_COMMON_DEBUG */

@@ -567,7 +567,7 @@
 	dr_mode = "otg";
 	maximum-speed = "super-speed";
 	phys = <&serdes3_usb_link>;
-	phy-names = "cdns3,usbphy";
+	phy-names = "cdns3,usb3-phy";
 };
 
 &usbss1 {

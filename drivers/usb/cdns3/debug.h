@@ -28,7 +28,12 @@ static inline char *cdns3_decode_usb_irq(char *str,
 		ret += sprintf(str + ret, "Disconnection ");
 	if (usb_ists & USB_ISTS_L2ENTI)
 		ret += sprintf(str + ret, "suspended ");
-
+	if (usb_ists & USB_ISTS_L1ENTI)
+		ret += sprintf(str + ret, "L1 enter ");
+	if (usb_ists & USB_ISTS_L1EXTI)
+		ret += sprintf(str + ret, "L1 exit ");
+	if (usb_ists & USB_ISTS_L2ENTI)
+		ret += sprintf(str + ret, "L2 enter ");
 	if (usb_ists & USB_ISTS_L2EXTI)
 		ret += sprintf(str + ret, "L2 exit ");
 	if (usb_ists & USB_ISTS_U3EXTI)
@@ -152,17 +157,5 @@ static inline char *cdns3_dbg_ring(struct cdns3_endpoint *priv_ep,
 
 	return str;
 }
-
-void cdns3_dbg(struct cdns3_device *priv_dev, const char *fmt, ...);
-
-#ifdef CONFIG_DEBUG_FS
-void cdns3_debugfs_init(struct cdns3 *cdns);
-void cdns3_debugfs_exit(struct cdns3 *cdns);
-#else
-void cdns3_debugfs_init(struct cdns3 *cdns);
-{  }
-void cdns3_debugfs_exit(struct cdns3 *cdns);
-{  }
-#endif
 
 #endif /*__LINUX_CDNS3_DEBUG*/

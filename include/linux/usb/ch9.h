@@ -62,6 +62,7 @@ extern enum usb_device_speed usb_get_maximum_speed(struct device *dev);
  */
 extern const char *usb_state_string(enum usb_device_state state);
 
+#ifdef CONFIG_TRACING
 /**
  * usb_decode_ctrl - Returns human readable representation of control request.
  * @str: buffer to return a human-readable representation of control request.
@@ -83,8 +84,9 @@ extern const char *usb_state_string(enum usb_device_state state);
  * Important: wValue, wIndex, wLength parameters before invoking this function
  * should be processed by le16_to_cpu macro.
  */
-const char *usb_decode_ctrl(char *str, size_t size, __u8 bRequestType,
-			    __u8 bRequest, __u16 wValue, __u16 wIndex,
-			    __u16 wLength);
+extern const char *usb_decode_ctrl(char *str, size_t size, __u8 bRequestType,
+				   __u8 bRequest, __u16 wValue, __u16 wIndex,
+				   __u16 wLength);
+#endif
 
 #endif /* __LINUX_USB_CH9_H */
