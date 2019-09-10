@@ -20,6 +20,12 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	/* Reserved for GPU firmware */
+	gpu_fw_mem: gpu-fw-mem@c0000000 {
+		reg = <0x0 0xc0000000 0x0 0x2000000>;
+		no-map;
+	};
+
 	/* Reserved for Jailhouse, IVSHMEM, baremetal apps */
 	hyp_mem: jailhouse@0x89fa00000 {
 		reg = <0x8 0x9fa00000 0x0 0x600000>;
@@ -35,11 +41,11 @@
 	};
 };
 
-&main_uart1 {
+&main_i2c4 {
 	status = "disabled";
 };
 
-&gpu {
+&main_uart1 {
 	status = "disabled";
 };
 
