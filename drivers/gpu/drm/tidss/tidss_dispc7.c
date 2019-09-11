@@ -33,6 +33,8 @@
 #include "tidss_scale_coefs.h"
 #include "tidss_dispc7.h"
 
+static const char *dispc7_plane_name(struct dispc_device *dispc, u32 hw_plane);
+
 static const struct dispc7_features dispc7_am6_feats = {
 	.min_pclk = 1000,
 	.max_pclk = 200000000,
@@ -2398,13 +2400,9 @@ static bool dispc7_has_writeback(struct dispc_device *dispc)
 	return dispc->wb_managed;
 }
 
-static u32 dispc7_vid_get_fifo_size(struct dispc_device *dispc,
-				    u32 hw_plane)
+static u32 dispc7_vid_get_fifo_size(struct dispc_device *dispc, u32 hw_plane)
 {
-	const u32 unit_size = 16;	/* 128-bits */
-
-	return VID_REG_GET(dispc, hw_plane, DISPC_VID_BUF_SIZE_STATUS, 15, 0) *
-	       unit_size;
+	return VID_REG_GET(dispc, hw_plane, DISPC_VID_BUF_SIZE_STATUS, 15, 0);
 }
 
 static void dispc7_vid_set_mflag_threshold(struct dispc_device *dispc,
@@ -2414,31 +2412,16 @@ static void dispc7_vid_set_mflag_threshold(struct dispc_device *dispc,
 			 FLD_VAL(high, 31, 16) | FLD_VAL(low, 15, 0));
 }
 
-static void dispc7_vid_mflag_setup(struct dispc_device *dispc,
-				   u32 hw_plane)
+static void dispc7_vid_set_buf_threshold(struct dispc_device *dispc,
+					 u32 hw_plane, u32 low, u32 high)
 {
-	const u32 unit_size = 16;	/* 128-bits */
-	u32 size = dispc7_vid_get_fifo_size(dispc, hw_plane);
-	u32 low, high;
-
-	/*
-	 * Simulation team suggests below thesholds:
-	 * HT = fifosize * 5 / 8;
-	 * LT = fifosize * 4 / 8;
-	 */
-
-	low = size * 4 / 8 / unit_size;
-	high = size * 5 / 8 / unit_size;
-
-	dispc7_vid_set_mflag_threshold(dispc, hw_plane, low, high);
+	dispc7_vid_write(dispc, hw_plane, DISPC_VID_BUF_THRESHOLD,
+			 FLD_VAL(high, 31, 16) | FLD_VAL(low, 15, 0));
 }
 
 static u32 dispc7_wb_get_fifo_size(struct dispc_device *dispc)
 {
-	const u32 unit_size = 16;	/* 128-bits */
-
-	return WB_REG_GET(dispc, DISPC_VID_BUF_SIZE_STATUS, 15, 0) *
-	       unit_size;
+	return WB_REG_GET(dispc, DISPC_VID_BUF_SIZE_STATUS, 15, 0);
 }
 
 static void dispc7_wb_set_mflag_threshold(struct dispc_device *dispc,
@@ -2448,55 +2431,85 @@ static void dispc7_wb_set_mflag_threshold(struct dispc_device *dispc,
 			FLD_VAL(high, 31, 16) | FLD_VAL(low, 15, 0));
 }
 
-static void dispc7_wb_mflag_setup(struct dispc_device *dispc)
+static void dispc7_wb_set_buf_threshold(struct dispc_device *dispc,
+					 u32 low, u32 high)
 {
-	const u32 unit_size = 16;	/* 128-bits */
-	u32 size = dispc7_wb_get_fifo_size(dispc);
-	u32 low, high;
-
-	/*
-	 * Simulation team suggests below thesholds:
-	 * HT = fifosize * 5 / 8;
-	 * LT = fifosize * 4 / 8;
-	 */
-
-	low = size * 4 / 8 / unit_size;
-	high = size * 5 / 8 / unit_size;
-
-	dispc7_wb_set_mflag_threshold(dispc, low, high);
-}
-
-static void dispc7_mflag_setup(struct dispc_device *dispc)
-{
-	unsigned int i;
-
-	if (!dispc->has_cfg_common)
-		goto no_cfg;
-
-	/* MFLAG_CTRL = ENABLED */
-	CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 2, 1, 0);
-	/* MFLAG_START = MFLAGNORMALSTARTMODE */
-	CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 0, 6, 6);
-
-no_cfg:
-	dispc_for_each_managed_plane(dispc, i)
-		dispc7_vid_mflag_setup(dispc, i);
-
-	if (dispc7_has_writeback(dispc))
-		dispc7_wb_mflag_setup(dispc);
+	dispc7_wb_write(dispc, DISPC_WB_BUF_THRESHOLD,
+			FLD_VAL(high, 31, 16) | FLD_VAL(low, 15, 0));
 }
 
 static void dispc7_plane_init(struct dispc_device *dispc)
 {
-	unsigned int i;
+	unsigned int hw_plane;
 
 	dev_dbg(dispc->dev, "%s()\n", __func__);
 
-	/* FIFO underflows when scaling if preload is not high enough */
-	dispc_for_each_managed_plane(dispc, i)
-		if (!dispc->feat->vid_lite[i])
-			VID_REG_FLD_MOD(dispc, i, DISPC_VID_PRELOAD,
-					0x7FF, 11, 0);
+	if (dispc->has_cfg_common) {
+		u32 cba_lo_pri = 1;
+		u32 cba_hi_pri = 0;
+
+		CFG_REG_FLD_MOD(dispc, DSS_CBA_CFG, cba_lo_pri, 2, 0);
+		CFG_REG_FLD_MOD(dispc, DSS_CBA_CFG, cba_hi_pri, 5, 3);
+
+		/* MFLAG_CTRL = ENABLED */
+		CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 2, 1, 0);
+		/* MFLAG_START = MFLAGNORMALSTARTMODE */
+		CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 0, 6, 6);
+	}
+
+	dispc_for_each_managed_plane(dispc, hw_plane) {
+		u32 size = dispc7_vid_get_fifo_size(dispc, hw_plane);
+		u32 thr_low, thr_high;
+		u32 mflag_low, mflag_high;
+		u32 preload;
+
+		thr_high = size - 1;
+		thr_low = size / 2;
+
+		mflag_high = size * 2 / 3;
+		mflag_low = size / 3;
+
+		preload = thr_low;
+
+		dev_dbg(dispc->dev,
+			"%s: bufsize %u, buf_threshold %u/%u, mflag threshold %u/%u preload %u\n",
+			dispc7_plane_name(dispc, hw_plane),
+			size,
+			thr_high, thr_low,
+			mflag_high, mflag_low,
+			preload);
+
+		dispc7_vid_set_buf_threshold(dispc, hw_plane,
+					     thr_low, thr_high);
+		dispc7_vid_set_mflag_threshold(dispc, hw_plane,
+					       mflag_low, mflag_high);
+
+		dispc7_vid_write(dispc, hw_plane, DISPC_VID_PRELOAD, preload);
+
+		/* Prefech up to PRELOAD value */
+		VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, 0, 19, 19);
+	}
+
+	if (dispc7_has_writeback(dispc)) {
+		u32 size = dispc7_wb_get_fifo_size(dispc);
+		u32 thr_low, thr_high;
+		u32 mflag_low, mflag_high;
+
+		thr_high = size - 1;
+		thr_low = size / 2;
+
+		mflag_high = size * 2 / 3;
+		mflag_low = size / 3;
+
+		dev_dbg(dispc->dev,
+			"wb: bufsize %u, buf_threshold %u/%u, mflag threshold %u/%u\n",
+			size,
+			thr_high, thr_low,
+			mflag_high, mflag_low);
+
+		dispc7_wb_set_buf_threshold(dispc, thr_low, thr_high);
+		dispc7_wb_set_mflag_threshold(dispc, mflag_low, mflag_high);
+	}
 }
 
 static void dispc7_vp_init(struct dispc_device *dispc)
@@ -2512,7 +2525,6 @@ static void dispc7_vp_init(struct dispc_device *dispc)
 
 static void dispc7_initial_config(struct dispc_device *dispc)
 {
-	dispc7_mflag_setup(dispc);
 	dispc7_plane_init(dispc);
 	dispc7_vp_init(dispc);
 
