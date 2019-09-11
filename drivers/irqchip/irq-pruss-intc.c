@@ -746,7 +746,7 @@ static const struct pruss_intc_match_data am437x_k2g_pruss_intc_data = {
 	.no_host7_intr = true,
 };
 
-static const struct pruss_intc_match_data am65x_icssg_intc_data = {
+static const struct pruss_intc_match_data am65x_j721e_icssg_intc_data = {
 	.num_system_events = 160,
 	.num_host_intrs = 20,
 	.no_host7_intr = false,
@@ -771,7 +771,11 @@ static const struct of_device_id pruss_intc_of_match[] = {
 	},
 	{
 		.compatible = "ti,am654-icssg-intc",
-		.data = &am65x_icssg_intc_data,
+		.data = &am65x_j721e_icssg_intc_data,
+	},
+	{
+		.compatible = "ti,j721e-icssg-intc",
+		.data = &am65x_j721e_icssg_intc_data,
 	},
 	{ /* sentinel */ },
 };

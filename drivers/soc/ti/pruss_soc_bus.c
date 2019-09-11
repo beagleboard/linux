@@ -291,6 +291,7 @@ static const struct of_device_id pruss_soc_bus_of_match[] = {
 	{ .compatible = "ti,am5728-pruss-soc-bus", .data = &am57xx_data, },
 	{ .compatible = "ti,k2g-pruss-soc-bus", .data = &k2g_data, },
 	{ .compatible = "ti,am654-icssg-soc-bus", .data = &k2g_data, },
+	{ .compatible = "ti,j721e-icssg-soc-bus", .data = &k2g_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_soc_bus_of_match);

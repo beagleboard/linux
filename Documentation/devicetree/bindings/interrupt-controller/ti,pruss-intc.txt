@@ -27,6 +27,7 @@ Required Properties:
                              "ti,am5728-pruss-intc" for AM57xx family of SoCs
                              "ti,k2g-pruss-intc" for 66AK2G family of SoCs
                              "ti,am654-icssg-intc" for K3 AM65x family of SoCs
+                             "ti,j721e-icssg-intc" for K3 J721E family of SoCs
 - reg                  : base address and size for the PRUSS INTC sub-module
 - interrupt-controller : mark this node as an interrupt controller
 - #interrupt-cells     : should be 1. Client users shall use the PRU System
