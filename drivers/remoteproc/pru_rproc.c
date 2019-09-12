@@ -63,6 +63,16 @@ enum pru_iomem {
 };
 
 /**
+ * enum pru_type - PRU core type identifier
+ */
+enum pru_type {
+	PRU_TYPE_PRU = 0,
+	PRU_TYPE_RTU,
+	PRU_TYPE_TX_PRU,
+	PRU_TYPE_MAX,
+};
+
+/**
  * struct pru_rproc - PRU remoteproc structure
  * @id: id of the PRU core within the PRUSS
  * @pruss: back-reference to parent PRUSS structure
@@ -70,6 +80,7 @@ enum pru_iomem {
  * @client_np: client device node
  * @mbox: mailbox channel handle used for vring signalling with MPU
  * @client: mailbox client to request the mailbox channel
+ * @type: type of the PRU core (PRU, RTU, Tx_PRU)
  * @irq_ring: IRQ number to use for processing vring buffers
  * @irq_kick: IRQ number to use to perform virtio kick
  * @mem_regions: data for each of the PRU memory regions
@@ -87,8 +98,6 @@ enum pru_iomem {
  * @dbg_continuous: debug state variable to restore PRU execution mode
  * @fw_has_intc_rsc: boolean flag to indicate INTC config through firmware
  * @is_k3: boolean flag used to indicate the core has increased number of events
- * @is_rtu: boolean flag to indicate the core is a RTU core
- * @is_tx_pru: boolean flag to indicate the core is a Tx PRU core
  */
 struct pru_rproc {
 	int id;
@@ -97,6 +106,7 @@ struct pru_rproc {
 	struct device_node *client_np;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
+	enum pru_type type;
 	int irq_vring;
 	int irq_kick;
 	struct pruss_mem_region mem_regions[PRU_IOMEM_MAX];
@@ -114,8 +124,6 @@ struct pru_rproc {
 	u32 dbg_continuous;
 	unsigned int fw_has_intc_rsc : 1;
 	unsigned int is_k3 : 1;
-	unsigned int is_rtu : 1;
-	unsigned int is_tx_pru : 1;
 };
 
 static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len);
@@ -663,10 +671,10 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 	struct pru_rproc *pru = rproc->priv;
 	int ret;
 	mbox_msg_t msg = (mbox_msg_t)vq_id;
-	const char *name = pru->is_tx_pru ? "Tx_PRU" :
-				(pru->is_rtu ? "RTU" : "PRU");
+	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU", "Tx_PRU" };
 
-	dev_dbg(dev, "kicking vqid %d on %s%d\n", vq_id, name, pru->id);
+	dev_dbg(dev, "kicking vqid %d on %s%d\n", vq_id,
+		names[pru->type], pru->id);
 
 	if (pru->irq_kick > 0) {
 		ret = pruss_intc_trigger(pru->irq_kick);
@@ -688,13 +696,12 @@ static int pru_rproc_start(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
-	const char *name = pru->is_tx_pru ? "Tx_PRU" :
-				(pru->is_rtu ? "RTU" : "PRU");
+	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU", "Tx_PRU" };
 	u32 val;
 	int ret;
 
 	dev_dbg(dev, "starting %s%d: entry-point = 0x%x\n",
-		name, pru->id, (rproc->bootaddr >> 2));
+		names[pru->type], pru->id, (rproc->bootaddr >> 2));
 
 	if (!list_empty(&pru->rproc->rvdevs)) {
 		if (!pru->mbox && (pru->irq_vring <= 0 || pru->irq_kick <= 0)) {
@@ -732,11 +739,10 @@ static int pru_rproc_stop(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
-	const char *name = pru->is_tx_pru ? "Tx_PRU" :
-				(pru->is_rtu ? "RTU" : "PRU");
+	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU", "Tx_PRU" };
 	u32 val;
 
-	dev_dbg(dev, "stopping %s%d\n", name, pru->id);
+	dev_dbg(dev, "stopping %s%d\n", names[pru->type], pru->id);
 
 	val = pru_control_read_reg(pru, PRU_CTRL_CTRL);
 	val &= ~CTRL_CTRL_EN;
@@ -1112,13 +1118,13 @@ static int pru_rproc_set_id(struct device_node *np, struct pru_rproc *pru)
 	    of_device_is_compatible(np, "ti,j721e-rtu")) {
 		mask1 = RTU0_IRAM_ADDR_MASK;
 		mask2 = RTU1_IRAM_ADDR_MASK;
-		pru->is_rtu = 1;
+		pru->type = PRU_TYPE_RTU;
 	}
 
 	if (of_device_is_compatible(np, "ti,j721e-tx-pru")) {
 		mask1 = TX_PRU0_IRAM_ADDR_MASK;
 		mask2 = TX_PRU1_IRAM_ADDR_MASK;
-		pru->is_tx_pru = 1;
+		pru->type = PRU_TYPE_TX_PRU;
 	}
 
 	if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask2) == mask2)
