@@ -144,3 +144,5 @@
 &cpu0 {
 	vdd-supply = <&smps12_reg>;
 };
+
+#include "dra7-ipu-common-early-boot.dtsi"
