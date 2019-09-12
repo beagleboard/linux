@@ -14,6 +14,7 @@
 #include <asm/xen/hypervisor.h>
 
 extern const struct dma_map_ops arm_dma_ops;
+extern const struct dma_map_ops arm_dma_m_ops;
 extern const struct dma_map_ops arm_coherent_dma_ops;
 
 static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
