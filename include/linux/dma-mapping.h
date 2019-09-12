@@ -161,7 +161,8 @@ static inline int is_device_dma_capable(struct device *dev)
  * Don't use them in device drivers.
  */
 int dma_alloc_from_dev_coherent(struct device *dev, ssize_t size,
-				       dma_addr_t *dma_handle, void **ret);
+				dma_addr_t *dma_handle, void **ret,
+				bool zero);
 int dma_release_from_dev_coherent(struct device *dev, int order, void *vaddr);
 
 int dma_mmap_from_dev_coherent(struct device *dev, struct vm_area_struct *vma,
@@ -173,7 +174,7 @@ int dma_mmap_from_global_coherent(struct vm_area_struct *vma, void *cpu_addr,
 				  size_t size, int *ret);
 
 #else
-#define dma_alloc_from_dev_coherent(dev, size, handle, ret) (0)
+#define dma_alloc_from_dev_coherent(dev, size, handle, ret, zero) (0)
 #define dma_release_from_dev_coherent(dev, order, vaddr) (0)
 #define dma_mmap_from_dev_coherent(dev, vma, vaddr, order, ret) (0)
 
@@ -505,9 +506,9 @@ dma_get_sgtable_attrs(struct device *dev, struct sg_table *sgt, void *cpu_addr,
 #define arch_dma_alloc_attrs(dev)	(true)
 #endif
 
-static inline void *dma_alloc_attrs(struct device *dev, size_t size,
-				       dma_addr_t *dma_handle, gfp_t flag,
-				       unsigned long attrs)
+static inline void *dma_malloc_attrs(struct device *dev, size_t size,
+				     dma_addr_t *dma_handle, gfp_t flag,
+				     unsigned long attrs, bool zero)
 {
 	const struct dma_map_ops *ops = get_dma_ops(dev);
 	void *cpu_addr;
@@ -515,7 +516,7 @@ static inline void *dma_alloc_attrs(struct device *dev, size_t size,
 	BUG_ON(!ops);
 	WARN_ON_ONCE(dev && !dev->coherent_dma_mask);
 
-	if (dma_alloc_from_dev_coherent(dev, size, dma_handle, &cpu_addr))
+	if (dma_alloc_from_dev_coherent(dev, size, dma_handle, &cpu_addr, zero))
 		return cpu_addr;
 
 	/* let the implementation decide on the zone to allocate from: */
@@ -529,6 +530,13 @@ static inline void *dma_alloc_attrs(struct device *dev, size_t size,
 	cpu_addr = ops->alloc(dev, size, dma_handle, flag, attrs);
 	debug_dma_alloc_coherent(dev, size, *dma_handle, cpu_addr);
 	return cpu_addr;
+}
+
+static inline void *dma_alloc_attrs(struct device *dev, size_t size,
+				    dma_addr_t *dma_handle, gfp_t flag,
+				    unsigned long attrs)
+{
+	return dma_malloc_attrs(dev, size, dma_handle, flag, attrs, true);
 }
 
 static inline void dma_free_attrs(struct device *dev, size_t size,
@@ -561,6 +569,12 @@ static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 		dma_addr_t *dma_handle, gfp_t flag)
 {
 	return dma_alloc_attrs(dev, size, dma_handle, flag, 0);
+}
+
+static inline void *dma_malloc_coherent(struct device *dev, size_t size,
+					dma_addr_t *dma_handle, gfp_t flag)
+{
+	return dma_malloc_attrs(dev, size, dma_handle, flag, 0, false);
 }
 
 static inline void dma_free_coherent(struct device *dev, size_t size,
