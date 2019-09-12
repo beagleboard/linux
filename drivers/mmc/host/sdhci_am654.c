@@ -234,7 +234,6 @@ void sdhci_j721e_4bit_set_clock(struct sdhci_host *host, unsigned int clock)
 	struct sdhci_am654_data *sdhci_am654 = sdhci_pltfm_priv(pltfm_host);
 	unsigned char timing = host->mmc->ios.timing;
 	u32 otap_del_sel;
-	u32 otap_del_ena;
 	u32 mask, val;
 
 	/* Setup DLL Output TAP delay */
@@ -243,9 +242,8 @@ void sdhci_j721e_4bit_set_clock(struct sdhci_host *host, unsigned int clock)
 	else
 		otap_del_sel = sdhci_am654->otap_del_sel[timing];
 
-	otap_del_ena = (timing > MMC_TIMING_UHS_SDR25) ? 1 : 0;
 	mask = OTAPDLYENA_MASK | OTAPDLYSEL_MASK;
-	val = (otap_del_ena << OTAPDLYENA_SHIFT) |
+	val = (0x1 << OTAPDLYENA_SHIFT) |
 	      (otap_del_sel << OTAPDLYSEL_SHIFT);
 	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, mask, val);
 
