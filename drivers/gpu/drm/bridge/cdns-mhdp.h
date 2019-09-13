@@ -212,43 +212,31 @@ struct cdns_mhdp_display_fmt {
 	u8 y_only : 1;
 };
 
-struct cdns_mhdp_bridge;
-struct cdns_mhdp_connector;
-
-struct cdns_mhdp_bridge {
-	struct cdns_mhdp_device *mhdp;
-	struct drm_bridge base;
-	s8 stream_id;
-};
-
-struct cdns_mhdp_connector {
-	struct drm_connector base;
-	struct cdns_mhdp_bridge *bridge;
-};
-
 struct cdns_mhdp_device {
 	void __iomem *regs;
 	void __iomem *j721e_regs;
 
 	struct device *dev;
 	struct clk *clk;
+	struct phy *phy;
+
+	struct drm_connector connector;
+	struct drm_bridge bridge;
 
 	struct drm_dp_link link;
-	struct cdns_mhdp_connector connector;
-
 	struct drm_dp_aux aux;
+
 	struct cdns_mhdp_host host;
 	struct cdns_mhdp_sink sink;
 	struct cdns_mhdp_display_fmt display_fmt;
-	struct cdns_mhdp_bridge bridge;
-	struct phy *phy;
+	s8 stream_id;
 
 	u8 link_up : 1;
 	u8 plugged : 1;
 };
 
-#define to_mhdp_connector(x) container_of(x, struct cdns_mhdp_connector, base)
-#define to_mhdp_bridge(x) container_of(x, struct cdns_mhdp_bridge, base)
+#define connector_to_mhdp(x) container_of(x, struct cdns_mhdp_device, connector)
+#define bridge_to_mhdp(x) container_of(x, struct cdns_mhdp_device, bridge)
 
 #define CDNS_MHDP_MAX_STREAMS   4
 
