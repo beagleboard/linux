@@ -274,6 +274,7 @@ struct dispc_device {
 
 	bool vp_managed[DISPC7_MAX_PORTS];
 	bool plane_managed[DISPC7_MAX_PLANES];
+	bool wb_managed;
 
 	struct clk *fclk;
 
@@ -1799,7 +1800,7 @@ static int dispc7_plane_enable(struct dispc_device *dispc,
 
 static bool dispc7_has_writeback(struct dispc_device *dispc)
 {
-	return dispc->feat->has_writeback;
+	return dispc->wb_managed;
 }
 
 static u32 dispc7_vid_get_fifo_size(struct dispc_device *dispc,
@@ -2649,6 +2650,24 @@ static struct device_node *dispc7_of_dss_vp_for_id(struct device_node *parent, u
 	return vp;
 }
 
+static struct device_node *dispc7_of_dss_wb(struct device_node *parent)
+{
+	struct device_node *dss_wbs_node, *wb;
+
+	dss_wbs_node = of_get_child_by_name(parent, "dss-wbs");
+	if (!dss_wbs_node)
+		return NULL;
+
+	for_each_child_of_node(dss_wbs_node, wb) {
+		if (of_node_cmp(wb->name, "wb") == 0)
+			break;
+	}
+
+	of_node_put(dss_wbs_node);
+
+	return wb;
+}
+
 static bool dispc7_is_plane_managed(struct tidss_device *tidss, u32 plane_id)
 {
 	struct device *dev = tidss->dev;
@@ -2694,6 +2713,30 @@ static bool dispc7_is_vp_managed(struct tidss_device *tidss, u32 vp_id)
 
 out:
 	of_node_put(vp);
+	return ret;
+}
+
+static bool dispc7_is_wb_managed(struct tidss_device *tidss)
+{
+	struct device *dev = tidss->dev;
+	struct device_node *wb;
+	u32 managed;
+	bool ret;
+
+	wb = dispc7_of_dss_wb(dev->of_node);
+	if (!wb)
+		return true;
+
+	ret = true;
+
+	if (of_property_read_u32(wb, "managed", &managed))
+		goto out;
+
+	if (!managed)
+		ret = false;
+
+out:
+	of_node_put(wb);
 	return ret;
 }
 
@@ -2745,6 +2788,9 @@ int dispc7_init(struct tidss_device *tidss)
 
 	for (i = 0; i < dispc->feat->num_planes; i++)
 		dispc->plane_managed[i] = dispc7_is_plane_managed(tidss, i);
+
+	if (dispc->feat->has_writeback)
+		dispc->wb_managed = dispc7_is_wb_managed(tidss);
 
 	dispc_for_each_managed_plane(dispc, i) {
 		r = dispc7_iomap_resource(pdev, dispc->feat->vid_name[i],
