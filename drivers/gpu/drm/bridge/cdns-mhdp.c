@@ -565,22 +565,6 @@ MODULE_DEVICE_TABLE(of, mhdp_ids);
 #define CDNS_DP_TEST_VSC_SDP			(1 << 6) /* 1.3+ */
 #define CDNS_DP_TEST_COLOR_FORMAT_RAW_Y_ONLY	(1 << 7)
 
-static inline struct cdns_mhdp_device *connector_to_mhdp(
-	struct drm_connector *conn)
-{
-	struct cdns_mhdp_connector *mhdp_connector = to_mhdp_connector(conn);
-
-	return mhdp_connector->bridge->mhdp;
-}
-
-static inline struct cdns_mhdp_device *bridge_to_mhdp(
-	struct drm_bridge *bridge)
-{
-	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
-
-	return mhdp_bridge->mhdp;
-}
-
 static unsigned int max_link_rate(struct cdns_mhdp_host host,
 				  struct cdns_mhdp_sink sink)
 {
@@ -608,7 +592,7 @@ static irqreturn_t mhdp_irq_handler(int irq, void *data)
 	//dev_dbg(mhdp->dev, "MHDP IRQ apb %x, mbox %x, sw_ev %x/%x/%x/%x\n", apb_stat, mbox_stat, sw_ev0, sw_ev1, sw_ev2, sw_ev3);
 
 	if (sw_ev0 & CDNS_DPTX_HPD)
-		drm_kms_helper_hotplug_event(mhdp->bridge.base.dev);
+		drm_kms_helper_hotplug_event(mhdp->bridge.dev);
 
 	return IRQ_HANDLED;
 }
@@ -722,10 +706,10 @@ static int cdns_mhdp_attach(struct drm_bridge *bridge)
 {
 	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	u32 bus_format = MEDIA_BUS_FMT_RGB121212_1X36;
-	struct drm_connector *conn = &mhdp->connector.base;
+	struct drm_connector *conn = &mhdp->connector;
 	int ret;
 
-	if (&mhdp->bridge.base != bridge)
+	if (&mhdp->bridge != bridge)
 		return -ENODEV;
 
 	conn->polled = DRM_CONNECTOR_POLL_HPD;
@@ -1353,8 +1337,7 @@ u32 cdns_mhdp_get_bpp(struct cdns_mhdp_display_fmt *fmt)
 
 static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 {
-	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
-	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
+	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	u32 rate, vs, vs_f, required_bandwidth, available_bandwidth;
 	u32 tu_size = 30, line_thresh1, line_thresh2, line_thresh = 0;
 	struct drm_display_mode *mode;
@@ -1367,7 +1350,7 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 	mode = &bridge->encoder->crtc->state->mode;
 	pxlclock = mode->crtc_clock;
 
-	mhdp_bridge->stream_id = 0;
+	mhdp->stream_id = 0;
 
 	rate = mhdp->link.rate / 1000;
 
@@ -1415,8 +1398,7 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 
 void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 {
-	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
-	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
+	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	unsigned int dp_framer_sp = 0, msa_horizontal_1,
 			   msa_vertical_1, bnd_hsync2vsync, hsync2vsync_pol_ctrl,
 			   misc0 = 0, misc1 = 0, pxl_repr,
@@ -1425,7 +1407,7 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 	struct drm_display_mode *mode;
 	u32 bpp, bpc, pxlfmt;
 	u32 tmp;
-	u8 stream_id = mhdp_bridge->stream_id;
+	u8 stream_id = mhdp->stream_id;
 
 	mode = &bridge->encoder->crtc->state->mode;
 
@@ -1584,8 +1566,7 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 
 void cdns_mhdp_enable(struct drm_bridge *bridge)
 {
-	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
-	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
+	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	u32 resp;
 
 	dev_dbg(mhdp->dev, "bridge enable\n");
@@ -1770,8 +1751,8 @@ static int mhdp_probe(struct platform_device *pdev)
 	mhdp->display_fmt.color_format = DRM_COLOR_FORMAT_RGB444;
 	mhdp->display_fmt.bpc = 8;
 
-	mhdp->bridge.base.of_node = pdev->dev.of_node;
-	mhdp->bridge.base.funcs = &cdns_mhdp_bridge_funcs;
+	mhdp->bridge.of_node = pdev->dev.of_node;
+	mhdp->bridge.funcs = &cdns_mhdp_bridge_funcs;
 
 	/* Init events to 0 as it's not cleared by FW at boot but on read */
 	readl(mhdp->regs + CDNS_SW_EVENT0);
@@ -1792,10 +1773,7 @@ static int mhdp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	mhdp->connector.bridge = &mhdp->bridge;
-	mhdp->bridge.mhdp = mhdp;
-
-	drm_bridge_add(&mhdp->bridge.base);
+	drm_bridge_add(&mhdp->bridge);
 
 	return 0;
 }
@@ -1807,7 +1785,7 @@ static int mhdp_remove(struct platform_device *pdev)
 	struct cdns_mhdp_device *mhdp = dev_get_drvdata(&pdev->dev);
 	int ret;
 
-	drm_bridge_remove(&mhdp->bridge.base);
+	drm_bridge_remove(&mhdp->bridge);
 
 	ret = cdns_mhdp_set_firmware_active(mhdp, false);
 	if (ret) {
