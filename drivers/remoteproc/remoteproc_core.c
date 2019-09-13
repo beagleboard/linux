@@ -796,7 +796,13 @@ static int rproc_handle_carveout(struct rproc *rproc,
 	if (!carveout)
 		return -ENOMEM;
 
-	va = dma_alloc_coherent(dev->parent, rsc->len, &dma, GFP_KERNEL);
+	if (rproc->late_attach) {
+		va = dma_malloc_coherent(dev->parent, rsc->len, &dma,
+					 GFP_KERNEL);
+	} else {
+		va = dma_alloc_coherent(dev->parent, rsc->len, &dma,
+					GFP_KERNEL);
+	}
 	if (!va) {
 		dev_err(dev->parent,
 			"failed to allocate dma memory: len 0x%x\n", rsc->len);
