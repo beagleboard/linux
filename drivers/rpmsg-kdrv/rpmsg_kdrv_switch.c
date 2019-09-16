@@ -690,7 +690,7 @@ static int rpmsg_kdrv_switch_c2s_dbg_dump_stats(struct rpmsg_remotedev *rdev)
 }
 
 static void rpmsg_kdrv_switch_get_fw_ver(struct rpmsg_remotedev *rdev,
-				         char *buf, size_t size)
+					 char *buf, size_t size)
 {
 	struct rpmsg_kdrv_switch_private *priv =
 		container_of(rdev, struct rpmsg_kdrv_switch_private, rdev);
