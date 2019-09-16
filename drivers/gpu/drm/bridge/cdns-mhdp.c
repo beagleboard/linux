@@ -30,7 +30,6 @@
 #include <drm/drm_print.h>
 #include <drm/drm_crtc_helper.h>
 
-#include <sound/hdmi-codec.h>
 #include <linux/irq.h>
 #include <linux/of_irq.h>
 
@@ -1148,68 +1147,6 @@ static int load_firmware(struct cdns_mhdp_device *mhdp, const char *name,
 	return 0;
 }
 
-static int cdns_mhdp_audio_hw_params(struct device *dev, void *data,
-				     struct hdmi_codec_daifmt *daifmt,
-				     struct hdmi_codec_params *params)
-{
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-	struct audio_info audio = {
-		.sample_width = params->sample_width,
-		.sample_rate = params->sample_rate,
-		.channels = params->channels,
-	};
-	int ret;
-
-	if (daifmt->fmt != HDMI_I2S) {
-		DRM_DEV_ERROR(dev, "Invalid format %d\n", daifmt->fmt);
-		return -EINVAL;
-	}
-
-	audio.format = AFMT_I2S;
-
-	ret = cdns_mhdp_audio_config(mhdp, &audio);
-	if (!ret)
-		mhdp->audio_info = audio;
-
-	return 0;
-}
-
-static void cdns_mhdp_audio_shutdown(struct device *dev, void *data)
-{
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-	int ret;
-
-	ret = cdns_mhdp_audio_stop(mhdp, &mhdp->audio_info);
-	if (!ret)
-		mhdp->audio_info.format = AFMT_UNUSED;
-}
-
-static int cdns_mhdp_audio_digital_mute(struct device *dev, void *data,
-					bool enable)
-{
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-
-	return cdns_mhdp_audio_mute(mhdp, enable);
-}
-
-static int cdns_mhdp_audio_get_eld(struct device *dev, void *data,
-				   u8 *buf, size_t len)
-{
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-
-	memcpy(buf, mhdp->connector.base.eld,
-	       min(sizeof(mhdp->connector.base.eld), len));
-
-	return 0;
-}
-
-static const struct hdmi_codec_ops audio_codec_ops = {
-	.hw_params = cdns_mhdp_audio_hw_params,
-	.audio_shutdown = cdns_mhdp_audio_shutdown,
-	.digital_mute = cdns_mhdp_audio_digital_mute,
-	.get_eld = cdns_mhdp_audio_get_eld,
-};
-
 static int mhdp_probe(struct platform_device *pdev)
 {
 	struct resource *regs;
@@ -1220,12 +1157,6 @@ static int mhdp_probe(struct platform_device *pdev)
 	unsigned long rate;
 	int irq;
 	u32 lanes_prop;
-
-	struct hdmi_codec_pdata codec_data = {
-		.i2s = 1,
-		.max_i2s_channels = 8,
-		.ops = &audio_codec_ops,
-	};
 
 	mhdp = devm_kzalloc(&pdev->dev, sizeof(struct cdns_mhdp_device),
 			    GFP_KERNEL);
@@ -1364,10 +1295,6 @@ static int mhdp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	mhdp->audio_pdev = platform_device_register_data(
-				   mhdp->dev, HDMI_CODEC_DRV_NAME, PLATFORM_DEVID_AUTO,
-				   &codec_data, sizeof(codec_data));
-
 	ret = phy_init(mhdp->phy);
 	if (ret) {
 		dev_err(mhdp->dev, "Failed to initialize PHY: %d\n", ret);
@@ -1390,8 +1317,6 @@ static int mhdp_remove(struct platform_device *pdev)
 {
 	struct cdns_mhdp_device *mhdp = dev_get_drvdata(&pdev->dev);
 	int ret;
-
-	platform_device_unregister(mhdp->audio_pdev);
 
 	drm_bridge_remove(&mhdp->bridge.base);
 
