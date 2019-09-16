@@ -35,7 +35,9 @@ struct drm_crtc_state;
 #define DSS_IRQ_DEVICE_FRAMEDONEWB		BIT_ULL(1)
 #define DSS_IRQ_DEVICE_WBBUFFEROVERFLOW		BIT_ULL(2)
 #define DSS_IRQ_DEVICE_WBUNCOMPLETEERROR	BIT_ULL(3)
-#define DSS_IRQ_DEVICE_WB_MASK			GENMASK_ULL(3, 1)
+#define DSS_IRQ_DEVICE_WBSECURITYVIOLATION	BIT_ULL(44)
+#define DSS_IRQ_DEVICE_WBSYNC			BIT_ULL(45)
+#define DSS_IRQ_DEVICE_WB_MASK			(GENMASK_ULL(3, 1) | BIT_ULL(44) | BIT_ULL(45))
 
 #define DSS_IRQ_VP_BIT_N(ch, bit)	(4 + 4 * (ch) + (bit))
 #define DSS_IRQ_PLANE_BIT_N(plane, bit) \
@@ -136,6 +138,14 @@ struct tidss_dispc_ops {
 	int (*modeset_init)(struct dispc_device *dispc);
 
 	int (*get_irq)(struct dispc_device *dispc);
+
+	bool (*has_writeback)(struct dispc_device *dispc);
+	int (*wb_setup)(struct dispc_device *dispc,
+			const struct drm_plane_state *state,
+			bool mem_to_mem, u32 src_hw_plane,
+			u32 src_hw_videoport);
+	int (*wb_enable)(struct dispc_device *dispc, bool enable);
+	u32 (*wb_get_reserved_ovr)(struct dispc_device *dispc);
 };
 
 int dispc6_init(struct tidss_device *tidss);

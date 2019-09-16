@@ -10,6 +10,8 @@
 #include <linux/spinlock.h>
 #include <linux/rpmsg-remotedev/rpmsg-remotedev.h>
 
+struct wb_dev;
+
 struct tidss_device {
 	struct device *dev;		/* Underlying DSS device */
 	struct drm_device *ddev;	/* DRM device for DSS */
@@ -37,10 +39,27 @@ struct tidss_device {
 	u64 irq_uf_mask;	/* underflow irq bits for all planes */
 
 	struct drm_atomic_state *saved_state;
+
+	struct wb_dev *wdev;	/* Write-back private data */
+	bool wb_initialized;
 };
 
 struct tidss_features {
 	int (*dispc_init)(struct tidss_device *tidss);
 };
+
+#if IS_ENABLED(CONFIG_DRM_TIDSS_WB)
+
+int tidss_wb_init(struct drm_device *drmdev);
+void tidss_wb_cleanup(struct drm_device *drmdev);
+void tidss_wb_irq(struct wb_dev *wdev, u64 irqstatus);
+
+#else
+
+static inline int tidss_wb_init(struct drm_device *drmdev) { return 0; }
+static inline void tidss_wb_cleanup(struct drm_device *drmdev) { }
+static inline void tidss_wb_irq(struct wb_dev *wdev, u64 irqstatus) { }
+
+#endif
 
 #endif

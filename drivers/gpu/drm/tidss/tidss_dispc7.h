@@ -60,6 +60,9 @@ struct dispc7_features {
 	bool vid_lite[DISPC7_MAX_PLANES];
 	u32 vid_order[DISPC7_MAX_PLANES];
 
+	bool has_writeback;
+	const char *wb_name; /* Should match dt reg names */
+
 	struct dispc7_errata errata;
 };
 
@@ -100,6 +103,15 @@ enum dss7_common_regs {
 	DISPC_MSS_VP1_OFF,
 	DISPC_MSS_VP3_OFF,
 	DSS7_COMMON_REG_TABLE_LEN,
+};
+
+enum dss7_writeback_connections {
+	DSS7_WB_BYPASS = 0x0,
+	DSS7_WB_VIDL2 = 0x1,
+	DSS7_WB_OVR1 = 0x2,
+	DSS7_WB_OVR2 = 0x4,
+	DSS7_WB_OVR3 = 0x8,
+	DSS7_WB_OVR4 = 0x10,
 };
 
 /*
@@ -216,6 +228,64 @@ enum dss7_common_regs {
 #define DISPC_VID_SAFETY_LFSR_SEED	0x2b4
 #define DISPC_VID_LUMAKEY		0x2b8
 #define DISPC_VID_DMA_BUFSIZE		0x2bc /* J721E */
+
+/* WB */
+
+#define DISPC_WB_ACCUH_0		0x0
+#define DISPC_WB_ACCUH_1		0x4
+#define DISPC_WB_ACCUH2_0		0x8
+#define DISPC_WB_ACCUH2_1		0xc
+#define DISPC_WB_ACCUV_0		0x10
+#define DISPC_WB_ACCUV_1		0x14
+#define DISPC_WB_ACCUV2_0		0x18
+#define DISPC_WB_ACCUV2_1		0x1c
+#define DISPC_WB_ATTRIBUTES		0x20
+#define DISPC_WB_ATTRIBUTES2		0x24
+#define DISPC_WB_BA_0			0x28
+#define DISPC_WB_BA_1			0x2c
+#define DISPC_WB_BA_UV_0		0x30
+#define DISPC_WB_BA_UV_1		0x34
+#define DISPC_WB_BUF_SIZE_STATUS	0x38
+#define DISPC_WB_BUF_THRESHOLD		0x3c
+#define DISPC_WB_CSC_COEF(n)		(0x40 + (n) * 4)
+
+#define DISPC_WB_FIRH			0x5c
+#define DISPC_WB_FIRH2			0x60
+#define DISPC_WB_FIRV			0x64
+#define DISPC_WB_FIRV2			0x68
+
+#define DISPC_WB_FIR_COEFS_H0		0x6c
+#define DISPC_WB_FIR_COEF_H0(phase)	(0x6c + (phase) * 4)
+#define DISPC_WB_FIR_COEFS_H0_C	0x90
+#define DISPC_WB_FIR_COEF_H0_C(phase)	(0x90 + (phase) * 4)
+
+#define DISPC_WB_FIR_COEFS_H12		0xb4
+#define DISPC_WB_FIR_COEF_H12(phase)	(0xb4 + (phase) * 4)
+#define DISPC_WB_FIR_COEFS_H12_C	0xf4
+#define DISPC_WB_FIR_COEF_H12_C(phase)	(0xf4 + (phase) * 4)
+
+#define DISPC_WB_FIR_COEFS_V0		0x134
+#define DISPC_WB_FIR_COEF_V0(phase)	(0x134 + (phase) * 4)
+#define DISPC_WB_FIR_COEFS_V0_C	0x158
+#define DISPC_WB_FIR_COEF_V0_C(phase)	(0x158 + (phase) * 4)
+
+#define DISPC_WB_FIR_COEFS_V12		0x17c
+#define DISPC_WB_FIR_COEF_V12(phase)	(0x17c + (phase) * 4)
+#define DISPC_WB_FIR_COEFS_V12_C	0x1bc
+#define DISPC_WB_FIR_COEF_V12_C(phase)	(0x1bc + (phase) * 4)
+
+#define DISPC_WB_MFLAG_THRESHOLD	0x204
+#define DISPC_WB_PICTURE_SIZE		0x208
+#define DISPC_WB_SIZE			0x210
+#define DISPC_WB_POSITION		0x214
+#define DISPC_WB_CSC_COEF7		0x21c
+#define DISPC_WB_ROW_INC		0x224
+#define DISPC_WB_ROW_INC_UV		0x228
+#define DISPC_WB_BA_EXT_0		0x22c
+#define DISPC_WB_BA_EXT_1		0x230
+#define DISPC_WB_BA_UV_EXT_0		0x234
+#define DISPC_WB_BA_UV_EXT_1		0x238
+#define DISPC_WB_SECURE			0x248
 
 /* OVR */
 

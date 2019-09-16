@@ -118,6 +118,7 @@ irqreturn_t tidss_irq_handler(int irq, void *arg)
 
 	tidss_irq_ocp_error_handler(ddev, irqstatus);
 	tidss_irq_fifo_underflow(tidss, irqstatus);
+	tidss_wb_irq(tidss->wdev, irqstatus);
 
 	return IRQ_HANDLED;
 }
@@ -163,6 +164,9 @@ int tidss_irq_postinstall(struct drm_device *ddev)
 
 		tidss->irq_mask |= DSS_IRQ_VP_FRAME_DONE(tcrtc->hw_videoport);
 	}
+
+	if (tidss->dispc_ops->has_writeback(tidss->dispc))
+		tidss->irq_mask |= DSS_IRQ_DEVICE_WB_MASK;
 
 	tidss_irq_update(ddev);
 
