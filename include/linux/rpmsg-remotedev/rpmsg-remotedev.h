@@ -157,8 +157,8 @@ struct rpmsg_remotedev {
 	enum rpmsg_remotedev_type type;
 	union {
 		struct {
-			struct rpmsg_remotedev_display_ops *ops;
-			struct rpmsg_remotedev_display_cb *cb_ops;
+			const struct rpmsg_remotedev_display_ops *ops;
+			const struct rpmsg_remotedev_display_cb *cb_ops;
 		} display;
 
 		struct {

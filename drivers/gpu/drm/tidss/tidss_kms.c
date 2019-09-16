@@ -128,7 +128,7 @@ connector_fail:
 	return NULL;
 }
 
-static struct rpmsg_remotedev_display_cb tidss_rdev_cb  = {
+static const struct rpmsg_remotedev_display_cb tidss_rdev_cb  = {
 	.commit_done = v_crtc_commit_done,
 	.buffer_done = v_crtc_buffer_done,
 };
