@@ -944,8 +944,7 @@ static int am65_cpsw_nuss_tx_compl_packets(struct am65_cpsw_common *common,
 
 		ndev = skb->dev;
 
-		if (skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)
-			am65_cpts_tx_timestamp(common->cpts, skb);
+		am65_cpts_tx_timestamp(common->cpts, skb);
 
 		ndev_priv = netdev_priv(ndev);
 		stats = this_cpu_ptr(ndev_priv->stats);
@@ -1059,8 +1058,8 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 	pkt_len = skb_headlen(skb);
 
 	/* SKB TX timestamp */
-	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP && port->tx_ts_enabled)
-		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+	if (port->tx_ts_enabled)
+		am65_cpts_ask_tx_timestamp(common->cpts, skb);
 
 	q_idx = skb_get_queue_mapping(skb);
 	dev_dbg(dev, "%s skb_queue:%d\n", __func__, q_idx);
