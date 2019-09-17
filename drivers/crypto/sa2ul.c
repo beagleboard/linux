@@ -1511,6 +1511,9 @@ static int zero_message_process(struct ahash_request *req)
 	case SHA256_DIGEST_SIZE:
 		memcpy(req->result, sha256_zero_message_hash, sa_digest_size);
 		break;
+	case SHA512_DIGEST_SIZE:
+		memcpy(req->result, sha512_zero_message_hash, sa_digest_size);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1719,6 +1722,11 @@ static int sa_sha256_digest(struct ahash_request *req)
 	return sa_sham_digest(req);
 }
 
+static int sa_sha512_digest(struct ahash_request *req)
+{
+	return sa_sham_digest(req);
+}
+
 static int sa_sham_init(struct ahash_request *req)
 {
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
@@ -1891,6 +1899,33 @@ static int sa_sham_cra_sha256_init(struct crypto_tfm *tfm)
 	ad->aalg_id = SA_AALG_ID_SHA2_256;
 	ad->hash_size = SHA256_DIGEST_SIZE;
 	ad->auth_ctrl = 0x4;
+
+	sa_sha_setup(ctx, ad);
+
+	kfree(ad);
+
+	return 0;
+}
+
+static int sa_sham_cra_sha512_init(struct crypto_tfm *tfm)
+{
+	struct algo_data *ad = kzalloc(sizeof(*ad), GFP_KERNEL);
+	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
+
+	sa_sham_cra_init_alg(tfm, "sha512");
+
+	ad->enc_eng.eng_id = SA_ENG_ID_NONE;
+	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE1_SZ;
+	ad->auth_eng.eng_id = SA_ENG_ID_AM1;
+	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE2_SZ;
+	ad->mci_enc = NULL;
+	ad->mci_dec = NULL;
+	ad->inv_key = false;
+	ad->keyed_mac = false;
+	ad->ealg_id = SA_EALG_ID_NONE;
+	ad->aalg_id = SA_AALG_ID_SHA2_512;
+	ad->hash_size = SHA512_DIGEST_SIZE;
+	ad->auth_ctrl = 0x6;
 
 	sa_sha_setup(ctx, ad);
 
@@ -2195,6 +2230,30 @@ static struct ahash_alg algs_sha[] = {
 	.update		= sa_sham_update,
 	.final		= sa_sham_final,
 	.finup		= sa_sham_finup,
+	.digest		= sa_sha512_digest,
+	.export		= sa_sham_export,
+	.import		= sa_sham_import,
+	.halg.digestsize	= SHA512_DIGEST_SIZE,
+	.halg.statesize		= 256,
+	.halg.base	= {
+		.cra_name		= "sha512",
+		.cra_driver_name	= "sa-sha512",
+		.cra_priority		= 400,
+		.cra_flags		= CRYPTO_ALG_ASYNC |
+						CRYPTO_ALG_NEED_FALLBACK,
+		.cra_blocksize		= SHA512_BLOCK_SIZE,
+		.cra_ctxsize		= sizeof(struct sa_tfm_ctx),
+		.cra_alignmask		= SA_ALIGN_MASK,
+		.cra_module		= THIS_MODULE,
+		.cra_init		= sa_sham_cra_sha512_init,
+		.cra_exit		= sa_sham_cra_exit,
+	}
+},
+{
+	.init		= sa_sham_init,
+	.update		= sa_sham_update,
+	.final		= sa_sham_final,
+	.finup		= sa_sham_finup,
 	.digest		= sa_sham_digest,
 	.setkey		= sa_sham_sha1_setkey,
 	.export		= sa_sham_export,
@@ -2444,6 +2503,7 @@ static int sa_ul_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	spin_lock_init(&dev_data->scid_lock);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	saul_base = devm_ioremap_resource(dev, res);
 

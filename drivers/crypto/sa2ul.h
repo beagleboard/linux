@@ -351,6 +351,7 @@ enum sa_aalg_id {
 	SA_AALG_ID_SHA1,          /* SHA1 mode */
 	SA_AALG_ID_SHA2_224,      /* 224-bit SHA2 mode */
 	SA_AALG_ID_SHA2_256,      /* 256-bit SHA2 mode */
+	SA_AALG_ID_SHA2_512,      /* 512-bit SHA2 mode */
 	SA_AALG_ID_HMAC_MD5,      /* HMAC with MD5 mode */
 	SA_AALG_ID_HMAC_SHA1,     /* HMAC with SHA1 mode */
 	SA_AALG_ID_HMAC_SHA2_224, /* HMAC with 224-bit SHA2 mode */
