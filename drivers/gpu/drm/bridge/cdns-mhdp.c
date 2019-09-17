@@ -1801,6 +1801,8 @@ static int mhdp_remove(struct platform_device *pdev)
 		return ret;
 	}
 
+	phy_exit(mhdp->phy);
+
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
