@@ -1105,7 +1105,6 @@ static unsigned char am654_8250_handle_rx_dma(struct uart_8250_port *up,
 		if (!up->dma->rx_running) {
 			omap_8250_rx_dma(up);
 		} else {
-			omap_8250_rx_dma_flush(up);
 			/*
 			 * Disable RX timeout, read IIR to clear
 			 * current timeout condition, clear EFR2 to
