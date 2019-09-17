@@ -15,7 +15,10 @@ dtb-y += \
 	dra7-evm.dtb
 
 # overlays
-dtb-y += am57xx-evm.dtbo
+dtb-y += am57xx-evm.dtbo \
+	lcd-osd101t2045.dtbo lcd-osd101t2587.dtbo \
+	dra72-evm-touchscreen.dtbo dra74-evm-touchscreen.dtbo \
+	dra7x-evm-osd-lcd-common.dtbo
 
 ifneq ($(DTC),)
   DTC_PATH=$(dir $(DTC))
