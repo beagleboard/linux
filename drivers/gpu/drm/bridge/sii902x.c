@@ -366,7 +366,7 @@ static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
 	u16 pixel_clock_10kHz = adj->clock / 10;
 	int ret;
 
-	buf[0] = pixel_clock_10kHz & 0xFF;
+	buf[0] = pixel_clock_10kHz & 0xff;
 	buf[1] = pixel_clock_10kHz >> 8;
 	buf[2] = adj->vrefresh;
 	buf[3] = 0x00;
