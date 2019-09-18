@@ -1,0 +1,81 @@
+menu "Real-time IPC drivers"
+
+config XENO_DRIVERS_RTIPC
+	tristate "RTIPC protocol family"
+	help
+
+	This driver provides the real-time IPC protocol family
+	(PF_RTIPC) over RTDM.
+
+config XENO_DRIVERS_RTIPC_XDDP
+	depends on XENO_DRIVERS_RTIPC
+	select XENO_OPT_PIPE
+	default y
+	bool "XDDP cross-domain datagram protocol"
+	help
+
+	Xenomai's XDDP protocol enables threads to exchange datagrams
+	across the Xenomai/Linux domain boundary, using "message
+	pipes".
+
+	Message pipes are bi-directional FIFO communication channels
+	allowing data exchange between real-time Xenomai threads and
+	regular (i.e. non real-time) user-space processes. Message
+	pipes are datagram-based and thus natively preserve message
+	boundaries, but they can also be used in byte stream mode when
+	sending from the real-time to the non real-time domain.
+
+	The maximum number of communication ports available in the
+	system can be configured using the XENO_OPT_PIPE_NRDEV option
+	from the Nucleus menu.
+
+config XENO_DRIVERS_RTIPC_IDDP
+	depends on XENO_DRIVERS_RTIPC
+	select XENO_OPT_MAP
+	default y
+	bool "IDDP intra-domain datagram protocol"
+	help
+
+	Xenomai's IDDP protocol enables real-time threads to exchange
+	datagrams within the Xenomai domain.
+
+config XENO_OPT_IDDP_NRPORT
+	depends on XENO_DRIVERS_RTIPC_IDDP
+	int "Number of IDDP communication ports"
+	default 32
+	help
+
+	This parameter defines the number of IDDP ports available in
+	the system for creating receiver endpoints. Port numbers range
+	from 0 to CONFIG_XENO_OPT_IDDP_NRPORT - 1.
+
+config XENO_DRIVERS_RTIPC_BUFP
+	depends on XENO_DRIVERS_RTIPC
+	select XENO_OPT_MAP
+	default y
+	bool "Buffer protocol"
+	help
+
+	The buffer protocol implements a byte-oriented, one-way
+	Producer-Consumer data path, which makes it a bit faster than
+	datagram-oriented protocols. All messages written are buffered
+	into a single memory area in strict FIFO order, until read by
+	the consumer.
+
+	This protocol prevents short writes, and only allows short
+	reads when a potential deadlock situation arises (i.e. readers
+	and writers waiting for each other indefinitely), which
+	usually means that the buffer size does not fit the use peer
+	threads are making from the protocol.
+
+config XENO_OPT_BUFP_NRPORT
+	depends on XENO_DRIVERS_RTIPC_BUFP
+	int "Number of BUFP communication ports"
+	default 32
+	help
+
+	This parameter defines the number of BUFP ports available in
+	the system for creating receiver endpoints. Port numbers range
+	from 0 to CONFIG_XENO_OPT_BUFP_NRPORT - 1.
+
+endmenu
