@@ -792,8 +792,9 @@ static int wiz_probe(struct platform_device *pdev)
 						      GPIOD_IN);
 	if (IS_ERR(wiz->gpio_typec_dir)) {
 		ret = PTR_ERR(wiz->gpio_typec_dir);
-		dev_err(dev, "Failed to request typec-dir gpio: %d\n", ret);
-		return ret;
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to request typec-dir gpio: %d\n", ret);
+		goto err_addr_to_resource;
 	}
 
 	wiz->dev = dev;
