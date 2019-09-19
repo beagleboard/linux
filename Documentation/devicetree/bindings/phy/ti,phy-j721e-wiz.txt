@@ -27,6 +27,11 @@ clock bindings in Documentation/devicetree/bindings/clock/clock-bindings.txt
      If GPIO is active, lane 0 and lane 1 of SERDES will be swapped to
      achieve the funtionality of an exernal type-C plug flip mux.
 
+ - typec-dir-debounce: Number of milliseconds to wait before sampling
+     typec-dir-gpio. If not specified, the GPIO will be sampled ASAP.
+     Type-C spec states minimum CC pin debounce of 100 ms and maximum
+     of 200 ms.
+
 Required subnodes:
  - Clock Subnode: WIZ node should have '3' subnodes for each of the clock
      selects it supports. The clock subnodes should have the following names
