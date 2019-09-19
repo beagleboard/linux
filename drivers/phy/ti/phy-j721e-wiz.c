@@ -183,6 +183,7 @@ struct wiz {
 	struct platform_device	*serdes_pdev;
 	struct reset_controller_dev wiz_phy_reset_dev;
 	struct gpio_desc	*gpio_typec_dir;
+	int			typec_dir_delay;
 
 	bool used_for_dp;
 };
@@ -689,6 +690,9 @@ static int wiz_phy_reset_deassert(struct reset_controller_dev *rcdev,
 
 	/* if typec-dir gpio was specified, set LN10 SWAP bit based on that */
 	if (id == 0 && wiz->gpio_typec_dir) {
+		if (wiz->typec_dir_delay)
+			msleep_interruptible(wiz->typec_dir_delay);
+
 		if (gpiod_get_value_cansleep(wiz->gpio_typec_dir)) {
 			regmap_update_bits(wiz->regmap, WIZ_SERDES_TYPEC,
 					   WIZ_SERDES_TYPEC_LN10_SWAP,
@@ -795,6 +799,15 @@ static int wiz_probe(struct platform_device *pdev)
 		if (ret != -EPROBE_DEFER)
 			dev_err(dev, "Failed to request typec-dir gpio: %d\n", ret);
 		goto err_addr_to_resource;
+	}
+
+	if (wiz->gpio_typec_dir) {
+		ret = of_property_read_u32(node, "typec-dir-debounce",
+					   &wiz->typec_dir_delay);
+		if (ret && ret != -EINVAL) {
+			dev_err(dev, "Invalid typec-dir-debounce property\n");
+			goto err_addr_to_resource;
+		}
 	}
 
 	wiz->dev = dev;
