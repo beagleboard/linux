@@ -788,6 +788,8 @@ static void __dma_rx_do_complete(struct uart_8250_port *p)
 	struct omap8250_priv	*priv = p->port.private_data;
 	struct uart_8250_dma    *dma = p->dma;
 	struct tty_port         *tty_port = &p->port.state->port;
+	struct dma_chan		*rxchan = dma->rxchan;
+	dma_cookie_t		cookie;
 	struct dma_tx_state     state;
 	int                     count;
 	unsigned long		flags;
@@ -798,12 +800,29 @@ static void __dma_rx_do_complete(struct uart_8250_port *p)
 	if (!dma->rx_running)
 		goto unlock;
 
+	cookie = dma->rx_cookie;
 	dma->rx_running = 0;
-	dmaengine_tx_status(dma->rxchan, dma->rx_cookie, &state);
+	dmaengine_tx_status(rxchan, cookie, &state);
 
 	count = dma->rx_size - state.residue + state.in_flight_bytes;
-	if (count < dma->rx_size)
-		dmaengine_terminate_async(dma->rxchan);
+	if (count < dma->rx_size) {
+		dmaengine_terminate_async(rxchan);
+
+		/*
+		 * Poll for teardown to complete which guarantees in
+		 * flight data is drained.
+		 */
+		if (state.in_flight_bytes) {
+			int poll_count = 25;
+
+			while (dmaengine_tx_status(rxchan, cookie, NULL) &&
+			       poll_count--)
+				cpu_relax();
+
+			if (!poll_count)
+				dev_err(p->port.dev, "teardown incomplete\n");
+		}
+	}
 	if (!count)
 		goto unlock;
 	ret = tty_insert_flip_string(tty_port, dma->rx_buf, count);
@@ -1086,7 +1105,6 @@ static unsigned char am654_8250_handle_rx_dma(struct uart_8250_port *up,
 		if (!up->dma->rx_running) {
 			omap_8250_rx_dma(up);
 		} else {
-			omap_8250_rx_dma_flush(up);
 			/*
 			 * Disable RX timeout, read IIR to clear
 			 * current timeout condition, clear EFR2 to
