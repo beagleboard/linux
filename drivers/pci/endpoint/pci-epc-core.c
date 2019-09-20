@@ -686,6 +686,7 @@ int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf,
 {
 	struct list_head *list;
 	u32 func_no = 0;
+	int ret = 0;
 
 	if (epf->is_vf)
 		return -EINVAL;
@@ -705,8 +706,10 @@ int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf,
 	mutex_lock(&epc->lock);
 	func_no = find_first_zero_bit(&epc->function_num_map,
 				      BITS_PER_LONG);
-	if (func_no >= BITS_PER_LONG)
-		return -EINVAL;
+	if (func_no >= BITS_PER_LONG) {
+		ret = -EINVAL;
+		goto err;
+	}
 
 	set_bit(func_no, &epc->function_num_map);
 	if (type == PRIMARY_INTERFACE) {
@@ -720,9 +723,11 @@ int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf,
 	}
 
 	list_add_tail(list, &epc->pci_epf);
+
+err:
 	mutex_unlock(&epc->lock);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(pci_epc_add_epf);
 
