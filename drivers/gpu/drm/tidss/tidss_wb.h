@@ -74,7 +74,7 @@ enum tidss_wb_mode {
 	TIDSS_WB_CAPTURE_MGR = 3
 };
 
-enum wb_state {
+enum tidss_wb_state {
 	WB_STATE_NONE = 0,
 	WB_STATE_FIRST_FRAME,
 	WB_STATE_CAPTURING,
