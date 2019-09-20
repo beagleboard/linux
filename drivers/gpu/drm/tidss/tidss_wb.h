@@ -165,6 +165,15 @@ struct wbm2m_ctx {
 
 	/* src & dst queue data */
 	struct wb_q_data	q_data[2];
+
+	/* src & dst state data */
+	struct drm_plane_state s_state;
+	struct drm_framebuffer s_fb;
+	struct drm_gem_cma_object s_cma_gem_obj[2];
+
+	struct drm_plane_state d_state;
+	struct drm_framebuffer d_fb;
+	struct drm_gem_cma_object d_cma_gem_obj[2];
 };
 
 static inline struct wb_buffer *to_wb_buffer(struct vb2_buffer *vb2)
