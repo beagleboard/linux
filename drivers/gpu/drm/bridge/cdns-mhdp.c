@@ -20,7 +20,6 @@
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-dp.h>
 
-#include <drm/bridge/cdns-mhdp-common.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge.h>
 #include <drm/drm_connector.h>
@@ -30,12 +29,503 @@
 #include <drm/drm_print.h>
 #include <drm/drm_crtc_helper.h>
 
-#include <sound/hdmi-codec.h>
 #include <linux/irq.h>
 #include <linux/of_irq.h>
 
+#include <asm/unaligned.h>
+
 #include "cdns-mhdp.h"
 #include "cdns-mhdp-j721e.h"
+
+/* CDNS MHDP Helpers */
+#define MAILBOX_RETRY_US		1000
+#define MAILBOX_TIMEOUT_US		5000000
+
+/* mailbox */
+#define MB_OPCODE_ID			0
+#define MB_MODULE_ID			1
+#define MB_SIZE_MSB_ID			2
+#define MB_SIZE_LSB_ID			3
+#define MB_DATA_ID			4
+
+#define MB_MODULE_ID_DP_TX		0x01
+#define MB_MODULE_ID_HDCP_TX		0x07
+#define MB_MODULE_ID_HDCP_RX		0x08
+#define MB_MODULE_ID_HDCP_GENERAL	0x09
+#define MB_MODULE_ID_GENERAL		0x0a
+
+/* general opcode */
+#define GENERAL_MAIN_CONTROL		0x01
+#define GENERAL_TEST_ECHO		0x02
+#define GENERAL_BUS_SETTINGS		0x03
+#define GENERAL_TEST_ACCESS		0x04
+#define GENERAL_REGISTER_READ		0x07
+
+#define DPTX_SET_POWER_MNG			0x00
+#define DPTX_SET_HOST_CAPABILITIES		0x01
+#define DPTX_GET_EDID				0x02
+#define DPTX_READ_DPCD				0x03
+#define DPTX_WRITE_DPCD				0x04
+#define DPTX_ENABLE_EVENT			0x05
+#define DPTX_WRITE_REGISTER			0x06
+#define DPTX_READ_REGISTER			0x07
+#define DPTX_WRITE_FIELD			0x08
+#define DPTX_TRAINING_CONTROL			0x09
+#define DPTX_READ_EVENT				0x0a
+#define DPTX_READ_LINK_STAT			0x0b
+#define DPTX_SET_VIDEO				0x0c
+#define DPTX_SET_AUDIO				0x0d
+#define DPTX_GET_LAST_AUX_STAUS			0x0e
+#define DPTX_SET_LINK_BREAK_POINT		0x0f
+#define DPTX_FORCE_LANES			0x10
+#define DPTX_HPD_STATE				0x11
+#define DPTX_ADJUST_LT				0x12
+
+#define FW_STANDBY				0
+#define FW_ACTIVE				1
+
+static inline u32 get_unaligned_be24(const void *p)
+{
+	const u8 *_p = p;
+
+	return _p[0] << 16 | _p[1] << 8 | _p[2];
+}
+
+static inline void put_unaligned_be24(u32 val, void *p)
+{
+	u8 *_p = p;
+
+	_p[0] = val >> 16;
+	_p[1] = val >> 8;
+	_p[2] = val;
+}
+
+static int cdns_mhdp_mailbox_read(struct cdns_mhdp_device *mhdp)
+{
+	int val, ret;
+
+	ret = readx_poll_timeout(readl, mhdp->regs + CDNS_MAILBOX_EMPTY,
+				 val, !val, MAILBOX_RETRY_US,
+				 MAILBOX_TIMEOUT_US);
+	if (ret < 0)
+		return ret;
+
+	return readl(mhdp->regs + CDNS_MAILBOX_RX_DATA) & 0xff;
+}
+
+static int cdp_dp_mailbox_write(struct cdns_mhdp_device *mhdp, u8 val)
+{
+	int ret, full;
+
+	ret = readx_poll_timeout(readl, mhdp->regs + CDNS_MAILBOX_FULL,
+				 full, !full, MAILBOX_RETRY_US,
+				 MAILBOX_TIMEOUT_US);
+	if (ret < 0)
+		return ret;
+
+	writel(val, mhdp->regs + CDNS_MAILBOX_TX_DATA);
+
+	return 0;
+}
+
+static int cdns_mhdp_mailbox_validate_receive(struct cdns_mhdp_device *mhdp,
+					      u8 module_id, u8 opcode,
+					      u16 req_size)
+{
+	u32 mbox_size, i;
+	u8 header[4];
+	int ret;
+
+	/* read the header of the message */
+	for (i = 0; i < 4; i++) {
+		ret = cdns_mhdp_mailbox_read(mhdp);
+		if (ret < 0)
+			return ret;
+
+		header[i] = ret;
+	}
+
+	mbox_size = get_unaligned_be16(header + 2);
+
+	if (opcode != header[0] || module_id != header[1] ||
+	    req_size != mbox_size) {
+		/*
+		 * If the message in mailbox is not what we want, we need to
+		 * clear the mailbox by reading its contents.
+		 */
+		for (i = 0; i < mbox_size; i++)
+			if (cdns_mhdp_mailbox_read(mhdp) < 0)
+				break;
+
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int cdns_mhdp_mailbox_read_receive(struct cdns_mhdp_device *mhdp,
+					  u8 *buff, u16 buff_size)
+{
+	u32 i;
+	int ret;
+
+	for (i = 0; i < buff_size; i++) {
+		ret = cdns_mhdp_mailbox_read(mhdp);
+		if (ret < 0)
+			return ret;
+
+		buff[i] = ret;
+	}
+
+	return 0;
+}
+
+static int cdns_mhdp_mailbox_send(struct cdns_mhdp_device *mhdp, u8 module_id,
+				  u8 opcode, u16 size, u8 *message)
+{
+	u8 header[4];
+	int ret, i;
+
+	header[0] = opcode;
+	header[1] = module_id;
+	put_unaligned_be16(size, header + 2);
+
+	for (i = 0; i < 4; i++) {
+		ret = cdp_dp_mailbox_write(mhdp, header[i]);
+		if (ret)
+			return ret;
+	}
+
+	for (i = 0; i < size; i++) {
+		ret = cdp_dp_mailbox_write(mhdp, message[i]);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static
+int cdns_mhdp_reg_read(struct cdns_mhdp_device *mhdp, u32 addr, u32 *value)
+{
+	u8 msg[4], resp[8];
+	int ret;
+
+	if (addr == 0) {
+		ret = -EINVAL;
+		goto err_reg_read;
+	}
+
+	put_unaligned_be32(addr, msg);
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_GENERAL,
+				     GENERAL_REGISTER_READ,
+				     sizeof(msg), msg);
+	if (ret)
+		goto err_reg_read;
+
+	ret = cdns_mhdp_mailbox_validate_receive(mhdp, MB_MODULE_ID_GENERAL,
+						 GENERAL_REGISTER_READ,
+						 sizeof(resp));
+	if (ret)
+		goto err_reg_read;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, resp, sizeof(resp));
+	if (ret)
+		goto err_reg_read;
+
+	/* Returned address value should be the same as requested */
+	if (memcmp(msg, resp, sizeof(msg))) {
+		ret = -EINVAL;
+		goto err_reg_read;
+	}
+
+	*value = get_unaligned_be32(resp + 4);
+
+err_reg_read:
+	if (ret) {
+		DRM_DEV_ERROR(mhdp->dev, "Failed to read register.\n");
+		*value = 0;
+	}
+
+	return ret;
+}
+
+static
+int cdns_mhdp_reg_write(struct cdns_mhdp_device *mhdp, u16 addr, u32 val)
+{
+	u8 msg[6];
+
+	put_unaligned_be16(addr, msg);
+	put_unaligned_be32(val, msg + 2);
+
+	return cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				      DPTX_WRITE_REGISTER, sizeof(msg), msg);
+}
+
+static
+int cdns_mhdp_reg_write_bit(struct cdns_mhdp_device *mhdp, u16 addr,
+			    u8 start_bit, u8 bits_no, u32 val)
+{
+	u8 field[8];
+
+	put_unaligned_be16(addr, field);
+	field[2] = start_bit;
+	field[3] = bits_no;
+	put_unaligned_be32(val, field + 4);
+
+	return cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				      DPTX_WRITE_FIELD, sizeof(field), field);
+}
+
+static
+int cdns_mhdp_dpcd_read(struct cdns_mhdp_device *mhdp,
+			u32 addr, u8 *data, u16 len)
+{
+	u8 msg[5], reg[5];
+	int ret;
+
+	put_unaligned_be16(len, msg);
+	put_unaligned_be24(addr, msg + 2);
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_READ_DPCD, sizeof(msg), msg);
+	if (ret)
+		goto err_dpcd_read;
+
+	ret = cdns_mhdp_mailbox_validate_receive(mhdp, MB_MODULE_ID_DP_TX,
+						 DPTX_READ_DPCD,
+						 sizeof(reg) + len);
+	if (ret)
+		goto err_dpcd_read;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, reg, sizeof(reg));
+	if (ret)
+		goto err_dpcd_read;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, data, len);
+
+err_dpcd_read:
+	return ret;
+}
+
+static
+int cdns_mhdp_dpcd_write(struct cdns_mhdp_device *mhdp, u32 addr, u8 value)
+{
+	u8 msg[6], reg[5];
+	int ret;
+
+	put_unaligned_be16(1, msg);
+	put_unaligned_be24(addr, msg + 2);
+	msg[5] = value;
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_WRITE_DPCD, sizeof(msg), msg);
+	if (ret)
+		goto err_dpcd_write;
+
+	ret = cdns_mhdp_mailbox_validate_receive(mhdp, MB_MODULE_ID_DP_TX,
+						 DPTX_WRITE_DPCD, sizeof(reg));
+	if (ret)
+		goto err_dpcd_write;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, reg, sizeof(reg));
+	if (ret)
+		goto err_dpcd_write;
+
+	if (addr != get_unaligned_be24(reg + 2))
+		ret = -EINVAL;
+
+err_dpcd_write:
+	if (ret)
+		DRM_DEV_ERROR(mhdp->dev, "dpcd write failed: %d\n", ret);
+	return ret;
+}
+
+static
+int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable)
+{
+	u8 msg[5];
+	int ret, i;
+
+	msg[0] = GENERAL_MAIN_CONTROL;
+	msg[1] = MB_MODULE_ID_GENERAL;
+	msg[2] = 0;
+	msg[3] = 1;
+	msg[4] = enable ? FW_ACTIVE : FW_STANDBY;
+
+	for (i = 0; i < sizeof(msg); i++) {
+		ret = cdp_dp_mailbox_write(mhdp, msg[i]);
+		if (ret)
+			goto err_set_firmware_active;
+	}
+
+	/* read the firmware state */
+	for (i = 0; i < sizeof(msg); i++)  {
+		ret = cdns_mhdp_mailbox_read(mhdp);
+		if (ret < 0)
+			goto err_set_firmware_active;
+
+		msg[i] = ret;
+	}
+
+	ret = 0;
+
+err_set_firmware_active:
+	if (ret < 0)
+		DRM_DEV_ERROR(mhdp->dev, "set firmware active failed\n");
+	return ret;
+}
+
+static
+int cdns_mhdp_get_hpd_status(struct cdns_mhdp_device *mhdp)
+{
+	u8 status;
+	int ret;
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_HPD_STATE, 0, NULL);
+	if (ret)
+		goto err_get_hpd;
+
+	ret = cdns_mhdp_mailbox_validate_receive(mhdp, MB_MODULE_ID_DP_TX,
+						 DPTX_HPD_STATE,
+						 sizeof(status));
+	if (ret)
+		goto err_get_hpd;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, &status, sizeof(status));
+	if (ret)
+		goto err_get_hpd;
+
+	return status;
+
+err_get_hpd:
+	DRM_DEV_ERROR(mhdp->dev, "get hpd status failed: %d\n", ret);
+	return ret;
+}
+
+static
+int cdns_mhdp_get_edid_block(void *data, u8 *edid,
+			     unsigned int block, size_t length)
+{
+	struct cdns_mhdp_device *mhdp = data;
+	u8 msg[2], reg[2], i;
+	int ret;
+
+	for (i = 0; i < 4; i++) {
+		msg[0] = block / 2;
+		msg[1] = block % 2;
+
+		ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+					     DPTX_GET_EDID, sizeof(msg), msg);
+		if (ret)
+			continue;
+
+		ret = cdns_mhdp_mailbox_validate_receive(mhdp,
+							 MB_MODULE_ID_DP_TX,
+							 DPTX_GET_EDID,
+							 sizeof(reg) + length);
+		if (ret)
+			continue;
+
+		ret = cdns_mhdp_mailbox_read_receive(mhdp, reg, sizeof(reg));
+		if (ret)
+			continue;
+
+		ret = cdns_mhdp_mailbox_read_receive(mhdp, edid, length);
+		if (ret)
+			continue;
+
+		if (reg[0] == length && reg[1] == block / 2)
+			break;
+	}
+
+	if (ret)
+		DRM_DEV_ERROR(mhdp->dev, "get block[%d] edid failed: %d\n",
+			      block, ret);
+
+	return ret;
+}
+
+static __maybe_unused
+int cdns_mhdp_read_event(struct cdns_mhdp_device *mhdp)
+{
+	u8 event = 0;
+	int ret;
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_READ_EVENT, 0, NULL);
+	if (ret)
+		return ret;
+
+	ret = cdns_mhdp_mailbox_validate_receive(mhdp,
+						 MB_MODULE_ID_DP_TX,
+						 DPTX_READ_EVENT,
+						 sizeof(event));
+	if (ret < 0)
+		return ret;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, &event,
+					     sizeof(event));
+	if (ret < 0)
+		return ret;
+
+	return event;
+}
+
+static
+int cdns_mhdp_adjust_lt(struct cdns_mhdp_device *mhdp,
+			u8 nlanes, u16 udelay, u8 *lanes_data, u8 *dpcd)
+{
+	u8 payload[7];
+	u8 hdr[5]; /* For DPCD read response header */
+	u32 addr;
+	u8 const nregs = 6; /* Registers 0x202-0x207 */
+	int ret;
+
+	if (nlanes != 4 && nlanes != 2 && nlanes != 1) {
+		DRM_DEV_ERROR(mhdp->dev, "invalid number of lanes: %d\n",
+			      nlanes);
+		ret = -EINVAL;
+		goto err_adjust_lt;
+	}
+
+	payload[0] = nlanes;
+	put_unaligned_be16(udelay, payload + 1);
+	memcpy(payload + 3, lanes_data, nlanes);
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_ADJUST_LT,
+				     sizeof(payload), payload);
+	if (ret)
+		goto err_adjust_lt;
+
+	/* Yes, read the DPCD read command response */
+	ret = cdns_mhdp_mailbox_validate_receive(mhdp, MB_MODULE_ID_DP_TX,
+						 DPTX_READ_DPCD,
+						 sizeof(hdr) + nregs);
+	if (ret)
+		goto err_adjust_lt;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, hdr, sizeof(hdr));
+	if (ret)
+		goto err_adjust_lt;
+
+	addr = get_unaligned_be24(hdr + 2);
+	if (addr != DP_LANE0_1_STATUS)
+		goto err_adjust_lt;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, dpcd, nregs);
+
+err_adjust_lt:
+	if (ret)
+		DRM_DEV_ERROR(mhdp->dev, "Failed to adjust Link Training.\n");
+
+	return ret;
+}
+
+/* EOF CDNS MHDP Helpers */
 
 #define FW_NAME					"cadence/mhdp8546.bin"
 #define CDNS_MHDP_IMEM				0x10000
@@ -75,22 +565,6 @@ MODULE_DEVICE_TABLE(of, mhdp_ids);
 #define CDNS_DP_TEST_VSC_SDP			(1 << 6) /* 1.3+ */
 #define CDNS_DP_TEST_COLOR_FORMAT_RAW_Y_ONLY	(1 << 7)
 
-static inline struct cdns_mhdp_device *connector_to_mhdp(
-	struct drm_connector *conn)
-{
-	struct cdns_mhdp_connector *mhdp_connector = to_mhdp_connector(conn);
-
-	return mhdp_connector->bridge->mhdp;
-}
-
-static inline struct cdns_mhdp_device *bridge_to_mhdp(
-	struct drm_bridge *bridge)
-{
-	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
-
-	return mhdp_bridge->mhdp;
-}
-
 static unsigned int max_link_rate(struct cdns_mhdp_host host,
 				  struct cdns_mhdp_sink sink)
 {
@@ -103,10 +577,147 @@ static u8 eq_training_pattern_supported(struct cdns_mhdp_host host,
 	return fls(host.pattern_supp & sink.pattern_supp);
 }
 
+static int mhdp_fw_activate(const struct firmware *fw,
+			    struct cdns_mhdp_device *mhdp)
+{
+	unsigned int reg;
+	int ret = 0;
+
+	dev_dbg(mhdp->dev, "%s\n", __func__);
+
+	if (!fw || !fw->data) {
+		dev_err(mhdp->dev, "%s: No firmware.\n", __func__);
+		return -EINVAL;
+	}
+
+	spin_lock(&mhdp->start_lock);
+	if (mhdp->hw_state != MHDP_HW_INACTIVE) {
+		spin_unlock(&mhdp->start_lock);
+		if (mhdp->hw_state != MHDP_HW_STOPPED)
+			dev_err(mhdp->dev, "%s: Bad HW state: %d\n",
+				__func__, mhdp->hw_state);
+		return -EBUSY;
+	}
+	mhdp->hw_state = MHDP_HW_LOADING;
+	spin_unlock(&mhdp->start_lock);
+
+	/* Release uCPU reset and stall it. */
+	writel(CDNS_CPU_STALL, mhdp->regs + CDNS_APB_CTRL);
+
+	memcpy_toio(mhdp->regs + CDNS_MHDP_IMEM, fw->data, fw->size);
+
+	/* Leave debug mode, release stall */
+	writel(0, mhdp->regs + CDNS_APB_CTRL);
+
+	/*
+	 * Wait for the KEEP_ALIVE "message" on the first 8 bits.
+	 * Updated each sched "tick" (~2ms)
+	 */
+	ret = readl_poll_timeout(mhdp->regs + CDNS_KEEP_ALIVE, reg,
+				 reg & CDNS_KEEP_ALIVE_MASK, 500,
+				 CDNS_KEEP_ALIVE_TIMEOUT);
+	if (ret) {
+		dev_err(mhdp->dev,
+			"device didn't give any life sign: reg %d\n", reg);
+		goto error;
+	}
+
+	/* Init events to 0 as it's not cleared by FW at boot but on read */
+	readl(mhdp->regs + CDNS_SW_EVENT0);
+	readl(mhdp->regs + CDNS_SW_EVENT1);
+	readl(mhdp->regs + CDNS_SW_EVENT2);
+	readl(mhdp->regs + CDNS_SW_EVENT3);
+
+	/* Activate uCPU */
+	ret = cdns_mhdp_set_firmware_active(mhdp, true);
+	if (ret) {
+		dev_err(mhdp->dev, "%s: Failed to activate FW: %d\n",
+			__func__, ret);
+		goto error;
+	}
+
+	spin_lock(&mhdp->start_lock);
+
+	mhdp->hw_state = MHDP_HW_READY;
+
+	/*
+	 * Here we must keep the lock while enabling the interrupts
+	 * since it would otherwise be possible that interrupt enable
+	 * code is executed after the bridge is detached. The similar
+	 * situation is not possible in attach()/detach() callbacks
+	 * since the hw_state changes from MHDP_HW_READY to
+	 * MHDP_HW_STOPPED happens only due to driver removal when
+	 * bridge should already be detached.
+	 */
+	if (mhdp->bridge_attached) {
+		/* enable interrupts */
+		writel(0, mhdp->regs + CDNS_APB_INT_MASK);
+		writel(0, mhdp->regs + CDNS_MB_INT_MASK);
+	}
+
+	spin_unlock(&mhdp->start_lock);
+
+	dev_dbg(mhdp->dev, "DP FW activated\n");
+
+	return 0;
+error:
+	spin_lock(&mhdp->start_lock);
+	mhdp->hw_state = MHDP_HW_INACTIVE;
+	spin_unlock(&mhdp->start_lock);
+
+	return ret;
+}
+
+static void mhdp_fw_cb(const struct firmware *fw, void *context)
+{
+	struct cdns_mhdp_device *mhdp = context;
+	bool bridge_attached;
+	int ret;
+
+	dev_dbg(mhdp->dev, "firmware callback\n");
+
+	ret = mhdp_fw_activate(fw, mhdp);
+
+	release_firmware(fw);
+
+	if (ret)
+		return;
+
+	/*
+	 *  XXX how to make sure the bridge is still attached when
+	 *      calling drm_kms_helper_hotplug_event() after releasing
+	 *      the lock? We should not hold the spin lock when
+	 *      calling drm_kms_helper_hotplug_event() since it may
+	 *      cause a dead lock. FB-dev console calls detect from the
+	 *      same thread just down the call stack started here.
+	 */
+	spin_lock(&mhdp->start_lock);
+	bridge_attached = mhdp->bridge_attached;
+	spin_unlock(&mhdp->start_lock);
+	if (bridge_attached)
+		drm_kms_helper_hotplug_event(mhdp->bridge.dev);
+}
+
+static int load_firmware(struct cdns_mhdp_device *mhdp)
+{
+	int ret;
+
+	ret = request_firmware_nowait(THIS_MODULE, true, FW_NAME, mhdp->dev,
+				      GFP_KERNEL, mhdp, mhdp_fw_cb);
+	if (ret) {
+		dev_err(mhdp->dev, "failed to load firmware (%s), ret: %d\n",
+			FW_NAME, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static irqreturn_t mhdp_irq_handler(int irq, void *data)
 {
 	struct cdns_mhdp_device *mhdp = (struct cdns_mhdp_device *)data;
 	u32 mbox_stat, apb_stat, sw_ev0, sw_ev1, sw_ev2, sw_ev3;
+	bool bridge_attached;
 
 	apb_stat = readl(mhdp->regs + CDNS_APB_INT_STATUS);
 	mbox_stat = readl(mhdp->regs + CDNS_MB_INT_STATUS);
@@ -117,8 +728,18 @@ static irqreturn_t mhdp_irq_handler(int irq, void *data)
 
 	//dev_dbg(mhdp->dev, "MHDP IRQ apb %x, mbox %x, sw_ev %x/%x/%x/%x\n", apb_stat, mbox_stat, sw_ev0, sw_ev1, sw_ev2, sw_ev3);
 
-	if (sw_ev0 & CDNS_DPTX_HPD)
-		drm_kms_helper_hotplug_event(mhdp->bridge.base.dev);
+	/*
+	 *  Calling drm_kms_helper_hotplug_event() when not attached
+	 *  to drm device causes an oops because the drm_bridge->dev
+	 *  is NULL. See mhdp_fw_cb() comments for details about the
+	 *  problems related drm_kms_helper_hotplug_event() call.
+	 */
+	spin_lock(&mhdp->start_lock);
+	bridge_attached = mhdp->bridge_attached;
+	spin_unlock(&mhdp->start_lock);
+
+	if (bridge_attached && (sw_ev0 & CDNS_DPTX_HPD))
+		drm_kms_helper_hotplug_event(mhdp->bridge.dev);
 
 	return IRQ_HANDLED;
 }
@@ -200,7 +821,19 @@ static int cdns_mhdp_detect(struct drm_connector *conn,
 			    bool force)
 {
 	struct cdns_mhdp_device *mhdp = connector_to_mhdp(conn);
+	bool hw_ready;
 	int ret;
+
+	dev_dbg(mhdp->dev, "%s\n", __func__);
+
+	spin_lock(&mhdp->start_lock);
+
+	hw_ready = mhdp->hw_state == MHDP_HW_READY;
+
+	spin_unlock(&mhdp->start_lock);
+
+	if (!hw_ready || WARN_ON(!mhdp->bridge_attached))
+		return connector_status_disconnected;
 
 	ret = cdns_mhdp_get_hpd_status(mhdp);
 	if (ret > 0) {
@@ -232,10 +865,13 @@ static int cdns_mhdp_attach(struct drm_bridge *bridge)
 {
 	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	u32 bus_format = MEDIA_BUS_FMT_RGB121212_1X36;
-	struct drm_connector *conn = &mhdp->connector.base;
+	struct drm_connector *conn = &mhdp->connector;
+	bool hw_ready;
 	int ret;
 
-	if (&mhdp->bridge.base != bridge)
+	dev_dbg(mhdp->dev, "%s\n", __func__);
+
+	if (&mhdp->bridge != bridge)
 		return -ENODEV;
 
 	conn->polled = DRM_CONNECTOR_POLL_HPD;
@@ -269,10 +905,20 @@ static int cdns_mhdp_attach(struct drm_bridge *bridge)
 		return ret;
 	}
 
-	/* enable interrupts */
+	spin_lock(&mhdp->start_lock);
+
+	mhdp->bridge_attached = true;
+	hw_ready = mhdp->hw_state == MHDP_HW_READY;
+
+	spin_unlock(&mhdp->start_lock);
+
+	if (hw_ready) {
+		/* enable interrupts */
+		writel(0, mhdp->regs + CDNS_APB_INT_MASK);
+		writel(0, mhdp->regs + CDNS_MB_INT_MASK);
+	}
+
 	//writel(~CDNS_APB_INT_MASK_SW_EVENT_INT, mhdp->regs + CDNS_APB_INT_MASK);
-	writel(0, mhdp->regs + CDNS_APB_INT_MASK);
-	writel(0, mhdp->regs + CDNS_MB_INT_MASK);
 
 	return 0;
 }
@@ -735,7 +1381,7 @@ static void cdns_mhdp_disable(struct drm_bridge *bridge)
 	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	u32 resp;
 
-	dev_dbg(mhdp->dev, "bridge disable\n");
+	dev_dbg(mhdp->dev, "%s\n", __func__);
 
 	cdns_mhdp_reg_read(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, &resp);
 	resp &= ~CDNS_DP_FRAMER_EN;
@@ -863,8 +1509,7 @@ u32 cdns_mhdp_get_bpp(struct cdns_mhdp_display_fmt *fmt)
 
 static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 {
-	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
-	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
+	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	u32 rate, vs, vs_f, required_bandwidth, available_bandwidth;
 	u32 tu_size = 30, line_thresh1, line_thresh2, line_thresh = 0;
 	struct drm_display_mode *mode;
@@ -877,7 +1522,7 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 	mode = &bridge->encoder->crtc->state->mode;
 	pxlclock = mode->crtc_clock;
 
-	mhdp_bridge->stream_id = 0;
+	mhdp->stream_id = 0;
 
 	rate = mhdp->link.rate / 1000;
 
@@ -925,8 +1570,7 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 
 void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 {
-	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
-	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
+	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	unsigned int dp_framer_sp = 0, msa_horizontal_1,
 			   msa_vertical_1, bnd_hsync2vsync, hsync2vsync_pol_ctrl,
 			   misc0 = 0, misc1 = 0, pxl_repr,
@@ -935,7 +1579,7 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 	struct drm_display_mode *mode;
 	u32 bpp, bpc, pxlfmt;
 	u32 tmp;
-	u8 stream_id = mhdp_bridge->stream_id;
+	u8 stream_id = mhdp->stream_id;
 
 	mode = &bridge->encoder->crtc->state->mode;
 
@@ -1094,8 +1738,7 @@ void cdns_mhdp_configure_video(struct drm_bridge *bridge)
 
 void cdns_mhdp_enable(struct drm_bridge *bridge)
 {
-	struct cdns_mhdp_bridge *mhdp_bridge = to_mhdp_bridge(bridge);
-	struct cdns_mhdp_device *mhdp = mhdp_bridge->mhdp;
+	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	u32 resp;
 
 	dev_dbg(mhdp->dev, "bridge enable\n");
@@ -1117,6 +1760,14 @@ static void cdns_mhdp_detach(struct drm_bridge *bridge)
 {
 	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 
+	dev_dbg(mhdp->dev, "%s\n", __func__);
+
+	spin_lock(&mhdp->start_lock);
+
+	mhdp->bridge_attached = false;
+
+	spin_unlock(&mhdp->start_lock);
+
 	writel(~0, mhdp->regs + CDNS_APB_INT_MASK);
 	writel(~0, mhdp->regs + CDNS_MB_INT_MASK);
 }
@@ -1128,104 +1779,15 @@ static const struct drm_bridge_funcs cdns_mhdp_bridge_funcs = {
 	.detach = cdns_mhdp_detach,
 };
 
-static int load_firmware(struct cdns_mhdp_device *mhdp, const char *name,
-			 unsigned int addr)
-{
-	const struct firmware *fw;
-	int ret;
-
-	ret = request_firmware(&fw, name, mhdp->dev);
-	if (ret) {
-		dev_err(mhdp->dev, "failed to load firmware (%s), ret: %d\n",
-			name, ret);
-		return ret;
-	}
-
-	memcpy_toio(mhdp->regs + addr, fw->data, fw->size);
-
-	release_firmware(fw);
-
-	return 0;
-}
-
-static int cdns_mhdp_audio_hw_params(struct device *dev, void *data,
-				     struct hdmi_codec_daifmt *daifmt,
-				     struct hdmi_codec_params *params)
-{
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-	struct audio_info audio = {
-		.sample_width = params->sample_width,
-		.sample_rate = params->sample_rate,
-		.channels = params->channels,
-	};
-	int ret;
-
-	if (daifmt->fmt != HDMI_I2S) {
-		DRM_DEV_ERROR(dev, "Invalid format %d\n", daifmt->fmt);
-		return -EINVAL;
-	}
-
-	audio.format = AFMT_I2S;
-
-	ret = cdns_mhdp_audio_config(mhdp, &audio);
-	if (!ret)
-		mhdp->audio_info = audio;
-
-	return 0;
-}
-
-static void cdns_mhdp_audio_shutdown(struct device *dev, void *data)
-{
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-	int ret;
-
-	ret = cdns_mhdp_audio_stop(mhdp, &mhdp->audio_info);
-	if (!ret)
-		mhdp->audio_info.format = AFMT_UNUSED;
-}
-
-static int cdns_mhdp_audio_digital_mute(struct device *dev, void *data,
-					bool enable)
-{
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-
-	return cdns_mhdp_audio_mute(mhdp, enable);
-}
-
-static int cdns_mhdp_audio_get_eld(struct device *dev, void *data,
-				   u8 *buf, size_t len)
-{
-	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
-
-	memcpy(buf, mhdp->connector.base.eld,
-	       min(sizeof(mhdp->connector.base.eld), len));
-
-	return 0;
-}
-
-static const struct hdmi_codec_ops audio_codec_ops = {
-	.hw_params = cdns_mhdp_audio_hw_params,
-	.audio_shutdown = cdns_mhdp_audio_shutdown,
-	.digital_mute = cdns_mhdp_audio_digital_mute,
-	.get_eld = cdns_mhdp_audio_get_eld,
-};
-
 static int mhdp_probe(struct platform_device *pdev)
 {
 	struct resource *regs;
 	struct cdns_mhdp_device *mhdp;
 	struct clk *clk;
 	int ret;
-	unsigned int reg;
 	unsigned long rate;
 	int irq;
 	u32 lanes_prop;
-
-	struct hdmi_codec_pdata codec_data = {
-		.i2s = 1,
-		.max_i2s_channels = 8,
-		.ops = &audio_codec_ops,
-	};
 
 	mhdp = devm_kzalloc(&pdev->dev, sizeof(struct cdns_mhdp_device),
 			    GFP_KERNEL);
@@ -1240,6 +1802,7 @@ static int mhdp_probe(struct platform_device *pdev)
 
 	mhdp->clk = clk;
 	mhdp->dev = &pdev->dev;
+	spin_lock_init(&mhdp->start_lock);
 	dev_set_drvdata(&pdev->dev, mhdp);
 
 	drm_dp_aux_init(&mhdp->aux);
@@ -1265,6 +1828,7 @@ static int mhdp_probe(struct platform_device *pdev)
 	ret = pm_runtime_get_sync(&pdev->dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "pm_runtime_get_sync failed\n");
+		pm_runtime_disable(&pdev->dev);
 		return ret;
 	}
 
@@ -1272,24 +1836,14 @@ static int mhdp_probe(struct platform_device *pdev)
 	if (ret != 0) {
 		dev_err(&pdev->dev, "J721E Wrapper initialization failed: %d\n",
 			ret);
-		return ret;
+		goto runtime_put;
 	}
-
-	/* Release uCPU reset and stall it. */
-	writel(CDNS_CPU_STALL, mhdp->regs + CDNS_APB_CTRL);
-
-	ret = load_firmware(mhdp, FW_NAME, CDNS_MHDP_IMEM);
-	if (ret)
-		return ret;
 
 	rate = clk_get_rate(clk);
 	writel(rate % 1000000, mhdp->regs + CDNS_SW_CLK_L);
 	writel(rate / 1000000, mhdp->regs + CDNS_SW_CLK_H);
 
 	dev_dbg(&pdev->dev, "func clk rate %lu Hz\n", rate);
-
-	/* Leave debug mode, release stall */
-	writel(0, mhdp->regs + CDNS_APB_CTRL);
 
 	writel(~0, mhdp->regs + CDNS_MB_INT_MASK);
 	writel(~0, mhdp->regs + CDNS_APB_INT_MASK);
@@ -1300,20 +1854,8 @@ static int mhdp_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev,
 			"cannot install IRQ %d\n", irq);
-		return -EIO;
-	}
-
-	/*
-	 * Wait for the KEEP_ALIVE "message" on the first 8 bits.
-	 * Updated each sched "tick" (~2ms)
-	 */
-	ret = readl_poll_timeout(mhdp->regs + CDNS_KEEP_ALIVE, reg,
-				 reg & CDNS_KEEP_ALIVE_MASK, 500,
-				 CDNS_KEEP_ALIVE_TIMEOUT);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"device didn't give any life sign: reg %d\n", reg);
-		return -EIO;
+		ret = -EIO;
+		goto runtime_put;
 	}
 
 	/* Read source capabilities, based on PHY's device tree properties. */
@@ -1348,40 +1890,30 @@ static int mhdp_probe(struct platform_device *pdev)
 	mhdp->display_fmt.color_format = DRM_COLOR_FORMAT_RGB444;
 	mhdp->display_fmt.bpc = 8;
 
-	mhdp->bridge.base.of_node = pdev->dev.of_node;
-	mhdp->bridge.base.funcs = &cdns_mhdp_bridge_funcs;
-
-	/* Init events to 0 as it's not cleared by FW at boot but on read */
-	readl(mhdp->regs + CDNS_SW_EVENT0);
-	readl(mhdp->regs + CDNS_SW_EVENT1);
-	readl(mhdp->regs + CDNS_SW_EVENT2);
-	readl(mhdp->regs + CDNS_SW_EVENT3);
-
-	/* Activate uCPU */
-	ret = cdns_mhdp_set_firmware_active(mhdp, true);
-	if (ret) {
-		dev_err(mhdp->dev, "Failed to activate DP\n");
-		return ret;
-	}
-
-	mhdp->audio_pdev = platform_device_register_data(
-				   mhdp->dev, HDMI_CODEC_DRV_NAME, PLATFORM_DEVID_AUTO,
-				   &codec_data, sizeof(codec_data));
+	mhdp->bridge.of_node = pdev->dev.of_node;
+	mhdp->bridge.funcs = &cdns_mhdp_bridge_funcs;
 
 	ret = phy_init(mhdp->phy);
 	if (ret) {
 		dev_err(mhdp->dev, "Failed to initialize PHY: %d\n", ret);
-		return ret;
+		goto runtime_put;
 	}
 
-	mhdp->bridge.connector = &mhdp->connector;
-	mhdp->connector.bridge = &mhdp->bridge;
-	mhdp->bridge.mhdp = mhdp;
-	mhdp->bridge.is_active = false;
+	drm_bridge_add(&mhdp->bridge);
 
-	drm_bridge_add(&mhdp->bridge.base);
+	ret = load_firmware(mhdp);
+	if (ret)
+		goto phy_exit;
 
 	return 0;
+
+phy_exit:
+	phy_exit(mhdp->phy);
+runtime_put:
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+
+	return ret;
 }
 
 MODULE_FIRMWARE(FW_NAME);
@@ -1389,17 +1921,37 @@ MODULE_FIRMWARE(FW_NAME);
 static int mhdp_remove(struct platform_device *pdev)
 {
 	struct cdns_mhdp_device *mhdp = dev_get_drvdata(&pdev->dev);
-	int ret;
+	unsigned int timeout = 10;
+	bool stop_fw = false;
+	int ret = 0;
 
-	platform_device_unregister(mhdp->audio_pdev);
+	drm_bridge_remove(&mhdp->bridge);
 
-	drm_bridge_remove(&mhdp->bridge.base);
-
-	ret = cdns_mhdp_set_firmware_active(mhdp, false);
-	if (ret) {
-		dev_err(mhdp->dev, "Failed to de-activate DP\n");
-		return ret;
+wait_loading:
+	spin_lock(&mhdp->start_lock);
+	if (mhdp->hw_state == MHDP_HW_LOADING && timeout-- > 0) {
+		spin_unlock(&mhdp->start_lock);
+		msleep(100);
+		goto wait_loading;
+	} else if (mhdp->hw_state == MHDP_HW_READY) {
+		stop_fw = true;
+		timeout = 1; /* We were succesful even if counter reached 0 */
 	}
+	mhdp->hw_state = MHDP_HW_STOPPED;
+	spin_unlock(&mhdp->start_lock);
+
+	if (timeout == 0)
+		dev_err(mhdp->dev, "%s: Timeout waiting for fw loading\n",
+			__func__);
+
+	if (stop_fw) {
+		ret = cdns_mhdp_set_firmware_active(mhdp, false);
+		if (ret)
+			dev_err(mhdp->dev, "%s: De-activate FW failed: %d\n",
+				__func__, ret);
+	}
+
+	phy_exit(mhdp->phy);
 
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
@@ -1408,7 +1960,7 @@ static int mhdp_remove(struct platform_device *pdev)
 
 	/* FIXME: check for missing functions */
 
-	return 0;
+	return ret;
 }
 
 static struct platform_driver mhdp_driver = {
