@@ -1,0 +1,27 @@
+PCI Endpoint Function Bus
+
+This describes the bindings for endpoint function bus to which endpoint
+function devices should be attached.
+
+Required Properties:
+ - compatible: Should be "pci-epf-bus"
+
+One or more subnodes representing PCIe endpoint function device exposed
+to the remote host.
+
+Example:
+Following is an example of NTB device exposed to the remote host.
+
+epf_bus {
+	compatible = "pci-epf-bus";
+
+	ntb {
+		compatible = "pci-epf-ntb";
+		epcs = <&pcie0_ep>, <&pcie1_ep>;
+		epc-names = "primary", "secondary";
+		vendor-id = /bits/ 16 <0x104c>;
+		device-id = /bits/ 16 <0xb00d>;
+		num-mws = <4>;
+		mws-size = <0x100000>, <0x100000>, <0x100000>, <0x100000>;
+	};
+};
