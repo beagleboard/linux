@@ -85,6 +85,11 @@
 #define FW_STANDBY				0
 #define FW_ACTIVE				1
 
+#define DPTX_READ_EVENT_HPD_TO_HIGH            BIT(0)
+#define DPTX_READ_EVENT_HPD_TO_LOW             BIT(1)
+#define DPTX_READ_EVENT_HPD_PULSE              BIT(2)
+#define DPTX_READ_EVENT_HPD_STATE              BIT(3)
+
 static inline u32 get_unaligned_be24(const void *p)
 {
 	const u8 *_p = p;
@@ -492,7 +497,7 @@ int cdns_mhdp_get_edid_block(void *data, u8 *edid,
 	return ret;
 }
 
-static __maybe_unused
+static
 int cdns_mhdp_read_event(struct cdns_mhdp_device *mhdp)
 {
 	u8 event = 0;
@@ -778,6 +783,53 @@ static int load_firmware(struct cdns_mhdp_device *mhdp)
 	return 0;
 }
 
+static void mhdp_check_link(struct cdns_mhdp_device *mhdp)
+{
+	struct drm_connector *conn = &mhdp->connector;
+	u8 status[DP_LINK_STATUS_SIZE];
+	bool hpd_state;
+	int hpd_event;
+	int ret;
+
+	/* Nothing to check if there is no link */
+	if (!mhdp->link_up)
+		return;
+
+	hpd_event = cdns_mhdp_read_event(mhdp);
+
+	/* Geting event bits failed, bail out */
+	if (hpd_event < 0) {
+		dev_warn(mhdp->dev, "%s: read event failed: %d\n",
+			 __func__, hpd_event);
+		return;
+	}
+
+	hpd_state = !!(hpd_event & DPTX_READ_EVENT_HPD_STATE);
+
+	/* No point the check the link if HPD is down (cable is unplugged) */
+	if (!hpd_state)
+		return;
+
+	/*
+	 * Prevent display reconfiguration between link check and link
+	 * status property setting. We must use the legacy giant-lock
+	 * since drm_connector_set_link_status_property()'s fine
+	 * grained DRM locking implementation is broken.
+	 */
+	mutex_lock(&conn->dev->mode_config.mutex);
+
+	/* Check if the link is still up */
+	ret = drm_dp_dpcd_read_link_status(&mhdp->aux, status);
+
+	if (ret < 0 || /* If dpcd read fails, assume the link is down too */
+	    !drm_dp_channel_eq_ok(status, mhdp->link.num_lanes) ||
+	    !drm_dp_clock_recovery_ok(status, mhdp->link.num_lanes))
+		/* Link is broken, indicate it with the link status property */
+		drm_connector_set_link_status_property(conn, DRM_MODE_LINK_STATUS_BAD);
+
+	mutex_unlock(&conn->dev->mode_config.mutex);
+}
+
 static irqreturn_t mhdp_irq_handler(int irq, void *data)
 {
 	struct cdns_mhdp_device *mhdp = (struct cdns_mhdp_device *)data;
@@ -803,8 +855,11 @@ static irqreturn_t mhdp_irq_handler(int irq, void *data)
 	bridge_attached = mhdp->bridge_attached;
 	spin_unlock(&mhdp->start_lock);
 
-	if (bridge_attached && (sw_ev0 & CDNS_DPTX_HPD))
+	if (bridge_attached && (sw_ev0 & CDNS_DPTX_HPD)) {
+		mhdp_check_link(mhdp);
+
 		drm_kms_helper_hotplug_event(mhdp->bridge.dev);
+	}
 
 	return IRQ_HANDLED;
 }
