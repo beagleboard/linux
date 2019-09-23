@@ -15,10 +15,12 @@ struct platform_device;
  * struct omap_rproc_pdata - omap remoteproc's platform data
  * @device_enable: omap-specific handler for enabling a device
  * @device_shutdown: omap-specific handler for shutting down a device
+ * @device_is_enabled: omap-specific handler to check if device is booted
  */
 struct omap_rproc_pdata {
 	int (*device_enable)(struct platform_device *pdev);
 	int (*device_shutdown)(struct platform_device *pdev);
+	bool (*device_is_enabled)(struct platform_device *pdev);
 };
 
 #endif /* _PLAT_REMOTEPROC_H */

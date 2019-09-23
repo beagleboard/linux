@@ -573,6 +573,10 @@ static int omap_rproc_start(struct rproc *rproc)
 	int ret;
 	struct mbox_client *client = &oproc->client;
 
+	/*
+	 * We set boot address irrespective of the value of the late attach flag
+	 * as boot address takes effect only on a deassert of remoteproc reset.
+	 */
 	if (oproc->boot_data) {
 		ret = omap_rproc_write_dsp_boot_addr(rproc);
 		if (ret)
@@ -612,10 +616,12 @@ static int omap_rproc_start(struct rproc *rproc)
 		goto put_mbox;
 	}
 
-	ret = pdata->device_enable(pdev);
-	if (ret) {
-		dev_err(dev, "omap_device_enable failed: %d\n", ret);
-		goto reset_timers;
+	if (!rproc->late_attach) {
+		ret = pdata->device_enable(pdev);
+		if (ret) {
+			dev_err(dev, "omap_device_enable failed: %d\n", ret);
+			goto reset_timers;
+		}
 	}
 
 	/*
@@ -670,6 +676,16 @@ static int omap_rproc_stop(struct rproc *rproc)
 	ret = omap_rproc_disable_timers(rproc, true);
 	if (ret)
 		goto enable_device;
+
+	/*
+	 * During late attach, we use non-zeroing dma ops to prevent the kernel
+	 * from overwriting already loaded code and data segments. When
+	 * shutting down the processor, we restore the normal zeroing dma ops.
+	 * This allows the kernel to clear memory when loading a new remoteproc
+	 * binary or during error recovery with the current remoteproc binary.
+	 */
+	if (rproc->late_attach)
+		set_dma_ops(dev, &arm_dma_ops);
 
 	mbox_free_channel(oproc->mbox);
 
@@ -1310,6 +1326,11 @@ static int omap_rproc_probe(struct platform_device *pdev)
 	if (!rproc)
 		return -ENOMEM;
 
+	if (pdata->device_is_enabled && pdata->device_is_enabled(pdev)) {
+		rproc->late_attach = 1;
+		set_dma_ops(&pdev->dev, &arm_dma_m_ops);
+	}
+
 	oproc = rproc->priv;
 	oproc->rproc = rproc;
 	/* All existing OMAP IPU and DSP processors have an MMU */
@@ -1398,6 +1419,8 @@ static int omap_rproc_probe(struct platform_device *pdev)
 release_mem:
 	of_reserved_mem_device_release(&pdev->dev);
 free_rproc:
+	if (rproc->late_attach)
+		set_dma_ops(&pdev->dev, &arm_dma_ops);
 	rproc_free(rproc);
 	return ret;
 }
