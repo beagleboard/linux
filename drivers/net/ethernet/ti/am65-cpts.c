@@ -803,14 +803,11 @@ void am65_cpts_rx_enable(struct am65_cpts *cpts, bool en)
 }
 EXPORT_SYMBOL_GPL(am65_cpts_rx_enable);
 
-void am65_cpts_tx_timestamp(struct am65_cpts *cpts,
-			    struct sk_buff *skb)
+void am65_cpts_tx_timestamp(struct am65_cpts *cpts, struct sk_buff *skb)
 {
-	unsigned int ptp_class = ptp_classify_raw(skb);
-	struct am65_cpts_skb_cb_data *skb_cb =
-			(struct am65_cpts_skb_cb_data *)skb->cb;
+	struct am65_cpts_skb_cb_data *skb_cb = (void *)skb->cb;
 
-	if (ptp_class == PTP_CLASS_NONE)
+	if (!(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS))
 		return;
 
 	/* add frame to queue for processing later.
@@ -819,11 +816,27 @@ void am65_cpts_tx_timestamp(struct am65_cpts *cpts,
 	skb_get(skb);
 	/* get the timestamp for timeouts */
 	skb_cb->tmo = jiffies + msecs_to_jiffies(100);
-	skb_cb->ptp_class = ptp_class;
 	skb_queue_tail(&cpts->txq, skb);
 	ptp_schedule_worker(cpts->ptp_clock, 0);
 }
 EXPORT_SYMBOL_GPL(am65_cpts_tx_timestamp);
+
+void am65_cpts_ask_tx_timestamp(struct am65_cpts *cpts, struct sk_buff *skb)
+{
+	struct am65_cpts_skb_cb_data *skb_cb = (void *)skb->cb;
+	unsigned int ptp_class;
+
+	if (!(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP))
+		return;
+
+	ptp_class = ptp_classify_raw(skb);
+	if (ptp_class == PTP_CLASS_NONE)
+		return;
+
+	skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+	skb_cb->ptp_class = ptp_class;
+}
+EXPORT_SYMBOL_GPL(am65_cpts_ask_tx_timestamp);
 
 int am65_cpts_phc_index(struct am65_cpts *cpts)
 {

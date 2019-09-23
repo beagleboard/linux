@@ -25,7 +25,8 @@ dtb-$(CONFIG_ARCH_K3_J721E_SOC) += k3-j721e-common-proc-board.dtb \
 				   k3-j721e-proc-board-tps65917.dtb \
 				   k3-j721e-common-proc-board-infotainment.dtbo \
 				   k3-j721e-common-proc-board-infotainment-display-sharing.dtbo \
-				   k3-j721e-common-proc-board-jailhouse.dtbo
+				   k3-j721e-common-proc-board-jailhouse.dtbo \
+				   k3-j721e-pcie-backplane.dtbo
 
 $(obj)/%.dtbo: $(src)/%.dtso FORCE
 	$(call if_changed_dep,dtc)

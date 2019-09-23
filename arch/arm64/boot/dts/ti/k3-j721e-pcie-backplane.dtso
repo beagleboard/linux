@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * J7 PCIe Backplane
+ *
+ * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pci/pci.h>
+
+/ {
+  fragment@101 {
+	target-path = "/";
+
+	__overlay__ {
+		epf_bus {
+			compatible = "pci-epf-bus";
+
+			ntb {
+				compatible = "pci-epf-ntb";
+				epcs = <&pcie0_ep>, <&pcie1_ep>;
+				epc-names = "primary", "secondary";
+				vendor-id = /bits/ 16 <0x104c>;
+				device-id = /bits/ 16 <0xb00d>;
+				num-mws = <4>;
+				mws-size = <0x100000>, <0x100000>, <0x100000>, <0x100000>;
+			};
+		};
+	};
+  };
+};
+
+&pcie0 {
+	pci-mode = <PCI_MODE_EP>;
+};
+
+&pcie1 {
+	pci-mode = <PCI_MODE_EP>;
+};
