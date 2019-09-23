@@ -172,7 +172,7 @@ static void v_plane_destroy(struct drm_plane *plane)
 	kfree(v_plane);
 }
 
-struct drm_plane_state *
+static struct drm_plane_state *
 v_plane_atomic_duplicate_state(struct drm_plane *plane)
 {
 	struct v_plane_state *v_state;
@@ -193,7 +193,7 @@ v_plane_atomic_duplicate_state(struct drm_plane *plane)
 	return state;
 }
 
-void v_plane_atomic_destroy_state(struct drm_plane *plane,
+static void v_plane_atomic_destroy_state(struct drm_plane *plane,
 					   struct drm_plane_state *state)
 {
 	struct v_plane_state *v_state = to_v_plane_state(state);

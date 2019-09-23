@@ -69,7 +69,7 @@ static void v_crtc_finish_page_flip(struct drm_crtc *crtc)
 	drm_crtc_vblank_put(crtc);
 }
 
-void v_crtc_vblank_irq(struct drm_crtc *crtc)
+static void v_crtc_vblank_irq(struct drm_crtc *crtc)
 {
 	struct v_crtc *v_crtc = to_v_crtc(crtc);
 

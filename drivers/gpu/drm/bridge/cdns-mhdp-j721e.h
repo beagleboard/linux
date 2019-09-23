@@ -14,7 +14,7 @@
 #define CDNS_MHDP_J721E_H
 
 #include <linux/platform_device.h>
-#include <drm/bridge/cdns-mhdp-common.h>
+#include "cdns-mhdp.h"
 
 struct cdns_mhdp_j721e_wrap;
 
