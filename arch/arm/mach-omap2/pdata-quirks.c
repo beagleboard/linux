@@ -49,7 +49,18 @@ struct pdata_init {
 static struct of_dev_auxdata omap_auxdata_lookup[];
 static struct twl4030_gpio_platform_data twl_gpio_auxdata;
 
+static bool __maybe_unused omap_device_is_enabled(struct platform_device *pdev)
+{
+	struct omap_device *od = to_omap_device(pdev);
+
+	if (od->_state == OMAP_DEVICE_STATE_ENABLED)
+		return true;
+	else
+		return false;
+}
+
 #if IS_ENABLED(CONFIG_OMAP_IOMMU)
+
 int omap_iommu_set_pwrdm_constraint(struct platform_device *pdev, bool request,
 				    u8 *pwrst);
 #else
@@ -436,6 +447,7 @@ static void __init omap3_pandora_legacy_init(void)
 static struct omap_rproc_pdata omap4_ipu_dsp_pdata = {
 	.device_enable = omap_rproc_device_enable,
 	.device_shutdown = omap_rproc_device_shutdown,
+	.device_is_enabled = omap_device_is_enabled,
 };
 #endif
 
@@ -447,6 +459,7 @@ static struct iommu_platform_data omap4_iommu_pdata = {
 	.deassert_reset = omap_device_deassert_hardreset,
 	.device_enable = omap_device_enable,
 	.device_idle = omap_device_idle,
+	.device_is_enabled = omap_device_is_enabled,
 };
 #endif
 
@@ -476,6 +489,7 @@ static struct iommu_platform_data dra7_ipu1_dsp_iommu_pdata = {
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
 	.device_enable = omap_device_enable,
+	.device_is_enabled = omap_device_is_enabled,
 	.device_idle = omap_device_idle,
 	.set_pwrdm_constraint = omap_iommu_set_pwrdm_constraint,
 };

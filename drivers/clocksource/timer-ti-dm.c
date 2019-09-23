@@ -94,6 +94,13 @@ static void omap_dm_timer_write_reg(struct omap_dm_timer *timer, u32 reg,
 
 static void omap_timer_restore_context(struct omap_dm_timer *timer)
 {
+	/*
+	 * Do not restore the context during late attach. Kernel data
+	 * structure is not in sync with the register settings of the timer.
+	 */
+	if (timer->late_attach)
+		return;
+
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_WAKEUP_EN_REG,
 				timer->context.twer);
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_COUNTER_REG,
@@ -194,6 +201,20 @@ static int omap_dm_timer_set_source(struct omap_dm_timer *timer, int source)
 	return ret;
 }
 
+static int omap_dm_timer_is_enabled(struct omap_dm_timer *timer)
+{
+	u32 val;
+
+	val = omap_dm_timer_read_reg(timer, OMAP_TIMER_CTRL_REG);
+
+	/* Check if timer ST bit is set or the Counter register is loaded */
+	if (val & OMAP_TIMER_CTRL_ST ||
+	    omap_dm_timer_read_reg(timer, OMAP_TIMER_COUNTER_REG))
+		return 1;
+	else
+		return 0;
+}
+
 static void omap_dm_timer_enable(struct omap_dm_timer *timer)
 {
 	int c;
@@ -246,6 +267,14 @@ static int omap_dm_timer_prepare(struct omap_dm_timer *timer)
 
 	__omap_dm_timer_enable_posted(timer);
 	omap_dm_timer_disable(timer);
+
+	/*
+	 * During late attach, do not set the timer source during prepare
+	 * as the timer might be clocked from a different source. It will
+	 * be set properly from remoteproc.
+	 */
+	if (timer->late_attach)
+		return 0;
 
 	rc = omap_dm_timer_set_source(timer, OMAP_TIMER_SRC_32_KHZ);
 
@@ -503,6 +532,16 @@ static int omap_dm_timer_start(struct omap_dm_timer *timer)
 
 	/* Save the context */
 	timer->context.tclr = l;
+
+	/*
+	 * Now that timer has been started, call pm_runtime_put_noidle to
+	 * balance the pm_runtime device usage count to the proper value as
+	 * the regular case, and reset the late_attach flag.
+	 */
+	if (timer->late_attach)
+		pm_runtime_put_noidle(&timer->pdev->dev);
+	timer->late_attach = 0;
+
 	return 0;
 }
 
@@ -543,10 +582,18 @@ static int omap_dm_timer_set_load(struct omap_dm_timer *timer, int autoreload,
 		l |= OMAP_TIMER_CTRL_AR;
 	else
 		l &= ~OMAP_TIMER_CTRL_AR;
-	omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
-	omap_dm_timer_write_reg(timer, OMAP_TIMER_LOAD_REG, load);
 
-	omap_dm_timer_write_reg(timer, OMAP_TIMER_TRIGGER_REG, 0);
+	/*
+	 * If late attach is enabled, do not modify the dmtimer registers.
+	 * The registers would have been configured already.
+	 */
+	if (!timer->late_attach) {
+		omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
+		omap_dm_timer_write_reg(timer, OMAP_TIMER_LOAD_REG, load);
+
+		omap_dm_timer_write_reg(timer, OMAP_TIMER_TRIGGER_REG, 0);
+	}
+
 	/* Save the context */
 	timer->context.tclr = l;
 	timer->context.tldr = load;
@@ -568,13 +615,21 @@ int omap_dm_timer_set_load_start(struct omap_dm_timer *timer, int autoreload,
 	l = omap_dm_timer_read_reg(timer, OMAP_TIMER_CTRL_REG);
 	if (autoreload) {
 		l |= OMAP_TIMER_CTRL_AR;
-		omap_dm_timer_write_reg(timer, OMAP_TIMER_LOAD_REG, load);
+		/*
+		 * If late attach is enabled, do not modify the dmtimer
+		 * registers. The registers would have been configured
+		 * already.
+		 */
+		if (!timer->late_attach)
+			omap_dm_timer_write_reg(timer, OMAP_TIMER_LOAD_REG,
+						load);
 	} else {
 		l &= ~OMAP_TIMER_CTRL_AR;
 	}
 	l |= OMAP_TIMER_CTRL_ST;
 
-	__omap_dm_timer_load_start(timer, l, load, timer->posted);
+	if (!timer->late_attach)
+		__omap_dm_timer_load_start(timer, l, load, timer->posted);
 
 	/* Save the context */
 	timer->context.tclr = l;
@@ -847,6 +902,16 @@ static int omap_dm_timer_probe(struct platform_device *pdev)
 			goto err_get_sync;
 		}
 		__omap_dm_timer_init_regs(timer);
+
+		if (omap_dm_timer_is_enabled(timer))
+			timer->late_attach = 1;
+		/*
+		 * Increase the pm_runtime usage count and prevent kernel power
+		 * management from idling or disabling the timer.
+		 */
+		if (timer->late_attach)
+			pm_runtime_get_noresume(dev);
+
 		pm_runtime_put(dev);
 	}
 
@@ -884,6 +949,12 @@ static int omap_dm_timer_remove(struct platform_device *pdev)
 		if (!strcmp(dev_name(&timer->pdev->dev),
 			    dev_name(&pdev->dev))) {
 			list_del(&timer->node);
+			/*
+			 * Reset device usage counter if late_attach is still
+			 * set
+			 */
+			if (timer->late_attach)
+				pm_runtime_put_noidle(&timer->pdev->dev);
 			ret = 0;
 			break;
 		}
@@ -905,6 +976,7 @@ const static struct omap_dm_timer_ops dmtimer_ops = {
 	.free = omap_dm_timer_free,
 	.enable = omap_dm_timer_enable,
 	.disable = omap_dm_timer_disable,
+	.is_enabled = omap_dm_timer_is_enabled,
 	.get_fclk = omap_dm_timer_get_fclk,
 	.start = omap_dm_timer_start,
 	.stop = omap_dm_timer_stop,

@@ -161,7 +161,7 @@ void *dma_mark_declared_memory_occupied(struct device *dev,
 EXPORT_SYMBOL(dma_mark_declared_memory_occupied);
 
 static void *__dma_alloc_from_coherent(struct dma_coherent_mem *mem,
-		ssize_t size, dma_addr_t *dma_handle)
+		ssize_t size, dma_addr_t *dma_handle, bool zero)
 {
 	int order = get_order(size);
 	unsigned long flags;
@@ -183,7 +183,8 @@ static void *__dma_alloc_from_coherent(struct dma_coherent_mem *mem,
 	*dma_handle = mem->device_base + (pageno << PAGE_SHIFT);
 	ret = mem->virt_base + (pageno << PAGE_SHIFT);
 	spin_unlock_irqrestore(&mem->spinlock, flags);
-	memset(ret, 0, size);
+	if (zero)
+		memset(ret, 0, size);
 	return ret;
 err:
 	spin_unlock_irqrestore(&mem->spinlock, flags);
@@ -205,14 +206,14 @@ err:
  * generic memory areas, or !0 if dma_alloc_coherent should return @ret.
  */
 int dma_alloc_from_dev_coherent(struct device *dev, ssize_t size,
-		dma_addr_t *dma_handle, void **ret)
+		dma_addr_t *dma_handle, void **ret, bool zero)
 {
 	struct dma_coherent_mem *mem = dev_get_coherent_memory(dev);
 
 	if (!mem)
 		return 0;
 
-	*ret = __dma_alloc_from_coherent(mem, size, dma_handle);
+	*ret = __dma_alloc_from_coherent(mem, size, dma_handle, zero);
 	if (*ret)
 		return 1;
 
@@ -231,7 +232,7 @@ void *dma_alloc_from_global_coherent(ssize_t size, dma_addr_t *dma_handle)
 		return NULL;
 
 	return __dma_alloc_from_coherent(dma_coherent_default_memory, size,
-			dma_handle);
+			dma_handle, true);
 }
 
 static int __dma_release_from_coherent(struct dma_coherent_mem *mem,
