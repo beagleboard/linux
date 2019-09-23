@@ -283,7 +283,13 @@ static int omap_plane_atomic_check(struct drm_plane *plane,
 		}
 	}
 
-	min_scale = FRAC_16_16(1, 4);
+	/*
+	 * Note: these are just sanity checks to filter out totally bad scaling
+	 * factors. The real limits must be calculated case by case, and
+	 * unfortunately we currently do those checks only at the commit
+	 * phase in dispc.
+	 */
+	min_scale = FRAC_16_16(1, 8);
 	max_scale = FRAC_16_16(8, 1);
 
 	ret = drm_atomic_helper_check_plane_state(state, crtc_state,
