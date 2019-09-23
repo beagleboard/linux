@@ -119,6 +119,11 @@ static void prepare_plane_state(struct drm_plane_state *state,
 {
 	int drm_fourcc = tidss_wb_fourcc_v4l2_to_drm(v4l2_pixelformat);
 
+	memset(state, 0, sizeof(*state));
+	memset(fb, 0, sizeof(*fb));
+	memset(&gem_obj[0], 0, sizeof(gem_obj[0]));
+	memset(&gem_obj[1], 0, sizeof(gem_obj[1]));
+
 	state->fb = fb;
 	state->fb->format = drm_format_info(drm_fourcc);
 	state->fb->obj[0] = &gem_obj[0].base;
@@ -137,12 +142,6 @@ static void device_run(void *priv)
 	struct wb_q_data *d_q_data = &ctx->q_data[Q_DATA_DST];
 	struct wb_q_data *s_q_data = &ctx->q_data[Q_DATA_SRC];
 	struct vb2_v4l2_buffer *s_vb, *d_vb;
-	struct drm_plane_state s_state = {};
-	struct drm_framebuffer s_fb = {};
-	struct drm_gem_cma_object s_cma_gem_obj[2] = { {}, {} };
-	struct drm_plane_state d_state = {};
-	struct drm_framebuffer d_fb = {};
-	struct drm_gem_cma_object d_cma_gem_obj[2] = { {}, {} };
 	struct v4l2_pix_format_mplane *spix, *dpix;
 	struct v4l2_rect *srect, *drect;
 	bool ok;
@@ -153,29 +152,32 @@ static void device_run(void *priv)
 	/* fill source info */
 	srect = &s_q_data->c_rect;
 	spix = &s_q_data->format.fmt.pix_mp;
-	prepare_plane_state(&s_state, &s_fb, spix->pixelformat, s_cma_gem_obj);
+	prepare_plane_state(&ctx->s_state, &ctx->s_fb,
+			    spix->pixelformat, ctx->s_cma_gem_obj);
 
-	s_state.src_w = srect->width << 16;
-	s_state.src_h = srect->height << 16;
-	s_state.src_x = srect->left << 16;
-	s_state.src_y = srect->top << 16;
-	s_state.crtc_w = srect->width;
-	s_state.crtc_h = srect->height;
-	s_state.fb->pitches[0] = spix->plane_fmt[0].bytesperline;
-	s_state.alpha = DRM_BLEND_ALPHA_OPAQUE;
-	s_state.color_encoding = DRM_COLOR_YCBCR_BT601;
-	s_state.color_range = DRM_COLOR_YCBCR_FULL_RANGE;
+	ctx->s_state.src_w = srect->width << 16;
+	ctx->s_state.src_h = srect->height << 16;
+	ctx->s_state.src_x = srect->left << 16;
+	ctx->s_state.src_y = srect->top << 16;
+	ctx->s_state.crtc_w = srect->width;
+	ctx->s_state.crtc_h = srect->height;
+	ctx->s_state.fb->pitches[0] = spix->plane_fmt[0].bytesperline;
+	ctx->s_state.alpha = DRM_BLEND_ALPHA_OPAQUE;
+	ctx->s_state.color_encoding = DRM_COLOR_YCBCR_BT601;
+	ctx->s_state.color_range = DRM_COLOR_YCBCR_FULL_RANGE;
 
-	s_cma_gem_obj[0].paddr = vb2_dma_contig_plane_dma_addr(&s_vb->vb2_buf, 0);
+	ctx->s_cma_gem_obj[0].paddr =
+			vb2_dma_contig_plane_dma_addr(&s_vb->vb2_buf, 0);
 	if (spix->num_planes == 2) {
-		s_cma_gem_obj[1].paddr = vb2_dma_contig_plane_dma_addr(&s_vb->vb2_buf, 1);
-		s_state.fb->pitches[1] = spix->plane_fmt[1].bytesperline;
+		ctx->s_cma_gem_obj[1].paddr =
+			vb2_dma_contig_plane_dma_addr(&s_vb->vb2_buf, 1);
+		ctx->s_state.fb->pitches[1] = spix->plane_fmt[1].bytesperline;
 	} else if (spix->pixelformat == V4L2_PIX_FMT_NV12) {
-		s_cma_gem_obj[1].paddr = s_cma_gem_obj[0].paddr +
+		ctx->s_cma_gem_obj[1].paddr = ctx->s_cma_gem_obj[0].paddr +
 			(spix->plane_fmt[0].bytesperline * spix->height);
-		s_state.fb->pitches[1] = spix->plane_fmt[0].bytesperline;
+		ctx->s_state.fb->pitches[1] = spix->plane_fmt[0].bytesperline;
 	}
-	if (!s_cma_gem_obj[0].paddr) {
+	if (!ctx->s_cma_gem_obj[0].paddr) {
 		log_err(dev,
 			"acquiring source buffer(%d) dma_addr failed\n",
 			(&s_vb->vb2_buf)->index);
@@ -184,41 +186,46 @@ static void device_run(void *priv)
 
 	log_dbg(dev, "SRC: ctx %pa buf_index %d %dx%d, pitches: %d, cpp: %d, sw %d\n",
 		&ctx, (&s_vb->vb2_buf)->index,
-		s_state.crtc_w, s_state.crtc_h,
-		s_state.fb->pitches[0], s_state.fb->format->cpp[0],
-		s_state.fb->pitches[0] / s_state.fb->format->cpp[0]);
+		ctx->s_state.crtc_w, ctx->s_state.crtc_h,
+		ctx->s_state.fb->pitches[0], ctx->s_state.fb->format->cpp[0],
+		ctx->s_state.fb->pitches[0] / ctx->s_state.fb->format->cpp[0]);
 	if (spix->num_planes == 2 || spix->pixelformat == V4L2_PIX_FMT_NV12) {
 		log_dbg(dev, "SRC: pitches_uv: %d, cpp_uv: %d, sw_uv %d\n",
-			s_state.fb->pitches[1], s_state.fb->format->cpp[1],
-			s_state.fb->pitches[1] / s_state.fb->format->cpp[1]);
+			ctx->s_state.fb->pitches[1],
+			ctx->s_state.fb->format->cpp[1],
+			ctx->s_state.fb->pitches[1] /
+				ctx->s_state.fb->format->cpp[1]);
 	}
 
 	/* fill WB info */
 	drect = &d_q_data->c_rect;
 	dpix = &d_q_data->format.fmt.pix_mp;
-	prepare_plane_state(&d_state, &d_fb, dpix->pixelformat, d_cma_gem_obj);
+	prepare_plane_state(&ctx->d_state, &ctx->d_fb,
+			    dpix->pixelformat, ctx->d_cma_gem_obj);
 
-	d_state.src_w = s_state.crtc_w << 16;
-	d_state.src_h = s_state.crtc_h << 16;
-	d_state.src_x = drect->left << 16;
-	d_state.src_y = drect->top << 16;
-	d_state.crtc_w = drect->width;
-	d_state.crtc_h = drect->height;
-	d_state.fb->pitches[0] = dpix->plane_fmt[0].bytesperline;
-	d_state.alpha = DRM_BLEND_ALPHA_OPAQUE;
-	d_state.color_encoding = DRM_COLOR_YCBCR_BT601;
-	d_state.color_range = DRM_COLOR_YCBCR_FULL_RANGE;
+	ctx->d_state.src_w = ctx->s_state.crtc_w << 16;
+	ctx->d_state.src_h = ctx->s_state.crtc_h << 16;
+	ctx->d_state.src_x = drect->left << 16;
+	ctx->d_state.src_y = drect->top << 16;
+	ctx->d_state.crtc_w = drect->width;
+	ctx->d_state.crtc_h = drect->height;
+	ctx->d_state.fb->pitches[0] = dpix->plane_fmt[0].bytesperline;
+	ctx->d_state.alpha = DRM_BLEND_ALPHA_OPAQUE;
+	ctx->d_state.color_encoding = DRM_COLOR_YCBCR_BT601;
+	ctx->d_state.color_range = DRM_COLOR_YCBCR_FULL_RANGE;
 
-	d_cma_gem_obj[0].paddr = vb2_dma_contig_plane_dma_addr(&d_vb->vb2_buf, 0);
+	ctx->d_cma_gem_obj[0].paddr =
+			vb2_dma_contig_plane_dma_addr(&d_vb->vb2_buf, 0);
 	if (dpix->num_planes == 2) {
-		d_cma_gem_obj[1].paddr = vb2_dma_contig_plane_dma_addr(&d_vb->vb2_buf, 1);
-		d_state.fb->pitches[1] = dpix->plane_fmt[1].bytesperline;
+		ctx->d_cma_gem_obj[1].paddr =
+			vb2_dma_contig_plane_dma_addr(&d_vb->vb2_buf, 1);
+		ctx->d_state.fb->pitches[1] = dpix->plane_fmt[1].bytesperline;
 	} else if (dpix->pixelformat == V4L2_PIX_FMT_NV12) {
-		d_cma_gem_obj[1].paddr = d_cma_gem_obj[0].paddr +
+		ctx->d_cma_gem_obj[1].paddr = ctx->d_cma_gem_obj[0].paddr +
 			(dpix->plane_fmt[0].bytesperline * dpix->height);
-		d_state.fb->pitches[1] = dpix->plane_fmt[0].bytesperline;
+		ctx->d_state.fb->pitches[1] = dpix->plane_fmt[0].bytesperline;
 	}
-	if (!d_cma_gem_obj[0].paddr) {
+	if (!ctx->d_cma_gem_obj[0].paddr) {
 		log_err(dev,
 			"acquiring destination buffer(%d) dma_addr failed\n",
 			(&d_vb->vb2_buf)->index);
@@ -227,30 +234,34 @@ static void device_run(void *priv)
 
 	log_dbg(dev, "DST: ctx %pa buf_index %d %dx%d, pitches: %d, cpp: %d, sw %d\n",
 		&ctx, (&d_vb->vb2_buf)->index,
-		d_state.crtc_w, d_state.crtc_h,
-		d_state.fb->pitches[0], d_state.fb->format->cpp[0],
-		d_state.fb->pitches[0] / d_state.fb->format->cpp[0]);
+		ctx->d_state.crtc_w, ctx->d_state.crtc_h,
+		ctx->d_state.fb->pitches[0], ctx->d_state.fb->format->cpp[0],
+		ctx->d_state.fb->pitches[0] / ctx->d_state.fb->format->cpp[0]);
 	if (dpix->num_planes == 2 || dpix->pixelformat == V4L2_PIX_FMT_NV12) {
 		log_dbg(dev, "DST: pitches_uv: %d, cpp_uv: %d, sw_uv %d\n",
-			d_state.fb->pitches[1], d_state.fb->format->cpp[1],
-			d_state.fb->pitches[1] / d_state.fb->format->cpp[1]);
+			ctx->d_state.fb->pitches[1],
+			ctx->d_state.fb->format->cpp[1],
+			ctx->d_state.fb->pitches[1] /
+				ctx->d_state.fb->format->cpp[1]);
 	}
 
 	ok = wbm2m_convert(dev, ctx->dev->plane,
-			  (const struct drm_plane_state *)&s_state,
-			  (const struct drm_plane_state *)&d_state);
+			   (const struct drm_plane_state *)&ctx->s_state,
+			   (const struct drm_plane_state *)&ctx->d_state);
 	if (!ok) {
 		log_err(dev,
 			"Conversion setup failed, check source and destination parameters\n"
 			);
 		log_err(dev, "\tSRC: %dx%d, fmt: %4.4s sw %d\n",
-			s_state.crtc_w, s_state.crtc_h,
+			ctx->s_state.crtc_w, ctx->s_state.crtc_h,
 			(char *)&spix->pixelformat,
-			s_state.fb->pitches[0] / s_state.fb->format->cpp[0]);
+			ctx->s_state.fb->pitches[0] /
+				ctx->s_state.fb->format->cpp[0]);
 		log_err(dev, "\tDST: %dx%d, fmt: %4.4s sw %d\n",
-			d_state.crtc_w, d_state.crtc_h,
+			ctx->d_state.crtc_w, ctx->d_state.crtc_h,
 			(char *)&dpix->pixelformat,
-			d_state.fb->pitches[0] / d_state.fb->format->cpp[0]);
+			ctx->d_state.fb->pitches[0] /
+				ctx->d_state.fb->format->cpp[0]);
 		return;
 	}
 }
