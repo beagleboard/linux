@@ -525,6 +525,7 @@ struct rproc_dump_segment {
  * @deny_sysfs_ops: flag to not permit sysfs operations on state and firmware
  * @skip_firmware_request: flag to skip requesting the firmware
  * @skip_load: flag to skip the loading of firmware segments
+ * @late_attach: flag indicating remote core has been externally pre-booted
  * @dump_segments: list of segments in the firmware
  */
 struct rproc {
@@ -563,6 +564,7 @@ struct rproc {
 	unsigned int deny_sysfs_ops		: 1;
 	unsigned int skip_firmware_request	: 1;
 	unsigned int skip_load			: 1;
+	unsigned int late_attach		: 1;
 	struct list_head dump_segments;
 };
 

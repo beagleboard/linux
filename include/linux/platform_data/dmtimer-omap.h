@@ -28,6 +28,7 @@ struct omap_dm_timer_ops {
 	int	(*free)(struct omap_dm_timer *timer);
 
 	void	(*enable)(struct omap_dm_timer *timer);
+	int	(*is_enabled)(struct omap_dm_timer *timer);
 	void	(*disable)(struct omap_dm_timer *timer);
 
 	int	(*get_irq)(struct omap_dm_timer *timer);

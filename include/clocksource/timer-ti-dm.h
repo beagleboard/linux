@@ -116,6 +116,7 @@ struct omap_dm_timer {
 	u32 errata;
 	struct platform_device *pdev;
 	struct list_head node;
+	u32 late_attach;
 };
 
 int omap_dm_timer_reserve_systimer(int id);
