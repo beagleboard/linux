@@ -60,6 +60,13 @@
 			reusable;
 			status = "okay";
 		};
+
+		gpu_memory_region: gpu-memory@c0000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0xc0000000 0x0 0x10000000>;
+			reusable;
+			status = "okay";
+		};
 	};
 
 	vsys_12v0: fixedregulator-vsys12v0 {
@@ -600,4 +607,8 @@
 &dsp2 {
 	status = "okay";
 	memory-region = <&dsp2_memory_region>;
+};
+
+&gpu {
+	memory-region = <&gpu_memory_region>;
 };
