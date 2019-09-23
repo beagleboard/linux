@@ -1581,6 +1581,14 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 
 	bpp = cdns_mhdp_get_bpp(&mhdp->display_fmt);
 
+	if (!cdns_mhdp_bandwidth_ok(mhdp, mode, mhdp->link.num_lanes,
+				    mhdp->link.rate)) {
+		dev_err(mhdp->dev, "%s: Not enough BW for %s (%u lanes at %u Mbps)\n",
+			__func__, mode->name, mhdp->link.num_lanes,
+			mhdp->link.rate / 100);
+		return -EINVAL;
+	}
+
 	/* find optimal tu_size */
 	required_bandwidth = pxlclock * bpp / 8;
 	available_bandwidth = mhdp->link.num_lanes * rate;
@@ -1597,8 +1605,13 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 	} while ((vs == 1 || ((vs_f > 850 || vs_f < 100) && vs_f != 0) ||
 		  tu_size - vs < 2) && tu_size < 64);
 
-	if (vs > 64)
+	if (vs > 64) {
+		dev_err(mhdp->dev,
+			"%s: No space for framing %s (%u lanes at %u Mbps)\n",
+			__func__, mode->name, mhdp->link.num_lanes,
+			mhdp->link.rate / 100);
 		return -EINVAL;
+	}
 
 	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_TU,
 			    CDNS_DP_FRAMER_TU_VS(vs) |
