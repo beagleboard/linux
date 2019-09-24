@@ -105,6 +105,8 @@ static int cdns_mhdp_mailbox_read(struct cdns_mhdp_device *mhdp)
 {
 	int val, ret;
 
+	WARN_ON(!mutex_is_locked(&mhdp->mbox_mutex));
+
 	ret = readx_poll_timeout(readl, mhdp->regs + CDNS_MAILBOX_EMPTY,
 				 val, !val, MAILBOX_RETRY_US,
 				 MAILBOX_TIMEOUT_US);
@@ -117,6 +119,8 @@ static int cdns_mhdp_mailbox_read(struct cdns_mhdp_device *mhdp)
 static int cdp_dp_mailbox_write(struct cdns_mhdp_device *mhdp, u8 val)
 {
 	int ret, full;
+
+	WARN_ON(!mutex_is_locked(&mhdp->mbox_mutex));
 
 	ret = readx_poll_timeout(readl, mhdp->regs + CDNS_MAILBOX_FULL,
 				 full, !full, MAILBOX_RETRY_US,
@@ -219,6 +223,8 @@ int cdns_mhdp_reg_read(struct cdns_mhdp_device *mhdp, u32 addr, u32 *value)
 
 	put_unaligned_be32(addr, msg);
 
+	mutex_lock(&mhdp->mbox_mutex);
+
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_GENERAL,
 				     GENERAL_REGISTER_READ,
 				     sizeof(msg), msg);
@@ -244,6 +250,7 @@ int cdns_mhdp_reg_read(struct cdns_mhdp_device *mhdp, u32 addr, u32 *value)
 	*value = get_unaligned_be32(resp + 4);
 
 err_reg_read:
+	mutex_unlock(&mhdp->mbox_mutex);
 	if (ret) {
 		DRM_DEV_ERROR(mhdp->dev, "Failed to read register.\n");
 		*value = 0;
@@ -256,12 +263,19 @@ static
 int cdns_mhdp_reg_write(struct cdns_mhdp_device *mhdp, u16 addr, u32 val)
 {
 	u8 msg[6];
+	int ret;
 
 	put_unaligned_be16(addr, msg);
 	put_unaligned_be32(val, msg + 2);
 
-	return cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
-				      DPTX_WRITE_REGISTER, sizeof(msg), msg);
+	mutex_lock(&mhdp->mbox_mutex);
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_WRITE_REGISTER, sizeof(msg), msg);
+
+	mutex_unlock(&mhdp->mbox_mutex);
+
+	return ret;
 }
 
 static
@@ -269,14 +283,21 @@ int cdns_mhdp_reg_write_bit(struct cdns_mhdp_device *mhdp, u16 addr,
 			    u8 start_bit, u8 bits_no, u32 val)
 {
 	u8 field[8];
+	int ret;
 
 	put_unaligned_be16(addr, field);
 	field[2] = start_bit;
 	field[3] = bits_no;
 	put_unaligned_be32(val, field + 4);
 
-	return cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
-				      DPTX_WRITE_FIELD, sizeof(field), field);
+	mutex_lock(&mhdp->mbox_mutex);
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_WRITE_FIELD, sizeof(field), field);
+
+	mutex_unlock(&mhdp->mbox_mutex);
+
+	return ret;
 }
 
 static
@@ -288,6 +309,8 @@ int cdns_mhdp_dpcd_read(struct cdns_mhdp_device *mhdp,
 
 	put_unaligned_be16(len, msg);
 	put_unaligned_be24(addr, msg + 2);
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_READ_DPCD, sizeof(msg), msg);
@@ -307,6 +330,8 @@ int cdns_mhdp_dpcd_read(struct cdns_mhdp_device *mhdp,
 	ret = cdns_mhdp_mailbox_read_receive(mhdp, data, len);
 
 err_dpcd_read:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	return ret;
 }
 
@@ -319,6 +344,8 @@ int cdns_mhdp_dpcd_write(struct cdns_mhdp_device *mhdp, u32 addr, u8 value)
 	put_unaligned_be16(1, msg);
 	put_unaligned_be24(addr, msg + 2);
 	msg[5] = value;
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_WRITE_DPCD, sizeof(msg), msg);
@@ -338,6 +365,8 @@ int cdns_mhdp_dpcd_write(struct cdns_mhdp_device *mhdp, u32 addr, u8 value)
 		ret = -EINVAL;
 
 err_dpcd_write:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret)
 		DRM_DEV_ERROR(mhdp->dev, "dpcd write failed: %d\n", ret);
 	return ret;
@@ -354,6 +383,8 @@ int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable)
 	msg[2] = 0;
 	msg[3] = 1;
 	msg[4] = enable ? FW_ACTIVE : FW_STANDBY;
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	for (i = 0; i < sizeof(msg); i++) {
 		ret = cdp_dp_mailbox_write(mhdp, msg[i]);
@@ -373,6 +404,8 @@ int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable)
 	ret = 0;
 
 err_set_firmware_active:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret < 0)
 		DRM_DEV_ERROR(mhdp->dev, "set firmware active failed\n");
 	return ret;
@@ -383,6 +416,8 @@ int cdns_mhdp_get_hpd_status(struct cdns_mhdp_device *mhdp)
 {
 	u8 status;
 	int ret;
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_HPD_STATE, 0, NULL);
@@ -399,9 +434,13 @@ int cdns_mhdp_get_hpd_status(struct cdns_mhdp_device *mhdp)
 	if (ret)
 		goto err_get_hpd;
 
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	return status;
 
 err_get_hpd:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	DRM_DEV_ERROR(mhdp->dev, "get hpd status failed: %d\n", ret);
 	return ret;
 }
@@ -413,6 +452,8 @@ int cdns_mhdp_get_edid_block(void *data, u8 *edid,
 	struct cdns_mhdp_device *mhdp = data;
 	u8 msg[2], reg[2], i;
 	int ret;
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	for (i = 0; i < 4; i++) {
 		msg[0] = block / 2;
@@ -442,6 +483,8 @@ int cdns_mhdp_get_edid_block(void *data, u8 *edid,
 			break;
 	}
 
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret)
 		DRM_DEV_ERROR(mhdp->dev, "get block[%d] edid failed: %d\n",
 			      block, ret);
@@ -455,20 +498,25 @@ int cdns_mhdp_read_event(struct cdns_mhdp_device *mhdp)
 	u8 event = 0;
 	int ret;
 
+	mutex_lock(&mhdp->mbox_mutex);
+
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_READ_EVENT, 0, NULL);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = cdns_mhdp_mailbox_validate_receive(mhdp,
 						 MB_MODULE_ID_DP_TX,
 						 DPTX_READ_EVENT,
 						 sizeof(event));
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	ret = cdns_mhdp_mailbox_read_receive(mhdp, &event,
 					     sizeof(event));
+out:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret < 0)
 		return ret;
 
@@ -496,6 +544,8 @@ int cdns_mhdp_adjust_lt(struct cdns_mhdp_device *mhdp,
 	put_unaligned_be16(udelay, payload + 1);
 	memcpy(payload + 3, lanes_data, nlanes);
 
+	mutex_lock(&mhdp->mbox_mutex);
+
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_ADJUST_LT,
 				     sizeof(payload), payload);
@@ -520,6 +570,8 @@ int cdns_mhdp_adjust_lt(struct cdns_mhdp_device *mhdp,
 	ret = cdns_mhdp_mailbox_read_receive(mhdp, link_status, nregs);
 
 err_adjust_lt:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret)
 		DRM_DEV_ERROR(mhdp->dev, "Failed to adjust Link Training.\n");
 
@@ -1870,6 +1922,7 @@ static int mhdp_probe(struct platform_device *pdev)
 
 	mhdp->clk = clk;
 	mhdp->dev = &pdev->dev;
+	mutex_init(&mhdp->mbox_mutex);
 	spin_lock_init(&mhdp->start_lock);
 	dev_set_drvdata(&pdev->dev, mhdp);
 
