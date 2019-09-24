@@ -25,7 +25,7 @@
 #define MAX_NUM_LANES		4
 #define DEFAULT_MAX_BIT_RATE	8100 /* in Mbps */
 
-#define POLL_TIMEOUT_US		2000
+#define POLL_TIMEOUT_US		5000
 #define LANE_MASK		0x7
 
 /*
@@ -377,7 +377,7 @@ static int cdns_dp_phy_wait_pma_cmn_ready(struct cdns_dp_phy *cdns_phy)
 	int ret;
 
 	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_CMN_READY, reg,
-					    reg & 1, 0, 5000);
+					    reg & 1, 0, POLL_TIMEOUT_US);
 	if (ret == -ETIMEDOUT) {
 		dev_err(cdns_phy->dev,
 			"timeout waiting for PMA common ready\n");
@@ -1209,8 +1209,7 @@ static int cdns_dp_phy_set_lanes(struct cdns_dp_phy *cdns_phy,
 	cdns_dp_phy_write_dp(cdns_phy, PHY_RESET, value);
 
 	/* Wait, until PHY gets ready after releasing PHY reset signal. */
-	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_CMN_READY, value,
-					    (value & 0x01) != 0, 0, POLL_TIMEOUT_US);
+	ret = cdns_dp_phy_wait_pma_cmn_ready(cdns_phy);
 	if (ret)
 		return ret;
 
