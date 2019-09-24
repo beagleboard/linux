@@ -45,6 +45,7 @@
 #define PHY_POWER_STATE_LN_1	0x0008
 #define PHY_POWER_STATE_LN_2	0x0010
 #define PHY_POWER_STATE_LN_3	0x0018
+#define PMA_XCVR_POWER_STATE_REQ_LN_MASK	0x3FU
 #define PHY_PMA_XCVR_POWER_STATE_ACK	0x30
 #define PHY_PMA_CMN_READY		0x34
 #define PHY_PMA_XCVR_TX_VMARGIN		0x38
@@ -188,6 +189,7 @@ static void cdns_dp_phy_write_field(struct cdns_dp_phy *cdns_phy,
 				    unsigned char num_bits,
 				    unsigned int val);
 static int cdns_dp_phy_configure(struct phy *phy, union phy_configure_opts *opts);
+static void cdns_dp_phy_set_a0_pll(struct cdns_dp_phy *cdns_phy, u32 num_lanes);
 
 static int cdns_dp_phy_on(struct phy *gphy);
 static int cdns_dp_phy_off(struct phy *gphy);
@@ -333,40 +335,7 @@ static int cdns_dp_phy_init(struct phy *phy)
 	 * Set lines power state to A0
 	 * Set lines pll clk enable to 0
 	 */
-
-	cdns_dp_phy_write_field(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ,
-				PHY_POWER_STATE_LN_0, 6, 0x0000);
-
-	if (cdns_phy->num_lanes >= 2) {
-		cdns_dp_phy_write_field(cdns_phy,
-					PHY_PMA_XCVR_POWER_STATE_REQ,
-					PHY_POWER_STATE_LN_1, 6, 0x0000);
-
-		if (cdns_phy->num_lanes == 4) {
-			cdns_dp_phy_write_field(cdns_phy,
-						PHY_PMA_XCVR_POWER_STATE_REQ,
-						PHY_POWER_STATE_LN_2, 6, 0);
-			cdns_dp_phy_write_field(cdns_phy,
-						PHY_PMA_XCVR_POWER_STATE_REQ,
-						PHY_POWER_STATE_LN_3, 6, 0);
-		}
-	}
-
-	cdns_dp_phy_write_field(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN,
-				0, 1, 0x0000);
-
-	if (cdns_phy->num_lanes >= 2) {
-		cdns_dp_phy_write_field(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN,
-					1, 1, 0x0000);
-		if (cdns_phy->num_lanes == 4) {
-			cdns_dp_phy_write_field(cdns_phy,
-						PHY_PMA_XCVR_PLLCLK_EN,
-						2, 1, 0x0000);
-			cdns_dp_phy_write_field(cdns_phy,
-						PHY_PMA_XCVR_PLLCLK_EN,
-						3, 1, 0x0000);
-		}
-	}
+	cdns_dp_phy_set_a0_pll(cdns_phy, cdns_phy->num_lanes);
 
 	/*
 	 * release phy_l0*_reset_n and pma_tx_elec_idle_ln_* based on
@@ -1215,23 +1184,25 @@ static int cdns_dp_phy_verify_config(struct cdns_dp_phy *cdns_phy,
 
 /* Set power state A0 and PLL clock enable to 0 on enabled lanes. */
 static void cdns_dp_phy_set_a0_pll(struct cdns_dp_phy *cdns_phy,
-				   struct phy_configure_opts_dp *dp)
+				   u32 num_lanes)
 {
 	u32 pwr_state = cdns_dp_phy_read_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ);
 	u32 pll_clk_en = cdns_dp_phy_read_dp(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN);
 
 	/* Lane 0 is always enabled. */
-	pwr_state &= ~0x1FU;
+	pwr_state &= ~(PMA_XCVR_POWER_STATE_REQ_LN_MASK << PHY_POWER_STATE_LN_0);
 	pll_clk_en &= ~0x01U;
 
-	if (dp->lanes > 1) {
-		pwr_state &= ~(0x1FU << 8);
+	if (num_lanes > 1) {
+		/* lane 1 */
+		pwr_state &= ~(PMA_XCVR_POWER_STATE_REQ_LN_MASK << PHY_POWER_STATE_LN_1);
 		pll_clk_en &= ~(0x01U << 1);
 	}
 
-	if (dp->lanes > 2) {
-		pwr_state &= ~(0x1FU << 16);
-		pwr_state &= ~(0x1FU << 24);
+	if (num_lanes > 2) {
+		/* lanes 2 and 3 */
+		pwr_state &= ~(PMA_XCVR_POWER_STATE_REQ_LN_MASK << PHY_POWER_STATE_LN_2);
+		pwr_state &= ~(PMA_XCVR_POWER_STATE_REQ_LN_MASK << PHY_POWER_STATE_LN_3);
 		pll_clk_en &= ~(0x01U << 2);
 		pll_clk_en &= ~(0x01U << 3);
 	}
@@ -1265,7 +1236,7 @@ static int cdns_dp_phy_set_lanes(struct cdns_dp_phy *cdns_phy,
 	value = (value & 0x0000FFF0) | (0x0000000E & lane_mask);
 	cdns_dp_phy_write_dp(cdns_phy, PHY_RESET, value);
 
-	cdns_dp_phy_set_a0_pll(cdns_phy, dp);
+	cdns_dp_phy_set_a0_pll(cdns_phy, dp->lanes);
 
 	/* release phy_l0*_reset_n based on used laneCount */
 	value = (value & 0x0000FFF0) | (0x0000000F & lane_mask);
