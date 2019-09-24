@@ -1629,7 +1629,9 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID |
 			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID |
 			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_SHORT_VALID |
-			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_LONG_VALID;
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_LONG_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_START_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_CNT_VALID;
 
 		req_rx.nav_id = tisci_rm->tisci_dev_id;
 		req_rx.index = rchan->id;
@@ -1639,6 +1641,8 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 		req_rx.rx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_3RDP_BCOPY_PBRR;
 		req_rx.rx_ignore_short = 0;
 		req_rx.rx_ignore_long = 0;
+		req_rx.flowid_start = 0;
+		req_rx.flowid_cnt = 0;
 
 		ret = tisci_ops->rx_ch_cfg(tisci_rm->tisci, &req_rx);
 		if (ret) {
@@ -1711,7 +1715,9 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID |
 			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID |
 			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_SHORT_VALID |
-			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_LONG_VALID;
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_IGNORE_LONG_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_START_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_CNT_VALID;
 
 			req_rx.nav_id = tisci_rm->tisci_dev_id;
 			req_rx.index = rchan->id;
@@ -1721,6 +1727,8 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 			req_rx.rx_chan_type = mode;
 			req_rx.rx_ignore_short = 0;
 			req_rx.rx_ignore_long = 0;
+			req_rx.flowid_start = 0;
+			req_rx.flowid_cnt = 0;
 
 			ret = tisci_ops->rx_ch_cfg(tisci_rm->tisci, &req_rx);
 			if (ret) {
