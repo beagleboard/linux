@@ -7,6 +7,9 @@ the Cadence MHDP DisplayPort controller.
 -------------------------------------------------------------------------------
 Required properties (controller (parent) node):
 - compatible	: Should be "cdns,dp-phy"
+- clocks	: PHY reference clock. Must contain an entry in clock-names.
+		  See ../clocks/clock-bindings.txt for details.
+- clock-names	: Must be "refclk"
 - reg		: Defines the following sets of registers in the parent
 		  mhdp device:
 			- Offset of the DPTX PHY configuration registers
