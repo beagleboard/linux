@@ -168,8 +168,15 @@ struct cdns_dp_phy {
 	struct device *dev;
 };
 
+enum phy_powerstate {
+	POWERSTATE_A0 = 0,
+	// Powerstate A1 is unused
+	POWERSTATE_A2 = 2,
+	POWERSTATE_A3 = 3,
+};
+
 static int cdns_dp_phy_init(struct phy *phy);
-static void cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy);
+static int cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy);
 static int cdns_dp_phy_wait_pma_cmn_ready(struct cdns_dp_phy *cdns_phy);
 static void cdns_dp_phy_pma_cfg(struct cdns_dp_phy *cdns_phy);
 #ifdef REF_CLK_19_2MHz
@@ -190,6 +197,9 @@ static void cdns_dp_phy_write_field(struct cdns_dp_phy *cdns_phy,
 				    unsigned int val);
 static int cdns_dp_phy_configure(struct phy *phy, union phy_configure_opts *opts);
 static void cdns_dp_phy_set_a0_pll(struct cdns_dp_phy *cdns_phy, u32 num_lanes);
+static int cdns_dp_phy_set_power_state(struct cdns_dp_phy *cdns_phy,
+				       u32 num_lanes,
+				       enum phy_powerstate powerstate);
 
 static int cdns_dp_phy_on(struct phy *gphy);
 static int cdns_dp_phy_off(struct phy *gphy);
@@ -312,13 +322,6 @@ static const struct coefficients voltage_coeffs[4][4] = {
 	}
 };
 
-enum phy_powerstate {
-	POWERSTATE_A0 = 0,
-	// Powerstate A1 is unused
-	POWERSTATE_A2 = 2,
-	POWERSTATE_A3 = 3,
-};
-
 static int cdns_dp_phy_init(struct phy *phy)
 {
 	unsigned char lane_bits;
@@ -363,9 +366,9 @@ static int cdns_dp_phy_init(struct phy *phy)
 	if (r)
 		return r;
 
-	cdns_dp_phy_run(cdns_phy);
+	r = cdns_dp_phy_run(cdns_phy);
 
-	return 0;
+	return r;
 }
 
 static int cdns_dp_phy_wait_pma_cmn_ready(struct cdns_dp_phy *cdns_phy)
@@ -787,12 +790,9 @@ static void cdns_dp_phy_pma_lane_cfg(struct cdns_dp_phy *cdns_phy,
 	cdns_dp_phy_write_phy(cdns_phy, XCVR_DIAG_HSCLK_SEL(lane), 0x0000);
 }
 
-static void cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy)
+static int cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy)
 {
 	unsigned int read_val;
-	u32 write_val1 = 0;
-	u32 write_val2 = 0;
-	u32 mask = 0;
 	int ret;
 
 	/*
@@ -801,54 +801,21 @@ static void cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy)
 	 */
 	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN_ACK,
 					    read_val, read_val & 1, 0, POLL_TIMEOUT_US);
-	if (ret == -ETIMEDOUT)
+	if (ret == -ETIMEDOUT) {
 		dev_err(cdns_phy->dev,
 			"timeout waiting for link PLL clock enable ack\n");
-
-	ndelay(100);
-
-	switch (cdns_phy->num_lanes) {
-
-	case 1:	/* lane 0 */
-		write_val1 = 0x00000004;
-		write_val2 = 0x00000001;
-		mask = 0x0000003f;
-		break;
-	case 2: /* lane 0-1 */
-		write_val1 = 0x00000404;
-		write_val2 = 0x00000101;
-		mask = 0x00003f3f;
-		break;
-	case 4: /* lane 0-3 */
-		write_val1 = 0x04040404;
-		write_val2 = 0x01010101;
-		mask = 0x3f3f3f3f;
-		break;
+		return ret;
 	}
 
-	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ, write_val1);
-
-	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_XCVR_POWER_STATE_ACK,
-					    read_val, (read_val & mask) == write_val1, 0,
-					    POLL_TIMEOUT_US);
-	if (ret == -ETIMEDOUT)
-		dev_err(cdns_phy->dev,
-			"timeout waiting for link power state ack\n");
-
-	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ, 0);
 	ndelay(100);
 
-	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ, write_val2);
+	ret = cdns_dp_phy_set_power_state(cdns_phy, cdns_phy->num_lanes, POWERSTATE_A2);
+	if (ret)
+		return ret;
 
-	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_XCVR_POWER_STATE_ACK,
-					    read_val, (read_val & mask) == write_val2, 0,
-					    POLL_TIMEOUT_US);
-	if (ret == -ETIMEDOUT)
-		dev_err(cdns_phy->dev,
-			"timeout waiting for link power state ack\n");
+	ret = cdns_dp_phy_set_power_state(cdns_phy, cdns_phy->num_lanes, POWERSTATE_A0);
 
-	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ, 0);
-	ndelay(100);
+	return ret;
 }
 
 static void cdns_dp_phy_write_field(struct cdns_dp_phy *cdns_phy,
@@ -965,12 +932,11 @@ static int cdns_dp_phy_probe(struct platform_device *pdev)
 }
 
 static int cdns_dp_phy_set_power_state(struct cdns_dp_phy *cdns_phy,
-				       struct phy_configure_opts_dp *dp,
+				       u32 num_lanes,
 				       enum phy_powerstate powerstate)
 {
 	/* Register value for power state for a single byte. */
 	u32 value_part;
-
 	u32 value;
 	u32 mask;
 	u32 read_val;
@@ -990,7 +956,7 @@ static int cdns_dp_phy_set_power_state(struct cdns_dp_phy *cdns_phy,
 	}
 
 	/* Select values of registers and mask, depending on enabled lane count. */
-	switch (dp->lanes) {
+	switch (num_lanes) {
 	// lane 0
 	case (1):
 		value = value_part;
@@ -1253,18 +1219,7 @@ static int cdns_dp_phy_set_lanes(struct cdns_dp_phy *cdns_phy,
 	/* release pma_xcvr_pllclk_en_ln_*, only for the master lane */
 	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN, 0x0001);
 
-	/* waiting for ACK of pma_xcvr_pllclk_en_ln_*, only for the master lane */
-	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN_ACK,
-					    value, (value & 0x01) != 0, 0, POLL_TIMEOUT_US);
-	if (ret)
-		return ret;
-
-	ndelay(100);
-
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A2);
-	if (ret)
-		return ret;
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A0);
+	ret = cdns_dp_phy_run(cdns_phy);
 
 	return ret;
 }
@@ -1275,7 +1230,7 @@ static int cdns_dp_phy_set_rate(struct cdns_dp_phy *cdns_phy,
 {
 	u32 ret;
 
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A3);
+	ret = cdns_dp_phy_set_power_state(cdns_phy, dp->lanes, POWERSTATE_A3);
 	if (ret)
 		return ret;
 	ret = cdns_dp_phy_set_pll_en(cdns_phy, dp, false);
@@ -1291,10 +1246,10 @@ static int cdns_dp_phy_set_rate(struct cdns_dp_phy *cdns_phy,
 	ret = cdns_dp_phy_set_pll_en(cdns_phy, dp, true);
 	if (ret)
 		return ret;
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A2);
+	ret = cdns_dp_phy_set_power_state(cdns_phy, dp->lanes, POWERSTATE_A2);
 	if (ret)
 		return ret;
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A0);
+	ret = cdns_dp_phy_set_power_state(cdns_phy, dp->lanes, POWERSTATE_A0);
 	if (ret)
 		return ret;
 	ndelay(900);
