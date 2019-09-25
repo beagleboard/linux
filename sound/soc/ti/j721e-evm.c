@@ -21,6 +21,7 @@
 #define J721E_CLK_PARENT_44100	1
 
 #define J721E_MAX_CLK_HSDIV	128
+#define PCM1368A_MAX_SYSCLK	36864000
 
 #define J721E_DAI_FMT		(SND_SOC_DAIFMT_RIGHT_J | \
 				 SND_SOC_DAIFMT_NB_NF |   \
@@ -42,6 +43,7 @@ struct j721e_priv {
 	struct snd_soc_card cpb_card;
 	struct snd_soc_dai_link cpb_dai_links[J721E_CPD_DAI_CNT];
 	struct snd_soc_codec_conf codec_conf;
+	struct snd_interval rate_range;
 
 	struct j721e_audio_clocks audio_refclk2;
 	struct j721e_audio_clocks cpb_mcasp;
@@ -115,6 +117,14 @@ static int j721e_configure_refclk(struct j721e_priv *priv, unsigned int rate)
 	return ret;
 }
 
+static int j721e_rule_rate(struct snd_pcm_hw_params *params,
+			   struct snd_pcm_hw_rule *rule)
+{
+	struct snd_interval *t = rule->private;
+
+	return snd_interval_refine(hw_param_interval(params, rule->var), t);
+}
+
 static int j721e_audio_startup(struct snd_pcm_substream *substream)
 {
 	struct 	snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -128,6 +138,11 @@ static int j721e_audio_startup(struct snd_pcm_substream *substream)
 		ret = snd_pcm_hw_constraint_single(substream->runtime,
 						   SNDRV_PCM_HW_PARAM_RATE,
 						   priv->rate);
+	else
+		ret = snd_pcm_hw_rule_add(substream->runtime, 0,
+					  SNDRV_PCM_HW_PARAM_RATE,
+					  j721e_rule_rate, &priv->rate_range,
+					  SNDRV_PCM_HW_PARAM_RATE, -1);
 
 	mutex_unlock(&priv->mutex);
 
@@ -326,6 +341,25 @@ static int j721e_get_clocks(struct platform_device *pdev,
 	return 0;
 }
 
+static void j721e_calculate_rate_range(struct j721e_priv *priv)
+{
+	unsigned int min_rate, max_rate, pll_rate;
+
+	pll_rate = priv->pll_rates[J721E_CLK_PARENT_44100];
+	min_rate = pll_rate / J721E_MAX_CLK_HSDIV;
+	min_rate /= ratios_for_pcm3168a[ARRAY_SIZE(ratios_for_pcm3168a) - 1];
+
+	pll_rate = priv->pll_rates[J721E_CLK_PARENT_48000];
+	if (pll_rate > PCM1368A_MAX_SYSCLK)
+		pll_rate = PCM1368A_MAX_SYSCLK;
+
+	max_rate = pll_rate / ratios_for_pcm3168a[0];
+
+	snd_interval_any(&priv->rate_range);
+	priv->rate_range.min = min_rate;
+	priv->rate_range.max = max_rate;
+}
+
 static int j721e_soc_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -421,6 +455,8 @@ static int j721e_soc_probe(struct platform_device *pdev)
 
 	card->codec_conf = &priv->codec_conf;
 	card->num_configs = 1;
+
+	j721e_calculate_rate_range(priv);
 
 	snd_soc_card_set_drvdata(card, priv);
 
