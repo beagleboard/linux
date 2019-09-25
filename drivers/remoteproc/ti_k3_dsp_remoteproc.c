@@ -52,6 +52,7 @@ struct k3_dsp_rproc_mem {
  * @ti_sci_id: TI-SCI device identifier
  * @mbox: mailbox channel handle
  * @client: mailbox client to request the mailbox channel
+ * @uses_lreset: flag to denote the need for local reset management
  * @ipc_only: flag to indicate IPC-only mode
  */
 struct k3_dsp_rproc {
@@ -67,6 +68,7 @@ struct k3_dsp_rproc {
 	u32 ti_sci_id;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
+	unsigned int uses_lreset : 1;
 	unsigned int ipc_only : 1;
 };
 
@@ -151,6 +153,9 @@ static int k3_dsp_rproc_reset(struct k3_dsp_rproc *kproc)
 		return ret;
 	}
 
+	if (kproc->uses_lreset)
+		return ret;
+
 	ret = kproc->ti_sci->ops.dev_ops.put_device(kproc->ti_sci,
 						    kproc->ti_sci_id);
 	if (ret) {
@@ -168,6 +173,9 @@ static int k3_dsp_rproc_release(struct k3_dsp_rproc *kproc)
 	struct device *dev = kproc->dev;
 	int ret;
 
+	if (kproc->uses_lreset)
+		goto lreset;
+
 	ret = kproc->ti_sci->ops.dev_ops.get_device(kproc->ti_sci,
 						   kproc->ti_sci_id);
 	if (ret) {
@@ -175,6 +183,7 @@ static int k3_dsp_rproc_release(struct k3_dsp_rproc *kproc)
 		return ret;
 	}
 
+lreset:
 	ret = reset_control_deassert(kproc->reset);
 	if (ret) {
 		dev_err(dev, "local-reset deassert failed, ret = %d\n", ret);
@@ -182,6 +191,71 @@ static int k3_dsp_rproc_release(struct k3_dsp_rproc *kproc)
 							  kproc->ti_sci_id))
 			dev_warn(dev, "module-reset assert back failed\n");
 	}
+
+	return ret;
+}
+
+/*
+ * The C66x DSP cores have a local reset that affects only the CPU, and a
+ * generic module reset that powers on the device and allows the DSP internal
+ * memories to be accessed while the local reset is asserted. This function is
+ * used to release the global reset on C66x DSPs to allow loading into the DSP
+ * internal RAMs. The .prepare() ops is invoked by remoteproc core before any
+ * firmware loading, and is followed by the .start() ops after loading to
+ * actually let the C66x DSP cores run. The local reset on C71x cores is a
+ * no-op and the global reset cannot be released on C71x cores until after
+ * the firmware images are loaded, so this function does nothing for C71x cores.
+ */
+static int k3_dsp_rproc_prepare(struct rproc *rproc)
+{
+	struct k3_dsp_rproc *kproc = rproc->priv;
+	struct device *dev = kproc->dev;
+	int ret;
+
+	/* IPC-only mode does not require the core to be released from reset */
+	if (kproc->ipc_only)
+		return 0;
+
+	/* local reset is no-op on C71x processors */
+	if (!kproc->uses_lreset)
+		return 0;
+
+	ret = kproc->ti_sci->ops.dev_ops.get_device(kproc->ti_sci,
+						    kproc->ti_sci_id);
+	if (ret)
+		dev_err(dev, "module-reset deassert failed, cannot enable internal RAM loading, ret = %d\n",
+			ret);
+
+	return ret;
+}
+
+/*
+ * This function implements the .unprepare() ops and performs the complimentary
+ * operations to that of the .prepare() ops. The function is used to assert the
+ * global reset on applicable C66x cores. This completes the second portion of
+ * powering down the C66x DSP cores. The cores themselves are only halted in the
+ * .stop() callback through the local reset, and the .unprepare() ops is invoked
+ * by the remoteproc core after the remoteproc is stopped to balance the global
+ * reset.
+ */
+static int k3_dsp_rproc_unprepare(struct rproc *rproc)
+{
+	struct k3_dsp_rproc *kproc = rproc->priv;
+	struct device *dev = kproc->dev;
+	int ret;
+
+	/* do not put back the cores into reset in IPC-only mode */
+	if (kproc->ipc_only)
+		return 0;
+
+	/* local reset is no-op on C71x processors */
+	if (!kproc->uses_lreset)
+		return 0;
+
+	ret = kproc->ti_sci->ops.dev_ops.put_device(kproc->ti_sci,
+						    kproc->ti_sci_id);
+	if (ret)
+		dev_err(dev, "module-reset assert failed, ret = %d\n", ret);
 
 	return ret;
 }
@@ -347,6 +421,8 @@ static void *k3_dsp_rproc_da_to_va(struct rproc *rproc, u64 da, int len)
 }
 
 static const struct rproc_ops k3_dsp_rproc_ops = {
+	.prepare	= k3_dsp_rproc_prepare,
+	.unprepare	= k3_dsp_rproc_unprepare,
 	.start		= k3_dsp_rproc_start,
 	.stop		= k3_dsp_rproc_stop,
 	.kick		= k3_dsp_rproc_kick,
@@ -583,6 +659,7 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 	kproc = rproc->priv;
 	kproc->rproc = rproc;
 	kproc->dev = dev;
+	kproc->uses_lreset = 1;
 
 	/* C71x is a 64-bit processor, so customize rproc elf loader ops */
 	if (of_device_is_compatible(np, "ti,j721e-c71-dsp")) {
@@ -593,6 +670,8 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 				rproc_elf64_find_loaded_rsc_table;
 		rproc->ops->get_boot_addr = rproc_elf64_get_boot_addr;
 		rproc->ops->load = rproc_elf64_load_segments;
+
+		kproc->uses_lreset = 0;
 	}
 
 	kproc->ti_sci = ti_sci_get_by_phandle(np, "ti,sci");
@@ -667,6 +746,22 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 		kproc->ipc_only = 1;
 	} else {
 		dev_err(dev, "configured DSP for remoteproc mode\n");
+		/*
+		 * ensure the DSP local reset is asserted to ensure the DSP
+		 * doesn't execute bogus code in .prepare() when the module
+		 * reset is released.
+		 */
+		if (kproc->uses_lreset) {
+			ret = reset_control_status(kproc->reset);
+			if (ret < 0) {
+				dev_err(dev, "failed to get reset status, status = %d\n",
+					ret);
+				goto release_mem;
+			} else if (ret == 0) {
+				dev_warn(dev, "local reset is deasserted for device\n");
+				k3_dsp_rproc_reset(kproc);
+			}
+		}
 	}
 
 	ret = rproc_add(rproc);
