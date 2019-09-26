@@ -116,6 +116,7 @@ struct watchdog_device {
 #define WDOG_STOP_ON_REBOOT	2	/* Should be stopped on reboot */
 #define WDOG_HW_RUNNING		3	/* True if HW watchdog running */
 #define WDOG_STOP_ON_UNREGISTER	4	/* Should be stopped on unregister */
+#define WDOG_RESET_KEEPALIVE	5	/* Reset keepalive timers at start */
 	struct list_head deferred;
 };
 
