@@ -802,13 +802,15 @@ static int cdns_mhdp_get_modes(struct drm_connector *connector)
 	 * HACK: Warn about unsupported display formats until we deal
 	 *       with them correctly.
 	 */
-	if (!(connector->display_info.color_formats &
+	if (connector->display_info.color_formats &&
+	    !(connector->display_info.color_formats &
 	      mhdp->display_fmt.color_format))
 		dev_warn(mhdp->dev,
 			 "%s: No supported color_format found (0x%08x)\n",
 			__func__, connector->display_info.color_formats);
 
-	if (connector->display_info.bpc < mhdp->display_fmt.bpc)
+	if (connector->display_info.bpc &&
+	    connector->display_info.bpc < mhdp->display_fmt.bpc)
 		dev_warn(mhdp->dev, "%s: Display bpc only %d < %d\n",
 			 __func__, connector->display_info.bpc,
 			 mhdp->display_fmt.bpc);
