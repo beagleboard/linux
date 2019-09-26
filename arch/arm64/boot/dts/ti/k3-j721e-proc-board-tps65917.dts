@@ -794,3 +794,8 @@
 	phys = <&serdes2_pcie_link>;
 	phy-names = "pcie_phy";
 };
+
+/* uart2 assigned to cpsw9g eth-switch fw running on remote CPU core */
+&main_uart2 {
+	status = "disabled";
+};
