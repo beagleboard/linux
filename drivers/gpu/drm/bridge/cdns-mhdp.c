@@ -1176,7 +1176,7 @@ static void mhdp_validate_cr(struct cdns_mhdp_device *mhdp, bool *cr_done,
 	}
 }
 
-static bool mhdp_link_training_clock_recovery(struct cdns_mhdp_device *mhdp)
+static bool mhdp_link_training_cr(struct cdns_mhdp_device *mhdp)
 {
 	u8 lanes_data[CDNS_DP_MAX_NUM_LANES],
 	fail_counter_short = 0, fail_counter_cr_long = 0;
@@ -1269,7 +1269,7 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 	const u8 eq_tps = eq_training_pattern_supported(mhdp->host, mhdp->sink);
 
 	while (1) {
-		if (!mhdp_link_training_clock_recovery(mhdp)) {
+		if (!mhdp_link_training_cr(mhdp)) {
 			if (drm_dp_link_rate_to_bw_code(mhdp->link.rate) !=
 			    DP_LINK_BW_1_62) {
 				dev_dbg(mhdp->dev,
