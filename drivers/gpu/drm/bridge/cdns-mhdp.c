@@ -1191,8 +1191,8 @@ static bool mhdp_link_training_clock_recovery(struct cdns_mhdp_device *mhdp)
 	drm_dp_dpcd_read_link_status(&mhdp->aux, dpcd);
 
 	do {
-		u8 requested_adjust_volt_swing[CDNS_DP_MAX_NUM_LANES] = {},
-									requested_adjust_pre_emphasis[CDNS_DP_MAX_NUM_LANES] = {};
+		u8 requested_adjust_volt_swing[CDNS_DP_MAX_NUM_LANES] = {};
+		u8 requested_adjust_pre_emphasis[CDNS_DP_MAX_NUM_LANES] = {};
 		bool same_before_adjust, max_swing_reached;
 
 		mhdp_get_adjust_train(mhdp, dpcd, lanes_data, &phy_cfg);
