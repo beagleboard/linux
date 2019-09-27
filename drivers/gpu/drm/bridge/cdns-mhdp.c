@@ -476,7 +476,7 @@ int cdns_mhdp_read_event(struct cdns_mhdp_device *mhdp)
 
 static
 int cdns_mhdp_adjust_lt(struct cdns_mhdp_device *mhdp,
-			u8 nlanes, u16 udelay, u8 *lanes_data, u8 *dpcd)
+			u8 nlanes, u16 udelay, u8 *lanes_data, u8 *link_status)
 {
 	u8 payload[7];
 	u8 hdr[5]; /* For DPCD read response header */
@@ -516,7 +516,7 @@ int cdns_mhdp_adjust_lt(struct cdns_mhdp_device *mhdp,
 	if (addr != DP_LANE0_1_STATUS)
 		goto err_adjust_lt;
 
-	ret = cdns_mhdp_mailbox_read_receive(mhdp, dpcd, nregs);
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, link_status, nregs);
 
 err_adjust_lt:
 	if (ret)
@@ -1064,7 +1064,7 @@ static bool mhdp_link_training_channel_eq(struct cdns_mhdp_device *mhdp,
 					  unsigned int training_interval)
 {
 	u8 lanes_data[CDNS_DP_MAX_NUM_LANES], fail_counter_short = 0;
-	u8 dpcd[DP_LINK_STATUS_SIZE];
+	u8 link_status[DP_LINK_STATUS_SIZE];
 	u32 reg32;
 	union phy_configure_opts phy_cfg;
 
@@ -1081,10 +1081,10 @@ static bool mhdp_link_training_channel_eq(struct cdns_mhdp_device *mhdp,
 			   (eq_tps != 4) ? eq_tps | DP_LINK_SCRAMBLING_DISABLE :
 			   CDNS_DP_TRAINING_PATTERN_4);
 
-	drm_dp_dpcd_read_link_status(&mhdp->aux, dpcd);
+	drm_dp_dpcd_read_link_status(&mhdp->aux, link_status);
 
 	do {
-		mhdp_get_adjust_train(mhdp, dpcd, lanes_data, &phy_cfg);
+		mhdp_get_adjust_train(mhdp, link_status, lanes_data, &phy_cfg);
 		phy_cfg.dp.lanes = (mhdp->link.num_lanes);
 		phy_cfg.dp.ssc = false;
 		phy_cfg.dp.set_lanes = false;
@@ -1093,19 +1093,19 @@ static bool mhdp_link_training_channel_eq(struct cdns_mhdp_device *mhdp,
 		phy_configure(mhdp->phy,  &phy_cfg);
 
 		cdns_mhdp_adjust_lt(mhdp, mhdp->link.num_lanes,
-				    training_interval, lanes_data, dpcd);
+				    training_interval, lanes_data, link_status);
 
-		if (!drm_dp_clock_recovery_ok(dpcd, mhdp->link.num_lanes))
+		if (!drm_dp_clock_recovery_ok(link_status, mhdp->link.num_lanes))
 			goto err;
 
-		if (drm_dp_channel_eq_ok(dpcd, mhdp->link.num_lanes)) {
+		if (drm_dp_channel_eq_ok(link_status, mhdp->link.num_lanes)) {
 			dev_dbg(mhdp->dev, "EQ phase succeeded\n");
 			return true;
 		}
 
 		fail_counter_short++;
 
-		mhdp_adjust_requested_eq(mhdp, dpcd);
+		mhdp_adjust_requested_eq(mhdp, link_status);
 	} while (fail_counter_short < 5);
 
 err:
@@ -1180,7 +1180,7 @@ static bool mhdp_link_training_cr(struct cdns_mhdp_device *mhdp)
 {
 	u8 lanes_data[CDNS_DP_MAX_NUM_LANES],
 	fail_counter_short = 0, fail_counter_cr_long = 0;
-	u8 dpcd[DP_LINK_STATUS_SIZE];
+	u8 link_status[DP_LINK_STATUS_SIZE];
 	bool cr_done;
 	union phy_configure_opts phy_cfg;
 
@@ -1188,14 +1188,14 @@ static bool mhdp_link_training_cr(struct cdns_mhdp_device *mhdp)
 
 	mhdp_link_training_init(mhdp);
 
-	drm_dp_dpcd_read_link_status(&mhdp->aux, dpcd);
+	drm_dp_dpcd_read_link_status(&mhdp->aux, link_status);
 
 	do {
 		u8 requested_adjust_volt_swing[CDNS_DP_MAX_NUM_LANES] = {};
 		u8 requested_adjust_pre_emphasis[CDNS_DP_MAX_NUM_LANES] = {};
 		bool same_before_adjust, max_swing_reached;
 
-		mhdp_get_adjust_train(mhdp, dpcd, lanes_data, &phy_cfg);
+		mhdp_get_adjust_train(mhdp, link_status, lanes_data, &phy_cfg);
 		phy_cfg.dp.lanes = (mhdp->link.num_lanes);
 		phy_cfg.dp.ssc = false;
 		phy_cfg.dp.set_lanes = false;
@@ -1204,10 +1204,10 @@ static bool mhdp_link_training_cr(struct cdns_mhdp_device *mhdp)
 		phy_configure(mhdp->phy,  &phy_cfg);
 
 		cdns_mhdp_adjust_lt(mhdp, mhdp->link.num_lanes, 100,
-				    lanes_data, dpcd);
+				    lanes_data, link_status);
 
 		mhdp_validate_cr(mhdp, &cr_done, &same_before_adjust,
-				 &max_swing_reached, lanes_data, dpcd,
+				 &max_swing_reached, lanes_data, link_status,
 				 requested_adjust_volt_swing,
 				 requested_adjust_pre_emphasis);
 
@@ -1234,7 +1234,7 @@ static bool mhdp_link_training_cr(struct cdns_mhdp_device *mhdp)
 		 * Voltage swing/pre-emphasis adjust requested
 		 * during CR phase
 		 */
-		mhdp_adjust_requested_cr(mhdp, dpcd,
+		mhdp_adjust_requested_cr(mhdp, link_status,
 					 requested_adjust_volt_swing,
 					 requested_adjust_pre_emphasis);
 	} while (fail_counter_short < 5 && fail_counter_cr_long < 10);
