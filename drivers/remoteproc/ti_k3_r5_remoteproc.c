@@ -365,6 +365,17 @@ static int k3_r5_rproc_prepare(struct rproc *rproc)
 		dev_err(dev, "unable to enable cores for TCM loading, ret = %d\n",
 			ret);
 
+	/*
+	 * Zero out both TCMs unconditionally (access from v8 Arm core is not
+	 * affected by ATCM & BTCM enable configuration values) so that ECC
+	 * can be effective on all TCM addresses.
+	 */
+	dev_dbg(dev, "zeroing out ATCM memory\n");
+	memset(core->mem[0].cpu_addr, 0x00, core->mem[0].size);
+
+	dev_dbg(dev, "zeroing out BTCM memory\n");
+	memset(core->mem[1].cpu_addr, 0x00, core->mem[1].size);
+
 	return ret;
 }
 
