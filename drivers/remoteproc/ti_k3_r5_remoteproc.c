@@ -958,11 +958,28 @@ static int k3_r5_core_of_get_internal_memories(struct platform_device *pdev,
 	for (i = 0; i < num_mems; i++) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
-		core->mem[i].cpu_addr = devm_ioremap_resource(dev, res);
-		if (IS_ERR(core->mem[i].cpu_addr)) {
-			dev_err(dev, "failed to parse and map %s memory\n",
+		if (!res) {
+			dev_err(dev, "found no memory resource for %s\n",
 				mem_names[i]);
+			ret = -EINVAL;
+			goto fail;
+		}
+		if (!devm_request_mem_region(dev, res->start,
+					     resource_size(res),
+					     dev_name(dev))) {
+			dev_err(dev, "could not request %s region for resource\n",
+				mem_names[i]);
+			ret = -EBUSY;
+			goto fail;
+		}
+
+		core->mem[i].cpu_addr = devm_ioremap_wc(dev, res->start,
+							resource_size(res));
+		if (IS_ERR(core->mem[i].cpu_addr)) {
+			dev_err(dev, "failed to map %s memory\n", mem_names[i]);
 			ret = PTR_ERR(core->mem[i].cpu_addr);
+			devm_release_mem_region(dev, res->start,
+						resource_size(res));
 			goto fail;
 		}
 		core->mem[i].bus_addr = res->start;
