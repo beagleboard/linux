@@ -646,6 +646,7 @@
 
 &serdes_wiz3 {
 	typec-dir-gpios = <&main_gpio1 3 GPIO_ACTIVE_HIGH>;
+	typec-dir-debounce = <300>;	/* TUSB321, tCCB_DEFAULT 133 ms */
 };
 
 &serdes3 {
