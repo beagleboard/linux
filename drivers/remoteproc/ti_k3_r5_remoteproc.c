@@ -567,22 +567,21 @@ static void *k3_r5_rproc_da_to_va(struct rproc *rproc, u64 da, int len,
 	if (len <= 0)
 		return NULL;
 
-	/* handle R5-view of ATCM addresses first using address 0 */
-	size = core->mem[0].size;
-	if (da >= 0 && ((da + len) <= size)) {
-		offset = da;
-		va = core->mem[0].cpu_addr + offset;
-		return (__force void *)va;
-	}
-
-	/* handle SoC-view addresses for ATCM and BTCM */
+	/* handle both R5 and SoC views of ATCM and BTCM */
 	for (i = 0; i < core->num_mems; i++) {
 		bus_addr = core->mem[i].bus_addr;
 		dev_addr = core->mem[i].dev_addr;
 		size = core->mem[i].size;
 
-		if (da >= bus_addr &&
-		    ((da + len) <= (bus_addr + size))) {
+		/* handle R5-view addresses of TCMs */
+		if (da >= dev_addr && ((da + len) <= (dev_addr + size))) {
+			offset = da - dev_addr;
+			va = core->mem[i].cpu_addr + offset;
+			return (__force void *)va;
+		}
+
+		/* handle SoC-view addresses of TCMs */
+		if (da >= bus_addr && ((da + len) <= (bus_addr + size))) {
 			offset = da - bus_addr;
 			va = core->mem[i].cpu_addr + offset;
 			return (__force void *)va;
