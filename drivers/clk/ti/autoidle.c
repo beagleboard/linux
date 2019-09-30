@@ -47,6 +47,9 @@ int omap2_clk_deny_idle(struct clk *clk)
 {
 	struct clk_hw_omap *c;
 
+	if (!clk)
+		return -EINVAL;
+
 	c = to_clk_hw_omap(__clk_get_hw(clk));
 	if (c->ops && c->ops->deny_idle)
 		c->ops->deny_idle(c);
@@ -62,6 +65,9 @@ int omap2_clk_deny_idle(struct clk *clk)
 int omap2_clk_allow_idle(struct clk *clk)
 {
 	struct clk_hw_omap *c;
+
+	if (!clk)
+		return -EINVAL;
 
 	c = to_clk_hw_omap(__clk_get_hw(clk));
 	if (c->ops && c->ops->allow_idle)
