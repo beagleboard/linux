@@ -552,7 +552,9 @@ static int k3_nav_udmax_cfg_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
 
 	req.valid_params = TI_SCI_MSG_VALUE_RM_UDMAP_CH_FETCH_SIZE_VALID |
 			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CQ_QNUM_VALID |
-			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID;
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_CHAN_TYPE_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_START_VALID |
+			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_CNT_VALID;
 
 	req.nav_id = tisci_rm->tisci_dev_id;
 	req.index = rx_chn->udma_rchan_id;
@@ -567,9 +569,6 @@ static int k3_nav_udmax_cfg_rx_chn(struct k3_nav_udmax_rx_channel *rx_chn)
 		/* Default flow + extra ones */
 		req.flowid_start = rx_chn->flow_id_base;
 		req.flowid_cnt = rx_chn->flow_num;
-		req.valid_params |=
-			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_START_VALID |
-			TI_SCI_MSG_VALUE_RM_UDMAP_CH_RX_FLOWID_CNT_VALID;
 	}
 	req.rx_chan_type = TI_SCI_RM_UDMAP_CHAN_TYPE_PKT_PBRR;
 
