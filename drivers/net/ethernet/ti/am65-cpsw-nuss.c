@@ -187,6 +187,7 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev)
 				     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
 
 		netif_tx_wake_all_queues(ndev);
+		netif_carrier_on(ndev);
 	} else {
 		int tmo;
 		/* disable forwarding */
@@ -202,6 +203,7 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev)
 
 		cpsw_sl_ctl_reset(port->slave.mac_sl);
 
+		netif_carrier_off(ndev);
 		netif_tx_stop_all_queues(ndev);
 	}
 
