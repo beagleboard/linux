@@ -689,6 +689,7 @@
 	/* eMMC */
 	non-removable;
 	ti,driver-strength-ohm = <50>;
+	disable-wp;
 };
 
 &main_sdhci1 {
@@ -697,6 +698,7 @@
 	vqmmc-supply = <&ldo1_reg>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mmc1_pins_default>;
+	disable-wp;
 };
 
 &main_sdhci2 {
