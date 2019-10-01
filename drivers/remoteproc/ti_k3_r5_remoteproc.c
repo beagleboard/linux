@@ -1063,8 +1063,8 @@ static int k3_r5_core_of_get_sram_memories(struct platform_device *pdev,
 		core->sram[i].bus_addr = res.start;
 		core->sram[i].dev_addr = res.start;
 		core->sram[i].size = resource_size(&res);
-		core->sram[i].cpu_addr = ioremap(res.start,
-						 resource_size(&res));
+		core->sram[i].cpu_addr = ioremap_wc(res.start,
+						    resource_size(&res));
 		if (!core->sram[i].cpu_addr) {
 			dev_err(dev, "failed to parse and map sram%d memory at %pad\n",
 				i, &res.start);
