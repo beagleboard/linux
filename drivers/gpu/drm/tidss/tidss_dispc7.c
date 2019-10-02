@@ -1021,6 +1021,17 @@ static enum drm_mode_status dispc7_vp_mode_valid(struct dispc_device *dispc,
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		return MODE_NO_INTERLACE;
 
+	/*
+	 * Enforce the output width is divisible by 2. Actually this
+	 * is only needed in following cases:
+	 * - YUV output selected (BT656, BT1120)
+	 * - Dithering enabled
+	 * - TDM with TDMCycleFormat == 3
+	 * But for simplicity we enforce that always.
+	 */
+	if ((mode->hdisplay % 2) != 0)
+		return MODE_BAD_HVALUE;
+
 	hfp = mode->hsync_start - mode->hdisplay;
 	hsw = mode->hsync_end - mode->hsync_start;
 	hbp = mode->htotal - mode->hsync_end;
