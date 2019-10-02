@@ -6,6 +6,7 @@
  *	Suman Anna <s-anna@ti.com>
  */
 
+#include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/of_reserved_mem.h>
@@ -482,10 +483,23 @@ static int k3_dsp_rproc_of_get_memories(struct platform_device *pdev,
 
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
-		kproc->mem[i].cpu_addr = devm_ioremap_resource(dev, res);
-		if (IS_ERR(kproc->mem[i].cpu_addr)) {
-			dev_err(dev, "failed to parse and map %s memory\n",
+		if (!res) {
+			dev_err(dev, "found no memory resource for %s\n",
 				mem_names[i]);
+			return -EINVAL;
+		}
+		if (!devm_request_mem_region(dev, res->start,
+					     resource_size(res),
+					     dev_name(dev))) {
+			dev_err(dev, "could not request %s region for resource\n",
+				mem_names[i]);
+			return -EBUSY;
+		}
+
+		kproc->mem[i].cpu_addr = devm_ioremap_wc(dev, res->start,
+							 resource_size(res));
+		if (IS_ERR(kproc->mem[i].cpu_addr)) {
+			dev_err(dev, "failed to map %s memory\n", mem_names[i]);
 			return PTR_ERR(kproc->mem[i].cpu_addr);
 		}
 		kproc->mem[i].bus_addr = res->start;
