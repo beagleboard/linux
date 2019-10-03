@@ -2471,7 +2471,7 @@ static void _setup_iclk_autoidle(struct omap_hwmod *oh)
  */
 static int _setup_reset(struct omap_hwmod *oh)
 {
-	int r;
+	int r = 0;
 
 	if (oh->_state != _HWMOD_STATE_INITIALIZED)
 		return -EINVAL;
@@ -3498,6 +3498,7 @@ int omap_hwmod_allocate_module(struct device *dev, struct omap_hwmod *oh,
 	struct omap_hwmod_class *class;
 	void __iomem *regs = NULL;
 	unsigned long flags;
+	int ret = 0;
 
 	sysc = kzalloc(sizeof(*sysc), GFP_KERNEL);
 	if (!sysc)
@@ -3514,8 +3515,10 @@ int omap_hwmod_allocate_module(struct device *dev, struct omap_hwmod *oh,
 	if (!oh->_mpu_rt_va) {
 		regs = ioremap(data->module_pa,
 			       data->module_size);
-		if (!regs)
-			return -ENOMEM;
+		if (!regs) {
+			ret = -ENOMEM;
+			goto err;
+		}
 	}
 
 	/*
@@ -3523,8 +3526,10 @@ int omap_hwmod_allocate_module(struct device *dev, struct omap_hwmod *oh,
 	 * may not yet have ioremapped their registers.
 	 */
 	class = kmemdup(oh->class, sizeof(*oh->class), GFP_KERNEL);
-	if (!class)
-		return -ENOMEM;
+	if (!class) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	class->sysc = sysc;
 
@@ -3537,6 +3542,9 @@ int omap_hwmod_allocate_module(struct device *dev, struct omap_hwmod *oh,
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
 	return 0;
+err:
+	kfree(sysc);
+	return ret;
 }
 
 /**
@@ -3789,6 +3797,7 @@ struct powerdomain *omap_hwmod_get_pwrdm(struct omap_hwmod *oh)
 	struct omap_hwmod_ocp_if *oi;
 	struct clockdomain *clkdm;
 	struct clk_hw_omap *clk;
+	struct clk_hw *hw;
 
 	if (!oh)
 		return NULL;
@@ -3805,7 +3814,14 @@ struct powerdomain *omap_hwmod_get_pwrdm(struct omap_hwmod *oh)
 		c = oi->_clk;
 	}
 
-	clk = to_clk_hw_omap(__clk_get_hw(c));
+	hw = __clk_get_hw(c);
+	if (!hw)
+		return NULL;
+
+	clk = to_clk_hw_omap(hw);
+	if (!clk)
+		return NULL;
+
 	clkdm = clk->clkdm;
 	if (!clkdm)
 		return NULL;
