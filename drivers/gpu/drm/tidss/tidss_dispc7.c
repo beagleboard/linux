@@ -36,9 +36,6 @@
 static const char *dispc7_plane_name(struct dispc_device *dispc, u32 hw_plane);
 
 static const struct dispc7_features dispc7_am6_feats = {
-	.min_pclk = 1000,
-	.max_pclk = 200000000,
-
 	.max_pclk_kHz = {
 		[DISPC7_VP_DPI] = 165000,
 		[DISPC7_VP_OLDI] = 165000,
@@ -93,9 +90,6 @@ static const struct dispc7_features dispc7_am6_feats = {
 };
 
 static const struct dispc7_features dispc7_j721e_feats = {
-	.min_pclk = 1000,
-	.max_pclk = 600000000,
-
 	.max_pclk_kHz = {
 		[DISPC7_VP_DPI] = 170000,
 		[DISPC7_VP_INTERNAL] = 600000,
@@ -1023,12 +1017,6 @@ static enum drm_mode_status dispc7_vp_mode_valid(struct dispc_device *dispc,
 		return MODE_BAD;
 
 	if (mode->clock > max_pclk)
-		return MODE_CLOCK_HIGH;
-
-	if (mode->clock * 1000 < dispc->feat->min_pclk)
-		return MODE_CLOCK_LOW;
-
-	if (mode->clock * 1000 > dispc->feat->max_pclk)
 		return MODE_CLOCK_HIGH;
 
 	if (mode->hdisplay > 4096)

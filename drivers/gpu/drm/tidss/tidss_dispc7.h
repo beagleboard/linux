@@ -39,10 +39,6 @@ enum dispc7_dss_subrevision {
 };
 
 struct dispc7_features {
-	/* XXX should these come from the .dts? Min pclk is not feature of DSS IP */
-	unsigned long min_pclk;
-	unsigned long max_pclk;
-
 	int max_pclk_kHz[DISPC7_VP_MAX_BUS_TYPE];
 
 	u32 num_commons;
