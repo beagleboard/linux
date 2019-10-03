@@ -31,6 +31,7 @@
 
 #include <linux/irq.h>
 #include <linux/of_irq.h>
+#include <linux/of_device.h>
 
 #include <asm/unaligned.h>
 
@@ -534,8 +535,20 @@ err_adjust_lt:
 
 #define CDNS_KEEP_ALIVE_TIMEOUT			2000
 
+#ifdef CONFIG_DRM_CDNS_MHDP_J721E
+static const struct mhdp_platform_ops mhdp_ti_j721e_ops = {
+	.init = cdns_mhdp_j721e_init,
+	.exit = cdns_mhdp_j721e_fini,
+	.enable = cdns_mhdp_j721e_enable,
+	.disable = cdns_mhdp_j721e_disable,
+};
+#endif
+
 static const struct of_device_id mhdp_ids[] = {
 	{ .compatible = "cdns,mhdp8546", },
+#ifdef CONFIG_DRM_CDNS_MHDP_J721E
+	{ .compatible = "ti,j721e-mhdp8546", .data = &mhdp_ti_j721e_ops },
+#endif
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mhdp_ids);
@@ -1400,7 +1413,8 @@ static void cdns_mhdp_disable(struct drm_bridge *bridge)
 	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_CAR,
 			    resp & ~(CDNS_VIF_CLK_EN | CDNS_VIF_CLK_RSTN));
 
-	cdns_mhdp_j721e_disable(mhdp);
+	if (mhdp->ops && mhdp->ops->disable)
+		mhdp->ops->disable(mhdp);
 }
 
 static u32 get_training_interval_us(struct cdns_mhdp_device *mhdp,
@@ -1745,7 +1759,8 @@ void cdns_mhdp_enable(struct drm_bridge *bridge)
 
 	dev_dbg(mhdp->dev, "bridge enable\n");
 
-	cdns_mhdp_j721e_enable(mhdp);
+	if (mhdp->ops && mhdp->ops->enable)
+		mhdp->ops->enable(mhdp);
 
 	/* Enable VIF clock for stream 0 */
 	cdns_mhdp_reg_read(mhdp, CDNS_DPTX_CAR, &resp);
@@ -1783,6 +1798,7 @@ static const struct drm_bridge_funcs cdns_mhdp_bridge_funcs = {
 
 static int mhdp_probe(struct platform_device *pdev)
 {
+	const struct of_device_id *match;
 	struct resource *regs;
 	struct cdns_mhdp_device *mhdp;
 	struct clk *clk;
@@ -1826,6 +1842,11 @@ static int mhdp_probe(struct platform_device *pdev)
 
 	clk_prepare_enable(clk);
 
+	match = of_match_device(mhdp_ids, &pdev->dev);
+	if (!match)
+		return -ENODEV;
+	mhdp->ops = (struct mhdp_platform_ops *)match->data;
+
 	pm_runtime_enable(&pdev->dev);
 	ret = pm_runtime_get_sync(&pdev->dev);
 	if (ret < 0) {
@@ -1834,11 +1855,13 @@ static int mhdp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = cdns_mhdp_j721e_init(mhdp);
-	if (ret != 0) {
-		dev_err(&pdev->dev, "J721E Wrapper initialization failed: %d\n",
-			ret);
-		goto runtime_put;
+	if (mhdp->ops && mhdp->ops->init) {
+		ret = mhdp->ops->init(mhdp);
+		if (ret != 0) {
+			dev_err(&pdev->dev, "MHDP platform initialization failed: %d\n",
+				ret);
+			goto runtime_put;
+		}
 	}
 
 	rate = clk_get_rate(clk);
@@ -1926,6 +1949,9 @@ static int mhdp_remove(struct platform_device *pdev)
 	unsigned int timeout = 10;
 	bool stop_fw = false;
 	int ret = 0;
+
+	if (mhdp->ops && mhdp->ops->exit)
+		mhdp->ops->exit(mhdp);
 
 	drm_bridge_remove(&mhdp->bridge);
 

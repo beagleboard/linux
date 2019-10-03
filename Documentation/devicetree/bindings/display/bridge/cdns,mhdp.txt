@@ -5,6 +5,7 @@ The Cadence MHDP bridge is a DPI to DP bridge.
 
 Required properties:
 - compatible: should be "cdns,mhdp8546",
+  Use "ti,j721e-mhdp8546" for TI J7 SoCs.
 - reg: physical base address and length of the controller's registers,
 - clocks: DP bridge clock, it's used by the IP to know how to translate
 	a number of clock cycles into a time (which is used to comply
