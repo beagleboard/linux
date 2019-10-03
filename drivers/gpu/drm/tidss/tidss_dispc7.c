@@ -709,13 +709,13 @@ static void dispc7_write_irqenable(struct dispc_device *dispc, u64 mask)
 	dispc7_intr_read(dispc, DISPC_IRQENABLE_SET);
 }
 
-enum dispc7_oldi_mode { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
+enum dispc7_oldi_mode_reg_val { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
 
 struct dispc7_bus_format {
 	u32 bus_fmt;
 	u32 data_width;
 	enum dispc7_vp_bus_type bus_type;
-	enum dispc7_oldi_mode oldi_mode;
+	enum dispc7_oldi_mode_reg_val oldi_mode_reg_val;
 };
 
 static const struct dispc7_bus_format dispc7_bus_formats[] = {
@@ -810,7 +810,7 @@ static void dispc7_enable_oldi(struct dispc_device *dispc, u32 hw_videoport,
 
 	oldi_cfg |= BIT(7); /* DEPOL */
 
-	oldi_cfg = FLD_MOD(oldi_cfg, fmt->oldi_mode, 3, 1);
+	oldi_cfg = FLD_MOD(oldi_cfg, fmt->oldi_mode_reg_val, 3, 1);
 
 	oldi_cfg |= BIT(12); /* SOFTRST */
 
