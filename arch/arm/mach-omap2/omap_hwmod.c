@@ -3464,6 +3464,7 @@ static int omap_hwmod_allocate_module(struct device *dev, struct omap_hwmod *oh,
 	struct omap_hwmod_ocp_if *oi = NULL;
 	void __iomem *regs = NULL;
 	unsigned long flags;
+	int ret = 0;
 
 	sysc = kzalloc(sizeof(*sysc), GFP_KERNEL);
 	if (!sysc)
@@ -3480,8 +3481,10 @@ static int omap_hwmod_allocate_module(struct device *dev, struct omap_hwmod *oh,
 	if (!oh->_mpu_rt_va) {
 		regs = ioremap(data->module_pa,
 			       data->module_size);
-		if (!regs)
-			return -ENOMEM;
+		if (!regs) {
+			ret = -ENOMEM;
+			goto err;
+		}
 	}
 
 	/*
@@ -3490,14 +3493,18 @@ static int omap_hwmod_allocate_module(struct device *dev, struct omap_hwmod *oh,
 	 */
 	if (oh->class->name && strcmp(oh->class->name, data->name)) {
 		class = kmemdup(oh->class, sizeof(*oh->class), GFP_KERNEL);
-		if (!class)
-			return -ENOMEM;
+		if (!class) {
+			ret = -ENOMEM;
+			goto err;
+		}
 	}
 
 	if (list_empty(&oh->slave_ports)) {
 		oi = kcalloc(1, sizeof(*oi), GFP_KERNEL);
-		if (!oi)
-			return -ENOMEM;
+		if (!oi) {
+			ret = -ENOMEM;
+			goto err;
+		}
 
 		/*
 		 * Note that we assume interconnect interface clocks will be
@@ -3524,6 +3531,11 @@ static int omap_hwmod_allocate_module(struct device *dev, struct omap_hwmod *oh,
 	spin_unlock_irqrestore(&oh->_lock, flags);
 
 	return 0;
+
+err:
+	kfree(class);
+	kfree(sysc);
+	return ret;
 }
 
 static const struct omap_hwmod_reset omap24xx_reset_quirks[] = {
