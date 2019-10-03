@@ -39,6 +39,11 @@ static const struct dispc7_features dispc7_am6_feats = {
 	.min_pclk = 1000,
 	.max_pclk = 200000000,
 
+	.max_pclk_kHz = {
+		[DISPC7_VP_DPI] = 165000,
+		[DISPC7_VP_OLDI] = 165000,
+	},
+
 	.num_commons = 1,
 	.common_name = { "common" },
 	.common_cfg = { true },
@@ -91,6 +96,11 @@ static const struct dispc7_features dispc7_j721e_feats = {
 	.min_pclk = 1000,
 	.max_pclk = 600000000,
 
+	.max_pclk_kHz = {
+		[DISPC7_VP_DPI] = 170000,
+		[DISPC7_VP_INTERNAL] = 600000,
+	},
+
 	.num_commons = 4,
 	.common_name = { "common_m", "common_s0", "common_s1", "common_s2" },
 	.common_cfg = { true, false, false, false },
@@ -119,8 +129,9 @@ static const struct dispc7_features dispc7_j721e_feats = {
 	.vp_name = { "vp1", "vp2", "vp3", "vp4" },
 	.ovr_name = { "ovr1", "ovr2", "ovr3", "ovr4" },
 	.vpclk_name = { "vp1", "vp2", "vp3", "vp4" },
-	.vp_bus_type =	{ DISPC7_VP_DPI, DISPC7_VP_DPI,
-			  DISPC7_VP_DPI, DISPC7_VP_DPI, },
+	/* Currently hard coded VP routing (see dispc7_initial_config()) */
+	.vp_bus_type =	{ DISPC7_VP_INTERNAL, DISPC7_VP_DPI,
+			  DISPC7_VP_INTERNAL, DISPC7_VP_DPI, },
 	.vp_feat = { .color = {
 			.has_ctm = true,
 			.gamma_size = 1024,
@@ -714,20 +725,20 @@ enum dispc7_oldi_mode_reg_val { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
 struct dispc7_bus_format {
 	u32 bus_fmt;
 	u32 data_width;
-	enum dispc7_vp_bus_type bus_type;
+	bool is_oldi_fmt;
 	enum dispc7_oldi_mode_reg_val oldi_mode_reg_val;
 };
 
 static const struct dispc7_bus_format dispc7_bus_formats[] = {
-	{ MEDIA_BUS_FMT_RGB444_1X12,		12, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB565_1X16,		16, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB666_1X18,		18, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB888_1X24,		24, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB101010_1X30,		30, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB121212_1X36,		36, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB666_1X7X3_SPWG,	18, DISPC7_VP_OLDI, SPWG_18 },
-	{ MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,	24, DISPC7_VP_OLDI, SPWG_24 },
-	{ MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA,	24, DISPC7_VP_OLDI, JEIDA_24 },
+	{ MEDIA_BUS_FMT_RGB444_1X12,		12, false, 0 },
+	{ MEDIA_BUS_FMT_RGB565_1X16,		16, false, 0 },
+	{ MEDIA_BUS_FMT_RGB666_1X18,		18, false, 0 },
+	{ MEDIA_BUS_FMT_RGB888_1X24,		24, false, 0 },
+	{ MEDIA_BUS_FMT_RGB101010_1X30,		30, false, 0 },
+	{ MEDIA_BUS_FMT_RGB121212_1X36,		36, false, 0 },
+	{ MEDIA_BUS_FMT_RGB666_1X7X3_SPWG,	18, true, SPWG_18 },
+	{ MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,	24, true, SPWG_24 },
+	{ MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA,	24, true, JEIDA_24 },
 };
 
 static const
@@ -837,9 +848,6 @@ static void dispc7_vp_prepare(struct dispc_device *dispc, u32 hw_videoport,
 				     tstate->bus_flags);
 
 	if (WARN_ON(!fmt))
-		return;
-
-	if (WARN_ON(dispc->feat->vp_bus_type[hw_videoport] != fmt->bus_type))
 		return;
 
 	if (dispc->feat->vp_bus_type[hw_videoport] == DISPC7_VP_OLDI) {
@@ -1004,6 +1012,18 @@ static enum drm_mode_status dispc7_vp_mode_valid(struct dispc_device *dispc,
 						 const struct drm_display_mode *mode)
 {
 	u32 hsw, hfp, hbp, vsw, vfp, vbp;
+	enum dispc7_vp_bus_type bus_type;
+	int max_pclk;
+
+	bus_type = dispc->feat->vp_bus_type[hw_videoport];
+
+	max_pclk = dispc->feat->max_pclk_kHz[bus_type];
+
+	if (WARN_ON(max_pclk == 0))
+		return MODE_BAD;
+
+	if (mode->clock > max_pclk)
+		return MODE_CLOCK_HIGH;
 
 	if (mode->clock * 1000 < dispc->feat->min_pclk)
 		return MODE_CLOCK_LOW;
@@ -1076,10 +1096,10 @@ static int dispc7_vp_check(struct dispc_device *dispc, u32 hw_videoport,
 		return -EINVAL;
 	}
 
-	if (dispc->feat->vp_bus_type[hw_videoport] != fmt->bus_type) {
-		dev_dbg(dispc->dev, "%s: %s is not %s-port\n",
-			__func__, dispc->feat->vp_name[hw_videoport],
-			fmt->bus_type == DISPC7_VP_OLDI ? "OLDI" : "DPI");
+	if (dispc->feat->vp_bus_type[hw_videoport] != DISPC7_VP_OLDI &&
+	    fmt->is_oldi_fmt) {
+		dev_dbg(dispc->dev, "%s: %s is not OLDI-port\n",
+			__func__, dispc->feat->vp_name[hw_videoport]);
 		return -EINVAL;
 	}
 
@@ -2928,6 +2948,8 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 				conn_type = DRM_MODE_CONNECTOR_DPI;
 				break;
 			default:
+				dev_warn(dev, "%s: Bad vp bus type: %d\n",
+					 __func__, dispc->feat->vp_bus_type[i]);
 				conn_type = DRM_MODE_CONNECTOR_Unknown;
 				break;
 			}
