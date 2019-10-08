@@ -85,6 +85,11 @@
 #define FW_STANDBY				0
 #define FW_ACTIVE				1
 
+#define DPTX_READ_EVENT_HPD_TO_HIGH            BIT(0)
+#define DPTX_READ_EVENT_HPD_TO_LOW             BIT(1)
+#define DPTX_READ_EVENT_HPD_PULSE              BIT(2)
+#define DPTX_READ_EVENT_HPD_STATE              BIT(3)
+
 static inline u32 get_unaligned_be24(const void *p)
 {
 	const u8 *_p = p;
@@ -105,6 +110,8 @@ static int cdns_mhdp_mailbox_read(struct cdns_mhdp_device *mhdp)
 {
 	int val, ret;
 
+	WARN_ON(!mutex_is_locked(&mhdp->mbox_mutex));
+
 	ret = readx_poll_timeout(readl, mhdp->regs + CDNS_MAILBOX_EMPTY,
 				 val, !val, MAILBOX_RETRY_US,
 				 MAILBOX_TIMEOUT_US);
@@ -117,6 +124,8 @@ static int cdns_mhdp_mailbox_read(struct cdns_mhdp_device *mhdp)
 static int cdp_dp_mailbox_write(struct cdns_mhdp_device *mhdp, u8 val)
 {
 	int ret, full;
+
+	WARN_ON(!mutex_is_locked(&mhdp->mbox_mutex));
 
 	ret = readx_poll_timeout(readl, mhdp->regs + CDNS_MAILBOX_FULL,
 				 full, !full, MAILBOX_RETRY_US,
@@ -219,6 +228,8 @@ int cdns_mhdp_reg_read(struct cdns_mhdp_device *mhdp, u32 addr, u32 *value)
 
 	put_unaligned_be32(addr, msg);
 
+	mutex_lock(&mhdp->mbox_mutex);
+
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_GENERAL,
 				     GENERAL_REGISTER_READ,
 				     sizeof(msg), msg);
@@ -244,6 +255,7 @@ int cdns_mhdp_reg_read(struct cdns_mhdp_device *mhdp, u32 addr, u32 *value)
 	*value = get_unaligned_be32(resp + 4);
 
 err_reg_read:
+	mutex_unlock(&mhdp->mbox_mutex);
 	if (ret) {
 		DRM_DEV_ERROR(mhdp->dev, "Failed to read register.\n");
 		*value = 0;
@@ -256,12 +268,19 @@ static
 int cdns_mhdp_reg_write(struct cdns_mhdp_device *mhdp, u16 addr, u32 val)
 {
 	u8 msg[6];
+	int ret;
 
 	put_unaligned_be16(addr, msg);
 	put_unaligned_be32(val, msg + 2);
 
-	return cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
-				      DPTX_WRITE_REGISTER, sizeof(msg), msg);
+	mutex_lock(&mhdp->mbox_mutex);
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_WRITE_REGISTER, sizeof(msg), msg);
+
+	mutex_unlock(&mhdp->mbox_mutex);
+
+	return ret;
 }
 
 static
@@ -269,14 +288,21 @@ int cdns_mhdp_reg_write_bit(struct cdns_mhdp_device *mhdp, u16 addr,
 			    u8 start_bit, u8 bits_no, u32 val)
 {
 	u8 field[8];
+	int ret;
 
 	put_unaligned_be16(addr, field);
 	field[2] = start_bit;
 	field[3] = bits_no;
 	put_unaligned_be32(val, field + 4);
 
-	return cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
-				      DPTX_WRITE_FIELD, sizeof(field), field);
+	mutex_lock(&mhdp->mbox_mutex);
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_WRITE_FIELD, sizeof(field), field);
+
+	mutex_unlock(&mhdp->mbox_mutex);
+
+	return ret;
 }
 
 static
@@ -288,6 +314,8 @@ int cdns_mhdp_dpcd_read(struct cdns_mhdp_device *mhdp,
 
 	put_unaligned_be16(len, msg);
 	put_unaligned_be24(addr, msg + 2);
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_READ_DPCD, sizeof(msg), msg);
@@ -307,6 +335,8 @@ int cdns_mhdp_dpcd_read(struct cdns_mhdp_device *mhdp,
 	ret = cdns_mhdp_mailbox_read_receive(mhdp, data, len);
 
 err_dpcd_read:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	return ret;
 }
 
@@ -319,6 +349,8 @@ int cdns_mhdp_dpcd_write(struct cdns_mhdp_device *mhdp, u32 addr, u8 value)
 	put_unaligned_be16(1, msg);
 	put_unaligned_be24(addr, msg + 2);
 	msg[5] = value;
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_WRITE_DPCD, sizeof(msg), msg);
@@ -338,6 +370,8 @@ int cdns_mhdp_dpcd_write(struct cdns_mhdp_device *mhdp, u32 addr, u8 value)
 		ret = -EINVAL;
 
 err_dpcd_write:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret)
 		DRM_DEV_ERROR(mhdp->dev, "dpcd write failed: %d\n", ret);
 	return ret;
@@ -354,6 +388,8 @@ int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable)
 	msg[2] = 0;
 	msg[3] = 1;
 	msg[4] = enable ? FW_ACTIVE : FW_STANDBY;
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	for (i = 0; i < sizeof(msg); i++) {
 		ret = cdp_dp_mailbox_write(mhdp, msg[i]);
@@ -373,6 +409,8 @@ int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable)
 	ret = 0;
 
 err_set_firmware_active:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret < 0)
 		DRM_DEV_ERROR(mhdp->dev, "set firmware active failed\n");
 	return ret;
@@ -383,6 +421,8 @@ int cdns_mhdp_get_hpd_status(struct cdns_mhdp_device *mhdp)
 {
 	u8 status;
 	int ret;
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_HPD_STATE, 0, NULL);
@@ -399,9 +439,13 @@ int cdns_mhdp_get_hpd_status(struct cdns_mhdp_device *mhdp)
 	if (ret)
 		goto err_get_hpd;
 
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	return status;
 
 err_get_hpd:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	DRM_DEV_ERROR(mhdp->dev, "get hpd status failed: %d\n", ret);
 	return ret;
 }
@@ -413,6 +457,8 @@ int cdns_mhdp_get_edid_block(void *data, u8 *edid,
 	struct cdns_mhdp_device *mhdp = data;
 	u8 msg[2], reg[2], i;
 	int ret;
+
+	mutex_lock(&mhdp->mbox_mutex);
 
 	for (i = 0; i < 4; i++) {
 		msg[0] = block / 2;
@@ -442,6 +488,8 @@ int cdns_mhdp_get_edid_block(void *data, u8 *edid,
 			break;
 	}
 
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret)
 		DRM_DEV_ERROR(mhdp->dev, "get block[%d] edid failed: %d\n",
 			      block, ret);
@@ -449,26 +497,31 @@ int cdns_mhdp_get_edid_block(void *data, u8 *edid,
 	return ret;
 }
 
-static __maybe_unused
+static
 int cdns_mhdp_read_event(struct cdns_mhdp_device *mhdp)
 {
 	u8 event = 0;
 	int ret;
 
+	mutex_lock(&mhdp->mbox_mutex);
+
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_READ_EVENT, 0, NULL);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = cdns_mhdp_mailbox_validate_receive(mhdp,
 						 MB_MODULE_ID_DP_TX,
 						 DPTX_READ_EVENT,
 						 sizeof(event));
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	ret = cdns_mhdp_mailbox_read_receive(mhdp, &event,
 					     sizeof(event));
+out:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret < 0)
 		return ret;
 
@@ -496,6 +549,8 @@ int cdns_mhdp_adjust_lt(struct cdns_mhdp_device *mhdp,
 	put_unaligned_be16(udelay, payload + 1);
 	memcpy(payload + 3, lanes_data, nlanes);
 
+	mutex_lock(&mhdp->mbox_mutex);
+
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
 				     DPTX_ADJUST_LT,
 				     sizeof(payload), payload);
@@ -520,6 +575,8 @@ int cdns_mhdp_adjust_lt(struct cdns_mhdp_device *mhdp,
 	ret = cdns_mhdp_mailbox_read_receive(mhdp, link_status, nregs);
 
 err_adjust_lt:
+	mutex_unlock(&mhdp->mbox_mutex);
+
 	if (ret)
 		DRM_DEV_ERROR(mhdp->dev, "Failed to adjust Link Training.\n");
 
@@ -726,6 +783,53 @@ static int load_firmware(struct cdns_mhdp_device *mhdp)
 	return 0;
 }
 
+static void mhdp_check_link(struct cdns_mhdp_device *mhdp)
+{
+	struct drm_connector *conn = &mhdp->connector;
+	u8 status[DP_LINK_STATUS_SIZE];
+	bool hpd_state;
+	int hpd_event;
+	int ret;
+
+	/* Nothing to check if there is no link */
+	if (!mhdp->link_up)
+		return;
+
+	hpd_event = cdns_mhdp_read_event(mhdp);
+
+	/* Geting event bits failed, bail out */
+	if (hpd_event < 0) {
+		dev_warn(mhdp->dev, "%s: read event failed: %d\n",
+			 __func__, hpd_event);
+		return;
+	}
+
+	hpd_state = !!(hpd_event & DPTX_READ_EVENT_HPD_STATE);
+
+	/* No point the check the link if HPD is down (cable is unplugged) */
+	if (!hpd_state)
+		return;
+
+	/*
+	 * Prevent display reconfiguration between link check and link
+	 * status property setting. We must use the legacy giant-lock
+	 * since drm_connector_set_link_status_property()'s fine
+	 * grained DRM locking implementation is broken.
+	 */
+	mutex_lock(&conn->dev->mode_config.mutex);
+
+	/* Check if the link is still up */
+	ret = drm_dp_dpcd_read_link_status(&mhdp->aux, status);
+
+	if (ret < 0 || /* If dpcd read fails, assume the link is down too */
+	    !drm_dp_channel_eq_ok(status, mhdp->link.num_lanes) ||
+	    !drm_dp_clock_recovery_ok(status, mhdp->link.num_lanes))
+		/* Link is broken, indicate it with the link status property */
+		drm_connector_set_link_status_property(conn, DRM_MODE_LINK_STATUS_BAD);
+
+	mutex_unlock(&conn->dev->mode_config.mutex);
+}
+
 static irqreturn_t mhdp_irq_handler(int irq, void *data)
 {
 	struct cdns_mhdp_device *mhdp = (struct cdns_mhdp_device *)data;
@@ -751,8 +855,11 @@ static irqreturn_t mhdp_irq_handler(int irq, void *data)
 	bridge_attached = mhdp->bridge_attached;
 	spin_unlock(&mhdp->start_lock);
 
-	if (bridge_attached && (sw_ev0 & CDNS_DPTX_HPD))
+	if (bridge_attached && (sw_ev0 & CDNS_DPTX_HPD)) {
+		mhdp_check_link(mhdp);
+
 		drm_kms_helper_hotplug_event(mhdp->bridge.dev);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -863,9 +970,46 @@ static int cdns_mhdp_detect(struct drm_connector *conn,
 	return connector_status_disconnected;
 }
 
+static
+bool cdns_mhdp_bandwidth_ok(struct cdns_mhdp_device *mhdp,
+			    const struct drm_display_mode *mode,
+			    int lanes, int rate)
+{
+	u32 max_bw, req_bw, bpp;
+
+	bpp = cdns_mhdp_get_bpp(&mhdp->display_fmt);
+	req_bw = mode->clock * bpp / 8;
+
+	max_bw = lanes * rate;
+
+	if (req_bw > max_bw) {
+		dev_dbg(mhdp->dev, "%s: %s (%u * %u/8 =) %u > %u (= %u * %u)\n",
+			__func__, mode->name, mode->clock, bpp, req_bw,
+			max_bw, lanes, rate);
+
+		return false;
+	}
+
+	return true;
+}
+
+static
+enum drm_mode_status cdns_mhdp_mode_valid(struct drm_connector *conn,
+					  struct drm_display_mode *mode)
+{
+	struct cdns_mhdp_device *mhdp = connector_to_mhdp(conn);
+
+	if (!cdns_mhdp_bandwidth_ok(mhdp, mode, mhdp->host.lanes_cnt,
+				    mhdp->host.link_rate))
+		return MODE_CLOCK_HIGH;
+
+	return MODE_OK;
+}
+
 static const struct drm_connector_helper_funcs cdns_mhdp_conn_helper_funcs = {
 	.detect_ctx = cdns_mhdp_detect,
 	.get_modes = cdns_mhdp_get_modes,
+	.mode_valid = cdns_mhdp_mode_valid,
 };
 
 static const struct drm_connector_funcs cdns_mhdp_conn_funcs = {
@@ -1544,6 +1688,14 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 
 	bpp = cdns_mhdp_get_bpp(&mhdp->display_fmt);
 
+	if (!cdns_mhdp_bandwidth_ok(mhdp, mode, mhdp->link.num_lanes,
+				    mhdp->link.rate)) {
+		dev_err(mhdp->dev, "%s: Not enough BW for %s (%u lanes at %u Mbps)\n",
+			__func__, mode->name, mhdp->link.num_lanes,
+			mhdp->link.rate / 100);
+		return -EINVAL;
+	}
+
 	/* find optimal tu_size */
 	required_bandwidth = pxlclock * bpp / 8;
 	available_bandwidth = mhdp->link.num_lanes * rate;
@@ -1560,8 +1712,13 @@ static int cdns_mhdp_sst_enable(struct drm_bridge *bridge)
 	} while ((vs == 1 || ((vs_f > 850 || vs_f < 100) && vs_f != 0) ||
 		  tu_size - vs < 2) && tu_size < 64);
 
-	if (vs > 64)
+	if (vs > 64) {
+		dev_err(mhdp->dev,
+			"%s: No space for framing %s (%u lanes at %u Mbps)\n",
+			__func__, mode->name, mhdp->link.num_lanes,
+			mhdp->link.rate / 100);
 		return -EINVAL;
+	}
 
 	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_TU,
 			    CDNS_DP_FRAMER_TU_VS(vs) |
@@ -1820,6 +1977,7 @@ static int mhdp_probe(struct platform_device *pdev)
 
 	mhdp->clk = clk;
 	mhdp->dev = &pdev->dev;
+	mutex_init(&mhdp->mbox_mutex);
 	spin_lock_init(&mhdp->start_lock);
 	dev_set_drvdata(&pdev->dev, mhdp);
 
@@ -1852,7 +2010,7 @@ static int mhdp_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(&pdev->dev, "pm_runtime_get_sync failed\n");
 		pm_runtime_disable(&pdev->dev);
-		return ret;
+		goto clk_disable;
 	}
 
 	if (mhdp->ops && mhdp->ops->init) {
@@ -1877,10 +2035,9 @@ static int mhdp_probe(struct platform_device *pdev)
 	ret = devm_request_threaded_irq(mhdp->dev, irq, NULL, mhdp_irq_handler,
 					IRQF_ONESHOT, "mhdp8546", mhdp);
 	if (ret) {
-		dev_err(&pdev->dev,
-			"cannot install IRQ %d\n", irq);
+		dev_err(&pdev->dev, "cannot install IRQ %d\n", irq);
 		ret = -EIO;
-		goto runtime_put;
+		goto j721e_fini;
 	}
 
 	/* Read source capabilities, based on PHY's device tree properties. */
@@ -1934,9 +2091,13 @@ static int mhdp_probe(struct platform_device *pdev)
 
 phy_exit:
 	phy_exit(mhdp->phy);
+j721e_fini:
+	cdns_mhdp_j721e_fini(mhdp);
 runtime_put:
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+clk_disable:
+	clk_disable_unprepare(mhdp->clk);
 
 	return ret;
 }
@@ -1980,6 +2141,8 @@ wait_loading:
 	}
 
 	phy_exit(mhdp->phy);
+
+	cdns_mhdp_j721e_fini(mhdp);
 
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);

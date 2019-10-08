@@ -243,6 +243,9 @@ struct cdns_mhdp_device {
 
 	const struct mhdp_platform_ops *ops;
 
+	/* This is to protect mailbox communications with the firmware */
+	struct mutex mbox_mutex;
+
 	struct drm_connector connector;
 	struct drm_bridge bridge;
 
