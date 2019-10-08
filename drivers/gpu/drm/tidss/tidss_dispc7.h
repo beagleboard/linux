@@ -27,8 +27,10 @@ struct dispc7_errata {
 };
 
 enum dispc7_vp_bus_type {
-	DISPC7_VP_DPI,
-	DISPC7_VP_OLDI,
+	DISPC7_VP_DPI,		/* DPI output */
+	DISPC7_VP_OLDI,		/* OLDI (LVDS) output */
+	DISPC7_VP_INTERNAL,	/* SoC internal routing */
+	DISPC7_VP_MAX_BUS_TYPE,
 };
 
 enum dispc7_dss_subrevision {
@@ -37,9 +39,7 @@ enum dispc7_dss_subrevision {
 };
 
 struct dispc7_features {
-	/* XXX should these come from the .dts? Min pclk is not feature of DSS IP */
-	unsigned long min_pclk;
-	unsigned long max_pclk;
+	int max_pclk_kHz[DISPC7_VP_MAX_BUS_TYPE];
 
 	u32 num_commons;
 	const char *common_name[DISPC7_MAX_COMMONS];

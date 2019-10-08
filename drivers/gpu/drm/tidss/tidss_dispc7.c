@@ -36,8 +36,10 @@
 static const char *dispc7_plane_name(struct dispc_device *dispc, u32 hw_plane);
 
 static const struct dispc7_features dispc7_am6_feats = {
-	.min_pclk = 1000,
-	.max_pclk = 200000000,
+	.max_pclk_kHz = {
+		[DISPC7_VP_DPI] = 165000,
+		[DISPC7_VP_OLDI] = 165000,
+	},
 
 	.num_commons = 1,
 	.common_name = { "common" },
@@ -88,8 +90,10 @@ static const struct dispc7_features dispc7_am6_feats = {
 };
 
 static const struct dispc7_features dispc7_j721e_feats = {
-	.min_pclk = 1000,
-	.max_pclk = 600000000,
+	.max_pclk_kHz = {
+		[DISPC7_VP_DPI] = 170000,
+		[DISPC7_VP_INTERNAL] = 600000,
+	},
 
 	.num_commons = 4,
 	.common_name = { "common_m", "common_s0", "common_s1", "common_s2" },
@@ -119,8 +123,9 @@ static const struct dispc7_features dispc7_j721e_feats = {
 	.vp_name = { "vp1", "vp2", "vp3", "vp4" },
 	.ovr_name = { "ovr1", "ovr2", "ovr3", "ovr4" },
 	.vpclk_name = { "vp1", "vp2", "vp3", "vp4" },
-	.vp_bus_type =	{ DISPC7_VP_DPI, DISPC7_VP_DPI,
-			  DISPC7_VP_DPI, DISPC7_VP_DPI, },
+	/* Currently hard coded VP routing (see dispc7_initial_config()) */
+	.vp_bus_type =	{ DISPC7_VP_INTERNAL, DISPC7_VP_DPI,
+			  DISPC7_VP_INTERNAL, DISPC7_VP_DPI, },
 	.vp_feat = { .color = {
 			.has_ctm = true,
 			.gamma_size = 1024,
@@ -709,25 +714,25 @@ static void dispc7_write_irqenable(struct dispc_device *dispc, u64 mask)
 	dispc7_intr_read(dispc, DISPC_IRQENABLE_SET);
 }
 
-enum dispc7_oldi_mode { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
+enum dispc7_oldi_mode_reg_val { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
 
 struct dispc7_bus_format {
 	u32 bus_fmt;
 	u32 data_width;
-	enum dispc7_vp_bus_type bus_type;
-	enum dispc7_oldi_mode oldi_mode;
+	bool is_oldi_fmt;
+	enum dispc7_oldi_mode_reg_val oldi_mode_reg_val;
 };
 
 static const struct dispc7_bus_format dispc7_bus_formats[] = {
-	{ MEDIA_BUS_FMT_RGB444_1X12,		12, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB565_1X16,		16, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB666_1X18,		18, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB888_1X24,		24, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB101010_1X30,		30, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB121212_1X36,		36, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB666_1X7X3_SPWG,	18, DISPC7_VP_OLDI, SPWG_18 },
-	{ MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,	24, DISPC7_VP_OLDI, SPWG_24 },
-	{ MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA,	24, DISPC7_VP_OLDI, JEIDA_24 },
+	{ MEDIA_BUS_FMT_RGB444_1X12,		12, false, 0 },
+	{ MEDIA_BUS_FMT_RGB565_1X16,		16, false, 0 },
+	{ MEDIA_BUS_FMT_RGB666_1X18,		18, false, 0 },
+	{ MEDIA_BUS_FMT_RGB888_1X24,		24, false, 0 },
+	{ MEDIA_BUS_FMT_RGB101010_1X30,		30, false, 0 },
+	{ MEDIA_BUS_FMT_RGB121212_1X36,		36, false, 0 },
+	{ MEDIA_BUS_FMT_RGB666_1X7X3_SPWG,	18, true, SPWG_18 },
+	{ MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,	24, true, SPWG_24 },
+	{ MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA,	24, true, JEIDA_24 },
 };
 
 static const
@@ -810,7 +815,7 @@ static void dispc7_enable_oldi(struct dispc_device *dispc, u32 hw_videoport,
 
 	oldi_cfg |= BIT(7); /* DEPOL */
 
-	oldi_cfg = FLD_MOD(oldi_cfg, fmt->oldi_mode, 3, 1);
+	oldi_cfg = FLD_MOD(oldi_cfg, fmt->oldi_mode_reg_val, 3, 1);
 
 	oldi_cfg |= BIT(12); /* SOFTRST */
 
@@ -837,9 +842,6 @@ static void dispc7_vp_prepare(struct dispc_device *dispc, u32 hw_videoport,
 				     tstate->bus_flags);
 
 	if (WARN_ON(!fmt))
-		return;
-
-	if (WARN_ON(dispc->feat->vp_bus_type[hw_videoport] != fmt->bus_type))
 		return;
 
 	if (dispc->feat->vp_bus_type[hw_videoport] == DISPC7_VP_OLDI) {
@@ -1004,11 +1006,17 @@ static enum drm_mode_status dispc7_vp_mode_valid(struct dispc_device *dispc,
 						 const struct drm_display_mode *mode)
 {
 	u32 hsw, hfp, hbp, vsw, vfp, vbp;
+	enum dispc7_vp_bus_type bus_type;
+	int max_pclk;
 
-	if (mode->clock * 1000 < dispc->feat->min_pclk)
-		return MODE_CLOCK_LOW;
+	bus_type = dispc->feat->vp_bus_type[hw_videoport];
 
-	if (mode->clock * 1000 > dispc->feat->max_pclk)
+	max_pclk = dispc->feat->max_pclk_kHz[bus_type];
+
+	if (WARN_ON(max_pclk == 0))
+		return MODE_BAD;
+
+	if (mode->clock > max_pclk)
 		return MODE_CLOCK_HIGH;
 
 	if (mode->hdisplay > 4096)
@@ -1020,6 +1028,17 @@ static enum drm_mode_status dispc7_vp_mode_valid(struct dispc_device *dispc,
 	/* TODO: add interlace support */
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		return MODE_NO_INTERLACE;
+
+	/*
+	 * Enforce the output width is divisible by 2. Actually this
+	 * is only needed in following cases:
+	 * - YUV output selected (BT656, BT1120)
+	 * - Dithering enabled
+	 * - TDM with TDMCycleFormat == 3
+	 * But for simplicity we enforce that always.
+	 */
+	if ((mode->hdisplay % 2) != 0)
+		return MODE_BAD_HVALUE;
 
 	hfp = mode->hsync_start - mode->hdisplay;
 	hsw = mode->hsync_end - mode->hsync_start;
@@ -1065,10 +1084,10 @@ static int dispc7_vp_check(struct dispc_device *dispc, u32 hw_videoport,
 		return -EINVAL;
 	}
 
-	if (dispc->feat->vp_bus_type[hw_videoport] != fmt->bus_type) {
-		dev_dbg(dispc->dev, "%s: %s is not %s-port\n",
-			__func__, dispc->feat->vp_name[hw_videoport],
-			fmt->bus_type == DISPC7_VP_OLDI ? "OLDI" : "DPI");
+	if (dispc->feat->vp_bus_type[hw_videoport] != DISPC7_VP_OLDI &&
+	    fmt->is_oldi_fmt) {
+		dev_dbg(dispc->dev, "%s: %s is not OLDI-port\n",
+			__func__, dispc->feat->vp_name[hw_videoport]);
 		return -EINVAL;
 	}
 
@@ -2917,6 +2936,8 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 				conn_type = DRM_MODE_CONNECTOR_DPI;
 				break;
 			default:
+				dev_warn(dev, "%s: Bad vp bus type: %d\n",
+					 __func__, dispc->feat->vp_bus_type[i]);
 				conn_type = DRM_MODE_CONNECTOR_Unknown;
 				break;
 			}
