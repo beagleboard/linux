@@ -574,8 +574,7 @@ static enum drm_mode_status dispc6_vp_mode_valid(struct dispc_device *dispc,
 		return MODE_BAD_HVALUE;
 
 	if (vsw < 1 || vsw > 256 ||
-	    vfp < 0 || vfp > 4095 ||
-	    vbp < 0 || vbp > 4095)
+	    vfp > 4095 || vbp > 4095)
 		return MODE_BAD_VVALUE;
 
 	if (dispc->memory_bandwidth_limit) {
