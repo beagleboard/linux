@@ -1577,6 +1577,9 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 {
 	u32 resp;
 	u8 reg0[DP_RECEIVER_CAP_SIZE], amp[2];
+	u8 ext_cap_chk = 0;
+	unsigned int addr;
+	int err;
 
 	drm_dp_link_probe(&mhdp->aux, &mhdp->link);
 
@@ -1590,7 +1593,18 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 	mhdp->sink.enhanced = !!(mhdp->link.capabilities &
 				 DP_LINK_CAP_ENHANCED_FRAMING);
 
-	drm_dp_dpcd_read(&mhdp->aux, DP_DPCD_REV, reg0, DP_RECEIVER_CAP_SIZE);
+	drm_dp_dpcd_readb(&mhdp->aux, DP_TRAINING_AUX_RD_INTERVAL, &ext_cap_chk);
+
+	if (ext_cap_chk & DP_EXTENDED_RECEIVER_CAP_FIELD_PRESENT)
+		addr = DP_DP13_DPCD_REV;
+	else
+		addr = DP_DPCD_REV;
+
+	err = drm_dp_dpcd_read(&mhdp->aux, addr, reg0, DP_RECEIVER_CAP_SIZE);
+	if (err < 0) {
+		dev_err(mhdp->dev, "Failed to read receiver capabilities\n");
+		return err;
+	}
 
 	mhdp->sink.pattern_supp = CDNS_SUPPORT_TPS(1) | CDNS_SUPPORT_TPS(2);
 	if (drm_dp_tps3_supported(reg0))
