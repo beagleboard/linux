@@ -159,6 +159,9 @@ epf_ntb_configure_db(struct epf_ntb *ntb, enum pci_epc_interface_type type,
 	u32 db_data;
 	int ret, i;
 
+	if (db_count > MAX_DB_COUNT)
+		return;
+
 	ntb_epc = ntb->epc[type];
 	epc = ntb_epc->epc;
 
