@@ -2799,10 +2799,9 @@ no_cfg:
 	return 0;
 }
 
-static int dispc7_wb_find_free_ovr(struct dispc_device *dispc)
+static void dispc7_wb_find_free_ovr(struct dispc_device *dispc)
 {
 	struct tidss_device *tidss = dispc->tidss;
-	struct device *dev = tidss->dev;
 	int i, j;
 	bool found;
 	u32 ovr_id = 0xff;
@@ -2825,18 +2824,10 @@ static int dispc7_wb_find_free_ovr(struct dispc_device *dispc)
 		}
 	}
 
-	if (ovr_id != 0xff) {
+	if (ovr_id != 0xff)
 		dispc->wb_reserved_ovr = ovr_id;
-
-		dev_info(dev, "%s: found ovr %s (%d)\n", __func__,
-			 tidss->dispc_ops->vp_name(tidss->dispc, ovr_id), ovr_id);
-
-		return 0;
-	}
-
-	dispc->wb_managed = false;
-	dev_warn(dev, "%s: No OVR available for WB, disabling WB.\n", __func__);
-	return -1;
+	else
+		dispc->wb_managed = false;
 }
 
 static u32 dispc7_wb_get_reserved_ovr(struct dispc_device *dispc)
