@@ -613,7 +613,7 @@ static int cdns_pcie_ep_send_msix_irq(struct cdns_pcie_ep *ep, u8 fn, u8 vfn,
 	tbl_addr = ((u64)bar_addr_upper) << 32 | bar_addr_lower;
 	tbl_addr += (tbl_offset + ((interrupt_num - 1) * PCI_MSIX_ENTRY_SIZE));
 	tbl_addr &= PCI_BASE_ADDRESS_MEM_MASK;
-	msix_tbl = phys_to_virt(tbl_addr);
+	msix_tbl = (void __iomem *)phys_to_virt(tbl_addr);
 	if (!msix_tbl)
 		return -EINVAL;
 
