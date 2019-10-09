@@ -1432,14 +1432,6 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 				dev_dbg(mhdp->dev,
 					"Reducing link rate during CR phase\n");
 				lower_link_rate(&mhdp->link);
-				drm_dp_link_configure(&mhdp->aux, &mhdp->link);
-				phy_cfg.dp.link_rate = (mhdp->link.rate / 100);
-				phy_cfg.dp.lanes = (mhdp->link.num_lanes);
-				phy_cfg.dp.ssc = false;
-				phy_cfg.dp.set_lanes = false;
-				phy_cfg.dp.set_rate = true;
-				phy_cfg.dp.set_voltages = false;
-				phy_configure(mhdp->phy,  &phy_cfg);
 
 				continue;
 			} else if (mhdp->link.num_lanes > 1) {
@@ -1448,14 +1440,6 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 				mhdp->link.num_lanes >>= 1;
 				mhdp->link.rate = max_link_rate(mhdp->host,
 								mhdp->sink);
-				drm_dp_link_configure(&mhdp->aux, &mhdp->link);
-				phy_cfg.dp.link_rate = (mhdp->link.rate / 100);
-				phy_cfg.dp.lanes = (mhdp->link.num_lanes);
-				phy_cfg.dp.ssc = false;
-				phy_cfg.dp.set_lanes = true;
-				phy_cfg.dp.set_rate = false;
-				phy_cfg.dp.set_voltages = false;
-				phy_configure(mhdp->phy,  &phy_cfg);
 
 				continue;
 			}
@@ -1473,14 +1457,6 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 			dev_dbg(mhdp->dev,
 				"Reducing lanes number during EQ phase\n");
 			mhdp->link.num_lanes >>= 1;
-			drm_dp_link_configure(&mhdp->aux, &mhdp->link);
-			phy_cfg.dp.link_rate = (mhdp->link.rate / 100);
-			phy_cfg.dp.lanes = (mhdp->link.num_lanes);
-			phy_cfg.dp.ssc = false;
-			phy_cfg.dp.set_lanes = true;
-			phy_cfg.dp.set_rate = false;
-			phy_cfg.dp.set_voltages = false;
-			phy_configure(mhdp->phy,  &phy_cfg);
 
 			continue;
 		} else if (drm_dp_link_rate_to_bw_code(mhdp->link.rate) !=
@@ -1488,14 +1464,6 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 			dev_dbg(mhdp->dev,
 				"Reducing link rate during EQ phase\n");
 			lower_link_rate(&mhdp->link);
-			drm_dp_link_configure(&mhdp->aux, &mhdp->link);
-			phy_cfg.dp.link_rate = (mhdp->link.rate / 100);
-			phy_cfg.dp.lanes = (mhdp->link.num_lanes);
-			phy_cfg.dp.ssc = false;
-			phy_cfg.dp.set_lanes = false;
-			phy_cfg.dp.set_rate = true;
-			phy_cfg.dp.set_voltages = false;
-			phy_configure(mhdp->phy,  &phy_cfg);
 
 			continue;
 		}
