@@ -737,7 +737,7 @@ static void wiz_check_dp_usage(struct wiz *wiz, struct device_node *child_node)
 	const char *compat;
 
 	if (of_property_read_string(child_node, "compatible", &compat) == 0)
-		wiz->used_for_dp = !strcmp("cdns,dp-phy", compat);
+		wiz->used_for_dp = !strcmp("cdns,torrent-phy", compat);
 }
 
 static int wiz_probe(struct platform_device *pdev)
