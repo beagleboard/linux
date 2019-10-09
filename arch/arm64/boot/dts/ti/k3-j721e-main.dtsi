@@ -950,9 +950,6 @@
 		reg = <0x00 0x0A000000 0x0 0x30A00>, /* DSS_EDP0_V2A_CORE_VP_REGS_APB - upto PHY mapped area */
 		      <0x00 0x04F40000 0x0 0x20>;    /* DSS_EDP0_INTG_CFG_VP */
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&dp0_pins_default>;
-
 		clocks = <&k3_clks 151 36>;
 
 		phys = <&serdes4>;
@@ -964,25 +961,10 @@
 		power-domains = <&k3_pds 151 TI_SCI_PD_EXCLUSIVE>;
 
 		/* TODO: No audio config yet */
-		/* TODO: Pinmux for eDP output pins */
 
-		ports {
+		dp0_ports: ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				dp_bridge_input: endpoint {
-					remote-endpoint = <&dpi_out_real0>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-				dp_bridge_output: endpoint {
-					remote-endpoint = <&dp_connector_in>;
-				};
-			};
 		};
 	};
 

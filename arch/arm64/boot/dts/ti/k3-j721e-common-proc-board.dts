@@ -439,6 +439,30 @@
 	lane3-mode = <PHY_TYPE_DP>;
 };
 
+&mhdp {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dp0_pins_default>;
+};
+
+&dp0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	port@0 {
+		reg = <0>;
+		dp_bridge_input: endpoint {
+			remote-endpoint = <&dpi_out_real0>;
+		};
+	};
+
+	port@1 {
+		reg = <1>;
+		dp_bridge_output: endpoint {
+			remote-endpoint = <&dp_connector_in>;
+		};
+	};
+};
+
 &main_i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_i2c0_pins_default>;
