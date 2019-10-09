@@ -1578,12 +1578,6 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 	u32 resp;
 	u8 reg0[DP_RECEIVER_CAP_SIZE], amp[2];
 
-	/*
-	 * Upon power-on reset/device disconnection: [2:0] bits should be 0b001
-	 * and [7:5] bits 0b000.
-	 */
-	drm_dp_dpcd_writeb(&mhdp->aux, DP_SET_POWER, 1);
-
 	drm_dp_link_probe(&mhdp->aux, &mhdp->link);
 
 	dev_dbg(mhdp->dev, "Set sink device power state via DPCD\n");
