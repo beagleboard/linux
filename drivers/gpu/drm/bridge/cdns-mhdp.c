@@ -1573,6 +1573,26 @@ static u32 get_training_interval_us(struct cdns_mhdp_device *mhdp,
 	return 0;
 }
 
+static void mhdp_fill_sink_caps(struct cdns_mhdp_device *mhdp,
+				u8 dpcd[DP_RECEIVER_CAP_SIZE])
+{
+	mhdp->sink.link_rate = mhdp->link.rate;
+	mhdp->sink.lanes_cnt = mhdp->link.num_lanes;
+	mhdp->sink.enhanced = !!(mhdp->link.capabilities &
+				 DP_LINK_CAP_ENHANCED_FRAMING);
+
+	/* Set TPS support */
+	mhdp->sink.pattern_supp = CDNS_SUPPORT_TPS(1) | CDNS_SUPPORT_TPS(2);
+	if (drm_dp_tps3_supported(dpcd))
+		mhdp->sink.pattern_supp |= CDNS_SUPPORT_TPS(3);
+	if (drm_dp_tps4_supported(dpcd))
+		mhdp->sink.pattern_supp |= CDNS_SUPPORT_TPS(4);
+
+	/* Set fast link support */
+	mhdp->sink.fast_link = !!(dpcd[DP_MAX_DOWNSPREAD] &
+				  DP_NO_AUX_HANDSHAKE_LINK_TRAINING);
+}
+
 static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 {
 	u32 resp;
@@ -1588,11 +1608,6 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 	/* FIXME (CDNS): do we have to wait for 100ms before going on? */
 	mdelay(100);
 
-	mhdp->sink.link_rate = mhdp->link.rate;
-	mhdp->sink.lanes_cnt = mhdp->link.num_lanes;
-	mhdp->sink.enhanced = !!(mhdp->link.capabilities &
-				 DP_LINK_CAP_ENHANCED_FRAMING);
-
 	drm_dp_dpcd_readb(&mhdp->aux, DP_TRAINING_AUX_RD_INTERVAL, &ext_cap_chk);
 
 	if (ext_cap_chk & DP_EXTENDED_RECEIVER_CAP_FIELD_PRESENT)
@@ -1606,14 +1621,7 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 		return err;
 	}
 
-	mhdp->sink.pattern_supp = CDNS_SUPPORT_TPS(1) | CDNS_SUPPORT_TPS(2);
-	if (drm_dp_tps3_supported(reg0))
-		mhdp->sink.pattern_supp |= CDNS_SUPPORT_TPS(3);
-	if (drm_dp_tps4_supported(reg0))
-		mhdp->sink.pattern_supp |= CDNS_SUPPORT_TPS(4);
-
-	mhdp->sink.fast_link = !!(reg0[DP_MAX_DOWNSPREAD] &
-				  DP_NO_AUX_HANDSHAKE_LINK_TRAINING);
+	mhdp_fill_sink_caps(mhdp, reg0);
 
 	mhdp->link.rate = max_link_rate(mhdp->host, mhdp->sink);
 	mhdp->link.num_lanes = min_t(u8, mhdp->sink.lanes_cnt,
