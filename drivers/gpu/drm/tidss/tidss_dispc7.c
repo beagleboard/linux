@@ -1316,7 +1316,7 @@ static void dispc7_wb_write_csc(struct dispc_device *dispc,
 }
 
 /* YUV -> RGB, ITU-R BT.601, full range */
-const static struct dispc7_csc_coef csc_yuv2rgb_bt601_full = {
+static const struct dispc7_csc_coef csc_yuv2rgb_bt601_full = {
 	dispc7_csc_yuv2rgb_regval,
 	{ 256,   0,  358,	/* ry, rcb, rcr |1.000  0.000  1.402|*/
 	  256, -88, -182,	/* gy, gcb, gcr |1.000 -0.344 -0.714|*/
@@ -1328,7 +1328,7 @@ const static struct dispc7_csc_coef csc_yuv2rgb_bt601_full = {
 };
 
 /* YUV -> RGB, ITU-R BT.601, limited range */
-const static struct dispc7_csc_coef csc_yuv2rgb_bt601_lim = {
+static const struct dispc7_csc_coef csc_yuv2rgb_bt601_lim = {
 	dispc7_csc_yuv2rgb_regval,
 	{ 298,    0,  409,	/* ry, rcb, rcr |1.164  0.000  1.596|*/
 	  298, -100, -208,	/* gy, gcb, gcr |1.164 -0.392 -0.813|*/
@@ -1340,7 +1340,7 @@ const static struct dispc7_csc_coef csc_yuv2rgb_bt601_lim = {
 };
 
 /* YUV -> RGB, ITU-R BT.709, full range */
-const static struct dispc7_csc_coef csc_yuv2rgb_bt709_full = {
+static const struct dispc7_csc_coef csc_yuv2rgb_bt709_full = {
 	dispc7_csc_yuv2rgb_regval,
 	{ 256,	  0,  402,	/* ry, rcb, rcr |1.000	0.000  1.570|*/
 	  256,  -48, -120,	/* gy, gcb, gcr |1.000 -0.187 -0.467|*/
@@ -1352,7 +1352,7 @@ const static struct dispc7_csc_coef csc_yuv2rgb_bt709_full = {
 };
 
 /* YUV -> RGB, ITU-R BT.709, limited range */
-const static struct dispc7_csc_coef csc_yuv2rgb_bt709_lim = {
+static const struct dispc7_csc_coef csc_yuv2rgb_bt709_lim = {
 	dispc7_csc_yuv2rgb_regval,
 	{ 298,    0,  459,	/* ry, rcb, rcr |1.164  0.000  1.793|*/
 	  298,  -55, -136,	/* gy, gcb, gcr |1.164 -0.213 -0.533|*/
@@ -1364,7 +1364,7 @@ const static struct dispc7_csc_coef csc_yuv2rgb_bt709_lim = {
 };
 
 /* RGB -> YUV, ITU-R BT.601, full range */
-const static struct dispc7_csc_coef csc_rgb2yuv_bt601_full = {
+static const struct dispc7_csc_coef csc_rgb2yuv_bt601_full = {
 	dispc7_csc_rgb2yuv_regval,
 	{ 77,  150,  29,	/* yr,   yg,  yb | 0.299  0.587  0.114|*/
 	 -43,  -85, 128,	/* cbr, cbg, cbb |-0.173 -0.339  0.511|*/
@@ -1376,7 +1376,7 @@ const static struct dispc7_csc_coef csc_rgb2yuv_bt601_full = {
 };
 
 /* RGB -> YUV, ITU-R BT.601, limited range */
-const static struct dispc7_csc_coef csc_rgb2yuv_bt601_lim = {
+static const struct dispc7_csc_coef csc_rgb2yuv_bt601_lim = {
 	dispc7_csc_rgb2yuv_regval,
 	{ 66,  129,  25,	/* yr,   yg,  yb | 0.257  0.504  0.098|*/
 	 -38,  -74, 112,	/* cbr, cbg, cbb |-0.148 -0.291  0.439|*/
@@ -1388,7 +1388,7 @@ const static struct dispc7_csc_coef csc_rgb2yuv_bt601_lim = {
 };
 
 /* RGB -> YUV, ITU-R BT.709, full range */
-const static struct dispc7_csc_coef csc_rgb2yuv_bt709_full = {
+static const struct dispc7_csc_coef csc_rgb2yuv_bt709_full = {
 	dispc7_csc_rgb2yuv_regval,
 	{ 54,  183,  18,	/* yr,   yg,  yb | 0.1826  0.6142  0.0620|*/
 	 -30, -101, 131,	/* cbr, cbg, cbb |-0.1006 -0.3386  0.4392|*/
@@ -1400,7 +1400,7 @@ const static struct dispc7_csc_coef csc_rgb2yuv_bt709_full = {
 };
 
 /* RGB -> YUV, ITU-R BT.709, limited range */
-const static struct dispc7_csc_coef csc_rgb2yuv_bt709_lim = {
+static const struct dispc7_csc_coef csc_rgb2yuv_bt709_lim = {
 	dispc7_csc_rgb2yuv_regval,
 	{ 47,  157,   16,	/* yr,   yg,  yb | 0.1826  0.6142  0.0620|*/
 	 -26,  -87,  112,	/* cbr, cbg, cbb |-0.1006 -0.3386  0.4392|*/
@@ -1417,7 +1417,7 @@ struct dispc7_csc_entry {
 	const struct dispc7_csc_coef *csc;
 };
 
-const static struct dispc7_csc_entry dispc7_yuv2rgb_table[] = {
+static const struct dispc7_csc_entry dispc7_yuv2rgb_table[] = {
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_FULL_RANGE,
 	  &csc_yuv2rgb_bt601_full, },
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_LIMITED_RANGE,
@@ -1428,7 +1428,7 @@ const static struct dispc7_csc_entry dispc7_yuv2rgb_table[] = {
 	  &csc_yuv2rgb_bt709_lim, },
 };
 
-const static struct dispc7_csc_entry dispc7_rgb2yuv_table[] = {
+static const struct dispc7_csc_entry dispc7_rgb2yuv_table[] = {
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_FULL_RANGE,
 	  &csc_rgb2yuv_bt601_full, },
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_LIMITED_RANGE,
@@ -1469,7 +1469,7 @@ struct dispc7_csc_coef *dispc7_find_csc(enum dispc7_csc_direction direction,
 static void dispc7_vid_csc_setup(struct dispc_device *dispc, u32 hw_plane,
 				 const struct drm_plane_state *state)
 {
-	const static struct dispc7_csc_coef *coef;
+	static const struct dispc7_csc_coef *coef;
 
 	coef = dispc7_find_csc(DISPC7_YUV2RGB, state->color_encoding,
 			       state->color_range);
@@ -1491,7 +1491,7 @@ static void dispc7_vid_csc_enable(struct dispc_device *dispc, u32 hw_plane,
 static void dispc7_wb_csc_setup(struct dispc_device *dispc,
 				const struct drm_plane_state *state)
 {
-	const static struct dispc7_csc_coef *coef;
+	static const struct dispc7_csc_coef *coef;
 
 	coef = dispc7_find_csc(DISPC7_RGB2YUV, state->color_encoding,
 			       state->color_range);
