@@ -641,6 +641,12 @@ static unsigned int max_link_rate(struct cdns_mhdp_host host,
 	return min(host.link_rate, sink.link_rate);
 }
 
+static u8 mhdp_max_num_lanes(struct cdns_mhdp_host host,
+			     struct cdns_mhdp_sink sink)
+{
+	return min_t(u8, sink.lanes_cnt, host.lanes_cnt);
+}
+
 static u8 eq_training_pattern_supported(struct cdns_mhdp_host host,
 					struct cdns_mhdp_sink sink)
 {
@@ -1464,6 +1470,7 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 			dev_dbg(mhdp->dev,
 				"Reducing link rate during EQ phase\n");
 			lower_link_rate(&mhdp->link);
+			mhdp->link.num_lanes = mhdp_max_num_lanes(mhdp->host, mhdp->sink);
 
 			continue;
 		}
@@ -1592,8 +1599,7 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 	mhdp_fill_sink_caps(mhdp, reg0);
 
 	mhdp->link.rate = max_link_rate(mhdp->host, mhdp->sink);
-	mhdp->link.num_lanes = min_t(u8, mhdp->sink.lanes_cnt,
-				     mhdp->host.lanes_cnt & GENMASK(2, 0));
+	mhdp->link.num_lanes = mhdp_max_num_lanes(mhdp->host, mhdp->sink);
 
 	/* Disable framer for link training */
 	cdns_mhdp_reg_read(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, &resp);
