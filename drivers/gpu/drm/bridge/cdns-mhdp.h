@@ -204,6 +204,7 @@ struct cdns_mhdp_sink {
 	u8 pattern_supp;
 	u8 fast_link : 1;
 	u8 enhanced : 1;
+	u8 ssc : 1;
 };
 
 struct cdns_mhdp_display_fmt {

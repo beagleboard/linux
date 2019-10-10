@@ -653,6 +653,12 @@ static u8 eq_training_pattern_supported(struct cdns_mhdp_host host,
 	return fls(host.pattern_supp & sink.pattern_supp);
 }
 
+static bool mhdp_get_ssc_supported(struct cdns_mhdp_device *mhdp)
+{
+	/* Check if SSC is supported by both sides */
+	return (mhdp->host.ssc) && (mhdp->sink.ssc);
+}
+
 static int mhdp_fw_activate(const struct firmware *fw,
 			    struct cdns_mhdp_device *mhdp)
 {
@@ -1117,7 +1123,7 @@ static void mhdp_link_training_init(struct cdns_mhdp_device *mhdp)
 		phy_cfg.dp.voltage[i] = 0;
 		phy_cfg.dp.pre[i] = 0;
 	}
-	phy_cfg.dp.ssc = false;
+	phy_cfg.dp.ssc = mhdp_get_ssc_supported(mhdp);
 	phy_cfg.dp.set_lanes = true;
 	phy_cfg.dp.set_rate = true;
 	phy_cfg.dp.set_voltages = true;
@@ -1249,7 +1255,7 @@ static bool mhdp_link_training_channel_eq(struct cdns_mhdp_device *mhdp,
 	do {
 		mhdp_get_adjust_train(mhdp, link_status, lanes_data, &phy_cfg);
 		phy_cfg.dp.lanes = (mhdp->link.num_lanes);
-		phy_cfg.dp.ssc = false;
+		phy_cfg.dp.ssc = mhdp_get_ssc_supported(mhdp);
 		phy_cfg.dp.set_lanes = false;
 		phy_cfg.dp.set_rate = false;
 		phy_cfg.dp.set_voltages = true;
@@ -1360,7 +1366,7 @@ static bool mhdp_link_training_cr(struct cdns_mhdp_device *mhdp)
 
 		mhdp_get_adjust_train(mhdp, link_status, lanes_data, &phy_cfg);
 		phy_cfg.dp.lanes = (mhdp->link.num_lanes);
-		phy_cfg.dp.ssc = false;
+		phy_cfg.dp.ssc = mhdp_get_ssc_supported(mhdp);
 		phy_cfg.dp.set_lanes = false;
 		phy_cfg.dp.set_rate = false;
 		phy_cfg.dp.set_voltages = true;
@@ -1556,6 +1562,10 @@ static void mhdp_fill_sink_caps(struct cdns_mhdp_device *mhdp,
 	mhdp->sink.enhanced = !!(mhdp->link.capabilities &
 				 DP_LINK_CAP_ENHANCED_FRAMING);
 
+	/* Set SSC support */
+	mhdp->sink.ssc = !!(dpcd[DP_MAX_DOWNSPREAD] &
+				  DP_MAX_DOWNSPREAD_0_5);
+
 	/* Set TPS support */
 	mhdp->sink.pattern_supp = CDNS_SUPPORT_TPS(1) | CDNS_SUPPORT_TPS(2);
 	if (drm_dp_tps3_supported(dpcd))
@@ -1607,7 +1617,7 @@ static int cdns_mhdp_link_up(struct cdns_mhdp_device *mhdp)
 	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, resp);
 
 	/* Spread AMP if required, enable 8b/10b coding */
-	amp[0] = mhdp->host.ssc ? DP_SPREAD_AMP_0_5 : 0;
+	amp[0] = mhdp_get_ssc_supported(mhdp) ? DP_SPREAD_AMP_0_5 : 0;
 	amp[1] = DP_SET_ANSI_8B10B;
 	drm_dp_dpcd_write(&mhdp->aux, DP_DOWNSPREAD_CTRL, amp, 2);
 
