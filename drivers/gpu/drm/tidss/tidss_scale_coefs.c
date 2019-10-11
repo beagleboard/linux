@@ -121,13 +121,6 @@ static const struct tidss_scale_coefs coef3_M8 = {
 	.c0 = { 512, 502, 492, 462, 432, 390, 348, 174, 256, },
 };
 
-/* Nearest neigbor coefficients for testing */
-static const struct tidss_scale_coefs coefs_null = {
-	.c2 = { 0 },
-	.c1 = { 0 },
-	.c0 = { 512, 512, 512, 512, 512, 512, 512, 512, 256,  },
-};
-
 const struct tidss_scale_coefs *tidss_get_scale_coefs(struct device *dev,
 						      u32 firinc,
 						      bool five_taps)
