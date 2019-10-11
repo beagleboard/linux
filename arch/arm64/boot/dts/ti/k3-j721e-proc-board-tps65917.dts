@@ -476,6 +476,7 @@
 };
 
 &mhdp {
+	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&dp0_pins_default>;
 };
