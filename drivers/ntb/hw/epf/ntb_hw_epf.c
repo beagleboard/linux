@@ -572,6 +572,9 @@ static int ntb_epf_pci_probe(struct pci_dev *pdev,
 	struct ntb_epf_dev *ndev;
 	int ret;
 
+	if (pci_is_bridge(pdev))
+		return -ENODEV;
+
 	ndev = devm_kzalloc(dev, sizeof(*ndev), GFP_KERNEL);
 	if (!ndev)
 		return -ENOMEM;
