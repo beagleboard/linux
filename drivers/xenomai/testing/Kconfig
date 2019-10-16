@@ -1,0 +1,23 @@
+menu "Testing drivers"
+
+config XENO_DRIVERS_TIMERBENCH
+	tristate "Timer benchmark driver"
+	default y
+	help
+	Kernel-based benchmark driver for timer latency evaluation.
+	See testsuite/latency for a possible front-end.
+
+config XENO_DRIVERS_SWITCHTEST
+	tristate "Context switch unit testing driver"
+	default y
+	help
+	Kernel-based driver for unit testing context switches and
+	FPU switches.
+
+config XENO_DRIVERS_RTDMTEST
+	depends on m
+	tristate "RTDM unit tests driver"
+	help
+	Kernel driver for performing RTDM unit tests.
+
+endmenu
