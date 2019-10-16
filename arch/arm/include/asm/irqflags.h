@@ -6,6 +6,10 @@
 
 #include <asm/ptrace.h>
 
+#include <asm/ipipe_hwirq.h>
+
+#ifndef CONFIG_IPIPE
+
 /*
  * CPU interrupt mask handling.
  */
@@ -56,13 +60,6 @@ static inline void arch_local_irq_disable(void)
 #define local_fiq_enable()  __asm__("cpsie f	@ __stf" : : : "memory", "cc")
 #define local_fiq_disable() __asm__("cpsid f	@ __clf" : : : "memory", "cc")
 
-#ifndef CONFIG_CPU_V7M
-#define local_abt_enable()  __asm__("cpsie a	@ __sta" : : : "memory", "cc")
-#define local_abt_disable() __asm__("cpsid a	@ __cla" : : : "memory", "cc")
-#else
-#define local_abt_enable()	do { } while (0)
-#define local_abt_disable()	do { } while (0)
-#endif
 #else
 
 /*
@@ -182,6 +179,16 @@ static inline int arch_irqs_disabled_flags(unsigned long flags)
 }
 
 #include <asm-generic/irqflags.h>
+
+#endif /* ifndef IPIPE */
+
+#ifndef CONFIG_CPU_V7M
+#define local_abt_enable()  __asm__("cpsie a	@ __sta" : : : "memory", "cc")
+#define local_abt_disable() __asm__("cpsid a	@ __cla" : : : "memory", "cc")
+#else
+#define local_abt_enable()	do { } while (0)
+#define local_abt_disable()	do { } while (0)
+#endif
 
 #endif /* ifdef __KERNEL__ */
 #endif /* ifndef __ASM_ARM_IRQFLAGS_H */
