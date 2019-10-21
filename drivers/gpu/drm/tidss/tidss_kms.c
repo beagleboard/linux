@@ -148,7 +148,7 @@ int tidss_modeset_init(struct tidss_device *tidss)
 
 	ret = tidss->dispc_ops->modeset_init(tidss->dispc);
 	if (ret)
-		return ret;
+		goto err_mode_config_cleanup;
 
 	if (tidss->rdev) {
 		tidss->rdev->device.display.ops->get_res_info(tidss->rdev, &tidss->rres);
@@ -158,14 +158,16 @@ int tidss_modeset_init(struct tidss_device *tidss)
 
 		for (i = 0; i < tidss->rres.num_disps; i++) {
 			tidss->v_crtcs[i] = tidss_v_modeset_init_v_crtc(tidss, &tidss->rres.disps[i]);
-			if (!tidss->v_crtcs[i])
-				return -ENOMEM;
+			if (!tidss->v_crtcs[i]) {
+				ret = -ENOMEM;
+				goto err_mode_config_cleanup;
+			}
 		}
 	}
 
 	ret = drm_vblank_init(ddev, tidss->num_crtcs + tidss->num_v_crtcs);
 	if (ret)
-		return ret;
+		goto err_mode_config_cleanup;
 
 	/* Start with vertical blanking interrupt reporting disabled. */
 	for (i = 0; i < tidss->num_crtcs; ++i)
@@ -179,4 +181,15 @@ int tidss_modeset_init(struct tidss_device *tidss)
 	dev_dbg(tidss->dev, "%s done\n", __func__);
 
 	return 0;
+
+err_mode_config_cleanup:
+	drm_mode_config_cleanup(ddev);
+	return ret;
+}
+
+void tidss_modeset_cleanup(struct tidss_device *tidss)
+{
+	struct drm_device *ddev = tidss->ddev;
+
+	drm_mode_config_cleanup(ddev);
 }
