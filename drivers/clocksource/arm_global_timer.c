@@ -23,6 +23,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/sched_clock.h>
+#include <linux/ipipe_tickdev.h>
 
 #include <asm/cputype.h>
 
@@ -49,9 +50,68 @@
  * the units for all operations.
  */
 static void __iomem *gt_base;
+static unsigned long gt_pbase;
+static struct clk *gt_clk;
 static unsigned long gt_clk_rate;
 static int gt_ppi;
 static struct clock_event_device __percpu *gt_evt;
+
+#ifdef CONFIG_IPIPE
+
+static struct clocksource gt_clocksource;
+
+static int gt_clockevent_ack(struct clock_event_device *evt);
+
+static DEFINE_PER_CPU(struct ipipe_timer, gt_itimer);
+
+static unsigned int refresh_gt_freq(void)
+{
+	gt_clk_rate = clk_get_rate(gt_clk);
+
+	__clocksource_update_freq_hz(&gt_clocksource, gt_clk_rate);
+
+	return gt_clk_rate;
+}
+
+static inline void gt_ipipe_cs_setup(void)
+{
+	struct __ipipe_tscinfo tsc_info = {
+		.type = IPIPE_TSC_TYPE_FREERUNNING,
+		.freq = gt_clk_rate,
+		.counter_vaddr = (unsigned long)gt_base,
+		.u = {
+			{
+				.counter_paddr = gt_pbase,
+				.mask = 0xffffffff,
+			}
+		},
+		.refresh_freq = refresh_gt_freq,
+	};
+
+	__ipipe_tsc_register(&tsc_info);
+}
+
+static void gt_itimer_ack(void)
+{
+	struct clock_event_device *evt = this_cpu_ptr(gt_evt);
+	gt_clockevent_ack(evt);
+}
+
+static inline void gt_ipipe_evt_setup(struct clock_event_device *evt)
+{
+	evt->ipipe_timer = this_cpu_ptr(&gt_itimer);
+	evt->ipipe_timer->irq = evt->irq;
+	evt->ipipe_timer->ack = gt_itimer_ack;
+	evt->ipipe_timer->freq = gt_clk_rate;
+}
+
+#else
+
+static inline void gt_ipipe_cs_setup(void) { }
+
+static inline void gt_ipipe_evt_setup(struct clock_event_device *evt) { }
+
+#endif /* CONFIG_IPIPE */
 
 /*
  * To get the value from the Global Timer Counter register proceed as follows:
@@ -137,13 +197,11 @@ static int gt_clockevent_set_next_event(unsigned long evt,
 	return 0;
 }
 
-static irqreturn_t gt_clockevent_interrupt(int irq, void *dev_id)
+static int gt_clockevent_ack(struct clock_event_device *evt)
 {
-	struct clock_event_device *evt = dev_id;
-
 	if (!(readl_relaxed(gt_base + GT_INT_STATUS) &
 				GT_INT_STATUS_EVENT_FLAG))
-		return IRQ_NONE;
+		return IS_ENABLED(CONFIG_IPIPE);
 
 	/**
 	 * ERRATA 740657( Global Timer can send 2 interrupts for
@@ -156,10 +214,23 @@ static irqreturn_t gt_clockevent_interrupt(int irq, void *dev_id)
 	 *	the Global Timer flag _after_ having incremented
 	 *	the Comparator register	value to a higher value.
 	 */
-	if (clockevent_state_oneshot(evt))
+	if (clockevent_ipipe_stolen(evt) || clockevent_state_oneshot(evt))
 		gt_compare_set(ULONG_MAX, 0);
 
 	writel_relaxed(GT_INT_STATUS_EVENT_FLAG, gt_base + GT_INT_STATUS);
+
+	return 1;
+}
+
+static irqreturn_t gt_clockevent_interrupt(int irq, void *dev_id)
+{
+	struct clock_event_device *evt = dev_id;
+
+	if (!clockevent_ipipe_stolen(evt)) {
+		if (!gt_clockevent_ack(evt))
+			return IRQ_NONE;
+	}
+
 	evt->event_handler(evt);
 
 	return IRQ_HANDLED;
@@ -180,6 +251,7 @@ static int gt_starting_cpu(unsigned int cpu)
 	clk->cpumask = cpumask_of(cpu);
 	clk->rating = 300;
 	clk->irq = gt_ppi;
+	gt_ipipe_evt_setup(clk);
 	clockevents_config_and_register(clk, gt_clk_rate,
 					1, 0xffffffff);
 	enable_percpu_irq(clk->irq, IRQ_TYPE_NONE);
@@ -252,13 +324,14 @@ static int __init gt_clocksource_init(void)
 #ifdef CONFIG_CLKSRC_ARM_GLOBAL_TIMER_SCHED_CLOCK
 	sched_clock_register(gt_sched_clock_read, 64, gt_clk_rate);
 #endif
+	gt_ipipe_cs_setup();
 	return clocksource_register_hz(&gt_clocksource, gt_clk_rate);
 }
 
 static int __init global_timer_of_register(struct device_node *np)
 {
-	struct clk *gt_clk;
 	int err = 0;
+	struct resource res;
 
 	/*
 	 * In A9 r2p0 the comparators for each processor with the global timer
@@ -282,6 +355,11 @@ static int __init global_timer_of_register(struct device_node *np)
 		pr_warn("global-timer: invalid base address\n");
 		return -ENXIO;
 	}
+
+	if (of_address_to_resource(np, 0, &res))
+		res.start = 0;
+
+	gt_pbase = res.start;
 
 	gt_clk = of_clk_get(np, 0);
 	if (!IS_ERR(gt_clk)) {

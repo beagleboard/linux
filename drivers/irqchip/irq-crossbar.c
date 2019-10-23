@@ -16,6 +16,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/slab.h>
+#include <linux/ipipe.h>
 
 #define IRQ_FREE	-1
 #define IRQ_RESERVED	-2
@@ -69,9 +70,14 @@ static struct irq_chip crossbar_chip = {
 	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_set_type		= irq_chip_set_type_parent,
 	.flags			= IRQCHIP_MASK_ON_SUSPEND |
-				  IRQCHIP_SKIP_SET_WAKE,
+				  IRQCHIP_SKIP_SET_WAKE |
+				  IRQCHIP_PIPELINE_SAFE,
 #ifdef CONFIG_SMP
 	.irq_set_affinity	= irq_chip_set_affinity_parent,
+#endif
+#ifdef CONFIG_IPIPE
+	.irq_hold		= irq_chip_hold_parent,
+	.irq_release		= irq_chip_release_parent,
 #endif
 };
 
