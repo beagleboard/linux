@@ -33,9 +33,13 @@
 #include "tidss_scale_coefs.h"
 #include "tidss_dispc7.h"
 
+static const char *dispc7_plane_name(struct dispc_device *dispc, u32 hw_plane);
+
 static const struct dispc7_features dispc7_am6_feats = {
-	.min_pclk = 1000,
-	.max_pclk = 200000000,
+	.max_pclk_kHz = {
+		[DISPC7_VP_DPI] = 165000,
+		[DISPC7_VP_OLDI] = 165000,
+	},
 
 	.num_commons = 1,
 	.common_name = { "common" },
@@ -86,8 +90,10 @@ static const struct dispc7_features dispc7_am6_feats = {
 };
 
 static const struct dispc7_features dispc7_j721e_feats = {
-	.min_pclk = 1000,
-	.max_pclk = 600000000,
+	.max_pclk_kHz = {
+		[DISPC7_VP_DPI] = 170000,
+		[DISPC7_VP_INTERNAL] = 600000,
+	},
 
 	.num_commons = 4,
 	.common_name = { "common_m", "common_s0", "common_s1", "common_s2" },
@@ -117,8 +123,9 @@ static const struct dispc7_features dispc7_j721e_feats = {
 	.vp_name = { "vp1", "vp2", "vp3", "vp4" },
 	.ovr_name = { "ovr1", "ovr2", "ovr3", "ovr4" },
 	.vpclk_name = { "vp1", "vp2", "vp3", "vp4" },
-	.vp_bus_type =	{ DISPC7_VP_DPI, DISPC7_VP_DPI,
-			  DISPC7_VP_DPI, DISPC7_VP_DPI, },
+	/* Currently hard coded VP routing (see dispc7_initial_config()) */
+	.vp_bus_type =	{ DISPC7_VP_INTERNAL, DISPC7_VP_DPI,
+			  DISPC7_VP_INTERNAL, DISPC7_VP_DPI, },
 	.vp_feat = { .color = {
 			.has_ctm = true,
 			.gamma_size = 1024,
@@ -707,25 +714,25 @@ static void dispc7_write_irqenable(struct dispc_device *dispc, u64 mask)
 	dispc7_intr_read(dispc, DISPC_IRQENABLE_SET);
 }
 
-enum dispc7_oldi_mode { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
+enum dispc7_oldi_mode_reg_val { SPWG_18 = 0, JEIDA_24 = 1, SPWG_24 = 2 };
 
 struct dispc7_bus_format {
 	u32 bus_fmt;
 	u32 data_width;
-	enum dispc7_vp_bus_type bus_type;
-	enum dispc7_oldi_mode oldi_mode;
+	bool is_oldi_fmt;
+	enum dispc7_oldi_mode_reg_val oldi_mode_reg_val;
 };
 
 static const struct dispc7_bus_format dispc7_bus_formats[] = {
-	{ MEDIA_BUS_FMT_RGB444_1X12,		12, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB565_1X16,		16, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB666_1X18,		18, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB888_1X24,		24, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB101010_1X30,		30, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB121212_1X36,		36, DISPC7_VP_DPI, 0 },
-	{ MEDIA_BUS_FMT_RGB666_1X7X3_SPWG,	18, DISPC7_VP_OLDI, SPWG_18 },
-	{ MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,	24, DISPC7_VP_OLDI, SPWG_24 },
-	{ MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA,	24, DISPC7_VP_OLDI, JEIDA_24 },
+	{ MEDIA_BUS_FMT_RGB444_1X12,		12, false, 0 },
+	{ MEDIA_BUS_FMT_RGB565_1X16,		16, false, 0 },
+	{ MEDIA_BUS_FMT_RGB666_1X18,		18, false, 0 },
+	{ MEDIA_BUS_FMT_RGB888_1X24,		24, false, 0 },
+	{ MEDIA_BUS_FMT_RGB101010_1X30,		30, false, 0 },
+	{ MEDIA_BUS_FMT_RGB121212_1X36,		36, false, 0 },
+	{ MEDIA_BUS_FMT_RGB666_1X7X3_SPWG,	18, true, SPWG_18 },
+	{ MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,	24, true, SPWG_24 },
+	{ MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA,	24, true, JEIDA_24 },
 };
 
 static const
@@ -808,7 +815,7 @@ static void dispc7_enable_oldi(struct dispc_device *dispc, u32 hw_videoport,
 
 	oldi_cfg |= BIT(7); /* DEPOL */
 
-	oldi_cfg = FLD_MOD(oldi_cfg, fmt->oldi_mode, 3, 1);
+	oldi_cfg = FLD_MOD(oldi_cfg, fmt->oldi_mode_reg_val, 3, 1);
 
 	oldi_cfg |= BIT(12); /* SOFTRST */
 
@@ -835,9 +842,6 @@ static void dispc7_vp_prepare(struct dispc_device *dispc, u32 hw_videoport,
 				     tstate->bus_flags);
 
 	if (WARN_ON(!fmt))
-		return;
-
-	if (WARN_ON(dispc->feat->vp_bus_type[hw_videoport] != fmt->bus_type))
 		return;
 
 	if (dispc->feat->vp_bus_type[hw_videoport] == DISPC7_VP_OLDI) {
@@ -1002,11 +1006,17 @@ static enum drm_mode_status dispc7_vp_mode_valid(struct dispc_device *dispc,
 						 const struct drm_display_mode *mode)
 {
 	u32 hsw, hfp, hbp, vsw, vfp, vbp;
+	enum dispc7_vp_bus_type bus_type;
+	int max_pclk;
 
-	if (mode->clock * 1000 < dispc->feat->min_pclk)
-		return MODE_CLOCK_LOW;
+	bus_type = dispc->feat->vp_bus_type[hw_videoport];
 
-	if (mode->clock * 1000 > dispc->feat->max_pclk)
+	max_pclk = dispc->feat->max_pclk_kHz[bus_type];
+
+	if (WARN_ON(max_pclk == 0))
+		return MODE_BAD;
+
+	if (mode->clock > max_pclk)
 		return MODE_CLOCK_HIGH;
 
 	if (mode->hdisplay > 4096)
@@ -1018,6 +1028,17 @@ static enum drm_mode_status dispc7_vp_mode_valid(struct dispc_device *dispc,
 	/* TODO: add interlace support */
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		return MODE_NO_INTERLACE;
+
+	/*
+	 * Enforce the output width is divisible by 2. Actually this
+	 * is only needed in following cases:
+	 * - YUV output selected (BT656, BT1120)
+	 * - Dithering enabled
+	 * - TDM with TDMCycleFormat == 3
+	 * But for simplicity we enforce that always.
+	 */
+	if ((mode->hdisplay % 2) != 0)
+		return MODE_BAD_HVALUE;
 
 	hfp = mode->hsync_start - mode->hdisplay;
 	hsw = mode->hsync_end - mode->hsync_start;
@@ -1033,8 +1054,7 @@ static enum drm_mode_status dispc7_vp_mode_valid(struct dispc_device *dispc,
 		return MODE_BAD_HVALUE;
 
 	if (vsw < 1 || vsw > 256 ||
-	    vfp < 0 || vfp > 4095 ||
-	    vbp < 0 || vbp > 4095)
+	    vfp > 4095 || vbp > 4095)
 		return MODE_BAD_VVALUE;
 
 	return MODE_OK;
@@ -1063,10 +1083,10 @@ static int dispc7_vp_check(struct dispc_device *dispc, u32 hw_videoport,
 		return -EINVAL;
 	}
 
-	if (dispc->feat->vp_bus_type[hw_videoport] != fmt->bus_type) {
-		dev_dbg(dispc->dev, "%s: %s is not %s-port\n",
-			__func__, dispc->feat->vp_name[hw_videoport],
-			fmt->bus_type == DISPC7_VP_OLDI ? "OLDI" : "DPI");
+	if (dispc->feat->vp_bus_type[hw_videoport] != DISPC7_VP_OLDI &&
+	    fmt->is_oldi_fmt) {
+		dev_dbg(dispc->dev, "%s: %s is not OLDI-port\n",
+			__func__, dispc->feat->vp_name[hw_videoport]);
 		return -EINVAL;
 	}
 
@@ -1296,7 +1316,7 @@ static void dispc7_wb_write_csc(struct dispc_device *dispc,
 }
 
 /* YUV -> RGB, ITU-R BT.601, full range */
-const static struct dispc7_csc_coef csc_yuv2rgb_bt601_full = {
+static const struct dispc7_csc_coef csc_yuv2rgb_bt601_full = {
 	dispc7_csc_yuv2rgb_regval,
 	{ 256,   0,  358,	/* ry, rcb, rcr |1.000  0.000  1.402|*/
 	  256, -88, -182,	/* gy, gcb, gcr |1.000 -0.344 -0.714|*/
@@ -1308,7 +1328,7 @@ const static struct dispc7_csc_coef csc_yuv2rgb_bt601_full = {
 };
 
 /* YUV -> RGB, ITU-R BT.601, limited range */
-const static struct dispc7_csc_coef csc_yuv2rgb_bt601_lim = {
+static const struct dispc7_csc_coef csc_yuv2rgb_bt601_lim = {
 	dispc7_csc_yuv2rgb_regval,
 	{ 298,    0,  409,	/* ry, rcb, rcr |1.164  0.000  1.596|*/
 	  298, -100, -208,	/* gy, gcb, gcr |1.164 -0.392 -0.813|*/
@@ -1320,7 +1340,7 @@ const static struct dispc7_csc_coef csc_yuv2rgb_bt601_lim = {
 };
 
 /* YUV -> RGB, ITU-R BT.709, full range */
-const static struct dispc7_csc_coef csc_yuv2rgb_bt709_full = {
+static const struct dispc7_csc_coef csc_yuv2rgb_bt709_full = {
 	dispc7_csc_yuv2rgb_regval,
 	{ 256,	  0,  402,	/* ry, rcb, rcr |1.000	0.000  1.570|*/
 	  256,  -48, -120,	/* gy, gcb, gcr |1.000 -0.187 -0.467|*/
@@ -1332,7 +1352,7 @@ const static struct dispc7_csc_coef csc_yuv2rgb_bt709_full = {
 };
 
 /* YUV -> RGB, ITU-R BT.709, limited range */
-const static struct dispc7_csc_coef csc_yuv2rgb_bt709_lim = {
+static const struct dispc7_csc_coef csc_yuv2rgb_bt709_lim = {
 	dispc7_csc_yuv2rgb_regval,
 	{ 298,    0,  459,	/* ry, rcb, rcr |1.164  0.000  1.793|*/
 	  298,  -55, -136,	/* gy, gcb, gcr |1.164 -0.213 -0.533|*/
@@ -1344,7 +1364,7 @@ const static struct dispc7_csc_coef csc_yuv2rgb_bt709_lim = {
 };
 
 /* RGB -> YUV, ITU-R BT.601, full range */
-const static struct dispc7_csc_coef csc_rgb2yuv_bt601_full = {
+static const struct dispc7_csc_coef csc_rgb2yuv_bt601_full = {
 	dispc7_csc_rgb2yuv_regval,
 	{ 77,  150,  29,	/* yr,   yg,  yb | 0.299  0.587  0.114|*/
 	 -43,  -85, 128,	/* cbr, cbg, cbb |-0.173 -0.339  0.511|*/
@@ -1356,7 +1376,7 @@ const static struct dispc7_csc_coef csc_rgb2yuv_bt601_full = {
 };
 
 /* RGB -> YUV, ITU-R BT.601, limited range */
-const static struct dispc7_csc_coef csc_rgb2yuv_bt601_lim = {
+static const struct dispc7_csc_coef csc_rgb2yuv_bt601_lim = {
 	dispc7_csc_rgb2yuv_regval,
 	{ 66,  129,  25,	/* yr,   yg,  yb | 0.257  0.504  0.098|*/
 	 -38,  -74, 112,	/* cbr, cbg, cbb |-0.148 -0.291  0.439|*/
@@ -1368,7 +1388,7 @@ const static struct dispc7_csc_coef csc_rgb2yuv_bt601_lim = {
 };
 
 /* RGB -> YUV, ITU-R BT.709, full range */
-const static struct dispc7_csc_coef csc_rgb2yuv_bt709_full = {
+static const struct dispc7_csc_coef csc_rgb2yuv_bt709_full = {
 	dispc7_csc_rgb2yuv_regval,
 	{ 54,  183,  18,	/* yr,   yg,  yb | 0.1826  0.6142  0.0620|*/
 	 -30, -101, 131,	/* cbr, cbg, cbb |-0.1006 -0.3386  0.4392|*/
@@ -1380,7 +1400,7 @@ const static struct dispc7_csc_coef csc_rgb2yuv_bt709_full = {
 };
 
 /* RGB -> YUV, ITU-R BT.709, limited range */
-const static struct dispc7_csc_coef csc_rgb2yuv_bt709_lim = {
+static const struct dispc7_csc_coef csc_rgb2yuv_bt709_lim = {
 	dispc7_csc_rgb2yuv_regval,
 	{ 47,  157,   16,	/* yr,   yg,  yb | 0.1826  0.6142  0.0620|*/
 	 -26,  -87,  112,	/* cbr, cbg, cbb |-0.1006 -0.3386  0.4392|*/
@@ -1397,7 +1417,7 @@ struct dispc7_csc_entry {
 	const struct dispc7_csc_coef *csc;
 };
 
-const static struct dispc7_csc_entry dispc7_yuv2rgb_table[] = {
+static const struct dispc7_csc_entry dispc7_yuv2rgb_table[] = {
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_FULL_RANGE,
 	  &csc_yuv2rgb_bt601_full, },
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_LIMITED_RANGE,
@@ -1408,7 +1428,7 @@ const static struct dispc7_csc_entry dispc7_yuv2rgb_table[] = {
 	  &csc_yuv2rgb_bt709_lim, },
 };
 
-const static struct dispc7_csc_entry dispc7_rgb2yuv_table[] = {
+static const struct dispc7_csc_entry dispc7_rgb2yuv_table[] = {
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_FULL_RANGE,
 	  &csc_rgb2yuv_bt601_full, },
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_LIMITED_RANGE,
@@ -1449,7 +1469,7 @@ struct dispc7_csc_coef *dispc7_find_csc(enum dispc7_csc_direction direction,
 static void dispc7_vid_csc_setup(struct dispc_device *dispc, u32 hw_plane,
 				 const struct drm_plane_state *state)
 {
-	const static struct dispc7_csc_coef *coef;
+	static const struct dispc7_csc_coef *coef;
 
 	coef = dispc7_find_csc(DISPC7_YUV2RGB, state->color_encoding,
 			       state->color_range);
@@ -1471,7 +1491,7 @@ static void dispc7_vid_csc_enable(struct dispc_device *dispc, u32 hw_plane,
 static void dispc7_wb_csc_setup(struct dispc_device *dispc,
 				const struct drm_plane_state *state)
 {
-	const static struct dispc7_csc_coef *coef;
+	static const struct dispc7_csc_coef *coef;
 
 	coef = dispc7_find_csc(DISPC7_RGB2YUV, state->color_encoding,
 			       state->color_range);
@@ -2398,13 +2418,9 @@ static bool dispc7_has_writeback(struct dispc_device *dispc)
 	return dispc->wb_managed;
 }
 
-static u32 dispc7_vid_get_fifo_size(struct dispc_device *dispc,
-				    u32 hw_plane)
+static u32 dispc7_vid_get_fifo_size(struct dispc_device *dispc, u32 hw_plane)
 {
-	const u32 unit_size = 16;	/* 128-bits */
-
-	return VID_REG_GET(dispc, hw_plane, DISPC_VID_BUF_SIZE_STATUS, 15, 0) *
-	       unit_size;
+	return VID_REG_GET(dispc, hw_plane, DISPC_VID_BUF_SIZE_STATUS, 15, 0);
 }
 
 static void dispc7_vid_set_mflag_threshold(struct dispc_device *dispc,
@@ -2414,31 +2430,16 @@ static void dispc7_vid_set_mflag_threshold(struct dispc_device *dispc,
 			 FLD_VAL(high, 31, 16) | FLD_VAL(low, 15, 0));
 }
 
-static void dispc7_vid_mflag_setup(struct dispc_device *dispc,
-				   u32 hw_plane)
+static void dispc7_vid_set_buf_threshold(struct dispc_device *dispc,
+					 u32 hw_plane, u32 low, u32 high)
 {
-	const u32 unit_size = 16;	/* 128-bits */
-	u32 size = dispc7_vid_get_fifo_size(dispc, hw_plane);
-	u32 low, high;
-
-	/*
-	 * Simulation team suggests below thesholds:
-	 * HT = fifosize * 5 / 8;
-	 * LT = fifosize * 4 / 8;
-	 */
-
-	low = size * 4 / 8 / unit_size;
-	high = size * 5 / 8 / unit_size;
-
-	dispc7_vid_set_mflag_threshold(dispc, hw_plane, low, high);
+	dispc7_vid_write(dispc, hw_plane, DISPC_VID_BUF_THRESHOLD,
+			 FLD_VAL(high, 31, 16) | FLD_VAL(low, 15, 0));
 }
 
 static u32 dispc7_wb_get_fifo_size(struct dispc_device *dispc)
 {
-	const u32 unit_size = 16;	/* 128-bits */
-
-	return WB_REG_GET(dispc, DISPC_VID_BUF_SIZE_STATUS, 15, 0) *
-	       unit_size;
+	return WB_REG_GET(dispc, DISPC_VID_BUF_SIZE_STATUS, 15, 0);
 }
 
 static void dispc7_wb_set_mflag_threshold(struct dispc_device *dispc,
@@ -2448,55 +2449,85 @@ static void dispc7_wb_set_mflag_threshold(struct dispc_device *dispc,
 			FLD_VAL(high, 31, 16) | FLD_VAL(low, 15, 0));
 }
 
-static void dispc7_wb_mflag_setup(struct dispc_device *dispc)
+static void dispc7_wb_set_buf_threshold(struct dispc_device *dispc,
+					 u32 low, u32 high)
 {
-	const u32 unit_size = 16;	/* 128-bits */
-	u32 size = dispc7_wb_get_fifo_size(dispc);
-	u32 low, high;
-
-	/*
-	 * Simulation team suggests below thesholds:
-	 * HT = fifosize * 5 / 8;
-	 * LT = fifosize * 4 / 8;
-	 */
-
-	low = size * 4 / 8 / unit_size;
-	high = size * 5 / 8 / unit_size;
-
-	dispc7_wb_set_mflag_threshold(dispc, low, high);
-}
-
-static void dispc7_mflag_setup(struct dispc_device *dispc)
-{
-	unsigned int i;
-
-	if (!dispc->has_cfg_common)
-		goto no_cfg;
-
-	/* MFLAG_CTRL = ENABLED */
-	CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 2, 1, 0);
-	/* MFLAG_START = MFLAGNORMALSTARTMODE */
-	CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 0, 6, 6);
-
-no_cfg:
-	dispc_for_each_managed_plane(dispc, i)
-		dispc7_vid_mflag_setup(dispc, i);
-
-	if (dispc7_has_writeback(dispc))
-		dispc7_wb_mflag_setup(dispc);
+	dispc7_wb_write(dispc, DISPC_WB_BUF_THRESHOLD,
+			FLD_VAL(high, 31, 16) | FLD_VAL(low, 15, 0));
 }
 
 static void dispc7_plane_init(struct dispc_device *dispc)
 {
-	unsigned int i;
+	unsigned int hw_plane;
 
 	dev_dbg(dispc->dev, "%s()\n", __func__);
 
-	/* FIFO underflows when scaling if preload is not high enough */
-	dispc_for_each_managed_plane(dispc, i)
-		if (!dispc->feat->vid_lite[i])
-			VID_REG_FLD_MOD(dispc, i, DISPC_VID_PRELOAD,
-					0x7FF, 11, 0);
+	if (dispc->has_cfg_common) {
+		u32 cba_lo_pri = 1;
+		u32 cba_hi_pri = 0;
+
+		CFG_REG_FLD_MOD(dispc, DSS_CBA_CFG, cba_lo_pri, 2, 0);
+		CFG_REG_FLD_MOD(dispc, DSS_CBA_CFG, cba_hi_pri, 5, 3);
+
+		/* MFLAG_CTRL = ENABLED */
+		CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 2, 1, 0);
+		/* MFLAG_START = MFLAGNORMALSTARTMODE */
+		CFG_REG_FLD_MOD(dispc, DISPC_GLOBAL_MFLAG_ATTRIBUTE, 0, 6, 6);
+	}
+
+	dispc_for_each_managed_plane(dispc, hw_plane) {
+		u32 size = dispc7_vid_get_fifo_size(dispc, hw_plane);
+		u32 thr_low, thr_high;
+		u32 mflag_low, mflag_high;
+		u32 preload;
+
+		thr_high = size - 1;
+		thr_low = size / 2;
+
+		mflag_high = size * 2 / 3;
+		mflag_low = size / 3;
+
+		preload = thr_low;
+
+		dev_dbg(dispc->dev,
+			"%s: bufsize %u, buf_threshold %u/%u, mflag threshold %u/%u preload %u\n",
+			dispc7_plane_name(dispc, hw_plane),
+			size,
+			thr_high, thr_low,
+			mflag_high, mflag_low,
+			preload);
+
+		dispc7_vid_set_buf_threshold(dispc, hw_plane,
+					     thr_low, thr_high);
+		dispc7_vid_set_mflag_threshold(dispc, hw_plane,
+					       mflag_low, mflag_high);
+
+		dispc7_vid_write(dispc, hw_plane, DISPC_VID_PRELOAD, preload);
+
+		/* Prefech up to PRELOAD value */
+		VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, 0, 19, 19);
+	}
+
+	if (dispc7_has_writeback(dispc)) {
+		u32 size = dispc7_wb_get_fifo_size(dispc);
+		u32 thr_low, thr_high;
+		u32 mflag_low, mflag_high;
+
+		thr_high = size - 1;
+		thr_low = size / 2;
+
+		mflag_high = size * 2 / 3;
+		mflag_low = size / 3;
+
+		dev_dbg(dispc->dev,
+			"wb: bufsize %u, buf_threshold %u/%u, mflag threshold %u/%u\n",
+			size,
+			thr_high, thr_low,
+			mflag_high, mflag_low);
+
+		dispc7_wb_set_buf_threshold(dispc, thr_low, thr_high);
+		dispc7_wb_set_mflag_threshold(dispc, mflag_low, mflag_high);
+	}
 }
 
 static void dispc7_vp_init(struct dispc_device *dispc)
@@ -2512,7 +2543,6 @@ static void dispc7_vp_init(struct dispc_device *dispc)
 
 static void dispc7_initial_config(struct dispc_device *dispc)
 {
-	dispc7_mflag_setup(dispc);
 	dispc7_plane_init(dispc);
 	dispc7_vp_init(dispc);
 
@@ -2799,10 +2829,9 @@ no_cfg:
 	return 0;
 }
 
-static int dispc7_wb_find_free_ovr(struct dispc_device *dispc)
+static void dispc7_wb_find_free_ovr(struct dispc_device *dispc)
 {
 	struct tidss_device *tidss = dispc->tidss;
-	struct device *dev = tidss->dev;
 	int i, j;
 	bool found;
 	u32 ovr_id = 0xff;
@@ -2825,18 +2854,10 @@ static int dispc7_wb_find_free_ovr(struct dispc_device *dispc)
 		}
 	}
 
-	if (ovr_id != 0xff) {
+	if (ovr_id != 0xff)
 		dispc->wb_reserved_ovr = ovr_id;
-
-		dev_info(dev, "%s: found ovr %s (%d)\n", __func__,
-			 tidss->dispc_ops->vp_name(tidss->dispc, ovr_id), ovr_id);
-
-		return 0;
-	}
-
-	dispc->wb_managed = false;
-	dev_warn(dev, "%s: No OVR available for WB, disabling WB.\n", __func__);
-	return -1;
+	else
+		dispc->wb_managed = false;
 }
 
 static u32 dispc7_wb_get_reserved_ovr(struct dispc_device *dispc)
@@ -2905,6 +2926,8 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 				conn_type = DRM_MODE_CONNECTOR_DPI;
 				break;
 			default:
+				dev_warn(dev, "%s: Bad vp bus type: %d\n",
+					 __func__, dispc->feat->vp_bus_type[i]);
 				conn_type = DRM_MODE_CONNECTOR_Unknown;
 				break;
 			}

@@ -248,9 +248,6 @@ struct drm_plane *tidss_plane_reserve_wb(struct drm_device *dev)
 	int i;
 	u32 ovr_id = tidss->dispc_ops->wb_get_reserved_ovr(tidss->dispc);
 
-	dev_dbg(dev->dev, "%s: found ovr %s (%d)\n", __func__,
-		tidss->dispc_ops->vp_name(tidss->dispc, ovr_id), ovr_id);
-
 	for (i = tidss->num_planes - 1; i >= 0; --i) {
 		struct drm_plane *plane = tidss->planes[i];
 		struct tidss_plane *tplane = to_tidss_plane(plane);
