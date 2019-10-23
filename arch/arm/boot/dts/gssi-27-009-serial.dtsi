@@ -1,0 +1,72 @@
+&dra7_pmx_core {
+	battery_pins: pinmux_battery_pins {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x36b0, PIN_INPUT_PULLUP    | MUX_MODE10) /* J14 mcasp1_fsr   i2c4_scl */
+			DRA7XX_CORE_IOPAD(0x36ac, PIN_INPUT_PULLUP    | MUX_MODE10) /* B14 mcasp1_aclkr i2c4_sda */
+		>;
+	};
+
+    eqep1_pins: pinmux_eqep1_pins {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x350c, PIN_INPUT           | MUX_MODE10) /* AG6 vin1a_d6 eQEP2A_in */
+            DRA7XX_CORE_IOPAD(0x3510, PIN_INPUT           | MUX_MODE10) /* AH4 vin1a_d7 eQEP2B_in */
+        >;
+    };
+
+    uart8_pins: pinmux_uart8_pins {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x3734, PIN_INPUT_PULLUP    | MUX_MODE3 ) /* C18 mcasp4_aclkx  uart8_rxd  */
+            DRA7XX_CORE_IOPAD(0x3738, PIN_OUTPUT_PULLDOWN | MUX_MODE3 ) /* A21 mcasp4_fsx    uart8_txd  */
+        >;
+    };
+};
+
+&epwmss1 {
+    status = "okay";
+    ranges = <0x48440000 0x48440000 0x1000>;
+
+    module {
+        reg = <0x48440000 0x1000>;
+        compatible = "uio";
+        symlink = "uio/pwmss1/module";
+    };
+};
+
+&eqep1 {
+    compatible = "uio";
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&eqep1_pins>;
+    symlink = "uio/pwmss1/qep";
+
+    count_mode = <0>;
+    swap_inputs = <0>;
+    invert_qa = <0>;
+    invert_qb = <0>;
+    invert_qi = <0>;
+    invert_qs = <0>;
+};
+
+&i2c4 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&battery_pins>;
+    status = "okay";
+
+	battery: sbs-battery@b {
+		compatible = "sbs,sbs-battery";
+		reg = <0x0b>;
+		sbs,poll-retry-count = <100>;
+		sbs,i2c-retry-count = <100>;
+	};
+
+	eeprom_ant: eeprom-ant@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+	};
+};
+
+&uart8 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart8_pins>;
+};
