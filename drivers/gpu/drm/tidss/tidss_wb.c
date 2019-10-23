@@ -147,12 +147,11 @@ int tidss_wb_init(struct drm_device *drmdev)
 	ret = tidss_wbm2m_init(wdev);
 	if (ret) {
 		log_err(wdev, "Failed to initialize wb m2m\n");
+		return ret;
 	}
 
 	log_dbg(wdev, "WB loaded\n");
 	return 0;
-
-	return ret;
 }
 
 void tidss_wb_cleanup(struct drm_device *drmdev)

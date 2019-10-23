@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/io.h>
@@ -19,13 +20,14 @@
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 
-#define REF_CLK_19_2MHz
+#define REF_CLK_19_2MHz		19200000
+#define REF_CLK_25MHz		25000000
 
 #define DEFAULT_NUM_LANES	4
 #define MAX_NUM_LANES		4
 #define DEFAULT_MAX_BIT_RATE	8100 /* in Mbps */
 
-#define POLL_TIMEOUT_US		2000
+#define POLL_TIMEOUT_US		5000
 #define LANE_MASK		0x7
 
 /*
@@ -45,6 +47,7 @@
 #define PHY_POWER_STATE_LN_1	0x0008
 #define PHY_POWER_STATE_LN_2	0x0010
 #define PHY_POWER_STATE_LN_3	0x0018
+#define PMA_XCVR_POWER_STATE_REQ_LN_MASK	0x3FU
 #define PHY_PMA_XCVR_POWER_STATE_ACK	0x30
 #define PHY_PMA_CMN_READY		0x34
 #define PHY_PMA_XCVR_TX_VMARGIN		0x38
@@ -165,19 +168,26 @@ struct cdns_dp_phy {
 	u32 max_bit_rate; /* Maximum link bit rate to use (in Mbps) */
 	struct reset_control *phy_rst;
 	struct device *dev;
+	struct clk *clk;
+	unsigned long ref_clk_rate;
+};
+
+enum phy_powerstate {
+	POWERSTATE_A0 = 0,
+	// Powerstate A1 is unused
+	POWERSTATE_A2 = 2,
+	POWERSTATE_A3 = 3,
 };
 
 static int cdns_dp_phy_init(struct phy *phy);
-static void cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy);
+static int cdns_dp_phy_exit(struct phy *phy);
+static int cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy);
 static int cdns_dp_phy_wait_pma_cmn_ready(struct cdns_dp_phy *cdns_phy);
 static void cdns_dp_phy_pma_cfg(struct cdns_dp_phy *cdns_phy);
-#ifdef REF_CLK_19_2MHz
 static void cdns_dp_phy_pma_cmn_cfg_19_2mhz(struct cdns_dp_phy *cdns_phy);
 static void cdns_dp_phy_pma_cmn_vco_cfg_19_2mhz(struct cdns_dp_phy *cdns_phy, u32 rate, bool ssc);
-#else
 static void cdns_dp_phy_pma_cmn_cfg_25mhz(struct cdns_dp_phy *cdns_phy);
 static void cdns_dp_phy_pma_cmn_vco_cfg_25mhz(struct cdns_dp_phy *cdns_phy, u32 rate, bool ssc);
-#endif
 static void cdns_dp_phy_pma_lane_cfg(struct cdns_dp_phy *cdns_phy,
 				     unsigned int lane);
 static void cdns_dp_phy_pma_cmn_rate(struct cdns_dp_phy *cdns_phy,
@@ -188,12 +198,17 @@ static void cdns_dp_phy_write_field(struct cdns_dp_phy *cdns_phy,
 				    unsigned char num_bits,
 				    unsigned int val);
 static int cdns_dp_phy_configure(struct phy *phy, union phy_configure_opts *opts);
+static void cdns_dp_phy_set_a0_pll(struct cdns_dp_phy *cdns_phy, u32 num_lanes);
+static int cdns_dp_phy_set_power_state(struct cdns_dp_phy *cdns_phy,
+				       u32 num_lanes,
+				       enum phy_powerstate powerstate);
 
 static int cdns_dp_phy_on(struct phy *gphy);
 static int cdns_dp_phy_off(struct phy *gphy);
 
 static const struct phy_ops cdns_dp_phy_ops = {
 	.init		= cdns_dp_phy_init,
+	.exit		= cdns_dp_phy_exit,
 	.configure	= cdns_dp_phy_configure,
 	.power_on	= cdns_dp_phy_on,
 	.power_off	= cdns_dp_phy_off,
@@ -310,19 +325,35 @@ static const struct coefficients voltage_coeffs[4][4] = {
 	}
 };
 
-enum phy_powerstate {
-	POWERSTATE_A0 = 0,
-	// Powerstate A1 is unused
-	POWERSTATE_A2 = 2,
-	POWERSTATE_A3 = 3,
-};
-
 static int cdns_dp_phy_init(struct phy *phy)
 {
 	unsigned char lane_bits;
 	int r;
 
 	struct cdns_dp_phy *cdns_phy = phy_get_drvdata(phy);
+
+	r = clk_prepare_enable(cdns_phy->clk);
+	if (r) {
+		dev_err(cdns_phy->dev, "Failed to prepare ref clock\n");
+		return r;
+	}
+
+	cdns_phy->ref_clk_rate = clk_get_rate(cdns_phy->clk);
+	if (!(cdns_phy->ref_clk_rate)) {
+		dev_err(cdns_phy->dev, "Failed to get ref clock rate\n");
+		clk_disable_unprepare(cdns_phy->clk);
+		return -EINVAL;
+	}
+
+	switch (cdns_phy->ref_clk_rate) {
+	case REF_CLK_19_2MHz:
+	case REF_CLK_25MHz:
+		/* Valid Ref Clock Rate */
+		break;
+	default:
+		dev_err(cdns_phy->dev, "Unsupported Ref Clock Rate\n");
+		return -EINVAL;
+	}
 
 	cdns_dp_phy_write_dp(cdns_phy, PHY_AUX_CTRL, 0x0003); /* enable AUX */
 
@@ -333,40 +364,7 @@ static int cdns_dp_phy_init(struct phy *phy)
 	 * Set lines power state to A0
 	 * Set lines pll clk enable to 0
 	 */
-
-	cdns_dp_phy_write_field(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ,
-				PHY_POWER_STATE_LN_0, 6, 0x0000);
-
-	if (cdns_phy->num_lanes >= 2) {
-		cdns_dp_phy_write_field(cdns_phy,
-					PHY_PMA_XCVR_POWER_STATE_REQ,
-					PHY_POWER_STATE_LN_1, 6, 0x0000);
-
-		if (cdns_phy->num_lanes == 4) {
-			cdns_dp_phy_write_field(cdns_phy,
-						PHY_PMA_XCVR_POWER_STATE_REQ,
-						PHY_POWER_STATE_LN_2, 6, 0);
-			cdns_dp_phy_write_field(cdns_phy,
-						PHY_PMA_XCVR_POWER_STATE_REQ,
-						PHY_POWER_STATE_LN_3, 6, 0);
-		}
-	}
-
-	cdns_dp_phy_write_field(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN,
-				0, 1, 0x0000);
-
-	if (cdns_phy->num_lanes >= 2) {
-		cdns_dp_phy_write_field(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN,
-					1, 1, 0x0000);
-		if (cdns_phy->num_lanes == 4) {
-			cdns_dp_phy_write_field(cdns_phy,
-						PHY_PMA_XCVR_PLLCLK_EN,
-						2, 1, 0x0000);
-			cdns_dp_phy_write_field(cdns_phy,
-						PHY_PMA_XCVR_PLLCLK_EN,
-						3, 1, 0x0000);
-		}
-	}
+	cdns_dp_phy_set_a0_pll(cdns_phy, cdns_phy->num_lanes);
 
 	/*
 	 * release phy_l0*_reset_n and pma_tx_elec_idle_ln_* based on
@@ -380,11 +378,10 @@ static int cdns_dp_phy_init(struct phy *phy)
 
 	/* PHY PMA registers configuration functions */
 	/* Initialize PHY with max supported link rate, without SSC. */
-#ifdef REF_CLK_19_2MHz
-	cdns_dp_phy_pma_cmn_vco_cfg_19_2mhz(cdns_phy, cdns_phy->max_bit_rate, false);
-#else
-	cdns_dp_phy_pma_cmn_vco_cfg_25mhz(cdns_phy, cdns_phy->max_bit_rate, false);
-#endif
+	if (cdns_phy->ref_clk_rate ==  REF_CLK_19_2MHz)
+		cdns_dp_phy_pma_cmn_vco_cfg_19_2mhz(cdns_phy, cdns_phy->max_bit_rate, false);
+	else if (cdns_phy->ref_clk_rate == REF_CLK_25MHz)
+		cdns_dp_phy_pma_cmn_vco_cfg_25mhz(cdns_phy, cdns_phy->max_bit_rate, false);
 	cdns_dp_phy_pma_cmn_rate(cdns_phy, cdns_phy->max_bit_rate, cdns_phy->num_lanes);
 
 	/* take out of reset */
@@ -394,8 +391,16 @@ static int cdns_dp_phy_init(struct phy *phy)
 	if (r)
 		return r;
 
-	cdns_dp_phy_run(cdns_phy);
+	r = cdns_dp_phy_run(cdns_phy);
 
+	return r;
+}
+
+static int cdns_dp_phy_exit(struct phy *phy)
+{
+	struct cdns_dp_phy *cdns_phy = phy_get_drvdata(phy);
+
+	clk_disable_unprepare(cdns_phy->clk);
 	return 0;
 }
 
@@ -405,7 +410,7 @@ static int cdns_dp_phy_wait_pma_cmn_ready(struct cdns_dp_phy *cdns_phy)
 	int ret;
 
 	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_CMN_READY, reg,
-					    reg & 1, 0, 5000);
+					    reg & 1, 0, POLL_TIMEOUT_US);
 	if (ret == -ETIMEDOUT) {
 		dev_err(cdns_phy->dev,
 			"timeout waiting for PMA common ready\n");
@@ -419,20 +424,17 @@ static void cdns_dp_phy_pma_cfg(struct cdns_dp_phy *cdns_phy)
 {
 	unsigned int i;
 
-#ifdef REF_CLK_19_2MHz
-	/* PMA common configuration 19.2MHz */
-	cdns_dp_phy_pma_cmn_cfg_19_2mhz(cdns_phy);
-#else
-	/* PMA common configuration 25MHz */
-	cdns_dp_phy_pma_cmn_cfg_25mhz(cdns_phy);
-#endif
+	if (cdns_phy->ref_clk_rate ==  REF_CLK_19_2MHz)
+		/* PMA common configuration 19.2MHz */
+		cdns_dp_phy_pma_cmn_cfg_19_2mhz(cdns_phy);
+	else if (cdns_phy->ref_clk_rate == REF_CLK_25MHz)
+		/* PMA common configuration 25MHz */
+		cdns_dp_phy_pma_cmn_cfg_25mhz(cdns_phy);
 
 	/* PMA lane configuration to deal with multi-link operation */
 	for (i = 0; i < cdns_phy->num_lanes; i++)
 		cdns_dp_phy_pma_lane_cfg(cdns_phy, i);
 }
-
-#ifdef REF_CLK_19_2MHz
 
 static void cdns_dp_phy_pma_cmn_cfg_19_2mhz(struct cdns_dp_phy *cdns_phy)
 {
@@ -591,7 +593,6 @@ static void cdns_dp_phy_pma_cmn_vco_cfg_19_2mhz(struct cdns_dp_phy *cdns_phy,
 	cdns_dp_phy_write_phy(cdns_phy, CMN_PLL1_LOCK_PLLCNT_START, 0x0099);
 }
 
-#else
 
 static void cdns_dp_phy_pma_cmn_cfg_25mhz(struct cdns_dp_phy *cdns_phy)
 {
@@ -742,7 +743,6 @@ static void cdns_dp_phy_pma_cmn_vco_cfg_25mhz(struct cdns_dp_phy *cdns_phy,
 	cdns_dp_phy_write_phy(cdns_phy, CMN_PLL1_LOCK_PLLCNT_START, 0x00C7);
 }
 
-#endif
 
 static void cdns_dp_phy_pma_cmn_rate(struct cdns_dp_phy *cdns_phy,
 				     u32 rate, u32 lanes)
@@ -793,11 +793,10 @@ static void cdns_dp_phy_pma_lane_cfg(struct cdns_dp_phy *cdns_phy,
 				     unsigned int lane)
 {
 	/* Per lane, refclock-dependent receiver detection setting */
-#ifdef REF_CLK_19_2MHz
-	cdns_dp_phy_write_phy(cdns_phy, TX_RCVDET_ST_TMR(lane), 0x0780);
-#else
-	cdns_dp_phy_write_phy(cdns_phy, TX_RCVDET_ST_TMR(lane), 0x09C4);
-#endif
+	if (cdns_phy->ref_clk_rate ==  REF_CLK_19_2MHz)
+		cdns_dp_phy_write_phy(cdns_phy, TX_RCVDET_ST_TMR(lane), 0x0780);
+	else if (cdns_phy->ref_clk_rate == REF_CLK_25MHz)
+		cdns_dp_phy_write_phy(cdns_phy, TX_RCVDET_ST_TMR(lane), 0x09C4);
 
 	/* Writing Tx/Rx Power State Controllers registers */
 	cdns_dp_phy_write_phy(cdns_phy, TX_PSC_A0(lane), 0x00FB);
@@ -818,12 +817,9 @@ static void cdns_dp_phy_pma_lane_cfg(struct cdns_dp_phy *cdns_phy,
 	cdns_dp_phy_write_phy(cdns_phy, XCVR_DIAG_HSCLK_SEL(lane), 0x0000);
 }
 
-static void cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy)
+static int cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy)
 {
 	unsigned int read_val;
-	u32 write_val1 = 0;
-	u32 write_val2 = 0;
-	u32 mask = 0;
 	int ret;
 
 	/*
@@ -832,54 +828,21 @@ static void cdns_dp_phy_run(struct cdns_dp_phy *cdns_phy)
 	 */
 	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN_ACK,
 					    read_val, read_val & 1, 0, POLL_TIMEOUT_US);
-	if (ret == -ETIMEDOUT)
+	if (ret == -ETIMEDOUT) {
 		dev_err(cdns_phy->dev,
 			"timeout waiting for link PLL clock enable ack\n");
-
-	ndelay(100);
-
-	switch (cdns_phy->num_lanes) {
-
-	case 1:	/* lane 0 */
-		write_val1 = 0x00000004;
-		write_val2 = 0x00000001;
-		mask = 0x0000003f;
-		break;
-	case 2: /* lane 0-1 */
-		write_val1 = 0x00000404;
-		write_val2 = 0x00000101;
-		mask = 0x00003f3f;
-		break;
-	case 4: /* lane 0-3 */
-		write_val1 = 0x04040404;
-		write_val2 = 0x01010101;
-		mask = 0x3f3f3f3f;
-		break;
+		return ret;
 	}
 
-	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ, write_val1);
-
-	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_XCVR_POWER_STATE_ACK,
-					    read_val, (read_val & mask) == write_val1, 0,
-					    POLL_TIMEOUT_US);
-	if (ret == -ETIMEDOUT)
-		dev_err(cdns_phy->dev,
-			"timeout waiting for link power state ack\n");
-
-	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ, 0);
 	ndelay(100);
 
-	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ, write_val2);
+	ret = cdns_dp_phy_set_power_state(cdns_phy, cdns_phy->num_lanes, POWERSTATE_A2);
+	if (ret)
+		return ret;
 
-	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_XCVR_POWER_STATE_ACK,
-					    read_val, (read_val & mask) == write_val2, 0,
-					    POLL_TIMEOUT_US);
-	if (ret == -ETIMEDOUT)
-		dev_err(cdns_phy->dev,
-			"timeout waiting for link power state ack\n");
+	ret = cdns_dp_phy_set_power_state(cdns_phy, cdns_phy->num_lanes, POWERSTATE_A0);
 
-	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ, 0);
-	ndelay(100);
+	return ret;
 }
 
 static void cdns_dp_phy_write_field(struct cdns_dp_phy *cdns_phy,
@@ -983,6 +946,12 @@ static int cdns_dp_phy_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	cdns_phy->clk = devm_clk_get(dev, "refclk");
+	if (IS_ERR(cdns_phy->clk)) {
+		dev_err(dev, "phy ref clock not found\n");
+		return PTR_ERR(cdns_phy->clk);
+	}
+
 	phy_set_drvdata(phy, cdns_phy);
 
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
@@ -996,12 +965,11 @@ static int cdns_dp_phy_probe(struct platform_device *pdev)
 }
 
 static int cdns_dp_phy_set_power_state(struct cdns_dp_phy *cdns_phy,
-				       struct phy_configure_opts_dp *dp,
+				       u32 num_lanes,
 				       enum phy_powerstate powerstate)
 {
 	/* Register value for power state for a single byte. */
 	u32 value_part;
-
 	u32 value;
 	u32 mask;
 	u32 read_val;
@@ -1021,7 +989,7 @@ static int cdns_dp_phy_set_power_state(struct cdns_dp_phy *cdns_phy,
 	}
 
 	/* Select values of registers and mask, depending on enabled lane count. */
-	switch (dp->lanes) {
+	switch (num_lanes) {
 	// lane 0
 	case (1):
 		value = value_part;
@@ -1130,15 +1098,15 @@ static int cdns_dp_phy_configure_rate(struct cdns_dp_phy *cdns_phy,
 	ndelay(200);
 
 	/* DP Rate Change - VCO Output settings. */
-#ifdef REF_CLK_19_2MHz
-	/* PMA common configuration 19.2MHz */
-	cdns_dp_phy_pma_cmn_vco_cfg_19_2mhz(cdns_phy, dp->link_rate, dp->ssc);
-	cdns_dp_phy_pma_cmn_cfg_19_2mhz(cdns_phy);
-#else
-	/* PMA common configuration 25MHz */
-	cdns_dp_phy_pma_cmn_vco_cfg_25mhz(cdns_phy, dp->link_rate, dp->ssc);
-	cdns_dp_phy_pma_cmn_cfg_25mhz(cdns_phy);
-#endif
+	if (cdns_phy->ref_clk_rate ==  REF_CLK_19_2MHz) {
+		/* PMA common configuration 19.2MHz */
+		cdns_dp_phy_pma_cmn_vco_cfg_19_2mhz(cdns_phy, dp->link_rate, dp->ssc);
+		cdns_dp_phy_pma_cmn_cfg_19_2mhz(cdns_phy);
+	} else if (cdns_phy->ref_clk_rate == REF_CLK_25MHz) {
+		/* PMA common configuration 25MHz */
+		cdns_dp_phy_pma_cmn_vco_cfg_25mhz(cdns_phy, dp->link_rate, dp->ssc);
+		cdns_dp_phy_pma_cmn_cfg_25mhz(cdns_phy);
+	}
 	cdns_dp_phy_pma_cmn_rate(cdns_phy, dp->link_rate, dp->lanes);
 
 	/* Enable the cmn_pll0_en. */
@@ -1215,23 +1183,25 @@ static int cdns_dp_phy_verify_config(struct cdns_dp_phy *cdns_phy,
 
 /* Set power state A0 and PLL clock enable to 0 on enabled lanes. */
 static void cdns_dp_phy_set_a0_pll(struct cdns_dp_phy *cdns_phy,
-				   struct phy_configure_opts_dp *dp)
+				   u32 num_lanes)
 {
 	u32 pwr_state = cdns_dp_phy_read_dp(cdns_phy, PHY_PMA_XCVR_POWER_STATE_REQ);
 	u32 pll_clk_en = cdns_dp_phy_read_dp(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN);
 
 	/* Lane 0 is always enabled. */
-	pwr_state &= ~0x1FU;
+	pwr_state &= ~(PMA_XCVR_POWER_STATE_REQ_LN_MASK << PHY_POWER_STATE_LN_0);
 	pll_clk_en &= ~0x01U;
 
-	if (dp->lanes > 1) {
-		pwr_state &= ~(0x1FU << 8);
+	if (num_lanes > 1) {
+		/* lane 1 */
+		pwr_state &= ~(PMA_XCVR_POWER_STATE_REQ_LN_MASK << PHY_POWER_STATE_LN_1);
 		pll_clk_en &= ~(0x01U << 1);
 	}
 
-	if (dp->lanes > 2) {
-		pwr_state &= ~(0x1FU << 16);
-		pwr_state &= ~(0x1FU << 24);
+	if (num_lanes > 2) {
+		/* lanes 2 and 3 */
+		pwr_state &= ~(PMA_XCVR_POWER_STATE_REQ_LN_MASK << PHY_POWER_STATE_LN_2);
+		pwr_state &= ~(PMA_XCVR_POWER_STATE_REQ_LN_MASK << PHY_POWER_STATE_LN_3);
 		pll_clk_en &= ~(0x01U << 2);
 		pll_clk_en &= ~(0x01U << 3);
 	}
@@ -1265,15 +1235,14 @@ static int cdns_dp_phy_set_lanes(struct cdns_dp_phy *cdns_phy,
 	value = (value & 0x0000FFF0) | (0x0000000E & lane_mask);
 	cdns_dp_phy_write_dp(cdns_phy, PHY_RESET, value);
 
-	cdns_dp_phy_set_a0_pll(cdns_phy, dp);
+	cdns_dp_phy_set_a0_pll(cdns_phy, dp->lanes);
 
 	/* release phy_l0*_reset_n based on used laneCount */
 	value = (value & 0x0000FFF0) | (0x0000000F & lane_mask);
 	cdns_dp_phy_write_dp(cdns_phy, PHY_RESET, value);
 
 	/* Wait, until PHY gets ready after releasing PHY reset signal. */
-	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_CMN_READY, value,
-					    (value & 0x01) != 0, 0, POLL_TIMEOUT_US);
+	ret = cdns_dp_phy_wait_pma_cmn_ready(cdns_phy);
 	if (ret)
 		return ret;
 
@@ -1282,18 +1251,7 @@ static int cdns_dp_phy_set_lanes(struct cdns_dp_phy *cdns_phy,
 	/* release pma_xcvr_pllclk_en_ln_*, only for the master lane */
 	cdns_dp_phy_write_dp(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN, 0x0001);
 
-	/* waiting for ACK of pma_xcvr_pllclk_en_ln_*, only for the master lane */
-	ret = cdns_phy_read_dp_poll_timeout(cdns_phy, PHY_PMA_XCVR_PLLCLK_EN_ACK,
-					    value, (value & 0x01) != 0, 0, POLL_TIMEOUT_US);
-	if (ret)
-		return ret;
-
-	ndelay(100);
-
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A2);
-	if (ret)
-		return ret;
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A0);
+	ret = cdns_dp_phy_run(cdns_phy);
 
 	return ret;
 }
@@ -1304,7 +1262,7 @@ static int cdns_dp_phy_set_rate(struct cdns_dp_phy *cdns_phy,
 {
 	u32 ret;
 
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A3);
+	ret = cdns_dp_phy_set_power_state(cdns_phy, dp->lanes, POWERSTATE_A3);
 	if (ret)
 		return ret;
 	ret = cdns_dp_phy_set_pll_en(cdns_phy, dp, false);
@@ -1320,10 +1278,10 @@ static int cdns_dp_phy_set_rate(struct cdns_dp_phy *cdns_phy,
 	ret = cdns_dp_phy_set_pll_en(cdns_phy, dp, true);
 	if (ret)
 		return ret;
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A2);
+	ret = cdns_dp_phy_set_power_state(cdns_phy, dp->lanes, POWERSTATE_A2);
 	if (ret)
 		return ret;
-	ret = cdns_dp_phy_set_power_state(cdns_phy, dp, POWERSTATE_A0);
+	ret = cdns_dp_phy_set_power_state(cdns_phy, dp->lanes, POWERSTATE_A0);
 	if (ret)
 		return ret;
 	ndelay(900);
