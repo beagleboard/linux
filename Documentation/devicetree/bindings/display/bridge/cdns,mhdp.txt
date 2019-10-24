@@ -10,7 +10,7 @@ Required properties:
 - clocks: DP bridge clock, it's used by the IP to know how to translate
 	a number of clock cycles into a time (which is used to comply
 	with DP standard timings and delays),
-- phys: see the Documentation/devicetree/bindings/phy/phy-cadence-dp.txt
+- phys: see the Documentation/devicetree/bindings/phy/phy-cadence-torrent.txt
 - phy-names: must be "dpphy"
 
 Required subnodes:
