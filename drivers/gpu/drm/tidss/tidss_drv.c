@@ -273,7 +273,7 @@ err_poll_fini:
 	drm_irq_uninstall(ddev);
 
 err_modeset_cleanup:
-	drm_mode_config_cleanup(ddev);
+	tidss_modeset_cleanup(tidss);
 
 err_runtime_suspend:
 #ifndef CONFIG_PM
@@ -314,7 +314,7 @@ static int tidss_remove(struct platform_device *pdev)
 
 	drm_irq_uninstall(ddev);
 
-	drm_mode_config_cleanup(ddev);
+	tidss_modeset_cleanup(tidss);
 
 #ifndef CONFIG_PM
 	/* If we don't have PM, we need to call suspend manually */

@@ -10,5 +10,6 @@
 struct tidss_device;
 
 int tidss_modeset_init(struct tidss_device *tidss);
+void tidss_modeset_cleanup(struct tidss_device *tidss);
 
 #endif
