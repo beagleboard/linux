@@ -18,7 +18,9 @@ dtb-y += \
 dtb-y += am57xx-evm.dtbo \
 	lcd-osd101t2045.dtbo lcd-osd101t2587.dtbo \
 	dra72-evm-touchscreen.dtbo dra74-evm-touchscreen.dtbo \
-	dra7x-evm-osd-lcd-common.dtbo
+	dra7x-evm-osd-lcd-common.dtbo \
+	am571x-idk-touchscreen.dtbo am572x-idk-touchscreen.dtbo \
+	am57xx-idk-osd-lcd-common.dtbo
 
 ifneq ($(DTC),)
   DTC_PATH=$(dir $(DTC))
