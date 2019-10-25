@@ -20,6 +20,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/reset-controller.h>
+#include <dt-bindings/phy/phy.h>
 
 #define WIZ_SERDES_CTRL		0x404
 #define WIZ_SERDES_TOP_CTRL	0x408
@@ -29,7 +30,8 @@
 
 #define WIZ_MAX_LANES		4
 #define WIZ_MUX_NUM_CLOCKS	3
-#define WIZ_DIV_NUM_CLOCKS	2
+#define WIZ_DIV_NUM_CLOCKS_16G	2
+#define WIZ_DIV_NUM_CLOCKS_10G	1
 
 #define WIZ_SERDES_TYPEC_LN10_SWAP	BIT(30)
 
@@ -57,8 +59,10 @@ static const struct reg_field pll1_refclk_mux_sel =
 					REG_FIELD(WIZ_SERDES_RST, 29, 29);
 static const struct reg_field pll0_refclk_mux_sel =
 					REG_FIELD(WIZ_SERDES_RST, 28, 28);
-static const struct reg_field refclk_dig_sel =
+static const struct reg_field refclk_dig_sel_16g =
 					REG_FIELD(WIZ_SERDES_RST, 24, 25);
+static const struct reg_field refclk_dig_sel_10g =
+					REG_FIELD(WIZ_SERDES_RST, 24, 24);
 static const struct reg_field pma_cmn_refclk_int_mode =
 					REG_FIELD(WIZ_SERDES_TOP_CTRL, 28, 29);
 static const struct reg_field pma_cmn_refclk_mode =
@@ -74,6 +78,8 @@ static const struct reg_field p_enable[WIZ_MAX_LANES] = {
 	REG_FIELD(WIZ_LANECTL(2), 30, 31),
 	REG_FIELD(WIZ_LANECTL(3), 30, 31),
 };
+
+enum p_enable { P_ENABLE = 2, P_ENABLE_FORCE = 1, P_ENABLE_DISABLE = 0 };
 
 static const struct reg_field p_align[WIZ_MAX_LANES] = {
 	REG_FIELD(WIZ_LANECTL(0), 29, 29),
@@ -126,7 +132,7 @@ struct wiz_clk_div_sel {
 	const char		*node_name;
 };
 
-static struct wiz_clk_mux_sel clk_mux_sel[] = {
+static struct wiz_clk_mux_sel clk_mux_sel_16g[] = {
 	{
 		/*
 		 * Mux value to be configured for each of the input clocks
@@ -141,6 +147,25 @@ static struct wiz_clk_mux_sel clk_mux_sel[] = {
 	},
 	{
 		.table = { 1, 3, 0, 2 },
+		.node_name = "refclk_dig",
+	},
+};
+
+static struct wiz_clk_mux_sel clk_mux_sel_10g[] = {
+	{
+		/*
+		 * Mux value to be configured for each of the input clocks
+		 * in the order populated in device tree
+		 */
+		.table = { 1, 0 },
+		.node_name = "pll0_refclk",
+	},
+	{
+		.table = { 1, 0 },
+		.node_name = "pll1_refclk",
+	},
+	{
+		.table = { 1, 0 },
 		.node_name = "refclk_dig",
 	},
 };
@@ -163,10 +188,16 @@ static struct wiz_clk_div_sel clk_div_sel[] = {
 	},
 };
 
+enum wiz_type {
+	J721E_WIZ_16G,
+	J721E_WIZ_10G,
+};
+
 struct wiz {
 	struct regmap		*regmap;
 	struct wiz_clk_mux_sel	*clk_mux_sel;
 	struct wiz_clk_div_sel	*clk_div_sel;
+	unsigned int		clk_div_sel_num;
 	struct regmap_field	*por_en;
 	struct regmap_field	*phy_reset_n;
 	struct regmap_field	*p_enable[WIZ_MAX_LANES];
@@ -185,7 +216,8 @@ struct wiz {
 	struct gpio_desc	*gpio_typec_dir;
 	int			typec_dir_delay;
 
-	bool used_for_dp;
+	enum wiz_type type;
+	u32 lane_modes[WIZ_MAX_LANES];
 };
 
 static int wiz_reset(struct wiz *wiz)
@@ -208,12 +240,17 @@ static int wiz_reset(struct wiz *wiz)
 static int wiz_mode_select(struct wiz *wiz)
 {
 	u32 num_lanes = wiz->num_lanes;
+	enum wiz_lane_standard_mode mode;
 	int ret;
 	int i;
 
 	for (i = 0; i < num_lanes; i++) {
-		ret = regmap_field_write(wiz->p_standard_mode[i],
-					 LANE_MODE_GEN4);
+		if (wiz->lane_modes[i] == PHY_TYPE_DP)
+			mode = LANE_MODE_GEN1;
+		else
+			mode = LANE_MODE_GEN4;
+
+		ret = regmap_field_write(wiz->p_standard_mode[i], mode);
 		if (ret)
 			return ret;
 	}
@@ -263,21 +300,6 @@ static int wiz_init(struct wiz *wiz)
 		return ret;
 	}
 
-	/* INIT HACK to get DP working. Values from Brian */
-	if (wiz->used_for_dp) {
-		regmap_write(wiz->regmap, 0x408, 0x30000000);
-		regmap_write(wiz->regmap, 0x40c, 0x39000000);
-		regmap_write(wiz->regmap, 0x480, 0x70000000);
-		regmap_write(wiz->regmap, 0x4c0, 0x80000000);
-		regmap_write(wiz->regmap, 0x500, 0x80000000);
-		regmap_write(wiz->regmap, 0x540, 0x80000000);
-		regmap_write(wiz->regmap, 0x484, 0x10001);
-		regmap_write(wiz->regmap, 0x4c4, 0x10001);
-		regmap_write(wiz->regmap, 0x504, 0x10001);
-		regmap_write(wiz->regmap, 0x544, 0x10001);
-		regmap_write(wiz->regmap, 0x5FC, 0x00000);
-	}
-
 	return 0;
 }
 
@@ -325,12 +347,14 @@ static int wiz_regfield_init(struct wiz *wiz)
 		return PTR_ERR(clk_div_sel->field);
 	}
 
-	clk_div_sel = &wiz->clk_div_sel[CMN_REFCLK1];
-	clk_div_sel->field = devm_regmap_field_alloc(dev, regmap,
-						     pma_cmn_refclk1_dig_div);
-	if (IS_ERR(clk_div_sel->field)) {
-		dev_err(dev, "PMA_CMN_REFCLK1_DIG_DIV reg field init failed\n");
-		return PTR_ERR(clk_div_sel->field);
+	if (wiz->type == J721E_WIZ_16G) {
+		clk_div_sel = &wiz->clk_div_sel[CMN_REFCLK1];
+		clk_div_sel->field = devm_regmap_field_alloc(dev, regmap,
+							     pma_cmn_refclk1_dig_div);
+		if (IS_ERR(clk_div_sel->field)) {
+			dev_err(dev, "PMA_CMN_REFCLK1_DIG_DIV reg field init failed\n");
+			return PTR_ERR(clk_div_sel->field);
+		}
 	}
 
 	clk_mux_sel = &wiz->clk_mux_sel[PLL0_REFCLK];
@@ -350,8 +374,15 @@ static int wiz_regfield_init(struct wiz *wiz)
 	}
 
 	clk_mux_sel = &wiz->clk_mux_sel[REFCLK_DIG];
-	clk_mux_sel->field = devm_regmap_field_alloc(dev, regmap,
-						     refclk_dig_sel);
+	if (wiz->type == J721E_WIZ_10G)
+		clk_mux_sel->field =
+			devm_regmap_field_alloc(dev, regmap,
+						refclk_dig_sel_10g);
+	else
+		clk_mux_sel->field =
+			devm_regmap_field_alloc(dev, regmap,
+						refclk_dig_sel_16g);
+
 	if (IS_ERR(clk_mux_sel->field)) {
 		dev_err(dev, "REFCLK_DIG_SEL reg field init failed\n");
 		return PTR_ERR(clk_mux_sel->field);
@@ -637,7 +668,7 @@ static int wiz_clock_init(struct wiz *wiz, struct device_node *node)
 		of_node_put(clk_node);
 	}
 
-	for (i = 0; i < WIZ_DIV_NUM_CLOCKS; i++) {
+	for (i = 0; i < wiz->clk_div_sel_num; i++) {
 		node_name = clk_div_sel[i].node_name;
 		clk_node = of_get_child_by_name(node, node_name);
 		if (!clk_node) {
@@ -677,7 +708,7 @@ static int wiz_phy_reset_assert(struct reset_controller_dev *rcdev,
 		return ret;
 	}
 
-	ret = regmap_field_write(wiz->p_enable[id - 1], false);
+	ret = regmap_field_write(wiz->p_enable[id - 1], P_ENABLE_DISABLE);
 	return ret;
 }
 
@@ -708,7 +739,11 @@ static int wiz_phy_reset_deassert(struct reset_controller_dev *rcdev,
 		return ret;
 	}
 
-	ret = regmap_field_write(wiz->p_enable[id - 1], true);
+	if (wiz->lane_modes[id - 1] == PHY_TYPE_DP)
+		ret = regmap_field_write(wiz->p_enable[id - 1], P_ENABLE);
+	else
+		ret = regmap_field_write(wiz->p_enable[id - 1], P_ENABLE_FORCE);
+
 	return ret;
 }
 
@@ -726,18 +761,40 @@ static struct regmap_config wiz_regmap_config = {
 
 static const struct of_device_id wiz_id_table[] = {
 	{
-		.compatible = "ti,j721e-wiz",
+		.compatible = "ti,j721e-wiz-16g", .data = (void *) J721E_WIZ_16G
+	},
+	{
+		.compatible = "ti,j721e-wiz-10g", .data = (void *) J721E_WIZ_10G
 	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, wiz_id_table);
 
-static void wiz_check_dp_usage(struct wiz *wiz, struct device_node *child_node)
+static int wiz_get_lane_mode(struct device *dev, int lane_number,
+			     u32 *lane_mode)
 {
-	const char *compat;
+	char property_name[11]; /* 11 is length of "lane0-mode\0" */
+	int ret;
 
-	if (of_property_read_string(child_node, "compatible", &compat) == 0)
-		wiz->used_for_dp = !strcmp("cdns,dp-phy", compat);
+	ret = snprintf(property_name, sizeof(property_name), "lane%u-mode",
+		       lane_number);
+
+	if (ret != 10) { /* 10 is length of "lane0-mode" */
+		dev_err(dev, "%s: bad lane number %d (ret = %d)\n",
+			__func__, lane_number, ret);
+		return -ENOTSUPP;
+	}
+
+	ret = of_property_read_u32(dev->of_node, property_name, lane_mode);
+	if (ret == -EINVAL) {
+		*lane_mode = PHY_NONE;
+		return 0;
+	} else if (ret) {
+		dev_err(dev, "Getting \"%s\" property failed: %d\n",
+			property_name, ret);
+	}
+
+	return ret;
 }
 
 static int wiz_probe(struct platform_device *pdev)
@@ -753,10 +810,13 @@ static int wiz_probe(struct platform_device *pdev)
 	struct wiz *wiz;
 	u32 num_lanes;
 	int ret;
+	int i;
 
 	wiz = devm_kzalloc(dev, sizeof(*wiz), GFP_KERNEL);
 	if (!wiz)
 		return -ENOMEM;
+
+	wiz->type = (enum wiz_type) of_device_get_match_data(dev);
 
 	child_node = of_get_child_by_name(node, "serdes");
 	if (!child_node) {
@@ -810,11 +870,26 @@ static int wiz_probe(struct platform_device *pdev)
 		}
 	}
 
+	for (i = 0; i < num_lanes; i++) {
+		ret = wiz_get_lane_mode(dev, i, &wiz->lane_modes[i]);
+		if (ret)
+			return ret;
+	}
+
 	wiz->dev = dev;
 	wiz->regmap = regmap;
 	wiz->num_lanes = num_lanes;
-	wiz->clk_mux_sel = clk_mux_sel;
+	if (wiz->type == J721E_WIZ_10G)
+		wiz->clk_mux_sel = clk_mux_sel_10g;
+	else
+		wiz->clk_mux_sel = clk_mux_sel_16g;
+
 	wiz->clk_div_sel = clk_div_sel;
+
+	if (wiz->type == J721E_WIZ_10G)
+		wiz->clk_div_sel_num = WIZ_DIV_NUM_CLOCKS_10G;
+	else
+		wiz->clk_div_sel_num = WIZ_DIV_NUM_CLOCKS_16G;
 
 	platform_set_drvdata(pdev, wiz);
 
@@ -857,8 +932,6 @@ static int wiz_probe(struct platform_device *pdev)
 		goto err_pdev_create;
 	}
 	wiz->serdes_pdev = serdes_pdev;
-
-	wiz_check_dp_usage(wiz, child_node);
 
 	ret = wiz_init(wiz);
 	if (ret) {

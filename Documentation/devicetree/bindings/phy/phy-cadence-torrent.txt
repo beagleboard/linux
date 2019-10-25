@@ -1,12 +1,12 @@
-Cadence MHDP DisplayPort SD0801 PHY binding
-===========================================
+Cadence Torrent SD0801 PHY binding for DisplayPort
+===================================================
 
 This binding describes the Cadence SD0801 PHY hardware included with
 the Cadence MHDP DisplayPort controller.
 
 -------------------------------------------------------------------------------
 Required properties (controller (parent) node):
-- compatible	: Should be "cdns,dp-phy"
+- compatible	: Should be "cdns,torrent-phy"
 - clocks	: PHY reference clock. Must contain an entry in clock-names.
 		  See ../clocks/clock-bindings.txt for details.
 - clock-names	: Must be "refclk"
@@ -24,7 +24,7 @@ Optional properties:
 
 Example:
 	dp_phy: phy@f0fb030a00 {
-		compatible = "cdns,dp-phy";
+		compatible = "cdns,torrent-phy";
 		reg = <0xf0 0xfb030a00 0x0 0x00000040>,
 		      <0xf0 0xfb500000 0x0 0x00100000>;
 		num_lanes = <4>;

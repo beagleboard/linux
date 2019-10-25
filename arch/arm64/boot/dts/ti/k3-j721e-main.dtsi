@@ -629,7 +629,7 @@
 	};
 
 	serdes_wiz0: wiz@5000000 {
-		compatible = "ti,j721e-wiz";
+		compatible = "ti,j721e-wiz-16g";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		power-domains = <&k3_pds 292 TI_SCI_PD_EXCLUSIVE>;
@@ -691,7 +691,7 @@
 	};
 
 	serdes_wiz1: wiz@5010000 {
-		compatible = "ti,j721e-wiz";
+		compatible = "ti,j721e-wiz-16g";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		power-domains = <&k3_pds 293 TI_SCI_PD_EXCLUSIVE>;
@@ -753,7 +753,7 @@
 	};
 
 	serdes_wiz2: wiz@5020000 {
-		compatible = "ti,j721e-wiz";
+		compatible = "ti,j721e-wiz-16g";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		power-domains = <&k3_pds 294 TI_SCI_PD_EXCLUSIVE>;
@@ -815,7 +815,7 @@
 	};
 
 	serdes_wiz3: wiz@5030000 {
-		compatible = "ti,j721e-wiz";
+		compatible = "ti,j721e-wiz-16g";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		power-domains = <&k3_pds 295 TI_SCI_PD_EXCLUSIVE>;
@@ -877,7 +877,7 @@
 	};
 
 	serdes_wiz4: wiz@5050000 {
-		compatible = "ti,j721e-wiz";
+		compatible = "ti,j721e-wiz-10g";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		power-domains = <&k3_pds 297 TI_SCI_PD_EXCLUSIVE>;
@@ -929,7 +929,7 @@
 
 		serdes4: serdes@5050000 {
 			/* XXX we also map EDP0 registers here as the PHY driver needs those... */
-			compatible = "cdns,dp-phy";
+			compatible = "cdns,torrent-phy";
 			reg = <0x00 0x05050000 0x0 0x00010000>, /* SERDES_10G0 */
 			      <0x00 0x0A030A00 0x0 0x00000040>; /* DSS_EDP0_V2A_CORE_VP_REGS_APB + 30A00 */
 
@@ -950,8 +950,7 @@
 		reg = <0x00 0x0A000000 0x0 0x30A00>, /* DSS_EDP0_V2A_CORE_VP_REGS_APB - upto PHY mapped area */
 		      <0x00 0x04F40000 0x0 0x20>;    /* DSS_EDP0_INTG_CFG_VP */
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&dp0_pins_default>;
+		status = "disabled";
 
 		clocks = <&k3_clks 151 36>;
 
@@ -964,25 +963,10 @@
 		power-domains = <&k3_pds 151 TI_SCI_PD_EXCLUSIVE>;
 
 		/* TODO: No audio config yet */
-		/* TODO: Pinmux for eDP output pins */
 
-		ports {
+		dp0_ports: ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-				dp_bridge_input: endpoint {
-					remote-endpoint = <&dpi_out_real0>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-				dp_bridge_output: endpoint {
-					remote-endpoint = <&dp_connector_in>;
-				};
-			};
 		};
 	};
 

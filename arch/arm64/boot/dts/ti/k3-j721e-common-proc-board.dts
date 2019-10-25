@@ -101,11 +101,12 @@
 	};
 
 	dp0: connector {
-		compatible = "dp-connector"; /* No such binding exists yet.. */
+		compatible = "dp-connector";
+		label = "DP0";
 
 		port {
 			dp_connector_in: endpoint {
-			remote-endpoint = <&dp_bridge_output>;
+				remote-endpoint = <&dp_bridge_output>;
 			};
 		};
 	};
@@ -432,6 +433,38 @@
 	};
 };
 
+&serdes_wiz4 {
+	lane0-mode = <PHY_TYPE_DP>;
+	lane1-mode = <PHY_TYPE_DP>;
+	lane2-mode = <PHY_TYPE_DP>;
+	lane3-mode = <PHY_TYPE_DP>;
+};
+
+&mhdp {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&dp0_pins_default>;
+};
+
+&dp0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	port@0 {
+		reg = <0>;
+		dp_bridge_input: endpoint {
+			remote-endpoint = <&dpi_out_real0>;
+		};
+	};
+
+	port@1 {
+		reg = <1>;
+		dp_bridge_output: endpoint {
+			remote-endpoint = <&dp_connector_in>;
+		};
+	};
+};
+
 &main_i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_i2c0_pins_default>;
@@ -646,6 +679,8 @@
 &serdes_wiz3 {
 	typec-dir-gpios = <&main_gpio1 3 GPIO_ACTIVE_HIGH>;
 	typec-dir-debounce = <300>;	/* TUSB321, tCCB_DEFAULT 133 ms */
+	lane0-mode = <PHY_TYPE_USB3>;
+	lane1-mode = <PHY_TYPE_USB3>;
 };
 
 &serdes3 {
@@ -703,6 +738,11 @@
 	status = "disabled";
 };
 
+&serdes_wiz0 {
+	lane0-mode = <PHY_TYPE_PCIE>;
+	lane1-mode = <PHY_TYPE_PCIE>;
+};
+
 &serdes0 {
 	serdes0_pcie_link: link@0 {
 		reg = <0>;
@@ -713,6 +753,11 @@
 	};
 };
 
+&serdes_wiz1 {
+	lane0-mode = <PHY_TYPE_PCIE>;
+	lane1-mode = <PHY_TYPE_PCIE>;
+};
+
 &serdes1 {
 	serdes1_pcie_link: link@0 {
 		reg = <0>;
@@ -721,6 +766,11 @@
 		cdns,phy-type = <PHY_TYPE_PCIE>;
 		resets = <&serdes_wiz1 1>, <&serdes_wiz1 2>;
 	};
+};
+
+&serdes_wiz2 {
+	lane0-mode = <PHY_TYPE_PCIE>;
+	lane1-mode = <PHY_TYPE_PCIE>;
 };
 
 &serdes2 {
