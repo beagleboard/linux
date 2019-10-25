@@ -1,0 +1,109 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+  fragment@101 {
+	target-path = "/";
+
+	__overlay__ {
+		model = "TI DRA71 EVM-LCD-AUO-Display";
+
+		aliases {
+			display0 = "/display";
+			display1 = "/connector";
+		};
+
+		lcd_bl: backlight {
+			compatible = "led-backlight";
+			leds = <&backlight_led>;
+			brightness-levels = <0 2 38 74 110 146 182 218 256>;
+			default-brightness = <8>;
+			enable-gpios = <&pcf_display_board 0 GPIO_ACTIVE_LOW>;
+		};
+
+		lcd: display {
+			compatible = "auo,g101evn010";
+			enable-gpios = <&pcf_lcd 13 GPIO_ACTIVE_LOW>;
+			label = "lcd";
+			backlight = <&lcd_bl>;
+
+			port {
+				lcd_in: endpoint {
+					remote-endpoint = <&dpi_out>;
+				};
+			};
+		};
+	};
+  };
+};
+
+&pcf_gpio_21 {
+	p0 {
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		line-name = "sel_gpmc_ad_vid_s0";
+		output-low;
+	};
+
+	p7 {
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		line-name = "sel_gpmc_ad_vid_s2";
+		output-high;
+	};
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pcf_display_board: gpio@27 {
+		compatible = "nxp,pcf8575";
+		#gpio-cells = <2>;
+		gpio-controller;
+		reg = <0x27>;
+	};
+
+	tlc59108@40 {
+		compatible = "ti,tlc59108";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x40>;
+
+		backlight_led: bl@2 {
+			label = "backlight";
+			reg = <0x2>;
+		};
+	};
+
+	touchscreen: goodix-gt9271@14 {
+		compatible = "goodix,gt9271";
+		interrupt-parent = <&gpio1>;
+		interrupts = <15 IRQ_TYPE_LEVEL_HIGH>;
+		irq-gpios = <&pcf_display_board 6 GPIO_ACTIVE_HIGH>;
+		reg = <0x14>;
+		reset-gpios = <&pcf_display_board 5 GPIO_ACTIVE_LOW>;
+		status = "okay";
+		touchscreen-inverted-y;
+		touchscreen-size-x = <1280>;
+		touchscreen-size-y = <800>;
+	};
+};
+
+&dss {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		dss_port: port@2 {
+			reg = <2>;
+
+			dpi_out: endpoint {
+				data-lines = <24>;
+				remote-endpoint = <&lcd_in>;
+			};
+		};
+	};
+};
