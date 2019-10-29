@@ -7,6 +7,7 @@
 
 #include <linux/backlight.h>
 #include <linux/leds.h>
+#include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 
@@ -14,6 +15,7 @@ struct led_bl_data {
 	struct device		*dev;
 	struct backlight_device	*bl_dev;
 	struct led_classdev	**leds;
+	struct gpio_desc        *enable_gpio;
 	bool			enabled;
 	int			nb_leds;
 	unsigned int		*levels;
@@ -34,6 +36,9 @@ static void led_bl_set_brightness(struct led_bl_data *priv, int level)
 	for (i = 0; i < priv->nb_leds; i++)
 		led_set_brightness(priv->leds[i], bkl_brightness);
 
+	if (!priv->enabled)
+		gpiod_set_value_cansleep(priv->enable_gpio, 1);
+
 	priv->enabled = true;
 }
 
@@ -46,6 +51,9 @@ static void led_bl_power_off(struct led_bl_data *priv)
 
 	for (i = 0; i < priv->nb_leds; i++)
 		led_set_brightness(priv->leds[i], LED_OFF);
+
+	if (priv->enabled)
+		gpiod_set_value_cansleep(priv->enable_gpio, 0);
 
 	priv->enabled = false;
 }
@@ -230,6 +238,11 @@ static int led_bl_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register backlight\n");
 		return PTR_ERR(priv->bl_dev);
 	}
+
+	priv->enable_gpio = devm_gpiod_get_optional(&pdev->dev, "enable",
+						    GPIOD_OUT_LOW);
+	if (IS_ERR(priv->enable_gpio))
+		return PTR_ERR(priv->enable_gpio);
 
 	backlight_update_status(priv->bl_dev);
 
