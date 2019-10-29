@@ -782,8 +782,20 @@ static void mhdp_fw_cb(const struct firmware *fw, void *context)
 
 static int load_firmware(struct cdns_mhdp_device *mhdp)
 {
+	const struct firmware *fw;
 	int ret;
 
+	/* First try if we can get firware directly */
+	ret = request_firmware_direct(&fw, FW_NAME, mhdp->dev);
+	if (ret == 0) {
+		ret = mhdp_fw_activate(fw, mhdp);
+
+		release_firmware(fw);
+
+		return ret;
+	}
+
+	/* Direct loading failed, activate delayed loading */
 	ret = request_firmware_nowait(THIS_MODULE, true, FW_NAME, mhdp->dev,
 				      GFP_KERNEL, mhdp, mhdp_fw_cb);
 	if (ret) {
