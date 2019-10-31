@@ -38,6 +38,11 @@
 	ti,no-reset-on-init;
 };
 
+&ipu2_memory_region {
+	/delete-property/ reusable;
+	no-map;
+};
+
 &ipu2 {
 	ti,no-idle-on-init;
 	ti,no-reset-on-init;
@@ -62,6 +67,11 @@
 &mmu_ipu1{
 	ti,no-idle-on-init;
 	ti,no-reset-on-init;
+};
+
+&ipu1_memory_region {
+	/delete-property/ reusable;
+	no-map;
 };
 
 &ipu1 {

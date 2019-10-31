@@ -140,3 +140,5 @@
 &vip2 {
 	status = "okay";
 };
+
+#include "dra7-ipu-common-early-boot.dtsi"

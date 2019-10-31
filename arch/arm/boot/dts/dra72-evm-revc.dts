@@ -163,3 +163,5 @@
 	status = "okay";
 	memory-region = <&dsp1_memory_region>;
 };
+
+#include "dra7-ipu-common-early-boot.dtsi"

@@ -151,3 +151,5 @@
 	reset-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
 	reset-delay-us = <2>;   /* PHY datasheet states 1uS min */
 };
+
+#include "dra7-ipu-common-early-boot.dtsi"

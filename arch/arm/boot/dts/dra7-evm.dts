@@ -727,3 +727,5 @@
 &bb2d {
 	status = "okay";
 };
+
+#include "dra7-ipu-common-early-boot.dtsi"
