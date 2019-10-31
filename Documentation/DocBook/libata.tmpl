@@ -324,7 +324,7 @@ Many legacy IDE drivers use ata_bmdma_status() as the bmdma_status() hook.
 
 	<sect2><title>High-level taskfile hooks</title>
 	<programlisting>
-void (*qc_prep) (struct ata_queued_cmd *qc);
+enum ata_completion_errors (*qc_prep) (struct ata_queued_cmd *qc);
 int (*qc_issue) (struct ata_queued_cmd *qc);
 	</programlisting>
 
