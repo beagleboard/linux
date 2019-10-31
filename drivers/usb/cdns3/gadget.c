@@ -354,13 +354,11 @@ enum usb_device_speed cdns3_get_speed(struct cdns3_device *priv_dev)
 static int cdns3_start_all_request(struct cdns3_device *priv_dev,
 				   struct cdns3_endpoint *priv_ep)
 {
-	struct cdns3_request *priv_req;
 	struct usb_request *request;
 	int ret = 0;
 
 	while (!list_empty(&priv_ep->deferred_req_list)) {
 		request = cdns3_next_request(&priv_ep->deferred_req_list);
-		priv_req = to_cdns3_request(request);
 
 		ret = cdns3_ep_run_transfer(priv_ep, request);
 		if (ret)
@@ -2665,7 +2663,6 @@ err1:
 
 static int __cdns3_gadget_init(struct cdns3 *cdns)
 {
-	struct cdns3_device *priv_dev;
 	int ret = 0;
 
 	/* Restore 32-bit DMA Mask in case we switched from Host mode */
@@ -2681,8 +2678,6 @@ static int __cdns3_gadget_init(struct cdns3 *cdns)
 	ret = cdns3_gadget_start(cdns);
 	if (ret)
 		return ret;
-
-	priv_dev = cdns->gadget_dev;
 
 	/*
 	 * Because interrupt line can be shared with other components in
