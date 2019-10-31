@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
+ */
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+#include "am335x-bonegreen-wireless-common-univ.dtsi"
+
+/ {
+	model = "TI AM335x BeagleBone Green Wireless";
+	compatible = "ti,am335x-bone-green-wireless", "ti,am335x-bone-green", "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+
+	chosen {
+		base_dtb = "am335x-bonegreen-wireless-uboot-univ.dts";
+		base_dtb_timestamp = __TIMESTAMP__;
+	};
+};
+
+&sgx {
+	status = "okay";
+};
+
+&ldo3_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&mmc1 {
+	vmmc-supply = <&vmmcsd_fixed>;
+};
+
+&gpio1 {
+	ls_buf_en {
+		gpio-hog;
+		gpios = <29 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "LS_BUF_EN";
+	};
+};
+
+/* BT_AUD_OUT from wl1835 has to be pulled low when WL_EN is activated.*/
+/* in case it isn't, wilink8 ends up in one of the test modes that     */
+/* intruces various issues (elp wkaeup timeouts etc.)                  */
+/* On the BBGW this pin is routed through the level shifter (U21) that */
+/* introduces a pullup on the line and wilink8 ends up in a bad state. */
+/* use a gpio hog to force this pin low. An alternative may be adding  */
+/* an external pulldown on U21 pin 4.                                  */
+
+&gpio3 {
+	bt_aud_in {
+		gpio-hog;
+		gpios = <16 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "MCASP0_AHCLKR";
+	};
+};
