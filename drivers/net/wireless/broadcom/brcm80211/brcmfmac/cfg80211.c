@@ -2130,11 +2130,6 @@ brcmf_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		err = brcmf_set_pmk(ifp, sme->crypto.psk,
 				    BRCMF_WSEC_MAX_PSK_LEN);
 	else if (profile->use_fwsup == BRCMF_PROFILE_FWSUP_SAE) {
-		/* clean up user-space RSNE */
-		if (brcmf_fil_iovar_data_set(ifp, "wpaie", NULL, 0)) {
-			brcmf_err("failed to clean up user-space RSNE\n");
-			goto done;
-		}
 		err = brcmf_set_sae_password(ifp, sme->crypto.sae_pwd,
 					     sme->crypto.sae_pwd_len);
 		if (!err && sme->crypto.psk)
