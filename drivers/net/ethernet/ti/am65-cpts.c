@@ -762,7 +762,6 @@ static void am65_cpts_find_ts(struct am65_cpts *cpts)
 		if (am65_cpts_match_tx_ts(cpts, event)) {
 			list_del_init(&event->list);
 			list_add(&event->list, &events_free);
-			break;
 		}
 	}
 
