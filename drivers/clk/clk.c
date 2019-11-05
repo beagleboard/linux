@@ -3415,6 +3415,7 @@ static const struct clk_ops clk_nodrv_ops = {
 void clk_unregister(struct clk *clk)
 {
 	unsigned long flags;
+	struct clk_hw *hw;
 
 	if (!clk || WARN_ON_ONCE(IS_ERR(clk)))
 		return;
@@ -3456,7 +3457,11 @@ void clk_unregister(struct clk *clk)
 		pr_warn("%s: unregistering protected clock: %s\n",
 					__func__, clk->core->name);
 
+	hw = clk->core->hw;
 	kref_put(&clk->core->ref, __clk_release);
+	__clk_free_clk(clk);
+	hw->clk = NULL;
+
 unlock:
 	clk_prepare_unlock();
 }
