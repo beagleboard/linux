@@ -37,3 +37,14 @@ config BRCMDBG
 	select WANT_DEV_COREDUMP if BRCMFMAC
 	---help---
 	  Selecting this enables additional code for debug purposes.
+
+config BRCMFMAC_PCIE_BARWIN_SZ
+	bool "Custom PCIE BAR window size support for FullMAC driver"
+	depends on BRCMFMAC
+	depends on PCI
+	default n
+	---help---
+	  If you say Y here, the FMAC driver will use custom PCIE BAR
+	  window size. Say Y to allow developers to use custom PCIE
+	  BAR window size when HOST PCIE IP can support less then 4MB
+	  BAR window.
