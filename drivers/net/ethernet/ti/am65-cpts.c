@@ -753,16 +753,10 @@ static void am65_cpts_find_ts(struct am65_cpts *cpts)
 
 	list_for_each_safe(this, next, &events) {
 		event = list_entry(this, struct am65_cpts_event, list);
-		if (time_after(jiffies, event->tmo)) {
+		if (am65_cpts_match_tx_ts(cpts, event) ||
+		    time_after(jiffies, event->tmo)) {
 			list_del_init(&event->list);
 			list_add(&event->list, &events_free);
-			continue;
-		}
-
-		if (am65_cpts_match_tx_ts(cpts, event)) {
-			list_del_init(&event->list);
-			list_add(&event->list, &events_free);
-			break;
 		}
 	}
 

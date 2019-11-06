@@ -1612,8 +1612,9 @@ int genphy_read_status(struct phy_device *phydev)
 				phydev->duplex = DUPLEX_FULL;
 
 		if (phydev->duplex == DUPLEX_FULL) {
-			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
-			phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
+			phydev->pause = common_adv & LPA_PAUSE_CAP ? 1 : 0;
+			phydev->asym_pause = common_adv & LPA_PAUSE_ASYM ?
+					     1 : 0;
 		}
 	} else {
 		int bmcr = phy_read(phydev, MII_BMCR);

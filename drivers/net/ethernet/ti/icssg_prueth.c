@@ -1528,6 +1528,14 @@ static int prueth_netdev_init(struct prueth *prueth,
 		goto free;
 	}
 
+	/* remove unsupported modes */
+	emac->phydev->supported &= ~(PHY_10BT_FEATURES |
+				     SUPPORTED_100baseT_Half |
+				     SUPPORTED_1000baseT_Half |
+				     SUPPORTED_Pause |
+				     SUPPORTED_Asym_Pause);
+	emac->phydev->advertising = emac->phydev->supported;
+
 	/* get mac address from DT and set private and netdev addr */
 	mac_addr = of_get_mac_address(eth_node);
 	if (mac_addr)
