@@ -21,7 +21,8 @@ static struct workqueue_struct *kpcintb_workqueue;
 #define COMMAND_LINK_UP			3
 
 #define COMMAND_STATUS_OK		BIT(0)
-#define LINK_STATUS_UP			BIT(1)
+#define COMMAND_STATUS_ERROR		BIT(1)
+#define LINK_STATUS_UP			BIT(2)
 
 #define SPAD_COUNT			64
 #define DB_COUNT			4
@@ -87,12 +88,13 @@ static struct pci_epf_header epf_ntb_header = {
 	.interrupt_pin	= PCI_INTERRUPT_INTA,
 };
 
-static void epf_ntb_link_up(struct epf_ntb *ntb)
+static int epf_ntb_link_up(struct epf_ntb *ntb)
 {
 	enum pci_epc_interface_type type;
 	struct epf_ntb_epc *ntb_epc;
 	struct epf_ntb_ctrl *ctrl;
 	u8 vfunc_no, func_no;
+	int ret;
 
 	for (type = PRIMARY_INTERFACE; type <= SECONDARY_INTERFACE; type++) {
 		ntb_epc = ntb->epc[type];
@@ -100,12 +102,19 @@ static void epf_ntb_link_up(struct epf_ntb *ntb)
 		vfunc_no = ntb_epc->vfunc_no;
 		ctrl = ntb_epc->reg;
 		ctrl->status |= LINK_STATUS_UP;
-		pci_epc_raise_irq(ntb_epc->epc, func_no, vfunc_no,
-				  PCI_EPC_IRQ_MSI, 1);
+		ret = pci_epc_raise_irq(ntb_epc->epc, func_no, vfunc_no,
+					PCI_EPC_IRQ_MSI, 1);
+		if (ret < 0) {
+			WARN(1, "%s intf: Failed to raise Link Up IRQ\n",
+			     pci_epc_interface_string(type));
+			return ret;
+		}
 	}
+
+	return 0;
 }
 
-static void
+static int
 epf_ntb_configure_mw(struct epf_ntb *ntb, enum pci_epc_interface_type type,
 		     u32 mw)
 {
@@ -141,9 +150,11 @@ epf_ntb_configure_mw(struct epf_ntb *ntb, enum pci_epc_interface_type type,
 	ret = pci_epc_map_addr(epc, func_no, vfunc_no, phys_addr, addr, size);
 	WARN(ret < 0, "%s intf: Failed to map memory window %d address\n",
 	     pci_epc_interface_string(type), mw);
+
+	return ret;
 }
 
-static void
+static int
 epf_ntb_configure_db(struct epf_ntb *ntb, enum pci_epc_interface_type type,
 		     u16 db_count, bool msix)
 {
@@ -158,6 +169,9 @@ epf_ntb_configure_db(struct epf_ntb *ntb, enum pci_epc_interface_type type,
 	u32 db_entry_size;
 	u32 db_data;
 	int ret, i;
+
+	if (db_count > MAX_DB_COUNT)
+		return -EINVAL;
 
 	ntb_epc = ntb->epc[type];
 	epc = ntb_epc->epc;
@@ -174,10 +188,16 @@ epf_ntb_configure_db(struct epf_ntb *ntb, enum pci_epc_interface_type type,
 
 	ret = pci_epc_map_msi_irq(epc, func_no, vfunc_no, phys_addr, db_count,
 				  db_entry_size, &db_data);
-	WARN(ret < 0, "%s intf: Failed to map MSI IRQ\n",
-	     pci_epc_interface_string(type));
+	if (ret < 0) {
+		WARN(1, "%s intf: Failed to map MSI IRQ\n",
+		     pci_epc_interface_string(type));
+		return ret;
+	}
+
 	for (i = 0; i < db_count; i++)
 		peer_ctrl->db_data[i] = db_data | i;
+
+	return 0;
 }
 
 static void epf_ntb_cmd_handler(struct work_struct *work)
@@ -190,6 +210,7 @@ static void epf_ntb_cmd_handler(struct work_struct *work)
 	struct device *dev;
 	u16 db_count;
 	bool is_msix;
+	int ret;
 
 	ntb_epc = container_of(work, struct epf_ntb_epc, cmd_handler.work);
 	ctrl = ntb_epc->reg;
@@ -210,18 +231,30 @@ static void epf_ntb_cmd_handler(struct work_struct *work)
 	case COMMAND_CONFIGURE_DOORBELL:
 		db_count = argument & DB_COUNT_MASK;
 		is_msix = argument & MSIX_ENABLE;
-		epf_ntb_configure_db(ntb, type, db_count, is_msix);
-		ctrl->status |= COMMAND_STATUS_OK;
+		ret = epf_ntb_configure_db(ntb, type, db_count, is_msix);
+		if (ret < 0)
+			ctrl->status |= COMMAND_STATUS_ERROR;
+		else
+			ctrl->status |= COMMAND_STATUS_OK;
 		break;
 	case COMMAND_CONFIGURE_MW:
-		epf_ntb_configure_mw(ntb, type, argument);
-		ctrl->status |= COMMAND_STATUS_OK;
+		ret = epf_ntb_configure_mw(ntb, type, argument);
+		if (ret < 0)
+			ctrl->status |= COMMAND_STATUS_ERROR;
+		else
+			ctrl->status |= COMMAND_STATUS_OK;
 		break;
 	case COMMAND_LINK_UP:
 		ntb_epc->linkup = true;
 		if (ntb->epc[PRIMARY_INTERFACE]->linkup &&
-		    ntb->epc[SECONDARY_INTERFACE]->linkup)
-			epf_ntb_link_up(ntb);
+		    ntb->epc[SECONDARY_INTERFACE]->linkup) {
+			ret = epf_ntb_link_up(ntb);
+			if (ret < 0)
+				ctrl->status |= COMMAND_STATUS_ERROR;
+			else
+				ctrl->status |= COMMAND_STATUS_OK;
+			goto reset_handler;
+		}
 		ctrl->status |= COMMAND_STATUS_OK;
 		break;
 	default:

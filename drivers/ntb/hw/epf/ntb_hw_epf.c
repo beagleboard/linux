@@ -21,7 +21,8 @@
 
 #define NTB_EPF_STATUS		0x8
 #define COMMAND_STATUS_OK	BIT(0)
-#define LINK_STATUS_UP		BIT(1)
+#define COMMAND_STATUS_ERROR	BIT(1)
+#define LINK_STATUS_UP		BIT(2)
 
 #define NTB_EPF_TOPOLOGY	0xc
 #define NTB_EPF_ADDR		0x10
@@ -95,6 +96,7 @@ static int ntb_epf_send_command(struct ntb_epf_dev *ndev, u32 command,
 {
 	ktime_t timeout;
 	bool timedout;
+	int ret = 0;
 	u32 status;
 
 	ntb_epf_ctrl_writel(ndev, NTB_EPF_ARGUMENT, argument);
@@ -106,18 +108,26 @@ static int ntb_epf_send_command(struct ntb_epf_dev *ndev, u32 command,
 		timedout = ktime_after(ktime_get(), timeout);
 		status = ntb_epf_ctrl_readl(ndev, NTB_EPF_STATUS);
 
+		if (status & COMMAND_STATUS_ERROR) {
+			ret = -EINVAL;
+			break;
+		}
+
 		if (status & COMMAND_STATUS_OK)
 			break;
 
-		if (WARN_ON(timedout))
-			return -ETIMEDOUT;
+		if (WARN_ON(timedout)) {
+			ret = -ETIMEDOUT;
+			break;
+		}
 
 		usleep_range(5, 10);
 	}
 
-	ntb_epf_ctrl_writel(ndev, NTB_EPF_STATUS, status & ~COMMAND_STATUS_OK);
+	status &= ~(COMMAND_STATUS_ERROR | COMMAND_STATUS_OK);
+	ntb_epf_ctrl_writel(ndev, NTB_EPF_STATUS, status);
 
-	return 0;
+	return ret;
 }
 
 static int ntb_epf_mw_to_bar(struct ntb_epf_dev *ndev, int idx)
@@ -561,6 +571,9 @@ static int ntb_epf_pci_probe(struct pci_dev *pdev,
 	struct ntb_epf_data *data;
 	struct ntb_epf_dev *ndev;
 	int ret;
+
+	if (pci_is_bridge(pdev))
+		return -ENODEV;
 
 	ndev = devm_kzalloc(dev, sizeof(*ndev), GFP_KERNEL);
 	if (!ndev)
