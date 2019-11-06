@@ -4608,6 +4608,7 @@ brcmf_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 		  settings->inactivity_timeout);
 	dev_role = ifp->vif->wdev.iftype;
 	mbss = ifp->vif->mbss;
+	brcmf_dbg(TRACE, "mbss %s\n", mbss ? "enabled" : "disabled");
 
 	/* store current 11d setting */
 	if (brcmf_fil_cmd_int_get(ifp, BRCMF_C_GET_REGULATORY,
@@ -4814,6 +4815,9 @@ exit:
 	if ((err) && (!mbss)) {
 		brcmf_set_mpc(ifp, 1);
 		brcmf_configure_arp_nd_offload(ifp, true);
+	} else {
+		cfg->num_softap++;
+		brcmf_dbg(TRACE, "Num of SoftAP %u\n", cfg->num_softap);
 	}
 	return err;
 }
@@ -4826,6 +4830,7 @@ static int brcmf_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 	s32 err;
 	struct brcmf_fil_bss_enable_le bss_enable;
 	struct brcmf_join_params join_params;
+	s32 apsta = 0;
 
 	brcmf_dbg(TRACE, "Enter\n");
 
@@ -4833,6 +4838,27 @@ static int brcmf_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 		/* Due to most likely deauths outstanding we sleep */
 		/* first to make sure they get processed by fw. */
 		msleep(400);
+
+		cfg->num_softap--;
+
+		/* Clear bss configuration and SSID */
+		bss_enable.bsscfgidx = cpu_to_le32(ifp->bsscfgidx);
+		bss_enable.enable = cpu_to_le32(0);
+		err = brcmf_fil_iovar_data_set(ifp, "bss", &bss_enable,
+					       sizeof(bss_enable));
+		if (err < 0)
+			brcmf_err("bss_enable config failed %d\n", err);
+
+		memset(&join_params, 0, sizeof(join_params));
+		err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID,
+					     &join_params, sizeof(join_params));
+		if (err < 0)
+			bphy_err(drvr, "SET SSID error (%d)\n", err);
+
+		if (cfg->num_softap) {
+			brcmf_dbg(TRACE, "Num of SoftAP %u\n", cfg->num_softap);
+			return 0;
+		}
 
 		if (ifp->vif->mbss) {
 			err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_DOWN, 1);
@@ -4843,17 +4869,18 @@ static int brcmf_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 		if (ifp->bsscfgidx == 0)
 			brcmf_fil_iovar_int_set(ifp, "closednet", 0);
 
-		memset(&join_params, 0, sizeof(join_params));
-		err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID,
-					     &join_params, sizeof(join_params));
+		err = brcmf_fil_iovar_int_get(ifp, "apsta", &apsta);
 		if (err < 0)
-			bphy_err(drvr, "SET SSID error (%d)\n", err);
-		err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_DOWN, 1);
-		if (err < 0)
-			bphy_err(drvr, "BRCMF_C_DOWN error %d\n", err);
-		err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_AP, 0);
-		if (err < 0)
-			bphy_err(drvr, "setting AP mode failed %d\n", err);
+			brcmf_err("wl apsta failed (%d)\n", err);
+
+		if (!apsta) {
+			err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_DOWN, 1);
+			if (err < 0)
+				bphy_err(drvr, "BRCMF_C_DOWN error %d\n", err);
+			err = brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_AP, 0);
+			if (err < 0)
+				bphy_err(drvr, "Set AP mode error %d\n", err);
+		}
 		if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_MBSS))
 			brcmf_fil_iovar_int_set(ifp, "mbss", 0);
 		brcmf_fil_cmd_int_set(ifp, BRCMF_C_SET_REGULATORY,
@@ -7432,6 +7459,7 @@ struct brcmf_cfg80211_info *brcmf_cfg80211_attach(struct brcmf_pub *drvr,
 	cfg->wiphy = wiphy;
 	cfg->pub = drvr;
 	cfg->pm_state = BRCMF_CFG80211_PM_STATE_RESUMED;
+	cfg->num_softap = 0;
 	init_vif_event(&cfg->vif_event);
 	INIT_LIST_HEAD(&cfg->vif_list);
 
