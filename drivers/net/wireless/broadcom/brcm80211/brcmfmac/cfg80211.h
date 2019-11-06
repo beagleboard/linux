@@ -383,6 +383,7 @@ struct brcmf_cfg80211_info {
 	struct brcmf_pno_info *pno;
 	u8 ac_priority[MAX_8021D_PRIO];
 	u8 pm_state;
+	u8 num_softap;
 };
 
 /**
