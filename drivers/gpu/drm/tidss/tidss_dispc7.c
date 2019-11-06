@@ -2296,7 +2296,7 @@ static int dispc7_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 			 0xFF & (state->alpha >> 8));
 
 	/* Set pre-multiplied alpha as default. */
-	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, 1, 22, 22);
+	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, 1, 28, 28);
 
 	dispc7_ovr_set_plane(dispc, hw_plane, hw_videoport,
 			     state->crtc_x, state->crtc_y,
