@@ -1283,7 +1283,8 @@ static int brcmf_set_pmk(struct brcmf_if *ifp, const u8 *pmk_data, u16 pmk_len)
 	return err;
 }
 
-static void brcmf_link_down(struct brcmf_cfg80211_vif *vif, u16 reason)
+static void brcmf_link_down(struct brcmf_cfg80211_vif *vif, u16 reason,
+			    bool locally_generated)
 {
 	struct brcmf_cfg80211_info *cfg = wiphy_to_cfg(vif->wdev.wiphy);
 	struct brcmf_pub *drvr = cfg->pub;
@@ -1305,7 +1306,7 @@ static void brcmf_link_down(struct brcmf_cfg80211_vif *vif, u16 reason)
 		if ((vif->wdev.iftype == NL80211_IFTYPE_STATION) ||
 		    (vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT))
 			cfg80211_disconnected(vif->wdev.netdev, reason, NULL, 0,
-					      true, GFP_KERNEL);
+					      locally_generated, GFP_KERNEL);
 	}
 	clear_bit(BRCMF_VIF_STATUS_CONNECTING, &vif->sme_state);
 	clear_bit(BRCMF_SCAN_STATUS_SUPPRESS, &cfg->scan_status);
@@ -1484,7 +1485,7 @@ brcmf_cfg80211_leave_ibss(struct wiphy *wiphy, struct net_device *ndev)
 		return 0;
 	}
 
-	brcmf_link_down(ifp->vif, WLAN_REASON_DEAUTH_LEAVING);
+	brcmf_link_down(ifp->vif, WLAN_REASON_DEAUTH_LEAVING, true);
 	brcmf_net_setcarrier(ifp, false);
 
 	brcmf_dbg(TRACE, "Exit\n");
@@ -3796,7 +3797,7 @@ static s32 brcmf_cfg80211_suspend(struct wiphy *wiphy,
 			 * disassociate from AP to save power while system is
 			 * in suspended state
 			 */
-			brcmf_link_down(vif, WLAN_REASON_UNSPECIFIED);
+			brcmf_link_down(vif, WLAN_REASON_UNSPECIFIED, true);
 			/* Make sure WPA_Supplicant receives all the event
 			 * generated due to DISASSOC call to the fw to keep
 			 * the state fw and WPA_Supplicant state consistent
@@ -5920,7 +5921,11 @@ brcmf_notify_connect_status(struct brcmf_if *ifp,
 		if (!brcmf_is_ibssmode(ifp->vif)) {
 			brcmf_bss_connect_done(cfg, ndev, e, false);
 			brcmf_link_down(ifp->vif,
-					brcmf_map_fw_linkdown_reason(e));
+					brcmf_map_fw_linkdown_reason(e),
+					e->event_code &
+					(BRCMF_E_DEAUTH_IND |
+					BRCMF_E_DISASSOC_IND)
+					? false : true);
 			brcmf_init_prof(ndev_to_prof(ndev));
 			if (ndev != cfg_to_ndev(cfg))
 				complete(&cfg->vif_disabled);
@@ -7119,7 +7124,7 @@ static s32 __brcmf_cfg80211_down(struct brcmf_if *ifp)
 	 * from AP to save power
 	 */
 	if (check_vif_up(ifp->vif)) {
-		brcmf_link_down(ifp->vif, WLAN_REASON_UNSPECIFIED);
+		brcmf_link_down(ifp->vif, WLAN_REASON_UNSPECIFIED, true);
 
 		/* Make sure WPA_Supplicant receives all the event
 		   generated due to DISASSOC call to the fw to keep
