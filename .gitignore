@@ -18,6 +18,7 @@
 *.dt.yaml
 *.dtb
 *.dtb.S
+*.dtbo
 *.dwo
 *.elf
 *.gcno
