@@ -77,6 +77,9 @@ struct stmpe_touch {
 	u8 settling;
 	u8 fraction_z;
 	u8 i_drive;
+	bool invert_x;
+	bool invert_y;
+	bool swap_xy;
 };
 
 static int __stmpe_reset_fifo(struct stmpe *stmpe)
@@ -150,8 +153,23 @@ static irqreturn_t stmpe_ts_handler(int irq, void *data)
 	y = ((data_set[1] & 0xf) << 8) | data_set[2];
 	z = data_set[3];
 
-	input_report_abs(ts->idev, ABS_X, x);
-	input_report_abs(ts->idev, ABS_Y, y);
+	//input_report_abs(ts->idev, ABS_X, x);
+	//input_report_abs(ts->idev, ABS_Y, y);
+
+	if (ts->invert_x)
+		x = XY_MASK - x;
+
+	if (ts->invert_y)
+		y = XY_MASK - y;
+
+	if (ts->swap_xy) {
+		input_report_abs(ts->idev, ABS_X, y);
+		input_report_abs(ts->idev, ABS_Y, x);
+	} else {
+		input_report_abs(ts->idev, ABS_X, x);
+		input_report_abs(ts->idev, ABS_Y, y);
+	}
+
 	input_report_abs(ts->idev, ABS_PRESSURE, z);
 	input_report_key(ts->idev, BTN_TOUCH, 1);
 	input_sync(ts->idev);
@@ -329,6 +347,10 @@ static int stmpe_input_probe(struct platform_device *pdev)
 
 	idev->open = stmpe_ts_open;
 	idev->close = stmpe_ts_close;
+
+	ts->invert_x = device_property_read_bool(&pdev->dev, "touchscreen-inverted-x");
+	ts->invert_y = device_property_read_bool(&pdev->dev, "touchscreen-inverted-y");
+	ts->swap_xy = device_property_read_bool(&pdev->dev, "touchscreen-swapped-x-y");
 
 	input_set_drvdata(idev, ts);
 
