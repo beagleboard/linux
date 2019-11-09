@@ -300,6 +300,24 @@ static void stmpe_ts_get_platform_info(struct platform_device *pdev,
 	}
 }
 
+static bool stmpe_ts_get_prop_u32(struct device *dev,
+				     const char *property,
+				     unsigned int default_value,
+				     unsigned int *value)
+{
+	u32 val;
+	int error;
+
+	error = device_property_read_u32(dev, property, &val);
+	if (error) {
+		*value = default_value;
+		return false;
+	}
+
+	*value = val;
+	return true;
+}
+
 static int stmpe_input_probe(struct platform_device *pdev)
 {
 	struct stmpe *stmpe = dev_get_drvdata(pdev->dev.parent);
@@ -307,6 +325,8 @@ static int stmpe_input_probe(struct platform_device *pdev)
 	struct input_dev *idev;
 	int error;
 	int ts_irq;
+	unsigned int offset_x, offset_y;
+	bool data_present;
 
 	ts_irq = platform_get_irq_byname(pdev, "FIFO_TH");
 	if (ts_irq < 0)
@@ -352,11 +372,27 @@ static int stmpe_input_probe(struct platform_device *pdev)
 	ts->invert_y = device_property_read_bool(&pdev->dev, "touchscreen-inverted-y");
 	ts->swap_xy = device_property_read_bool(&pdev->dev, "touchscreen-swapped-x-y");
 
+	data_present = stmpe_ts_get_prop_u32(&pdev->dev,
+						"touchscreen-offset-x",
+						0,
+						&offset_x);
+
+	if (data_present)
+		dev_info(&pdev->dev, "touchscreen-offset-x: %d\n", offset_x);
+
+	data_present = stmpe_ts_get_prop_u32(&pdev->dev,
+						"touchscreen-offset-y",
+						0,
+						&offset_y);
+
+	if (data_present)
+		dev_info(&pdev->dev, "touchscreen-offset-y: %d\n", offset_y);
+
 	input_set_drvdata(idev, ts);
 
 	input_set_capability(idev, EV_KEY, BTN_TOUCH);
-	input_set_abs_params(idev, ABS_X, 0, XY_MASK, 0, 0);
-	input_set_abs_params(idev, ABS_Y, 0, XY_MASK, 0, 0);
+	input_set_abs_params(idev, ABS_X, offset_x, XY_MASK-offset_x, 0, 0);
+	input_set_abs_params(idev, ABS_Y, offset_y, XY_MASK-offset_y, 0, 0);
 	input_set_abs_params(idev, ABS_PRESSURE, 0x0, 0xff, 0, 0);
 
 	error = input_register_device(idev);
