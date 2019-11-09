@@ -1,0 +1,80 @@
+/ {
+	wlan_en_reg: fixedregulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan-en-regulator";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		startup-delay-us = <70000>;
+		gpio = <&gpio5 4 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+&dra7_pmx_core {
+    wl18xx_pins_default: pinmux_wl18xx_pins_default {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x36bc, PIN_OUTPUT_PULLDOWN | MUX_MODE14) /* G13 mcasp1_axr2 gpio5_4 */
+            DRA7XX_CORE_IOPAD(0x36c4, PIN_OUTPUT_PULLDOWN | MUX_MODE14) /* E12 mcasp1_axr4 gpio5_6 */
+            DRA7XX_CORE_IOPAD(0x36d0, PIN_INPUT_PULLDOWN  | MUX_MODE14) /* D12 mcasp1_axr7 gpio5_9 */
+        >;
+    };
+
+    wl18xx_pins_sleep: pinmux_wl18xx_pins_sleep {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x36bc, PIN_OUTPUT_PULLDOWN | MUX_MODE14) /* G13 mcasp1_axr2 gpio5_4 */
+            DRA7XX_CORE_IOPAD(0x36c4, PIN_OUTPUT_PULLUP   | MUX_MODE14) /* E12 mcasp1_axr4 gpio5_6 */
+            DRA7XX_CORE_IOPAD(0x36d0, PIN_INPUT_PULLDOWN  | MUX_MODE14) /* D12 mcasp1_axr7 gpio5_9 */
+        >;
+    };
+
+    bt_pins: pinmux_bt_pins {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x36c0, PIN_OUTPUT_PULLUP   | MUX_MODE14) /* J11 mcasp1_axr3 gpio5_5 */
+        >;
+    };
+
+    uart9_pins: pinmux_uart9_pins {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x3744, PIN_INPUT_PULLUP    | MUX_MODE3 ) /* AA3 mcasp5_aclkx uart9_rxd  */
+            DRA7XX_CORE_IOPAD(0x3748, PIN_OUTPUT_PULLDOWN | MUX_MODE3 ) /* AB9 mcasp5_fsx   uart9_txd  */
+            DRA7XX_CORE_IOPAD(0x374c, PIN_INPUT           | MUX_MODE3 ) /* AB3 mcasp5_axr0  uart9_ctsn */
+            DRA7XX_CORE_IOPAD(0x3750, PIN_OUTPUT_PULLDOWN | MUX_MODE3 ) /* AA4 mcasp5_axr1  uart9_rtsn */
+        >;
+    };
+};
+
+&mmc3 {
+	status = "okay";
+    vmmc-supply = <&wlan_en_reg>;
+    bus-width = <4>;
+	pinctrl-names = "default", "hs", "sdr12", "sdr25", "sdr50";
+    pinctrl-0 = <&mmc3_pins_default &wl18xx_pins_default>;
+    pinctrl-1 = <&mmc3_pins_hs &wl18xx_pins_default>;
+	pinctrl-2 = <&mmc3_pins_sdr12 &wl18xx_pins_default>;
+	pinctrl-3 = <&mmc3_pins_sdr25 &wl18xx_pins_default>;
+	pinctrl-4 = <&mmc3_pins_sdr50 &wl18xx_pins_default>;
+    ti,non-removable;
+    ti,needs-special-hs-handling;
+    cap-power-off-card;
+    keep-power-in-suspend;
+
+    #address-cells = <1>;
+    #size-cells = <0>;
+    wlcore@0 {
+        compatible = "ti,wl1837";
+        reg = <2>;
+        interrupt-parent = <&gpio5>;
+        interrupts = <9 IRQ_TYPE_EDGE_RISING>;
+    };
+};
+
+&uart9 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart9_pins &bt_pins>;
+
+    bluetooth {
+        compatible = "ti,wl1837-st";
+        enable-gpios = <&gpio5 5 GPIO_ACTIVE_HIGH>;
+    };
+};
