@@ -1,4 +1,4 @@
-DTC_FLAGS += -@ -Wno-reg_format -Wno-avoid_default_addr_size
+DTC_FLAGS += -@
 
 dtb-y += am57xx-evm.dtbo
 
