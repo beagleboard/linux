@@ -1,5 +1,20 @@
 DTC_FLAGS += -@
 
+# base dtbs with symbols enabled
+dtb-y += \
+	am571x-idk.dtb \
+	am572x-idk.dtb \
+	am574x-idk.dtb \
+	am57xx-beagle-x15.dtb \
+	am57xx-beagle-x15-revb1.dtb \
+	am57xx-beagle-x15-revc.dtb \
+	dra71-evm.dtb \
+	dra72-evm.dtb \
+	dra72-evm-revc.dtb \
+	dra76-evm.dtb \
+	dra7-evm.dtb
+
+# overlays
 dtb-y += am57xx-evm.dtbo
 
 ifneq ($(DTC),)
