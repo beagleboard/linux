@@ -3101,6 +3101,7 @@ drm_atomic_helper_duplicate_state(struct drm_device *dev,
 	struct drm_connector_list_iter conn_iter;
 	struct drm_plane *plane;
 	struct drm_crtc *crtc;
+	struct drm_private_obj *privobj;
 	int err = 0;
 
 	state = drm_atomic_state_alloc(dev);
@@ -3126,6 +3127,16 @@ drm_atomic_helper_duplicate_state(struct drm_device *dev,
 		plane_state = drm_atomic_get_plane_state(state, plane);
 		if (IS_ERR(plane_state)) {
 			err = PTR_ERR(plane_state);
+			goto free;
+		}
+	}
+
+	drm_for_each_privobj(privobj, dev) {
+		struct drm_private_state *priv_state;
+
+		priv_state = drm_atomic_get_private_obj_state(state, privobj);
+		if (IS_ERR(priv_state)) {
+			err = PTR_ERR(priv_state);
 			goto free;
 		}
 	}
@@ -3237,11 +3248,16 @@ int drm_atomic_helper_commit_duplicated_state(struct drm_atomic_state *state,
 	struct drm_connector_state *new_conn_state;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *new_crtc_state;
+	struct drm_private_obj *privobj;
+	struct drm_private_state *new_priv_state;
 
 	state->acquire_ctx = ctx;
 
 	for_each_new_plane_in_state(state, plane, new_plane_state, i)
 		state->planes[i].old_state = plane->state;
+
+	for_each_new_private_obj_in_state(state, privobj, new_priv_state, i)
+		state->private_objs[i].old_state = privobj->state;
 
 	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i)
 		state->crtcs[i].old_state = crtc->state;

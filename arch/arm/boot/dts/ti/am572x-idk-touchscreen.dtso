@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&touchscreen {
+	interrupt-parent = <&gpio3>;
+	interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+};

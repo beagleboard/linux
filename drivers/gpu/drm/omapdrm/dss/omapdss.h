@@ -14,6 +14,7 @@
 #include <linux/platform_data/omapdss.h>
 #include <uapi/drm/drm_mode.h>
 #include <drm/drm_crtc.h>
+#include <drm/drm_color_mgmt.h>
 
 #define DISPC_IRQ_FRAMEDONE		(1 << 0)
 #define DISPC_IRQ_VSYNC			(1 << 1)
@@ -243,6 +244,9 @@ struct omap_overlay_info {
 	u8 global_alpha;
 	u8 pre_mult_alpha;
 	u8 zorder;
+
+	enum drm_color_encoding color_encoding;
+	enum drm_color_range color_range;
 };
 
 struct omap_overlay_manager_info {
@@ -252,7 +256,7 @@ struct omap_overlay_manager_info {
 	u32 trans_key;
 	bool trans_enabled;
 
-	bool partial_alpha_enabled;
+	bool alpha_blender_enabled;
 
 	bool cpr_enable;
 	struct omap_dss_cpr_coefs cpr_coefs;
@@ -613,6 +617,12 @@ struct dispc_ops {
 
 	const u32 *(*ovl_get_color_modes)(struct dispc_device *dispc,
 					  enum omap_plane_id plane);
+	bool (*ovl_color_mode_supported)(struct dispc_device *dispc,
+					 enum omap_plane_id plane, u32 fourcc);
+	enum omap_overlay_caps (*ovl_get_caps)(struct dispc_device *dispc,
+					       enum omap_plane_id plane);
+	void (*ovl_get_max_size)(struct dispc_device *dispc,
+				 u16 *width, u16 *height);
 
 	u32 (*wb_get_framedone_irq)(struct dispc_device *dispc);
 	int (*wb_setup)(struct dispc_device *dispc,
