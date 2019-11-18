@@ -420,7 +420,7 @@ static int am65_cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 		val &= ~AM65_CPTS_CONTROL_TS_PPM_DIR;
 	am65_cpts_write32(cpts, val, control);
 
-	val = upper_32_bits(ppm) & 0x3F;
+	val = upper_32_bits(ppm) & 0x3FF;
 	am65_cpts_write32(cpts, val, ts_ppm_hi);
 	val = lower_32_bits(ppm);
 	am65_cpts_write32(cpts, val, ts_ppm_low);
