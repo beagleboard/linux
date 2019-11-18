@@ -10,6 +10,9 @@ can influence the way of the LED device initialization, the LED components
 have to be tightly coupled with the LED device binding. They are represented
 by child nodes of the parent LED device binding.
 
+LED properties should be named "leds". The exact meaning of each leds
+property must be documented in the device tree binding for each device.
+
 
 Optional properties for child nodes:
 - led-sources : List of device current outputs the LED is connected to. The
@@ -165,9 +168,20 @@ led-controller@30 {
 		function-enumerator = <2>;
         };
 
-        led@3 {
+        bkl_led0: led@3 {
 		reg = <3>;
-		function = LED_FUNCTION_INDICATOR;
-		function-enumerator = <3>;
+		function = LED_FUNCTION_BACKLIGHT;
+		function-enumerator = <1>;
         };
+
+        bkl_led1: led@4 {
+		reg = <4>;
+		function = LED_FUNCTION_BACKLIGHT;
+		function-enumerator = <2>;
+        };
+};
+
+
+backlight@40 {
+	leds = <&bkl_led0> , <&bkl_led1>;
 };

@@ -1194,8 +1194,10 @@ static int __maybe_unused edt_ft5x06_ts_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 
-	if (device_may_wakeup(dev))
+	if (device_may_wakeup(dev)) {
 		enable_irq_wake(client->irq);
+		disable_irq(client->irq);
+	}
 
 	return 0;
 }
@@ -1204,8 +1206,10 @@ static int __maybe_unused edt_ft5x06_ts_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 
-	if (device_may_wakeup(dev))
+	if (device_may_wakeup(dev)) {
 		disable_irq_wake(client->irq);
+		enable_irq(client->irq);
+	}
 
 	return 0;
 }

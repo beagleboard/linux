@@ -12,6 +12,7 @@ omapdrm-y := omap_drv.o \
 	omap_debugfs.o \
 	omap_crtc.o \
 	omap_plane.o \
+	omap_overlay.o \
 	omap_encoder.o \
 	omap_connector.o \
 	omap_fb.o \
@@ -21,5 +22,7 @@ omapdrm-y := omap_drv.o \
 	tcm-sita.o
 
 omapdrm-$(CONFIG_DRM_FBDEV_EMULATION) += omap_fbdev.o
+
+omapdrm-$(CONFIG_DRM_OMAP_WB) += omap_wb.o omap_wb_cap.o omap_wb_m2m.o
 
 obj-$(CONFIG_DRM_OMAP)	+= omapdrm.o

@@ -13,6 +13,13 @@ config DRM_OMAP_ENCODER_TPD12S015
 	  Driver for TPD12S015, which offers HDMI ESD protection and level
 	  shifting.
 
+config DRM_OMAP_DRA7EVM_ENCODER_TPD12S015
+        tristate "DRA7 EVM TPD12S015 HDMI ESD protection and level shifter"
+	depends on SND_SOC_DAVINCI_MCASP
+	help
+	  A custom TPD12S015 driver for the DRA7 EVM board, it contains some
+	  hacks required for HDMI to work properly on J6 EVM.
+
 config DRM_OMAP_CONNECTOR_HDMI
         tristate "HDMI Connector"
 	help
