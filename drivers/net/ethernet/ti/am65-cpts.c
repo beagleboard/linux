@@ -168,7 +168,6 @@ struct am65_cpts {
 	u32 ts_add_val;
 	int irq;
 	struct mutex ptp_clk_mutex; /* PHC access sync */
-	struct completion ts_push_complete;
 	u64 timestamp;
 	u32 genf_enable;
 	u32 hw_ts_enable;
@@ -304,7 +303,6 @@ static int am65_cpts_fifo_read(struct am65_cpts *cpts)
 			cpts->timestamp = event->timestamp;
 			dev_dbg(cpts->dev, "AM65_CPTS_EV_PUSH t:%llu\n",
 				cpts->timestamp);
-			complete(&cpts->ts_push_complete);
 			break;
 		case AM65_CPTS_EV_RX:
 		case AM65_CPTS_EV_TX:
@@ -375,11 +373,15 @@ static u64 am65_cpts_gettime(struct am65_cpts *cpts)
 {
 	u64 val = 0;
 
-	reinit_completion(&cpts->ts_push_complete);
+	/* temporarily disable cpts interrupt to avoid intentional
+	 * doubled read. Interrupt can be in-flight - it's Ok.
+	 */
+	am65_cpts_write32(cpts, 0, int_enable);
 
 	am65_cpts_write32(cpts, AM65_CPTS_TS_PUSH, ts_push);
+	am65_cpts_fifo_read(cpts);
 
-	wait_for_completion(&cpts->ts_push_complete);
+	am65_cpts_write32(cpts, AM65_CPTS_INT_ENABLE_TS_PEND_EN, int_enable);
 
 	val = cpts->timestamp;
 
@@ -964,7 +966,6 @@ struct am65_cpts *am65_cpts_create(struct device *dev, void __iomem *regs,
 		return ERR_PTR(ret);
 
 	mutex_init(&cpts->ptp_clk_mutex);
-	init_completion(&cpts->ts_push_complete);
 	INIT_LIST_HEAD(&cpts->events);
 	INIT_LIST_HEAD(&cpts->pool);
 	spin_lock_init(&cpts->lock);
