@@ -136,6 +136,8 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	spin_lock_irq(&ddev->event_lock);
 	tidss->dispc_ops->vp_go(tidss->dispc, tcrtc->hw_videoport);
 
+	WARN_ON(tcrtc->event);
+
 	tcrtc->event = crtc->state->event;
 	crtc->state->event = NULL;
 
