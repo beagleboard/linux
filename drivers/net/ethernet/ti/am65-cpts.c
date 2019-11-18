@@ -167,7 +167,7 @@ struct am65_cpts {
 	u32 genf_num;
 	u32 ts_add_val;
 	int irq;
-	struct mutex ptp_clk_mutex; /* PHC access sync */
+	spinlock_t ptp_clk_lock; /* PHC access sync */
 	u64 timestamp;
 	u32 genf_enable;
 	u32 hw_ts_enable;
@@ -406,7 +406,7 @@ static int am65_cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 	u64 adj_period;
 	u32 val;
 
-	mutex_lock(&cpts->ptp_clk_mutex);
+	spin_lock(&cpts->ptp_clk_lock);
 
 	if (ppb < 0) {
 		neg_adj = 1;
@@ -436,7 +436,7 @@ static int am65_cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 	val = lower_32_bits(adj_period);
 	am65_cpts_write32(cpts, val, ts_ppm_low);
 
-	mutex_unlock(&cpts->ptp_clk_mutex);
+	spin_unlock(&cpts->ptp_clk_lock);
 
 	return 0;
 }
@@ -446,11 +446,11 @@ static int am65_cpts_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 	struct am65_cpts *cpts = container_of(ptp, struct am65_cpts, ptp_info);
 	s64 ns;
 
-	mutex_lock(&cpts->ptp_clk_mutex);
+	spin_lock(&cpts->ptp_clk_lock);
 	ns = am65_cpts_gettime(cpts);
 	ns += delta;
 	am65_cpts_settime(cpts, ns);
-	mutex_unlock(&cpts->ptp_clk_mutex);
+	spin_unlock(&cpts->ptp_clk_lock);
 
 	return 0;
 }
@@ -461,10 +461,10 @@ static int am65_cpts_ptp_gettime(struct ptp_clock_info *ptp,
 	struct am65_cpts *cpts = container_of(ptp, struct am65_cpts, ptp_info);
 	u64 ns;
 
-	mutex_lock(&cpts->ptp_clk_mutex);
+	spin_lock(&cpts->ptp_clk_lock);
 	ns = am65_cpts_gettime(cpts);
 	*ts = ns_to_timespec64(ns);
-	mutex_unlock(&cpts->ptp_clk_mutex);
+	spin_unlock(&cpts->ptp_clk_lock);
 
 	return 0;
 }
@@ -475,10 +475,10 @@ static int am65_cpts_ptp_settime(struct ptp_clock_info *ptp,
 	struct am65_cpts *cpts = container_of(ptp, struct am65_cpts, ptp_info);
 	u64 ns;
 
-	mutex_lock(&cpts->ptp_clk_mutex);
+	spin_lock(&cpts->ptp_clk_lock);
 	ns = timespec64_to_ns(ts);
 	am65_cpts_settime(cpts, ns);
-	mutex_unlock(&cpts->ptp_clk_mutex);
+	spin_unlock(&cpts->ptp_clk_lock);
 
 	return 0;
 }
@@ -512,9 +512,9 @@ static int am65_cpts_extts_enable(struct am65_cpts *cpts, u32 index, int on)
 	if (((cpts->hw_ts_enable & BIT(index)) >> index) == on)
 		return 0;
 
-	mutex_lock(&cpts->ptp_clk_mutex);
+	spin_lock(&cpts->ptp_clk_lock);
 	am65_cpts_extts_enable_hw(cpts, index, on);
-	mutex_unlock(&cpts->ptp_clk_mutex);
+	spin_unlock(&cpts->ptp_clk_lock);
 
 	dev_dbg(cpts->dev, "%s: ExtTS:%u %s\n",
 		__func__, index, on ? "enabled" : "disabled");
@@ -571,9 +571,9 @@ static int am65_cpts_perout_enable(struct am65_cpts *cpts,
 	if (!!(cpts->genf_enable & BIT(req->index)) == !!on)
 		return 0;
 
-	mutex_lock(&cpts->ptp_clk_mutex);
+	spin_lock(&cpts->ptp_clk_lock);
 	am65_cpts_perout_enable_hw(cpts, req, on);
-	mutex_unlock(&cpts->ptp_clk_mutex);
+	spin_unlock(&cpts->ptp_clk_lock);
 
 	dev_dbg(cpts->dev, "%s: GenF:%u %s\n",
 		__func__, req->index, on ? "enabled" : "disabled");
@@ -594,7 +594,7 @@ static int am65_cpts_pps_enable(struct am65_cpts *cpts, int on)
 	if (cpts->pps_enabled == !!on)
 		return 0;
 
-	mutex_lock(&cpts->ptp_clk_mutex);
+	spin_lock(&cpts->ptp_clk_lock);
 
 	if (on) {
 		am65_cpts_extts_enable_hw(cpts, cpts->pps_hw_ts_idx, on);
@@ -616,7 +616,7 @@ static int am65_cpts_pps_enable(struct am65_cpts *cpts, int on)
 		cpts->pps_enabled = false;
 	}
 
-	mutex_unlock(&cpts->ptp_clk_mutex);
+	spin_unlock(&cpts->ptp_clk_lock);
 
 	dev_dbg(cpts->dev, "%s: pps: %s\n",
 		__func__, on ? "enabled" : "disabled");
@@ -796,14 +796,14 @@ void am65_cpts_rx_enable(struct am65_cpts *cpts, bool en)
 {
 	u32 val;
 
-	mutex_lock(&cpts->ptp_clk_mutex);
+	spin_lock(&cpts->ptp_clk_lock);
 	val = am65_cpts_read32(cpts, control);
 	if (en)
 		val |= AM65_CPTS_CONTROL_TSTAMP_EN;
 	else
 		val &= ~AM65_CPTS_CONTROL_TSTAMP_EN;
 	am65_cpts_write32(cpts, val, control);
-	mutex_unlock(&cpts->ptp_clk_mutex);
+	spin_unlock(&cpts->ptp_clk_lock);
 }
 EXPORT_SYMBOL_GPL(am65_cpts_rx_enable);
 
@@ -965,7 +965,7 @@ struct am65_cpts *am65_cpts_create(struct device *dev, void __iomem *regs,
 	if (ret)
 		return ERR_PTR(ret);
 
-	mutex_init(&cpts->ptp_clk_mutex);
+	spin_lock_init(&cpts->ptp_clk_lock);
 	INIT_LIST_HEAD(&cpts->events);
 	INIT_LIST_HEAD(&cpts->pool);
 	spin_lock_init(&cpts->lock);
