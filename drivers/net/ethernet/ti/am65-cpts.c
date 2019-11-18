@@ -398,7 +398,7 @@ static int am65_cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 {
 	struct am65_cpts *cpts = container_of(ptp, struct am65_cpts, ptp_info);
 	int neg_adj = 0;
-	u64 ppm;
+	u64 adj_period;
 	u32 val;
 
 	mutex_lock(&cpts->ptp_clk_mutex);
@@ -408,10 +408,16 @@ static int am65_cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 		ppb = -ppb;
 	}
 
-	/* hw_ppm = 1 000 000 / ppm, ppm = ppb / 1000
-	 * hw_ppm = 1 000 000 000 /ppb
+	/* base freq = 1GHz = 1 000 000 000
+	 * ppb_norm = ppb * base_freq / clock_freq;
+	 * ppm_norm = ppb_norm / 1000
+	 * adj_period = 1 000 000 / ppm_norm
+	 * adj_period = 1 000 000 000 / ppb_norm
+	 * adj_period = 1 000 000 000 / (ppb * base_freq / clock_freq)
+	 * adj_period = (1 000 000 000 * clock_freq) / (ppb * base_freq)
+	 * adj_period = clock_freq / ppb
 	 */
-	ppm = div_u64(1000000000ULL, ppb);
+	adj_period = div_u64(cpts->refclk_freq, ppb);
 
 	val = am65_cpts_read32(cpts, control);
 	if (neg_adj)
@@ -420,9 +426,9 @@ static int am65_cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 		val &= ~AM65_CPTS_CONTROL_TS_PPM_DIR;
 	am65_cpts_write32(cpts, val, control);
 
-	val = upper_32_bits(ppm) & 0x3FF;
+	val = upper_32_bits(adj_period) & 0x3FF;
 	am65_cpts_write32(cpts, val, ts_ppm_hi);
-	val = lower_32_bits(ppm);
+	val = lower_32_bits(adj_period);
 	am65_cpts_write32(cpts, val, ts_ppm_low);
 
 	mutex_unlock(&cpts->ptp_clk_mutex);
