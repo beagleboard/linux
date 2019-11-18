@@ -281,12 +281,6 @@ void icssg_class_default(struct regmap *miig_rt, int slice, bool allmulti)
 	/* defaults */
 	icssg_class_disable(miig_rt, slice);
 
-	/* FT1 Disabled */
-	for (n = 0; n < ICSSG_NUM_FT1_SLOTS; n++) {
-		rx_class_ft1_cfg_set_type(miig_rt, slice, n,
-					  FT1_CFG_TYPE_DISABLED);
-	}
-
 	/* Setup Classifier */
 	for (n = 0; n < 5; n++) {
 		/* match on Broadcast or MAC_PRU address */
