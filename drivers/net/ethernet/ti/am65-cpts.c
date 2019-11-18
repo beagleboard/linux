@@ -278,19 +278,19 @@ static int am65_cpts_fifo_read(struct am65_cpts *cpts)
 	struct ptp_clock_event pevent;
 	struct am65_cpts_event *event;
 	unsigned long flags;
-	int i, type;
+	int i, type, ret = 0;
 	bool schedule = false;
 
+	spin_lock_irqsave(&cpts->lock, flags);
 	for (i = 0; i < AM65_CPTS_FIFO_DEPTH; i++) {
-		spin_lock_irqsave(&cpts->lock, flags);
 		event = list_first_entry_or_null(&cpts->pool,
 						 struct am65_cpts_event, list);
-		spin_unlock_irqrestore(&cpts->lock, flags);
 
 		if (!event) {
 			if (am65_cpts_cpts_purge_events(cpts)) {
 				dev_err(cpts->dev, "cpts: event pool empty\n");
-				return -1;
+				ret = -1;
+				goto out;
 			}
 			continue;
 		}
@@ -311,10 +311,9 @@ static int am65_cpts_fifo_read(struct am65_cpts *cpts)
 			event->tmo = jiffies +
 				msecs_to_jiffies(AM65_CPTS_EVENT_RX_TX_TIMEOUT);
 
-			spin_lock_irqsave(&cpts->lock, flags);
 			list_del_init(&event->list);
 			list_add_tail(&event->list, &cpts->events);
-			spin_unlock_irqrestore(&cpts->lock, flags);
+
 			dev_dbg(cpts->dev,
 				"AM65_CPTS_EV_TX e1:%08x e2:%08x t:%lld\n",
 				event->event1, event->event2,
@@ -343,10 +342,8 @@ static int am65_cpts_fifo_read(struct am65_cpts *cpts)
 			event->tmo = jiffies +
 				msecs_to_jiffies(AM65_CPTS_EVENT_RX_TX_TIMEOUT);
 
-			spin_lock_irqsave(&cpts->lock, flags);
 			list_del_init(&event->list);
 			list_add_tail(&event->list, &cpts->events);
-			spin_unlock_irqrestore(&cpts->lock, flags);
 
 			dev_dbg(cpts->dev,
 				"AM65_CPTS_EV_HOST e1:%08x e2:%08x t:%lld\n",
@@ -360,13 +357,18 @@ static int am65_cpts_fifo_read(struct am65_cpts *cpts)
 			break;
 		default:
 			dev_err(cpts->dev, "cpts: unknown event type\n");
-			return -1;
+			ret = -1;
+			goto out;
 		}
 	}
 
+out:
+	spin_unlock_irqrestore(&cpts->lock, flags);
+
 	if (schedule)
 		ptp_schedule_worker(cpts->ptp_clock, 0);
-	return 0;
+
+	return ret;
 }
 
 static u64 am65_cpts_gettime(struct am65_cpts *cpts)
