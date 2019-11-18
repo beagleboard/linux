@@ -27,6 +27,7 @@
 #include "prueth.h"
 #include "icss_mii_rt.h"
 #include "icss_switch.h"
+#include "icss_vlan_mcast_filter_mmap.h"
 
 #define PRUETH_MODULE_VERSION "0.2"
 #define PRUETH_MODULE_DESCRIPTION "PRUSS Ethernet driver"
@@ -1205,6 +1206,66 @@ static struct net_device_stats *emac_ndo_get_stats(struct net_device *ndev)
 	return stats;
 }
 
+/* enable/disable MC filter */
+static void emac_mc_filter_ctrl(struct prueth_emac *emac, bool enable)
+{
+	struct prueth *prueth = emac->prueth;
+	void __iomem *mc_filter_ctrl;
+	u32 reg;
+
+	mc_filter_ctrl = prueth->mem[emac->dram].va +
+			 ICSS_EMAC_FW_MULTICAST_FILTER_CTRL_OFFSET;
+
+	if (enable)
+		reg = ICSS_EMAC_FW_MULTICAST_FILTER_CTRL_ENABLED;
+	else
+		reg = ICSS_EMAC_FW_MULTICAST_FILTER_CTRL_DISABLED;
+
+	writeb(reg, mc_filter_ctrl);
+}
+
+/* set MC filter hashmask override */
+static void emac_mc_filter_override_hashmask(struct prueth_emac *emac,
+					     u8 mask[ICSS_EMAC_FW_MULTICAST_FILTER_MASK_SIZE_BYTES])
+{
+	struct prueth *prueth = emac->prueth;
+	void __iomem *mc_filter_mask;
+
+	mc_filter_mask = prueth->mem[emac->dram].va +
+			 ICSS_EMAC_FW_MULTICAST_FILTER_MASK_OFFSET;
+	memcpy_toio(mc_filter_mask, mask,
+		    ICSS_EMAC_FW_MULTICAST_FILTER_MASK_SIZE_BYTES);
+}
+
+/* enable/disable allmulti */
+static void emac_mc_filter_allmulti_ctrl(struct prueth_emac *emac, bool enable)
+{
+	struct prueth *prueth = emac->prueth;
+	void __iomem *mc_filter_table_base;
+	u8 default_mask[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	int i;
+
+	mc_filter_table_base = prueth->mem[emac->dram].va +
+			       ICSS_EMAC_FW_MULTICAST_FILTER_TABLE;
+	emac_mc_filter_override_hashmask(emac, default_mask);
+
+	if (enable) {
+		/* enable all bins */
+		for (i = 0; i < ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES; i++) {
+			writeb(ICSS_EMAC_FW_MULTICAST_FILTER_HOST_RCV_ALLOWED,
+			       mc_filter_table_base + i);
+		}
+	} else {
+		/* disable all bins */
+		for (i = 0; i < ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES; i++) {
+			writeb(ICSS_EMAC_FW_MULTICAST_FILTER_HOST_RCV_NOT_ALLOWED,
+			       mc_filter_table_base + i);
+		}
+	}
+
+	emac_mc_filter_ctrl(emac, true);
+}
+
 /**
  * emac_ndo_set_rx_mode - EMAC set receive mode function
  * @ndev: The EMAC network adapter
@@ -1219,6 +1280,7 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	void __iomem *sram = prueth->mem[PRUETH_MEM_SHARED_RAM].va;
 	u32 reg = readl(sram + EMAC_PROMISCUOUS_MODE_OFFSET);
 	u32 mask;
+	bool promisc = ndev->flags & IFF_PROMISC;
 
 	switch (emac->port_id) {
 	case PRUETH_PORT_MII0:
@@ -1232,15 +1294,25 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 		return;
 	}
 
-	if (ndev->flags & IFF_PROMISC) {
+	if (promisc) {
 		/* Enable promiscuous mode */
 		reg |= mask;
+		emac_mc_filter_allmulti_ctrl(emac, true);
 	} else {
 		/* Disable promiscuous mode */
 		reg &= ~mask;
+		emac_mc_filter_allmulti_ctrl(emac, false);
 	}
 
 	writel(reg, sram + EMAC_PROMISCUOUS_MODE_OFFSET);
+
+	if (promisc)
+		return;
+
+	if (ndev->flags & IFF_ALLMULTI)
+		emac_mc_filter_allmulti_ctrl(emac, true);
+	else
+		emac_mc_filter_allmulti_ctrl(emac, false);
 }
 
 static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
