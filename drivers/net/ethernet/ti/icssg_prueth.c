@@ -1081,7 +1081,7 @@ static int emac_ndo_open(struct net_device *ndev)
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
 
 	icssg_class_set_mac_addr(prueth->miig_rt, slice, emac->mac_addr);
-	icssg_class_default(prueth->miig_rt, slice);
+	icssg_class_default(prueth->miig_rt, slice, 0);
 
 	netif_carrier_off(ndev);
 
@@ -1310,25 +1310,15 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	struct prueth_emac *emac = netdev_priv(ndev);
 	struct prueth *prueth = emac->prueth;
 	int slice = prueth_emac_slice(emac);
+	bool promisc = ndev->flags & IFF_PROMISC;
+	bool allmulti = ndev->flags & IFF_ALLMULTI;
 
-	if (ndev->flags & IFF_PROMISC) {
-		/* enable promiscuous */
-		if (!(emac->flags & IFF_PROMISC)) {
-			icssg_class_promiscuous(prueth->miig_rt, slice);
-			emac->flags |= IFF_PROMISC;
-		}
+	if (promisc) {
+		icssg_class_promiscuous(prueth->miig_rt, slice);
 		return;
-	} else if (ndev->flags & IFF_ALLMULTI) {
-		/* TODO: enable all multicast */
-	} else {
-		if (emac->flags & IFF_PROMISC) {
-			/* local MAC + BC only */
-			icssg_class_default(prueth->miig_rt, slice);
-			emac->flags &= ~IFF_PROMISC;
-		}
-
-		/* TODO: specific multi */
 	}
+
+	icssg_class_default(prueth->miig_rt, slice, allmulti);
 }
 
 static int emac_set_timestamp_mode(struct prueth_emac *emac,

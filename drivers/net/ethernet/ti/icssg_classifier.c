@@ -273,7 +273,7 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 	regmap_write(miig_rt, offs[slice].rx_class_cfg2, 0);
 }
 
-void icssg_class_default(struct regmap *miig_rt, int slice)
+void icssg_class_default(struct regmap *miig_rt, int slice, bool allmulti)
 {
 	u32 data;
 	int n;
@@ -291,6 +291,11 @@ void icssg_class_default(struct regmap *miig_rt, int slice)
 	for (n = 0; n < 5; n++) {
 		/* match on Broadcast or MAC_PRU address */
 		data = RX_CLASS_FT_BC | RX_CLASS_FT_DA_P;
+
+		/* multicast? */
+		if (allmulti)
+			data |= RX_CLASS_FT_MC;
+
 		rx_class_set_or(miig_rt, slice, n, data);
 
 		/* set CFG1 for OR_OR_AND for classifier */
