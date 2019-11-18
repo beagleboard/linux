@@ -30,6 +30,8 @@ static void tidss_crtc_finish_page_flip(struct tidss_crtc *tcrtc)
 	unsigned long flags;
 	bool busy;
 
+	spin_lock_irqsave(&ddev->event_lock, flags);
+
 	/*
 	 * New settings are taken into use at VFP, and GO bit is cleared at
 	 * the same time. This happens before the vertical blank interrupt.
@@ -37,10 +39,10 @@ static void tidss_crtc_finish_page_flip(struct tidss_crtc *tcrtc)
 	 * before vblank, and we have to check for that case here.
 	 */
 	busy = tidss->dispc_ops->vp_go_busy(tidss->dispc, tcrtc->hw_videoport);
-	if (busy)
+	if (busy) {
+		spin_unlock_irqrestore(&ddev->event_lock, flags);
 		return;
-
-	spin_lock_irqsave(&ddev->event_lock, flags);
+	}
 
 	event = tcrtc->event;
 	tcrtc->event = NULL;
