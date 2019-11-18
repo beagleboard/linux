@@ -406,8 +406,6 @@ static int am65_cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 	u64 adj_period;
 	u32 val;
 
-	spin_lock(&cpts->ptp_clk_lock);
-
 	if (ppb < 0) {
 		neg_adj = 1;
 		ppb = -ppb;
@@ -423,6 +421,8 @@ static int am65_cpts_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
 	 * adj_period = clock_freq / ppb
 	 */
 	adj_period = div_u64(cpts->refclk_freq, ppb);
+
+	spin_lock(&cpts->ptp_clk_lock);
 
 	val = am65_cpts_read32(cpts, control);
 	if (neg_adj)
@@ -463,8 +463,8 @@ static int am65_cpts_ptp_gettime(struct ptp_clock_info *ptp,
 
 	spin_lock(&cpts->ptp_clk_lock);
 	ns = am65_cpts_gettime(cpts);
-	*ts = ns_to_timespec64(ns);
 	spin_unlock(&cpts->ptp_clk_lock);
+	*ts = ns_to_timespec64(ns);
 
 	return 0;
 }
@@ -475,8 +475,8 @@ static int am65_cpts_ptp_settime(struct ptp_clock_info *ptp,
 	struct am65_cpts *cpts = container_of(ptp, struct am65_cpts, ptp_info);
 	u64 ns;
 
-	spin_lock(&cpts->ptp_clk_lock);
 	ns = timespec64_to_ns(ts);
+	spin_lock(&cpts->ptp_clk_lock);
 	am65_cpts_settime(cpts, ns);
 	spin_unlock(&cpts->ptp_clk_lock);
 
