@@ -147,6 +147,7 @@ struct am65_cpts_event {
 #define AM65_CPTS_MAX_EVENTS		(32)
 #define AM65_CPTS_EVENT_RX_TX_TIMEOUT	(20) /* ms */
 #define AM65_CPTS_SKB_TX_WORK_TIMEOUT	1 /* jiffies */
+#define AM65_CPTS_MIN_PPM		0x400
 
 struct am65_cpts {
 	struct device *dev;
@@ -642,7 +643,6 @@ static long am65_cpts_ts_work(struct ptp_clock_info *ptp);
 static struct ptp_clock_info am65_ptp_info = {
 	.owner		= THIS_MODULE,
 	.name		= "CTPS timer",
-	.max_adj	= 10000000,
 	.n_ext_ts	= 0,
 	.n_per_out	= 0,
 	.n_pins		= 0,
@@ -994,6 +994,8 @@ struct am65_cpts *am65_cpts_create(struct device *dev, void __iomem *regs,
 	}
 
 	cpts->refclk_freq = clk_get_rate(cpts->refclk);
+
+	am65_ptp_info.max_adj = cpts->refclk_freq / AM65_CPTS_MIN_PPM;
 	cpts->ptp_info = am65_ptp_info;
 
 	if (cpts->ext_ts_inputs)
