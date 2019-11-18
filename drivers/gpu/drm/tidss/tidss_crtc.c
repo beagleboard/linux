@@ -124,7 +124,8 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 		return;
 
 	/* We should have event if CRTC is enabled through out this commit. */
-	WARN_ON(!crtc->state->event);
+	if (WARN_ON(!crtc->state->event))
+		return;
 
 	tidss->dispc_ops->vp_setup(tidss->dispc,
 				   tcrtc->hw_videoport,
@@ -135,10 +136,8 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	spin_lock_irq(&ddev->event_lock);
 	tidss->dispc_ops->vp_go(tidss->dispc, tcrtc->hw_videoport);
 
-	if (crtc->state->event) {
-		tcrtc->event = crtc->state->event;
-		crtc->state->event = NULL;
-	}
+	tcrtc->event = crtc->state->event;
+	crtc->state->event = NULL;
 
 	spin_unlock_irq(&ddev->event_lock);
 }
