@@ -257,7 +257,7 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 		/* configure gate */
 		offset = RX_CLASS_GATES_N_REG(slice, n);
 		regmap_read(miig_rt, offset, &data);
-		/* clear class_raw */
+		/* clear class_raw so we go through filters */
 		data &= ~RX_CLASS_GATES_RAW_MASK;
 		/* set allow and phase mask */
 		data |= RX_CLASS_GATES_ALLOW_MASK | RX_CLASS_GATES_PHASE_MASK;
@@ -275,7 +275,7 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 
 void icssg_class_default(struct regmap *miig_rt, int slice)
 {
-	u32 offset, data;
+	u32 data;
 	int n;
 
 	/* defaults */
@@ -296,12 +296,6 @@ void icssg_class_default(struct regmap *miig_rt, int slice)
 		/* set CFG1 for OR_OR_AND for classifier */
 		rx_class_sel_set_type(miig_rt, slice, n,
 				      RX_CLASS_SEL_TYPE_OR_OR_AND);
-
-		/* ungate classifier */
-		offset = RX_CLASS_GATES_N_REG(slice, n);
-		regmap_read(miig_rt, offset, &data);
-		data |= RX_CLASS_GATES_RAW_MASK;
-		regmap_write(miig_rt, offset, data);
 	}
 
 	/* clear CFG2 */
