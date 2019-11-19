@@ -140,12 +140,13 @@ struct byt_gpio {
 	struct gpio_chip		chip;
 	struct irq_domain		*domain;
 	struct platform_device		*pdev;
-	spinlock_t			lock;
 	void __iomem			*reg_base;
 	struct pinctrl_gpio_range	*range;
 };
 
 #define to_byt_gpio(c)	container_of(c, struct byt_gpio, chip)
+
+static DEFINE_RAW_SPINLOCK(byt_lock);
 
 static void __iomem *byt_gpio_reg(struct gpio_chip *chip, unsigned offset,
 				 int reg)
@@ -167,11 +168,11 @@ static void byt_gpio_clear_triggering(struct byt_gpio *vg, unsigned offset)
 	unsigned long flags;
 	u32 value;
 
-	spin_lock_irqsave(&vg->lock, flags);
+	raw_spin_lock_irqsave(&byt_lock, flags);
 	value = readl(reg);
 	value &= ~(BYT_TRIG_POS | BYT_TRIG_NEG | BYT_TRIG_LVL);
 	writel(value, reg);
-	spin_unlock_irqrestore(&vg->lock, flags);
+	raw_spin_unlock_irqrestore(&byt_lock, flags);
 }
 
 static u32 byt_get_gpio_mux(struct byt_gpio *vg, unsigned offset)
@@ -196,7 +197,7 @@ static int byt_gpio_request(struct gpio_chip *chip, unsigned offset)
 	u32 value, gpio_mux;
 	unsigned long flags;
 
-	spin_lock_irqsave(&vg->lock, flags);
+	raw_spin_lock_irqsave(&byt_lock, flags);
 
 	/*
 	 * In most cases, func pin mux 000 means GPIO function.
@@ -218,7 +219,7 @@ static int byt_gpio_request(struct gpio_chip *chip, unsigned offset)
 			 "pin %u forcibly re-configured as GPIO\n", offset);
 	}
 
-	spin_unlock_irqrestore(&vg->lock, flags);
+	raw_spin_unlock_irqrestore(&byt_lock, flags);
 
 	pm_runtime_get(&vg->pdev->dev);
 
@@ -244,7 +245,7 @@ static int byt_irq_type(struct irq_data *d, unsigned type)
 	if (offset >= vg->chip.ngpio)
 		return -EINVAL;
 
-	spin_lock_irqsave(&vg->lock, flags);
+	raw_spin_lock_irqsave(&byt_lock, flags);
 	value = readl(reg);
 
 	/* For level trigges the BYT_TRIG_POS and BYT_TRIG_NEG bits
@@ -259,7 +260,7 @@ static int byt_irq_type(struct irq_data *d, unsigned type)
 	else if (type & IRQ_TYPE_LEVEL_MASK)
 		__irq_set_handler_locked(d->irq, handle_level_irq);
 
-	spin_unlock_irqrestore(&vg->lock, flags);
+	raw_spin_unlock_irqrestore(&byt_lock, flags);
 
 	return 0;
 }
@@ -267,25 +268,23 @@ static int byt_irq_type(struct irq_data *d, unsigned type)
 static int byt_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
 	void __iomem *reg = byt_gpio_reg(chip, offset, BYT_VAL_REG);
-	struct byt_gpio *vg = to_byt_gpio(chip);
 	unsigned long flags;
 	u32 val;
 
-	spin_lock_irqsave(&vg->lock, flags);
+	raw_spin_lock_irqsave(&byt_lock, flags);
 	val = readl(reg);
-	spin_unlock_irqrestore(&vg->lock, flags);
+	raw_spin_unlock_irqrestore(&byt_lock, flags);
 
 	return val & BYT_LEVEL;
 }
 
 static void byt_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
-	struct byt_gpio *vg = to_byt_gpio(chip);
 	void __iomem *reg = byt_gpio_reg(chip, offset, BYT_VAL_REG);
 	unsigned long flags;
 	u32 old_val;
 
-	spin_lock_irqsave(&vg->lock, flags);
+	raw_spin_lock_irqsave(&byt_lock, flags);
 
 	old_val = readl(reg);
 
@@ -294,23 +293,22 @@ static void byt_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	else
 		writel(old_val & ~BYT_LEVEL, reg);
 
-	spin_unlock_irqrestore(&vg->lock, flags);
+	raw_spin_unlock_irqrestore(&byt_lock, flags);
 }
 
 static int byt_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
-	struct byt_gpio *vg = to_byt_gpio(chip);
 	void __iomem *reg = byt_gpio_reg(chip, offset, BYT_VAL_REG);
 	unsigned long flags;
 	u32 value;
 
-	spin_lock_irqsave(&vg->lock, flags);
+	raw_spin_lock_irqsave(&byt_lock, flags);
 
 	value = readl(reg) | BYT_DIR_MASK;
 	value &= ~BYT_INPUT_EN;		/* active low */
 	writel(value, reg);
 
-	spin_unlock_irqrestore(&vg->lock, flags);
+	raw_spin_unlock_irqrestore(&byt_lock, flags);
 
 	return 0;
 }
@@ -318,12 +316,11 @@ static int byt_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 static int byt_gpio_direction_output(struct gpio_chip *chip,
 				     unsigned gpio, int value)
 {
-	struct byt_gpio *vg = to_byt_gpio(chip);
 	void __iomem *reg = byt_gpio_reg(chip, gpio, BYT_VAL_REG);
 	unsigned long flags;
 	u32 reg_val;
 
-	spin_lock_irqsave(&vg->lock, flags);
+	raw_spin_lock_irqsave(&byt_lock, flags);
 
 	reg_val = readl(reg) | BYT_DIR_MASK;
 	reg_val &= ~(BYT_OUTPUT_EN | BYT_INPUT_EN);
@@ -333,7 +330,7 @@ static int byt_gpio_direction_output(struct gpio_chip *chip,
 	else
 		writel(reg_val & ~BYT_LEVEL, reg);
 
-	spin_unlock_irqrestore(&vg->lock, flags);
+	raw_spin_unlock_irqrestore(&byt_lock, flags);
 
 	return 0;
 }
@@ -345,7 +342,7 @@ static void byt_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned long flags;
 	u32 conf0, val, offs;
 
-	spin_lock_irqsave(&vg->lock, flags);
+	raw_spin_lock_irqsave(&byt_lock, flags);
 
 	for (i = 0; i < vg->chip.ngpio; i++) {
 		const char *pull_str = NULL;
@@ -406,7 +403,7 @@ static void byt_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 
 		seq_puts(s, "\n");
 	}
-	spin_unlock_irqrestore(&vg->lock, flags);
+	raw_spin_unlock_irqrestore(&byt_lock, flags);
 }
 
 static int byt_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
@@ -444,10 +441,10 @@ static void byt_irq_ack(struct irq_data *d)
 	unsigned offset = irqd_to_hwirq(d);
 	void __iomem *reg;
 
-	spin_lock(&vg->lock);
+	raw_spin_lock(&byt_lock);
 	reg = byt_gpio_reg(&vg->chip, offset, BYT_INT_STAT_REG);
 	writel(BIT(offset % 32), reg);
-	spin_unlock(&vg->lock);
+	raw_spin_unlock(&byt_lock);
 }
 
 static void byt_irq_unmask(struct irq_data *d)
@@ -459,7 +456,7 @@ static void byt_irq_unmask(struct irq_data *d)
 	void __iomem *reg;
 	u32 value;
 
-	spin_lock_irqsave(&vg->lock, flags);
+	raw_spin_lock_irqsave(&byt_lock, flags);
 
 	reg = byt_gpio_reg(&vg->chip, offset, BYT_CONF0_REG);
 	value = readl(reg);
@@ -482,7 +479,7 @@ static void byt_irq_unmask(struct irq_data *d)
 
 	writel(value, reg);
 
-	spin_unlock_irqrestore(&vg->lock, flags);
+	raw_spin_unlock_irqrestore(&byt_lock, flags);
 }
 
 static void byt_irq_mask(struct irq_data *d)
@@ -612,8 +609,6 @@ static int byt_gpio_probe(struct platform_device *pdev)
 	vg->reg_base = devm_ioremap_resource(dev, mem_rc);
 	if (IS_ERR(vg->reg_base))
 		return PTR_ERR(vg->reg_base);
-
-	spin_lock_init(&vg->lock);
 
 	gc = &vg->chip;
 	gc->label = dev_name(&pdev->dev);
