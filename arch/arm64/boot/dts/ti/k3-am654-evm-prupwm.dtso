@@ -43,6 +43,8 @@
 			compatible = "ti,pru-pwm";
 			prus = <&pru1_0>;
 			firmware-name = "ti-pruss/am65x-pru0-pwm-fw.elf";
+			assigned-clocks = <&icssg1_iepclk_mux>;
+			assigned-clock-parents = <&k3_clks 63 10>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
