@@ -409,8 +409,11 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 
 	/* queue another RX DMA */
 	ret = prueth_dma_rx_push(emac, new_skb, &emac->rx_chns);
-	if (WARN_ON(ret < 0))
+	if (WARN_ON(ret < 0)) {
 		dev_kfree_skb_any(new_skb);
+		ndev->stats.rx_errors++;
+		ndev->stats.rx_dropped++;
+	}
 
 	return ret;
 }
