@@ -388,7 +388,7 @@ static int emac_rx_packet(struct prueth_emac *emac, u32 flow_id)
 	skb->dev = ndev;
 	if (!netif_running(skb->dev)) {
 		dev_kfree_skb_any(skb);
-		return -ENODEV;
+		return 0;
 	}
 
 	new_skb = netdev_alloc_skb_ip_align(ndev, PRUETH_MAX_PKT_SIZE);
