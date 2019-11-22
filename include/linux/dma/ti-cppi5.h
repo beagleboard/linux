@@ -458,6 +458,7 @@ static inline void cppi5_hdesc_set_pkttype(struct cppi5_host_desc_t *desc,
 					   u32 pkt_type)
 {
 	WARN_ON(!desc);
+	desc->hdr.pkt_info2 &= ~CPPI5_INFO2_HDESC_PKTTYPE_MASK;
 	desc->hdr.pkt_info2 |=
 			(pkt_type << CPPI5_INFO2_HDESC_PKTTYPE_SHIFT) &
 			 CPPI5_INFO2_HDESC_PKTTYPE_MASK;
