@@ -140,6 +140,10 @@ struct prueth_emac {
 	u32 tx_ts_cookie;
 	struct sk_buff *tx_ts_skb;
 	unsigned long state;
+
+	/* shutdown related */
+	u32 cmd_data[4];
+	struct completion shutdown_complete;
 };
 
 /**
