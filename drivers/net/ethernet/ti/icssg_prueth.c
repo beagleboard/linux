@@ -577,10 +577,10 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	first_desc = k3_knav_pool_alloc(tx_chn->desc_pool);
 	if (!first_desc) {
-		dev_err(dev, "tx: failed to allocate descriptor\n");
+		netdev_dbg(ndev, "tx: failed to allocate descriptor\n");
 		dma_unmap_single(dev, buf_dma, pkt_len, DMA_TO_DEVICE);
 		ret = -ENOMEM;
-		goto drop_stop_q;
+		goto drop_stop_q_busy;
 	}
 
 	cppi5_hdesc_init(first_desc, CPPI5_INFO0_HDESC_EPIB_PRESENT,
@@ -686,6 +686,10 @@ drop_free_skb:
 	netdev_err(ndev, "tx: error: %d\n", ret);
 
 	return ret;
+
+drop_stop_q_busy:
+	netif_stop_queue(ndev);
+	return NETDEV_TX_BUSY;
 }
 
 /**
