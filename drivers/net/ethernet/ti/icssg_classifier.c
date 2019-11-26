@@ -257,7 +257,7 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 		/* configure gate */
 		offset = RX_CLASS_GATES_N_REG(slice, n);
 		regmap_read(miig_rt, offset, &data);
-		/* clear class_raw */
+		/* clear class_raw so we go through filters */
 		data &= ~RX_CLASS_GATES_RAW_MASK;
 		/* set allow and phase mask */
 		data |= RX_CLASS_GATES_ALLOW_MASK | RX_CLASS_GATES_PHASE_MASK;
@@ -273,35 +273,28 @@ void icssg_class_disable(struct regmap *miig_rt, int slice)
 	regmap_write(miig_rt, offs[slice].rx_class_cfg2, 0);
 }
 
-void icssg_class_default(struct regmap *miig_rt, int slice)
+void icssg_class_default(struct regmap *miig_rt, int slice, bool allmulti)
 {
-	u32 offset, data;
+	u32 data;
 	int n;
 
 	/* defaults */
 	icssg_class_disable(miig_rt, slice);
 
-	/* FT1 Disabled */
-	for (n = 0; n < ICSSG_NUM_FT1_SLOTS; n++) {
-		rx_class_ft1_cfg_set_type(miig_rt, slice, n,
-					  FT1_CFG_TYPE_DISABLED);
-	}
-
 	/* Setup Classifier */
 	for (n = 0; n < 5; n++) {
 		/* match on Broadcast or MAC_PRU address */
 		data = RX_CLASS_FT_BC | RX_CLASS_FT_DA_P;
+
+		/* multicast? */
+		if (allmulti)
+			data |= RX_CLASS_FT_MC;
+
 		rx_class_set_or(miig_rt, slice, n, data);
 
 		/* set CFG1 for OR_OR_AND for classifier */
 		rx_class_sel_set_type(miig_rt, slice, n,
 				      RX_CLASS_SEL_TYPE_OR_OR_AND);
-
-		/* ungate classifier */
-		offset = RX_CLASS_GATES_N_REG(slice, n);
-		regmap_read(miig_rt, offset, &data);
-		data |= RX_CLASS_GATES_RAW_MASK;
-		regmap_write(miig_rt, offset, data);
 	}
 
 	/* clear CFG2 */
@@ -317,37 +310,9 @@ void icssg_class_promiscuous(struct regmap *miig_rt, int slice)
 	/* defaults */
 	icssg_class_disable(miig_rt, slice);
 
-	/* FT1 uses 6 bytes of DA address */
-	offset = offs[slice].ft1_start_len;
-	regmap_write(miig_rt, offset, FT1_LEN(6));
-
-	/* FT1 type EQ */
-	for (n = 0; n < ICSSG_NUM_FT1_SLOTS; n++)
-		rx_class_ft1_cfg_set_type(miig_rt, slice, n, FT1_CFG_TYPE_EQ);
-
-	/* FT1[0] DA compare address 00-00-00-00-00-00 */
-	offset = FT1_N_REG(slice, 0, FT1_DA0);
-	regmap_write(miig_rt, offset, 0);
-	offset = FT1_N_REG(slice, 0, FT1_DA1);
-	regmap_write(miig_rt, offset, 0);
-
-	/* FT1[0] mask FE-FF-FF-FF-FF-FF */
-	offset = FT1_N_REG(slice, 0, FT1_DA0_MASK);
-	regmap_write(miig_rt, offset, 0xfffffffe);
-	offset = FT1_N_REG(slice, 0, FT1_DA1_MASK);
-	regmap_write(miig_rt, offset, 0xffff);
-
 	/* Setup Classifier */
 	for (n = 0; n < 5; n++) {
-		/* match on multicast, broadcast or unicast (ft1-0 address) */
-		data = RX_CLASS_FT_MC | RX_CLASS_FT_BC | FT1_MATCH_SLOT(0);
-		rx_class_set_or(miig_rt, slice, n, data);
-
-		/* set CFG1 for OR_OR_AND for classifier */
-		rx_class_sel_set_type(miig_rt, slice, n,
-				      RX_CLASS_SEL_TYPE_OR_OR_AND);
-
-		/* ungate classifier */
+		/* set RAW_MASK to bypass filters */
 		offset = RX_CLASS_GATES_N_REG(slice, n);
 		regmap_read(miig_rt, offset, &data);
 		data |= RX_CLASS_GATES_RAW_MASK;

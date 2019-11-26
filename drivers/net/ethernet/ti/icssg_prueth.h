@@ -135,12 +135,15 @@ struct prueth_emac {
 	int rx_mgm_flow_id_base;
 
 	spinlock_t lock;	/* serialize access */
-	unsigned int flags;
 
 	/* TX HW Timestamping */
 	u32 tx_ts_cookie;
 	struct sk_buff *tx_ts_skb;
 	unsigned long state;
+
+	/* shutdown related */
+	u32 cmd_data[4];
+	struct completion shutdown_complete;
 };
 
 /**
@@ -187,7 +190,7 @@ struct emac_tx_ts_response {
 /* Classifier helpers */
 void icssg_class_set_mac_addr(struct regmap *miig_rt, int slice, u8 *mac);
 void icssg_class_disable(struct regmap *miig_rt, int slice);
-void icssg_class_default(struct regmap *miig_rt, int slice);
+void icssg_class_default(struct regmap *miig_rt, int slice, bool allmulti);
 void icssg_class_promiscuous(struct regmap *miig_rt, int slice);
 
 /* get PRUSS SLICE number from prueth_emac */
