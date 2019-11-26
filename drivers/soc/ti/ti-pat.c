@@ -183,6 +183,7 @@ static int ti_pat_dma_buf_attach(struct dma_buf *dmabuf,
 		if (IS_ERR(buffer->attachment)) {
 			dev_err(buffer->pat->dev, "Unable to attach to parent DMA-BUF\n");
 			mutex_unlock(&buffer->lock);
+			sg_free_table(a->table);
 			kfree(a->table);
 			kfree(a);
 			return PTR_ERR(buffer->attachment);
@@ -209,6 +210,7 @@ static void ti_pat_dma_buf_detach(struct dma_buf *dmabuf,
 	}
 	mutex_unlock(&buffer->lock);
 
+	sg_free_table(a->table);
 	kfree(a->table);
 	kfree(a);
 }
