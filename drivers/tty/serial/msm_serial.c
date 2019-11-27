@@ -857,6 +857,7 @@ static void msm_console_write(struct console *co, const char *s,
 	struct msm_port *msm_port;
 	int num_newlines = 0;
 	bool replaced = false;
+	int locked = 1;
 
 	BUG_ON(co->index < 0 || co->index >= UART_NR);
 
@@ -869,7 +870,13 @@ static void msm_console_write(struct console *co, const char *s,
 			num_newlines++;
 	count += num_newlines;
 
-	spin_lock(&port->lock);
+	if (port->sysrq)
+		locked = 0;
+	else if (oops_in_progress)
+		locked = spin_trylock(&port->lock);
+	else
+		spin_lock(&port->lock);
+
 	if (msm_port->is_uartdm)
 		reset_dm_count(port, count);
 
@@ -906,7 +913,9 @@ static void msm_console_write(struct console *co, const char *s,
 		msm_write(port, *bf, msm_port->is_uartdm ? UARTDM_TF : UART_TF);
 		i += num_chars;
 	}
-	spin_unlock(&port->lock);
+
+	if (locked)
+		spin_unlock(&port->lock);
 }
 
 static int __init msm_console_setup(struct console *co, char *options)
