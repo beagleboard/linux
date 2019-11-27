@@ -1530,12 +1530,6 @@ static int mhdp_link_training(struct cdns_mhdp_device *mhdp,
 	reg32 |= CDNS_DP_WR_FAILING_EDGE_VSYNC;
 	cdns_mhdp_reg_write(mhdp, CDNS_DP_FRAMER_GLOBAL_CONFIG, reg32);
 
-	/* Reset PHY config */
-	reg32 = CDNS_PHY_COMMON_CONFIG | CDNS_PHY_TRAINING_TYPE(1);
-	if (!mhdp->host.scrambler)
-		reg32 |= CDNS_PHY_SCRAMBLER_BYPASS;
-	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_PHY_CONFIG, reg32);
-
 	return 0;
 err:
 	/* Reset PHY config */
@@ -1947,6 +1941,7 @@ void cdns_mhdp_enable(struct drm_bridge *bridge)
 {
 	struct cdns_mhdp_device *mhdp = bridge_to_mhdp(bridge);
 	u32 resp;
+	u32 reg32;
 
 	dev_dbg(mhdp->dev, "bridge enable\n");
 
@@ -1962,6 +1957,12 @@ void cdns_mhdp_enable(struct drm_bridge *bridge)
 		cdns_mhdp_link_up(mhdp);
 
 	cdns_mhdp_sst_enable(bridge);
+
+	/* Reset PHY config */
+	reg32 = CDNS_PHY_COMMON_CONFIG | CDNS_PHY_TRAINING_TYPE(1);
+	if (!mhdp->host.scrambler)
+		reg32 |= CDNS_PHY_SCRAMBLER_BYPASS;
+	cdns_mhdp_reg_write(mhdp, CDNS_DPTX_PHY_CONFIG, reg32);
 }
 
 static void cdns_mhdp_detach(struct drm_bridge *bridge)
