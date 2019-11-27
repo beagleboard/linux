@@ -30,6 +30,8 @@ static void tidss_crtc_finish_page_flip(struct tidss_crtc *tcrtc)
 	unsigned long flags;
 	bool busy;
 
+	spin_lock_irqsave(&ddev->event_lock, flags);
+
 	/*
 	 * New settings are taken into use at VFP, and GO bit is cleared at
 	 * the same time. This happens before the vertical blank interrupt.
@@ -37,10 +39,10 @@ static void tidss_crtc_finish_page_flip(struct tidss_crtc *tcrtc)
 	 * before vblank, and we have to check for that case here.
 	 */
 	busy = tidss->dispc_ops->vp_go_busy(tidss->dispc, tcrtc->hw_videoport);
-	if (busy)
+	if (busy) {
+		spin_unlock_irqrestore(&ddev->event_lock, flags);
 		return;
-
-	spin_lock_irqsave(&ddev->event_lock, flags);
+	}
 
 	event = tcrtc->event;
 	tcrtc->event = NULL;
@@ -110,6 +112,7 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
 	struct drm_device *ddev = crtc->dev;
 	struct tidss_device *tidss = ddev->dev_private;
+	unsigned long flags;
 
 	dev_dbg(ddev->dev, "%s, crtc enabled %d, event %p\n",
 		__func__, tcrtc->enabled, crtc->state->event);
@@ -124,7 +127,8 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 		return;
 
 	/* We should have event if CRTC is enabled through out this commit. */
-	WARN_ON(!crtc->state->event);
+	if (WARN_ON(!crtc->state->event))
+		return;
 
 	tidss->dispc_ops->vp_setup(tidss->dispc,
 				   tcrtc->hw_videoport,
@@ -132,15 +136,15 @@ static void tidss_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	WARN_ON(drm_crtc_vblank_get(crtc) != 0);
 
-	spin_lock_irq(&ddev->event_lock);
+	spin_lock_irqsave(&ddev->event_lock, flags);
 	tidss->dispc_ops->vp_go(tidss->dispc, tcrtc->hw_videoport);
 
-	if (crtc->state->event) {
-		tcrtc->event = crtc->state->event;
-		crtc->state->event = NULL;
-	}
+	WARN_ON(tcrtc->event);
 
-	spin_unlock_irq(&ddev->event_lock);
+	tcrtc->event = crtc->state->event;
+	crtc->state->event = NULL;
+
+	spin_unlock_irqrestore(&ddev->event_lock, flags);
 }
 
 static void tidss_crtc_atomic_enable(struct drm_crtc *crtc,
@@ -151,6 +155,7 @@ static void tidss_crtc_atomic_enable(struct drm_crtc *crtc,
 	struct tidss_device *tidss = ddev->dev_private;
 	const struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	int r;
+	unsigned long flags;
 
 	dev_dbg(ddev->dev, "%s, event %p\n", __func__, crtc->state->event);
 
@@ -180,14 +185,14 @@ static void tidss_crtc_atomic_enable(struct drm_crtc *crtc,
 	tidss->dispc_ops->vp_enable(tidss->dispc, tcrtc->hw_videoport,
 				    crtc->state);
 
-	spin_lock_irq(&ddev->event_lock);
+	spin_lock_irqsave(&ddev->event_lock, flags);
 
 	if (crtc->state->event) {
 		drm_crtc_send_vblank_event(crtc, crtc->state->event);
 		crtc->state->event = NULL;
 	}
 
-	spin_unlock_irq(&ddev->event_lock);
+	spin_unlock_irqrestore(&ddev->event_lock, flags);
 }
 
 static void tidss_crtc_atomic_disable(struct drm_crtc *crtc,
@@ -196,6 +201,7 @@ static void tidss_crtc_atomic_disable(struct drm_crtc *crtc,
 	struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
 	struct drm_device *ddev = crtc->dev;
 	struct tidss_device *tidss = ddev->dev_private;
+	unsigned long flags;
 
 	dev_dbg(ddev->dev, "%s, event %p\n", __func__, crtc->state->event);
 
@@ -212,12 +218,12 @@ static void tidss_crtc_atomic_disable(struct drm_crtc *crtc,
 		tidss->dispc_ops->vp_unprepare(tidss->dispc,
 					       tcrtc->hw_videoport);
 
-	spin_lock_irq(&ddev->event_lock);
+	spin_lock_irqsave(&ddev->event_lock, flags);
 	if (crtc->state->event) {
 		drm_crtc_send_vblank_event(crtc, crtc->state->event);
 		crtc->state->event = NULL;
 	}
-	spin_unlock_irq(&ddev->event_lock);
+	spin_unlock_irqrestore(&ddev->event_lock, flags);
 
 	tcrtc->enabled = false;
 

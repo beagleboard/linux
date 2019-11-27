@@ -945,6 +945,7 @@ static bool dispc7_vp_go_busy(struct dispc_device *dispc,
 
 static void dispc7_vp_go(struct dispc_device *dispc, u32 hw_videoport)
 {
+	WARN_ON(VP_REG_GET(dispc, hw_videoport, DISPC_VP_CONTROL, 5, 5));
 	VP_REG_FLD_MOD(dispc, hw_videoport, DISPC_VP_CONTROL, 1, 5, 5);
 }
 
