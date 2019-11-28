@@ -207,9 +207,11 @@ static uint32_t batadv_hash_dat(const void *data, uint32_t size)
 {
 	uint32_t hash = 0;
 	const struct batadv_dat_entry *dat = data;
+	__be16 vid;
 
 	hash = batadv_hash_bytes(hash, &dat->ip, sizeof(dat->ip));
-	hash = batadv_hash_bytes(hash, &dat->vid, sizeof(dat->vid));
+	vid = htons(dat->vid);
+	hash = batadv_hash_bytes(hash, &vid, sizeof(vid));
 
 	hash += (hash << 3);
 	hash ^= (hash >> 11);
