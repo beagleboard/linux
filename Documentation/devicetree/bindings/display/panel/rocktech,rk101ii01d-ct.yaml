@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/panel/rocktech,rk101ii01d-ct.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Rocktech Displays Ltd RK101II01D-CT 10.1" TFT 1280x800 Pixels
+
+maintainers:
+  - Jyri Sarha <jsarha@ti.com>
+  - Thierry Reding <thierry.reding@gmail.com>
+
+allOf:
+  - $ref: panel-common.yaml#
+
+description: |
+  Rocktech Displays Limited RK101II01D-CT 10.1" TFT 1280x800 Pixels
+  with LVDS interface, LED Backlight and capacitive touch panel. For
+  touch screen details see "goodix,gt928" in:
+  Documentation/devicetree/bindings/input/touchscreen/goodix.txt
+
+properties:
+  compatible:
+    const: rocktech,rk101ii01d-ct
+
+  reset-gpios: true
+  enable-gpios: true
+  backlight: true
+  port: true
+
+required:
+  - compatible
+  - power-supply
+
+examples:
+  - |
+        display0 {
+                compatible = "rocktech,rk101ii01d-ct";
+                backlight = <&lcd_bl>;
+                enable-gpios = <&pca9555 8 GPIO_ACTIVE_HIGH>;
+                power-supply = <&dummy_supply>;
+
+                port {
+                        lcd_in0: endpoint {
+                                remote-endpoint = <&oldi_out0>;
+                        };
+                };
+        };
