@@ -245,6 +245,14 @@ static void rsi_rx_done_handler(struct urb *urb)
 	rsi_set_event(&dev->rx_thread.event);
 }
 
+static void rsi_rx_urb_kill(struct rsi_hw *adapter)
+{
+	struct rsi_91x_usbdev *dev = (struct rsi_91x_usbdev *)adapter->rsi_dev;
+	struct urb *urb = dev->rx_usb_urb[0];
+
+	usb_kill_urb(urb);
+}
+
 /**
  * rsi_rx_urb_submit() - This function submits the given URB to the USB stack.
  * @adapter: Pointer to the adapter structure.
@@ -509,6 +517,8 @@ static void rsi_disconnect(struct usb_interface *pfunction)
 
 	if (!adapter)
 		return;
+
+	rsi_rx_urb_kill(adapter);
 
 	rsi_mac80211_detach(adapter);
 	rsi_deinit_usb_interface(adapter);
