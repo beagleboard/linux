@@ -14,6 +14,7 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/export.h>
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -35,9 +36,11 @@
 #include <sound/initval.h>
 #include <sound/soc.h>
 #include <sound/dmaengine_pcm.h>
+#include <dt-bindings/sound/ti-mcasp.h>
 
 #include "edma-pcm.h"
 #include "sdma-pcm.h"
+#include "udma-pcm.h"
 #include "davinci-mcasp.h"
 
 #define MCASP_MAX_AFIFO_DEPTH	64
@@ -664,18 +667,39 @@ static int davinci_mcasp_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 	struct davinci_mcasp *mcasp = snd_soc_dai_get_drvdata(dai);
 
 	pm_runtime_get_sync(mcasp->dev);
-	if (dir == SND_SOC_CLOCK_OUT) {
+
+	if (dir == SND_SOC_CLOCK_IN) {
+		switch (clk_id) {
+		case MCASP_CLK_HCLK_AHCLK:
+			mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG,
+				       AHCLKXE);
+			mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG,
+				       AHCLKRE);
+			clear_bit(PIN_BIT_AHCLKX, &mcasp->pdir);
+			break;
+		case MCASP_CLK_HCLK_AUXCLK:
+			mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG,
+				       AHCLKXE);
+			mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG,
+				       AHCLKRE);
+			set_bit(PIN_BIT_AHCLKX, &mcasp->pdir);
+			break;
+		default:
+			dev_err(mcasp->dev, "Invalid clk id: %d\n", clk_id);
+			goto out;
+		}
+	} else {
+		/* Select AUXCLK as HCLK */
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG, AHCLKXE);
 		mcasp_set_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG, AHCLKRE);
 		set_bit(PIN_BIT_AHCLKX, &mcasp->pdir);
-	} else {
-		mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKXCTL_REG, AHCLKXE);
-		mcasp_clr_bits(mcasp, DAVINCI_MCASP_AHCLKRCTL_REG, AHCLKRE);
-		clear_bit(PIN_BIT_AHCLKX, &mcasp->pdir);
 	}
-
+	/*
+	 * When AHCLK X/R is selected to be output it means that the HCLK is
+	 * the same clock - coming via AUXCLK.
+	 */
 	mcasp->sysclk_freq = freq;
-
+out:
 	pm_runtime_put(mcasp->dev);
 	return 0;
 }
@@ -1630,6 +1654,20 @@ static struct snd_soc_dai_driver davinci_mcasp_dai[] = {
 
 };
 
+int davinci_mcasp_set_serializer_dir(struct snd_soc_dai *dai, u8 num_serializer,
+				     u8 *serial_dir)
+{
+	struct davinci_mcasp *mcasp = snd_soc_dai_get_drvdata(dai);
+
+	if (mcasp->num_serializer != num_serializer)
+		return -EINVAL;
+
+	memcpy(mcasp->serial_dir, serial_dir, num_serializer);
+
+	return 0;
+}
+EXPORT_SYMBOL(davinci_mcasp_set_serializer_dir);
+
 static const struct snd_soc_component_driver davinci_mcasp_component = {
 	.name		= "davinci-mcasp",
 };
@@ -1854,6 +1892,7 @@ nodata:
 enum {
 	PCM_EDMA,
 	PCM_SDMA,
+	PCM_UDMA,
 };
 static const char *sdma_prefix = "ti,omap";
 
@@ -1891,6 +1930,8 @@ static int davinci_mcasp_get_dma_type(struct davinci_mcasp *mcasp)
 	dev_dbg(mcasp->dev, "DMA controller compatible = \"%s\"\n", tmp);
 	if (!strncmp(tmp, sdma_prefix, strlen(sdma_prefix)))
 		return PCM_SDMA;
+	else if (strstr(tmp, "udmap"))
+		return PCM_UDMA;
 
 	return PCM_EDMA;
 }
@@ -2335,6 +2376,31 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	if (ret)
 		return -EINVAL;
 
+	if (mcasp->version == MCASP_VERSION_4) {
+		u32 rev;
+
+		pm_runtime_get_sync(mcasp->dev);
+		rev = mcasp_get_reg(mcasp, DAVINCI_MCASP_PID_REG) &
+				    MCASP_V4_REV_MASK;
+		pm_runtime_put(mcasp->dev);
+
+		if (rev < MCASP_V4_REV(3, 3)) {
+			/*
+			 * ERRATA i868: to avoid race condition between DMA and
+			 * AFIFO events the R/WNUMEVT need to be set to be
+			 * less-than-equal to 32 words.
+			 */
+			if (mcasp->txnumevt)
+				mcasp->txnumevt = 32;
+			if (mcasp->rxnumevt)
+				mcasp->rxnumevt = 32;
+
+			if (mcasp->txnumevt || mcasp->rxnumevt)
+				dev_info(&pdev->dev,
+					 "ERRATA i868 workaround is enabled\n");
+		}
+	}
+
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					&davinci_mcasp_component,
 					&davinci_mcasp_dai[pdata->op_mode], 1);
@@ -2349,6 +2415,9 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		break;
 	case PCM_SDMA:
 		ret = sdma_pcm_platform_register(&pdev->dev, "tx", "rx");
+		break;
+	case PCM_UDMA:
+		ret = udma_pcm_platform_register(&pdev->dev);
 		break;
 	default:
 		dev_err(&pdev->dev, "No DMA controller found (%d)\n", ret);

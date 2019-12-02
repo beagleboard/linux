@@ -1,0 +1,84 @@
+* Audio support for j721e Infotainment Expansion Board
+
+The Infotainment board plugs into the Common Processor Board, the support of the
+extension board is extending the CPB audio support, decribed in:
+sound/ti,j721e-cpb-audio.txt
+
+The audio support on the Infotainment Expansion Board consists of McASP0
+connected to two pcm3168a codecs with dedicated set of serializers to each.
+The SCKI for pcm3168a is sourced from j721e AUDIO_REFCLK0 pin.
+
+In order to support 48KHz and 44.1KHz family of sampling rates the parent clock
+for AUDIO_REFCLK0 needs to be changed between PLL4 (for 48KHz) and PLL15 (for
+44.1KHz). The same PLLs are used for McASP0's AUXCLK clock via different
+HSDIVIDER.
+
+Note: the same PLL4 and PLL15 is used by the audio support on the CPB!
+
+Required properties:
+- compatible : "ti,j721e-cpb-ivi-audio" for separate PCMs for each codec
+	       "ti,j721e-cpb-ivi-multicodec-audio" for single PCM stream for the
+						   IVI card
+	       "ti,j721e-cpb-ivi-dpcm-audio" for single PCM stream for the
+					     IVI card with DPCM
+
+- ti,model : Sound card name, should be "j721e-cpb-ivi-analog" or
+	     "j721e-cpb-ivi-multicodec-analog" or "j721e-cpb-ivi-dpcm-analog"
+- ti,ivi-mcasp : phandle to McASP0
+- ti,ivi-codec-a : phandle to the pcm3168a-A codec on the expansion board
+- ti,ivi-codec-b : phandle to the pcm3168a-B codec on the expansion board
+- clocks : Must contain an entry for each entry in clock-names.
+- clock-names : Must include the following entries:
+		"pll4" (PLL4 clock)
+		"pll15" (PLL15 clock)
+		"cpb-mcasp" (McASP10 auxclk clock)
+		"cpb-mcasp-48000" (PLL4_HSDIV0 parent for McASP10 auxclk)
+		"cpb-mcasp-44100" (PLL15_HSDIV0 parent for McASP10 auxclk)
+		"audio-refclk2" (AUDIO_REFCLK2 clock)
+		"audio-refclk2-48000" (PLL4_HSDIV2 parent for AUDIO_REFCLK2
+				       clock)
+		"audio-refclk2-44100" (PLL15_HSDIV2 parent for AUDIO_REFCLK2
+				       clock)
+		"ivi-mcasp" (McASP0 auxclk clock)
+		"ivi-mcasp-48000" (PLL4_HSDIV0 parent for McASP0 auxclk)
+		"ivi-mcasp-44100" (PLL15_HSDIV0 parent for McASP0 auxclk)
+		"audio-refclk0" (AUDIO_REFCLK0 clock)
+		"audio-refclk0-48000" (PLL4_HSDIV2 parent for AUDIO_REFCLK0
+				       clock)
+		"audio-refclk0-44100" (PLL15_HSDIV2 parent for AUDIO_REFCLK0
+				       clock)
+
+Example:
+
+sound0: sound@0 {
+	compatible = "ti,j721e-cpb-ivi-multicodec-audio";
+	ti,model = "j721e-cpb-ivi-multicodec-analog";
+
+	status = "okay";
+
+	ti,cpb-mcasp = <&mcasp10>;
+	ti,cpb-codec = <&pcm3168a_1>;
+
+	ti,ivi-mcasp = <&mcasp0>;
+	ti,ivi-codec-a = <&pcm3168a_a>;
+	ti,ivi-codec-b = <&pcm3168a_b>;
+
+	clocks = <&pll4>, <&pll15>,
+		 <&k3_clks 184 1>,
+		 <&k3_clks 184 2>, <&k3_clks 184 4>,
+		 <&k3_clks 157 371>,
+		 <&k3_clks 157 400>, <&k3_clks 157 401>,
+		 <&k3_clks 174 1>,
+		 <&k3_clks 174 2>, <&k3_clks 174 4>,
+		 <&k3_clks 157 301>,
+		 <&k3_clks 157 330>, <&k3_clks 157 331>;
+	clock-names = "pll4", "pll15",
+		      "cpb-mcasp",
+		      "cpb-mcasp-48000", "cpb-mcasp-44100",
+		      "audio-refclk2",
+		      "audio-refclk2-48000", "audio-refclk2-44100",
+		      "ivi-mcasp",
+		      "ivi-mcasp-48000", "ivi-mcasp-44100",
+		      "audio-refclk0",
+		      "audio-refclk0-48000", "audio-refclk0-44100";
+};
