@@ -1947,6 +1947,7 @@ static int snd_soc_instantiate_card(struct snd_soc_card *card)
 	struct snd_soc_pcm_runtime *rtd;
 	struct snd_soc_dai_link *dai_link;
 	int ret, i;
+	int idx;
 
 	mutex_lock(&client_mutex);
 	for_each_card_prelinks(card, i, dai_link) {
@@ -1984,9 +1985,17 @@ static int snd_soc_instantiate_card(struct snd_soc_card *card)
 			goto probe_end;
 	}
 
+	if (card->dev->of_node) {
+		idx = of_alias_get_id(card->dev->of_node, "sound");
+		if (idx < 0)
+			idx = SNDRV_DEFAULT_IDX1;
+	} else {
+		idx = card->id_hint;
+	}
+
 	/* card bind complete so register a sound card */
-	ret = snd_card_new(card->dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
-			card->owner, 0, &card->snd_card);
+	ret = snd_card_new(card->dev, idx, SNDRV_DEFAULT_STR1, card->owner, 0,
+			   &card->snd_card);
 	if (ret < 0) {
 		dev_err(card->dev,
 			"ASoC: can't create sound card for card %s: %d\n",

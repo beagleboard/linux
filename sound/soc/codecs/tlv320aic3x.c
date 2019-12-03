@@ -304,6 +304,13 @@ static const char * const aic3x_rampup_step[] = { "0ms", "1ms", "2ms", "4ms" };
 static SOC_ENUM_SINGLE_DECL(aic3x_rampup_step_enum, HPOUT_POP_REDUCTION, 2,
 			    aic3x_rampup_step);
 
+static const char * const aic3x_output_pdown_mode[] = {
+	"Drive to a common-mode", "High-impedance mode"};
+static SOC_ENUM_SINGLE_DECL(aic3x_hpl_pdown_mode_enum, HPLOUT_CTRL, 2,
+			    aic3x_output_pdown_mode);
+static SOC_ENUM_SINGLE_DECL(aic3x_hpr_pdown_mode_enum, HPROUT_CTRL, 2,
+			    aic3x_output_pdown_mode);
+
 /*
  * DAC digital volumes. From -63.5 to 0 dB in 0.5 dB steps
  */
@@ -399,6 +406,9 @@ static const struct snd_kcontrol_new aic3x_snd_controls[] = {
 			 4, 9, 0, out_tlv),
 	SOC_DOUBLE_R("HPCOM Playback Switch", HPLCOM_CTRL, HPRCOM_CTRL, 3,
 		     0x01, 0),
+
+	SOC_ENUM("Left HP Power Down mode", aic3x_hpl_pdown_mode_enum),
+	SOC_ENUM("Right HP Power Down mode", aic3x_hpr_pdown_mode_enum),
 
 	/*
 	 * Note: enable Automatic input Gain Controller with care. It can

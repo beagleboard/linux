@@ -994,6 +994,8 @@ struct snd_soc_card {
 
 	spinlock_t dpcm_lock;
 
+	int id_hint;
+
 	bool instantiated;
 	bool topology_shortname_created;
 

@@ -18,6 +18,7 @@
 #include <uapi/sound/asound.h>
 #include <sound/asoundef.h>
 #include <sound/omap-hdmi-audio.h>
+#include <sound/initval.h>
 
 #include "sdma-pcm.h"
 
@@ -314,10 +315,18 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 	struct snd_soc_card *card;
 	struct snd_soc_dai_link_component *compnent;
 	int ret;
+	int id = SNDRV_DEFAULT_IDX1;
 
 	if (!ha) {
 		dev_err(dev, "No platform data\n");
 		return -EINVAL;
+	}
+
+	/* Get the id of the parent (the HDMI HW IP) */
+	if (ha->dev->of_node) {
+		id = of_alias_get_id(ha->dev->of_node, "sound");
+		if (id < 0)
+			id = SNDRV_DEFAULT_IDX1;
 	}
 
 	ad = devm_kzalloc(dev, sizeof(*ad), GFP_KERNEL);
@@ -358,6 +367,7 @@ static int omap_hdmi_audio_probe(struct platform_device *pdev)
 	if (!card->name)
 		return -ENOMEM;
 
+	card->id_hint = id;
 	card->owner = THIS_MODULE;
 	card->dai_link =
 		devm_kzalloc(dev, sizeof(*(card->dai_link)), GFP_KERNEL);
