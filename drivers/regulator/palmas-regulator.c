@@ -1016,6 +1016,7 @@ static int tps65917_ldo_registration(struct palmas_pmic *pmic,
 	struct palmas_reg_init *reg_init;
 	struct palmas_regs_info *rinfo;
 	struct regulator_desc *desc;
+	unsigned int reg;
 
 	for (id = ddata->ldo_begin; id < ddata->max_reg; id++) {
 		if (pdata && pdata->reg_init[id])
@@ -1064,6 +1065,29 @@ static int tps65917_ldo_registration(struct palmas_pmic *pmic,
 						TPS65917_LDO1_CTRL_BYPASS_EN;
 				desc->bypass_mask =
 						TPS65917_LDO1_CTRL_BYPASS_EN;
+
+				/*
+				 * OTP Values are set to bypass enable.
+				 * Switch to disable so that use count
+				 * does not go negative while directly
+				 * disabling bypass.
+				 */
+				ret = palmas_ldo_read(pmic->palmas,
+						      rinfo->ctrl_addr, &reg);
+				if (ret) {
+					dev_err(pmic->dev,
+						"Error reading ldo1 reg\n");
+					return ret;
+				}
+				reg &= ~TPS65917_LDO1_CTRL_BYPASS_EN;
+				ret = palmas_ldo_write(pmic->palmas,
+						       rinfo->ctrl_addr, reg);
+				if (ret) {
+					dev_err(pmic->dev,
+						"Error writing ldo1 reg\n");
+					return ret;
+				}
+
 			}
 		} else {
 			desc->n_voltages = 1;
