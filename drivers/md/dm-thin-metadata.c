@@ -198,6 +198,15 @@ struct dm_pool_metadata {
 	bool fail_io:1;
 
 	/*
+	 * Pre-commit callback.
+	 *
+	 * This allows the thin provisioning target to run a callback before
+	 * the metadata are committed.
+	 */
+	dm_pool_pre_commit_fn pre_commit_fn;
+	void *pre_commit_context;
+
+	/*
 	 * Reading the space map roots can fail, so we read it into these
 	 * buffers before the superblock is locked and updated.
 	 */
@@ -784,6 +793,14 @@ static int __commit_transaction(struct dm_pool_metadata *pmd)
 	 */
 	BUILD_BUG_ON(sizeof(struct thin_disk_superblock) > 512);
 
+	if (pmd->pre_commit_fn) {
+		r = pmd->pre_commit_fn(pmd->pre_commit_context);
+		if (r < 0) {
+			DMERR("pre-commit callback failed");
+			return r;
+		}
+	}
+
 	r = __write_changed_details(pmd);
 	if (r < 0)
 		return r;
@@ -844,6 +861,8 @@ struct dm_pool_metadata *dm_pool_metadata_open(struct block_device *bdev,
 	pmd->fail_io = false;
 	pmd->bdev = bdev;
 	pmd->data_block_size = data_block_size;
+	pmd->pre_commit_fn = NULL;
+	pmd->pre_commit_context = NULL;
 
 	r = __create_persistent_data_objects(pmd, format_device);
 	if (r) {
@@ -1787,6 +1806,16 @@ int dm_pool_register_metadata_threshold(struct dm_pool_metadata *pmd,
 	up_write(&pmd->root_lock);
 
 	return r;
+}
+
+void dm_pool_register_pre_commit_callback(struct dm_pool_metadata *pmd,
+					  dm_pool_pre_commit_fn fn,
+					  void *context)
+{
+	down_write(&pmd->root_lock);
+	pmd->pre_commit_fn = fn;
+	pmd->pre_commit_context = context;
+	up_write(&pmd->root_lock);
 }
 
 int dm_pool_metadata_set_needs_check(struct dm_pool_metadata *pmd)
