@@ -84,6 +84,12 @@ static int nft_cmp_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
 	if (desc.len > U8_MAX)
 		return -ERANGE;
 
+	if (desc.type != NFT_DATA_VALUE) {
+		err = -EINVAL;
+		nft_data_uninit(&priv->data, desc.type);
+		return err;
+	}
+
 	priv->len = desc.len;
 	return 0;
 }
