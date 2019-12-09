@@ -21,7 +21,7 @@
 
 #define MODULE_NAME "rti-wdt"
 #define DEFAULT_HEARTBEAT 60
-#define MAX_HEARTBEAT     6000	/* really the max margin is 264/27MHz*/
+#define MAX_HEARTBEAT     1000
 
 /* Timer register set definition */
 #define RTIDWDCTRL	0x90
@@ -177,7 +177,7 @@ static int rti_wdt_probe(struct platform_device *pdev)
 	wdd->min_timeout = 1;
 	/* Set min heartbeat to 1.1x window size */
 	wdd->min_hw_heartbeat_ms = 11 * DEFAULT_HEARTBEAT * 1000 / 20;
-	wdd->max_hw_heartbeat_ms = MAX_HEARTBEAT;
+	wdd->max_hw_heartbeat_ms = MAX_HEARTBEAT * 1000;
 	wdd->timeout = DEFAULT_HEARTBEAT;
 	wdd->parent = dev;
 
