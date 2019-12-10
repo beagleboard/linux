@@ -283,6 +283,14 @@
 			};
 		};
 
+		clock_event: timer@2210000 {
+			compatible = "ti,k2g-timer";
+			reg = <0x02210000 0x50>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH
+					GIC_SPI 18 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&k2g_clks 0x1e 0>;
+		};
+
 		gpio0: gpio@2603000 {
 			compatible = "ti,k2g-gpio", "ti,keystone-gpio";
 			reg = <0x02603000 0x100>;
