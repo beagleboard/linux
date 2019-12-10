@@ -34,6 +34,7 @@
  * GSCAN: enhanced scan offload feature.
  * FWSUP: Firmware supplicant.
  * SAE: simultaneous authentication of equals
+ * FWAUTH: Firmware authenticator
  */
 #define BRCMF_FEAT_LIST \
 	BRCMF_FEAT_DEF(MBSS) \
@@ -50,7 +51,8 @@
 	BRCMF_FEAT_DEF(MFP) \
 	BRCMF_FEAT_DEF(GSCAN) \
 	BRCMF_FEAT_DEF(FWSUP) \
-	BRCMF_FEAT_DEF(SAE)
+	BRCMF_FEAT_DEF(SAE) \
+	BRCMF_FEAT_DEF(FWAUTH)
 
 /*
  * Quirks:
