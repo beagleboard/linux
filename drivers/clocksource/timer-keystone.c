@@ -13,6 +13,7 @@
 #include <linux/interrupt.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/platform_device.h>
 
 #define TIMER_NAME			"timer-keystone"
 
@@ -38,11 +39,13 @@
  * @base: timer memory base address
  * @hz_period: cycles per HZ period
  * @event_dev: event device based on timer
+ * @registered: Flag to keep a track of registration status
  */
 static struct keystone_timer {
 	void __iomem *base;
 	unsigned long hz_period;
 	struct clock_event_device event_dev;
+	bool registered;
 } timer;
 
 static inline u32 keystone_timer_readl(unsigned long rg)
@@ -140,13 +143,14 @@ static int keystone_set_periodic(struct clock_event_device *evt)
 	return 0;
 }
 
-static int __init keystone_timer_init(struct device_node *np)
+static int keystone_timer_init(struct device_node *np)
 {
 	struct clock_event_device *event_dev = &timer.event_dev;
 	unsigned long rate;
 	struct clk *clk;
 	int irq, error;
 
+	timer.registered = false;
 	irq  = irq_of_parse_and_map(np, 0);
 	if (!irq) {
 		pr_err("%s: failed to map interrupts\n", __func__);
@@ -215,6 +219,7 @@ static int __init keystone_timer_init(struct device_node *np)
 	clockevents_config_and_register(event_dev, rate, 1, ULONG_MAX);
 
 	pr_info("keystone timer clock @%lu Hz\n", rate);
+	timer.registered = true;
 	return 0;
 err:
 	clk_put(clk);
@@ -224,3 +229,44 @@ err:
 
 TIMER_OF_DECLARE(keystone_timer, "ti,keystone-timer",
 			   keystone_timer_init);
+
+static const struct of_device_id keystone_clocksource_of_match[] = {
+	{.compatible = "ti,k2g-timer", },
+	{},
+};
+
+static int keystone_clocksource_probe(struct platform_device *pdev)
+{
+	struct clk *clk;
+
+	if (timer.registered)
+		return 0;
+
+	clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(clk)) {
+		if (PTR_ERR(clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "failed to get clock\n");
+		return PTR_ERR(clk);
+	}
+
+	clk_put(clk);
+	keystone_timer_init(pdev->dev.of_node);
+	if (!timer.registered)
+		return -EINVAL;
+
+	return 0;
+}
+
+static struct platform_driver keystone_clocksource_driver = {
+	.probe		= keystone_clocksource_probe,
+	.driver		= {
+		.name	= "keystone_clocksource",
+		.of_match_table = keystone_clocksource_of_match,
+	},
+};
+
+static int __init keystone_clocksource_init_driver(void)
+{
+	return platform_driver_register(&keystone_clocksource_driver);
+}
+device_initcall(keystone_clocksource_init_driver);
