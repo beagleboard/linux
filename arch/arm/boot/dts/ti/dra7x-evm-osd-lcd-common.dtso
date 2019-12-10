@@ -57,7 +57,8 @@
 		clocks = <&tc358768_refclk>;
 		clock-names = "refclk";
 
-		reset-gpios = <&pcf_display_board 0 GPIO_ACTIVE_LOW>;
+		/* GPIO line is inverted before going to the bridge */
+		reset-gpios = <&pcf_display_board 0 GPIO_ACTIVE_HIGH>;
 
 		vddc-supply = <&v_1p2_d>;
 		vddmipi-supply = <&v_1p2_d>;
