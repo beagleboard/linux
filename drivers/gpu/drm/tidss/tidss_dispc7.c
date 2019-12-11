@@ -3016,7 +3016,7 @@ static int dispc7_modeset_init(struct dispc_device *dispc)
 
 		tplane = tidss_plane_create(tidss, hw_plane_id,
 					    DRM_PLANE_TYPE_OVERLAY, crtc_mask,
-					    fourccs, ARRAY_SIZE(fourccs));
+					    fourccs, num_fourccs);
 
 		if (IS_ERR(tplane)) {
 			dev_err(tidss->dev, "plane create failed\n");
