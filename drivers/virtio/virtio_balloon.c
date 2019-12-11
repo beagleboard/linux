@@ -403,6 +403,16 @@ static int virtballoon_migratepage(struct address_space *mapping,
 
 	get_page(newpage); /* balloon reference */
 
+	/*
+	  * When we migrate a page to a different zone and adjusted the
+	  * managed page count when inflating, we have to fixup the count of
+	  * both involved zones.
+	  */
+	if (page_zone(page) != page_zone(newpage)) {
+		adjust_managed_page_count(page, 1);
+		adjust_managed_page_count(newpage, -1);
+	}
+
 	/* balloon's page migration 1st step  -- inflate "newpage" */
 	spin_lock_irqsave(&vb_dev_info->pages_lock, flags);
 	balloon_page_insert(newpage, mapping, &vb_dev_info->pages);
