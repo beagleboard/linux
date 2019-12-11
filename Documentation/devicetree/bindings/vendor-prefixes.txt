@@ -54,6 +54,7 @@ avnet	Avnet, Inc.
 axentia	Axentia Technologies AB
 axis	Axis Communications AB
 bananapi BIPAI KEJI LIMITED
+beagle	BeagleBoard.org Foundation
 bhf	Beckhoff Automation GmbH & Co. KG
 bitmain	Bitmain Technologies
 boe	BOE Technology Group Co., Ltd.
