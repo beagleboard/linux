@@ -1283,7 +1283,11 @@ next_slot:
 				btrfs_file_extent_num_bytes(leaf, fi);
 			disk_num_bytes =
 				btrfs_file_extent_disk_num_bytes(leaf, fi);
-			if (extent_end <= start) {
+			/*
+			 * If the extent we got ends before our current offset,
+			 * skip to the next extent.
+			 */
+			if (extent_end <= cur_offset) {
 				path->slots[0]++;
 				goto next_slot;
 			}
