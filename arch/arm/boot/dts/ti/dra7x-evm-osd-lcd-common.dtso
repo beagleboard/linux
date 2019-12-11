@@ -31,6 +31,17 @@
 			compatible = "fixed-clock";
 			clock-frequency = <20000000>;
 		};
+
+		v_1p2_d: fixedregulator-v_1p2_d {
+			/* Output of TPS74701 on the display board */
+			compatible = "regulator-fixed";
+			regulator-name = "V1p2D";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			vin-supply = <&evm_5v0>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
 	};
   };
 };
@@ -47,6 +58,10 @@
 		clock-names = "refclk";
 
 		reset-gpios = <&pcf_display_board 0 GPIO_ACTIVE_LOW>;
+
+		vddc-supply = <&v_1p2_d>;
+		vddmipi-supply = <&v_1p2_d>;
+		vddio-supply = <&vsys_3v3>;
 
 		dsi_bridge_ports: ports {
 			#address-cells = <1>;
