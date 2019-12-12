@@ -21,6 +21,33 @@ struct pwrdm_link {
 };
 
 static DEFINE_SPINLOCK(iommu_lock);
+static struct clockdomain *emu_clkdm;
+static atomic_t emu_count;
+
+static void omap_iommu_dra7_emu_swsup_config(struct platform_device *pdev,
+					     bool enable)
+{
+	struct device_node *np = pdev->dev.of_node;
+	unsigned long flags;
+
+	if (!of_device_is_compatible(np, "ti,dra7-dsp-iommu"))
+		return;
+
+	if (!emu_clkdm) {
+		emu_clkdm = clkdm_lookup("emu_clkdm");
+		if (WARN_ON_ONCE(!emu_clkdm))
+			return;
+	}
+
+	spin_lock_irqsave(&iommu_lock, flags);
+
+	if (enable && (atomic_inc_return(&emu_count) == 1))
+		clkdm_deny_idle(emu_clkdm);
+	else if (!enable && (atomic_dec_return(&emu_count) == 0))
+		clkdm_allow_idle(emu_clkdm);
+
+	spin_unlock_irqrestore(&iommu_lock, flags);
+}
 
 static struct powerdomain *_get_pwrdm(struct device *dev)
 {
@@ -88,18 +115,27 @@ int omap_iommu_set_pwrdm_constraint(struct platform_device *pdev, bool request,
 {
 	struct powerdomain *pwrdm;
 	u8 next_pwrst;
+	int ret = 0;
 
 	pwrdm = _get_pwrdm(&pdev->dev);
 	if (!pwrdm)
 		return -ENODEV;
 
-	if (request)
+	if (request) {
 		*pwrst = pwrdm_read_next_pwrst(pwrdm);
+		omap_iommu_dra7_emu_swsup_config(pdev, true);
+	}
 
 	if (*pwrst > PWRDM_POWER_RET)
-		return 0;
+		goto out;
 
 	next_pwrst = request ? PWRDM_POWER_ON : *pwrst;
 
-	return pwrdm_set_next_pwrst(pwrdm, next_pwrst);
+	ret = pwrdm_set_next_pwrst(pwrdm, next_pwrst);
+
+out:
+	if (!request)
+		omap_iommu_dra7_emu_swsup_config(pdev, false);
+
+	return ret;
 }
