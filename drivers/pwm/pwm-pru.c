@@ -20,11 +20,14 @@
 /*
  * PWM duty cycle and period thresholds in ns. PWM output is undefined
  * if its duty cycle or period is out of the range. Valid settings:
- *     period: 10us ~ 2sec
+ *     period: 40us ~ 2sec
  *     duty cycle: 400ns ~ (period - 400ns)
+ *
+ * These thresholds are determined by the timing required in PRU to clear
+ * the IEP CMP events which triggers toggling the PWM pins.
  */
 #define PP_MIN_DUTY_NS		400
-#define PP_MIN_PERIOD_NS	10000
+#define PP_MIN_PERIOD_NS	40000
 #define PP_MAX_PERIOD_NS	2000000000	/* 2 sec */
 
 /* global registers */
