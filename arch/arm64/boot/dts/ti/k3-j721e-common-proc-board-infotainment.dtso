@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * Infotainment Expansion Board for j721e-evm
+ *
+ * Copyright (C) 2019 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/k3.h>
+
+/ {
+  fragment@101 {
+	target = <&sound0>;
+
+	__overlay__ {
+		compatible = "ti,j721e-cpb-ivi-multicodec-audio";
+		ti,model = "j721e-cpb-ivi-multicodec-analog";
+
+		ti,ivi-mcasp = <&mcasp0>;
+		ti,ivi-codec-a = <&pcm3168a_a>;
+		ti,ivi-codec-b = <&pcm3168a_b>;
+
+		clocks = <&pll4>, <&pll15>,
+			 <&k3_clks 184 1>,
+			 <&k3_clks 184 2>, <&k3_clks 184 4>,
+			 <&k3_clks 157 371>,
+			 <&k3_clks 157 400>, <&k3_clks 157 401>,
+			 <&k3_clks 174 1>,
+			 <&k3_clks 174 2>, <&k3_clks 174 4>,
+			 <&k3_clks 157 301>,
+			 <&k3_clks 157 330>, <&k3_clks 157 331>;
+		clock-names = "pll4", "pll15",
+			      "cpb-mcasp",
+			      "cpb-mcasp-48000", "cpb-mcasp-44100",
+			      "audio-refclk2",
+			      "audio-refclk2-48000", "audio-refclk2-44100",
+			      "ivi-mcasp",
+			      "ivi-mcasp-48000", "ivi-mcasp-44100",
+			      "audio-refclk0",
+			      "audio-refclk0-48000", "audio-refclk0-44100";
+	};
+  };
+};
+
+&main_pmx0 {
+	main_i2c3_audio_exp_pins_default: main_i2c3_audio_exp_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x260, PIN_INPUT, 7) /* (T28) MMC2_DAT3.GPIO1_23 */
+		>;
+	};
+
+	mcasp0_pins_default: mcasp0_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0xd4, PIN_OUTPUT_PULLDOWN, 12) /* (AB26) PRG0_PRU0_GPO9.MCASP0_ACLKX */
+			J721E_IOPAD(0xd8, PIN_OUTPUT_PULLDOWN, 12) /* (AB25) PRG0_PRU0_GPO10.MCASP0_AFSX */
+			J721E_IOPAD(0xb0, PIN_OUTPUT_PULLDOWN, 12) /* (AF28) PRG0_PRU0_GPO0.MCASP0_AXR0 */
+			J721E_IOPAD(0xb4, PIN_OUTPUT_PULLDOWN, 12) /* (AE28) PRG0_PRU0_GPO1.MCASP0_AXR1 */
+			J721E_IOPAD(0xc0, PIN_OUTPUT_PULLDOWN, 12) /* (AD25) PRG0_PRU0_GPO4.MCASP0_AXR2 */
+			J721E_IOPAD(0xc4, PIN_OUTPUT_PULLDOWN, 12) /* (AC29) PRG0_PRU0_GPO5.MCASP0_AXR3 */
+			J721E_IOPAD(0xc8, PIN_INPUT_PULLDOWN, 12) /* (AE26) PRG0_PRU0_GPO6.MCASP0_AXR4 */
+			J721E_IOPAD(0xcc, PIN_INPUT_PULLDOWN, 12) /* (AC28) PRG0_PRU0_GPO7.MCASP0_AXR5 */
+			J721E_IOPAD(0xd0, PIN_INPUT_PULLDOWN, 12) /* (AC27) PRG0_PRU0_GPO8.MCASP0_AXR6 */
+			J721E_IOPAD(0xdc, PIN_OUTPUT_PULLDOWN, 12) /* (AJ28) PRG0_PRU0_GPO11.MCASP0_AXR7 */
+			J721E_IOPAD(0xe0, PIN_OUTPUT_PULLDOWN, 12) /* (AH27) PRG0_PRU0_GPO12.MCASP0_AXR8 */
+			J721E_IOPAD(0xe4, PIN_OUTPUT_PULLDOWN, 12) /* (AH29) PRG0_PRU0_GPO13.MCASP0_AXR9 */
+			J721E_IOPAD(0xe8, PIN_OUTPUT_PULLDOWN, 12) /* (AG28) PRG0_PRU0_GPO14.MCASP0_AXR10 */
+			J721E_IOPAD(0xec, PIN_INPUT_PULLDOWN, 12) /* (AG27) PRG0_PRU0_GPO15.MCASP0_AXR11 */
+			J721E_IOPAD(0xf0, PIN_INPUT_PULLDOWN, 12) /* (AH28) PRG0_PRU0_GPO16.MCASP0_AXR12 */
+			J721E_IOPAD(0xf4, PIN_INPUT_PULLDOWN, 12) /* (AB24) PRG0_PRU0_GPO17.MCASP0_AXR13 */
+		>;
+	};
+
+	audi_ext_refclk0_pins_default: audi_ext_refclk0_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x1c, PIN_OUTPUT, 6) /* (AD22) PRG1_PRU0_GPO6.AUDIO_EXT_REFCLK0 */
+		>;
+	};
+};
+
+&k3_clks {
+	/* Confiure AUDIO_EXT_REFCLK2 and AUDIO_EXT_REFCLK0 pin as output */
+	pinctrl-names = "default";
+	pinctrl-0 = <&audi_ext_refclk2_pins_default>, <&audi_ext_refclk0_pins_default>;
+};
+
+&main_i2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	audio_exp: gpio@21 {
+		compatible = "ti,tca6416";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&main_i2c3_audio_exp_pins_default>;
+		interrupt-parent = <&main_gpio1>;
+		interrupts = <23 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	pcm3168a_a: audio-codec@47 {
+		compatible = "ti,pcm3168a";
+		reg = <0x47>;
+
+		#sound-dai-cells = <1>;
+
+		reset-gpios = <&audio_exp 0 GPIO_ACTIVE_LOW>;
+
+		/* C_AUDIO_REFCLK0 -> RGMII6_RXC (W26) */
+		clocks = <&k3_clks 157 301>;
+		clock-names = "scki";
+
+		/* HSDIV3_16FFT_MAIN_4_HSDIVOUT2_CLK -> REFCLK0 */
+		assigned-clocks = <&k3_clks 157 301>;
+		assigned-clock-parents = <&k3_clks 157 330>;
+		assigned-clock-rates = <24576000>; /* for 48KHz */
+
+		VDD1-supply = <&vsys_3v3>;
+		VDD2-supply = <&vsys_3v3>;
+		VCCAD1-supply = <&vsys_5v0>;
+		VCCAD2-supply = <&vsys_5v0>;
+		VCCDA1-supply = <&vsys_5v0>;
+		VCCDA2-supply = <&vsys_5v0>;
+	};
+
+	pcm3168a_b: audio-codec@46 {
+		compatible = "ti,pcm3168a";
+		reg = <0x46>;
+
+		#sound-dai-cells = <1>;
+
+		reset-gpios = <&audio_exp 0 GPIO_ACTIVE_LOW>;
+
+		/* C_AUDIO_REFCLK0 -> RGMII6_RXC (W26) */
+		clocks = <&k3_clks 157 301>;
+		clock-names = "scki";
+
+		/* HSDIV3_16FFT_MAIN_4_HSDIVOUT2_CLK -> REFCLK0 */
+		assigned-clocks = <&k3_clks 157 301>;
+		assigned-clock-parents = <&k3_clks 157 330>;
+		assigned-clock-rates = <24576000>; /* for 48KHz */
+
+		VDD1-supply = <&vsys_3v3>;
+		VDD2-supply = <&vsys_3v3>;
+		VCCAD1-supply = <&vsys_5v0>;
+		VCCAD2-supply = <&vsys_5v0>;
+		VCCDA1-supply = <&vsys_5v0>;
+		VCCDA2-supply = <&vsys_5v0>;
+	};
+};
+
+&mcasp0 {
+	#sound-dai-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcasp0_pins_default>;
+
+	op-mode = <0>;		/* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	auxclk-fs-ratio = <256>;
+
+	serial-dir = <	/* 0: INACTIVE, 1: TX, 2: RX */
+		1 1 1 1
+		2 2 2 1
+		1 1 1 2
+		2 2 0 0
+	>;
+	tx-num-evt = <0>;
+	rx-num-evt = <0>;
+
+	status = "okay";
+};
