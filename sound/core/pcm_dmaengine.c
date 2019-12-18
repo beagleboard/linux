@@ -247,9 +247,16 @@ snd_pcm_uframes_t snd_dmaengine_pcm_pointer(struct snd_pcm_substream *substream)
 
 	status = dmaengine_tx_status(prtd->dma_chan, prtd->cookie, &state);
 	if (status == DMA_IN_PROGRESS || status == DMA_PAUSED) {
+		struct snd_pcm_runtime *runtime = substream->runtime;
+		int sample_bytes = snd_pcm_format_physical_width(
+							runtime->format);
+
 		buf_size = snd_pcm_lib_buffer_bytes(substream);
 		if (state.residue > 0 && state.residue <= buf_size)
 			pos = buf_size - state.residue;
+
+		sample_bytes = (sample_bytes / 8) * runtime->channels;
+		runtime->delay = state.in_flight_bytes / sample_bytes;
 	}
 
 	return bytes_to_frames(substream->runtime, pos);
