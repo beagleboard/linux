@@ -365,7 +365,7 @@ static int cdns_pcie_ep_get_msix(struct pci_epc *epc, u8 func_no, u8 vfunc_no)
 }
 
 static int cdns_pcie_ep_set_msix(struct pci_epc *epc, u8 fn, u8 vfn,
-				 u16 interrupts)
+				 u16 interrupts, enum pci_barno bir, u32 offset)
 {
 	u32 sriov_cap = CDNS_PCIE_EP_FUNC_SRIOV_CAP_OFFSET;
 	struct cdns_pcie_ep *ep = epc_get_drvdata(epc);
@@ -387,10 +387,16 @@ static int cdns_pcie_ep_set_msix(struct pci_epc *epc, u8 fn, u8 vfn,
 	val &= ~PCI_MSIX_FLAGS_QSIZE;
 	val |= interrupts;
 	cdns_pcie_ep_fn_writew(pcie, fn, reg, val);
+
 	/* Set MSIX BAR and offset */
-	cdns_pcie_ep_fn_writel(pcie, fn, 0xb4, CDNS_PCIE_EP_MSIX_BAR);
+	reg = cap + PCI_MSIX_TABLE;
+	val = offset | bir;
+	cdns_pcie_ep_fn_writel(pcie, fn, reg, val);
+
 	/* Set PBA BAR and offset.  BAR must match MSIX BAR */
-	cdns_pcie_ep_fn_writel(pcie, fn, 0xb8, 0x10000 | CDNS_PCIE_EP_MSIX_BAR);
+	reg = cap + PCI_MSIX_PBA;
+	val = (offset + (interrupts * PCI_MSIX_ENTRY_SIZE)) | bir;
+	cdns_pcie_ep_fn_writel(pcie, fn, reg, val);
 
 	return 0;
 }
