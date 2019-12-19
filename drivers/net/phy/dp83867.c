@@ -217,25 +217,29 @@ static int dp83867_of_init(struct phy_device *phydev)
 }
 #endif /* CONFIG_OF_MDIO */
 
-static int dp83867_config_init(struct phy_device *phydev)
+static int dp83867_probe(struct phy_device *phydev)
 {
 	struct dp83867_private *dp83867;
+
+	dp83867 = devm_kzalloc(&phydev->mdio.dev, sizeof(*dp83867),
+			       GFP_KERNEL);
+	if (!dp83867)
+		return -ENOMEM;
+
+	phydev->priv = dp83867;
+
+	return 0;
+}
+
+static int dp83867_config_init(struct phy_device *phydev)
+{
+	struct dp83867_private *dp83867 = phydev->priv;
 	int ret, val, bs;
 	u16 delay;
 
-	if (!phydev->priv) {
-		dp83867 = devm_kzalloc(&phydev->mdio.dev, sizeof(*dp83867),
-				       GFP_KERNEL);
-		if (!dp83867)
-			return -ENOMEM;
-
-		phydev->priv = dp83867;
-		ret = dp83867_of_init(phydev);
-		if (ret)
-			return ret;
-	} else {
-		dp83867 = (struct dp83867_private *)phydev->priv;
-	}
+	ret = dp83867_of_init(phydev);
+	if (ret)
+		return ret;
 
 	/* RX_DV/RX_CTRL strapped in mode 1 or mode 2 workaround */
 	if (dp83867->rxctrl_strap_quirk) {
@@ -375,6 +379,7 @@ static struct phy_driver dp83867_driver[] = {
 		.features	= PHY_GBIT_FEATURES,
 		.flags		= PHY_HAS_INTERRUPT,
 
+		.probe          = dp83867_probe,
 		.config_init	= dp83867_config_init,
 		.soft_reset	= dp83867_phy_reset,
 
