@@ -52,35 +52,6 @@ void tidss_irq_disable_vblank(struct drm_crtc *crtc)
 	spin_unlock_irqrestore(&tidss->wait_lock, flags);
 }
 
-static void tidss_irq_fifo_underflow(struct tidss_device *tidss,
-				     u64 irqstatus)
-{
-	static DEFINE_RATELIMIT_STATE(_rs, DEFAULT_RATELIMIT_INTERVAL,
-				      DEFAULT_RATELIMIT_BURST);
-	unsigned int i;
-	u64 masked;
-
-	spin_lock(&tidss->wait_lock);
-	masked = irqstatus & tidss->irq_uf_mask & tidss->irq_mask;
-	spin_unlock(&tidss->wait_lock);
-
-	if (!masked)
-		return;
-
-	if (!__ratelimit(&_rs))
-		return;
-
-	DRM_ERROR("FIFO underflow on ");
-
-	for (i = 0; i < DSS_MAX_PLANES; ++i) {
-		if (masked & DSS_IRQ_PLANE_FIFO_UNDERFLOW(i))
-			pr_cont("%u:%s ", i,
-				tidss->dispc_ops->plane_name(tidss->dispc, i));
-	}
-
-	pr_cont("(%016llx)\n", irqstatus);
-}
-
 static void tidss_irq_ocp_error_handler(struct drm_device *ddev,
 					u64 irqstatus)
 {
@@ -117,7 +88,6 @@ irqreturn_t tidss_irq_handler(int irq, void *arg)
 	}
 
 	tidss_irq_ocp_error_handler(ddev, irqstatus);
-	tidss_irq_fifo_underflow(tidss, irqstatus);
 	tidss_wb_irq(tidss->wdev, irqstatus);
 
 	return IRQ_HANDLED;
@@ -148,14 +118,6 @@ int tidss_irq_postinstall(struct drm_device *ddev)
 	spin_lock_irqsave(&tidss->wait_lock, flags);
 
 	tidss->irq_mask = DSS_IRQ_DEVICE_OCP_ERR;
-
-	tidss->irq_uf_mask = 0;
-	for (i = 0; i < tidss->num_planes; ++i) {
-		struct tidss_plane *tplane = to_tidss_plane(tidss->planes[i]);
-
-		tidss->irq_uf_mask |= DSS_IRQ_PLANE_FIFO_UNDERFLOW(tplane->hw_plane_id);
-	}
-	tidss->irq_mask |= tidss->irq_uf_mask;
 
 	for (i = 0; i < tidss->num_crtcs; ++i) {
 		struct tidss_crtc *tcrtc = to_tidss_crtc(tidss->crtcs[i]);

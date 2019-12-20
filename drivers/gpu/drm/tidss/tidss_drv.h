@@ -36,7 +36,6 @@ struct tidss_device {
 
 	spinlock_t wait_lock;	/* protects the irq masks */
 	u64 irq_mask;		/* enabled irqs in addition to wait_list */
-	u64 irq_uf_mask;	/* underflow irq bits for all planes */
 
 	struct drm_atomic_state *saved_state;
 
