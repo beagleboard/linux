@@ -59,6 +59,17 @@
 	};
 };
 
+&scm {
+	dra72_vip_mux: pinmux@4a002e8c {
+		compatible = "pinctrl-single";
+		reg = <0xe8c 0x4>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0x7f>;
+	};
+};
+
 &dss {
 	reg = <0x58000000 0x80>,
 	      <0x58004054 0x4>,
