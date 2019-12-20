@@ -2505,8 +2505,12 @@ static void dispc7_plane_init(struct dispc_device *dispc)
 
 		dispc7_vid_write(dispc, hw_plane, DISPC_VID_PRELOAD, preload);
 
-		/* Prefech up to PRELOAD value */
-		VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, 0, 19, 19);
+		/*
+		 * Prefech up to fifo high-threshold value to minimize the
+		 * possibility of underflows. Note that this means the PRELOAD
+		 * register is ignored.
+		 */
+		VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, 1, 19, 19);
 	}
 
 	if (dispc7_has_writeback(dispc)) {
