@@ -273,6 +273,7 @@ const struct dispc_features dispc_j721e_feats = {
 	.vid_name = { "vid1", "vidl1", "vid2", "vidl2" },
 	.vid_lite = { 0, 1, 0, 1, },
 	.vid_order = { 1, 3, 0, 2 },
+	.has_writeback = true,
 };
 
 static const u16 *dispc_common_regmap;
@@ -2088,6 +2089,11 @@ int dispc_plane_enable(struct dispc_device *dispc, u32 hw_plane, bool enable)
 	VID_REG_FLD_MOD(dispc, hw_plane, DISPC_VID_ATTRIBUTES, !!enable, 0, 0);
 
 	return 0;
+}
+
+bool dispc_has_writeback(struct dispc_device *dispc)
+{
+	return dispc->feat->has_writeback;
 }
 
 static u32 dispc_vid_get_fifo_size(struct dispc_device *dispc, u32 hw_plane)
