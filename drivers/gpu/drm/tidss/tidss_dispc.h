@@ -134,6 +134,8 @@ int dispc_wb_setup(struct dispc_device *dispc,
 		   bool mem_to_mem, u32 src_hw_plane,
 		   u32 src_hw_videoport);
 int dispc_wb_enable(struct dispc_device *dispc, bool enable);
+void dispc_wb_find_free_ovr(struct dispc_device *dispc);
+u32 dispc_wb_get_reserved_ovr(struct dispc_device *dispc);
 
 int dispc_init(struct tidss_device *tidss);
 void dispc_remove(struct tidss_device *tidss);

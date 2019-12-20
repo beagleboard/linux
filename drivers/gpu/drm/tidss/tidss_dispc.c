@@ -303,6 +303,8 @@ struct dispc_device {
 	struct clk *vp_clk[TIDSS_MAX_PORTS];
 
 	const struct dispc_features *feat;
+	u32 wb_reserved_ovr;
+	bool wb_managed;
 
 	struct clk *fclk;
 
@@ -2698,7 +2700,7 @@ int dispc_wb_enable(struct dispc_device *dispc, bool enable)
 
 bool dispc_has_writeback(struct dispc_device *dispc)
 {
-	return dispc->feat->has_writeback;
+	return dispc->wb_managed;
 }
 
 static u32 dispc_vid_get_fifo_size(struct dispc_device *dispc, u32 hw_plane)
@@ -2859,6 +2861,42 @@ static void dispc_k3_plane_init(struct dispc_device *dispc)
 		dispc_wb_set_buf_threshold(dispc, thr_low, thr_high);
 		dispc_wb_set_mflag_threshold(dispc, mflag_low, mflag_high);
 	}
+}
+
+void dispc_wb_find_free_ovr(struct dispc_device *dispc)
+{
+	struct tidss_device *tidss = dispc->tidss;
+	int i, j;
+	bool found;
+	u32 ovr_id = 0xff;
+
+	for (i = 0; i < dispc->feat->num_vps; i++) {
+		found = false;
+		for (j = 0; j < tidss->num_crtcs; j++) {
+			struct drm_crtc *crtc = tidss->crtcs[j];
+			struct tidss_crtc *tcrtc = to_tidss_crtc(crtc);
+
+			if (tcrtc->hw_videoport == i) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			/* this means this ovr is available */
+			ovr_id = i;
+			break;
+		}
+	}
+
+	if (ovr_id != 0xff)
+		dispc->wb_reserved_ovr = ovr_id;
+	else
+		dispc->wb_managed = false;
+}
+
+u32 dispc_wb_get_reserved_ovr(struct dispc_device *dispc)
+{
+	return dispc->wb_reserved_ovr;
 }
 
 static void dispc_plane_init(struct dispc_device *dispc)
@@ -3338,6 +3376,10 @@ int dispc_init(struct tidss_device *tidss)
 				      sizeof(*dispc->fourccs), GFP_KERNEL);
 	if (!dispc->fourccs)
 		return -ENOMEM;
+
+	/* Even if the feature is present we might to disabled later */
+	if (feat->has_writeback)
+		dispc->wb_managed = true;
 
 	num_fourccs = 0;
 	for (i = 0; i < ARRAY_SIZE(dispc_color_formats); ++i) {
