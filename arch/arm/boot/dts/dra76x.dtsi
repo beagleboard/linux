@@ -90,6 +90,14 @@
 	};
 };
 
+/*
+ * On DRA76x CAL replaces VIP3 since we include dra74x.dtsi make sure
+ * vip3 is disabled.
+ */
+&vip3 {
+	status = "disabled";
+};
+
 /* MCAN interrupts are hard-wired to irqs 67, 68 */
 &crossbar_mpu {
 	ti,irqs-skip = <10 67 68 133 139 140>;
