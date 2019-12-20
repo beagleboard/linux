@@ -504,6 +504,42 @@ static u32 dispc_vid_irq_to_raw(dispc_irq_t vidstat, u32 hw_plane)
 	return stat;
 }
 
+static dispc_irq_t dispc_wb_irq_from_raw(u32 stat)
+{
+	dispc_irq_t wbstat = 0;
+
+	if (stat & BIT(0))
+		wbstat |= DSS_IRQ_DEVICE_WBBUFFEROVERFLOW;
+	if (stat & BIT(1))
+		wbstat |= DSS_IRQ_DEVICE_WBUNCOMPLETEERROR;
+	if (stat & BIT(2))
+		wbstat |= DSS_IRQ_DEVICE_FRAMEDONEWB;
+	if (stat & BIT(3))
+		wbstat |= DSS_IRQ_DEVICE_WBSECURITYVIOLATION;
+	if (stat & BIT(4))
+		wbstat |= DSS_IRQ_DEVICE_WBSYNC;
+
+	return wbstat;
+}
+
+static u32 dispc_wb_irq_to_raw(dispc_irq_t wbstat)
+{
+	u32 stat = 0;
+
+	if (wbstat & DSS_IRQ_DEVICE_WBBUFFEROVERFLOW)
+		stat |= BIT(0);
+	if (wbstat & DSS_IRQ_DEVICE_WBUNCOMPLETEERROR)
+		stat |= BIT(1);
+	if (wbstat & DSS_IRQ_DEVICE_FRAMEDONEWB)
+		stat |= BIT(2);
+	if (wbstat & DSS_IRQ_DEVICE_WBSECURITYVIOLATION)
+		stat |= BIT(3);
+	if (wbstat & DSS_IRQ_DEVICE_WBSYNC)
+		stat |= BIT(4);
+
+	return stat;
+}
+
 static dispc_irq_t dispc_k2g_vp_read_irqstatus(struct dispc_device *dispc,
 					       u32 hw_videoport)
 {
@@ -651,6 +687,21 @@ static void dispc_k3_vid_write_irqstatus(struct dispc_device *dispc,
 	dispc_write(dispc, DISPC_VID_IRQSTATUS(hw_plane), stat);
 }
 
+static dispc_irq_t dispc_k3_wb_read_irqstatus(struct dispc_device *dispc)
+{
+	u32 stat = dispc_read(dispc, WB_IRQSTATUS);
+
+	return dispc_wb_irq_from_raw(stat);
+}
+
+static void dispc_k3_wb_write_irqstatus(struct dispc_device *dispc,
+					dispc_irq_t wbstat)
+{
+	u32 stat = dispc_wb_irq_to_raw(wbstat);
+
+	dispc_write(dispc, WB_IRQSTATUS, stat);
+}
+
 static dispc_irq_t dispc_k3_vp_read_irqenable(struct dispc_device *dispc,
 					      u32 hw_videoport)
 {
@@ -683,6 +734,21 @@ static void dispc_k3_vid_write_irqenable(struct dispc_device *dispc,
 	dispc_write(dispc, DISPC_VID_IRQENABLE(hw_plane), stat);
 }
 
+static dispc_irq_t dispc_k3_wb_read_irqenable(struct dispc_device *dispc)
+{
+	u32 stat = dispc_read(dispc, WB_IRQENABLE);
+
+	return dispc_wb_irq_from_raw(stat);
+}
+
+static void dispc_k3_wb_write_irqenable(struct dispc_device *dispc,
+					dispc_irq_t wbstat)
+{
+	u32 stat = dispc_wb_irq_to_raw(wbstat);
+
+	dispc_write(dispc, WB_IRQENABLE, stat);
+}
+
 static
 void dispc_k3_clear_irqstatus(struct dispc_device *dispc, dispc_irq_t clearmask)
 {
@@ -699,6 +765,12 @@ void dispc_k3_clear_irqstatus(struct dispc_device *dispc, dispc_irq_t clearmask)
 		if (clearmask & DSS_IRQ_PLANE_MASK(i)) {
 			dispc_k3_vid_write_irqstatus(dispc, i, clearmask);
 			top_clear |= BIT(4 + i);
+		}
+	}
+	if (dispc_has_writeback(dispc)) {
+		if (clearmask & DSS_IRQ_DEVICE_WB_MASK) {
+			dispc_k3_wb_write_irqstatus(dispc, clearmask);
+			top_clear |= BIT(14);
 		}
 	}
 	if (dispc->feat->subrev == DISPC_K2G)
@@ -722,6 +794,9 @@ dispc_irq_t dispc_k3_read_and_clear_irqstatus(struct dispc_device *dispc)
 	for (i = 0; i < dispc->feat->num_planes; ++i)
 		status |= dispc_k3_vid_read_irqstatus(dispc, i);
 
+	if (dispc_has_writeback(dispc))
+		status |= dispc_k3_wb_read_irqstatus(dispc);
+
 	dispc_k3_clear_irqstatus(dispc, status);
 
 	return status;
@@ -737,6 +812,9 @@ static dispc_irq_t dispc_k3_read_irqenable(struct dispc_device *dispc)
 
 	for (i = 0; i < dispc->feat->num_planes; ++i)
 		enable |= dispc_k3_vid_read_irqenable(dispc, i);
+
+	if (dispc_has_writeback(dispc))
+		enable |= dispc_k3_wb_read_irqenable(dispc);
 
 	return enable;
 }
@@ -767,6 +845,14 @@ static void dispc_k3_write_irqenable(struct dispc_device *dispc,
 			main_enable |= BIT(i + 4);	/* VID IRQ */
 		else
 			main_disable |= BIT(i + 4);	/* VID IRQ */
+	}
+
+	if (dispc_has_writeback(dispc)) {
+		dispc_k3_wb_write_irqenable(dispc, mask);
+		if (mask & DSS_IRQ_DEVICE_WB_MASK)
+			main_enable |= BIT(14);		/* WB_IRQ */
+		else
+			main_disable |= BIT(14);	/* WB_IRQ */
 	}
 
 	if (main_enable)
