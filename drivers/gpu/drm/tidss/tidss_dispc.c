@@ -274,6 +274,7 @@ const struct dispc_features dispc_j721e_feats = {
 	.vid_lite = { 0, 1, 0, 1, },
 	.vid_order = { 1, 3, 0, 2 },
 	.has_writeback = true,
+	.wb_name = "wb",
 };
 
 static const u16 *dispc_common_regmap;
@@ -295,6 +296,7 @@ struct dispc_device {
 	void __iomem *base_vid[TIDSS_MAX_PLANES];
 	void __iomem *base_ovr[TIDSS_MAX_PORTS];
 	void __iomem *base_vp[TIDSS_MAX_PORTS];
+	void __iomem *base_wb;
 
 	struct regmap *oldi_io_ctrl;
 
@@ -2716,6 +2718,13 @@ int dispc_init(struct tidss_device *tidss)
 	for (i = 0; i < dispc->feat->num_planes; i++) {
 		r = dispc_iomap_resource(pdev, dispc->feat->vid_name[i],
 					 &dispc->base_vid[i]);
+		if (r)
+			return r;
+	}
+
+	if (dispc_has_writeback(dispc)) {
+		r = dispc_iomap_resource(pdev, dispc->feat->wb_name,
+					 &dispc->base_wb);
 		if (r)
 			return r;
 	}

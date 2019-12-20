@@ -85,6 +85,7 @@ struct dispc_features {
 	u32 vid_order[TIDSS_MAX_PLANES];
 
 	bool has_writeback;
+	const char *wb_name; /* Should match dt reg names */
 
 	struct dispc_errata errata;
 };
