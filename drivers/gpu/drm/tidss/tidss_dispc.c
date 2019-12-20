@@ -1566,11 +1566,61 @@ static const struct dispc_csc_coef csc_yuv2rgb_bt709_lim = {
 	"BT.709 Limited",
 };
 
-static const struct {
+/* RGB -> YUV, ITU-R BT.601, full range */
+static const struct dispc_csc_coef csc_rgb2yuv_bt601_full = {
+	dispc_csc_rgb2yuv_regval,
+	{ 77,  150,  29,	/* yr,   yg,  yb | 0.299  0.587  0.114|*/
+	 -43,  -85, 128,	/* cbr, cbg, cbb |-0.173 -0.339  0.511|*/
+	 128, -107, -21 },	/* crr, crg, crb | 0.511 -0.428 -0.083|*/
+	{    0,     0,     0, },
+	{    0,  2048,  2048, },	/* full range */
+	CLIP_FULL_RANGE,
+	"BT.601 Full",
+};
+
+/* RGB -> YUV, ITU-R BT.601, limited range */
+static const struct dispc_csc_coef csc_rgb2yuv_bt601_lim = {
+	dispc_csc_rgb2yuv_regval,
+	{ 66,  129,  25,	/* yr,   yg,  yb | 0.257  0.504  0.098|*/
+	 -38,  -74, 112,	/* cbr, cbg, cbb |-0.148 -0.291  0.439|*/
+	 112,  -94, -18 },	/* crr, crg, crb | 0.439 -0.368 -0.071|*/
+	{    0,     0,     0, },
+	{  256,  2048,  2048, },	/* limited range */
+	CLIP_FULL_RANGE,
+	"BT.601 Limited",
+};
+
+/* RGB -> YUV, ITU-R BT.709, full range */
+static const struct dispc_csc_coef csc_rgb2yuv_bt709_full = {
+	dispc_csc_rgb2yuv_regval,
+	{ 54,  183,  18,	/* yr,   yg,  yb | 0.1826  0.6142  0.0620|*/
+	 -30, -101, 131,	/* cbr, cbg, cbb |-0.1006 -0.3386  0.4392|*/
+	 131, -119, -12, },	/* crr, crg, crb | 0.4392 -0.3989 -0.0403|*/
+	{    0,     0,     0, },
+	{    0,  2048,  2048, },	/* full range */
+	CLIP_FULL_RANGE,
+	"BT.709 Full",
+};
+
+/* RGB -> YUV, ITU-R BT.709, limited range */
+static const struct dispc_csc_coef csc_rgb2yuv_bt709_lim = {
+	dispc_csc_rgb2yuv_regval,
+	{ 47,  157,   16,	/* yr,   yg,  yb | 0.1826  0.6142  0.0620|*/
+	 -26,  -87,  112,	/* cbr, cbg, cbb |-0.1006 -0.3386  0.4392|*/
+	 112, -102,  -10, },	/* crr, crg, crb | 0.4392 -0.3989 -0.0403|*/
+	{    0,     0,     0, },
+	{  256,  2048,  2048, },	/* limited range */
+	CLIP_FULL_RANGE,
+	"BT.709 Limited",
+};
+
+struct dispc_csc_entry {
 	enum drm_color_encoding encoding;
 	enum drm_color_range range;
 	const struct dispc_csc_coef *csc;
-} dispc_csc_table[] = {
+};
+
+static const struct dispc_csc_entry dispc_yuv2rgb_table[] = {
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_FULL_RANGE,
 	  &csc_yuv2rgb_bt601_full, },
 	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_LIMITED_RANGE,
@@ -1581,16 +1631,43 @@ static const struct {
 	  &csc_yuv2rgb_bt709_lim, },
 };
 
+static const struct dispc_csc_entry dispc_rgb2yuv_table[] = {
+	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_FULL_RANGE,
+	  &csc_rgb2yuv_bt601_full, },
+	{ DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_LIMITED_RANGE,
+	  &csc_rgb2yuv_bt601_lim, },
+	{ DRM_COLOR_YCBCR_BT709, DRM_COLOR_YCBCR_FULL_RANGE,
+	  &csc_rgb2yuv_bt709_full, },
+	{ DRM_COLOR_YCBCR_BT709, DRM_COLOR_YCBCR_LIMITED_RANGE,
+	  &csc_rgb2yuv_bt709_lim, },
+};
+
+enum dispc_csc_direction {
+	DISPC_YUV2RGB,
+	DISPC_RGB2YUV,
+};
+
 static const
-struct dispc_csc_coef *dispc_find_csc(enum drm_color_encoding encoding,
+struct dispc_csc_coef *dispc_find_csc(enum dispc_csc_direction direction,
+				      enum drm_color_encoding encoding,
 				      enum drm_color_range range)
 {
 	unsigned int i;
+	const struct dispc_csc_entry *csc_table;
+	u32 table_size;
 
-	for (i = 0; i < ARRAY_SIZE(dispc_csc_table); i++) {
-		if (dispc_csc_table[i].encoding == encoding &&
-		    dispc_csc_table[i].range == range) {
-			return dispc_csc_table[i].csc;
+	if (direction == DISPC_YUV2RGB) {
+		csc_table = dispc_yuv2rgb_table;
+		table_size = ARRAY_SIZE(dispc_yuv2rgb_table);
+	} else {
+		csc_table = dispc_rgb2yuv_table;
+		table_size = ARRAY_SIZE(dispc_rgb2yuv_table);
+	}
+
+	for (i = 0; i < table_size; i++) {
+		if (csc_table[i].encoding == encoding &&
+		    csc_table[i].range == range) {
+			return csc_table[i].csc;
 		}
 	}
 	return NULL;
@@ -1601,9 +1678,10 @@ static void dispc_vid_csc_setup(struct dispc_device *dispc, u32 hw_plane,
 {
 	static const struct dispc_csc_coef *coef;
 
-	coef = dispc_find_csc(state->color_encoding, state->color_range);
+	coef = dispc_find_csc(DISPC_YUV2RGB, state->color_encoding,
+			      state->color_range);
 	if (!coef) {
-		dev_err(dispc->dev, "%s: CSC (%u,%u) not found\n",
+		dev_err(dispc->dev, "%s: YUV2RGB CSC (%u,%u) not found\n",
 			__func__, state->color_encoding, state->color_range);
 		return;
 	}
@@ -2018,7 +2096,7 @@ int dispc_plane_check(struct dispc_device *dispc, u32 hw_plane,
 	int ret;
 
 	if (dispc_fourcc_is_yuv(fourcc)) {
-		if (!dispc_find_csc(state->color_encoding,
+		if (!dispc_find_csc(DISPC_YUV2RGB, state->color_encoding,
 				    state->color_range)) {
 			dev_dbg(dispc->dev,
 				"%s: Unsupported CSC (%u,%u) for HW plane %u\n",
