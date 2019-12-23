@@ -2302,7 +2302,7 @@ static void brcmf_fws_dequeue_worker(struct work_struct *worker)
 		    !fws->bus_flow_blocked) {
 			while (brcmf_fws_borrow_credit(fws,
 						       fifo - 1, fifo,
-						       false) == 0) {
+						       true) == 0) {
 				skb = brcmf_fws_deq(fws, fifo);
 				if (!skb) {
 					brcmf_fws_return_credits(fws, fifo, 1);
