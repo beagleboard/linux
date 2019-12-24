@@ -1023,21 +1023,6 @@ static int emac_ndo_open(struct net_device *ndev)
 	struct prueth_emac *emac = netdev_priv(ndev);
 	int ret;
 
-	ret = request_irq(emac->rx_irq, emac_rx_hardirq,
-			  IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-			  ndev->name, ndev);
-	if (ret) {
-		netdev_err(ndev, "unable to request RX IRQ\n");
-		return ret;
-	}
-	ret = request_irq(emac->tx_irq, emac_tx_hardirq,
-			  IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-			  ndev->name, ndev);
-	if (ret) {
-		netdev_err(ndev, "unable to request TX IRQ\n");
-		goto free_rx_irq;
-	}
-
 	/* set h/w MAC as user might have re-configured */
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
 
@@ -1053,7 +1038,22 @@ static int emac_ndo_open(struct net_device *ndev)
 	ret = rproc_boot(emac->pru);
 	if (ret) {
 		netdev_err(ndev, "failed to boot PRU: %d\n", ret);
-		goto free_irq;
+		return ret;
+	}
+
+	ret = request_irq(emac->rx_irq, emac_rx_hardirq,
+			  IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+			  ndev->name, ndev);
+	if (ret) {
+		netdev_err(ndev, "unable to request RX IRQ\n");
+		goto rproc_shutdown;
+	}
+	ret = request_irq(emac->tx_irq, emac_tx_hardirq,
+			  IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+			  ndev->name, ndev);
+	if (ret) {
+		netdev_err(ndev, "unable to request TX IRQ\n");
+		goto free_rx_irq;
 	}
 
 	/* start PHY */
@@ -1068,10 +1068,10 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	return 0;
 
-free_irq:
-	free_irq(emac->tx_irq, ndev);
 free_rx_irq:
 	free_irq(emac->rx_irq, ndev);
+rproc_shutdown:
+	rproc_shutdown(emac->pru);
 
 	return ret;
 }
