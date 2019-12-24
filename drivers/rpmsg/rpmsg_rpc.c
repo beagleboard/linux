@@ -841,6 +841,11 @@ static ssize_t rppc_write(struct file *filp, const char __user *ubuf,
 		goto failure;
 	}
 
+	if (function->fxn_id >= rppcdev->num_funcs - 1) {
+		ret = -EINVAL;
+		goto failure;
+	}
+
 	/* increment the message id and wrap if needed */
 	rpc->msg_id = (rpc->msg_id + 1) & 0xFFFF;
 
@@ -1251,7 +1256,7 @@ serv_up:
 				     MKDEV(major, rppcdev->minor), NULL,
 				     namedesc);
 	if (IS_ERR(rppcdev->dev)) {
-		int ret = PTR_ERR(rppcdev->dev);
+		ret = PTR_ERR(rppcdev->dev);
 
 		dev_err(&rpdev->dev, "device_create failed: %d\n", ret);
 		goto free_cdev;

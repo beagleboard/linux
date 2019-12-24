@@ -690,6 +690,7 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 	u32 ctrl = 0, cfg = 0, stat = 0;
 	u32 set_cfg = 0, clr_cfg = 0;
 	u64 boot_vec = 0;
+	bool lockstep_en;
 	int ret;
 
 	core0 = list_first_entry(&cluster->cores, struct k3_r5_core, elem);
@@ -703,8 +704,8 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 	dev_dbg(dev, "boot_vector = 0x%llx, cfg = 0x%x ctrl = 0x%x stat = 0x%x\n",
 		boot_vec, cfg, ctrl, stat);
 
-	if (!(stat & PROC_BOOT_STATUS_FLAG_R5_LOCKSTEP_PERMITTED) &&
-	    cluster->mode) {
+	lockstep_en = !!(stat & PROC_BOOT_STATUS_FLAG_R5_LOCKSTEP_PERMITTED);
+	if (!lockstep_en && cluster->mode) {
 		dev_err(cluster->dev, "lockstep mode not permitted, force configuring for split-mode\n");
 		cluster->mode = 0;
 	}
@@ -713,7 +714,8 @@ static int k3_r5_rproc_configure(struct k3_r5_rproc *kproc)
 	boot_vec = 0x0;
 	if (core == core0) {
 		clr_cfg = PROC_BOOT_CFG_FLAG_R5_TEINIT;
-		clr_cfg |= PROC_BOOT_CFG_FLAG_R5_LOCKSTEP;
+		if (lockstep_en)
+			clr_cfg |= PROC_BOOT_CFG_FLAG_R5_LOCKSTEP;
 	}
 
 	if (core->atcm_enable)
