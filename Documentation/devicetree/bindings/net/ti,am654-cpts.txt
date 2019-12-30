@@ -1,0 +1,111 @@
+TI AM65x SoC The Common Platform Time Sync (CPTS) module Device Tree Bindings
+------------------------------------------------------
+
+The CPTS module is used to facilitate host control of time sync operations.
+Main features of CPTS module are:
+- Supports the selection of multiple external clock sources
+- Software control of time sync events via interrupt or polling
+- Supports hardware timestamp push inputs (HWx_TS_PUSH)
+- Supports timestamp counter compare output (TS_COMP)
+- Supports timestamp counter bit output (TS_SYNC)
+- Supports timestamp Generator function outputs (TS_GENFx)
+- Supports 64-bit timestamp mode in ns with ppm and nudge adjustment.
+Depending on integration it enables compliance with the IEEE 1588-2008 standard
+for a precision clock synchronization protocol, Ethernet Enhanced Scheduled
+Traffic Operations (CPTS_ESTFn) and PCIe Subsystem Precision Time
+Measurement (PTM)
+
+TI AM65x SoC has several similar Time Sync (CPTS) modules integrated into the
+different parts of the system which could be synchronized with each other:
+- Main CPTS
+- MCU CPSW CPTS with IEEE 1588-2008 support
+- PCIe subsystem CPTS for PCIe Subsystem Precision Time Measurement (PTM)
+  support
+
+Properties:
+- compatible	: Should be "ti,am65-cpts"  or
+		  "ti,j721e-cpts"
+- reg		: physical base address and size of the CPTS registers map
+- reg-names	: should be "cpts"
+	Depending on CPTS module integration and when CPTS is integral part of
+	another module (MCU CPSW for example) "compatible" and "reg" can
+	be omitted - parent module is fully responsible for CPTS enabling and
+	configuration.
+- clocks	: CPTS reference clock. Should point on cpts_refclk_mux clock.
+- clock-names	: should be "cpts"
+- interrupts-extended : CPTS events interrupt specifier
+- interrupt-names : should be "cpts"
+
+Required Sub-nodes:
+- cpts_refclk_mux: CPTS reference clock multiplexer clock
+	Required properties:
+	- clocks : List of phandle and clock specifier pairs, one pair
+		for each possible CPTS reference clock input
+	- assigned-clocks : phandle on cpts_refclk_mux
+	- assigned-clock-parents : phandle on selected CPTS reference clock
+	Selection of CPTS reference clock expected to be done in board files.
+	By default first listed clock will be selected as CPTS reference clock.
+
+Optional properties:
+- ti,cpts-periodic-outputs : Number of timestamp Generator function
+		 outputs (TS_GENFx)
+- ti,cpts-ext-ts-inputs : Number of hardware timestamp push inputs (HWx_TS_PUSH)
+- ti,pps : pair of HWx_TS_PUSH input and TS_GENFy output indexes used for
+	PPS events generation. Platform/board specific.
+
+References:
+ Documentation/devicetree/bindings/clock/ti,sci-clk.txt
+ Documentation/devicetree/bindings/clock/clock-bindings.txt
+ Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
+ Documentation/devicetree/bindings/interrupt-controller/ti,sci-irq.txt
+
+Examples:
+
+Main CPTS module:
+cpts@310d0000 {
+	compatible = "ti,am65-cpts";
+	reg = <0x0 0x310d0000 0x0 0x400>;
+	reg-names = "cpts";
+	clocks = <&main_cpts_mux>;
+	clock-names = "cpts";
+	interrupts-extended = <&k3_irq 163 0 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "cpts";
+	ti,cpts-periodic-outputs = <6>;
+	ti,cpts-ext-ts-inputs = <8>;
+
+	main_cpts_mux: cpts_refclk_mux {
+		#clock-cells = <0>;
+		clocks = <&k3_clks 118 5>, <&k3_clks 118 11>,
+			<&k3_clks 157 91>, <&k3_clks 157 77>,
+			<&k3_clks 157 102>, <&k3_clks 157 80>,
+			<&k3_clks 120 3>, <&k3_clks 121 3>;
+		cpts-mux-tbl = <0>, <1>;
+		assigned-clocks = <&main_cpts_mux>;
+		assigned-clock-parents = <&k3_clks 118 11>;
+	};
+};
+
+MCU CPSW CPTS module:
+mcu_cpsw: cpsw_nuss@046000000 {
+	compatible = "ti,am654-cpsw-nuss";
+	[...]
+
+	cpts {
+		clocks = <&mcu_cpsw_cpts_mux>;
+		clock-names = "cpts";
+		interrupts-extended = <&gic GIC_SPI 570 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "cpts";
+		ti,cpts-ext-ts-inputs = <4>;
+		ti,cpts-periodic-outputs = <2>;
+
+		mcu_cpsw_cpts_mux: cpts_refclk_mux {
+			#clock-cells = <0>;
+			clocks = <&k3_clks 118 5>, <&k3_clks 118 11>,
+				<&k3_clks 157 91>, <&k3_clks 157 77>,
+				<&k3_clks 157 102>, <&k3_clks 157 80>,
+				<&k3_clks 120 3>, <&k3_clks 121 3>;
+			assigned-clocks = <&mcu_cpsw_cpts_mux>;
+			assigned-clock-parents = <&k3_clks 118 11>;
+		};
+	};
+};
