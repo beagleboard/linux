@@ -1,0 +1,140 @@
+TI AM654 SoC Gigabit Ethernet Switch (CPSW) subsystem Device Tree Bindings
+------------------------------------------------------
+
+The TI am654 SoC Gigabit Ethernet Switch subsystem (CPSW NUSS) has two ports and
+provides Ethernet packet communication for the device and can be configured
+as an Ethernet switch. CPSW NUSS features: the Reduced Gigabit Media Independent
+Interface (RGMII), Reduced Media Independent Interface (RMII), and the
+Management Data Input/Output (MDIO) interface for physical layer device
+(PHY) management.
+
+The TI am654 SoC has integrated two-port Gigabit Ethernet Switch subsystem
+into device MCU domain named MCU_CPSW0. One Ethernet port (port 1) with
+selectable RGMII and RMII interfaces and an internal Communications
+Port Programming Interface (CPPI) port (Host port 0).
+
+Host Port 0 CPPI Packet Streaming Interface interface supports 8 TX channels
+and on RX channels operating by TI am654 NAVSS Unified DMA Peripheral Root
+Complex (UDMA-P) controller.
+
+Required properties:
+- compatible	: Should be "ti,am654-cpsw-nuss" or
+		  "ti,j721e-cpsw-nuss"
+- reg		: physical base address and size of the CPSW NUSS registers map
+- reg-names	: should be "cpsw_nuss"
+
+- clocks	: CPSW NUSS functional clock
+- clock-names	: should be "fck"
+		See Documentation/devicetree/bindings/clock/ti,sci-clk.txt
+- power-domains : CPSW NUSS power domain
+		See Documentation/devicetree/bindings/soc/ti/sci-pm-domain.txt
+
+- dma-coherent	: indicates that CPSW NUSS operates with coherent memory.
+- dmas		: list of UDMA-P controller channels specifiers
+- dma-names	: should be "tx0", "tx1", "tx2", "tx3", "tx4", "tx5", "tx6",
+		"tx7", "rx";
+		See Documentation/devicetree/bindings/dma/ti/k3-udma.txt
+
+
+
+Required Sub-nodes:
+
+- ports	: contains CPSW NUSS ports descriptions
+	Required properties - all ports:
+	- reg : CPSW NUSS port number. Should be for TI am654 SoC
+		1.. - external Ethernet ports
+
+	Optional properties - all ports:
+	- ti,label : Describes the label associated with this port
+
+	Required properties for - external Ethernet ports:
+	- phy-mode : operation mode of the PHY interface [1]
+	- phy-handle : phandle, specifies a reference to a node representing
+		a PHY device [1]
+
+	Optional properties for - external Ethernet ports:
+	- ti,mac-only: port operates in MAC only mode
+	- mac-address : array of 6 bytes, specifies the MAC address. Always
+		accounted first if present [1]
+	- ti,syscon-efuse: tuple of two cells. First is phandle on syscon System
+		Control Module (SCM) node. Second is offset inside SCM points on
+		efuse registers containing Ethernet MAC address.
+		Accounted second if "mac-address" doesn't present.
+
+- mdio : CPSW NUSS MDIO bus definition
+	See Documentation/devicetree/bindings/net/mdio.txt
+
+- cpts : The Common Platform Time Sync (CPTS) module definition
+	Documentation/devicetree/bindings/net/ti,am654-cpts.txt
+
+[1] See Documentation/devicetree/bindings/net/ethernet.txt
+
+Examples:
+
+mcu_cpsw: ethernet@046000000 {
+	compatible = "ti,am654-cpsw-nuss";
+	#address-cells = <2>;
+	#size-cells = <2>;
+	reg = <0x0 0x46000000 0x0 0x200000>;
+	reg-names = "cpsw_nuss";
+	ranges = <0x0 0x0 0x0 0x46000000 0x0 0x200000>;
+	dma-coherent;
+	clocks = <&k3_clks 5 10>;
+	clock-names = "fck";
+	power-domains = <&k3_pds 5 TI_SCI_PD_EXCLUSIVE>;
+
+	dmas = <&mcu_udmap 0xF000>,
+	       <&mcu_udmap 0xF001>,
+	       <&mcu_udmap 0xF002>,
+	       <&mcu_udmap 0xF003>,
+	       <&mcu_udmap 0xF004>,
+	       <&mcu_udmap 0xF005>,
+	       <&mcu_udmap 0xF006>,
+	       <&mcu_udmap 0xF007>,
+	       <&mcu_udmap 0x7000>;
+	dma-names = "tx0", "tx1", "tx2", "tx3",
+		    "tx4", "tx5", "tx6", "tx7",
+		    "rx";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpsw_port1: port@1 {
+			reg = <1>;
+			ti,mac-only;
+			ti,label = "port1";
+			ti,syscon-efuse = <&mcu_conf 0x200>;
+			phys = <&phy_gmii_sel 1>;
+		};
+	};
+
+	davinci_mdio: mdio {
+		compatible = "ti,cpsw-mdio","ti,davinci_mdio";
+		reg = <0x0 0xf00 0x0 0x100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&k3_clks 5 10>;
+		clock-names = "fck";
+		bus_freq = <1000000>;
+	};
+
+	cpts {
+		clocks = <&mcu_cpsw_cpts_mux>;
+		clock-names = "cpts";
+		interrupts-extended = <&gic500 GIC_SPI 570 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "cpts";
+		ti,cpts-ext-ts-inputs = <4>;
+		ti,cpts-periodic-outputs = <2>;
+
+		mcu_cpsw_cpts_mux: cpts_refclk_mux {
+			#clock-cells = <0>;
+			clocks = <&k3_clks 118 5>, <&k3_clks 118 11>,
+				<&k3_clks 157 91>, <&k3_clks 157 77>,
+				<&k3_clks 157 102>, <&k3_clks 157 80>,
+				<&k3_clks 120 3>, <&k3_clks 121 3>;
+			assigned-clocks = <&mcu_cpsw_cpts_mux>;
+			assigned-clock-parents = <&k3_clks 118 5>;
+		};
+	};
+};
