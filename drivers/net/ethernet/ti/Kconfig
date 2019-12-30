@@ -78,6 +78,15 @@ config TI_CPTS_MOD
 	imply PTP_1588_CLOCK
 	default m
 
+config TI_AM65_CPTS
+	tristate "TI K3 AM65x CPTS"
+	depends on ARCH_K3
+	default y if TI_AM65_CPSW_NUSS=y
+	select NET_PTP_CLASSIFY
+	imply PTP_1588_CLOCK
+	help
+	  Say y here to support the TI K3 AM65x CPTS with 1588 features
+
 config TI_KEYSTONE_NETCP
 	tristate "TI Keystone NETCP Core Support"
 	select TI_DAVINCI_MDIO
