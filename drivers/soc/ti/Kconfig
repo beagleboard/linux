@@ -91,6 +91,14 @@ config TI_K3_RINGACC
 	  and a consumer. There is one RINGACC module per NAVSS on TI AM65x SoCs
 	  If unsure, say N.
 
+config TI_K3_UDMA_DESC_POOL
+	tristate "K3 CPPI5 DMA descriptors pool"
+	depends on ARCH_K3
+	help
+	  Say y here to enable support for creating and maintaining a
+	  pool of descriptors usable with CPPI5 DMA. Such pools are
+	  required for networking usecases.
+
 endif # SOC_TI
 
 config TI_SCI_INTA_MSI_DOMAIN
