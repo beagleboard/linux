@@ -64,6 +64,15 @@ static int brcmf_cfg80211_vndr_cmds_dcmd_handler(struct wiphy *wiphy,
 		*(char *)(dcmd_buf + len)  = '\0';
 	}
 
+	if (cmdhdr->cmd == BRCMF_C_SET_AP) {
+		if (*(int *)(dcmd_buf) == 1) {
+			ifp->vif->wdev.iftype = NL80211_IFTYPE_AP;
+			brcmf_net_setcarrier(ifp, true);
+		} else {
+			ifp->vif->wdev.iftype = NL80211_IFTYPE_STATION;
+		}
+	}
+
 	if (cmdhdr->set)
 		ret = brcmf_fil_cmd_data_set(ifp, cmdhdr->cmd, dcmd_buf,
 					     ret_len);
