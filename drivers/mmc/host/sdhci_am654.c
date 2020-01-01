@@ -452,6 +452,7 @@ static int sdhci_am654_init(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_am654_data *sdhci_am654 = sdhci_pltfm_priv(pltfm_host);
+	struct device *dev = mmc_dev(host->mmc);
 	u32 ctl_cfg_2 = 0;
 	u32 mask;
 	u32 val;
@@ -504,10 +505,11 @@ static int sdhci_am654_init(struct sdhci_host *host)
 	ret = sdhci_am654_get_otap_delay(host, sdhci_am654);
 	if (ret)
 		goto err_cleanup_host;
-
-	ret = sdhci_am654_cqe_add_host(host);
-	if (ret)
-		goto err_cleanup_host;
+	if (!of_device_is_compatible(dev->of_node, "ti,am654-sdhci-5.1")) {
+		ret = sdhci_am654_cqe_add_host(host);
+		if (ret)
+			goto err_cleanup_host;
+	}
 
 	ret = __sdhci_add_host(host);
 	if (ret)
