@@ -562,6 +562,10 @@
 	};
 };
 
+&wkup_m3_ipc {
+	ti,scale-data-fw = "am335x-evm-scale-data.bin";
+};
+
 #include "tps65910.dtsi"
 
 &tps {
