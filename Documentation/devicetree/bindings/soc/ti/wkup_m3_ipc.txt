@@ -89,3 +89,49 @@ Example:
 		ti,vtt-gpio-pin = <7>;
 		...
 	};
+
+
+IO Isolation
+============
+Supported by: AM43xx SoCs
+
+It is possible to configure any pin with a corresponding CTRL_CONF_*
+register in the control module to use the states defined in the DS_PAD_CONFIG
+bits by enabling IO isolation on the SoC. The 'ti,set-io-isolation' property
+tells the wkup_m3_ipc driver to enable IO isolation late in the suspend path
+after all drivers have been disabled.
+
+Optional properties:
+- ti,set-io-isolation:	Indicates that the IO's should be placed into
+			isolation and the DS_PAD_CONFIG values should be
+			used during suspend.
+
+Example (VTT Toggle using any GPIO on am437x-gp-evm):
+-----------------------------------------------------
+
+On the AM437x GP EVM, the VTT enable line must be held low to disable VTT
+regulator and held high to enable, so the following pinctrl entry is used.
+The DS pull is enabled which uses a pull down by default and DS off mode is
+used which outputs a low by default. For the normal state, a pull up is
+specified so that the VTT enable line gets pulled high immediately after
+the DS states are removed upon exit from DeepSleep0.
+
+	&am43xx_pinmux {
+		pinctrl-names = "default";
+		pinctrl-0 = <&ddr3_vtt_toggle_default>;
+
+		ddr3_vtt_toggle_default: ddr_vtt_toggle_default {
+		pinctrl-single,pins = <
+			0x25C (DS0_PULL_UP_DOWN_EN | PIN_OUTPUT_PULLUP |
+			       DS0_FORCE_OFF_MODE | MUX_MODE7)>;
+		};
+		...
+	};
+
+	wkup_m3_ipc: wkup_m3_ipc@1324 {
+		compatible = "ti,am4372-wkup-m3-ipc";
+		...
+		...
+		ti,set-io-isolation;
+		...
+	};
