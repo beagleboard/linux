@@ -84,7 +84,9 @@ struct k3_r5_cluster {
  * @dev: cached device pointer
  * @rproc: rproc handle representing this core
  * @mem: internal memory regions data
+ * @sram: on-chip SRAM memory regions data
  * @num_mems: number of internal memory regions
+ * @num_sram: number of on-chip SRAM memory regions
  * @reset: reset control handle
  * @tsp: TI-SCI processor control handle
  * @ti_sci: TI-SCI handle
@@ -98,7 +100,9 @@ struct k3_r5_core {
 	struct device *dev;
 	struct rproc *rproc;
 	struct k3_r5_mem *mem;
+	struct k3_r5_mem *sram;
 	int num_mems;
+	int num_sram;
 	struct reset_control *reset;
 	struct ti_sci_proc *tsp;
 	const struct ti_sci_handle *ti_sci;
@@ -584,6 +588,18 @@ static void *k3_r5_rproc_da_to_va(struct rproc *rproc, u64 da, int len)
 		}
 	}
 
+	/* handle any SRAM regions using SoC-view addresses */
+	for (i = 0; i < core->num_sram; i++) {
+		dev_addr = core->sram[i].dev_addr;
+		size = core->sram[i].size;
+
+		if (da >= dev_addr && ((da + len) <= (dev_addr + size))) {
+			offset = da - dev_addr;
+			va = core->sram[i].cpu_addr + offset;
+			return (__force void *)va;
+		}
+	}
+
 	/* handle static DDR reserved memory regions */
 	for (i = 0; i < kproc->num_rmems; i++) {
 		dev_addr = kproc->rmem[i].dev_addr;
@@ -1016,6 +1032,77 @@ fail:
 	return ret;
 }
 
+static int k3_r5_core_of_get_sram_memories(struct platform_device *pdev,
+					   struct k3_r5_core *core)
+{
+	struct device_node *np = pdev->dev.of_node;
+	struct device *dev = &pdev->dev;
+	struct device_node *sram_np;
+	struct resource res;
+	int num_sram;
+	int i, ret;
+
+	num_sram = of_property_count_elems_of_size(np, "sram", sizeof(phandle));
+	if (num_sram <= 0) {
+		dev_dbg(dev, "device does not use reserved on-chip memories, num_sram = %d\n",
+			num_sram);
+		return 0;
+	}
+
+	core->sram = kcalloc(num_sram, sizeof(*core->sram), GFP_KERNEL);
+	if (!core->sram)
+		return -ENOMEM;
+
+	for (i = 0; i < num_sram; i++) {
+		sram_np = of_parse_phandle(np, "sram", i);
+		if (!sram_np) {
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		if (!of_device_is_available(sram_np)) {
+			of_node_put(sram_np);
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		ret = of_address_to_resource(sram_np, 0, &res);
+		of_node_put(sram_np);
+		if (ret) {
+			ret = -EINVAL;
+			goto fail;
+		}
+		core->sram[i].bus_addr = res.start;
+		core->sram[i].dev_addr = res.start;
+		core->sram[i].size = resource_size(&res);
+		core->sram[i].cpu_addr = ioremap_wc(res.start,
+						    resource_size(&res));
+		if (!core->sram[i].cpu_addr) {
+			dev_err(dev, "failed to parse and map sram%d memory at %pad\n",
+				i, &res.start);
+			ret = -ENOMEM;
+			goto fail;
+		}
+
+		dev_dbg(dev, "memory    sram%d: bus addr %pa size 0x%zx va %pK da 0x%x\n",
+			i, &core->sram[i].bus_addr,
+			core->sram[i].size, core->sram[i].cpu_addr,
+			core->sram[i].dev_addr);
+	}
+	core->num_sram = num_sram;
+
+	return 0;
+
+fail:
+	for (i--; i >= 0; i--) {
+		if (core->sram[i].cpu_addr)
+			iounmap(core->sram[i].cpu_addr);
+	}
+	kfree(core->sram);
+
+	return ret;
+}
+
 static
 struct ti_sci_proc *k3_r5_core_of_get_tsp(struct device *dev,
 					  const struct ti_sci_handle *sci)
@@ -1047,7 +1134,7 @@ static int k3_r5_core_of_init(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct k3_r5_core *core;
-	int ret, ret1;
+	int ret, ret1, i;
 
 	core = devm_kzalloc(dev, sizeof(*core), GFP_KERNEL);
 	if (!core)
@@ -1124,10 +1211,23 @@ static int k3_r5_core_of_init(struct platform_device *pdev)
 		goto err_intmem;
 	}
 
+	ret = k3_r5_core_of_get_sram_memories(pdev, core);
+	if (ret) {
+		dev_err(dev, "failed to get sram memories, ret = %d\n", ret);
+		goto err_sram;
+	}
+
 	platform_set_drvdata(pdev, core);
 
 	return 0;
 
+err_sram:
+	for (i = 0; i < core->num_mems; i++) {
+		devm_iounmap(dev, core->mem[i].cpu_addr);
+		devm_release_mem_region(dev, core->mem[i].bus_addr,
+					core->mem[i].size);
+	}
+	devm_kfree(dev, core->mem);
 err_intmem:
 	ret1 = ti_sci_proc_release(core->tsp);
 	if (ret1)
@@ -1154,6 +1254,10 @@ static int k3_r5_core_of_exit(struct platform_device *pdev)
 	struct k3_r5_core *core = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
 	int i, ret;
+
+	for (i = 0; i < core->num_sram; i++)
+		iounmap(core->sram[i].cpu_addr);
+	kfree(core->sram);
 
 	for (i = 0; i < core->num_mems; i++) {
 		devm_release_mem_region(dev, core->mem[i].bus_addr,
