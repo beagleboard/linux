@@ -1,0 +1,145 @@
+TI K3 DSP devices
+=================
+
+The TI K3 family of SoCs usually have one or more TI DSP Core sub-systems that
+are used to offload some of the processor-intensive tasks or algorithms, for
+achieving various system level goals.
+
+These processor sub-systems usually contain additional sub-modules like L1
+and/or L2 caches/SRAMs, an Interrupt Controller, an external memory controller,
+a dedicated local power/sleep controller etc. The DSP processor cores in the
+K3 SoCs is usually either a TMS320C66x CorePac processor or a TMS320C71x CorePac
+processor.
+
+DSP Device Node:
+================
+Each DSP Core sub-system is represented as a single DT node. Each node has a
+number of required or optional properties that enable the OS running on the
+host processor (Arm CorePac) to perform the device management of the remote
+processor and to communicate with the remote processor.
+
+Required properties:
+--------------------
+The following are the mandatory properties:
+
+- compatible:		Should be one of the following,
+			    "ti,j721e-c66-dsp" for C66x DSPs on K3 J721E SoCs
+
+- reg:			Should contain an entry for each value in 'reg-names'.
+			Each entry should have the memory region's start address
+			and the size of the region, the representation matching
+			the parent node's '#address-cells' and '#size-cells' values.
+
+- reg-names:		Should contain strings with the following names, each
+			representing a specific internal memory region (if
+			present), and should be defined in this order,
+			     "l2sram", "l1pram", "l1dram"
+
+- ti,sci:		Should be a phandle to the TI-SCI System Controller node
+
+- ti,sci-dev-id:	Should contain the TI-SCI device id corresponding to the
+			DSP Core. Please refer to the corresponding System
+			Controller documentation for valid values for the DSP
+			cores.
+
+- ti,sci-proc-ids:	Should contain 2 integer values. The first cell should
+			contain the TI-SCI processor id for the DSP core device
+			and the second cell should contain the TI-SCI host id to
+			which the processor control ownership should be
+			transferred to.
+
+- resets:		Should contain the phandle to the reset controller node
+			managing the resets for this device, and a reset
+			specifier. Please refer to the following reset bindings
+			for the reset argument specifier,
+			Documentation/devicetree/bindings/reset/ti,sci-reset.txt
+
+- firmware-name:	Should contain the name of the default firmware image
+			file located on the firmware search path
+
+- mboxes:		OMAP Mailbox specifier denoting the sub-mailbox, to be
+			used for communication with the remote processor. The
+			specifier format is as per the bindings,
+			Documentation/devicetree/bindings/mailbox/omap-mailbox.txt
+			This property should match with the sub-mailbox node
+			used in the firmware image.
+
+- memory-region:	phandle to the reserved memory nodes to be associated
+			with the remoteproc device. There should be atleast two
+			reserved memory nodes defined - the first one would be
+			used for dynamic DMA allocations like vrings and vring
+			buffers, and the remaining ones used for the firmware
+			image sections. The reserved memory nodes should be
+			carveout nodes, and should be defined as per the
+			bindings in
+			Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
+
+Optional properties:
+--------------------
+
+- sram:			pHandle to a reserved on-chip SRAM region. The region
+			should be defined as a child node of the respective
+			SRAM node, and should be defined as per the generic
+			bindings in,
+			Documentation/devicetree/bindings/misc/sram.txt
+
+
+Example:
+---------
+
+1. J721E SoC
+	/* J721E remoteproc alias */
+	aliases {
+		rproc0 = &mcu_r5fss0_core0;
+		rproc1 = &mcu_r5fss0_core1;
+		rproc2 = &main_r5fss0_core0;
+		rproc3 = &main_r5fss0_core1;
+		rproc4 = &main_r5fss1_core0;
+		rproc5 = &main_r5fss1_core1;
+		rproc6 = &c66_0;
+		rproc7 = &c66_1;
+	};
+
+	/* DSP Carveout reserved memory nodes */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		c66_0_dma_memory_region: c66-dma-memory@a6000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa6000000 0x00 0x100000>;
+			no-map;
+		};
+
+		c66_0_memory_region: c66-memory@a6100000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa6100000 0x00 0xf00000>;
+			no-map;
+		};
+	};
+
+	cbass_main: interconnect@100000 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0x4d 0x80800000 0x4d 0x80800000 0x00 0x00800000>, /* C66_0 */
+			 <0x4d 0x81800000 0x4d 0x81800000 0x00 0x00800000>; /* C66_1 */
+
+		/* J721E C66_0 DSP node */
+		c66_0: dsp@4d80800000 {
+			compatible = "ti,j721e-c66-dsp";
+			reg = <0x4d 0x80800000 0x00 0x00048000>,
+			      <0x4d 0x80e00000 0x00 0x00008000>,
+			      <0x4d 0x80f00000 0x00 0x00008000>;
+			reg-names = "l2sram", "l1pram", "l1dram";
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <142>;
+			ti,sci-proc-ids = <0x03 0xFF>;
+			resets = <&k3_reset 142 1>;
+			firmware-name = "j7-c66_0-fw";
+			memory-region = <&c66_0_dma_memory_region>,
+					<&c66_0_memory_region>;
+			mboxes = <&mailbox0_cluster3 &mbox_c66_0>;
+		};
+	};
