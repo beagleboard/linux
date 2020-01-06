@@ -24,6 +24,7 @@ The following are the mandatory properties:
 
 - compatible:		Should be one of the following,
 			    "ti,j721e-c66-dsp" for C66x DSPs on K3 J721E SoCs
+			    "ti,j721e-c71-dsp" for C71x DSPs on K3 J721E SoCs
 
 - reg:			Should contain an entry for each value in 'reg-names'.
 			Each entry should have the memory region's start address
@@ -34,6 +35,7 @@ The following are the mandatory properties:
 			representing a specific internal memory region (if
 			present), and should be defined in this order,
 			     "l2sram", "l1pram", "l1dram"
+			NOTE: C71x DSPs do not have a "l1pram" memory.
 
 - ti,sci:		Should be a phandle to the TI-SCI System Controller node
 
@@ -98,6 +100,7 @@ Example:
 		rproc5 = &main_r5fss1_core1;
 		rproc6 = &c66_0;
 		rproc7 = &c66_1;
+		rproc8 = &c71_0;
 	};
 
 	/* DSP Carveout reserved memory nodes */
@@ -117,13 +120,26 @@ Example:
 			reg = <0x00 0xa6100000 0x00 0xf00000>;
 			no-map;
 		};
+
+		c71_0_dma_memory_region: c71-dma-memory@a8000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa8000000 0x00 0x100000>;
+			no-map;
+		};
+
+		c71_0_memory_region: c71-memory@a8100000 {
+			compatible = "shared-dma-pool";
+			reg = <0x00 0xa8100000 0x00 0xf00000>;
+			no-map;
+		};
 	};
 
 	cbass_main: interconnect@100000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
-		ranges = <0x4d 0x80800000 0x4d 0x80800000 0x00 0x00800000>, /* C66_0 */
+		ranges = <0x00 0x64800000 0x00 0x64800000 0x00 0x00800000>, /* C71_0 */
+			 <0x4d 0x80800000 0x4d 0x80800000 0x00 0x00800000>, /* C66_0 */
 			 <0x4d 0x81800000 0x4d 0x81800000 0x00 0x00800000>; /* C66_1 */
 
 		/* J721E C66_0 DSP node */
@@ -141,5 +157,21 @@ Example:
 			memory-region = <&c66_0_dma_memory_region>,
 					<&c66_0_memory_region>;
 			mboxes = <&mailbox0_cluster3 &mbox_c66_0>;
+		};
+
+		/* J721E C71_0 DSP node */
+		c71_0: dsp@64800000 {
+			compatible = "ti,j721e-c71-dsp";
+			reg = <0x00 0x64800000 0x00 0x00080000>,
+			      <0x00 0x64e00000 0x00 0x0000c000>;
+			reg-names = "l2sram", "l1dram";
+			ti,sci = <&dmsc>;
+			ti,sci-dev-id = <15>;
+			ti,sci-proc-ids = <0x30 0xFF>;
+			resets = <&k3_reset 15 1>;
+			firmware-name = "j7-c71_0-fw";
+			memory-region = <&c71_0_dma_memory_region>,
+					<&c71_0_memory_region>;
+			mboxes = <&mailbox0_cluster4 &mbox_c71_0>;
 		};
 	};
