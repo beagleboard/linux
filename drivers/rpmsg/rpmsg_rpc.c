@@ -610,6 +610,8 @@ static int rppc_release(struct inode *inode, struct file *filp)
 
 	rppc_delete_fxns(rpc);
 
+	skb_queue_purge(&rpc->queue);
+
 	mutex_lock(&rpc->lock);
 	idr_for_each(&rpc->dma_idr, rppc_free_dmabuf, rpc);
 	idr_destroy(&rpc->dma_idr);
