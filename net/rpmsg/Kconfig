@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# RPMsg Sockets
+#
+
+config RPMSG_PROTO
+	tristate "RPMsg Sockets over virtio-rpmsg transport"
+	default n
+	depends on RPMSG_VIRTIO
+	depends on REMOTEPROC
+	help
+	  An rpmsg driver that provides support for remote processor messaging
+	  sockets over the virtio rpmsg transport. This exposes a socket
+	  interface to user space to allow applications to communicate with
+	  various remote processors over this transport. This is currently
+	  designed to work with the TI IPC stack on various available TI SoCs,
+	  but can be generalized easily enough.
+
+	  If unsure, say N.
