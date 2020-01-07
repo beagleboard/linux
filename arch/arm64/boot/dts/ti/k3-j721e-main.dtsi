@@ -104,6 +104,7 @@
 				     <GIC_SPI 768 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "eventq", "gerror";
 			#iommu-cells = <1>;
+			dma-coherent;
 		};
 
 		hwspinlock: spinlock@30e00000 {
