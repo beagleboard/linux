@@ -694,7 +694,9 @@ struct cpts *cpts_create(struct device *dev, void __iomem *regs,
 		return ERR_CAST(cpts->refclk);
 	}
 
-	clk_prepare(cpts->refclk);
+	ret = clk_prepare(cpts->refclk);
+	if (ret)
+		return ERR_PTR(ret);
 
 	if (cpts->caps & CPTS_CAP_RFTCLK_SEL)
 		cpts_write32(cpts, cpts->rftclk_sel, rftclk_sel);
