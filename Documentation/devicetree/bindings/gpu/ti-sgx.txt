@@ -1,0 +1,53 @@
+Texas Instruments SGX 3D Graphics Processing Unit
+
+SGX is a 3D Graphics Processing Unit from Imagination Technologies. SGX is
+codename for 5th generation / Series 5 of PowerVR chipset family. This binding
+describes PowerVR SGX GPU integrated in Texas Instrument SoCs.
+
+Required properties:
+ - compatible : value should take the following format:
+	"ti,<soc>-<gpuversion>", "img,<gpuversion>"
+
+   accepted values:
+	(a) "ti,am3352-sgx530", "img,sgx530" for TI AM33x
+	(b) "ti,am4376-sgx530", "img,sgx530" for TI AM43x
+	(c) "ti,dra7-sgx544", "img,sgx544" for TI DRA7xx / AM57x
+	(d) "ti,am654-sgx544", "img,sgx544" for TI AM654
+ - reg: base address and length of the SGX registers
+ - interrupts : SGX interrupt number
+ - ti,hwmods: Name of the hwmod associated with the SGX for OMAP devices
+ - power-domains: Power domain parameters of the SGX for K3 devices
+ - clocks : From SoC clock binding
+
+Optional properties:
+ - reg-names : names of registers listed in reg property in same order
+ - clock-names : names of clocks listed in clocks property in the same order
+
+Examples:
+	sgx@56000000 {
+		compatible = "ti,dra7-sgx544", "img,sgx544";
+		reg = <0x56000000 0x10000>;
+		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+		ti,hwmods = "gpu";
+		clocks = <&l3_iclk_div>,
+		         <&gpu_core_gclk_mux>,
+		         <&gpu_hyd_gclk_mux>;
+		clock-names = "iclk",
+		              "fclk1",
+		              "fclk2";
+	};
+
+	gpu@7000000 {
+		compatible = "ti,am654-sgx544", "img,sgx544";
+		reg = <0x0 0x7000000 0x0 0x10000>;
+		interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&k3_pds 65>;
+		clocks = <&k3_clks 65 0>,
+		         <&k3_clks 65 1>,
+		         <&k3_clks 65 2>,
+		         <&k3_clks 65 3>;
+		clock-names = "mem_clk",
+		              "hyd_clk",
+		              "sgx_clk",
+		              "sys_clk";
+	};
