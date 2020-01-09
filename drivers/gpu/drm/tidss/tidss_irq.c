@@ -80,6 +80,7 @@ irqreturn_t tidss_irq_handler(int irq, void *arg)
 
 	if (irqstatus & DSS_IRQ_DEVICE_OCP_ERR)
 		dev_err_ratelimited(tidss->dev, "OCP error\n");
+	tidss_wb_irq(tidss->wdev, irqstatus);
 
 	return IRQ_HANDLED;
 }
@@ -126,6 +127,9 @@ int tidss_irq_postinstall(struct drm_device *ddev)
 
 		tidss->irq_mask |= DSS_IRQ_VP_FRAME_DONE(tcrtc->hw_videoport);
 	}
+
+	if (dispc_has_writeback(tidss->dispc))
+		tidss->irq_mask |= DSS_IRQ_DEVICE_WB_MASK;
 
 	tidss_irq_update(tidss);
 
