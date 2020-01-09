@@ -611,6 +611,19 @@
 			ti,irqs-safe-map = <0>;
 		};
 
+		gpu: gpu@56000000 {
+			compatible = "ti,dra7-sgx544", "img,sgx544";
+			ti,hwmods = "gpu";
+			reg = <0x56000000 0x10000>;
+			interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&l3_iclk_div>,
+				 <&gpu_core_gclk_mux>,
+				 <&gpu_hyd_gclk_mux>;
+			clock-names = "iclk",
+				      "fclk1",
+				      "fclk2";
+		};
+
 		dss: dss@58000000 {
 			compatible = "ti,dra7-dss";
 			/* 'reg' defined in dra72x.dtsi and dra74x.dtsi */
