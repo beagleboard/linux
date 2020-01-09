@@ -1,0 +1,12 @@
+# Release Defconfigs
+classification: SDK_Release_Defconfigs type: ti_sdk_arm64_release defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg audio_display.cfg multimedia.cfg k3_soc.cfg systemd.cfg
+# Debug Defconfigs
+classification: SDK_Debug_Defconfigs type: ti_sdk_arm64_debug defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg audio_display.cfg multimedia.cfg k3_soc.cfg systemd.cfg debug_options.cfg
+# RT Defconfigs
+classification: SDK_Release_Defconfigs type: ti_sdk_arm64_rt_release defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg audio_display.cfg multimedia.cfg k3_soc.cfg real_time.cfg systemd.cfg
+# RT Debug Defconfigs
+classification: SDK_Debug_Defconfigs type: ti_sdk_arm64_rt_debug defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg audio_display.cfg k3_soc.cfg multimedia.cfg real_time.cfg systemd.cfg debug_options.cfg
+# Android Defconfigs
+classification: SDK_Release_Defconfigs type: ti_sdk_arm64_android_release defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg audio_display.cfg k3_soc.cfg ../kernel/configs/android-base.config ../kernel/configs/android-recommended.config v8_android.cfg
+# Android Debug Defconfigs
+classification: SDK_Debug_Defconfigs type: ti_sdk_arm64_android_debug defconfig: defconfig config_file: None extra_configs: arm64_prune.cfg v8_baseport.cfg v8_ipc.cfg connectivity.cfg audio_display.cfg k3_soc.cfg debug_options.cfg ../kernel/configs/android-base.config ../kernel/configs/android-recommended.config v8_android.cfg
