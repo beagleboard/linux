@@ -331,6 +331,25 @@
 			status = "disabled";
 		};
 
+		target-module@56000000 {
+			compatible = "ti,sysc-omap2", "ti,sysc";
+			clocks = <&gfx_l3_clkctrl AM4_GFX_L3_GFX_CLKCTRL 0>;
+			clock-names = "fck";
+			resets = <&prm_gfx 0>;
+			reset-names = "rstctrl";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x56000000 0x10000>;
+
+			gpu: gpu@0 {
+				compatible = "ti,am4376-sgx530", "img,sgx530";
+				reg = <0x0 0x10000>;
+				interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&gfx_fck_div_ck>;
+				clock-names = "fclk";
+			};
+		};
+
 		dss: dss@4832a000 {
 			compatible = "ti,omap3-dss";
 			reg = <0x4832a000 0x200>;
