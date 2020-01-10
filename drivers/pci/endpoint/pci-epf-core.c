@@ -347,6 +347,7 @@ void pci_epf_free_space(struct pci_epf *epf, void *addr, enum pci_barno bar,
 			  epf_bar[bar].phys_addr);
 
 	epf_bar[bar].phys_addr = 0;
+	epf_bar[bar].addr = NULL;
 	epf_bar[bar].size = 0;
 	epf_bar[bar].barno = 0;
 	epf_bar[bar].flags = 0;
@@ -395,6 +396,7 @@ void *pci_epf_alloc_space(struct pci_epf *epf, size_t size, enum pci_barno bar,
 	}
 
 	epf_bar[bar].phys_addr = phys_addr;
+	epf_bar[bar].addr = space;
 	epf_bar[bar].size = size;
 	epf_bar[bar].barno = bar;
 	epf_bar[bar].flags |= upper_32_bits(size) ?

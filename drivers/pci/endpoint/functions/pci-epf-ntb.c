@@ -649,7 +649,7 @@ static int epf_ntb_configure_interrupt(struct epf_ntb *ntb,
 	}
 
 	if (msix_capable) {
-		ret = pci_epc_set_msix(epc, func_no, vfunc_no, db_count);
+		ret = pci_epc_set_msix(epc, func_no, vfunc_no, db_count, 0, 0);
 		if (ret) {
 			dev_err(dev, "MSI configuration failed\n");
 			return ret;

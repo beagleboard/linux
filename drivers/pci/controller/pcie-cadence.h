@@ -238,6 +238,16 @@ struct cdns_pcie_plat_data {
 };
 
 /**
+ * struct cdns_pcie_epf - Structure to hold info about endpoint function
+ * @epf: Info about virtual functions attached to the physical function
+ * @epf_bar: reference to the pci_epf_bar for the six Base Address Registers
+ */
+struct cdns_pcie_epf {
+	struct cdns_pcie_epf *epf;
+	struct pci_epf_bar *epf_bar[6];
+};
+
+/**
  * struct cdns_pcie - private data for Cadence PCIe controller drivers
  * @reg_base: IO mapped register base
  * @mem_res: start/end offsets in the physical system memory to map PCI accesses

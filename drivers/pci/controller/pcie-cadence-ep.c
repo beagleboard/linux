@@ -36,6 +36,7 @@
  * @irq_pci_fn: the latest PCI function that has updated the mapping of
  *		the MSI/legacy IRQ dedicated outbound region.
  * @irq_pending: bitmask of asserted legacy IRQs.
+ * @epf: info about physical functions attached to the endpoint controller
  */
 struct cdns_pcie_ep {
 	struct cdns_pcie		pcie;
@@ -48,6 +49,7 @@ struct cdns_pcie_ep {
 	u64				irq_pci_addr;
 	u8				irq_pci_fn;
 	u8				irq_pending;
+	struct cdns_pcie_epf		*epf;
 };
 
 static int cdns_pcie_ep_epf_init(struct pci_epc *epc, struct pci_epf *epf)
@@ -114,6 +116,7 @@ static int cdns_pcie_ep_set_bar(struct pci_epc *epc, u8 fn, u8 vfn,
 {
 	struct cdns_pcie_ep *ep = epc_get_drvdata(epc);
 	u32 cap = CDNS_PCIE_EP_FUNC_SRIOV_CAP_OFFSET;
+	struct cdns_pcie_epf *epf = &ep->epf[fn];
 	struct cdns_pcie *pcie = &ep->pcie;
 	dma_addr_t bar_phys = epf_bar->phys_addr;
 	enum pci_barno bar = epf_bar->barno;
@@ -180,6 +183,7 @@ static int cdns_pcie_ep_set_bar(struct pci_epc *epc, u8 fn, u8 vfn,
 		stride = cdns_pcie_ep_fn_readw(pcie, fn, cap +
 					       PCI_SRIOV_VF_STRIDE);
 		fn = fn + first_vf_offset + ((vfn - 1) * stride);
+		epf = &epf->epf[vfn - 1];
 	}
 
 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_IB_EP_FUNC_BAR_ADDR0(fn, bar),
@@ -194,6 +198,8 @@ static int cdns_pcie_ep_set_bar(struct pci_epc *epc, u8 fn, u8 vfn,
 		CDNS_PCIE_LM_EP_FUNC_BAR_CFG_BAR_CTRL(b, ctrl));
 	cdns_pcie_writel(pcie, reg, cfg);
 
+	epf->epf_bar[bar] = epf_bar;
+
 	return 0;
 }
 
@@ -201,16 +207,38 @@ static void cdns_pcie_ep_clear_bar(struct pci_epc *epc, u8 fn, u8 vfn,
 				   struct pci_epf_bar *epf_bar)
 {
 	struct cdns_pcie_ep *ep = epc_get_drvdata(epc);
+	u32 cap = CDNS_PCIE_EP_FUNC_SRIOV_CAP_OFFSET;
+	struct cdns_pcie_epf *epf = &ep->epf[fn];
 	struct cdns_pcie *pcie = &ep->pcie;
 	enum pci_barno bar = epf_bar->barno;
+	u32 first_vf_offset, stride;
 	u32 reg, cfg, b, ctrl;
 
-	if (bar < BAR_4) {
-		reg = CDNS_PCIE_LM_EP_FUNC_BAR_CFG0(fn);
-		b = bar;
+	if (vfn == 1) {
+		if (bar < BAR_4) {
+			reg = CDNS_PCIE_LM_EP_VFUNC_BAR_CFG0(fn);
+			b = bar;
+		} else {
+			reg = CDNS_PCIE_LM_EP_VFUNC_BAR_CFG1(fn);
+			b = bar - BAR_4;
+		}
 	} else {
-		reg = CDNS_PCIE_LM_EP_FUNC_BAR_CFG1(fn);
-		b = bar - BAR_4;
+		if (bar < BAR_4) {
+			reg = CDNS_PCIE_LM_EP_FUNC_BAR_CFG0(fn);
+			b = bar;
+		} else {
+			reg = CDNS_PCIE_LM_EP_FUNC_BAR_CFG1(fn);
+			b = bar - BAR_4;
+		}
+	}
+
+	if (vfn > 0) {
+		first_vf_offset = cdns_pcie_ep_fn_readw(pcie, fn, cap +
+							PCI_SRIOV_VF_OFFSET);
+		stride = cdns_pcie_ep_fn_readw(pcie, fn, cap +
+					       PCI_SRIOV_VF_STRIDE);
+		fn = fn + first_vf_offset + ((vfn - 1) * stride);
+		epf = &epf->epf[vfn - 1];
 	}
 
 	ctrl = CDNS_PCIE_LM_BAR_CFG_CTRL_DISABLED;
@@ -222,6 +250,8 @@ static void cdns_pcie_ep_clear_bar(struct pci_epc *epc, u8 fn, u8 vfn,
 
 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_IB_EP_FUNC_BAR_ADDR0(fn, bar), 0);
 	cdns_pcie_writel(pcie, CDNS_PCIE_AT_IB_EP_FUNC_BAR_ADDR1(fn, bar), 0);
+
+	epf->epf_bar[bar] = NULL;
 }
 
 static int cdns_pcie_ep_map_addr(struct pci_epc *epc, u8 fn, u8 vfn,
@@ -365,7 +395,7 @@ static int cdns_pcie_ep_get_msix(struct pci_epc *epc, u8 func_no, u8 vfunc_no)
 }
 
 static int cdns_pcie_ep_set_msix(struct pci_epc *epc, u8 fn, u8 vfn,
-				 u16 interrupts)
+				 u16 interrupts, enum pci_barno bir, u32 offset)
 {
 	u32 sriov_cap = CDNS_PCIE_EP_FUNC_SRIOV_CAP_OFFSET;
 	struct cdns_pcie_ep *ep = epc_get_drvdata(epc);
@@ -387,10 +417,16 @@ static int cdns_pcie_ep_set_msix(struct pci_epc *epc, u8 fn, u8 vfn,
 	val &= ~PCI_MSIX_FLAGS_QSIZE;
 	val |= interrupts;
 	cdns_pcie_ep_fn_writew(pcie, fn, reg, val);
+
 	/* Set MSIX BAR and offset */
-	cdns_pcie_ep_fn_writel(pcie, fn, 0xb4, CDNS_PCIE_EP_MSIX_BAR);
+	reg = cap + PCI_MSIX_TABLE;
+	val = offset | bir;
+	cdns_pcie_ep_fn_writel(pcie, fn, reg, val);
+
 	/* Set PBA BAR and offset.  BAR must match MSIX BAR */
-	cdns_pcie_ep_fn_writel(pcie, fn, 0xb8, 0x10000 | CDNS_PCIE_EP_MSIX_BAR);
+	reg = cap + PCI_MSIX_PBA;
+	val = (offset + (interrupts * PCI_MSIX_ENTRY_SIZE)) | bir;
+	cdns_pcie_ep_fn_writel(pcie, fn, reg, val);
 
 	return 0;
 }
@@ -579,18 +615,19 @@ static int cdns_pcie_ep_send_msix_irq(struct cdns_pcie_ep *ep, u8 fn, u8 vfn,
 				      u16 interrupt_num)
 {
 	u32 sriov_cap = CDNS_PCIE_EP_FUNC_SRIOV_CAP_OFFSET;
-	struct cdns_pcie *pcie = &ep->pcie;
 	u32 cap = CDNS_PCIE_EP_FUNC_MSIX_CAP_OFFSET;
-	u16 flags;
-	u64 pci_addr_mask = 0xff;
-	u16 tbl_offset = 0;
-	u32 bar_addr_upper, bar_addr_lower;
-	u32 msg_addr_upper, msg_addr_lower;
-	u32 msg_data;
-	u64 tbl_addr, msg_addr;
-	void __iomem *msix_tbl;
-
+	u32 tbl_offset, msg_data, reg, vec_ctrl;
+	struct cdns_pcie *pcie = &ep->pcie;
+	struct pci_epf_msix_tbl *msix_tbl;
+	struct pci_epf_bar *epf_bar;
 	u32 first_vf_offset, stride;
+	struct cdns_pcie_epf *epf;
+	u64 pci_addr_mask = 0xff;
+	u64 msg_addr;
+	u16 flags;
+	u8 bir;
+
+	epf = &ep->epf[fn];
 
 	if (vfn > 0) {
 		first_vf_offset = cdns_pcie_ep_fn_readw(pcie, fn, sriov_cap +
@@ -598,36 +635,26 @@ static int cdns_pcie_ep_send_msix_irq(struct cdns_pcie_ep *ep, u8 fn, u8 vfn,
 		stride = cdns_pcie_ep_fn_readw(pcie, fn, sriov_cap +
 					       PCI_SRIOV_VF_STRIDE);
 		fn = fn + first_vf_offset + ((vfn - 1) * stride);
+		epf = &epf->epf[vfn - 1];
 	}
 
 	/* Check whether the MSI-X feature has been enabled by the PCI host. */
 	flags = cdns_pcie_ep_fn_readw(pcie, fn, cap + PCI_MSIX_FLAGS);
 	if (!(flags & PCI_MSIX_FLAGS_ENABLE))
 		return -EINVAL;
-	/* We want local address, not address on host. Table is at offset 0 */
-	bar_addr_lower = cdns_pcie_readl(pcie, CDNS_PCIE_AT_IB_EP_FUNC_BAR_ADDR0
-					 (fn, CDNS_PCIE_EP_MSIX_BAR));
-	bar_addr_upper = cdns_pcie_readl(pcie, CDNS_PCIE_AT_IB_EP_FUNC_BAR_ADDR1
-					 (fn, CDNS_PCIE_EP_MSIX_BAR));
 
-	tbl_addr = ((u64)bar_addr_upper) << 32 | bar_addr_lower;
-	tbl_addr += (tbl_offset + ((interrupt_num - 1) * PCI_MSIX_ENTRY_SIZE));
-	tbl_addr &= PCI_BASE_ADDRESS_MEM_MASK;
-	msix_tbl = (void __iomem *)phys_to_virt(tbl_addr);
-	if (!msix_tbl)
-		return -EINVAL;
+	reg = cap + PCI_MSIX_TABLE;
+	tbl_offset = cdns_pcie_ep_fn_readl(pcie, fn, reg);
+	bir = tbl_offset & PCI_MSIX_TABLE_BIR;
+	tbl_offset &= PCI_MSIX_TABLE_OFFSET;
 
-	msg_addr_lower = readl(msix_tbl + PCI_MSIX_ENTRY_LOWER_ADDR);
-	msg_addr_upper = readl(msix_tbl + PCI_MSIX_ENTRY_UPPER_ADDR);
-	msg_addr = ((u64)msg_addr_upper) << 32 | msg_addr_lower;
+	epf_bar = epf->epf_bar[bir];
+	msix_tbl = epf_bar->addr;
+	msix_tbl = (struct pci_epf_msix_tbl *)((char *)msix_tbl + tbl_offset);
 
-	msg_data = readl(msix_tbl + PCI_MSIX_ENTRY_VECTOR_CTRL);
-	if (msg_data & 0x1)
-		return -EINVAL;
-
-	msg_data = readl(msix_tbl + PCI_MSIX_ENTRY_DATA);
-
-	iounmap(msix_tbl);
+	msg_addr = msix_tbl[(interrupt_num - 1)].msg_addr;
+	msg_data = msix_tbl[(interrupt_num - 1)].msg_data;
+	vec_ctrl = msix_tbl[(interrupt_num - 1)].vector_ctrl;
 
 	/* Set the outbound region if needed. */
 	if (unlikely(ep->irq_pci_addr != (msg_addr & ~pci_addr_mask) ||
@@ -761,12 +788,15 @@ static int cdns_pcie_ep_probe(struct platform_device *pdev)
 	struct device_node *np = dev->of_node;
 	const struct cdns_pcie_ep_data *data;
 	const struct of_device_id *match;
+	struct cdns_pcie_epf *epf;
 	struct cdns_pcie_ep *ep;
 	struct cdns_pcie *pcie;
 	struct pci_epc *epc;
 	struct resource *res;
 	int ret;
 	int phy_count;
+	u8 *max_vfs;
+	int i;
 
 	match = of_match_device(of_match_ptr(cdns_pcie_ep_of_match), dev);
 	if (!match)
@@ -848,6 +878,29 @@ static int cdns_pcie_ep_probe(struct platform_device *pdev)
 
 	if (of_property_read_u8(np, "max-functions", &epc->max_functions) < 0)
 		epc->max_functions = 1;
+
+	ep->epf = devm_kcalloc(dev, epc->max_functions, sizeof(*ep->epf),
+			       GFP_KERNEL);
+	if (!ep->epf)
+		return -ENOMEM;
+
+	max_vfs = devm_kcalloc(dev, epc->max_functions, sizeof(*max_vfs),
+			       GFP_KERNEL);
+	if (!max_vfs)
+		return -ENOMEM;
+
+	of_property_read_u8_array(np, "max-virtual-functions", max_vfs,
+				  epc->max_functions);
+
+	for (i = 0; i < epc->max_functions; i++) {
+		epf = &ep->epf[i];
+		if (max_vfs[i] == 0)
+			continue;
+		epf->epf = devm_kcalloc(dev, max_vfs[i], sizeof(*ep->epf),
+					GFP_KERNEL);
+		if (!epf->epf)
+			return -ENOMEM;
+	}
 
 	ret = pci_epc_mem_init(epc, pcie->addr_res->start,
 			       resource_size(pcie->addr_res));

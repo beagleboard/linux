@@ -997,7 +997,7 @@
 			#size-cells = <2>;
 			bus-range = <0x0 0xf>;
 			cdns,max-outbound-regions = <16>;
-			cdns,no-bar-match-nbits = <32>;
+			cdns,no-bar-match-nbits = <64>;
 			vendor-id = /bits/ 16 <0x104c>;
 			device-id = /bits/ 16 <0xb00d>;
 			msi-map = <0x0 &gic_its 0x0 0x10000>;
@@ -1014,6 +1014,7 @@
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
 			max-functions = /bits/ 8 <6>;
+			max-virtual-functions = /bits/ 8 <0x4 0x4 0x4 0x4 0x0 0x0>;
 			dma-coherent;
 		};
 	};
@@ -1041,7 +1042,7 @@
 			#size-cells = <2>;
 			bus-range = <0x0 0xf>;
 			cdns,max-outbound-regions = <16>;
-			cdns,no-bar-match-nbits = <32>;
+			cdns,no-bar-match-nbits = <64>;
 			vendor-id = /bits/ 16 <0x104c>;
 			device-id = /bits/ 16 <0xb00d>;
 			reg = <0x00 0x0d800000 0x00 0x00800000>,
@@ -1061,6 +1062,7 @@
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
 			max-functions = /bits/ 8 <6>;
+			max-virtual-functions = /bits/ 8 <0x4 0x4 0x4 0x4 0x0 0x0>;
 			dma-coherent;
 		};
 	};
@@ -1088,7 +1090,7 @@
 			#size-cells = <2>;
 			bus-range = <0x0 0xf>;
 			cdns,max-outbound-regions = <16>;
-			cdns,no-bar-match-nbits = <32>;
+			cdns,no-bar-match-nbits = <64>;
 			vendor-id = /bits/ 16 <0x104c>;
 			device-id = /bits/ 16 <0xb00d>;
 			reg = <0x00 0x0e000000 0x00 0x00800000>,
@@ -1108,6 +1110,7 @@
 			reg-names = "reg", "addr_space";
 			cdns,max-outbound-regions = <16>;
 			max-functions = /bits/ 8 <6>;
+			max-virtual-functions = /bits/ 8 <0x4 0x4 0x4 0x4 0x0 0x0>;
 			dma-coherent;
 		};
 	};

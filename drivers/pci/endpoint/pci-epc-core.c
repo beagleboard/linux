@@ -499,11 +499,13 @@ EXPORT_SYMBOL_GPL(pci_epc_get_msix);
  * @func_no: the physical endpoint function number in the EPC device
  * @vfunc_no: the virtual endpoint function number in the physical function
  * @interrupts: number of MSI-X interrupts required by the EPF
+ * @bir: BAR where the MSI-X table resides
+ * @offset: Offset pointing to the start of MSI-X table
  *
  * Invoke to set the required number of MSI-X interrupts.
  */
 int pci_epc_set_msix(struct pci_epc *epc, u8 func_no, u8 vfunc_no,
-		     u16 interrupts)
+		     u16 interrupts, enum pci_barno bir, u32 offset)
 {
 	int ret;
 
@@ -515,7 +517,8 @@ int pci_epc_set_msix(struct pci_epc *epc, u8 func_no, u8 vfunc_no,
 		return 0;
 
 	mutex_lock(&epc->lock);
-	ret = epc->ops->set_msix(epc, func_no, vfunc_no, interrupts - 1);
+	ret = epc->ops->set_msix(epc, func_no, vfunc_no, interrupts - 1,
+				 bir, offset);
 	mutex_unlock(&epc->lock);
 
 	return ret;
@@ -743,7 +746,7 @@ void pci_epc_remove_epf(struct pci_epc *epc, struct pci_epf *epf,
 	struct list_head *list;
 	u32 func_no = 0;
 
-	if (!epc || IS_ERR(epc))
+	if (!epc || IS_ERR(epc) || !epf)
 		return;
 
 	if (type == PRIMARY_INTERFACE) {
@@ -757,6 +760,7 @@ void pci_epc_remove_epf(struct pci_epc *epc, struct pci_epf *epf,
 	mutex_lock(&epc->lock);
 	clear_bit(func_no, &epc->function_num_map);
 	list_del(list);
+	epf->epc = NULL;
 	mutex_unlock(&epc->lock);
 }
 EXPORT_SYMBOL_GPL(pci_epc_remove_epf);
