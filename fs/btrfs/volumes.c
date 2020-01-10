@@ -3248,7 +3248,11 @@ int btrfs_balance(struct btrfs_balance_control *bctl,
 		}
 	}
 
-	num_devices = fs_info->fs_devices->num_devices;
+	/*
+	 * rw_devices will not change at the moment, device add/delete/replace
+	 * are excluded by EXCL_OP
+	 */
+	num_devices = fs_info->fs_devices->rw_devices;
 	btrfs_dev_replace_lock(&fs_info->dev_replace);
 	if (btrfs_dev_replace_is_ongoing(&fs_info->dev_replace)) {
 		BUG_ON(num_devices < 1);
