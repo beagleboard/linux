@@ -91,7 +91,7 @@ config TWL4030_USB
 config PHY_TI_GMII_SEL
 	tristate
 	default y if TI_CPSW=y
-	depends on TI_CPSW || COMPILE_TEST
+	depends on TI_CPSW || TI_AM65_CPSW_NUSS || COMPILE_TEST
 	select GENERIC_PHY
 	select REGMAP
 	default m
