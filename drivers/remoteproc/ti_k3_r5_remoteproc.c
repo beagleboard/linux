@@ -889,6 +889,9 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 			goto err_add;
 		}
 
+		if (rproc_get_id(rproc) < 0)
+			dev_warn(dev, "device does not have an alias id or platform device id\n");
+
 		/* create only one rproc in lockstep mode */
 		if (cluster->mode)
 			break;
