@@ -211,6 +211,27 @@ odbfd_exit:
 	return ret;
 }
 
+/**
+ * _omap_device_check_reidle_hwmods - check all hwmods in device for reidle flag
+ * @od: struct omap_device *od
+ *
+ * Checks underlying hwmods for reidle flag, if present, remove from hwmod
+ * list and set flag in omap_device to keep track.  Returns 0.
+ */
+static int _omap_device_check_reidle_hwmods(struct omap_device *od)
+{
+	int i;
+
+	for (i = 0; i < od->hwmods_cnt; i++) {
+		if (od->hwmods[i]->flags & HWMOD_NEEDS_REIDLE) {
+			od->flags |= OMAP_DEVICE_HAS_REIDLE_HWMODS;
+			omap_hwmod_disable_reidle(od->hwmods[i]);
+		}
+	}
+
+	return 0;
+}
+
 static int _omap_device_notifier_call(struct notifier_block *nb,
 				      unsigned long event, void *dev)
 {
@@ -238,6 +259,13 @@ static int _omap_device_notifier_call(struct notifier_block *nb,
 		    pm_runtime_status_suspended(dev)) {
 			od->_driver_status = BUS_NOTIFY_BIND_DRIVER;
 			pm_runtime_set_active(dev);
+		}
+		break;
+	case BUS_NOTIFY_BOUND_DRIVER:
+		od = to_omap_device(pdev);
+		if (od) {
+			od->_driver_status = BUS_NOTIFY_BOUND_DRIVER;
+			_omap_device_check_reidle_hwmods(od);
 		}
 		break;
 	case BUS_NOTIFY_ADD_DEVICE:
@@ -286,6 +314,24 @@ static int _omap_device_idle_hwmods(struct omap_device *od)
 		ret |= omap_hwmod_idle(od->hwmods[i]);
 
 	return ret;
+}
+
+/**
+ * _omap_device_reidle_hwmods - call omap_hwmod_enable_reidle on all hwmods
+ * @od: struct omap_device *od
+ *
+ * Add all underlying hwmods to hwmod reidle list.  Returns 0.
+ */
+static int _omap_device_reidle_hwmods(struct omap_device *od)
+{
+	int i;
+
+	for (i = 0; i < od->hwmods_cnt; i++)
+		if (od->hwmods[i]->flags | HWMOD_NEEDS_REIDLE)
+			omap_hwmod_enable_reidle(od->hwmods[i]);
+
+	/* XXX pass along return value here? */
+	return 0;
 }
 
 /* Public functions for use by core code */
@@ -372,6 +418,9 @@ void omap_device_delete(struct omap_device *od)
 {
 	if (!od)
 		return;
+
+	if (od->flags & OMAP_DEVICE_HAS_REIDLE_HWMODS)
+		_omap_device_reidle_hwmods(od);
 
 	od->pdev->archdata.od = NULL;
 	kfree(od->hwmods);
@@ -824,6 +873,7 @@ static struct notifier_block platform_nb = {
 
 static int __init omap_device_init(void)
 {
+	omap_hwmod_setup_reidle();
 	bus_register_notifier(&platform_bus_type, &platform_nb);
 	return 0;
 }
