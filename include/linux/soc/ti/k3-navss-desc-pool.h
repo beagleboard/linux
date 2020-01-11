@@ -8,6 +8,8 @@
 #ifndef K3_NAVSS_DESC_POOL_H_
 #define K3_NAVSS_DESC_POOL_H_
 
+#include <linux/types.h>
+
 struct k3_knav_desc_pool;
 
 void k3_knav_pool_destroy(struct k3_knav_desc_pool *pool);
