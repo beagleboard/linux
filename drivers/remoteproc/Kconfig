@@ -230,6 +230,22 @@ config TI_K3_R5_REMOTEPROC
 	  It's safe to say N here if you're not interested in utilizing
 	  a slave processor
 
+config TI_K3_DSP_REMOTEPROC
+	tristate "TI K3 DSP remoteproc support"
+	depends on ARCH_K3
+	select MAILBOX
+	select OMAP2PLUS_MBOX
+	help
+	  Say y here to support TI's C66x and C71x DSP remote processor
+	  subsystems on various TI K3 family of SoCs through the remote
+	  processor framework.
+
+	  You want to say m here in order to offload some processing
+	  tasks to these processors.
+
+	  It's safe to say N here if you're not interested in utilizing
+	  the DSP slave processors.
+
 endif # REMOTEPROC
 
 endmenu
