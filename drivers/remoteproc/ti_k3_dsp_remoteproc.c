@@ -354,6 +354,7 @@ static int k3_dsp_rproc_of_get_memories(struct platform_device *pdev,
 {
 	static const char * const mem_names[] = {"l2sram", "l1pram", "l1dram"};
 	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	struct resource *res;
 	int num_mems = 0;
 	int i;
@@ -365,6 +366,11 @@ static int k3_dsp_rproc_of_get_memories(struct platform_device *pdev,
 		return -ENOMEM;
 
 	for (i = 0; i < num_mems; i++) {
+		/* C71x cores only have a L1P Cache, there are no L1P SRAMs */
+		if (of_device_is_compatible(np, "ti,j721e-c71-dsp") &&
+		    !strcmp(mem_names[i], "l1pram"))
+			continue;
+
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   mem_names[i]);
 		if (!res) {
@@ -556,6 +562,17 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 	kproc->rproc = rproc;
 	kproc->dev = dev;
 
+	/* C71x is a 64-bit processor, so customize rproc elf loader ops */
+	if (of_device_is_compatible(np, "ti,j721e-c71-dsp")) {
+		rproc->ops->load = rproc_elf64_load_segments;
+		rproc->ops->sanity_check = rproc_elf64_sanity_check;
+		rproc->ops->parse_fw = rproc_elf64_load_rsc_table;
+		rproc->ops->find_loaded_rsc_table =
+				rproc_elf64_find_loaded_rsc_table;
+		rproc->ops->get_boot_addr = rproc_elf64_get_boot_addr;
+		rproc->ops->load = rproc_elf64_load_segments;
+	}
+
 	kproc->ti_sci = ti_sci_get_by_phandle(np, "ti,sci");
 	if (IS_ERR(kproc->ti_sci)) {
 		ret = PTR_ERR(kproc->ti_sci);
@@ -675,6 +692,7 @@ static int k3_dsp_rproc_remove(struct platform_device *pdev)
 
 static const struct of_device_id k3_dsp_of_match[] = {
 	{ .compatible = "ti,j721e-c66-dsp", },
+	{ .compatible = "ti,j721e-c71-dsp", },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, k3_dsp_of_match);
