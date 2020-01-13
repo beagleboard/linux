@@ -508,13 +508,6 @@ static int ntb_epf_init_pci(struct ntb_epf_dev *ndev,
 		dev_warn(&pdev->dev, "Cannot DMA highmem\n");
 	}
 
-	ret = dma_coerce_mask_and_coherent(&ndev->ntb.dev,
-					   dma_get_mask(&pdev->dev));
-	if (ret) {
-		dev_err(dev, "Cannot set DMA mask\n");
-		goto err_dma_mask;
-	}
-
 	ndev->ctrl_reg = pci_iomap(pdev, 0, 0);
 	if (!ndev->ctrl_reg) {
 		ret = -EIO;

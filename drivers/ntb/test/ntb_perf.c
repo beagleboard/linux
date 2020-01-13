@@ -568,6 +568,7 @@ static int perf_setup_inbuf(struct perf_peer *peer)
 {
 	resource_size_t xlat_align, size_align, size_max;
 	struct perf_ctx *perf = peer->perf;
+	struct pci_dev *pdev = perf->ntb->pdev;
 	int ret;
 
 	/* Get inbound MW parameters */
@@ -588,7 +589,7 @@ static int perf_setup_inbuf(struct perf_peer *peer)
 
 	perf_free_inbuf(peer);
 
-	peer->inbuf = dma_alloc_coherent(&perf->ntb->dev, peer->inbuf_size,
+	peer->inbuf = dma_alloc_coherent(&pdev->dev, peer->inbuf_size,
 					 &peer->inbuf_xlat, GFP_KERNEL);
 	if (!peer->inbuf) {
 		dev_err(&perf->ntb->dev, "Failed to alloc inbuf of %pa\n",
