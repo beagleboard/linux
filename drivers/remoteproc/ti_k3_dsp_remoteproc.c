@@ -620,6 +620,9 @@ static int k3_dsp_rproc_probe(struct platform_device *pdev)
 		goto release_mem;
 	}
 
+	if (rproc_get_id(rproc) < 0)
+		dev_warn(dev, "device does not have an alias id or platform device id\n");
+
 	platform_set_drvdata(pdev, kproc);
 
 	return 0;
