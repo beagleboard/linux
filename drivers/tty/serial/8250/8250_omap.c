@@ -1102,22 +1102,18 @@ static unsigned char am654_8250_handle_rx_dma(struct uart_8250_port *up,
 		omap_8250_rx_dma(up);
 		serial_out(up, UART_OMAP_EFR2, UART_OMAP_EFR2_TIMEOUT_BEHAVE);
 	} else if ((iir & 0x3f) == UART_IIR_RX_TIMEOUT) {
-		if (!up->dma->rx_running) {
-			omap_8250_rx_dma(up);
-		} else {
-			/*
-			 * Disable RX timeout, read IIR to clear
-			 * current timeout condition, clear EFR2 to
-			 * periodic timeouts, re-enable interrupts.
-			 */
-			up->ier &= ~(UART_IER_RLSI | UART_IER_RDI);
-			serial_out(up, UART_IER, up->ier);
-			omap_8250_rx_dma_flush(up);
-			serial_in(up, UART_IIR);
-			serial_out(up, UART_OMAP_EFR2, 0x0);
-			up->ier |= UART_IER_RLSI | UART_IER_RDI;
-			serial_out(up, UART_IER, up->ier);
-		}
+		/*
+		 * Disable RX timeout, read IIR to clear
+		 * current timeout condition, clear EFR2 to
+		 * periodic timeouts, re-enable interrupts.
+		 */
+		up->ier &= ~(UART_IER_RLSI | UART_IER_RDI);
+		serial_out(up, UART_IER, up->ier);
+		omap_8250_rx_dma_flush(up);
+		serial_in(up, UART_IIR);
+		serial_out(up, UART_OMAP_EFR2, 0x0);
+		up->ier |= UART_IER_RLSI | UART_IER_RDI;
+		serial_out(up, UART_IER, up->ier);
 	}
 
 	return status;
