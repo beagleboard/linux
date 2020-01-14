@@ -970,7 +970,7 @@ static void udma_check_tx_completion(struct work_struct *work)
 	}
 
 	if (!desc_done) {
-		jiffie_diff = uc->tx_drain.jiffie - jiffie_diff;
+		jiffie_diff = ((long)uc->tx_drain.jiffie - jiffie_diff) + 1;
 		residue_diff -= uc->tx_drain.residue;
 		if (residue_diff) {
 			/* Try to guess when we should check next time */
