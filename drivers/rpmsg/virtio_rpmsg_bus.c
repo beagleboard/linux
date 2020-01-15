@@ -111,6 +111,23 @@ struct rpmsg_ns_msg {
 } __packed;
 
 /**
+ * struct rpmsg_ns_msg_ext - dynamic name service announcement message v2
+ * @name: name of remote service that is published
+ * @desc: description of remote service
+ * @addr: address of remote service that is published
+ * @flags: indicates whether service is created or destroyed
+ *
+ * Interchangeable nameservice message with rpmsg_ns_msg. This one has
+ * the addition of the desc field for extra flexibility.
+ */
+struct rpmsg_ns_msg_ext {
+	char name[RPMSG_NAME_SIZE];
+	char desc[RPMSG_NAME_SIZE];
+	u32 addr;
+	u32 flags;
+} __packed;
+
+/**
  * enum rpmsg_ns_flags - dynamic name service announcement flags
  *
  * @RPMSG_NS_CREATE: a new remote service was just created
@@ -175,6 +192,7 @@ static int virtio_rpmsg_trysendto(struct rpmsg_endpoint *ept, void *data,
 				  int len, u32 dst);
 static int virtio_rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src,
 					   u32 dst, void *data, int len);
+static ssize_t virtio_rpmsg_get_mtu(struct rpmsg_endpoint *ept);
 
 static const struct rpmsg_endpoint_ops virtio_endpoint_ops = {
 	.destroy_ept = virtio_rpmsg_destroy_ept,
@@ -184,6 +202,7 @@ static const struct rpmsg_endpoint_ops virtio_endpoint_ops = {
 	.trysend = virtio_rpmsg_trysend,
 	.trysendto = virtio_rpmsg_trysendto,
 	.trysend_offchannel = virtio_rpmsg_trysend_offchannel,
+	.get_mtu = virtio_rpmsg_get_mtu,
 };
 
 /**
@@ -384,6 +403,24 @@ static void virtio_rpmsg_release_device(struct device *dev)
 	kfree(vch);
 }
 
+static int virtio_rpmsg_desc_match(struct device *dev, void *data)
+{
+	struct rpmsg_channel_info *chinfo = data;
+	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
+
+	if (!*chinfo->desc)
+		return 0;
+
+	if (strncmp(chinfo->name, rpdev->id.name, RPMSG_NAME_SIZE))
+		return 0;
+
+	if (strncmp(chinfo->desc, rpdev->desc, RPMSG_NAME_SIZE))
+		return 0;
+
+	/* found a match ! */
+	return 1;
+}
+
 /*
  * create an rpmsg channel using its name and address info.
  * this function will be used to create both static and dynamic
@@ -407,6 +444,15 @@ static struct rpmsg_device *rpmsg_create_channel(struct virtproc_info *vrp,
 		return NULL;
 	}
 
+	tmp = device_find_child(dev, chinfo, virtio_rpmsg_desc_match);
+	if (tmp) {
+		/* decrement the matched device's refcount back */
+		put_device(tmp);
+		dev_err(dev, "channel %s:%x:%x failed, desc '%s' already exists\n",
+			chinfo->name, chinfo->src, chinfo->dst, chinfo->desc);
+		return NULL;
+	}
+
 	vch = kzalloc(sizeof(*vch), GFP_KERNEL);
 	if (!vch)
 		return NULL;
@@ -419,6 +465,7 @@ static struct rpmsg_device *rpmsg_create_channel(struct virtproc_info *vrp,
 	rpdev->src = chinfo->src;
 	rpdev->dst = chinfo->dst;
 	rpdev->ops = &virtio_rpmsg_ops;
+	strncpy(rpdev->desc, chinfo->desc, RPMSG_NAME_SIZE);
 
 	/*
 	 * rpmsg server channels has predefined local address (for now),
@@ -699,6 +746,14 @@ static int virtio_rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src,
 	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, false);
 }
 
+static ssize_t virtio_rpmsg_get_mtu(struct rpmsg_endpoint *ept)
+{
+	struct rpmsg_device *rpdev = ept->rpdev;
+	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
+
+	return vch->vrp->buf_size - sizeof(struct rpmsg_hdr);
+}
+
 static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 			     struct rpmsg_hdr *msg, unsigned int len)
 {
@@ -816,18 +871,30 @@ static int rpmsg_ns_cb(struct rpmsg_device *rpdev, void *data, int len,
 		       void *priv, u32 src)
 {
 	struct rpmsg_ns_msg *msg = data;
+	struct rpmsg_ns_msg_ext *msg_ext = data;
 	struct rpmsg_device *newch;
 	struct rpmsg_channel_info chinfo;
 	struct virtproc_info *vrp = priv;
 	struct device *dev = &vrp->vdev->dev;
 	int ret;
+	u32 addr;
+	u32 flags;
 
 #if defined(CONFIG_DYNAMIC_DEBUG)
 	dynamic_hex_dump("NS announcement: ", DUMP_PREFIX_NONE, 16, 1,
 			 data, len, true);
 #endif
 
-	if (len != sizeof(*msg)) {
+	if (len == sizeof(*msg)) {
+		addr = msg->addr;
+		flags = msg->flags;
+		chinfo.desc[0] = '\0';
+	} else if (len == sizeof(*msg_ext)) {
+		addr = msg_ext->addr;
+		flags = msg_ext->flags;
+		msg_ext->desc[RPMSG_NAME_SIZE - 1] = '\0';
+		strncpy(chinfo.desc, msg_ext->desc, sizeof(chinfo.desc));
+	} else {
 		dev_err(dev, "malformed ns msg (%d)\n", len);
 		return -EINVAL;
 	}
@@ -847,14 +914,14 @@ static int rpmsg_ns_cb(struct rpmsg_device *rpdev, void *data, int len,
 	msg->name[RPMSG_NAME_SIZE - 1] = '\0';
 
 	dev_info(dev, "%sing channel %s addr 0x%x\n",
-		 msg->flags & RPMSG_NS_DESTROY ? "destroy" : "creat",
-		 msg->name, msg->addr);
+		 flags & RPMSG_NS_DESTROY ? "destroy" : "creat",
+		 msg->name, addr);
 
 	strncpy(chinfo.name, msg->name, sizeof(chinfo.name));
 	chinfo.src = RPMSG_ADDR_ANY;
-	chinfo.dst = msg->addr;
+	chinfo.dst = addr;
 
-	if (msg->flags & RPMSG_NS_DESTROY) {
+	if (flags & RPMSG_NS_DESTROY) {
 		ret = rpmsg_unregister_device(&vrp->vdev->dev, &chinfo);
 		if (ret)
 			dev_err(dev, "rpmsg_destroy_channel failed: %d\n", ret);

@@ -79,6 +79,7 @@ static void rpmsg_sample_remove(struct rpmsg_device *rpdev)
 
 static struct rpmsg_device_id rpmsg_driver_sample_id_table[] = {
 	{ .name	= "rpmsg-client-sample" },
+	{ .name	= "ti.ipc4.ping-pong" },
 	{ },
 };
 MODULE_DEVICE_TABLE(rpmsg, rpmsg_driver_sample_id_table);

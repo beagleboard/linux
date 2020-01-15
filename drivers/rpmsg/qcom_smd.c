@@ -1307,6 +1307,7 @@ static void qcom_channel_state_worker(struct work_struct *work)
 		strncpy(chinfo.name, channel->name, sizeof(chinfo.name));
 		chinfo.src = RPMSG_ADDR_ANY;
 		chinfo.dst = RPMSG_ADDR_ANY;
+		chinfo.desc[0] = '\0';
 		rpmsg_unregister_device(&edge->dev, &chinfo);
 		channel->registered = false;
 		spin_lock_irqsave(&edge->channels_lock, flags);

@@ -31,6 +31,15 @@
 		serial10 = &main_uart8;
 		serial11 = &main_uart9;
 		ethernet0 = &cpsw_port1;
+		rproc0 = &mcu_r5fss0_core0;
+		rproc1 = &mcu_r5fss0_core1;
+		rproc2 = &main_r5fss0_core0;
+		rproc3 = &main_r5fss0_core1;
+		rproc4 = &main_r5fss1_core0;
+		rproc5 = &main_r5fss1_core1;
+		rproc6 = &c66_0;
+		rproc7 = &c66_1;
+		rproc8 = &c71_0;
 	};
 
 	chosen { };
