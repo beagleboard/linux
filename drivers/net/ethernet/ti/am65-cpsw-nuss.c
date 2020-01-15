@@ -139,6 +139,14 @@ static void am65_cpsw_port_set_sl_mac(struct am65_cpsw_port *slave,
 	writel(mac_lo(dev_addr), slave->port_base + AM65_CPSW_PORTN_REG_SA_L);
 }
 
+static void am65_cpsw_sl_ctl_reset(struct am65_cpsw_port *port)
+{
+	cpsw_sl_reset(port->slave.mac_sl, 100);
+	/* Max length register has to be restored after MAC SL reset */
+	writel(AM65_CPSW_MAX_PACKET_SIZE,
+	       port->port_base + AM65_CPSW_PORT_REG_RX_MAXLEN);
+}
+
 static void am65_cpsw_nuss_get_ver(struct am65_cpsw_common *common)
 {
 	common->nuss_ver = readl(common->ss_base);
@@ -620,10 +628,6 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 
 	common->usage_count++;
 
-	/* Max length register */
-	writel(AM65_CPSW_MAX_PACKET_SIZE,
-	       port->port_base + AM65_CPSW_PORT_REG_RX_MAXLEN);
-
 	am65_cpsw_port_set_sl_mac(port, ndev->dev_addr);
 
 	if (port->slave.mac_only)
@@ -638,8 +642,7 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 			   port_mask, 0, 0, ALE_MCAST_FWD_2);
 
 	/* mac_sl should be configured via phy-link interface */
-	cpsw_sl_reset(port->slave.mac_sl, 100);
-	cpsw_sl_ctl_reset(port->slave.mac_sl);
+	am65_cpsw_sl_ctl_reset(port);
 
 	cpsw_phy_sel(common->dev, port->slave.phy_if, port->port_id);
 
