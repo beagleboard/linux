@@ -1404,7 +1404,17 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 		return;
 	}
 
-	icssg_class_default(prueth->miig_rt, slice, allmulti);
+	if (allmulti) {
+		icssg_class_default(prueth->miig_rt, slice, 1);
+		return;
+	}
+
+	icssg_class_default(prueth->miig_rt, slice, 0);
+	if (!netdev_mc_empty(ndev)) {
+		/* program multicast address list into Classifier */
+		icssg_class_add_mcast(prueth->miig_rt, slice, ndev);
+		return;
+	}
 }
 
 static int emac_set_timestamp_mode(struct prueth_emac *emac,
