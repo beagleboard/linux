@@ -93,3 +93,32 @@ Description:
 		This sysfs entry allows the rpmsg driver for a rpmsg device
 		to be specified which will override standard OF, ID table
 		and name matching.
+
+What:		/sys/bus/rpmsg/devices/.../desc
+Date:		August 2019
+KernelVersion:	5.4
+Contact:	Bjorn Andersson <bjorn.andersson@linaro.org>
+Description:
+		Every rpmsg device is a communication channel with a remote
+		processor. Channels are identified by a textual name (see
+		/sys/bus/rpmsg/devices/.../name above) and have a local
+		("source") rpmsg address, and remote ("destination") rpmsg
+		address.
+
+		A channel is first created when an entity, whether local
+		or remote, starts listening on it for messages (and is thus
+		called an rpmsg server). When that happens, a "name service"
+		announcement is sent to the other processor, in order to let
+		it know about the creation of the channel (this way remote
+		clients know they can start sending messages).
+
+		The listening entity (or client) which communicates with a
+		remote processor is referred as rpmsg driver. The rpmsg device
+		and rpmsg driver are matched based on rpmsg device name (see
+		/sys/bus/rpmsg/devices/.../name above) and rpmsg driver ID table.
+
+		This sysfs entry contains an additional optional description of
+		the rpmsg device that can be optionally included as part of the
+		"name service" announcement. This description is then passed on
+		to the corresponding rpmsg drivers to further distinguish multiple
+		devices associated with the same rpmsg driver.

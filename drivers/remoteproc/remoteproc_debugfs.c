@@ -192,7 +192,8 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 	struct resource_table *table = rproc->table_ptr;
 	struct fw_rsc_carveout *c;
 	struct fw_rsc_devmem *d;
-	struct fw_rsc_trace *t;
+	struct fw_rsc_trace *t1;
+	struct fw_rsc_trace2 *t2;
 	struct fw_rsc_vdev *v;
 	int i, j;
 
@@ -205,11 +206,13 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 		int offset = table->offset[i];
 		struct fw_rsc_hdr *hdr = (void *)table + offset;
 		void *rsc = (void *)hdr + sizeof(*hdr);
+		u16 ver = hdr->st.v;
 
-		switch (hdr->type) {
+		switch (hdr->st.t) {
 		case RSC_CARVEOUT:
 			c = rsc;
-			seq_printf(seq, "Entry %d is of type %s\n", i, types[hdr->type]);
+			seq_printf(seq, "Entry %d is of type %s\n",
+				   i, types[hdr->st.t]);
 			seq_printf(seq, "  Device Address 0x%x\n", c->da);
 			seq_printf(seq, "  Physical Address 0x%x\n", c->pa);
 			seq_printf(seq, "  Length 0x%x Bytes\n", c->len);
@@ -219,7 +222,8 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 			break;
 		case RSC_DEVMEM:
 			d = rsc;
-			seq_printf(seq, "Entry %d is of type %s\n", i, types[hdr->type]);
+			seq_printf(seq, "Entry %d is of type %s\n",
+				   i, types[hdr->st.t]);
 			seq_printf(seq, "  Device Address 0x%x\n", d->da);
 			seq_printf(seq, "  Physical Address 0x%x\n", d->pa);
 			seq_printf(seq, "  Length 0x%x Bytes\n", d->len);
@@ -228,17 +232,37 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 			seq_printf(seq, "  Name %s\n\n", d->name);
 			break;
 		case RSC_TRACE:
-			t = rsc;
-			seq_printf(seq, "Entry %d is of type %s\n", i, types[hdr->type]);
-			seq_printf(seq, "  Device Address 0x%x\n", t->da);
-			seq_printf(seq, "  Length 0x%x Bytes\n", t->len);
-			seq_printf(seq, "  Reserved (should be zero) [%d]\n", t->reserved);
-			seq_printf(seq, "  Name %s\n\n", t->name);
+			if (ver == 0) {
+				t1 = rsc;
+				seq_printf(seq, "Entry %d is version %d of type %s\n",
+					   i, ver, types[hdr->st.t]);
+				seq_printf(seq, "  Device Address 0x%x\n",
+					   t1->da);
+				seq_printf(seq, "  Length 0x%x Bytes\n",
+					   t1->len);
+				seq_printf(seq, "  Reserved (should be zero) [%d]\n",
+					   t1->reserved);
+				seq_printf(seq, "  Name %s\n\n", t1->name);
+			} else if (ver == 1) {
+				t2 = rsc;
+				seq_printf(seq, "Entry %d is version %d of type %s\n",
+					   i, ver, types[hdr->st.t]);
+				seq_printf(seq, "  Device Address 0x%llx\n",
+					   t2->da);
+				seq_printf(seq, "  Length 0x%x Bytes\n",
+					   t2->len);
+				seq_printf(seq, "  Reserved (should be zero) [%d]\n",
+					   t2->reserved);
+				seq_printf(seq, "  Name %s\n\n", t2->name);
+			} else {
+				seq_printf(seq, "Entry %d is an unsupported version %d of type %s\n",
+					   i, ver, types[hdr->st.t]);
+			}
 			break;
 		case RSC_VDEV:
 			v = rsc;
-			seq_printf(seq, "Entry %d is of type %s\n", i, types[hdr->type]);
-
+			seq_printf(seq, "Entry %d is of type %s\n",
+				   i, types[hdr->st.t]);
 			seq_printf(seq, "  ID %d\n", v->id);
 			seq_printf(seq, "  Notify ID %d\n", v->notifyid);
 			seq_printf(seq, "  Device features 0x%x\n", v->dfeatures);
@@ -261,7 +285,7 @@ static int rproc_rsc_table_show(struct seq_file *seq, void *p)
 			break;
 		default:
 			seq_printf(seq, "Unknown resource type found: %d [hdr: %pK]\n",
-				   hdr->type, hdr);
+				   hdr->st.t, hdr);
 			break;
 		}
 	}
@@ -333,9 +357,6 @@ struct dentry *rproc_create_trace_file(const char *name, struct rproc *rproc,
 
 void rproc_delete_debug_dir(struct rproc *rproc)
 {
-	if (!rproc->dbg_dir)
-		return;
-
 	debugfs_remove_recursive(rproc->dbg_dir);
 }
 
