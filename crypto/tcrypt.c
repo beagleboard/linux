@@ -1106,6 +1106,7 @@ static void test_ahash_speed_common(const char *algo, unsigned int secs,
 			"(%5u byte blocks,%5u bytes per update,%4u updates): ",
 			i, speed[i].blen, speed[i].plen, speed[i].blen / speed[i].plen);
 
+		sg_set_buf(sg, tvmem[0], speed[i].plen);
 		ahash_request_set_crypt(req, sg, output, speed[i].plen);
 
 		if (secs) {
