@@ -156,8 +156,13 @@ struct udma_desc {
 enum udma_chan_state {
 	UDMA_CHAN_IS_IDLE = 0, /* not active, no teardown is in progress */
 	UDMA_CHAN_IS_ACTIVE, /* Normal operation */
-	UDMA_CHAN_IS_ACTIVE_FLUSH, /* Flushing for delayed tx */
 	UDMA_CHAN_IS_TERMINATING, /* channel is being terminated */
+};
+
+struct udma_tx_drain {
+	struct delayed_work work;
+	ktime_t tstamp;
+	u32 residue;
 };
 
 struct udma_chan {
@@ -186,6 +191,8 @@ struct udma_chan {
 
 	enum udma_chan_state state;
 	struct completion teardown_completed;
+
+	struct udma_tx_drain tx_drain;
 
 	u32 bcnt; /* number of bytes completed since the start of the channel */
 	u32 in_ring_cnt; /* number of descriptors in flight */
@@ -942,22 +949,76 @@ static inline bool udma_is_desc_really_done(struct udma_chan *uc,
 	peer_bcnt = udma_tchanrt_read(uc->tchan, UDMA_TCHAN_RT_PEER_BCNT_REG);
 	bcnt = udma_tchanrt_read(uc->tchan, UDMA_TCHAN_RT_BCNT_REG);
 
-	if (peer_bcnt < bcnt)
+	/* Transfer is incomplete, store current residue and time stamp */
+	if (peer_bcnt < bcnt) {
+		uc->tx_drain.residue = bcnt - peer_bcnt;
+		uc->tx_drain.tstamp = ktime_get();
 		return false;
+	}
 
 	return true;
 }
 
-static void udma_flush_tx(struct udma_chan *uc)
+static void udma_check_tx_completion(struct work_struct *work)
 {
-	if (uc->dir != DMA_MEM_TO_DEV)
-		return;
+	struct udma_chan *uc = container_of(work, typeof(*uc),
+					    tx_drain.work.work);
+	bool desc_done = true;
+	u32 residue_diff;
+	ktime_t time_diff;
+	unsigned long delay;
 
-	uc->state = UDMA_CHAN_IS_ACTIVE_FLUSH;
+	while (1) {
+		if (uc->desc) {
+			/* Get previous residue and time stamp */
+			residue_diff = uc->tx_drain.residue;
+			time_diff = uc->tx_drain.tstamp;
+			/*
+			 * Get current residue and time stamp or see if
+			 * transfer is complete
+			 */
+			desc_done = udma_is_desc_really_done(uc, uc->desc);
+		}
 
-	udma_tchanrt_write(uc->tchan, UDMA_TCHAN_RT_CTL_REG,
-			   UDMA_CHAN_RT_CTL_EN |
-			   UDMA_CHAN_RT_CTL_TDOWN);
+		if (!desc_done) {
+			/*
+			 * Find the time delta and residue delta w.r.t
+			 * previous poll
+			 */
+			time_diff = ktime_sub(uc->tx_drain.tstamp,
+					      time_diff) + 1;
+			residue_diff -= uc->tx_drain.residue;
+			if (residue_diff) {
+				/*
+				 * Try to guess when we should check
+				 * next time by calculating rate at
+				 * which data is being drained at the
+				 * peer device
+				 */
+				delay = (time_diff / residue_diff) *
+					uc->tx_drain.residue;
+			} else {
+				/* No progress, check again in 1 second  */
+				schedule_delayed_work(&uc->tx_drain.work, HZ);
+				break;
+			}
+
+			usleep_range(ktime_to_us(delay),
+				     ktime_to_us(delay) + 10);
+			continue;
+		}
+
+		if (uc->desc) {
+			struct udma_desc *d = uc->desc;
+
+			uc->bcnt += d->residue;
+			udma_start(uc);
+			vchan_cookie_complete(&d->vd);
+			break;
+		}
+
+		break;
+	}
 }
 
 static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
@@ -985,11 +1046,7 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 		if (!uc->desc)
 			udma_start(uc);
 
-		if (uc->state != UDMA_CHAN_IS_ACTIVE_FLUSH)
-			goto out;
-		else if (uc->desc)
-			paddr = udma_curr_cppi5_desc_paddr(uc->desc,
-							   uc->desc->desc_idx);
+		goto out;
 	}
 
 	d = udma_udma_desc_from_paddr(uc, paddr);
@@ -1009,7 +1066,7 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 				vchan_cyclic_callback(&d->vd);
 			}
 		} else {
-			bool desc_done = true;
+			bool desc_done = false;
 
 			if (d == uc->desc) {
 				desc_done = udma_is_desc_really_done(uc, d);
@@ -1018,10 +1075,9 @@ static void udma_ring_callback(struct udma_chan *uc, dma_addr_t paddr)
 					uc->bcnt += d->residue;
 					udma_start(uc);
 				} else {
-					udma_flush_tx(uc);
+					schedule_delayed_work(&uc->tx_drain.work,
+							      0);
 				}
-			} else if (d == uc->terminated_desc) {
-				uc->terminated_desc = NULL;
 			}
 
 			if (desc_done)
@@ -1863,6 +1919,8 @@ static int udma_alloc_chan_resources(struct dma_chan *chan)
 
 	udma_reset_rings(uc);
 
+	INIT_DELAYED_WORK_ONSTACK(&uc->tx_drain.work,
+				  udma_check_tx_completion);
 	return 0;
 
 err_irq_free:
@@ -2781,6 +2839,7 @@ static int udma_terminate_all(struct dma_chan *chan)
 		uc->terminated_desc = uc->desc;
 		uc->desc = NULL;
 		uc->terminated_desc->terminated = true;
+		cancel_delayed_work(&uc->tx_drain.work);
 	}
 
 	uc->paused = false;
@@ -2814,6 +2873,7 @@ static void udma_synchronize(struct dma_chan *chan)
 	if (udma_is_chan_running(uc))
 		dev_warn(uc->ud->dev, "chan%d refused to stop!\n", uc->id);
 
+	cancel_delayed_work_sync(&uc->tx_drain.work);
 	udma_reset_rings(uc);
 }
 
@@ -2901,6 +2961,9 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 		udma_reset_chan(uc, false);
 		udma_reset_rings(uc);
 	}
+
+	cancel_delayed_work_sync(&uc->tx_drain.work);
+	destroy_delayed_work_on_stack(&uc->tx_drain.work);
 
 	if (uc->irq_num_ring > 0) {
 		free_irq(uc->irq_num_ring, uc);
