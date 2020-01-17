@@ -2838,13 +2838,14 @@ static void udma_desc_pre_callback(struct virt_dma_chan *vc,
 
 		if (cppi5_desc_get_type(desc_vaddr) ==
 		    CPPI5_INFO0_DESC_TYPE_VAL_HOST) {
-			result->residue = cppi5_hdesc_get_pktlen(desc_vaddr);
-			if (result->residue == d->residue)
-				result->result = DMA_TRANS_NOERROR;
-			else
+			result->residue = d->residue -
+					  cppi5_hdesc_get_pktlen(desc_vaddr);
+			if (result->residue)
 				result->result = DMA_TRANS_ABORTED;
+			else
+				result->result = DMA_TRANS_NOERROR;
 		} else {
-			result->residue = d->residue;
+			result->residue = 0;
 			result->result = DMA_TRANS_NOERROR;
 		}
 	}
