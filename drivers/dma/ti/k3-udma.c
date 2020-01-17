@@ -2897,6 +2897,10 @@ static void udma_free_chan_resources(struct dma_chan *chan)
 	struct udma_tisci_rm *tisci_rm = &ud->tisci_rm;
 
 	udma_terminate_all(chan);
+	if (uc->terminated_desc) {
+		udma_reset_chan(uc, false);
+		udma_reset_rings(uc);
+	}
 
 	if (uc->irq_num_ring > 0) {
 		free_irq(uc->irq_num_ring, uc);
