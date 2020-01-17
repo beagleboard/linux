@@ -188,6 +188,38 @@ static u8 mci_cbc_dec_array[3][MODE_CONTROL_BYTES] = {
 
 /*
  * Mode Control Instructions for various Key lengths 128, 192, 256
+ * For CBC (Cipher Block Chaining) mode for encryption
+ */
+static u8 mci_cbc_enc_no_iv_array[3][MODE_CONTROL_BYTES] = {
+	{	0x21, 0x00, 0x00, 0x18, 0x88, 0x0a, 0xaa, 0x4b, 0x7e, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00	},
+	{	0x21, 0x00, 0x00, 0x18, 0x88, 0x4a, 0xaa, 0x4b, 0x7e, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00	},
+	{	0x21, 0x00, 0x00, 0x18, 0x88, 0x8a, 0xaa, 0x4b, 0x7e, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00	},
+};
+
+/*
+ * Mode Control Instructions for various Key lengths 128, 192, 256
+ * For CBC (Cipher Block Chaining) mode for decryption
+ */
+static u8 mci_cbc_dec_no_iv_array[3][MODE_CONTROL_BYTES] = {
+	{	0x31, 0x00, 0x00, 0x80, 0x8a, 0xca, 0x98, 0xf4, 0x40, 0xc0,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00	},
+	{	0x31, 0x00, 0x00, 0x84, 0x8a, 0xca, 0x98, 0xf4, 0x40, 0xc0,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00	},
+	{	0x31, 0x00, 0x00, 0x88, 0x8a, 0xca, 0x98, 0xf4, 0x40, 0xc0,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00	},
+};
+
+/*
+ * Mode Control Instructions for various Key lengths 128, 192, 256
  * For ECB (Electronic Code Book) mode for encryption
  */
 static u8 mci_ecb_enc_array[3][27] = {
@@ -263,6 +295,85 @@ static void sa_swiz_128(u8 *in, u16 len)
 		for (j = 0; j < 16; j++)
 			in[i + j] = data[15 - j];
 	}
+}
+
+/* Prepare the ipad and opad from key as per SHA algorithm step 1*/
+static void prepare_kiopad(u8 *k_ipad, u8 *k_opad, const u8 *key, u16 key_sz)
+{
+	int i;
+
+	for (i = 0; i < key_sz; i++) {
+		k_ipad[i] = key[i] ^ 0x36;
+		k_opad[i] = key[i] ^ 0x5c;
+	}
+
+	/* Instead of XOR with 0 */
+	for (; i < SHA_MESSAGE_BYTES; i++) {
+		k_ipad[i] = 0x36;
+		k_opad[i] = 0x5c;
+	}
+}
+
+/* Generate HMAC-SHA1 intermediate Hash */
+static
+void sa_hmac_sha1_get_pad(const u8 *key, u16 key_sz, u32 *ipad, u32 *opad)
+{
+	u32 ws[SHA_WORKSPACE_WORDS];
+	u8 k_ipad[SHA_MESSAGE_BYTES];
+	u8 k_opad[SHA_MESSAGE_BYTES];
+	int i;
+
+	prepare_kiopad(k_ipad, k_opad, key, key_sz);
+
+	/* SHA-1 on k_ipad */
+	sha_init(ipad);
+	sha_transform(ipad, k_ipad, ws);
+
+	for (i = 0; i < SHA_DIGEST_WORDS; i++)
+		ipad[i] = cpu_to_be32(ipad[i]);
+
+	/* SHA-1 on k_opad */
+	sha_init(opad);
+	sha_transform(opad, k_opad, ws);
+
+	for (i = 0; i < SHA_DIGEST_WORDS; i++)
+		opad[i] = cpu_to_be32(opad[i]);
+}
+
+void sa2ul_sha256_init(u32 *buf)
+{
+	buf[0] = SHA256_H0;
+	buf[1] = SHA256_H1;
+	buf[2] = SHA256_H2;
+	buf[3] = SHA256_H3;
+	buf[4] = SHA256_H4;
+	buf[5] = SHA256_H5;
+	buf[6] = SHA256_H6;
+	buf[7] = SHA256_H7;
+}
+
+static void sa_hmac_sha256_get_pad(const u8 *key, u16 key_sz, u32 *ipad,
+				   u32 *opad)
+{
+	u8 k_ipad[SHA_MESSAGE_BYTES];
+	u8 k_opad[SHA_MESSAGE_BYTES];
+	int i;
+
+	prepare_kiopad(k_ipad, k_opad, key, key_sz);
+
+	/* SHA-256 on k_ipad */
+	sa2ul_sha256_init(ipad);
+	sha256_transform(ipad, k_ipad);
+
+	for (i = 0; i < SHA256_DIGEST_WORDS; i++)
+		ipad[i] = cpu_to_be32(ipad[i]);
+
+	/* SHA-256 on k_opad */
+	sa2ul_sha256_init(opad);
+	sha256_transform(opad, k_opad);
+
+	for (i = 0; i < SHA256_DIGEST_WORDS; i++)
+		opad[i] = cpu_to_be32(opad[i]);
 }
 
 /* Derive the inverse key used in AES-CBC decryption operation */
@@ -1062,6 +1173,370 @@ static int sa_aes_cbc_decrypt(struct ablkcipher_request *req)
 	return sa_aes_run(req, req->info, 0);
 }
 
+static void sa_aead_dma_in_callback(void *data)
+{
+	struct sa_rx_data *rxd = (struct sa_rx_data *)data;
+	struct aead_request *req = (struct aead_request *)rxd->req;
+	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
+	u32 *mdptr;
+	unsigned int start = req->assoclen + req->cryptlen;
+	unsigned int authsize = crypto_aead_authsize(tfm);
+	u8 auth_tag[SA_MAX_AUTH_TAG_SZ];
+	int i, sglen, err = 0;
+	size_t pl, ml;
+
+	mdptr = (u32 *)dmaengine_desc_get_metadata_ptr(rxd->tx_in, &pl, &ml);
+	for (i = 0; i < (authsize / 4); i++)
+		mdptr[i + 4] = htonl(mdptr[i + 4]);
+
+	if (rxd->enc) {
+		scatterwalk_map_and_copy((void *)&mdptr[4], req->dst,
+					 start, crypto_aead_authsize(tfm), 1);
+	} else {
+		start -= authsize;
+		scatterwalk_map_and_copy(auth_tag, req->src,
+					 start, crypto_aead_authsize(tfm), 0);
+
+		err = memcmp((void *)&mdptr[4],
+			     auth_tag, authsize) ? -EBADMSG : 0;
+	}
+
+	sglen = sg_nents_for_len(req->dst, req->cryptlen + authsize);
+	dma_unmap_sg(rxd->ddev, req->dst, sglen, DMA_FROM_DEVICE);
+
+	sglen =  sg_nents_for_len(req->src, req->assoclen + req->cryptlen);
+	dma_unmap_sg(rxd->ddev, req->src, sglen, DMA_TO_DEVICE);
+
+	kfree(rxd);
+
+	aead_request_complete(req, err);
+}
+
+static int sa_init_tfm(struct crypto_tfm *tfm)
+{
+	struct crypto_alg *alg = tfm->__crt_alg;
+	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
+	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
+	int ret;
+
+	if ((alg->cra_flags & CRYPTO_ALG_TYPE_MASK) == CRYPTO_ALG_TYPE_AEAD) {
+		memset(ctx, 0, sizeof(*ctx));
+		ctx->dev_data = data;
+
+		ret = sa_init_ctx_info(&ctx->enc, data);
+		if (ret)
+			return ret;
+		ret = sa_init_ctx_info(&ctx->dec, data);
+		if (ret) {
+			sa_free_ctx_info(&ctx->enc, data);
+			return ret;
+		}
+	}
+
+	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
+		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
+		ctx->dec.sc_id, &ctx->dec.sc_phys);
+	return 0;
+}
+
+/* Algorithm init */
+static int sa_cra_init_aead(struct crypto_aead *tfm)
+{
+	return sa_init_tfm(crypto_aead_tfm(tfm));
+}
+
+/* Algorithm context teardown */
+static void sa_exit_tfm(struct crypto_tfm *tfm)
+{
+	struct crypto_alg *alg = tfm->__crt_alg;
+	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
+	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
+
+	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
+		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
+		ctx->dec.sc_id, &ctx->dec.sc_phys);
+
+	if ((alg->cra_flags & CRYPTO_ALG_TYPE_MASK)
+		== CRYPTO_ALG_TYPE_AEAD) {
+		sa_free_ctx_info(&ctx->enc, data);
+		sa_free_ctx_info(&ctx->dec, data);
+	}
+}
+
+static void sa_exit_tfm_aead(struct crypto_aead *tfm)
+{
+	return sa_exit_tfm(crypto_aead_tfm(tfm));
+}
+
+/* AEAD algorithm configuration interface function */
+static int sa_aead_setkey(struct crypto_aead *authenc,
+			  const u8 *key, unsigned int keylen,
+			  struct algo_data *ad)
+{
+	struct sa_tfm_ctx *ctx = crypto_aead_ctx(authenc);
+	struct crypto_authenc_keys keys;
+
+	const char *cra_name;
+	int cmdl_len;
+	struct sa_cmdl_cfg cfg;
+
+	if (crypto_authenc_extractkeys(&keys, key, keylen) != 0)
+		goto badkey;
+
+	cra_name = crypto_tfm_alg_name(crypto_aead_tfm(authenc));
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.enc1st = 1;
+	cfg.aalg = ad->aalg_id;
+	cfg.enc_eng_id = ad->enc_eng.eng_id;
+	cfg.auth_eng_id = ad->auth_eng.eng_id;
+	cfg.iv_size = crypto_aead_ivsize(authenc);
+	cfg.akey = keys.authkey;
+	cfg.akey_len = keys.authkeylen;
+
+	/* Setup Encryption Security Context & Command label template */
+	if (sa_init_sc(&ctx->enc, keys.enckey, keys.enckeylen,
+		       keys.authkey, keys.authkeylen,
+		       ad, 1, &ctx->enc.epib[1], true))
+		goto badkey;
+
+	cmdl_len = sa_format_cmdl_gen(&cfg,
+				      (u8 *)ctx->enc.cmdl,
+				      &ctx->enc.cmdl_upd_info);
+	if (cmdl_len <= 0 || (cmdl_len > SA_MAX_CMDL_WORDS * sizeof(u32)))
+		goto badkey;
+
+	ctx->enc.cmdl_size = cmdl_len;
+
+	/* Setup Decryption Security Context & Command label template */
+	if (sa_init_sc(&ctx->dec, keys.enckey, keys.enckeylen,
+		       keys.authkey, keys.authkeylen,
+		       ad, 0, &ctx->dec.epib[1], true))
+		goto badkey;
+
+	cfg.enc1st = 0;
+	cfg.enc_eng_id = ad->enc_eng.eng_id;
+	cmdl_len = sa_format_cmdl_gen(&cfg, (u8 *)ctx->dec.cmdl,
+				      &ctx->dec.cmdl_upd_info);
+
+	if (cmdl_len <= 0 || (cmdl_len > SA_MAX_CMDL_WORDS * sizeof(u32)))
+		goto badkey;
+
+	ctx->dec.cmdl_size = cmdl_len;
+
+	kfree(ad);
+
+	return 0;
+
+badkey:
+	dev_err(sa_k3_dev, "%s: badkey\n", __func__);
+	return -EINVAL;
+}
+
+static int sa_aead_cbc_sha1_setkey(struct crypto_aead *authenc,
+				   const u8 *key, unsigned int keylen)
+{
+	struct algo_data *ad = kzalloc(sizeof(*ad), GFP_KERNEL);
+	struct crypto_authenc_keys keys;
+	int ret = 0, key_idx;
+
+	ret = crypto_authenc_extractkeys(&keys, key, keylen);
+	if (ret)
+		return ret;
+
+	/* Convert the key size (16/24/32) to the key size index (0/1/2) */
+	key_idx = (keys.enckeylen >> 3) - 2;
+	ad->enc_eng.eng_id = SA_ENG_ID_EM1;
+	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE1_SZ;
+	ad->auth_eng.eng_id = SA_ENG_ID_AM1;
+	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE2_SZ;
+	ad->mci_enc = mci_cbc_enc_no_iv_array[key_idx];
+	ad->mci_dec = mci_cbc_dec_no_iv_array[key_idx];
+	ad->inv_key = true;
+	ad->keyed_mac = true;
+	ad->ealg_id = SA_EALG_ID_AES_CBC;
+	ad->aalg_id = SA_AALG_ID_HMAC_SHA1;
+	ad->hash_size = SHA1_DIGEST_SIZE;
+	ad->auth_ctrl = 0x2;
+	ad->prep_iopad = sa_hmac_sha1_get_pad;
+
+	return sa_aead_setkey(authenc, key, keylen, ad);
+}
+
+static int sa_aead_cbc_sha256_setkey(struct crypto_aead *authenc,
+				     const u8 *key, unsigned int keylen)
+{
+	struct algo_data *ad = kzalloc(sizeof(*ad), GFP_KERNEL);
+	struct crypto_authenc_keys keys;
+	int ret = 0, key_idx;
+
+	ret = crypto_authenc_extractkeys(&keys, key, keylen);
+	if (ret)
+		return ret;
+
+	/* Convert the key size (16/24/32) to the key size index (0/1/2) */
+	key_idx = (keys.enckeylen >> 3) - 2;
+
+	ad->enc_eng.eng_id = SA_ENG_ID_EM1;
+	ad->enc_eng.sc_size = SA_CTX_ENC_TYPE1_SZ;
+	ad->auth_eng.eng_id = SA_ENG_ID_AM1;
+	ad->auth_eng.sc_size = SA_CTX_AUTH_TYPE2_SZ;
+	ad->mci_enc = mci_cbc_enc_no_iv_array[key_idx];
+	ad->mci_dec = mci_cbc_dec_no_iv_array[key_idx];
+	ad->inv_key = true;
+	ad->keyed_mac = true;
+	ad->ealg_id = SA_EALG_ID_AES_CBC;
+	ad->aalg_id = SA_AALG_ID_HMAC_SHA2_256;
+	ad->hash_size = SHA256_DIGEST_SIZE;
+	ad->auth_ctrl = 0x4;
+	ad->prep_iopad = sa_hmac_sha256_get_pad;
+
+	return sa_aead_setkey(authenc, key, keylen, ad);
+}
+
+static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
+{
+	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
+	struct sa_tfm_ctx *ctx = crypto_aead_ctx(tfm);
+	struct sa_ctx_info *sa_ctx = enc ? &ctx->enc : &ctx->dec;
+	struct sa_rx_data *rxd;
+	struct dma_async_tx_descriptor *tx_in, *tx_out;
+	struct sa_crypto_data *pdata = dev_get_drvdata(sa_k3_dev);
+	struct sa_dma_req_ctx req_ctx;
+	u8 enc_offset;
+	int sg_nents, dst_nents;
+	int psdata_offset;
+	u8 auth_offset = 0;
+	u8 *auth_iv = NULL;
+	u8 *aad = NULL;
+	u8 aad_len = 0;
+	u16 enc_len;
+	u16 auth_len = 0;
+	u32 *mdptr;
+	u32 req_type;
+	struct dma_chan *dma_rx;
+	gfp_t flags;
+	size_t pl, ml;
+	struct device *ddev;
+
+	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
+			GFP_KERNEL : GFP_ATOMIC;
+
+	if (enc) {
+		iv = (u8 *)(req->iv);
+		enc_offset = req->assoclen;
+		enc_len = req->cryptlen;
+		auth_len = req->assoclen + req->cryptlen;
+	} else {
+		enc_offset = req->assoclen;
+		enc_len = req->cryptlen - crypto_aead_authsize(tfm);
+		auth_len = req->assoclen + req->cryptlen -
+			crypto_aead_authsize(tfm);
+	}
+
+	if (enc_len >= 256)
+		dma_rx = pdata->dma_rx2;
+	else
+		dma_rx = pdata->dma_rx1;
+
+	ddev = dma_rx->device->dev;
+	/* Allocate descriptor & submit packet */
+	sg_nents = sg_nents_for_len(req->src, enc_len + req->assoclen);
+	dst_nents = sg_nents_for_len(req->dst, enc_len +
+				     crypto_aead_authsize(tfm));
+
+	memcpy(req_ctx.cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
+	/* Update Command Label */
+	sa_update_cmdl(sa_k3_dev, enc_offset, enc_len,
+		       iv, auth_offset, auth_len,
+		       auth_iv, aad_len, aad,
+		       &sa_ctx->cmdl_upd_info, req_ctx.cmdl);
+
+	/*
+	 * Last 2 words in PSDATA will have the crypto alg type &
+	 * crypto request pointer
+	 */
+	req_type = CRYPTO_ALG_TYPE_AEAD;
+	if (enc)
+		req_type |= (SA_REQ_SUBTYPE_ENC << SA_REQ_SUBTYPE_SHIFT);
+	else
+		req_type |= (SA_REQ_SUBTYPE_DEC << SA_REQ_SUBTYPE_SHIFT);
+
+	psdata_offset = sa_ctx->cmdl_size / sizeof(u32);
+
+	/* map the packet */
+	req_ctx.src = req->src;
+	req_ctx.src_nents = dma_map_sg(ddev, req->src,
+				       sg_nents, DMA_TO_DEVICE);
+	dst_nents = dma_map_sg(ddev, req->dst,
+			       dst_nents, DMA_FROM_DEVICE);
+
+	if (unlikely(req_ctx.src_nents != sg_nents)) {
+		dev_warn_ratelimited(sa_k3_dev, "failed to map tx pkt\n");
+		return -EIO;
+	}
+
+	req_ctx.dev_data = pdata;
+	req_ctx.pkt = true;
+
+	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx.src_nents,
+			       DMA_TO_DEVICE);
+
+	tx_in = dmaengine_prep_slave_sg(dma_rx, req->dst, dst_nents,
+					DMA_DEV_TO_MEM,
+					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+	if (!tx_in) {
+		dev_err(pdata->dev, "IN prep_slave_sg() failed\n");
+		return -EINVAL;
+	}
+
+	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
+	rxd->req = (void *)req;
+	rxd->enc = enc;
+	rxd->tx_in = tx_in;
+	rxd->ddev = ddev;
+
+	/* IN */
+	tx_in->callback = sa_aead_dma_in_callback;
+	tx_in->callback_param = rxd;
+
+	tx_out = dmaengine_prep_slave_sg(pdata->dma_tx, req->src,
+					 req_ctx.src_nents, DMA_MEM_TO_DEV,
+					 DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+	if (!tx_out) {
+		dev_err(pdata->dev, "OUT prep_slave_sg() failed\n");
+		return -EINVAL;
+	}
+
+	mdptr = (u32 *)dmaengine_desc_get_metadata_ptr(tx_out, &pl, &ml);
+
+	sa_prepare_tx_desc(mdptr, (sa_ctx->cmdl_size + (SA_PSDATA_CTX_WORDS *
+			   sizeof(u32))), req_ctx.cmdl,
+			   sizeof(sa_ctx->epib), sa_ctx->epib);
+
+	ml = sa_ctx->cmdl_size + (SA_PSDATA_CTX_WORDS * sizeof(u32));
+	dmaengine_desc_set_metadata_len(tx_out, 52);
+
+	dmaengine_submit(tx_out);
+	dmaengine_submit(tx_in);
+
+	dma_async_issue_pending(dma_rx);
+	dma_async_issue_pending(pdata->dma_tx);
+	return -EINPROGRESS;
+}
+
+/* AEAD algorithm encrypt interface function */
+static int sa_aead_encrypt(struct aead_request *req)
+{
+	return sa_aead_run(req, req->iv, 1);
+}
+
+/* AEAD algorithm decrypt interface function */
+static int sa_aead_decrypt(struct aead_request *req)
+{
+	return sa_aead_run(req, req->iv, 0);
+}
+
 static void sa_sham_dma_in_callback(void *data)
 {
 	struct sa_rx_data *rxd = (struct sa_rx_data *)data;
@@ -1604,6 +2079,57 @@ static struct sa_alg_tmpl sa_algs[] = {
 				.encrypt	= sa_aes_cbc_encrypt,
 				.decrypt	= sa_aes_cbc_decrypt,
 			}
+		}
+	},
+	/* AEAD algorithms */
+	{.type	= CRYPTO_ALG_TYPE_AEAD,
+		.alg.aead = {
+				.base = {
+				.cra_name = "authenc(hmac(sha1),cbc(aes))",
+				.cra_driver_name =
+					"authenc(hmac(sha1),cbc(aes))-keystone-sa",
+				.cra_blocksize = AES_BLOCK_SIZE,
+				.cra_flags = CRYPTO_ALG_TYPE_AEAD |
+					CRYPTO_ALG_KERN_DRIVER_ONLY |
+					CRYPTO_ALG_ASYNC,
+				.cra_ctxsize = sizeof(struct sa_tfm_ctx),
+				.cra_module = THIS_MODULE,
+				.cra_alignmask = 0,
+				.cra_priority = 3000,
+			},
+			.ivsize = AES_BLOCK_SIZE,
+			.maxauthsize = SHA1_DIGEST_SIZE,
+
+			.init = sa_cra_init_aead,
+			.exit = sa_exit_tfm_aead,
+			.setkey = sa_aead_cbc_sha1_setkey,
+			.encrypt = sa_aead_encrypt,
+			.decrypt = sa_aead_decrypt,
+		}
+	},
+	{.type	= CRYPTO_ALG_TYPE_AEAD,
+		.alg.aead = {
+				.base = {
+				.cra_name = "authenc(hmac(sha256),cbc(aes))",
+				.cra_driver_name =
+					"authenc(hmac(sha256),cbc(aes))-keystone-sa",
+				.cra_blocksize = AES_BLOCK_SIZE,
+				.cra_flags = CRYPTO_ALG_TYPE_AEAD |
+					CRYPTO_ALG_KERN_DRIVER_ONLY |
+					CRYPTO_ALG_ASYNC,
+				.cra_ctxsize = sizeof(struct sa_tfm_ctx),
+				.cra_module = THIS_MODULE,
+				.cra_alignmask = 0,
+				.cra_priority = 3000,
+			},
+			.ivsize = AES_BLOCK_SIZE,
+			.maxauthsize = SHA256_DIGEST_SIZE,
+
+			.init = sa_cra_init_aead,
+			.exit = sa_exit_tfm_aead,
+			.setkey = sa_aead_cbc_sha256_setkey,
+			.encrypt = sa_aead_encrypt,
+			.decrypt = sa_aead_decrypt,
 		}
 	},
 };
