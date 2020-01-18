@@ -45,6 +45,7 @@
 #define DP83867_STRAP_STS1	0x006E
 #define DP83867_STRAP_STS2	0x006f
 #define DP83867_RGMIIDCTL	0x0086
+#define DP83867_DSP_FFE_CFG	0x012C
 #define DP83867_IO_MUX_CFG	0x0170
 #define DP83867_10M_SGMII_CFG   0x016F
 #define DP83867_10M_SGMII_RATE_ADAPT_MASK BIT(7)
@@ -449,9 +450,18 @@ static int dp83867_config_init(struct phy_device *phydev)
 
 static int dp83867_phy_reset(struct phy_device *phydev)
 {
+	struct dp83867_private *dp83867 = phydev->priv;
 	int err;
 
 	err = phy_write(phydev, DP83867_CTRL, DP83867_SW_RESET);
+	if (err < 0)
+		return err;
+
+	usleep_range(10, 20);
+
+	phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_DSP_FFE_CFG, 0x0E81);
+
+	err = phy_write(phydev, DP83867_CTRL, DP83867_SW_RESTART);
 	if (err < 0)
 		return err;
 

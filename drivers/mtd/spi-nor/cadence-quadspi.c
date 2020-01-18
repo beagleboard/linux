@@ -1190,8 +1190,8 @@ static int cqspi_direct_read_execute(struct spi_nor *nor, u_char *buf,
 	}
 	ddev = cqspi->rx_chan->device->dev;
 
-	dma_dst = dma_map_single(nor->dev, buf, len, DMA_FROM_DEVICE);
-	if (dma_mapping_error(nor->dev, dma_dst)) {
+	dma_dst = dma_map_single(ddev, buf, len, DMA_FROM_DEVICE);
+	if (dma_mapping_error(ddev, dma_dst)) {
 		dev_err(nor->dev, "dma mapping failed\n");
 		return -ENOMEM;
 	}
