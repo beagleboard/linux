@@ -21,6 +21,8 @@
 #include <linux/ptp_classify.h>
 #include <linux/ptp_clock_kernel.h>
 
+#include "am65-cpts.h"
+
 struct am65_genf_regs {
 	u32 comp_lo;	/* Comparison Low Value 0:31 */
 	u32 comp_hi;	/* Comparison High Value 32:63 */
@@ -483,9 +485,6 @@ static int am65_cpts_ptp_settime(struct ptp_clock_info *ptp,
 	return 0;
 }
 
-/**
- * Enable HW TimeStamp inputs
- */
 static void am65_cpts_extts_enable_hw(struct am65_cpts *cpts, u32 index, int on)
 {
 	u32 v;
@@ -522,9 +521,6 @@ static int am65_cpts_extts_enable(struct am65_cpts *cpts, u32 index, int on)
 	return 0;
 }
 
-/**
- * Enable GENf periodic output
- */
 static void am65_cpts_perout_enable_hw(struct am65_cpts *cpts,
 				       struct ptp_perout_request *req, int on)
 {

@@ -12,6 +12,7 @@
 #include <linux/err.h>
 #include <linux/genalloc.h>
 #include <linux/kernel.h>
+#include <linux/soc/ti/k3-navss-desc-pool.h>
 
 struct k3_knav_desc_pool {
 	struct device		*dev;
