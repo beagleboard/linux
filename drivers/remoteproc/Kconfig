@@ -90,7 +90,7 @@ config PRU_REMOTEPROC
 	depends on TI_PRUSS
 	default TI_PRUSS
 	select MAILBOX
-	select OMAP2PLUS_MBOX if ARCH_OMAP2PLUS
+	select OMAP2PLUS_MBOX if ARCH_OMAP2PLUS || ARCH_K3
 	help
 	  Support for TI PRU remote processors present within a PRU-ICSS
 	  subsystem via the remote processor framework.
