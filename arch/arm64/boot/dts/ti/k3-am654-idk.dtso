@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT overlay for IDK application board on AM654 EVM
+ *
+ * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/k3.h>
+
+&main_pmx0 {
+	mcan0_gpio_pins_default: mcan0_gpio_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x023c, PIN_INPUT, 7) /* (V25) PRG0_PRU0_GPIO18:GPIO1_47 */
+		>;
+	};
+
+	mcan1_gpio_pins_default: mcan1_gpio_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x028c, PIN_INPUT, 7) /* (Y26) PRG0_PRU1_GPIO18.GPIO1_67 */
+		>;
+	};
+};
+
+&wkup_pmx0 {
+	mcu_mcan0_pins_default: mcu_mcan0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_WKUP_IOPAD(0x00ac, PIN_INPUT_PULLUP, 0) /* (W2) MCU_MCAN0_RX */
+			AM65X_WKUP_IOPAD(0x00a8, PIN_OUTPUT_PULLUP, 0) /* (W1) MCU_MCAN0_TX */
+		>;
+	};
+
+	mcu_mcan1_pins_default: mcu_mcan1_pins_default {
+		pinctrl-single,pins = <
+			AM65X_WKUP_IOPAD(0x00c4, PIN_INPUT_PULLUP, 1) /* (AD3) WKUP_GPIO0_5.MCU_MCAN1_RX */
+			AM65X_WKUP_IOPAD(0x00c0, PIN_OUTPUT_PULLUP, 1) /* (AC3) WKUP_GPIO0_4.MCU_MCAN1_TX */
+		>;
+	};
+};
+
+&m_can0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_mcan0_pins_default &mcan0_gpio_pins_default>;
+	stb-gpios = <&main_gpio1 47 GPIO_ACTIVE_HIGH>;
+	can-transceiver {
+		max-bitrate = <5000000>;
+	};
+};
+
+&m_can1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_mcan1_pins_default &mcan1_gpio_pins_default>;
+	stb-gpios = <&main_gpio1 67 GPIO_ACTIVE_HIGH>;
+	can-transceiver {
+		max-bitrate = <5000000>;
+	};
+};
