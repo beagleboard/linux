@@ -160,12 +160,12 @@ DECLARE_PER_CPU(struct lockdep_stats, lockdep_stats);
 	this_cpu_inc(lockdep_stats.ptr);
 
 #define debug_atomic_inc(ptr)			{		\
-	WARN_ON_ONCE(!irqs_disabled());				\
+	WARN_ON_ONCE(!hard_irqs_disabled() && !irqs_disabled()); \
 	__this_cpu_inc(lockdep_stats.ptr);			\
 }
 
 #define debug_atomic_dec(ptr)			{		\
-	WARN_ON_ONCE(!irqs_disabled());				\
+	WARN_ON_ONCE(!hard_irqs_disabled() && !irqs_disabled());\
 	__this_cpu_dec(lockdep_stats.ptr);			\
 }
 
