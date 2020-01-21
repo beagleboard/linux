@@ -26,6 +26,7 @@
 @
 ENTRY(do_vfp)
 	inc_preempt_count r10, r4
+	disable_irq_cond
  	ldr	r4, .LCvfp
 	ldr	r11, [r10, #TI_CPU]	@ CPU number
 	add	r10, r10, #TI_VFPSTATE	@ r10 = workspace
@@ -33,6 +34,7 @@ ENTRY(do_vfp)
 ENDPROC(do_vfp)
 
 ENTRY(vfp_null_entry)
+	enable_irq
 	dec_preempt_count_ti r10, r4
 	ret	lr
 ENDPROC(vfp_null_entry)
@@ -46,6 +48,7 @@ ENDPROC(vfp_null_entry)
 
 	__INIT
 ENTRY(vfp_testing_entry)
+	enable_irq
 	dec_preempt_count_ti r10, r4
 	ldr	r0, VFP_arch_address
 	str	r0, [r0]		@ set to non-zero value
