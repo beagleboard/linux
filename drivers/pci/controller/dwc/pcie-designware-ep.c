@@ -79,11 +79,17 @@ static int dw_pcie_ep_inbound_atu(struct dw_pcie_ep *ep, enum pci_barno bar,
 		return -EINVAL;
 	}
 
-	ret = dw_pcie_prog_inbound_atu(pci, free_win, bar, cpu_addr,
-				       as_type);
-	if (ret < 0) {
-		dev_err(pci->dev, "Failed to program IB window\n");
-		return ret;
+	if (pci->ops->inbound_atu) {
+		ret = pci->ops->inbound_atu(pci, free_win, bar, cpu_addr);
+		if (ret)
+			return ret;
+	} else {
+		ret = dw_pcie_prog_inbound_atu(pci, free_win, bar, cpu_addr,
+					       as_type);
+		if (ret < 0) {
+			dev_err(pci->dev, "Failed to program IB window\n");
+			return ret;
+		}
 	}
 
 	ep->bar_to_atu[bar] = free_win;
@@ -96,7 +102,13 @@ static int dw_pcie_ep_outbound_atu(struct dw_pcie_ep *ep, phys_addr_t phys_addr,
 				   u64 pci_addr, size_t size)
 {
 	u32 free_win;
+	int ret;
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+
+	if (pci->ops->outbound_atu) {
+		ret = pci->ops->outbound_atu(pci, phys_addr, pci_addr, size);
+		return ret;
+	}
 
 	free_win = find_first_zero_bit(ep->ob_window_map, ep->num_ob_windows);
 	if (free_win >= ep->num_ob_windows) {
@@ -123,7 +135,11 @@ static void dw_pcie_ep_clear_bar(struct pci_epc *epc, u8 func_no,
 
 	__dw_pcie_ep_reset_bar(pci, bar, epf_bar->flags);
 
-	dw_pcie_disable_atu(pci, atu_index, DW_PCIE_REGION_INBOUND);
+	if (pci->ops->disable_atu)
+		pci->ops->disable_atu(pci, 0, atu_index,
+				      DW_PCIE_REGION_INBOUND);
+	else
+		dw_pcie_disable_atu(pci, atu_index, DW_PCIE_REGION_INBOUND);
 	clear_bit(atu_index, ep->ib_window_map);
 }
 
@@ -185,6 +201,11 @@ static void dw_pcie_ep_unmap_addr(struct pci_epc *epc, u8 func_no,
 	u32 atu_index;
 	struct dw_pcie_ep *ep = epc_get_drvdata(epc);
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+
+	if (pci->ops->disable_atu) {
+		pci->ops->disable_atu(pci, addr, 0, DW_PCIE_REGION_OUTBOUND);
+		return;
+	}
 
 	ret = dw_pcie_find_index(ep, addr, &atu_index);
 	if (ret < 0)
