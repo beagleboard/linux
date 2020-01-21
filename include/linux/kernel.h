@@ -205,9 +205,12 @@ struct user;
 
 #ifdef CONFIG_PREEMPT_VOLUNTARY
 extern int _cond_resched(void);
-# define might_resched() _cond_resched()
+# define might_resched() do { \
+		ipipe_root_only(); \
+		_cond_resched(); \
+	} while (0)
 #else
-# define might_resched() do { } while (0)
+# define might_resched() ipipe_root_only()
 #endif
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
