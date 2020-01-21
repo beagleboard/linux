@@ -295,6 +295,15 @@
 				  1 0 0x21000A00 0x00000100>;
 		};
 
+		pcie0_phy: phy@2320000 {
+			#phy-cells = <0>;
+			compatible = "ti,keystone-serdes-pcie";
+			reg = <0x02320000 0x4000>;
+			link-rate-kbps = <5000000>;
+			num-lanes = <2>;
+			status = "disabled";
+		};
+
 		pcie0: pcie@21800000 {
 			compatible = "ti,keystone-pcie", "snps,dw-pcie";
 			clocks = <&clkpcie>;
@@ -309,6 +318,7 @@
 			device_type = "pci";
 			num-lanes = <2>;
 			bus-range = <0x00 0xff>;
+			phys = <&pcie0_phy>;
 
 			/* error interrupt */
 			interrupts = <GIC_SPI 38 IRQ_TYPE_EDGE_RISING>;
