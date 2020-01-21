@@ -1,0 +1,117 @@
+#include "dra7-pru-iodelay.dtsi"
+
+#define PINCONF( index, config ) \
+	DRA7XX_CORE_IOPAD( 0x3400 + 4 * (index), config )
+
+#define PIN_PRU_GPI (PIN_INPUT_PULLDOWN | MODE_SELECT | MUX_MODE12)
+#define PIN_PRU_GPO (PIN_OUTPUT         | MODE_SELECT | MUX_MODE13)
+
+/ {
+	rts_lvds_enable@4 {
+		compatible = "regulator-fixed";
+		regulator-name = "rts-lvds-enable";
+		regulator-always-on;
+		pinctrl-names = "default";
+		pinctrl-0 = <&rts_lvds_pins>;
+		gpio = <&gpio4 8 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+&dra7_pmx_core {
+    pruss1_pru0_pins: pruss1 {
+        pinctrl-single,pins = <
+            PINCONF( 64, PIN_PRU_GPI ) // P19.52 core 0 gpi 0
+            PINCONF( 65, PIN_PRU_GPI ) // P19.45 core 0 gpi 1
+            PINCONF( 66, PIN_PRU_GPI ) // P19.48 core 0 gpi 2
+            PINCONF( 67, PIN_PRU_GPI ) // P19.53 core 0 gpi 3
+            PINCONF( 68, PIN_PRU_GPI ) // P19.14 core 0 gpi 4
+            PINCONF( 69, PIN_PRU_GPI ) // P19.15 core 0 gpi 5
+            PINCONF( 71, PIN_PRU_GPI ) // P19.46 core 0 gpi 7
+            PINCONF( 72, PIN_PRU_GPI ) // P19.49 core 0 gpi 8
+            PINCONF( 73, PIN_PRU_GPI ) // P19.42 core 0 gpi 9
+            PINCONF( 75, PIN_PRU_GPI ) // P19.43 core 0 gpi 11
+            PINCONF( 77, PIN_PRU_GPI ) // P19.11 core 0 gpi 13
+            PINCONF( 80, PIN_PRU_GPI ) // P19.39 core 0 gpi 16
+            PINCONF( 81, PIN_PRU_GPI ) // P19.12 core 0 gpi 17
+            PINCONF( 83, PIN_PRU_GPI ) // P19.40 core 0 gpi 19
+        >;
+    };
+
+    pruss1_pru1_pins: pruss1 {
+        pinctrl-single,pins = <
+            PINCONF( 93, PIN_PRU_GPI ) // P18.42 core 1 gpi 0
+            PINCONF( 94, PIN_PRU_GPI ) // P18.13 core 1 gpi 1
+            PINCONF( 95, PIN_PRU_GPI ) // P18.08 core 1 gpi 2
+            PINCONF( 96, PIN_PRU_GPI ) // P18.43 core 1 gpi 3
+            PINCONF( 97, PIN_PRU_GPI ) // P18.39 core 1 gpi 4
+            PINCONF( 98, PIN_PRU_GPI ) // P18.38 core 1 gpi 5
+            PINCONF( 99, PIN_PRU_GPI ) // P18.07 core 1 gpi 6
+            PINCONF(100, PIN_PRU_GPI ) // P18.44 core 1 gpi 7
+            PINCONF(101, PIN_PRU_GPI ) // P18.06 core 1 gpi 8
+        >;
+    };
+
+    pruss2_pru0_adapter_pins: pruss2 {
+        pinctrl-single,pins = <
+            PINCONF(122, PIN_PRU_GPI ) // P18.26 core 0 gpi 0
+            PINCONF(123, PIN_PRU_GPI ) // P18.48 core 0 gpi 1
+            PINCONF(124, PIN_PRU_GPI ) // P18.49 core 0 gpi 2
+            PINCONF(125, PIN_PRU_GPI ) // P18.45 core 0 gpi 3
+            PINCONF(126, PIN_PRU_GPI ) // P18.46 core 0 gpi 4
+            PINCONF(127, PIN_PRU_GPI ) // P18.47 core 0 gpi 5
+            PINCONF(128, PIN_PRU_GPI ) // P18.56 core 0 gpi 6
+            PINCONF(129, PIN_PRU_GPI ) // P18.16 core 0 gpi 7
+            PINCONF(130, PIN_PRU_GPI ) // P18.18 core 0 gpi 8
+
+            PINCONF(131, PIN_PRU_GPO ) // P18.20 core 0 gpo 9
+            PINCONF(132, PIN_PRU_GPO ) // P18.15 core 0 gpo 10
+        >;
+    };
+
+	pruss2_pru0_mainboard_pins: pruss2 {
+		pinctrl-single,pins = <
+			PINCONF(122, PIN_PRU_GPO ) // P18.26  G11 core 0 gpio 0
+			PINCONF(123, PIN_PRU_GPO ) // P18.48  E09 core 0 gpio
+
+			PINCONF(129, PIN_PRU_GPI ) // P18.16  D07 core 0 gpio 7
+			PINCONF(130, PIN_PRU_GPI ) // P18.18  D08 core 0 gpio 8
+			PINCONF(131, PIN_PRU_GPI ) // P18.20  A05 core 0 gpio 9
+			PINCONF(132, PIN_PRU_GPI ) // P18.15  C06 core 0 gpio 10
+			PINCONF(133, PIN_PRU_GPI ) // P18.17  C08 core 0 gpio 11
+			PINCONF(134, PIN_PRU_GPI ) // P18.14  C07 core 0 gpio 12
+			PINCONF(135, PIN_PRU_GPI ) // P18.50  B07 core 0 gpio 13
+			PINCONF(136, PIN_PRU_GPI ) // P18.51  B08 core 0 gpio 14
+			PINCONF(137, PIN_PRU_GPI ) // P18.21  A07 core 0 gpio 15
+			PINCONF(138, PIN_PRU_GPI ) // P18.22  A08 core 0 gpio 16
+		>;
+	};
+
+	rts_lvds_pins: pinmux_rts_lvds_pins {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3584, PIN_OUTPUT_PULLDOWN  | MUX_MODE14) /* E04 vin2a_d7 gpio4_8 */
+		>;
+	};
+
+	rts_reset_pins: pinmux_rts_reset_pins {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x355c, PIN_OUTPUT_PULLDOWN  | MUX_MODE14) /* H07 vin2a_fld0 gpio3_30 */
+		>;
+	};
+
+	rts_debug_pins: pinmux_rts_debug_pins {
+		pinctrl-single,pins = <
+			DRA7XX_CORE_IOPAD(0x3580, PIN_OUTPUT_PULLDOWN  | MUX_MODE14) /* C01 vin2a_d6   gpio4_7 */
+		>;
+	};
+};
+
+&pruss2 {
+    compatible = "ti,pruss-v2";
+    ti,pintc-offset = <0x20000>;
+    pruss-instance = "pruss2";
+
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pruss2_pru0_mainboard_pins>, <&pruss2_pru0_iodelay>;
+};
