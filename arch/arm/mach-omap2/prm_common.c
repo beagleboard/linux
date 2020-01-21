@@ -145,11 +145,11 @@ static void omap_prcm_irq_handler(struct irq_desc *desc)
 
 		/* Serve priority events first */
 		for_each_set_bit(virtirq, priority_pending, nr_irq)
-			generic_handle_irq(prcm_irq_setup->base_irq + virtirq);
+			ipipe_handle_demuxed_irq(prcm_irq_setup->base_irq + virtirq);
 
 		/* Serve normal events next */
 		for_each_set_bit(virtirq, pending, nr_irq)
-			generic_handle_irq(prcm_irq_setup->base_irq + virtirq);
+			ipipe_handle_demuxed_irq(prcm_irq_setup->base_irq + virtirq);
 	}
 	if (chip->irq_ack)
 		chip->irq_ack(&desc->irq_data);
