@@ -145,18 +145,21 @@
 		};
 
 		pcie1: pcie@21020000 {
-			compatible = "ti,keystone-pcie","snps,dw-pcie";
+			compatible = "ti,keystone-pcie", "snps,dw-pcie";
+			reg =  <0x21020000 0x1000>, <0x21021000 0x1000>, <0x21022000 0x1000>;
+			reg-names = "app", "dbics", "config";
 			clocks = <&clkpcie1>;
-			clock-names = "pcie";
+			clock-names = "fck";
 			#address-cells = <3>;
 			#size-cells = <2>;
-			reg =  <0x21021000 0x2000>, <0x21020000 0x1000>, <0x02620128 4>;
-			ranges = <0x82000000 0 0x60000000 0x60000000
-				  0 0x10000000>;
-
+			ranges = <0x81000000 0 0          0x60000000 0 0x100000
+				  0x82000000 0 0x60100000 0x60100000 0 0xFF00000>;
+			ti,syscon-pcie-id = <&pcie_devid>;
+			ti,syscon-pcie-mode = <&pcie_mode>;
 			status = "disabled";
 			device_type = "pci";
 			num-lanes = <2>;
+			num-viewport = <32>;
 			bus-range = <0x00 0xff>;
 			phys = <&pcie1_phy>;
 			/* error interrupt */
