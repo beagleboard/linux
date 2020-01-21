@@ -179,7 +179,7 @@ struct ipu_soc {
 	struct device		*dev;
 	const struct ipu_devtype	*devtype;
 	enum ipuv3_type		ipu_type;
-	spinlock_t		lock;
+	ipipe_spinlock_t	lock;
 	struct mutex		channel_lock;
 	struct list_head	channels;
 
