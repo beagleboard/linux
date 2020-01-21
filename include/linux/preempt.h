@@ -255,7 +255,28 @@ do { \
 
 #endif /* CONFIG_PREEMPT_COUNT */
 
-#ifdef MODULE
+#ifdef CONFIG_IPIPE
+#define hard_preempt_disable()				\
+	({						\
+		unsigned long __flags__;		\
+		__flags__ = hard_local_irq_save();	\
+		if (__ipipe_root_p)			\
+			preempt_disable();		\
+		__flags__;				\
+	})
+
+#define hard_preempt_enable(__flags__)					\
+	do {								\
+		if (__ipipe_root_p) {					\
+			preempt_enable_no_resched();			\
+			hard_local_irq_restore(__flags__);		\
+			if (!hard_irqs_disabled_flags(__flags__))	\
+				preempt_check_resched();		\
+		} else							\
+			hard_local_irq_restore(__flags__);		\
+	} while (0)
+
+#elif defined(MODULE)
 /*
  * Modules have no business playing preemption tricks.
  */
@@ -263,7 +284,7 @@ do { \
 #undef preempt_enable_no_resched
 #undef preempt_enable_no_resched_notrace
 #undef preempt_check_resched
-#endif
+#endif	/* !IPIPE && MODULE */
 
 #define preempt_set_need_resched() \
 do { \
