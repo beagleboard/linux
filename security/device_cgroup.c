@@ -850,6 +850,7 @@ int __devcgroup_inode_permission(struct inode *inode, int mask)
 	return __devcgroup_check_permission(type, imajor(inode), iminor(inode),
 			access);
 }
+EXPORT_SYMBOL_GPL(__devcgroup_inode_permission);
 
 int devcgroup_inode_mknod(int mode, dev_t dev)
 {
