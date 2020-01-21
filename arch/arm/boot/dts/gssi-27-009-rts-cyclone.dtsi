@@ -1,0 +1,45 @@
+/ {
+	fpga_region0: fpga-region0 {
+		compatible = "fpga-region";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		fpga-mgr = <&fpga_prog>;
+	};
+};
+
+&dra7_pmx_core {
+    altera_ps_pins: pinmux_altera_ps_pins {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x3470, PIN_INPUT_PULLDOWN  | MUX_MODE14) /* P04 gpmc_a12 gpio2_2 */
+            DRA7XX_CORE_IOPAD(0x3474, PIN_INPUT_PULLDOWN  | MUX_MODE14) /* R03 gpmc_a13 gpio2_3 */
+            DRA7XX_CORE_IOPAD(0x347c, PIN_OUTPUT_PULLDOWN | MUX_MODE14) /* U02 gpmc_a13 gpio2_3 */
+        >;
+    };
+
+    mcspi3_pins: pinmux_mcspi3_pins {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x36d4, PIN_OUTPUT_PULLDOWN | MUX_MODE3 ) /* B12 mcasp1_axr8  spi3_sclk  */
+            DRA7XX_CORE_IOPAD(0x36d8, PIN_INPUT           | MUX_MODE3 ) /* A11 mcasp1_axr9  spi3_d1    */
+            DRA7XX_CORE_IOPAD(0x36dc, PIN_OUTPUT_PULLDOWN | MUX_MODE3 ) /* B13 mcasp1_axr10 spi3_d0    */
+            DRA7XX_CORE_IOPAD(0x36e0, PIN_OUTPUT_PULLDOWN | MUX_MODE3 ) /* A12 mcasp1_axr11 spi3_cs0   */
+        >;
+    };
+};
+
+&mcspi3 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&mcspi3_pins>;
+    ti,pindir-d0-out-d1-in;
+
+    fpga_prog: fpga@0 {
+        compatible = "altr,fpga-passive-serial";
+        spi-max-frequency = <20000000>;
+        reg = <0>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&altera_ps_pins>;
+        nconfig-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
+        nstat-gpios = <&gpio2 3 GPIO_ACTIVE_LOW>;
+        confd-gpios = <&gpio2 2 GPIO_ACTIVE_LOW>;
+    };
+};
