@@ -188,6 +188,8 @@ void __init arm_dt_init_cpu_maps(void)
 		cpu_logical_map(i) = tmp_map[i];
 		pr_debug("cpu logical map 0x%x\n", cpu_logical_map(i));
 	}
+
+	smp_build_cpu_revmap();
 }
 
 bool arch_match_cpu_phys_id(int cpu, u64 phys_id)

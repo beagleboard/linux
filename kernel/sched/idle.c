@@ -82,22 +82,29 @@ void __weak arch_cpu_idle_dead(void) { }
 void __weak arch_cpu_idle(void)
 {
 	cpu_idle_force_poll = 1;
-	local_irq_enable();
+	local_irq_enable_full();
 }
 
 /**
  * default_idle_call - Default CPU idle routine.
  *
  * To use when the cpuidle framework cannot be used.
+ *
+ * When interrupts are pipelined, this call is entered with hard irqs
+ * on and the root stage stalled, returns with hard irqs on, and the
+ * root stage unstalled.
  */
 void __cpuidle default_idle_call(void)
 {
 	if (current_clr_polling_and_test()) {
-		local_irq_enable();
+		local_irq_enable_full();
 	} else {
-		stop_critical_timings();
-		arch_cpu_idle();
-		start_critical_timings();
+		if (ipipe_enter_cpuidle(NULL, NULL)) {
+			stop_critical_timings();
+			arch_cpu_idle();
+			start_critical_timings();
+		} else
+			local_irq_enable_full();
 	}
 }
 
@@ -194,6 +201,15 @@ static void cpuidle_idle_call(void)
 exit_idle:
 	__current_set_polling();
 
+#ifdef CONFIG_IPIPE
+	/*
+	 *  Catch mishandling of the CPU's interrupt disable flag when
+	 *  pipelining IRQs.
+	 */
+	if (WARN_ON_ONCE(hard_irqs_disabled()))
+		hard_local_irq_enable();
+#endif
+
 	/*
 	 * It is up to the idle functions to reenable local interrupts
 	 */
@@ -243,8 +259,12 @@ static void do_idle(void)
 		 */
 		if (cpu_idle_force_poll || tick_check_broadcast_expired())
 			cpu_idle_poll();
-		else
+		else {
 			cpuidle_idle_call();
+#ifdef CONFIG_IPIPE
+			WARN_ON_ONCE(hard_irqs_disabled());
+#endif
+		}
 		arch_cpu_idle_exit();
 	}
 
