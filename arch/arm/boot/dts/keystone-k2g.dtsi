@@ -137,6 +137,16 @@
 				#gpio-cells = <2>;
 				gpio,syscon-dev = <&devctrl 0x240>;
 			};
+
+			pcie_devid: pcie-devid@128 {
+				compatible = "syscon";
+				reg = <0x00000128 0x4>;
+			};
+
+			pcie_mode: pcie-mode@14c {
+				compatible = "syscon";
+				reg = <0x0000014c 0x4>;
+			};
 		};
 
 		uart0: serial@2530c00 {
@@ -648,5 +658,88 @@
 			bus_freq = <2500000>;
 		};
 		#include "keystone-k2g-netcp.dtsi"
+
+		pcie0_phy: phy@2320000 {
+			#phy-cells = <0>;
+			compatible = "ti,keystone-serdes-pcie";
+			reg = <0x02320000 0x4000>;
+			link-rate-kbps = <5000000>;
+			num-lanes = <1>;
+			status = "disabled";
+			power-domains = <&k2g_pds 0x0019>;
+			clocks = <&k2g_clks 0x0019 0>;
+			clock-names = "fck";
+		};
+
+		pcie0: pcie@21800000 {
+			compatible = "ti,keystone-pcie", "snps,dw-pcie";
+			reg =  <0x21800000 0x1000>, <0x21801000 0x1000>, <0x21802000 0x1000>;
+			reg-names = "app", "dbics", "config";
+			power-domains = <&k2g_pds 0x0019>;
+			clocks = <&k2g_clks 0x0019 0>;
+			clock-names = "fck";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges = <0x81000000 0 0		0x23250000 0 0x4000
+				  0x82000000 0 0x70000000	0x70000000 0 0x10000000>;
+			ti,syscon-pcie-id = <&pcie_devid>;
+			ti,syscon-pcie-mode = <&pcie_mode>;
+			status = "disabled";
+			device_type = "pci";
+			num-lanes = <1>;
+			phys = <&pcie0_phy>;
+			dma-coherent;
+			num-ob-windows = <32>;
+			num-viewport = <32>;
+			/* error interrupt */
+			interrupts = <GIC_SPI 60 IRQ_TYPE_EDGE_RISING>;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0 0 0 1 &pcie_intc0 0 IRQ_TYPE_EDGE_RISING>, /* INT A */
+					<0 0 0 2 &pcie_intc0 1 IRQ_TYPE_EDGE_RISING>, /* INT B */
+					<0 0 0 3 &pcie_intc0 2 IRQ_TYPE_EDGE_RISING>, /* INT C */
+					<0 0 0 4 &pcie_intc0 3 IRQ_TYPE_EDGE_RISING>; /* INT D */
+
+			pcie_msi_intc0: msi-interrupt-controller {
+				interrupt-controller;
+				#interrupt-cells = <1>;
+				interrupt-parent = <&gic>;
+				interrupts = <GIC_SPI 52 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 53 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 54 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 55 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 56 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 57 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 58 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 59 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pcie_intc0: legacy-interrupt-controller {
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&gic>;
+				interrupts = <GIC_SPI 48 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 49 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 50 IRQ_TYPE_EDGE_RISING>,
+					<GIC_SPI 51 IRQ_TYPE_EDGE_RISING>;
+			};
+		};
+
+		pcie0_ep: pcie-ep@21800000 {
+			compatible = "ti,keystone-pcie-ep";
+			power-domains = <&k2g_pds 0x0019>;
+			clocks = <&k2g_clks 0x19 0x0>;
+			clock-names = "fck";
+			#size-cells = <2>;
+			reg =  <0x21800000 0x1000>, <0x21801000 0x2000>, <0x70000000 0x10000000>;
+			reg-names = "app", "dbics", "addr_space";
+			interrupts = <GIC_SPI 60 IRQ_TYPE_EDGE_RISING>;
+			num-lanes = <1>;
+			num-ib-windows = <4>;
+			num-ob-windows = <32>;
+			ti,syscon-pcie-mode = <&pcie_mode>;
+			dma-coherent;
+			status = "disabled";
+		};
 	};
 };
