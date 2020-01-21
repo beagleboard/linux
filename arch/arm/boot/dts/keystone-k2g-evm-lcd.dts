@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Source for K2G EVM with LCD Display
+ *
+ * Copyright (C) 2016-2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+#include "keystone-k2g-evm.dts"
+#include <dt-bindings/pwm/pwm.h>
+
+/delete-node/ &hdmi;
+/delete-node/ &sii9022;
+
+/ {
+	lcd0: display {
+		compatible = "newhaven,nhd-4.3-480272ef-atxl";
+		label = "lcd";
+
+		backlight = <&lcd_bl>;
+
+		port {
+			lcd_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
+
+	lcd_bl: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&ecap0 0 50000 PWM_POLARITY_INVERTED>;
+		brightness-levels = <0 32 64 96 128 160 192 224 255>;
+		default-brightness-level = <8>;
+	};
+
+};
+
+&i2c1 {
+	edt-ft5306@38 {
+		status = "okay";
+		compatible = "edt,edt-ft5306", "edt,edt-ft5x06";
+		reg = <0x38>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&edt_ft5306_ts_pins>;
+
+		interrupt-parent = <&gpio1>;
+		interrupts = <42 IRQ_TYPE_EDGE_FALLING>;
+
+		touchscreen-size-x = <480>;
+		touchscreen-size-y = <272>;
+	};
+};
+
+&k2g_pinctrl {
+	edt_ft5306_ts_pins: edt_ft5306_ts_pins {
+		pinctrl-single,pins = <
+			K2G_CORE_IOPAD(0x1364) (BUFFER_CLASS_B | PIN_PULLDOWN | MUX_MODE3)	/* pr1_pru1_gpo16.gpio1_42 */
+		>;
+	};
+};
+
+&dpi_out {
+	remote-endpoint = <&lcd_in>;
+};
