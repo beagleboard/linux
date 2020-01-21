@@ -478,6 +478,66 @@ static void pruss_intc_irq_relres(struct irq_data *data)
 	module_put(THIS_MODULE);
 }
 
+#ifdef CONFIG_SMP
+static int pruss_intc_irq_set_affinity(struct irq_data *data,
+				       const struct cpumask *mask_val,
+				       bool force)
+{
+	struct pruss_intc *intc = irq_data_get_irq_chip_data(data);
+	u32 ch, host;
+	s8 sch, shost;
+	unsigned int pirq;
+	struct irq_chip *pchip;
+	struct irq_data *pdata;
+	struct cpumask *eff_mask;
+	int ret;
+
+	/* check for stored channel & host config for this event */
+	sch = intc->config_map.sysev_to_ch[data->hwirq];
+	shost = sch != -1 ? intc->config_map.ch_to_host[sch] : -1;
+	if (sch == -1 || shost == -1) {
+		pr_err("%s: event %lu not configured: ch = %d, host = %d\n",
+		       __func__, data->hwirq, sch, shost);
+		return -EINVAL;
+	}
+
+	/* find programmed channel */
+	ch = pruss_intc_read_reg(intc,
+				 PRU_INTC_CMR(data->hwirq / CMR_EVT_PER_REG));
+	ch >>= (data->hwirq % CMR_EVT_PER_REG) * CMR_EVT_MAP_BITS;
+	ch &= CMR_EVT_MAP_MASK;
+
+	/* find programmed host interrupt */
+	host = pruss_intc_read_reg(intc, PRU_INTC_HMR(ch / HMR_CH_PER_REG));
+	host >>= (ch % HMR_CH_PER_REG) * HMR_CH_MAP_BITS;
+	host &= HMR_CH_MAP_MASK;
+
+	/* check programmed configuration for sanity */
+	if (ch != sch || host != shost) {
+		pr_err("%s: event %lu has mismatched configuration, ch = %d, host = %d\n",
+		       __func__, data->hwirq, sch, shost);
+		return -EINVAL;
+	}
+
+	/* program affinity using parent GIC irqchip and irqdata */
+	pirq = intc->irqs[host - MIN_PRU_HOST_INT];
+	pchip = irq_get_chip(pirq);
+	pdata = irq_get_irq_data(pirq);
+
+	if (pchip && pchip->irq_set_affinity) {
+		ret = pchip->irq_set_affinity(pdata, mask_val, force);
+		if (ret >= 0) {
+			eff_mask = irq_data_get_effective_affinity_mask(pdata);
+			irq_data_update_effective_affinity(data, eff_mask);
+		}
+
+		return ret;
+	}
+
+	return -EINVAL;
+}
+#endif
+
 static int pruss_intc_irq_get_irqchip_state(struct irq_data *data,
 					    enum irqchip_irq_state which,
 					    bool *state)
@@ -661,6 +721,9 @@ static int pruss_intc_probe(struct platform_device *pdev)
 	irqchip->irq_unmask = pruss_intc_irq_unmask;
 	irqchip->irq_request_resources = pruss_intc_irq_reqres;
 	irqchip->irq_release_resources = pruss_intc_irq_relres;
+#ifdef CONFIG_SMP
+	irqchip->irq_set_affinity = pruss_intc_irq_set_affinity;
+#endif
 	irqchip->irq_get_irqchip_state = pruss_intc_irq_get_irqchip_state;
 	irqchip->irq_set_irqchip_state = pruss_intc_irq_set_irqchip_state;
 	irqchip->name = dev_name(dev);
