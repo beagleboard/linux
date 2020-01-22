@@ -264,7 +264,7 @@
 			msi-parent = <&main_udmass_inta>;
 		};
 
-		mcu_udmap: udmap@285c0000 {
+		mcu_udmap: dma-controller@285c0000 {
 			compatible = "ti,j721e-navss-mcu-udmap";
 			reg =	<0x0 0x285c0000 0x0 0x100>,
 				<0x0 0x2a800000 0x0 0x40000>,
