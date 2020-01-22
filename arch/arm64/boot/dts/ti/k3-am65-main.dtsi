@@ -1049,6 +1049,17 @@
 			reg-names = "iram", "control", "debug";
 			firmware-name = "am65x-txpru0_1-fw";
 		};
+
+		icssg0_mdio: mdio@32400 {
+			compatible = "ti,davinci_mdio";
+			reg = <0x32400 0x100>;
+			clocks = <&k3_clks 62 3>;
+			clock-names = "fck";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bus_freq = <1000000>;
+			status = "disabled";
+		};
 	};
 
 	icssg1: icssg@b100000 {
@@ -1180,6 +1191,17 @@
 			reg-names = "iram", "control", "debug";
 			firmware-name = "am65x-txpru1_1-fw";
 		};
+
+		icssg1_mdio: mdio@32400 {
+			compatible = "ti,davinci_mdio";
+			reg = <0x32400 0x100>;
+			clocks = <&k3_clks 63 3>;
+			clock-names = "fck";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bus_freq = <1000000>;
+			status = "disabled";
+		};
 	};
 
 	icssg2: icssg@b200000 {
@@ -1310,6 +1332,17 @@
 			      <0x25c00 0x100>;
 			reg-names = "iram", "control", "debug";
 			firmware-name = "am65x-txpru2_1-fw";
+		};
+
+		icssg2_mdio: mdio@32400 {
+			compatible = "ti,davinci_mdio";
+			reg = <0x32400 0x100>;
+			clocks = <&k3_clks 64 3>;
+			clock-names = "fck";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bus_freq = <1000000>;
+			status = "disabled";
 		};
 	};
 };
