@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT overlay for SERDES personality card: 1lane PCIe + USB3.0 DRD on AM654 EVM
+ *
+ * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/phy/phy.h>
+
+&serdes1 {
+	status = "okay";
+};
+
+&pcie1_rc {
+	phys = <&serdes1 PHY_TYPE_PCIE 0>;
+	phy-names = "pcie-phy0";
+	reset-gpios = <&pca9555 5 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
