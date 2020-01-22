@@ -1,0 +1,10 @@
+menu "UDD support"
+
+config XENO_DRIVERS_UDD
+	tristate "User-space device driver framework"
+	help
+
+	A RTDM-based driver for enabling interrupt control and I/O
+	memory access interfaces to user-space device drivers.
+
+endmenu
