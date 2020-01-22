@@ -718,6 +718,17 @@
 				reg-names = "iram", "control", "debug";
 				firmware-name = "k2g-pru0_1-fw";
 			};
+
+			pruss0_mdio: mdio@32400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0x32400 0x90>;
+				clocks = <&k2g_clks 0x0014 1>;
+				clock-names = "fck";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				bus_freq = <2500000>;
+				status = "disabled";
+			};
 		};
 
 		pruss1: pruss@20ac0000 {
@@ -797,6 +808,17 @@
 				      <0x24400 0x100>;
 				reg-names = "iram", "control", "debug";
 				firmware-name = "k2g-pru1_1-fw";
+			};
+
+			pruss1_mdio: mdio@32400 {
+				compatible = "ti,davinci_mdio";
+				reg = <0x32400 0x90>;
+				clocks = <&k2g_clks 0x0015 1>;
+				clock-names = "fck";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				bus_freq = <2500000>;
+				status = "disabled";
 			};
 		};
 
