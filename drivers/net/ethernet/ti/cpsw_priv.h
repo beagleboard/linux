@@ -368,6 +368,7 @@ struct cpsw_priv {
 
 	u32 emac_port;
 	struct cpsw_common *cpsw;
+	u8 port_state[3];
 };
 
 #define ndev_to_cpsw(ndev) (((struct cpsw_priv *)netdev_priv(ndev))->cpsw)
