@@ -552,7 +552,6 @@ static int ks_pcie_start_link(struct dw_pcie *pci)
 
 static void ks_pcie_quirk(struct pci_dev *dev)
 {
-	struct pci_bus *bus = dev->bus;
 	struct pci_dev *bridge;
 	static const struct pci_device_id rc_pci_devids[] = {
 		{ PCI_DEVICE(PCI_VENDOR_ID_TI, PCIE_RC_K2HK),
@@ -566,15 +565,7 @@ static void ks_pcie_quirk(struct pci_dev *dev)
 		{ 0, },
 	};
 
-	if (pci_is_root_bus(bus))
-		bridge = dev;
-
-	/* look for the host bridge */
-	while (!pci_is_root_bus(bus)) {
-		bridge = bus->self;
-		bus = bus->parent;
-	}
-
+	bridge = pcie_find_root_port(dev);
 	if (!bridge)
 		return;
 
