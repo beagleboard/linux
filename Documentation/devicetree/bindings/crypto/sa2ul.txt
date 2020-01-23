@@ -1,0 +1,24 @@
+K3 SoC SA2UL crypto module
+
+Required properties:
+
+- compatible : Should be:
+  - "ti,sa2ul-crypto"
+- reg : Offset and length of the register set for the module
+
+- dmas: DMA specifiers for tx and rx dma. sa2ul needs one tx channel
+	and 2 rx channels. First rx channel for < 256 bytes and
+	the other one for >=256 bytes. See the DMA client binding,
+        Documentation/devicetree/bindings/dma/dma.txt
+- dma-names: DMA request names has to have one tx and 2 rx names
+	corresponding to dmas abive.
+
+Example AM654 SA2UL:
+crypto: crypto@4E00000 {
+	compatible = "ti,sa2ul-crypto";
+	reg = <0x0 0x4E00000 0x0 0x1200>;
+
+	dma-names = "tx", "rx1", "rx2";
+	dmas = <&main_udmap 0xc000>, <&main_udmap 0x4000>,
+			<&main_udmap 0x4001>;
+};
