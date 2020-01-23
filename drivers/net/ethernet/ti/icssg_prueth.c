@@ -585,6 +585,7 @@ static int emac_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	cppi5_hdesc_init(first_desc, CPPI5_INFO0_HDESC_EPIB_PRESENT,
 			 PRUETH_NAV_PS_DATA_SIZE);
+	cppi5_hdesc_set_pkttype(first_desc, 0);
 	epib = first_desc->epib;
 	epib[0] = 0;
 	epib[1] = 0;
