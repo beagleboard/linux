@@ -550,6 +550,29 @@ err_unlock:
 	return ret;
 }
 
+static void emac_change_port_speed_duplex(struct prueth_emac *emac,
+					  bool full_duplex, int speed)
+{
+	u32 cmd = ICSSG_PSTATE_SPEED_DUPLEX_CMD, val;
+	struct prueth *prueth = emac->prueth;
+	int slice = prueth_emac_slice(emac);
+
+	/* only 100M and 1G and full duplex supported for now */
+	if (!(full_duplex && (speed == SPEED_1000 || speed == SPEED_100)))
+		return;
+
+	val = icssg_rgmii_get_speed(prueth->miig_rt, slice);
+	/* firmware expects full duplex settings in bit 2-1 */
+	val <<= 1;
+	cmd |= val;
+
+	val = icssg_rgmii_get_fullduplex(prueth->miig_rt, slice);
+	/* firmware expects full duplex settings in bit 3 */
+	val <<= 3;
+	cmd |= val;
+	emac_send_command(emac, cmd);
+}
+
 static int emac_shutdown(struct net_device *ndev)
 {
 	struct prueth_emac *emac = netdev_priv(ndev);
@@ -928,6 +951,12 @@ static irqreturn_t prueth_rx_mgm_irq_thread(int irq, void *dev_id)
 				netdev_dbg(emac->ndev,
 					   "f/w Shutdown cmd resp %x\n", rsp);
 				complete(&emac->cmd_complete);
+			} else if ((rsp & 0xffff0000) ==
+				ICSSG_PSTATE_SPEED_DUPLEX_CMD) {
+				netdev_dbg(emac->ndev,
+					   "f/w Speed/Duplex cmd rsp %x\n",
+					    rsp);
+				complete(&emac->cmd_complete);
 			} else {
 				netdev_err(emac->ndev, "Unknown f/w cmd rsp %x\n",
 					   rsp);
@@ -1055,8 +1084,6 @@ static void emac_adjust_link(struct net_device *ndev)
 	bool new_state = false;
 	unsigned long flags;
 
-	spin_lock_irqsave(&emac->lock, flags);
-
 	if (phydev->link) {
 		/* check the mode of operation - full/half duplex */
 		if (phydev->duplex != emac->duplex) {
@@ -1089,6 +1116,7 @@ static void emac_adjust_link(struct net_device *ndev)
 		/* update RGMII and MII configuration based on PHY negotiated
 		 * values
 		 */
+		spin_lock_irqsave(&emac->lock, flags);
 		if (emac->link) {
 			if (phydev->speed == SPEED_1000)
 				gig_en = true;
@@ -1108,6 +1136,14 @@ static void emac_adjust_link(struct net_device *ndev)
 			icssg_update_mii_rt_cfg(prueth->mii_rt, emac->speed,
 						slice);
 		}
+		spin_unlock_irqrestore(&emac->lock, flags);
+
+		/* send command to firmware to change speed and duplex
+		 * setting when link is up.
+		 */
+		if (emac->link)
+			emac_change_port_speed_duplex(emac, full_duplex,
+						      emac->speed);
 	}
 
 	if (emac->link) {
@@ -1120,8 +1156,6 @@ static void emac_adjust_link(struct net_device *ndev)
 		netif_carrier_off(ndev);
 		netif_tx_stop_all_queues(ndev);
 	}
-
-	spin_unlock_irqrestore(&emac->lock, flags);
 }
 
 static int emac_napi_rx_poll(struct napi_struct *napi_rx, int budget)

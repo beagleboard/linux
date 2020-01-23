@@ -98,6 +98,17 @@
 #define RGMII_CFG_GIG_EN_MII1	BIT(21)
 #define RGMII_CFG_FULL_DUPLEX_MII0	BIT(18)
 #define RGMII_CFG_FULL_DUPLEX_MII1	BIT(22)
+#define RGMII_CFG_SPEED_MII0	GENMASK(2, 1)
+#define RGMII_CFG_SPEED_MII1	GENMASK(6, 5)
+#define RGMII_CFG_SPEED_MII0_SHIFT	1
+#define RGMII_CFG_SPEED_MII1_SHIFT	5
+#define RGMII_CFG_FULLDUPLEX_MII0	BIT(3)
+#define RGMII_CFG_FULLDUPLEX_MII1	BIT(7)
+#define RGMII_CFG_FULLDUPLEX_MII0_SHIFT	3
+#define RGMII_CFG_FULLDUPLEX_MII1_SHIFT	7
+#define RGMII_CFG_SPEED_10M	0
+#define RGMII_CFG_SPEED_100M	1
+#define RGMII_CFG_SPEED_1G	2
 
 static inline void icssg_update_rgmii_cfg(struct regmap *miig_rt, bool gig_en,
 					  bool full_duplex, int mii)
@@ -116,6 +127,43 @@ static inline void icssg_update_rgmii_cfg(struct regmap *miig_rt, bool gig_en,
 		full_duplex_val = full_duplex_mask;
 	regmap_update_bits(miig_rt, RGMII_CFG_OFFSET, full_duplex_mask,
 			   full_duplex_val);
+}
+
+static inline u32 icssg_rgmii_cfg_get_bitfield(struct regmap *miig_rt,
+					       u32 mask, u32 shift)
+{
+	u32 val;
+
+	regmap_read(miig_rt, RGMII_CFG_OFFSET, &val);
+	val &= mask;
+	val >>= shift;
+
+	return val;
+}
+
+static inline u32 icssg_rgmii_get_speed(struct regmap *miig_rt, int mii)
+{
+	u32 shift = RGMII_CFG_SPEED_MII0_SHIFT, mask = RGMII_CFG_SPEED_MII0;
+
+	if (mii == ICSS_MII1) {
+		shift = RGMII_CFG_SPEED_MII1_SHIFT;
+		mask = RGMII_CFG_SPEED_MII1;
+	}
+
+	return icssg_rgmii_cfg_get_bitfield(miig_rt, mask, shift);
+}
+
+static inline u32 icssg_rgmii_get_fullduplex(struct regmap *miig_rt, int mii)
+{
+	u32 shift = RGMII_CFG_FULLDUPLEX_MII0_SHIFT;
+	u32 mask = RGMII_CFG_FULLDUPLEX_MII0;
+
+	if (mii == ICSS_MII1) {
+		shift = RGMII_CFG_FULLDUPLEX_MII1_SHIFT;
+		mask = RGMII_CFG_FULLDUPLEX_MII1;
+	}
+
+	return icssg_rgmii_cfg_get_bitfield(miig_rt, mask, shift);
 }
 
 static inline void icssg_update_mii_rt_cfg(struct regmap *mii_rt, int speed,
