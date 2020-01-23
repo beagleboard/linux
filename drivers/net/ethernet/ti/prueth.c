@@ -174,6 +174,7 @@ struct prueth_emac {
 	struct prueth_queue_desc __iomem *tx_queue_descs;
 
 	struct port_statistics stats; /* stats holder when i/f is down */
+	unsigned char mc_filter_mask[ETH_ALEN];	/* for multicast filtering */
 
 	spinlock_t lock;	/* serialize access */
 };
@@ -1224,9 +1225,20 @@ static void emac_mc_filter_ctrl(struct prueth_emac *emac, bool enable)
 	writeb(reg, mc_filter_ctrl);
 }
 
-/* set MC filter hashmask override */
-static void emac_mc_filter_override_hashmask(struct prueth_emac *emac,
-					     u8 mask[ICSS_EMAC_FW_MULTICAST_FILTER_MASK_SIZE_BYTES])
+/* reset MC filter bins */
+static void emac_mc_filter_reset(struct prueth_emac *emac)
+{
+	struct prueth *prueth = emac->prueth;
+	void __iomem *mc_filter_tbl;
+
+	mc_filter_tbl = prueth->mem[emac->dram].va +
+			 ICSS_EMAC_FW_MULTICAST_FILTER_TABLE;
+	memset_io(mc_filter_tbl, 0, ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES);
+}
+
+/* set MC filter hashmask */
+static void emac_mc_filter_hashmask(struct prueth_emac *emac,
+				    u8 mask[ICSS_EMAC_FW_MULTICAST_FILTER_MASK_SIZE_BYTES])
 {
 	struct prueth *prueth = emac->prueth;
 	void __iomem *mc_filter_mask;
@@ -1237,33 +1249,26 @@ static void emac_mc_filter_override_hashmask(struct prueth_emac *emac,
 		    ICSS_EMAC_FW_MULTICAST_FILTER_MASK_SIZE_BYTES);
 }
 
-/* enable/disable allmulti */
-static void emac_mc_filter_allmulti_ctrl(struct prueth_emac *emac, bool enable)
+static void emac_mc_filter_bin_allow(struct prueth_emac *emac, u8 hash)
 {
 	struct prueth *prueth = emac->prueth;
-	void __iomem *mc_filter_table_base;
-	u8 default_mask[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-	int i;
+	void __iomem *mc_filter_tbl;
 
-	mc_filter_table_base = prueth->mem[emac->dram].va +
-			       ICSS_EMAC_FW_MULTICAST_FILTER_TABLE;
-	emac_mc_filter_override_hashmask(emac, default_mask);
+	mc_filter_tbl = prueth->mem[emac->dram].va +
+			 ICSS_EMAC_FW_MULTICAST_FILTER_TABLE;
+	writeb(ICSS_EMAC_FW_MULTICAST_FILTER_HOST_RCV_ALLOWED,
+	       mc_filter_tbl + hash);
+}
 
-	if (enable) {
-		/* enable all bins */
-		for (i = 0; i < ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES; i++) {
-			writeb(ICSS_EMAC_FW_MULTICAST_FILTER_HOST_RCV_ALLOWED,
-			       mc_filter_table_base + i);
-		}
-	} else {
-		/* disable all bins */
-		for (i = 0; i < ICSS_EMAC_FW_MULTICAST_TABLE_SIZE_BYTES; i++) {
-			writeb(ICSS_EMAC_FW_MULTICAST_FILTER_HOST_RCV_NOT_ALLOWED,
-			       mc_filter_table_base + i);
-		}
-	}
+static u8 emac_get_mc_hash(u8 *mac, u8 *mask)
+{
+	int j;
+	u8 hash;
 
-	emac_mc_filter_ctrl(emac, true);
+	for (j = 0, hash = 0; j < ETH_ALEN; j++)
+		hash ^= (mac[j] & mask[j]);
+
+	return hash;
 }
 
 /**
@@ -1281,6 +1286,8 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 	u32 reg = readl(sram + EMAC_PROMISCUOUS_MODE_OFFSET);
 	u32 mask;
 	bool promisc = ndev->flags & IFF_PROMISC;
+	struct netdev_hw_addr *ha;
+	u8 hash;
 
 	switch (emac->port_id) {
 	case PRUETH_PORT_MII0:
@@ -1294,14 +1301,17 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 		return;
 	}
 
+	/* Disable and reset multicast filter, allows allmulti */
+	emac_mc_filter_ctrl(emac, false);
+	emac_mc_filter_reset(emac);
+	emac_mc_filter_hashmask(emac, emac->mc_filter_mask);
+
 	if (promisc) {
 		/* Enable promiscuous mode */
 		reg |= mask;
-		emac_mc_filter_allmulti_ctrl(emac, true);
 	} else {
 		/* Disable promiscuous mode */
 		reg &= ~mask;
-		emac_mc_filter_allmulti_ctrl(emac, false);
 	}
 
 	writel(reg, sram + EMAC_PROMISCUOUS_MODE_OFFSET);
@@ -1310,9 +1320,17 @@ static void emac_ndo_set_rx_mode(struct net_device *ndev)
 		return;
 
 	if (ndev->flags & IFF_ALLMULTI)
-		emac_mc_filter_allmulti_ctrl(emac, true);
-	else
-		emac_mc_filter_allmulti_ctrl(emac, false);
+		return;
+
+	emac_mc_filter_ctrl(emac, true);	/* all multicast blocked */
+
+	if (netdev_mc_empty(ndev))
+		return;
+
+	netdev_for_each_mc_addr(ha, ndev) {
+		hash = emac_get_mc_hash(ha->addr, emac->mc_filter_mask);
+		emac_mc_filter_bin_allow(emac, hash);
+	}
 }
 
 static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
@@ -1543,6 +1561,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	emac->prueth = prueth;
 	emac->ndev = ndev;
 	emac->port_id = port;
+	memset(&emac->mc_filter_mask[0], 0xff, ETH_ALEN); /* default mask */
 
 	switch (port) {
 	case PRUETH_PORT_MII0:
