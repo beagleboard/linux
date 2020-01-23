@@ -477,7 +477,7 @@ int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf)
 	u32 func_no;
 	int ret = 0;
 
-	if (epf->epc)
+	if (epf->epc || epf->is_vf)
 		return -EBUSY;
 
 	if (IS_ERR(epc))
