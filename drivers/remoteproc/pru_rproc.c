@@ -94,9 +94,11 @@ enum pru_type {
  * @sdram_da: device address of secondary Data RAM for this PRU
  * @shrdram_da: device address of shared Data RAM
  * @fw_name: name of firmware image used during loading
+ * @dt_irqs: number of irqs configured from DT
  * @lock: mutex to protect client usage
  * @dbg_single_step: debug state variable to set PRU into single step mode
  * @dbg_continuous: debug state variable to restore PRU execution mode
+ * @fw_has_intc_rsc: boolean flag to indicate INTC config through firmware
  * @is_k3: boolean flag used to indicate the core has increased number of events
  */
 struct pru_rproc {
@@ -118,9 +120,11 @@ struct pru_rproc {
 	u32 sdram_da;
 	u32 shrdram_da;
 	const char *fw_name;
+	int dt_irqs;
 	struct mutex lock; /* client access lock */
 	u32 dbg_single_step;
 	u32 dbg_continuous;
+	unsigned int fw_has_intc_rsc : 1;
 	unsigned int is_k3 : 1;
 };
 
@@ -167,6 +171,109 @@ static int pru_rproc_set_firmware(struct rproc *rproc, const char *fw_name)
 		fw_name = pru->fw_name;
 
 	return rproc_set_firmware(rproc, fw_name);
+}
+
+static int pru_rproc_intc_dt_config(struct pru_rproc *pru, int index)
+{
+	struct device *dev = &pru->rproc->dev;
+	struct device_node *np = pru->client_np;
+	struct property *prop;
+	const char *prop_name = "ti,pru-interrupt-map";
+	u8 max_system_events, max_pru_channels, max_pru_host_ints;
+	int ret = 0, i;
+	int dt_irqs;
+	u32 *arr;
+	bool has_irqs = false;
+
+	prop = of_find_property(np, prop_name, NULL);
+	if (!prop)
+		return 0;
+
+	dt_irqs = of_property_count_u32_elems(np, prop_name);
+	if (dt_irqs <= 0 || dt_irqs % 4) {
+		dev_err(dev, "bad interrupt map data %d, expected multiple of 4\n",
+			dt_irqs);
+		return -EINVAL;
+	}
+
+	arr = kmalloc_array(dt_irqs, sizeof(u32), GFP_KERNEL);
+	if (!arr)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, prop_name, arr, dt_irqs);
+	if (ret) {
+		dev_err(dev, "failed to read pru irq map: %d\n", ret);
+		goto out;
+	}
+
+	max_system_events = pru->is_k3 ? 160 : 64;
+	max_pru_channels = pru->is_k3 ? 20 : 10;
+	max_pru_host_ints = pru->is_k3 ? 20 : 10;
+
+	for (i = 0; i < ARRAY_SIZE(pru->intc_config.sysev_to_ch); i++)
+		pru->intc_config.sysev_to_ch[i] = -1;
+
+	for (i = 0; i < ARRAY_SIZE(pru->intc_config.ch_to_host); i++)
+		pru->intc_config.ch_to_host[i] = -1;
+
+	for (i = 0; i < dt_irqs; i += 4) {
+		if (arr[i] != index)
+			continue;
+
+		if (arr[i + 1] < 0 ||
+		    arr[i + 1] >= max_system_events) {
+			dev_err(dev, "bad sys event %d\n", arr[i + 1]);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if (arr[i + 2] < 0 ||
+		    arr[i + 2] >= max_pru_channels) {
+			dev_err(dev, "bad channel %d\n", arr[i + 2]);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if (arr[i + 3] < 0 ||
+		    arr[i + 3] >= max_pru_host_ints) {
+			dev_err(dev, "bad irq %d\n", arr[i + 3]);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		pru->intc_config.sysev_to_ch[arr[i + 1]] = arr[i + 2];
+		dev_dbg(dev, "sysevt-to-ch[%d] -> %d\n", arr[i + 1],
+			arr[i + 2]);
+
+		pru->intc_config.ch_to_host[arr[i + 2]] = arr[i + 3];
+		dev_dbg(dev, "chnl-to-host[%d] -> %d\n", arr[i + 2],
+			arr[i + 3]);
+
+		has_irqs = true;
+	}
+
+	/*
+	 * The property "ti,pru-interrupt-map" is used in a consumer node, but
+	 * need not necessarily have data for all referenced PRUs. Provide a
+	 * fallback to get the interrupt data from firmware for PRUs ith no
+	 * interrupt data.
+	 */
+	if (!has_irqs) {
+		dev_dbg(dev, "no DT irqs, falling back to firmware intc rsc mode\n");
+		goto out;
+	}
+
+	pru->dt_irqs = dt_irqs;
+	ret = pruss_intc_configure(pru->dev, &pru->intc_config);
+	if (ret) {
+		dev_err(dev, "failed to configure intc %d\n", ret);
+		pru->dt_irqs = 0;
+	}
+
+out:
+	kfree(arr);
+
+	return ret;
 }
 
 static struct rproc *__pru_rproc_get(struct device_node *np, int index)
@@ -258,6 +365,10 @@ struct rproc *pru_rproc_get(struct device_node *np, int index)
 		}
 	}
 
+	ret = pru_rproc_intc_dt_config(pru, index);
+	if (ret)
+		goto err;
+
 	return rproc;
 
 err:
@@ -288,6 +399,9 @@ void pru_rproc_put(struct rproc *rproc)
 	pru = rproc->priv;
 	if (!pru->client_np)
 		return;
+
+	if (pru->dt_irqs)
+		pruss_intc_unconfigure(pru->dev, &pru->intc_config);
 
 	pru_rproc_set_firmware(rproc, NULL);
 
@@ -573,7 +687,8 @@ static int pru_rproc_start(struct rproc *rproc)
 	return 0;
 
 fail:
-	pruss_intc_unconfigure(pru->dev, &pru->intc_config);
+	if (!pru->dt_irqs && pru->fw_has_intc_rsc)
+		pruss_intc_unconfigure(pru->dev, &pru->intc_config);
 	return ret;
 }
 
@@ -596,7 +711,8 @@ static int pru_rproc_stop(struct rproc *rproc)
 		free_irq(pru->irq_vring, pru);
 
 	/* undo INTC config */
-	pruss_intc_unconfigure(pru->dev, &pru->intc_config);
+	if (!pru->dt_irqs && pru->fw_has_intc_rsc)
+		pruss_intc_unconfigure(pru->dev, &pru->intc_config);
 
 	return 0;
 }
@@ -711,6 +827,8 @@ static int pru_handle_vendor_intrmap(struct rproc *rproc,
 		dev_dbg(dev, "chnl-to-host[%d] -> %d\n", i, intr_no);
 	}
 
+	pru->fw_has_intc_rsc = 1;
+
 	ret = pruss_intc_configure(pru->dev, &pru->intc_config);
 	if (ret)
 		dev_err(dev, "failed to configure pruss intc %d\n", ret);
@@ -723,15 +841,18 @@ static int pru_rproc_handle_vendor_rsc(struct rproc *rproc,
 				       struct fw_rsc_vendor *rsc)
 {
 	struct device *dev = rproc->dev.parent;
-	int ret = -EINVAL;
+	struct pru_rproc *pru = rproc->priv;
+	int ret = 0;
 
 	switch (rsc->u.st.st_type) {
 	case PRUSS_RSC_INTRS:
-		ret = pru_handle_vendor_intrmap(rproc, rsc);
+		if (!pru->dt_irqs)
+			ret = pru_handle_vendor_intrmap(rproc, rsc);
 		break;
 	default:
 		dev_err(dev, "%s: cannot handle unknown type %d\n", __func__,
 			rsc->u.st.st_type);
+		ret = -EINVAL;
 	}
 
 	return ret;
