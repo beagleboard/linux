@@ -1071,7 +1071,7 @@ static void emac_adjust_link(struct net_device *ndev)
 						slice);
 		} else {
 			icssg_update_rgmii_cfg(prueth->miig_rt, true, true,
-					       emac->port_id);
+					       slice);
 			icssg_update_mii_rt_cfg(prueth->mii_rt, emac->speed,
 						slice);
 		}
