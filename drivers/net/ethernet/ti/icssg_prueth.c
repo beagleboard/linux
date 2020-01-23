@@ -1214,6 +1214,9 @@ static int emac_ndo_open(struct net_device *ndev)
 	if (ret)
 		goto free_rx_mgm_irq;
 
+	/* Get attached phy details */
+	phy_attached_info(emac->phydev);
+
 	/* start PHY */
 	phy_start(emac->phydev);
 
