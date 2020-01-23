@@ -72,6 +72,8 @@ AllocMidQEntry(const struct smb_hdr *smb_buffer, struct TCP_Server_Info *server)
 		 * The default is for the mid to be synchronous, so the
 		 * default callback just wakes up the current task.
 		 */
+		get_task_struct(current);
+		temp->creator = current;
 		temp->callback = cifs_wake_up_task;
 		temp->callback_data = current;
 	}
@@ -85,6 +87,8 @@ static void _cifs_mid_q_entry_release(struct kref *refcount)
 {
 	struct mid_q_entry *mid = container_of(refcount, struct mid_q_entry,
 					       refcount);
+
+	put_task_struct(mid->creator);
 
 	mempool_free(mid, cifs_mid_poolp);
 }
