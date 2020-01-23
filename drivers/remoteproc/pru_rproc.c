@@ -415,6 +415,30 @@ void pru_rproc_put(struct rproc *rproc)
 EXPORT_SYMBOL_GPL(pru_rproc_put);
 
 /**
+ * pru_rproc_get_id() - get PRU id from a previously acquired PRU remoteproc
+ * @rproc: the rproc instance of the PRU
+ *
+ * Returns the PRU id of the PRU remote processor that has been acquired through
+ * a pru_rproc_get(), or a negative value on error
+ */
+enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc)
+{
+	struct pru_rproc *pru;
+
+	if (IS_ERR_OR_NULL(rproc) || !rproc->dev.parent)
+		return -EINVAL;
+
+	/* TODO: replace the crude string based check to make sure it is PRU */
+	if (!strstr(dev_name(rproc->dev.parent), "pru") &&
+	    !strstr(dev_name(rproc->dev.parent), "rtu"))
+		return -EINVAL;
+
+	pru = rproc->priv;
+	return pru->id;
+}
+EXPORT_SYMBOL_GPL(pru_rproc_get_id);
+
+/**
  * pru_rproc_set_ctable() - set the constant table index for the PRU
  * @rproc: the rproc instance of the PRU
  * @c: constant table index to set
@@ -1101,9 +1125,9 @@ static int pru_rproc_set_id(struct device_node *np, struct pru_rproc *pru)
 	}
 
 	if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask2) == mask2)
-		pru->id = 1;
+		pru->id = PRUSS_PRU1;
 	else if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask1) == mask1)
-		pru->id = 0;
+		pru->id = PRUSS_PRU0;
 	else
 		ret = -EINVAL;
 
