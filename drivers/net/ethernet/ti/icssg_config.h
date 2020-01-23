@@ -28,4 +28,10 @@ struct icssg_config {
 	__le32 info;		/* reserved */
 } __packed;
 
+/* Shutdown command to stop processing at firmware.
+ * Command format : 0x8101ss00. ss - sequence number. Currently not used
+ * by driver.
+ */
+#define ICSSG_SHUTDOWN_CMD		0x81010000
+
 #endif /* __NET_TI_ICSSG_CONFIG_H */

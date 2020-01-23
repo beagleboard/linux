@@ -20,6 +20,7 @@
 #include <linux/of_net.h>
 #include <linux/of_platform.h>
 #include <linux/mfd/syscon.h>
+#include <linux/mutex.h>
 #include <linux/net_tstamp.h>
 #include <linux/phy.h>
 #include <linux/pruss.h>
@@ -143,7 +144,9 @@ struct prueth_emac {
 
 	/* shutdown related */
 	u32 cmd_data[4];
-	struct completion shutdown_complete;
+	struct completion cmd_complete;
+	/* Mutex to serialize access to firmware command interface */
+	struct mutex cmd_lock;
 };
 
 /**
