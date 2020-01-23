@@ -92,10 +92,12 @@ struct pci_epf_driver {
 /**
  * struct pci_epf_bar - represents the BAR of EPF device
  * @phys_addr: physical address that should be mapped to the BAR
+ * @addr: virtual address corresponding to the @phys_addr
  * @size: the size of the address space present in BAR
  */
 struct pci_epf_bar {
 	dma_addr_t	phys_addr;
+	void		*addr;
 	size_t		size;
 	enum pci_barno	barno;
 	int		flags;
@@ -125,6 +127,19 @@ struct pci_epf {
 	struct pci_epc		*epc;
 	struct pci_epf_driver	*driver;
 	struct list_head	list;
+};
+
+/**
+ * struct pci_epf_msix_tbl - represents the MSI-X table entry structure
+ * @msg_addr: Writes to this address will trigger MSI-X interrupt in host
+ * @msg_data: Data that is be written to @msg_addr to trigger MSI-X interrupt
+ * @vector_ctrl: Identifies if the function is prohibited from sending a message
+ * using this MSI-X table entry
+ */
+struct pci_epf_msix_tbl {
+	u64 msg_addr;
+	u32 msg_data;
+	u32 vector_ctrl;
 };
 
 #define to_pci_epf(epf_dev) container_of((epf_dev), struct pci_epf, dev)
