@@ -28,4 +28,26 @@ struct icssg_config {
 	__le32 info;		/* reserved */
 } __packed;
 
+/* Shutdown command to stop processing at firmware.
+ * Command format : 0x8101ss00. ss - sequence number. Currently not used
+ * by driver.
+ */
+#define ICSSG_SHUTDOWN_CMD		0x81010000
+
+/* pstate speed/duplex command to set speed and duplex settings
+ * in firmware.
+ * Command format : 0x8102ssPN. ss - sequence number: currently not
+ * used by driver, P - port number: For switch, N - Speed/Duplex state
+ * - Possible values of N:
+ * 0x0 - 10Mbps/Half duplex ;
+ * 0x8 - 10Mbps/Full duplex ;
+ * 0x2 - 100Mbps/Half duplex;
+ * 0xa - 100Mbps/Full duplex;
+ * 0xc - 1Gbps/Full duplex;
+ * NOTE: The above are same as bits [3..1](slice 0) or bits [8..6](slice 1) of
+ * RGMII CFG register. So suggested to read the register to populate the command
+ * bits.
+ */
+#define ICSSG_PSTATE_SPEED_DUPLEX_CMD	0x81020000
+
 #endif /* __NET_TI_ICSSG_CONFIG_H */
