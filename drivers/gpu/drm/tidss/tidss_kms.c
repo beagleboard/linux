@@ -172,6 +172,10 @@ static int tidss_dispc_modeset_init(struct tidss_device *tidss)
 		}
 	}
 
+	/* Try to find an available OVR to use for WB */
+	if (dispc_has_writeback(tidss->dispc))
+		dispc_wb_find_free_ovr(tidss->dispc);
+
 	/* create overlay planes of the leftover planes */
 
 	while (tidss->num_planes < max_planes) {

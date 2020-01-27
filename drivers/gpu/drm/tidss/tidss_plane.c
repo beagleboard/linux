@@ -32,6 +32,9 @@ static int tidss_plane_atomic_check(struct drm_plane *plane,
 
 	dev_dbg(ddev->dev, "%s\n", __func__);
 
+	if (tplane->reserved_wb)
+		return -EBUSY;
+
 	if (!state->crtc) {
 		/*
 		 * The visible field is not reset by the DRM core but only
@@ -214,4 +217,43 @@ struct tidss_plane *tidss_plane_create(struct tidss_device *tidss,
 		return ERR_PTR(ret);
 
 	return tplane;
+}
+
+struct drm_plane *tidss_plane_reserve_wb(struct drm_device *dev)
+{
+	struct tidss_device *tidss = dev->dev_private;
+	int i;
+	u32 ovr_id = dispc_wb_get_reserved_ovr(tidss->dispc);
+
+	for (i = tidss->num_planes - 1; i >= 0; --i) {
+		struct drm_plane *plane = tidss->planes[i];
+		struct tidss_plane *tplane = to_tidss_plane(plane);
+
+		if (plane->state->crtc || plane->state->fb)
+			continue;
+
+		if (tplane->reserved_wb)
+			continue;
+
+		/*
+		 * We found an available plane so just mark the
+		 * associated video port as the one found in the last step
+		 */
+		tplane->reserved_wb = true;
+
+		dev_dbg(dev->dev, "%s: found plane: %d on ovr: %d\n",
+			__func__, tplane->hw_plane_id, ovr_id);
+
+		return plane;
+	}
+	return NULL;
+}
+
+void tidss_plane_release_wb(struct drm_plane *plane)
+{
+	struct tidss_plane *tplane = to_tidss_plane(plane);
+
+	WARN_ON(!tplane->reserved_wb);
+
+	tplane->reserved_wb = false;
 }

@@ -15,11 +15,15 @@ struct tidss_plane {
 	struct drm_plane plane;
 
 	u32 hw_plane_id;
+
+	bool reserved_wb;
 };
 
 struct tidss_plane *tidss_plane_create(struct tidss_device *tidss,
 				       u32 hw_plane_id, u32 plane_type,
 				       u32 crtc_mask, const u32 *formats,
 				       u32 num_formats);
+struct drm_plane *tidss_plane_reserve_wb(struct drm_device *dev);
+void tidss_plane_release_wb(struct drm_plane *plane);
 
 #endif
