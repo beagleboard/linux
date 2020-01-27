@@ -94,7 +94,7 @@ extern const struct dispc_features dispc_k2g_feats;
 extern const struct dispc_features dispc_am65x_feats;
 extern const struct dispc_features dispc_j721e_feats;
 
-void dispc_write_irqenable(struct dispc_device *dispc, dispc_irq_t mask);
+void dispc_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask);
 dispc_irq_t dispc_read_and_clear_irqstatus(struct dispc_device *dispc);
 
 void dispc_vp_prepare(struct dispc_device *dispc, u32 hw_videoport,

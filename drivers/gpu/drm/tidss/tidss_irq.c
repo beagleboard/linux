@@ -17,7 +17,7 @@ static void tidss_irq_update(struct tidss_device *tidss)
 {
 	assert_spin_locked(&tidss->wait_lock);
 
-	dispc_write_irqenable(tidss->dispc, tidss->irq_mask);
+	dispc_set_irqenable(tidss->dispc, tidss->irq_mask);
 }
 
 void tidss_irq_enable_vblank(struct drm_crtc *crtc)
@@ -102,7 +102,7 @@ void tidss_irq_preinstall(struct drm_device *ddev)
 
 	tidss_runtime_get(tidss);
 
-	dispc_write_irqenable(tidss->dispc, 0);
+	dispc_set_irqenable(tidss->dispc, 0);
 	dispc_read_and_clear_irqstatus(tidss->dispc);
 
 	tidss_runtime_put(tidss);
@@ -145,6 +145,6 @@ void tidss_irq_uninstall(struct drm_device *ddev)
 	struct tidss_device *tidss = ddev->dev_private;
 
 	tidss_runtime_get(tidss);
-	dispc_write_irqenable(tidss->dispc, 0);
+	dispc_set_irqenable(tidss->dispc, 0);
 	tidss_runtime_put(tidss);
 }

@@ -610,8 +610,8 @@ static dispc_irq_t dispc_k2g_vp_read_irqenable(struct dispc_device *dispc,
 	return dispc_vp_irq_from_raw(stat, hw_videoport);
 }
 
-static void dispc_k2g_vp_write_irqenable(struct dispc_device *dispc,
-					 u32 hw_videoport, dispc_irq_t vpstat)
+static void dispc_k2g_vp_set_irqenable(struct dispc_device *dispc,
+				       u32 hw_videoport, dispc_irq_t vpstat)
 {
 	u32 stat = dispc_vp_irq_to_raw(vpstat, hw_videoport);
 
@@ -626,8 +626,8 @@ static dispc_irq_t dispc_k2g_vid_read_irqenable(struct dispc_device *dispc,
 	return dispc_vid_irq_from_raw(stat, hw_plane);
 }
 
-static void dispc_k2g_vid_write_irqenable(struct dispc_device *dispc,
-					  u32 hw_plane, dispc_irq_t vidstat)
+static void dispc_k2g_vid_set_irqenable(struct dispc_device *dispc,
+					u32 hw_plane, dispc_irq_t vidstat)
 {
 	u32 stat = dispc_vid_irq_to_raw(vidstat, hw_plane);
 
@@ -669,15 +669,15 @@ static dispc_irq_t dispc_k2g_read_irqenable(struct dispc_device *dispc)
 }
 
 static
-void dispc_k2g_write_irqenable(struct dispc_device *dispc, dispc_irq_t mask)
+void dispc_k2g_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask)
 {
 	dispc_irq_t old_mask = dispc_k2g_read_irqenable(dispc);
 
 	/* clear the irqstatus for newly enabled irqs */
 	dispc_k2g_clear_irqstatus(dispc, (mask ^ old_mask) & mask);
 
-	dispc_k2g_vp_write_irqenable(dispc, 0, mask);
-	dispc_k2g_vid_write_irqenable(dispc, 0, mask);
+	dispc_k2g_vp_set_irqenable(dispc, 0, mask);
+	dispc_k2g_vid_set_irqenable(dispc, 0, mask);
 
 	dispc_write(dispc, DISPC_IRQENABLE_SET, (1 << 0) | (1 << 7));
 
@@ -740,8 +740,8 @@ static dispc_irq_t dispc_k3_vp_read_irqenable(struct dispc_device *dispc,
 	return dispc_vp_irq_from_raw(stat, hw_videoport);
 }
 
-static void dispc_k3_vp_write_irqenable(struct dispc_device *dispc,
-					u32 hw_videoport, dispc_irq_t vpstat)
+static void dispc_k3_vp_set_irqenable(struct dispc_device *dispc,
+				      u32 hw_videoport, dispc_irq_t vpstat)
 {
 	u32 stat = dispc_vp_irq_to_raw(vpstat, hw_videoport);
 
@@ -756,8 +756,8 @@ static dispc_irq_t dispc_k3_vid_read_irqenable(struct dispc_device *dispc,
 	return dispc_vid_irq_from_raw(stat, hw_plane);
 }
 
-static void dispc_k3_vid_write_irqenable(struct dispc_device *dispc,
-					 u32 hw_plane, dispc_irq_t vidstat)
+static void dispc_k3_vid_set_irqenable(struct dispc_device *dispc,
+				       u32 hw_plane, dispc_irq_t vidstat)
 {
 	u32 stat = dispc_vid_irq_to_raw(vidstat, hw_plane);
 
@@ -849,8 +849,8 @@ static dispc_irq_t dispc_k3_read_irqenable(struct dispc_device *dispc)
 	return enable;
 }
 
-static void dispc_k3_write_irqenable(struct dispc_device *dispc,
-				     dispc_irq_t mask)
+static void dispc_k3_set_irqenable(struct dispc_device *dispc,
+				   dispc_irq_t mask)
 {
 	unsigned int i;
 	u32 main_enable = 0, main_disable = 0;
@@ -862,7 +862,7 @@ static void dispc_k3_write_irqenable(struct dispc_device *dispc,
 	dispc_k3_clear_irqstatus(dispc, (old_mask ^ mask) & mask);
 
 	for (i = 0; i < dispc->feat->num_vps; ++i) {
-		dispc_k3_vp_write_irqenable(dispc, i, mask);
+		dispc_k3_vp_set_irqenable(dispc, i, mask);
 		if (mask & DSS_IRQ_VP_MASK(i))
 			main_enable |= BIT(i);		/* VP IRQ */
 		else
@@ -870,7 +870,7 @@ static void dispc_k3_write_irqenable(struct dispc_device *dispc,
 	}
 
 	for (i = 0; i < dispc->feat->num_planes; ++i) {
-		dispc_k3_vid_write_irqenable(dispc, i, mask);
+		dispc_k3_vid_set_irqenable(dispc, i, mask);
 		if (mask & DSS_IRQ_PLANE_MASK(i))
 			main_enable |= BIT(i + 4);	/* VID IRQ */
 		else
@@ -909,15 +909,15 @@ dispc_irq_t dispc_read_and_clear_irqstatus(struct dispc_device *dispc)
 	}
 }
 
-void dispc_write_irqenable(struct dispc_device *dispc, dispc_irq_t mask)
+void dispc_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask)
 {
 	switch (dispc->feat->subrev) {
 	case DISPC_K2G:
-		dispc_k2g_write_irqenable(dispc, mask);
+		dispc_k2g_set_irqenable(dispc, mask);
 		break;
 	case DISPC_AM65X:
 	case DISPC_J721E:
-		dispc_k3_write_irqenable(dispc, mask);
+		dispc_k3_set_irqenable(dispc, mask);
 		break;
 	default:
 		WARN_ON(1);
