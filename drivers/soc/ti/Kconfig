@@ -99,6 +99,16 @@ config TI_K3_UDMA_DESC_POOL
 	  pool of descriptors usable with CPPI5 DMA. Such pools are
 	  required for networking usecases.
 
+config TI_PAT
+	tristate "TI PAT DMA-BUF exporter"
+	depends on ARCH_K3
+	select REGMAP
+	help
+	  Driver for TI Page-based Address Translator (PAT). This driver
+	  provides the an API allowing the remapping of a non-contiguous
+	  DMA-BUF into a contiguous one that is sutable for devices needing
+	  contiguous memory.
+
 endif # SOC_TI
 
 config TI_SCI_INTA_MSI_DOMAIN
