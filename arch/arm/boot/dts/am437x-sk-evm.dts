@@ -885,3 +885,7 @@
 		};
 	};
 };
+
+&pruss_tm {
+	status = "okay";
+};
