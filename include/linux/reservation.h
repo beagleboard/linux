@@ -72,7 +72,7 @@ struct reservation_object_list {
  */
 struct reservation_object {
 	struct ww_mutex lock;
-	seqlock_t seq;
+	seqcount_t seq;
 
 	struct dma_fence __rcu *fence_excl;
 	struct reservation_object_list __rcu *fence;
@@ -92,7 +92,7 @@ reservation_object_init(struct reservation_object *obj)
 {
 	ww_mutex_init(&obj->lock, &reservation_ww_class);
 
-	seqlock_init(&obj->seq);
+	__seqcount_init(&obj->seq, reservation_seqcount_string, &reservation_seqcount_class);
 	RCU_INIT_POINTER(obj->fence, NULL);
 	RCU_INIT_POINTER(obj->fence_excl, NULL);
 	obj->staged = NULL;
