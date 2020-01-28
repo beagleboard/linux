@@ -50,6 +50,8 @@ Required Properties:
                        "ti,am4376-pruss" for AM437x family of SoCs
                        "ti,am5728-pruss" for AM57xx family of SoCs
                        "ti,k2g-pruss" for 66AK2G family of SoCs
+                       "ti,am654-icssg" for K3 AM65x family of SoCs
+                       "ti,j721e-icssg" for K3 J721E family of SoCs
 - reg            : base address and size of the entire PRU-ICSS space
 - #address-cells : should be 1
 - #size-cells    : should be 1
@@ -58,7 +60,8 @@ Required Properties:
 
 SoC-specific Required properties:
 ---------------------------------
-The following properties are _required_ only for Keystone 2 66AK2G SoCs only:
+The following properties are _required_ only for Keystone 2 66AK2G SoCs,
+K3 AM65x SoCs and K3 J721E SoCs only:
 - power-domains  : Should contain a phandle to a PM domain provider node and an
                    args specifier containing the PRUSS SCI device id value. This
                    property is as per the binding,
@@ -91,13 +94,17 @@ node each for now with specific node names as below:
                   "iep" for IEP sub-module,
                   "mii-rt" for MII-RT sub-module,
 
+The following sub-modules are new and present only on ICSSG IP instances and
+are applicable only for K3 SoCs. They are represented as follows:
+	MII_G_RT sub-module: represent as a syscon node with name "mii-g-rt"
+
 See Documentation/devicetree/bindings/mfd/syscon.txt for generic syscon
 binding details.
 
 
 PRUSS INTC Node
 ================
-Each PRUSS has a single interrupt controller instance that is common to both
+Each PRUSS has a single interrupt controller instance that is common to all
 the PRU cores. This should be represented as an interrupt-controller node. The
 bindings for this shall be defined in the file,
     Documentation/devicetree/bindings/interrupt-controller/ti,pruss-intc.txt
@@ -107,8 +114,9 @@ PRU Node
 =========
 Each PRUSS has dual PRU cores, each represented as a remoteproc device through
 a PRU child node each. Each node can optionally be rendered inactive by using
-the standard DT string property, "status". The bindings for this shall be
-defined in the file,
+the standard DT string property, "status". The ICSSG IP present on K3 SoCs have
+additional auxiliary PRU cores with slightly different IP integration. The
+bindings for this shall be defined in the file,
     Documentation/devicetree/bindings/remoteproc/ti,pru-rproc.txt
 
 
