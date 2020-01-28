@@ -67,6 +67,11 @@ K3 AM65x SoCs and K3 J721E SoCs only:
                    property is as per the binding,
                        Documentation/devicetree/bindings/soc/ti/sci-pm-domain.txt
 
+Optional Properties: (Applies only to "ti,am654-icssg" and "ti,j721e-icssg")
+--------------------
+- ti,psil-base	    : PSIL thread start number
+- ti,psil-config<n> : PSIL configuration for each thread number
+
 PRU-ICSS Memories Node
 =======================
 The various Data RAMs within a PRU-ICSS are represented as a single
