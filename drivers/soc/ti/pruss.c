@@ -203,6 +203,7 @@ static const struct pruss_match_private_data am437x_match_data[] = {
 static const struct of_device_id pruss_of_match[] = {
 	{ .compatible = "ti,am3356-pruss", .data = NULL, },
 	{ .compatible = "ti,am4376-pruss", .data = &am437x_match_data, },
+	{ .compatible = "ti,am5728-pruss", .data = NULL, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
