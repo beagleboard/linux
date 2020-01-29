@@ -48,6 +48,8 @@ Optional Subnode:
 			  that can be used for CAN/CAN-FD modes. See
 			  Documentation/devicetree/bindings/net/can/can-transceiver.txt
 			  for details.
+stb-gpios		: gpio node to toggle the STB (standby) signal on the transceiver
+
 Example:
 SoC dtsi:
 m_can1: can@20e8000 {

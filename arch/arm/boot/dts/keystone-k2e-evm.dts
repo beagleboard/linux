@@ -175,3 +175,11 @@
 	memory-region = <&dsp_common_memory>;
 	status = "okay";
 };
+
+&pcie1_phy {
+	status = "okay";
+};
+
+&pcie1 {
+	status = "okay";
+};

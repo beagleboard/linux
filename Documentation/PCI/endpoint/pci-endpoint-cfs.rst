@@ -43,6 +43,7 @@ entries corresponding to EPF driver will be created by the EPF core.
 		.. <EPF Driver1>/
 			... <EPF Device 11>/
 			... <EPF Device 21>/
+			... <EPF Device 31>/
 		.. <EPF Driver2>/
 			... <EPF Device 12>/
 			... <EPF Device 22>/
@@ -68,6 +69,14 @@ created)
 				... subsys_vendor_id
 				... subsys_id
 				... interrupt_pin
+			        ... <Symlink EPF Device 31>/
+
+The <EPF Device> directory can have a list of symbolic links to
+other <EPF Device>. These symbolic links should be created by the user
+to represent the virtual functions that are bound to the physical
+function. In the above directory structure <EPF Device 11> is a physical
+function and <EPF Device 31> is a virtual function. A EPF device once it's
+linked to another EPF device, cannot be linked to a EPC device.
 
 EPC Device
 ==========
@@ -88,7 +97,8 @@ entries corresponding to EPC device will be created by the EPC core.
 
 The <EPC Device> directory will have a list of symbolic links to
 <EPF Device>. These symbolic links should be created by the user to
-represent the functions present in the endpoint device.
+represent the functions present in the endpoint device. Only <EPF Device>
+that represents a physical function can be linked to a EPC device.
 
 The <EPC Device> directory will also have a *start* field. Once
 "1" is written to this field, the endpoint device will be ready to
