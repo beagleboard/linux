@@ -55,4 +55,19 @@ config RPMSG_VIRTIO
 	select RPMSG
 	select VIRTIO
 
+config RPMSG_RPC
+	tristate "rpmsg Remote Procedure Call driver"
+	default n
+	depends on RPMSG_VIRTIO
+	depends on REMOTEPROC
+	depends on OMAP_REMOTEPROC
+	select DMA_SHARED_BUFFER
+	help
+	  An rpmsg driver that exposes the Remote Procedure Call API to
+	  user space, in order to allow applications to distribute
+	  remote calls to more power-efficient remote processors. This is
+	  currently available only on OMAP4+ systems.
+
+	  If unsure, say N.
+
 endmenu
