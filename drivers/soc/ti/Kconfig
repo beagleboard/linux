@@ -26,6 +26,17 @@ menuconfig SOC_TI
 
 if SOC_TI
 
+config KEYSTONE_DSP_MEM
+	tristate "TI Keystone DSP Memory Mapping Driver"
+	depends on ARCH_KEYSTONE
+	help
+	  Userspace memory mapping interface driver for TI Keystone SoCs.
+	  Provides access to MSM SRAM memory regions and dedicated DDR
+	  carveout memory regions to user space to aid userspace loading
+	  of the DSPs within the SoC.
+
+	  If unsure, say N.
+
 config KEYSTONE_NAVIGATOR_QMSS
 	tristate "Keystone Queue Manager Sub System"
 	depends on ARCH_KEYSTONE
