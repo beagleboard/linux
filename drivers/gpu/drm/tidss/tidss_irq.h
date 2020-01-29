@@ -15,13 +15,14 @@
  * The IRQ status from various DISPC IRQ registers are packed into a single
  * value, where the bits are defined as follows:
  *
- * bit group |dev|wb |mrg0|mrg1|mrg2|mrg3|plane0-3| <unused> |
- * bit use   |D  |fou|FEOL|FEOL|FEOL|FEOL|  UUUU  |          |
- * bit number|0  |1-3|4-7 |8-11|  12-19  | 20-23  |  24-31   |
+ * bit group |dev|wb |mrg0|mrg1|mrg2|mrg3|plane0-3|wb   | <unused> |
+ * bit use   |D  |fou|FEOL|FEOL|FEOL|FEOL|  UUUU  |vs   |          |
+ * bit number|0  |1-3|4-7 |8-11|  12-19  | 20-23  |24-25|  26-31   |
  *
  * device bits:	D = OCP error
  * WB bits:	f = frame done wb, o = wb buffer overflow,
- *		u = wb buffer uncomplete
+ *		u = wb buffer uncomplete, v = wb security violation,
+ *		s = wb sync
  * vp bits:	F = frame done, E = vsync even, O = vsync odd, L = sync lost
  * plane bits:	U = fifo underflow
  */
@@ -31,7 +32,9 @@
 #define DSS_IRQ_DEVICE_FRAMEDONEWB		BIT(1)
 #define DSS_IRQ_DEVICE_WBBUFFEROVERFLOW		BIT(2)
 #define DSS_IRQ_DEVICE_WBUNCOMPLETEERROR	BIT(3)
-#define DSS_IRQ_DEVICE_WB_MASK			GENMASK(3, 1)
+#define DSS_IRQ_DEVICE_WBSECURITYVIOLATION	BIT(24)
+#define DSS_IRQ_DEVICE_WBSYNC			BIT(25)
+#define DSS_IRQ_DEVICE_WB_MASK			(GENMASK(3, 1) | BIT(24) | BIT(25))
 
 #define DSS_IRQ_VP_BIT_N(ch, bit)	(4 + 4 * (ch) + (bit))
 #define DSS_IRQ_PLANE_BIT_N(plane, bit) \

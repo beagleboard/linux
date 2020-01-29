@@ -17,7 +17,7 @@ static void tidss_irq_update(struct tidss_device *tidss)
 {
 	assert_spin_locked(&tidss->wait_lock);
 
-	dispc_write_irqenable(tidss->dispc, tidss->irq_mask);
+	dispc_set_irqenable(tidss->dispc, tidss->irq_mask);
 }
 
 void tidss_irq_enable_vblank(struct drm_crtc *crtc)
@@ -80,6 +80,7 @@ irqreturn_t tidss_irq_handler(int irq, void *arg)
 
 	if (irqstatus & DSS_IRQ_DEVICE_OCP_ERR)
 		dev_err_ratelimited(tidss->dev, "OCP error\n");
+	tidss_wb_irq(tidss->wdev, irqstatus);
 
 	return IRQ_HANDLED;
 }
@@ -101,7 +102,7 @@ void tidss_irq_preinstall(struct drm_device *ddev)
 
 	tidss_runtime_get(tidss);
 
-	dispc_write_irqenable(tidss->dispc, 0);
+	dispc_set_irqenable(tidss->dispc, 0);
 	dispc_read_and_clear_irqstatus(tidss->dispc);
 
 	tidss_runtime_put(tidss);
@@ -127,6 +128,9 @@ int tidss_irq_postinstall(struct drm_device *ddev)
 		tidss->irq_mask |= DSS_IRQ_VP_FRAME_DONE(tcrtc->hw_videoport);
 	}
 
+	if (dispc_has_writeback(tidss->dispc))
+		tidss->irq_mask |= DSS_IRQ_DEVICE_WB_MASK;
+
 	tidss_irq_update(tidss);
 
 	spin_unlock_irqrestore(&tidss->wait_lock, flags);
@@ -141,6 +145,6 @@ void tidss_irq_uninstall(struct drm_device *ddev)
 	struct tidss_device *tidss = ddev->dev_private;
 
 	tidss_runtime_get(tidss);
-	dispc_write_irqenable(tidss->dispc, 0);
+	dispc_set_irqenable(tidss->dispc, 0);
 	tidss_runtime_put(tidss);
 }

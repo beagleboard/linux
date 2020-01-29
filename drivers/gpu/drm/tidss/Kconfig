@@ -12,3 +12,18 @@ config DRM_TIDSS
 	  of it. The SoCs are 66AK2Gx, AM65x, and J721E. Set this to Y
 	  or M to add display support for TI Keystone family
 	  platforms.
+
+if DRM_TIDSS
+
+config DRM_TIDSS_WB
+	bool "Enable writeback support for TIDSS DRM driver"
+	depends on DRM_TIDSS
+	depends on (VIDEO_V4L2 = y) || (VIDEO_V4L2 = m && DRM_TIDSS = m)
+	depends on VIDEO_DEV && HAS_DMA
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_MEM2MEM_DEV
+	default y
+	help
+		Select this to enable memory-to-memory writeback support.
+
+endif

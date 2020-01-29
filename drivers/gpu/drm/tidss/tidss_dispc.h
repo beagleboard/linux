@@ -84,6 +84,9 @@ struct dispc_features {
 	bool vid_lite[TIDSS_MAX_PLANES];
 	u32 vid_order[TIDSS_MAX_PLANES];
 
+	bool has_writeback;
+	const char *wb_name; /* Should match dt reg names */
+
 	struct dispc_errata errata;
 };
 
@@ -91,7 +94,7 @@ extern const struct dispc_features dispc_k2g_feats;
 extern const struct dispc_features dispc_am65x_feats;
 extern const struct dispc_features dispc_j721e_feats;
 
-void dispc_write_irqenable(struct dispc_device *dispc, dispc_irq_t mask);
+void dispc_set_irqenable(struct dispc_device *dispc, dispc_irq_t mask);
 dispc_irq_t dispc_read_and_clear_irqstatus(struct dispc_device *dispc);
 
 void dispc_vp_prepare(struct dispc_device *dispc, u32 hw_videoport,
@@ -125,6 +128,14 @@ int dispc_plane_setup(struct dispc_device *dispc, u32 hw_plane,
 		      u32 hw_videoport);
 int dispc_plane_enable(struct dispc_device *dispc, u32 hw_plane, bool enable);
 const u32 *dispc_plane_formats(struct dispc_device *dispc, unsigned int *len);
+bool dispc_has_writeback(struct dispc_device *dispc);
+int dispc_wb_setup(struct dispc_device *dispc,
+		   const struct drm_plane_state *state,
+		   bool mem_to_mem, u32 src_hw_plane,
+		   u32 src_hw_videoport);
+int dispc_wb_enable(struct dispc_device *dispc, bool enable);
+void dispc_wb_find_free_ovr(struct dispc_device *dispc);
+u32 dispc_wb_get_reserved_ovr(struct dispc_device *dispc);
 
 int dispc_init(struct tidss_device *tidss);
 void dispc_remove(struct tidss_device *tidss);

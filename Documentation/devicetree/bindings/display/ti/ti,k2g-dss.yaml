@@ -97,13 +97,10 @@ examples:
             power-domains = <&k2g_pds 0x2>;
 
             max-memory-bandwidth = <230000000>;
-            ports {
-                    #address-cells = <1>;
-                    #size-cells = <0>;
-                    port@0 {
-                            dpi_out: endpoint {
-                                    remote-endpoint = <&sii9022_in>;
-                            };
+
+            port {
+                    dpi_out: endpoint {
+                            remote-endpoint = <&sii9022_in>;
                     };
             };
     };

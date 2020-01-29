@@ -198,6 +198,14 @@ static int tidss_probe(struct platform_device *pdev)
 
 	drm_mode_config_reset(ddev);
 
+	if (dispc_has_writeback(tidss->dispc)) {
+		ret = tidss_wb_init(ddev);
+		if (ret)
+			dev_warn(dev, "failed to initialize writeback\n");
+		else
+			tidss->wb_initialized = true;
+	}
+
 	ret = drm_dev_register(ddev, 0);
 	if (ret) {
 		dev_err(dev, "failed to register DRM device\n");
@@ -211,6 +219,9 @@ static int tidss_probe(struct platform_device *pdev)
 	return 0;
 
 err_irq_uninstall:
+	if (tidss->wb_initialized)
+		tidss_wb_cleanup(ddev);
+
 	drm_irq_uninstall(ddev);
 
 err_runtime_suspend:
@@ -231,6 +242,9 @@ static int tidss_remove(struct platform_device *pdev)
 	dev_dbg(dev, "%s\n", __func__);
 
 	drm_dev_unregister(ddev);
+
+	if (tidss->wb_initialized)
+		tidss_wb_cleanup(ddev);
 
 	drm_atomic_helper_shutdown(ddev);
 
