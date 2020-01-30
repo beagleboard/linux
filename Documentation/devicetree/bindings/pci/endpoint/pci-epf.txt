@@ -1,0 +1,28 @@
+PCI Endpoint Function Device
+
+This describes the generic bindings to be used when a device has to be
+exposed to the remote host over PCIe. The device could be an actual
+peripheral in the platform or a virtual device created by the software.
+
+epcs : phandle to the endpoint controller device
+epc-names : the names of the endpoint controller device corresponding
+	    to the EPCs present in the *epcs* phandle
+vendor-id: used to identify device manufacturer
+device-id: used to identify a particular device
+baseclass-code: used to classify the type of function the device performs
+subclass-code: used to identify more specifically the function of the device
+subsys-vendor-id: used to identify vendor of the add-in card or subsystem
+subsys-id: used to specify an id that is specific to a vendor
+
+Example:
+Following is an example of NTB device exposed to the remote host.
+
+ntb {
+	compatible = "pci-epf-ntb";
+	epcs = <&pcie0_ep>, <&pcie1_ep>;
+	epc-names = "primary", "secondary";
+	vendor-id = /bits/ 16 <0x104c>;
+	device-id = /bits/ 16 <0xb00d>;
+	num-mws = <4>;
+	mws-size = <0x100000>, <0x100000>, <0x100000>, <0x100000>;
+};
