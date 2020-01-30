@@ -32,6 +32,29 @@ static int devm_pci_epc_match(struct device *dev, void *res, void *match_data)
 }
 
 /**
+ * pci_epc_of_parse_header() - parse the device tree to get PCI config space
+ *                             header
+ * @node: The device tree node (of endpoint function) which has the PCI config
+ *        space header values
+ * @header: standard configuration space header fields that has to be populated
+ *
+ * Invoke to populate *header* with the PCI configuration space values populated
+ * in device tree.
+ */
+void pci_epc_of_parse_header(struct device_node *node,
+			     struct pci_epf_header *header)
+{
+	of_property_read_u16(node, "vendor-id", &header->vendorid);
+	of_property_read_u16(node, "device-id", &header->deviceid);
+	of_property_read_u8(node, "baseclass-code", &header->baseclass_code);
+	of_property_read_u8(node, "subclass-code", &header->subclass_code);
+	of_property_read_u16(node, "subsys-vendor-id",
+			     &header->subsys_vendor_id);
+	of_property_read_u16(node, "subsys-id", &header->subsys_id);
+}
+EXPORT_SYMBOL_GPL(pci_epc_of_parse_header);
+
+/**
  * pci_epc_put() - release the PCI endpoint controller
  * @epc: epc returned by pci_epc_get()
  *
