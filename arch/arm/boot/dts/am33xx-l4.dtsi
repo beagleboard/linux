@@ -757,12 +757,89 @@
 			ranges = <0x0 0x200000 0x80000>;
 		};
 
-		target-module@300000 {			/* 0x4a300000, ap 9 04.0 */
-			compatible = "ti,sysc";
-			status = "disabled";
+		pruss_tm: target-module@300000 {	/* 0x4a300000, ap 9 04.0 */
+			compatible = "ti,sysc-pruss", "ti,sysc";
+			reg = <0x326000 0x4>,
+			      <0x326004 0x4>;
+			reg-names = "rev", "sysc";
+			ti,sysc-mask = <(SYSC_PRUSS_STANDBY_INIT |
+					 SYSC_PRUSS_SUB_MWAIT)>;
+			ti,sysc-midle = <SYSC_IDLE_FORCE>,
+					<SYSC_IDLE_NO>,
+					<SYSC_IDLE_SMART>;
+			ti,sysc-sidle = <SYSC_IDLE_FORCE>,
+					<SYSC_IDLE_NO>,
+					<SYSC_IDLE_SMART>;
+			clocks = <&pruss_ocp_clkctrl AM3_PRUSS_OCP_PRUSS_CLKCTRL 0>;
+			clock-names = "fck";
+			resets = <&prm_per 1>;
+			reset-names = "rstctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x0 0x300000 0x80000>;
+			status = "disabled";
+
+			pruss: pruss@0 {
+				compatible = "ti,am3356-pruss";
+				reg = <0x0 0x80000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+
+				pruss_mem: memories@0 {
+					reg = <0x0 0x2000>,
+					      <0x2000 0x2000>,
+					      <0x10000 0x3000>;
+					reg-names = "dram0", "dram1",
+						    "shrdram2";
+				};
+
+				pruss_cfg: cfg@26000 {
+					compatible = "syscon";
+					reg = <0x26000 0x2000>;
+				};
+
+				pruss_iep: iep@2e000 {
+					compatible = "syscon";
+					reg = <0x2e000 0x31c>;
+				};
+
+				pruss_mii_rt: mii-rt@32000 {
+					compatible = "syscon";
+					reg = <0x32000 0x58>;
+				};
+
+				pruss_intc: interrupt-controller@20000 {
+					compatible = "ti,pruss-intc";
+					reg = <0x20000 0x2000>;
+					interrupts = <20 21 22 23 24 25 26 27>;
+					interrupt-names = "host_intr0", "host_intr1",
+							  "host_intr2", "host_intr3",
+							  "host_intr4", "host_intr5",
+							  "host_intr6", "host_intr7";
+					interrupt-controller;
+					#interrupt-cells = <1>;
+					ti,irqs-shared = /bits/ 8 <0 6 7>;
+				};
+
+				pru0: pru@34000 {
+					compatible = "ti,am3356-pru";
+					reg = <0x34000 0x2000>,
+					      <0x22000 0x400>,
+					      <0x22400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "am335x-pru0-fw";
+				};
+
+				pru1: pru@38000 {
+					compatible = "ti,am3356-pru";
+					reg = <0x38000 0x2000>,
+					      <0x24000 0x400>,
+					      <0x24400 0x100>;
+					reg-names = "iram", "control", "debug";
+					firmware-name = "am335x-pru1-fw";
+				};
+			};
 		};
 	};
 };
