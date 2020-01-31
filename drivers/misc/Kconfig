@@ -473,6 +473,11 @@ config HISI_HIKEY_USB
 	  switching between the dual-role USB-C port and the USB-A host ports
 	  using only one USB controller.
 
+config DMA_BUF_PHYS
+	tristate "DMA-BUF physical address user-space exporter"
+	help
+	  Exports CPU physical address of DMA-BUF to user-space.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
