@@ -1846,7 +1846,7 @@ static int am65_cpsw_nuss_init_slave_ports(struct am65_cpsw_common *common)
 			return PTR_ERR(port->slave.mac_sl);
 
 		mac_addr = of_get_mac_address(port_np);
-		if (mac_addr && is_valid_ether_addr(mac_addr)) {
+		if (!IS_ERR(mac_addr)) {
 			ether_addr_copy(port->slave.mac_addr, mac_addr);
 		} else if (am65_cpsw_am654_get_efuse_macid(
 				port_np, port->port_id, port->slave.mac_addr) ||
