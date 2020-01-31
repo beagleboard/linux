@@ -16,6 +16,7 @@
 #define RPMSG_KDRV_TP_DEVICE_TYPE_DISPLAY	(0x1)
 #define RPMSG_KDRV_TP_DEVICE_TYPE_DEMO		(0x2)
 #define RPMSG_KDRV_TP_DEVICE_TYPE_ETHSWITCH	(0x3)
+
 /* More device types here*/
 #define RPMSG_KDRV_TP_DEVICE_TYPE_MAX		(0x4)
 

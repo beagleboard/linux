@@ -35,4 +35,14 @@ config RPMSG_KDRV_DISPLAY
 	  by a remoteproc and DRM driver will be able to use display features
 	  using remote_device framework
 
+config RPMSG_KDRV_ETH_SWITCH
+	tristate "RPMSG virtual eth switch device support"
+	select RPMSG_KDRV
+	default m
+	help
+	  Say Y here to enable support for remote device based Eth switch
+	  virtualization. This setup expects that the Eth switch will be driven
+	  by a remoteproc and virtual Network device will be able to use
+	  Eth switch features using remote_device framework
+
 endmenu
