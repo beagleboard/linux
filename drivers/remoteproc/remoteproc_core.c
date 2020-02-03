@@ -1109,6 +1109,42 @@ rproc_of_resm_mem_entry_init(struct device *dev, u32 of_resm_idx, int len,
 EXPORT_SYMBOL(rproc_of_resm_mem_entry_init);
 
 /**
+ * rproc_handle_vendor_rsc() - provide implementation specific hook
+ *			       to handle vendor/custom resources
+ * @rproc: the remote processor
+ * @rsc: vendor resource to be handled by remoteproc drivers
+ * @offset: offset of the resource data in resource table
+ * @avail: size of available data
+ *
+ * Remoteproc implementations might want to add resource table entries
+ * that are not generic enough to be handled by the framework. This
+ * provides a hook to handle such custom resources. Note that a single
+ * hook is reused between RSC_PRELOAD_VENDOR and RSC_PRELOAD_VENDOR
+ * resources with the platform driver implementation distinguishing
+ * the two based on the sub-type resource.
+ *
+ * Returns 0 on success, or an appropriate error code otherwise
+ */
+static int rproc_handle_vendor_rsc(struct rproc *rproc,
+				   struct fw_rsc_vendor *rsc,
+				   int offset, int avail)
+{
+	struct device *dev = &rproc->dev;
+
+	if (!rproc->ops->handle_vendor_rsc) {
+		dev_err(dev, "vendor resource handler not implemented, ignoring resource\n");
+		return 0;
+	}
+
+	if (sizeof(*rsc) > avail) {
+		dev_err(dev, "vendor resource is truncated\n");
+		return -EINVAL;
+	}
+
+	return rproc->ops->handle_vendor_rsc(rproc, (void *)rsc);
+}
+
+/*
  * A lookup table for resource handlers. The indices are defined in
  * enum fw_resource_type.
  */
@@ -1116,7 +1152,13 @@ static rproc_handle_resource_t rproc_loading_handlers[RSC_LAST] = {
 	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
 	[RSC_DEVMEM] = (rproc_handle_resource_t)rproc_handle_devmem,
 	[RSC_TRACE] = (rproc_handle_resource_t)rproc_handle_trace,
+	[RSC_PRELOAD_VENDOR] = (rproc_handle_resource_t)rproc_handle_vendor_rsc,
 	[RSC_VDEV] = (rproc_handle_resource_t)rproc_handle_vdev,
+};
+
+static rproc_handle_resource_t rproc_post_loading_handlers[RSC_LAST] = {
+	[RSC_POSTLOAD_VENDOR] =
+			(rproc_handle_resource_t)rproc_handle_vendor_rsc,
 };
 
 /* handle firmware resource entries before booting the remote processor */
@@ -1408,6 +1450,14 @@ static int rproc_start(struct rproc *rproc, const struct firmware *fw)
 	if (loaded_table) {
 		memcpy(loaded_table, rproc->cached_table, rproc->table_sz);
 		rproc->table_ptr = loaded_table;
+	}
+
+	/* handle fw resources which require fw segments to be loaded */
+	ret = rproc_handle_resources(rproc, rproc_post_loading_handlers);
+	if (ret) {
+		dev_err(dev, "Failed to process post-loading resources: %d\n",
+			ret);
+		goto reset_table_ptr;
 	}
 
 	ret = rproc_prepare_subdevices(rproc);
