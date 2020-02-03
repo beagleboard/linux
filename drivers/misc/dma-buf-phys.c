@@ -210,17 +210,21 @@ static struct platform_driver dma_buf_phys_driver = {
 		.of_match_table = dma_buf_phys_of_match,
 	}
 };
-module_platform_driver(dma_buf_phys_driver);
 
 static int __init dma_buf_phys_init(void)
 {
 	struct platform_device *pdev;
+	int ret;
+
+	ret = platform_driver_register(&dma_buf_phys_driver);
+	if (ret)
+		return ret;
 
 	pdev = platform_device_register_simple("dma_buf_phys", -1, NULL, 0);
 
 	return PTR_ERR_OR_ZERO(pdev);
 }
-postcore_initcall(dma_buf_phys_init);
+device_initcall(dma_buf_phys_init);
 
 MODULE_AUTHOR("Andrew F. Davis <afd@ti.com>");
 MODULE_DESCRIPTION("DMA-BUF contiguous buffer physical address user-space exporter");
