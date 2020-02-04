@@ -19,7 +19,7 @@
 #include "prcm43xx.h"
 #include "omap_hwmod_common_data.h"
 #include "hdq1w.h"
-
+#include "soc.h"
 
 /* IP blocks */
 static struct omap_hwmod am43xx_emif_hwmod = {
@@ -830,7 +830,6 @@ static struct omap_hwmod_ocp_if *am43xx_hwmod_ocp_ifs[] __initdata = {
 	&am33xx_l4_per__dcan0,
 	&am33xx_l4_per__dcan1,
 	&am33xx_l4_per__mailbox,
-	&am33xx_l4_per__rng,
 	&am33xx_l4_ls__mcasp0,
 	&am33xx_l4_ls__mcasp1,
 	&am33xx_l4_ls__timer2,
@@ -876,6 +875,12 @@ static struct omap_hwmod_ocp_if *am43xx_rtc_hwmod_ocp_ifs[] __initdata = {
 	NULL,
 };
 
+/* GP-only hwmod links */
+static struct omap_hwmod_ocp_if *am43xx_gp_hwmod_ocp_ifs[] __initdata = {
+	&am33xx_l4_per__rng,
+	NULL,
+};
+
 int __init am43xx_hwmod_init(void)
 {
 	int ret;
@@ -886,6 +891,9 @@ int __init am43xx_hwmod_init(void)
 
 	if (!ret && of_machine_is_compatible("ti,am4372"))
 		ret = omap_hwmod_register_links(am43xx_rtc_hwmod_ocp_ifs);
+
+	if (!ret && omap_type() == OMAP2_DEVICE_TYPE_GP)
+		ret = omap_hwmod_register_links(am43xx_gp_hwmod_ocp_ifs);
 
 	return ret;
 }

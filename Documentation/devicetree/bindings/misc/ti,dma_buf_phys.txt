@@ -1,0 +1,17 @@
+DMA-BUF contiguous buffer physical address user-space exporter binding
+
+Driver allowing user-space attaching of DMA-BUFs returning CPU physical
+addresses. The reasoning for making this act like a regular device
+described by DT is so the virtual device that binds the buffer can be
+made to act as if it is out on a bus or behind an IOMMU, for example.
+
+Required Properties:
+ - compatible:		Must be "ti,dma_buf_phys"
+
+Example:
+
+dma_buf_phys {
+	compatible = "ti,dma_buf_phys";
+	iommus = <&some_iommu>;
+	dma-coherent;
+};

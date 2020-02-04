@@ -678,22 +678,20 @@ struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,
 	attach->dev = dev;
 	attach->dmabuf = dmabuf;
 
-	mutex_lock(&dmabuf->lock);
-
 	if (dmabuf->ops->attach) {
 		ret = dmabuf->ops->attach(dmabuf, attach);
 		if (ret)
 			goto err_attach;
 	}
-	list_add(&attach->node, &dmabuf->attachments);
 
+	mutex_lock(&dmabuf->lock);
+	list_add(&attach->node, &dmabuf->attachments);
 	mutex_unlock(&dmabuf->lock);
 
 	return attach;
 
 err_attach:
 	kfree(attach);
-	mutex_unlock(&dmabuf->lock);
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(dma_buf_attach);
@@ -716,10 +714,11 @@ void dma_buf_detach(struct dma_buf *dmabuf, struct dma_buf_attachment *attach)
 
 	mutex_lock(&dmabuf->lock);
 	list_del(&attach->node);
+	mutex_unlock(&dmabuf->lock);
+
 	if (dmabuf->ops->detach)
 		dmabuf->ops->detach(dmabuf, attach);
 
-	mutex_unlock(&dmabuf->lock);
 	kfree(attach);
 }
 EXPORT_SYMBOL_GPL(dma_buf_detach);
