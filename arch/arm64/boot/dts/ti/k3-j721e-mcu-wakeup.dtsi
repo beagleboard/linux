@@ -298,13 +298,13 @@
 		power-domains = <&k3_pds 18 TI_SCI_PD_EXCLUSIVE>;
 
 		dmas = <&mcu_udmap 0xf000>,
-		       <&mcu_udmap 0xf000>,
-		       <&mcu_udmap 0xf000>,
-		       <&mcu_udmap 0xf000>,
-		       <&mcu_udmap 0xf000>,
-		       <&mcu_udmap 0xf000>,
-		       <&mcu_udmap 0xf000>,
-		       <&mcu_udmap 0xf000>,
+		       <&mcu_udmap 0xf001>,
+		       <&mcu_udmap 0xf002>,
+		       <&mcu_udmap 0xf003>,
+		       <&mcu_udmap 0xf004>,
+		       <&mcu_udmap 0xf005>,
+		       <&mcu_udmap 0xf006>,
+		       <&mcu_udmap 0xf007>,
 		       <&mcu_udmap 0x7000>;
 		dma-names = "tx0", "tx1", "tx2", "tx3",
 			    "tx4", "tx5", "tx6", "tx7",

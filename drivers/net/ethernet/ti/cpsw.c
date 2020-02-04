@@ -35,6 +35,7 @@
 #include <linux/bpf.h>
 #include <linux/bpf_trace.h>
 #include <linux/filter.h>
+#include <linux/net_switch_config.h>
 
 #include <linux/pinctrl/consumer.h>
 #include <net/pkt_cls.h>
@@ -59,6 +60,10 @@ MODULE_PARM_DESC(ale_ageout, "cpsw ale ageout interval (seconds)");
 static int rx_packet_max = CPSW_MAX_PACKET_SIZE;
 module_param(rx_packet_max, int, 0);
 MODULE_PARM_DESC(rx_packet_max, "maximum receive packet size (bytes)");
+
+static int tx_packet_min = CPSW_MIN_PACKET_SIZE;
+module_param(tx_packet_min, int, 0444);
+MODULE_PARM_DESC(tx_packet_min, "minimum tx packet size (bytes)");
 
 static int descs_pool_size = CPSW_CPDMA_DESCS_POOL_SIZE_DEFAULT;
 module_param(descs_pool_size, int, 0444);
@@ -1092,7 +1097,8 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
 
 		/* enable forwarding */
 		cpsw_ale_control_set(cpsw->ale, slave_port,
-				     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
+				     ALE_PORT_STATE,
+				     priv->port_state[slave_port]);
 
 		*link = true;
 
@@ -1243,6 +1249,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
 	slave->mac_control = 0;	/* no link yet */
 
 	slave_port = cpsw_get_slave_port(slave->slave_num);
+	priv->port_state[slave_port] = ALE_PORT_STATE_FORWARD;
 
 	if (cpsw->data.dual_emac)
 		cpsw_add_dual_emac_def_ale_entries(priv, slave, slave_port);
@@ -1802,7 +1809,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
 	struct cpdma_chan *txch;
 	int ret, q_idx;
 
-	if (skb_padto(skb, CPSW_MIN_PACKET_SIZE)) {
+	if (skb_padto(skb, tx_packet_min)) {
 		cpsw_err(priv, tx_err, "packet pad failed\n");
 		ndev->stats.tx_dropped++;
 		return NET_XMIT_DROP;
@@ -2014,6 +2021,8 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 }
 #endif /*CONFIG_TI_CPTS*/
 
+#include "cpsw_switch_ioctl.c"
+
 static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
 	struct cpsw_priv *priv = netdev_priv(dev);
@@ -2028,6 +2037,8 @@ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 		return cpsw_hwtstamp_set(dev, req);
 	case SIOCGHWTSTAMP:
 		return cpsw_hwtstamp_get(dev, req);
+	case SIOCSWITCHCONFIG:
+		return cpsw_switch_config_ioctl(dev, req, cmd);
 	}
 
 	if (!cpsw->slaves[slave_no].phy)
@@ -2851,7 +2862,7 @@ static int cpsw_probe(struct platform_device *pdev)
 
 	ret = cpsw_init_common(cpsw, ss_regs, ale_ageout,
 			       ss_res->start + CPSW2_BD_OFFSET,
-			       descs_pool_size);
+			       descs_pool_size, tx_packet_min);
 	if (ret)
 		goto clean_dt_ret;
 

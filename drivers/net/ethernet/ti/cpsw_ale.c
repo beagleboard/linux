@@ -790,6 +790,55 @@ int cpsw_ale_control_get(struct cpsw_ale *ale, int port, int control)
 	return tmp & BITMASK(info->bits);
 }
 
+int cpsw_ale_set_ratelimit(struct cpsw_ale *ale, unsigned long freq, int port,
+			   unsigned int bcast_rate_limit,
+			   unsigned int mcast_rate_limit,
+			   bool direction)
+
+{
+	unsigned int rate_limit;
+	unsigned long ale_prescale;
+	int val;
+
+	if (!bcast_rate_limit && !mcast_rate_limit) {
+		/* disable rate limit */
+		cpsw_ale_control_set(ale, 0, ALE_RATE_LIMIT, 0);
+		cpsw_ale_control_set(ale, port, ALE_PORT_BCAST_LIMIT, 0);
+		cpsw_ale_control_set(ale, port, ALE_PORT_MCAST_LIMIT, 0);
+		writel(0, ale->params.ale_regs + ALE_PRESCALE);
+		return 0;
+	}
+
+	/* configure Broadcast and Multicast Rate Limit
+	 * number_of_packets = (Fclk / ALE_PRESCALE) * port.BCASTMCAST/_LIMIT
+	 * ALE_PRESCALE width is 19bit and min value 0x10
+	 * with Fclk = 125MHz and port.BCASTMCAST/_LIMIT = 1
+	 *
+	 * max number_of_packets = (125MHz / 0x10) * 1 = 7812500
+	 * min number_of_packets = (125MHz / 0xFFFFF) * 1 = 119
+	 *
+	 * above values are more than enough (with higher Fclk they will be
+	 * just better), so port.BCASTMCAST/_LIMIT can be selected to be 1
+	 * while ALE_PRESCALE is calculated as:
+	 *  ALE_PRESCALE = Fclk / number_of_packets
+	 */
+	rate_limit = max_t(unsigned int, bcast_rate_limit, mcast_rate_limit);
+	ale_prescale = freq / rate_limit;
+	if (ale_prescale & (~0xfffff))
+		return -EINVAL;
+
+	cpsw_ale_control_set(ale, 0, ALE_RATE_LIMIT_TX, direction);
+	val = bcast_rate_limit ? 1 : 0;
+	cpsw_ale_control_set(ale, port, ALE_PORT_BCAST_LIMIT, val);
+	val = mcast_rate_limit ? 1 : 0;
+	cpsw_ale_control_set(ale, port, ALE_PORT_MCAST_LIMIT, val);
+	writel((u32)ale_prescale, ale->params.ale_regs + ALE_PRESCALE);
+	cpsw_ale_control_set(ale, 0, ALE_RATE_LIMIT, 1);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(cpsw_ale_set_ratelimit);
+
 static void cpsw_ale_timer(struct timer_list *t)
 {
 	struct cpsw_ale *ale = from_timer(ale, t, timer);
