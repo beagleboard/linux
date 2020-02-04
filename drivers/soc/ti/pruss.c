@@ -24,12 +24,17 @@
 #define PRUSS_CFG_IEPCLK	0x30
 #define ICSSG_CFG_CORE_SYNC	0x3c
 
+#define SYSCFG_STANDBY_INIT	BIT(4)
+#define SYSCFG_SUB_MWAIT_READY	BIT(5)
+
 /**
  * struct pruss_private_data - PRUSS driver private data
  * @has_no_sharedram: flag to indicate the absence of PRUSS Shared Data RAM
+ * @has_ocp_syscfg: flag to indicate if OCP SYSCFG is present
  */
 struct pruss_private_data {
 	bool has_no_sharedram;
+	bool has_ocp_syscfg;
 };
 
 /**
@@ -221,6 +226,69 @@ int pruss_cfg_update(struct pruss *pruss, unsigned int reg,
 }
 EXPORT_SYMBOL_GPL(pruss_cfg_update);
 
+/**
+ * pruss_cfg_ocp_master_ports() - configure PRUSS OCP master ports
+ *
+ * This function programs the PRUSS_SYSCFG.STANDBY_INIT bit either to enable or
+ * disable the OCP master ports (applicable only on SoCs using OCP interconnect
+ * like the OMAP family). Clearing the bit achieves dual functionalities - one
+ * is to deassert the MStandby signal to the device PRCM, and the other is to
+ * enable OCP master ports to allow accesses outside of the PRU-ICSS. The
+ * function has to wait for the PRCM to acknowledge through the monitoring of
+ * the PRUSS_SYSCFG.SUB_MWAIT bit when enabling master ports. Setting the bit
+ * disables the master access, and also signals the PRCM that the PRUSS is ready
+ * for Standby.
+ *
+ * Returns 0 on success, or an error code otherwise. ETIMEDOUT is returned
+ * when the ready-state fails.
+ */
+int pruss_cfg_ocp_master_ports(struct pruss *pruss, bool enable)
+{
+	int ret;
+	u32 syscfg_val, i;
+	bool ready = false;
+
+	if (IS_ERR_OR_NULL(pruss))
+		return -EINVAL;
+
+	/* nothing to do on non OMAP-SoCs */
+	if (!pruss->has_ocp_syscfg)
+		return 0;
+
+	/* assert the MStandby signal during disable path */
+	if (!enable) {
+		return pruss_cfg_update(pruss, PRUSS_CFG_SYSCFG,
+					SYSCFG_STANDBY_INIT,
+					SYSCFG_STANDBY_INIT);
+	}
+
+	/* enable the OCP master ports and disable MStandby */
+	ret = pruss_cfg_update(pruss, PRUSS_CFG_SYSCFG,
+			       SYSCFG_STANDBY_INIT, 0);
+	if (ret)
+		return ret;
+
+	/* wait till we are ready for transactions - delay is arbitrary */
+	for (i = 0; i < 10; i++) {
+		ret = pruss_cfg_read(pruss, PRUSS_CFG_SYSCFG, &syscfg_val);
+		if (ret)
+			goto disable;
+		ready = !(syscfg_val & SYSCFG_SUB_MWAIT_READY);
+		if (ready)
+			return 0;
+		udelay(5);
+	}
+
+	dev_err(pruss->dev, "timeout waiting for SUB_MWAIT_READY\n");
+	ret = -ETIMEDOUT;
+
+disable:
+	pruss_cfg_update(pruss, PRUSS_CFG_SYSCFG, SYSCFG_STANDBY_INIT,
+			 SYSCFG_STANDBY_INIT);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pruss_cfg_ocp_master_ports);
+
 static void pruss_of_free_clk_provider(void *data)
 {
 	struct device_node *clk_mux_np = data;
@@ -299,10 +367,11 @@ struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
 {
 	const struct pruss_match_private_data *data;
 
-	if (!of_device_is_compatible(pdev->dev.of_node, "ti,am4376-pruss"))
-		return NULL;
-
 	data = of_device_get_match_data(&pdev->dev);
+
+	if (!of_device_is_compatible(pdev->dev.of_node, "ti,am4376-pruss"))
+		return data ? data->priv_data : ERR_PTR(-ENODEV);
+
 	for (; data && data->device_name; data++) {
 		if (!strcmp(dev_name(&pdev->dev), data->device_name))
 			return data->priv_data;
@@ -351,6 +420,7 @@ static int pruss_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pruss->dev = dev;
+	pruss->has_ocp_syscfg = data->has_ocp_syscfg;
 	mutex_init(&pruss->lock);
 
 	np = of_get_child_by_name(node, "memories");
@@ -491,10 +561,22 @@ static int pruss_remove(struct platform_device *pdev)
 /* instance-specific driver private data */
 static const struct pruss_private_data am437x_pruss1_priv_data = {
 	.has_no_sharedram = false,
+	.has_ocp_syscfg = true,
 };
 
 static const struct pruss_private_data am437x_pruss0_priv_data = {
 	.has_no_sharedram = true,
+	.has_ocp_syscfg = false,
+};
+
+static const struct pruss_private_data am33xx_am57xx_priv_data = {
+	.has_no_sharedram = false,
+	.has_ocp_syscfg = true,
+};
+
+static const struct pruss_private_data k2g_am65x_j7_priv_data = {
+	.has_no_sharedram = false,
+	.has_ocp_syscfg = false,
 };
 
 static const struct pruss_match_private_data am437x_match_data[] = {
@@ -511,13 +593,21 @@ static const struct pruss_match_private_data am437x_match_data[] = {
 	},
 };
 
+static const struct pruss_match_private_data am33xx_am57xx_match_data = {
+	.priv_data = &am33xx_am57xx_priv_data,
+};
+
+static const struct pruss_match_private_data k2g_am65x_j7_match_data = {
+	.priv_data = &k2g_am65x_j7_priv_data,
+};
+
 static const struct of_device_id pruss_of_match[] = {
-	{ .compatible = "ti,am3356-pruss", .data = NULL, },
+	{ .compatible = "ti,am3356-pruss", .data = &am33xx_am57xx_match_data, },
 	{ .compatible = "ti,am4376-pruss", .data = &am437x_match_data, },
-	{ .compatible = "ti,am5728-pruss", .data = NULL, },
-	{ .compatible = "ti,k2g-pruss", .data = NULL, },
-	{ .compatible = "ti,am654-icssg", .data = NULL, },
-	{ .compatible = "ti,j721e-icssg", .data = NULL, },
+	{ .compatible = "ti,am5728-pruss", .data = &am33xx_am57xx_match_data, },
+	{ .compatible = "ti,k2g-pruss", .data = &k2g_am65x_j7_match_data, },
+	{ .compatible = "ti,am654-icssg", .data = &k2g_am65x_j7_match_data, },
+	{ .compatible = "ti,j721e-icssg", .data = &k2g_am65x_j7_match_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
