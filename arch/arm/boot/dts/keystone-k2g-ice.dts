@@ -445,3 +445,11 @@
 	phy-mode = "rgmii-id";
 	status = "okay";
 };
+
+&pcie0_phy {
+	status = "okay";
+};
+
+&pcie0_ep {
+	status = "okay";
+};
