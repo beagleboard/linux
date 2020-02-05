@@ -10,6 +10,7 @@
 
 /delete-node/ &hdmi;
 /delete-node/ &sii9022;
+/delete-node/ &audio_link1;
 
 / {
 	lcd0: display {
