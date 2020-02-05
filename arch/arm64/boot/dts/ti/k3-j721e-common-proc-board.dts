@@ -125,6 +125,31 @@
 		states = <1800000 0x0
 			  3300000 0x1>;
 	};
+
+	cpsw9g_virt_mac: main_r5fss_cpsw9g_virt_mac0 {
+		compatible = "ti,j721e-cpsw-virt-mac";
+		dma-coherent;
+		ti,psil-base = <0x4a00>;
+		ti,remote-name = "mpu_1_0_ethswitch-device-0";
+
+		dmas = <&main_udmap 0xca00>,
+		       <&main_udmap 0xca01>,
+		       <&main_udmap 0xca02>,
+		       <&main_udmap 0xca03>,
+		       <&main_udmap 0xca04>,
+		       <&main_udmap 0xca05>,
+		       <&main_udmap 0xca06>,
+		       <&main_udmap 0xca07>,
+		       <&main_udmap 0x4a00>;
+		dma-names = "tx0", "tx1", "tx2", "tx3",
+			    "tx4", "tx5", "tx6", "tx7",
+			    "rx";
+
+		virt_emac_port {
+			ti,label = "virt-port";
+			/* local-mac-address = [0 0 0 0 0 0]; */
+		};
+	};
 };
 
 &main_pmx0 {
@@ -205,6 +230,19 @@
 	vdd_sd_dv_alt_pins_default: vdd_sd_dv_alt_pins_default {
 		pinctrl-single,pins = <
 			J721E_IOPAD(0x1d8, PIN_INPUT, 7) /* (W4) SPI1_CS1.GPIO0_117 */
+		>;
+	};
+
+	main_usbss0_pins_default: main_usbss0_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x290, PIN_OUTPUT, 0) /* (U6) USB0_DRVVBUS */
+			J721E_IOPAD(0x210, PIN_INPUT, 7) /* (W3) MCAN1_RX.GPIO1_3 */
+		>;
+	};
+
+	main_usbss1_pins_default: main_usbss1_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x214, PIN_OUTPUT, 4) /* (V4) MCAN1_TX.USB1_DRVVBUS */
 		>;
 	};
 };
@@ -750,5 +788,61 @@
 };
 
 &pcie3_ep {
+	status = "disabled";
+};
+
+&usb_serdes_mux {
+	idle-states = <1>, <0>; /* USB0 to SERDES3, USB1 to SERDES1 */
+};
+
+&serdes_ln_ctrl {
+	idle-states = <SERDES0_LANE0_PCIE0_LANE0>, <SERDES0_LANE1_PCIE0_LANE1>,
+		      <SERDES1_LANE0_PCIE1_LANE0>, <SERDES1_LANE1_PCIE1_LANE1>,
+		      <SERDES2_LANE0_PCIE2_LANE0>, <SERDES2_LANE1_PCIE2_LANE1>,
+		      <SERDES3_LANE0_USB3_0_SWAP>, <SERDES3_LANE1_USB3_0>,
+		      <SERDES4_LANE0_EDP_LANE0>, <SERDES4_LANE1_EDP_LANE1>, <SERDES4_LANE2_EDP_LANE2>, <SERDES4_LANE3_EDP_LANE3>;
+};
+
+&serdes_wiz3 {
+	typec-dir-gpios = <&main_gpio1 3 GPIO_ACTIVE_HIGH>;
+	typec-dir-debounce-ms = <700>;	/* TUSB321, tCCB_DEFAULT 133 ms */
+};
+
+&serdes3 {
+	serdes3_usb_link: link@0 {
+		reg = <0>;
+		cdns,num-lanes = <2>;
+		#phy-cells = <0>;
+		cdns,phy-type = <PHY_TYPE_USB3>;
+		resets = <&serdes_wiz3 1>, <&serdes_wiz3 2>;
+	};
+};
+
+&usbss0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_usbss0_pins_default>;
+	ti,vbus-divider;
+};
+
+&usb0 {
+	dr_mode = "otg";
+	maximum-speed = "super-speed";
+	phys = <&serdes3_usb_link>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&usbss1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_usbss1_pins_default>;
+	ti,usb2-only;
+};
+
+&usb1 {
+	dr_mode = "host";
+	maximum-speed = "high-speed";
+};
+
+/* uart2 assigned to cpsw9g eth-switch fw running on remote CPU core */
+&main_uart2 {
 	status = "disabled";
 };

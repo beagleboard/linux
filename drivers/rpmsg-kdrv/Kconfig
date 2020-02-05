@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-2.0
+
+menu "Rpmsg virtual device drivers"
+
+# RPMSG always gets selected by whoever wants it
+config RPMSG_KDRV
+	tristate "RPMSG virtual device interface"
+	select RPMSG
+	help
+	  Say Y here enable support for RPMSG based remote devices, usually
+	  exported by a firmware running rpmsg stack and remote_device stack.
+	  This feature enables the framework for para-virtualizing entire H/W
+	  or specific resources of a hardware
+
+
+config RPMSG_KDRV_DEMO
+	tristate "RPMSG virtual demo device support"
+	select RPMSG_KDRV
+	help
+	  Say Y here to enable support for remote device based demo device.
+	  This setup expects that the demo device server will be running on a
+	  remoteproc and a client (sample) driver will be able to call demo device
+	  APIs using remote_device framework.
+
+	  The demo device is no real device. It serves the purpose of providing
+	  a sample driver to be used as a reference for developing more
+	  remote_device drivers (like display or ethernet)
+
+config RPMSG_KDRV_DISPLAY
+	tristate "RPMSG virtual display device support"
+	select RPMSG_KDRV
+	help
+	  Say Y here to enable support for remote device based display
+	  virtualization. This setup expects that the display will be driven
+	  by a remoteproc and DRM driver will be able to use display features
+	  using remote_device framework
+
+config RPMSG_KDRV_ETH_SWITCH
+	tristate "RPMSG virtual eth switch device support"
+	select RPMSG_KDRV
+	default m
+	help
+	  Say Y here to enable support for remote device based Eth switch
+	  virtualization. This setup expects that the Eth switch will be driven
+	  by a remoteproc and virtual Network device will be able to use
+	  Eth switch features using remote_device framework
+
+endmenu
