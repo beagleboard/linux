@@ -8,6 +8,11 @@
 #ifndef _UAPI_LINUX_RPMSG_RPC_H_
 #define _UAPI_LINUX_RPMSG_RPC_H_
 
+#ifndef __KERNEL__
+#include <stdint.h>
+#include <stddef.h>
+#endif
+#include <linux/types.h>
 #include <linux/ioctl.h>
 
 /**
@@ -16,8 +21,8 @@
  * @fds: pointer to the array holding the file descriptors
  */
 struct rppc_buf_fds {
-	uint32_t num;
-	int32_t *fds;
+	__u32 num;
+	__s32 *fds;
 };
 
 /*
@@ -69,10 +74,10 @@ enum rppc_param_type {
  *	the translated pointer is present
  */
 struct rppc_param_translation {
-	uint32_t index;
+	__u32 index;
 	ptrdiff_t offset;
 	size_t base;
-	int32_t fd;
+	__s32 fd;
 };
 
 /**
@@ -89,11 +94,11 @@ struct rppc_param_translation {
  *	import the associated dma_buf within the driver).
  */
 struct rppc_param {
-	uint32_t type;
+	__u32 type;
 	size_t size;
 	size_t data;
 	size_t base;
-	int32_t fd;
+	__s32 fd;
 };
 
 /**
@@ -111,10 +116,10 @@ struct rppc_param {
  * describing the function, its parameter arguments and the needed translations.
  */
 struct rppc_function {
-	uint32_t fxn_id;
-	uint32_t num_params;
+	__u32 fxn_id;
+	__u32 num_params;
 	struct rppc_param params[RPPC_MAX_PARAMETERS];
-	uint32_t num_translations;
+	__u32 num_translations;
 	struct rppc_param_translation translations[0];
 };
 
@@ -124,8 +129,8 @@ struct rppc_function {
  * @status: return value of the executed function
  */
 struct rppc_function_return {
-	uint32_t fxn_id;
-	uint32_t status;
+	__u32 fxn_id;
+	__u32 status;
 };
 
 /**
@@ -171,13 +176,13 @@ struct rppc_create_instance {
  * XXX: remove or mask unneeded fields, some fields can be stripped down
  */
 struct rppc_packet {
-	uint16_t desc;
-	uint16_t msg_id;
-	uint32_t flags;
-	uint32_t fxn_id;
-	int32_t  result;
-	uint32_t data_size;
-	uint8_t  data[0];
+	__u16 desc;
+	__u16 msg_id;
+	__u32 flags;
+	__u32 fxn_id;
+	__s32 result;
+	__u32 data_size;
+	__u8  data[0];
 } __packed;
 
 #endif /* _UAPI_LINUX_RPMSG_RPC_H_ */
