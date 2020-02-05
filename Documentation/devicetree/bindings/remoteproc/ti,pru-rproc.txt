@@ -1,0 +1,75 @@
+PRU Core on TI SoCs
+===================
+
+Each PRUSS has dual PRU cores, each represented by a PRU node. Each PRU core
+has a dedicated Instruction RAM, Control and Debug register sets, and use
+the Data RAMs present within the PRUSS for code execution.
+
+Each PRU core node should be defined as a child node of the corresponding PRUSS
+node. Each node can optionally be rendered inactive by using the standard DT
+string property, "status".
+
+Please see the overall PRUSS bindings document for additional details
+including a complete example,
+    Documentation/devicetree/bindings/soc/ti/ti,pruss.txt
+
+Required Properties:
+--------------------
+- compatible     : should be
+                       "ti,am3356-pru" for AM335x family of SoCs
+                       "ti,am4376-pru" for AM437x family of SoCs
+                       "ti,am5728-pru" for AM57xx family of SoCs
+                       "ti,k2g-pru" for 66AK2G family of SoCs
+- reg            : base address and size for each of the 3 sub-module address
+                   spaces as mentioned in reg-names, and in the same order as
+                   the reg-names
+- reg-names      : should contain each of the following 3 names, the binding is
+                   agnostic of the order of these reg-names, preferable to have
+                   the "iram" entry as the first one
+                       "iram" for Instruction RAM,
+                       "control" for the CTRL sub-module registers,
+                       "debug" for the Debug sub-module registers,
+- firmware-name  : should contain the name of the default firmware image file
+                   located on the firmware search path
+
+
+Example:
+--------
+
+1.	/* AM33xx PRU-ICSS */
+	pruss_tm: target-module@300000 {	/* 0x4a300000, ap 9 04.0 */
+		compatible = "ti,sysc-pruss", "ti,sysc";
+		ranges = <0x0 0x300000 0x80000>;
+		...
+
+		pruss: pruss@0 {
+			compatible = "ti,am3356-pruss";
+			reg = <0x0 0x80000>;
+			...
+
+			pruss_mem: memories@0 {
+				reg = <0x0 0x2000>,
+				      <0x2000 0x2000>,
+				      <0x10000 0x3000>;
+				reg-names = "dram0", "dram1", "shrdram2";
+			};
+
+			pru0: pru@34000 {
+				compatible = "ti,am3356-pru";
+				reg = <0x34000 0x2000>,
+				      <0x22000 0x400>,
+				      <0x22400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "am335x-pru0-fw";
+			};
+
+			pru1: pru@38000 {
+				compatible = "ti,am3356-pru";
+				reg = <0x38000 0x2000>,
+				      <0x24000 0x400>,
+				      <0x24400 0x100>;
+				reg-names = "iram", "control", "debug";
+				firmware-name = "am335x-pru1-fw";
+			};
+		};
+	};
