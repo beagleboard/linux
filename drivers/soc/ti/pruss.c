@@ -16,6 +16,41 @@
 #include <linux/pm_runtime.h>
 #include <linux/pruss_driver.h>
 
+/**
+ * struct pruss_private_data - PRUSS driver private data
+ * @has_no_sharedram: flag to indicate the absence of PRUSS Shared Data RAM
+ */
+struct pruss_private_data {
+	bool has_no_sharedram;
+};
+
+/**
+ * struct pruss_match_private_data - private data to handle multiple instances
+ * @device_name: device name of the PRUSS instance
+ * @priv_data: PRUSS driver private data for this PRUSS instance
+ */
+struct pruss_match_private_data {
+	const char *device_name;
+	const struct pruss_private_data *priv_data;
+};
+
+static const
+struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
+{
+	const struct pruss_match_private_data *data;
+
+	if (!of_device_is_compatible(pdev->dev.of_node, "ti,am4376-pruss"))
+		return NULL;
+
+	data = of_device_get_match_data(&pdev->dev);
+	for (; data && data->device_name; data++) {
+		if (!strcmp(dev_name(&pdev->dev), data->device_name))
+			return data->priv_data;
+	}
+
+	return ERR_PTR(-ENODEV);
+}
+
 static int pruss_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -24,10 +59,17 @@ static int pruss_probe(struct platform_device *pdev)
 	struct pruss *pruss;
 	struct resource res;
 	int ret, i, index;
+	const struct pruss_private_data *data;
 	const char *mem_names[PRUSS_MEM_MAX] = { "dram0", "dram1", "shrdram2" };
 
 	if (!node) {
 		dev_err(dev, "Non-DT platform device not supported\n");
+		return -ENODEV;
+	}
+
+	data = pruss_get_private_data(pdev);
+	if (IS_ERR(data)) {
+		dev_err(dev, "missing private data\n");
 		return -ENODEV;
 	}
 
@@ -50,6 +92,10 @@ static int pruss_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(mem_names); i++) {
+		if (data && data->has_no_sharedram &&
+		    !strcmp(mem_names[i], "shrdram2"))
+			continue;
+
 		index = of_property_match_string(np, "reg-names", mem_names[i]);
 		if (index < 0) {
 			of_node_put(np);
@@ -131,8 +177,32 @@ static int pruss_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/* instance-specific driver private data */
+static const struct pruss_private_data am437x_pruss1_priv_data = {
+	.has_no_sharedram = false,
+};
+
+static const struct pruss_private_data am437x_pruss0_priv_data = {
+	.has_no_sharedram = true,
+};
+
+static const struct pruss_match_private_data am437x_match_data[] = {
+	{
+		.device_name	= "54400000.pruss",
+		.priv_data	= &am437x_pruss1_priv_data,
+	},
+	{
+		.device_name	= "54440000.pruss",
+		.priv_data	= &am437x_pruss0_priv_data,
+	},
+	{
+		/* sentinel */
+	},
+};
+
 static const struct of_device_id pruss_of_match[] = {
-	{ .compatible = "ti,am3356-pruss", },
+	{ .compatible = "ti,am3356-pruss", .data = NULL, },
+	{ .compatible = "ti,am4376-pruss", .data = &am437x_match_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, pruss_of_match);
