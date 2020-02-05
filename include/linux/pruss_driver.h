@@ -10,28 +10,8 @@
 #define _PRUSS_DRIVER_H_
 
 #include <linux/types.h>
-
-/**
- * enum pruss_mem - PRUSS memory range identifiers
- */
-enum pruss_mem {
-	PRUSS_MEM_DRAM0 = 0,
-	PRUSS_MEM_DRAM1,
-	PRUSS_MEM_SHRD_RAM2,
-	PRUSS_MEM_MAX,
-};
-
-/**
- * struct pruss_mem_region - PRUSS memory region structure
- * @va: kernel virtual address of the PRUSS memory region
- * @pa: physical (bus) address of the PRUSS memory region
- * @size: size of the PRUSS memory region
- */
-struct pruss_mem_region {
-	void __iomem *va;
-	phys_addr_t pa;
-	size_t size;
-};
+#include <linux/pruss.h>
+#include <linux/mutex.h>
 
 /**
  * struct pruss - PRUSS parent structure
@@ -39,6 +19,8 @@ struct pruss_mem_region {
  * @cfg_base: base iomap for CFG region
  * @cfg: regmap for config region
  * @mem_regions: data for each of the PRUSS memory regions
+ * @mem_in_use: to indicate if memory resource is in use
+ * @lock: mutex to serialize access to resources
  * @core_clk_mux: clk handle for PRUSS CORE_CLK_MUX
  & @iep_clk_mux: clk handle for PRUSS IEP_CLK_MUX
  */
@@ -47,6 +29,8 @@ struct pruss {
 	void __iomem *cfg_base;
 	struct regmap *cfg;
 	struct pruss_mem_region mem_regions[PRUSS_MEM_MAX];
+	struct pruss_mem_region *mem_in_use[PRUSS_MEM_MAX];
+	struct mutex lock; /* PRU resource lock */
 	struct clk *core_clk_mux;
 	struct clk *iep_clk_mux;
 };
