@@ -50,6 +50,8 @@
 #define PRU1_IRAM_ADDR_MASK	0x38000
 #define RTU0_IRAM_ADDR_MASK	0x4000
 #define RTU1_IRAM_ADDR_MASK	0x6000
+#define TX_PRU0_IRAM_ADDR_MASK	0xa000
+#define TX_PRU1_IRAM_ADDR_MASK	0xc000
 
 /**
  * enum pru_iomem - PRU core memory/register range identifiers
@@ -67,6 +69,7 @@ enum pru_iomem {
 enum pru_type {
 	PRU_TYPE_PRU = 0,
 	PRU_TYPE_RTU,
+	PRU_TYPE_TX_PRU,
 	PRU_TYPE_MAX,
 };
 
@@ -311,7 +314,7 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 	struct pru_rproc *pru = rproc->priv;
 	int ret;
 	mbox_msg_t msg = (mbox_msg_t)vq_id;
-	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU" };
+	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU", "Tx_PRU" };
 
 	dev_dbg(dev, "kicking vqid %d on %s%d\n", vq_id,
 		names[pru->type], pru->id);
@@ -336,7 +339,7 @@ static int pru_rproc_start(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
-	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU" };
+	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU", "Tx_PRU" };
 	u32 val;
 	int ret;
 
@@ -378,7 +381,7 @@ static int pru_rproc_stop(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
 	struct pru_rproc *pru = rproc->priv;
-	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU" };
+	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU", "Tx_PRU" };
 	u32 val;
 
 	dev_dbg(dev, "stopping %s%d\n", names[pru->type], pru->id);
@@ -762,10 +765,17 @@ static int pru_rproc_set_id(struct device_node *np, struct pru_rproc *pru)
 	u32 mask1 = PRU0_IRAM_ADDR_MASK;
 	u32 mask2 = PRU1_IRAM_ADDR_MASK;
 
-	if (of_device_is_compatible(np, "ti,am654-rtu")) {
+	if (of_device_is_compatible(np, "ti,am654-rtu") ||
+	    of_device_is_compatible(np, "ti,j721e-rtu")) {
 		mask1 = RTU0_IRAM_ADDR_MASK;
 		mask2 = RTU1_IRAM_ADDR_MASK;
 		pru->type = PRU_TYPE_RTU;
+	}
+
+	if (of_device_is_compatible(np, "ti,j721e-tx-pru")) {
+		mask1 = TX_PRU0_IRAM_ADDR_MASK;
+		mask2 = TX_PRU1_IRAM_ADDR_MASK;
+		pru->type = PRU_TYPE_TX_PRU;
 	}
 
 	if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask2) == mask2)
@@ -830,7 +840,10 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	pru->fw_name = fw_name;
 
 	if (of_device_is_compatible(np, "ti,am654-pru") ||
-	    of_device_is_compatible(np, "ti,am654-rtu")) {
+	    of_device_is_compatible(np, "ti,am654-rtu") ||
+	    of_device_is_compatible(np, "ti,j721e-pru") ||
+	    of_device_is_compatible(np, "ti,j721e-rtu") ||
+	    of_device_is_compatible(np, "ti,j721e-tx-pru")) {
 		pru->is_k3 = 1;
 	}
 
@@ -946,6 +959,9 @@ static const struct of_device_id pru_rproc_match[] = {
 	{ .compatible = "ti,k2g-pru",    },
 	{ .compatible = "ti,am654-pru",  },
 	{ .compatible = "ti,am654-rtu",  },
+	{ .compatible = "ti,j721e-pru",  },
+	{ .compatible = "ti,j721e-rtu",  },
+	{ .compatible = "ti,j721e-tx-pru",  },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pru_rproc_match);
