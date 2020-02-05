@@ -102,6 +102,30 @@ See Documentation/devicetree/bindings/mfd/syscon.txt for generic syscon
 binding details.
 
 
+IEPCLK MUX Clock node
+=====================
+The IEP module can get its clock from 2 sources i.e. IEP_CLK input to
+the PRU-ICSS module or the Bus clock (ICLK). This node models this clock
+mux and should have the name "iepclk-mux".
+
+Required Properties:
+--------------------
+-#clock-cells   : should be 0
+-clocks         : phandles to the 2 input clocks to the IEPCLK MUX.
+
+CORECLK MUX Clock node
+======================
+This is applicable only for ICSSG (K3 SoCs). The ICSSG modules core clock
+can be set to one of the 2 sources i.e. CORE_CLK input to the ICSSG module
+or VBUS clock. This node models this clock mux and should have the name
+"coreclk-mux".
+
+Required Properties:
+--------------------
+-#clock-cells   : should be 0
+-clocks         : phandles to the 2 input clocks to the CORECLK MUX.
+
+
 PRUSS INTC Node
 ================
 Each PRUSS has a single interrupt controller instance that is common to all
