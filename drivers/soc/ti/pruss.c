@@ -7,6 +7,7 @@
  *	Andrew F. Davis <afd@ti.com>
  */
 
+#include <linux/clk-provider.h>
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/mfd/syscon.h>
@@ -15,6 +16,11 @@
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/pruss_driver.h>
+#include <linux/regmap.h>
+#include <linux/slab.h>
+
+#define PRUSS_CFG_IEPCLK	0x30
+#define ICSSG_CFG_CORE_SYNC	0x3c
 
 /**
  * struct pruss_private_data - PRUSS driver private data
@@ -34,6 +40,79 @@ struct pruss_match_private_data {
 	const struct pruss_private_data *priv_data;
 };
 
+static void pruss_of_free_clk_provider(void *data)
+{
+	struct device_node *clk_mux_np = data;
+
+	of_clk_del_provider(clk_mux_np);
+	of_node_put(clk_mux_np);
+}
+
+static int pruss_clk_mux_setup(struct pruss *pruss, struct clk *clk_mux,
+			       char *mux_name, unsigned int reg_offset)
+{
+	unsigned int num_parents;
+	const char **parent_names;
+	void __iomem *reg;
+	int ret;
+	char *clk_mux_name = NULL;
+	struct device_node *clk_mux_np;
+
+	clk_mux_np = of_get_child_by_name(pruss->dev->of_node, mux_name);
+	if (!clk_mux_np)
+		return -EINVAL;
+
+	num_parents = of_clk_get_parent_count(clk_mux_np);
+	if (num_parents < 1) {
+		dev_err(pruss->dev, "mux-clock %pOF must have parents\n",
+			clk_mux_np);
+		return -EINVAL;
+	}
+
+	parent_names = devm_kcalloc(pruss->dev, sizeof(char *), num_parents,
+				    GFP_KERNEL);
+	if (!parent_names)
+		return -ENOMEM;
+
+	of_clk_parent_fill(clk_mux_np, parent_names, num_parents);
+
+	clk_mux_name = devm_kasprintf(pruss->dev, GFP_KERNEL, "%s.%pOFn",
+				      dev_name(pruss->dev), clk_mux_np);
+	if (!clk_mux_name)
+		return -ENOMEM;
+
+	reg = pruss->cfg_base + reg_offset;
+	/*
+	 * WARN: dev must be NULL to avoid recursive incrementing
+	 * of module refcnt
+	 */
+	clk_mux = clk_register_mux(NULL, clk_mux_name, parent_names,
+				   num_parents, 0, reg, 0, 1, 0, NULL);
+	if (IS_ERR(clk_mux))
+		return PTR_ERR(clk_mux);
+
+	ret = devm_add_action_or_reset(pruss->dev,
+				       (void(*)(void *))clk_unregister_mux,
+				       clk_mux);
+	if (ret) {
+		dev_err(pruss->dev, "failed to add clkmux reset action %d",
+			ret);
+		return ret;
+	}
+
+	ret = of_clk_add_provider(clk_mux_np, of_clk_src_simple_get, clk_mux);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(pruss->dev, pruss_of_free_clk_provider,
+				       clk_mux_np);
+	if (ret)
+		dev_err(pruss->dev, "failed to add clkmux reset action %d",
+			ret);
+
+	return ret;
+}
+
 static const
 struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
 {
@@ -51,6 +130,12 @@ struct pruss_private_data *pruss_get_private_data(struct platform_device *pdev)
 	return ERR_PTR(-ENODEV);
 }
 
+static const struct regmap_config syscon_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = 4,
+};
+
 static int pruss_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -61,6 +146,7 @@ static int pruss_probe(struct platform_device *pdev)
 	int ret, i, index;
 	const struct pruss_private_data *data;
 	const char *mem_names[PRUSS_MEM_MAX] = { "dram0", "dram1", "shrdram2" };
+	struct regmap_config syscon_config = syscon_regmap_config;
 
 	if (!node) {
 		dev_err(dev, "Non-DT platform device not supported\n");
@@ -141,10 +227,47 @@ static int pruss_probe(struct platform_device *pdev)
 		goto rpm_put;
 	}
 
-	pruss->cfg = syscon_node_to_regmap(np);
+	if (of_address_to_resource(np, 0, &res)) {
+		ret = -ENOMEM;
+		of_node_put(np);
+		goto rpm_put;
+	}
 	of_node_put(np);
+
+	pruss->cfg_base = devm_ioremap(dev, res.start, resource_size(&res));
+	if (!pruss->cfg_base) {
+		ret = -ENOMEM;
+		goto rpm_put;
+	}
+
+	if (!of_device_is_compatible(pdev->dev.of_node, "ti,am654-icssg"))
+		goto skip_mux;
+
+	ret = pruss_clk_mux_setup(pruss, pruss->core_clk_mux, "coreclk-mux",
+				  ICSSG_CFG_CORE_SYNC);
+	if (ret) {
+		dev_err(dev, "failed to setup coreclk-mux\n");
+		goto rpm_put;
+	}
+
+	ret = pruss_clk_mux_setup(pruss, pruss->core_clk_mux, "iepclk-mux",
+				  PRUSS_CFG_IEPCLK);
+	if (ret) {
+		dev_err(dev, "failed to setup iepclk-mux\n");
+		goto rpm_put;
+	}
+
+skip_mux:
+	syscon_config.name = kasprintf(GFP_KERNEL, "%pOFn@%llx", np,
+				       (u64)res.start);
+	syscon_config.max_register = resource_size(&res) - 4;
+
+	pruss->cfg = regmap_init_mmio(NULL, pruss->cfg_base, &syscon_config);
+	kfree(syscon_config.name);
 	if (IS_ERR(pruss->cfg)) {
-		ret = -ENODEV;
+		dev_err(dev, "regmap_init_mmio failed for cfg, ret = %ld\n",
+			PTR_ERR(pruss->cfg));
+		ret = PTR_ERR(pruss->cfg);
 		goto rpm_put;
 	}
 
@@ -152,11 +275,13 @@ static int pruss_probe(struct platform_device *pdev)
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
 	if (ret) {
 		dev_err(dev, "of_platform_populate failed\n");
-		goto rpm_put;
+		goto reg_exit;
 	}
 
 	return 0;
 
+reg_exit:
+	regmap_exit(pruss->cfg);
 rpm_put:
 	pm_runtime_put_sync(dev);
 rpm_disable:
@@ -167,6 +292,9 @@ rpm_disable:
 static int pruss_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct pruss *pruss = platform_get_drvdata(pdev);
+
+	regmap_exit(pruss->cfg);
 
 	dev_dbg(dev, "remove PRU cores and other child platform devices\n");
 	of_platform_depopulate(dev);
