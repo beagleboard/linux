@@ -4752,6 +4752,43 @@ static void spi_nor_init_params(struct spi_nor *nor)
 	spi_nor_late_init_params(nor);
 }
 
+/* Calibrate controller for given mode */
+static int spi_nor_calibrate(struct spi_nor *nor, enum spi_nor_mode mode)
+{
+	/* Use first 16 bytes of SFDP Header as calibration data */
+	int size = sizeof(struct sfdp_parameter_header) << 1;
+	u8 addr_width = nor->addr_width;
+	u8 *calibration_data;
+	int ret;
+
+	if (!nor->calibrate)
+		return 0;
+
+	calibration_data = kmalloc(size, GFP_KERNEL);
+	if (!calibration_data)
+		return -ENOMEM;
+
+	ret = spi_nor_read_sfdp(nor, 0, size, calibration_data);
+	if (ret)
+		goto free_mem;
+
+	nor->preferred_mode = mode;
+	spi_nor_select_mode(nor, nor->preferred_mode);
+
+	nor->addr_width = 4;
+	nor->read_opcode = SPINOR_OP_RDSFDP;
+	nor->read_dummy = 8;
+
+	ret = nor->calibrate(nor, calibration_data, size);
+
+	spi_nor_select_mode(nor, SPI_NOR_MODE_SPI);
+	nor->addr_width = addr_width;
+free_mem:
+	kfree(calibration_data);
+
+	return ret;
+}
+
 /**
  * spi_nor_quad_enable() - enable Quad I/O if needed.
  * @nor:                pointer to a 'struct spi_nor'
@@ -4790,6 +4827,14 @@ static int spi_nor_init(struct spi_nor *nor)
 	if (err) {
 		dev_err(nor->dev, "quad mode not supported\n");
 		return err;
+	}
+
+	if (nor->info->flags & SPI_NOR_OPI_DTR) {
+		err = spi_nor_calibrate(nor, SPI_NOR_MODE_OPI_DTR);
+		if (err) {
+			dev_err(nor->dev, "Controller calibration failed\n");
+			return err;
+		}
 	}
 
 	if (nor->addr_width == 4 && !(nor->flags & SNOR_F_4B_OPCODES)) {
