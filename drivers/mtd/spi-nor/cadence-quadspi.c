@@ -1201,19 +1201,26 @@ static void cqspi_controller_init(struct cqspi_st *cqspi)
 	cqspi_controller_enable(cqspi, 1);
 }
 
-static void cqspi_request_mmap_dma(struct cqspi_st *cqspi)
+static int cqspi_request_mmap_dma(struct cqspi_st *cqspi)
 {
+	struct dma_chan *rx_chan;
+
 	dma_cap_mask_t mask;
 
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_MEMCPY, mask);
 
-	cqspi->rx_chan = dma_request_chan_by_mask(&mask);
-	if (IS_ERR(cqspi->rx_chan)) {
+	rx_chan = dma_request_chan_by_mask(&mask);
+	if (PTR_ERR(rx_chan) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+	if (IS_ERR(rx_chan)) {
 		dev_err(&cqspi->pdev->dev, "No Rx DMA available\n");
-		cqspi->rx_chan = NULL;
+		return 0;
 	}
+	cqspi->rx_chan = rx_chan;
 	init_completion(&cqspi->rx_dma_complete);
+
+	return 0;
 }
 
 static int cqspi_setup_flash(struct cqspi_st *cqspi, struct device_node *np)
@@ -1296,8 +1303,11 @@ static int cqspi_setup_flash(struct cqspi_st *cqspi, struct device_node *np)
 			dev_dbg(nor->dev, "using direct mode for %s\n",
 				mtd->name);
 
-			if (!cqspi->rx_chan)
-				cqspi_request_mmap_dma(cqspi);
+			if (!cqspi->rx_chan) {
+				ret = cqspi_request_mmap_dma(cqspi);
+				if (ret)
+					goto err;
+			}
 		}
 	}
 
