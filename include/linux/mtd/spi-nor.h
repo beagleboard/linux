@@ -121,6 +121,9 @@
 /* Used for Micron flashes only. */
 #define SPINOR_OP_RD_EVCR      0x65    /* Read EVCR register */
 #define SPINOR_OP_WD_EVCR      0x61    /* Write EVCR register */
+#define SPINOR_OP_WR_VCR       0x81	/* Write VCR register */
+#define SPINOR_OP_RESET_EN     0x66	/* Enable Soft reset */
+#define SPINOR_OP_RESET_MEM    0x99	/* Reset memory */
 
 /* Status Register bits. */
 #define SR_WIP			BIT(0)	/* Write in progress */
@@ -139,6 +142,9 @@
 
 /* Enhanced Volatile Configuration Register bits */
 #define EVCR_QUAD_EN_MICRON	BIT(7)	/* Micron Quad I/O */
+
+/* Micron VCR Register Settings */
+#define VCR_OCTAL_DDR_EN_MICRON	0xe7	/* Octal DDR with DQS mode */
 
 /* Flag Status Register bits */
 #define FSR_READY		BIT(7)	/* Device status, 0 = Busy, 1 = Ready */
