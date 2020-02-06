@@ -10,6 +10,24 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/k3.h>
 
+/ {
+   fragment@101 {
+	target-path = "/";
+
+	__overlay__ {
+		gpio-decoder {
+			compatible = "gpio-decoder";
+			gpios = <&pca9536 3 GPIO_ACTIVE_HIGH>,
+				<&pca9536 2 GPIO_ACTIVE_HIGH>,
+				<&pca9536 1 GPIO_ACTIVE_HIGH>,
+				<&pca9536 0 GPIO_ACTIVE_HIGH>;
+			linux,axis = <0>; /* ABS_X */
+			decoder-max-value = <9>;
+		};
+	};
+  };
+};
+
 &main_pmx0 {
 	mcan0_gpio_pins_default: mcan0_gpio_pins_default {
 		pinctrl-single,pins = <
@@ -57,5 +75,19 @@
 	stb-gpios = <&main_gpio1 67 GPIO_ACTIVE_HIGH>;
 	can-transceiver {
 		max-bitrate = <5000000>;
+	};
+};
+
+&main_i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pca9536: gpio@41 {
+		compatible = "ti,pca9536";
+		reg = <0x41>;
+		gpio-controller;
+		#gpio-cells = <2>;
 	};
 };
