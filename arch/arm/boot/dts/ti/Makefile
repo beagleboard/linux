@@ -16,6 +16,8 @@ dtb-y += \
 
 # overlays
 dtb-y += am57xx-evm.dtbo \
+	am57xx-evm-common.dtbo \
+	am57xx-evm-reva3.dtbo \
 	ov10635.dtbo \
 	lcd-osd101t2045.dtbo lcd-osd101t2587.dtbo \
 	dra72-evm-touchscreen.dtbo dra74-evm-touchscreen.dtbo \
