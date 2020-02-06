@@ -245,6 +245,15 @@ enum spi_nor_option_flags {
 	SNOR_F_HAS_LOCK		= BIT(8),
 };
 
+enum spi_nor_mode {
+	SPI_NOR_MODE_SPI = 0,
+	SPI_NOR_MODE_DPI,
+	SPI_NOR_MODE_QPI,
+	SPI_NOR_MODE_OPI,
+	SPI_NOR_MODE_OPI_DTR,
+	SPI_NOR_NUM_MODES,
+};
+
 /**
  * struct spi_nor_erase_type - Structure to describe a SPI NOR erase type
  * @size:		the size of the sector/block erased by the erase type.
@@ -518,6 +527,8 @@ struct spi_nor_flash_parameter {
 	int (*set_4byte)(struct spi_nor *nor, bool enable);
 	u32 (*convert_addr)(struct spi_nor *nor, u32 addr);
 	int (*setup)(struct spi_nor *nor, const struct spi_nor_hwcaps *hwcaps);
+	int (*change_mode)(struct spi_nor *nor, enum spi_nor_mode mode);
+	void (*adjust_op)(struct spi_nor *nor, enum spi_nor_mode mode);
 
 	const struct spi_nor_locking_ops *locking_ops;
 };
@@ -587,6 +598,9 @@ struct spi_nor {
 	enum spi_nor_protocol	reg_proto;
 	bool			sst_write_second;
 	u32			flags;
+
+	enum spi_nor_mode       mode;
+	enum spi_nor_mode       preferred_mode;
 
 	int (*prepare)(struct spi_nor *nor, enum spi_nor_ops ops);
 	void (*unprepare)(struct spi_nor *nor, enum spi_nor_ops ops);
