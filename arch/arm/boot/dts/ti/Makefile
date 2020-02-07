@@ -24,6 +24,7 @@ dtb-y += am57xx-evm.dtbo \
 	dra7x-evm-osd-lcd-common.dtbo \
 	am571x-idk-touchscreen.dtbo am572x-idk-touchscreen.dtbo \
 	am57xx-idk-osd-lcd-common.dtbo \
+	am571x-idk-icss1eth.dtbo \
 	dra71-evm-lcd-auo-g101evn01.0.dtbo \
 	dra71-evm-nand.dtbo \
 	dra76-evm-tfp410.dtbo

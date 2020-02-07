@@ -149,7 +149,7 @@
 	};
 
 	/* Dual-MAC Ethernet application node on PRU-ICSS2 */
-	pruss2_eth {
+	pruss2_eth: pruss2_eth {
 		compatible = "ti,am57-prueth";
 		prus = <&pru2_0>, <&pru2_1>;
 		firmware-name = "ti-pruss/am57xx-pru0-prueth-fw.elf",
