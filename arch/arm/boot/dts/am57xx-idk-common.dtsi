@@ -617,3 +617,11 @@
 		};
 	};
 };
+
+&pruss1_tm {
+	status = "okay";
+};
+
+&pruss2_tm {
+	status = "okay";
+};
