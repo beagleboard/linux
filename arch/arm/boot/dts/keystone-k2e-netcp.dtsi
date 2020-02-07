@@ -125,6 +125,100 @@ knav_dmas: knav_dmas@0 {
 	};
 };
 
+gbe_serdes0: phy@232a000 {
+	compatible		= "ti,keystone-serdes-gbe";
+	reg			= <0x0232a000 0x2000>;
+	status			= "disabled";
+	link-rate-kbps		= <1250000>;
+	num-lanes		= <4>;
+	#address-cells	= <1>;
+	#size-cells	= <0>;
+
+	serdes0_lane0: lane@0 {
+		#phy-cells	= <0>;
+		reg		= <0>;
+		status		= "ok";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+	serdes0_lane1: lane@1 {
+		#phy-cells	= <0>;
+		reg		= <1>;
+		status		= "ok";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+	serdes0_lane2: lane@2 {
+		#phy-cells	= <0>;
+		reg		= <2>;
+		status		= "disabled";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+	serdes0_lane3: lane@3 {
+		#phy-cells	= <0>;
+		reg		= <3>;
+		status		= "disabled";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+};
+
+gbe_serdes1: phy@2324000 {
+	compatible		= "ti,keystone-serdes-gbe";
+	reg			= <0x02324000 0x2000>;
+	status			= "disabled";
+	link-rate-kbps		= <1250000>;
+	num-lanes		= <4>;
+	#address-cells	= <1>;
+	#size-cells	= <0>;
+
+	serdes1_lane0: lane@0 {
+		#phy-cells	= <0>;
+		reg		= <0>;
+		status		= "disabled";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+	serdes1_lane1: lane@1 {
+		#phy-cells	= <0>;
+		reg		= <1>;
+		status		= "disabled";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+	serdes1_lane2: lane@2 {
+		#phy-cells	= <0>;
+		reg		= <2>;
+		status		= "disabled";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+	serdes1_lane3: lane@3 {
+		#phy-cells	= <0>;
+		reg		= <3>;
+		status		= "disabled";
+		control-rate	= <2>;
+		rx-start	= <7 5>;
+		rx-force	= <1 1>;
+		tx-coeff	= <0 0 0 12 4>;
+	};
+};
+
 netcp: netcp@24000000 {
 	reg = <0x2620110 0x8>;
 	reg-names = "efuse";
@@ -152,18 +246,19 @@ netcp: netcp@24000000 {
 			label = "netcp-gbe";
 			compatible = "ti,netcp-gbe-9";
 			reg = <0x200000 0x900>, <0x220000 0x20000>;
-			/* enable-ale; */
 			tx-queue = <896>;
 			tx-channel = "nettx";
 
 			interfaces {
 				gbe0: interface-0 {
-					slave-port = <0>;
+					phys		= <&serdes0_lane0>;
+					slave-port	= <0>;
 					link-interface	= <1>;
 					phy-handle	= <&ethphy0>;
 				};
 				gbe1: interface-1 {
-					slave-port = <1>;
+					phys		= <&serdes0_lane1>;
+					slave-port	= <1>;
 					link-interface	= <1>;
 					phy-handle	= <&ethphy1>;
 				};
@@ -171,26 +266,32 @@ netcp: netcp@24000000 {
 
 			secondary-slave-ports {
 				port-2 {
+					phys = <&serdes0_lane2>;
 					slave-port = <2>;
 					link-interface	= <2>;
 				};
 				port-3 {
+					phys = <&serdes0_lane3>;
 					slave-port = <3>;
 					link-interface	= <2>;
 				};
 				port-4 {
+					phys = <&serdes1_lane0>;
 					slave-port = <4>;
 					link-interface	= <2>;
 				};
 				port-5 {
+					phys = <&serdes1_lane1>;
 					slave-port = <5>;
 					link-interface	= <2>;
 				};
 				port-6 {
+					phys = <&serdes1_lane2>;
 					slave-port = <6>;
 					link-interface	= <2>;
 				};
 				port-7 {
+					phys = <&serdes1_lane3>;
 					slave-port = <7>;
 					link-interface	= <2>;
 				};
