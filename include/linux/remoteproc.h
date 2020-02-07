@@ -106,6 +106,10 @@ struct fw_rsc_hdr {
  *		    the remote processor will be writing logs.
  * @RSC_VDEV:       declare support for a virtio device, and serve as its
  *		    virtio header.
+ * @RSC_PRELOAD_VENDOR: a vendor resource type that needs to be handled by
+ *		    remoteproc implementations before loading
+ * @RSC_POSTLOAD_VENDOR: a vendor resource type that needs to be handled by
+ *		    remoteproc implementations after loading
  * @RSC_LAST:       just keep this one at the end of standard resources
  * @RSC_VENDOR_START:	start of the vendor specific resource types range
  * @RSC_VENDOR_END:	end of the vendor specific resource types range
@@ -123,7 +127,9 @@ enum fw_resource_type {
 	RSC_DEVMEM		= 1,
 	RSC_TRACE		= 2,
 	RSC_VDEV		= 3,
-	RSC_LAST		= 4,
+	RSC_PRELOAD_VENDOR	= 4,
+	RSC_POSTLOAD_VENDOR	= 5,
+	RSC_LAST		= 6,
 	RSC_VENDOR_START	= 128,
 	RSC_VENDOR_END		= 512,
 };
@@ -344,6 +350,24 @@ struct fw_rsc_vdev {
 struct rproc;
 
 /**
+ * struct fw_rsc_vendor - vendor resource definition
+ * @sub_type: implementation specific type including version field
+ * @size: size of the vendor custom resource
+ * @data: label for the start of the resource
+ */
+struct fw_rsc_vendor {
+	union {
+		u32 sub_type;
+		struct {
+			u16 st_type;
+			u16 st_ver;
+		} st;
+	} u;
+	u32 size;
+	u8 data[0];
+} __packed;
+
+/**
  * struct rproc_mem_entry - memory entry descriptor
  * @va:	virtual address
  * @dma: dma address
@@ -399,6 +423,7 @@ enum rsc_handling_status {
  * negative value on error
  * @load_rsc_table:	load resource table from firmware image
  * @find_loaded_rsc_table: find the loaded resouce table
+ * @handle_vendor_rsc:	hook to handle device specific resource table entries
  * @load:		load firmware to memory, where the remote processor
  *			expects to find it
  * @sanity_check:	sanity check the fw image
@@ -416,6 +441,8 @@ struct rproc_ops {
 			  int offset, int avail);
 	struct resource_table *(*find_loaded_rsc_table)(
 				struct rproc *rproc, const struct firmware *fw);
+	int (*handle_vendor_rsc)(struct rproc *rproc,
+				 struct fw_rsc_vendor *rsc);
 	int (*load)(struct rproc *rproc, const struct firmware *fw);
 	int (*sanity_check)(struct rproc *rproc, const struct firmware *fw);
 	u32 (*get_boot_addr)(struct rproc *rproc, const struct firmware *fw);
@@ -515,6 +542,7 @@ struct rproc_dump_segment {
  * @table_sz: size of @cached_table
  * @has_iommu: flag to indicate if remote processor is behind an MMU
  * @auto_boot: flag to indicate if remote processor should be auto-started
+ * @deny_sysfs_ops: flag to not permit sysfs operations on state and firmware
  * @skip_firmware_request: flag to skip requesting the firmware
  * @skip_load: flag to skip the loading of firmware segments
  * @dump_segments: list of segments in the firmware
@@ -550,6 +578,7 @@ struct rproc {
 	size_t table_sz;
 	bool has_iommu;
 	bool auto_boot;
+	unsigned int deny_sysfs_ops		: 1;
 	unsigned int skip_firmware_request	: 1;
 	unsigned int skip_load			: 1;
 	struct list_head dump_segments;
@@ -650,6 +679,7 @@ rproc_of_resm_mem_entry_init(struct device *dev, u32 of_resm_idx, int len,
 
 int rproc_boot(struct rproc *rproc);
 void rproc_shutdown(struct rproc *rproc);
+int rproc_set_firmware(struct rproc *rproc, const char *fw_name);
 void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type);
 void *rproc_da_to_va(struct rproc *rproc, u64 da, int len);
 int rproc_coredump_add_segment(struct rproc *rproc, dma_addr_t da, size_t size);

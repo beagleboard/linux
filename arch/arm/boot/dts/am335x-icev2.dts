@@ -510,3 +510,7 @@
 		reg = <3>;
 	};
 };
+
+&pruss_tm {
+	status = "okay";
+};

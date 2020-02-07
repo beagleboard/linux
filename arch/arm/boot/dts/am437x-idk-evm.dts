@@ -534,3 +534,7 @@
 		opp-suspend;
 	};
 };
+
+&pruss_tm {
+	status = "okay";
+};
