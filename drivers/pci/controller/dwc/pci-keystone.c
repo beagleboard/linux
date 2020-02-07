@@ -144,6 +144,7 @@ struct keystone_pcie {
 	/* PCI Device ID */
 	u32			device_id;
 	struct			device_node *legacy_intc_np;
+	struct irq_domain	*legacy_irq_domain;
 
 	int			msi_host_irq;
 	int			num_lanes;
@@ -323,6 +324,29 @@ static irqreturn_t ks_pcie_handle_error_irq(struct keystone_pcie *ks_pcie)
 	ks_pcie_app_writel(ks_pcie, ERR_IRQ_STATUS, reg);
 
 	return IRQ_HANDLED;
+}
+
+static void ks_pcie_am654_legacy_irq_handler(struct irq_desc *desc)
+{
+	struct keystone_pcie *ks_pcie = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	int virq, i;
+	u32 reg;
+
+	chained_irq_enter(chip, desc);
+
+	for (i = 0; i < PCI_NUM_INTX; i++) {
+		reg = ks_pcie_app_readl(ks_pcie, IRQ_STATUS(i));
+		if (!(reg & INTx_EN))
+			continue;
+
+		virq = irq_linear_revmap(ks_pcie->legacy_irq_domain, i);
+		generic_handle_irq(virq);
+		ks_pcie_app_writel(ks_pcie, IRQ_STATUS(i), INTx_EN);
+		ks_pcie_app_writel(ks_pcie, IRQ_EOI, i);
+	}
+
+	chained_irq_exit(chip, desc);
 }
 
 void ks_pcie_irq_eoi(struct irq_data *data)
@@ -784,6 +808,57 @@ err:
 	return ret;
 }
 
+static int ks_pcie_am654_intx_map(struct irq_domain *domain, unsigned int irq,
+				  irq_hw_number_t hwirq)
+{
+	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_simple_irq);
+	irq_set_chip_data(irq, domain->host_data);
+
+	return 0;
+}
+
+static const struct irq_domain_ops ks_pcie_am654_irq_domain_ops = {
+	.map = ks_pcie_am654_intx_map,
+};
+
+static int ks_pcie_am654_config_legacy_irq(struct keystone_pcie *ks_pcie)
+{
+	struct device *dev = ks_pcie->pci->dev;
+	struct irq_domain *legacy_irq_domain;
+	struct device_node *np = ks_pcie->np;
+	struct device_node *intc_np;
+	int ret = 0;
+	int irq;
+	int i;
+
+	intc_np = of_get_child_by_name(np, "legacy-interrupt-controller");
+	if (!intc_np) {
+		dev_warn(dev, "legacy-interrupt-controller node is absent\n");
+		return -EINVAL;
+	}
+
+	irq = irq_of_parse_and_map(intc_np, 0);
+	if (!irq)
+		return -EINVAL;
+
+	irq_set_chained_handler_and_data(irq, ks_pcie_am654_legacy_irq_handler,
+					 ks_pcie);
+
+	legacy_irq_domain = irq_domain_add_linear(intc_np, PCI_NUM_INTX,
+						  &ks_pcie_am654_irq_domain_ops,
+						  ks_pcie);
+	if (!legacy_irq_domain) {
+		dev_err(dev, "Failed to add irq domain for legacy irqs\n");
+		return -EINVAL;
+	}
+	ks_pcie->legacy_irq_domain = legacy_irq_domain;
+
+	for (i = 0; i < PCI_NUM_INTX; i++)
+		ks_pcie_app_writel(ks_pcie, IRQ_ENABLE_SET(i), INTx_EN);
+
+	return ret;
+}
+
 static int ks_pcie_config_legacy_irq(struct keystone_pcie *ks_pcie)
 {
 	struct device *dev = ks_pcie->pci->dev;
@@ -796,12 +871,6 @@ static int ks_pcie_config_legacy_irq(struct keystone_pcie *ks_pcie)
 
 	intc_np = of_get_child_by_name(np, "legacy-interrupt-controller");
 	if (!intc_np) {
-		/*
-		 * Since legacy interrupts are modeled as edge-interrupts in
-		 * AM6, keep it disabled for now.
-		 */
-		if (ks_pcie->is_am6)
-			return 0;
 		dev_warn(dev, "legacy-interrupt-controller node is absent\n");
 		return -EINVAL;
 	}
@@ -899,9 +968,15 @@ static int __init ks_pcie_host_init(struct pcie_port *pp)
 	struct keystone_pcie *ks_pcie = to_keystone_pcie(pci);
 	int ret;
 
-	ret = ks_pcie_config_legacy_irq(ks_pcie);
-	if (ret)
-		return ret;
+	if (!ks_pcie->is_am6) {
+		ret = ks_pcie_config_legacy_irq(ks_pcie);
+		if (ret)
+			return ret;
+	} else {
+		ret = ks_pcie_am654_config_legacy_irq(ks_pcie);
+		if (ret)
+			return ret;
+	}
 
 	ret = ks_pcie_config_msi_irq(ks_pcie);
 	if (ret)
