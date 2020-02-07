@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/omap-mailbox.h>
+#include <linux/pruss.h>
 #include <linux/pruss_driver.h>
 #include <linux/pruss_intc.h>
 #include <linux/irqchip/irq-pruss-intc.h>
@@ -79,6 +80,7 @@ enum pru_type {
  * @dev: PRU core device pointer
  * @pruss: back-reference to parent PRUSS structure
  * @rproc: remoteproc pointer for this PRU core
+ * @client_np: client device node
  * @mbox: mailbox channel handle used for vring signalling with MPU
  * @client: mailbox client to request the mailbox channel
  * @type: type of the PRU core (PRU, RTU, Tx_PRU)
@@ -86,13 +88,18 @@ enum pru_type {
  * @irq_kick: IRQ number to use to perform virtio kick
  * @mem_regions: data for each of the PRU memory regions
  * @intc_config: PRU INTC configuration data
+ * @rmw_lock: lock for read, modify, write operations on registers
  * @iram_da: device address of Instruction RAM for this PRU
  * @pdram_da: device address of primary Data RAM for this PRU
  * @sdram_da: device address of secondary Data RAM for this PRU
  * @shrdram_da: device address of shared Data RAM
  * @fw_name: name of firmware image used during loading
+ * @dt_irqs: number of irqs configured from DT
+ * @gpmux_save: saved value for gpmux config
+ * @lock: mutex to protect client usage
  * @dbg_single_step: debug state variable to set PRU into single step mode
  * @dbg_continuous: debug state variable to restore PRU execution mode
+ * @fw_has_intc_rsc: boolean flag to indicate INTC config through firmware
  * @is_k3: boolean flag used to indicate the core has increased number of events
  */
 struct pru_rproc {
@@ -100,6 +107,7 @@ struct pru_rproc {
 	struct device *dev;
 	struct pruss *pruss;
 	struct rproc *rproc;
+	struct device_node *client_np;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
 	enum pru_type type;
@@ -107,13 +115,18 @@ struct pru_rproc {
 	int irq_kick;
 	struct pruss_mem_region mem_regions[PRU_IOMEM_MAX];
 	struct pruss_intc_config intc_config;
+	spinlock_t rmw_lock; /* register access lock */
 	u32 iram_da;
 	u32 pdram_da;
 	u32 sdram_da;
 	u32 shrdram_da;
 	const char *fw_name;
+	int dt_irqs;
+	u8 gpmux_save;
+	struct mutex lock; /* client access lock */
 	u32 dbg_single_step;
 	u32 dbg_continuous;
+	unsigned int fw_has_intc_rsc : 1;
 	unsigned int is_k3 : 1;
 };
 
@@ -129,6 +142,353 @@ void pru_control_write_reg(struct pru_rproc *pru, unsigned int reg, u32 val)
 {
 	writel_relaxed(val, pru->mem_regions[PRU_IOMEM_CTRL].va + reg);
 }
+
+static inline
+void pru_control_set_reg(struct pru_rproc *pru, unsigned int reg,
+			 u32 mask, u32 set)
+{
+	u32 val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&pru->rmw_lock, flags);
+
+	val = pru_control_read_reg(pru, reg);
+	val &= ~mask;
+	val |= (set & mask);
+	pru_control_write_reg(pru, reg, val);
+
+	spin_unlock_irqrestore(&pru->rmw_lock, flags);
+}
+
+/**
+ * pru_rproc_set_firmware() - set firmware for a pru core
+ * @rproc: the rproc instance of the PRU
+ * @fw_name: the new firmware name, or NULL if default is desired
+ */
+static int pru_rproc_set_firmware(struct rproc *rproc, const char *fw_name)
+{
+	struct pru_rproc *pru = rproc->priv;
+
+	if (!fw_name)
+		fw_name = pru->fw_name;
+
+	return rproc_set_firmware(rproc, fw_name);
+}
+
+static int pru_rproc_intc_dt_config(struct pru_rproc *pru, int index)
+{
+	struct device *dev = &pru->rproc->dev;
+	struct device_node *np = pru->client_np;
+	struct property *prop;
+	const char *prop_name = "ti,pru-interrupt-map";
+	u8 max_system_events, max_pru_channels, max_pru_host_ints;
+	int ret = 0, i;
+	int dt_irqs;
+	u32 *arr;
+	bool has_irqs = false;
+
+	prop = of_find_property(np, prop_name, NULL);
+	if (!prop)
+		return 0;
+
+	dt_irqs = of_property_count_u32_elems(np, prop_name);
+	if (dt_irqs <= 0 || dt_irqs % 4) {
+		dev_err(dev, "bad interrupt map data %d, expected multiple of 4\n",
+			dt_irqs);
+		return -EINVAL;
+	}
+
+	arr = kmalloc_array(dt_irqs, sizeof(u32), GFP_KERNEL);
+	if (!arr)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, prop_name, arr, dt_irqs);
+	if (ret) {
+		dev_err(dev, "failed to read pru irq map: %d\n", ret);
+		goto out;
+	}
+
+	max_system_events = pru->is_k3 ? 160 : 64;
+	max_pru_channels = pru->is_k3 ? 20 : 10;
+	max_pru_host_ints = pru->is_k3 ? 20 : 10;
+
+	for (i = 0; i < ARRAY_SIZE(pru->intc_config.sysev_to_ch); i++)
+		pru->intc_config.sysev_to_ch[i] = -1;
+
+	for (i = 0; i < ARRAY_SIZE(pru->intc_config.ch_to_host); i++)
+		pru->intc_config.ch_to_host[i] = -1;
+
+	for (i = 0; i < dt_irqs; i += 4) {
+		if (arr[i] != index)
+			continue;
+
+		if (arr[i + 1] < 0 ||
+		    arr[i + 1] >= max_system_events) {
+			dev_err(dev, "bad sys event %d\n", arr[i + 1]);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if (arr[i + 2] < 0 ||
+		    arr[i + 2] >= max_pru_channels) {
+			dev_err(dev, "bad channel %d\n", arr[i + 2]);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		if (arr[i + 3] < 0 ||
+		    arr[i + 3] >= max_pru_host_ints) {
+			dev_err(dev, "bad irq %d\n", arr[i + 3]);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		pru->intc_config.sysev_to_ch[arr[i + 1]] = arr[i + 2];
+		dev_dbg(dev, "sysevt-to-ch[%d] -> %d\n", arr[i + 1],
+			arr[i + 2]);
+
+		pru->intc_config.ch_to_host[arr[i + 2]] = arr[i + 3];
+		dev_dbg(dev, "chnl-to-host[%d] -> %d\n", arr[i + 2],
+			arr[i + 3]);
+
+		has_irqs = true;
+	}
+
+	/*
+	 * The property "ti,pru-interrupt-map" is used in a consumer node, but
+	 * need not necessarily have data for all referenced PRUs. Provide a
+	 * fallback to get the interrupt data from firmware for PRUs ith no
+	 * interrupt data.
+	 */
+	if (!has_irqs) {
+		dev_dbg(dev, "no DT irqs, falling back to firmware intc rsc mode\n");
+		goto out;
+	}
+
+	pru->dt_irqs = dt_irqs;
+	ret = pruss_intc_configure(pru->dev, &pru->intc_config);
+	if (ret) {
+		dev_err(dev, "failed to configure intc %d\n", ret);
+		pru->dt_irqs = 0;
+	}
+
+out:
+	kfree(arr);
+
+	return ret;
+}
+
+static struct rproc *__pru_rproc_get(struct device_node *np, int index)
+{
+	struct device_node *rproc_np = NULL;
+	struct platform_device *pdev;
+	struct rproc *rproc;
+
+	rproc_np = of_parse_phandle(np, "prus", index);
+	if (!rproc_np || !of_device_is_available(rproc_np))
+		return ERR_PTR(-ENODEV);
+
+	pdev = of_find_device_by_node(rproc_np);
+	of_node_put(rproc_np);
+
+	if (!pdev)
+		/* probably PRU not yet probed */
+		return ERR_PTR(-EPROBE_DEFER);
+
+	/* TODO: replace the crude string based check to make sure it is PRU */
+	if (!strstr(dev_name(&pdev->dev), "pru") &&
+	    !strstr(dev_name(&pdev->dev), "rtu")) {
+		put_device(&pdev->dev);
+		return ERR_PTR(-ENODEV);
+	}
+
+	rproc = platform_get_drvdata(pdev);
+	put_device(&pdev->dev);
+	if (!rproc)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	get_device(&rproc->dev);
+
+	return rproc;
+}
+
+/**
+ * pru_rproc_get() - get the PRU rproc instance from a device node
+ * @np: the user/client device node
+ * @index: index to use for the prus property
+ *
+ * This function looks through a client device node's "prus" property at index
+ * @index and returns the rproc handle for a valid PRU remote processor if
+ * found. The function allows only one user to own the PRU rproc resource at
+ * a time. Caller must call pru_rproc_put() when done with using the rproc,
+ * not required if the function returns a failure.
+ *
+ * Returns the rproc handle on success, and an ERR_PTR on failure using one
+ * of the following error values
+ *    -ENODEV if device is not found
+ *    -EBUSY if PRU is already acquired by anyone
+ *    -EPROBE_DEFER is PRU device is not probed yet
+ */
+struct rproc *pru_rproc_get(struct device_node *np, int index)
+{
+	struct rproc *rproc;
+	struct pru_rproc *pru;
+	const char *fw_name;
+	struct device *dev;
+	int ret;
+	u32 mux;
+
+	rproc = __pru_rproc_get(np, index);
+	if (IS_ERR(rproc))
+		return rproc;
+
+	pru = rproc->priv;
+	dev = &rproc->dev;
+
+	mutex_lock(&pru->lock);
+
+	if (pru->client_np) {
+		mutex_unlock(&pru->lock);
+		put_device(&rproc->dev);
+		return ERR_PTR(-EBUSY);
+	}
+
+	pru->client_np = np;
+	rproc->deny_sysfs_ops = 1;
+
+	mutex_unlock(&pru->lock);
+
+	ret = pruss_cfg_get_gpmux(pru->pruss, pru->id, &pru->gpmux_save);
+	if (ret) {
+		dev_err(dev, "failed to get cfg gpmux: %d\n", ret);
+		goto err;
+	}
+
+	ret = of_property_read_u32_index(np, "ti,pruss-gp-mux-sel", index,
+					 &mux);
+	if (!ret) {
+		ret = pruss_cfg_set_gpmux(pru->pruss, pru->id, mux);
+		if (ret) {
+			dev_err(dev, "failed to set cfg gpmux: %d\n", ret);
+			goto err;
+		}
+	}
+
+	ret = of_property_read_string_index(np, "firmware-name", index,
+					    &fw_name);
+	if (!ret) {
+		ret = pru_rproc_set_firmware(rproc, fw_name);
+		if (ret) {
+			dev_err(dev, "failed to set firmware: %d\n", ret);
+			goto err;
+		}
+	}
+
+	ret = pru_rproc_intc_dt_config(pru, index);
+	if (ret)
+		goto err;
+
+	return rproc;
+
+err:
+	pru_rproc_put(rproc);
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL_GPL(pru_rproc_get);
+
+/**
+ * pru_rproc_put() - release the PRU rproc resource
+ * @rproc: the rproc resource to release
+ *
+ * Releases the PRU rproc resource and makes it available to other
+ * users.
+ */
+void pru_rproc_put(struct rproc *rproc)
+{
+	struct pru_rproc *pru;
+
+	if (IS_ERR_OR_NULL(rproc))
+		return;
+
+	/* TODO: replace the crude string based check to make sure it is PRU */
+	if (!strstr(dev_name(rproc->dev.parent), "pru") &&
+	    !strstr(dev_name(rproc->dev.parent), "rtu"))
+		return;
+
+	pru = rproc->priv;
+	if (!pru->client_np)
+		return;
+
+	pruss_cfg_set_gpmux(pru->pruss, pru->id, pru->gpmux_save);
+
+	if (pru->dt_irqs)
+		pruss_intc_unconfigure(pru->dev, &pru->intc_config);
+
+	pru_rproc_set_firmware(rproc, NULL);
+
+	mutex_lock(&pru->lock);
+	pru->client_np = NULL;
+	rproc->deny_sysfs_ops = 0;
+	mutex_unlock(&pru->lock);
+
+	put_device(&rproc->dev);
+}
+EXPORT_SYMBOL_GPL(pru_rproc_put);
+
+/**
+ * pru_rproc_get_id() - get PRU id from a previously acquired PRU remoteproc
+ * @rproc: the rproc instance of the PRU
+ *
+ * Returns the PRU id of the PRU remote processor that has been acquired through
+ * a pru_rproc_get(), or a negative value on error
+ */
+enum pruss_pru_id pru_rproc_get_id(struct rproc *rproc)
+{
+	struct pru_rproc *pru;
+
+	if (IS_ERR_OR_NULL(rproc) || !rproc->dev.parent)
+		return -EINVAL;
+
+	/* TODO: replace the crude string based check to make sure it is PRU */
+	if (!strstr(dev_name(rproc->dev.parent), "pru") &&
+	    !strstr(dev_name(rproc->dev.parent), "rtu"))
+		return -EINVAL;
+
+	pru = rproc->priv;
+	return pru->id;
+}
+EXPORT_SYMBOL_GPL(pru_rproc_get_id);
+
+/**
+ * pru_rproc_set_ctable() - set the constant table index for the PRU
+ * @rproc: the rproc instance of the PRU
+ * @c: constant table index to set
+ * @addr: physical address to set it to
+ */
+int pru_rproc_set_ctable(struct rproc *rproc, enum pru_ctable_idx c, u32 addr)
+{
+	struct pru_rproc *pru = rproc->priv;
+	unsigned int reg;
+	u32 mask, set;
+	u16 idx;
+	u16 idx_mask;
+
+	/* pointer is 16 bit and index is 8-bit so mask out the rest */
+	idx_mask = (c >= PRU_C28) ? 0xFFFF : 0xFF;
+
+	/* ctable uses bit 8 and upwards only */
+	idx = (addr >> 8) & idx_mask;
+
+	/* configurable ctable (i.e. C24) starts at PRU_CTRL_CTBIR0 */
+	reg = PRU_CTRL_CTBIR0 + 4 * (c >> 1);
+	mask = idx_mask << (16 * (c & 1));
+	set = idx << (16 * (c & 1));
+
+	pru_control_set_reg(pru, reg, mask, set);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pru_rproc_set_ctable);
 
 static inline u32 pru_debug_read_reg(struct pru_rproc *pru, unsigned int reg)
 {
@@ -372,7 +732,8 @@ static int pru_rproc_start(struct rproc *rproc)
 	return 0;
 
 fail:
-	pruss_intc_unconfigure(pru->dev, &pru->intc_config);
+	if (!pru->dt_irqs && pru->fw_has_intc_rsc)
+		pruss_intc_unconfigure(pru->dev, &pru->intc_config);
 	return ret;
 }
 
@@ -395,7 +756,8 @@ static int pru_rproc_stop(struct rproc *rproc)
 		free_irq(pru->irq_vring, pru);
 
 	/* undo INTC config */
-	pruss_intc_unconfigure(pru->dev, &pru->intc_config);
+	if (!pru->dt_irqs && pru->fw_has_intc_rsc)
+		pruss_intc_unconfigure(pru->dev, &pru->intc_config);
 
 	return 0;
 }
@@ -510,6 +872,8 @@ static int pru_handle_vendor_intrmap(struct rproc *rproc,
 		dev_dbg(dev, "chnl-to-host[%d] -> %d\n", i, intr_no);
 	}
 
+	pru->fw_has_intc_rsc = 1;
+
 	ret = pruss_intc_configure(pru->dev, &pru->intc_config);
 	if (ret)
 		dev_err(dev, "failed to configure pruss intc %d\n", ret);
@@ -522,15 +886,18 @@ static int pru_rproc_handle_vendor_rsc(struct rproc *rproc,
 				       struct fw_rsc_vendor *rsc)
 {
 	struct device *dev = rproc->dev.parent;
-	int ret = -EINVAL;
+	struct pru_rproc *pru = rproc->priv;
+	int ret = 0;
 
 	switch (rsc->u.st.st_type) {
 	case PRUSS_RSC_INTRS:
-		ret = pru_handle_vendor_intrmap(rproc, rsc);
+		if (!pru->dt_irqs)
+			ret = pru_handle_vendor_intrmap(rproc, rsc);
 		break;
 	default:
 		dev_err(dev, "%s: cannot handle unknown type %d\n", __func__,
 			rsc->u.st.st_type);
+		ret = -EINVAL;
 	}
 
 	return ret;
@@ -779,9 +1146,9 @@ static int pru_rproc_set_id(struct device_node *np, struct pru_rproc *pru)
 	}
 
 	if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask2) == mask2)
-		pru->id = 1;
+		pru->id = PRUSS_PRU1;
 	else if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask1) == mask1)
-		pru->id = 0;
+		pru->id = PRUSS_PRU0;
 	else
 		ret = -EINVAL;
 
@@ -838,6 +1205,8 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	pru->pruss = platform_get_drvdata(ppdev);
 	pru->rproc = rproc;
 	pru->fw_name = fw_name;
+	spin_lock_init(&pru->rmw_lock);
+	mutex_init(&pru->lock);
 
 	if (of_device_is_compatible(np, "ti,am654-pru") ||
 	    of_device_is_compatible(np, "ti,am654-rtu") ||
