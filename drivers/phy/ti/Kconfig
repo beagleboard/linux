@@ -113,3 +113,11 @@ config PHY_TI_GMII_SEL
 	help
 	  This driver supports configuring of the TI CPSW Port mode depending on
 	  the Ethernet PHY connected to the CPSW Port.
+
+config PHY_TI_KEYSTONE_SERDES
+	tristate "TI Keystone SerDes PHY support"
+	depends on OF && ARCH_KEYSTONE || COMPILE_TEST
+	select GENERIC_PHY
+	help
+	  This option enables support for TI Keystone SerDes PHY found
+	  in peripherals GBE, and PCIe.
