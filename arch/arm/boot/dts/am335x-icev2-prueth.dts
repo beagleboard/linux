@@ -1,0 +1,144 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+
+/*
+ * Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/*
+ * AM335x ICE V2 board
+ * http://www.ti.com/tool/tmdsice3359
+ */
+
+/dts-v1/;
+
+#include "am335x-icev2.dts"
+
+/ {
+	aliases {
+		ethernet0 = &pruss_emac0;
+		ethernet1 = &pruss_emac1;
+	};
+
+	/* Dual mac ethernet application node on icss */
+	pruss_eth {
+		compatible = "ti,am3359-prueth";
+		prus = <&pru0>, <&pru1>;
+		firmware-name = "ti-pruss/am335x-pru0-prueth-fw.elf",
+				"ti-pruss/am335x-pru1-prueth-fw.elf";
+		sram = <&ocmcram>;
+		interrupt-parent = <&pruss_intc>;
+		mii-rt = <&pruss_mii_rt>;
+		iep = <&pruss_iep>;
+		pinctrl-0 = <&pruss_eth_default>;
+		pinctrl-names = "default";
+
+		pruss_emac0: ethernet-mii0 {
+			phy-handle = <&pruss_eth0_phy>;
+			phy-mode = "mii";
+			interrupts = <20>, <22>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+
+		pruss_emac1: ethernet-mii1 {
+			phy-handle = <&pruss_eth1_phy>;
+			phy-mode = "mii";
+			interrupts = <21>, <23>;
+			interrupt-names = "rx", "tx";
+			/* Filled in by bootloader */
+			local-mac-address = [00 00 00 00 00 00];
+		};
+	};
+};
+
+&am33xx_pinmux {
+	pruss_mdio_default: pruss_mdio_default {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x88c, (PIN_OUTPUT | MUX_MODE5))		/* gpmc_clk.pr1_mdio_mdclk */
+			AM33XX_IOPAD(0x888, (PIN_INPUT  | MUX_MODE5))		/* gpmc_csn3.pr1_mdio_data */
+			AM33XX_IOPAD(0x89c, (PIN_INPUT_PULLUP | MUX_MODE7))	/* gpmc_ben0_cle.gpio2_5 */
+			/* disable CPSW MDIO */
+			AM33XX_IOPAD(0x948, (PIN_INPUT_PULLUP | MUX_MODE7))	/* mdio_data.gpio0_0 */
+			AM33XX_IOPAD(0x94c, (PIN_INPUT_PULLUP | MUX_MODE7))	/* mdio_clk.gpio0_1 */
+		>;
+	};
+
+	pruss_eth_default: pruss_eth_default {
+		pinctrl-single,pins = <
+			AM33XX_IOPAD(0x8a0, (PIN_INPUT  | MUX_MODE2))	/* dss_data0.pr1_mii_mt0_clk */
+			AM33XX_IOPAD(0x8b4, (PIN_OUTPUT | MUX_MODE2))	/* dss_data5.pr1_mii0_txd0 */
+			AM33XX_IOPAD(0x8b0, (PIN_OUTPUT | MUX_MODE2))	/* dss_data4.pr1_mii0_txd1 */
+			AM33XX_IOPAD(0x8ac, (PIN_OUTPUT | MUX_MODE2))	/* dss_data3.pr1_mii0_txd2 */
+			AM33XX_IOPAD(0x8a8, (PIN_OUTPUT | MUX_MODE2))	/* dss_data2.pr1_mii0_txd3 */
+			AM33XX_IOPAD(0x8cc, (PIN_INPUT  | MUX_MODE5))	/* dss_data11.pr1_mii0_rxd0 */
+			AM33XX_IOPAD(0x8c8, (PIN_INPUT  | MUX_MODE5))	/* dss_data10.pr1_mii0_rxd1 */
+			AM33XX_IOPAD(0x8c4, (PIN_INPUT  | MUX_MODE5))	/* dss_data9.pr1_mii0_rxd2 */
+			AM33XX_IOPAD(0x8c0, (PIN_INPUT  | MUX_MODE5))	/* dss_data8.pr1_mii0_rxd3 */
+			AM33XX_IOPAD(0x8a4, (PIN_OUTPUT | MUX_MODE2))	/* dss_data1.pr1_mii0_txen */
+			AM33XX_IOPAD(0x8d8, (PIN_INPUT  | MUX_MODE5))	/* dss_data14.pr1_mii_mr0_clk */
+			AM33XX_IOPAD(0x8dc, (PIN_INPUT  | MUX_MODE5))	/* dss_data15.pr1_mii0_rxdv */
+			AM33XX_IOPAD(0x8d4, (PIN_INPUT  | MUX_MODE5))	/* dss_data13.pr1_mii0_rxer */
+			AM33XX_IOPAD(0x8d0, (PIN_INPUT  | MUX_MODE5))	/* dss_data12.pr1_mii0_rxlink */
+			AM33XX_IOPAD(0x8e8, (PIN_INPUT  | MUX_MODE2))	/* dss_pclk.pr1_mii0_crs */
+
+			AM33XX_IOPAD(0x840, (PIN_INPUT  | MUX_MODE5))	/* gpmc_a0.pr1_mii_mt1_clk */
+			AM33XX_IOPAD(0x850, (PIN_OUTPUT | MUX_MODE5))	/* gpmc_a4.pr1_mii1_txd0 */
+			AM33XX_IOPAD(0x84c, (PIN_OUTPUT | MUX_MODE5))	/* gpmc_a3.pr1_mii1_txd1 */
+			AM33XX_IOPAD(0x848, (PIN_OUTPUT | MUX_MODE5))	/* gpmc_a2.pr1_mii1_txd2 */
+			AM33XX_IOPAD(0x844, (PIN_OUTPUT | MUX_MODE5))	/* gpmc_a1.pr1_mii1_txd3 */
+			AM33XX_IOPAD(0x860, (PIN_INPUT  | MUX_MODE5))	/* gpmc_a8.pr1_mii1_rxd0 */
+			AM33XX_IOPAD(0x85c, (PIN_INPUT  | MUX_MODE5))	/* gpmc_a7.pr1_mii1_rxd1 */
+			AM33XX_IOPAD(0x858, (PIN_INPUT  | MUX_MODE5))	/* gpmc_a6.pr1_mii1_rxd2 */
+			AM33XX_IOPAD(0x854, (PIN_INPUT  | MUX_MODE5))	/* gpmc_a5.pr1_mii1_rxd3 */
+			AM33XX_IOPAD(0x874, (PIN_OUTPUT | MUX_MODE5))	/* gpmc_wpn.pr1_mii1_txen */
+			AM33XX_IOPAD(0x864, (PIN_INPUT  | MUX_MODE5))	/* gpmc_a9.pr1_mii_mr1_clk */
+			AM33XX_IOPAD(0x868, (PIN_INPUT  | MUX_MODE5))	/* gpmc_a10.pr1_mii1_rxdv */
+			AM33XX_IOPAD(0x86c, (PIN_INPUT  | MUX_MODE5))	/* gpmc_a11.pr1_mii1_rxer */
+			AM33XX_IOPAD(0x878, (PIN_INPUT  | MUX_MODE5))	/* gpmc_ben1.pr1_mii1_rxlink */
+			AM33XX_IOPAD(0x8ec, (PIN_INPUT  | MUX_MODE2))	/* lcd_ac_bias_en.pr1_mii1_crs */
+			AM33XX_IOPAD(0x870, (PIN_INPUT  | MUX_MODE5))	/* gpmc_wait0.pr1_mii1_col */
+		>;
+	};
+};
+
+&gpio3 {
+	p4 {
+		gpio-hog;
+		gpios = <4 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "PR1_MII_CTRL";
+	};
+
+	p10 {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		/* ETH1 mux: Low for MII-PRU, high for RMII-CPSW */
+		output-low;
+		line-name = "MUX_MII_CTL1";
+	};
+};
+
+&mac {
+	status = "disabled";
+};
+
+&davinci_mdio {
+	status = "disabled";
+};
+
+&pruss_mdio {
+	pinctrl-0 = <&pruss_mdio_default>;
+	pinctrl-names = "default";
+	reset-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <2>; /* PHY datasheet states 1uS min */
+	status = "okay";
+
+	pruss_eth0_phy: ethernet-phy@1 {
+		 reg = <1>;
+	};
+
+	pruss_eth1_phy: ethernet-phy@3 {
+		 reg = <3>;
+	};
+};
