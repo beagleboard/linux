@@ -26,3 +26,6 @@ ti-am65-cpsw-nuss-y := am65-cpsw-nuss.o cpsw_sl.o am65-cpsw-ethtool.o cpsw_ale.o
 obj-$(CONFIG_TI_AM65_CPTS) += am65-cpts.o
 
 obj-$(CONFIG_TI_RDEV_ETH_SWITCH_VIRT_EMAC) += j721e-cpsw-virt-mac.o
+
+obj-$(CONFIG_TI_PRUETH) += prueth.o
+prueth-y := prueth_core.o
