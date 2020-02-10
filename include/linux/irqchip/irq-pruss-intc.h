@@ -10,6 +10,7 @@
 #define __LINUX_IRQ_PRUSS_INTC_H
 
 #include <linux/types.h>
+#include <linux/errno.h>
 
 /* maximum number of system events */
 #define MAX_PRU_SYS_EVENTS	160
