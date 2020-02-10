@@ -62,6 +62,7 @@ Optional properties:
 		big endian mode with the DSP in little endian.
 
 NetCP device properties: Device specification for NetCP sub-modules.
+
 1Gb/10Gb (gbe/xgbe) ethernet switch sub-module specifications.
 Required properties:
 - label:	Must be "netcp-gbe" for 1Gb & "netcp-xgbe" for 10Gb.
@@ -77,7 +78,6 @@ Required properties:
 		- switch subsystem registers
 		- sgmii port3/4 module registers (only for NetCP 1.4)
 		- switch module registers
-		- serdes registers (only for 10G)
 
 		NetCP 1.4 ethss, here is the order
 			index #0 - switch subsystem registers
@@ -87,7 +87,6 @@ Required properties:
 		NetCP 1.5 ethss 9 port, 5 port and 2 port
 			index #0 - switch subsystem registers
 			index #1 - switch module registers
-			index #2 - serdes registers
 
 - tx-channel:	the navigator packet dma channel name for tx.
 - tx-queue:	the navigator queue number associated with the tx dma channel.
@@ -120,6 +119,9 @@ Required properties:
 		Mult and shift will be calculated basing on CPTS
 		rftclk frequency if both cpts_clock_shift and
 		cpts_clock_mult properties are not provided.
+----phys:	phandles to serdes PHY devices
+		see Documentation/devicetree/bindings/phy/ti-phy.txt
+		for Keystone SerDes device specificcations.
 
 Optional properties:
 - enable-ale:	NetCP driver keeps the address learning feature in the ethernet
@@ -162,6 +164,11 @@ address.
 
 Example binding:
 
+gbe_serdes: phy@232a000 {
+	compatible		= "ti,keystone-serdes-gbe";
+	...
+};
+
 netcp: netcp@2000000 {
 	reg = <0x2620110 0x8>;
 	reg-names = "efuse";
@@ -171,7 +178,6 @@ netcp: netcp@2000000 {
 	ranges  = <0 0x2000000 0xfffff>;
 	clocks = <&papllclk>, <&clkcpgmac>, <&chipclk12>;
 	dma-coherent;
-	/* big-endian; */
 	dma-id = <0>;
 
 	netcp-devices {
@@ -204,10 +210,12 @@ netcp: netcp@2000000 {
 
 			interfaces {
 				gbe0: interface-0 {
+					phys = <&serdes_lane0>;
 					slave-port = <0>;
 					link-interface	= <4>;
 				};
 				gbe1: interface-1 {
+					phys = <&serdes_lane1>;
 					slave-port = <1>;
 					link-interface	= <4>;
 				};
@@ -215,10 +223,12 @@ netcp: netcp@2000000 {
 
 			secondary-slave-ports {
 				port-2 {
+					phys = <&serdes_lane2>;
 					slave-port = <2>;
 					link-interface	= <2>;
 				};
 				port-3 {
+					phys = <&serdes_lane3>;
 					slave-port = <3>;
 					link-interface	= <2>;
 				};

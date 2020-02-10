@@ -232,7 +232,7 @@ struct flash_info {
 #define NO_CHIP_ERASE		BIT(12) /* Chip does not support chip erase */
 #define SPI_NOR_SKIP_SFDP	BIT(13)	/* Skip parsing of SFDP tables */
 #define USE_CLSR		BIT(14)	/* use CLSR command */
-#define SPI_NOR_OCTAL_READ	BIT(15)	/* Flash supports Octal Read */
+#define SPI_NOR_OPI_DTR		BIT(15)	/* Flash supports Octal Read */
 
 	/* Part specific fixup hooks. */
 	const struct spi_nor_fixups *fixups;
@@ -565,6 +565,7 @@ static u8 spi_nor_convert_3to4_read(u8 opcode)
 		{ SPINOR_OP_READ_1_1_1_DTR,	SPINOR_OP_READ_1_1_1_DTR_4B },
 		{ SPINOR_OP_READ_1_2_2_DTR,	SPINOR_OP_READ_1_2_2_DTR_4B },
 		{ SPINOR_OP_READ_1_4_4_DTR,	SPINOR_OP_READ_1_4_4_DTR_4B },
+		{ SPINOR_OP_READ_8_8_8_DTR,	SPINOR_OP_READ_8_8_8_DTR_4B },
 	};
 
 	return spi_nor_convert_opcode(opcode, spi_nor_3to4_read,
@@ -2324,11 +2325,11 @@ static const struct flash_info spi_nor_ids[] = {
 	/* Micron */
 	{
 		"mt35xu512aba", INFO(0x2c5b1a, 0, 128 * 1024, 512,
-			SECT_4K | USE_FSR | SPI_NOR_OCTAL_READ |
+			SECT_4K | USE_FSR | SPI_NOR_OPI_DTR |
 			SPI_NOR_4B_OPCODES)
 	},
 	{ "mt35xu02g",  INFO(0x2c5b1c, 0, 128 * 1024, 2048,
-			     SECT_4K | USE_FSR | SPI_NOR_OCTAL_READ |
+			     SECT_4K | USE_FSR | SPI_NOR_OPI_DTR |
 			     SPI_NOR_4B_OPCODES) },
 
 	/* PMC */
@@ -2540,6 +2541,28 @@ static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 	return ERR_PTR(-ENODEV);
 }
 
+static int spi_nor_select_mode(struct spi_nor *nor, enum spi_nor_mode mode)
+{
+	int ret;
+
+	if (nor->mode == mode)
+		return 0;
+
+	if (!nor->params.change_mode)
+		return -ENOTSUPP;
+
+	ret = nor->params.change_mode(nor, mode);
+	if (ret)
+		return ret;
+
+	if (nor->params.adjust_op)
+		nor->params.adjust_op(nor, mode);
+
+	nor->mode = mode;
+
+	return ret;
+}
+
 static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 			size_t *retlen, u_char *buf)
 {
@@ -2551,6 +2574,8 @@ static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 	ret = spi_nor_lock_and_prep(nor, SPI_NOR_OPS_READ);
 	if (ret)
 		return ret;
+
+	spi_nor_select_mode(nor, nor->preferred_mode);
 
 	while (len) {
 		loff_t addr = from;
@@ -2575,6 +2600,7 @@ static int spi_nor_read(struct mtd_info *mtd, loff_t from, size_t len,
 	ret = 0;
 
 read_err:
+	spi_nor_select_mode(nor, SPI_NOR_MODE_SPI);
 	spi_nor_unlock_and_unprep(nor, SPI_NOR_OPS_READ);
 	return ret;
 }
@@ -2825,6 +2851,7 @@ static int spi_nor_hwcaps_read2cmd(u32 hwcaps)
 		{ SNOR_HWCAPS_READ_1_8_8,	SNOR_CMD_READ_1_8_8 },
 		{ SNOR_HWCAPS_READ_8_8_8,	SNOR_CMD_READ_8_8_8 },
 		{ SNOR_HWCAPS_READ_1_8_8_DTR,	SNOR_CMD_READ_1_8_8_DTR },
+		{ SNOR_HWCAPS_READ_8_8_8_DTR,	SNOR_CMD_READ_8_8_8_DTR },
 	};
 
 	return spi_nor_hwcaps2cmd(hwcaps, hwcaps_read2cmd,
@@ -2907,6 +2934,8 @@ static int spi_nor_read_sfdp(struct spi_nor *nor, u32 addr,
 	nor->read_opcode = SPINOR_OP_RDSFDP;
 	nor->addr_width = 3;
 	nor->read_dummy = 8;
+
+	nor->read_proto = SNOR_PROTO_1_1_1;
 
 	ret = spi_nor_read_raw(nor, addr, len, buf);
 
@@ -4372,6 +4401,68 @@ static int spi_nor_default_setup(struct spi_nor *nor,
 	return 0;
 }
 
+static void spi_nor_micron_adjust_op(struct spi_nor *nor,
+				     enum spi_nor_mode mode)
+{
+	if (!(nor->info->flags & SPI_NOR_OPI_DTR))
+		return;
+
+	if (mode == SPI_NOR_MODE_OPI_DTR) {
+		nor->reg_proto = SNOR_PROTO_8_8_8_DTR;
+		nor->read_proto = SNOR_PROTO_8_8_8_DTR;
+		nor->write_proto = SNOR_PROTO_8_8_8_DTR;
+		nor->read_dummy = 16;
+		nor->addr_width = 4;
+		nor->read_opcode = SPINOR_OP_READ_8_8_8_DTR_4B;
+	} else {
+		nor->reg_proto = SNOR_PROTO_1_1_1;
+		nor->read_proto = SNOR_PROTO_1_1_1;
+		nor->write_proto = SNOR_PROTO_1_1_1;
+		nor->read_dummy = 8;
+		nor->addr_width = 4;
+		nor->read_opcode = SPINOR_OP_READ_FAST_4B;
+	}
+}
+
+static int spi_nor_micron_set_octal_ddr_mode(struct spi_nor *nor,
+					     enum spi_nor_mode mode)
+{
+	u8 addr_width, program_opcode, vcr_val;
+	enum spi_nor_protocol write_proto;
+	int ret;
+
+	if (!(nor->info->flags & SPI_NOR_OPI_DTR))
+		return 0;
+
+	program_opcode = nor->program_opcode;
+	write_proto  = nor->write_proto;
+	addr_width = nor->addr_width;
+
+	/* Enable Octal DTR mode */
+	nor->program_opcode = SPINOR_OP_WR_VCR;
+
+	if (mode == SPI_NOR_MODE_OPI_DTR) {
+		nor->addr_width = 3;
+		vcr_val = VCR_OCTAL_DDR_EN_MICRON;
+		ret = nor->write(nor, 0x0, sizeof(vcr_val), &vcr_val);
+		if (ret < 0)
+			return ret;
+	} else {
+		nor->write_proto = SNOR_PROTO_8_8_8_DTR;
+		/* Soft reset the flash to return to SPI_NOR_MODE_SPI */
+		nor->write_reg(nor, SPINOR_OP_RESET_EN, NULL, 0);
+		udelay(1);
+		nor->write_reg(nor, SPINOR_OP_RESET_MEM, NULL, 0);
+		udelay(1);
+	}
+
+	nor->program_opcode = program_opcode;
+	nor->write_proto = write_proto;
+	nor->addr_width = addr_width;
+
+	return 0;
+}
+
 static int spi_nor_setup(struct spi_nor *nor,
 			 const struct spi_nor_hwcaps *hwcaps)
 {
@@ -4385,6 +4476,12 @@ static void macronix_set_default_init(struct spi_nor *nor)
 {
 	nor->params.quad_enable = macronix_quad_enable;
 	nor->params.set_4byte = macronix_set_4byte;
+}
+
+static void micron_set_default_init(struct spi_nor *nor)
+{
+	nor->params.change_mode = spi_nor_micron_set_octal_ddr_mode;
+	nor->params.adjust_op = spi_nor_micron_adjust_op;
 }
 
 static void st_micron_set_default_init(struct spi_nor *nor)
@@ -4411,12 +4508,12 @@ static void spi_nor_manufacturer_init_params(struct spi_nor *nor)
 	case SNOR_MFR_MACRONIX:
 		macronix_set_default_init(nor);
 		break;
-
-	case SNOR_MFR_ST:
 	case SNOR_MFR_MICRON:
+		micron_set_default_init(nor);
+		/* Fall through */
+	case SNOR_MFR_ST:
 		st_micron_set_default_init(nor);
 		break;
-
 	case SNOR_MFR_WINBOND:
 		winbond_set_default_init(nor);
 		break;
@@ -4507,11 +4604,11 @@ static void spi_nor_info_init_params(struct spi_nor *nor)
 					  SNOR_PROTO_1_1_4);
 	}
 
-	if (info->flags & SPI_NOR_OCTAL_READ) {
-		params->hwcaps.mask |= SNOR_HWCAPS_READ_1_1_8;
-		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_1_1_8],
-					  0, 8, SPINOR_OP_READ_1_1_8,
-					  SNOR_PROTO_1_1_8);
+	if (info->flags & SPI_NOR_OPI_DTR) {
+		params->hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8_DTR;
+		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_8_8_8_DTR],
+					  0, 16, SPINOR_OP_READ_8_8_8_DTR,
+					  SNOR_PROTO_8_8_8_DTR);
 	}
 
 	/* Page Program settings. */
@@ -4655,6 +4752,43 @@ static void spi_nor_init_params(struct spi_nor *nor)
 	spi_nor_late_init_params(nor);
 }
 
+/* Calibrate controller for given mode */
+static int spi_nor_calibrate(struct spi_nor *nor, enum spi_nor_mode mode)
+{
+	/* Use first 16 bytes of SFDP Header as calibration data */
+	int size = sizeof(struct sfdp_parameter_header) << 1;
+	u8 addr_width = nor->addr_width;
+	u8 *calibration_data;
+	int ret;
+
+	if (!nor->calibrate)
+		return 0;
+
+	calibration_data = kmalloc(size, GFP_KERNEL);
+	if (!calibration_data)
+		return -ENOMEM;
+
+	ret = spi_nor_read_sfdp(nor, 0, size, calibration_data);
+	if (ret)
+		goto free_mem;
+
+	nor->preferred_mode = mode;
+	spi_nor_select_mode(nor, nor->preferred_mode);
+
+	nor->addr_width = 4;
+	nor->read_opcode = SPINOR_OP_RDSFDP;
+	nor->read_dummy = 8;
+
+	ret = nor->calibrate(nor, calibration_data, size);
+
+	spi_nor_select_mode(nor, SPI_NOR_MODE_SPI);
+	nor->addr_width = addr_width;
+free_mem:
+	kfree(calibration_data);
+
+	return ret;
+}
+
 /**
  * spi_nor_quad_enable() - enable Quad I/O if needed.
  * @nor:                pointer to a 'struct spi_nor'
@@ -4693,6 +4827,14 @@ static int spi_nor_init(struct spi_nor *nor)
 	if (err) {
 		dev_err(nor->dev, "quad mode not supported\n");
 		return err;
+	}
+
+	if (nor->info->flags & SPI_NOR_OPI_DTR) {
+		err = spi_nor_calibrate(nor, SPI_NOR_MODE_OPI_DTR);
+		if (err) {
+			dev_err(nor->dev, "Controller calibration failed\n");
+			return err;
+		}
 	}
 
 	if (nor->addr_width == 4 && !(nor->flags & SNOR_F_4B_OPCODES)) {

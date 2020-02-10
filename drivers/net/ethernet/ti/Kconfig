@@ -149,4 +149,10 @@ config TI_RDEV_ETH_SWITCH_VIRT_EMAC
 	  R5F Eth Switch FW RPMSG protocol.
 	  This is available starting with the J721E platform.
 
+config TI_PRUETH
+	tristate "TI PRU Ethernet EMAC driver"
+	depends on PRU_REMOTEPROC
+	---help---
+	  Support single or dual EMAC over PRUSS.
+
 endif # NET_VENDOR_TI

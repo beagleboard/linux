@@ -190,3 +190,7 @@
 &pcie1 {
 	status = "okay";
 };
+
+&gbe_serdes0 {
+	status = "okay";
+};

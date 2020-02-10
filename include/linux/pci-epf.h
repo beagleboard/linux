@@ -112,6 +112,8 @@ struct pci_epf_bar {
  * @msi_interrupts: number of MSI interrupts required by this function
  * @func_no: unique (physical) function number within this endpoint device
  * @vfunc_no: unique virtual function number within a physical function
+ * @dma_chan: allocated DMA memcpy channel
+ * @transfer_complete: completion variable to handle completion of data transfer
  * @epc: the EPC device to which this EPF device is bound
  * @epf_pf: the physical EPF device to which this virtual EPF device is bound
  * @driver: the EPF driver to which this EPF device is bound
@@ -145,6 +147,9 @@ struct pci_epf {
 	u16			msix_interrupts;
 	u8			func_no;
 	u8			vfunc_no;
+
+	struct dma_chan         *dma_chan;
+	struct completion       transfer_complete;
 
 	struct pci_epc		*epc;
 	struct pci_epf		*epf_pf;
@@ -212,4 +217,8 @@ int pci_epf_bind(struct pci_epf *epf);
 void pci_epf_unbind(struct pci_epf *epf);
 int pci_epf_add_vepf(struct pci_epf *epf_pf, struct pci_epf *epf_vf);
 void pci_epf_remove_vepf(struct pci_epf *epf_pf, struct pci_epf *epf_vf);
+int pci_epf_init_dma_chan(struct pci_epf *epf);
+void pci_epf_clean_dma_chan(struct pci_epf *epf);
+int pci_epf_data_transfer(struct pci_epf *epf, dma_addr_t dma_dst,
+			  dma_addr_t dma_src, size_t len);
 #endif /* __LINUX_PCI_EPF_H */

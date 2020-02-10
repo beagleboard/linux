@@ -955,7 +955,7 @@ static int virt_cpsw_nuss_init_tx_chns(struct virt_cpsw_common *common)
 	};
 	char tx_chn_name[IFNAMSIZ];
 	u32 hdesc_size, tx_chn_num;
-	int ret, ret1;
+	int ret = 0, ret1;
 
 	/* convert to tx chn offset */
 	tx_chn_num = common->rdev_tx_psil_dst_id - common->tx_psil_id_base;
