@@ -60,22 +60,6 @@
 			enable-gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
 			label = "lcd";
 
-			panel-timing {
-				clock-frequency = <33000000>;
-				de-active = <1>;
-				hactive = <800>;
-				hback-porch = <16>;
-				hfront-porch = <210>;
-				hsync-active = <0>;
-				hsync-len = <30>;
-				pixelclk-active = <1>;
-				vactive = <480>;
-				vback-porch = <10>;
-				vfront-porch = <22>;
-				vsync-active = <0>;
-				vsync-len = <13>;
-			};
-
 			port {
 				lcd_in: endpoint {
 					remote-endpoint = <&dpi_out>;
