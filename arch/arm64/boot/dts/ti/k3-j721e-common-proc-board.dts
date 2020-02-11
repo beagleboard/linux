@@ -150,12 +150,29 @@
 			/* local-mac-address = [0 0 0 0 0 0]; */
 		};
 	};
+
+	dp0: connector {
+		compatible = "dp-connector";
+		label = "DP0";
+
+		port {
+			dp_connector_in: endpoint {
+				remote-endpoint = <&dp_bridge_output>;
+			};
+		};
+	};
 };
 
 &main_pmx0 {
 	sw10_button_pins_default: sw10_button_pins_default {
 		pinctrl-single,pins = <
 			J721E_IOPAD(0x0, PIN_INPUT, 7) /* (AC18) EXTINTn.GPIO0_0 */
+		>;
+	};
+
+	dp0_pins_default: dp0_pins_default {
+		pinctrl-single,pins = <
+			J721E_IOPAD(0x1c4, PIN_INPUT, 5) /* SPI0_CS1.DP0_HPD */
 		>;
 	};
 
@@ -519,6 +536,48 @@
 &tscadc1 {
 	adc {
 		ti,adc-channels = <0 1 2 3 4 5 6 7>;
+	};
+};
+
+&dss {
+	status = "ok";
+};
+
+&dss_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	port@0 {
+		reg = <0>;
+
+		dpi_out_real0: endpoint {
+			remote-endpoint = <&dp_bridge_input>;
+		};
+	};
+};
+
+&mhdp {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&dp0_pins_default>;
+};
+
+&dp0_ports {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	port@0 {
+		reg = <0>;
+		dp_bridge_input: endpoint {
+			remote-endpoint = <&dpi_out_real0>;
+		};
+	};
+
+	port@1 {
+		reg = <1>;
+		dp_bridge_output: endpoint {
+			remote-endpoint = <&dp_connector_in>;
+		};
 	};
 };
 

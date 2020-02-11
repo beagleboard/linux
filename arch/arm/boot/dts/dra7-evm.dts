@@ -674,3 +674,7 @@
 		pclk-sample = <0>;
 	};
 };
+
+&bb2d {
+	status = "okay";
+};
