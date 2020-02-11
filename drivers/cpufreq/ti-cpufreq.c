@@ -80,6 +80,7 @@ static unsigned long dra7_efuse_xlate(struct ti_cpufreq_data *opp_data,
 	case DRA76_EFUSE_HAS_PLUS_MPU_OPP:
 	case DRA76_EFUSE_HAS_ALL_MPU_OPP:
 		calculated_efuse |= DRA76_EFUSE_PLUS_MPU_OPP;
+		/* Fall through */
 	case DRA7_EFUSE_HAS_ALL_MPU_OPP:
 	case DRA7_EFUSE_HAS_HIGH_MPU_OPP:
 		calculated_efuse |= DRA7_EFUSE_HIGH_MPU_OPP;
