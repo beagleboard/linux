@@ -701,6 +701,7 @@
 				active_slave = <0>;
 				cpts_clock_mult = <0x80000000>;
 				cpts_clock_shift = <29>;
+				cpts-ext-ts-inputs = <4>;
 				reg = <0x0 0x800
 				       0x1200 0x100>;
 				#address-cells = <1>;
