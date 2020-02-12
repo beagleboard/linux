@@ -121,6 +121,8 @@ struct cpts {
 	struct mutex ptp_clk_mutex; /* sync PTP interface and worker */
 	bool irq_poll;
 	struct completion	ts_push_complete;
+	u32 ext_ts_inputs;
+	u32 hw_ts_enable;
 };
 
 int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb);
