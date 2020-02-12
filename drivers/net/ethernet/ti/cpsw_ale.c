@@ -846,7 +846,6 @@ int cpsw_ale_set_ratelimit(struct cpsw_ale *ale, unsigned long freq, int port,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(cpsw_ale_set_ratelimit);
 
 static void cpsw_ale_timer(struct timer_list *t)
 {
