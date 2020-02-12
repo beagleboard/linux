@@ -765,16 +765,20 @@ static void cpsw_rx_handler(void *token, int len, int status)
 	skb->dev = ndev;
 	if (status & CPDMA_RX_VLAN_ENCAP)
 		cpsw_rx_vlan_encap(skb);
-	if (priv->rx_ts_enabled)
-		cpts_rx_timestamp(cpsw->cpts, skb);
-	skb->protocol = eth_type_trans(skb, ndev);
 
 	/* unmap page as no netstack skb page recycling */
 	page_pool_release_page(pool, page);
-	netif_receive_skb(skb);
-
 	ndev->stats.rx_bytes += len;
 	ndev->stats.rx_packets++;
+
+	ret = 0;
+	if (priv->rx_ts_enabled)
+		ret = cpts_rx_timestamp(cpsw->cpts, skb);
+
+	if (!ret) {
+		skb->protocol = eth_type_trans(skb, ndev);
+		netif_receive_skb(skb);
+	}
 
 requeue:
 	xmeta = page_address(new_page) + CPSW_XMETA_OFFSET;

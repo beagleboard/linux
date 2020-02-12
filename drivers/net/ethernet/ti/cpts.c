@@ -311,6 +311,66 @@ static bool cpts_match_tx_ts(struct cpts *cpts, struct cpts_event *event)
 	return found;
 }
 
+static bool cpts_match_rx_ts(struct cpts *cpts, struct cpts_event *event)
+{
+	struct sk_buff_head rxq_list;
+	struct sk_buff_head tempq;
+	struct sk_buff *skb, *tmp;
+	unsigned long flags;
+	bool found = false;
+	u32 mtype_seqid;
+
+	mtype_seqid = event->high &
+		      ((MESSAGE_TYPE_MASK << MESSAGE_TYPE_SHIFT) |
+		       (SEQUENCE_ID_MASK << SEQUENCE_ID_SHIFT) |
+		       (EVENT_TYPE_MASK << EVENT_TYPE_SHIFT));
+
+	__skb_queue_head_init(&rxq_list);
+	__skb_queue_head_init(&tempq);
+
+	spin_lock_irqsave(&cpts->rxq.lock, flags);
+	skb_queue_splice_init(&cpts->rxq, &rxq_list);
+	spin_unlock_irqrestore(&cpts->rxq.lock, flags);
+
+	skb_queue_walk_safe(&rxq_list, skb, tmp) {
+		struct skb_shared_hwtstamps *ssh;
+		struct cpts_skb_cb_data *skb_cb =
+					(struct cpts_skb_cb_data *)skb->cb;
+
+		if (mtype_seqid == skb_cb->skb_mtype_seqid) {
+			__skb_unlink(skb, &rxq_list);
+			ssh = skb_hwtstamps(skb);
+			memset(ssh, 0, sizeof(*ssh));
+			ssh->hwtstamp = ns_to_ktime(event->timestamp);
+			found = true;
+			dev_dbg(cpts->dev, "match rx timestamp mtype_seqid %08x\n",
+				mtype_seqid);
+			__skb_queue_tail(&tempq, skb);
+			break;
+		}
+
+		if (time_after(jiffies, skb_cb->tmo)) {
+			/* timeout any expired skbs */
+			dev_dbg(cpts->dev, "expiring rx timestamp\n");
+			__skb_unlink(skb, &rxq_list);
+			__skb_queue_tail(&tempq, skb);
+		}
+	}
+
+	spin_lock_irqsave(&cpts->rxq.lock, flags);
+	skb_queue_splice(&rxq_list, &cpts->rxq);
+	spin_unlock_irqrestore(&cpts->rxq.lock, flags);
+
+	local_bh_disable();
+	while ((skb = __skb_dequeue(&tempq))) {
+		skb->protocol = eth_type_trans(skb, skb->dev);
+		netif_receive_skb(skb);
+	}
+	local_bh_enable();
+
+	return found;
+}
+
 static void cpts_process_events(struct cpts *cpts)
 {
 	struct list_head *this, *next;
@@ -318,6 +378,7 @@ static void cpts_process_events(struct cpts *cpts)
 	unsigned long flags;
 	LIST_HEAD(events);
 	LIST_HEAD(events_free);
+	int type;
 
 	spin_lock_irqsave(&cpts->lock, flags);
 	list_splice_init(&cpts->events, &events);
@@ -325,8 +386,18 @@ static void cpts_process_events(struct cpts *cpts)
 
 	list_for_each_safe(this, next, &events) {
 		event = list_entry(this, struct cpts_event, list);
-		if (cpts_match_tx_ts(cpts, event) ||
-		    time_after(jiffies, event->tmo)) {
+		type = event_type(event);
+
+		if (type == CPTS_EV_TX &&
+		    (cpts_match_tx_ts(cpts, event) ||
+		     time_after(jiffies, event->tmo))) {
+			list_del_init(&event->list);
+			list_add(&event->list, &events_free);
+		}
+
+		if (type == CPTS_EV_RX &&
+		    (cpts_match_rx_ts(cpts, event) ||
+		     time_after(jiffies, event->tmo))) {
 			list_del_init(&event->list);
 			list_add(&event->list, &events_free);
 		}
@@ -422,64 +493,27 @@ static int cpts_skb_get_mtype_seqid(struct sk_buff *skb, u32 *mtype_seqid)
 	return 1;
 }
 
-static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb,
-			int ev_type, u32 skb_mtype_seqid)
-{
-	struct list_head *this, *next;
-	struct cpts_event *event;
-	unsigned long flags;
-	u32 mtype_seqid;
-	u64 ns = 0;
-
-	cpts_fifo_read(cpts, -1);
-	spin_lock_irqsave(&cpts->lock, flags);
-	list_for_each_safe(this, next, &cpts->events) {
-		event = list_entry(this, struct cpts_event, list);
-		if (event_expired(event)) {
-			list_del_init(&event->list);
-			list_add(&event->list, &cpts->pool);
-			continue;
-		}
-
-		mtype_seqid = event->high &
-			      ((MESSAGE_TYPE_MASK << MESSAGE_TYPE_SHIFT) |
-			       (SEQUENCE_ID_MASK << SEQUENCE_ID_SHIFT) |
-			       (EVENT_TYPE_MASK << EVENT_TYPE_SHIFT));
-
-		if (mtype_seqid == skb_mtype_seqid) {
-			ns = event->timestamp;
-			list_del_init(&event->list);
-			list_add(&event->list, &cpts->pool);
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&cpts->lock, flags);
-
-	return ns;
-}
-
-void cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
+int cpts_rx_timestamp(struct cpts *cpts, struct sk_buff *skb)
 {
 	struct cpts_skb_cb_data *skb_cb = (struct cpts_skb_cb_data *)skb->cb;
-	struct skb_shared_hwtstamps *ssh;
 	int ret;
-	u64 ns;
 
 	ret = cpts_skb_get_mtype_seqid(skb, &skb_cb->skb_mtype_seqid);
 	if (!ret)
-		return;
+		return 0;
 
 	skb_cb->skb_mtype_seqid |= (CPTS_EV_RX << EVENT_TYPE_SHIFT);
 
 	dev_dbg(cpts->dev, "%s mtype seqid %08x\n",
 		__func__, skb_cb->skb_mtype_seqid);
 
-	ns = cpts_find_ts(cpts, skb, CPTS_EV_RX, skb_cb->skb_mtype_seqid);
-	if (!ns)
-		return;
-	ssh = skb_hwtstamps(skb);
-	memset(ssh, 0, sizeof(*ssh));
-	ssh->hwtstamp = ns_to_ktime(ns);
+	/* Always defer RX TS processing to PTP worker */
+	/* get the timestamp for timeouts */
+	skb_cb->tmo = jiffies + msecs_to_jiffies(CPTS_SKB_RX_TX_TMO);
+	skb_queue_tail(&cpts->rxq, skb);
+	ptp_schedule_worker(cpts->clock, 0);
+
+	return 1;
 }
 EXPORT_SYMBOL_GPL(cpts_rx_timestamp);
 
@@ -514,6 +548,7 @@ int cpts_register(struct cpts *cpts)
 	int err, i;
 
 	skb_queue_head_init(&cpts->txq);
+	skb_queue_head_init(&cpts->rxq);
 	INIT_LIST_HEAD(&cpts->events);
 	INIT_LIST_HEAD(&cpts->pool);
 	for (i = 0; i < CPTS_MAX_EVENTS; i++)
@@ -556,6 +591,7 @@ void cpts_unregister(struct cpts *cpts)
 
 	/* Drop all packet */
 	skb_queue_purge(&cpts->txq);
+	skb_queue_purge(&cpts->rxq);
 
 	clk_disable(cpts->refclk);
 }
