@@ -37,6 +37,16 @@
 		regulator-boot-on;
 	};
 
+	v1_2d: fixedregulator-v1_2d {
+		compatible = "regulator-fixed";
+		regulator-name = "V1_2D";
+		vin-supply = <&vmain>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
 	vtt_fixed: fixedregulator-vtt {
 		/* TPS51200 */
 		compatible = "regulator-fixed";
@@ -424,6 +434,10 @@
 
 		clocks = <&src_clk_x1>;
 		clock-names = "refclk";
+
+		vddc-supply = <&v1_2d>;
+		vddmipi-supply = <&v1_2d>;
+		vddio-supply = <&v3_3d>;
 
 		dsi_bridge_ports: ports {
 			#address-cells = <1>;
