@@ -8,6 +8,8 @@
 /dts-v1/;
 /plugin/;
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/phy/phy.h>
 #include <dt-bindings/pinctrl/k3.h>
 
 / {
@@ -15,6 +17,117 @@
 	target-path = "/";
 
 	__overlay__ {
+		aliases {
+			ethernet3 = "/pruss0_eth/ethernet-mii0";
+			ethernet4 = "/pruss0_eth/ethernet-mii1";
+			ethernet5 = "/pruss1_eth/ethernet-mii0";
+			ethernet6 = "/pruss1_eth/ethernet-mii1";
+		};
+
+		/* Dual Ethernet application node on PRU-ICSSG0 */
+		pruss0_eth {
+			compatible = "ti,am654-icssg-prueth";
+			pinctrl-names = "default";
+			pinctrl-0 = <&icssg0_rgmii_pins_default>;
+			sram = <&msmc_ram>;
+
+			prus = <&pru0_0>, <&rtu0_0>, <&pru0_1>, <&rtu0_1>;
+			firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
+					"ti-pruss/am65x-rtu0-prueth-fw.elf",
+					"ti-pruss/am65x-pru1-prueth-fw.elf",
+					"ti-pruss/am65x-rtu1-prueth-fw.elf";
+			mii-g-rt = <&icssg0_mii_g_rt>;
+			mii-rt = <&icssg0_mii_rt>;
+			dma-coherent;
+			dmas = <&main_udmap 0xc100>, /* egress slice 0 */
+			       <&main_udmap 0xc101>, /* egress slice 0 */
+			       <&main_udmap 0xc102>, /* egress slice 0 */
+			       <&main_udmap 0xc103>, /* egress slice 0 */
+			       <&main_udmap 0xc104>, /* egress slice 1 */
+			       <&main_udmap 0xc105>, /* egress slice 1 */
+			       <&main_udmap 0xc106>, /* egress slice 1 */
+			       <&main_udmap 0xc107>, /* egress slice 1 */
+
+			       <&main_udmap 0x4100>, /* ingress slice 0 */
+			       <&main_udmap 0x4101>, /* ingress slice 1 */
+			       <&main_udmap 0x4102>, /* mgmnt rsp slice 0 */
+			       <&main_udmap 0x4103>; /* mgmnt rsp slice 1 */
+			dma-names = "tx0-0", "tx0-1", "tx0-2", "tx0-3",
+				    "tx1-0", "tx1-1", "tx1-2", "tx1-3",
+				    "rx0", "rx1",
+				    "rxmgm0", "rxmgm1";
+
+			pruss0_emac0: ethernet-mii0 {
+				phy-handle = <&pruss0_eth0_phy>;
+				phy-mode = "rgmii-rxid";
+				syscon-rgmii-delay = <&scm_conf 0x4100>;
+				iep = <&icssg0_iep0>;
+				/* Filled in by bootloader */
+				local-mac-address = [00 00 00 00 00 00];
+			};
+
+			pruss0_emac1: ethernet-mii1 {
+				phy-handle = <&pruss0_eth1_phy>;
+				phy-mode = "rgmii-rxid";
+				syscon-rgmii-delay = <&scm_conf 0x4104>;
+				iep = <&icssg0_iep1>;
+				/* Filled in by bootloader */
+				local-mac-address = [00 00 00 00 00 00];
+			};
+		};
+
+		/* Dual Ethernet application node on PRU-ICSSG1 */
+		pruss1_eth {
+			compatible = "ti,am654-icssg-prueth";
+			pinctrl-names = "default";
+			pinctrl-0 = <&icssg1_rgmii_pins_default>;
+			sram = <&msmc_ram>;
+
+			prus = <&pru1_0>, <&rtu1_0>, <&pru1_1>, <&rtu1_1>;
+			firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
+					"ti-pruss/am65x-rtu0-prueth-fw.elf",
+					"ti-pruss/am65x-pru1-prueth-fw.elf",
+					"ti-pruss/am65x-rtu1-prueth-fw.elf";
+			mii-g-rt = <&icssg1_mii_g_rt>;
+			mii-rt = <&icssg1_mii_rt>;
+			dma-coherent;
+			dmas = <&main_udmap 0xc200>, /* egress slice 0 */
+			       <&main_udmap 0xc201>, /* egress slice 0 */
+			       <&main_udmap 0xc202>, /* egress slice 0 */
+			       <&main_udmap 0xc203>, /* egress slice 0 */
+			       <&main_udmap 0xc204>, /* egress slice 1 */
+			       <&main_udmap 0xc205>, /* egress slice 1 */
+			       <&main_udmap 0xc206>, /* egress slice 1 */
+			       <&main_udmap 0xc207>, /* egress slice 1 */
+
+			       <&main_udmap 0x4200>, /* ingress slice 0 */
+			       <&main_udmap 0x4201>, /* ingress slice 1 */
+			       <&main_udmap 0x4202>, /* mgmnt rsp slice 0 */
+			       <&main_udmap 0x4203>; /* mgmnt rsp slice 1 */
+			dma-names = "tx0-0", "tx0-1", "tx0-2", "tx0-3",
+				    "tx1-0", "tx1-1", "tx1-2", "tx1-3",
+				    "rx0", "rx1",
+				    "rxmgm0", "rxmgm1";
+
+			pruss1_emac0: ethernet-mii0 {
+				phy-handle = <&pruss1_eth0_phy>;
+				phy-mode = "rgmii-rxid";
+				syscon-rgmii-delay = <&scm_conf 0x4110>;
+				iep = <&icssg1_iep0>;
+				/* Filled in by bootloader */
+				local-mac-address = [00 00 00 00 00 00];
+			};
+
+			pruss1_emac1: ethernet-mii1 {
+				phy-handle = <&pruss1_eth1_phy>;
+				phy-mode = "rgmii-rxid";
+				syscon-rgmii-delay = <&scm_conf 0x4114>;
+				iep = <&icssg1_iep1>;
+				/* Filled in by bootloader */
+				local-mac-address = [00 00 00 00 00 00];
+			};
+		};
+
 		gpio-decoder {
 			compatible = "gpio-decoder";
 			gpios = <&pca9536 3 GPIO_ACTIVE_HIGH>,
@@ -29,6 +142,80 @@
 };
 
 &main_pmx0 {
+	icssg0_mdio_pins_default: icssg0_mdio_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0294, PIN_INPUT, 0) /* (AE26) PRG0_MDIO0_MDIO */
+			AM65X_IOPAD(0x0298, PIN_OUTPUT, 0) /* (AE28) PRG0_MDIO0_MDC */
+		>;
+	};
+
+	icssg0_rgmii_pins_default: icssg0_rgmii_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0244, PIN_INPUT, 2) /* (AB28) PRG0_PRU1_GPO0.PRG0_RGMII2_RD0 */
+			AM65X_IOPAD(0x0248, PIN_INPUT, 2) /* (AC28) PRG0_PRU1_GPO1.PRG0_RGMII2_RD1 */
+			AM65X_IOPAD(0x024c, PIN_INPUT, 2) /* (AC27) PRG0_PRU1_GPO2.PRG0_RGMII2_RD2 */
+			AM65X_IOPAD(0x0250, PIN_INPUT, 2) /* (AB26) PRG0_PRU1_GPO3.PRG0_RGMII2_RD3 */
+			AM65X_IOPAD(0x0274, PIN_OUTPUT, 2) /* (AC25) PRG0_PRU1_GPO12.PRG0_RGMII2_TD0 */
+			AM65X_IOPAD(0x0278, PIN_OUTPUT, 2) /* (AD25) PRG0_PRU1_GPO13.PRG0_RGMII2_TD1 */
+			AM65X_IOPAD(0x027c, PIN_OUTPUT, 2) /* (AD24) PRG0_PRU1_GPO14.PRG0_RGMII2_TD2 */
+			AM65X_IOPAD(0x0280, PIN_OUTPUT, 2) /* (AE27) PRG0_PRU1_GPO15.PRG0_RGMII2_TD3 */
+			AM65X_IOPAD(0x0284, PIN_INPUT, 2) /* (AC24) PRG0_PRU1_GPO16.PRG0_RGMII2_TXC */
+			AM65X_IOPAD(0x0270, PIN_OUTPUT, 2) /* (AB24) PRG0_PRU1_GPO11.PRG0_RGMII2_TX_CTL */
+			AM65X_IOPAD(0x025c, PIN_INPUT, 2) /* (AB27) PRG0_PRU1_GPO6.PRG0_RGMII2_RXC */
+			AM65X_IOPAD(0x0254, PIN_INPUT, 2) /* (AA25) PRG0_PRU1_GPO4.PRG0_RGMII2_RX_CTL */
+
+			AM65X_IOPAD(0x01f4, PIN_INPUT, 2) /* (V24) PRG0_PRU0_GPO0.PRG0_RGMII1_RD0 */
+			AM65X_IOPAD(0x01f8, PIN_INPUT, 2) /* (W25) PRG0_PRU0_GPO1.PRG0_RGMII1_RD1 */
+			AM65X_IOPAD(0x01fc, PIN_INPUT, 2) /* (W24) PRG0_PRU0_GPO2.PRG0_RGMII1_RD2 */
+			AM65X_IOPAD(0x0200, PIN_INPUT, 2) /* (AA27) PRG0_PRU0_GPO3.PRG0_RGMII1_RD3 */
+			AM65X_IOPAD(0x0224, PIN_OUTPUT, 2) /* (AD27) PRG0_PRU0_GPO12.PRG0_RGMII1_TD0 */
+			AM65X_IOPAD(0x0228, PIN_OUTPUT, 2) /* (AC26) PRG0_PRU0_GPO13.PRG0_RGMII1_TD1 */
+			AM65X_IOPAD(0x022c, PIN_OUTPUT, 2) /* (AD26) PRG0_PRU0_GPO14.PRG0_RGMII1_TD2 */
+			AM65X_IOPAD(0x0230, PIN_OUTPUT, 2) /* (AA24) PRG0_PRU0_GPO15.PRG0_RGMII1_TD3 */
+			AM65X_IOPAD(0x0234, PIN_INPUT, 2) /* (AD28) PRG0_PRU0_GPO16.PRG0_RGMII1_TXC */
+			AM65X_IOPAD(0x0220, PIN_OUTPUT, 2) /* (AB25) PRG0_PRU0_GPO11.PRG0_RGMII1_TX_CTL */
+			AM65X_IOPAD(0x020c, PIN_INPUT, 2) /* (Y25) PRG0_PRU0_GPO6.PRG0_RGMII1_RXC */
+			AM65X_IOPAD(0x0204, PIN_INPUT, 2) /* (Y24) PRG0_PRU0_GPO4.PRG0_RGMII1_RX_CTL */
+		>;
+	};
+
+	icssg1_mdio_pins_default: icssg1_mdio_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0180, PIN_INPUT, 0) /* (AD18) PRG1_MDIO0_MDIO */
+			AM65X_IOPAD(0x0184, PIN_OUTPUT, 0) /* (AH18) PRG1_MDIO0_MDC */
+		>;
+	};
+
+	icssg1_rgmii_pins_default: icssg1_rgmii_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0130, PIN_INPUT, 2) /* (AH24) PRG1_PRU1_GPO0.PRG1_RGMII2_RD0 */
+			AM65X_IOPAD(0x0134, PIN_INPUT, 2) /* (AH23) PRG1_PRU1_GPO1.PRG1_RGMII2_RD1 */
+			AM65X_IOPAD(0x0138, PIN_INPUT, 2) /* (AG21) PRG1_PRU1_GPO2.PRG1_RGMII2_RD2 */
+			AM65X_IOPAD(0x013c, PIN_INPUT, 2) /* (AH22) PRG1_PRU1_GPO3.PRG1_RGMII2_RD3 */
+			AM65X_IOPAD(0x0160, PIN_OUTPUT, 2) /* (AE20) PRG1_PRU1_GPO12.PRG1_RGMII2_TD0 */
+			AM65X_IOPAD(0x0164, PIN_OUTPUT, 2) /* (AF19) PRG1_PRU1_GPO13.PRG1_RGMII2_TD1 */
+			AM65X_IOPAD(0x0168, PIN_OUTPUT, 2) /* (AH19) PRG1_PRU1_GPO14.PRG1_RGMII2_TD2 */
+			AM65X_IOPAD(0x016c, PIN_OUTPUT, 2) /* (AG19) PRG1_PRU1_GPO15.PRG1_RGMII2_TD3 */
+			AM65X_IOPAD(0x0170, PIN_INPUT, 2) /* (AE19) PRG1_PRU1_GPO16.PRG1_RGMII2_TXC */
+			AM65X_IOPAD(0x015c, PIN_OUTPUT, 2) /* (AC20) PRG1_PRU1_GPO11.PRG1_RGMII2_TX_CTL */
+			AM65X_IOPAD(0x0148, PIN_INPUT, 2) /* (AG22) PRG1_PRU1_GPO6.PRG1_RGMII2_RXC */
+			AM65X_IOPAD(0x0140, PIN_INPUT, 2) /* (AE21) PRG1_PRU1_GPO4.PRG1_RGMII2_RX_CTL */
+
+			AM65X_IOPAD(0x00e0, PIN_INPUT, 2) /* (AE22) PRG1_PRU0_GPO0.PRG1_RGMII1_RD0 */
+			AM65X_IOPAD(0x00e4, PIN_INPUT, 2) /* (AG24) PRG1_PRU0_GPO1.PRG1_RGMII1_RD1 */
+			AM65X_IOPAD(0x00e8, PIN_INPUT, 2) /* (AF23) PRG1_PRU0_GPO2.PRG1_RGMII1_RD2 */
+			AM65X_IOPAD(0x00ec, PIN_INPUT, 2) /* (AD21) PRG1_PRU0_GPO3.PRG1_RGMII1_RD3 */
+			AM65X_IOPAD(0x0110, PIN_OUTPUT, 2) /* (AH20) PRG1_PRU0_GPO12.PRG1_RGMII1_TD0 */
+			AM65X_IOPAD(0x0114, PIN_OUTPUT, 2) /* (AH21) PRG1_PRU0_GPO13.PRG1_RGMII1_TD1 */
+			AM65X_IOPAD(0x0118, PIN_OUTPUT, 2) /* (AG20) PRG1_PRU0_GPO14.PRG1_RGMII1_TD2 */
+			AM65X_IOPAD(0x011c, PIN_OUTPUT, 2) /* (AD19) PRG1_PRU0_GPO15.PRG1_RGMII1_TD3 */
+			AM65X_IOPAD(0x0120, PIN_INPUT, 2) /* (AD20) PRG1_PRU0_GPO16.PRG1_RGMII1_TXC */
+			AM65X_IOPAD(0x010c, PIN_OUTPUT, 2) /* (AF21) PRG1_PRU0_GPO11.PRG1_RGMII1_TX_CTL */
+			AM65X_IOPAD(0x00f8, PIN_INPUT, 2) /* (AF22) PRG1_PRU0_GPO6.PRG1_RGMII1_RXC */
+			AM65X_IOPAD(0x00f0, PIN_INPUT, 2) /* (AG23) PRG1_PRU0_GPO4.PRG1_RGMII1_RX_CTL */
+		>;
+	};
+
 	mcan0_gpio_pins_default: mcan0_gpio_pins_default {
 		pinctrl-single,pins = <
 			AM65X_IOPAD(0x023c, PIN_INPUT, 7) /* (V25) PRG0_PRU0_GPIO18:GPIO1_47 */
@@ -55,6 +242,46 @@
 			AM65X_WKUP_IOPAD(0x00c4, PIN_INPUT_PULLUP, 1) /* (AD3) WKUP_GPIO0_5.MCU_MCAN1_RX */
 			AM65X_WKUP_IOPAD(0x00c0, PIN_OUTPUT_PULLUP, 1) /* (AC3) WKUP_GPIO0_4.MCU_MCAN1_TX */
 		>;
+	};
+};
+
+&icssg0_mdio {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&icssg0_mdio_pins_default>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pruss0_eth0_phy: ethernet-phy@0 {
+		reg = <0>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+	};
+
+	pruss0_eth1_phy: ethernet-phy@3 {
+		reg = <3>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+	};
+};
+
+&icssg1_mdio {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&icssg1_mdio_pins_default>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pruss1_eth0_phy: ethernet-phy@0 {
+		reg = <0>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
+	};
+
+	pruss1_eth1_phy: ethernet-phy@3 {
+		reg = <3>;
+		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_4_B_NIB>;
 	};
 };
 
