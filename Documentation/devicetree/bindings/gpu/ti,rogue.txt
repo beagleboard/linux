@@ -1,0 +1,39 @@
+Texas Instruments PowerVR Rogue GPU
+===================================
+
+PowerVR Rogue is a family of 3D Graphics Processing Units from Imagination
+Technologies. Texas Instruments SoCs have integrated different generations of
+PowerVR Rogue GPUs. This binding describes the PowerVR GE8430 GPU integrated in
+TI J721E SoC.
+
+Required properties:
+--------------------
+  - compatible:
+      accepted values: "ti,j721e-pvr", "img,pvr-ge8430"
+
+  - reg: base address and length of registers
+  - interrupts: phandle to GPU interrupts
+  - clocks: from SoC clock bindings
+  - power-domains: power domain parameters from SoC device description
+
+Optional properties:
+--------------------
+  - reg-names: names of registers listed in reg property in same order
+  - clock-names: names of clocks listed in clocks property in same order
+  - power-domain-names: names of domains listed in power-domains property in
+    same order
+
+Examples:
+--------
+
+	gpu: gpu@4e20000000 {
+		compatible = "ti,j721e-pvr", "img,pvr-ge8430";
+		reg = <0x4e 0x20000000 0x00 0x80000>;
+		reg-names = "gpu_regs";
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&k3_pds 125 TI_SCI_PD_EXCLUSIVE>,
+		                <&k3_pds 126 TI_SCI_PD_EXCLUSIVE>;
+		power-domain-names = "gpu_0", "gpucore_0";
+		clocks = <&k3_clks 125 0>;
+		clock-names = "ctrl";
+	};
