@@ -171,6 +171,14 @@ The details of these operations are:
     driver can ask for the pointer, maximum size and the currently used size of
     the metadata and can directly update or read it.
 
+    Becasue the DMA driver manages the memory area containing the metadata,
+    clients must make sure that they do not try to access or get the pointer
+    after their transfer completion callback has run for the descriptor.
+    If no completion callback has been defined for the transfer, then the
+    metadata must not be accessed after issue_pending.
+    In other words: if the aim is to read back metadata after the transfer is
+    completed, then the client must use completion callback.
+
   .. code-block:: c
 
      void *dmaengine_desc_get_metadata_ptr(struct dma_async_tx_descriptor *desc,
@@ -217,11 +225,15 @@ The details of these operations are:
     - DMA_DEV_TO_MEM:
       1. prepare the descriptor (dmaengine_prep_*)
       2. submit the transfer
-      3. on transfer completion, use dmaengine_desc_get_metadata_ptr() to get the
-         pointer to the engine's metadata area
-      4. Read out the metadata from the pointer
+      3. on transfer completion, use dmaengine_desc_get_metadata_ptr() to get
+         the pointer to the engine's metadata area
+      4. read out the metadata from the pointer
 
   .. note::
+
+     When DESC_METADATA_ENGINE mode is used the metadata area for the descriptor
+     is no longer valid after the transfer has been completed (valid up to the
+     point when the completion callback returns if used).
 
      Mixed use of DESC_METADATA_CLIENT / DESC_METADATA_ENGINE is not allowed,
      client drivers must use either of the modes per descriptor.
