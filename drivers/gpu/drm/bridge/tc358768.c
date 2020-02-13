@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- *  Copyright (C) 2018 Texas Instruments Incorporated - http://www.ti.com
+ *  Copyright (C) 2020 Texas Instruments Incorporated - http://www.ti.com
  *  Author: Peter Ujfalusi <peter.ujfalusi@ti.com>
  */
 
@@ -11,14 +11,15 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_drv.h>
+#include <drm/drm_mipi_dsi.h>
 #include <drm/drm_of.h>
 #include <drm/drm_panel.h>
-#include <drm/drm_mipi_dsi.h>
 #include <video/mipi_display.h>
 #include <video/videomode.h>
 
@@ -110,6 +111,21 @@
 #define TC358768_DSI_HBPR		0x062A
 #define TC358768_DSI_HACT		0x062C
 
+/* TC358768_DSI_CONTROL (0x040C) register */
+#define TC358768_DSI_CONTROL_DIS_MODE	BIT(15)
+#define TC358768_DSI_CONTROL_TXMD	BIT(7)
+#define TC358768_DSI_CONTROL_HSCKMD	BIT(5)
+#define TC358768_DSI_CONTROL_EOTDIS	BIT(0)
+
+/* TC358768_DSI_CONFW (0x0500) register */
+#define TC358768_DSI_CONFW_MODE_SET	(5 << 29)
+#define TC358768_DSI_CONFW_MODE_CLR	(6 << 29)
+#define TC358768_DSI_CONFW_ADDR_DSI_CONTROL	(0x3 << 24)
+
+static const char * const tc358768_supplies[] = {
+	"vddc", "vddmipi", "vddio"
+};
+
 struct tc358768_dsi_output {
 	struct mipi_dsi_device *dev;
 	struct drm_panel *panel;
@@ -120,22 +136,24 @@ struct tc358768_priv {
 	struct device *dev;
 	struct regmap *regmap;
 	struct gpio_desc *reset_gpio;
-	int enabled;
+	struct regulator_bulk_data supplies[ARRAY_SIZE(tc358768_supplies)];
 	struct clk *refclk;
+	int enabled;
+	int error;
 
 	struct mipi_dsi_host dsi_host;
 	struct drm_bridge bridge;
 	struct tc358768_dsi_output output;
 
-	const struct drm_display_mode *mode;
 	u32 pd_lines; /* number of Parallel Port Input Data Lines */
 	u32 dsi_lanes; /* number of DSI Lanes */
 
-	u32 fbd;
-	u32 prd;
-	u32 frs;
+	/* Parameters for PLL programming */
+	u32 fbd;	/* PLL feedback divider */
+	u32 prd;	/* PLL input divider */
+	u32 frs;	/* PLL Freqency range for HSCK (post divider) */
 
-	u32 dsiclk; /* pll_clk / 2 */
+	u32 dsiclk;	/* pll_clk / 2 */
 };
 
 static inline struct tc358768_priv *dsi_host_to_tc358768(struct mipi_dsi_host
@@ -150,20 +168,34 @@ static inline struct tc358768_priv *bridge_to_tc358768(struct drm_bridge
 	return container_of(bridge, struct tc358768_priv, bridge);
 }
 
-static int tc358768_write(struct tc358768_priv *priv, u32 reg, u32 val)
+static int tc358768_clear_error(struct tc358768_priv *priv)
+{
+	int ret = priv->error;
+
+	priv->error = 0;
+	return ret;
+}
+
+static void tc358768_write(struct tc358768_priv *priv, u32 reg, u32 val)
 {
 	size_t count = 2;
+
+	if (priv->error)
+		return;
 
 	/* 16-bit register? */
 	if (reg < 0x100 || reg >= 0x600)
 		count = 1;
 
-	return regmap_bulk_write(priv->regmap, reg, &val, count);
+	priv->error = regmap_bulk_write(priv->regmap, reg, &val, count);
 }
 
-static int tc358768_read(struct tc358768_priv *priv, u32 reg, u32 *val)
+static void tc358768_read(struct tc358768_priv *priv, u32 reg, u32 *val)
 {
 	size_t count = 2;
+
+	if (priv->error)
+		return;
 
 	/* 16-bit register? */
 	if (reg < 0x100 || reg >= 0x600) {
@@ -171,55 +203,76 @@ static int tc358768_read(struct tc358768_priv *priv, u32 reg, u32 *val)
 		count = 1;
 	}
 
-	return regmap_bulk_read(priv->regmap, reg, val, count);
+	priv->error = regmap_bulk_read(priv->regmap, reg, val, count);
 }
 
-static int tc358768_update_bits(struct tc358768_priv *priv, u32 reg, u32 mask,
-				u32 val)
+static void tc358768_update_bits(struct tc358768_priv *priv, u32 reg, u32 mask,
+				 u32 val)
 {
-	int ret;
 	u32 tmp, orig;
 
-	ret = tc358768_read(priv, reg, &orig);
-	if (ret != 0)
-		return ret;
-
+	tc358768_read(priv, reg, &orig);
 	tmp = orig & ~mask;
 	tmp |= val & mask;
-
 	if (tmp != orig)
-		ret = tc358768_write(priv, reg, tmp);
-
-	return ret;
+		tc358768_write(priv, reg, tmp);
 }
 
-static void tc358768_sw_reset(struct tc358768_priv *priv)
+static int tc358768_sw_reset(struct tc358768_priv *priv)
 {
 	/* Assert Reset */
 	tc358768_write(priv, TC358768_SYSCTL, 1);
 	/* Release Reset, Exit Sleep */
 	tc358768_write(priv, TC358768_SYSCTL, 0);
+
+	return tc358768_clear_error(priv);
 }
 
-static void tc358768_hw_enable(struct tc358768_priv *priv, bool enable)
+static void tc358768_hw_enable(struct tc358768_priv *priv)
 {
-	if (!priv->reset_gpio)
+	int ret;
+
+	if (priv->enabled)
 		return;
 
-	if (enable && priv->enabled++ > 0)
+	ret = regulator_bulk_enable(ARRAY_SIZE(priv->supplies), priv->supplies);
+	if (ret < 0)
+		dev_err(priv->dev, "error enabling regulators (%d)\n", ret);
+
+	if (priv->reset_gpio)
+		usleep_range(200, 300);
+
+	/*
+	 * The RESX is active low (GPIO_ACTIVE_LOW).
+	 * DEASSERT (value = 0) the reset_gpio to enable the chip
+	 */
+	gpiod_set_value_cansleep(priv->reset_gpio, 0);
+
+	/* wait for encoder clocks to stabilize */
+	usleep_range(1000, 2000);
+
+	priv->enabled = true;
+}
+
+static void tc358768_hw_disable(struct tc358768_priv *priv)
+{
+	int ret;
+
+	if (!priv->enabled)
 		return;
 
-	if (!enable && --priv->enabled != 0)
-		return;
+	/*
+	 * The RESX is active low (GPIO_ACTIVE_LOW).
+	 * ASSERT (value = 1) the reset_gpio to disable the chip
+	 */
+	gpiod_set_value_cansleep(priv->reset_gpio, 1);
 
-	gpiod_set_value_cansleep(priv->reset_gpio, enable);
-	regcache_cache_only(priv->regmap, !enable);
-	if (enable) {
-		/* wait for encoder clocks to stabilize */
-		usleep_range(1000, 2000);
+	ret = regulator_bulk_disable(ARRAY_SIZE(priv->supplies),
+				     priv->supplies);
+	if (ret < 0)
+		dev_err(priv->dev, "error disabling regulators (%d)\n", ret);
 
-		regcache_sync(priv->regmap);
-	}
+	priv->enabled = false;
 }
 
 static u32 tc358768_pll_to_pclk(struct tc358768_priv *priv, u32 pll_clk)
@@ -232,7 +285,9 @@ static u32 tc358768_pclk_to_pll(struct tc358768_priv *priv, u32 pclk)
 	return (u32)div_u64((u64)pclk * priv->pd_lines, priv->dsi_lanes);
 }
 
-static int tc358768_calc_pll(struct tc358768_priv *priv)
+static int tc358768_calc_pll(struct tc358768_priv *priv,
+			     const struct drm_display_mode *mode,
+			     bool verify_only)
 {
 	const u32 frs_limits[] = {
 		1000000000,
@@ -245,24 +300,20 @@ static int tc358768_calc_pll(struct tc358768_priv *priv)
 	u32 prd, target_pll, i, max_pll, min_pll;
 	u32 frs, best_diff, best_pll, best_prd, best_fbd;
 
-	target_pll = tc358768_pclk_to_pll(priv, priv->mode->clock * 1000);
+	target_pll = tc358768_pclk_to_pll(priv, mode->clock * 1000);
 
 	/* pll_clk = RefClk * [(FBD + 1)/ (PRD + 1)] * [1 / (2^FRS)] */
 
-	frs = UINT_MAX;
-
-	for (i = 0; i < ARRAY_SIZE(frs_limits) - 1; i++) {
-		if (target_pll < frs_limits[i] &&
-		    target_pll >= frs_limits[i + 1]) {
-			frs = i;
-			max_pll = frs_limits[i];
-			min_pll = frs_limits[i + 1];
+	for (i = 0; i < ARRAY_SIZE(frs_limits); i++)
+		if (target_pll >= frs_limits[i])
 			break;
-		}
-	}
 
-	if (frs == UINT_MAX)
+	if (i == ARRAY_SIZE(frs_limits) || i == 0)
 		return -EINVAL;
+
+	frs = i - 1;
+	max_pll = frs_limits[i - 1];
+	min_pll = frs_limits[i];
 
 	refclk = clk_get_rate(priv->refclk);
 
@@ -290,20 +341,21 @@ static int tc358768_calc_pll(struct tc358768_priv *priv)
 				best_pll = pll;
 				best_prd = prd;
 				best_fbd = fbd;
+
+				if (best_diff == 0)
+					goto found;
 			}
-
-			if (best_diff == 0)
-				break;
 		}
-
-		if (best_diff == 0)
-			break;
 	}
 
 	if (best_diff == UINT_MAX) {
 		dev_err(priv->dev, "could not find suitable PLL setup\n");
 		return -EINVAL;
 	}
+
+found:
+	if (verify_only)
+		return 0;
 
 	priv->fbd = best_fbd;
 	priv->prd = best_prd;
@@ -399,6 +451,11 @@ static ssize_t tc358768_dsi_host_transfer(struct mipi_dsi_host *host,
 	struct mipi_dsi_packet packet;
 	int ret;
 
+	if (!priv->enabled) {
+		dev_err(priv->dev, "Bridge is not enabled\n");
+		return -ENODEV;
+	}
+
 	if (msg->rx_len) {
 		dev_warn(priv->dev, "MIPI rx is not supported\n");
 		return -ENOTSUPP;
@@ -413,8 +470,6 @@ static ssize_t tc358768_dsi_host_transfer(struct mipi_dsi_host *host,
 	if (ret)
 		return ret;
 
-	tc358768_hw_enable(priv, true);
-
 	if (mipi_dsi_packet_format_is_short(msg->type)) {
 		tc358768_write(priv, TC358768_DSICMD_TYPE,
 			       (0x10 << 8) | (packet.header[0] & 0x3f));
@@ -422,16 +477,16 @@ static ssize_t tc358768_dsi_host_transfer(struct mipi_dsi_host *host,
 		tc358768_write(priv, TC358768_DSICMD_WD0,
 			       (packet.header[2] << 8) | packet.header[1]);
 	} else {
-		int i, j;
+		int i;
 
 		tc358768_write(priv, TC358768_DSICMD_TYPE,
 			       (0x40 << 8) | (packet.header[0] & 0x3f));
 		tc358768_write(priv, TC358768_DSICMD_WC, packet.payload_length);
 		for (i = 0; i < packet.payload_length; i += 2) {
-			u16 val = 0;
+			u16 val = packet.payload[i];
 
-			for (j = 0; j < 2 && i + j < packet.payload_length; j++)
-				val |= packet.payload[i + j] << (8 * j);
+			if (i + 1 < packet.payload_length)
+				val |= packet.payload[i + 1] << 8;
 
 			tc358768_write(priv, TC358768_DSICMD_WD0 + i, val);
 		}
@@ -440,9 +495,13 @@ static ssize_t tc358768_dsi_host_transfer(struct mipi_dsi_host *host,
 	/* start transfer */
 	tc358768_write(priv, TC358768_DSICMD_TX, 1);
 
-	tc358768_hw_enable(priv, false);
+	ret = tc358768_clear_error(priv);
+	if (ret)
+		dev_warn(priv->dev, "Software disable failed: %d\n", ret);
+	else
+		ret = packet.size;
 
-	return 0;
+	return ret;
 }
 
 static const struct mipi_dsi_host_ops tc358768_dsi_host_ops = {
@@ -469,9 +528,7 @@ tc358768_bridge_mode_valid(struct drm_bridge *bridge,
 {
 	struct tc358768_priv *priv = bridge_to_tc358768(bridge);
 
-	priv->mode = mode;
-
-	if (tc358768_calc_pll(priv))
+	if (tc358768_calc_pll(priv, mode, true))
 		return MODE_CLOCK_RANGE;
 
 	return MODE_OK;
@@ -480,6 +537,7 @@ tc358768_bridge_mode_valid(struct drm_bridge *bridge,
 static void tc358768_bridge_disable(struct drm_bridge *bridge)
 {
 	struct tc358768_priv *priv = bridge_to_tc358768(bridge);
+	int ret;
 
 	/* set FrmStop */
 	tc358768_update_bits(priv, TC358768_PP_MISC, BIT(15), BIT(15));
@@ -493,12 +551,29 @@ static void tc358768_bridge_disable(struct drm_bridge *bridge)
 	/* set RstPtr */
 	tc358768_update_bits(priv, TC358768_PP_MISC, BIT(14), BIT(14));
 
-	tc358768_hw_enable(priv, false);
+	ret = tc358768_clear_error(priv);
+	if (ret)
+		dev_warn(priv->dev, "Software disable failed: %d\n", ret);
 }
 
-static void tc358768_setup_pll(struct tc358768_priv *priv)
+static void tc358768_bridge_post_disable(struct drm_bridge *bridge)
+{
+	struct tc358768_priv *priv = bridge_to_tc358768(bridge);
+
+	tc358768_hw_disable(priv);
+}
+
+static int tc358768_setup_pll(struct tc358768_priv *priv,
+			      const struct drm_display_mode *mode)
 {
 	u32 fbd, prd, frs;
+	int ret;
+
+	ret = tc358768_calc_pll(priv, mode, false);
+	if (ret) {
+		dev_err(priv->dev, "PLL calculation failed: %d\n", ret);
+		return ret;
+	}
 
 	fbd = priv->fbd;
 	prd = priv->prd;
@@ -510,7 +585,7 @@ static void tc358768_setup_pll(struct tc358768_priv *priv)
 		priv->dsiclk * 2, priv->dsiclk, priv->dsiclk / 4);
 	dev_dbg(priv->dev, "PLL: pclk %u (panel: %u)\n",
 		tc358768_pll_to_pclk(priv, priv->dsiclk * 2),
-		priv->mode->clock * 1000);
+		mode->clock * 1000);
 
 	/* PRD[15:12] FBD[8:0] */
 	tc358768_write(priv, TC358768_PLLCTL0, (prd << 12) | fbd);
@@ -525,6 +600,8 @@ static void tc358768_setup_pll(struct tc358768_priv *priv)
 	/* FRS[11:10] LBWS[9:8] CKEN[4] PLL_CKEN[4] RESETB[1] EN[0] */
 	tc358768_write(priv, TC358768_PLLCTL1,
 		       (frs << 10) | (0x2 << 8) | BIT(4) | BIT(1) | BIT(0));
+
+	return tc358768_clear_error(priv);
 }
 
 #define TC358768_PRECISION	1000
@@ -538,25 +615,35 @@ static u32 tc358768_to_ns(u32 nsk)
 	return (nsk / TC358768_PRECISION);
 }
 
-static void tc358768_bridge_enable(struct drm_bridge *bridge)
+static void tc358768_bridge_pre_enable(struct drm_bridge *bridge)
 {
 	struct tc358768_priv *priv = bridge_to_tc358768(bridge);
-	const struct drm_display_mode *mode = priv->mode;
 	struct mipi_dsi_device *dsi_dev = priv->output.dev;
 	u32 val, val2, lptxcnt, hact, data_type;
-	u32 dsiclk = priv->dsiclk;
-	u32 dsibclk = dsiclk / 4;
+	const struct drm_display_mode *mode;
 	u32 dsibclk_nsk, dsiclk_nsk, ui_nsk, phy_delay_nsk;
-	int i;
+	u32 dsiclk, dsibclk;
+	int ret, i;
 
-	tc358768_hw_enable(priv, true);
+	tc358768_hw_enable(priv);
 
-	tc358768_sw_reset(priv);
+	ret = tc358768_sw_reset(priv);
+	if (ret) {
+		dev_err(priv->dev, "Software reset failed: %d\n", ret);
+		tc358768_hw_disable(priv);
+		return;
+	}
 
-	tc358768_setup_pll(priv);
+	mode = &bridge->encoder->crtc->state->adjusted_mode;
+	ret = tc358768_setup_pll(priv, mode);
+	if (ret) {
+		dev_err(priv->dev, "PLL setup failed: %d\n", ret);
+		tc358768_hw_disable(priv);
+		return;
+	}
 
-	/* VSDly[9:0] */
-	tc358768_write(priv, TC358768_VSDLY, 1);
+	dsiclk = priv->dsiclk;
+	dsibclk = dsiclk / 4;
 
 	/* Data Format Control Register */
 	val = BIT(2) | BIT(1) | BIT(0); /* rdswap_en | dsitx_en | txdt_en */
@@ -586,8 +673,12 @@ static void tc358768_bridge_enable(struct drm_bridge *bridge)
 	default:
 		dev_err(priv->dev, "Invalid data format (%u)\n",
 			dsi_dev->format);
+		tc358768_hw_disable(priv);
 		return;
 	}
+
+	/* VSDly[9:0] */
+	tc358768_write(priv, TC358768_VSDLY, 1);
 
 	tc358768_write(priv, TC358768_DATAFMT, val);
 	tc358768_write(priv, TC358768_DSITX_DT, data_type);
@@ -714,36 +805,68 @@ static void tc358768_bridge_enable(struct drm_bridge *bridge)
 	tc358768_write(priv, TC358768_DSI_START, 0x1);
 
 	/* Configure DSI_Control register */
-	val = (6 << 29) | (0x3 << 24); /* CLEAR, DSI_Control */
-	val |= BIT(7) | BIT(5) | 0x3 << 1 | BIT(0);
+	val = TC358768_DSI_CONFW_MODE_CLR | TC358768_DSI_CONFW_ADDR_DSI_CONTROL;
+	val |= TC358768_DSI_CONTROL_TXMD | TC358768_DSI_CONTROL_HSCKMD |
+	       0x3 << 1 | TC358768_DSI_CONTROL_EOTDIS;
 	tc358768_write(priv, TC358768_DSI_CONFW, val);
 
-	val = (5 << 29) | (0x3 << 24); /* SET, DSI_Control */
-	if (!(dsi_dev->mode_flags & MIPI_DSI_MODE_LPM))
-		val |= BIT(7);
-	if (!(dsi_dev->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS))
-		val |= BIT(5);
+	val = TC358768_DSI_CONFW_MODE_SET | TC358768_DSI_CONFW_ADDR_DSI_CONTROL;
 	val |= (dsi_dev->lanes - 1) << 1;
+
+	if (!(dsi_dev->mode_flags & MIPI_DSI_MODE_LPM))
+		val |= TC358768_DSI_CONTROL_TXMD;
+
+	if (!(dsi_dev->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS))
+		val |= TC358768_DSI_CONTROL_HSCKMD;
+
 	if (dsi_dev->mode_flags & MIPI_DSI_MODE_EOT_PACKET)
-		val |= BIT(0);
+		val |= TC358768_DSI_CONTROL_EOTDIS;
+
 	tc358768_write(priv, TC358768_DSI_CONFW, val);
 
-	val = (6 << 29) | (0x3 << 24); /* CLEAR, DSI_Control */
-	val |= 0x8000; /* DSI mode */
+	val = TC358768_DSI_CONFW_MODE_CLR | TC358768_DSI_CONFW_ADDR_DSI_CONTROL;
+	val |= TC358768_DSI_CONTROL_DIS_MODE; /* DSI mode */
 	tc358768_write(priv, TC358768_DSI_CONFW, val);
+
+	ret = tc358768_clear_error(priv);
+	if (ret) {
+		dev_err(priv->dev, "Bridge pre_enable failed: %d\n", ret);
+		tc358768_bridge_disable(bridge);
+		tc358768_bridge_post_disable(bridge);
+	}
+}
+
+static void tc358768_bridge_enable(struct drm_bridge *bridge)
+{
+	struct tc358768_priv *priv = bridge_to_tc358768(bridge);
+	int ret;
+
+	if (!priv->enabled) {
+		dev_err(priv->dev, "Bridge is not enabled\n");
+		return;
+	}
 
 	/* clear FrmStop and RstPtr */
 	tc358768_update_bits(priv, TC358768_PP_MISC, 0x3 << 14, 0);
 
 	/* set PP_en */
 	tc358768_update_bits(priv, TC358768_CONFCTL, BIT(6), BIT(6));
+
+	ret = tc358768_clear_error(priv);
+	if (ret) {
+		dev_err(priv->dev, "Bridge enable failed: %d\n", ret);
+		tc358768_bridge_disable(bridge);
+		tc358768_bridge_post_disable(bridge);
+	}
 }
 
 static const struct drm_bridge_funcs tc358768_bridge_funcs = {
 	.attach = tc358768_bridge_attach,
 	.mode_valid = tc358768_bridge_mode_valid,
-	.disable = tc358768_bridge_disable,
+	.pre_enable = tc358768_bridge_pre_enable,
 	.enable = tc358768_bridge_enable,
+	.disable = tc358768_bridge_disable,
+	.post_disable = tc358768_bridge_post_disable,
 };
 
 static const struct drm_bridge_timings default_tc358768_timings = {
@@ -800,29 +923,14 @@ static bool tc358768_readable_reg(struct device *dev, unsigned int reg)
 	}
 }
 
-static bool tc358768_volatile_reg(struct device *dev, unsigned int reg)
-{
-	switch (reg) {
-	case TC358768_FIFOSTATUS:
-	case TC358768_STARTCNTRL ... (TC358768_DSITXSTATUS + 2):
-	case TC358768_DSI_CONTROL ... (TC358768_DSI_INT_ENA + 2):
-	case TC358768_DSICMD_RDFIFO ... (TC358768_DSI_ERR_HALT + 2):
-	case TC358768_DSICMD_TX:
-		return true;
-	default:
-		return false;
-	}
-}
-
 static const struct regmap_config tc358768_regmap_config = {
 	.name = "tc358768",
 	.reg_bits = 16,
 	.val_bits = 16,
 	.max_register = TC358768_DSI_HACT,
-	.cache_type = REGCACHE_RBTREE,
+	.cache_type = REGCACHE_NONE,
 	.writeable_reg = tc358768_writeable_reg,
 	.readable_reg = tc358768_readable_reg,
-	.volatile_reg = tc358768_volatile_reg,
 	.reg_format_endian = REGMAP_ENDIAN_BIG,
 	.val_format_endian = REGMAP_ENDIAN_BIG,
 };
@@ -840,6 +948,21 @@ static const struct of_device_id tc358768_of_ids[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(of, tc358768_of_ids);
+
+static int tc358768_get_regulators(struct tc358768_priv *priv)
+{
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(priv->supplies); ++i)
+		priv->supplies[i].supply = tc358768_supplies[i];
+
+	ret = devm_regulator_bulk_get(priv->dev, ARRAY_SIZE(priv->supplies),
+				      priv->supplies);
+	if (ret < 0)
+		dev_err(priv->dev, "failed to get regulators: %d\n", ret);
+
+	return ret;
+}
 
 static int tc358768_i2c_probe(struct i2c_client *client,
 			      const struct i2c_device_id *id)
@@ -859,12 +982,21 @@ static int tc358768_i2c_probe(struct i2c_client *client,
 	dev_set_drvdata(dev, priv);
 	priv->dev = dev;
 
+	ret = tc358768_get_regulators(priv);
+	if (ret)
+		return ret;
+
 	priv->refclk = devm_clk_get(dev, "refclk");
 	if (IS_ERR(priv->refclk))
 		return PTR_ERR(priv->refclk);
 
+	/*
+	 * RESX is low active, to disable tc358768 initially (keep in reset)
+	 * the gpio line must be LOW. This is the ASSERTED state of
+	 * GPIO_ACTIVE_LOW (GPIOD_OUT_HIGH == ASSERTED).
+	 */
 	priv->reset_gpio  = devm_gpiod_get_optional(dev, "reset",
-						    GPIOD_OUT_LOW);
+						    GPIOD_OUT_HIGH);
 	if (IS_ERR(priv->reset_gpio))
 		return PTR_ERR(priv->reset_gpio);
 
@@ -873,9 +1005,6 @@ static int tc358768_i2c_probe(struct i2c_client *client,
 		dev_err(dev, "Failed to init regmap\n");
 		return PTR_ERR(priv->regmap);
 	}
-
-	if (priv->reset_gpio)
-		regcache_cache_only(priv->regmap, true);
 
 	priv->dsi_host.dev = dev;
 	priv->dsi_host.ops = &tc358768_dsi_host_ops;
@@ -886,11 +1015,7 @@ static int tc358768_i2c_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, priv);
 
-	ret = mipi_dsi_host_register(&priv->dsi_host);
-	if (ret)
-		return ret;
-
-	return 0;
+	return mipi_dsi_host_register(&priv->dsi_host);
 }
 
 static int tc358768_i2c_remove(struct i2c_client *client)
