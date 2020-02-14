@@ -26,6 +26,8 @@
 		serial1 = &uart2;
 		serial2 = &uart3;
 		serial3 = &uart4;
+		rproc0 = &dsp;
+		rproc1 = &ipu;
 	};
 
 	cpus {
@@ -106,11 +108,6 @@
 			sram = <&ocmcram>;
 		};
 
-		dsp {
-			compatible = "ti,omap3-c64";
-			ti,hwmods = "dsp";
-		};
-
 		iva {
 			compatible = "ti,ivahd";
 			ti,hwmods = "iva";
@@ -173,14 +170,6 @@
 			#gpio-cells = <2>;
 		};
 
-		mmu_dsp: mmu@4a066000 {
-			compatible = "ti,omap4-iommu";
-			reg = <0x4a066000 0x100>;
-			interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
-			ti,hwmods = "mmu_dsp";
-			#iommu-cells = <0>;
-		};
-
 		target-module@52000000 {
 			compatible = "ti,sysc-omap4", "ti,sysc";
 			ti,hwmods = "iss";
@@ -206,14 +195,35 @@
 			/* No child device binding, driver in staging */
 		};
 
-		mmu_ipu: mmu@55082000 {
-			compatible = "ti,omap4-iommu";
-			reg = <0x55082000 0x100>;
-			interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
-			ti,hwmods = "mmu_ipu";
-			#iommu-cells = <0>;
-			ti,iommu-bus-err-back;
+		target-module@55082000 {
+			compatible = "ti,sysc-omap2", "ti,sysc";
+			reg = <0x55082000 0x4>,
+			      <0x55082010 0x4>,
+			      <0x55082014 0x4>;
+			reg-names = "rev", "sysc", "syss";
+			ti,sysc-sidle = <SYSC_IDLE_FORCE>,
+					<SYSC_IDLE_NO>,
+					<SYSC_IDLE_SMART>;
+			ti,sysc-mask = <(SYSC_OMAP2_CLOCKACTIVITY |
+					 SYSC_OMAP2_SOFTRESET |
+					 SYSC_OMAP2_AUTOIDLE)>;
+			clocks = <&ducati_clkctrl OMAP4_IPU_CLKCTRL 0>;
+			clock-names = "fck";
+			resets = <&prm_core 2>;
+			reset-names = "rstctrl";
+			ranges = <0x0 0x55082000 0x100>;
+			#size-cells = <1>;
+			#address-cells = <1>;
+
+			mmu_ipu: mmu@0 {
+				compatible = "ti,omap4-iommu";
+				reg = <0x0 0x100>;
+				interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
+				#iommu-cells = <0>;
+				ti,iommu-bus-err-back;
+			};
 		};
+
 		target-module@4012c000 {
 			compatible = "ti,sysc-omap4", "ti,sysc";
 			ti,hwmods = "slimbus1";
@@ -264,6 +274,29 @@
 			hw-caps-read-idle-ctrl;
 			hw-caps-ll-interface;
 			hw-caps-temp-alert;
+		};
+
+		dsp: dsp {
+			compatible = "ti,omap4-dsp";
+			ti,bootreg = <&scm_conf 0x304 0>;
+			iommus = <&mmu_dsp>;
+			resets = <&prm_tesla 0>;
+			clocks = <&tesla_clkctrl OMAP4_DSP_CLKCTRL 0>;
+			firmware-name = "omap4-dsp-fw.xe64T";
+			mboxes = <&mailbox &mbox_dsp>;
+			status = "disabled";
+		};
+
+		ipu: ipu@55020000 {
+			compatible = "ti,omap4-ipu";
+			reg = <0x55020000 0x10000>;
+			reg-names = "l2ram";
+			iommus = <&mmu_ipu>;
+			resets = <&prm_core 0>, <&prm_core 1>;
+			clocks = <&ducati_clkctrl OMAP4_IPU_CLKCTRL 0>;
+			firmware-name = "omap4-ipu-fw.xem3";
+			mboxes = <&mailbox &mbox_ipu>;
+			status = "disabled";
 		};
 
 		aes1: aes@4b501000 {
