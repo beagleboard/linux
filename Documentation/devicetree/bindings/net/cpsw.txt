@@ -41,6 +41,10 @@ Optional properties:
 			  Mult and shift will be calculated basing on CPTS
 			  rftclk frequency if both cpts_clock_shift and
 			  cpts_clock_mult properties are not provided.
+- cpts-ext-ts-inputs   : The number of external time stamp channels.
+			The different CPTS versions might support up 8
+			external time stamp channels.
+			if absent - unsupported.
 
 Slave Properties:
 Required properties:

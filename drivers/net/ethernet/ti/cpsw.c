@@ -765,16 +765,20 @@ static void cpsw_rx_handler(void *token, int len, int status)
 	skb->dev = ndev;
 	if (status & CPDMA_RX_VLAN_ENCAP)
 		cpsw_rx_vlan_encap(skb);
-	if (priv->rx_ts_enabled)
-		cpts_rx_timestamp(cpsw->cpts, skb);
-	skb->protocol = eth_type_trans(skb, ndev);
 
 	/* unmap page as no netstack skb page recycling */
 	page_pool_release_page(pool, page);
-	netif_receive_skb(skb);
-
 	ndev->stats.rx_bytes += len;
 	ndev->stats.rx_packets++;
+
+	ret = 0;
+	if (priv->rx_ts_enabled)
+		ret = cpts_rx_timestamp(cpsw->cpts, skb);
+
+	if (!ret) {
+		skb->protocol = eth_type_trans(skb, ndev);
+		netif_receive_skb(skb);
+	}
 
 requeue:
 	xmeta = page_address(new_page) + CPSW_XMETA_OFFSET;
@@ -873,6 +877,18 @@ void cpsw_split_res(struct cpsw_common *cpsw)
 
 	if (budget)
 		cpsw->rxv[0].budget += budget;
+}
+
+static irqreturn_t cpsw_misc_interrupt(int irq, void *dev_id)
+{
+	struct cpsw_common *cpsw = dev_id;
+
+	writel(0, &cpsw->wr_regs->misc_en);
+	cpdma_ctlr_eoi(cpsw->dma, CPDMA_EOI_MISC);
+	cpts_misc_interrupt(cpsw->cpts);
+	writel(0x10, &cpsw->wr_regs->misc_en);
+
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
@@ -2826,6 +2842,12 @@ static int cpsw_probe(struct platform_device *pdev)
 		return irq;
 	cpsw->irqs_table[1] = irq;
 
+	/* get misc irq*/
+	irq = platform_get_irq(pdev, 3);
+	if (irq <= 0)
+		return irq;
+	cpsw->misc_irq = irq;
+
 	/*
 	 * This may be required here for child devices.
 	 */
@@ -2960,6 +2982,23 @@ static int cpsw_probe(struct platform_device *pdev)
 		goto clean_unregister_netdev_ret;
 	}
 
+	if (!cpsw->cpts)
+		goto out;
+
+	ret = devm_request_threaded_irq(&pdev->dev, cpsw->misc_irq, NULL,
+					cpsw_misc_interrupt,
+					IRQF_ONESHOT,
+					dev_name(&pdev->dev), cpsw);
+	if (ret < 0) {
+		dev_err(priv->dev, "error attaching misc irq (%d)\n", ret);
+		goto clean_unregister_netdev_ret;
+	}
+
+	/* Enable misc CPTS evnt_pend IRQ */
+	cpts_set_irqpoll(cpsw->cpts, false);
+	writel(0x10, &cpsw->wr_regs->misc_en);
+
+out:
 	cpsw_notice(priv, probe,
 		    "initialized device (regs %pa, irq %d, pool size %d)\n",
 		    &ss_res->start, cpsw->irqs_table[0], descs_pool_size);
