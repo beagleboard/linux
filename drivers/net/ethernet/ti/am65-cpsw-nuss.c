@@ -773,7 +773,7 @@ static int am65_cpsw_nuss_rx_packets(struct am65_cpsw_common *common,
 	ndev = port->ndev;
 	skb->dev = ndev;
 
-	psdata = cppi5_hdesc_get_psdata32(desc_rx);
+	psdata = cppi5_hdesc_get_psdata(desc_rx);
 	/* add RX timestamp */
 	if (port->rx_ts_enabled)
 		am65_cpsw_nuss_rx_ts(skb, psdata);
@@ -1075,7 +1075,7 @@ static netdev_tx_t am65_cpsw_nuss_ndo_slave_xmit(struct sk_buff *skb,
 	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
 	swdata = cppi5_hdesc_get_swdata(first_desc);
 	*(swdata) = skb;
-	psdata = cppi5_hdesc_get_psdata32(first_desc);
+	psdata = cppi5_hdesc_get_psdata(first_desc);
 
 	/* HW csum offload if enabled */
 	psdata[2] = 0;

@@ -389,7 +389,7 @@ static int virt_cpsw_nuss_rx_packets(struct virt_cpsw_common *common,
 	ndev = common->ports.ndev;
 	skb->dev = ndev;
 
-	psdata = cppi5_hdesc_get_psdata32(desc_rx);
+	psdata = cppi5_hdesc_get_psdata(desc_rx);
 	csum_info = psdata[2];
 	dev_dbg(dev, "%s rx csum_info:%#x\n", __func__, csum_info);
 
@@ -677,7 +677,7 @@ static netdev_tx_t virt_cpsw_nuss_ndo_xmit(struct sk_buff *skb,
 	cppi5_hdesc_attach_buf(first_desc, buf_dma, pkt_len, buf_dma, pkt_len);
 	swdata = cppi5_hdesc_get_swdata(first_desc);
 	*(swdata) = skb;
-	psdata = cppi5_hdesc_get_psdata32(first_desc);
+	psdata = cppi5_hdesc_get_psdata(first_desc);
 
 	/* HW csum offload if enabled */
 	psdata[2] = 0;

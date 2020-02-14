@@ -272,7 +272,9 @@ to use.
     hardware descriptor, or highly coupled packet.
   - DMA_DEV_TO_MEM
     On transfer completion the DMA driver must copy the metadata to the client
-    provided metadata buffer.
+    provided metadata buffer before notifying the client about the completion.
+    After the transfer completion, DMA drivers must not touch the metadata
+    buffer provided by the client.
 
 - DESC_METADATA_ENGINE
 

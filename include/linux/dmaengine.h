@@ -246,6 +246,10 @@ typedef struct { DECLARE_BITMAP(bits, DMA_TX_TYPE_END); } dma_cap_mask_t;
  *  dmaengine_desc_get_metadata_ptr() and dmaengine_desc_set_metadata_len() is
  *  provided as helper functions.
  *
+ *  Note: the metadata area for the descriptor is no longer valid after the
+ *  transfer has been completed (valid up to the point when the completion
+ *  callback returns if used).
+ *
  * Client drivers interested to use this mode can follow:
  * - DMA_MEM_TO_DEV / DEV_MEM_TO_MEM:
  *   1. prepare the descriptor (dmaengine_prep_*)
@@ -1535,5 +1539,24 @@ static inline struct dma_chan
 		return NULL;
 
 	return __dma_request_channel(mask, fn, fn_param, NULL);
+}
+
+static inline char *
+dmaengine_get_direction_text(enum dma_transfer_direction dir)
+{
+	switch (dir) {
+	case DMA_DEV_TO_MEM:
+		return "DEV_TO_MEM";
+	case DMA_MEM_TO_DEV:
+		return "MEM_TO_DEV";
+	case DMA_MEM_TO_MEM:
+		return "MEM_TO_MEM";
+	case DMA_DEV_TO_DEV:
+		return "DEV_TO_DEV";
+	default:
+		break;
+	}
+
+	return "invalid";
 }
 #endif /* DMAENGINE_H */

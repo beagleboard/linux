@@ -13,10 +13,9 @@ description: |
   The UDMA-P is intended to perform similar (but significantly upgraded)
   functions as the packet-oriented DMA used on previous SoC devices. The UDMA-P
   module supports the transmission and reception of various packet types.
-  The UDMA-P is architected to facilitate the segmentation and reassembly of
-  SoC DMA data structure compliant packets to/from smaller data blocks that are
-  natively compatible with the specific requirements of each connected
-  peripheral.
+  The UDMA-P architecture facilitates the segmentation and reassembly of SoC DMA
+  data structure compliant packets to/from smaller data blocks that are natively
+  compatible with the specific requirements of each connected peripheral.
   Multiple Tx and Rx channels are provided within the DMA which allow multiple
   segmentation or reassembly operations to be ongoing. The DMA controller
   maintains state information for each of the channels which allows packet
@@ -53,7 +52,7 @@ properties:
       for source thread IDs (rx): 0 - 0x7fff
       for destination thread IDs (tx): 0x8000 - 0xffff
 
-      PLease refer to the device documentation for the PSI-L thread map and also
+      Please refer to the device documentation for the PSI-L thread map and also
       the PSI-L peripheral chapter for the correct thread ID.
 
   compatible:

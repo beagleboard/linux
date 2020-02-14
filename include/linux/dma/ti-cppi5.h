@@ -80,6 +80,7 @@ struct cppi5_host_desc_t {
 #define CPPI5_INFO1_DESC_PKTID_MASK		GENMASK(23, 14)
 #define CPPI5_INFO1_DESC_FLOWID_SHIFT		(0)
 #define CPPI5_INFO1_DESC_FLOWID_MASK		GENMASK(13, 0)
+#define CPPI5_INFO1_DESC_FLOWID_DEFAULT		CPPI5_INFO1_DESC_FLOWID_MASK
 
 #define CPPI5_INFO2_HDESC_PKTTYPE_SHIFT		(27U)
 #define CPPI5_INFO2_HDESC_PKTTYPE_MASK		GENMASK(31, 27)
@@ -368,8 +369,8 @@ static inline void cppi5_hdesc_update_flags(struct cppi5_host_desc_t *desc,
  * @desc: Host packet descriptor
  * @psdata_size: PSDATA size
  */
-static inline void cppi5_hdesc_update_psdata_size(
-		struct cppi5_host_desc_t *desc, u32 psdata_size)
+static inline void
+cppi5_hdesc_update_psdata_size(struct cppi5_host_desc_t *desc, u32 psdata_size)
 {
 	desc->hdr.pkt_info0 &= ~CPPI5_INFO0_HDESC_PSINFO_SIZE_MASK;
 	desc->hdr.pkt_info0 |= ((psdata_size >> 2) <<
@@ -510,8 +511,8 @@ static inline void cppi5_hdesc_link_hbdesc(struct cppi5_host_desc_t *desc,
 	desc->next_desc = hbuf_desc;
 }
 
-static inline dma_addr_t cppi5_hdesc_get_next_hbdesc(
-		struct cppi5_host_desc_t *desc)
+static inline dma_addr_t
+cppi5_hdesc_get_next_hbdesc(struct cppi5_host_desc_t *desc)
 {
 	return (dma_addr_t)desc->next_desc;
 }
@@ -561,11 +562,6 @@ static inline void *cppi5_hdesc_get_psdata(struct cppi5_host_desc_t *desc)
 		psdata += CPPI5_INFO0_HDESC_EPIB_SIZE;
 
 	return psdata;
-}
-
-static inline u32 *cppi5_hdesc_get_psdata32(struct cppi5_host_desc_t *desc)
-{
-	return (u32 *)cppi5_hdesc_get_psdata(desc);
 }
 
 /**
@@ -658,7 +654,7 @@ enum cppi5_tr_types {
  * enum cppi5_tr_event_size - TR Flags EVENT_SIZE field specifies when an event
  *			      is generated for each TR.
  * @CPPI5_TR_EVENT_SIZE_COMPLETION:	When TR is complete and all status for
- *					the TR has been received
+ * 					the TR has been received
  * @CPPI5_TR_EVENT_SIZE_ICNT1_DEC:	Type 0: when the last data transaction
  *					is sent for the TR
  *					Type 1-11: when ICNT1 is decremented
@@ -974,10 +970,12 @@ static inline void cppi5_trdesc_init(struct cppi5_desc_hdr_t *desc_hdr,
 {
 	desc_hdr->pkt_info0 = CPPI5_INFO0_DESC_TYPE_VAL_TR <<
 			      CPPI5_INFO0_HDESC_TYPE_SHIFT;
-	desc_hdr->pkt_info0 |= (reload_count << CPPI5_INFO0_TRDESC_RLDCNT_SHIFT) &
-			       CPPI5_INFO0_TRDESC_RLDCNT_MASK;
-	desc_hdr->pkt_info0 |= (reload_idx << CPPI5_INFO0_TRDESC_RLDIDX_SHIFT) &
-			       CPPI5_INFO0_TRDESC_RLDIDX_MASK;
+	desc_hdr->pkt_info0 |=
+			(reload_count << CPPI5_INFO0_TRDESC_RLDCNT_SHIFT) &
+			CPPI5_INFO0_TRDESC_RLDCNT_MASK;
+	desc_hdr->pkt_info0 |=
+			(reload_idx << CPPI5_INFO0_TRDESC_RLDIDX_SHIFT) &
+			CPPI5_INFO0_TRDESC_RLDIDX_MASK;
 	desc_hdr->pkt_info0 |= (tr_count - 1) & CPPI5_INFO0_TRDESC_LASTIDX_MASK;
 
 	desc_hdr->pkt_info1 |= ((ffs(tr_size >> 4) - 1) <<
