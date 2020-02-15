@@ -480,37 +480,6 @@ static struct omap_hwmod omap44xx_dmic_hwmod = {
 };
 
 /*
- * 'dsp' class
- * dsp sub-system
- */
-
-static struct omap_hwmod_class omap44xx_dsp_hwmod_class = {
-	.name	= "dsp",
-};
-
-/* dsp */
-static struct omap_hwmod_rst_info omap44xx_dsp_resets[] = {
-	{ .name = "dsp", .rst_shift = 0 },
-};
-
-static struct omap_hwmod omap44xx_dsp_hwmod = {
-	.name		= "dsp",
-	.class		= &omap44xx_dsp_hwmod_class,
-	.clkdm_name	= "tesla_clkdm",
-	.rst_lines	= omap44xx_dsp_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap44xx_dsp_resets),
-	.main_clk	= "dpll_iva_m4x2_ck",
-	.prcm = {
-		.omap4 = {
-			.clkctrl_offs = OMAP4_CM_TESLA_TESLA_CLKCTRL_OFFSET,
-			.rstctrl_offs = OMAP4_RM_TESLA_RSTCTRL_OFFSET,
-			.context_offs = OMAP4_RM_TESLA_TESLA_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
-		},
-	},
-};
-
-/*
  * 'dss' class
  * display sub-system
  */
@@ -1136,38 +1105,6 @@ static struct omap_hwmod omap44xx_hsi_hwmod = {
 };
 
 /*
- * 'ipu' class
- * imaging processor unit
- */
-
-static struct omap_hwmod_class omap44xx_ipu_hwmod_class = {
-	.name	= "ipu",
-};
-
-/* ipu */
-static struct omap_hwmod_rst_info omap44xx_ipu_resets[] = {
-	{ .name = "cpu0", .rst_shift = 0 },
-	{ .name = "cpu1", .rst_shift = 1 },
-};
-
-static struct omap_hwmod omap44xx_ipu_hwmod = {
-	.name		= "ipu",
-	.class		= &omap44xx_ipu_hwmod_class,
-	.clkdm_name	= "ducati_clkdm",
-	.rst_lines	= omap44xx_ipu_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap44xx_ipu_resets),
-	.main_clk	= "ducati_clk_mux_ck",
-	.prcm = {
-		.omap4 = {
-			.clkctrl_offs = OMAP4_CM_DUCATI_DUCATI_CLKCTRL_OFFSET,
-			.rstctrl_offs = OMAP4_RM_DUCATI_RSTCTRL_OFFSET,
-			.context_offs = OMAP4_RM_DUCATI_DUCATI_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
-		},
-	},
-};
-
-/*
  * 'iss' class
  * external images sensor pixel data processor
  */
@@ -1507,91 +1444,6 @@ static struct omap_hwmod omap44xx_mcpdm_hwmod = {
 			.clkctrl_offs = OMAP4_CM1_ABE_PDM_CLKCTRL_OFFSET,
 			.context_offs = OMAP4_RM_ABE_PDM_CONTEXT_OFFSET,
 			.modulemode   = MODULEMODE_SWCTRL,
-		},
-	},
-};
-
-/*
- * 'mmu' class
- * The memory management unit performs virtual to physical address translation
- * for its requestors.
- */
-
-static struct omap_hwmod_class_sysconfig mmu_sysc = {
-	.rev_offs	= 0x000,
-	.sysc_offs	= 0x010,
-	.syss_offs	= 0x014,
-	.sysc_flags	= (SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SIDLEMODE |
-			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
-	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
-	.sysc_fields	= &omap_hwmod_sysc_type1,
-};
-
-static struct omap_hwmod_class omap44xx_mmu_hwmod_class = {
-	.name = "mmu",
-	.sysc = &mmu_sysc,
-};
-
-/* mmu ipu */
-
-static struct omap_hwmod omap44xx_mmu_ipu_hwmod;
-static struct omap_hwmod_rst_info omap44xx_mmu_ipu_resets[] = {
-	{ .name = "mmu_cache", .rst_shift = 2 },
-};
-
-/* l3_main_2 -> mmu_ipu */
-static struct omap_hwmod_ocp_if omap44xx_l3_main_2__mmu_ipu = {
-	.master		= &omap44xx_l3_main_2_hwmod,
-	.slave		= &omap44xx_mmu_ipu_hwmod,
-	.clk		= "l3_div_ck",
-	.user		= OCP_USER_MPU | OCP_USER_SDMA,
-};
-
-static struct omap_hwmod omap44xx_mmu_ipu_hwmod = {
-	.name		= "mmu_ipu",
-	.class		= &omap44xx_mmu_hwmod_class,
-	.clkdm_name	= "ducati_clkdm",
-	.rst_lines	= omap44xx_mmu_ipu_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap44xx_mmu_ipu_resets),
-	.main_clk	= "ducati_clk_mux_ck",
-	.prcm = {
-		.omap4 = {
-			.clkctrl_offs = OMAP4_CM_DUCATI_DUCATI_CLKCTRL_OFFSET,
-			.rstctrl_offs = OMAP4_RM_DUCATI_RSTCTRL_OFFSET,
-			.context_offs = OMAP4_RM_DUCATI_DUCATI_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
-		},
-	},
-};
-
-/* mmu dsp */
-
-static struct omap_hwmod omap44xx_mmu_dsp_hwmod;
-static struct omap_hwmod_rst_info omap44xx_mmu_dsp_resets[] = {
-	{ .name = "mmu_cache", .rst_shift = 1 },
-};
-
-/* l4_cfg -> dsp */
-static struct omap_hwmod_ocp_if omap44xx_l4_cfg__mmu_dsp = {
-	.master		= &omap44xx_l4_cfg_hwmod,
-	.slave		= &omap44xx_mmu_dsp_hwmod,
-	.clk		= "l4_div_ck",
-	.user		= OCP_USER_MPU | OCP_USER_SDMA,
-};
-
-static struct omap_hwmod omap44xx_mmu_dsp_hwmod = {
-	.name		= "mmu_dsp",
-	.class		= &omap44xx_mmu_hwmod_class,
-	.clkdm_name	= "tesla_clkdm",
-	.rst_lines	= omap44xx_mmu_dsp_resets,
-	.rst_lines_cnt	= ARRAY_SIZE(omap44xx_mmu_dsp_resets),
-	.main_clk	= "dpll_iva_m4x2_ck",
-	.prcm = {
-		.omap4 = {
-			.clkctrl_offs = OMAP4_CM_TESLA_TESLA_CLKCTRL_OFFSET,
-			.rstctrl_offs = OMAP4_RM_TESLA_RSTCTRL_OFFSET,
-			.context_offs = OMAP4_RM_TESLA_TESLA_CONTEXT_OFFSET,
-			.modulemode   = MODULEMODE_HWCTRL,
 		},
 	},
 };
@@ -2418,14 +2270,6 @@ static struct omap_hwmod_ocp_if omap44xx_ocp_wp_noc__l3_instr = {
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
-/* dsp -> l3_main_1 */
-static struct omap_hwmod_ocp_if omap44xx_dsp__l3_main_1 = {
-	.master		= &omap44xx_dsp_hwmod,
-	.slave		= &omap44xx_l3_main_1_hwmod,
-	.clk		= "l3_div_ck",
-	.user		= OCP_USER_MPU | OCP_USER_SDMA,
-};
-
 /* dss -> l3_main_1 */
 static struct omap_hwmod_ocp_if omap44xx_dss__l3_main_1 = {
 	.master		= &omap44xx_dss_hwmod,
@@ -2485,14 +2329,6 @@ static struct omap_hwmod_ocp_if omap44xx_fdif__l3_main_2 = {
 /* hsi -> l3_main_2 */
 static struct omap_hwmod_ocp_if omap44xx_hsi__l3_main_2 = {
 	.master		= &omap44xx_hsi_hwmod,
-	.slave		= &omap44xx_l3_main_2_hwmod,
-	.clk		= "l3_div_ck",
-	.user		= OCP_USER_MPU | OCP_USER_SDMA,
-};
-
-/* ipu -> l3_main_2 */
-static struct omap_hwmod_ocp_if omap44xx_ipu__l3_main_2 = {
-	.master		= &omap44xx_ipu_hwmod,
 	.slave		= &omap44xx_l3_main_2_hwmod,
 	.clk		= "l3_div_ck",
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
@@ -2581,14 +2417,6 @@ static struct omap_hwmod_ocp_if omap44xx_l4_cfg__l3_main_3 = {
 /* aess -> l4_abe */
 static struct omap_hwmod_ocp_if __maybe_unused omap44xx_aess__l4_abe = {
 	.master		= &omap44xx_aess_hwmod,
-	.slave		= &omap44xx_l4_abe_hwmod,
-	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU | OCP_USER_SDMA,
-};
-
-/* dsp -> l4_abe */
-static struct omap_hwmod_ocp_if omap44xx_dsp__l4_abe = {
-	.master		= &omap44xx_dsp_hwmod,
 	.slave		= &omap44xx_l4_abe_hwmod,
 	.clk		= "ocp_abe_iclk",
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
@@ -2727,30 +2555,6 @@ static struct omap_hwmod_ocp_if omap44xx_l4_abe__dmic = {
 	.master		= &omap44xx_l4_abe_hwmod,
 	.slave		= &omap44xx_dmic_hwmod,
 	.clk		= "ocp_abe_iclk",
-	.user		= OCP_USER_MPU | OCP_USER_SDMA,
-};
-
-/* dsp -> iva */
-static struct omap_hwmod_ocp_if omap44xx_dsp__iva = {
-	.master		= &omap44xx_dsp_hwmod,
-	.slave		= &omap44xx_iva_hwmod,
-	.clk		= "dpll_iva_m5x2_ck",
-	.user		= OCP_USER_DSP,
-};
-
-/* dsp -> sl2if */
-static struct omap_hwmod_ocp_if __maybe_unused omap44xx_dsp__sl2if = {
-	.master		= &omap44xx_dsp_hwmod,
-	.slave		= &omap44xx_sl2if_hwmod,
-	.clk		= "dpll_iva_m5x2_ck",
-	.user		= OCP_USER_DSP,
-};
-
-/* l4_cfg -> dsp */
-static struct omap_hwmod_ocp_if omap44xx_l4_cfg__dsp = {
-	.master		= &omap44xx_l4_cfg_hwmod,
-	.slave		= &omap44xx_dsp_hwmod,
-	.clk		= "l4_div_ck",
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
@@ -2911,14 +2715,6 @@ static struct omap_hwmod_ocp_if omap44xx_l4_cfg__hsi = {
 	.master		= &omap44xx_l4_cfg_hwmod,
 	.slave		= &omap44xx_hsi_hwmod,
 	.clk		= "l4_div_ck",
-	.user		= OCP_USER_MPU | OCP_USER_SDMA,
-};
-
-/* l3_main_2 -> ipu */
-static struct omap_hwmod_ocp_if omap44xx_l3_main_2__ipu = {
-	.master		= &omap44xx_l3_main_2_hwmod,
-	.slave		= &omap44xx_ipu_hwmod,
-	.clk		= "l3_div_ck",
 	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
@@ -3280,7 +3076,6 @@ static struct omap_hwmod_ocp_if *omap44xx_hwmod_ocp_ifs[] __initdata = {
 	&omap44xx_iva__l3_instr,
 	&omap44xx_l3_main_3__l3_instr,
 	&omap44xx_ocp_wp_noc__l3_instr,
-	&omap44xx_dsp__l3_main_1,
 	&omap44xx_dss__l3_main_1,
 	&omap44xx_l3_main_2__l3_main_1,
 	&omap44xx_l4_cfg__l3_main_1,
@@ -3289,7 +3084,6 @@ static struct omap_hwmod_ocp_if *omap44xx_hwmod_ocp_ifs[] __initdata = {
 	&omap44xx_dma_system__l3_main_2,
 	&omap44xx_fdif__l3_main_2,
 	&omap44xx_hsi__l3_main_2,
-	&omap44xx_ipu__l3_main_2,
 	&omap44xx_iss__l3_main_2,
 	&omap44xx_iva__l3_main_2,
 	&omap44xx_l3_main_1__l3_main_2,
@@ -3301,7 +3095,6 @@ static struct omap_hwmod_ocp_if *omap44xx_hwmod_ocp_ifs[] __initdata = {
 	&omap44xx_l3_main_2__l3_main_3,
 	&omap44xx_l4_cfg__l3_main_3,
 	&omap44xx_aess__l4_abe,
-	&omap44xx_dsp__l4_abe,
 	&omap44xx_l3_main_1__l4_abe,
 	&omap44xx_mpu__l4_abe,
 	&omap44xx_l3_main_1__l4_cfg,
@@ -3319,9 +3112,6 @@ static struct omap_hwmod_ocp_if *omap44xx_hwmod_ocp_ifs[] __initdata = {
 	&omap44xx_l3_instr__debugss,
 	&omap44xx_l4_cfg__dma_system,
 	&omap44xx_l4_abe__dmic,
-	&omap44xx_dsp__iva,
-	/* &omap44xx_dsp__sl2if, */
-	&omap44xx_l4_cfg__dsp,
 	&omap44xx_l3_main_2__dss,
 	&omap44xx_l4_per__dss,
 	&omap44xx_l3_main_2__dss_dispc,
@@ -3341,7 +3131,6 @@ static struct omap_hwmod_ocp_if *omap44xx_hwmod_ocp_ifs[] __initdata = {
 	&omap44xx_l3_main_2__gpmc,
 	&omap44xx_l4_per__hdq1w,
 	&omap44xx_l4_cfg__hsi,
-	&omap44xx_l3_main_2__ipu,
 	&omap44xx_l3_main_2__iss,
 	/* &omap44xx_iva__sl2if, */
 	&omap44xx_l3_main_2__iva,
@@ -3354,8 +3143,6 @@ static struct omap_hwmod_ocp_if *omap44xx_hwmod_ocp_ifs[] __initdata = {
 	&omap44xx_l4_abe__mcbsp3,
 	&omap44xx_l4_per__mcbsp4,
 	&omap44xx_l4_abe__mcpdm,
-	&omap44xx_l3_main_2__mmu_ipu,
-	&omap44xx_l4_cfg__mmu_dsp,
 	&omap44xx_l3_main_2__ocmc_ram,
 	&omap44xx_l4_cfg__ocp2scp_usb_phy,
 	&omap44xx_mpu_private__prcm_mpu,

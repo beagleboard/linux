@@ -321,7 +321,6 @@
 
 		target-module@66000 {			/* 0x4a066000, ap 25 26.0 */
 			compatible = "ti,sysc-omap2", "ti,sysc";
-			ti,hwmods = "mmu_dsp";
 			reg = <0x66000 0x4>,
 			      <0x66010 0x4>,
 			      <0x66014 0x4>;
@@ -335,12 +334,18 @@
 			/* Domains (V, P, C): iva, tesla_pwrdm, tesla_clkdm */
 			clocks = <&tesla_clkctrl OMAP4_DSP_CLKCTRL 0>;
 			clock-names = "fck";
+			resets = <&prm_tesla 1>;
+			reset-names = "rstctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0x0 0x66000 0x1000>;
 
-			/* mmu_dsp cannot be moved before reset driver */
-			status = "disabled";
+			mmu_dsp: mmu@0 {
+				compatible = "ti,omap4-iommu";
+				reg = <0x0 0x100>;
+				interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
+				#iommu-cells = <0>;
+			};
 		};
 	};
 
@@ -1171,8 +1176,9 @@
 			timer1: timer@0 {
 				compatible = "ti,omap3430-timer";
 				reg = <0x0 0x80>;
-				clocks = <&l4_wkup_clkctrl OMAP4_TIMER1_CLKCTRL 24>;
-				clock-names = "fck";
+				clocks = <&l4_wkup_clkctrl OMAP4_TIMER1_CLKCTRL 24>,
+					 <&sys_clkin_ck>;
+				clock-names = "fck", "timer_sys_ck";
 				interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 				ti,timer-alwon;
 			};
@@ -1449,8 +1455,9 @@
 			timer2: timer@0 {
 				compatible = "ti,omap3430-timer";
 				reg = <0x0 0x80>;
-				clocks = <&l4_per_clkctrl OMAP4_TIMER2_CLKCTRL 24>;
-				clock-names = "fck";
+				clocks = <&l4_per_clkctrl OMAP4_TIMER2_CLKCTRL 24>,
+					 <&sys_clkin_ck>;
+				clock-names = "fck", "timer_sys_ck";
 				interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 			};
 		};
@@ -1477,8 +1484,9 @@
 			timer3: timer@0 {
 				compatible = "ti,omap4430-timer";
 				reg = <0x0 0x80>;
-				clocks = <&l4_per_clkctrl OMAP4_TIMER3_CLKCTRL 24>;
-				clock-names = "fck";
+				clocks = <&l4_per_clkctrl OMAP4_TIMER3_CLKCTRL 24>,
+					 <&sys_clkin_ck>;
+				clock-names = "fck", "timer_sys_ck";
 				interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			};
 		};
@@ -1505,8 +1513,9 @@
 			timer4: timer@0 {
 				compatible = "ti,omap4430-timer";
 				reg = <0x0 0x80>;
-				clocks = <&l4_per_clkctrl OMAP4_TIMER4_CLKCTRL 24>;
-				clock-names = "fck";
+				clocks = <&l4_per_clkctrl OMAP4_TIMER4_CLKCTRL 24>,
+					 <&sys_clkin_ck>;
+				clock-names = "fck", "timer_sys_ck";
 				interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			};
 		};
@@ -1533,8 +1542,9 @@
 			timer9: timer@0 {
 				compatible = "ti,omap4430-timer";
 				reg = <0x0 0x80>;
-				clocks = <&l4_per_clkctrl OMAP4_TIMER9_CLKCTRL 24>;
-				clock-names = "fck";
+				clocks = <&l4_per_clkctrl OMAP4_TIMER9_CLKCTRL 24>,
+					 <&sys_clkin_ck>;
+				clock-names = "fck", "timer_sys_ck";
 				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
 				ti,timer-pwm;
 			};
@@ -1974,8 +1984,9 @@
 			timer10: timer@0 {
 				compatible = "ti,omap3430-timer";
 				reg = <0x0 0x80>;
-				clocks = <&l4_per_clkctrl OMAP4_TIMER10_CLKCTRL 24>;
-				clock-names = "fck";
+				clocks = <&l4_per_clkctrl OMAP4_TIMER10_CLKCTRL 24>,
+					 <&sys_clkin_ck>;
+				clock-names = "fck", "timer_sys_ck";
 				interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
 				ti,timer-pwm;
 			};
@@ -2003,8 +2014,9 @@
 			timer11: timer@0 {
 				compatible = "ti,omap4430-timer";
 				reg = <0x0 0x80>;
-				clocks = <&l4_per_clkctrl OMAP4_TIMER11_CLKCTRL 24>;
-				clock-names = "fck";
+				clocks = <&l4_per_clkctrl OMAP4_TIMER11_CLKCTRL 24>,
+					 <&sys_clkin_ck>;
+				clock-names = "fck", "timer_sys_ck";
 				interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
 				ti,timer-pwm;
 			};

@@ -1032,12 +1032,16 @@ static __maybe_unused int omap_iommu_runtime_suspend(struct device *dev)
 
 	omap2_iommu_disable(obj);
 
+	if (!obj->hwmod_mode)
+		goto skip_hwmod_ops;
+
 	if (pdata && pdata->device_idle)
 		pdata->device_idle(pdev);
 
 	if (pdata && pdata->assert_reset)
 		pdata->assert_reset(pdev, pdata->reset_name);
 
+skip_hwmod_ops:
 	if (pdata && pdata->set_pwrdm_constraint) {
 		ret = pdata->set_pwrdm_constraint(pdev, false, &obj->pwrst);
 		if (ret) {
@@ -1076,6 +1080,9 @@ static __maybe_unused int omap_iommu_runtime_resume(struct device *dev)
 		}
 	}
 
+	if (!obj->hwmod_mode)
+		goto skip_hwmod_ops;
+
 	if (pdata && pdata->deassert_reset) {
 		ret = pdata->deassert_reset(pdev, pdata->reset_name);
 		if (ret) {
@@ -1087,6 +1094,7 @@ static __maybe_unused int omap_iommu_runtime_resume(struct device *dev)
 	if (pdata && pdata->device_enable)
 		pdata->device_enable(pdev);
 
+skip_hwmod_ops:
 	/* restore the TLBs only during resume, and not for power up */
 	if (obj->domain)
 		omap_iommu_restore_tlb_entries(obj);
@@ -1206,6 +1214,7 @@ static int omap_iommu_probe(struct platform_device *pdev)
 		return -EINVAL;
 	if (of_find_property(of, "ti,iommu-bus-err-back", NULL))
 		obj->has_bus_err_back = MMU_GP_REG_BUS_ERR_BACK_EN;
+	obj->hwmod_mode = of_get_property(of, "ti,hwmods", NULL);
 
 	obj->dev = &pdev->dev;
 	obj->ctx = (void *)obj + sizeof(*obj);

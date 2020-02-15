@@ -58,6 +58,7 @@ struct omap_iommu {
 	struct device	*dev;
 	struct iommu_domain *domain;
 	struct dentry	*debug_dir;
+	const char *hwmod_mode;
 
 	spinlock_t	iommu_lock;	/* global for this whole object */
 
