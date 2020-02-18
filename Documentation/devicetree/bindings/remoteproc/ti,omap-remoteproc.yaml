@@ -132,6 +132,9 @@ properties:
   ti,autosuspend-delay-ms:
     description: |
       Custom autosuspend delay for the remoteproc in milliseconds.
+      Recommended values is preferable to be in the order of couple
+      of seconds. A negative value can also be used to disable the
+      autosuspend behavior.
 
   ti,timers:
     $ref: /schemas/types.yaml#/definitions/phandle-array
