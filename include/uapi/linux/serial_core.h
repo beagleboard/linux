@@ -293,4 +293,7 @@
 /* Freescale Linflex UART */
 #define PORT_LINFLEXUART	122
 
+/* PRU SW UART */
+#define PORT_PSUART     123
+
 #endif /* _UAPILINUX_SERIAL_CORE_H */

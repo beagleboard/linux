@@ -1572,6 +1572,16 @@ config SERIAL_MILBEAUT_USIO_CONSOLE
 	  receives all kernel messages and warnings and which allows logins in
 	  single user mode).
 
+config SERIAL_PRU_SUART
+	tristate "TI PRU Software UART support"
+	depends on PRU_REMOTEPROC && !ARCH_K3
+	select SERIAL_CORE
+	help
+	  This driver is to support software UART over PRUSS, provided through
+	  PRU firmware.
+	  Say 'Y' here if you wish to use PRU software based UART.
+	  Otherwise, say 'N'.
+
 endmenu
 
 config SERIAL_MCTRL_GPIO
