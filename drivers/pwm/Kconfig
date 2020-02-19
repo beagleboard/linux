@@ -553,4 +553,14 @@ config PWM_ZX
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-zx.
 
+config  PWM_PRU
+	tristate "PRU-ICSS PWM support"
+	depends on PRU_REMOTEPROC && ARCH_K3 || COMPILE_TEST
+	help
+	  PWM driver support for the PRU-ICSS PWM controller found on TI
+	  SOCs.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-pru.
+
 endif
