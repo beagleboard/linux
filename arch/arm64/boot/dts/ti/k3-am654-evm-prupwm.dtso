@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * DT overlay for PRU breakout personality card on AM654 EVM
+ *
+ * Copyright (C) 2019-2020 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/pinctrl/k3.h>
+
+/ {
+  fragment@101 {
+	target-path = "/";
+
+	__overlay__ {
+		pru_pwm0 {
+			compatible = "ti,pru-pwm";
+			prus = <&pru0_0>;
+			firmware-name = "ti-pruss/am65x-pru0-pwm-fw.elf";
+			assigned-clocks = <&icssg0_iepclk_mux>;
+			assigned-clock-parents = <&k3_clks 62 10>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pwm_chip@0 {
+				compatible = "ti,pru-pwmchip";
+				reg = <0>;
+				#pwm-cells = <2>;
+				pinctrl-0 = <&prupwm0_chip0_pins_default>;
+				pinctrl-names = "default";
+			};
+
+			pwm_chip@1 {
+				compatible = "ti,pru-pwmchip";
+				reg = <1>;
+				#pwm-cells = <2>;
+				pinctrl-0 = <&prupwm0_chip1_pins_default>;
+				pinctrl-names = "default";
+			};
+		};
+		pru_pwm1 {
+			compatible = "ti,pru-pwm";
+			prus = <&pru1_0>;
+			firmware-name = "ti-pruss/am65x-pru0-pwm-fw.elf";
+			assigned-clocks = <&icssg1_iepclk_mux>;
+			assigned-clock-parents = <&k3_clks 63 10>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pwm_chip@0 {
+				compatible = "ti,pru-pwmchip";
+				reg = <0>;
+				#pwm-cells = <2>;
+				pinctrl-0 = <&prupwm1_chip0_pins_default>;
+				pinctrl-names = "default";
+			};
+
+			pwm_chip@1 {
+				compatible = "ti,pru-pwmchip";
+				reg = <1>;
+				#pwm-cells = <2>;
+				pinctrl-0 = <&prupwm1_chip1_pins_default>;
+				pinctrl-names = "default";
+			};
+		};
+	};
+  };
+};
+
+&main_pmx0 {
+	prupwm0_chip0_pins_default: prupwm0_chip0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x224, PIN_OUTPUT, 3) /* (AD27) PRG0_PRU0_GPO12.PRG0_PWM0_A0, pwm0 */
+			AM65X_IOPAD(0x228, PIN_OUTPUT, 3) /* (AC26) PRG0_PRU0_GPO13.PRG0_PWM0_B0, pwm1 */
+			AM65X_IOPAD(0x22c, PIN_OUTPUT, 3) /* (AD26) PRG0_PRU0_GPO14.PRG0_PWM0_A1, pwm2 */
+			AM65X_IOPAD(0x230, PIN_OUTPUT, 3) /* (AA24) PRG0_PRU0_GPO15.PRG0_PWM0_B1, pwm3 */
+			AM65X_IOPAD(0x234, PIN_OUTPUT, 3) /* (AD28) PRG0_PRU0_GPO16.PRG0_PWM0_A2, pwm4 */
+			AM65X_IOPAD(0x238, PIN_OUTPUT, 3) /*  (U26) PRG0_PRU0_GPO17.PRG0_PWM0_B2, pwm5 */
+
+			AM65X_IOPAD(0x274, PIN_OUTPUT, 3) /* (AC25) PRG0_PRU1_GPO12.PRG0_PWM1_A0, pwm6 */
+			AM65X_IOPAD(0x278, PIN_OUTPUT, 3) /* (AD25) PRG0_PRU1_GPO13.PRG0_PWM1_B0, pwm7 */
+			AM65X_IOPAD(0x27c, PIN_OUTPUT, 3) /* (AD24) PRG0_PRU1_GPO14.PRG0_PWM1_A1, pwm8 */
+			AM65X_IOPAD(0x280, PIN_OUTPUT, 3) /* (AE27) PRG0_PRU1_GPO15.PRG0_PWM1_B1, pwm9 */
+			AM65X_IOPAD(0x284, PIN_OUTPUT, 3) /* (AC24) PRG0_PRU1_GPO16.PRG0_PWM1_A2, pwm10 */
+			AM65X_IOPAD(0x288, PIN_OUTPUT, 3) /*  (Y27) PRG0_PRU1_GPO17.PRG0_PWM1_B2, pwm11 */
+		>;
+	};
+
+	prupwm0_chip1_pins_default: prupwm0_chip1_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x1fc, PIN_OUTPUT, 3) /*  (W24) PRG0_PRU0_GPO2.PRG0_PWM2_A0, pwm0 */
+			AM65X_IOPAD(0x204, PIN_OUTPUT, 3) /*  (Y24) PRG0_PRU0_GPO4.PRG0_PWM2_B0, pwm1 */
+			AM65X_IOPAD(0x214, PIN_OUTPUT, 3) /*  (V27) PRG0_PRU0_GPO8.PRG0_PWM2_A1, pwm2 */
+			AM65X_IOPAD(0x21c, PIN_OUTPUT, 3) /*  (U25) PRG0_PRU0_GPO10.PRG0_PWM2_B1, pwm3 */
+			AM65X_IOPAD(0x24c, PIN_OUTPUT, 3) /* (AC27) PRG0_PRU1_GPO2.PRG0_PWM2_A2, pwm4 */
+			AM65X_IOPAD(0x254, PIN_OUTPUT, 3) /* (AA25) PRG0_PRU1_GPO4.PRG0_PWM2_B2, pwm5 */
+
+			AM65X_IOPAD(0x1f4, PIN_OUTPUT, 3) /*  (V24) PRG0_PRU0_GPO0.PRG0_PWM3_A0, pwm6 */
+			AM65X_IOPAD(0x1f8, PIN_OUTPUT, 3) /*  (W25) PRG0_PRU0_GPO1.PRG0_PWM3_B0, pwm7 */
+			AM65X_IOPAD(0x20c, PIN_OUTPUT, 3) /*  (Y25) PRG0_PRU0_GPO6.PRG0_PWM3_A1, pwm8 */
+			AM65X_IOPAD(0x210, PIN_OUTPUT, 3) /*  (U27) PRG0_PRU0_GPO7.PRG0_PWM3_B1, pwm9 */
+			AM65X_IOPAD(0x200, PIN_OUTPUT, 3) /* (AA27) PRG0_PRU0_GPO3.PRG0_PWM3_A2, pwm10 */
+			AM65X_IOPAD(0x208, PIN_OUTPUT, 3) /*  (V28) PRG0_PRU0_GPO5.PRG0_PWM3_B2, pwm11 */
+		>;
+	};
+
+	prupwm1_chip0_pins_default: prupwm1_chip0_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x110, PIN_OUTPUT, 3) /* (AH20) PRG1_PRU0_GPO12.PRG1_PWM0_A0, pwm0 */
+			AM65X_IOPAD(0x114, PIN_OUTPUT, 3) /* (AH21) PRG1_PRU0_GPO13.PRG1_PWM0_B0, pwm1 */
+			AM65X_IOPAD(0x118, PIN_OUTPUT, 3) /* (AG20) PRG1_PRU0_GPO14.PRG1_PWM0_A1, pwm2 */
+			AM65X_IOPAD(0x11c, PIN_OUTPUT, 3) /* (AD19) PRG1_PRU0_GPO15.PRG1_PWM0_B1, pwm3 */
+			AM65X_IOPAD(0x120, PIN_OUTPUT, 3) /* (AD20) PRG1_PRU0_GPO16.PRG1_PWM0_A2, pwm4 */
+			AM65X_IOPAD(0x124, PIN_OUTPUT, 3) /* (AH26) PRG1_PRU0_GPO17.PRG1_PWM0_B2, pwm5 */
+
+			AM65X_IOPAD(0x160, PIN_OUTPUT, 3) /* (AE20) PRG1_PRU1_GPO12.PRG1_PWM1_A0, pwm6 */
+			AM65X_IOPAD(0x164, PIN_OUTPUT, 3) /* (AF19) PRG1_PRU1_GPO13.PRG1_PWM1_B0, pwm7 */
+			AM65X_IOPAD(0x168, PIN_OUTPUT, 3) /* (AH19) PRG1_PRU1_GPO14.PRG1_PWM1_A1, pwm8 */
+			AM65X_IOPAD(0x16c, PIN_OUTPUT, 3) /* (AG19) PRG1_PRU1_GPO15.PRG1_PWM1_B1, pwm9 */
+			AM65X_IOPAD(0x170, PIN_OUTPUT, 3) /* (AE19) PRG1_PRU1_GPO16.PRG1_PWM1_A2, pwm10 */
+			AM65X_IOPAD(0x174, PIN_OUTPUT, 3) /* (AE23) PRG1_PRU1_GPO17.PRG1_PWM1_B2, pwm11 */
+		>;
+	};
+
+	prupwm1_chip1_pins_default: prupwm1_chip1_pins_default {
+		pinctrl-single,pins = <
+			AM65X_IOPAD(0x0e8, PIN_OUTPUT, 3) /* (AF23) PRG1_PRU0_GPO2.PRG1_PWM2_A0, pwm0 */
+			AM65X_IOPAD(0x0f0, PIN_OUTPUT, 3) /* (AG23) PRG1_PRU0_GPO4.PRG1_PWM2_B0, pwm1 */
+			AM65X_IOPAD(0x100, PIN_OUTPUT, 3) /* (AF28) PRG1_PRU0_GPO8.PRG1_PWM2_A1, pwm2 */
+			AM65X_IOPAD(0x108, PIN_OUTPUT, 3) /* (AH25) PRG1_PRU0_GPO10.PRG1_PWM2_B1, pwm3 */
+			AM65X_IOPAD(0x138, PIN_OUTPUT, 3) /* (AG21) PRG1_PRU1_GPO2.PRG1_PWM2_A2, pwm4 */
+			AM65X_IOPAD(0x140, PIN_OUTPUT, 3) /* (AE21) PRG1_PRU1_GPO4.PRG1_PWM2_B2, pwm5 */
+
+			AM65X_IOPAD(0x0e0, PIN_OUTPUT, 3) /* (AE22) PRG1_PRU0_GPO0.PRG1_PWM3_A0, pwm6 */
+			AM65X_IOPAD(0x0e4, PIN_OUTPUT, 3) /* (AG24) PRG1_PRU0_GPO1.PRG1_PWM3_B0, pwm7 */
+			AM65X_IOPAD(0x0f8, PIN_OUTPUT, 3) /* (AF22) PRG1_PRU0_GPO6.PRG1_PWM3_A1, pwm8 */
+			AM65X_IOPAD(0x0fc, PIN_OUTPUT, 3) /* (AG27) PRG1_PRU0_GPO7.PRG1_PWM3_B1, pwm9 */
+			AM65X_IOPAD(0x0ec, PIN_OUTPUT, 3) /* (AD21) PRG1_PRU0_GPO3.PRG1_PWM3_A2, pwm10 */
+			AM65X_IOPAD(0x0f4, PIN_OUTPUT, 3) /* (AF27) PRG1_PRU0_GPO5.PRG1_PWM3_B2, pwm11 */
+		>;
+	};
+};
