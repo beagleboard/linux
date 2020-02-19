@@ -43,11 +43,16 @@ Optional properties in the area nodes:
 - export : indicates that the reserved SRAM area may be accessed outside
            of the kernel, e.g. by bootloader or userspace
 - protect-exec : Same as 'pool' above but with the additional
-		 constraint that code wil be run from the region and
+		 constraint that code will be run from the region and
 		 that the memory is maintained as read-only, executable
 		 during code execution. NOTE: This region must be page
 		 aligned on start and end in order to properly allow
 		 manipulation of the page attributes.
+- dma-heap-export : Similar to 'pool' and 'export' this region will be
+		    exported for use by drivers, devices, and userspace
+		    using the DMA-Heaps framework. NOTE: This region must
+		    be page aligned on start and end in order to properly
+		    allow manipulation of the page attributes.
 - label : the name for the reserved partition, if omitted, the label
           is taken from the node name excluding the unit address.
 - clocks : a list of phandle and clock specifier pair that controls the
