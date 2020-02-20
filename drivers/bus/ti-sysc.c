@@ -1216,6 +1216,10 @@ static const struct sysc_revision_quirk sysc_revision_quirks[] = {
 	/* These drivers need to be fixed to not use pm_runtime_irq_safe() */
 	SYSC_QUIRK("gpio", 0, 0, 0x10, 0x114, 0x50600801, 0xffff00ff,
 		   SYSC_QUIRK_LEGACY_IDLE | SYSC_QUIRK_OPT_CLKS_IN_RESET),
+	SYSC_QUIRK("mmu", 0, 0, 0x10, 0x14, 0x00000020, 0xffffffff,
+		   SYSC_QUIRK_LEGACY_IDLE),
+	SYSC_QUIRK("mmu", 0, 0, 0x10, 0x14, 0x00000030, 0xffffffff,
+		   SYSC_QUIRK_LEGACY_IDLE),
 	SYSC_QUIRK("sham", 0, 0x100, 0x110, 0x114, 0x40000c03, 0xffffffff,
 		   SYSC_QUIRK_LEGACY_IDLE),
 	SYSC_QUIRK("smartreflex", 0, -1, 0x24, -1, 0x00000000, 0xffffffff,
@@ -1268,9 +1272,6 @@ static const struct sysc_revision_quirk sysc_revision_quirks[] = {
 		   SYSC_QUIRK_SWSUP_SIDLE | SYSC_QUIRK_SWSUP_MSTANDBY),
 	SYSC_QUIRK("wdt", 0, 0, 0x10, 0x14, 0x502a0500, 0xfffff0f0,
 		   SYSC_MODULE_QUIRK_WDT),
-	/* PRUSS on am3, am4 and am5 */
-	SYSC_QUIRK("pruss", 0, 0x26000, 0x26004, -1, 0x47000000, 0xff000000,
-		   SYSC_MODULE_QUIRK_PRUSS),
 	/* Watchdog on am3 and am4 */
 	SYSC_QUIRK("wdt", 0x44e35000, 0, 0x10, 0x14, 0x502a0500, 0xfffff0f0,
 		   SYSC_MODULE_QUIRK_WDT | SYSC_QUIRK_SWSUP_SIDLE),
@@ -1481,16 +1482,6 @@ static void sysc_reset_done_quirk_wdt(struct sysc *ddata)
 		dev_warn(ddata->dev, "wdt disable step2 failed\n");
 }
 
-/* PRUSS needs to set MSTANDBY_INIT inorder to idle properly */
-static void sysc_module_disable_quirk_pruss(struct sysc *ddata)
-{
-	u32 reg;
-
-	reg = sysc_read(ddata, ddata->offsets[SYSC_SYSCONFIG]);
-	reg |= SYSC_PRUSS_STANDBY_INIT;
-	sysc_write(ddata, ddata->offsets[SYSC_SYSCONFIG], reg);
-}
-
 static void sysc_init_module_quirks(struct sysc *ddata)
 {
 	if (ddata->legacy_mode || !ddata->name)
@@ -1519,9 +1510,6 @@ static void sysc_init_module_quirks(struct sysc *ddata)
 		ddata->reset_done_quirk = sysc_reset_done_quirk_wdt;
 		ddata->module_disable_quirk = sysc_reset_done_quirk_wdt;
 	}
-
-	if (ddata->cfg.quirks & SYSC_MODULE_QUIRK_PRUSS)
-		ddata->module_disable_quirk = sysc_module_disable_quirk_pruss;
 }
 
 static int sysc_clockdomain_init(struct sysc *ddata)
@@ -1801,9 +1789,8 @@ static int sysc_child_add_named_clock(struct sysc *ddata,
 
 	clk = clk_get(child, name);
 	if (!IS_ERR(clk)) {
-		clk_put(clk);
-
-		return -EEXIST;
+		error = -EEXIST;
+		goto put_clk;
 	}
 
 	clk = clk_get(ddata->dev, name);
@@ -1813,7 +1800,7 @@ static int sysc_child_add_named_clock(struct sysc *ddata,
 	l = clkdev_create(clk, name, dev_name(child));
 	if (!l)
 		error = -ENOMEM;
-
+put_clk:
 	clk_put(clk);
 
 	return error;
@@ -2326,16 +2313,6 @@ static const struct sysc_capabilities sysc_dra7_mcan = {
 	.mod_quirks = SYSS_QUIRK_RESETDONE_INVERTED,
 };
 
-/*
- * PRUSS found on some AM33xx, AM437x and AM57xx SoCs
- */
-static const struct sysc_capabilities sysc_pruss = {
-	.type = TI_SYSC_PRUSS,
-	.sysc_mask = SYSC_PRUSS_STANDBY_INIT | SYSC_PRUSS_SUB_MWAIT,
-	.regbits = &sysc_regbits_omap4_simple,
-	.mod_quirks = SYSC_MODULE_QUIRK_PRUSS,
-};
-
 static int sysc_init_pdata(struct sysc *ddata)
 {
 	struct ti_sysc_platform_data *pdata = dev_get_platdata(ddata->dev);
@@ -2561,7 +2538,6 @@ static const struct of_device_id sysc_match[] = {
 	{ .compatible = "ti,sysc-usb-host-fs",
 	  .data = &sysc_omap4_usb_host_fs, },
 	{ .compatible = "ti,sysc-dra7-mcan", .data = &sysc_dra7_mcan, },
-	{ .compatible = "ti,sysc-pruss", .data = &sysc_pruss, },
 	{  },
 };
 MODULE_DEVICE_TABLE(of, sysc_match);
