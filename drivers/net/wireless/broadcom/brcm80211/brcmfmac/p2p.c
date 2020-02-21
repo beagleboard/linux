@@ -895,7 +895,7 @@ int brcmf_p2p_scan_prep(struct wiphy *wiphy,
 {
 	struct brcmf_cfg80211_info *cfg = wiphy_to_cfg(wiphy);
 	struct brcmf_p2p_info *p2p = &cfg->p2p;
-	int err;
+	int err = 0;
 
 	if (brcmf_p2p_scan_is_p2p_request(request)) {
 		/* find my listen channel */
@@ -918,7 +918,9 @@ int brcmf_p2p_scan_prep(struct wiphy *wiphy,
 		/* override .run_escan() callback. */
 		cfg->escan_info.run = brcmf_p2p_run_escan;
 	}
-	return 0;
+	err = brcmf_vif_set_mgmt_ie(vif, BRCMF_VNDR_IE_PRBREQ_FLAG,
+				    request->ie, request->ie_len);
+	return err;
 }
 
 
