@@ -633,6 +633,14 @@
 		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+
+		p0 {
+			/* P0 - DP0_PWR_SW_EN */
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_HIGH>;
+			output-high;
+			line-name = "DP0_PWR_SW_EN";
+		};
 	};
 };
 
