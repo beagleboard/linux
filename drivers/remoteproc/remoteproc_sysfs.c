@@ -92,7 +92,8 @@ static ssize_t state_store(struct device *dev,
 				module_put(dev->parent->driver->owner);
 		}
 	} else if (sysfs_streq(buf, "stop")) {
-		if (rproc->state != RPROC_RUNNING)
+		if (rproc->state != RPROC_RUNNING &&
+		    rproc->state != RPROC_SUSPENDED)
 			return -EINVAL;
 
 		rproc_shutdown(rproc);
