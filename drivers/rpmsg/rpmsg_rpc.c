@@ -65,7 +65,7 @@ dev_addr_t rppc_local_to_remote_da(struct rppc_instance *rpc, phys_addr_t pa)
 	struct rproc *rproc;
 	u64 da = 0;
 	dev_addr_t rda;
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 
 	if (mutex_lock_interruptible(&rpc->rppcdev->lock))
 		return 0;
@@ -96,7 +96,7 @@ static void rppc_print_msg(struct rppc_instance *rpc, char *prefix,
 	struct rppc_query_function *info = NULL;
 	struct rppc_packet *packet = NULL;
 	struct rppc_param_data *param = NULL;
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 	u32 i = 0, paramsz = sizeof(*param);
 
 	dev_dbg(dev, "%s HDR: msg_type = %d msg_len = %d\n",
@@ -152,7 +152,7 @@ struct rppc_function *rppc_find_fxn(struct rppc_instance *rpc, u16 msg_id)
 {
 	struct rppc_function *function = NULL;
 	struct rppc_function_list *pos, *n;
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 
 	mutex_lock(&rpc->lock);
 	list_for_each_entry_safe(pos, n, &rpc->fxn_list, list) {
@@ -174,7 +174,7 @@ static int rppc_add_fxn(struct rppc_instance *rpc,
 			struct rppc_function *function, u16 msg_id)
 {
 	struct rppc_function_list *fxn = NULL;
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 
 	fxn = kzalloc(sizeof(*fxn), GFP_KERNEL);
 	if (!fxn)
@@ -193,7 +193,7 @@ static int rppc_add_fxn(struct rppc_instance *rpc,
 static
 void rppc_handle_create_resp(struct rppc_instance *rpc, char *data, int len)
 {
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 	struct rppc_msg_header *hdr = (struct rppc_msg_header *)data;
 	struct rppc_instance_handle *hdl;
 	u32 exp_len = sizeof(*hdl) + sizeof(*hdr);
@@ -225,7 +225,7 @@ void rppc_handle_create_resp(struct rppc_instance *rpc, char *data, int len)
 static
 void rppc_handle_delete_resp(struct rppc_instance *rpc, char *data, int len)
 {
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 	struct rppc_msg_header *hdr = (struct rppc_msg_header *)data;
 	struct rppc_instance_handle *hdl;
 	u32 exp_len = sizeof(*hdl) + sizeof(*hdr);
@@ -288,7 +288,7 @@ static int rppc_cb(struct rpmsg_device *rpdev,
 {
 	struct rppc_msg_header *hdr = data;
 	struct rppc_instance *rpc = priv;
-	struct device *dev = rpc->rppcdev->dev;
+	struct device *dev = rpc->dev;
 	char *buf = (char *)data;
 
 	dev_dbg(dev, "<== incoming msg src %d len %d msg_type %d msg_len %d\n",
@@ -335,7 +335,7 @@ static int rppc_connect(struct rppc_instance *rpc,
 	struct rppc_msg_header *hdr = (struct rppc_msg_header *)&kbuf[0];
 
 	if (rpc->state == RPPC_STATE_CONNECTED) {
-		dev_dbg(rppcdev->dev, "endpoint already connected\n");
+		dev_dbg(rpc->dev, "endpoint already connected\n");
 		return -EISCONN;
 	}
 
@@ -349,7 +349,7 @@ static int rppc_connect(struct rppc_instance *rpc,
 	ret = rpmsg_send_offchannel(rppcdev->rpdev->ept, rpc->ept->addr,
 				    rppcdev->rpdev->dst, (char *)kbuf, len);
 	if (ret > 0) {
-		dev_err(rppcdev->dev, "rpmsg_send failed: %d\n", ret);
+		dev_err(rpc->dev, "rpmsg_send failed: %d\n", ret);
 		return ret;
 	}
 
@@ -362,7 +362,7 @@ static int rppc_connect(struct rppc_instance *rpc,
 		return -ENXIO;
 
 	if (ret > 0) {
-		dev_err(rppcdev->dev, "premature wakeup: %d\n", ret);
+		dev_err(rpc->dev, "premature wakeup: %d\n", ret);
 		return -EIO;
 	}
 
@@ -388,12 +388,12 @@ static void rppc_disconnect(struct rppc_instance *rpc)
 	handle->status = 0;
 	len = sizeof(struct rppc_msg_header) + hdr->msg_len;
 
-	dev_dbg(rppcdev->dev, "disconnecting from RPC service at %d\n",
+	dev_dbg(rpc->dev, "disconnecting from RPC service at %d\n",
 		rpc->dst);
 	ret = rpmsg_send_offchannel(rppcdev->rpdev->ept, rpc->ept->addr,
 				    rppcdev->rpdev->dst, kbuf, len);
 	if (ret)
-		dev_err(rppcdev->dev, "rpmsg_send failed: %d\n", ret);
+		dev_err(rpc->dev, "rpmsg_send failed: %d\n", ret);
 
 	/*
 	 * TODO: should we wait for a message to come back?
@@ -563,11 +563,13 @@ static int rppc_open(struct inode *inode, struct file *filp)
 	rpc->state = RPPC_STATE_DISCONNECTED;
 	rpc->rppcdev = rppcdev;
 
+	rpc->dev = get_device(rppcdev->dev);
 	chinfo.src = RPMSG_ADDR_ANY;
 	chinfo.dst = RPMSG_ADDR_ANY;
 	rpc->ept = rpmsg_create_ept(rppcdev->rpdev, rppc_cb, rpc, chinfo);
 	if (!rpc->ept) {
-		dev_err(rppcdev->dev, "create ept failed\n");
+		dev_err(rpc->dev, "create ept failed\n");
+		put_device(rpc->dev);
 		kfree(rpc);
 		return -ENOMEM;
 	}
@@ -577,7 +579,7 @@ static int rppc_open(struct inode *inode, struct file *filp)
 	list_add(&rpc->list, &rppcdev->instances);
 	mutex_unlock(&rppcdev->lock);
 
-	dev_dbg(rppcdev->dev, "local addr assigned: 0x%x\n", rpc->ept->addr);
+	dev_dbg(rpc->dev, "local addr assigned: 0x%x\n", rpc->ept->addr);
 
 	return 0;
 }
@@ -595,7 +597,7 @@ static int rppc_release(struct inode *inode, struct file *filp)
 	struct rppc_instance *rpc = filp->private_data;
 	struct rppc_device *rppcdev = rpc->rppcdev;
 
-	dev_dbg(rppcdev->dev, "releasing Instance %p, in state %d\n", rpc,
+	dev_dbg(rpc->dev, "releasing Instance %p, in state %d\n", rpc,
 		rpc->state);
 
 	if (rpc->state != RPPC_STATE_STALE) {
@@ -608,6 +610,8 @@ static int rppc_release(struct inode *inode, struct file *filp)
 
 	rppc_delete_fxns(rpc);
 
+	skb_queue_purge(&rpc->queue);
+
 	mutex_lock(&rpc->lock);
 	idr_for_each(&rpc->dma_idr, rppc_free_dmabuf, rpc);
 	idr_destroy(&rpc->dma_idr);
@@ -617,10 +621,11 @@ static int rppc_release(struct inode *inode, struct file *filp)
 	list_del(&rpc->list);
 	mutex_unlock(&rppcdev->lock);
 
-	dev_dbg(rppcdev->dev, "instance %p has been deleted!\n", rpc);
+	dev_dbg(rpc->dev, "instance %p has been deleted!\n", rpc);
 	if (list_empty(&rppcdev->instances))
-		dev_dbg(rppcdev->dev, "all instances have been removed!\n");
+		dev_dbg(rpc->dev, "all instances have been removed!\n");
 
+	put_device(rpc->dev);
 	kfree(rpc);
 	return 0;
 }
@@ -628,11 +633,10 @@ static int rppc_release(struct inode *inode, struct file *filp)
 static long rppc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct rppc_instance *rpc = filp->private_data;
-	struct rppc_device *rppcdev = rpc->rppcdev;
 	struct rppc_create_instance connect;
 	int ret = 0;
 
-	dev_dbg(rppcdev->dev, "%s: cmd %d, arg 0x%lx\n", __func__, cmd, arg);
+	dev_dbg(rpc->dev, "%s: cmd %d, arg 0x%lx\n", __func__, cmd, arg);
 
 	if (_IOC_TYPE(cmd) != RPPC_IOC_MAGIC)
 		return -ENOTTY;
@@ -645,7 +649,7 @@ static long rppc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = copy_from_user(&connect, (char __user *)arg,
 				     sizeof(connect));
 		if (ret) {
-			dev_err(rppcdev->dev, "%s: %d: copy_from_user fail: %d\n",
+			dev_err(rpc->dev, "%s: %d: copy_from_user fail: %d\n",
 				__func__, _IOC_NR(cmd), ret);
 			ret = -EFAULT;
 		} else {
@@ -660,7 +664,7 @@ static long rppc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret = rppc_unregister_buffers(rpc, arg);
 		break;
 	default:
-		dev_err(rppcdev->dev, "unhandled ioctl cmd: %d\n", cmd);
+		dev_err(rpc->dev, "unhandled ioctl cmd: %d\n", cmd);
 		break;
 	}
 
@@ -758,7 +762,7 @@ static ssize_t rppc_read(struct file *filp, char __user *buf, size_t len,
 	if (function && function->num_translations > 0) {
 		ret = rppc_xlate_buffers(rpc, function, RPPC_RPA_TO_UVA);
 		if (ret < 0) {
-			dev_err(rpc->rppcdev->dev, "failed to translate back pointers from remote core!\n");
+			dev_err(rpc->dev, "failed to translate back pointers from remote core!\n");
 			goto failure;
 		}
 	}
@@ -766,7 +770,7 @@ static ssize_t rppc_read(struct file *filp, char __user *buf, size_t len,
 	returned.status = packet->result;
 
 	if (copy_to_user(buf, &returned, use)) {
-		dev_err(rpc->rppcdev->dev, "%s: copy_to_user fail\n", __func__);
+		dev_err(rpc->dev, "%s: copy_to_user fail\n", __func__);
 		ret = -EFAULT;
 	} else {
 		ret = use;
@@ -784,7 +788,7 @@ static ssize_t rppc_write(struct file *filp, const char __user *ubuf,
 {
 	struct rppc_instance *rpc = filp->private_data;
 	struct rppc_device *rppcdev = rpc->rppcdev;
-	struct device *dev = rppcdev->dev;
+	struct device *dev = rpc->dev;
 	struct rppc_msg_header *hdr = NULL;
 	struct rppc_function *function = NULL;
 	struct rppc_packet *packet = NULL;
@@ -1164,7 +1168,7 @@ static int find_rpccdev_by_name(int id, void *p, void *data)
 {
 	struct rppc_device *rppcdev = p;
 
-	return strcmp(dev_name(rppcdev->dev), data) ? 0 : (int)p;
+	return strcmp(rppcdev->desc, data) ? 0 : (int)p;
 }
 
 /*
@@ -1192,7 +1196,8 @@ static int rppc_device_create(struct rpmsg_device *rpdev)
 
 static int rppc_probe(struct rpmsg_device *rpdev)
 {
-	int ret, major, minor;
+	int ret, minor;
+	int major = MAJOR(rppc_dev);
 	struct rppc_device *rppcdev = NULL;
 	dev_t dev;
 	char namedesc[RPMSG_NAME_SIZE];
@@ -1229,9 +1234,9 @@ static int rppc_probe(struct rpmsg_device *rpdev)
 
 	rppcdev->minor = minor;
 	rppcdev->rpdev = rpdev;
+	strncpy(rppcdev->desc, namedesc, RPMSG_NAME_SIZE);
 	dev_set_drvdata(&rpdev->dev, rppcdev);
 
-	major = MAJOR(rppc_dev);
 	cdev_init(&rppcdev->cdev, &rppc_fops);
 	rppcdev->cdev.owner = THIS_MODULE;
 	dev = MKDEV(major, minor);
@@ -1241,7 +1246,9 @@ static int rppc_probe(struct rpmsg_device *rpdev)
 		goto free_id;
 	}
 
-	rppcdev->dev = device_create(rppc_class, &rpdev->dev, dev, NULL,
+serv_up:
+	rppcdev->dev = device_create(rppc_class, &rpdev->dev,
+				     MKDEV(major, rppcdev->minor), NULL,
 				     namedesc);
 	if (IS_ERR(rppcdev->dev)) {
 		ret = PTR_ERR(rppcdev->dev);
@@ -1251,7 +1258,6 @@ static int rppc_probe(struct rpmsg_device *rpdev)
 	}
 	dev_set_drvdata(rppcdev->dev, rppcdev);
 
-serv_up:
 	ret = rppc_device_create(rpdev);
 	if (ret) {
 		dev_err(&rpdev->dev, "failed to query channel info: %d\n", ret);
@@ -1319,8 +1325,14 @@ static void rppc_remove(struct rpmsg_device *rpdev)
 		if (rpc->state == RPPC_STATE_CONNECTED && rpc->in_transition)
 			complete_all(&rpc->reply_arrived);
 		rpc->state = RPPC_STATE_STALE;
+		if (rpc->ept) {
+			rpmsg_destroy_ept(rpc->ept);
+			rpc->ept = NULL;
+		}
 		wake_up_interruptible(&rpc->readq);
 	}
+	device_destroy(rppc_class, MKDEV(major, rppcdev->minor));
+	rppcdev->dev = NULL;
 	rppcdev->rpdev = NULL;
 	mutex_unlock(&rppcdev->lock);
 	mutex_unlock(&rppc_devices_lock);
