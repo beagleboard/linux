@@ -34,6 +34,7 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/virtio_ids.h>
 #include <linux/virtio_ring.h>
+#include <linux/vmalloc.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <asm/byteorder.h>
@@ -639,6 +640,92 @@ void rproc_vdev_release(struct kref *ref)
 	rproc_remove_subdev(rproc, &rvdev->subdev);
 	list_del(&rvdev->node);
 	device_unregister(&rvdev->dev);
+}
+
+/**
+ * rproc_process_last_trace() - setup a buffer to capture the trace snapshot
+ *				before recovery
+ * @rproc: the remote processor
+ * @trace: the trace resource descriptor
+ * @count: the index of the trace under process
+ *
+ * The last trace is allocated if a previous last trace entry does not exist,
+ * and the contents of the trace buffer are copied during a recovery cleanup.
+ *
+ * NOTE: The memory in the original trace buffer is currently not zeroed out,
+ * but can be done if the remote processor is not zero initializing the trace
+ * memory region.
+ *
+ * Returns 0 on success, or an appropriate error code otherwise
+ */
+static int rproc_process_last_trace(struct rproc *rproc,
+				    struct rproc_debug_trace *trace, int count)
+{
+	struct rproc_debug_trace *trace_last, *tmp_trace;
+	struct rproc_mem_entry *tmem;
+	struct device *dev = &rproc->dev;
+	char name[16];
+	int i = 0;
+
+	if (!rproc || !trace)
+		return -EINVAL;
+
+	/* lookup trace va if not stored already */
+	tmem = &trace->trace_mem;
+	if (!tmem->va) {
+		tmem->va = rproc_da_to_va(rproc, tmem->da, tmem->len);
+		if (!tmem->va)
+			return -EINVAL;
+	}
+
+	if (count > rproc->num_last_traces) {
+		/* create a new trace_last entry */
+		snprintf(name, sizeof(name), "trace%d_last", count - 1);
+		trace_last = kzalloc(sizeof(*trace_last), GFP_KERNEL);
+		if (!trace_last)
+			return -ENOMEM;
+		tmem = &trace_last->trace_mem;
+	} else {
+		/* reuse the already existing trace_last entry */
+		list_for_each_entry_safe(trace_last, tmp_trace,
+					 &rproc->last_traces, node) {
+			if (++i == count)
+				break;
+		}
+
+		tmem = &trace_last->trace_mem;
+		if (tmem->len != trace->trace_mem.len) {
+			dev_warn(dev, "len does not match between trace and trace_last\n");
+			return -EINVAL;
+		}
+
+		goto copy_and_exit;
+	}
+
+	/* allocate memory and create debugfs file for the new last_trace */
+	tmem->len = trace->trace_mem.len;
+	tmem->va = vmalloc(sizeof(u32) * tmem->len);
+	if (!tmem->va) {
+		kfree(trace_last);
+		return -ENOMEM;
+	}
+
+	trace_last->tfile = rproc_create_trace_file(name, rproc, trace_last);
+	if (!trace_last->tfile) {
+		dev_err(dev, "trace%d_last create debugfs failed\n", count - 1);
+		vfree(tmem->va);
+		kfree(trace_last);
+		return -EINVAL;
+	}
+
+	list_add_tail(&trace_last->node, &rproc->last_traces);
+	rproc->num_last_traces++;
+
+copy_and_exit:
+	/* copy the trace contents to last trace */
+	memcpy(tmem->va, trace->trace_mem.va, trace->trace_mem.len);
+
+	return 0;
 }
 
 /**
@@ -1371,6 +1458,20 @@ static void rproc_coredump_cleanup(struct rproc *rproc)
 }
 
 /**
+ * rproc_free_trace() - helper function to cleanup a trace entry
+ * @trace: the last trace element to be cleaned up
+ * @ltrace: flag to indicate if this is last trace or regular trace
+ */
+static void rproc_free_trace(struct rproc_debug_trace *trace, bool ltrace)
+{
+	rproc_remove_trace_file(trace->tfile);
+	list_del(&trace->node);
+	if (ltrace)
+		vfree(trace->trace_mem.va);
+	kfree(trace);
+}
+
+/**
  * rproc_resource_cleanup() - clean up and free all acquired resources
  * @rproc: rproc handle
  *
@@ -1386,10 +1487,14 @@ static void rproc_resource_cleanup(struct rproc *rproc)
 
 	/* clean up debugfs trace entries */
 	list_for_each_entry_safe(trace, ttmp, &rproc->traces, node) {
-		rproc_remove_trace_file(trace->tfile);
+		rproc_free_trace(trace, false);
 		rproc->num_traces--;
-		list_del(&trace->node);
-		kfree(trace);
+	}
+
+	/* clean up debugfs last trace entries */
+	list_for_each_entry_safe(trace, ttmp, &rproc->last_traces, node) {
+		rproc_free_trace(trace, true);
+		rproc->num_last_traces--;
 	}
 
 	/* clean up iommu mapping entries */
@@ -1647,6 +1752,32 @@ static int rproc_stop(struct rproc *rproc, bool crashed)
 }
 
 /**
+ * rproc_store_last_traces() - preserve traces from last run
+ * @rproc:	rproc handle
+ *
+ * This function will copy the trace contents from the previous crashed run
+ * into newly created or already existing last_trace entries during an error
+ * recovery. This will allow the user to inspect the trace contents from the
+ * last crashed run, as the regular trace files will be replaced with traces
+ * with the subsequent recovered run.
+ */
+static void rproc_store_last_traces(struct rproc *rproc)
+{
+	struct rproc_debug_trace *trace, *ttmp;
+	int count = 0, ret;
+
+	/* handle last trace here */
+	list_for_each_entry_safe(trace, ttmp, &rproc->traces, node) {
+		ret = rproc_process_last_trace(rproc, trace, ++count);
+		if (ret) {
+			dev_err(&rproc->dev, "could not process last_trace%d\n",
+				count - 1);
+			break;
+		}
+	}
+}
+
+/**
  * rproc_coredump_add_segment() - add segment of device memory to coredump
  * @rproc:	handle of a remote processor
  * @da:		device address
@@ -1823,6 +1954,9 @@ int rproc_trigger_recovery(struct rproc *rproc)
 
 	/* generate coredump */
 	rproc_coredump(rproc);
+
+	/* generate last traces */
+	rproc_store_last_traces(rproc);
 
 	/* load firmware */
 	ret = request_firmware(&firmware_p, rproc->firmware, dev);
@@ -2266,6 +2400,7 @@ struct rproc *rproc_alloc(struct device *dev, const char *name,
 	INIT_LIST_HEAD(&rproc->carveouts);
 	INIT_LIST_HEAD(&rproc->mappings);
 	INIT_LIST_HEAD(&rproc->traces);
+	INIT_LIST_HEAD(&rproc->last_traces);
 	INIT_LIST_HEAD(&rproc->rvdevs);
 	INIT_LIST_HEAD(&rproc->subdevs);
 	INIT_LIST_HEAD(&rproc->dump_segments);
@@ -2413,8 +2548,9 @@ void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type)
 	dev_err(&rproc->dev, "crash detected in %s: type %s\n",
 		rproc->name, rproc_crash_to_string(type));
 
-	/* create a new task to handle the error */
-	schedule_work(&rproc->crash_handler);
+	/* create a new task to handle the error if not scheduled already */
+	if (!work_busy(&rproc->crash_handler))
+		schedule_work(&rproc->crash_handler);
 }
 EXPORT_SYMBOL(rproc_report_crash);
 
