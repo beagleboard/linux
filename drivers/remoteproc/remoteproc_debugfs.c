@@ -41,11 +41,14 @@ static ssize_t rproc_trace_read(struct file *filp, char __user *userbuf,
 {
 	struct rproc_debug_trace *data = filp->private_data;
 	struct rproc_mem_entry *trace = &data->trace_mem;
-	void *va;
+	void *va = trace->va;
 	char buf[100];
 	int len;
 
-	va = rproc_da_to_va(data->rproc, trace->da, trace->len);
+	if (!va) {
+		va = rproc_da_to_va(data->rproc, trace->da, trace->len);
+		trace->va = va;
+	}
 
 	if (!va) {
 		len = scnprintf(buf, sizeof(buf), "Trace %s not available\n",
