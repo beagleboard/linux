@@ -498,6 +498,8 @@ void pwmchip_sysfs_export(struct pwm_chip *chip)
 	if (IS_ERR(parent)) {
 		dev_warn(chip->dev,
 			 "device_create failed for pwm_chip sysfs export\n");
+	} else {
+		chip->sysfs_dev = parent;
 	}
 }
 

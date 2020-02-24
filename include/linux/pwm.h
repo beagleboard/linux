@@ -289,6 +289,7 @@ struct pwm_ops {
  */
 struct pwm_chip {
 	struct device *dev;
+	struct device *sysfs_dev;
 	const struct pwm_ops *ops;
 	int base;
 	unsigned int npwm;
