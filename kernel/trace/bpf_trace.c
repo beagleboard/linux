@@ -83,7 +83,7 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 	if (in_nmi()) /* not supported yet */
 		return 1;
 
-	preempt_disable();
+	migrate_disable();
 
 	if (unlikely(__this_cpu_inc_return(bpf_prog_active) != 1)) {
 		/*
@@ -115,7 +115,7 @@ unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 
  out:
 	__this_cpu_dec(bpf_prog_active);
-	preempt_enable();
+	migrate_enable();
 
 	return ret;
 }
@@ -1330,9 +1330,7 @@ static __always_inline
 void __bpf_trace_run(struct bpf_prog *prog, u64 *args)
 {
 	rcu_read_lock();
-	preempt_disable();
 	(void) BPF_PROG_RUN(prog, args);
-	preempt_enable();
 	rcu_read_unlock();
 }
 

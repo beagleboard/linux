@@ -555,7 +555,7 @@ DECLARE_STATIC_KEY_FALSE(bpf_stats_enabled_key);
 
 #define BPF_PROG_RUN(prog, ctx)	({				\
 	u32 ret;						\
-	cant_sleep();						\
+	cant_migrate();						\
 	if (static_branch_unlikely(&bpf_stats_enabled_key)) {	\
 		struct bpf_prog_stats *stats;			\
 		u64 start = sched_clock();			\
@@ -568,6 +568,24 @@ DECLARE_STATIC_KEY_FALSE(bpf_stats_enabled_key);
 	} else {						\
 		ret = (*(prog)->bpf_func)(ctx, (prog)->insnsi);	\
 	}							\
+	ret; })
+
+/*
+ * Use in preemptible and therefore /migratable context to make sure that
+ * the execution of the BPF program runs on one CPU.
+ *
+ * This uses migrate_disable/enable() explicitely to document that the
+ * invocation of a BPF program does not require reentrancy protection
+ * against a BPF program which is invoked from a preempting task.
+ *
+ * For non enabled RT kernels migrate_disable/enable() maps to
+ * preempt_disable/enable(), i.e. it disables also preemption.
+ */
+#define BPF_PROG_RUN_PIN_ON_CPU(prog, ctx) ({				\
+	u32 ret;							\
+	migrate_disable();						\
+	ret = BPF_PROG_RUN(prog, ctx);					\
+	migrate_enable();						\
 	ret; })
 
 #define BPF_SKB_CB_LEN QDISC_CB_PRIV_LEN
@@ -647,6 +665,7 @@ static inline u8 *bpf_skb_cb(struct sk_buff *skb)
 	return qdisc_skb_cb(skb)->data;
 }
 
+/* Must be invoked with migration disabled */
 static inline u32 __bpf_prog_run_save_cb(const struct bpf_prog *prog,
 					 struct sk_buff *skb)
 {
@@ -672,9 +691,9 @@ static inline u32 bpf_prog_run_save_cb(const struct bpf_prog *prog,
 {
 	u32 res;
 
-	preempt_disable();
+	migrate_disable();
 	res = __bpf_prog_run_save_cb(prog, skb);
-	preempt_enable();
+	migrate_enable();
 	return res;
 }
 
@@ -687,9 +706,7 @@ static inline u32 bpf_prog_run_clear_cb(const struct bpf_prog *prog,
 	if (unlikely(prog->cb_access))
 		memset(cb_data, 0, BPF_SKB_CB_LEN);
 
-	preempt_disable();
-	res = BPF_PROG_RUN(prog, skb);
-	preempt_enable();
+	res = BPF_PROG_RUN_PIN_ON_CPU(prog, skb);
 	return res;
 }
 
