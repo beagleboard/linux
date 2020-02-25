@@ -1383,18 +1383,6 @@ static int emac_get_link_ksettings(struct net_device *ndev,
 		return -EOPNOTSUPP;
 
 	phy_ethtool_ksettings_get(emac->phydev, ecmd);
-
-	ethtool_link_ksettings_zero_link_mode(ecmd, supported);
-	ethtool_link_ksettings_add_link_mode(ecmd, supported, 100baseT_Full);
-	ethtool_link_ksettings_add_link_mode(ecmd, supported, Autoneg);
-	ethtool_link_ksettings_add_link_mode(ecmd, supported, TP);
-	ethtool_link_ksettings_add_link_mode(ecmd, supported, MII);
-
-	ethtool_link_ksettings_zero_link_mode(ecmd, advertising);
-	ethtool_link_ksettings_add_link_mode(ecmd, advertising, 100baseT_Full);
-	ethtool_link_ksettings_add_link_mode(ecmd, advertising, Autoneg);
-	ethtool_link_ksettings_add_link_mode(ecmd, advertising, TP);
-	ethtool_link_ksettings_add_link_mode(ecmd, advertising, MII);
 	return 0;
 }
 
@@ -1652,6 +1640,13 @@ static int prueth_netdev_init(struct prueth *prueth,
 		ret = -EPROBE_DEFER;
 		goto free;
 	}
+
+	/* remove unsupported modes */
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Half_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Full_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Asym_Pause_BIT);
 
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &emac_ethtool_ops;
