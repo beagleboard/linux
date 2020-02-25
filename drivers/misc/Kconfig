@@ -424,6 +424,13 @@ config SRAM
 config SRAM_EXEC
 	bool
 
+config SRAM_DMA_HEAP
+	bool "Export on-chip SRAM pools using DMA-Heaps"
+	depends on SRAM
+	help
+	  This driver allows the export of on-chip SRAM marked as exportable
+	  to userspace using the DMA-Heaps interface.
+
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG

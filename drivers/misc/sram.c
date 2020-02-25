@@ -109,6 +109,15 @@ static int sram_add_partition(struct sram_dev *sram, struct sram_reserve *block,
 		if (ret)
 			return ret;
 	}
+	if (block->dma_heap_export) {
+		ret = sram_add_pool(sram, block, start, part);
+		if (ret)
+			return ret;
+
+		ret = sram_dma_heap_export(sram, block, start, part);
+		if (ret)
+			return ret;
+	}
 	if (block->protect_exec) {
 		ret = sram_check_protect_exec(sram, block, part);
 		if (ret)
@@ -209,8 +218,11 @@ static int sram_reserve_regions(struct sram_dev *sram, struct resource *res)
 		if (of_find_property(child, "protect-exec", NULL))
 			block->protect_exec = true;
 
-		if ((block->export || block->pool || block->protect_exec) &&
-		    block->size) {
+		if (of_find_property(child, "dma-heap-export", NULL))
+			block->dma_heap_export = true;
+
+		if ((block->export || block->pool || block->protect_exec ||
+		     block->dma_heap_export) && block->size) {
 			exports++;
 
 			label = NULL;
@@ -272,8 +284,8 @@ static int sram_reserve_regions(struct sram_dev *sram, struct resource *res)
 			goto err_chunks;
 		}
 
-		if ((block->export || block->pool || block->protect_exec) &&
-		    block->size) {
+		if ((block->export || block->pool || block->protect_exec ||
+		     block->dma_heap_export) && block->size) {
 			ret = sram_add_partition(sram, block,
 						 res->start + block->start);
 			if (ret) {

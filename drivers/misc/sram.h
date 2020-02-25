@@ -32,6 +32,7 @@ struct sram_reserve {
 	bool export;
 	bool pool;
 	bool protect_exec;
+	bool dma_heap_export;
 	const char *label;
 };
 
@@ -52,4 +53,20 @@ static inline int sram_add_protect_exec(struct sram_partition *part)
 	return -ENODEV;
 }
 #endif /* CONFIG_SRAM_EXEC */
+
+#ifdef CONFIG_SRAM_DMA_HEAP
+int sram_dma_heap_export(struct sram_dev *sram,
+			 struct sram_reserve *block,
+			 phys_addr_t start,
+			 struct sram_partition *part);
+#else
+static inline int sram_dma_heap_export(struct sram_dev *sram,
+				       struct sram_reserve *block,
+				       phys_addr_t start,
+				       struct sram_partition *part)
+{
+	return 0;
+}
+#endif /* CONFIG_SRAM_DMA_HEAP */
+
 #endif /* __SRAM_H */
