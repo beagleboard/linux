@@ -488,6 +488,11 @@ static inline void get_huge_page_tail(struct page *page)
 
 extern bool __get_page_tail(struct page *page);
 
+static inline int page_ref_count(struct page *page)
+{
+	return atomic_read(&page->_count);
+}
+
 /* 127: arbitrary random number, small enough to assemble well */
 #define page_ref_zero_or_close_to_overflow(page) \
 	((unsigned int) atomic_read(&page->_count) + 127u <= 127u)
