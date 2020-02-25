@@ -1675,8 +1675,6 @@ static void prueth_netdev_exit(struct prueth *prueth,
 	if (!emac)
 		return;
 
-	dev_info(prueth->dev, "freeing port %d\n", mac);
-
 	phy_disconnect(emac->phydev);
 
 	netif_napi_del(&emac->napi);
@@ -1854,7 +1852,7 @@ static int prueth_probe(struct platform_device *pdev)
 
 	ret = prueth_hostinit(prueth);
 	if (ret) {
-		dev_info(dev, "hostinit failed: %d\n", ret);
+		dev_err(dev, "hostinit failed: %d\n", ret);
 		goto netdev_exit;
 	}
 
