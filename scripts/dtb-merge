@@ -12,8 +12,6 @@ my $dtb_tgt = shift @ARGV;
 my $fdtoverlay = shift @ARGV;
 my $dir = shift @ARGV;
 
-print "  DTC-M   $dtb_tgt\n";
-
 open my $in, "<$srctree/$dir/dtb-merge.cfg" or die "Unable to open $srctree/$dir/dtb-merge.cfg";
 
 my $tgt;
