@@ -1195,7 +1195,7 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 	}
 	delay += codec_delay;
 
-	runtime->delay += delay;
+	runtime->delay = delay;
 
 	return offset;
 }
