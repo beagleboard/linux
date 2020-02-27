@@ -1716,7 +1716,7 @@ struct dispc_csc_coef *dispc_find_csc(enum dispc_csc_direction direction,
 static void dispc_vid_csc_setup(struct dispc_device *dispc, u32 hw_plane,
 				const struct drm_plane_state *state)
 {
-	static const struct dispc_csc_coef *coef;
+	const struct dispc_csc_coef *coef;
 
 	coef = dispc_find_csc(DISPC_YUV2RGB, state->color_encoding,
 			      state->color_range);
