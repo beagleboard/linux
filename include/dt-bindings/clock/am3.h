@@ -1,20 +1,14 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright 2017 Texas Instruments, Inc.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 #ifndef __DT_BINDINGS_CLK_AM3_H
 #define __DT_BINDINGS_CLK_AM3_H
 
 #define AM3_CLKCTRL_OFFSET	0x0
 #define AM3_CLKCTRL_INDEX(offset)	((offset) - AM3_CLKCTRL_OFFSET)
+
+/* XXX: Compatibility part begin, remove this once compatibility support is no longer needed */
 
 /* l4_per clocks */
 #define AM3_L4_PER_CLKCTRL_OFFSET	0x14
