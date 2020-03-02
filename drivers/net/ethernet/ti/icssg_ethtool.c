@@ -188,21 +188,6 @@ static int emac_get_link_ksettings(struct net_device *ndev,
 		return -EOPNOTSUPP;
 
 	phy_ethtool_ksettings_get(emac->phydev, ecmd);
-
-	ethtool_link_ksettings_zero_link_mode(ecmd, supported);
-	ethtool_link_ksettings_add_link_mode(ecmd, supported, 1000baseT_Full);
-	ethtool_link_ksettings_add_link_mode(ecmd, supported, 100baseT_Full);
-	ethtool_link_ksettings_add_link_mode(ecmd, supported, Autoneg);
-	ethtool_link_ksettings_add_link_mode(ecmd, supported, TP);
-	ethtool_link_ksettings_add_link_mode(ecmd, supported, MII);
-
-	ethtool_link_ksettings_zero_link_mode(ecmd, advertising);
-	ethtool_link_ksettings_add_link_mode(ecmd, advertising, 1000baseT_Full);
-	ethtool_link_ksettings_add_link_mode(ecmd, advertising, 100baseT_Full);
-	ethtool_link_ksettings_add_link_mode(ecmd, advertising, Autoneg);
-	ethtool_link_ksettings_add_link_mode(ecmd, advertising, TP);
-	ethtool_link_ksettings_add_link_mode(ecmd, advertising, MII);
-
 	return 0;
 }
 

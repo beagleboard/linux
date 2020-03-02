@@ -1682,6 +1682,14 @@ static int prueth_netdev_init(struct prueth *prueth,
 		goto free;
 	}
 
+	/* remove unsupported modes */
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Half_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_10baseT_Full_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_1000baseT_Half_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);
+	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Asym_Pause_BIT);
+
 	/* get mac address from DT and set private and netdev addr */
 	mac_addr = of_get_mac_address(eth_node);
 	if (mac_addr)
