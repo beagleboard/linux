@@ -2153,6 +2153,7 @@ static struct ahash_alg algs_sha[] = {
 		.cra_driver_name	= "sa-sha1",
 		.cra_priority		= 400,
 		.cra_flags		= CRYPTO_ALG_ASYNC |
+						CRYPTO_ALG_KERN_DRIVER_ONLY |
 						CRYPTO_ALG_NEED_FALLBACK,
 		.cra_blocksize		= SHA1_BLOCK_SIZE,
 		.cra_ctxsize		= sizeof(struct sa_tfm_ctx),
@@ -2177,6 +2178,7 @@ static struct ahash_alg algs_sha[] = {
 		.cra_driver_name	= "sa-sha256",
 		.cra_priority		= 400,
 		.cra_flags		= CRYPTO_ALG_ASYNC |
+						CRYPTO_ALG_KERN_DRIVER_ONLY |
 						CRYPTO_ALG_NEED_FALLBACK,
 		.cra_blocksize		= SHA256_BLOCK_SIZE,
 		.cra_ctxsize		= sizeof(struct sa_tfm_ctx),
@@ -2201,6 +2203,7 @@ static struct ahash_alg algs_sha[] = {
 		.cra_driver_name	= "sa-sha512",
 		.cra_priority		= 400,
 		.cra_flags		= CRYPTO_ALG_ASYNC |
+						CRYPTO_ALG_KERN_DRIVER_ONLY |
 						CRYPTO_ALG_NEED_FALLBACK,
 		.cra_blocksize		= SHA512_BLOCK_SIZE,
 		.cra_ctxsize		= sizeof(struct sa_tfm_ctx),
