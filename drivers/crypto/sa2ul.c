@@ -1906,6 +1906,9 @@ static void sa_sham_cra_exit(struct crypto_tfm *tfm)
 	    == CRYPTO_ALG_TYPE_AHASH) {
 		sa_free_ctx_info(&ctx->enc, data);
 	}
+
+	crypto_free_shash(ctx->shash);
+	crypto_free_ahash(ctx->fallback_tfm);
 }
 
 static int sa_sham_update(struct ahash_request *req)
