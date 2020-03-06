@@ -142,8 +142,11 @@ struct sa_alg_tmpl {
 /**
  * struct sa_rx_data: RX Packet miscellaneous data place holder
  * @req: crypto request data pointer
+ * @ddev: points to the device which is used for dma mapping (DMA device)
  * @tx_in: dma_async_tx_descriptor pointer for rx channel
  * @enc: Flag indicating either encryption or decryption
+ * @enc_iv_size: Initialisation vector size
+ * @iv_idx: Initialisation vector index
  */
 struct sa_rx_data {
 	void *req;
