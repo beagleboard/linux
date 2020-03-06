@@ -821,6 +821,7 @@ config CRYPTO_DEV_SA2UL
 	select CRYPTO_AUTHENC
 	select CRYPTO_HMAC
 	select HW_RANDOM
+	select SG_SPLIT
 	default m if ARCH_K3
 	help
 	  Keystone devices include a security accelerator engine that may be
