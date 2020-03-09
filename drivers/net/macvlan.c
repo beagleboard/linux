@@ -306,6 +306,8 @@ static void macvlan_process_broadcast(struct work_struct *w)
 		rcu_read_unlock();
 
 		kfree_skb(skb);
+
+		cond_resched();
 	}
 }
 
