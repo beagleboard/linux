@@ -240,6 +240,7 @@ void ipvlan_process_multicast(struct work_struct *work)
 				ret = netif_rx(nskb);
 acct:
 			ipvlan_count_rx(ipvlan, len, ret == NET_RX_SUCCESS, true);
+			cond_resched_rcu();
 		}
 		rcu_read_unlock();
 
