@@ -99,13 +99,9 @@ endif
 # asm-generic/*.h is used by asm/*.h, and should not be included directly
 header-test- += asm-generic/%
 
-extra-y := $(patsubst %.h,%.hdrtest, $(filter-out $(header-test-), \
-		$(patsubst $(obj)/%,%, $(shell find $(obj) -name '*.h'))))
-
-quiet_cmd_hdrtest = HDRTEST $<
-      cmd_hdrtest = $(CC) $(c_flags) -S -o /dev/null -x c /dev/null -include $<; touch $@
-
-$(obj)/%.hdrtest: $(obj)/%.h FORCE
-	$(call if_changed_dep,hdrtest)
+# The rest are compile-tested
+header-test-y += $(filter-out $(header-test-), \
+			$(patsubst $(obj)/%,%, $(wildcard \
+			$(addprefix $(obj)/, *.h */*.h */*/*.h */*/*/*.h))))
 
 clean-files += $(filter-out Makefile, $(notdir $(wildcard $(obj)/*)))
