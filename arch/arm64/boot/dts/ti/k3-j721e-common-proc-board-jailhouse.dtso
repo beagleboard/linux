@@ -47,6 +47,6 @@
 	status = "disabled";
 };
 
-&usbss0 {
+&usbss1 {
 	status = "disabled";
 };
