@@ -17,7 +17,7 @@
 	target-path = "/";
 
 	__overlay__ {
-		dp_refclk: clock {
+		dp_refclk: fixed-clock-tc358767 {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <19200000>;
