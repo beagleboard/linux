@@ -46,10 +46,6 @@ struct dispc_features_scaling {
 	u32 xinc_max;
 };
 
-struct dispc_errata {
-	bool i2000; /* DSS Does Not Support YUV Pixel Data Formats */
-};
-
 enum dispc_vp_bus_type {
 	DISPC_VP_DPI,		/* DPI output */
 	DISPC_VP_OLDI,		/* OLDI (LVDS) output */
@@ -86,8 +82,6 @@ struct dispc_features {
 
 	bool has_writeback;
 	const char *wb_name; /* Should match dt reg names */
-
-	struct dispc_errata errata;
 };
 
 extern const struct dispc_features dispc_k2g_feats;
