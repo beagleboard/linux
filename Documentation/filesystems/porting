@@ -596,3 +596,10 @@ in your dentry operations instead.
 [mandatory]
 	->rename() has an added flags argument.  Any flags not handled by the
         filesystem should result in EINVAL being returned.
+--
+[mandatory]
+
+	[should've been added in 2016] stale comment in finish_open()
+	nonwithstanding, failure exits in ->atomic_open() instances should
+	*NOT* fput() the file, no matter what.  Everything is handled by the
+	caller.
