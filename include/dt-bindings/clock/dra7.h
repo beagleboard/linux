@@ -1,20 +1,14 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright 2017 Texas Instruments, Inc.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 #ifndef __DT_BINDINGS_CLK_DRA7_H
 #define __DT_BINDINGS_CLK_DRA7_H
 
 #define DRA7_CLKCTRL_OFFSET	0x20
 #define DRA7_CLKCTRL_INDEX(offset)	((offset) - DRA7_CLKCTRL_OFFSET)
+
+/* XXX: Compatibility part begin, remove this once compatibility support is no longer needed */
 
 /* mpu clocks */
 #define DRA7_MPU_CLKCTRL	DRA7_CLKCTRL_INDEX(0x20)
