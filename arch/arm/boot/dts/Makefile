@@ -697,6 +697,20 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-base0033.dtb \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
+	am335x-revolve.dtb \
+	am335x-boneblack-wireless-roboticscape.dtb \
+	am335x-boneblack-roboticscape.dtb \
+	am335x-bonegreen-gateway.dtb \
+	am335x-bonegreen-wireless-uboot-univ.dtb \
+	am335x-boneblack-uboot-univ.dtb \
+	am335x-boneblack-uboot.dtb \
+	am335x-bone-uboot-univ.dtb \
+	am335x-boneblack-audio.dtb \
+	am335x-boneblack-bbb-exp-r.dtb \
+	am335x-boneblack-bbb-exp-c.dtb \
+	am335x-boneblack-bbbmini.dtb \
+	am335x-boneblack-wl1835mod.dtb \
+	am335x-abbbi.dtb \
 	am335x-boneblack-wireless.dtb \
 	am335x-boneblack-prusuart.dtb \
 	am335x-boneblue.dtb \
@@ -748,6 +762,7 @@ dtb-$(CONFIG_SOC_OMAP5) += \
 	omap5-uevm.dtb
 dtb-$(CONFIG_SOC_DRA7XX) += \
 	am57xx-beagle-x15.dtb \
+	am5729-beagleboneai-roboticscape.dtb \
 	am57xx-beagle-x15-revb1.dtb \
 	am57xx-beagle-x15-revc.dtb \
 	am57xx-cl-som-am57x.dtb \
