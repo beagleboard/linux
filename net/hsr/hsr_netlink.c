@@ -132,6 +132,7 @@ static struct genl_family hsr_genl_family = {
 	.name = "HSR",
 	.version = 1,
 	.maxattr = HSR_A_MAX,
+	.netnsok = true,
 };
 
 static const struct genl_multicast_group hsr_mcgrps[] = {
