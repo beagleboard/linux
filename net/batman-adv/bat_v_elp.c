@@ -100,8 +100,10 @@ static u32 batadv_v_elp_get_throughput(struct batadv_hardif_neigh_node *neigh)
 				 */
 				return 0;
 			}
-			if (!ret)
-				return sinfo.expected_throughput / 100;
+			if (ret)
+				goto default_throughput;
+
+			return sinfo.expected_throughput / 100;
 		}
 
 		/* unsupported WiFi driver version */
