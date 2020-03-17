@@ -564,6 +564,7 @@ static void batadv_orig_node_release(struct batadv_orig_node *orig_node)
 	struct hlist_node *node_tmp;
 	struct batadv_neigh_node *neigh_node;
 	struct batadv_orig_ifinfo *orig_ifinfo;
+	struct batadv_orig_node_vlan *vlan;
 
 	spin_lock_bh(&orig_node->neigh_list_lock);
 
@@ -580,6 +581,13 @@ static void batadv_orig_node_release(struct batadv_orig_node *orig_node)
 		batadv_orig_ifinfo_free_ref(orig_ifinfo);
 	}
 	spin_unlock_bh(&orig_node->neigh_list_lock);
+
+	spin_lock_bh(&orig_node->vlan_list_lock);
+	hlist_for_each_entry_safe(vlan, node_tmp, &orig_node->vlan_list, list) {
+		hlist_del_rcu(&vlan->list);
+		batadv_orig_node_vlan_free_ref(vlan);
+	}
+	spin_unlock_bh(&orig_node->vlan_list_lock);
 
 	/* Free nc_nodes */
 	batadv_nc_purge_orig(orig_node->bat_priv, orig_node, NULL);
