@@ -191,6 +191,7 @@ batadv_v_elp_wifi_neigh_probe(struct batadv_hardif_neigh_node *neigh)
 	struct sk_buff *skb;
 	int probe_len, i;
 	int elp_skb_len;
+	void *tmp;
 
 	/* this probing routine is for Wifi neighbours only */
 	if (!batadv_is_wifi_netdev(hard_iface->net_dev))
@@ -222,7 +223,8 @@ batadv_v_elp_wifi_neigh_probe(struct batadv_hardif_neigh_node *neigh)
 		 * the packet to be exactly of that size to make the link
 		 * throughput estimation effective.
 		 */
-		skb_put(skb, probe_len - hard_iface->bat_v.elp_skb->len);
+		tmp = skb_put(skb, probe_len - hard_iface->bat_v.elp_skb->len);
+		memset(tmp, 0, probe_len - hard_iface->bat_v.elp_skb->len);
 
 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
 			   "Sending unicast (probe) ELP packet on interface %s to %pM\n",
