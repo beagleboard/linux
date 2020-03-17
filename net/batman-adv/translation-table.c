@@ -1263,9 +1263,41 @@ batadv_tt_global_entry_has_orig(const struct batadv_tt_global_entry *entry,
 	return found;
 }
 
+/**
+ * batadv_tt_global_sync_flags - update TT sync flags
+ * @tt_global: the TT global entry to update sync flags in
+ *
+ * Updates the sync flag bits in the tt_global flag attribute with a logical
+ * OR of all sync flags from any of its TT orig entries.
+ */
+static void
+batadv_tt_global_sync_flags(struct batadv_tt_global_entry *tt_global)
+{
+	struct batadv_tt_orig_list_entry *orig_entry;
+	const struct hlist_head *head;
+	u16 flags = BATADV_NO_FLAGS;
+
+	rcu_read_lock();
+	head = &tt_global->orig_list;
+	hlist_for_each_entry_rcu(orig_entry, head, list)
+		flags |= orig_entry->flags;
+	rcu_read_unlock();
+
+	flags |= tt_global->common.flags & (~BATADV_TT_SYNC_MASK);
+	tt_global->common.flags = flags;
+}
+
+/**
+ * batadv_tt_global_orig_entry_add - add or update a TT orig entry
+ * @tt_global: the TT global entry to add an orig entry in
+ * @orig_node: the originator to add an orig entry for
+ * @ttvn: translation table version number of this changeset
+ * @flags: TT sync flags
+ */
 static void
 batadv_tt_global_orig_entry_add(struct batadv_tt_global_entry *tt_global,
-				struct batadv_orig_node *orig_node, int ttvn)
+				struct batadv_orig_node *orig_node, int ttvn,
+				u8 flags)
 {
 	struct batadv_tt_orig_list_entry *orig_entry;
 
@@ -1275,7 +1307,8 @@ batadv_tt_global_orig_entry_add(struct batadv_tt_global_entry *tt_global,
 		 * was added during a "temporary client detection"
 		 */
 		orig_entry->ttvn = ttvn;
-		goto out;
+		orig_entry->flags = flags;
+		goto sync_flags;
 	}
 
 	orig_entry = kzalloc(sizeof(*orig_entry), GFP_ATOMIC);
@@ -1287,6 +1320,7 @@ batadv_tt_global_orig_entry_add(struct batadv_tt_global_entry *tt_global,
 	batadv_tt_global_size_inc(orig_node, tt_global->common.vid);
 	orig_entry->orig_node = orig_node;
 	orig_entry->ttvn = ttvn;
+	orig_entry->flags = flags;
 	atomic_set(&orig_entry->refcount, 2);
 
 	spin_lock_bh(&tt_global->list_lock);
@@ -1295,6 +1329,8 @@ batadv_tt_global_orig_entry_add(struct batadv_tt_global_entry *tt_global,
 	spin_unlock_bh(&tt_global->list_lock);
 	atomic_inc(&tt_global->orig_list_count);
 
+sync_flags:
+	batadv_tt_global_sync_flags(tt_global);
 out:
 	if (orig_entry)
 		batadv_tt_orig_list_entry_free_ref(orig_entry);
@@ -1417,7 +1453,7 @@ static bool batadv_tt_global_add(struct batadv_priv *bat_priv,
 		 * TT_CLIENT_WIFI, therefore they have to be copied in the
 		 * client entry
 		 */
-		tt_global_entry->common.flags |= flags;
+		tt_global_entry->common.flags |= flags & (~BATADV_TT_SYNC_MASK);
 
 		/* If there is the BATADV_TT_CLIENT_ROAM flag set, there is only
 		 * one originator left in the list and we previously received a
@@ -1434,7 +1470,8 @@ static bool batadv_tt_global_add(struct batadv_priv *bat_priv,
 	}
 add_orig_entry:
 	/* add the new orig_entry (if needed) or update it */
-	batadv_tt_global_orig_entry_add(tt_global_entry, orig_node, ttvn);
+	batadv_tt_global_orig_entry_add(tt_global_entry, orig_node, ttvn,
+					flags & BATADV_TT_SYNC_MASK);
 
 	batadv_dbg(BATADV_DBG_TT, bat_priv,
 		   "Creating new global tt entry: %pM (vid: %d, via %pM)\n",
@@ -2087,6 +2124,7 @@ static u32 batadv_tt_global_crc(struct batadv_priv *bat_priv,
 				unsigned short vid)
 {
 	struct batadv_hashtable *hash = bat_priv->tt.global_hash;
+	struct batadv_tt_orig_list_entry *tt_orig;
 	struct batadv_tt_common_entry *tt_common;
 	struct batadv_tt_global_entry *tt_global;
 	struct hlist_head *head;
@@ -2125,8 +2163,9 @@ static u32 batadv_tt_global_crc(struct batadv_priv *bat_priv,
 			/* find out if this global entry is announced by this
 			 * originator
 			 */
-			if (!batadv_tt_global_entry_has_orig(tt_global,
-							     orig_node))
+			tt_orig = batadv_tt_global_orig_entry_find(tt_global,
+								   orig_node);
+			if (!tt_orig)
 				continue;
 
 			/* use network order to read the VID: this ensures that
@@ -2138,10 +2177,12 @@ static u32 batadv_tt_global_crc(struct batadv_priv *bat_priv,
 			/* compute the CRC on flags that have to be kept in sync
 			 * among nodes
 			 */
-			flags = tt_common->flags & BATADV_TT_SYNC_MASK;
+			flags = tt_orig->flags;
 			crc_tmp = crc32c(crc_tmp, &flags, sizeof(flags));
 
 			crc ^= crc32c(crc_tmp, tt_common->addr, ETH_ALEN);
+
+			batadv_tt_orig_list_entry_free_ref(tt_orig);
 		}
 		rcu_read_unlock();
 	}
