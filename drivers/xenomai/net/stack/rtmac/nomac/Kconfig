@@ -1,0 +1,9 @@
+config XENO_DRIVERS_NET_NOMAC
+    tristate "NoMAC discipline for RTmac"
+    depends on XENO_DRIVERS_NET_RTMAC
+    default n
+    ---help---
+    This no-operation RTmac discipline is intended to act as a template
+    for new implementations. However, it can be compiled and used (see
+    nomaccfg management tool), but don't expect any improved determinism
+    of your network. ;)
