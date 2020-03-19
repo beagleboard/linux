@@ -91,7 +91,7 @@
 		};
 	};
 
-	clk_ov5640_fixed: clock {
+	clk_ov5640_fixed: fixed-clock-ov5640 {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <24000000>;
