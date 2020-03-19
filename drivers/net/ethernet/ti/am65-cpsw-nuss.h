@@ -120,6 +120,7 @@ struct am65_cpsw_common {
 	u32			cur_txq;
 
 	int			est_enabled;
+	int			iet_enabled;
 };
 
 struct am65_cpsw_ndev_stats {

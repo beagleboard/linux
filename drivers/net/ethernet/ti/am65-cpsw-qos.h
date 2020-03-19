@@ -14,16 +14,34 @@ struct am65_cpsw_est {
 	struct tc_taprio_qopt_offload taprio;
 };
 
+struct am65_cpsw_iet {
+	struct work_struct verify_task;
+	struct completion verify_compl;
+	struct net_device *ndev;
+	atomic_t cancel_verify;
+	/* Set through priv flags */
+	bool fpe_configured;
+	bool mac_verify_configured;
+	/* frame preemption enabled */
+	bool fpe_enabled;
+	/* configured mask */
+	u32 fpe_mask_configured;
+	/* current mask */
+	u32 mask;
+};
+
 struct am65_cpsw_qos {
 	struct am65_cpsw_est *est_admin;
 	struct am65_cpsw_est *est_oper;
 	ktime_t link_down_time;
 	int link_speed;
+	struct am65_cpsw_iet iet;
 };
 
 int am65_cpsw_qos_ndo_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 			       void *type_data);
 void am65_cpsw_qos_link_up(struct net_device *ndev, int link_speed);
 void am65_cpsw_qos_link_down(struct net_device *ndev);
-
+void am65_cpsw_qos_iet_init(struct net_device *ndev);
+void am65_cpsw_qos_iet_cleanup(struct net_device *ndev);
 #endif /* AM65_CPSW_QOS_H_ */
