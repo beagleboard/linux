@@ -209,3 +209,9 @@ static struct xor_block_template xor_block_neon = {
 #else
 #define NEON_TEMPLATES
 #endif
+
+#ifdef CONFIG_KERNEL_MODE_NEON
+#define XOR_SELECT_TEMPLATE(FASTEST)	(&xor_block_neon)
+#else
+#define XOR_SELECT_TEMPLATE(FASTEST)	(&xor_block_arm4regs)
+#endif
