@@ -1195,8 +1195,8 @@ brcmf_msgbuf_process_rx_complete(struct brcmf_msgbuf *msgbuf, void *buf)
 		return;
 	}
 
-	eh = (struct ethhdr *)(skb->data);
-	if (ifp->isap) {
+	if (ifp->isap && ifp->fmac_pkt_fwd_en) {
+		eh = (struct ethhdr *)(skb->data);
 		skb_set_network_header(skb, sizeof(struct ethhdr));
 		skb->protocol = eh->h_proto;
 		skb->priority = cfg80211_classify8021d(skb, NULL);
