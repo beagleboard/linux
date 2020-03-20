@@ -318,8 +318,11 @@ struct sa_dma_req_ctx {
 	struct scatterlist *src;
 	unsigned int	src_nents;
 	bool		pkt;
-	struct ahash_request fallback_req;
 	u32 mode;
+	struct scatterlist *sg_next;
+	int len;
+	int buf_free;
+	int offset;
 };
 
 enum sa_submode {

@@ -1654,9 +1654,11 @@ static void sa_sham_dma_in_callback(void *data)
 	struct ahash_request *req = (struct ahash_request *)rxd->req;
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	unsigned int authsize = crypto_ahash_digestsize(tfm);
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
 	int i, sg_nents;
 	size_t ml, pl;
 	u32 *mdptr, *result;
+	struct scatterlist *sg;
 
 	mdptr = (u32 *)dmaengine_desc_get_metadata_ptr(rxd->tx_in, &pl, &ml);
 	result = (u32 *)req->result;
@@ -1668,6 +1670,15 @@ static void sa_sham_dma_in_callback(void *data)
 	dma_unmap_sg(rxd->ddev, req->src, sg_nents, DMA_FROM_DEVICE);
 
 	kfree(rxd);
+
+	if (rctx->sg_next) {
+		while (rctx->src) {
+			sg = rctx->src;
+			rctx->src = sg_next(rctx->src);
+			free_pages((u64)sg_virt(sg), get_order(sg->length));
+			kfree(sg);
+		}
+	}
 
 	ahash_request_complete(req, 0);
 }
@@ -1705,7 +1716,7 @@ static int sa_sham_digest(struct ahash_request *req)
 	struct sa_ctx_info *sa_ctx = &ctx->enc;
 	struct dma_async_tx_descriptor *tx_in, *tx_out;
 	struct sa_crypto_data *pdata = dev_get_drvdata(sa_k3_dev);
-	struct sa_dma_req_ctx req_ctx;
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
 	struct sa_rx_data *rxd;
 	u8 enc_offset;
 	int sg_nents;
@@ -1715,7 +1726,7 @@ static int sa_sham_digest(struct ahash_request *req)
 	u8 *aad = NULL;
 	u8 aad_len = 0;
 	u16 enc_len;
-	u16 auth_len = 0;
+	size_t auth_len = 0;
 	u32 req_type;
 	u32 *mdptr;
 	struct dma_chan *dma_rx;
@@ -1726,10 +1737,16 @@ static int sa_sham_digest(struct ahash_request *req)
 	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
 			GFP_KERNEL : GFP_ATOMIC;
 	enc_len = 0;
-	auth_len = req->nbytes;
 	enc_offset = 0;
 
-	if (!req->nbytes)
+	if (!rctx->src) {
+		rctx->src = req->src;
+		rctx->len = req->nbytes;
+	}
+
+	auth_len = rctx->len;
+
+	if (!auth_len)
 		return zero_message_process(req);
 
 	if (auth_len >= 256)
@@ -1740,14 +1757,14 @@ static int sa_sham_digest(struct ahash_request *req)
 	ddev = dma_rx->device->dev;
 
 	/* Allocate descriptor & submit packet */
-	sg_nents = sg_nents_for_len(req->src, req->nbytes);
+	sg_nents = sg_nents_for_len(rctx->src, rctx->len);
 
-	memcpy(req_ctx.cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
+	memcpy(rctx->cmdl, sa_ctx->cmdl, sa_ctx->cmdl_size);
 	/* Update Command Label */
 	sa_update_cmdl(sa_k3_dev, enc_offset, enc_len,
 		       NULL, auth_offset, auth_len,
 		       auth_iv, aad_len, aad,
-		       &sa_ctx->cmdl_upd_info, req_ctx.cmdl);
+		       &sa_ctx->cmdl_upd_info, rctx->cmdl);
 
 	/*
 	 * Last 2 words in PSDATA will have the crypto alg type &
@@ -1756,24 +1773,23 @@ static int sa_sham_digest(struct ahash_request *req)
 	req_type = CRYPTO_ALG_TYPE_AHASH;
 
 	psdata_offset = sa_ctx->cmdl_size / sizeof(u32);
-	req_ctx.cmdl[psdata_offset++] = req_type;
+	rctx->cmdl[psdata_offset++] = req_type;
 
 	/* map the packet */
-	req_ctx.src = req->src;
-	req_ctx.src_nents = dma_map_sg(ddev, req->src, sg_nents, DMA_TO_DEVICE);
+	rctx->src_nents = dma_map_sg(ddev, rctx->src, sg_nents, DMA_TO_DEVICE);
 
-	if (unlikely(req_ctx.src_nents != sg_nents)) {
+	if (unlikely(rctx->src_nents != sg_nents)) {
 		dev_warn_ratelimited(sa_k3_dev, "failed to map tx pkt\n");
 		return -EIO;
 	}
 
-	req_ctx.dev_data = pdata;
-	req_ctx.pkt = true;
+	rctx->dev_data = pdata;
+	rctx->pkt = true;
 
-	dma_sync_sg_for_device(pdata->dev, req->src, req_ctx.src_nents,
+	dma_sync_sg_for_device(pdata->dev, rctx->src, rctx->src_nents,
 			       DMA_TO_DEVICE);
 
-	tx_in = dmaengine_prep_slave_sg(dma_rx, req->src, req_ctx.src_nents,
+	tx_in = dmaengine_prep_slave_sg(dma_rx, rctx->src, rctx->src_nents,
 					DMA_DEV_TO_MEM,
 					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!tx_in) {
@@ -1788,8 +1804,8 @@ static int sa_sham_digest(struct ahash_request *req)
 	tx_in->callback = sa_sham_dma_in_callback;
 	tx_in->callback_param = rxd;
 
-	tx_out = dmaengine_prep_slave_sg(pdata->dma_tx, req->src,
-					 req_ctx.src_nents, DMA_MEM_TO_DEV,
+	tx_out = dmaengine_prep_slave_sg(pdata->dma_tx, rctx->src,
+					 rctx->src_nents, DMA_MEM_TO_DEV,
 					 DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!tx_out) {
 		dev_err(pdata->dev, "OUT prep_slave_sg() failed\n");
@@ -1798,7 +1814,7 @@ static int sa_sham_digest(struct ahash_request *req)
 
 	mdptr = (u32 *)dmaengine_desc_get_metadata_ptr(tx_out, &pl, &ml);
 	sa_prepare_tx_desc(mdptr, (sa_ctx->cmdl_size + (SA_PSDATA_CTX_WORDS *
-			   sizeof(u32))), req_ctx.cmdl,
+			   sizeof(u32))), rctx->cmdl,
 			   sizeof(sa_ctx->epib), sa_ctx->epib);
 
 	dmaengine_desc_set_metadata_len(tx_out, 28);
@@ -1885,24 +1901,32 @@ static int sa_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 		ctx->dec.sc_id, &ctx->dec.sc_phys);
 
 	crypto_ahash_set_reqsize(__crypto_ahash_cast(tfm),
-				 sizeof(struct sa_dma_req_ctx) +
-				 crypto_ahash_reqsize(ctx->fallback_tfm));
+				 sizeof(struct sa_dma_req_ctx));
 
 	return 0;
 }
 
 static int sa_sha1_digest(struct ahash_request *req)
 {
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
+
+	memzero_explicit(rctx, sizeof(*rctx));
 	return sa_sham_digest(req);
 }
 
 static int sa_sha256_digest(struct ahash_request *req)
 {
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
+
+	memzero_explicit(rctx, sizeof(*rctx));
 	return sa_sham_digest(req);
 }
 
 static int sa_sha512_digest(struct ahash_request *req)
 {
+	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
+
+	memzero_explicit(rctx, sizeof(*rctx));
 	return sa_sham_digest(req);
 }
 
@@ -1910,16 +1934,13 @@ static int sa_sham_init(struct ahash_request *req)
 {
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
-	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
 
-	dev_dbg(sa_k3_dev, "init: digest size: %d\n",
-		crypto_ahash_digestsize(tfm));
+	dev_dbg(sa_k3_dev, "init: digest size: %d, rctx=%llx\n",
+		crypto_ahash_digestsize(tfm), (u64)rctx);
 
-	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
-	rctx->fallback_req.base.flags = req->base.flags &
-					CRYPTO_TFM_REQ_MAY_SLEEP;
+	memzero_explicit(rctx, sizeof(*rctx));
 
-	return crypto_ahash_init(&rctx->fallback_req);
+	return 0;
 }
 
 static int sa_sham_cra_sha1_init(struct crypto_tfm *tfm)
@@ -2024,74 +2045,84 @@ static void sa_sham_cra_exit(struct crypto_tfm *tfm)
 
 static int sa_sham_update(struct ahash_request *req)
 {
-	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
-	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
+	struct scatterlist *sg;
+	void *buf;
+	int pages;
+	struct page *pg;
 
-	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
-	rctx->fallback_req.base.flags = req->base.flags &
-					CRYPTO_TFM_REQ_MAY_SLEEP;
-	rctx->fallback_req.nbytes = req->nbytes;
-	rctx->fallback_req.src = req->src;
+	if (!req->nbytes)
+		return 0;
 
-	return crypto_ahash_update(&rctx->fallback_req);
+	if (rctx->buf_free >= req->nbytes) {
+		pg = sg_page(rctx->sg_next);
+		buf = kmap_atomic(pg);
+		scatterwalk_map_and_copy(buf + rctx->offset, req->src, 0,
+					 req->nbytes, 0);
+		kunmap_atomic(buf);
+		rctx->buf_free -= req->nbytes;
+		rctx->sg_next->length += req->nbytes;
+		rctx->offset += req->nbytes;
+	} else {
+		pages = get_order(req->nbytes);
+		buf = (void *)__get_free_pages(GFP_ATOMIC, pages);
+		if (!buf) {
+			pr_err("get_free_pages failed.\n");
+			return -ENOMEM;
+		}
+
+		sg = kzalloc(sizeof(sg) * 2, GFP_KERNEL);
+
+		sg_init_table(sg, 1);
+		sg_set_buf(sg, buf, req->nbytes);
+		scatterwalk_map_and_copy(buf, req->src, 0, req->nbytes, 0);
+
+		rctx->buf_free = (PAGE_SIZE << pages) - req->nbytes;
+
+		if (rctx->sg_next) {
+			sg_unmark_end(rctx->sg_next);
+			sg_chain(rctx->sg_next, 2, sg);
+		} else {
+			rctx->src = sg;
+		}
+
+		rctx->sg_next = sg;
+		rctx->src_nents++;
+
+		rctx->offset = req->nbytes;
+	}
+
+	rctx->len += req->nbytes;
+
+	return 0;
 }
 
 static int sa_sham_final(struct ahash_request *req)
 {
-	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
-	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
-	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
-
-	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
-	rctx->fallback_req.base.flags = req->base.flags &
-					CRYPTO_TFM_REQ_MAY_SLEEP;
-	rctx->fallback_req.result = req->result;
-
-	return crypto_ahash_final(&rctx->fallback_req);
+	return sa_sham_digest(req);
 }
 
 static int sa_sham_finup(struct ahash_request *req)
 {
-	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
-	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
-	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
+	sa_sham_update(req);
 
-	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
-	rctx->fallback_req.base.flags = req->base.flags &
-					CRYPTO_TFM_REQ_MAY_SLEEP;
-
-	rctx->fallback_req.nbytes = req->nbytes;
-	rctx->fallback_req.src = req->src;
-	rctx->fallback_req.result = req->result;
-
-	return crypto_ahash_finup(&rctx->fallback_req);
+	return sa_sham_final(req);
 }
 
 static int sa_sham_import(struct ahash_request *req, const void *in)
 {
-	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
-	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
 
-	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
-	rctx->fallback_req.base.flags = req->base.flags &
-					CRYPTO_TFM_REQ_MAY_SLEEP;
-
-	return crypto_ahash_import(&rctx->fallback_req, in);
+	memcpy(rctx, in, sizeof(*rctx));
+	return 0;
 }
 
 static int sa_sham_export(struct ahash_request *req, void *out)
 {
-	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct sa_dma_req_ctx *rctx = ahash_request_ctx(req);
-	struct sa_tfm_ctx *ctx = crypto_ahash_ctx(tfm);
 
-	ahash_request_set_tfm(&rctx->fallback_req, ctx->fallback_tfm);
-	rctx->fallback_req.base.flags = req->base.flags &
-					CRYPTO_TFM_REQ_MAY_SLEEP;
-
-	return crypto_ahash_export(&rctx->fallback_req, out);
+	memcpy(out, rctx, sizeof(*rctx));
+	return 0;
 }
 
 static struct sa_alg_tmpl sa_algs[] = {
@@ -2258,7 +2289,7 @@ static struct ahash_alg algs_sha[] = {
 	.export		= sa_sham_export,
 	.import		= sa_sham_import,
 	.halg.digestsize	= SHA1_DIGEST_SIZE,
-	.halg.statesize		= 128,
+	.halg.statesize		= sizeof(struct sa_dma_req_ctx),
 	.halg.base	= {
 		.cra_name		= "sha1",
 		.cra_driver_name	= "sa-sha1",
@@ -2283,7 +2314,7 @@ static struct ahash_alg algs_sha[] = {
 	.export		= sa_sham_export,
 	.import		= sa_sham_import,
 	.halg.digestsize	= SHA256_DIGEST_SIZE,
-	.halg.statesize		= 128,
+	.halg.statesize		= sizeof(struct sa_dma_req_ctx),
 	.halg.base	= {
 		.cra_name		= "sha256",
 		.cra_driver_name	= "sa-sha256",
@@ -2308,7 +2339,7 @@ static struct ahash_alg algs_sha[] = {
 	.export		= sa_sham_export,
 	.import		= sa_sham_import,
 	.halg.digestsize	= SHA512_DIGEST_SIZE,
-	.halg.statesize		= 256,
+	.halg.statesize		= sizeof(struct sa_dma_req_ctx),
 	.halg.base	= {
 		.cra_name		= "sha512",
 		.cra_driver_name	= "sa-sha512",
