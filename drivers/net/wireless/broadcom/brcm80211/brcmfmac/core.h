@@ -199,6 +199,7 @@ struct brcmf_if {
 	bool fwil_fwerr;
 	struct list_head sta_list;              /* sll of associated stations */
 	spinlock_t sta_list_lock;
+	bool fmac_pkt_fwd_en;
 };
 
 struct ether_addr {
