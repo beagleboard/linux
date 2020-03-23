@@ -20,3 +20,7 @@
 		no-map;
 	};
 };
+
+&mcu_uart0 {
+	status = "disabled";
+};
