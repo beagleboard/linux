@@ -1160,7 +1160,7 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	req_ctx.dev_data = pdata;
 	req_ctx.pkt = true;
 
-	dma_sync_sg_for_device(pdata->dev, req->src, sg_nents, DMA_TO_DEVICE);
+	dma_sync_sg_for_device(ddev, req->src, sg_nents, DMA_TO_DEVICE);
 
 	tx_in = dmaengine_prep_slave_sg(dma_rx, dst_sg, dst_nents,
 					DMA_DEV_TO_MEM,
@@ -1574,7 +1574,7 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	req_ctx.dev_data = pdata;
 	req_ctx.pkt = true;
 
-	dma_sync_sg_for_device(pdata->dev, req->src, sg_nents, DMA_TO_DEVICE);
+	dma_sync_sg_for_device(ddev, req->src, sg_nents, DMA_TO_DEVICE);
 
 	tx_in = dmaengine_prep_slave_sg(dma_rx, dst_sg, dst_nents,
 					DMA_DEV_TO_MEM,
@@ -1786,7 +1786,7 @@ static int sa_sham_digest(struct ahash_request *req)
 	rctx->dev_data = pdata;
 	rctx->pkt = true;
 
-	dma_sync_sg_for_device(pdata->dev, rctx->src, rctx->src_nents,
+	dma_sync_sg_for_device(ddev, rctx->src, rctx->src_nents,
 			       DMA_TO_DEVICE);
 
 	tx_in = dmaengine_prep_slave_sg(dma_rx, rctx->src, rctx->src_nents,
