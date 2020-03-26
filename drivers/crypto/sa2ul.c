@@ -159,7 +159,10 @@ struct sa_rx_data {
 	u8 enc;
 	u8 enc_iv_size;
 	u8 iv_idx;
-
+	struct scatterlist rx_sg;
+	struct scatterlist tx_sg;
+	struct scatterlist *src;
+	struct scatterlist *dst;
 };
 
 /*
@@ -1256,14 +1259,14 @@ static void sa_aead_dma_in_callback(void *data)
 	if (!rxd->enc)
 		auth_len -= authsize;
 
-	sglen =  sg_nents_for_len(req->src, auth_len);
-	dma_unmap_sg(rxd->ddev, req->src, sglen, DMA_TO_DEVICE);
+	sglen =  sg_nents_for_len(rxd->src, auth_len);
+	dma_unmap_sg(rxd->ddev, rxd->src, sglen, DMA_TO_DEVICE);
 	if (rxd->split_src_sg)
 		kfree(rxd->split_src_sg);
 
 	if (req->src != req->dst) {
-		sglen = sg_nents_for_len(req->dst, auth_len);
-		dma_unmap_sg(rxd->ddev, req->dst, sglen, DMA_FROM_DEVICE);
+		sglen = sg_nents_for_len(rxd->dst, auth_len);
+		dma_unmap_sg(rxd->ddev, rxd->dst, sglen, DMA_FROM_DEVICE);
 		if (rxd->split_dst_sg)
 			kfree(rxd->split_dst_sg);
 	}
@@ -1535,33 +1538,54 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 
 	/* map the packet */
 	sg_nents = sg_nents_for_len(req->src, auth_len);
-	mapped_src_nents = dma_map_sg(ddev, req->src, sg_nents, DMA_TO_DEVICE);
 
 	split_size = auth_len;
-	ret = sg_split(req->src, mapped_src_nents, 0, 1, &split_size,
-		       &req_ctx.src, &req_ctx.src_nents, flags);
-	if (ret) {
-		req_ctx.src_nents = mapped_src_nents;
-		req_ctx.src = req->src;
+
+	if (sg_nents == 1 && split_size <= req->src->length) {
+		req_ctx.src = &rxd->rx_sg;
+		sg_init_table(req_ctx.src, 1);
+		sg_set_page(req_ctx.src, sg_page(req->src), split_size,
+			    req->src->offset);
+		req_ctx.src_nents = 1;
+		dma_map_sg(ddev, req_ctx.src, sg_nents, DMA_TO_DEVICE);
 	} else {
-		rxd->split_src_sg = req_ctx.src;
+		mapped_src_nents = dma_map_sg(ddev, req->src, sg_nents,
+					      DMA_TO_DEVICE);
+		ret = sg_split(req->src, mapped_src_nents, 0, 1, &split_size,
+			       &req_ctx.src, &req_ctx.src_nents, flags);
+		if (ret) {
+			req_ctx.src_nents = sg_nents;
+			req_ctx.src = req->src;
+		} else {
+			rxd->split_src_sg = req_ctx.src;
+		}
 	}
 
 	if (req->src == req->dst) {
 		dst_nents = req_ctx.src_nents;
 		dst_sg = req_ctx.src;
+		dma_map_sg(ddev, req->dst, dst_nents, DMA_FROM_DEVICE);
 	} else {
 		dst_nents = sg_nents_for_len(req->dst, auth_len);
-		mapped_dst_nents = dma_map_sg(ddev, req->dst, dst_nents,
-					      DMA_FROM_DEVICE);
 
-		ret = sg_split(req->dst, mapped_dst_nents, 0, 1, &split_size,
-			       &dst_sg, &dst_nents, flags);
-		if (ret) {
-			dst_nents = mapped_dst_nents;
-			dst_sg = req->dst;
+		if (dst_nents == 1 && split_size <= req->dst->length) {
+			dst_sg = &rxd->tx_sg;
+			sg_init_table(dst_sg, 1);
+			sg_set_page(dst_sg, sg_page(req->dst), split_size,
+				    req->dst->offset);
+			dst_nents = 1;
+			dma_map_sg(ddev, dst_sg, dst_nents, DMA_FROM_DEVICE);
 		} else {
-			rxd->split_dst_sg = dst_sg;
+			mapped_dst_nents = dma_map_sg(ddev, req->dst, dst_nents,
+						      DMA_FROM_DEVICE);
+			ret = sg_split(req->dst, mapped_dst_nents, 0, 1,
+				       &split_size, &dst_sg, &dst_nents, flags);
+			if (ret) {
+				dst_nents = dst_nents;
+				dst_sg = req->dst;
+			} else {
+				rxd->split_dst_sg = dst_sg;
+			}
 		}
 	}
 
@@ -1574,7 +1598,7 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	req_ctx.dev_data = pdata;
 	req_ctx.pkt = true;
 
-	dma_sync_sg_for_device(ddev, req->src, sg_nents, DMA_TO_DEVICE);
+	dma_sync_sg_for_device(ddev, req_ctx.src, sg_nents, DMA_TO_DEVICE);
 
 	tx_in = dmaengine_prep_slave_sg(dma_rx, dst_sg, dst_nents,
 					DMA_DEV_TO_MEM,
@@ -1589,6 +1613,8 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	rxd->enc = enc;
 	rxd->tx_in = tx_in;
 	rxd->ddev = ddev;
+	rxd->src = req_ctx.src;
+	rxd->dst = dst_sg;
 
 	/* IN */
 	tx_in->callback = sa_aead_dma_in_callback;
