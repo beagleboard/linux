@@ -1506,7 +1506,7 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 		auth_len -= crypto_aead_authsize(tfm);
 	}
 
-	if (enc_len >= 256)
+	if (auth_len >= 256)
 		dma_rx = pdata->dma_rx2;
 	else
 		dma_rx = pdata->dma_rx1;
