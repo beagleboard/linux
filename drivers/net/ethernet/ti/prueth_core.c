@@ -973,7 +973,10 @@ static void emac_get_stats(struct prueth_emac *emac,
 	void __iomem *dram;
 
 	dram = emac->prueth->mem[emac->dram].va;
-	memcpy_fromio(pstats, dram + STATISTICS_OFFSET, sizeof(*pstats));
+	memcpy_fromio(pstats, dram + STATISTICS_OFFSET, STAT_SIZE);
+
+	pstats->vlan_dropped =
+		readl(dram + ICSS_EMAC_FW_VLAN_FILTER_DROP_CNT_OFFSET);
 }
 
 /* set PRU firmware statistics */
@@ -983,7 +986,10 @@ static void emac_set_stats(struct prueth_emac *emac,
 	void __iomem *dram;
 
 	dram = emac->prueth->mem[emac->dram].va;
-	memcpy_toio(dram + STATISTICS_OFFSET, pstats, sizeof(*pstats));
+	memcpy_toio(dram + STATISTICS_OFFSET, pstats, STAT_SIZE);
+
+	writel(pstats->vlan_dropped, dram +
+			ICSS_EMAC_FW_VLAN_FILTER_DROP_CNT_OFFSET);
 }
 
 /**
@@ -1512,6 +1518,7 @@ static const struct {
 
 	{"txHWQOverFlow", PRUETH_STAT_OFFSET(tx_hwq_overflow)},
 	{"txHWQUnderFlow", PRUETH_STAT_OFFSET(tx_hwq_underflow)},
+	{"vlanDropped", PRUETH_STAT_OFFSET(vlan_dropped)},
 };
 
 static int emac_get_sset_count(struct net_device *ndev, int stringset)

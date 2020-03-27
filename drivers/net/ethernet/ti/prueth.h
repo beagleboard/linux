@@ -118,9 +118,11 @@ struct prueth_packet_info {
  * @u32 cs_error: Number of carrier sense errors
  * @sqe_test_error: Number of MAC receive errors
  *
- * The fields here are aligned here so that it's consistent
+ * Above fields are aligned so that it's consistent
  * with the memory layout in PRU DRAM, this is to facilitate easy
  * memcpy. Don't change the order of the fields.
+ *
+ * @vlan_dropped: Number of VLAN tagged packets dropped
  */
 struct port_statistics {
 	u32 tx_bcast;
@@ -170,6 +172,8 @@ struct port_statistics {
 
 	u32 cs_error;
 	u32 sqe_test_error;
+
+	u32 vlan_dropped;
 } __packed;
 
 #endif /* __NET_TI_PRUETH_H */
