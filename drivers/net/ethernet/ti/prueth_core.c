@@ -980,7 +980,7 @@ static void emac_set_stats(struct prueth_emac *emac,
 	void __iomem *dram;
 
 	dram = emac->prueth->mem[emac->dram].va;
-	memcpy_fromio(dram + STATISTICS_OFFSET, pstats, sizeof(*pstats));
+	memcpy_toio(dram + STATISTICS_OFFSET, pstats, sizeof(*pstats));
 }
 
 /**
