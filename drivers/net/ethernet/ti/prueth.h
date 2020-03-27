@@ -123,6 +123,7 @@ struct prueth_packet_info {
  * memcpy. Don't change the order of the fields.
  *
  * @vlan_dropped: Number of VLAN tagged packets dropped
+ * @multicast_dropped: Number of multicast packets dropped
  */
 struct port_statistics {
 	u32 tx_bcast;
@@ -174,6 +175,7 @@ struct port_statistics {
 	u32 sqe_test_error;
 
 	u32 vlan_dropped;
+	u32 multicast_dropped;
 } __packed;
 
 #endif /* __NET_TI_PRUETH_H */
