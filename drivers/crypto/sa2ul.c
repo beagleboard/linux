@@ -1067,6 +1067,7 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	struct dma_async_tx_descriptor *tx_in, *tx_out;
 	struct scatterlist *dst_sg;
 	struct sa_rx_data *rxd;
+	struct crypto_alg *alg = req->base.tfm->__crt_alg;
 	u8 enc_offset;
 	int mapped_src_nents, mapped_dst_nents;
 	int sg_nents, dst_nents;
@@ -1084,6 +1085,12 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 	struct dma_chan *dma_rx;
 	gfp_t flags;
 	int ret;
+
+	if (!req->nbytes)
+		return 0;
+
+	if (req->nbytes % alg->cra_blocksize)
+		return -EINVAL;
 
 	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
 	if (!rxd)
