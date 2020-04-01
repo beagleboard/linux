@@ -49,3 +49,7 @@
 	reset-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
 	reset-assert-us = <2>;   /* PHY datasheet states 1uS min */
 };
+
+&m_can0 {
+	status = "disabled";
+};
