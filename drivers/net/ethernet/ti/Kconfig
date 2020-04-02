@@ -89,6 +89,12 @@ config TI_AM65_CPSW_NUSS
 	  To compile this driver as a module, choose M here: the module
 	  will be called ti-am65-cpsw-nuss.
 
+config TI_AM65_CPSW_TAS
+	bool "Enable TAS offload in AM65 CPSW"
+	depends on TI_AM65_CPSW_NUSS && NET_SCH_TAPRIO
+	help
+	  Say y here to support Time Aware Shaper(TAS) offload in AM65 CPSW.
+
 config TI_AM65_CPTS
 	tristate "TI K3 AM65x CPTS"
 	depends on ARCH_K3
