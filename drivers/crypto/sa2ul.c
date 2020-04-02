@@ -1136,7 +1136,7 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 
 	if (req->src == req->dst) {
 		dst_nents = req_ctx.src_nents;
-		dst_sg = req->src;
+		dst_sg = req_ctx.src;
 	} else {
 		dst_nents = sg_nents_for_len(req->dst, enc_len);
 		mapped_dst_nents = dma_map_sg(ddev, req->dst, dst_nents,
