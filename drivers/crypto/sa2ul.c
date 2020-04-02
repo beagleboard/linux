@@ -1720,6 +1720,21 @@ static int sa_aead_decrypt(struct aead_request *req)
 	return sa_aead_run(req, req->iv, 0);
 }
 
+static void sa_sham_cleanup_cache_data(struct sa_dma_req_ctx *ctx)
+{
+	struct scatterlist *sg;
+
+	if (!ctx->sg_next)
+		return;
+
+	while (ctx->src) {
+		sg = ctx->src;
+		ctx->src = sg_next(ctx->src);
+		free_pages((u64)sg_virt(sg), get_order(sg->length));
+		kfree(sg);
+	}
+}
+
 static void sa_sham_dma_in_callback(void *data)
 {
 	struct sa_rx_data *rxd = (struct sa_rx_data *)data;
@@ -1730,7 +1745,6 @@ static void sa_sham_dma_in_callback(void *data)
 	int i, sg_nents;
 	size_t ml, pl;
 	u32 *mdptr, *result;
-	struct scatterlist *sg;
 
 	mdptr = (u32 *)dmaengine_desc_get_metadata_ptr(rxd->tx_in, &pl, &ml);
 	result = (u32 *)req->result;
@@ -1743,14 +1757,7 @@ static void sa_sham_dma_in_callback(void *data)
 
 	kfree(rxd);
 
-	if (rctx->sg_next) {
-		while (rctx->src) {
-			sg = rctx->src;
-			rctx->src = sg_next(rctx->src);
-			free_pages((u64)sg_virt(sg), get_order(sg->length));
-			kfree(sg);
-		}
-	}
+	sa_sham_cleanup_cache_data(rctx);
 
 	ahash_request_complete(req, 0);
 }
@@ -1805,6 +1812,7 @@ static int sa_sham_digest(struct ahash_request *req)
 	gfp_t flags;
 	size_t pl, ml;
 	struct device *ddev;
+	int ret;
 
 	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
 			GFP_KERNEL : GFP_ATOMIC;
@@ -1820,6 +1828,36 @@ static int sa_sham_digest(struct ahash_request *req)
 
 	if (!auth_len)
 		return zero_message_process(req);
+
+	if (auth_len > SA_MAX_DATA_SZ ||
+	    (auth_len >= SA_UNSAFE_DATA_SZ_MIN &&
+	     auth_len <= SA_UNSAFE_DATA_SZ_MAX)) {
+		struct crypto_wait wait;
+		struct ahash_request *subreq;
+
+		crypto_init_wait(&wait);
+
+		subreq = ahash_request_alloc(ctx->fallback.ahash, GFP_KERNEL);
+		ahash_request_set_tfm(subreq, ctx->fallback.ahash);
+		subreq->base.flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP;
+		subreq->nbytes = auth_len;
+		subreq->src = rctx->src;
+		subreq->result = req->result;
+
+		ahash_request_set_callback(subreq, CRYPTO_TFM_REQ_MAY_BACKLOG,
+					   crypto_req_done, &wait);
+
+		ret = crypto_ahash_digest(subreq);
+		ret |= crypto_wait_req(ret, &wait);
+
+		ahash_request_free(subreq);
+
+		sa_sham_cleanup_cache_data(rctx);
+
+		ahash_request_complete(req, ret);
+
+		return ret;
+	}
 
 	if (auth_len >= 256)
 		dma_rx = pdata->dma_rx2;
