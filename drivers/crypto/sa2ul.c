@@ -837,6 +837,8 @@ static void sa_aes_cra_exit(struct crypto_tfm *tfm)
 		sa_free_ctx_info(&ctx->enc, data);
 		sa_free_ctx_info(&ctx->dec, data);
 	}
+
+	crypto_free_sync_skcipher(ctx->fallback.skcipher);
 }
 
 static int sa_aes_cra_init(struct crypto_tfm *tfm)
@@ -844,6 +846,7 @@ static int sa_aes_cra_init(struct crypto_tfm *tfm)
 	struct sa_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct crypto_alg *alg = tfm->__crt_alg;
 	struct sa_crypto_data *data = dev_get_drvdata(sa_k3_dev);
+	const char *name = crypto_tfm_alg_name(tfm);
 	int ret;
 
 	if ((alg->cra_flags & CRYPTO_ALG_TYPE_MASK) ==
@@ -861,6 +864,14 @@ static int sa_aes_cra_init(struct crypto_tfm *tfm)
 		}
 	}
 
+	ctx->fallback.skcipher =
+		crypto_alloc_sync_skcipher(name, 0, CRYPTO_ALG_NEED_FALLBACK);
+
+	if (IS_ERR(ctx->fallback.skcipher)) {
+		pr_err("Error allocating fallback algo %s\n", name);
+		return PTR_ERR(ctx->fallback.skcipher);
+	}
+
 	dev_dbg(sa_k3_dev, "%s(0x%p) sc-ids(0x%x(0x%pad), 0x%x(0x%pad))\n",
 		__func__, tfm, ctx->enc.sc_id, &ctx->enc.sc_phys,
 		ctx->dec.sc_id, &ctx->dec.sc_phys);
@@ -871,10 +882,10 @@ static int sa_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 			 unsigned int keylen, struct algo_data *ad)
 {
 	struct sa_tfm_ctx *ctx = crypto_ablkcipher_ctx(tfm);
-
 	const char *cra_name;
 	int cmdl_len;
 	struct sa_cmdl_cfg cfg;
+	int ret;
 
 	if (keylen != AES_KEYSIZE_128 && keylen != AES_KEYSIZE_192 &&
 	    keylen != AES_KEYSIZE_256)
@@ -888,6 +899,15 @@ static int sa_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 	cfg.iv_size = crypto_ablkcipher_ivsize(tfm);
 	cfg.auth_eng_id = SA_ENG_ID_NONE;
 	cfg.auth_subkey_len = 0;
+
+	crypto_sync_skcipher_clear_flags(ctx->fallback.skcipher,
+					 CRYPTO_TFM_REQ_MASK);
+	crypto_sync_skcipher_set_flags(ctx->fallback.skcipher,
+				       tfm->base.crt_flags &
+				       CRYPTO_TFM_REQ_MASK);
+	ret = crypto_sync_skcipher_setkey(ctx->fallback.skcipher, key, keylen);
+	if (ret)
+		return ret;
 
 	/* Setup Encryption Security Context & Command label template */
 	if (sa_init_sc(&ctx->enc, key, keylen,
@@ -1091,6 +1111,25 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 
 	if (req->nbytes % alg->cra_blocksize)
 		return -EINVAL;
+
+	if (req->nbytes > SA_MAX_DATA_SZ ||
+	    (req->nbytes >= SA_UNSAFE_DATA_SZ_MIN &&
+	     req->nbytes <= SA_UNSAFE_DATA_SZ_MAX)) {
+		SYNC_SKCIPHER_REQUEST_ON_STACK(subreq, ctx->fallback.skcipher);
+
+		skcipher_request_set_sync_tfm(subreq, ctx->fallback.skcipher);
+		skcipher_request_set_callback(subreq, req->base.flags,
+					      NULL, NULL);
+		skcipher_request_set_crypt(subreq, req->src, req->dst,
+					   req->nbytes, req->info);
+		if (enc)
+			ret = crypto_skcipher_encrypt(subreq);
+		else
+			ret = crypto_skcipher_decrypt(subreq);
+
+		skcipher_request_zero(subreq);
+		return ret;
+	}
 
 	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
 	if (!rxd)
@@ -1920,12 +1959,13 @@ static int sa_sham_cra_init_alg(struct crypto_tfm *tfm, const char *alg_base)
 			return PTR_ERR(ctx->shash);
 		}
 		/* for fallback */
-		ctx->fallback_tfm = crypto_alloc_ahash(alg_base, 0,
-						CRYPTO_ALG_NEED_FALLBACK);
-		if (IS_ERR(ctx->fallback_tfm)) {
+		ctx->fallback.ahash =
+			crypto_alloc_ahash(alg_base, 0,
+					   CRYPTO_ALG_NEED_FALLBACK);
+		if (IS_ERR(ctx->fallback.ahash)) {
 			dev_err(ctx->dev_data->dev,
 				"Could not load fallback driver\n");
-			return PTR_ERR(ctx->fallback_tfm);
+			return PTR_ERR(ctx->fallback.ahash);
 		}
 	}
 
@@ -2073,7 +2113,7 @@ static void sa_sham_cra_exit(struct crypto_tfm *tfm)
 	}
 
 	crypto_free_shash(ctx->shash);
-	crypto_free_ahash(ctx->fallback_tfm);
+	crypto_free_ahash(ctx->fallback.ahash);
 }
 
 static int sa_sham_update(struct ahash_request *req)

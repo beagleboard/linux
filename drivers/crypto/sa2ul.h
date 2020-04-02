@@ -155,6 +155,16 @@ struct sa_tfm_ctx;
 #define SA_ALIGN_MASK		(sizeof(u32) - 1)
 #define SA_ALIGNED		__aligned(32)
 
+/* SA2UL can only handle maximum data size of 64KB */
+#define SA_MAX_DATA_SZ		U16_MAX
+
+/*
+ * SA2UL can provide unpredictable results with packet sizes that fall
+ * the following range, so avoid using it.
+ */
+#define SA_UNSAFE_DATA_SZ_MIN	240
+#define SA_UNSAFE_DATA_SZ_MAX	256
+
 /**
  * struct sa_crypto_data - Crypto driver instance data
  * @base: Base address of the register space
@@ -287,7 +297,7 @@ struct sa_sham_hmac_ctx {
  * @key: encryption key
  * @shash: software hash crypto_hash
  * @authkey: authentication key
- * @fallback_tfm: SW fallback ahash algorithm
+ * @fallback: SW fallback algorithm
  */
 struct sa_tfm_ctx {
 	struct sa_crypto_data *dev_data;
@@ -301,7 +311,10 @@ struct sa_tfm_ctx {
 	struct crypto_shash	*shash;
 	u8 authkey[SHA512_BLOCK_SIZE];
 	/* for fallback */
-	struct crypto_ahash	*fallback_tfm;
+	union {
+		struct crypto_ahash		*ahash;
+		struct crypto_sync_skcipher	*skcipher;
+	} fallback;
 };
 
 /**
