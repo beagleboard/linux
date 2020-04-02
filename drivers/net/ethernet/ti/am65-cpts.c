@@ -471,6 +471,19 @@ static int am65_cpts_ptp_gettime(struct ptp_clock_info *ptp,
 	return 0;
 }
 
+u64 am65_cpts_ns_gettime(struct am65_cpts *cpts)
+{
+	u64 ns;
+
+	/* reuse ptp_clk_lock as it serialize ts push */
+	spin_lock(&cpts->ptp_clk_lock);
+	ns = am65_cpts_gettime(cpts);
+	spin_unlock(&cpts->ptp_clk_lock);
+
+	return ns;
+}
+EXPORT_SYMBOL_GPL(am65_cpts_ns_gettime);
+
 static int am65_cpts_ptp_settime(struct ptp_clock_info *ptp,
 				 const struct timespec64 *ts)
 {
