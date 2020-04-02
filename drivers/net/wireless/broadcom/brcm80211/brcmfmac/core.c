@@ -199,7 +199,6 @@ static void _brcmf_set_multicast_list(struct work_struct *work)
 	if (err < 0)
 		bphy_err(drvr, "Setting BRCMF_C_SET_PROMISC failed, %d\n",
 			 err);
-	brcmf_configure_arp_nd_offload(ifp, !cmd_value);
 }
 
 #if IS_ENABLED(CONFIG_IPV6)
