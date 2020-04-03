@@ -459,12 +459,15 @@ static int prueth_hostinit(struct prueth *prueth)
 
 static int prueth_port_enable(struct prueth_emac *emac, bool enable)
 {
-	void __iomem *port_ctrl;
+	void __iomem *port_ctrl, *vlan_ctrl;
 	struct prueth *prueth = emac->prueth;
 
 	port_ctrl = prueth->mem[emac->dram].va + PORT_CONTROL_ADDR;
+	vlan_ctrl = prueth->mem[emac->dram].va +
+		    ICSS_EMAC_FW_VLAN_FILTER_CTRL_BITMAP_OFFSET;
 
 	writeb(!!enable, port_ctrl);
+	writeb(!!enable, vlan_ctrl);
 
 	return 0;
 }
@@ -970,7 +973,12 @@ static void emac_get_stats(struct prueth_emac *emac,
 	void __iomem *dram;
 
 	dram = emac->prueth->mem[emac->dram].va;
-	memcpy_fromio(pstats, dram + STATISTICS_OFFSET, sizeof(*pstats));
+	memcpy_fromio(pstats, dram + STATISTICS_OFFSET, STAT_SIZE);
+
+	pstats->vlan_dropped =
+		readl(dram + ICSS_EMAC_FW_VLAN_FILTER_DROP_CNT_OFFSET);
+	pstats->multicast_dropped =
+		readl(dram + ICSS_EMAC_FW_MULTICAST_FILTER_DROP_CNT_OFFSET);
 }
 
 /* set PRU firmware statistics */
@@ -980,7 +988,12 @@ static void emac_set_stats(struct prueth_emac *emac,
 	void __iomem *dram;
 
 	dram = emac->prueth->mem[emac->dram].va;
-	memcpy_fromio(dram + STATISTICS_OFFSET, pstats, sizeof(*pstats));
+	memcpy_toio(dram + STATISTICS_OFFSET, pstats, STAT_SIZE);
+
+	writel(pstats->vlan_dropped, dram +
+			ICSS_EMAC_FW_VLAN_FILTER_DROP_CNT_OFFSET);
+	writel(pstats->multicast_dropped, dram +
+			ICSS_EMAC_FW_MULTICAST_FILTER_DROP_CNT_OFFSET);
 }
 
 /**
@@ -1340,6 +1353,63 @@ static int emac_ndo_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
 	return phy_mii_ioctl(emac->phydev, ifr, cmd);
 }
 
+static int emac_add_del_vid(struct prueth_emac *emac,
+			    bool add, __be16 proto, u16 vid)
+{
+	struct prueth *prueth = emac->prueth;
+	void __iomem *ram = prueth->mem[emac->dram].va;
+	u8 bit_index, val;
+	u16 byte_index;
+
+	if (proto != htons(ETH_P_8021Q))
+		return -EINVAL;
+
+	if (vid >= ICSS_EMAC_FW_VLAN_FILTER_VID_MAX)
+		return -EINVAL;
+
+	/* By default, VLAN ID 0 (priority tagged packets) is routed to
+	 * host, so nothing to be done if vid = 0
+	 */
+	if (!vid)
+		return 0;
+
+	/* VLAN filter table is 512 bytes (4096 bit) bitmap.
+	 * Each bit controls enabling or disabling corresponding
+	 * VID. Therefore byte index that controls a given VID is
+	 * can calculated as vid / 8 and the bit within that byte
+	 * that controls VID is given by vid % 8.
+	 */
+	byte_index = vid / BITS_PER_BYTE;
+	bit_index = vid % BITS_PER_BYTE;
+	val = readb(ram + ICSS_EMAC_FW_VLAN_FLTR_TBL_BASE_ADDR + byte_index);
+	if (add)
+		val |= BIT(bit_index);
+	else
+		val &= ~BIT(bit_index);
+	writeb(val, ram + ICSS_EMAC_FW_VLAN_FLTR_TBL_BASE_ADDR + byte_index);
+
+	netdev_dbg(emac->ndev, "%s VID bit at index %d and bit %d\n",
+		   add ? "Setting" : "Clearing", byte_index, bit_index);
+
+	return 0;
+}
+
+static int emac_ndo_vlan_rx_add_vid(struct net_device *dev,
+				    __be16 proto, u16 vid)
+{
+	struct prueth_emac *emac = netdev_priv(dev);
+
+	return emac_add_del_vid(emac, true, proto, vid);
+}
+
+static int emac_ndo_vlan_rx_kill_vid(struct net_device *dev,
+				     __be16 proto, u16 vid)
+{
+	struct prueth_emac *emac = netdev_priv(dev);
+
+	return emac_add_del_vid(emac, false, proto, vid);
+}
+
 static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open = emac_ndo_open,
 	.ndo_stop = emac_ndo_stop,
@@ -1351,6 +1421,8 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_get_stats = emac_ndo_get_stats,
 	.ndo_set_rx_mode = emac_ndo_set_rx_mode,
 	.ndo_do_ioctl = emac_ndo_ioctl,
+	.ndo_vlan_rx_add_vid = emac_ndo_vlan_rx_add_vid,
+	.ndo_vlan_rx_kill_vid = emac_ndo_vlan_rx_kill_vid,
 };
 
 /**
@@ -1450,6 +1522,8 @@ static const struct {
 
 	{"txHWQOverFlow", PRUETH_STAT_OFFSET(tx_hwq_overflow)},
 	{"txHWQUnderFlow", PRUETH_STAT_OFFSET(tx_hwq_underflow)},
+	{"vlanDropped", PRUETH_STAT_OFFSET(vlan_dropped)},
+	{"multicastDropped", PRUETH_STAT_OFFSET(multicast_dropped)},
 };
 
 static int emac_get_sset_count(struct net_device *ndev, int stringset)
@@ -1647,6 +1721,8 @@ static int prueth_netdev_init(struct prueth *prueth,
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_100baseT_Half_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Asym_Pause_BIT);
+
+	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &emac_ethtool_ops;
