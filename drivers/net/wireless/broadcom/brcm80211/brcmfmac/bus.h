@@ -152,9 +152,6 @@ struct brcmf_bus {
 
 	const struct brcmf_bus_ops *ops;
 	struct brcmf_bus_msgbuf *msgbuf;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
-	bool allow_skborphan;
-#endif
 };
 
 /*
