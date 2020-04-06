@@ -2355,9 +2355,6 @@ static uint brcmf_sdio_sendfromq(struct brcmf_sdio *bus, uint maxframes)
 					      &prec_out);
 			if (pkt == NULL)
 				break;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
-			skb_orphan(pkt);
-#endif
 			__skb_queue_tail(&pktq, pkt);
 		}
 		spin_unlock_bh(&bus->txq_lock);
