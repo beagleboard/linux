@@ -55,6 +55,7 @@ static int dma_heap_attach(struct dma_buf *dmabuf,
 		return -ENOMEM;
 	}
 	if (sg_alloc_table(table, 1, GFP_KERNEL)) {
+		kfree(table);
 		kfree(a);
 		return -ENOMEM;
 	}
