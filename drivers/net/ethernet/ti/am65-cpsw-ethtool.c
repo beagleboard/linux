@@ -356,7 +356,13 @@ static const struct am65_cpsw_ethtool_stat am65_slave_stats[] = {
 /* Ethtool priv_flags */
 static const char am65_cpsw_ethtool_priv_flags[][ETH_GSTRING_LEN] = {
 #define	AM65_CPSW_PRIV_P0_RX_PTYPE_RROBIN	BIT(0)
+/* common flags */
 	"p0-rx-ptype-rrobin",
+/* port specific flags */
+#define AM65_CPSW_PRIV_IET_FRAME_PREEMPTION	BIT(1)
+	"iet-frame-preemption",
+#define AM65_CPSW_PRIV_IET_MAC_VERIFY		BIT(2)
+	"iet-mac-verify",
 };
 
 static int am65_cpsw_ethtool_op_begin(struct net_device *ndev)
@@ -716,10 +722,17 @@ static int am65_cpsw_get_ethtool_ts_info(struct net_device *ndev,
 static u32 am65_cpsw_get_ethtool_priv_flags(struct net_device *ndev)
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	struct am65_cpsw_iet *iet = &port->qos.iet;
 	u32 priv_flags = 0;
 
 	if (common->pf_p0_rx_ptype_rrobin)
 		priv_flags |= AM65_CPSW_PRIV_P0_RX_PTYPE_RROBIN;
+	/* Port specific flags */
+	if (iet->fpe_configured)
+		priv_flags |= AM65_CPSW_PRIV_IET_FRAME_PREEMPTION;
+	if (iet->mac_verify_configured)
+		priv_flags |= AM65_CPSW_PRIV_IET_MAC_VERIFY;
 
 	return priv_flags;
 }
@@ -727,18 +740,37 @@ static u32 am65_cpsw_get_ethtool_priv_flags(struct net_device *ndev)
 static int am65_cpsw_set_ethtool_priv_flags(struct net_device *ndev, u32 flags)
 {
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
-	int rrobin;
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	struct am65_cpsw_iet *iet = &port->qos.iet;
+	int rrobin, iet_fpe, mac_verify;
 
 	rrobin = !!(flags & AM65_CPSW_PRIV_P0_RX_PTYPE_RROBIN);
+	iet_fpe = !!(flags & AM65_CPSW_PRIV_IET_FRAME_PREEMPTION);
+	mac_verify = !!(flags & AM65_CPSW_PRIV_IET_MAC_VERIFY);
 
-	if (common->est_enabled && rrobin) {
+	if ((common->est_enabled || common->iet_enabled || iet_fpe) && rrobin) {
 		netdev_err(ndev,
 			   "p0-rx-ptype-rrobin flag conflicts with QOS\n");
 		return -EINVAL;
 	}
 
+	if (common->tx_ch_num < 2) {
+		netdev_err(ndev, "IET fpe needs at least 2 h/w queues\n");
+		return -EINVAL;
+	}
+
+	if (netif_running(ndev))
+		return -EBUSY;
+
+	if (mac_verify && (!iet->fpe_configured && !iet_fpe)) {
+		netdev_err(ndev, "Enable IET FPE for IET MAC verify\n");
+		return -EINVAL;
+	}
+
 	common->pf_p0_rx_ptype_rrobin = rrobin;
 	am65_cpsw_nuss_set_p0_ptype(common);
+	iet->fpe_configured = iet_fpe;
+	iet->mac_verify_configured = mac_verify;
 
 	return 0;
 }
