@@ -10,6 +10,10 @@
 
 #define PRUETH_NUMQUEUES	5
 
+#define EMAC_POLL_WEIGHT	(64) /* Default NAPI poll weight */
+#define EMAC_MAX_PKTLEN		(ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
+#define EMAC_MIN_PKTLEN		(60)
+
 /**
  * struct prueth_queue_desc - Queue descriptor
  * @rd_ptr:	Read pointer, points to a buffer descriptor in Shared PRU RAM.
@@ -177,5 +181,135 @@ struct port_statistics {
 	u32 vlan_dropped;
 	u32 multicast_dropped;
 } __packed;
+
+/* In switch mode there are 3 real ports i.e. 3 mac addrs.
+ * however Linux sees only the host side port. The other 2 ports
+ * are the switch ports.
+ * In emac mode there are 2 real ports i.e. 2 mac addrs.
+ * Linux sees both the ports.
+ */
+enum prueth_port {
+	PRUETH_PORT_HOST = 0,	/* host side port */
+	PRUETH_PORT_MII0,	/* physical port MII 0 */
+	PRUETH_PORT_MII1,	/* physical port MII 1 */
+};
+
+enum prueth_mac {
+	PRUETH_MAC0 = 0,
+	PRUETH_MAC1,
+	PRUETH_NUM_MACS,
+};
+
+/* In both switch & emac modes there are 3 port queues
+ * EMAC mode:
+ *	RX packets for both MII0 & MII1 ports come on
+ *	QUEUE_HOST.
+ *	TX packets for MII0 go on QUEUE_MII0, TX packets
+ *	for MII1 go on QUEUE_MII1.
+ * Switch mode:
+ *	Host port RX packets come on QUEUE_HOST
+ *	TX packets might have to go on MII0 or MII1 or both.
+ *	MII0 TX queue is QUEUE_MII0 and MII1 TX queue is
+ *	QUEUE_MII1.
+ */
+enum prueth_port_queue_id {
+	PRUETH_PORT_QUEUE_HOST = 0,
+	PRUETH_PORT_QUEUE_MII0,
+	PRUETH_PORT_QUEUE_MII1,
+	PRUETH_PORT_QUEUE_MAX,
+};
+
+/* Each port queue has 4 queues and 1 collision queue */
+enum prueth_queue_id {
+	PRUETH_QUEUE1 = 0,
+	PRUETH_QUEUE2,
+	PRUETH_QUEUE3,
+	PRUETH_QUEUE4,
+	PRUETH_COLQUEUE,	/* collision queue */
+};
+
+/* PRUeth memory range identifiers */
+enum prueth_mem {
+	PRUETH_MEM_DRAM0 = 0,
+	PRUETH_MEM_DRAM1,
+	PRUETH_MEM_SHARED_RAM,
+	PRUETH_MEM_OCMC,
+	PRUETH_MEM_MAX,
+};
+
+/**
+ * struct prueth_private_data - PRU Ethernet private data
+ * @fw_names: firmware names to be used for PRUSS ethernet usecases
+ */
+struct prueth_private_data {
+	const char *fw_names[PRUSS_NUM_PRUS];
+};
+
+/* data for each emac port */
+struct prueth_emac {
+	struct prueth *prueth;
+	struct net_device *ndev;
+	u8 mac_addr[6];
+	struct napi_struct napi;
+	u32 msg_enable;
+
+	int link;
+	int speed;
+	int duplex;
+
+	const char *phy_id;
+	struct device_node *phy_node;
+	int phy_if;
+	struct phy_device *phydev;
+	struct rproc *pru;
+
+	enum prueth_port port_id;
+	enum prueth_port_queue_id tx_port_queue;
+
+	enum prueth_queue_id rx_queue_start;
+	enum prueth_queue_id rx_queue_end;
+
+	enum prueth_mem dram;
+
+	int rx_irq;
+	int tx_irq;
+
+	struct prueth_queue_desc __iomem *rx_queue_descs;
+	struct prueth_queue_desc __iomem *tx_queue_descs;
+
+	struct port_statistics stats; /* stats holder when i/f is down */
+	unsigned char mc_filter_mask[ETH_ALEN];	/* for multicast filtering */
+
+	spinlock_t lock;	/* serialize access */
+};
+
+/**
+ * struct prueth - PRUeth structure
+ * @dev: device
+ * @pruss: pruss handle
+ * @pru0: rproc instance to PRU0
+ * @pru1: rproc instance to PRU1
+ * @mem: PRUSS memory resources we need to access
+ * @sram_pool: OCMC ram pool for buffers
+ * @mii_rt: regmap to mii_rt block
+ * @iep: regmap to IEP block
+ *
+ * @eth_node: node for each emac node
+ * @emac: emac data for three ports, one host and two physical
+ * @registered_netdevs: net device for each registered emac
+ */
+struct prueth {
+	struct device *dev;
+	struct pruss *pruss;
+	struct rproc *pru0, *pru1;
+	struct pruss_mem_region mem[PRUETH_MEM_MAX];
+	struct gen_pool *sram_pool;
+	struct regmap *mii_rt;
+	struct regmap *iep;
+
+	struct device_node *eth_node[PRUETH_NUM_MACS];
+	struct prueth_emac *emac[PRUETH_NUM_MACS];
+	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
+};
 
 #endif /* __NET_TI_PRUETH_H */
