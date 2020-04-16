@@ -14,6 +14,7 @@
 #define EMAC_MAX_PKTLEN		(ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
 #define EMAC_MIN_PKTLEN		(60)
 
+#define PRUETH_NSP_TIMER_MS	(100) /* Refresh NSP counters every 100ms */
 /**
  * struct prueth_queue_desc - Queue descriptor
  * @rd_ptr:	Read pointer, points to a buffer descriptor in Shared PRU RAM.
@@ -162,7 +163,9 @@ struct port_statistics {
 	u32 excess_coll;
 
 	u32 rx_misalignment_frames;
-	u32 stormprev_counter;
+	u32 stormprev_counter_bc;
+	u32 stormprev_counter_mc;
+	u32 stormprev_counter_uc;
 	u32 mac_rxerror;
 	u32 sfd_error;
 	u32 def_tx;
@@ -245,6 +248,11 @@ struct prueth_private_data {
 	const char *fw_names[PRUSS_NUM_PRUS];
 };
 
+struct nsp_counter {
+	unsigned long cookie;
+	u16 credit;
+};
+
 /* data for each emac port */
 struct prueth_emac {
 	struct prueth *prueth;
@@ -281,6 +289,12 @@ struct prueth_emac {
 	unsigned char mc_filter_mask[ETH_ALEN];	/* for multicast filtering */
 
 	spinlock_t lock;	/* serialize access */
+	spinlock_t nsp_lock;	/* serialize access to nsp_counters */
+
+	struct nsp_counter nsp_bc;
+	struct nsp_counter nsp_mc;
+	struct nsp_counter nsp_uc;
+	bool nsp_enabled;
 };
 
 /**
@@ -293,6 +307,7 @@ struct prueth_emac {
  * @sram_pool: OCMC ram pool for buffers
  * @mii_rt: regmap to mii_rt block
  * @iep: regmap to IEP block
+ * @tbl_check_timer: HR timer for refreshing NSP counters
  *
  * @eth_node: node for each emac node
  * @emac: emac data for three ports, one host and two physical
@@ -306,10 +321,16 @@ struct prueth {
 	struct gen_pool *sram_pool;
 	struct regmap *mii_rt;
 	struct regmap *iep;
+	struct hrtimer tbl_check_timer;
 
 	struct device_node *eth_node[PRUETH_NUM_MACS];
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
 };
+
+void prueth_init_timer(struct prueth *prueth);
+void prueth_start_timer(struct prueth *prueth);
+int emac_ndo_setup_tc(struct net_device *dev, enum tc_setup_type type,
+		      void *type_data);
 
 #endif /* __NET_TI_PRUETH_H */

@@ -88,7 +88,7 @@
  */
 /* base statistics offset */
 #define STATISTICS_OFFSET	0x1f00
-#define STAT_SIZE		0x90
+#define STAT_SIZE		0x98
 
 /* Offset for storing
  * 1. Storm Prevention Params
@@ -97,7 +97,7 @@
  * These are present on both PRU0 and PRU1
  */
 /* 4 bytes */
-#define STORM_PREVENTION_OFFSET		(STATISTICS_OFFSET + STAT_SIZE)
+#define STORM_PREVENTION_OFFSET_BC	(STATISTICS_OFFSET + STAT_SIZE)
 /* 4 bytes */
 #define PHY_SPEED_OFFSET		(STATISTICS_OFFSET + STAT_SIZE + 4)
 /* 1 byte */
@@ -112,6 +112,14 @@
 #define PORT_MAC_ADDR			(STATISTICS_OFFSET + STAT_SIZE + 18)
 /* 1 byte */
 #define RX_INT_STATUS_OFFSET		(STATISTICS_OFFSET + STAT_SIZE + 24)
+/* 4 bytes */
+#define STORM_PREVENTION_OFFSET_MC	(STATISTICS_OFFSET + STAT_SIZE + 25)
+/* 4 bytes */
+#define STORM_PREVENTION_OFFSET_UC	(STATISTICS_OFFSET + STAT_SIZE + 29)
+
+/* NSP (Network Storm Prevention) timer re-uses NT timer */
+#define PRUETH_NSP_CREDIT_SHIFT       8
+#define PRUETH_NSP_ENABLE            BIT(0)
 
 /* DRAM Offsets for EMAC
  * Present on Both DRAM0 and DRAM1

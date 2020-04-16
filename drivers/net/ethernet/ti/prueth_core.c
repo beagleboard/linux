@@ -23,6 +23,7 @@
 #include <linux/pruss.h>
 #include <linux/regmap.h>
 #include <linux/remoteproc.h>
+#include <net/pkt_cls.h>
 
 #include "prueth.h"
 #include "icss_mii_rt.h"
@@ -943,6 +944,9 @@ static int emac_ndo_open(struct net_device *ndev)
 	/* enable the port */
 	prueth_port_enable(emac, true);
 
+	if (emac->nsp_enabled)
+		prueth_start_timer(emac->prueth);
+
 	if (netif_msg_drv(emac))
 		dev_notice(&ndev->dev, "started\n");
 
@@ -1289,6 +1293,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_do_ioctl = emac_ndo_ioctl,
 	.ndo_vlan_rx_add_vid = emac_ndo_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid = emac_ndo_vlan_rx_kill_vid,
+	.ndo_setup_tc = emac_ndo_setup_tc,
 };
 
 /**
@@ -1376,7 +1381,9 @@ static const struct {
 	{"excessColl", PRUETH_STAT_OFFSET(excess_coll)},
 
 	{"rxMisAlignmentFrames", PRUETH_STAT_OFFSET(rx_misalignment_frames)},
-	{"stormPrevCounter", PRUETH_STAT_OFFSET(stormprev_counter)},
+	{"stormPrevCounterBC", PRUETH_STAT_OFFSET(stormprev_counter_bc)},
+	{"stormPrevCounterMC", PRUETH_STAT_OFFSET(stormprev_counter_mc)},
+	{"stormPrevCounterUC", PRUETH_STAT_OFFSET(stormprev_counter_uc)},
 	{"macRxError", PRUETH_STAT_OFFSET(mac_rxerror)},
 	{"SFDError", PRUETH_STAT_OFFSET(sfd_error)},
 	{"defTx", PRUETH_STAT_OFFSET(def_tx)},
@@ -1545,6 +1552,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 
 	emac->msg_enable = netif_msg_init(debug_level, PRUETH_EMAC_DEBUG);
 	spin_lock_init(&emac->lock);
+	spin_lock_init(&emac->nsp_lock);
 
 	/* get mac address from DT and set private and netdev addr */
 	mac_addr = of_get_mac_address(eth_node);
@@ -1588,7 +1596,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Pause_BIT);
 	phy_remove_link_mode(emac->phydev, ETHTOOL_LINK_MODE_Asym_Pause_BIT);
 
-	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_HW_TC;
 
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &emac_ethtool_ops;
@@ -1818,6 +1826,8 @@ static int prueth_probe(struct platform_device *pdev)
 
 		prueth->registered_netdevs[PRUETH_MAC1] = prueth->emac[PRUETH_MAC1]->ndev;
 	}
+
+	prueth_init_timer(prueth);
 
 	dev_info(dev, "TI PRU ethernet driver initialized: %s EMAC mode\n",
 		 (!eth0_node || !eth1_node) ? "single" : "dual");
