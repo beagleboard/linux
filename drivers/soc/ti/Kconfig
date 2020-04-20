@@ -131,6 +131,15 @@ config TI_PAT
 	  DMA-BUF into a contiguous one that is sutable for devices needing
 	  contiguous memory.
 
+config TI_K3_SOCINFO
+	bool "SoC bus socinfo device for the TI K3 Multicore SoC platforms"
+	depends on ARCH_K3 || COMPILE_TEST
+	select SOC_BUS
+	select MFD_SYSCON
+	help
+	  Include support for the SoC bus socinfo on the TI K3 Multicore SoC
+	  platforms providing some sysfs information about the SoC variant.
+
 endif # SOC_TI
 
 config TI_SCI_INTA_MSI_DOMAIN

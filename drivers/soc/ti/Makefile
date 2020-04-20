@@ -15,3 +15,4 @@ obj-$(CONFIG_TI_PRUSS)			+= pruss.o
 obj-$(CONFIG_TI_K3_RINGACC)		+= k3-ringacc.o
 obj-$(CONFIG_TI_K3_UDMA_DESC_POOL)	+= k3-navss-desc-pool.o
 obj-$(CONFIG_TI_PAT)			+= ti-pat.o
+obj-$(CONFIG_TI_K3_SOCINFO)		+= k3-socinfo.o
