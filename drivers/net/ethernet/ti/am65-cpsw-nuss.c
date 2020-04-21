@@ -190,11 +190,11 @@ void am65_cpsw_nuss_adjust_link(struct net_device *ndev)
 
 		cpsw_sl_ctl_set(port->slave.mac_sl, mac_control);
 
+		am65_cpsw_qos_link_up(ndev, phy->speed);
+
 		/* enable forwarding */
 		cpsw_ale_control_set(common->ale, port->port_id,
 				     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
-
-		am65_cpsw_qos_link_up(ndev, phy->speed);
 		netif_tx_wake_all_queues(ndev);
 	} else {
 		int tmo;
@@ -562,6 +562,9 @@ static int am65_cpsw_nuss_ndo_slave_stop(struct net_device *ndev)
 	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
 	int ret;
 
+	/* Clean up IET */
+	am65_cpsw_qos_iet_cleanup(ndev);
+
 	if (port->slave.phy)
 		phy_stop(port->slave.phy);
 
@@ -655,6 +658,9 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 			goto error_cleanup;
 		}
 	}
+
+	/* Initialize IET */
+	am65_cpsw_qos_iet_init(ndev);
 
 	phy_attached_info(port->slave.phy);
 	phy_start(port->slave.phy);

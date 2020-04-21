@@ -4,6 +4,7 @@
  *
  * quality of service module includes:
  * Enhanced Scheduler Traffic (EST - P802.1Qbv/D2.2)
+ * Interspersed Express Traffic (IET - P802.3br/D2.0)
  */
 
 #include <linux/pm_runtime.h>
@@ -15,13 +16,19 @@
 
 #define AM65_CPSW_REG_CTL			0x004
 #define AM65_CPSW_PN_REG_CTL			0x004
+#define AM65_CPSW_PN_REG_MAX_BLKS		0x008
+#define AM65_CPSW_PN_REG_IET_CTRL		0x040
+#define AM65_CPSW_PN_REG_IET_STATUS		0x044
+#define AM65_CPSW_PN_REG_IET_VERIFY		0x048
 #define AM65_CPSW_PN_REG_FIFO_STATUS		0x050
 #define AM65_CPSW_PN_REG_EST_CTL		0x060
 
 /* AM65_CPSW_REG_CTL register fields */
+#define AM65_CPSW_CTL_IET_EN			BIT(17)
 #define AM65_CPSW_CTL_EST_EN			BIT(18)
 
 /* AM65_CPSW_PN_REG_CTL register fields */
+#define AM65_CPSW_PN_CTL_IET_PORT_EN		BIT(16)
 #define AM65_CPSW_PN_CTL_EST_PORT_EN		BIT(17)
 
 /* AM65_CPSW_PN_REG_EST_CTL register fields */
@@ -31,6 +38,25 @@
 #define AM65_CPSW_PN_EST_TS_FIRST		BIT(3)
 #define AM65_CPSW_PN_EST_ONEPRI			BIT(4)
 #define AM65_CPSW_PN_EST_TS_PRI_MSK		GENMASK(7, 5)
+
+/* AM65_CPSW_PN_REG_IET_CTRL register fields */
+#define AM65_CPSW_PN_IET_MAC_PENABLE		BIT(0)
+#define AM65_CPSW_PN_IET_MAC_DISABLEVERIFY	BIT(2)
+#define AM65_CPSW_PN_IET_MAC_LINKFAIL		BIT(3)
+#define AM65_CPSW_PN_IET_PREMPT_MASK		GENMASK(23, 16)
+#define AM65_CPSW_PN_IET_PREMPT_OFFSET		16
+
+/* AM65_CPSW_PN_REG_IET_STATUS register fields */
+#define AM65_CPSW_PN_MAC_VERIFIED		BIT(0)
+#define AM65_CPSW_PN_MAC_VERIFY_FAIL		BIT(1)
+#define AM65_CPSW_PN_MAC_RESPOND_ERR		BIT(2)
+#define AM65_CPSW_PN_MAC_VERIFY_ERR		BIT(3)
+
+/* AM65_CPSW_PN_REG_IET_VERIFY register fields */
+/* 10 msec converted to NSEC */
+#define AM65_CPSW_IET_VERIFY_CNT_MS		(10)
+#define AM65_CPSW_IET_VERIFY_CNT_NS		(AM65_CPSW_IET_VERIFY_CNT_MS * \
+						 NSEC_PER_MSEC)
 
 /* AM65_CPSW_PN_REG_FIFO_STATUS register fields */
 #define AM65_CPSW_PN_FST_TX_PRI_ACTIVE_MSK	GENMASK(7, 0)
@@ -47,11 +73,269 @@
 #define AM65_CPSW_FETCH_ALLOW_MSK		GENMASK(7, 0)
 #define AM65_CPSW_FETCH_ALLOW_MAX		AM65_CPSW_FETCH_ALLOW_MSK
 
+/* AM65_CPSW_PN_REG_MAX_BLKS fields for IET and No IET cases */
+/* 7 blocks for pn_rx_max_blks, 13 for pn_tx_max_blks*/
+#define AM65_CPSW_PN_TX_RX_MAX_BLKS_IET		0xD07
+#define AM65_CPSW_PN_TX_RX_MAX_BLKS_DEFAULT	0x1004
+
 enum timer_act {
 	TACT_PROG,		/* need program timer */
 	TACT_NEED_STOP,		/* need stop first */
 	TACT_SKIP_PROG,		/* just buffer can be updated */
 };
+
+/* Fetch command count it's number of bytes in Gigabit mode or nibbles in
+ * 10/100Mb mode. So, having speed and time in ns, recalculate ns to number of
+ * bytes/nibbles that can be sent while transmission on given speed.
+ */
+static int am65_est_cmd_ns_to_cnt(u64 ns, int link_speed)
+{
+	u64 temp;
+
+	temp = ns * link_speed;
+	if (link_speed < SPEED_1000)
+		temp <<= 1;
+
+	return DIV_ROUND_UP(temp, 8 * 1000);
+}
+
+/* IET */
+
+static void am65_cpsw_iet_enable(struct am65_cpsw_common *common)
+{
+	int common_enable = 0;
+	u32 val;
+	int i;
+
+	for (i = 0; i < common->port_num; i++)
+		common_enable |= !!common->ports[i].qos.iet.mask;
+
+	val = readl(common->cpsw_base + AM65_CPSW_REG_CTL);
+
+	if (common_enable)
+		val |= AM65_CPSW_CTL_IET_EN;
+	else
+		val &= ~AM65_CPSW_CTL_IET_EN;
+
+	writel(val, common->cpsw_base + AM65_CPSW_REG_CTL);
+	common->iet_enabled = common_enable;
+}
+
+static void am65_cpsw_port_iet_enable(struct am65_cpsw_port *port,
+				      u32 mask)
+{
+	u32 val;
+
+	val = readl(port->port_base + AM65_CPSW_PN_REG_CTL);
+	if (mask)
+		val |= AM65_CPSW_PN_CTL_IET_PORT_EN;
+	else
+		val &= ~AM65_CPSW_PN_CTL_IET_PORT_EN;
+
+	writel(val, port->port_base + AM65_CPSW_PN_REG_CTL);
+	port->qos.iet.mask = mask;
+}
+
+static int am65_cpsw_iet_verify(struct am65_cpsw_port *port)
+{
+	int try;
+	u32 val;
+
+	/* Set verify timeout depending on link speed. It is 10 msec
+	 * in wireside clocks
+	 */
+	val = am65_est_cmd_ns_to_cnt(AM65_CPSW_IET_VERIFY_CNT_NS,
+				     port->qos.link_speed);
+	writel(val, port->port_base + AM65_CPSW_PN_REG_IET_VERIFY);
+
+	/* By experiment, keep this about 20 * 50 msec = 1000 msec.
+	 * Usually succeeds in one try. But at times it takes more
+	 * attempts especially at initial boot. Try for 20 times
+	 * before give up
+	 */
+	try = 20;
+	do {
+		/* Enable IET Preemption for the port and
+		 * reset LINKFAIL bit to start Verify.
+		 */
+		writel(AM65_CPSW_PN_IET_MAC_PENABLE,
+		       port->port_base + AM65_CPSW_PN_REG_IET_CTRL);
+
+		/* Takes 10 msec to complete this in h/w assuming other
+		 * side is already ready. However since both side might
+		 * take variable setup/config time, need to Wait for
+		 * additional time. Chose 50 msec through trials
+		 */
+		msleep(50);
+
+		val = readl(port->port_base + AM65_CPSW_PN_REG_IET_STATUS);
+		if (val & AM65_CPSW_PN_MAC_VERIFIED)
+			break;
+
+		if (val & AM65_CPSW_PN_MAC_VERIFY_FAIL) {
+			netdev_dbg(port->ndev,
+				   "IET MAC verify failed, trying again");
+			/* Reset the verify state machine by writing 1
+			 * to LINKFAIL
+			 */
+			writel(AM65_CPSW_PN_IET_MAC_LINKFAIL,
+			       port->port_base + AM65_CPSW_PN_REG_IET_CTRL);
+		}
+
+		if (val & AM65_CPSW_PN_MAC_RESPOND_ERR) {
+			netdev_err(port->ndev, "IET MAC respond error");
+			return -ENODEV;
+		}
+
+		if (val & AM65_CPSW_PN_MAC_VERIFY_ERR) {
+			netdev_err(port->ndev, "IET MAC verify error");
+			return -ENODEV;
+		}
+
+	} while (try-- > 0 && !atomic_read(&port->qos.iet.cancel_verify));
+
+	if (atomic_read(&port->qos.iet.cancel_verify)) {
+		netdev_err(port->ndev, "IET MAC Verify/Response cancelled");
+		return -ENOLINK;
+	}
+
+	if (try <= 0) {
+		netdev_err(port->ndev, "IET MAC Verify/Response timeout");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void am65_cpsw_iet_config_mac_preempt(struct am65_cpsw_port *port,
+					     bool enable, bool force)
+{
+	struct am65_cpsw_iet *iet = &port->qos.iet;
+	u32 val;
+
+	/* Enable pre-emption queues and force mode if no mac verify */
+	val = 0;
+	if (enable) {
+		if (!force) {
+			/* AM65_CPSW_PN_IET_MAC_PENABLE already
+			 * set as part of MAC Verify. So read
+			 * modify
+			 */
+			val = readl(port->port_base +
+				    AM65_CPSW_PN_REG_IET_CTRL);
+		} else {
+			val |= AM65_CPSW_PN_IET_MAC_PENABLE;
+			val |= AM65_CPSW_PN_IET_MAC_DISABLEVERIFY;
+		}
+		val |= ((iet->fpe_mask_configured <<
+			AM65_CPSW_PN_IET_PREMPT_OFFSET) &
+			AM65_CPSW_PN_IET_PREMPT_MASK);
+	}
+	writel(val, port->port_base + AM65_CPSW_PN_REG_IET_CTRL);
+	iet->fpe_enabled = enable;
+}
+
+static void am65_cpsw_iet_set(struct net_device *ndev)
+{
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	struct am65_cpsw_common *common = port->common;
+	struct am65_cpsw_iet *iet = &port->qos.iet;
+
+	/* For IET, Change MAX_BLKS */
+	writel(AM65_CPSW_PN_TX_RX_MAX_BLKS_IET,
+	       port->port_base + AM65_CPSW_PN_REG_MAX_BLKS);
+
+	am65_cpsw_port_iet_enable(port, iet->fpe_mask_configured);
+	am65_cpsw_iet_enable(common);
+}
+
+static int am65_cpsw_iet_fpe_enable(struct am65_cpsw_port *port, bool verify)
+{
+	int ret;
+
+	if (verify) {
+		ret = am65_cpsw_iet_verify(port);
+		if (ret)
+			return ret;
+	}
+
+	am65_cpsw_iet_config_mac_preempt(port, true, !verify);
+
+	return 0;
+}
+
+static void am65_cpsw_iet_mac_verify(struct work_struct *work)
+{
+	const struct am65_cpsw_iet *w =
+		container_of(work, struct am65_cpsw_iet, verify_task);
+	struct am65_cpsw_port *port = am65_ndev_to_port(w->ndev);
+	struct am65_cpsw_iet *iet = &port->qos.iet;
+	int ret;
+
+	netdev_info(port->ndev, "Starting IET/FPE MAC Verify\n");
+	ret = am65_cpsw_iet_fpe_enable(port, true);
+	if (!ret)
+		netdev_info(port->ndev, "IET/FPE MAC Verify Success\n");
+	complete(&iet->verify_compl);
+}
+
+void am65_cpsw_qos_iet_init(struct net_device *ndev)
+{
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	struct am65_cpsw_common *common = port->common;
+	struct am65_cpsw_iet *iet = &port->qos.iet;
+
+	/* Enable IET FPE only if user has enabled priv flag for iet frame
+	 * preemption.
+	 */
+	if (!iet->fpe_configured) {
+		iet->fpe_mask_configured = 0;
+		return;
+	}
+	/* Use highest priority queue as express queue and others
+	 * as preemptible queues.
+	 */
+	iet->fpe_mask_configured = GENMASK(common->tx_ch_num - 2, 0);
+
+	/* Init work queue for IET MAC verify process */
+	iet->ndev = ndev;
+	INIT_WORK(&iet->verify_task, am65_cpsw_iet_mac_verify);
+	init_completion(&iet->verify_compl);
+
+	/* As worker may be sleeping, check this flag to abort
+	 * as soon as it comes of out of sleep and cancel the
+	 * MAC Verify.
+	 */
+	atomic_set(&iet->cancel_verify, 0);
+	am65_cpsw_iet_set(ndev);
+}
+
+static void am65_cpsw_iet_fpe_disable(struct am65_cpsw_port *port)
+{
+	struct am65_cpsw_iet *iet = &port->qos.iet;
+
+	if (iet->mac_verify_configured) {
+		atomic_set(&iet->cancel_verify, 1);
+		cancel_work_sync(&iet->verify_task);
+	}
+
+	am65_cpsw_iet_config_mac_preempt(port, false,
+					 !iet->mac_verify_configured);
+}
+
+void am65_cpsw_qos_iet_cleanup(struct net_device *ndev)
+{
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	struct am65_cpsw_common *common = am65_ndev_to_common(ndev);
+
+	/* restore MAX_BLKS to default */
+	writel(AM65_CPSW_PN_TX_RX_MAX_BLKS_DEFAULT,
+	       port->port_base + AM65_CPSW_PN_REG_MAX_BLKS);
+
+	am65_cpsw_iet_fpe_disable(port);
+	am65_cpsw_port_iet_enable(port, 0);
+	am65_cpsw_iet_enable(common);
+}
 
 static int am65_cpsw_port_est_enabled(struct am65_cpsw_port *port)
 {
@@ -221,22 +505,6 @@ static void am65_cpsw_est_update_state(struct net_device *ndev)
 		return;
 
 	am65_cpsw_admin_to_oper(ndev);
-}
-
-/* Fetch command count it's number of bytes in Gigabit mode or nibbles in
- * 10/100Mb mode. So, having speed and time in ns, recalculate ns to number of
- * bytes/nibbles that can be sent while transmission on given speed.
- */
-static int am65_est_cmd_ns_to_cnt(u64 ns, int link_speed)
-{
-	u64 temp;
-
-	temp = ns * link_speed;
-	if (link_speed < SPEED_1000)
-		temp <<= 1;
-
-
-	return DIV_ROUND_UP(temp, 8 * 1000);
 }
 
 static void __iomem *am65_cpsw_est_set_sched_cmds(void __iomem *addr,
@@ -608,13 +876,48 @@ int am65_cpsw_qos_ndo_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 	}
 }
 
+static void am65_cpsw_iet_link_up(struct net_device *ndev)
+{
+	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+	struct am65_cpsw_iet *iet = &port->qos.iet;
+	int ret;
+
+	if (!iet->fpe_configured)
+		return;
+
+	/* Schedule MAC Verify and enable IET FPE if configured */
+	if (iet->mac_verify_configured) {
+		atomic_set(&iet->cancel_verify, 0);
+		reinit_completion(&iet->verify_compl);
+		schedule_work(&iet->verify_task);
+		/* By trial, found it takes about 1500 msec. So
+		 * wait for 2000 msec
+		 */
+		ret = wait_for_completion_timeout(&iet->verify_compl,
+						  msecs_to_jiffies(2000));
+		if (!ret) {
+			netdev_err(ndev,
+				   "IET verify completion timeout\n");
+			/* cancel verify in progress */
+			atomic_set(&port->qos.iet.cancel_verify, 1);
+			cancel_work_sync(&port->qos.iet.verify_task);
+		}
+	} else {
+		/* Force IET FPE here */
+		netdev_info(ndev, "IET Enable Force mode\n");
+		am65_cpsw_iet_fpe_enable(port, false);
+	}
+}
+
 void am65_cpsw_qos_link_up(struct net_device *ndev, int link_speed)
 {
 	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
 
+	port->qos.link_speed = link_speed;
+	am65_cpsw_iet_link_up(ndev);
+
 	if (!IS_ENABLED(CONFIG_TI_AM65_CPSW_TAS))
 		return;
-
 	am65_cpsw_est_link_up(ndev, link_speed);
 	port->qos.link_down_time = 0;
 }
@@ -622,6 +925,8 @@ void am65_cpsw_qos_link_up(struct net_device *ndev, int link_speed)
 void am65_cpsw_qos_link_down(struct net_device *ndev)
 {
 	struct am65_cpsw_port *port = am65_ndev_to_port(ndev);
+
+	am65_cpsw_iet_fpe_disable(port);
 
 	if (!IS_ENABLED(CONFIG_TI_AM65_CPSW_TAS))
 		return;
