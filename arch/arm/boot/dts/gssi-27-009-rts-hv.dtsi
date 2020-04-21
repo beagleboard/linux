@@ -1,0 +1,44 @@
+/ {
+	rts_hv_regulator: gpio-regulator {
+		compatible = "regulator-gpio";
+		regulator-name = "gpr-high-voltage-supply";
+		regulator-min-microvolt = <50000000>;
+		regulator-max-microvolt = <120000000>;
+		enable-gpio = <&gpio2 20 GPIO_ACTIVE_HIGH>;
+
+		gpios = <
+            &gpio2 25 GPIO_ACTIVE_HIGH
+            &gpio2 23 GPIO_ACTIVE_HIGH
+            &gpio2 28 GPIO_ACTIVE_HIGH
+        >;
+
+		states = <
+             50000000 0x7
+             60000000 0x6
+             70000000 0x5
+             80000000 0x4
+             90000000 0x3
+            100000000 0x2
+            110000000 0x1
+            120000000 0x0>;
+		startup-delay-us = <100000>;
+		enable-active-high;
+	};
+
+	rts_bistatic_enable@5 {
+		compatible = "regulator-fixed";
+		regulator-name = "rts-bistatic-enable";
+		pinctrl-names = "default";
+		pinctrl-0 = <&rts_bistatic_pins>;
+		gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+&dra7_pmx_core {
+    rts_bistatic_pins: pinmux_rts_bistatic_pins {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x34B4, PIN_OUTPUT_PULLDOWN  | MUX_MODE14) /* T01 gpmc_cs0 gpio2_19 */
+        >;
+    };
+};
