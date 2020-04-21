@@ -88,7 +88,7 @@ static ssize_t pinmux_helper_store_state(struct device *dev,
 					state_name);
 	} else {
 		dev_err(dev, "Failed to find state %s\n", state_name);
-		err = PTR_RET(state);
+		err = PTR_ERR_OR_ZERO(state);
 	}
 
 	if (err == 0) {
@@ -143,7 +143,7 @@ static int bone_pinmux_helper_probe(struct platform_device *pdev)
 	data->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(data->pinctrl)) {
 		dev_err(dev, "Failed to get pinctrl\n");
-		err = PTR_RET(data->pinctrl);
+		err = PTR_ERR_OR_ZERO(data->pinctrl);
 		goto err_no_pinctrl;
 	}
 
