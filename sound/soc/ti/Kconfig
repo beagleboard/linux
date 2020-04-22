@@ -29,6 +29,7 @@ config SND_SOC_DAVINCI_MCASP
 	select SND_SOC_TI_EDMA_PCM
 	select SND_SOC_TI_SDMA_PCM
 	select SND_SOC_TI_UDMA_PCM
+	select SND_SOC_PCM5102A
 	help
 	  Say Y or M here if you want to have support for McASP IP found in
 	  various Texas Instruments SoCs like:
