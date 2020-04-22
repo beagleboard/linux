@@ -364,6 +364,10 @@ static const struct phy_ops ops = {
 	.owner		= THIS_MODULE,
 };
 
+static const struct phy_ops noop_ops = {
+	.owner		= THIS_MODULE,
+};
+
 static int cdns_sierra_get_optional(struct cdns_sierra_inst *inst,
 				    struct device_node *child)
 {
@@ -477,54 +481,11 @@ static int cdns_regmap_init_blocks(struct cdns_sierra_phy *sp,
 	return 0;
 }
 
-static int cdns_sierra_phy_probe(struct platform_device *pdev)
+static int cdns_sierra_phy_get_clocks(struct cdns_sierra_phy *sp,
+				      struct device *dev)
 {
-	struct cdns_sierra_phy *sp;
-	struct phy_provider *phy_provider;
-	struct device *dev = &pdev->dev;
-	const struct of_device_id *match;
-	struct cdns_sierra_data *data;
-	unsigned int id_value;
-	struct resource *res;
-	int i, ret, node = 0;
-	void __iomem *base;
 	struct clk *clk;
-	struct device_node *dn = dev->of_node, *child;
-
-	if (of_get_child_count(dn) == 0)
-		return -ENODEV;
-
-	/* Get init data for this PHY */
-	match = of_match_device(cdns_sierra_id_table, dev);
-	if (!match)
-		return -EINVAL;
-
-	data = (struct cdns_sierra_data *)match->data;
-
-	sp = devm_kzalloc(dev, sizeof(*sp), GFP_KERNEL);
-	if (!sp)
-		return -ENOMEM;
-	dev_set_drvdata(dev, sp);
-	sp->dev = dev;
-	sp->init_data = data;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(base)) {
-		dev_err(dev, "missing \"reg\"\n");
-		return PTR_ERR(base);
-	}
-
-	ret = cdns_regmap_init_blocks(sp, base, data->block_offset_shift,
-				      data->reg_offset_shift);
-	if (ret)
-		return ret;
-
-	ret = cdns_regfield_init(sp);
-	if (ret)
-		return ret;
-
-	platform_set_drvdata(pdev, sp);
+	int ret;
 
 	sp->clk = devm_clk_get_optional(dev, "phy_clk");
 	if (IS_ERR(sp->clk)) {
@@ -560,18 +521,83 @@ static int cdns_sierra_phy_probe(struct platform_device *pdev)
 	}
 	sp->cmn_refclk1_dig_div = clk;
 
-	ret = clk_prepare_enable(sp->clk);
+	return 0;
+}
+
+static int cdns_sierra_phy_probe(struct platform_device *pdev)
+{
+	struct cdns_sierra_phy *sp;
+	struct phy_provider *phy_provider;
+	struct device *dev = &pdev->dev;
+	const struct of_device_id *match;
+	struct cdns_sierra_data *data;
+	unsigned int id_value;
+	struct resource *res;
+	int i, val, ret, node = 0;
+	void __iomem *base;
+	struct device_node *dn = dev->of_node, *child;
+	bool already_configured = false;
+
+	if (of_get_child_count(dn) == 0)
+		return -ENODEV;
+
+	/* Get init data for this PHY */
+	match = of_match_device(cdns_sierra_id_table, dev);
+	if (!match)
+		return -EINVAL;
+
+	data = (struct cdns_sierra_data *)match->data;
+
+	sp = devm_kzalloc(dev, sizeof(*sp), GFP_KERNEL);
+	if (!sp)
+		return -ENOMEM;
+	dev_set_drvdata(dev, sp);
+	sp->dev = dev;
+	sp->init_data = data;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base)) {
+		dev_err(dev, "missing \"reg\"\n");
+		return PTR_ERR(base);
+	}
+
+	ret = cdns_regmap_init_blocks(sp, base, data->block_offset_shift,
+				      data->reg_offset_shift);
 	if (ret)
 		return ret;
 
-	/* Enable APB */
-	reset_control_deassert(sp->apb_rst);
+	ret = cdns_regfield_init(sp);
+	if (ret)
+		return ret;
 
-	/* Check that PHY is present */
-	regmap_field_read(sp->macro_id_type, &id_value);
-	if  (sp->init_data->id_value != id_value) {
-		ret = -EINVAL;
-		goto clk_disable;
+	for (i = 0; i < SIERRA_MAX_LANES; i++) {
+		regmap_field_read(sp->pllctrl_lock[i], &val);
+		if (val) {
+			already_configured = true;
+			break;
+		}
+	}
+
+	platform_set_drvdata(pdev, sp);
+
+	if (!already_configured) {
+		ret = cdns_sierra_phy_get_clocks(sp, dev);
+		if (ret)
+			return ret;
+
+		ret = clk_prepare_enable(sp->clk);
+		if (ret)
+			return ret;
+		/* Enable APB */
+		reset_control_deassert(sp->apb_rst);
+
+		/* Check that PHY is present */
+		regmap_field_read(sp->macro_id_type, &id_value);
+		if  (sp->init_data->id_value != id_value) {
+			ret = -EINVAL;
+			goto clk_disable;
+		}
 	}
 
 	sp->autoconf = of_property_read_bool(dn, "cdns,autoconf");
@@ -600,7 +626,10 @@ static int cdns_sierra_phy_probe(struct platform_device *pdev)
 
 		sp->num_lanes += sp->phys[node].num_lanes;
 
-		gphy = devm_phy_create(dev, child, &ops);
+		if (already_configured)
+			gphy = devm_phy_create(dev, child, &noop_ops);
+		else
+			gphy = devm_phy_create(dev, child, &ops);
 
 		if (IS_ERR(gphy)) {
 			ret = PTR_ERR(gphy);
@@ -619,7 +648,7 @@ static int cdns_sierra_phy_probe(struct platform_device *pdev)
 	}
 
 	/* If more than one subnode, configure the PHY as multilink */
-	if (!sp->autoconf && sp->nsubnodes > 1)
+	if (!sp->autoconf && sp->nsubnodes > 1 && !already_configured)
 		regmap_field_write(sp->phy_pll_cfg_1, 0x1);
 
 	pm_runtime_enable(dev);
