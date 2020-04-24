@@ -1080,6 +1080,91 @@ static int emac_ndo_stop(struct net_device *ndev)
 	return 0;
 }
 
+static void prueth_change_to_switch_mode(struct prueth *prueth)
+{
+	bool portstatus[PRUETH_NUM_MACS];
+	struct prueth_emac *emac;
+	struct net_device *ndev;
+	int i, ret;
+
+	for (i = 0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		ndev = emac->ndev;
+
+		portstatus[i] = netif_running(ndev);
+		if (!portstatus[i])
+			continue;
+
+		ret = ndev->netdev_ops->ndo_stop(ndev);
+		if (ret < 0) {
+			netdev_err(ndev, "failed to stop: %d", ret);
+			return;
+		}
+	}
+
+	prueth->eth_type = PRUSS_ETHTYPE_SWITCH;
+
+	prueth_hostinit(prueth);
+
+	for (i = 0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		ndev = emac->ndev;
+
+		if (!portstatus[i])
+			continue;
+
+		ret = ndev->netdev_ops->ndo_open(ndev);
+		if (ret < 0) {
+			netdev_err(ndev, "failed to start: %d", ret);
+			return;
+		}
+	}
+
+	dev_info(prueth->dev, "TI PRU ethernet now in Switch mode\n");
+}
+
+static void prueth_change_to_emac_mode(struct prueth *prueth)
+{
+	struct prueth_emac *emac;
+	struct net_device *ndev;
+	bool portstatus[PRUETH_NUM_MACS];
+	int i, ret;
+
+	for (i = 0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		ndev = emac->ndev;
+
+		portstatus[i] = netif_running(ndev);
+		if (!portstatus[i])
+			continue;
+
+		ret = ndev->netdev_ops->ndo_stop(ndev);
+		if (ret < 0) {
+			netdev_err(ndev, "failed to stop: %d", ret);
+			return;
+		}
+	}
+
+	prueth->eth_type = PRUSS_ETHTYPE_EMAC;
+	prueth_hostinit(prueth);
+
+	for (i = 0; i < PRUETH_NUM_MACS; i++) {
+		emac = prueth->emac[i];
+		ndev = emac->ndev;
+
+		if (!portstatus[i])
+			continue;
+
+		ret = ndev->netdev_ops->ndo_open(ndev);
+		if (ret < 0) {
+			netdev_err(ndev, "failed to start: %d", ret);
+			return;
+		}
+	}
+
+	dev_info(prueth->dev, "TI PRU ethernet now in Dual EMAC mode\n");
+}
+
 /**
  * emac_ndo_start_xmit - EMAC Transmit function
  * @skb: SKB pointer
@@ -1762,6 +1847,16 @@ static void prueth_port_offload_fwd_mark_update(struct prueth *prueth)
 
 	for (i = 0; i < PRUETH_NUM_MACS; i++)
 		prueth->emac[i]->offload_fwd_mark = set_val;
+
+	/* Bridge is created, load switch firmware, if not already in
+	 * that mode
+	 */
+	if (set_val && !PRUETH_IS_SWITCH(prueth))
+		prueth_change_to_switch_mode(prueth);
+
+	/* Bridge is deleted, switch to Dual EMAC mode */
+	if (!prueth->br_members && !PRUETH_IS_EMAC(prueth))
+		prueth_change_to_emac_mode(prueth);
 }
 
 static int prueth_ndev_port_link(struct net_device *ndev,
