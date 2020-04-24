@@ -69,6 +69,8 @@ struct prueth_queue_info {
  * @length: length of packet
  * @broadcast: this packet is a broadcast packet
  * @error: this packet has an error
+ * @lookup_success: src mac found in FDB
+ * @flood: packet is to be flooded
  */
 struct prueth_packet_info {
 	bool shadow;
@@ -76,6 +78,8 @@ struct prueth_packet_info {
 	unsigned int length;
 	bool broadcast;
 	bool error;
+	bool lookup_success;
+	bool flood;
 };
 
 /**
@@ -301,6 +305,8 @@ struct prueth_emac {
 	struct nsp_counter nsp_mc;
 	struct nsp_counter nsp_uc;
 	bool nsp_enabled;
+
+	int offload_fwd_mark;
 };
 
 /**
@@ -318,6 +324,14 @@ struct prueth_emac {
  * @eth_node: node for each emac node
  * @emac: emac data for three ports, one host and two physical
  * @registered_netdevs: net device for each registered emac
+ *
+ * @hw_bridge_dev: pointer to hw_bridge device
+ * @fdb_tbl: pointer to FDB table struct
+ *
+ * @emac_configured: bit mask to configured ports
+ * @br_members: bit mask indicating ports that are part of the bridge
+ * @eth_type: flag indicate firmware mode (Dual emac vs Switch etc)
+ * @base_mac: random mac used as physical ID for each port of a switch
  */
 struct prueth {
 	struct device *dev;
@@ -332,11 +346,21 @@ struct prueth {
 	struct device_node *eth_node[PRUETH_NUM_MACS];
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
+
+	struct net_device *hw_bridge_dev;
+	struct fdb_tbl *fdb_tbl;
+
+	unsigned int eth_type;
+	u8 emac_configured;
+	u8 br_members;
+	u8 base_mac[ETH_ALEN];
 };
 
 void prueth_init_timer(struct prueth *prueth);
 void prueth_start_timer(struct prueth *prueth);
 int emac_ndo_setup_tc(struct net_device *dev, enum tc_setup_type type,
 		      void *type_data);
+
+extern const struct prueth_queue_desc queue_descs[][4];
 
 #endif /* __NET_TI_PRUETH_H */
