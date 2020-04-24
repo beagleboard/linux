@@ -8,6 +8,9 @@
 #ifndef __NET_TI_PRUETH_H
 #define __NET_TI_PRUETH_H
 
+#include <linux/types.h>
+#include <linux/pruss.h>
+
 #define PRUETH_NUMQUEUES	5
 
 #define EMAC_POLL_WEIGHT	(64) /* Default NAPI poll weight */
