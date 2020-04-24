@@ -47,9 +47,6 @@
 
 #define PRUSS_IEP_GLOBAL_CFG_CNT_ENABLE		BIT(0)
 
-/* PRUSS local memory map */
-#define ICSS_LOCAL_SHARED_RAM   0x00010000
-
 /* Netif debug messages possible */
 #define PRUETH_EMAC_DEBUG	(NETIF_MSG_DRV | \
 				 NETIF_MSG_PROBE | \

@@ -13,6 +13,9 @@
 
 #define PRUETH_NUMQUEUES	5
 
+/* PRUSS local memory map */
+#define ICSS_LOCAL_SHARED_RAM   0x00010000
+
 #define EMAC_POLL_WEIGHT	(64) /* Default NAPI poll weight */
 #define EMAC_MAX_PKTLEN		(ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
 #define EMAC_MIN_PKTLEN		(60)
