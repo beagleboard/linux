@@ -63,6 +63,8 @@
 #define CALDONE_MASK		BIT(CALDONE_SHIFT)
 #define RETRIM_SHIFT		17
 #define RETRIM_MASK		BIT(RETRIM_SHIFT)
+#define SELDLYTXCLK_SHIFT	17
+#define SELDLYTXCLK_MASK	BIT(SELDLYTXCLK_SHIFT)
 
 #define DRIVER_STRENGTH_50_OHM	0x0
 #define DRIVER_STRENGTH_33_OHM	0x1
@@ -207,34 +209,41 @@ static void sdhci_am654_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	sdhci_set_clock(host, clock);
 
-	if (clock > CLOCK_TOO_SLOW_HZ) {
-		/* Setup DLL Output TAP delay */
-		if (sdhci_am654->legacy_otapdly)
-			otap_del_sel = sdhci_am654->otap_del_sel[0];
+	/* Setup DLL Output TAP delay */
+	if (sdhci_am654->legacy_otapdly)
+		otap_del_sel = sdhci_am654->otap_del_sel[0];
+	else
+		otap_del_sel = sdhci_am654->otap_del_sel[timing];
+
+	otap_del_ena = 1;
+
+	mask = OTAPDLYENA_MASK | OTAPDLYSEL_MASK;
+	val = (otap_del_ena << OTAPDLYENA_SHIFT) |
+	      (otap_del_sel << OTAPDLYSEL_SHIFT);
+
+	/* Write to STRBSEL for HS400 speed mode */
+	if (timing == MMC_TIMING_MMC_HS400) {
+		if (sdhci_am654->flags & STRBSEL_4_BIT)
+			mask |= STRBSEL_4BIT_MASK;
 		else
-			otap_del_sel = sdhci_am654->otap_del_sel[timing];
+			mask |= STRBSEL_8BIT_MASK;
 
-		otap_del_ena = (timing > MMC_TIMING_UHS_SDR25) ? 1 : 0;
-
-		mask = OTAPDLYENA_MASK | OTAPDLYSEL_MASK;
-		val = (otap_del_ena << OTAPDLYENA_SHIFT) |
-		      (otap_del_sel << OTAPDLYSEL_SHIFT);
-
-		/* Write to STRBSEL for HS400 speed mode */
-		if (timing == MMC_TIMING_MMC_HS400) {
-			if (sdhci_am654->flags & STRBSEL_4_BIT)
-				mask |= STRBSEL_4BIT_MASK;
-			else
-				mask |= STRBSEL_8BIT_MASK;
-
-			val |= sdhci_am654->strb_sel << STRBSEL_SHIFT;
-		}
-
-		regmap_update_bits(sdhci_am654->base, PHY_CTRL4, mask, val);
-
-		if (timing > MMC_TIMING_UHS_SDR25)
-			sdhci_am654_setup_dll(host, clock);
+		val |= sdhci_am654->strb_sel << STRBSEL_SHIFT;
 	}
+
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, mask, val);
+
+	if (timing > MMC_TIMING_UHS_SDR25 && clock > CLOCK_TOO_SLOW_HZ) {
+		regmap_update_bits(sdhci_am654->base, PHY_CTRL5,
+				   SELDLYTXCLK_MASK, 0);
+		sdhci_am654_setup_dll(host, clock);
+	} else {
+		regmap_update_bits(sdhci_am654->base, PHY_CTRL5,
+				   SELDLYTXCLK_MASK, 1 << SELDLYTXCLK_SHIFT);
+	}
+
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL5, CLKBUFSEL_MASK,
+			   sdhci_am654->clkbuf_sel);
 }
 
 static void sdhci_j721e_4bit_set_clock(struct sdhci_host *host,
