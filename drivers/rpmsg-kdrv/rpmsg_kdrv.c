@@ -254,7 +254,7 @@ static int rpmsg_kdrv_get_devices_cb(void *cb_data, void *req, int req_sz, void 
 	struct rpmsg_kdrv_priv *priv = dev_get_drvdata(&rpdev->dev);
 	struct rpmsg_kdrv_init_dev_info_response *info_resp = resp;
 	struct rpmsg_kdrv_init_device_info *dev;
-	int ret;
+	int ret = 0;
 
 	if (info_resp->header.message_type != RPMSG_KDRV_TP_INIT_DEV_INFO_RESPONSE) {
 		dev_err(&rpdev->dev, "%s: wrong response type\n", __func__);
@@ -268,8 +268,10 @@ static int rpmsg_kdrv_get_devices_cb(void *cb_data, void *req, int req_sz, void 
 
 		priv->raw_device_data_size[cnt] = dev->device_data_len;
 		priv->raw_device_data[cnt] = devm_kzalloc(&rpdev->dev, dev->device_data_len, GFP_KERNEL);
-		if (!priv->raw_device_data[cnt])
+		if (!priv->raw_device_data[cnt]) {
+			ret = -ENOMEM;
 			goto out;
+		}
 		memcpy(priv->raw_device_data[cnt],
 				&info_resp->device_data[dev->device_data_offset],
 				dev->device_data_len);
