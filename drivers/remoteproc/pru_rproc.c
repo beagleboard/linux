@@ -75,15 +75,29 @@ enum pru_type {
 };
 
 /**
+ * struct pru_private_data - device data for a PRU core
+ * @mask1: address mask1 used to identify PRU core id
+ * @mask2: address mask2 used to identify PRU core id
+ * @type: type of the PRU core (PRU, RTU, Tx_PRU)
+ * @is_k3: flag used to identify the need for special load & event handling
+ */
+struct pru_private_data {
+	u32 mask1;
+	u32 mask2;
+	enum pru_type type;
+	unsigned int is_k3 : 1;
+};
+
+/**
  * struct pru_rproc - PRU remoteproc structure
  * @id: id of the PRU core within the PRUSS
  * @dev: PRU core device pointer
  * @pruss: back-reference to parent PRUSS structure
  * @rproc: remoteproc pointer for this PRU core
  * @client_np: client device node
+ * @data: PRU core specific data
  * @mbox: mailbox channel handle used for vring signalling with MPU
  * @client: mailbox client to request the mailbox channel
- * @type: type of the PRU core (PRU, RTU, Tx_PRU)
  * @irq_ring: IRQ number to use for processing vring buffers
  * @irq_kick: IRQ number to use to perform virtio kick
  * @mem_regions: data for each of the PRU memory regions
@@ -100,7 +114,6 @@ enum pru_type {
  * @dbg_single_step: debug state variable to set PRU into single step mode
  * @dbg_continuous: debug state variable to restore PRU execution mode
  * @fw_has_intc_rsc: boolean flag to indicate INTC config through firmware
- * @is_k3: boolean flag used to indicate the core has increased number of events
  */
 struct pru_rproc {
 	int id;
@@ -108,9 +121,9 @@ struct pru_rproc {
 	struct pruss *pruss;
 	struct rproc *rproc;
 	struct device_node *client_np;
+	const struct pru_private_data *data;
 	struct mbox_chan *mbox;
 	struct mbox_client client;
-	enum pru_type type;
 	int irq_vring;
 	int irq_kick;
 	struct pruss_mem_region mem_regions[PRU_IOMEM_MAX];
@@ -127,7 +140,6 @@ struct pru_rproc {
 	u32 dbg_single_step;
 	u32 dbg_continuous;
 	unsigned int fw_has_intc_rsc : 1;
-	unsigned int is_k3 : 1;
 };
 
 static void *pru_d_da_to_va(struct pru_rproc *pru, u32 da, int len);
@@ -208,9 +220,9 @@ static int pru_rproc_intc_dt_config(struct pru_rproc *pru, int index)
 		goto out;
 	}
 
-	max_system_events = pru->is_k3 ? 160 : 64;
-	max_pru_channels = pru->is_k3 ? 20 : 10;
-	max_pru_host_ints = pru->is_k3 ? 20 : 10;
+	max_system_events = pru->data->is_k3 ? 160 : 64;
+	max_pru_channels = pru->data->is_k3 ? 20 : 10;
+	max_pru_host_ints = pru->data->is_k3 ? 20 : 10;
 
 	for (i = 0; i < ARRAY_SIZE(pru->intc_config.sysev_to_ch); i++)
 		pru->intc_config.sysev_to_ch[i] = -1;
@@ -677,7 +689,7 @@ static void pru_rproc_kick(struct rproc *rproc, int vq_id)
 	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU", "Tx_PRU" };
 
 	dev_dbg(dev, "kicking vqid %d on %s%d\n", vq_id,
-		names[pru->type], pru->id);
+		names[pru->data->type], pru->id);
 
 	if (pru->irq_kick > 0) {
 		ret = pruss_intc_trigger(pru->irq_kick);
@@ -704,7 +716,7 @@ static int pru_rproc_start(struct rproc *rproc)
 	int ret;
 
 	dev_dbg(dev, "starting %s%d: entry-point = 0x%x\n",
-		names[pru->type], pru->id, (rproc->bootaddr >> 2));
+		names[pru->data->type], pru->id, (rproc->bootaddr >> 2));
 
 	if (!list_empty(&pru->rproc->rvdevs)) {
 		if (!pru->mbox && (pru->irq_vring <= 0 || pru->irq_kick <= 0)) {
@@ -745,7 +757,7 @@ static int pru_rproc_stop(struct rproc *rproc)
 	const char *names[PRU_TYPE_MAX] = { "PRU", "RTU", "Tx_PRU" };
 	u32 val;
 
-	dev_dbg(dev, "stopping %s%d\n", names[pru->type], pru->id);
+	dev_dbg(dev, "stopping %s%d\n", names[pru->data->type], pru->id);
 
 	val = pru_control_read_reg(pru, PRU_CTRL_CTRL);
 	val &= ~CTRL_CTRL_EN;
@@ -1103,7 +1115,7 @@ pru_rproc_load_elf_segments(struct rproc *rproc, const struct firmware *fw)
 		if (!phdr->p_filesz)
 			continue;
 
-		if (pru->is_k3) {
+		if (pru->data->is_k3) {
 			ret = pru_rproc_memcpy(ptr, elf_data + phdr->p_offset,
 					       filesz);
 			if (ret) {
@@ -1129,21 +1141,8 @@ pru_rproc_load_elf_segments(struct rproc *rproc, const struct firmware *fw)
 static int pru_rproc_set_id(struct device_node *np, struct pru_rproc *pru)
 {
 	int ret = 0;
-	u32 mask1 = PRU0_IRAM_ADDR_MASK;
-	u32 mask2 = PRU1_IRAM_ADDR_MASK;
-
-	if (of_device_is_compatible(np, "ti,am654-rtu") ||
-	    of_device_is_compatible(np, "ti,j721e-rtu")) {
-		mask1 = RTU0_IRAM_ADDR_MASK;
-		mask2 = RTU1_IRAM_ADDR_MASK;
-		pru->type = PRU_TYPE_RTU;
-	}
-
-	if (of_device_is_compatible(np, "ti,j721e-tx-pru")) {
-		mask1 = TX_PRU0_IRAM_ADDR_MASK;
-		mask2 = TX_PRU1_IRAM_ADDR_MASK;
-		pru->type = PRU_TYPE_TX_PRU;
-	}
+	u32 mask1 = pru->data->mask1;
+	u32 mask2 = pru->data->mask2;
 
 	if ((pru->mem_regions[PRU_IOMEM_IRAM].pa & mask2) == mask2)
 		pru->id = PRUSS_PRU1;
@@ -1166,10 +1165,12 @@ static int pru_rproc_probe(struct platform_device *pdev)
 	struct mbox_client *client;
 	struct resource *res;
 	int i, ret;
+	const struct pru_private_data *data;
 	const char *mem_names[PRU_IOMEM_MAX] = { "iram", "control", "debug" };
 
-	if (!np) {
-		dev_err(dev, "Non-DT platform device not supported\n");
+	data = of_device_get_match_data(&pdev->dev);
+	if (!data) {
+		dev_err(dev, "Non-DT platform devices not supported\n");
 		return -ENODEV;
 	}
 
@@ -1202,19 +1203,12 @@ static int pru_rproc_probe(struct platform_device *pdev)
 
 	pru = rproc->priv;
 	pru->dev = dev;
+	pru->data = data;
 	pru->pruss = platform_get_drvdata(ppdev);
 	pru->rproc = rproc;
 	pru->fw_name = fw_name;
 	spin_lock_init(&pru->rmw_lock);
 	mutex_init(&pru->lock);
-
-	if (of_device_is_compatible(np, "ti,am654-pru") ||
-	    of_device_is_compatible(np, "ti,am654-rtu") ||
-	    of_device_is_compatible(np, "ti,j721e-pru") ||
-	    of_device_is_compatible(np, "ti,j721e-rtu") ||
-	    of_device_is_compatible(np, "ti,j721e-tx-pru")) {
-		pru->is_k3 = 1;
-	}
 
 	/* XXX: get this from match data if different in the future */
 	pru->iram_da = 0;
@@ -1321,16 +1315,43 @@ static int pru_rproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct pru_private_data pru_data = {
+	.mask1 = PRU0_IRAM_ADDR_MASK,
+	.mask2 = PRU1_IRAM_ADDR_MASK,
+	.type = PRU_TYPE_PRU,
+};
+
+static const struct pru_private_data k3_pru_data = {
+	.mask1 = PRU0_IRAM_ADDR_MASK,
+	.mask2 = PRU1_IRAM_ADDR_MASK,
+	.type = PRU_TYPE_PRU,
+	.is_k3 = 1,
+};
+
+static const struct pru_private_data k3_rtu_data = {
+	.mask1 = RTU0_IRAM_ADDR_MASK,
+	.mask2 = RTU1_IRAM_ADDR_MASK,
+	.type = PRU_TYPE_RTU,
+	.is_k3 = 1,
+};
+
+static const struct pru_private_data k3_tx_pru_data = {
+	.mask1 = TX_PRU0_IRAM_ADDR_MASK,
+	.mask2 = TX_PRU1_IRAM_ADDR_MASK,
+	.type = PRU_TYPE_TX_PRU,
+	.is_k3 = 1,
+};
+
 static const struct of_device_id pru_rproc_match[] = {
-	{ .compatible = "ti,am3356-pru", },
-	{ .compatible = "ti,am4376-pru", },
-	{ .compatible = "ti,am5728-pru", },
-	{ .compatible = "ti,k2g-pru",    },
-	{ .compatible = "ti,am654-pru",  },
-	{ .compatible = "ti,am654-rtu",  },
-	{ .compatible = "ti,j721e-pru",  },
-	{ .compatible = "ti,j721e-rtu",  },
-	{ .compatible = "ti,j721e-tx-pru",  },
+	{ .compatible = "ti,am3356-pru",   .data = &pru_data, },
+	{ .compatible = "ti,am4376-pru",   .data = &pru_data, },
+	{ .compatible = "ti,am5728-pru",   .data = &pru_data, },
+	{ .compatible = "ti,k2g-pru",      .data = &pru_data, },
+	{ .compatible = "ti,am654-pru",    .data = &k3_pru_data, },
+	{ .compatible = "ti,am654-rtu",    .data = &k3_rtu_data, },
+	{ .compatible = "ti,j721e-pru",    .data = &k3_pru_data, },
+	{ .compatible = "ti,j721e-rtu",    .data = &k3_rtu_data, },
+	{ .compatible = "ti,j721e-tx-pru", .data = &k3_tx_pru_data, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, pru_rproc_match);
