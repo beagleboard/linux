@@ -396,7 +396,8 @@ static void choke_reset(struct Qdisc *sch)
 		qdisc_drop(skb, sch);
 	}
 
-	memset(q->tab, 0, (q->tab_mask + 1) * sizeof(struct sk_buff *));
+	if (q->tab)
+		memset(q->tab, 0, (q->tab_mask + 1) * sizeof(struct sk_buff *));
 	q->head = q->tail = 0;
 	red_restart(&q->vars);
 }
