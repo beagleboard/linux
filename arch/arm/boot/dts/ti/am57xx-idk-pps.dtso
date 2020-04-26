@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2020 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/dra7.h>
+
+/ {
+  fragment@101 {
+	target-path = "/";
+
+	__overlay__ {
+		pwm16: dmtimer-pwm16 {
+			compatible = "ti,omap-dmtimer-pwm";
+			#pwm-cells = <3>;
+			ti,timers = <&timer16>;
+			assigned-clocks = <&l4per3_clkctrl DRA7_L4PER3_TIMER16_CLKCTRL 24>;
+			assigned-clock-parents = <&abe_giclk_div>;
+		};
+	};
+  };
+};
+
+&dpll_abe_ck {
+	assigned-clocks = <&dpll_abe_ck>;
+	assigned-clock-rates = <50000000>;
+};
