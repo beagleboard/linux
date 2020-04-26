@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2020 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+#include "am335x-boneblack.dts"
+
+&am33xx_pinmux {
+	pwm7_pins: pinmux_pwm7_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_OEN_REN, PIN_OUTPUT_PULLDOWN,  MUX_MODE2)
+		>;
+	};
+};
+
+/{
+	pwm7: dmtimer-pwm7 {
+		compatible = "ti,omap-dmtimer-pwm";
+		#pwm-cells = <3>;
+		ti,timers = <&timer7>;
+		ti,clock-source = <0x00>; /* timer_sys_ck */
+	};
+};
