@@ -1243,7 +1243,7 @@ static int emac_ndo_open(struct net_device *ndev)
 		goto cleanup_rx;
 	}
 
-	ret = request_irq(emac->tx_chns.irq, prueth_tx_irq, 0,
+	ret = request_irq(emac->tx_chns.irq, prueth_tx_irq, IRQF_TRIGGER_HIGH,
 			  dev_name(dev), emac);
 	if (ret) {
 		dev_err(dev, "unable to request TX IRQ\n");
@@ -1252,7 +1252,7 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	/* we use only the highest priority flow for now i.e. @irq[3] */
 	ret = request_irq(emac->rx_chns.irq[PRUETH_RX_FLOW_DATA], prueth_rx_irq,
-			  0, dev_name(dev), emac);
+			  IRQF_TRIGGER_HIGH, dev_name(dev), emac);
 	if (ret) {
 		dev_err(dev, "unable to request RX IRQ\n");
 		goto free_tx_irq;
@@ -1260,7 +1260,8 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	ret = request_threaded_irq(emac->rx_mgm_chn.irq[PRUETH_RX_MGM_FLOW_RESPONSE],
 				   NULL, prueth_rx_mgm_rsp_thread,
-				   IRQF_ONESHOT, dev_name(dev), emac);
+				   IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+				   dev_name(dev), emac);
 	if (ret) {
 		dev_err(dev, "unable to request RX Management RSP IRQ\n");
 		goto free_rx_irq;
@@ -1268,7 +1269,8 @@ static int emac_ndo_open(struct net_device *ndev)
 
 	ret = request_threaded_irq(emac->rx_mgm_chn.irq[PRUETH_RX_MGM_FLOW_TIMESTAMP],
 				   NULL, prueth_rx_mgm_ts_thread,
-				   IRQF_ONESHOT, dev_name(dev), emac);
+				   IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
+				   dev_name(dev), emac);
 	if (ret) {
 		dev_err(dev, "unable to request RX Management TS IRQ\n");
 		goto free_rx_mgm_irq;
