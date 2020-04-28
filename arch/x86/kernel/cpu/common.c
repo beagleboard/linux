@@ -652,7 +652,7 @@ void cpu_detect(struct cpuinfo_x86 *c)
 		cpuid(0x00000001, &tfms, &misc, &junk, &cap0);
 		c->x86 = (tfms >> 8) & 0xf;
 		c->x86_model = (tfms >> 4) & 0xf;
-		c->x86_mask = tfms & 0xf;
+		c->x86_stepping	= tfms & 0xf;
 
 		if (c->x86 == 0xf)
 			c->x86 += (tfms >> 20) & 0xff;
@@ -1157,7 +1157,7 @@ static void identify_cpu(struct cpuinfo_x86 *c)
 	c->loops_per_jiffy = loops_per_jiffy;
 	c->x86_cache_size = 0;
 	c->x86_vendor = X86_VENDOR_UNKNOWN;
-	c->x86_model = c->x86_mask = 0;	/* So far unknown... */
+	c->x86_model = c->x86_stepping = 0;	/* So far unknown... */
 	c->x86_vendor_id[0] = '\0'; /* Unset */
 	c->x86_model_id[0] = '\0';  /* Unset */
 	c->x86_max_cores = 1;
@@ -1403,8 +1403,8 @@ void print_cpu_info(struct cpuinfo_x86 *c)
 
 	printk(KERN_CONT " (family: 0x%x, model: 0x%x", c->x86, c->x86_model);
 
-	if (c->x86_mask || c->cpuid_level >= 0)
-		printk(KERN_CONT ", stepping: 0x%x)\n", c->x86_mask);
+	if (c->x86_stepping || c->cpuid_level >= 0)
+		pr_cont(", stepping: 0x%x)\n", c->x86_stepping);
 	else
 		printk(KERN_CONT ")\n");
 

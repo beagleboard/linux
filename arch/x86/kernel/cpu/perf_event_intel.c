@@ -3052,7 +3052,7 @@ static int intel_snb_pebs_broken(int cpu)
 		break;
 
 	case 45: /* SNB-EP */
-		switch (cpu_data(cpu).x86_mask) {
+		switch (cpu_data(cpu).x86_stepping) {
 		case 6: rev = 0x618; break;
 		case 7: rev = 0x70c; break;
 		}
