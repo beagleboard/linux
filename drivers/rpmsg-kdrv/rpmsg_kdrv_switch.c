@@ -708,7 +708,7 @@ static void rpmsg_kdrv_switch_get_fw_ver(struct rpmsg_remotedev *rdev,
 		 RPMSG_KDRV_TP_ETHSWITCH_COMMITSHALEN, fw_info->commit_hash);
 }
 
-struct rpmsg_remotedev_eth_switch_ops switch_ops = {
+static struct rpmsg_remotedev_eth_switch_ops switch_ops = {
 	.get_fw_ver = rpmsg_kdrv_switch_get_fw_ver,
 	.attach = rpmsg_kdrv_switch_attach,
 	.attach_ext = rpmsg_kdrv_switch_attach_ext,
@@ -803,7 +803,7 @@ static void rpmsg_kdrv_switch_remove(struct rpmsg_kdrv_device *dev)
 	dev_dbg(&dev->dev, "%s\n", __func__);
 }
 
-struct rpmsg_kdrv_driver rpmsg_kdrv_switch = {
+static struct rpmsg_kdrv_driver rpmsg_kdrv_switch = {
 	.drv = {
 		.name = "rpmsg-kdrv-eth-switch",
 	},

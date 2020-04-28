@@ -370,6 +370,7 @@
 		interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
 		dma-coherent;
 		power-domains = <&k3_pds 151 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 151 2>, <&k3_clks 151 7>;
 		assigned-clocks = <&k3_clks 151 2>, <&k3_clks 151 7>;
 		assigned-clock-parents = <&k3_clks 151 4>,	/* set REF_CLK to 20MHz i.e. PER0_PLL/48 */
 					 <&k3_clks 151 9>;	/* set PIPE3_TXB_CLK to CLK_12M_RC/256 (for HS only) */
@@ -409,6 +410,7 @@
 		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
 		dma-coherent;
 		power-domains = <&k3_pds 152 TI_SCI_PD_EXCLUSIVE>;
+		clocks = <&k3_clks 152 2>;
 		assigned-clocks = <&k3_clks 152 2>;
 		assigned-clock-parents = <&k3_clks 152 4>;	/* set REF_CLK to 20MHz i.e. PER0_PLL/48 */
 
@@ -1034,6 +1036,15 @@
 			interrupt-names = "vring", "kick";
 		};
 
+		tx_pru0_0: txpru@a000 {
+			compatible = "ti,am654-tx-pru";
+			reg = <0xa000 0x1800>,
+			      <0x25000 0x100>,
+			      <0x25400 0x100>;
+			reg-names = "iram", "control", "debug";
+			firmware-name = "am65x-txpru0_0-fw";
+		};
+
 		pru0_1: pru@38000 {
 			compatible = "ti,am654-pru";
 			reg = <0x38000 0x4000>,
@@ -1056,6 +1067,15 @@
 			interrupt-parent = <&icssg0_intc>;
 			interrupts = <22>, <23>;
 			interrupt-names = "vring", "kick";
+		};
+
+		tx_pru0_1: txpru@c000 {
+			compatible = "ti,am654-tx-pru";
+			reg = <0xc000 0x1800>,
+			      <0x25800 0x100>,
+			      <0x25c00 0x100>;
+			reg-names = "iram", "control", "debug";
+			firmware-name = "am65x-txpru0_1-fw";
 		};
 
 		icssg0_mdio: mdio@32400 {
@@ -1174,6 +1194,15 @@
 			interrupt-names = "vring", "kick";
 		};
 
+		tx_pru1_0: txpru@a000 {
+			compatible = "ti,am654-tx-pru";
+			reg = <0xa000 0x1800>,
+			      <0x25000 0x100>,
+			      <0x25400 0x100>;
+			reg-names = "iram", "control", "debug";
+			firmware-name = "am65x-txpru1_0-fw";
+		};
+
 		pru1_1: pru@38000 {
 			compatible = "ti,am654-pru";
 			reg = <0x38000 0x4000>,
@@ -1196,6 +1225,15 @@
 			interrupt-parent = <&icssg1_intc>;
 			interrupts = <22>, <23>;
 			interrupt-names = "vring", "kick";
+		};
+
+		tx_pru1_1: txpru@c000 {
+			compatible = "ti,am654-tx-pru";
+			reg = <0xc000 0x1800>,
+			      <0x25800 0x100>,
+			      <0x25c00 0x100>;
+			reg-names = "iram", "control", "debug";
+			firmware-name = "am65x-txpru1_1-fw";
 		};
 
 		icssg1_mdio: mdio@32400 {
@@ -1314,6 +1352,15 @@
 			interrupt-names = "vring", "kick";
 		};
 
+		tx_pru2_0: txpru@a000 {
+			compatible = "ti,am654-tx-pru";
+			reg = <0xa000 0x1800>,
+			      <0x25000 0x100>,
+			      <0x25400 0x100>;
+			reg-names = "iram", "control", "debug";
+			firmware-name = "am65x-txpru2_0-fw";
+		};
+
 		pru2_1: pru@38000 {
 			compatible = "ti,am654-pru";
 			reg = <0x38000 0x4000>,
@@ -1336,6 +1383,15 @@
 			interrupt-parent = <&icssg2_intc>;
 			interrupts = <22>, <23>;
 			interrupt-names = "vring", "kick";
+		};
+
+		tx_pru2_1: txpru@c000 {
+			compatible = "ti,am654-tx-pru";
+			reg = <0xc000 0x1800>,
+			      <0x25800 0x100>,
+			      <0x25c00 0x100>;
+			reg-names = "iram", "control", "debug";
+			firmware-name = "am65x-txpru2_1-fw";
 		};
 
 		icssg2_mdio: mdio@32400 {

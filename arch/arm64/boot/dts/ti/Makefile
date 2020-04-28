@@ -9,6 +9,7 @@
 DTC_FLAGS += -@
 
 dtb-$(CONFIG_ARCH_K3_AM6_SOC) += k3-am654-base-board.dtb  \
+				 k3-am654-base-board-sr1.dtb \
 				 k3-am654-gp.dtbo \
 				 k3-am654-evm-hdmi.dtbo \
 				 k3-am654-base-board-jailhouse.dtbo \

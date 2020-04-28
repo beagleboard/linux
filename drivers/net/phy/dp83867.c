@@ -26,7 +26,8 @@
 
 /* Extended Registers */
 #define DP83867_FLD_THR_CFG	0x002e
-#define DP83867_CFG4            0x0031
+#define DP83867_CFG4		0x0031
+
 #define DP83867_CFG4_SGMII_ANEG_MASK (BIT(5) | BIT(6))
 #define DP83867_CFG4_SGMII_ANEG_TIMER_11MS   (3 << 5)
 #define DP83867_CFG4_SGMII_ANEG_TIMER_800US  (2 << 5)
@@ -330,14 +331,12 @@ static int dp83867_config_init(struct phy_device *phydev)
 		 * be set to 0x2. This may causes the PHY link to be unstable -
 		 * the default value 0x1 need to be restored.
 		 */
-		val = phy_read_mmd(phydev, DP83867_DEVADDR,
-				   DP83867_FLD_THR_CFG);
-		if ((val & DP83867_FLD_THR_CFG_ENERGY_LOST_THR_MASK) == 0x2) {
-			val &= ~DP83867_FLD_THR_CFG_ENERGY_LOST_THR_MASK;
-			val |= 0x1;
-			phy_write_mmd(phydev, DP83867_DEVADDR,
-				      DP83867_FLD_THR_CFG, val);
-		}
+		ret = phy_modify_mmd(phydev, DP83867_DEVADDR,
+				     DP83867_FLD_THR_CFG,
+				     DP83867_FLD_THR_CFG_ENERGY_LOST_THR_MASK,
+				     0x1);
+		if (ret)
+			return ret;
 	}
 
 	if (phy_interface_is_rgmii(phydev)) {
