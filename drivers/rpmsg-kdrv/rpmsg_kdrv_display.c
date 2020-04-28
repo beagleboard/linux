@@ -356,7 +356,7 @@ out:
 }
 
 
-struct rpmsg_remotedev_display_ops disp_ops = {
+static struct rpmsg_remotedev_display_ops disp_ops = {
 	.ready = rpmsg_kdrv_display_ready,
 	.get_res_info = rpmsg_kdrv_display_get_res,
 	.commit = rpmsg_kdrv_display_commit,
@@ -449,7 +449,7 @@ static int rpmsg_kdrv_display_callback(struct rpmsg_kdrv_device *dev, void *msg,
 }
 
 
-struct rpmsg_kdrv_driver rpmsg_kdrv_display = {
+static struct rpmsg_kdrv_driver rpmsg_kdrv_display = {
 	.drv.name = "rpmsg-kdrv-display",
 	.device_type = RPMSG_KDRV_TP_DEVICE_TYPE_DISPLAY,
 	.probe = rpmsg_kdrv_display_probe,
