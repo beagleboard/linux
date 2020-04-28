@@ -64,6 +64,7 @@ extern void get_cpu_cap(struct cpuinfo_x86 *c);
 extern void cpu_detect_cache_sizes(struct cpuinfo_x86 *c);
 
 extern void x86_spec_ctrl_setup_ap(void);
+extern void update_srbds_msr(void);
 
 extern u64 x86_read_arch_cap_msr(void);
 
