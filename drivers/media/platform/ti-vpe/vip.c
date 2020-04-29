@@ -3771,16 +3771,87 @@ static int vip_probe_complete(struct platform_device *pdev)
 	return 0;
 }
 
+static int vip_probe_slice(struct platform_device *pdev, int slice, int instance_id)
+{
+	struct vip_shared *shared = platform_get_drvdata(pdev);
+	struct vip_dev *dev;
+	struct vip_parser_data *parser;
+	struct v4l2_ctrl_handler *hdl;
+	u32 vin_id;
+	int ret;
+
+	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	dev->instance_id = instance_id;
+	vin_id = 1 + ((dev->instance_id - 1) * 2) + slice;
+	snprintf(dev->name, sizeof(dev->name), "vin%d", vin_id);
+
+	dev->irq = platform_get_irq(pdev, slice);
+	if (dev->irq < 0)
+		return dev->irq;
+
+	ret = devm_request_irq(&pdev->dev, dev->irq, vip_irq,
+			       0, dev->name, dev);
+	if (ret < 0)
+		return -ENOMEM;
+
+	spin_lock_init(&dev->slock);
+	mutex_init(&dev->mutex);
+
+	hdl = &dev->ctrl_handler;
+	v4l2_ctrl_handler_init(hdl, 11);
+	shared->v4l2_dev.ctrl_handler = hdl;
+
+	dev->slice_id = slice;
+	dev->pdev = pdev;
+	dev->res = shared->res;
+	dev->base = shared->base;
+	dev->v4l2_dev = &shared->v4l2_dev;
+
+	dev->shared = shared;
+	shared->devs[slice] = dev;
+
+	vip_top_reset(dev);
+	vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT, 1);
+
+	parser = devm_kzalloc(&pdev->dev, sizeof(*dev->parser), GFP_KERNEL);
+	if (!parser)
+		return PTR_ERR(parser);
+
+	parser->res = platform_get_resource_byname(pdev,
+						   IORESOURCE_MEM,
+						   (slice == 0) ?
+						   "parser0" :
+						   "parser1");
+	parser->base = devm_ioremap_resource(&pdev->dev, parser->res);
+	if (IS_ERR(parser->base))
+		return PTR_ERR(parser->base);
+
+	parser->pdev = pdev;
+	dev->parser = parser;
+
+	dev->sc_assigned = VIP_NOT_ASSIGNED;
+	dev->sc = sc_create(pdev, (slice == 0) ? "sc0" : "sc1");
+	if (IS_ERR(dev->sc))
+		return PTR_ERR(dev->sc);
+
+	dev->csc_assigned = VIP_NOT_ASSIGNED;
+	dev->csc = csc_create(pdev, (slice == 0) ? "csc0" : "csc1");
+	if (IS_ERR(dev->sc))
+		return PTR_ERR(dev->sc);
+
+	return 0;
+}
+
 static int vip_probe(struct platform_device *pdev)
 {
-	struct vip_dev *dev;
 	struct vip_shared *shared;
-	struct vip_parser_data *parser;
 	struct pinctrl *pinctrl;
 	int ret, slice = VIP_SLICE1;
 	int instance_id;
 	u32 tmp, pid;
-	struct v4l2_ctrl_handler *hdl;
 
 	pm_runtime_enable(&pdev->dev);
 
@@ -3843,80 +3914,9 @@ static int vip_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, shared);
 
 	for (slice = VIP_SLICE1; slice < VIP_NUM_SLICES; slice++) {
-		u32 vin_id;
-
-		dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
-		if (!dev) {
-			ret = -ENOMEM;
-			goto err_runtime_get;
-		}
-		dev->instance_id = instance_id;
-		vin_id = 1 + ((dev->instance_id - 1) * 2) + slice;
-		snprintf(dev->name, sizeof(dev->name),
-			 "vin%d", vin_id);
-
-		dev->irq = platform_get_irq(pdev, slice);
-		if (dev->irq < 0) {
-			ret = dev->irq;
-			goto err_runtime_get;
-		}
-
-
-		ret = devm_request_irq(&pdev->dev, dev->irq, vip_irq,
-				       0, dev->name, dev);
-		if (ret < 0) {
-			ret = -ENOMEM;
-			goto dev_unreg;
-		}
-
-		spin_lock_init(&dev->slock);
-		mutex_init(&dev->mutex);
-
-		hdl = &dev->ctrl_handler;
-		v4l2_ctrl_handler_init(hdl, 11);
-		shared->v4l2_dev.ctrl_handler = hdl;
-
-		dev->slice_id = slice;
-		dev->pdev = pdev;
-		dev->res = shared->res;
-		dev->base = shared->base;
-		dev->v4l2_dev = &shared->v4l2_dev;
-
-		dev->shared = shared;
-		shared->devs[slice] = dev;
-
-		vip_top_reset(dev);
-		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT, 1);
-
-		parser = devm_kzalloc(&pdev->dev, sizeof(*dev->parser),
-				      GFP_KERNEL);
-		if (!parser)
-			return PTR_ERR(parser);
-
-		parser->res = platform_get_resource_byname(pdev,
-							   IORESOURCE_MEM,
-							   (slice == 0) ?
-							   "parser0" :
-							   "parser1");
-		parser->base = devm_ioremap_resource(&pdev->dev, parser->res);
-		if (IS_ERR(parser->base)) {
-			ret = PTR_ERR(parser->base);
-			goto dev_unreg;
-		}
-		parser->pdev = pdev;
-		dev->parser = parser;
-
-		dev->sc_assigned = VIP_NOT_ASSIGNED;
-		dev->sc = sc_create(pdev, (slice == 0) ? "sc0" : "sc1");
-		if (IS_ERR(dev->sc)) {
-			ret = PTR_ERR(dev->sc);
-			goto dev_unreg;
-		}
-
-		dev->csc_assigned = VIP_NOT_ASSIGNED;
-		dev->csc = csc_create(pdev, (slice == 0) ? "csc0" : "csc1");
-		if (IS_ERR(dev->sc)) {
-			ret = PTR_ERR(dev->sc);
+		ret = vip_probe_slice(pdev, slice, instance_id);
+		if (ret) {
+			dev_err(&pdev->dev, "Creating slice failed");
 			goto dev_unreg;
 		}
 	}
