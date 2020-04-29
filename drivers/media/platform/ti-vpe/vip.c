@@ -2761,7 +2761,7 @@ done:
 
 static inline bool is_scaler_available(struct vip_port *port)
 {
-	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL)
+	if (port->endpoint.bus_type == V4L2_MBUS_PARALLEL)
 		if (port->dev->sc_assigned == VIP_NOT_ASSIGNED ||
 		    port->dev->sc_assigned == port->port_id)
 			return true;
@@ -2791,7 +2791,7 @@ static inline void free_scaler(struct vip_port *port)
 
 static bool is_csc_available(struct vip_port *port)
 {
-	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL)
+	if (port->endpoint.bus_type == V4L2_MBUS_PARALLEL)
 		if (port->dev->csc_assigned == VIP_NOT_ASSIGNED ||
 		    port->dev->csc_assigned == port->port_id)
 			return true;
@@ -3020,8 +3020,8 @@ static int vip_setup_parser(struct vip_port *port)
 {
 	struct vip_dev *dev = port->dev;
 	struct vip_parser_data *parser = dev->parser;
-	struct v4l2_fwnode_endpoint *endpoint = port->endpoint;
-	struct vip_bt656_bus *bt656_ep = port->bt656_endpoint;
+	struct v4l2_fwnode_endpoint *endpoint = &port->endpoint;
+	struct vip_bt656_bus *bt656_ep = &port->bt656_endpoint;
 	int iface, sync_type;
 	u32 flags = 0, config0;
 
@@ -3472,7 +3472,7 @@ static int get_subdev_active_format(struct vip_port *port,
 			 * either CSC or CHR_DS
 			 */
 			csc = vip_csc_direction(fmt->code, fmt->finfo);
-			if (port->endpoint->bus_type == V4L2_MBUS_BT656 &&
+			if (port->endpoint.bus_type == V4L2_MBUS_BT656 &&
 			    (csc != VIP_CSC_NA || fmt->coplanar))
 				continue;
 
@@ -3520,6 +3520,7 @@ static void free_port(struct vip_port *port)
 		return;
 
 	v4l2_async_notifier_unregister(&port->notifier);
+	v4l2_async_notifier_cleanup(&port->notifier);
 	free_stream(port->cap_streams[0]);
 }
 
@@ -3552,14 +3553,14 @@ static int vip_create_streams(struct vip_port *port,
 
 	port->subdev = subdev;
 
-	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL) {
+	if (port->endpoint.bus_type == V4L2_MBUS_PARALLEL) {
 		port->flags |= FLAG_MULT_PORT;
 		port->num_streams_configured = 1;
 		alloc_stream(port, 0, VFL_TYPE_GRABBER);
-	} else if (port->endpoint->bus_type == V4L2_MBUS_BT656) {
+	} else if (port->endpoint.bus_type == V4L2_MBUS_BT656) {
 		port->flags |= FLAG_MULT_PORT;
-		bus = &port->endpoint->bus.parallel;
-		bt656_ep = port->bt656_endpoint;
+		bus = &port->endpoint.bus.parallel;
+		bt656_ep = &port->bt656_endpoint;
 		port->num_streams_configured = bt656_ep->num_channels;
 		for (i = 0; i < bt656_ep->num_channels; i++) {
 			if (bt656_ep->channels[i] >= 16)
@@ -3575,29 +3576,16 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 			   struct v4l2_async_subdev *asd)
 {
 	struct vip_port *port = notifier_to_vip_port(notifier);
-	struct vip_async_config *config = &port->config;
-	unsigned int idx = asd - &config->asd[0];
 	int ret;
 
 	vip_dbg(1, port, "%s\n", __func__);
-	if (idx > config->asd_sizes)
-		return -EINVAL;
 
 	if (port->subdev) {
-		if (asd < port->subdev->asd)
-			/* Notified of a subdev earlier in the array */
-			vip_info(port, "Switching to subdev %s (High priority)",
-				 subdev->name);
-
-		else {
-			vip_info(port, "Rejecting subdev %s (Low priority)",
-				 subdev->name);
-			return 0;
-		}
+		vip_info(port, "Rejecting subdev %s (Already set!!)",
+			 subdev->name);
+		return 0;
 	}
 
-	port->endpoint = &config->endpoints[idx];
-	port->bt656_endpoint = &config->bt656_endpoints[idx];
 	vip_info(port, "Port %c: Using subdev %s for capture\n",
 		 port->port_id == VIP_PORTA ? 'A' : 'B', subdev->name);
 
@@ -3632,16 +3620,16 @@ fwnode_graph_get_next_endpoint_by_regs(const struct fwnode_handle *fwnode,
 static int vip_register_subdev_notif(struct vip_port *port,
 				     struct fwnode_handle *ep)
 {
-	struct vip_async_config *config = &port->config;
 	struct v4l2_async_notifier *notifier = &port->notifier;
 	struct vip_dev *dev = port->dev;
 	struct fwnode_handle *subdev;
 	struct v4l2_fwnode_endpoint *vep;
 	struct vip_bt656_bus *bt656_vep;
+	struct v4l2_async_subdev *asd;
 	int ret, rval;
 
-	vep = &config->endpoints[0];
-	bt656_vep = &config->bt656_endpoints[0];
+	vep = &port->endpoint;
+	bt656_vep = &port->bt656_endpoint;
 
 	subdev = fwnode_graph_get_remote_port_parent(ep);
 	if (!subdev) {
@@ -3678,17 +3666,14 @@ static int vip_register_subdev_notif(struct vip_port *port,
 		vip_dbg(3, port, "ti,vip-channels %u\n", bt656_vep->num_channels);
 	}
 
-	config->asd[0].match_type = V4L2_ASYNC_MATCH_FWNODE;
-	config->asd[0].match.fwnode = subdev;
-	config->asd_list[0] = &config->asd[0];
-	config->asd_sizes = 1;
-
 	v4l2_async_notifier_init(notifier);
 
-	ret = v4l2_async_notifier_add_subdev(notifier, &config->asd[0]);
-	if (ret) {
+	asd = v4l2_async_notifier_add_fwnode_subdev(notifier, subdev,
+				sizeof(struct v4l2_async_subdev));
+	if (IS_ERR(asd)) {
 		vip_dbg(1, port, "Error adding asd\n");
 		fwnode_handle_put(subdev);
+		v4l2_async_notifier_cleanup(notifier);
 		return -EINVAL;
 	}
 

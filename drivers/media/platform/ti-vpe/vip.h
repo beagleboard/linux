@@ -134,16 +134,6 @@ struct vip_bt656_bus {
 /*
  * There are two vip_dev structure, one for each vip slice: VIP1 & VIP2.
  */
-
-struct vip_async_config {
-	struct v4l2_async_subdev *asd_list[VIP_MAX_SUBDEV];
-	struct v4l2_async_subdev asd[VIP_MAX_SUBDEV];
-	struct v4l2_fwnode_endpoint endpoints[VIP_MAX_SUBDEV];
-	struct vip_bt656_bus bt656_endpoints[VIP_MAX_SUBDEV];
-	int asd_sizes;
-};
-
-
 struct vip_dev {
 	struct v4l2_device	*v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
@@ -196,11 +186,10 @@ struct vip_port {
 	int			num_streams;	/* count of open streams */
 	struct vip_stream	*cap_streams[VIP_CAP_STREAMS_PER_PORT];
 
-	struct vip_async_config	config;
 	struct v4l2_async_notifier notifier;
 	struct v4l2_subdev	*subdev;
-	struct v4l2_fwnode_endpoint *endpoint;
-	struct vip_bt656_bus	*bt656_endpoint;
+	struct v4l2_fwnode_endpoint endpoint;
+	struct vip_bt656_bus	bt656_endpoint;
 	struct vip_fmt		*active_fmt[VIP_MAX_ACTIVE_FMT];
 	int			num_active_fmt;
 	/* have new shadow reg values */
