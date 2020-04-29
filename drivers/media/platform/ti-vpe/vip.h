@@ -120,6 +120,7 @@ struct vip_shared {
 	struct vpdma_data	*vpdma;
 	struct v4l2_device	v4l2_dev;
 	struct vip_dev		*devs[VIP_NUM_SLICES];
+	struct v4l2_ctrl_handler ctrl_handler;
 };
 
 /*
@@ -136,7 +137,6 @@ struct vip_bt656_bus {
  */
 struct vip_dev {
 	struct v4l2_device	*v4l2_dev;
-	struct v4l2_ctrl_handler ctrl_handler;
 	struct platform_device *pdev;
 	struct vip_shared	*shared;
 	struct resource		*res;

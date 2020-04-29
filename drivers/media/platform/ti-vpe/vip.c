@@ -3776,7 +3776,6 @@ static int vip_probe_slice(struct platform_device *pdev, int slice, int instance
 	struct vip_shared *shared = platform_get_drvdata(pdev);
 	struct vip_dev *dev;
 	struct vip_parser_data *parser;
-	struct v4l2_ctrl_handler *hdl;
 	u32 vin_id;
 	int ret;
 
@@ -3799,10 +3798,6 @@ static int vip_probe_slice(struct platform_device *pdev, int slice, int instance
 
 	spin_lock_init(&dev->slock);
 	mutex_init(&dev->mutex);
-
-	hdl = &dev->ctrl_handler;
-	v4l2_ctrl_handler_init(hdl, 11);
-	shared->v4l2_dev.ctrl_handler = hdl;
 
 	dev->slice_id = slice;
 	dev->pdev = pdev;
@@ -3910,6 +3905,9 @@ static int vip_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, shared);
 
+	v4l2_ctrl_handler_init(&shared->ctrl_handler, 11);
+	shared->v4l2_dev.ctrl_handler = &shared->ctrl_handler;
+
 	for (slice = VIP_SLICE1; slice < VIP_NUM_SLICES; slice++) {
 		ret = vip_probe_slice(pdev, slice, instance_id);
 		if (ret) {
@@ -3928,6 +3926,7 @@ static int vip_probe(struct platform_device *pdev)
 	return 0;
 
 err_dev_unreg:
+	v4l2_ctrl_handler_free(&shared->ctrl_handler);
 	v4l2_device_unregister(&shared->v4l2_dev);
 err_runtime_put:
 	pm_runtime_put_sync(&pdev->dev);
@@ -3951,6 +3950,9 @@ static int vip_remove(struct platform_device *pdev)
 		free_port(dev->ports[VIP_PORTA]);
 		free_port(dev->ports[VIP_PORTB]);
 	}
+
+	v4l2_ctrl_handler_free(&shared->ctrl_handler);
+
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
