@@ -3853,12 +3853,6 @@ static int vip_probe(struct platform_device *pdev)
 	int instance_id;
 	u32 tmp, pid;
 
-	pm_runtime_enable(&pdev->dev);
-
-	ret = pm_runtime_get_sync(&pdev->dev);
-	if (ret)
-		goto err_runtime_get;
-
 	instance_id = (int)of_device_get_match_data(&pdev->dev);
 	if (!instance_id) {
 		dev_err(&pdev->dev, "%s: Unable to match device\n", __func__);
@@ -3882,15 +3876,18 @@ static int vip_probe(struct platform_device *pdev)
 
 	shared->res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vip");
 	shared->base = devm_ioremap_resource(&pdev->dev, shared->res);
-	if (IS_ERR(shared->base)) {
-		dev_err(&pdev->dev, "failed to ioremap\n");
-		ret = PTR_ERR(shared->base);
-		goto err_runtime_get;
-	}
+	if (IS_ERR(shared->base))
+		return PTR_ERR(shared->base);
 
 	vip_init_format_info(&pdev->dev);
 
 	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+
+	pm_runtime_enable(&pdev->dev);
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		goto err_runtime_disable;
 
 	/* Make sure H/W module has the right functionality */
 	pid = reg_read(shared, VIP_PID);
@@ -3900,12 +3897,12 @@ static int vip_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "vip: unexpected PID function: 0x%x\n",
 			 tmp);
 		ret = -ENODEV;
-		goto err_runtime_get;
+		goto err_runtime_put;
 	}
 
 	ret = v4l2_device_register(&pdev->dev, &shared->v4l2_dev);
 	if (ret)
-		goto err_runtime_get;
+		goto err_runtime_put;
 
 	/* enable clocks, so the firmware will load properly */
 	vip_shared_set_clock_enable(shared, 1);
@@ -3917,7 +3914,7 @@ static int vip_probe(struct platform_device *pdev)
 		ret = vip_probe_slice(pdev, slice, instance_id);
 		if (ret) {
 			dev_err(&pdev->dev, "Creating slice failed");
-			goto dev_unreg;
+			goto err_dev_unreg;
 		}
 	}
 
@@ -3925,19 +3922,19 @@ static int vip_probe(struct platform_device *pdev)
 	ret = vpdma_create(pdev, shared->vpdma, vip_vpdma_fw_cb);
 	if (ret) {
 		dev_err(&pdev->dev, "Creating VPDMA failed");
-		goto dev_unreg;
+		goto err_dev_unreg;
 	}
 
 	return 0;
-dev_unreg:
+
+err_dev_unreg:
 	v4l2_device_unregister(&shared->v4l2_dev);
-err_runtime_get:
-	if (slice == VIP_SLICE1) {
-		pm_runtime_disable(&pdev->dev);
-		return ret;
-	} else {
-		return 0;
-	}
+err_runtime_put:
+	pm_runtime_put_sync(&pdev->dev);
+err_runtime_disable:
+	pm_runtime_disable(&pdev->dev);
+
+	return ret;
 }
 
 static int vip_remove(struct platform_device *pdev)
