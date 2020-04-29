@@ -3430,7 +3430,6 @@ static void free_stream(struct vip_stream *stream)
 	}
 
 	video_unregister_device(stream->vfd);
-	video_device_release(stream->vfd);
 	vpdma_hwlist_release(dev->shared->vpdma, stream->list_num);
 	stream->port->cap_streams[stream->stream_id] = NULL;
 	kfree(stream);
