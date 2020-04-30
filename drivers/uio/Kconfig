@@ -165,4 +165,11 @@ config UIO_HV_GENERIC
 	  to network and storage devices from userspace.
 
 	  If you compile this as a module, it will be called uio_hv_generic.
+
+config UIO_IVSHMEM
+	tristate "Inter-VM Shared Memory driver"
+	depends on PCI
+	help
+	  Userspace I/O driver for the inter-VM shared memory PCI device
+	  as provided by QEMU and the Jailhouse hypervisor.
 endif
