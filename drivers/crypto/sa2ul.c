@@ -1762,8 +1762,8 @@ static void sa_sham_dma_in_callback(void *data)
 	for (i = 0; i < (authsize / 4); i++)
 		result[i] = htonl(mdptr[i + 4]);
 
-	sg_nents = sg_nents_for_len(req->src, req->nbytes);
-	dma_unmap_sg(rxd->ddev, req->src, sg_nents, DMA_FROM_DEVICE);
+	sg_nents = sg_nents_for_len(rxd->src, req->nbytes);
+	dma_unmap_sg(rxd->ddev, rxd->src, sg_nents, DMA_TO_DEVICE);
 
 	kfree(rxd);
 
@@ -1921,6 +1921,7 @@ static int sa_sham_digest(struct ahash_request *req)
 	rxd->req = (void *)req;
 	rxd->tx_in = tx_in;
 	rxd->ddev = ddev;
+	rxd->src = rctx->src;
 	tx_in->callback = sa_sham_dma_in_callback;
 	tx_in->callback_param = rxd;
 
