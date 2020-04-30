@@ -11,6 +11,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
+#include <linux/sys_soc.h>
 
 #include "cqhci.h"
 #include "sdhci-pltfm.h"
@@ -62,6 +63,8 @@
 #define CALDONE_MASK		BIT(CALDONE_SHIFT)
 #define RETRIM_SHIFT		17
 #define RETRIM_MASK		BIT(RETRIM_SHIFT)
+#define SELDLYTXCLK_SHIFT	17
+#define SELDLYTXCLK_MASK	BIT(SELDLYTXCLK_SHIFT)
 
 #define DRIVER_STRENGTH_50_OHM	0x0
 #define DRIVER_STRENGTH_33_OHM	0x1
@@ -100,6 +103,7 @@ struct sdhci_am654_driver_data {
 #define FREQSEL_2_BIT	(1 << 1)
 #define STRBSEL_4_BIT	(1 << 2)
 #define DLL_PRESENT	(1 << 3)
+#define DLL_CALIB	(1 << 4)
 };
 
 struct timing_data {
@@ -205,34 +209,41 @@ static void sdhci_am654_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	sdhci_set_clock(host, clock);
 
-	if (clock > CLOCK_TOO_SLOW_HZ) {
-		/* Setup DLL Output TAP delay */
-		if (sdhci_am654->legacy_otapdly)
-			otap_del_sel = sdhci_am654->otap_del_sel[0];
+	/* Setup DLL Output TAP delay */
+	if (sdhci_am654->legacy_otapdly)
+		otap_del_sel = sdhci_am654->otap_del_sel[0];
+	else
+		otap_del_sel = sdhci_am654->otap_del_sel[timing];
+
+	otap_del_ena = 1;
+
+	mask = OTAPDLYENA_MASK | OTAPDLYSEL_MASK;
+	val = (otap_del_ena << OTAPDLYENA_SHIFT) |
+	      (otap_del_sel << OTAPDLYSEL_SHIFT);
+
+	/* Write to STRBSEL for HS400 speed mode */
+	if (timing == MMC_TIMING_MMC_HS400) {
+		if (sdhci_am654->flags & STRBSEL_4_BIT)
+			mask |= STRBSEL_4BIT_MASK;
 		else
-			otap_del_sel = sdhci_am654->otap_del_sel[timing];
+			mask |= STRBSEL_8BIT_MASK;
 
-		otap_del_ena = (timing > MMC_TIMING_UHS_SDR25) ? 1 : 0;
-
-		mask = OTAPDLYENA_MASK | OTAPDLYSEL_MASK;
-		val = (otap_del_ena << OTAPDLYENA_SHIFT) |
-		      (otap_del_sel << OTAPDLYSEL_SHIFT);
-
-		/* Write to STRBSEL for HS400 speed mode */
-		if (timing == MMC_TIMING_MMC_HS400) {
-			if (sdhci_am654->flags & STRBSEL_4_BIT)
-				mask |= STRBSEL_4BIT_MASK;
-			else
-				mask |= STRBSEL_8BIT_MASK;
-
-			val |= sdhci_am654->strb_sel << STRBSEL_SHIFT;
-		}
-
-		regmap_update_bits(sdhci_am654->base, PHY_CTRL4, mask, val);
-
-		if (timing > MMC_TIMING_UHS_SDR25)
-			sdhci_am654_setup_dll(host, clock);
+		val |= sdhci_am654->strb_sel << STRBSEL_SHIFT;
 	}
+
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, mask, val);
+
+	if (timing > MMC_TIMING_UHS_SDR25 && clock > CLOCK_TOO_SLOW_HZ) {
+		regmap_update_bits(sdhci_am654->base, PHY_CTRL5,
+				   SELDLYTXCLK_MASK, 0);
+		sdhci_am654_setup_dll(host, clock);
+	} else {
+		regmap_update_bits(sdhci_am654->base, PHY_CTRL5,
+				   SELDLYTXCLK_MASK, 1 << SELDLYTXCLK_SHIFT);
+	}
+
+	regmap_update_bits(sdhci_am654->base, PHY_CTRL5, CLKBUFSEL_MASK,
+			   sdhci_am654->clkbuf_sel);
 }
 
 static void sdhci_j721e_4bit_set_clock(struct sdhci_host *host,
@@ -340,6 +351,12 @@ static const struct sdhci_pltfm_data sdhci_am654_pdata = {
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 };
 
+static const struct sdhci_am654_driver_data sdhci_am654_sr1_drvdata = {
+	.pdata = &sdhci_am654_pdata,
+	.flags = IOMUX_PRESENT | FREQSEL_2_BIT | STRBSEL_4_BIT | DLL_PRESENT |
+		 DLL_CALIB,
+};
+
 static const struct sdhci_am654_driver_data sdhci_am654_drvdata = {
 	.pdata = &sdhci_am654_pdata,
 	.flags = IOMUX_PRESENT | FREQSEL_2_BIT | STRBSEL_4_BIT | DLL_PRESENT,
@@ -365,7 +382,7 @@ static const struct sdhci_pltfm_data sdhci_j721e_8bit_pdata = {
 
 static const struct sdhci_am654_driver_data sdhci_j721e_8bit_drvdata = {
 	.pdata = &sdhci_j721e_8bit_pdata,
-	.flags = DLL_PRESENT,
+	.flags = DLL_PRESENT | DLL_CALIB,
 };
 
 static struct sdhci_ops sdhci_j721e_4bit_ops = {
@@ -389,6 +406,14 @@ static const struct sdhci_pltfm_data sdhci_j721e_4bit_pdata = {
 static const struct sdhci_am654_driver_data sdhci_j721e_4bit_drvdata = {
 	.pdata = &sdhci_j721e_4bit_pdata,
 	.flags = IOMUX_PRESENT,
+};
+
+static const struct soc_device_attribute sdhci_am654_devices[] = {
+	{ .family = "AM65X",
+	  .revision = "SR1.0",
+	  .data = &sdhci_am654_sr1_drvdata
+	},
+	{/* sentinel */}
 };
 
 static void sdhci_am654_dumpregs(struct mmc_host *mmc)
@@ -486,7 +511,7 @@ static int sdhci_am654_init(struct sdhci_host *host)
 	mask = OTAPDLYENA_MASK | OTAPDLYSEL_MASK;
 	regmap_update_bits(sdhci_am654->base, PHY_CTRL4, mask, 0x0);
 
-	if (sdhci_am654->flags & DLL_PRESENT) {
+	if (sdhci_am654->flags & DLL_CALIB) {
 		regmap_read(sdhci_am654->base, PHY_STAT1, &val);
 		if (~val & CALDONE_MASK) {
 			/* Calibrate IO lines */
@@ -604,6 +629,7 @@ static const struct of_device_id sdhci_am654_of_match[] = {
 static int sdhci_am654_probe(struct platform_device *pdev)
 {
 	const struct sdhci_am654_driver_data *drvdata;
+	const struct soc_device_attribute *soc;
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_am654_data *sdhci_am654;
 	const struct of_device_id *match;
@@ -616,6 +642,12 @@ static int sdhci_am654_probe(struct platform_device *pdev)
 
 	match = of_match_node(sdhci_am654_of_match, pdev->dev.of_node);
 	drvdata = match->data;
+
+	/* Update drvdata based on SoC revision */
+	soc = soc_device_match(sdhci_am654_devices);
+	if (soc && soc->data)
+		drvdata = soc->data;
+
 	host = sdhci_pltfm_init(pdev, drvdata->pdata, sizeof(*sdhci_am654));
 	if (IS_ERR(host))
 		return PTR_ERR(host);
