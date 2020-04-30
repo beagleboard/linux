@@ -1306,13 +1306,24 @@ static void sa_aead_dma_in_callback(void *data)
 		auth_len -= authsize;
 
 	sglen =  sg_nents_for_len(rxd->src, auth_len);
-	dma_unmap_sg(rxd->ddev, rxd->src, sglen, DMA_TO_DEVICE);
+
+	if (rxd->src == &rxd->rx_sg)
+		dma_unmap_sg(rxd->ddev, rxd->src, sglen, DMA_TO_DEVICE);
+	else
+		dma_unmap_sg(rxd->ddev, req->src, sglen, DMA_TO_DEVICE);
+
 	if (rxd->split_src_sg)
 		kfree(rxd->split_src_sg);
 
 	if (req->src != req->dst) {
 		sglen = sg_nents_for_len(rxd->dst, auth_len);
-		dma_unmap_sg(rxd->ddev, rxd->dst, sglen, DMA_FROM_DEVICE);
+		if (rxd->dst == &rxd->tx_sg)
+			dma_unmap_sg(rxd->ddev, rxd->dst, sglen,
+				     DMA_FROM_DEVICE);
+		else
+			dma_unmap_sg(rxd->ddev, req->dst, sglen,
+				     DMA_FROM_DEVICE);
+
 		if (rxd->split_dst_sg)
 			kfree(rxd->split_dst_sg);
 	}
@@ -1610,7 +1621,6 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	if (req->src == req->dst) {
 		dst_nents = req_ctx.src_nents;
 		dst_sg = req_ctx.src;
-		dma_map_sg(ddev, req->dst, dst_nents, DMA_FROM_DEVICE);
 	} else {
 		dst_nents = sg_nents_for_len(req->dst, auth_len);
 
