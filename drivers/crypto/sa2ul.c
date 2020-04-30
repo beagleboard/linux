@@ -1131,12 +1131,12 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 		return ret;
 	}
 
-	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
-	if (!rxd)
-		return -ENOMEM;
-
 	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
 		GFP_KERNEL : GFP_ATOMIC;
+
+	rxd = kzalloc(sizeof(*rxd), flags);
+	if (!rxd)
+		return -ENOMEM;
 
 	enc_offset = 0x0;
 	enc_len = req->nbytes;
@@ -1191,7 +1191,7 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 		mapped_dst_nents = dma_map_sg(ddev, req->dst, dst_nents,
 					      DMA_FROM_DEVICE);
 		ret = sg_split(req->dst, mapped_dst_nents, 0, 1, &split_size,
-			       &dst_sg, &dst_nents, GFP_KERNEL);
+			       &dst_sg, &dst_nents, flags);
 		if (ret) {
 			dst_nents = mapped_dst_nents;
 			dst_sg = req->dst;
@@ -1551,12 +1551,12 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	u32 req_type;
 	gfp_t flags;
 
-	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
-	if (!rxd)
-		return -ENOMEM;
-
 	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
 			GFP_KERNEL : GFP_ATOMIC;
+
+	rxd = kzalloc(sizeof(*rxd), flags);
+	if (!rxd)
+		return -ENOMEM;
 
 	enc_offset = req->assoclen;
 	enc_len = req->cryptlen;
@@ -1847,7 +1847,7 @@ static int sa_sham_digest(struct ahash_request *req)
 
 		crypto_init_wait(&wait);
 
-		subreq = ahash_request_alloc(ctx->fallback.ahash, GFP_KERNEL);
+		subreq = ahash_request_alloc(ctx->fallback.ahash, flags);
 		ahash_request_set_tfm(subreq, ctx->fallback.ahash);
 		subreq->base.flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP;
 		subreq->nbytes = auth_len;
@@ -1917,7 +1917,7 @@ static int sa_sham_digest(struct ahash_request *req)
 		return -EINVAL;
 	}
 
-	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
+	rxd = kzalloc(sizeof(*rxd), flags);
 	rxd->req = (void *)req;
 	rxd->tx_in = tx_in;
 	rxd->ddev = ddev;
@@ -2172,9 +2172,13 @@ static int sa_sham_update(struct ahash_request *req)
 	void *buf;
 	int pages;
 	struct page *pg;
+	gfp_t flags;
 
 	if (!req->nbytes)
 		return 0;
+
+	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
+		GFP_KERNEL : GFP_ATOMIC;
 
 	if (rctx->buf_free >= req->nbytes) {
 		pg = sg_page(rctx->sg_next);
@@ -2187,13 +2191,13 @@ static int sa_sham_update(struct ahash_request *req)
 		rctx->offset += req->nbytes;
 	} else {
 		pages = get_order(req->nbytes);
-		buf = (void *)__get_free_pages(GFP_ATOMIC, pages);
+		buf = (void *)__get_free_pages(flags, pages);
 		if (!buf) {
 			pr_err("get_free_pages failed.\n");
 			return -ENOMEM;
 		}
 
-		sg = kzalloc(sizeof(sg) * 2, GFP_KERNEL);
+		sg = kzalloc(sizeof(sg) * 2, flags);
 
 		sg_init_table(sg, 1);
 		sg_set_buf(sg, buf, req->nbytes);
