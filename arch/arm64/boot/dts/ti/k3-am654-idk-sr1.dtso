@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-2.0
+/**
+ * DT overlay for IDK application board on AM654 EVM SR1.0
+ *
+ * Copyright (C) 2020 Texas Instruments Incorporated - http://www.ti.com/
+ */
+
+#include "k3-am654-idk.dtso"
+
+
+&pruss0_eth {
+	compatible = "ti,am654-icssg-prueth-sr1";
+	prus = <&pru0_0>, <&rtu0_0>, <&pru0_1>, <&rtu0_1>;
+	firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
+			"ti-pruss/am65x-rtu0-prueth-fw.elf",
+			"ti-pruss/am65x-pru1-prueth-fw.elf",
+			"ti-pruss/am65x-rtu1-prueth-fw.elf";
+	ti,pruss-gp-mux-sel = <2>,      /* MII mode */
+			      <2>,
+			      <2>,      /* MII mode */
+			      <2>;
+};
+
+&pruss0_emac1 {
+	iep = <&icssg0_iep1>;
+};
+
+&pruss1_eth {
+	compatible = "ti,am654-icssg-prueth-sr1";
+	prus = <&pru1_0>, <&rtu1_0>, <&pru1_1>, <&rtu1_1>;
+	firmware-name = "ti-pruss/am65x-pru0-prueth-fw.elf",
+			"ti-pruss/am65x-rtu0-prueth-fw.elf",
+			"ti-pruss/am65x-pru1-prueth-fw.elf",
+			"ti-pruss/am65x-rtu1-prueth-fw.elf";
+	ti,pruss-gp-mux-sel = <2>,      /* MII mode */
+			      <2>,
+			      <2>,      /* MII mode */
+			      <2>;
+};
+
+&pruss1_emac1 {
+	iep = <&icssg1_iep1>;
+};
