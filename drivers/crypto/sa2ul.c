@@ -888,8 +888,10 @@ static int sa_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 	int ret;
 
 	if (keylen != AES_KEYSIZE_128 && keylen != AES_KEYSIZE_192 &&
-	    keylen != AES_KEYSIZE_256)
+	    keylen != AES_KEYSIZE_256) {
+		kfree(ad);
 		return -EINVAL;
+	}
 
 	cra_name = crypto_tfm_alg_name(&tfm->base);
 
@@ -906,8 +908,10 @@ static int sa_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 				       tfm->base.crt_flags &
 				       CRYPTO_TFM_REQ_MASK);
 	ret = crypto_sync_skcipher_setkey(ctx->fallback.skcipher, key, keylen);
-	if (ret)
+	if (ret) {
+		kfree(ad);
 		return ret;
+	}
 
 	/* Setup Encryption Security Context & Command label template */
 	if (sa_init_sc(&ctx->enc, key, keylen,
@@ -945,6 +949,7 @@ static int sa_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 	return 0;
 
 badkey:
+	kfree(ad);
 	dev_err(sa_k3_dev, "%s: badkey\n", __func__);
 	return -EINVAL;
 }
@@ -1462,6 +1467,9 @@ static int sa_aead_setkey(struct crypto_aead *authenc,
 
 badkey:
 	dev_err(sa_k3_dev, "%s: badkey\n", __func__);
+
+	kfree(ad);
+
 	return -EINVAL;
 }
 
@@ -1473,8 +1481,10 @@ static int sa_aead_cbc_sha1_setkey(struct crypto_aead *authenc,
 	int ret = 0, key_idx;
 
 	ret = crypto_authenc_extractkeys(&keys, key, keylen);
-	if (ret)
+	if (ret) {
+		kfree(ad);
 		return ret;
+	}
 
 	/* Convert the key size (16/24/32) to the key size index (0/1/2) */
 	key_idx = (keys.enckeylen >> 3) - 2;
@@ -1503,8 +1513,10 @@ static int sa_aead_cbc_sha256_setkey(struct crypto_aead *authenc,
 	int ret = 0, key_idx;
 
 	ret = crypto_authenc_extractkeys(&keys, key, keylen);
-	if (ret)
+	if (ret) {
+		kfree(ad);
 		return ret;
+	}
 
 	/* Convert the key size (16/24/32) to the key size index (0/1/2) */
 	key_idx = (keys.enckeylen >> 3) - 2;
