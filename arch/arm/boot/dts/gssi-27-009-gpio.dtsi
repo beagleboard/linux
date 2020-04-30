@@ -1,0 +1,49 @@
+/ {
+	gpio_keys {
+		compatible = "gpio-keys";
+
+		marker {
+			label = "GSSI Marker Switch";
+		    pinctrl-names = "default";
+		    pinctrl-0 = <&power_switch_pins>;
+			gpios = <&gpio2 31 GPIO_ACTIVE_HIGH>;
+			debounce-interval = <5>;
+			interrupts = <0x1 0x4 0x7>;
+		};
+	};
+
+	gpio_poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio1 31 GPIO_ACTIVE_HIGH>;
+	};
+
+	sir4k_cable {
+		compatible = "extcon-gpio";
+		gpios = <&gpio2 20 GPIO_ACTIVE_HIGH>;
+	};
+
+    power_leds {
+		compatible = "gpio-leds";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&power_switch_pins>;
+
+        power_led0 {
+            label = "gssi:led2_7";
+		    gpios = <&gpio2 7 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "default-on";
+		    default-state = "on";
+        };
+    };
+};
+
+&dra7_pmx_core {
+    power_switch_pins: pinmux_power_switch_pins {
+        pinctrl-single,pins = <
+            DRA7XX_CORE_IOPAD(0x3464, PIN_INPUT_PULLDOWN  | MUX_MODE14) /* R04 gpmc_a9     gpio1_31 power sw */
+            DRA7XX_CORE_IOPAD(0x3484, PIN_OUTPUT_PULLUP   | MUX_MODE14) /* P03 gpmc_a17    gpio2_7  power LED */
+            DRA7XX_CORE_IOPAD(0x34B8, PIN_INPUT_PULLDOWN  | MUX_MODE14) /* P02 gpmc_cs2    gpio2_20 sir4K */
+            DRA7XX_CORE_IOPAD(0x34E0, PIN_INPUT_PULLDOWN  | MUX_MODE14) /* AH7 vin1b_clik1 gpio2_32 marker*/
+        >;
+    };
+};
