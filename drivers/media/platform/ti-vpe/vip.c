@@ -2761,7 +2761,7 @@ done:
 
 static inline bool is_scaler_available(struct vip_port *port)
 {
-	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL)
+	if (port->endpoint.bus_type == V4L2_MBUS_PARALLEL)
 		if (port->dev->sc_assigned == VIP_NOT_ASSIGNED ||
 		    port->dev->sc_assigned == port->port_id)
 			return true;
@@ -2791,7 +2791,7 @@ static inline void free_scaler(struct vip_port *port)
 
 static bool is_csc_available(struct vip_port *port)
 {
-	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL)
+	if (port->endpoint.bus_type == V4L2_MBUS_PARALLEL)
 		if (port->dev->csc_assigned == VIP_NOT_ASSIGNED ||
 		    port->dev->csc_assigned == port->port_id)
 			return true;
@@ -3020,8 +3020,8 @@ static int vip_setup_parser(struct vip_port *port)
 {
 	struct vip_dev *dev = port->dev;
 	struct vip_parser_data *parser = dev->parser;
-	struct v4l2_fwnode_endpoint *endpoint = port->endpoint;
-	struct vip_bt656_bus *bt656_ep = port->bt656_endpoint;
+	struct v4l2_fwnode_endpoint *endpoint = &port->endpoint;
+	struct vip_bt656_bus *bt656_ep = &port->bt656_endpoint;
 	int iface, sync_type;
 	u32 flags = 0, config0;
 
@@ -3430,7 +3430,6 @@ static void free_stream(struct vip_stream *stream)
 	}
 
 	video_unregister_device(stream->vfd);
-	video_device_release(stream->vfd);
 	vpdma_hwlist_release(dev->shared->vpdma, stream->list_num);
 	stream->port->cap_streams[stream->stream_id] = NULL;
 	kfree(stream);
@@ -3472,7 +3471,7 @@ static int get_subdev_active_format(struct vip_port *port,
 			 * either CSC or CHR_DS
 			 */
 			csc = vip_csc_direction(fmt->code, fmt->finfo);
-			if (port->endpoint->bus_type == V4L2_MBUS_BT656 &&
+			if (port->endpoint.bus_type == V4L2_MBUS_BT656 &&
 			    (csc != VIP_CSC_NA || fmt->coplanar))
 				continue;
 
@@ -3520,6 +3519,7 @@ static void free_port(struct vip_port *port)
 		return;
 
 	v4l2_async_notifier_unregister(&port->notifier);
+	v4l2_async_notifier_cleanup(&port->notifier);
 	free_stream(port->cap_streams[0]);
 }
 
@@ -3552,14 +3552,14 @@ static int vip_create_streams(struct vip_port *port,
 
 	port->subdev = subdev;
 
-	if (port->endpoint->bus_type == V4L2_MBUS_PARALLEL) {
+	if (port->endpoint.bus_type == V4L2_MBUS_PARALLEL) {
 		port->flags |= FLAG_MULT_PORT;
 		port->num_streams_configured = 1;
 		alloc_stream(port, 0, VFL_TYPE_GRABBER);
-	} else if (port->endpoint->bus_type == V4L2_MBUS_BT656) {
+	} else if (port->endpoint.bus_type == V4L2_MBUS_BT656) {
 		port->flags |= FLAG_MULT_PORT;
-		bus = &port->endpoint->bus.parallel;
-		bt656_ep = port->bt656_endpoint;
+		bus = &port->endpoint.bus.parallel;
+		bt656_ep = &port->bt656_endpoint;
 		port->num_streams_configured = bt656_ep->num_channels;
 		for (i = 0; i < bt656_ep->num_channels; i++) {
 			if (bt656_ep->channels[i] >= 16)
@@ -3575,29 +3575,16 @@ static int vip_async_bound(struct v4l2_async_notifier *notifier,
 			   struct v4l2_async_subdev *asd)
 {
 	struct vip_port *port = notifier_to_vip_port(notifier);
-	struct vip_async_config *config = &port->config;
-	unsigned int idx = asd - &config->asd[0];
 	int ret;
 
 	vip_dbg(1, port, "%s\n", __func__);
-	if (idx > config->asd_sizes)
-		return -EINVAL;
 
 	if (port->subdev) {
-		if (asd < port->subdev->asd)
-			/* Notified of a subdev earlier in the array */
-			vip_info(port, "Switching to subdev %s (High priority)",
-				 subdev->name);
-
-		else {
-			vip_info(port, "Rejecting subdev %s (Low priority)",
-				 subdev->name);
-			return 0;
-		}
+		vip_info(port, "Rejecting subdev %s (Already set!!)",
+			 subdev->name);
+		return 0;
 	}
 
-	port->endpoint = &config->endpoints[idx];
-	port->bt656_endpoint = &config->bt656_endpoints[idx];
 	vip_info(port, "Port %c: Using subdev %s for capture\n",
 		 port->port_id == VIP_PORTA ? 'A' : 'B', subdev->name);
 
@@ -3632,16 +3619,16 @@ fwnode_graph_get_next_endpoint_by_regs(const struct fwnode_handle *fwnode,
 static int vip_register_subdev_notif(struct vip_port *port,
 				     struct fwnode_handle *ep)
 {
-	struct vip_async_config *config = &port->config;
 	struct v4l2_async_notifier *notifier = &port->notifier;
 	struct vip_dev *dev = port->dev;
 	struct fwnode_handle *subdev;
 	struct v4l2_fwnode_endpoint *vep;
 	struct vip_bt656_bus *bt656_vep;
+	struct v4l2_async_subdev *asd;
 	int ret, rval;
 
-	vep = &config->endpoints[0];
-	bt656_vep = &config->bt656_endpoints[0];
+	vep = &port->endpoint;
+	bt656_vep = &port->bt656_endpoint;
 
 	subdev = fwnode_graph_get_remote_port_parent(ep);
 	if (!subdev) {
@@ -3678,17 +3665,14 @@ static int vip_register_subdev_notif(struct vip_port *port,
 		vip_dbg(3, port, "ti,vip-channels %u\n", bt656_vep->num_channels);
 	}
 
-	config->asd[0].match_type = V4L2_ASYNC_MATCH_FWNODE;
-	config->asd[0].match.fwnode = subdev;
-	config->asd_list[0] = &config->asd[0];
-	config->asd_sizes = 1;
-
 	v4l2_async_notifier_init(notifier);
 
-	ret = v4l2_async_notifier_add_subdev(notifier, &config->asd[0]);
-	if (ret) {
+	asd = v4l2_async_notifier_add_fwnode_subdev(notifier, subdev,
+				sizeof(struct v4l2_async_subdev));
+	if (IS_ERR(asd)) {
 		vip_dbg(1, port, "Error adding asd\n");
 		fwnode_handle_put(subdev);
+		v4l2_async_notifier_cleanup(notifier);
 		return -EINVAL;
 	}
 
@@ -3786,22 +3770,82 @@ static int vip_probe_complete(struct platform_device *pdev)
 	return 0;
 }
 
+static int vip_probe_slice(struct platform_device *pdev, int slice, int instance_id)
+{
+	struct vip_shared *shared = platform_get_drvdata(pdev);
+	struct vip_dev *dev;
+	struct vip_parser_data *parser;
+	u32 vin_id;
+	int ret;
+
+	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	dev->instance_id = instance_id;
+	vin_id = 1 + ((dev->instance_id - 1) * 2) + slice;
+	snprintf(dev->name, sizeof(dev->name), "vin%d", vin_id);
+
+	dev->irq = platform_get_irq(pdev, slice);
+	if (dev->irq < 0)
+		return dev->irq;
+
+	ret = devm_request_irq(&pdev->dev, dev->irq, vip_irq,
+			       0, dev->name, dev);
+	if (ret < 0)
+		return -ENOMEM;
+
+	spin_lock_init(&dev->slock);
+	mutex_init(&dev->mutex);
+
+	dev->slice_id = slice;
+	dev->pdev = pdev;
+	dev->res = shared->res;
+	dev->base = shared->base;
+	dev->v4l2_dev = &shared->v4l2_dev;
+
+	dev->shared = shared;
+	shared->devs[slice] = dev;
+
+	vip_top_reset(dev);
+	vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT, 1);
+
+	parser = devm_kzalloc(&pdev->dev, sizeof(*dev->parser), GFP_KERNEL);
+	if (!parser)
+		return PTR_ERR(parser);
+
+	parser->res = platform_get_resource_byname(pdev,
+						   IORESOURCE_MEM,
+						   (slice == 0) ?
+						   "parser0" :
+						   "parser1");
+	parser->base = devm_ioremap_resource(&pdev->dev, parser->res);
+	if (IS_ERR(parser->base))
+		return PTR_ERR(parser->base);
+
+	parser->pdev = pdev;
+	dev->parser = parser;
+
+	dev->sc_assigned = VIP_NOT_ASSIGNED;
+	dev->sc = sc_create(pdev, (slice == 0) ? "sc0" : "sc1");
+	if (IS_ERR(dev->sc))
+		return PTR_ERR(dev->sc);
+
+	dev->csc_assigned = VIP_NOT_ASSIGNED;
+	dev->csc = csc_create(pdev, (slice == 0) ? "csc0" : "csc1");
+	if (IS_ERR(dev->sc))
+		return PTR_ERR(dev->sc);
+
+	return 0;
+}
+
 static int vip_probe(struct platform_device *pdev)
 {
-	struct vip_dev *dev;
 	struct vip_shared *shared;
-	struct vip_parser_data *parser;
 	struct pinctrl *pinctrl;
 	int ret, slice = VIP_SLICE1;
 	int instance_id;
 	u32 tmp, pid;
-	struct v4l2_ctrl_handler *hdl;
-
-	pm_runtime_enable(&pdev->dev);
-
-	ret = pm_runtime_get_sync(&pdev->dev);
-	if (ret)
-		goto err_runtime_get;
 
 	instance_id = (int)of_device_get_match_data(&pdev->dev);
 	if (!instance_id) {
@@ -3826,15 +3870,18 @@ static int vip_probe(struct platform_device *pdev)
 
 	shared->res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vip");
 	shared->base = devm_ioremap_resource(&pdev->dev, shared->res);
-	if (IS_ERR(shared->base)) {
-		dev_err(&pdev->dev, "failed to ioremap\n");
-		ret = PTR_ERR(shared->base);
-		goto err_runtime_get;
-	}
+	if (IS_ERR(shared->base))
+		return PTR_ERR(shared->base);
 
 	vip_init_format_info(&pdev->dev);
 
 	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+
+	pm_runtime_enable(&pdev->dev);
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret)
+		goto err_runtime_disable;
 
 	/* Make sure H/W module has the right functionality */
 	pid = reg_read(shared, VIP_PID);
@@ -3844,12 +3891,12 @@ static int vip_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "vip: unexpected PID function: 0x%x\n",
 			 tmp);
 		ret = -ENODEV;
-		goto err_runtime_get;
+		goto err_runtime_put;
 	}
 
 	ret = v4l2_device_register(&pdev->dev, &shared->v4l2_dev);
 	if (ret)
-		goto err_runtime_get;
+		goto err_runtime_put;
 
 	/* enable clocks, so the firmware will load properly */
 	vip_shared_set_clock_enable(shared, 1);
@@ -3857,82 +3904,14 @@ static int vip_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, shared);
 
+	v4l2_ctrl_handler_init(&shared->ctrl_handler, 11);
+	shared->v4l2_dev.ctrl_handler = &shared->ctrl_handler;
+
 	for (slice = VIP_SLICE1; slice < VIP_NUM_SLICES; slice++) {
-		u32 vin_id;
-
-		dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
-		if (!dev) {
-			ret = -ENOMEM;
-			goto err_runtime_get;
-		}
-		dev->instance_id = instance_id;
-		vin_id = 1 + ((dev->instance_id - 1) * 2) + slice;
-		snprintf(dev->name, sizeof(dev->name),
-			 "vin%d", vin_id);
-
-		dev->irq = platform_get_irq(pdev, slice);
-		if (dev->irq < 0) {
-			ret = dev->irq;
-			goto err_runtime_get;
-		}
-
-
-		ret = devm_request_irq(&pdev->dev, dev->irq, vip_irq,
-				       0, dev->name, dev);
-		if (ret < 0) {
-			ret = -ENOMEM;
-			goto dev_unreg;
-		}
-
-		spin_lock_init(&dev->slock);
-		mutex_init(&dev->mutex);
-
-		hdl = &dev->ctrl_handler;
-		v4l2_ctrl_handler_init(hdl, 11);
-		shared->v4l2_dev.ctrl_handler = hdl;
-
-		dev->slice_id = slice;
-		dev->pdev = pdev;
-		dev->res = shared->res;
-		dev->base = shared->base;
-		dev->v4l2_dev = &shared->v4l2_dev;
-
-		dev->shared = shared;
-		shared->devs[slice] = dev;
-
-		vip_top_reset(dev);
-		vip_set_slice_path(dev, VIP_MULTI_CHANNEL_DATA_SELECT, 1);
-
-		parser = devm_kzalloc(&pdev->dev, sizeof(*dev->parser),
-				      GFP_KERNEL);
-		if (!parser)
-			return PTR_ERR(parser);
-
-		parser->res = platform_get_resource_byname(pdev,
-							   IORESOURCE_MEM,
-							   (slice == 0) ?
-							   "parser0" :
-							   "parser1");
-		parser->base = devm_ioremap_resource(&pdev->dev, parser->res);
-		if (IS_ERR(parser->base)) {
-			ret = PTR_ERR(parser->base);
-			goto dev_unreg;
-		}
-		parser->pdev = pdev;
-		dev->parser = parser;
-
-		dev->sc_assigned = VIP_NOT_ASSIGNED;
-		dev->sc = sc_create(pdev, (slice == 0) ? "sc0" : "sc1");
-		if (IS_ERR(dev->sc)) {
-			ret = PTR_ERR(dev->sc);
-			goto dev_unreg;
-		}
-
-		dev->csc_assigned = VIP_NOT_ASSIGNED;
-		dev->csc = csc_create(pdev, (slice == 0) ? "csc0" : "csc1");
-		if (IS_ERR(dev->sc)) {
-			ret = PTR_ERR(dev->sc);
-			goto dev_unreg;
+		ret = vip_probe_slice(pdev, slice, instance_id);
+		if (ret) {
+			dev_err(&pdev->dev, "Creating slice failed");
+			goto err_dev_unreg;
 		}
 	}
 
@@ -3940,19 +3919,20 @@ static int vip_probe(struct platform_device *pdev)
 	ret = vpdma_create(pdev, shared->vpdma, vip_vpdma_fw_cb);
 	if (ret) {
 		dev_err(&pdev->dev, "Creating VPDMA failed");
-		goto dev_unreg;
+		goto err_dev_unreg;
 	}
 
 	return 0;
-dev_unreg:
+
+err_dev_unreg:
+	v4l2_ctrl_handler_free(&shared->ctrl_handler);
 	v4l2_device_unregister(&shared->v4l2_dev);
-err_runtime_get:
-	if (slice == VIP_SLICE1) {
-		pm_runtime_disable(&pdev->dev);
-		return ret;
-	} else {
-		return 0;
-	}
+err_runtime_put:
+	pm_runtime_put_sync(&pdev->dev);
+err_runtime_disable:
+	pm_runtime_disable(&pdev->dev);
+
+	return ret;
 }
 
 static int vip_remove(struct platform_device *pdev)
@@ -3969,6 +3949,9 @@ static int vip_remove(struct platform_device *pdev)
 		free_port(dev->ports[VIP_PORTA]);
 		free_port(dev->ports[VIP_PORTB]);
 	}
+
+	v4l2_ctrl_handler_free(&shared->ctrl_handler);
+
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
