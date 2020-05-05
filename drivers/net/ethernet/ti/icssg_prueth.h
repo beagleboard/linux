@@ -33,12 +33,15 @@
 
 #include "icssg_config.h"
 #include "icssg_iep.h"
+#include "icssg_switch_map.h"
 
 #define ICSS_SLICE0	0
 #define ICSS_SLICE1	1
 
 #define ICSS_FW_PRU	0
 #define ICSS_FW_RTU	1
+
+#define ICSSG_MAX_RFLOWS	8	/* per slice */
 
 /* Firmware status codes */
 #define ICSS_HS_FW_READY 0x55555555
@@ -97,7 +100,7 @@ struct prueth_rx_chn {
 	struct k3_udma_glue_rx_channel *rx_chn;
 	u32 descs_num;
 	spinlock_t lock;	/* to serialize */
-	unsigned int irq[4];	/* separate irq per flow */
+	unsigned int irq[ICSSG_MAX_RFLOWS];	/* separate irq per flow */
 };
 
 enum prueth_state_flags {
@@ -106,6 +109,8 @@ enum prueth_state_flags {
 
 /* data for each emac port */
 struct prueth_emac {
+	bool is_sr1;
+	bool fw_running;
 	struct prueth *prueth;
 	struct net_device *ndev;
 	u8 mac_addr[6];
@@ -123,6 +128,7 @@ struct prueth_emac {
 	struct phy_device *phydev;
 	enum prueth_port port_id;
 	struct icssg_iep iep;
+	bool iep_initialized;
 	struct hwtstamp_config tstamp_config;
 	unsigned int rx_ts_enabled : 1;
 	unsigned int tx_ts_enabled : 1;
@@ -132,6 +138,8 @@ struct prueth_emac {
 	struct completion tdown_complete;
 	struct prueth_rx_chn rx_chns;
 	int rx_flow_id_base;
+
+	/* SR1.0 Management channel */
 	struct prueth_rx_chn rx_mgm_chn;
 	int rx_mgm_flow_id_base;
 
@@ -141,20 +149,27 @@ struct prueth_emac {
 	u32 tx_ts_cookie;
 	struct sk_buff *tx_ts_skb;
 	unsigned long state;
+	int irq;
 
+	u8 cmd_seq;
 	/* shutdown related */
 	u32 cmd_data[4];
 	struct completion cmd_complete;
 	/* Mutex to serialize access to firmware command interface */
 	struct mutex cmd_lock;
+
+	struct work_struct ts_work;
+	struct pruss_mem_region dram;
 };
 
 /**
  * struct prueth - PRUeth structure
+ * @is_sr1: device is pg1.0 (pg1.0 will be deprecated upstream)
  * @dev: device
  * @pruss: pruss handle
- * @pru0: rproc instance of PRUs
- * @rtu0: rproc instance of RTUs
+ * @pru: rproc instances of PRUs
+ * @rtu: rproc instances of RTUs
+ * @rtu: rproc instances of TX_PRUs
  * @shram: PRUSS shared RAM region
  * @sram_pool: MSMC RAM pool for buffers
  * @msmcram: MSMC RAM region
@@ -164,12 +179,15 @@ struct prueth_emac {
  * @fw_data: firmware names to be used with PRU remoteprocs
  * @config: firmware load time configuration per slice
  * @miig_rt: regmap to mii_g_rt block
+ * @pa_stats: regmap to pa_stats block
  */
 struct prueth {
+	bool is_sr1;
 	struct device *dev;
 	struct pruss *pruss;
 	struct rproc *pru[PRUSS_NUM_PRUS];
 	struct rproc *rtu[PRUSS_NUM_PRUS];
+	struct rproc *txpru[PRUSS_NUM_PRUS];
 	struct pruss_mem_region shram;
 	struct gen_pool *sram_pool;
 	struct pruss_mem_region msmcram;
@@ -178,17 +196,40 @@ struct prueth {
 	struct prueth_emac *emac[PRUETH_NUM_MACS];
 	struct net_device *registered_netdevs[PRUETH_NUM_MACS];
 	const struct prueth_private_data *fw_data;
-	struct icssg_config config[PRUSS_NUM_PRUS];
+	struct icssg_config_sr1 config[PRUSS_NUM_PRUS];
 	struct regmap *miig_rt;
 	struct regmap *mii_rt;
+	struct regmap *pa_stats;
 };
 
-struct emac_tx_ts_response {
+struct emac_tx_ts_response_sr1 {
 	u32 lo_ts;
 	u32 hi_ts;
 	u32 reserved;
 	u32 cookie;
 };
+
+struct emac_tx_ts_response {
+	u32 reserved[2];
+	u32 cookie;
+	u32 lo_ts;
+	u32 hi_ts;
+};
+
+static inline u64 icssg_ts_to_ns(u32 hi_sw, u32 hi, u32 lo, u32 cycle_time_ns)
+{
+	u32 iepcount_lo, iepcount_hi, hi_rollover_count;
+	u64 ns;
+
+	iepcount_lo = lo & GENMASK(19, 0);
+	iepcount_hi = (hi & GENMASK(11, 0)) << 12 | lo >> 20;
+	hi_rollover_count = hi >> 11;
+
+	ns = ((u64)hi_rollover_count) << 23 | (iepcount_hi + hi_sw);
+	ns = ns * cycle_time_ns + iepcount_lo;
+
+	return ns;
+}
 
 /* Classifier helpers */
 void icssg_class_set_mac_addr(struct regmap *miig_rt, int slice, u8 *mac);
@@ -197,6 +238,11 @@ void icssg_class_default(struct regmap *miig_rt, int slice, bool allmulti);
 void icssg_class_promiscuous(struct regmap *miig_rt, int slice);
 void icssg_class_add_mcast(struct regmap *miig_rt, int slice,
 			   struct net_device *ndev);
+
+/* Buffer queue helpers */
+int icssg_queue_pop(struct prueth *prueth, u8 queue);
+void icssg_queue_push(struct prueth *prueth, int queue, u16 addr);
+u32 icssg_queue_level(struct prueth *prueth, int queue);
 
 /* get PRUSS SLICE number from prueth_emac */
 static inline int prueth_emac_slice(struct prueth_emac *emac)
@@ -210,4 +256,15 @@ static inline int prueth_emac_slice(struct prueth_emac *emac)
 		return -EINVAL;
 	}
 }
+
+/* config helpers */
+void icssg_config_ipg(struct prueth *prueth, int speed, int mii);
+void icssg_config_sr1(struct prueth *prueth, struct prueth_emac *emac,
+		      int slice);
+int icssg_config_sr2(struct prueth *prueth, struct prueth_emac *emac,
+		     int slice);
+int emac_send_command_sr2(struct prueth_emac *emac, struct icssg_cmd *cmd);
+int emac_set_port_state(struct prueth_emac *emac,
+			enum icssg_port_state_cmd state);
+
 #endif /* __NET_TI_ICSSG_PRUETH_H */
