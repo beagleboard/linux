@@ -1706,7 +1706,7 @@ static int prueth_netdev_init(struct prueth *prueth,
 	ndev->netdev_ops = &emac_netdev_ops;
 	ndev->ethtool_ops = &icssg_ethtool_ops;
 
-	ret = icssg_iep_init(&emac->iep, prueth->dev, iep_map, refclk_freq);
+	ret = icssg_iep_init(&emac->iep, prueth->dev, iep_map, refclk_freq, 0);
 	if (ret)
 		goto free;
 
