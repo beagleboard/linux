@@ -888,8 +888,10 @@ static int sa_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 	int ret;
 
 	if (keylen != AES_KEYSIZE_128 && keylen != AES_KEYSIZE_192 &&
-	    keylen != AES_KEYSIZE_256)
+	    keylen != AES_KEYSIZE_256) {
+		kfree(ad);
 		return -EINVAL;
+	}
 
 	cra_name = crypto_tfm_alg_name(&tfm->base);
 
@@ -906,8 +908,10 @@ static int sa_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 				       tfm->base.crt_flags &
 				       CRYPTO_TFM_REQ_MASK);
 	ret = crypto_sync_skcipher_setkey(ctx->fallback.skcipher, key, keylen);
-	if (ret)
+	if (ret) {
+		kfree(ad);
 		return ret;
+	}
 
 	/* Setup Encryption Security Context & Command label template */
 	if (sa_init_sc(&ctx->enc, key, keylen,
@@ -945,6 +949,7 @@ static int sa_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 	return 0;
 
 badkey:
+	kfree(ad);
 	dev_err(sa_k3_dev, "%s: badkey\n", __func__);
 	return -EINVAL;
 }
@@ -1131,12 +1136,12 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 		return ret;
 	}
 
-	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
-	if (!rxd)
-		return -ENOMEM;
-
 	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
 		GFP_KERNEL : GFP_ATOMIC;
+
+	rxd = kzalloc(sizeof(*rxd), flags);
+	if (!rxd)
+		return -ENOMEM;
 
 	enc_offset = 0x0;
 	enc_len = req->nbytes;
@@ -1191,7 +1196,7 @@ static int sa_aes_run(struct ablkcipher_request *req, u8 *iv, int enc)
 		mapped_dst_nents = dma_map_sg(ddev, req->dst, dst_nents,
 					      DMA_FROM_DEVICE);
 		ret = sg_split(req->dst, mapped_dst_nents, 0, 1, &split_size,
-			       &dst_sg, &dst_nents, GFP_KERNEL);
+			       &dst_sg, &dst_nents, flags);
 		if (ret) {
 			dst_nents = mapped_dst_nents;
 			dst_sg = req->dst;
@@ -1306,13 +1311,24 @@ static void sa_aead_dma_in_callback(void *data)
 		auth_len -= authsize;
 
 	sglen =  sg_nents_for_len(rxd->src, auth_len);
-	dma_unmap_sg(rxd->ddev, rxd->src, sglen, DMA_TO_DEVICE);
+
+	if (rxd->src == &rxd->rx_sg)
+		dma_unmap_sg(rxd->ddev, rxd->src, sglen, DMA_TO_DEVICE);
+	else
+		dma_unmap_sg(rxd->ddev, req->src, sglen, DMA_TO_DEVICE);
+
 	if (rxd->split_src_sg)
 		kfree(rxd->split_src_sg);
 
 	if (req->src != req->dst) {
 		sglen = sg_nents_for_len(rxd->dst, auth_len);
-		dma_unmap_sg(rxd->ddev, rxd->dst, sglen, DMA_FROM_DEVICE);
+		if (rxd->dst == &rxd->tx_sg)
+			dma_unmap_sg(rxd->ddev, rxd->dst, sglen,
+				     DMA_FROM_DEVICE);
+		else
+			dma_unmap_sg(rxd->ddev, req->dst, sglen,
+				     DMA_FROM_DEVICE);
+
 		if (rxd->split_dst_sg)
 			kfree(rxd->split_dst_sg);
 	}
@@ -1451,6 +1467,9 @@ static int sa_aead_setkey(struct crypto_aead *authenc,
 
 badkey:
 	dev_err(sa_k3_dev, "%s: badkey\n", __func__);
+
+	kfree(ad);
+
 	return -EINVAL;
 }
 
@@ -1462,8 +1481,10 @@ static int sa_aead_cbc_sha1_setkey(struct crypto_aead *authenc,
 	int ret = 0, key_idx;
 
 	ret = crypto_authenc_extractkeys(&keys, key, keylen);
-	if (ret)
+	if (ret) {
+		kfree(ad);
 		return ret;
+	}
 
 	/* Convert the key size (16/24/32) to the key size index (0/1/2) */
 	key_idx = (keys.enckeylen >> 3) - 2;
@@ -1492,8 +1513,10 @@ static int sa_aead_cbc_sha256_setkey(struct crypto_aead *authenc,
 	int ret = 0, key_idx;
 
 	ret = crypto_authenc_extractkeys(&keys, key, keylen);
-	if (ret)
+	if (ret) {
+		kfree(ad);
 		return ret;
+	}
 
 	/* Convert the key size (16/24/32) to the key size index (0/1/2) */
 	key_idx = (keys.enckeylen >> 3) - 2;
@@ -1540,12 +1563,12 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	u32 req_type;
 	gfp_t flags;
 
-	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
-	if (!rxd)
-		return -ENOMEM;
-
 	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
 			GFP_KERNEL : GFP_ATOMIC;
+
+	rxd = kzalloc(sizeof(*rxd), flags);
+	if (!rxd)
+		return -ENOMEM;
 
 	enc_offset = req->assoclen;
 	enc_len = req->cryptlen;
@@ -1610,7 +1633,6 @@ static int sa_aead_run(struct aead_request *req, u8 *iv, int enc)
 	if (req->src == req->dst) {
 		dst_nents = req_ctx.src_nents;
 		dst_sg = req_ctx.src;
-		dma_map_sg(ddev, req->dst, dst_nents, DMA_FROM_DEVICE);
 	} else {
 		dst_nents = sg_nents_for_len(req->dst, auth_len);
 
@@ -1752,8 +1774,8 @@ static void sa_sham_dma_in_callback(void *data)
 	for (i = 0; i < (authsize / 4); i++)
 		result[i] = htonl(mdptr[i + 4]);
 
-	sg_nents = sg_nents_for_len(req->src, req->nbytes);
-	dma_unmap_sg(rxd->ddev, req->src, sg_nents, DMA_FROM_DEVICE);
+	sg_nents = sg_nents_for_len(rxd->src, req->nbytes);
+	dma_unmap_sg(rxd->ddev, rxd->src, sg_nents, DMA_TO_DEVICE);
 
 	kfree(rxd);
 
@@ -1837,7 +1859,7 @@ static int sa_sham_digest(struct ahash_request *req)
 
 		crypto_init_wait(&wait);
 
-		subreq = ahash_request_alloc(ctx->fallback.ahash, GFP_KERNEL);
+		subreq = ahash_request_alloc(ctx->fallback.ahash, flags);
 		ahash_request_set_tfm(subreq, ctx->fallback.ahash);
 		subreq->base.flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP;
 		subreq->nbytes = auth_len;
@@ -1907,10 +1929,11 @@ static int sa_sham_digest(struct ahash_request *req)
 		return -EINVAL;
 	}
 
-	rxd = kzalloc(sizeof(*rxd), GFP_KERNEL);
+	rxd = kzalloc(sizeof(*rxd), flags);
 	rxd->req = (void *)req;
 	rxd->tx_in = tx_in;
 	rxd->ddev = ddev;
+	rxd->src = rctx->src;
 	tx_in->callback = sa_sham_dma_in_callback;
 	tx_in->callback_param = rxd;
 
@@ -2161,9 +2184,13 @@ static int sa_sham_update(struct ahash_request *req)
 	void *buf;
 	int pages;
 	struct page *pg;
+	gfp_t flags;
 
 	if (!req->nbytes)
 		return 0;
+
+	flags = req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP ?
+		GFP_KERNEL : GFP_ATOMIC;
 
 	if (rctx->buf_free >= req->nbytes) {
 		pg = sg_page(rctx->sg_next);
@@ -2176,13 +2203,13 @@ static int sa_sham_update(struct ahash_request *req)
 		rctx->offset += req->nbytes;
 	} else {
 		pages = get_order(req->nbytes);
-		buf = (void *)__get_free_pages(GFP_ATOMIC, pages);
+		buf = (void *)__get_free_pages(flags, pages);
 		if (!buf) {
 			pr_err("get_free_pages failed.\n");
 			return -ENOMEM;
 		}
 
-		sg = kzalloc(sizeof(sg) * 2, GFP_KERNEL);
+		sg = kzalloc(sizeof(sg) * 2, flags);
 
 		sg_init_table(sg, 1);
 		sg_set_buf(sg, buf, req->nbytes);
