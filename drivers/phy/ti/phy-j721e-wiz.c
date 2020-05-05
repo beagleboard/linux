@@ -814,13 +814,14 @@ static int wiz_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
 	struct platform_device *serdes_pdev;
+	bool already_configured = false;
 	struct device_node *child_node;
 	struct regmap *regmap;
 	struct resource res;
 	void __iomem *base;
 	struct wiz *wiz;
 	u32 num_lanes;
-	int ret;
+	int ret, val, i;
 
 	wiz = devm_kzalloc(dev, sizeof(*wiz), GFP_KERNEL);
 	if (!wiz)
@@ -939,10 +940,26 @@ static int wiz_probe(struct platform_device *pdev)
 		goto err_get_sync;
 	}
 
-	ret = wiz_clock_init(wiz, node);
-	if (ret < 0) {
-		dev_warn(dev, "Failed to initialize clocks\n");
-		goto err_get_sync;
+	for (i = 0; i < wiz->num_lanes; i++) {
+		regmap_field_read(wiz->p_enable[i], &val);
+		if (val & (P_ENABLE | P_ENABLE_FORCE)) {
+			already_configured = true;
+			break;
+		}
+	}
+
+	if (!already_configured) {
+		ret = wiz_clock_init(wiz, node);
+		if (ret < 0) {
+			dev_warn(dev, "Failed to initialize clocks\n");
+			goto err_get_sync;
+		}
+
+		ret = wiz_init(wiz);
+		if (ret) {
+			dev_err(dev, "WIZ initialization failed\n");
+			goto err_pdev_create;
+		}
 	}
 
 	serdes_pdev = of_platform_device_create(child_node, NULL, dev);
@@ -952,17 +969,8 @@ static int wiz_probe(struct platform_device *pdev)
 	}
 	wiz->serdes_pdev = serdes_pdev;
 
-	ret = wiz_init(wiz);
-	if (ret) {
-		dev_err(dev, "WIZ initialization failed\n");
-		goto err_wiz_init;
-	}
-
 	of_node_put(child_node);
 	return 0;
-
-err_wiz_init:
-	of_platform_device_destroy(&serdes_pdev->dev, NULL);
 
 err_pdev_create:
 	wiz_clock_cleanup(wiz, node);
