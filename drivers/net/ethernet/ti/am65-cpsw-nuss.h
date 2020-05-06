@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/phy.h>
+#include <linux/platform_device.h>
 #include "am65-cpsw-qos.h"
 
 struct am65_cpts;
@@ -80,6 +81,7 @@ struct am65_cpsw_pdata {
 
 struct am65_cpsw_common {
 	struct device		*dev;
+	struct device		*mdio_dev;
 	struct am65_cpsw_pdata pdata;
 
 	void __iomem		*ss_base;
